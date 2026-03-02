@@ -367,27 +367,19 @@ const DEF_TOOLS=[
 ];
 
 // ═══ STATE + MIGRATION ═══
-const CFG_VER=6;
+const CFG_VER=7;
 function loadState(){
   let c=JSON.parse(localStorage.getItem('arencon_cats'));
   let t=JSON.parse(localStorage.getItem('arencon_tools'));
   const v=parseInt(localStorage.getItem('arencon_cfg_ver'))||0;
   if(!c||!t||v<CFG_VER){
     if(c&&t){
-      // migrate: add missing cats
-      for(const dc of DEF_CATS){if(!c.find(x=>x.id===dc.id))c.push(JSON.parse(JSON.stringify(dc)));}
-      // remove deleted default cats
-      const rm=['reference'];
-      c=c.filter(x=>!rm.includes(x.id));
-      t.forEach(x=>{if(rm.includes(x.cat)&&c.length>0)x.cat=c[0].id;});
-      // reorder default categories to match DEF_CATS order, custom cats go at the end
-      const defOrder=DEF_CATS.map(dc=>dc.id);
-      const defaultCats=[];const customCats=[];
-      for(const cat of c){if(defOrder.includes(cat.id))defaultCats.push(cat);else customCats.push(cat);}
-      defaultCats.sort((a,b)=>defOrder.indexOf(a.id)-defOrder.indexOf(b.id));
-      c=[...defaultCats,...customCats];
-      // add missing tools
-      for(const dt of DEF_TOOLS){if(!t.find(x=>x.id===dt.id))t.push(JSON.parse(JSON.stringify(dt)));}
+      // Full sync: rebuild tools from DEF_TOOLS, preserving any user-added custom tools
+      const defIds=new Set(DEF_TOOLS.map(d=>d.id));
+      const customTools=t.filter(x=>!defIds.has(x.id) && !DEF_TOOLS.find(d=>d.name===x.name));
+      t=JSON.parse(JSON.stringify(DEF_TOOLS)).concat(customTools);
+      // Sync categories
+      c=JSON.parse(JSON.stringify(DEF_CATS));
       t.forEach(x=>{if(!x.type)x.type='html';});
     }else{c=JSON.parse(JSON.stringify(DEF_CATS));t=JSON.parse(JSON.stringify(DEF_TOOLS));}
     localStorage.setItem('arencon_cats',JSON.stringify(c));
