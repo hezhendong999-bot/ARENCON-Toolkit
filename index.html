@@ -142,6 +142,41 @@ body.admin-mode .reset-btn{display:block;}
 .ib .ib-x{background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:18px;padding:0 4px;}
 @media(max-width:640px){.hero h1{font-size:22px;}.hero p{font-size:13px;}.tool-grid{grid-template-columns:repeat(2,1fr);gap:10px;}.tool-card{padding:14px 10px 12px;min-height:120px;}.tool-card .tool-icon{width:40px;height:40px;}.fr{grid-template-columns:1fr;}.hdr-btn .bl{display:none;}.hdr-btn{padding:6px 8px;}}
 @media print{.header,.footer{display:none!important;}body{background:#fff;}}
+/* ── DARK MODE ── */
+body.dark-mode{--bg:#1b1e24;--card:#22252d;--border:#33373f;--txt:#d4d4d4;--txt2:#8a90a0;--txt3:#5a6070;--shadow:0 1px 3px rgba(0,0,0,.2),0 4px 16px rgba(0,0,0,.25);--shadow-hover:0 2px 8px rgba(0,0,0,.25),0 8px 32px rgba(0,0,0,.35);}
+body.dark-mode .header{background:#2a1520;}
+body.dark-mode .hero{background:linear-gradient(135deg,#2a1520,#1a0f14);}
+body.dark-mode .cat-header{border-bottom-color:#5a2035;}
+body.dark-mode .cat-icon{background:#5a2035;}
+body.dark-mode .cat-title{color:#e0a0b0;}
+body.dark-mode .tool-card{background:var(--card);border-color:var(--border);color:var(--txt);}
+body.dark-mode .tool-card:hover{border-color:#c13a58;}
+body.dark-mode .tool-card.placeholder{background:#1e2028;border-color:#33373f;}
+body.dark-mode .footer{background:#14161a;}
+body.dark-mode .md{background:#22252d;color:#d4d4d4;}
+body.dark-mode .md-h{background:#2a1520;}
+body.dark-mode .fg input,body.dark-mode .fg select,body.dark-mode .fg textarea{background:#1e2028;color:#d4d4d4;border-color:#33373f;}
+body.dark-mode .btn-s{background:#2a2e38;color:#c0c8d8;border-color:#3a4050;}
+body.dark-mode .hdr-btn{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.15);}
+body.dark-mode .search-bar input{background:#1e2028;color:#d4d4d4;border-color:#33373f;}
+body.dark-mode .fav-star{color:#5a6070;}body.dark-mode .fav-star.on{color:#f1c40f;}
+body.dark-mode .abtn,body.dark-mode .cabtn{background:#2a2e38;border-color:#3a4050;color:#8a90a0;}
+/* ── SEARCH BAR ── */
+.search-bar{margin-bottom:24px;position:relative;}
+.search-bar input{width:100%;padding:12px 16px 12px 40px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;color:var(--txt);background:var(--card);transition:border-color .2s;}
+.search-bar input:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 3px rgba(156,39,66,.1);}
+.search-bar svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;stroke:var(--txt3);}
+/* ── FAVORITES ── */
+.fav-star{position:absolute;top:8px;left:8px;font-size:16px;cursor:pointer;color:var(--txt3);transition:color .2s;z-index:5;background:none;border:none;padding:0;}
+.fav-star.on{color:#f1c40f;}
+.fav-star:hover{color:#f1c40f;}
+/* ── LAST OPENED / VERSION ── */
+.tool-meta{font-size:9px;color:var(--txt3);margin-top:auto;line-height:1.4;}
+/* ── PROJECT MANAGER ── */
+.pm-bar{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:10px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);}
+.pm-bar select{padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;background:var(--card);color:var(--txt);min-width:200px;}
+body.dark-mode .pm-bar{background:var(--card);border-color:var(--border);}
+body.dark-mode .pm-bar select{background:#1e2028;color:#d4d4d4;border-color:#33373f;}
 </style>
 </head>
 <body>
@@ -170,6 +205,9 @@ body.admin-mode .reset-btn{display:block;}
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 15.5A3.5 3.5 0 018.5 12 3.5 3.5 0 0112 8.5a3.5 3.5 0 013.5 3.5 3.5 3.5 0 01-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97s-.03-.66-.07-.98l2.11-1.65a.5.5 0 00.12-.64l-2-3.46a.5.5 0 00-.61-.22l-2.49 1a7.3 7.3 0 00-1.69-.98l-.38-2.65A.49.49 0 0014 2h-4a.49.49 0 00-.49.42l-.38 2.65c-.61.28-1.17.6-1.69.98l-2.49-1a.5.5 0 00-.61.22l-2 3.46a.49.49 0 00.12.64l2.11 1.65a7.93 7.93 0 000 1.95l-2.11 1.65a.5.5 0 00-.12.64l2 3.46a.5.5 0 00.61.22l2.49-1c.52.38 1.08.7 1.69.98l.38 2.65c.05.24.26.42.49.42h4c.24 0 .44-.18.49-.42l.38-2.65c.61-.28 1.17-.6 1.69-.98l2.49 1a.5.5 0 00.61-.22l2-3.46a.49.49 0 00-.12-.64l-2.11-1.65z"/></svg>
         <span class="bl">Manage</span>
       </button>
+      <button class="hdr-btn" onclick="toggleDarkMode()" id="darkToggle" title="Dark mode">🌙</button>
+      <button class="hdr-btn" onclick="bulkExport()" title="Export config">📦 <span class="bl">Export</span></button>
+      <button class="hdr-btn" onclick="bulkImport()" title="Import config">📥 <span class="bl">Import</span></button>
     </div>
   </div>
 </header>
@@ -181,6 +219,19 @@ body.admin-mode .reset-btn{display:block;}
 
 <main class="main" id="main">
   <div class="breadcrumb" id="breadcrumb"><a onclick="goHome()">🏠 Home</a> <span>›</span> <span id="bcTitle"></span></div>
+  <!-- Project Manager -->
+  <div class="pm-bar" id="pmBar">
+    <span style="font-weight:700;font-size:13px;">📋 Project:</span>
+    <select id="pmSelect" onchange="switchProject()"></select>
+    <button class="btn btn-s" onclick="addProject()" style="padding:6px 12px;font-size:12px;">+ New</button>
+    <button class="btn btn-s" onclick="renameProject()" style="padding:6px 12px;font-size:12px;">✏ Rename</button>
+    <button class="btn btn-s" onclick="deleteProject()" style="padding:6px 12px;font-size:12px;color:var(--red);">🗑 Delete</button>
+  </div>
+  <!-- Search/Filter -->
+  <div class="search-bar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="searchInput" placeholder="Search tools..." oninput="filterTools()">
+  </div>
   <div id="content"></div>
 </main>
 
@@ -295,22 +346,28 @@ const DEF_CATS=[
   {id:'field',name:'Field Operations',icon:'field'}
 ];
 const DEF_TOOLS=[
-  {id:'t1',name:'Trapeze Hanger Calculator',desc:'NFPA 13 trapeze member sizing with detail drawing.',file:'Trapeze_Hanger_Calculator.html',cat:'engineering',status:'active',icon:'calc',type:'html'},
-  {id:'t2',name:'Fire Pump Commissioning',desc:'Commissioning checklist with performance curves & PDF export.',file:'ARENCON_Diesel_Fire_Pump_Commissioning_v45.html',cat:'itc',status:'active',icon:'clipboard',type:'html'},
-  {id:'t3',name:'Friction Loss Calculator',desc:'Hazen-Williams friction loss for fire protection piping.',file:'',cat:'engineering',status:'soon',icon:'pipe',type:'html'},
-  {id:'t4',name:'Water Supply Analysis',desc:'Plot water supply curves and available pressure.',file:'',cat:'engineering',status:'soon',icon:'gauge',type:'html'},
-  {id:'t5',name:'Sprinkler Spacing & Coverage',desc:'NFPA 13 sprinkler layout and coverage calculator.',file:'',cat:'engineering',status:'soon',icon:'ruler',type:'html'},
+  // ── New Employee Onboarding (order matches screenshot) ──
+  {id:'t25',name:'Company Organization Chart',desc:'Company Organization Chart',file:'Org_Chart_Editor.html',cat:'onboarding',status:'active',icon:'people',type:'html'},
+  {id:'t24',name:'Employee Onboarding Quiz',desc:'Interactive quiz and completion tracker for new hires.',file:'Employee_Onboarding_Quiz.html',cat:'onboarding',status:'active',icon:'people',type:'html'},
+  {id:'t20',name:'Trainual Portal',desc:'Access all ARENCON training modules and onboarding tracks.',file:'https://app.trainual.com',cat:'onboarding',status:'active',icon:'video',type:'link'},
+  {id:'t21',name:'Fire Protection 101',desc:'Introduction to fire protection engineering — required training video.',file:'',cat:'onboarding',status:'soon',icon:'video',type:'video'},
+  {id:'t22',name:'Employee Safety Handbook',desc:'ARENCON safety policies, emergency procedures, and PPE requirements.',file:'',cat:'onboarding',status:'soon',icon:'pdf',type:'pdf'},
+  {id:'t23',name:'Office & Field Safety Posters',desc:'Printable posters and diagrams for site posting.',file:'',cat:'onboarding',status:'soon',icon:'image',type:'image'},
+  // ── Engineering Calculations ──
+  {id:'t1',name:'Trapeze Hanger Calculator',desc:'NFPA 13 trapeze member sizing — angle iron, pipe, and unistrut selection with detail drawing.',file:'Trapeze_Hanger_Calculator.html',cat:'engineering',status:'active',icon:'calc',type:'html'},
+  {id:'t3',name:'Friction Loss Calculator',desc:'Hazen-Williams friction loss for fire protection piping systems.',file:'',cat:'engineering',status:'soon',icon:'pipe',type:'html'},
+  {id:'t4',name:'Water Supply Analysis',desc:'Plot water supply curves, calculate available pressure at demand point.',file:'',cat:'engineering',status:'soon',icon:'gauge',type:'html'},
+  {id:'t5',name:'Sprinkler Spacing & Coverage',desc:'NFPA 13 sprinkler layout spacing and coverage area calculator.',file:'',cat:'engineering',status:'soon',icon:'ruler',type:'html'},
   {id:'t6',name:'Fire Alarm Voltage Drop',desc:'NAC voltage drop and wire sizing calculator.',file:'',cat:'engineering',status:'soon',icon:'bolt',type:'html'},
-  {id:'t7',name:'Sprinkler Inspection Checklist',desc:'NFPA 25 sprinkler system inspection form.',file:'',cat:'itc',status:'soon',icon:'clipboard',type:'html'},
-  {id:'t8',name:'Fire Alarm Inspection',desc:'NFPA 72 fire alarm inspection checklist.',file:'',cat:'itc',status:'soon',icon:'clipboard',type:'html'},
-  {id:'t20',name:'Trainual Portal',desc:'Access ARENCON training modules and onboarding.',file:'https://app.trainual.com',cat:'onboarding',status:'active',icon:'people',type:'link'},
-  {id:'t21',name:'Fire Protection 101',desc:'Introduction to fire protection — training video.',file:'',cat:'onboarding',status:'soon',icon:'video',type:'video'},
-  {id:'t22',name:'Employee Safety Handbook',desc:'Safety policies, emergency procedures, PPE.',file:'',cat:'onboarding',status:'soon',icon:'pdf',type:'pdf'},
-  {id:'t23',name:'Safety Posters & Diagrams',desc:'Printable safety posters for site posting.',file:'',cat:'onboarding',status:'soon',icon:'image',type:'image'}
+  // ── Inspection, Testing & Commissioning ──
+  {id:'t2',name:'Diesel Fire Pump Commissioning Checklist',desc:'Interactive commissioning checklist with performance curves, deficiency tracking, and PDF export.',file:'ARENCON_Diesel_Fire_Pump_Commissioning_v70.html',cat:'itc',status:'active',icon:'clipboard',type:'html'},
+  {id:'t2b',name:'Electric Fire Pump Commissioning Checklist',desc:'Interactive commissioning checklist with performance curves, deficiency tracking, and PDF export.',file:'ARENCON_Electric_Fire_Pump_Acceptance_Test_v82.html',cat:'itc',status:'active',icon:'clipboard',type:'html'},
+  {id:'t7',name:'Sprinkler Inspection Checklist',desc:'NFPA 25 quarterly and annual sprinkler system inspection form.',file:'',cat:'itc',status:'soon',icon:'clipboard',type:'html'},
+  {id:'t8',name:'Fire Alarm Inspection',desc:'NFPA 72 fire alarm system inspection and testing checklist.',file:'',cat:'itc',status:'soon',icon:'clipboard',type:'html'}
 ];
 
 // ═══ STATE + MIGRATION ═══
-const CFG_VER=4;
+const CFG_VER=6;
 function loadState(){
   let c=JSON.parse(localStorage.getItem('arencon_cats'));
   let t=JSON.parse(localStorage.getItem('arencon_tools'));
@@ -442,20 +499,27 @@ function renderCard(t){
   const isExt=tp!=='html'&&tp!=='subfolder'&&t.file&&t.file.startsWith('http');
   const isSub=tp==='subfolder';
   const isBroken=brokenLinks[t.id];
+  const isFav=favorites.includes(t.id);
+  const ver=getToolVersion(t);
+  const lo=lastOpened[t.id]?new Date(lastOpened[t.id]).toLocaleDateString('en-CA',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';
+  // Search filter
+  if(searchTerm && !t.name.toLowerCase().includes(searchTerm) && !t.desc.toLowerCase().includes(searchTerm)) return '';
   let badge='';
-  if(isBroken)badge='<span class="tool-badge badge-broken">BROKEN</span>';
+  if(isBroken)badge='<span class="tool-badge badge-broken">⚠ BROKEN</span>';
   else if(t.status==='new')badge='<span class="tool-badge badge-new">NEW</span>';
   else if(t.status==='soon')badge='<span class="tool-badge badge-soon">SOON</span>';
   const tl={html:'',link:'🔗 External Link',video:'▶ Video',pdf:'📄 PDF',image:'🖼 Image',subfolder:'📁 Subfolder'}[tp]||'';
   let onclick='';
   if(isSub&&!adminMode)onclick=`onclick="openFolder('${t.id}')"`;
+  const onclickTrack=(isActive&&!adminMode&&!isSub)?` onclick="recordOpened('${t.id}')" `:'';
   const tag=(isActive&&!adminMode&&!isSub)?'a':'div';
   const href=(isActive&&!adminMode&&!isSub)?`href="${t.file}"`:'';
   const tgt=(isExt&&!adminMode)?'target="_blank" rel="noopener"':'';
   const ph=(t.status==='soon'&&!t.file&&!isSub)?' placeholder':'';
   const sf=isSub?' subfolder-card':'';
-  return `<${tag} ${href} ${tgt} ${onclick} class="tool-card${ph}${sf}" data-id="${t.id}"
+  return `<${tag} ${href} ${tgt} ${onclick} ${onclickTrack} class="tool-card${ph}${sf}" data-id="${t.id}"
     draggable="${adminMode}" ondragstart="tDS(event)" ondragover="tDO(event)" ondragleave="tDL(event)" ondrop="tDr(event)" ondragend="tDE(event)">
+    <button class="fav-star${isFav?' on':''}" onclick="event.preventDefault();event.stopPropagation();toggleFav('${t.id}')" title="${isFav?'Remove from favorites':'Add to favorites'}">${isFav?'★':'☆'}</button>
     ${adminMode?`<div class="admin-ctrls">
       <button class="abtn" onclick="event.preventDefault();event.stopPropagation();editTool('${t.id}')" title="Edit"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
       <button class="abtn del" onclick="event.preventDefault();event.stopPropagation();deleteTool('${t.id}')" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
@@ -465,6 +529,7 @@ function renderCard(t){
     <div class="tool-name">${t.name}</div>
     <div class="tool-desc">${t.desc}</div>
     ${tl?`<div class="type-label">${tl}</div>`:''}
+    <div class="tool-meta">${ver?ver+' · ':''}${lo?'Opened: '+lo:''}</div>
   </${tag}>`;
 }
 
@@ -639,6 +704,122 @@ let deferredPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('installBanner').classList.add('visible');});
 function installApp(){if(deferredPrompt){deferredPrompt.prompt();deferredPrompt.userChoice.then(c=>{deferredPrompt=null;document.getElementById('installBanner').classList.remove('visible');});}else{alert('Tap Share → Add to Home Screen');document.getElementById('installBanner').classList.remove('visible');}}
 function dismissInstall(){document.getElementById('installBanner').classList.remove('visible');sessionStorage.setItem('id','1');}
+
+// ═══ DARK MODE ═══
+function initDarkMode(){var s=localStorage.getItem('arencon_idx_dark');if(s==='true'||(s===null&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.body.classList.add('dark-mode');updateDarkBtn();}
+function toggleDarkMode(){document.body.classList.toggle('dark-mode');localStorage.setItem('arencon_idx_dark',document.body.classList.contains('dark-mode')?'true':'false');updateDarkBtn();}
+function updateDarkBtn(){var b=document.getElementById('darkToggle');if(b)b.textContent=document.body.classList.contains('dark-mode')?'☀️':'🌙';}
+initDarkMode();
+
+// ═══ SEARCH / FILTER ═══
+let searchTerm='';
+function filterTools(){searchTerm=(document.getElementById('searchInput').value||'').toLowerCase().trim();render();}
+
+// ═══ FAVORITES ═══
+let favorites=JSON.parse(localStorage.getItem('arencon_favs'))||[];
+function toggleFav(id){
+  const idx=favorites.indexOf(id);
+  if(idx>=0)favorites.splice(idx,1);else favorites.push(id);
+  localStorage.setItem('arencon_favs',JSON.stringify(favorites));
+  render();
+}
+
+// ═══ LAST OPENED TIMESTAMPS ═══
+let lastOpened=JSON.parse(localStorage.getItem('arencon_last_opened'))||{};
+function recordOpened(id){
+  lastOpened[id]=new Date().toISOString();
+  localStorage.setItem('arencon_last_opened',JSON.stringify(lastOpened));
+}
+
+// ═══ PROJECT MANAGER ═══
+let projects=JSON.parse(localStorage.getItem('arencon_projects'))||[{id:'default',name:'Default Project'}];
+let activeProject=localStorage.getItem('arencon_active_project')||'default';
+function saveProjects(){localStorage.setItem('arencon_projects',JSON.stringify(projects));localStorage.setItem('arencon_active_project',activeProject);}
+function renderPM(){
+  const sel=document.getElementById('pmSelect');
+  sel.innerHTML=projects.map(p=>`<option value="${p.id}" ${p.id===activeProject?'selected':''}>${p.name}</option>`).join('');
+}
+function switchProject(){
+  activeProject=document.getElementById('pmSelect').value;
+  saveProjects();
+  // Reload config for this project
+  const key='arencon_tools_'+activeProject;
+  const saved=localStorage.getItem(key);
+  if(saved){tools=JSON.parse(saved);}else{tools=JSON.parse(JSON.stringify(DEF_TOOLS));}
+  save();render();toast('Switched to: '+projects.find(p=>p.id===activeProject)?.name);
+}
+function addProject(){
+  const n=prompt('New project name:');if(!n||!n.trim())return;
+  const id='proj_'+Date.now();
+  projects.push({id:id,name:n.trim()});
+  activeProject=id;
+  tools=JSON.parse(JSON.stringify(DEF_TOOLS));
+  saveProjects();save();renderPM();render();toast('Project "'+n.trim()+'" created');
+}
+function renameProject(){
+  const p=projects.find(x=>x.id===activeProject);if(!p)return;
+  const n=prompt('Rename project:',p.name);if(!n||!n.trim())return;
+  p.name=n.trim();saveProjects();renderPM();toast('Renamed to "'+p.name+'"');
+}
+function deleteProject(){
+  if(projects.length<=1){toast('Cannot delete the only project');return;}
+  const p=projects.find(x=>x.id===activeProject);if(!p)return;
+  if(!confirm('Delete project "'+p.name+'"? Tool config will be lost.'))return;
+  localStorage.removeItem('arencon_tools_'+activeProject);
+  projects=projects.filter(x=>x.id!==activeProject);
+  activeProject=projects[0].id;
+  saveProjects();
+  const saved=localStorage.getItem('arencon_tools_'+activeProject);
+  if(saved)tools=JSON.parse(saved);
+  renderPM();render();toast('Project deleted');
+}
+// Override save to use project-scoped key
+const _origSave=save;
+save=function(){
+  _origSave();
+  localStorage.setItem('arencon_tools_'+activeProject,JSON.stringify(tools));
+};
+
+// ═══ BULK EXPORT / IMPORT ═══
+function bulkExport(){
+  const data={projects,activeProject,categories,tools,favorites,lastOpened,ver:CFG_VER};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='ARENCON_Toolkit_Config_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();URL.revokeObjectURL(a.href);toast('Config exported');
+}
+function bulkImport(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=function(){
+    const f=inp.files[0];if(!f)return;
+    const r=new FileReader();r.onload=function(){
+      try{
+        const d=JSON.parse(r.result);
+        if(d.categories)categories=d.categories;
+        if(d.tools)tools=d.tools;
+        if(d.projects)projects=d.projects;
+        if(d.activeProject)activeProject=d.activeProject;
+        if(d.favorites)favorites=d.favorites;
+        if(d.lastOpened)lastOpened=d.lastOpened;
+        save();saveProjects();
+        localStorage.setItem('arencon_cats',JSON.stringify(categories));
+        localStorage.setItem('arencon_favs',JSON.stringify(favorites));
+        localStorage.setItem('arencon_last_opened',JSON.stringify(lastOpened));
+        renderPM();render();toast('Config imported successfully');
+      }catch(e){toast('Import failed: '+e.message);}
+    };r.readAsText(f);
+  };inp.click();
+}
+
+// ═══ TOOL VERSION ═══
+function getToolVersion(t){
+  // Extract version from filename pattern like _v69.html
+  if(!t.file)return '';
+  const m=t.file.match(/_v(\d+)\./i);
+  return m?'v'+m[1]:'';
+}
+
+renderPM();
 
 // ═══ INIT ═══
 render();
