@@ -350,9 +350,9 @@ const DEF_TOOLS=[
   // ── 1. Field Operations ──
   {id:'t36',name:'Field Review Tool V2',desc:'Drawing markup, observation tracking, deficiency management, contractor workflow, and PDF export.',file:'ARENCON_Field_Review_Tool_V2.html',cat:'field',status:'active',icon:'clipboard',type:'html'},
   // ── 2. Inspection, Testing & Commissioning ──
-  {id:'t2',name:'Diesel Fire Pump Commissioning',desc:'Interactive commissioning checklist with performance curves, deficiency tracking, and PDF export.',file:'ARENCON_Diesel_Fire_Pump_Commissioning_v73.html',cat:'itc',status:'active',icon:'clipboard',type:'html'},
-  {id:'t2b',name:'Electric Fire Pump Acceptance Test',desc:'Interactive commissioning checklist with performance curves, deficiency tracking, and PDF export.',file:'ARENCON_Electric_Fire_Pump_Acceptance_Test_v85.html',cat:'itc',status:'active',icon:'clipboard',type:'html'},
-  {id:'t33',name:'CAN/ULC-S1001 Integrated Systems Testing',desc:'Integrated fire protection systems testing checklist per CAN/ULC-S1001.',file:'ARENCON_IST_S1001_v4.html',cat:'itc',status:'active',icon:'clipboard',type:'html'},
+  {id:'t2',name:'Diesel Fire Pump Commissioning',desc:'Interactive commissioning checklist with performance curves, deficiency tracking, and PDF export.',file:'ARENCON_Diesel_Fire_Pump_Commissioning_v74.html',cat:'itc',status:'active',icon:'clipboard',type:'html'},
+  {id:'t2b',name:'Electric Fire Pump Acceptance Test',desc:'Interactive commissioning checklist with performance curves, deficiency tracking, and PDF export.',file:'ARENCON_Electric_Fire_Pump_Acceptance_Test_v86.html',cat:'itc',status:'active',icon:'clipboard',type:'html'},
+  {id:'t33',name:'CAN/ULC-S1001 Integrated Systems Testing',desc:'Integrated fire protection systems testing checklist per CAN/ULC-S1001.',file:'ARENCON_IST_S1001_v5.html',cat:'itc',status:'active',icon:'clipboard',type:'html'},
   {id:'t37',name:'Due Diligence Checklist',desc:'Fire protection & life safety due diligence assessment with scoring, deficiency tracking, and PDF report.',file:'ARENCON_DD_Checklist_v2.html',cat:'itc',status:'active',icon:'clipboard',type:'html'},
   {id:'t7',name:'Sprinkler Inspection Checklist',desc:'NFPA 25 quarterly and annual sprinkler system inspection form.',file:'',cat:'itc',status:'soon',icon:'clipboard',type:'html'},
   {id:'t8',name:'Fire Alarm Inspection',desc:'NFPA 72 fire alarm system inspection and testing checklist.',file:'',cat:'itc',status:'soon',icon:'clipboard',type:'html'},
@@ -365,7 +365,7 @@ const DEF_TOOLS=[
   {id:'t5',name:'Sprinkler Spacing & Coverage',desc:'NFPA 13 sprinkler layout spacing and coverage area calculator.',file:'',cat:'engineering',status:'soon',icon:'ruler',type:'html'},
   {id:'t6',name:'Fire Alarm Voltage Drop',desc:'NAC voltage drop and wire sizing calculator.',file:'',cat:'engineering',status:'soon',icon:'bolt',type:'html'},
   // ── 4. Design Tools & References ──
-  {id:'t35',name:'OBC Compliance Report Generator',desc:'Ontario Building Code compliance report builder with OBC code data engine, construction classification, and PDF export.',file:'ARENCON_OBC_Report_Generator_V8.html',cat:'design',status:'active',icon:'doc',type:'html'},
+  {id:'t35',name:'OBC Compliance Report Generator',desc:'Ontario Building Code compliance report builder with OBC code data engine, construction classification, and PDF export.',file:'ARENCON_OBC_Report_Generator_V9.html',cat:'design',status:'active',icon:'doc',type:'html'},
   {id:'t34',name:'Sprinkler Obstruction Reference',desc:'NFPA 13 obstruction proximity rules — interactive SVG visualization with wall formula checks.',file:'ARENCON_Sprinkler_Obstruction_v1.html',cat:'design',status:'active',icon:'ruler',type:'html'},
   // ── 5. New Employee Onboarding ──
   {id:'t30',name:'Intranet Portal',desc:'ARENCON internal portal — company resources, links, and documents.',file:'ARENCON_Intranet_Portal_v2.html',cat:'onboarding',status:'active',icon:'link',type:'html'},
@@ -378,7 +378,7 @@ const DEF_TOOLS=[
 ];
 
 // ═══ STATE + MIGRATION ═══
-const CFG_VER=10;
+const CFG_VER=12;
 function loadState(){
   let c=JSON.parse(localStorage.getItem('arencon_cats'));
   let t=JSON.parse(localStorage.getItem('arencon_tools'));
