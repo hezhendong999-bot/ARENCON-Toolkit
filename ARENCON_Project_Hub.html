@@ -95,6 +95,26 @@ body.dark-mode{
 .empty-state h3{font-size:18px;color:var(--steel);margin-bottom:6px}
 .empty-state p{font-size:13px}
 
+/* ═══ PROJECT DETAIL VIEW ═══ */
+#project-detail{display:none;padding:20px;max-width:900px;margin:0 auto;}
+#project-detail.active{display:block;}
+.detail-back{background:none;border:none;color:var(--arencon);font:600 14px Calibri,sans-serif;cursor:pointer;padding:4px 0;margin-bottom:16px;display:flex;align-items:center;gap:4px;}
+.detail-back:hover{text-decoration:underline;}
+.detail-header{margin-bottom:20px;}
+.detail-header h2{font-size:22px;font-weight:700;color:var(--fg);margin-bottom:4px;}
+.detail-header .detail-sub{font-size:13px;color:var(--steel);}
+.detail-section{background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;}
+.detail-section h3{font-size:15px;font-weight:700;color:var(--arencon);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.tool-launch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
+.tool-launch-card{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;background:var(--smoke);}
+.tool-launch-card:hover{border-color:var(--arencon);background:#fff;box-shadow:0 2px 8px rgba(156,39,66,.08);}
+.tool-launch-card .tlc-icon{font-size:22px;flex-shrink:0;}
+.tool-launch-card .tlc-name{font-size:13px;font-weight:600;color:var(--fg);}
+.tool-launch-card.disabled{opacity:.4;pointer-events:none;}
+.tool-launch-card .tlc-badge{font-size:9px;color:var(--silver);font-weight:400;}
+body.dark-mode .tool-launch-card{background:var(--card);border-color:var(--border);}
+body.dark-mode .tool-launch-card:hover{border-color:var(--arencon);background:#282b33;}
+
 /* ═══ ADMIN PANEL ═══ */
 .admin-panel{display:none;padding:20px}
 .admin-section{background:var(--card);border-radius:11px;box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden}
@@ -356,6 +376,19 @@ body.dark-mode .admin-act-btn{background:#1e2028;border-color:#33373f;color:#8a9
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ═══════════ PROJECT DETAIL VIEW ═══════════ -->
+<div id="project-detail">
+  <button class="detail-back" onclick="closeDetail()">← Back to Dashboard</button>
+  <div class="detail-header">
+    <h2 id="detail-title">—</h2>
+    <div class="detail-sub" id="detail-sub">—</div>
+  </div>
+  <div class="detail-section">
+    <h3>🚀 Launch Tools</h3>
+    <div class="tool-launch-grid" id="detail-tools"></div>
   </div>
 </div>
 
@@ -852,11 +885,15 @@ function roleClass(role) {
 function showDashboard() {
   document.getElementById('dash-view').style.display = 'block';
   document.getElementById('admin-panel').style.display = 'none';
+  var d = document.getElementById('project-detail'); if(d){d.classList.remove('active');d.style.display='none';}
+  _detailProjectId = null;
 }
 
 function showAdmin() {
   document.getElementById('dash-view').style.display = 'none';
   document.getElementById('admin-panel').style.display = 'block';
+  var d = document.getElementById('project-detail'); if(d){d.classList.remove('active');d.style.display='none';}
+  _detailProjectId = null;
   loadAdminUsers();
 }
 
@@ -917,7 +954,7 @@ function renderProjects() {
     const date = p.updated_at ? formatDate(p.updated_at) : '';
     const tools = (p.enabled_tools || []);
     const toolChips = tools.length > 0
-      ? tools.map(t => '<span class="tool-chip enabled">' + esc(t) + '</span>').join('')
+      ? tools.map(t => '<span class="tool-chip enabled">' + toolName(t) + '</span>').join('')
       : '<span class="tool-chip">No tools enabled</span>';
 
     return '<div class="project-card" onclick="openProject(\'' + esc(p.id) + '\')">'
@@ -948,12 +985,81 @@ function toggleArchived() {
   renderProjects();
 }
 
-/* ═══ Open Project — placeholder for future tool wiring ═══ */
+/* ═══ AVAILABLE TOOLS REGISTRY ═══ */
+const AVAILABLE_TOOLS = {
+  frt:      { name: 'Field Review Tool V2',         icon: '📋', file: 'ARENCON_Field_Review_Tool_V2.html' },
+  diesel:   { name: 'Diesel Fire Pump Commissioning', icon: '🔥', file: 'ARENCON_Diesel_Fire_Pump_Commissioning_v74.html' },
+  electric: { name: 'Electric Fire Pump Acceptance',   icon: '⚡', file: 'ARENCON_Electric_Fire_Pump_Acceptance_Test_v86.html' },
+  ist:      { name: 'Integrated Systems Testing',      icon: '🔗', file: 'ARENCON_IST_S1001_v5.html' },
+  obc:      { name: 'OBC Compliance Report',           icon: '📋', file: 'ARENCON_OBC_Report_Generator_V9.html' },
+  dd:       { name: 'Due Diligence Checklist',         icon: '✅', file: 'ARENCON_DD_Checklist_v2.html' }
+};
+
+function toolName(key) {
+  var t = AVAILABLE_TOOLS[key];
+  return t ? (t.icon + ' ' + t.name) : key;
+}
+
+var _detailProjectId = null;
+
+/* ═══ Open Project — Detail View ═══ */
 function openProject(projectId) {
   const proj = _projects.find(p => p.id === projectId);
   if (!proj) return;
-  toast('Opening project: ' + (proj.project_number || '') + ' · ' + (proj.project_name || ''), 'info');
-  // Future: navigate to tool hub for this project
+  _detailProjectId = projectId;
+
+  // Hide dashboard, show detail
+  document.getElementById('dash-view').style.display = 'none';
+  var detail = document.getElementById('project-detail');
+  detail.classList.add('active');
+  detail.style.display = '';
+
+  // Populate header
+  document.getElementById('detail-title').textContent =
+    (proj.project_number || '—') + ' · ' + (proj.project_name || 'Untitled');
+  document.getElementById('detail-sub').textContent =
+    (proj.client || '—') + (proj.address ? ' — ' + proj.address : '');
+
+  // Build tool launch grid
+  var tools = proj.enabled_tools || [];
+  var grid = document.getElementById('detail-tools');
+  var html = '';
+
+  // Build URL params for this project
+  var params = 'project=' + encodeURIComponent(proj.id)
+    + '&pn=' + encodeURIComponent(proj.project_number || '')
+    + '&pname=' + encodeURIComponent(proj.project_name || '')
+    + '&client=' + encodeURIComponent(proj.client || '')
+    + '&addr=' + encodeURIComponent(proj.address || '');
+
+  Object.keys(AVAILABLE_TOOLS).forEach(function(key) {
+    var t = AVAILABLE_TOOLS[key];
+    var enabled = tools.indexOf(key) >= 0;
+    var url = t.file + '?' + params;
+    html += '<div class="tool-launch-card' + (enabled ? '' : ' disabled') + '"'
+      + (enabled ? ' onclick="window.open(\'' + url + '\',\'_blank\')"' : '')
+      + ' title="' + (enabled ? 'Open ' + esc(t.name) : 'Not enabled for this project') + '">'
+      + '<div class="tlc-icon">' + t.icon + '</div>'
+      + '<div><div class="tlc-name">' + esc(t.name) + '</div>'
+      + (enabled ? '' : '<div class="tlc-badge">Not enabled</div>')
+      + '</div></div>';
+  });
+
+  if (tools.length === 0) {
+    html += '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--silver);">'
+      + '<p>No tools enabled for this project yet.</p>'
+      + '<p style="font-size:12px;margin-top:4px;">Enable tools in the project settings to launch them here.</p></div>';
+  }
+
+  grid.innerHTML = html;
+}
+
+function closeDetail() {
+  _detailProjectId = null;
+  document.getElementById('project-detail').classList.remove('active');
+  document.getElementById('project-detail').style.display = 'none';
+  document.getElementById('dash-view').style.display = 'block';
+  renderProjects();
 }
 
 /* ═══ New Project Modal ═══ */
