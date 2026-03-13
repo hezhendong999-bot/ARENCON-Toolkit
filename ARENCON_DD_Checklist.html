@@ -1,0 +1,2207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ARENCON — Fire Protection &amp; Life Safety Due Diligence</title>
+<style>
+/* ══════════════════════════════════════════════════
+   ARENCON DD Tool — CSS
+   ══════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --arencon:#9C2742;--arencon-mid:#7d1f35;
+  --red:#C0392B;--red-dark:#96281B;--red-light:#FADBD8;
+  --slate:#1C2333;--slate-mid:#2C3E50;--steel:#4A5568;--silver:#A0AEC0;
+  --smoke:#F7F8FA;--border:#DDE1E7;--white:#FFFFFF;
+  --yes:#1A7A4A;--yes-bg:#D4EDDA;--no:#C0392B;--no-bg:#FADBD8;
+  --na:#5A6473;--na-bg:#E8ECF0;--warn:#B7791F;--warn-bg:#FEFCBF;
+  --card:#ffffff;--fg:#1C2333;--bg:#F7F8FA;
+  --shadow:0 2px 8px rgba(0,0,0,.07);
+  --good:#1A7A4A;--fair:#E67E22;--poor:#C0392B;--critical:#8E0000;
+}
+body{font-family:Calibri,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--fg);font-size:14px;line-height:1.5;overflow-x:hidden;}
+body.dark-mode{--card:#22252d;--fg:#e0e4ea;--bg:#14171e;--smoke:#1a1d24;--border:#33373f;--white:#22252d;--shadow:0 2px 8px rgba(0,0,0,.3);}
+
+/* Header */
+.hdr{background:var(--arencon);display:flex;align-items:center;padding:8px 16px;gap:10px;position:sticky;top:0;z-index:1000;min-height:52px;flex-wrap:wrap;}
+.hdr a{display:flex;align-items:center;}
+.hdr img{height:34px;width:auto;background:#fff;padding:4px 8px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.15);}
+.app-title{color:#fff;font-size:19px;font-weight:600;white-space:nowrap;margin-right:auto;}
+.hdr-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.hdr-btn{padding:6px 12px;border:none;border-radius:6px;color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;transition:opacity .15s;}
+.hdr-btn:hover{opacity:.88;}
+@media(max-width:700px){.hdr-btn span{display:none;}.hdr-btn{padding:6px 8px;font-size:14px;}}
+
+/* Layout */
+.app-wrap{display:flex;min-height:calc(100vh - 52px);}
+.sidebar{width:220px;background:var(--slate-mid);padding:10px 0;overflow-y:auto;flex-shrink:0;position:sticky;top:52px;height:calc(100vh - 52px);}
+.nav-item{display:flex;align-items:center;gap:8px;padding:10px 16px;color:#b0bec5;font-size:13px;font-weight:500;cursor:pointer;border-left:3px solid transparent;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff;}
+.nav-item.active{background:rgba(255,255,255,.1);color:#fff;border-left-color:var(--arencon);font-weight:700;}
+.nav-item .nav-badge{margin-left:auto;background:rgba(255,255,255,.15);padding:1px 7px;border-radius:10px;font-size:11px;}
+.nav-item .nav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.main-content{flex:1;padding:20px 28px 40px;max-width:1100px;min-width:0;}
+
+@media(max-width:800px){
+  .sidebar{display:none;}
+  .main-content{padding:14px;}
+}
+
+/* Mobile nav */
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--slate-mid);z-index:999;overflow-x:auto;white-space:nowrap;padding:6px 8px;border-top:1px solid rgba(255,255,255,.1);}
+.mobile-nav button{background:none;border:none;color:#b0bec5;font-size:11px;padding:6px 10px;cursor:pointer;font-family:inherit;border-radius:6px;}
+.mobile-nav button.active{background:rgba(255,255,255,.12);color:#fff;font-weight:700;}
+@media(max-width:800px){.mobile-nav{display:flex;gap:2px;}}
+
+/* Panels */
+.panel{display:none;}
+.panel.active{display:block;}
+
+/* Section title */
+.section-title{font-weight:700;font-size:17px;letter-spacing:.7px;text-transform:uppercase;color:#1A7A4A;display:flex;align-items:center;gap:9px;margin:24px 0 10px;}
+.section-title::before{content:'';display:inline-block;width:4px;height:19px;background:var(--red);border-radius:2px;}
+
+/* Cards */
+.card{background:var(--card);border-radius:11px;box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden;border:1px solid var(--border);}
+.card-header{background:var(--arencon);color:#fff;padding:13px 20px;font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px;}
+.card-header.mid{background:var(--arencon-mid);}
+.card-header.red{background:var(--red);}
+.card-header.green{background:var(--yes);}
+.card-body{padding:16px 20px;}
+
+/* Info grid */
+.info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}
+.field-group{display:flex;flex-direction:column;gap:3px;}
+.field-group label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--steel);}
+.field-group input,.field-group select,.field-group textarea{padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;background:var(--card);color:var(--fg);transition:border-color .15s;}
+.field-group input:focus,.field-group select:focus,.field-group textarea:focus{outline:none;border-color:var(--arencon);box-shadow:0 0 0 2px rgba(156,39,66,.15);}
+.field-group textarea{resize:vertical;min-height:60px;}
+
+/* Checklist items */
+.cl-item{padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--card);transition:border-color .2s;}
+.cl-item.flagged{border-color:var(--red);background:#FFF5F5;}
+.cl-item .cl-num{font-weight:700;color:var(--arencon);font-size:13px;min-width:36px;}
+.cl-item .cl-text{font-size:13.5px;line-height:1.5;flex:1;}
+.cl-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;}
+.cl-controls{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap;}
+
+/* Yes/No/NA buttons */
+.tog-btn{padding:5px 14px;border:1.5px solid var(--border);border-radius:5px;background:var(--card);color:var(--fg);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;}
+.tog-btn:hover{opacity:.85;}
+.tog-yes{color:var(--yes);border-color:var(--border);}
+.tog-yes.sel{background:var(--yes);color:#fff;border-color:var(--yes);box-shadow:0 0 0 2px rgba(26,122,74,.25);}
+.tog-no{color:var(--no);border-color:var(--border);}
+.tog-no.sel{background:var(--no);color:#fff;border-color:var(--no);box-shadow:0 0 0 2px rgba(192,57,43,.25);}
+.tog-na{color:var(--na);border-color:var(--border);}
+.tog-na.sel{background:var(--na);color:#fff;border-color:var(--na);box-shadow:0 0 0 2px rgba(90,100,115,.25);}
+
+/* Condition rating buttons */
+.cond-btn{padding:5px 12px;border:1.5px solid var(--border);border-radius:5px;background:var(--card);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;color:var(--fg);}
+.cond-good{}.cond-good.sel{background:var(--good);color:#fff;border-color:var(--good);box-shadow:0 0 0 2px rgba(26,122,74,.25);}
+.cond-fair{}.cond-fair.sel{background:var(--fair);color:#fff;border-color:var(--fair);box-shadow:0 0 0 2px rgba(230,126,34,.25);}
+.cond-poor{}.cond-poor.sel{background:var(--poor);color:#fff;border-color:var(--poor);box-shadow:0 0 0 2px rgba(192,57,43,.25);}
+.cond-critical{}.cond-critical.sel{background:var(--critical);color:#fff;border-color:var(--critical);box-shadow:0 0 0 2px rgba(142,0,0,.25);}
+.cond-na{}.cond-na.sel{background:var(--na);color:#fff;border-color:var(--na);box-shadow:0 0 0 2px rgba(90,100,115,.25);}
+.cond-na{color:var(--na);border-color:var(--na);}
+.cond-na.sel{background:var(--na);color:#fff;}
+
+/* Notes */
+.cl-notes{width:100%;margin-top:6px;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;min-height:36px;background:var(--card);color:var(--fg);}
+.cl-notes:focus{border-color:var(--arencon);outline:none;}
+
+/* Photo zones */
+.photo-zone{border:2px dashed var(--border);border-radius:8px;padding:14px;margin-top:8px;min-height:60px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;transition:border-color .2s,background .2s;}
+.photo-zone.drag-over{border-color:var(--arencon);background:rgba(156,39,66,.05);}
+.photo-zone .pz-hint{color:var(--silver);font-size:12px;font-style:italic;}
+.photo-thumb{position:relative;width:100px;height:75px;border-radius:6px;overflow:hidden;border:1px solid var(--border);cursor:pointer;}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;}
+.photo-thumb .del-btn{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.photo-thumb .caption-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);color:#fff;font-size:10px;padding:2px 4px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pz-btns{display:flex;gap:6px;flex-wrap:wrap;}
+.pz-btn{padding:6px 12px;border:1.5px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
+.pz-btn:hover{border-color:var(--arencon);}
+
+/* Progress bar */
+.progress-wrap{margin:12px 0;height:8px;background:var(--border);border-radius:4px;overflow:hidden;}
+.progress-bar{height:100%;background:var(--yes);border-radius:4px;transition:width .3s;}
+
+/* Deficiency table */
+.defic-card{border:1.5px solid var(--red);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--card);}
+.defic-card.confirmed{border-color:var(--red);background:#FFF5F5;}
+.defic-card.excluded{border-color:var(--border);opacity:.6;}
+.severity-badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;color:#fff;}
+.sev-critical{background:var(--critical);}
+.sev-high{background:var(--red);}
+.sev-medium{background:var(--fair);}
+.sev-low{background:var(--yes);}
+
+/* Toast */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--slate);color:#fff;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
+.toast.show{opacity:1;}
+
+/* Lightbox */
+.lightbox-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:5000;display:flex;align-items:center;justify-content:center;}
+.lightbox-overlay img{max-width:90vw;max-height:85vh;border-radius:8px;}
+.lightbox-close{position:absolute;top:16px;right:20px;color:#fff;font-size:28px;cursor:pointer;background:rgba(0,0,0,.5);border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;}
+
+/* Summary stats */
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;}
+.stat-box{flex:1;min-width:120px;padding:12px;border-radius:8px;text-align:center;background:var(--smoke);border:1px solid var(--border);}
+.stat-box .stat-val{font-size:28px;font-weight:700;}
+.stat-box .stat-lbl{font-size:11px;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}
+
+/* Signature */
+.sig-pad{border:2px solid var(--border);border-radius:8px;cursor:crosshair;touch-action:none;background:#fff;}
+
+/* Dark mode overrides */
+body.dark-mode .hdr{background:var(--arencon);}
+body.dark-mode .cl-item{background:var(--card);border-color:var(--border);}
+body.dark-mode .cl-item.flagged{background:#2a1820;border-color:#6a2030;}
+body.dark-mode .tog-btn{background:var(--card);color:var(--fg);}
+body.dark-mode .photo-zone{border-color:var(--border);}
+body.dark-mode .field-group input,body.dark-mode .field-group select,body.dark-mode .field-group textarea{background:var(--card);color:var(--fg);border-color:var(--border);}
+body.dark-mode .defic-card{background:var(--card);}
+body.dark-mode .stat-box{background:var(--card);}
+body.dark-mode canvas.sig-pad{background:#fff!important;}
+
+/* Dark toggle */
+.dark-toggle{background:rgba(255,255,255,.12);border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:16px;margin-left:4px;transition:background .15s;}
+.dark-toggle:hover{background:rgba(255,255,255,.22);}
+
+/* Section skip/NA */
+.section-skip{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--na-bg);border:1.5px solid var(--na);border-radius:8px;margin-bottom:14px;cursor:pointer;transition:all .2s;}
+.section-skip.active{background:#fce4ec;border-color:var(--arencon);}
+.section-skip input[type=checkbox]{width:18px;height:18px;accent-color:var(--arencon);cursor:pointer;-webkit-appearance:checkbox;appearance:checkbox;}
+.section-skipped-overlay{opacity:.3;pointer-events:none;user-select:none;}
+
+/* Section narrative */
+.section-narrative{margin-bottom:14px;}
+.section-narrative textarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13.5px;font-family:inherit;resize:vertical;min-height:70px;background:var(--card);color:var(--fg);}
+.section-narrative textarea:focus{border-color:var(--arencon);outline:none;}
+.section-narrative label{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--steel);display:block;margin-bottom:4px;}
+
+/* Voice-to-text */
+.notes-wrap{display:flex;gap:6px;align-items:flex-start;margin-top:6px;}
+.notes-wrap textarea{flex:1;}
+.voice-btn{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--border);background:var(--card);color:var(--steel);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;margin-top:1px;}
+.voice-btn:hover{border-color:var(--arencon);color:var(--arencon);}
+.voice-btn.recording{background:#C0392B;color:#fff;border-color:#C0392B;animation:pulse-rec 1s infinite;}
+@keyframes pulse-rec{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,.4);}50%{box-shadow:0 0 0 8px rgba(192,57,43,0);}}
+
+/* Photo markup modal */
+#pmu-modal{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.9);flex-direction:column;align-items:center;}
+#pmu-toolbar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#222;flex-wrap:wrap;width:100%;}
+#pmu-toolbar button{padding:5px 10px;border:1px solid #555;border-radius:4px;background:#333;color:#fff;font-size:12px;cursor:pointer;font-family:inherit;}
+#pmu-toolbar button.pmu-active{background:var(--red);border-color:var(--red);}
+#pmu-toolbar .color-dot{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;display:inline-block;}
+#pmu-toolbar .color-dot.active{border-color:#fff;}
+#pmu-canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}
+
+/* Photo markup button on thumbnails */
+.photo-thumb .markup-btn{position:absolute;top:2px;left:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+/* Scoring */
+.score-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;color:#fff;margin-left:6px;}
+.score-good{background:var(--yes);}.score-fair{background:#E67E22;}.score-poor{background:var(--red);}.score-critical{background:#8E0000;}
+.nav-item .nav-badge.complete{background:rgba(26,122,74,.35);}
+.nav-item .nav-badge.skipped{background:rgba(90,100,115,.4);font-style:italic;font-size:10px;}
+
+/* Sketch pad */
+.sketch-entry{border:1.5px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px;background:var(--card);}
+.sketch-canvas-wrap{position:relative;border:2px solid var(--border);border-radius:6px;overflow:hidden;background:#fff;touch-action:none;}
+.sketch-canvas-wrap canvas{display:block;width:100%;}
+.sketch-toolbar{display:flex;align-items:center;gap:6px;padding:8px;background:var(--smoke);border:1px solid var(--border);border-radius:6px;margin-top:6px;flex-wrap:wrap;}
+.sketch-toolbar button{padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:var(--card);font-size:12px;cursor:pointer;font-family:inherit;}
+.sketch-toolbar button.sk-active{background:var(--arencon);color:#fff;border-color:var(--arencon);}
+.sketch-toolbar .color-dot{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;display:inline-block;}
+.sketch-toolbar .color-dot.sk-active{border-color:var(--fg);}
+body.dark-mode .sketch-canvas-wrap{background:#fff!important;}
+
+/* Photo gallery */
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:12px;}
+.gallery-item{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--border);cursor:pointer;aspect-ratio:4/3;}
+.gallery-item img{width:100%;height:100%;object-fit:cover;}
+.gallery-label{position:absolute;top:4px;right:4px;background:var(--arencon);color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* Print */
+@media print{
+  .hdr,.sidebar,.mobile-nav,.toast,.hdr-actions{display:none!important;}
+  .app-wrap{display:block;}
+  .main-content{max-width:100%;padding:0;}
+  .panel{display:block!important;}
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;}
+}
+</style>
+</head>
+<body>
+<!-- ══ HEADER ══ -->
+<div class="hdr">
+  <a href="index.html"><img src="data:image/png;base64,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" alt="ARENCON"></a>
+  <div class="app-title">Fire Protection &amp; Life Safety Due Diligence</div>
+  <div class="hdr-actions">
+    <button class="hdr-btn" style="background:#1A7A4A;" onclick="saveState()" title="Save">💾 <span>Save</span></button>
+    <button class="hdr-btn" style="background:#1A237E;" onclick="exportPDF()" title="View PDF">📄 <span>Report</span></button>
+    <button class="hdr-btn" style="background:#7B1FA2;" onclick="exportJSON()" title="Export JSON">📤 <span>Export</span></button>
+    <button class="hdr-btn" style="background:#00695C;" onclick="importJSON()" title="Import JSON">📂 <span>Load</span></button>
+    <button class="hdr-btn" style="background:#0277BD;" onclick="shareReport()" title="Share">🔗 <span>Share</span></button>
+    <button class="hdr-btn" style="background:#C62828;" onclick="resetProject()" title="Reset">⚠️ <span>Reset</span></button>
+    <button class="dark-toggle" onclick="toggleDarkMode()" title="Dark mode">🌙</button>
+  </div>
+</div>
+
+<!-- ══ LAYOUT ══ -->
+<div class="app-wrap">
+<aside class="sidebar" id="sidebar">
+  <div class="nav-item active" data-tab="info" onclick="switchTab('info')"><span class="nav-dot" style="background:#1A7A4A;"></span> Project Info</div>
+  <div class="nav-item" data-tab="exterior" onclick="switchTab('exterior')"><span class="nav-dot" style="background:#2196F3;"></span> Exterior &amp; Site</div>
+  <div class="nav-item" data-tab="firealarm" onclick="switchTab('firealarm')"><span class="nav-dot" style="background:#E53935;"></span> Fire Alarm</div>
+  <div class="nav-item" data-tab="sprinkler" onclick="switchTab('sprinkler')"><span class="nav-dot" style="background:#43A047;"></span> Sprinkler System</div>
+  <div class="nav-item" data-tab="standpipe" onclick="switchTab('standpipe')"><span class="nav-dot" style="background:#7B1FA2;"></span> Standpipe &amp; Hose</div>
+  <div class="nav-item" data-tab="firepump" onclick="switchTab('firepump')"><span class="nav-dot" style="background:#FF6F00;"></span> Fire Pump</div>
+  <div class="nav-item" data-tab="watersupply" onclick="switchTab('watersupply')"><span class="nav-dot" style="background:#0288D1;"></span> Water Supply</div>
+  <div class="nav-item" data-tab="separations" onclick="switchTab('separations')"><span class="nav-dot" style="background:#6D4C41;"></span> Fire Separations</div>
+  <div class="nav-item" data-tab="egress" onclick="switchTab('egress')"><span class="nav-dot" style="background:#00897B;"></span> Egress &amp; Exiting</div>
+  <div class="nav-item" data-tab="electrical" onclick="switchTab('electrical')"><span class="nav-dot" style="background:#FDD835;"></span> Electrical</div>
+  <div class="nav-item" data-tab="emergency" onclick="switchTab('emergency')"><span class="nav-dot" style="background:#AB47BC;"></span> Emergency Lighting</div>
+  <div class="nav-item" data-tab="extinguishers" onclick="switchTab('extinguishers')"><span class="nav-dot" style="background:#EF5350;"></span> Fire Extinguishers</div>
+  <div class="nav-item" data-tab="kitchen" onclick="switchTab('kitchen')"><span class="nav-dot" style="background:#FF8A65;"></span> Kitchen Suppression</div>
+  <div class="nav-item" data-tab="hazmat" onclick="switchTab('hazmat')"><span class="nav-dot" style="background:#FFCA28;"></span> Hazardous Materials</div>
+  <div class="nav-item" data-tab="general" onclick="switchTab('general')"><span class="nav-dot" style="background:#78909C;"></span> General Condition</div>
+  <div class="nav-item" data-tab="sitephotos" onclick="switchTab('sitephotos')"><span class="nav-dot" style="background:#26A69A;"></span> Site Photos</div>
+  <div class="nav-item" data-tab="sketches" onclick="switchTab('sketches')"><span class="nav-dot" style="background:#5C6BC0;"></span> Sketches</div>
+  <div class="nav-item" data-tab="gallery" onclick="switchTab('gallery')"><span class="nav-dot" style="background:#00ACC1;"></span> Photo Gallery</div>
+  <div class="nav-item" data-tab="deficiencies" onclick="switchTab('deficiencies')"><span class="nav-dot" style="background:var(--red);"></span> Deficiencies <span class="nav-badge" id="defic-count">0</span></div>
+  <div class="nav-item" data-tab="signature" onclick="switchTab('signature')"><span class="nav-dot" style="background:#455A64;"></span> Signature &amp; Report</div>
+</aside>
+
+<!-- Mobile bottom nav -->
+<div class="mobile-nav" id="mobile-nav"></div>
+
+<main class="main-content">
+
+<!-- ═══ PANEL: PROJECT INFO ═══ -->
+<div class="panel active" id="panel-info">
+  <div class="section-title">Project Information</div>
+  <div class="card">
+    <div class="card-header">📋 Project Details</div>
+    <div class="card-body">
+      <div class="info-grid">
+        <div class="field-group"><label>Project No.</label><input type="text" id="pi-projno" placeholder="e.g. 12345.01" onblur="saveState()"></div>
+        <div class="field-group"><label>Client</label><input type="text" id="pi-client" placeholder="Client name"></div>
+        <div class="field-group"><label>Project Name</label><input type="text" id="pi-projname" placeholder="e.g. Industrial Warehouse DD"></div>
+        <div class="field-group" style="grid-column:span 2"><label>Project Address</label><input type="text" id="pi-address" placeholder="Full address"></div>
+        <div class="field-group"><label>Date of Inspection</label><input type="date" id="pi-date"></div>
+        <div class="field-group"><label>Prepared By</label><input type="text" id="pi-prepby" placeholder="Inspector name"></div>
+        <div class="field-group"><label>Reviewed By</label><input type="text" id="pi-reviewer" placeholder="Reviewer name, P.Eng."></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header mid">🏢 Building Information</div>
+    <div class="card-body">
+      <div class="info-grid">
+        <div class="field-group"><label>Building Type</label>
+          <select id="pi-bldgtype"><option value="">— Select —</option><option>Industrial</option><option>Commercial</option><option>Residential</option><option>Mixed-Use</option><option>Institutional</option><option>Assembly</option><option>High-Rise</option><option>Warehouse</option><option>Other</option></select>
+        </div>
+        <div class="field-group"><label>Year Built (approx.)</label><input type="text" id="pi-yearbuilt" placeholder="e.g. 1995"></div>
+        <div class="field-group"><label>Number of Storeys</label><input type="text" id="pi-storeys" placeholder="e.g. 2 + basement"></div>
+        <div class="field-group"><label>Total Building Area (sq ft)</label><input type="text" id="pi-area" placeholder="e.g. 50,000"></div>
+        <div class="field-group"><label>Construction Type</label>
+          <select id="pi-construction"><option value="">— Select —</option><option>Combustible</option><option>Non-Combustible</option><option>Heavy Timber</option><option>Fire-Resistive</option><option>Mixed</option><option>Unknown</option></select>
+        </div>
+        <div class="field-group"><label>Occupancy Classification (OBC)</label><input type="text" id="pi-occupancy" placeholder="e.g. Group F, Div. 2"></div>
+        <div class="field-group"><label>Sprinklered</label>
+          <select id="pi-sprinklered"><option value="">— Select —</option><option>Yes — Full</option><option>Yes — Partial</option><option>No</option><option>Unknown</option></select>
+        </div>
+        <div class="field-group"><label>Fire Alarm System</label>
+          <select id="pi-hasalarm"><option value="">— Select —</option><option>Yes — Addressable</option><option>Yes — Conventional</option><option>Yes — Unknown Type</option><option>No</option><option>Unknown</option></select>
+        </div>
+        <div class="field-group"><label>Site Contact Name</label><input type="text" id="pi-contact" placeholder="On-site contact"></div>
+        <div class="field-group"><label>Site Contact Phone</label><input type="text" id="pi-contactphone" placeholder="Phone number"></div>
+      </div>
+      <div class="field-group" style="margin-top:12px;"><label>General Notes</label><textarea id="pi-notes" placeholder="Any general notes about the building or inspection scope..." rows="3"></textarea></div>
+    </div>
+  </div>
+  <!-- Progress overview -->
+  <div class="card">
+    <div class="card-header green">📊 Inspection Progress</div>
+    <div class="card-body">
+      <div class="stat-row" id="progress-stats"></div>
+      <div class="progress-wrap"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
+      <div style="text-align:center;font-size:12px;color:var(--steel);margin-top:4px;" id="progress-text">0% Complete</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══ PANEL: BUILDING EXTERIOR & SITE ═══ -->
+<div class="panel" id="panel-exterior">
+  <div class="section-title">Building Exterior &amp; Site</div>
+  <div class="card"><div class="card-header">🏗️ Exterior &amp; Site Assessment</div>
+    <div class="card-body"><div id="cl-exterior"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: FIRE ALARM ═══ -->
+<div class="panel" id="panel-firealarm">
+  <div class="section-title">Fire Alarm System</div>
+  <div class="card"><div class="card-header" style="background:#E53935;">🔔 Fire Alarm System Assessment</div>
+    <div class="card-body"><div id="cl-firealarm"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: SPRINKLER SYSTEM ═══ -->
+<div class="panel" id="panel-sprinkler">
+  <div class="section-title">Sprinkler System</div>
+  <div class="card"><div class="card-header" style="background:#43A047;">🚿 Sprinkler System Assessment</div>
+    <div class="card-body"><div id="cl-sprinkler"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: STANDPIPE & HOSE ═══ -->
+<div class="panel" id="panel-standpipe">
+  <div class="section-title">Standpipe &amp; Hose Systems</div>
+  <div class="card"><div class="card-header" style="background:#7B1FA2;">🧯 Standpipe &amp; Hose Assessment</div>
+    <div class="card-body"><div id="cl-standpipe"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: FIRE PUMP ═══ -->
+<div class="panel" id="panel-firepump">
+  <div class="section-title">Fire Pump</div>
+  <div class="card"><div class="card-header" style="background:#FF6F00;">🔴 Fire Pump Assessment</div>
+    <div class="card-body"><div id="cl-firepump"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: WATER SUPPLY ═══ -->
+<div class="panel" id="panel-watersupply">
+  <div class="section-title">Water Supply</div>
+  <div class="card"><div class="card-header" style="background:#0288D1;">💧 Water Supply Assessment</div>
+    <div class="card-body"><div id="cl-watersupply"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: FIRE SEPARATIONS ═══ -->
+<div class="panel" id="panel-separations">
+  <div class="section-title">Fire Separations &amp; Firestopping</div>
+  <div class="card"><div class="card-header" style="background:#6D4C41;">🧱 Fire Separations Assessment</div>
+    <div class="card-body"><div id="cl-separations"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: EGRESS & EXITING ═══ -->
+<div class="panel" id="panel-egress">
+  <div class="section-title">Egress &amp; Exiting</div>
+  <div class="card"><div class="card-header" style="background:#00897B;">🚪 Egress &amp; Exiting Assessment</div>
+    <div class="card-body"><div id="cl-egress"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: ELECTRICAL ═══ -->
+<div class="panel" id="panel-electrical">
+  <div class="section-title">Electrical Systems</div>
+  <div class="card"><div class="card-header" style="background:#F9A825;">⚡ Electrical Systems Assessment</div>
+    <div class="card-body"><div id="cl-electrical"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: EMERGENCY LIGHTING ═══ -->
+<div class="panel" id="panel-emergency">
+  <div class="section-title">Emergency Lighting &amp; Exit Signs</div>
+  <div class="card"><div class="card-header" style="background:#AB47BC;">💡 Emergency Lighting Assessment</div>
+    <div class="card-body"><div id="cl-emergency"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: FIRE EXTINGUISHERS ═══ -->
+<div class="panel" id="panel-extinguishers">
+  <div class="section-title">Fire Extinguishers</div>
+  <div class="card"><div class="card-header" style="background:#EF5350;">🧯 Fire Extinguisher Assessment</div>
+    <div class="card-body"><div id="cl-extinguishers"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: KITCHEN SUPPRESSION ═══ -->
+<div class="panel" id="panel-kitchen">
+  <div class="section-title">Kitchen Suppression</div>
+  <div class="card"><div class="card-header" style="background:#FF8A65;">🍳 Kitchen Suppression Assessment</div>
+    <div class="card-body"><div id="cl-kitchen"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: HAZARDOUS MATERIALS ═══ -->
+<div class="panel" id="panel-hazmat">
+  <div class="section-title">Hazardous Materials &amp; Special Hazards</div>
+  <div class="card"><div class="card-header" style="background:#F9A825;color:#000;">⚠️ Hazardous Materials Assessment</div>
+    <div class="card-body"><div id="cl-hazmat"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: GENERAL BUILDING CONDITION ═══ -->
+<div class="panel" id="panel-general">
+  <div class="section-title">General Building Condition</div>
+  <div class="card"><div class="card-header" style="background:#78909C;">🔍 General Building Condition</div>
+    <div class="card-body"><div id="cl-general"></div></div>
+  </div>
+</div>
+
+
+<!-- ═══ PANEL: SITE PHOTOS ═══ -->
+<div class="panel" id="panel-sitephotos">
+  <div class="section-title">Site Photos</div>
+  <div class="card">
+    <div class="card-header" style="background:#26A69A;">📷 General Site Photos</div>
+    <div class="card-body">
+      <p style="font-size:13px;color:var(--steel);margin-bottom:12px;">Capture general building exterior, interior, roof, parking, surrounding area, and any other relevant photos not tied to specific checklist items.</p>
+      <div class="photo-zone" id="site-photo-zone" ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event,'site-photos')">
+        <span class="pz-hint">Drag &amp; drop photos here</span>
+      </div>
+      <div class="pz-btns" style="margin-top:8px;">
+        <button class="pz-btn" onclick="triggerUpload('site-photos')">📁 Upload</button>
+        <button class="pz-btn" onclick="triggerCamera('site-photos')">📸 Camera</button>
+      </div>
+      <div id="site-photos-grid" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: SKETCHES ═══ -->
+<div class="panel" id="panel-sketches">
+  <div class="section-title">Sketches &amp; Markups</div>
+  <div class="card">
+    <div class="card-header" style="background:#5C6BC0;">✏️ Freehand Sketches &amp; Photo Markups</div>
+    <div class="card-body">
+      <p style="font-size:13px;color:var(--steel);margin-bottom:12px;">Use sketch entries for freehand drawings, annotated photos, or any visual notes that don't fit in the checklist sections.</p>
+      <div id="sketch-entries"></div>
+      <button class="pz-btn" onclick="addSketchEntry()" style="background:var(--arencon);color:#fff;border-color:var(--arencon);">+ Add Sketch / Markup</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: PHOTO GALLERY ═══ -->
+<div class="panel" id="panel-gallery">
+  <div class="section-title">Photo Gallery</div>
+  <div class="card">
+    <div class="card-header" style="background:#00ACC1;">📸 All Project Photos</div>
+    <div class="card-body">
+      <p style="font-size:13px;color:var(--steel);margin-bottom:8px;">All photos across every section, labeled by source.</p>
+      <div id="gallery-container" class="gallery-grid"></div>
+      <p id="gallery-empty" style="text-align:center;color:var(--silver);padding:20px;font-style:italic;">No photos yet. Add photos in checklist sections or Site Photos.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: DEFICIENCIES ═══ -->
+<div class="panel" id="panel-deficiencies">
+  <div class="section-title">Deficiency Log</div>
+  <div class="card">
+    <div class="card-header red">⚠️ Flagged &amp; Manual Deficiencies</div>
+    <div class="card-body">
+      <p style="font-size:13px;color:var(--steel);margin-bottom:12px;">Items marked <strong>No</strong> or <strong>Poor/Critical</strong> are auto-flagged below. Confirm which to include in the report, or add manual deficiencies.</p>
+      
+      <!-- Summary stats -->
+      <div class="stat-row" id="defic-stats">
+        <div class="stat-box"><div class="stat-val" id="ds-total">0</div><div class="stat-lbl">Total Flagged</div></div>
+        <div class="stat-box"><div class="stat-val" id="ds-confirmed" style="color:var(--red);">0</div><div class="stat-lbl">Confirmed</div></div>
+        <div class="stat-box"><div class="stat-val" id="ds-excluded" style="color:var(--na);">0</div><div class="stat-lbl">Excluded</div></div>
+        <div class="stat-box"><div class="stat-val" id="ds-manual" style="color:var(--warn);">0</div><div class="stat-lbl">Manual</div></div>
+      </div>
+      
+      <!-- Filter -->
+      <div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;">
+        <button class="tog-btn tog-no sel" onclick="filterDefic('all')" id="df-all">All</button>
+        <button class="tog-btn" onclick="filterDefic('confirmed')" id="df-confirmed">Confirmed</button>
+        <button class="tog-btn" onclick="filterDefic('excluded')" id="df-excluded">Excluded</button>
+        <button class="tog-btn" onclick="filterDefic('manual')" id="df-manual">Manual</button>
+        <button class="pz-btn" onclick="addManualDeficiency()" style="margin-left:auto;background:var(--warn);color:#fff;border-color:var(--warn);">+ Add Manual Deficiency</button>
+      </div>
+      
+      <div id="defic-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PANEL: SIGNATURE & REPORT ═══ -->
+<div class="panel" id="panel-signature">
+  <div class="section-title">Signature &amp; Report Generation</div>
+  <div class="card">
+    <div class="card-header">✍️ Consultant Signature</div>
+    <div class="card-body">
+      <div class="info-grid">
+        <div class="field-group"><label>Consultant Name</label><input type="text" id="sig-name" placeholder="Full name"></div>
+        <div class="field-group"><label>Title / Designation</label><input type="text" id="sig-title" placeholder="e.g. Fire Protection Technologist"></div>
+        <div class="field-group"><label>Company</label><input type="text" id="sig-company" value="ARENCON Inc."></div>
+        <div class="field-group"><label>Date</label><input type="date" id="sig-date"></div>
+      </div>
+      <div style="margin-top:14px;">
+        <label style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--steel);letter-spacing:.4px;">Signature</label>
+        <canvas class="sig-pad" id="sig-canvas" width="500" height="150" style="width:100%;max-width:500px;display:block;margin-top:6px;"></canvas>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="pz-btn" onclick="clearSignature()">Clear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="card">
+    <div class="card-header mid">📝 Overall Assessment</div>
+    <div class="card-body">
+      <div class="field-group">
+        <label>Overall Building Assessment</label>
+        <select id="overall-assessment">
+          <option value="">— Select —</option>
+          <option value="satisfactory">Satisfactory — No significant deficiencies</option>
+          <option value="conditional">Conditional — Minor deficiencies noted, remediation recommended</option>
+          <option value="unsatisfactory">Unsatisfactory — Major deficiencies requiring immediate attention</option>
+          <option value="critical">Critical — Life safety concerns identified</option>
+        </select>
+      </div>
+      <div class="field-group" style="margin-top:12px;">
+        <label>Executive Summary / Recommendations</label>
+        <textarea id="exec-summary" rows="6" placeholder="Provide a brief summary of findings and key recommendations..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="background:#1A237E;">📄 Generate Report</div>
+    <div class="card-body">
+      <p style="font-size:13px;color:var(--steel);margin-bottom:14px;">Select report type and generate a PDF preview in a new window.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <button class="hdr-btn" style="background:#1A237E;font-size:14px;padding:12px 24px;" onclick="exportPDF('full')">📄 Full DD Report</button>
+        <button class="hdr-btn" style="background:#455A64;font-size:14px;padding:12px 24px;" onclick="exportPDF('summary')">📋 Summary Report</button>
+      </div>
+      <p style="font-size:11px;color:var(--silver);margin-top:8px;"><strong>Full Report:</strong> Cover page + executive summary + all section findings + deficiency log with photos.<br><strong>Summary Report:</strong> Cover page + executive summary + deficiency log only.</p>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Lightbox -->
+<div class="lightbox-overlay" id="lightbox" style="display:none;" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<!-- Hidden file inputs -->
+<input type="file" id="photo-input" accept="image/*" multiple style="display:none">
+<input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none">
+<input type="file" id="json-input" accept=".json,application/json" style="display:none">
+<input type="file" id="sketch-photo-input" accept="image/*" style="display:none">
+
+<!-- Photo Markup Modal -->
+<div id="pmu-modal">
+  <div id="pmu-toolbar">
+    <span style="color:#fff;font-weight:700;font-size:13px;margin-right:8px;">✏️ Photo Markup</span>
+    <button class="pmu-active" id="pmu-btn-pen" onclick="pmuSetTool('pen')">✏️ Pen</button>
+    <button id="pmu-btn-highlight" onclick="pmuSetTool('highlight')">🟡 Highlight</button>
+    <button id="pmu-btn-text" onclick="pmuSetTool('text')">T Text</button>
+    <button id="pmu-btn-erase" onclick="pmuSetTool('erase')">⬜ Erase</button>
+    <span style="color:#888;margin:0 4px;">|</span>
+    <div class="color-dot active" style="background:#E53935;" onclick="pmuSetColor('#E53935',this)"></div>
+    <div class="color-dot" style="background:#1A7A4A;" onclick="pmuSetColor('#1A7A4A',this)"></div>
+    <div class="color-dot" style="background:#1565C0;" onclick="pmuSetColor('#1565C0',this)"></div>
+    <div class="color-dot" style="background:#F9A825;" onclick="pmuSetColor('#F9A825',this)"></div>
+    <div class="color-dot" style="background:#000000;" onclick="pmuSetColor('#000000',this)"></div>
+    <span style="color:#888;margin:0 4px;">|</span>
+    <button onclick="pmuUndo()">↶ Undo</button>
+    <button onclick="pmuSave()" style="background:#1A7A4A;border-color:#1A7A4A;">💾 Save</button>
+    <button onclick="pmuClose()" style="background:#455A64;border-color:#455A64;">✕ Close</button>
+  </div>
+  <div id="pmu-canvas-wrap">
+    <canvas id="pmu-canvas"></canvas>
+  </div>
+</div>
+
+
+<script>
+// ══════════════════════════════════════════════════
+// CHECKLIST DATA — All sections
+// type: 'yn' = Yes/No/NA, 'cond' = Condition rating
+// ══════════════════════════════════════════════════
+
+const SECTIONS = {
+  exterior: {
+    label: 'Building Exterior & Site',
+    items: [
+      {num:'2.1', text:'Building envelope (walls, cladding) — overall condition', type:'cond'},
+      {num:'2.2', text:'Roof type and condition (flat, pitched, membrane, metal)', type:'cond'},
+      {num:'2.3', text:'Roof drains, scuppers, and gutters — functional and clear of debris', type:'cond'},
+      {num:'2.4', text:'Loading docks — condition of doors, bumpers, drainage', type:'cond'},
+      {num:'2.5', text:'Exterior fire access routes are clear and accessible to fire department', type:'yn'},
+      {num:'2.6', text:'Fire department connection (FDC/Siamese) — visible, accessible, and in good condition', type:'yn'},
+      {num:'2.7', text:'Building address signage is clearly visible from the street', type:'yn'},
+      {num:'2.8', text:'Exterior fire escape / egress stairs — condition and accessibility', type:'cond'},
+      {num:'2.9', text:'Site drainage is adequate — no ponding near building foundations', type:'yn'},
+      {num:'2.10', text:'Fencing, gates, security — impact on fire department access', type:'cond'},
+      {num:'2.11', text:'Propane/natural gas meter location and protection', type:'cond'},
+      {num:'2.12', text:'Transformer vault / pad-mounted transformer — condition and clearance', type:'cond'},
+      {num:'2.13', text:'Exterior waste/recycling storage — separation from building per OFC', type:'yn'},
+    ]
+  },
+  firealarm: {
+    label: 'Fire Alarm System',
+    items: [
+      {num:'3.1', text:'Fire alarm control panel (FACP) — make, model, and age recorded', type:'yn'},
+      {num:'3.2', text:'FACP is addressable (vs. conventional)', type:'yn'},
+      {num:'3.3', text:'FACP — overall condition and panel labelling', type:'cond'},
+      {num:'3.4', text:'Fire alarm system is monitored (confirm monitoring company and method)', type:'yn'},
+      {num:'3.5', text:'Annunciator panel(s) — location(s) at main entrance, condition', type:'cond'},
+      {num:'3.6', text:'Smoke detectors — type (photoelectric/ionization), spacing, condition', type:'cond'},
+      {num:'3.7', text:'Heat detectors — type (fixed temp/rate-of-rise), locations, condition', type:'cond'},
+      {num:'3.8', text:'Manual pull stations — locations at exits, height, condition', type:'cond'},
+      {num:'3.9', text:'Audible notification appliances (horns/bells) — coverage and condition', type:'cond'},
+      {num:'3.10', text:'Visual notification appliances (strobes) — coverage and condition', type:'cond'},
+      {num:'3.11', text:'Duct smoke detectors installed where required', type:'yn'},
+      {num:'3.12', text:'Fire alarm verification certificate/annual test tag available', type:'yn'},
+      {num:'3.13', text:'Date of last annual fire alarm test recorded', type:'yn'},
+      {num:'3.14', text:'Backup batteries present and in good condition', type:'yn'},
+      {num:'3.15', text:'Carbon monoxide (CO) detection provided where required (parking garages, residential)', type:'yn'},
+      {num:'3.16', text:'Voice communication system provided (if building height > 3 storeys)', type:'yn'},
+    ]
+  },
+  sprinkler: {
+    label: 'Sprinkler System',
+    items: [
+      {num:'4.1', text:'Sprinkler system type (wet/dry/pre-action/deluge) identified', type:'yn'},
+      {num:'4.2', text:'Sprinkler riser room — accessible, clean, and properly identified', type:'cond'},
+      {num:'4.3', text:'Main control valve(s) — OS&Y or butterfly, open and supervised', type:'yn'},
+      {num:'4.4', text:'Sprinkler heads — type, temperature rating, K-factor recorded', type:'yn'},
+      {num:'4.5', text:'Sprinkler heads — overall condition (no paint, corrosion, damage, loading)', type:'cond'},
+      {num:'4.6', text:'Sprinkler head clearance — minimum 18" maintained below deflectors (storage areas)', type:'yn'},
+      {num:'4.7', text:'Spare sprinkler heads and wrench in cabinet', type:'yn'},
+      {num:'4.8', text:'Sprinkler system inspection tags current (within 12 months)', type:'yn'},
+      {num:'4.9', text:'Main drain test conducted — results acceptable', type:'yn'},
+      {num:'4.10', text:'FDC — clappers in place, caps on, accessible', type:'yn'},
+      {num:'4.11', text:'All sprinkler piping properly supported and in good condition', type:'cond'},
+      {num:'4.12', text:'No signs of obstruction (MIC, foreign material) in piping', type:'yn'},
+      {num:'4.13', text:'Dry pipe valve / pre-action valve — condition and trip test date', type:'cond'},
+      {num:'4.14', text:'Antifreeze system — solution tested and within acceptable limits', type:'yn'},
+      {num:'4.15', text:'Flow switches and tamper switches installed and monitored', type:'yn'},
+      {num:'4.16', text:'Adequate coverage — no unprotected areas observed', type:'yn'},
+      {num:'4.17', text:'Sprinkler system design information (hydraulic placard) posted at riser', type:'yn'},
+    ]
+  },
+  standpipe: {
+    label: 'Standpipe & Hose Systems',
+    items: [
+      {num:'5.1', text:'Standpipe system present', type:'yn'},
+      {num:'5.2', text:'Standpipe class identified (I / II / III)', type:'yn'},
+      {num:'5.3', text:'Hose connections at each floor/stairwell — accessible and in good condition', type:'cond'},
+      {num:'5.4', text:'Hose valve caps in place and operational', type:'yn'},
+      {num:'5.5', text:'Pressure reducing valves (PRV) installed where required', type:'yn'},
+      {num:'5.6', text:'Hose cabinets — condition and accessibility', type:'cond'},
+      {num:'5.7', text:'Fire hose (if Class II/III) — condition and proper rack/reel', type:'cond'},
+      {num:'5.8', text:'Standpipe FDC — accessible, visible, caps on', type:'yn'},
+    ]
+  },
+  firepump: {
+    label: 'Fire Pump',
+    items: [
+      {num:'6.1', text:'Fire pump present on site', type:'yn'},
+      {num:'6.2', text:'Fire pump type identified (diesel / electric / both)', type:'yn'},
+      {num:'6.3', text:'Fire pump make, model, HP, GPM, and PSI rating recorded', type:'yn'},
+      {num:'6.4', text:'Fire pump controller — make, model, condition', type:'cond'},
+      {num:'6.5', text:'Jockey pump present and operational', type:'yn'},
+      {num:'6.6', text:'Fire pump room — condition, ventilation, lighting, drainage', type:'cond'},
+      {num:'6.7', text:'Fire pump room door — fire-rated with self-closer', type:'yn'},
+      {num:'6.8', text:'Last annual fire pump test date and results recorded', type:'yn'},
+      {num:'6.9', text:'Weekly churn test records available', type:'yn'},
+      {num:'6.10', text:'Diesel fuel tank — level, containment, TSSA certificate', type:'cond'},
+      {num:'6.11', text:'Diesel exhaust system — muffler, insulation, chimney condition', type:'cond'},
+      {num:'6.12', text:'Battery condition and charger operational', type:'yn'},
+      {num:'6.13', text:'Suction and discharge gauges — calibrated within 12 months', type:'yn'},
+      {num:'6.14', text:'Fire pump sends all required signals to FACP (running, trouble, off/manual)', type:'yn'},
+    ]
+  },
+  watersupply: {
+    label: 'Water Supply',
+    items: [
+      {num:'7.1', text:'Municipal water supply — utility provider and pipe size identified', type:'yn'},
+      {num:'7.2', text:'Fire hydrant(s) within 45m/150ft of FDC — location(s) noted', type:'yn'},
+      {num:'7.3', text:'Fire hydrant(s) — accessible, operational, no obstructions', type:'cond'},
+      {num:'7.4', text:'Water supply test data available (static pressure, residual pressure, flow rate)', type:'yn'},
+      {num:'7.5', text:'Water supply is adequate for building sprinkler demand', type:'yn'},
+      {num:'7.6', text:'Underground fire main — material and age known', type:'yn'},
+      {num:'7.7', text:'Backflow preventer / double check valve assembly — installed and tested', type:'yn'},
+      {num:'7.8', text:'Fire department access to hydrants is not obstructed by parking/fencing', type:'yn'},
+      {num:'7.9', text:'Private fire hydrant(s) on site — condition and flow test records', type:'cond'},
+    ]
+  },
+  separations: {
+    label: 'Fire Separations & Firestopping',
+    items: [
+      {num:'8.1', text:'Fire separations between suites/units — intact and rated as required', type:'yn'},
+      {num:'8.2', text:'Fire separations between occupancy types — intact and rated', type:'yn'},
+      {num:'8.3', text:'Stairwell/shaft enclosures — fire-rated and intact (no penetrations)', type:'yn'},
+      {num:'8.4', text:'Fire-rated walls extend from floor slab to underside of deck above (or roof)', type:'yn'},
+      {num:'8.5', text:'Penetrations through fire separations — properly firestopped', type:'cond'},
+      {num:'8.6', text:'Fire dampers at HVAC duct penetrations — installed and accessible', type:'yn'},
+      {num:'8.7', text:'Fire doors — proper rating, labelling, self-closers, latching hardware', type:'cond'},
+      {num:'8.8', text:'Fire doors — no wedges, holdback devices (unless mag-hold with alarm tie-in)', type:'yn'},
+      {num:'8.9', text:'Fire door frames — intact, no damage, proper fire rating labels', type:'cond'},
+      {num:'8.10', text:'Fire-rated glazing/windows — labelled and intact where required', type:'yn'},
+      {num:'8.11', text:'Vertical openings (floor penetrations) — properly enclosed or protected', type:'yn'},
+      {num:'8.12', text:'Service rooms (electrical, mechanical, storage) — fire-separated as required', type:'yn'},
+    ]
+  },
+  egress: {
+    label: 'Egress & Exiting',
+    items: [
+      {num:'9.1', text:'Number of exits from each floor is adequate per OBC', type:'yn'},
+      {num:'9.2', text:'Exit widths are adequate for occupant load', type:'yn'},
+      {num:'9.3', text:'Travel distances to nearest exit within OBC limits', type:'yn'},
+      {num:'9.4', text:'No dead-end corridors exceeding OBC limits', type:'yn'},
+      {num:'9.5', text:'Exit stairwells — condition, handrails, non-slip treads, lighting', type:'cond'},
+      {num:'9.6', text:'Exit discharge leads directly to public way or safe exterior area', type:'yn'},
+      {num:'9.7', text:'Exit doors — proper hardware (panic/fire exit), swing direction correct', type:'cond'},
+      {num:'9.8', text:'Exit doors are not locked, blocked, or obstructed', type:'yn'},
+      {num:'9.9', text:'Corridors are clear of storage and obstructions', type:'yn'},
+      {num:'9.10', text:'Exit signs — illuminated, visible from all required locations', type:'cond'},
+      {num:'9.11', text:'Exit path floor markings / directional signage where required', type:'yn'},
+      {num:'9.12', text:'Accessible egress provisions (areas of refuge, accessible exits)', type:'yn'},
+      {num:'9.13', text:'Revolving doors / turnstiles — adjacent swing door provided', type:'yn'},
+    ]
+  },
+  electrical: {
+    label: 'Electrical Systems',
+    items: [
+      {num:'10.1', text:'Main electrical panel — voltage, amperage, phase recorded', type:'yn'},
+      {num:'10.2', text:'Electrical room — condition, housekeeping, clearance maintained', type:'cond'},
+      {num:'10.3', text:'Panel directory/labelling — up to date and legible', type:'yn'},
+      {num:'10.4', text:'Arc flash hazard labels on panels and switchgear', type:'yn'},
+      {num:'10.5', text:'Emergency generator present and operational', type:'yn'},
+      {num:'10.6', text:'Generator — fuel type, capacity, last test date, maintenance records', type:'cond'},
+      {num:'10.7', text:'Automatic transfer switch (ATS) — functional, last test date', type:'yn'},
+      {num:'10.8', text:'Generator load includes fire alarm, emergency lighting, fire pump (if electric)', type:'yn'},
+      {num:'10.9', text:'Electrical panels are accessible (900mm clearance per CEC)', type:'yn'},
+      {num:'10.10', text:'Extension cords not used as permanent wiring', type:'yn'},
+    ]
+  },
+  emergency: {
+    label: 'Emergency Lighting & Exit Signs',
+    items: [
+      {num:'11.1', text:'Emergency lighting units — type (battery/generator-backed) identified', type:'yn'},
+      {num:'11.2', text:'Emergency lighting coverage — all exit paths, stairwells, corridors', type:'cond'},
+      {num:'11.3', text:'Emergency lighting units — condition and functionality', type:'cond'},
+      {num:'11.4', text:'Exit signs — type (illuminated, self-luminous, photoluminescent)', type:'yn'},
+      {num:'11.5', text:'Exit signs — visible from all required locations, properly oriented', type:'cond'},
+      {num:'11.6', text:'Emergency lighting and exit sign testing records available', type:'yn'},
+      {num:'11.7', text:'Monthly (30-second) and annual (30-minute) tests documented', type:'yn'},
+      {num:'11.8', text:'Battery backup duration adequate (30 min for battery units)', type:'yn'},
+    ]
+  },
+  extinguishers: {
+    label: 'Fire Extinguishers',
+    items: [
+      {num:'12.1', text:'Fire extinguishers provided in required locations', type:'yn'},
+      {num:'12.2', text:'Extinguisher types appropriate for hazards present', type:'yn'},
+      {num:'12.3', text:'Extinguisher mounting height — handle max 1.5m (5 ft) above floor', type:'yn'},
+      {num:'12.4', text:'Travel distance to nearest extinguisher within 23m (75 ft) for Class A', type:'yn'},
+      {num:'12.5', text:'Monthly visual inspection tags current', type:'yn'},
+      {num:'12.6', text:'Annual professional inspection/maintenance within 12 months', type:'yn'},
+      {num:'12.7', text:'6-year maintenance and hydrostatic test dates current', type:'yn'},
+      {num:'12.8', text:'Extinguisher condition — no damage, corrosion, or obstruction', type:'cond'},
+      {num:'12.9', text:'Extinguisher signage / location markers visible', type:'yn'},
+    ]
+  },
+  kitchen: {
+    label: 'Kitchen Suppression',
+    items: [
+      {num:'13.1', text:'Commercial cooking equipment present', type:'yn'},
+      {num:'13.2', text:'Kitchen hood / exhaust system — type and condition', type:'cond'},
+      {num:'13.3', text:'Kitchen suppression system — make, model, agent type recorded', type:'yn'},
+      {num:'13.4', text:'Suppression system inspection tag within 6 months', type:'yn'},
+      {num:'13.5', text:'Nozzles properly aimed at cooking surfaces', type:'yn'},
+      {num:'13.6', text:'Manual pull station for kitchen suppression accessible', type:'yn'},
+      {num:'13.7', text:'Gas shut-off valve accessible and labelled', type:'yn'},
+      {num:'13.8', text:'K-class fire extinguisher within 9m (30 ft) of cooking equipment', type:'yn'},
+      {num:'13.9', text:'Grease duct — last cleaning date recorded, condition', type:'cond'},
+      {num:'13.10', text:'Grease filters — clean and properly installed', type:'cond'},
+    ]
+  },
+  hazmat: {
+    label: 'Hazardous Materials & Special Hazards',
+    items: [
+      {num:'14.1', text:'Flammable/combustible liquid storage present', type:'yn'},
+      {num:'14.2', text:'Flammable storage cabinets — ULC/FM approved, properly used', type:'yn'},
+      {num:'14.3', text:'Quantities within OBC/OFC limits for occupancy', type:'yn'},
+      {num:'14.4', text:'Spray booth / paint booth present — suppression and ventilation', type:'yn'},
+      {num:'14.5', text:'Dust collection system present — spark detection, explosion venting', type:'yn'},
+      {num:'14.6', text:'Gas detection systems (if applicable) — operational and tested', type:'yn'},
+      {num:'14.7', text:'Special suppression systems (clean agent, foam, CO2) — condition and test date', type:'cond'},
+      {num:'14.8', text:'Compressed gas cylinders — properly secured and stored', type:'yn'},
+      {num:'14.9', text:'WHMIS/SDS documentation available and current', type:'yn'},
+    ]
+  },
+  general: {
+    label: 'General Building Condition',
+    items: [
+      {num:'15.1', text:'HVAC systems — general condition, air handling units', type:'cond'},
+      {num:'15.2', text:'Plumbing — no active leaks observed', type:'yn'},
+      {num:'15.3', text:'Evidence of water damage or past flooding', type:'yn'},
+      {num:'15.4', text:'Mould or moisture issues observed', type:'yn'},
+      {num:'15.5', text:'Structural concerns observed (cracks, settlement, corrosion)', type:'yn'},
+      {num:'15.6', text:'General housekeeping and storage practices', type:'cond'},
+      {num:'15.7', text:'Storage is not within 600mm (24 in.) of ceiling/sprinkler deflectors', type:'yn'},
+      {num:'15.8', text:'Accumulation of combustible waste or debris', type:'yn'},
+      {num:'15.9', text:'Smoking areas designated and compliant', type:'yn'},
+      {num:'15.10', text:'Hot work program in place (if applicable)', type:'yn'},
+      {num:'15.11', text:'Security system type and integration with fire alarm', type:'cond'},
+      {num:'15.12', text:'Building maintenance records/log available', type:'yn'},
+    ]
+  }
+};
+
+const SECTION_ORDER = ['exterior','firealarm','sprinkler','standpipe','firepump','watersupply','separations','egress','electrical','emergency','extinguishers','kitchen','hazmat','general'];
+
+
+// ══════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════
+let curTab = 'info';
+let clState = {}; // { 'ext-2.1': { val:'yes'|'no'|'na'|'good'|'fair'|'poor'|'critical'|'cond-na', notes:'', photos:[] } }
+let sitePhotos = []; // [{d: dataUrl, caption:''}]
+let deficList = []; // [{source:'auto'|'manual', sectionKey, itemNum, itemText, severity:'critical'|'high'|'medium'|'low', confirmed:true, notes:'', photos:[], recommendation:''}]
+let deficFilter = 'all';
+let photoTarget = null;
+let sectionSkips = {}; // {secKey: true/false}
+let sectionNarratives = {}; // {secKey: 'narrative text'}
+let sketches = []; // [{id, canvasData, photoData, comment}]
+let sketchCounter = 0;
+
+// Photo Markup state
+let pmuState = {tool:'pen', color:'#E53935', size:3, drawing:false, undoStack:[], target:null, targetIdx:null, targetType:null};
+let pmuBaseImg = null;
+
+const DB_NAME = 'ARENCON_DD';
+const DB_VER = 1;
+const STORE = 'projects';
+let db = null;
+
+// ══════════════════════════════════════════════════
+// INDEXEDDB
+// ══════════════════════════════════════════════════
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => { e.target.result.createObjectStore(STORE, {keyPath:'id'}); };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror = e => reject(e);
+  });
+}
+
+function dbPut(data){
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).put(data);
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = e=>reject(e);
+  });
+}
+
+function dbGet(id){
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE,'readonly');
+    const req = tx.objectStore(STORE).get(id);
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = e=>reject(e);
+  });
+}
+
+function getProjectKey(){
+  const el = document.getElementById('pi-projno');
+  const pno = (el && el.value.trim()) ? el.value.trim().replace(/[^a-zA-Z0-9._-]/g,'_') : 'default';
+  return 'dd_'+pno;
+}
+
+// ══════════════════════════════════════════════════
+// SAVE / LOAD STATE
+// ══════════════════════════════════════════════════
+function collectState(){
+  const proj = {};
+  ['projno','client','projname','address','date','prepby','reviewer','bldgtype','yearbuilt','storeys','area','construction','occupancy','sprinklered','hasalarm','contact','contactphone','notes'].forEach(k=>{
+    const el = document.getElementById('pi-'+k);
+    if(el) proj[k] = el.value;
+  });
+  const sig = {};
+  ['name','title','company','date'].forEach(k=>{
+    const el = document.getElementById('sig-'+k);
+    if(el) sig[k] = el.value;
+  });
+  const sigCanvas = document.getElementById('sig-canvas');
+  if(sigCanvas) sig.sigData = sigCanvas.toDataURL();
+  return {
+    id: getProjectKey(),
+    proj, sig, clState: JSON.parse(JSON.stringify(clState)),
+    sitePhotos: sitePhotos.slice(),
+    deficList: deficList.slice(),
+    sectionSkips: JSON.parse(JSON.stringify(sectionSkips)),
+    sectionNarratives: JSON.parse(JSON.stringify(sectionNarratives)),
+    sketches: JSON.parse(JSON.stringify(sketches)),
+    overallAssessment: (document.getElementById('overall-assessment')||{}).value||'',
+    execSummary: (document.getElementById('exec-summary')||{}).value||'',
+    savedAt: new Date().toISOString()
+  };
+}
+
+async function saveState(){
+  try {
+    if(!db) await openDB();
+    await dbPut(collectState());
+    showToast('✓ Saved',1500);
+  } catch(e){ console.error('Save error',e); showToast('Save error: '+e.message,3000); }
+}
+
+async function loadState(){
+  try {
+    if(!db) await openDB();
+    const data = await dbGet(getProjectKey());
+    if(!data) return;
+    applyState(data);
+  } catch(e){ console.error('Load error',e); }
+}
+
+function applyState(data){
+  if(data.proj){
+    Object.keys(data.proj).forEach(k=>{
+      const el = document.getElementById('pi-'+k);
+      if(el) el.value = data.proj[k]||'';
+    });
+  }
+  if(data.sig){
+    ['name','title','company','date'].forEach(k=>{
+      const el = document.getElementById('sig-'+k);
+      if(el) el.value = data.sig[k]||'';
+    });
+    if(data.sig.sigData){
+      const c = document.getElementById('sig-canvas');
+      if(c){ const img = new Image(); img.onload=()=>{c.getContext('2d').drawImage(img,0,0);}; img.src=data.sig.sigData; }
+    }
+  }
+  if(data.clState) clState = data.clState;
+  if(data.sitePhotos) sitePhotos = data.sitePhotos;
+  if(data.deficList) deficList = data.deficList;
+  if(data.sectionSkips) sectionSkips = data.sectionSkips;
+  if(data.sectionNarratives) sectionNarratives = data.sectionNarratives;
+  if(data.sketches) sketches = data.sketches;
+  if(data.overallAssessment){ const el=document.getElementById('overall-assessment'); if(el) el.value=data.overallAssessment; }
+  if(data.execSummary){ const el=document.getElementById('exec-summary'); if(el) el.value=data.execSummary; }
+  // Re-render all sections
+  SECTION_ORDER.forEach(sec=>renderSection(sec));
+  renderSitePhotos();
+  renderDeficList();
+  updateProgress();
+}
+
+// ══════════════════════════════════════════════════
+// JSON EXPORT / IMPORT
+// ══════════════════════════════════════════════════
+function exportJSON(){
+  const state = collectState();
+  const json = JSON.stringify(state,null,2);
+  const pno = (document.getElementById('pi-projno')||{}).value||'DD_Report';
+  const fname = 'ARENCON_DD_'+pno.replace(/[^a-zA-Z0-9_-]/g,'_')+'.json';
+  const blob = new Blob([json],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fname;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  showToast('✓ Exported '+fname,2500);
+}
+
+function importJSON(){
+  const inp = document.getElementById('json-input');
+  inp.onchange = function(){
+    if(!inp.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try {
+        const data = JSON.parse(e.target.result);
+        if(!data.proj && !data.clState){ showToast('Invalid DD file',2500); return; }
+        if(!confirm('Import this project? Current data will be replaced.')) return;
+        applyState(data);
+        showToast('✓ Imported successfully',2500);
+      } catch(err){ showToast('Import error: '+err.message,3000); }
+    };
+    reader.readAsText(inp.files[0]);
+    inp.value = '';
+  };
+  inp.click();
+}
+
+// ══════════════════════════════════════════════════
+// TAB NAVIGATION
+// ══════════════════════════════════════════════════
+function switchTab(tab){
+  curTab = tab;
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const panel = document.getElementById('panel-'+tab);
+  if(panel) panel.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    n.classList.toggle('active', n.dataset.tab===tab);
+  });
+  document.querySelectorAll('.mobile-nav button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.tab===tab);
+  });
+  if(tab==='gallery') renderGallery();
+  if(tab==='sketches') renderSketchEntries();
+  updateProgress();
+}
+
+function buildMobileNav(){
+  const nav = document.getElementById('mobile-nav');
+  if(!nav) return;
+  const tabs = [
+    {key:'info',icon:'📋'},{key:'exterior',icon:'🏗️'},{key:'firealarm',icon:'🔔'},
+    {key:'sprinkler',icon:'🚿'},{key:'standpipe',icon:'🧯'},{key:'firepump',icon:'🔴'},
+    {key:'watersupply',icon:'💧'},{key:'separations',icon:'🧱'},{key:'egress',icon:'🚪'},
+    {key:'electrical',icon:'⚡'},{key:'emergency',icon:'💡'},{key:'extinguishers',icon:'🧯'},
+    {key:'kitchen',icon:'🍳'},{key:'hazmat',icon:'⚠️'},{key:'general',icon:'🔍'},
+    {key:'sitephotos',icon:'📷'},{key:'sketches',icon:'✏️'},{key:'gallery',icon:'🖼️'},
+    {key:'deficiencies',icon:'⚠️'},{key:'signature',icon:'✍️'}
+  ];
+  nav.innerHTML = tabs.map(t=>`<button data-tab="${t.key}" onclick="switchTab('${t.key}')" class="${t.key==='info'?'active':''}">${t.icon}</button>`).join('');
+}
+
+// ══════════════════════════════════════════════════
+// CHECKLIST RENDERING
+// ══════════════════════════════════════════════════
+function renderSection(secKey){
+  const sec = SECTIONS[secKey];
+  if(!sec) return;
+  const container = document.getElementById('cl-'+secKey);
+  if(!container) return;
+  const parentBody = container.closest('.card-body');
+  
+  // Remove old skip/narrative if re-rendering
+  const existingSkip = parentBody.querySelector('.section-skip');
+  if(existingSkip) existingSkip.remove();
+  const existingNarr = parentBody.querySelector('.section-narrative');
+  if(existingNarr) existingNarr.remove();
+  
+  const isSkipped = sectionSkips[secKey]||false;
+  
+  // Section skip toggle
+  const skipDiv = document.createElement('div');
+  skipDiv.className = 'section-skip'+(isSkipped?' active':'');
+  skipDiv.innerHTML = `<input type="checkbox" ${isSkipped?'checked':''} onchange="toggleSectionSkip('${secKey}',this.checked)"><label>Mark entire section as <strong>N/A — Not Applicable</strong></label>`;
+  parentBody.insertBefore(skipDiv, container);
+  
+  // Section narrative
+  const narrDiv = document.createElement('div');
+  narrDiv.className = 'section-narrative';
+  narrDiv.innerHTML = `<label>Section Summary / Narrative Notes</label>
+    <div class="notes-wrap"><textarea placeholder="Describe overall observations for this section..." oninput="sectionNarratives['${secKey}']=this.value;debouncedSave();">${sectionNarratives[secKey]||''}</textarea>
+    <button class="voice-btn" onclick="startVoice(this)" title="Voice to text">🎤</button></div>`;
+  parentBody.insertBefore(narrDiv, container);
+  
+  // Apply skipped overlay
+  container.className = isSkipped ? 'section-skipped-overlay' : '';
+  
+  container.innerHTML = '';
+  if(isSkipped) {
+    container.innerHTML = '<p style="text-align:center;color:var(--na);padding:20px;font-size:14px;font-style:italic;">Section marked as N/A — Not Applicable</p>';
+    return;
+  }
+  
+  sec.items.forEach(item=>{
+    const stateKey = secKey+'-'+item.num;
+    if(!clState[stateKey]) clState[stateKey] = {val:'',notes:'',photos:[]};
+    const st = clState[stateKey];
+    const isFlagged = (item.type==='yn' && st.val==='no') || (item.type==='cond' && (st.val==='poor'||st.val==='critical'));
+    
+    const div = document.createElement('div');
+    div.className = 'cl-item'+(isFlagged?' flagged':'');
+    div.id = 'cli-'+stateKey;
+    
+    let btnsHtml = '';
+    if(item.type==='yn'){
+      btnsHtml = `
+        <button class="tog-btn tog-yes${st.val==='yes'?' sel':''}" onclick="setVal('${stateKey}','yes','yn')">Yes</button>
+        <button class="tog-btn tog-no${st.val==='no'?' sel':''}" onclick="setVal('${stateKey}','no','yn')">No</button>
+        <button class="tog-btn tog-na${st.val==='na'?' sel':''}" onclick="setVal('${stateKey}','na','yn')">N/A</button>`;
+    } else {
+      btnsHtml = `
+        <button class="cond-btn cond-good${st.val==='good'?' sel':''}" onclick="setVal('${stateKey}','good','cond')">Good</button>
+        <button class="cond-btn cond-fair${st.val==='fair'?' sel':''}" onclick="setVal('${stateKey}','fair','cond')">Fair</button>
+        <button class="cond-btn cond-poor${st.val==='poor'?' sel':''}" onclick="setVal('${stateKey}','poor','cond')">Poor</button>
+        <button class="cond-btn cond-critical${st.val==='critical'?' sel':''}" onclick="setVal('${stateKey}','critical','cond')">Critical</button>
+        <button class="cond-btn cond-na${st.val==='cond-na'?' sel':''}" onclick="setVal('${stateKey}','cond-na','cond')">N/A</button>`;
+    }
+    
+    const photosHtml = (st.photos||[]).map((p,i)=>{
+      const esc = stateKey.replace(/'/g,"\\'");
+      return `<div class="photo-thumb" onclick="openLightbox('${esc}',${i})"><img src="${p.d}" alt=""><button class="markup-btn" onclick="event.stopPropagation();openPhotoMarkup('${esc}',${i})" title="Markup">✏️</button><button class="del-btn" onclick="event.stopPropagation();delPhoto('${esc}',${i})">✕</button>${p.caption?'<div class="caption-bar">'+escHtml(p.caption)+'</div>':''}</div>`;
+    }).join('');
+    
+    div.innerHTML = `
+      <div class="cl-row">
+        <span class="cl-num">${item.num}</span>
+        <span class="cl-text">${item.text}</span>
+      </div>
+      <div class="cl-controls">${btnsHtml}</div>
+      <div class="notes-wrap">
+        <textarea class="cl-notes" placeholder="Notes..." rows="1" oninput="setNotes('${stateKey}',this.value)">${st.notes||''}</textarea>
+        <button class="voice-btn" onclick="startVoice(this)" title="Voice to text">🎤</button>
+      </div>
+      <div class="photo-zone" ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event,'${stateKey}')">
+        ${photosHtml}
+        ${(st.photos||[]).length===0?'<span class="pz-hint">Drag & drop photos or use buttons below</span>':''}
+      </div>
+      <div class="pz-btns" style="margin-top:4px;">
+        <button class="pz-btn" onclick="triggerUpload('${stateKey}')">📁 Upload</button>
+        <button class="pz-btn" onclick="triggerCamera('${stateKey}')">📸 Camera</button>
+      </div>`;
+    container.appendChild(div);
+  });
+}
+
+function toggleSectionSkip(secKey, checked){
+  sectionSkips[secKey] = checked;
+  renderSection(secKey);
+  autoFlagDeficiencies();
+  updateProgress();
+  debouncedSave();
+}
+
+function setVal(key, val, type){
+  if(!clState[key]) clState[key] = {val:'',notes:'',photos:[]};
+  clState[key].val = (clState[key].val === val) ? '' : val; // toggle off if same
+  const secKey = key.split('-')[0];
+  renderSection(secKey);
+  autoFlagDeficiencies();
+  updateProgress();
+  debouncedSave();
+}
+
+function setNotes(key, val){
+  if(!clState[key]) clState[key] = {val:'',notes:'',photos:[]};
+  clState[key].notes = val;
+  debouncedSave();
+}
+
+// ══════════════════════════════════════════════════
+// PHOTO SYSTEM
+// ══════════════════════════════════════════════════
+function dzOver(e){ e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function dzLeave(e){ e.currentTarget.classList.remove('drag-over'); }
+function dzDrop(e, target){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const files = e.dataTransfer.files;
+  if(files.length) processPhotos(files, target);
+}
+
+function triggerUpload(target){
+  photoTarget = target;
+  const inp = document.getElementById('photo-input');
+  inp.onchange = function(){ if(inp.files.length) processPhotos(inp.files, target); inp.value=''; };
+  inp.click();
+}
+
+function triggerCamera(target){
+  photoTarget = target;
+  const inp = document.getElementById('camera-input');
+  inp.onchange = function(){ if(inp.files.length) processPhotos(inp.files, target); inp.value=''; };
+  inp.click();
+}
+
+function processPhotos(files, target){
+  Array.from(files).forEach(f=>{
+    if(!f.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = function(e){
+      compressImage(e.target.result, 1600, 0.85, function(compressed){
+        if(target === 'site-photos'){
+          sitePhotos.push({d: compressed, caption:''});
+          renderSitePhotos();
+        } else if(target.startsWith('defic-')){
+          const idx = parseInt(target.replace('defic-',''));
+          if(deficList[idx]){ deficList[idx].photos.push({d:compressed, caption:''}); renderDeficList(); }
+        } else {
+          if(!clState[target]) clState[target] = {val:'',notes:'',photos:[]};
+          if(!clState[target].photos) clState[target].photos = [];
+          clState[target].photos.push({d: compressed, caption:''});
+          const secKey = target.split('-')[0];
+          renderSection(secKey);
+        }
+        debouncedSave();
+      });
+    };
+    reader.readAsDataURL(f);
+  });
+}
+
+function compressImage(dataUrl, maxW, quality, cb){
+  const img = new Image();
+  img.onload = function(){
+    let w=img.width, h=img.height;
+    if(w>maxW){ h=Math.round(h*maxW/w); w=maxW; }
+    const c = document.createElement('canvas');
+    c.width=w; c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    const compressed = c.toDataURL('image/jpeg',quality);
+    cb(compressed.length<dataUrl.length?compressed:dataUrl);
+  };
+  img.onerror = ()=>cb(dataUrl);
+  img.src = dataUrl;
+}
+
+function delPhoto(key, idx){
+  if(clState[key] && clState[key].photos){
+    clState[key].photos.splice(idx,1);
+    const secKey = key.split('-')[0];
+    renderSection(secKey);
+    debouncedSave();
+  }
+}
+
+function renderSitePhotos(){
+  const grid = document.getElementById('site-photos-grid');
+  if(!grid) return;
+  grid.innerHTML = sitePhotos.map((p,i)=>`<div class="photo-thumb" onclick="openLightbox('site',${i})"><img src="${p.d}" alt=""><button class="del-btn" onclick="event.stopPropagation();sitePhotos.splice(${i},1);renderSitePhotos();debouncedSave();">✕</button></div>`).join('');
+  // Update zone hint
+  const zone = document.getElementById('site-photo-zone');
+  if(zone){
+    const hint = zone.querySelector('.pz-hint');
+    if(hint && sitePhotos.length>0) hint.style.display='none';
+    else if(hint) hint.style.display='';
+  }
+}
+
+function openLightbox(key, idx){
+  let src = '';
+  if(key==='site' && sitePhotos[idx]) src = sitePhotos[idx].d;
+  else if(clState[key] && clState[key].photos && clState[key].photos[idx]) src = clState[key].photos[idx].d;
+  if(!src) return;
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').style.display = 'flex';
+}
+function closeLightbox(){ document.getElementById('lightbox').style.display='none'; }
+
+// ══════════════════════════════════════════════════
+// DEFICIENCY AUTO-FLAG
+// ══════════════════════════════════════════════════
+function autoFlagDeficiencies(){
+  // Remove existing auto-flagged that are no longer flagged
+  deficList = deficList.filter(d=> d.source==='manual' || isFlaggedItem(d.sectionKey, d.itemNum));
+  
+  // Add new auto-flags
+  SECTION_ORDER.forEach(secKey=>{
+    const sec = SECTIONS[secKey];
+    if(!sec) return;
+    sec.items.forEach(item=>{
+      const stateKey = secKey+'-'+item.num;
+      const st = clState[stateKey];
+      if(!st) return;
+      const isFlagged = (item.type==='yn' && st.val==='no') || (item.type==='cond' && (st.val==='poor'||st.val==='critical'));
+      if(isFlagged){
+        const exists = deficList.find(d=>d.source==='auto' && d.sectionKey===secKey && d.itemNum===item.num);
+        if(!exists){
+          deficList.push({
+            source:'auto', sectionKey:secKey, itemNum:item.num, itemText:item.text,
+            severity: st.val==='critical'?'critical':(st.val==='no'||st.val==='poor')?'high':'medium',
+            confirmed: true, notes:'', photos:[], recommendation:''
+          });
+        }
+      }
+    });
+  });
+  updateDeficCount();
+  if(curTab==='deficiencies') renderDeficList();
+}
+
+function isFlaggedItem(secKey, itemNum){
+  const stateKey = secKey+'-'+itemNum;
+  const st = clState[stateKey];
+  if(!st) return false;
+  const sec = SECTIONS[secKey];
+  if(!sec) return false;
+  const item = sec.items.find(i=>i.num===itemNum);
+  if(!item) return false;
+  return (item.type==='yn' && st.val==='no') || (item.type==='cond' && (st.val==='poor'||st.val==='critical'));
+}
+
+function addManualDeficiency(){
+  deficList.push({
+    source:'manual', sectionKey:'', itemNum:'', itemText:'',
+    severity:'medium', confirmed:true, notes:'', photos:[], recommendation:''
+  });
+  renderDeficList();
+}
+
+function updateDeficCount(){
+  const confirmed = deficList.filter(d=>d.confirmed).length;
+  const el = document.getElementById('defic-count');
+  if(el) el.textContent = confirmed;
+}
+
+function filterDefic(f){
+  deficFilter = f;
+  document.querySelectorAll('#panel-deficiencies .tog-btn').forEach(b=>b.classList.remove('sel'));
+  const btn = document.getElementById('df-'+f);
+  if(btn) btn.classList.add('sel');
+  renderDeficList();
+}
+
+function renderDeficList(){
+  const container = document.getElementById('defic-list');
+  if(!container) return;
+  
+  let filtered = deficList;
+  if(deficFilter==='confirmed') filtered = deficList.filter(d=>d.confirmed && d.source==='auto');
+  else if(deficFilter==='excluded') filtered = deficList.filter(d=>!d.confirmed);
+  else if(deficFilter==='manual') filtered = deficList.filter(d=>d.source==='manual');
+  
+  // Stats
+  document.getElementById('ds-total').textContent = deficList.length;
+  document.getElementById('ds-confirmed').textContent = deficList.filter(d=>d.confirmed).length;
+  document.getElementById('ds-excluded').textContent = deficList.filter(d=>!d.confirmed).length;
+  document.getElementById('ds-manual').textContent = deficList.filter(d=>d.source==='manual').length;
+  
+  if(filtered.length===0){
+    container.innerHTML = '<p style="text-align:center;color:var(--silver);padding:20px;font-style:italic;">No deficiencies in this filter.</p>';
+    return;
+  }
+  
+  container.innerHTML = filtered.map((d,fi)=>{
+    const realIdx = deficList.indexOf(d);
+    const secLabel = d.sectionKey && SECTIONS[d.sectionKey] ? SECTIONS[d.sectionKey].label : 'Manual Entry';
+    const photosHtml = (d.photos||[]).map((p,pi)=>`<div class="photo-thumb"><img src="${p.d}" alt=""><button class="del-btn" onclick="event.stopPropagation();deficList[${realIdx}].photos.splice(${pi},1);renderDeficList();debouncedSave();">✕</button></div>`).join('');
+    
+    return `<div class="defic-card ${d.confirmed?'confirmed':'excluded'}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+        <div>
+          <span class="severity-badge sev-${d.severity}">${d.severity.toUpperCase()}</span>
+          <span style="font-size:12px;color:var(--steel);margin-left:8px;">${secLabel}${d.itemNum?' — '+d.itemNum:''}</span>
+          <span style="font-size:11px;color:var(--silver);margin-left:6px;">(${d.source})</span>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="tog-btn ${d.confirmed?'tog-no sel':'tog-yes'}" onclick="toggleDeficConfirm(${realIdx})" style="font-size:11px;">${d.confirmed?'✓ In Report':'Excluded'}</button>
+          <select style="font-size:11px;padding:3px 6px;border-radius:4px;border:1px solid var(--border);" onchange="deficList[${realIdx}].severity=this.value;renderDeficList();debouncedSave();">
+            <option value="critical" ${d.severity==='critical'?'selected':''}>Critical</option>
+            <option value="high" ${d.severity==='high'?'selected':''}>High</option>
+            <option value="medium" ${d.severity==='medium'?'selected':''}>Medium</option>
+            <option value="low" ${d.severity==='low'?'selected':''}>Low</option>
+          </select>
+          ${d.source==='manual'?`<button class="pz-btn" onclick="deficList.splice(${realIdx},1);renderDeficList();updateDeficCount();debouncedSave();" style="color:var(--red);font-size:11px;">🗑️</button>`:''}
+        </div>
+      </div>
+      <div style="font-size:13px;margin-bottom:6px;"><strong>${d.itemNum}</strong> ${d.itemText||''}</div>
+      <textarea class="cl-notes" placeholder="Additional notes / observations..." rows="2" oninput="deficList[${realIdx}].notes=this.value;debouncedSave();">${d.notes||''}</textarea>
+      <textarea class="cl-notes" placeholder="Recommendation..." rows="2" style="margin-top:4px;" oninput="deficList[${realIdx}].recommendation=this.value;debouncedSave();">${d.recommendation||''}</textarea>
+      <div class="photo-zone" style="margin-top:6px;" ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event,'defic-${realIdx}')">
+        ${photosHtml}
+        ${(d.photos||[]).length===0?'<span class="pz-hint">Drag & drop evidence photos</span>':''}
+      </div>
+      <div class="pz-btns" style="margin-top:4px;">
+        <button class="pz-btn" onclick="triggerUpload('defic-${realIdx}')">📁 Upload</button>
+        <button class="pz-btn" onclick="triggerCamera('defic-${realIdx}')">📸 Camera</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDeficConfirm(idx){
+  if(deficList[idx]) deficList[idx].confirmed = !deficList[idx].confirmed;
+  renderDeficList();
+  updateDeficCount();
+  debouncedSave();
+}
+
+// ══════════════════════════════════════════════════
+// PROGRESS TRACKING
+// ══════════════════════════════════════════════════
+function updateProgress(){
+  let total=0, answered=0;
+  const sectionStats = {};
+  SECTION_ORDER.forEach(secKey=>{
+    const sec = SECTIONS[secKey];
+    if(!sec) return;
+    if(sectionSkips[secKey]){ sectionStats[secKey]={total:sec.items.length, answered:sec.items.length, skipped:true}; total+=sec.items.length; answered+=sec.items.length; return; }
+    let sTotal=0, sAnswered=0;
+    sec.items.forEach(item=>{
+      const st = clState[secKey+'-'+item.num];
+      sTotal++;
+      if(st && st.val) sAnswered++;
+    });
+    total += sTotal; answered += sAnswered;
+    sectionStats[secKey] = {total:sTotal, answered:sAnswered, skipped:false};
+  });
+  
+  const pct = total>0?Math.round(answered/total*100):0;
+  const bar = document.getElementById('progress-bar');
+  if(bar) bar.style.width = pct+'%';
+  const txt = document.getElementById('progress-text');
+  if(txt) txt.textContent = answered+'/'+total+' items ('+pct+'% complete)';
+  
+  // Update nav badges with scoring
+  SECTION_ORDER.forEach(secKey=>{
+    const navItem = document.querySelector(`.nav-item[data-tab="${secKey}"]`);
+    if(!navItem) return;
+    const s = sectionStats[secKey];
+    let badge = navItem.querySelector('.nav-badge');
+    if(!badge){ badge=document.createElement('span'); badge.className='nav-badge'; navItem.appendChild(badge); }
+    if(s.skipped){
+      badge.textContent = 'N/A';
+      badge.className = 'nav-badge skipped';
+    } else {
+      const score = getSectionScore(secKey);
+      badge.textContent = s.answered+'/'+s.total+(score && score.pct!==null?' ('+score.label+')':'');
+      badge.className = 'nav-badge'+(s.answered===s.total && s.total>0?' complete':'');
+    }
+  });
+  
+  // Update gallery if on that tab
+  if(curTab==='gallery') renderGallery();
+}
+
+// ══════════════════════════════════════════════════
+// SIGNATURE PAD
+// ══════════════════════════════════════════════════
+function initSignaturePad(){
+  const canvas = document.getElementById('sig-canvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+  function getPos(e){
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches?e.touches[0]:e;
+    return {x:(t.clientX-r.left)*(canvas.width/r.width), y:(t.clientY-r.top)*(canvas.height/r.height)};
+  }
+  function start(e){ e.preventDefault(); drawing=true; const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }
+  function move(e){ if(!drawing) return; e.preventDefault(); const p=getPos(e); ctx.lineTo(p.x,p.y); ctx.strokeStyle='#1C2333'; ctx.lineWidth=2; ctx.lineCap='round'; ctx.stroke(); }
+  function end(){ drawing=false; }
+  canvas.addEventListener('mousedown',start); canvas.addEventListener('mousemove',move); canvas.addEventListener('mouseup',end); canvas.addEventListener('mouseleave',end);
+  canvas.addEventListener('touchstart',start,{passive:false}); canvas.addEventListener('touchmove',move,{passive:false}); canvas.addEventListener('touchend',end);
+}
+function clearSignature(){
+  const c = document.getElementById('sig-canvas');
+  if(c) c.getContext('2d').clearRect(0,0,c.width,c.height);
+}
+
+// ══════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════
+function showToast(msg,dur){
+  const t = document.getElementById('toast');
+  if(!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), dur||2000);
+}
+
+let _saveTimer = null;
+function debouncedSave(){
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(()=>saveState(),800);
+}
+
+function toggleDarkMode(){
+  document.body.classList.toggle('dark-mode');
+  localStorage.setItem('arencon_dark', document.body.classList.contains('dark-mode'));
+}
+
+function resetProject(){
+  if(!confirm('Reset all data for this project? This cannot be undone.')) return;
+  clState = {};
+  sitePhotos = [];
+  deficList = [];
+  document.querySelectorAll('#panel-info input, #panel-info select, #panel-info textarea').forEach(el=>el.value='');
+  document.querySelectorAll('#panel-signature input, #panel-signature select, #panel-signature textarea').forEach(el=>el.value='');
+  clearSignature();
+  SECTION_ORDER.forEach(sec=>renderSection(sec));
+  renderSitePhotos();
+  renderDeficList();
+  updateProgress();
+  saveState();
+  showToast('✓ Project reset',2000);
+}
+
+async function shareReport(){
+  try {
+    const state = collectState();
+    const json = JSON.stringify(state);
+    const blob = new Blob([json],{type:'application/json'});
+    const pno = (document.getElementById('pi-projno')||{}).value||'DD_Report';
+    const fname = 'ARENCON_DD_'+pno.replace(/[^a-zA-Z0-9_-]/g,'_')+'.json';
+    const file = new File([blob], fname, {type:'application/json'});
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({title:'ARENCON DD Report', text:'Due Diligence Report', files:[file]});
+    } else {
+      exportJSON();
+    }
+  } catch(e){ if(e.name!=='AbortError') showToast('Share failed: '+e.message,3000); }
+}
+
+
+// ══════════════════════════════════════════════════
+// VOICE-TO-TEXT
+// ══════════════════════════════════════════════════
+function startVoice(btn){
+  if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)){
+    showToast('Voice input not supported in this browser',3000);
+    return;
+  }
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-CA';
+  
+  const textarea = btn.closest('.notes-wrap').querySelector('textarea');
+  if(!textarea) return;
+  
+  btn.classList.add('recording');
+  btn.textContent = '⏹';
+  
+  recognition.onresult = function(e){
+    const transcript = e.results[0][0].transcript;
+    textarea.value = (textarea.value ? textarea.value + ' ' : '') + transcript;
+    textarea.dispatchEvent(new Event('input',{bubbles:true}));
+  };
+  recognition.onend = function(){
+    btn.classList.remove('recording');
+    btn.textContent = '🎤';
+  };
+  recognition.onerror = function(e){
+    btn.classList.remove('recording');
+    btn.textContent = '🎤';
+    if(e.error !== 'aborted') showToast('Voice error: '+e.error,2500);
+  };
+  recognition.start();
+  
+  btn.onclick = function(){ recognition.stop(); btn.onclick = function(){ startVoice(btn); }; };
+}
+
+// ══════════════════════════════════════════════════
+// PHOTO MARKUP
+// ══════════════════════════════════════════════════
+function openPhotoMarkup(key, idx){
+  let photoArr, type;
+  if(key === 'site'){
+    photoArr = sitePhotos; type = 'site';
+  } else if(key.startsWith('defic-')){
+    const di = parseInt(key.replace('defic-',''));
+    if(!deficList[di]) return;
+    photoArr = deficList[di].photos; type = 'defic';
+  } else {
+    if(!clState[key]||!clState[key].photos) return;
+    photoArr = clState[key].photos; type = 'checklist';
+  }
+  if(!photoArr||!photoArr[idx]) return;
+  
+  pmuState.target = key;
+  pmuState.targetIdx = idx;
+  pmuState.targetType = type;
+  pmuState.undoStack = [];
+  
+  const modal = document.getElementById('pmu-modal');
+  modal.style.display = 'flex';
+  
+  const canvas = document.getElementById('pmu-canvas');
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.onload = function(){
+    canvas.width = Math.min(img.width, 1600);
+    canvas.height = Math.round(img.height * (canvas.width / img.width));
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    pmuBaseImg = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    initPmuDraw(canvas);
+  };
+  img.src = photoArr[idx].d;
+}
+
+function initPmuDraw(canvas){
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+  function getPos(e){
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches?e.touches[0]:e;
+    return {x:(t.clientX-r.left)*(canvas.width/r.width), y:(t.clientY-r.top)*(canvas.height/r.height)};
+  }
+  function start(e){
+    e.preventDefault(); drawing=true;
+    pmuState.undoStack.push(ctx.getImageData(0,0,canvas.width,canvas.height));
+    if(pmuState.undoStack.length>20) pmuState.undoStack.shift();
+    const p=getPos(e);
+    if(pmuState.tool==='text'){
+      const txt = prompt('Enter text:');
+      if(txt){ ctx.font='bold 18px Calibri'; ctx.fillStyle=pmuState.color; ctx.fillText(txt,p.x,p.y); }
+      drawing=false; return;
+    }
+    ctx.beginPath(); ctx.moveTo(p.x,p.y);
+  }
+  function move(e){
+    if(!drawing) return; e.preventDefault();
+    const p=getPos(e);
+    if(pmuState.tool==='erase'){ ctx.globalCompositeOperation='destination-out'; ctx.lineWidth=20; }
+    else if(pmuState.tool==='highlight'){ ctx.globalCompositeOperation='multiply'; ctx.lineWidth=16; ctx.globalAlpha=0.3; }
+    else { ctx.globalCompositeOperation='source-over'; ctx.lineWidth=pmuState.size; ctx.globalAlpha=1; }
+    ctx.strokeStyle=pmuState.color; ctx.lineCap='round'; ctx.lineTo(p.x,p.y); ctx.stroke();
+  }
+  function end(){ drawing=false; ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1; }
+  
+  // Remove old listeners
+  const newCanvas = canvas.cloneNode(true);
+  canvas.parentNode.replaceChild(newCanvas, canvas);
+  const nc = newCanvas;
+  nc.getContext('2d').putImageData(pmuState.undoStack.length?ctx.getImageData(0,0,canvas.width,canvas.height):pmuBaseImg, 0, 0);
+  // Re-get context after clone
+  const nctx = nc.getContext('2d');
+  if(pmuBaseImg) nctx.putImageData(pmuBaseImg, 0, 0);
+  // Replay undo stack on fresh canvas not needed — we use the current state
+  // Actually we need the current canvas state, let's just re-init properly
+  
+  canvas = document.getElementById('pmu-canvas');
+  if(!canvas) return;
+  canvas.addEventListener('mousedown',start); canvas.addEventListener('mousemove',move); canvas.addEventListener('mouseup',end); canvas.addEventListener('mouseleave',end);
+  canvas.addEventListener('touchstart',start,{passive:false}); canvas.addEventListener('touchmove',move,{passive:false}); canvas.addEventListener('touchend',end);
+}
+
+function pmuSetTool(tool){
+  pmuState.tool = tool;
+  document.querySelectorAll('#pmu-toolbar button').forEach(b=>b.classList.remove('pmu-active'));
+  const btn = document.getElementById('pmu-btn-'+tool);
+  if(btn) btn.classList.add('pmu-active');
+}
+
+function pmuSetColor(color, el){
+  pmuState.color = color;
+  document.querySelectorAll('#pmu-toolbar .color-dot').forEach(d=>d.classList.remove('active'));
+  if(el) el.classList.add('active');
+}
+
+function pmuUndo(){
+  const canvas = document.getElementById('pmu-canvas');
+  if(!canvas || pmuState.undoStack.length===0) return;
+  canvas.getContext('2d').putImageData(pmuState.undoStack.pop(), 0, 0);
+}
+
+function pmuSave(){
+  const canvas = document.getElementById('pmu-canvas');
+  if(!canvas) return;
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  
+  // Save back to source
+  const key = pmuState.target;
+  const idx = pmuState.targetIdx;
+  if(pmuState.targetType==='site' && sitePhotos[idx]){
+    sitePhotos[idx].d = dataUrl;
+    renderSitePhotos();
+  } else if(pmuState.targetType==='defic'){
+    const di = parseInt(key.replace('defic-',''));
+    if(deficList[di] && deficList[di].photos[idx]) deficList[di].photos[idx].d = dataUrl;
+    renderDeficList();
+  } else if(clState[key] && clState[key].photos[idx]){
+    clState[key].photos[idx].d = dataUrl;
+    const secKey = key.split('-')[0];
+    renderSection(secKey);
+  }
+  debouncedSave();
+  pmuClose();
+  showToast('✓ Markup saved',1500);
+}
+
+function pmuClose(){
+  document.getElementById('pmu-modal').style.display = 'none';
+  pmuState.undoStack = [];
+  pmuBaseImg = null;
+}
+
+// ══════════════════════════════════════════════════
+// SKETCH PAD
+// ══════════════════════════════════════════════════
+function addSketchEntry(){
+  const id = ++sketchCounter;
+  sketches.push({id, canvasData:null, comment:''});
+  renderSketchEntries();
+}
+
+function renderSketchEntries(){
+  const container = document.getElementById('sketch-entries');
+  if(!container) return;
+  container.innerHTML = sketches.map((sk,i)=>{
+    return `<div class="sketch-entry" id="sketch-${sk.id}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <strong style="color:var(--arencon);">Sketch #${i+1}</strong>
+        <button class="pz-btn" onclick="removeSketch(${sk.id})" style="color:var(--red);font-size:11px;">🗑️ Remove</button>
+      </div>
+      <div class="sketch-canvas-wrap">
+        <canvas id="sk-canvas-${sk.id}" width="800" height="400" style="background:#fff;"></canvas>
+      </div>
+      <div class="sketch-toolbar">
+        <button class="sk-active" onclick="setSkTool(${sk.id},'pen',this)">✏️ Pen</button>
+        <button onclick="setSkTool(${sk.id},'erase',this)">⬜ Erase</button>
+        <div class="color-dot sk-active" style="background:#C0392B;" onclick="setSkColor(${sk.id},'#C0392B',this)"></div>
+        <div class="color-dot" style="background:#1C2333;" onclick="setSkColor(${sk.id},'#1C2333',this)"></div>
+        <div class="color-dot" style="background:#1565C0;" onclick="setSkColor(${sk.id},'#1565C0',this)"></div>
+        <div class="color-dot" style="background:#1A7A4A;" onclick="setSkColor(${sk.id},'#1A7A4A',this)"></div>
+        <button onclick="clearSkCanvas(${sk.id})">🗑️ Clear</button>
+      </div>
+      <div class="notes-wrap" style="margin-top:8px;">
+        <textarea class="cl-notes" placeholder="Sketch description / notes..." oninput="updateSkComment(${sk.id},this.value)">${sk.comment||''}</textarea>
+        <button class="voice-btn" onclick="startVoice(this)" title="Voice to text">🎤</button>
+      </div>
+    </div>`;
+  }).join('');
+  // Init canvases
+  sketches.forEach(sk=>{
+    const c = document.getElementById('sk-canvas-'+sk.id);
+    if(!c) return;
+    if(sk.canvasData){ const img=new Image(); img.onload=()=>c.getContext('2d').drawImage(img,0,0); img.src=sk.canvasData; }
+    initSketchCanvas(c, sk.id);
+  });
+}
+
+let skTools = {}; // {id: {tool, color}}
+function initSketchCanvas(canvas, id){
+  if(!skTools[id]) skTools[id] = {tool:'pen', color:'#C0392B'};
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+  function getPos(e){
+    const r=canvas.getBoundingClientRect(); const t=e.touches?e.touches[0]:e;
+    return {x:(t.clientX-r.left)*(canvas.width/r.width), y:(t.clientY-r.top)*(canvas.height/r.height)};
+  }
+  function start(e){ e.preventDefault(); drawing=true; const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }
+  function move(e){ if(!drawing) return; e.preventDefault(); const p=getPos(e);
+    const t=skTools[id];
+    if(t.tool==='erase'){ctx.globalCompositeOperation='destination-out';ctx.lineWidth=20;}
+    else{ctx.globalCompositeOperation='source-over';ctx.lineWidth=3;}
+    ctx.strokeStyle=t.color; ctx.lineCap='round'; ctx.lineTo(p.x,p.y); ctx.stroke();
+  }
+  function end(){ drawing=false; ctx.globalCompositeOperation='source-over'; saveSkCanvas(id); }
+  canvas.addEventListener('mousedown',start); canvas.addEventListener('mousemove',move); canvas.addEventListener('mouseup',end); canvas.addEventListener('mouseleave',end);
+  canvas.addEventListener('touchstart',start,{passive:false}); canvas.addEventListener('touchmove',move,{passive:false}); canvas.addEventListener('touchend',end);
+}
+
+function setSkTool(id,tool,btn){ skTools[id].tool=tool; btn.closest('.sketch-toolbar').querySelectorAll('button').forEach(b=>b.classList.remove('sk-active')); btn.classList.add('sk-active'); }
+function setSkColor(id,color,el){ skTools[id].color=color; el.closest('.sketch-toolbar').querySelectorAll('.color-dot').forEach(d=>d.classList.remove('sk-active')); el.classList.add('sk-active'); }
+function clearSkCanvas(id){ const c=document.getElementById('sk-canvas-'+id); if(c) c.getContext('2d').clearRect(0,0,c.width,c.height); saveSkCanvas(id); }
+function saveSkCanvas(id){ const c=document.getElementById('sk-canvas-'+id); const sk=sketches.find(s=>s.id===id); if(c&&sk) sk.canvasData=c.toDataURL(); debouncedSave(); }
+function updateSkComment(id,val){ const sk=sketches.find(s=>s.id===id); if(sk) sk.comment=val; debouncedSave(); }
+function removeSketch(id){ sketches=sketches.filter(s=>s.id!==id); renderSketchEntries(); debouncedSave(); }
+
+// ══════════════════════════════════════════════════
+// PHOTO GALLERY
+// ══════════════════════════════════════════════════
+function renderGallery(){
+  const container = document.getElementById('gallery-container');
+  const emptyMsg = document.getElementById('gallery-empty');
+  if(!container) return;
+  
+  let allPhotos = [];
+  
+  // Site photos
+  sitePhotos.forEach((p,i)=>allPhotos.push({d:p.d, label:'Site Photo', key:'site', idx:i}));
+  
+  // Checklist photos
+  SECTION_ORDER.forEach(secKey=>{
+    const sec = SECTIONS[secKey];
+    if(!sec) return;
+    sec.items.forEach(item=>{
+      const stateKey = secKey+'-'+item.num;
+      const st = clState[stateKey];
+      if(st && st.photos){
+        st.photos.forEach((p,i)=>allPhotos.push({d:p.d, label:sec.label.substring(0,15)+' '+item.num, key:stateKey, idx:i}));
+      }
+    });
+  });
+  
+  // Deficiency photos
+  deficList.forEach((d,di)=>{
+    if(d.photos){
+      d.photos.forEach((p,i)=>allPhotos.push({d:p.d, label:'Defic #'+(di+1), key:'defic-'+di, idx:i}));
+    }
+  });
+  
+  if(allPhotos.length===0){
+    container.innerHTML = '';
+    if(emptyMsg) emptyMsg.style.display = '';
+    return;
+  }
+  if(emptyMsg) emptyMsg.style.display = 'none';
+  
+  container.innerHTML = allPhotos.map(p=>
+    `<div class="gallery-item" onclick="openLightbox('${p.key}',${p.idx})">
+      <img src="${p.d}" alt="">
+      <span class="gallery-label">${escHtml(p.label)}</span>
+    </div>`
+  ).join('');
+}
+
+// ══════════════════════════════════════════════════
+// SCORING PER SECTION
+// ══════════════════════════════════════════════════
+function getSectionScore(secKey){
+  const sec = SECTIONS[secKey];
+  if(!sec) return null;
+  if(sectionSkips[secKey]) return {pct:null, label:'N/A', cls:'skipped'};
+  let total=0, pass=0;
+  sec.items.forEach(item=>{
+    const st = clState[secKey+'-'+item.num];
+    if(!st||!st.val) return;
+    total++;
+    if(st.val==='yes'||st.val==='good'||st.val==='na'||st.val==='cond-na'||st.val==='fair') pass++;
+  });
+  if(total===0) return {pct:null, label:'—', cls:''};
+  const pct = Math.round(pass/total*100);
+  let cls = 'score-good';
+  if(pct<60) cls = 'score-critical';
+  else if(pct<75) cls = 'score-poor';
+  else if(pct<90) cls = 'score-fair';
+  return {pct, label:pct+'%', cls};
+}
+
+// ══════════════════════════════════════════════════
+// PDF EXPORT
+// ══════════════════════════════════════════════════
+function exportPDF(mode){
+  if(!mode) mode = 'full';
+  const proj = {};
+  ['projno','client','projname','address','date','prepby','reviewer','bldgtype','yearbuilt','storeys','area','construction','occupancy','sprinklered','hasalarm','contact','contactphone','notes'].forEach(k=>{
+    const el = document.getElementById('pi-'+k);
+    if(el) proj[k] = el.value||'—';
+  });
+  
+  const confirmedDefics = deficList.filter(d=>d.confirmed);
+  const overallVal = (document.getElementById('overall-assessment')||{}).value||'';
+  const execSum = (document.getElementById('exec-summary')||{}).value||'';
+  const sigName = (document.getElementById('sig-name')||{}).value||'';
+  const sigTitle = (document.getElementById('sig-title')||{}).value||'';
+  const sigCompany = (document.getElementById('sig-company')||{}).value||'ARENCON Inc.';
+  const sigDate = (document.getElementById('sig-date')||{}).value||'';
+  const sigCanvas = document.getElementById('sig-canvas');
+  const sigImg = sigCanvas ? sigCanvas.toDataURL() : '';
+  
+  const assessMap = {
+    'satisfactory':'Satisfactory — No significant deficiencies',
+    'conditional':'Conditional — Minor deficiencies noted',
+    'unsatisfactory':'Unsatisfactory — Major deficiencies requiring immediate attention',
+    'critical':'Critical — Life safety concerns identified'
+  };
+  const assessColor = {
+    'satisfactory':'#1A7A4A','conditional':'#E67E22','unsatisfactory':'#C0392B','critical':'#8E0000'
+  };
+  
+  // Count stats
+  let totalItems=0, yesCount=0, noCount=0, naCount=0, goodCount=0, fairCount=0, poorCount=0, critCount=0, unanswered=0;
+  SECTION_ORDER.forEach(secKey=>{
+    const sec = SECTIONS[secKey];
+    if(!sec) return;
+    sec.items.forEach(item=>{
+      totalItems++;
+      const st = clState[secKey+'-'+item.num];
+      if(!st||!st.val){ unanswered++; return; }
+      if(st.val==='yes') yesCount++;
+      else if(st.val==='no') noCount++;
+      else if(st.val==='na'||st.val==='cond-na') naCount++;
+      else if(st.val==='good') goodCount++;
+      else if(st.val==='fair') fairCount++;
+      else if(st.val==='poor') poorCount++;
+      else if(st.val==='critical') critCount++;
+    });
+  });
+
+  const LOGO = document.querySelector('.hdr img')?.src || '';
+  const emailAddr = 'mail' + '@' + 'arencon.com';
+  
+  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ARENCON DD Report — ${proj.projno}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Calibri,'Segoe UI',sans-serif;font-size:11pt;color:#1C2333;background:#525659;padding:20px;}
+.page{background:#fff;width:8.5in;min-height:11in;margin:0 auto 20px;padding:0.75in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;}
+h1{font-size:18pt;color:#9C2742;margin-bottom:6px;}
+h2{font-size:14pt;color:#2C4770;margin:18px 0 8px;border-bottom:2px solid #9C2742;padding-bottom:4px;}
+h3{font-size:12pt;color:#9C2742;margin:12px 0 6px;}
+table{width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:10px;}
+td,th{padding:5px 8px;border:1px solid #ddd;text-align:left;vertical-align:top;}
+th{background:#f5f5f5;font-weight:700;color:#2C4770;}
+.logo-bar{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;border-bottom:3px solid #9C2742;padding-bottom:12px;}
+.logo-bar img{height:40px;}
+.addr-block{text-align:right;font-size:8pt;color:#555;line-height:1.6;}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0;}
+.stat-cell{text-align:center;padding:10px;border-radius:6px;border:1px solid #ddd;}
+.stat-cell .sv{font-size:20pt;font-weight:700;}
+.stat-cell .sl{font-size:8pt;color:#666;text-transform:uppercase;}
+.badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:9pt;font-weight:700;color:#fff;}
+.b-critical{background:#8E0000;}.b-high{background:#C0392B;}.b-medium{background:#E67E22;}.b-low{background:#1A7A4A;}
+.photo-grid{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0;}
+.photo-grid img{width:180px;height:135px;object-fit:cover;border-radius:4px;border:1px solid #ddd;}
+.assess-box{padding:16px;border-radius:8px;text-align:center;margin:16px 0;border:3px solid;}
+.assess-box .label{font-size:16pt;font-weight:900;letter-spacing:2px;}
+.section-row td:first-child{width:55px;font-weight:700;color:#9C2742;}
+.val-yes{color:#1A7A4A;font-weight:700;}.val-no{color:#C0392B;font-weight:700;}.val-na{color:#5A6473;}
+.val-good{color:#1A7A4A;font-weight:600;}.val-fair{color:#E67E22;font-weight:600;}.val-poor{color:#C0392B;font-weight:700;}.val-critical{color:#8E0000;font-weight:700;}
+.notes-cell{font-style:italic;color:#555;font-size:9.5pt;}
+#pdf-btn-bar{position:fixed;top:0;left:0;right:0;z-index:9999;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+@media print{
+  body{background:#fff;padding:0;}
+  .page{box-shadow:none;margin:0;padding:0.5in 0.6in;width:auto;min-height:auto;page-break-after:always;}
+  .page:last-child{page-break-after:auto;}
+  #pdf-btn-bar{display:none!important;}
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;
+}
+</style></head><body>`;
+
+  // Export bar
+  html += `<div id="pdf-btn-bar">
+    <button onclick="window.print()" style="padding:8px 24px;background:#1A7A4A;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;">📄 Export PDF</button>
+    <span style="color:#fff;font-size:13px;opacity:.7;flex:1;">Click to save as PDF via your browser print dialog.</span>
+    <button onclick="window.close()" style="padding:8px 16px;background:#455A64;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;">✕ Close</button>
+  </div>`;
+
+  // === COVER PAGE ===
+  html += `<div class="page">
+    <div class="logo-bar">
+      <img src="${LOGO}" alt="ARENCON">
+      <div class="addr-block">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp; L4X 2Z6, CANADA<br>P: 905 615 1774 &nbsp;|&nbsp; F: 905 615 9351<br>E: ${emailAddr}</div>
+    </div>
+    <h1>Fire Protection &amp; Life Safety Due Diligence Report</h1>
+    <p style="font-size:10pt;color:#666;margin-bottom:16px;">${mode==='full'?'Full Assessment Report':'Summary Report'}</p>
+    <table>
+      <tr><th style="width:25%">Project No.</th><td>${proj.projno}</td><th style="width:25%">Client</th><td>${proj.client}</td></tr>
+      <tr><th>Project Name</th><td>${proj.projname}</td><th>Address</th><td>${proj.address}</td></tr>
+      <tr><th>Date of Inspection</th><td>${proj.date}</td><th>Prepared By</th><td>${proj.prepby}</td></tr>
+      <tr><th>Reviewed By</th><td>${proj.reviewer}</td><th>Building Type</th><td>${proj.bldgtype}</td></tr>
+      <tr><th>Year Built</th><td>${proj.yearbuilt}</td><th>Storeys</th><td>${proj.storeys}</td></tr>
+      <tr><th>Total Area (sq ft)</th><td>${proj.area}</td><th>Construction Type</th><td>${proj.construction}</td></tr>
+      <tr><th>Occupancy (OBC)</th><td>${proj.occupancy}</td><th>Sprinklered</th><td>${proj.sprinklered}</td></tr>
+      <tr><th>Fire Alarm</th><td>${proj.hasalarm}</td><th></th><td></td></tr>
+    </table>`;
+  
+  // Overall assessment box
+  if(overallVal){
+    html += `<div class="assess-box" style="border-color:${assessColor[overallVal]||'#999'};background:${overallVal==='satisfactory'?'#F0FFF4':overallVal==='conditional'?'#FFF8F0':'#FFF5F5'};">
+      <div class="label" style="color:${assessColor[overallVal]||'#333'};">${(assessMap[overallVal]||'Not Assessed').toUpperCase()}</div>
+    </div>`;
+  }
+  html += `</div>`; // end cover page
+
+  // === EXECUTIVE SUMMARY PAGE ===
+  html += `<div class="page">
+    <div class="logo-bar"><img src="${LOGO}" alt="ARENCON"><div class="addr-block">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp; L4X 2Z6, CANADA</div></div>
+    <h2>Executive Summary</h2>
+    <div class="stat-grid">
+      <div class="stat-cell"><div class="sv" style="color:#1A7A4A;">${yesCount+goodCount}</div><div class="sl">Compliant / Good</div></div>
+      <div class="stat-cell"><div class="sv" style="color:#E67E22;">${fairCount}</div><div class="sl">Fair Condition</div></div>
+      <div class="stat-cell"><div class="sv" style="color:#C0392B;">${noCount+poorCount}</div><div class="sl">Non-Compliant / Poor</div></div>
+      <div class="stat-cell"><div class="sv" style="color:#8E0000;">${critCount}</div><div class="sl">Critical</div></div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-cell"><div class="sv">${naCount}</div><div class="sl">Not Applicable</div></div>
+      <div class="stat-cell"><div class="sv">${unanswered}</div><div class="sl">Not Assessed</div></div>
+      <div class="stat-cell"><div class="sv" style="color:#C0392B;">${confirmedDefics.length}</div><div class="sl">Deficiencies</div></div>
+      <div class="stat-cell"><div class="sv">${totalItems}</div><div class="sl">Total Items</div></div>
+    </div>`;
+  if(execSum){
+    html += `<h3>Summary &amp; Recommendations</h3><p style="white-space:pre-wrap;font-size:10.5pt;line-height:1.6;">${escHtml(execSum)}</p>`;
+  }
+  // Deficiency Priority Matrix
+  if(confirmedDefics.length>0){
+    html += `<h3 style="margin-top:16px;">Deficiency Priority Matrix</h3><table><tr><th>Section</th><th style="width:60px;background:#8E0000;color:#fff;">Critical</th><th style="width:60px;background:#C0392B;color:#fff;">High</th><th style="width:60px;background:#E67E22;color:#fff;">Medium</th><th style="width:60px;background:#1A7A4A;color:#fff;">Low</th><th style="width:50px;">Total</th></tr>`;
+    const matrix = {};
+    confirmedDefics.forEach(d=>{
+      const secLabel = d.sectionKey&&SECTIONS[d.sectionKey]?SECTIONS[d.sectionKey].label:'Manual';
+      if(!matrix[secLabel]) matrix[secLabel]={critical:0,high:0,medium:0,low:0};
+      matrix[secLabel][d.severity]++;
+    });
+    let mTotals={critical:0,high:0,medium:0,low:0};
+    Object.keys(matrix).forEach(sec=>{
+      const m=matrix[sec]; const t=m.critical+m.high+m.medium+m.low;
+      mTotals.critical+=m.critical;mTotals.high+=m.high;mTotals.medium+=m.medium;mTotals.low+=m.low;
+      html += `<tr><td>${sec}</td><td style="text-align:center;${m.critical?'color:#8E0000;font-weight:700;':''}">${m.critical||'—'}</td><td style="text-align:center;${m.high?'color:#C0392B;font-weight:700;':''}">${m.high||'—'}</td><td style="text-align:center;${m.medium?'color:#E67E22;font-weight:600;':''}">${m.medium||'—'}</td><td style="text-align:center;">${m.low||'—'}</td><td style="text-align:center;font-weight:700;">${t}</td></tr>`;
+    });
+    html += `<tr style="background:#f0f0f0;font-weight:700;"><td>TOTAL</td><td style="text-align:center;color:#8E0000;">${mTotals.critical}</td><td style="text-align:center;color:#C0392B;">${mTotals.high}</td><td style="text-align:center;color:#E67E22;">${mTotals.medium}</td><td style="text-align:center;">${mTotals.low}</td><td style="text-align:center;">${confirmedDefics.length}</td></tr></table>`;
+  }
+  html += `</div>`;
+
+  // === SECTION-BY-SECTION (Full Report only) ===
+  if(mode==='full'){
+    SECTION_ORDER.forEach(secKey=>{
+      const sec = SECTIONS[secKey];
+      if(!sec) return;
+      
+      if(sectionSkips[secKey]){
+        html += `<div class="page">
+          <div class="logo-bar"><img src="${LOGO}" alt="ARENCON"><div class="addr-block">ARENCON Inc. — ${proj.projno} — ${proj.projname}</div></div>
+          <h2>${sec.label}</h2><p style="color:#5A6473;font-style:italic;padding:16px 0;">Section marked as N/A — Not Applicable to this building.</p></div>`;
+        return;
+      }
+      
+      let hasData = false;
+      sec.items.forEach(item=>{ const st=clState[secKey+'-'+item.num]; if(st&&st.val) hasData=true; });
+      if(!hasData) return;
+      
+      const score = getSectionScore(secKey);
+      const narrative = sectionNarratives[secKey]||'';
+      
+      const scoreColor = score&&score.pct!==null ? (score.pct>=90?'#1A7A4A':score.pct>=75?'#E67E22':'#C0392B') : '#999';
+      const scoreHtml = score&&score.pct!==null ? ' <span style="font-size:11pt;font-weight:400;color:'+scoreColor+';">('+score.label+' compliant)</span>' : '';
+      
+      html += `<div class="page">
+        <div class="logo-bar"><img src="${LOGO}" alt="ARENCON"><div class="addr-block">ARENCON Inc. — ${proj.projno} — ${proj.projname}</div></div>
+        <h2>${sec.label}${scoreHtml}</h2>`;
+      if(narrative){
+        html += `<div style="padding:10px 14px;background:#f8f9fa;border-left:4px solid #9C2742;border-radius:4px;margin-bottom:12px;font-size:10.5pt;line-height:1.6;white-space:pre-wrap;">${escHtml(narrative)}</div>`;
+      }
+      html += `<table><tr><th style="width:50px">#</th><th>Item</th><th style="width:80px">Status</th><th style="width:160px">Notes</th></tr>`;
+      sec.items.forEach(item=>{
+        const st = clState[secKey+'-'+item.num]||{};
+        let valClass = '', valText = st.val||'—';
+        if(st.val==='yes') { valClass='val-yes'; valText='Yes'; }
+        else if(st.val==='no') { valClass='val-no'; valText='No ⚠'; }
+        else if(st.val==='na'||st.val==='cond-na') { valClass='val-na'; valText='N/A'; }
+        else if(st.val==='good') { valClass='val-good'; valText='Good'; }
+        else if(st.val==='fair') { valClass='val-fair'; valText='Fair'; }
+        else if(st.val==='poor') { valClass='val-poor'; valText='Poor ⚠'; }
+        else if(st.val==='critical') { valClass='val-critical'; valText='CRITICAL ⚠'; }
+        
+        html += `<tr class="section-row"><td>${item.num}</td><td>${item.text}</td><td class="${valClass}">${valText}</td><td class="notes-cell">${escHtml(st.notes||'')}</td></tr>`;
+        // Inline photos
+        if(st.photos && st.photos.length>0){
+          html += `<tr><td colspan="4"><div class="photo-grid">${st.photos.map(p=>`<img src="${p.d}" alt="">`).join('')}</div></td></tr>`;
+        }
+      });
+      html += `</table></div>`;
+    });
+  }
+
+  // === DEFICIENCY LOG ===
+  if(confirmedDefics.length>0){
+    html += `<div class="page">
+      <div class="logo-bar"><img src="${LOGO}" alt="ARENCON"><div class="addr-block">ARENCON Inc. — ${proj.projno}</div></div>
+      <h2>Deficiency Log (${confirmedDefics.length} Items)</h2>
+      <table><tr><th style="width:30px">#</th><th style="width:70px">Severity</th><th style="width:100px">Section</th><th>Description</th><th style="width:160px">Recommendation</th></tr>`;
+    confirmedDefics.forEach((d,i)=>{
+      const secLabel = d.sectionKey && SECTIONS[d.sectionKey] ? SECTIONS[d.sectionKey].label : 'Manual';
+      html += `<tr>
+        <td>${i+1}</td>
+        <td><span class="badge b-${d.severity}">${d.severity.toUpperCase()}</span></td>
+        <td>${secLabel}</td>
+        <td><strong>${d.itemNum}</strong> ${escHtml(d.itemText||'')}${d.notes?'<br><em style="color:#555;">'+escHtml(d.notes)+'</em>':''}</td>
+        <td style="font-size:9.5pt;">${escHtml(d.recommendation||'')}</td>
+      </tr>`;
+      if(d.photos && d.photos.length>0){
+        html += `<tr><td colspan="5"><div class="photo-grid">${d.photos.map(p=>`<img src="${p.d}" alt="">`).join('')}</div></td></tr>`;
+      }
+    });
+    html += `</table></div>`;
+  }
+
+  // === SITE PHOTOS ===
+  if(sitePhotos.length>0){
+    html += `<div class="page">
+      <div class="logo-bar"><img src="${LOGO}" alt="ARENCON"><div class="addr-block">ARENCON Inc. — ${proj.projno}</div></div>
+      <h2>Site Photos</h2>
+      <div class="photo-grid">${sitePhotos.map(p=>`<img src="${p.d}" alt="">`).join('')}</div>
+    </div>`;
+  }
+
+  // === SKETCHES ===
+  const validSketches = sketches.filter(s=>s.canvasData);
+  if(validSketches.length>0){
+    html += `<div class="page">
+      <div class="logo-bar"><img src="${LOGO}" alt="ARENCON"><div class="addr-block">ARENCON Inc. — ${proj.projno}</div></div>
+      <h2>Sketches &amp; Markups</h2>`;
+    validSketches.forEach((sk,i)=>{
+      html += `<div style="margin-bottom:16px;padding:12px;border:1px solid #ddd;border-radius:6px;page-break-inside:avoid;">
+        <div style="font-weight:700;margin-bottom:6px;">Sketch #${i+1}${sk.comment?' — '+escHtml(sk.comment.substring(0,80)):''}</div>
+        <img src="${sk.canvasData}" style="max-width:100%;max-height:300px;border:1px solid #eee;border-radius:4px;">
+        ${sk.comment?'<p style="font-size:9.5pt;font-style:italic;color:#555;margin-top:6px;">'+escHtml(sk.comment)+'</p>':''}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // === SIGNATURE ===
+  html += `<div class="page">
+    <div class="logo-bar"><img src="${LOGO}" alt="ARENCON"><div class="addr-block">ARENCON Inc. — ${proj.projno}</div></div>
+    <h2>Certification</h2>
+    <p style="margin-bottom:16px;font-size:10.5pt;">This report has been prepared based on visual observations made during the site inspection conducted on <strong>${proj.date}</strong>. The findings and recommendations contained herein are based on the conditions observed at the time of inspection and applicable Ontario Building Code, Ontario Fire Code, and NFPA standards.</p>
+    <table style="width:60%;">
+      <tr><td style="font-weight:700;width:40%;">Consultant Name</td><td>${sigName}</td></tr>
+      <tr><td style="font-weight:700;">Title</td><td>${sigTitle}</td></tr>
+      <tr><td style="font-weight:700;">Company</td><td>${sigCompany}</td></tr>
+      <tr><td style="font-weight:700;">Date</td><td>${sigDate}</td></tr>
+    </table>
+    ${sigImg?`<div style="margin-top:16px;"><div style="font-size:9pt;color:#666;margin-bottom:4px;">Signature:</div><img src="${sigImg}" style="max-width:250px;max-height:80px;border-bottom:1px solid #999;"></div>`:''}
+    <div style="margin-top:40px;font-size:8.5pt;color:#888;border-top:1px solid #ddd;padding-top:10px;">
+      Report generated by ARENCON Inc. Fire Protection &amp; Life Safety Due Diligence System &middot; ${new Date().toLocaleDateString('en-CA')}<br>
+      ARENCON Inc. &middot; 1551 Caterpillar Road, Suite 206, Mississauga, ON L4X 2Z6 &middot; ${emailAddr}
+    </div>
+  </div>`;
+
+  html += `</body></html>`;
+
+  // Open in new window
+  const w = window.open('','_blank');
+  if(!w){ showToast('Popup blocked — please allow popups',3000); return; }
+  w.document.write(html);
+  w.document.close();
+}
+
+function escHtml(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
+async function init(){
+  // Dark mode
+  const dm = localStorage.getItem('arencon_dark');
+  if(dm==='true'||(dm===null&&window.matchMedia('(prefers-color-scheme:dark)').matches)) document.body.classList.add('dark-mode');
+  
+  // Build mobile nav
+  buildMobileNav();
+  
+  // Render all checklist sections
+  SECTION_ORDER.forEach(sec=>renderSection(sec));
+  
+  // Init signature pad
+  initSignaturePad();
+  
+  // Load saved state
+  await openDB();
+  await loadState();
+  
+  // Update progress
+  updateProgress();
+  updateDeficCount();
+  renderSitePhotos();
+  if(sketches.length>0) sketchCounter = Math.max(...sketches.map(s=>s.id||0));
+  
+  // Auto-save on input change
+  document.querySelectorAll('#panel-info input, #panel-info select, #panel-info textarea').forEach(el=>{
+    el.addEventListener('change', debouncedSave);
+    el.addEventListener('input', debouncedSave);
+  });
+  document.querySelectorAll('#panel-signature input, #panel-signature select, #panel-signature textarea').forEach(el=>{
+    el.addEventListener('change', debouncedSave);
+    el.addEventListener('input', debouncedSave);
+  });
+  
+  // Keyboard shortcut: Ctrl+S to save
+  document.addEventListener('keydown', function(e){
+    if((e.ctrlKey||e.metaKey) && e.key==='s'){ e.preventDefault(); saveState(); }
+  });
+  
+  console.log('ARENCON DD Tool v2 initialized');
+}
+
+init();
+</script>
+</body>
+</html>
+

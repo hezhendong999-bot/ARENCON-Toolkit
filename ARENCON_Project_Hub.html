@@ -114,6 +114,12 @@ body.dark-mode{
 .tool-launch-card .tlc-badge{font-size:9px;color:var(--silver);font-weight:400;}
 body.dark-mode .tool-launch-card{background:var(--card);border-color:var(--border);}
 body.dark-mode .tool-launch-card:hover{border-color:var(--arencon);background:#282b33;}
+/* Toggle switch */
+.tlc-toggle{position:absolute;top:10px;right:10px;width:36px;height:20px;background:var(--border);border-radius:10px;cursor:pointer;transition:background .2s;border:none;padding:0;flex-shrink:0;}
+.tlc-toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.tlc-toggle.on{background:var(--arencon);}
+.tlc-toggle.on::after{transform:translateX(16px);}
+.tool-launch-card{position:relative;padding-right:52px;}
 
 /* ═══ ADMIN PANEL ═══ */
 .admin-panel{display:none;padding:20px}
@@ -987,12 +993,12 @@ function toggleArchived() {
 
 /* ═══ AVAILABLE TOOLS REGISTRY ═══ */
 const AVAILABLE_TOOLS = {
-  frt:      { name: 'Field Review Tool V2',         icon: '📋', file: 'ARENCON_Field_Review_Tool_V2.html' },
-  diesel:   { name: 'Diesel Fire Pump Commissioning', icon: '🔥', file: 'ARENCON_Diesel_Fire_Pump_Commissioning_v74.html' },
-  electric: { name: 'Electric Fire Pump Acceptance',   icon: '⚡', file: 'ARENCON_Electric_Fire_Pump_Acceptance_Test_v86.html' },
-  ist:      { name: 'Integrated Systems Testing',      icon: '🔗', file: 'ARENCON_IST_S1001_v5.html' },
-  obc:      { name: 'OBC Compliance Report',           icon: '📋', file: 'ARENCON_OBC_Report_Generator_V9.html' },
-  dd:       { name: 'Due Diligence Checklist',         icon: '✅', file: 'ARENCON_DD_Checklist_v2.html' }
+  frt:      { name: 'Field Review Tool V2',         icon: '📋', file: 'ARENCON_Field_Review_Tool.html' },
+  diesel:   { name: 'Diesel Fire Pump Commissioning', icon: '🔥', file: 'ARENCON_Diesel_Fire_Pump_Commissioning.html' },
+  electric: { name: 'Electric Fire Pump Acceptance',   icon: '⚡', file: 'ARENCON_Electric_Fire_Pump_Commissioning.html' },
+  ist:      { name: 'Integrated Systems Testing',      icon: '🔗', file: 'ARENCON_IST_S1001.html' },
+  obc:      { name: 'OBC Compliance Report',           icon: '📋', file: 'ARENCON_OBC_Report_Generator.html' },
+  dd:       { name: 'Due Diligence Checklist',         icon: '✅', file: 'ARENCON_DD_Checklist.html' }
 };
 
 function toolName(key) {
@@ -1020,7 +1026,10 @@ function openProject(projectId) {
   document.getElementById('detail-sub').textContent =
     (proj.client || '—') + (proj.address ? ' — ' + proj.address : '');
 
-  // Build tool launch grid
+  _renderDetailTools(proj);
+}
+
+function _renderDetailTools(proj) {
   var tools = proj.enabled_tools || [];
   var grid = document.getElementById('detail-tools');
   var html = '';
@@ -1032,26 +1041,55 @@ function openProject(projectId) {
     + '&client=' + encodeURIComponent(proj.client || '')
     + '&addr=' + encodeURIComponent(proj.address || '');
 
+  // Viewer role check
+  var isViewer = _profile && _profile.role === 'viewer';
+
   Object.keys(AVAILABLE_TOOLS).forEach(function(key) {
     var t = AVAILABLE_TOOLS[key];
     var enabled = tools.indexOf(key) >= 0;
     var url = t.file + '?' + params;
-    html += '<div class="tool-launch-card' + (enabled ? '' : ' disabled') + '"'
+    var toggleHtml = isViewer ? '' :
+      '<button class="tlc-toggle' + (enabled ? ' on' : '') + '" onclick="event.stopPropagation();toggleTool(\'' + key + '\')" title="' + (enabled ? 'Disable' : 'Enable') + ' ' + esc(t.name) + '"></button>';
+
+    html += '<div class="tool-launch-card' + (enabled ? '' : ' disabled') + '" id="tlc-' + key + '"'
       + (enabled ? ' onclick="window.open(\'' + url + '\',\'_blank\')"' : '')
-      + ' title="' + (enabled ? 'Open ' + esc(t.name) : 'Not enabled for this project') + '">'
+      + ' title="' + (enabled ? 'Click to open ' + esc(t.name) : 'Toggle switch to enable') + '">'
       + '<div class="tlc-icon">' + t.icon + '</div>'
       + '<div><div class="tlc-name">' + esc(t.name) + '</div>'
       + (enabled ? '' : '<div class="tlc-badge">Not enabled</div>')
-      + '</div></div>';
+      + '</div>'
+      + toggleHtml
+      + '</div>';
   });
 
-  if (tools.length === 0) {
-    html += '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--silver);">'
-      + '<p>No tools enabled for this project yet.</p>'
-      + '<p style="font-size:12px;margin-top:4px;">Enable tools in the project settings to launch them here.</p></div>';
+  grid.innerHTML = html;
+}
+
+async function toggleTool(key) {
+  if (!_detailProjectId) return;
+  var proj = _projects.find(p => p.id === _detailProjectId);
+  if (!proj) return;
+
+  var tools = proj.enabled_tools || [];
+  var idx = tools.indexOf(key);
+  if (idx >= 0) {
+    tools.splice(idx, 1);
+  } else {
+    tools.push(key);
+  }
+  proj.enabled_tools = tools;
+
+  // Save to Supabase
+  try {
+    await _sb.from('projects').update({ enabled_tools: tools }).eq('id', proj.id);
+    toast(AVAILABLE_TOOLS[key].name + (idx >= 0 ? ' disabled' : ' enabled'), 'success');
+  } catch (e) {
+    console.error('Failed to save tools:', e);
+    toast('Failed to save — check connection', 'error');
   }
 
-  grid.innerHTML = html;
+  // Re-render the tool grid
+  _renderDetailTools(proj);
 }
 
 function closeDetail() {
