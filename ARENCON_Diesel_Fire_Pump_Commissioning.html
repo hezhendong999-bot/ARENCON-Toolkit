@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ARENCON FP">
 <meta name="theme-color" content="#9C2742">
-<title>ARENCON — Diesel Fire Pump Commissioning Report v74</title>
+<title>ARENCON — Diesel Fire Pump Commissioning Report v75</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script>if(typeof ChartDataLabels!=='undefined') Chart.register(ChartDataLabels);</script>
@@ -562,8 +562,19 @@ body.dark-mode .card[style*="border:1.5px solid #1A527622"]{border-color:#2a3848
 .storage-bar-fill{height:100%;background:#4CAF50;border-radius:3px;transition:width .4s;}
 .storage-label{font-size:9px;color:rgba(255,255,255,.55);white-space:nowrap;}
 
-
-
+/* ── DASHBOARD ── */
+/* Cloud sync status indicator */
+.cloud-status{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:6px;font:600 11px Calibri,sans-serif;color:#fff;margin-left:8px;}
+.cloud-status.synced{background:rgba(26,122,74,.7);}
+.cloud-status.saving{background:rgba(30,136,229,.7);}
+.cloud-status.offline{background:rgba(230,126,34,.7);}
+.cloud-status.pending{background:rgba(243,156,18,.7);}
+.cloud-status.error{background:rgba(192,57,43,.7);}
+.cloud-status .cs-dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
+/* Hub link in header */
+.hdr-hub-link{background:rgba(255,255,255,.18);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font:600 12px Calibri,sans-serif;display:none;align-items:center;gap:4px;transition:background .2s;white-space:nowrap;text-decoration:none;}
+.hdr-hub-link:hover{background:rgba(255,255,255,.3);}
+.hdr-hub-link.visible{display:inline-flex;}
 </style>
 </head>
 <body>
@@ -578,7 +589,9 @@ body.dark-mode .card[style*="border:1.5px solid #1A527622"]{border-color:#2a3848
         <div class="app-title">Diesel Fire Pump Commissioning Report</div>
       </div>
       <span class="conn-dot online" id="conn-dot" title="Online"></span>
+      <span class="cloud-status synced" id="cloud-status" style="display:none;"><span class="cs-dot"></span><span id="cloud-status-text">Ready</span></span>
     </div>
+    <a class="hdr-hub-link" id="hdr-hub-link" href="ARENCON_Project_Hub.html" title="Back to Project Hub" style="display:none;">← Hub</a>
     <div class="header-actions">
       <span id="undo-redo-btns" style="display:inline-flex;gap:1px;opacity:0.6;">
         <button onclick="globalUndo()" title="Undo (Ctrl+Z)" style="background:none;border:none;color:white;padding:1px 5px;cursor:pointer;font-size:13px;line-height:1;">↶</button>
@@ -6523,6 +6536,12 @@ function updateIDBStorageBar(){
 }
 // ══ END INDEXEDDB LAYER ══
 
+// ══ CLOUDSYNC INTEGRATION ══
+// CloudSync module is injected at end of file
+var _csHubMode = false; // true when launched from Hub with ?project= param
+var _csProjectId = null;
+var _csInstanceId = null;
+// ══ END CLOUDSYNC INTEGRATION ══
 
 const SAVE_KEY = 'arencon_pump_v10';
 const EDIT_PASSWORD = 'arencon9970';
@@ -6706,6 +6725,19 @@ async function saveToFile() {
 }
 
 function saveState() {
+  // If in cloud mode (launched from Hub), use CloudSync
+  if(_csHubMode && typeof CloudSync !== 'undefined' && CloudSync.isInitialized){
+    try {
+      var state = collectState();
+      CloudSync.save(state);
+      autoSaveToast('✓ Saved');
+    } catch(e) {
+      autoSaveToast('⚠ Save failed', '#C0392B');
+      console.error('CloudSync save error:', e);
+    }
+    return;
+  }
+  // Standalone mode: legacy IDB + localStorage save
   try {
     const state = collectState();
     var stateJson = JSON.stringify(state);
@@ -6896,9 +6928,13 @@ function _applyLoadedState(raw) {
 function resetAllPages() {
   _saveUndoPage();
   if (!confirm('Reset ALL pages for this project? This will clear all entered data permanently.')) return;
-  localStorage.removeItem(SAVE_KEY);
-  var _rkey=getProjectSaveKey();localStorage.removeItem(_rkey);
-  _idbDelete(_rkey).catch(function(){});
+  if(_csHubMode && typeof CloudSync !== 'undefined'){
+    // Cloud mode: will reload which triggers fresh load
+  } else {
+    localStorage.removeItem(SAVE_KEY);
+    var _rkey=getProjectSaveKey();localStorage.removeItem(_rkey);
+    _idbDelete(_rkey).catch(function(){});
+  }
   location.reload();
 }
 
@@ -7010,23 +7046,91 @@ window.addEventListener('load', () => {
   if (lb) lb.addEventListener('click', e => { if (e.target === lb) closeLightbox(); });
   updateOfflineStatus();
 
-  // Init: wait for IDB, then load saved state
-  function _initLoad(){
-    if(!_idb_db){ setTimeout(_initLoad, 50); return; }
-    // Check for embedded state (opened from Save As HTML file)
-    var embEl = document.getElementById('embedded-state');
-    if(embEl){
-      var embText = embEl.textContent.trim();
-      if(embText && embText !== '{}'){
-        _applyLoadedState(embText);
-        updateProgress();
-        return;
+  // ── CloudSync or Standalone Init ──
+  function _cloudSyncInit(){
+    if(!_idb_db){ setTimeout(_cloudSyncInit, 50); return; }
+
+    var params = CloudSync.readUrlParams();
+
+    if(params.projectId){
+      // Hub mode: launched with ?project=<uuid>
+      _csHubMode = true;
+      _csProjectId = params.projectId;
+      _csInstanceId = params.instanceId;
+
+      // Show Hub link
+      var hubLink = document.getElementById('hdr-hub-link');
+      if(hubLink) hubLink.style.display = 'inline-flex';
+
+      // Show cloud status
+      var csEl = document.getElementById('cloud-status');
+      if(csEl) csEl.style.display = 'inline-flex';
+
+      // Pre-fill project-level fields from URL params (read-only when Hub-launched)
+      if(params.projectNumber){
+        var el = document.getElementById('pi-projno');
+        if(el){ el.value = params.projectNumber; el.readOnly = true; el.style.opacity = '0.7'; }
       }
+      if(params.projectName){
+        var el = document.getElementById('pi-projname');
+        if(el){ el.value = params.projectName; el.readOnly = true; el.style.opacity = '0.7'; }
+      }
+      if(params.client){
+        var el = document.getElementById('pi-client');
+        if(el){ el.value = params.client; el.readOnly = true; el.style.opacity = '0.7'; }
+      }
+      if(params.address){
+        var el = document.getElementById('pi-addr');
+        if(el){ el.value = params.address; el.readOnly = true; el.style.opacity = '0.7'; }
+      }
+
+      // Initialize CloudSync
+      CloudSync.init({
+        projectId: _csProjectId,
+        toolKey: 'diesel',
+        instanceId: _csInstanceId,
+        onStatusChange: function(status, msg){
+          var csEl = document.getElementById('cloud-status');
+          var csTxt = document.getElementById('cloud-status-text');
+          if(csEl){
+            csEl.className = 'cloud-status ' + status;
+            if(csTxt) csTxt.textContent = msg || status;
+          }
+        }
+      }).then(function(info){
+        // Load data from cloud/IDB
+        return CloudSync.load();
+      }).then(function(result){
+        if(result && result.state){
+          _applyLoadedState(JSON.stringify(result.state));
+          showToast('Project loaded from ' + result.source, 2000);
+        }
+        // Start auto-save (30s)
+        CloudSync.startAutoSave(collectState, 30000);
+        updateProgress();
+        updateIDBStorageBar();
+      }).catch(function(e){
+        console.error('CloudSync init error:', e);
+        showToast('Cloud sync failed — working in local mode', 3000);
+        loadAutosave();
+      });
+
+    } else {
+      // Standalone mode: check for embedded state or load from IDB
+      var embEl = document.getElementById('embedded-state');
+      if(embEl){
+        var embText = embEl.textContent.trim();
+        if(embText && embText !== '{}'){
+          _applyLoadedState(embText);
+          updateProgress();
+          return;
+        }
+      }
+      loadAutosave();
+      updateProgress();
     }
-    // Normal load from IDB/localStorage
-    loadAutosave();
   }
-  _initLoad();
+  _cloudSyncInit();
 });
 
 updateProgress();
@@ -7300,5 +7404,35 @@ document.addEventListener('mouseup', function() {
       <button id="nav-next" onclick="navPage(1)" style="padding:12px 24px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">Next ▶</button>
     </div>
   </div>
+
+<!-- ══ CLOUDSYNC MODULE v1 ══ -->
+<script>
+var CloudSync=(function(){'use strict';var SUPABASE_URL='https://xsemvinxsyphjiaqgywv.supabase.co';var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';var IDB_NAME='arencon_cloud_cache';var IDB_VERSION=1;var IDB_STORE='tool_state';var AUTOSAVE_MS=30000;var _projectId=null;var _toolKey=null;var _instanceId=null;var _instanceNumber=1;var _collectStateFn=null;var _onStatusChange=null;var _autoSaveTimer=null;var _idb=null;var _online=navigator.onLine;var _pendingSync=false;var _userId=null;var _projectInfo=null;var _lastSavedJson='';var _initialized=false;
+function _headers(){var h={'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json','Prefer':'return=representation'};var token=localStorage.getItem('sb-access-token');if(token)h['Authorization']='Bearer '+token;else h['Authorization']='Bearer '+SUPABASE_ANON_KEY;return h;}
+async function _request(path,opts){opts=opts||{};var res=await fetch(SUPABASE_URL+path,{method:opts.method||'GET',headers:Object.assign({},_headers(),opts.headers||{}),body:opts.body?JSON.stringify(opts.body):undefined});if(!res.ok){var err;try{err=await res.json();}catch(e){err={message:res.statusText};}throw new Error(err.message||err.msg||err.error_description||res.statusText);}var text=await res.text();return text?JSON.parse(text):null;}
+function _openIDB(){return new Promise(function(resolve,reject){var req=indexedDB.open(IDB_NAME,IDB_VERSION);req.onupgradeneeded=function(e){var db=e.target.result;if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE);};req.onsuccess=function(e){_idb=e.target.result;resolve(_idb);};req.onerror=function(e){reject(e.target.error);};});}
+function _idbKey(){return _projectId+'|'+_toolKey+'|'+(_instanceId||'new');}
+function _idbGet2(key){return new Promise(function(resolve,reject){if(!_idb){resolve(null);return;}var tx=_idb.transaction(IDB_STORE,'readonly');var req=tx.objectStore(IDB_STORE).get(key);req.onsuccess=function(){resolve(req.result||null);};req.onerror=function(){reject(req.error);};});}
+function _idbPut2(key,val){return new Promise(function(resolve,reject){if(!_idb){resolve();return;}var tx=_idb.transaction(IDB_STORE,'readwrite');var req=tx.objectStore(IDB_STORE).put(val,key);req.onsuccess=function(){resolve();};req.onerror=function(){reject(req.error);};});}
+function _setStatus(status,msg){if(_onStatusChange)_onStatusChange(status,msg);}
+async function _getUser(){var token=localStorage.getItem('sb-access-token');if(!token)return null;try{return await _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+token}});}catch(e){var rt=localStorage.getItem('sb-refresh-token');if(!rt)return null;try{var data=await _request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:rt},headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY}});if(data&&data.access_token){localStorage.setItem('sb-access-token',data.access_token);localStorage.setItem('sb-refresh-token',data.refresh_token);return _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+data.access_token}});}}catch(e2){}return null;}}
+async function _cloudLoad(){if(!_projectId||!_toolKey)return null;if(_instanceId){var rows=await _request('/rest/v1/tool_data?select=*&id=eq.'+_instanceId);return(rows&&rows.length>0)?rows[0]:null;}var rows=await _request('/rest/v1/tool_data?select=*&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=instance_number.desc&limit=1');return(rows&&rows.length>0)?rows[0]:null;}
+async function _cloudSave(stateJson){if(!_projectId||!_toolKey)return null;var payload={project_id:_projectId,tool_key:_toolKey,instance_number:_instanceNumber,data:typeof stateJson==='string'?JSON.parse(stateJson):stateJson,updated_by:_userId,updated_at:new Date().toISOString()};if(_instanceId){var rows=await _request('/rest/v1/tool_data?id=eq.'+_instanceId,{method:'PATCH',body:payload});return(rows&&rows.length>0)?rows[0]:null;}else{payload.created_by=_userId;payload.status='draft';var rows=await _request('/rest/v1/tool_data',{method:'POST',body:[payload]});if(rows&&rows.length>0){_instanceId=rows[0].id;_instanceNumber=rows[0].instance_number;return rows[0];}return null;}}
+async function _loadProjectInfo(){if(!_projectId)return null;try{var rows=await _request('/rest/v1/projects?select=*&id=eq.'+_projectId,{headers:{'Accept':'application/vnd.pgrst.object+json'}});_projectInfo=rows;return rows;}catch(e){return null;}}
+async function save(stateJson){if(typeof stateJson!=='string')stateJson=JSON.stringify(stateJson);if(stateJson===_lastSavedJson)return;_lastSavedJson=stateJson;try{await _idbPut2(_idbKey(),{state:stateJson,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:new Date().toISOString()});}catch(e){console.error('[CloudSync] IDB save failed:',e);}if(_online){try{_setStatus('saving','Syncing...');var row=await _cloudSave(stateJson);_pendingSync=false;_setStatus('synced','Saved to cloud');return row;}catch(e){console.warn('[CloudSync] Cloud save failed:',e.message);_pendingSync=true;_setStatus('pending','Saved locally');}}else{_pendingSync=true;_setStatus('offline','Saved locally (offline)');}return null;}
+async function load(){var cloudRow=null;if(_online){try{cloudRow=await _cloudLoad();if(cloudRow){_instanceId=cloudRow.id;_instanceNumber=cloudRow.instance_number;var sj=typeof cloudRow.data==='string'?cloudRow.data:JSON.stringify(cloudRow.data);_lastSavedJson=sj;await _idbPut2(_idbKey(),{state:sj,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:cloudRow.updated_at});_setStatus('synced','Loaded from cloud');return{source:'cloud',state:typeof cloudRow.data==='string'?JSON.parse(cloudRow.data):cloudRow.data,row:cloudRow};}}catch(e){console.warn('[CloudSync] Cloud load failed:',e.message);}}try{var idbData=await _idbGet2(_idbKey());if(idbData&&idbData.state){_setStatus(_online?'synced':'offline','Loaded from cache');return{source:'idb',state:typeof idbData.state==='string'?JSON.parse(idbData.state):idbData.state,row:null};}}catch(e){console.error('[CloudSync] IDB load failed:',e);}_setStatus(_online?'synced':'offline','No saved data');return null;}
+function startAutoSave(collectStateFn,intervalMs){_collectStateFn=collectStateFn;stopAutoSave();_autoSaveTimer=setInterval(function(){if(!_collectStateFn)return;try{var state=_collectStateFn();save(state);}catch(e){console.error('[CloudSync] Auto-save error:',e);}},intervalMs||AUTOSAVE_MS);}
+function stopAutoSave(){if(_autoSaveTimer){clearInterval(_autoSaveTimer);_autoSaveTimer=null;}}
+function _onOnline(){_online=true;_setStatus('saving','Reconnected...');if(_pendingSync&&_collectStateFn){try{var state=_collectStateFn();save(state);}catch(e){_setStatus('error','Sync failed');}}else{_setStatus('synced','Online');}}
+function _onOffline(){_online=false;_setStatus('offline','Working offline');}
+function readUrlParams(){var p=new URLSearchParams(window.location.search);return{projectId:p.get('project')||null,instanceId:p.get('instance')||null,projectNumber:p.get('pn')||null,projectName:p.get('pname')||null,client:p.get('client')||null,address:p.get('addr')||null};}
+async function _getNextInstanceNumber(){if(!_online)return 1;try{var rows=await _request('/rest/v1/tool_data?select=instance_number&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=instance_number.desc&limit=1');if(rows&&rows.length>0)return rows[0].instance_number+1;}catch(e){}return 1;}
+async function init(opts){_toolKey=opts.toolKey;_onStatusChange=opts.onStatusChange||null;_projectId=opts.projectId||null;_instanceId=opts.instanceId||null;try{await _openIDB();}catch(e){console.error('[CloudSync] IDB open failed:',e);}try{var user=await _getUser();if(user)_userId=user.id;}catch(e){}if(_projectId&&_online){try{await _loadProjectInfo();}catch(e){}}if(_projectId&&!_instanceId){_instanceNumber=await _getNextInstanceNumber();}window.addEventListener('online',_onOnline);window.addEventListener('offline',_onOffline);_initialized=true;_setStatus(_online?'synced':'offline','Ready');return{projectInfo:_projectInfo,userId:_userId,online:_online,instanceId:_instanceId,instanceNumber:_instanceNumber};}
+function destroy(){stopAutoSave();window.removeEventListener('online',_onOnline);window.removeEventListener('offline',_onOffline);_initialized=false;}
+async function syncNow(){if(!_online){_setStatus('offline','No connection');return false;}if(!_collectStateFn)return false;try{_setStatus('saving','Syncing...');var state=_collectStateFn();await save(state);_setStatus('synced','Force sync complete');return true;}catch(e){_setStatus('error','Sync failed');return false;}}
+return{init:init,load:load,save:save,startAutoSave:startAutoSave,stopAutoSave:stopAutoSave,syncNow:syncNow,destroy:destroy,readUrlParams:readUrlParams,get projectInfo(){return _projectInfo;},get projectId(){return _projectId;},get toolKey(){return _toolKey;},get instanceId(){return _instanceId;},get instanceNumber(){return _instanceNumber;},get userId(){return _userId;},get isOnline(){return _online;},get hasPendingSync(){return _pendingSync;},get isInitialized(){return _initialized;},request:_request};})();
+</script>
+<!-- ══ END CLOUDSYNC MODULE ══ -->
+
 </body>
 </html>
