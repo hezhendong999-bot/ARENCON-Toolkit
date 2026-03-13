@@ -89,6 +89,12 @@ body.dark-mode{
 .tool-chip{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:var(--smoke);color:var(--steel);border:1px solid var(--border)}
 .tool-chip.enabled{background:#FFF3E0;color:#E65100;border-color:#FFB74D}
 
+/* Star button on cards */
+.project-card-star{position:absolute;top:10px;right:10px;background:none;border:none;font-size:18px;cursor:pointer;color:var(--silver);transition:color .15s,transform .15s;padding:4px;line-height:1;z-index:2}
+.project-card-star:hover{color:#F59E0B;transform:scale(1.2)}
+.project-card-star.starred{color:#F59E0B}
+.project-card{position:relative}
+
 /* Empty state */
 .empty-state{text-align:center;padding:60px 20px;color:var(--silver)}
 .empty-state .empty-icon{font-size:48px;margin-bottom:12px}
@@ -136,6 +142,14 @@ body.dark-mode .ri-row:hover{background:var(--card);}
 .detail-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
 .detail-actions .btn-danger{background:#C0392B;color:white;border:none;padding:8px 16px;border-radius:6px;font:600 12px Calibri,sans-serif;cursor:pointer;transition:background .15s;}
 .detail-actions .btn-danger:hover{background:#96281B;}
+.detail-actions .btn-action{background:var(--smoke);color:var(--steel);border:1.5px solid var(--border);padding:8px 16px;border-radius:6px;font:600 12px Calibri,sans-serif;cursor:pointer;transition:all .15s;}
+.detail-actions .btn-action:hover{border-color:var(--arencon);color:var(--arencon);}
+.detail-actions .btn-archive{background:#E65100;color:white;border:none;padding:8px 16px;border-radius:6px;font:600 12px Calibri,sans-serif;cursor:pointer;transition:background .15s;}
+.detail-actions .btn-archive:hover{background:#BF360C;}
+.detail-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;}
+.detail-info-item{font-size:13px;color:var(--fg);}
+.detail-info-item .dii-label{font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;}
+.detail-info-item .dii-value{font-size:14px;color:var(--fg);}
 .tlc-toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
 .tlc-toggle.on{background:var(--arencon);}
 .tlc-toggle.on::after{transform:translateX(16px);}
@@ -248,6 +262,9 @@ body.dark-mode .form-group input,body.dark-mode .form-group select{background:#1
 body.dark-mode .mobile-menu{background:var(--card)}
 body.dark-mode .tool-chip{background:#1e2028;border-color:#33373f;color:#8a90a0}
 body.dark-mode .admin-act-btn{background:#1e2028;border-color:#33373f;color:#8a90a0}
+body.dark-mode .detail-info-item .dii-value{color:var(--fg)}
+body.dark-mode .btn-action{background:#1e2028;border-color:#33373f;color:#8a90a0}
+body.dark-mode .btn-action:hover{border-color:#c13a58;color:#c13a58}
 </style>
 </head>
 <body>
@@ -329,6 +346,7 @@ body.dark-mode .admin-act-btn{background:#1e2028;border-color:#33373f;color:#8a9
       <div class="dash-toggle" id="dash-toggle">
         <button class="active" onclick="setFilter('my')">My Projects</button>
         <button onclick="setFilter('all')">All Projects</button>
+        <button onclick="setFilter('starred')">⭐ Starred</button>
       </div>
       <button class="dash-btn secondary" id="btn-archived" onclick="toggleArchived()">📦 Archived</button>
       <button class="dash-btn primary" onclick="openNewProjectModal()">+ New Project</button>
@@ -408,8 +426,15 @@ body.dark-mode .admin-act-btn{background:#1e2028;border-color:#33373f;color:#8a9
   <div id="project-detail">
     <button class="detail-back" onclick="closeDetail()">← Back to Dashboard</button>
     <div class="detail-header">
-      <h2 id="detail-title">—</h2>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <h2 id="detail-title">—</h2>
+        <button class="project-card-star" id="detail-star-btn" onclick="toggleStarFromDetail()" title="Star this project">☆</button>
+      </div>
       <div class="detail-sub" id="detail-sub">—</div>
+    </div>
+    <div class="detail-section" id="detail-info-section">
+      <h3>📋 Project Info</h3>
+      <div class="detail-info-grid" id="detail-info-grid"></div>
     </div>
     <div class="detail-section">
       <h3>🚀 Tools &amp; Reports</h3>
@@ -417,6 +442,9 @@ body.dark-mode .admin-act-btn{background:#1e2028;border-color:#33373f;color:#8a9
       <div id="detail-instances"></div>
     </div>
     <div class="detail-section detail-actions" id="detail-danger-zone">
+      <button class="btn-action" onclick="openEditProjectModal()">✏️ Edit Project</button>
+      <button class="btn-archive" id="btn-archive-proj" onclick="toggleArchiveProject()">📦 Archive</button>
+      <div style="flex:1"></div>
       <button class="btn-danger" onclick="confirmDeleteProject()">🗑️ Delete Project</button>
     </div>
   </div>
@@ -485,6 +513,47 @@ body.dark-mode .admin-act-btn{background:#1e2028;border-color:#33373f;color:#8a9
   </div>
 </div>
 
+<!-- ═══════════ EDIT PROJECT MODAL ═══════════ -->
+<div class="modal-overlay" id="edit-project-modal">
+  <div class="modal-card">
+    <h3>Edit Project</h3>
+    <div class="modal-field">
+      <label>Project Number</label>
+      <input type="text" id="ep-number" maxlength="10">
+    </div>
+    <div class="modal-field">
+      <label>Project Name</label>
+      <input type="text" id="ep-name">
+    </div>
+    <div class="modal-field">
+      <label>Client</label>
+      <input type="text" id="ep-client">
+    </div>
+    <div class="modal-field">
+      <label>Address</label>
+      <input type="text" id="ep-address">
+    </div>
+    <div class="modal-field">
+      <label>Building Description</label>
+      <textarea id="ep-building-desc" rows="2" style="resize:vertical"></textarea>
+    </div>
+    <div class="modal-field">
+      <label>Construction Type</label>
+      <select id="ep-construction-type">
+        <option value="">— Select —</option>
+        <option value="Combustible">Combustible</option>
+        <option value="Non-Combustible">Non-Combustible</option>
+        <option value="Heavy Timber">Heavy Timber</option>
+        <option value="Mixed">Mixed</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="dash-btn secondary" onclick="closeEditProjectModal()">Cancel</button>
+      <button class="dash-btn primary" id="ep-save-btn" onclick="saveEditProject()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ TOAST ═══════════ -->
 <div class="toast" id="toast"></div>
 
@@ -509,7 +578,8 @@ let _user = null;          // Current auth user
 let _profile = null;       // Current user profile {id,full_name,email,role,is_active}
 let _projects = [];        // Loaded projects
 let _allUsers = [];        // Admin: all user profiles
-let _filterMode = 'my';   // 'my' or 'all'
+let _userMap = {};         // {userId: full_name} — loaded for all users on init
+let _filterMode = 'my';   // 'my' or 'all' or 'starred'
 let _showArchived = false;
 let _editRoleUserId = null;
 let _darkMode = localStorage.getItem('arencon-hub-dark') === '1';
@@ -886,6 +956,22 @@ async function loadProfile() {
     };
   }
 }
+
+// ── Load lightweight user map (for all roles, not just admin) ──
+async function loadUserMap() {
+  try {
+    var rows = await _sb.from('profiles').select('id,full_name,email').execute();
+    _userMap = {};
+    if (rows && rows.length) {
+      rows.forEach(function(u) {
+        _userMap[u.id] = u.full_name || u.email || '—';
+      });
+    }
+  } catch (e) {
+    // Non-critical — fall back to empty map
+    _userMap = {};
+  }
+}
 </script>
 
 <script>
@@ -913,6 +999,7 @@ function showApp() {
   document.getElementById('mob-admin').style.display = isAdmin ? '' : 'none';
 
   showDashboard();
+  loadUserMap();
   loadProjects();
 }
 
@@ -964,13 +1051,18 @@ function renderProjects() {
   const grid = document.getElementById('project-grid-inner');
   const empty = document.getElementById('empty-state');
   const search = document.getElementById('dash-search').value.trim().toLowerCase();
+  var myId = _profile ? _profile.id : null;
 
   let filtered = _projects.filter(p => {
     // Archive filter
     if (!_showArchived && p.status === 'archived') return false;
     if (_showArchived && p.status !== 'archived') return false;
-    // My/All filter
+    // My/All/Starred filter
     if (_filterMode === 'my' && _profile && p.created_by !== _profile.id) return false;
+    if (_filterMode === 'starred') {
+      var sb = p.starred_by || [];
+      if (!myId || sb.indexOf(myId) < 0) return false;
+    }
     // Search
     if (search) {
       const haystack = ((p.project_number || '') + ' ' + (p.project_name || '') + ' ' + (p.client || '') + ' ' + (p.address || '')).toLowerCase();
@@ -979,12 +1071,23 @@ function renderProjects() {
     return true;
   });
 
+  // Sort: starred first, then by updated_at desc
+  filtered.sort(function(a, b) {
+    var aStar = myId && (a.starred_by || []).indexOf(myId) >= 0 ? 1 : 0;
+    var bStar = myId && (b.starred_by || []).indexOf(myId) >= 0 ? 1 : 0;
+    if (bStar !== aStar) return bStar - aStar;
+    return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
+  });
+
   if (filtered.length === 0) {
     grid.innerHTML = '';
     empty.style.display = 'block';
     if (_showArchived) {
       empty.querySelector('h3').textContent = 'No archived projects';
       empty.querySelector('p').textContent = 'Archived projects will appear here';
+    } else if (_filterMode === 'starred') {
+      empty.querySelector('h3').textContent = 'No starred projects';
+      empty.querySelector('p').textContent = 'Click the ☆ on any project to star it';
     } else if (search) {
       empty.querySelector('h3').textContent = 'No matching projects';
       empty.querySelector('p').textContent = 'Try a different search term';
@@ -1008,8 +1111,12 @@ function renderProjects() {
     const toolChips = tools.length > 0
       ? tools.map(t => '<span class="tool-chip enabled">' + toolName(t) + '</span>').join('')
       : '<span class="tool-chip">No tools enabled</span>';
+    var isStarred = myId && (p.starred_by || []).indexOf(myId) >= 0;
+    var starIcon = isStarred ? '★' : '☆';
+    var starClass = isStarred ? ' starred' : '';
 
     return '<div class="project-card" onclick="openProject(\'' + esc(p.id) + '\')">'
+      + '<button class="project-card-star' + starClass + '" onclick="event.stopPropagation();toggleStar(\'' + esc(p.id) + '\')" title="' + (isStarred ? 'Unstar' : 'Star') + '">' + starIcon + '</button>'
       + '<div class="project-card-header">'
       + '<span class="project-card-number">' + num + '</span>'
       + '<span class="project-card-name">' + name + (client ? '<br><span style="font-size:12px;color:var(--silver)">' + client + '</span>' : '') + '</span>'
@@ -1024,9 +1131,10 @@ function filterProjects() { renderProjects(); }
 
 function setFilter(mode) {
   _filterMode = mode;
-  const btns = document.querySelectorAll('#dash-toggle button');
-  btns.forEach(b => b.classList.remove('active'));
-  btns[mode === 'my' ? 0 : 1].classList.add('active');
+  var btns = document.querySelectorAll('#dash-toggle button');
+  btns.forEach(function(b) { b.classList.remove('active'); });
+  var idx = mode === 'my' ? 0 : mode === 'all' ? 1 : 2;
+  btns[idx].classList.add('active');
   renderProjects();
 }
 
@@ -1076,8 +1184,16 @@ function openProject(projectId) {
   document.getElementById('detail-sub').textContent =
     (proj.client || '—') + (proj.address ? ' — ' + proj.address : '');
 
+  _updateDetailStar(proj);
+  _renderDetailInfo(proj);
   _renderDetailTools(proj);
   _loadAndRenderInstances(proj);
+
+  // Update archive button label
+  var archBtn = document.getElementById('btn-archive-proj');
+  if (archBtn) {
+    archBtn.textContent = proj.status === 'archived' ? '📋 Unarchive' : '📦 Archive';
+  }
 }
 
 function _renderDetailTools(proj) {
@@ -1182,9 +1298,8 @@ async function _loadAndRenderInstances(proj) {
     return;
   }
 
-  // Resolve user names
-  var userMap = {};
-  _allUsers.forEach(function(u){ userMap[u.id] = u.full_name || u.email || '—'; });
+  // Resolve user names from _userMap (loaded for all roles)
+  var userMap = _userMap;
 
   var html = '';
   tools.forEach(function(key) {
@@ -1272,6 +1387,146 @@ async function createNewReport(key) {
     }
   } catch(e) {
     toast('Failed to create report: ' + e.message, 'error');
+  }
+}
+
+/* ═══ Star/Favourite Toggle ═══ */
+async function toggleStar(projectId) {
+  if (!_profile) return;
+  var proj = _projects.find(function(p) { return p.id === projectId; });
+  if (!proj) return;
+  var sb = proj.starred_by || [];
+  var idx = sb.indexOf(_profile.id);
+  if (idx >= 0) {
+    sb.splice(idx, 1);
+  } else {
+    sb.push(_profile.id);
+  }
+  proj.starred_by = sb;
+  try {
+    await _sb.from('projects').eq('id', proj.id).update({ starred_by: sb });
+  } catch (e) {
+    toast('Failed to update star: ' + e.message, 'error');
+  }
+  renderProjects();
+  // Update detail star if open
+  if (_detailProjectId === projectId) _updateDetailStar(proj);
+}
+
+function toggleStarFromDetail() {
+  if (_detailProjectId) toggleStar(_detailProjectId);
+}
+
+function _updateDetailStar(proj) {
+  var btn = document.getElementById('detail-star-btn');
+  if (!btn || !_profile) return;
+  var isStarred = (proj.starred_by || []).indexOf(_profile.id) >= 0;
+  btn.textContent = isStarred ? '★' : '☆';
+  btn.className = 'project-card-star' + (isStarred ? ' starred' : '');
+}
+
+/* ═══ Project Detail Info Grid ═══ */
+function _renderDetailInfo(proj) {
+  var grid = document.getElementById('detail-info-grid');
+  if (!grid) return;
+  var items = [
+    { label: 'Project Number', value: proj.project_number || '—' },
+    { label: 'Client', value: proj.client || '—' },
+    { label: 'Address', value: proj.address || '—' },
+    { label: 'Status', value: (proj.status || 'active').charAt(0).toUpperCase() + (proj.status || 'active').slice(1) },
+    { label: 'Building Description', value: proj.building_description || '—' },
+    { label: 'Construction Type', value: proj.construction_type || '—' },
+    { label: 'Created', value: proj.created_at ? new Date(proj.created_at).toLocaleDateString('en-CA') : '—' },
+    { label: 'Last Updated', value: proj.updated_at ? formatDate(proj.updated_at) : '—' }
+  ];
+  grid.innerHTML = items.map(function(it) {
+    return '<div class="detail-info-item"><div class="dii-label">' + esc(it.label) + '</div><div class="dii-value">' + esc(it.value) + '</div></div>';
+  }).join('');
+}
+
+/* ═══ Edit Project Modal ═══ */
+function openEditProjectModal() {
+  if (!_detailProjectId) return;
+  var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
+  if (!proj) return;
+  if (_profile && _profile.role === 'viewer') {
+    toast('Viewers cannot edit projects', 'error');
+    return;
+  }
+  document.getElementById('ep-number').value = proj.project_number || '';
+  document.getElementById('ep-name').value = proj.project_name || '';
+  document.getElementById('ep-client').value = proj.client || '';
+  document.getElementById('ep-address').value = proj.address || '';
+  document.getElementById('ep-building-desc').value = proj.building_description || '';
+  document.getElementById('ep-construction-type').value = proj.construction_type || '';
+  document.getElementById('edit-project-modal').classList.add('show');
+  setTimeout(function() { document.getElementById('ep-number').focus(); }, 100);
+}
+
+function closeEditProjectModal() {
+  document.getElementById('edit-project-modal').classList.remove('show');
+}
+
+async function saveEditProject() {
+  if (!_detailProjectId) return;
+  var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
+  if (!proj) return;
+  var num = document.getElementById('ep-number').value.trim();
+  var name = document.getElementById('ep-name').value.trim();
+  var client = document.getElementById('ep-client').value.trim();
+  var address = document.getElementById('ep-address').value.trim();
+  var bldgDesc = document.getElementById('ep-building-desc').value.trim();
+  var consType = document.getElementById('ep-construction-type').value;
+  if (!num || !name) {
+    toast('Project number and name are required', 'error');
+    return;
+  }
+  var btn = document.getElementById('ep-save-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    var updates = {
+      project_number: num,
+      project_name: name,
+      client: client || null,
+      address: address || null,
+      building_description: bldgDesc || null,
+      construction_type: consType || null
+    };
+    await _sb.from('projects').eq('id', proj.id).update(updates);
+    // Update local
+    Object.assign(proj, updates);
+    closeEditProjectModal();
+    // Refresh detail view
+    openProject(proj.id);
+    toast('Project updated', 'success');
+  } catch (e) {
+    toast('Failed to save: ' + e.message, 'error');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Save Changes';
+}
+
+/* ═══ Archive / Unarchive Project ═══ */
+async function toggleArchiveProject() {
+  if (!_detailProjectId) return;
+  var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
+  if (!proj) return;
+  if (_profile && (_profile.role === 'viewer' || _profile.role === 'inspector')) {
+    toast('Only administrators can archive/unarchive projects', 'error');
+    return;
+  }
+  var newStatus = proj.status === 'archived' ? 'active' : 'archived';
+  var action = newStatus === 'archived' ? 'archive' : 'unarchive';
+  if (!confirm('Are you sure you want to ' + action + ' project ' + (proj.project_number || '') + '?')) return;
+  try {
+    await _sb.from('projects').eq('id', proj.id).update({ status: newStatus });
+    proj.status = newStatus;
+    toast('Project ' + (newStatus === 'archived' ? 'archived' : 'restored to active'), 'success');
+    // Refresh detail
+    openProject(proj.id);
+  } catch (e) {
+    toast('Failed to ' + action + ': ' + e.message, 'error');
   }
 }
 
