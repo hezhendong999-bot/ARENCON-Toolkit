@@ -951,6 +951,13 @@ async function loadProjects() {
     _projects = [];
   }
   renderProjects();
+  // Check for ?open= param to auto-open a project detail
+  var urlParams = new URLSearchParams(window.location.search);
+  var openId = urlParams.get('open');
+  if (openId) {
+    var proj = _projects.find(function(p){ return p.id === openId; });
+    if (proj) openProject(openId);
+  }
 }
 
 function renderProjects() {
