@@ -117,6 +117,25 @@ body.dark-mode .tool-launch-card{background:var(--card);border-color:var(--borde
 body.dark-mode .tool-launch-card:hover{border-color:var(--arencon);background:#282b33;}
 /* Toggle switch */
 .tlc-toggle{position:absolute;top:10px;right:10px;width:36px;height:20px;background:var(--border);border-radius:10px;cursor:pointer;transition:background .2s;border:none;padding:0;flex-shrink:0;}
+/* Report instance rows */
+.ri-list{margin-top:8px;padding-left:0;}
+.ri-row{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:6px;font:400 12px Calibri,sans-serif;color:var(--fg);cursor:pointer;transition:background .15s;border:1px solid transparent;}
+.ri-row:hover{background:var(--smoke);border-color:var(--border);}
+.ri-row .ri-icon{font-size:10px;color:var(--arencon);}
+.ri-row .ri-title{flex:1;font-weight:600;font-size:12px;}
+.ri-row .ri-meta{font-size:10px;color:var(--steel);display:flex;gap:8px;align-items:center;}
+.ri-status{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;}
+.ri-status.draft{background:#FFF3E0;color:#E65100;}.ri-status.review{background:#E3F2FD;color:#1565C0;}.ri-status.issued{background:#E8F5E9;color:#2E7D32;}.ri-status.revision{background:#FCE4EC;color:#AD1457;}
+.ri-new{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1.5px dashed var(--border);border-radius:6px;font:600 11px Calibri,sans-serif;color:var(--arencon);cursor:pointer;background:none;margin-top:6px;transition:all .15s;}
+.ri-new:hover{border-color:var(--arencon);background:var(--smoke);}
+.ri-loading{font-size:11px;color:var(--steel);padding:6px 12px;font-style:italic;}
+body.dark-mode .ri-row:hover{background:var(--card);}
+/* Delete project confirm */
+.delete-confirm-input{width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:6px;font:400 14px Calibri,sans-serif;margin:8px 0;background:var(--card);color:var(--fg);}
+.delete-confirm-input:focus{outline:none;border-color:#C0392B;}
+.detail-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
+.detail-actions .btn-danger{background:#C0392B;color:white;border:none;padding:8px 16px;border-radius:6px;font:600 12px Calibri,sans-serif;cursor:pointer;transition:background .15s;}
+.detail-actions .btn-danger:hover{background:#96281B;}
 .tlc-toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
 .tlc-toggle.on{background:var(--arencon);}
 .tlc-toggle.on::after{transform:translateX(16px);}
@@ -393,8 +412,12 @@ body.dark-mode .admin-act-btn{background:#1e2028;border-color:#33373f;color:#8a9
       <div class="detail-sub" id="detail-sub">—</div>
     </div>
     <div class="detail-section">
-      <h3>🚀 Launch Tools</h3>
+      <h3>🚀 Tools &amp; Reports</h3>
       <div class="tool-launch-grid" id="detail-tools"></div>
+      <div id="detail-instances"></div>
+    </div>
+    <div class="detail-section detail-actions" id="detail-danger-zone">
+      <button class="btn-danger" onclick="confirmDeleteProject()">🗑️ Delete Project</button>
     </div>
   </div>
 </div>
@@ -422,6 +445,21 @@ body.dark-mode .admin-act-btn{background:#1e2028;border-color:#33373f;color:#8a9
     <div class="modal-actions">
       <button class="dash-btn secondary" onclick="closeNewProjectModal()">Cancel</button>
       <button class="dash-btn primary" id="np-create-btn" onclick="createProject()">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ DELETE PROJECT MODAL ═══════════ -->
+<div class="modal-overlay" id="delete-project-modal">
+  <div class="modal-card">
+    <h3 style="color:#C0392B;">🗑️ Delete Project Permanently</h3>
+    <p style="font-size:13px;color:var(--steel);margin:8px 0 4px;">This will permanently delete the project, all tool data, and all report instances. This action <strong>cannot be undone</strong>.</p>
+    <p style="font-size:13px;margin:8px 0;">Type the project number <strong id="del-proj-num">—</strong> to confirm:</p>
+    <input type="text" class="delete-confirm-input" id="del-confirm-input" placeholder="Type project number here" autocomplete="off">
+    <div id="del-error" style="display:none;font-size:12px;color:#C0392B;font-weight:600;margin:4px 0;"></div>
+    <div class="modal-actions">
+      <button class="dash-btn secondary" onclick="closeDeleteModal()">Cancel</button>
+      <button class="dash-btn" style="background:#C0392B;color:white;" onclick="executeDeleteProject()">Delete Forever</button>
     </div>
   </div>
 </div>
@@ -698,7 +736,7 @@ async function tryRestoreSession() {
       }
     }
   } catch (e) {
-    console.log('No existing session');
+    // No existing session
   }
   // Show login
   document.getElementById('login-screen').style.display = 'flex';
@@ -1011,7 +1049,6 @@ var _detailProjectId = null;
 
 /* ═══ Open Project — Detail View ═══ */
 function openProject(projectId) {
-  console.log('openProject called with:', projectId, 'projects count:', _projects.length);
   const proj = _projects.find(p => p.id === projectId);
   if (!proj) {
     console.error('Project not found:', projectId);
@@ -1025,7 +1062,6 @@ function openProject(projectId) {
   document.getElementById('admin-panel').style.display = 'none';
   var detail = document.getElementById('project-detail');
   detail.style.display = 'block';
-  console.log('detail display set to block, element:', detail);
 
   // Populate header
   document.getElementById('detail-title').textContent =
@@ -1034,7 +1070,7 @@ function openProject(projectId) {
     (proj.client || '—') + (proj.address ? ' — ' + proj.address : '');
 
   _renderDetailTools(proj);
-  console.log('_renderDetailTools complete');
+  _loadAndRenderInstances(proj);
 }
 
 function _renderDetailTools(proj) {
@@ -1112,6 +1148,173 @@ function closeDetail() {
   document.getElementById('project-detail').style.display = 'none';
   document.getElementById('dash-view').style.display = 'block';
   renderProjects();
+}
+
+/* ═══ Report Instances — Load & Render ═══ */
+var _TOOL_PREFIXES = { frt:'FR', diesel:'DP', electric:'EP', ist:'IST', obc:'OBC', dd:'DD' };
+var _TOOL_SHORT_NAMES = { frt:'Field Review', diesel:'Diesel Fire Pump Commissioning', electric:'Electric Fire Pump Commissioning', ist:'IST', obc:'OBC Compliance', dd:'Due Diligence' };
+
+async function _loadAndRenderInstances(proj) {
+  var container = document.getElementById('detail-instances');
+  if (!container) return;
+  var tools = proj.enabled_tools || [];
+  if (tools.length === 0) {
+    container.innerHTML = '<div class="ri-loading">Enable tools above to create reports.</div>';
+    return;
+  }
+
+  container.innerHTML = '<div class="ri-loading">Loading reports...</div>';
+
+  // Fetch all instances for this project
+  var allInstances = [];
+  try {
+    var rows = await _sb.from('tool_data').eq('project_id', proj.id).order('tool_key').order('instance_number').execute();
+    if (rows) allInstances = rows;
+  } catch(e) {
+    container.innerHTML = '<div class="ri-loading">Could not load reports — check connection.</div>';
+    return;
+  }
+
+  // Resolve user names
+  var userMap = {};
+  _allUsers.forEach(function(u){ userMap[u.id] = u.full_name || u.email || '—'; });
+
+  var html = '';
+  tools.forEach(function(key) {
+    var t = AVAILABLE_TOOLS[key];
+    if (!t) return;
+    var instances = allInstances.filter(function(r){ return r.tool_key === key; });
+    var shortName = _TOOL_SHORT_NAMES[key] || t.name;
+
+    html += '<div style="margin-top:14px;"><div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+      + t.icon + ' ' + esc(t.name) + '</div>';
+
+    if (instances.length > 0) {
+      instances.forEach(function(inst) {
+        var title = inst.label || (shortName + ' Report #' + inst.instance_number);
+        var date = inst.updated_at ? new Date(inst.updated_at).toLocaleDateString('en-CA') : '—';
+        var by = inst.updated_by ? (userMap[inst.updated_by] || '—') : '—';
+        var status = inst.status || 'draft';
+        html += '<div class="ri-row" onclick="launchToolInstance(\'' + key + '\',\'' + inst.id + '\')" title="Open ' + esc(title) + '">'
+          + '<span class="ri-icon">→</span>'
+          + '<span class="ri-title">' + esc(title) + '</span>'
+          + '<span class="ri-meta">'
+          + '<span>' + date + '</span>'
+          + '<span>' + esc(by) + '</span>'
+          + '<span class="ri-status ' + status + '">' + status + '</span>'
+          + '</span>'
+          + '</div>';
+      });
+    }
+
+    html += '<button class="ri-new" onclick="createNewReport(\'' + key + '\')">＋ New Report</button>';
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+function launchToolInstance(key, instanceId) {
+  if (!_detailProjectId) return;
+  var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
+  if (!proj) return;
+  var t = AVAILABLE_TOOLS[key];
+  if (!t) return;
+  var url = t.file
+    + '?project=' + encodeURIComponent(proj.id)
+    + '&instance=' + encodeURIComponent(instanceId)
+    + '&pn=' + encodeURIComponent(proj.project_number || '')
+    + '&pname=' + encodeURIComponent(proj.project_name || '')
+    + '&client=' + encodeURIComponent(proj.client || '')
+    + '&addr=' + encodeURIComponent(proj.address || '');
+  window.open(url, '_blank');
+}
+
+async function createNewReport(key) {
+  if (!_detailProjectId) return;
+  var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
+  if (!proj) return;
+  var t = AVAILABLE_TOOLS[key];
+  if (!t) return;
+
+  // Find next instance number
+  var nextNum = 1;
+  try {
+    var existing = await _sb.from('tool_data').eq('project_id', proj.id).eq('tool_key', key).order('instance_number', {ascending:false}).execute();
+    if (existing && existing.length > 0) nextNum = existing[0].instance_number + 1;
+  } catch(e) {}
+
+  // Create the row
+  try {
+    var userId = _user ? _user.id : null;
+    var rows = await _sb.from('tool_data').insert({
+      project_id: proj.id,
+      tool_key: key,
+      instance_number: nextNum,
+      data: {},
+      status: 'draft',
+      created_by: userId,
+      updated_by: userId
+    });
+    if (rows && rows.length > 0) {
+      toast(t.name + ' Report #' + nextNum + ' created', 'success');
+      // Launch it
+      launchToolInstance(key, rows[0].id);
+      // Refresh instances
+      _loadAndRenderInstances(proj);
+    }
+  } catch(e) {
+    toast('Failed to create report: ' + e.message, 'error');
+  }
+}
+
+/* ═══ Delete Project ═══ */
+function confirmDeleteProject() {
+  if (!_detailProjectId) return;
+  var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
+  if (!proj) return;
+
+  // Viewer/staff check — only admin/super_admin can delete
+  if (_profile && (_profile.role === 'viewer' || _profile.role === 'staff')) {
+    toast('Only administrators can delete projects', 'error');
+    return;
+  }
+
+  document.getElementById('del-proj-num').textContent = proj.project_number || '—';
+  document.getElementById('del-confirm-input').value = '';
+  document.getElementById('del-error').style.display = 'none';
+  document.getElementById('delete-project-modal').classList.add('show');
+}
+
+function closeDeleteModal() {
+  document.getElementById('delete-project-modal').classList.remove('show');
+}
+
+async function executeDeleteProject() {
+  if (!_detailProjectId) return;
+  var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
+  if (!proj) return;
+
+  var typed = document.getElementById('del-confirm-input').value.trim();
+  if (typed !== (proj.project_number || '').trim()) {
+    var errEl = document.getElementById('del-error');
+    errEl.textContent = 'Project number does not match. Type it exactly.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    // Cascading delete: tool_data rows are deleted automatically by FK constraint
+    await _sb.from('projects').eq('id', proj.id).delete();
+    toast('Project "' + (proj.project_number || '') + '" deleted permanently', 'success');
+    closeDeleteModal();
+    closeDetail();
+    // Remove from local array
+    _projects = _projects.filter(function(p){ return p.id !== proj.id; });
+    renderProjects();
+  } catch(e) {
+    toast('Delete failed: ' + e.message, 'error');
+  }
 }
 
 /* ═══ New Project Modal ═══ */
