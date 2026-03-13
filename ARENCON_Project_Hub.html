@@ -1089,7 +1089,7 @@ async function toggleTool(key) {
 
   // Save to Supabase
   try {
-    await _sb.from('projects').update({ enabled_tools: tools }).eq('id', proj.id);
+    await _sb.from('projects').eq('id', proj.id).update({ enabled_tools: tools });
     toast(AVAILABLE_TOOLS[key].name + (idx >= 0 ? ' disabled' : ' enabled'), 'success');
   } catch (e) {
     console.error('Failed to save tools:', e);
