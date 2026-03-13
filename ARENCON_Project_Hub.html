@@ -1282,7 +1282,7 @@ function renderProjects() {
   if (regular.length === 0) {
     grid.innerHTML = '';
   } else {
-    grid.innerHTML = '<div class="project-grid-inner">' + regular.map(function(p) { return _renderProjectCard(p, myId); }).join('') + '</div>';
+    grid.innerHTML = regular.map(function(p) { return _renderProjectCard(p, myId); }).join('');
   }
 }
 
