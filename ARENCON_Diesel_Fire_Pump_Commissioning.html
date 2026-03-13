@@ -562,43 +562,8 @@ body.dark-mode .card[style*="border:1.5px solid #1A527622"]{border-color:#2a3848
 .storage-bar-fill{height:100%;background:#4CAF50;border-radius:3px;transition:width .4s;}
 .storage-label{font-size:9px;color:rgba(255,255,255,.55);white-space:nowrap;}
 
-/* ── DASHBOARD ── */
-#dp-dashboard{padding:20px;max-width:1100px;margin:0 auto;display:none;}
-#dp-dashboard.active{display:block;}
-.dp-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
-.dp-toolbar h2{font-size:20px;font-weight:700;color:var(--arencon);margin:0;flex:1;}
-.dp-search{padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font:400 14px Calibri,sans-serif;background:var(--smoke);color:var(--slate);outline:none;min-width:180px;}
-.dp-search:focus{border-color:var(--arencon);}
-.dp-btn{padding:8px 16px;border:none;border-radius:8px;font:600 13px Calibri,sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;}
-.dp-btn.primary{background:var(--arencon);color:#fff;}
-.dp-btn.primary:hover{background:var(--arencon-mid);}
-.dp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
-.dp-card{background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:all .2s;position:relative;}
-.dp-card:hover{border-color:var(--arencon);box-shadow:0 4px 16px rgba(156,39,66,.12);}
-.dp-card-num{font-size:17px;font-weight:700;color:var(--arencon);}
-.dp-card-name{font-size:14px;color:var(--slate);margin:4px 0 8px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.dp-card-meta{font-size:11px;color:var(--silver);display:flex;gap:12px;}
-.dp-card-actions{position:absolute;top:10px;right:10px;display:flex;gap:4px;}
-.dp-card-actions button{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;padding:0;}
-.dp-card-actions button:hover{background:#fee;border-color:#e55;}
-.dp-card.new-project{border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:110px;color:var(--silver);gap:6px;}
-.dp-card.new-project:hover{border-color:var(--arencon);color:var(--arencon);}
-.dp-card.new-project .plus{font-size:28px;line-height:1;}
-.dp-card.new-project span{font-size:13px;font-weight:600;}
-.dp-empty{text-align:center;padding:40px 20px;color:var(--silver);}
-.dp-empty .icon{font-size:48px;margin-bottom:12px;}
-.dp-empty p{font-size:15px;margin-bottom:4px;}
-.dp-hub-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:#FFF3E0;color:#E65100;border:1px solid #FFB74D;margin-top:6px;}
-body.dark-mode .dp-card{background:var(--card);border-color:var(--border);}
-body.dark-mode .dp-card:hover{border-color:var(--arencon);}
-body.dark-mode .dp-card.new-project{border-color:var(--border);}
-body.dark-mode .dp-card.new-project:hover{border-color:var(--arencon);}
-body.dark-mode .dp-card-actions button{background:var(--card);border-color:var(--border);}
-body.dark-mode .dp-search{background:var(--card);color:var(--fg);border-color:var(--border);}
-/* Back button in header when in project */
-.hdr-back{background:rgba(255,255,255,.18);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font:600 12px Calibri,sans-serif;display:none;align-items:center;gap:4px;transition:background .2s;white-space:nowrap;}
-.hdr-back:hover{background:rgba(255,255,255,.3);}
-.hdr-back.visible{display:flex;}
+
+
 </style>
 </head>
 <body>
@@ -614,7 +579,6 @@ body.dark-mode .dp-search{background:var(--card);color:var(--fg);border-color:va
       </div>
       <span class="conn-dot online" id="conn-dot" title="Online"></span>
     </div>
-    <button class="hdr-back" id="hdr-back-btn" onclick="backToDashboard()" title="Back to project list">← Dashboard</button>
     <div class="header-actions">
       <span id="undo-redo-btns" style="display:inline-flex;gap:1px;opacity:0.6;">
         <button onclick="globalUndo()" title="Undo (Ctrl+Z)" style="background:none;border:none;color:white;padding:1px 5px;cursor:pointer;font-size:13px;line-height:1;">↶</button>
@@ -647,7 +611,7 @@ function openMobileMenu(){var ha=document.querySelector('.header-actions');if(ha
 function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(ha)ha.classList.remove('mobile-open');var bd=document.getElementById('mobile-menu-backdrop');if(bd)bd.style.display='none';}
   </script>
   <script>updateDarkToggleIcon();</script>
-  <div class="section-nav" id="section-nav" style="display:none;">
+  <div class="section-nav" id="section-nav">
     <div class="nav-tab active" onclick="switchPanel('proj')">Project Info</div>
     <div class="nav-tab" id="tab-s1" onclick="switchPanel('s1')">1. Pre-Commissioning<span class="tab-dot" id="dot-s1"></span></div>
     <div class="nav-tab" id="tab-s2" onclick="switchPanel('s2')">2. Visual Inspection<span class="tab-dot" id="dot-s2"></span></div>
@@ -661,16 +625,6 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
   </div>
 </header>
 
-<!-- ══ PROJECT DASHBOARD ══ -->
-<div id="dp-dashboard" class="active">
-  <div class="dp-toolbar">
-    <h2>🔥 Diesel Fire Pump Projects</h2>
-    <input type="text" class="dp-search" id="dp-search" placeholder="Search projects..." oninput="dpFilterProjects()">
-    <button class="dp-btn primary" onclick="dpNewProject()">＋ New Project</button>
-  </div>
-  <div class="dp-grid" id="dp-grid"></div>
-</div>
-
 <!-- Offline indicator banner -->
 <div id="offline-banner" style="display:none;background:#E65100;color:white;padding:8px 20px;font-size:13px;font-weight:700;text-align:center;align-items:center;justify-content:center;gap:8px;z-index:99;">
   <span>📡 You are offline — data is auto-saved locally and will sync when you reconnect.</span>
@@ -678,7 +632,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
 <div id="report-verdict" style="display:none;padding:7px 20px;font-size:13px;font-weight:700;letter-spacing:.8px;text-align:center;"></div>
 
-<div class="main-wrap" style="display:none;">
+<div class="main-wrap">
 
   <!-- PROGRESS -->
   <div class="summary-bar">
@@ -6569,314 +6523,6 @@ function updateIDBStorageBar(){
 }
 // ══ END INDEXEDDB LAYER ══
 
-// ══ MULTI-PROJECT DASHBOARD SYSTEM ══
-var _dpProjects = {}; // {id: {id, hub_project_id, projectNumber, projectName, client, created, modified}}
-var _dpCurrentId = null; // currently open project ID
-var _dpInitDone = false;
-
-// URL params from Hub
-var _dpUrlParams = new URLSearchParams(window.location.search);
-var _dpHubProjectId = _dpUrlParams.get('project') || null;
-var _dpHubPN = _dpUrlParams.get('pn') || '';
-var _dpHubPName = _dpUrlParams.get('pname') || '';
-var _dpHubClient = _dpUrlParams.get('client') || '';
-var _dpHubAddr = _dpUrlParams.get('addr') || '';
-
-function _dpGenId(){ return 'dp_'+Date.now()+'_'+Math.random().toString(36).substr(2,6); }
-
-// IDB project CRUD
-function _dpPutProject(proj){
-  return new Promise(function(res,rej){
-    if(!_idb_db){rej('no db');return;}
-    var tx=_idb_db.transaction('projects','readwrite');
-    tx.objectStore('projects').put(proj);
-    tx.oncomplete=function(){res();};
-    tx.onerror=function(e){rej(e);};
-  });
-}
-function _dpGetAllProjects(){
-  return new Promise(function(res,rej){
-    if(!_idb_db){rej('no db');return;}
-    var tx=_idb_db.transaction('projects','readonly');
-    var req=tx.objectStore('projects').getAll();
-    req.onsuccess=function(){ res(req.result||[]); };
-    req.onerror=function(e){rej(e);};
-  });
-}
-function _dpDeleteProject(id){
-  return new Promise(function(res,rej){
-    if(!_idb_db){rej('no db');return;}
-    var tx=_idb_db.transaction('projects','readwrite');
-    tx.objectStore('projects').delete(id);
-    tx.oncomplete=function(){res();};
-    tx.onerror=function(e){rej(e);};
-  });
-}
-
-// Migrate legacy single-state to project system
-function _dpMigrateLegacy(){
-  return new Promise(function(res){
-    // Check if any projects already exist
-    if(Object.keys(_dpProjects).length > 0){ res(false); return; }
-    // Try to load legacy state from IDB or localStorage
-    var legacyKey = 'arencon_pump_v10';
-    _idbGet(legacyKey).then(function(val){
-      if(!val) val = localStorage.getItem(legacyKey);
-      if(!val){ res(false); return; }
-      try{
-        var s = JSON.parse(val);
-        var pn = (s.proj && s.proj['pi-projno']) || '';
-        var pname = (s.proj && s.proj['pi-projname']) || '';
-        var client = (s.proj && s.proj['pi-client']) || '';
-        var id = _dpGenId();
-        var proj = {
-          id: id,
-          hub_project_id: null,
-          projectNumber: pn,
-          projectName: pname || 'Migrated Project',
-          client: client,
-          created: new Date().toISOString(),
-          modified: new Date().toISOString()
-        };
-        _dpProjects[id] = proj;
-        // Save project envelope
-        _dpPutProject(proj).then(function(){
-          // Save state under project key
-          return _idbPut('state_'+id, val);
-        }).then(function(){
-          res(true);
-        }).catch(function(){ res(false); });
-      }catch(e){ res(false); }
-    }).catch(function(){ res(false); });
-  });
-}
-
-// Load all projects from IDB
-function _dpLoadAll(){
-  return _dpGetAllProjects().then(function(arr){
-    _dpProjects = {};
-    arr.forEach(function(p){ _dpProjects[p.id] = p; });
-  });
-}
-
-// Render dashboard
-function dpRenderDashboard(){
-  var grid = document.getElementById('dp-grid');
-  if(!grid) return;
-  var search = (document.getElementById('dp-search')||{}).value || '';
-  search = search.toLowerCase().trim();
-
-  var projs = Object.values(_dpProjects)
-    .filter(function(p){
-      if(!search) return true;
-      return (p.projectNumber||'').toLowerCase().indexOf(search)>=0 ||
-             (p.projectName||'').toLowerCase().indexOf(search)>=0 ||
-             (p.client||'').toLowerCase().indexOf(search)>=0;
-    })
-    .sort(function(a,b){ return (b.modified||b.created||'').localeCompare(a.modified||a.created||''); });
-
-  var html = '<div class="dp-card new-project" onclick="dpNewProject()"><div class="plus">＋</div><span>New Project</span></div>';
-
-  projs.forEach(function(p){
-    var mod = p.modified ? new Date(p.modified).toLocaleDateString('en-CA') : '';
-    var hubBadge = p.hub_project_id ? '<div class="dp-hub-badge">🔗 Hub Linked</div>' : '';
-    html += '<div class="dp-card" onclick="dpOpenProject(\''+p.id+'\')">'
-      + '<div class="dp-card-actions">'
-      + '<button onclick="event.stopPropagation();dpDeleteProject(\''+p.id+'\')" title="Delete project">🗑️</button>'
-      + '</div>'
-      + '<div class="dp-card-num">'+(p.projectNumber||'No Number')+'</div>'
-      + '<div class="dp-card-name">'+(p.projectName||'Untitled')+'</div>'
-      + '<div class="dp-card-meta">'
-      + '<span>'+(p.client||'—')+'</span>'
-      + '<span>'+mod+'</span>'
-      + '</div>'
-      + hubBadge
-      + '</div>';
-  });
-
-  if(projs.length === 0 && !search){
-    html += '<div class="dp-empty" style="grid-column:1/-1;"><div class="icon">🔥</div><p>No diesel fire pump projects yet.</p><p style="font-size:13px;">Click "New Project" to get started.</p></div>';
-  }
-  grid.innerHTML = html;
-}
-
-function dpFilterProjects(){ dpRenderDashboard(); }
-
-function dpNewProject(prefill){
-  prefill = prefill || {};
-  var id = _dpGenId();
-  var proj = {
-    id: id,
-    hub_project_id: prefill.hub_project_id || null,
-    projectNumber: prefill.projectNumber || '',
-    projectName: prefill.projectName || '',
-    client: prefill.client || '',
-    created: new Date().toISOString(),
-    modified: new Date().toISOString()
-  };
-  _dpProjects[id] = proj;
-  _dpPutProject(proj).then(function(){
-    dpOpenProject(id);
-  }).catch(function(e){
-    console.error('Create project error:', e);
-    showToast('Failed to create project', 3000);
-  });
-}
-
-function dpOpenProject(id){
-  var proj = _dpProjects[id];
-  if(!proj) return;
-  _dpCurrentId = id;
-
-  // Show form, hide dashboard
-  document.getElementById('dp-dashboard').classList.remove('active');
-  document.getElementById('dp-dashboard').style.display = 'none';
-  document.querySelector('.main-wrap').style.display = '';
-  document.getElementById('section-nav').style.display = '';
-  document.getElementById('hdr-back-btn').classList.add('visible');
-
-  // Pre-fill project info from envelope if fields are empty
-  var el;
-  if(proj.projectNumber){ el=document.getElementById('pi-projno'); if(el && !el.value) el.value=proj.projectNumber; }
-  if(proj.projectName){ el=document.getElementById('pi-projname'); if(el && !el.value) el.value=proj.projectName; }
-  if(proj.client){ el=document.getElementById('pi-client'); if(el && !el.value) el.value=proj.client; }
-
-  // Load project state from IDB
-  _idbGet('state_'+id).then(function(val){
-    if(val) _applyLoadedState(val);
-    updateProgress();
-    updateIDBStorageBar();
-  }).catch(function(){
-    // Try localStorage fallback for migrated data
-    var val = localStorage.getItem('diesel_'+proj.projectNumber);
-    if(val) _applyLoadedState(val);
-    updateProgress();
-  });
-
-  showToast((proj.projectNumber||'New')+' · '+(proj.projectName||'Project')+' opened', 2000);
-}
-
-function backToDashboard(){
-  // Save current project first
-  if(_dpCurrentId) _dpSaveCurrentProject();
-
-  // Reset form to clean state
-  _dpResetForm();
-
-  _dpCurrentId = null;
-
-  // Show dashboard, hide form
-  document.getElementById('dp-dashboard').style.display = '';
-  document.getElementById('dp-dashboard').classList.add('active');
-  document.querySelector('.main-wrap').style.display = 'none';
-  document.getElementById('section-nav').style.display = 'none';
-  document.getElementById('hdr-back-btn').classList.remove('visible');
-
-  dpRenderDashboard();
-}
-
-function _dpSaveCurrentProject(){
-  if(!_dpCurrentId) return;
-  var proj = _dpProjects[_dpCurrentId];
-  if(!proj) return;
-
-  // Update envelope from form fields
-  var el;
-  el=document.getElementById('pi-projno'); if(el) proj.projectNumber=el.value.trim();
-  el=document.getElementById('pi-projname'); if(el) proj.projectName=el.value.trim();
-  el=document.getElementById('pi-client'); if(el) proj.client=el.value.trim();
-  proj.modified = new Date().toISOString();
-
-  // Save envelope
-  _dpPutProject(proj).catch(function(e){ console.warn('Envelope save error:', e); });
-
-  // Save state
-  try{
-    var state = collectState();
-    var stateJson = JSON.stringify(state);
-    _idbPut('state_'+_dpCurrentId, stateJson).then(function(){
-      updateIDBStorageBar();
-    }).catch(function(e){ console.warn('State save error:', e); });
-  }catch(e){ console.error('collectState error:', e); }
-}
-
-function _dpResetForm(){
-  // Clear all project info fields
-  ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date','pi-eng',
-   'pi-contractor','pi-permit','pi-version','pi-ref','pi-revision','pi-date-modified',
-   'pm-prv','pm-rpm','pm-equip','pm-pitot','pm-pitotflow','pm-rated-flow',
-   'pm-pitot-pld','pm-pitotflow-pld','pm-rated-flow-pld',
-   'ws-static-flow','ws-static-psi','ws-res-flow','ws-res-psi',
-   'dem-spr-flow','dem-spr-psi','dem-hose-flow',
-   'pld-ws-static-flow','pld-ws-static-psi','pld-ws-res-flow','pld-ws-res-psi',
-   'pld-dem-spr-flow','pld-dem-spr-psi','pld-dem-hose-flow',
-   'pm-prv-pld','pm-pld-setting','pm-rpm-pld',
-   'so-name','so-title','so-company','so-date','so-cert','test-result'
-  ].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
-
-  // Reset checklist states
-  document.querySelectorAll('.cl-btn.active').forEach(function(b){ b.classList.remove('active'); });
-  document.querySelectorAll('.notes-field').forEach(function(f){ f.value=''; });
-
-  // Reset test data arrays
-  if(typeof stdData!=='undefined') stdData.forEach(function(r){ r.rpm='';r.disch='';r.suc=''; });
-  if(typeof pldData!=='undefined') pldData.forEach(function(r){ r.rpm='';r.disch='';r.suc=''; });
-  if(typeof pumpCurvePoints!=='undefined') pumpCurvePoints.length=0;
-  if(typeof pldPumpCurvePoints!=='undefined') pldPumpCurvePoints.length=0;
-
-  // Reset signatures
-  var sc=document.getElementById('sig-canvas');
-  if(sc){ var ctx=sc.getContext('2d'); ctx.clearRect(0,0,sc.width,sc.height); }
-
-  // Switch to project info panel
-  if(typeof switchPanel==='function') switchPanel('proj');
-}
-
-function dpDeleteProject(id){
-  var proj = _dpProjects[id];
-  if(!proj) return;
-  var label = (proj.projectNumber||'')+(proj.projectName?' · '+proj.projectName:'');
-  if(!confirm('Delete project '+label+'?\n\nThis cannot be undone.')) return;
-
-  // Delete from IDB
-  _dpDeleteProject(id).then(function(){
-    return _idbDelete('state_'+id);
-  }).then(function(){
-    delete _dpProjects[id];
-    if(_dpCurrentId === id){
-      _dpCurrentId = null;
-      backToDashboard();
-    }
-    dpRenderDashboard();
-    showToast('Project deleted', 2000);
-    updateIDBStorageBar();
-  }).catch(function(e){
-    console.error('Delete error:', e);
-    showToast('Delete failed', 3000);
-  });
-}
-
-// Hub auto-association: find existing project linked to Hub UUID, or create new one
-function _dpHandleHubParam(){
-  if(!_dpHubProjectId) return false;
-
-  // Find existing project linked to this Hub UUID
-  var existing = Object.values(_dpProjects).find(function(p){ return p.hub_project_id === _dpHubProjectId; });
-  if(existing){
-    dpOpenProject(existing.id);
-    return true;
-  }
-
-  // Create new project linked to Hub
-  dpNewProject({
-    hub_project_id: _dpHubProjectId,
-    projectNumber: _dpHubPN,
-    projectName: _dpHubPName,
-    client: _dpHubClient
-  });
-  return true;
-}
-// ══ END MULTI-PROJECT DASHBOARD SYSTEM ══
 
 const SAVE_KEY = 'arencon_pump_v10';
 const EDIT_PASSWORD = 'arencon9970';
@@ -7060,13 +6706,6 @@ async function saveToFile() {
 }
 
 function saveState() {
-  // If we're in multi-project mode, delegate to project-aware save
-  if(_dpCurrentId){
-    _dpSaveCurrentProject();
-    autoSaveToast('✓ Saved');
-    return;
-  }
-  // Fallback: legacy single-state save (shouldn't normally happen)
   try {
     const state = collectState();
     var stateJson = JSON.stringify(state);
@@ -7257,14 +6896,9 @@ function _applyLoadedState(raw) {
 function resetAllPages() {
   _saveUndoPage();
   if (!confirm('Reset ALL pages for this project? This will clear all entered data permanently.')) return;
-  if(_dpCurrentId){
-    // Delete project state from IDB, keep envelope
-    _idbDelete('state_'+_dpCurrentId).catch(function(){});
-  } else {
-    localStorage.removeItem(SAVE_KEY);
-    var _rkey=getProjectSaveKey();localStorage.removeItem(_rkey);
-    _idbDelete(_rkey).catch(function(){});
-  }
+  localStorage.removeItem(SAVE_KEY);
+  var _rkey=getProjectSaveKey();localStorage.removeItem(_rkey);
+  _idbDelete(_rkey).catch(function(){});
   location.reload();
 }
 
@@ -7376,45 +7010,23 @@ window.addEventListener('load', () => {
   if (lb) lb.addEventListener('click', e => { if (e.target === lb) closeLightbox(); });
   updateOfflineStatus();
 
-  // Multi-project init: wait for IDB to be ready, then load projects
-  function _dpInit(){
-    if(!_idb_db){ setTimeout(_dpInit, 50); return; }
-    _dpLoadAll().then(function(){
-      return _dpMigrateLegacy();
-    }).then(function(migrated){
-      if(migrated) showToast('Legacy data migrated to project system ✓', 3000);
-      _dpInitDone = true;
-
-      // Check for Hub ?project= param
-      if(_dpHandleHubParam()) return;
-
-      // Check for embedded state (opened from Save As HTML file)
-      var embEl = document.getElementById('embedded-state');
-      if(embEl){
-        var embText = embEl.textContent.trim();
-        if(embText && embText !== '{}'){
-          // Create a temp project for embedded data and open it
-          var s = JSON.parse(embText);
-          var pn = (s.proj && s.proj['pi-projno']) || '';
-          dpNewProject({ projectNumber: pn, projectName: (s.proj && s.proj['pi-projname']) || 'Imported' });
-          setTimeout(function(){ _applyLoadedState(embText); }, 100);
-          return;
-        }
+  // Init: wait for IDB, then load saved state
+  function _initLoad(){
+    if(!_idb_db){ setTimeout(_initLoad, 50); return; }
+    // Check for embedded state (opened from Save As HTML file)
+    var embEl = document.getElementById('embedded-state');
+    if(embEl){
+      var embText = embEl.textContent.trim();
+      if(embText && embText !== '{}'){
+        _applyLoadedState(embText);
+        updateProgress();
+        return;
       }
-
-      // Default: show dashboard
-      dpRenderDashboard();
-    }).catch(function(e){
-      console.error('Dashboard init error:', e);
-      showToast('Project system init failed — using fallback', 3000);
-      // Fallback: load legacy single state
-      loadAutosave();
-      document.getElementById('dp-dashboard').style.display = 'none';
-      document.querySelector('.main-wrap').style.display = '';
-      document.getElementById('section-nav').style.display = '';
-    });
+    }
+    // Normal load from IDB/localStorage
+    loadAutosave();
   }
-  _dpInit();
+  _initLoad();
 });
 
 updateProgress();

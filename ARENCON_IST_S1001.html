@@ -205,36 +205,7 @@ body.dark-mode .matrix-table tr:nth-child(even) td{background:rgba(255,255,255,.
 }
 
 /* ── DASHBOARD ── */
-#ist-dashboard{padding:20px;max-width:1100px;margin:0 auto;display:none;}
-#ist-dashboard.active{display:block;}
-.ist-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
-.ist-toolbar h2{font-size:20px;font-weight:700;color:#9C2742;margin:0;flex:1;}
-.ist-search{padding:8px 14px;border:1.5px solid #DDE1E7;border-radius:8px;font:400 14px Calibri,sans-serif;background:#F7F8FA;color:#1C2333;outline:none;min-width:180px;}
-.ist-search:focus{border-color:#9C2742;}
-.ist-btn{padding:8px 16px;border:none;border-radius:8px;font:600 13px Calibri,sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;}
-.ist-btn.primary{background:#9C2742;color:#fff;}
-.ist-btn.primary:hover{background:#7d1f35;}
-.ist-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
-.ist-card{background:#fff;border:1.5px solid #DDE1E7;border-radius:10px;padding:16px;cursor:pointer;transition:all .2s;position:relative;}
-.ist-card:hover{border-color:#9C2742;box-shadow:0 4px 16px rgba(156,39,66,.12);}
-.ist-card-num{font-size:17px;font-weight:700;color:#9C2742;}
-.ist-card-name{font-size:14px;color:#1C2333;margin:4px 0 8px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ist-card-meta{font-size:11px;color:#A0AEC0;display:flex;gap:12px;}
-.ist-card-actions{position:absolute;top:10px;right:10px;display:flex;gap:4px;}
-.ist-card-actions button{width:28px;height:28px;border:1px solid #DDE1E7;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;padding:0;}
-.ist-card-actions button:hover{background:#fee;border-color:#e55;}
-.ist-card.new-project{border:2px dashed #DDE1E7;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:110px;color:#A0AEC0;gap:6px;}
-.ist-card.new-project:hover{border-color:#9C2742;color:#9C2742;}
-.ist-card.new-project .plus{font-size:28px;line-height:1;}
-.ist-card.new-project span{font-size:13px;font-weight:600;}
-.ist-hub-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:#FFF3E0;color:#E65100;border:1px solid #FFB74D;margin-top:6px;}
-body.dark-mode .ist-card{background:var(--card,#22252d);border-color:var(--border,#33373f);}
-body.dark-mode .ist-card:hover{border-color:#9C2742;}
-body.dark-mode .ist-search{background:var(--card,#22252d);color:var(--fg,#e0e4ea);border-color:var(--border,#33373f);}
-.hdr-back{background:rgba(255,255,255,.18);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font:600 12px Calibri,sans-serif;display:none;align-items:center;gap:4px;transition:background .2s;white-space:nowrap;}
-.hdr-back:hover{background:rgba(255,255,255,.3);}
-.hdr-back.visible{display:flex;}
-</style>
+body.dark-mode body.dark-mode body.dark-mode </style>
 </head>
 <body>
 
@@ -247,7 +218,6 @@ body.dark-mode .ist-search{background:var(--card,#22252d);color:var(--fg,#e0e4ea
         <div class="app-title">CAN/ULC-S1001 Integrated Systems Testing</div>
       </div>
     </div>
-    <button class="hdr-back" id="hdr-back-btn" onclick="istBackToDashboard()" title="Back to project list">← Dashboard</button>
     <div class="header-actions">
       <button class="hdr-btn" style="background:rgba(255,255,255,.12)" onclick="toggleDark()" id="dark-btn" title="Toggle dark mode">☀</button>
       <button class="hdr-btn" style="background:#00695C" onclick="saveJSON()" title="Save project as JSON">💾 <span>Save</span></button>
@@ -263,7 +233,7 @@ body.dark-mode .ist-search{background:var(--card,#22252d);color:var(--fg,#e0e4ea
       <input type="file" id="load-input" accept=".json" style="display:none" onchange="loadJSON(event)">
     </div>
   </div>
-  <nav class="section-nav" id="section-nav" style="display:none;">
+  <nav class="section-nav" id="section-nav">
     <div class="nav-tab active" data-tab="project">Project Info</div>
     <div class="nav-tab" data-tab="systems">Systems</div>
     <div class="nav-tab" data-tab="matrix">Matrix</div>
@@ -277,12 +247,6 @@ body.dark-mode .ist-search{background:var(--card,#22252d);color:var(--fg,#e0e4ea
 
 <!-- ══ TOAST ══ -->
 <!-- ══ PROJECT DASHBOARD ══ -->
-<div id="ist-dashboard" class="active">
-  <div class="ist-toolbar">
-    <h2>🔗 Integrated Systems Testing Projects</h2>
-    <input type="text" class="ist-search" id="ist-search" placeholder="Search projects..." oninput="istFilterProjects()">
-    <button class="ist-btn primary" onclick="istNewProject()">＋ New Project</button>
-  </div>
   <div class="ist-grid" id="ist-grid"></div>
 </div>
 
@@ -290,7 +254,7 @@ body.dark-mode .ist-search{background:var(--card,#22252d);color:var(--fg,#e0e4ea
 <div class="toast" id="toast"></div>
 
 <!-- ══ MAIN CONTENT ══ -->
-<div class="main-wrap" style="display:none;">
+<div class="main-wrap">
 
 <!-- ═══ TAB 1: PROJECT INFO ═══ -->
 <div class="panel active" id="panel-project">
@@ -531,152 +495,6 @@ body.dark-mode .ist-search{background:var(--card,#22252d);color:var(--fg,#e0e4ea
 // ══════════════════════════════════════════════════════════════════════════════
 
 
-// ══ MULTI-PROJECT DASHBOARD SYSTEM ══
-var _istProjects = {};
-var _istCurrentId = null;
-var _istInitDone = false;
-var _istUrlParams = new URLSearchParams(window.location.search);
-var _istHubProjectId = _istUrlParams.get('project') || null;
-var _istHubPN = _istUrlParams.get('pn') || '';
-var _istHubPName = _istUrlParams.get('pname') || '';
-var _istHubClient = _istUrlParams.get('client') || '';
-
-function _istGenId(){ return 'ist_'+Date.now()+'_'+Math.random().toString(36).substr(2,6); }
-
-// localStorage-based project store (these tools don't use IDB)
-function _istSaveProjects(){ try{ localStorage.setItem('ist_projects_index', JSON.stringify(_istProjects)); }catch(e){} }
-function _istLoadProjects(){ try{ var s=localStorage.getItem('ist_projects_index'); if(s) _istProjects=JSON.parse(s); }catch(e){} }
-
-function _istMigrateLegacy(){
-  if(Object.keys(_istProjects).length > 0) return false;
-  var val = localStorage.getItem('arencon_ist_s1001_v1');
-  if(!val) return false;
-  try{
-    var s = JSON.parse(val);
-    var pn = s.project && s.project.projNo || '';
-    var pname = s.project && s.project.projName || '';
-    var client = s.project && s.project.clientName || '';
-    var id = _istGenId();
-    _istProjects[id] = {
-      id: id, hub_project_id: null,
-      projectNumber: pn, projectName: pname || 'Migrated Project', client: client,
-      created: new Date().toISOString(), modified: new Date().toISOString()
-    };
-    localStorage.setItem('ist_state_'+id, val);
-    _istSaveProjects();
-    return true;
-  }catch(e){ return false; }
-}
-
-function istRenderDashboard(){
-  var grid = document.getElementById('ist-grid');
-  if(!grid) return;
-  var search = (document.getElementById('ist-search')||{}).value || '';
-  search = search.toLowerCase().trim();
-  var projs = Object.values(_istProjects)
-    .filter(function(p){
-      if(!search) return true;
-      return (p.projectNumber||'').toLowerCase().indexOf(search)>=0 ||
-             (p.projectName||'').toLowerCase().indexOf(search)>=0 ||
-             (p.client||'').toLowerCase().indexOf(search)>=0;
-    })
-    .sort(function(a,b){ return (b.modified||b.created||'').localeCompare(a.modified||a.created||''); });
-  var html = '<div class="ist-card new-project" onclick="istNewProject()"><div class="plus">＋</div><span>New Project</span></div>';
-  projs.forEach(function(p){
-    var mod = p.modified ? new Date(p.modified).toLocaleDateString('en-CA') : '';
-    var hubBadge = p.hub_project_id ? '<div class="ist-hub-badge">🔗 Hub</div>' : '';
-    html += '<div class="ist-card" onclick="istOpenProject(\''+p.id+'\')"><div class="ist-card-actions"><button onclick="event.stopPropagation();istDeleteProject(\''+p.id+'\')">🗑️</button></div><div class="ist-card-num">'+(p.projectNumber||'No Number')+'</div><div class="ist-card-name">'+(p.projectName||'Untitled')+'</div><div class="ist-card-meta"><span>'+(p.client||'—')+'</span><span>'+mod+'</span></div>'+hubBadge+'</div>';
-  });
-  if(projs.length === 0 && !search){
-    html += '<div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:#A0AEC0;"><div style="font-size:48px;margin-bottom:12px;">🔗</div><p style="font-size:15px;">No integrated systems testing projects yet.</p><p style="font-size:13px;">Click "New Project" to get started.</p></div>';
-  }
-  grid.innerHTML = html;
-}
-
-function istFilterProjects(){ istRenderDashboard(); }
-
-function istNewProject(prefill){
-  prefill = prefill || {};
-  var id = _istGenId();
-  var proj = {
-    id: id, hub_project_id: prefill.hub_project_id || null,
-    projectNumber: prefill.projectNumber || '', projectName: prefill.projectName || '',
-    client: prefill.client || '',
-    created: new Date().toISOString(), modified: new Date().toISOString()
-  };
-  _istProjects[id] = proj;
-  _istSaveProjects();
-  istOpenProject(id);
-}
-
-function istOpenProject(id){
-  var proj = _istProjects[id];
-  if(!proj) return;
-  _istCurrentId = id;
-  document.getElementById('ist-dashboard').classList.remove('active');
-  document.getElementById('ist-dashboard').style.display = 'none';
-  document.querySelector('div').style.display = '';
-  document.getElementById("section-nav").style.display = "";
-  document.getElementById('hdr-back-btn').classList.add('visible');
-  // Load project state
-  var val = localStorage.getItem('ist_state_'+id);
-  if(val){
-    try{
-      var s=JSON.parse(val);
-      STATE = s;
-      if(typeof initAll==='function'){ initAll(); }
-      else { if(typeof pop==='function') pop(); }
-    }catch(e){}
-  }
-  if(typeof toast==='function') toast((proj.projectNumber||'New')+' · '+(proj.projectName||'Project')+' opened');
-  else if(typeof showToast==='function') showToast((proj.projectNumber||'New')+' opened', 2000);
-}
-
-function istBackToDashboard(){
-  if(_istCurrentId) istSaveCurrentProject();
-  _istCurrentId = null;
-  document.getElementById('ist-dashboard').style.display = '';
-  document.getElementById('ist-dashboard').classList.add('active');
-  document.querySelector('div').style.display = 'none';
-  document.getElementById("section-nav").style.display = "none";
-  document.getElementById('hdr-back-btn').classList.remove('visible');
-  istRenderDashboard();
-}
-
-function istSaveCurrentProject(){
-  if(!_istCurrentId) return;
-  var proj = _istProjects[_istCurrentId];
-  if(!proj) return;
-  var el;
-  el=document.getElementById('projNo'); if(el) proj.projectNumber=el.value.trim();
-  el=document.getElementById('projName'); if(el) proj.projectName=el.value.trim();
-  el=document.getElementById('clientName'); if(el) proj.client=el.value.trim();
-  proj.modified = new Date().toISOString();
-  _istSaveProjects();
-  try{
-    localStorage.setItem('ist_state_'+_istCurrentId, JSON.stringify(STATE));
-  }catch(e){}
-}
-
-function istDeleteProject(id){
-  var proj = _istProjects[id];
-  if(!proj) return;
-  if(!confirm('Delete '+(proj.projectNumber||'project')+'?\n\nThis cannot be undone.')) return;
-  localStorage.removeItem('ist_state_'+id);
-  delete _istProjects[id];
-  _istSaveProjects();
-  if(_istCurrentId === id){ _istCurrentId = null; istBackToDashboard(); }
-  istRenderDashboard();
-}
-
-function _istHandleHubParam(){
-  if(!_istHubProjectId) return false;
-  var existing = Object.values(_istProjects).find(function(p){ return p.hub_project_id === _istHubProjectId; });
-  if(existing){ istOpenProject(existing.id); return true; }
-  istNewProject({ hub_project_id: _istHubProjectId, projectNumber: _istHubPN, projectName: _istHubPName, client: _istHubClient });
-  return true;
-}
-// ══ END MULTI-PROJECT DASHBOARD SYSTEM ══
 
 const LS_KEY = 'arencon_ist_s1001_v1';
 let STATE = null;
@@ -2344,15 +2162,6 @@ function esc(s){
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', function(){
-  // Multi-project init
-  _istLoadProjects();
-  var migrated = _istMigrateLegacy();
-  if(migrated && typeof toast==='function') toast('Legacy data migrated to project system ✓');
-  _istInitDone = true;
-  if(_istHandleHubParam()) return;
-  // Default: show dashboard
-  istRenderDashboard();
-  // Still run tool init for charts etc
   init();
 });
 </script>

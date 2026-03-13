@@ -541,42 +541,6 @@ body.dark-mode .card[style*="border:1.5px solid #1A527622"]{border-color:#2a3848
 .storage-label{font-size:9px;color:rgba(255,255,255,.55);white-space:nowrap;}
 
 
-/* ── DASHBOARD ── */
-#ep-dashboard{padding:20px;max-width:1100px;margin:0 auto;display:none;}
-#ep-dashboard.active{display:block;}
-.ep-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
-.ep-toolbar h2{font-size:20px;font-weight:700;color:var(--arencon);margin:0;flex:1;}
-.ep-search{padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font:400 14px Calibri,sans-serif;background:var(--smoke);color:var(--slate);outline:none;min-width:180px;}
-.ep-search:focus{border-color:var(--arencon);}
-.ep-btn{padding:8px 16px;border:none;border-radius:8px;font:600 13px Calibri,sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;}
-.ep-btn.primary{background:var(--arencon);color:#fff;}
-.ep-btn.primary:hover{background:var(--arencon-mid);}
-.ep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
-.ep-card{background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:all .2s;position:relative;}
-.ep-card:hover{border-color:var(--arencon);box-shadow:0 4px 16px rgba(156,39,66,.12);}
-.ep-card-num{font-size:17px;font-weight:700;color:var(--arencon);}
-.ep-card-name{font-size:14px;color:var(--slate);margin:4px 0 8px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ep-card-meta{font-size:11px;color:var(--silver);display:flex;gap:12px;}
-.ep-card-actions{position:absolute;top:10px;right:10px;display:flex;gap:4px;}
-.ep-card-actions button{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;padding:0;}
-.ep-card-actions button:hover{background:#fee;border-color:#e55;}
-.ep-card.new-project{border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:110px;color:var(--silver);gap:6px;}
-.ep-card.new-project:hover{border-color:var(--arencon);color:var(--arencon);}
-.ep-card.new-project .plus{font-size:28px;line-height:1;}
-.ep-card.new-project span{font-size:13px;font-weight:600;}
-.ep-empty{text-align:center;padding:40px 20px;color:var(--silver);}
-.ep-empty .icon{font-size:48px;margin-bottom:12px;}
-.ep-empty p{font-size:15px;margin-bottom:4px;}
-.ep-hub-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:#FFF3E0;color:#E65100;border:1px solid #FFB74D;margin-top:6px;}
-body.dark-mode .ep-card{background:var(--card);border-color:var(--border);}
-body.dark-mode .ep-card:hover{border-color:var(--arencon);}
-body.dark-mode .ep-card.new-project{border-color:var(--border);}
-body.dark-mode .ep-card.new-project:hover{border-color:var(--arencon);}
-body.dark-mode .ep-card-actions button{background:var(--card);border-color:var(--border);}
-body.dark-mode .ep-search{background:var(--card);color:var(--fg);border-color:var(--border);}
-.hdr-back{background:rgba(255,255,255,.18);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font:600 12px Calibri,sans-serif;display:none;align-items:center;gap:4px;transition:background .2s;white-space:nowrap;}
-.hdr-back:hover{background:rgba(255,255,255,.3);}
-.hdr-back.visible{display:flex;}
 </style>
 </head>
 <body>
@@ -592,7 +556,6 @@ body.dark-mode .ep-search{background:var(--card);color:var(--fg);border-color:va
       </div>
       <span class="conn-dot online" id="conn-dot" title="Online"></span>
     </div>
-    <button class="hdr-back" id="hdr-back-btn" onclick="backToDashboard()" title="Back to project list">← Dashboard</button>
     <div class="header-actions">
       <span id="undo-redo-btns" style="display:inline-flex;gap:1px;opacity:0.6;">
         <button onclick="globalUndo()" title="Undo (Ctrl+Z)" style="background:none;border:none;color:white;padding:1px 5px;cursor:pointer;font-size:13px;line-height:1;">↶</button>
@@ -625,7 +588,7 @@ function openMobileMenu(){var ha=document.querySelector('.header-actions');if(ha
 function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(ha)ha.classList.remove('mobile-open');var bd=document.getElementById('mobile-menu-backdrop');if(bd)bd.style.display='none';}
   </script>
   <script>updateDarkToggleIcon();</script>
-  <div class="section-nav" id="section-nav" style="display:none;">
+  <div class="section-nav" id="section-nav">
     <div class="nav-tab active" onclick="switchPanel('proj')">Project Info</div>
     <div class="nav-tab" id="tab-s1" onclick="switchPanel('s1')">1. Pre-Test<span class="tab-dot" id="dot-s1"></span></div>
     <div class="nav-tab" id="tab-s2" onclick="switchPanel('s2')">2. Visual Inspection<span class="tab-dot" id="dot-s2"></span></div>
@@ -639,13 +602,6 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
   </div>
 </header>
 
-<!-- ══ PROJECT DASHBOARD ══ -->
-<div id="ep-dashboard" class="active">
-  <div class="ep-toolbar">
-    <h2>⚡ Electric Fire Pump Projects</h2>
-    <input type="text" class="ep-search" id="ep-search" placeholder="Search projects..." oninput="epFilterProjects()">
-    <button class="ep-btn primary" onclick="epNewProject()">＋ New Project</button>
-  </div>
   <div class="ep-grid" id="ep-grid"></div>
 </div>
 
@@ -656,7 +612,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
 <div id="report-verdict" style="display:none;padding:7px 20px;font-size:13px;font-weight:700;letter-spacing:.8px;text-align:center;"></div>
 
-<div class="main-wrap" style="display:none;">
+<div class="main-wrap">
 
   <!-- PROGRESS -->
   <div class="summary-bar">
@@ -5456,42 +5412,6 @@ body.dark-mode [style*="border-left:3px solid #C0392B"]{border-left-color:#6a303
 body.dark-mode [style*="border:1.5px solid"][style*="padding"][style*="margin"]{background:#1e2028!important;border-color:#33373f!important;}
 
 
-/* ── DASHBOARD ── */
-#ep-dashboard{padding:20px;max-width:1100px;margin:0 auto;display:none;}
-#ep-dashboard.active{display:block;}
-.ep-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
-.ep-toolbar h2{font-size:20px;font-weight:700;color:var(--arencon);margin:0;flex:1;}
-.ep-search{padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font:400 14px Calibri,sans-serif;background:var(--smoke);color:var(--slate);outline:none;min-width:180px;}
-.ep-search:focus{border-color:var(--arencon);}
-.ep-btn{padding:8px 16px;border:none;border-radius:8px;font:600 13px Calibri,sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;}
-.ep-btn.primary{background:var(--arencon);color:#fff;}
-.ep-btn.primary:hover{background:var(--arencon-mid);}
-.ep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
-.ep-card{background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:all .2s;position:relative;}
-.ep-card:hover{border-color:var(--arencon);box-shadow:0 4px 16px rgba(156,39,66,.12);}
-.ep-card-num{font-size:17px;font-weight:700;color:var(--arencon);}
-.ep-card-name{font-size:14px;color:var(--slate);margin:4px 0 8px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ep-card-meta{font-size:11px;color:var(--silver);display:flex;gap:12px;}
-.ep-card-actions{position:absolute;top:10px;right:10px;display:flex;gap:4px;}
-.ep-card-actions button{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;padding:0;}
-.ep-card-actions button:hover{background:#fee;border-color:#e55;}
-.ep-card.new-project{border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:110px;color:var(--silver);gap:6px;}
-.ep-card.new-project:hover{border-color:var(--arencon);color:var(--arencon);}
-.ep-card.new-project .plus{font-size:28px;line-height:1;}
-.ep-card.new-project span{font-size:13px;font-weight:600;}
-.ep-empty{text-align:center;padding:40px 20px;color:var(--silver);}
-.ep-empty .icon{font-size:48px;margin-bottom:12px;}
-.ep-empty p{font-size:15px;margin-bottom:4px;}
-.ep-hub-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:#FFF3E0;color:#E65100;border:1px solid #FFB74D;margin-top:6px;}
-body.dark-mode .ep-card{background:var(--card);border-color:var(--border);}
-body.dark-mode .ep-card:hover{border-color:var(--arencon);}
-body.dark-mode .ep-card.new-project{border-color:var(--border);}
-body.dark-mode .ep-card.new-project:hover{border-color:var(--arencon);}
-body.dark-mode .ep-card-actions button{background:var(--card);border-color:var(--border);}
-body.dark-mode .ep-search{background:var(--card);color:var(--fg);border-color:var(--border);}
-.hdr-back{background:rgba(255,255,255,.18);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font:600 12px Calibri,sans-serif;display:none;align-items:center;gap:4px;transition:background .2s;white-space:nowrap;}
-.hdr-back:hover{background:rgba(255,255,255,.3);}
-.hdr-back.visible{display:flex;}
 </style>
 </head><body>
 <h1>⚡ Electric Fire Pump Acceptance Test</h1>
@@ -7166,221 +7086,6 @@ function updateIDBStorageBar(){
 }
 // ══ END INDEXEDDB LAYER ══
 
-// ══ MULTI-PROJECT DASHBOARD SYSTEM ══
-var _epProjects = {};
-var _epCurrentId = null;
-var _epInitDone = false;
-
-var _epUrlParams = new URLSearchParams(window.location.search);
-var _epHubProjectId = _epUrlParams.get('project') || null;
-var _epHubPN = _epUrlParams.get('pn') || '';
-var _epHubPName = _epUrlParams.get('pname') || '';
-var _epHubClient = _epUrlParams.get('client') || '';
-
-function _epGenId(){ return 'ep_'+Date.now()+'_'+Math.random().toString(36).substr(2,6); }
-
-function _epPutProject(proj){
-  return new Promise(function(res,rej){
-    if(!_idb_db){rej('no db');return;}
-    var tx=_idb_db.transaction('projects','readwrite');
-    tx.objectStore('projects').put(proj);
-    tx.oncomplete=function(){res();};
-    tx.onerror=function(e){rej(e);};
-  });
-}
-function _epGetAllProjects(){
-  return new Promise(function(res,rej){
-    if(!_idb_db){rej('no db');return;}
-    var tx=_idb_db.transaction('projects','readonly');
-    var req=tx.objectStore('projects').getAll();
-    req.onsuccess=function(){ res(req.result||[]); };
-    req.onerror=function(e){rej(e);};
-  });
-}
-function _epDeleteProject(id){
-  return new Promise(function(res,rej){
-    if(!_idb_db){rej('no db');return;}
-    var tx=_idb_db.transaction('projects','readwrite');
-    tx.objectStore('projects').delete(id);
-    tx.oncomplete=function(){res();};
-    tx.onerror=function(e){rej(e);};
-  });
-}
-
-function _epMigrateLegacy(){
-  return new Promise(function(res){
-    if(Object.keys(_epProjects).length > 0){ res(false); return; }
-    var legacyKey = 'arencon_epump_v10';
-    _idbGet(legacyKey).then(function(val){
-      if(!val) val = localStorage.getItem(legacyKey);
-      if(!val){ res(false); return; }
-      try{
-        var s = JSON.parse(val);
-        var pn = (s.proj && s.proj['pi-projno']) || '';
-        var pname = (s.proj && s.proj['pi-projname']) || '';
-        var client = (s.proj && s.proj['pi-client']) || '';
-        var id = _epGenId();
-        var proj = {
-          id: id, hub_project_id: null,
-          projectNumber: pn, projectName: pname || 'Migrated Project',
-          client: client,
-          created: new Date().toISOString(), modified: new Date().toISOString()
-        };
-        _epProjects[id] = proj;
-        _epPutProject(proj).then(function(){
-          return _idbPut('state_'+id, val);
-        }).then(function(){ res(true); }).catch(function(){ res(false); });
-      }catch(e){ res(false); }
-    }).catch(function(){ res(false); });
-  });
-}
-
-function _epLoadAll(){
-  return _epGetAllProjects().then(function(arr){
-    _epProjects = {};
-    arr.forEach(function(p){ _epProjects[p.id] = p; });
-  });
-}
-
-function epRenderDashboard(){
-  var grid = document.getElementById('ep-grid');
-  if(!grid) return;
-  var search = (document.getElementById('ep-search')||{}).value || '';
-  search = search.toLowerCase().trim();
-  var projs = Object.values(_epProjects)
-    .filter(function(p){
-      if(!search) return true;
-      return (p.projectNumber||'').toLowerCase().indexOf(search)>=0 ||
-             (p.projectName||'').toLowerCase().indexOf(search)>=0 ||
-             (p.client||'').toLowerCase().indexOf(search)>=0;
-    })
-    .sort(function(a,b){ return (b.modified||b.created||'').localeCompare(a.modified||a.created||''); });
-
-  var html = '<div class="ep-card new-project" onclick="epNewProject()"><div class="plus">＋</div><span>New Project</span></div>';
-  projs.forEach(function(p){
-    var mod = p.modified ? new Date(p.modified).toLocaleDateString('en-CA') : '';
-    var hubBadge = p.hub_project_id ? '<div class="ep-hub-badge">🔗 Hub Linked</div>' : '';
-    html += '<div class="ep-card" onclick="epOpenProject(\''+p.id+'\')"><div class="ep-card-actions"><button onclick="event.stopPropagation();epDeleteProject(\''+p.id+'\')">🗑️</button></div><div class="ep-card-num">'+(p.projectNumber||'No Number')+'</div><div class="ep-card-name">'+(p.projectName||'Untitled')+'</div><div class="ep-card-meta"><span>'+(p.client||'—')+'</span><span>'+mod+'</span></div>'+hubBadge+'</div>';
-  });
-  if(projs.length === 0 && !search){
-    html += '<div class="ep-empty" style="grid-column:1/-1;"><div class="icon">⚡</div><p>No electric fire pump projects yet.</p><p style="font-size:13px;">Click "New Project" to get started.</p></div>';
-  }
-  grid.innerHTML = html;
-}
-
-function epFilterProjects(){ epRenderDashboard(); }
-
-function epNewProject(prefill){
-  prefill = prefill || {};
-  var id = _epGenId();
-  var proj = {
-    id: id, hub_project_id: prefill.hub_project_id || null,
-    projectNumber: prefill.projectNumber || '', projectName: prefill.projectName || '',
-    client: prefill.client || '',
-    created: new Date().toISOString(), modified: new Date().toISOString()
-  };
-  _epProjects[id] = proj;
-  _epPutProject(proj).then(function(){ epOpenProject(id); }).catch(function(e){
-    console.error('Create project error:', e); showToast('Failed to create project', 3000);
-  });
-}
-
-function epOpenProject(id){
-  var proj = _epProjects[id];
-  if(!proj) return;
-  _epCurrentId = id;
-  document.getElementById('ep-dashboard').classList.remove('active');
-  document.getElementById('ep-dashboard').style.display = 'none';
-  document.querySelector('.main-wrap').style.display = '';
-  document.getElementById('section-nav').style.display = '';
-  document.getElementById('hdr-back-btn').classList.add('visible');
-  var el;
-  if(proj.projectNumber){ el=document.getElementById('pi-projno'); if(el && !el.value) el.value=proj.projectNumber; }
-  if(proj.projectName){ el=document.getElementById('pi-projname'); if(el && !el.value) el.value=proj.projectName; }
-  if(proj.client){ el=document.getElementById('pi-client'); if(el && !el.value) el.value=proj.client; }
-  _idbGet('state_'+id).then(function(val){
-    if(val) _applyLoadedState(val);
-    updateProgress(); updateIDBStorageBar();
-  }).catch(function(){
-    var val = localStorage.getItem('electric_'+proj.projectNumber);
-    if(val) _applyLoadedState(val);
-    updateProgress();
-  });
-  showToast((proj.projectNumber||'New')+' · '+(proj.projectName||'Project')+' opened', 2000);
-}
-
-function backToDashboard(){
-  if(_epCurrentId) _epSaveCurrentProject();
-  _epResetForm();
-  _epCurrentId = null;
-  document.getElementById('ep-dashboard').style.display = '';
-  document.getElementById('ep-dashboard').classList.add('active');
-  document.querySelector('.main-wrap').style.display = 'none';
-  document.getElementById('section-nav').style.display = 'none';
-  document.getElementById('hdr-back-btn').classList.remove('visible');
-  epRenderDashboard();
-}
-
-function _epSaveCurrentProject(){
-  if(!_epCurrentId) return;
-  var proj = _epProjects[_epCurrentId];
-  if(!proj) return;
-  var el;
-  el=document.getElementById('pi-projno'); if(el) proj.projectNumber=el.value.trim();
-  el=document.getElementById('pi-projname'); if(el) proj.projectName=el.value.trim();
-  el=document.getElementById('pi-client'); if(el) proj.client=el.value.trim();
-  proj.modified = new Date().toISOString();
-  _epPutProject(proj).catch(function(e){ console.warn('Envelope save error:', e); });
-  try{
-    var state = collectState();
-    var stateJson = JSON.stringify(state);
-    _idbPut('state_'+_epCurrentId, stateJson).then(function(){ updateIDBStorageBar(); }).catch(function(e){ console.warn('State save error:', e); });
-  }catch(e){ console.error('collectState error:', e); }
-}
-
-function _epResetForm(){
-  ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date','pi-eng',
-   'pi-contractor','pi-permit','pi-version','pi-ref','pi-revision','pi-date-modified',
-   'pm-prv','pm-rpm','pm-equip','pm-pitot','pm-pitotflow','pm-rated-flow',
-   'pm-pitot-pld','pm-pitotflow-pld','pm-rated-flow-pld',
-   'ws-static-flow','ws-static-psi','ws-res-flow','ws-res-psi',
-   'dem-spr-flow','dem-spr-psi','dem-hose-flow',
-   'pld-ws-static-flow','pld-ws-static-psi','pld-ws-res-flow','pld-ws-res-psi',
-   'pld-dem-spr-flow','pld-dem-spr-psi','pld-dem-hose-flow',
-   'pm-prv-pld','pm-pld-setting','pm-rpm-pld',
-   'so-name','so-title','so-company','so-date','so-cert','test-result'
-  ].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
-  document.querySelectorAll('.cl-btn.active').forEach(function(b){ b.classList.remove('active'); });
-  document.querySelectorAll('.notes-field').forEach(function(f){ f.value=''; });
-  if(typeof stdData!=='undefined') stdData.forEach(function(r){ r.rpm='';r.disch='';r.suc=''; });
-  if(typeof pldData!=='undefined') pldData.forEach(function(r){ r.rpm='';r.disch='';r.suc=''; });
-  if(typeof pumpCurvePoints!=='undefined') pumpCurvePoints.length=0;
-  if(typeof pldPumpCurvePoints!=='undefined') pldPumpCurvePoints.length=0;
-  var sc=document.getElementById('sig-canvas');
-  if(sc){ var ctx=sc.getContext('2d'); ctx.clearRect(0,0,sc.width,sc.height); }
-  if(typeof switchPanel==='function') switchPanel('proj');
-}
-
-function epDeleteProject(id){
-  var proj = _epProjects[id];
-  if(!proj) return;
-  var label = (proj.projectNumber||'')+(proj.projectName?' · '+proj.projectName:'');
-  if(!confirm('Delete project '+label+'?\n\nThis cannot be undone.')) return;
-  _epDeleteProject(id).then(function(){ return _idbDelete('state_'+id); }).then(function(){
-    delete _epProjects[id];
-    if(_epCurrentId === id){ _epCurrentId = null; backToDashboard(); }
-    epRenderDashboard(); showToast('Project deleted', 2000); updateIDBStorageBar();
-  }).catch(function(e){ console.error('Delete error:', e); showToast('Delete failed', 3000); });
-}
-
-function _epHandleHubParam(){
-  if(!_epHubProjectId) return false;
-  var existing = Object.values(_epProjects).find(function(p){ return p.hub_project_id === _epHubProjectId; });
-  if(existing){ epOpenProject(existing.id); return true; }
-  epNewProject({ hub_project_id: _epHubProjectId, projectNumber: _epHubPN, projectName: _epHubPName, client: _epHubClient });
-  return true;
-}
-// ══ END MULTI-PROJECT DASHBOARD SYSTEM ══
 
 const SAVE_KEY = 'arencon_epump_v10';
 const EDIT_PASSWORD = 'arencon9970';
@@ -7575,7 +7280,6 @@ async function saveToFile() {
 }
 
 function saveState() {
-  if(_epCurrentId){ _epSaveCurrentProject(); autoSaveToast('✓ Saved'); return; }
   try {
     const state = collectState();
     var stateJson = JSON.stringify(state);
@@ -7781,13 +7485,9 @@ function _applyLoadedState(raw) {
 function resetAllPages() {
   _saveUndoPage();
   if (!confirm('Reset ALL pages for this project? This will clear all entered data permanently.')) return;
-  if(_epCurrentId){
-    _idbDelete('state_'+_epCurrentId).catch(function(){});
-  } else {
-    localStorage.removeItem(SAVE_KEY);
-    var _rkey=getProjectSaveKey();localStorage.removeItem(_rkey);
-    _idbDelete(_rkey).catch(function(){});
-  }
+  localStorage.removeItem(SAVE_KEY);
+  var _rkey=getProjectSaveKey();localStorage.removeItem(_rkey);
+  _idbDelete(_rkey).catch(function(){});
   location.reload();
 }
 
