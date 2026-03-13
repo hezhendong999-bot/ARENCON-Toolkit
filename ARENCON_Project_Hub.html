@@ -90,37 +90,42 @@ body.dark-mode{
 
 /* Project grid */
 .project-grid{padding:4px 24px 24px}
-.project-grid-inner{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
-.project-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .25s;overflow:hidden;position:relative;box-shadow:var(--shadow);-webkit-user-select:none;user-select:none}
+.project-grid-inner{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.project-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .25s;overflow:hidden;position:relative;box-shadow:var(--shadow);-webkit-user-select:none;user-select:none;padding:16px 18px 14px}
 .project-card:hover{border-color:var(--arencon);box-shadow:var(--shadow-lg);transform:translateY(-2px)}
-.project-card-header{padding:16px 18px 10px;display:flex;align-items:flex-start;gap:10px}
-.project-card-number{font-size:17px;font-weight:800;color:var(--arencon);white-space:nowrap;letter-spacing:-.3px}
-.project-card-name{font-size:13.5px;font-weight:500;color:var(--fg);margin-top:2px;line-height:1.35;word-break:break-word}
-.project-card-meta{padding:0 18px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.project-badge{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+/* Card top row: number + name */
+.project-card-top{display:flex;align-items:baseline;gap:8px;margin-bottom:2px;padding-right:50px}
+.project-card-number{font-size:16px;font-weight:800;color:var(--arencon);white-space:nowrap;letter-spacing:-.3px;flex-shrink:0}
+.project-card-name{font-size:13px;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.project-card-client{font-size:11px;color:var(--silver);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Card middle: status + date + PM */
+.project-card-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.project-badge{padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
 .badge-active{background:var(--yes-bg);color:var(--yes)}
 .badge-archived{background:var(--na-bg);color:var(--na)}
 .badge-role{background:#DBEAFE;color:#1D4ED8}
-.project-card-date{font-size:10.5px;color:var(--silver);margin-left:auto;font-weight:500}
-.project-card-tools{padding:0 18px 14px;display:flex;gap:6px;flex-wrap:wrap}
-.tool-chip{padding:3px 9px;border-radius:6px;font-size:10px;font-weight:600;background:var(--smoke);color:var(--steel);border:1px solid var(--border)}
-.tool-chip.enabled{background:#FEF3C7;color:#92400E;border-color:#FCD34D}
-.project-card-pm{font-size:11px;color:var(--steel);display:flex;align-items:center;gap:5px;padding:0 18px 10px;font-weight:500}
-.project-card-pm .pm-icon{font-size:12px}
+.project-card-date{font-size:10px;color:var(--silver);font-weight:500}
+.project-card-pm{font-size:10px;color:var(--steel);font-weight:500;margin-left:auto}
+/* Card bottom: tool icons + progress + backup */
+.project-card-bottom{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tool-icon-btn{font-size:15px;cursor:default;padding:1px;line-height:1;opacity:.8;transition:opacity .15s}
+.tool-icon-btn:hover{opacity:1}
+.project-card-bottom .progress-chip{margin-left:auto}
+.backup-status{font-size:9.5px;color:var(--silver);font-weight:500;margin-left:auto}
+.backup-status.not-backed{color:var(--warn)}
 
 /* Star button on cards */
-.project-card-star{position:absolute;top:12px;right:12px;background:none;border:none;font-size:17px;cursor:pointer;color:var(--silver);transition:all .2s;padding:4px;line-height:1;z-index:2}
+.project-card-star{position:absolute;top:14px;right:14px;background:none;border:none;font-size:16px;cursor:pointer;color:var(--silver);transition:all .2s;padding:2px;line-height:1;z-index:2}
 .project-card-star:hover{color:#F59E0B;transform:scale(1.15)}
 .project-card-star.starred{color:#F59E0B}
-.project-card{position:relative}
 
 /* Starred section */
 .starred-section{padding:4px 24px 8px}
 .starred-section-header{font-size:12px;font-weight:700;color:#D97706;margin-bottom:10px;display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.6px}
-.starred-section .project-grid-inner{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+.starred-section .project-grid-inner{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
 
 /* Pin button on cards */
-.project-card-pin{position:absolute;top:12px;right:36px;background:none;border:none;font-size:14px;cursor:pointer;color:var(--silver);transition:all .2s;padding:4px;line-height:1;z-index:2}
+.project-card-pin{position:absolute;top:14px;right:36px;background:none;border:none;font-size:13px;cursor:pointer;color:var(--silver);transition:all .2s;padding:2px;line-height:1;z-index:2}
 .project-card-pin:hover{color:var(--arencon);transform:scale(1.15)}
 .project-card-pin.pinned{color:var(--arencon)}
 .detail-header .project-card-pin,.detail-header .project-card-star{position:static;font-size:20px}
@@ -128,7 +133,7 @@ body.dark-mode{
 /* Pinned section */
 .pinned-section{padding:4px 24px 8px}
 .pinned-section-header{font-size:12px;font-weight:700;color:var(--arencon);margin-bottom:10px;display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.6px}
-.pinned-section .project-grid-inner{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+.pinned-section .project-grid-inner{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
 
 /* Sort dropdown */
 .dash-sort{padding:7px 14px;border:1.5px solid var(--border);border-radius:8px;font:500 12.5px Calibri,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--steel);cursor:pointer;outline:none;transition:all .2s}
@@ -311,8 +316,7 @@ body.dark-mode .btn-action{background:var(--smoke);border-color:var(--border);co
 body.dark-mode .btn-action:hover{border-color:var(--arencon);color:var(--arencon)}
 
 /* ═══ PROGRESS CHIPS ON CARDS ═══ */
-.project-card-progress{padding:0 18px 8px;display:flex;gap:5px;flex-wrap:wrap}
-.progress-chip{padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:.3px}
+.progress-chip{padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:.3px;display:inline-block}
 .progress-chip.draft{background:#FEF3C7;color:#92400E}
 .progress-chip.issued{background:#D1FAE5;color:#065F46}
 .progress-chip.review{background:#DBEAFE;color:#1D4ED8}
@@ -341,15 +345,18 @@ body.dark-mode .ri-status-sel{background:var(--smoke);border-color:var(--border)
 .activity-item .ai-time{font-size:10px;color:var(--silver);white-space:nowrap;font-weight:500}
 
 /* ═══ BULK ACTIONS (inline toolbar) ═══ */
-.bulk-select-wrap{display:flex;align-items:center;gap:6px}
+.bulk-select-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.bulk-quick-select{display:flex;gap:4px}
+.bulk-quick-select .dash-btn{padding:5px 10px;font-size:11px}
 .bulk-actions-bar{display:flex;align-items:center;gap:4px;padding:4px 8px;background:var(--smoke);border:1px solid var(--border);border-radius:8px}
 .bulk-actions-bar button{background:none;border:none;font-size:14px;cursor:pointer;padding:4px 6px;border-radius:4px;transition:all .15s;color:var(--steel);line-height:1}
 .bulk-actions-bar button:hover{background:var(--arencon-light);color:var(--arencon)}
 .bulk-actions-bar .bulk-count{font-size:11px;font-weight:700;color:var(--arencon);min-width:18px;text-align:center;background:var(--arencon-light);padding:2px 6px;border-radius:10px}
 body.dark-mode .bulk-actions-bar{background:var(--navy-light);border-color:var(--border)}
 body.dark-mode .bulk-actions-bar button{color:var(--steel)}
-.project-card-check{position:absolute;bottom:12px;left:12px;width:22px;height:22px;border:2px solid var(--silver);border-radius:50%;background:rgba(255,255,255,.9);cursor:pointer;z-index:2;display:none;align-items:center;justify-content:center;font-size:11px;color:transparent;transition:all .2s}
+.project-card-check{position:absolute;top:14px;left:14px;width:20px;height:20px;border:2px solid var(--silver);border-radius:50%;background:rgba(255,255,255,.9);cursor:pointer;z-index:3;display:none;align-items:center;justify-content:center;font-size:10px;color:transparent;transition:all .2s}
 body.select-mode .project-card-check{display:flex}
+body.select-mode .project-card-top{padding-left:30px}
 .project-card-check.checked{background:var(--arencon);border-color:var(--arencon);color:#fff}
 body.dark-mode .project-card-check{background:rgba(30,41,59,.9)}
 
@@ -472,6 +479,12 @@ body.dark-mode .detail-notes-area{background:var(--smoke);border-color:var(--bor
           <button id="bulk-btn-restore" style="display:none" onclick="bulkRestore()" title="Restore">↩️</button>
           <button id="bulk-btn-purge" style="display:none" onclick="bulkPurge()" title="Delete Forever">💀</button>
           <button onclick="clearBulkSelection()" title="Clear selection">✕</button>
+        </div>
+        <div class="bulk-quick-select" id="bulk-quick-select" style="display:none">
+          <button class="dash-btn secondary" onclick="selectAllVisible()" title="Select all visible">All</button>
+          <button class="dash-btn secondary" onclick="selectAllPinned()" title="Select pinned">📌 Pinned</button>
+          <button class="dash-btn secondary" onclick="selectAllStarred()" title="Select starred">⭐ Starred</button>
+          <button class="dash-btn secondary" onclick="selectAllUnstarred()" title="Select unstarred">Unstarred</button>
         </div>
       </div>
       <select class="dash-sort" id="dash-sort" onchange="onSortChange()">
@@ -1404,61 +1417,60 @@ function _renderProjectCard(p, myId) {
     ? '<span class="project-badge badge-archived">Archived</span>'
     : '<span class="project-badge badge-active">Active</span>';
   var date = p.updated_at ? formatDate(p.updated_at) : '';
-  var tools = (p.enabled_tools || []);
-  var toolChips = tools.length > 0
-    ? tools.map(function(t) { return '<span class="tool-chip enabled">' + toolName(t) + '</span>'; }).join('')
-    : '<span class="tool-chip">No tools enabled</span>';
   var isStarred = myId && (p.starred_by || []).indexOf(myId) >= 0;
   var starIcon = isStarred ? '★' : '☆';
   var starClass = isStarred ? ' starred' : '';
   var isPinned = !!p.is_pinned;
   var pinIcon = isPinned ? '📌' : '📍';
   var pinClass = isPinned ? ' pinned' : '';
-  var pmName = p.project_manager ? (_userMap[p.project_manager] || '—') : '';
-  var pmHtml = pmName ? '<div class="project-card-pm"><span class="pm-icon">👤</span> ' + esc(pmName) + '</div>' : '';
-  var progressHtml = _getProgressChipsHtml(p.id);
+  var pmName = p.project_manager ? (_userMap[p.project_manager] || '') : '';
   var bulkCheckHtml = '<div class="project-card-check' + (_bulkSelected.indexOf(p.id) >= 0 ? ' checked' : '') + '" id="bchk-' + esc(p.id) + '" onclick="event.stopPropagation();toggleBulkCheck(\'' + esc(p.id) + '\',event)">' + (_bulkSelected.indexOf(p.id) >= 0 ? '✓' : '') + '</div>';
   var cardClick = 'openProject(\'' + esc(p.id) + '\')';
 
-  // Trash view: show deleted info and action buttons instead of tools
-  var trashHtml = '';
+  // Tool icons (hover for name)
+  var tools = (p.enabled_tools || []);
+  var toolIcons = tools.length > 0
+    ? tools.map(function(t) { var ti = AVAILABLE_TOOLS[t]; return ti ? '<span class="tool-icon-btn" title="' + esc(ti.name) + '">' + ti.icon + '</span>' : ''; }).join('')
+    : '<span style="font-size:10px;color:var(--silver)">No tools</span>';
+
+  // Progress chips
+  var progressHtml = _getProgressChipsHtml(p.id);
+
+  // Trash view
   if (_showDeleted && p.deleted_at) {
     var delDate = formatDate(p.deleted_at);
     var delBy = p.deleted_by ? (_userMap[p.deleted_by] || '—') : '—';
-    trashHtml = '<div style="padding:6px 16px 10px;font-size:11px;color:var(--silver)">Deleted ' + delDate + ' by ' + esc(delBy) + '</div>'
-      + '<div style="padding:0 16px 14px;display:flex;gap:8px">'
-      + '<button style="padding:5px 12px;border-radius:6px;border:1.5px solid var(--yes);background:var(--yes-bg);color:var(--yes);font:600 12px Calibri,sans-serif;cursor:pointer" onclick="event.stopPropagation();restoreProject(\'' + esc(p.id) + '\')">↩️ Restore</button>'
-      + '<button style="padding:5px 12px;border-radius:6px;border:1.5px solid var(--red);background:var(--no-bg);color:var(--red);font:600 12px Calibri,sans-serif;cursor:pointer" onclick="event.stopPropagation();purgeProject(\'' + esc(p.id) + '\')">🗑️ Delete Forever</button>'
-      + '</div>';
+    return '<div class="project-card" onclick="' + cardClick + '">'
+      + bulkCheckHtml
+      + '<div class="project-card-top"><span class="project-card-number">' + num + '</span><span class="project-card-name">' + name + '</span></div>'
+      + (client ? '<div class="project-card-client">' + client + '</div>' : '')
+      + '<div style="font-size:11px;color:var(--silver);margin-bottom:6px">Deleted ' + delDate + ' by ' + esc(delBy) + '</div>'
+      + '<div style="display:flex;gap:8px">'
+      + '<button style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--yes);background:var(--yes-bg);color:var(--yes);font:600 11px Calibri,sans-serif;cursor:pointer" onclick="event.stopPropagation();restoreProject(\'' + esc(p.id) + '\')">↩️ Restore</button>'
+      + '<button style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--red);background:var(--no-bg);color:var(--red);font:600 11px Calibri,sans-serif;cursor:pointer" onclick="event.stopPropagation();purgeProject(\'' + esc(p.id) + '\')">🗑️ Delete Forever</button>'
+      + '</div></div>';
   }
 
   // Backup status
   var backupHtml = '';
-  if (!_showDeleted) {
-    if (p.last_exported_at) {
-      var expDate = formatDate(p.last_exported_at);
-      var expBy = p.last_exported_by ? (_userMap[p.last_exported_by] || '') : '';
-      backupHtml = '<div class="backup-status">📥 Exported' + (expBy ? ' by ' + esc(expBy) : '') + ' · ' + expDate + '</div>';
-    } else {
-      backupHtml = '<div class="backup-status not-backed">⚠ Not backed up</div>';
-    }
+  if (p.last_exported_at) {
+    backupHtml = '<span class="backup-status">📥 ' + formatDate(p.last_exported_at) + '</span>';
+  } else {
+    backupHtml = '<span class="backup-status not-backed">⚠ Not backed up</span>';
   }
 
-  // Per-card export button
-  var exportBtnHtml = _showDeleted ? '' : '<button class="project-card-export" onclick="event.stopPropagation();exportSingleProject(\'' + esc(p.id) + '\')" title="Export JSON">📥</button>';
+  // Export button
+  var exportBtnHtml = '<button class="project-card-export" onclick="event.stopPropagation();exportSingleProject(\'' + esc(p.id) + '\')" title="Export JSON">📥</button>';
 
   return '<div class="project-card" onclick="' + cardClick + '">'
     + bulkCheckHtml
     + '<button class="project-card-pin' + pinClass + '" onclick="event.stopPropagation();togglePin(\'' + esc(p.id) + '\')" title="' + (isPinned ? 'Unpin' : 'Pin for everyone') + '">' + pinIcon + '</button>'
     + '<button class="project-card-star' + starClass + '" onclick="event.stopPropagation();toggleStar(\'' + esc(p.id) + '\')" title="' + (isStarred ? 'Unstar' : 'Star') + '">' + starIcon + '</button>'
     + exportBtnHtml
-    + '<div class="project-card-header">'
-    + '<span class="project-card-number">' + num + '</span>'
-    + '<span class="project-card-name">' + name + (client ? '<br><span style="font-size:12px;color:var(--silver)">' + client + '</span>' : '') + '</span>'
-    + '</div>'
-    + '<div class="project-card-meta">' + statusBadge + '<span class="project-card-date">' + date + '</span></div>'
-    + pmHtml
-    + (trashHtml || progressHtml + '<div class="project-card-tools">' + toolChips + '</div>' + backupHtml)
+    + '<div class="project-card-top"><span class="project-card-number">' + num + '</span><span class="project-card-name">' + name + '</span></div>'
+    + (client ? '<div class="project-card-client">' + client + '</div>' : '')
+    + '<div class="project-card-row">' + statusBadge + '<span class="project-card-date">' + date + '</span>' + (pmName ? '<span class="project-card-pm">' + esc(pmName) + '</span>' : '') + '</div>'
+    + '<div class="project-card-bottom">' + toolIcons + progressHtml + backupHtml + '</div>'
     + '</div>';
 }
 
@@ -2292,6 +2304,7 @@ function toggleSelectMode() {
   }
   // Toggle checkbox visibility via class on body
   document.body.classList.toggle('select-mode', _selectMode);
+  document.getElementById('bulk-quick-select').style.display = _selectMode ? 'flex' : 'none';
   _syncBulkVisuals();
   renderProjects();
 }
@@ -2374,8 +2387,36 @@ function clearBulkSelection() {
   btn.style.color = '';
   btn.style.borderColor = '';
   document.body.classList.remove('select-mode');
+  document.getElementById('bulk-quick-select').style.display = 'none';
   _syncBulkVisuals();
   renderProjects();
+}
+
+function selectAllVisible() {
+  _bulkSelected = _getVisibleProjectIds().slice();
+  _syncBulkVisuals();
+}
+
+function selectAllPinned() {
+  _bulkSelected = [];
+  _projects.forEach(function(p) { if (p.is_pinned && !p.deleted_at) _bulkSelected.push(p.id); });
+  _syncBulkVisuals();
+}
+
+function selectAllStarred() {
+  if (!_profile) return;
+  var uid = _profile.id;
+  _bulkSelected = [];
+  _projects.forEach(function(p) { if (!p.deleted_at && (p.starred_by || []).indexOf(uid) >= 0) _bulkSelected.push(p.id); });
+  _syncBulkVisuals();
+}
+
+function selectAllUnstarred() {
+  if (!_profile) return;
+  var uid = _profile.id;
+  _bulkSelected = [];
+  _projects.forEach(function(p) { if (!p.deleted_at && (p.starred_by || []).indexOf(uid) < 0) _bulkSelected.push(p.id); });
+  _syncBulkVisuals();
 }
 
 function _updateBulkCount() {
