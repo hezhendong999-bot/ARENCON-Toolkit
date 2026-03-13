@@ -603,7 +603,6 @@ body.dark-mode .card[style*="border:1.5px solid #1A527622"]{border-color:#2a3848
       <button class="hdr-btn" id="btn-upload" onclick="uploadReportJSON()" title="Export report as JSON" style="background:#7B1FA2;">📤 Export</button>
       <button class="hdr-btn" id="btn-import" onclick="importReportJSON()" title="Import JSON report" style="background:#00695C;">⬇ Import</button>
       <button class="hdr-btn" id="btn-share" onclick="shareReport()" title="Share via Web Share API" style="background:#0277BD;">🔗 Share</button>
-      <button class="hdr-btn" onclick="promptInspectorName()" title="Inspector" style="background:#455A64;">👤</button>
       <button class="hdr-btn" id="edit-mode-btn" onclick="toggleEditMode()" title="Edit checklist items" style="background:#455A64;">✏️ Edit</button>
       <button class="hdr-btn" id="publish-btn" onclick="publishForm()" title="Publish revision" style="background:#1565C0;display:none;">🚀 Publish</button>
       <button class="hdr-btn" id="btn-save-edit" onclick="saveState();showToast('✓ Edit changes saved',2000)" title="Save edit changes" style="background:#B7791F;display:none;">💾 Save Edit</button>
@@ -678,8 +677,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
           <div class="field-group"><label>Date of Inspection</label><input type="date" id="pi-date"></div>
           <div class="field-group"><label>Prepared By</label><input type="text" id="pi-prepby" placeholder="Initials or Name"></div>
           <div class="field-group"><label>Engineer of Record</label><input type="text" id="pi-eng" placeholder="Name, P.Eng."></div>
-          <!-- Row 4: Permits -->
-          <div class="field-group"><label>Permit No.</label><input type="text" id="pi-permit" placeholder="e.g. BP-2024-00123"></div>
+          <!-- Row 4: Contractors -->
           <div class="field-group" style="grid-column:span 3">
             <label>Contractor(s) <button class="btn btn-outline btn-sm" onclick="addContractorField()" style="margin-left:8px;font-size:11px;padding:2px 8px;">+ Add</button></label>
             <div id="contractor-fields">
@@ -4400,7 +4398,7 @@ function getProjInfo() {
     date: document.getElementById('pi-date').value,
     eng: document.getElementById('pi-eng').value,
     contractor: document.getElementById('pi-contractor').value,
-    permit: document.getElementById('pi-permit').value,
+    permit: document.getElementById('pi-permit')?.value || '',
     tssa: document.getElementById('pi-tssa')?.value || '',
     version: document.getElementById('pi-version').value,
     revision: document.getElementById('pi-revision')?.value || formRevision,
@@ -4545,7 +4543,7 @@ function _realExportPDF() {
       <tr><td class="lbl">Project Name</td><td>${proj.projname||'—'}</td><td class="lbl">Address</td><td>${proj.addr||'—'}</td></tr>
       <tr><td class="lbl">Prepared By</td><td>${proj.prepby||'—'}</td><td class="lbl">Date of Inspection</td><td>${proj.date||'—'}</td></tr>
       <tr><td class="lbl">Engineer</td><td>${proj.eng||'—'}</td><td class="lbl">Contractor</td><td>${proj.contractor||'—'}</td></tr>
-      <tr><td class="lbl">TSSA Inspector</td><td>${proj.tssa||'—'}</td><td class="lbl">Permit No.</td><td>${proj.permit||'—'}</td></tr>
+      <tr><td class="lbl">TSSA Inspector</td><td colspan="3">${proj.tssa||'—'}</td></tr>
     </table>
   </div>
 
@@ -5084,7 +5082,7 @@ body.dark-mode .sketch-canvas-wrap {
   <tr><td class="k">Project Name</td><td>${proj.projname||'—'}</td><td class="k">Address</td><td>${proj.address||'—'}</td></tr>
   <tr><td class="k">Inspection Date</td><td>${proj.date||'—'}</td><td class="k">Prepared By</td><td>${proj.prepby||'—'}</td></tr>
   <tr><td class="k">Engineer of Record</td><td>${proj.engr||'—'}</td><td class="k">Contractor</td><td>${proj.contractor||'—'}</td></tr>
-  <tr><td class="k">TSSA Inspector</td><td>${proj.tssa||'—'}</td><td class="k">Permit No.</td><td>${proj.permit||'—'}</td></tr>
+  <tr><td class="k">TSSA Inspector</td><td colspan="3">${proj.tssa||'—'}</td></tr>
 </table>
 ${sectionTable('Section 1 — Prior to Commissioning', S1, 's1')}
 ${sectionTable('Section 2 — Visual Inspection', S2, 's2')}
