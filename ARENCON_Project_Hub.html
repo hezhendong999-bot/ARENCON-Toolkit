@@ -110,7 +110,8 @@ body.dark-mode{
 .tool-launch-card:hover{border-color:var(--arencon);background:#fff;box-shadow:0 2px 8px rgba(156,39,66,.08);}
 .tool-launch-card .tlc-icon{font-size:22px;flex-shrink:0;}
 .tool-launch-card .tlc-name{font-size:13px;font-weight:600;color:var(--fg);}
-.tool-launch-card.disabled{opacity:.4;pointer-events:none;}
+.tool-launch-card.disabled{opacity:.4;}
+.tool-launch-card.disabled .tlc-icon,.tool-launch-card.disabled .tlc-name,.tool-launch-card.disabled .tlc-badge{pointer-events:none;}
 .tool-launch-card .tlc-badge{font-size:9px;color:var(--silver);font-weight:400;}
 body.dark-mode .tool-launch-card{background:var(--card);border-color:var(--border);}
 body.dark-mode .tool-launch-card:hover{border-color:var(--arencon);background:#282b33;}
@@ -383,18 +384,18 @@ body.dark-mode .admin-act-btn{background:#1e2028;border-color:#33373f;color:#8a9
       </div>
     </div>
   </div>
-</div>
 
-<!-- ═══════════ PROJECT DETAIL VIEW ═══════════ -->
-<div id="project-detail">
-  <button class="detail-back" onclick="closeDetail()">← Back to Dashboard</button>
-  <div class="detail-header">
-    <h2 id="detail-title">—</h2>
-    <div class="detail-sub" id="detail-sub">—</div>
-  </div>
-  <div class="detail-section">
-    <h3>🚀 Launch Tools</h3>
-    <div class="tool-launch-grid" id="detail-tools"></div>
+  <!-- ═══ PROJECT DETAIL VIEW ═══ -->
+  <div id="project-detail">
+    <button class="detail-back" onclick="closeDetail()">← Back to Dashboard</button>
+    <div class="detail-header">
+      <h2 id="detail-title">—</h2>
+      <div class="detail-sub" id="detail-sub">—</div>
+    </div>
+    <div class="detail-section">
+      <h3>🚀 Launch Tools</h3>
+      <div class="tool-launch-grid" id="detail-tools"></div>
+    </div>
   </div>
 </div>
 
@@ -891,14 +892,14 @@ function roleClass(role) {
 function showDashboard() {
   document.getElementById('dash-view').style.display = 'block';
   document.getElementById('admin-panel').style.display = 'none';
-  var d = document.getElementById('project-detail'); if(d){d.classList.remove('active');d.style.display='none';}
+  document.getElementById('project-detail').style.display = 'none';
   _detailProjectId = null;
 }
 
 function showAdmin() {
   document.getElementById('dash-view').style.display = 'none';
   document.getElementById('admin-panel').style.display = 'block';
-  var d = document.getElementById('project-detail'); if(d){d.classList.remove('active');d.style.display='none';}
+  document.getElementById('project-detail').style.display = 'none';
   _detailProjectId = null;
   loadAdminUsers();
 }
@@ -1014,10 +1015,10 @@ function openProject(projectId) {
   if (!proj) return;
   _detailProjectId = projectId;
 
-  // Hide dashboard, show detail
+  // Hide dashboard + admin, show detail
   document.getElementById('dash-view').style.display = 'none';
+  document.getElementById('admin-panel').style.display = 'none';
   var detail = document.getElementById('project-detail');
-  detail.classList.add('active');
   detail.style.display = '';
 
   // Populate header
@@ -1034,25 +1035,17 @@ function _renderDetailTools(proj) {
   var grid = document.getElementById('detail-tools');
   var html = '';
 
-  // Build URL params for this project
-  var params = 'project=' + encodeURIComponent(proj.id)
-    + '&pn=' + encodeURIComponent(proj.project_number || '')
-    + '&pname=' + encodeURIComponent(proj.project_name || '')
-    + '&client=' + encodeURIComponent(proj.client || '')
-    + '&addr=' + encodeURIComponent(proj.address || '');
-
   // Viewer role check
   var isViewer = _profile && _profile.role === 'viewer';
 
   Object.keys(AVAILABLE_TOOLS).forEach(function(key) {
     var t = AVAILABLE_TOOLS[key];
     var enabled = tools.indexOf(key) >= 0;
-    var url = t.file + '?' + params;
     var toggleHtml = isViewer ? '' :
       '<button class="tlc-toggle' + (enabled ? ' on' : '') + '" onclick="event.stopPropagation();toggleTool(\'' + key + '\')" title="' + (enabled ? 'Disable' : 'Enable') + ' ' + esc(t.name) + '"></button>';
 
     html += '<div class="tool-launch-card' + (enabled ? '' : ' disabled') + '" id="tlc-' + key + '"'
-      + (enabled ? ' onclick="window.open(\'' + url + '\',\'_blank\')"' : '')
+      + (enabled ? ' onclick="launchTool(\'' + key + '\')"' : '')
       + ' title="' + (enabled ? 'Click to open ' + esc(t.name) : 'Toggle switch to enable') + '">'
       + '<div class="tlc-icon">' + t.icon + '</div>'
       + '<div><div class="tlc-name">' + esc(t.name) + '</div>'
@@ -1063,6 +1056,21 @@ function _renderDetailTools(proj) {
   });
 
   grid.innerHTML = html;
+}
+
+function launchTool(key) {
+  if (!_detailProjectId) return;
+  var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
+  if (!proj) return;
+  var t = AVAILABLE_TOOLS[key];
+  if (!t) return;
+  var url = t.file
+    + '?project=' + encodeURIComponent(proj.id)
+    + '&pn=' + encodeURIComponent(proj.project_number || '')
+    + '&pname=' + encodeURIComponent(proj.project_name || '')
+    + '&client=' + encodeURIComponent(proj.client || '')
+    + '&addr=' + encodeURIComponent(proj.address || '');
+  window.open(url, '_blank');
 }
 
 async function toggleTool(key) {
@@ -1094,7 +1102,6 @@ async function toggleTool(key) {
 
 function closeDetail() {
   _detailProjectId = null;
-  document.getElementById('project-detail').classList.remove('active');
   document.getElementById('project-detail').style.display = 'none';
   document.getElementById('dash-view').style.display = 'block';
   renderProjects();
