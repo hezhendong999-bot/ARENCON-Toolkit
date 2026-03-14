@@ -3802,6 +3802,7 @@ function resetCurrentTab(){
     }
     p.photos=[];p.sitePhotos=[];
     saveToLS();renderPhotoGallery();showToast('All site photos cleared.');
+    if(_csHubMode&&typeof CloudSync!=='undefined'){try{CloudSync.save(_collectFullState());}catch(e){}}
   }else if(currentTab==='info'){
     resetCurrentProject();return;
   }
@@ -7437,6 +7438,8 @@ function deleteSelectedPhotos(){
   });
   _selectedPhotos=[];
   saveToLS();renderPhotoGallery();showToast('Photos deleted');
+  // Force immediate cloud sync so deletions persist
+  if(_csHubMode&&typeof CloudSync!=='undefined'){try{CloudSync.save(_collectFullState());}catch(e){}}
 }
 
 function downloadSelectedPhotos(){
@@ -7593,6 +7596,8 @@ function handlePhotoFiles(files){
         }
         p.sitePhotos.push(photoRec);
         saveToLS();renderPhotoGallery();_updateR2Badge();
+        // Force immediate cloud sync so new photos persist on refresh
+        if(_csHubMode&&typeof CloudSync!=='undefined'){try{CloudSync.save(_collectFullState());}catch(e){}}
       });
     });
   });
