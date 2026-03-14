@@ -8608,16 +8608,21 @@ document.addEventListener('DOMContentLoaded',function(){
   var logoEl=document.getElementById('logo-img');if(logoEl)logoEl.src=LOGO_SRC;
 
   ADB.open().then(function(){
+    console.log('[INIT] ADB opened, DB_VER:', ADB.DB_VER);
     return ADB.migrateFromLocalStorage();
   }).then(function(migrated){
+    console.log('[INIT] Migration done, migrated:', migrated);
     if(migrated)toast('Data migrated to secure IndexedDB storage ✓');
     return loadAllProjects();
   }).then(function(){
+    console.log('[INIT] Projects loaded:', Object.keys(allProjects).length);
     return ADB.get('config','lastProject');
   }).then(function(cfg){
+    console.log('[INIT] Config loaded, checking URL params...');
     // ── Hub Mode Detection ──
     var urlParams=new URLSearchParams(window.location.search);
     var hubProjectId=urlParams.get('project');
+    console.log('[INIT] hubProjectId:', hubProjectId);
     if(hubProjectId){
       _csHubMode=true;
       _csProjectId=hubProjectId;
