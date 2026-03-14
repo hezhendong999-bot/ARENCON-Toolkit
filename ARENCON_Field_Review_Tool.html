@@ -1918,11 +1918,16 @@ ADB.blobToDataUrl=function(blob){return new Promise(function(resolve,reject){
 ADB.saveProject=function(proj){
   var meta=JSON.parse(JSON.stringify(proj));
   meta.drawings=(meta.drawings||[]).map(function(d){return{id:d.id,name:d.name,width:d.width,height:d.height,isOriginal:d.isOriginal,folder:d.folder||''};});
-  (meta.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){d._photoCount=(d.photos||[]).length;d.photos=[];
-    (d.responses||[]).forEach(function(r){r._photoCount=(r.photos||[]).length;r.photos=[];});});});
-  (meta.generalDeficiencies||[]).forEach(function(d){d._photoCount=(d.photos||[]).length;d.photos=[];
-    (d.responses||[]).forEach(function(r){r._photoCount=(r.photos||[]).length;r.photos=[];});});
-  meta.photos=[];// site photos stored separately
+  function _stripDeficMeta(d){
+    d._photoCount=(d.photos||[]).length;d.photos=[];
+    // Also strip entry-level photos (stored in blob store)
+    if(d.entries){d.entries.forEach(function(e){e._photoCount=(e.photos||[]).length;e.photos=[];});}
+    (d.responses||[]).forEach(function(r){r._photoCount=(r.photos||[]).length;r.photos=[];});
+  }
+  (meta.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(_stripDeficMeta);});
+  (meta.generalDeficiencies||[]).forEach(_stripDeficMeta);
+  meta.photos=[];// legacy site photos stored separately
+  meta.sitePhotos=[];// site photos stored in sitePhotos blob store
   return ADB.put('projects',meta);
 };
 
@@ -1973,9 +1978,19 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
       function resolveDeficPhotos(defic){
         var key=defic.id+'_-1';
         defic.photos=[];
+        // Clear entry-level photos too (will be synced from defic.photos after load)
+        if(defic.entries){defic.entries.forEach(function(e){e.photos=[];});}
         if(photoMap[key]){photoMap[key].forEach(function(ph){
           photoPromises.push(ADB.blobToDataUrl(ph.dataBlob).then(function(url){
-            if(url)defic.photos.push({id:ph.id||('dp_'+Math.random().toString(36).substr(2,8)),dataUrl:url,r2Key:'',r2Status:'',r2Url:''});
+            if(url){
+              var rec={id:ph.id||('dp_'+Math.random().toString(36).substr(2,8)),dataUrl:url,r2Key:'',r2Status:'',r2Url:''};
+              defic.photos.push(rec);
+              // Also add to first entry if entries exist
+              if(defic.entries&&defic.entries[0]){
+                if(!defic.entries[0].photos)defic.entries[0].photos=[];
+                defic.entries[0].photos.push(rec);
+              }
+            }
           }));
         });}
         (defic.responses||[]).forEach(function(r,ri){
