@@ -1181,7 +1181,6 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <a href="index.html" class="logo-area" id="logo-link" title="Back to Toolkit">
         <img id="logo-img" src="" alt="ARENCON Inc." class="header-logo">
       </a>
-      <a href="ARENCON_Project_Hub.html" class="hdr-hub-link" id="hdr-hub-link" style="display:none;align-items:center;gap:4px;color:rgba(255,255,255,.9);text-decoration:none;font:600 12px Calibri,sans-serif;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);padding:5px 10px;border-radius:6px;white-space:nowrap;">← Project</a>
       <span class="cloud-status" id="cloud-status" style="display:none;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,.7);"><span style="width:7px;height:7px;border-radius:50%;background:#34D399;display:inline-block;" id="cloud-dot"></span><span id="cloud-status-text">Cloud</span></span>
       <span id="r2-upload-badge" style="display:none;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.3px;"></span>
       <span id="issue-status-badge" style="display:none;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;color:#fff;background:#E65100;text-transform:uppercase;letter-spacing:.5px;">DRAFT</span>
@@ -1202,16 +1201,10 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <button class="hdr-btn hdr-load" id="btn-load" onclick="openLoadModal()" title="Load JSON">📂 Load</button>
       <button class="hdr-btn hdr-export-all" id="btn-export-all" onclick="exportAllProjects()" title="Export All Projects">📦 Export All</button>
       <!-- Project buttons (hidden on dashboard, shown in project) -->
-      <button class="hdr-btn" id="btn-save-as" onclick="saveAsToFolder()" style="display:none;background:#2E7D32;" title="Save As (new revision)">💾 Save As</button>
-      <button class="hdr-btn" id="btn-folder" onclick="chooseFolder()" style="display:none;background:#00695C;" title="Link save folder (S: drive)">📁 Folder</button>
-      <button class="hdr-btn" id="btn-open-folder" onclick="openFromFolder()" style="display:none;background:#00695C;" title="Open JSON from folder">📂 Open</button>
       <button class="hdr-btn" id="btn-pdf" onclick="showPDFOptions()" style="display:none;background:#1A237E;" title="Export PDF Report">📄 Reports</button>
       <button class="hdr-btn" id="btn-export" onclick="exportProjectJSON()" style="display:none;background:#7B1FA2;" title="Export Report">📤 Export</button>
-      <button class="hdr-btn" id="btn-share" onclick="shareProject()" style="display:none;background:#0277BD;" title="Share">🔗 Share</button>
       <button class="hdr-btn hdr-review" id="btn-review" onclick="toggleReviewMode()" style="display:none;" title="Toggle Review Mode">🔍 Review</button>
-      <button class="hdr-btn btn-publish" id="btn-publish" onclick="showPublishModal()" style="display:none;background:#C62828;" title="Publish &amp; Lock Report">🔒 Publish</button>
       <button class="hdr-btn" id="btn-issue" onclick="issueReport()" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
-      <button class="hdr-btn" id="btn-inspector" onclick="showInspector()" style="display:none;background:#455A64;" title="Inspector">👤</button>
       <button class="hdr-btn" style="background:#455A64;" id="btn-refresh" onclick="refreshCurrentPage()" title="Refresh">🔄</button>
       <div style="position:relative;display:none;" id="btn-reset-dd">
         <button class="hdr-btn" style="background:#C62828;" onclick="toggleResetMenu(event)" title="Reset options">⚠️</button>
