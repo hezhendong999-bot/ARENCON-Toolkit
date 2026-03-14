@@ -757,6 +757,10 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .lb-tool-btn{background:rgba(255,255,255,.1);border:1.5px solid transparent;color:white;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
 .lb-tool-btn:hover{background:rgba(255,255,255,.2);}
 .lb-tool-btn.active{background:#9C2742;border-color:#9C2742;}
+.lb-color-dot{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border-color .15s;flex-shrink:0;}
+.lb-color-dot:hover{border-color:rgba(255,255,255,.7);}
+.lb-color-dot.active{border-color:white;box-shadow:0 0 0 1px rgba(255,255,255,.3);}
+#lb-toolbar{position:relative;}
 
 /* ═══ DARK MODE ADDITIONS ═══ */
 body.dark-mode .dwg-folder-header{background:#282b34;}
@@ -1120,7 +1124,9 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   .photo-card-actions button{padding:8px 12px!important;font-size:15px!important;}
 
   /* --- Lightbox tool buttons: 32px → 44px --- */
-  .lb-tool-btn{width:44px!important;height:44px!important;font-size:18px!important;}
+  .lb-tool-btn{width:40px!important;height:40px!important;}
+  .lb-color-dot{width:26px!important;height:26px!important;}
+  #lb-toolbar{gap:6px!important;padding:8px 10px!important;}
 
   /* --- Lightbox nav/close buttons: already 40-44px but ensure consistent --- */
   #photo-lightbox button[onclick*="lightboxPrev"],
@@ -1753,22 +1759,62 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <button onclick="event.stopPropagation();lightboxSaveMarkup()" id="lb-save-btn" style="display:none;background:#1A7A4A;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">💾 Save</button>
       <button onclick="event.stopPropagation();lightboxClearDraw()" id="lb-clear-btn" style="display:none;background:#C0392B;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">✕ Clear</button>
     </div>
-    <!-- Photo markup toolbar -->
-    <div id="lb-toolbar" style="display:none;margin-top:8px;padding:6px 10px;background:rgba(30,32,40,.9);border-radius:8px;display:none;flex-wrap:wrap;gap:4px;align-items:center;">
-      <button class="lb-tool-btn active" data-lb-tool="pen" onclick="event.stopPropagation();setLbTool('pen')" title="Pen">✏️</button>
-      <button class="lb-tool-btn" data-lb-tool="highlight" onclick="event.stopPropagation();setLbTool('highlight')" title="Highlighter">🖍️</button>
-      <button class="lb-tool-btn" data-lb-tool="arrow" onclick="event.stopPropagation();setLbTool('arrow')" title="Arrow">↗️</button>
-      <button class="lb-tool-btn" data-lb-tool="rect" onclick="event.stopPropagation();setLbTool('rect')" title="Rectangle">▭</button>
-      <button class="lb-tool-btn" data-lb-tool="circle" onclick="event.stopPropagation();setLbTool('circle')" title="Circle">◯</button>
-      <button class="lb-tool-btn" data-lb-tool="line" onclick="event.stopPropagation();setLbTool('line')" title="Line">╱</button>
-      <button class="lb-tool-btn" data-lb-tool="text" onclick="event.stopPropagation();setLbTool('text')" title="Text">T</button>
-      <button class="lb-tool-btn" data-lb-tool="eraser" onclick="event.stopPropagation();setLbTool('eraser')" title="Eraser">🧹</button>
-      <span style="width:1px;height:20px;background:rgba(255,255,255,.2);margin:0 4px;"></span>
-      <input type="color" id="lb-color" value="#C0392B" onchange="event.stopPropagation();_lbColor=this.value" onclick="event.stopPropagation()" style="width:28px;height:28px;border:none;background:none;cursor:pointer;">
-      <select id="lb-size" onchange="event.stopPropagation();_lbSize=parseInt(this.value)" onclick="event.stopPropagation()" style="background:#333;color:white;border:1px solid #555;border-radius:4px;padding:2px 4px;font-size:11px;font-family:Calibri,sans-serif;">
+    <!-- Photo markup toolbar — unified with drawing toolbar style -->
+    <div id="lb-toolbar" style="display:none;margin-top:8px;padding:6px 12px;background:rgba(20,22,30,.95);border-radius:10px;border:1px solid rgba(255,255,255,.1);flex-wrap:wrap;gap:5px;align-items:center;max-width:90vw;justify-content:center;">
+      <!-- Tools -->
+      <button class="lb-tool-btn active" data-lb-tool="pen" onclick="event.stopPropagation();setLbTool('pen')" title="Pen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+      <button class="lb-tool-btn" data-lb-tool="highlight" onclick="event.stopPropagation();setLbTool('highlight')" title="Highlighter"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg></button>
+      <button class="lb-tool-btn" data-lb-tool="text" onclick="event.stopPropagation();setLbTool('text')" title="Text"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg></button>
+      <button class="lb-tool-btn" data-lb-tool="arrow" onclick="event.stopPropagation();setLbTool('arrow')" title="Arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+      <button class="lb-tool-btn" data-lb-tool="rect" onclick="event.stopPropagation();setLbTool('rect')" title="Rectangle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>
+      <button class="lb-tool-btn" data-lb-tool="circle" onclick="event.stopPropagation();setLbTool('circle')" title="Circle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg></button>
+      <button class="lb-tool-btn" data-lb-tool="line" onclick="event.stopPropagation();setLbTool('line')" title="Line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20 20 4"/></svg></button>
+      <button class="lb-tool-btn" data-lb-tool="eraser" onclick="event.stopPropagation();setLbTool('eraser')" title="Eraser"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/></svg></button>
+      <!-- Separator -->
+      <span style="width:1px;height:22px;background:rgba(255,255,255,.2);margin:0 2px;"></span>
+      <!-- Colour swatches -->
+      <div id="lb-color-swatch-active" onclick="event.stopPropagation();_lbToggleColorMenu()" style="width:22px;height:22px;border-radius:50%;background:#C0392B;border:2px solid white;cursor:pointer;flex-shrink:0;" title="Color"></div>
+      <div id="lb-color-menu" style="display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:rgba(20,22,30,.97);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,.6);">
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <div class="lb-color-dot" style="background:#C0392B;" onclick="event.stopPropagation();setLbColor('#C0392B')" title="Red"></div>
+          <div class="lb-color-dot" style="background:#E74C3C;" onclick="event.stopPropagation();setLbColor('#E74C3C')" title="Bright Red"></div>
+          <div class="lb-color-dot" style="background:#FF9800;" onclick="event.stopPropagation();setLbColor('#FF9800')" title="Orange"></div>
+          <div class="lb-color-dot" style="background:#F1C40F;" onclick="event.stopPropagation();setLbColor('#F1C40F')" title="Yellow"></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <div class="lb-color-dot" style="background:#2196F3;" onclick="event.stopPropagation();setLbColor('#2196F3')" title="Blue"></div>
+          <div class="lb-color-dot" style="background:#1565C0;" onclick="event.stopPropagation();setLbColor('#1565C0')" title="Dark Blue"></div>
+          <div class="lb-color-dot" style="background:#4CAF50;" onclick="event.stopPropagation();setLbColor('#4CAF50')" title="Green"></div>
+          <div class="lb-color-dot" style="background:#9C27B0;" onclick="event.stopPropagation();setLbColor('#9C27B0')" title="Purple"></div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <div class="lb-color-dot" style="background:#1C2333;" onclick="event.stopPropagation();setLbColor('#1C2333')" title="Black"></div>
+          <div class="lb-color-dot" style="background:#607D8B;" onclick="event.stopPropagation();setLbColor('#607D8B')" title="Gray"></div>
+          <div class="lb-color-dot" style="background:#FFFFFF;border:1px solid #555;" onclick="event.stopPropagation();setLbColor('#FFFFFF')" title="White"></div>
+          <input type="color" id="lb-custom-color" value="#C0392B" onclick="event.stopPropagation()" onchange="event.stopPropagation();setLbColor(this.value)" style="width:22px;height:22px;border-radius:50%;border:none;cursor:pointer;padding:0;" title="Custom">
+        </div>
+      </div>
+      <!-- Separator -->
+      <span style="width:1px;height:22px;background:rgba(255,255,255,.2);margin:0 2px;"></span>
+      <!-- Size -->
+      <select id="lb-size" onchange="event.stopPropagation();_lbSize=parseInt(this.value)" onclick="event.stopPropagation()" style="background:#2a2d38;color:white;border:1px solid #555;border-radius:5px;padding:3px 5px;font-size:11px;font-family:Calibri,sans-serif;">
         <option value="2">Thin</option><option value="4" selected>Medium</option><option value="8">Thick</option><option value="14">Heavy</option>
       </select>
-      <button onclick="event.stopPropagation();_lbUndo()" style="background:rgba(255,255,255,.1);border:none;color:white;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;" title="Undo">↩</button>
+      <!-- Opacity -->
+      <div style="display:flex;align-items:center;gap:4px;" onclick="event.stopPropagation()">
+        <span style="font-size:10px;color:#aaa;">α</span>
+        <input type="range" id="lb-opacity" min="10" max="100" value="100" onclick="event.stopPropagation()" oninput="event.stopPropagation();_lbOpacity=parseInt(this.value)/100;document.getElementById('lb-opacity-val').textContent=this.value+'%'" style="width:56px;accent-color:#9C2742;">
+        <span id="lb-opacity-val" style="font-size:10px;color:#aaa;min-width:28px;">100%</span>
+      </div>
+      <!-- Separator -->
+      <span style="width:1px;height:22px;background:rgba(255,255,255,.2);margin:0 2px;"></span>
+      <!-- Undo / Redo -->
+      <button onclick="event.stopPropagation();_lbUndo()" class="lb-tool-btn" title="Undo (Ctrl+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button>
+      <button onclick="event.stopPropagation();_lbRedo()" class="lb-tool-btn" title="Redo (Ctrl+Y)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg></button>
+    </div>
+    <!-- Floating text input for lb text tool -->
+    <div id="lb-text-input-wrap" style="display:none;position:absolute;z-index:10;pointer-events:auto;">
+      <input id="lb-text-input" type="text" placeholder="Type text, Enter to place" onclick="event.stopPropagation()" onkeydown="event.stopPropagation();if(event.key==='Enter')_lbCommitText();if(event.key==='Escape')_lbCancelText();" style="background:rgba(20,22,30,.9);color:white;border:1.5px solid #9C2742;border-radius:5px;padding:5px 8px;font-family:Calibri,sans-serif;font-size:14px;min-width:160px;outline:none;">
     </div>
   </div>
   <button onclick="lightboxNext(event)" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;z-index:1;">›</button>
@@ -6086,25 +6132,50 @@ function lightboxNext(e){e.stopPropagation();if(_lbPhotos.length<2)return;_lbIdx
 function lightboxDrawMode(){
   if(!_lbCanvas)_lbCanvas=document.getElementById('lightbox-canvas');
   _lbDrawing=true;
-  _lbTool='pen';_lbColor='#C0392B';_lbSize=4;
-  _lbUndoStack=[];_lbOrigSrc=_lbPhotos[_lbIdx];
+  _lbTool='pen';_lbColor='#C0392B';_lbSize=4;_lbOpacity=1;
+  _lbUndoStack=[];_lbRedoStack=[];_lbOrigSrc=_lbPhotos[_lbIdx];
   document.getElementById('lb-draw-btn').style.display='none';
   document.getElementById('lb-save-btn').style.display='';
-  
   document.getElementById('lb-clear-btn').style.display='';
   document.getElementById('lb-toolbar').style.display='flex';
+  // Sync colour swatch display
+  var sw=document.getElementById('lb-color-swatch-active');if(sw)sw.style.background=_lbColor;
+  var cc=document.getElementById('lb-custom-color');if(cc)cc.value=_lbColor;
+  // Sync size/opacity UI
+  var sz=document.getElementById('lb-size');if(sz)sz.value='4';
+  var op=document.getElementById('lb-opacity');if(op)op.value='100';
+  var opv=document.getElementById('lb-opacity-val');if(opv)opv.textContent='100%';
   document.querySelectorAll('.lb-tool-btn').forEach(function(b){b.classList.toggle('active',b.dataset.lbTool==='pen');});
   _lbEnableDrawEvents();
 }
 
-var _lbTool='pen',_lbColor='#C0392B',_lbSize=4,_lbUndoStack=[],_lbOrigSrc='';
+var _lbTool='pen',_lbColor='#C0392B',_lbSize=4,_lbOpacity=1,_lbUndoStack=[],_lbRedoStack=[],_lbOrigSrc='';
+var _lbTextPending=null;
 var _lbMouse={down:false,x:0,y:0,sx:0,sy:0};
-var _lbTextMode=false;
+var _lbColorMenuOpen=false;
 
 function setLbTool(t){
-  _lbTool=t;_lbTextMode=(t==='text');
+  _lbTool=t;
   document.querySelectorAll('.lb-tool-btn').forEach(function(b){b.classList.toggle('active',b.dataset.lbTool===t);});
-  if(_lbCanvas)_lbCanvas.style.cursor=t==='text'?'text':'crosshair';
+  if(_lbCanvas)_lbCanvas.style.cursor=(t==='eraser')?'cell':(t==='text'?'text':'crosshair');
+  // Hide text input if switching away from text
+  if(t!=='text')_lbCancelText();
+}
+
+function setLbColor(c){
+  _lbColor=c;
+  var sw=document.getElementById('lb-color-swatch-active');if(sw)sw.style.background=c;
+  var cc=document.getElementById('lb-custom-color');if(cc)cc.value=c;
+  document.querySelectorAll('.lb-color-dot').forEach(function(d){d.classList.toggle('active',d.style.background===c||d.title&&d.getAttribute('onclick')&&d.getAttribute('onclick').indexOf(c)>=0);});
+  _lbToggleColorMenu(true);
+}
+
+function _lbToggleColorMenu(forceClose){
+  _lbColorMenuOpen=forceClose?false:!_lbColorMenuOpen;
+  var m=document.getElementById('lb-color-menu');if(m)m.style.display=_lbColorMenuOpen?'block':'none';
+  if(_lbColorMenuOpen){
+    setTimeout(function(){document.addEventListener('click',function h(){_lbColorMenuOpen=false;var m2=document.getElementById('lb-color-menu');if(m2)m2.style.display='none';document.removeEventListener('click',h);},{once:true});},0);
+  }
 }
 
 function _lbGetPos(e){
@@ -6117,14 +6188,27 @@ function _lbGetPos(e){
 function _lbPushUndo(){
   try{_lbUndoStack.push(_lbCanvas.toDataURL('image/png'));}catch(e){}
   if(_lbUndoStack.length>30)_lbUndoStack.shift();
+  _lbRedoStack=[];
 }
 function _lbUndo(){
   if(!_lbUndoStack.length)return;
+  try{_lbRedoStack.push(_lbCanvas.toDataURL('image/png'));}catch(e){}
+  if(_lbRedoStack.length>30)_lbRedoStack.shift();
   var prev=_lbUndoStack.pop();
   var img2=new Image();img2.onload=function(){
     _lbCtx.clearRect(0,0,_lbCanvas.width,_lbCanvas.height);
     _lbCtx.drawImage(img2,0,0);
   };img2.src=prev;
+}
+function _lbRedo(){
+  if(!_lbRedoStack.length)return;
+  try{_lbUndoStack.push(_lbCanvas.toDataURL('image/png'));}catch(e){}
+  if(_lbUndoStack.length>30)_lbUndoStack.shift();
+  var nxt=_lbRedoStack.pop();
+  var img3=new Image();img3.onload=function(){
+    _lbCtx.clearRect(0,0,_lbCanvas.width,_lbCanvas.height);
+    _lbCtx.drawImage(img3,0,0);
+  };img3.src=nxt;
 }
 
 // Offscreen canvas for lightbox highlight (prevents opacity stacking)
@@ -6148,10 +6232,10 @@ function _lbDown(e){
       _lbCtx.lineWidth=_lbSize*4;_lbCtx.globalAlpha=1;
     } else {
       _lbCtx.globalCompositeOperation='source-over';
-      _lbCtx.strokeStyle=_lbColor;_lbCtx.lineWidth=_lbSize;_lbCtx.globalAlpha=1;
+      _lbCtx.strokeStyle=_lbColor;_lbCtx.lineWidth=_lbSize;_lbCtx.globalAlpha=_lbOpacity;
     }
   }
-  // For shapes, we snapshot for rubber-banding
+  // For shapes, snapshot for rubber-banding
   if(['rect','circle','line','arrow'].indexOf(_lbTool)>=0){
     _lbShapeSnap=_lbCtx.getImageData(0,0,_lbCanvas.width,_lbCanvas.height);
   }
@@ -6172,7 +6256,8 @@ function _lbMove(e){
     hx.beginPath();hx.moveTo(_lbHlPts[0].x,_lbHlPts[0].y);
     for(var i=1;i<_lbHlPts.length;i++)hx.lineTo(_lbHlPts[i].x,_lbHlPts[i].y);
     hx.stroke();
-    _lbCtx.globalAlpha=0.3;_lbCtx.globalCompositeOperation='source-over';
+    // Composite at reduced opacity — never stacks (offscreen pattern)
+    _lbCtx.globalAlpha=0.35;_lbCtx.globalCompositeOperation='source-over';
     _lbCtx.drawImage(_lbHlCanvas2,0,0);
     _lbCtx.globalAlpha=1;
   } else if(_lbTool==='pen'||_lbTool==='eraser'){
@@ -6180,7 +6265,7 @@ function _lbMove(e){
   } else if(_lbShapeSnap){
     _lbCtx.putImageData(_lbShapeSnap,0,0);
     _lbCtx.globalCompositeOperation='source-over';
-    _lbCtx.strokeStyle=_lbColor;_lbCtx.lineWidth=_lbSize;_lbCtx.globalAlpha=1;
+    _lbCtx.strokeStyle=_lbColor;_lbCtx.lineWidth=_lbSize;_lbCtx.globalAlpha=_lbOpacity;
     var sx=_lbMouse.sx,sy=_lbMouse.sy,ex=p.x,ey=p.y;
     _lbCtx.beginPath();
     if(_lbTool==='rect'){_lbCtx.rect(sx,sy,ex-sx,ey-sy);}
@@ -6195,19 +6280,21 @@ function _lbMove(e){
       _lbCtx.lineTo(ex-hl*Math.cos(angle+0.4),ey-hl*Math.sin(angle+0.4));
     }
     _lbCtx.stroke();
+    _lbCtx.globalAlpha=1;
   }
 }
 function _lbUp(e){
   if(_lbTool==='highlight' && _lbHlPts.length>1){
     if(_lbHlSnap) _lbCtx.putImageData(_lbHlSnap,0,0);
     _lbHlCanvas2.width=_lbCanvas.width;_lbHlCanvas2.height=_lbCanvas.height;
-    var hx=_lbHlCanvas2.getContext('2d');
-    hx.clearRect(0,0,_lbHlCanvas2.width,_lbHlCanvas2.height);
-    hx.strokeStyle=_lbColor;hx.lineWidth=_lbSize*5;hx.globalAlpha=1;hx.lineCap='round';hx.lineJoin='round';
-    hx.beginPath();hx.moveTo(_lbHlPts[0].x,_lbHlPts[0].y);
-    for(var i=1;i<_lbHlPts.length;i++)hx.lineTo(_lbHlPts[i].x,_lbHlPts[i].y);
-    hx.stroke();
-    _lbCtx.globalAlpha=0.3;_lbCtx.globalCompositeOperation='source-over';
+    var hx2=_lbHlCanvas2.getContext('2d');
+    hx2.clearRect(0,0,_lbHlCanvas2.width,_lbHlCanvas2.height);
+    hx2.strokeStyle=_lbColor;hx2.lineWidth=_lbSize*5;hx2.globalAlpha=1;hx2.lineCap='round';hx2.lineJoin='round';
+    hx2.beginPath();hx2.moveTo(_lbHlPts[0].x,_lbHlPts[0].y);
+    for(var i=1;i<_lbHlPts.length;i++)hx2.lineTo(_lbHlPts[i].x,_lbHlPts[i].y);
+    hx2.stroke();
+    // Commit at fixed 0.35 opacity — offscreen pattern prevents stacking
+    _lbCtx.globalAlpha=0.35;_lbCtx.globalCompositeOperation='source-over';
     _lbCtx.drawImage(_lbHlCanvas2,0,0);
     _lbCtx.globalAlpha=1;
     _lbHlSnap=null;_lbHlPts=[];
@@ -6217,16 +6304,49 @@ function _lbUp(e){
   _lbMouse.down=false;_lbShapeSnap=null;
 }
 
+// Text tool — floating overlay input (no prompt())
 function _lbPlaceText(e){
   e.stopPropagation();
   var p=_lbGetPos(e);
-  var txt=prompt('Enter text:');if(!txt)return;
-  _lbPushUndo();
-  _lbCtx.globalCompositeOperation='source-over';_lbCtx.globalAlpha=1;
-  _lbCtx.font='bold '+Math.max(16,_lbSize*6)+'px Calibri, sans-serif';
-  _lbCtx.fillStyle=_lbColor;_lbCtx.fillText(txt,p.x,p.y);
+  var r=_lbCanvas.getBoundingClientRect();
+  var scaleX=r.width/_lbCanvas.width,scaleY=r.height/_lbCanvas.height;
+  var wrap=document.getElementById('lb-text-input-wrap');
+  var inp=document.getElementById('lb-text-input');
+  if(!wrap||!inp)return;
+  // Position the input overlay relative to canvas position in viewport
+  wrap.style.left=(r.left+p.x*scaleX)+'px';
+  wrap.style.top=(r.top+p.y*scaleY-28)+'px';
+  wrap.style.position='fixed';
+  wrap.style.display='block';
+  inp.value='';
+  inp.style.fontSize=Math.max(12,_lbSize*4)+'px';
+  inp.style.color=_lbColor;
+  _lbTextPending={x:p.x,y:p.y};
+  setTimeout(function(){inp.focus();},50);
+}
+function _lbCommitText(){
+  var inp=document.getElementById('lb-text-input');
+  var wrap=document.getElementById('lb-text-input-wrap');
+  if(!inp||!_lbTextPending)return;
+  var txt=inp.value.trim();
+  if(txt){
+    _lbPushUndo();
+    _lbCtx.globalCompositeOperation='source-over';
+    _lbCtx.globalAlpha=_lbOpacity;
+    _lbCtx.font='bold '+Math.max(16,_lbSize*4)+'px Calibri, sans-serif';
+    _lbCtx.fillStyle=_lbColor;
+    _lbCtx.fillText(txt,_lbTextPending.x,_lbTextPending.y);
+    _lbCtx.globalAlpha=1;
+  }
+  _lbCancelText();
+}
+function _lbCancelText(){
+  _lbTextPending=null;
+  var wrap=document.getElementById('lb-text-input-wrap');
+  if(wrap)wrap.style.display='none';
 }
 
+var _lbKeyHandler=null;
 function _lbEnableDrawEvents(){
   if(!_lbCanvas)return;
   _lbCanvas.style.cursor='crosshair';
@@ -6236,6 +6356,14 @@ function _lbEnableDrawEvents(){
   _lbCanvas.addEventListener('touchstart',_lbDown,{passive:false});
   _lbCanvas.addEventListener('touchmove',_lbMove,{passive:false});
   _lbCanvas.addEventListener('touchend',_lbUp);
+  // Keyboard shortcuts — Ctrl+Z undo, Ctrl+Y / Ctrl+Shift+Z redo
+  _lbKeyHandler=function(e){
+    if(e.ctrlKey||e.metaKey){
+      if(e.key==='z'&&!e.shiftKey){e.preventDefault();_lbUndo();}
+      else if(e.key==='y'||(e.key==='z'&&e.shiftKey)){e.preventDefault();_lbRedo();}
+    }
+  };
+  document.addEventListener('keydown',_lbKeyHandler);
 }
 function _lbRemoveDrawEvents(){
   if(!_lbCanvas)return;
@@ -6246,10 +6374,12 @@ function _lbRemoveDrawEvents(){
   _lbCanvas.removeEventListener('touchstart',_lbDown);
   _lbCanvas.removeEventListener('touchmove',_lbMove);
   _lbCanvas.removeEventListener('touchend',_lbUp);
+  if(_lbKeyHandler){document.removeEventListener('keydown',_lbKeyHandler);_lbKeyHandler=null;}
+  _lbCancelText();
 }
 
 function lightboxClearDraw(){
-  _lbUndoStack=[];
+  _lbUndoStack=[];_lbRedoStack=[];
   _lbShowCurrent();
 }
 
