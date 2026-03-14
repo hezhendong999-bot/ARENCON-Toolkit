@@ -397,7 +397,7 @@ body.dark-mode .detail-notes-area{background:var(--smoke);border-color:var(--bor
   <button class="hdr-btn desktop-only" id="btn-admin" style="display:none" onclick="showAdmin()">👤 Admin</button>
   <button class="hdr-btn desktop-only" id="btn-profile" style="display:none" onclick="openProfileModal()">⚙️ Profile</button>
   <button class="hdr-btn desktop-only" id="btn-tools" onclick="window.location.href='index.html'" title="All Tools">🧰 Tools</button>
-  <button class="hdr-btn desktop-only" id="btn-dark" onclick="toggleDark()">☀</button>
+  <button class="hdr-btn desktop-only" id="btn-dark" onclick="toggleDark()">☀️</button>
   <button class="hdr-btn desktop-only" id="btn-logout" style="display:none" onclick="doLogout()">🚪 Logout</button>
   <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
 </div>
@@ -415,7 +415,7 @@ body.dark-mode .detail-notes-area{background:var(--smoke);border-color:var(--bor
     <button class="mobile-menu-item" id="mob-admin" style="display:none" onclick="showAdmin();closeMobileMenu()">👤 Admin Panel</button>
     <button class="mobile-menu-item" id="mob-profile" style="display:none" onclick="openProfileModal();closeMobileMenu()">⚙️ Profile</button>
     <button class="mobile-menu-item" onclick="window.location.href='index.html'">🧰 All Tools</button>
-    <button class="mobile-menu-item" onclick="toggleDark();closeMobileMenu()"><span id="mob-dark-label">☀ Dark Mode</span></button>
+    <button class="mobile-menu-item" onclick="toggleDark();closeMobileMenu()"><span id="mob-dark-label">☀️ Dark Mode</span></button>
     <div class="mobile-menu-divider"></div>
     <button class="mobile-menu-item" id="mob-logout" style="display:none" onclick="doLogout()">🚪 Logout</button>
   </div>
@@ -2770,11 +2770,11 @@ function toggleDark() {
 
 function applyDark(on) {
   document.body.classList.toggle('dark-mode', on);
-  const label = on ? '🌙' : '☀';
+  const label = on ? '🌙' : '☀️';
   const btnDark = document.getElementById('btn-dark');
   if (btnDark) btnDark.textContent = label;
   const mobLabel = document.getElementById('mob-dark-label');
-  if (mobLabel) mobLabel.textContent = (on ? '🌙' : '☀') + ' Dark Mode';
+  if (mobLabel) mobLabel.textContent = (on ? '🌙' : '☀️') + ' Dark Mode';
 }
 
 /* ═══ Mobile Menu ═══ */
