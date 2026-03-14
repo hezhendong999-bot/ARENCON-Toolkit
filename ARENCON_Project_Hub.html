@@ -161,12 +161,12 @@ body.dark-mode .dash-sort{background:var(--card);border-color:var(--border);colo
 .tool-launch-card:hover{border-color:var(--arencon);background:var(--arencon-light);box-shadow:var(--shadow-md)}
 .tool-launch-card .tlc-icon{font-size:22px;flex-shrink:0;}
 .tool-launch-card .tlc-name{font-size:13px;font-weight:600;color:var(--fg);}
-.tool-launch-card.disabled{opacity:.35;pointer-events:none}
+.tool-launch-card.disabled{opacity:.5;cursor:default}
 .tool-launch-card .tlc-badge{font-size:9px;color:var(--silver);font-weight:400;}
 body.dark-mode .tool-launch-card{background:var(--card);border-color:var(--border);}
 body.dark-mode .tool-launch-card:hover{border-color:var(--arencon);background:var(--arencon-light)}
 /* Toggle switch */
-.tlc-toggle{position:absolute;top:12px;right:12px;width:38px;height:22px;background:var(--border);border-radius:11px;cursor:pointer;transition:background .2s;border:none;padding:0;flex-shrink:0;}
+.tlc-toggle{position:absolute;top:12px;right:12px;width:38px;height:22px;background:var(--border);border-radius:11px;cursor:pointer;transition:background .2s;border:none;padding:0;flex-shrink:0;pointer-events:auto;z-index:2;}
 .tlc-toggle::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.15);}
 .tlc-toggle.on{background:var(--arencon);}
 .tlc-toggle.on::after{transform:translateX(16px);}
