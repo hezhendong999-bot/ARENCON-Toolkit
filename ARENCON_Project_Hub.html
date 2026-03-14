@@ -608,11 +608,6 @@ body.dark-mode .detail-notes-area{background:var(--smoke);border-color:var(--bor
       <div class="tool-launch-grid" id="detail-tools"></div>
       <div id="detail-instances"></div>
     </div>
-    <div class="detail-section">
-      <h3>📝 Notes</h3>
-      <textarea class="detail-notes-area" id="detail-notes" placeholder="Project notes, scope, contact info, site access..." oninput="_debounceSaveNotes()"></textarea>
-      <div style="font-size:10px;color:var(--silver);margin-top:4px" id="notes-save-status"></div>
-    </div>
     <div class="detail-section detail-actions" id="detail-danger-zone">
       <button class="btn-action" id="btn-edit-proj" onclick="openEditProjectModal()">✏️ Edit Project</button>
       <button class="btn-archive" id="btn-archive-proj" onclick="toggleArchiveProject()">📦 Archive</button>
@@ -658,14 +653,14 @@ body.dark-mode .detail-notes-area{background:var(--smoke);border-color:var(--bor
 <!-- ═══════════ DELETE PROJECT MODAL ═══════════ -->
 <div class="modal-overlay" id="delete-project-modal">
   <div class="modal-card">
-    <h3 style="color:#C0392B;">🗑️ Move Project to Trash</h3>
-    <p style="font-size:13px;color:var(--steel);margin:8px 0 4px;">This will move the project to the trash. You can restore it later from the Deleted view.</p>
-    <p style="font-size:13px;margin:8px 0;">Type the project number <strong id="del-proj-num">—</strong> to confirm:</p>
-    <input type="text" class="delete-confirm-input" id="del-confirm-input" placeholder="Type project number here" autocomplete="off">
-    <div id="del-error" style="display:none;font-size:12px;color:#C0392B;font-weight:600;margin:4px 0;"></div>
+    <h3 style="color:#DC2626;">🗑️ Move Project to Trash</h3>
+    <p style="font-size:13px;color:var(--steel);margin:8px 0 4px;">This will move <strong id="del-proj-num">—</strong> to the trash. You can restore it later from the Deleted view.</p>
+    <p style="font-size:13px;margin:8px 0;">Type <strong style="color:#DC2626">DELETE</strong> to confirm:</p>
+    <input type="text" class="delete-confirm-input" id="del-confirm-input" placeholder="Type DELETE here" autocomplete="off">
+    <div id="del-error" style="display:none;font-size:12px;color:#DC2626;font-weight:600;margin:4px 0;"></div>
     <div class="modal-actions">
       <button class="dash-btn secondary" onclick="closeDeleteModal()">Cancel</button>
-      <button class="dash-btn" style="background:#C0392B;color:white;" onclick="executeDeleteProject()">Move to Trash</button>
+      <button class="dash-btn" style="background:linear-gradient(135deg,#DC2626,#B91C1C);color:white;" onclick="executeDeleteProject()">Move to Trash</button>
     </div>
   </div>
 </div>
@@ -1992,9 +1987,9 @@ async function executeDeleteProject() {
   if (!proj) return;
 
   var typed = document.getElementById('del-confirm-input').value.trim();
-  if (typed !== (proj.project_number || '').trim()) {
+  if (typed.toUpperCase() !== 'DELETE') {
     var errEl = document.getElementById('del-error');
-    errEl.textContent = 'Project number does not match. Type it exactly.';
+    errEl.textContent = 'Please type DELETE to confirm.';
     errEl.style.display = 'block';
     return;
   }
