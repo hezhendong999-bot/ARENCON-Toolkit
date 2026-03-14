@@ -8815,39 +8815,29 @@ function _initCloudSync(){
     if(result&&result.state){
       var p=getProject();
       if(!p)return;
-      // Compare timestamps — only apply cloud state if cloud is newer than local
-      var cloudMod=result.state.modified||result.row&&result.row.updated_at||'';
-      var localMod=p.modified||'';
-      if(localMod&&cloudMod&&localMod>cloudMod){
-        // Local is newer — push local to cloud instead
-        toast('Local data is newer — syncing to cloud','',2000);
-        try{CloudSync.save(_collectFullState());}catch(e){}
-      }else{
-        // Cloud is newer or same — merge cloud state
-        if(result.state.info){
-          var cloudInfo=result.state.info;
-          var hubFields=['projectNumber','projectName','client','address'];
-          Object.keys(cloudInfo).forEach(function(k){
-            if(hubFields.indexOf(k)===-1&&cloudInfo[k])p.info[k]=cloudInfo[k];
-          });
-        }
-        if(result.state.contractors)p.contractors=result.state.contractors;
-        if(result.state.generalDeficiencies)p.generalDeficiencies=result.state.generalDeficiencies;
-        if(result.state.nextDeficNum)p.nextDeficNum=result.state.nextDeficNum;
-        if(result.state.drawings)p.drawings=result.state.drawings;
-        if(result.state.photos)p.photos=result.state.photos;
-        if(result.state.sitePhotos)p.sitePhotos=result.state.sitePhotos;
-        if(result.state.sketches)p.sketches=result.state.sketches;
-        if(result.state.signatures)p.signatures=result.state.signatures;
-        if(result.state.status)p.status=result.state.status;
-        if(result.state.settings)p.settings=result.state.settings;
-        // Re-render with cloud data
-        populateProjectFields();
-        renderDeficGroups();
-        renderSummaryTable();
-        renderDrawingGallery();
-        toast('Project loaded from '+result.source,'',2000);
+      if(result.state.info){
+        var cloudInfo=result.state.info;
+        var hubFields=['projectNumber','projectName','client','address'];
+        Object.keys(cloudInfo).forEach(function(k){
+          if(hubFields.indexOf(k)===-1&&cloudInfo[k])p.info[k]=cloudInfo[k];
+        });
       }
+      if(result.state.contractors)p.contractors=result.state.contractors;
+      if(result.state.generalDeficiencies)p.generalDeficiencies=result.state.generalDeficiencies;
+      if(result.state.nextDeficNum)p.nextDeficNum=result.state.nextDeficNum;
+      if(result.state.drawings)p.drawings=result.state.drawings;
+      if(result.state.photos)p.photos=result.state.photos;
+      if(result.state.sitePhotos)p.sitePhotos=result.state.sitePhotos;
+      if(result.state.sketches)p.sketches=result.state.sketches;
+      if(result.state.signatures)p.signatures=result.state.signatures;
+      if(result.state.status)p.status=result.state.status;
+      if(result.state.settings)p.settings=result.state.settings;
+      // Re-render with cloud data
+      populateProjectFields();
+      renderDeficGroups();
+      renderSummaryTable();
+      renderDrawingGallery();
+      toast('Project loaded from '+result.source,'',2000);
     }
     // Show status badge
     var badge=document.getElementById('issue-status-badge');
