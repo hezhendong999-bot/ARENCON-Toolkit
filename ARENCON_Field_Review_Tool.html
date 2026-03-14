@@ -2882,21 +2882,20 @@ function saveToLS(){
       ADB.saveProject(proj).catch(function(){});
     });
   },600);
+  // Immediate debounced cloud sync (2s after last action — Fieldwire-style)
+  _debouncedCloudSave();
 }
-// Brief non-intrusive autosave confirmation
+var _cloudSaveTimer=null;
+function _debouncedCloudSave(){
+  if(typeof CloudSync==='undefined'||!CloudSync.isInitialized)return;
+  if(_cloudSaveTimer)clearTimeout(_cloudSaveTimer);
+  _cloudSaveTimer=setTimeout(function(){
+    try{CloudSync.save(_collectFullState());}catch(e){console.warn('[CloudSync] Debounced save error:',e);}
+  },2000);
+}
+// Brief non-intrusive autosave confirmation (removed — cloud dot is sufficient)
 var _astTimer=null;
-function _showAutoSaveToast(){
-  var el=document.getElementById('autosave-toast');
-  if(!el){
-    el=document.createElement('div');el.id='autosave-toast';
-    el.style.cssText='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(26,122,74,.92);color:white;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:600;font-family:Calibri,sans-serif;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.25);';
-    document.body.appendChild(el);
-  }
-  el.textContent='✓ Autosaved';
-  el.style.opacity='1';
-  if(_astTimer)clearTimeout(_astTimer);
-  _astTimer=setTimeout(function(){el.style.opacity='0';},1500);
-}
+function _showAutoSaveToast(){}
 
 // ═══ FOLDER QUICK-SAVE — immediate write on high-value actions ═══
 // Debounced at 3s to batch rapid actions (e.g. bulk close, multi-photo upload)
@@ -6270,7 +6269,7 @@ function buildDeficItem(d,ctrId,i){
       if(r.closedItem){closeBtn='<div style="margin-top:8px;padding:6px 10px;background:#EAFAF1;border:1px solid #1A7A4A;border-radius:6px;font-size:11px;font-weight:700;color:#1A7A4A;">✔ Closed by Consultant — IAR deactivated</div>';}
       else if(d.iar){closeBtn='<button style="margin-top:8px;width:100%;padding:7px;background:#1A7A4A;color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;" onclick="consultantCloseItem(\''+d.id+'\','+ri+')">✔ Close (deactivates IAR)</button>';}
     }
-    respHtml+='<div class="'+cls+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div class="resp-label" style="color:'+(isCtr?'#E67E22':'#1565C0')+';">'+icon+' '+lbl+' Response #'+(ri+1)+'</div><button class="remove-defic-btn" onclick="removeDeficResponse(\''+d.id+'\','+ri+')">✕ Remove</button></div><div class="defic-grid-2col"><div><div class="defic-label">Comment</div><textarea style="width:100%;height:80px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;" oninput="updateDeficResponse(\''+d.id+'\','+ri+',\'comment\',this.value)">'+safe(r.comment)+'</textarea></div><div><div class="defic-label">Response Photos</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;" id="resp-photos-'+d.id+'-'+ri+'"></div><div class="photo-zone" style="min-height:80px;padding:10px;" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleRespPhotoDrop(event,\''+d.id+'\','+ri+')"><span>Drag & drop photos</span><div class="photo-zone-btns"><button class="pz-upload" onclick="event.stopPropagation();triggerRespPhotoUpload(\''+d.id+'\','+ri+')">📎 Upload</button><button class="pz-camera" onclick="event.stopPropagation();triggerRespPhotoCamera(\''+d.id+'\','+ri+')">📷 Camera</button><button class="pz-upload" onclick="event.stopPropagation();openPhotoPicker(\'resp\',\''+d.id+'\','+ri+')" style="background:#7B1FA2;">📸 Gallery</button></div></div></div></div>'+closeBtn+'</div>';
+    respHtml+='<div class="'+cls+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div class="resp-label" style="color:'+(isCtr?'#E67E22':'#1565C0')+';">'+icon+' '+lbl+' Response #'+(ri+1)+'</div><button class="remove-defic-btn" onclick="removeDeficResponse(\''+d.id+'\','+ri+')">✕ Remove</button></div><div class="defic-grid-2col"><div><div class="defic-label">Comment</div><textarea style="width:100%;height:80px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;" oninput="updateDeficResponse(\''+d.id+'\','+ri+',\'comment\',this.value)">'+safe(r.comment)+'</textarea></div><div><div class="defic-label">Response Photos</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;" id="resp-photos-'+d.id+'-'+ri+'"></div><div class="photo-zone" style="min-height:80px;padding:10px;" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleRespPhotoDrop(event,\''+d.id+'\','+ri+')"><span>Drag & drop photos</span><div class="photo-zone-btns"><button class="pz-upload" onclick="event.stopPropagation();triggerRespPhotoUpload(\''+d.id+'\','+ri+')">📎 Upload</button><button class="pz-camera" onclick="event.stopPropagation();triggerRespPhotoCamera(\''+d.id+'\','+ri+')">📷 Camera</button><button class="pz-upload" onclick="event.stopPropagation();openPhotoPicker(\'resp\',\''+d.id+'\','+ri+')" style="background:#7B1FA2;color:white;">📸 Gallery</button></div></div></div></div>'+closeBtn+'</div>';
   });
   respHtml+='<div class="resp-add-btns"><button class="resp-add-ctr" onclick="addDeficResponse(\''+d.id+'\',\'contractor\')">+ Contractor Response</button><button class="resp-add-con" onclick="addDeficResponse(\''+d.id+'\',\'consultant\')">+ Consultant Response</button></div>';
 
@@ -6301,14 +6300,14 @@ function buildDeficItem(d,ctrId,i){
     obsHtml+='</div><div>';
     obsHtml+='<div class="defic-label">Evidence Photos</div>';
     obsHtml+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+enThumbsHtml+'</div>';
-    obsHtml+='<div class="photo-zone" style="min-height:80px;" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleEntryPhotoDrop(event,\''+d.id+'\','+ei+')"><span>Drag & drop photos</span><div class="photo-zone-btns"><button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+ei+')">📎 Upload</button><button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+ei+')">📷 Camera</button><button class="pz-upload" onclick="event.stopPropagation();openPhotoPicker(\'entry\',\''+d.id+'\','+ei+')" style="background:#7B1FA2;">📸 Gallery</button></div></div>';
+    obsHtml+='<div class="photo-zone" style="min-height:80px;" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleEntryPhotoDrop(event,\''+d.id+'\','+ei+')"><span>Drag & drop photos</span><div class="photo-zone-btns"><button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+ei+')">📎 Upload</button><button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+ei+')">📷 Camera</button><button class="pz-upload" onclick="event.stopPropagation();openPhotoPicker(\'entry\',\''+d.id+'\','+ei+')" style="background:#7B1FA2;color:white;">📸 Gallery</button></div></div>';
     obsHtml+='</div></div></div>';
   });
   // Add Observation button (for multi-entry pins)
   obsHtml+='<button class="btn btn-outline btn-sm" style="margin-top:6px;font-size:11px;" onclick="addDeficEntry(\''+d.id+'\')">+ Add Observation</button>';
 
   var _allDescs=entries.map(function(e){return e.description||'';}).join(' ');
-  return '<div class="defic-item" id="defic-item-'+d.id+'" data-desc="'+escHtml(_allDescs||d.description||'')+'" data-num="'+d.num+'" data-status="'+d.status+'" data-entries="'+entries.length+'" data-iar="'+d.iar+'" data-ctr="'+escHtml(ctrName)+'"><div class="defic-item-row"><input type="checkbox" class="bulk-checkbox" data-defic-id="'+d.id+'" onchange="updateBulkCount()"><div class="defic-num-circle">'+d.num+'</div><div class="defic-item-content">'+obsHtml+dwgHtml+'<div class="defic-controls"><div><label>Date</label><input type="date" value="'+(d.date||'')+'" oninput="updateDeficField(\''+d.id+'\',\'date\',this.value)"></div><div><label>Status</label><select style="color:'+sc+';font-weight:600;" onchange="updateDeficField(\''+d.id+'\',\'status\',this.value);renderDeficiencyPanel();"><option value="Outstanding"'+(d.status==='Outstanding'?' selected':'')+'>● Outstanding</option><option value="Addressed & Closed"'+(d.status==='Addressed & Closed'?' selected':'')+'>● Addressed & Closed</option></select></div><div><label style="color:transparent;">.</label><button class="iar-toggle-btn '+(d.iar?'on':'off')+'" onclick="toggleIARInPlace(this,\''+d.id+'\')">⚡ IAR'+(d.iar?' ✓':'')+'</button></div><div><label style="color:transparent;">.</label><button class="dup-defic-btn" onclick="duplicateDeficiency(\''+d.id+'\')" title="Duplicate">⧉ Dup</button></div><div><label style="color:transparent;">.</label><button class="remove-defic-btn" onclick="removeDeficiency(\''+d.id+'\')">✕ Remove</button></div></div></div></div>'+respHtml+'</div>';
+  return '<div class="defic-item" id="defic-item-'+d.id+'" data-desc="'+escHtml(_allDescs||d.description||'')+'" data-num="'+d.num+'" data-status="'+d.status+'" data-entries="'+entries.length+'" data-iar="'+d.iar+'" data-ctr="'+escHtml(ctrName)+'"><div class="defic-item-row"><input type="checkbox" class="bulk-checkbox" data-defic-id="'+d.id+'" onchange="updateBulkCount()"><div class="defic-num-circle">'+d.num+'</div><div class="defic-item-content">'+obsHtml+dwgHtml+'<div class="defic-controls"><div><label>Date</label><input type="date" value="'+(d.date||'')+'" oninput="updateDeficField(\''+d.id+'\',\'date\',this.value)"></div><div><label>Status</label><select style="color:'+sc+';font-weight:600;" onchange="updateDeficField(\''+d.id+'\',\'status\',this.value);renderDeficiencyPanel();"><option value="Outstanding"'+(d.status==='Outstanding'?' selected':'')+'>● Outstanding</option><option value="Addressed & Closed"'+(d.status==='Addressed & Closed'?' selected':'')+'>● Addressed & Closed</option></select></div><div><label style="color:transparent;">.</label><button class="iar-toggle-btn '+(d.iar?'on':'off')+'" onclick="toggleIARInPlace(this,\''+d.id+'\')">⚡ IAR'+(d.iar?' ✓':'')+'</button></div><div><label style="color:transparent;">.</label><button class="dup-defic-btn" onclick="duplicateDeficiency(\''+d.id+'\')" title="Duplicate">⧉ Dup</button></div><div><label style="color:transparent;">.</label><button class="dup-defic-btn" onclick="moveDeficiency(\''+d.id+'\')" title="Move to another contractor" style="background:#1565C0;color:white;">↗ Move</button></div><div><label style="color:transparent;">.</label><button class="remove-defic-btn" onclick="removeDeficiency(\''+d.id+'\')">✕ Remove</button></div></div></div></div>'+respHtml+'</div>';
 }
 
 // ── Entry-level CRUD for observation-per-row ──
@@ -6415,6 +6414,55 @@ function duplicateDeficiency(did){
   pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();
   setTimeout(function(){var el=document.getElementById('defic-item-'+d.id);if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.boxShadow='0 0 0 3px rgba(21,101,192,.3)';setTimeout(function(){el.style.boxShadow='';},2000);}},100);
   toast('Duplicated #'+src.num+' → #'+num);
+}
+
+function moveDeficiency(did){
+  var f=findDeficiency(did);if(!f)return;
+  var p=getProject();
+  // Build list of targets: contractors + General
+  var targets=[];
+  (p.contractors||[]).forEach(function(c,i){targets.push({label:c.name||'Contractor '+(i+1),type:'contractor',idx:i});});
+  targets.push({label:'General (no contractor)',type:'general',idx:-1});
+  // Remove current location from targets
+  var currentLabel='';
+  if(f.arr===p.generalDeficiencies){currentLabel='General (no contractor)';}
+  else{p.contractors.forEach(function(c,i){if(c.deficiencies===f.arr)currentLabel=c.name||'Contractor '+(i+1);});}
+  targets=targets.filter(function(t){return t.label!==currentLabel;});
+  if(!targets.length){toast('No other contractors to move to');return;}
+  // Build picker
+  var opts=targets.map(function(t,i){return '<option value="'+i+'">'+escHtml(t.label)+'</option>';}).join('');
+  var html='<div style="text-align:center;padding:20px;font-family:Calibri,sans-serif;">'+
+    '<div style="font-weight:700;font-size:15px;margin-bottom:12px;">Move Deficiency #'+f.defic.num+'</div>'+
+    '<div style="font-size:12px;color:#4A5568;margin-bottom:12px;">Currently under: <strong>'+escHtml(currentLabel)+'</strong></div>'+
+    '<select id="move-target" style="width:100%;padding:8px;border:1.5px solid #DDE1E7;border-radius:6px;font-family:inherit;font-size:13px;margin-bottom:14px;">'+opts+'</select>'+
+    '<div style="display:flex;gap:8px;justify-content:center;">'+
+    '<button onclick="document.getElementById(\'move-modal\').remove()" style="padding:8px 20px;border:1.5px solid #DDE1E7;border-radius:6px;background:white;cursor:pointer;font-family:inherit;">Cancel</button>'+
+    '<button id="move-confirm-btn" style="padding:8px 20px;border:none;border-radius:6px;background:#1565C0;color:white;font-weight:700;cursor:pointer;font-family:inherit;">Move</button>'+
+    '</div></div>';
+  var overlay=document.createElement('div');overlay.id='move-modal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10050;display:flex;align-items:center;justify-content:center;';
+  var card=document.createElement('div');card.style.cssText='background:white;border-radius:12px;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3);';
+  card.innerHTML=html;overlay.appendChild(card);document.body.appendChild(overlay);
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+  document.getElementById('move-confirm-btn').onclick=function(){
+    var sel=document.getElementById('move-target');
+    var t=targets[parseInt(sel.value)];
+    // Remove from current array
+    f.arr.splice(f.idx,1);
+    // Add to target
+    var targetArr;
+    if(t.type==='general'){
+      if(!p.generalDeficiencies)p.generalDeficiencies=[];
+      targetArr=p.generalDeficiencies;
+    }else{
+      targetArr=p.contractors[t.idx].deficiencies;
+      if(!targetArr){p.contractors[t.idx].deficiencies=[];targetArr=p.contractors[t.idx].deficiencies;}
+    }
+    targetArr.push(f.defic);
+    overlay.remove();
+    pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();
+    toast('Moved #'+f.defic.num+' → '+t.label);
+  };
 }
 
 // ═══ BULK SELECT MODE ═══
@@ -6627,7 +6675,7 @@ return html;
 }
 function renderSummaryTable(){var p=getProject();if(!p)return;var wrap=document.getElementById('defic-summary-table-wrap');var ad=getAllDeficiencies(p);if(!ad.length){wrap.innerHTML='';return;}var groups={};ad.forEach(function(d){var k=d.contractorName;if(!groups[k])groups[k]={t:0,i:0,o:0,c:0};groups[k].t++;if(d.defic.iar)groups[k].i++;if(d.defic.status==='Outstanding')groups[k].o++;else groups[k].c++;});var html='<table class="defic-summary-table"><thead><tr><th>Contractor</th><th>Total</th><th>IAR</th><th>Outstanding</th><th>Closed</th></tr></thead><tbody>';var tt=0,ti=0,to=0,tc=0;Object.keys(groups).forEach(function(k){var g=groups[k];tt+=g.t;ti+=g.i;to+=g.o;tc+=g.c;html+='<tr><td style="font-weight:600;">'+escHtml(k)+'</td><td>'+g.t+'</td><td style="color:var(--iar);font-weight:700;">'+g.i+'</td><td style="color:var(--no);font-weight:600;">'+g.o+'</td><td style="color:var(--yes);font-weight:600;">'+g.c+'</td></tr>';});html+='<tr style="font-weight:800;border-top:2px solid var(--slate);"><td>TOTAL</td><td>'+tt+'</td><td style="color:var(--iar);">'+ti+'</td><td style="color:var(--no);">'+to+'</td><td style="color:var(--yes);">'+tc+'</td></tr></tbody></table>';wrap.innerHTML=html;}
 
-function jumpToPin(did){var f=findDeficiency(did);if(!f||!f.defic.drawingId)return;openDrawingViewer(f.defic.drawingId);setTimeout(function(){var area=document.getElementById('dv-canvas-area'),img=document.getElementById('dv-image');var aw=area.clientWidth,ah=area.clientHeight,iw=img.naturalWidth,ih=img.naturalHeight;var s=Math.min(Math.min(aw/iw,ah/ih)*2,4);dvState.scale=s;dvState.panX=aw/2-f.defic.pinX*iw*s;dvState.panY=ah/2-f.defic.pinY*ih*s;applyTransform();selectPin(did);},400);}
+function jumpToPin(did){var f=findDeficiency(did);if(!f||!f.defic.drawingId)return;openDrawingViewer(f.defic.drawingId);setTimeout(function(){var area=document.getElementById('dv-canvas-area'),img=document.getElementById('dv-image');var aw=area.clientWidth,ah=area.clientHeight,iw=img.naturalWidth,ih=img.naturalHeight;var s=Math.min(Math.min(aw/iw,ah/ih)*2,4);dvState.scale=s;dvState.panX=aw/2-f.defic.pinX*iw*s;dvState.panY=ah/2-f.defic.pinY*ih*s;applyTransform();dvState.selectedPinId=did;renderPinsOnDrawing();},400);}
 
 function removeRespPhoto(did,ri,pi){if(!confirm('Remove this photo?'))return;var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]&&f.defic.responses[ri].photos){var ph=f.defic.responses[ri].photos[pi];if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){var parts=ph.r2Key.split('/');if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});}f.defic.responses[ri].photos.splice(pi,1);saveToLS();renderDeficiencyPanel();}}
 function _lbHandleOverlayClick(e){
@@ -6833,7 +6881,7 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
     '<div style="flex:1;"><label style="font-size:9px;font-weight:700;color:#4A5568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Status</label>'+
     (pGen
       ? '<select id="pin-status" style="width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;color:#1A7A4A;font-weight:600;"><option value="Addressed & Closed">Recorded</option></select>'
-      : '<select id="pin-status" style="width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;color:'+sc+';font-weight:600;" onchange="autoPinSave()">'+
+      : '<select id="pin-status" style="width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;color:'+sc+';font-weight:600;" onchange="this.style.color=this.value===\'Outstanding\'?\'#C0392B\':\'#1A7A4A\';autoPinSave()">'+
         '<option value="Outstanding"'+(d.status==='Outstanding'?' selected':'')+'>Outstanding</option>'+
         '<option value="Addressed & Closed"'+(d.status==='Addressed & Closed'?' selected':'')+'>Addressed & Closed</option>'+
         '</select>')+
@@ -9190,7 +9238,7 @@ function _initCloudSync(){
       badge.style.display='inline-block';
     }
     // Start auto-save to cloud (15s)
-    CloudSync.startAutoSave(function(){return _collectFullState();},15000);
+    CloudSync.startAutoSave(function(){return _collectFullState();},5000);
     // Initialize R2 photo uploads
     if(typeof R2Photos!=='undefined'){
       R2Photos.init({wifiOnly:true,onProgress:function(info){_updateR2Badge();}});
