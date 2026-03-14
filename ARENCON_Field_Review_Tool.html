@@ -3041,7 +3041,11 @@ function _goToDashboardReal(){
   var mea=document.getElementById('mobile-export-all');if(mea)mea.style.display='';
   var mca=document.getElementById('mobile-clear-all');if(mca)mca.style.display='';
   updateProjectDropdown();renderDashboard();}
-function enterProject(id){currentProjectId=id;var p=getProject();if(!p)return;if(!p.contractors)p.contractors=[];if(!p.generalDeficiencies)p.generalDeficiencies=[];if(!p.nextDeficNum)p.nextDeficNum=1;if(!p.settings)p.settings={sketchesEnabled:false};var _el;
+function enterProject(id){currentProjectId=id;var p=getProject();if(!p)return;if(!p.contractors)p.contractors=[];if(!p.generalDeficiencies)p.generalDeficiencies=[];if(!p.nextDeficNum)p.nextDeficNum=1;if(!p.settings)p.settings={sketchesEnabled:false};
+  // Migrate legacy base64 string photo arrays to record objects (Session 21F)
+  p.contractors.forEach(function(c){_migrateDeficPhotos(c.deficiencies);});
+  _migrateDeficPhotos(p.generalDeficiencies);
+  var _el;
   _el=document.getElementById('view-dashboard');if(_el)_el.style.display='none';
   _el=document.getElementById('view-project');if(_el){_el.style.display='block';_el.style.visibility='visible';}
   _el=document.getElementById('section-nav');if(_el)_el.style.display='flex';
@@ -4393,6 +4397,13 @@ function _loadR2OrDirect(src,img){
   }else{
     img.src=src;
   }
+}
+
+// Load all data-src images in a container (for deficiency/pin panels after render)
+function _loadDataSrcImgs(container){
+  if(!container)return;
+  var imgs=container.querySelectorAll('img[data-src]');
+  imgs.forEach(function(img){_loadThumbSrc(img);});
 }
 
 function handleDrawingFilesIntoFolder(files, folder){
@@ -6212,9 +6223,9 @@ function _replacePhotoInProject(p,oldSrc,newSrc){
   var ad=getAllDeficiencies(p);
   ad.forEach(function(r){
     var d=r.defic;
-    if(d.photos){d.photos=d.photos.map(function(ph){return ph===oldSrc?newSrc:ph;});}
-    if(d.entries){d.entries.forEach(function(en){if(en.photos){en.photos=en.photos.map(function(ph){return ph===oldSrc?newSrc:ph;});}});}
-    if(d.responses){d.responses.forEach(function(resp){if(resp.photos)resp.photos=resp.photos.map(function(ph){return ph===oldSrc?newSrc:ph;});});}
+    if(d.photos){d.photos.forEach(function(ph){if(typeof ph==='object'&&ph.dataUrl===oldSrc)ph.dataUrl=newSrc;});}
+    if(d.entries){d.entries.forEach(function(en){if(en.photos){en.photos.forEach(function(ph){if(typeof ph==='object'&&ph.dataUrl===oldSrc)ph.dataUrl=newSrc;});}});}
+    if(d.responses){d.responses.forEach(function(resp){if(resp.photos){resp.photos.forEach(function(ph){if(typeof ph==='object'&&ph.dataUrl===oldSrc)ph.dataUrl=newSrc;});}});}
   });
   if(p.photos){p.photos.forEach(function(ph){if(ph.src===oldSrc)ph.src=newSrc;});}
 }
@@ -6237,7 +6248,7 @@ function wirePhotoLightbox(container){
 // ═══ CONTRACTOR DEFICIENCY SYSTEM — Pump Tool Style ═══
 function addContractor(){var input=document.getElementById('new-contractor-input');var name=(input.value||'').trim();if(!name)return;var p=getProject();if(p.contractors.some(function(c){return c.name.toLowerCase()===name.toLowerCase();})){alert('"'+name+'" already exists.');return;}p.contractors.push({id:'ctr_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,deficiencies:[]});input.value='';saveToLS();_folderQuickSave();renderDeficiencyPanel();}
 function removeContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;if(c.deficiencies.length>0){if(!confirm('"'+c.name+'" has '+c.deficiencies.length+' deficiencies. Move to General?'))return;c.deficiencies.forEach(function(d){p.generalDeficiencies.push(d);});}else if(!confirm('Remove "'+c.name+'"?'))return;p.contractors=p.contractors.filter(function(x){return x.id!==cid;});saveToLS();_folderQuickSave();renderDeficiencyPanel();}
-function renderDeficiencyPanel(){renderContractorChips();renderDeficGroups();renderSummaryTable();setTimeout(populateRespPhotos,50);if(_reviewActive)setTimeout(_updateReviewBadge,100);}
+function renderDeficiencyPanel(){renderContractorChips();renderDeficGroups();renderSummaryTable();setTimeout(function(){populateRespPhotos();_loadDataSrcImgs(document.getElementById('panel-deficiencies'));},50);if(_reviewActive)setTimeout(_updateReviewBadge,100);}
 function renderContractorChips(){var p=getProject();if(!p)return;var el=document.getElementById('contractor-chips');if(!p.contractors.length){el.innerHTML='<span style="color:#999;font-size:13px;">No contractors added yet.</span>';return;}el.innerHTML=p.contractors.map(function(c){return'<div class="contractor-chip"><span>'+escHtml(c.name)+'</span><button onclick="renameContractor(\''+c.id+'\')" title="Rename" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;opacity:.7;color:inherit;">✏</button><button onclick="removeContractor(\''+c.id+'\')" title="Remove">✕</button></div>';}).join('');}
 function renameContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;var nn=prompt('Rename contractor:',c.name);if(!nn||!nn.trim()||nn.trim()===c.name)return;nn=nn.trim();if(p.contractors.some(function(x){return x.id!==cid&&x.name.toLowerCase()===nn.toLowerCase();})){alert('"'+nn+'" already exists.');return;}var oldName=c.name;c.name=nn;// Update _foldedCtrs key if it was set
 if(_foldedCtrs[oldName]){_foldedCtrs[nn]=_foldedCtrs[oldName];delete _foldedCtrs[oldName];}saveToLS();renderDeficiencyPanel();}
@@ -6277,7 +6288,8 @@ function buildDeficItem(d,ctrId,i){
     // Entry photos
     var enPhotos=en.photos||[];
     var enThumbsHtml='';enPhotos.forEach(function(ph,pi){
-      enThumbsHtml+='<div class="photo-thumb"><img src="'+ph+'" onclick="openPhotoLightboxDirect(this.src)" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+ei+','+pi+')">✕</button></div>';
+      var psrc=_deficPhotoSrc(ph);
+      enThumbsHtml+='<div class="photo-thumb"><img data-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.src)" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+ei+','+pi+')">✕</button></div>';
     });
 
     obsHtml+='<div class="pin-entry-row" style="border-left:3px solid '+prCol+';">';
@@ -6324,13 +6336,23 @@ function removeDeficEntry(did,ei){
 function removeEntryPhoto(did,ei,pi){
   if(!confirm('Remove this photo?'))return;
   var f=findDeficiency(did);if(!f||!f.defic.entries||!f.defic.entries[ei])return;
+  var ph=f.defic.entries[ei].photos[pi];
+  if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+    var parts=ph.r2Key.split('/');
+    if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});
+  }
   f.defic.entries[ei].photos.splice(pi,1);
   // Sync to d.photos
   _syncDeficPhotos(f.defic);
   saveToLS();renderDeficiencyPanel();
 }
 function _syncDeficPhotos(d){
-  var all=[];(d.entries||[]).forEach(function(en){(en.photos||[]).forEach(function(ph){if(all.indexOf(ph)<0)all.push(ph);});});
+  var all=[];var seen={};
+  (d.entries||[]).forEach(function(en){(en.photos||[]).forEach(function(ph){
+    var pid=_deficPhotoId(ph);
+    if(pid&&!seen[pid]){seen[pid]=true;all.push(ph);}
+    else if(!pid){all.push(ph);}
+  });});
   d.photos=all;
 }
 function handleEntryPhotoDrop(e,did,ei){
@@ -6350,11 +6372,13 @@ function processEntryPhotos(did,ei,files){
   if(!f.defic.entries)f.defic.entries=[{description:f.defic.description||'',photos:f.defic.photos||[],priority:'high'}];
   Array.from(files).forEach(function(file){
     compressImage(file,3200,0.80,function(du){
+      var rec=_makeDeficPhotoRec(du);
       if(!f.defic.entries[ei].photos)f.defic.entries[ei].photos=[];
-      f.defic.entries[ei].photos.push(du);
+      f.defic.entries[ei].photos.push(rec);
       // Sync to d.photos
       if(!f.defic.photos)f.defic.photos=[];
-      if(f.defic.photos.indexOf(du)<0)f.defic.photos.push(du);
+      f.defic.photos.push(rec);
+      _r2EnqueueDeficPhoto(rec,f.defic.id);
       saveToLS();_folderQuickSave();renderDeficiencyPanel();
     });
   });
@@ -6449,9 +6473,10 @@ function populateRespPhotos(){
       if(!el)return;
       var html="";
       if(r.photos&&r.photos.length){
-        r.photos.forEach(function(src,pi){
+        r.photos.forEach(function(phRec,pi){
+          var psrc=_deficPhotoSrc(phRec);
           html+="<div style=\"position:relative;width:60px;height:60px;flex-shrink:0;\">";
-          html+="<img src=\""+src+"\" style=\"width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer;\" onclick=\"openPhotoLightboxDirect(this.src)\">";
+          html+="<img data-src=\""+escHtml(psrc)+"\" style=\"width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer;\" onclick=\"openPhotoLightboxDirect(this.src)\">";
           html+="<button onclick=\"removeRespPhoto(&quot;"+d.defic.id+"&quot;,"+ri+","+pi+")\" style=\"position:absolute;top:-4px;right:-4px;background:var(--red);color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;line-height:16px;text-align:center;\">✕</button>";
           html+="</div>";
         });
@@ -6484,12 +6509,104 @@ function consultantCloseItem(did,ri){
 function triggerDeficPhotoUpload(did){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){processDeficPhotos(did,inp.files);};inp.click();}
 function triggerDeficPhotoCamera(did){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){processDeficPhotos(did,inp.files);};inp.click();}
 function handleDeficPhotoDrop(e,did){processDeficPhotos(did,e.dataTransfer.files);}
-function processDeficPhotos(did,files){var f=findDeficiency(did);if(!f)return;Array.from(files).forEach(function(file){compressImage(file,3200,0.80,function(du){if(!f.defic.photos)f.defic.photos=[];f.defic.photos.push(du);if(f.defic.entries&&f.defic.entries[0]){if(!f.defic.entries[0].photos)f.defic.entries[0].photos=[];if(f.defic.entries[0].photos.indexOf(du)<0)f.defic.entries[0].photos.push(du);}saveToLS();renderDeficiencyPanel();});});}
-function removeDeficItemPhoto(did,idx){if(!confirm('Remove this photo?'))return;var f=findDeficiency(did);if(f&&f.defic.photos){f.defic.photos.splice(idx,1);saveToLS();renderDeficiencyPanel();}}
+
+// ── DEFICIENCY PHOTO RECORD HELPERS (Session 21F) ──
+// Photos are now objects: {id, dataUrl, r2Key, r2Status, r2Url}
+// _deficPhotoSrc() extracts displayable URL from record or legacy string.
+function _deficPhotoSrc(ph){
+  if(!ph)return '';
+  if(typeof ph==='string')return ph;// Legacy base64 string
+  return ph.r2Url||ph.dataUrl||'';
+}
+function _deficPhotoId(ph){
+  if(!ph)return '';
+  if(typeof ph==='string')return ph;// Legacy: src IS the id
+  return ph.id||'';
+}
+function _makeDeficPhotoRec(dataUrl){
+  return{id:'dp_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),dataUrl:dataUrl,r2Key:'',r2Status:'',r2Url:''};
+}
+// Migrate legacy string arrays to record objects
+function _migrateDeficPhotos(defics){
+  if(!defics)return;
+  defics.forEach(function(d){
+    if(d.photos)d.photos=d.photos.map(function(ph){return typeof ph==='string'?{id:'dp_'+Math.random().toString(36).substr(2,8),dataUrl:ph,r2Key:'',r2Status:'',r2Url:''}:ph;});
+    if(d.entries){d.entries.forEach(function(e){
+      if(e.photos)e.photos=e.photos.map(function(ph){return typeof ph==='string'?{id:'dp_'+Math.random().toString(36).substr(2,8),dataUrl:ph,r2Key:'',r2Status:'',r2Url:''}:ph;});
+    });}
+    if(d.responses){d.responses.forEach(function(r){
+      if(r.photos)r.photos=r.photos.map(function(ph){return typeof ph==='string'?{id:'dp_'+Math.random().toString(36).substr(2,8),dataUrl:ph,r2Key:'',r2Status:'',r2Url:''}:ph;});
+    });}
+  });
+}
+// Queue R2 upload for a deficiency photo record
+function _r2EnqueueDeficPhoto(rec,deficId){
+  var hubId=_csHubMode?_csProjectId:null;
+  if(!hubId||typeof R2Photos==='undefined')return;
+  var blob=R2Photos.dataUrlToBlob(rec.dataUrl);
+  if(!blob)return;
+  var fname=R2Photos.generateFilename('defic');
+  rec.r2Key='photos/'+hubId+'/frt/original/'+fname;
+  rec.r2Status='pending';
+  R2Photos.enqueue({
+    projectId:hubId,tool:'frt',type:'original',filename:fname,blob:blob,
+    onComplete:function(err){
+      if(!err){
+        rec.r2Status='uploaded';
+        rec.r2Url=R2Photos.getUrl(hubId,'frt','original',fname);
+        saveToLS();_updateR2Badge();
+      }else{rec.r2Status='error';}
+    }
+  });
+}
+
+function processDeficPhotos(did,files){
+  var f=findDeficiency(did);if(!f)return;
+  Array.from(files).forEach(function(file){
+    compressImage(file,3200,0.80,function(du){
+      var rec=_makeDeficPhotoRec(du);
+      if(!f.defic.photos)f.defic.photos=[];
+      f.defic.photos.push(rec);
+      if(f.defic.entries&&f.defic.entries[0]){
+        if(!f.defic.entries[0].photos)f.defic.entries[0].photos=[];
+        // Check by id to avoid duplicates
+        var exists=f.defic.entries[0].photos.some(function(p){return p.id===rec.id;});
+        if(!exists)f.defic.entries[0].photos.push(rec);
+      }
+      _r2EnqueueDeficPhoto(rec,f.defic.id);
+      saveToLS();renderDeficiencyPanel();
+    });
+  });
+}
+function removeDeficItemPhoto(did,idx){
+  if(!confirm('Remove this photo?'))return;
+  var f=findDeficiency(did);
+  if(f&&f.defic.photos&&f.defic.photos[idx]){
+    var ph=f.defic.photos[idx];
+    // R2 cleanup
+    if(ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+      var parts=ph.r2Key.split('/');
+      if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});
+    }
+    f.defic.photos.splice(idx,1);
+    saveToLS();renderDeficiencyPanel();
+  }
+}
 function triggerRespPhotoUpload(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){processRespPhotos(did,ri,inp.files);};inp.click();}
 function triggerRespPhotoCamera(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){processRespPhotos(did,ri,inp.files);};inp.click();}
 function handleRespPhotoDrop(e,did,ri){processRespPhotos(did,ri,e.dataTransfer.files);}
-function processRespPhotos(did,ri,files){var f=findDeficiency(did);if(!f||!f.defic.responses||!f.defic.responses[ri])return;Array.from(files).forEach(function(file){compressImage(file,3200,0.80,function(du){if(!f.defic.responses[ri].photos)f.defic.responses[ri].photos=[];f.defic.responses[ri].photos.push(du);saveToLS();renderDeficiencyPanel();});});}
+function processRespPhotos(did,ri,files){
+  var f=findDeficiency(did);if(!f||!f.defic.responses||!f.defic.responses[ri])return;
+  Array.from(files).forEach(function(file){
+    compressImage(file,3200,0.80,function(du){
+      var rec=_makeDeficPhotoRec(du);
+      if(!f.defic.responses[ri].photos)f.defic.responses[ri].photos=[];
+      f.defic.responses[ri].photos.push(rec);
+      _r2EnqueueDeficPhoto(rec,f.defic.id);
+      saveToLS();renderDeficiencyPanel();
+    });
+  });
+}
 
 /* injectEntrySummaries removed — dead code */
 function buildEntrySummary(d){
@@ -6512,7 +6629,7 @@ function renderSummaryTable(){var p=getProject();if(!p)return;var wrap=document.
 
 function jumpToPin(did){var f=findDeficiency(did);if(!f||!f.defic.drawingId)return;openDrawingViewer(f.defic.drawingId);setTimeout(function(){var area=document.getElementById('dv-canvas-area'),img=document.getElementById('dv-image');var aw=area.clientWidth,ah=area.clientHeight,iw=img.naturalWidth,ih=img.naturalHeight;var s=Math.min(Math.min(aw/iw,ah/ih)*2,4);dvState.scale=s;dvState.panX=aw/2-f.defic.pinX*iw*s;dvState.panY=ah/2-f.defic.pinY*ih*s;applyTransform();selectPin(did);},400);}
 
-function removeRespPhoto(did,ri,pi){if(!confirm('Remove this photo?'))return;var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]&&f.defic.responses[ri].photos){f.defic.responses[ri].photos.splice(pi,1);saveToLS();renderDeficiencyPanel();}}
+function removeRespPhoto(did,ri,pi){if(!confirm('Remove this photo?'))return;var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]&&f.defic.responses[ri].photos){var ph=f.defic.responses[ri].photos[pi];if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){var parts=ph.r2Key.split('/');if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});}f.defic.responses[ri].photos.splice(pi,1);saveToLS();renderDeficiencyPanel();}}
 function _lbHandleOverlayClick(e){
   // Never close if user is in draw mode (clicks during drawing bubble up as click events)
   if(_lbDrawing)return;
@@ -6651,11 +6768,11 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
   var entry=d.entries[ae]||{description:'',photos:[]};
   var ph='';
   if(entry.photos&&entry.photos.length){
-    var phSrcs=JSON.stringify(entry.photos);
     ph='<div class="evidence-photos" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
-    entry.photos.forEach(function(src,pi){
+    entry.photos.forEach(function(phRec,pi){
+      var psrc=_deficPhotoSrc(phRec);
       ph+='<div style="position:relative;width:68px;height:68px;border-radius:6px;overflow:hidden;border:1px solid var(--border);">';
-      ph+='<img src="'+src+'" onclick="openPhotoLightboxDirect(this.src);event.stopPropagation();" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;">';
+      ph+='<img data-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.src);event.stopPropagation();" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;">';
       ph+='<button onclick="removePinEntryPhoto('+ae+','+pi+')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:white;border:none;border-radius:50%;width:17px;height:17px;font-size:9px;cursor:pointer;line-height:17px;text-align:center;">x</button>';
       ph+='</div>';
     });
@@ -6738,6 +6855,8 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
   if(!pi2){pi2=document.createElement('div');pi2.id='pin-photo-inputs';pi2.style.display='none';document.body.appendChild(pi2);}
   pi2.innerHTML='<input type="file" id="pin-ei-upload" accept="image/*" multiple onchange="handlePinEntryUpload(event,_pinEntryTarget)">'+
     '<input type="file" id="pin-ei-camera" accept="image/*" capture="environment" onchange="handlePinEntryUpload(event,_pinEntryTarget)">';
+  // Load data-src images (deficiency photo records)
+  setTimeout(function(){_loadDataSrcImgs(body);},20);
 }
 
 function switchPinTab(idx){
@@ -6762,11 +6881,14 @@ function handlePinEntryFiles(files,idx){
   Array.from(files).forEach(function(file){
     compressImage(file,3200,0.80,function(du){
       if(!f.defic.entries[idx])return;
+      var rec=_makeDeficPhotoRec(du);
       if(!f.defic.entries[idx].photos)f.defic.entries[idx].photos=[];
-      f.defic.entries[idx].photos.push(du);
+      f.defic.entries[idx].photos.push(rec);
       // Sync to d.photos for deficiency panel
       if(!f.defic.photos)f.defic.photos=[];
-      if(f.defic.photos.indexOf(du)<0)f.defic.photos.push(du);
+      var exists=f.defic.photos.some(function(p){return p.id===rec.id;});
+      if(!exists)f.defic.photos.push(rec);
+      _r2EnqueueDeficPhoto(rec,f.defic.id);
       saveToLS();openPinEditor(editingPinId);
     });
   });
@@ -6777,6 +6899,11 @@ function removePinEntryPhoto(entryIdx,photoIdx){
   var f=findDeficiency(editingPinId);if(!f)return;
   _ensureEntries(f.defic);
   var entry=f.defic.entries[entryIdx];if(!entry||!entry.photos)return;
+  var ph=entry.photos[photoIdx];
+  if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+    var parts=ph.r2Key.split('/');
+    if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});
+  }
   entry.photos.splice(photoIdx,1);
   saveToLS();openPinEditor(editingPinId);
 }
@@ -7235,6 +7362,8 @@ function renderPinsKanban(){
       _pkbChangePriority(did,newPr);
     };
   });
+  // Load data-src images in kanban cards
+  setTimeout(function(){var kb=document.getElementById('panel-pins');if(kb)_loadDataSrcImgs(kb);},30);
 }
 
 function _pkbCard(d,p){
@@ -7260,8 +7389,8 @@ function _pkbCard(d,p){
   var photos=defic.photos||[];
   if(defic.entries){defic.entries.forEach(function(en){if(en.photos&&en.photos.length){photos=photos.concat(en.photos);}});}
   var firstPhoto=null;
-  for(var i=0;i<photos.length;i++){var ph=photos[i];if(typeof ph==='string'&&ph.length>20){firstPhoto=ph;break;}if(ph&&ph.d&&ph.d.length>20){firstPhoto=ph.d;break;}}
-  if(firstPhoto){thumb='<img class="pkc-thumb" src="'+firstPhoto+'" alt="evidence">';}
+  for(var i=0;i<photos.length;i++){var ph=photos[i];var psrc=_deficPhotoSrc(ph);if(psrc&&psrc.length>20){firstPhoto=psrc;break;}}
+  if(firstPhoto){thumb='<img class="pkc-thumb" data-src="'+escHtml(firstPhoto)+'" alt="evidence">';}
   // Status badge
   var badgeCls='outstanding';var badgeTxt='Outstanding';
   if(defic.iar){badgeCls='iar';badgeTxt='⚡ IAR';}
@@ -7429,7 +7558,14 @@ function deleteSelectedPhotos(){
     } else if(id.startsWith('def_')){
       var parts=id.split('_');var did=parts[1];var pidx=parseInt(parts[2]);
       var f=findDeficiency(did,p);
-      if(f&&f.defic.photos)f.defic.photos[pidx]=null;
+      if(f&&f.defic.photos&&f.defic.photos[pidx]){
+        var ph=f.defic.photos[pidx];
+        if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+          var rp=ph.r2Key.split('/');
+          if(rp.length>=5)R2Photos.remove(rp[1],rp[2],rp[3],rp[4]).catch(function(e){});
+        }
+        f.defic.photos[pidx]=null;
+      }
     }
   });
   if(p.sitePhotos)p.sitePhotos=p.sitePhotos.filter(function(x){return x!==null;});
@@ -7477,24 +7613,26 @@ function _buildUnifiedPhotoList(p){
   });}
 
   var ad=getAllDeficiencies(p);
-  // First pass: map every photo src to all pins/observations that reference it
+  // First pass: map every photo id to all pins/observations that reference it
   ad.forEach(function(r){
     var d=r.defic;
     var numEn=(d.entries&&d.entries.length)||0;
     if(d.entries){d.entries.forEach(function(en,ei){
       if(en.photos){en.photos.forEach(function(ph){
-        if(!srcToPins[ph])srcToPins[ph]=[];
+        var pid=_deficPhotoId(ph)||_deficPhotoSrc(ph);
+        if(!srcToPins[pid])srcToPins[pid]=[];
         var obsLabel=numEn>1?', Obs '+String.fromCharCode(65+ei):'';
-        srcToPins[ph].push('Pin '+d.num+obsLabel);
+        srcToPins[pid].push('Pin '+d.num+obsLabel);
       });}
     });}
-    // Legacy d.photos not in entries
+    // d.photos not in entries
     if(d.photos){d.photos.forEach(function(ph){
+      var pid=_deficPhotoId(ph)||_deficPhotoSrc(ph);
       var inEntry=false;
-      if(d.entries){d.entries.forEach(function(en){if(en.photos&&en.photos.indexOf(ph)>=0)inEntry=true;});}
+      if(d.entries){d.entries.forEach(function(en){if(en.photos){en.photos.forEach(function(ep){if((_deficPhotoId(ep)||_deficPhotoSrc(ep))===pid)inEntry=true;});}});}
       if(!inEntry){
-        if(!srcToPins[ph])srcToPins[ph]=[];
-        srcToPins[ph].push('Pin '+d.num);
+        if(!srcToPins[pid])srcToPins[pid]=[];
+        srcToPins[pid].push('Pin '+d.num);
       }
     });}
   });
@@ -7506,25 +7644,28 @@ function _buildUnifiedPhotoList(p){
     var numEn=(d.entries&&d.entries.length)||0;
     if(d.entries){d.entries.forEach(function(en,ei){
       if(en.photos){en.photos.forEach(function(ph,pi){
-        if(seen[ph])return;seen[ph]=true;
-        var refs=srcToPins[ph]||[];
+        var pid=_deficPhotoId(ph)||_deficPhotoSrc(ph);
+        if(seen[pid])return;seen[pid]=true;
+        var refs=srcToPins[pid]||[];
         var uniqueRefs=[];refs.forEach(function(r2){if(uniqueRefs.indexOf(r2)<0)uniqueRefs.push(r2);});
         var caption=uniqueRefs.join(' | ');
-        allPhotos.push({src:ph,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,idx:pi,id:'def_'+d.id+'_e'+ei+'_'+pi,caption:caption});
+        allPhotos.push({src:_deficPhotoSrc(ph),date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,idx:pi,id:'def_'+d.id+'_e'+ei+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
       });}
     });}
     if(d.photos){d.photos.forEach(function(ph,pi){
-      if(seen[ph])return;seen[ph]=true;
-      var refs=srcToPins[ph]||[];
+      var pid=_deficPhotoId(ph)||_deficPhotoSrc(ph);
+      if(seen[pid])return;seen[pid]=true;
+      var refs=srcToPins[pid]||[];
       var uniqueRefs=[];refs.forEach(function(r2){if(uniqueRefs.indexOf(r2)<0)uniqueRefs.push(r2);});
       var caption=uniqueRefs.join(' | ');
-      allPhotos.push({src:ph,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,idx:pi,id:'def_'+d.id+'_'+pi,caption:caption});
+      allPhotos.push({src:_deficPhotoSrc(ph),date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,idx:pi,id:'def_'+d.id+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
     });}
     if(d.responses){d.responses.forEach(function(resp,ri){
       if(resp.photos){resp.photos.forEach(function(ph,pi){
-        if(seen[ph])return;seen[ph]=true;
+        var pid=_deficPhotoId(ph)||_deficPhotoSrc(ph);
+        if(seen[pid])return;seen[pid]=true;
         var rtype=resp.party==='contractor'?'Ctr Resp':'Con Resp';
-        allPhotos.push({src:ph,date:resp.date||d.date||null,type:'response',deficId:d.id,deficNum:d.num,respIdx:ri,idx:pi,id:'resp_'+d.id+'_'+ri+'_'+pi,caption:'Pin '+d.num+' '+rtype});
+        allPhotos.push({src:_deficPhotoSrc(ph),date:resp.date||d.date||null,type:'response',deficId:d.id,deficNum:d.num,respIdx:ri,idx:pi,id:'resp_'+d.id+'_'+ri+'_'+pi,caption:'Pin '+d.num+' '+rtype,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
       });}
     });}
   });
@@ -7984,7 +8125,7 @@ if(d.entries&&d.entries.length){
     h+='<div style="font-size:11px;margin-bottom:4px;"><strong>Description:</strong> '+escHtml(en.description||'—')+'</div>';
     if(en.photos&&en.photos.length){
       h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">';
-      en.photos.forEach(function(ph){h+='<img class="dp" src="'+ph+'">';});
+      en.photos.forEach(function(ph){h+='<img class="dp" src="'+_deficPhotoSrc(ph)+'">';});
       h+='</div>';
     }
     h+='</div>';
@@ -7995,7 +8136,7 @@ if(d.entries&&d.entries.length){
   var firstPhotos=d.photos||[];
   if(firstPhotos.length){
     h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">';
-    firstPhotos.forEach(function(ph){h+='<img class="dp" src="'+ph+'">';});
+    firstPhotos.forEach(function(ph){h+='<img class="dp" src="'+_deficPhotoSrc(ph)+'">';});
     h+='</div>';
   }
 }
@@ -8012,7 +8153,7 @@ if(d.entries&&d.entries.length){
           h+='<strong style="color:'+(isCtr?'#E67E22':'#1565C0')+'">'+(isCtr?'Contractor':'Consultant')+' Response:</strong> '+(resp.comment?escHtml(resp.comment):'—');
           if(resp.photos&&resp.photos.length){
             h+='<div class="resp-photos">';
-            resp.photos.forEach(function(ph){h+='<img src="'+ph+'">';});
+            resp.photos.forEach(function(ph){h+='<img src="'+_deficPhotoSrc(ph)+'">';});
             h+='</div>';
           }
           h+='</div>';
@@ -8709,20 +8850,22 @@ function confirmPhotoPick(){
   var count=0;
   _pickerSelected.forEach(function(id){
     var src=map[id];if(!src)return;
+    // Create a photo record from the picked src (may be base64 or R2 URL)
+    var rec=_makeDeficPhotoRec(src);
     if(_pickerTarget.type==='entry'){
       var ei=_pickerTarget.idx;
       if(!f.defic.entries)f.defic.entries=[{description:'',photos:[],priority:'high'}];
       if(!f.defic.entries[ei])return;
       if(!f.defic.entries[ei].photos)f.defic.entries[ei].photos=[];
-      if(f.defic.entries[ei].photos.indexOf(src)<0){f.defic.entries[ei].photos.push(src);count++;}
+      f.defic.entries[ei].photos.push(rec);count++;
       // Sync to d.photos
       if(!f.defic.photos)f.defic.photos=[];
-      if(f.defic.photos.indexOf(src)<0)f.defic.photos.push(src);
+      f.defic.photos.push(rec);
     } else if(_pickerTarget.type==='resp'){
       var ri=_pickerTarget.idx;
       if(!f.defic.responses||!f.defic.responses[ri])return;
       if(!f.defic.responses[ri].photos)f.defic.responses[ri].photos=[];
-      if(f.defic.responses[ri].photos.indexOf(src)<0){f.defic.responses[ri].photos.push(src);count++;}
+      f.defic.responses[ri].photos.push(rec);count++;
     }
   });
   if(count){saveToLS();_folderQuickSave();renderDeficiencyPanel();toast('📸 Attached '+count+' photo'+(count!==1?'s':''));}
@@ -8778,19 +8921,189 @@ function _incrementRevision(rev){
   var num=parseInt(m[2])+1;
   return m[1]+(num<10?'0':'')+num;
 }
+
+// ── CLOUD MERGE HELPERS (Session 21F) ──
+// These functions merge cloud metadata into local state while preserving local base64 data.
+
+// Merge drawings: cloud has metadata only (no dataUrl/markupData/thumb).
+// Keep local images, update metadata from cloud for matching IDs, add new cloud-only drawings.
+function _mergeDrawings(proj,cloudDrawings){
+  if(!cloudDrawings)return;
+  var localMap={};
+  (proj.drawings||[]).forEach(function(d){localMap[d.id]=d;});
+  var merged=[];
+  cloudDrawings.forEach(function(cd){
+    var ld=localMap[cd.id];
+    if(ld){
+      // Existing drawing: update metadata from cloud, keep local images
+      ld.name=cd.name||ld.name;
+      ld.width=cd.width||ld.width;
+      ld.height=cd.height||ld.height;
+      ld.folder=cd.folder||ld.folder;
+      ld.isOriginal=cd.hasOwnProperty('isOriginal')?cd.isOriginal:ld.isOriginal;
+      merged.push(ld);
+      delete localMap[cd.id];
+    }else{
+      // Cloud-only drawing (no local base64) — add as metadata stub
+      merged.push(cd);
+    }
+  });
+  // Keep any local-only drawings not in cloud (shouldn't happen normally)
+  Object.keys(localMap).forEach(function(k){merged.push(localMap[k]);});
+  proj.drawings=merged;
+}
+
+// Merge site photos: cloud has r2 metadata but no dataUrl.
+function _mergeSitePhotos(proj,cloudPhotos){
+  if(!cloudPhotos)return;
+  var localMap={};
+  (proj.sitePhotos||[]).forEach(function(ph){if(ph&&ph.id)localMap[ph.id]=ph;});
+  cloudPhotos.forEach(function(cph){
+    if(!cph||!cph.id)return;
+    var lph=localMap[cph.id];
+    if(lph){
+      // Merge R2 metadata from cloud into local record
+      if(cph.r2Key)lph.r2Key=cph.r2Key;
+      if(cph.r2Url)lph.r2Url=cph.r2Url;
+      if(cph.r2Status)lph.r2Status=cph.r2Status;
+      if(cph.caption)lph.caption=cph.caption;
+    }else{
+      // Cloud-only photo (e.g., uploaded from another device) — add stub
+      if(!proj.sitePhotos)proj.sitePhotos=[];
+      proj.sitePhotos.push(cph);
+    }
+  });
+}
+
+// Merge deficiency arrays: apply cloud text/status metadata, preserve local photos.
+// contractors is [{deficiencies:[...]}, ...] or [{deficiencies:[...]}] wrapper for generalDeficiencies.
+function _mergeDeficArrays(localContractors,cloudContractors){
+  if(!cloudContractors||!localContractors)return;
+  cloudContractors.forEach(function(cc,ci){
+    if(ci>=localContractors.length)return;
+    var lc=localContractors[ci];
+    var cloudDefics=cc.deficiencies||[];
+    var localDefics=lc.deficiencies||[];
+    // Build lookup by deficiency ID
+    var localById={};
+    localDefics.forEach(function(d){if(d.id)localById[d.id]=d;});
+    cloudDefics.forEach(function(cd){
+      var ld=localById[cd.id];
+      if(ld){
+        // Merge text fields from cloud, keep local photos
+        ld.num=cd.num;
+        ld.status=cd.status||ld.status;
+        ld.iar=cd.iar!=null?cd.iar:ld.iar;
+        ld.date=cd.date||ld.date;
+        ld.priority=cd.priority||ld.priority;
+        ld.drawingId=cd.drawingId!=null?cd.drawingId:ld.drawingId;
+        ld.pinX=cd.pinX!=null?cd.pinX:ld.pinX;
+        ld.pinY=cd.pinY!=null?cd.pinY:ld.pinY;
+        ld.description=cd.description!=null?cd.description:ld.description;
+        // Merge entries: keep local photos, update text
+        if(cd.entries&&ld.entries){
+          cd.entries.forEach(function(ce,ei){
+            if(ei<ld.entries.length){
+              ld.entries[ei].description=ce.description!=null?ce.description:ld.entries[ei].description;
+              ld.entries[ei].priority=ce.priority||ld.entries[ei].priority;
+              // photos: keep local (cloud has empty arrays)
+            }
+          });
+          // If cloud has more entries than local, add them
+          if(cd.entries.length>ld.entries.length){
+            for(var ei=ld.entries.length;ei<cd.entries.length;ei++){
+              ld.entries.push(cd.entries[ei]);
+            }
+          }
+        }
+        // Merge responses: keep local photos, update text
+        if(cd.responses&&ld.responses){
+          cd.responses.forEach(function(cr,ri){
+            if(ri<ld.responses.length){
+              ld.responses[ri].text=cr.text!=null?cr.text:ld.responses[ri].text;
+              ld.responses[ri].date=cr.date||ld.responses[ri].date;
+              ld.responses[ri].by=cr.by||ld.responses[ri].by;
+              // photos: keep local
+            }
+          });
+          if(cd.responses.length>ld.responses.length){
+            for(var ri=ld.responses.length;ri<cd.responses.length;ri++){
+              ld.responses.push(cd.responses[ri]);
+            }
+          }
+        }
+      }
+    });
+    // Sync contractor-level fields
+    if(cc.name)lc.name=cc.name;
+    if(cc.trade)lc.trade=cc.trade;
+  });
+}
+
 function _collectFullState(){
   var p=getProject();if(!p)return{};
   // Deep copy project state for CloudSync
   var state=JSON.parse(JSON.stringify(p));
-  // ONLY strip base64 from site photos that have been successfully uploaded to R2
-  // Everything else must stay in cloud state until R2 integration covers it
-  if(state.sitePhotos){
-    state.sitePhotos.forEach(function(ph){
-      if(ph&&ph.r2Status==='uploaded'&&ph.r2Url){
-        delete ph.dataUrl;// Safe to remove — R2 has the image
-      }
+
+  // ── CLOUD PAYLOAD SLIMMING (Session 21F) ──
+  // Strip ALL base64 image data from cloud state to prevent Supabase timeout.
+  // IDB retains full data locally. R2 will eventually hold all images.
+
+  // 1) Drawings: strip dataUrl, markupData, thumb (keep metadata: id, name, width, height, folder, pins)
+  if(state.drawings){
+    state.drawings.forEach(function(d){
+      delete d.dataUrl;
+      delete d.markupData;
+      delete d.thumb;
     });
   }
+
+  // 2) Deficiency photos: strip base64 from d.photos, d.entries[].photos, d.responses[].photos
+  function _stripDeficPhotos(defics){
+    if(!defics)return;
+    function _stripArr(arr){
+      if(!arr)return;
+      arr.forEach(function(ph){
+        if(typeof ph==='object'&&ph){delete ph.dataUrl;}// Keep id, r2Key, r2Status, r2Url
+      });
+    }
+    defics.forEach(function(d){
+      _stripArr(d.photos);
+      if(d.entries){d.entries.forEach(function(e){_stripArr(e.photos);});}
+      if(d.responses){d.responses.forEach(function(r){_stripArr(r.photos);});}
+    });
+  }
+  (state.contractors||[]).forEach(function(c){_stripDeficPhotos(c.deficiencies);});
+  _stripDeficPhotos(state.generalDeficiencies);
+
+  // 3) Site photos: strip dataUrl (keep r2Key/r2Url/r2Status metadata if present)
+  if(state.sitePhotos){
+    state.sitePhotos.forEach(function(ph){
+      if(ph)delete ph.dataUrl;
+    });
+  }
+  // Legacy photos array (same treatment)
+  if(state.photos){
+    state.photos.forEach(function(ph){
+      if(ph&&ph.dataUrl)delete ph.dataUrl;
+      if(ph&&ph.src&&typeof ph.src==='string'&&ph.src.indexOf('data:')===0)delete ph.src;
+    });
+  }
+
+  // 4) Signatures: strip canvas data URIs (keep name/date text fields)
+  if(state.signatures){
+    delete state.signatures.sigInspectorData;
+    delete state.signatures.sigWitnessData;
+  }
+
+  // 5) Sketches: strip base64 data
+  if(state.sketches&&state.sketches.length>0){
+    state.sketches.forEach(function(s){
+      if(s&&s.dataUrl)delete s.dataUrl;
+      if(s&&s.data)delete s.data;
+    });
+  }
+
   return state;
 }
 
@@ -8815,29 +9128,58 @@ function _initCloudSync(){
     if(result&&result.state){
       var p=getProject();
       if(!p)return;
-      if(result.state.info){
-        var cloudInfo=result.state.info;
-        var hubFields=['projectNumber','projectName','client','address'];
-        Object.keys(cloudInfo).forEach(function(k){
-          if(hubFields.indexOf(k)===-1&&cloudInfo[k])p.info[k]=cloudInfo[k];
-        });
+      // Compare timestamps — only apply cloud state if cloud is newer than local
+      var cloudMod=result.state.modified||result.row&&result.row.updated_at||'';
+      var localMod=p.modified||'';
+      if(localMod&&cloudMod&&localMod>cloudMod){
+        // Local is newer — push local to cloud instead
+        toast('Local data is newer — syncing to cloud','',2000);
+        try{CloudSync.save(_collectFullState());}catch(e){}
+      }else{
+        // Cloud is newer or same — merge cloud state
+        // IMPORTANT: Cloud state has NO base64 data (stripped in _collectFullState).
+        // We must merge cloud metadata while preserving local base64 (drawings, photos, signatures).
+        if(result.state.info){
+          var cloudInfo=result.state.info;
+          var hubFields=['projectNumber','projectName','client','address'];
+          Object.keys(cloudInfo).forEach(function(k){
+            if(hubFields.indexOf(k)===-1&&cloudInfo[k])p.info[k]=cloudInfo[k];
+          });
+        }
+        // Merge contractors + deficiencies: apply cloud metadata, keep local photos
+        if(result.state.contractors){
+          _mergeDeficArrays(p.contractors,result.state.contractors);
+        }
+        if(result.state.generalDeficiencies){
+          _mergeDeficArrays([{deficiencies:p.generalDeficiencies}],[{deficiencies:result.state.generalDeficiencies}]);
+        }
+        if(result.state.nextDeficNum)p.nextDeficNum=result.state.nextDeficNum;
+        // Merge drawings: apply cloud metadata, keep local dataUrl/markupData/thumb
+        if(result.state.drawings) _mergeDrawings(p,result.state.drawings);
+        // Site photos: keep local dataUrl, merge cloud r2 metadata
+        if(result.state.sitePhotos) _mergeSitePhotos(p,result.state.sitePhotos);
+        // Legacy photos: keep local
+        if(result.state.photos&&(!p.photos||p.photos.length===0))p.photos=result.state.photos;
+        // Sketches: keep local base64
+        // (cloud has no data — don't overwrite local)
+        // Signatures: merge text fields, keep local canvas data
+        if(result.state.signatures){
+          var cs=result.state.signatures;
+          if(cs.sigInspectorName)p.signatures.sigInspectorName=cs.sigInspectorName;
+          if(cs.sigInspectorDate)p.signatures.sigInspectorDate=cs.sigInspectorDate;
+          if(cs.sigWitnessName)p.signatures.sigWitnessName=cs.sigWitnessName;
+          if(cs.sigWitnessDate)p.signatures.sigWitnessDate=cs.sigWitnessDate;
+          // DO NOT overwrite sigInspectorData/sigWitnessData — cloud doesn't have them
+        }
+        if(result.state.status)p.status=result.state.status;
+        if(result.state.settings)p.settings=result.state.settings;
+        // Re-render with cloud data
+        populateProjectFields();
+        renderDeficGroups();
+        renderSummaryTable();
+        renderDrawingGallery();
+        toast('Project loaded from '+result.source,'',2000);
       }
-      if(result.state.contractors)p.contractors=result.state.contractors;
-      if(result.state.generalDeficiencies)p.generalDeficiencies=result.state.generalDeficiencies;
-      if(result.state.nextDeficNum)p.nextDeficNum=result.state.nextDeficNum;
-      if(result.state.drawings)p.drawings=result.state.drawings;
-      if(result.state.photos)p.photos=result.state.photos;
-      if(result.state.sitePhotos)p.sitePhotos=result.state.sitePhotos;
-      if(result.state.sketches)p.sketches=result.state.sketches;
-      if(result.state.signatures)p.signatures=result.state.signatures;
-      if(result.state.status)p.status=result.state.status;
-      if(result.state.settings)p.settings=result.state.settings;
-      // Re-render with cloud data
-      populateProjectFields();
-      renderDeficGroups();
-      renderSummaryTable();
-      renderDrawingGallery();
-      toast('Project loaded from '+result.source,'',2000);
     }
     // Show status badge
     var badge=document.getElementById('issue-status-badge');
