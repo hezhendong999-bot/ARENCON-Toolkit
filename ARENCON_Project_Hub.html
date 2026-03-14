@@ -1616,26 +1616,30 @@ async function toggleTool(key) {
   var proj = _projects.find(p => p.id === _detailProjectId);
   if (!proj) return;
 
-  var tools = proj.enabled_tools || [];
-  var idx = tools.indexOf(key);
+  // Ensure enabled_tools is always a real array on the project object
+  if (!Array.isArray(proj.enabled_tools)) proj.enabled_tools = [];
+  var idx = proj.enabled_tools.indexOf(key);
   if (idx >= 0) {
-    tools.splice(idx, 1);
+    proj.enabled_tools.splice(idx, 1);
   } else {
-    tools.push(key);
+    proj.enabled_tools.push(key);
   }
-  proj.enabled_tools = tools;
+  var wasEnabled = idx >= 0; // true if we just DISABLED it
 
   // Save to Supabase
   try {
-    await _sb.from('projects').eq('id', proj.id).update({ enabled_tools: tools });
-    toast(AVAILABLE_TOOLS[key].name + (idx >= 0 ? ' disabled' : ' enabled'), 'success');
+    await _sb.from('projects').eq('id', proj.id).update({ enabled_tools: proj.enabled_tools });
+    toast(AVAILABLE_TOOLS[key].name + (wasEnabled ? ' disabled' : ' enabled'), 'success');
   } catch (e) {
     console.error('Failed to save tools:', e);
+    // Revert on failure
+    if (wasEnabled) { proj.enabled_tools.push(key); } else { proj.enabled_tools.splice(proj.enabled_tools.indexOf(key), 1); }
     toast('Failed to save — check connection', 'error');
   }
 
-  // Re-render the tool grid
+  // Re-render the tool grid and instances
   _renderDetailTools(proj);
+  _loadAndRenderInstances(proj);
 }
 
 function closeDetail() {
