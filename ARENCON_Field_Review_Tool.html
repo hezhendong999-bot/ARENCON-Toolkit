@@ -8755,9 +8755,8 @@ function _initCloudSync(){
       if(result.state.settings)p.settings=result.state.settings;
       // Re-render with cloud data
       populateProjectFields();
-      renderDeficGroups();
-      updateDeficSummary();
-      renderDrawingList();
+      renderDeficiencyPanel();
+      renderDrawingGallery();
       toast('Project loaded from '+result.source,'',2000);
     }
     // Show status badge
