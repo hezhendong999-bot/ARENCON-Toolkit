@@ -1127,7 +1127,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   #photo-lightbox button[onclick*="lightboxNext"]{width:48px;height:48px;font-size:26px;}
 
   /* --- Lightbox action bar buttons --- */
-  #lb-draw-btn,#lb-save-btn,#lb-save-copy-btn,#lb-clear-btn{padding:10px 18px!important;font-size:14px!important;}
+  #lb-draw-btn,#lb-save-btn,#lb-clear-btn{padding:10px 18px!important;font-size:14px!important;}
 
   /* --- Kanban cards — larger tap area --- */
   .kanban-card,.pins-kanban-card{padding:10px 12px!important;min-height:44px;}
@@ -1313,7 +1313,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
     <button class="btn btn-outline" onclick="closePDFPicker();" style="width:100%;justify-content:center;padding:12px;color:var(--silver);">Cancel</button>
   </div>
 </div>
-<div id="view-dashboard">
+<div id="view-dashboard" style="display:none;">
   <div class="dashboard">
     <div class="dashboard-header">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -1430,10 +1430,9 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
           <span>All Deficiencies</span>
           <div style="display:flex;align-items:center;gap:6px;">
             <div style="display:flex;border:1.5px solid var(--border);border-radius:6px;overflow:hidden;">
-              <button id="tasks-view-table" onclick="setTasksView('table')" style="border:none;background:#9C2742;color:white;padding:5px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:12px;font-weight:600;">Table</button>
-              <button id="tasks-view-kanban" onclick="setTasksView('kanban')" style="border:none;background:transparent;color:var(--fg);padding:5px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:12px;">Board</button>
+              <button id="tasks-view-table" onclick="setTasksView('table')" style="border:1.5px solid #9C2742;background:#9C2742;color:white;padding:5px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:12px;font-weight:700;border-radius:4px 0 0 4px;">Table</button>
+              <button id="tasks-view-kanban" onclick="setTasksView('kanban')" style="border:1.5px solid #ccc;background:white;color:#1C2333;padding:5px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:12px;border-radius:0 4px 4px 0;">Board</button>
             </div>
-            <button class="btn btn-outline btn-sm" onclick="exportTasksCSV()">Export CSV</button>
           </div>
         </div>
         <div class="card-body" style="padding:0;">
@@ -1758,8 +1757,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
     <img id="lightbox-img" src="" alt="" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:none;">
     <div style="margin-top:10px;display:flex;gap:8px;">
       <button onclick="event.stopPropagation();lightboxDrawMode()" id="lb-draw-btn" style="background:rgba(255,255,255,.15);border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">✏️ Mark up</button>
-      <button onclick="event.stopPropagation();lightboxSaveCopy()" id="lb-save-copy-btn" style="display:none;background:#1A7A4A;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">💾 Save as Copy</button>
-      <button onclick="event.stopPropagation();lightboxSave()" id="lb-save-btn" style="display:none;background:#2C4A6B;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">💾 Overwrite</button>
+      <button onclick="event.stopPropagation();lightboxSaveMarkup()" id="lb-save-btn" style="display:none;background:#1A7A4A;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">💾 Save</button>
       <button onclick="event.stopPropagation();lightboxClearDraw()" id="lb-clear-btn" style="display:none;background:#C0392B;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">✕ Clear</button>
     </div>
     <!-- Photo markup toolbar -->
@@ -3066,10 +3064,14 @@ function closeMobileMenu(){var mm=document.getElementById('mobile-menu-overlay')
 function switchTab(tab){currentTab=tab;sessionStorage.setItem('ARENCON_lastTab',tab);document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.toggle('active',t.getAttribute('data-tab')===tab);});document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+tab);});if(tab==='deficiencies')renderDeficiencyPanel();if(tab==='drawings')renderDrawingGallery();if(tab==='photos')renderPhotoGallery();if(tab==='pins'){if(typeof _tasksView!=='undefined'&&_tasksView==='kanban')renderPinsKanban();else renderTasksTable();}if(_reviewActive)setTimeout(_updateReviewBadge,100);}
 
 function goToDashboard(){
+  // Hub mode: always go back to Project Hub, never show internal dashboard
+  if(_csHubMode){
+    window.location.href='ARENCON_Project_Hub.html'+(_csProjectId?'?open='+encodeURIComponent(_csProjectId):'');
+    return;
+  }
   // Check for unsaved changes before leaving project
   if(currentProjectId&&ADB.dirty&&!ADB.folderHandle){
     _showUnsavedModal(function(){
-      // After handling, proceed to dashboard
       _goToDashboardReal();
     });
     return;
@@ -4097,6 +4099,14 @@ function _showWelcomeModal(){
 function _updateInspectorChip(){
   var el=document.getElementById('inspector-chip-name');
   if(!el)return;
+  // Hub mode: auto-populate from Supabase profile, disable manual change
+  if(_csHubMode&&typeof CloudSync!=='undefined'&&CloudSync.userId){
+    var chip=document.getElementById('inspector-chip');
+    if(chip){chip.onclick=null;chip.style.cursor='default';chip.title='Logged in via Hub';}
+    // Try to get name from profile (stored during CloudSync init)
+    var hubName=localStorage.getItem('sb-user-name')||localStorage.getItem('sb-user-email')||'';
+    if(hubName){el.textContent=hubName;el.style.opacity='1';return;}
+  }
   var name=getInspectorName();
   el.textContent=name||'Set Name';
   el.style.opacity=name?'1':'.6';
@@ -6087,7 +6097,7 @@ function lightboxDrawMode(){
   _lbUndoStack=[];_lbOrigSrc=_lbPhotos[_lbIdx];
   document.getElementById('lb-draw-btn').style.display='none';
   document.getElementById('lb-save-btn').style.display='';
-  document.getElementById('lb-save-copy-btn').style.display='';
+  
   document.getElementById('lb-clear-btn').style.display='';
   document.getElementById('lb-toolbar').style.display='flex';
   document.querySelectorAll('.lb-tool-btn').forEach(function(b){b.classList.toggle('active',b.dataset.lbTool==='pen');});
@@ -6252,38 +6262,36 @@ function lightboxClearDraw(){
 
 function _lbHideToolbar(){
   document.getElementById('lb-save-btn').style.display='none';
-  document.getElementById('lb-save-copy-btn').style.display='none';
+  
   document.getElementById('lb-clear-btn').style.display='none';
   document.getElementById('lb-toolbar').style.display='none';
   document.getElementById('lb-draw-btn').style.display='';
   _lbDrawing=false;_lbRemoveDrawEvents();
 }
 
-function lightboxSave(){
-  var oldSrc=_lbOrigSrc||_lbPhotos[_lbIdx];
-  var src=_lbCanvas.toDataURL('image/jpeg',0.92);
-  _lbPhotos[_lbIdx]=src;
+// Unified save: keeps markup on pin photo, saves original + marked copy to gallery
+function lightboxSaveMarkup(){
+  var origSrc=_lbOrigSrc||_lbPhotos[_lbIdx];
+  var markedSrc=_lbCanvas.toDataURL('image/jpeg',0.92);
+  _lbPhotos[_lbIdx]=markedSrc;
   var p=getProject&&getProject();
   if(p){
-    _replacePhotoInProject(p,oldSrc,src);
-    saveToLS&&saveToLS();
-    showToast&&showToast('Photo overwritten with markup');
-  }
-  _lbHideToolbar();
-}
-
-function lightboxSaveCopy(){
-  var src=_lbCanvas.toDataURL('image/jpeg',0.92);
-  var p=getProject&&getProject();
-  if(p){
+    // 1. Overwrite the pin editor photo with markup
+    _replacePhotoInProject(p,origSrc,markedSrc);
+    // 2. Save original (unmarked) to site photos gallery
     if(!p.sitePhotos)p.sitePhotos=[];
-    p.sitePhotos.push({id:'sp_'+Date.now(),dataUrl:src,caption:'Marked-up copy',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''});
+    p.sitePhotos.push({id:'sp_orig_'+Date.now(),dataUrl:origSrc,caption:'Original (before markup)',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''});
+    // 3. Save marked-up copy to site photos gallery
+    p.sitePhotos.push({id:'sp_mkup_'+Date.now(),dataUrl:markedSrc,caption:'Marked-up copy',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''});
     saveToLS&&saveToLS();
-    showToast&&showToast('Marked-up copy saved to Photos tab');
+    showToast&&showToast('Markup saved \u2014 original & marked copy in Photos');
     if(typeof renderPhotoGallery==='function')renderPhotoGallery();
   }
   _lbHideToolbar();
 }
+// Keep old names as aliases for any remaining references
+function lightboxSave(){lightboxSaveMarkup();}
+function lightboxSaveCopy(){lightboxSaveMarkup();}
 
 function _replacePhotoInProject(p,oldSrc,newSrc){
   var ad=getAllDeficiencies(p);
@@ -7370,8 +7378,8 @@ function setTasksView(v){
   var btnK = document.getElementById('tasks-view-kanban');
   if(tv) tv.style.display = v==='table' ? '' : 'none';
   if(kv) kv.style.display = v==='kanban' ? '' : 'none';
-  if(btnT){btnT.style.background=v==='table'?'#9C2742':'transparent';btnT.style.color=v==='table'?'white':'var(--fg)';}
-  if(btnK){btnK.style.background=v==='kanban'?'#9C2742':'transparent';btnK.style.color=v==='kanban'?'white':'var(--fg)';}
+  if(btnT){btnT.style.background=v==='table'?'#9C2742':'white';btnT.style.color=v==='table'?'white':'#1C2333';btnT.style.fontWeight=v==='table'?'700':'400';btnT.style.border=v==='table'?'1.5px solid #9C2742':'1.5px solid #ccc';}
+  if(btnK){btnK.style.background=v==='kanban'?'#9C2742':'white';btnK.style.color=v==='kanban'?'white':'#1C2333';btnK.style.fontWeight=v==='kanban'?'700':'400';btnK.style.border=v==='kanban'?'1.5px solid #9C2742':'1.5px solid #ccc';}
   if(v==='table') renderTasksTable();
   else renderPinsKanban();
 }
@@ -8672,6 +8680,10 @@ document.addEventListener('DOMContentLoaded',function(){
       // Hide standalone-only buttons in Hub mode
       var btnLoad=document.getElementById('btn-load');if(btnLoad)btnLoad.style.display='none';
       var btnExportAll=document.getElementById('btn-export-all');if(btnExportAll)btnExportAll.style.display='none';
+      // Hide Save As / Folder / Open / Inspector in Hub mode (cloud is the save mechanism)
+      ['btn-save-as','btn-folder','btn-open-folder','btn-inspector'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
+      // Hide standalone back button (Hub mode uses ← Project link instead)
+      var backBtn=document.getElementById('back-btn');if(backBtn)backBtn.style.display='none';
       // Find or create project matching Hub UUID
       var existingId=null;
       Object.keys(allProjects).forEach(function(k){
@@ -8713,22 +8725,9 @@ document.addEventListener('DOMContentLoaded',function(){
       _updateSyncIndicator(false);
       return;// Skip standalone init
     }
-    // ── Standalone Mode (no Hub params) ──
-    renderDashboard();
-    updateProjectDropdown();
-    var hashId=window.location.hash.replace('#','');
-    var restoreId=hashId&&allProjects[hashId]?hashId:(cfg&&cfg.value&&allProjects[cfg.value]?cfg.value:null);
-    if(restoreId){
-      enterProject(restoreId);
-      switchTab('info');
-    }
-    _initDone=true;
-    setTimeout(updateStorageDisplay,500);
-    setTimeout(showDataSafetyBanner,1500);
-    setTimeout(_showWelcomeModal,800);
-    _updateInspectorChip();
-    _updateSyncIndicator(false);
-    _startSafariPulse();
+    // ── No Hub params — redirect to Project Hub ──
+    window.location.href='ARENCON_Project_Hub.html';
+    return;
   }).catch(function(e){
     console.error('Init error:',e);
     toast('Storage init failed — using fallback mode');
@@ -9417,6 +9416,23 @@ function _initCloudSync(){
       if(txt)txt.textContent=msg||status;
     }
   }).then(function(info){
+    // Store user identity for inspector chip (Hub mode)
+    if(info&&info.userId){
+      try{
+        var token=localStorage.getItem('sb-access-token');
+        if(token){
+          fetch('https://xsemvinxsyphjiaqgywv.supabase.co/rest/v1/profiles?id=eq.'+info.userId+'&select=full_name,email',{
+            headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU','Authorization':'Bearer '+token}
+          }).then(function(r){return r.json();}).then(function(rows){
+            if(rows&&rows[0]){
+              if(rows[0].full_name)localStorage.setItem('sb-user-name',rows[0].full_name);
+              if(rows[0].email)localStorage.setItem('sb-user-email',rows[0].email);
+              _updateInspectorChip();
+            }
+          }).catch(function(){});
+        }
+      }catch(e){}
+    }
     return CloudSync.load();
   }).then(function(result){
     // ── LOCAL IDB IS ALWAYS THE SOURCE OF TRUTH (Session 21F) ──
