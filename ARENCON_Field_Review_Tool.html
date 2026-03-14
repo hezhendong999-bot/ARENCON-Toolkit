@@ -9187,69 +9187,24 @@ function _initCloudSync(){
   }).then(function(info){
     return CloudSync.load();
   }).then(function(result){
-    if(result&&result.state){
-      var p=getProject();
-      if(!p)return;
-      // Compare timestamps — only apply cloud state if cloud is newer than local
-      var cloudMod=result.state.modified||result.row&&result.row.updated_at||'';
-      var localMod=p.modified||'';
-      if(localMod&&cloudMod&&localMod>cloudMod){
-        // Local is newer — push local to cloud instead
-        toast('Local data is newer — syncing to cloud','',2000);
-        try{CloudSync.save(_collectFullState());}catch(e){}
-      }else{
-        // Cloud is newer or same — merge cloud state
-        // IMPORTANT: Cloud state has NO base64 data (stripped in _collectFullState).
-        // We must merge cloud metadata while preserving local base64 (drawings, photos, signatures).
-        if(result.state.info){
-          var cloudInfo=result.state.info;
-          var hubFields=['projectNumber','projectName','client','address'];
-          Object.keys(cloudInfo).forEach(function(k){
-            if(hubFields.indexOf(k)===-1&&cloudInfo[k])p.info[k]=cloudInfo[k];
-          });
-        }
-        // Merge contractors + deficiencies: apply cloud metadata, keep local photos
-        if(result.state.contractors){
-          _mergeDeficArrays(p.contractors,result.state.contractors);
-        }
-        if(result.state.generalDeficiencies){
-          _mergeDeficArrays([{deficiencies:p.generalDeficiencies}],[{deficiencies:result.state.generalDeficiencies}]);
-        }
-        if(result.state.nextDeficNum)p.nextDeficNum=result.state.nextDeficNum;
-        // Merge drawings: apply cloud metadata, keep local dataUrl/markupData/thumb
-        if(result.state.drawings) _mergeDrawings(p,result.state.drawings);
-        // Site photos: keep local dataUrl, merge cloud r2 metadata
-        if(result.state.sitePhotos) _mergeSitePhotos(p,result.state.sitePhotos);
-        // Legacy photos: keep local
-        if(result.state.photos&&(!p.photos||p.photos.length===0))p.photos=result.state.photos;
-        // Sketches: keep local base64
-        // (cloud has no data — don't overwrite local)
-        // Signatures: merge text fields, keep local canvas data
-        if(result.state.signatures){
-          var cs=result.state.signatures;
-          if(cs.sigInspectorName)p.signatures.sigInspectorName=cs.sigInspectorName;
-          if(cs.sigInspectorDate)p.signatures.sigInspectorDate=cs.sigInspectorDate;
-          if(cs.sigWitnessName)p.signatures.sigWitnessName=cs.sigWitnessName;
-          if(cs.sigWitnessDate)p.signatures.sigWitnessDate=cs.sigWitnessDate;
-          // DO NOT overwrite sigInspectorData/sigWitnessData — cloud doesn't have them
-        }
-        if(result.state.status)p.status=result.state.status;
-        if(result.state.settings)p.settings=result.state.settings;
-        // Re-render with cloud data
-        populateProjectFields();
-        renderDeficGroups();
-        renderSummaryTable();
-        renderDrawingGallery();
-        toast('Project loaded from '+result.source,'',2000);
-      }
+    // ── LOCAL IDB IS ALWAYS THE SOURCE OF TRUTH (Session 21F) ──
+    // Cloud merge was causing deleted drawings to resurrect and photos to disappear.
+    // Fix: NEVER apply cloud state back to local. Cloud is write-only from this device.
+    // Cross-device sync will be handled properly when R2 holds all images.
+    var p=getProject();
+    if(p){
+      // Always push local state to cloud (ensures cloud catches up)
+      try{CloudSync.save(_collectFullState());}catch(e){}
     }
-    // Show status badge
-    var badge=document.getElementById('issue-status-badge');
-    if(badge&&result&&result.row){
-      var st=result.row.status||'draft';
-      badge.textContent=st.toUpperCase();
-      badge.style.background=st==='issued'?'#1A7A4A':st==='review'?'#1565C0':'#E65100';
-      badge.style.display='inline-block';
+    // Show status badge from cloud row (metadata only — no data merge)
+    if(result&&result.row){
+      var badge=document.getElementById('issue-status-badge');
+      if(badge){
+        var st=result.row.status||'draft';
+        badge.textContent=st.toUpperCase();
+        badge.style.background=st==='issued'?'#1A7A4A':st==='review'?'#1565C0':'#E65100';
+        badge.style.display='inline-block';
+      }
     }
     // Start auto-save to cloud (15s)
     CloudSync.startAutoSave(function(){return _collectFullState();},5000);
