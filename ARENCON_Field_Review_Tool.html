@@ -77,7 +77,6 @@ body.project-locked #bulk-select-toggle,
 body.project-locked .photo-add-btn,
 body.project-locked .btn-place-pin,
 body.project-locked #btn-save-as,
-body.project-locked #btn-edit-mode,
 body.project-locked #btn-reset-dd,
 body.project-locked .resp-add-ctr,
 body.project-locked .resp-add-con{display:none!important;}
@@ -792,7 +791,6 @@ body.dark-mode .drawing-card.add-card:hover{border-color:var(--red);}
 .hdr-share{background:#0277BD;}.hdr-share:hover{background:#01669E;}
 .hdr-inspector{background:#455A64;}.hdr-inspector:hover{background:#37474F;}
 .folder-linked{position:relative;}.folder-linked::after{content:'✓';position:absolute;top:-2px;right:-2px;background:#1A7A4A;color:white;font-size:8px;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
-.edit-mode-indicator{animation:editPulse 1.5s ease-in-out infinite;}@keyframes editPulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
 .hdr-sm{background:none;border:none;color:rgba(255,255,255,.7);font-size:16px;cursor:pointer;padding:2px 6px;}.hdr-sm:hover{color:white;}
 @media(max-width:700px){.hdr-btn{padding:4px 8px;font-size:11px;}.hdr-btn span{display:none;}}
 
@@ -1180,9 +1178,12 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   <div class="header-top">
     <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
       <button class="back-btn" id="back-btn" onclick="goToDashboard()" style="display:none;">←</button>
-      <a href="index.html" class="logo-area" title="Back to Toolkit">
+      <a href="index.html" class="logo-area" id="logo-link" title="Back to Toolkit">
         <img id="logo-img" src="" alt="ARENCON Inc." class="header-logo">
       </a>
+      <a href="ARENCON_Project_Hub.html" class="hdr-hub-link" id="hdr-hub-link" style="display:none;align-items:center;gap:4px;color:rgba(255,255,255,.9);text-decoration:none;font:600 12px Calibri,sans-serif;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);padding:5px 10px;border-radius:6px;white-space:nowrap;">← Project</a>
+      <span class="cloud-status" id="cloud-status" style="display:none;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,.7);"><span style="width:7px;height:7px;border-radius:50%;background:#34D399;display:inline-block;" id="cloud-dot"></span><span id="cloud-status-text">Cloud</span></span>
+      <span id="issue-status-badge" style="display:none;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;color:#fff;background:#E65100;text-transform:uppercase;letter-spacing:.5px;">DRAFT</span>
       <span class="app-title" id="header-app-title">Field Review Tool</span>
       <span class="header-nav-arrows" id="header-nav-arrows" style="display:none;">
         <button class="hdr-sm" id="btn-undo" onclick="undo()" title="Undo (Ctrl+Z)" style="opacity:0.4;">↩</button><button class="hdr-sm" id="btn-redo" onclick="redo()" title="Redo (Ctrl+Y)" style="opacity:0.4;">↪</button>
@@ -1208,6 +1209,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <button class="hdr-btn" id="btn-share" onclick="shareProject()" style="display:none;background:#0277BD;" title="Share">🔗 Share</button>
       <button class="hdr-btn hdr-review" id="btn-review" onclick="toggleReviewMode()" style="display:none;" title="Toggle Review Mode">🔍 Review</button>
       <button class="hdr-btn btn-publish" id="btn-publish" onclick="showPublishModal()" style="display:none;background:#C62828;" title="Publish &amp; Lock Report">🔒 Publish</button>
+      <button class="hdr-btn" id="btn-issue" onclick="issueReport()" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
       <button class="hdr-btn" id="btn-inspector" onclick="showInspector()" style="display:none;background:#455A64;" title="Inspector">👤</button>
       <button class="hdr-btn" style="background:#455A64;" id="btn-refresh" onclick="refreshCurrentPage()" title="Refresh">🔄</button>
       <div style="position:relative;display:none;" id="btn-reset-dd">
@@ -1341,7 +1343,6 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 
             <div class="field-group"><label>Date of Inspection</label><input type="date" id="field-visitDate" data-field="visitDate" oninput="onFieldChange(this)"></div>
             <div class="field-group"><label>Prepared By</label><input type="text" data-field="inspectorName" oninput="onFieldChange(this)" placeholder=""></div>
-            <div class="field-group"><label>Permit No.</label><input type="text" data-field="permitNo" oninput="onFieldChange(this)" placeholder=""></div>
             <div class="field-group"><label>Date of Issue</label><input type="date" data-field="dateOfIssue" oninput="onFieldChange(this)"></div>
             
             <div class="field-group"><label>Revision</label><input type="text" id="field-revision" data-field="revision" oninput="onFieldChange(this);updateSmartFilename()" placeholder="A01" style="font-weight:700;font-size:15px;text-align:center;max-width:100px;"></div>
@@ -2036,7 +2037,6 @@ ADB.migrateFromLocalStorage=function(){return new Promise(function(resolve){
     chain.then(function(){
       localStorage.removeItem(lsKey);
       localStorage.removeItem('ARENCON_FieldReview_Projects');
-      console.log('Migrated '+keys.length+' projects to IndexedDB');
       resolve(true);
     }).catch(function(e){console.error('Migration error',e);resolve(false);});
   }catch(e){resolve(false);}
@@ -2110,15 +2110,14 @@ ADB.setReadOnly=function(isReadOnly){
 ADB.startAutoSave=function(getProjectFn,getFilenameFn){
   if(ADB.autoSaveTimer)clearInterval(ADB.autoSaveTimer);
   if(ADB._idbAutoTimer)clearInterval(ADB._idbAutoTimer);
-  // 30-second IDB auto-save (fast, no disk lag)
+  // 15-second IDB auto-save (fast, no disk lag)
   ADB._idbAutoTimer=setInterval(function(){
     if(!ADB.dirty)return;
     var proj=getProjectFn();if(!proj)return;
     ADB.saveProject(proj).then(function(){
       _showAutoSaveToast();
     }).catch(function(){});
-    console.log('IDB auto-saved (30s)');
-  },30000);
+  },15000);
   // 2-minute folder auto-save (larger JSON file write)
   ADB.autoSaveTimer=setInterval(function(){
     if(!ADB.dirty||!ADB.folderHandle||ADB._readOnly)return;
@@ -2127,7 +2126,7 @@ ADB.startAutoSave=function(getProjectFn,getFilenameFn){
     ADB.exportProjectJSON(proj.id).then(function(full){
       return ADB.writeToFolder(fn,full);
     }).then(function(ok){
-      if(ok){ADB.dirty=false;console.log('Folder auto-saved (2min): '+fn);_updateSyncIndicator(true);updateSaveTimestamp();_stopSavePulse();}
+      if(ok){ADB.dirty=false;_updateSyncIndicator(true);updateSaveTimestamp();_stopSavePulse();}
     });
   },120000);// 2 minutes
   window.addEventListener('beforeunload',function(e){
@@ -2152,78 +2151,6 @@ ADB.startAutoSave=function(getProjectFn,getFilenameFn){
 };
 
 ADB.markDirty=function(){ADB.dirty=true;};
-
-// ═══ EDIT MODE ═══
-var _editModeActive=false;
-var _editOverrides=null;
-function loadEditOverrides(){
-  try{var raw=localStorage.getItem('ARENCON_FR_EditOverrides');_editOverrides=raw?JSON.parse(raw):{};return;}catch(e){}
-  _editOverrides={};
-}
-function saveEditOverrides(){
-  try{localStorage.setItem('ARENCON_FR_EditOverrides',JSON.stringify(_editOverrides));}catch(e){}
-}
-function toggleEditMode(){
-  _editModeActive=!_editModeActive;
-  var btn=document.getElementById('btn-edit-mode');
-  if(btn){
-    btn.style.background=_editModeActive?'#E65100':'#455A64';
-    btn.innerHTML=_editModeActive?'✏️ Editing...':'✏️ Edit Mode';
-  }
-  applyEditMode();
-  toast(_editModeActive?'Edit Mode ON — click text to edit, changes save to overrides':'Edit Mode OFF');
-}
-function applyEditMode(){
-  // Make section titles, field labels, and card headers editable
-  var editables=document.querySelectorAll('.section-title,.card-header,.field-group label,.defic-label');
-  editables.forEach(function(el){
-    if(_editModeActive){
-      el.contentEditable='true';
-      el.style.outline='2px dashed #E65100';
-      el.style.outlineOffset='2px';
-      el.style.cursor='text';
-      el.addEventListener('blur',onEditBlur);
-    }else{
-      el.contentEditable='false';
-      el.style.outline='';
-      el.style.outlineOffset='';
-      el.style.cursor='';
-      el.removeEventListener('blur',onEditBlur);
-    }
-  });
-}
-function onEditBlur(e){
-  if(!_editModeActive)return;
-  var el=e.target;
-  var key=el.getAttribute('data-edit-key');
-  if(!key){
-    // Generate a stable key from position/text
-    key='edit_'+hashCode(el.className+'_'+(el.closest('[id]')?el.closest('[id]').id:'root')+'_'+Array.from(el.parentNode.children).indexOf(el));
-    el.setAttribute('data-edit-key',key);
-  }
-  if(!_editOverrides)loadEditOverrides();
-  _editOverrides[key]=el.textContent.trim();
-  saveEditOverrides();
-}
-function hashCode(s){var h=0;for(var i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}return Math.abs(h).toString(36);}
-function applyEditOverridesOnLoad(){
-  if(!_editOverrides)loadEditOverrides();
-  if(!_editOverrides||!Object.keys(_editOverrides).length)return;
-  var editables=document.querySelectorAll('.section-title,.card-header,.field-group label,.defic-label');
-  editables.forEach(function(el){
-    var key=el.getAttribute('data-edit-key');
-    if(!key){
-      key='edit_'+hashCode(el.className+'_'+(el.closest('[id]')?el.closest('[id]').id:'root')+'_'+Array.from(el.parentNode.children).indexOf(el));
-      el.setAttribute('data-edit-key',key);
-    }
-    if(_editOverrides[key]){
-      el.textContent=_editOverrides[key];
-    }
-  });
-}
-
-// ═══ CLOUD SYNC STUB (future M365/Google) ═══
-ADB.syncToCloud=function(){return Promise.resolve(false);};
 
 // ═══ ADMIN PASSWORD (SHA-256 hash stored in localStorage) ═══
 var ADMIN_PWD_LS_KEY = 'ARENCON_ADMIN_PWD_HASH';
@@ -2261,7 +2188,7 @@ function applyLockState(){
     if(banner) banner.style.display = 'flex';
     if(rev) rev.textContent = p.info.publishedRevision || '';
     // Hide editing buttons
-    ['btn-edit-mode','btn-reset-dd','btn-save-as','btn-publish'].forEach(function(id){
+    ['btn-reset-dd','btn-save-as','btn-publish'].forEach(function(id){
       var e=document.getElementById(id);if(e)e.style.display='none';
     });
     // Lock all project fields
@@ -2463,7 +2390,7 @@ function _doUnlock(){
     el.disabled = false;
   });
   // Restore edit buttons
-  ['btn-edit-mode','btn-reset-dd','btn-save-as','btn-publish'].forEach(function(id){
+  ['btn-reset-dd','btn-save-as','btn-publish'].forEach(function(id){
     var e = document.getElementById(id); if(e) e.style.display = '';
   });
   toast('Project unlocked — editing enabled');
@@ -2528,7 +2455,7 @@ function acceptAllChanges(){
 function _takeSnapshot(p){
   var snap = { info: {}, deficiencies: [] };
   // Snapshot all info fields
-  var fields = ['projectNumber','projectName','client','address','visitDate','inspectorName','permitNo','dateOfIssue','revision'];
+  var fields = ['projectNumber','projectName','client','address','visitDate','inspectorName','dateOfIssue','revision'];
   fields.forEach(function(f){ snap.info[f] = (p.info && p.info[f]) || ''; });
   // Snapshot all deficiencies
   var allDef = getAllDeficiencies(p);
@@ -2558,8 +2485,8 @@ function _getReviewChanges(){
   var changes = { info: [], deficiencies: [], contractors: [] };
 
   // Compare info fields
-  var fields = ['projectNumber','projectName','client','address','visitDate','inspectorName','permitNo','dateOfIssue','revision'];
-  var fieldLabels = { projectNumber:'Project Number', projectName:'Project Name', client:'Client', address:'Address', visitDate:'Visit Date', inspectorName:'Prepared By', permitNo:'Permit No.', dateOfIssue:'Date of Issue', revision:'Revision' };
+  var fields = ['projectNumber','projectName','client','address','visitDate','inspectorName','dateOfIssue','revision'];
+  var fieldLabels = { projectNumber:'Project Number', projectName:'Project Name', client:'Client', address:'Address', visitDate:'Visit Date', inspectorName:'Prepared By', dateOfIssue:'Date of Issue', revision:'Revision' };
   fields.forEach(function(f){
     var oldVal = _reviewSnapshot.info[f] || '';
     var newVal = (p.info && p.info[f]) || '';
@@ -2787,29 +2714,6 @@ function _scheduleReviewUpdate(){
 }
 
 // ═══ SAVE EDIT OVERRIDES TO FILE (bake template text into HTML) ═══
-function saveEditOverridesToFile(){
-  if(!_editOverrides || !Object.keys(_editOverrides).length){
-    toast('No edit overrides to save. Use Edit Mode to customise text first.');
-    return;
-  }
-  var html = document.documentElement.outerHTML;
-  var overridesJSON = JSON.stringify(_editOverrides);
-  var bakedVar = 'var _BAKED_EDIT_OVERRIDES=' + overridesJSON + ';';
-  html = html.replace('var _editModeActive=false;', bakedVar + 'var _editModeActive=false;');
-  html = html.replace('function loadEditOverrides(){',
-    'function loadEditOverrides(){if(typeof _BAKED_EDIT_OVERRIDES!==\'undefined\'){_editOverrides=_BAKED_EDIT_OVERRIDES;return;}');
-  var p = getProject();
-  var fname = ((p&&p.info&&p.info.projectNumber)||'template').replace(/[^a-zA-Z0-9_-]/g,'_') + '_template.html';
-  var blob = new Blob([html], {type:'text/html'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = fname;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  toast('Template saved: ' + Object.keys(_editOverrides).length + ' overrides baked in');
-}
-
-
 // ═══ DEFICIENCY TEMPLATES ═══
 var DEFIC_TEMPLATES=[
   // SPRINKLER SYSTEM
@@ -2946,10 +2850,13 @@ var allProjects={};// In-memory cache (loaded from IDB)
 var currentProjectId=null;
 var currentTab='info';
 var _initDone=false;
-loadEditOverrides();
+// Hub mode (CloudSync)
+var _csHubMode=false;
+var _csProjectId=null;
+var _csInstanceId=null;
 // pdf.js worker loaded from CDN
 
-function newProject(d){var id='proj_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);return{id:id,info:{projectNumber:d.projectNumber||'',projectName:d.projectName||'',client:d.client||'',address:d.address||'',city:d.city||'',province:d.province||'Ontario',engineerOfRecord:d.engineerOfRecord||'',permitNo:d.permitNo||'',dateOfIssue:d.dateOfIssue||'',formRevision:d.formRevision||'',scope:d.scope||'',revision:d.revision||'A01',customFilename:d.customFilename||'',dateModified:'',visitDate:d.visitDate||new Date().toISOString().split('T')[0],inspectorName:d.inspectorName||'',weather:d.weather||'',purpose:d.purpose||'',generalNotes:d.generalNotes||''},status:'draft',settings:{sketchesEnabled:false},contractors:[],generalDeficiencies:[],nextDeficNum:1,drawings:[],photos:[],sketches:[],signatures:{sigInspectorName:'',sigInspectorDate:'',sigInspectorData:'',sigWitnessName:'',sigWitnessDate:'',sigWitnessData:''},created:new Date().toISOString(),modified:new Date().toISOString()};}
+function newProject(d){var id='proj_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);return{id:id,info:{projectNumber:d.projectNumber||'',projectName:d.projectName||'',client:d.client||'',address:d.address||'',city:d.city||'',province:d.province||'Ontario',dateOfIssue:d.dateOfIssue||'',scope:d.scope||'',revision:d.revision||'A01',customFilename:d.customFilename||'',dateModified:'',visitDate:d.visitDate||new Date().toISOString().split('T')[0],inspectorName:d.inspectorName||'',weather:d.weather||'',purpose:d.purpose||'',generalNotes:d.generalNotes||''},status:'draft',settings:{sketchesEnabled:false},contractors:[],generalDeficiencies:[],nextDeficNum:1,drawings:[],photos:[],sketches:[],signatures:{sigInspectorName:'',sigInspectorDate:'',sigInspectorData:'',sigWitnessName:'',sigWitnessDate:'',sigWitnessData:''},created:new Date().toISOString(),modified:new Date().toISOString()};}
 function newDeficiency(num){return{id:'def_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),num:num,description:'',status:'Outstanding',iar:false,photos:[],date:new Date().toISOString().split('T')[0],responses:[],drawingId:null,pinX:null,pinY:null,created:new Date().toISOString(),priority:'high',entries:[{description:'',photos:[],priority:'high'}]};}
 function getProject(){return allProjects[currentProjectId];}
 function getAllDeficiencies(p){if(!p)p=getProject();if(!p)return[];var all=[];(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:c.name,contractorId:c.id});});});(p.generalDeficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:'General',contractorId:null});});all.sort(function(a,b){return a.defic.num-b.defic.num;});return all;}
@@ -3001,7 +2908,7 @@ function _folderQuickSave(){
     ADB.exportProjectJSON(proj.id).then(function(full){
       return ADB.writeToFolder(fn,full);
     }).then(function(ok){
-      if(ok){ADB.dirty=false;_updateSyncIndicator(true);updateSaveTimestamp();_stopSavePulse();console.log('Quick-saved to folder: '+fn);}
+      if(ok){ADB.dirty=false;_updateSyncIndicator(true);updateSaveTimestamp();_stopSavePulse();}
     });
   },3000);
 }
@@ -3120,7 +3027,7 @@ function _goToDashboardReal(){
   _e=document.getElementById('back-btn');if(_e)_e.style.display='none';
   _e=document.getElementById('header-filename');if(_e){_e.textContent='';_e.style.display='none';}
   _e=document.getElementById('conn-dot');if(_e)_e.style.display='none';
-  ['btn-save-as','btn-folder','btn-open-folder','btn-edit-mode','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','mobile-pdf-btn','btn-reset-dd','btn-publish','btn-save-to-file','btn-review','mobile-review-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
+  ['btn-save-as','btn-folder','btn-open-folder','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','mobile-pdf-btn','btn-reset-dd','btn-publish','btn-save-to-file','btn-review','mobile-review-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   document.body.classList.remove('project-locked');
   var lb=document.getElementById('locked-banner');if(lb)lb.style.display='none';
   // Exit review mode when going to dashboard
@@ -3139,7 +3046,7 @@ function enterProject(id){currentProjectId=id;var p=getProject();if(!p)return;if
   _el=document.getElementById('section-nav');if(_el)_el.style.display='flex';
   _el=document.getElementById('back-btn');if(_el)_el.style.display='';
   var _enp=(p.info.projectNumber||'');var _ent=(p.info.projectName||'Untitled');_el=document.getElementById('header-filename');if(_el)_el.textContent=buildSmartFilename(p);
-  ['btn-save-as','btn-folder','btn-open-folder','btn-edit-mode','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','btn-reset-dd'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='';});
+  ['btn-save-as','btn-folder','btn-open-folder','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','btn-reset-dd'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='';});
   updateSmartFilename();updateFolderButton();
   ['btn-load','btn-export-all'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   var mb=document.getElementById('mobile-pdf-btn');if(mb)mb.style.display='';
@@ -3151,7 +3058,7 @@ function enterProject(id){currentProjectId=id;var p=getProject();if(!p)return;if
   var mca=document.getElementById('mobile-clear-all');if(mca)mca.style.display='none';
   ADB.put('config',{key:'lastProject',value:id});
   window.location.hash=id;
-  updateProjectDropdown();populateProjectFields();switchTab('info');applyLockState();setTimeout(function(){applyEditOverridesOnLoad();},150);}
+  updateProjectDropdown();populateProjectFields();switchTab('info');applyLockState();}
 function populateProjectFields(){var p=getProject();if(!p||!p.info)return;
   Object.keys(p.info).forEach(function(key){
     var el=document.querySelector('[data-field="'+key+'"]');
@@ -5110,12 +5017,52 @@ function renderAllMarkup(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   var lw=canvas._logicalW||canvas.width/dpr,lh=canvas._logicalH||canvas.height/dpr;
   ctx.clearRect(0,0,lw,lh);
+  // Separate highlights from other objects for non-stacking composite
+  var highlights=[];
+  var others=[];
   _mkObjects.forEach(function(obj){
+    if(obj.type==='highlight') highlights.push(obj);
+    else others.push(obj);
+  });
+  // Draw non-highlight objects first
+  others.forEach(function(obj){
     _drawObject(ctx,obj,obj.id===_mkSelectedId);
   });
+  // Draw ALL highlights on offscreen canvas at full opacity, composite once
+  if(highlights.length>0){
+    if(!renderAllMarkup._hlCanvas)renderAllMarkup._hlCanvas=document.createElement('canvas');
+    var hlc=renderAllMarkup._hlCanvas;
+    hlc.width=canvas.width;hlc.height=canvas.height;
+    var hx=hlc.getContext('2d');
+    hx.clearRect(0,0,hlc.width,hlc.height);
+    hx.setTransform(dpr,0,0,dpr,0,0);
+    highlights.forEach(function(obj){
+      if(!obj.points||obj.points.length<2)return;
+      hx.strokeStyle=obj.color||'#F1C40F';
+      hx.lineWidth=(obj.size||2)*4;
+      hx.lineCap='round';hx.lineJoin='round';
+      hx.globalAlpha=1;
+      hx.globalCompositeOperation='source-over';
+      hx.beginPath();hx.moveTo(obj.points[0].x,obj.points[0].y);
+      for(var i=1;i<obj.points.length;i++)hx.lineTo(obj.points[i].x,obj.points[i].y);
+      hx.stroke();
+    });
+    // Composite highlight layer onto main canvas at reduced alpha
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.globalAlpha=0.3;
+    ctx.globalCompositeOperation='source-over';
+    ctx.drawImage(hlc,0,0);
+    ctx.restore();
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    // Draw selection handles for selected highlight
+    highlights.forEach(function(obj){
+      if(obj.id===_mkSelectedId)_drawSelectionHandles(ctx,obj);
+    });
+  }
   if(_mkSelectedId){
     var sel=_mkFindObj(_mkSelectedId);
-    if(sel)_drawSelectionHandles(ctx,sel);
+    if(sel&&sel.type!=='highlight')_drawSelectionHandles(ctx,sel);
   }
 }
 
@@ -5431,6 +5378,10 @@ function initMarkupEvents(){
     return{x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy};
   }
 
+  // Offscreen canvas for highlight (prevents opacity stacking)
+  var _mkHlCanvas = document.createElement('canvas');
+  var _mkHlSnap = null;
+
   function startDraw(e){
     if(!mkState.tool||mkState.tool==='select')return;
     if(mkState.tool==='text'){handleTextPlace(e);return;}
@@ -5438,6 +5389,12 @@ function initMarkupEvents(){
 
     mkState.drawing=true;_penPoints=[];
     var pos=getPos(e);mkState.startX=pos.x;mkState.startY=pos.y;_penPoints.push(pos);
+    // Snapshot for highlight offscreen composite
+    if(mkState.tool==='highlight'){
+      var canvas=document.getElementById('markup-canvas');
+      var ctx=canvas.getContext('2d');
+      _mkHlSnap=ctx.getImageData(0,0,canvas.width,canvas.height);
+    }
   }
 
   function moveDraw(e){
@@ -5446,31 +5403,48 @@ function initMarkupEvents(){
 
     if(mkState.tool==='pen'||mkState.tool==='highlight'||mkState.tool==='eraser'){
       _penPoints.push(pos);
-      // Pure incremental — draw only the new segment, no background cache needed
       var canvas=document.getElementById('markup-canvas');
       var ctx=canvas.getContext('2d');
       var dpr=canvas._dpr||1;
       if(_penPoints.length<2)return;
-      var n=_penPoints.length;
-      var p0=_penPoints[n-2],p1=_penPoints[n-1];
-      ctx.setTransform(dpr,0,0,dpr,0,0);
-      ctx.save();
-      if(mkState.tool==='eraser'){
-        ctx.globalCompositeOperation='destination-out';
-        ctx.lineWidth=getSize()*3;
-      } else if(mkState.tool==='highlight'){
-        ctx.strokeStyle=mkState.color;ctx.lineWidth=getSize()*4;
-        ctx.globalAlpha=0.3*getOpacity();
+
+      if(mkState.tool==='highlight'){
+        // Offscreen composite: restore snapshot, draw full stroke on offscreen, composite once
+        if(_mkHlSnap) ctx.putImageData(_mkHlSnap,0,0);
+        _mkHlCanvas.width=canvas.width; _mkHlCanvas.height=canvas.height;
+        var hx=_mkHlCanvas.getContext('2d');
+        hx.clearRect(0,0,_mkHlCanvas.width,_mkHlCanvas.height);
+        hx.setTransform(dpr,0,0,dpr,0,0);
+        hx.strokeStyle=mkState.color; hx.lineWidth=getSize()*4; hx.globalAlpha=1;
+        hx.lineCap='round'; hx.lineJoin='round';
+        hx.beginPath(); hx.moveTo(_penPoints[0].x,_penPoints[0].y);
+        for(var i=1;i<_penPoints.length;i++) hx.lineTo(_penPoints[i].x,_penPoints[i].y);
+        hx.stroke();
+        ctx.save();
+        ctx.setTransform(1,0,0,1,0,0);
+        ctx.globalAlpha=0.3*getOpacity(); ctx.globalCompositeOperation='source-over';
+        ctx.drawImage(_mkHlCanvas,0,0);
+        ctx.restore();
       } else {
-        ctx.strokeStyle=mkState.color;ctx.lineWidth=getSize();
-        ctx.globalAlpha=getOpacity();
+        // Pen/eraser: pure incremental segment
+        var n=_penPoints.length;
+        var p0=_penPoints[n-2],p1=_penPoints[n-1];
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+        ctx.save();
+        if(mkState.tool==='eraser'){
+          ctx.globalCompositeOperation='destination-out';
+          ctx.lineWidth=getSize()*3;
+        } else {
+          ctx.strokeStyle=mkState.color;ctx.lineWidth=getSize();
+          ctx.globalAlpha=getOpacity();
+        }
+        ctx.lineCap='round';ctx.lineJoin='round';
+        ctx.beginPath();
+        ctx.moveTo(p0.x,p0.y);
+        ctx.lineTo(p1.x,p1.y);
+        ctx.stroke();
+        ctx.restore();
       }
-      ctx.lineCap='round';ctx.lineJoin='round';
-      ctx.beginPath();
-      ctx.moveTo(p0.x,p0.y);
-      ctx.lineTo(p1.x,p1.y);
-      ctx.stroke();
-      ctx.restore();
     } else {
       // Shape preview — use cached background
       var canvas2=document.getElementById('markup-canvas');
@@ -5482,7 +5456,8 @@ function initMarkupEvents(){
         ctx2.setTransform(dpr2,0,0,dpr2,0,0);
         var lw2=canvas2._logicalW||canvas2.width/dpr2,lh2=canvas2._logicalH||canvas2.height/dpr2;
         ctx2.clearRect(0,0,lw2,lh2);
-        _mkObjects.forEach(function(obj){_drawObject(ctx2,obj,false);});
+        // Use renderAllMarkup's compositing logic for correct highlight layering
+        renderAllMarkup();
         _mkDrawCache=ctx2.getImageData(0,0,canvas2.width,canvas2.height);
       }
       ctx2.setTransform(dpr2,0,0,dpr2,0,0);
@@ -5498,6 +5473,7 @@ function initMarkupEvents(){
   function endDraw(e){
     if(!mkState.drawing)return;
     mkState.drawing=false;
+    _mkHlSnap=null;
     mkPushHistory();
 
     var type=mkState.tool;
@@ -6031,20 +6007,25 @@ function _lbUndo(){
   };img2.src=prev;
 }
 
+// Offscreen canvas for lightbox highlight (prevents opacity stacking)
+var _lbHlCanvas2=document.createElement('canvas');
+var _lbHlSnap=null;
+var _lbHlPts=[];
+
 function _lbDown(e){
   e.stopPropagation();
   if(_lbTool==='text'){_lbPlaceText(e);return;}
   _lbPushUndo();
   var p=_lbGetPos(e);_lbMouse={down:true,x:p.x,y:p.y,sx:p.x,sy:p.y};
-  if(_lbTool==='pen'||_lbTool==='highlight'||_lbTool==='eraser'){
+  if(_lbTool==='highlight'){
+    _lbHlSnap=_lbCtx.getImageData(0,0,_lbCanvas.width,_lbCanvas.height);
+    _lbHlPts=[{x:p.x,y:p.y}];
+  } else if(_lbTool==='pen'||_lbTool==='eraser'){
     _lbCtx.beginPath();_lbCtx.moveTo(p.x,p.y);
     _lbCtx.lineCap='round';_lbCtx.lineJoin='round';
     if(_lbTool==='eraser'){
       _lbCtx.globalCompositeOperation='destination-out';
       _lbCtx.lineWidth=_lbSize*4;_lbCtx.globalAlpha=1;
-    } else if(_lbTool==='highlight'){
-      _lbCtx.globalCompositeOperation='source-over';
-      _lbCtx.strokeStyle=_lbColor;_lbCtx.lineWidth=_lbSize*5;_lbCtx.globalAlpha=0.3;
     } else {
       _lbCtx.globalCompositeOperation='source-over';
       _lbCtx.strokeStyle=_lbColor;_lbCtx.lineWidth=_lbSize;_lbCtx.globalAlpha=1;
@@ -6060,7 +6041,21 @@ var _lbShapeSnap=null;
 function _lbMove(e){
   e.stopPropagation();if(!_lbMouse.down)return;
   var p=_lbGetPos(e);_lbMouse.x=p.x;_lbMouse.y=p.y;
-  if(_lbTool==='pen'||_lbTool==='highlight'||_lbTool==='eraser'){
+  if(_lbTool==='highlight'){
+    _lbHlPts.push({x:p.x,y:p.y});
+    if(_lbHlPts.length<2)return;
+    if(_lbHlSnap) _lbCtx.putImageData(_lbHlSnap,0,0);
+    _lbHlCanvas2.width=_lbCanvas.width;_lbHlCanvas2.height=_lbCanvas.height;
+    var hx=_lbHlCanvas2.getContext('2d');
+    hx.clearRect(0,0,_lbHlCanvas2.width,_lbHlCanvas2.height);
+    hx.strokeStyle=_lbColor;hx.lineWidth=_lbSize*5;hx.globalAlpha=1;hx.lineCap='round';hx.lineJoin='round';
+    hx.beginPath();hx.moveTo(_lbHlPts[0].x,_lbHlPts[0].y);
+    for(var i=1;i<_lbHlPts.length;i++)hx.lineTo(_lbHlPts[i].x,_lbHlPts[i].y);
+    hx.stroke();
+    _lbCtx.globalAlpha=0.3;_lbCtx.globalCompositeOperation='source-over';
+    _lbCtx.drawImage(_lbHlCanvas2,0,0);
+    _lbCtx.globalAlpha=1;
+  } else if(_lbTool==='pen'||_lbTool==='eraser'){
     _lbCtx.lineTo(p.x,p.y);_lbCtx.stroke();
   } else if(_lbShapeSnap){
     _lbCtx.putImageData(_lbShapeSnap,0,0);
@@ -6083,7 +6078,20 @@ function _lbMove(e){
   }
 }
 function _lbUp(e){
-  if(_lbTool==='pen'||_lbTool==='highlight'||_lbTool==='eraser'){
+  if(_lbTool==='highlight' && _lbHlPts.length>1){
+    if(_lbHlSnap) _lbCtx.putImageData(_lbHlSnap,0,0);
+    _lbHlCanvas2.width=_lbCanvas.width;_lbHlCanvas2.height=_lbCanvas.height;
+    var hx=_lbHlCanvas2.getContext('2d');
+    hx.clearRect(0,0,_lbHlCanvas2.width,_lbHlCanvas2.height);
+    hx.strokeStyle=_lbColor;hx.lineWidth=_lbSize*5;hx.globalAlpha=1;hx.lineCap='round';hx.lineJoin='round';
+    hx.beginPath();hx.moveTo(_lbHlPts[0].x,_lbHlPts[0].y);
+    for(var i=1;i<_lbHlPts.length;i++)hx.lineTo(_lbHlPts[i].x,_lbHlPts[i].y);
+    hx.stroke();
+    _lbCtx.globalAlpha=0.3;_lbCtx.globalCompositeOperation='source-over';
+    _lbCtx.drawImage(_lbHlCanvas2,0,0);
+    _lbCtx.globalAlpha=1;
+    _lbHlSnap=null;_lbHlPts=[];
+  } else if(_lbTool==='pen'||_lbTool==='eraser'){
     _lbCtx.globalCompositeOperation='source-over';_lbCtx.globalAlpha=1;
   }
   _lbMouse.down=false;_lbShapeSnap=null;
@@ -7843,7 +7851,7 @@ h+='<div class="ph-addr">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nb
 h+='<div class="sh">Project Information</div><div class="sb"><div class="ig">';
 [['Project No.',p.info.projectNumber],['Project Name',p.info.projectName],['Client',p.info.client],
 ['Project Address',p.info.address],['Date of Inspection',p.info.visitDate],['Prepared By',p.info.inspectorName],
-['Permit No.',p.info.permitNo||''],['Date of Issue',p.info.dateOfIssue||''],
+['Date of Issue',p.info.dateOfIssue||''],
 ['Revision',p.info.revision||'A01']].forEach(function(f){
   h+='<div class="ii"><label>'+f[0]+'</label><span>'+(f[1]||'—')+'</span></div>';
 });
@@ -8135,17 +8143,80 @@ document.addEventListener('DOMContentLoaded',function(){
   }).then(function(){
     return ADB.get('config','lastProject');
   }).then(function(cfg){
+    // ── Hub Mode Detection ──
+    var urlParams=new URLSearchParams(window.location.search);
+    var hubProjectId=urlParams.get('project');
+    if(hubProjectId){
+      _csHubMode=true;
+      _csProjectId=hubProjectId;
+      _csInstanceId=urlParams.get('instance')||null;
+      var hubPN=urlParams.get('pn')||'';
+      var hubPName=urlParams.get('pname')||'';
+      var hubClient=urlParams.get('client')||'';
+      var hubAddr=urlParams.get('addr')||'';
+      // Update header for Hub mode
+      var hubLink=document.getElementById('hdr-hub-link');
+      if(hubLink){hubLink.style.display='inline-flex';hubLink.href='ARENCON_Project_Hub.html?open='+encodeURIComponent(hubProjectId);}
+      var logoLink=document.getElementById('logo-link');
+      if(logoLink){logoLink.href='ARENCON_Project_Hub.html';logoLink.title='Back to Project Hub';}
+      var issueBtn=document.getElementById('btn-issue');
+      if(issueBtn)issueBtn.style.display='';
+      var csEl=document.getElementById('cloud-status');
+      if(csEl)csEl.style.display='inline-flex';
+      // Hide standalone-only buttons in Hub mode
+      var btnLoad=document.getElementById('btn-load');if(btnLoad)btnLoad.style.display='none';
+      var btnExportAll=document.getElementById('btn-export-all');if(btnExportAll)btnExportAll.style.display='none';
+      // Find or create project matching Hub UUID
+      var existingId=null;
+      Object.keys(allProjects).forEach(function(k){
+        if(allProjects[k]._hubProjectId===hubProjectId)existingId=k;
+      });
+      if(!existingId){
+        // Create new project from Hub params
+        var p=newProject({projectNumber:hubPN,projectName:hubPName,client:hubClient,address:hubAddr});
+        p._hubProjectId=hubProjectId;// Link to Hub UUID
+        allProjects[p.id]=p;
+        ADB.saveFullProject(p).catch(function(e){console.error('Hub project save error:',e);});
+        existingId=p.id;
+      } else {
+        // Update project info from Hub (Hub is source of truth)
+        var ep=allProjects[existingId];
+        if(hubPN)ep.info.projectNumber=hubPN;
+        if(hubPName)ep.info.projectName=hubPName;
+        if(hubClient)ep.info.client=hubClient;
+        if(hubAddr)ep.info.address=hubAddr;
+      }
+      renderDashboard();
+      updateProjectDropdown();
+      enterProject(existingId);
+      switchTab('info');
+      // Make Hub-sourced fields read-only
+      setTimeout(function(){
+        ['projectNumber','projectName','client','address'].forEach(function(f){
+          var el=document.querySelector('[data-field="'+f+'"]');
+          if(el){el.readOnly=true;el.style.opacity='0.7';el.title='Managed by Project Hub';}
+        });
+      },200);
+      // Initialize CloudSync if module present
+      if(typeof CloudSync!=='undefined'){
+        _initCloudSync();
+      }
+      _initDone=true;
+      setTimeout(updateStorageDisplay,500);
+      _updateInspectorChip();
+      _updateSyncIndicator(false);
+      return;// Skip standalone init
+    }
+    // ── Standalone Mode (no Hub params) ──
     renderDashboard();
     updateProjectDropdown();
     var hashId=window.location.hash.replace('#','');
     var restoreId=hashId&&allProjects[hashId]?hashId:(cfg&&cfg.value&&allProjects[cfg.value]?cfg.value:null);
     if(restoreId){
-      // Always start on 'info' tab to prevent deficiency content flashing on dashboard
       enterProject(restoreId);
       switchTab('info');
     }
     _initDone=true;
-    setTimeout(function(){applyEditOverridesOnLoad();},200);
     setTimeout(updateStorageDisplay,500);
     setTimeout(showDataSafetyBanner,1500);
     setTimeout(_showWelcomeModal,800);
@@ -8609,5 +8680,128 @@ _resetInactivityTimer();
     </div>
   </div>
 </div>
+<!-- ══ HUB CLOUDSYNC INTEGRATION ══ -->
+<script>
+// ── Issue Report (Hub mode) ──
+function issueReport(){
+  if(!_csHubMode||typeof CloudSync==='undefined')return;
+  var p=getProject();if(!p)return;
+  var prev=(p.info&&p.info.publishedRevision)||null;
+  var next=prev?_incrementRevision(prev):'B01';
+  if(!confirm('Issue this report as revision '+next+'?'))return;
+  p.info.publishedRevision=next;
+  p.info.publishedDate=new Date().toISOString().substring(0,10);
+  p.status='issued';
+  var badge=document.getElementById('issue-status-badge');
+  if(badge){badge.textContent='ISSUED';badge.style.background='#1A7A4A';badge.style.display='inline-block';}
+  // Update status on Supabase tool_data
+  if(CloudSync.instanceId){
+    CloudSync.request('/rest/v1/tool_data?id=eq.'+CloudSync.instanceId,{
+      method:'PATCH',body:{status:'issued',updated_at:new Date().toISOString()}
+    }).catch(function(e){console.error('Issue status update failed:',e);});
+  }
+  CloudSync.save(JSON.stringify(_collectFullState()));
+  toast('Report issued as '+next);
+}
+function _incrementRevision(rev){
+  var m=rev.match(/^([A-Z])(\d+)$/);
+  if(!m)return'B01';
+  var num=parseInt(m[2])+1;
+  return m[1]+(num<10?'0':'')+num;
+}
+function _collectFullState(){
+  var p=getProject();if(!p)return{};
+  // Return the full project state for CloudSync
+  return JSON.parse(JSON.stringify(p));
+}
+
+// ── CloudSync Init (called in Hub mode) ──
+function _initCloudSync(){
+  if(typeof CloudSync==='undefined')return;
+  CloudSync.init({
+    projectId:_csProjectId,
+    toolKey:'frt',
+    instanceId:_csInstanceId,
+    onStatusChange:function(status,msg){
+      var dot=document.getElementById('cloud-dot');
+      var txt=document.getElementById('cloud-status-text');
+      if(dot){
+        dot.style.background=status==='synced'?'#34D399':status==='saving'?'#FBBF24':status==='error'?'#EF4444':'#94A3B8';
+      }
+      if(txt)txt.textContent=msg||status;
+    }
+  }).then(function(info){
+    return CloudSync.load();
+  }).then(function(result){
+    if(result&&result.state){
+      // Merge cloud state into local project
+      var p=getProject();
+      if(p&&result.state.info){
+        // Merge non-Hub-sourced fields from cloud
+        var cloudInfo=result.state.info;
+        var hubFields=['projectNumber','projectName','client','address'];
+        Object.keys(cloudInfo).forEach(function(k){
+          if(hubFields.indexOf(k)===-1&&cloudInfo[k])p.info[k]=cloudInfo[k];
+        });
+      }
+      if(result.state.contractors)p.contractors=result.state.contractors;
+      if(result.state.generalDeficiencies)p.generalDeficiencies=result.state.generalDeficiencies;
+      if(result.state.nextDeficNum)p.nextDeficNum=result.state.nextDeficNum;
+      if(result.state.drawings)p.drawings=result.state.drawings;
+      if(result.state.photos)p.photos=result.state.photos;
+      if(result.state.sketches)p.sketches=result.state.sketches;
+      if(result.state.signatures)p.signatures=result.state.signatures;
+      if(result.state.status)p.status=result.state.status;
+      if(result.state.settings)p.settings=result.state.settings;
+      // Re-render with cloud data
+      populateProjectFields();
+      renderDeficGroups();
+      updateDeficSummary();
+      renderDrawingList();
+      toast('Project loaded from '+result.source,'',2000);
+    }
+    // Show status badge
+    var badge=document.getElementById('issue-status-badge');
+    if(badge&&result&&result.row){
+      var st=result.row.status||'draft';
+      badge.textContent=st.toUpperCase();
+      badge.style.background=st==='issued'?'#1A7A4A':st==='review'?'#1565C0':'#E65100';
+      badge.style.display='inline-block';
+    }
+    // Start auto-save to cloud (15s)
+    CloudSync.startAutoSave(function(){return _collectFullState();},15000);
+  }).catch(function(e){
+    console.error('CloudSync init error:',e);
+    toast('Cloud sync failed — working in local mode',3000);
+  });
+}
+</script>
+<!-- ══ CLOUDSYNC MODULE v1 ══ -->
+<script>
+var CloudSync=(function(){'use strict';var SUPABASE_URL='https://xsemvinxsyphjiaqgywv.supabase.co';var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';var IDB_NAME='arencon_cloud_cache';var IDB_VERSION=1;var IDB_STORE='tool_state';var AUTOSAVE_MS=15000;var _projectId=null;var _toolKey=null;var _instanceId=null;var _instanceNumber=1;var _collectStateFn=null;var _onStatusChange=null;var _autoSaveTimer=null;var _idb=null;var _online=navigator.onLine;var _pendingSync=false;var _userId=null;var _projectInfo=null;var _lastSavedJson='';var _initialized=false;
+function _headers(){var h={'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json','Prefer':'return=representation'};var token=localStorage.getItem('sb-access-token');if(token)h['Authorization']='Bearer '+token;else h['Authorization']='Bearer '+SUPABASE_ANON_KEY;return h;}
+async function _request(path,opts){opts=opts||{};var res=await fetch(SUPABASE_URL+path,{method:opts.method||'GET',headers:Object.assign({},_headers(),opts.headers||{}),body:opts.body?JSON.stringify(opts.body):undefined});if(!res.ok){var err;try{err=await res.json();}catch(e){err={message:res.statusText};}throw new Error(err.message||err.msg||err.error_description||res.statusText);}var text=await res.text();return text?JSON.parse(text):null;}
+function _openIDB(){return new Promise(function(resolve,reject){var req=indexedDB.open(IDB_NAME,IDB_VERSION);req.onupgradeneeded=function(e){var db=e.target.result;if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE);};req.onsuccess=function(e){_idb=e.target.result;resolve(_idb);};req.onerror=function(e){reject(e.target.error);};});}
+function _idbKey(){return _projectId+'|'+_toolKey+'|'+(_instanceId||'new');}
+function _idbGet2(key){return new Promise(function(resolve,reject){if(!_idb){resolve(null);return;}var tx=_idb.transaction(IDB_STORE,'readonly');var req=tx.objectStore(IDB_STORE).get(key);req.onsuccess=function(){resolve(req.result||null);};req.onerror=function(){reject(req.error);};});}
+function _idbPut2(key,val){return new Promise(function(resolve,reject){if(!_idb){resolve();return;}var tx=_idb.transaction(IDB_STORE,'readwrite');var req=tx.objectStore(IDB_STORE).put(val,key);req.onsuccess=function(){resolve();};req.onerror=function(){reject(req.error);};});}
+function _setStatus(status,msg){if(_onStatusChange)_onStatusChange(status,msg);}
+async function _getUser(){var token=localStorage.getItem('sb-access-token');if(!token)return null;try{return await _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+token}});}catch(e){var rt=localStorage.getItem('sb-refresh-token');if(!rt)return null;try{var data=await _request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:rt},headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY}});if(data&&data.access_token){localStorage.setItem('sb-access-token',data.access_token);localStorage.setItem('sb-refresh-token',data.refresh_token);return _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+data.access_token}});}}catch(e2){}return null;}}
+async function _cloudLoad(){if(!_projectId||!_toolKey)return null;if(_instanceId){var rows=await _request('/rest/v1/tool_data?select=*&id=eq.'+_instanceId);return(rows&&rows.length>0)?rows[0]:null;}var rows=await _request('/rest/v1/tool_data?select=*&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=instance_number.desc&limit=1');return(rows&&rows.length>0)?rows[0]:null;}
+async function _cloudSave(stateJson){if(!_projectId||!_toolKey)return null;var payload={project_id:_projectId,tool_key:_toolKey,instance_number:_instanceNumber,data:typeof stateJson==='string'?JSON.parse(stateJson):stateJson,updated_by:_userId,updated_at:new Date().toISOString()};if(_instanceId){var rows=await _request('/rest/v1/tool_data?id=eq.'+_instanceId,{method:'PATCH',body:payload});return(rows&&rows.length>0)?rows[0]:null;}else{payload.created_by=_userId;payload.status='draft';var rows=await _request('/rest/v1/tool_data',{method:'POST',body:[payload]});if(rows&&rows.length>0){_instanceId=rows[0].id;_instanceNumber=rows[0].instance_number;return rows[0];}return null;}}
+async function _loadProjectInfo(){if(!_projectId)return null;try{var rows=await _request('/rest/v1/projects?select=*&id=eq.'+_projectId,{headers:{'Accept':'application/vnd.pgrst.object+json'}});_projectInfo=rows;return rows;}catch(e){return null;}}
+async function save(stateJson){if(typeof stateJson!=='string')stateJson=JSON.stringify(stateJson);if(stateJson===_lastSavedJson)return;_lastSavedJson=stateJson;try{await _idbPut2(_idbKey(),{state:stateJson,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:new Date().toISOString()});}catch(e){console.error('[CloudSync] IDB save failed:',e);}if(_online){try{_setStatus('saving','Syncing...');var row=await _cloudSave(stateJson);_pendingSync=false;_setStatus('synced','Saved to cloud');return row;}catch(e){console.warn('[CloudSync] Cloud save failed:',e.message);_pendingSync=true;_setStatus('pending','Saved locally');}}else{_pendingSync=true;_setStatus('offline','Saved locally (offline)');}return null;}
+async function load(){var cloudRow=null;if(_online){try{cloudRow=await _cloudLoad();if(cloudRow){_instanceId=cloudRow.id;_instanceNumber=cloudRow.instance_number;var sj=typeof cloudRow.data==='string'?cloudRow.data:JSON.stringify(cloudRow.data);_lastSavedJson=sj;await _idbPut2(_idbKey(),{state:sj,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:cloudRow.updated_at});_setStatus('synced','Loaded from cloud');return{source:'cloud',state:typeof cloudRow.data==='string'?JSON.parse(cloudRow.data):cloudRow.data,row:cloudRow};}}catch(e){console.warn('[CloudSync] Cloud load failed:',e.message);}}try{var idbData=await _idbGet2(_idbKey());if(idbData&&idbData.state){_setStatus(_online?'synced':'offline','Loaded from cache');return{source:'idb',state:typeof idbData.state==='string'?JSON.parse(idbData.state):idbData.state,row:null};}}catch(e){console.error('[CloudSync] IDB load failed:',e);}_setStatus(_online?'synced':'offline','No saved data');return null;}
+function startAutoSave(collectStateFn,intervalMs){_collectStateFn=collectStateFn;stopAutoSave();_autoSaveTimer=setInterval(function(){if(!_collectStateFn)return;try{var state=_collectStateFn();save(state);}catch(e){console.error('[CloudSync] Auto-save error:',e);}},intervalMs||AUTOSAVE_MS);}
+function stopAutoSave(){if(_autoSaveTimer){clearInterval(_autoSaveTimer);_autoSaveTimer=null;}}
+function _onOnline(){_online=true;_setStatus('saving','Reconnected...');if(_pendingSync&&_collectStateFn){try{var state=_collectStateFn();save(state);}catch(e){_setStatus('error','Sync failed');}}else{_setStatus('synced','Online');}}
+function _onOffline(){_online=false;_setStatus('offline','Working offline');}
+function readUrlParams(){var p=new URLSearchParams(window.location.search);return{projectId:p.get('project')||null,instanceId:p.get('instance')||null,projectNumber:p.get('pn')||null,projectName:p.get('pname')||null,client:p.get('client')||null,address:p.get('addr')||null};}
+async function _getNextInstanceNumber(){if(!_online)return 1;try{var rows=await _request('/rest/v1/tool_data?select=instance_number&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=instance_number.desc&limit=1');if(rows&&rows.length>0)return rows[0].instance_number+1;}catch(e){}return 1;}
+async function init(opts){_toolKey=opts.toolKey;_onStatusChange=opts.onStatusChange||null;_projectId=opts.projectId||null;_instanceId=opts.instanceId||null;try{await _openIDB();}catch(e){console.error('[CloudSync] IDB open failed:',e);}try{var user=await _getUser();if(user)_userId=user.id;}catch(e){}if(_projectId&&_online){try{await _loadProjectInfo();}catch(e){}}if(_projectId&&!_instanceId){_instanceNumber=await _getNextInstanceNumber();}window.addEventListener('online',_onOnline);window.addEventListener('offline',_onOffline);_initialized=true;_setStatus(_online?'synced':'offline','Ready');return{projectInfo:_projectInfo,userId:_userId,online:_online,instanceId:_instanceId,instanceNumber:_instanceNumber};}
+function destroy(){stopAutoSave();window.removeEventListener('online',_onOnline);window.removeEventListener('offline',_onOffline);_initialized=false;}
+async function syncNow(){if(!_online){_setStatus('offline','No connection');return false;}if(!_collectStateFn)return false;try{_setStatus('saving','Syncing...');var state=_collectStateFn();await save(state);_setStatus('synced','Force sync complete');return true;}catch(e){_setStatus('error','Sync failed');return false;}}
+return{init:init,save:save,load:load,startAutoSave:startAutoSave,stopAutoSave:stopAutoSave,destroy:destroy,syncNow:syncNow,readUrlParams:readUrlParams,request:_request,get isInitialized(){return _initialized;},get projectId(){return _projectId;},get instanceId(){return _instanceId;},get userId(){return _userId;},get online(){return _online;}};})();
+</script>
 </body>
 </html>
