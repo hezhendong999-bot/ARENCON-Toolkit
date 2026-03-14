@@ -8786,38 +8786,13 @@ function _collectFullState(){
   var p=getProject();if(!p)return{};
   // Deep copy project state for CloudSync
   var state=JSON.parse(JSON.stringify(p));
-  // Strip base64 dataUrl from ALL site photos for cloud payload
-  // (base64 data stays in local IDB only; cloud stores metadata + r2Url)
+  // ONLY strip base64 from site photos that have been successfully uploaded to R2
+  // Everything else must stay in cloud state until R2 integration covers it
   if(state.sitePhotos){
     state.sitePhotos.forEach(function(ph){
-      if(ph&&ph.dataUrl)delete ph.dataUrl;
-    });
-  }
-  // Also strip from legacy p.photos array
-  if(state.photos){
-    state.photos.forEach(function(ph){
-      if(ph&&ph.dataUrl)delete ph.dataUrl;
-      if(typeof ph==='string'&&ph.startsWith('data:'))state.photos[state.photos.indexOf(ph)]=null;
-    });
-    state.photos=state.photos.filter(function(x){return x!==null;});
-  }
-  // Strip base64 from deficiency photos and drawings too
-  var allDefics=[].concat(state.generalDeficiencies||[]);
-  (state.contractors||[]).forEach(function(c){allDefics=allDefics.concat(c.deficiencies||[]);});
-  allDefics.forEach(function(d){
-    if(d.photos)d.photos=d.photos.map(function(ph){return typeof ph==='string'&&ph.startsWith('data:')?'[local]':ph;});
-    if(d.entries)d.entries.forEach(function(en){
-      if(en.photos)en.photos=en.photos.map(function(ph){return typeof ph==='string'&&ph.startsWith('data:')?'[local]':ph;});
-    });
-    if(d.responses)d.responses.forEach(function(r){
-      if(r.photos)r.photos=r.photos.map(function(ph){return typeof ph==='string'&&ph.startsWith('data:')?'[local]':ph;});
-    });
-  });
-  // Strip base64 from drawings
-  if(state.drawings){
-    state.drawings.forEach(function(d){
-      if(d&&d.dataUrl)delete d.dataUrl;
-      if(d&&d.markupData)delete d.markupData;
+      if(ph&&ph.r2Status==='uploaded'&&ph.r2Url){
+        delete ph.dataUrl;// Safe to remove — R2 has the image
+      }
     });
   }
   return state;
@@ -8842,32 +8817,41 @@ function _initCloudSync(){
     return CloudSync.load();
   }).then(function(result){
     if(result&&result.state){
-      // Merge cloud state into local project
       var p=getProject();
-      if(p&&result.state.info){
-        // Merge non-Hub-sourced fields from cloud
-        var cloudInfo=result.state.info;
-        var hubFields=['projectNumber','projectName','client','address'];
-        Object.keys(cloudInfo).forEach(function(k){
-          if(hubFields.indexOf(k)===-1&&cloudInfo[k])p.info[k]=cloudInfo[k];
-        });
+      if(!p)return;
+      // Compare timestamps — only apply cloud state if cloud is newer than local
+      var cloudMod=result.state.modified||result.row&&result.row.updated_at||'';
+      var localMod=p.modified||'';
+      if(localMod&&cloudMod&&localMod>cloudMod){
+        // Local is newer — push local to cloud instead
+        toast('Local data is newer — syncing to cloud','',2000);
+        try{CloudSync.save(_collectFullState());}catch(e){}
+      }else{
+        // Cloud is newer or same — merge cloud state
+        if(result.state.info){
+          var cloudInfo=result.state.info;
+          var hubFields=['projectNumber','projectName','client','address'];
+          Object.keys(cloudInfo).forEach(function(k){
+            if(hubFields.indexOf(k)===-1&&cloudInfo[k])p.info[k]=cloudInfo[k];
+          });
+        }
+        if(result.state.contractors)p.contractors=result.state.contractors;
+        if(result.state.generalDeficiencies)p.generalDeficiencies=result.state.generalDeficiencies;
+        if(result.state.nextDeficNum)p.nextDeficNum=result.state.nextDeficNum;
+        if(result.state.drawings)p.drawings=result.state.drawings;
+        if(result.state.photos)p.photos=result.state.photos;
+        if(result.state.sitePhotos)p.sitePhotos=result.state.sitePhotos;
+        if(result.state.sketches)p.sketches=result.state.sketches;
+        if(result.state.signatures)p.signatures=result.state.signatures;
+        if(result.state.status)p.status=result.state.status;
+        if(result.state.settings)p.settings=result.state.settings;
+        // Re-render with cloud data
+        populateProjectFields();
+        renderDeficGroups();
+        renderSummaryTable();
+        renderDrawingGallery();
+        toast('Project loaded from '+result.source,'',2000);
       }
-      if(result.state.contractors)p.contractors=result.state.contractors;
-      if(result.state.generalDeficiencies)p.generalDeficiencies=result.state.generalDeficiencies;
-      if(result.state.nextDeficNum)p.nextDeficNum=result.state.nextDeficNum;
-      if(result.state.drawings)p.drawings=result.state.drawings;
-      if(result.state.photos)p.photos=result.state.photos;
-      if(result.state.sitePhotos)p.sitePhotos=result.state.sitePhotos;
-      if(result.state.sketches)p.sketches=result.state.sketches;
-      if(result.state.signatures)p.signatures=result.state.signatures;
-      if(result.state.status)p.status=result.state.status;
-      if(result.state.settings)p.settings=result.state.settings;
-      // Re-render with cloud data
-      populateProjectFields();
-      renderDeficGroups();
-      renderSummaryTable();
-      renderDrawingGallery();
-      toast('Project loaded from '+result.source,'',2000);
     }
     // Show status badge
     var badge=document.getElementById('issue-status-badge');
