@@ -3044,6 +3044,8 @@ function enterProject(id){currentProjectId=id;var p=getProject();if(!p)return;if
   // Migrate legacy base64 string photo arrays to record objects (Session 21F)
   p.contractors.forEach(function(c){_migrateDeficPhotos(c.deficiencies);});
   _migrateDeficPhotos(p.generalDeficiencies);
+  // Ensure all site photos have IDs (Session 21F)
+  if(p.sitePhotos){p.sitePhotos.forEach(function(ph){if(ph&&!ph.id)ph.id='sp_'+Math.random().toString(36).substr(2,8);});}
   var _el;
   _el=document.getElementById('view-dashboard');if(_el)_el.style.display='none';
   _el=document.getElementById('view-project');if(_el){_el.style.display='block';_el.style.visibility='visible';}
@@ -6293,6 +6295,15 @@ function buildDeficItem(d,ctrId,i){
 
     obsHtml+='<div class="pin-entry-row" style="border-left:3px solid '+prCol+';">';
     obsHtml+='<div class="row-num">'+obsLabel+'</div>';
+    // Per-observation contractor override dropdown
+    var _enCtrId=en.contractorId||'';
+    var _pObj=getProject();
+    var _ctrOpts='<option value="">— Same as pin —</option>';
+    (_pObj.contractors||[]).forEach(function(cc){_ctrOpts+='<option value="'+cc.id+'"'+(cc.id===_enCtrId?' selected':'')+'>'+escHtml(cc.name)+'</option>';});
+    if(_enCtrId||entries.length>1){
+      var _ctrOverrideLabel=_enCtrId?(_pObj.contractors||[]).reduce(function(a,c){return c.id===_enCtrId?c.name:a;},''):'';
+      obsHtml+='<div style="margin-bottom:4px;display:flex;align-items:center;gap:6px;"><label style="font-size:8px;font-weight:700;color:#E67E22;text-transform:uppercase;letter-spacing:.4px;flex-shrink:0;">Contractor</label><select style="flex:1;padding:2px 5px;border:1px solid '+((_enCtrId)?'#E67E22':'#DDE1E7')+';border-radius:4px;font-family:inherit;font-size:10px;" onchange="updateEntryContractor(\''+d.id+'\','+ei+',this.value)">'+_ctrOpts+'</select></div>';
+    }
     if(entries.length>1)obsHtml+='<button class="row-del" onclick="removeDeficEntry(\''+d.id+'\','+ei+')" title="Remove observation">✕</button>';
     obsHtml+='<div class="defic-grid-2col"><div>';
     obsHtml+='<div class="defic-label">Description</div>';
@@ -6318,6 +6329,12 @@ function updateEntryField(did,ei,field,val){
   // Sync legacy fields from first entry
   if(ei===0&&field==='description')f.defic.description=val;
   saveToLS();_scheduleReviewUpdate();
+}
+function updateEntryContractor(did,ei,ctrId){
+  var f=findDeficiency(did);if(!f)return;
+  if(!f.defic.entries||!f.defic.entries[ei])return;
+  f.defic.entries[ei].contractorId=ctrId||'';
+  saveToLS();renderDeficiencyPanel();
 }
 function addDeficEntry(did){
   var f=findDeficiency(did);if(!f)return;
@@ -6880,7 +6897,10 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
     '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">'+
     '<div style="flex:1;"><label style="font-size:9px;font-weight:700;color:#4A5568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Status</label>'+
     (pGen
-      ? '<select id="pin-status" style="width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;color:#1A7A4A;font-weight:600;"><option value="Addressed & Closed">Recorded</option></select>'
+      ? '<select id="pin-status" style="width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;color:'+sc+';font-weight:600;" onchange="this.style.color=this.value===\'Outstanding\'?\'#C0392B\':\'#1A7A4A\';autoPinSave()">'+
+        '<option value="Outstanding"'+(d.status==='Outstanding'?' selected':'')+'>Outstanding</option>'+
+        '<option value="Addressed & Closed"'+(d.status==='Addressed & Closed'?' selected':'')+'>Addressed & Closed</option>'+
+        '</select>'
       : '<select id="pin-status" style="width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;color:'+sc+';font-weight:600;" onchange="this.style.color=this.value===\'Outstanding\'?\'#C0392B\':\'#1A7A4A\';autoPinSave()">'+
         '<option value="Outstanding"'+(d.status==='Outstanding'?' selected':'')+'>Outstanding</option>'+
         '<option value="Addressed & Closed"'+(d.status==='Addressed & Closed'?' selected':'')+'>Addressed & Closed</option>'+
@@ -7761,7 +7781,7 @@ function handlePhotoFiles(files){
     compressImage(f,3200,0.88,function(du){
       var dateStr=new Date().toISOString().substring(0,19).replace('T',' ');
       getExifDate(f,function(exifDate){
-        var photoRec={dataUrl:du,date:exifDate||dateStr,uploadDate:dateStr,caption:''};
+        var photoRec={id:'sp_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),dataUrl:du,date:exifDate||dateStr,uploadDate:dateStr,caption:''};
         // In Hub mode, queue R2 upload and store r2Key
         if(hubId&&typeof R2Photos!=='undefined'){
           var fname=R2Photos.generateFilename('site');
@@ -8979,7 +8999,9 @@ function _mergeDrawings(proj,cloudDrawings){
   if(!cloudDrawings)return;
   var localMap={};
   (proj.drawings||[]).forEach(function(d){localMap[d.id]=d;});
-  var merged=[];
+  // Only update metadata for drawings that exist locally.
+  // Do NOT add cloud-only drawings — they were likely deleted locally.
+  // Cross-device sync of new drawings will be handled by R2 in a future session.
   cloudDrawings.forEach(function(cd){
     var ld=localMap[cd.id];
     if(ld){
@@ -8989,16 +9011,9 @@ function _mergeDrawings(proj,cloudDrawings){
       ld.height=cd.height||ld.height;
       ld.folder=cd.folder||ld.folder;
       ld.isOriginal=cd.hasOwnProperty('isOriginal')?cd.isOriginal:ld.isOriginal;
-      merged.push(ld);
-      delete localMap[cd.id];
-    }else{
-      // Cloud-only drawing (no local base64) — add as metadata stub
-      merged.push(cd);
     }
+    // Cloud-only drawings are intentionally NOT added — respect local deletions
   });
-  // Keep any local-only drawings not in cloud (shouldn't happen normally)
-  Object.keys(localMap).forEach(function(k){merged.push(localMap[k]);});
-  proj.drawings=merged;
 }
 
 // Merge site photos: cloud has r2 metadata but no dataUrl.
@@ -9006,6 +9021,8 @@ function _mergeSitePhotos(proj,cloudPhotos){
   if(!cloudPhotos)return;
   var localMap={};
   (proj.sitePhotos||[]).forEach(function(ph){if(ph&&ph.id)localMap[ph.id]=ph;});
+  // Only update R2 metadata for photos that exist locally.
+  // Do NOT add cloud-only photos — they were likely deleted locally.
   cloudPhotos.forEach(function(cph){
     if(!cph||!cph.id)return;
     var lph=localMap[cph.id];
@@ -9015,11 +9032,8 @@ function _mergeSitePhotos(proj,cloudPhotos){
       if(cph.r2Url)lph.r2Url=cph.r2Url;
       if(cph.r2Status)lph.r2Status=cph.r2Status;
       if(cph.caption)lph.caption=cph.caption;
-    }else{
-      // Cloud-only photo (e.g., uploaded from another device) — add stub
-      if(!proj.sitePhotos)proj.sitePhotos=[];
-      proj.sitePhotos.push(cph);
     }
+    // Cloud-only photos are intentionally NOT added — respect local deletions
   });
 }
 
