@@ -4352,20 +4352,46 @@ function _observeGalleryThumbs(container){
   if(!imgs.length)return;
   if(!('IntersectionObserver' in window)){
     // Fallback: load all immediately
-    imgs.forEach(function(img){img.src=img.getAttribute('data-src');img.removeAttribute('data-src');});
+    imgs.forEach(function(img){_loadThumbSrc(img);});
     return;
   }
   _galleryObserver=new IntersectionObserver(function(entries){
     entries.forEach(function(entry){
       if(entry.isIntersecting){
         var img=entry.target;
-        img.src=img.getAttribute('data-src');
-        img.removeAttribute('data-src');
+        _loadThumbSrc(img);
         _galleryObserver.unobserve(img);
       }
     });
   },{rootMargin:'200px 0px',threshold:0.01});
   imgs.forEach(function(img){_galleryObserver.observe(img);});
+}
+
+function _loadThumbSrc(img){
+  var src=img.getAttribute('data-src');
+  img.removeAttribute('data-src');
+  if(!src)return;
+  _loadR2OrDirect(src,img);
+}
+
+function _loadR2OrDirect(src,img){
+  // R2 URLs need authenticated fetch → object URL
+  if(typeof R2Photos!=='undefined'&&src.indexOf(R2Photos.WORKER_URL)===0){
+    var token=localStorage.getItem('sb-access-token');
+    var headers=token?{'Authorization':'Bearer '+token}:{};
+    fetch(src,{headers:headers}).then(function(res){
+      if(!res.ok)throw new Error(res.status);
+      return res.blob();
+    }).then(function(blob){
+      img.src=URL.createObjectURL(blob);
+    }).catch(function(e){
+      console.warn('[R2Photos] Image load failed:',src,e.message);
+      img.style.background='#f0f0f0';
+      img.alt='Photo (offline)';
+    });
+  }else{
+    img.src=src;
+  }
 }
 
 function handleDrawingFilesIntoFolder(files, folder){
@@ -7523,7 +7549,7 @@ function showLightboxAt(idx){
     document.body.appendChild(overlay);
   }
   overlay.style.display='flex';
-  document.getElementById('glb-img').src=ph.src;
+  _loadR2OrDirect(ph.src,document.getElementById('glb-img'));
   document.getElementById('glb-counter').textContent='Photo '+(idx+1)+' of '+_lightboxPhotos.length;
   document.getElementById('glb-info').innerHTML=(ph.date||'')+' · '+(ph.caption||ph.type);
   document.body.style.overflow='hidden';
@@ -8809,7 +8835,7 @@ function _initCloudSync(){
       // Re-render with cloud data
       populateProjectFields();
       renderDeficGroups();
-      updateDeficSummary();
+      renderSummaryTable();
       renderDrawingList();
       toast('Project loaded from '+result.source,'',2000);
     }
