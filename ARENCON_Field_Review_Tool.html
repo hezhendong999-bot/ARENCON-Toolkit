@@ -1183,6 +1183,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       </a>
       <a href="ARENCON_Project_Hub.html" class="hdr-hub-link" id="hdr-hub-link" style="display:none;align-items:center;gap:4px;color:rgba(255,255,255,.9);text-decoration:none;font:600 12px Calibri,sans-serif;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);padding:5px 10px;border-radius:6px;white-space:nowrap;">← Project</a>
       <span class="cloud-status" id="cloud-status" style="display:none;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,.7);"><span style="width:7px;height:7px;border-radius:50%;background:#34D399;display:inline-block;" id="cloud-dot"></span><span id="cloud-status-text">Cloud</span></span>
+      <span id="r2-upload-badge" style="display:none;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.3px;"></span>
       <span id="issue-status-badge" style="display:none;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;color:#fff;background:#E65100;text-transform:uppercase;letter-spacing:.5px;">DRAFT</span>
       <span class="app-title" id="header-app-title">Field Review Tool</span>
       <span class="header-nav-arrows" id="header-nav-arrows" style="display:none;">
@@ -3789,7 +3790,17 @@ function resetCurrentTab(){
     p.generalDeficiencies=[];p.nextDeficNum=1;
     saveToLS();renderDeficiencyPanel();showToast('All deficiencies cleared.');
   }else if(currentTab==='photos'){
-    p.photos=[];
+    // Delete R2 copies of site photos
+    if(_csHubMode&&typeof R2Photos!=='undefined'){
+      var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
+      siteArr.forEach(function(ph){
+        if(ph&&ph.r2Key){
+          var parts=ph.r2Key.split('/');
+          if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});
+        }
+      });
+    }
+    p.photos=[];p.sitePhotos=[];
     saveToLS();renderPhotoGallery();showToast('All site photos cleared.');
   }else if(currentTab==='info'){
     resetCurrentProject();return;
@@ -7316,6 +7327,7 @@ function renderPhotoGallery(){
       html+='<div class="photo-thumb'+(sel?' selected':'')+'" data-photo-id="'+ph.id+'">';
       html+='<div class="photo-select-check" onclick="event.stopPropagation();togglePhotoSelect(\''+ph.id+'\')"><input type="checkbox" '+(sel?'checked':'')+' tabindex="-1"></div>';
       html+='<div style="position:absolute;top:4px;right:4px;background:'+typeColor+';color:white;font-size:8px;font-weight:700;padding:2px 5px;border-radius:3px;z-index:2;pointer-events:none;">'+typeLabel+'</div>';
+      if(ph.r2Status){var r2Icon=ph.r2Status==='uploaded'?'☁️':ph.r2Status==='pending'?'⏳':'⚠️';html+='<div style="position:absolute;bottom:4px;right:4px;font-size:10px;z-index:2;pointer-events:none;filter:drop-shadow(0 0 2px rgba(0,0,0,.5));" title="R2: '+ph.r2Status+'">'+r2Icon+'</div>';}
       html+='<img data-src="'+ph.src+'" onclick="openPhotoLightbox(\''+ph.id+'\')" loading="lazy" style="background:#e8e8e8;">';
       html+='<div class="photo-hover-info">';
       html+='<span class="photo-hover-date">'+(ph.date?formatDateTime(ph.date):'')+'</span>';
@@ -7378,7 +7390,15 @@ function deleteSelectedPhotos(){
   _selectedPhotos.forEach(function(id){
     if(id.startsWith('site_')){
       var idx=parseInt(id.split('_')[1]);
-      if(p.sitePhotos&&p.sitePhotos[idx])p.sitePhotos[idx]=null;
+      if(p.sitePhotos&&p.sitePhotos[idx]){
+        // Queue R2 delete if photo was uploaded
+        var sp=p.sitePhotos[idx];
+        if(sp.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+          var parts=sp.r2Key.split('/');// photos/{pid}/frt/original/{fname}
+          if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){console.warn('R2 delete failed:',e);});
+        }
+        p.sitePhotos[idx]=null;
+      }
     } else if(id.startsWith('def_')){
       var parts=id.split('_');var did=parts[1];var pidx=parseInt(parts[2]);
       var f=findDeficiency(did,p);
@@ -7425,7 +7445,8 @@ function _buildUnifiedPhotoList(p){
 
   var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
   if(siteArr.length){siteArr.forEach(function(ph,i){
-    allPhotos.push({src:ph.dataUrl||ph,date:ph.date||ph.uploadDate||ph.timestamp||null,type:'site',idx:i,id:'site_'+i,caption:''});
+    var src=ph.r2Url||ph.dataUrl||ph;
+    allPhotos.push({src:src,date:ph.date||ph.uploadDate||ph.timestamp||null,type:'site',idx:i,id:'site_'+i,caption:'',r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
   });}
 
   var ad=getAllDeficiencies(p);
@@ -7519,12 +7540,33 @@ function triggerPhotoCamera(){document.getElementById('photo-camera-input').clic
 function handlePhotoFiles(files){
   var p=getProject();if(!p)return;
   if(!p.sitePhotos)p.sitePhotos=[];
+  var hubId=_csHubMode?_csProjectId:null;
   Array.from(files).forEach(function(f){
     compressImage(f,3200,0.88,function(du){
       var dateStr=new Date().toISOString().substring(0,19).replace('T',' ');
       getExifDate(f,function(exifDate){
-        p.sitePhotos.push({dataUrl:du,date:exifDate||dateStr,uploadDate:dateStr,caption:''});
-        saveToLS();renderPhotoGallery();
+        var photoRec={dataUrl:du,date:exifDate||dateStr,uploadDate:dateStr,caption:''};
+        // In Hub mode, queue R2 upload and store r2Key
+        if(hubId&&typeof R2Photos!=='undefined'){
+          var fname=R2Photos.generateFilename('site');
+          photoRec.r2Key='photos/'+hubId+'/frt/original/'+fname;
+          photoRec.r2Status='pending';
+          var blob=R2Photos.dataUrlToBlob(du);
+          if(blob){
+            R2Photos.enqueue({
+              projectId:hubId,tool:'frt',type:'original',filename:fname,blob:blob,
+              onComplete:function(err){
+                if(!err){
+                  photoRec.r2Status='uploaded';
+                  photoRec.r2Url=R2Photos.getUrl(hubId,'frt','original',fname);
+                  saveToLS();_updateR2Badge();
+                }else{photoRec.r2Status='error';}
+              }
+            });
+          }
+        }
+        p.sitePhotos.push(photoRec);
+        saveToLS();renderPhotoGallery();_updateR2Badge();
       });
     });
   });
@@ -8711,8 +8753,18 @@ function _incrementRevision(rev){
 }
 function _collectFullState(){
   var p=getProject();if(!p)return{};
-  // Return the full project state for CloudSync
-  return JSON.parse(JSON.stringify(p));
+  // Deep copy project state for CloudSync
+  var state=JSON.parse(JSON.stringify(p));
+  // Strip base64 dataUrl from site photos that have been uploaded to R2
+  // (R2 URL is the source of truth; dataUrl stays in local IDB only)
+  if(state.sitePhotos){
+    state.sitePhotos.forEach(function(ph){
+      if(ph&&ph.r2Status==='uploaded'&&ph.r2Url){
+        delete ph.dataUrl;// Remove large base64 from cloud payload
+      }
+    });
+  }
+  return state;
 }
 
 // ── CloudSync Init (called in Hub mode) ──
@@ -8749,14 +8801,16 @@ function _initCloudSync(){
       if(result.state.nextDeficNum)p.nextDeficNum=result.state.nextDeficNum;
       if(result.state.drawings)p.drawings=result.state.drawings;
       if(result.state.photos)p.photos=result.state.photos;
+      if(result.state.sitePhotos)p.sitePhotos=result.state.sitePhotos;
       if(result.state.sketches)p.sketches=result.state.sketches;
       if(result.state.signatures)p.signatures=result.state.signatures;
       if(result.state.status)p.status=result.state.status;
       if(result.state.settings)p.settings=result.state.settings;
       // Re-render with cloud data
       populateProjectFields();
-      renderDeficiencyPanel();
-      renderDrawingGallery();
+      renderDeficGroups();
+      updateDeficSummary();
+      renderDrawingList();
       toast('Project loaded from '+result.source,'',2000);
     }
     // Show status badge
@@ -8769,11 +8823,163 @@ function _initCloudSync(){
     }
     // Start auto-save to cloud (15s)
     CloudSync.startAutoSave(function(){return _collectFullState();},15000);
+    // Initialize R2 photo uploads
+    if(typeof R2Photos!=='undefined'){
+      R2Photos.init({wifiOnly:true,onProgress:function(info){_updateR2Badge();}});
+    }
   }).catch(function(e){
     console.error('CloudSync init error:',e);
     toast('Cloud sync failed — working in local mode',3000);
   });
 }
+
+function _updateR2Badge(){
+  var el=document.getElementById('r2-upload-badge');
+  if(!el)return;
+  if(typeof R2Photos==='undefined'){el.style.display='none';return;}
+  var q=R2Photos.getQueueLength();
+  if(q>0){
+    el.textContent='📤 '+q+' uploading';
+    el.style.display='inline-block';
+    el.style.background='#FBBF24';el.style.color='#78350F';
+  }else{
+    el.style.display='none';
+  }
+}
+</script>
+<!-- ══ R2 PHOTO STORAGE MODULE v1 ══ -->
+<script>
+var R2Photos=(function(){'use strict';
+var WORKER_URL='https://arencon-r2-worker.hezhendong999.workers.dev';
+var _queue=[];var _uploading=false;var _wifiOnly=true;var _onProgress=null;
+
+function _authHeaders(){
+  var h={};
+  var token=localStorage.getItem('sb-access-token');
+  if(token)h['Authorization']='Bearer '+token;
+  return h;
+}
+
+function _isWifi(){
+  if(!navigator.connection)return true;// Assume wifi if API unavailable
+  var t=navigator.connection.type||navigator.connection.effectiveType||'';
+  return t==='wifi'||t==='ethernet'||t==='4g';// Treat 4g as ok too
+}
+
+function _canUpload(){
+  if(!navigator.onLine)return false;
+  if(_wifiOnly&&!_isWifi())return false;
+  return true;
+}
+
+/* ── Core API calls ── */
+async function upload(projectId,tool,type,filename,blob){
+  var path='/photos/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type)+'/'+encodeURIComponent(filename);
+  var headers=_authHeaders();
+  headers['Content-Type']=blob.type||'image/jpeg';
+  var res=await fetch(WORKER_URL+path,{method:'PUT',headers:headers,body:blob});
+  if(!res.ok){var err;try{err=await res.json();}catch(e){err={error:res.statusText};}throw new Error(err.error||res.statusText);}
+  return await res.json();
+}
+
+function getUrl(projectId,tool,type,filename){
+  return WORKER_URL+'/photos/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type)+'/'+encodeURIComponent(filename);
+}
+
+async function remove(projectId,tool,type,filename){
+  var path='/photos/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type)+'/'+encodeURIComponent(filename);
+  var res=await fetch(WORKER_URL+path,{method:'DELETE',headers:_authHeaders()});
+  if(!res.ok&&res.status!==404){throw new Error('Delete failed: '+res.statusText);}
+  return true;
+}
+
+async function list(projectId,tool,type){
+  var path='/list/'+encodeURIComponent(projectId)+'/photos/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type);
+  var res=await fetch(WORKER_URL+path,{method:'GET',headers:_authHeaders()});
+  if(!res.ok){throw new Error('List failed: '+res.statusText);}
+  return await res.json();
+}
+
+/* ── Upload Queue ── */
+function enqueue(item){
+  // item: {projectId, tool, type, filename, blob, dataUrl, onComplete}
+  _queue.push(item);
+  _fireProgress();
+  _processQueue();
+}
+
+function _fireProgress(){
+  if(_onProgress)_onProgress({queued:_queue.length,uploading:_uploading});
+}
+
+async function _processQueue(){
+  if(_uploading||!_queue.length)return;
+  if(!_canUpload()){
+    _fireProgress();
+    return;// Will retry when connection changes
+  }
+  _uploading=true;
+  while(_queue.length>0){
+    if(!_canUpload())break;
+    var item=_queue[0];
+    try{
+      var result=await upload(item.projectId,item.tool,item.type,item.filename,item.blob);
+      _queue.shift();// Remove on success
+      if(item.onComplete)item.onComplete(null,result);
+    }catch(e){
+      console.warn('[R2Photos] Upload failed:',e.message,', will retry');
+      break;// Leave in queue for retry
+    }
+    _fireProgress();
+  }
+  _uploading=false;
+  _fireProgress();
+}
+
+/* ── Helpers ── */
+function dataUrlToBlob(dataUrl){
+  if(!dataUrl||typeof dataUrl!=='string'||!dataUrl.startsWith('data:'))return null;
+  try{
+    var parts=dataUrl.split(',');var mime=parts[0].match(/:(.*?);/)[1];
+    var raw=atob(parts[1]);var arr=new Uint8Array(raw.length);
+    for(var i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);
+    return new Blob([arr],{type:mime});
+  }catch(e){return null;}
+}
+
+function generateFilename(prefix){
+  return (prefix||'photo')+'_'+Date.now()+'_'+Math.random().toString(36).substr(2,6)+'.jpg';
+}
+
+/* ── Lifecycle ── */
+function init(opts){
+  opts=opts||{};
+  _wifiOnly=opts.wifiOnly!==false;// Default true
+  _onProgress=opts.onProgress||null;
+  // Listen for connectivity changes to resume queue
+  window.addEventListener('online',function(){setTimeout(_processQueue,1000);});
+  if(navigator.connection){
+    navigator.connection.addEventListener('change',function(){setTimeout(_processQueue,1000);});
+  }
+}
+
+function getQueueLength(){return _queue.length;}
+function isUploading(){return _uploading;}
+
+return{
+  init:init,
+  upload:upload,
+  getUrl:getUrl,
+  remove:remove,
+  list:list,
+  enqueue:enqueue,
+  dataUrlToBlob:dataUrlToBlob,
+  generateFilename:generateFilename,
+  getQueueLength:getQueueLength,
+  isUploading:isUploading,
+  get WORKER_URL(){return WORKER_URL;}
+};
+})();
 </script>
 <!-- ══ CLOUDSYNC MODULE v1 ══ -->
 <script>
