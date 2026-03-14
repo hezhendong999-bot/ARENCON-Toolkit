@@ -8786,13 +8786,38 @@ function _collectFullState(){
   var p=getProject();if(!p)return{};
   // Deep copy project state for CloudSync
   var state=JSON.parse(JSON.stringify(p));
-  // Strip base64 dataUrl from site photos that have been uploaded to R2
-  // (R2 URL is the source of truth; dataUrl stays in local IDB only)
+  // Strip base64 dataUrl from ALL site photos for cloud payload
+  // (base64 data stays in local IDB only; cloud stores metadata + r2Url)
   if(state.sitePhotos){
     state.sitePhotos.forEach(function(ph){
-      if(ph&&ph.r2Status==='uploaded'&&ph.r2Url){
-        delete ph.dataUrl;// Remove large base64 from cloud payload
-      }
+      if(ph&&ph.dataUrl)delete ph.dataUrl;
+    });
+  }
+  // Also strip from legacy p.photos array
+  if(state.photos){
+    state.photos.forEach(function(ph){
+      if(ph&&ph.dataUrl)delete ph.dataUrl;
+      if(typeof ph==='string'&&ph.startsWith('data:'))state.photos[state.photos.indexOf(ph)]=null;
+    });
+    state.photos=state.photos.filter(function(x){return x!==null;});
+  }
+  // Strip base64 from deficiency photos and drawings too
+  var allDefics=[].concat(state.generalDeficiencies||[]);
+  (state.contractors||[]).forEach(function(c){allDefics=allDefics.concat(c.deficiencies||[]);});
+  allDefics.forEach(function(d){
+    if(d.photos)d.photos=d.photos.map(function(ph){return typeof ph==='string'&&ph.startsWith('data:')?'[local]':ph;});
+    if(d.entries)d.entries.forEach(function(en){
+      if(en.photos)en.photos=en.photos.map(function(ph){return typeof ph==='string'&&ph.startsWith('data:')?'[local]':ph;});
+    });
+    if(d.responses)d.responses.forEach(function(r){
+      if(r.photos)r.photos=r.photos.map(function(ph){return typeof ph==='string'&&ph.startsWith('data:')?'[local]':ph;});
+    });
+  });
+  // Strip base64 from drawings
+  if(state.drawings){
+    state.drawings.forEach(function(d){
+      if(d&&d.dataUrl)delete d.dataUrl;
+      if(d&&d.markupData)delete d.markupData;
     });
   }
   return state;
