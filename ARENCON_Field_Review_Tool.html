@@ -1824,7 +1824,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 <script>
 // ═══ ARENCON IndexedDB Storage Layer ═══
 
-var ADB={db:null,DB_NAME:'ARENCON_FieldReview',DB_VER:1,ready:false,_queue:[],folderHandle:null,autoSaveTimer:null,dirty:false};
+var ADB={db:null,DB_NAME:'ARENCON_FieldReview',DB_VER:2,ready:false,_queue:[],folderHandle:null,autoSaveTimer:null,dirty:false};
 
 ADB.open=function(){return new Promise(function(resolve,reject){
   if(ADB.db){resolve(ADB.db);return;}
@@ -1837,6 +1837,7 @@ ADB.open=function(){return new Promise(function(resolve,reject){
     if(!db.objectStoreNames.contains('sitePhotos')){var sp=db.createObjectStore('sitePhotos',{keyPath:'id'});sp.createIndex('projectId','projectId',{unique:false});}
     if(!db.objectStoreNames.contains('config'))db.createObjectStore('config',{keyPath:'key'});
     if(!db.objectStoreNames.contains('backups'))db.createObjectStore('backups',{keyPath:'id'});
+    if(!db.objectStoreNames.contains('pendingUploads')){var pu=db.createObjectStore('pendingUploads',{keyPath:'id'});pu.createIndex('projectId','projectId',{unique:false});}
   };
   req.onsuccess=function(e){ADB.db=e.target.result;ADB.ready=true;resolve(ADB.db);};
   req.onerror=function(e){console.error('IDB open error',e);reject(e);};
@@ -1918,14 +1919,27 @@ ADB.blobToDataUrl=function(blob){return new Promise(function(resolve,reject){
 ADB.saveProject=function(proj){
   var meta=JSON.parse(JSON.stringify(proj));
   meta.drawings=(meta.drawings||[]).map(function(d){return{id:d.id,name:d.name,width:d.width,height:d.height,isOriginal:d.isOriginal,folder:d.folder||''};});
-  function _stripDeficMeta(d){
-    d._photoCount=(d.photos||[]).length;d.photos=[];
-    // Also strip entry-level photos (stored in blob store)
-    if(d.entries){d.entries.forEach(function(e){e._photoCount=(e.photos||[]).length;e.photos=[];});}
-    (d.responses||[]).forEach(function(r){r._photoCount=(r.photos||[]).length;r.photos=[];});
+  // Defic photos: keep records (id, r2Key, r2Status, r2Url) but strip dataUrl blobs
+  function _stripDeficPhotoBlobs(d){
+    if(d.photos)d.photos=d.photos.map(function(ph){
+      if(typeof ph==='string')return{id:'dp_'+Math.random().toString(36).substr(2,8),r2Key:'',r2Status:'',r2Url:''};
+      return{id:ph.id||'',r2Key:ph.r2Key||'',r2Status:ph.r2Status||'',r2Url:ph.r2Url||''};
+    });
+    if(d.entries){d.entries.forEach(function(e){
+      if(e.photos)e.photos=e.photos.map(function(ph){
+        if(typeof ph==='string')return{id:'dp_'+Math.random().toString(36).substr(2,8),r2Key:'',r2Status:'',r2Url:''};
+        return{id:ph.id||'',r2Key:ph.r2Key||'',r2Status:ph.r2Status||'',r2Url:ph.r2Url||''};
+      });
+    });}
+    (d.responses||[]).forEach(function(r){
+      if(r.photos)r.photos=r.photos.map(function(ph){
+        if(typeof ph==='string')return{id:'dp_'+Math.random().toString(36).substr(2,8),r2Key:'',r2Status:'',r2Url:''};
+        return{id:ph.id||'',r2Key:ph.r2Key||'',r2Status:ph.r2Status||'',r2Url:ph.r2Url||''};
+      });
+    });
   }
-  (meta.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(_stripDeficMeta);});
-  (meta.generalDeficiencies||[]).forEach(_stripDeficMeta);
+  (meta.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(_stripDeficPhotoBlobs);});
+  (meta.generalDeficiencies||[]).forEach(_stripDeficPhotoBlobs);
   meta.photos=[];// legacy site photos stored separately
   meta.sitePhotos=[];// site photos stored in sitePhotos blob store
   return ADB.put('projects',meta);
@@ -1952,15 +1966,27 @@ ADB.saveSitePhoto=function(photo,projectId){
   return ADB.put('sitePhotos',rec);
 };
 
+// ═══ PENDING UPLOADS — temp blob holding area for R2-first architecture ═══
+ADB.savePending=function(photoId,projectId,blob,meta){
+  var rec={id:photoId,projectId:projectId,dataBlob:blob,meta:meta||{},savedAt:new Date().toISOString()};
+  return ADB.put('pendingUploads',rec);
+};
+ADB.deletePending=function(photoId){
+  return ADB.delete('pendingUploads',photoId);
+};
+ADB.loadPendingByProject=function(projectId){
+  return ADB.getAllByIndex('pendingUploads','projectId',projectId);
+};
+
 ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reject){
   Promise.all([
     ADB.get('projects',projectId),
     ADB.getAllByIndex('drawings','projectId',projectId),
-    ADB.getAllByIndex('photos','projectId',projectId),
-    ADB.getAllByIndex('sitePhotos','projectId',projectId)
+    ADB.getAllByIndex('sitePhotos','projectId',projectId),
+    ADB.loadPendingByProject(projectId)
   ]).then(function(results){
     var proj=results[0];if(!proj){resolve(null);return;}
-    var drawings=results[1]||[];var photos=results[2]||[];var sitePhotos=results[3]||[];
+    var drawings=results[1]||[];var sitePhotos=results[2]||[];var pending=results[3]||[];
     var drawingPromises=drawings.map(function(d){
       return Promise.all([
         d.dataBlob?ADB.blobToDataUrl(d.dataBlob):Promise.resolve(null),
@@ -1969,50 +1995,48 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
     });
     Promise.all(drawingPromises).then(function(resolvedDrawings){
       proj.drawings=resolvedDrawings;
-      // Rebuild deficiency photos as record objects from IDB blobs
-      var photoMap={};photos.forEach(function(ph){
-        var key=ph.deficId+'_'+(ph.respIdx>=0?ph.respIdx:'-1');
-        if(!photoMap[key])photoMap[key]=[];photoMap[key].push(ph);
+      // ── Defic photos: R2-first Phase 1 ──
+      // Photo records (id, r2Key, r2Status, r2Url) are already in project metadata.
+      // Rehydrate pending uploads: restore dataUrl from pendingUploads blob store for photos
+      // that haven't finished uploading to R2 yet.
+      var pendingMap={};
+      var pendingBlobPromises=pending.map(function(p){
+        return p.dataBlob?ADB.blobToDataUrl(p.dataBlob).then(function(url){
+          if(url)pendingMap[p.id]=url;
+        }):Promise.resolve();
       });
-      var photoPromises=[];
-      function resolveDeficPhotos(defic){
-        var key=defic.id+'_-1';
-        defic.photos=[];
-        // Clear entry-level photos too (will be synced from defic.photos after load)
-        if(defic.entries){defic.entries.forEach(function(e){e.photos=[];});}
-        if(photoMap[key]){photoMap[key].forEach(function(ph){
-          photoPromises.push(ADB.blobToDataUrl(ph.dataBlob).then(function(url){
-            if(url){
-              var rec={id:ph.id||('dp_'+Math.random().toString(36).substr(2,8)),dataUrl:url,r2Key:'',r2Status:'',r2Url:''};
-              defic.photos.push(rec);
-              // Also add to first entry if entries exist
-              if(defic.entries&&defic.entries[0]){
-                if(!defic.entries[0].photos)defic.entries[0].photos=[];
-                defic.entries[0].photos.push(rec);
-              }
-            }
-          }));
-        });}
-        (defic.responses||[]).forEach(function(r,ri){
-          var rkey=defic.id+'_'+ri;r.photos=[];
-          if(photoMap[rkey]){photoMap[rkey].forEach(function(ph){
-            photoPromises.push(ADB.blobToDataUrl(ph.dataBlob).then(function(url){
-              if(url)r.photos.push({id:ph.id||('dp_'+Math.random().toString(36).substr(2,8)),dataUrl:url,r2Key:'',r2Status:'',r2Url:''});
-            }));
-          });}
+      Promise.all(pendingBlobPromises).then(function(){
+        // Walk all defic photos and rehydrate dataUrl from pending map
+        function _rehydrateDeficPhotos(defics){
+          if(!defics)return;
+          defics.forEach(function(d){
+            (d.photos||[]).forEach(function(ph){
+              if(ph.id&&pendingMap[ph.id]){ph.dataUrl=pendingMap[ph.id];ph.r2Status=ph.r2Status||'pending';}
+            });
+            if(d.entries){d.entries.forEach(function(e){
+              (e.photos||[]).forEach(function(ph){
+                if(ph.id&&pendingMap[ph.id]){ph.dataUrl=pendingMap[ph.id];ph.r2Status=ph.r2Status||'pending';}
+              });
+            });}
+            (d.responses||[]).forEach(function(r){
+              (r.photos||[]).forEach(function(ph){
+                if(ph.id&&pendingMap[ph.id]){ph.dataUrl=pendingMap[ph.id];ph.r2Status=ph.r2Status||'pending';}
+              });
+            });
+          });
+        }
+        (proj.contractors||[]).forEach(function(c){_rehydrateDeficPhotos(c.deficiencies);});
+        _rehydrateDeficPhotos(proj.generalDeficiencies);
+        // Rebuild site photos from IDB blobs (Phase 2 will migrate these)
+        var spPromises=sitePhotos.map(function(sp){
+          return ADB.blobToDataUrl(sp.dataBlob).then(function(url){
+            return url?{id:sp.id,dataUrl:url,caption:sp.caption||'',date:sp.timestamp||'',uploadDate:sp.timestamp||'',r2Key:'',r2Status:'',r2Url:''}:null;
+          });
         });
-      }
-      (proj.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(resolveDeficPhotos);});
-      (proj.generalDeficiencies||[]).forEach(resolveDeficPhotos);
-      // Rebuild site photos from IDB blobs
-      var spPromises=sitePhotos.map(function(sp){
-        return ADB.blobToDataUrl(sp.dataBlob).then(function(url){
-          return url?{id:sp.id,dataUrl:url,caption:sp.caption||'',date:sp.timestamp||'',uploadDate:sp.timestamp||'',r2Key:'',r2Status:'',r2Url:''}:null;
+        Promise.all(spPromises).then(function(spResults){
+          proj.sitePhotos=spResults.filter(function(s){return s&&s.dataUrl;});
+          resolve(proj);
         });
-      });
-      Promise.all(photoPromises.concat(spPromises)).then(function(spResults){
-        proj.sitePhotos=spResults.filter(function(s){return s&&s.dataUrl;});
-        resolve(proj);
       });
     });
   }).catch(reject);
@@ -2033,35 +2057,10 @@ ADB.saveFullProject=function(proj){
     });
     return Promise.all(delPromises);
   }).catch(function(){}));
-  // Save deficiency photos — extract dataUrl from record objects
-  var deficPhotoIds=[];
-  function saveDeficPhotos(defic){
-    (defic.photos||[]).forEach(function(ph,i){
-      var phId='dph_'+defic.id+'_'+i;
-      deficPhotoIds.push(phId);
-      var src=typeof ph==='string'?ph:(ph&&ph.dataUrl?ph.dataUrl:'');
-      if(src)promises.push(ADB.saveDeficPhoto(phId,pid,defic.id,null,src));
-    });
-    (defic.responses||[]).forEach(function(r,ri){
-      (r.photos||[]).forEach(function(ph,i){
-        var phId='rph_'+defic.id+'_'+ri+'_'+i;
-        deficPhotoIds.push(phId);
-        var src=typeof ph==='string'?ph:(ph&&ph.dataUrl?ph.dataUrl:'');
-        if(src)promises.push(ADB.saveDeficPhoto(phId,pid,defic.id,ri,src));
-      });
-    });
-  }
-  (proj.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(saveDeficPhotos);});
-  (proj.generalDeficiencies||[]).forEach(saveDeficPhotos);
-  // Clean stale deficiency photos from IDB
-  promises.push(ADB.getAllByIndex('photos','projectId',pid).then(function(idbPhotos){
-    var delPromises=[];
-    (idbPhotos||[]).forEach(function(idbPh){
-      if(deficPhotoIds.indexOf(idbPh.id)<0){delPromises.push(ADB.delete('photos',idbPh.id));}
-    });
-    return Promise.all(delPromises);
-  }).catch(function(){}));
-  // Save site photos
+  // ── Deficiency photos: NO blob save (R2-first Phase 1) ──
+  // Photo records (id, r2Key, r2Status, r2Url) are saved inline in project metadata via saveProject().
+  // Pending uploads (blobs awaiting R2) are in the pendingUploads store, managed by _r2EnqueueDeficPhoto.
+  // Save site photos (Phase 2 will migrate these too)
   var sitePhotoIds=[];
   (proj.sitePhotos||[]).forEach(function(ph){
     if(ph&&ph.dataUrl&&ph.id){sitePhotoIds.push(ph.id);promises.push(ADB.saveSitePhoto(ph,pid));}
@@ -3112,6 +3111,8 @@ function enterProject(id){currentProjectId=id;var p=getProject();if(!p)return;if
   _migrateDeficPhotos(p.generalDeficiencies);
   // Ensure all site photos have IDs (Session 21F)
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){if(ph&&!ph.id)ph.id='sp_'+Math.random().toString(36).substr(2,8);});}
+  // Re-queue any pending R2 uploads from previous session (R2-first crash recovery)
+  _requeuePendingUploads(p);
   var _el;
   _el=document.getElementById('view-dashboard');if(_el)_el.style.display='none';
   _el=document.getElementById('view-project');if(_el){_el.style.display='block';_el.style.visibility='visible';}
@@ -6259,34 +6260,13 @@ function _lbHideToolbar(){
 }
 
 function lightboxSave(){
+  var oldSrc=_lbPhotos[_lbIdx];
   var src=_lbCanvas.toDataURL('image/jpeg',0.92);
+  _lbPhotos[_lbIdx]=src;
   var p=getProject&&getProject();
-  if(p&&_lbPhotoContext){
-    // Direct update via context (reliable — no src matching)
-    var ctx=_lbPhotoContext;
-    var f=findDeficiency(ctx.deficId,p);
-    if(f){
-      if(ctx.type==='entry'&&f.defic.entries&&f.defic.entries[ctx.entryIdx]){
-        var ph=f.defic.entries[ctx.entryIdx].photos[ctx.photoIdx];
-        if(ph&&typeof ph==='object')ph.dataUrl=src;
-        // Also update in d.photos
-        if(f.defic.photos){f.defic.photos.forEach(function(dp){if(dp&&dp.id===ph.id)dp.dataUrl=src;});}
-      }else if(ctx.type==='resp'&&f.defic.responses&&f.defic.responses[ctx.respIdx]){
-        var rph=f.defic.responses[ctx.respIdx].photos[ctx.photoIdx];
-        if(rph&&typeof rph==='object')rph.dataUrl=src;
-      }
-    }
-    saveToLS&&saveToLS();
-    showToast&&showToast('Photo overwritten with markup');
-    if(currentTab==='deficiencies')renderDeficiencyPanel();
-    if(currentTab==='photos')renderPhotoGallery();
-  }else if(p){
-    // Fallback: try src matching (for site photos or unknown context)
-    var oldSrc=_lbPhotos[_lbIdx];
-    _lbPhotos[_lbIdx]=src;
+  if(p){
+    // Replace old photo data everywhere
     _replacePhotoInProject(p,oldSrc,src);
-    // Also check sitePhotos
-    if(p.sitePhotos){p.sitePhotos.forEach(function(sp){if(sp&&sp.dataUrl===oldSrc)sp.dataUrl=src;});}
     saveToLS&&saveToLS();
     showToast&&showToast('Photo overwritten with markup');
   }
@@ -6297,9 +6277,9 @@ function lightboxSaveCopy(){
   var src=_lbCanvas.toDataURL('image/jpeg',0.92);
   var p=getProject&&getProject();
   if(p){
-    // Add as new site photo in gallery (keep original intact)
-    if(!p.sitePhotos)p.sitePhotos=[];
-    p.sitePhotos.push({id:'sp_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),dataUrl:src,date:new Date().toISOString(),uploadDate:new Date().toISOString(),caption:'Marked-up copy'});
+    // Add as new photo in gallery (keep original intact)
+    if(!p.photos)p.photos=[];
+    p.photos.push({id:'ph_'+Date.now(),src:src,date:new Date().toISOString(),note:'Marked-up copy'});
     saveToLS&&saveToLS();
     showToast&&showToast('Marked-up copy saved to Photos tab');
     if(currentTab==='photos')renderPhotoGallery();
@@ -6377,7 +6357,7 @@ function buildDeficItem(d,ctrId,i){
     var enPhotos=en.photos||[];
     var enThumbsHtml='';enPhotos.forEach(function(ph,pi){
       var psrc=_deficPhotoSrc(ph);
-      enThumbsHtml+='<div class="photo-thumb"><img data-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.src,null,null,{deficId:\''+d.id+'\',entryIdx:'+ei+',photoIdx:'+pi+',type:\'entry\'})" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+ei+','+pi+')">✕</button></div>';
+      enThumbsHtml+='<div class="photo-thumb"><img data-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.src)" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+ei+','+pi+')">✕</button></div>';
     });
 
     obsHtml+='<div class="pin-entry-row" style="border-left:3px solid '+prCol+';">';
@@ -6628,7 +6608,7 @@ function populateRespPhotos(){
         r.photos.forEach(function(phRec,pi){
           var psrc=_deficPhotoSrc(phRec);
           html+="<div style=\"position:relative;width:60px;height:60px;flex-shrink:0;\">";
-          html+="<img data-src=\""+escHtml(psrc)+"\" style=\"width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer;\" onclick=\"openPhotoLightboxDirect(this.src,null,null,{deficId:'"+d.defic.id+"',respIdx:"+ri+",photoIdx:"+pi+",type:'resp'})\">";
+          html+="<img data-src=\""+escHtml(psrc)+"\" style=\"width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer;\" onclick=\"openPhotoLightboxDirect(this.src)\">";
           html+="<button onclick=\"removeRespPhoto(&quot;"+d.defic.id+"&quot;,"+ri+","+pi+")\" style=\"position:absolute;top:-4px;right:-4px;background:var(--red);color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;line-height:16px;text-align:center;\">✕</button>";
           html+="</div>";
         });
@@ -6691,24 +6671,96 @@ function _migrateDeficPhotos(defics){
     });}
   });
 }
-// Queue R2 upload for a deficiency photo record
+// Queue R2 upload for a deficiency photo record (R2-first hybrid)
+// 1. Save blob to pendingUploads IDB store (crash-safe holding area)
+// 2. Start R2 upload in background
+// 3. On success: delete from pendingUploads, clear dataUrl, set r2Url
 function _r2EnqueueDeficPhoto(rec,deficId){
   var hubId=_csHubMode?_csProjectId:null;
-  if(!hubId||typeof R2Photos==='undefined')return;
+  if(!hubId||typeof R2Photos==='undefined'){return;}
   var blob=R2Photos.dataUrlToBlob(rec.dataUrl);
   if(!blob)return;
   var fname=R2Photos.generateFilename('defic');
   rec.r2Key='photos/'+hubId+'/frt/original/'+fname;
   rec.r2Status='pending';
+  // Step 1: Save to pendingUploads for crash safety
+  ADB.savePending(rec.id,hubId,blob,{deficId:deficId,r2Key:rec.r2Key,fname:fname}).catch(function(e){
+    console.warn('[R2First] Failed to save pending:',e);
+  });
+  // Step 2: Queue R2 upload
   R2Photos.enqueue({
     projectId:hubId,tool:'frt',type:'original',filename:fname,blob:blob,
     onComplete:function(err){
       if(!err){
         rec.r2Status='uploaded';
         rec.r2Url=R2Photos.getUrl(hubId,'frt','original',fname);
+        // Step 3: Clear dataUrl from memory (R2 is source of truth now)
+        delete rec.dataUrl;
+        // Remove from pendingUploads — upload confirmed
+        ADB.deletePending(rec.id).catch(function(){});
         saveToLS();_updateR2Badge();
       }else{rec.r2Status='error';}
     }
+  });
+}
+
+// Re-queue pending uploads from IDB after page reload / crash recovery
+function _requeuePendingUploads(proj){
+  if(!_csHubMode||typeof R2Photos==='undefined'||!_csProjectId)return;
+  var hubId=_csProjectId;
+  ADB.loadPendingByProject(hubId).then(function(pending){
+    if(!pending||!pending.length)return;
+    console.log('[R2First] Re-queuing '+pending.length+' pending uploads');
+    // Build a map of photo id → record reference in the live project
+    var recMap={};
+    function _mapDeficPhotos(defics){
+      if(!defics)return;
+      defics.forEach(function(d){
+        (d.photos||[]).forEach(function(ph){if(ph&&ph.id)recMap[ph.id]=ph;});
+        if(d.entries){d.entries.forEach(function(e){
+          (e.photos||[]).forEach(function(ph){if(ph&&ph.id)recMap[ph.id]=ph;});
+        });}
+        (d.responses||[]).forEach(function(r){
+          (r.photos||[]).forEach(function(ph){if(ph&&ph.id)recMap[ph.id]=ph;});
+        });
+      });
+    }
+    (proj.contractors||[]).forEach(function(c){_mapDeficPhotos(c.deficiencies);});
+    _mapDeficPhotos(proj.generalDeficiencies);
+    pending.forEach(function(p){
+      if(!p.dataBlob)return;
+      var rec=recMap[p.id];
+      var meta=p.meta||{};
+      var fname=meta.fname||R2Photos.generateFilename('defic');
+      var r2Key=meta.r2Key||('photos/'+hubId+'/frt/original/'+fname);
+      if(rec){
+        // Rehydrate dataUrl for display while upload is pending
+        ADB.blobToDataUrl(p.dataBlob).then(function(url){
+          if(url)rec.dataUrl=url;
+        }).catch(function(){});
+        rec.r2Key=r2Key;
+        rec.r2Status='pending';
+      }
+      R2Photos.enqueue({
+        projectId:hubId,tool:'frt',type:'original',filename:fname,blob:p.dataBlob,
+        onComplete:function(err){
+          if(!err){
+            if(rec){
+              rec.r2Status='uploaded';
+              rec.r2Url=R2Photos.getUrl(hubId,'frt','original',fname);
+              delete rec.dataUrl;
+            }
+            ADB.deletePending(p.id).catch(function(){});
+            saveToLS();_updateR2Badge();
+          }else{
+            if(rec)rec.r2Status='error';
+          }
+        }
+      });
+    });
+    _updateR2Badge();
+  }).catch(function(e){
+    console.warn('[R2First] Failed to load pending uploads:',e);
   });
 }
 
@@ -6787,15 +6839,11 @@ function _lbHandleOverlayClick(e){
   if(_lbDrawing)return;
   if(e.target===e.currentTarget||e.target.id==='photo-lightbox')closeLightbox(e);
 }
-// Track which photo record is being edited in lightbox
-var _lbPhotoContext=null;// {deficId, entryIdx, photoIdx, type:'entry'|'resp'|'site', respIdx}
-
-function openPhotoLightboxDirect(src,photosArr,startIdx,photoContext){
+function openPhotoLightboxDirect(src,photosArr,startIdx){
   var lb=document.getElementById('photo-lightbox');
   if(!lb)return;
   _lbCanvas=document.getElementById('lightbox-canvas');
   _lbPhotos=photosArr||[src];_lbIdx=startIdx||0;
-  _lbPhotoContext=photoContext||null;
   _lbDrawing=false;
   _lbHideToolbar();
   lb.style.display='flex';
@@ -6928,7 +6976,7 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
     entry.photos.forEach(function(phRec,pi){
       var psrc=_deficPhotoSrc(phRec);
       ph+='<div style="position:relative;width:68px;height:68px;border-radius:6px;overflow:hidden;border:1px solid var(--border);">';
-      ph+='<img data-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.src,null,null,{deficId:\''+d.id+'\',entryIdx:'+ae+',photoIdx:'+pi+',type:\'entry\'});event.stopPropagation();" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;">';
+      ph+='<img data-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.src);event.stopPropagation();" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;">';
       ph+='<button onclick="removePinEntryPhoto('+ae+','+pi+')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:white;border:none;border-radius:50%;width:17px;height:17px;font-size:9px;cursor:pointer;line-height:17px;text-align:center;">x</button>';
       ph+='</div>';
     });
@@ -7700,30 +7748,37 @@ function deselectAllPhotos(){_selectedPhotos=[];renderPhotoGallery();}
 
 function deleteSelectedPhotos(){
   if(!_selectedPhotos.length){showToast('No photos selected');return;}
-  // Only allow deleting site photos from gallery — deficiency photos must be deleted from their pin
-  var siteOnly=_selectedPhotos.filter(function(id){return id.startsWith('site_');});
-  var blocked=_selectedPhotos.length-siteOnly.length;
-  if(blocked>0&&siteOnly.length===0){
-    showToast('Deficiency photos can only be deleted from their pin');return;
-  }
-  if(blocked>0){
-    showToast(blocked+' deficiency photo'+(blocked>1?'s':'')+' skipped — delete from pin instead');
-  }
-  if(!siteOnly.length)return;
-  if(!confirm('Delete '+siteOnly.length+' selected site photo'+(siteOnly.length>1?'s':'')+'?'))return;
+  if(!confirm('Delete '+_selectedPhotos.length+' selected photos?'))return;
   var p=getProject();if(!p)return;
-  siteOnly.forEach(function(id){
-    var idx=parseInt(id.split('_')[1]);
-    if(p.sitePhotos&&p.sitePhotos[idx]){
-      var sp=p.sitePhotos[idx];
-      if(sp.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
-        var parts=sp.r2Key.split('/');
-        if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){console.warn('R2 delete failed:',e);});
+  _selectedPhotos.forEach(function(id){
+    if(id.startsWith('site_')){
+      var idx=parseInt(id.split('_')[1]);
+      if(p.sitePhotos&&p.sitePhotos[idx]){
+        // Queue R2 delete if photo was uploaded
+        var sp=p.sitePhotos[idx];
+        if(sp.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+          var parts=sp.r2Key.split('/');// photos/{pid}/frt/original/{fname}
+          if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){console.warn('R2 delete failed:',e);});
+        }
+        p.sitePhotos[idx]=null;
       }
-      p.sitePhotos[idx]=null;
+    } else if(id.startsWith('def_')){
+      var parts=id.split('_');var did=parts[1];var pidx=parseInt(parts[2]);
+      var f=findDeficiency(did,p);
+      if(f&&f.defic.photos&&f.defic.photos[pidx]){
+        var ph=f.defic.photos[pidx];
+        if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+          var rp=ph.r2Key.split('/');
+          if(rp.length>=5)R2Photos.remove(rp[1],rp[2],rp[3],rp[4]).catch(function(e){});
+        }
+        f.defic.photos[pidx]=null;
+      }
     }
   });
   if(p.sitePhotos)p.sitePhotos=p.sitePhotos.filter(function(x){return x!==null;});
+  getAllDeficiencies(p).forEach(function(d){
+    if(d.defic.photos)d.defic.photos=d.defic.photos.filter(function(x){return x!==null;});
+  });
   _selectedPhotos=[];
   saveToLS();renderPhotoGallery();showToast('Photos deleted');
 }
@@ -8165,6 +8220,61 @@ function _renderDrawingWithPins(dwgDataUrl, pins, callback){
 function exportPDF(mode){
 if(!currentProjectId)return;var p=getProject();var logo=LOGO_SRC;
 var isField=(mode==='field');
+// Pre-fetch R2 URLs to object URLs for PDF (bare img src can't send auth headers)
+_prefetchR2PhotosForPDF(p).then(function(r2Cache){
+_exportPDFWithCache(p,logo,isField,mode,r2Cache);
+}).catch(function(e){
+console.warn('[PDF] R2 prefetch failed, proceeding with available URLs:',e);
+_exportPDFWithCache(p,logo,isField,mode,{});
+});
+}
+
+// Fetch all R2 URLs in the project and return a map of r2Url → objectURL
+function _prefetchR2PhotosForPDF(p){
+var urls=[];
+function _collectR2Urls(defics){
+  if(!defics)return;
+  defics.forEach(function(d){
+    (d.photos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
+    if(d.entries){d.entries.forEach(function(e){
+      (e.photos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
+    });}
+    (d.responses||[]).forEach(function(r){
+      (r.photos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
+    });
+  });
+}
+(p.contractors||[]).forEach(function(c){_collectR2Urls(c.deficiencies);});
+_collectR2Urls(p.generalDeficiencies);
+// Also site photos
+(p.sitePhotos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
+// Deduplicate
+urls=[].concat(urls.filter(function(u,i,a){return a.indexOf(u)===i;}));
+if(!urls.length)return Promise.resolve({});
+var cache={};
+var token=localStorage.getItem('sb-access-token');
+var headers=token?{'Authorization':'Bearer '+token}:{};
+return Promise.all(urls.map(function(url){
+  return fetch(url,{headers:headers}).then(function(res){
+    if(!res.ok)throw new Error(res.status);
+    return res.blob();
+  }).then(function(blob){
+    cache[url]=URL.createObjectURL(blob);
+  }).catch(function(){
+    // Skip — photo will be missing in PDF
+  });
+})).then(function(){return cache;});
+}
+
+// Resolve photo src for PDF: use R2 cache object URL if available
+function _pdfPhotoSrc(ph,r2Cache){
+if(!ph)return '';
+if(typeof ph==='string')return ph;
+if(ph.r2Url&&r2Cache&&r2Cache[ph.r2Url])return r2Cache[ph.r2Url];
+return ph.dataUrl||ph.r2Url||'';
+}
+
+function _exportPDFWithCache(p,logo,isField,mode,r2Cache){
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
 var reportDefs=[];var rn=1;
 (p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){reportDefs.push({d:d,ctr:c.name,rn:rn++});});});
@@ -8277,7 +8387,7 @@ if(d.entries&&d.entries.length){
     h+='<div style="font-size:11px;margin-bottom:4px;"><strong>Description:</strong> '+escHtml(en.description||'—')+'</div>';
     if(en.photos&&en.photos.length){
       h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">';
-      en.photos.forEach(function(ph){h+='<img class="dp" src="'+_deficPhotoSrc(ph)+'">';});
+      en.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
       h+='</div>';
     }
     h+='</div>';
@@ -8288,7 +8398,7 @@ if(d.entries&&d.entries.length){
   var firstPhotos=d.photos||[];
   if(firstPhotos.length){
     h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">';
-    firstPhotos.forEach(function(ph){h+='<img class="dp" src="'+_deficPhotoSrc(ph)+'">';});
+    firstPhotos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
     h+='</div>';
   }
 }
@@ -8305,7 +8415,7 @@ if(d.entries&&d.entries.length){
           h+='<strong style="color:'+(isCtr?'#E67E22':'#1565C0')+'">'+(isCtr?'Contractor':'Consultant')+' Response:</strong> '+(resp.comment?escHtml(resp.comment):'—');
           if(resp.photos&&resp.photos.length){
             h+='<div class="resp-photos">';
-            resp.photos.forEach(function(ph){h+='<img src="'+_deficPhotoSrc(ph)+'">';});
+            resp.photos.forEach(function(ph){h+='<img src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
             h+='</div>';
           }
           h+='</div>';
@@ -9004,6 +9114,10 @@ function confirmPhotoPick(){
     var src=map[id];if(!src)return;
     // Create a photo record from the picked src (may be base64 or R2 URL)
     var rec=_makeDeficPhotoRec(src);
+    // If source is an R2 URL, store as r2Url (already uploaded — no need to re-upload)
+    if(typeof R2Photos!=='undefined'&&src.indexOf(R2Photos.WORKER_URL)===0){
+      rec.r2Url=src;rec.r2Status='uploaded';rec.dataUrl='';
+    }
     if(_pickerTarget.type==='entry'){
       var ei=_pickerTarget.idx;
       if(!f.defic.entries)f.defic.entries=[{description:'',photos:[],priority:'high'}];
