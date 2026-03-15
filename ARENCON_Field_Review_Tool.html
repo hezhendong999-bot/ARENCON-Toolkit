@@ -7655,22 +7655,22 @@ function _migrateDeficPhotos(defics){
 // 2. Start R2 upload in background
 // 3. On success: delete from pendingUploads, clear dataUrl, set r2Url
 // R2 Phase 3: upload drawing image to R2
-// Worker only accepts type "original"|"marked"|"markup" — use "original" with dwg_ filename prefix.
+// Uses R2Photos.enqueue with type:'drawings' — worker now accepts this type.
 async function _r2EnqueueDrawing(dwg){
   var hubId=_csHubMode?_csProjectId:null;
   if(!hubId||typeof R2Photos==='undefined'||!dwg||!dwg.dataUrl)return;
-  var fname=R2Photos.generateFilename('dwg')+'.png';// prefix dwg_ distinguishes from photos
-  dwg.r2Key='photos/'+hubId+'/frt/original/'+fname;
+  var fname=R2Photos.generateFilename('dwg')+'.png';
+  dwg.r2Key='photos/'+hubId+'/frt/drawings/'+fname;
   dwg.r2Status='pending';
   var blob=R2Photos.dataUrlToBlob(dwg.dataUrl);
   if(!blob)return;
   ADB.savePending(dwg.id,hubId,blob,{type:'drawing',fname:fname,r2Key:dwg.r2Key}).catch(function(){});
   R2Photos.enqueue({
-    projectId:hubId,tool:'frt',type:'original',filename:fname,blob:blob,
+    projectId:hubId,tool:'frt',type:'drawings',filename:fname,blob:blob,
     onComplete:function(err){
       if(!err){
         dwg.r2Status='uploaded';
-        dwg.r2Url=R2Photos.getUrl(hubId,'frt','original',fname);
+        dwg.r2Url=R2Photos.getUrl(hubId,'frt','drawings',fname);
         ADB.deletePending(dwg.id).catch(function(){});
         saveToLS();_updateR2Badge();
       }else{dwg.r2Status='error';}
@@ -7774,20 +7774,19 @@ function _requeuePendingUploads(proj){
       var isSite=meta.type==='site';
       var rec=isDrawing?dwgRecMap[p.id]:(isSite?siteRecMap[p.id]:recMap[p.id]);
       var fname=meta.fname||R2Photos.generateFilename(isDrawing?'dwg':(isSite?'site':'defic'));
-      var r2Type='original';// all content uses 'original' type; drawings identified by dwg_ prefix
-      var r2Key=meta.r2Key||('photos/'+hubId+'/frt/original/'+fname);
+      var r2Type=isDrawing?'drawings':'original';
+      var r2Key=meta.r2Key||('photos/'+hubId+'/frt/'+r2Type+'/'+fname);
       if(rec){
         ADB.blobToDataUrl(p.dataBlob).then(function(url){if(url)rec.dataUrl=url;}).catch(function(){});
         rec.r2Key=r2Key;rec.r2Status='pending';
       }
-      // All content uses type:'original' — drawings identifiable by dwg_ filename prefix
       R2Photos.enqueue({
-        projectId:hubId,tool:'frt',type:'original',filename:fname,blob:p.dataBlob,
+        projectId:hubId,tool:'frt',type:r2Type,filename:fname,blob:p.dataBlob,
         onComplete:function(err){
           if(!err){
             if(rec){
               rec.r2Status='uploaded';
-              rec.r2Url=R2Photos.getUrl(hubId,'frt','original',fname);
+              rec.r2Url=R2Photos.getUrl(hubId,'frt',r2Type,fname);
               if(!isDrawing)delete rec.dataUrl;
             }
             ADB.deletePending(p.id).catch(function(){});
