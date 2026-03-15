@@ -5160,7 +5160,13 @@ function createPinDeficiency(x,y){
 function renderPinsOnDrawing(){var layer=document.getElementById('dv-pins-layer');if(!layer)return;var p=getProject();if(!p){layer.innerHTML='';return;}var ad=getAllDeficiencies(p);var pins=ad.filter(function(d){return d.defic.drawingId===dvState.currentDrawingId&&d.defic.pinX!=null;});var img=document.getElementById('dv-image');var iw=img.naturalWidth||1,ih=img.naturalHeight||1;
 // Dynamic pin size: baseline 31x40 for 3000px-wide drawings, scale proportionally
 var baseW=3000;var pinScale=Math.max(0.5,Math.min(1.5,Math.max(iw,ih)/baseW));var pw=Math.round(31*pinScale),ph=Math.round(40*pinScale);var cr=Math.round(9*pinScale),fs=Math.round(12*pinScale);
-var html='';pins.forEach(function(d){var px=d.defic.pinX*iw,py=d.defic.pinY*ih;var pr=d.defic.priority||'high';var _pinDesc=(d.defic.entries&&d.defic.entries[0]?d.defic.entries[0].description:d.defic.description)||'';var fill=d.defic.iar?'#FF69B4':(pr==='general'?'#1A7A4A':pr==='low'?'#E67E22':'#C0392B');html+='<div class="pin-marker" data-defic-id="'+d.defic.id+'" onclick="handlePinClick(\x27'+d.defic.id+'\x27);event.stopPropagation();" style="left:'+px+'px;top:'+py+'px;width:'+pw+'px;height:'+ph+'px;transform:translate(-'+(pw/2)+'px,-'+ph+'px);" title="#'+d.defic.num+' '+escHtml(_pinDesc)+'">';html+='<svg viewBox="0 0 28 36" width="'+pw+'" height="'+ph+'"><defs><filter id="ns'+d.defic.num+'"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity=".3"/></filter></defs><path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.3 21.7 0 14 0z" fill="'+fill+'" filter="url(#ns'+d.defic.num+')"/><circle cx="14" cy="12.5" r="9" fill="white"/><text x="14" y="16" text-anchor="middle" font-size="12" font-weight="800" font-family="Calibri,Arial" fill="'+fill+'">'+d.defic.num+'</text></svg></div>';});layer.innerHTML=html;updatePinStatus();}
+var html='';pins.forEach(function(d){var px=d.defic.pinX*iw,py=d.defic.pinY*ih;var pr=d.defic.priority||'high';var _pinDesc=(d.defic.entries&&d.defic.entries[0]?d.defic.entries[0].description:d.defic.description)||'';var fill=d.defic.iar?'#FF69B4':(pr==='general'?'#1A7A4A':pr==='low'?'#E67E22':'#C0392B');html+='<div class="pin-marker" data-defic-id="'+d.defic.id+'" onclick="handlePinClick(\x27'+d.defic.id+'\x27);event.stopPropagation();" style="left:'+px+'px;top:'+py+'px;width:'+pw+'px;height:'+ph+'px;transform:translate(-'+(pw/2)+'px,-'+ph+'px);" title="#'+d.defic.num+' '+escHtml(_pinDesc)+'">';var isOutstanding=d.defic.status==='Outstanding'&&!d.defic.iar;
+html+='<svg viewBox="0 0 28 36" width="'+pw+'" height="'+ph+'" style="'+(isOutstanding?'filter:drop-shadow(0 0 3px '+fill+') drop-shadow(0 2px 4px rgba(0,0,0,.5));':'filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));')+'">';
+html+='<path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.3 21.7 0 14 0z" fill="white" stroke="white" stroke-width="2"/>';
+html+='<path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.3 21.7 0 14 0z" fill="'+fill+'"/>';
+html+='<circle cx="14" cy="12.5" r="9" fill="white"/>';
+html+='<text x="14" y="16" text-anchor="middle" font-size="12" font-weight="800" font-family="Calibri,Arial" fill="'+fill+'">'+d.defic.num+'</text>';
+html+='</svg></div>';});layer.innerHTML=html;updatePinStatus();}
 
 function setShowAllDeficiencies(showAll){
   _showAllDeficiencies=showAll;
@@ -7868,18 +7874,19 @@ async function _r2CleanupOrphans(){
         // R2 bucket key: {pid}/photos/frt/{type}/{fname}
         var bucketKey=typeof f==='string'?f:(f.key||'');
         if(!bucketKey)continue;
-        var bparts=bucketKey.split('/');// [pid, 'photos', 'frt', type, ...fname]
-        if(bparts.length<4)continue;
+        // Bucket key format: {pid}/photos/frt/{type}/{fname}
+        var bparts=bucketKey.split('/');
+        if(bparts.length<5)continue;
+        var bpid=bparts[0],btype=bparts[3],bfname=bparts.slice(4).join('/');
         // Stored r2Key format: photos/{pid}/frt/{type}/{fname}
-        // Reconstruct stored key: 'photos/' + pid + '/' + bparts.slice(1).join('/')
-        var storedKey='photos/'+bparts[0]+'/'+bparts.slice(1).join('/');
-        if(!referencedKeys.has(storedKey)&&!referencedKeys.has(bucketKey)){
-          // Not referenced by this project — delete
-          // R2Photos.remove(projectId, tool, type, filename)
+        var storedKey='photos/'+bpid+'/frt/'+btype+'/'+bfname;
+        if(!referencedKeys.has(storedKey)){
+          console.log('[R2Cleanup] Orphan found:',storedKey);
           try{
-            await R2Photos.remove(bparts[0],bparts[1],bparts[2],bparts.slice(3).join('/'));
+            // R2Photos.remove(projectId, tool, type, filename)
+            await R2Photos.remove(bpid,'frt',btype,bfname);
             deleted++;
-          }catch(e){}
+          }catch(e){console.warn('[R2Cleanup] Delete failed:',e.message);}
         }
       }
     }catch(e){}
