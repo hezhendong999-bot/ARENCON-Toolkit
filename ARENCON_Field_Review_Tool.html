@@ -5256,20 +5256,26 @@ function resizeMarkupCanvas(){
   var img=document.getElementById('dv-image');
   if(!canvas||!img)return;
   var iw=img.naturalWidth, ih=img.naturalHeight;
-  // Cap markup canvas at 3000px max dimension for smooth pen/highlighter performance
-  // The canvas is CSS-scaled to match the image display size — markup stays crisp
   var mkMaxDim=3000;
   var mkScale=1;
   if(Math.max(iw,ih)>mkMaxDim){mkScale=mkMaxDim/Math.max(iw,ih);}
   var cw=Math.round(iw*mkScale), ch=Math.round(ih*mkScale);
-  canvas.width=cw;canvas.height=ch;
-  canvas.style.width=iw+'px';canvas.style.height=ih+'px';
-  var ctx=canvas.getContext('2d');
-  ctx.scale(mkScale,mkScale);
-  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
-  canvas._dpr=mkScale;
-  canvas._logicalW=iw;canvas._logicalH=ih;
-  loadMarkupData();
+  // Only reset canvas dimensions if they've actually changed — resizing clears the canvas
+  if(canvas.width!==cw||canvas.height!==ch){
+    canvas.width=cw;canvas.height=ch;
+    canvas.style.width=iw+'px';canvas.style.height=ih+'px';
+    var ctx=canvas.getContext('2d');
+    ctx.scale(mkScale,mkScale);
+    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+    canvas._dpr=mkScale;
+    canvas._logicalW=iw;canvas._logicalH=ih;
+    loadMarkupData();
+  } else {
+    // Same size — just ensure styles are correct and re-render
+    canvas.style.width=iw+'px';canvas.style.height=ih+'px';
+    if(!canvas._dpr){canvas._dpr=mkScale;canvas._logicalW=iw;canvas._logicalH=ih;}
+    renderAllMarkup();
+  }
 }
 function getMarkupCtx(){return document.getElementById('markup-canvas').getContext('2d');}
 function getOpacity(){var el=document.getElementById('mk-opacity');return el?parseInt(el.value)/100:1;}
@@ -5821,9 +5827,18 @@ function initMarkupEvents(){
     var hit=_mkHitTest(pos.x,pos.y);
     if(hit){
       e.stopPropagation();e.preventDefault();
-      _mkSelectedId=hit.id;_mkSelectedIds=[hit.id];_mkRubberBand=null;
+      // If clicking inside existing multi-selection, keep all selected and move together
+      var isInMultiSel=_mkSelectedIds.length>1&&_mkSelectedIds.indexOf(hit.id)>=0;
+      if(!isInMultiSel){
+        _mkSelectedId=hit.id;_mkSelectedIds=[hit.id];_mkRubberBand=null;
+      }
+      // Store originals for ALL selected objects so we can move them all
+      var origObjs={};
+      _mkSelectedIds.forEach(function(id){
+        var o=_mkFindObj(id);if(o)origObjs[id]=JSON.parse(JSON.stringify(o));
+      });
       _mkDragState={mode:'move',startX:pos.x,startY:pos.y,
-        origObj:JSON.parse(JSON.stringify(hit)),moved:false};
+        origObj:JSON.parse(JSON.stringify(hit)),origObjs:origObjs,moved:false};
       mkPushHistory();
       renderAllMarkup();
     } else {
@@ -5841,13 +5856,26 @@ function initMarkupEvents(){
       var dx=pos.x-_mkDragState.startX,dy=pos.y-_mkDragState.startY;
       if(Math.abs(dx)<2&&Math.abs(dy)<2)return;
       _mkDragState.moved=true;
-      var obj=_mkFindObj(_mkSelectedId);if(!obj)return;
-      var orig=_mkDragState.origObj;
-      if(orig.points){obj.points=JSON.parse(JSON.stringify(orig.points));}
-      if(orig.x1!=null){obj.x1=orig.x1;obj.y1=orig.y1;}
-      if(orig.x2!=null){obj.x2=orig.x2;obj.y2=orig.y2;}
-      if(_mkDragState.mode==='move')_mkMoveObj(obj,dx,dy);
-      else _mkResizeObj(obj,_mkDragState.handle,dx,dy);
+      if(_mkDragState.mode==='move'&&_mkSelectedIds.length>1&&_mkDragState.origObjs){
+        // Multi-move: apply delta to all selected objects from their originals
+        _mkSelectedIds.forEach(function(id){
+          var obj=_mkFindObj(id);if(!obj)return;
+          var orig=_mkDragState.origObjs[id];if(!orig)return;
+          if(orig.points)obj.points=JSON.parse(JSON.stringify(orig.points));
+          if(orig.x1!=null){obj.x1=orig.x1;obj.y1=orig.y1;}
+          if(orig.x2!=null){obj.x2=orig.x2;obj.y2=orig.y2;}
+          _mkMoveObj(obj,dx,dy);
+        });
+      } else {
+        // Single object move or resize
+        var obj=_mkFindObj(_mkSelectedId);if(!obj)return;
+        var orig=_mkDragState.origObj;
+        if(orig.points){obj.points=JSON.parse(JSON.stringify(orig.points));}
+        if(orig.x1!=null){obj.x1=orig.x1;obj.y1=orig.y1;}
+        if(orig.x2!=null){obj.x2=orig.x2;obj.y2=orig.y2;}
+        if(_mkDragState.mode==='move')_mkMoveObj(obj,dx,dy);
+        else _mkResizeObj(obj,_mkDragState.handle,dx,dy);
+      }
       renderAllMarkup();
     } else if(_mkRubberBand){
       _mkRubberBand.ex=pos.x;_mkRubberBand.ey=pos.y;
@@ -6692,9 +6720,16 @@ function _lbDown(e){
     // Check hit on any object
     var hit=_lbHitTest(p.x,p.y);
     if(hit){
-      _lbSelectedId=hit.id;_lbSelectedIds=[hit.id];_lbRubberBand=null;
+      var isInMultiSel=_lbSelectedIds.length>1&&_lbSelectedIds.indexOf(hit.id)>=0;
+      if(!isInMultiSel){
+        _lbSelectedId=hit.id;_lbSelectedIds=[hit.id];_lbRubberBand=null;
+      }
       _lbPushUndo();
-      _lbDragState={mode:'move',startX:p.x,startY:p.y,origObj:JSON.parse(JSON.stringify(hit)),moved:false};
+      var lbOrigObjs={};
+      _lbSelectedIds.forEach(function(id){
+        var o=_lbObjects.find(function(x){return x.id===id;});if(o)lbOrigObjs[id]=JSON.parse(JSON.stringify(o));
+      });
+      _lbDragState={mode:'move',startX:p.x,startY:p.y,origObj:JSON.parse(JSON.stringify(hit)),origObjs:lbOrigObjs,moved:false};
       _lbRenderAll();
     } else {
       // Start rubber band
@@ -6737,12 +6772,25 @@ function _lbMove(e){
       var dx=p.x-_lbDragState.startX,dy=p.y-_lbDragState.startY;
       if(Math.abs(dx)<1&&Math.abs(dy)<1)return;
       _lbDragState.moved=true;
-      var obj=_lbObjects.find(function(o){return o.id===_lbSelectedId;});if(!obj)return;
-      var orig=_lbDragState.origObj;
-      if(orig.points)obj.points=JSON.parse(JSON.stringify(orig.points));
-      if(orig.x1!=null){obj.x1=orig.x1;obj.y1=orig.y1;}
-      if(orig.x2!=null){obj.x2=orig.x2;obj.y2=orig.y2;}
-      _lbMoveObj(obj,dx,dy);_lbRenderAll();
+      if(_lbSelectedIds.length>1&&_lbDragState.origObjs){
+        // Multi-move: move all selected from their stored originals
+        _lbSelectedIds.forEach(function(id){
+          var obj=_lbObjects.find(function(o){return o.id===id;});if(!obj)return;
+          var orig=_lbDragState.origObjs[id];if(!orig)return;
+          if(orig.points)obj.points=JSON.parse(JSON.stringify(orig.points));
+          if(orig.x1!=null){obj.x1=orig.x1;obj.y1=orig.y1;}
+          if(orig.x2!=null){obj.x2=orig.x2;obj.y2=orig.y2;}
+          _lbMoveObj(obj,dx,dy);
+        });
+      } else {
+        var obj=_lbObjects.find(function(o){return o.id===_lbSelectedId;});if(!obj)return;
+        var orig=_lbDragState.origObj;
+        if(orig.points)obj.points=JSON.parse(JSON.stringify(orig.points));
+        if(orig.x1!=null){obj.x1=orig.x1;obj.y1=orig.y1;}
+        if(orig.x2!=null){obj.x2=orig.x2;obj.y2=orig.y2;}
+        _lbMoveObj(obj,dx,dy);
+      }
+      _lbRenderAll();
     } else if(_lbRubberBand){
       _lbRubberBand.ex=p.x;_lbRubberBand.ey=p.y;_lbRenderAll();
     }
@@ -6904,22 +6952,29 @@ function _lbRemoveDrawEvents(){
 // ── SAVE ──
 function lightboxSaveMarkup(){
   if(!_lbCanvas)return;
-  // Render final (without selection handles)
-  var hadSel=_lbSelectedId;_lbSelectedId=null;_lbRenderAll();_lbSelectedId=hadSel;
+  // Render final without selection handles
+  var hadSel=_lbSelectedId;_lbSelectedId=null;_lbSelectedIds=[];_lbRenderAll();
   var origSrc=_lbOrigSrc||_lbPhotos[_lbIdx];
   var markedSrc=_lbCanvas.toDataURL('image/jpeg',0.92);
+  // Update in-memory photo array so lightbox shows marked version after save
   _lbPhotos[_lbIdx]=markedSrc;
+  _lbOrigSrc=markedSrc; // reset so next save doesn't try to replace markedSrc with itself
   var p=getProject&&getProject();
+  var wasDeficPhoto=false;
   if(p){
-    _replacePhotoInProject(p,origSrc,markedSrc);
-    if(!p.sitePhotos)p.sitePhotos=[];
-    p.sitePhotos.push({id:'sp_orig_'+Date.now(),dataUrl:origSrc,caption:'Original (before markup)',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''});
-    p.sitePhotos.push({id:'sp_mkup_'+Date.now(),dataUrl:markedSrc,caption:'Marked-up copy',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''});
+    wasDeficPhoto=_replacePhotoInProject(p,origSrc,markedSrc);
+    if(!wasDeficPhoto){
+      // Only add gallery copies for non-deficiency photos (site photos, general)
+      if(!p.sitePhotos)p.sitePhotos=[];
+      p.sitePhotos.push({id:'sp_mkup_'+Date.now(),dataUrl:markedSrc,caption:'Marked-up copy',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''});
+    }
     saveToLS&&saveToLS();
-    showToast&&showToast('Markup saved \u2014 original & marked copy in Photos');
+    showToast&&showToast('Markup saved');
     if(typeof renderPhotoGallery==='function')renderPhotoGallery();
   }
+  // Reload canvas with the saved marked image so lightbox reflects the save
   _lbHideToolbar();
+  _lbShowCurrentDirect();
 }
 function lightboxSave(){lightboxSaveMarkup();}
 function lightboxSaveCopy(){lightboxSaveMarkup();}
@@ -6927,6 +6982,7 @@ function lightboxSaveCopy(){lightboxSaveMarkup();}
 
 
 function _replacePhotoInProject(p,oldSrc,newSrc){
+  var replaced=false;
   var ad=getAllDeficiencies(p);
   ad.forEach(function(r){
     var d=r.defic;
@@ -6936,6 +6992,7 @@ function _replacePhotoInProject(p,oldSrc,newSrc){
         ph.dataUrl=newSrc;
         if(ph.r2Key){ph.r2Status='pending';ph.r2Url='';}
         if(typeof _r2EnqueueDeficPhoto==='function'&&d.id)_r2EnqueueDeficPhoto(ph,d.id);
+        replaced=true;
       }
     }
     if(d.photos){d.photos.forEach(_matchReplace);}
@@ -6945,8 +7002,10 @@ function _replacePhotoInProject(p,oldSrc,newSrc){
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){
     if(ph&&((ph.dataUrl&&ph.dataUrl===oldSrc)||(ph.r2Url&&ph.r2Url===oldSrc))){
       ph.dataUrl=newSrc;if(ph.r2Key){ph.r2Status='pending';ph.r2Url='';}
+      replaced=true;
     }
   });}
+  return replaced;
 }
 
 function wirePhotoLightbox(container){
