@@ -3124,12 +3124,17 @@ function _folderQuickSave(){
 
 function loadAllProjects(){return ADB.getAll('projects').then(function(projects){
   allProjects={};
-  var loadPromises=projects.map(function(meta){
-    return ADB.loadFullProject(meta.id).then(function(full){
-      if(full)allProjects[full.id]=full;
-    });
+  // Metadata-only load at startup — drawings/sitePhotos blobs loaded lazily when project opens.
+  // This prevents blocking the page on startup when projects have many large drawings.
+  projects.forEach(function(meta){
+    if(meta&&meta.id){
+      // Ensure drawings/sitePhotos arrays exist so dashboard card counts work
+      if(!meta.drawings)meta.drawings=[];
+      if(!meta.sitePhotos)meta.sitePhotos=[];
+      allProjects[meta.id]=meta;
+    }
   });
-  return Promise.all(loadPromises);
+  return Promise.resolve();
 });}
 
 function onFieldChange(el){
@@ -3296,8 +3301,6 @@ function enterProject(id){currentProjectId=id;var p=getProject();if(!p)return;if
   _migrateDeficPhotos(p.generalDeficiencies);
   // Ensure all site photos have IDs
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){if(ph&&!ph.id)ph.id='sp_'+Math.random().toString(36).substr(2,8);});}
-  // Re-queue any pending R2 uploads from previous session (R2-first crash recovery)
-  _requeuePendingUploads(p);
   var _el;
   _el=document.getElementById('view-dashboard');if(_el)_el.style.display='none';
   _el=document.getElementById('view-project');if(_el){_el.style.display='block';_el.style.visibility='visible';}
@@ -3316,7 +3319,18 @@ function enterProject(id){currentProjectId=id;var p=getProject();if(!p)return;if
   var mca=document.getElementById('mobile-clear-all');if(mca)mca.style.display='none';
   ADB.put('config',{key:'lastProject',value:id});
   window.location.hash=id;
-  updateProjectDropdown();populateProjectFields();switchTab('info');applyLockState();}
+  updateProjectDropdown();populateProjectFields();switchTab('info');applyLockState();
+  // Lazy full load — fetch drawings + site photos blobs in background after UI is shown
+  ADB.loadFullProject(id).then(function(full){
+    if(full&&currentProjectId===id){
+      allProjects[id]=full;
+      // Refresh current tab if it needs blob data
+      if(currentTab==='drawings')renderDrawingGallery();
+      if(currentTab==='photos')renderPhotoGallery();
+      _requeuePendingUploads(full);
+    }
+  }).catch(function(){});
+}
 function populateProjectFields(){var p=getProject();if(!p||!p.info)return;
   Object.keys(p.info).forEach(function(key){
     var el=document.querySelector('[data-field="'+key+'"]');
@@ -4820,7 +4834,11 @@ function _cleanEmptyFolders(p){
   p._folders=p._folders.filter(function(fn){return usedFolders[fn];});
 }
 function renameDrawing(id){var p=getProject();var d=p.drawings.find(function(x){return x.id===id;});if(!d)return;var n=prompt('Rename:',d.name);if(n){d.name=n;saveToLS();renderDrawingGallery();}}
-function removeDrawing(id){if(!confirm('Delete this drawing?'))return;var p=getProject();p.drawings=p.drawings.filter(function(x){return x.id!==id;});(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});});(p.generalDeficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});saveToLS();renderDrawingGallery();}
+function removeDrawing(id){if(!confirm('Delete this drawing?'))return;var p=getProject();p.drawings=p.drawings.filter(function(x){return x.id!==id;});(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});});(p.generalDeficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});// Immediate IDB delete + save — bypass debounce so deletion survives page refresh
+ADB.delete('drawings',id).catch(function(){});
+ADB.saveFullProject(p).then(function(){ADB.markDirty();updateSaveTimestamp();}).catch(function(e){console.error('Delete save error',e);});
+_debouncedCloudSave();
+renderDrawingGallery();}
 
 function openDrawingViewer(drawingId){
   try{
