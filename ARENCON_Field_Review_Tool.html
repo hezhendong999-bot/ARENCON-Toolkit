@@ -1565,16 +1565,17 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <div class="card"><div class="card-header">📷 Site Photos</div>
         <div class="card-body">
           <div class="photo-header-bar">
-            <button class="btn btn-primary btn-sm" onclick="document.getElementById('photo-file-input').click()">+ New Photo</button>
+            <button class="btn btn-primary btn-sm" onclick="document.getElementById('photo-file-input').click()" title="Select multiple photos from camera roll or files">📥 Import Photos</button>
             <div class="photo-actions-dd"><button class="btn btn-outline btn-sm" id="photo-actions-btn" onclick="togglePhotoActionsMenu(event)">Actions ▾</button><div class="photo-actions-menu" id="photo-actions-menu"><button onclick="selectAllPhotos()">Select all</button><button onclick="deselectAllPhotos()">Deselect all</button><div class="separator"></div><button onclick="downloadSelectedPhotos()">Export selected</button><div class="separator"></div><button class="danger" onclick="deleteSelectedPhotos()">Delete selected</button></div></div>
             <div style="flex:1;"></div>
             <div class="photo-filter-dd"><button class="btn btn-outline btn-sm" onclick="togglePhotoFilterMenu(event)">⚙ Filters</button><div class="photo-filter-menu" id="photo-filter-menu"><button onclick="filterPhotos('all')">All photos</button><button onclick="filterPhotos('deficiency')">Deficiency photos</button><button onclick="filterPhotos('site')">Site photos</button></div></div>
           </div>
           <div class="photo-zone" id="photo-upload-area" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');handlePhotoFiles(event.dataTransfer.files)">
             <div style="text-align:center;padding:16px;">
-              <div style="font-size:12px;color:var(--steel);">Click or drag to add site photos</div>
-              <div style="margin-top:6px;display:flex;gap:8px;justify-content:center;">
-                <button class="btn btn-outline btn-sm" onclick="document.getElementById('photo-file-input').click()">📎 Upload</button>
+              <div style="font-size:12px;color:var(--steel);">Drag & drop photos, or import from camera roll</div>
+              <div style="font-size:11px;color:var(--silver);margin-top:2px;">Select multiple at once</div>
+              <div style="margin-top:8px;display:flex;gap:8px;justify-content:center;">
+                <button class="btn btn-outline btn-sm" onclick="document.getElementById('photo-file-input').click()" title="Select multiple photos from camera roll or files">📥 Import from Camera Roll</button>
                 <button class="btn btn-primary btn-sm" onclick="triggerPhotoCamera()">📷 Camera</button>
               </div>
             </div>
@@ -1603,9 +1604,13 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <button class="layer-toggle-btn active" id="lt-markup" onclick="toggleLayerVis('markup',this)" title="Show/hide markup">✏️</button>
     </div>
     <button onclick="openDownloadDialog(dvState.currentDrawingId)" title="Download drawing" style="background:rgba(255,255,255,.15);border:none;color:white;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:13px;font-weight:600;">⬇️ Download</button>
+    <button onclick="toggleHeightsPanel()" id="btn-heights" title="Field Heights / Dimensions" style="background:rgba(255,255,255,.15);border:none;color:white;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:13px;font-weight:600;">📐 Heights</button>
     <div style="position:relative;display:inline-block;">
       <button onclick="toggleDvDeleteMenu(event)" title="Delete options" style="background:rgba(200,50,50,.3);border:none;color:#ff8a8a;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:13px;font-weight:600;">🗑️ ▾</button>
-      <div id="dv-delete-menu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:white;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.3);min-width:200px;z-index:5000;overflow:hidden;font-family:Calibri,sans-serif;">
+      <div id="dv-delete-menu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:white;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.3);min-width:220px;z-index:5000;overflow:hidden;font-family:Calibri,sans-serif;">
+        <button id="dv-del-sel-markup" onclick="deleteSelectedShape();closeDvDeleteMenu()" style="display:none;width:100%;padding:10px 14px;border:none;background:white;text-align:left;font-size:13px;cursor:pointer;font-family:inherit;align-items:center;gap:8px;color:#9C2742;" onmouseover="this.style.background='#FFF5F5'" onmouseout="this.style.background='white'">✂️ Delete Selected Markup</button>
+        <button id="dv-del-sel-pin" onclick="_dvDeleteSelectedPin();closeDvDeleteMenu()" style="display:none;width:100%;padding:10px 14px;border:none;background:white;text-align:left;font-size:13px;cursor:pointer;font-family:inherit;align-items:center;gap:8px;color:#9C2742;" onmouseover="this.style.background='#FFF5F5'" onmouseout="this.style.background='white'">📌 Delete Selected Pin</button>
+        <div id="dv-del-sel-sep" style="display:none;height:1px;background:#eee;"></div>
         <button onclick="deleteAllMarkupOnDrawing();closeDvDeleteMenu()" style="width:100%;padding:10px 14px;border:none;background:white;text-align:left;font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:8px;color:#C62828;" onmouseover="this.style.background='#FFF5F5'" onmouseout="this.style.background='white'">✏️ Delete All Markup</button>
         <button onclick="deleteAllPinsOnDrawing();closeDvDeleteMenu()" style="width:100%;padding:10px 14px;border:none;background:white;text-align:left;font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:8px;color:#C62828;" onmouseover="this.style.background='#FFF5F5'" onmouseout="this.style.background='white'">📌 Delete All Pins on Drawing</button>
       </div>
@@ -1812,6 +1817,25 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <button onclick="executeDownload()" style="flex:1;padding:10px;background:#9C2742;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">⬇️ Download</button>
       <button onclick="closeDownloadDialog()" style="padding:10px 20px;border:1px solid #DDE1E7;border-radius:6px;background:white;cursor:pointer;font-family:Calibri,sans-serif;font-size:14px;">Cancel</button>
     </div>
+  </div>
+</div>
+
+<!-- HEIGHTS PANEL — per-drawing field dimensions -->
+<div id="heights-panel" style="display:none;position:absolute;top:52px;right:8px;width:300px;max-height:calc(100vh - 120px);background:white;border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,.25);z-index:4000;font-family:Calibri,sans-serif;overflow:hidden;flex-direction:column;">
+  <div style="background:#9C2742;color:white;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+    <span style="font-weight:700;font-size:13px;">📐 Field Heights / Dimensions</span>
+    <button onclick="toggleHeightsPanel()" style="background:none;border:none;color:white;font-size:16px;cursor:pointer;padding:0 2px;">✕</button>
+  </div>
+  <div style="padding:8px 10px;background:#f8f0f2;border-bottom:1px solid #e8d0d5;flex-shrink:0;">
+    <label style="font-size:10px;font-weight:700;color:#9C2742;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Copy from drawing</label>
+    <select id="heights-copy-from" onchange="copyHeightsFromDrawing(this.value)" style="width:100%;padding:5px 7px;border:1.5px solid #ddd;border-radius:5px;font-family:Calibri,sans-serif;font-size:12px;">
+      <option value="">— Select drawing to copy from —</option>
+    </select>
+  </div>
+  <div id="heights-rows" style="overflow-y:auto;flex:1;padding:8px 10px;"></div>
+  <div style="padding:8px 10px;border-top:1px solid #eee;display:flex;gap:6px;flex-shrink:0;">
+    <button onclick="addHeightsRow()" style="flex:1;padding:7px;border:1.5px dashed #9C2742;border-radius:6px;background:none;color:#9C2742;font-family:Calibri,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">+ Add Row</button>
+    <button onclick="saveHeights()" style="flex:1;padding:7px;border:none;border-radius:6px;background:#9C2742;color:white;font-family:Calibri,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">💾 Save</button>
   </div>
 </div>
 
@@ -5002,7 +5026,30 @@ if(!document._dvKeyHandler){document._dvKeyHandler=true;document.addEventListene
 function deleteSelectedPin(){if(!dvState.selectedPinId)return;if(!confirm('Delete this task?'))return;var f=findDeficiency(dvState.selectedPinId);if(f){f.arr.splice(f.idx,1);saveToLS();_folderQuickSave();}dvState.selectedPinId=null;renderPinsOnDrawing();renderTasksPanel();}
 
 // Delete All Markup / Pins dropdown
-function toggleDvDeleteMenu(e){e.stopPropagation();var m=document.getElementById('dv-delete-menu');var open=m.style.display==='block';m.style.display=open?'none':'block';if(!open){setTimeout(function(){document.addEventListener('click',closeDvDeleteMenu,{once:true});},10);}}
+function _dvDeleteSelectedPin(){
+  if(!dvState.selectedPinId)return;
+  if(!confirm('Delete this pin and all its deficiency data?'))return;
+  var f=findDeficiency(dvState.selectedPinId);
+  if(f){f.arr.splice(f.idx,1);saveToLS();_folderQuickSave();}
+  dvState.selectedPinId=null;renderPinsOnDrawing();renderTasksPanel();closePinPanel();closePinModal();
+}
+function toggleDvDeleteMenu(e){
+  e.stopPropagation();
+  var m=document.getElementById('dv-delete-menu');
+  var open=m.style.display==='block';
+  if(!open){
+    var hasMkSel=(_mkSelectedIds&&_mkSelectedIds.length>0)||!!_mkSelectedId;
+    var hasPinSel=!!dvState.selectedPinId;
+    var sm=document.getElementById('dv-del-sel-markup');
+    var sp=document.getElementById('dv-del-sel-pin');
+    var sep=document.getElementById('dv-del-sel-sep');
+    if(sm)sm.style.display=hasMkSel?'flex':'none';
+    if(sp)sp.style.display=hasPinSel?'flex':'none';
+    if(sep)sep.style.display=(hasMkSel||hasPinSel)?'block':'none';
+  }
+  m.style.display=open?'none':'block';
+  if(!open){setTimeout(function(){document.addEventListener('click',closeDvDeleteMenu,{once:true});},10);}
+}
 function closeDvDeleteMenu(){var m=document.getElementById('dv-delete-menu');if(m)m.style.display='none';}
 function deleteAllMarkupOnDrawing(){
   if(!dvState.currentDrawingId)return;
@@ -6191,6 +6238,118 @@ function closeDownloadDialog(){
   _dlDrawingId=null;
 }
 
+// ═══ HEIGHTS PANEL — per-drawing field dimension notes ═══
+var _heightsPanelOpen=false;
+var _DEFAULT_HEIGHT_ROWS=[
+  {label:'U/S Ceiling Deck',value:''},
+  {label:'U/S Branchline',value:''},
+  {label:'Sprinkler Deflectors',value:''},
+  {label:'Cross Main',value:''},
+  {label:'Feed Main',value:''},
+  {label:'Top of Storage',value:''}
+];
+
+function toggleHeightsPanel(){
+  _heightsPanelOpen=!_heightsPanelOpen;
+  var panel=document.getElementById('heights-panel');
+  if(!panel)return;
+  panel.style.display=_heightsPanelOpen?'flex':'none';
+  if(_heightsPanelOpen){
+    _renderHeightRows();
+    _populateHeightsCopyFrom();
+  }
+  var btn=document.getElementById('btn-heights');
+  if(btn)btn.style.background=_heightsPanelOpen?'rgba(156,39,66,.5)':'rgba(255,255,255,.15)';
+}
+
+function _getDrawingHeights(){
+  var p=getProject();if(!p||!dvState.currentDrawingId)return null;
+  var dwg=p.drawings.find(function(d){return d.id===dvState.currentDrawingId;});
+  if(!dwg)return null;
+  if(!dwg.heights||!dwg.heights.length){
+    dwg.heights=JSON.parse(JSON.stringify(_DEFAULT_HEIGHT_ROWS));
+  }
+  return dwg.heights;
+}
+
+function _renderHeightRows(){
+  var rows=_getDrawingHeights();
+  var container=document.getElementById('heights-rows');
+  if(!container||!rows)return;
+  container.innerHTML=rows.map(function(r,i){
+    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
+      +'<input value="'+escHtml(r.label)+'" oninput="updateHeightLabel('+i+',this.value)" '
+      +'style="flex:1;min-width:0;padding:5px 7px;border:1.5px solid #ddd;border-radius:5px;font-family:Calibri,sans-serif;font-size:12px;" placeholder="Label">'
+      +'<input value="'+escHtml(r.value)+'" oninput="updateHeightValue('+i+',this.value)" '
+      +'style="width:80px;padding:5px 7px;border:1.5px solid #ddd;border-radius:5px;font-family:Calibri,sans-serif;font-size:12px;" placeholder="e.g. 3.5m">'
+      +'<button onclick="removeHeightRow('+i+')" style="background:none;border:none;color:#bbb;cursor:pointer;font-size:14px;flex-shrink:0;padding:2px;">✕</button>'
+      +'</div>';
+  }).join('');
+}
+
+function _populateHeightsCopyFrom(){
+  var sel=document.getElementById('heights-copy-from');
+  var p=getProject();if(!sel||!p)return;
+  var opts='<option value="">— Select drawing to copy from —</option>';
+  (p.drawings||[]).forEach(function(d){
+    if(d.id!==dvState.currentDrawingId&&d.heights&&d.heights.some(function(r){return r.value;})){
+      opts+='<option value="'+d.id+'">'+escHtml(d.name)+'</option>';
+    }
+  });
+  sel.innerHTML=opts;
+}
+
+function updateHeightLabel(i,val){var rows=_getDrawingHeights();if(rows&&rows[i])rows[i].label=val;}
+function updateHeightValue(i,val){var rows=_getDrawingHeights();if(rows&&rows[i])rows[i].value=val;}
+
+function removeHeightRow(i){
+  var rows=_getDrawingHeights();
+  if(!rows)return;
+  rows.splice(i,1);
+  _renderHeightRows();
+}
+
+function addHeightsRow(){
+  var rows=_getDrawingHeights();
+  if(!rows)return;
+  rows.push({label:'',value:''});
+  _renderHeightRows();
+  // Focus the new label input
+  setTimeout(function(){
+    var inputs=document.querySelectorAll('#heights-rows input');
+    if(inputs.length)inputs[inputs.length-2].focus();
+  },50);
+}
+
+function saveHeights(){
+  saveToLS();
+  showToast('Heights saved');
+}
+
+function copyHeightsFromDrawing(srcId){
+  if(!srcId)return;
+  var p=getProject();if(!p)return;
+  var src=p.drawings.find(function(d){return d.id===srcId;});
+  if(!src||!src.heights)return;
+  var dwg=p.drawings.find(function(d){return d.id===dvState.currentDrawingId;});
+  if(!dwg)return;
+  dwg.heights=JSON.parse(JSON.stringify(src.heights));
+  _renderHeightRows();
+  showToast('Heights copied from '+escHtml(src.name));
+  var sel=document.getElementById('heights-copy-from');if(sel)sel.value='';
+}
+
+// Close heights panel when drawing viewer closes
+var _origCloseDrawingViewer=window.closeDrawingViewer;
+window.closeDrawingViewer=function(){
+  _heightsPanelOpen=false;
+  var panel=document.getElementById('heights-panel');
+  if(panel)panel.style.display='none';
+  var btn=document.getElementById('btn-heights');
+  if(btn)btn.style.background='rgba(255,255,255,.15)';
+  if(typeof _origCloseDrawingViewer==='function')_origCloseDrawingViewer();
+};
+
 function dlSelectAll(on){
   ['dl-layer-pins','dl-layer-markup','dl-layer-text'].forEach(function(id){
     var el=document.getElementById(id);if(el)el.checked=on;
@@ -6956,15 +7115,15 @@ function lightboxSaveMarkup(){
   var hadSel=_lbSelectedId;_lbSelectedId=null;_lbSelectedIds=[];_lbRenderAll();
   var origSrc=_lbOrigSrc||_lbPhotos[_lbIdx];
   var markedSrc=_lbCanvas.toDataURL('image/jpeg',0.92);
-  // Update in-memory photo array so lightbox shows marked version after save
+  // Update in-memory photo array so lightbox shows marked version
   _lbPhotos[_lbIdx]=markedSrc;
-  _lbOrigSrc=markedSrc; // reset so next save doesn't try to replace markedSrc with itself
+  _lbOrigSrc=markedSrc;
   var p=getProject&&getProject();
   var wasDeficPhoto=false;
   if(p){
     wasDeficPhoto=_replacePhotoInProject(p,origSrc,markedSrc);
     if(!wasDeficPhoto){
-      // Only add gallery copies for non-deficiency photos (site photos, general)
+      // Only add gallery copy for non-deficiency photos
       if(!p.sitePhotos)p.sitePhotos=[];
       p.sitePhotos.push({id:'sp_mkup_'+Date.now(),dataUrl:markedSrc,caption:'Marked-up copy',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''});
     }
@@ -6972,7 +7131,15 @@ function lightboxSaveMarkup(){
     showToast&&showToast('Markup saved');
     if(typeof renderPhotoGallery==='function')renderPhotoGallery();
   }
-  // Reload canvas with the saved marked image so lightbox reflects the save
+  // Update all DOM <img> elements showing origSrc to show the new marked version
+  // (data-src is removed after lazy-load so we must update img.src directly)
+  document.querySelectorAll('img').forEach(function(img){
+    if(img.src===origSrc||(img.getAttribute&&img.getAttribute('data-src')===origSrc)){
+      img.src=markedSrc;
+      img.removeAttribute('data-src');
+    }
+  });
+  // Reload lightbox canvas with saved marked image
   _lbHideToolbar();
   _lbShowCurrentDirect();
 }
@@ -7067,7 +7234,7 @@ function buildDeficItem(d,ctrId,i){
     var enPhotos=en.photos||[];
     var enThumbsHtml='';enPhotos.forEach(function(ph,pi){
       var psrc=_deficPhotoSrc(ph);
-      enThumbsHtml+='<div class="photo-thumb"><img data-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.src)" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+ei+','+pi+')">✕</button></div>';
+      enThumbsHtml+='<div class="photo-thumb"><img data-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.src||this.src)" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+ei+','+pi+')">✕</button></div>';
     });
 
     obsHtml+='<div class="pin-entry-row" style="border-left:3px solid '+prCol+';">';
@@ -7318,7 +7485,7 @@ function populateRespPhotos(){
         r.photos.forEach(function(phRec,pi){
           var psrc=_deficPhotoSrc(phRec);
           html+="<div style=\"position:relative;width:60px;height:60px;flex-shrink:0;\">";
-          html+="<img data-src=\""+escHtml(psrc)+"\" style=\"width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer;\" onclick=\"openPhotoLightboxDirect(this.src)\">";
+          html+="<img data-src=\""+escHtml(psrc)+"\" style=\"width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer;\" onclick=\"openPhotoLightboxDirect(this.dataset.src||this.src)\">";
           html+="<button onclick=\"removeRespPhoto(&quot;"+d.defic.id+"&quot;,"+ri+","+pi+")\" style=\"position:absolute;top:-4px;right:-4px;background:var(--red);color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;line-height:16px;text-align:center;\">✕</button>";
           html+="</div>";
         });
@@ -7572,15 +7739,21 @@ function _lbShowCurrentDirect(){
   var image=new Image();
   image.crossOrigin='anonymous';
   image.onload=function(){
-    _lbCanvas.width=image.naturalWidth||800;
-    _lbCanvas.height=image.naturalHeight||600;
+    var dpr=Math.min(window.devicePixelRatio||1,2);
+    var natW=image.naturalWidth||800;
+    var natH=image.naturalHeight||600;
+    _lbCanvas.width=natW*dpr;
+    _lbCanvas.height=natH*dpr;
     _lbCanvas.style.maxWidth='90vw';
     _lbCanvas.style.maxHeight='80vh';
+    _lbCanvas.style.width=natW+'px';
+    _lbCanvas.style.height=natH+'px';
     _lbCtx=_lbCanvas.getContext('2d');
-    _lbBgImage=image; // store for eraser
-    _lbCtx.drawImage(image,0,0);
+    _lbCtx.scale(dpr,dpr);
+    _lbCanvas._dpr=dpr;
+    _lbBgImage=image;
+    _lbCtx.drawImage(image,0,0,natW,natH);
     if(_lbDrawing)_lbEnableDrawEvents();
-    // Update counter
     var ctr=document.getElementById('lb-photo-counter');
     if(ctr)ctr.textContent=(_lbIdx+1)+' / '+_lbPhotos.length;
   };
@@ -7689,7 +7862,7 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
     entry.photos.forEach(function(phRec,pi){
       var psrc=_deficPhotoSrc(phRec);
       ph+='<div style="position:relative;width:68px;height:68px;border-radius:6px;overflow:hidden;border:1px solid var(--border);">';
-      ph+='<img data-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.src);event.stopPropagation();" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;">';
+      ph+='<img data-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.src||this.src);event.stopPropagation();" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;">';
       ph+='<button onclick="removePinEntryPhoto('+ae+','+pi+')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:white;border:none;border-radius:50%;width:17px;height:17px;font-size:9px;cursor:pointer;line-height:17px;text-align:center;">x</button>';
       ph+='</div>';
     });
@@ -9470,7 +9643,18 @@ document.addEventListener('DOMContentLoaded',function(){
       if(dot&&(!csEl||csEl.style.display==='none')){dot.style.background='#34D399';dot.title='Online';}
     }
   }
-  window.addEventListener('online',updateOnline);window.addEventListener('offline',updateOnline);updateOnline();
+  window.addEventListener('online',updateOnline);
+  window.addEventListener('offline',updateOnline);
+  // Connection-aware R2 retry: when back online, requeue any pending uploads
+  window.addEventListener('online',function(){
+    setTimeout(function(){
+      var p=currentProjectId?getProject():null;
+      if(p&&typeof _requeuePendingUploads==='function'){
+        _requeuePendingUploads(p);
+      }
+    },2000); // 2s delay to let connection stabilise
+  });
+  updateOnline();
 
   document.addEventListener('click',function(e){
     if(!e.target.closest('#project-dropdown-wrap'))closeProjectDropdown();
