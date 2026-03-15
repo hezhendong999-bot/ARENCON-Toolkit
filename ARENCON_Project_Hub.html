@@ -2966,14 +2966,13 @@ async function r2RefreshStatus() {
   // Fetch all R2 file lists in parallel
   var results = await Promise.all(types.map(async function(t) {
     try {
-      var path = '/list/' + encodeURIComponent(projId) + '/photos/' + encodeURIComponent(t.tool) + '/' + encodeURIComponent(t.type);
+      var path = '/list/' + encodeURIComponent(projId) + '/' + encodeURIComponent(t.tool) + '/' + encodeURIComponent(t.type);
       var res = await fetch(WORKER + path, { headers: headers });
       if (!res.ok) {
         if (res.status === 404) return { type: t, files: [], error: null };
         return { type: t, files: [], error: 'HTTP ' + res.status };
       }
       var data = await res.json();
-      console.log('[R2Status] ' + t.key + ':', JSON.stringify(data).substring(0,200));
       // data may be [{key, size}, ...] or {objects:[...]} or {prefix, count, files:[...]}
       var files = Array.isArray(data) ? data : (data.objects || data.files || data.items || []);
       // Apply filter for types that share the same R2 folder (original/)

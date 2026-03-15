@@ -1477,6 +1477,8 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
             <button class="btn btn-sm" style="background:#FF69B4;color:white;border:none;" onclick="bulkToggleIAR(true)">⚡ Set IAR</button>
             <button class="btn btn-sm" style="background:#888;color:white;border:none;" onclick="bulkToggleIAR(false)">Clear IAR</button>
             <div style="flex:1;"></div>
+            <button class="btn btn-sm" style="background:#C0392B;color:white;border:none;" onclick="bulkDeleteDefics()">🗑 Delete Selected</button>
+            <div style="flex:1;"></div>
             <button class="btn btn-outline btn-sm" onclick="bulkSelectAll()">Select All</button>
             <button class="btn btn-outline btn-sm" onclick="bulkSelectNone()">Deselect All</button>
             <button class="btn btn-outline btn-sm" onclick="toggleBulkSelectMode()">✕ Cancel</button>
@@ -7629,6 +7631,29 @@ function bulkToggleIAR(on){
   toast((on?'Set':'Cleared')+' IAR on '+ids.length+' item'+(ids.length>1?'s':''));
   if(_bulkSelectMode){setTimeout(function(){document.querySelectorAll('.bulk-checkbox').forEach(function(cb){cb.checked=false;});updateBulkCount();},50);}
 }
+function bulkDeleteDefics(){
+  var ids=_getSelectedDeficIds();if(!ids.length){toast('No deficiencies selected');return;}
+  if(!confirm('Permanently delete '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'? This cannot be undone.'))return;
+  pushUndo();
+  var p=getProject();if(!p)return;
+  ids.forEach(function(id){
+    // Delete from contractors
+    (p.contractors||[]).forEach(function(c){
+      var idx=c.deficiencies.findIndex(function(d){return d.id===id;});
+      if(idx>=0)c.deficiencies.splice(idx,1);
+    });
+    // Delete from general
+    var gi=p.generalDeficiencies.findIndex(function(d){return d.id===id;});
+    if(gi>=0)p.generalDeficiencies.splice(gi,1);
+    // Re-number remaining defics
+    p.nextDeficNum=1;
+    (p.contractors||[]).forEach(function(c){c.deficiencies.forEach(function(d){d.num=p.nextDeficNum++;});});
+    p.generalDeficiencies.forEach(function(d){d.num=p.nextDeficNum++;});
+  });
+  saveToLS();_folderQuickSave();renderDeficiencyPanel();renderSummaryTable();
+  toast('Deleted '+ids.length+' item'+(ids.length>1?'s':''));
+  toggleBulkSelectMode();
+}
 
 function populateRespPhotos(){
   var p=getProject();if(!p)return;
@@ -10753,7 +10778,7 @@ async function remove(projectId,tool,type,filename){
 }
 
 async function list(projectId,tool,type){
-  var path='/list/'+encodeURIComponent(projectId)+'/photos/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type);
+  var path='/list/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type);
   var res=await fetch(WORKER_URL+path,{method:'GET',headers:_authHeaders()});
   if(!res.ok){throw new Error('List failed: '+res.statusText);}
   return await res.json();
