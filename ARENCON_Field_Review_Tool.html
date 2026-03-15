@@ -7109,7 +7109,24 @@ function lightboxSaveMarkup(){
         var _srcPh=_allPh.find(function(x){return x.src===origSrc;});
         if(_srcPh&&_srcPh.caption)_srcCaption=_srcPh.caption;
       }catch(e){}
-      p.sitePhotos.push({id:'sp_mkup_'+Date.now(),dataUrl:markedSrc,caption:_srcCaption||'',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''});
+      var _mkupRec={id:'sp_mkup_'+Date.now(),dataUrl:markedSrc,caption:_srcCaption||'',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};
+      if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'){
+        var _mkupFname=R2Photos.generateFilename('site');
+        _mkupRec.r2Key='photos/'+_csProjectId+'/frt/original/'+_mkupFname;
+        _mkupRec.r2Status='pending';
+        var _mkupBlob=R2Photos.dataUrlToBlob(markedSrc);
+        if(_mkupBlob){
+          ADB.savePending(_mkupRec.id,_csProjectId,_mkupBlob,{type:'site',fname:_mkupFname,r2Key:_mkupRec.r2Key}).catch(function(){});
+          R2Photos.enqueue({projectId:_csProjectId,tool:'frt',type:'original',filename:_mkupFname,blob:_mkupBlob,
+            onComplete:function(err){
+              if(!err){_mkupRec.r2Status='uploaded';_mkupRec.r2Url=R2Photos.getUrl(_csProjectId,'frt','original',_mkupFname);
+                ADB.deletePending(_mkupRec.id).catch(function(){});saveToLS&&saveToLS();_updateR2Badge&&_updateR2Badge();}
+              else{_mkupRec.r2Status='error';}
+            }
+          });
+        }
+      }
+      p.sitePhotos.push(_mkupRec);
     }
     saveToLS&&saveToLS();
     showToast&&showToast('Markup saved');

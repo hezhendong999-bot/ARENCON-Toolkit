@@ -155,7 +155,15 @@ body.dark-mode .dash-sort{background:var(--card);border-color:var(--border);colo
 .detail-header h2{font-size:24px;font-weight:800;color:var(--fg);margin-bottom:4px;letter-spacing:-.3px}
 .detail-header .detail-sub{font-size:13px;color:var(--steel);font-weight:500}
 .detail-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:18px;box-shadow:var(--shadow)}
-.detail-section h3{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:14px;display:flex;align-items:center;gap:7px;letter-spacing:-.1px}
+.detail-section h3{font-size:15px;font-weight:700;color:var(--navy);margin:0;display:flex;align-items:center;gap:7px;letter-spacing:-.1px}
+/* ── Foldable detail sections ── */
+.detail-section-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;margin-bottom:0;}
+.detail-section-header h3{margin-bottom:0;}
+.detail-fold-arrow{font-size:11px;color:var(--fg-muted,#999);transition:transform .2s;margin-left:6px;flex-shrink:0;}
+.detail-fold-arrow.collapsed{transform:rotate(-90deg);}
+.detail-section-body{margin-top:14px;}
+.detail-section-body.collapsed{display:none;}
+
 .tool-launch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
 .tool-launch-card{display:flex;align-items:center;gap:10px;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .25s;background:var(--bg);}
 .tool-launch-card:hover{border-color:var(--arencon);background:var(--arencon-light);box-shadow:var(--shadow-md)}
@@ -635,32 +643,44 @@ body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);}
       <div class="detail-sub" id="detail-sub">—</div>
     </div>
     <div class="detail-section" id="detail-info-section">
-      <h3>📋 Project Info</h3>
-      <div class="detail-info-grid" id="detail-info-grid"></div>
+      <div class="detail-section-header" onclick="toggleDetailSection('detail-info-section')">
+        <h3>📋 Project Info</h3>
+        <span class="detail-fold-arrow" id="fold-arrow-detail-info-section">▾</span>
+      </div>
+      <div class="detail-section-body" id="body-detail-info-section">
+        <div class="detail-info-grid" id="detail-info-grid"></div>
+      </div>
     </div>
-    <div class="detail-section">
-      <h3>🚀 Tools &amp; Reports</h3>
-      <div class="tool-launch-grid" id="detail-tools"></div>
-      <div id="detail-instances"></div>
+    <div class="detail-section" id="detail-tools-section">
+      <div class="detail-section-header" onclick="toggleDetailSection('detail-tools-section')">
+        <h3>🚀 Tools &amp; Reports</h3>
+        <span class="detail-fold-arrow" id="fold-arrow-detail-tools-section">▾</span>
+      </div>
+      <div class="detail-section-body" id="body-detail-tools-section">
+        <div class="tool-launch-grid" id="detail-tools"></div>
+        <div id="detail-instances"></div>
+      </div>
     </div>
     <div class="detail-section" id="detail-gallery-section">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-        <h3 style="margin:0;">📸 Project Photos</h3>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <div class="detail-section-header" onclick="toggleDetailSection('detail-gallery-section')">
+        <h3>📸 Project Photos</h3>
+        <span class="detail-fold-arrow" id="fold-arrow-detail-gallery-section">▾</span>
+      </div>
+      <div class="detail-section-body" id="body-detail-gallery-section">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
           <div class="pg-filter-group" id="pg-filter-group">
             <button class="pg-filter active" data-filter="all" onclick="pgSetFilter('all')">All</button>
             <button class="pg-filter" data-filter="site" onclick="pgSetFilter('site')">Site</button>
             <button class="pg-filter" data-filter="deficiency" onclick="pgSetFilter('deficiency')">Deficiency</button>
           </div>
-          <button class="pg-action-btn" id="pg-select-all-btn" onclick="pgSelectAll()" title="Select all">☑ All</button>
-          <button class="pg-action-btn" id="pg-deselect-btn" onclick="pgDeselectAll()" style="display:none" title="Deselect all">✕ Clear</button>
-          <button class="pg-action-btn pg-dl-btn" id="pg-download-sel-btn" onclick="pgDownloadSelected()" style="display:none">⬇ Download (<span id="pg-sel-count">0</span>)</button>
-          <button class="pg-action-btn pg-dl-btn" onclick="pgDownloadAll()">⬇ All</button>
+          <button class="pg-action-btn" id="pg-select-toggle-btn" onclick="pgToggleSelectAll()">☑ Select All</button>
+          <button class="pg-action-btn pg-dl-btn" id="pg-download-sel-btn" onclick="pgDownloadSelected()" style="display:none">⬇ Download selected (<span id="pg-sel-count">0</span>)</button>
+          <button class="pg-action-btn pg-dl-btn" id="pg-download-all-btn" onclick="pgDownloadAll()">⬇ Download all</button>
         </div>
+        <div id="pg-loading" style="display:none;padding:20px;text-align:center;color:var(--fg-muted);font-size:13px;">Loading photos…</div>
+        <div id="pg-empty" style="display:none;padding:20px;text-align:center;color:var(--fg-muted);font-size:13px;">No photos found for this project.</div>
+        <div id="pg-grid"></div>
       </div>
-      <div id="pg-loading" style="display:none;padding:20px;text-align:center;color:var(--fg-muted);font-size:13px;">Loading photos…</div>
-      <div id="pg-empty" style="display:none;padding:20px;text-align:center;color:var(--fg-muted);font-size:13px;">No photos found for this project.</div>
-      <div id="pg-grid"></div>
     </div>
     <div class="detail-section detail-actions" id="detail-danger-zone">
       <button class="btn-action" id="btn-edit-proj" onclick="openEditProjectModal()">✏️ Edit Project</button>
@@ -1920,8 +1940,6 @@ function _renderDetailInfo(proj) {
     { label: 'Address', value: proj.address || '—' },
     { label: 'Project Manager', value: proj.project_manager ? (_userMap[proj.project_manager] || '—') : '—' },
     { label: 'Status', value: (proj.status || 'active').charAt(0).toUpperCase() + (proj.status || 'active').slice(1) },
-    { label: 'Building Description', value: proj.building_description || '—' },
-    { label: 'Construction Type', value: proj.construction_type || '—' },
     { label: 'Created', value: proj.created_at ? new Date(proj.created_at).toLocaleDateString('en-CA') : '—' },
     { label: 'Last Updated', value: proj.updated_at ? formatDate(proj.updated_at) : '—' }
   ];
@@ -2891,6 +2909,17 @@ setInterval(async () => {
   }
 }, 1800000); // 30 min
 
+// ── Foldable detail sections ──
+var _sectionFolded = {};
+function toggleDetailSection(sectionId) {
+  var body = document.getElementById('body-' + sectionId);
+  var arrow = document.getElementById('fold-arrow-' + sectionId);
+  if (!body) return;
+  var collapsed = body.classList.toggle('collapsed');
+  if (arrow) arrow.classList.toggle('collapsed', collapsed);
+  _sectionFolded[sectionId] = collapsed;
+}
+
 
 // ═══════════════════════════════════════════════════════════════
 // PROJECT PHOTO GALLERY
@@ -3157,9 +3186,8 @@ function _pgRender() {
       var r2Icon = isR2 ? '<span class="pg-r2-icon" title="Stored in cloud">☁️</span>' : '';
 
       html += '<div class="pg-thumb' + (sel ? ' selected' : '') + '" data-pg-id="' + ph.id + '" '
-            + 'onclick="pgThumbClick(event,\'' + ph.id + '\')" '
-            + 'ondblclick="pgLbOpen(\'' + ph.id + '\')">';
-      html += '<input type="checkbox" class="pg-thumb-cb" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation();pgToggleOne(\'' + ph.id + '\')">';
+            + 'onclick="pgThumbClick(\'' + ph.id + '\')" title="Click to view">';
+      html += '<input type="checkbox" class="pg-thumb-cb" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation();pgToggleOne(\'' + ph.id + '\',event)">';
       html += '<img data-pg-src="' + _pgEsc(ph.src) + '" src="" loading="lazy" style="background:#ddd;">';
       html += '<div class="pg-thumb-badge" style="background:' + badgeColor + ';">' + _pgEscHtml(badgeLabel) + '</div>';
       html += '<div class="pg-thumb-tool">' + _pgEscHtml(ph.tool) + '</div>';
@@ -3207,29 +3235,25 @@ function _pgObserveThumbs(grid) {
 // ── Selection ──
 var _pgLastClickId = null;
 
-function pgThumbClick(e, id) {
-  if (e.shiftKey && _pgLastClickId && _pgLastClickId !== id) {
-    // Range select
-    var ids = _pgFiltered.map(function(p) { return p.id; });
-    var a = ids.indexOf(_pgLastClickId);
-    var b = ids.indexOf(id);
-    if (a !== -1 && b !== -1) {
-      var lo = Math.min(a, b), hi = Math.max(a, b);
-      for (var i = lo; i <= hi; i++) _pgSelected.add(ids[i]);
-    }
-  } else if (e.ctrlKey || e.metaKey) {
-    if (_pgSelected.has(id)) _pgSelected.delete(id); else _pgSelected.add(id);
-    _pgLastClickId = id;
-  } else {
-    // Single click — toggle
-    if (_pgSelected.has(id)) _pgSelected.delete(id); else _pgSelected.add(id);
-    _pgLastClickId = id;
-  }
-  _pgRefreshSelectionUI();
+function pgThumbClick(id) {
+  // Single click on photo = open lightbox
+  pgLbOpen(id);
 }
 
-function pgToggleOne(id) {
-  if (_pgSelected.has(id)) _pgSelected.delete(id); else _pgSelected.add(id);
+function pgToggleOne(id, e) {
+  if (e && e.shiftKey && _pgLastClickId && _pgLastClickId !== id) {
+    var ids = _pgFiltered.map(function(p) { return p.id; });
+    var a = ids.indexOf(_pgLastClickId), b = ids.indexOf(id);
+    if (a !== -1 && b !== -1) {
+      var lo = Math.min(a,b), hi = Math.max(a,b);
+      var addOrRemove = !_pgSelected.has(id);
+      for (var i = lo; i <= hi; i++) {
+        if (addOrRemove) _pgSelected.add(ids[i]); else _pgSelected.delete(ids[i]);
+      }
+    }
+  } else {
+    if (_pgSelected.has(id)) _pgSelected.delete(id); else _pgSelected.add(id);
+  }
   _pgLastClickId = id;
   _pgRefreshSelectionUI();
 }
@@ -3240,6 +3264,17 @@ function pgToggleDateGroup(dateKey, checked) {
     if (key !== dateKey) return;
     if (checked) _pgSelected.add(ph.id); else _pgSelected.delete(ph.id);
   });
+  _pgRefreshSelectionUI();
+}
+
+function pgToggleSelectAll() {
+  var allSel = _pgFiltered.length > 0 && _pgFiltered.every(function(p) { return _pgSelected.has(p.id); });
+  if (allSel) {
+    _pgSelected = new Set();
+    _pgLastClickId = null;
+  } else {
+    _pgFiltered.forEach(function(ph) { _pgSelected.add(ph.id); });
+  }
   _pgRefreshSelectionUI();
 }
 
@@ -3276,11 +3311,24 @@ function _pgRefreshSelectionUI() {
 
 function _pgUpdateSelUI() {
   var count = _pgSelected.size;
-  var deselBtn = document.getElementById('pg-deselect-btn');
+  var allSel = _pgFiltered.length > 0 && _pgFiltered.every(function(p) { return _pgSelected.has(p.id); });
+  var toggleBtn = document.getElementById('pg-select-toggle-btn');
   var dlSelBtn = document.getElementById('pg-download-sel-btn');
+  var dlAllBtn = document.getElementById('pg-download-all-btn');
   var countEl = document.getElementById('pg-sel-count');
-  if (deselBtn) deselBtn.style.display = count > 0 ? '' : 'none';
+  if (toggleBtn) {
+    if (allSel) {
+      toggleBtn.textContent = '✕ Deselect All';
+      toggleBtn.style.background = '';
+      toggleBtn.style.color = '';
+    } else {
+      toggleBtn.textContent = '☑ Select All';
+      toggleBtn.style.background = '';
+      toggleBtn.style.color = '';
+    }
+  }
   if (dlSelBtn) dlSelBtn.style.display = count > 0 ? '' : 'none';
+  if (dlAllBtn) dlAllBtn.style.display = count > 0 ? 'none' : '';
   if (countEl) countEl.textContent = count;
 }
 
