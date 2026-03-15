@@ -677,11 +677,11 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .dv-tasks-list{flex:1;overflow-y:auto;}
 /* Mobile: collapse sidebar to bottom bar */
 @media(max-width:700px){
-  .dv-sidebar-tools{flex-direction:row;width:100%;height:44px;border-right:none;border-top:1px solid #3a3e48;overflow-x:auto;overflow-y:hidden;padding:4px 8px;order:2;flex-shrink:0;}
+  .dv-sidebar-tools{flex-direction:row;width:100%;height:44px;border-right:none;border-top:1px solid #3a3e48;overflow-x:auto;overflow-y:hidden;padding:4px 8px;order:2;flex-shrink:0;position:relative;z-index:10;}
   .dv-sidebar-tools .tool-colors{flex-direction:row;}
   .dv-sidebar-tools .tool-sep{width:1px;height:24px;margin:0 4px;}
   .dv-main{flex-direction:column;flex:1;min-height:0;}
-  .dv-tasks-panel{width:100%;max-height:140px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;}
+  .dv-tasks-panel{width:100%;max-height:140px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;z-index:5;}
   .dv-canvas-area{order:1;flex:1;min-height:0;}
   .dv-toolbar{padding:6px 10px;flex-wrap:wrap;gap:6px;}
   .dv-toolbar button{padding:5px 8px;font-size:11px;}
@@ -4015,7 +4015,13 @@ document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){
     var pp=document.getElementById('pin-panel');if(pp&&pp.classList.contains('open')){if(typeof closePinPanel==='function')closePinPanel();return;}
     var pm=document.getElementById('pin-modal-overlay');if(pm&&pm.classList.contains('open')){if(typeof closePinModal==='function')closePinModal();return;}
-    var dv=document.getElementById('drawing-viewer');if(dv&&dv.classList.contains('open')){if(typeof closeDrawingViewer==='function')closeDrawingViewer();return;}
+    var dv=document.getElementById('drawing-viewer');
+    if(dv&&dv.classList.contains('open')){
+      // In drawing viewer: Escape cancels active tool/copy mode, does NOT close the viewer
+      if(window._mkCopyMode&&typeof window._mkStopCopy==='function'){window._mkStopCopy();return;}
+      if(mkState.tool&&mkState.tool!=='pin'){setToolbarTool(mkState.tool);return;} // toggle off current tool
+      return; // stay on drawing page
+    }
     var dd=document.getElementById('download-dialog');if(dd&&dd.style.display==='flex'){if(typeof closeDownloadDialog==='function')closeDownloadDialog();return;}
     var pf=document.getElementById('pdf-picker-overlay');if(pf&&pf.style.display==='flex'){if(typeof closePDFPicker==='function')closePDFPicker();return;}
   }
@@ -5371,24 +5377,23 @@ function resizeMarkupCanvas(){
   var img=document.getElementById('dv-image');
   if(!canvas||!img)return;
   var iw=img.naturalWidth, ih=img.naturalHeight;
-  var mkMaxDim=3000;
-  var mkScale=1;
-  if(Math.max(iw,ih)>mkMaxDim){mkScale=mkMaxDim/Math.max(iw,ih);}
-  var cw=Math.round(iw*mkScale), ch=Math.round(ih*mkScale);
-  // Only reset canvas dimensions if they've actually changed — resizing clears the canvas
+  if(!iw||!ih)return;
+  // Use full natural resolution — no cap. DPR scaling for crisp rendering on retina/high-DPI.
+  var dpr=Math.min(window.devicePixelRatio||1,2); // cap DPR at 2 to avoid runaway memory
+  var cw=Math.round(iw*dpr), ch=Math.round(ih*dpr);
+  // Only reset canvas if dimensions changed (resizing clears canvas)
   if(canvas.width!==cw||canvas.height!==ch){
     canvas.width=cw;canvas.height=ch;
     canvas.style.width=iw+'px';canvas.style.height=ih+'px';
     var ctx=canvas.getContext('2d');
-    ctx.scale(mkScale,mkScale);
+    ctx.scale(dpr,dpr);
     ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
-    canvas._dpr=mkScale;
+    canvas._dpr=dpr;
     canvas._logicalW=iw;canvas._logicalH=ih;
     loadMarkupData();
   } else {
-    // Same size — just ensure styles are correct and re-render
     canvas.style.width=iw+'px';canvas.style.height=ih+'px';
-    if(!canvas._dpr){canvas._dpr=mkScale;canvas._logicalW=iw;canvas._logicalH=ih;}
+    if(!canvas._dpr){canvas._dpr=dpr;canvas._logicalW=iw;canvas._logicalH=ih;}
     renderAllMarkup();
   }
 }
@@ -5939,6 +5944,41 @@ function initMarkupEvents(){
   var _mkDragState=null;
   var _mkHoldTimer=null;   // hold-to-copy timer
   var _mkHoldPos=null;     // position where hold started
+  var _mkHoldStart=0;      // timestamp when hold began
+  var _mkHoldRaf=null;     // requestAnimationFrame for countdown arc
+  var HOLD_MS=800;
+
+  function _mkDrawHoldCountdown(){
+    if(!_mkHoldTimer)return; // cancelled
+    var elapsed=Date.now()-_mkHoldStart;
+    var progress=Math.min(elapsed/HOLD_MS,1);
+    var c=document.getElementById('markup-canvas');if(!c)return;
+    var ctx2=c.getContext('2d');
+    var dpr=c._dpr||1;
+    renderAllMarkup(); // clear previous frame
+    if(_mkHoldPos&&progress<1){
+      var px=_mkHoldPos.x,py=_mkHoldPos.y,r=16;
+      ctx2.save();
+      ctx2.setTransform(dpr,0,0,dpr,0,0);
+      // Background circle
+      ctx2.beginPath();ctx2.arc(px+r+6,py-r-6,r,0,Math.PI*2);
+      ctx2.fillStyle='rgba(30,32,40,.75)';ctx2.fill();
+      // Progress arc
+      ctx2.beginPath();ctx2.arc(px+r+6,py-r-6,r,-Math.PI/2,-Math.PI/2+progress*Math.PI*2);
+      ctx2.strokeStyle='#9C2742';ctx2.lineWidth=3;ctx2.lineCap='round';ctx2.stroke();
+      // Copy icon dot
+      ctx2.beginPath();ctx2.arc(px+r+6,py-r-6,4,0,Math.PI*2);
+      ctx2.fillStyle='white';ctx2.fill();
+      ctx2.restore();
+    }
+    if(progress<1)_mkHoldRaf=requestAnimationFrame(_mkDrawHoldCountdown);
+  }
+
+  function _cancelHold(){
+    if(_mkHoldTimer){clearTimeout(_mkHoldTimer);_mkHoldTimer=null;}
+    if(_mkHoldRaf){cancelAnimationFrame(_mkHoldRaf);_mkHoldRaf=null;}
+    _mkHoldPos=null;
+  }
 
   // Rubber-band state for drawing toolbar
   var _mkRubberBand=null;  // {sx,sy,ex,ey}
@@ -6005,14 +6045,16 @@ function initMarkupEvents(){
       mkPushHistory();
       renderAllMarkup();
       // Hold-to-copy: 800ms hold without moving activates copy mode
-      if(_mkHoldTimer)clearTimeout(_mkHoldTimer);
+      _cancelHold();
       _mkHoldPos={x:pos.x,y:pos.y};
+      _mkHoldStart=Date.now();
       _mkHoldTimer=setTimeout(function(){
-        _mkHoldTimer=null;
+        _cancelHold();
         if(_mkDragState&&!_mkDragState.moved&&typeof window._mkStartCopy==='function'){
           window._mkStartCopy();
         }
-      },800);
+      },HOLD_MS);
+      _mkHoldRaf=requestAnimationFrame(_mkDrawHoldCountdown);
     } else {
       // Empty space — start rubber band (capture drag here, don't pan)
       e.stopPropagation();e.preventDefault();
@@ -6028,7 +6070,7 @@ function initMarkupEvents(){
       var dx=pos.x-_mkDragState.startX,dy=pos.y-_mkDragState.startY;
       if(Math.abs(dx)<2&&Math.abs(dy)<2)return;
       // Movement detected — cancel hold-to-copy timer
-      if(_mkHoldTimer){clearTimeout(_mkHoldTimer);_mkHoldTimer=null;}
+      _cancelHold();
       _mkDragState.moved=true;
       if(_mkDragState.mode==='move'&&_mkSelectedIds.length>1&&_mkDragState.origObjs){
         // Multi-move: apply delta to all selected objects from their originals
@@ -6095,7 +6137,7 @@ function initMarkupEvents(){
       renderAllMarkup();
     }
     // Always cancel hold timer on release
-    if(_mkHoldTimer){clearTimeout(_mkHoldTimer);_mkHoldTimer=null;}
+    _cancelHold();
     _mkDragState=null;
   }
 
@@ -6166,6 +6208,11 @@ function initMarkupEvents(){
   canvas.addEventListener('touchend',function(e){
     if(mkState.tool==='select'){endSelect(e);return;}
     endDraw(e);
+  });
+  // Right-click cancels copy mode / deselects
+  canvas.addEventListener('contextmenu',function(e){
+    if(window._mkCopyMode){e.preventDefault();window._mkStopCopy();return;}
+    if(_mkSelectedId){e.preventDefault();_mkSelectedId=null;_mkSelectedIds=[];renderAllMarkup();return;}
   });
 }
 
