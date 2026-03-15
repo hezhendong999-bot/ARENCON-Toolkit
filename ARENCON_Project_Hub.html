@@ -2949,6 +2949,8 @@ async function r2RefreshStatus() {
   grid.innerHTML = '';
 
   var WORKER = 'https://arencon-r2-worker.hezhendong999.workers.dev';
+  // Always refresh token before R2 calls to avoid 401/empty results
+  try { await _sb.auth.refreshSession(); } catch(e) {}
   var token = localStorage.getItem('sb-access-token');
   var headers = token ? { 'Authorization': 'Bearer ' + token } : {};
 
