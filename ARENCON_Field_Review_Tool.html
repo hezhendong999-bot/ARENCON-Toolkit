@@ -2151,19 +2151,19 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
         }
         (proj.contractors||[]).forEach(function(c){_rehydrateDeficPhotos(c.deficiencies);});
         _rehydrateDeficPhotos(proj.generalDeficiencies);
-        // ── Site photos: blob-first load, R2 metadata preserved alongside ──
+        // ── Site photos: R2-first load — skip blob for uploaded photos (fast startup) ──
         var spPromises=sitePhotos.map(function(sp){
-          // Always try blob first — reliable local copy
+          // If on R2, skip blob conversion entirely — display via r2Url
+          if(sp.r2Status==='uploaded'&&sp.r2Url){
+            return Promise.resolve({id:sp.id,dataUrl:'',caption:sp.caption||'',date:sp.timestamp||'',
+              uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:'uploaded',r2Url:sp.r2Url});
+          }
+          // Local-only: convert blob to dataUrl
           var blobP=sp.dataBlob?ADB.blobToDataUrl(sp.dataBlob):Promise.resolve(null);
           return blobP.then(function(url){
             if(url){
               return {id:sp.id,dataUrl:url,caption:sp.caption||'',date:sp.timestamp||'',
                 uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:sp.r2Status||'',r2Url:sp.r2Url||''};
-            }
-            // No blob — if definitively on R2, return metadata-only (r2Url for display)
-            if(sp.r2Status==='uploaded'&&sp.r2Url){
-              return {id:sp.id,dataUrl:'',caption:sp.caption||'',date:sp.timestamp||'',
-                uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:'uploaded',r2Url:sp.r2Url};
             }
             return null;
           });
@@ -3124,17 +3124,12 @@ function _folderQuickSave(){
 
 function loadAllProjects(){return ADB.getAll('projects').then(function(projects){
   allProjects={};
-  // Metadata-only load at startup — drawings/sitePhotos blobs loaded lazily when project opens.
-  // This prevents blocking the page on startup when projects have many large drawings.
-  projects.forEach(function(meta){
-    if(meta&&meta.id){
-      // Ensure drawings/sitePhotos arrays exist so dashboard card counts work
-      if(!meta.drawings)meta.drawings=[];
-      if(!meta.sitePhotos)meta.sitePhotos=[];
-      allProjects[meta.id]=meta;
-    }
+  var loadPromises=projects.map(function(meta){
+    return ADB.loadFullProject(meta.id).then(function(full){
+      if(full)allProjects[full.id]=full;
+    });
   });
-  return Promise.resolve();
+  return Promise.all(loadPromises);
 });}
 
 function onFieldChange(el){
@@ -3301,6 +3296,7 @@ function enterProject(id){currentProjectId=id;var p=getProject();if(!p)return;if
   _migrateDeficPhotos(p.generalDeficiencies);
   // Ensure all site photos have IDs
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){if(ph&&!ph.id)ph.id='sp_'+Math.random().toString(36).substr(2,8);});}
+  _requeuePendingUploads(p);
   var _el;
   _el=document.getElementById('view-dashboard');if(_el)_el.style.display='none';
   _el=document.getElementById('view-project');if(_el){_el.style.display='block';_el.style.visibility='visible';}
@@ -3320,16 +3316,6 @@ function enterProject(id){currentProjectId=id;var p=getProject();if(!p)return;if
   ADB.put('config',{key:'lastProject',value:id});
   window.location.hash=id;
   updateProjectDropdown();populateProjectFields();switchTab('info');applyLockState();
-  // Lazy full load — fetch drawings + site photos blobs in background after UI is shown
-  ADB.loadFullProject(id).then(function(full){
-    if(full&&currentProjectId===id){
-      allProjects[id]=full;
-      // Refresh current tab if it needs blob data
-      if(currentTab==='drawings')renderDrawingGallery();
-      if(currentTab==='photos')renderPhotoGallery();
-      _requeuePendingUploads(full);
-    }
-  }).catch(function(){});
 }
 function populateProjectFields(){var p=getProject();if(!p||!p.info)return;
   Object.keys(p.info).forEach(function(key){
