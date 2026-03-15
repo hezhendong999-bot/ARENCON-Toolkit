@@ -7272,12 +7272,12 @@ function lightboxSaveMarkup(){
     }catch(e){}
     var _mkupRec={id:'sp_mkup_'+Date.now(),dataUrl:markedSrc,caption:_srcCaption||'',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};
     if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'){
-      var _mkupFname=R2Photos.generateFilename('site');
+      var _mkupFname=R2Photos.generateFilename('mkup');
       _mkupRec.r2Key='photos/'+_csProjectId+'/frt/original/'+_mkupFname;
       _mkupRec.r2Status='pending';
       var _mkupBlob=R2Photos.dataUrlToBlob(markedSrc);
       if(_mkupBlob){
-        ADB.savePending(_mkupRec.id,_csProjectId,_mkupBlob,{type:'site',fname:_mkupFname,r2Key:_mkupRec.r2Key}).catch(function(){});
+        ADB.savePending(_mkupRec.id,_csProjectId,_mkupBlob,{type:'mkup',fname:_mkupFname,r2Key:_mkupRec.r2Key}).catch(function(){});
         R2Photos.enqueue({projectId:_csProjectId,tool:'frt',type:'original',filename:_mkupFname,blob:_mkupBlob,
           onComplete:function(err){
             if(!err){_mkupRec.r2Status='uploaded';_mkupRec.r2Url=R2Photos.getUrl(_csProjectId,'frt','original',_mkupFname);
@@ -7825,6 +7825,70 @@ function _r2EnqueueDeficPhoto(rec,deficId){
 }
 
 // Re-queue pending uploads from IDB after page reload / crash recovery
+// Auto-cleanup orphaned R2 files — runs once per session in background, 30s after load
+// Compares R2 bucket contents against project references, deletes unreferenced files
+async function _r2CleanupOrphans(){
+  if(!_csHubMode||!_csProjectId||typeof R2Photos==='undefined')return;
+  var proj=getProject();if(!proj)return;
+  var hubId=_csProjectId;
+  var WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
+  var token=localStorage.getItem('sb-access-token');
+  var headers=token?{'Authorization':'Bearer '+token}:{};
+
+  // Build set of all R2 keys actually referenced by this project
+  var referencedKeys=new Set();
+  // Drawings
+  (proj.drawings||[]).forEach(function(d){if(d.r2Key)referencedKeys.add(d.r2Key);});
+  // Site photos (includes marked copies)
+  (proj.sitePhotos||[]).forEach(function(ph){if(ph&&ph.r2Key)referencedKeys.add(ph.r2Key);});
+  // Deficiency photos
+  function _addDeficKeys(defics){
+    (defics||[]).forEach(function(d){
+      (d.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)referencedKeys.add(ph.r2Key);});
+      (d.entries||[]).forEach(function(e){(e.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)referencedKeys.add(ph.r2Key);});});
+      (d.responses||[]).forEach(function(r){(r.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)referencedKeys.add(ph.r2Key);});});
+    });
+  }
+  (proj.contractors||[]).forEach(function(c){_addDeficKeys(c.deficiencies);});
+  _addDeficKeys(proj.generalDeficiencies);
+
+  // Fetch R2 file lists for each content type
+  var types=['original','drawings','markup'];
+  var deleted=0;
+  for(var ti=0;ti<types.length;ti++){
+    var type=types[ti];
+    try{
+      var listPath='/list/'+encodeURIComponent(hubId)+'/frt/'+encodeURIComponent(type);
+      var res=await fetch(WORKER+listPath,{headers:headers});
+      if(!res.ok)continue;
+      var data=await res.json();
+      var files=Array.isArray(data)?data:(data.files||data.objects||[]);
+      for(var fi=0;fi<files.length;fi++){
+        var f=files[fi];
+        var key=typeof f==='string'?f:(f.key||'');
+        if(!key)continue;
+        // R2 key format: {pid}/photos/frt/{type}/{fname}
+        // Referenced keys stored as: photos/{pid}/frt/{type}/{fname}
+        var normalised='photos/'+key;// match stored r2Key format
+        if(!referencedKeys.has(normalised)&&!referencedKeys.has(key)){
+          // Not referenced — delete from R2
+          var parts=key.split('/');// [pid, 'photos', 'frt', type, fname]
+          if(parts.length>=5){
+            try{
+              await R2Photos.remove(parts[1],parts[2],parts[3],parts.slice(4).join('/'));
+              deleted++;
+            }catch(e){}
+          }
+        }
+      }
+    }catch(e){}
+  }
+  if(deleted>0){
+    console.log('[R2Cleanup] Deleted '+deleted+' orphaned R2 file'+(deleted>1?'s':''));
+    toast('☁️ Cleaned up '+deleted+' old R2 file'+(deleted>1?'s':''),2500);
+  }
+}
+
 function _requeuePendingUploads(proj){
   if(!_csHubMode||typeof R2Photos==='undefined'||!_csProjectId)return;
   var hubId=_csProjectId;
@@ -7863,9 +7927,9 @@ function _requeuePendingUploads(proj){
       if(!p.dataBlob)return;
       var meta=p.meta||{};
       var isDrawing=meta.type==='drawing';
-      var isSite=meta.type==='site';
+      var isSite=meta.type==='site'||meta.type==='mkup';// mkup = marked copy, also stored in original/
       var rec=isDrawing?dwgRecMap[p.id]:(isSite?siteRecMap[p.id]:recMap[p.id]);
-      var fname=meta.fname||R2Photos.generateFilename(isDrawing?'dwg':(isSite?'site':'defic'));
+      var fname=meta.fname||R2Photos.generateFilename(isDrawing?'dwg':(meta.type==='mkup'?'mkup':(isSite?'site':'defic')));
       var r2Type=isDrawing?'drawings':'original';
       var r2Key=meta.r2Key||('photos/'+hubId+'/frt/'+r2Type+'/'+fname);
       if(rec){
@@ -10710,6 +10774,8 @@ function _initCloudSync(){
     if(typeof R2Photos!=='undefined'){
       R2Photos.init({wifiOnly:true,onProgress:function(info){_updateR2Badge();}});
     }
+    // Auto-cleanup orphaned R2 files — 30s delay so pending uploads finish first
+    setTimeout(function(){if(typeof _r2CleanupOrphans==='function')_r2CleanupOrphans().catch(function(){});},30000);
   }).catch(function(e){
     console.error('CloudSync init error:',e);
     toast('Cloud sync failed — working in local mode',3000);
