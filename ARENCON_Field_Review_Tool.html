@@ -1272,6 +1272,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
           <button onclick="resetCurrentProject();closeResetMenu()" style="width:100%;padding:10px 14px;border:none;background:white;text-align:left;font-size:13px;cursor:pointer;font-family:inherit;color:#C62828;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#FFF5F5'" onmouseout="this.style.background='white'">⚠️ Reset Entire Project</button>
         </div>
       </div>
+      <button class="hdr-btn" id="btn-signout" onclick="signOutSession()" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
       <button class="dark-toggle" id="dark-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode">☀️</button>
       <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
     </div>
@@ -1324,6 +1325,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
     <button class="btn" id="mobile-export-all" onclick="exportAllProjects();closeMobileMenu();" style="display:none;">📦 Export All Projects</button>
     <button class="btn" style="color:#C62828;" onclick="resetCurrentProject();closeMobileMenu();">⚠️ Reset Project</button>
     <button class="btn" id="mobile-clear-all" style="color:#C62828;display:none;" onclick="showWipeConfirmation();closeMobileMenu();">🗑️ Clear All Data</button>
+    <button class="btn" id="mobile-signout-btn" onclick="signOutSession();closeMobileMenu();" style="display:none;color:#7B1FA2;font-weight:700;">🔓 Sign Out</button>
     <div style="height:1px;background:rgba(255,255,255,.1);margin:6px 0;"></div>
     <!-- Storage capacity -->
     <div id="mobile-storage-info" style="padding:6px 10px;font-size:11px;color:var(--silver);font-family:Calibri,sans-serif;">
@@ -7099,8 +7101,15 @@ function lightboxSaveMarkup(){
     wasDeficPhoto=_replacePhotoInProject(p,origSrc,markedSrc);
     if(!wasDeficPhoto){
       // Only add gallery copy for non-deficiency photos
+      // Carry the source photo's caption so marked copies of pin photos show pin label
       if(!p.sitePhotos)p.sitePhotos=[];
-      p.sitePhotos.push({id:'sp_mkup_'+Date.now(),dataUrl:markedSrc,caption:'Marked-up copy',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''});
+      var _srcCaption='';
+      try{
+        var _allPh=_buildUnifiedPhotoList(p);
+        var _srcPh=_allPh.find(function(x){return x.src===origSrc;});
+        if(_srcPh&&_srcPh.caption)_srcCaption=_srcPh.caption;
+      }catch(e){}
+      p.sitePhotos.push({id:'sp_mkup_'+Date.now(),dataUrl:markedSrc,caption:_srcCaption||'',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''});
     }
     saveToLS&&saveToLS();
     showToast&&showToast('Markup saved');
@@ -8599,8 +8608,8 @@ function renderPhotoGallery(){
     html+='<div class="photo-thumb-grid">';
     photos.forEach(function(ph){
       var sel=_selectedPhotos.indexOf(ph.id)>=0;
-      var typeColor=ph.type==='site'?'#1A7A4A':ph.type==='response'?'#2C4A6B':'#9C2742';
-      var typeLabel=ph.type==='site'?'Site':ph.caption||('Pin '+ph.deficNum);
+      var typeColor=ph.type==='site'?(ph.caption?'#9C2742':'#1A7A4A'):ph.type==='response'?'#2C4A6B':'#9C2742';
+      var typeLabel=ph.type==='site'?(ph.caption||'Site'):ph.caption||('Pin '+ph.deficNum);
       html+='<div class="photo-thumb'+(sel?' selected':'')+'" data-photo-id="'+ph.id+'">';
       html+='<div class="photo-select-check" onclick="event.stopPropagation();togglePhotoSelect(\''+ph.id+'\')"><input type="checkbox" '+(sel?'checked':'')+' tabindex="-1"></div>';
       html+='<div style="position:absolute;top:4px;right:4px;background:'+typeColor+';color:white;font-size:8px;font-weight:700;padding:2px 5px;border-radius:3px;z-index:2;pointer-events:none;">'+typeLabel+'</div>';
@@ -9566,6 +9575,9 @@ document.addEventListener('DOMContentLoaded',function(){
       // Hide standalone-only buttons in Hub mode
       var btnLoad=document.getElementById('btn-load');if(btnLoad)btnLoad.style.display='none';
       var btnExportAll=document.getElementById('btn-export-all');if(btnExportAll)btnExportAll.style.display='none';
+      // Show sign-out button in Hub mode
+      var btnSignOut=document.getElementById('btn-signout');if(btnSignOut)btnSignOut.style.display='';
+      var mobileSignOut=document.getElementById('mobile-signout-btn');if(mobileSignOut)mobileSignOut.style.display='';
       // Hide Save As / Folder / Open / Inspector in Hub mode (cloud is the save mechanism)
       ['btn-save-as','btn-folder','btn-open-folder','btn-inspector'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
       // Hide standalone back button (Hub mode uses ← Project link instead)
@@ -9958,25 +9970,146 @@ function fillProjectSizeIndicators(){
   });
 }
 
-// === BATCH F: Inactivity Export Reminder ===
-var _lastActivity=Date.now();
-var _inactivityTimer=null;
-function _resetInactivityTimer(){
-  _lastActivity=Date.now();
-  clearTimeout(_inactivityTimer);
-  _inactivityTimer=setTimeout(function(){
-    if(!currentProjectId)return;
-    if(document.getElementById('inactivity-banner'))return;
-    var b=document.createElement('div');
-    b.id='inactivity-banner';
-    b.style.cssText='position:fixed;bottom:0;left:0;right:0;background:#1A237E;color:white;padding:10px 18px;display:flex;align-items:center;gap:12px;z-index:9999;font-family:Calibri,sans-serif;font-size:13px;box-shadow:0 -2px 12px rgba(0,0,0,.3);';
-    b.innerHTML='<span style="flex:1;">&#128190; End of visit? Export a project backup.</span>'+'<button onclick="saveJSON&&saveJSON();var _ib=document.getElementById(&quot;inactivity-banner&quot;);if(_ib)_ib.remove();" style="padding:6px 18px;background:#9C2742;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:700;font-family:Calibri,sans-serif;">Export Now</button>'+'<button onclick="var _ib=document.getElementById(&quot;inactivity-banner&quot;);if(_ib)_ib.remove();" style="padding:6px 14px;background:rgba(255,255,255,.15);color:white;border:none;border-radius:5px;cursor:pointer;font-family:Calibri,sans-serif;">Dismiss</button>';
-    document.body.appendChild(b);
-  },7200000);
+// ═══ TIERED SESSION MANAGEMENT ═══
+// Tier 1 — Soft lock:    20 min idle  → blur UI, show "Who's working?" overlay
+// Tier 2 — Full sign-out: 8 hr idle  → clear token, redirect to Hub
+// Manual  — Sign-out button           → immediate full sign-out
+
+var _lastActivity = Date.now();
+var _softLockTimer = null;
+var _hardSignOutTimer = null;
+var _sessionLocked = false;
+
+var SOFT_LOCK_MS  = 20 * 60 * 1000;   // 20 minutes
+var HARD_SIGNOUT_MS = 8 * 60 * 60 * 1000; // 8 hours
+
+function _resetSessionTimers() {
+  _lastActivity = Date.now();
+  // If currently soft-locked, a touch/click dismisses it and resumes
+  if (_sessionLocked) { _dismissSoftLock(); return; }
+  clearTimeout(_softLockTimer);
+  clearTimeout(_hardSignOutTimer);
+  _softLockTimer   = setTimeout(_triggerSoftLock,   SOFT_LOCK_MS);
+  _hardSignOutTimer = setTimeout(_triggerHardSignOut, HARD_SIGNOUT_MS);
 }
-['click','keydown','touchstart'].forEach(function(ev){
-  document.addEventListener(ev,_resetInactivityTimer,{passive:true});
+
+function _triggerSoftLock() {
+  if (_sessionLocked) return;
+  _sessionLocked = true;
+  // Auto-save before locking
+  if (currentProjectId && typeof saveToLS === 'function') saveToLS();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'soft-lock-overlay';
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:19000',
+    'background:rgba(18,22,32,.88)',
+    'backdrop-filter:blur(8px)',
+    'display:flex;align-items:center;justify-content:center',
+    'font-family:Calibri,sans-serif'
+  ].join(';');
+
+  // Build inspector chips
+  var history = [];
+  try { var raw = localStorage.getItem('ARENCON_FR_InspectorHistory'); if(raw) history = JSON.parse(raw); } catch(e) {}
+  var curr = localStorage.getItem('ARENCON_FR_Inspector') || '';
+  var chipsHtml = '';
+  if (history.length) {
+    chipsHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:18px;">';
+    history.forEach(function(name) {
+      var active = name === curr;
+      chipsHtml += '<button onclick="window._softLockResume(\'' + name.replace(/'/g,"\\'") + '\')" style="padding:9px 18px;border-radius:24px;border:2px solid ' + (active?'#9C2742':'rgba(255,255,255,.25)') + ';background:' + (active?'rgba(156,39,66,.25)':'rgba(255,255,255,.08)') + ';color:white;font-size:14px;font-weight:' + (active?'700':'400') + ';cursor:pointer;font-family:Calibri,sans-serif;transition:all .15s;">👤 ' + name + '</button>';
+    });
+    chipsHtml += '</div>';
+  }
+
+  overlay.innerHTML = [
+    '<div style="background:#1C2333;border-radius:16px;padding:36px 32px;max-width:400px;width:92%;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,.5);">',
+      '<div style="font-size:40px;margin-bottom:10px;">🔒</div>',
+      '<div style="font-size:20px;font-weight:700;color:white;margin-bottom:4px;">Session Locked</div>',
+      '<div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:24px;">Locked after inactivity. Tap your name to resume.</div>',
+      chipsHtml,
+      '<div style="font-size:11px;color:rgba(255,255,255,.3);margin-bottom:16px;">— or type a different name —</div>',
+      '<input id="soft-lock-name" type="text" placeholder="Your name" value="' + curr.replace(/"/g,'&quot;') + '" style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid rgba(255,255,255,.2);border-radius:8px;font-size:14px;font-family:Calibri,sans-serif;background:rgba(255,255,255,.08);color:white;text-align:center;margin-bottom:12px;">',
+      '<button onclick="window._softLockResumeFromInput()" style="width:100%;padding:12px;background:#9C2742;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;margin-bottom:10px;">Unlock & Continue</button>',
+      '<button onclick="signOutSession()" style="width:100%;padding:10px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;">Sign Out Instead</button>',
+    '</div>'
+  ].join('');
+
+  document.body.appendChild(overlay);
+  setTimeout(function() {
+    var inp = document.getElementById('soft-lock-name');
+    if (inp) {
+      inp.focus();
+      inp.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') window._softLockResumeFromInput();
+      });
+    }
+  }, 50);
+
+  // Schedule hard sign-out for remaining time from 8hr mark
+  var elapsed = Date.now() - _lastActivity;
+  var remaining = Math.max(60000, HARD_SIGNOUT_MS - elapsed);
+  clearTimeout(_hardSignOutTimer);
+  _hardSignOutTimer = setTimeout(_triggerHardSignOut, remaining);
+}
+
+window._softLockResume = function(name) {
+  if (name) {
+    localStorage.setItem('ARENCON_FR_Inspector', name);
+    _saveInspectorHistory(name);
+    _updateInspectorChip();
+  }
+  _dismissSoftLock();
+};
+
+window._softLockResumeFromInput = function() {
+  var inp = document.getElementById('soft-lock-name');
+  var name = inp ? inp.value.trim() : '';
+  window._softLockResume(name || localStorage.getItem('ARENCON_FR_Inspector') || '');
+};
+
+function _dismissSoftLock() {
+  _sessionLocked = false;
+  var ov = document.getElementById('soft-lock-overlay');
+  if (ov) ov.remove();
+  _resetSessionTimers();
+}
+
+function _triggerHardSignOut() {
+  // Save first, then sign out
+  if (currentProjectId && typeof saveToLS === 'function') saveToLS();
+  toast('Session expired — signing out');
+  setTimeout(signOutSession, 1200);
+}
+
+function signOutSession() {
+  // Stop all timers
+  clearTimeout(_softLockTimer);
+  clearTimeout(_hardSignOutTimer);
+  // Save state
+  if (currentProjectId && typeof saveToLS === 'function') saveToLS();
+  // Clear Supabase tokens
+  localStorage.removeItem('sb-access-token');
+  localStorage.removeItem('sb-refresh-token');
+  localStorage.removeItem('sb-user-name');
+  localStorage.removeItem('sb-user-email');
+  // Stop CloudSync auto-save
+  if (typeof CloudSync !== 'undefined' && CloudSync.isInitialized) {
+    try { CloudSync.stopAutoSave(); CloudSync.destroy(); } catch(e) {}
+  }
+  // Redirect to Hub
+  var dest = 'ARENCON_Project_Hub.html';
+  if (_csProjectId) dest += '?open=' + encodeURIComponent(_csProjectId);
+  window.location.href = dest;
+}
+
+// Wire activity events — touchstart passive for iOS scroll performance
+['click','keydown','touchstart','mousemove','scroll'].forEach(function(ev) {
+  document.addEventListener(ev, _resetSessionTimers, {passive:true});
 });
+// Start timers on load
+_resetSessionTimers();
 // ═══ PHOTO PICKER — pick from gallery and attach to deficiency ═══
 var _pickerTarget=null; // {type:'entry',did:'...',ei:0} or {type:'resp',did:'...',ri:0}
 var _pickerSelected=[];
@@ -10077,7 +10210,7 @@ function confirmPhotoPick(){
   closePhotoPicker();
 }
 
-_resetInactivityTimer();
+_resetSessionTimers();
 
 </script>
 <!-- PHOTO PICKER MODAL — pick from existing gallery photos -->
