@@ -7892,8 +7892,14 @@ async function _r2CleanupOrphans(){
     }catch(e){}
   }
   if(deleted>0){
-    console.log('[R2Cleanup] Deleted '+deleted+' orphaned R2 file'+(deleted>1?'s':''));
-    toast('☁️ Cleaned up '+deleted+' old R2 file'+(deleted>1?'s':''),2500);
+    console.log('[R2Cleanup] Cleaned up '+deleted+' orphaned R2 file'+(deleted>1?'s':''));
+    // Silent indicator — briefly show on the sync dot, no blocking toast
+    var dot=document.getElementById('cloud-dot');
+    if(dot){
+      var prev=dot.style.background;
+      dot.style.background='#818CF8';dot.title='Cleaned up '+deleted+' old file'+(deleted>1?'s':'');
+      setTimeout(function(){dot.style.background=prev;dot.title='Saved to cloud';},3000);
+    }
   }
 }
 
@@ -10783,8 +10789,8 @@ function _initCloudSync(){
     if(typeof R2Photos!=='undefined'){
       R2Photos.init({wifiOnly:true,onProgress:function(info){_updateR2Badge();}});
     }
-    // Auto-cleanup orphaned R2 files — 30s delay so pending uploads finish first
-    setTimeout(function(){if(typeof _r2CleanupOrphans==='function')_r2CleanupOrphans().catch(function(){});},30000);
+    // Auto-cleanup orphaned R2 files — 8s delay so pending uploads start first
+    setTimeout(function(){if(typeof _r2CleanupOrphans==='function')_r2CleanupOrphans().catch(function(){});},8000);
   }).catch(function(e){
     console.error('CloudSync init error:',e);
     toast('Cloud sync failed — working in local mode',3000);
