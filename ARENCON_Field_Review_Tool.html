@@ -8,12 +8,6 @@
 <style>
 /* Font: Calibri (system) */
 
-
-
-
-
-
-
 /* Compact drawing card mode */
 .dwg-card-row.compact-mode .drawing-card{width:90px!important;}
 .dwg-card-row.compact-mode .card-thumb{height:64px!important;}
@@ -84,7 +78,7 @@ body.project-locked .dv-canvas-area{cursor:default!important;}
 /* Save to File button */
 .btn-save-to-file{background:#1565C0!important;}
 
-/* ═══ LIGHTWEIGHT REVIEW MODE (I-3) ═══ */
+/* ═══ LIGHTWEIGHT REVIEW MODE ═══ */
 #review-banner{display:none;padding:10px 18px;background:#E3F2FD;border-bottom:2px solid #1565C0;color:#0D47A1;font-size:13px;font-weight:600;font-family:Calibri,sans-serif;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;}
 #review-banner .rv-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 #review-banner .rv-badge{background:#1565C0;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;letter-spacing:.3px;}
@@ -677,11 +671,11 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .dv-tasks-list{flex:1;overflow-y:auto;}
 /* Mobile: collapse sidebar to bottom bar */
 @media(max-width:700px){
-  .dv-sidebar-tools{flex-direction:row;width:100%;height:44px;border-right:none;border-top:1px solid #3a3e48;overflow-x:auto;overflow-y:hidden;padding:4px 8px;order:2;flex-shrink:0;position:relative;z-index:10;}
+  .dv-sidebar-tools{flex-direction:row;width:100%;height:44px;border-right:none;border-top:1px solid #3a3e48;overflow-x:auto;overflow-y:hidden;padding:4px 8px;order:2;flex-shrink:0;}
   .dv-sidebar-tools .tool-colors{flex-direction:row;}
   .dv-sidebar-tools .tool-sep{width:1px;height:24px;margin:0 4px;}
   .dv-main{flex-direction:column;flex:1;min-height:0;}
-  .dv-tasks-panel{width:100%;max-height:140px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;z-index:5;}
+  .dv-tasks-panel{width:100%;max-height:140px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;}
   .dv-canvas-area{order:1;flex:1;min-height:0;}
   .dv-toolbar{padding:6px 10px;flex-wrap:wrap;gap:6px;}
   .dv-toolbar button{padding:5px 8px;font-size:11px;}
@@ -861,18 +855,18 @@ body.dark-mode .drawing-card.add-card:hover{border-color:var(--red);}
 .hdr-sm{background:none;border:none;color:rgba(255,255,255,.7);font-size:16px;cursor:pointer;padding:2px 6px;}.hdr-sm:hover{color:white;}
 @media(max-width:700px){.hdr-btn{padding:4px 8px;font-size:11px;}.hdr-btn span{display:none;}}
 
-/* ═══ FIX: Filter dropdown position ═══ */
+/* ── Drawing filter dropdown ── */
 .dwg-filter-dd{position:relative;}
 .dwg-filter-menu{right:0;left:auto;}
 .photo-filter-dd{position:relative;}
 .photo-filter-menu{right:0;left:auto;}
 
-/* ═══ FIX: 3-dot menu more visible on cards ═══ */
+/* ── Drawing card menu buttons ── */
 .drawing-card .card-menu-btn{opacity:.5;font-size:18px;font-weight:700;padding:2px 6px;}
 .drawing-card:hover .card-menu-btn{opacity:1;background:rgba(0,0,0,.06);border-radius:4px;}
 .folder-menu-btn{opacity:.4!important;}.dwg-folder-header:hover .folder-menu-btn{opacity:1!important;}
 
-/* ═══ FIX: Deficiency filter redesign ═══ */
+/* ── Deficiency filter & templates ── */
 .defic-toolbar{display:flex;align-items:center;gap:8px;padding:8px 0;flex-wrap:wrap;}
 .defic-filter-dd{position:relative;}
 .defic-filter-menu{display:none;position:fixed;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.2);z-index:9000;min-width:200px;padding:4px 0;}
@@ -906,16 +900,16 @@ body.dark-mode .defic-template-pri.general{background:#0a2010;color:#66BB6A;}
 .defic-template-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;}
 .defic-template-search{flex:1;padding:7px 12px;border:1.5px solid var(--border);border-radius:7px;font-family:Calibri,sans-serif;font-size:13px;background:var(--bg);color:var(--fg);}
 
-/* ═══ FIX: Contractor header collapse ═══ */
+/* ── Contractor header fold ── */
 .ctr-header{display:flex;align-items:center;gap:8px;cursor:pointer;}
 .ctr-header .ctr-fold{font-size:10px;color:var(--silver);transition:transform .2s;}
 .ctr-header .ctr-fold.collapsed{transform:rotate(-90deg);}
 
-/* ═══ FIX: General deficiency button toned down ═══ */
+/* ── General deficiency button ── */
 .btn-general-defic{background:white!important;color:var(--red)!important;border:1.5px dashed var(--red)!important;font-weight:600;}
 .btn-general-defic:hover{background:rgba(156,39,66,.05)!important;}
 
-/* ═══ FIX: Photo drag-over visual ═══ */
+/* ── Photo zone drag-over ── */
 .photo-zone.drag-over{border-color:var(--green)!important;background:rgba(26,122,74,.05)!important;}
 
 /* ═══ Dark mode fixes ═══ */
@@ -948,10 +942,6 @@ body.dark-mode .resp-consultant{background:#001a33;border-color:#003366;}
 #mk-size-input::-webkit-inner-spin-button,#mk-size-input::-webkit-outer-spin-button,
 #mk-opacity-input::-webkit-inner-spin-button,#mk-opacity-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
 
-/* ── Markup bottom sheet ── */
-#mk-prop-sheet{transition:transform .25s cubic-bezier(.4,0,.2,1);}
-#mk-prop-sheet.open{display:block!important;}
-#mk-prop-sheet-overlay.open{display:block!important;}
 /* Selected shape highlight on canvas */
 #markup-canvas.select-active{cursor:crosshair;}
 
@@ -1031,7 +1021,7 @@ body.dark-mode #pin-entry-panel{background:#1a1d24;border-color:#9C2742;}
 body.dark-mode .project-card{background:#1e2028;border-color:#3a3e48;}
 body.dark-mode #dash-search{background:#1e2028;color:var(--text);border-color:#3a3e48;}
 
-/* ═══ PROJECT STATUS BADGES (I-4) ═══ */
+/* ═══ PROJECT STATUS BADGES ═══ */
 .proj-status-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:12px;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;cursor:pointer;user-select:none;border:1.5px solid transparent;transition:all .15s;flex-shrink:0;position:relative;}
 .proj-status-badge:hover{opacity:.85;}
 .proj-status-badge::after{content:'▾';margin-left:2px;font-size:8px;opacity:.6;}
@@ -1227,9 +1217,6 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   /* --- Pin modal buttons --- */
   .pin-modal .btn,.pin-modal button{min-height:40px;}
 
-  /* --- Markup property sheet color dots --- */
-  #mk-prop-colors .dv-color-dot{width:30px;height:30px;}
-  #mk-prop-colors .dv-color-dot::after{content:'';position:absolute;inset:-5px;border-radius:50%;}
 
   /* --- Drawing viewer layer toggles --- */
   .dv-layer-toggles button{min-width:38px;min-height:34px;padding:4px 8px!important;}
@@ -1257,7 +1244,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <span id="r2-upload-badge" style="display:none;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.3px;"></span>
       <span id="issue-status-badge" style="display:none;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;color:#fff;background:#E65100;text-transform:uppercase;letter-spacing:.5px;">DRAFT</span>
       <span class="app-title" id="header-app-title">Field Review Tool</span>
-      <span class="header-nav-arrows" id="header-nav-arrows" style="display:none;">
+      <span class="header-nav-arrows" id="header-nav-arrows">
         <button class="hdr-sm" id="btn-undo" onclick="undo()" title="Undo (Ctrl+Z)" style="opacity:0.4;">↩</button><button class="hdr-sm" id="btn-redo" onclick="redo()" title="Redo (Ctrl+Y)" style="opacity:0.4;">↪</button>
       </span>
       <!-- Unified smart dot: online+cloud status (replaces separate conn-dot) -->
@@ -1917,44 +1904,6 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   <button onclick="lightboxNext(event)" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;z-index:1;">›</button>
 </div>
 
-<!-- MARKUP PROPERTY BOTTOM SHEET -->
-<div id="mk-prop-sheet-overlay" onclick="closeMkPropSheet()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:3000;"></div>
-<div id="mk-prop-sheet" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1e2028;border-radius:16px 16px 0 0;z-index:3001;padding:0;box-shadow:0 -4px 24px rgba(0,0,0,.5);max-height:320px;font-family:Calibri,sans-serif;">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;border-bottom:1px solid #3a3e48;">
-    <span style="font-weight:700;color:white;font-size:14px;" id="mk-prop-title">Markup Properties</span>
-    <button onclick="closeMkPropSheet()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;line-height:1;">✕</button>
-  </div>
-  <div style="padding:14px 18px;display:flex;flex-direction:column;gap:14px;">
-    <!-- Color row -->
-    <div>
-      <div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Color</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;" id="mk-prop-colors">
-        <div class="dv-color-dot" style="background:#C0392B;" onclick="applyShapeProp('color','#C0392B')"></div>
-        <div class="dv-color-dot" style="background:#2196F3;" onclick="applyShapeProp('color','#2196F3')"></div>
-        <div class="dv-color-dot" style="background:#4CAF50;" onclick="applyShapeProp('color','#4CAF50')"></div>
-        <div class="dv-color-dot" style="background:#FF9800;" onclick="applyShapeProp('color','#FF9800')"></div>
-        <div class="dv-color-dot" style="background:#F1C40F;" onclick="applyShapeProp('color','#F1C40F')"></div>
-        <div class="dv-color-dot" style="background:#9C27B0;" onclick="applyShapeProp('color','#9C27B0')"></div>
-        <div class="dv-color-dot" style="background:#1C2333;" onclick="applyShapeProp('color','#1C2333')"></div>
-        <div class="dv-color-dot" style="background:#FFFFFF;border:1px solid #555;" onclick="applyShapeProp('color','#FFFFFF')"></div>
-        <input type="color" style="width:24px;height:24px;border-radius:50%;border:none;cursor:pointer;padding:0;" onchange="applyShapeProp('color',this.value)">
-      </div>
-    </div>
-    <!-- Width + Opacity row -->
-    <div style="display:flex;gap:20px;">
-      <div style="flex:1;">
-        <div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Width <span id="mk-prop-size-label">3</span></div>
-        <input type="range" id="mk-prop-size" min="1" max="30" step="0.5" value="2" style="width:100%;" oninput="document.getElementById('mk-prop-size-label').textContent=this.value;applyShapeProp('size',parseFloat(this.value))">
-      </div>
-      <div style="flex:1;">
-        <div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Opacity <span id="mk-prop-opacity-label">100</span>%</div>
-        <input type="range" id="mk-prop-opacity" min="10" max="100" value="100" style="width:100%;" oninput="document.getElementById('mk-prop-opacity-label').textContent=this.value;applyShapeProp('opacity',parseInt(this.value)/100)">
-      </div>
-    </div>
-    <!-- Delete -->
-    <button onclick="deleteSelectedShape()" style="background:#C0392B;color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-family:Calibri,sans-serif;font-weight:700;cursor:pointer;width:100%;">🗑️ Delete this markup</button>
-  </div>
-</div>
 <script>
 // ═══ ARENCON IndexedDB Storage Layer ═══
 
@@ -2646,7 +2595,7 @@ function _doUnlock(){
   toast('Project unlocked — editing enabled');
 }
 
-// ═══ LIGHTWEIGHT REVIEW MODE (I-3) ═══
+// ═══ LIGHTWEIGHT REVIEW MODE ═══
 var _reviewSnapshot = null; // {info:{...}, deficiencies:[{id,desc,status,responses:[{comment}]}]}
 var _reviewActive = false;
 
@@ -3294,10 +3243,10 @@ function _goToDashboardReal(){
   var mca=document.getElementById('mobile-clear-all');if(mca)mca.style.display='';
   updateProjectDropdown();renderDashboard();}
 function enterProject(id){currentProjectId=id;var p=getProject();if(!p)return;if(!p.contractors)p.contractors=[];if(!p.generalDeficiencies)p.generalDeficiencies=[];if(!p.nextDeficNum)p.nextDeficNum=1;if(!p.settings)p.settings={sketchesEnabled:false};
-  // Migrate legacy base64 string photo arrays to record objects (Session 21F)
+  // Migrate legacy base64 string photo arrays to record objects
   p.contractors.forEach(function(c){_migrateDeficPhotos(c.deficiencies);});
   _migrateDeficPhotos(p.generalDeficiencies);
-  // Ensure all site photos have IDs (Session 21F)
+  // Ensure all site photos have IDs
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){if(ph&&!ph.id)ph.id='sp_'+Math.random().toString(36).substr(2,8);});}
   // Re-queue any pending R2 uploads from previous session (R2-first crash recovery)
   _requeuePendingUploads(p);
@@ -3549,7 +3498,7 @@ function renderDashboard(){
 
     hdr.appendChild(star);hdr.appendChild(titleWrap);
 
-    // Status badge dropdown (I-4)
+    // Status badge dropdown
     var statusVal=p.status||'draft';
     var _sLabels={draft:'Draft',review:'Ready for Review',revision:'Revision Required',issued:'Issued'};
     var _sCss={draft:'s-draft',review:'s-review',revision:'s-revision',issued:'s-issued'};
@@ -4015,13 +3964,7 @@ document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){
     var pp=document.getElementById('pin-panel');if(pp&&pp.classList.contains('open')){if(typeof closePinPanel==='function')closePinPanel();return;}
     var pm=document.getElementById('pin-modal-overlay');if(pm&&pm.classList.contains('open')){if(typeof closePinModal==='function')closePinModal();return;}
-    var dv=document.getElementById('drawing-viewer');
-    if(dv&&dv.classList.contains('open')){
-      // In drawing viewer: Escape cancels active tool/copy mode, does NOT close the viewer
-      if(window._mkCopyMode&&typeof window._mkStopCopy==='function'){window._mkStopCopy();return;}
-      if(mkState.tool&&mkState.tool!=='pin'){setToolbarTool(mkState.tool);return;} // toggle off current tool
-      return; // stay on drawing page
-    }
+    var dv=document.getElementById('drawing-viewer');if(dv&&dv.classList.contains('open')){if(typeof closeDrawingViewer==='function')closeDrawingViewer();return;}
     var dd=document.getElementById('download-dialog');if(dd&&dd.style.display==='flex'){if(typeof closeDownloadDialog==='function')closeDownloadDialog();return;}
     var pf=document.getElementById('pdf-picker-overlay');if(pf&&pf.style.display==='flex'){if(typeof closePDFPicker==='function')closePDFPicker();return;}
   }
@@ -4232,58 +4175,6 @@ function _showUnsavedModal(onProceed){
   ov.addEventListener('keydown',function(e){if(e.key==='Escape')ov.remove();});
 }
 
-// ═══ WELCOME MODAL — first-run only ═══
-function _showWelcomeModal(){
-  var inspName=getInspectorName();
-  if(inspName)return; // already set
-  // Check if user has ever dismissed the welcome
-  if(localStorage.getItem('ARENCON_FR_WelcomeDone'))return;
-  var ov=document.createElement('div');
-  ov.id='welcome-modal';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(28,35,51,.92);z-index:10020;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
-  var box=document.createElement('div');
-  box.style.cssText='background:var(--card,white);border-radius:14px;padding:32px;max-width:400px;width:92%;box-shadow:0 12px 40px rgba(0,0,0,.4);font-family:Calibri,sans-serif;text-align:center;';
-  // Build history chips HTML
-  var history=_getInspectorHistory();
-  var historyHtml='';
-  if(history.length){
-    historyHtml='<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px;">';
-    history.forEach(function(n){
-      historyHtml+='<button class="wm-hist-chip" style="padding:7px 16px;border-radius:20px;border:1.5px solid var(--border,#ddd);background:var(--bg,#f7f8fa);color:var(--fg,#1C2333);font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;transition:all .15s;" onclick="document.getElementById(\'welcome-name-input\').value=\''+n.replace(/'/g,"\\'")+'\';this.style.borderColor=\'#9C2742\';this.style.background=\'rgba(156,39,66,.1)\';this.style.fontWeight=\'700\';">👤 '+n+'</button>';
-    });
-    historyHtml+='</div><div style="font-size:11px;color:var(--silver,#888);margin-bottom:10px;">Tap a name above or type a new one</div>';
-  }
-  box.innerHTML='<div style="font-size:28px;margin-bottom:8px;">👷</div>'
-    +'<div style="font-size:20px;font-weight:700;color:var(--fg,#1C2333);margin-bottom:4px;">Welcome to ARENCON</div>'
-    +'<div style="font-size:14px;font-weight:600;color:#9C2742;margin-bottom:16px;">Field Review Tool</div>'
-    +'<div style="font-size:12px;color:var(--silver,#888);margin-bottom:18px;line-height:1.5;">Enter your name to get started. This filters the project list to show your projects on shared devices.</div>'
-    +historyHtml
-    +'<input id="welcome-name-input" type="text" placeholder="e.g. J. Smith" style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid var(--border,#ddd);border-radius:8px;font-size:15px;font-family:Calibri,sans-serif;background:var(--bg,#fafbfc);color:var(--fg,#1C2333);margin-bottom:16px;text-align:center;">'
-    +'<button id="welcome-start-btn" style="width:100%;padding:12px;background:#9C2742;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Get Started</button>'
-    +'<button id="welcome-skip-btn" style="margin-top:8px;background:none;border:none;color:var(--silver,#888);font-size:12px;cursor:pointer;font-family:Calibri,sans-serif;">Skip for now</button>';
-  ov.appendChild(box);
-  document.body.appendChild(ov);
-  setTimeout(function(){var inp=document.getElementById('welcome-name-input');if(inp)inp.focus();},100);
-  document.getElementById('welcome-start-btn').onclick=function(){
-    var inp=document.getElementById('welcome-name-input');
-    var name=(inp?inp.value:'').trim();
-    if(!name){inp.style.borderColor='#C0392B';inp.placeholder='Please enter your name';return;}
-    localStorage.setItem('ARENCON_FR_Inspector',name);
-    _saveInspectorHistory(name);
-    localStorage.setItem('ARENCON_FR_WelcomeDone','1');
-    ov.remove();
-    _updateInspectorChip();
-    toast('Welcome, '+name+'!');
-    renderDashboard();
-  };
-  document.getElementById('welcome-skip-btn').onclick=function(){
-    localStorage.setItem('ARENCON_FR_WelcomeDone','1');
-    ov.remove();
-  };
-  ov.addEventListener('keydown',function(e){
-    if(e.key==='Enter')document.getElementById('welcome-start-btn').click();
-  });
-}
 
 // ═══ INSPECTOR CHIP — update display ═══
 function _updateInspectorChip(){
@@ -4394,29 +4285,6 @@ function showWipeConfirmation(){
   ov.addEventListener('keydown',function(e){if(e.key==='Escape')ov.remove();});
 }
 
-// ═══ SAFARI PULSE — backup reminder when no folder linked ═══
-var _safariPulseTimer=null;
-var _hasFSAccess=!!(window.showDirectoryPicker);
-function _startSafariPulse(){
-  if(_safariPulseTimer)clearInterval(_safariPulseTimer);
-  _safariPulseTimer=setInterval(function(){
-    if(!currentProjectId)return;
-    // If folder is linked and auto-syncing, no need to pulse
-    if(ADB.folderHandle)return _stopSavePulse();
-    // If no dirty changes, no pulse
-    if(!ADB.dirty)return _stopSavePulse();
-    // Pulse the save button
-    var saveBtn=document.getElementById('btn-save-as');
-    if(saveBtn&&!saveBtn.classList.contains('save-pulse')){
-      saveBtn.classList.add('save-pulse');
-      saveBtn.style.position='relative';
-      // Add badge dot if not there
-      if(!saveBtn.querySelector('.save-pulse-badge')){
-        var badge=document.createElement('span');badge.className='save-pulse-badge';saveBtn.appendChild(badge);
-      }
-    }
-  },120000); // check every 2 minutes
-}
 function _stopSavePulse(){
   var saveBtn=document.getElementById('btn-save-as');
   if(saveBtn){
@@ -5377,23 +5245,24 @@ function resizeMarkupCanvas(){
   var img=document.getElementById('dv-image');
   if(!canvas||!img)return;
   var iw=img.naturalWidth, ih=img.naturalHeight;
-  if(!iw||!ih)return;
-  // Use full natural resolution — no cap. DPR scaling for crisp rendering on retina/high-DPI.
-  var dpr=Math.min(window.devicePixelRatio||1,2); // cap DPR at 2 to avoid runaway memory
-  var cw=Math.round(iw*dpr), ch=Math.round(ih*dpr);
-  // Only reset canvas if dimensions changed (resizing clears canvas)
+  var mkMaxDim=3000;
+  var mkScale=1;
+  if(Math.max(iw,ih)>mkMaxDim){mkScale=mkMaxDim/Math.max(iw,ih);}
+  var cw=Math.round(iw*mkScale), ch=Math.round(ih*mkScale);
+  // Only reset canvas dimensions if they've actually changed — resizing clears the canvas
   if(canvas.width!==cw||canvas.height!==ch){
     canvas.width=cw;canvas.height=ch;
     canvas.style.width=iw+'px';canvas.style.height=ih+'px';
     var ctx=canvas.getContext('2d');
-    ctx.scale(dpr,dpr);
+    ctx.scale(mkScale,mkScale);
     ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
-    canvas._dpr=dpr;
+    canvas._dpr=mkScale;
     canvas._logicalW=iw;canvas._logicalH=ih;
     loadMarkupData();
   } else {
+    // Same size — just ensure styles are correct and re-render
     canvas.style.width=iw+'px';canvas.style.height=ih+'px';
-    if(!canvas._dpr){canvas._dpr=dpr;canvas._logicalW=iw;canvas._logicalH=ih;}
+    if(!canvas._dpr){canvas._dpr=mkScale;canvas._logicalW=iw;canvas._logicalH=ih;}
     renderAllMarkup();
   }
 }
@@ -5944,41 +5813,6 @@ function initMarkupEvents(){
   var _mkDragState=null;
   var _mkHoldTimer=null;   // hold-to-copy timer
   var _mkHoldPos=null;     // position where hold started
-  var _mkHoldStart=0;      // timestamp when hold began
-  var _mkHoldRaf=null;     // requestAnimationFrame for countdown arc
-  var HOLD_MS=800;
-
-  function _mkDrawHoldCountdown(){
-    if(!_mkHoldTimer)return; // cancelled
-    var elapsed=Date.now()-_mkHoldStart;
-    var progress=Math.min(elapsed/HOLD_MS,1);
-    var c=document.getElementById('markup-canvas');if(!c)return;
-    var ctx2=c.getContext('2d');
-    var dpr=c._dpr||1;
-    renderAllMarkup(); // clear previous frame
-    if(_mkHoldPos&&progress<1){
-      var px=_mkHoldPos.x,py=_mkHoldPos.y,r=16;
-      ctx2.save();
-      ctx2.setTransform(dpr,0,0,dpr,0,0);
-      // Background circle
-      ctx2.beginPath();ctx2.arc(px+r+6,py-r-6,r,0,Math.PI*2);
-      ctx2.fillStyle='rgba(30,32,40,.75)';ctx2.fill();
-      // Progress arc
-      ctx2.beginPath();ctx2.arc(px+r+6,py-r-6,r,-Math.PI/2,-Math.PI/2+progress*Math.PI*2);
-      ctx2.strokeStyle='#9C2742';ctx2.lineWidth=3;ctx2.lineCap='round';ctx2.stroke();
-      // Copy icon dot
-      ctx2.beginPath();ctx2.arc(px+r+6,py-r-6,4,0,Math.PI*2);
-      ctx2.fillStyle='white';ctx2.fill();
-      ctx2.restore();
-    }
-    if(progress<1)_mkHoldRaf=requestAnimationFrame(_mkDrawHoldCountdown);
-  }
-
-  function _cancelHold(){
-    if(_mkHoldTimer){clearTimeout(_mkHoldTimer);_mkHoldTimer=null;}
-    if(_mkHoldRaf){cancelAnimationFrame(_mkHoldRaf);_mkHoldRaf=null;}
-    _mkHoldPos=null;
-  }
 
   // Rubber-band state for drawing toolbar
   var _mkRubberBand=null;  // {sx,sy,ex,ey}
@@ -6045,16 +5879,14 @@ function initMarkupEvents(){
       mkPushHistory();
       renderAllMarkup();
       // Hold-to-copy: 800ms hold without moving activates copy mode
-      _cancelHold();
+      if(_mkHoldTimer)clearTimeout(_mkHoldTimer);
       _mkHoldPos={x:pos.x,y:pos.y};
-      _mkHoldStart=Date.now();
       _mkHoldTimer=setTimeout(function(){
-        _cancelHold();
+        _mkHoldTimer=null;
         if(_mkDragState&&!_mkDragState.moved&&typeof window._mkStartCopy==='function'){
           window._mkStartCopy();
         }
-      },HOLD_MS);
-      _mkHoldRaf=requestAnimationFrame(_mkDrawHoldCountdown);
+      },800);
     } else {
       // Empty space — start rubber band (capture drag here, don't pan)
       e.stopPropagation();e.preventDefault();
@@ -6070,7 +5902,7 @@ function initMarkupEvents(){
       var dx=pos.x-_mkDragState.startX,dy=pos.y-_mkDragState.startY;
       if(Math.abs(dx)<2&&Math.abs(dy)<2)return;
       // Movement detected — cancel hold-to-copy timer
-      _cancelHold();
+      if(_mkHoldTimer){clearTimeout(_mkHoldTimer);_mkHoldTimer=null;}
       _mkDragState.moved=true;
       if(_mkDragState.mode==='move'&&_mkSelectedIds.length>1&&_mkDragState.origObjs){
         // Multi-move: apply delta to all selected objects from their originals
@@ -6137,7 +5969,7 @@ function initMarkupEvents(){
       renderAllMarkup();
     }
     // Always cancel hold timer on release
-    _cancelHold();
+    if(_mkHoldTimer){clearTimeout(_mkHoldTimer);_mkHoldTimer=null;}
     _mkDragState=null;
   }
 
@@ -6208,11 +6040,6 @@ function initMarkupEvents(){
   canvas.addEventListener('touchend',function(e){
     if(mkState.tool==='select'){endSelect(e);return;}
     endDraw(e);
-  });
-  // Right-click cancels copy mode / deselects
-  canvas.addEventListener('contextmenu',function(e){
-    if(window._mkCopyMode){e.preventDefault();window._mkStopCopy();return;}
-    if(_mkSelectedId){e.preventDefault();_mkSelectedId=null;_mkSelectedIds=[];renderAllMarkup();return;}
   });
 }
 
@@ -6373,23 +6200,6 @@ function updateSizeLabel(v){var el=document.getElementById('mk-size-input');if(e
 function updateOpacityLabel(v){var el=document.getElementById('mk-opacity-input');if(el)el.value=v;}
 function updateTextSizeLabel(v){var el=document.getElementById('mk-text-size-label');if(el)el.textContent=v;mkState.fontSize=parseInt(v);}
 
-
-// ── COMPATIBILITY FUNCTIONS ──
-// These are called from the property sheet and other UI that references old API
-function openMkPropSheet(shapeIdx){
-  // Map to object-based: find object by index
-  if(shapeIdx>=0&&shapeIdx<_mkObjects.length){
-    _mkSelectedId=_mkObjects[shapeIdx].id;
-    renderAllMarkup();
-    showToast('Selected markup #'+(shapeIdx+1));
-  }
-}
-function closeMkPropSheet(){_mkSelectedId=null;_mkSelectedIds=[];renderAllMarkup();}
-function applyShapeProp(prop,val){
-  if(!_mkSelectedId)return;
-  var obj=_mkFindObj(_mkSelectedId);if(!obj)return;
-  obj[prop]=val;renderAllMarkup();saveMarkupData();
-}
 function deleteSelectedShape(){
   var toDelete=_mkSelectedIds.length>0?_mkSelectedIds:(_mkSelectedId?[_mkSelectedId]:[]);
   if(!toDelete.length)return;
@@ -6687,31 +6497,6 @@ function _lbShowCurrent(){
 
 function lightboxPrev(e){e.stopPropagation();if(_lbPhotos.length<2)return;_lbIdx=(_lbIdx-1+_lbPhotos.length)%_lbPhotos.length;_lbShowCurrent();}
 function lightboxNext(e){e.stopPropagation();if(_lbPhotos.length<2)return;_lbIdx=(_lbIdx+1)%_lbPhotos.length;_lbShowCurrent();}
-
-function lightboxDrawMode(){
-  if(!_lbCanvas)_lbCanvas=document.getElementById('lightbox-canvas');
-  _lbDrawing=true;
-  _lbTool='pen';_lbColor='#C0392B';_lbSize=4;_lbOpacity=1;
-  _lbUndoStack=[];_lbRedoStack=[];_lbOrigSrc=_lbPhotos[_lbIdx];
-  document.getElementById('lb-draw-btn').style.display='none';
-  document.getElementById('lb-save-btn').style.display='';
-  document.getElementById('lb-clear-btn').style.display='';
-  document.getElementById('lb-toolbar').style.display='flex';
-  // Sync colour swatch display
-  var sw=document.getElementById('lb-color-swatch-active');if(sw)sw.style.background=_lbColor;
-  var cc=document.getElementById('lb-custom-color');if(cc)cc.value=_lbColor;
-  // Sync size/opacity UI
-  var sz=document.getElementById('lb-size');if(sz)sz.value='4';
-  var szi=document.getElementById('lb-size-input');if(szi)szi.value='4';
-  var op=document.getElementById('lb-opacity');if(op)op.value='100';
-  var opi=document.getElementById('lb-opacity-input');if(opi)opi.value='100';
-  document.querySelectorAll('.lb-tool-btn').forEach(function(b){b.classList.toggle('active',b.dataset.lbTool==='pen');});
-  _lbEnableDrawEvents();
-}
-
-var _lbTool='pen',_lbColor='#C0392B',_lbSize=4,_lbOpacity=1,_lbUndoStack=[],_lbRedoStack=[],_lbOrigSrc='';
-var _lbTextPending=null;
-var _lbMouse={down:false,x:0,y:0,sx:0,sy:0};
 
 // ═══════════════════════════════════════════════════════════════
 // LIGHTBOX MARKUP — Object Model (mirrors drawing toolbar)
@@ -7336,8 +7121,6 @@ function lightboxSaveMarkup(){
 function lightboxSave(){lightboxSaveMarkup();}
 function lightboxSaveCopy(){lightboxSaveMarkup();}
 
-
-
 function _replacePhotoInProject(p,oldSrc,newSrc){
   var replaced=false;
   var ad=getAllDeficiencies(p);
@@ -7709,7 +7492,7 @@ function triggerDeficPhotoUpload(did){var inp=document.createElement('input');in
 function triggerDeficPhotoCamera(did){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){processDeficPhotos(did,inp.files);};inp.click();}
 function handleDeficPhotoDrop(e,did){processDeficPhotos(did,e.dataTransfer.files);}
 
-// ── DEFICIENCY PHOTO RECORD HELPERS (Session 21F) ──
+// ── DEFICIENCY PHOTO RECORD HELPERS ──
 // Photos are now objects: {id, dataUrl, r2Key, r2Status, r2Url}
 // _deficPhotoSrc() extracts displayable URL from record or legacy string.
 function _deficPhotoSrc(ph){
@@ -8003,7 +7786,6 @@ function toggleCtrFold(name){_foldedCtrs[name]=!_foldedCtrs[name];
   // Recompute _allFolded state
   var p=getProject();if(p){var names=(p.contractors||[]).map(function(c){return c.name;});if(p.generalDeficiencies&&p.generalDeficiencies.length)names.push('General');_allFolded=names.length>0&&names.every(function(n){return _foldedCtrs[n];});}
   _updateFoldBtn();renderDeficiencyPanel();}
-function toggleCtrFold(name){if(_foldedCtrs[name])delete _foldedCtrs[name];else _foldedCtrs[name]=true;renderDeficiencyPanel();}
 // ═══ PIN EDITOR — side panel / mobile modal ═══
 
 function _ensureEntries(d){
@@ -10345,124 +10127,12 @@ function _incrementRevision(rev){
   return m[1]+(num<10?'0':'')+num;
 }
 
-// ── CLOUD MERGE HELPERS (Session 21F) ──
-// These functions merge cloud metadata into local state while preserving local base64 data.
-
-// Merge drawings: cloud has metadata only (no dataUrl/markupData/thumb).
-// Keep local images, update metadata from cloud for matching IDs, add new cloud-only drawings.
-function _mergeDrawings(proj,cloudDrawings){
-  if(!cloudDrawings)return;
-  var localMap={};
-  (proj.drawings||[]).forEach(function(d){localMap[d.id]=d;});
-  // Only update metadata for drawings that exist locally.
-  // Do NOT add cloud-only drawings — they were likely deleted locally.
-  // Cross-device sync of new drawings will be handled by R2 in a future session.
-  cloudDrawings.forEach(function(cd){
-    var ld=localMap[cd.id];
-    if(ld){
-      // Existing drawing: update metadata from cloud, keep local images
-      ld.name=cd.name||ld.name;
-      ld.width=cd.width||ld.width;
-      ld.height=cd.height||ld.height;
-      ld.folder=cd.folder||ld.folder;
-      ld.isOriginal=cd.hasOwnProperty('isOriginal')?cd.isOriginal:ld.isOriginal;
-    }
-    // Cloud-only drawings are intentionally NOT added — respect local deletions
-  });
-}
-
-// Merge site photos: cloud has r2 metadata but no dataUrl.
-function _mergeSitePhotos(proj,cloudPhotos){
-  if(!cloudPhotos)return;
-  var localMap={};
-  (proj.sitePhotos||[]).forEach(function(ph){if(ph&&ph.id)localMap[ph.id]=ph;});
-  // Only update R2 metadata for photos that exist locally.
-  // Do NOT add cloud-only photos — they were likely deleted locally.
-  cloudPhotos.forEach(function(cph){
-    if(!cph||!cph.id)return;
-    var lph=localMap[cph.id];
-    if(lph){
-      // Merge R2 metadata from cloud into local record
-      if(cph.r2Key)lph.r2Key=cph.r2Key;
-      if(cph.r2Url)lph.r2Url=cph.r2Url;
-      if(cph.r2Status)lph.r2Status=cph.r2Status;
-      if(cph.caption)lph.caption=cph.caption;
-    }
-    // Cloud-only photos are intentionally NOT added — respect local deletions
-  });
-}
-
-// Merge deficiency arrays: apply cloud text/status metadata, preserve local photos.
-// contractors is [{deficiencies:[...]}, ...] or [{deficiencies:[...]}] wrapper for generalDeficiencies.
-function _mergeDeficArrays(localContractors,cloudContractors){
-  if(!cloudContractors||!localContractors)return;
-  cloudContractors.forEach(function(cc,ci){
-    if(ci>=localContractors.length)return;
-    var lc=localContractors[ci];
-    var cloudDefics=cc.deficiencies||[];
-    var localDefics=lc.deficiencies||[];
-    // Build lookup by deficiency ID
-    var localById={};
-    localDefics.forEach(function(d){if(d.id)localById[d.id]=d;});
-    cloudDefics.forEach(function(cd){
-      var ld=localById[cd.id];
-      if(ld){
-        // Merge text fields from cloud, keep local photos
-        ld.num=cd.num;
-        ld.status=cd.status||ld.status;
-        ld.iar=cd.iar!=null?cd.iar:ld.iar;
-        ld.date=cd.date||ld.date;
-        ld.priority=cd.priority||ld.priority;
-        ld.drawingId=cd.drawingId!=null?cd.drawingId:ld.drawingId;
-        ld.pinX=cd.pinX!=null?cd.pinX:ld.pinX;
-        ld.pinY=cd.pinY!=null?cd.pinY:ld.pinY;
-        ld.description=cd.description!=null?cd.description:ld.description;
-        // Merge entries: keep local photos, update text
-        if(cd.entries&&ld.entries){
-          cd.entries.forEach(function(ce,ei){
-            if(ei<ld.entries.length){
-              ld.entries[ei].description=ce.description!=null?ce.description:ld.entries[ei].description;
-              ld.entries[ei].priority=ce.priority||ld.entries[ei].priority;
-              // photos: keep local (cloud has empty arrays)
-            }
-          });
-          // If cloud has more entries than local, add them
-          if(cd.entries.length>ld.entries.length){
-            for(var ei=ld.entries.length;ei<cd.entries.length;ei++){
-              ld.entries.push(cd.entries[ei]);
-            }
-          }
-        }
-        // Merge responses: keep local photos, update text
-        if(cd.responses&&ld.responses){
-          cd.responses.forEach(function(cr,ri){
-            if(ri<ld.responses.length){
-              ld.responses[ri].text=cr.text!=null?cr.text:ld.responses[ri].text;
-              ld.responses[ri].date=cr.date||ld.responses[ri].date;
-              ld.responses[ri].by=cr.by||ld.responses[ri].by;
-              // photos: keep local
-            }
-          });
-          if(cd.responses.length>ld.responses.length){
-            for(var ri=ld.responses.length;ri<cd.responses.length;ri++){
-              ld.responses.push(cd.responses[ri]);
-            }
-          }
-        }
-      }
-    });
-    // Sync contractor-level fields
-    if(cc.name)lc.name=cc.name;
-    if(cc.trade)lc.trade=cc.trade;
-  });
-}
-
 function _collectFullState(){
   var p=getProject();if(!p)return{};
   // Deep copy project state for CloudSync
   var state=JSON.parse(JSON.stringify(p));
 
-  // ── CLOUD PAYLOAD SLIMMING (Session 21F) ──
+  // ── CLOUD PAYLOAD SLIMMING ──
   // Strip ALL base64 image data from cloud state to prevent Supabase timeout.
   // IDB retains full data locally. R2 will eventually hold all images.
 
@@ -10559,7 +10229,7 @@ function _initCloudSync(){
     }
     return CloudSync.load();
   }).then(function(result){
-    // ── LOCAL IDB IS ALWAYS THE SOURCE OF TRUTH (Session 21F) ──
+    // ── LOCAL IDB IS ALWAYS THE SOURCE OF TRUTH ──
     // Cloud merge was causing deleted drawings to resurrect and photos to disappear.
     // Fix: NEVER apply cloud state back to local. Cloud is write-only from this device.
     // Cross-device sync will be handled properly when R2 holds all images.
