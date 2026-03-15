@@ -2052,7 +2052,7 @@ ADB.blobToDataUrl=function(blob){return new Promise(function(resolve,reject){
 // ═══ HIGH-LEVEL PROJECT OPERATIONS ═══
 ADB.saveProject=function(proj){
   var meta=JSON.parse(JSON.stringify(proj));
-  meta.drawings=(meta.drawings||[]).map(function(d){return{id:d.id,name:d.name,width:d.width,height:d.height,isOriginal:d.isOriginal,folder:d.folder||''};});
+  meta.drawings=(meta.drawings||[]).map(function(d){return{id:d.id,name:d.name,width:d.width,height:d.height,isOriginal:d.isOriginal,folder:d.folder||'',r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',heights:d.heights||null,markupObjects:d.markupObjects||null};});
   // Defic photos: keep records (id, r2Key, r2Status, r2Url) but strip dataUrl blobs
   function _stripDeficPhotoBlobs(d){
     if(d.photos)d.photos=d.photos.map(function(ph){
@@ -2081,10 +2081,18 @@ ADB.saveProject=function(proj){
 
 ADB.saveDrawing=function(drawing,projectId){
   var rec={id:drawing.id,projectId:projectId,name:drawing.name,width:drawing.width||0,height:drawing.height||0,isOriginal:drawing.isOriginal||false,folder:drawing.folder||''};
-  if(drawing.dataUrl)rec.dataBlob=ADB.dataUrlToBlob(drawing.dataUrl);
-  else if(drawing.dataBlob)rec.dataBlob=drawing.dataBlob;
+  // R2 Phase 3: save blob to IDB only if not yet uploaded to R2
+  if(drawing.r2Status!=='uploaded'&&drawing.dataUrl){
+    rec.dataBlob=ADB.dataUrlToBlob(drawing.dataUrl);
+  } else if(drawing.dataBlob){
+    rec.dataBlob=drawing.dataBlob;
+  }
   if(drawing.markupData)rec.markupBlob=ADB.dataUrlToBlob(drawing.markupData);
   else if(drawing.markupBlob)rec.markupBlob=drawing.markupBlob;
+  // Always preserve R2 metadata
+  rec.r2Key=drawing.r2Key||'';
+  rec.r2Status=drawing.r2Status||'';
+  rec.r2Url=drawing.r2Url||'';
   return ADB.put('drawings',rec);
 };
 
@@ -2130,10 +2138,24 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
     var proj=results[0];if(!proj){resolve(null);return;}
     var drawings=results[1]||[];var sitePhotos=results[2]||[];var pending=results[3]||[];
     var drawingPromises=drawings.map(function(d){
+      // R2 Phase 3: if uploaded to R2, skip IDB blob — load on-demand when drawing opens
+      if(d.r2Status==='uploaded'&&d.r2Url){
+        return Promise.resolve({
+          id:d.id,name:d.name,width:d.width,height:d.height,
+          isOriginal:d.isOriginal,folder:d.folder||'',
+          dataUrl:null,thumb:d.thumb||null,markupData:null,
+          markupObjects:d.markupObjects||null,heights:d.heights||null,
+          r2Key:d.r2Key||'',r2Status:'uploaded',r2Url:d.r2Url
+        });
+      }
       return Promise.all([
         d.dataBlob?ADB.blobToDataUrl(d.dataBlob):Promise.resolve(null),
         d.markupBlob?ADB.blobToDataUrl(d.markupBlob):Promise.resolve(null)
-      ]).then(function(urls){d.dataUrl=urls[0];d.markupData=urls[1];delete d.dataBlob;delete d.markupBlob;return d;});
+      ]).then(function(urls){
+        d.dataUrl=urls[0];d.markupData=urls[1];
+        d.r2Key=d.r2Key||'';d.r2Status=d.r2Status||'';d.r2Url=d.r2Url||'';
+        delete d.dataBlob;delete d.markupBlob;return d;
+      });
     });
     Promise.all(drawingPromises).then(function(resolvedDrawings){
       proj.drawings=resolvedDrawings;
@@ -2199,9 +2221,14 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
 ADB.saveFullProject=function(proj){
   var pid=proj.id;
   var promises=[ADB.saveProject(proj)];
-  // Save drawings — and track IDs so we can delete stale ones
+  // Save drawings — track all IDs; save if has dataUrl (local) or r2Url (uploaded, keep metadata)
   var drawingIds=[];
-  (proj.drawings||[]).forEach(function(d){if(d.dataUrl||d.dataBlob){drawingIds.push(d.id);promises.push(ADB.saveDrawing(d,pid));}});
+  (proj.drawings||[]).forEach(function(d){
+    if(d&&d.id){
+      drawingIds.push(d.id);
+      if(d.dataUrl||d.dataBlob||d.r2Url){promises.push(ADB.saveDrawing(d,pid));}
+    }
+  });
   // Clean stale drawings from IDB that are no longer in project
   promises.push(ADB.getAllByIndex('drawings','projectId',pid).then(function(idbDrawings){
     var delPromises=[];
@@ -4499,7 +4526,7 @@ function getUniqueDrawingName(baseName,p){
   return baseName+' ('+i+')';
 }
 
-function handleImageDrawingUpload(f){showDrawingLoading('Processing '+f.name+'...');var reader=new FileReader();reader.onload=function(e){var p=getProject();var baseName=f.name.replace(/\.[^.]+$/,'');var name=getUniqueDrawingName(baseName,p);p.drawings.push({id:'dwg_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,dataUrl:e.target.result,width:0,height:0,isOriginal:true});saveToLS();hideDrawingLoading();renderDrawingGallery();};reader.readAsDataURL(f);}
+function handleImageDrawingUpload(f){showDrawingLoading('Processing '+f.name+'...');var reader=new FileReader();reader.onload=function(e){var p=getProject();var baseName=f.name.replace(/\.[^.]+$/,'');var name=getUniqueDrawingName(baseName,p);var newDwgI={id:'dwg_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,dataUrl:e.target.result,width:0,height:0,isOriginal:true,r2Key:'',r2Status:'',r2Url:''};p.drawings.push(newDwgI);if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwgI);saveToLS();hideDrawingLoading();renderDrawingGallery();};reader.readAsDataURL(f);}
 
 function handlePDFUpload(file){ensurePdfJs(function(){_handlePDFUploadCore(file);});}
 function _handlePDFUploadCore(file){var reader=new FileReader();reader.onload=function(e){var ta=new Uint8Array(e.target.result);
@@ -4514,7 +4541,9 @@ function _handlePDFUploadCore(file){var reader=new FileReader();reader.onload=fu
       pageName=getUniqueDrawingName(pageName,p);
       var folderName=bn;
       // Push drawing immediately — thumbnail generated lazily by renderDrawingGallery backfill
-      p.drawings.push({id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),name:pageName,dataUrl:du,thumb:null,width:vp.width,height:vp.height,isOriginal:false,folder:folderName});
+      var newDwg={id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),name:pageName,dataUrl:du,thumb:null,width:vp.width,height:vp.height,isOriginal:false,folder:folderName,r2Key:'',r2Status:'',r2Url:''};
+      p.drawings.push(newDwg);
+      if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
       done++;showDrawingLoading('Rendering PDF: '+done+'/'+total+'...');
       if(pg<total){saveToLS();go(pg+1);}
       else{saveToLS();renderDrawingGallery();hideDrawingLoading();}
@@ -4738,7 +4767,7 @@ function addToFolderAction(fname){
     });
   };inp.click();
 }
-function handleImageUploadToFolder(f,folder){showDrawingLoading('Processing '+f.name+'...');var reader=new FileReader();reader.onload=function(e){var p=getProject();var baseName=f.name.replace(/\.[^.]+$/,'');var name=getUniqueDrawingName(baseName,p);p.drawings.push({id:'dwg_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,dataUrl:e.target.result,width:0,height:0,isOriginal:true,folder:folder});saveToLS();hideDrawingLoading();renderDrawingGallery();};reader.readAsDataURL(f);}
+function handleImageUploadToFolder(f,folder){showDrawingLoading('Processing '+f.name+'...');var reader=new FileReader();reader.onload=function(e){var p=getProject();var baseName=f.name.replace(/\.[^.]+$/,'');var name=getUniqueDrawingName(baseName,p);var newDwgF={id:'dwg_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,dataUrl:e.target.result,width:0,height:0,isOriginal:true,folder:folder,r2Key:'',r2Status:'',r2Url:''};p.drawings.push(newDwgF);if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwgF);saveToLS();hideDrawingLoading();renderDrawingGallery();};reader.readAsDataURL(f);}
 function handlePDFUploadToFolder(file,folder){ensurePdfJs(function(){_handlePDFUploadToFolderCore(file,folder);});}
 function _handlePDFUploadToFolderCore(file,folder){var reader=new FileReader();reader.onload=function(e){var ta=new Uint8Array(e.target.result);
   var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long to render (>2 min).\n\nTip: In Bluebeam or Acrobat, use Save As → Reduce File Size, then try again.\nOr export the sheet as a PNG/JPEG image instead.');},120000);
@@ -4751,7 +4780,9 @@ function _handlePDFUploadToFolderCore(file,folder){var reader=new FileReader();r
       var pageName=total>1?bn+' - Page '+pg:bn;
       pageName=getUniqueDrawingName(pageName,p);
       // _genThumb bypass — push immediately, thumb generated lazily
-      p.drawings.push({id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),name:pageName,dataUrl:du,thumb:null,width:vp.width,height:vp.height,isOriginal:false,folder:folder});
+      var newDwg2={id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),name:pageName,dataUrl:du,thumb:null,width:vp.width,height:vp.height,isOriginal:false,folder:folder,r2Key:'',r2Status:'',r2Url:''};
+      p.drawings.push(newDwg2);
+      if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
       done++;showDrawingLoading('Rendering PDF: '+done+'/'+total+'...');
       if(pg<total){saveToLS();go(pg+1);}
       else{saveToLS();renderDrawingGallery();hideDrawingLoading();}
@@ -4846,10 +4877,47 @@ function _cleanEmptyFolders(p){
 function renameDrawing(id){var p=getProject();var d=p.drawings.find(function(x){return x.id===id;});if(!d)return;var n=prompt('Rename:',d.name);if(n){d.name=n;saveToLS();renderDrawingGallery();}}
 function removeDrawing(id){if(!confirm('Delete this drawing?'))return;var p=getProject();p.drawings=p.drawings.filter(function(x){return x.id!==id;});(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});});(p.generalDeficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});saveToLS();renderDrawingGallery();}
 
-function openDrawingViewer(drawingId){try{dvState.currentDrawingId=drawingId;dvState.pinMode=false;mkState.tool=null;dvState.selectedPinId=null;var p=getProject();var d=p.drawings.find(function(x){return x.id===drawingId;});if(!d)return;document.getElementById('dv-title').textContent=d.name;document.getElementById('dv-image').src=d.dataUrl;// Reset all toolbar tools, then activate pin tool by default
-document.querySelectorAll('.dv-sidebar-tools .tool-btn').forEach(function(b){b.classList.remove('active');});
-var _lpdv=getProject();dvState.pinMode=false;
-document.getElementById('dv-canvas-area').classList.remove('pin-mode');document.getElementById('drawing-viewer').classList.add('open');document.getElementById('dv-image').onload=function(){fitDrawing();renderPinsOnDrawing();renderTasksPanel();resizeMarkupCanvas();initMarkupEvents();initSelectModeEvents();if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}};initPanZoom();}catch(err){console.error('openDrawingViewer error:',err);alert('Drawing error: '+err.message);}}function closeDrawingViewer(){document.getElementById('drawing-viewer').classList.remove('open');dvState.currentDrawingId=null;dvState.selectedPinId=null;dvState.pinMode=false;mkState.tool=null;closePinPanel();closePinModal();}
+function openDrawingViewer(drawingId){
+  try{
+    dvState.currentDrawingId=drawingId;dvState.pinMode=false;mkState.tool=null;dvState.selectedPinId=null;
+    var p=getProject();var d=p.drawings.find(function(x){return x.id===drawingId;});if(!d)return;
+    document.getElementById('dv-title').textContent=d.name;
+    document.querySelectorAll('.dv-sidebar-tools .tool-btn').forEach(function(b){b.classList.remove('active');});
+    dvState.pinMode=false;
+    document.getElementById('dv-canvas-area').classList.remove('pin-mode');
+    document.getElementById('drawing-viewer').classList.add('open');
+
+    function _openWithSrc(src){
+      document.getElementById('dv-image').src=src;
+      document.getElementById('dv-image').onload=function(){
+        fitDrawing();renderPinsOnDrawing();renderTasksPanel();resizeMarkupCanvas();initMarkupEvents();initSelectModeEvents();
+        if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
+      };
+      initPanZoom();
+    }
+
+    // R2 Phase 3: if no local dataUrl but r2Url set, fetch from R2 first
+    if(!d.dataUrl&&d.r2Url){
+      showDrawingLoading('Loading drawing…');
+      var token=localStorage.getItem('sb-access-token');
+      var headers=token?{'Authorization':'Bearer '+token}:{};
+      fetch(d.r2Url,{headers:headers})
+        .then(function(res){if(!res.ok)throw new Error(res.status);return res.blob();})
+        .then(function(blob){return ADB.blobToDataUrl(blob);})
+        .then(function(url){
+          d.dataUrl=url; // cache in memory for this session
+          hideDrawingLoading();
+          _openWithSrc(url);
+        })
+        .catch(function(err){
+          hideDrawingLoading();
+          alert('Could not load drawing from cloud: '+err.message);
+        });
+    } else {
+      _openWithSrc(d.dataUrl||'');
+    }
+  }catch(err){console.error('openDrawingViewer error:',err);alert('Drawing error: '+err.message);}
+}function closeDrawingViewer(){document.getElementById('drawing-viewer').classList.remove('open');dvState.currentDrawingId=null;dvState.selectedPinId=null;dvState.pinMode=false;mkState.tool=null;closePinPanel();closePinModal();}
 function prevDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx-1+p.drawings.length)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
 function nextDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx+1)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
 function fitDrawing(){
@@ -5398,6 +5466,30 @@ function renderAllMarkup(){
   }
 }
 
+// ── COPY MODE GHOST PREVIEW ──
+function _mkDrawCopyGhost(ctx,pos,dpr){
+  if(!window._mkCopyMode||!window._mkCopyObj)return;
+  var canvas=document.getElementById('markup-canvas');if(!canvas)return;
+  renderAllMarkup(); // clear previous ghost first
+  var copies=Array.isArray(window._mkCopyObj)?window._mkCopyObj:[window._mkCopyObj];
+  // Compute centroid
+  var bbs=copies.map(function(o){return _mkGetBounds(o);});
+  var cx=(bbs.reduce(function(a,b){return a+b.x1;},0)/bbs.length+bbs.reduce(function(a,b){return a+b.x2;},0)/bbs.length)/2;
+  var cy=(bbs.reduce(function(a,b){return a+b.y1;},0)/bbs.length+bbs.reduce(function(a,b){return a+b.y2;},0)/bbs.length)/2;
+  var dx=pos.x-cx,dy=pos.y-cy;
+  ctx.save();
+  ctx.setTransform(dpr||1,0,0,dpr||1,0,0);
+  ctx.globalAlpha=0.4;
+  copies.forEach(function(src){
+    var ghost=JSON.parse(JSON.stringify(src));
+    if(ghost.points)ghost.points.forEach(function(pt){pt.x+=dx;pt.y+=dy;});
+    if(ghost.x1!=null){ghost.x1+=dx;ghost.y1+=dy;}
+    if(ghost.x2!=null){ghost.x2+=dx;ghost.y2+=dy;}
+    _drawObject(ctx,ghost,false);
+  });
+  ctx.restore();
+}
+
 function _mkFindObj(id){
   for(var i=0;i<_mkObjects.length;i++){if(_mkObjects[i].id===id)return _mkObjects[i];}
   return null;
@@ -5516,12 +5608,22 @@ function _drawSelectionHandles(ctx,obj){
   ctx.strokeStyle='#2196F3';ctx.lineWidth=2;ctx.setLineDash([6,4]);
   ctx.strokeRect(b.x1-4,b.y1-4,(b.x2-b.x1)+8,(b.y2-b.y1)+8);
   ctx.setLineDash([]);
+  // Corner resize handles
   var hs=8;
   [[b.x1-4,b.y1-4],[b.x2+4,b.y1-4],[b.x1-4,b.y2+4],[b.x2+4,b.y2+4]].forEach(function(pt){
     ctx.fillStyle='white';ctx.strokeStyle='#2196F3';ctx.lineWidth=1.5;
     ctx.fillRect(pt[0]-hs/2,pt[1]-hs/2,hs,hs);
     ctx.strokeRect(pt[0]-hs/2,pt[1]-hs/2,hs,hs);
   });
+  // × delete button — top-right of bounding box
+  var dx=b.x2+14,dy=b.y1-14,dr=10;
+  ctx.beginPath();ctx.arc(dx,dy,dr,0,Math.PI*2);
+  ctx.fillStyle='#C0392B';ctx.fill();
+  ctx.strokeStyle='white';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.strokeStyle='white';ctx.lineWidth=2;ctx.lineCap='round';
+  var off=5;
+  ctx.beginPath();ctx.moveTo(dx-off,dy-off);ctx.lineTo(dx+off,dy+off);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(dx+off,dy-off);ctx.lineTo(dx-off,dy+off);ctx.stroke();
   ctx.restore();
 }
 
@@ -5540,6 +5642,9 @@ function _mkHitHandle(x,y,obj){
   if(!obj)return null;
   var b=_mkGetBounds(obj);
   var hs=12;
+  // Check × delete button first (top-right, 14px out from corner)
+  var dx=b.x2+14,dy=b.y1-14;
+  if(Math.abs(x-dx)<14&&Math.abs(y-dy)<14)return 'delete';
   var handles=[
     {name:'nw',x:b.x1-4,y:b.y1-4},
     {name:'ne',x:b.x2+4,y:b.y1-4},
@@ -5811,16 +5916,20 @@ function initMarkupEvents(){
     var type=mkState.tool;
     if(type==='pen'||type==='highlight'||type==='eraser'){
       if(_penPoints.length>1){
-        _mkObjects.push({id:_mkNewId(),type:type,points:_penPoints.slice(),
-          color:mkState.color,size:getSize(),opacity:getOpacity()});
+        var newPenObj={id:_mkNewId(),type:type,points:_penPoints.slice(),
+          color:mkState.color,size:getSize(),opacity:getOpacity()};
+        _mkObjects.push(newPenObj);
+        _mkSelectedId=newPenObj.id;_mkSelectedIds=[newPenObj.id];
       }
     } else if(type&&type!=='polyline'&&type!=='select'){
-      _mkObjects.push({id:_mkNewId(),type:type,
+      var newShapeObj={id:_mkNewId(),type:type,
         x1:mkState.startX,y1:mkState.startY,x2:mkState._endX||mkState.startX,y2:mkState._endY||mkState.startY,
-        color:mkState.color,size:getSize(),opacity:getOpacity()});
+        color:mkState.color,size:getSize(),opacity:getOpacity()};
+      _mkObjects.push(newShapeObj);
+      _mkSelectedId=newShapeObj.id;_mkSelectedIds=[newShapeObj.id];
     }
     _penPoints=[];
-    _mkDrawCache=null; // clear cached background
+    _mkDrawCache=null;
     renderAllMarkup();
     saveMarkupData();
   }
@@ -5828,6 +5937,8 @@ function initMarkupEvents(){
   // ── SELECT MODE HANDLERS ──
   // Click on markup = select + drag to move. Click empty space = pan viewport.
   var _mkDragState=null;
+  var _mkHoldTimer=null;   // hold-to-copy timer
+  var _mkHoldPos=null;     // position where hold started
 
   // Rubber-band state for drawing toolbar
   var _mkRubberBand=null;  // {sx,sy,ex,ey}
@@ -5858,10 +5969,15 @@ function initMarkupEvents(){
       renderAllMarkup();saveMarkupData();
       return;
     }
-    // Check if clicking a resize handle on selected object
+    // Check if clicking a resize handle or × delete button on selected object
     if(_mkSelectedId){
       var sel=_mkFindObj(_mkSelectedId);
       var handle=_mkHitHandle(pos.x,pos.y,sel);
+      if(handle==='delete'){
+        e.stopPropagation();e.preventDefault();
+        deleteSelectedShape();
+        return;
+      }
       if(handle){
         e.stopPropagation();e.preventDefault();
         _mkDragState={mode:'resize',handle:handle,startX:pos.x,startY:pos.y,
@@ -5888,6 +6004,15 @@ function initMarkupEvents(){
         origObj:JSON.parse(JSON.stringify(hit)),origObjs:origObjs,moved:false};
       mkPushHistory();
       renderAllMarkup();
+      // Hold-to-copy: 800ms hold without moving activates copy mode
+      if(_mkHoldTimer)clearTimeout(_mkHoldTimer);
+      _mkHoldPos={x:pos.x,y:pos.y};
+      _mkHoldTimer=setTimeout(function(){
+        _mkHoldTimer=null;
+        if(_mkDragState&&!_mkDragState.moved&&typeof window._mkStartCopy==='function'){
+          window._mkStartCopy();
+        }
+      },800);
     } else {
       // Empty space — start rubber band (capture drag here, don't pan)
       e.stopPropagation();e.preventDefault();
@@ -5902,6 +6027,8 @@ function initMarkupEvents(){
     if(_mkDragState){
       var dx=pos.x-_mkDragState.startX,dy=pos.y-_mkDragState.startY;
       if(Math.abs(dx)<2&&Math.abs(dy)<2)return;
+      // Movement detected — cancel hold-to-copy timer
+      if(_mkHoldTimer){clearTimeout(_mkHoldTimer);_mkHoldTimer=null;}
       _mkDragState.moved=true;
       if(_mkDragState.mode==='move'&&_mkSelectedIds.length>1&&_mkDragState.origObjs){
         // Multi-move: apply delta to all selected objects from their originals
@@ -5961,12 +6088,14 @@ function initMarkupEvents(){
       });
       if(hits.length>=1){
         _mkSelectedIds=hits.map(function(o){return o.id;});
-        _mkSelectedId=_mkSelectedIds[_mkSelectedIds.length-1]; // primary = topmost
+        _mkSelectedId=_mkSelectedIds[_mkSelectedIds.length-1];
       } else {
         _mkSelectedIds=[];_mkSelectedId=null;
       }
       renderAllMarkup();
     }
+    // Always cancel hold timer on release
+    if(_mkHoldTimer){clearTimeout(_mkHoldTimer);_mkHoldTimer=null;}
     _mkDragState=null;
   }
 
@@ -6001,7 +6130,12 @@ function initMarkupEvents(){
   });
   canvas.addEventListener('mousemove',function(e){
     if(mkState.tool==='select'&&(_mkDragState||_mkRubberBand)){e.stopPropagation();moveSelect(e);return;}
-    if(mkState.drawing){e.stopPropagation();moveDraw(e);}
+    if(mkState.drawing){e.stopPropagation();moveDraw(e);return;}
+    // Ghost preview in copy mode
+    if(window._mkCopyMode&&window._mkCopyObj){
+      var pos=getPos(e);
+      _mkDrawCopyGhost(canvas.getContext('2d'),pos,canvas._dpr||1);
+    }
   });
   canvas.addEventListener('mouseup',function(e){
     if(mkState.tool==='select'){endSelect(e);return;}
@@ -6010,6 +6144,8 @@ function initMarkupEvents(){
   canvas.addEventListener('mouseleave',function(){
     if(mkState.drawing){mkState.drawing=false;_penPoints=[];_mkDrawCache=null;renderAllMarkup();}
     if(_mkDragState){_mkDragState=null;}
+    // Clear ghost on leave
+    if(window._mkCopyMode)renderAllMarkup();
   });
   canvas.addEventListener('touchstart',function(e){
     if(!canvas.classList.contains('drawing-active')&&!canvas.classList.contains('select-active'))return;
@@ -6019,7 +6155,13 @@ function initMarkupEvents(){
   },{passive:false});
   canvas.addEventListener('touchmove',function(e){
     if(mkState.tool==='select'&&(_mkDragState||_mkRubberBand)){e.preventDefault();e.stopPropagation();moveSelect(e);return;}
-    if(mkState.drawing){e.preventDefault();e.stopPropagation();moveDraw(e);}
+    if(mkState.drawing){e.preventDefault();e.stopPropagation();moveDraw(e);return;}
+    // Ghost preview on tablet
+    if(window._mkCopyMode&&window._mkCopyObj){
+      e.preventDefault();
+      var pos=getPos(e);
+      _mkDrawCopyGhost(canvas.getContext('2d'),pos,canvas._dpr||1);
+    }
   },{passive:false});
   canvas.addEventListener('touchend',function(e){
     if(mkState.tool==='select'){endSelect(e);return;}
@@ -6243,9 +6385,9 @@ var _heightsPanelOpen=false;
 var _DEFAULT_HEIGHT_ROWS=[
   {label:'U/S Ceiling Deck',value:''},
   {label:'U/S Branchline',value:''},
-  {label:'Sprinkler Deflectors',value:''},
-  {label:'Cross Main',value:''},
-  {label:'Feed Main',value:''},
+  {label:'U/S Sprinkler Deflectors',value:''},
+  {label:'U/S Cross Main',value:''},
+  {label:'U/S Feed Main',value:''},
   {label:'Top of Storage',value:''}
 ];
 
@@ -6277,12 +6419,13 @@ function _renderHeightRows(){
   var container=document.getElementById('heights-rows');
   if(!container||!rows)return;
   container.innerHTML=rows.map(function(r,i){
-    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
+    return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">'
       +'<input value="'+escHtml(r.label)+'" oninput="updateHeightLabel('+i+',this.value)" '
-      +'style="flex:1;min-width:0;padding:5px 7px;border:1.5px solid #ddd;border-radius:5px;font-family:Calibri,sans-serif;font-size:12px;" placeholder="Label">'
+      +'style="flex:1;min-width:0;padding:5px 7px;border:1.5px solid #ddd;border-radius:5px;font-family:Calibri,sans-serif;font-size:11px;" placeholder="Label">'
       +'<input value="'+escHtml(r.value)+'" oninput="updateHeightValue('+i+',this.value)" '
-      +'style="width:80px;padding:5px 7px;border:1.5px solid #ddd;border-radius:5px;font-family:Calibri,sans-serif;font-size:12px;" placeholder="e.g. 3.5m">'
-      +'<button onclick="removeHeightRow('+i+')" style="background:none;border:none;color:#bbb;cursor:pointer;font-size:14px;flex-shrink:0;padding:2px;">✕</button>'
+      +'style="width:68px;padding:5px 5px;border:1.5px solid #ddd;border-radius:5px;font-family:Calibri,sans-serif;font-size:11px;text-align:right;" placeholder="5\'-0&quot;">'
+      +'<span style="font-size:10px;color:#666;white-space:nowrap;font-family:Calibri,sans-serif;font-weight:600;">A.F.F.</span>'
+      +'<button onclick="removeHeightRow('+i+')" style="background:none;border:none;color:#bbb;cursor:pointer;font-size:13px;flex-shrink:0;padding:1px;">✕</button>'
       +'</div>';
   }).join('');
 }
@@ -7552,6 +7695,30 @@ function _migrateDeficPhotos(defics){
 // 1. Save blob to pendingUploads IDB store (crash-safe holding area)
 // 2. Start R2 upload in background
 // 3. On success: delete from pendingUploads, clear dataUrl, set r2Url
+// R2 Phase 3: upload drawing image to R2
+function _r2EnqueueDrawing(dwg){
+  var hubId=_csHubMode?_csProjectId:null;
+  if(!hubId||typeof R2Photos==='undefined'||!dwg||!dwg.dataUrl)return;
+  var fname=R2Photos.generateFilename('dwg')+'.png';
+  dwg.r2Key='photos/'+hubId+'/frt/drawings/'+fname;
+  dwg.r2Status='pending';
+  var blob=R2Photos.dataUrlToBlob(dwg.dataUrl);
+  if(!blob)return;
+  // Save to pendingUploads for crash recovery
+  ADB.savePending(dwg.id,hubId,blob,{type:'drawing',fname:fname,r2Key:dwg.r2Key}).catch(function(){});
+  R2Photos.enqueue({
+    projectId:hubId,tool:'frt',type:'drawings',filename:fname,blob:blob,
+    onComplete:function(err){
+      if(!err){
+        dwg.r2Status='uploaded';
+        dwg.r2Url=R2Photos.getUrl(hubId,'frt','drawings',fname);
+        ADB.deletePending(dwg.id).catch(function(){});
+        saveToLS();_updateR2Badge();
+      }else{dwg.r2Status='error';}
+    }
+  });
+}
+
 function _r2EnqueueDeficPhoto(rec,deficId){
   var hubId=_csHubMode?_csProjectId:null;
   if(!hubId||typeof R2Photos==='undefined'){return;}
@@ -7604,29 +7771,34 @@ function _requeuePendingUploads(proj){
     }
     (proj.contractors||[]).forEach(function(c){_mapDeficPhotos(c.deficiencies);});
     _mapDeficPhotos(proj.generalDeficiencies);
-    // Also build site photo map for Phase 2
+    // Build site photo map for Phase 2
     var siteRecMap={};
     (proj.sitePhotos||[]).forEach(function(sp){if(sp&&sp.id)siteRecMap[sp.id]=sp;});
+    // Build drawing map for Phase 3
+    var dwgRecMap={};
+    (proj.drawings||[]).forEach(function(dw){if(dw&&dw.id)dwgRecMap[dw.id]=dw;});
 
     pending.forEach(function(p){
       if(!p.dataBlob)return;
       var meta=p.meta||{};
+      var isDrawing=meta.type==='drawing';
       var isSite=meta.type==='site';
-      var rec=isSite?siteRecMap[p.id]:recMap[p.id];
-      var fname=meta.fname||R2Photos.generateFilename(isSite?'site':'defic');
-      var r2Key=meta.r2Key||('photos/'+hubId+'/frt/original/'+fname);
+      var rec=isDrawing?dwgRecMap[p.id]:(isSite?siteRecMap[p.id]:recMap[p.id]);
+      var fname=meta.fname||R2Photos.generateFilename(isDrawing?'dwg':(isSite?'site':'defic'));
+      var r2Type=isDrawing?'drawings':'original';
+      var r2Key=meta.r2Key||('photos/'+hubId+'/frt/'+r2Type+'/'+fname);
       if(rec){
         ADB.blobToDataUrl(p.dataBlob).then(function(url){if(url)rec.dataUrl=url;}).catch(function(){});
         rec.r2Key=r2Key;rec.r2Status='pending';
       }
       R2Photos.enqueue({
-        projectId:hubId,tool:'frt',type:'original',filename:fname,blob:p.dataBlob,
+        projectId:hubId,tool:'frt',type:r2Type,filename:fname,blob:p.dataBlob,
         onComplete:function(err){
           if(!err){
             if(rec){
               rec.r2Status='uploaded';
-              rec.r2Url=R2Photos.getUrl(hubId,'frt','original',fname);
-              delete rec.dataUrl;
+              rec.r2Url=R2Photos.getUrl(hubId,'frt',r2Type,fname);
+              if(!isDrawing)delete rec.dataUrl; // keep drawing dataUrl cached in memory
             }
             ADB.deletePending(p.id).catch(function(){});
             saveToLS();_updateR2Badge();
