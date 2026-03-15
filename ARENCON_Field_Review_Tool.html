@@ -2342,6 +2342,9 @@ ADB.startAutoSave=function(getProjectFn,getFilenameFn){
     if(ADB._lockFilename&&ADB.folderHandle&&!ADB._readOnly){
       try{ADB.removeLockFile();}catch(e){}
     }
+    // Hub mode: CloudSync handles saves — never show browser beforeunload dialog
+    // Check URL param directly in case _csHubMode hasn't been set yet in init chain
+    if(_csHubMode||new URLSearchParams(window.location.search).get('project'))return;
     // Warn if dirty and no folder auto-save
     if(ADB.dirty&&!ADB.folderHandle&&currentProjectId){
       var msg='You have unsaved changes. Export a backup before leaving?';
@@ -3248,8 +3251,13 @@ function _showHubSaveLeaveModal(destUrl){
     this.textContent='Saving…';this.disabled=true;
     try{
       if(typeof CloudSync!=='undefined'&&CloudSync.save){
-        var p=getProject&&getProject();
-        if(p)await CloudSync.save(JSON.stringify(p));
+        // Use _collectFullState() — strips base64 so save is fast
+        var stateJson=typeof _collectFullState==='function'?JSON.stringify(_collectFullState()):'{}';
+        // 4s timeout — if save stalls, navigate anyway
+        await Promise.race([
+          CloudSync.save(stateJson),
+          new Promise(function(res){setTimeout(res,4000);})
+        ]);
       }else{saveToLS&&saveToLS();}
     }catch(e){}
     window.location.href=destUrl;
@@ -4586,6 +4594,29 @@ function _loadThumbSrc(img){
   _loadR2OrDirect(src,img);
 }
 
+// Refresh Supabase token if expired, returns fresh token or null
+async function _refreshR2Token(){
+  var rt=localStorage.getItem('sb-refresh-token');
+  if(!rt)return null;
+  try{
+    var SUPABASE_URL='https://xsemvinxsyphjiaqgywv.supabase.co';
+    var ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+    var res=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token',{
+      method:'POST',
+      headers:{'apikey':ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({refresh_token:rt})
+    });
+    if(!res.ok)return null;
+    var data=await res.json();
+    if(data&&data.access_token){
+      localStorage.setItem('sb-access-token',data.access_token);
+      if(data.refresh_token)localStorage.setItem('sb-refresh-token',data.refresh_token);
+      return data.access_token;
+    }
+  }catch(e){}
+  return null;
+}
+
 function _loadR2OrDirect(src,img){
   if(!src||typeof src!=='string'){img.style.background='#f0f0f0';img.alt='Photo (offline)';return;}
   // R2 URLs need authenticated fetch → object URL
@@ -4593,12 +4624,21 @@ function _loadR2OrDirect(src,img){
     var token=localStorage.getItem('sb-access-token');
     var headers=token?{'Authorization':'Bearer '+token}:{};
     fetch(src,{headers:headers}).then(function(res){
+      if(res.status===401){
+        // Token expired — refresh and retry once
+        return _refreshR2Token().then(function(newToken){
+          if(!newToken)throw new Error('401');
+          return fetch(src,{headers:{'Authorization':'Bearer '+newToken}});
+        }).then(function(res2){
+          if(!res2.ok)throw new Error(res2.status);
+          return res2.blob();
+        });
+      }
       if(!res.ok)throw new Error(res.status);
       return res.blob();
     }).then(function(blob){
       img.src=URL.createObjectURL(blob);
     }).catch(function(e){
-      console.warn('[R2Photos] Image load failed:',src,e.message);
       img.style.background='#f0f0f0';
       img.alt='Photo (offline)';
     });
@@ -7681,10 +7721,16 @@ async function _r2EnqueueDrawing(dwg){
   var blob=R2Photos.dataUrlToBlob(dwg.dataUrl);
   if(!blob)return;
   ADB.savePending(dwg.id,hubId,blob,{type:'drawing',fname:fname,r2Key:dwg.r2Key}).catch(function(){});
+  var _oldR2Key=dwg.r2Key;// save old key before overwriting
   R2Photos.enqueue({
     projectId:hubId,tool:'frt',type:'drawings',filename:fname,blob:blob,
     onComplete:function(err){
       if(!err){
+        // Delete old R2 file if it existed (auto-cleanup orphans)
+        if(_oldR2Key&&_oldR2Key!==('photos/'+hubId+'/frt/drawings/'+fname)){
+          var oldParts=_oldR2Key.split('/');
+          if(oldParts.length>=5)R2Photos.remove(oldParts[1],oldParts[2],oldParts[3],oldParts.slice(4).join('/')).catch(function(){});
+        }
         dwg.r2Status='uploaded';
         dwg.r2Url=R2Photos.getUrl(hubId,'frt','drawings',fname);
         ADB.deletePending(dwg.id).catch(function(){});
