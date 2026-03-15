@@ -2973,8 +2973,8 @@ async function r2RefreshStatus() {
         return { type: t, files: [], error: 'HTTP ' + res.status };
       }
       var data = await res.json();
-      // data may be [{key, size}, ...] or {objects:[...]} depending on worker impl
-      var files = Array.isArray(data) ? data : (data.objects || data.files || []);
+      // data may be [{key, size}, ...] or {objects:[...]} or {prefix, count, files:[...]}
+      var files = Array.isArray(data) ? data : (data.objects || data.files || data.items || []);
       // Apply filter for types that share the same R2 folder (original/)
       if (t.filter) {
         files = files.filter(function(f) {
@@ -3012,7 +3012,7 @@ async function r2RefreshStatus() {
     html += '<span class="r2-row-name">' + r.type.label + '</span>';
     html += '<span class="r2-row-count">';
     if (r.error) {
-      html += '<span style="color:#C0392B;">Error</span>';
+      html += '<span style="color:#C0392B;font-size:11px;" title="' + r.error + '">Error: ' + r.error.substring(0,30) + '</span>';
     } else if (total === 0) {
       html += '<span style="color:var(--fg-muted);">None</span>';
     } else {
