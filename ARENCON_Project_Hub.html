@@ -34,12 +34,12 @@ body.dark-mode{
 }
 
 /* ═══ HEADER ═══ */
-.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);display:flex;align-items:center;padding:10px 20px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.15)}
-.hdr img{height:36px;width:auto;background:#fff;padding:5px 10px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);display:block;transition:transform .2s}
+.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);display:flex;align-items:center;padding:10px 16px;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.15);min-width:0;}
+.hdr img{height:32px;width:auto;background:#fff;padding:4px 8px;border-radius:7px;box-shadow:0 2px 8px rgba(0,0,0,.1);display:block;transition:transform .2s;flex-shrink:0;}
 .hdr img:hover{transform:scale(1.03)}
-.hdr-title{font-size:18px;font-weight:700;color:#fff;white-space:nowrap;letter-spacing:-.2px}
-.hdr-spacer{flex:1}
-.hdr-btn{background:rgba(255,255,255,.1);color:rgba(255,255,255,.9);border:1px solid rgba(255,255,255,.12);padding:7px 14px;border-radius:8px;cursor:pointer;font:600 12.5px Calibri,'Segoe UI',system-ui,sans-serif;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .2s;backdrop-filter:blur(4px)}
+.hdr-title{font-size:17px;font-weight:700;color:#fff;white-space:nowrap;letter-spacing:-.2px;flex-shrink:0;}
+.hdr-spacer{flex:1;min-width:0;}
+.hdr-btn{background:rgba(255,255,255,.1);color:rgba(255,255,255,.9);border:1px solid rgba(255,255,255,.12);padding:7px 14px;border-radius:8px;cursor:pointer;font:600 12.5px Calibri,'Segoe UI',system-ui,sans-serif;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .2s;backdrop-filter:blur(4px);flex-shrink:0;}
 .hdr-btn:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.25);color:#fff}
 .hdr-user{display:flex;align-items:center;gap:10px;color:rgba(255,255,255,.92);font-size:13px;font-weight:500}
 .hdr-user .user-role{opacity:.65;font-size:11px;font-weight:400}
@@ -113,6 +113,16 @@ body.dark-mode{
 .project-card-bottom .progress-chip{margin-left:auto}
 .backup-status{font-size:9.5px;color:var(--silver);font-weight:500;margin-left:auto}
 .backup-status.not-backed{color:var(--warn)}
+/* ── R2 Storage Status Panel ── */
+.r2-row{margin-bottom:14px;}
+.r2-row-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.r2-row-name{font-size:12px;font-weight:700;color:var(--fg);}
+.r2-row-count{font-size:11px;color:var(--fg-muted);}
+.r2-bar-track{height:8px;background:var(--border);border-radius:4px;overflow:hidden;}
+.r2-bar-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+.r2-row-sub{font-size:10px;color:var(--fg-muted);margin-top:2px;}
+.r2-err{font-size:12px;color:#C0392B;padding:8px 0;}
+
 
 /* Star button on cards */
 .project-card-star{background:none;border:none;font-size:16px;cursor:pointer;color:var(--silver);transition:all .2s;padding:2px;line-height:1;flex-shrink:0}
@@ -159,7 +169,7 @@ body.dark-mode .dash-sort{background:var(--card);border-color:var(--border);colo
 /* ── Foldable detail sections ── */
 .detail-section-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;margin-bottom:0;}
 .detail-section-header h3{margin-bottom:0;}
-.detail-fold-arrow{font-size:11px;color:var(--fg-muted,#999);transition:transform .2s;margin-left:6px;flex-shrink:0;}
+.detail-fold-arrow{font-size:16px;color:var(--fg-muted,#888);transition:transform .2s;margin-left:8px;flex-shrink:0;width:18px;text-align:center;display:inline-block;}
 .detail-fold-arrow.collapsed{transform:rotate(-90deg);}
 .detail-section-body{margin-top:14px;}
 .detail-section-body.collapsed{display:none;}
@@ -276,9 +286,13 @@ body.dark-mode .ri-row:hover{background:var(--card);}
   .dash-toolbar{padding:12px 16px}
   .project-grid{padding:4px 16px 16px}
   .pinned-section,.starred-section{padding:4px 16px 8px}
+  .hdr{padding:8px 12px;gap:8px;}
+  .hdr-title{font-size:14px;}
 }
 @media(max-width:480px){
-  .hdr{padding:10px 12px}
+  .hdr{padding:8px 10px;gap:6px;}
+  .hdr img{height:26px;padding:3px 6px;}
+  .hdr-title{display:none;}
   .project-grid-inner{grid-template-columns:1fr}
   .dash-toolbar{flex-direction:column;align-items:stretch}
   .dash-search{min-width:unset}
@@ -377,9 +391,7 @@ body.dark-mode .project-card-check{background:rgba(30,41,59,.9)}
 .profile-section .profile-val{font-size:14px;color:var(--fg);padding:4px 0;font-weight:500}
 
 /* ═══ PROJECT NOTES ═══ */
-.detail-notes-area{width:100%;min-height:70px;padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;font:400 13px Calibri,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--fg);resize:vertical;outline:none;transition:all .2s}
-.detail-notes-area:focus{border-color:var(--arencon);box-shadow:0 0 0 3px var(--arencon-glow)}
-body.dark-mode .detail-notes-area{background:var(--smoke);border-color:var(--border);color:var(--fg)}
+
 
 /* ═══ EXPORT ═══ */
 .dash-btn.export{background:linear-gradient(135deg,#1D4ED8,#1E40AF);color:#fff;box-shadow:0 2px 6px rgba(29,78,216,.2)}
@@ -680,6 +692,20 @@ body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);}
         <div id="pg-loading" style="display:none;padding:20px;text-align:center;color:var(--fg-muted);font-size:13px;">Loading photos…</div>
         <div id="pg-empty" style="display:none;padding:20px;text-align:center;color:var(--fg-muted);font-size:13px;">No photos found for this project.</div>
         <div id="pg-grid"></div>
+      </div>
+    </div>
+    <div class="detail-section" id="detail-r2-section">
+      <div class="detail-section-header" onclick="toggleDetailSection('detail-r2-section')">
+        <h3>☁️ Cloud Storage</h3>
+        <span class="detail-fold-arrow" id="fold-arrow-detail-r2-section">▾</span>
+      </div>
+      <div class="detail-section-body" id="body-detail-r2-section">
+        <div id="r2-status-loading" style="font-size:12px;color:var(--fg-muted);padding:8px 0;">Loading storage info…</div>
+        <div id="r2-status-grid" style="display:none;"></div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="pg-action-btn" onclick="r2RefreshStatus()" style="font-size:12px;padding:5px 12px;">🔄 Refresh</button>
+          <a id="r2-cf-link" href="https://dash.cloudflare.com" target="_blank" rel="noopener" style="font-size:11px;color:var(--fg-muted);text-decoration:none;">Open Cloudflare Dashboard ↗</a>
+        </div>
       </div>
     </div>
     <div class="detail-section detail-actions" id="detail-danger-zone">
@@ -1621,12 +1647,7 @@ function openProject(projectId) {
   _renderDetailTools(proj);
   _loadAndRenderInstances(proj);
   pgLoad(proj.id);
-
-  // Load notes
-  var notesEl = document.getElementById('detail-notes');
-  if (notesEl) notesEl.value = proj.notes || '';
-  var notesStatus = document.getElementById('notes-save-status');
-  if (notesStatus) notesStatus.textContent = '';
+  r2RefreshStatus();
 
   // Update archive button label
   var archBtn = document.getElementById('btn-archive-proj');
@@ -2908,6 +2929,135 @@ setInterval(async () => {
     } catch (e) { /* ignore */ }
   }
 }, 1800000); // 30 min
+
+
+// ═══ R2 STORAGE STATUS PANEL ═══
+var _r2StatusProjectId = null;
+
+async function r2RefreshStatus() {
+  var projId = _detailProjectId;
+  if (!projId) return;
+  _r2StatusProjectId = projId;
+
+  var loading = document.getElementById('r2-status-loading');
+  var grid = document.getElementById('r2-status-grid');
+  if (!loading || !grid) return;
+
+  loading.textContent = 'Loading storage info…';
+  loading.style.display = 'block';
+  grid.style.display = 'none';
+  grid.innerHTML = '';
+
+  var WORKER = 'https://arencon-r2-worker.hezhendong999.workers.dev';
+  var token = localStorage.getItem('sb-access-token');
+  var headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+
+  // Content types to check
+  var types = [
+    { key: 'site-photos',    label: '📷 Site Photos',      tool: 'frt', type: 'original', filter: function(n){ return n.indexOf('site') !== -1; }, color: '#1A7A4A' },
+    { key: 'defic-photos',   label: '📌 Deficiency Photos', tool: 'frt', type: 'original', filter: function(n){ return n.indexOf('defic') !== -1; }, color: '#9C2742' },
+    { key: 'marked-photos',  label: '✏️ Marked-up Copies',  tool: 'frt', type: 'original', filter: function(n){ return n.indexOf('mkup') !== -1; }, color: '#E65100' },
+    { key: 'drawings',       label: '📐 Drawings',          tool: 'frt', type: 'drawings', filter: null, color: '#1565C0' },
+    { key: 'markup',         label: '🖊 Markup Data',        tool: 'frt', type: 'markup',   filter: null, color: '#6A1B9A' },
+  ];
+
+  // Fetch all R2 file lists in parallel
+  var results = await Promise.all(types.map(async function(t) {
+    try {
+      var path = '/list/' + encodeURIComponent(projId) + '/photos/' + encodeURIComponent(t.tool) + '/' + encodeURIComponent(t.type);
+      var res = await fetch(WORKER + path, { headers: headers });
+      if (!res.ok) {
+        if (res.status === 404) return { type: t, files: [], error: null };
+        return { type: t, files: [], error: 'HTTP ' + res.status };
+      }
+      var data = await res.json();
+      // data may be [{key, size}, ...] or {objects:[...]} depending on worker impl
+      var files = Array.isArray(data) ? data : (data.objects || data.files || []);
+      // Apply filter for types that share the same R2 folder (original/)
+      if (t.filter) {
+        files = files.filter(function(f) {
+          var name = typeof f === 'string' ? f : (f.key || f.name || '');
+          // Extract just the filename
+          var parts = name.split('/');
+          var fname = parts[parts.length - 1];
+          return t.filter(fname);
+        });
+      }
+      return { type: t, files: files, error: null };
+    } catch(e) {
+      return { type: t, files: [], error: e.message };
+    }
+  }));
+
+  if (_r2StatusProjectId !== projId) return; // stale — project changed
+
+  loading.style.display = 'none';
+  grid.style.display = 'block';
+
+  // Also get local IDB counts for comparison
+  var localCounts = _r2GetLocalCounts();
+
+  var html = '';
+  results.forEach(function(r) {
+    var uploaded = r.files.length;
+    var local = localCounts[r.type.key] || 0;
+    var total = Math.max(uploaded, local);
+    var pct = total > 0 ? Math.round((uploaded / total) * 100) : (uploaded > 0 ? 100 : 0);
+    var statusColor = r.error ? '#C0392B' : (pct === 100 && total > 0) ? '#1A7A4A' : pct > 0 ? '#E65100' : '#90A4AE';
+
+    html += '<div class="r2-row">';
+    html += '<div class="r2-row-label">';
+    html += '<span class="r2-row-name">' + r.type.label + '</span>';
+    html += '<span class="r2-row-count">';
+    if (r.error) {
+      html += '<span style="color:#C0392B;">Error</span>';
+    } else if (total === 0) {
+      html += '<span style="color:var(--fg-muted);">None</span>';
+    } else {
+      html += '<span style="color:' + statusColor + ';font-weight:700;">' + uploaded + '</span>';
+      if (local > 0 && local !== uploaded) html += '<span style="color:var(--fg-muted);"> / ' + local + ' local</span>';
+      html += ' files';
+      if (pct === 100 && total > 0) html += ' <span style="color:#1A7A4A;">✓</span>';
+    }
+    html += '</span></div>';
+
+    if (total > 0) {
+      html += '<div class="r2-bar-track"><div class="r2-bar-fill" style="width:' + pct + '%;background:' + r.type.color + ';opacity:' + (r.error ? '0.3' : '1') + ';"></div></div>';
+      if (r.error) {
+        html += '<div class="r2-row-sub" style="color:#C0392B;">⚠ ' + esc(r.error) + '</div>';
+      } else if (local > uploaded && local > 0) {
+        html += '<div class="r2-row-sub">⏳ ' + (local - uploaded) + ' pending upload' + (local - uploaded !== 1 ? 's' : '') + '</div>';
+      }
+    }
+    html += '</div>';
+  });
+
+  // Total size if available
+  var totalSize = 0;
+  results.forEach(function(r) {
+    r.files.forEach(function(f) { if (f.size) totalSize += f.size; });
+  });
+  if (totalSize > 0) {
+    var sizeMB = (totalSize / 1048576).toFixed(1);
+    html += '<div style="font-size:11px;color:var(--fg-muted);border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">Total on R2: <strong>' + sizeMB + ' MB</strong></div>';
+  }
+
+  grid.innerHTML = html || '<div class="r2-err">No data found for this project.</div>';
+}
+
+function _r2GetLocalCounts() {
+  // Count from current project in allProjects (for FRT tool_data projects)
+  // In Hub, we don't have direct IDB access, so count from tool_data state if available
+  // For now return empty — Hub doesn't hold IDB data for tools
+  return {
+    'site-photos': 0,
+    'defic-photos': 0,
+    'marked-photos': 0,
+    'drawings': 0,
+    'markup': 0,
+  };
+}
+
 
 // ── Foldable detail sections ──
 var _sectionFolded = {};
