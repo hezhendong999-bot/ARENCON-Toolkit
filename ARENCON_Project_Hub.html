@@ -2973,6 +2973,7 @@ async function r2RefreshStatus() {
         return { type: t, files: [], error: 'HTTP ' + res.status };
       }
       var data = await res.json();
+      console.log('[R2Status] ' + t.key + ':', JSON.stringify(data).substring(0,200));
       // data may be [{key, size}, ...] or {objects:[...]} or {prefix, count, files:[...]}
       var files = Array.isArray(data) ? data : (data.objects || data.files || data.items || []);
       // Apply filter for types that share the same R2 folder (original/)
