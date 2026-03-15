@@ -2097,27 +2097,26 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
   ]).then(function(results){
     var proj=results[0];if(!proj){resolve(null);return;}
     var drawings=results[1]||[];var sitePhotos=results[2]||[];var pending=results[3]||[];
-    var drawingPromises=drawings.map(function(d){
-      // R2 Phase 3: if uploaded to R2, skip IDB blob — load on-demand when drawing opens
-      if(d.r2Status==='uploaded'&&d.r2Url){
-        return Promise.resolve({
-          id:d.id,name:d.name,width:d.width,height:d.height,
-          isOriginal:d.isOriginal,folder:d.folder||'',
-          dataUrl:null,thumb:d.thumb||null,markupData:null,
-          markupObjects:d.markupObjects||null,heights:d.heights||null,
-          r2Key:d.r2Key||'',r2Status:'uploaded',r2Url:d.r2Url
-        });
-      }
-      return Promise.all([
-        d.dataBlob?ADB.blobToDataUrl(d.dataBlob):Promise.resolve(null),
-        d.markupBlob?ADB.blobToDataUrl(d.markupBlob):Promise.resolve(null)
-      ]).then(function(urls){
-        d.dataUrl=urls[0];d.markupData=urls[1];
-        d.r2Key=d.r2Key||'';d.r2Status=d.r2Status||'';d.r2Url=d.r2Url||'';
-        delete d.dataBlob;delete d.markupBlob;return d;
-      });
+    // Skip ALL blob conversion at load — dataUrl loaded lazily in openDrawingViewer only.
+    // Gallery uses r2Url for thumbnails; local-only drawings load blob when viewer opens.
+    // This prevents multi-MB PDF page blobs from blocking startup.
+    var resolvedDrawings=drawings.map(function(d){
+      return {
+        id:d.id,name:d.name,width:d.width,height:d.height,
+        isOriginal:d.isOriginal,folder:d.folder||'',
+        dataUrl:null,thumb:d.thumb||null,markupData:null,
+        markupObjects:d.markupObjects||null,heights:d.heights||null,
+        r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
+        _hasLocalBlob:!!(d.dataBlob&&d.dataBlob.size>0)// flag for viewer lazy load
+      };
     });
-    Promise.all(drawingPromises).then(function(resolvedDrawings){
+    // Store raw blobs keyed by drawing id for lazy load in viewer
+    var _drawingBlobCache={};
+    drawings.forEach(function(d){if(d.dataBlob&&d.dataBlob.size>0)_drawingBlobCache[d.id]=d.dataBlob;});
+    if(Object.keys(_drawingBlobCache).length)ADB._drawingBlobCache=ADB._drawingBlobCache||{};
+    Object.assign(ADB._drawingBlobCache||{},_drawingBlobCache);
+    ADB._drawingBlobCache=Object.assign(ADB._drawingBlobCache||{},_drawingBlobCache);
+    Promise.resolve().then(function(){
       proj.drawings=resolvedDrawings;
       // ── Defic photos: R2-first Phase 1 ──
       // Photo records (id, r2Key, r2Status, r2Url) are already in project metadata.
@@ -4846,8 +4845,8 @@ function openDrawingViewer(drawingId){
       initPanZoom();
     }
 
-    // R2 Phase 3: if no local dataUrl but r2Url set, fetch from R2 first
     if(!d.dataUrl&&d.r2Url){
+      // R2 drawing — fetch with auth
       showDrawingLoading('Loading drawing…');
       var token=localStorage.getItem('sb-access-token');
       var headers=token?{'Authorization':'Bearer '+token}:{};
@@ -4855,14 +4854,28 @@ function openDrawingViewer(drawingId){
         .then(function(res){if(!res.ok)throw new Error(res.status);return res.blob();})
         .then(function(blob){return ADB.blobToDataUrl(blob);})
         .then(function(url){
-          d.dataUrl=url; // cache in memory for this session
+          d.dataUrl=url;// cache in memory for this session
           hideDrawingLoading();
           _openWithSrc(url);
         })
-        .catch(function(err){
+        .catch(function(err){hideDrawingLoading();alert('Could not load drawing from cloud: '+err.message);});
+    } else if(!d.dataUrl&&d._hasLocalBlob&&ADB._drawingBlobCache&&ADB._drawingBlobCache[d.id]){
+      // Local-only drawing — blob was deferred, load now
+      showDrawingLoading('Loading drawing…');
+      ADB.blobToDataUrl(ADB._drawingBlobCache[d.id]).then(function(url){
+        d.dataUrl=url;
+        hideDrawingLoading();
+        _openWithSrc(url);
+      }).catch(function(){
+        // Fallback: read directly from IDB
+        ADB.get('drawings',d.id).then(function(rec){
+          return rec&&rec.dataBlob?ADB.blobToDataUrl(rec.dataBlob):Promise.resolve(null);
+        }).then(function(url){
           hideDrawingLoading();
-          alert('Could not load drawing from cloud: '+err.message);
+          if(url){d.dataUrl=url;_openWithSrc(url);}
+          else alert('Drawing data not found.');
         });
+      });
     } else {
       _openWithSrc(d.dataUrl||'');
     }
