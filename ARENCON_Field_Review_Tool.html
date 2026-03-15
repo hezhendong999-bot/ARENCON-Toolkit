@@ -4584,7 +4584,7 @@ function _observeGalleryThumbs(container){
 function _loadThumbSrc(img){
   var src=img.getAttribute('data-src');
   img.removeAttribute('data-src');
-  if(!src)return;
+  if(!src||src==='null'||src==='undefined')return;
   _loadR2OrDirect(src,img);
 }
 
@@ -4629,7 +4629,8 @@ function buildDrawingCard(d,ad){
   var sel=_selectedDrawings.has(d.id);
   var html='<div class="drawing-card'+(sel?' selected':'')+'" data-dwg-id="'+d.id+'">';
   html+='<div class="card-thumb drawing-thumb" onclick="openDrawingViewer(\''+d.id+'\')">';
-  html+='<img data-src="'+(d.thumb||d.dataUrl)+'" alt="'+escHtml(d.name)+'" loading="lazy" style="background:#e8e8e8;">';
+  var _thumbSrc=d.thumb||d.dataUrl||(d.r2Url?d.r2Url:null);
+  html+='<img data-src="'+(_thumbSrc||'')+'" alt="'+escHtml(d.name)+'" loading="lazy" style="background:#e8e8e8;">';
   if(pc>0)html+='<div class="pin-badge">'+pc+'</div>';
   if(d._version&&d._version>1)html+='<div class="version-badge">v'+d._version+'</div>';
   html+='</div>';
@@ -9721,10 +9722,55 @@ document.addEventListener('DOMContentLoaded',function(){
   _applyMobileHeaderState();
   window.addEventListener('resize',_applyMobileHeaderState);
 
+  // Show loading indicator immediately so screen isn't blank
+  (function(){
+    var el=document.getElementById('view-project');
+    if(el){el.style.display='block';el.style.visibility='visible';}
+    var mn=document.querySelector('.main-wrap');
+    if(mn)mn.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:14px;font-family:Calibri,sans-serif;color:#9C2742;">'
+      +'<div style="width:44px;height:44px;border:4px solid #f0d0d8;border-top-color:#9C2742;border-radius:50%;animation:spin .8s linear infinite;"></div>'
+      +'<div style="font-size:15px;font-weight:600;opacity:.7;">Loading project...</div></div>';
+  })();
+
   ADB.open().then(function(){
     return ADB.migrateFromLocalStorage();
   }).then(function(migrated){
     if(migrated)toast('Data migrated to secure IndexedDB storage ✓');
+    // In Hub mode: fast-path — load only the target project first, then background-load rest
+    var urlParams=new URLSearchParams(window.location.search);
+    var hubProjectId=urlParams.get('project');
+    if(hubProjectId){
+      // Find the local project ID for this Hub project
+      return ADB.getAll('projects').then(function(projects){
+        allProjects={};
+        var targetMeta=null;
+        projects.forEach(function(m){
+          allProjects[m.id]=m;// metadata only for now
+          if(!m.drawings)m.drawings=[];
+          if(!m.sitePhotos)m.sitePhotos=[];
+          if(m._hubProjectId===hubProjectId)targetMeta=m;
+        });
+        if(targetMeta){
+          // Load target project blobs first — show UI fast
+          return ADB.loadFullProject(targetMeta.id).then(function(full){
+            if(full)allProjects[full.id]=full;
+            // Background load remaining projects
+            setTimeout(function(){
+              projects.forEach(function(m){
+                if(m.id!==targetMeta.id){
+                  ADB.loadFullProject(m.id).then(function(full){
+                    if(full)allProjects[full.id]=full;
+                  }).catch(function(){});
+                }
+              });
+            },500);
+          });
+        } else {
+          // New project — just proceed, no blobs to load
+          return Promise.resolve();
+        }
+      });
+    }
     return loadAllProjects();
   }).then(function(){
     return ADB.get('config','lastProject');
