@@ -2122,28 +2122,27 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
       // Photo records (id, r2Key, r2Status, r2Url) are already in project metadata.
       // Rehydrate pending uploads: restore dataUrl from pendingUploads blob store for photos
       // that haven't finished uploading to R2 yet.
+      // Skip blob-to-dataUrl for pending uploads at load time — blobs are large and block startup.
+      // _requeuePendingUploads reads blobs directly from IDB when retrying uploads.
+      // Only mark which photo IDs have pending uploads so r2Status stays 'pending'.
       var pendingMap={};
-      var pendingBlobPromises=pending.map(function(p){
-        return p.dataBlob?ADB.blobToDataUrl(p.dataBlob).then(function(url){
-          if(url)pendingMap[p.id]=url;
-        }):Promise.resolve();
-      });
-      Promise.all(pendingBlobPromises).then(function(){
+      pending.forEach(function(p){if(p.id)pendingMap[p.id]='__pending__';});
+      Promise.resolve().then(function(){
         // Walk all defic photos and rehydrate dataUrl from pending map
         function _rehydrateDeficPhotos(defics){
           if(!defics)return;
           defics.forEach(function(d){
             (d.photos||[]).forEach(function(ph){
-              if(ph.id&&pendingMap[ph.id]){ph.dataUrl=pendingMap[ph.id];ph.r2Status=ph.r2Status||'pending';}
+              if(ph.id&&pendingMap[ph.id])ph.r2Status=ph.r2Status||'pending';
             });
             if(d.entries){d.entries.forEach(function(e){
               (e.photos||[]).forEach(function(ph){
-                if(ph.id&&pendingMap[ph.id]){ph.dataUrl=pendingMap[ph.id];ph.r2Status=ph.r2Status||'pending';}
+                if(ph.id&&pendingMap[ph.id])ph.r2Status=ph.r2Status||'pending';
               });
             });}
             (d.responses||[]).forEach(function(r){
               (r.photos||[]).forEach(function(ph){
-                if(ph.id&&pendingMap[ph.id]){ph.dataUrl=pendingMap[ph.id];ph.r2Status=ph.r2Status||'pending';}
+                if(ph.id&&pendingMap[ph.id])ph.r2Status=ph.r2Status||'pending';
               });
             });
           });
