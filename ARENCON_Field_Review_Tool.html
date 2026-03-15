@@ -4013,7 +4013,29 @@ document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){
     var pp=document.getElementById('pin-panel');if(pp&&pp.classList.contains('open')){if(typeof closePinPanel==='function')closePinPanel();return;}
     var pm=document.getElementById('pin-modal-overlay');if(pm&&pm.classList.contains('open')){if(typeof closePinModal==='function')closePinModal();return;}
-    var dv=document.getElementById('drawing-viewer');if(dv&&dv.classList.contains('open')){if(typeof closeDrawingViewer==='function')closeDrawingViewer();return;}
+    var dv=document.getElementById('drawing-viewer');
+    if(dv&&dv.classList.contains('open')){
+      // In drawing viewer: Escape cancels active tool/copy first — does NOT close the viewer
+      var didCancel=false;
+      // 1. Cancel copy mode
+      if(typeof window._mkStopCopy==='function'&&window._mkCopyMode){window._mkStopCopy();didCancel=true;}
+      // 2. Cancel active drawing tool (revert to no tool)
+      if(!didCancel&&mkState&&mkState.tool&&mkState.tool!=='select'){
+        mkState.tool=null;mkState._prevTool=null;mkState.isDrawing=false;
+        document.querySelectorAll('.dv-sidebar-tools .tool-btn').forEach(function(b){b.classList.remove('active');});
+        var mc=document.getElementById('markup-canvas');if(mc&&typeof _syncCanvasMode==='function')_syncCanvasMode(mc,'none');
+        if(typeof renderAllMarkup==='function')renderAllMarkup();
+        didCancel=true;
+      }
+      // 3. Clear selection if in select mode
+      if(!didCancel&&mkState&&mkState.tool==='select'&&typeof _mkSelectedId!=='undefined'&&_mkSelectedId){
+        _mkSelectedId=null;_mkSelectedIds=[];if(typeof renderAllMarkup==='function')renderAllMarkup();
+        didCancel=true;
+      }
+      // Only close viewer if nothing was active to cancel
+      if(!didCancel&&typeof closeDrawingViewer==='function'){closeDrawingViewer();}
+      return;
+    }
     var dd=document.getElementById('download-dialog');if(dd&&dd.style.display==='flex'){if(typeof closeDownloadDialog==='function')closeDownloadDialog();return;}
     var pf=document.getElementById('pdf-picker-overlay');if(pf&&pf.style.display==='flex'){if(typeof closePDFPicker==='function')closePDFPicker();return;}
   }
@@ -5860,14 +5882,14 @@ function initMarkupEvents(){
         var newPenObj={id:_mkNewId(),type:type,points:_penPoints.slice(),
           color:mkState.color,size:getSize(),opacity:getOpacity()};
         _mkObjects.push(newPenObj);
-        _mkSelectedId=newPenObj.id;_mkSelectedIds=[newPenObj.id];
+        // Do NOT auto-select — stay in drawing mode so user can keep drawing
       }
     } else if(type&&type!=='polyline'&&type!=='select'){
       var newShapeObj={id:_mkNewId(),type:type,
         x1:mkState.startX,y1:mkState.startY,x2:mkState._endX||mkState.startX,y2:mkState._endY||mkState.startY,
         color:mkState.color,size:getSize(),opacity:getOpacity()};
       _mkObjects.push(newShapeObj);
-      _mkSelectedId=newShapeObj.id;_mkSelectedIds=[newShapeObj.id];
+      // Do NOT auto-select — stay in drawing mode so user can keep drawing
     }
     _penPoints=[];
     _mkDrawCache=null;
@@ -7633,39 +7655,27 @@ function _migrateDeficPhotos(defics){
 // 2. Start R2 upload in background
 // 3. On success: delete from pendingUploads, clear dataUrl, set r2Url
 // R2 Phase 3: upload drawing image to R2
-// Uses direct fetch (not R2Photos.enqueue) because worker validates type as "original"|"marked" only;
-// drawings use path /photos/{pid}/frt/drawings/{fname} which the worker handles as a special route.
+// Worker only accepts type "original"|"marked"|"markup" — use "original" with dwg_ filename prefix.
 async function _r2EnqueueDrawing(dwg){
   var hubId=_csHubMode?_csProjectId:null;
   if(!hubId||typeof R2Photos==='undefined'||!dwg||!dwg.dataUrl)return;
-  var fname=R2Photos.generateFilename('dwg')+'.png';
-  dwg.r2Key='photos/'+hubId+'/frt/drawings/'+fname;
+  var fname=R2Photos.generateFilename('dwg')+'.png';// prefix dwg_ distinguishes from photos
+  dwg.r2Key='photos/'+hubId+'/frt/original/'+fname;
   dwg.r2Status='pending';
   var blob=R2Photos.dataUrlToBlob(dwg.dataUrl);
   if(!blob)return;
-  // Save to pendingUploads for crash recovery
   ADB.savePending(dwg.id,hubId,blob,{type:'drawing',fname:fname,r2Key:dwg.r2Key}).catch(function(){});
-  var WORKER_URL='https://arencon-r2-worker.hezhendong999.workers.dev';
-  var path='/photos/'+encodeURIComponent(hubId)+'/frt/drawings/'+encodeURIComponent(fname);
-  var headers={'Content-Type':'image/png'};
-  var token=localStorage.getItem('sb-access-token');
-  if(token)headers['Authorization']='Bearer '+token;
-  try{
-    var res=await fetch(WORKER_URL+path,{method:'PUT',headers:headers,body:blob});
-    if(res.ok){
-      dwg.r2Status='uploaded';
-      dwg.r2Url=WORKER_URL+path;
-      ADB.deletePending(dwg.id).catch(function(){});
-      saveToLS();_updateR2Badge();
-    }else{
-      var errBody;try{errBody=await res.json();}catch(e){errBody={error:res.statusText};}
-      console.warn('[R2Drawings] Upload failed:',errBody.error||res.statusText);
-      dwg.r2Status='error';
+  R2Photos.enqueue({
+    projectId:hubId,tool:'frt',type:'original',filename:fname,blob:blob,
+    onComplete:function(err){
+      if(!err){
+        dwg.r2Status='uploaded';
+        dwg.r2Url=R2Photos.getUrl(hubId,'frt','original',fname);
+        ADB.deletePending(dwg.id).catch(function(){});
+        saveToLS();_updateR2Badge();
+      }else{dwg.r2Status='error';}
     }
-  }catch(e){
-    console.warn('[R2Drawings] Upload error:',e.message);
-    dwg.r2Status='error';
-  }
+  });
 }
 
 // ── R2 Phase 4: Markup Objects ──
@@ -7764,45 +7774,29 @@ function _requeuePendingUploads(proj){
       var isSite=meta.type==='site';
       var rec=isDrawing?dwgRecMap[p.id]:(isSite?siteRecMap[p.id]:recMap[p.id]);
       var fname=meta.fname||R2Photos.generateFilename(isDrawing?'dwg':(isSite?'site':'defic'));
-      var r2Type=isDrawing?'drawings':'original';
-      var r2Key=meta.r2Key||('photos/'+hubId+'/frt/'+r2Type+'/'+fname);
+      var r2Type='original';// all content uses 'original' type; drawings identified by dwg_ prefix
+      var r2Key=meta.r2Key||('photos/'+hubId+'/frt/original/'+fname);
       if(rec){
         ADB.blobToDataUrl(p.dataBlob).then(function(url){if(url)rec.dataUrl=url;}).catch(function(){});
         rec.r2Key=r2Key;rec.r2Status='pending';
       }
-      if(isDrawing){
-        // Drawings use direct fetch — worker validates type as "original"|"marked" only,
-        // but the /photos/{pid}/frt/drawings/ path is handled as a separate route.
-        var WORKER_URL='https://arencon-r2-worker.hezhendong999.workers.dev';
-        var dwgPath='/photos/'+encodeURIComponent(hubId)+'/frt/drawings/'+encodeURIComponent(fname);
-        var dwgHeaders={'Content-Type':'image/png'};
-        var dwgToken=localStorage.getItem('sb-access-token');
-        if(dwgToken)dwgHeaders['Authorization']='Bearer '+dwgToken;
-        fetch(WORKER_URL+dwgPath,{method:'PUT',headers:dwgHeaders,body:p.dataBlob}).then(function(res){
-          if(res.ok){
-            if(rec){rec.r2Status='uploaded';rec.r2Url=WORKER_URL+dwgPath;}
+      // All content uses type:'original' — drawings identifiable by dwg_ filename prefix
+      R2Photos.enqueue({
+        projectId:hubId,tool:'frt',type:'original',filename:fname,blob:p.dataBlob,
+        onComplete:function(err){
+          if(!err){
+            if(rec){
+              rec.r2Status='uploaded';
+              rec.r2Url=R2Photos.getUrl(hubId,'frt','original',fname);
+              if(!isDrawing)delete rec.dataUrl;
+            }
             ADB.deletePending(p.id).catch(function(){});
             saveToLS();_updateR2Badge();
-          }else{if(rec)rec.r2Status='error';}
-        }).catch(function(){if(rec)rec.r2Status='error';});
-      }else{
-        R2Photos.enqueue({
-          projectId:hubId,tool:'frt',type:'original',filename:fname,blob:p.dataBlob,
-          onComplete:function(err){
-            if(!err){
-              if(rec){
-                rec.r2Status='uploaded';
-                rec.r2Url=R2Photos.getUrl(hubId,'frt','original',fname);
-                delete rec.dataUrl;
-              }
-              ADB.deletePending(p.id).catch(function(){});
-              saveToLS();_updateR2Badge();
-            }else{
-              if(rec)rec.r2Status='error';
-            }
+          }else{
+            if(rec)rec.r2Status='error';
           }
-        });
-      }
+        }
+      });
     });
     _updateR2Badge();
   }).catch(function(e){
