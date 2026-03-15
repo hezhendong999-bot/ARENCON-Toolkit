@@ -725,7 +725,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .drawing-card .card-context-menu .separator{height:1px;background:var(--border);margin:4px 0;}
 .drawing-card .select-check{width:20px;height:20px;border:2px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;font-weight:700;color:white;flex-shrink:0;}
 .drawing-card .select-check.checked{background:#2196F3;border-color:#2196F3;}
-.drawing-card .pin-badge{position:absolute;top:6px;left:6px;background:var(--red);color:white;font-size:10px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0;}
+.drawing-card .pin-badge{position:absolute;top:6px;right:6px;background:var(--red);color:white;font-size:10px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0;}
 .drawing-card .version-badge{position:absolute;top:6px;left:40px;background:#7B1FA2;color:white;font-size:9px;font-weight:600;padding:2px 5px;border-radius:8px;}
 .drawing-card.add-card{border-style:dashed;border-color:var(--silver);cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:140px;}
 .drawing-card.add-card:hover{border-color:var(--red);background:rgba(156,39,66,.03);}
@@ -1662,7 +1662,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/></svg>
       </button>
       <!-- COPY button — shown when object selected, tap to enter place mode -->
-      <button id="mk-copy-btn" class="tool-btn" onclick="typeof _mkCopyMode!=='undefined'&&_mkCopyMode?_mkStopCopy():_mkStartCopy()" data-tip="Copy selected — tap drawing to place copies" style="display:none;">
+      <button id="mk-copy-btn" class="tool-btn" onclick="window._mkCopyMode?window._mkStopCopy():window._mkStartCopy()" data-tip="Copy selected — tap drawing to stamp copies" style="display:none;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
       </button>
       <div class="tool-sep"></div>
@@ -1887,7 +1887,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
     </div>
     <!-- Floating text input for lb text tool -->
     <div id="lb-text-input-wrap" style="display:none;position:absolute;z-index:10;pointer-events:auto;">
-      <input id="lb-text-input" type="text" placeholder="Type text, Enter to place" onclick="event.stopPropagation()" onkeydown="event.stopPropagation();if(event.key==='Enter')_lbCommitText();if(event.key==='Escape')_lbCancelText();" style="background:rgba(20,22,30,.9);color:white;border:1.5px solid #9C2742;border-radius:5px;padding:5px 8px;font-family:Calibri,sans-serif;font-size:14px;min-width:160px;outline:none;">
+      <input id="lb-text-input" type="text" placeholder="Type text, Enter to place" onclick="event.stopPropagation()" onkeydown="event.stopPropagation();if(event.key==='Enter'){event.preventDefault();_lbCommitText();}if(event.key==='Escape'){event.preventDefault();_lbCancelText();}" onblur="setTimeout(function(){_lbCommitText();},80)" style="background:rgba(20,22,30,.9);color:white;border:1.5px solid #9C2742;border-radius:5px;padding:5px 8px;font-family:Calibri,sans-serif;font-size:14px;min-width:160px;outline:none;">
     </div>
   </div>
   <button onclick="lightboxNext(event)" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;z-index:1;">›</button>
@@ -2072,11 +2072,12 @@ ADB.saveDeficPhoto=function(id,projectId,deficId,respIdx,dataUrl){
 
 ADB.saveSitePhoto=function(photo,projectId){
   var rec={id:photo.id,projectId:projectId,caption:photo.caption||'',timestamp:photo.date||photo.uploadDate||photo.timestamp||''};
-  // R2-first Phase 2: only save blob to IDB if not yet uploaded to R2
-  if(photo.r2Status!=='uploaded'&&photo.dataUrl){
+  // Always save blob if we have a dataUrl — R2 is additive backup, not a replacement
+  // Only skip blob if definitively uploaded to R2 AND r2Url confirmed
+  if(photo.dataUrl){
     rec.dataBlob=ADB.dataUrlToBlob(photo.dataUrl);
   }
-  // Always preserve R2 metadata so we can skip re-upload on reload
+  // Always preserve R2 metadata
   rec.r2Key=photo.r2Key||'';
   rec.r2Status=photo.r2Status||'';
   rec.r2Url=photo.r2Url||'';
@@ -2144,28 +2145,26 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
         }
         (proj.contractors||[]).forEach(function(c){_rehydrateDeficPhotos(c.deficiencies);});
         _rehydrateDeficPhotos(proj.generalDeficiencies);
-        // ── Site photos: R2-first Phase 2 ──
-        // IDB records now carry r2Key/r2Status/r2Url. If uploaded, dataBlob may be absent.
-        var spPendingMap={};
-        var spPendingPromises=pending.filter(function(pu){return pu.meta&&pu.meta.type==='site';}).map(function(pu){
-          return pu.dataBlob?ADB.blobToDataUrl(pu.dataBlob).then(function(url){if(url)spPendingMap[pu.id]=url;}):Promise.resolve();
-        });
-        Promise.all(spPendingPromises).then(function(){
-          var spPromises=sitePhotos.map(function(sp){
-            if(sp.r2Status==='uploaded'&&sp.r2Url){
-              return Promise.resolve({id:sp.id,dataUrl:'',caption:sp.caption||'',date:sp.timestamp||'',uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:'uploaded',r2Url:sp.r2Url});
+        // ── Site photos: blob-first load, R2 metadata preserved alongside ──
+        var spPromises=sitePhotos.map(function(sp){
+          // Always try blob first — reliable local copy
+          var blobP=sp.dataBlob?ADB.blobToDataUrl(sp.dataBlob):Promise.resolve(null);
+          return blobP.then(function(url){
+            if(url){
+              return {id:sp.id,dataUrl:url,caption:sp.caption||'',date:sp.timestamp||'',
+                uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:sp.r2Status||'',r2Url:sp.r2Url||''};
             }
-            var dataUrlP=spPendingMap[sp.id]
-              ?Promise.resolve(spPendingMap[sp.id])
-              :(sp.dataBlob?ADB.blobToDataUrl(sp.dataBlob):Promise.resolve(null));
-            return dataUrlP.then(function(url){
-              return url?{id:sp.id,dataUrl:url,caption:sp.caption||'',date:sp.timestamp||'',uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:sp.r2Status||'',r2Url:sp.r2Url||''}:null;
-            });
+            // No blob — if definitively on R2, return metadata-only (r2Url for display)
+            if(sp.r2Status==='uploaded'&&sp.r2Url){
+              return {id:sp.id,dataUrl:'',caption:sp.caption||'',date:sp.timestamp||'',
+                uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:'uploaded',r2Url:sp.r2Url};
+            }
+            return null;
           });
-          Promise.all(spPromises).then(function(spResults){
-            proj.sitePhotos=spResults.filter(function(s){return s;});
-            resolve(proj);
-          });
+        });
+        Promise.all(spPromises).then(function(spResults){
+          proj.sitePhotos=spResults.filter(function(s){return s;});
+          resolve(proj);
         });
       });
     });
@@ -2190,10 +2189,14 @@ ADB.saveFullProject=function(proj){
   // ── Deficiency photos: NO blob save (R2-first Phase 1) ──
   // Photo records (id, r2Key, r2Status, r2Url) are saved inline in project metadata via saveProject().
   // Pending uploads (blobs awaiting R2) are in the pendingUploads store, managed by _r2EnqueueDeficPhoto.
-  // Save site photos (Phase 2 will migrate these too)
+  // Save site photos — Phase 2: save if has dataUrl (local) OR r2Url (uploaded to R2)
   var sitePhotoIds=[];
   (proj.sitePhotos||[]).forEach(function(ph){
-    if(ph&&ph.dataUrl&&ph.id){sitePhotoIds.push(ph.id);promises.push(ADB.saveSitePhoto(ph,pid));}
+    if(ph&&ph.id){
+      sitePhotoIds.push(ph.id);
+      // Save to IDB: if has dataUrl (local/pending) or has r2Url (keep metadata even after blob gone)
+      if(ph.dataUrl||ph.r2Url){promises.push(ADB.saveSitePhoto(ph,pid));}
+    }
   });
   // Clean stale site photos from IDB
   promises.push(ADB.getAllByIndex('sitePhotos','projectId',pid).then(function(idbSPs){
@@ -4454,7 +4457,8 @@ var _mkObjects=[]; // all markup objects for current drawing
 var _mkDrawCache=null; // cached background bitmap during active pen/highlight strokes
 var _mkUndoStack=[]; // array of _mkObjects snapshots (serialized)
 var _mkUndoIdx=-1;
-var _mkSelectedId=null; // id of currently selected object
+var _mkSelectedId=null; // id of primary selected object
+var _mkSelectedIds=[]; // ids of all selected objects (rubber-band multi-select)
 var _mkDragState=null; // {mode:'move'|'resize',handle:'nw'|'ne'|'sw'|'se'|'body',startX,startY,origObj}
 var _mkNextId=1;
 var _mkShapes=[]; // COMPATIBILITY: kept for save/load migration, maps to _mkObjects
@@ -5109,6 +5113,11 @@ function setToolbarTool(tool){
   var prev = mkState.tool;
   var wasPinMode = dvState.pinMode;
 
+  // Stop copy mode whenever tool changes away from select
+  if(tool!=='select'&&typeof window._mkStopCopy==='function'&&window._mkCopyMode){
+    window._mkStopCopy();
+  }
+
   document.querySelectorAll('.dv-sidebar-tools .tool-btn').forEach(function(b){b.classList.remove('active');});
 
   if((tool==='pin' && wasPinMode) || (tool!=='pin' && tool===prev)){
@@ -5228,7 +5237,7 @@ function markupUndo(){
   if(_mkUndoIdx<=0)return;
   _mkUndoIdx--;
   _mkObjects=JSON.parse(_mkUndoStack[_mkUndoIdx]);
-  _mkSelectedId=null;
+  _mkSelectedId=null;_mkSelectedIds=[];
   renderAllMarkup();
   saveMarkupData();
 }
@@ -5236,7 +5245,7 @@ function markupRedo(){
   if(_mkUndoIdx>=_mkUndoStack.length-1)return;
   _mkUndoIdx++;
   _mkObjects=JSON.parse(_mkUndoStack[_mkUndoIdx]);
-  _mkSelectedId=null;
+  _mkSelectedId=null;_mkSelectedIds=[];
   renderAllMarkup();
   saveMarkupData();
 }
@@ -5274,9 +5283,13 @@ function renderAllMarkup(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   var lw=canvas._logicalW||canvas.width/dpr,lh=canvas._logicalH||canvas.height/dpr;
   ctx.clearRect(0,0,lw,lh);
-  // Show/hide copy button based on selection
+  // Show/hide copy button based on selection — always visible in select mode, dimmed when nothing selected
   var cb=document.getElementById('mk-copy-btn');
-  if(cb)cb.style.display=(mkState.tool==='select'&&_mkSelectedId)?'flex':'none';
+  if(cb){
+    cb.style.display=(mkState.tool==='select')?'flex':'none';
+    cb.style.opacity=(mkState.tool==='select'&&_mkSelectedId)?'1':'0.4';
+    cb.style.pointerEvents=(mkState.tool==='select'&&_mkSelectedId)?'auto':'none';
+  }
   // Separate highlights from other objects for non-stacking composite
   var highlights=[];
   var others=[];
@@ -5315,12 +5328,18 @@ function renderAllMarkup(){
     ctx.drawImage(hlc,0,0);
     ctx.restore();
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    // Draw selection handles for selected highlight
+    // Draw selection handles for selected highlight(s)
     highlights.forEach(function(obj){
-      if(obj.id===_mkSelectedId)_drawSelectionHandles(ctx,obj);
+      if(obj.id===_mkSelectedId||_mkSelectedIds.indexOf(obj.id)>=0)_drawSelectionHandles(ctx,obj);
     });
   }
-  if(_mkSelectedId){
+  // Draw handles for all selected objects
+  if(_mkSelectedIds.length>1){
+    _mkSelectedIds.forEach(function(id){
+      var obj=_mkFindObj(id);
+      if(obj&&obj.type!=='highlight')_drawSelectionHandles(ctx,obj);
+    });
+  } else if(_mkSelectedId){
     var sel=_mkFindObj(_mkSelectedId);
     if(sel&&sel.type!=='highlight')_drawSelectionHandles(ctx,sel);
   }
@@ -5759,17 +5778,17 @@ function initMarkupEvents(){
 
   // Rubber-band state for drawing toolbar
   var _mkRubberBand=null;  // {sx,sy,ex,ey}
-  var _mkCopyMode=false;   // true when in copy/place mode
-  var _mkCopyObj=null;     // object being copied (or array for multi)
-  var _mkCopyPreviewPos=null;
+  // Copy mode uses window vars so setToolbarTool can check/clear them
+  window._mkCopyMode=window._mkCopyMode||false;
+  window._mkCopyObj=window._mkCopyObj||null;
 
   function startSelect(e){
     var pos=getPos(e);
     // If in copy/place mode — stamp a copy at tap position
-    if(_mkCopyMode&&_mkCopyObj){
+    if(window._mkCopyMode&&window._mkCopyObj){
       e.stopPropagation();e.preventDefault();
       mkPushHistory();
-      var copies=Array.isArray(_mkCopyObj)?_mkCopyObj:[_mkCopyObj];
+      var copies=Array.isArray(window._mkCopyObj)?window._mkCopyObj:[window._mkCopyObj];
       // Compute centroid of copy source
       var bbs=copies.map(function(o){return _mkGetBounds(o);});
       var cx=(bbs.reduce(function(a,b){return a+b.x1;},0)/bbs.length+bbs.reduce(function(a,b){return a+b.x2;},0)/bbs.length)/2;
@@ -5802,7 +5821,7 @@ function initMarkupEvents(){
     var hit=_mkHitTest(pos.x,pos.y);
     if(hit){
       e.stopPropagation();e.preventDefault();
-      _mkSelectedId=hit.id;_mkRubberBand=null;
+      _mkSelectedId=hit.id;_mkSelectedIds=[hit.id];_mkRubberBand=null;
       _mkDragState={mode:'move',startX:pos.x,startY:pos.y,
         origObj:JSON.parse(JSON.stringify(hit)),moved:false};
       mkPushHistory();
@@ -5810,7 +5829,7 @@ function initMarkupEvents(){
     } else {
       // Empty space — start rubber band (capture drag here, don't pan)
       e.stopPropagation();e.preventDefault();
-      _mkSelectedId=null;_mkDragState=null;
+      _mkSelectedId=null;_mkSelectedIds=[];_mkDragState=null;
       _mkRubberBand={sx:pos.x,sy:pos.y,ex:pos.x,ey:pos.y};
       renderAllMarkup();
     }
@@ -5860,34 +5879,40 @@ function initMarkupEvents(){
     if(_mkRubberBand){
       var rb=_mkRubberBand;_mkRubberBand=null;
       var x1=Math.min(rb.sx,rb.ex),y1=Math.min(rb.sy,rb.ey),x2=Math.max(rb.sx,rb.ex),y2=Math.max(rb.sy,rb.ey);
-      // Find objects fully inside rubber band
       var hits=[];
       _mkObjects.forEach(function(obj){
         var b=_mkGetBounds(obj);
         if(b.x1>=x1&&b.y1>=y1&&b.x2<=x2&&b.y2<=y2)hits.push(obj);
       });
-      if(hits.length===1)_mkSelectedId=hits[0].id;
-      else if(hits.length>1)_mkSelectedId=hits[hits.length-1].id;
-      else _mkSelectedId=null;
+      if(hits.length>=1){
+        _mkSelectedIds=hits.map(function(o){return o.id;});
+        _mkSelectedId=_mkSelectedIds[_mkSelectedIds.length-1]; // primary = topmost
+      } else {
+        _mkSelectedIds=[];_mkSelectedId=null;
+      }
       renderAllMarkup();
     }
     _mkDragState=null;
   }
 
   // ── COPY/PLACE MODE ──
-  // Called from toolbar Copy button (added dynamically when object selected)
   window._mkStartCopy=function(){
-    if(!_mkSelectedId)return;
-    var obj=_mkFindObj(_mkSelectedId);if(!obj)return;
-    _mkCopyMode=true;_mkCopyObj=JSON.parse(JSON.stringify(obj));
-    showToast&&showToast('Copy mode — tap drawing to place a copy. Tap Copy again to exit.');
-    // Update copy button appearance
-    var cb=document.getElementById('mk-copy-btn');if(cb){cb.style.background='#9C2742';cb.style.color='white';}
+    // Use multi-select if available, else single selected
+    var ids=_mkSelectedIds.length>0?_mkSelectedIds:(_mkSelectedId?[_mkSelectedId]:[]);
+    if(!ids.length)return;
+    var objs=ids.map(function(id){return _mkFindObj(id);}).filter(Boolean);
+    if(!objs.length)return;
+    window._mkCopyMode=true;
+    window._mkCopyObj=objs.length===1?JSON.parse(JSON.stringify(objs[0])):JSON.parse(JSON.stringify(objs));
+    showToast&&showToast('Copy mode — tap drawing to stamp '+(objs.length>1?objs.length+' objects':'a copy')+'. Tap Copy again to exit.');
+    var cb=document.getElementById('mk-copy-btn');
+    if(cb){cb.style.background='#9C2742';cb.style.color='white';cb.title='Exit copy mode';}
     canvas.style.cursor='copy';
   };
   window._mkStopCopy=function(){
-    _mkCopyMode=false;_mkCopyObj=null;
-    var cb=document.getElementById('mk-copy-btn');if(cb){cb.style.background='';cb.style.color='';}
+    window._mkCopyMode=false;window._mkCopyObj=null;
+    var cb=document.getElementById('mk-copy-btn');
+    if(cb){cb.style.background='';cb.style.color='';cb.title='Copy selected — tap drawing to place copies';}
     canvas.style.cursor='';
     renderAllMarkup();
   };
@@ -6095,19 +6120,20 @@ function openMkPropSheet(shapeIdx){
     showToast('Selected markup #'+(shapeIdx+1));
   }
 }
-function closeMkPropSheet(){_mkSelectedId=null;renderAllMarkup();}
+function closeMkPropSheet(){_mkSelectedId=null;_mkSelectedIds=[];renderAllMarkup();}
 function applyShapeProp(prop,val){
   if(!_mkSelectedId)return;
   var obj=_mkFindObj(_mkSelectedId);if(!obj)return;
   obj[prop]=val;renderAllMarkup();saveMarkupData();
 }
 function deleteSelectedShape(){
-  if(!_mkSelectedId)return;
+  var toDelete=_mkSelectedIds.length>0?_mkSelectedIds:(_mkSelectedId?[_mkSelectedId]:[]);
+  if(!toDelete.length)return;
   mkPushHistory();
-  _mkObjects=_mkObjects.filter(function(o){return o.id!==_mkSelectedId;});
-  _mkSelectedId=null;
+  _mkObjects=_mkObjects.filter(function(o){return toDelete.indexOf(o.id)<0;});
+  _mkSelectedId=null;_mkSelectedIds=[];
   renderAllMarkup();saveMarkupData();
-  showToast('Markup deleted');
+  showToast(toDelete.length>1?toDelete.length+' markups deleted':'Markup deleted');
 }
 function redrawAllShapes(){renderAllMarkup();}
 function findShapeAtPoint(x,y){var hit=_mkHitTest(x,y);if(!hit)return -1;for(var i=0;i<_mkObjects.length;i++){if(_mkObjects[i].id===hit.id)return i;}return -1;}
@@ -6318,6 +6344,7 @@ var _lbObjects=[];          // markup objects, same schema as _mkObjects
 var _lbUndoStack=[];        // array of JSON snapshots
 var _lbRedoStack=[];
 var _lbSelectedId=null;
+var _lbSelectedIds=[];      // all selected objects (rubber-band multi-select)
 var _lbDragState=null;      // {mode:'move'|'resize', handle, startX,startY,origObj,moved}
 var _lbRubberBand=null;     // {sx,sy,ex,ey} while rubber-banding
 var _lbOrigSrc='';
@@ -6343,7 +6370,7 @@ function setLbTool(t){
   var cur=t==='eraser'?'cell':t==='text'?'text':'crosshair';
   if(_lbCanvas)_lbCanvas.style.cursor=cur;
   var db=document.getElementById('lb-delete-sel-btn');if(db)db.style.display=(t==='select')?'flex':'none';
-  if(t!=='select'){_lbSelectedId=null;_lbDragState=null;_lbRubberBand=null;_lbRenderAll();}
+  if(t!=='select'){_lbSelectedId=null;_lbSelectedIds=[];_lbDragState=null;_lbRubberBand=null;_lbRenderAll();}
   _lbCancelText();
 }
 
@@ -6385,13 +6412,13 @@ function _lbUndo(){
   if(!_lbUndoStack.length)return;
   _lbRedoStack.push(JSON.stringify(_lbObjects));
   _lbObjects=JSON.parse(_lbUndoStack.pop());
-  _lbSelectedId=null;_lbRenderAll();
+  _lbSelectedId=null;_lbSelectedIds=[];_lbRenderAll();
 }
 function _lbRedo(){
   if(!_lbRedoStack.length)return;
   _lbUndoStack.push(JSON.stringify(_lbObjects));
   _lbObjects=JSON.parse(_lbRedoStack.pop());
-  _lbSelectedId=null;_lbRenderAll();
+  _lbSelectedId=null;_lbSelectedIds=[];_lbRenderAll();
 }
 
 // ── BOUNDS HELPER (mirrors _mkGetBounds) ──
@@ -6464,11 +6491,18 @@ function _lbRenderAll(){
     });
     _lbCtx.save();_lbCtx.globalAlpha=0.3;_lbCtx.globalCompositeOperation='source-over';
     _lbCtx.drawImage(_lbHlCanvas,0,0);_lbCtx.restore();
-    // Selection handles for selected highlight
-    highlights.forEach(function(obj){if(obj.id===_lbSelectedId)_lbDrawHandles(obj);});
+    // Selection handles for selected highlight(s)
+    highlights.forEach(function(obj){
+      if(obj.id===_lbSelectedId||_lbSelectedIds.indexOf(obj.id)>=0)_lbDrawHandles(obj);
+    });
   }
-  // Selection handles for non-highlight selected object
-  if(_lbSelectedId){
+  // Selection handles for all selected objects
+  if(_lbSelectedIds.length>1){
+    _lbSelectedIds.forEach(function(id){
+      var obj=_lbObjects.find(function(o){return o.id===id;});
+      if(obj&&obj.type!=='highlight')_lbDrawHandles(obj);
+    });
+  } else if(_lbSelectedId){
     var sel=_lbObjects.find(function(o){return o.id===_lbSelectedId;});
     if(sel&&sel.type!=='highlight')_lbDrawHandles(sel);
   }
@@ -6571,10 +6605,11 @@ function _lbHitHandle(x,y,obj){
 
 // ── DELETE SELECTED ──
 function _lbDeleteSelected(){
-  if(!_lbSelectedId)return;
+  var toDelete=_lbSelectedIds.length>0?_lbSelectedIds:(_lbSelectedId?[_lbSelectedId]:[]);
+  if(!toDelete.length)return;
   _lbPushUndo();
-  _lbObjects=_lbObjects.filter(function(o){return o.id!==_lbSelectedId;});
-  _lbSelectedId=null;_lbRenderAll();
+  _lbObjects=_lbObjects.filter(function(o){return toDelete.indexOf(o.id)<0;});
+  _lbSelectedId=null;_lbSelectedIds=[];_lbRenderAll();
 }
 
 // ── TEXT TOOL — floating inline input ──
@@ -6657,13 +6692,13 @@ function _lbDown(e){
     // Check hit on any object
     var hit=_lbHitTest(p.x,p.y);
     if(hit){
-      _lbSelectedId=hit.id;_lbRubberBand=null;
+      _lbSelectedId=hit.id;_lbSelectedIds=[hit.id];_lbRubberBand=null;
       _lbPushUndo();
       _lbDragState={mode:'move',startX:p.x,startY:p.y,origObj:JSON.parse(JSON.stringify(hit)),moved:false};
       _lbRenderAll();
     } else {
       // Start rubber band
-      _lbSelectedId=null;_lbDragState=null;
+      _lbSelectedId=null;_lbSelectedIds=[];_lbDragState=null;
       _lbRubberBand={sx:p.x,sy:p.y,ex:p.x,ey:p.y};
       _lbRenderAll();
     }
@@ -6767,9 +6802,12 @@ function _lbUp(e){
     } else if(_lbRubberBand){
       var rb=_lbRubberBand;_lbRubberBand=null;
       var hits=_lbRubberHitTest(rb.sx,rb.sy,rb.ex,rb.ey);
-      if(hits.length===1)_lbSelectedId=hits[0];
-      else if(hits.length>1)_lbSelectedId=hits[hits.length-1]; // topmost
-      else _lbSelectedId=null;
+      if(hits.length>=1){
+        _lbSelectedIds=hits;
+        _lbSelectedId=hits[hits.length-1]; // primary = topmost
+      } else {
+        _lbSelectedIds=[];_lbSelectedId=null;
+      }
       _lbRenderAll();
     }
     return;
@@ -6800,7 +6838,7 @@ function lightboxDrawMode(){
   if(!_lbCtx)_lbCtx=_lbCanvas.getContext('2d');
   _lbDrawing=true;
   _lbTool='pen';_lbColor='#C0392B';_lbSize=4;_lbOpacity=1;
-  _lbObjects=[];_lbUndoStack=[];_lbRedoStack=[];_lbSelectedId=null;
+  _lbObjects=[];_lbUndoStack=[];_lbRedoStack=[];_lbSelectedId=null;_lbSelectedIds=[];
   _lbOrigSrc=_lbPhotos[_lbIdx];
   document.getElementById('lb-draw-btn').style.display='none';
   document.getElementById('lb-save-btn').style.display='';
@@ -8588,7 +8626,8 @@ function handlePhotoFiles(files){
                 if(!err){
                   photoRec.r2Status='uploaded';
                   photoRec.r2Url=R2Photos.getUrl(hubId,'frt','original',fname);
-                  delete photoRec.dataUrl; // free memory — R2 is source of truth
+                  // Keep dataUrl in memory — IDB blob stays as local backup
+                  // Only remove pending blob (crash-safe store no longer needed)
                   ADB.deletePending(photoRec.id).catch(function(){});
                   saveToLS();_updateR2Badge();
                 }else{photoRec.r2Status='error';}
