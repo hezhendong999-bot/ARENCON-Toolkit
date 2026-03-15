@@ -7865,20 +7865,21 @@ async function _r2CleanupOrphans(){
       var files=Array.isArray(data)?data:(data.files||data.objects||[]);
       for(var fi=0;fi<files.length;fi++){
         var f=files[fi];
-        var key=typeof f==='string'?f:(f.key||'');
-        if(!key)continue;
-        // R2 key format: {pid}/photos/frt/{type}/{fname}
-        // Referenced keys stored as: photos/{pid}/frt/{type}/{fname}
-        var normalised='photos/'+key;// match stored r2Key format
-        if(!referencedKeys.has(normalised)&&!referencedKeys.has(key)){
-          // Not referenced — delete from R2
-          var parts=key.split('/');// [pid, 'photos', 'frt', type, fname]
-          if(parts.length>=5){
-            try{
-              await R2Photos.remove(parts[1],parts[2],parts[3],parts.slice(4).join('/'));
-              deleted++;
-            }catch(e){}
-          }
+        // R2 bucket key: {pid}/photos/frt/{type}/{fname}
+        var bucketKey=typeof f==='string'?f:(f.key||'');
+        if(!bucketKey)continue;
+        var bparts=bucketKey.split('/');// [pid, 'photos', 'frt', type, ...fname]
+        if(bparts.length<4)continue;
+        // Stored r2Key format: photos/{pid}/frt/{type}/{fname}
+        // Reconstruct stored key: 'photos/' + pid + '/' + bparts.slice(1).join('/')
+        var storedKey='photos/'+bparts[0]+'/'+bparts.slice(1).join('/');
+        if(!referencedKeys.has(storedKey)&&!referencedKeys.has(bucketKey)){
+          // Not referenced by this project — delete
+          // R2Photos.remove(projectId, tool, type, filename)
+          try{
+            await R2Photos.remove(bparts[0],bparts[1],bparts[2],bparts.slice(3).join('/'));
+            deleted++;
+          }catch(e){}
         }
       }
     }catch(e){}
@@ -10462,6 +10463,7 @@ function _triggerHardSignOut() {
 }
 
 function signOutSession() {
+  if(!confirm('Sign out and return to Project Hub?'))return;
   // Stop all timers
   clearTimeout(_softLockTimer);
   clearTimeout(_hardSignOutTimer);
