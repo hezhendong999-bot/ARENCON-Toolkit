@@ -143,7 +143,7 @@ html{overflow-x:hidden;max-width:100vw;}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 .app-header{background:var(--arencon);color:white;position:sticky;top:0;z-index:1000;box-shadow:0 2px 12px rgba(156,39,66,.3);width:100%;box-sizing:border-box;}
-.header-top{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,.07);min-width:0;gap:8px;}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,.07);min-width:0;gap:6px;}
 .logo-area{display:flex;align-items:center;gap:10px;text-decoration:none;color:white;flex-shrink:0;}
 .logo-area img{height:32px;}
 .header-logo{height:34px;width:auto;background:#fff;padding:3px 7px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.2);display:block;flex-shrink:0;}
@@ -382,27 +382,27 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
 .mobile-menu-btn{display:none;background:rgba(255,255,255,.12);border:none;color:white;padding:7px;border-radius:6px;cursor:pointer;font-size:20px;}
 @media(max-width:800px){
   .mobile-menu-btn{display:block;}
-  /* Hide ALL header-action children on mobile — only show dark toggle + hamburger + sync dot */
+  /* Hide ALL header-action children — keep only dark toggle + hamburger */
   .header-actions>*{display:none!important;}
   .header-actions>.dark-toggle{display:inline-flex!important;}
   .header-actions>.mobile-menu-btn{display:block!important;}
-  .header-actions>.sync-indicator{display:flex!important;}
-  .header-actions>.sync-indicator #sync-label{display:none;}
-  /* Show connection dot + filename on mobile */
-  .conn-dot{display:inline-block!important;}
-  .header-filename{display:block!important;max-width:180px;}
-  .app-title{display:none!important;}
-  /* Hide verbose cloud status text on mobile, keep dot only */
+  /* Hide left-side badges — JS also enforces this on resize */
+  #r2-upload-badge{display:none!important;}
+  #issue-status-badge{display:none!important;}
+  .header-nav-arrows{display:none!important;}
+  /* Cloud status: keep dot, hide text */
   #cloud-status-text{display:none!important;}
-  #cloud-status{gap:0!important;}
+  #cloud-status{gap:0!important;padding:0!important;}
+  /* Filename: show but clamped */
+  .header-filename{display:block!important;max-width:110px;font-size:11px;}
+  .app-title{display:none!important;}
   .section-nav .nav-tab{padding:10px 14px;font-size:13px;}
   .proj-grid{grid-template-columns:1fr;}
   .project-grid{grid-template-columns:1fr;}
   .pin-panel{width:100%;right:0;}
   .dv-tasks-panel{display:none;}
   .defic-grid-2col{grid-template-columns:1fr;}
-  /* Back button smaller on mobile */
-  .back-btn{padding:5px 10px;font-size:13px;}
+  .back-btn{padding:5px 10px;font-size:13px;margin-right:4px;}
 }
 .mobile-menu-overlay{display:none;position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.5);}.mobile-menu-overlay.open{display:flex;}
 .mobile-menu{position:fixed;top:0;right:0;width:280px;height:100%;background:white;z-index:5001;box-shadow:-4px 0 20px rgba(0,0,0,.15);padding:20px;display:flex;flex-direction:column;gap:10px;}
@@ -9702,6 +9702,24 @@ document.addEventListener('DOMContentLoaded',function(){
   initDarkMode();
   var logoEl=document.getElementById('logo-img');if(logoEl)logoEl.src=LOGO_SRC;
 
+  // ── Mobile header: hide overflow left-side badges on small screens ──
+  function _applyMobileHeaderState(){
+    var isMob=window.innerWidth<=800;
+    var r2b=document.getElementById('r2-upload-badge');
+    if(r2b&&isMob)r2b.style.display='none';
+    var isb=document.getElementById('issue-status-badge');
+    if(isb){
+      if(isMob){isb.style.display='none';}
+      else if(isb.getAttribute('data-status')){isb.style.display='inline-block';}
+    }
+    var hf=document.getElementById('header-filename');
+    if(hf){hf.style.maxWidth=isMob?(window.innerWidth<400?'80px':'110px'):'';}
+    var hna=document.getElementById('header-nav-arrows');
+    if(hna)hna.style.display=isMob?'none':'';
+  }
+  _applyMobileHeaderState();
+  window.addEventListener('resize',_applyMobileHeaderState);
+
   ADB.open().then(function(){
     return ADB.migrateFromLocalStorage();
   }).then(function(migrated){
@@ -10415,7 +10433,7 @@ function issueReport(){
   p.info.publishedDate=new Date().toISOString().substring(0,10);
   p.status='issued';
   var badge=document.getElementById('issue-status-badge');
-  if(badge){badge.textContent='ISSUED';badge.style.background='#1A7A4A';badge.style.display='inline-block';}
+  if(badge){badge.textContent='ISSUED';badge.style.background='#1A7A4A';badge.style.display=_isMobileHeader?(_isMobileHeader()?'none':'inline-block'):'inline-block';}
   // Update status on Supabase tool_data
   if(CloudSync.instanceId){
     CloudSync.request('/rest/v1/tool_data?id=eq.'+CloudSync.instanceId,{
@@ -10550,7 +10568,8 @@ function _initCloudSync(){
         var st=result.row.status||'draft';
         badge.textContent=st.toUpperCase();
         badge.style.background=st==='issued'?'#1A7A4A':st==='review'?'#1565C0':'#E65100';
-        badge.style.display='inline-block';
+        badge.style.display=_isMobileHeader()?'none':'inline-block';
+        badge.setAttribute('data-status',st);
       }
     }
     // Start auto-save to cloud (15s)
@@ -10565,12 +10584,13 @@ function _initCloudSync(){
   });
 }
 
+function _isMobileHeader(){return window.innerWidth<=800;}
 function _updateR2Badge(){
   var el=document.getElementById('r2-upload-badge');
   if(!el)return;
   if(typeof R2Photos==='undefined'){el.style.display='none';return;}
   var q=R2Photos.getQueueLength();
-  if(q>0){
+  if(q>0&&!_isMobileHeader()){
     el.textContent='📤 '+q+' uploading';
     el.style.display='inline-block';
     el.style.background='#FBBF24';el.style.color='#78350F';
