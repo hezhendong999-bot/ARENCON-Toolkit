@@ -3288,7 +3288,7 @@ function _goToDashboardReal(){
   var mea=document.getElementById('mobile-export-all');if(mea)mea.style.display='';
   var mca=document.getElementById('mobile-clear-all');if(mca)mca.style.display='';
   updateProjectDropdown();renderDashboard();}
-function enterProject(id){currentProjectId=id;var p=getProject();if(!p)return;if(!p.contractors)p.contractors=[];if(!p.generalDeficiencies)p.generalDeficiencies=[];if(!p.nextDeficNum)p.nextDeficNum=1;if(!p.settings)p.settings={sketchesEnabled:false};
+function enterProject(id){var _lov=document.getElementById('hub-loading-overlay');if(_lov)_lov.remove();currentProjectId=id;var p=getProject();if(!p)return;if(!p.contractors)p.contractors=[];if(!p.generalDeficiencies)p.generalDeficiencies=[];if(!p.nextDeficNum)p.nextDeficNum=1;if(!p.settings)p.settings={sketchesEnabled:false};
   // Migrate legacy base64 string photo arrays to record objects
   p.contractors.forEach(function(c){_migrateDeficPhotos(c.deficiencies);});
   _migrateDeficPhotos(p.generalDeficiencies);
@@ -9738,10 +9738,12 @@ document.addEventListener('DOMContentLoaded',function(){
   (function(){
     var el=document.getElementById('view-project');
     if(el){el.style.display='block';el.style.visibility='visible';}
-    var mn=document.querySelector('.main-wrap');
-    if(mn)mn.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:14px;font-family:Calibri,sans-serif;color:#9C2742;">'
-      +'<div style="width:44px;height:44px;border:4px solid #f0d0d8;border-top-color:#9C2742;border-radius:50%;animation:spin .8s linear infinite;"></div>'
-      +'<div style="font-size:15px;font-weight:600;opacity:.7;">Loading project...</div></div>';
+    // Use overlay — never replace main-wrap innerHTML (that nukes all panels)
+    var ov=document.createElement('div');
+    ov.id='hub-loading-overlay';
+    ov.style.cssText='position:fixed;inset:0;top:120px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;font-family:Calibri,sans-serif;color:#9C2742;z-index:500;background:white;';
+    ov.innerHTML='<div style="width:44px;height:44px;border:4px solid #f0d0d8;border-top-color:#9C2742;border-radius:50%;animation:spin .8s linear infinite;"></div><div style="font-size:15px;font-weight:600;opacity:.7;">Loading project...</div>';
+    document.body.appendChild(ov);
   })();
 
   ADB.open().then(function(){
