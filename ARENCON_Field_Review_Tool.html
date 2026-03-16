@@ -1298,6 +1298,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <button class="hdr-btn" id="btn-export" onclick="exportProjectJSON()" style="display:none;background:#7B1FA2;" title="Export Report">📤 Export</button>
       <button class="hdr-btn hdr-review" id="btn-review" onclick="toggleReviewMode()" style="display:none;" title="Toggle Review Mode">🔍 Review</button>
       <button class="hdr-btn" id="btn-issue" onclick="issueReport()" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
+      <button class="hdr-btn" id="btn-reupload" onclick="reuploadAllToCloud()" style="display:none;background:#E67E22;" title="Re-upload all drawings and photos to cloud">☁ Re-upload All</button>
       <button class="hdr-btn" style="background:#455A64;" id="btn-refresh" onclick="refreshCurrentPage()" title="Refresh">🔄</button>
       <div style="position:relative;display:none;" id="btn-reset-dd">
         <button class="hdr-btn" style="background:#C62828;" onclick="toggleResetMenu(event)" title="Reset options">⚠️</button>
@@ -7646,7 +7647,89 @@ function moveDeficiency(did){
   };
 }
 
-// ═══ BULK SELECT MODE ═══
+// ═══ CLOUD RECOVERY — Re-upload All ═══
+async function reuploadAllToCloud(){
+  if(!_csHubMode||!_csProjectId){toast('Only available in Hub mode');return;}
+  var p=getProject();if(!p)return;
+  if(!confirm('This will reset all drawings and photos to "pending" upload status and re-queue everything from local storage to R2.\n\nUse this if files are missing from the cloud. It may take several minutes.\n\nContinue?'))return;
+
+  var queued=0;
+  var hubId=_csProjectId;
+
+  // ── Drawings ──
+  for(var di=0;di<(p.drawings||[]).length;di++){
+    var dwg=p.drawings[di];
+    if(!dwg)continue;
+    // Reset status so it will be re-uploaded
+    dwg.r2Status='';dwg.r2Url='';
+    // Load blob from IDB and re-enqueue
+    try{
+      var idbDwg=await ADB.get('drawings',dwg.id);
+      if(idbDwg&&idbDwg.dataBlob&&idbDwg.dataBlob.size>0){
+        dwg.dataUrl=await ADB.blobToDataUrl(idbDwg.dataBlob);
+        if(typeof _r2EnqueueDrawing==='function'){
+          await _r2EnqueueDrawing(dwg);
+          queued++;
+        }
+      } else if(dwg.dataUrl){
+        if(typeof _r2EnqueueDrawing==='function'){
+          await _r2EnqueueDrawing(dwg);
+          queued++;
+        }
+      }
+    }catch(e){console.warn('[ReuploadAll] Drawing '+dwg.id+' error:',e);}
+  }
+
+  // ── Site photos ──
+  var siteArr=p.sitePhotos||p.photos||[];
+  for(var si=0;si<siteArr.length;si++){
+    var sp=siteArr[si];
+    if(!sp||typeof sp==='string')continue;
+    sp.r2Status='';sp.r2Url='';
+    if(!sp.dataUrl)continue;
+    try{
+      var isSite=!sp.id||sp.id.indexOf('mkup')<0;
+      var fname=R2Photos.generateFilename(isSite?'site':'mkup');
+      sp.r2Key='photos/'+hubId+'/frt/original/'+fname;
+      sp.r2Status='pending';
+      var blob=R2Photos.dataUrlToBlob(sp.dataUrl);
+      if(blob){
+        await ADB.savePending(sp.id,hubId,blob,{type:isSite?'site':'mkup',fname:fname,r2Key:sp.r2Key});
+        R2Photos.enqueue({projectId:hubId,tool:'frt',type:'original',filename:fname,blob:blob,
+          onComplete:function(err,rec){
+            if(!err&&rec){rec.r2Status='uploaded';rec.r2Url=R2Photos.getUrl(hubId,'frt','original',fname);
+              ADB.deletePending(rec.id).catch(function(){});saveToLS&&saveToLS();}
+          }
+        });
+        queued++;
+      }
+    }catch(e){console.warn('[ReuploadAll] SitePhoto '+sp.id+' error:',e);}
+  }
+
+  // ── Deficiency photos ──
+  var ad=getAllDeficiencies(p);
+  for(var ai=0;ai<ad.length;ai++){
+    var defic=ad[ai].defic;
+    var allPhotos=[];
+    (defic.entries||[]).forEach(function(en){(en.photos||[]).forEach(function(ph){allPhotos.push({ph:ph,did:defic.id});});});
+    (defic.photos||[]).forEach(function(ph){allPhotos.push({ph:ph,did:defic.id});});
+    for(var pi=0;pi<allPhotos.length;pi++){
+      var rec=allPhotos[pi].ph;
+      if(!rec||typeof rec==='string'||!rec.dataUrl)continue;
+      rec.r2Status='';rec.r2Url='';
+      try{
+        if(typeof _r2EnqueueDeficPhoto==='function'){
+          _r2EnqueueDeficPhoto(rec,allPhotos[pi].did);
+          queued++;
+        }
+      }catch(e){}
+    }
+  }
+
+  saveToLS();_folderQuickSave();
+  toast('Re-queued '+queued+' files for upload — uploading in background');
+  _updateR2Badge&&_updateR2Badge();
+}
 var _bulkSelectMode=false;
 function toggleBulkSelectMode(){
   _bulkSelectMode=!_bulkSelectMode;
@@ -10195,6 +10278,7 @@ document.addEventListener('DOMContentLoaded',function(){
       var btnLoad=document.getElementById('btn-load');if(btnLoad)btnLoad.style.display='none';
       var btnExportAll=document.getElementById('btn-export-all');if(btnExportAll)btnExportAll.style.display='none';
       // Show sign-out button in Hub mode
+      var btnReupload=document.getElementById('btn-reupload');if(btnReupload)btnReupload.style.display='';
       var btnSignOut=document.getElementById('btn-signout');if(btnSignOut)btnSignOut.style.display='';
       var mobileSignOut=document.getElementById('mobile-signout-btn');if(mobileSignOut)mobileSignOut.style.display='';
       // Hide Save As / Folder / Open / Inspector in Hub mode (cloud is the save mechanism)
