@@ -699,7 +699,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .dv-tasks-list{flex:1;overflow-y:auto;}
 /* Mobile: collapse sidebar to horizontal scrollable strip */
 @media(max-width:700px){
-  .dv-sidebar-tools{display:flex;flex-direction:row;width:100%;height:46px;border-right:none;border-top:none;border-bottom:none;overflow-x:auto;overflow-y:hidden;padding:4px 6px;order:2;flex-shrink:0;background:#1e2028;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .dv-sidebar-tools{display:flex;flex-direction:row;align-items:center;width:100%;height:46px;border-right:none;border-top:none;border-bottom:none;overflow-x:auto;overflow-y:hidden;padding:4px 6px;order:2;flex-shrink:0;background:#1e2028;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
   .dv-sidebar-tools::-webkit-scrollbar{display:none;}
   .dv-sidebar-tools .tool-sep{width:1px;height:26px;margin:0 3px;flex-shrink:0;}
   .dv-sidebar-tools .tool-slider-wrap{flex-direction:row;align-items:center;gap:4px;padding:0 4px;}
@@ -981,8 +981,8 @@ body.dark-mode .resp-consultant{background:#001a33;border-color:#003366;}
 .tool-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#9C2742;cursor:pointer;}
 /* ── Floating tooltip ── */
 #dv-tool-tooltip{transition:opacity .15s;}
-/* ── Wider sidebar to fit sliders ── */
-.dv-sidebar-tools{width:52px!important;}
+/* ── Wider sidebar to fit sliders (desktop only) ── */
+@media(min-width:701px){.dv-sidebar-tools{width:52px!important;}}
 #mk-size-input::-webkit-inner-spin-button,#mk-size-input::-webkit-outer-spin-button,
 #mk-opacity-input::-webkit-inner-spin-button,#mk-opacity-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
 
