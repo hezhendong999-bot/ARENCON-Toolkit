@@ -729,7 +729,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .drawing-card{width:160px;border-radius:8px;border:2px solid var(--border);overflow:hidden;position:relative;background:var(--white);transition:border-color .15s,box-shadow .15s;flex-shrink:0;}
 .drawing-card:hover{border-color:var(--red);box-shadow:0 2px 8px rgba(0,0,0,.1);}
 .drawing-card.selected{border-color:#2196F3;box-shadow:0 0 0 2px rgba(33,150,243,.3);}
-.drawing-card .card-thumb{cursor:pointer;height:110px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f5f5f5;}
+.drawing-card .card-thumb{cursor:pointer;height:110px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f5f5f5;position:relative;}
 .drawing-card .card-thumb img{width:100%;height:100%;object-fit:cover;}
 .drawing-card .card-footer{display:flex;align-items:center;gap:4px;padding:6px 8px;font-size:11px;border-top:1px solid var(--border);}
 .drawing-card .card-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:var(--steel);}
@@ -836,10 +836,10 @@ body.dark-mode .photo-caption-input{color:#d4d8e8;}
 .photo-lightbox-overlay .lb-prev{left:0;}
 .photo-lightbox-overlay .lb-next{right:0;}
 .photo-lightbox-overlay .lb-img{max-width:95vw;max-height:90vh;min-width:min(95vw,800px);object-fit:contain;border-radius:4px;}
-.photo-lightbox-overlay .lb-counter{color:rgba(255,255,255,.85);font-size:14px;font-weight:600;}
-.photo-lightbox-overlay .lb-info{color:rgba(255,255,255,.6);font-size:12px;margin-top:2px;}
-.photo-lightbox-overlay .lb-meta{display:flex;flex-direction:column;align-items:center;margin-top:10px;gap:2px;}
-.photo-lightbox-overlay .lb-actions{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px;}
+.photo-lightbox-overlay .lb-counter{color:rgba(255,255,255,.9);font-size:14px;font-weight:600;}
+.photo-lightbox-overlay .lb-info{color:rgba(255,255,255,.55);font-size:12px;}
+.photo-lightbox-overlay .lb-meta{display:flex;flex-direction:column;align-items:center;gap:3px;margin-top:10px;}
+.photo-lightbox-overlay .lb-actions{display:flex;gap:8px;margin-top:10px;justify-content:center;}
 .photo-lightbox-overlay .lb-actions button{background:rgba(255,255,255,.15);border:none;color:white;padding:8px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-family:Calibri,sans-serif;}
 .photo-lightbox-overlay .lb-actions button:hover{background:rgba(255,255,255,.25);}
 .lb-tool-btn{background:rgba(255,255,255,.1);border:1.5px solid transparent;color:white;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
@@ -1756,7 +1756,6 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
     <div class="dv-canvas-area" id="dv-canvas-area">
       <div class="dv-img-wrap" id="dv-img-wrap">
         <img id="dv-image" src="" draggable="false" style="user-select:none;-webkit-user-drag:none;">
-        <canvas id="dv-tile-canvas" style="position:absolute;top:0;left:0;pointer-events:none;display:none;"></canvas>
         <canvas class="markup-canvas" id="markup-canvas"></canvas>
         <div id="dv-pins-layer"></div>
       </div>
@@ -4909,7 +4908,6 @@ function openDrawingViewer(drawingId){
       document.getElementById('dv-image').src=src;
       document.getElementById('dv-image').onload=function(){
         fitDrawing();renderPinsOnDrawing();renderTasksPanel();resizeMarkupCanvas();initMarkupEvents();initSelectModeEvents();
-        _dvInitTiles(document.getElementById('dv-image'));
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
       };
       initPanZoom();
@@ -4950,129 +4948,9 @@ function openDrawingViewer(drawingId){
       _openWithSrc(d.dataUrl||'');
     }
   }catch(err){console.error('openDrawingViewer error:',err);alert('Drawing error: '+err.message);}
-}function closeDrawingViewer(){document.getElementById('drawing-viewer').classList.remove('open');dvState.currentDrawingId=null;dvState.selectedPinId=null;dvState.pinMode=false;mkState.tool=null;closePinPanel();closePinModal();_dvClearTiles();}
+}function closeDrawingViewer(){document.getElementById('drawing-viewer').classList.remove('open');dvState.currentDrawingId=null;dvState.selectedPinId=null;dvState.pinMode=false;mkState.tool=null;closePinPanel();closePinModal();}
 function prevDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx-1+p.drawings.length)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
 function nextDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx+1)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
-// ═══ TILED DRAWING RENDERER ═══
-// Renders only viewport-visible tiles at full image resolution.
-// The <img> element stays in the DOM as a layout anchor (pins/markup use its dimensions).
-// The tile canvas overlays it exactly; once tiles cover the view, img is hidden.
-var _dvTileState=null;
-var _dvTileRAF=null;
-var _DV_TILE_SIZE=512;// image-space pixels per tile edge
-var _DV_MAX_CACHED=32;// max tiles to keep in memory
-
-function _dvInitTiles(img){
-  // Only tile large drawings — small ones are fine as a single image
-  var iw=img.naturalWidth,ih=img.naturalHeight;
-  if(!iw||!ih)return;
-  var tileCanvas=document.getElementById('dv-tile-canvas');
-  if(!tileCanvas)return;
-  // Size tile canvas to match the source image (same coord space as img + markup canvas)
-  tileCanvas.width=iw;
-  tileCanvas.height=ih;
-  tileCanvas.style.width=iw+'px';
-  tileCanvas.style.height=ih+'px';
-  tileCanvas.style.display='block';
-  var ts=_DV_TILE_SIZE;
-  _dvTileState={
-    img:img,
-    iw:iw,ih:ih,
-    ts:ts,
-    cols:Math.ceil(iw/ts),
-    rows:Math.ceil(ih/ts),
-    cache:{},// key:'c_r' → true (painted)
-    canvas:tileCanvas,
-    ctx:tileCanvas.getContext('2d'),
-    pendingRaf:null
-  };
-  // Hide the underlying img — tile canvas takes over visually
-  img.style.visibility='hidden';
-  _dvScheduleTileRender();
-}
-
-function _dvClearTiles(){
-  if(_dvTileRAF){cancelAnimationFrame(_dvTileRAF);_dvTileRAF=null;}
-  _dvTileState=null;
-  var tc=document.getElementById('dv-tile-canvas');
-  if(tc){tc.style.display='none';tc.width=1;tc.height=1;}
-  var img=document.getElementById('dv-image');
-  if(img)img.style.visibility='';
-}
-
-function _dvScheduleTileRender(){
-  if(!_dvTileState)return;
-  if(_dvTileRAF)cancelAnimationFrame(_dvTileRAF);
-  _dvTileRAF=requestAnimationFrame(_dvRenderTiles);
-}
-
-function _dvRenderTiles(){
-  _dvTileRAF=null;
-  var st=_dvTileState;
-  if(!st||!st.img.complete)return;
-  var area=document.getElementById('dv-canvas-area');
-  if(!area)return;
-  var aw=area.clientWidth,ah=area.clientHeight;
-  var scale=dvState.scale,px=dvState.panX,py=dvState.panY;
-  var ts=st.ts;
-
-  // Viewport rect in image-space coordinates
-  // area-space: [0,aw] x [0,ah]
-  // image-space: subtract panX/Y then divide by scale
-  var imgL=(-px)/scale;
-  var imgT=(-py)/scale;
-  var imgR=(aw-px)/scale;
-  var imgB=(ah-py)/scale;
-
-  // Add 1-tile margin so tiles load slightly before they're visible
-  var margin=ts;
-  imgL=Math.max(0,imgL-margin);
-  imgT=Math.max(0,imgT-margin);
-  imgR=Math.min(st.iw,imgR+margin);
-  imgB=Math.min(st.ih,imgB+margin);
-
-  // Tile column/row range to render
-  var c0=Math.max(0,Math.floor(imgL/ts));
-  var c1=Math.min(st.cols-1,Math.floor(imgR/ts));
-  var r0=Math.max(0,Math.floor(imgT/ts));
-  var r1=Math.min(st.rows-1,Math.floor(imgB/ts));
-
-  // Draw any visible tiles not yet cached
-  var newlyPainted=false;
-  for(var r=r0;r<=r1;r++){
-    for(var c=c0;c<=c1;c++){
-      var key=c+'_'+r;
-      if(!st.cache[key]){
-        var sx=c*ts, sy=r*ts;
-        var sw=Math.min(ts,st.iw-sx);
-        var sh=Math.min(ts,st.ih-sy);
-        st.ctx.drawImage(st.img,sx,sy,sw,sh,sx,sy,sw,sh);
-        st.cache[key]=true;
-        newlyPainted=true;
-      }
-    }
-  }
-
-  // Evict tiles far from viewport if cache is large
-  var keys=Object.keys(st.cache);
-  if(keys.length>_DV_MAX_CACHED){
-    // Erase tiles that are outside the visible range + 2-tile margin
-    var evictMargin=ts*2;
-    var evictL=Math.max(0,imgL-evictMargin);
-    var evictT=Math.max(0,imgT-evictMargin);
-    var evictR=Math.min(st.iw,imgR+evictMargin);
-    var evictB=Math.min(st.ih,imgB+evictMargin);
-    keys.forEach(function(k){
-      var parts=k.split('_');
-      var tc2=parseInt(parts[0]),tr2=parseInt(parts[1]);
-      var tx=tc2*ts,ty=tr2*ts;
-      if(tx+ts<evictL||tx>evictR||ty+ts<evictT||ty>evictB){
-        st.ctx.clearRect(tx,ty,Math.min(ts,st.iw-tx),Math.min(ts,st.ih-ty));
-        delete st.cache[k];
-      }
-    });
-  }
-}
 
 function fitDrawing(){
   requestAnimationFrame(function(){
@@ -5086,7 +4964,7 @@ function fitDrawing(){
     applyTransform();
   });
 }
-function applyTransform(){document.getElementById('dv-img-wrap').style.transform='translate3d('+dvState.panX+'px,'+dvState.panY+'px,0) scale('+dvState.scale+')';_dvScheduleTileRender();}
+function applyTransform(){document.getElementById('dv-img-wrap').style.transform='translate3d('+dvState.panX+'px,'+dvState.panY+'px,0) scale('+dvState.scale+')';}
 function zoomIn(){dvState.scale=Math.min(dvState.scale*1.3,10);applyTransform();}
 function zoomOut(){var minS=dvState.fitScale||0.1;dvState.scale=Math.max(dvState.scale/1.3,minS);if(dvState.scale<=minS*1.05){fitDrawing();return;}applyTransform();}
 function toggleSearchBar(){var bar=document.getElementById('dv-search-bar');bar.style.display=bar.style.display==='none'?'flex':'none';if(bar.style.display==='flex')document.getElementById('dv-search-input').focus();}
@@ -5308,17 +5186,18 @@ function createPinDeficiency(x,y){
 }
 
 function renderPinsOnDrawing(){var layer=document.getElementById('dv-pins-layer');if(!layer)return;var p=getProject();if(!p){layer.innerHTML='';return;}var ad=getAllDeficiencies(p);var pins=ad.filter(function(d){return d.defic.drawingId===dvState.currentDrawingId&&d.defic.pinX!=null;});var img=document.getElementById('dv-image');var iw=img.naturalWidth||1,ih=img.naturalHeight||1;
-// Dynamic pin size: scale with drawing resolution
-var baseW=3000;var pinScale=Math.max(0.6,Math.min(1.6,Math.max(iw,ih)/baseW));var pd=Math.round(30*pinScale);var fs=Math.round(11*pinScale);
+// Dynamic pin size: baseline 28x36 for 3000px drawings, scale proportionally
+var baseW=3000;var pinScale=Math.max(0.5,Math.min(1.5,Math.max(iw,ih)/baseW));var pw=Math.round(28*pinScale),ph2=Math.round(36*pinScale);var fs=Math.round(11*pinScale);
 var html='';pins.forEach(function(d){var px=d.defic.pinX*iw,py=d.defic.pinY*ih;var pr=d.defic.priority||'high';var _pinDesc=(d.defic.entries&&d.defic.entries[0]?d.defic.entries[0].description:d.defic.description)||'';var fill=d.defic.iar?'#E91E8C':(pr==='general'?'#1A7A4A':pr==='low'?'#E67E22':'#C0392B');var isOutstanding=d.defic.status==='Outstanding'&&!d.defic.iar;var isClosed=d.defic.status==='Addressed & Closed';
-// Clean flat circle pin: colored fill, white ring, number centered
-var shadow=isOutstanding?'drop-shadow(0 0 4px '+fill+') drop-shadow(0 2px 5px rgba(0,0,0,.55))':'drop-shadow(0 2px 4px rgba(0,0,0,.4))';
-var alpha=isClosed?'0.55':'1';
-html+='<div class="pin-marker" data-defic-id="'+d.defic.id+'" data-priority="'+pr+'" onclick="handlePinClick(\x27'+d.defic.id+'\x27);event.stopPropagation();" style="left:'+px+'px;top:'+py+'px;width:'+pd+'px;height:'+pd+'px;transform:translate(-50%,-50%);opacity:'+alpha+';" title="#'+d.defic.num+' '+escHtml(_pinDesc)+'">';
-html+='<svg viewBox="0 0 30 30" width="'+pd+'" height="'+pd+'" style="filter:'+shadow+';overflow:visible;">';
-html+='<circle cx="15" cy="15" r="14" fill="'+fill+'"/>';
-html+='<circle cx="15" cy="15" r="12" fill="none" stroke="white" stroke-width="2"/>';
-html+='<text x="15" y="19" text-anchor="middle" font-size="'+fs+'" font-weight="800" font-family="Calibri,Arial,sans-serif" fill="white">'+d.defic.num+'</text>';
+// Teardrop pin: pointy tip at bottom anchors to exact location, number in white circle
+var shadow=isOutstanding?'drop-shadow(0 0 3px '+fill+') drop-shadow(0 2px 5px rgba(0,0,0,.6))':'drop-shadow(0 2px 4px rgba(0,0,0,.45))';
+var alpha=isClosed?'0.5':'1';
+html+='<div class="pin-marker" data-defic-id="'+d.defic.id+'" data-priority="'+pr+'" onclick="handlePinClick(\x27'+d.defic.id+'\x27);event.stopPropagation();" style="left:'+px+'px;top:'+py+'px;width:'+pw+'px;height:'+ph2+'px;transform:translate(-50%,-100%);opacity:'+alpha+';" title="#'+d.defic.num+' '+escHtml(_pinDesc)+'">';
+html+='<svg viewBox="0 0 28 36" width="'+pw+'" height="'+ph2+'" style="filter:'+shadow+';overflow:visible;">';
+html+='<path d="M14 1C7.1 1 1.5 6.6 1.5 13.5c0 9.2 12.5 20.5 12.5 20.5s12.5-11.3 12.5-20.5C26.5 6.6 20.9 1 14 1z" fill="white"/>';
+html+='<path d="M14 2.5C7.9 2.5 3 7.4 3 13.5c0 8.5 11 19 11 19s11-10.5 11-19C25 7.4 20.1 2.5 14 2.5z" fill="'+fill+'"/>';
+html+='<circle cx="14" cy="12.5" r="7.5" fill="white"/>';
+html+='<text x="14" y="16.5" text-anchor="middle" font-size="'+fs+'" font-weight="800" font-family="Calibri,Arial,sans-serif" fill="'+fill+'">'+d.defic.num+'</text>';
 html+='</svg></div>';});layer.innerHTML=html;updatePinStatus();}
 
 function setShowAllDeficiencies(showAll){
@@ -7419,15 +7298,12 @@ function lightboxSaveMarkup(){
   var p=getProject&&getProject();
   var wasDeficPhoto=false;
   if(p){
-    wasDeficPhoto=_replacePhotoInProject(p,origSrc,markedSrc);
-
-    // Add a marked copy to the Photos gallery ONLY if the original was a deficiency photo.
-    // If the original was already a sitePhoto, _replacePhotoInProject updated it in-place —
-    // adding another mkup_ copy here would create a duplicate in the gallery.
+    // Determine if original came from sitePhotos BEFORE replacing (r2Url or dataUrl match)
     if(!p.sitePhotos)p.sitePhotos=[];
     var origWasSitePhoto=p.sitePhotos.some(function(ph){
-      return ph&&((ph.dataUrl&&ph.dataUrl===markedSrc)||(ph.r2Url&&ph.r2Url===origSrc));
+      return ph&&((ph.dataUrl&&ph.dataUrl===origSrc)||(ph.r2Url&&ph.r2Url===origSrc)||(ph.r2Url&&origSrc&&origSrc.indexOf(ph.r2Url.split('/').pop())>=0));
     });
+    wasDeficPhoto=_replacePhotoInProject(p,origSrc,markedSrc);
     if(!origWasSitePhoto){
     var _srcCaption='';
     try{
@@ -7882,7 +7758,7 @@ function openReassignModal(ids){
     +'<div class="reassign-dwg-grid">'+gridHtml+'</div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">'
     +'<button onclick="document.getElementById(\'reassign-modal\').remove()" style="padding:8px 18px;border:1.5px solid #DDE1E7;border-radius:6px;background:white;cursor:pointer;font-family:inherit;font-size:13px;">Cancel</button>'
-    +'<button id="reassign-confirm-btn" style="padding:8px 18px;border:none;border-radius:6px;background:#1A7A4A;color:white;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px;" onclick="confirmReassignDrawing('+JSON.stringify(ids)+')">Reassign</button>'
+    +'<button id="reassign-confirm-btn" style="padding:8px 18px;border:none;border-radius:6px;background:#1A7A4A;color:white;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px;" onclick="confirmReassignDrawing()">Reassign</button>'
     +'</div></div>';
 
   var overlay=document.createElement('div');overlay.id='reassign-modal';
@@ -7890,6 +7766,9 @@ function openReassignModal(ids){
   var card=document.createElement('div');
   card.style.cssText='background:var(--bg-card,white);border-radius:12px;max-width:520px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto;';
   card.innerHTML=html;overlay.appendChild(card);document.body.appendChild(overlay);
+  // Store ids on the confirm button via dataset to avoid JSON quote issues in onclick
+  var confirmBtn=document.getElementById('reassign-confirm-btn');
+  if(confirmBtn)confirmBtn.dataset.reassignIds=ids.join(',');
   overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
 }
 function _reassignCardClick(el){
@@ -7897,6 +7776,10 @@ function _reassignCardClick(el){
   el.classList.add('selected');
 }
 function confirmReassignDrawing(ids){
+  if(!ids){
+    var btn=document.getElementById('reassign-confirm-btn');
+    ids=btn&&btn.dataset.reassignIds?btn.dataset.reassignIds.split(','):[];
+  }
   var sel=document.querySelector('.reassign-dwg-card.selected');
   if(!sel){toast('Please select a drawing first');return;}
   var targetDwgId=sel.getAttribute('data-dwg-id');
