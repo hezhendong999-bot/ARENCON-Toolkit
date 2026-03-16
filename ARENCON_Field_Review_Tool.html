@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>ARENCON — Field Review Tool</title>
 <style>
@@ -4667,9 +4668,14 @@ function _loadR2OrDirect(src,img){
       return res.blob();
     }).then(function(blob){
       img.src=URL.createObjectURL(blob);
+      img.removeAttribute('data-r2-failed');
+      img.removeAttribute('data-r2-src');
     }).catch(function(e){
       img.style.background='#f0f0f0';
-      img.alt='Photo (offline)';
+      img.alt='';
+      // Tag for retry when token refreshes
+      img.setAttribute('data-r2-failed','1');
+      img.setAttribute('data-r2-src',src);
     });
   }else{
     img.src=src;
@@ -10135,6 +10141,37 @@ document.addEventListener('DOMContentLoaded',function(){
       _csHubMode=true;
       _csProjectId=hubProjectId;
       _csInstanceId=urlParams.get('instance')||null;
+      // Proactive token refresh — runs immediately so R2 thumbnails load on first render
+      _refreshR2Token().catch(function(){});
+      // Auto-refresh every 45 min so token never expires during a session
+      if(window._r2TokenTimer)clearInterval(window._r2TokenTimer);
+      window._r2TokenTimer=setInterval(function(){
+        _refreshR2Token().then(function(tok){
+          if(tok){
+            // Re-trigger any img[src] that previously failed (blank/broken)
+            document.querySelectorAll('img[data-r2-failed]').forEach(function(img){
+              var src=img.getAttribute('data-r2-src');
+              if(src){img.removeAttribute('data-r2-failed');_loadR2OrDirect(src,img);}
+            });
+          }
+        }).catch(function(){});
+      },45*60*1000); // 45 minutes
+      // Also refresh immediately when tab becomes visible after being hidden
+      if(!window._r2VisibilityWired){
+        window._r2VisibilityWired=true;
+        document.addEventListener('visibilitychange',function(){
+          if(document.visibilityState==='visible'){
+            _refreshR2Token().then(function(tok){
+              if(tok){
+                document.querySelectorAll('img[data-r2-failed]').forEach(function(img){
+                  var src=img.getAttribute('data-r2-src');
+                  if(src){img.removeAttribute('data-r2-failed');_loadR2OrDirect(src,img);}
+                });
+              }
+            }).catch(function(){});
+          }
+        });
+      }
       var hubPN=urlParams.get('pn')||'';
       var hubPName=urlParams.get('pname')||'';
       var hubClient=urlParams.get('client')||'';
@@ -10981,8 +11018,10 @@ function _initCloudSync(){
     if(typeof R2Photos!=='undefined'){
       R2Photos.init({wifiOnly:false,onProgress:function(info){_updateR2Badge();}});
     }
-    // Auto-cleanup orphaned R2 files — 8s delay so pending uploads start first
-    setTimeout(function(){if(typeof _r2CleanupOrphans==='function')_r2CleanupOrphans().catch(function(){});},8000);
+    // Auto-cleanup orphaned R2 files — DISABLED: was incorrectly deleting valid files
+    // due to r2Key values not being present in memory when project loads from cloud.
+    // Do not re-enable until key matching logic is verified against actual project state.
+    // setTimeout(function(){if(typeof _r2CleanupOrphans==='function')_r2CleanupOrphans().catch(function(){});},8000);
   }).catch(function(e){
     console.error('CloudSync init error:',e);
     toast('Cloud sync failed — working in local mode',3000);
