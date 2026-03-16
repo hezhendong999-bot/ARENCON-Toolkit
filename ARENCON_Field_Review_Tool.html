@@ -702,9 +702,12 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .dv-sidebar-tools{display:flex;flex-direction:row;align-items:center;width:100%;height:46px;border-right:none;border-top:none;border-bottom:none;overflow-x:auto;overflow-y:hidden;padding:4px 6px;order:2;flex-shrink:0;background:#1e2028;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
   .dv-sidebar-tools::-webkit-scrollbar{display:none;}
   .dv-sidebar-tools .tool-sep{width:1px;height:26px;margin:0 3px;flex-shrink:0;}
-  .dv-sidebar-tools .tool-slider-wrap{flex-direction:row;align-items:center;gap:4px;padding:0 4px;}
-  .dv-sidebar-tools .tool-slider-wrap input[type=range]{width:70px;}
-  .dv-sidebar-tools .tool-slider-wrap input[type=number]{width:32px;}
+  .dv-sidebar-tools .tool-slider-wrap{flex-direction:row;align-items:center;gap:3px;padding:0 3px;flex-shrink:0;}
+  .dv-sidebar-tools .tool-slider-wrap svg{display:none;}
+  .dv-sidebar-tools .tool-slider-wrap span{font-size:9px;color:#888;}
+  .dv-sidebar-tools .tool-slider{writing-mode:horizontal-tb!important;direction:ltr!important;width:55px!important;height:4px!important;-webkit-appearance:none;appearance:none;}
+  .dv-sidebar-tools .tool-slider::-webkit-slider-thumb{width:12px;height:12px;}
+  .dv-sidebar-tools .tool-slider-wrap input[type=number]{width:28px;font-size:9px;}
   .dv-sidebar-tools .tool-btn{width:34px;height:34px;flex-shrink:0;}
   .dv-sidebar-tools .tool-colors{flex-direction:row;}
   .dv-mobile-tools{display:none!important;}
@@ -9486,17 +9489,12 @@ function openGalleryLightboxMarkup(){
   if(!ph||ph.type!=='site')return;
   var imgEl=document.getElementById('glb-img');
   if(!imgEl||!imgEl.src||imgEl.src==='about:blank')return;
-  // Capture before closing — blob URLs stay valid while in memory
   var captureSrc=imgEl.src;
-  // Close the gallery lightbox
+  // Open markup lightbox FIRST (no flash), then close gallery
+  openPhotoLightboxDirect(captureSrc);
   closePhotoLightbox();
-  // Open the markup-capable lightbox (photo-lightbox with canvas)
-  setTimeout(function(){
-    openPhotoLightboxDirect(captureSrc);
-    // Activate draw tool automatically
-    var lbDrawBtn=document.getElementById('lb-draw-btn');
-    if(lbDrawBtn)lbDrawBtn.click();
-  },50);
+  var lbDrawBtn=document.getElementById('lb-draw-btn');
+  if(lbDrawBtn)lbDrawBtn.click();
 }
 
 function handlePhotoUploadEvent(e){handlePhotoFiles(e.target.files);e.target.value='';}
