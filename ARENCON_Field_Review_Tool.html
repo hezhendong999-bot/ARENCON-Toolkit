@@ -9481,15 +9481,14 @@ function openGalleryLightboxMarkup(){
   if(!ph||ph.type!=='site')return;
   var imgEl=document.getElementById('glb-img');
   if(!imgEl||!imgEl.src||imgEl.src==='about:blank')return;
-  // Capture src before closing (blob URLs can become invalid)
+  // Capture before closing — blob URLs stay valid while in memory
   var captureSrc=imgEl.src;
-  var captureCaption=ph.caption||'';
-  var captureId=ph.id;
-  // Close gallery lightbox
+  // Close the gallery lightbox
   closePhotoLightbox();
-  // Small delay so lightbox-overlay is ready
+  // Open the markup-capable lightbox (photo-lightbox with canvas)
   setTimeout(function(){
-    openLightbox([{src:captureSrc,caption:captureCaption,id:captureId}],0);
+    openPhotoLightboxDirect(captureSrc);
+    // Activate draw tool automatically
     var lbDrawBtn=document.getElementById('lb-draw-btn');
     if(lbDrawBtn)lbDrawBtn.click();
   },50);
