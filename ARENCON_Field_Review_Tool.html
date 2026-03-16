@@ -311,6 +311,21 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .iar-toggle-btn.off{border:1.5px solid var(--border);background:white;color:#666;}
 .iar-toggle-btn.on{border:1.5px solid #C0392B;background:#FFF5F5;color:#C0392B;font-weight:700;}
 .remove-defic-btn{padding:5px 8px;border:1.5px solid rgba(192,57,43,.25);border-radius:5px;background:rgba(192,57,43,.04);color:#C0392B;font-size:11px;cursor:pointer;font-family:Calibri,sans-serif;font-weight:600;opacity:.75;}.remove-defic-btn:hover{background:#FDEDEC;border-color:#C0392B;opacity:1;}
+.pin-unassigned-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#92400E;background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:5px;padding:3px 8px;margin-top:4px;cursor:default;}
+.pin-reassign-btn{padding:3px 8px;border:1.5px solid #F59E0B;border-radius:5px;background:#FFFBEB;color:#92400E;font-size:11px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;margin-left:6px;}
+.pin-reassign-btn:hover{background:#FEF3C7;}
+.reassign-dwg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;max-height:340px;overflow-y:auto;padding:4px 2px;}
+.reassign-dwg-card{border:2px solid var(--border,#DDE1E7);border-radius:8px;padding:8px;cursor:pointer;text-align:center;transition:border-color .15s,background .15s;}
+.reassign-dwg-card:hover{border-color:#1565C0;background:#EFF6FF;}
+.reassign-dwg-card.selected{border-color:#1A7A4A;background:#F0FFF4;}
+.reassign-dwg-card img{width:100%;height:80px;object-fit:cover;border-radius:4px;margin-bottom:5px;background:#f0f0f0;}
+.reassign-dwg-card .dwg-card-name{font-size:11px;font-weight:700;color:var(--fg,#1B2438);word-break:break-word;line-height:1.3;}
+body.dark-mode .reassign-dwg-card{border-color:#2a2e38;background:#1a1d24;color:#d4d8e8;}
+body.dark-mode .reassign-dwg-card:hover{border-color:#1565C0;background:#172032;}
+body.dark-mode .reassign-dwg-card.selected{border-color:#1A7A4A;background:#0d2018;}
+body.dark-mode .pin-unassigned-badge{color:#FEF3C7;background:#78350F;border-color:#92400E;}
+body.dark-mode .pin-reassign-btn{background:#78350F;border-color:#92400E;color:#FEF3C7;}
+body.dark-mode .pin-reassign-btn:hover{background:#92400E;}
 .dup-defic-btn{padding:5px 8px;border:1.5px solid rgba(21,101,192,.25);border-radius:5px;background:rgba(21,101,192,.04);color:#1565C0;font-size:11px;cursor:pointer;font-family:Calibri,sans-serif;font-weight:600;opacity:.75;}.dup-defic-btn:hover{background:#E3F0FD;border-color:#1565C0;opacity:1;}
 .bulk-checkbox{width:18px;height:18px;accent-color:#9C2742;cursor:pointer;flex-shrink:0;margin-top:4px;display:none;}
 body.bulk-select-mode .bulk-checkbox{display:block;}
@@ -803,6 +818,12 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .photo-thumb:hover .photo-hover-info{opacity:1;}
 .photo-hover-date{font-size:10px;color:white;}
 .photo-dl-btn{background:none;border:none;color:white;cursor:pointer;font-size:14px;padding:0;}
+.photo-caption-row{position:absolute;bottom:0;left:0;right:0;padding:2px 4px;background:rgba(0,0,0,.55);display:flex;}
+.photo-caption-input{width:100%;background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,.4);color:white;font-size:10px;font-family:Calibri,sans-serif;padding:2px 2px;outline:none;text-overflow:ellipsis;}
+.photo-caption-input::placeholder{color:rgba(255,255,255,.5);}
+.photo-caption-input:focus{border-bottom-color:white;background:rgba(0,0,0,.3);}
+.photo-thumb:hover .photo-caption-row{display:flex;}
+body.dark-mode .photo-caption-input{color:#e0e0e0;}
 
 /* ═══ PHOTO LIGHTBOX ═══ */
 .photo-lightbox-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:8000;align-items:center;justify-content:center;flex-direction:column;}
@@ -1478,6 +1499,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
             <button class="btn btn-sm" style="background:#888;color:white;border:none;" onclick="bulkToggleIAR(false)">Clear IAR</button>
             <div style="flex:1;"></div>
             <button class="btn btn-sm" style="background:#C0392B;color:white;border:none;" onclick="bulkDeleteDefics()">🗑 Delete Selected</button>
+            <button class="btn btn-sm" id="bulk-reassign-btn" style="background:#E67E22;color:white;border:none;display:none;" onclick="openReassignModal()">📌 Reassign Drawing</button>
             <div style="flex:1;"></div>
             <button class="btn btn-outline btn-sm" onclick="bulkSelectAll()">Select All</button>
             <button class="btn btn-outline btn-sm" onclick="bulkSelectNone()">Deselect All</button>
@@ -1729,6 +1751,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
     <div class="dv-canvas-area" id="dv-canvas-area">
       <div class="dv-img-wrap" id="dv-img-wrap">
         <img id="dv-image" src="" draggable="false" style="user-select:none;-webkit-user-drag:none;">
+        <canvas id="dv-tile-canvas" style="position:absolute;top:0;left:0;pointer-events:none;display:none;"></canvas>
         <canvas class="markup-canvas" id="markup-canvas"></canvas>
         <div id="dv-pins-layer"></div>
       </div>
@@ -4881,6 +4904,7 @@ function openDrawingViewer(drawingId){
       document.getElementById('dv-image').src=src;
       document.getElementById('dv-image').onload=function(){
         fitDrawing();renderPinsOnDrawing();renderTasksPanel();resizeMarkupCanvas();initMarkupEvents();initSelectModeEvents();
+        _dvInitTiles(document.getElementById('dv-image'));
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
       };
       initPanZoom();
@@ -4921,9 +4945,130 @@ function openDrawingViewer(drawingId){
       _openWithSrc(d.dataUrl||'');
     }
   }catch(err){console.error('openDrawingViewer error:',err);alert('Drawing error: '+err.message);}
-}function closeDrawingViewer(){document.getElementById('drawing-viewer').classList.remove('open');dvState.currentDrawingId=null;dvState.selectedPinId=null;dvState.pinMode=false;mkState.tool=null;closePinPanel();closePinModal();}
+}function closeDrawingViewer(){document.getElementById('drawing-viewer').classList.remove('open');dvState.currentDrawingId=null;dvState.selectedPinId=null;dvState.pinMode=false;mkState.tool=null;closePinPanel();closePinModal();_dvClearTiles();}
 function prevDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx-1+p.drawings.length)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
 function nextDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx+1)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
+// ═══ TILED DRAWING RENDERER ═══
+// Renders only viewport-visible tiles at full image resolution.
+// The <img> element stays in the DOM as a layout anchor (pins/markup use its dimensions).
+// The tile canvas overlays it exactly; once tiles cover the view, img is hidden.
+var _dvTileState=null;
+var _dvTileRAF=null;
+var _DV_TILE_SIZE=512;// image-space pixels per tile edge
+var _DV_MAX_CACHED=32;// max tiles to keep in memory
+
+function _dvInitTiles(img){
+  // Only tile large drawings — small ones are fine as a single image
+  var iw=img.naturalWidth,ih=img.naturalHeight;
+  if(!iw||!ih)return;
+  var tileCanvas=document.getElementById('dv-tile-canvas');
+  if(!tileCanvas)return;
+  // Size tile canvas to match the source image (same coord space as img + markup canvas)
+  tileCanvas.width=iw;
+  tileCanvas.height=ih;
+  tileCanvas.style.width=iw+'px';
+  tileCanvas.style.height=ih+'px';
+  tileCanvas.style.display='block';
+  var ts=_DV_TILE_SIZE;
+  _dvTileState={
+    img:img,
+    iw:iw,ih:ih,
+    ts:ts,
+    cols:Math.ceil(iw/ts),
+    rows:Math.ceil(ih/ts),
+    cache:{},// key:'c_r' → true (painted)
+    canvas:tileCanvas,
+    ctx:tileCanvas.getContext('2d'),
+    pendingRaf:null
+  };
+  // Hide the underlying img — tile canvas takes over visually
+  img.style.visibility='hidden';
+  _dvScheduleTileRender();
+}
+
+function _dvClearTiles(){
+  if(_dvTileRAF){cancelAnimationFrame(_dvTileRAF);_dvTileRAF=null;}
+  _dvTileState=null;
+  var tc=document.getElementById('dv-tile-canvas');
+  if(tc){tc.style.display='none';tc.width=1;tc.height=1;}
+  var img=document.getElementById('dv-image');
+  if(img)img.style.visibility='';
+}
+
+function _dvScheduleTileRender(){
+  if(!_dvTileState)return;
+  if(_dvTileRAF)cancelAnimationFrame(_dvTileRAF);
+  _dvTileRAF=requestAnimationFrame(_dvRenderTiles);
+}
+
+function _dvRenderTiles(){
+  _dvTileRAF=null;
+  var st=_dvTileState;
+  if(!st||!st.img.complete)return;
+  var area=document.getElementById('dv-canvas-area');
+  if(!area)return;
+  var aw=area.clientWidth,ah=area.clientHeight;
+  var scale=dvState.scale,px=dvState.panX,py=dvState.panY;
+  var ts=st.ts;
+
+  // Viewport rect in image-space coordinates
+  // area-space: [0,aw] x [0,ah]
+  // image-space: subtract panX/Y then divide by scale
+  var imgL=(-px)/scale;
+  var imgT=(-py)/scale;
+  var imgR=(aw-px)/scale;
+  var imgB=(ah-py)/scale;
+
+  // Add 1-tile margin so tiles load slightly before they're visible
+  var margin=ts;
+  imgL=Math.max(0,imgL-margin);
+  imgT=Math.max(0,imgT-margin);
+  imgR=Math.min(st.iw,imgR+margin);
+  imgB=Math.min(st.ih,imgB+margin);
+
+  // Tile column/row range to render
+  var c0=Math.max(0,Math.floor(imgL/ts));
+  var c1=Math.min(st.cols-1,Math.floor(imgR/ts));
+  var r0=Math.max(0,Math.floor(imgT/ts));
+  var r1=Math.min(st.rows-1,Math.floor(imgB/ts));
+
+  // Draw any visible tiles not yet cached
+  var newlyPainted=false;
+  for(var r=r0;r<=r1;r++){
+    for(var c=c0;c<=c1;c++){
+      var key=c+'_'+r;
+      if(!st.cache[key]){
+        var sx=c*ts, sy=r*ts;
+        var sw=Math.min(ts,st.iw-sx);
+        var sh=Math.min(ts,st.ih-sy);
+        st.ctx.drawImage(st.img,sx,sy,sw,sh,sx,sy,sw,sh);
+        st.cache[key]=true;
+        newlyPainted=true;
+      }
+    }
+  }
+
+  // Evict tiles far from viewport if cache is large
+  var keys=Object.keys(st.cache);
+  if(keys.length>_DV_MAX_CACHED){
+    // Erase tiles that are outside the visible range + 2-tile margin
+    var evictMargin=ts*2;
+    var evictL=Math.max(0,imgL-evictMargin);
+    var evictT=Math.max(0,imgT-evictMargin);
+    var evictR=Math.min(st.iw,imgR+evictMargin);
+    var evictB=Math.min(st.ih,imgB+evictMargin);
+    keys.forEach(function(k){
+      var parts=k.split('_');
+      var tc2=parseInt(parts[0]),tr2=parseInt(parts[1]);
+      var tx=tc2*ts,ty=tr2*ts;
+      if(tx+ts<evictL||tx>evictR||ty+ts<evictT||ty>evictB){
+        st.ctx.clearRect(tx,ty,Math.min(ts,st.iw-tx),Math.min(ts,st.ih-ty));
+        delete st.cache[k];
+      }
+    });
+  }
+}
+
 function fitDrawing(){
   requestAnimationFrame(function(){
     var a=document.getElementById('dv-canvas-area'),img=document.getElementById('dv-image');
@@ -4936,7 +5081,7 @@ function fitDrawing(){
     applyTransform();
   });
 }
-function applyTransform(){document.getElementById('dv-img-wrap').style.transform='translate3d('+dvState.panX+'px,'+dvState.panY+'px,0) scale('+dvState.scale+')';}
+function applyTransform(){document.getElementById('dv-img-wrap').style.transform='translate3d('+dvState.panX+'px,'+dvState.panY+'px,0) scale('+dvState.scale+')';_dvScheduleTileRender();}
 function zoomIn(){dvState.scale=Math.min(dvState.scale*1.3,10);applyTransform();}
 function zoomOut(){var minS=dvState.fitScale||0.1;dvState.scale=Math.max(dvState.scale/1.3,minS);if(dvState.scale<=minS*1.05){fitDrawing();return;}applyTransform();}
 function toggleSearchBar(){var bar=document.getElementById('dv-search-bar');bar.style.display=bar.style.display==='none'?'flex':'none';if(bar.style.display==='flex')document.getElementById('dv-search-input').focus();}
@@ -7268,8 +7413,14 @@ function lightboxSaveMarkup(){
   if(p){
     wasDeficPhoto=_replacePhotoInProject(p,origSrc,markedSrc);
 
-    // Always add a marked copy to the Photos gallery (originals stay in deficiency entries)
+    // Add a marked copy to the Photos gallery ONLY if the original was a deficiency photo.
+    // If the original was already a sitePhoto, _replacePhotoInProject updated it in-place —
+    // adding another mkup_ copy here would create a duplicate in the gallery.
     if(!p.sitePhotos)p.sitePhotos=[];
+    var origWasSitePhoto=p.sitePhotos.some(function(ph){
+      return ph&&((ph.dataUrl&&ph.dataUrl===markedSrc)||(ph.r2Url&&ph.r2Url===origSrc));
+    });
+    if(!origWasSitePhoto){
     var _srcCaption='';
     try{
       var _allPh=_buildUnifiedPhotoList(p);
@@ -7293,12 +7444,13 @@ function lightboxSaveMarkup(){
         });
       }
     }
-    p.sitePhotos.push(_mkupRec);
+      p.sitePhotos.push(_mkupRec);
+    }// end if(!origWasSitePhoto)
 
     saveToLS&&saveToLS();
     showToast&&showToast('Markup saved');
     if(typeof renderPhotoGallery==='function')renderPhotoGallery();
-  }
+  }// end if(p)
   // Update all DOM <img> elements showing origSrc to show the new marked version
   // (data-src is removed after lazy-load so we must update img.src directly)
   document.querySelectorAll('img').forEach(function(img){
@@ -7386,7 +7538,19 @@ function buildDeficItem(d,ctrId,i){
   respHtml+='<div class="resp-add-btns"><button class="resp-add-ctr" onclick="addDeficResponse(\''+d.id+'\',\'contractor\')">+ Contractor Response</button><button class="resp-add-con" onclick="addDeficResponse(\''+d.id+'\',\'consultant\')">+ Consultant Response</button></div>';
 
   // Drawing link
-  var dwgHtml='';if(d.drawingId){var p=getProject();var dwg=p.drawings.find(function(x){return x.id===d.drawingId;});if(dwg)dwgHtml='<div style="font-size:11px;color:var(--arencon);cursor:pointer;font-weight:600;margin-top:4px;" onclick="jumpToPin(\''+d.id+'\')">📌 '+safe(dwg.name)+'</div>';}
+  var dwgHtml='';
+  if(d.drawingId){
+    var _dwgP=getProject();
+    var _dwgFound=_dwgP.drawings.find(function(x){return x.id===d.drawingId;});
+    if(_dwgFound){
+      dwgHtml='<div style="font-size:11px;color:var(--arencon);cursor:pointer;font-weight:600;margin-top:4px;" onclick="jumpToPin(\''+d.id+'\')">\U0001f4cc '+safe(_dwgFound.name)+'</div>';
+    } else {
+      dwgHtml='<div style="margin-top:4px;display:flex;align-items:center;flex-wrap:wrap;gap:4px;">'
+        +'<span class="pin-unassigned-badge">\U0001f4cc Unassigned (drawing deleted)</span>'
+        +'<button class="pin-reassign-btn" onclick="event.stopPropagation();openReassignModal([\''+d.id+'\'])">Reassign…</button>'
+        +'</div>';
+    }
+  }
 
   // Build observation rows — one per entry (or one for legacy single-description deficiencies)
   var entries=d.entries&&d.entries.length?d.entries:[{description:d.description||'',photos:d.photos||[],priority:d.priority||'high'}];
@@ -7608,6 +7772,20 @@ function updateBulkCount(){
   var boxes=document.querySelectorAll('.bulk-checkbox:checked');
   var el=document.getElementById('bulk-count');
   if(el)el.textContent=boxes.length+' selected';
+  // Show Reassign button only if ≥1 selected defic has a missing drawing
+  var reassignBtn=document.getElementById('bulk-reassign-btn');
+  if(reassignBtn){
+    var p=getProject();
+    var hasUnassigned=false;
+    if(p){
+      boxes.forEach(function(cb){
+        var id=cb.getAttribute('data-defic-id');
+        var f=findDeficiency(id);
+        if(f&&f.defic.drawingId&&!p.drawings.find(function(x){return x.id===f.defic.drawingId;}))hasUnassigned=true;
+      });
+    }
+    reassignBtn.style.display=hasUnassigned?'':'none';
+  }
 }
 function bulkSelectAll(){
   document.querySelectorAll('.bulk-checkbox').forEach(function(cb){if(cb.offsetParent!==null)cb.checked=true;});
@@ -7659,6 +7837,77 @@ function bulkDeleteDefics(){
   saveToLS();_folderQuickSave();renderDeficiencyPanel();renderSummaryTable();
   toast('Deleted '+ids.length+' item'+(ids.length>1?'s':''));
   toggleBulkSelectMode();
+}
+
+// ═══ PIN REASSIGNMENT ═══
+function openReassignModal(ids){
+  // If called from bulk bar with no explicit ids, collect all selected unassigned defics
+  var p=getProject();if(!p)return;
+  if(!ids){
+    ids=[];
+    document.querySelectorAll('.bulk-checkbox:checked').forEach(function(cb){
+      var id=cb.getAttribute('data-defic-id');
+      var f=findDeficiency(id);
+      if(f&&f.defic.drawingId&&!p.drawings.find(function(x){return x.id===f.defic.drawingId;}))ids.push(id);
+    });
+  }
+  if(!ids.length){toast('No unassigned deficiencies selected');return;}
+  var drawings=p.drawings||[];
+  if(!drawings.length){toast('No drawings in this project — upload a drawing first');return;}
+
+  var count=ids.length;
+  var gridHtml=drawings.map(function(dwg){
+    var thumb=dwg.thumb?'<img src="'+escHtml(dwg.thumb)+'" alt="">':'<div style="width:100%;height:80px;background:#e8eaf0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:22px;">📐</div>';
+    return '<div class="reassign-dwg-card" data-dwg-id="'+escHtml(dwg.id)+'" onclick="_reassignCardClick(this)">'+thumb+'<div class="dwg-card-name">'+safe(dwg.name)+'</div></div>';
+  }).join('');
+
+  // Auto-select if only one drawing
+  var autoSel=drawings.length===1?' selected':'';
+  if(drawings.length===1)gridHtml=gridHtml.replace('class="reassign-dwg-card"','class="reassign-dwg-card selected"');
+
+  var html='<div style="padding:20px 20px 16px;font-family:Calibri,sans-serif;">'
+    +'<div style="font-weight:700;font-size:16px;color:var(--fg,#1B2438);margin-bottom:4px;">📌 Reassign Drawing</div>'
+    +'<div style="font-size:12px;color:#4A5568;margin-bottom:14px;">Reassigning <strong>'+count+'</strong> deficiencie'+(count===1?'y':'ies')+' — pin positions will be preserved at their stored coordinates.</div>'
+    +'<div style="font-size:11px;font-weight:700;color:#4A5568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Select target drawing:</div>'
+    +'<div class="reassign-dwg-grid">'+gridHtml+'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">'
+    +'<button onclick="document.getElementById(\'reassign-modal\').remove()" style="padding:8px 18px;border:1.5px solid #DDE1E7;border-radius:6px;background:white;cursor:pointer;font-family:inherit;font-size:13px;">Cancel</button>'
+    +'<button id="reassign-confirm-btn" style="padding:8px 18px;border:none;border-radius:6px;background:#1A7A4A;color:white;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px;" onclick="confirmReassignDrawing('+JSON.stringify(ids)+')">Reassign</button>'
+    +'</div></div>';
+
+  var overlay=document.createElement('div');overlay.id='reassign-modal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10060;display:flex;align-items:center;justify-content:center;padding:16px;';
+  var card=document.createElement('div');
+  card.style.cssText='background:var(--bg-card,white);border-radius:12px;max-width:520px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto;';
+  card.innerHTML=html;overlay.appendChild(card);document.body.appendChild(overlay);
+  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+}
+function _reassignCardClick(el){
+  document.querySelectorAll('.reassign-dwg-card').forEach(function(c){c.classList.remove('selected');});
+  el.classList.add('selected');
+}
+function confirmReassignDrawing(ids){
+  var sel=document.querySelector('.reassign-dwg-card.selected');
+  if(!sel){toast('Please select a drawing first');return;}
+  var targetDwgId=sel.getAttribute('data-dwg-id');
+  var p=getProject();if(!p||!targetDwgId)return;
+  var targetDwg=p.drawings.find(function(x){return x.id===targetDwgId;});
+  if(!targetDwg){toast('Drawing not found');return;}
+  pushUndo();
+  var reassigned=0;
+  ids.forEach(function(id){
+    var f=findDeficiency(id);
+    if(f){
+      f.defic.drawingId=targetDwgId;
+      // pinX/pinY already stored — keep as-is so pin lands at the same relative position
+      reassigned++;
+    }
+  });
+  saveToLS();_folderQuickSave();
+  document.getElementById('reassign-modal').remove();
+  renderDeficiencyPanel();
+  if(_bulkSelectMode)toggleBulkSelectMode();
+  toast('Reassigned '+reassigned+' pin'+(reassigned===1?'':'s')+' to "'+targetDwg.name+'"');
 }
 
 function populateRespPhotos(){
@@ -8939,6 +9188,12 @@ function renderPhotoGallery(){
       html+='<span class="photo-hover-date">'+(ph.date?formatDateTime(ph.date):'')+'</span>';
       html+='<button class="photo-dl-btn" onclick="event.stopPropagation();downloadPhoto(\''+ph.id+'\')" title="Download">⬇</button>';
       html+='</div>';
+      if(ph.type==='site'){
+        html+='<div class="photo-caption-row" onclick="event.stopPropagation()">';
+        html+='<input type="text" class="photo-caption-input" placeholder="Add caption…" value="'+escHtml(ph.caption||'')+'"';
+        html+=' onchange="updateSitePhotoCaption('+ph.idx+',this.value)" onkeydown="if(event.key===\'Enter\'){this.blur();}">';
+        html+='</div>';
+      }
       html+='</div>';
     });
     html+='</div></div>';
@@ -9067,7 +9322,7 @@ function _buildUnifiedPhotoList(p){
   var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
   if(siteArr.length){siteArr.forEach(function(ph,i){
     var src=(typeof ph==='string')?ph:(ph.r2Url||ph.dataUrl||'');
-    allPhotos.push({src:src,date:ph.date||ph.uploadDate||ph.timestamp||null,type:'site',idx:i,id:'site_'+i,caption:'',r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
+    allPhotos.push({src:src,date:ph.date||ph.uploadDate||ph.timestamp||null,type:'site',idx:i,id:'site_'+i,caption:ph.caption||'',r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
   });}
 
   var ad=getAllDeficiencies(p);
@@ -9254,6 +9509,14 @@ function parseExifDate(view,start){
 }
 
 function filterPhotos(mode){_photoFilter=mode;renderPhotoGallery();var m=document.getElementById('photo-filter-menu');if(m)m.classList.remove('open');}
+function updateSitePhotoCaption(idx,val){
+  var p=getProject();if(!p)return;
+  var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
+  var ph=siteArr[idx];
+  if(!ph||typeof ph==='string')return;
+  ph.caption=(val||'').trim();
+  saveToLS();_folderQuickSave();
+}
 function togglePhotoActionsMenu(e){e.stopPropagation();var m=document.getElementById('photo-actions-menu');m.classList.toggle('open');document.addEventListener('click',function h(){m.classList.remove('open');document.removeEventListener('click',h);},{once:true});}
 function togglePhotoFilterMenu(e){e.stopPropagation();var m=document.getElementById('photo-filter-menu');m.classList.toggle('open');document.addEventListener('click',function h(){m.classList.remove('open');document.removeEventListener('click',h);},{once:true});}
 
@@ -10785,9 +11048,11 @@ function _initCloudSync(){
     }
     // Start auto-save to cloud (15s)
     CloudSync.startAutoSave(function(){return _collectFullState();},5000);
+    // Proactive token refresh so R2 photo loads don't 401 immediately
+    _refreshR2Token().catch(function(){});
     // Initialize R2 photo uploads
     if(typeof R2Photos!=='undefined'){
-      R2Photos.init({wifiOnly:true,onProgress:function(info){_updateR2Badge();}});
+      R2Photos.init({wifiOnly:false,onProgress:function(info){_updateR2Badge();}});
     }
     // Auto-cleanup orphaned R2 files — 8s delay so pending uploads start first
     setTimeout(function(){if(typeof _r2CleanupOrphans==='function')_r2CleanupOrphans().catch(function(){});},8000);
