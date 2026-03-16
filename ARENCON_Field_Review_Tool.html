@@ -806,24 +806,27 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .photo-date-header{padding:8px 4px;font-size:13px;font-weight:600;color:var(--steel);border-bottom:1px solid var(--border);margin-bottom:8px;}
 .photo-date-header label{display:flex;align-items:center;gap:8px;cursor:pointer;}
 .photo-date-header input[type=checkbox]{width:16px;height:16px;}
-.photo-thumb-grid{display:flex;flex-wrap:wrap;gap:4px;}
-.photo-thumb{width:120px;height:120px;position:relative;border-radius:4px;overflow:hidden;cursor:pointer;border:3px solid transparent;transition:border-color .15s;}
+.photo-thumb-grid{display:flex;flex-wrap:wrap;gap:6px;}
+.photo-thumb{width:120px;position:relative;border-radius:6px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:border-color .15s;background:#e8eaf0;flex-shrink:0;}
 .photo-thumb:hover{border-color:rgba(33,150,243,.5);}
 .photo-thumb.selected{border-color:#E6930A;box-shadow:0 0 0 1px #E6930A;}
-.photo-thumb img{width:100%;height:100%;object-fit:cover;}
-.photo-thumb .photo-select-check{position:absolute;top:4px;left:4px;z-index:2;opacity:0;transition:opacity .15s;}
+.photo-thumb img{width:120px;height:100px;object-fit:cover;display:block;}
+/* Checkbox — small pill top-left, only on hover/selected */
+.photo-thumb .photo-select-check{position:absolute;top:4px;left:4px;z-index:3;opacity:0;transition:opacity .15s;}
 .photo-thumb:hover .photo-select-check,.photo-thumb.selected .photo-select-check{opacity:1;}
-.photo-thumb .photo-select-check input{width:18px;height:18px;cursor:pointer;}
-.photo-thumb .photo-hover-info{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.7));padding:4px 6px;display:flex;align-items:center;justify-content:space-between;opacity:0;transition:opacity .15s;}
+.photo-thumb .photo-select-check input{width:14px;height:14px;cursor:pointer;accent-color:#E6930A;margin:0;}
+/* Hover bar — date + download, sits above caption row */
+.photo-thumb .photo-hover-info{position:absolute;top:0;left:0;right:0;background:linear-gradient(rgba(0,0,0,.55),transparent);padding:4px 6px 8px;display:flex;align-items:center;justify-content:space-between;opacity:0;transition:opacity .15s;}
 .photo-thumb:hover .photo-hover-info{opacity:1;}
-.photo-hover-date{font-size:10px;color:white;}
-.photo-dl-btn{background:none;border:none;color:white;cursor:pointer;font-size:14px;padding:0;}
-.photo-caption-row{position:absolute;bottom:0;left:0;right:0;padding:2px 4px;background:rgba(0,0,0,.55);display:flex;}
-.photo-caption-input{width:100%;background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,.4);color:white;font-size:10px;font-family:Calibri,sans-serif;padding:2px 2px;outline:none;text-overflow:ellipsis;}
-.photo-caption-input::placeholder{color:rgba(255,255,255,.5);}
-.photo-caption-input:focus{border-bottom-color:white;background:rgba(0,0,0,.3);}
-.photo-thumb:hover .photo-caption-row{display:flex;}
-body.dark-mode .photo-caption-input{color:#e0e0e0;}
+.photo-hover-date{font-size:9px;color:rgba(255,255,255,.9);line-height:1.2;}
+.photo-dl-btn{background:none;border:none;color:white;cursor:pointer;font-size:12px;padding:0;line-height:1;}
+/* Caption row — below image, not overlapping */
+.photo-caption-row{padding:3px 5px;background:var(--smoke,#F5F7FA);border-top:1px solid var(--border,#DDE1E7);}
+.photo-caption-input{width:100%;background:transparent;border:none;color:var(--fg,#1B2438);font-size:10px;font-family:Calibri,sans-serif;padding:0;outline:none;text-overflow:ellipsis;}
+.photo-caption-input::placeholder{color:var(--silver,#9EAAB8);}
+.photo-caption-input:focus{border-bottom:1px solid var(--red,#9C2742);}
+body.dark-mode .photo-caption-row{background:#1e2028;border-top-color:#2a2e38;}
+body.dark-mode .photo-caption-input{color:#d4d8e8;}
 
 /* ═══ PHOTO LIGHTBOX ═══ */
 .photo-lightbox-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:8000;align-items:center;justify-content:center;flex-direction:column;}
@@ -833,8 +836,9 @@ body.dark-mode .photo-caption-input{color:#e0e0e0;}
 .photo-lightbox-overlay .lb-prev{left:0;}
 .photo-lightbox-overlay .lb-next{right:0;}
 .photo-lightbox-overlay .lb-img{max-width:95vw;max-height:90vh;min-width:min(95vw,800px);object-fit:contain;border-radius:4px;}
-.photo-lightbox-overlay .lb-counter{color:rgba(255,255,255,.7);font-size:14px;margin-top:12px;}
-.photo-lightbox-overlay .lb-info{color:rgba(255,255,255,.5);font-size:12px;margin-top:4px;}
+.photo-lightbox-overlay .lb-counter{color:rgba(255,255,255,.85);font-size:14px;font-weight:600;}
+.photo-lightbox-overlay .lb-info{color:rgba(255,255,255,.6);font-size:12px;margin-top:2px;}
+.photo-lightbox-overlay .lb-meta{display:flex;flex-direction:column;align-items:center;margin-top:10px;gap:2px;}
 .photo-lightbox-overlay .lb-actions{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px;}
 .photo-lightbox-overlay .lb-actions button{background:rgba(255,255,255,.15);border:none;color:white;padding:8px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-family:Calibri,sans-serif;}
 .photo-lightbox-overlay .lb-actions button:hover{background:rgba(255,255,255,.25);}
@@ -1638,6 +1642,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       </div>
     </div>
     <button onclick="fitDrawing()" title="Fit to screen">⊡ Fit</button>
+    <button onclick="toggleDarkMode()" title="Toggle dark/light mode" style="font-size:15px;padding:5px 8px;background:rgba(255,255,255,.12);border:none;color:white;border-radius:5px;cursor:pointer;" id="dv-dark-toggle">☀️</button>
     <button onclick="toggleSearchBar()" title="Search text">🔍</button>
   </div>
   <div id="dv-tool-tooltip" style="display:none;position:fixed;background:rgba(30,32,40,.92);color:#fff;font-size:11px;font-family:Calibri,sans-serif;padding:4px 10px;border-radius:6px;pointer-events:none;z-index:9999;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);"></div>
@@ -3230,7 +3235,7 @@ function updateSaveTimestamp(){var el=document.getElementById('header-save-ts');
 
 function initDarkMode(){if(localStorage.getItem(LS_DARK)==='1')document.body.classList.add('dark-mode');updateDarkToggleIcon();}
 function toggleDarkMode(){document.body.classList.toggle('dark-mode');localStorage.setItem(LS_DARK,document.body.classList.contains('dark-mode')?'1':'0');updateDarkToggleIcon();}
-function updateDarkToggleIcon(){var dt=document.getElementById('dark-toggle');if(dt)dt.textContent=document.body.classList.contains('dark-mode')?'🌙':'☀️';}
+function updateDarkToggleIcon(){var isDark=document.body.classList.contains('dark-mode');var icon=isDark?'🌙':'☀️';var dt=document.getElementById('dark-toggle');if(dt)dt.textContent=icon;var dvdt=document.getElementById('dv-dark-toggle');if(dvdt)dvdt.textContent=icon;}
 function openMobileMenu(){var mm=document.getElementById('mobile-menu-overlay');if(mm)mm.classList.add('open');updateStorageDisplay();}
 function closeMobileMenu(){var mm=document.getElementById('mobile-menu-overlay');if(mm)mm.classList.remove('open');}
 function switchTab(tab){currentTab=tab;sessionStorage.setItem('ARENCON_lastTab',tab);document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.toggle('active',t.getAttribute('data-tab')===tab);});document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+tab);});if(tab==='deficiencies')renderDeficiencyPanel();if(tab==='drawings')renderDrawingGallery();if(tab==='photos')renderPhotoGallery();if(tab==='pins'){if(typeof _tasksView!=='undefined'&&_tasksView==='kanban')renderPinsKanban();else renderTasksTable();}if(_reviewActive)setTimeout(_updateReviewBadge,100);}
@@ -5303,14 +5308,17 @@ function createPinDeficiency(x,y){
 }
 
 function renderPinsOnDrawing(){var layer=document.getElementById('dv-pins-layer');if(!layer)return;var p=getProject();if(!p){layer.innerHTML='';return;}var ad=getAllDeficiencies(p);var pins=ad.filter(function(d){return d.defic.drawingId===dvState.currentDrawingId&&d.defic.pinX!=null;});var img=document.getElementById('dv-image');var iw=img.naturalWidth||1,ih=img.naturalHeight||1;
-// Dynamic pin size: baseline 31x40 for 3000px-wide drawings, scale proportionally
-var baseW=3000;var pinScale=Math.max(0.5,Math.min(1.5,Math.max(iw,ih)/baseW));var pw=Math.round(31*pinScale),ph=Math.round(40*pinScale);var cr=Math.round(9*pinScale),fs=Math.round(12*pinScale);
-var html='';pins.forEach(function(d){var px=d.defic.pinX*iw,py=d.defic.pinY*ih;var pr=d.defic.priority||'high';var _pinDesc=(d.defic.entries&&d.defic.entries[0]?d.defic.entries[0].description:d.defic.description)||'';var fill=d.defic.iar?'#FF69B4':(pr==='general'?'#1A7A4A':pr==='low'?'#E67E22':'#C0392B');html+='<div class="pin-marker" data-defic-id="'+d.defic.id+'" onclick="handlePinClick(\x27'+d.defic.id+'\x27);event.stopPropagation();" style="left:'+px+'px;top:'+py+'px;width:'+pw+'px;height:'+ph+'px;transform:translate(-'+(pw/2)+'px,-'+ph+'px);" title="#'+d.defic.num+' '+escHtml(_pinDesc)+'">';var isOutstanding=d.defic.status==='Outstanding'&&!d.defic.iar;
-html+='<svg viewBox="0 0 28 36" width="'+pw+'" height="'+ph+'" style="'+(isOutstanding?'filter:drop-shadow(0 0 3px '+fill+') drop-shadow(0 2px 4px rgba(0,0,0,.5));':'filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));')+'">';
-html+='<path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.3 21.7 0 14 0z" fill="white" stroke="white" stroke-width="2"/>';
-html+='<path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.3 21.7 0 14 0z" fill="'+fill+'"/>';
-html+='<circle cx="14" cy="12.5" r="9" fill="white"/>';
-html+='<text x="14" y="16" text-anchor="middle" font-size="12" font-weight="800" font-family="Calibri,Arial" fill="'+fill+'">'+d.defic.num+'</text>';
+// Dynamic pin size: scale with drawing resolution
+var baseW=3000;var pinScale=Math.max(0.6,Math.min(1.6,Math.max(iw,ih)/baseW));var pd=Math.round(30*pinScale);var fs=Math.round(11*pinScale);
+var html='';pins.forEach(function(d){var px=d.defic.pinX*iw,py=d.defic.pinY*ih;var pr=d.defic.priority||'high';var _pinDesc=(d.defic.entries&&d.defic.entries[0]?d.defic.entries[0].description:d.defic.description)||'';var fill=d.defic.iar?'#E91E8C':(pr==='general'?'#1A7A4A':pr==='low'?'#E67E22':'#C0392B');var isOutstanding=d.defic.status==='Outstanding'&&!d.defic.iar;var isClosed=d.defic.status==='Addressed & Closed';
+// Clean flat circle pin: colored fill, white ring, number centered
+var shadow=isOutstanding?'drop-shadow(0 0 4px '+fill+') drop-shadow(0 2px 5px rgba(0,0,0,.55))':'drop-shadow(0 2px 4px rgba(0,0,0,.4))';
+var alpha=isClosed?'0.55':'1';
+html+='<div class="pin-marker" data-defic-id="'+d.defic.id+'" data-priority="'+pr+'" onclick="handlePinClick(\x27'+d.defic.id+'\x27);event.stopPropagation();" style="left:'+px+'px;top:'+py+'px;width:'+pd+'px;height:'+pd+'px;transform:translate(-50%,-50%);opacity:'+alpha+';" title="#'+d.defic.num+' '+escHtml(_pinDesc)+'">';
+html+='<svg viewBox="0 0 30 30" width="'+pd+'" height="'+pd+'" style="filter:'+shadow+';overflow:visible;">';
+html+='<circle cx="15" cy="15" r="14" fill="'+fill+'"/>';
+html+='<circle cx="15" cy="15" r="12" fill="none" stroke="white" stroke-width="2"/>';
+html+='<text x="15" y="19" text-anchor="middle" font-size="'+fs+'" font-weight="800" font-family="Calibri,Arial,sans-serif" fill="white">'+d.defic.num+'</text>';
 html+='</svg></div>';});layer.innerHTML=html;updatePinStatus();}
 
 function setShowAllDeficiencies(showAll){
@@ -7543,11 +7551,11 @@ function buildDeficItem(d,ctrId,i){
     var _dwgP=getProject();
     var _dwgFound=_dwgP.drawings.find(function(x){return x.id===d.drawingId;});
     if(_dwgFound){
-      dwgHtml='<div style="font-size:11px;color:var(--arencon);cursor:pointer;font-weight:600;margin-top:4px;" onclick="jumpToPin(\''+d.id+'\')">\U0001f4cc '+safe(_dwgFound.name)+'</div>';
+      dwgHtml='<div style="font-size:11px;color:var(--arencon);cursor:pointer;font-weight:600;margin-top:4px;" onclick="jumpToPin(\''+d.id+'\')">📌 '+safe(_dwgFound.name)+'</div>';
     } else {
       dwgHtml='<div style="margin-top:4px;display:flex;align-items:center;flex-wrap:wrap;gap:4px;">'
-        +'<span class="pin-unassigned-badge">\U0001f4cc Unassigned (drawing deleted)</span>'
-        +'<button class="pin-reassign-btn" onclick="event.stopPropagation();openReassignModal([\''+d.id+'\'])">Reassign…</button>'
+        +'<span class="pin-unassigned-badge">📌 Unassigned (drawing deleted)</span>'
+        +'<button class="pin-reassign-btn" onclick="event.stopPropagation();openReassignModal(\''+d.id+'\')">Reassign…</button>'
         +'</div>';
     }
   }
@@ -7841,6 +7849,8 @@ function bulkDeleteDefics(){
 
 // ═══ PIN REASSIGNMENT ═══
 function openReassignModal(ids){
+  // Accept a single string id or an array
+  if(typeof ids==='string')ids=[ids];
   // If called from bulk bar with no explicit ids, collect all selected unassigned defics
   var p=getProject();if(!p)return;
   if(!ids){
@@ -9177,17 +9187,26 @@ function renderPhotoGallery(){
     html+='<div class="photo-thumb-grid">';
     photos.forEach(function(ph){
       var sel=_selectedPhotos.indexOf(ph.id)>=0;
-      var typeColor=ph.type==='site'?(ph.caption?'#9C2742':'#1A7A4A'):ph.type==='response'?'#2C4A6B':'#9C2742';
-      var typeLabel=ph.type==='site'?(ph.caption||'Site'):ph.caption||('Pin '+ph.deficNum);
+      var typeColor=ph.type==='site'?'#1A7A4A':ph.type==='response'?'#2C4A6B':'#9C2742';
+      var typeLabel=ph.type==='site'?'Site':ph.type==='response'?'Resp':('Pin '+ph.deficNum);
+      var typeLabel=ph.type==='site'?'Site':ph.type==='response'?'Resp':('Pin '+ph.deficNum);
+      var r2Icon=ph.r2Status==='uploaded'?'☁':ph.r2Status==='pending'?'⏳':ph.r2Status==='error'?'⚠':'';
       html+='<div class="photo-thumb'+(sel?' selected':'')+'" data-photo-id="'+ph.id+'">';
-      html+='<div class="photo-select-check" onclick="event.stopPropagation();togglePhotoSelect(\''+ph.id+'\')"><input type="checkbox" '+(sel?'checked':'')+' tabindex="-1"></div>';
-      html+='<div style="position:absolute;top:4px;right:4px;background:'+typeColor+';color:white;font-size:8px;font-weight:700;padding:2px 5px;border-radius:3px;z-index:2;pointer-events:none;">'+typeLabel+'</div>';
-      if(ph.r2Status){var r2Icon=ph.r2Status==='uploaded'?'☁️':ph.r2Status==='pending'?'⏳':'⚠️';html+='<div style="position:absolute;bottom:4px;right:4px;font-size:10px;z-index:2;pointer-events:none;filter:drop-shadow(0 0 2px rgba(0,0,0,.5));" title="R2: '+ph.r2Status+'">'+r2Icon+'</div>';}
-      html+='<img data-src="'+ph.src+'" onclick="openPhotoLightbox(\''+ph.id+'\')" loading="lazy" style="background:#e8e8e8;">';
+      // Image first so overlays sit on top
+      html+='<img data-src="'+ph.src+'" onclick="openPhotoLightbox(\''+ph.id+'\')" loading="lazy">';
+      // Checkbox — top-left, small, on hover/select only
+      html+='<div class="photo-select-check" onclick="event.stopPropagation();togglePhotoSelect(\''+ph.id+'\')">' +
+            '<input type="checkbox" '+(sel?'checked':'')+' tabindex="-1"></div>';
+      // Type badge — top-right
+      html+='<div style="position:absolute;top:4px;right:4px;background:'+typeColor+';color:white;font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;z-index:2;pointer-events:none;line-height:1.6;">'+typeLabel+'</div>';
+      // R2 icon — bottom-right of image area
+      if(r2Icon)html+='<div style="position:absolute;bottom:'+(ph.type==='site'?'26':'4')+'px;right:4px;font-size:9px;z-index:2;pointer-events:none;line-height:1;filter:drop-shadow(0 0 2px rgba(0,0,0,.7));" title="Cloud: '+ph.r2Status+'">'+r2Icon+'</div>';
+      // Hover bar — top gradient, date + download
       html+='<div class="photo-hover-info">';
-      html+='<span class="photo-hover-date">'+(ph.date?formatDateTime(ph.date):'')+'</span>';
+      html+='<span class="photo-hover-date">'+(ph.date?(ph.date+'').substring(0,10):'')+' </span>';
       html+='<button class="photo-dl-btn" onclick="event.stopPropagation();downloadPhoto(\''+ph.id+'\')" title="Download">⬇</button>';
       html+='</div>';
+      // Caption — below image, not overlapping
       if(ph.type==='site'){
         html+='<div class="photo-caption-row" onclick="event.stopPropagation()">';
         html+='<input type="text" class="photo-caption-input" placeholder="Add caption…" value="'+escHtml(ph.caption||'')+'"';
@@ -9400,13 +9419,28 @@ function showLightboxAt(idx){
   if(!overlay){
     overlay=document.createElement('div');overlay.id='gallery-lightbox';
     overlay.className='photo-lightbox-overlay';
-    overlay.innerHTML='<div class="lb-close" onclick="closePhotoLightbox()">✕</div><div class="lb-nav lb-prev" onclick="lbPrev()">‹</div><img class="lb-img" id="glb-img" src=""><div class="lb-nav lb-next" onclick="lbNext()">›</div><div class="lb-info" id="glb-info"></div><div class="lb-counter" id="glb-counter"></div><div class="lb-actions"><button onclick="downloadPhoto(_lightboxPhotos[_lightboxIdx].id)" title="Download">⬇ Download</button><button onclick="rotateLbPhoto()" title="Rotate">🔄 Rotate</button></div>';
+    overlay.innerHTML=
+      '<div class="lb-close" onclick="closePhotoLightbox()">✕</div>'+
+      '<div class="lb-nav lb-prev" onclick="lbPrev()">‹</div>'+
+      '<img class="lb-img" id="glb-img" src="">'+
+      '<div class="lb-nav lb-next" onclick="lbNext()">›</div>'+
+      '<div class="lb-meta">'+
+        '<div id="glb-counter" class="lb-counter"></div>'+
+        '<div id="glb-info" class="lb-info"></div>'+
+      '</div>'+
+      '<div class="lb-actions">'+
+        '<button onclick="downloadPhoto(_lightboxPhotos[_lightboxIdx].id)" title="Download">⬇ Download</button>'+
+        '<button onclick="rotateLbPhoto()" title="Rotate">🔄 Rotate</button>'+
+        '<button id="glb-markup-btn" onclick="openGalleryLightboxMarkup()" style="display:none;background:#9C2742;">🖊 Mark up</button>'+
+      '</div>';
     document.body.appendChild(overlay);
   }
   overlay.style.display='flex';
   _loadR2OrDirect(ph.src,document.getElementById('glb-img'));
   document.getElementById('glb-counter').textContent='Photo '+(idx+1)+' of '+_lightboxPhotos.length;
-  document.getElementById('glb-info').innerHTML=(ph.date||'')+' · '+(ph.caption||ph.type);
+  document.getElementById('glb-info').textContent=(ph.date?(ph.date+'').substring(0,10)+' · ':'')+((ph.caption)||(ph.type==='site'?'Site Photo':ph.type==='response'?'Response Photo':('Pin #'+ph.deficNum)));
+  var mkBtn=document.getElementById('glb-markup-btn');
+  if(mkBtn)mkBtn.style.display=(ph.type==='site')?'':'none';
   document.body.style.overflow='hidden';
 }
 
@@ -9414,6 +9448,16 @@ function closePhotoLightbox(){var o=document.getElementById('gallery-lightbox');
 function lbPrev(){_lightboxIdx=(_lightboxIdx-1+_lightboxPhotos.length)%_lightboxPhotos.length;showLightboxAt(_lightboxIdx);}
 function lbNext(){_lightboxIdx=(_lightboxIdx+1)%_lightboxPhotos.length;showLightboxAt(_lightboxIdx);}
 function rotateLbPhoto(){showToast('Rotate: coming soon');}
+function openGalleryLightboxMarkup(){
+  var ph=_lightboxPhotos[_lightboxIdx];if(!ph||ph.type!=='site')return;
+  var imgEl=document.getElementById('glb-img');if(!imgEl||!imgEl.src||imgEl.src==='about:blank')return;
+  closePhotoLightbox();
+  // Open in the full markup lightbox (same one used for deficiency photos)
+  openLightbox([{src:imgEl.src,caption:ph.caption||'',id:ph.id}],0);
+  // Show the markup toolbar
+  var lbDrawBtn=document.getElementById('lb-draw-btn');
+  if(lbDrawBtn){setTimeout(function(){lbDrawBtn.click();},200);}
+}
 
 function handlePhotoUploadEvent(e){handlePhotoFiles(e.target.files);e.target.value='';}
 function triggerPhotoCamera(){document.getElementById('photo-camera-input').click();}
