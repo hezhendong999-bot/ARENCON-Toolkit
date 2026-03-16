@@ -4,7 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>ARENCON Project Hub</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#9C2742">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ARENCON Hub">
+<link rel="apple-touch-icon" href="arencon-icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 /* ═══ RESET & BASE ═══ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -63,6 +70,10 @@ body.dark-mode{
 .login-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
 .login-forgot{display:inline-block;margin-top:16px;font-size:13px;color:var(--arencon);cursor:pointer;text-decoration:none;border:none;background:none;font-weight:500}
 .login-forgot:hover{text-decoration:underline}
+.qr-section{margin-top:28px;padding-top:20px;border-top:1px solid var(--border,#e2e8f0);text-align:center;}
+.qr-section p{font-size:11px;color:var(--steel,#64748b);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;}
+#qr-code{display:inline-block;background:white;padding:8px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.12);}
+#qr-code img,#qr-code canvas{display:block;border-radius:4px;}
 .login-error{background:var(--no-bg);color:var(--no);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none;font-weight:500}
 .login-error.show{display:block}
 .login-success{background:var(--yes-bg);color:var(--yes);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none;font-weight:500}
@@ -506,6 +517,11 @@ body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);}
       <button class="login-btn" id="forgot-btn" onclick="doForgotPassword()">Send Reset Link</button>
       <button class="login-forgot" onclick="showLoginForm()">← Back to login</button>
     </div>
+    <!-- QR Code for mobile access -->
+    <div class="qr-section">
+      <p>Scan to open on mobile</p>
+      <div id="qr-code"></div>
+    </div>
   </div>
 </div>
 
@@ -647,12 +663,15 @@ body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);}
   <div id="project-detail">
     <button class="detail-back" onclick="closeDetail()">← Back to Dashboard</button>
     <div class="detail-header">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <h2 id="detail-title">—</h2>
+      <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+        <h2 id="detail-title" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">—</h2>
         <button class="project-card-pin" id="detail-pin-btn" onclick="togglePinFromDetail()" title="Pin for everyone">📍</button>
         <button class="project-card-star" id="detail-star-btn" onclick="toggleStarFromDetail()" title="Star this project">☆</button>
       </div>
-      <div class="detail-sub" id="detail-sub">—</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+        <div class="detail-sub" id="detail-sub" style="flex:1;min-width:0;">—</div>
+        <button id="detail-fold-all-btn" onclick="toggleAllDetailSections()" style="flex-shrink:0;background:none;border:1.5px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;font-family:Calibri,sans-serif;cursor:pointer;color:var(--silver);white-space:nowrap;" title="Fold/Unfold all sections">▼ Fold All</button>
+      </div>
     </div>
     <div class="detail-section" id="detail-info-section">
       <div class="detail-section-header" onclick="toggleDetailSection('detail-info-section')">
@@ -3063,6 +3082,22 @@ function _r2GetLocalCounts() {
 
 // ── Foldable detail sections ──
 var _sectionFolded = {};
+var _allDetailFolded = false;
+function toggleAllDetailSections() {
+  var sections = ['detail-info-section','detail-tools-section','detail-gallery-section','detail-r2-section'];
+  _allDetailFolded = !_allDetailFolded;
+  sections.forEach(function(id) {
+    var body = document.getElementById('body-' + id);
+    var arrow = document.getElementById('fold-arrow-' + id);
+    if (body) {
+      body.classList.toggle('collapsed', _allDetailFolded);
+      if (arrow) arrow.classList.toggle('collapsed', _allDetailFolded);
+      _sectionFolded[id] = _allDetailFolded;
+    }
+  });
+  var btn = document.getElementById('detail-fold-all-btn');
+  if (btn) btn.textContent = _allDetailFolded ? '▶ Unfold All' : '▼ Fold All';
+}
 function toggleDetailSection(sectionId) {
   var body = document.getElementById('body-' + sectionId);
   var arrow = document.getElementById('fold-arrow-' + sectionId);
@@ -3605,6 +3640,28 @@ function _pgEscHtml(s) {
     <button onclick="pgLbDownload()">⬇ Download</button>
   </div>
 </div>
+<!-- PWA: QR code generation + service worker registration -->
+<script>
+(function(){
+  // Generate QR code pointing to this page
+  var hubUrl='https://hezhendong999-bot.github.io/ARENCON-Toolkit/ARENCON_Project_Hub.html';
+  var el=document.getElementById('qr-code');
+  if(el&&typeof QRCode!=='undefined'){
+    new QRCode(el,{
+      text:hubUrl,
+      width:128,
+      height:128,
+      colorDark:'#1B2438',
+      colorLight:'#ffffff',
+      correctLevel:QRCode.CorrectLevel.M
+    });
+  }
+  // Register service worker for PWA installability (no caching — avoids stale builds)
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  }
+})();
+</script>
 </body>
 </html>
 
