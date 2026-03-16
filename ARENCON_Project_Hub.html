@@ -519,6 +519,9 @@ body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);}
         </div>
       </div>
       <button class="login-btn" id="login-btn" onclick="doLogin()">Sign In</button>
+      <button id="faceid-btn" onclick="doFaceIdLogin()" style="display:none;width:100%;padding:11px;margin-top:8px;background:none;border:1.5px solid var(--border);border-radius:8px;font:600 14px Calibri,sans-serif;color:var(--steel);cursor:pointer;align-items:center;justify-content:center;gap:8px;transition:all .2s;">
+        <span style="font-size:18px;">󰏮</span> Sign in with Face ID / Touch ID
+      </button>
       <button class="login-forgot" onclick="showForgotPassword()">Forgot password?</button>
     </div>
     <!-- Forgot password form -->
@@ -1161,8 +1164,82 @@ async function tryRestoreSession() {
   } catch (e) {
     // No existing session
   }
-  // Show login
+
+  // ── Try Credential Management API (Face ID / biometric autofill) ──
+  if (window.PasswordCredential && navigator.credentials) {
+    try {
+      const cred = await navigator.credentials.get({
+        password: true,
+        mediation: 'optional' // silent if available, prompts Face ID if needed
+      });
+      if (cred && cred.id && cred.password) {
+        // Got saved credential — auto sign in
+        const btn = document.getElementById('login-btn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Signing in...'; }
+        try {
+          const data = await _sb.auth.signInWithPassword(cred.id, cred.password);
+          _user = data.user;
+          await loadProfile();
+          if (_profile && _profile.is_active) {
+            showApp();
+            return;
+          }
+        } catch(e2) { /* credential may be stale — fall through to login screen */ }
+        if (btn) { btn.disabled = false; btn.textContent = 'Sign In'; }
+      }
+    } catch(e) { /* not supported or user dismissed */ }
+  }
+
+  // Show login screen
   document.getElementById('login-screen').style.display = 'flex';
+  // Pre-fill email if credential API populated the fields
+  _tryFillCredential();
+}
+
+// Offer browser autofill without forcing Face ID (populates fields for manual submit)
+async function _tryFillCredential() {
+  if (!window.PasswordCredential || !navigator.credentials) return;
+  try {
+    const cred = await navigator.credentials.get({ password: true, mediation: 'silent' });
+    if (cred && cred.id) {
+      document.getElementById('login-email').value = cred.id;
+      document.getElementById('login-pass').value = cred.password || '';
+      // Show Face ID button if we have a saved credential
+      const fidBtn = document.getElementById('faceid-btn');
+      if (fidBtn) fidBtn.style.display = 'flex';
+    }
+  } catch(e) {}
+}
+
+// ── Face ID / biometric login ──
+async function doFaceIdLogin() {
+  if (!window.PasswordCredential || !navigator.credentials) return;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('faceid-btn');
+  errEl.classList.remove('show');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Authenticating...';
+  try {
+    const cred = await navigator.credentials.get({
+      password: true,
+      mediation: 'required' // forces Face ID / Touch ID prompt
+    });
+    if (!cred || !cred.id || !cred.password) throw new Error('No credential');
+    const data = await _sb.auth.signInWithPassword(cred.id, cred.password);
+    _user = data.user;
+    await loadProfile();
+    if (!_profile || !_profile.is_active) {
+      await _sb.auth.signOut();
+      _user = null; _profile = null;
+      throw new Error('Account deactivated. Contact your administrator.');
+    }
+    showApp();
+  } catch(e) {
+    errEl.textContent = e.message || 'Biometric sign-in failed.';
+    errEl.classList.add('show');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<span style="font-size:18px;">󰏮</span> Sign in with Face ID / Touch ID';
 }
 
 // ── Login ──
@@ -1202,6 +1279,14 @@ async function doLogin() {
     }
 
     showApp();
+
+    // Store credential for biometric autofill on next open
+    if (window.PasswordCredential && navigator.credentials) {
+      try {
+        const cred = new PasswordCredential({ id: email, password: pass, name: email });
+        await navigator.credentials.store(cred);
+      } catch(e) { /* not supported */ }
+    }
   } catch (e) {
     errEl.textContent = e.message || 'Login failed. Check your credentials.';
     errEl.classList.add('show');
