@@ -713,6 +713,10 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .dv-mobile-tools{display:none!important;}
   .dv-main{flex-direction:column;flex:1;min-height:0;}
   .dv-tasks-panel{width:100%;max-height:160px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;}
+  .dv-tasks-panel.collapsed{max-height:none!important;}
+  .dv-tasks-panel.collapsed #dv-tasks-body{display:none;}
+  .dv-tasks-panel.collapsed #dv-tasks-fold-btn{transform:rotate(-90deg);}
+  #dv-tasks-fold-btn{transition:transform .2s;display:inline-block;}
   .dv-canvas-area{order:1;flex:1;min-height:0;}
   .dv-toolbar{padding:6px 10px;flex-wrap:wrap;gap:6px;}
   .dv-toolbar button{padding:5px 8px;font-size:11px;}
@@ -1781,13 +1785,17 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
     </div>
     <!-- RIGHT TASKS PANEL -->
     <div class="dv-tasks-panel" id="dv-tasks-panel">
-      <div class="dv-tasks-header">
+      <div class="dv-tasks-header" onclick="_dvToggleTasksPanel()" style="cursor:pointer;">
         <div style="display:flex;gap:4px;align-items:center;">
-          <button id="dv-toggle-pinned" onclick="setShowAllDeficiencies(false)" style="padding:3px 10px;font-size:11px;font-family:Calibri,sans-serif;border-radius:4px;border:1.5px solid #4a5570;background:#9C2742;color:white;cursor:pointer;font-weight:700;">📍 Pinned</button>
-          <button id="dv-toggle-all" onclick="setShowAllDeficiencies(true)" style="padding:3px 10px;font-size:11px;font-family:Calibri,sans-serif;border-radius:4px;border:1.5px solid #4a5570;background:#2a3040;color:#a0aac4;cursor:pointer;">All Items</button>
+          <button id="dv-toggle-pinned" onclick="event.stopPropagation();setShowAllDeficiencies(false)" style="padding:3px 10px;font-size:11px;font-family:Calibri,sans-serif;border-radius:4px;border:1.5px solid #4a5570;background:#9C2742;color:white;cursor:pointer;font-weight:700;">📍 Pinned</button>
+          <button id="dv-toggle-all" onclick="event.stopPropagation();setShowAllDeficiencies(true)" style="padding:3px 10px;font-size:11px;font-family:Calibri,sans-serif;border-radius:4px;border:1.5px solid #4a5570;background:#2a3040;color:#a0aac4;cursor:pointer;">All Items</button>
         </div>
-        <span id="dv-pin-count" style="font-size:11px;color:#8a9ab8;">0</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span id="dv-pin-count" style="font-size:11px;color:#8a9ab8;">0</span>
+          <span id="dv-tasks-fold-btn" style="font-size:14px;color:#8a9ab8;line-height:1;">▾</span>
+        </div>
       </div>
+      <div id="dv-tasks-body">
       <div id="dv-tasks-summary" style="display:none;padding:4px 10px;font-size:10px;color:#8a9ab8;border-bottom:1px solid #3a3e48;"></div>
       <div style="padding:8px 10px;border-bottom:1px solid #3a3e48;display:flex;flex-direction:column;gap:5px;">
         <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">Layers</div>
@@ -1796,6 +1804,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       </div>
       <div class="dv-tasks-list" id="dv-tasks-list"></div>
       <div style="padding:8px;border-top:1px solid #3a3e48;"><button style="width:100%;padding:8px;border:1.5px solid #4a5570;border-radius:6px;background:#2a3040;color:#a0aac4;font-size:12px;cursor:pointer;font-family:Calibri,sans-serif;" onclick="setToolbarTool('pin')">+ New Task</button></div>
+      </div>
     </div>
   </div>
 </div>
@@ -4090,8 +4099,8 @@ document.addEventListener('keydown',function(e){
         _mkSelectedId=null;_mkSelectedIds=[];if(typeof renderAllMarkup==='function')renderAllMarkup();
         didCancel=true;
       }
-      // Only close viewer if nothing was active to cancel
-      if(!didCancel&&typeof closeDrawingViewer==='function'){closeDrawingViewer();}
+      // Escape never closes the viewer — use the ← Close button
+      // (prevents accidental dismissal while working on drawings)
       return;
     }
     var dd=document.getElementById('download-dialog');if(dd&&dd.style.display==='flex'){if(typeof closeDownloadDialog==='function')closeDownloadDialog();return;}
@@ -5092,7 +5101,11 @@ area.addEventListener('touchmove',function(e){
         pin.style.top=(dvState.origPinY+dy/(dvState.scale*img.naturalHeight))*img.naturalHeight+'px';
       }
     }else{
-      if(dvState.longPressTimer&&!dvState.longPressTriggered){clearTimeout(dvState.longPressTimer);dvState.longPressTimer=null;}
+      if(dvState.longPressTimer&&!dvState.longPressTriggered){
+        // Only cancel long-press if finger moved significantly (>8px) — small tremor is normal
+        var _lpDx=Math.abs(e.touches[0].clientX-dvState.dragStartX),_lpDy=Math.abs(e.touches[0].clientY-dvState.dragStartY);
+        if(_lpDx>8||_lpDy>8){clearTimeout(dvState.longPressTimer);dvState.longPressTimer=null;}
+      }
       if(pan){
         // Hide pin+markup layers during active pan for performance
         if(!dvState._panHidden){dvState._panHidden=true;var pl=document.getElementById('dv-pins-layer');var mc=document.getElementById('markup-canvas');if(pl)pl.style.opacity='0';if(mc)mc.style.opacity='0';}
@@ -5111,15 +5124,23 @@ area.addEventListener('touchend',function(e){
     if(Math.abs(dx)>3||Math.abs(dy)>3){
       var img=document.getElementById('dv-image');var f=findDeficiency(dvState.selectedPinId);
       if(f&&f.defic.pinX!=null){
-        f.defic.pinX=dvState.origPinX+dx/(dvState.scale*img.naturalWidth);f.defic.pinY=dvState.origPinY+dy/(dvState.scale*img.naturalHeight);
-        f.defic.pinX=Math.max(0,Math.min(1,f.defic.pinX));f.defic.pinY=Math.max(0,Math.min(1,f.defic.pinY));saveToLS();
+        // Divide screen-pixel delta by (CSS scale * natural image size) for correct normalized position
+        f.defic.pinX=dvState.origPinX+dx/(dvState.scale*img.naturalWidth);
+        f.defic.pinY=dvState.origPinY+dy/(dvState.scale*img.naturalHeight);
+        f.defic.pinX=Math.max(0,Math.min(1,f.defic.pinX));
+        f.defic.pinY=Math.max(0,Math.min(1,f.defic.pinY));
+        saveToLS();
       }
     }
     dvState.draggingPin=false;dvState.selectedPinId=null;renderPinsOnDrawing();return;
   }
   if(!dvState.longPressTriggered){
     var pin=e.target.closest('.pin-marker');
-    if(pin)openPinEditor(pin.getAttribute('data-defic-id'));
+    if(pin){
+      // In select markup mode — don't open pin editor on tap
+      if(mkState&&mkState.tool==='select'){dvState.longPressTriggered=false;pan=false;return;}
+      openPinEditor(pin.getAttribute('data-defic-id'));
+    }
   }
   dvState.longPressTriggered=false;pan=false;
   // Restore pin+markup layers after pan
@@ -5426,7 +5447,9 @@ function resizeMarkupCanvas(){
   var img=document.getElementById('dv-image');
   if(!canvas||!img)return;
   var iw=img.naturalWidth, ih=img.naturalHeight;
-  var mkMaxDim=3000;
+  // Cap canvas size — mobile (iOS) crashes above ~2048px due to memory limits
+  var isMobile=window.innerWidth<=700||/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  var mkMaxDim=isMobile?1536:3000;
   var mkScale=1;
   if(Math.max(iw,ih)>mkMaxDim){mkScale=mkMaxDim/Math.max(iw,ih);}
   var cw=Math.round(iw*mkScale), ch=Math.round(ih*mkScale);
@@ -6773,7 +6796,13 @@ function _lbToggleColorMenu(forceClose){
 function _lbGetPos(e){
   if(!_lbCanvas)return{x:0,y:0};
   var r=_lbCanvas.getBoundingClientRect();
-  var sx=_lbCanvas.width/r.width,sy=_lbCanvas.height/r.height;
+  // Map from screen pixels to logical image coordinates (0..naturalWidth, 0..naturalHeight)
+  // r.width/height = actual rendered size on screen (after CSS max-width/max-height)
+  // _lbCanvas._dpr = the scale factor applied to ctx (dpr * downscale)
+  // logical size = canvas.width / _dpr
+  var logW=_lbCanvas.width/(_lbCanvas._dpr||1);
+  var logH=_lbCanvas.height/(_lbCanvas._dpr||1);
+  var sx=logW/r.width, sy=logH/r.height;
   if(e.touches)return{x:(e.touches[0].clientX-r.left)*sx,y:(e.touches[0].clientY-r.top)*sy};
   if(e.changedTouches)return{x:(e.changedTouches[0].clientX-r.left)*sx,y:(e.changedTouches[0].clientY-r.top)*sy};
   return{x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy};
@@ -8368,18 +8397,26 @@ function _lbShowCurrentDirect(){
     var dpr=Math.min(window.devicePixelRatio||1,2);
     var natW=image.naturalWidth||800;
     var natH=image.naturalHeight||600;
-    _lbCanvas.width=natW*dpr;
-    _lbCanvas.height=natH*dpr;
+    // Cap canvas size to prevent Safari/iOS crash on large images
+    var maxDim=window.innerWidth<=700?2048:4096;
+    var scale=Math.min(1,maxDim/Math.max(natW*dpr,natH*dpr));
+    var cw=Math.round(natW*dpr*scale);
+    var ch=Math.round(natH*dpr*scale);
+    _lbCanvas.width=cw;
+    _lbCanvas.height=ch;
     _lbCanvas.style.maxWidth='90vw';
     _lbCanvas.style.maxHeight='80vh';
     _lbCanvas.style.width=natW+'px';
     _lbCanvas.style.height=natH+'px';
     _lbCtx=_lbCanvas.getContext('2d');
-    _lbCtx.scale(dpr,dpr);
-    _lbCanvas._dpr=dpr;
+    _lbCtx.scale(dpr*scale,dpr*scale);
+    _lbCanvas._dpr=dpr*scale;
     _lbBgImage=image;
     _lbCtx.drawImage(image,0,0,natW,natH);
-    if(_lbDrawing)_lbEnableDrawEvents();
+    // rAF ensures canvas layout is settled before draw events fire (fixes mobile offset)
+    requestAnimationFrame(function(){
+      if(_lbDrawing)_lbEnableDrawEvents();
+    });
     var ctr=document.getElementById('lb-photo-counter');
     if(ctr)ctr.textContent=(_lbIdx+1)+' / '+_lbPhotos.length;
   };
@@ -11291,6 +11328,13 @@ async function _syncHeartbeat(){
     // Silent fail — heartbeat is best-effort, not critical
     console.warn('[Heartbeat] Sync check failed:',e.message);
   }
+}
+
+function _dvToggleTasksPanel(){
+  if(window.innerWidth>700)return; // desktop: panel always open
+  var panel=document.getElementById('dv-tasks-panel');
+  if(!panel)return;
+  panel.classList.toggle('collapsed');
 }
 
 function _isMobileHeader(){return window.innerWidth<=800;}
