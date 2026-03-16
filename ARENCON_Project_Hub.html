@@ -6,6 +6,7 @@
 <title>ARENCON Project Hub</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#9C2742">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ARENCON Hub">
@@ -512,7 +513,10 @@ body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);}
       </div>
       <div class="login-field">
         <label>Password</label>
-        <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password">
+        <div style="position:relative;">
+          <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" style="width:100%;padding-right:42px;">
+          <button type="button" onclick="var i=document.getElementById('login-pass');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--steel);padding:0;line-height:1;">👁</button>
+        </div>
       </div>
       <button class="login-btn" id="login-btn" onclick="doLogin()">Sign In</button>
       <button class="login-forgot" onclick="showForgotPassword()">Forgot password?</button>
@@ -931,7 +935,7 @@ let _filterMode = 'my';   // 'my' or 'all' or 'starred'
 let _showArchived = false;
 let _showDeleted = false;
 let _editRoleUserId = null;
-let _darkMode = localStorage.getItem('arencon-hub-dark') === '1';
+let _darkMode = localStorage.getItem('ARENCON_Dark') === '1';
 
 // ── Supabase Client (lightweight REST wrapper — no SDK needed) ──
 function createSupabaseClient(url, key) {
@@ -1182,6 +1186,8 @@ async function doLogin() {
   try {
     const data = await _sb.auth.signInWithPassword(email, pass);
     _user = data.user;
+
+    // Load profile — but don't block showing the app on last_login update
     await loadProfile();
 
     if (!_profile || !_profile.is_active) {
@@ -1290,8 +1296,8 @@ async function loadProfile() {
       };
     }
 
-    // Update last_login
-    await _sb.from('profiles').eq('id', _user.id).update({ last_login: new Date().toISOString() }).catch(() => {});
+    // Update last_login — fire and forget, never block login on this
+    _sb.from('profiles').eq('id', _user.id).update({ last_login: new Date().toISOString() }).catch(() => {});
   } catch (e) {
     console.error('Failed to load profile:', e);
     // Fallback profile from user metadata
@@ -2901,7 +2907,7 @@ async function exportAllProjects() {
 function toggleDark() {
   _darkMode = !_darkMode;
   applyDark(_darkMode);
-  localStorage.setItem('arencon-hub-dark', _darkMode ? '1' : '0');
+  localStorage.setItem('ARENCON_Dark', _darkMode ? '1' : '0');
 }
 
 function applyDark(on) {
