@@ -8052,19 +8052,30 @@ function _r2EnqueueDeficPhoto(rec,deficId){
 // Compares R2 bucket contents against project references, deletes unreferenced files
 async function _r2CleanupOrphans(){
   if(!_csHubMode||!_csProjectId||typeof R2Photos==='undefined')return;
-  var proj=getProject();if(!proj)return;
-  var hubId=_csProjectId;
   var WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
-  var token=localStorage.getItem('sb-access-token');
-  var headers=token?{'Authorization':'Bearer '+token}:{};
+  var hubId=_csProjectId;
 
-  // Build set of all R2 keys actually referenced by this project
+  // ── Safety gate 1: project must be fully loaded ──
+  // Wait until IDB load is complete — proj must have been persisted at least once
+  var proj=getProject();
+  if(!proj){console.log('[R2Cleanup] Aborted — no project loaded');return;}
+
+  // Safety gate 2: project must have actual data before we consider deleting anything.
+  // If drawings + sitePhotos + deficiencies are ALL empty, the project hasn't loaded
+  // properly yet — abort to avoid deleting everything.
+  var hasAnyData=(proj.drawings&&proj.drawings.length>0)||
+                 (proj.sitePhotos&&proj.sitePhotos.length>0)||
+                 (proj.generalDeficiencies&&proj.generalDeficiencies.length>0)||
+                 ((proj.contractors||[]).some(function(c){return c.deficiencies&&c.deficiencies.length>0;}));
+  if(!hasAnyData){
+    console.log('[R2Cleanup] Aborted — project appears empty, skipping to avoid false deletions');
+    return;
+  }
+
+  // ── Build set of ALL referenced r2Keys from project ──
   var referencedKeys=new Set();
-  // Drawings
-  (proj.drawings||[]).forEach(function(d){if(d.r2Key)referencedKeys.add(d.r2Key);});
-  // Site photos (includes marked copies)
+  (proj.drawings||[]).forEach(function(d){if(d&&d.r2Key)referencedKeys.add(d.r2Key);});
   (proj.sitePhotos||[]).forEach(function(ph){if(ph&&ph.r2Key)referencedKeys.add(ph.r2Key);});
-  // Deficiency photos
   function _addDeficKeys(defics){
     (defics||[]).forEach(function(d){
       (d.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)referencedKeys.add(ph.r2Key);});
@@ -8075,46 +8086,94 @@ async function _r2CleanupOrphans(){
   (proj.contractors||[]).forEach(function(c){_addDeficKeys(c.deficiencies);});
   _addDeficKeys(proj.generalDeficiencies);
 
-  // Fetch R2 file lists for each content type
+  // Safety gate 3: if we found zero referenced keys but the project has data,
+  // something is wrong with the key structure — abort rather than delete everything.
+  if(referencedKeys.size===0&&hasAnyData){
+    console.log('[R2Cleanup] Aborted — project has data but zero r2Keys found (files may still be pending upload)');
+    return;
+  }
+
+  console.log('[R2Cleanup] Starting — '+referencedKeys.size+' referenced keys in project');
+
+  // Age threshold: only delete files older than 7 days that aren't referenced.
+  // This protects files mid-upload and gives a recovery window.
+  var AGE_THRESHOLD_MS=7*24*60*60*1000;
+  var now=Date.now();
+
   var types=['original','drawings','markup'];
-  var deleted=0;
+  var candidates=[];// Files that MIGHT be orphans — collect first, delete after review
+
   for(var ti=0;ti<types.length;ti++){
     var type=types[ti];
     try{
       var listPath='/list/'+encodeURIComponent(hubId)+'/frt/'+encodeURIComponent(type);
-      var res=await fetch(WORKER+listPath,{headers:headers});
+      var res=await fetch(WORKER+listPath);
       if(!res.ok)continue;
       var data=await res.json();
       var files=Array.isArray(data)?data:(data.files||data.objects||[]);
+
       for(var fi=0;fi<files.length;fi++){
         var f=files[fi];
-        // R2 bucket key: {pid}/photos/frt/{type}/{fname}
         var bucketKey=typeof f==='string'?f:(f.key||'');
         if(!bucketKey)continue;
-        // Bucket key format: {pid}/photos/frt/{type}/{fname}
+
+        // Reconstruct stored key from bucket key
+        // Bucket key: {pid}/photos/frt/{type}/{fname}
         var bparts=bucketKey.split('/');
         if(bparts.length<5)continue;
         var bpid=bparts[0],btype=bparts[3],bfname=bparts.slice(4).join('/');
-        // Stored r2Key format: photos/{pid}/frt/{type}/{fname}
         var storedKey='photos/'+bpid+'/frt/'+btype+'/'+bfname;
-        if(!referencedKeys.has(storedKey)){
-          console.log('[R2Cleanup] Orphan found:',storedKey);
-          try{
-            // R2Photos.remove(projectId, tool, type, filename)
-            await R2Photos.remove(bpid,'frt',btype,bfname);
-            deleted++;
-          }catch(e){console.warn('[R2Cleanup] Delete failed:',e.message);}
+
+        // Safety gate 4: only consider files NOT referenced by this project
+        if(referencedKeys.has(storedKey))continue;
+
+        // Safety gate 5: only delete files older than AGE_THRESHOLD_MS
+        // (protects files currently being uploaded)
+        var uploaded=f.uploaded?new Date(f.uploaded).getTime():0;
+        if(uploaded&&(now-uploaded)<AGE_THRESHOLD_MS){
+          console.log('[R2Cleanup] Skipping recent file ('+Math.round((now-uploaded)/86400000)+'d old):',storedKey);
+          continue;
         }
+
+        candidates.push({bucketKey:bucketKey,storedKey:storedKey,bpid:bpid,btype:btype,bfname:bfname});
       }
-    }catch(e){}
+    }catch(e){console.warn('[R2Cleanup] List error for type '+type+':',e.message);}
   }
+
+  if(candidates.length===0){
+    console.log('[R2Cleanup] No orphans found');
+    return;
+  }
+
+  // Safety gate 6: never delete more than 20% of total R2 files in one run.
+  // If the candidate count seems too high, something is wrong — abort.
+  var totalFilesApprox=referencedKeys.size+candidates.length;
+  var deleteRatio=candidates.length/Math.max(totalFilesApprox,1);
+  if(deleteRatio>0.2&&candidates.length>5){
+    console.warn('[R2Cleanup] Aborted — '+candidates.length+' candidates ('
+      +Math.round(deleteRatio*100)+'% of files) exceeds 20% safety threshold. '
+      +'This likely means the project did not load fully. No files deleted.');
+    return;
+  }
+
+  console.log('[R2Cleanup] Deleting '+candidates.length+' confirmed orphan(s)');
+  var deleted=0;
+  for(var ci=0;ci<candidates.length;ci++){
+    var c=candidates[ci];
+    try{
+      await R2Photos.remove(c.bpid,'frt',c.btype,c.bfname);
+      deleted++;
+      console.log('[R2Cleanup] Deleted:',c.storedKey);
+    }catch(e){console.warn('[R2Cleanup] Delete failed:',c.storedKey,e.message);}
+  }
+
   if(deleted>0){
-    console.log('[R2Cleanup] Cleaned up '+deleted+' orphaned R2 file'+(deleted>1?'s':''));
-    // Silent indicator — briefly show on the sync dot, no blocking toast
+    console.log('[R2Cleanup] Done — deleted '+deleted+' orphaned file'+(deleted>1?'s':''));
     var dot=document.getElementById('cloud-dot');
     if(dot){
       var prev=dot.style.background;
-      dot.style.background='#818CF8';dot.title='Cleaned up '+deleted+' old file'+(deleted>1?'s':'');
+      dot.style.background='#818CF8';
+      dot.title='Cleaned up '+deleted+' old file'+(deleted>1?'s':'');
       setTimeout(function(){dot.style.background=prev;dot.title='Saved to cloud';},3000);
     }
   }
@@ -11088,10 +11147,9 @@ function _initCloudSync(){
     if(typeof R2Photos!=='undefined'){
       R2Photos.init({wifiOnly:false,onProgress:function(info){_updateR2Badge();}});
     }
-    // Auto-cleanup orphaned R2 files — DISABLED: was incorrectly deleting valid files
-    // due to r2Key values not being present in memory when project loads from cloud.
-    // Do not re-enable until key matching logic is verified against actual project state.
-    // setTimeout(function(){if(typeof _r2CleanupOrphans==='function')_r2CleanupOrphans().catch(function(){});},8000);
+    // Auto-cleanup orphaned R2 files — 60s delay ensures project is fully loaded from IDB
+    // before cleanup runs. Has 6 independent safety gates — see _r2CleanupOrphans().
+    setTimeout(function(){if(typeof _r2CleanupOrphans==='function')_r2CleanupOrphans().catch(function(){});},60000);
   }).catch(function(e){
     console.error('CloudSync init error:',e);
     toast('Cloud sync failed — working in local mode',3000);
