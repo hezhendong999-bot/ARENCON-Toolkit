@@ -70,10 +70,19 @@ body.dark-mode{
 .login-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
 .login-forgot{display:inline-block;margin-top:16px;font-size:13px;color:var(--arencon);cursor:pointer;text-decoration:none;border:none;background:none;font-weight:500}
 .login-forgot:hover{text-decoration:underline}
-.qr-section{margin-top:28px;padding-top:20px;border-top:1px solid var(--border,#e2e8f0);text-align:center;}
-.qr-section p{font-size:11px;color:var(--steel,#64748b);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;}
-#qr-code{display:inline-block;background:white;padding:8px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.12);}
-#qr-code img,#qr-code canvas{display:block;border-radius:4px;}
+.qr-section{margin-top:24px;padding-top:20px;border-top:1px solid var(--border,#e2e8f0);text-align:center;}
+.qr-show-btn{background:none;border:1.5px solid var(--border,#e2e8f0);border-radius:8px;padding:10px 20px;font:600 13px Calibri,'Segoe UI',sans-serif;color:var(--steel,#64748b);cursor:pointer;transition:all .2s;width:100%;}
+.qr-show-btn:hover{border-color:var(--arencon,#9C2742);color:var(--arencon,#9C2742);}
+.qr-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+.qr-modal-overlay.open{display:flex;}
+.qr-modal-box{background:white;border-radius:16px;padding:28px 32px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);}
+.qr-modal-box h3{font-size:16px;font-weight:700;color:#1B2438;margin-bottom:4px;}
+.qr-modal-box p{font-size:12px;color:#64748b;margin-bottom:16px;}
+#qr-code-large{display:inline-block;background:white;padding:0;border-radius:4px;}
+#qr-code-large img,#qr-code-large canvas{display:block;border-radius:4px;}
+.qr-modal-url{font-size:10px;color:#94a3b8;margin-top:12px;word-break:break-all;max-width:280px;}
+.qr-modal-close{background:rgba(255,255,255,.15);border:none;color:white;padding:10px 28px;border-radius:8px;font:600 14px Calibri,sans-serif;cursor:pointer;}
+.qr-modal-close:hover{background:rgba(255,255,255,.25);}
 .login-error{background:var(--no-bg);color:var(--no);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none;font-weight:500}
 .login-error.show{display:block}
 .login-success{background:var(--yes-bg);color:var(--yes);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none;font-weight:500}
@@ -517,12 +526,22 @@ body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);}
       <button class="login-btn" id="forgot-btn" onclick="doForgotPassword()">Send Reset Link</button>
       <button class="login-forgot" onclick="showLoginForm()">← Back to login</button>
     </div>
-    <!-- QR Code for mobile access -->
+    <!-- QR Code button -->
     <div class="qr-section">
-      <p>Scan to open on mobile</p>
-      <div id="qr-code"></div>
+      <button class="qr-show-btn" onclick="openQRModal()">📱 Show QR Code for Mobile</button>
     </div>
   </div>
+</div>
+
+<!-- QR Modal -->
+<div class="qr-modal-overlay" id="qr-modal-overlay" onclick="if(event.target===this)closeQRModal()">
+  <div class="qr-modal-box">
+    <h3>Open on Mobile</h3>
+    <p>Scan with your phone camera to open the Hub</p>
+    <div id="qr-code-large"></div>
+    <div class="qr-modal-url">hezhendong999-bot.github.io/ARENCON-Toolkit/ARENCON_Project_Hub.html</div>
+  </div>
+  <button class="qr-modal-close" onclick="closeQRModal()">✕ Close</button>
 </div>
 
 <!-- ═══════════ APP (post-login) ═══════════ -->
@@ -3640,23 +3659,45 @@ function _pgEscHtml(s) {
     <button onclick="pgLbDownload()">⬇ Download</button>
   </div>
 </div>
-<!-- PWA: QR code generation + service worker registration -->
+<!-- PWA: QR code modal + service worker registration -->
 <script>
 (function(){
-  // Generate QR code pointing to this page
   var hubUrl='https://hezhendong999-bot.github.io/ARENCON-Toolkit/ARENCON_Project_Hub.html';
-  var el=document.getElementById('qr-code');
-  if(el&&typeof QRCode!=='undefined'){
-    new QRCode(el,{
-      text:hubUrl,
-      width:128,
-      height:128,
-      colorDark:'#1B2438',
-      colorLight:'#ffffff',
-      correctLevel:QRCode.CorrectLevel.M
-    });
-  }
-  // Register service worker for PWA installability (no caching — avoids stale builds)
+  var _qrGenerated=false;
+
+  window.openQRModal=function(){
+    var overlay=document.getElementById('qr-modal-overlay');
+    if(overlay)overlay.classList.add('open');
+    // Generate QR lazily on first open
+    if(!_qrGenerated&&typeof QRCode!=='undefined'){
+      var el=document.getElementById('qr-code-large');
+      if(el){
+        new QRCode(el,{
+          text:hubUrl,
+          width:256,
+          height:256,
+          colorDark:'#1B2438',
+          colorLight:'#ffffff',
+          correctLevel:QRCode.CorrectLevel.M
+        });
+        _qrGenerated=true;
+      }
+    }
+    document.body.style.overflow='hidden';
+  };
+
+  window.closeQRModal=function(){
+    var overlay=document.getElementById('qr-modal-overlay');
+    if(overlay)overlay.classList.remove('open');
+    document.body.style.overflow='';
+  };
+
+  // Close on Escape
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape')window.closeQRModal();
+  });
+
+  // Register service worker for PWA installability
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(){});
   }
