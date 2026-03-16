@@ -2072,8 +2072,9 @@ ADB.saveProject=function(proj){
 
 ADB.saveDrawing=function(drawing,projectId){
   var rec={id:drawing.id,projectId:projectId,name:drawing.name,width:drawing.width||0,height:drawing.height||0,isOriginal:drawing.isOriginal||false,folder:drawing.folder||''};
-  // R2 Phase 3: save blob to IDB only if not yet uploaded to R2
-  if(drawing.r2Status!=='uploaded'&&drawing.dataUrl){
+  // ALWAYS save blob locally — R2 is additive backup, not a replacement.
+  // Local IDB copy is the safety net if R2 files are ever lost.
+  if(drawing.dataUrl){
     rec.dataBlob=ADB.dataUrlToBlob(drawing.dataUrl);
   } else if(drawing.dataBlob){
     rec.dataBlob=drawing.dataBlob;
@@ -4649,22 +4650,10 @@ async function _refreshR2Token(){
 }
 
 function _loadR2OrDirect(src,img){
-  if(!src||typeof src!=='string'){img.style.background='#f0f0f0';img.alt='Photo (offline)';return;}
-  // R2 URLs need authenticated fetch → object URL
+  if(!src||typeof src!=='string'){img.style.background='#f0f0f0';return;}
+  // R2 Worker GETs require no auth token (Session 24 fix — tokens expire and break images)
   if(typeof R2Photos!=='undefined'&&src.indexOf(R2Photos.WORKER_URL)===0){
-    var token=localStorage.getItem('sb-access-token');
-    var headers=token?{'Authorization':'Bearer '+token}:{};
-    fetch(src,{headers:headers}).then(function(res){
-      if(res.status===401){
-        // Token expired — refresh and retry once
-        return _refreshR2Token().then(function(newToken){
-          if(!newToken)throw new Error('401');
-          return fetch(src,{headers:{'Authorization':'Bearer '+newToken}});
-        }).then(function(res2){
-          if(!res2.ok)throw new Error(res2.status);
-          return res2.blob();
-        });
-      }
+    fetch(src).then(function(res){
       if(!res.ok)throw new Error(res.status);
       return res.blob();
     }).then(function(blob){
@@ -4673,8 +4662,6 @@ function _loadR2OrDirect(src,img){
       img.removeAttribute('data-r2-src');
     }).catch(function(e){
       img.style.background='#f0f0f0';
-      img.alt='';
-      // Tag for retry when token refreshes
       img.setAttribute('data-r2-failed','1');
       img.setAttribute('data-r2-src',src);
     });
@@ -8051,8 +8038,7 @@ function _r2EnqueueDeficPhoto(rec,deficId){
       if(!err){
         rec.r2Status='uploaded';
         rec.r2Url=R2Photos.getUrl(hubId,'frt','original',fname);
-        // Step 3: Clear dataUrl from memory (R2 is source of truth now)
-        delete rec.dataUrl;
+        // dataUrl intentionally kept — IDB local copy is backup against R2 loss
         // Remove from pendingUploads — upload confirmed
         ADB.deletePending(rec.id).catch(function(){});
         saveToLS();_updateR2Badge();
@@ -8188,7 +8174,7 @@ function _requeuePendingUploads(proj){
             if(rec){
               rec.r2Status='uploaded';
               rec.r2Url=R2Photos.getUrl(hubId,'frt',r2Type,fname);
-              if(!isDrawing)delete rec.dataUrl;
+              // dataUrl intentionally kept in memory — local copy is backup against R2 loss
             }
             ADB.deletePending(p.id).catch(function(){});
             saveToLS();_updateR2Badge();
