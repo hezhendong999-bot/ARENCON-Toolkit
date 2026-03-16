@@ -3335,6 +3335,13 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   // Ensure all site photos have IDs
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){if(ph&&!ph.id)ph.id='sp_'+Math.random().toString(36).substr(2,8);});}
   _requeuePendingUploads(p);
+  // Trigger orphan cleanup — project is fully loaded from IDB at this point.
+  // Only runs once per session (flag prevents re-run if user navigates between projects).
+  // 8s delay lets UI finish rendering. Safety gates in _r2CleanupOrphans() do the rest.
+  if(_csHubMode&&!enterProject._cleanupRan){
+    enterProject._cleanupRan=true;
+    setTimeout(function(){if(typeof _r2CleanupOrphans==='function')_r2CleanupOrphans().catch(function(){});},8000);
+  }
   var _el;
   _el=document.getElementById('view-dashboard');if(_el)_el.style.display='none';
   _el=document.getElementById('view-project');if(_el){_el.style.display='block';_el.style.visibility='visible';}
@@ -11147,9 +11154,7 @@ function _initCloudSync(){
     if(typeof R2Photos!=='undefined'){
       R2Photos.init({wifiOnly:false,onProgress:function(info){_updateR2Badge();}});
     }
-    // Auto-cleanup orphaned R2 files — 60s delay ensures project is fully loaded from IDB
-    // before cleanup runs. Has 6 independent safety gates — see _r2CleanupOrphans().
-    setTimeout(function(){if(typeof _r2CleanupOrphans==='function')_r2CleanupOrphans().catch(function(){});},60000);
+    // Orphan cleanup is triggered from enterProject() after project fully loads from IDB
   }).catch(function(e){
     console.error('CloudSync init error:',e);
     toast('Cloud sync failed — working in local mode',3000);
