@@ -712,11 +712,11 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .dv-sidebar-tools .tool-colors{flex-direction:row;}
   .dv-mobile-tools{display:none!important;}
   .dv-main{flex-direction:column;flex:1;min-height:0;}
-  .dv-tasks-panel{width:100%;max-height:160px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;}
-  .dv-tasks-panel.collapsed{max-height:none!important;}
-  .dv-tasks-panel.collapsed #dv-tasks-body{display:none;}
-  .dv-tasks-panel.collapsed #dv-tasks-fold-btn{transform:rotate(-90deg);}
+  .dv-tasks-panel{width:100%;max-height:160px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;overflow:hidden;}
+  .dv-tasks-panel.collapsed{max-height:44px!important;overflow:hidden;}
+  .dv-tasks-panel.collapsed .dv-tasks-body-inner{display:none;}
   #dv-tasks-fold-btn{transition:transform .2s;display:inline-block;}
+  .dv-tasks-panel.collapsed #dv-tasks-fold-btn{transform:rotate(-90deg);}
   .dv-canvas-area{order:1;flex:1;min-height:0;}
   .dv-toolbar{padding:6px 10px;flex-wrap:wrap;gap:6px;}
   .dv-toolbar button{padding:5px 8px;font-size:11px;}
@@ -1785,17 +1785,17 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
     </div>
     <!-- RIGHT TASKS PANEL -->
     <div class="dv-tasks-panel" id="dv-tasks-panel">
-      <div class="dv-tasks-header" onclick="_dvToggleTasksPanel()" style="cursor:pointer;">
+      <div class="dv-tasks-header">
         <div style="display:flex;gap:4px;align-items:center;">
           <button id="dv-toggle-pinned" onclick="event.stopPropagation();setShowAllDeficiencies(false)" style="padding:3px 10px;font-size:11px;font-family:Calibri,sans-serif;border-radius:4px;border:1.5px solid #4a5570;background:#9C2742;color:white;cursor:pointer;font-weight:700;">📍 Pinned</button>
           <button id="dv-toggle-all" onclick="event.stopPropagation();setShowAllDeficiencies(true)" style="padding:3px 10px;font-size:11px;font-family:Calibri,sans-serif;border-radius:4px;border:1.5px solid #4a5570;background:#2a3040;color:#a0aac4;cursor:pointer;">All Items</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <span id="dv-pin-count" style="font-size:11px;color:#8a9ab8;">0</span>
-          <span id="dv-tasks-fold-btn" style="font-size:14px;color:#8a9ab8;line-height:1;">▾</span>
+          <button id="dv-tasks-fold-btn" onclick="event.stopPropagation();_dvToggleTasksPanel();" style="background:none;border:none;color:#8a9ab8;font-size:18px;cursor:pointer;padding:4px 6px;line-height:1;border-radius:4px;">▾</button>
         </div>
       </div>
-      <div id="dv-tasks-body">
+      <div id="dv-tasks-body" class="dv-tasks-body-inner">
       <div id="dv-tasks-summary" style="display:none;padding:4px 10px;font-size:10px;color:#8a9ab8;border-bottom:1px solid #3a3e48;"></div>
       <div style="padding:8px 10px;border-bottom:1px solid #3a3e48;display:flex;flex-direction:column;gap:5px;">
         <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">Layers</div>
@@ -11331,10 +11331,11 @@ async function _syncHeartbeat(){
 }
 
 function _dvToggleTasksPanel(){
-  if(window.innerWidth>700)return; // desktop: panel always open
   var panel=document.getElementById('dv-tasks-panel');
   if(!panel)return;
-  panel.classList.toggle('collapsed');
+  var isCollapsed=panel.classList.toggle('collapsed');
+  var btn=document.getElementById('dv-tasks-fold-btn');
+  if(btn)btn.style.transform=isCollapsed?'rotate(-90deg)':'rotate(0deg)';
 }
 
 function _isMobileHeader(){return window.innerWidth<=800;}
