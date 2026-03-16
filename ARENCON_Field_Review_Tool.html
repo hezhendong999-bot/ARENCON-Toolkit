@@ -10861,7 +10861,8 @@ function signOutSession() {
   localStorage.removeItem('sb-refresh-token');
   localStorage.removeItem('sb-user-name');
   localStorage.removeItem('sb-user-email');
-  // Stop CloudSync auto-save
+  // Stop CloudSync auto-save and heartbeat
+  if(window._syncHeartbeatTimer){clearInterval(window._syncHeartbeatTimer);window._syncHeartbeatTimer=null;}
   if (typeof CloudSync !== 'undefined' && CloudSync.isInitialized) {
     try { CloudSync.stopAutoSave(); CloudSync.destroy(); } catch(e) {}
   }
@@ -11206,6 +11207,12 @@ function _initCloudSync(){
     }
     // Start auto-save to cloud (15s)
     CloudSync.startAutoSave(function(){return _collectFullState();},5000);
+    // ── Sync heartbeat — checks cloud every 60s ──
+    // If another device saved while this one is open, silently apply the update.
+    if(window._syncHeartbeatTimer)clearInterval(window._syncHeartbeatTimer);
+    window._syncHeartbeatTimer=setInterval(function(){
+      _syncHeartbeat();
+    },60000);
     // Proactive token refresh so R2 photo loads don't 401 immediately
     _refreshR2Token().catch(function(){});
     // Initialize R2 photo uploads
@@ -11217,6 +11224,70 @@ function _initCloudSync(){
     console.error('CloudSync init error:',e);
     toast('Cloud sync failed — working in local mode',3000);
   });
+}
+
+// ── Sync heartbeat — runs every 60s while project is open ──
+// Checks if cloud is newer than local; if so, silently applies the update.
+// Handles the case where device A saves while device B already has the project open.
+async function _syncHeartbeat(){
+  if(!_csHubMode||!_csProjectId||typeof CloudSync==='undefined'||!CloudSync.isInitialized)return;
+  if(!navigator.onLine)return;
+  try{
+    var row=await CloudSync.load();
+    if(!row||!row.row)return;
+    var cloudUpdatedAt=row.row.updated_at;
+    var cloudData=row.row.data;
+    if(!cloudUpdatedAt||!cloudData)return;
+    var p=getProject();if(!p)return;
+    var localSyncedAt=p._cloudSyncedAt?new Date(p._cloudSyncedAt).getTime():0;
+    var cloudTime=new Date(cloudUpdatedAt).getTime();
+    // Only apply if cloud is meaningfully newer (>5s gap avoids self-triggering)
+    if(cloudTime>localSyncedAt+5000){
+      console.log('[Heartbeat] Cloud is newer — applying update silently');
+      // Apply drawings metadata
+      if(cloudData.drawings&&cloudData.drawings.length>0){
+        p.drawings=cloudData.drawings.map(function(d){
+          var existing=(p.drawings||[]).find(function(x){return x.id===d.id;});
+          return {id:d.id,name:d.name,width:d.width||0,height:d.height||0,
+                  isOriginal:d.isOriginal||false,folder:d.folder||'',
+                  r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
+                  heights:d.heights||null,markupObjects:d.markupObjects||null,
+                  dataUrl:existing?existing.dataUrl:null,
+                  thumb:existing?existing.thumb:null};
+        });
+      }
+      if(cloudData.contractors)p.contractors=cloudData.contractors;
+      if(cloudData.generalDeficiencies)p.generalDeficiencies=cloudData.generalDeficiencies;
+      if(typeof cloudData.nextDeficNum!=='undefined')p.nextDeficNum=cloudData.nextDeficNum;
+      if(cloudData._folders)p._folders=cloudData._folders;
+      if(cloudData.sitePhotos){
+        p.sitePhotos=cloudData.sitePhotos.map(function(ph){
+          var existing=(p.sitePhotos||[]).find(function(x){return x.id===ph.id;});
+          return {id:ph.id||'sp_'+Math.random().toString(36).substr(2,8),
+                  caption:ph.caption||'',timestamp:ph.timestamp||ph.date||'',
+                  r2Key:ph.r2Key||'',r2Status:ph.r2Status||'',r2Url:ph.r2Url||'',
+                  dataUrl:existing?existing.dataUrl:null};
+        });
+      }
+      if(cloudData.info)p.info=Object.assign(p.info||{},cloudData.info);
+      p._cloudSyncedAt=cloudUpdatedAt;
+      // Save to IDB and refresh view
+      ADB.saveFullProject(p).catch(function(){});
+      refreshCurrentView&&refreshCurrentView();
+      renderDeficiencyPanel&&renderDeficiencyPanel();
+      // Brief indicator on cloud dot
+      var dot=document.getElementById('cloud-dot');
+      if(dot){
+        var prev=dot.style.background;
+        dot.style.background='#60A5FA';
+        dot.title='Synced from another device';
+        setTimeout(function(){dot.style.background=prev;dot.title='Saved to cloud';},2000);
+      }
+    }
+  }catch(e){
+    // Silent fail — heartbeat is best-effort, not critical
+    console.warn('[Heartbeat] Sync check failed:',e.message);
+  }
 }
 
 function _isMobileHeader(){return window.innerWidth<=800;}
