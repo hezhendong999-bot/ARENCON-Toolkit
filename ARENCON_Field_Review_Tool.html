@@ -1689,6 +1689,19 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   </div>
   <div id="dv-tool-tooltip" style="display:none;position:fixed;background:rgba(30,32,40,.92);color:#fff;font-size:11px;font-family:Calibri,sans-serif;padding:4px 10px;border-radius:6px;pointer-events:none;z-index:9999;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);"></div>
   <div class="dv-main">
+    <div class="dv-canvas-area" id="dv-canvas-area">
+      <div class="dv-img-wrap" id="dv-img-wrap">
+        <img id="dv-image" src="" draggable="false" style="user-select:none;-webkit-user-drag:none;display:block;">
+        <canvas class="markup-canvas" id="markup-canvas"></canvas>
+        <div id="dv-pins-layer"></div>
+      </div>
+      <div class="zoom-controls">
+        <button onclick="zoomIn()">+</button>
+        <button onclick="zoomOut()">−</button>
+        <button onclick="fitDrawing()" style="font-size:12px;">⊡</button>
+      </div>
+    </div>
+    <!-- TOOL SIDEBAR - BOTTOM ON MOBILE -->
     <!-- ALWAYS-ON TOOLBAR — LEFT SIDEBAR -->
     <div class="dv-sidebar-tools" id="dv-sidebar-tools">
       <!-- PIN -->
@@ -1794,18 +1807,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       </button>
     </div>
     <!-- DRAWING CANVAS -->
-    <div class="dv-canvas-area" id="dv-canvas-area">
-      <div class="dv-img-wrap" id="dv-img-wrap">
-        <img id="dv-image" src="" draggable="false" style="user-select:none;-webkit-user-drag:none;display:block;">
-        <canvas class="markup-canvas" id="markup-canvas"></canvas>
-        <div id="dv-pins-layer"></div>
-      </div>
-      <div class="zoom-controls">
-        <button onclick="zoomIn()">+</button>
-        <button onclick="zoomOut()">−</button>
-        <button onclick="fitDrawing()" style="font-size:12px;">⊡</button>
-      </div>
-    </div>
+
     <!-- RIGHT TASKS PANEL -->
     <div class="dv-tasks-panel" id="dv-tasks-panel">
       <div class="dv-tasks-header">
@@ -11885,11 +11887,7 @@ function _initCloudSync(){
     var localModified=p&&p._localModifiedAt?new Date(p._localModifiedAt).getTime():0;
     var localCurrent=Math.max(localSyncedAt,localModified);
     var cloudTime=cloudUpdatedAt?new Date(cloudUpdatedAt).getTime():0;
-    // Never apply cloud state if local has more drawings (means local has new uploads not yet synced)
-    var localDrawingCount=(p&&p.drawings)?p.drawings.length:0;
-    var cloudDrawingCount=(cloudData&&cloudData.drawings)?cloudData.drawings.length:0;
-    var localHasMoreDrawings=localDrawingCount>cloudDrawingCount;
-    var cloudIsNewer=cloudTime>0&&cloudTime>(localCurrent+3000)&&!localHasMoreDrawings;// 3s grace
+    var cloudIsNewer=cloudTime>0&&cloudTime>(localCurrent+3000);// 3s grace
 
     if(cloudIsNewer&&cloudData&&typeof cloudData==='object'){
       console.log('[CloudSync] Cloud is newer (cloud:'+cloudUpdatedAt+' local:'+p._cloudSyncedAt+') — applying cloud state');
@@ -12001,9 +11999,7 @@ async function _syncHeartbeat(){
     var localCurrent=Math.max(localSyncedAt,localModified);
     var cloudTime=new Date(cloudUpdatedAt).getTime();
     // Only apply if cloud is meaningfully newer (>8s gap to avoid overwriting recent local edits)
-    var _localDwgCount=(p&&p.drawings)?p.drawings.length:0;
-    var _cloudDwgCount=(cloudData&&cloudData.drawings)?cloudData.drawings.length:0;
-    if(cloudTime>localCurrent+5000&&_cloudDwgCount>=_localDwgCount){
+    if(cloudTime>localCurrent+5000){
       console.log('[Heartbeat] Cloud is newer — applying update silently');
       // Apply drawings metadata
       if(cloudData.drawings&&cloudData.drawings.length>0){
