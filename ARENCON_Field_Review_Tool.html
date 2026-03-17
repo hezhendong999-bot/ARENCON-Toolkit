@@ -4645,6 +4645,7 @@ function _handlePDFUploadCore(file){
   var reader=new FileReader();
   reader.onload=function(e){
     var arrayBuf=e.target.result;
+    var pdfBufCopy=arrayBuf.slice(0);// clone before PDF.js detaches the original
     var ta=new Uint8Array(arrayBuf);
     var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
     pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
@@ -4683,7 +4684,7 @@ function _handlePDFUploadCore(file){
                 };
                 p.drawings.push(newDwg);
                 // Save raw PDF to pdfData IDB store (keyed by drawing id)
-                ADB.savePdfData(newDwg.id,arrayBuf).then(function(){
+                ADB.savePdfData(newDwg.id,pdfBufCopy).then(function(){
                   // Must call saveFullProject AFTER savePdfData so drawing metadata goes to IDB
                   saveToLS();
                   done++;
@@ -4972,6 +4973,7 @@ function _handlePDFUploadToFolderCore(file,folder){
   var reader=new FileReader();
   reader.onload=function(e){
     var arrayBuf=e.target.result;
+    var pdfBufCopy=arrayBuf.slice(0);// clone before PDF.js detaches the original
     var ta=new Uint8Array(arrayBuf);
     var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
     pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
@@ -5008,7 +5010,7 @@ function _handlePDFUploadToFolderCore(file,folder){
                   r2Key:'',r2Status:'',r2Url:''
                 };
                 p.drawings.push(newDwg2);
-                ADB.savePdfData(newDwg2.id,arrayBuf).then(function(){
+                ADB.savePdfData(newDwg2.id,pdfBufCopy).then(function(){
                   saveToLS();
                   done++;
                   showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
