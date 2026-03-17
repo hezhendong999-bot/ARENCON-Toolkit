@@ -6927,17 +6927,9 @@ function loadMarkupData(){
     _mkObjects=JSON.parse(JSON.stringify(dwg.markupObjects));
     _mkObjects.forEach(function(o){if(!o.id)o.id=_mkNewId();});
   } else if(dwg&&dwg.r2Url&&_csHubMode&&(!dwg.markupObjects||!dwg.markupObjects.length)&&!dwg.markupCleared){
-    // R2 Phase 4: no local markup — try fetching from R2 (skip if explicitly cleared)
+    // R2 markup restore disabled — was overwriting local deletions
     _mkObjects=[];
-    _r2LoadMarkup(dwg).then(function(objs){
-      if(objs&&objs.length){
-        dwg.markupObjects=objs;
-        _mkObjects=JSON.parse(JSON.stringify(objs));
-        _mkObjects.forEach(function(o){if(!o.id)o.id=_mkNewId();});
-        renderAllMarkup();
-        toast('Markup loaded from cloud ✓');
-      }
-    }).catch(function(){});
+    renderAllMarkup();
   } else if(dwg&&dwg.markupData){
     // V1 MIGRATION: load old pixel-based markup as a single background image
     // We can't decompose pixels back into objects, so we load the bitmap as-is
