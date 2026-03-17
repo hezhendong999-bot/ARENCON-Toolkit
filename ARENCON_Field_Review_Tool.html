@@ -677,7 +677,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 
 /* ═══ ALWAYS-ON SIDEBAR TOOLBAR ═══ */
 .dv-sidebar-tools{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:#1e2028;border-right:1px solid #3a3e48;width:56px;flex-shrink:0;overflow-y:auto;overflow-x:visible;z-index:20;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-@media(max-width:900px){.dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:56px!important;flex-direction:row!important;align-items:center!important;overflow-x:auto!important;overflow-y:hidden!important;padding:4px 8px!important;gap:4px!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:pan-x!important;z-index:500!important;}}
+@media(max-width:900px){.dv-sidebar-tools{position:absolute!important;bottom:0!important;left:0!important;right:0!important;width:100%!important;height:56px!important;flex-direction:row!important;align-items:center!important;overflow-x:auto!important;overflow-y:hidden!important;padding:4px 8px!important;gap:4px!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:pan-x!important;z-index:500!important;}}
 .dv-sidebar-tools .tool-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#999;border-radius:8px;cursor:pointer;transition:background .15s,color .15s;padding:0;}
 .dv-sidebar-tools .tool-btn:hover{background:#2d3040;color:#ddd;}
 .dv-sidebar-tools .tool-btn.active{background:var(--red);color:white;}
@@ -719,7 +719,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .dv-sidebar-tools .tool-btn{width:44px;height:44px;flex-shrink:0;border-radius:10px;}
   .dv-sidebar-tools .tool-colors{flex-direction:row;}
   .dv-mobile-tools{display:none!important;}
-  .dv-main{flex-direction:row;flex:1;min-height:0;}
+  .dv-main{flex-direction:row;flex:1;min-height:0;margin-bottom:56px;}
   .dv-tasks-panel{width:100%;max-height:160px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;}
   .dv-canvas-area{order:1;flex:1;min-height:0;}
   .dv-toolbar{padding:6px 10px;flex-wrap:wrap;gap:6px;}
@@ -11885,7 +11885,11 @@ function _initCloudSync(){
     var localModified=p&&p._localModifiedAt?new Date(p._localModifiedAt).getTime():0;
     var localCurrent=Math.max(localSyncedAt,localModified);
     var cloudTime=cloudUpdatedAt?new Date(cloudUpdatedAt).getTime():0;
-    var cloudIsNewer=cloudTime>0&&cloudTime>(localCurrent+3000);// 3s grace to avoid self-trigger
+    // Never apply cloud state if local has more drawings (means local has new uploads not yet synced)
+    var localDrawingCount=(p&&p.drawings)?p.drawings.length:0;
+    var cloudDrawingCount=(cloudData&&cloudData.drawings)?cloudData.drawings.length:0;
+    var localHasMoreDrawings=localDrawingCount>cloudDrawingCount;
+    var cloudIsNewer=cloudTime>0&&cloudTime>(localCurrent+3000)&&!localHasMoreDrawings;// 3s grace
 
     if(cloudIsNewer&&cloudData&&typeof cloudData==='object'){
       console.log('[CloudSync] Cloud is newer (cloud:'+cloudUpdatedAt+' local:'+p._cloudSyncedAt+') — applying cloud state');
@@ -11997,7 +12001,9 @@ async function _syncHeartbeat(){
     var localCurrent=Math.max(localSyncedAt,localModified);
     var cloudTime=new Date(cloudUpdatedAt).getTime();
     // Only apply if cloud is meaningfully newer (>8s gap to avoid overwriting recent local edits)
-    if(cloudTime>localCurrent+5000){
+    var _localDwgCount=(p&&p.drawings)?p.drawings.length:0;
+    var _cloudDwgCount=(cloudData&&cloudData.drawings)?cloudData.drawings.length:0;
+    if(cloudTime>localCurrent+5000&&_cloudDwgCount>=_localDwgCount){
       console.log('[Heartbeat] Cloud is newer — applying update silently');
       // Apply drawings metadata
       if(cloudData.drawings&&cloudData.drawings.length>0){
