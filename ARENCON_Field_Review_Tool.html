@@ -2133,6 +2133,8 @@ ADB.saveDrawing=function(drawing,projectId){
     rec.dataBlob=ADB.dataUrlToBlob(drawing.dataUrl);
   } else if(drawing.dataBlob){
     rec.dataBlob=drawing.dataBlob;
+  } else if(drawing.pdfBlob){
+    rec.dataBlob=drawing.pdfBlob;// tiled PDF stored as blob in same store
   }
   if(drawing.markupData)rec.markupBlob=ADB.dataUrlToBlob(drawing.markupData);
   else if(drawing.markupBlob)rec.markupBlob=drawing.markupBlob;
@@ -2200,7 +2202,7 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
     });
     // Store raw blobs keyed by drawing id for lazy load in viewer
     var _drawingBlobCache={};
-    drawings.forEach(function(d){if(d.dataBlob&&d.dataBlob.size>0)_drawingBlobCache[d.id]=d.dataBlob;});
+    drawings.forEach(function(d){if(d.dataBlob&&d.dataBlob.size>0){_drawingBlobCache[d.id]=d.dataBlob;}});
     if(Object.keys(_drawingBlobCache).length)ADB._drawingBlobCache=ADB._drawingBlobCache||{};
     Object.assign(ADB._drawingBlobCache||{},_drawingBlobCache);
     ADB._drawingBlobCache=Object.assign(ADB._drawingBlobCache||{},_drawingBlobCache);
@@ -4674,30 +4676,22 @@ function _handlePDFUploadCore(file){
                 pageName=getUniqueDrawingName(pageName,p);
                 var fullW=Math.round(pw*2.0);
                 var fullH=Math.round(ph*2.0);
+                var pdfBlob=new Blob([pdfBufCopy],{type:'application/pdf'});
                 var newDwg={
                   id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
                   name:pageName,dataUrl:null,thumb:thumbDu,
                   width:fullW,height:fullH,
                   pdfTiled:true,pdfPage:pg,
+                  pdfBlob:pdfBlob,// stored in drawings IDB via saveDrawing
                   isOriginal:false,folder:bn,
                   r2Key:'',r2Status:'',r2Url:''
                 };
                 p.drawings.push(newDwg);
-                // Save raw PDF to pdfData IDB store (keyed by drawing id)
-                ADB.savePdfData(newDwg.id,pdfBufCopy).then(function(){
-                  // Must call saveFullProject AFTER savePdfData so drawing metadata goes to IDB
-                  saveToLS();
-                  done++;
-                  showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
-                  if(pg<total){go(pg+1);}
-                  else{renderDrawingGallery();hideDrawingLoading();}
-                }).catch(function(pdfErr){
-                  console.warn('pdfData save error',pdfErr);
-                  saveToLS();
-                  done++;
-                  if(pg<total){go(pg+1);}
-                  else{renderDrawingGallery();hideDrawingLoading();}
-                });
+                saveToLS();
+                done++;
+                showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
+                if(pg<total){go(pg+1);}
+                else{renderDrawingGallery();hideDrawingLoading();}
                 if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
               }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
             },0);
@@ -5001,28 +4995,22 @@ function _handlePDFUploadToFolderCore(file,folder){
                 pageName=getUniqueDrawingName(pageName,p);
                 var fullW=Math.round(pw*2.0);
                 var fullH=Math.round(ph*2.0);
+                var pdfBlob2=new Blob([pdfBufCopy],{type:'application/pdf'});
                 var newDwg2={
                   id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
                   name:pageName,dataUrl:null,thumb:thumbDu,
                   width:fullW,height:fullH,
                   pdfTiled:true,pdfPage:pg,
+                  pdfBlob:pdfBlob2,
                   isOriginal:false,folder:folder,
                   r2Key:'',r2Status:'',r2Url:''
                 };
                 p.drawings.push(newDwg2);
-                ADB.savePdfData(newDwg2.id,pdfBufCopy).then(function(){
-                  saveToLS();
-                  done++;
-                  showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
-                  if(pg<total){go(pg+1);}
-                  else{renderDrawingGallery();hideDrawingLoading();}
-                }).catch(function(pdfErr){
-                  console.warn('pdfData save error',pdfErr);
-                  saveToLS();
-                  done++;
-                  if(pg<total){go(pg+1);}
-                  else{renderDrawingGallery();hideDrawingLoading();}
-                });
+                saveToLS();
+                done++;
+                showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
+                if(pg<total){go(pg+1);}
+                else{renderDrawingGallery();hideDrawingLoading();}
                 if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
               }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
             },0);
@@ -5268,33 +5256,19 @@ async function _openTiledPDF(drawingId,pageNum){
   _tileState.tiles={};_tileState.tileCount=0;_tileState.tileOrder=[];
   _tileState.pdfDoc=null;_tileState.page=null;
 
-  var rec=await ADB.getPdfData(drawingId).catch(function(){return null;});
-  if(!rec||!rec.buf){
-    // No local PDF — try fetching from R2 if we have a URL
-    var p=getProject();
-    var d=p&&p.drawings.find(function(x){return x.id===drawingId;});
-    if(d&&d.r2Url){
-      showDrawingLoading('Downloading drawing from cloud\u2026');
-      var token=localStorage.getItem('sb-access-token');
-      var headers=token?{'Authorization':'Bearer '+token}:{};
-      try{
-        var res=await fetch(d.r2Url,{headers:headers});
-        if(!res.ok)throw new Error('HTTP '+res.status);
-        var buf=await res.arrayBuffer();
-        // Cache locally for future opens
-        await ADB.savePdfData(drawingId,buf).catch(function(){});
-        rec={buf:buf};
-      }catch(fetchErr){
-        hideDrawingLoading();
-        toast('Could not download drawing from cloud: '+fetchErr.message);
-        return;
-      }
-    } else {
-      hideDrawingLoading();
-      toast('Drawing data not found locally or in cloud — please re-upload');
-      return;
-    }
+  // Load PDF from drawings IDB store (same proven store as PNG blobs)
+  var _p=getProject();
+  var _d=_p&&_p.drawings.find(function(x){return x.id===drawingId;});
+  var pdfArrayBuf=null;
+  if(_d&&_d.pdfBlob){try{pdfArrayBuf=await _d.pdfBlob.arrayBuffer();}catch(e){}}
+  if(!pdfArrayBuf){try{var _ir=await ADB.get('drawings',drawingId);if(_ir&&_ir.dataBlob)pdfArrayBuf=await _ir.dataBlob.arrayBuffer();}catch(e){}}
+  if(!pdfArrayBuf&&_d&&_d.r2Url){
+    showDrawingLoading('Downloading from cloud…');
+    try{var _tok=localStorage.getItem('sb-access-token');var _hdrs=_tok?{'Authorization':'Bearer '+_tok}:{};var _res=await fetch(_d.r2Url,{headers:_hdrs});if(!_res.ok)throw new Error('HTTP '+_res.status);pdfArrayBuf=await _res.arrayBuffer();}
+    catch(fe){hideDrawingLoading();toast('Could not download: '+fe.message);return;}
   }
+  if(!pdfArrayBuf){hideDrawingLoading();toast('Drawing not found — please re-upload');return;}
+  var rec={buf:pdfArrayBuf};
 
   ensurePdfJs(async function(){
     try{
