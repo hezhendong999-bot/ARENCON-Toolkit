@@ -2095,7 +2095,7 @@ ADB.deletePdfData=function(drawingId){
 // ═══ HIGH-LEVEL PROJECT OPERATIONS ═══
 ADB.saveProject=function(proj){
   var meta=JSON.parse(JSON.stringify(proj));
-  meta.drawings=(meta.drawings||[]).map(function(d){return{id:d.id,name:d.name,width:d.width,height:d.height,isOriginal:d.isOriginal,folder:d.folder||'',r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',heights:d.heights||null,markupObjects:d.markupObjects||null};});
+  meta.drawings=(meta.drawings||[]).map(function(d){return{id:d.id,name:d.name,width:d.width,height:d.height,isOriginal:d.isOriginal,folder:d.folder||'',r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',heights:d.heights||null,markupObjects:d.markupObjects||null,pdfTiled:d.pdfTiled||false,pdfPage:d.pdfPage||1,thumb:d.thumb||null};});
   // Defic photos: keep records (id, r2Key, r2Status, r2Url) but strip dataUrl blobs
   function _stripDeficPhotoBlobs(d){
     if(d.photos)d.photos=d.photos.map(function(ph){
@@ -2123,7 +2123,7 @@ ADB.saveProject=function(proj){
 };
 
 ADB.saveDrawing=function(drawing,projectId){
-  var rec={id:drawing.id,projectId:projectId,name:drawing.name,width:drawing.width||0,height:drawing.height||0,isOriginal:drawing.isOriginal||false,folder:drawing.folder||''};
+  var rec={id:drawing.id,projectId:projectId,name:drawing.name,width:drawing.width||0,height:drawing.height||0,isOriginal:drawing.isOriginal||false,folder:drawing.folder||'',pdfTiled:drawing.pdfTiled||false,pdfPage:drawing.pdfPage||1,thumb:drawing.thumb||null};
   // ALWAYS save blob locally — R2 is additive backup, not a replacement.
   // Local IDB copy is the safety net if R2 files are ever lost.
   if(drawing.dataUrl){
@@ -2269,7 +2269,7 @@ ADB.saveFullProject=function(proj){
   (proj.drawings||[]).forEach(function(d){
     if(d&&d.id){
       drawingIds.push(d.id);
-      if(d.dataUrl||d.dataBlob||d.r2Url){promises.push(ADB.saveDrawing(d,pid));}
+      if(d.dataUrl||d.dataBlob||d.r2Url||d.pdfTiled){promises.push(ADB.saveDrawing(d,pid));}
     }
   });
   // Clean stale drawings from IDB that are no longer in project
@@ -4641,48 +4641,58 @@ function _handlePDFUploadCore(file){
   reader.onload=function(e){
     var arrayBuf=e.target.result;
     var ta=new Uint8Array(arrayBuf);
-    var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF processing timed out.');},120000);
+    var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
     pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
       clearTimeout(pdfTimeout);
       var bn=file.name.replace(/\.pdf$/i,'');
       var total=pdf.numPages;
       var done=0;
       showDrawingLoading('Processing PDF: 0/'+total+'...');
-      // Recursive go() — render low-res thumb only, store raw PDF for tiled rendering
       function go(pg){
         pdf.getPage(pg).then(function(page){
-          // Render small thumbnail only (200px wide) — not the full drawing
-          var pv=page.view; // [x,y,w,h] in PDF points
+          var pv=page.view;
           var pw=pv[2],ph=pv[3];
-          var thumbScale=Math.min(200/pw, 200/ph, 1.0);
+          // Thumb only: 300px wide max, JPEG for small size
+          var thumbScale=Math.min(1.0,300/pw,300/ph);
           var vp=page.getViewport({scale:thumbScale});
           var tc=document.createElement('canvas');
-          tc.width=Math.round(vp.width);tc.height=Math.round(vp.height);
+          tc.width=Math.round(vp.width);
+          tc.height=Math.round(vp.height);
           page.render({canvasContext:tc.getContext('2d'),viewport:vp}).promise.then(function(){
             setTimeout(function(){
               try{
-                var thumbDu=tc.toDataURL('image/jpeg',0.75);
+                var thumbDu=tc.toDataURL('image/jpeg',0.70);
                 tc.width=1;tc.height=1;
                 var p=getProject();if(!p)return;
                 var pageName=total>1?bn+' - Page '+pg:bn;
                 pageName=getUniqueDrawingName(pageName,p);
-                // Store drawing metadata — NO dataUrl, flag as tiled PDF
-                var fullW=Math.round(pw*2.0),fullH=Math.round(ph*2.0); // logical pixel size at 2x
+                var fullW=Math.round(pw*2.0);
+                var fullH=Math.round(ph*2.0);
                 var newDwg={
                   id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
                   name:pageName,dataUrl:null,thumb:thumbDu,
                   width:fullW,height:fullH,
-                  pdfPage:pg,pdfTiled:true, // tiled rendering flag
-                  isOriginal:false,folder:bn,r2Key:'',r2Status:'',r2Url:''
+                  pdfTiled:true,pdfPage:pg,
+                  isOriginal:false,folder:bn,
+                  r2Key:'',r2Status:'',r2Url:''
                 };
                 p.drawings.push(newDwg);
-                // Save raw PDF ArrayBuffer to IDB pdfData store (shared across all pages of same file)
-                ADB.savePdfData(newDwg.id,arrayBuf).catch(function(e){console.warn('pdfData save err',e);});
+                // Save raw PDF to pdfData IDB store (keyed by drawing id)
+                ADB.savePdfData(newDwg.id,arrayBuf).then(function(){
+                  // Must call saveFullProject AFTER savePdfData so drawing metadata goes to IDB
+                  saveToLS();
+                  done++;
+                  showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
+                  if(pg<total){go(pg+1);}
+                  else{renderDrawingGallery();hideDrawingLoading();}
+                }).catch(function(pdfErr){
+                  console.warn('pdfData save error',pdfErr);
+                  saveToLS();
+                  done++;
+                  if(pg<total){go(pg+1);}
+                  else{renderDrawingGallery();hideDrawingLoading();}
+                });
                 if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
-                done++;
-                showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
-                if(pg<total){saveToLS();go(pg+1);}
-                else{saveToLS();renderDrawingGallery();hideDrawingLoading();}
               }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
             },0);
           });
@@ -4958,40 +4968,55 @@ function _handlePDFUploadToFolderCore(file,folder){
   reader.onload=function(e){
     var arrayBuf=e.target.result;
     var ta=new Uint8Array(arrayBuf);
-    var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF processing timed out.');},120000);
+    var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
     pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
       clearTimeout(pdfTimeout2);
       var bn=file.name.replace(/\.pdf$/i,'');
-      var total=pdf.numPages;var done=0;
+      var total=pdf.numPages;
+      var done=0;
       showDrawingLoading('Processing PDF: 0/'+total+'...');
       function go(pg){
         pdf.getPage(pg).then(function(page){
-          var pv=page.view;var pw=pv[2],ph=pv[3];
-          var thumbScale=Math.min(200/pw,200/ph,1.0);
+          var pv=page.view;
+          var pw=pv[2],ph=pv[3];
+          var thumbScale=Math.min(1.0,300/pw,300/ph);
           var vp=page.getViewport({scale:thumbScale});
           var tc=document.createElement('canvas');
-          tc.width=Math.round(vp.width);tc.height=Math.round(vp.height);
+          tc.width=Math.round(vp.width);
+          tc.height=Math.round(vp.height);
           page.render({canvasContext:tc.getContext('2d'),viewport:vp}).promise.then(function(){
             setTimeout(function(){
               try{
-                var thumbDu=tc.toDataURL('image/jpeg',0.75);
+                var thumbDu=tc.toDataURL('image/jpeg',0.70);
                 tc.width=1;tc.height=1;
                 var p=getProject();if(!p)return;
                 var pageName=total>1?bn+' - Page '+pg:bn;
                 pageName=getUniqueDrawingName(pageName,p);
-                var fullW=Math.round(pw*2.0),fullH=Math.round(ph*2.0);
+                var fullW=Math.round(pw*2.0);
+                var fullH=Math.round(ph*2.0);
                 var newDwg2={
                   id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
                   name:pageName,dataUrl:null,thumb:thumbDu,
-                  width:fullW,height:fullH,pdfPage:pg,pdfTiled:true,
-                  isOriginal:false,folder:folder,r2Key:'',r2Status:'',r2Url:''
+                  width:fullW,height:fullH,
+                  pdfTiled:true,pdfPage:pg,
+                  isOriginal:false,folder:folder,
+                  r2Key:'',r2Status:'',r2Url:''
                 };
                 p.drawings.push(newDwg2);
-                ADB.savePdfData(newDwg2.id,arrayBuf).catch(function(e){console.warn('pdfData save err',e);});
+                ADB.savePdfData(newDwg2.id,arrayBuf).then(function(){
+                  saveToLS();
+                  done++;
+                  showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
+                  if(pg<total){go(pg+1);}
+                  else{renderDrawingGallery();hideDrawingLoading();}
+                }).catch(function(pdfErr){
+                  console.warn('pdfData save error',pdfErr);
+                  saveToLS();
+                  done++;
+                  if(pg<total){go(pg+1);}
+                  else{renderDrawingGallery();hideDrawingLoading();}
+                });
                 if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
-                done++;showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
-                if(pg<total){saveToLS();go(pg+1);}
-                else{saveToLS();renderDrawingGallery();hideDrawingLoading();}
               }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
             },0);
           });
@@ -5156,10 +5181,10 @@ function _tiledRenderVisible(){
   var maxTx=Math.ceil(drawW/tileS);
   var maxTy=Math.ceil(drawH/tileS);
 
-  // Render scale for PDF.js: drawing pixels → PDF points → canvas pixels
-  // We render tiles at 2x for crispness
-  var renderScale=_tileState.baseScale*2;
-  var zKey=Math.round(renderScale*10); // quantise to avoid too many zoom levels
+  // Render scale: match current zoom so tiles are crisp at current zoom level
+  // Cap at 3x to prevent OOM on high zoom
+  var renderScale=Math.min(3.0, Math.max(1.0, dvState.scale||1) * _tileState.baseScale);
+  var zKey=Math.round(renderScale*4)*10; // quantise: 0.25 zoom steps to limit tile variations
 
   for(var tx=txMin;tx<=Math.min(txMax,maxTx-1);tx++){
     for(var ty=tyMin;ty<=Math.min(tyMax,maxTy-1);ty++){
@@ -5190,7 +5215,7 @@ function _tiledRenderVisible(){
         var ctx=tc.getContext('2d');
         page.render({canvasContext:ctx,viewport:tileVP,transform:[1,0,0,1,-x0*renderScale,-y0*renderScale]})
           .promise.then(function(){
-            if(_tileState.drawingId!==_tileState.drawingId)return; // drawing changed
+            if(_tileState.drawingId!==drawingId)return; // drawing changed since render started
             _tileState.tiles[key2]=tc;
             _tileState.tileOrder.push(key2);
             _tileState.tileCount++;
@@ -5327,9 +5352,24 @@ function openDrawingViewer(drawingId){
     dvState.pinMode=false;
     document.getElementById('dv-canvas-area').classList.remove('pin-mode');
     document.getElementById('drawing-viewer').classList.add('open');
+    // Force mobile sidebar layout via JS (bypasses CSS cascade issues on iOS PWA)
+    (function(){
+      var sb=document.getElementById('dv-sidebar-tools');
+      if(!sb)return;
+      var isMobile=window.innerWidth<=800||window.innerHeight<=800;
+      if(isMobile){
+        sb.style.cssText='display:flex!important;flex-direction:row!important;width:100%!important;height:52px!important;overflow-x:auto!important;overflow-y:hidden!important;order:2!important;border-right:none!important;touch-action:pan-x!important;';
+        var main=document.querySelector('.dv-main');
+        if(main)main.style.flexDirection='column';
+      } else {
+        sb.style.cssText='';
+        var main2=document.querySelector('.dv-main');
+        if(main2)main2.style.flexDirection='';
+      }
+    })();
     // Close any previous tiled PDF session
     if(window._tiledActive)_closeTiledPDF();
-    // Tiled PDF path
+    // Tiled PDF path — draws from raw PDF stored in pdfData IDB store
     if(d.pdfTiled){
       showDrawingLoading('Opening drawing…');
       initPanZoom();
@@ -5376,10 +5416,10 @@ function openDrawingViewer(drawingId){
         hideDrawingLoading();
         if(rec&&rec.dataBlob){_openWithBlob(rec.dataBlob);}
         else if(d.dataUrl){_openWithSrc(d.dataUrl);}
-        else{toast('Drawing not found — please re-upload this drawing');}
+        else{toast('No data found for this drawing (hasBlob:'+d._hasLocalBlob+' r2:'+!!d.r2Url+') — please re-upload');}
       }).catch(function(e){
         hideDrawingLoading();
-        toast('Could not load drawing: '+e.message);
+        toast('IDB error: '+e.message);
       });
     } else {
       // Has dataUrl already (legacy) — use as-is but don't re-cache
@@ -5685,7 +5725,19 @@ function _dvToggleMoreMenu(e){
 function _dvCloseMoreMenu(){var m=document.getElementById('dv-more-menu');if(m)m.style.display='none';}
 // Auto-fit on orientation change
 window.addEventListener('orientationchange',function(){
-  setTimeout(function(){if(typeof fitDrawing==='function')fitDrawing();},300);
+  setTimeout(function(){
+    if(typeof fitDrawing==='function')fitDrawing();
+    var sb=document.getElementById('dv-sidebar-tools');
+    if(!sb||!document.getElementById('drawing-viewer').classList.contains('open'))return;
+    var isMobile=window.innerWidth<=800||window.innerHeight<=800;
+    if(isMobile){
+      sb.style.cssText='display:flex!important;flex-direction:row!important;width:100%!important;height:52px!important;overflow-x:auto!important;overflow-y:hidden!important;order:2!important;border-right:none!important;touch-action:pan-x!important;';
+      var main=document.querySelector('.dv-main');if(main)main.style.flexDirection='column';
+    } else {
+      sb.style.cssText='';
+      var main2=document.querySelector('.dv-main');if(main2)main2.style.flexDirection='';
+    }
+  },300);
 });
 window.addEventListener('resize',function(){
   if(document.getElementById('drawing-viewer')&&document.getElementById('drawing-viewer').classList.contains('open')){
