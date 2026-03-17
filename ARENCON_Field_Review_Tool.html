@@ -5021,51 +5021,53 @@ function openDrawingViewer(drawingId){
     document.getElementById('dv-canvas-area').classList.remove('pin-mode');
     document.getElementById('drawing-viewer').classList.add('open');
 
-    function _openWithSrc(src){
-      document.getElementById('dv-image').src=src;
-      document.getElementById('dv-image').onload=function(){
+    // Use blob URLs instead of dataUrls — keeps binary out of JS heap, prevents iOS OOM crash
+    function _openWithSrc(blobUrlOrDataUrl){
+      // Revoke previous blob URL if any
+      if(dvState._currentBlobUrl){URL.revokeObjectURL(dvState._currentBlobUrl);dvState._currentBlobUrl=null;}
+      var img=document.getElementById('dv-image');
+      img.src=blobUrlOrDataUrl;
+      img.onload=function(){
         fitDrawing();renderPinsOnDrawing();renderTasksPanel();resizeMarkupCanvas();initMarkupEvents();initSelectModeEvents();
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
       };
       initPanZoom();
     }
+    function _openWithBlob(blob){
+      var blobUrl=URL.createObjectURL(blob);
+      dvState._currentBlobUrl=blobUrl;
+      _openWithSrc(blobUrl);
+    }
 
     if(!d.dataUrl&&d.r2Url){
-      // R2 drawing — fetch with auth
+      // R2 drawing — fetch blob directly, never convert to dataUrl
       showDrawingLoading('Loading drawing…');
       var token=localStorage.getItem('sb-access-token');
       var headers=token?{'Authorization':'Bearer '+token}:{};
       fetch(d.r2Url,{headers:headers})
         .then(function(res){if(!res.ok)throw new Error(res.status);return res.blob();})
-        .then(function(blob){return ADB.blobToDataUrl(blob);})
-        .then(function(url){
-          d.dataUrl=url;// cache in memory for this session
-          hideDrawingLoading();
-          _openWithSrc(url);
-        })
+        .then(function(blob){hideDrawingLoading();_openWithBlob(blob);})
         .catch(function(err){hideDrawingLoading();alert('Could not load drawing from cloud: '+err.message);});
     } else if(!d.dataUrl&&d._hasLocalBlob&&ADB._drawingBlobCache&&ADB._drawingBlobCache[d.id]){
-      // Local-only drawing — blob was deferred, load now
+      // Local blob cached — use directly
       showDrawingLoading('Loading drawing…');
-      ADB.blobToDataUrl(ADB._drawingBlobCache[d.id]).then(function(url){
-        d.dataUrl=url;
+      hideDrawingLoading();
+      _openWithBlob(ADB._drawingBlobCache[d.id]);
+    } else if(!d.dataUrl){
+      // Read blob from IDB
+      showDrawingLoading('Loading drawing…');
+      ADB.get('drawings',d.id).then(function(rec){
         hideDrawingLoading();
-        _openWithSrc(url);
-      }).catch(function(){
-        // Fallback: read directly from IDB
-        ADB.get('drawings',d.id).then(function(rec){
-          return rec&&rec.dataBlob?ADB.blobToDataUrl(rec.dataBlob):Promise.resolve(null);
-        }).then(function(url){
-          hideDrawingLoading();
-          if(url){d.dataUrl=url;_openWithSrc(url);}
-          else alert('Drawing data not found.');
-        });
+        if(rec&&rec.dataBlob){_openWithBlob(rec.dataBlob);}
+        else if(d.dataUrl){_openWithSrc(d.dataUrl);}
+        else{alert('Drawing data not found.');}
       });
     } else {
-      _openWithSrc(d.dataUrl||'');
+      // Has dataUrl already (legacy) — use as-is but don't re-cache
+      _openWithSrc(d.dataUrl);
     }
   }catch(err){console.error('openDrawingViewer error:',err);alert('Drawing error: '+err.message);}
-}function closeDrawingViewer(){document.getElementById('drawing-viewer').classList.remove('open');dvState.currentDrawingId=null;dvState.selectedPinId=null;dvState.pinMode=false;mkState.tool=null;closePinPanel();closePinModal();}
+}function closeDrawingViewer(){document.getElementById('drawing-viewer').classList.remove('open');if(dvState._currentBlobUrl){URL.revokeObjectURL(dvState._currentBlobUrl);dvState._currentBlobUrl=null;}dvState.currentDrawingId=null;dvState.selectedPinId=null;dvState.pinMode=false;mkState.tool=null;closePinPanel();closePinModal();}
 function prevDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx-1+p.drawings.length)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
 function nextDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx+1)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
 
