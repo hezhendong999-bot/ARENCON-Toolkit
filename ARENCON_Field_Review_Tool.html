@@ -11909,15 +11909,13 @@ function _initCloudSync(){
         var cloudProj=cloudData;
         var localProj=allProjects[pid];
         // Apply drawings (metadata only — images load from R2 via r2Url)
+        var _prevLocal=(localProj.drawings||[]).slice();
         if(cloudProj.drawings)localProj.drawings=cloudProj.drawings.map(function(d){
-          // Preserve local dataUrl/thumb/pdfTiled flags — these are device-local
-          var existing=(localProj.drawings||[]).find(function(x){return x.id===d.id;});
+          var existing=_prevLocal.find(function(x){return x.id===d.id;});
           return {id:d.id,name:d.name,width:d.width||0,height:d.height||0,
                   isOriginal:d.isOriginal||false,folder:d.folder||'',
                   r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
                   heights:d.heights||null,
-                  // Always prefer local markupObjects — local edits must never be overwritten by cloud
-                  // Cloud markupCleared wins (another device deleted) — otherwise local wins
                   markupCleared:d.markupCleared||(existing?existing.markupCleared:false)||false,
                   markupObjects:(d.markupCleared||(existing&&existing.markupCleared))?[]:(existing?existing.markupObjects:d.markupObjects||null),
                   pdfTiled:d.pdfTiled||(existing?existing.pdfTiled:false)||false,
@@ -11925,11 +11923,8 @@ function _initCloudSync(){
                   dataUrl:existing?existing.dataUrl:null,
                   thumb:d.thumb||(existing?existing.thumb:null)};
         });
-        // Add local drawings that don't exist in cloud yet (e.g. just uploaded, not synced)
-        var cloudDrawingIds=(cloudProj.drawings||[]).map(function(d){return d.id;});
-        (localProj.drawings||[]).forEach(function(ld){
-          if(cloudDrawingIds.indexOf(ld.id)<0)localProj.drawings.push(ld);
-        });
+        var _cloudIds=(cloudProj.drawings||[]).map(function(d){return d.id;});
+        _prevLocal.forEach(function(ld){if(_cloudIds.indexOf(ld.id)<0)localProj.drawings.push(ld);});
         // Apply project structure
         if(cloudProj.contractors)localProj.contractors=cloudProj.contractors;
         if(cloudProj.generalDeficiencies)localProj.generalDeficiencies=cloudProj.generalDeficiencies;
