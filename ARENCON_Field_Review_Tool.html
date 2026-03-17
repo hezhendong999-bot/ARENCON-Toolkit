@@ -5399,11 +5399,13 @@ function openDrawingViewer(drawingId){
 
     // Use blob URLs instead of dataUrls — keeps binary out of JS heap, prevents iOS OOM crash
     function _openWithSrc(blobUrlOrDataUrl){
-      // Revoke previous blob URL if any
-      if(dvState._currentBlobUrl){URL.revokeObjectURL(dvState._currentBlobUrl);dvState._currentBlobUrl=null;}
+      var prevBlobUrl=dvState._currentBlobUrl; // save to revoke after load
+      dvState._currentBlobUrl=null;
       var img=document.getElementById('dv-image');
       img.src=blobUrlOrDataUrl;
       img.onload=function(){
+        // Safe to revoke previous URL now that new one is loaded
+        if(prevBlobUrl){URL.revokeObjectURL(prevBlobUrl);}
         fitDrawing();renderPinsOnDrawing();renderTasksPanel();resizeMarkupCanvas();initMarkupEvents();initSelectModeEvents();
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
       };
@@ -11866,14 +11868,16 @@ function _initCloudSync(){
         var localProj=allProjects[pid];
         // Apply drawings (metadata only — images load from R2 via r2Url)
         if(cloudProj.drawings)localProj.drawings=cloudProj.drawings.map(function(d){
-          // Preserve local dataUrl/thumb if they exist (device may have them cached)
+          // Preserve local dataUrl/thumb/pdfTiled flags — these are device-local
           var existing=(localProj.drawings||[]).find(function(x){return x.id===d.id;});
           return {id:d.id,name:d.name,width:d.width||0,height:d.height||0,
                   isOriginal:d.isOriginal||false,folder:d.folder||'',
                   r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
                   heights:d.heights||null,markupObjects:d.markupObjects||null,
+                  pdfTiled:d.pdfTiled||(existing?existing.pdfTiled:false)||false,
+                  pdfPage:d.pdfPage||(existing?existing.pdfPage:1)||1,
                   dataUrl:existing?existing.dataUrl:null,
-                  thumb:existing?existing.thumb:null};
+                  thumb:d.thumb||(existing?existing.thumb:null)};
         });
         // Apply project structure
         if(cloudProj.contractors)localProj.contractors=cloudProj.contractors;
@@ -11959,8 +11963,10 @@ async function _syncHeartbeat(){
                   isOriginal:d.isOriginal||false,folder:d.folder||'',
                   r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
                   heights:d.heights||null,markupObjects:d.markupObjects||null,
+                  pdfTiled:d.pdfTiled||(existing?existing.pdfTiled:false)||false,
+                  pdfPage:d.pdfPage||(existing?existing.pdfPage:1)||1,
                   dataUrl:existing?existing.dataUrl:null,
-                  thumb:existing?existing.thumb:null};
+                  thumb:d.thumb||(existing?existing.thumb:null)};
         });
       }
       if(cloudData.contractors)p.contractors=cloudData.contractors;
