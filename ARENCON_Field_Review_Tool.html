@@ -1985,7 +1985,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 <script>
 // ═══ ARENCON IndexedDB Storage Layer ═══
 
-var ADB={db:null,DB_NAME:'ARENCON_FieldReview',DB_VER:2,ready:false,_queue:[],folderHandle:null,autoSaveTimer:null,dirty:false};
+var ADB={db:null,DB_NAME:'ARENCON_FieldReview',DB_VER:3,ready:false,_queue:[],folderHandle:null,autoSaveTimer:null,dirty:false};
 
 ADB.open=function(){return new Promise(function(resolve,reject){
   if(ADB.db){resolve(ADB.db);return;}
@@ -1999,6 +1999,7 @@ ADB.open=function(){return new Promise(function(resolve,reject){
     if(!db.objectStoreNames.contains('config'))db.createObjectStore('config',{keyPath:'key'});
     if(!db.objectStoreNames.contains('backups'))db.createObjectStore('backups',{keyPath:'id'});
     if(!db.objectStoreNames.contains('pendingUploads')){var pu=db.createObjectStore('pendingUploads',{keyPath:'id'});pu.createIndex('projectId','projectId',{unique:false});}
+    if(!db.objectStoreNames.contains('pdfData'))db.createObjectStore('pdfData',{keyPath:'id'});
   };
   req.onsuccess=function(e){ADB.db=e.target.result;ADB.ready=true;resolve(ADB.db);};
   req.onerror=function(e){console.error('IDB open error',e);reject(e);};
@@ -2075,6 +2076,20 @@ ADB.blobToDataUrl=function(blob){return new Promise(function(resolve,reject){
   var r=new FileReader();r.onload=function(){resolve(r.result);};
   r.onerror=function(){reject(r.error);};r.readAsDataURL(blob);
 });};
+
+// ── PDF DATA STORE (tiled rendering) ──
+ADB.savePdfData=function(drawingId,arrayBuffer){
+  return ADB.put('pdfData',{id:drawingId,buf:arrayBuffer});
+};
+ADB.getPdfData=function(drawingId){
+  return ADB.get('pdfData',drawingId);
+};
+ADB.deletePdfData=function(drawingId){
+  return new Promise(function(resolve){
+    try{var tx=ADB._tx('pdfData','readwrite');tx.objectStore('pdfData').delete(drawingId);tx.oncomplete=resolve;tx.onerror=resolve;}
+    catch(e){resolve();}
+  });
+};
 
 // ═══ HIGH-LEVEL PROJECT OPERATIONS ═══
 ADB.saveProject=function(proj){
@@ -4619,26 +4634,63 @@ function handleImageDrawingUpload(f){
 }
 
 function handlePDFUpload(file){ensurePdfJs(function(){_handlePDFUploadCore(file);});}
-function _handlePDFUploadCore(file){var reader=new FileReader();reader.onload=function(e){var ta=new Uint8Array(e.target.result);
-  var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long to render (>2 min).\n\nThis usually means the PDF has very high resolution or many pages.\n\nTip: In Bluebeam or Acrobat, use Save As → Reduce File Size, then try again.\nOr export the sheet as a PNG/JPEG image instead.');},120000);
-  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale=Math.min(1.5,2400/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale});var c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise.then(function(){
-  setTimeout(function(){
-    try{
-      var du=c.toDataURL('image/png');
-      c.width=1;c.height=1;// release canvas memory
-      var p=getProject();if(!p)return;
-      var pageName=total>1?bn+' - Page '+pg:bn;
-      pageName=getUniqueDrawingName(pageName,p);
-      var folderName=bn;
-      // Push drawing immediately — thumbnail generated lazily by renderDrawingGallery backfill
-      var newDwg={id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),name:pageName,dataUrl:du,thumb:null,width:vp.width,height:vp.height,isOriginal:false,folder:folderName,r2Key:'',r2Status:'',r2Url:''};
-      p.drawings.push(newDwg);
-      if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
-      done++;showDrawingLoading('Rendering PDF: '+done+'/'+total+'...');
-      if(pg<total){saveToLS();go(pg+1);}
-      else{saveToLS();renderDrawingGallery();hideDrawingLoading();}
-    }catch(encErr){hideDrawingLoading();alert('Error saving page '+pg+': '+encErr.message);}
-  },0);});});}go(1);}).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});};reader.readAsArrayBuffer(file);}
+function _handlePDFUploadCore(file){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var arrayBuf=e.target.result;
+    var ta=new Uint8Array(arrayBuf);
+    var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF processing timed out.');},120000);
+    pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
+      clearTimeout(pdfTimeout);
+      var bn=file.name.replace(/\.pdf$/i,'');
+      var total=pdf.numPages;
+      var done=0;
+      showDrawingLoading('Processing PDF: 0/'+total+'...');
+      // Recursive go() — render low-res thumb only, store raw PDF for tiled rendering
+      function go(pg){
+        pdf.getPage(pg).then(function(page){
+          // Render small thumbnail only (200px wide) — not the full drawing
+          var pv=page.view; // [x,y,w,h] in PDF points
+          var pw=pv[2],ph=pv[3];
+          var thumbScale=Math.min(200/pw, 200/ph, 1.0);
+          var vp=page.getViewport({scale:thumbScale});
+          var tc=document.createElement('canvas');
+          tc.width=Math.round(vp.width);tc.height=Math.round(vp.height);
+          page.render({canvasContext:tc.getContext('2d'),viewport:vp}).promise.then(function(){
+            setTimeout(function(){
+              try{
+                var thumbDu=tc.toDataURL('image/jpeg',0.75);
+                tc.width=1;tc.height=1;
+                var p=getProject();if(!p)return;
+                var pageName=total>1?bn+' - Page '+pg:bn;
+                pageName=getUniqueDrawingName(pageName,p);
+                // Store drawing metadata — NO dataUrl, flag as tiled PDF
+                var fullW=Math.round(pw*2.0),fullH=Math.round(ph*2.0); // logical pixel size at 2x
+                var newDwg={
+                  id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
+                  name:pageName,dataUrl:null,thumb:thumbDu,
+                  width:fullW,height:fullH,
+                  pdfPage:pg,pdfTiled:true, // tiled rendering flag
+                  isOriginal:false,folder:bn,r2Key:'',r2Status:'',r2Url:''
+                };
+                p.drawings.push(newDwg);
+                // Save raw PDF ArrayBuffer to IDB pdfData store (shared across all pages of same file)
+                ADB.savePdfData(newDwg.id,arrayBuf).catch(function(e){console.warn('pdfData save err',e);});
+                if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
+                done++;
+                showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
+                if(pg<total){saveToLS();go(pg+1);}
+                else{saveToLS();renderDrawingGallery();hideDrawingLoading();}
+              }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
+            },0);
+          });
+        });
+      }
+      go(1);
+    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
+  };
+  reader.readAsArrayBuffer(file);
+}
 function showDrawingLoading(msg){var el=document.getElementById('drawing-loading');if(el){el.innerHTML='<span style="display:inline-block;width:16px;height:16px;border:2px solid #F57F17;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></span> '+msg;el.style.display='flex';}}
 function hideDrawingLoading(){var el=document.getElementById('drawing-loading');if(el)el.style.display='none';}
 
@@ -4899,25 +4951,55 @@ function handleImageUploadToFolder(f,folder){
   reader.readAsDataURL(f);
 }
 function handlePDFUploadToFolder(file,folder){ensurePdfJs(function(){_handlePDFUploadToFolderCore(file,folder);});}
-function _handlePDFUploadToFolderCore(file,folder){var reader=new FileReader();reader.onload=function(e){var ta=new Uint8Array(e.target.result);
-  var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long to render (>2 min).\n\nTip: In Bluebeam or Acrobat, use Save As → Reduce File Size, then try again.\nOr export the sheet as a PNG/JPEG image instead.');},120000);
-  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout2);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale2=Math.min(1.5,2400/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale2});var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){
-  setTimeout(function(){
-    try{
-      var du=cv.toDataURL('image/png');
-      cv.width=1;cv.height=1;
-      var p=getProject();if(!p)return;
-      var pageName=total>1?bn+' - Page '+pg:bn;
-      pageName=getUniqueDrawingName(pageName,p);
-      // _genThumb bypass — push immediately, thumb generated lazily
-      var newDwg2={id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),name:pageName,dataUrl:du,thumb:null,width:vp.width,height:vp.height,isOriginal:false,folder:folder,r2Key:'',r2Status:'',r2Url:''};
-      p.drawings.push(newDwg2);
-      if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
-      done++;showDrawingLoading('Rendering PDF: '+done+'/'+total+'...');
-      if(pg<total){saveToLS();go(pg+1);}
-      else{saveToLS();renderDrawingGallery();hideDrawingLoading();}
-    }catch(encErr){hideDrawingLoading();alert('Error saving page '+pg+': '+encErr.message);}
-  },0);});});}go(1);}).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});};reader.readAsArrayBuffer(file);}
+function _handlePDFUploadToFolderCore(file,folder){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var arrayBuf=e.target.result;
+    var ta=new Uint8Array(arrayBuf);
+    var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF processing timed out.');},120000);
+    pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
+      clearTimeout(pdfTimeout2);
+      var bn=file.name.replace(/\.pdf$/i,'');
+      var total=pdf.numPages;var done=0;
+      showDrawingLoading('Processing PDF: 0/'+total+'...');
+      function go(pg){
+        pdf.getPage(pg).then(function(page){
+          var pv=page.view;var pw=pv[2],ph=pv[3];
+          var thumbScale=Math.min(200/pw,200/ph,1.0);
+          var vp=page.getViewport({scale:thumbScale});
+          var tc=document.createElement('canvas');
+          tc.width=Math.round(vp.width);tc.height=Math.round(vp.height);
+          page.render({canvasContext:tc.getContext('2d'),viewport:vp}).promise.then(function(){
+            setTimeout(function(){
+              try{
+                var thumbDu=tc.toDataURL('image/jpeg',0.75);
+                tc.width=1;tc.height=1;
+                var p=getProject();if(!p)return;
+                var pageName=total>1?bn+' - Page '+pg:bn;
+                pageName=getUniqueDrawingName(pageName,p);
+                var fullW=Math.round(pw*2.0),fullH=Math.round(ph*2.0);
+                var newDwg2={
+                  id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
+                  name:pageName,dataUrl:null,thumb:thumbDu,
+                  width:fullW,height:fullH,pdfPage:pg,pdfTiled:true,
+                  isOriginal:false,folder:folder,r2Key:'',r2Status:'',r2Url:''
+                };
+                p.drawings.push(newDwg2);
+                ADB.savePdfData(newDwg2.id,arrayBuf).catch(function(e){console.warn('pdfData save err',e);});
+                if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
+                done++;showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
+                if(pg<total){saveToLS();go(pg+1);}
+                else{saveToLS();renderDrawingGallery();hideDrawingLoading();}
+              }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
+            },0);
+          });
+        });
+      }
+      go(1);
+    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
+  };
+  reader.readAsArrayBuffer(file);
+}
 function downloadFolderDrawings(fname){
   document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
   var p=getProject();if(!p)return;
@@ -5011,6 +5093,229 @@ ADB.saveFullProject(p).then(function(){ADB.markDirty();updateSaveTimestamp();}).
 _debouncedCloudSave();
 renderDrawingGallery();}
 
+
+// ══════════════════════════════════════════════════════════════
+// TILED PDF RENDERER — renders visible tiles on demand from raw PDF
+// Memory use: only visible tiles held in memory (~5MB max vs 100MB+)
+// ══════════════════════════════════════════════════════════════
+var _tileState = {
+  pdfDoc: null,       // loaded pdf.js document
+  drawingId: null,    // current drawing id
+  page: null,         // pdf.js page object
+  pageNum: 1,
+  pageW: 0, pageH: 0, // native PDF points
+  tileSize: 512,      // tile pixel size at 1x
+  tiles: {},          // key: 'z_tx_ty' → canvas element
+  tileCount: 0,
+  maxTiles: 24,       // max tiles in memory before LRU evict
+  tileOrder: [],      // LRU order (keys)
+  renderTimer: null,
+  baseScale: 2.0      // render quality: PDF points → pixels at 1x zoom
+};
+
+function _tileKey(z,tx,ty){return z+'_'+tx+'_'+ty;}
+
+function _tileEvictLRU(){
+  while(_tileState.tileCount>_tileState.maxTiles&&_tileState.tileOrder.length){
+    var oldest=_tileState.tileOrder.shift();
+    if(_tileState.tiles[oldest]){
+      var c=_tileState.tiles[oldest];
+      c.width=1;c.height=1; // free GPU memory
+      delete _tileState.tiles[oldest];
+      _tileState.tileCount--;
+    }
+  }
+}
+
+function _tiledRenderVisible(){
+  if(!_tileState.pdfDoc||!_tileState.page)return;
+  var area=document.getElementById('dv-canvas-area');
+  var wrap=document.getElementById('dv-img-wrap');
+  if(!area||!wrap)return;
+
+  var scale=dvState.scale||1;
+  var panX=dvState.panX||0,panY=dvState.panY||0;
+  var areaW=area.clientWidth,areaH=area.clientHeight;
+
+  // What part of the drawing (in drawing pixels) is visible?
+  var drawW=_tileState.pageW*_tileState.baseScale;
+  var drawH=_tileState.pageH*_tileState.baseScale;
+  var visX0=Math.max(0,-panX/scale);
+  var visY0=Math.max(0,-panY/scale);
+  var visX1=Math.min(drawW,(areaW-panX)/scale);
+  var visY1=Math.min(drawH,(areaH-panY)/scale);
+
+  // Tile size in drawing pixels at current zoom
+  var tileS=_tileState.tileSize;
+  var txMin=Math.floor(visX0/tileS);
+  var tyMin=Math.floor(visY0/tileS);
+  var txMax=Math.ceil(visX1/tileS);
+  var tyMax=Math.ceil(visY1/tileS);
+  var maxTx=Math.ceil(drawW/tileS);
+  var maxTy=Math.ceil(drawH/tileS);
+
+  // Render scale for PDF.js: drawing pixels → PDF points → canvas pixels
+  // We render tiles at 2x for crispness
+  var renderScale=_tileState.baseScale*2;
+  var zKey=Math.round(renderScale*10); // quantise to avoid too many zoom levels
+
+  for(var tx=txMin;tx<=Math.min(txMax,maxTx-1);tx++){
+    for(var ty=tyMin;ty<=Math.min(tyMax,maxTy-1);ty++){
+      var key=_tileKey(zKey,tx,ty);
+      if(_tileState.tiles[key]){
+        // Move to front of LRU
+        var idx=_tileState.tileOrder.indexOf(key);
+        if(idx>=0)_tileState.tileOrder.splice(idx,1);
+        _tileState.tileOrder.push(key);
+        continue;
+      }
+      // Render this tile
+      (function(tx2,ty2,key2){
+        var page=_tileState.page;
+        var s=_tileState.baseScale;
+        // Clip rect in PDF points for this tile
+        var x0=tx2*tileS/s, y0=ty2*tileS/s;
+        var tw=Math.min(tileS,(drawW-tx2*tileS))/s;
+        var th=Math.min(tileS,(drawH-ty2*tileS))/s;
+        if(tw<=0||th<=0)return;
+        var vp=page.getViewport({scale:renderScale});
+        // Translate viewport so only the tile region renders
+        var tileVP=page.getViewport({scale:renderScale,offsetX:-x0*renderScale,offsetY:-y0*renderScale});
+        var tileW=Math.round(Math.min(tileS,drawW-tx2*tileS)*2);
+        var tileH=Math.round(Math.min(tileS,drawH-ty2*tileS)*2);
+        var tc=document.createElement('canvas');
+        tc.width=tileW;tc.height=tileH;
+        var ctx=tc.getContext('2d');
+        page.render({canvasContext:ctx,viewport:tileVP,transform:[1,0,0,1,-x0*renderScale,-y0*renderScale]})
+          .promise.then(function(){
+            if(_tileState.drawingId!==_tileState.drawingId)return; // drawing changed
+            _tileState.tiles[key2]=tc;
+            _tileState.tileOrder.push(key2);
+            _tileState.tileCount++;
+            _tileEvictLRU();
+            _tiledComposite();
+          }).catch(function(){});
+      })(tx,ty,key);
+    }
+  }
+}
+
+function _tiledComposite(){
+  // Draw all cached tiles onto the main dv-tile-canvas
+  var tc=document.getElementById('dv-tile-canvas');
+  if(!tc)return;
+  var drawW=_tileState.pageW*_tileState.baseScale;
+  var drawH=_tileState.pageH*_tileState.baseScale;
+  if(tc.width!==Math.round(drawW)||tc.height!==Math.round(drawH)){
+    tc.width=Math.round(drawW);tc.height=Math.round(drawH);
+    tc.style.width=Math.round(drawW)+'px';tc.style.height=Math.round(drawH)+'px';
+  }
+  var ctx=tc.getContext('2d');
+  ctx.clearRect(0,0,tc.width,tc.height);
+  ctx.fillStyle='white';ctx.fillRect(0,0,tc.width,tc.height);
+  var tileS=_tileState.tileSize;
+  Object.keys(_tileState.tiles).forEach(function(key){
+    var parts=key.split('_');
+    var tx=parseInt(parts[1]),ty=parseInt(parts[2]);
+    var tile=_tileState.tiles[key];
+    var dx=tx*tileS,dy=ty*tileS;
+    var dw=Math.min(tileS,drawW-dx),dh=Math.min(tileS,drawH-dy);
+    ctx.drawImage(tile,0,0,tile.width,tile.height,dx,dy,dw,dh);
+  });
+}
+
+function _tiledScheduleRender(){
+  clearTimeout(_tileState.renderTimer);
+  _tileState.renderTimer=setTimeout(_tiledRenderVisible,80);
+}
+
+async function _openTiledPDF(drawingId,pageNum){
+  _tileState.drawingId=drawingId;
+  _tileState.tiles={};_tileState.tileCount=0;_tileState.tileOrder=[];
+  _tileState.pdfDoc=null;_tileState.page=null;
+
+  var rec=await ADB.getPdfData(drawingId);
+  if(!rec||!rec.buf){
+    // Fallback: no PDF data, show error
+    hideDrawingLoading();
+    toast('PDF data not found — please re-upload this drawing');
+    return;
+  }
+
+  ensurePdfJs(async function(){
+    try{
+      var pdf=await pdfjsLib.getDocument({data:new Uint8Array(rec.buf)}).promise;
+      var pg=await pdf.getPage(pageNum||1);
+      var pv=pg.view; // [x,y,w,h] in PDF points
+      _tileState.pdfDoc=pdf;
+      _tileState.page=pg;
+      _tileState.pageNum=pageNum||1;
+      _tileState.pageW=pv[2];
+      _tileState.pageH=pv[3];
+
+      // Setup tile canvas instead of img element
+      var area=document.getElementById('dv-canvas-area');
+      var img=document.getElementById('dv-image');
+      if(img){img.src='';img.style.display='none';}
+
+      var tc=document.getElementById('dv-tile-canvas');
+      if(!tc){
+        tc=document.createElement('canvas');
+        tc.id='dv-tile-canvas';
+        tc.style.cssText='display:block;position:absolute;top:0;left:0;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;';
+        var wrap=document.getElementById('dv-img-wrap');
+        if(wrap)wrap.insertBefore(tc,wrap.firstChild);
+      }
+      tc.style.display='block';
+
+      var drawW=Math.round(_tileState.pageW*_tileState.baseScale);
+      var drawH=Math.round(_tileState.pageH*_tileState.baseScale);
+      tc.width=drawW;tc.height=drawH;
+      tc.style.width=drawW+'px';tc.style.height=drawH+'px';
+
+      // Also size the markup canvas to match
+      var mc=document.getElementById('markup-canvas');
+      if(mc){
+        mc.width=drawW;mc.height=drawH;
+        mc.style.width=drawW+'px';mc.style.height=drawH+'px';
+        mc._dpr=1;mc._logicalW=drawW;mc._logicalH=drawH;
+      }
+
+      hideDrawingLoading();
+      fitDrawing();
+      renderPinsOnDrawing();
+      renderTasksPanel();
+      initMarkupEvents();
+      initSelectModeEvents();
+      loadMarkupData();
+
+      // Render initial tiles
+      _tiledRenderVisible();
+
+      // Hook into pan/zoom to re-render tiles
+      window._tiledActive=true;
+      if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);}
+    }catch(err){
+      hideDrawingLoading();
+      console.error('Tiled PDF error:',err);
+      toast('Could not open drawing: '+err.message);
+    }
+  });
+}
+
+function _closeTiledPDF(){
+  window._tiledActive=false;
+  _tileState.pdfDoc=null;_tileState.page=null;
+  Object.keys(_tileState.tiles).forEach(function(k){
+    var c=_tileState.tiles[k];if(c){c.width=1;c.height=1;}
+  });
+  _tileState.tiles={};_tileState.tileCount=0;_tileState.tileOrder=[];
+  var tc=document.getElementById('dv-tile-canvas');
+  if(tc){tc.width=1;tc.height=1;tc.style.display='none';}
+  var img=document.getElementById('dv-image');
+  if(img)img.style.display='block';
+}
+// ══════════════════════════════════════════════════════════════
 function openDrawingViewer(drawingId){
   try{
     dvState.currentDrawingId=drawingId;dvState.pinMode=false;mkState.tool=null;dvState.selectedPinId=null;
@@ -5020,6 +5325,15 @@ function openDrawingViewer(drawingId){
     dvState.pinMode=false;
     document.getElementById('dv-canvas-area').classList.remove('pin-mode');
     document.getElementById('drawing-viewer').classList.add('open');
+    // Close any previous tiled PDF session
+    if(window._tiledActive)_closeTiledPDF();
+    // Tiled PDF path
+    if(d.pdfTiled){
+      showDrawingLoading('Opening drawing…');
+      initPanZoom();
+      _openTiledPDF(drawingId,d.pdfPage||1);
+      return;
+    }
 
     // Use blob URLs instead of dataUrls — keeps binary out of JS heap, prevents iOS OOM crash
     function _openWithSrc(blobUrlOrDataUrl){
@@ -5067,7 +5381,7 @@ function openDrawingViewer(drawingId){
       _openWithSrc(d.dataUrl);
     }
   }catch(err){console.error('openDrawingViewer error:',err);alert('Drawing error: '+err.message);}
-}function closeDrawingViewer(){document.getElementById('drawing-viewer').classList.remove('open');if(dvState._currentBlobUrl){URL.revokeObjectURL(dvState._currentBlobUrl);dvState._currentBlobUrl=null;}dvState.currentDrawingId=null;dvState.selectedPinId=null;dvState.pinMode=false;mkState.tool=null;closePinPanel();closePinModal();}
+}function closeDrawingViewer(){document.getElementById('drawing-viewer').classList.remove('open');if(window._tiledActive)_closeTiledPDF();if(dvState._currentBlobUrl){URL.revokeObjectURL(dvState._currentBlobUrl);dvState._currentBlobUrl=null;}dvState.currentDrawingId=null;dvState.selectedPinId=null;dvState.pinMode=false;mkState.tool=null;closePinPanel();closePinModal();}
 function prevDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx-1+p.drawings.length)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
 function nextDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx+1)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
 
@@ -5083,7 +5397,10 @@ function fitDrawing(){
     applyTransform();
   });
 }
-function applyTransform(){document.getElementById('dv-img-wrap').style.transform='translate3d('+dvState.panX+'px,'+dvState.panY+'px,0) scale('+dvState.scale+')';}
+function applyTransform(){
+  document.getElementById('dv-img-wrap').style.transform='translate3d('+dvState.panX+'px,'+dvState.panY+'px,0) scale('+dvState.scale+')';
+  if(window._tiledActive)_tiledScheduleRender();
+}
 function zoomIn(){dvState.scale=Math.min(dvState.scale*1.3,10);applyTransform();}
 function zoomOut(){var minS=dvState.fitScale||0.1;dvState.scale=Math.max(dvState.scale/1.3,minS);if(dvState.scale<=minS*1.05){fitDrawing();return;}applyTransform();}
 function toggleSearchBar(){var bar=document.getElementById('dv-search-bar');bar.style.display=bar.style.display==='none'?'flex':'none';if(bar.style.display==='flex')document.getElementById('dv-search-input').focus();}
@@ -5608,6 +5925,8 @@ function markupRedo(){
 
 // ── CANVAS HELPERS ──
 function resizeMarkupCanvas(){
+  // Tiled PDFs manage canvas size themselves in _openTiledPDF
+  if(window._tiledActive)return;
   var canvas=document.getElementById('markup-canvas');
   var img=document.getElementById('dv-image');
   if(!canvas||!img)return;
@@ -6774,6 +7093,25 @@ function renderDownloadPreview(){
 }
 
 function _buildDownloadCanvas(dwg,incPins,incMarkup,callback){
+  if(dwg.pdfTiled&&_tileState.page){
+    // Tiled PDF — render full page at 2x for download
+    var renderScale=2.0;
+    var vp=_tileState.page.getViewport({scale:renderScale});
+    var c=document.createElement('canvas');
+    c.width=Math.round(vp.width);c.height=Math.round(vp.height);
+    _tileState.page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise.then(function(){
+      var ctx=c.getContext('2d');
+      if(incMarkup&&dwg.markupData){
+        var mi=new Image();
+        mi.onload=function(){ctx.drawImage(mi,0,0,c.width,c.height);_addPinsToCanvas(ctx,dwg,incPins,c,callback);};
+        mi.onerror=function(){_addPinsToCanvas(ctx,dwg,incPins,c,callback);};
+        mi.src=dwg.markupData;
+      } else {
+        _addPinsToCanvas(ctx,dwg,incPins,c,callback);
+      }
+    }).catch(function(){callback(null);});
+    return;
+  }
   var img=new Image();
   img.onload=function(){
     var c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
