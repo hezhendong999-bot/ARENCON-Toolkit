@@ -8536,6 +8536,28 @@ function _migrateDeficPhotos(defics){
     });}
   });
 }
+// ═══ R2 Upload Badge ═══
+function _updateR2Badge(){
+  var el=document.getElementById('r2-upload-badge');
+  if(!el)return;
+  var p=getProject();if(!p)return;
+  var pending=0;
+  (p.drawings||[]).forEach(function(d){if(d&&d.r2Status==='pending')pending++;});
+  var allPhotos=(p.sitePhotos||p.photos||[]);
+  allPhotos.forEach(function(ph){if(ph&&typeof ph!=='string'&&ph.r2Status==='pending')pending++;});
+  var ad=typeof getAllDeficiencies==='function'?getAllDeficiencies(p):[];
+  ad.forEach(function(item){
+    var def=item.defic||item;
+    (def.entries||[]).forEach(function(en){(en.photos||[]).forEach(function(ph){if(ph&&typeof ph!=='string'&&ph.r2Status==='pending')pending++;});});
+    (def.photos||[]).forEach(function(ph){if(ph&&typeof ph!=='string'&&ph.r2Status==='pending')pending++;});
+  });
+  if(pending>0){
+    el.textContent='☁ '+pending+' uploading';
+    el.style.display='inline-block';el.style.background='#E67E22';el.style.color='#fff';
+  }else{
+    el.style.display='none';
+  }
+}
 // Queue R2 upload for a deficiency photo record (R2-first hybrid)
 // 1. Save blob to pendingUploads IDB store (crash-safe holding area)
 // 2. Start R2 upload in background
