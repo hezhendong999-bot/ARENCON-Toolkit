@@ -251,6 +251,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .dv-img-wrap{position:absolute;transform-origin:0 0;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
 .dv-img-wrap img{display:block;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;}
 #markup-canvas{position:absolute;top:0;left:0;pointer-events:none;cursor:crosshair;}
+#dv-image:not([src]),#dv-image[src=""]{visibility:hidden;}
 #markup-canvas.drawing-active{pointer-events:auto;}
 #dv-pins-layer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
 #dv-pins-layer .pin-marker{pointer-events:auto;}
@@ -702,7 +703,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .dv-tasks-panel.collapsed{max-height:44px!important;overflow:hidden;}
 .dv-tasks-panel.collapsed #dv-tasks-fold-btn{transform:rotate(-90deg);}
 /* Mobile: collapse sidebar to horizontal scrollable strip */
-@media(max-width:700px){
+@media(max-width:800px){
   .dv-sidebar-tools{display:flex;flex-direction:row;align-items:center;width:100%;height:52px;border-right:none;border-top:none;border-bottom:none;overflow-x:auto;overflow-y:hidden;padding:6px 8px;order:2;flex-shrink:0;background:#1e2028;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x;gap:6px;}
   .dv-sidebar-tools::-webkit-scrollbar{display:none;}
   .dv-sidebar-tools .tool-sep{width:1px;height:26px;margin:0 3px;flex-shrink:0;}
@@ -1792,7 +1793,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
     <!-- DRAWING CANVAS -->
     <div class="dv-canvas-area" id="dv-canvas-area">
       <div class="dv-img-wrap" id="dv-img-wrap">
-        <img id="dv-image" src="" draggable="false" style="user-select:none;-webkit-user-drag:none;">
+        <img id="dv-image" src="" draggable="false" style="user-select:none;-webkit-user-drag:none;display:block;">
         <canvas class="markup-canvas" id="markup-canvas"></canvas>
         <div id="dv-pins-layer"></div>
       </div>
@@ -5387,9 +5388,18 @@ function nextDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var 
 
 function fitDrawing(){
   requestAnimationFrame(function(){
-    var a=document.getElementById('dv-canvas-area'),img=document.getElementById('dv-image');
-    if(!a||!img)return;
-    var aw=a.clientWidth,ah=a.clientHeight,iw=img.naturalWidth,ih=img.naturalHeight;
+    var a=document.getElementById('dv-canvas-area');
+    if(!a)return;
+    var aw=a.clientWidth,ah=a.clientHeight;
+    var iw,ih;
+    if(window._tiledActive&&_tileState.pageW){
+      iw=_tileState.pageW*_tileState.baseScale;
+      ih=_tileState.pageH*_tileState.baseScale;
+    } else {
+      var img=document.getElementById('dv-image');
+      if(!img)return;
+      iw=img.naturalWidth;ih=img.naturalHeight;
+    }
     if(!iw||!ih||!aw||!ah)return;
     var s=Math.min(aw/iw,ah/ih)*(window.innerWidth<=700?0.95:0.97);
     dvState.fitScale=s;dvState.scale=s;
@@ -5622,7 +5632,7 @@ function createPinDeficiency(x,y){
   saveToLS();_folderQuickSave();renderPinsOnDrawing();renderTasksPanel();updatePinStatus();openPinEditor(d.id);
 }
 
-function renderPinsOnDrawing(){var layer=document.getElementById('dv-pins-layer');if(!layer)return;var p=getProject();if(!p){layer.innerHTML='';return;}var ad=getAllDeficiencies(p);var pins=ad.filter(function(d){return d.defic.drawingId===dvState.currentDrawingId&&d.defic.pinX!=null;});var img=document.getElementById('dv-image');var iw=img.naturalWidth||1,ih=img.naturalHeight||1;
+function renderPinsOnDrawing(){var layer=document.getElementById('dv-pins-layer');if(!layer)return;var p=getProject();if(!p){layer.innerHTML='';return;}var ad=getAllDeficiencies(p);var pins=ad.filter(function(d){return d.defic.drawingId===dvState.currentDrawingId&&d.defic.pinX!=null;});var iw,ih;if(window._tiledActive&&_tileState.pageW){iw=_tileState.pageW*_tileState.baseScale;ih=_tileState.pageH*_tileState.baseScale;}else{var img=document.getElementById('dv-image');iw=img.naturalWidth||1;ih=img.naturalHeight||1;}
 // Dynamic pin size: baseline 28x36 for 3000px drawings, scale proportionally
 var baseW=3000;var pinScale=Math.max(0.5,Math.min(1.5,Math.max(iw,ih)/baseW));var pw=Math.round(28*pinScale),ph2=Math.round(36*pinScale);var fs=Math.round(11*pinScale);
 var html='';pins.forEach(function(d){var px=d.defic.pinX*iw,py=d.defic.pinY*ih;var pr=d.defic.priority||'high';var _pinDesc=(d.defic.entries&&d.defic.entries[0]?d.defic.entries[0].description:d.defic.description)||'';var fill=d.defic.iar?'#E91E8C':(pr==='general'?'#1A7A4A':pr==='low'?'#E67E22':'#C0392B');var isOutstanding=d.defic.status==='Outstanding'&&!d.defic.iar;var isClosed=d.defic.status==='Addressed & Closed';
