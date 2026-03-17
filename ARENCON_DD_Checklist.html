@@ -1508,7 +1508,7 @@ function debouncedSave(){
 
 function toggleDarkMode(){
   document.body.classList.toggle('dark-mode');
-  localStorage.setItem('arencon_dark', document.body.classList.contains('dark-mode'));
+  localStorage.setItem('ARENCON_Dark', document.body.classList.contains('dark-mode') ? '1' : '0');
 }
 
 function resetProject(){
@@ -2160,7 +2160,7 @@ function escHtml(s){
 // ══════════════════════════════════════════════════
 async function init(){
   // Dark mode
-  const dm = localStorage.getItem('arencon_dark');
+  const dm = localStorage.getItem('ARENCON_Dark');
   if(dm==='true'||(dm===null&&window.matchMedia('(prefers-color-scheme:dark)').matches)) document.body.classList.add('dark-mode');
   
   // Build mobile nav

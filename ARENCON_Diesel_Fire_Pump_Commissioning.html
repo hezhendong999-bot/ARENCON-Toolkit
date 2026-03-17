@@ -621,8 +621,8 @@ body.dark-mode .card[style*="border:1.5px solid #1A527622"]{border-color:#2a3848
   </div>
   <div id="mobile-menu-backdrop" onclick="closeMobileMenu()" style="display:none;position:fixed;inset:0;z-index:9997;background:rgba(0,0,0,.55);"></div>
   <script>
-function initDarkMode(){var s=localStorage.getItem('arencon_dark');if(s==='true'||(s===null&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.body.classList.add('dark-mode');}
-function toggleDarkMode(){document.body.classList.toggle('dark-mode');localStorage.setItem('arencon_dark',document.body.classList.contains('dark-mode')?'true':'false');updateDarkToggleIcon();if(typeof applyChartDarkMode==='function')applyChartDarkMode();}
+function initDarkMode(){var s=localStorage.getItem('ARENCON_Dark');if(s==='1'||(s===null&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.body.classList.add('dark-mode');updateDarkToggleIcon();}
+function toggleDarkMode(){document.body.classList.toggle('dark-mode');localStorage.setItem('ARENCON_Dark',document.body.classList.contains('dark-mode')?'1':'0');updateDarkToggleIcon();if(typeof applyChartDarkMode==='function')applyChartDarkMode();}
 function updateDarkToggleIcon(){var b=document.getElementById('dark-toggle-btn');if(b){b.textContent=document.body.classList.contains('dark-mode')?'\u2600\uFE0F':'\uD83C\uDF19';b.title=document.body.classList.contains('dark-mode')?'Switch to light mode':'Switch to dark mode';}}
 initDarkMode();
 function openMobileMenu(){var ha=document.querySelector('.header-actions');if(ha)ha.classList.add('mobile-open');var bd=document.getElementById('mobile-menu-backdrop');if(bd)bd.style.display='block';}
