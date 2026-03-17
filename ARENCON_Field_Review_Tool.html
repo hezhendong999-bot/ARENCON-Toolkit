@@ -11900,14 +11900,13 @@ function _initCloudSync(){
         if(cloudProj.info)localProj.info=Object.assign(localProj.info||{},cloudProj.info);
         // Mark local as synced at cloud time
         localProj._cloudSyncedAt=cloudUpdatedAt;
-        ADB.saveFullProject(localProj).catch(function(e){console.warn('[CloudSync] Merge save error:',e);});
+        // Save quietly — don't trigger saveToLS chain which would re-render viewer
+        ADB.saveProject(localProj).catch(function(e){console.warn('[CloudSync] Merge save error:',e);});
         setTimeout(function(){
-          // Don't refresh drawing viewer mid-open — would revoke active blob URL
-          if(!document.getElementById('drawing-viewer').classList.contains('open')){
-            refreshCurrentView&&refreshCurrentView();
-          }
-          renderDeficiencyPanel&&renderDeficiencyPanel();
+          // Only refresh gallery and deficiencies — never re-open drawing viewer
           renderDrawingGallery&&renderDrawingGallery();
+          renderDeficiencyPanel&&renderDeficiencyPanel();
+          renderSummaryTable&&renderSummaryTable();
         },200);
         console.log('[CloudSync] Applied cloud state — drawings:'+localProj.drawings.length+' defics:'+localProj.generalDeficiencies.length);
       }
@@ -12004,11 +12003,9 @@ async function _syncHeartbeat(){
       p._cloudSyncedAt=cloudUpdatedAt;
       // Save to IDB and refresh view
       ADB.saveFullProject(p).catch(function(){});
-      if(!document.getElementById('drawing-viewer').classList.contains('open')){
-        refreshCurrentView&&refreshCurrentView();
-      }
-      renderDeficiencyPanel&&renderDeficiencyPanel();
       renderDrawingGallery&&renderDrawingGallery();
+      renderDeficiencyPanel&&renderDeficiencyPanel();
+      renderSummaryTable&&renderSummaryTable();
       // Brief indicator on cloud dot
       var dot=document.getElementById('cloud-dot');
       if(dot){
