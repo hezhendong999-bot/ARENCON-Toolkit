@@ -1989,7 +1989,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 <script>
 // ═══ ARENCON IndexedDB Storage Layer ═══
 
-var ADB={db:null,DB_NAME:'ARENCON_FieldReview',DB_VER:3,ready:false,_queue:[],folderHandle:null,autoSaveTimer:null,dirty:false};
+var ADB={db:null,DB_NAME:'ARENCON_FieldReview',DB_VER:4,ready:false,_queue:[],folderHandle:null,autoSaveTimer:null,dirty:false};
 
 ADB.open=function(){return new Promise(function(resolve,reject){
   if(ADB.db){resolve(ADB.db);return;}
