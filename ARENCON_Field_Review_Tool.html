@@ -5574,20 +5574,17 @@ function resizeMarkupCanvas(){
   var mkScale=1;
   if(Math.max(iw,ih)>mkMaxDim){mkScale=mkMaxDim/Math.max(iw,ih);}
   var cw=Math.round(iw*mkScale), ch=Math.round(ih*mkScale);
-  // Only reset canvas dimensions if they've actually changed — resizing clears the canvas
   if(canvas.width!==cw||canvas.height!==ch){
     canvas.width=cw;canvas.height=ch;
-    // CSS size must match buffer size exactly — NOT natural image size.
-    // The parent dv-img-wrap is CSS-scaled to fit the screen; the canvas rides along.
-    // If CSS size != buffer size, getPos() coordinate mapping breaks on mobile.
-    canvas.style.width=cw+'px';canvas.style.height=ch+'px';
+    canvas.style.width=iw+'px';canvas.style.height=ih+'px';
     var ctx=canvas.getContext('2d');
+    ctx.scale(mkScale,mkScale);
     ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
     canvas._dpr=mkScale;
     canvas._logicalW=iw;canvas._logicalH=ih;
     loadMarkupData();
   } else {
-    canvas.style.width=cw+'px';canvas.style.height=ch+'px';
+    canvas.style.width=iw+'px';canvas.style.height=ih+'px';
     if(!canvas._dpr){canvas._dpr=mkScale;canvas._logicalW=iw;canvas._logicalH=ih;}
     renderAllMarkup();
   }
@@ -6029,9 +6026,21 @@ function initMarkupEvents(){
   function getPos(e){
     var r=canvas.getBoundingClientRect();
     var sx=canvas.width/r.width,sy=canvas.height/r.height;
-    if(e.touches)return{x:(e.touches[0].clientX-r.left)*sx,y:(e.touches[0].clientY-r.top)*sy};
-    if(e.changedTouches)return{x:(e.changedTouches[0].clientX-r.left)*sx,y:(e.changedTouches[0].clientY-r.top)*sy};
-    return{x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy};
+    var clientX=e.touches?e.touches[0].clientX:e.changedTouches?e.changedTouches[0].clientX:e.clientX;
+    var clientY=e.touches?e.touches[0].clientY:e.changedTouches?e.changedTouches[0].clientY:e.clientY;
+    var x=(clientX-r.left)*sx, y=(clientY-r.top)*sy;
+    // DIAGNOSTIC — tap anywhere on drawing to see coordinate debug
+    var dbg=document.getElementById('_mk_debug');
+    if(!dbg){dbg=document.createElement('div');dbg.id='_mk_debug';
+      dbg.style.cssText='position:fixed;bottom:60px;left:8px;background:rgba(0,0,0,.85);color:#0f0;font:11px monospace;padding:6px 10px;border-radius:6px;z-index:99999;pointer-events:none;max-width:96vw;';
+      document.body.appendChild(dbg);}
+    dbg.innerHTML='canvas buf: '+canvas.width+'x'+canvas.height
+      +'<br>canvas css: '+Math.round(r.width)+'x'+Math.round(r.height)
+      +'<br>sx: '+sx.toFixed(3)+' logW: '+(canvas._logicalW||'?')+' dpr: '+(canvas._dpr||'?')
+      +'<br>finger: '+Math.round(clientX)+','+Math.round(clientY)
+      +'<br>r.left/top: '+Math.round(r.left)+','+Math.round(r.top)
+      +'<br>=> pos: '+Math.round(x)+','+Math.round(y);
+    return{x:x,y:y};
   }
 
   // Offscreen canvas for highlight (prevents opacity stacking)
