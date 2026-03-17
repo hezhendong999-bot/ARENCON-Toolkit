@@ -237,7 +237,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .drawing-card .pin-count{font-size:11px;color:var(--silver);background:var(--smoke);padding:2px 8px;border-radius:10px;}
 
 /* Drawing viewer overlay */
-.drawing-viewer-overlay{position:fixed;inset:0;z-index:2000;background:#1a1a1a;display:none;flex-direction:column;overflow:visible;}
+.drawing-viewer-overlay{position:fixed;inset:0;z-index:2000;background:#1a1a1a;display:none;flex-direction:column;overflow:hidden;}
 .drawing-viewer-overlay.open{display:flex;}
 .dv-toolbar{background:#2a2d35;padding:6px 10px;display:flex;align-items:center;gap:6px;z-index:10;flex-shrink:0;}
 .dv-toolbar .dv-title{color:white;font-weight:600;font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
@@ -677,7 +677,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 
 /* ═══ ALWAYS-ON SIDEBAR TOOLBAR ═══ */
 .dv-sidebar-tools{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:#1e2028;border-right:1px solid #3a3e48;width:56px;flex-shrink:0;overflow-y:auto;overflow-x:visible;z-index:20;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-@media(max-width:900px){.dv-sidebar-tools{position:absolute!important;bottom:0!important;left:0!important;right:0!important;width:100%!important;height:56px!important;flex-direction:row!important;align-items:center!important;overflow-x:auto!important;overflow-y:hidden!important;padding:4px 8px!important;gap:4px!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:pan-x!important;z-index:500!important;}}
+@media(max-width:900px){.dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:56px!important;flex-direction:row!important;align-items:center!important;overflow-x:auto!important;overflow-y:hidden!important;padding:4px 8px!important;gap:4px!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:pan-x!important;z-index:500!important;}}
 .dv-sidebar-tools .tool-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#999;border-radius:8px;cursor:pointer;transition:background .15s,color .15s;padding:0;}
 .dv-sidebar-tools .tool-btn:hover{background:#2d3040;color:#ddd;}
 .dv-sidebar-tools .tool-btn.active{background:var(--red);color:white;}
@@ -719,7 +719,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .dv-sidebar-tools .tool-btn{width:44px;height:44px;flex-shrink:0;border-radius:10px;}
   .dv-sidebar-tools .tool-colors{flex-direction:row;}
   .dv-mobile-tools{display:none!important;}
-  .dv-main{flex-direction:row;flex:1;min-height:0;margin-bottom:56px;}
+  .dv-main{flex-direction:row;flex:1;min-height:0;}
   .dv-tasks-panel{width:100%;max-height:160px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;}
   .dv-canvas-area{order:1;flex:1;min-height:0;}
   .dv-toolbar{padding:6px 10px;flex-wrap:wrap;gap:6px;}
@@ -1689,19 +1689,6 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   </div>
   <div id="dv-tool-tooltip" style="display:none;position:fixed;background:rgba(30,32,40,.92);color:#fff;font-size:11px;font-family:Calibri,sans-serif;padding:4px 10px;border-radius:6px;pointer-events:none;z-index:9999;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);"></div>
   <div class="dv-main">
-    <div class="dv-canvas-area" id="dv-canvas-area">
-      <div class="dv-img-wrap" id="dv-img-wrap">
-        <img id="dv-image" src="" draggable="false" style="user-select:none;-webkit-user-drag:none;display:block;">
-        <canvas class="markup-canvas" id="markup-canvas"></canvas>
-        <div id="dv-pins-layer"></div>
-      </div>
-      <div class="zoom-controls">
-        <button onclick="zoomIn()">+</button>
-        <button onclick="zoomOut()">−</button>
-        <button onclick="fitDrawing()" style="font-size:12px;">⊡</button>
-      </div>
-    </div>
-    <!-- TOOL SIDEBAR - BOTTOM ON MOBILE -->
     <!-- ALWAYS-ON TOOLBAR — LEFT SIDEBAR -->
     <div class="dv-sidebar-tools" id="dv-sidebar-tools">
       <!-- PIN -->
@@ -1807,7 +1794,18 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       </button>
     </div>
     <!-- DRAWING CANVAS -->
-
+    <div class="dv-canvas-area" id="dv-canvas-area">
+      <div class="dv-img-wrap" id="dv-img-wrap">
+        <img id="dv-image" src="" draggable="false" style="user-select:none;-webkit-user-drag:none;display:block;">
+        <canvas class="markup-canvas" id="markup-canvas"></canvas>
+        <div id="dv-pins-layer"></div>
+      </div>
+      <div class="zoom-controls">
+        <button onclick="zoomIn()">+</button>
+        <button onclick="zoomOut()">−</button>
+        <button onclick="fitDrawing()" style="font-size:12px;">⊡</button>
+      </div>
+    </div>
     <!-- RIGHT TASKS PANEL -->
     <div class="dv-tasks-panel" id="dv-tasks-panel">
       <div class="dv-tasks-header">
@@ -1991,7 +1989,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 <script>
 // ═══ ARENCON IndexedDB Storage Layer ═══
 
-var ADB={db:null,DB_NAME:'ARENCON_FieldReview',DB_VER:4,ready:false,_queue:[],folderHandle:null,autoSaveTimer:null,dirty:false};
+var ADB={db:null,DB_NAME:'ARENCON_FieldReview',DB_VER:3,ready:false,_queue:[],folderHandle:null,autoSaveTimer:null,dirty:false};
 
 ADB.open=function(){return new Promise(function(resolve,reject){
   if(ADB.db){resolve(ADB.db);return;}
@@ -2129,27 +2127,12 @@ ADB.saveProject=function(proj){
 
 ADB.saveDrawing=function(drawing,projectId){
   var rec={id:drawing.id,projectId:projectId,name:drawing.name,width:drawing.width||0,height:drawing.height||0,isOriginal:drawing.isOriginal||false,folder:drawing.folder||'',pdfTiled:drawing.pdfTiled||false,pdfPage:drawing.pdfPage||1,thumb:drawing.thumb||null};
+  // ALWAYS save blob locally — R2 is additive backup, not a replacement.
+  // Local IDB copy is the safety net if R2 files are ever lost.
   if(drawing.dataUrl){
     rec.dataBlob=ADB.dataUrlToBlob(drawing.dataUrl);
   } else if(drawing.dataBlob){
     rec.dataBlob=drawing.dataBlob;
-  } else if(drawing.pdfBlob){
-    rec.dataBlob=drawing.pdfBlob;
-  } else if(drawing.pdfTiled){
-    // pdfTiled drawing with no blob in memory — preserve existing IDB record, don't overwrite
-    return ADB.get('drawings',drawing.id).then(function(existing){
-      if(existing&&existing.dataBlob){
-        // Update metadata only, keep existing blob
-        existing.name=drawing.name;existing.width=drawing.width||existing.width;
-        existing.height=drawing.height||existing.height;existing.folder=drawing.folder||existing.folder;
-        existing.r2Key=drawing.r2Key||existing.r2Key;existing.r2Status=drawing.r2Status||existing.r2Status;
-        existing.r2Url=drawing.r2Url||existing.r2Url;existing.pdfTiled=true;existing.pdfPage=drawing.pdfPage||existing.pdfPage;
-        existing.thumb=drawing.thumb||existing.thumb;existing.markupObjects=drawing.markupObjects||existing.markupObjects||null;
-        existing.heights=drawing.heights||existing.heights||null;
-        return ADB.put('drawings',existing);
-      }
-      return ADB.put('drawings',rec);// no existing blob, save as-is
-    }).catch(function(){return ADB.put('drawings',rec);});
   }
   if(drawing.markupData)rec.markupBlob=ADB.dataUrlToBlob(drawing.markupData);
   else if(drawing.markupBlob)rec.markupBlob=drawing.markupBlob;
@@ -2217,7 +2200,7 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
     });
     // Store raw blobs keyed by drawing id for lazy load in viewer
     var _drawingBlobCache={};
-    drawings.forEach(function(d){if(d.dataBlob&&d.dataBlob.size>0){_drawingBlobCache[d.id]=d.dataBlob;}});
+    drawings.forEach(function(d){if(d.dataBlob&&d.dataBlob.size>0)_drawingBlobCache[d.id]=d.dataBlob;});
     if(Object.keys(_drawingBlobCache).length)ADB._drawingBlobCache=ADB._drawingBlobCache||{};
     Object.assign(ADB._drawingBlobCache||{},_drawingBlobCache);
     ADB._drawingBlobCache=Object.assign(ADB._drawingBlobCache||{},_drawingBlobCache);
@@ -4658,24 +4641,73 @@ function handleImageDrawingUpload(f){
 }
 
 function handlePDFUpload(file){ensurePdfJs(function(){_handlePDFUploadCore(file);});}
-function _handlePDFUploadCore(file){var reader=new FileReader();reader.onload=function(e){var ta=new Uint8Array(e.target.result);
-  var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min).\n\nTip: Export individual sheets as PNG/JPEG instead of full PDF.');},120000);
-  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale=Math.min(1.2,1800/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale});var c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise.then(function(){
-  setTimeout(function(){
-    try{
-      var du=c.toDataURL('image/jpeg',0.85);
-      c.width=1;c.height=1;
-      var p=getProject();if(!p)return;
-      var pageName=total>1?bn+' - Page '+pg:bn;
-      pageName=getUniqueDrawingName(pageName,p);
-      var newDwg={id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),name:pageName,dataUrl:du,thumb:null,width:vp.width,height:vp.height,isOriginal:false,folder:bn,r2Key:'',r2Status:'',r2Url:''};
-      p.drawings.push(newDwg);
-      if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
-      done++;showDrawingLoading('Rendering PDF: '+done+'/'+total+'...');
-      if(pg<total){saveToLS();go(pg+1);}
-      else{saveToLS();renderDrawingGallery();hideDrawingLoading();}
-    }catch(encErr){hideDrawingLoading();alert('Error saving page '+pg+': '+encErr.message);}
-  },0);});});}go(1);}).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});};reader.readAsArrayBuffer(file);}
+function _handlePDFUploadCore(file){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var arrayBuf=e.target.result;
+    var ta=new Uint8Array(arrayBuf);
+    var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
+    pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
+      clearTimeout(pdfTimeout);
+      var bn=file.name.replace(/\.pdf$/i,'');
+      var total=pdf.numPages;
+      var done=0;
+      showDrawingLoading('Processing PDF: 0/'+total+'...');
+      function go(pg){
+        pdf.getPage(pg).then(function(page){
+          var pv=page.view;
+          var pw=pv[2],ph=pv[3];
+          // Thumb only: 300px wide max, JPEG for small size
+          var thumbScale=Math.min(1.0,300/pw,300/ph);
+          var vp=page.getViewport({scale:thumbScale});
+          var tc=document.createElement('canvas');
+          tc.width=Math.round(vp.width);
+          tc.height=Math.round(vp.height);
+          page.render({canvasContext:tc.getContext('2d'),viewport:vp}).promise.then(function(){
+            setTimeout(function(){
+              try{
+                var thumbDu=tc.toDataURL('image/jpeg',0.70);
+                tc.width=1;tc.height=1;
+                var p=getProject();if(!p)return;
+                var pageName=total>1?bn+' - Page '+pg:bn;
+                pageName=getUniqueDrawingName(pageName,p);
+                var fullW=Math.round(pw*2.0);
+                var fullH=Math.round(ph*2.0);
+                var newDwg={
+                  id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
+                  name:pageName,dataUrl:null,thumb:thumbDu,
+                  width:fullW,height:fullH,
+                  pdfTiled:true,pdfPage:pg,
+                  isOriginal:false,folder:bn,
+                  r2Key:'',r2Status:'',r2Url:''
+                };
+                p.drawings.push(newDwg);
+                // Save raw PDF to pdfData IDB store (keyed by drawing id)
+                ADB.savePdfData(newDwg.id,arrayBuf).then(function(){
+                  // Must call saveFullProject AFTER savePdfData so drawing metadata goes to IDB
+                  saveToLS();
+                  done++;
+                  showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
+                  if(pg<total){go(pg+1);}
+                  else{renderDrawingGallery();hideDrawingLoading();}
+                }).catch(function(pdfErr){
+                  console.warn('pdfData save error',pdfErr);
+                  saveToLS();
+                  done++;
+                  if(pg<total){go(pg+1);}
+                  else{renderDrawingGallery();hideDrawingLoading();}
+                });
+                if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
+              }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
+            },0);
+          });
+        });
+      }
+      go(1);
+    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
+  };
+  reader.readAsArrayBuffer(file);
+}
 function showDrawingLoading(msg){var el=document.getElementById('drawing-loading');if(el){el.innerHTML='<span style="display:inline-block;width:16px;height:16px;border:2px solid #F57F17;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></span> '+msg;el.style.display='flex';}}
 function hideDrawingLoading(){var el=document.getElementById('drawing-loading');if(el)el.style.display='none';}
 
@@ -4936,24 +4968,70 @@ function handleImageUploadToFolder(f,folder){
   reader.readAsDataURL(f);
 }
 function handlePDFUploadToFolder(file,folder){ensurePdfJs(function(){_handlePDFUploadToFolderCore(file,folder);});}
-function _handlePDFUploadToFolderCore(file,folder){var reader=new FileReader();reader.onload=function(e){var ta=new Uint8Array(e.target.result);
-  var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min).\n\nTip: Export individual sheets as PNG/JPEG instead.');},120000);
-  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout2);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale2=Math.min(1.2,1800/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale2});var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){
-  setTimeout(function(){
-    try{
-      var du=cv.toDataURL('image/jpeg',0.85);
-      cv.width=1;cv.height=1;
-      var p=getProject();if(!p)return;
-      var pageName=total>1?bn+' - Page '+pg:bn;
-      pageName=getUniqueDrawingName(pageName,p);
-      var newDwg2={id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),name:pageName,dataUrl:du,thumb:null,width:vp.width,height:vp.height,isOriginal:false,folder:folder,r2Key:'',r2Status:'',r2Url:''};
-      p.drawings.push(newDwg2);
-      if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
-      done++;showDrawingLoading('Rendering PDF: '+done+'/'+total+'...');
-      if(pg<total){saveToLS();go(pg+1);}
-      else{saveToLS();renderDrawingGallery();hideDrawingLoading();}
-    }catch(encErr){hideDrawingLoading();alert('Error saving page '+pg+': '+encErr.message);}
-  },0);});});}go(1);}).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});};reader.readAsArrayBuffer(file);}
+function _handlePDFUploadToFolderCore(file,folder){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var arrayBuf=e.target.result;
+    var ta=new Uint8Array(arrayBuf);
+    var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
+    pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
+      clearTimeout(pdfTimeout2);
+      var bn=file.name.replace(/\.pdf$/i,'');
+      var total=pdf.numPages;
+      var done=0;
+      showDrawingLoading('Processing PDF: 0/'+total+'...');
+      function go(pg){
+        pdf.getPage(pg).then(function(page){
+          var pv=page.view;
+          var pw=pv[2],ph=pv[3];
+          var thumbScale=Math.min(1.0,300/pw,300/ph);
+          var vp=page.getViewport({scale:thumbScale});
+          var tc=document.createElement('canvas');
+          tc.width=Math.round(vp.width);
+          tc.height=Math.round(vp.height);
+          page.render({canvasContext:tc.getContext('2d'),viewport:vp}).promise.then(function(){
+            setTimeout(function(){
+              try{
+                var thumbDu=tc.toDataURL('image/jpeg',0.70);
+                tc.width=1;tc.height=1;
+                var p=getProject();if(!p)return;
+                var pageName=total>1?bn+' - Page '+pg:bn;
+                pageName=getUniqueDrawingName(pageName,p);
+                var fullW=Math.round(pw*2.0);
+                var fullH=Math.round(ph*2.0);
+                var newDwg2={
+                  id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
+                  name:pageName,dataUrl:null,thumb:thumbDu,
+                  width:fullW,height:fullH,
+                  pdfTiled:true,pdfPage:pg,
+                  isOriginal:false,folder:folder,
+                  r2Key:'',r2Status:'',r2Url:''
+                };
+                p.drawings.push(newDwg2);
+                ADB.savePdfData(newDwg2.id,arrayBuf).then(function(){
+                  saveToLS();
+                  done++;
+                  showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
+                  if(pg<total){go(pg+1);}
+                  else{renderDrawingGallery();hideDrawingLoading();}
+                }).catch(function(pdfErr){
+                  console.warn('pdfData save error',pdfErr);
+                  saveToLS();
+                  done++;
+                  if(pg<total){go(pg+1);}
+                  else{renderDrawingGallery();hideDrawingLoading();}
+                });
+                if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
+              }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
+            },0);
+          });
+        });
+      }
+      go(1);
+    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
+  };
+  reader.readAsArrayBuffer(file);
+}
 function downloadFolderDrawings(fname){
   document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
   var p=getProject();if(!p)return;
@@ -5188,19 +5266,33 @@ async function _openTiledPDF(drawingId,pageNum){
   _tileState.tiles={};_tileState.tileCount=0;_tileState.tileOrder=[];
   _tileState.pdfDoc=null;_tileState.page=null;
 
-  // Load PDF from drawings IDB store (same proven store as PNG blobs)
-  var _p=getProject();
-  var _d=_p&&_p.drawings.find(function(x){return x.id===drawingId;});
-  var pdfArrayBuf=null;
-  if(_d&&_d.pdfBlob){try{pdfArrayBuf=await _d.pdfBlob.arrayBuffer();}catch(e){}}
-  if(!pdfArrayBuf){try{var _ir=await ADB.get('drawings',drawingId);if(_ir&&_ir.dataBlob)pdfArrayBuf=await _ir.dataBlob.arrayBuffer();}catch(e){}}
-  if(!pdfArrayBuf&&_d&&_d.r2Url){
-    showDrawingLoading('Downloading from cloud…');
-    try{var _tok=localStorage.getItem('sb-access-token');var _hdrs=_tok?{'Authorization':'Bearer '+_tok}:{};var _res=await fetch(_d.r2Url,{headers:_hdrs});if(!_res.ok)throw new Error('HTTP '+_res.status);pdfArrayBuf=await _res.arrayBuffer();}
-    catch(fe){hideDrawingLoading();toast('Could not download: '+fe.message);return;}
+  var rec=await ADB.getPdfData(drawingId).catch(function(){return null;});
+  if(!rec||!rec.buf){
+    // No local PDF — try fetching from R2 if we have a URL
+    var p=getProject();
+    var d=p&&p.drawings.find(function(x){return x.id===drawingId;});
+    if(d&&d.r2Url){
+      showDrawingLoading('Downloading drawing from cloud\u2026');
+      var token=localStorage.getItem('sb-access-token');
+      var headers=token?{'Authorization':'Bearer '+token}:{};
+      try{
+        var res=await fetch(d.r2Url,{headers:headers});
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        var buf=await res.arrayBuffer();
+        // Cache locally for future opens
+        await ADB.savePdfData(drawingId,buf).catch(function(){});
+        rec={buf:buf};
+      }catch(fetchErr){
+        hideDrawingLoading();
+        toast('Could not download drawing from cloud: '+fetchErr.message);
+        return;
+      }
+    } else {
+      hideDrawingLoading();
+      toast('Drawing data not found locally or in cloud — please re-upload');
+      return;
+    }
   }
-  if(!pdfArrayBuf){hideDrawingLoading();toast('Drawing not found — please re-upload');return;}
-  var rec={buf:pdfArrayBuf};
 
   ensurePdfJs(async function(){
     try{
@@ -5312,7 +5404,15 @@ function openDrawingViewer(drawingId){
         if(main)main.style.flexDirection='';
       }
     })();
+    // Close any previous tiled PDF session
     if(window._tiledActive)_closeTiledPDF();
+    // Tiled PDF path — draws from raw PDF stored in pdfData IDB store
+    if(d.pdfTiled){
+      showDrawingLoading('Opening drawing…');
+      initPanZoom();
+      _openTiledPDF(drawingId,d.pdfPage||1);
+      return;
+    }
 
     // Use blob URLs instead of dataUrls — keeps binary out of JS heap, prevents iOS OOM crash
     function _openWithSrc(blobUrlOrDataUrl){
@@ -6827,9 +6927,17 @@ function loadMarkupData(){
     _mkObjects=JSON.parse(JSON.stringify(dwg.markupObjects));
     _mkObjects.forEach(function(o){if(!o.id)o.id=_mkNewId();});
   } else if(dwg&&dwg.r2Url&&_csHubMode&&(!dwg.markupObjects||!dwg.markupObjects.length)&&!dwg.markupCleared){
-    // R2 markup restore disabled — was overwriting local deletions
+    // R2 Phase 4: no local markup — try fetching from R2 (skip if explicitly cleared)
     _mkObjects=[];
-    renderAllMarkup();
+    _r2LoadMarkup(dwg).then(function(objs){
+      if(objs&&objs.length){
+        dwg.markupObjects=objs;
+        _mkObjects=JSON.parse(JSON.stringify(objs));
+        _mkObjects.forEach(function(o){if(!o.id)o.id=_mkNewId();});
+        renderAllMarkup();
+        toast('Markup loaded from cloud ✓');
+      }
+    }).catch(function(){});
   } else if(dwg&&dwg.markupData){
     // V1 MIGRATION: load old pixel-based markup as a single background image
     // We can't decompose pixels back into objects, so we load the bitmap as-is
@@ -8536,28 +8644,6 @@ function _migrateDeficPhotos(defics){
     });}
   });
 }
-// ═══ R2 Upload Badge ═══
-function _updateR2Badge(){
-  var el=document.getElementById('r2-upload-badge');
-  if(!el)return;
-  var p=getProject();if(!p)return;
-  var pending=0;
-  (p.drawings||[]).forEach(function(d){if(d&&d.r2Status==='pending')pending++;});
-  var allPhotos=(p.sitePhotos||p.photos||[]);
-  allPhotos.forEach(function(ph){if(ph&&typeof ph!=='string'&&ph.r2Status==='pending')pending++;});
-  var ad=typeof getAllDeficiencies==='function'?getAllDeficiencies(p):[];
-  ad.forEach(function(item){
-    var def=item.defic||item;
-    (def.entries||[]).forEach(function(en){(en.photos||[]).forEach(function(ph){if(ph&&typeof ph!=='string'&&ph.r2Status==='pending')pending++;});});
-    (def.photos||[]).forEach(function(ph){if(ph&&typeof ph!=='string'&&ph.r2Status==='pending')pending++;});
-  });
-  if(pending>0){
-    el.textContent='☁ '+pending+' uploading';
-    el.style.display='inline-block';el.style.background='#E67E22';el.style.color='#fff';
-  }else{
-    el.style.display='none';
-  }
-}
 // Queue R2 upload for a deficiency photo record (R2-first hybrid)
 // 1. Save blob to pendingUploads IDB store (crash-safe holding area)
 // 2. Start R2 upload in background
@@ -8584,20 +8670,11 @@ async function _r2EnqueueDrawing(dwg){
     });
     return;
   }
-  if(!dwg.dataUrl&&!dwg.dataBlob){
-    // dataUrl already stripped — read blob from IDB
-    ADB.get('drawings',dwg.id).then(function(rec){
-      if(rec&&rec.dataBlob){
-        dwg.dataBlob=rec.dataBlob;
-        _r2EnqueueDrawing(dwg);
-      }
-    }).catch(function(){});
-    return;
-  }
-  var fname=R2Photos.generateFilename('dwg')+'.jpg';
+  if(!dwg.dataUrl)return;
+  var fname=R2Photos.generateFilename('dwg')+'.png';
   dwg.r2Key='photos/'+hubId+'/frt/drawings/'+fname;
   dwg.r2Status='pending';
-  var blob=dwg.dataBlob||(dwg.dataUrl?R2Photos.dataUrlToBlob(dwg.dataUrl):null);
+  var blob=R2Photos.dataUrlToBlob(dwg.dataUrl);
   if(!blob)return;
   ADB.savePending(dwg.id,hubId,blob,{type:'drawing',fname:fname,r2Key:dwg.r2Key}).catch(function(){});
   var _oldR2Key=dwg.r2Key;
@@ -11840,7 +11917,7 @@ function _initCloudSync(){
     var localModified=p&&p._localModifiedAt?new Date(p._localModifiedAt).getTime():0;
     var localCurrent=Math.max(localSyncedAt,localModified);
     var cloudTime=cloudUpdatedAt?new Date(cloudUpdatedAt).getTime():0;
-    var cloudIsNewer=cloudTime>0&&cloudTime>(localCurrent+3000);// 3s grace
+    var cloudIsNewer=cloudTime>0&&cloudTime>(localCurrent+3000);// 3s grace to avoid self-trigger
 
     if(cloudIsNewer&&cloudData&&typeof cloudData==='object'){
       console.log('[CloudSync] Cloud is newer (cloud:'+cloudUpdatedAt+' local:'+p._cloudSyncedAt+') — applying cloud state');
@@ -11849,15 +11926,15 @@ function _initCloudSync(){
         var cloudProj=cloudData;
         var localProj=allProjects[pid];
         // Apply drawings (metadata only — images load from R2 via r2Url)
-        var _prevLocal=(localProj.drawings||[]).slice();
         if(cloudProj.drawings)localProj.drawings=cloudProj.drawings.map(function(d){
-          var existing=_prevLocal.find(function(x){return x.id===d.id;});
-          // Local tiled PDF always wins — never let cloud overwrite local PDF data
-          if(existing&&existing.pdfTiled){return existing;}
+          // Preserve local dataUrl/thumb/pdfTiled flags — these are device-local
+          var existing=(localProj.drawings||[]).find(function(x){return x.id===d.id;});
           return {id:d.id,name:d.name,width:d.width||0,height:d.height||0,
                   isOriginal:d.isOriginal||false,folder:d.folder||'',
                   r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
                   heights:d.heights||null,
+                  // Always prefer local markupObjects — local edits must never be overwritten by cloud
+                  // Cloud markupCleared wins (another device deleted) — otherwise local wins
                   markupCleared:d.markupCleared||(existing?existing.markupCleared:false)||false,
                   markupObjects:(d.markupCleared||(existing&&existing.markupCleared))?[]:(existing?existing.markupObjects:d.markupObjects||null),
                   pdfTiled:d.pdfTiled||(existing?existing.pdfTiled:false)||false,
@@ -11865,8 +11942,11 @@ function _initCloudSync(){
                   dataUrl:existing?existing.dataUrl:null,
                   thumb:d.thumb||(existing?existing.thumb:null)};
         });
-        var _cloudIds=(cloudProj.drawings||[]).map(function(d){return d.id;});
-        _prevLocal.forEach(function(ld){if(_cloudIds.indexOf(ld.id)<0)localProj.drawings.push(ld);});
+        // Add local drawings that don't exist in cloud yet (e.g. just uploaded, not synced)
+        var cloudDrawingIds=(cloudProj.drawings||[]).map(function(d){return d.id;});
+        (localProj.drawings||[]).forEach(function(ld){
+          if(cloudDrawingIds.indexOf(ld.id)<0)localProj.drawings.push(ld);
+        });
         // Apply project structure
         if(cloudProj.contractors)localProj.contractors=cloudProj.contractors;
         if(cloudProj.generalDeficiencies)localProj.generalDeficiencies=cloudProj.generalDeficiencies;
@@ -11954,22 +12034,243 @@ async function _syncHeartbeat(){
       // Apply drawings metadata
       if(cloudData.drawings&&cloudData.drawings.length>0){
         var prevDrawings=p.drawings||[];
-        if(cloudData.drawings&&cloudData.drawings.length>0){
-          p.drawings=cloudData.drawings.map(function(d){
-            var existing=prevDrawings.find(function(x){return x.id===d.id;});
-            if(existing&&existing.pdfTiled){return existing;}
-            return {id:d.id,name:d.name,width:d.width||0,height:d.height||0,
-                    isOriginal:d.isOriginal||false,folder:d.folder||'',
-                    r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
-                    heights:d.heights||null,
-                    markupCleared:d.markupCleared||(existing?existing.markupCleared:false)||false,
-                    markupObjects:(d.markupCleared||(existing&&existing.markupCleared))?[]:(existing?existing.markupObjects:d.markupObjects||null),
-                    pdfTiled:d.pdfTiled||(existing?existing.pdfTiled:false)||false,
-                    pdfPage:d.pdfPage||(existing?existing.pdfPage:1)||1,
-                    dataUrl:existing?existing.dataUrl:null,
-                    thumb:d.thumb||(existing?existing.thumb:null)};
-          });
-          var hbCloudIds=cloudData.drawings.map(function(d){return d.id;});
-          prevDrawings.forEach(function(ld){if(hbCloudIds.indexOf(ld.id)<0)p.drawings.push(ld);});
+        p.drawings=cloudData.drawings.map(function(d){
+          var existing=prevDrawings.find(function(x){return x.id===d.id;});
+          return {id:d.id,name:d.name,width:d.width||0,height:d.height||0,
+                  isOriginal:d.isOriginal||false,folder:d.folder||'',
+                  r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
+                  heights:d.heights||null,
+                  // Always prefer local markupObjects
+                  markupCleared:d.markupCleared||(existing?existing.markupCleared:false)||false,
+                  markupObjects:(d.markupCleared||(existing&&existing.markupCleared))?[]:(existing?existing.markupObjects:d.markupObjects||null),
+                  pdfTiled:d.pdfTiled||(existing?existing.pdfTiled:false)||false,
+                  pdfPage:d.pdfPage||(existing?existing.pdfPage:1)||1,
+                  dataUrl:existing?existing.dataUrl:null,
+                  thumb:d.thumb||(existing?existing.thumb:null)};
+        });
+        // Keep local-only drawings not yet pushed to cloud
+        var cloudIds=cloudData.drawings.map(function(d){return d.id;});
+        prevDrawings.forEach(function(ld){
+          if(cloudIds.indexOf(ld.id)<0)p.drawings.push(ld);
+        });
+      }
+      if(cloudData.contractors)p.contractors=cloudData.contractors;
+      if(cloudData.generalDeficiencies)p.generalDeficiencies=cloudData.generalDeficiencies;
+      if(typeof cloudData.nextDeficNum!=='undefined')p.nextDeficNum=cloudData.nextDeficNum;
+      if(cloudData._folders)p._folders=cloudData._folders;
+      if(cloudData.sitePhotos){
+        p.sitePhotos=cloudData.sitePhotos.map(function(ph){
+          var existing=(p.sitePhotos||[]).find(function(x){return x.id===ph.id;});
+          return {id:ph.id||'sp_'+Math.random().toString(36).substr(2,8),
+                  caption:ph.caption||'',timestamp:ph.timestamp||ph.date||'',
+                  r2Key:ph.r2Key||'',r2Status:ph.r2Status||'',r2Url:ph.r2Url||'',
+                  dataUrl:existing?existing.dataUrl:null};
+        });
+      }
+      if(cloudData.info)p.info=Object.assign(p.info||{},cloudData.info);
+      p._cloudSyncedAt=cloudUpdatedAt;
+      // Save to IDB and refresh view
+      ADB.saveFullProject(p).catch(function(){});
+      renderDrawingGallery&&renderDrawingGallery();
+      renderDeficiencyPanel&&renderDeficiencyPanel();
+      renderSummaryTable&&renderSummaryTable();
+      // If drawing viewer is open, reload markup in case it was cleared on another device
+      if(dvState&&dvState.currentDrawingId&&document.getElementById('drawing-viewer').classList.contains('open')){
+        var _hbDwg=getProject()&&getProject().drawings&&getProject().drawings.find(function(d){return d.id===dvState.currentDrawingId;});
+        if(_hbDwg&&(_hbDwg.markupCleared||!(_hbDwg.markupObjects&&_hbDwg.markupObjects.length))){
+          _mkObjects=[];renderAllMarkup&&renderAllMarkup();
         }
->
+      }
+      // Brief indicator on cloud dot
+      var dot=document.getElementById('cloud-dot');
+      if(dot){
+        var prev=dot.style.background;
+        dot.style.background='#60A5FA';
+        dot.title='Synced from another device';
+        setTimeout(function(){dot.style.background=prev;dot.title='Saved to cloud';},2000);
+      }
+    }
+  }catch(e){
+    // Silent fail — heartbeat is best-effort, not critical
+    console.warn('[Heartbeat] Sync check failed:',e.message);
+  }
+}
+
+function _isMobileHeader(){return window.innerWidth<=800;}
+function _updateR2Badge(){
+  var el=document.getElementById('r2-upload-badge');
+  if(!el)return;
+  if(typeof R2Photos==='undefined'){el.style.display='none';return;}
+  var q=R2Photos.getQueueLength();
+  if(q>0&&!_isMobileHeader()){
+    el.textContent='📤 '+q+' uploading';
+    el.style.display='inline-block';
+    el.style.background='#FBBF24';el.style.color='#78350F';
+  }else{
+    el.style.display='none';
+  }
+}
+</script>
+<!-- ══ R2 PHOTO STORAGE MODULE v1 ══ -->
+<script>
+var R2Photos=(function(){'use strict';
+var WORKER_URL='https://arencon-r2-worker.hezhendong999.workers.dev';
+var _queue=[];var _uploading=false;var _wifiOnly=true;var _onProgress=null;
+
+function _authHeaders(){
+  var h={};
+  var token=localStorage.getItem('sb-access-token');
+  if(token)h['Authorization']='Bearer '+token;
+  return h;
+}
+
+function _isWifi(){
+  if(!navigator.connection)return true;// Assume wifi if API unavailable
+  var t=navigator.connection.type||navigator.connection.effectiveType||'';
+  return t==='wifi'||t==='ethernet'||t==='4g';// Treat 4g as ok too
+}
+
+function _canUpload(){
+  if(!navigator.onLine)return false;
+  if(_wifiOnly&&!_isWifi())return false;
+  return true;
+}
+
+/* ── Core API calls ── */
+async function upload(projectId,tool,type,filename,blob){
+  var path='/photos/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type)+'/'+encodeURIComponent(filename);
+  var headers=_authHeaders();
+  headers['Content-Type']=blob.type||'image/jpeg';
+  var res=await fetch(WORKER_URL+path,{method:'PUT',headers:headers,body:blob});
+  if(!res.ok){var err;try{err=await res.json();}catch(e){err={error:res.statusText};}throw new Error(err.error||res.statusText);}
+  return await res.json();
+}
+
+function getUrl(projectId,tool,type,filename){
+  return WORKER_URL+'/photos/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type)+'/'+encodeURIComponent(filename);
+}
+
+async function remove(projectId,tool,type,filename){
+  var path='/photos/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type)+'/'+encodeURIComponent(filename);
+  var res=await fetch(WORKER_URL+path,{method:'DELETE',headers:_authHeaders()});
+  if(!res.ok&&res.status!==404){throw new Error('Delete failed: '+res.statusText);}
+  return true;
+}
+
+async function list(projectId,tool,type){
+  var path='/list/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type);
+  var res=await fetch(WORKER_URL+path,{method:'GET',headers:_authHeaders()});
+  if(!res.ok){throw new Error('List failed: '+res.statusText);}
+  return await res.json();
+}
+
+/* ── Upload Queue ── */
+function enqueue(item){
+  // item: {projectId, tool, type, filename, blob, dataUrl, onComplete}
+  _queue.push(item);
+  _fireProgress();
+  _processQueue();
+}
+
+function _fireProgress(){
+  if(_onProgress)_onProgress({queued:_queue.length,uploading:_uploading});
+}
+
+async function _processQueue(){
+  if(_uploading||!_queue.length)return;
+  if(!_canUpload()){
+    _fireProgress();
+    return;// Will retry when connection changes
+  }
+  _uploading=true;
+  while(_queue.length>0){
+    if(!_canUpload())break;
+    var item=_queue[0];
+    try{
+      var result=await upload(item.projectId,item.tool,item.type,item.filename,item.blob);
+      _queue.shift();// Remove on success
+      if(item.onComplete)item.onComplete(null,result);
+    }catch(e){
+      console.warn('[R2Photos] Upload failed:',e.message,', will retry');
+      break;// Leave in queue for retry
+    }
+    _fireProgress();
+  }
+  _uploading=false;
+  _fireProgress();
+}
+
+/* ── Helpers ── */
+function dataUrlToBlob(dataUrl){
+  if(!dataUrl||typeof dataUrl!=='string'||!dataUrl.startsWith('data:'))return null;
+  try{
+    var parts=dataUrl.split(',');var mime=parts[0].match(/:(.*?);/)[1];
+    var raw=atob(parts[1]);var arr=new Uint8Array(raw.length);
+    for(var i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);
+    return new Blob([arr],{type:mime});
+  }catch(e){return null;}
+}
+
+function generateFilename(prefix){
+  return (prefix||'photo')+'_'+Date.now()+'_'+Math.random().toString(36).substr(2,6)+'.jpg';
+}
+
+/* ── Lifecycle ── */
+function init(opts){
+  opts=opts||{};
+  _wifiOnly=opts.wifiOnly!==false;// Default true
+  _onProgress=opts.onProgress||null;
+  // Listen for connectivity changes to resume queue
+  window.addEventListener('online',function(){setTimeout(_processQueue,1000);});
+  if(navigator.connection){
+    navigator.connection.addEventListener('change',function(){setTimeout(_processQueue,1000);});
+  }
+}
+
+function getQueueLength(){return _queue.length;}
+function isUploading(){return _uploading;}
+
+return{
+  init:init,
+  upload:upload,
+  getUrl:getUrl,
+  remove:remove,
+  list:list,
+  enqueue:enqueue,
+  dataUrlToBlob:dataUrlToBlob,
+  generateFilename:generateFilename,
+  getQueueLength:getQueueLength,
+  isUploading:isUploading,
+  get WORKER_URL(){return WORKER_URL;}
+};
+})();
+</script>
+<!-- ══ CLOUDSYNC MODULE v1 ══ -->
+<script>
+var CloudSync=(function(){'use strict';var SUPABASE_URL='https://xsemvinxsyphjiaqgywv.supabase.co';var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';var IDB_NAME='arencon_cloud_cache';var IDB_VERSION=1;var IDB_STORE='tool_state';var AUTOSAVE_MS=15000;var _projectId=null;var _toolKey=null;var _instanceId=null;var _instanceNumber=1;var _collectStateFn=null;var _onStatusChange=null;var _autoSaveTimer=null;var _idb=null;var _online=navigator.onLine;var _pendingSync=false;var _userId=null;var _projectInfo=null;var _lastSavedJson='';var _initialized=false;
+function _headers(){var h={'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json','Prefer':'return=representation'};var token=localStorage.getItem('sb-access-token');if(token)h['Authorization']='Bearer '+token;else h['Authorization']='Bearer '+SUPABASE_ANON_KEY;return h;}
+async function _request(path,opts){opts=opts||{};var res=await fetch(SUPABASE_URL+path,{method:opts.method||'GET',headers:Object.assign({},_headers(),opts.headers||{}),body:opts.body?JSON.stringify(opts.body):undefined});if(!res.ok){var err;try{err=await res.json();}catch(e){err={message:res.statusText};}throw new Error(err.message||err.msg||err.error_description||res.statusText);}var text=await res.text();return text?JSON.parse(text):null;}
+function _openIDB(){return new Promise(function(resolve,reject){var req=indexedDB.open(IDB_NAME,IDB_VERSION);req.onupgradeneeded=function(e){var db=e.target.result;if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE);};req.onsuccess=function(e){_idb=e.target.result;resolve(_idb);};req.onerror=function(e){reject(e.target.error);};});}
+function _idbKey(){return _projectId+'|'+_toolKey+'|'+(_instanceId||'new');}
+function _idbGet2(key){return new Promise(function(resolve,reject){if(!_idb){resolve(null);return;}var tx=_idb.transaction(IDB_STORE,'readonly');var req=tx.objectStore(IDB_STORE).get(key);req.onsuccess=function(){resolve(req.result||null);};req.onerror=function(){reject(req.error);};});}
+function _idbPut2(key,val){return new Promise(function(resolve,reject){if(!_idb){resolve();return;}var tx=_idb.transaction(IDB_STORE,'readwrite');var req=tx.objectStore(IDB_STORE).put(val,key);req.onsuccess=function(){resolve();};req.onerror=function(){reject(req.error);};});}
+function _setStatus(status,msg){if(_onStatusChange)_onStatusChange(status,msg);}
+async function _getUser(){var token=localStorage.getItem('sb-access-token');if(!token)return null;try{return await _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+token}});}catch(e){var rt=localStorage.getItem('sb-refresh-token');if(!rt)return null;try{var data=await _request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:rt},headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY}});if(data&&data.access_token){localStorage.setItem('sb-access-token',data.access_token);localStorage.setItem('sb-refresh-token',data.refresh_token);return _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+data.access_token}});}}catch(e2){}return null;}}
+async function _cloudLoad(){if(!_projectId||!_toolKey)return null;if(_instanceId){var rows=await _request('/rest/v1/tool_data?select=*&id=eq.'+_instanceId);return(rows&&rows.length>0)?rows[0]:null;}var rows=await _request('/rest/v1/tool_data?select=*&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=instance_number.desc&limit=1');return(rows&&rows.length>0)?rows[0]:null;}
+async function _cloudSave(stateJson){if(!_projectId||!_toolKey)return null;var payload={project_id:_projectId,tool_key:_toolKey,instance_number:_instanceNumber,data:typeof stateJson==='string'?JSON.parse(stateJson):stateJson,updated_by:_userId,updated_at:new Date().toISOString()};if(_instanceId){var rows=await _request('/rest/v1/tool_data?id=eq.'+_instanceId,{method:'PATCH',body:payload});return(rows&&rows.length>0)?rows[0]:null;}else{payload.created_by=_userId;payload.status='draft';var rows=await _request('/rest/v1/tool_data',{method:'POST',body:[payload]});if(rows&&rows.length>0){_instanceId=rows[0].id;_instanceNumber=rows[0].instance_number;return rows[0];}return null;}}
+async function _loadProjectInfo(){if(!_projectId)return null;try{var rows=await _request('/rest/v1/projects?select=*&id=eq.'+_projectId,{headers:{'Accept':'application/vnd.pgrst.object+json'}});_projectInfo=rows;return rows;}catch(e){return null;}}
+async function save(stateJson){if(typeof stateJson!=='string')stateJson=JSON.stringify(stateJson);if(stateJson===_lastSavedJson)return;_lastSavedJson=stateJson;try{await _idbPut2(_idbKey(),{state:stateJson,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:new Date().toISOString()});}catch(e){console.error('[CloudSync] IDB save failed:',e);}if(_online){try{_setStatus('saving','Syncing...');var row=await _cloudSave(stateJson);_pendingSync=false;_setStatus('synced','Saved to cloud');return row;}catch(e){console.warn('[CloudSync] Cloud save failed:',e.message);_pendingSync=true;_setStatus('pending','Saved locally');}}else{_pendingSync=true;_setStatus('offline','Saved locally (offline)');}return null;}
+async function load(){var cloudRow=null;if(_online){try{cloudRow=await _cloudLoad();if(cloudRow){_instanceId=cloudRow.id;_instanceNumber=cloudRow.instance_number;var sj=typeof cloudRow.data==='string'?cloudRow.data:JSON.stringify(cloudRow.data);_lastSavedJson=sj;await _idbPut2(_idbKey(),{state:sj,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:cloudRow.updated_at});_setStatus('synced','Loaded from cloud');return{source:'cloud',state:typeof cloudRow.data==='string'?JSON.parse(cloudRow.data):cloudRow.data,row:cloudRow};}}catch(e){console.warn('[CloudSync] Cloud load failed:',e.message);}}try{var idbData=await _idbGet2(_idbKey());if(idbData&&idbData.state){_setStatus(_online?'synced':'offline','Loaded from cache');return{source:'idb',state:typeof idbData.state==='string'?JSON.parse(idbData.state):idbData.state,row:null};}}catch(e){console.error('[CloudSync] IDB load failed:',e);}_setStatus(_online?'synced':'offline','No saved data');return null;}
+function startAutoSave(collectStateFn,intervalMs){_collectStateFn=collectStateFn;stopAutoSave();_autoSaveTimer=setInterval(function(){if(!_collectStateFn)return;try{var state=_collectStateFn();save(state);}catch(e){console.error('[CloudSync] Auto-save error:',e);}},intervalMs||AUTOSAVE_MS);}
+function stopAutoSave(){if(_autoSaveTimer){clearInterval(_autoSaveTimer);_autoSaveTimer=null;}}
+function _onOnline(){_online=true;_setStatus('saving','Reconnected...');if(_pendingSync&&_collectStateFn){try{var state=_collectStateFn();save(state);}catch(e){_setStatus('error','Sync failed');}}else{_setStatus('synced','Online');}}
+function _onOffline(){_online=false;_setStatus('offline','Working offline');}
+function readUrlParams(){var p=new URLSearchParams(window.location.search);return{projectId:p.get('project')||null,instanceId:p.get('instance')||null,projectNumber:p.get('pn')||null,projectName:p.get('pname')||null,client:p.get('client')||null,address:p.get('addr')||null};}
+async function _getNextInstanceNumber(){if(!_online)return 1;try{var rows=await _request('/rest/v1/tool_data?select=instance_number&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=instance_number.desc&limit=1');if(rows&&rows.length>0)return rows[0].instance_number+1;}catch(e){}return 1;}
+async function init(opts){_toolKey=opts.toolKey;_onStatusChange=opts.onStatusChange||null;_projectId=opts.projectId||null;_instanceId=opts.instanceId||null;try{await _openIDB();}catch(e){console.error('[CloudSync] IDB open failed:',e);}try{var user=await _getUser();if(user)_userId=user.id;}catch(e){}if(_projectId&&_online){try{await _loadProjectInfo();}catch(e){}}if(_projectId&&!_instanceId){_instanceNumber=await _getNextInstanceNumber();}window.addEventListener('online',_onOnline);window.addEventListener('offline',_onOffline);_initialized=true;_setStatus(_online?'synced':'offline','Ready');return{projectInfo:_projectInfo,userId:_userId,online:_online,instanceId:_instanceId,instanceNumber:_instanceNumber};}
+function destroy(){stopAutoSave();window.removeEventListener('online',_onOnline);window.removeEventListener('offline',_onOffline);_initialized=false;}
+async function syncNow(){if(!_online){_setStatus('offline','No connection');return false;}if(!_collectStateFn)return false;try{_setStatus('saving','Syncing...');var state=_collectStateFn();await save(state);_setStatus('synced','Force sync complete');return true;}catch(e){_setStatus('error','Sync failed');return false;}}
+return{init:init,save:save,load:load,startAutoSave:startAutoSave,stopAutoSave:stopAutoSave,destroy:destroy,syncNow:syncNow,readUrlParams:readUrlParams,request:_request,get isInitialized(){return _initialized;},get projectId(){return _projectId;},get instanceId(){return _instanceId;},get userId(){return _userId;},get online(){return _online;}};})();
+</script>
+</body>
+</html>
