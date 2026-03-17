@@ -248,10 +248,11 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .dv-toolbar button{background:rgba(255,255,255,.12);border:none;color:white;padding:5px 9px;border-radius:6px;font-family:Calibri,sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;min-width:32px;}.dv-toolbar button:hover{background:rgba(255,255,255,.25);}.dv-toolbar button.active{background:var(--red);color:white;}
 .dv-main{display:flex;flex:1;overflow:hidden;position:relative;}
 .dv-canvas-area{flex:1;overflow:hidden;position:relative;cursor:grab;}.dv-canvas-area.panning{cursor:grabbing;}
+@media(max-width:900px){.dv-canvas-area{padding-bottom:56px;}}
 .dv-img-wrap{position:absolute;transform-origin:0 0;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
 .dv-img-wrap img{display:block;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;}
 #markup-canvas{position:absolute;top:0;left:0;pointer-events:none;cursor:crosshair;}
-#dv-image:not([src]),#dv-image[src=""]{visibility:hidden;}
+#dv-image:not([src]),#dv-image[src=""]{display:none!important;}
 #markup-canvas.drawing-active{pointer-events:auto;}
 #dv-pins-layer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
 #dv-pins-layer .pin-marker{pointer-events:auto;}
@@ -281,6 +282,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 /* Zoom controls */
 .zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px;z-index:10;}
 .zoom-controls button{width:30px;height:30px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}.zoom-controls button:hover{background:rgba(42,45,53,.95);}
+@media(max-width:900px){.zoom-controls{bottom:68px!important;right:10px;z-index:501!important;}}
 
 /* Pin side panel */
 .pin-panel{position:fixed;top:0;right:0;width:420px;height:100%;background:white;z-index:2500;box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;overflow:hidden;}.pin-panel.open{transform:translateX(0);}
@@ -675,6 +677,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 
 /* ═══ ALWAYS-ON SIDEBAR TOOLBAR ═══ */
 .dv-sidebar-tools{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:#1e2028;border-right:1px solid #3a3e48;width:56px;flex-shrink:0;overflow-y:auto;overflow-x:visible;z-index:20;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+@media(max-width:900px){.dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:56px!important;flex-direction:row!important;align-items:center!important;overflow-x:auto!important;overflow-y:hidden!important;padding:4px 8px!important;gap:4px!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:pan-x!important;z-index:500!important;}}
 .dv-sidebar-tools .tool-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#999;border-radius:8px;cursor:pointer;transition:background .15s,color .15s;padding:0;}
 .dv-sidebar-tools .tool-btn:hover{background:#2d3040;color:#ddd;}
 .dv-sidebar-tools .tool-btn.active{background:var(--red);color:white;}
@@ -716,7 +719,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .dv-sidebar-tools .tool-btn{width:44px;height:44px;flex-shrink:0;border-radius:10px;}
   .dv-sidebar-tools .tool-colors{flex-direction:row;}
   .dv-mobile-tools{display:none!important;}
-  .dv-main{flex-direction:column;flex:1;min-height:0;}
+  .dv-main{flex-direction:row;flex:1;min-height:0;}
   .dv-tasks-panel{width:100%;max-height:160px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;}
   .dv-canvas-area{order:1;flex:1;min-height:0;}
   .dv-toolbar{padding:6px 10px;flex-wrap:wrap;gap:6px;}
@@ -5374,19 +5377,31 @@ function openDrawingViewer(drawingId){
     dvState.pinMode=false;
     document.getElementById('dv-canvas-area').classList.remove('pin-mode');
     document.getElementById('drawing-viewer').classList.add('open');
-    // Force mobile sidebar layout via JS (bypasses CSS cascade issues on iOS PWA)
+    // Force mobile toolbar layout — position fixed at bottom to prevent overlap/swipe issues
     (function(){
       var sb=document.getElementById('dv-sidebar-tools');
+      var main=document.querySelector('.dv-main');
+      var ca=document.getElementById('dv-canvas-area');
       if(!sb)return;
-      var isMobile=window.innerWidth<=800||window.innerHeight<=800;
+      var isPortrait=window.innerHeight>window.innerWidth;
+      var isMobile=window.innerWidth<900;
       if(isMobile){
-        sb.style.cssText='display:flex!important;flex-direction:row!important;width:100%!important;height:52px!important;overflow-x:auto!important;overflow-y:hidden!important;order:2!important;border-right:none!important;touch-action:pan-x!important;';
-        var main=document.querySelector('.dv-main');
+        // Fixed bottom toolbar — completely outside the flex flow
+        sb.style.cssText='position:fixed!important;bottom:0!important;left:0!important;right:0!important;'
+          +'width:100vw!important;height:56px!important;z-index:500!important;'
+          +'display:flex!important;flex-direction:row!important;align-items:center!important;'
+          +'overflow-x:auto!important;overflow-y:hidden!important;'
+          +'background:#1e2028!important;border-top:1px solid #3a3e48!important;'
+          +'padding:4px 8px!important;gap:4px!important;'
+          +'touch-action:pan-x!important;-webkit-overflow-scrolling:touch!important;'
+          +'scrollbar-width:none!important;';
+        // Add bottom padding to canvas area so toolbar doesn't cover drawing
+        if(ca)ca.style.paddingBottom='56px';
         if(main)main.style.flexDirection='column';
       } else {
         sb.style.cssText='';
-        var main2=document.querySelector('.dv-main');
-        if(main2)main2.style.flexDirection='';
+        if(ca)ca.style.paddingBottom='';
+        if(main)main.style.flexDirection='';
       }
     })();
     // Close any previous tiled PDF session
@@ -5769,16 +5784,29 @@ function _dvCloseMoreMenu(){var m=document.getElementById('dv-more-menu');if(m)m
 window.addEventListener('orientationchange',function(){
   setTimeout(function(){
     if(typeof fitDrawing==='function')fitDrawing();
+    if(!document.getElementById('drawing-viewer').classList.contains('open'))return;
     var sb=document.getElementById('dv-sidebar-tools');
-    if(!sb||!document.getElementById('drawing-viewer').classList.contains('open'))return;
-    var isMobile=window.innerWidth<=800||window.innerHeight<=800;
-    if(isMobile){
-      sb.style.cssText='display:flex!important;flex-direction:row!important;width:100%!important;height:52px!important;overflow-x:auto!important;overflow-y:hidden!important;order:2!important;border-right:none!important;touch-action:pan-x!important;';
-      var main=document.querySelector('.dv-main');if(main)main.style.flexDirection='column';
-    } else {
-      sb.style.cssText='';
-      var main2=document.querySelector('.dv-main');if(main2)main2.style.flexDirection='';
+    var ca=document.getElementById('dv-canvas-area');
+    var main=document.querySelector('.dv-main');
+    var isMobile=window.innerWidth<900;
+    if(sb){
+      if(isMobile){
+        sb.style.cssText='position:fixed!important;bottom:0!important;left:0!important;right:0!important;'
+          +'width:100vw!important;height:56px!important;z-index:500!important;'
+          +'display:flex!important;flex-direction:row!important;align-items:center!important;'
+          +'overflow-x:auto!important;overflow-y:hidden!important;'
+          +'background:#1e2028!important;border-top:1px solid #3a3e48!important;'
+          +'padding:4px 8px!important;gap:4px!important;'
+          +'touch-action:pan-x!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:none!important;';
+        if(ca)ca.style.paddingBottom='56px';
+        if(main)main.style.flexDirection='column';
+      } else {
+        sb.style.cssText='';
+        if(ca)ca.style.paddingBottom='';
+        if(main)main.style.flexDirection='';
+      }
     }
+    setTimeout(function(){if(typeof fitDrawing==='function')fitDrawing();},100);
   },300);
 });
 window.addEventListener('resize',function(){
@@ -11906,8 +11934,9 @@ function _initCloudSync(){
                   r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
                   heights:d.heights||null,
                   // Always prefer local markupObjects — local edits must never be overwritten by cloud
-                  markupObjects:existing?existing.markupObjects:d.markupObjects||null,
-                  markupCleared:existing?existing.markupCleared:false,
+                  // Cloud markupCleared wins (another device deleted) — otherwise local wins
+                  markupCleared:d.markupCleared||(existing?existing.markupCleared:false)||false,
+                  markupObjects:(d.markupCleared||(existing&&existing.markupCleared))?[]:(existing?existing.markupObjects:d.markupObjects||null),
                   pdfTiled:d.pdfTiled||(existing?existing.pdfTiled:false)||false,
                   pdfPage:d.pdfPage||(existing?existing.pdfPage:1)||1,
                   dataUrl:existing?existing.dataUrl:null,
@@ -12000,7 +12029,7 @@ async function _syncHeartbeat(){
     var localCurrent=Math.max(localSyncedAt,localModified);
     var cloudTime=new Date(cloudUpdatedAt).getTime();
     // Only apply if cloud is meaningfully newer (>8s gap to avoid overwriting recent local edits)
-    if(cloudTime>localCurrent+8000){
+    if(cloudTime>localCurrent+5000){
       console.log('[Heartbeat] Cloud is newer — applying update silently');
       // Apply drawings metadata
       if(cloudData.drawings&&cloudData.drawings.length>0){
@@ -12012,8 +12041,8 @@ async function _syncHeartbeat(){
                   r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
                   heights:d.heights||null,
                   // Always prefer local markupObjects
-                  markupObjects:existing?existing.markupObjects:d.markupObjects||null,
-                  markupCleared:existing?existing.markupCleared:false,
+                  markupCleared:d.markupCleared||(existing?existing.markupCleared:false)||false,
+                  markupObjects:(d.markupCleared||(existing&&existing.markupCleared))?[]:(existing?existing.markupObjects:d.markupObjects||null),
                   pdfTiled:d.pdfTiled||(existing?existing.pdfTiled:false)||false,
                   pdfPage:d.pdfPage||(existing?existing.pdfPage:1)||1,
                   dataUrl:existing?existing.dataUrl:null,
@@ -12045,6 +12074,13 @@ async function _syncHeartbeat(){
       renderDrawingGallery&&renderDrawingGallery();
       renderDeficiencyPanel&&renderDeficiencyPanel();
       renderSummaryTable&&renderSummaryTable();
+      // If drawing viewer is open, reload markup in case it was cleared on another device
+      if(dvState&&dvState.currentDrawingId&&document.getElementById('drawing-viewer').classList.contains('open')){
+        var _hbDwg=getProject()&&getProject().drawings&&getProject().drawings.find(function(d){return d.id===dvState.currentDrawingId;});
+        if(_hbDwg&&(_hbDwg.markupCleared||!(_hbDwg.markupObjects&&_hbDwg.markupObjects.length))){
+          _mkObjects=[];renderAllMarkup&&renderAllMarkup();
+        }
+      }
       // Brief indicator on cloud dot
       var dot=document.getElementById('cloud-dot');
       if(dot){
