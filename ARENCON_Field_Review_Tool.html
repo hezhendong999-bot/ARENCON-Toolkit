@@ -11879,6 +11879,11 @@ function _initCloudSync(){
                   dataUrl:existing?existing.dataUrl:null,
                   thumb:d.thumb||(existing?existing.thumb:null)};
         });
+        // Add local drawings that don't exist in cloud yet (e.g. just uploaded, not synced)
+        var cloudDrawingIds=(cloudProj.drawings||[]).map(function(d){return d.id;});
+        (localProj.drawings||[]).forEach(function(ld){
+          if(cloudDrawingIds.indexOf(ld.id)<0)localProj.drawings.push(ld);
+        });
         // Apply project structure
         if(cloudProj.contractors)localProj.contractors=cloudProj.contractors;
         if(cloudProj.generalDeficiencies)localProj.generalDeficiencies=cloudProj.generalDeficiencies;
@@ -11896,7 +11901,14 @@ function _initCloudSync(){
         // Mark local as synced at cloud time
         localProj._cloudSyncedAt=cloudUpdatedAt;
         ADB.saveFullProject(localProj).catch(function(e){console.warn('[CloudSync] Merge save error:',e);});
-        setTimeout(function(){refreshCurrentView&&refreshCurrentView();renderDeficiencyPanel&&renderDeficiencyPanel();},200);
+        setTimeout(function(){
+          // Don't refresh drawing viewer mid-open — would revoke active blob URL
+          if(!document.getElementById('drawing-viewer').classList.contains('open')){
+            refreshCurrentView&&refreshCurrentView();
+          }
+          renderDeficiencyPanel&&renderDeficiencyPanel();
+          renderDrawingGallery&&renderDrawingGallery();
+        },200);
         console.log('[CloudSync] Applied cloud state — drawings:'+localProj.drawings.length+' defics:'+localProj.generalDeficiencies.length);
       }
     } else if(p){
@@ -11957,8 +11969,9 @@ async function _syncHeartbeat(){
       console.log('[Heartbeat] Cloud is newer — applying update silently');
       // Apply drawings metadata
       if(cloudData.drawings&&cloudData.drawings.length>0){
+        var prevDrawings=p.drawings||[];
         p.drawings=cloudData.drawings.map(function(d){
-          var existing=(p.drawings||[]).find(function(x){return x.id===d.id;});
+          var existing=prevDrawings.find(function(x){return x.id===d.id;});
           return {id:d.id,name:d.name,width:d.width||0,height:d.height||0,
                   isOriginal:d.isOriginal||false,folder:d.folder||'',
                   r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
@@ -11967,6 +11980,11 @@ async function _syncHeartbeat(){
                   pdfPage:d.pdfPage||(existing?existing.pdfPage:1)||1,
                   dataUrl:existing?existing.dataUrl:null,
                   thumb:d.thumb||(existing?existing.thumb:null)};
+        });
+        // Keep local-only drawings not yet pushed to cloud
+        var cloudIds=cloudData.drawings.map(function(d){return d.id;});
+        prevDrawings.forEach(function(ld){
+          if(cloudIds.indexOf(ld.id)<0)p.drawings.push(ld);
         });
       }
       if(cloudData.contractors)p.contractors=cloudData.contractors;
@@ -11986,8 +12004,11 @@ async function _syncHeartbeat(){
       p._cloudSyncedAt=cloudUpdatedAt;
       // Save to IDB and refresh view
       ADB.saveFullProject(p).catch(function(){});
-      refreshCurrentView&&refreshCurrentView();
+      if(!document.getElementById('drawing-viewer').classList.contains('open')){
+        refreshCurrentView&&refreshCurrentView();
+      }
       renderDeficiencyPanel&&renderDeficiencyPanel();
+      renderDrawingGallery&&renderDrawingGallery();
       // Brief indicator on cloud dot
       var dot=document.getElementById('cloud-dot');
       if(dot){
