@@ -4658,66 +4658,24 @@ function handleImageDrawingUpload(f){
 }
 
 function handlePDFUpload(file){ensurePdfJs(function(){_handlePDFUploadCore(file);});}
-function _handlePDFUploadCore(file){
-  var reader=new FileReader();
-  reader.onload=function(e){
-    var arrayBuf=e.target.result;
-    var pdfBufCopy=arrayBuf.slice(0);// clone before PDF.js detaches the original
-    var ta=new Uint8Array(arrayBuf);
-    var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
-    pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
-      clearTimeout(pdfTimeout);
-      var bn=file.name.replace(/\.pdf$/i,'');
-      var total=pdf.numPages;
-      var done=0;
-      showDrawingLoading('Processing PDF: 0/'+total+'...');
-      function go(pg){
-        pdf.getPage(pg).then(function(page){
-          var pv=page.view;
-          var pw=pv[2],ph=pv[3];
-          // Thumb only: 300px wide max, JPEG for small size
-          var thumbScale=Math.min(1.0,300/pw,300/ph);
-          var vp=page.getViewport({scale:thumbScale});
-          var tc=document.createElement('canvas');
-          tc.width=Math.round(vp.width);
-          tc.height=Math.round(vp.height);
-          page.render({canvasContext:tc.getContext('2d'),viewport:vp}).promise.then(function(){
-            setTimeout(function(){
-              try{
-                var thumbDu=tc.toDataURL('image/jpeg',0.70);
-                tc.width=1;tc.height=1;
-                var p=getProject();if(!p)return;
-                var pageName=total>1?bn+' - Page '+pg:bn;
-                pageName=getUniqueDrawingName(pageName,p);
-                var fullW=Math.round(pw*2.0);
-                var fullH=Math.round(ph*2.0);
-                var pdfBlob=new Blob([pdfBufCopy],{type:'application/pdf'});
-                var newDwg={
-                  id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
-                  name:pageName,dataUrl:null,thumb:thumbDu,
-                  width:fullW,height:fullH,
-                  pdfTiled:true,pdfPage:pg,
-                  pdfBlob:pdfBlob,// stored in drawings IDB via saveDrawing
-                  isOriginal:false,folder:bn,
-                  r2Key:'',r2Status:'',r2Url:''
-                };
-                p.drawings.push(newDwg);
-                saveToLS();
-                done++;
-                showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
-                if(pg<total){go(pg+1);}
-                else{renderDrawingGallery();hideDrawingLoading();}
-                if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
-              }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
-            },0);
-          });
-        });
-      }
-      go(1);
-    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
-  };
-  reader.readAsArrayBuffer(file);
-}
+function _handlePDFUploadCore(file){var reader=new FileReader();reader.onload=function(e){var ta=new Uint8Array(e.target.result);
+  var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min).\n\nTip: Export individual sheets as PNG/JPEG instead of full PDF.');},120000);
+  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale=Math.min(1.2,1800/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale});var c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise.then(function(){
+  setTimeout(function(){
+    try{
+      var du=c.toDataURL('image/jpeg',0.85);
+      c.width=1;c.height=1;
+      var p=getProject();if(!p)return;
+      var pageName=total>1?bn+' - Page '+pg:bn;
+      pageName=getUniqueDrawingName(pageName,p);
+      var newDwg={id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),name:pageName,dataUrl:du,thumb:null,width:vp.width,height:vp.height,isOriginal:false,folder:bn,r2Key:'',r2Status:'',r2Url:''};
+      p.drawings.push(newDwg);
+      if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
+      done++;showDrawingLoading('Rendering PDF: '+done+'/'+total+'...');
+      if(pg<total){saveToLS();go(pg+1);}
+      else{saveToLS();renderDrawingGallery();hideDrawingLoading();}
+    }catch(encErr){hideDrawingLoading();alert('Error saving page '+pg+': '+encErr.message);}
+  },0);});});}go(1);}).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});};reader.readAsArrayBuffer(file);}
 function showDrawingLoading(msg){var el=document.getElementById('drawing-loading');if(el){el.innerHTML='<span style="display:inline-block;width:16px;height:16px;border:2px solid #F57F17;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></span> '+msg;el.style.display='flex';}}
 function hideDrawingLoading(){var el=document.getElementById('drawing-loading');if(el)el.style.display='none';}
 
@@ -4978,65 +4936,24 @@ function handleImageUploadToFolder(f,folder){
   reader.readAsDataURL(f);
 }
 function handlePDFUploadToFolder(file,folder){ensurePdfJs(function(){_handlePDFUploadToFolderCore(file,folder);});}
-function _handlePDFUploadToFolderCore(file,folder){
-  var reader=new FileReader();
-  reader.onload=function(e){
-    var arrayBuf=e.target.result;
-    var pdfBufCopy=arrayBuf.slice(0);// clone before PDF.js detaches the original
-    var ta=new Uint8Array(arrayBuf);
-    var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
-    pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
-      clearTimeout(pdfTimeout2);
-      var bn=file.name.replace(/\.pdf$/i,'');
-      var total=pdf.numPages;
-      var done=0;
-      showDrawingLoading('Processing PDF: 0/'+total+'...');
-      function go(pg){
-        pdf.getPage(pg).then(function(page){
-          var pv=page.view;
-          var pw=pv[2],ph=pv[3];
-          var thumbScale=Math.min(1.0,300/pw,300/ph);
-          var vp=page.getViewport({scale:thumbScale});
-          var tc=document.createElement('canvas');
-          tc.width=Math.round(vp.width);
-          tc.height=Math.round(vp.height);
-          page.render({canvasContext:tc.getContext('2d'),viewport:vp}).promise.then(function(){
-            setTimeout(function(){
-              try{
-                var thumbDu=tc.toDataURL('image/jpeg',0.70);
-                tc.width=1;tc.height=1;
-                var p=getProject();if(!p)return;
-                var pageName=total>1?bn+' - Page '+pg:bn;
-                pageName=getUniqueDrawingName(pageName,p);
-                var fullW=Math.round(pw*2.0);
-                var fullH=Math.round(ph*2.0);
-                var pdfBlob2=new Blob([pdfBufCopy],{type:'application/pdf'});
-                var newDwg2={
-                  id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
-                  name:pageName,dataUrl:null,thumb:thumbDu,
-                  width:fullW,height:fullH,
-                  pdfTiled:true,pdfPage:pg,
-                  pdfBlob:pdfBlob2,
-                  isOriginal:false,folder:folder,
-                  r2Key:'',r2Status:'',r2Url:''
-                };
-                p.drawings.push(newDwg2);
-                saveToLS();
-                done++;
-                showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
-                if(pg<total){go(pg+1);}
-                else{renderDrawingGallery();hideDrawingLoading();}
-                if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
-              }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
-            },0);
-          });
-        });
-      }
-      go(1);
-    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
-  };
-  reader.readAsArrayBuffer(file);
-}
+function _handlePDFUploadToFolderCore(file,folder){var reader=new FileReader();reader.onload=function(e){var ta=new Uint8Array(e.target.result);
+  var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min).\n\nTip: Export individual sheets as PNG/JPEG instead.');},120000);
+  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout2);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale2=Math.min(1.2,1800/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale2});var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){
+  setTimeout(function(){
+    try{
+      var du=cv.toDataURL('image/jpeg',0.85);
+      cv.width=1;cv.height=1;
+      var p=getProject();if(!p)return;
+      var pageName=total>1?bn+' - Page '+pg:bn;
+      pageName=getUniqueDrawingName(pageName,p);
+      var newDwg2={id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),name:pageName,dataUrl:du,thumb:null,width:vp.width,height:vp.height,isOriginal:false,folder:folder,r2Key:'',r2Status:'',r2Url:''};
+      p.drawings.push(newDwg2);
+      if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
+      done++;showDrawingLoading('Rendering PDF: '+done+'/'+total+'...');
+      if(pg<total){saveToLS();go(pg+1);}
+      else{saveToLS();renderDrawingGallery();hideDrawingLoading();}
+    }catch(encErr){hideDrawingLoading();alert('Error saving page '+pg+': '+encErr.message);}
+  },0);});});}go(1);}).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});};reader.readAsArrayBuffer(file);}
 function downloadFolderDrawings(fname){
   document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
   var p=getProject();if(!p)return;
@@ -5395,15 +5312,7 @@ function openDrawingViewer(drawingId){
         if(main)main.style.flexDirection='';
       }
     })();
-    // Close any previous tiled PDF session
     if(window._tiledActive)_closeTiledPDF();
-    // Tiled PDF path — draws from raw PDF stored in pdfData IDB store
-    if(d.pdfTiled){
-      showDrawingLoading('Opening drawing…');
-      initPanZoom();
-      _openTiledPDF(drawingId,d.pdfPage||1);
-      return;
-    }
 
     // Use blob URLs instead of dataUrls — keeps binary out of JS heap, prevents iOS OOM crash
     function _openWithSrc(blobUrlOrDataUrl){
