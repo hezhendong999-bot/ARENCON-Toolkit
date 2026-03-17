@@ -4621,7 +4621,7 @@ function handleImageDrawingUpload(f){
 function handlePDFUpload(file){ensurePdfJs(function(){_handlePDFUploadCore(file);});}
 function _handlePDFUploadCore(file){var reader=new FileReader();reader.onload=function(e){var ta=new Uint8Array(e.target.result);
   var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long to render (>2 min).\n\nThis usually means the PDF has very high resolution or many pages.\n\nTip: In Bluebeam or Acrobat, use Save As → Reduce File Size, then try again.\nOr export the sheet as a PNG/JPEG image instead.');},120000);
-  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale=Math.min(2.5,4800/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale});var c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise.then(function(){
+  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale=Math.min(1.5,2400/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale});var c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise.then(function(){
   setTimeout(function(){
     try{
       var du=c.toDataURL('image/png');
@@ -4901,7 +4901,7 @@ function handleImageUploadToFolder(f,folder){
 function handlePDFUploadToFolder(file,folder){ensurePdfJs(function(){_handlePDFUploadToFolderCore(file,folder);});}
 function _handlePDFUploadToFolderCore(file,folder){var reader=new FileReader();reader.onload=function(e){var ta=new Uint8Array(e.target.result);
   var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long to render (>2 min).\n\nTip: In Bluebeam or Acrobat, use Save As → Reduce File Size, then try again.\nOr export the sheet as a PNG/JPEG image instead.');},120000);
-  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout2);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale2=Math.min(2.5,4800/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale2});var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){
+  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout2);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale2=Math.min(1.5,2400/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale2});var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){
   setTimeout(function(){
     try{
       var du=cv.toDataURL('image/png');
@@ -5610,7 +5610,7 @@ function resizeMarkupCanvas(){
   var img=document.getElementById('dv-image');
   if(!canvas||!img)return;
   var iw=img.naturalWidth, ih=img.naturalHeight;
-  var mkMaxDim=3000;
+  var mkMaxDim=(/iPad|iPhone|iPod/.test(navigator.userAgent))?2000:3000;
   var mkScale=1;
   if(Math.max(iw,ih)>mkMaxDim){mkScale=mkMaxDim/Math.max(iw,ih);}
   var cw=Math.round(iw*mkScale), ch=Math.round(ih*mkScale);
