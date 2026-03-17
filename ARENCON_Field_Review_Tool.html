@@ -3167,6 +3167,8 @@ function saveToLS(){
   saveToLS._timer=setTimeout(function(){
     var proj=allProjects[currentProjectId];
     if(!proj)return;
+    // Stamp local modified time — prevents stale cloud data from overwriting newer local changes
+    proj._localModifiedAt=new Date().toISOString();
     ADB.saveFullProject(proj).then(function(){
       ADB.markDirty();
       updateSaveTimestamp();
@@ -5669,7 +5671,7 @@ function deleteAllMarkupOnDrawing(){
   var count=_mkObjects.length;
   if(!count){toast('No markup on this drawing.');return;}
   if(!confirm('Delete all '+count+' markup object'+(count!==1?'s':'')+' on this drawing? This cannot be undone.'))return;
-  mkPushHistory();_mkObjects=[];renderAllMarkup();saveMarkupData();
+  mkPushHistory();_mkObjects=[];renderAllMarkup();saveMarkupData();_forceCloudSave();
   toast('🗑️ Deleted '+count+' markup object'+(count!==1?'s':''));
 }
 function deleteAllPinsOnDrawing(){
@@ -6839,6 +6841,14 @@ function initMarkupEvents(){
 function initSelectModeEvents(){}
 
 // ── PERSISTENCE ──
+
+// Force immediate cloud save — bypasses debounce, used after destructive operations
+function _forceCloudSave(){
+  if(!_csHubMode||typeof CloudSync==='undefined'||!CloudSync.isInitialized)return;
+  var p=getProject();if(!p)return;
+  p._cloudSyncedAt=new Date().toISOString();
+  try{CloudSync.save(_collectFullState());}catch(e){console.warn('[CloudSync] Force save error:',e);}
+}
 function saveMarkupData(){
   var canvas=document.getElementById('markup-canvas');if(!canvas||!dvState.currentDrawingId)return;
   var p=getProject();if(!p)return;
@@ -7014,7 +7024,7 @@ function deleteSelectedShape(){
   mkPushHistory();
   _mkObjects=_mkObjects.filter(function(o){return toDelete.indexOf(o.id)<0;});
   _mkSelectedId=null;_mkSelectedIds=[];
-  renderAllMarkup();saveMarkupData();
+  renderAllMarkup();saveMarkupData();_forceCloudSave();
   showToast(toDelete.length>1?toDelete.length+' markups deleted':'Markup deleted');
 }
 function redrawAllShapes(){renderAllMarkup();}
@@ -11857,8 +11867,11 @@ function _initCloudSync(){
     // Local newer or equal → push local to cloud (this device is current).
     // No timestamp on local → treat as never synced → pull from cloud if cloud has data.
     var localSyncedAt=p&&p._cloudSyncedAt?new Date(p._cloudSyncedAt).getTime():0;
+    // Also check local modification time — local edits after last sync take precedence
+    var localModified=p&&p._localModifiedAt?new Date(p._localModifiedAt).getTime():0;
+    var localCurrent=Math.max(localSyncedAt,localModified);
     var cloudTime=cloudUpdatedAt?new Date(cloudUpdatedAt).getTime():0;
-    var cloudIsNewer=cloudTime>0&&cloudTime>localSyncedAt;
+    var cloudIsNewer=cloudTime>0&&cloudTime>(localCurrent+3000);// 3s grace to avoid self-trigger
 
     if(cloudIsNewer&&cloudData&&typeof cloudData==='object'){
       console.log('[CloudSync] Cloud is newer (cloud:'+cloudUpdatedAt+' local:'+p._cloudSyncedAt+') — applying cloud state');
@@ -11962,9 +11975,11 @@ async function _syncHeartbeat(){
     if(!cloudUpdatedAt||!cloudData)return;
     var p=getProject();if(!p)return;
     var localSyncedAt=p._cloudSyncedAt?new Date(p._cloudSyncedAt).getTime():0;
+    var localModified=p._localModifiedAt?new Date(p._localModifiedAt).getTime():0;
+    var localCurrent=Math.max(localSyncedAt,localModified);
     var cloudTime=new Date(cloudUpdatedAt).getTime();
-    // Only apply if cloud is meaningfully newer (>5s gap avoids self-triggering)
-    if(cloudTime>localSyncedAt+5000){
+    // Only apply if cloud is meaningfully newer (>8s gap to avoid overwriting recent local edits)
+    if(cloudTime>localCurrent+8000){
       console.log('[Heartbeat] Cloud is newer — applying update silently');
       // Apply drawings metadata
       if(cloudData.drawings&&cloudData.drawings.length>0){
