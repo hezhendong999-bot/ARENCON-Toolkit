@@ -1989,7 +1989,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 <script>
 // ═══ ARENCON IndexedDB Storage Layer ═══
 
-var ADB={db:null,DB_NAME:'ARENCON_FieldReview',DB_VER:3,ready:false,_queue:[],folderHandle:null,autoSaveTimer:null,dirty:false};
+var ADB={db:null,DB_NAME:'ARENCON_FieldReview',DB_VER:4,ready:false,_queue:[],folderHandle:null,autoSaveTimer:null,dirty:false};
 
 ADB.open=function(){return new Promise(function(resolve,reject){
   if(ADB.db){resolve(ADB.db);return;}
@@ -11139,7 +11139,23 @@ document.addEventListener('DOMContentLoaded',function(){
       var raw=localStorage.getItem('ARENCON_FieldReview_V2_Projects');
       if(raw)allProjects=JSON.parse(raw);
     }catch(e2){}
-    renderDashboard();
+    // In Hub mode, still try to load from CloudSync even if IDB failed
+    var urlP2=new URLSearchParams(window.location.search);
+    var hubPid2=urlP2.get('project');
+    if(hubPid2){
+      _csHubMode=true;_csProjectId=hubPid2;
+      // Create minimal project shell
+      var existId2=null;
+      Object.keys(allProjects).forEach(function(k){if(allProjects[k]._hubProjectId===hubPid2)existId2=k;});
+      if(!existId2){
+        var p2=newProject({projectNumber:urlP2.get('pn')||'',projectName:urlP2.get('pname')||'',client:urlP2.get('client')||'',address:urlP2.get('addr')||''});
+        p2._hubProjectId=hubPid2;allProjects[p2.id]=p2;existId2=p2.id;
+      }
+      renderDashboard();updateProjectDropdown();enterProject(existId2);switchTab('info');
+      if(typeof CloudSync!=='undefined')_initCloudSync();
+    } else {
+      renderDashboard();
+    }
     _initDone=true;
   });
 
