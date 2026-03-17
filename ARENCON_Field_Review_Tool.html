@@ -990,7 +990,7 @@ body.dark-mode .resp-consultant{background:#001a33;border-color:#003366;}
 /* ── Floating tooltip ── */
 #dv-tool-tooltip{transition:opacity .15s;}
 /* ── Wider sidebar to fit sliders (desktop only) ── */
-@media(min-width:701px){.dv-sidebar-tools{width:52px!important;}}
+@media(min-width:801px){.dv-sidebar-tools{width:56px!important;}}
 #mk-size-input::-webkit-inner-spin-button,#mk-size-input::-webkit-outer-spin-button,
 #mk-opacity-input::-webkit-inner-spin-button,#mk-opacity-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
 
@@ -2191,6 +2191,7 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
         dataUrl:null,thumb:d.thumb||null,markupData:null,
         markupObjects:d.markupObjects||null,heights:d.heights||null,
         r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
+        pdfTiled:d.pdfTiled||false,pdfPage:d.pdfPage||1,
         _hasLocalBlob:!!(d.dataBlob&&d.dataBlob.size>0)// flag for viewer lazy load
       };
     });
@@ -5364,18 +5365,21 @@ function openDrawingViewer(drawingId){
         .then(function(blob){hideDrawingLoading();_openWithBlob(blob);})
         .catch(function(err){hideDrawingLoading();alert('Could not load drawing from cloud: '+err.message);});
     } else if(!d.dataUrl&&d._hasLocalBlob&&ADB._drawingBlobCache&&ADB._drawingBlobCache[d.id]){
-      // Local blob cached — use directly
+      // Local blob cached in memory — use directly
       showDrawingLoading('Loading drawing…');
       hideDrawingLoading();
       _openWithBlob(ADB._drawingBlobCache[d.id]);
     } else if(!d.dataUrl){
-      // Read blob from IDB
+      // Read blob from IDB (always try this as universal fallback)
       showDrawingLoading('Loading drawing…');
       ADB.get('drawings',d.id).then(function(rec){
         hideDrawingLoading();
         if(rec&&rec.dataBlob){_openWithBlob(rec.dataBlob);}
         else if(d.dataUrl){_openWithSrc(d.dataUrl);}
-        else{alert('Drawing data not found.');}
+        else{toast('Drawing not found — please re-upload this drawing');}
+      }).catch(function(e){
+        hideDrawingLoading();
+        toast('Could not load drawing: '+e.message);
       });
     } else {
       // Has dataUrl already (legacy) — use as-is but don't re-cache
