@@ -697,9 +697,12 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .dv-tasks-panel{width:220px;background:#1e2028;border-left:1px solid #3a3e48;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
 .dv-tasks-header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #3a3e48;font-size:13px;font-weight:600;color:#ddd;}
 .dv-tasks-list{flex:1;overflow-y:auto;}
+.dv-tasks-panel.collapsed .dv-tasks-list,.dv-tasks-panel.collapsed #dv-tasks-summary,.dv-tasks-panel.collapsed>div:not(.dv-tasks-header){display:none!important;}
+.dv-tasks-panel.collapsed{max-height:44px!important;overflow:hidden;}
+.dv-tasks-panel.collapsed #dv-tasks-fold-btn{transform:rotate(-90deg);}
 /* Mobile: collapse sidebar to horizontal scrollable strip */
 @media(max-width:700px){
-  .dv-sidebar-tools{display:flex;flex-direction:row;align-items:center;width:100%;height:46px;border-right:none;border-top:none;border-bottom:none;overflow-x:auto;overflow-y:hidden;padding:4px 6px;padding-bottom:max(4px,env(safe-area-inset-bottom));order:2;flex-shrink:0;background:#1e2028;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .dv-sidebar-tools{display:flex;flex-direction:row;align-items:center;width:100%;height:46px;border-right:none;border-top:none;border-bottom:none;overflow-x:auto;overflow-y:hidden;padding:4px 6px;order:2;flex-shrink:0;background:#1e2028;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
   .dv-sidebar-tools::-webkit-scrollbar{display:none;}
   .dv-sidebar-tools .tool-sep{width:1px;height:26px;margin:0 3px;flex-shrink:0;}
   .dv-sidebar-tools .tool-slider-wrap{flex-direction:row;align-items:center;gap:3px;padding:0 3px;flex-shrink:0;}
@@ -712,11 +715,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .dv-sidebar-tools .tool-colors{flex-direction:row;}
   .dv-mobile-tools{display:none!important;}
   .dv-main{flex-direction:column;flex:1;min-height:0;}
-  .dv-tasks-panel{width:100%;max-height:160px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;overflow:hidden;}
-  .dv-tasks-panel.collapsed{max-height:44px!important;overflow:hidden;}
-  .dv-tasks-panel.collapsed .dv-tasks-body-inner{display:none;}
-  #dv-tasks-fold-btn{transition:transform .2s;display:inline-block;}
-  .dv-tasks-panel.collapsed #dv-tasks-fold-btn{transform:rotate(-90deg);}
+  .dv-tasks-panel{width:100%;max-height:160px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;}
   .dv-canvas-area{order:1;flex:1;min-height:0;}
   .dv-toolbar{padding:6px 10px;flex-wrap:wrap;gap:6px;}
   .dv-toolbar button{padding:5px 8px;font-size:11px;}
@@ -1642,10 +1641,29 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <button class="dv-nav-btn" onclick="nextDrawing()" title="Next drawing (→ key)">►</button>
     </div>
     <span style="flex:1;"></span>
-    <!-- Layer visibility quick toggles -->
-    <div class="dv-layer-toggles" id="dv-layer-toggles" title="Layer visibility">
-      <button class="layer-toggle-btn active" id="lt-pins" onclick="toggleLayerVis('pins',this)" title="Show/hide tasks">📌</button>
-      <button class="layer-toggle-btn active" id="lt-markup" onclick="toggleLayerVis('markup',this)" title="Show/hide markup">✏️</button>
+    <!-- Layers dropdown button -->
+    <div style="position:relative;display:inline-block;" id="dv-layers-wrap">
+      <button id="dv-layers-btn" onclick="toggleLayersDropdown(event)" title="Layer visibility"
+        style="background:rgba(255,255,255,.15);border:none;color:white;padding:5px 11px;border-radius:5px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px;">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="white" style="flex-shrink:0;"><rect y="0" width="14" height="2.5" rx="1"/><rect y="5.5" width="14" height="2.5" rx="1"/><rect y="11" width="14" height="2.5" rx="1"/></svg>
+        Layers
+      </button>
+      <div id="dv-layers-dropdown" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:#1e2028;border:1px solid #3a3e48;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.5);min-width:200px;z-index:9500;padding:8px 0;font-family:Calibri,sans-serif;">
+        <div style="padding:4px 14px 8px;font-size:10px;color:#566;text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid #3a3e48;margin-bottom:6px;">Show</div>
+        <label style="display:flex;align-items:center;gap:9px;padding:7px 14px;cursor:pointer;font-size:13px;color:#ccd0e0;user-select:none;">
+          <input type="checkbox" id="lyr-all" checked onchange="layerToggleAll(this.checked)" style="width:15px;height:15px;accent-color:#9C2742;cursor:pointer;">
+          All layers
+        </label>
+        <div style="height:1px;background:#3a3e48;margin:4px 0;"></div>
+        <label style="display:flex;align-items:center;gap:9px;padding:6px 14px 6px 24px;cursor:pointer;font-size:13px;color:#ccd0e0;user-select:none;">
+          <input type="checkbox" id="lyr-pins" checked onchange="layerToggle('pins',this.checked)" style="width:14px;height:14px;accent-color:#9C2742;cursor:pointer;">
+          📌 Tasks
+        </label>
+        <label style="display:flex;align-items:center;gap:9px;padding:6px 14px 6px 24px;cursor:pointer;font-size:13px;color:#ccd0e0;user-select:none;">
+          <input type="checkbox" id="lyr-markup" checked onchange="layerToggle('markup',this.checked)" style="width:14px;height:14px;accent-color:#9C2742;cursor:pointer;">
+          ✏️ Markups
+        </label>
+      </div>
     </div>
     <button onclick="openDownloadDialog(dvState.currentDrawingId)" title="Download drawing" style="background:rgba(255,255,255,.15);border:none;color:white;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:13px;font-weight:600;">⬇️ Download</button>
     <button onclick="toggleHeightsPanel()" id="btn-heights" title="Field Heights / Dimensions" style="background:rgba(255,255,255,.15);border:none;color:white;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:13px;font-weight:600;">📐 Heights</button>
@@ -1661,10 +1679,8 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
     </div>
     <button onclick="fitDrawing()" title="Fit to screen">⊡ Fit</button>
     <button class="dark-toggle" onclick="toggleDarkMode()" title="Toggle dark/light mode" id="dv-dark-toggle">☀️</button>
-    <button onclick="toggleSearchBar()" title="Search text">🔍</button>
   </div>
   <div id="dv-tool-tooltip" style="display:none;position:fixed;background:rgba(30,32,40,.92);color:#fff;font-size:11px;font-family:Calibri,sans-serif;padding:4px 10px;border-radius:6px;pointer-events:none;z-index:9999;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);"></div>
-  <div style="display:none;background:#2a2d35;padding:4px 12px;flex-shrink:0;" id="dv-search-bar"><input type="text" id="dv-search-input" placeholder="Search plan text..." style="flex:1;padding:5px 10px;border:1px solid #555;border-radius:5px;background:#1a1c24;color:white;font-size:12px;font-family:Calibri,sans-serif;" onkeydown="if(event.key==='Enter')searchPlanText()"><button onclick="searchPlanText()" style="background:var(--red);border:none;color:white;padding:5px 12px;border-radius:5px;font-size:12px;cursor:pointer;margin-left:6px;">🔍</button><button onclick="document.getElementById('dv-search-bar').style.display='none'" style="background:none;border:none;color:#888;font-size:14px;cursor:pointer;margin-left:4px;">✕</button></div>
   <div class="dv-main">
     <!-- ALWAYS-ON TOOLBAR — LEFT SIDEBAR -->
     <div class="dv-sidebar-tools" id="dv-sidebar-tools">
@@ -1787,24 +1803,20 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
     <div class="dv-tasks-panel" id="dv-tasks-panel">
       <div class="dv-tasks-header">
         <div style="display:flex;gap:4px;align-items:center;">
-          <button id="dv-toggle-pinned" onclick="event.stopPropagation();setShowAllDeficiencies(false)" ontouchend="event.stopPropagation();event.preventDefault();setShowAllDeficiencies(false);" style="padding:3px 10px;font-size:11px;font-family:Calibri,sans-serif;border-radius:4px;border:1.5px solid #4a5570;background:#9C2742;color:white;cursor:pointer;font-weight:700;">📍 Pinned</button>
-          <button id="dv-toggle-all" onclick="event.stopPropagation();setShowAllDeficiencies(true)" ontouchend="event.stopPropagation();event.preventDefault();setShowAllDeficiencies(true);" style="padding:3px 10px;font-size:11px;font-family:Calibri,sans-serif;border-radius:4px;border:1.5px solid #4a5570;background:#2a3040;color:#a0aac4;cursor:pointer;">All Items</button>
+          <button id="dv-toggle-pinned" onclick="setShowAllDeficiencies(false)" style="padding:3px 10px;font-size:11px;font-family:Calibri,sans-serif;border-radius:4px;border:1.5px solid #4a5570;background:#9C2742;color:white;cursor:pointer;font-weight:700;">📍 Pinned</button>
+          <button id="dv-toggle-all" onclick="setShowAllDeficiencies(true)" style="padding:3px 10px;font-size:11px;font-family:Calibri,sans-serif;border-radius:4px;border:1.5px solid #4a5570;background:#2a3040;color:#a0aac4;cursor:pointer;">All Items</button>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;align-items:center;gap:6px;">
           <span id="dv-pin-count" style="font-size:11px;color:#8a9ab8;">0</span>
-          <button id="dv-tasks-fold-btn" onclick="event.stopPropagation();_dvToggleTasksPanel();" ontouchend="event.stopPropagation();event.preventDefault();_dvToggleTasksPanel();" style="background:none;border:none;color:#8a9ab8;font-size:18px;cursor:pointer;padding:4px 8px;line-height:1;border-radius:4px;-webkit-tap-highlight-color:transparent;">▾</button>
+          <button id="dv-tasks-fold-btn" title="Collapse panel"
+            style="background:none;border:none;color:#8a9ab8;font-size:16px;cursor:pointer;padding:2px 4px;line-height:1;flex-shrink:0;transition:transform .2s;"
+            onclick="_dvToggleTasksPanel()"
+            ontouchend="event.stopPropagation();event.preventDefault();_dvToggleTasksPanel();">▼</button>
         </div>
       </div>
-      <div id="dv-tasks-body" class="dv-tasks-body-inner">
       <div id="dv-tasks-summary" style="display:none;padding:4px 10px;font-size:10px;color:#8a9ab8;border-bottom:1px solid #3a3e48;"></div>
-      <div style="padding:8px 10px;border-bottom:1px solid #3a3e48;display:flex;flex-direction:column;gap:5px;">
-        <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">Layers</div>
-        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#aaa;cursor:pointer;"><input type="checkbox" id="layer-pins" checked onchange="toggleLayer('pins',this.checked)"> Tasks</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#aaa;cursor:pointer;"><input type="checkbox" id="layer-markups" checked onchange="toggleLayer('markups',this.checked)"> Markups</label>
-      </div>
       <div class="dv-tasks-list" id="dv-tasks-list"></div>
       <div style="padding:8px;border-top:1px solid #3a3e48;"><button style="width:100%;padding:8px;border:1.5px solid #4a5570;border-radius:6px;background:#2a3040;color:#a0aac4;font-size:12px;cursor:pointer;font-family:Calibri,sans-serif;" onclick="setToolbarTool('pin')">+ New Task</button></div>
-      </div>
     </div>
   </div>
 </div>
@@ -4099,8 +4111,8 @@ document.addEventListener('keydown',function(e){
         _mkSelectedId=null;_mkSelectedIds=[];if(typeof renderAllMarkup==='function')renderAllMarkup();
         didCancel=true;
       }
-      // Escape never closes the viewer — use the ← Close button
-      // (prevents accidental dismissal while working on drawings)
+      // Only close viewer if nothing was active to cancel
+      if(!didCancel&&typeof closeDrawingViewer==='function'){closeDrawingViewer();}
       return;
     }
     var dd=document.getElementById('download-dialog');if(dd&&dd.style.display==='flex'){if(typeof closeDownloadDialog==='function')closeDownloadDialog();return;}
@@ -4531,6 +4543,53 @@ var editingPinId=null;
 function handleDrawingUpload(e){var files=e.target.files;if(!files.length||!currentProjectId)return;Array.from(files).forEach(function(f){if(f.type==='application/pdf')handlePDFUpload(f);else if(f.type.startsWith('image/'))handleImageDrawingUpload(f);});e.target.value='';}
 function handleDrawingFiles(files){Array.from(files).forEach(function(f){if(f.type==='application/pdf')handlePDFUpload(f);else if(f.type.startsWith('image/'))handleImageDrawingUpload(f);});}
 
+// ── Drawing conflict logic ──────────────────────────────────────────────────
+function _dwgConflictsInFolder(names,folder,p){
+  var existing=(p.drawings||[]).filter(function(d){return (d.folder||'')===folder;}).map(function(d){return d.name;});
+  return names.filter(function(n){return existing.indexOf(n)!==-1;});
+}
+function _suggestFolderName(baseName,p){
+  var folders={};(p.drawings||[]).forEach(function(d){if(d.folder)folders[d.folder]=true;});
+  var candidates=[baseName+' (Inspector 2)',baseName+' (Set B)',baseName+' (Copy)'];
+  ['B','C','D','E','F'].forEach(function(s){candidates.push(baseName+' — Set '+s);});
+  for(var i=0;i<candidates.length;i++){if(!folders[candidates[i]])return candidates[i];}
+  var n=2;while(folders[baseName+' ('+n+')'])n++;
+  return baseName+' ('+n+')';
+}
+function _showDrawingConflictModal(conflictNames,suggestedFolder,onProceed,onCancel){
+  var ex=document.getElementById('_dwg-conflict-overlay');if(ex)ex.remove();
+  var ov=document.createElement('div');
+  ov.id='_dwg-conflict-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(28,35,51,.88);z-index:19500;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px);';
+  var listHtml=conflictNames.slice(0,8).map(function(n){return '<div style="padding:3px 0;color:#f0a030;font-size:12px;">⚠ '+escHtml(n)+'</div>';}).join('');
+  if(conflictNames.length>8)listHtml+='<div style="color:#8892a8;font-size:11px;">…and '+(conflictNames.length-8)+' more</div>';
+  ov.innerHTML='<div style="background:#1e2028;border:1px solid #3a3e48;border-radius:14px;padding:28px 26px;max-width:420px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.6);font-family:Calibri,sans-serif;">'
+    +'<div style="font-size:16px;font-weight:700;color:#dde2f0;margin-bottom:6px;">⚠️ Drawing Name Conflict</div>'
+    +'<div style="font-size:13px;color:#8892a8;margin-bottom:14px;">The following names already exist. New drawings will be saved into a separate folder to keep each set independent:</div>'
+    +'<div style="background:#141720;border-radius:8px;padding:10px 14px;margin-bottom:16px;max-height:140px;overflow-y:auto;">'+listHtml+'</div>'
+    +'<div style="font-size:12px;color:#8892a8;margin-bottom:6px;">New folder name:</div>'
+    +'<input id="_dwgc-folder-inp" type="text" value="'+escHtml(suggestedFolder)+'" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #4a5570;border-radius:8px;font-size:14px;font-family:Calibri,sans-serif;background:#12151e;color:#dde2f0;margin-bottom:6px;">'
+    +'<div id="_dwgc-err" style="font-size:11px;color:#C62828;min-height:16px;margin-bottom:12px;"></div>'
+    +'<div style="display:flex;gap:10px;">'
+    +'<button id="_dwgc-cancel" style="flex:1;padding:10px;background:none;color:#8892a8;border:1.5px solid #3a3e48;border-radius:8px;font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel upload</button>'
+    +'<button id="_dwgc-ok" style="flex:2;padding:11px;background:#9C2742;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Save to New Folder</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  var inp=document.getElementById('_dwgc-folder-inp');
+  var errEl=document.getElementById('_dwgc-err');
+  setTimeout(function(){inp.focus();inp.select();},60);
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();doOk();}if(e.key==='Escape'){ov.remove();if(onCancel)onCancel();}});
+  function doOk(){
+    var val=inp.value.trim();
+    if(!val){errEl.textContent='Folder name cannot be empty.';return;}
+    var p=getProject();
+    var exists=(p.drawings||[]).some(function(d){return (d.folder||'')===(val);});
+    if(exists){errEl.textContent='That folder already exists — choose a different name.';return;}
+    ov.remove();onProceed(val);
+  }
+  document.getElementById('_dwgc-ok').onclick=doOk;
+  document.getElementById('_dwgc-cancel').onclick=function(){ov.remove();if(onCancel)onCancel();};
+}
 function getUniqueDrawingName(baseName,p){
   var names=(p.drawings||[]).map(function(d){return d.name;});
   if(names.indexOf(baseName)===-1)return baseName;
@@ -4538,78 +4597,36 @@ function getUniqueDrawingName(baseName,p){
   return baseName+' ('+i+')';
 }
 
-// Show conflict resolution modal when a drawing name already exists
-// Returns a promise that resolves to the chosen name (or null to cancel)
-function _resolveDrawingNameConflict(baseName,p){
-  return new Promise(function(resolve){
-    var names=(p.drawings||[]).map(function(d){return d.name;});
-    if(names.indexOf(baseName)===-1){resolve(baseName);return;}
-    // Generate suggestions
-    var suggestions=[];
-    var i=1;
-    while(suggestions.length<3){
-      var candidate=baseName+' v'+i;
-      if(names.indexOf(candidate)===-1)suggestions.push(candidate);
-      i++;
+function handleImageDrawingUpload(f){
+  showDrawingLoading('Processing '+f.name+'...');
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var p=getProject();
+    var baseName=f.name.replace(/\.[^.]+$/,'');
+    var conflicts=_dwgConflictsInFolder([baseName],'',p);
+    function doSave(folder){
+      var newDwgI={id:'dwg_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:baseName,dataUrl:e.target.result,width:0,height:0,isOriginal:true,folder:folder,r2Key:'',r2Status:'',r2Url:''};
+      p.drawings.push(newDwgI);if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwgI);
+      saveToLS();hideDrawingLoading();renderDrawingGallery();
     }
-    // Build modal
-    var ov=document.createElement('div');
-    ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
-    ov.innerHTML='<div style="background:#1e2028;border:1px solid #3a3e48;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.5);">'
-      +'<div style="font-size:16px;font-weight:700;color:#e0e6f0;margin-bottom:8px;">⚠️ Name Conflict</div>'
-      +'<div style="font-size:13px;color:#8a9ab8;margin-bottom:16px;">A drawing named <strong style="color:#e0e6f0;">'+escHtml(baseName)+'</strong> already exists. Choose a new name or select a suggestion:</div>'
-      +'<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">'
-      +suggestions.map(function(s){
-        return '<button onclick="document.getElementById(\'dwg-conflict-input\').value=\''+escHtml(s)+'\'" '
-          +'style="text-align:left;padding:8px 12px;background:#2a3040;border:1.5px solid #4a5570;border-radius:6px;color:#c0c8e0;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">'+escHtml(s)+'</button>';
-      }).join('')
-      +'</div>'
-      +'<input id="dwg-conflict-input" type="text" value="'+escHtml(suggestions[0])+'" '
-        +'style="width:100%;padding:8px 10px;background:#111520;border:1.5px solid #4a5570;border-radius:6px;color:#e0e6f0;font-size:13px;font-family:Calibri,sans-serif;box-sizing:border-box;margin-bottom:16px;">'
-      +'<div style="display:flex;gap:8px;justify-content:flex-end;">'
-        +'<button id="dwg-conflict-cancel" style="padding:8px 16px;background:#2a3040;border:1.5px solid #4a5570;border-radius:6px;color:#a0aac4;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>'
-        +'<button id="dwg-conflict-ok" style="padding:8px 16px;background:#9C2742;border:none;border-radius:6px;color:white;cursor:pointer;font-family:Calibri,sans-serif;font-weight:700;">Use this name</button>'
-      +'</div>'
-    +'</div>';
-    document.body.appendChild(ov);
-    document.getElementById('dwg-conflict-cancel').onclick=function(){ov.remove();resolve(null);};
-    document.getElementById('dwg-conflict-ok').onclick=function(){
-      var val=(document.getElementById('dwg-conflict-input').value||'').trim();
-      ov.remove();
-      if(!val){resolve(null);return;}
-      // If still conflicts, auto-suffix
-      if(names.indexOf(val)!==-1)val=getUniqueDrawingName(val,p);
-      resolve(val);
-    };
-    document.getElementById('dwg-conflict-input').onkeydown=function(e){
-      if(e.key==='Enter')document.getElementById('dwg-conflict-ok').click();
-      if(e.key==='Escape')document.getElementById('dwg-conflict-cancel').click();
-    };
-    setTimeout(function(){var inp=document.getElementById('dwg-conflict-input');if(inp){inp.focus();inp.select();}},50);
-  });
+    if(conflicts.length){hideDrawingLoading();_showDrawingConflictModal(conflicts,_suggestFolderName(baseName,p),doSave,function(){hideDrawingLoading();});}
+    else doSave('');
+  };
+  reader.readAsDataURL(f);
 }
-
-function handleImageDrawingUpload(f){showDrawingLoading('Processing '+f.name+'...');var reader=new FileReader();reader.onload=function(e){var p=getProject();var baseName=f.name.replace(/\.[^.]+$/,'');var dataUrl=e.target.result;_resolveDrawingNameConflict(baseName,p).then(function(name){if(!name){hideDrawingLoading();return;}var newDwgI={id:'dwg_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,dataUrl:dataUrl,width:0,height:0,isOriginal:true,r2Key:'',r2Status:'',r2Url:''};p.drawings.push(newDwgI);if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwgI);saveToLS();hideDrawingLoading();renderDrawingGallery();});};reader.readAsDataURL(f);}
 
 function handlePDFUpload(file){ensurePdfJs(function(){_handlePDFUploadCore(file);});}
 function _handlePDFUploadCore(file){var reader=new FileReader();reader.onload=function(e){var ta=new Uint8Array(e.target.result);
   var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long to render (>2 min).\n\nThis usually means the PDF has very high resolution or many pages.\n\nTip: In Bluebeam or Acrobat, use Save As → Reduce File Size, then try again.\nOr export the sheet as a PNG/JPEG image instead.');},120000);
-  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;showDrawingLoading('Checking name...');
-  // Check for name conflict before rendering (once for whole PDF)
-  var p=getProject();if(!p){hideDrawingLoading();return;}
-  var checkName=total>1?bn+' - Page 1':bn;
-  var existingNames=(p.drawings||[]).map(function(d){return d.name;});
-  var hasConflict=existingNames.indexOf(checkName)!==-1;
-  function _startRender(resolvedBn){
-    var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale=Math.min(2.0,4800/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale});var c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise.then(function(){
+  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale=Math.min(2.5,4800/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale});var c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise.then(function(){
   setTimeout(function(){
     try{
       var du=c.toDataURL('image/png');
       c.width=1;c.height=1;// release canvas memory
       var p=getProject();if(!p)return;
-      var pageName=total>1?resolvedBn+' - Page '+pg:resolvedBn;
+      var pageName=total>1?bn+' - Page '+pg:bn;
       pageName=getUniqueDrawingName(pageName,p);
-      var folderName=resolvedBn;
+      var folderName=bn;
       // Push drawing immediately — thumbnail generated lazily by renderDrawingGallery backfill
       var newDwg={id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),name:pageName,dataUrl:du,thumb:null,width:vp.width,height:vp.height,isOriginal:false,folder:folderName,r2Key:'',r2Status:'',r2Url:''};
       p.drawings.push(newDwg);
@@ -4618,18 +4635,7 @@ function _handlePDFUploadCore(file){var reader=new FileReader();reader.onload=fu
       if(pg<total){saveToLS();go(pg+1);}
       else{saveToLS();renderDrawingGallery();hideDrawingLoading();}
     }catch(encErr){hideDrawingLoading();alert('Error saving page '+pg+': '+encErr.message);}
-  },0);});});}go(1);
-  }
-  if(hasConflict){
-    // Show conflict modal with folder/file name as the conflict item
-    var p2=getProject();
-    _resolveDrawingNameConflict(bn,p2).then(function(resolved){
-      if(!resolved){hideDrawingLoading();return;}
-      _startRender(resolved);
-    });
-  } else {
-    _startRender(bn);
-  }}).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});};reader.readAsArrayBuffer(file);}
+  },0);});});}go(1);}).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});};reader.readAsArrayBuffer(file);}
 function showDrawingLoading(msg){var el=document.getElementById('drawing-loading');if(el){el.innerHTML='<span style="display:inline-block;width:16px;height:16px;border:2px solid #F57F17;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></span> '+msg;el.style.display='flex';}}
 function hideDrawingLoading(){var el=document.getElementById('drawing-loading');if(el)el.style.display='none';}
 
@@ -4872,11 +4878,27 @@ function addToFolderAction(fname){
     });
   };inp.click();
 }
-function handleImageUploadToFolder(f,folder){showDrawingLoading('Processing '+f.name+'...');var reader=new FileReader();reader.onload=function(e){var p=getProject();var baseName=f.name.replace(/\.[^.]+$/,'');var dataUrl=e.target.result;_resolveDrawingNameConflict(baseName,p).then(function(name){if(!name){hideDrawingLoading();return;}var newDwgF={id:'dwg_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,dataUrl:dataUrl,width:0,height:0,isOriginal:true,folder:folder,r2Key:'',r2Status:'',r2Url:''};p.drawings.push(newDwgF);if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwgF);saveToLS();hideDrawingLoading();renderDrawingGallery();});};reader.readAsDataURL(f);}
+function handleImageUploadToFolder(f,folder){
+  showDrawingLoading('Processing '+f.name+'...');
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var p=getProject();
+    var baseName=f.name.replace(/\.[^.]+$/,'');
+    var conflicts=_dwgConflictsInFolder([baseName],folder,p);
+    function doSave(finalFolder){
+      var newDwgF={id:'dwg_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:baseName,dataUrl:e.target.result,width:0,height:0,isOriginal:true,folder:finalFolder,r2Key:'',r2Status:'',r2Url:''};
+      p.drawings.push(newDwgF);if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwgF);
+      saveToLS();hideDrawingLoading();renderDrawingGallery();
+    }
+    if(conflicts.length){hideDrawingLoading();_showDrawingConflictModal(conflicts,_suggestFolderName(folder||baseName,p),doSave,function(){hideDrawingLoading();});}
+    else doSave(folder);
+  };
+  reader.readAsDataURL(f);
+}
 function handlePDFUploadToFolder(file,folder){ensurePdfJs(function(){_handlePDFUploadToFolderCore(file,folder);});}
 function _handlePDFUploadToFolderCore(file,folder){var reader=new FileReader();reader.onload=function(e){var ta=new Uint8Array(e.target.result);
   var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long to render (>2 min).\n\nTip: In Bluebeam or Acrobat, use Save As → Reduce File Size, then try again.\nOr export the sheet as a PNG/JPEG image instead.');},120000);
-  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout2);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale2=Math.min(2.0,4800/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale2});var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){
+  pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){clearTimeout(pdfTimeout2);var bn=file.name.replace(/\.pdf$/i,'');var total=pdf.numPages;var done=0;showDrawingLoading('Rendering PDF: 0/'+total+'...');function go(pg){pdf.getPage(pg).then(function(page){var baseScale2=Math.min(2.5,4800/Math.max(page.view[2],page.view[3]));var vp=page.getViewport({scale:baseScale2});var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){
   setTimeout(function(){
     try{
       var du=cv.toDataURL('image/png');
@@ -5056,19 +5078,6 @@ function fitDrawing(){
     applyTransform();
   });
 }
-// Auto-fit when device rotates or window resizes
-(function(){
-  var _dvResizeTimer=null;
-  function _dvAutoFit(){
-    clearTimeout(_dvResizeTimer);
-    _dvResizeTimer=setTimeout(function(){
-      var dv=document.getElementById('drawing-viewer');
-      if(dv&&dv.classList.contains('open'))fitDrawing();
-    },150);
-  }
-  window.addEventListener('resize',_dvAutoFit);
-  window.addEventListener('orientationchange',function(){setTimeout(_dvAutoFit,300);});
-})();
 function applyTransform(){document.getElementById('dv-img-wrap').style.transform='translate3d('+dvState.panX+'px,'+dvState.panY+'px,0) scale('+dvState.scale+')';}
 function zoomIn(){dvState.scale=Math.min(dvState.scale*1.3,10);applyTransform();}
 function zoomOut(){var minS=dvState.fitScale||0.1;dvState.scale=Math.max(dvState.scale/1.3,minS);if(dvState.scale<=minS*1.05){fitDrawing();return;}applyTransform();}
@@ -5183,11 +5192,7 @@ area.addEventListener('touchmove',function(e){
         pin.style.top=(dvState.origPinY+dy/(dvState.scale*img.naturalHeight))*img.naturalHeight+'px';
       }
     }else{
-      if(dvState.longPressTimer&&!dvState.longPressTriggered){
-        // Only cancel long-press if finger moved significantly (>8px) — small tremor is normal
-        var _lpDx=Math.abs(e.touches[0].clientX-dvState.dragStartX),_lpDy=Math.abs(e.touches[0].clientY-dvState.dragStartY);
-        if(_lpDx>8||_lpDy>8){clearTimeout(dvState.longPressTimer);dvState.longPressTimer=null;}
-      }
+      if(dvState.longPressTimer&&!dvState.longPressTriggered){clearTimeout(dvState.longPressTimer);dvState.longPressTimer=null;}
       if(pan){
         // Hide pin+markup layers during active pan for performance
         if(!dvState._panHidden){dvState._panHidden=true;var pl=document.getElementById('dv-pins-layer');var mc=document.getElementById('markup-canvas');if(pl)pl.style.opacity='0';if(mc)mc.style.opacity='0';}
@@ -5206,23 +5211,15 @@ area.addEventListener('touchend',function(e){
     if(Math.abs(dx)>3||Math.abs(dy)>3){
       var img=document.getElementById('dv-image');var f=findDeficiency(dvState.selectedPinId);
       if(f&&f.defic.pinX!=null){
-        // Divide screen-pixel delta by (CSS scale * natural image size) for correct normalized position
-        f.defic.pinX=dvState.origPinX+dx/(dvState.scale*img.naturalWidth);
-        f.defic.pinY=dvState.origPinY+dy/(dvState.scale*img.naturalHeight);
-        f.defic.pinX=Math.max(0,Math.min(1,f.defic.pinX));
-        f.defic.pinY=Math.max(0,Math.min(1,f.defic.pinY));
-        saveToLS();
+        f.defic.pinX=dvState.origPinX+dx/(dvState.scale*img.naturalWidth);f.defic.pinY=dvState.origPinY+dy/(dvState.scale*img.naturalHeight);
+        f.defic.pinX=Math.max(0,Math.min(1,f.defic.pinX));f.defic.pinY=Math.max(0,Math.min(1,f.defic.pinY));saveToLS();
       }
     }
     dvState.draggingPin=false;dvState.selectedPinId=null;renderPinsOnDrawing();return;
   }
   if(!dvState.longPressTriggered){
     var pin=e.target.closest('.pin-marker');
-    if(pin){
-      // In select markup mode — don't open pin editor on tap
-      if(mkState&&mkState.tool==='select'){dvState.longPressTriggered=false;pan=false;return;}
-      openPinEditor(pin.getAttribute('data-defic-id'));
-    }
+    if(pin)openPinEditor(pin.getAttribute('data-defic-id'));
   }
   dvState.longPressTriggered=false;pan=false;
   // Restore pin+markup layers after pan
@@ -5316,6 +5313,50 @@ html+='<path d="M14 2.5C7.9 2.5 3 7.4 3 13.5c0 8.5 11 19 11 19s11-10.5 11-19C25 
 html+='<text x="14" y="13.5" text-anchor="middle" dominant-baseline="central" font-size="'+fs+'" font-weight="800" font-family="Calibri,Arial,sans-serif" fill="white">'+d.defic.num+'</text>';
 html+='</svg></div>';});layer.innerHTML=html;updatePinStatus();}
 
+function _dvToggleTasksPanel(){
+  var panel=document.getElementById('dv-tasks-panel');
+  var btn=document.getElementById('dv-tasks-fold-btn');
+  if(!panel)return;
+  var collapsed=panel.classList.toggle('collapsed');
+  if(btn)btn.title=collapsed?'Expand panel':'Collapse panel';
+}
+function layerToggle(layer,show){
+  _layerVis[layer]=show;
+  if(layer==='pins'){var el=document.getElementById('dv-pins-layer');if(el)el.style.opacity=show?'1':'0';}
+  else if(layer==='markup'){var cv=document.getElementById('markup-canvas');if(cv)cv.style.opacity=show?'1':'0';}
+  _updateLayerAllCheck();_updateLayersBtnState();
+}
+function layerToggleAll(show){
+  _layerVis.pins=show;_layerVis.markup=show;
+  var el=document.getElementById('dv-pins-layer');if(el)el.style.opacity=show?'1':'0';
+  var cv=document.getElementById('markup-canvas');if(cv)cv.style.opacity=show?'1':'0';
+  var lp=document.getElementById('lyr-pins');if(lp)lp.checked=show;
+  var lm=document.getElementById('lyr-markup');if(lm)lm.checked=show;
+  _updateLayersBtnState();
+}
+function _updateLayerAllCheck(){
+  var all=_layerVis.pins&&_layerVis.markup;
+  var la=document.getElementById('lyr-all');if(la)la.checked=all;
+}
+function _updateLayersBtnState(){
+  var btn=document.getElementById('dv-layers-btn');if(!btn)return;
+  var all=_layerVis.pins&&_layerVis.markup;
+  btn.style.opacity=all?'1':'0.7';
+  btn.style.background=all?'rgba(255,255,255,.15)':'rgba(156,39,66,.4)';
+}
+function toggleLayersDropdown(e){
+  e.stopPropagation();
+  var dd=document.getElementById('dv-layers-dropdown');if(!dd)return;
+  var open=dd.style.display==='none';
+  dd.style.display=open?'block':'none';
+  if(open){
+    var lp=document.getElementById('lyr-pins');if(lp)lp.checked=_layerVis.pins;
+    var lm=document.getElementById('lyr-markup');if(lm)lm.checked=_layerVis.markup;
+    _updateLayerAllCheck();
+    var close=function(ev){if(!document.getElementById('dv-layers-wrap').contains(ev.target)){dd.style.display='none';document.removeEventListener('click',close);}};
+    setTimeout(function(){document.addEventListener('click',close);},0);
+  }
+}
 function setShowAllDeficiencies(showAll){
   _showAllDeficiencies=showAll;
   var btnPinned=document.getElementById('dv-toggle-pinned');
@@ -5529,9 +5570,7 @@ function resizeMarkupCanvas(){
   var img=document.getElementById('dv-image');
   if(!canvas||!img)return;
   var iw=img.naturalWidth, ih=img.naturalHeight;
-  // Cap canvas size — mobile (iOS) crashes above ~2048px due to memory limits
-  var isMobile=window.innerWidth<=700||/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  var mkMaxDim=isMobile?1536:3000;
+  var mkMaxDim=3000;
   var mkScale=1;
   if(Math.max(iw,ih)>mkMaxDim){mkScale=mkMaxDim/Math.max(iw,ih);}
   var cw=Math.round(iw*mkScale), ch=Math.round(ih*mkScale);
@@ -5987,7 +6026,7 @@ function initMarkupEvents(){
   canvas.addEventListener('mouseleave',function(){_eraserCursor.style.display='none';});
 
   function getPos(e){
-    var r=canvas.getBoundingClientRect();var lw=canvas._logicalW||canvas.width,lh=canvas._logicalH||canvas.height;var sx=lw/r.width,sy=lh/r.height;
+    var r=canvas.getBoundingClientRect();var sx=canvas.width/r.width,sy=canvas.height/r.height;
     if(e.touches)return{x:(e.touches[0].clientX-r.left)*sx,y:(e.touches[0].clientY-r.top)*sy};
     if(e.changedTouches)return{x:(e.changedTouches[0].clientX-r.left)*sx,y:(e.changedTouches[0].clientY-r.top)*sy};
     return{x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy};
@@ -6433,7 +6472,7 @@ function setLayerVisForExport(pins,markup){
   if(mEl)mEl.style.opacity=markup?'1':'0';
   return function(){if(pEl)pEl.style.opacity=prev.pOp;if(mEl)mEl.style.opacity=prev.mOp;};
 }
-function toggleLayer(layer,show){toggleLayerVis(layer,null);}
+function toggleLayer(layer,show){layerToggle(layer,show);}
 
 var _textSizeIndex=0;
 var _textSizes=[16,24,36,48];
@@ -6878,13 +6917,7 @@ function _lbToggleColorMenu(forceClose){
 function _lbGetPos(e){
   if(!_lbCanvas)return{x:0,y:0};
   var r=_lbCanvas.getBoundingClientRect();
-  // Map from screen pixels to logical image coordinates (0..naturalWidth, 0..naturalHeight)
-  // r.width/height = actual rendered size on screen (after CSS max-width/max-height)
-  // _lbCanvas._dpr = the scale factor applied to ctx (dpr * downscale)
-  // logical size = canvas.width / _dpr
-  var logW=_lbCanvas.width/(_lbCanvas._dpr||1);
-  var logH=_lbCanvas.height/(_lbCanvas._dpr||1);
-  var sx=logW/r.width, sy=logH/r.height;
+  var sx=_lbCanvas.width/r.width,sy=_lbCanvas.height/r.height;
   if(e.touches)return{x:(e.touches[0].clientX-r.left)*sx,y:(e.touches[0].clientY-r.top)*sy};
   if(e.changedTouches)return{x:(e.changedTouches[0].clientX-r.left)*sx,y:(e.changedTouches[0].clientY-r.top)*sy};
   return{x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy};
@@ -8463,8 +8496,6 @@ function openPhotoLightboxDirect(src,photosArr,startIdx){
   _lbHideToolbar();
   lb.style.display='flex';
   document.body.style.overflow='hidden';
-  document.body.style.position='fixed';
-  document.body.style.width='100%';
   _lbShowCurrentDirect();
 }
 var _lbBgImage=null; // stored for eraser restoration
@@ -8481,26 +8512,18 @@ function _lbShowCurrentDirect(){
     var dpr=Math.min(window.devicePixelRatio||1,2);
     var natW=image.naturalWidth||800;
     var natH=image.naturalHeight||600;
-    // Cap canvas size to prevent Safari/iOS crash on large images
-    var maxDim=window.innerWidth<=700?2048:4096;
-    var scale=Math.min(1,maxDim/Math.max(natW*dpr,natH*dpr));
-    var cw=Math.round(natW*dpr*scale);
-    var ch=Math.round(natH*dpr*scale);
-    _lbCanvas.width=cw;
-    _lbCanvas.height=ch;
+    _lbCanvas.width=natW*dpr;
+    _lbCanvas.height=natH*dpr;
     _lbCanvas.style.maxWidth='90vw';
     _lbCanvas.style.maxHeight='80vh';
     _lbCanvas.style.width=natW+'px';
     _lbCanvas.style.height=natH+'px';
     _lbCtx=_lbCanvas.getContext('2d');
-    _lbCtx.scale(dpr*scale,dpr*scale);
-    _lbCanvas._dpr=dpr*scale;
+    _lbCtx.scale(dpr,dpr);
+    _lbCanvas._dpr=dpr;
     _lbBgImage=image;
     _lbCtx.drawImage(image,0,0,natW,natH);
-    // rAF ensures canvas layout is settled before draw events fire (fixes mobile offset)
-    requestAnimationFrame(function(){
-      if(_lbDrawing)_lbEnableDrawEvents();
-    });
+    if(_lbDrawing)_lbEnableDrawEvents();
     var ctr=document.getElementById('lb-photo-counter');
     if(ctr)ctr.textContent=(_lbIdx+1)+' / '+_lbPhotos.length;
   };
@@ -8963,23 +8986,29 @@ function renderPinMiniMap(d){
   var img=new Image();
   img.onload=function(){
     var aspect=img.height/img.width;
+    var dpr=Math.min(window.devicePixelRatio||1,3);
     var displayW=canvas.parentElement?canvas.parentElement.clientWidth:360;
-    canvas.width=displayW;canvas.height=Math.round(displayW*aspect);canvas.style.height='auto';
+    var displayH=Math.round(displayW*aspect);
+    canvas.width=Math.round(displayW*dpr);
+    canvas.height=Math.round(displayH*dpr);
+    canvas.style.width=displayW+'px';
+    canvas.style.height=displayH+'px';
     var ctx=canvas.getContext('2d');
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    ctx.scale(dpr,dpr);
+    ctx.clearRect(0,0,displayW,displayH);
+    ctx.drawImage(img,0,0,displayW,displayH);
     if(d.pinX!=null&&d.pinY!=null){
-      var px=d.pinX*canvas.width,py=d.pinY*canvas.height;
+      var px=d.pinX*displayW,py=d.pinY*displayH;
       var fill=d.iar?'#FF69B4':(d.priority==='general'?'#1A7A4A':d.priority==='low'?'#E67E22':'#C0392B');
-      var r0=4;
+      var r0=6;
       ctx.save();ctx.translate(px,py-r0*2.2);
       ctx.beginPath();ctx.arc(0,0,r0,Math.PI,0,false);
       ctx.bezierCurveTo(r0,r0*0.8,r0*0.3,r0*2.2,0,r0*2.2);
       ctx.bezierCurveTo(-r0*0.3,r0*2.2,-r0,r0*0.8,-r0,0);
       ctx.closePath();ctx.fillStyle=fill;ctx.fill();
-      ctx.strokeStyle='white';ctx.lineWidth=2;ctx.stroke();
-      ctx.beginPath();ctx.arc(0,0,r0*0.55,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();
-      ctx.fillStyle=fill;ctx.font='bold 6px Calibri,sans-serif';
+      ctx.strokeStyle='white';ctx.lineWidth=1.5;ctx.stroke();
+      ctx.beginPath();ctx.arc(0,0,r0*0.5,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();
+      ctx.fillStyle=fill;ctx.font='bold '+Math.round(r0*1.1)+'px Calibri,sans-serif';
       ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(d.num,0,0);
       ctx.restore();
     }
@@ -9604,7 +9633,35 @@ function showLightboxAt(idx){
 function closePhotoLightbox(){var o=document.getElementById('gallery-lightbox');if(o)o.style.display='none';document.body.style.overflow='';}
 function lbPrev(){_lightboxIdx=(_lightboxIdx-1+_lightboxPhotos.length)%_lightboxPhotos.length;showLightboxAt(_lightboxIdx);}
 function lbNext(){_lightboxIdx=(_lightboxIdx+1)%_lightboxPhotos.length;showLightboxAt(_lightboxIdx);}
-function rotateLbPhoto(){showToast('Rotate: coming soon');}
+function rotateLbPhoto(){
+  var ph=_lightboxPhotos[_lightboxIdx];
+  if(!ph)return;
+  var imgEl=document.getElementById('glb-img');
+  if(!imgEl||!imgEl.src||imgEl.src==='about:blank')return;
+  if(ph.type!=='site'){showToast('Only site photos can be rotated');return;}
+  var img=new Image();
+  img.crossOrigin='anonymous';
+  img.onload=function(){
+    var c=document.createElement('canvas');
+    c.width=img.height;c.height=img.width;
+    var ctx=c.getContext('2d');
+    ctx.translate(c.width/2,c.height/2);
+    ctx.rotate(Math.PI/2);
+    ctx.drawImage(img,-img.width/2,-img.height/2);
+    var newDataUrl=c.toDataURL('image/jpeg',0.92);
+    var p=getProject();if(!p)return;
+    var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
+    var sp=siteArr[ph.idx];if(!sp)return;
+    if(typeof sp==='object'){sp.dataUrl=newDataUrl;sp.r2Status='pending';sp.r2Url='';}
+    imgEl.src=newDataUrl;
+    ph.src=newDataUrl;
+    _lightboxPhotos=getPhotoList(p);
+    saveToLS();
+    showToast('Photo rotated');
+  };
+  img.onerror=function(){showToast('Could not load photo for rotation');};
+  img.src=imgEl.src;
+}
 function openGalleryLightboxMarkup(){
   var ph=_lightboxPhotos[_lightboxIdx];
   if(!ph||ph.type!=='site')return;
@@ -10753,8 +10810,6 @@ function closeLightbox(e){
   var pl=document.getElementById('photo-lightbox');
   if(pl)pl.style.display='none';
   document.body.style.overflow='';
-  document.body.style.position='';
-  document.body.style.width='';
   document.removeEventListener('keydown',lightboxKey);
 }
 function lightboxNav(dir){
@@ -10877,8 +10932,8 @@ var HARD_SIGNOUT_MS = 8 * 60 * 60 * 1000; // 8 hours
 
 function _resetSessionTimers() {
   _lastActivity = Date.now();
-  // If currently soft-locked, a touch/click dismisses it and resumes
-  if (_sessionLocked) { _dismissSoftLock(); return; }
+  // While locked, ignore background activity — user must tap the Unlock button
+  if (_sessionLocked) return;
   clearTimeout(_softLockTimer);
   clearTimeout(_hardSignOutTimer);
   _softLockTimer   = setTimeout(_triggerSoftLock,   SOFT_LOCK_MS);
@@ -10887,56 +10942,108 @@ function _resetSessionTimers() {
 
 function _triggerSoftLock() {
   if (_sessionLocked) return;
+  // Soft lock only meaningful in Hub mode (has real login session)
+  if (!_csHubMode) return;
   _sessionLocked = true;
   // Auto-save before locking
   if (currentProjectId && typeof saveToLS === 'function') saveToLS();
 
-  var overlay = document.createElement('div');
-  overlay.id = 'soft-lock-overlay';
-  overlay.style.cssText = [
-    'position:fixed;inset:0;z-index:19000',
-    'background:rgba(18,22,32,.88)',
-    'backdrop-filter:blur(8px)',
-    'display:flex;align-items:center;justify-content:center',
-    'font-family:Calibri,sans-serif'
-  ].join(';');
-
-  // Build inspector chips
+  var curr = localStorage.getItem('ARENCON_FR_Inspector') || '';
   var history = [];
   try { var raw = localStorage.getItem('ARENCON_FR_InspectorHistory'); if(raw) history = JSON.parse(raw); } catch(e) {}
-  var curr = localStorage.getItem('ARENCON_FR_Inspector') || '';
-  var chipsHtml = '';
-  if (history.length) {
-    chipsHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:18px;">';
-    history.forEach(function(name) {
-      var active = name === curr;
-      chipsHtml += '<button onclick="window._softLockResume(\'' + name.replace(/'/g,"\\'") + '\')" style="padding:9px 18px;border-radius:24px;border:2px solid ' + (active?'#9C2742':'rgba(255,255,255,.25)') + ';background:' + (active?'rgba(156,39,66,.25)':'rgba(255,255,255,.08)') + ';color:white;font-size:14px;font-weight:' + (active?'700':'400') + ';cursor:pointer;font-family:Calibri,sans-serif;transition:all .15s;">👤 ' + name + '</button>';
+
+  var overlay = document.createElement('div');
+  overlay.id = 'soft-lock-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:19000;background:rgba(18,22,32,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+
+  // Current user card — large, prominent, top of dialog
+  var currCardHtml = curr
+    ? '<div style="background:rgba(156,39,66,.18);border:2px solid #9C2742;border-radius:12px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;gap:12px;">'
+      + '<div style="width:40px;height:40px;border-radius:50%;background:#9C2742;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">👤</div>'
+      + '<div style="text-align:left;"><div style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;">Locked by</div>'
+      + '<div style="font-size:17px;font-weight:700;color:white;">' + curr + '</div></div>'
+      + '</div>'
+    : '';
+
+  // Other user chips (exclude current user)
+  var others = history.filter(function(n){ return n !== curr; });
+  var othersHtml = '';
+  if (others.length) {
+    othersHtml = '<div style="margin-bottom:16px;">'
+      + '<div style="font-size:11px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Switch to</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">';
+    others.forEach(function(name) {
+      othersHtml += '<button onclick="window._softLockSwitchUser(\'' + name.replace(/'/g,"\\'") + '\')" '
+        + 'style="padding:8px 16px;border-radius:20px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.07);color:rgba(255,255,255,.8);font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;transition:all .15s;">'
+        + '👤 ' + name + '</button>';
     });
-    chipsHtml += '</div>';
+    othersHtml += '</div></div>';
   }
 
-  overlay.innerHTML = [
-    '<div style="background:#1C2333;border-radius:16px;padding:36px 32px;max-width:400px;width:92%;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,.5);">',
-      '<div style="font-size:40px;margin-bottom:10px;">🔒</div>',
-      '<div style="font-size:20px;font-weight:700;color:white;margin-bottom:4px;">Session Locked</div>',
-      '<div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:24px;">Locked after inactivity. Tap your name to resume.</div>',
-      chipsHtml,
-      '<div style="font-size:11px;color:rgba(255,255,255,.3);margin-bottom:16px;">— or type a different name —</div>',
-      '<input id="soft-lock-name" type="text" placeholder="Your name" value="' + curr.replace(/"/g,'&quot;') + '" style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid rgba(255,255,255,.2);border-radius:8px;font-size:14px;font-family:Calibri,sans-serif;background:rgba(255,255,255,.08);color:white;text-align:center;margin-bottom:12px;">',
-      '<button onclick="window._softLockResumeFromInput()" style="width:100%;padding:12px;background:#9C2742;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;margin-bottom:10px;">Unlock & Continue</button>',
-      '<button onclick="signOutSession()" style="width:100%;padding:10px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;">Sign Out Instead</button>',
-    '</div>'
-  ].join('');
+  overlay.innerHTML =
+    '<div style="background:#1C2333;border-radius:16px;padding:32px 28px;max-width:400px;width:92%;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,.5);">'
+    + '<div style="font-size:32px;margin-bottom:8px;">🔒</div>'
+    + '<div style="font-size:19px;font-weight:700;color:white;margin-bottom:4px;">Session Locked</div>'
+    + '<div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:20px;">Locked after 20 min of inactivity. Work has been saved.</div>'
+    + currCardHtml
+    + '<button id="soft-lock-resume-btn" onclick="window._softLockResume()" '
+    + 'style="width:100%;padding:13px;background:#9C2742;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;margin-bottom:16px;">'
+    + 'Unlock & Continue as ' + (curr || 'me') + '</button>'
+    + (othersHtml ? '<div style="border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">' + othersHtml + '</div>' : '')
+    + '<div style="margin-top:16px;border-top:1px solid rgba(255,255,255,.08);padding-top:14px;">'
+    + '<button onclick="signOutSession()" style="background:none;border:none;color:rgba(255,255,255,.3);font-size:12px;cursor:pointer;font-family:Calibri,sans-serif;">Sign Out</button>'
+    + '</div>'
+    + '</div>';
+
+  // Confirmation panel — shown inside overlay when switching users
+  window._softLockSwitchUser = function(name) {
+    var card = overlay.querySelector('div[style*="background:#1C2333"]');
+    if (!card) return;
+    var prevName = localStorage.getItem('ARENCON_FR_Inspector') || '';
+    card.innerHTML =
+      '<div style="font-size:28px;margin-bottom:10px;">🔄</div>'
+      + '<div style="font-size:17px;font-weight:700;color:white;margin-bottom:6px;">Switch inspector?</div>'
+      + '<div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:8px;">Switching from</div>'
+      + '<div style="font-size:15px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:4px;">👤 ' + prevName + '</div>'
+      + '<div style="font-size:13px;color:rgba(255,255,255,.4);margin-bottom:4px;">to</div>'
+      + '<div style="font-size:17px;font-weight:700;color:white;margin-bottom:20px;">👤 ' + name + '</div>'
+      + '<div style="background:rgba(255,200,0,.08);border:1px solid rgba(255,200,0,.2);border-radius:8px;padding:10px 14px;font-size:12px;color:rgba(255,200,0,.8);margin-bottom:20px;">'
+      + '⚠️ ' + prevName + '\'s unsaved work has been saved. You\'ll see your own projects.'
+      + '</div>'
+      + '<button onclick="window._softLockConfirmSwitch(\'' + name.replace(/'/g,"\\'") + '\')" '
+      + 'style="width:100%;padding:12px;background:#1A7A4A;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;margin-bottom:10px;">'
+      + 'Yes, switch to ' + name + '</button>'
+      + '<button onclick="window._softLockCancelSwitch()" '
+      + 'style="width:100%;padding:10px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.1);border-radius:8px;font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;">'
+      + 'Cancel</button>';
+  };
+
+  window._softLockCancelSwitch = function() {
+    // Rebuild original overlay content
+    _sessionLocked = false; // allow dismissal before re-trigger
+    overlay.remove();
+    _sessionLocked = true;
+    _triggerSoftLock();
+  };
+
+  window._softLockConfirmSwitch = function(name) {
+    // Save current work first, then switch inspector
+    if (currentProjectId && typeof saveToLS === 'function') saveToLS();
+    localStorage.setItem('ARENCON_FR_Inspector', name);
+    _saveInspectorHistory(name);
+    _updateInspectorChip();
+    _dismissSoftLock();
+    // Refresh dashboard to show the new inspector's projects
+    if (typeof goToDashboard === 'function') goToDashboard();
+    showToast('Switched to ' + name);
+  };
 
   document.body.appendChild(overlay);
+
+  // Focus the resume button
   setTimeout(function() {
-    var inp = document.getElementById('soft-lock-name');
-    if (inp) {
-      inp.focus();
-      inp.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') window._softLockResumeFromInput();
-      });
-    }
+    var btn = document.getElementById('soft-lock-resume-btn');
+    if (btn) btn.focus();
   }, 50);
 
   // Schedule hard sign-out for remaining time from 8hr mark
@@ -10946,19 +11053,8 @@ function _triggerSoftLock() {
   _hardSignOutTimer = setTimeout(_triggerHardSignOut, remaining);
 }
 
-window._softLockResume = function(name) {
-  if (name) {
-    localStorage.setItem('ARENCON_FR_Inspector', name);
-    _saveInspectorHistory(name);
-    _updateInspectorChip();
-  }
+window._softLockResume = function() {
   _dismissSoftLock();
-};
-
-window._softLockResumeFromInput = function() {
-  var inp = document.getElementById('soft-lock-name');
-  var name = inp ? inp.value.trim() : '';
-  window._softLockResume(name || localStorage.getItem('ARENCON_FR_Inspector') || '');
 };
 
 function _dismissSoftLock() {
@@ -10999,7 +11095,7 @@ function signOutSession() {
 }
 
 // Session timers — Hub mode only (sign-out redirects to Hub)
-if(_csHubMode||typeof window._sessionHubGuardDeferred==='undefined'){
+if(_csHubMode){
   window._sessionHubGuardDeferred=true;
   // Wire activity events — touchstart passive for iOS scroll performance
   ['click','keydown','touchstart','mousemove','scroll'].forEach(function(ev) {
@@ -11112,7 +11208,7 @@ function confirmPhotoPick(){
   closePhotoPicker();
 }
 
-_resetSessionTimers();
+if(_csHubMode)_resetSessionTimers();
 
 </script>
 <!-- PHOTO PICKER MODAL — pick from existing gallery photos -->
@@ -11414,14 +11510,6 @@ async function _syncHeartbeat(){
     // Silent fail — heartbeat is best-effort, not critical
     console.warn('[Heartbeat] Sync check failed:',e.message);
   }
-}
-
-function _dvToggleTasksPanel(){
-  var panel=document.getElementById('dv-tasks-panel');
-  if(!panel)return;
-  var isCollapsed=panel.classList.toggle('collapsed');
-  var btn=document.getElementById('dv-tasks-fold-btn');
-  if(btn)btn.style.transform=isCollapsed?'rotate(-90deg)':'rotate(0deg)';
 }
 
 function _isMobileHeader(){return window.innerWidth<=800;}
