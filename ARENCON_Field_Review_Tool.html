@@ -278,8 +278,8 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .dv-nav-arrow{position:absolute;top:50%;z-index:15;background:rgba(42,45,53,.85);border:none;color:white;width:40px;height:56px;border-radius:8px;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;}.dv-nav-arrow:hover{background:rgba(42,45,53,1);}.dv-nav-arrow.left{left:12px;transform:translateY(-50%);}.dv-nav-arrow.right{right:12px;transform:translateY(-50%);}
 
 /* Zoom controls */
-.zoom-controls{position:absolute;bottom:16px;right:16px;display:flex;flex-direction:column;gap:4px;z-index:10;}
-.zoom-controls button{width:36px;height:36px;border-radius:8px;background:rgba(42,45,53,.85);border:none;color:white;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}.zoom-controls button:hover{background:rgba(42,45,53,1);}
+.zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px;z-index:10;}
+.zoom-controls button{width:30px;height:30px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}.zoom-controls button:hover{background:rgba(42,45,53,.95);}
 
 /* Pin side panel */
 .pin-panel{position:fixed;top:0;right:0;width:420px;height:100%;background:white;z-index:2500;box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;overflow:hidden;}.pin-panel.open{transform:translateX(0);}
@@ -673,7 +673,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 @media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}
 
 /* ═══ ALWAYS-ON SIDEBAR TOOLBAR ═══ */
-.dv-sidebar-tools{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:#1e2028;border-right:1px solid #3a3e48;width:56px;flex-shrink:0;overflow:visible;z-index:20;}
+.dv-sidebar-tools{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:#1e2028;border-right:1px solid #3a3e48;width:56px;flex-shrink:0;overflow-y:auto;overflow-x:visible;z-index:20;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
 .dv-sidebar-tools .tool-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#999;border-radius:8px;cursor:pointer;transition:background .15s,color .15s;padding:0;}
 .dv-sidebar-tools .tool-btn:hover{background:#2d3040;color:#ddd;}
 .dv-sidebar-tools .tool-btn.active{background:var(--red);color:white;}
@@ -703,7 +703,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .dv-tasks-panel.collapsed #dv-tasks-fold-btn{transform:rotate(-90deg);}
 /* Mobile: collapse sidebar to horizontal scrollable strip */
 @media(max-width:700px){
-  .dv-sidebar-tools{display:flex;flex-direction:row;align-items:center;width:100%;height:46px;border-right:none;border-top:none;border-bottom:none;overflow-x:auto;overflow-y:hidden;padding:4px 6px;order:2;flex-shrink:0;background:#1e2028;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .dv-sidebar-tools{display:flex;flex-direction:row;align-items:center;width:100%;height:52px;border-right:none;border-top:none;border-bottom:none;overflow-x:auto;overflow-y:hidden;padding:6px 8px;order:2;flex-shrink:0;background:#1e2028;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x;gap:6px;}
   .dv-sidebar-tools::-webkit-scrollbar{display:none;}
   .dv-sidebar-tools .tool-sep{width:1px;height:26px;margin:0 3px;flex-shrink:0;}
   .dv-sidebar-tools .tool-slider-wrap{flex-direction:row;align-items:center;gap:3px;padding:0 3px;flex-shrink:0;}
@@ -712,7 +712,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .dv-sidebar-tools .tool-slider{writing-mode:horizontal-tb!important;direction:ltr!important;width:55px!important;height:4px!important;-webkit-appearance:none;appearance:none;}
   .dv-sidebar-tools .tool-slider::-webkit-slider-thumb{width:12px;height:12px;}
   .dv-sidebar-tools .tool-slider-wrap input[type=number]{width:28px;font-size:9px;}
-  .dv-sidebar-tools .tool-btn{width:34px;height:34px;flex-shrink:0;}
+  .dv-sidebar-tools .tool-btn{width:44px;height:44px;flex-shrink:0;border-radius:10px;}
   .dv-sidebar-tools .tool-colors{flex-direction:row;}
   .dv-mobile-tools{display:none!important;}
   .dv-main{flex-direction:column;flex:1;min-height:0;}
@@ -5106,8 +5106,9 @@ area.addEventListener('mousedown',function(e){
     },500);
     e.stopPropagation();return;
   }
-  // Block area interactions when markup canvas is active (drawing/erasing) but NOT select mode
-  if(mkState.tool&&mkState.tool!=='select'&&(document.getElementById('markup-canvas').classList.contains('drawing-active')))return;
+  // Block area pan when a drawing tool is active — let the markup canvas handle it
+  var _drawingTools={pen:1,highlight:1,eraser:1,text:1,rect:1,fillrect:1,circle:1,fillcircle:1,arrow:1,line:1,triangle:1,cloud:1,polyline:1};
+  if(mkState.tool&&_drawingTools[mkState.tool])return;
   if(dvState.pinMode&&!e.target.closest('.dv-toolbar')&&!e.target.closest('.dv-tasks-panel')){handlePinDrop(e);return;}
   dvState._panPending=true;dvState._panStartX=e.clientX;dvState._panStartY=e.clientY;
   sx=e.clientX-dvState.panX;sy=e.clientY-dvState.panY;
@@ -5323,6 +5324,42 @@ function _dvToggleTasksPanel(){
   var collapsed=panel.classList.toggle('collapsed');
   if(btn)btn.title=collapsed?'Expand panel':'Collapse panel';
 }
+// Tasks panel visibility toggle (header button)
+function _dvToggleTasksVisible(){
+  var panel=document.getElementById('dv-tasks-panel');
+  if(!panel)return;
+  var btn=document.getElementById('btn-tasks-toggle');
+  var isVisible=panel.classList.contains('visible');
+  if(isVisible){
+    panel.classList.remove('visible');
+    if(btn){btn.style.background='rgba(255,255,255,.12)';}
+  } else {
+    panel.classList.add('visible');
+    panel.classList.remove('collapsed');
+    if(btn){btn.style.background='var(--red)';}
+    renderTasksPanel();
+  }
+}
+// More menu (⋯ overflow)
+function _dvToggleMoreMenu(e){
+  e.stopPropagation();
+  var m=document.getElementById('dv-more-menu');
+  if(!m)return;
+  var open=m.style.display==='block';
+  m.style.display=open?'none':'block';
+  if(!open){setTimeout(function(){document.addEventListener('click',_dvCloseMoreMenu,{once:true});},10);}
+}
+function _dvCloseMoreMenu(){var m=document.getElementById('dv-more-menu');if(m)m.style.display='none';}
+// Auto-fit on orientation change
+window.addEventListener('orientationchange',function(){
+  setTimeout(function(){if(typeof fitDrawing==='function')fitDrawing();},300);
+});
+window.addEventListener('resize',function(){
+  if(document.getElementById('drawing-viewer')&&document.getElementById('drawing-viewer').classList.contains('open')){
+    clearTimeout(window._dvResizeTimer);
+    window._dvResizeTimer=setTimeout(function(){if(typeof fitDrawing==='function')fitDrawing();},200);
+  }
+});
 function layerToggle(layer,show){
   _layerVis[layer]=show;
   if(layer==='pins'){var el=document.getElementById('dv-pins-layer');if(el)el.style.opacity=show?'1':'0';}
