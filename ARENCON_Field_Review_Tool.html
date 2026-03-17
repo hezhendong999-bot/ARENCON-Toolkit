@@ -5671,7 +5671,25 @@ function deleteAllMarkupOnDrawing(){
   var count=_mkObjects.length;
   if(!count){toast('No markup on this drawing.');return;}
   if(!confirm('Delete all '+count+' markup object'+(count!==1?'s':'')+' on this drawing? This cannot be undone.'))return;
-  mkPushHistory();_mkObjects=[];renderAllMarkup();saveMarkupData();_forceCloudSave();
+  mkPushHistory();_mkObjects=[];
+  var p=getProject();
+  if(p&&dvState.currentDrawingId){
+    var _dwgDel=p.drawings.find(function(d){return d.id===dvState.currentDrawingId;});
+    if(_dwgDel){
+      _dwgDel.markupCleared=true; // flag: don't restore from R2
+      _dwgDel.markupObjects=[];
+      _dwgDel.markupData=null;
+      // Delete markup from R2
+      if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'){
+        var _mpath='/photos/'+encodeURIComponent(_csProjectId)+'/frt/markup/'+encodeURIComponent(_dwgDel.id)+'.json';
+        var _tok=localStorage.getItem('sb-access-token');
+        var _hdrs={'Content-Type':'application/json'};
+        if(_tok)_hdrs['Authorization']='Bearer '+_tok;
+        fetch('https://arencon-r2-worker.hezhendong999.workers.dev'+_mpath,{method:'DELETE',headers:_hdrs}).catch(function(){});
+      }
+    }
+  }
+  renderAllMarkup();saveMarkupData();_forceCloudSave();
   toast('🗑️ Deleted '+count+' markup object'+(count!==1?'s':''));
 }
 function deleteAllPinsOnDrawing(){
@@ -6880,8 +6898,8 @@ function loadMarkupData(){
     // V2: load from object model (local IDB)
     _mkObjects=JSON.parse(JSON.stringify(dwg.markupObjects));
     _mkObjects.forEach(function(o){if(!o.id)o.id=_mkNewId();});
-  } else if(dwg&&dwg.r2Url&&_csHubMode&&(!dwg.markupObjects||!dwg.markupObjects.length)){
-    // R2 Phase 4: no local markup — try fetching from R2
+  } else if(dwg&&dwg.r2Url&&_csHubMode&&(!dwg.markupObjects||!dwg.markupObjects.length)&&!dwg.markupCleared){
+    // R2 Phase 4: no local markup — try fetching from R2 (skip if explicitly cleared)
     _mkObjects=[];
     _r2LoadMarkup(dwg).then(function(objs){
       if(objs&&objs.length){
@@ -11886,7 +11904,10 @@ function _initCloudSync(){
           return {id:d.id,name:d.name,width:d.width||0,height:d.height||0,
                   isOriginal:d.isOriginal||false,folder:d.folder||'',
                   r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
-                  heights:d.heights||null,markupObjects:d.markupObjects||null,
+                  heights:d.heights||null,
+                  // Always prefer local markupObjects — local edits must never be overwritten by cloud
+                  markupObjects:existing?existing.markupObjects:d.markupObjects||null,
+                  markupCleared:existing?existing.markupCleared:false,
                   pdfTiled:d.pdfTiled||(existing?existing.pdfTiled:false)||false,
                   pdfPage:d.pdfPage||(existing?existing.pdfPage:1)||1,
                   dataUrl:existing?existing.dataUrl:null,
@@ -11989,7 +12010,10 @@ async function _syncHeartbeat(){
           return {id:d.id,name:d.name,width:d.width||0,height:d.height||0,
                   isOriginal:d.isOriginal||false,folder:d.folder||'',
                   r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
-                  heights:d.heights||null,markupObjects:d.markupObjects||null,
+                  heights:d.heights||null,
+                  // Always prefer local markupObjects
+                  markupObjects:existing?existing.markupObjects:d.markupObjects||null,
+                  markupCleared:existing?existing.markupCleared:false,
                   pdfTiled:d.pdfTiled||(existing?existing.pdfTiled:false)||false,
                   pdfPage:d.pdfPage||(existing?existing.pdfPage:1)||1,
                   dataUrl:existing?existing.dataUrl:null,
