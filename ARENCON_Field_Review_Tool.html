@@ -8653,24 +8653,40 @@ function _migrateDeficPhotos(defics){
 async function _r2EnqueueDrawing(dwg){
   var hubId=_csHubMode?_csProjectId:null;
   if(!hubId||typeof R2Photos==='undefined'||!dwg)return;
-  // Tiled PDFs: upload raw PDF from pdfData IDB store
+  // Tiled PDFs: upload thumb JPEG so other devices can see the drawing.
+  // Raw PDF upload deferred to tiled rendering session.
   if(dwg.pdfTiled){
-    var pdfRec=await ADB.getPdfData(dwg.id).catch(function(){return null;});
-    if(!pdfRec||!pdfRec.buf)return;
-    var fname=R2Photos.generateFilename('dwg')+'.pdf';
+    // Use thumb (base64 JPEG) if available — always rendered at upload time
+    var thumbSrc=dwg.thumb||dwg.dataUrl;
+    if(!thumbSrc){
+      // Try IDB drawing record for thumb
+      var idbRec=await ADB.get('drawings',dwg.id).catch(function(){return null;});
+      if(idbRec&&idbRec.thumb)thumbSrc=idbRec.thumb;
+      else if(idbRec&&idbRec.dataBlob&&idbRec.dataBlob.size>0)thumbSrc=await ADB.blobToDataUrl(idbRec.dataBlob).catch(function(){return null;});
+    }
+    if(!thumbSrc)return;
+    var fname=R2Photos.generateFilename('dwg')+'.jpg';
     dwg.r2Key='photos/'+hubId+'/frt/drawings/'+fname;
     dwg.r2Status='pending';
-    var pdfBlob=new Blob([pdfRec.buf],{type:'application/pdf'});
+    var blob=R2Photos.dataUrlToBlob(thumbSrc);
+    if(!blob)return;
+    ADB.savePending(dwg.id,hubId,blob,{type:'drawing',fname:fname,r2Key:dwg.r2Key}).catch(function(){});
     R2Photos.enqueue({
-      projectId:hubId,tool:'frt',type:'drawings',filename:fname,blob:pdfBlob,
+      projectId:hubId,tool:'frt',type:'drawings',filename:fname,blob:blob,
       onComplete:function(err){
-        if(!err){dwg.r2Status='uploaded';dwg.r2Url=R2Photos.getUrl(hubId,'frt','drawings',fname);saveToLS();_updateR2Badge();}
+        if(!err){dwg.r2Status='uploaded';dwg.r2Url=R2Photos.getUrl(hubId,'frt','drawings',fname);ADB.deletePending(dwg.id).catch(function(){});saveToLS();_updateR2Badge();}
         else{dwg.r2Status='error';}
       }
     });
     return;
   }
-  if(!dwg.dataUrl)return;
+  if(!dwg.dataUrl&&!dwg.dataBlob){
+    // dataUrl already stripped — read blob from IDB
+    var idbRec2=await ADB.get('drawings',dwg.id).catch(function(){return null;});
+    if(idbRec2&&idbRec2.dataBlob){dwg.dataBlob=idbRec2.dataBlob;return _r2EnqueueDrawing(dwg);}
+    return;
+  }
+  if(!dwg.dataUrl&&dwg.dataBlob){dwg.dataUrl=await ADB.blobToDataUrl(dwg.dataBlob).catch(function(){return null;});if(!dwg.dataUrl)return;}
   var fname=R2Photos.generateFilename('dwg')+'.png';
   dwg.r2Key='photos/'+hubId+'/frt/drawings/'+fname;
   dwg.r2Status='pending';
