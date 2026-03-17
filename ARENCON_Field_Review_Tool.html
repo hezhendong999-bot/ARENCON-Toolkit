@@ -5261,12 +5261,32 @@ async function _openTiledPDF(drawingId,pageNum){
   _tileState.tiles={};_tileState.tileCount=0;_tileState.tileOrder=[];
   _tileState.pdfDoc=null;_tileState.page=null;
 
-  var rec=await ADB.getPdfData(drawingId);
+  var rec=await ADB.getPdfData(drawingId).catch(function(){return null;});
   if(!rec||!rec.buf){
-    // Fallback: no PDF data, show error
-    hideDrawingLoading();
-    toast('PDF data not found — please re-upload this drawing');
-    return;
+    // No local PDF — try fetching from R2 if we have a URL
+    var p=getProject();
+    var d=p&&p.drawings.find(function(x){return x.id===drawingId;});
+    if(d&&d.r2Url){
+      showDrawingLoading('Downloading drawing from cloud\u2026');
+      var token=localStorage.getItem('sb-access-token');
+      var headers=token?{'Authorization':'Bearer '+token}:{};
+      try{
+        var res=await fetch(d.r2Url,{headers:headers});
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        var buf=await res.arrayBuffer();
+        // Cache locally for future opens
+        await ADB.savePdfData(drawingId,buf).catch(function(){});
+        rec={buf:buf};
+      }catch(fetchErr){
+        hideDrawingLoading();
+        toast('Could not download drawing from cloud: '+fetchErr.message);
+        return;
+      }
+    } else {
+      hideDrawingLoading();
+      toast('Drawing data not found locally or in cloud — please re-upload');
+      return;
+    }
   }
 
   ensurePdfJs(async function(){
@@ -8574,19 +8594,36 @@ function _migrateDeficPhotos(defics){
 // Uses R2Photos.enqueue with type:'drawings' — worker now accepts this type.
 async function _r2EnqueueDrawing(dwg){
   var hubId=_csHubMode?_csProjectId:null;
-  if(!hubId||typeof R2Photos==='undefined'||!dwg||!dwg.dataUrl)return;
+  if(!hubId||typeof R2Photos==='undefined'||!dwg)return;
+  // Tiled PDFs: upload raw PDF from pdfData IDB store
+  if(dwg.pdfTiled){
+    var pdfRec=await ADB.getPdfData(dwg.id).catch(function(){return null;});
+    if(!pdfRec||!pdfRec.buf)return;
+    var fname=R2Photos.generateFilename('dwg')+'.pdf';
+    dwg.r2Key='photos/'+hubId+'/frt/drawings/'+fname;
+    dwg.r2Status='pending';
+    var pdfBlob=new Blob([pdfRec.buf],{type:'application/pdf'});
+    R2Photos.enqueue({
+      projectId:hubId,tool:'frt',type:'drawings',filename:fname,blob:pdfBlob,
+      onComplete:function(err){
+        if(!err){dwg.r2Status='uploaded';dwg.r2Url=R2Photos.getUrl(hubId,'frt','drawings',fname);saveToLS();_updateR2Badge();}
+        else{dwg.r2Status='error';}
+      }
+    });
+    return;
+  }
+  if(!dwg.dataUrl)return;
   var fname=R2Photos.generateFilename('dwg')+'.png';
   dwg.r2Key='photos/'+hubId+'/frt/drawings/'+fname;
   dwg.r2Status='pending';
   var blob=R2Photos.dataUrlToBlob(dwg.dataUrl);
   if(!blob)return;
   ADB.savePending(dwg.id,hubId,blob,{type:'drawing',fname:fname,r2Key:dwg.r2Key}).catch(function(){});
-  var _oldR2Key=dwg.r2Key;// save old key before overwriting
+  var _oldR2Key=dwg.r2Key;
   R2Photos.enqueue({
     projectId:hubId,tool:'frt',type:'drawings',filename:fname,blob:blob,
     onComplete:function(err){
       if(!err){
-        // Delete old R2 file if it existed (auto-cleanup orphans)
         if(_oldR2Key&&_oldR2Key!==('photos/'+hubId+'/frt/drawings/'+fname)){
           var oldParts=_oldR2Key.split('/');
           if(oldParts.length>=5)R2Photos.remove(oldParts[1],oldParts[2],oldParts[3],oldParts.slice(4).join('/')).catch(function(){});
