@@ -8562,11 +8562,20 @@ async function _r2EnqueueDrawing(dwg){
     });
     return;
   }
-  if(!dwg.dataUrl)return;
-  var fname=R2Photos.generateFilename('dwg')+'.png';
+  if(!dwg.dataUrl&&!dwg.dataBlob){
+    // dataUrl already stripped — read blob from IDB
+    ADB.get('drawings',dwg.id).then(function(rec){
+      if(rec&&rec.dataBlob){
+        dwg.dataBlob=rec.dataBlob;
+        _r2EnqueueDrawing(dwg);
+      }
+    }).catch(function(){});
+    return;
+  }
+  var fname=R2Photos.generateFilename('dwg')+'.jpg';
   dwg.r2Key='photos/'+hubId+'/frt/drawings/'+fname;
   dwg.r2Status='pending';
-  var blob=R2Photos.dataUrlToBlob(dwg.dataUrl);
+  var blob=dwg.dataBlob||(dwg.dataUrl?R2Photos.dataUrlToBlob(dwg.dataUrl):null);
   if(!blob)return;
   ADB.savePending(dwg.id,hubId,blob,{type:'drawing',fname:fname,r2Key:dwg.r2Key}).catch(function(){});
   var _oldR2Key=dwg.r2Key;
