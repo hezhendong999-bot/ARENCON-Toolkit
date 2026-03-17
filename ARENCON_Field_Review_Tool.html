@@ -11912,6 +11912,8 @@ function _initCloudSync(){
         var _prevLocal=(localProj.drawings||[]).slice();
         if(cloudProj.drawings)localProj.drawings=cloudProj.drawings.map(function(d){
           var existing=_prevLocal.find(function(x){return x.id===d.id;});
+          // Local tiled PDF always wins — never let cloud overwrite local PDF data
+          if(existing&&existing.pdfTiled){return existing;}
           return {id:d.id,name:d.name,width:d.width||0,height:d.height||0,
                   isOriginal:d.isOriginal||false,folder:d.folder||'',
                   r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
@@ -12012,243 +12014,22 @@ async function _syncHeartbeat(){
       // Apply drawings metadata
       if(cloudData.drawings&&cloudData.drawings.length>0){
         var prevDrawings=p.drawings||[];
-        p.drawings=cloudData.drawings.map(function(d){
-          var existing=prevDrawings.find(function(x){return x.id===d.id;});
-          return {id:d.id,name:d.name,width:d.width||0,height:d.height||0,
-                  isOriginal:d.isOriginal||false,folder:d.folder||'',
-                  r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
-                  heights:d.heights||null,
-                  // Always prefer local markupObjects
-                  markupCleared:d.markupCleared||(existing?existing.markupCleared:false)||false,
-                  markupObjects:(d.markupCleared||(existing&&existing.markupCleared))?[]:(existing?existing.markupObjects:d.markupObjects||null),
-                  pdfTiled:d.pdfTiled||(existing?existing.pdfTiled:false)||false,
-                  pdfPage:d.pdfPage||(existing?existing.pdfPage:1)||1,
-                  dataUrl:existing?existing.dataUrl:null,
-                  thumb:d.thumb||(existing?existing.thumb:null)};
-        });
-        // Keep local-only drawings not yet pushed to cloud
-        var cloudIds=cloudData.drawings.map(function(d){return d.id;});
-        prevDrawings.forEach(function(ld){
-          if(cloudIds.indexOf(ld.id)<0)p.drawings.push(ld);
-        });
-      }
-      if(cloudData.contractors)p.contractors=cloudData.contractors;
-      if(cloudData.generalDeficiencies)p.generalDeficiencies=cloudData.generalDeficiencies;
-      if(typeof cloudData.nextDeficNum!=='undefined')p.nextDeficNum=cloudData.nextDeficNum;
-      if(cloudData._folders)p._folders=cloudData._folders;
-      if(cloudData.sitePhotos){
-        p.sitePhotos=cloudData.sitePhotos.map(function(ph){
-          var existing=(p.sitePhotos||[]).find(function(x){return x.id===ph.id;});
-          return {id:ph.id||'sp_'+Math.random().toString(36).substr(2,8),
-                  caption:ph.caption||'',timestamp:ph.timestamp||ph.date||'',
-                  r2Key:ph.r2Key||'',r2Status:ph.r2Status||'',r2Url:ph.r2Url||'',
-                  dataUrl:existing?existing.dataUrl:null};
-        });
-      }
-      if(cloudData.info)p.info=Object.assign(p.info||{},cloudData.info);
-      p._cloudSyncedAt=cloudUpdatedAt;
-      // Save to IDB and refresh view
-      ADB.saveFullProject(p).catch(function(){});
-      renderDrawingGallery&&renderDrawingGallery();
-      renderDeficiencyPanel&&renderDeficiencyPanel();
-      renderSummaryTable&&renderSummaryTable();
-      // If drawing viewer is open, reload markup in case it was cleared on another device
-      if(dvState&&dvState.currentDrawingId&&document.getElementById('drawing-viewer').classList.contains('open')){
-        var _hbDwg=getProject()&&getProject().drawings&&getProject().drawings.find(function(d){return d.id===dvState.currentDrawingId;});
-        if(_hbDwg&&(_hbDwg.markupCleared||!(_hbDwg.markupObjects&&_hbDwg.markupObjects.length))){
-          _mkObjects=[];renderAllMarkup&&renderAllMarkup();
+        if(cloudData.drawings&&cloudData.drawings.length>0){
+          p.drawings=cloudData.drawings.map(function(d){
+            var existing=prevDrawings.find(function(x){return x.id===d.id;});
+            if(existing&&existing.pdfTiled){return existing;}
+            return {id:d.id,name:d.name,width:d.width||0,height:d.height||0,
+                    isOriginal:d.isOriginal||false,folder:d.folder||'',
+                    r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',
+                    heights:d.heights||null,
+                    markupCleared:d.markupCleared||(existing?existing.markupCleared:false)||false,
+                    markupObjects:(d.markupCleared||(existing&&existing.markupCleared))?[]:(existing?existing.markupObjects:d.markupObjects||null),
+                    pdfTiled:d.pdfTiled||(existing?existing.pdfTiled:false)||false,
+                    pdfPage:d.pdfPage||(existing?existing.pdfPage:1)||1,
+                    dataUrl:existing?existing.dataUrl:null,
+                    thumb:d.thumb||(existing?existing.thumb:null)};
+          });
+          var hbCloudIds=cloudData.drawings.map(function(d){return d.id;});
+          prevDrawings.forEach(function(ld){if(hbCloudIds.indexOf(ld.id)<0)p.drawings.push(ld);});
         }
-      }
-      // Brief indicator on cloud dot
-      var dot=document.getElementById('cloud-dot');
-      if(dot){
-        var prev=dot.style.background;
-        dot.style.background='#60A5FA';
-        dot.title='Synced from another device';
-        setTimeout(function(){dot.style.background=prev;dot.title='Saved to cloud';},2000);
-      }
-    }
-  }catch(e){
-    // Silent fail — heartbeat is best-effort, not critical
-    console.warn('[Heartbeat] Sync check failed:',e.message);
-  }
-}
-
-function _isMobileHeader(){return window.innerWidth<=800;}
-function _updateR2Badge(){
-  var el=document.getElementById('r2-upload-badge');
-  if(!el)return;
-  if(typeof R2Photos==='undefined'){el.style.display='none';return;}
-  var q=R2Photos.getQueueLength();
-  if(q>0&&!_isMobileHeader()){
-    el.textContent='📤 '+q+' uploading';
-    el.style.display='inline-block';
-    el.style.background='#FBBF24';el.style.color='#78350F';
-  }else{
-    el.style.display='none';
-  }
-}
-</script>
-<!-- ══ R2 PHOTO STORAGE MODULE v1 ══ -->
-<script>
-var R2Photos=(function(){'use strict';
-var WORKER_URL='https://arencon-r2-worker.hezhendong999.workers.dev';
-var _queue=[];var _uploading=false;var _wifiOnly=true;var _onProgress=null;
-
-function _authHeaders(){
-  var h={};
-  var token=localStorage.getItem('sb-access-token');
-  if(token)h['Authorization']='Bearer '+token;
-  return h;
-}
-
-function _isWifi(){
-  if(!navigator.connection)return true;// Assume wifi if API unavailable
-  var t=navigator.connection.type||navigator.connection.effectiveType||'';
-  return t==='wifi'||t==='ethernet'||t==='4g';// Treat 4g as ok too
-}
-
-function _canUpload(){
-  if(!navigator.onLine)return false;
-  if(_wifiOnly&&!_isWifi())return false;
-  return true;
-}
-
-/* ── Core API calls ── */
-async function upload(projectId,tool,type,filename,blob){
-  var path='/photos/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type)+'/'+encodeURIComponent(filename);
-  var headers=_authHeaders();
-  headers['Content-Type']=blob.type||'image/jpeg';
-  var res=await fetch(WORKER_URL+path,{method:'PUT',headers:headers,body:blob});
-  if(!res.ok){var err;try{err=await res.json();}catch(e){err={error:res.statusText};}throw new Error(err.error||res.statusText);}
-  return await res.json();
-}
-
-function getUrl(projectId,tool,type,filename){
-  return WORKER_URL+'/photos/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type)+'/'+encodeURIComponent(filename);
-}
-
-async function remove(projectId,tool,type,filename){
-  var path='/photos/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type)+'/'+encodeURIComponent(filename);
-  var res=await fetch(WORKER_URL+path,{method:'DELETE',headers:_authHeaders()});
-  if(!res.ok&&res.status!==404){throw new Error('Delete failed: '+res.statusText);}
-  return true;
-}
-
-async function list(projectId,tool,type){
-  var path='/list/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type);
-  var res=await fetch(WORKER_URL+path,{method:'GET',headers:_authHeaders()});
-  if(!res.ok){throw new Error('List failed: '+res.statusText);}
-  return await res.json();
-}
-
-/* ── Upload Queue ── */
-function enqueue(item){
-  // item: {projectId, tool, type, filename, blob, dataUrl, onComplete}
-  _queue.push(item);
-  _fireProgress();
-  _processQueue();
-}
-
-function _fireProgress(){
-  if(_onProgress)_onProgress({queued:_queue.length,uploading:_uploading});
-}
-
-async function _processQueue(){
-  if(_uploading||!_queue.length)return;
-  if(!_canUpload()){
-    _fireProgress();
-    return;// Will retry when connection changes
-  }
-  _uploading=true;
-  while(_queue.length>0){
-    if(!_canUpload())break;
-    var item=_queue[0];
-    try{
-      var result=await upload(item.projectId,item.tool,item.type,item.filename,item.blob);
-      _queue.shift();// Remove on success
-      if(item.onComplete)item.onComplete(null,result);
-    }catch(e){
-      console.warn('[R2Photos] Upload failed:',e.message,', will retry');
-      break;// Leave in queue for retry
-    }
-    _fireProgress();
-  }
-  _uploading=false;
-  _fireProgress();
-}
-
-/* ── Helpers ── */
-function dataUrlToBlob(dataUrl){
-  if(!dataUrl||typeof dataUrl!=='string'||!dataUrl.startsWith('data:'))return null;
-  try{
-    var parts=dataUrl.split(',');var mime=parts[0].match(/:(.*?);/)[1];
-    var raw=atob(parts[1]);var arr=new Uint8Array(raw.length);
-    for(var i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);
-    return new Blob([arr],{type:mime});
-  }catch(e){return null;}
-}
-
-function generateFilename(prefix){
-  return (prefix||'photo')+'_'+Date.now()+'_'+Math.random().toString(36).substr(2,6)+'.jpg';
-}
-
-/* ── Lifecycle ── */
-function init(opts){
-  opts=opts||{};
-  _wifiOnly=opts.wifiOnly!==false;// Default true
-  _onProgress=opts.onProgress||null;
-  // Listen for connectivity changes to resume queue
-  window.addEventListener('online',function(){setTimeout(_processQueue,1000);});
-  if(navigator.connection){
-    navigator.connection.addEventListener('change',function(){setTimeout(_processQueue,1000);});
-  }
-}
-
-function getQueueLength(){return _queue.length;}
-function isUploading(){return _uploading;}
-
-return{
-  init:init,
-  upload:upload,
-  getUrl:getUrl,
-  remove:remove,
-  list:list,
-  enqueue:enqueue,
-  dataUrlToBlob:dataUrlToBlob,
-  generateFilename:generateFilename,
-  getQueueLength:getQueueLength,
-  isUploading:isUploading,
-  get WORKER_URL(){return WORKER_URL;}
-};
-})();
-</script>
-<!-- ══ CLOUDSYNC MODULE v1 ══ -->
-<script>
-var CloudSync=(function(){'use strict';var SUPABASE_URL='https://xsemvinxsyphjiaqgywv.supabase.co';var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';var IDB_NAME='arencon_cloud_cache';var IDB_VERSION=1;var IDB_STORE='tool_state';var AUTOSAVE_MS=15000;var _projectId=null;var _toolKey=null;var _instanceId=null;var _instanceNumber=1;var _collectStateFn=null;var _onStatusChange=null;var _autoSaveTimer=null;var _idb=null;var _online=navigator.onLine;var _pendingSync=false;var _userId=null;var _projectInfo=null;var _lastSavedJson='';var _initialized=false;
-function _headers(){var h={'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json','Prefer':'return=representation'};var token=localStorage.getItem('sb-access-token');if(token)h['Authorization']='Bearer '+token;else h['Authorization']='Bearer '+SUPABASE_ANON_KEY;return h;}
-async function _request(path,opts){opts=opts||{};var res=await fetch(SUPABASE_URL+path,{method:opts.method||'GET',headers:Object.assign({},_headers(),opts.headers||{}),body:opts.body?JSON.stringify(opts.body):undefined});if(!res.ok){var err;try{err=await res.json();}catch(e){err={message:res.statusText};}throw new Error(err.message||err.msg||err.error_description||res.statusText);}var text=await res.text();return text?JSON.parse(text):null;}
-function _openIDB(){return new Promise(function(resolve,reject){var req=indexedDB.open(IDB_NAME,IDB_VERSION);req.onupgradeneeded=function(e){var db=e.target.result;if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE);};req.onsuccess=function(e){_idb=e.target.result;resolve(_idb);};req.onerror=function(e){reject(e.target.error);};});}
-function _idbKey(){return _projectId+'|'+_toolKey+'|'+(_instanceId||'new');}
-function _idbGet2(key){return new Promise(function(resolve,reject){if(!_idb){resolve(null);return;}var tx=_idb.transaction(IDB_STORE,'readonly');var req=tx.objectStore(IDB_STORE).get(key);req.onsuccess=function(){resolve(req.result||null);};req.onerror=function(){reject(req.error);};});}
-function _idbPut2(key,val){return new Promise(function(resolve,reject){if(!_idb){resolve();return;}var tx=_idb.transaction(IDB_STORE,'readwrite');var req=tx.objectStore(IDB_STORE).put(val,key);req.onsuccess=function(){resolve();};req.onerror=function(){reject(req.error);};});}
-function _setStatus(status,msg){if(_onStatusChange)_onStatusChange(status,msg);}
-async function _getUser(){var token=localStorage.getItem('sb-access-token');if(!token)return null;try{return await _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+token}});}catch(e){var rt=localStorage.getItem('sb-refresh-token');if(!rt)return null;try{var data=await _request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:rt},headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY}});if(data&&data.access_token){localStorage.setItem('sb-access-token',data.access_token);localStorage.setItem('sb-refresh-token',data.refresh_token);return _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+data.access_token}});}}catch(e2){}return null;}}
-async function _cloudLoad(){if(!_projectId||!_toolKey)return null;if(_instanceId){var rows=await _request('/rest/v1/tool_data?select=*&id=eq.'+_instanceId);return(rows&&rows.length>0)?rows[0]:null;}var rows=await _request('/rest/v1/tool_data?select=*&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=instance_number.desc&limit=1');return(rows&&rows.length>0)?rows[0]:null;}
-async function _cloudSave(stateJson){if(!_projectId||!_toolKey)return null;var payload={project_id:_projectId,tool_key:_toolKey,instance_number:_instanceNumber,data:typeof stateJson==='string'?JSON.parse(stateJson):stateJson,updated_by:_userId,updated_at:new Date().toISOString()};if(_instanceId){var rows=await _request('/rest/v1/tool_data?id=eq.'+_instanceId,{method:'PATCH',body:payload});return(rows&&rows.length>0)?rows[0]:null;}else{payload.created_by=_userId;payload.status='draft';var rows=await _request('/rest/v1/tool_data',{method:'POST',body:[payload]});if(rows&&rows.length>0){_instanceId=rows[0].id;_instanceNumber=rows[0].instance_number;return rows[0];}return null;}}
-async function _loadProjectInfo(){if(!_projectId)return null;try{var rows=await _request('/rest/v1/projects?select=*&id=eq.'+_projectId,{headers:{'Accept':'application/vnd.pgrst.object+json'}});_projectInfo=rows;return rows;}catch(e){return null;}}
-async function save(stateJson){if(typeof stateJson!=='string')stateJson=JSON.stringify(stateJson);if(stateJson===_lastSavedJson)return;_lastSavedJson=stateJson;try{await _idbPut2(_idbKey(),{state:stateJson,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:new Date().toISOString()});}catch(e){console.error('[CloudSync] IDB save failed:',e);}if(_online){try{_setStatus('saving','Syncing...');var row=await _cloudSave(stateJson);_pendingSync=false;_setStatus('synced','Saved to cloud');return row;}catch(e){console.warn('[CloudSync] Cloud save failed:',e.message);_pendingSync=true;_setStatus('pending','Saved locally');}}else{_pendingSync=true;_setStatus('offline','Saved locally (offline)');}return null;}
-async function load(){var cloudRow=null;if(_online){try{cloudRow=await _cloudLoad();if(cloudRow){_instanceId=cloudRow.id;_instanceNumber=cloudRow.instance_number;var sj=typeof cloudRow.data==='string'?cloudRow.data:JSON.stringify(cloudRow.data);_lastSavedJson=sj;await _idbPut2(_idbKey(),{state:sj,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:cloudRow.updated_at});_setStatus('synced','Loaded from cloud');return{source:'cloud',state:typeof cloudRow.data==='string'?JSON.parse(cloudRow.data):cloudRow.data,row:cloudRow};}}catch(e){console.warn('[CloudSync] Cloud load failed:',e.message);}}try{var idbData=await _idbGet2(_idbKey());if(idbData&&idbData.state){_setStatus(_online?'synced':'offline','Loaded from cache');return{source:'idb',state:typeof idbData.state==='string'?JSON.parse(idbData.state):idbData.state,row:null};}}catch(e){console.error('[CloudSync] IDB load failed:',e);}_setStatus(_online?'synced':'offline','No saved data');return null;}
-function startAutoSave(collectStateFn,intervalMs){_collectStateFn=collectStateFn;stopAutoSave();_autoSaveTimer=setInterval(function(){if(!_collectStateFn)return;try{var state=_collectStateFn();save(state);}catch(e){console.error('[CloudSync] Auto-save error:',e);}},intervalMs||AUTOSAVE_MS);}
-function stopAutoSave(){if(_autoSaveTimer){clearInterval(_autoSaveTimer);_autoSaveTimer=null;}}
-function _onOnline(){_online=true;_setStatus('saving','Reconnected...');if(_pendingSync&&_collectStateFn){try{var state=_collectStateFn();save(state);}catch(e){_setStatus('error','Sync failed');}}else{_setStatus('synced','Online');}}
-function _onOffline(){_online=false;_setStatus('offline','Working offline');}
-function readUrlParams(){var p=new URLSearchParams(window.location.search);return{projectId:p.get('project')||null,instanceId:p.get('instance')||null,projectNumber:p.get('pn')||null,projectName:p.get('pname')||null,client:p.get('client')||null,address:p.get('addr')||null};}
-async function _getNextInstanceNumber(){if(!_online)return 1;try{var rows=await _request('/rest/v1/tool_data?select=instance_number&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=instance_number.desc&limit=1');if(rows&&rows.length>0)return rows[0].instance_number+1;}catch(e){}return 1;}
-async function init(opts){_toolKey=opts.toolKey;_onStatusChange=opts.onStatusChange||null;_projectId=opts.projectId||null;_instanceId=opts.instanceId||null;try{await _openIDB();}catch(e){console.error('[CloudSync] IDB open failed:',e);}try{var user=await _getUser();if(user)_userId=user.id;}catch(e){}if(_projectId&&_online){try{await _loadProjectInfo();}catch(e){}}if(_projectId&&!_instanceId){_instanceNumber=await _getNextInstanceNumber();}window.addEventListener('online',_onOnline);window.addEventListener('offline',_onOffline);_initialized=true;_setStatus(_online?'synced':'offline','Ready');return{projectInfo:_projectInfo,userId:_userId,online:_online,instanceId:_instanceId,instanceNumber:_instanceNumber};}
-function destroy(){stopAutoSave();window.removeEventListener('online',_onOnline);window.removeEventListener('offline',_onOffline);_initialized=false;}
-async function syncNow(){if(!_online){_setStatus('offline','No connection');return false;}if(!_collectStateFn)return false;try{_setStatus('saving','Syncing...');var state=_collectStateFn();await save(state);_setStatus('synced','Force sync complete');return true;}catch(e){_setStatus('error','Sync failed');return false;}}
-return{init:init,save:save,load:load,startAutoSave:startAutoSave,stopAutoSave:stopAutoSave,destroy:destroy,syncNow:syncNow,readUrlParams:readUrlParams,request:_request,get isInitialized(){return _initialized;},get projectId(){return _projectId;},get instanceId(){return _instanceId;},get userId(){return _userId;},get online(){return _online;}};})();
-</script>
-</body>
-</html>
+>
