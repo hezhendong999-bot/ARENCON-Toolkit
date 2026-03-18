@@ -5303,6 +5303,7 @@ async function _openTiledPDF(drawingId,pageNum){
           ADB._drawingBlobCache[drawingId]=imgBlob;
           // Clear pdfTiled flag — this is an image, not a PDF
           d.pdfTiled=false;
+          d._hasLocalBlob=true;
           // Persist to IDB so heartbeat/reload don't revert it
           saveToLS();
           hideDrawingLoading();
@@ -5390,7 +5391,7 @@ async function _openTiledPDF(drawingId,pageNum){
       }
       if(_fbBlob){
         // Clear pdfTiled — this drawing is stored as image, not PDF
-        if(_fbDwg)_fbDwg.pdfTiled=false;
+        if(_fbDwg){_fbDwg.pdfTiled=false;_fbDwg._hasLocalBlob=true;}
         // Persist to IDB so heartbeat/reload don't revert it
         saveToLS();
         if(!ADB._drawingBlobCache)ADB._drawingBlobCache={};
@@ -5487,9 +5488,7 @@ function openDrawingViewer(drawingId){
     if(!d.dataUrl&&d.r2Url){
       // R2 drawing — fetch blob directly, never convert to dataUrl
       showDrawingLoading('Loading drawing…');
-      var token=localStorage.getItem('sb-access-token');
-      var headers=token?{'Authorization':'Bearer '+token}:{};
-      fetch(d.r2Url,{headers:headers})
+      fetch(d.r2Url)
         .then(function(res){if(!res.ok)throw new Error(res.status);return res.blob();})
         .then(function(blob){hideDrawingLoading();_openWithBlob(blob);})
         .catch(function(err){hideDrawingLoading();alert('Could not load drawing from cloud: '+err.message);});
