@@ -5288,11 +5288,28 @@ async function _openTiledPDF(drawingId,pageNum){
     var d=p&&p.drawings.find(function(x){return x.id===drawingId;});
     if(d&&d.r2Url){
       showDrawingLoading('Downloading drawing from cloud\u2026');
-      var token=localStorage.getItem('sb-access-token');
-      var headers=token?{'Authorization':'Bearer '+token}:{};
       try{
-        var res=await fetch(d.r2Url,{headers:headers});
+        var res=await fetch(d.r2Url);
         if(!res.ok)throw new Error('HTTP '+res.status);
+        var contentType=res.headers.get('content-type')||'';
+        // If R2 file is an image (not PDF), fall back to normal image viewer
+        if(contentType.indexOf('image/')===0){
+          var imgBlob=await res.blob();
+          // Cache blob to drawings IDB store for future opens
+          var existing2=await ADB.get('drawings',drawingId).catch(function(){return null;});
+          if(existing2){existing2.dataBlob=imgBlob;await ADB.put('drawings',existing2);}
+          else{await ADB.put('drawings',{id:drawingId,projectId:_csProjectId||'',dataBlob:imgBlob});}
+          if(!ADB._drawingBlobCache)ADB._drawingBlobCache={};
+          ADB._drawingBlobCache[drawingId]=imgBlob;
+          // Clear pdfTiled flag — this is an image, not a PDF
+          d.pdfTiled=false;
+          // Persist to IDB so heartbeat/reload don't revert it
+          saveToLS();
+          hideDrawingLoading();
+          // Re-enter openDrawingViewer with the image path
+          openDrawingViewer(drawingId);
+          return;
+        }
         var buf=await res.arrayBuffer();
         // Cache locally for future opens
         await ADB.savePdfData(drawingId,buf).catch(function(){});
@@ -5363,8 +5380,26 @@ async function _openTiledPDF(drawingId,pageNum){
       window._tiledActive=true;
       if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);}
     }catch(err){
-      hideDrawingLoading();
       console.error('Tiled PDF error:',err);
+      // Fallback: if pdf.js fails, try loading as image from IDB blob cache
+      var _fbDwg=getProject()&&getProject().drawings.find(function(x){return x.id===drawingId;});
+      var _fbBlob=ADB._drawingBlobCache&&ADB._drawingBlobCache[drawingId];
+      if(!_fbBlob){
+        var _fbRec=await ADB.get('drawings',drawingId).catch(function(){return null;});
+        if(_fbRec&&_fbRec.dataBlob&&_fbRec.dataBlob.size>0)_fbBlob=_fbRec.dataBlob;
+      }
+      if(_fbBlob){
+        // Clear pdfTiled — this drawing is stored as image, not PDF
+        if(_fbDwg)_fbDwg.pdfTiled=false;
+        // Persist to IDB so heartbeat/reload don't revert it
+        saveToLS();
+        if(!ADB._drawingBlobCache)ADB._drawingBlobCache={};
+        ADB._drawingBlobCache[drawingId]=_fbBlob;
+        hideDrawingLoading();
+        openDrawingViewer(drawingId);
+        return;
+      }
+      hideDrawingLoading();
       toast('Could not open drawing: '+err.message);
     }
   });
@@ -11922,8 +11957,10 @@ function _mergeDrawing(cd,localDrawings){
     heights:cd.heights||null,
     markupCleared:cd.markupCleared||(existing?existing.markupCleared:false)||false,
     markupObjects:(cd.markupCleared||(existing&&existing.markupCleared))?[]:(existing?existing.markupObjects:cd.markupObjects||null),
-    pdfTiled:cd.pdfTiled||(existing?existing.pdfTiled:false)||false,
-    pdfPage:cd.pdfPage||(existing?existing.pdfPage:1)||1,
+    // pdfTiled: local value wins when drawing exists locally (local detects actual file type via fallback)
+    // Only take cloud's pdfTiled for drawings that don't exist locally yet
+    pdfTiled:existing?(existing.pdfTiled||false):(cd.pdfTiled||false),
+    pdfPage:existing?(existing.pdfPage||1):(cd.pdfPage||1),
     dataUrl:existing?existing.dataUrl:null,
     thumb:cd.thumb||(existing?existing.thumb:null)
   };
