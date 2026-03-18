@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>ARENCON — Field Review Tool</title>
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="arenconicon192.png">
+<link rel="apple-touch-icon" href="arencon-icon-192.png">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
 /* Font: Calibri (system) */
@@ -1489,6 +1489,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
             <div style="flex:1;"></div>
             <button class="btn btn-outline btn-sm" id="dwg-compact-btn" onclick="toggleCompactMode()" title="Compact card view">☷ Compact</button>
             <button class="btn btn-outline btn-sm" onclick="purgeSupersededDrawings()" title="Remove superseded drawings">🗑 Purge Old</button>
+            <button class="btn btn-sm" id="btn-dl-offline" onclick="downloadAllForOffline()" title="Download all drawings from R2 to local storage for offline use" style="display:none;background:#1565C0;color:white;font-weight:700;">📥 Offline Sync</button>
             <div class="dwg-filter-dd"><button class="btn btn-outline btn-sm" onclick="toggleFilterMenu(event)">⚙ Filters</button><div class="dwg-filter-menu" id="dwg-filter-menu"><button onclick="filterDwgFolder(null,'all');closeFilterMenu()">All folders</button><button onclick="filterDwgFolder(null,'pins');closeFilterMenu()">Has tasks</button><button onclick="filterDwgFolder(null,'nopins');closeFilterMenu()">No tasks</button><div class="separator"></div><input type="text" id="dwg-search" placeholder="Search drawings..." oninput="filterDrawings()" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:Calibri,sans-serif;"></div></div>
           </div>
           <div class="upload-box" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');handleDrawingFiles(event.dataTransfer.files)">
@@ -8339,6 +8340,129 @@ function moveDeficiency(did){
   };
 }
 
+// ═══ OFFLINE SYNC — Download all drawings + photos from R2 to local IDB ═══
+async function downloadAllForOffline(){
+  var p=getProject();if(!p)return;
+  if(!navigator.onLine){toast('Need internet connection to download from cloud');return;}
+  var token=localStorage.getItem('sb-access-token');
+  var headers=token?{'Authorization':'Bearer '+token}:{};
+
+  // Collect all items that need downloading (have r2Url but no local blob)
+  var drawingsToFetch=p.drawings.filter(function(d){return d.r2Url&&!d.dataUrl&&!d._hasLocalBlob;});
+  // For pdfTiled drawings, check if pdfData exists locally
+  var tiledToCheck=p.drawings.filter(function(d){return d.pdfTiled&&d.r2Url;});
+
+  // Also collect deficiency photos and site photos missing local data
+  var photosToFetch=[];
+  function _collectPhotos(arr,label){
+    if(!arr)return;
+    arr.forEach(function(ph){
+      if(ph&&ph.r2Url&&!ph.dataUrl){photosToFetch.push({rec:ph,label:label});}
+    });
+  }
+  (p.generalDeficiencies||[]).forEach(function(d){
+    _collectPhotos(d.photos,'def#'+d.num);
+    (d.entries||[]).forEach(function(e){_collectPhotos(e.photos,'def#'+d.num);});
+    (d.responses||[]).forEach(function(r){_collectPhotos(r.photos,'def#'+d.num+' resp');});
+  });
+  (p.contractors||[]).forEach(function(c){
+    (c.deficiencies||[]).forEach(function(d){
+      _collectPhotos(d.photos,'def#'+d.num);
+      (d.entries||[]).forEach(function(e){_collectPhotos(e.photos,'def#'+d.num);});
+      (d.responses||[]).forEach(function(r){_collectPhotos(r.photos,'def#'+d.num+' resp');});
+    });
+  });
+  (p.sitePhotos||[]).forEach(function(sp){
+    if(sp&&sp.r2Url&&!sp.dataUrl){photosToFetch.push({rec:sp,label:'site'});}
+  });
+
+  // Check tiled drawings for local pdfData
+  var tiledToFetch=[];
+  for(var ti=0;ti<tiledToCheck.length;ti++){
+    var td=tiledToCheck[ti];
+    var pdfRec=await ADB.getPdfData(td.id).catch(function(){return null;});
+    if(!pdfRec||!pdfRec.buf){tiledToFetch.push(td);}
+  }
+  // Deduplicate tiled by r2Url (same PDF may produce multiple pages)
+  var seenTiledUrls={};
+  tiledToFetch=tiledToFetch.filter(function(d){
+    if(seenTiledUrls[d.r2Url])return false;
+    seenTiledUrls[d.r2Url]=true;
+    return true;
+  });
+
+  var total=drawingsToFetch.length+tiledToFetch.length+photosToFetch.length;
+  if(!total){toast('All files already cached locally ✓');return;}
+
+  var btn=document.getElementById('btn-dl-offline');
+  var origText=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='⏳ 0/'+total;}
+
+  var done=0;var errors=0;
+  function updateBtn(){
+    done++;
+    if(btn)btn.textContent='⏳ '+done+'/'+total+(errors?' ('+errors+' err)':'');
+  }
+
+  // Download regular drawings (non-tiled)
+  for(var di=0;di<drawingsToFetch.length;di++){
+    var dwg=drawingsToFetch[di];
+    try{
+      var res=await fetch(dwg.r2Url,{headers:headers});
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      var blob=await res.blob();
+      // Save to IDB drawings store
+      await ADB.put('drawings',{id:dwg.id,projectId:currentProjectId,name:dwg.name,
+        width:dwg.width||0,height:dwg.height||0,isOriginal:dwg.isOriginal||false,
+        folder:dwg.folder||'',dataBlob:blob,
+        r2Key:dwg.r2Key||'',r2Status:dwg.r2Status||'',r2Url:dwg.r2Url||'',
+        pdfTiled:false,pdfPage:dwg.pdfPage||1,thumb:dwg.thumb||null});
+      dwg._hasLocalBlob=true;
+      // Cache blob for viewer
+      if(!ADB._drawingBlobCache)ADB._drawingBlobCache={};
+      ADB._drawingBlobCache[dwg.id]=blob;
+    }catch(e){errors++;console.warn('[OfflineSync] Drawing fetch failed:',dwg.name,e.message);}
+    updateBtn();
+  }
+
+  // Download tiled PDF drawings
+  for(var pi=0;pi<tiledToFetch.length;pi++){
+    var td2=tiledToFetch[pi];
+    try{
+      var res2=await fetch(td2.r2Url,{headers:headers});
+      if(!res2.ok)throw new Error('HTTP '+res2.status);
+      var buf=await res2.arrayBuffer();
+      // Save to pdfData store — all pages from same PDF share this
+      // Find all drawings with same r2Url and save pdfData for each
+      var sameUrl=p.drawings.filter(function(d){return d.r2Url===td2.r2Url;});
+      for(var si=0;si<sameUrl.length;si++){
+        await ADB.savePdfData(sameUrl[si].id,buf).catch(function(){});
+      }
+    }catch(e){errors++;console.warn('[OfflineSync] Tiled PDF fetch failed:',td2.name,e.message);}
+    updateBtn();
+  }
+
+  // Download photos
+  for(var phi=0;phi<photosToFetch.length;phi++){
+    var phItem=photosToFetch[phi];
+    try{
+      var res3=await fetch(phItem.rec.r2Url,{headers:headers});
+      if(!res3.ok)throw new Error('HTTP '+res3.status);
+      var phBlob=await res3.blob();
+      var phDataUrl=await ADB.blobToDataUrl(phBlob);
+      phItem.rec.dataUrl=phDataUrl;
+    }catch(e){errors++;console.warn('[OfflineSync] Photo fetch failed:',phItem.label,e.message);}
+    updateBtn();
+  }
+
+  // Save project state with all the new local data
+  await ADB.saveFullProject(p).catch(function(){});
+
+  if(btn){btn.disabled=false;btn.textContent=origText;}
+  toast('Offline sync complete — '+done+' files cached'+(errors?' ('+errors+' failed)':''));
+  renderDrawingGallery();
+}
+
 // ═══ CLOUD RECOVERY — Re-upload All ═══
 async function reuploadAllToCloud(){
   if(!_csHubMode||!_csProjectId){toast('Only available in Hub mode');return;}
@@ -11083,6 +11207,7 @@ document.addEventListener('DOMContentLoaded',function(){
       var btnExportAll=document.getElementById('btn-export-all');if(btnExportAll)btnExportAll.style.display='none';
       // Show sign-out button in Hub mode
       var btnReupload=document.getElementById('btn-reupload');if(btnReupload)btnReupload.style.display='';
+      var btnDlOffline=document.getElementById('btn-dl-offline');if(btnDlOffline)btnDlOffline.style.display='';
       var btnSignOut=document.getElementById('btn-signout');if(btnSignOut)btnSignOut.style.display='';
       var mobileSignOut=document.getElementById('mobile-signout-btn');if(mobileSignOut)mobileSignOut.style.display='';
       // Hide Save As / Folder / Open / Inspector in Hub mode (cloud is the save mechanism)
