@@ -6,6 +6,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>ARENCON — Field Review Tool</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="arenconicon192.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
 /* Font: Calibri (system) */
 
@@ -12306,6 +12309,19 @@ async function init(opts){_toolKey=opts.toolKey;_onStatusChange=opts.onStatusCha
 function destroy(){stopAutoSave();window.removeEventListener('online',_onOnline);window.removeEventListener('offline',_onOffline);_initialized=false;}
 async function syncNow(){if(!_online){_setStatus('offline','No connection');return false;}if(!_collectStateFn)return false;try{_setStatus('saving','Syncing...');var state=_collectStateFn();await save(state);_setStatus('synced','Force sync complete');return true;}catch(e){_setStatus('error','Sync failed');return false;}}
 return{init:init,save:save,load:load,startAutoSave:startAutoSave,stopAutoSave:stopAutoSave,destroy:destroy,syncNow:syncNow,readUrlParams:readUrlParams,request:_request,get isInitialized(){return _initialized;},get projectId(){return _projectId;},get instanceId(){return _instanceId;},get userId(){return _userId;},get online(){return _online;}};})();
+</script>
+<script>
+// ── PWA Service Worker Registration ──
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('sw.js').then(function(reg){
+      console.log('[PWA] Service worker registered, scope:',reg.scope);
+      setInterval(function(){reg.update();},30*60*1000);
+    }).catch(function(err){
+      console.warn('[PWA] Service worker registration failed:',err);
+    });
+  });
+}
 </script>
 </body>
 </html>
