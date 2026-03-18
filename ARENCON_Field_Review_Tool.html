@@ -677,7 +677,17 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 
 /* ═══ ALWAYS-ON SIDEBAR TOOLBAR ═══ */
 .dv-sidebar-tools{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:#1e2028;border-right:1px solid #3a3e48;width:56px;flex-shrink:0;overflow-y:auto;overflow-x:visible;z-index:20;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-@media(max-width:900px){.dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:56px!important;flex-direction:row!important;align-items:center!important;overflow-x:auto!important;overflow-y:hidden!important;padding:4px 8px!important;gap:4px!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:pan-x!important;z-index:500!important;}}
+@media(max-width:900px){.dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:56px!important;flex-direction:row!important;align-items:center!important;overflow-x:auto!important;overflow-y:hidden!important;padding:4px 8px!important;gap:4px!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:pan-x!important;z-index:500!important;}
+.dv-sidebar-tools .tool-slider-wrap{flex-direction:row!important;align-items:center!important;gap:3px!important;padding:0 3px!important;flex-shrink:0!important;}
+.dv-sidebar-tools .tool-slider-wrap svg{display:none!important;}
+.dv-sidebar-tools .tool-slider-wrap span{font-size:9px!important;color:#888!important;}
+.dv-sidebar-tools .tool-slider{writing-mode:horizontal-tb!important;direction:ltr!important;width:60px!important;height:6px!important;-webkit-appearance:none!important;appearance:none!important;}
+.dv-sidebar-tools .tool-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#9C2742;cursor:pointer;}
+.dv-sidebar-tools .tool-slider-wrap input[type=number]{width:30px!important;font-size:9px!important;}
+.dv-sidebar-tools .tool-sep{width:1px!important;height:26px!important;margin:0 3px!important;flex-shrink:0!important;}
+.dv-sidebar-tools .tool-colors{flex-direction:row!important;}
+.dv-sidebar-tools .tool-btn{width:44px!important;height:44px!important;flex-shrink:0!important;}
+.dv-sidebar-tools::-webkit-scrollbar{display:none!important;}}
 .dv-sidebar-tools .tool-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#999;border-radius:8px;cursor:pointer;transition:background .15s,color .15s;padding:0;}
 .dv-sidebar-tools .tool-btn:hover{background:#2d3040;color:#ddd;}
 .dv-sidebar-tools .tool-btn.active{background:var(--red);color:white;}
@@ -710,20 +720,14 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .dv-sidebar-tools{display:flex;flex-direction:row;align-items:center;width:100%;height:52px;border-right:none;border-top:none;border-bottom:none;overflow-x:auto;overflow-y:hidden;padding:6px 8px;order:2;flex-shrink:0;background:#1e2028;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x;gap:6px;}
   .dv-sidebar-tools::-webkit-scrollbar{display:none;}
   .dv-sidebar-tools .tool-sep{width:1px;height:26px;margin:0 3px;flex-shrink:0;}
-  .dv-sidebar-tools .tool-slider-wrap{flex-direction:row;align-items:center;gap:3px;padding:0 3px;flex-shrink:0;}
-  .dv-sidebar-tools .tool-slider-wrap svg{display:none;}
-  .dv-sidebar-tools .tool-slider-wrap span{font-size:9px;color:#888;}
-  .dv-sidebar-tools .tool-slider{writing-mode:horizontal-tb!important;direction:ltr!important;width:55px!important;height:4px!important;-webkit-appearance:none;appearance:none;}
-  .dv-sidebar-tools .tool-slider::-webkit-slider-thumb{width:12px;height:12px;}
-  .dv-sidebar-tools .tool-slider-wrap input[type=number]{width:28px;font-size:9px;}
   .dv-sidebar-tools .tool-btn{width:44px;height:44px;flex-shrink:0;border-radius:10px;}
   .dv-sidebar-tools .tool-colors{flex-direction:row;}
   .dv-mobile-tools{display:none!important;}
   .dv-main{flex-direction:row;flex:1;min-height:0;}
   .dv-tasks-panel{width:100%;max-height:160px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;}
   .dv-canvas-area{order:1;flex:1;min-height:0;}
-  .dv-toolbar{padding:6px 10px;flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;}
-  .dv-toolbar button{padding:5px 8px;font-size:11px;flex-shrink:0;}
+  .dv-toolbar{padding:6px 10px;flex-wrap:wrap;gap:6px;}
+  .dv-toolbar button{padding:5px 8px;font-size:11px;}
   .dv-nav-group .dv-title{max-width:100px;}
 }
 
@@ -1182,9 +1186,9 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   .project-grid-inner{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));}
   .drawing-card{width:calc(50% - 6px)!important;}
   .pin-modal{max-width:95vw!important;margin:10px!important;}
-  /* Drawing viewer toolbar — horizontal scroll, no wrap */
-  .dv-toolbar{flex-wrap:nowrap;gap:4px;padding:6px 8px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;}
-  .dv-toolbar button{padding:4px 8px;font-size:11px;flex-shrink:0;}
+  /* Drawing viewer toolbar wraps */
+  .dv-toolbar{flex-wrap:wrap;gap:4px;padding:6px 8px;}
+  .dv-toolbar button{padding:4px 8px;font-size:11px;}
   .dv-nav-group .dv-title{max-width:80px;font-size:12px;}
   .dv-layer-toggles{gap:2px;}
   /* All Deficiencies tab header */
@@ -2140,6 +2144,15 @@ ADB.saveDrawing=function(drawing,projectId){
   rec.r2Key=drawing.r2Key||'';
   rec.r2Status=drawing.r2Status||'';
   rec.r2Url=drawing.r2Url||'';
+  // pdfTiled guard: if no blob in memory, read existing IDB record first
+  // to preserve dataBlob — never overwrite with empty
+  if(drawing.pdfTiled&&!rec.dataBlob){
+    return ADB.get('drawings',drawing.id).then(function(existing){
+      if(existing&&existing.dataBlob)rec.dataBlob=existing.dataBlob;
+      if(existing&&existing.markupBlob&&!rec.markupBlob)rec.markupBlob=existing.markupBlob;
+      return ADB.put('drawings',rec);
+    }).catch(function(){return ADB.put('drawings',rec);});
+  }
   return ADB.put('drawings',rec);
 };
 
@@ -4657,7 +4670,7 @@ function _handlePDFUploadCore(file){
         pdf.getPage(pg).then(function(page){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
-          // Thumb: 300px wide max, JPEG for gallery card
+          // Thumb only: 300px wide max, JPEG for small size
           var thumbScale=Math.min(1.0,300/pw,300/ph);
           var vp=page.getViewport({scale:thumbScale});
           var tc=document.createElement('canvas');
@@ -4667,65 +4680,37 @@ function _handlePDFUploadCore(file){
             setTimeout(function(){
               try{
                 var thumbDu=tc.toDataURL('image/jpeg',0.70);
-                tc.width=1;tc.height=1;// free memory
-
-                // Medium-res render for R2 upload (1200px wide, readable text)
-                var r2Scale=Math.min(2.0,1200/pw);
-                var r2vp=page.getViewport({scale:r2Scale});
-                var r2c=document.createElement('canvas');
-                r2c.width=Math.round(r2vp.width);
-                r2c.height=Math.round(r2vp.height);
-                page.render({canvasContext:r2c.getContext('2d'),viewport:r2vp}).promise.then(function(){
-                  var r2Du;
-                  try{r2Du=r2c.toDataURL('image/jpeg',0.82);}catch(e){r2Du=null;}
-                  r2c.width=1;r2c.height=1;// free memory
-
-                  var p=getProject();if(!p)return;
-                  var pageName=total>1?bn+' - Page '+pg:bn;
-                  pageName=getUniqueDrawingName(pageName,p);
-                  var fullW=Math.round(pw*2.0);
-                  var fullH=Math.round(ph*2.0);
-                  var newDwg={
-                    id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
-                    name:pageName,dataUrl:null,thumb:thumbDu,
-                    _r2DataUrl:r2Du||thumbDu,// medium-res for R2 upload
-                    width:fullW,height:fullH,
-                    pdfTiled:true,pdfPage:pg,
-                    isOriginal:false,folder:bn,
-                    r2Key:'',r2Status:'',r2Url:''
-                  };
-                  p.drawings.push(newDwg);
-                  // Save raw PDF to pdfData IDB store (keyed by drawing id)
-                  ADB.savePdfData(newDwg.id,arrayBuf).then(function(){
-                    saveToLS();
-                    done++;
-                    showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
-                    if(pg<total){go(pg+1);}
-                    else{renderDrawingGallery();hideDrawingLoading();}
-                  }).catch(function(pdfErr){
-                    console.warn('pdfData save error',pdfErr);
-                    saveToLS();
-                    done++;
-                    if(pg<total){go(pg+1);}
-                    else{renderDrawingGallery();hideDrawingLoading();}
-                  });
+                tc.width=1;tc.height=1;
+                var p=getProject();if(!p)return;
+                var pageName=total>1?bn+' - Page '+pg:bn;
+                pageName=getUniqueDrawingName(pageName,p);
+                var fullW=Math.round(pw*2.0);
+                var fullH=Math.round(ph*2.0);
+                var newDwg={
+                  id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
+                  name:pageName,dataUrl:null,thumb:thumbDu,
+                  width:fullW,height:fullH,
+                  pdfTiled:true,pdfPage:pg,
+                  isOriginal:false,folder:bn,
+                  r2Key:'',r2Status:'',r2Url:''
+                };
+                p.drawings.push(newDwg);
+                // Save raw PDF to pdfData IDB store (keyed by drawing id)
+                ADB.savePdfData(newDwg.id,arrayBuf).then(function(){
+                  // Must call saveFullProject AFTER savePdfData so drawing metadata goes to IDB
+                  saveToLS();
+                  done++;
+                  showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
+                  // R2 upload AFTER pdfData is committed — prevents race condition
                   if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
-                }).catch(function(rErr){
-                  console.warn('R2 render error pg'+pg,rErr);
-                  // Fallback: use thumb for R2
-                  var p=getProject();if(!p)return;
-                  var pageName=total>1?bn+' - Page '+pg:bn;
-                  pageName=getUniqueDrawingName(pageName,p);
-                  var newDwg={
-                    id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
-                    name:pageName,dataUrl:null,thumb:thumbDu,_r2DataUrl:thumbDu,
-                    width:Math.round(pw*2.0),height:Math.round(ph*2.0),
-                    pdfTiled:true,pdfPage:pg,isOriginal:false,folder:bn,
-                    r2Key:'',r2Status:'',r2Url:''
-                  };
-                  p.drawings.push(newDwg);
-                  ADB.savePdfData(newDwg.id,arrayBuf).then(function(){saveToLS();done++;if(pg<total)go(pg+1);else{renderDrawingGallery();hideDrawingLoading();}}).catch(function(){saveToLS();done++;if(pg<total)go(pg+1);else{renderDrawingGallery();hideDrawingLoading();}});
-                  if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
+                  if(pg<total){go(pg+1);}
+                  else{renderDrawingGallery();hideDrawingLoading();}
+                }).catch(function(pdfErr){
+                  console.warn('pdfData save error',pdfErr);
+                  saveToLS();
+                  done++;
+                  if(pg<total){go(pg+1);}
+                  else{renderDrawingGallery();hideDrawingLoading();}
                 });
               }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
             },0);
@@ -5041,6 +5026,7 @@ function _handlePDFUploadToFolderCore(file,folder){
                   saveToLS();
                   done++;
                   showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
+                  if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
                   if(pg<total){go(pg+1);}
                   else{renderDrawingGallery();hideDrawingLoading();}
                 }).catch(function(pdfErr){
@@ -5050,7 +5036,6 @@ function _handlePDFUploadToFolderCore(file,folder){
                   if(pg<total){go(pg+1);}
                   else{renderDrawingGallery();hideDrawingLoading();}
                 });
-                if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
               }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
             },0);
           });
@@ -8682,40 +8667,24 @@ function _migrateDeficPhotos(defics){
 async function _r2EnqueueDrawing(dwg){
   var hubId=_csHubMode?_csProjectId:null;
   if(!hubId||typeof R2Photos==='undefined'||!dwg)return;
-  // Tiled PDFs: upload thumb JPEG so other devices can see the drawing.
-  // Raw PDF upload deferred to tiled rendering session.
+  // Tiled PDFs: upload raw PDF from pdfData IDB store
   if(dwg.pdfTiled){
-    // Use thumb (base64 JPEG) if available — always rendered at upload time
-    var thumbSrc=dwg._r2DataUrl||dwg.thumb||dwg.dataUrl;
-    if(!thumbSrc){
-      // Try IDB drawing record for thumb
-      var idbRec=await ADB.get('drawings',dwg.id).catch(function(){return null;});
-      if(idbRec&&idbRec.thumb)thumbSrc=idbRec.thumb;
-      else if(idbRec&&idbRec.dataBlob&&idbRec.dataBlob.size>0)thumbSrc=await ADB.blobToDataUrl(idbRec.dataBlob).catch(function(){return null;});
-    }
-    if(!thumbSrc)return;
-    var fname=R2Photos.generateFilename('dwg')+'.jpg';
+    var pdfRec=await ADB.getPdfData(dwg.id).catch(function(){return null;});
+    if(!pdfRec||!pdfRec.buf)return;
+    var fname=R2Photos.generateFilename('dwg')+'.pdf';
     dwg.r2Key='photos/'+hubId+'/frt/drawings/'+fname;
     dwg.r2Status='pending';
-    var blob=R2Photos.dataUrlToBlob(thumbSrc);
-    if(!blob)return;
-    ADB.savePending(dwg.id,hubId,blob,{type:'drawing',fname:fname,r2Key:dwg.r2Key}).catch(function(){});
+    var pdfBlob=new Blob([pdfRec.buf],{type:'application/pdf'});
     R2Photos.enqueue({
-      projectId:hubId,tool:'frt',type:'drawings',filename:fname,blob:blob,
+      projectId:hubId,tool:'frt',type:'drawings',filename:fname,blob:pdfBlob,
       onComplete:function(err){
-        if(!err){dwg.r2Status='uploaded';dwg.r2Url=R2Photos.getUrl(hubId,'frt','drawings',fname);ADB.deletePending(dwg.id).catch(function(){});saveToLS();_updateR2Badge();}
+        if(!err){dwg.r2Status='uploaded';dwg.r2Url=R2Photos.getUrl(hubId,'frt','drawings',fname);saveToLS();_updateR2Badge();}
         else{dwg.r2Status='error';}
       }
     });
     return;
   }
-  if(!dwg.dataUrl&&!dwg.dataBlob){
-    // dataUrl already stripped — read blob from IDB
-    var idbRec2=await ADB.get('drawings',dwg.id).catch(function(){return null;});
-    if(idbRec2&&idbRec2.dataBlob){dwg.dataBlob=idbRec2.dataBlob;return _r2EnqueueDrawing(dwg);}
-    return;
-  }
-  if(!dwg.dataUrl&&dwg.dataBlob){dwg.dataUrl=await ADB.blobToDataUrl(dwg.dataBlob).catch(function(){return null;});if(!dwg.dataUrl)return;}
+  if(!dwg.dataUrl)return;
   var fname=R2Photos.generateFilename('dwg')+'.png';
   dwg.r2Key='photos/'+hubId+'/frt/drawings/'+fname;
   dwg.r2Status='pending';
@@ -11168,23 +11137,7 @@ document.addEventListener('DOMContentLoaded',function(){
       var raw=localStorage.getItem('ARENCON_FieldReview_V2_Projects');
       if(raw)allProjects=JSON.parse(raw);
     }catch(e2){}
-    // In Hub mode, still try to load from CloudSync even if IDB failed
-    var urlP2=new URLSearchParams(window.location.search);
-    var hubPid2=urlP2.get('project');
-    if(hubPid2){
-      _csHubMode=true;_csProjectId=hubPid2;
-      // Create minimal project shell
-      var existId2=null;
-      Object.keys(allProjects).forEach(function(k){if(allProjects[k]._hubProjectId===hubPid2)existId2=k;});
-      if(!existId2){
-        var p2=newProject({projectNumber:urlP2.get('pn')||'',projectName:urlP2.get('pname')||'',client:urlP2.get('client')||'',address:urlP2.get('addr')||''});
-        p2._hubProjectId=hubPid2;allProjects[p2.id]=p2;existId2=p2.id;
-      }
-      renderDashboard();updateProjectDropdown();enterProject(existId2);switchTab('info');
-      if(typeof CloudSync!=='undefined')_initCloudSync();
-    } else {
-      renderDashboard();
-    }
+    renderDashboard();
     _initDone=true;
   });
 
@@ -11864,6 +11817,14 @@ function _incrementRevision(rev){
 
 function _collectFullState(){
   var p=getProject();if(!p)return{};
+  // SAFETY: Never produce a state that would nuke cloud data
+  // If local project has drawings/deficiencies/photos but the state we'd send is empty,
+  // something went wrong — return empty object so CloudSync.save skips it
+  var localHasData=(p.drawings&&p.drawings.length>0)||
+    (p.generalDeficiencies&&p.generalDeficiencies.length>0)||
+    (p.sitePhotos&&p.sitePhotos.length>0)||
+    ((p.contractors||[]).some(function(c){return c.deficiencies&&c.deficiencies.length>0;}));
+
   // Deep copy project state for CloudSync
   var state=JSON.parse(JSON.stringify(p));
 
@@ -11924,6 +11885,18 @@ function _collectFullState(){
       if(s&&s.dataUrl)delete s.dataUrl;
       if(s&&s.data)delete s.data;
     });
+  }
+
+  // SAFETY CHECK: if local had data but state is now empty after stripping, don't push to cloud
+  if(localHasData){
+    var stateHasData=(state.drawings&&state.drawings.length>0)||
+      (state.generalDeficiencies&&state.generalDeficiencies.length>0)||
+      (state.sitePhotos&&state.sitePhotos.length>0)||
+      ((state.contractors||[]).some(function(c){return c.deficiencies&&c.deficiencies.length>0;}));
+    if(!stateHasData){
+      console.error('[CloudSync] BLOCKED — local has data but state is empty after stripping. Not saving.');
+      return {};
+    }
   }
 
   return state;
@@ -11987,9 +11960,7 @@ function _initCloudSync(){
         var cloudProj=cloudData;
         var localProj=allProjects[pid];
         // Apply drawings (metadata only — images load from R2 via r2Url)
-        // GUARD: never overwrite local drawings with empty cloud array
-        if(cloudProj.drawings&&cloudProj.drawings.length>0){
-          localProj.drawings=cloudProj.drawings.map(function(d){
+        if(cloudProj.drawings&&cloudProj.drawings.length>0){localProj.drawings=cloudProj.drawings.map(function(d){
           // Preserve local dataUrl/thumb/pdfTiled flags — these are device-local
           var existing=(localProj.drawings||[]).find(function(x){return x.id===d.id;});
           return {id:d.id,name:d.name,width:d.width||0,height:d.height||0,
@@ -12010,12 +11981,11 @@ function _initCloudSync(){
         (localProj.drawings||[]).forEach(function(ld){
           if(cloudDrawingIds.indexOf(ld.id)<0)localProj.drawings.push(ld);
         });
-        }
-      console.log('[CloudSync] Applied cloud state — drawings:'+(cloudProj.drawings?cloudProj.drawings.length:0)+' defics:'+((cloudProj.contractors||[]).reduce(function(a,c){return a+(c.deficiencies?c.deficiencies.length:0);},0)+(cloudProj.generalDeficiencies?cloudProj.generalDeficiencies.length:0))+' localDrawings:'+(localProj.drawings?localProj.drawings.length:0));
+        }// end drawings guard
         // Apply project structure
-        if(cloudProj.contractors)localProj.contractors=cloudProj.contractors;
-        if(cloudProj.generalDeficiencies)localProj.generalDeficiencies=cloudProj.generalDeficiencies;
-        if(typeof cloudProj.nextDeficNum!=='undefined')localProj.nextDeficNum=cloudProj.nextDeficNum;
+        if(cloudProj.contractors&&cloudProj.contractors.length>0)localProj.contractors=cloudProj.contractors;
+        if(cloudProj.generalDeficiencies&&cloudProj.generalDeficiencies.length>0)localProj.generalDeficiencies=cloudProj.generalDeficiencies;
+        if(typeof cloudProj.nextDeficNum!=='undefined'&&cloudProj.nextDeficNum>0)localProj.nextDeficNum=cloudProj.nextDeficNum;
         if(cloudProj._folders)localProj._folders=cloudProj._folders;
         // Apply photos (metadata — images load from R2)
         if(cloudProj.sitePhotos)localProj.sitePhotos=cloudProj.sitePhotos.map(function(ph){
@@ -12119,9 +12089,9 @@ async function _syncHeartbeat(){
           if(cloudIds.indexOf(ld.id)<0)p.drawings.push(ld);
         });
       }
-      if(cloudData.contractors)p.contractors=cloudData.contractors;
-      if(cloudData.generalDeficiencies)p.generalDeficiencies=cloudData.generalDeficiencies;
-      if(typeof cloudData.nextDeficNum!=='undefined')p.nextDeficNum=cloudData.nextDeficNum;
+      if(cloudData.contractors&&cloudData.contractors.length>0)p.contractors=cloudData.contractors;
+      if(cloudData.generalDeficiencies&&cloudData.generalDeficiencies.length>0)p.generalDeficiencies=cloudData.generalDeficiencies;
+      if(typeof cloudData.nextDeficNum!=='undefined'&&cloudData.nextDeficNum>0)p.nextDeficNum=cloudData.nextDeficNum;
       if(cloudData._folders)p._folders=cloudData._folders;
       if(cloudData.sitePhotos){
         p.sitePhotos=cloudData.sitePhotos.map(function(ph){
@@ -12180,7 +12150,7 @@ function _updateR2Badge(){
 <script>
 var R2Photos=(function(){'use strict';
 var WORKER_URL='https://arencon-r2-worker.hezhendong999.workers.dev';
-var _queue=[];var _uploading=false;var _wifiOnly=true;var _onProgress=null;
+var _queue=[];var _uploading=false;var _wifiOnly=false;var _onProgress=null;
 
 function _authHeaders(){
   var h={};
