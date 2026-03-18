@@ -3410,14 +3410,17 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   _migrateDeficPhotos(p.generalDeficiencies);
   // Ensure all site photos have IDs
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){if(ph&&!ph.id)ph.id='sp_'+Math.random().toString(36).substr(2,8);});}
+  if(typeof _rebuildMissingR2Urls==='function')_rebuildMissingR2Urls(p);
   _requeuePendingUploads(p);
   // Trigger orphan cleanup — project is fully loaded from IDB at this point.
   // Only runs once per session (flag prevents re-run if user navigates between projects).
   // 8s delay lets UI finish rendering. Safety gates in _r2CleanupOrphans() do the rest.
-  if(_csHubMode&&!enterProject._cleanupRan){
-    enterProject._cleanupRan=true;
-    setTimeout(function(){if(typeof _r2CleanupOrphans==='function')_r2CleanupOrphans().catch(function(){});},8000);
-  }
+  // R2 orphan cleanup DISABLED — too dangerous. Files are never auto-deleted from R2.
+  // Manual cleanup only via Cloudflare dashboard if needed.
+  // if(_csHubMode&&!enterProject._cleanupRan){
+  //   enterProject._cleanupRan=true;
+  //   setTimeout(function(){if(typeof _r2CleanupOrphans==='function')_r2CleanupOrphans().catch(function(){});},8000);
+  // }
   var _el;
   _el=document.getElementById('view-dashboard');if(_el)_el.style.display='none';
   _el=document.getElementById('view-project');if(_el){_el.style.display='block';_el.style.visibility='visible';}
@@ -12030,6 +12033,33 @@ function _collectFullState(){
   return state;
 }
 
+// ── Rebuild missing r2Url from r2Key after cloud merge ──
+// CloudSync strips dataUrl but preserves r2Key. If r2Url is empty but r2Key exists,
+// the photo is on R2 — we just need to reconstruct the URL.
+function _rebuildMissingR2Urls(proj){
+  if(!proj||typeof R2Photos==='undefined')return;
+  var W=R2Photos.WORKER_URL||'https://arencon-r2-worker.hezhendong999.workers.dev';
+  function _fixArr(arr){
+    if(!arr)return;
+    arr.forEach(function(ph){if(ph&&ph.r2Key&&!ph.r2Url){ph.r2Url=W+'/'+ph.r2Key;ph.r2Status='uploaded';}});
+  }
+  (proj.generalDeficiencies||[]).forEach(function(d){
+    _fixArr(d.photos);
+    (d.entries||[]).forEach(function(e){_fixArr(e.photos);});
+    (d.responses||[]).forEach(function(r){_fixArr(r.photos);});
+  });
+  (proj.contractors||[]).forEach(function(c){
+    (c.deficiencies||[]).forEach(function(d){
+      _fixArr(d.photos);
+      (d.entries||[]).forEach(function(e){_fixArr(e.photos);});
+      (d.responses||[]).forEach(function(r){_fixArr(r.photos);});
+    });
+  });
+  (proj.sitePhotos||[]).forEach(function(sp){
+    if(sp&&sp.r2Key&&!sp.r2Url){sp.r2Url=W+'/'+sp.r2Key;sp.r2Status='uploaded';}
+  });
+}
+
 // ── CloudSync Init (called in Hub mode) ──
 function _initCloudSync(){
   if(typeof CloudSync==='undefined')return;
@@ -12135,6 +12165,7 @@ function _initCloudSync(){
           renderSummaryTable&&renderSummaryTable();
         },200);
         console.log('[CloudSync] Applied cloud state — drawings:'+localProj.drawings.length+' defics:'+localProj.generalDeficiencies.length);
+        _rebuildMissingR2Urls(localProj);
       }
     } else if(p){
       // Local is current — push to cloud and stamp sync time
@@ -12194,6 +12225,7 @@ async function _syncHeartbeat(){
     // Only apply if cloud is meaningfully newer (>8s gap to avoid overwriting recent local edits)
     if(cloudTime>localCurrent+5000){
       console.log('[Heartbeat] Cloud is newer — applying update silently');
+      _rebuildMissingR2Urls(p);
       // Apply drawings metadata
       if(cloudData.drawings&&cloudData.drawings.length>0){
         var prevDrawings=p.drawings||[];
