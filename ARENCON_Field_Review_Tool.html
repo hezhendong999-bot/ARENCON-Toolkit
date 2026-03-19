@@ -1330,6 +1330,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <button class="hdr-btn hdr-review" id="btn-review" onclick="toggleReviewMode()" style="display:none;" title="Toggle Review Mode">🔍 Review</button>
       <button class="hdr-btn" id="btn-issue" onclick="issueReport()" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
       <button class="hdr-btn" id="btn-reupload" onclick="reuploadAllToCloud()" style="display:none;background:#E67E22;" title="Re-upload all drawings and photos to cloud">☁ Re-upload All</button>
+      <button class="hdr-btn" id="btn-fix-pdfs" onclick="_reuploadPDFsToR2()" style="display:none;background:#1565C0;" title="Re-upload original PDFs to R2 for sharp drawings on all devices">📄 Fix Blurry</button>
       <button class="hdr-btn" style="background:#455A64;" id="btn-refresh" onclick="refreshCurrentPage()" title="Refresh">🔄</button>
       <div style="position:relative;display:none;" id="btn-reset-dd">
         <button class="hdr-btn" style="background:#C62828;" onclick="toggleResetMenu(event)" title="Reset options">⚠️</button>
@@ -11342,6 +11343,7 @@ document.addEventListener('DOMContentLoaded',function(){
       var btnExportAll=document.getElementById('btn-export-all');if(btnExportAll)btnExportAll.style.display='none';
       // Show sign-out button in Hub mode
       var btnReupload=document.getElementById('btn-reupload');if(btnReupload)btnReupload.style.display='';
+      var btnFixPdfs=document.getElementById('btn-fix-pdfs');if(btnFixPdfs)btnFixPdfs.style.display='';
       var btnSignOut=document.getElementById('btn-signout');if(btnSignOut)btnSignOut.style.display='';
       var mobileSignOut=document.getElementById('mobile-signout-btn');if(mobileSignOut)mobileSignOut.style.display='';
       // Hide Save As / Folder / Open / Inspector in Hub mode (cloud is the save mechanism)
@@ -12732,6 +12734,83 @@ async function _autoDownloadR2(){
   }
   _updateDot();
   console.log('[AutoDL] Complete: '+done+'/'+total+' downloaded'+(failed?' ('+failed+' failed)':''));
+}
+
+// ── RE-UPLOAD ORIGINAL PDFs TO R2 ──
+// Run once from the device that originally uploaded the PDF drawings.
+// Reads each drawing's PDF from pdfData IDB store, uploads to R2 as PDF (not JPEG),
+// updates metadata so all devices render sharp via tiled PDF renderer.
+// Call via console: _reuploadPDFsToR2()  or via the ☁️ Re-upload PDFs button
+async function _reuploadPDFsToR2(){
+  if(!_csHubMode||!_csProjectId){alert('Must be in Hub mode with a project open.');return;}
+  if(typeof R2Photos==='undefined'){alert('R2Photos not initialized.');return;}
+  var p=getProject();if(!p||!p.drawings)return;
+  // Stop heartbeat + auto-save during re-upload to prevent interference
+  if(window._syncHeartbeatTimer){clearInterval(window._syncHeartbeatTimer);window._syncHeartbeatTimer=null;}
+  CloudSync.stopAutoSave();
+  var total=0,done=0,skipped=0,failed=0;
+  var drawings=p.drawings;
+  // Count how many have pdfData
+  var candidates=[];
+  for(var i=0;i<drawings.length;i++){
+    var pdfRec=await ADB.getPdfData(drawings[i].id).catch(function(){return null;});
+    if(pdfRec&&pdfRec.buf&&pdfRec.buf.byteLength>100){
+      candidates.push({dwg:drawings[i],buf:pdfRec.buf});
+    }else{
+      skipped++;
+    }
+  }
+  total=candidates.length;
+  if(total===0){
+    alert('No PDF data found in IDB on this device. Run this from the device that originally uploaded the drawings.');
+    // Restart sync
+    CloudSync.startAutoSave(function(){var _p2=getProject();if(_p2)_p2._cloudSyncedAt=new Date().toISOString();return _collectFullState();},5000);
+    window._syncHeartbeatTimer=setInterval(function(){_syncHeartbeat();},60000);
+    return;
+  }
+  var confirmMsg='Found '+total+' drawings with PDF data. '+skipped+' drawings have no PDF (image-only).\n\nThis will upload the original PDFs to R2, replacing the blurry JPEGs. All devices will then render sharp drawings.\n\nProceed?';
+  if(!confirm(confirmMsg)){
+    CloudSync.startAutoSave(function(){var _p2=getProject();if(_p2)_p2._cloudSyncedAt=new Date().toISOString();return _collectFullState();},5000);
+    window._syncHeartbeatTimer=setInterval(function(){_syncHeartbeat();},60000);
+    return;
+  }
+  console.log('[PDF Re-upload] Starting: '+total+' PDFs to upload');
+  toast('Re-uploading '+total+' PDFs to R2… Do not close this tab.',10000);
+  // Upload sequentially
+  for(var j=0;j<candidates.length;j++){
+    var c=candidates[j];
+    var dwg=c.dwg;
+    try{
+      var fname=_r2Filename('dwg','pdf');
+      var pdfBlob=new Blob([c.buf],{type:'application/pdf'});
+      // Upload to R2
+      await R2Photos.upload(_csProjectId,'frt','drawings',fname,pdfBlob);
+      // Update drawing metadata
+      var oldR2Key=dwg.r2Key;
+      dwg.r2Key='photos/'+_csProjectId+'/frt/drawings/'+fname;
+      dwg.r2Status='uploaded';
+      dwg.r2Url=R2Photos.getUrl(_csProjectId,'frt','drawings',fname);
+      dwg.pdfTiled=true;
+      done++;
+      console.log('[PDF Re-upload] '+done+'/'+total+' — '+dwg.name+' ✓');
+    }catch(e){
+      failed++;
+      console.error('[PDF Re-upload] Failed: '+dwg.name+' — '+e.message);
+    }
+  }
+  // Save everything
+  p._cloudSyncedAt=new Date().toISOString();
+  p._localModifiedAt=new Date().toISOString();
+  await ADB.saveProject(p).catch(function(){});
+  CloudSync._lastSavedJson='';
+  await CloudSync.save(_collectFullState());
+  // Restart sync
+  CloudSync.startAutoSave(function(){var _p2=getProject();if(_p2)_p2._cloudSyncedAt=new Date().toISOString();return _collectFullState();},5000);
+  window._syncHeartbeatTimer=setInterval(function(){_syncHeartbeat();},60000);
+  var msg='PDF Re-upload complete: '+done+' uploaded, '+failed+' failed, '+skipped+' skipped (no PDF data).\n\nAll devices will now render sharp drawings after they sync.';
+  console.log('[PDF Re-upload] '+msg);
+  alert(msg);
+  renderDrawingGallery();
 }
 
 function _isMobileHeader(){return window.innerWidth<=800;}
