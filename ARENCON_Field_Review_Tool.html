@@ -282,7 +282,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 /* Zoom controls */
 .zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px;z-index:10;}
 .zoom-controls button{width:30px;height:30px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}.zoom-controls button:hover{background:rgba(42,45,53,.95);}
-@media(max-width:900px){.zoom-controls{bottom:68px!important;right:10px;z-index:501!important;}.zoom-controls button{width:44px;height:44px;font-size:20px;border-radius:10px;}}
+@media(max-width:900px){.zoom-controls{bottom:calc(100px + env(safe-area-inset-bottom,0px))!important;right:10px;z-index:501!important;}.zoom-controls button{width:44px;height:44px;font-size:20px;border-radius:10px;}}
 
 /* Pin side panel */
 .pin-panel{position:fixed;top:0;right:0;width:420px;height:100%;background:white;z-index:2500;box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;overflow:hidden;}.pin-panel.open{transform:translateX(0);}
@@ -1195,11 +1195,16 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   .project-grid-inner{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));}
   .drawing-card{width:calc(50% - 6px)!important;}
   .pin-modal{max-width:95vw!important;margin:10px!important;}
-  /* Drawing viewer toolbar wraps */
+  /* --- Drawing viewer toolbar wraps */
   .dv-toolbar{flex-wrap:wrap;gap:4px;padding:6px 8px;}
-  .dv-toolbar button{padding:4px 8px;font-size:11px;}
+  .dv-toolbar button{padding:6px 10px;font-size:12px;min-height:38px;}
   .dv-nav-group .dv-title{max-width:80px;font-size:12px;}
+  .dv-nav-group .dv-nav-btn{padding:8px 16px!important;font-size:18px!important;min-width:44px;min-height:44px;}
   .dv-layer-toggles{gap:2px;}
+  /* Hide text labels on toolbar buttons — icon only */
+  #dv-layers-btn{font-size:0!important;padding:5px 8px!important;}
+  #dv-layers-btn svg{font-size:initial;}
+  #btn-tasks-toggle{font-size:11px!important;padding:5px 8px!important;}
   /* All Deficiencies tab header */
   #panel-pins .card-header{flex-direction:column;align-items:stretch!important;gap:6px;}
 }
@@ -1339,6 +1344,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <button class="hdr-btn" id="btn-issue" onclick="issueReport()" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
       <button class="hdr-btn" id="btn-reupload" onclick="reuploadAllToCloud()" style="display:none;background:#E67E22;" title="Re-upload all drawings and photos to cloud">☁ Re-upload All</button>
       <button class="hdr-btn" id="btn-fix-pdfs" onclick="_reuploadPDFsToR2()" style="display:none;background:#1565C0;" title="Re-upload original PDFs to R2 for sharp drawings on all devices">📄 Fix Blurry</button>
+      <button class="hdr-btn" id="btn-r2-cleanup" onclick="_r2CleanupOrphans()" style="display:none;background:#7B1FA2;" title="Delete orphaned R2 files that don't match your local project">🧹 R2 Cleanup</button>
       <button class="hdr-btn" style="background:#455A64;" id="btn-refresh" onclick="refreshCurrentPage()" title="Refresh">🔄</button>
       <div style="position:relative;display:none;" id="btn-reset-dd">
         <button class="hdr-btn" style="background:#C62828;" onclick="toggleResetMenu(event)" title="Reset options">⚠️</button>
@@ -3181,6 +3187,16 @@ var _initDone=false;
 var _csHubMode=false;
 var _csProjectId=null;
 var _csInstanceId=null;
+var _csR2Folder=null;// Sanitized project name for R2 folder paths (e.g. "1490.04_IMCC_Sprucewood")
+function _makeR2FolderSlug(pn,pname){
+  // Build human-readable R2 folder from project number + name
+  var raw=((pn||'')+(pname?' '+pname:'')).trim();
+  if(!raw)return null;
+  // Replace unsafe chars: keep alphanumeric, dots, dashes, underscores; spaces → underscores
+  return raw.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9._-]/g,'').substring(0,80)||null;
+}
+// Returns the R2 folder ID for new uploads — uses project name slug if available, falls back to UUID
+function _getR2FolderId(){return _csR2Folder||_csProjectId;}
 // pdf.js worker loaded from CDN
 
 function newProject(d){var id='proj_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);return{id:id,info:{projectNumber:d.projectNumber||'',projectName:d.projectName||'',client:d.client||'',address:d.address||'',city:d.city||'',province:d.province||'Ontario',dateOfIssue:d.dateOfIssue||'',scope:d.scope||'',revision:d.revision||'A01',customFilename:d.customFilename||'',dateModified:'',visitDate:d.visitDate||new Date().toISOString().split('T')[0],inspectorName:d.inspectorName||'',weather:d.weather||'',purpose:d.purpose||'',generalNotes:d.generalNotes||''},status:'draft',settings:{sketchesEnabled:false},contractors:[],generalDeficiencies:[],nextDeficNum:1,drawings:[],photos:[],sketches:[],signatures:{sigInspectorName:'',sigInspectorDate:'',sigInspectorData:'',sigWitnessName:'',sigWitnessDate:'',sigWitnessData:''},created:new Date().toISOString(),modified:new Date().toISOString()};}
@@ -5869,11 +5885,17 @@ function deleteAllMarkupOnDrawing(){
       _dwgDel.markupData=null;
       // Delete markup from R2
       if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'){
-        var _mpath='/photos/'+encodeURIComponent(_csProjectId)+'/frt/markup/'+encodeURIComponent(_dwgDel.id)+'.json';
+        var _mFolderId=_getR2FolderId();
+        var _mpath='/photos/'+encodeURIComponent(_mFolderId)+'/frt/markup/'+encodeURIComponent(_dwgDel.id)+'.json';
         var _tok=localStorage.getItem('sb-access-token');
         var _hdrs={'Content-Type':'application/json'};
         if(_tok)_hdrs['Authorization']='Bearer '+_tok;
         fetch('https://arencon-r2-worker.hezhendong999.workers.dev'+_mpath,{method:'DELETE',headers:_hdrs}).catch(function(){});
+        // Also delete from legacy UUID path if different
+        if(_mFolderId!==_csProjectId){
+          var _mpath2='/photos/'+encodeURIComponent(_csProjectId)+'/frt/markup/'+encodeURIComponent(_dwgDel.id)+'.json';
+          fetch('https://arencon-r2-worker.hezhendong999.workers.dev'+_mpath2,{method:'DELETE',headers:_hdrs}).catch(function(){});
+        }
       }
     }
   }
@@ -8195,14 +8217,15 @@ function lightboxSaveMarkup(){
     var _mkupRec={id:'sp_mkup_'+Date.now(),dataUrl:markedSrc,caption:_srcCaption||'',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};
     if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'){
       var _mkupFname=_r2Filename('mkup','jpg');
-      _mkupRec.r2Key='photos/'+_csProjectId+'/frt/original/'+_mkupFname;
+      var _mkupFolderId=_getR2FolderId();
+      _mkupRec.r2Key='photos/'+_mkupFolderId+'/frt/original/'+_mkupFname;
       _mkupRec.r2Status='pending';
       var _mkupBlob=R2Photos.dataUrlToBlob(markedSrc);
       if(_mkupBlob){
         ADB.savePending(_mkupRec.id,_csProjectId,_mkupBlob,{type:'mkup',fname:_mkupFname,r2Key:_mkupRec.r2Key}).catch(function(){});
-        R2Photos.enqueue({projectId:_csProjectId,tool:'frt',type:'original',filename:_mkupFname,blob:_mkupBlob,
+        R2Photos.enqueue({projectId:_mkupFolderId,tool:'frt',type:'original',filename:_mkupFname,blob:_mkupBlob,
           onComplete:function(err){
-            if(!err){_mkupRec.r2Status='uploaded';_mkupRec.r2Url=R2Photos.getUrl(_csProjectId,'frt','original',_mkupFname);
+            if(!err){_mkupRec.r2Status='uploaded';_mkupRec.r2Url=R2Photos.getUrl(_mkupFolderId,'frt','original',_mkupFname);
               ADB.deletePending(_mkupRec.id).catch(function(){});saveToLS&&saveToLS();_updateR2Badge&&_updateR2Badge();}
             else{_mkupRec.r2Status='error';}
           }
@@ -8536,7 +8559,7 @@ async function reuploadAllToCloud(){
   if(!confirm('This will reset all drawings and photos to "pending" upload status and re-queue everything from local storage to R2.\n\nUse this if files are missing from the cloud. It may take several minutes.\n\nContinue?'))return;
 
   var queued=0;
-  var hubId=_csProjectId;
+  var hubId=_getR2FolderId();
 
   // ── Drawings ──
   for(var di=0;di<(p.drawings||[]).length;di++){
@@ -8870,7 +8893,7 @@ function _r2Filename(prefix,ext){
 }
 
 async function _r2EnqueueDrawing(dwg){
-  var hubId=_csHubMode?_csProjectId:null;
+  var hubId=_csHubMode?_getR2FolderId():null;
   if(!hubId||typeof R2Photos==='undefined'||!dwg)return;
   // Tiled PDFs: upload raw PDF from pdfData IDB store
   if(dwg.pdfTiled){
@@ -8918,7 +8941,7 @@ async function _r2EnqueueDrawing(dwg){
 function _r2SaveMarkup(dwg){
   if(!_csHubMode||!_csProjectId||typeof R2Photos==='undefined')return;
   if(!dwg||!dwg.id||!dwg.markupObjects||!dwg.markupObjects.length)return;
-  var hubId=_csProjectId;
+  var hubId=_getR2FolderId();
   var path='/photos/'+encodeURIComponent(hubId)+'/frt/markup/'+encodeURIComponent(dwg.id)+'.json';
   var token=localStorage.getItem('sb-access-token');
   var headers={'Content-Type':'application/json'};
@@ -8932,20 +8955,29 @@ function _r2SaveMarkup(dwg){
 async function _r2LoadMarkup(dwg){
   if(!_csHubMode||!_csProjectId||typeof R2Photos==='undefined')return null;
   if(!dwg||!dwg.r2Url)return null; // only load markup if drawing itself is on R2
-  var hubId=_csProjectId;
-  var path='/photos/'+encodeURIComponent(hubId)+'/frt/markup/'+encodeURIComponent(dwg.id)+'.json';
+  var workerUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
   var token=localStorage.getItem('sb-access-token');
   var headers=token?{'Authorization':'Bearer '+token}:{};
-  try{
-    var res=await fetch('https://arencon-r2-worker.hezhendong999.workers.dev'+path,{headers:headers});
-    if(!res.ok)return null;
-    var arr=await res.json();
-    return Array.isArray(arr)?arr:null;
-  }catch(e){return null;}
+  // Try current folder path first, then legacy UUID path
+  var paths=[
+    '/photos/'+encodeURIComponent(_getR2FolderId())+'/frt/markup/'+encodeURIComponent(dwg.id)+'.json'
+  ];
+  if(_getR2FolderId()!==_csProjectId){
+    paths.push('/photos/'+encodeURIComponent(_csProjectId)+'/frt/markup/'+encodeURIComponent(dwg.id)+'.json');
+  }
+  for(var pi=0;pi<paths.length;pi++){
+    try{
+      var res=await fetch(workerUrl+paths[pi],{headers:headers});
+      if(!res.ok)continue;
+      var arr=await res.json();
+      return Array.isArray(arr)?arr:null;
+    }catch(e){}
+  }
+  return null;
 }
 
 function _r2EnqueueDeficPhoto(rec,deficId){
-  var hubId=_csHubMode?_csProjectId:null;
+  var hubId=_csHubMode?_getR2FolderId():null;
   if(!hubId||typeof R2Photos==='undefined'){return;}
   var blob=R2Photos.dataUrlToBlob(rec.dataUrl);
   if(!blob)return;
@@ -8976,28 +9008,19 @@ function _r2EnqueueDeficPhoto(rec,deficId){
 // Auto-cleanup orphaned R2 files — runs once per session in background, 30s after load
 // Compares R2 bucket contents against project references, deletes unreferenced files
 async function _r2CleanupOrphans(){
-  if(!_csHubMode||!_csProjectId||typeof R2Photos==='undefined')return;
+  if(!_csHubMode||!_csProjectId||typeof R2Photos==='undefined'){alert('Must be in Hub mode.');return;}
   var WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
-  var hubId=_csProjectId;
-
-  // ── Safety gate 1: project must be fully loaded ──
-  // Wait until IDB load is complete — proj must have been persisted at least once
   var proj=getProject();
-  if(!proj){console.log('[R2Cleanup] Aborted — no project loaded');return;}
+  if(!proj){alert('No project loaded.');return;}
 
-  // Safety gate 2: project must have actual data before we consider deleting anything.
-  // If drawings + sitePhotos + deficiencies are ALL empty, the project hasn't loaded
-  // properly yet — abort to avoid deleting everything.
+  // Safety: project must have actual data
   var hasAnyData=(proj.drawings&&proj.drawings.length>0)||
                  (proj.sitePhotos&&proj.sitePhotos.length>0)||
                  (proj.generalDeficiencies&&proj.generalDeficiencies.length>0)||
                  ((proj.contractors||[]).some(function(c){return c.deficiencies&&c.deficiencies.length>0;}));
-  if(!hasAnyData){
-    console.log('[R2Cleanup] Aborted — project appears empty, skipping to avoid false deletions');
-    return;
-  }
+  if(!hasAnyData){alert('Project appears empty — cleanup aborted to prevent accidental deletion.');return;}
 
-  // ── Build set of ALL referenced r2Keys from project ──
+  // Build set of ALL referenced r2Keys from local project state
   var referencedKeys=new Set();
   (proj.drawings||[]).forEach(function(d){if(d&&d.r2Key)referencedKeys.add(d.r2Key);});
   (proj.sitePhotos||[]).forEach(function(ph){if(ph&&ph.r2Key)referencedKeys.add(ph.r2Key);});
@@ -9011,102 +9034,93 @@ async function _r2CleanupOrphans(){
   (proj.contractors||[]).forEach(function(c){_addDeficKeys(c.deficiencies);});
   _addDeficKeys(proj.generalDeficiencies);
 
-  // Safety gate 3: if we found zero referenced keys but the project has data,
-  // something is wrong with the key structure — abort rather than delete everything.
-  if(referencedKeys.size===0&&hasAnyData){
-    console.log('[R2Cleanup] Aborted — project has data but zero r2Keys found (files may still be pending upload)');
-    return;
+  console.log('[R2Cleanup] Local project has '+referencedKeys.size+' referenced R2 keys');
+
+  // List ALL files from R2 — both UUID and slug paths
+  var types=['original','marked','drawings','markup'];
+  var folderIds=[_csProjectId];
+  if(_getR2FolderId()!==_csProjectId)folderIds.push(_getR2FolderId());
+  var allR2Files=[];
+  var candidates=[];
+
+  toast('Scanning R2 files...',0);
+  for(var fi=0;fi<folderIds.length;fi++){
+    for(var ti=0;ti<types.length;ti++){
+      try{
+        var listPath='/list/'+encodeURIComponent(folderIds[fi])+'/frt/'+encodeURIComponent(types[ti]);
+        var res=await fetch(WORKER+listPath);
+        if(!res.ok)continue;
+        var data=await res.json();
+        var files=Array.isArray(data)?data:(data.files||data.objects||[]);
+        files.forEach(function(f){
+          var bucketKey=typeof f==='string'?f:(f.key||'');
+          if(!bucketKey)return;
+          var bparts=bucketKey.split('/');
+          if(bparts.length<5)return;
+          var bpid=bparts[0],btype=bparts[3],bfname=bparts.slice(4).join('/');
+          var storedKey='photos/'+bpid+'/frt/'+btype+'/'+bfname;
+          allR2Files.push({bucketKey:bucketKey,storedKey:storedKey,bpid:bpid,btype:btype,bfname:bfname,size:f.size||0});
+          if(!referencedKeys.has(storedKey)){
+            candidates.push({bucketKey:bucketKey,storedKey:storedKey,bpid:bpid,btype:btype,bfname:bfname,size:f.size||0});
+          }
+        });
+      }catch(e){console.warn('[R2Cleanup] List error for '+folderIds[fi]+'/'+types[ti]+':',e.message);}
+    }
   }
 
-  console.log('[R2Cleanup] Starting — '+referencedKeys.size+' referenced keys in project');
-
-  // Age threshold: only delete files older than 7 days that aren't referenced.
-  // This protects files mid-upload and gives a recovery window.
-  var AGE_THRESHOLD_MS=7*24*60*60*1000;
-  var now=Date.now();
-
-  var types=['original','drawings','markup'];
-  var candidates=[];// Files that MIGHT be orphans — collect first, delete after review
-
-  for(var ti=0;ti<types.length;ti++){
-    var type=types[ti];
-    try{
-      var listPath='/list/'+encodeURIComponent(hubId)+'/frt/'+encodeURIComponent(type);
-      var res=await fetch(WORKER+listPath);
-      if(!res.ok)continue;
-      var data=await res.json();
-      var files=Array.isArray(data)?data:(data.files||data.objects||[]);
-
-      for(var fi=0;fi<files.length;fi++){
-        var f=files[fi];
-        var bucketKey=typeof f==='string'?f:(f.key||'');
-        if(!bucketKey)continue;
-
-        // Reconstruct stored key from bucket key
-        // Bucket key: {pid}/photos/frt/{type}/{fname}
-        var bparts=bucketKey.split('/');
-        if(bparts.length<5)continue;
-        var bpid=bparts[0],btype=bparts[3],bfname=bparts.slice(4).join('/');
-        var storedKey='photos/'+bpid+'/frt/'+btype+'/'+bfname;
-
-        // Safety gate 4: only consider files NOT referenced by this project
-        if(referencedKeys.has(storedKey))continue;
-
-        // Safety gate 5: only delete files older than AGE_THRESHOLD_MS
-        // (protects files currently being uploaded)
-        var uploaded=f.uploaded?new Date(f.uploaded).getTime():0;
-        if(uploaded&&(now-uploaded)<AGE_THRESHOLD_MS){
-          console.log('[R2Cleanup] Skipping recent file ('+Math.round((now-uploaded)/86400000)+'d old):',storedKey);
-          continue;
-        }
-
-        candidates.push({bucketKey:bucketKey,storedKey:storedKey,bpid:bpid,btype:btype,bfname:bfname});
-      }
-    }catch(e){console.warn('[R2Cleanup] List error for type '+type+':',e.message);}
-  }
+  toast('');// clear
+  console.log('[R2Cleanup] R2 has '+allR2Files.length+' total files, '+candidates.length+' orphans');
 
   if(candidates.length===0){
-    console.log('[R2Cleanup] No orphans found');
+    alert('R2 is already clean — all '+allR2Files.length+' files match your local project.');
     return;
   }
 
-  // Safety gate 6: never delete more than 20% of total R2 files in one run.
-  // If the candidate count seems too high, something is wrong — abort.
-  var totalFilesApprox=referencedKeys.size+candidates.length;
-  var deleteRatio=candidates.length/Math.max(totalFilesApprox,1);
-  if(deleteRatio>0.2&&candidates.length>5){
-    console.warn('[R2Cleanup] Aborted — '+candidates.length+' candidates ('
-      +Math.round(deleteRatio*100)+'% of files) exceeds 20% safety threshold. '
-      +'This likely means the project did not load fully. No files deleted.');
-    return;
-  }
+  // Show confirmation dialog with file list
+  var totalSize=0;candidates.forEach(function(c){totalSize+=c.size;});
+  var sizeStr=totalSize>1048576?Math.round(totalSize/1048576)+'MB':Math.round(totalSize/1024)+'KB';
+  var preview=candidates.slice(0,15).map(function(c){return c.bfname+' ('+c.btype+')';}).join('\n');
+  if(candidates.length>15)preview+='\n... and '+(candidates.length-15)+' more';
 
-  console.log('[R2Cleanup] Deleting '+candidates.length+' confirmed orphan(s)');
-  var deleted=0;
+  var msg='R2 Cleanup Summary:\n\n'
+    +'• '+allR2Files.length+' total files on R2\n'
+    +'• '+referencedKeys.size+' files referenced by your local project\n'
+    +'• '+candidates.length+' orphaned files to delete ('+sizeStr+')\n\n'
+    +'Files to delete:\n'+preview+'\n\n'
+    +'This cannot be undone. Continue?';
+
+  if(!confirm(msg))return;
+
+  // Delete orphans
+  var deleted=0,failed=0;
   for(var ci=0;ci<candidates.length;ci++){
     var c=candidates[ci];
     try{
       await R2Photos.remove(c.bpid,'frt',c.btype,c.bfname);
       deleted++;
-      console.log('[R2Cleanup] Deleted:',c.storedKey);
-    }catch(e){console.warn('[R2Cleanup] Delete failed:',c.storedKey,e.message);}
+      if(deleted%10===0)console.log('[R2Cleanup] Progress: '+deleted+'/'+candidates.length);
+    }catch(e){
+      console.warn('[R2Cleanup] Delete failed:',c.storedKey,e.message);
+      failed++;
+    }
   }
 
-  if(deleted>0){
-    console.log('[R2Cleanup] Done — deleted '+deleted+' orphaned file'+(deleted>1?'s':''));
-    var dot=document.getElementById('cloud-dot');
-    if(dot){
-      var prev=dot.style.background;
-      dot.style.background='#818CF8';
-      dot.title='Cleaned up '+deleted+' old file'+(deleted>1?'s':'');
-      setTimeout(function(){dot.style.background=prev;dot.title='Saved to cloud';},3000);
-    }
+  var result='R2 Cleanup complete:\n• Deleted: '+deleted+' files\n• Failed: '+failed+' files\n• Remaining: '+(allR2Files.length-deleted)+' files';
+  console.log('[R2Cleanup] '+result);
+  alert(result);
+
+  var dot=document.getElementById('cloud-dot');
+  if(dot){
+    var prev=dot.style.background;
+    dot.style.background='#818CF8';
+    dot.title='Cleaned up '+deleted+' orphan'+(deleted>1?'s':'');
+    setTimeout(function(){dot.style.background=prev;dot.title='Saved to cloud';},5000);
   }
 }
 
 function _requeuePendingUploads(proj){
   if(!_csHubMode||typeof R2Photos==='undefined'||!_csProjectId)return;
-  var hubId=_csProjectId;
+  var hubId=_getR2FolderId();
   ADB.loadPendingByProject(hubId).then(function(pending){
     if(!pending||!pending.length)return;
     // Drop records with no blob — nothing to upload, just cluttering the queue
@@ -10460,7 +10474,7 @@ function triggerPhotoCamera(){document.getElementById('photo-camera-input').clic
 function handlePhotoFiles(files){
   var p=getProject();if(!p)return;
   if(!p.sitePhotos)p.sitePhotos=[];
-  var hubId=_csHubMode?_csProjectId:null;
+  var hubId=_csHubMode?_getR2FolderId():null;
   Array.from(files).forEach(function(f){
     compressImage(f,3200,0.88,function(du){
       var dateStr=new Date().toISOString().substring(0,19).replace('T',' ');
@@ -11341,7 +11355,8 @@ document.addEventListener('DOMContentLoaded',function(){
       var hubPName=urlParams.get('pname')||'';
       var hubClient=urlParams.get('client')||'';
       var hubAddr=urlParams.get('addr')||'';
-      // Update header for Hub mode
+      // Build R2 folder slug from project number + name
+      _csR2Folder=_makeR2FolderSlug(hubPN,hubPName)||_csProjectId;      // Update header for Hub mode
       var hubLink=document.getElementById('hdr-hub-link');
       if(hubLink){hubLink.style.display='inline-flex';hubLink.href='ARENCON_Project_Hub.html?open='+encodeURIComponent(hubProjectId);}
       var logoLink=document.getElementById('logo-link');
@@ -11362,6 +11377,7 @@ document.addEventListener('DOMContentLoaded',function(){
       // Show sign-out button in Hub mode
       var btnReupload=document.getElementById('btn-reupload');if(btnReupload)btnReupload.style.display='';
       var btnFixPdfs=document.getElementById('btn-fix-pdfs');if(btnFixPdfs)btnFixPdfs.style.display='';
+      var btnR2Cleanup=document.getElementById('btn-r2-cleanup');if(btnR2Cleanup)btnR2Cleanup.style.display='';
       var btnSignOut=document.getElementById('btn-signout');if(btnSignOut)btnSignOut.style.display='';
       var mobileSignOut=document.getElementById('mobile-signout-btn');if(mobileSignOut)mobileSignOut.style.display='';
       // Hide Save As / Folder / Open / Inspector in Hub mode (cloud is the save mechanism)
@@ -12857,12 +12873,13 @@ async function _reuploadPDFsToR2(){
       var fname=_r2Filename('dwg','pdf');
       var pdfBlob=new Blob([c.buf],{type:'application/pdf'});
       // Upload to R2
-      await R2Photos.upload(_csProjectId,'frt','drawings',fname,pdfBlob);
+      var reupFolderId=_getR2FolderId();
+      await R2Photos.upload(reupFolderId,'frt','drawings',fname,pdfBlob);
       // Update drawing metadata
       var oldR2Key=dwg.r2Key;
-      dwg.r2Key='photos/'+_csProjectId+'/frt/drawings/'+fname;
+      dwg.r2Key='photos/'+reupFolderId+'/frt/drawings/'+fname;
       dwg.r2Status='uploaded';
-      dwg.r2Url=R2Photos.getUrl(_csProjectId,'frt','drawings',fname);
+      dwg.r2Url=R2Photos.getUrl(reupFolderId,'frt','drawings',fname);
       dwg.pdfTiled=true;
       done++;
       console.log('[PDF Re-upload] '+done+'/'+total+' — '+dwg.name+' ✓');
