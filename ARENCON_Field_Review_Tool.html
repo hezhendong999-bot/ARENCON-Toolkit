@@ -12356,6 +12356,57 @@ function _autoDedup(proj){
   return removed;
 }
 
+// Verified dedup save — pushes deduped state to cloud, then re-loads and confirms.
+// If cloud still has wrong count, does a raw PATCH bypassing CloudSync.save entirely.
+// This is the nuclear fix for the 85→39 dedup that never persists.
+async function _verifiedDedupSave(proj){
+  var expectedCount=(proj.drawings||[]).length;
+  console.log('[VerifiedDedup] Pushing '+expectedCount+' drawings to cloud...');
+  // Attempt 1: normal save
+  CloudSync.resetLastSaved();
+  var state=_collectFullState();
+  if(!state||Object.keys(state).length===0){console.error('[VerifiedDedup] Empty state, aborting');return;}
+  try{
+    await CloudSync.save(state);
+  }catch(e){console.warn('[VerifiedDedup] Attempt 1 failed:',e.message);}
+  // Verify: re-load from cloud and check drawing count
+  try{
+    var verify=await CloudSync.load();
+    var cloudDrawings=verify&&verify.row&&verify.row.data&&verify.row.data.drawings;
+    var cloudCount=cloudDrawings?cloudDrawings.length:0;
+    console.log('[VerifiedDedup] Verification: cloud has '+cloudCount+' drawings (expected '+expectedCount+')');
+    if(cloudCount===expectedCount){
+      console.log('[VerifiedDedup] ✓ Cloud confirmed correct');
+      return;
+    }
+    // Cloud still wrong — do raw PATCH bypassing all CloudSync logic
+    console.warn('[VerifiedDedup] Cloud still has '+cloudCount+' — doing raw PATCH');
+    var instanceId=CloudSync.instanceId;
+    if(!instanceId){console.error('[VerifiedDedup] No instance ID');return;}
+    var rawPayload={
+      data:state,
+      updated_at:new Date().toISOString(),
+      updated_by:CloudSync.userId
+    };
+    await CloudSync.request('/rest/v1/tool_data?id=eq.'+instanceId,{
+      method:'PATCH',
+      body:rawPayload
+    });
+    CloudSync.resetLastSaved();
+    console.log('[VerifiedDedup] Raw PATCH sent with '+expectedCount+' drawings');
+    // Second verification
+    var verify2=await CloudSync.load();
+    var count2=verify2&&verify2.row&&verify2.row.data&&verify2.row.data.drawings?verify2.row.data.drawings.length:0;
+    if(count2===expectedCount){
+      console.log('[VerifiedDedup] ✓ Second verification passed');
+    }else{
+      console.error('[VerifiedDedup] ✗ STILL WRONG after raw PATCH — cloud has '+count2+'. Possible: multiple tool_data rows or RLS issue.');
+    }
+  }catch(e){
+    console.error('[VerifiedDedup] Verification error:',e.message);
+  }
+}
+
 // ── CloudSync Init (called in Hub mode) ──
 async function _initCloudSync(){
   if(typeof CloudSync==='undefined')return;
@@ -12438,11 +12489,15 @@ async function _initCloudSync(){
         localProj._localModifiedAt=new Date().toISOString();
         // Save to IDB first, THEN push to cloud — sequential, no race
         await ADB.saveFullProject(localProj).catch(function(e){console.warn('[CloudSync] IDB save error:',e);});
-        // Force-push deduped state to cloud (await so it completes before auto-save starts)
-        CloudSync.resetLastSaved();
-        var dedupState=_collectFullState();
-        if(dedupState&&Object.keys(dedupState).length>0){
-          await CloudSync.save(dedupState).catch(function(e){console.warn('[CloudSync] Dedup push error:',e);});
+        // Force-push deduped state to cloud with VERIFICATION
+        if(dedupCount>0){
+          await _verifiedDedupSave(localProj);
+        } else {
+          CloudSync.resetLastSaved();
+          var state0=_collectFullState();
+          if(state0&&Object.keys(state0).length>0){
+            await CloudSync.save(state0).catch(function(e){});
+          }
         }
         console.log('[CloudSync] Applied cloud state — drawings:'+localProj.drawings.length+(dedupCount?' (deduped '+dedupCount+')':'')+' defics:'+(localProj.generalDeficiencies||[]).length);
         setTimeout(function(){
@@ -12458,11 +12513,7 @@ async function _initCloudSync(){
         p._cloudSyncedAt=new Date().toISOString();
         p._localModifiedAt=new Date().toISOString();
         await ADB.saveFullProject(p).catch(function(){});
-        CloudSync.resetLastSaved();
-        var dedupState2=_collectFullState();
-        if(dedupState2&&Object.keys(dedupState2).length>0){
-          await CloudSync.save(dedupState2).catch(function(e){console.warn('[CloudSync] Dedup push error:',e);});
-        }
+        await _verifiedDedupSave(p);
         console.log('[CloudSync] Local dedup: removed '+dedupCount2+' duplicates, pushed to cloud');
       } else {
         // No dedup needed — just push current state
@@ -12558,14 +12609,18 @@ async function _syncHeartbeat(){
       if(cloudData.info)p.info=Object.assign(p.info||{},cloudData.info);
       _rebuildMissingR2Urls(p);
       // Dedup after merge
-      _autoDedup(p);
+      var hbDedupCount=_autoDedup(p);
       p._cloudSyncedAt=new Date().toISOString();
       // Save to IDB then push deduped state to cloud
       await ADB.saveFullProject(p).catch(function(){});
-      CloudSync.resetLastSaved();
-      var hbState=_collectFullState();
-      if(hbState&&Object.keys(hbState).length>0){
-        await CloudSync.save(hbState).catch(function(e){console.warn('[Heartbeat] Push error:',e);});
+      if(hbDedupCount>0){
+        await _verifiedDedupSave(p);
+      } else {
+        CloudSync.resetLastSaved();
+        var hbState=_collectFullState();
+        if(hbState&&Object.keys(hbState).length>0){
+          await CloudSync.save(hbState).catch(function(e){console.warn('[Heartbeat] Push error:',e);});
+        }
       }
       renderDrawingGallery&&renderDrawingGallery();
       renderDeficiencyPanel&&renderDeficiencyPanel();
