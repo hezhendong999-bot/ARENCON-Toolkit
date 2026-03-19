@@ -5514,15 +5514,21 @@ function openDrawingViewer(drawingId){
           primary.className='dv-tools-primary';
           var secondary=document.createElement('div');
           secondary.className='dv-tools-secondary';
-          // Move tool buttons to primary row, sliders/color/undo to secondary
+          // Primary tools (drawing tools): pin, select, pen, highlight, text, shapes, eraser
+          var primaryIds=['mk-pin','mk-select','mk-pen','mk-highlight','mk-text','tool-shapes-group','mk-eraser'];
+          // Secondary: color group, all sliders, undo/redo, copy btn
           var children=Array.from(sb.children);
           children.forEach(function(ch){
-            if(ch.classList.contains('tool-btn')||ch.classList.contains('tool-group')){
+            var isP=false;
+            if(ch.id&&primaryIds.indexOf(ch.id)>=0)isP=true;
+            // tool-sep elements — skip (hidden via CSS)
+            if(ch.classList.contains('tool-sep'))return;
+            if(isP){
               primary.appendChild(ch);
-            }else if(ch.classList.contains('tool-slider-wrap')||ch.id==='tool-color-group'||ch.classList.contains('tool-colors')){
+            }else{
+              // Everything else goes to secondary: color, sliders, undo, redo, copy
               secondary.appendChild(ch);
             }
-            // tool-sep elements hidden via CSS
           });
           sb.innerHTML='';
           sb.appendChild(secondary);
@@ -7171,8 +7177,16 @@ function toggleShapesMenu(e){
   _shapesMenuOpen=!_shapesMenuOpen;
   if(_shapesMenuOpen){
     var r=e.currentTarget.getBoundingClientRect();
-    sub.style.top=r.top+'px';
-    sub.style.left='56px';
+    if(window.innerWidth<=900){
+      // Mobile: position above the toolbar
+      sub.style.top='auto';
+      sub.style.bottom=(window.innerHeight-r.top+4)+'px';
+      sub.style.left=Math.max(4,r.left-20)+'px';
+    }else{
+      sub.style.top=r.top+'px';
+      sub.style.left='56px';
+      sub.style.bottom='auto';
+    }
   }
   sub.classList.toggle('open',_shapesMenuOpen);
   if(_shapesMenuOpen){document.addEventListener('click',function h(){sub.classList.remove('open');_shapesMenuOpen=false;document.removeEventListener('click',h);},{once:true});}
@@ -7194,8 +7208,15 @@ function toggleColorMenu(e){
   _colorMenuOpen=!_colorMenuOpen;
   if(_colorMenuOpen){
     var r=e.currentTarget.getBoundingClientRect();
-    sub.style.top=r.top+'px';
-    sub.style.left='56px';
+    if(window.innerWidth<=900){
+      sub.style.top='auto';
+      sub.style.bottom=(window.innerHeight-r.top+4)+'px';
+      sub.style.left=Math.max(4,r.left-40)+'px';
+    }else{
+      sub.style.top=r.top+'px';
+      sub.style.left='56px';
+      sub.style.bottom='auto';
+    }
   }
   sub.classList.toggle('open',_colorMenuOpen);
   if(_colorMenuOpen){document.addEventListener('click',function h(){sub.classList.remove('open');_colorMenuOpen=false;document.removeEventListener('click',h);},{once:true});}
@@ -10800,15 +10821,15 @@ css+='.ii{font-size:10px;}.ii label{font-weight:700;color:#4A5568;text-transform
 css+='.ch{background:#2C4A6B;color:white;padding:6px 12px;font-weight:700;font-size:11px;border-radius:4px;margin-top:12px;margin-bottom:6px;page-break-after:avoid;break-after:avoid;}';
 css+='.dc{border:1px solid #DDE1E7;border-radius:6px;padding:10px;margin-bottom:10px;page-break-inside:avoid;break-inside:avoid;orphans:3;widows:3;}';
 css+='.dc-inner{display:flex;gap:12px;align-items:flex-start;}';
-css+='.dc-mini{flex-shrink:0;width:140px;max-height:140px;object-fit:contain;border-radius:6px;border:1px solid #DDE1E7;display:block;align-self:flex-start;}';
+css+='.dc-mini{flex-shrink:0;width:160px;max-height:160px;object-fit:contain;border-radius:6px;border:1px solid #DDE1E7;display:block;align-self:flex-start;}';
 css+='.dc-content{flex:1;}';
 css+='.iar{display:inline-block;background:#FF69B4;color:white;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;margin-left:4px;}';
 css+='.so{color:#C0392B;font-weight:700;font-size:11px;}.sc{color:#1A7A4A;font-weight:700;font-size:11px;}';
-css+='.dp{width:140px;height:140px;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;}';
+css+='.dp{width:160px;height:160px;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;}';
 css+='.resp-box{padding:6px 10px;border-radius:4px;margin-top:6px;font-size:10px;}';
 css+='.resp-ctr{background:#FFF8E1;border:1px solid #FFE082;}.resp-con{background:#E8F0FE;border:1px solid #B3D4FC;}';
 css+='.resp-photos{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}';
-css+='.resp-photos img{width:140px;height:140px;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;}';
+css+='.resp-photos img{width:160px;height:160px;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;}';
 css+='.st{width:100%;border-collapse:collapse;font-size:10px;margin-top:8px;}';
 css+='.st th{background:#2C3E50;color:white;padding:5px 8px;text-align:left;font-size:9px;}';
 css+='.st td{padding:5px 8px;border-bottom:1px solid #DDE1E7;font-size:10px;}';
@@ -11000,13 +11021,60 @@ if(isField){
     if(!d.drawingId||d.pinX==null)return;
     if(!dwgPinMap[d.drawingId]){
       var dwgObj=p.drawings.find(function(x){return x.id===d.drawingId;});
-      if(dwgObj)dwgPinMap[d.drawingId]={dataUrl:dwgObj.dataUrl,pins:[]};
+      if(dwgObj)dwgPinMap[d.drawingId]={dataUrl:dwgObj.dataUrl||null,r2Url:dwgObj.r2Url||null,dwgId:d.drawingId,pins:[]};
     }
     if(dwgPinMap[d.drawingId])dwgPinMap[d.drawingId].pins.push(r);
   });
 
   var dwgIds=Object.keys(dwgPinMap);
   if(dwgIds.length===0){closePDFPicker();return;}
+
+  // Pre-fetch drawing images for any that lack dataUrl (R2-first architecture)
+  var _dwgFetchPromises=[];
+  dwgIds.forEach(function(id){
+    var info=dwgPinMap[id];
+    if(info.dataUrl)return;// Already has dataUrl
+    // Try blob cache first
+    var cached=ADB._drawingBlobCache&&ADB._drawingBlobCache[id];
+    if(cached){
+      _dwgFetchPromises.push(new Promise(function(resolve){
+        var reader=new FileReader();
+        reader.onload=function(){info.dataUrl=reader.result;resolve();};
+        reader.onerror=function(){resolve();};
+        reader.readAsDataURL(cached);
+      }));
+      return;
+    }
+    // Try IDB blob
+    _dwgFetchPromises.push(
+      ADB.get('drawings',id).then(function(rec){
+        if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
+          return new Promise(function(resolve){
+            var reader=new FileReader();
+            reader.onload=function(){info.dataUrl=reader.result;resolve();};
+            reader.onerror=function(){resolve();};
+            reader.readAsDataURL(rec.dataBlob);
+          });
+        }else if(info.r2Url){
+          // Fetch from R2 as last resort
+          return fetch(info.r2Url).then(function(res){return res.blob();}).then(function(blob){
+            return new Promise(function(resolve){
+              var reader=new FileReader();
+              reader.onload=function(){info.dataUrl=reader.result;resolve();};
+              reader.onerror=function(){resolve();};
+              reader.readAsDataURL(blob);
+            });
+          });
+        }
+      }).catch(function(){})
+    );
+  });
+
+  // Wait for all drawing images to be loaded, then proceed with rendering
+  Promise.all(_dwgFetchPromises).then(function(){
+    // Filter out any drawings that still have no dataUrl
+    dwgIds=dwgIds.filter(function(id){return dwgPinMap[id].dataUrl;});
+    if(dwgIds.length===0){_pdfHideProgress&&_pdfHideProgress();return;}
 
   // Count total work items: 1 full-drawing render + N minimap renders per drawing
   var _pdfTotalWork=0;
@@ -11106,6 +11174,7 @@ if(isField){
   }
   // Delay start to ensure popup DOM is fully ready
   setTimeout(_processNextDrawing,200);
+  });// end Promise.all(_dwgFetchPromises).then
 }
 
 closePDFPicker();
