@@ -11927,10 +11927,10 @@ function signOutSession() {
   if (typeof CloudSync !== 'undefined' && CloudSync.isInitialized) {
     try { CloudSync.stopAutoSave(); CloudSync.destroy(); } catch(e) {}
   }
-  // Redirect to Hub
-  var dest = 'ARENCON_Project_Hub.html';
-  if (_csProjectId) dest += '?open=' + encodeURIComponent(_csProjectId);
-  window.location.href = dest;
+  // Set signed-out flag so Hub doesn't auto-restore session
+  sessionStorage.setItem('ARENCON_signed_out','1');
+  // Redirect to Hub (no ?open= — go to login, not back into project)
+  window.location.href = 'ARENCON_Project_Hub.html';
 }
 
 // Session timers — Hub mode only (sign-out redirects to Hub)
@@ -12119,6 +12119,10 @@ function _collectFullState(){
       delete d.markupData;
       delete d.thumb;
       delete d._hasLocalBlob;
+      // markupObjects are large (pen strokes with coordinate arrays) and saved to R2 separately.
+      // Strip unconditionally to prevent Supabase row size limit (500 errors).
+      // Markup is preserved in IDB locally and in R2 via markupR2Saved flag.
+      delete d.markupObjects;
     });
   }
 
@@ -12216,6 +12220,7 @@ function _mergeDrawing(cd,localDrawings){
     heights:cd.heights||null,
     markupCleared:cd.markupCleared||(existing?existing.markupCleared:false)||false,
     markupObjects:(cd.markupCleared||(existing&&existing.markupCleared))?[]:(existing?existing.markupObjects:cd.markupObjects||null),
+    markupR2Saved:cd.markupR2Saved||(existing?existing.markupR2Saved:false)||false,
     // pdfTiled: local value wins when drawing exists locally (local detects actual file type via fallback)
     // Only take cloud's pdfTiled for drawings that don't exist locally yet
     pdfTiled:existing?(existing.pdfTiled||false):(cd.pdfTiled||false),
@@ -12358,7 +12363,8 @@ function _autoDedup(proj){
 
 // Verified dedup save — pushes deduped state to cloud, then re-loads and confirms.
 // If cloud still has wrong count, does a raw PATCH bypassing CloudSync.save entirely.
-// This is the nuclear fix for the 85→39 dedup that never persists.
+// Also checks for duplicate tool_data rows that could be overwriting our saves.
+var _dedupGhostCount=0;
 async function _verifiedDedupSave(proj){
   var expectedCount=(proj.drawings||[]).length;
   console.log('[VerifiedDedup] Pushing '+expectedCount+' drawings to cloud...');
@@ -12377,31 +12383,36 @@ async function _verifiedDedupSave(proj){
     console.log('[VerifiedDedup] Verification: cloud has '+cloudCount+' drawings (expected '+expectedCount+')');
     if(cloudCount===expectedCount){
       console.log('[VerifiedDedup] ✓ Cloud confirmed correct');
+      _dedupGhostCount=0;
       return;
     }
-    // Cloud still wrong — do raw PATCH bypassing all CloudSync logic
-    console.warn('[VerifiedDedup] Cloud still has '+cloudCount+' — doing raw PATCH');
-    var instanceId=CloudSync.instanceId;
-    if(!instanceId){console.error('[VerifiedDedup] No instance ID');return;}
-    var rawPayload={
-      data:state,
-      updated_at:new Date().toISOString(),
-      updated_by:CloudSync.userId
-    };
-    await CloudSync.request('/rest/v1/tool_data?id=eq.'+instanceId,{
-      method:'PATCH',
-      body:rawPayload
-    });
-    CloudSync.resetLastSaved();
-    console.log('[VerifiedDedup] Raw PATCH sent with '+expectedCount+' drawings');
-    // Second verification
-    var verify2=await CloudSync.load();
-    var count2=verify2&&verify2.row&&verify2.row.data&&verify2.row.data.drawings?verify2.row.data.drawings.length:0;
-    if(count2===expectedCount){
-      console.log('[VerifiedDedup] ✓ Second verification passed');
-    }else{
-      console.error('[VerifiedDedup] ✗ STILL WRONG after raw PATCH — cloud has '+count2+'. Possible: multiple tool_data rows or RLS issue.');
+    // Cloud still wrong — check for duplicate rows
+    console.warn('[VerifiedDedup] Cloud still has '+cloudCount+' — checking for duplicate tool_data rows...');
+    var allRows=await CloudSync.request('/rest/v1/tool_data?select=id,instance_number,updated_at&project_id=eq.'+CloudSync.projectId+'&tool_key=eq.frt&order=updated_at.desc');
+    if(allRows&&allRows.length>1){
+      console.error('[VerifiedDedup] ⚠ FOUND '+allRows.length+' tool_data rows for this project+frt! IDs: '+allRows.map(function(r){return r.id+' (inst:'+r.instance_number+' updated:'+r.updated_at+')';}).join(' | '));
+      console.error('[VerifiedDedup] Another row is overwriting our saves. The extra rows need to be deleted from Supabase.');
+      // Try to PATCH all rows with the correct data
+      for(var ri=0;ri<allRows.length;ri++){
+        try{
+          await CloudSync.request('/rest/v1/tool_data?id=eq.'+allRows[ri].id,{
+            method:'PATCH',
+            body:{data:state,updated_at:new Date().toISOString(),updated_by:CloudSync.userId}
+          });
+          console.log('[VerifiedDedup] Patched row '+allRows[ri].id);
+        }catch(e){console.warn('[VerifiedDedup] Failed to patch row '+allRows[ri].id+':',e.message);}
+      }
+    } else {
+      // Single row but still wrong — raw PATCH
+      var instanceId=CloudSync.instanceId;
+      if(instanceId){
+        await CloudSync.request('/rest/v1/tool_data?id=eq.'+instanceId,{
+          method:'PATCH',
+          body:{data:state,updated_at:new Date().toISOString(),updated_by:CloudSync.userId}
+        }).catch(function(e){console.warn('[VerifiedDedup] Raw PATCH failed:',e.message);});
+      }
     }
+    CloudSync.resetLastSaved();
   }catch(e){
     console.error('[VerifiedDedup] Verification error:',e.message);
   }
@@ -12586,6 +12597,20 @@ async function _syncHeartbeat(){
     var cloudTime=new Date(cloudUpdatedAt).getTime();
     // Only apply if cloud is meaningfully newer (20s grace)
     if(cloudTime>localCurrent+20000){
+      // Ghost detection: if cloud has MORE drawings than local after we've been pushing deduped state,
+      // another tab/device is overwriting our saves. Warn and stop.
+      var localDrawCount=(p.drawings||[]).length;
+      var cloudDrawCount=(cloudData.drawings||[]).length;
+      if(cloudDrawCount>localDrawCount&&localDrawCount>0&&typeof _dedupGhostCount!=='undefined'){
+        _dedupGhostCount++;
+        console.warn('[Heartbeat] ⚠ GHOST DETECTED — cloud has '+cloudDrawCount+' drawings but local has '+localDrawCount+'. Another tab/device is pushing old data. (count:'+_dedupGhostCount+')');
+        if(_dedupGhostCount>=3){
+          console.error('[Heartbeat] ⛔ Stopping heartbeat — ghost source keeps overwriting. Close ALL other FRT tabs/devices for this project, then reload.');
+          if(window._syncHeartbeatTimer){clearInterval(window._syncHeartbeatTimer);window._syncHeartbeatTimer=null;}
+          _syncLock=false;_heartbeatRunning=false;
+          return;
+        }
+      }
       console.log('[Heartbeat] Cloud is newer — applying update silently');
       // ═══ MERGE: Cloud owns structure. Local owns binary data. ═══
       if(cloudData.drawings){
@@ -13025,7 +13050,7 @@ function _idbPut2(key,val){return new Promise(function(resolve,reject){if(!_idb)
 function _setStatus(status,msg){if(_onStatusChange)_onStatusChange(status,msg);}
 async function _getUser(){var token=localStorage.getItem('sb-access-token');if(!token)return null;try{return await _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+token}});}catch(e){var rt=localStorage.getItem('sb-refresh-token');if(!rt)return null;try{var data=await _request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:rt},headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY}});if(data&&data.access_token){localStorage.setItem('sb-access-token',data.access_token);localStorage.setItem('sb-refresh-token',data.refresh_token);return _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+data.access_token}});}}catch(e2){}return null;}}
 async function _cloudLoad(){if(!_projectId||!_toolKey)return null;if(_instanceId){var rows=await _request('/rest/v1/tool_data?select=*&id=eq.'+_instanceId);return(rows&&rows.length>0)?rows[0]:null;}var rows=await _request('/rest/v1/tool_data?select=*&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=updated_at.desc&limit=1');return(rows&&rows.length>0)?rows[0]:null;}
-async function _cloudSave(stateJson){if(!_projectId||!_toolKey)return null;var payload={project_id:_projectId,tool_key:_toolKey,instance_number:_instanceNumber,data:typeof stateJson==='string'?JSON.parse(stateJson):stateJson,updated_by:_userId,updated_at:new Date().toISOString()};if(_instanceId){var rows=await _request('/rest/v1/tool_data?id=eq.'+_instanceId,{method:'PATCH',body:payload});return(rows&&rows.length>0)?rows[0]:null;}else{payload.created_by=_userId;payload.status='draft';var rows=await _request('/rest/v1/tool_data',{method:'POST',body:[payload]});if(rows&&rows.length>0){_instanceId=rows[0].id;_instanceNumber=rows[0].instance_number;return rows[0];}return null;}}
+async function _cloudSave(stateJson){if(!_projectId||!_toolKey)return null;var parsed=typeof stateJson==='string'?JSON.parse(stateJson):stateJson;var payload={project_id:_projectId,tool_key:_toolKey,instance_number:_instanceNumber,data:parsed,updated_by:_userId,updated_at:new Date().toISOString()};if(_instanceId){try{var rows=await _request('/rest/v1/tool_data?id=eq.'+_instanceId,{method:'PATCH',body:payload});return(rows&&rows.length>0)?rows[0]:null;}catch(e){if(e.message&&(e.message.indexOf('500')>=0||e.message.indexOf('too large')>=0||e.message.indexOf('Failed to fetch')>=0)){console.warn('[CloudSync] PATCH failed (likely payload too large:'+Math.round(JSON.stringify(payload).length/1024)+'KB), stripping more data...');if(parsed.drawings){parsed.drawings.forEach(function(d){delete d.markupObjects;delete d.markupData;delete d.thumb;delete d.dataUrl;delete d._hasLocalBlob;});}payload.data=parsed;var rows2=await _request('/rest/v1/tool_data?id=eq.'+_instanceId,{method:'PATCH',body:payload});return(rows2&&rows2.length>0)?rows2[0]:null;}throw e;}}else{payload.created_by=_userId;payload.status='draft';var rows=await _request('/rest/v1/tool_data',{method:'POST',body:[payload]});if(rows&&rows.length>0){_instanceId=rows[0].id;_instanceNumber=rows[0].instance_number;return rows[0];}return null;}}
 async function _loadProjectInfo(){if(!_projectId)return null;try{var rows=await _request('/rest/v1/projects?select=*&id=eq.'+_projectId,{headers:{'Accept':'application/vnd.pgrst.object+json'}});_projectInfo=rows;return rows;}catch(e){return null;}}
 async function save(stateJson){if(typeof stateJson!=='string')stateJson=JSON.stringify(stateJson);if(stateJson===_lastSavedJson)return;_lastSavedJson=stateJson;var _parsed=null;try{_parsed=JSON.parse(stateJson);}catch(e){}if(_parsed&&_parsed.drawings)console.log('[CloudSync.save] Pushing '+_parsed.drawings.length+' drawings to cloud');try{await _idbPut2(_idbKey(),{state:stateJson,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:new Date().toISOString()});}catch(e){console.error('[CloudSync] IDB save failed:',e);}if(_online){try{_setStatus('saving','Syncing...');var row=await _cloudSave(stateJson);_pendingSync=false;_setStatus('synced','Saved to cloud');if(row&&row.data&&row.data.drawings)console.log('[CloudSync.save] Cloud confirmed '+row.data.drawings.length+' drawings');return row;}catch(e){console.warn('[CloudSync] Cloud save failed:',e.message);_pendingSync=true;_setStatus('pending','Saved locally');}}else{_pendingSync=true;_setStatus('offline','Saved locally (offline)');}return null;}
 async function load(){var cloudRow=null;if(_online){try{cloudRow=await _cloudLoad();if(cloudRow){_instanceId=cloudRow.id;_instanceNumber=cloudRow.instance_number;if(cloudRow.data&&cloudRow.data.drawings)console.log('[CloudSync.load] Cloud has '+cloudRow.data.drawings.length+' drawings (updated_at:'+cloudRow.updated_at+')');var sj=typeof cloudRow.data==='string'?cloudRow.data:JSON.stringify(cloudRow.data);_lastSavedJson=sj;await _idbPut2(_idbKey(),{state:sj,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:cloudRow.updated_at});_setStatus('synced','Loaded from cloud');return{source:'cloud',state:typeof cloudRow.data==='string'?JSON.parse(cloudRow.data):cloudRow.data,row:cloudRow};}}catch(e){console.warn('[CloudSync] Cloud load failed:',e.message);}}try{var idbData=await _idbGet2(_idbKey());if(idbData&&idbData.state){_setStatus(_online?'synced':'offline','Loaded from cache');return{source:'idb',state:typeof idbData.state==='string'?JSON.parse(idbData.state):idbData.state,row:null};}}catch(e){console.error('[CloudSync] IDB load failed:',e);}_setStatus(_online?'synced':'offline','No saved data');return null;}
