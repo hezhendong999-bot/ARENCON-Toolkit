@@ -12310,23 +12310,21 @@ function _rebuildMissingR2Urls(proj){
 }
 
 // Auto-dedup drawings by name — removes duplicates keeping first occurrence.
-// Returns true if dedup was needed (caller should delay auto-save start).
+// Pure function: modifies proj.drawings in place, returns count of removed items.
+// Caller is responsible for saving to IDB and cloud.
 function _autoDedup(proj){
-  if(!proj||!proj.drawings||proj.drawings.length<2)return false;
+  if(!proj||!proj.drawings||proj.drawings.length<2)return 0;
   var seen={},keep=[];
   proj.drawings.forEach(function(d){
     var key=(d.name||'').trim().toLowerCase();
     if(!seen[key]){seen[key]=true;keep.push(d);}
   });
-  if(keep.length===proj.drawings.length)return false;
   var removed=proj.drawings.length-keep.length;
-  proj.drawings=keep;
-  console.log('[AutoDedup] Removed '+removed+' duplicate drawings ('+keep.length+' remaining)');
-  // Immediate save — must happen before auto-save starts
-  proj._localModifiedAt=new Date().toISOString();
-  proj._cloudSyncedAt=new Date().toISOString();
-  saveToLS();// Full IDB save + triggers debounced cloud save
-  return true;
+  if(removed>0){
+    proj.drawings=keep;
+    console.log('[AutoDedup] Removed '+removed+' duplicate drawings ('+keep.length+' remaining)');
+  }
+  return removed;
 }
 
 // ── CloudSync Init (called in Hub mode) ──
@@ -12427,17 +12425,19 @@ function _initCloudSync(){
           renderSummaryTable&&renderSummaryTable();
         },200);
         console.log('[CloudSync] Applied cloud state — drawings:'+localProj.drawings.length+' defics:'+(localProj.generalDeficiencies||[]).length);
-        // Auto-dedup drawings by name (fixes triple-upload bug)
-        var _dedupRan=_autoDedup(localProj);
-        if(_dedupRan){
-          // Force immediate cloud push before auto-save starts
-          CloudSync._lastSavedJson='';
-          try{CloudSync.save(_collectFullState());}catch(e){}
-        }
+        // Auto-dedup then single clean push
+        _autoDedup(localProj);
+        localProj._cloudSyncedAt=new Date().toISOString();
+        localProj._localModifiedAt=new Date().toISOString();
+        ADB.saveFullProject(localProj).catch(function(){});
+        CloudSync._lastSavedJson='';
+        try{CloudSync.save(_collectFullState());}catch(e){}
       }
     } else if(p){
-      // Local is current — push to cloud and stamp sync time
+      // Local is current or equal — dedup then push
+      _autoDedup(p);
       p._cloudSyncedAt=new Date().toISOString();
+      CloudSync._lastSavedJson='';
       try{CloudSync.save(_collectFullState());}catch(e){}
     }
 
@@ -12452,13 +12452,12 @@ function _initCloudSync(){
         badge.setAttribute('data-status',st);
       }
     }
-    // Start auto-save to cloud (15s)
+    // Start auto-save AFTER all sync/dedup is done
+    // 10s interval (not 5s) to reduce cloud chatter
     CloudSync.startAutoSave(function(){
-      // Stamp _cloudSyncedAt on live project before collecting state for cloud push
-      // This prevents heartbeat from seeing its own auto-save push as "newer cloud data"
       var _p=getProject();if(_p)_p._cloudSyncedAt=new Date().toISOString();
       return _collectFullState();
-    },5000);
+    },10000);
     // ── Sync heartbeat — checks cloud every 60s ──
     // If another device saved while this one is open, silently apply the update.
     if(window._syncHeartbeatTimer)clearInterval(window._syncHeartbeatTimer);
