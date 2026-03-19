@@ -678,23 +678,24 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 
 /* ═══ ALWAYS-ON SIDEBAR TOOLBAR ═══ */
 .dv-sidebar-tools{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:#1e2028;border-right:1px solid #3a3e48;width:56px;flex-shrink:0;overflow-y:auto;overflow-x:visible;z-index:20;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-@media(max-width:900px){.dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:auto!important;max-height:120px!important;flex-direction:column-reverse!important;flex-wrap:nowrap!important;align-items:stretch!important;overflow:visible!important;padding:0!important;gap:0!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:none!important;z-index:500!important;}
-/* Bottom row: primary tool buttons — single row, no scroll */
-.dv-sidebar-tools .dv-tools-primary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-evenly!important;width:100%!important;height:50px!important;padding:2px 4px!important;background:#1e2028!important;flex-shrink:0!important;}
-/* Top row: sliders + color + undo — shows/hides */
-.dv-sidebar-tools .dv-tools-secondary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:center!important;gap:6px!important;width:100%!important;height:40px!important;padding:2px 8px!important;background:#282c34!important;border-bottom:1px solid #3a3e48!important;flex-shrink:0!important;overflow-x:auto!important;scrollbar-width:none!important;}
+@media(max-width:900px){.dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:auto!important;max-height:110px!important;flex-direction:column-reverse!important;flex-wrap:nowrap!important;align-items:stretch!important;overflow:visible!important;padding:0!important;gap:0!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:none!important;z-index:500!important;}
+.dv-sidebar-tools .dv-tools-primary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-evenly!important;width:100%!important;height:48px!important;padding:2px 2px!important;background:#1e2028!important;flex-shrink:0!important;}
+.dv-sidebar-tools .dv-tools-secondary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:2px!important;width:100%!important;height:36px!important;padding:2px 6px!important;background:#282c34!important;border-bottom:1px solid #3a3e48!important;flex-shrink:0!important;overflow-x:auto!important;scrollbar-width:none!important;}
 .dv-sidebar-tools .dv-tools-secondary::-webkit-scrollbar{display:none!important;}
 .dv-sidebar-tools .tool-sep{display:none!important;}
-.dv-sidebar-tools .tool-slider-wrap{flex-direction:row!important;align-items:center!important;gap:3px!important;padding:0 3px!important;flex-shrink:0!important;}
+.dv-sidebar-tools .tool-slider-wrap{flex-direction:row!important;align-items:center!important;gap:2px!important;padding:0 2px!important;flex-shrink:0!important;border-right:1px solid #3a3e48!important;margin-right:2px!important;}
 .dv-sidebar-tools .tool-slider-wrap svg{display:none!important;}
-.dv-sidebar-tools .tool-slider-wrap span{font-size:9px!important;color:#888!important;}
-.dv-sidebar-tools .tool-slider{writing-mode:horizontal-tb!important;direction:ltr!important;width:55px!important;height:6px!important;-webkit-appearance:none!important;appearance:none!important;}
-.dv-sidebar-tools .tool-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#9C2742;cursor:pointer;}
-.dv-sidebar-tools .tool-slider-wrap input[type=number]{width:28px!important;font-size:9px!important;}
+.dv-sidebar-tools .tool-slider-wrap span{font-size:8px!important;color:#aaa!important;min-width:12px!important;}
+.dv-sidebar-tools .tool-slider{writing-mode:horizontal-tb!important;direction:ltr!important;width:48px!important;height:4px!important;-webkit-appearance:none!important;appearance:none!important;}
+.dv-sidebar-tools .tool-slider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#9C2742;cursor:pointer;}
+.dv-sidebar-tools .tool-slider-wrap input[type=number]{width:24px!important;font-size:8px!important;padding:1px!important;}
 .dv-sidebar-tools .tool-colors{flex-direction:row!important;}
-.dv-sidebar-tools .tool-btn{width:40px!important;height:40px!important;flex-shrink:0!important;}
+.dv-sidebar-tools .dv-tools-primary .tool-btn{width:36px!important;height:36px!important;flex-shrink:0!important;}
+.dv-sidebar-tools .dv-tools-secondary .tool-btn{width:30px!important;height:30px!important;flex-shrink:0!important;}
+.dv-sidebar-tools .dv-tools-secondary .tool-group{flex-shrink:0!important;}
+.dv-sidebar-tools .dv-tools-secondary .tool-group .tool-btn{width:30px!important;height:30px!important;}
 .dv-sidebar-tools::-webkit-scrollbar{display:none!important;}
-.dv-sidebar-tools .tool-group .tool-submenu{bottom:50px!important;top:auto!important;left:0!important;}}
+.dv-sidebar-tools .tool-group .tool-submenu{bottom:48px!important;top:auto!important;left:0!important;}}
 .dv-sidebar-tools .tool-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#999;border-radius:8px;cursor:pointer;transition:background .15s,color .15s;padding:0;}
 .dv-sidebar-tools .tool-btn:hover{background:#2d3040;color:#ddd;}
 .dv-sidebar-tools .tool-btn.active{background:var(--red);color:white;}
@@ -5912,23 +5913,20 @@ function createPinDeficiency(x,y){
 }
 
 function renderPinsOnDrawing(){var layer=document.getElementById('dv-pins-layer');if(!layer)return;var p=getProject();if(!p){layer.innerHTML='';return;}var ad=getAllDeficiencies(p);var pins=ad.filter(function(d){return d.defic.drawingId===dvState.currentDrawingId&&d.defic.pinX!=null;});var iw,ih;if(window._tiledActive&&_tileState.pageW){iw=_tileState.pageW*_tileState.baseScale;ih=_tileState.pageH*_tileState.baseScale;}else{var img=document.getElementById('dv-image');iw=img.naturalWidth||1;ih=img.naturalHeight||1;}
-// Dynamic pin size: baseline 32x42 for 3000px drawings, scale proportionally
-var baseW=3000;var pinScale=Math.max(0.6,Math.min(1.8,Math.max(iw,ih)/baseW));var pw=Math.round(32*pinScale),ph2=Math.round(42*pinScale);var fs=Math.round(13*pinScale);
+// Pin size: fixed visual size regardless of drawing resolution
+// Pins are inside dv-img-wrap which gets CSS transform scale — so pins shrink with zoom-out
+// To keep pins readable, we make them large in drawing coords and they'll look right when zoomed
+var baseW=3000;var pinScale=Math.max(0.8,Math.min(2.0,Math.max(iw,ih)/baseW));
+var pw=Math.round(36*pinScale),ph2=Math.round(48*pinScale);
 var html='';pins.forEach(function(d){var px=d.defic.pinX*iw,py=d.defic.pinY*ih;var pr=d.defic.priority||'high';var _pinDesc=(d.defic.entries&&d.defic.entries[0]?d.defic.entries[0].description:d.defic.description)||'';var fill=d.defic.iar?'#E91E8C':(pr==='general'?'#1A7A4A':pr==='low'?'#E67E22':'#C0392B');var isOutstanding=d.defic.status==='Outstanding'&&!d.defic.iar;var isClosed=d.defic.status==='Addressed & Closed';
-// Teardrop pin: white outline halo, colored fill, white circle with number
 var shadow=isOutstanding?'drop-shadow(0 0 3px '+fill+') drop-shadow(0 2px 5px rgba(0,0,0,.6))':'drop-shadow(0 2px 4px rgba(0,0,0,.45))';
 var alpha=isClosed?'0.5':'1';
-// Calculate font size based on number of digits for best fit
-var numStr=String(d.defic.num);var numFs=numStr.length<=2?fs:Math.round(fs*0.8);if(numStr.length>=4)numFs=Math.round(fs*0.65);
+var numStr=String(d.defic.num);var numFs=numStr.length<=2?'14':numStr.length===3?'11':'9';
 html+='<div class="pin-marker" data-defic-id="'+d.defic.id+'" data-priority="'+pr+'" onclick="handlePinClick(\x27'+d.defic.id+'\x27);event.stopPropagation();" style="left:'+px+'px;top:'+py+'px;width:'+pw+'px;height:'+ph2+'px;transform:translate(-50%,-100%);opacity:'+alpha+';" title="#'+d.defic.num+' '+escHtml(_pinDesc)+'">';
 html+='<svg viewBox="0 0 32 42" width="'+pw+'" height="'+ph2+'" style="filter:'+shadow+';overflow:visible;">';
-// Outer white halo
 html+='<path d="M16 1C8.3 1 2 7.3 2 15c0 10.5 14 25 14 25s14-14.5 14-25C30 7.3 23.7 1 16 1z" fill="white"/>';
-// Colored teardrop body
 html+='<path d="M16 3C9.4 3 4 8.4 4 15c0 9.5 12 22 12 22s12-12.5 12-22C28 8.4 22.6 3 16 3z" fill="'+fill+'"/>';
-// White circle for number — larger and centered in the bulb
-html+='<circle cx="16" cy="14" r="8.5" fill="white" opacity="0.95"/>';
-// Number text — bold, centered in white circle
+html+='<circle cx="16" cy="14" r="9" fill="white" opacity="0.95"/>';
 html+='<text x="16" y="14.5" text-anchor="middle" dominant-baseline="central" font-size="'+numFs+'" font-weight="900" font-family="Calibri,Arial,sans-serif" fill="'+fill+'">'+d.defic.num+'</text>';
 html+='</svg></div>';});layer.innerHTML=html;updatePinStatus();}
 
