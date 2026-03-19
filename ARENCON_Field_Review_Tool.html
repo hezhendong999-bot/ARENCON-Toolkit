@@ -5550,26 +5550,7 @@ function openDrawingViewer(drawingId){
     })();
     // Close any previous tiled PDF session
     if(window._tiledActive)_closeTiledPDF();
-    // PDF RECOVERY CHECK
-    // _pdfRecoveryFailed prevents infinite loop when PDF data exists but is corrupted
-    if(!window._pdfRecoveryFailed)window._pdfRecoveryFailed={};
-    if(!d.pdfTiled&&!window._pdfRecoveryFailed[drawingId]){
-      ADB.getPdfData(drawingId).then(function(pdfRec){
-        if(pdfRec&&pdfRec.buf&&pdfRec.buf.byteLength>100){
-          console.log('[DrawingViewer] PDF data found in IDB for '+d.name+' - attempting tiled render');
-          d.pdfTiled=true;
-          saveToLS();
-          showDrawingLoading('Opening drawing...');
-          initPanZoom();
-          _openTiledPDF(drawingId,d.pdfPage||1);
-        }else{
-          _openDrawingImage(d,drawingId);
-        }
-      }).catch(function(){
-        _openDrawingImage(d,drawingId);
-      });
-      return;
-    }
+    // PDF recovery removed — use Fix Blurry button to re-upload PDFs to R2 instead
     // Tiled PDF path — draws from raw PDF stored in pdfData IDB store
     if(d.pdfTiled){
       showDrawingLoading('Opening drawing…');
@@ -12385,72 +12366,42 @@ function _initCloudSync(){
       if(pid&&allProjects[pid]){
         var cloudProj=cloudData;
         var localProj=allProjects[pid];
-        // Apply drawings — merge preserves local R2 fields + device-local blobs
+        // ═══ MERGE PRINCIPLE: Cloud owns structure. Local owns binary data. ═══
+        // Cloud says what items exist (drawings, defics, photos).
+        // Local preserves R2 fields and blob references that cloud doesn't have.
+        // If cloud doesn't have an item, it was DELETED — do NOT re-add it.
+
+        // Drawings: use cloud list, enrich with local R2/blob fields
         if(cloudProj.drawings&&cloudProj.drawings.length>0){
-          var prevLocalDrawings=localProj.drawings||[];
-          localProj.drawings=cloudProj.drawings.map(function(d){return _mergeDrawing(d,prevLocalDrawings);});
-          // Keep local-only drawings not yet pushed to cloud
-          var cloudDrawingIds=cloudProj.drawings.map(function(d){return d.id;});
-          prevLocalDrawings.forEach(function(ld){
-            if(cloudDrawingIds.indexOf(ld.id)<0)localProj.drawings.push(ld);
-          });
+          var prevLocal=localProj.drawings||[];
+          localProj.drawings=cloudProj.drawings.map(function(d){return _mergeDrawing(d,prevLocal);});
+        }else if(cloudProj.drawings&&cloudProj.drawings.length===0){
+          // Cloud explicitly has empty drawings — respect it (all were deleted)
+          // But guard against cloud that was saved before any drawings existed
+          if(localProj._cloudSyncedAt)localProj.drawings=[];
         }
-        // Apply contractors — merge preserves local R2 fields on deficiency photos + keeps local-only defics
-        if(cloudProj.contractors&&cloudProj.contractors.length>0){
-          var prevLocalContractors=localProj.contractors||[];
-          _mergeContractors(cloudProj.contractors,prevLocalContractors);
+        // Contractors: use cloud list, enrich defic photos with local R2 fields
+        if(cloudProj.contractors){
+          _mergeContractors(cloudProj.contractors,localProj.contractors);
           localProj.contractors=cloudProj.contractors;
-          // Keep local-only contractors not yet in cloud
-          var cloudContractorNames=cloudProj.contractors.map(function(c){return(c.name||'').toLowerCase().trim();});
-          prevLocalContractors.forEach(function(lc){
-            if(cloudContractorNames.indexOf((lc.name||'').toLowerCase().trim())<0)localProj.contractors.push(lc);
-          });
-          // Within matched contractors, keep local-only deficiencies
-          localProj.contractors.forEach(function(mc){
-            var matchLocal=prevLocalContractors.find(function(lc){return(lc.name||'').toLowerCase().trim()===(mc.name||'').toLowerCase().trim();});
-            if(matchLocal&&matchLocal.deficiencies){
-              var cloudDeficIds=(mc.deficiencies||[]).map(function(d){return d.id;});
-              matchLocal.deficiencies.forEach(function(ld){
-                if(ld.id&&cloudDeficIds.indexOf(ld.id)<0){
-                  if(!mc.deficiencies)mc.deficiencies=[];
-                  mc.deficiencies.push(ld);
-                }
-              });
-            }
-          });
         }
-        // Apply general deficiencies — same R2 preservation + keep local-only
-        if(cloudProj.generalDeficiencies&&cloudProj.generalDeficiencies.length>0){
-          var prevLocalGenDefics=localProj.generalDeficiencies||[];
-          _mergeDeficR2Fields(cloudProj.generalDeficiencies,prevLocalGenDefics);
+        // General deficiencies: use cloud list, enrich photos
+        if(cloudProj.generalDeficiencies){
+          _mergeDeficR2Fields(cloudProj.generalDeficiencies,localProj.generalDeficiencies);
           localProj.generalDeficiencies=cloudProj.generalDeficiencies;
-          // Keep local-only general deficiencies not yet in cloud
-          var cloudGenDeficIds=cloudProj.generalDeficiencies.map(function(d){return d.id;});
-          prevLocalGenDefics.forEach(function(ld){
-            if(ld.id&&cloudGenDeficIds.indexOf(ld.id)<0)localProj.generalDeficiencies.push(ld);
-          });
         }
         if(typeof cloudProj.nextDeficNum!=='undefined'&&cloudProj.nextDeficNum>0)localProj.nextDeficNum=cloudProj.nextDeficNum;
         if(cloudProj._folders)localProj._folders=cloudProj._folders;
-        // Apply site photos — merge preserves local R2 fields + keep local-only
-        if(cloudProj.sitePhotos&&cloudProj.sitePhotos.length>0){
-          var prevLocalSitePhotos=localProj.sitePhotos||[];
-          localProj.sitePhotos=cloudProj.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevLocalSitePhotos);});
-          // Keep local-only site photos not yet in cloud
-          var cloudSitePhotoIds=cloudProj.sitePhotos.map(function(sp){return sp.id;});
-          prevLocalSitePhotos.forEach(function(lsp){
-            if(lsp.id&&cloudSitePhotoIds.indexOf(lsp.id)<0)localProj.sitePhotos.push(lsp);
-          });
+        // Site photos: use cloud list, enrich with local R2 fields
+        if(cloudProj.sitePhotos){
+          var prevSP=localProj.sitePhotos||[];
+          localProj.sitePhotos=cloudProj.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevSP);});
         }
         if(cloudProj.info)localProj.info=Object.assign(localProj.info||{},cloudProj.info);
-        // Safety net: rebuild any r2Url that has r2Key but no URL
         _rebuildMissingR2Urls(localProj);
-        // Mark local as synced at cloud time
         localProj._cloudSyncedAt=cloudUpdatedAt;
-        // Save quietly — don't trigger saveToLS chain which would re-render viewer
         ADB.saveProject(localProj).catch(function(e){console.warn('[CloudSync] Merge save error:',e);});
         setTimeout(function(){
-          // Only refresh gallery and deficiencies — never re-open drawing viewer
           renderDrawingGallery&&renderDrawingGallery();
           renderDeficiencyPanel&&renderDeficiencyPanel();
           renderSummaryTable&&renderSummaryTable();
@@ -12524,80 +12475,42 @@ async function _syncHeartbeat(){
     // Only apply if cloud is meaningfully newer (20s grace to avoid overwriting recent local edits)
     if(cloudTime>localCurrent+20000){
       console.log('[Heartbeat] Cloud is newer — applying update silently');
-      // Apply drawings — merge preserves local R2 fields + device-local blobs
-      if(cloudData.drawings&&cloudData.drawings.length>0){
-        var prevDrawings=p.drawings||[];
-        p.drawings=cloudData.drawings.map(function(d){return _mergeDrawing(d,prevDrawings);});
-        // Keep local-only drawings not yet pushed to cloud
-        var cloudIds=cloudData.drawings.map(function(d){return d.id;});
-        prevDrawings.forEach(function(ld){
-          if(cloudIds.indexOf(ld.id)<0)p.drawings.push(ld);
-        });
+      // ═══ MERGE: Cloud owns structure. Local owns binary data. ═══
+      // Drawings
+      if(cloudData.drawings){
+        var prevHBDwg=p.drawings||[];
+        p.drawings=cloudData.drawings.map(function(d){return _mergeDrawing(d,prevHBDwg);});
       }
-      // Apply contractors — merge preserves local R2 fields + keep local-only
-      if(cloudData.contractors&&cloudData.contractors.length>0){
-        var prevHBContractors=p.contractors||[];
-        _mergeContractors(cloudData.contractors,prevHBContractors);
+      // Contractors
+      if(cloudData.contractors){
+        _mergeContractors(cloudData.contractors,p.contractors);
         p.contractors=cloudData.contractors;
-        // Keep local-only contractors not yet in cloud
-        var cloudHBCNames=cloudData.contractors.map(function(c){return(c.name||'').toLowerCase().trim();});
-        prevHBContractors.forEach(function(lc){
-          if(cloudHBCNames.indexOf((lc.name||'').toLowerCase().trim())<0)p.contractors.push(lc);
-        });
-        // Within matched contractors, keep local-only deficiencies
-        p.contractors.forEach(function(mc){
-          var matchLocal=prevHBContractors.find(function(lc){return(lc.name||'').toLowerCase().trim()===(mc.name||'').toLowerCase().trim();});
-          if(matchLocal&&matchLocal.deficiencies){
-            var cloudDIds=(mc.deficiencies||[]).map(function(d){return d.id;});
-            matchLocal.deficiencies.forEach(function(ld){
-              if(ld.id&&cloudDIds.indexOf(ld.id)<0){
-                if(!mc.deficiencies)mc.deficiencies=[];
-                mc.deficiencies.push(ld);
-              }
-            });
-          }
-        });
       }
-      // Apply general deficiencies — same R2 preservation + keep local-only
-      if(cloudData.generalDeficiencies&&cloudData.generalDeficiencies.length>0){
-        var prevHBGenDefics=p.generalDeficiencies||[];
-        _mergeDeficR2Fields(cloudData.generalDeficiencies,prevHBGenDefics);
+      // General deficiencies
+      if(cloudData.generalDeficiencies){
+        _mergeDeficR2Fields(cloudData.generalDeficiencies,p.generalDeficiencies);
         p.generalDeficiencies=cloudData.generalDeficiencies;
-        var cloudHBGDIds=cloudData.generalDeficiencies.map(function(d){return d.id;});
-        prevHBGenDefics.forEach(function(ld){
-          if(ld.id&&cloudHBGDIds.indexOf(ld.id)<0)p.generalDeficiencies.push(ld);
-        });
       }
       if(typeof cloudData.nextDeficNum!=='undefined'&&cloudData.nextDeficNum>0)p.nextDeficNum=cloudData.nextDeficNum;
       if(cloudData._folders)p._folders=cloudData._folders;
-      // Apply site photos — merge preserves local R2 fields + keep local-only
-      if(cloudData.sitePhotos&&cloudData.sitePhotos.length>0){
-        var prevHBSitePhotos=p.sitePhotos||[];
-        p.sitePhotos=cloudData.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevHBSitePhotos);});
-        var cloudHBSPIds=cloudData.sitePhotos.map(function(sp){return sp.id;});
-        prevHBSitePhotos.forEach(function(lsp){
-          if(lsp.id&&cloudHBSPIds.indexOf(lsp.id)<0)p.sitePhotos.push(lsp);
-        });
+      // Site photos
+      if(cloudData.sitePhotos){
+        var prevHBSP=p.sitePhotos||[];
+        p.sitePhotos=cloudData.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevHBSP);});
       }
       if(cloudData.info)p.info=Object.assign(p.info||{},cloudData.info);
-      // Safety net: rebuild any r2Url that has r2Key but no URL
       _rebuildMissingR2Urls(p);
-      // Stamp _cloudSyncedAt to NOW — not cloudUpdatedAt — so auto-save's subsequent
-      // pushes (which create new updated_at on cloud) don't trigger the next heartbeat
       p._cloudSyncedAt=new Date().toISOString();
-      // Save to IDB and refresh view
       ADB.saveFullProject(p).catch(function(){});
       renderDrawingGallery&&renderDrawingGallery();
       renderDeficiencyPanel&&renderDeficiencyPanel();
       renderSummaryTable&&renderSummaryTable();
-      // If drawing viewer is open, reload markup in case it was cleared on another device
       if(dvState&&dvState.currentDrawingId&&document.getElementById('drawing-viewer').classList.contains('open')){
         var _hbDwg=getProject()&&getProject().drawings&&getProject().drawings.find(function(d){return d.id===dvState.currentDrawingId;});
         if(_hbDwg&&(_hbDwg.markupCleared||!(_hbDwg.markupObjects&&_hbDwg.markupObjects.length))){
           _mkObjects=[];renderAllMarkup&&renderAllMarkup();
         }
       }
-      // Brief indicator on cloud dot
       var dot=document.getElementById('cloud-dot');
       if(dot){
         var prev=dot.style.background;
