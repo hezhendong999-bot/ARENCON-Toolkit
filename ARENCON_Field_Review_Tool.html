@@ -12309,28 +12309,24 @@ function _rebuildMissingR2Urls(proj){
   if(fixed>0)console.log('[R2] Rebuilt '+fixed+' missing r2Url(s) from r2Key');
 }
 
-// Auto-dedup drawings by name — removes duplicates keeping the first occurrence.
-// Runs after cloud merge. If dupes found, saves to IDB + pushes to cloud immediately.
+// Auto-dedup drawings by name — removes duplicates keeping first occurrence.
+// Returns true if dedup was needed (caller should delay auto-save start).
 function _autoDedup(proj){
-  if(!proj||!proj.drawings||proj.drawings.length<2)return;
+  if(!proj||!proj.drawings||proj.drawings.length<2)return false;
   var seen={},keep=[];
   proj.drawings.forEach(function(d){
     var key=(d.name||'').trim().toLowerCase();
     if(!seen[key]){seen[key]=true;keep.push(d);}
   });
-  if(keep.length===proj.drawings.length)return;// No dupes
+  if(keep.length===proj.drawings.length)return false;
   var removed=proj.drawings.length-keep.length;
   proj.drawings=keep;
-  console.log('[AutoDedup] Removed '+removed+' duplicate drawings ('+proj.drawings.length+' remaining)');
-  // Save and push immediately
+  console.log('[AutoDedup] Removed '+removed+' duplicate drawings ('+keep.length+' remaining)');
+  // Immediate save — must happen before auto-save starts
   proj._localModifiedAt=new Date().toISOString();
   proj._cloudSyncedAt=new Date().toISOString();
-  ADB.saveProject(proj).catch(function(){});
-  setTimeout(function(){
-    CloudSync._lastSavedJson='';
-    try{CloudSync.save(_collectFullState());}catch(e){}
-    renderDrawingGallery&&renderDrawingGallery();
-  },1000);
+  saveToLS();// Full IDB save + triggers debounced cloud save
+  return true;
 }
 
 // ── CloudSync Init (called in Hub mode) ──
@@ -12432,7 +12428,12 @@ function _initCloudSync(){
         },200);
         console.log('[CloudSync] Applied cloud state — drawings:'+localProj.drawings.length+' defics:'+(localProj.generalDeficiencies||[]).length);
         // Auto-dedup drawings by name (fixes triple-upload bug)
-        _autoDedup(localProj);
+        var _dedupRan=_autoDedup(localProj);
+        if(_dedupRan){
+          // Force immediate cloud push before auto-save starts
+          CloudSync._lastSavedJson='';
+          try{CloudSync.save(_collectFullState());}catch(e){}
+        }
       }
     } else if(p){
       // Local is current — push to cloud and stamp sync time
