@@ -12798,19 +12798,22 @@ async function _reuploadPDFsToR2(){
       console.error('[PDF Re-upload] Failed: '+dwg.name+' — '+e.message);
     }
   }
-  // Save everything
-  p._cloudSyncedAt=new Date().toISOString();
-  p._localModifiedAt=new Date().toISOString();
-  await ADB.saveProject(p).catch(function(){});
-  CloudSync._lastSavedJson='';
-  await CloudSync.save(_collectFullState());
-  // Restart sync
-  CloudSync.startAutoSave(function(){var _p2=getProject();if(_p2)_p2._cloudSyncedAt=new Date().toISOString();return _collectFullState();},5000);
-  window._syncHeartbeatTimer=setInterval(function(){_syncHeartbeat();},60000);
-  var msg='PDF Re-upload complete: '+done+' uploaded, '+failed+' failed, '+skipped+' skipped (no PDF data).\n\nAll devices will now render sharp drawings after they sync.';
+  // Save everything — use saveToLS for full project save + cloud push
+  saveToLS();
+  // Also force a cloud push with reset dedup
+  setTimeout(function(){
+    CloudSync._lastSavedJson='';
+    var _p3=getProject();if(_p3)_p3._cloudSyncedAt=new Date().toISOString();
+    CloudSync.save(_collectFullState());
+    // Restart sync
+    CloudSync.startAutoSave(function(){var _p2=getProject();if(_p2)_p2._cloudSyncedAt=new Date().toISOString();return _collectFullState();},5000);
+    window._syncHeartbeatTimer=setInterval(function(){_syncHeartbeat();},60000);
+  },2000);
+  var msg='PDF Re-upload complete: '+done+' uploaded, '+failed+' failed, '+skipped+' skipped (no PDF data).\n\nThe page will now reload to apply changes. All devices will render sharp drawings after they sync.';
   console.log('[PDF Re-upload] '+msg);
   alert(msg);
-  renderDrawingGallery();
+  // Force reload after cloud save completes
+  setTimeout(function(){window.location.reload();},3000);
 }
 
 function _isMobileHeader(){return window.innerWidth<=800;}
