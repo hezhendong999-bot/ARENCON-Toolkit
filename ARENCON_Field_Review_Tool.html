@@ -282,7 +282,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 /* Zoom controls */
 .zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px;z-index:10;}
 .zoom-controls button{width:30px;height:30px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}.zoom-controls button:hover{background:rgba(42,45,53,.95);}
-@media(max-width:900px){.zoom-controls{bottom:68px!important;right:10px;z-index:501!important;}}
+@media(max-width:900px){.zoom-controls{bottom:68px!important;right:10px;z-index:501!important;}.zoom-controls button{width:44px;height:44px;font-size:20px;border-radius:10px;}}
 
 /* Pin side panel */
 .pin-panel{position:fixed;top:0;right:0;width:420px;height:100%;background:white;z-index:2500;box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;overflow:hidden;}.pin-panel.open{transform:translateX(0);}
@@ -460,6 +460,7 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
 .drawing-card .select-check{position:absolute;top:6px;left:6px;width:20px;height:20px;border:2px solid white;border-radius:4px;background:rgba(0,0,0,.3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;opacity:0;transition:opacity .15s;}
 .drawing-card:hover .select-check{opacity:1;}
 .drawing-card .select-check.checked{opacity:1;background:var(--red);border-color:var(--red);}
+@media(max-width:900px){.drawing-card .select-check{opacity:.45;width:24px;height:24px;font-size:14px;}.drawing-card .select-check.checked{opacity:1;}}
 /* 3-dot menu — hidden until hover */
 .drawing-card .card-menu-btn{position:absolute;bottom:36px;right:4px;background:rgba(0,0,0,.5);border:none;color:white;font-size:16px;cursor:pointer;padding:2px 6px;border-radius:4px;opacity:0;transition:opacity .15s;z-index:5;}
 .drawing-card:hover .card-menu-btn{opacity:1;}
@@ -1804,10 +1805,10 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
         <canvas class="markup-canvas" id="markup-canvas"></canvas>
         <div id="dv-pins-layer"></div>
       </div>
-      <div class="zoom-controls">
-        <button onclick="zoomIn()">+</button>
-        <button onclick="zoomOut()">−</button>
-        <button onclick="fitDrawing()" style="font-size:12px;">⊡</button>
+      <div class="zoom-controls" ontouchstart="event.stopPropagation();" ontouchend="event.stopPropagation();">
+        <button onclick="zoomIn()" ontouchend="event.stopPropagation();event.preventDefault();zoomIn();">+</button>
+        <button onclick="zoomOut()" ontouchend="event.stopPropagation();event.preventDefault();zoomOut();">−</button>
+        <button onclick="fitDrawing()" ontouchend="event.stopPropagation();event.preventDefault();fitDrawing();" style="font-size:12px;">⊡</button>
       </div>
     </div>
     <!-- RIGHT TASKS PANEL -->
@@ -1894,7 +1895,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 </div>
 
 <!-- HEIGHTS PANEL — per-drawing field dimensions -->
-<div id="heights-panel" style="display:none;position:absolute;top:52px;right:8px;width:300px;max-height:calc(100vh - 120px);background:white;border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,.25);z-index:4000;font-family:Calibri,sans-serif;overflow:hidden;flex-direction:column;">
+<div id="heights-panel" style="display:none;position:fixed;top:52px;right:8px;width:300px;max-height:calc(100vh - 120px);background:white;border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,.25);z-index:12000;font-family:Calibri,sans-serif;overflow:hidden;flex-direction:column;">
   <div style="background:#9C2742;color:white;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
     <span style="font-weight:700;font-size:13px;">📐 Field Heights / Dimensions</span>
     <button onclick="toggleHeightsPanel()" style="background:none;border:none;color:white;font-size:16px;cursor:pointer;padding:0 2px;">✕</button>
@@ -4879,7 +4880,7 @@ function uploadToFolder(fn){var inp=document.createElement('input');inp.type='fi
 function buildDrawingCard(d,ad){
   var pc=ad.filter(function(df){return df.defic.drawingId===d.id;}).length;
   var sel=_selectedDrawings.has(d.id);
-  var html='<div class="drawing-card'+(sel?' selected':'')+'" data-dwg-id="'+d.id+'">';
+  var html='<div class="drawing-card'+(sel?' selected':'')+'" data-dwg-id="'+d.id+'" ontouchstart="_dwgCardTouchStart(event,\''+d.id+'\')" ontouchmove="_dwgCardTouchMove(event)" ontouchend="_dwgCardTouchEnd(event,\''+d.id+'\')">';
   html+='<div class="card-thumb drawing-thumb" onclick="openDrawingViewer(\''+d.id+'\')">';
   var _thumbSrc=d.thumb||d.dataUrl||(d.r2Url?d.r2Url:null);
   html+='<img data-src="'+(_thumbSrc||'')+'" alt="'+escHtml(d.name)+'" loading="lazy" style="background:#e8e8e8;">';
@@ -4887,7 +4888,7 @@ function buildDrawingCard(d,ad){
   if(d._version&&d._version>1)html+='<div class="version-badge">v'+d._version+'</div>';
   html+='</div>';
   html+='<div class="card-footer">';
-  html+='<div class="select-check'+(sel?' checked':'')+'" onclick="event.stopPropagation();toggleDrawingSelect(\''+d.id+'\');">'+(sel?'✓':'')+'</div>';
+  html+='<div class="select-check'+(sel?' checked':'')+'" onclick="event.stopPropagation();toggleDrawingSelect(\''+d.id+'\',event.shiftKey);">'+(sel?'✓':'')+'</div>';
   html+='<span class="card-name" onclick="openDrawingViewer(\''+d.id+'\')">'+escHtml(d.name)+'</span>';
   html+='<button class="card-menu-btn" onclick="event.stopPropagation();openCardMenu(\''+d.id+'\',event);">⋮</button>';
   html+='</div>';
@@ -4895,9 +4896,74 @@ function buildDrawingCard(d,ad){
   html+='</div>';
   return html;
 }
+// ── Drawing card long-press touch handlers for mobile selection ──
+var _dwgCardLPTimer=null;
+var _dwgCardLPTriggered=false;
+var _dwgCardLPStartX=0;
+var _dwgCardLPStartY=0;
+var _dwgCardDragSelecting=false;
+function _dwgCardTouchStart(e,id){
+  _dwgCardLPTriggered=false;
+  _dwgCardLPStartX=e.touches[0].clientX;
+  _dwgCardLPStartY=e.touches[0].clientY;
+  _dwgCardLPTimer=setTimeout(function(){
+    _dwgCardLPTriggered=true;
+    _dwgCardDragSelecting=true;
+    toggleDrawingSelect(id,false);
+    // Haptic feedback if available
+    if(navigator.vibrate)navigator.vibrate(40);
+  },500);
+}
+function _dwgCardTouchMove(e){
+  if(_dwgCardLPTimer&&!_dwgCardLPTriggered){
+    var dx=Math.abs(e.touches[0].clientX-_dwgCardLPStartX);
+    var dy=Math.abs(e.touches[0].clientY-_dwgCardLPStartY);
+    if(dx>8||dy>8){clearTimeout(_dwgCardLPTimer);_dwgCardLPTimer=null;}
+  }
+  // Drag-to-select: while in selection mode, select cards under finger
+  if(_dwgCardDragSelecting&&e.touches.length===1){
+    var el=document.elementFromPoint(e.touches[0].clientX,e.touches[0].clientY);
+    if(el){
+      var card=el.closest('.drawing-card');
+      if(card&&card.dataset.dwgId&&!_selectedDrawings.has(card.dataset.dwgId)){
+        _selectedDrawings.add(card.dataset.dwgId);
+        _lastSelectedDrawingId=card.dataset.dwgId;
+        renderDrawingGallery();_updateSelectionUI();
+      }
+    }
+  }
+}
+function _dwgCardTouchEnd(e,id){
+  clearTimeout(_dwgCardLPTimer);_dwgCardLPTimer=null;
+  _dwgCardDragSelecting=false;
+  if(_dwgCardLPTriggered){
+    // Long-press already handled selection — suppress click/open
+    e.preventDefault();
+    _dwgCardLPTriggered=false;
+    return;
+  }
+  _dwgCardLPTriggered=false;
+}
 
 // _selectedDrawings already declared as Set() above — legacy array functions converted to Set API
-function toggleDrawingSelect(id){if(_selectedDrawings.has(id))_selectedDrawings.delete(id);else _selectedDrawings.add(id);renderDrawingGallery();_updateSelectionUI();}
+var _lastSelectedDrawingId=null;
+function toggleDrawingSelect(id,shiftKey){
+  var p=getProject();
+  if(shiftKey&&_lastSelectedDrawingId&&p){
+    // Range select: select all between anchor and current
+    var ids=p.drawings.map(function(d){return d.id;});
+    var aIdx=ids.indexOf(_lastSelectedDrawingId);
+    var bIdx=ids.indexOf(id);
+    if(aIdx>=0&&bIdx>=0){
+      var lo=Math.min(aIdx,bIdx),hi=Math.max(aIdx,bIdx);
+      for(var ri=lo;ri<=hi;ri++)_selectedDrawings.add(ids[ri]);
+    }
+  }else{
+    if(_selectedDrawings.has(id))_selectedDrawings.delete(id);else _selectedDrawings.add(id);
+  }
+  _lastSelectedDrawingId=id;
+  renderDrawingGallery();_updateSelectionUI();
+}
 function selectAllDrawings(){var p=getProject();if(!p)return;p.drawings.forEach(function(d){_selectedDrawings.add(d.id);});(p._folders||[]).forEach(function(fn){_selectedFolders.add(fn);});var m=document.getElementById('dwg-actions-menu');if(m)m.classList.remove('open');renderDrawingGallery();_updateSelectionUI();}
 function deselectAllDrawings(){_selectedDrawings.clear();_selectedFolders.clear();var m=document.getElementById('dwg-actions-menu');if(m)m.classList.remove('open');renderDrawingGallery();_updateSelectionUI();}
 function _updateSelectionUI(){
@@ -5642,7 +5708,15 @@ area.addEventListener('touchstart',function(e){
     // If markup canvas is active, don't handle area panning
     if(mkState.tool&&mkState.tool!=='select'&&document.getElementById('markup-canvas').classList.contains('drawing-active')){e.preventDefault();return;}
     if(dvState.pinMode&&!e.target.closest('.dv-toolbar')&&!e.target.closest('.dv-tasks-panel')){handlePinDropTouch(e);e.preventDefault();return;}
-    pan=true;sx=e.touches[0].clientX-dvState.panX;sy=e.touches[0].clientY-dvState.panY;
+    // Mobile: block single-finger pan when at fit scale (not zoomed in)
+    var _isMobileDV=window.innerWidth<=900;
+    var _atFitScale=dvState.scale<=(dvState.fitScale||0.1)*1.08;
+    if(_isMobileDV&&_atFitScale){
+      // Don't set pan=true — one finger does nothing at fit scale on mobile
+      // Two-finger pinch (handled below in touches.length===2) still works
+    }else{
+      pan=true;sx=e.touches[0].clientX-dvState.panX;sy=e.touches[0].clientY-dvState.panY;
+    }
   }else if(e.touches.length===2){pan=false;ltd=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);}
   e.preventDefault();
 },{passive:false});
@@ -5659,6 +5733,10 @@ area.addEventListener('touchmove',function(e){
     }else{
       if(dvState.longPressTimer&&!dvState.longPressTriggered){clearTimeout(dvState.longPressTimer);dvState.longPressTimer=null;}
       if(pan){
+        // Mobile: if user pinched back to fit scale, cancel pan
+        var _isMobileTM=window.innerWidth<=900;
+        var _atFitTM=dvState.scale<=(dvState.fitScale||0.1)*1.08;
+        if(_isMobileTM&&_atFitTM){pan=false;return;}
         // Hide pin+markup layers during active pan for performance
         if(!dvState._panHidden){dvState._panHidden=true;var pl=document.getElementById('dv-pins-layer');var mc=document.getElementById('markup-canvas');if(pl)pl.style.opacity='0';if(mc)mc.style.opacity='0';}
         // rAF throttle
@@ -5687,6 +5765,10 @@ area.addEventListener('touchend',function(e){
     if(pin)openPinEditor(pin.getAttribute('data-defic-id'));
   }
   dvState.longPressTriggered=false;pan=false;
+  // Mobile at fit scale: snap back to fit in case pan drifted slightly
+  var _isMobileTE=window.innerWidth<=900;
+  var _atFitTE=dvState.scale<=(dvState.fitScale||0.1)*1.08;
+  if(_isMobileTE&&_atFitTE){fitDrawing();}
   // Restore pin+markup layers after pan
   if(dvState._panHidden){dvState._panHidden=false;var pl=document.getElementById('dv-pins-layer');var mc=document.getElementById('markup-canvas');if(pl)pl.style.opacity='';if(mc)mc.style.opacity='';}
 });
@@ -11852,7 +11934,7 @@ function issueReport(){
       method:'PATCH',body:{status:'issued',updated_at:new Date().toISOString()}
     }).catch(function(e){console.error('Issue status update failed:',e);});
   }
-  CloudSync.save(JSON.stringify(_collectFullState()));
+  CloudSync.save(_collectFullState());
   toast('Report issued as '+next);
 }
 function _incrementRevision(rev){
@@ -11924,6 +12006,24 @@ function _collectFullState(){
       if(s&&s.dataUrl)delete s.dataUrl;
       if(s&&s.data)delete s.data;
     });
+  }
+
+  // ── SAFETY BLOCK — never push empty state when local has data ──
+  // If the live project has drawings/defics/photos but the stripped state is empty,
+  // something went wrong in the deep copy or strip. Return {} to block the push.
+  var localDrawCount=(p.drawings||[]).length;
+  var localDeficCount=0;
+  (p.contractors||[]).forEach(function(c){localDeficCount+=(c.deficiencies||[]).length;});
+  localDeficCount+=(p.generalDeficiencies||[]).length;
+  var localPhotoCount=(p.sitePhotos||[]).length;
+  var stateDrawCount=(state.drawings||[]).length;
+  var stateDeficCount=0;
+  (state.contractors||[]).forEach(function(c){stateDeficCount+=(c.deficiencies||[]).length;});
+  stateDeficCount+=(state.generalDeficiencies||[]).length;
+  var statePhotoCount=(state.sitePhotos||[]).length;
+  if((localDrawCount>0&&stateDrawCount===0)||(localDeficCount>0&&stateDeficCount===0)||(localPhotoCount>0&&statePhotoCount===0)){
+    console.error('[CloudSync] SAFETY BLOCK — local has data (drawings:'+localDrawCount+' defics:'+localDeficCount+' photos:'+localPhotoCount+') but stripped state is empty (drawings:'+stateDrawCount+' defics:'+stateDeficCount+' photos:'+statePhotoCount+'). Blocking cloud push.');
+    return {};
   }
 
   return state;
@@ -12145,20 +12245,53 @@ function _initCloudSync(){
             if(cloudDrawingIds.indexOf(ld.id)<0)localProj.drawings.push(ld);
           });
         }
-        // Apply contractors — merge preserves local R2 fields on deficiency photos
+        // Apply contractors — merge preserves local R2 fields on deficiency photos + keeps local-only defics
         if(cloudProj.contractors&&cloudProj.contractors.length>0){
-          _mergeContractors(cloudProj.contractors,localProj.contractors);
+          var prevLocalContractors=localProj.contractors||[];
+          _mergeContractors(cloudProj.contractors,prevLocalContractors);
           localProj.contractors=cloudProj.contractors;
+          // Keep local-only contractors not yet in cloud
+          var cloudContractorNames=cloudProj.contractors.map(function(c){return(c.name||'').toLowerCase().trim();});
+          prevLocalContractors.forEach(function(lc){
+            if(cloudContractorNames.indexOf((lc.name||'').toLowerCase().trim())<0)localProj.contractors.push(lc);
+          });
+          // Within matched contractors, keep local-only deficiencies
+          localProj.contractors.forEach(function(mc){
+            var matchLocal=prevLocalContractors.find(function(lc){return(lc.name||'').toLowerCase().trim()===(mc.name||'').toLowerCase().trim();});
+            if(matchLocal&&matchLocal.deficiencies){
+              var cloudDeficIds=(mc.deficiencies||[]).map(function(d){return d.id;});
+              matchLocal.deficiencies.forEach(function(ld){
+                if(ld.id&&cloudDeficIds.indexOf(ld.id)<0){
+                  if(!mc.deficiencies)mc.deficiencies=[];
+                  mc.deficiencies.push(ld);
+                }
+              });
+            }
+          });
         }
-        // Apply general deficiencies — same R2 preservation
+        // Apply general deficiencies — same R2 preservation + keep local-only
         if(cloudProj.generalDeficiencies&&cloudProj.generalDeficiencies.length>0){
-          _mergeDeficR2Fields(cloudProj.generalDeficiencies,localProj.generalDeficiencies);
+          var prevLocalGenDefics=localProj.generalDeficiencies||[];
+          _mergeDeficR2Fields(cloudProj.generalDeficiencies,prevLocalGenDefics);
           localProj.generalDeficiencies=cloudProj.generalDeficiencies;
+          // Keep local-only general deficiencies not yet in cloud
+          var cloudGenDeficIds=cloudProj.generalDeficiencies.map(function(d){return d.id;});
+          prevLocalGenDefics.forEach(function(ld){
+            if(ld.id&&cloudGenDeficIds.indexOf(ld.id)<0)localProj.generalDeficiencies.push(ld);
+          });
         }
         if(typeof cloudProj.nextDeficNum!=='undefined'&&cloudProj.nextDeficNum>0)localProj.nextDeficNum=cloudProj.nextDeficNum;
         if(cloudProj._folders)localProj._folders=cloudProj._folders;
-        // Apply site photos — merge preserves local R2 fields
-        if(cloudProj.sitePhotos)localProj.sitePhotos=cloudProj.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,localProj.sitePhotos);});
+        // Apply site photos — merge preserves local R2 fields + keep local-only
+        if(cloudProj.sitePhotos&&cloudProj.sitePhotos.length>0){
+          var prevLocalSitePhotos=localProj.sitePhotos||[];
+          localProj.sitePhotos=cloudProj.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevLocalSitePhotos);});
+          // Keep local-only site photos not yet in cloud
+          var cloudSitePhotoIds=cloudProj.sitePhotos.map(function(sp){return sp.id;});
+          prevLocalSitePhotos.forEach(function(lsp){
+            if(lsp.id&&cloudSitePhotoIds.indexOf(lsp.id)<0)localProj.sitePhotos.push(lsp);
+          });
+        }
         if(cloudProj.info)localProj.info=Object.assign(localProj.info||{},cloudProj.info);
         // Safety net: rebuild any r2Url that has r2Key but no URL
         _rebuildMissingR2Urls(localProj);
@@ -12216,9 +12349,12 @@ function _initCloudSync(){
 // ── Sync heartbeat — runs every 60s while project is open ──
 // Checks if cloud is newer than local; if so, silently applies the update.
 // Handles the case where device A saves while device B already has the project open.
+var _heartbeatRunning=false;
 async function _syncHeartbeat(){
+  if(_heartbeatRunning)return;// Mutex — prevent stacked runs
   if(!_csHubMode||!_csProjectId||typeof CloudSync==='undefined'||!CloudSync.isInitialized)return;
   if(!navigator.onLine)return;
+  _heartbeatRunning=true;
   try{
     var row=await CloudSync.load();
     if(!row||!row.row)return;
@@ -12230,8 +12366,8 @@ async function _syncHeartbeat(){
     var localModified=p._localModifiedAt?new Date(p._localModifiedAt).getTime():0;
     var localCurrent=Math.max(localSyncedAt,localModified);
     var cloudTime=new Date(cloudUpdatedAt).getTime();
-    // Only apply if cloud is meaningfully newer (>8s gap to avoid overwriting recent local edits)
-    if(cloudTime>localCurrent+5000){
+    // Only apply if cloud is meaningfully newer (20s grace to avoid overwriting recent local edits)
+    if(cloudTime>localCurrent+20000){
       console.log('[Heartbeat] Cloud is newer — applying update silently');
       // Apply drawings — merge preserves local R2 fields + device-local blobs
       if(cloudData.drawings&&cloudData.drawings.length>0){
@@ -12243,20 +12379,51 @@ async function _syncHeartbeat(){
           if(cloudIds.indexOf(ld.id)<0)p.drawings.push(ld);
         });
       }
-      // Apply contractors — merge preserves local R2 fields on deficiency photos
+      // Apply contractors — merge preserves local R2 fields + keep local-only
       if(cloudData.contractors&&cloudData.contractors.length>0){
-        _mergeContractors(cloudData.contractors,p.contractors);
+        var prevHBContractors=p.contractors||[];
+        _mergeContractors(cloudData.contractors,prevHBContractors);
         p.contractors=cloudData.contractors;
+        // Keep local-only contractors not yet in cloud
+        var cloudHBCNames=cloudData.contractors.map(function(c){return(c.name||'').toLowerCase().trim();});
+        prevHBContractors.forEach(function(lc){
+          if(cloudHBCNames.indexOf((lc.name||'').toLowerCase().trim())<0)p.contractors.push(lc);
+        });
+        // Within matched contractors, keep local-only deficiencies
+        p.contractors.forEach(function(mc){
+          var matchLocal=prevHBContractors.find(function(lc){return(lc.name||'').toLowerCase().trim()===(mc.name||'').toLowerCase().trim();});
+          if(matchLocal&&matchLocal.deficiencies){
+            var cloudDIds=(mc.deficiencies||[]).map(function(d){return d.id;});
+            matchLocal.deficiencies.forEach(function(ld){
+              if(ld.id&&cloudDIds.indexOf(ld.id)<0){
+                if(!mc.deficiencies)mc.deficiencies=[];
+                mc.deficiencies.push(ld);
+              }
+            });
+          }
+        });
       }
-      // Apply general deficiencies — same R2 preservation
+      // Apply general deficiencies — same R2 preservation + keep local-only
       if(cloudData.generalDeficiencies&&cloudData.generalDeficiencies.length>0){
-        _mergeDeficR2Fields(cloudData.generalDeficiencies,p.generalDeficiencies);
+        var prevHBGenDefics=p.generalDeficiencies||[];
+        _mergeDeficR2Fields(cloudData.generalDeficiencies,prevHBGenDefics);
         p.generalDeficiencies=cloudData.generalDeficiencies;
+        var cloudHBGDIds=cloudData.generalDeficiencies.map(function(d){return d.id;});
+        prevHBGenDefics.forEach(function(ld){
+          if(ld.id&&cloudHBGDIds.indexOf(ld.id)<0)p.generalDeficiencies.push(ld);
+        });
       }
       if(typeof cloudData.nextDeficNum!=='undefined'&&cloudData.nextDeficNum>0)p.nextDeficNum=cloudData.nextDeficNum;
       if(cloudData._folders)p._folders=cloudData._folders;
-      // Apply site photos — merge preserves local R2 fields
-      if(cloudData.sitePhotos)p.sitePhotos=cloudData.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,p.sitePhotos);});
+      // Apply site photos — merge preserves local R2 fields + keep local-only
+      if(cloudData.sitePhotos&&cloudData.sitePhotos.length>0){
+        var prevHBSitePhotos=p.sitePhotos||[];
+        p.sitePhotos=cloudData.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevHBSitePhotos);});
+        var cloudHBSPIds=cloudData.sitePhotos.map(function(sp){return sp.id;});
+        prevHBSitePhotos.forEach(function(lsp){
+          if(lsp.id&&cloudHBSPIds.indexOf(lsp.id)<0)p.sitePhotos.push(lsp);
+        });
+      }
       if(cloudData.info)p.info=Object.assign(p.info||{},cloudData.info);
       // Safety net: rebuild any r2Url that has r2Key but no URL
       _rebuildMissingR2Urls(p);
@@ -12285,6 +12452,8 @@ async function _syncHeartbeat(){
   }catch(e){
     // Silent fail — heartbeat is best-effort, not critical
     console.warn('[Heartbeat] Sync check failed:',e.message);
+  }finally{
+    _heartbeatRunning=false;
   }
 }
 
