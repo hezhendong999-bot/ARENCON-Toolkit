@@ -1012,10 +1012,10 @@ body.dark-mode .resp-consultant{background:#001a33;border-color:#003366;}
 /* Selected shape highlight on canvas */
 #markup-canvas.select-active{cursor:crosshair;}
 
-/* ── Priority level colours ── */
-.pin-marker[data-priority="high"] path,.pin-marker[data-priority="high"] circle{fill:#C0392B;}
-.pin-marker[data-priority="low"] path,.pin-marker[data-priority="low"] circle{fill:#E67E22;}
-.pin-marker[data-priority="general"] path,.pin-marker[data-priority="general"] circle{fill:#1A7A4A;}
+/* ── Priority level colours — only teardrop paths, not the white number circle ── */
+.pin-marker[data-priority="high"] path{fill:#C0392B;}
+.pin-marker[data-priority="low"] path{fill:#E67E22;}
+.pin-marker[data-priority="general"] path{fill:#1A7A4A;}
 .priority-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border:2px solid transparent;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;transition:all .15s;}
 .priority-btn.high{background:#FDEDEC;color:#C0392B;border-color:#C0392B;}
 .priority-btn.low{background:#FEF9E7;color:#E67E22;border-color:#E67E22;}
@@ -5456,6 +5456,9 @@ async function _openTiledPDF(drawingId,pageNum){
       if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);}
     }catch(err){
       console.error('Tiled PDF error:',err);
+      // Mark this drawing as having corrupted PDF data — prevents recovery loop
+      if(!window._pdfRecoveryFailed)window._pdfRecoveryFailed={};
+      window._pdfRecoveryFailed[drawingId]=true;
       // Fallback: if pdf.js fails, try loading as image from IDB blob cache
       var _fbDwg=getProject()&&getProject().drawings.find(function(x){return x.id===drawingId;});
       var _fbBlob=ADB._drawingBlobCache&&ADB._drawingBlobCache[drawingId];
@@ -5464,14 +5467,12 @@ async function _openTiledPDF(drawingId,pageNum){
         if(_fbRec&&_fbRec.dataBlob&&_fbRec.dataBlob.size>0)_fbBlob=_fbRec.dataBlob;
       }
       if(_fbBlob){
-        // Clear pdfTiled — this drawing is stored as image, not PDF
         if(_fbDwg){_fbDwg.pdfTiled=false;_fbDwg._hasLocalBlob=true;}
-        // Persist to IDB so heartbeat/reload don't revert it
         saveToLS();
         if(!ADB._drawingBlobCache)ADB._drawingBlobCache={};
         ADB._drawingBlobCache[drawingId]=_fbBlob;
         hideDrawingLoading();
-        openDrawingViewer(drawingId);
+        _openDrawingImage(_fbDwg||{},drawingId);
         return;
       }
       hideDrawingLoading();
@@ -5549,21 +5550,19 @@ function openDrawingViewer(drawingId){
     })();
     // Close any previous tiled PDF session
     if(window._tiledActive)_closeTiledPDF();
-    // ── PDF RECOVERY CHECK ──
-    // If pdfTiled was cleared (by tiled fallback detecting JPEG on R2) but the original
-    // PDF data still exists in pdfData IDB store, restore pdfTiled and use the sharp PDF path.
-    // This recovers drawings that became blurry after Session 26 sync fixes.
-    if(!d.pdfTiled){
+    // PDF RECOVERY CHECK
+    // _pdfRecoveryFailed prevents infinite loop when PDF data exists but is corrupted
+    if(!window._pdfRecoveryFailed)window._pdfRecoveryFailed={};
+    if(!d.pdfTiled&&!window._pdfRecoveryFailed[drawingId]){
       ADB.getPdfData(drawingId).then(function(pdfRec){
         if(pdfRec&&pdfRec.buf&&pdfRec.buf.byteLength>100){
-          console.log('[DrawingViewer] PDF data found in IDB for '+d.name+' — restoring pdfTiled:true');
+          console.log('[DrawingViewer] PDF data found in IDB for '+d.name+' - attempting tiled render');
           d.pdfTiled=true;
           saveToLS();
-          showDrawingLoading('Opening drawing…');
+          showDrawingLoading('Opening drawing...');
           initPanZoom();
           _openTiledPDF(drawingId,d.pdfPage||1);
         }else{
-          // No PDF data — proceed with normal image path
           _openDrawingImage(d,drawingId);
         }
       }).catch(function(){
