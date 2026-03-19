@@ -248,7 +248,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .dv-toolbar button{background:rgba(255,255,255,.12);border:none;color:white;padding:5px 9px;border-radius:6px;font-family:Calibri,sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;min-width:32px;}.dv-toolbar button:hover{background:rgba(255,255,255,.25);}.dv-toolbar button.active{background:var(--red);color:white;}
 .dv-main{display:flex;flex:1;overflow:hidden;position:relative;}
 .dv-canvas-area{flex:1;overflow:hidden;position:relative;cursor:grab;}.dv-canvas-area.panning{cursor:grabbing;}
-@media(max-width:900px){.dv-canvas-area{padding-bottom:56px;}}
+@media(max-width:900px){.dv-canvas-area{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));}}
 .dv-img-wrap{position:absolute;transform-origin:0 0;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
 .dv-img-wrap img{display:block;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;}
 #markup-canvas{position:absolute;top:0;left:0;pointer-events:none;cursor:crosshair;}
@@ -678,24 +678,25 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 
 /* ═══ ALWAYS-ON SIDEBAR TOOLBAR ═══ */
 .dv-sidebar-tools{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:#1e2028;border-right:1px solid #3a3e48;width:56px;flex-shrink:0;overflow-y:auto;overflow-x:visible;z-index:20;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-@media(max-width:900px){.dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:auto!important;max-height:110px!important;flex-direction:column-reverse!important;flex-wrap:nowrap!important;align-items:stretch!important;overflow:visible!important;padding:0!important;gap:0!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:none!important;z-index:500!important;}
-.dv-sidebar-tools .dv-tools-primary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-evenly!important;width:100%!important;height:48px!important;padding:2px 2px!important;background:#1e2028!important;flex-shrink:0!important;}
-.dv-sidebar-tools .dv-tools-secondary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:2px!important;width:100%!important;height:36px!important;padding:2px 6px!important;background:#282c34!important;border-bottom:1px solid #3a3e48!important;flex-shrink:0!important;overflow-x:auto!important;scrollbar-width:none!important;}
+@media(max-width:900px){.dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:auto!important;max-height:120px!important;flex-direction:column-reverse!important;flex-wrap:nowrap!important;align-items:stretch!important;overflow:visible!important;padding:0!important;gap:0!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:none!important;z-index:500!important;padding-bottom:env(safe-area-inset-bottom,0px)!important;background:#1e2028!important;}
+.dv-sidebar-tools .dv-tools-primary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-evenly!important;width:100%!important;height:52px!important;padding:4px 4px 2px!important;background:#1e2028!important;flex-shrink:0!important;}
+.dv-sidebar-tools .dv-tools-secondary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:6px!important;width:100%!important;height:40px!important;padding:2px 8px!important;background:#282c34!important;border-bottom:1px solid #3a3e48!important;flex-shrink:0!important;overflow-x:auto!important;scrollbar-width:none!important;}
 .dv-sidebar-tools .dv-tools-secondary::-webkit-scrollbar{display:none!important;}
 .dv-sidebar-tools .tool-sep{display:none!important;}
-.dv-sidebar-tools .tool-slider-wrap{flex-direction:row!important;align-items:center!important;gap:2px!important;padding:0 2px!important;flex-shrink:0!important;border-right:1px solid #3a3e48!important;margin-right:2px!important;}
+.dv-sidebar-tools .tool-slider-wrap{flex-direction:row!important;align-items:center!important;gap:4px!important;padding:0 4px!important;flex-shrink:0!important;border-right:1px solid #3a3e48!important;margin-right:2px!important;}
 .dv-sidebar-tools .tool-slider-wrap svg{display:none!important;}
-.dv-sidebar-tools .tool-slider-wrap span{font-size:8px!important;color:#aaa!important;min-width:12px!important;}
-.dv-sidebar-tools .tool-slider{writing-mode:horizontal-tb!important;direction:ltr!important;width:48px!important;height:4px!important;-webkit-appearance:none!important;appearance:none!important;}
-.dv-sidebar-tools .tool-slider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#9C2742;cursor:pointer;}
-.dv-sidebar-tools .tool-slider-wrap input[type=number]{width:24px!important;font-size:8px!important;padding:1px!important;}
+.dv-sidebar-tools .tool-slider-wrap span{font-size:9px!important;color:#aaa!important;min-width:14px!important;}
+.dv-sidebar-tools .tool-slider{writing-mode:horizontal-tb!important;direction:ltr!important;width:56px!important;height:6px!important;-webkit-appearance:none!important;appearance:none!important;}
+.dv-sidebar-tools .tool-slider::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#9C2742;cursor:pointer;}
+.dv-sidebar-tools .tool-slider::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#9C2742;border:none;cursor:pointer;}
+.dv-sidebar-tools .tool-slider-wrap input[type=number]{width:28px!important;font-size:9px!important;padding:2px!important;}
 .dv-sidebar-tools .tool-colors{flex-direction:row!important;}
-.dv-sidebar-tools .dv-tools-primary .tool-btn{width:36px!important;height:36px!important;flex-shrink:0!important;}
-.dv-sidebar-tools .dv-tools-secondary .tool-btn{width:30px!important;height:30px!important;flex-shrink:0!important;}
+.dv-sidebar-tools .dv-tools-primary .tool-btn{width:40px!important;height:40px!important;flex-shrink:0!important;border-radius:10px!important;}
+.dv-sidebar-tools .dv-tools-secondary .tool-btn{width:32px!important;height:32px!important;flex-shrink:0!important;}
 .dv-sidebar-tools .dv-tools-secondary .tool-group{flex-shrink:0!important;}
-.dv-sidebar-tools .dv-tools-secondary .tool-group .tool-btn{width:30px!important;height:30px!important;}
+.dv-sidebar-tools .dv-tools-secondary .tool-group .tool-btn{width:32px!important;height:32px!important;}
 .dv-sidebar-tools::-webkit-scrollbar{display:none!important;}
-.dv-sidebar-tools .tool-group .tool-submenu{bottom:48px!important;top:auto!important;left:0!important;}}
+.dv-sidebar-tools .tool-group .tool-submenu{bottom:auto!important;top:auto!important;left:50%!important;transform:translateX(-50%)!important;}}
 .dv-sidebar-tools .tool-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#999;border-radius:8px;cursor:pointer;transition:background .15s,color .15s;padding:0;}
 .dv-sidebar-tools .tool-btn:hover{background:#2d3040;color:#ddd;}
 .dv-sidebar-tools .tool-btn.active{background:var(--red);color:white;}
@@ -1232,9 +1233,15 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   /* --- Sidebar color dots: 18px → 30px with 44px tap zone --- */
   .dv-sidebar-tools .dv-color-dot{width:26px;height:26px;position:relative;}
   .dv-sidebar-tools .dv-color-dot::after{content:'';position:absolute;inset:-7px;border-radius:50%;}
+  /* --- Color submenu dots: bigger tap targets --- */
+  .color-submenu .dv-color-dot{width:30px!important;height:30px!important;}
+  .color-submenu .color-row{gap:8px!important;}
+  .color-submenu input[type=color]{width:30px!important;height:30px!important;}
 
   /* --- Sidebar tool buttons: 36px → 44px --- */
   .dv-sidebar-tools .tool-btn{width:42px;height:42px;}
+  /* --- Shapes submenu buttons: bigger on touch --- */
+  .tool-submenu .sub-tool-btn{width:40px!important;height:40px!important;}
 
   /* --- Drawing viewer task dots: 19px → 28px with tap zone --- */
   .dv-task-dot{width:28px;height:28px;font-size:11px;position:relative;}
@@ -5543,7 +5550,11 @@ function openDrawingViewer(drawingId){
         }
         sb.style.cssText='';// Let CSS handle layout
         // Add bottom padding to canvas area so toolbar doesn't cover drawing
-        if(ca)ca.style.paddingBottom='100px';
+        // Measure actual toolbar height + safe area
+        setTimeout(function(){
+          var tbH=sb.offsetHeight||92;
+          if(ca)ca.style.paddingBottom=(tbH+8)+'px';
+        },50);
         if(main)main.style.flexDirection='column';
       } else {
         sb.style.cssText='';
@@ -7190,14 +7201,18 @@ function toggleShapesMenu(e){
   if(_shapesMenuOpen){
     var r=e.currentTarget.getBoundingClientRect();
     if(window.innerWidth<=900){
-      // Mobile: position above the toolbar
+      // Mobile: position centered above the toolbar
       sub.style.top='auto';
-      sub.style.bottom=(window.innerHeight-r.top+4)+'px';
-      sub.style.left=Math.max(4,r.left-20)+'px';
+      var tb=document.getElementById('dv-sidebar-tools');
+      var tbH=tb?tb.offsetHeight:92;
+      sub.style.bottom=(tbH+8)+'px';
+      sub.style.left='50%';
+      sub.style.transform='translateX(-50%)';
     }else{
       sub.style.top=r.top+'px';
       sub.style.left='56px';
       sub.style.bottom='auto';
+      sub.style.transform='';
     }
   }
   sub.classList.toggle('open',_shapesMenuOpen);
@@ -7222,12 +7237,16 @@ function toggleColorMenu(e){
     var r=e.currentTarget.getBoundingClientRect();
     if(window.innerWidth<=900){
       sub.style.top='auto';
-      sub.style.bottom=(window.innerHeight-r.top+4)+'px';
-      sub.style.left=Math.max(4,r.left-40)+'px';
+      var tb=document.getElementById('dv-sidebar-tools');
+      var tbH=tb?tb.offsetHeight:92;
+      sub.style.bottom=(tbH+8)+'px';
+      sub.style.left='50%';
+      sub.style.transform='translateX(-50%)';
     }else{
       sub.style.top=r.top+'px';
       sub.style.left='56px';
       sub.style.bottom='auto';
+      sub.style.transform='';
     }
   }
   sub.classList.toggle('open',_colorMenuOpen);
@@ -12083,6 +12102,12 @@ function _collectFullState(){
   // Deep copy project state for CloudSync
   var state=JSON.parse(JSON.stringify(p));
 
+  // ── STRIP INTERNAL FIELDS — not part of project data ──
+  // These change every save cycle and cause unnecessary cloud pushes
+  delete state._cloudSyncedAt;
+  delete state._localModifiedAt;
+  delete state._hasLocalBlob;
+
   // ── CLOUD PAYLOAD SLIMMING ──
   // Strip ALL base64 image data from cloud state to prevent Supabase timeout.
   // IDB retains full data locally. R2 will eventually hold all images.
@@ -12093,6 +12118,7 @@ function _collectFullState(){
       delete d.dataUrl;
       delete d.markupData;
       delete d.thumb;
+      delete d._hasLocalBlob;
     });
   }
 
@@ -12946,8 +12972,8 @@ async function _getUser(){var token=localStorage.getItem('sb-access-token');if(!
 async function _cloudLoad(){if(!_projectId||!_toolKey)return null;if(_instanceId){var rows=await _request('/rest/v1/tool_data?select=*&id=eq.'+_instanceId);return(rows&&rows.length>0)?rows[0]:null;}var rows=await _request('/rest/v1/tool_data?select=*&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=updated_at.desc&limit=1');return(rows&&rows.length>0)?rows[0]:null;}
 async function _cloudSave(stateJson){if(!_projectId||!_toolKey)return null;var payload={project_id:_projectId,tool_key:_toolKey,instance_number:_instanceNumber,data:typeof stateJson==='string'?JSON.parse(stateJson):stateJson,updated_by:_userId,updated_at:new Date().toISOString()};if(_instanceId){var rows=await _request('/rest/v1/tool_data?id=eq.'+_instanceId,{method:'PATCH',body:payload});return(rows&&rows.length>0)?rows[0]:null;}else{payload.created_by=_userId;payload.status='draft';var rows=await _request('/rest/v1/tool_data',{method:'POST',body:[payload]});if(rows&&rows.length>0){_instanceId=rows[0].id;_instanceNumber=rows[0].instance_number;return rows[0];}return null;}}
 async function _loadProjectInfo(){if(!_projectId)return null;try{var rows=await _request('/rest/v1/projects?select=*&id=eq.'+_projectId,{headers:{'Accept':'application/vnd.pgrst.object+json'}});_projectInfo=rows;return rows;}catch(e){return null;}}
-async function save(stateJson){if(typeof stateJson!=='string')stateJson=JSON.stringify(stateJson);if(stateJson===_lastSavedJson)return;_lastSavedJson=stateJson;try{await _idbPut2(_idbKey(),{state:stateJson,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:new Date().toISOString()});}catch(e){console.error('[CloudSync] IDB save failed:',e);}if(_online){try{_setStatus('saving','Syncing...');var row=await _cloudSave(stateJson);_pendingSync=false;_setStatus('synced','Saved to cloud');return row;}catch(e){console.warn('[CloudSync] Cloud save failed:',e.message);_pendingSync=true;_setStatus('pending','Saved locally');}}else{_pendingSync=true;_setStatus('offline','Saved locally (offline)');}return null;}
-async function load(){var cloudRow=null;if(_online){try{cloudRow=await _cloudLoad();if(cloudRow){_instanceId=cloudRow.id;_instanceNumber=cloudRow.instance_number;var sj=typeof cloudRow.data==='string'?cloudRow.data:JSON.stringify(cloudRow.data);_lastSavedJson=sj;await _idbPut2(_idbKey(),{state:sj,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:cloudRow.updated_at});_setStatus('synced','Loaded from cloud');return{source:'cloud',state:typeof cloudRow.data==='string'?JSON.parse(cloudRow.data):cloudRow.data,row:cloudRow};}}catch(e){console.warn('[CloudSync] Cloud load failed:',e.message);}}try{var idbData=await _idbGet2(_idbKey());if(idbData&&idbData.state){_setStatus(_online?'synced':'offline','Loaded from cache');return{source:'idb',state:typeof idbData.state==='string'?JSON.parse(idbData.state):idbData.state,row:null};}}catch(e){console.error('[CloudSync] IDB load failed:',e);}_setStatus(_online?'synced':'offline','No saved data');return null;}
+async function save(stateJson){if(typeof stateJson!=='string')stateJson=JSON.stringify(stateJson);if(stateJson===_lastSavedJson)return;_lastSavedJson=stateJson;var _parsed=null;try{_parsed=JSON.parse(stateJson);}catch(e){}if(_parsed&&_parsed.drawings)console.log('[CloudSync.save] Pushing '+_parsed.drawings.length+' drawings to cloud');try{await _idbPut2(_idbKey(),{state:stateJson,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:new Date().toISOString()});}catch(e){console.error('[CloudSync] IDB save failed:',e);}if(_online){try{_setStatus('saving','Syncing...');var row=await _cloudSave(stateJson);_pendingSync=false;_setStatus('synced','Saved to cloud');if(row&&row.data&&row.data.drawings)console.log('[CloudSync.save] Cloud confirmed '+row.data.drawings.length+' drawings');return row;}catch(e){console.warn('[CloudSync] Cloud save failed:',e.message);_pendingSync=true;_setStatus('pending','Saved locally');}}else{_pendingSync=true;_setStatus('offline','Saved locally (offline)');}return null;}
+async function load(){var cloudRow=null;if(_online){try{cloudRow=await _cloudLoad();if(cloudRow){_instanceId=cloudRow.id;_instanceNumber=cloudRow.instance_number;if(cloudRow.data&&cloudRow.data.drawings)console.log('[CloudSync.load] Cloud has '+cloudRow.data.drawings.length+' drawings (updated_at:'+cloudRow.updated_at+')');var sj=typeof cloudRow.data==='string'?cloudRow.data:JSON.stringify(cloudRow.data);_lastSavedJson=sj;await _idbPut2(_idbKey(),{state:sj,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:cloudRow.updated_at});_setStatus('synced','Loaded from cloud');return{source:'cloud',state:typeof cloudRow.data==='string'?JSON.parse(cloudRow.data):cloudRow.data,row:cloudRow};}}catch(e){console.warn('[CloudSync] Cloud load failed:',e.message);}}try{var idbData=await _idbGet2(_idbKey());if(idbData&&idbData.state){_setStatus(_online?'synced':'offline','Loaded from cache');return{source:'idb',state:typeof idbData.state==='string'?JSON.parse(idbData.state):idbData.state,row:null};}}catch(e){console.error('[CloudSync] IDB load failed:',e);}_setStatus(_online?'synced':'offline','No saved data');return null;}
 function startAutoSave(collectStateFn,intervalMs){_collectStateFn=collectStateFn;stopAutoSave();_autoSaveTimer=setInterval(function(){if(!_collectStateFn)return;try{var state=_collectStateFn();save(state);}catch(e){console.error('[CloudSync] Auto-save error:',e);}},intervalMs||AUTOSAVE_MS);}
 function stopAutoSave(){if(_autoSaveTimer){clearInterval(_autoSaveTimer);_autoSaveTimer=null;}}
 function _onOnline(){_online=true;_setStatus('saving','Reconnected...');if(_pendingSync&&_collectStateFn){try{var state=_collectStateFn();save(state);}catch(e){_setStatus('error','Sync failed');}}else{_setStatus('synced','Online');}}
