@@ -235,17 +235,12 @@ body.dark-mode .dtc-bar-bg{background:#334155;}
 </head>
 <body>
 
-<!-- LOGIN SCREEN -->
+<!-- NOT LOGGED IN SCREEN -->
 <div id="loginWrap" class="login-wrap">
   <div class="login-card">
     <h2>Design Resource Planner</h2>
-    <p>Sign in with your ARENCON account</p>
-    <form onsubmit="doLogin(event)">
-      <input type="email" id="loginEmail" placeholder="Email" autocomplete="username" required>
-      <input type="password" id="loginPass" placeholder="Password" autocomplete="current-password" required>
-      <button type="submit" id="loginBtn">Sign In</button>
-    </form>
-    <div class="login-err" id="loginErr"></div>
+    <p>You need to be signed in through the Project Hub.</p>
+    <button onclick="window.location.href='ARENCON_Project_Hub.html'" style="width:100%;padding:11px;border:none;border-radius:8px;background:var(--arencon);color:#fff;font:600 14px var(--font);cursor:pointer;">Go to Project Hub</button>
   </div>
 </div>
 
@@ -1012,32 +1007,13 @@ async function sbRefreshToken(){
 }
 
 /* ═══ AUTH ═══ */
-async function doLogin(e){
-  e.preventDefault();
-  var email=document.getElementById('loginEmail').value.trim();
-  var pass=document.getElementById('loginPass').value;
-  var errEl=document.getElementById('loginErr');
-  errEl.textContent='';
-  document.getElementById('loginBtn').textContent='Signing in...';
-  try{
-    var data=await(await fetch(SB_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'apikey':SB_ANON,'Content-Type':'application/json'},body:JSON.stringify({email:email,password:pass})})).json();
-    if(data.error||!data.access_token){errEl.textContent=data.error_description||data.error||'Login failed';document.getElementById('loginBtn').textContent='Sign In';return;}
-    localStorage.setItem('sb-access-token',data.access_token);
-    localStorage.setItem('sb-refresh-token',data.refresh_token);
-    sessionStorage.removeItem('ARENCON_signed_out');
-    await initAfterAuth();
-  }catch(err){errEl.textContent='Network error: '+err.message;document.getElementById('loginBtn').textContent='Sign In';}
-}
 function doSignOut(){
   if(_autoSaveTimer)clearInterval(_autoSaveTimer);
   if(_heartbeatTimer)clearInterval(_heartbeatTimer);
   localStorage.removeItem('sb-access-token');
   localStorage.removeItem('sb-refresh-token');
   sessionStorage.setItem('ARENCON_signed_out','1');
-  document.getElementById('loginWrap').style.display='';
-  document.getElementById('appHeader').style.display='none';
-  document.getElementById('mainWrap').classList.remove('active');
-  document.querySelector('.app-footer').style.display='none';
+  window.location.href='ARENCON_Project_Hub.html';
 }
 
 async function tryRestoreSession(){
@@ -1140,7 +1116,7 @@ async function init(){
   var restored=await tryRestoreSession();
   if(!restored){
     document.getElementById('loginWrap').style.display='';
-    return;
+    return; // Show "Go to Hub" screen
   }
   await initAfterAuth();
 }

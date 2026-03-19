@@ -472,6 +472,7 @@ body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);}
   </div>
   <button class="hdr-btn desktop-only" id="btn-admin" style="display:none" onclick="showAdmin()">👤 Admin</button>
   <button class="hdr-btn desktop-only" id="btn-profile" style="display:none" onclick="openProfileModal()">⚙️ Profile</button>
+  <button class="hdr-btn desktop-only" id="btn-planner" style="display:none" onclick="window.open('ARENCON_Design_Resource_Planner.html','_blank')">📊 Planner</button>
   <button class="hdr-btn desktop-only" id="btn-tools" onclick="window.location.href='index.html'" title="All Tools">🧰 Tools</button>
   <button class="hdr-btn desktop-only" id="btn-dark" onclick="toggleDark()">☀️</button>
   <button class="hdr-btn desktop-only" id="btn-logout" style="display:none" onclick="doLogout()">🚪 Logout</button>
@@ -490,6 +491,7 @@ body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);}
     <div class="mobile-menu-divider" id="mob-div-user" style="display:none"></div>
     <button class="mobile-menu-item" id="mob-admin" style="display:none" onclick="showAdmin();closeMobileMenu()">👤 Admin Panel</button>
     <button class="mobile-menu-item" id="mob-profile" style="display:none" onclick="openProfileModal();closeMobileMenu()">⚙️ Profile</button>
+    <button class="mobile-menu-item" id="mob-planner" style="display:none" onclick="window.open('ARENCON_Design_Resource_Planner.html','_blank');closeMobileMenu()">📊 Planner</button>
     <button class="mobile-menu-item" onclick="window.location.href='index.html'">🧰 All Tools</button>
     <button class="mobile-menu-item" onclick="toggleDark();closeMobileMenu()"><span id="mob-dark-label">☀️ Dark Mode</span></button>
     <div class="mobile-menu-divider"></div>
@@ -1139,11 +1141,6 @@ function setupKeyboardShortcuts() {
 
 // ── Session restore ──
 async function tryRestoreSession() {
-  // If user explicitly signed out (from FRT or Hub), don't auto-restore
-  if (sessionStorage.getItem('ARENCON_signed_out') === '1') {
-    document.getElementById('login-screen').style.display = 'flex';
-    return;
-  }
   try {
     const user = await _sb.auth.getUser();
     if (user && user.id) {
@@ -1191,8 +1188,6 @@ async function doLogin() {
   try {
     const data = await _sb.auth.signInWithPassword(email, pass);
     _user = data.user;
-    // Clear signed-out flag on successful manual login
-    sessionStorage.removeItem('ARENCON_signed_out');
 
     // Load profile — but don't block showing the app on last_login update
     await loadProfile();
@@ -1265,7 +1260,6 @@ async function doForgotPassword() {
 
 // ── Logout ──
 async function doLogout() {
-  sessionStorage.setItem('ARENCON_signed_out', '1');
   await _sb.auth.signOut();
   _user = null;
   _profile = null;
@@ -1379,6 +1373,8 @@ function showApp() {
   const isAdmin = _profile && (_profile.role === 'super_admin' || _profile.role === 'admin');
   document.getElementById('btn-admin').style.display = isAdmin ? '' : 'none';
   document.getElementById('mob-admin').style.display = isAdmin ? '' : 'none';
+  document.getElementById('btn-planner').style.display = isAdmin ? '' : 'none';
+  document.getElementById('mob-planner').style.display = isAdmin ? '' : 'none';
 
   // Show profile and bulk buttons for all logged-in users
   document.getElementById('btn-profile').style.display = '';
