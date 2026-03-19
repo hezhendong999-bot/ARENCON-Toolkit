@@ -516,15 +516,15 @@ async function handleDumpFile(e){
       document.getElementById('dumpText').value=text;
       document.getElementById('dumpLoading').style.display='none';
       document.getElementById('dumpParseBtn').disabled=false;
-      // Auto-trigger AI parse
-      parseDump();
+      // Parse directly with smart CSV parser (AI not available from GitHub Pages)
+      smartParseCSV(text);
     } else if(ext==='csv'||ext==='txt'){
       var reader=new FileReader();
       reader.onload=function(ev){
         document.getElementById('dumpText').value=ev.target.result;
         document.getElementById('dumpLoading').style.display='none';
         document.getElementById('dumpParseBtn').disabled=false;
-        parseDump();
+        smartParseCSV(ev.target.result);
       };
       reader.readAsText(file);
     } else if(ext==='pdf'){
@@ -657,51 +657,184 @@ async function parseDump() {
     console.error('AI parse failed:', err);
     document.getElementById('dumpLoading').style.display = 'none';
     document.getElementById('dumpParseBtn').disabled = false;
-    alert('AI parsing failed. Try CSV mode instead, or check your text.\n\nError: ' + err.message);
+    // Auto-fallback to smart CSV parser
+    var raw = document.getElementById('dumpText').value.trim();
+    if (raw && raw.indexOf(',') >= 0) {
+      smartParseCSV(raw);
+      if (_dumpResults.length || _dumpTimeOff.length) return; // success via CSV fallback
+    }
+    alert('Parsing failed. Try CSV mode or check your data.\n\nError: ' + err.message);
   }
 }
 
 function parseCSVDump() {
   var raw = document.getElementById('csvText').value.trim();
   if (!raw) return;
+  smartParseCSV(raw);
+}
+
+/* Smart CSV parser — auto-detects column format */
+function smartParseCSV(raw) {
   var lines = raw.split('\n').filter(function(l) { return l.trim(); });
   _dumpResults = [];
+  _dumpTimeOff = [];
 
-  lines.forEach(function(line) {
+  // Detect header row and column mapping
+  var headerIdx = -1;
+  var colMap = null;
+  for (var i = 0; i < Math.min(lines.length, 5); i++) {
+    var lower = lines[i].toLowerCase();
+    if (lower.indexOf('project') >= 0 || lower.indexOf('client') >= 0 || lower.indexOf('designer') >= 0 || lower.indexOf('task') >= 0 || lower.indexOf('deliverable') >= 0) {
+      headerIdx = i;
+      colMap = detectColumns(lines[i]);
+      break;
+    }
+  }
+
+  // Skip "Sheet:" prefix lines
+  var dataLines = lines.filter(function(l, idx) {
+    if (l.trim().toLowerCase().startsWith('sheet:')) return false;
+    if (idx === headerIdx) return false;
+    return true;
+  });
+
+  if (!colMap) {
+    // Fallback: assume standard order
+    colMap = {num:0, name:1, task:2, designer:3, reviewer:4, engineer:5, due:6, start:7, end:8, auth:9, notes:10};
+  }
+
+  dataLines.forEach(function(line) {
     var parts = line.split(',').map(function(s) { return s.trim(); });
     if (parts.length < 2) return;
-    // Project#, Name, Client, Designer, Work Type, Start, End, Priority
-    var pNum = parts[0] || '';
-    var pName = parts[1] || 'Unnamed';
-    var client = parts[2] || '';
-    var designer = parts[3] || '';
-    var wt = parts[4] || 'Design';
-    var start = parts[5] || todayStr();
-    var end = parts[6] || fmtDate(addDays(new Date(), 28));
-    var pri = (parts[7] || 'medium').toLowerCase();
-    if (['high','medium','low'].indexOf(pri) < 0) pri = 'medium';
+    // Skip empty rows
+    var hasContent = parts.some(function(p) { return p && p.length > 0; });
+    if (!hasContent) return;
 
-    // Check if header row
-    if (pNum.toLowerCase().indexOf('project') >= 0 || pNum.toLowerCase() === '#') return;
+    var pNum = parts[colMap.num] || '';
+    var pName = parts[colMap.name] || '';
+    var task = colMap.task !== undefined ? (parts[colMap.task] || '') : '';
+    var designer = colMap.designer !== undefined ? (parts[colMap.designer] || '') : '';
+    var reviewer = colMap.reviewer !== undefined ? (parts[colMap.reviewer] || '') : '';
+    var engineer = colMap.engineer !== undefined ? (parts[colMap.engineer] || '') : '';
+    var due = colMap.due !== undefined ? (parts[colMap.due] || '') : '';
+    var start = colMap.start !== undefined ? (parts[colMap.start] || '') : '';
+    var end = colMap.end !== undefined ? (parts[colMap.end] || '') : '';
+    var auth = colMap.auth !== undefined ? (parts[colMap.auth] || '') : '';
+    var notes = colMap.notes !== undefined ? (parts[colMap.notes] || '') : '';
+
+    if (!pName && !task) return;
+
+    // Parse dates
+    start = normalizeDate(start) || '';
+    end = normalizeDate(end) || '';
+    due = normalizeDate(due) || '';
+
+    // If no start/end but has due date, estimate
+    if (!start && !end && due) {
+      end = due;
+      start = fmtDate(addDays(parseDate(due), -28));
+    }
+    if (!start) start = todayStr();
+    if (!end) end = fmtDate(addDays(parseDate(start), 28));
+
+    // Determine status from auth column
+    var status = 'authorized';
+    if (auth.toLowerCase().indexOf('proposal') >= 0) status = 'proposal';
+    if (auth.toLowerCase().indexOf('hold') >= 0) status = 'on-hold';
+
+    // Build assignments — one per role that has a person
+    var assigns = [];
+    var wt = task || 'Design';
+
+    if (designer) {
+      designer.split('/').forEach(function(d) {
+        d = d.trim(); if (!d) return;
+        assigns.push(makeAssign(d, 'designer', wt, start, end));
+      });
+    }
+    if (reviewer) {
+      reviewer.split('/').forEach(function(r) {
+        r = r.trim(); if (!r) return;
+        assigns.push(makeAssign(r, 'reviewer', 'Review — ' + wt, start, end));
+      });
+    }
+    if (engineer) {
+      engineer.split('/').forEach(function(e) {
+        e = e.trim(); if (!e) return;
+        assigns.push(makeAssign(e, 'both', 'Engineering — ' + wt, start, end));
+      });
+    }
+
+    // If no people assigned at all, still create the project
+    if (!assigns.length) {
+      assigns.push({personName:'', personInitials:'??', personRole:'designer', workType:wt, startDate:start, endDate:end});
+    }
 
     _dumpResults.push({
       projectNumber: pNum,
-      name: pName,
-      client: client,
-      priority: pri,
-      assignments: [{
-        personName: designer,
-        personInitials: designer.split(/\s+/).map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,3) || '??',
-        personRole: 'designer',
-        workType: wt,
-        startDate: start,
-        endDate: end
-      }]
+      name: pName || task,
+      client: '',
+      priority: 'medium',
+      status: status,
+      notes: notes,
+      assignments: assigns
     });
   });
 
-  if (!_dumpResults.length) { alert('No valid rows found. Format: Project#, Name, Client, Designer, Work Type, Start, End, Priority'); return; }
+  if (!_dumpResults.length && !_dumpTimeOff.length) {
+    alert('No valid rows found. Check the data format.');
+    return;
+  }
   showDumpPreview();
+}
+
+function makeAssign(name, role, wt, start, end) {
+  var initials = name.length <= 4 ? name.toUpperCase() : name.split(/\s+/).map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,3);
+  return {personName:name, personInitials:initials||'??', personRole:role, workType:wt, startDate:start, endDate:end};
+}
+
+function detectColumns(headerLine) {
+  var cols = headerLine.split(',').map(function(s) { return s.trim().toLowerCase(); });
+  var map = {};
+  cols.forEach(function(c, i) {
+    if (c.indexOf('project') >= 0 && c.indexOf('#') >= 0) map.num = i;
+    else if (c.indexOf('project') >= 0 && c.indexOf('name') >= 0) map.name = i;
+    else if (c.indexOf('client') >= 0) map.name = i; // "Client / Project Name"
+    else if (c.indexOf('task') >= 0 || c.indexOf('deliverable') >= 0) map.task = i;
+    else if (c.indexOf('designer') >= 0) map.designer = i;
+    else if (c.indexOf('reviewer') >= 0 || c.indexOf('pm') >= 0) map.reviewer = i;
+    else if (c.indexOf('engineer') >= 0) map.engineer = i;
+    else if (c.indexOf('due') >= 0) map.due = i;
+    else if (c.indexOf('start') >= 0) map.start = i;
+    else if (c.indexOf('end') >= 0) map.end = i;
+    else if (c.indexOf('auth') >= 0 || c.indexOf('status') >= 0) map.auth = i;
+    else if (c.indexOf('note') >= 0) map.notes = i;
+  });
+  // Default num to 0 if not found
+  if (map.num === undefined) map.num = 0;
+  if (map.name === undefined) map.name = 1;
+  return map;
+}
+
+function normalizeDate(s) {
+  if (!s) return '';
+  s = s.trim();
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  // DD-Mon or DD-Mon-YYYY (e.g. "27-Mar" or "15-Apr")
+  var m = s.match(/^(\d{1,2})[-\/](\w{3})(?:[-\/](\d{2,4}))?/);
+  if (m) {
+    var months = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+    var mon = months[m[2].toLowerCase()];
+    if (mon !== undefined) {
+      var yr = m[3] ? (m[3].length === 2 ? 2000 + parseInt(m[3]) : parseInt(m[3])) : new Date().getFullYear();
+      return fmtDate(new Date(yr, mon, parseInt(m[1])));
+    }
+  }
+  // Try native parse
+  var d = new Date(s);
+  if (!isNaN(d.getTime()) && d.getFullYear() > 2000) return fmtDate(d);
+  return '';
 }
 
 function showDumpPreview() {
