@@ -5912,17 +5912,24 @@ function createPinDeficiency(x,y){
 }
 
 function renderPinsOnDrawing(){var layer=document.getElementById('dv-pins-layer');if(!layer)return;var p=getProject();if(!p){layer.innerHTML='';return;}var ad=getAllDeficiencies(p);var pins=ad.filter(function(d){return d.defic.drawingId===dvState.currentDrawingId&&d.defic.pinX!=null;});var iw,ih;if(window._tiledActive&&_tileState.pageW){iw=_tileState.pageW*_tileState.baseScale;ih=_tileState.pageH*_tileState.baseScale;}else{var img=document.getElementById('dv-image');iw=img.naturalWidth||1;ih=img.naturalHeight||1;}
-// Dynamic pin size: baseline 28x36 for 3000px drawings, scale proportionally
-var baseW=3000;var pinScale=Math.max(0.5,Math.min(1.5,Math.max(iw,ih)/baseW));var pw=Math.round(28*pinScale),ph2=Math.round(36*pinScale);var fs=Math.round(11*pinScale);
+// Dynamic pin size: baseline 32x42 for 3000px drawings, scale proportionally
+var baseW=3000;var pinScale=Math.max(0.6,Math.min(1.8,Math.max(iw,ih)/baseW));var pw=Math.round(32*pinScale),ph2=Math.round(42*pinScale);var fs=Math.round(13*pinScale);
 var html='';pins.forEach(function(d){var px=d.defic.pinX*iw,py=d.defic.pinY*ih;var pr=d.defic.priority||'high';var _pinDesc=(d.defic.entries&&d.defic.entries[0]?d.defic.entries[0].description:d.defic.description)||'';var fill=d.defic.iar?'#E91E8C':(pr==='general'?'#1A7A4A':pr==='low'?'#E67E22':'#C0392B');var isOutstanding=d.defic.status==='Outstanding'&&!d.defic.iar;var isClosed=d.defic.status==='Addressed & Closed';
-// Teardrop pin: pointy tip at bottom anchors to exact location, number in white circle
+// Teardrop pin: white outline halo, colored fill, white circle with number
 var shadow=isOutstanding?'drop-shadow(0 0 3px '+fill+') drop-shadow(0 2px 5px rgba(0,0,0,.6))':'drop-shadow(0 2px 4px rgba(0,0,0,.45))';
 var alpha=isClosed?'0.5':'1';
+// Calculate font size based on number of digits for best fit
+var numStr=String(d.defic.num);var numFs=numStr.length<=2?fs:Math.round(fs*0.8);if(numStr.length>=4)numFs=Math.round(fs*0.65);
 html+='<div class="pin-marker" data-defic-id="'+d.defic.id+'" data-priority="'+pr+'" onclick="handlePinClick(\x27'+d.defic.id+'\x27);event.stopPropagation();" style="left:'+px+'px;top:'+py+'px;width:'+pw+'px;height:'+ph2+'px;transform:translate(-50%,-100%);opacity:'+alpha+';" title="#'+d.defic.num+' '+escHtml(_pinDesc)+'">';
-html+='<svg viewBox="0 0 28 36" width="'+pw+'" height="'+ph2+'" style="filter:'+shadow+';overflow:visible;">';
-html+='<path d="M14 1C7.1 1 1.5 6.6 1.5 13.5c0 9.2 12.5 20.5 12.5 20.5s12.5-11.3 12.5-20.5C26.5 6.6 20.9 1 14 1z" fill="white"/>';
-html+='<path d="M14 2.5C7.9 2.5 3 7.4 3 13.5c0 8.5 11 19 11 19s11-10.5 11-19C25 7.4 20.1 2.5 14 2.5z" fill="'+fill+'"/>';
-html+='<text x="14" y="13.5" text-anchor="middle" dominant-baseline="central" font-size="'+fs+'" font-weight="800" font-family="Calibri,Arial,sans-serif" fill="white">'+d.defic.num+'</text>';
+html+='<svg viewBox="0 0 32 42" width="'+pw+'" height="'+ph2+'" style="filter:'+shadow+';overflow:visible;">';
+// Outer white halo
+html+='<path d="M16 1C8.3 1 2 7.3 2 15c0 10.5 14 25 14 25s14-14.5 14-25C30 7.3 23.7 1 16 1z" fill="white"/>';
+// Colored teardrop body
+html+='<path d="M16 3C9.4 3 4 8.4 4 15c0 9.5 12 22 12 22s12-12.5 12-22C28 8.4 22.6 3 16 3z" fill="'+fill+'"/>';
+// White circle for number — larger and centered in the bulb
+html+='<circle cx="16" cy="14" r="8.5" fill="white" opacity="0.95"/>';
+// Number text — bold, centered in white circle
+html+='<text x="16" y="14.5" text-anchor="middle" dominant-baseline="central" font-size="'+numFs+'" font-weight="900" font-family="Calibri,Arial,sans-serif" fill="'+fill+'">'+d.defic.num+'</text>';
 html+='</svg></div>';});layer.innerHTML=html;updatePinStatus();}
 
 function _dvToggleTasksPanel(){
@@ -10702,17 +10709,22 @@ function _renderDrawingWithSinglePin(dwgDataUrl, pinData, callback){
     var ctx=canvas.getContext('2d');
     ctx.drawImage(img,cx,cy,cropW,cropH,0,0,canvas.width,canvas.height);
     var px=(pinData.pinX*iw-cx),py=(pinData.pinY*ih-cy);
-    var r0=Math.min(canvas.width,canvas.height)*0.030; // 15% smaller for PDF
+    var r0=Math.min(canvas.width,canvas.height)*0.035;
     var fill=pinData.iar?'#FF69B4':(pinData.priority==='general'?'#1A7A4A':pinData.priority==='low'?'#E67E22':'#C0392B');
     ctx.save();ctx.translate(px,py-r0*2.2);
+    // Teardrop body
     ctx.beginPath();ctx.arc(0,0,r0,Math.PI,0,false);
     ctx.bezierCurveTo(r0,r0*0.8,r0*0.3,r0*2.2,0,r0*2.2);
     ctx.bezierCurveTo(-r0*0.3,r0*2.2,-r0,r0*0.8,-r0,0);
     ctx.closePath();ctx.fillStyle=fill;ctx.fill();
     ctx.strokeStyle='white';ctx.lineWidth=Math.max(1.5,r0*0.15);ctx.stroke();
-    ctx.beginPath();ctx.arc(0,0,r0*0.55,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();
-    ctx.fillStyle=fill;ctx.font='700 '+Math.max(8,r0*0.8)+'px Calibri,Arial,sans-serif';
-    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(pinData.num),0,0);
+    // White circle — larger for readability
+    ctx.beginPath();ctx.arc(0,0,r0*0.65,0,Math.PI*2);ctx.fillStyle='white';ctx.globalAlpha=0.95;ctx.fill();ctx.globalAlpha=1;
+    // Number text — larger and bolder
+    var numStr=String(pinData.num);
+    var numFs=numStr.length<=2?Math.max(9,r0*0.9):Math.max(7,r0*0.7);
+    ctx.fillStyle=fill;ctx.font='900 '+numFs+'px Calibri,Arial,sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(numStr,0,0);
     ctx.restore();
     callback(canvas.toDataURL('image/jpeg',0.85));
   };
@@ -10734,34 +10746,40 @@ function _renderDrawingWithPins(dwgDataUrl, pins, callback){
       var px=d.pinX*canvas.width, py=d.pinY*canvas.height;
       var fill=d.iar?'#FF69B4':(d.status==='Outstanding'?'#C0392B':'#1A7A4A');
 
-      var scale=canvas.width/1200; // scale for typical plan width
-      var r0=Math.max(7,12*scale); // 15% smaller for PDF
+      var scale=canvas.width/1200;
+      var r0=Math.max(8,14*scale);
       var tipY=r0*2.2;
 
       ctx.save();
       ctx.translate(px, py-tipY);
+      // Teardrop body
       ctx.beginPath();
-      ctx.arc(0,0,r0,Math.PI,0,false); // top semicircle
+      ctx.arc(0,0,r0,Math.PI,0,false);
       ctx.bezierCurveTo(r0,r0*0.8,r0*0.3,tipY,0,tipY);
       ctx.bezierCurveTo(-r0*0.3,tipY,-r0,r0*0.8,-r0,0);
       ctx.closePath();
       ctx.fillStyle=fill;
       ctx.fill();
       ctx.strokeStyle='white';
-      ctx.lineWidth=Math.max(1,1.5*scale);
+      ctx.lineWidth=Math.max(1.5,2*scale);
       ctx.stroke();
 
+      // White circle — larger
       ctx.beginPath();
       ctx.arc(0,0,r0*0.7,0,Math.PI*2);
       ctx.fillStyle='white';
+      ctx.globalAlpha=0.95;
       ctx.fill();
+      ctx.globalAlpha=1;
 
-      var fs=Math.max(6,r0*0.9);
+      // Number text — bolder and auto-sized for digit count
+      var numStr=String(d.num);
+      var fs=numStr.length<=2?Math.max(7,r0*0.95):Math.max(6,r0*0.75);
       ctx.fillStyle=fill;
-      ctx.font='700 '+fs+'px Calibri,Arial,sans-serif';
+      ctx.font='900 '+fs+'px Calibri,Arial,sans-serif';
       ctx.textAlign='center';
       ctx.textBaseline='middle';
-      ctx.fillText(String(d.num),0,0);
+      ctx.fillText(numStr,0,0);
       ctx.restore();
     });
 
