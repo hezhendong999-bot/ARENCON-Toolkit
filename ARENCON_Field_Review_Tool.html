@@ -3207,10 +3207,13 @@ function saveToLS(){
   _debouncedCloudSave();
 }
 var _cloudSaveTimer=null;
+var _syncLock=false;// True during init/merge — blocks _debouncedCloudSave
 function _debouncedCloudSave(){
   if(typeof CloudSync==='undefined'||!CloudSync.isInitialized)return;
+  if(_syncLock)return;// Init/merge in progress — skip debounced push
   if(_cloudSaveTimer)clearTimeout(_cloudSaveTimer);
   _cloudSaveTimer=setTimeout(function(){
+    if(_syncLock)return;// Re-check after delay
     var p=getProject();if(p)p._cloudSyncedAt=new Date().toISOString();
     try{CloudSync.save(_collectFullState());}catch(e){console.warn('[CloudSync] Debounced save error:',e);}
   },2000);
@@ -12328,9 +12331,11 @@ function _autoDedup(proj){
 }
 
 // ── CloudSync Init (called in Hub mode) ──
-function _initCloudSync(){
+async function _initCloudSync(){
   if(typeof CloudSync==='undefined')return;
-  CloudSync.init({
+  _syncLock=true;// Block _debouncedCloudSave during entire init
+  try{
+  var info=await CloudSync.init({
     projectId:_csProjectId,
     toolKey:'frt',
     instanceId:_csInstanceId,
@@ -12342,7 +12347,7 @@ function _initCloudSync(){
       }
       if(txt)txt.textContent=msg||status;
     }
-  }).then(function(info){
+  });
     // Store user identity for inspector chip (Hub mode)
     if(info&&info.userId){
       try{
@@ -12360,23 +12365,17 @@ function _initCloudSync(){
         }
       }catch(e){}
     }
-    return CloudSync.load();
-  }).then(function(result){
+    var result=await CloudSync.load();
     var p=getProject();
     var cloudData=result&&result.row&&result.row.data?result.row.data:null;
     var cloudUpdatedAt=result&&result.row&&result.row.updated_at?result.row.updated_at:null;
 
     // ── LAST-WRITE-WINS SYNC ──
-    // Compare cloud updated_at vs local _cloudSyncedAt timestamp.
-    // Cloud newer → apply cloud state (another device worked on it).
-    // Local newer or equal → push local to cloud (this device is current).
-    // No timestamp on local → treat as never synced → pull from cloud if cloud has data.
     var localSyncedAt=p&&p._cloudSyncedAt?new Date(p._cloudSyncedAt).getTime():0;
-    // Also check local modification time — local edits after last sync take precedence
     var localModified=p&&p._localModifiedAt?new Date(p._localModifiedAt).getTime():0;
     var localCurrent=Math.max(localSyncedAt,localModified);
     var cloudTime=cloudUpdatedAt?new Date(cloudUpdatedAt).getTime():0;
-    var cloudIsNewer=cloudTime>0&&cloudTime>(localCurrent+3000);// 3s grace to avoid self-trigger
+    var cloudIsNewer=cloudTime>0&&cloudTime>(localCurrent+3000);
 
     if(cloudIsNewer&&cloudData&&typeof cloudData==='object'){
       console.log('[CloudSync] Cloud is newer (cloud:'+cloudUpdatedAt+' local:'+p._cloudSyncedAt+') — applying cloud state');
@@ -12384,61 +12383,67 @@ function _initCloudSync(){
       if(pid&&allProjects[pid]){
         var cloudProj=cloudData;
         var localProj=allProjects[pid];
-        // ═══ MERGE PRINCIPLE: Cloud owns structure. Local owns binary data. ═══
-        // Cloud says what items exist (drawings, defics, photos).
-        // Local preserves R2 fields and blob references that cloud doesn't have.
-        // If cloud doesn't have an item, it was DELETED — do NOT re-add it.
-
-        // Drawings: use cloud list, enrich with local R2/blob fields
+        // ═══ MERGE: Cloud owns structure. Local owns binary data. ═══
         if(cloudProj.drawings&&cloudProj.drawings.length>0){
           var prevLocal=localProj.drawings||[];
           localProj.drawings=cloudProj.drawings.map(function(d){return _mergeDrawing(d,prevLocal);});
         }else if(cloudProj.drawings&&cloudProj.drawings.length===0){
-          // Cloud explicitly has empty drawings — respect it (all were deleted)
-          // But guard against cloud that was saved before any drawings existed
           if(localProj._cloudSyncedAt)localProj.drawings=[];
         }
-        // Contractors: use cloud list, enrich defic photos with local R2 fields
         if(cloudProj.contractors){
           _mergeContractors(cloudProj.contractors,localProj.contractors);
           localProj.contractors=cloudProj.contractors;
         }
-        // General deficiencies: use cloud list, enrich photos
         if(cloudProj.generalDeficiencies){
           _mergeDeficR2Fields(cloudProj.generalDeficiencies,localProj.generalDeficiencies);
           localProj.generalDeficiencies=cloudProj.generalDeficiencies;
         }
         if(typeof cloudProj.nextDeficNum!=='undefined'&&cloudProj.nextDeficNum>0)localProj.nextDeficNum=cloudProj.nextDeficNum;
         if(cloudProj._folders)localProj._folders=cloudProj._folders;
-        // Site photos: use cloud list, enrich with local R2 fields
         if(cloudProj.sitePhotos){
           var prevSP=localProj.sitePhotos||[];
           localProj.sitePhotos=cloudProj.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevSP);});
         }
         if(cloudProj.info)localProj.info=Object.assign(localProj.info||{},cloudProj.info);
         _rebuildMissingR2Urls(localProj);
-        localProj._cloudSyncedAt=cloudUpdatedAt;
-        ADB.saveProject(localProj).catch(function(e){console.warn('[CloudSync] Merge save error:',e);});
+        // Dedup BEFORE saving — single clean state
+        var dedupCount=_autoDedup(localProj);
+        localProj._cloudSyncedAt=new Date().toISOString();
+        localProj._localModifiedAt=new Date().toISOString();
+        // Save to IDB first, THEN push to cloud — sequential, no race
+        await ADB.saveFullProject(localProj).catch(function(e){console.warn('[CloudSync] IDB save error:',e);});
+        // Force-push deduped state to cloud (await so it completes before auto-save starts)
+        CloudSync.resetLastSaved();
+        var dedupState=_collectFullState();
+        if(dedupState&&Object.keys(dedupState).length>0){
+          await CloudSync.save(dedupState).catch(function(e){console.warn('[CloudSync] Dedup push error:',e);});
+        }
+        console.log('[CloudSync] Applied cloud state — drawings:'+localProj.drawings.length+(dedupCount?' (deduped '+dedupCount+')':'')+' defics:'+(localProj.generalDeficiencies||[]).length);
         setTimeout(function(){
           renderDrawingGallery&&renderDrawingGallery();
           renderDeficiencyPanel&&renderDeficiencyPanel();
           renderSummaryTable&&renderSummaryTable();
         },200);
-        console.log('[CloudSync] Applied cloud state — drawings:'+localProj.drawings.length+' defics:'+(localProj.generalDeficiencies||[]).length);
-        // Auto-dedup then single clean push
-        _autoDedup(localProj);
-        localProj._cloudSyncedAt=new Date().toISOString();
-        localProj._localModifiedAt=new Date().toISOString();
-        ADB.saveFullProject(localProj).catch(function(){});
-        CloudSync._lastSavedJson='';
-        try{CloudSync.save(_collectFullState());}catch(e){}
       }
     } else if(p){
       // Local is current or equal — dedup then push
-      _autoDedup(p);
-      p._cloudSyncedAt=new Date().toISOString();
-      CloudSync._lastSavedJson='';
-      try{CloudSync.save(_collectFullState());}catch(e){}
+      var dedupCount2=_autoDedup(p);
+      if(dedupCount2>0){
+        p._cloudSyncedAt=new Date().toISOString();
+        p._localModifiedAt=new Date().toISOString();
+        await ADB.saveFullProject(p).catch(function(){});
+        CloudSync.resetLastSaved();
+        var dedupState2=_collectFullState();
+        if(dedupState2&&Object.keys(dedupState2).length>0){
+          await CloudSync.save(dedupState2).catch(function(e){console.warn('[CloudSync] Dedup push error:',e);});
+        }
+        console.log('[CloudSync] Local dedup: removed '+dedupCount2+' duplicates, pushed to cloud');
+      } else {
+        // No dedup needed — just push current state
+        p._cloudSyncedAt=new Date().toISOString();
+        CloudSync.resetLastSaved();
+        try{CloudSync.save(_collectFullState());}catch(e){}
+      }
     }
 
     // Show status badge
@@ -12452,82 +12457,90 @@ function _initCloudSync(){
         badge.setAttribute('data-status',st);
       }
     }
-    // Start auto-save AFTER all sync/dedup is done
-    // 10s interval (not 5s) to reduce cloud chatter
+
+    // ═══ RELEASE SYNC LOCK — all dedup saves are complete ═══
+    _syncLock=false;
+
+    // Start auto-save AFTER all sync/dedup is done and persisted
     CloudSync.startAutoSave(function(){
       var _p=getProject();if(_p)_p._cloudSyncedAt=new Date().toISOString();
       return _collectFullState();
     },10000);
-    // ── Sync heartbeat — checks cloud every 60s ──
-    // If another device saved while this one is open, silently apply the update.
+    // Sync heartbeat — checks cloud every 60s
     if(window._syncHeartbeatTimer)clearInterval(window._syncHeartbeatTimer);
     window._syncHeartbeatTimer=setInterval(function(){
       _syncHeartbeat();
     },60000);
-    // Proactive token refresh so R2 photo loads don't 401 immediately
+    // Proactive token refresh
     _refreshR2Token().catch(function(){});
     // Initialize R2 photo uploads
     if(typeof R2Photos!=='undefined'){
       R2Photos.init({wifiOnly:false,onProgress:function(info){_updateR2Badge();}});
     }
-    // Auto-download R2 content to IDB for offline use (runs in background)
+    // Auto-download R2 content to IDB for offline use
     setTimeout(function(){_autoDownloadR2();},3000);
-  }).catch(function(e){
+  }catch(e){
+    _syncLock=false;
     console.error('CloudSync init error:',e);
     toast('Cloud sync failed — working in local mode',3000);
-  });
+  }
 }
 
 // ── Sync heartbeat — runs every 60s while project is open ──
 // Checks if cloud is newer than local; if so, silently applies the update.
-// Handles the case where device A saves while device B already has the project open.
 var _heartbeatRunning=false;
 async function _syncHeartbeat(){
   if(_heartbeatRunning)return;// Mutex — prevent stacked runs
   if(!_csHubMode||!_csProjectId||typeof CloudSync==='undefined'||!CloudSync.isInitialized)return;
   if(!navigator.onLine)return;
+  if(_syncLock)return;// Init still running — skip
   _heartbeatRunning=true;
+  _syncLock=true;// Block _debouncedCloudSave during merge
   try{
     var row=await CloudSync.load();
-    if(!row||!row.row)return;
+    if(!row||!row.row){_syncLock=false;return;}
     var cloudUpdatedAt=row.row.updated_at;
     var cloudData=row.row.data;
-    if(!cloudUpdatedAt||!cloudData)return;
-    var p=getProject();if(!p)return;
+    if(!cloudUpdatedAt||!cloudData){_syncLock=false;return;}
+    var p=getProject();if(!p){_syncLock=false;return;}
     var localSyncedAt=p._cloudSyncedAt?new Date(p._cloudSyncedAt).getTime():0;
     var localModified=p._localModifiedAt?new Date(p._localModifiedAt).getTime():0;
     var localCurrent=Math.max(localSyncedAt,localModified);
     var cloudTime=new Date(cloudUpdatedAt).getTime();
-    // Only apply if cloud is meaningfully newer (20s grace to avoid overwriting recent local edits)
+    // Only apply if cloud is meaningfully newer (20s grace)
     if(cloudTime>localCurrent+20000){
       console.log('[Heartbeat] Cloud is newer — applying update silently');
       // ═══ MERGE: Cloud owns structure. Local owns binary data. ═══
-      // Drawings
       if(cloudData.drawings){
         var prevHBDwg=p.drawings||[];
         p.drawings=cloudData.drawings.map(function(d){return _mergeDrawing(d,prevHBDwg);});
       }
-      // Contractors
       if(cloudData.contractors){
         _mergeContractors(cloudData.contractors,p.contractors);
         p.contractors=cloudData.contractors;
       }
-      // General deficiencies
       if(cloudData.generalDeficiencies){
         _mergeDeficR2Fields(cloudData.generalDeficiencies,p.generalDeficiencies);
         p.generalDeficiencies=cloudData.generalDeficiencies;
       }
       if(typeof cloudData.nextDeficNum!=='undefined'&&cloudData.nextDeficNum>0)p.nextDeficNum=cloudData.nextDeficNum;
       if(cloudData._folders)p._folders=cloudData._folders;
-      // Site photos
       if(cloudData.sitePhotos){
         var prevHBSP=p.sitePhotos||[];
         p.sitePhotos=cloudData.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevHBSP);});
       }
       if(cloudData.info)p.info=Object.assign(p.info||{},cloudData.info);
       _rebuildMissingR2Urls(p);
+      // Dedup after merge
+      _autoDedup(p);
       p._cloudSyncedAt=new Date().toISOString();
-      ADB.saveFullProject(p).catch(function(){});
+      // Save to IDB then push deduped state to cloud
+      await ADB.saveFullProject(p).catch(function(){});
+      CloudSync.resetLastSaved();
+      var hbState=_collectFullState();
+      if(hbState&&Object.keys(hbState).length>0){
+        await CloudSync.save(hbState).catch(function(e){console.warn('[Heartbeat] Push error:',e);});
+      }
       renderDrawingGallery&&renderDrawingGallery();
       renderDeficiencyPanel&&renderDeficiencyPanel();
       renderSummaryTable&&renderSummaryTable();
@@ -12546,9 +12559,9 @@ async function _syncHeartbeat(){
       }
     }
   }catch(e){
-    // Silent fail — heartbeat is best-effort, not critical
     console.warn('[Heartbeat] Sync check failed:',e.message);
   }finally{
+    _syncLock=false;
     _heartbeatRunning=false;
   }
 }
@@ -12756,7 +12769,7 @@ async function _reuploadPDFsToR2(){
   saveToLS();
   // Also force a cloud push with reset dedup
   setTimeout(function(){
-    CloudSync._lastSavedJson='';
+    CloudSync.resetLastSaved();
     var _p3=getProject();if(_p3)_p3._cloudSyncedAt=new Date().toISOString();
     CloudSync.save(_collectFullState());
     // Restart sync
@@ -12944,7 +12957,7 @@ async function _getNextInstanceNumber(){if(!_online)return 1;try{var rows=await 
 async function init(opts){_toolKey=opts.toolKey;_onStatusChange=opts.onStatusChange||null;_projectId=opts.projectId||null;_instanceId=opts.instanceId||null;try{await _openIDB();}catch(e){console.error('[CloudSync] IDB open failed:',e);}try{var user=await _getUser();if(user)_userId=user.id;}catch(e){}if(_projectId&&_online){try{await _loadProjectInfo();}catch(e){}}if(_projectId&&!_instanceId){_instanceNumber=await _getNextInstanceNumber();}window.addEventListener('online',_onOnline);window.addEventListener('offline',_onOffline);_initialized=true;_setStatus(_online?'synced':'offline','Ready');return{projectInfo:_projectInfo,userId:_userId,online:_online,instanceId:_instanceId,instanceNumber:_instanceNumber};}
 function destroy(){stopAutoSave();window.removeEventListener('online',_onOnline);window.removeEventListener('offline',_onOffline);_initialized=false;}
 async function syncNow(){if(!_online){_setStatus('offline','No connection');return false;}if(!_collectStateFn)return false;try{_setStatus('saving','Syncing...');var state=_collectStateFn();await save(state);_setStatus('synced','Force sync complete');return true;}catch(e){_setStatus('error','Sync failed');return false;}}
-return{init:init,save:save,load:load,startAutoSave:startAutoSave,stopAutoSave:stopAutoSave,destroy:destroy,syncNow:syncNow,readUrlParams:readUrlParams,request:_request,get isInitialized(){return _initialized;},get projectId(){return _projectId;},get instanceId(){return _instanceId;},get userId(){return _userId;},get online(){return _online;}};})();
+return{init:init,save:save,load:load,startAutoSave:startAutoSave,stopAutoSave:stopAutoSave,destroy:destroy,syncNow:syncNow,readUrlParams:readUrlParams,request:_request,resetLastSaved:function(){_lastSavedJson='';},get isInitialized(){return _initialized;},get projectId(){return _projectId;},get instanceId(){return _instanceId;},get userId(){return _userId;},get online(){return _online;}};})();
 </script>
 </body>
 </html>
