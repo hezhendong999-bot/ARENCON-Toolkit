@@ -175,6 +175,12 @@ body.dark-mode .view-toggle .vt-btn.active{background:var(--arencon);color:#fff;
 .assign-row .ar-remove:hover{color:var(--no);}
 .add-assign-btn{width:100%;padding:7px;border:none;border-top:1px solid var(--border);background:transparent;font:500 12px var(--font);color:var(--arencon);cursor:pointer;transition:background .12s;}
 .add-assign-btn:hover{background:rgba(156,39,66,.04);}
+.cat-chip{padding:6px 12px;border-radius:8px;border:1.5px solid var(--border);font:600 12px var(--font);color:var(--steel);cursor:pointer;transition:all .15s;background:var(--white);user-select:none;}
+.cat-chip:hover{border-color:var(--arencon);color:var(--arencon);}
+.cat-chip.active{background:var(--arencon);color:#fff;border-color:var(--arencon);}
+body.dark-mode .cat-chip{background:#334155;color:#CBD5E1;border-color:#475569;}
+body.dark-mode .cat-chip.active{background:var(--arencon);color:#fff;border-color:var(--arencon);}
+body.dark-mode .cat-chip:hover{border-color:var(--arencon);color:var(--arencon);}
 .capacity-section{padding:8px 12px;}
 .cap-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
 .cap-name{font:600 11px var(--font);width:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -327,10 +333,11 @@ body.dark-mode .dtc-bar-bg{background:#334155;}
     <label>Client</label><input id="mClient" placeholder="Client name">
     <label>Notes <span style="font-weight:400;color:var(--silver);">(optional)</span></label>
     <input id="mNotes" placeholder="Brief notes">
+    <label>Categories <span style="font-weight:400;color:var(--silver);">(click to toggle — each creates an assignment)</span></label>
+    <div id="catChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
     <div class="assign-section" id="assignSection">
-      <div class="assign-header"><span>Assignments</span></div>
+      <div class="assign-header"><span>Assignments</span><button class="add-assign-btn" style="width:auto;border:none;border-top:none;padding:2px 10px;font-size:11px;" onclick="addManualAssignRow()">+ Manual</button></div>
       <div id="assignRows"></div>
-      <button class="add-assign-btn" onclick="addAssignRow()">+ Add Assignment</button>
     </div>
     <div class="modal-actions">
       <button class="modal-btn cancel" onclick="closeModal('projectModal')">Cancel</button>
@@ -744,39 +751,39 @@ function smartParseCSV(raw) {
 
     // Build assignments — one per role that has a person
     var assigns = [];
-    var wt = task || 'Design';
+    var category = autoCategory(wt);
 
     if (designer) {
       designer.split('/').forEach(function(d) {
         d = d.trim(); if (!d) return;
-        assigns.push(makeAssign(d, 'designer', wt, start, end));
+        assigns.push(makeAssign(d, 'designer', category, start, end));
       });
     }
     if (reviewer) {
       reviewer.split('/').forEach(function(r) {
         r = r.trim(); if (!r) return;
-        assigns.push(makeAssign(r, 'reviewer', 'Review — ' + wt, start, end));
+        assigns.push(makeAssign(r, 'reviewer', category, start, end));
       });
     }
     if (engineer) {
       engineer.split('/').forEach(function(e) {
         e = e.trim(); if (!e) return;
-        assigns.push(makeAssign(e, 'both', 'Engineering — ' + wt, start, end));
+        assigns.push(makeAssign(e, 'both', category, start, end));
       });
     }
 
     // If no people assigned at all, still create the project
     if (!assigns.length) {
-      assigns.push({personName:'', personInitials:'??', personRole:'designer', workType:wt, startDate:start, endDate:end});
+      assigns.push({personName:'', personInitials:'??', personRole:'designer', workType:category, startDate:start, endDate:end});
     }
 
     _dumpResults.push({
       projectNumber: pNum,
-      name: pName || task,
+      name: pName || wt,
       client: '',
       priority: 'medium',
       status: status,
-      notes: notes,
+      notes: (wt && wt !== category ? wt : '') + (notes ? (wt ? ' — ' : '') + notes : ''),
       assignments: assigns
     });
   });
@@ -791,6 +798,33 @@ function smartParseCSV(raw) {
 function makeAssign(name, role, wt, start, end) {
   var initials = name.length <= 4 ? name.toUpperCase() : name.split(/\s+/).map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,3);
   return {personName:name, personInitials:initials||'??', personRole:role, workType:wt, startDate:start, endDate:end};
+}
+
+/* Auto-categorize task descriptions into high-level categories */
+function autoCategory(task) {
+  if (!task) return 'FP Systems/Design';
+  var t = task.toLowerCase();
+  // FSP/IST/TFS
+  if (t.indexOf('commission') >= 0 || t.indexOf('ist') >= 0 || t.indexOf('inspect') >= 0 ||
+      t.indexOf('test') >= 0 || t.indexOf('fsp') >= 0 || t.indexOf('fire safety plan') >= 0 ||
+      t.indexOf('tfs') >= 0 || t.indexOf('fire flow') >= 0) return 'FSP/IST/TFS';
+  // Code-I (industrial)
+  if (t.indexOf('asrs') >= 0 || t.indexOf('warehouse') >= 0 || t.indexOf('industrial') >= 0 ||
+      t.indexOf('storage') >= 0 || t.indexOf('rack') >= 0) return 'Code-I';
+  // Code-Non-I
+  if (t.indexOf('code') >= 0 || t.indexOf('risk assessment') >= 0 || t.indexOf('basis of design') >= 0 ||
+      t.indexOf('obc') >= 0 || t.indexOf('review') >= 0 || t.indexOf('high-rise') >= 0 ||
+      t.indexOf('residential') >= 0 || t.indexOf('rsdntl') >= 0) return 'Code-Non-I';
+  // Alt Solutions/Modelling
+  if (t.indexOf('model') >= 0 || t.indexOf('alt') >= 0 || t.indexOf('simulation') >= 0 ||
+      t.indexOf('fds') >= 0 || t.indexOf('cfd') >= 0 || t.indexOf('performance') >= 0) return 'Alt Solutions/Modelling';
+  // Energy
+  if (t.indexOf('energy') >= 0 || t.indexOf('leed') >= 0 || t.indexOf('green') >= 0) return 'Energy';
+  // Legal
+  if (t.indexOf('legal') >= 0 || t.indexOf('litigation') >= 0 || t.indexOf('expert') >= 0 ||
+      t.indexOf('forensic') >= 0) return 'Legal';
+  // FP Systems/Design (default for sprinkler, fire alarm, suppression, etc.)
+  return 'FP Systems/Design';
 }
 
 function detectColumns(headerLine) {
@@ -1103,7 +1137,7 @@ function importDumpResults() {
 <script>
 var STORAGE_KEY='ARENCON_ResourcePlanner_v2';
 var COLORS=['#3B82F6','#EF4444','#10B981','#F59E0B','#8B5CF6','#EC4899','#06B6D4','#F97316','#6366F1','#14B8A6','#D946EF','#0EA5E9'];
-var DEFAULT_WT=['Design','Code Review','IST','CA','Shop Drawing Review','Permit Coordination'];
+var DEFAULT_WT=['FP Systems/Design','Code-I','Code-Non-I','FSP/IST/TFS','Alt Solutions/Modelling','Energy','Legal'];
 var STICKY_W=180;
 var state={people:[],workTypes:[],projects:[],timeOff:[],zoomLevel:'week',viewMode:'project',viewStartDate:null};
 var _editProjId=null,_editPersonId=null,_dragState=null,COL_W=48;
@@ -1413,70 +1447,141 @@ function openProjectModal(editId){
     document.getElementById('mClient').value=p.client||'';
     document.getElementById('mPri').value=p.priority||'medium';
     document.getElementById('mNotes').value=p.notes||'';
-    rebuildAssigns(p.assignments||[]);
+    buildCatChips(p.assignments||[]);
   } else {
     document.getElementById('mNum').value='';document.getElementById('mName').value='';
     document.getElementById('mClient').value='';document.getElementById('mPri').value='medium';
     document.getElementById('mNotes').value='';
-    var td=fmtDate(new Date()),e4=fmtDate(addDays(new Date(),28));
-    rebuildAssigns([{personId:state.people.length?state.people[0].id:'',workType:state.workTypes[0]||'Design',startDate:td,endDate:e4}]);
+    buildCatChips([]);
   }
   openModal('projectModal');document.getElementById('mNum').focus();
 }
 
-function rebuildAssigns(assigns){
+function buildCatChips(existingAssigns){
+  var container=document.getElementById('catChips');
+  // Determine which categories are active from existing assignments
+  var activeCats={};
+  existingAssigns.forEach(function(a){if(a.workType)activeCats[a.workType]=true;});
+
+  container.innerHTML='';
+  state.workTypes.forEach(function(wt){
+    var chip=document.createElement('span');
+    chip.className='cat-chip'+(activeCats[wt]?' active':'');
+    chip.textContent=wt;
+    chip.dataset.wt=wt;
+    chip.onclick=function(){
+      chip.classList.toggle('active');
+      syncChipsToAssignRows();
+    };
+    container.appendChild(chip);
+  });
+
+  // Build assignment rows from existing
   var c=document.getElementById('assignRows');c.innerHTML='';
-  assigns.forEach(function(a){addAssignRowHTML(c,a);});
+  existingAssigns.forEach(function(a){addAssignRowHTML(c,a);});
   updateAvail();
 }
-function addAssignRow(){
+
+function syncChipsToAssignRows(){
+  var container=document.getElementById('assignRows');
+  var activeChips=document.querySelectorAll('#catChips .cat-chip.active');
+  var activeCats=[];
+  activeChips.forEach(function(ch){activeCats.push(ch.dataset.wt);});
+
+  // Get existing rows keyed by work type
+  var existingRows={};
+  container.querySelectorAll('.assign-row').forEach(function(row){
+    var wt=row.dataset.wt||'';
+    if(!existingRows[wt])existingRows[wt]=[];
+    existingRows[wt].push(row);
+  });
+
+  // Remove rows for unchecked categories
+  Object.keys(existingRows).forEach(function(wt){
+    if(activeCats.indexOf(wt)<0){
+      existingRows[wt].forEach(function(row){row.remove();});
+    }
+  });
+
+  // Add rows for newly checked categories
+  var td=fmtDate(new Date()),e4=fmtDate(addDays(new Date(),28));
+  activeCats.forEach(function(wt){
+    if(!existingRows[wt]||!existingRows[wt].length){
+      addAssignRowHTML(container,{personId:state.people.length?state.people[0].id:'',workType:wt,startDate:td,endDate:e4});
+    }
+  });
+
+  updateAvail();
+}
+
+function addManualAssignRow(){
   var c=document.getElementById('assignRows');
   var td=fmtDate(new Date()),e4=fmtDate(addDays(new Date(),28));
-  addAssignRowHTML(c,{personId:state.people.length?state.people[0].id:'',workType:state.workTypes[0]||'Design',startDate:td,endDate:e4});
+  var wt=state.workTypes[0]||'FP Systems/Design';
+  addAssignRowHTML(c,{personId:state.people.length?state.people[0].id:'',workType:wt,startDate:td,endDate:e4});
+  // Also activate the chip
+  document.querySelectorAll('#catChips .cat-chip').forEach(function(ch){
+    if(ch.dataset.wt===wt)ch.classList.add('active');
+  });
   updateAvail();
 }
+
 function addAssignRowHTML(container,a){
   var div=document.createElement('div');div.className='assign-row';
   div.style.flexWrap='wrap';
+  div.dataset.wt=a.workType||'';
 
-  // Person select — always include "+ Add new..." option
+  // Category label
+  var catLabel=document.createElement('span');
+  catLabel.style.cssText='font:700 11px var(--font);color:var(--arencon);min-width:100px;padding:4px 0;';
+  catLabel.textContent=a.workType||'—';
+  
+  // Person select
   var pSel=document.createElement('select');pSel.className='ar-person';pSel.style.maxWidth='130px';
   state.people.forEach(function(p){var o=document.createElement('option');o.value=p.id;o.textContent=p.initials+' — '+p.name;if(p.id===a.personId)o.selected=true;pSel.appendChild(o);});
-  // "+ Add new..." option — selected if no people exist or no match
   var addOpt=document.createElement('option');addOpt.value='__new__';addOpt.textContent='+ Add new person...';
   if(!state.people.length||(!a.personId&&!state.people.length)) addOpt.selected=true;
   pSel.appendChild(addOpt);
 
-  // Inline new-person fields (hidden by default)
+  // Inline new-person fields
   var newWrap=document.createElement('div');
   newWrap.className='ar-new-person';
-  newWrap.style.cssText='display:none;width:100%;margin-top:4px;display:none;gap:4px;align-items:center;flex-wrap:wrap;';
+  newWrap.style.cssText='display:none;width:100%;margin-top:4px;gap:4px;align-items:center;flex-wrap:wrap;';
   newWrap.innerHTML='<input class="ar-newname" placeholder="Name" style="flex:1;min-width:80px;padding:5px 7px;border:1.5px solid var(--border);border-radius:5px;font:400 12px var(--font);">'+
     '<input class="ar-newinit" placeholder="Init" maxlength="4" style="width:50px;padding:5px 7px;border:1.5px solid var(--border);border-radius:5px;font:400 12px var(--font);">'+
     '<select class="ar-newrole" style="padding:5px 4px;border:1.5px solid var(--border);border-radius:5px;font:400 11px var(--font);"><option value="designer">Designer</option><option value="reviewer">Reviewer</option><option value="both">Both</option></select>';
 
   function toggleNewPerson(){
-    if(pSel.value==='__new__'){newWrap.style.display='flex';newWrap.querySelector('.ar-newname').focus();}
+    if(pSel.value==='__new__'){newWrap.style.display='flex';var nm=newWrap.querySelector('.ar-newname');if(nm)nm.focus();}
     else{newWrap.style.display='none';}
     updateAvail();
   }
   pSel.onchange=toggleNewPerson;
-
-  // Show new-person fields if no people exist
   if(!state.people.length||pSel.value==='__new__'){
     pSel.value='__new__';
-    // Delay display so DOM is ready
     setTimeout(function(){newWrap.style.display='flex';},0);
   }
 
-  var wtSel=document.createElement('select');wtSel.className='ar-wt';wtSel.style.maxWidth='130px';
-  state.workTypes.forEach(function(wt){var o=document.createElement('option');o.value=wt;o.textContent=wt;if(wt===a.workType)o.selected=true;wtSel.appendChild(o);});
-  var sd=document.createElement('input');sd.type='date';sd.className='ar-start';sd.value=a.startDate||'';sd.style.maxWidth='130px';sd.onchange=function(){updateAvail();};
-  var ed=document.createElement('input');ed.type='date';ed.className='ar-end';ed.value=a.endDate||'';ed.style.maxWidth='130px';ed.onchange=function(){updateAvail();};
+  // Hidden work type field (for collectAssigns)
+  var wtHidden=document.createElement('input');wtHidden.type='hidden';wtHidden.className='ar-wt';wtHidden.value=a.workType||'';
+
+  var sd=document.createElement('input');sd.type='date';sd.className='ar-start';sd.value=a.startDate||'';sd.style.maxWidth='120px';sd.onchange=function(){updateAvail();};
+  var ed=document.createElement('input');ed.type='date';ed.className='ar-end';ed.value=a.endDate||'';ed.style.maxWidth='120px';ed.onchange=function(){updateAvail();};
   var av=document.createElement('span');av.className='ar-avail';
-  var rm=document.createElement('button');rm.className='ar-remove';rm.textContent='×';rm.onclick=function(){div.remove();updateAvail();};
-  div.appendChild(pSel);div.appendChild(wtSel);div.appendChild(sd);div.appendChild(ed);div.appendChild(av);div.appendChild(rm);
-  div.appendChild(newWrap);
+  var rm=document.createElement('button');rm.className='ar-remove';rm.textContent='×';rm.onclick=function(){
+    var wt=div.dataset.wt;
+    div.remove();
+    // Deactivate chip if no more rows for this category
+    var remaining=document.querySelectorAll('#assignRows .assign-row[data-wt="'+wt+'"]');
+    if(!remaining.length){
+      document.querySelectorAll('#catChips .cat-chip').forEach(function(ch){
+        if(ch.dataset.wt===wt)ch.classList.remove('active');
+      });
+    }
+    updateAvail();
+  };
+  div.appendChild(catLabel);div.appendChild(pSel);div.appendChild(sd);div.appendChild(ed);div.appendChild(av);div.appendChild(rm);
+  div.appendChild(wtHidden);div.appendChild(newWrap);
   container.appendChild(div);
 }
 
