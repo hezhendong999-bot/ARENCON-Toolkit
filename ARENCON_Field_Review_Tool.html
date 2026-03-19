@@ -7089,7 +7089,7 @@ function loadMarkupData(){
     // V2: load from object model (local IDB)
     _mkObjects=JSON.parse(JSON.stringify(dwg.markupObjects));
     _mkObjects.forEach(function(o){if(!o.id)o.id=_mkNewId();});
-  } else if(dwg&&dwg.r2Url&&_csHubMode&&(!dwg.markupObjects||!dwg.markupObjects.length)&&!dwg.markupCleared){
+  } else if(dwg&&dwg.r2Url&&_csHubMode&&dwg.markupR2Saved&&(!dwg.markupObjects||!dwg.markupObjects.length)&&!dwg.markupCleared){
     // R2 Phase 4: no local markup — try fetching from R2 (skip if explicitly cleared)
     _mkObjects=[];
     _r2LoadMarkup(dwg).then(function(objs){
@@ -12309,6 +12309,30 @@ function _rebuildMissingR2Urls(proj){
   if(fixed>0)console.log('[R2] Rebuilt '+fixed+' missing r2Url(s) from r2Key');
 }
 
+// Auto-dedup drawings by name — removes duplicates keeping the first occurrence.
+// Runs after cloud merge. If dupes found, saves to IDB + pushes to cloud immediately.
+function _autoDedup(proj){
+  if(!proj||!proj.drawings||proj.drawings.length<2)return;
+  var seen={},keep=[];
+  proj.drawings.forEach(function(d){
+    var key=(d.name||'').trim().toLowerCase();
+    if(!seen[key]){seen[key]=true;keep.push(d);}
+  });
+  if(keep.length===proj.drawings.length)return;// No dupes
+  var removed=proj.drawings.length-keep.length;
+  proj.drawings=keep;
+  console.log('[AutoDedup] Removed '+removed+' duplicate drawings ('+proj.drawings.length+' remaining)');
+  // Save and push immediately
+  proj._localModifiedAt=new Date().toISOString();
+  proj._cloudSyncedAt=new Date().toISOString();
+  ADB.saveProject(proj).catch(function(){});
+  setTimeout(function(){
+    CloudSync._lastSavedJson='';
+    try{CloudSync.save(_collectFullState());}catch(e){}
+    renderDrawingGallery&&renderDrawingGallery();
+  },1000);
+}
+
 // ── CloudSync Init (called in Hub mode) ──
 function _initCloudSync(){
   if(typeof CloudSync==='undefined')return;
@@ -12407,6 +12431,8 @@ function _initCloudSync(){
           renderSummaryTable&&renderSummaryTable();
         },200);
         console.log('[CloudSync] Applied cloud state — drawings:'+localProj.drawings.length+' defics:'+(localProj.generalDeficiencies||[]).length);
+        // Auto-dedup drawings by name (fixes triple-upload bug)
+        _autoDedup(localProj);
       }
     } else if(p){
       // Local is current — push to cloud and stamp sync time
