@@ -8713,7 +8713,7 @@ function populateRespPhotos(){
           var psrc=_deficPhotoSrc(phRec);
           html+="<div style=\"position:relative;width:60px;height:60px;flex-shrink:0;\">";
           html+="<img data-src=\""+escHtml(psrc)+"\" style=\"width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer;\" onclick=\"openPhotoLightboxDirect(this.dataset.src||this.src)\">";
-          html+="<button onclick=\"removeRespPhoto(&quot;"+d.defic.id+"&quot;,"+ri+","+pi+")\" style=\"position:absolute;top:-4px;right:-4px;background:var(--red);color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;line-height:16px;text-align:center;\">✕</button>";
+          html+="<button onclick=\"removeRespPhoto(&quot;"+d.defic.id+"&quot;,"+ri+","+pi+")\" style=\"position:absolute;top:-4px;right:-4px;background:var(--red);color:white;border:none;border-radius:50%;width:20px;height:20px;min-width:20px;min-height:20px;padding:0;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;\">✕</button>";
           html+="</div>";
         });
       }
@@ -9318,7 +9318,7 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
       var psrc=_deficPhotoSrc(phRec);
       ph+='<div style="position:relative;width:68px;height:68px;border-radius:6px;overflow:hidden;border:1px solid var(--border);">';
       ph+='<img data-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.src||this.src);event.stopPropagation();" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;">';
-      ph+='<button onclick="removePinEntryPhoto('+ae+','+pi+')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:white;border:none;border-radius:50%;width:17px;height:17px;font-size:9px;cursor:pointer;line-height:17px;text-align:center;">x</button>';
+      ph+='<button onclick="removePinEntryPhoto('+ae+','+pi+')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:white;border:none;border-radius:50%;width:20px;height:20px;min-width:20px;min-height:20px;padding:0;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>';
       ph+='</div>';
     });
     ph+='</div>';
@@ -10594,7 +10594,7 @@ function importAllProjectsJSON(){
     };reader.readAsText(f);
   };inp.click();
 }
-// ═══ PDF EXPORT — Plain Report vs Field Review Report ═══
+// ═══ PDF EXPORT — Field Review Report (Deficiency Report vs Full Field Review) ═══
 function showPDFOptions(){
   var overlay=document.getElementById('pdf-picker-overlay');
   if(overlay)overlay.style.display='flex';
@@ -10779,7 +10779,7 @@ css+='.app-pin-table th{background:#F7F8FA;padding:4px 8px;text-align:left;borde
 css+='.app-pin-table td{padding:4px 8px;border-bottom:1px solid #F0F0F0;}';
 css+='@media print{.np{display:none!important;}#pdf-btn-bar{display:none!important;}body{padding:20px!important;margin:0!important;}.sh{page-break-after:avoid;}.ch{page-break-after:avoid;break-after:avoid;}.dc{page-break-inside:avoid;break-inside:avoid;}.sb{page-break-inside:auto;}}';
 
-var titleLabel=isField?'Field Review Report':'Plain Report';
+var titleLabel='Field Review Report';
 var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ARENCON Field Review - '+(p.info.projectName||'Report')+'</title>';
 h+='<!-- Calibri system font -->';
 h+='<style>'+css+'</style></head><body>';
@@ -12325,7 +12325,12 @@ function _initCloudSync(){
       }
     }
     // Start auto-save to cloud (15s)
-    CloudSync.startAutoSave(function(){return _collectFullState();},5000);
+    CloudSync.startAutoSave(function(){
+      // Stamp _cloudSyncedAt on live project before collecting state for cloud push
+      // This prevents heartbeat from seeing its own auto-save push as "newer cloud data"
+      var _p=getProject();if(_p)_p._cloudSyncedAt=new Date().toISOString();
+      return _collectFullState();
+    },5000);
     // ── Sync heartbeat — checks cloud every 60s ──
     // If another device saved while this one is open, silently apply the update.
     if(window._syncHeartbeatTimer)clearInterval(window._syncHeartbeatTimer);
@@ -12427,7 +12432,9 @@ async function _syncHeartbeat(){
       if(cloudData.info)p.info=Object.assign(p.info||{},cloudData.info);
       // Safety net: rebuild any r2Url that has r2Key but no URL
       _rebuildMissingR2Urls(p);
-      p._cloudSyncedAt=cloudUpdatedAt;
+      // Stamp _cloudSyncedAt to NOW — not cloudUpdatedAt — so auto-save's subsequent
+      // pushes (which create new updated_at on cloud) don't trigger the next heartbeat
+      p._cloudSyncedAt=new Date().toISOString();
       // Save to IDB and refresh view
       ADB.saveFullProject(p).catch(function(){});
       renderDrawingGallery&&renderDrawingGallery();
