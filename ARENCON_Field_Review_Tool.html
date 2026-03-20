@@ -118,47 +118,6 @@ body.dark-mode .rv-change-old{color:#f07070;}
 body.dark-mode .rv-change-new{color:#66BB6A;}
 </style>
 <script>
-// ═══ Custom Modal System — replaces alert/confirm/prompt ═══
-function _aModal(msg){
-  return new Promise(function(resolve){
-    var ov=document.createElement('div');ov.className='a-modal-overlay';
-    ov.innerHTML='<div class="a-modal"><div class="a-modal-msg"></div><div class="a-modal-btns"><button class="a-modal-btn ok">OK</button></div></div>';
-    ov.querySelector('.a-modal-msg').textContent=msg;
-    ov.querySelector('.ok').onclick=function(){ov.remove();resolve();};
-    ov.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key==='Escape'){ov.remove();resolve();}});
-    document.body.appendChild(ov);ov.querySelector('.ok').focus();
-  });
-}
-function _aConfirm(msg,opts){
-  opts=opts||{};
-  return new Promise(function(resolve){
-    var ov=document.createElement('div');ov.className='a-modal-overlay';
-    var okCls=opts.danger?'a-modal-btn danger':'a-modal-btn ok';
-    var okLabel=opts.okLabel||'OK';
-    var cancelLabel=opts.cancelLabel||'Cancel';
-    ov.innerHTML='<div class="a-modal"><div class="a-modal-msg"></div><div class="a-modal-btns"><button class="a-modal-btn cancel"></button><button class="'+okCls+'"></button></div></div>';
-    ov.querySelector('.a-modal-msg').textContent=msg;
-    ov.querySelector('.cancel').textContent=cancelLabel;
-    ov.querySelector('.'+okCls.split(' ').join('.')).textContent=okLabel;
-    ov.querySelector('.cancel').onclick=function(){ov.remove();resolve(false);};
-    var okBtn=ov.querySelectorAll('.a-modal-btn')[1];
-    okBtn.onclick=function(){ov.remove();resolve(true);};
-    ov.addEventListener('keydown',function(e){if(e.key==='Escape'){ov.remove();resolve(false);}else if(e.key==='Enter'){ov.remove();resolve(true);}});
-    document.body.appendChild(ov);okBtn.focus();
-  });
-}
-function _aPrompt(msg,defaultVal){
-  return new Promise(function(resolve){
-    var ov=document.createElement('div');ov.className='a-modal-overlay';
-    ov.innerHTML='<div class="a-modal"><div class="a-modal-msg"></div><input class="a-modal-input" type="text"><div class="a-modal-btns"><button class="a-modal-btn cancel">Cancel</button><button class="a-modal-btn ok">OK</button></div></div>';
-    ov.querySelector('.a-modal-msg').textContent=msg;
-    var inp=ov.querySelector('.a-modal-input');inp.value=defaultVal||'';
-    ov.querySelector('.cancel').onclick=function(){ov.remove();resolve(null);};
-    ov.querySelector('.ok').onclick=function(){ov.remove();resolve(inp.value);};
-    ov.addEventListener('keydown',function(e){if(e.key==='Escape'){ov.remove();resolve(null);}else if(e.key==='Enter'){ov.remove();resolve(inp.value);}});
-    document.body.appendChild(ov);inp.focus();inp.select();
-  });
-}
 // Lazy pdf.js loader — only loads when a PDF is actually uploaded
 var _pdfjsLoaded=false;
 function ensurePdfJs(cb){
@@ -194,6 +153,7 @@ html{overflow-x:hidden;max-width:100vw;}
 .header-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;}
 .header-save-ts{font-size:10.5px;color:rgba(255,255,255,.5);margin-right:4px;}
 .mobile-file-bar{display:none;align-items:center;gap:6px;padding:3px 12px 5px;font-size:10px;color:rgba(255,255,255,.55);font-family:Calibri,sans-serif;background:rgba(0,0,0,.15);border-top:1px solid rgba(255,255,255,.06);}
+@media(max-width:800px){.mobile-file-bar.has-project{display:flex!important;}}
 .hdr-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:12px;font-weight:600;cursor:pointer;border:none;color:white;transition:all .15s;white-space:nowrap;}.hdr-btn:hover{filter:brightness(1.15);}
 .btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:7px;font-family:Calibri,sans-serif;font-size:13.5px;font-weight:600;cursor:pointer;border:none;transition:all .17s;}
 .btn svg{width:15px;height:15px;flex-shrink:0;}
@@ -246,6 +206,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .dl-layer-check{display:flex;align-items:center;gap:6px;font-size:12px;color:#1C2333;padding:6px 10px;border:1.5px solid #DDE1E7;border-radius:6px;cursor:pointer;user-select:none;background:white;transition:all .15s;}
 .dl-layer-check:hover{background:#F7F8FA;border-color:#9C2742;}
 .dl-layer-check input{margin:0;accent-color:#9C2742;}
+@media(max-width:700px){.proj-grid{grid-template-columns:1fr!important;}.proj-grid [style*="grid-column:span 2"]{grid-column:span 1!important;}}
 .field-group{display:flex;flex-direction:column;}
 .field-group label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--silver);margin-bottom:4px;}
 .field-group input,.field-group select,.field-group textarea{width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-family:Calibri,sans-serif;font-size:13.5px;color:var(--slate);background:var(--smoke);transition:border .15s;-webkit-appearance:none;}
@@ -287,12 +248,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .dv-toolbar button{background:rgba(255,255,255,.12);border:none;color:white;padding:5px 9px;border-radius:6px;font-family:Calibri,sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;min-width:32px;}.dv-toolbar button:hover{background:rgba(255,255,255,.25);}.dv-toolbar button.active{background:var(--red);color:white;}
 .dv-main{display:flex;flex:1;overflow:hidden;position:relative;}
 .dv-canvas-area{flex:1;overflow:hidden;position:relative;cursor:grab;}.dv-canvas-area.panning{cursor:grabbing;}
-@media(max-width:900px){
-  .dv-canvas-area{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));}
-  .zoom-controls{bottom:calc(100px + env(safe-area-inset-bottom,0px))!important;right:10px;z-index:501!important;}.zoom-controls button{width:44px;height:44px;font-size:20px;border-radius:10px;}
-  .drawing-card .select-check{opacity:.45;width:24px;height:24px;font-size:14px;}.drawing-card .select-check.checked{opacity:1;}
-  .dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:auto!important;max-height:120px!important;flex-direction:column-reverse!important;flex-wrap:nowrap!important;align-items:stretch!important;overflow:visible!important;padding:0!important;gap:0!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:none!important;z-index:500!important;padding-bottom:env(safe-area-inset-bottom,0px)!important;background:#1e2028!important;
-}
+@media(max-width:900px){.dv-canvas-area{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));}}
 .dv-img-wrap{position:absolute;transform-origin:0 0;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
 .dv-img-wrap img{display:block;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;}
 #markup-canvas{position:absolute;top:0;left:0;pointer-events:none;cursor:crosshair;}
@@ -326,9 +282,10 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 /* Zoom controls */
 .zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px;z-index:10;}
 .zoom-controls button{width:30px;height:30px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}.zoom-controls button:hover{background:rgba(42,45,53,.95);}
+@media(max-width:900px){.zoom-controls{bottom:calc(100px + env(safe-area-inset-bottom,0px))!important;right:10px;z-index:501!important;}.zoom-controls button{width:44px;height:44px;font-size:20px;border-radius:10px;}}
 
 /* Pin side panel */
-.pin-panel{position:fixed;top:0;right:0;width:420px;height:100%;background:white;z-index:2500;box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;overflow:hidden;visibility:hidden;}.pin-panel.open{transform:translateX(0);visibility:visible;}
+.pin-panel{position:fixed;top:0;right:0;width:420px;height:100%;background:white;z-index:2500;box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;overflow:hidden;}.pin-panel.open{transform:translateX(0);}
 .pin-panel-header{background:var(--arencon);color:white;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}.pin-panel-header h3{font-size:16px;font-weight:700;margin:0;}
 .pin-panel-body{flex:1;overflow-y:auto;padding:18px;}.pin-panel-body .field-group{margin-bottom:14px;}
 .pin-panel-footer{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;}
@@ -350,6 +307,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .defic-num-circle{min-width:28px;width:28px;height:28px;border-radius:50%;background:#C0392B;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
 .defic-item-content{flex:1;min-width:0;}
 .defic-grid-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:700px){.defic-grid-2col{grid-template-columns:1fr;}}
 .defic-label{font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
 .defic-controls{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;}
 .defic-controls label{font-size:11px;color:#666;display:block;margin-bottom:2px;}
@@ -404,6 +362,7 @@ body.dark-mode #bulk-action-bar{background:#1a1d24;border-color:#9C2742;}
 .resp-add-btns button{padding:7px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:700;font-family:Calibri,sans-serif;border:none;color:white;transition:opacity .15s;}
 .resp-add-ctr{background:#E67E22;}.resp-add-ctr:hover{background:#cf6d17;}
 .resp-add-con{background:#2C4A6B;}.resp-add-con:hover{background:#1e3450;}
+
 
 /* Summary table */
 .defic-summary-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);}
@@ -464,7 +423,6 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
   .dv-tasks-panel{display:none;}
   .defic-grid-2col{grid-template-columns:1fr;}
   .back-btn{padding:5px 10px;font-size:13px;margin-right:4px;}
-  .mobile-file-bar.has-project{display:flex!important;}
 }
 .mobile-menu-overlay{display:none;position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.5);}.mobile-menu-overlay.open{display:flex;}
 .mobile-menu{position:fixed;top:0;right:0;width:280px;height:100%;background:white;z-index:5001;box-shadow:-4px 0 20px rgba(0,0,0,.15);padding:20px;display:flex;flex-direction:column;gap:10px;}
@@ -502,7 +460,7 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
 .drawing-card .select-check{position:absolute;top:6px;left:6px;width:20px;height:20px;border:2px solid white;border-radius:4px;background:rgba(0,0,0,.3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;opacity:0;transition:opacity .15s;}
 .drawing-card:hover .select-check{opacity:1;}
 .drawing-card .select-check.checked{opacity:1;background:var(--red);border-color:var(--red);}
-
+@media(max-width:900px){.drawing-card .select-check{opacity:.45;width:24px;height:24px;font-size:14px;}.drawing-card .select-check.checked{opacity:1;}}
 /* 3-dot menu — hidden until hover */
 .drawing-card .card-menu-btn{position:absolute;bottom:36px;right:4px;background:rgba(0,0,0,.5);border:none;color:white;font-size:16px;cursor:pointer;padding:2px 6px;border-radius:4px;opacity:0;transition:opacity .15s;z-index:5;}
 .drawing-card:hover .card-menu-btn{opacity:1;}
@@ -664,6 +622,7 @@ body.dark-mode .filter-search{background:#1e2028;border-color:#33373f;color:#d4d
 .kc-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;display:inline-block;}
 .kc-desc{font-size:12px;color:var(--steel);line-height:1.4;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .kc-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+@media(max-width:700px){.kanban-wrap{flex-direction:column;}.kanban-col{min-height:80px;}}
 body.dark-mode .kanban-col{background:#1e2028;border-color:#33373f;}
 body.dark-mode .kanban-card{background:#22252d;border-color:#33373f;color:#d4d8e8;}
 body.dark-mode .kc-num{color:#c0c8e0;}
@@ -719,7 +678,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 
 /* ═══ ALWAYS-ON SIDEBAR TOOLBAR ═══ */
 .dv-sidebar-tools{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:#1e2028;border-right:1px solid #3a3e48;width:56px;flex-shrink:0;overflow-y:auto;overflow-x:visible;z-index:20;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-
+@media(max-width:900px){.dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:auto!important;max-height:120px!important;flex-direction:column-reverse!important;flex-wrap:nowrap!important;align-items:stretch!important;overflow:visible!important;padding:0!important;gap:0!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:none!important;z-index:500!important;padding-bottom:env(safe-area-inset-bottom,0px)!important;background:#1e2028!important;}
 .dv-sidebar-tools .dv-tools-primary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-evenly!important;width:100%!important;height:52px!important;padding:4px 4px 2px!important;background:#1e2028!important;flex-shrink:0!important;}
 .dv-sidebar-tools .dv-tools-secondary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:6px!important;width:100%!important;height:40px!important;padding:2px 8px!important;background:#282c34!important;border-bottom:1px solid #3a3e48!important;flex-shrink:0!important;overflow-x:auto!important;scrollbar-width:none!important;}
 .dv-sidebar-tools .dv-tools-secondary::-webkit-scrollbar{display:none!important;}
@@ -780,6 +739,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .dv-toolbar button{padding:5px 8px;font-size:11px;}
   .dv-nav-group .dv-title{max-width:100px;}
 }
+
 
 .folder-checkbox{width:18px;height:18px;accent-color:#9C2742;cursor:pointer;margin-right:8px;flex-shrink:0;vertical-align:middle;}
 .dwg-bulk-bar{display:none;padding:8px 12px;background:var(--smoke);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;align-items:center;gap:8px;flex-wrap:wrap;}
@@ -872,6 +832,8 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .dark-mode .pins-kanban-col-header{color:#c0c8e0;}
 .dark-mode .pins-kanban-col-header .col-count{background:rgba(255,255,255,.1);color:#c0c8e0;}
 .dark-mode .pins-kanban-col-body.drag-over{background:rgba(156,39,66,.15);}
+@media(max-width:700px){.pins-kanban-board{flex-direction:column;}.pins-kanban-col{min-height:80px;}}
+
 /* ═══ PHOTO GALLERY — Google Photos / Fieldwire Style ═══ */
 .photo-header-bar{display:flex;align-items:center;gap:8px;padding:10px 0;flex-wrap:wrap;}
 .photo-date-group{margin-bottom:16px;}
@@ -959,6 +921,8 @@ body.dark-mode .drawing-card.add-card:hover{border-color:var(--red);}
 .hdr-inspector{background:#455A64;}.hdr-inspector:hover{background:#37474F;}
 .folder-linked{position:relative;}.folder-linked::after{content:'✓';position:absolute;top:-2px;right:-2px;background:#1A7A4A;color:white;font-size:8px;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
 .hdr-sm{background:none;border:none;color:rgba(255,255,255,.7);font-size:16px;cursor:pointer;padding:2px 6px;}.hdr-sm:hover{color:white;}
+@media(max-width:700px){.hdr-btn{padding:4px 8px;font-size:11px;}.hdr-btn span{display:none;}}
+
 /* ── Drawing filter dropdown ── */
 .dwg-filter-dd{position:relative;}
 .dwg-filter-menu{right:0;left:auto;}
@@ -1243,11 +1207,6 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   #btn-tasks-toggle{font-size:11px!important;padding:5px 8px!important;}
   /* All Deficiencies tab header */
   #panel-pins .card-header{flex-direction:column;align-items:stretch!important;gap:6px;}
-  .proj-grid{grid-template-columns:1fr!important;}.proj-grid [style*="grid-column:span 2"]{grid-column:span 1!important;}
-  .defic-grid-2col{grid-template-columns:1fr;}
-  .kanban-wrap{flex-direction:column;}.kanban-col{min-height:80px;}
-  .pins-kanban-board{flex-direction:column;}.pins-kanban-col{min-height:80px;}
-  .hdr-btn{padding:4px 8px;font-size:11px;}.hdr-btn span{display:none;}
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1337,6 +1296,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   /* --- Pin modal buttons --- */
   .pin-modal .btn,.pin-modal button{min-height:40px;}
 
+
   /* --- Drawing viewer layer toggles --- */
   .dv-layer-toggles button{min-width:38px;min-height:34px;padding:4px 8px!important;}
 
@@ -1345,24 +1305,6 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 
   /* --- Version badge / task badge — decorative, no change needed --- */
 }
-
-/* ═══ Custom Modal System (replaces alert/confirm/prompt) ═══ */
-.a-modal-overlay{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;animation:a-modal-fade-in .15s ease;}
-@keyframes a-modal-fade-in{from{opacity:0}to{opacity:1}}
-.a-modal{background:white;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.3);max-width:420px;width:90%;padding:24px;animation:a-modal-slide-in .15s ease;}
-@keyframes a-modal-slide-in{from{transform:translateY(-12px);opacity:0}to{transform:translateY(0);opacity:1}}
-.a-modal-msg{font-size:14px;color:#1C2333;line-height:1.5;margin-bottom:18px;white-space:pre-wrap;word-break:break-word;}
-.a-modal-input{width:100%;padding:9px 12px;border:1.5px solid #DDE1E7;border-radius:8px;font-size:14px;font-family:Calibri,sans-serif;margin-bottom:16px;box-sizing:border-box;}
-.a-modal-input:focus{outline:none;border-color:#9C2742;}
-.a-modal-btns{display:flex;justify-content:flex-end;gap:10px;}
-.a-modal-btn{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:none;transition:background .12s;}
-.a-modal-btn.ok{background:#9C2742;color:white;}.a-modal-btn.ok:hover{background:#7d1f35;}
-.a-modal-btn.cancel{background:#EDF2F7;color:#4A5568;}.a-modal-btn.cancel:hover{background:#E2E8F0;}
-.a-modal-btn.danger{background:#C0392B;color:white;}.a-modal-btn.danger:hover{background:#A93226;}
-body.dark-mode .a-modal{background:#1e2028;border:1px solid #3a3e48;}
-body.dark-mode .a-modal-msg{color:#d0d8f0;}
-body.dark-mode .a-modal-input{background:#2a3040;border-color:#3a3e48;color:#d0d8f0;}
-body.dark-mode .a-modal-btn.cancel{background:#2a3040;color:#a0a8c0;}
 </style>
 </head>
 <body>
@@ -2496,7 +2438,7 @@ ADB.setReadOnly=function(isReadOnly){
   });
 };
 // ═══ AUTO-SAVE TO FOLDER (2 min interval) ═══
-ADB.startAutoSave=async function(getProjectFn,getFilenameFn){
+ADB.startAutoSave=function(getProjectFn,getFilenameFn){
   if(ADB.autoSaveTimer)clearInterval(ADB.autoSaveTimer);
   if(ADB._idbAutoTimer)clearInterval(ADB._idbAutoTimer);
   // 15-second IDB auto-save (fast, no disk lag)
@@ -2596,6 +2538,92 @@ function applyLockState(){
 }
 
 // ═══ PUBLISH MODAL ═══
+function showPublishModal(){
+  var p = getProject(); if(!p) return;
+  var ex = document.getElementById('publish-modal');if(ex)ex.remove();
+
+  // Calculate next revision
+  var prevRev = (p.info && p.info.publishedRevision) || null;
+  var nextNum = 1;
+  if(prevRev){
+    var m = prevRev.match(/R(\d+)/i);
+    if(m) nextNum = parseInt(m[1]) + 1;
+  }
+  var nextRev = 'R' + String(nextNum).padStart(2,'0');
+
+  var overlay = document.createElement('div');
+  overlay.id = 'publish-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10020;display:flex;align-items:center;justify-content:center;';
+
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--card);border-radius:12px;padding:28px;max-width:400px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,.4);font-family:Calibri,sans-serif;';
+
+  var title = document.createElement('div');
+  title.style.cssText = 'font-size:18px;font-weight:800;color:#C62828;margin-bottom:6px;';
+  title.textContent = 'Publish & Lock Report';
+
+  var warning = document.createElement('div');
+  warning.style.cssText = 'font-size:13px;color:var(--silver);margin-bottom:18px;line-height:1.5;';
+  warning.textContent = 'Publishing stamps a revision number and locks this project against further edits. Only an admin can unlock it. A clean distributable copy will be downloaded.';
+
+  var revRow = document.createElement('div');
+  revRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px;';
+  var revLabel = document.createElement('label');
+  revLabel.style.cssText = 'font-size:13px;font-weight:700;color:var(--fg);white-space:nowrap;';
+  revLabel.textContent = 'Revision:';
+  var revInp = document.createElement('input');
+  revInp.id = 'publish-rev-input';
+  revInp.type = 'text';
+  revInp.value = nextRev;
+  revInp.style.cssText = 'flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:15px;font-weight:700;font-family:Calibri,sans-serif;background:var(--bg);color:var(--fg);text-align:center;';
+  revRow.appendChild(revLabel); revRow.appendChild(revInp);
+
+  var pwdLabel = document.createElement('div');
+  pwdLabel.style.cssText = 'font-size:12px;color:var(--silver);margin-bottom:6px;';
+  pwdLabel.textContent = 'Confirm with admin password:';
+
+  var pwdInp = document.createElement('input');
+  pwdInp.id = 'publish-pwd-input';
+  pwdInp.type = 'password';
+  pwdInp.placeholder = 'Admin password';
+  pwdInp.style.cssText = 'width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;font-family:Calibri,sans-serif;background:var(--bg);color:var(--fg);margin-bottom:6px;display:block;';
+
+  var errEl = document.createElement('div');
+  errEl.id = 'publish-err';
+  errEl.style.cssText = 'font-size:12px;color:#C62828;min-height:18px;margin-bottom:10px;';
+
+  var btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:4px;';
+
+  var btnC = document.createElement('button');
+  btnC.textContent = 'Cancel';
+  btnC.style.cssText = 'padding:8px 18px;border:1.5px solid var(--border);background:transparent;border-radius:7px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;color:var(--fg);';
+  btnC.onclick = function(){overlay.remove();};
+
+  var btnP = document.createElement('button');
+  btnP.textContent = 'Publish & Lock';
+  btnP.style.cssText = 'padding:8px 20px;background:#C62828;color:white;border:none;border-radius:7px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;font-weight:700;';
+  btnP.onclick = function(){
+    var rev = revInp.value.trim().toUpperCase();
+    var pwd = pwdInp.value;
+    if(!rev){errEl.textContent='Enter a revision number.';return;}
+    if(!checkAdminPassword(pwd)){errEl.textContent='Incorrect admin password.';pwdInp.value='';pwdInp.focus();return;}
+    overlay.remove();
+    _doPublish(rev);
+  };
+
+  btnRow.appendChild(btnC); btnRow.appendChild(btnP);
+  box.appendChild(title); box.appendChild(warning);
+  box.appendChild(revRow); box.appendChild(pwdLabel);
+  box.appendChild(pwdInp); box.appendChild(errEl); box.appendChild(btnRow);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  setTimeout(function(){revInp.focus();revInp.select();},50);
+  overlay.addEventListener('keydown',function(e){
+    if(e.key==='Escape')overlay.remove();
+    if(e.key==='Enter')btnP.click();
+  });
+}
 
 function _doPublish(rev){
   var p = getProject(); if(!p) return;
@@ -2746,10 +2774,10 @@ function exitReviewMode(){
   toast('Review Mode OFF');
 }
 
-async function acceptAllChanges(){
+function acceptAllChanges(){
   if(!_reviewActive) return;
   var p = getProject(); if(!p) return;
-  if(!await _aConfirm('Accept all changes? This resets the baseline to the current state.')) return;
+  if(!confirm('Accept all changes? This resets the baseline to the current state.')) return;
   _reviewSnapshot = _takeSnapshot(p);
   _updateReviewBadge();
   // Clear blue borders
@@ -3291,6 +3319,19 @@ function editProjectNameInline(){
   span.style.display='none';
   span.parentNode.insertBefore(inp,span.nextSibling);
   inp.focus();inp.select();
+  function commitSave(){
+    var val=inp.value.trim()||current;
+    inp.remove();
+    span.style.display='';
+    if(val===current)return;
+    var p=getProject();if(!p)return;
+    p.info.projectName=val;
+    saveToLS();
+    updateHeaderName();
+    updateProjectDropdown();
+    var f=document.getElementById('field-projectName');if(f)f.value=val;
+    toast('Renamed to: '+val);
+  }
   inp.addEventListener('blur',commit);
   inp.addEventListener('keydown',function(e){
     if(e.key==='Enter'){e.preventDefault();commit();}
@@ -3325,7 +3366,7 @@ function goToDashboard(){
   _goToDashboardReal();
 }
 
-async function _showHubSaveLeaveModal(destUrl){
+function _showHubSaveLeaveModal(destUrl){
   var ex=document.getElementById('hub-save-leave-modal');if(ex)ex.remove();
   var ov=document.createElement('div');
   ov.id='hub-save-leave-modal';
@@ -3451,6 +3492,7 @@ function updateProjectDropdown(){
   html+='<div class="proj-dd-item proj-dd-new" onclick="createProject();closeProjectDropdown();">+ New Project</div>';
   dd.innerHTML=html;
 }
+function toggleProjectDropdown(){var dd=document.getElementById('project-dropdown');if(dd)dd.classList.toggle('open');}
 function closeProjectDropdown(){var dd=document.getElementById('project-dropdown');if(dd)dd.classList.remove('open');}
 
 function openProjectQuickEdit(id,e){
@@ -3491,7 +3533,7 @@ function closeDashMenu(){var m=document.getElementById('dash-context-menu');if(m
 
 function copyProjectLink(id){
   var url=window.location.href.split('#')[0]+'#'+id;
-  navigator.clipboard.writeText(url).then(function(){showToast('Link copied — share this URL with others who have the file');}).catch(function(){_aPrompt('Copy this link:',url);});
+  navigator.clipboard.writeText(url).then(function(){showToast('Link copied — share this URL with others who have the file');}).catch(function(){prompt('Copy this link:',url);});
 }
 function exportSingleProject(id){
   ADB.exportProjectJSON(id).then(function(p){
@@ -3505,10 +3547,10 @@ function exportSingleProject(id){
   });
 }
 
-async function archiveProject(id){
+function archiveProject(id){
   var p=allProjects[id];if(!p)return;
   var name=(p.info.projectName||'Untitled');
-  if(!await _aConfirm('Archive "'+name+'"?\n\nThis will:\n  • Export the project as a JSON file\n  • Delete it from this device\n\nYou can restore it anytime using Import.'))return;
+  if(!confirm('Archive "'+name+'"?\n\nThis will:\n  • Export the project as a JSON file\n  • Delete it from this device\n\nYou can restore it anytime using Import.'))return;
   ADB.exportProjectJSON(id).then(function(full){
     if(!full){showToast('Export failed — project not archived');return;}
     var blob=new Blob([JSON.stringify(full,null,2)],{type:'application/json'});
@@ -3754,10 +3796,10 @@ function toggleStatusDropdown(wrap,id){
     document.addEventListener('click',function _closeSD(){dd.remove();document.removeEventListener('click',_closeSD);});
   },10);
 }
-async function setProjectStatus(id,status){
+function setProjectStatus(id,status){
   var p=allProjects[id];if(!p)return;
   var labels={draft:'Draft',review:'Ready for Review',revision:'Revision Required',issued:'Issued'};
-  if(status==='issued'&&!await _aConfirm('Mark as Issued? This means the report has been sent out.'))return;
+  if(status==='issued'&&!confirm('Mark as Issued? This means the report has been sent out.'))return;
   p.status=status;p.modified=new Date().toISOString();
   saveToLS();renderDashboard();
   showToast('Status → '+labels[status]);
@@ -3789,11 +3831,11 @@ function confirmCreateProject(){
   var cpNum=document.getElementById('cp-num');
   var cpName=document.getElementById('cp-name');
   var cpClient=document.getElementById('cp-client');
-  if(!cpNum||!cpName||!cpClient){_aModal('Modal fields not found');return;}
+  if(!cpNum||!cpName||!cpClient){alert('Modal fields not found');return;}
   var num=cpNum.value.trim();
   var name=cpName.value.trim();
   var client=cpClient.value.trim();
-  if(!name){_aModal('Please enter a project name.');return;}
+  if(!name){alert('Please enter a project name.');return;}
   var p=newProject({projectName:name,projectNumber:num,client:client});
   allProjects[p.id]=p;
   var ov=document.getElementById('create-project-overlay');
@@ -3808,7 +3850,7 @@ function confirmCreateProject(){
 }
 function exportStarredProjects(){
   var starred=Object.values(allProjects).filter(function(p){return p.starred;});
-  if(!starred.length){_aModal('No starred projects.');return;}
+  if(!starred.length){alert('No starred projects.');return;}
   var promises=starred.map(function(p){return ADB.exportProjectJSON(p.id);});
   Promise.all(promises).then(function(projects){
     var all={};projects.forEach(function(p){if(p)all[p.id]=p;});
@@ -3821,7 +3863,7 @@ function exportStarredProjects(){
 }
 function exportUnstarredProjects(){
   var uns=Object.values(allProjects).filter(function(p){return !p.starred;});
-  if(!uns.length){_aModal('No unstarred projects.');return;}
+  if(!uns.length){alert('No unstarred projects.');return;}
   var promises=uns.map(function(p){return ADB.exportProjectJSON(p.id);});
   Promise.all(promises).then(function(projects){
     var all={};projects.forEach(function(p){if(p)all[p.id]=p;});
@@ -3833,7 +3875,7 @@ function exportUnstarredProjects(){
   });
 }
 
-async function deleteProject(id){var p=allProjects[id];if(!await _aConfirm('Delete "'+((p&&p.info.projectName)||'Untitled')+'"?'))return;delete allProjects[id];
+function deleteProject(id){var p=allProjects[id];if(!confirm('Delete "'+((p&&p.info.projectName)||'Untitled')+'"?'))return;delete allProjects[id];
   Promise.all([ADB.del('projects',id),
     ADB.getAllByIndex('drawings','projectId',id).then(function(ds){return Promise.all(ds.map(function(d){return ADB.del('drawings',d.id);}));}),
     ADB.getAllByIndex('photos','projectId',id).then(function(ps){return Promise.all(ps.map(function(p){return ADB.del('photos',p.id);}));}),
@@ -3876,7 +3918,7 @@ function quickAddDeficiency(){if(!currentProjectId)return;switchTab('deficiencie
 
 // ═══ FILE SYSTEM FOLDER ═══
 function chooseFolder(){
-  if(!window.showDirectoryPicker){_aModal('Your browser does not support folder saving. Use Chrome or Edge desktop.\n\nOn mobile, use the Export button to save/share files.');return;}
+  if(!window.showDirectoryPicker){alert('Your browser does not support folder saving. Use Chrome or Edge desktop.\n\nOn mobile, use the Export button to save/share files.');return;}
   ADB.pickFolder().then(function(handle){
     toast('📁 Folder linked — auto-saving every 2 min');
     updateFolderButton();
@@ -3888,20 +3930,20 @@ function chooseFolder(){
       var inspName=_getInspectorName()||'Unknown';
       ADB.writeLockFile(fn,inspName);
     }
-  }).catch(function(e){if(e.name!=='AbortError')_aModal('Could not access folder: '+e);});
+  }).catch(function(e){if(e.name!=='AbortError')alert('Could not access folder: '+e);});
 }
-async function saveAsToFolder(){
+function saveAsToFolder(){
   // Always re-prompt for folder + optionally bump revision
-  if(!window.showDirectoryPicker){_aModal('Your browser does not support folder saving. Use Chrome or Edge desktop.');return;}
+  if(!window.showDirectoryPicker){alert('Your browser does not support folder saving. Use Chrome or Edge desktop.');return;}
   var p=getProject();if(!p)return;
-  var rev=await _aPrompt('Revision for new save (current: '+(p.info.revision||'A01')+'):',bumpRevision(p.info.revision||'A01'));
+  var rev=prompt('Revision for new save (current: '+(p.info.revision||'A01')+'):',bumpRevision(p.info.revision||'A01'));
   if(!rev)return;
   p.info.revision=rev;saveToLS();populateProjectFields();updateSmartFilename();
   ADB.pickFolder().then(function(handle){
     toast('📁 New folder linked');
     updateFolderButton();
     manualSaveToFolder();
-  }).catch(function(e){if(e.name!=='AbortError')_aModal('Could not access folder: '+e);});
+  }).catch(function(e){if(e.name!=='AbortError')alert('Could not access folder: '+e);});
 }
 function bumpRevision(rev){
   // A01→A02, B01→B02, B01A01→B01A02
@@ -3910,13 +3952,72 @@ function bumpRevision(rev){
   if(m[3]){var sub=m[3];var sn=parseInt(sub.slice(1))+1;return m[1]+m[2]+sub[0]+String(sn).padStart(2,'0');}
   var n=parseInt(m[2])+1;return m[1]+String(n).padStart(2,'0')+(m[3]||'');
 }
+function openFromFolder(){
+  if(!window.showOpenFilePicker){alert('Your browser does not support file picking. Use Chrome or Edge desktop.');return;}
+  var _openedFilename='';
+  window.showOpenFilePicker({types:[{description:'JSON Files',accept:{'application/json':['.json']}}],multiple:false}).then(function(handles){
+    if(!handles||!handles.length)return Promise.reject({name:'AbortError'});
+    var fh=handles[0];
+    _openedFilename=fh.name;
+    // Check for lock file — need the parent folder
+    // If we have a folder handle, check lock. Otherwise just open.
+    if(ADB.folderHandle){
+      return ADB.readLockFile(fh.name).then(function(lock){
+        if(lock){
+          var inspName=_getInspectorName()||'You';
+          // If this user is the one who locked it, allow edit
+          if(lock.inspector===inspName){
+            return fh.getFile().then(function(f){return f.text();}).then(function(t){return{text:t,readOnly:false};});
+          }
+          var lockTime=new Date(lock.opened);
+          var ago=Math.round((Date.now()-lockTime.getTime())/60000);
+          var STALE_MINUTES=240; // 4 hours
+          // Stale lock detection: if >4 hours old, auto-expire
+          if(ago>STALE_MINUTES){
+            toast('⚠️ Stale lock from '+lock.inspector+' ('+Math.round(ago/60)+'h ago) — auto-cleared');
+            ADB.removeLockFile();
+            return fh.getFile().then(function(f){return f.text();}).then(function(t){return{text:t,readOnly:false};});
+          }
+          var timeStr=ago<60?ago+' min ago':Math.round(ago/60)+'h ago';
+          var choice=confirm('🔒 This file is currently being edited by:\n\n   '+lock.inspector+' (opened '+timeStr+')\n\nClick OK to open READ-ONLY.\nClick Cancel to abort.');
+          if(!choice)return Promise.reject({name:'AbortError'});
+          return fh.getFile().then(function(f){return f.text();}).then(function(t){return{text:t,readOnly:true};});
+        }
+        return fh.getFile().then(function(f){return f.text();}).then(function(t){return{text:t,readOnly:false};});
+      });
+    }
+    return fh.getFile().then(function(f){return f.text();}).then(function(t){return{text:t,readOnly:false};});
+  }).then(function(result){
+    if(!result||!result.text)return;
+    try{
+      var data=JSON.parse(result.text);
+      if(!data.id)data.id='proj_'+Date.now();
+      if(!data.contractors){data.contractors=[];data.generalDeficiencies=data.deficiencies||[];delete data.deficiencies;data.nextDeficNum=(data.generalDeficiencies||[]).length+1;}
+      allProjects[data.id]=data;
+      ADB.setReadOnly(result.readOnly);
+      if(result.readOnly){
+        document.getElementById('readonly-banner-text').textContent='🔒 Read-only — this file is being edited by another user. Changes will NOT be saved to the shared folder.';
+      }
+      ADB.saveFullProject(data).then(function(){
+        toast(result.readOnly?'Opened READ-ONLY: '+_openedFilename:'Opened: '+(data.info.projectName||'Untitled'));
+        enterProject(data.id);
+        // If not read-only, create our lock file
+        if(!result.readOnly&&ADB.folderHandle){
+          var inspName=_getInspectorName()||'Unknown';
+          ADB.writeLockFile(_openedFilename,inspName);
+          ADB._openedJsonFilename=_openedFilename;
+        }
+      });
+    }catch(err){alert('Invalid JSON file: '+err.message);}
+  }).catch(function(e){if(e.name!=='AbortError')console.warn('Open cancelled',e);});
+}
 
 function _getInspectorName(){
   try{return localStorage.getItem('ARENCON_FR_Inspector')||'';}catch(e){return '';}
 }
 
-async function forceUnlockAndEdit(){
-  if(!await _aConfirm('This will take over the lock from the other user.\nThey will lose the ability to save.\n\nAre you sure?'))return;
+function forceUnlockAndEdit(){
+  if(!confirm('This will take over the lock from the other user.\nThey will lose the ability to save.\n\nAre you sure?'))return;
   ADB.setReadOnly(false);
   var fn=ADB._openedJsonFilename||'';
   if(fn&&ADB.folderHandle){
@@ -4097,14 +4198,14 @@ document.addEventListener('keydown',function(e){
 });
 
 // ═══ RESET ═══
-async function resetCurrentProject(){if(!currentProjectId)return;if(!await _aConfirm('Reset this project? All data will be cleared.'))return;var p=getProject();var _ci=getInspectorName();var fresh=newProject({projectName:p.info.projectName,projectNumber:p.info.projectNumber,client:p.info.client,inspectorName:_ci});fresh.id=p.id;fresh.created=p.created;allProjects[currentProjectId]=fresh;saveToLS();populateProjectFields();switchTab('info');}
+function resetCurrentProject(){if(!currentProjectId)return;if(!confirm('Reset this project? All data will be cleared.'))return;var p=getProject();var _ci=getInspectorName();var fresh=newProject({projectName:p.info.projectName,projectNumber:p.info.projectNumber,client:p.info.client,inspectorName:_ci});fresh.id=p.id;fresh.created=p.created;allProjects[currentProjectId]=fresh;saveToLS();populateProjectFields();switchTab('info');}
 
-async function resetCurrentTab(){
+function resetCurrentTab(){
   if(!currentProjectId||!currentTab)return;
   var p=getProject();if(!p)return;
   var labels={info:'Project Info',drawings:'all drawings',deficiencies:'all deficiencies',photos:'all site photos'};
   var label=labels[currentTab]||currentTab;
-  if(!await _aConfirm('Clear '+label+' for this project? This cannot be undone.'))return;
+  if(!confirm('Clear '+label+' for this project? This cannot be undone.'))return;
   pushUndo();
   if(currentTab==='drawings'){
     getAllDeficiencies(p).forEach(function(r){r.defic.drawingId=null;r.defic.pinX=null;r.defic.pinY=null;});
@@ -4131,9 +4232,26 @@ async function resetCurrentTab(){
     resetCurrentProject();return;
   }
 }
+function resetAllProjects(){if(!confirm('DELETE ALL PROJECTS? This cannot be undone!'))return;var check=prompt('Type DELETE to confirm:');if(check!=='DELETE')return;
+  Promise.all([ADB.clear('projects'),ADB.clear('drawings'),ADB.clear('photos'),ADB.clear('sitePhotos'),ADB.clear('backups')]).then(function(){
+    allProjects={};goToDashboard();toast('All projects deleted');
+  });
+}
 
 // ═══ STUB FUNCTIONS for header buttons ═══
+function manualSaveToIDB(){
+  if(!currentProjectId)return;saveToLS();var p=getProject();
+  if(p)ADB.saveFullProject(p).then(function(){
+    updateSaveTimestamp();
+    if(ADB.folderHandle){
+      manualSaveToFolder();
+    }else{
+      showToast('Project saved to browser');
+    }
+  }).catch(function(e){showToast('Save error: '+e.message);});
+}
 function exportProjectJSON(){saveJSON();}
+function shareProject(){if(navigator.share){navigator.share({title:'ARENCON Field Review',text:'Field Review Project',url:window.location.href}).catch(function(){});}else{navigator.clipboard.writeText(window.location.href);showToast('Link copied to clipboard');}}
 var _dashShowAll=false;
 function toggleMyAllProjects(){
   _dashShowAll=!_dashShowAll;
@@ -4170,7 +4288,7 @@ function showInspector(){
     chipDel.style.cssText='padding:4px 8px 4px 4px;border:none;background:transparent;color:#C0392B;font-size:11px;cursor:pointer;opacity:.6;';
     chipDel.title='Remove '+name;
     chipDel.textContent='✕';
-    chipDel.onclick=async function(e){e.stopPropagation();if(!await _aConfirm('Remove "'+name+'" from inspector history?'))return;_removeInspectorFromHistory(name);overlay.remove();showInspector();};
+    chipDel.onclick=function(e){e.stopPropagation();if(!confirm('Remove "'+name+'" from inspector history?'))return;_removeInspectorFromHistory(name);overlay.remove();showInspector();};
     chipWrap.appendChild(chipLabel);chipWrap.appendChild(chipDel);
     chipsWrap.appendChild(chipWrap);
   });
@@ -4275,6 +4393,7 @@ function _showUnsavedModal(onProceed){
   document.getElementById('unsaved-cancel-btn').onclick=function(){ov.remove();};
   ov.addEventListener('keydown',function(e){if(e.key==='Escape')ov.remove();});
 }
+
 
 // ═══ INSPECTOR CHIP — update display ═══
 function _updateInspectorChip(){
@@ -4415,6 +4534,7 @@ function _genThumb(dataUrl, callback){
   }
 }
 
+
 var _selectedDrawings=new Set();
 function toggleFolderSelect(folderId,cb){
   var p=getProject();if(!p)return;
@@ -4439,6 +4559,35 @@ function updateDrawingCheckboxes(){
   });
 }
 function updateBulkBar(){_updateSelectionUI();}
+function bulkDeleteDrawings(){
+  if(!confirm('Delete '+_selectedDrawings.size+' selected drawings?'))return;
+  var p=getProject();if(!p)return;
+  p.drawings=p.drawings.filter(function(d){return!_selectedDrawings.has(d.id);});
+  _selectedDrawings.clear();pushUndo();saveToLS();_folderQuickSave();renderDrawingGallery();toast('Drawings deleted');
+}
+function bulkExportDrawings(){
+  var p=getProject();if(!p)return;
+  _selectedDrawings.forEach(function(did){
+    var d=p.drawings.find(function(x){return x.id===did;});
+    if(d&&d.dataUrl){
+      var a=document.createElement('a');a.href=d.dataUrl;a.download=(d.name||'drawing')+'.png';a.click();
+    }
+  });
+  toast('Exporting '+_selectedDrawings.size+' drawings');
+}
+function bulkMoveDrawings(){
+  var p=getProject();if(!p)return;
+  var folders=[];p.drawings.forEach(function(d){if(d.folder&&folders.indexOf(d.folder)===-1)folders.push(d.folder);});
+  folders.unshift('unfiled');
+  var target=prompt('Move to folder:\n'+folders.join('\n'));
+  if(!target)return;
+  _selectedDrawings.forEach(function(did){
+    var d=p.drawings.find(function(x){return x.id===did;});
+    if(d)d.folder=target==='unfiled'?'':target;
+  });
+  _selectedDrawings.clear();pushUndo();saveToLS();renderDrawingGallery();toast('Drawings moved');
+}
+function clearDrawingSelection(){_selectedDrawings.clear();_selectedFolders.clear();updateBulkBar();updateDrawingCheckboxes();}
 
 // ═══ DRAWINGS: Upload, Gallery, Viewer, Pan/Zoom, Pins ═══
 var dvState={scale:1,panX:0,panY:0,pinMode:false,currentDrawingId:null,selectedPinId:null,draggingPin:false,dragStartX:0,dragStartY:0,origPinX:0,origPinY:0,longPressTimer:null,longPressTriggered:false,_didDrag:false};
@@ -4542,7 +4691,7 @@ function _handlePDFUploadCore(file){
     var arrayBuf=e.target.result;
     var pdfBufCopy=arrayBuf.slice(0);// Clone BEFORE pdf.js detaches the original
     var ta=new Uint8Array(arrayBuf);
-    var pdfTimeout=setTimeout(function(){hideDrawingLoading();_aModal('PDF is taking too long (>2 min). Try a smaller file.');},120000);
+    var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
     pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
       clearTimeout(pdfTimeout);
       var bn=file.name.replace(/\.pdf$/i,'');
@@ -4561,7 +4710,7 @@ function _handlePDFUploadCore(file){
         return;
       }
       _runPdfPages(pdf,bn,bn,total,pdfBufCopy);
-    }).catch(function(err){hideDrawingLoading();_aModal('PDF error: '+err.message);});
+    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
   };
   reader.readAsArrayBuffer(file);
 }
@@ -4609,7 +4758,7 @@ function _runPdfPages(pdf,bn,folder,total,arrayBuf){
                 if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
                 if(pg<total){go(pg+1);}
                 else{renderDrawingGallery();hideDrawingLoading();}
-              }catch(encErr){hideDrawingLoading();_aModal('Error on page '+pg+': '+encErr.message);}
+              }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
             },0);
           });
         });
@@ -4878,17 +5027,33 @@ function _updateSelectionUI(){
 }
 function getSelectedDrawings(){return Array.from(_selectedDrawings);}
 
-async function createDrawingFolder(){var name=await _aPrompt('Folder name:');if(!name)return;var p=getProject();if(!p._folders)p._folders=[];p._folders.push(name);saveToLS();renderDrawingGallery();}
-async function toggleFolder(fname){var p=getProject();if(!p._collapsedFolders)p._collapsedFolders={};p._collapsedFolders[fname]=!p._collapsedFolders[fname];saveToLS();renderDrawingGallery();}
-async function renameFolderAction(fname){
+function createDrawingFolder(){var name=prompt('Folder name:');if(!name)return;var p=getProject();if(!p._folders)p._folders=[];p._folders.push(name);saveToLS();renderDrawingGallery();}
+function toggleFolder(fname){var p=getProject();if(!p._collapsedFolders)p._collapsedFolders={};p._collapsedFolders[fname]=!p._collapsedFolders[fname];saveToLS();renderDrawingGallery();}
+function folderMenu(fname,e){
+  e.stopPropagation();
   document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
-  var nn=await _aPrompt('Rename folder:',fname);
+  var btn=e.target;var rect=btn.getBoundingClientRect();
+  var menu=document.createElement('div');menu.className='folder-ctx-menu';
+  var isDark=document.body.classList.contains('dark-mode');
+  var bg=isDark?'#2a2d35':'#ffffff';var bdr=isDark?'#3a3e48':'#DDE1E7';var txt=isDark?'#e0e0e0':'#1C2333';var danger=isDark?'#ff6b6b':'#C0392B';
+  menu.style.cssText='position:fixed;top:'+rect.bottom+'px;left:'+(rect.left-120)+'px;min-width:200px;background:'+bg+';border:1px solid '+bdr+';border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:300;overflow:hidden;font-family:Calibri,sans-serif;';
+  menu.innerHTML='<button onclick="renameFolderAction(\''+escHtml(fname).replace(/'/g,"\\'")+'\')" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:inherit;cursor:pointer;font-size:12px;font-family:Calibri,sans-serif;color:inherit;">✏️ Rename folder</button>'
+  +'<button onclick="addToFolderAction(\''+escHtml(fname).replace(/'/g,"\\'")+'\')" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:inherit;cursor:pointer;font-size:12px;font-family:Calibri,sans-serif;color:inherit;">+ Add new plan</button>'
+  +'<button onclick="downloadFolderDrawings(\''+escHtml(fname).replace(/'/g,"\\'")+'\')" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:inherit;cursor:pointer;font-size:12px;font-family:Calibri,sans-serif;color:inherit;">⬇️ Download folder (with pins+markup)</button>'
+  +'<div style="height:1px;background:'+bdr+';margin:2px 0;"></div>'
+  +'<button onclick="deleteFolderAction(\''+escHtml(fname).replace(/'/g,"\\'")+'\')" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:inherit;cursor:pointer;font-size:12px;font-family:Calibri,sans-serif;color:'+danger+';">🗑️ Delete folder</button>';
+  document.body.appendChild(menu);
+  setTimeout(function(){document.addEventListener('click',function closeFM(){menu.remove();document.removeEventListener('click',closeFM);});},10);
+}
+function renameFolderAction(fname){
+  document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
+  var nn=prompt('Rename folder:',fname);
   if(nn&&nn!==fname){var p=getProject();p.drawings.forEach(function(d){if(d.folder===fname)d.folder=nn;});if(p._folders){var idx=p._folders.indexOf(fname);if(idx>=0)p._folders[idx]=nn;}saveToLS();renderDrawingGallery();}
 }
 
 // ── Folder rename via button ──
-async function promptFolderRename(fname){
-  var nn=await _aPrompt('Rename folder:',fname);
+function promptFolderRename(fname){
+  var nn=prompt('Rename folder:',fname);
   if(nn&&nn.trim()&&nn.trim()!==fname){
     var p=getProject();
     p.drawings.forEach(function(d){if(d.folder===fname)d.folder=nn.trim();});
@@ -4931,7 +5096,7 @@ function _handlePDFUploadToFolderCore(file,folder){
     var arrayBuf=e.target.result;
     var pdfBufCopy2=arrayBuf.slice(0);// Clone BEFORE pdf.js detaches the original
     var ta=new Uint8Array(arrayBuf);
-    var pdfTimeout2=setTimeout(function(){hideDrawingLoading();_aModal('PDF is taking too long (>2 min). Try a smaller file.');},120000);
+    var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
     pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
       clearTimeout(pdfTimeout2);
       var bn=file.name.replace(/\.pdf$/i,'');
@@ -4949,7 +5114,7 @@ function _handlePDFUploadToFolderCore(file,folder){
         return;
       }
       _runPdfPagesToFolder(pdf,bn,folder,total,pdfBufCopy2);
-    }).catch(function(err){hideDrawingLoading();_aModal('PDF error: '+err.message);});
+    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
   };
   reader.readAsArrayBuffer(file);
 }
@@ -4994,7 +5159,7 @@ function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
                 if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
                 if(pg<total){go(pg+1);}
                 else{renderDrawingGallery();hideDrawingLoading();}
-              }catch(encErr){hideDrawingLoading();_aModal('Error on page '+pg+': '+encErr.message);}
+              }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
             },0);
           });
         });
@@ -5011,9 +5176,9 @@ function downloadFolderDrawings(fname){
     setTimeout(function(){openDownloadDialog(dwg.id);},i*100);
   });
 }
-async function deleteFolderAction(fname){
+function deleteFolderAction(fname){
   document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
-  if(!await _aConfirm('Delete folder "'+fname+'"? Drawings will be moved to Unfiled.'))return;
+  if(!confirm('Delete folder "'+fname+'"? Drawings will be moved to Unfiled.'))return;
   var p=getProject();p.drawings.forEach(function(d){if(d.folder===fname)d.folder='';});saveToLS();renderDrawingGallery();
 }
 function toggleActionsMenu(e){e.stopPropagation();document.getElementById('dwg-actions-menu').classList.toggle('open');}
@@ -5036,24 +5201,24 @@ function closeAllCardMenus(){
 }
 document.addEventListener('click',function(){closeAllCardMenus();var am=document.getElementById('dwg-actions-menu');if(am)am.classList.remove('open');});
 
-async function moveDrawingToFolder(id){
+function moveDrawingToFolder(id){
   closeAllCardMenus();
   var p=getProject();var d=p.drawings.find(function(x){return x.id===id;});if(!d)return;
   var folders={};p.drawings.forEach(function(x){if(x.folder)folders[x.folder]=true;});
   var flist=Object.keys(folders).sort();
   var opts=['(Unfiled)'].concat(flist).concat(['+ New folder']);
-  var ch=await _aPrompt('Move to folder:\n'+opts.map(function(o,i){return i+': '+o;}).join('\n'));
+  var ch=prompt('Move to folder:\n'+opts.map(function(o,i){return i+': '+o;}).join('\n'));
   if(ch===null)return;var idx=parseInt(ch);
   if(idx===0)d.folder='';else if(idx>0&&idx<=flist.length)d.folder=flist[idx-1];
-  else if(idx===flist.length+1){var nn=await _aPrompt('New folder name:');if(nn)d.folder=nn;}
+  else if(idx===flist.length+1){var nn=prompt('New folder name:');if(nn)d.folder=nn;}
   saveToLS();renderDrawingGallery();
 }
 // rotateDrawing: see features section
 
-async function batchMoveDrawings(){if(!_selectedDrawings.size){_aModal('No drawings selected.');return;}var p=getProject();var folders={};p.drawings.forEach(function(x){if(x.folder)folders[x.folder]=true;});var flist=Object.keys(folders);var opts=['(Unfiled)'].concat(flist).concat(['+ New folder']);var ch=await _aPrompt('Move '+_selectedDrawings.size+' drawings to:\n'+opts.map(function(o,i){return i+': '+o;}).join('\n'));if(ch===null)return;var idx=parseInt(ch);var target='';if(idx===0)target='';else if(idx>0&&idx<=flist.length)target=flist[idx-1];else if(idx===flist.length+1){var nn=await _aPrompt('New folder name:');if(nn)target=nn;else return;}p.drawings.forEach(function(d){if(_selectedDrawings.has(d.id))d.folder=target;});_selectedDrawings.clear();saveToLS();renderDrawingGallery();}
-async function batchRenameDrawings(){if(!_selectedDrawings.size){_aModal('No drawings selected.');return;}var prefix=await _aPrompt('Rename all selected with prefix (e.g. "FP"):');if(!prefix)return;var p=getProject();var n=1;p.drawings.forEach(function(d){if(_selectedDrawings.has(d.id)){d.name=prefix+'-'+n;n++;}});_selectedDrawings.clear();saveToLS();renderDrawingGallery();}
-async function batchDeleteDrawings(){
-  if(!_selectedDrawings.size&&!_selectedFolders.size){_aModal('No drawings or folders selected.');return;}
+function batchMoveDrawings(){if(!_selectedDrawings.size){alert('No drawings selected.');return;}var p=getProject();var folders={};p.drawings.forEach(function(x){if(x.folder)folders[x.folder]=true;});var flist=Object.keys(folders);var opts=['(Unfiled)'].concat(flist).concat(['+ New folder']);var ch=prompt('Move '+_selectedDrawings.size+' drawings to:\n'+opts.map(function(o,i){return i+': '+o;}).join('\n'));if(ch===null)return;var idx=parseInt(ch);var target='';if(idx===0)target='';else if(idx>0&&idx<=flist.length)target=flist[idx-1];else if(idx===flist.length+1){var nn=prompt('New folder name:');if(nn)target=nn;else return;}p.drawings.forEach(function(d){if(_selectedDrawings.has(d.id))d.folder=target;});_selectedDrawings.clear();saveToLS();renderDrawingGallery();}
+function batchRenameDrawings(){if(!_selectedDrawings.size){alert('No drawings selected.');return;}var prefix=prompt('Rename all selected with prefix (e.g. "FP"):');if(!prefix)return;var p=getProject();var n=1;p.drawings.forEach(function(d){if(_selectedDrawings.has(d.id)){d.name=prefix+'-'+n;n++;}});_selectedDrawings.clear();saveToLS();renderDrawingGallery();}
+function batchDeleteDrawings(){
+  if(!_selectedDrawings.size&&!_selectedFolders.size){alert('No drawings or folders selected.');return;}
   var p=getProject();if(!p)return;
   // Count what will be deleted
   var dwgCount=_selectedDrawings.size;
@@ -5062,7 +5227,7 @@ async function batchDeleteDrawings(){
   if(dwgCount&&folderCount)msg+=dwgCount+' drawing'+(dwgCount>1?'s':'')+' and '+folderCount+' folder'+(folderCount>1?'s':'')+'?';
   else if(folderCount)msg+=folderCount+' folder'+(folderCount>1?'s':'')+' and all drawings inside?';
   else msg+=dwgCount+' selected drawing'+(dwgCount>1?'s':'')+'?';
-  if(!await _aConfirm(msg))return;
+  if(!confirm(msg))return;
   // Delete drawings in selected folders
   if(_selectedFolders.size){
     p.drawings=p.drawings.filter(function(d){
@@ -5087,12 +5252,13 @@ function _cleanEmptyFolders(p){
   var usedFolders={};p.drawings.forEach(function(d){if(d.folder)usedFolders[d.folder]=true;});
   p._folders=p._folders.filter(function(fn){return usedFolders[fn];});
 }
-async function renameDrawing(id){var p=getProject();var d=p.drawings.find(function(x){return x.id===id;});if(!d)return;var n=await _aPrompt('Rename:',d.name);if(n){d.name=n;saveToLS();renderDrawingGallery();}}
-async function removeDrawing(id){if(!await _aConfirm('Delete this drawing?'))return;var p=getProject();p.drawings=p.drawings.filter(function(x){return x.id!==id;});(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});});(p.generalDeficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});// Immediate IDB delete + save — bypass debounce so deletion survives page refresh
+function renameDrawing(id){var p=getProject();var d=p.drawings.find(function(x){return x.id===id;});if(!d)return;var n=prompt('Rename:',d.name);if(n){d.name=n;saveToLS();renderDrawingGallery();}}
+function removeDrawing(id){if(!confirm('Delete this drawing?'))return;var p=getProject();p.drawings=p.drawings.filter(function(x){return x.id!==id;});(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});});(p.generalDeficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});// Immediate IDB delete + save — bypass debounce so deletion survives page refresh
 ADB.delete('drawings',id).catch(function(){});
 ADB.saveFullProject(p).then(function(){ADB.markDirty();updateSaveTimestamp();}).catch(function(e){console.error('Delete save error',e);});
 _debouncedCloudSave();
 renderDrawingGallery();}
+
 
 // ══════════════════════════════════════════════════════════════
 // TILED PDF RENDERER — renders visible tiles on demand from raw PDF
@@ -5525,6 +5691,8 @@ function applyTransform(){
 }
 function zoomIn(){dvState.scale=Math.min(dvState.scale*1.3,10);applyTransform();}
 function zoomOut(){var minS=dvState.fitScale||0.1;dvState.scale=Math.max(dvState.scale/1.3,minS);if(dvState.scale<=minS*1.05){fitDrawing();return;}applyTransform();}
+function toggleSearchBar(){var bar=document.getElementById('dv-search-bar');bar.style.display=bar.style.display==='none'?'flex':'none';if(bar.style.display==='flex')document.getElementById('dv-search-input').focus();}
+function searchPlanText(){var q=(document.getElementById('dv-search-input').value||'').trim();if(!q){alert('Enter search text');return;}alert('Search plan text is a placeholder — OCR-based plan text search requires server-side processing. For now, use drawing names to identify plans.');}
 
 function initPanZoom(){var area=document.getElementById('dv-canvas-area');var na=area.cloneNode(true);area.parentNode.replaceChild(na,area);area=na;var sx,sy,pan=false;
 
@@ -5696,13 +5864,39 @@ area.addEventListener('click',function(e){
 if(!document._dvKeyHandler){document._dvKeyHandler=true;document.addEventListener('keydown',function(e){if(!document.getElementById('drawing-viewer').classList.contains('open'))return;if(e.key==='ArrowLeft')prevDrawing();if(e.key==='ArrowRight')nextDrawing();});}
 }
 
+function deleteSelectedPin(){if(!dvState.selectedPinId)return;if(!confirm('Delete this task?'))return;var f=findDeficiency(dvState.selectedPinId);if(f){f.arr.splice(f.idx,1);saveToLS();_folderQuickSave();}dvState.selectedPinId=null;renderPinsOnDrawing();renderTasksPanel();}
+
 // Delete All Markup / Pins dropdown
-async function closeDvDeleteMenu(){var m=document.getElementById('dv-delete-menu');if(m)m.style.display='none';}
-async function deleteAllMarkupOnDrawing(){
+function _dvDeleteSelectedPin(){
+  if(!dvState.selectedPinId)return;
+  if(!confirm('Delete this pin and all its deficiency data?'))return;
+  var f=findDeficiency(dvState.selectedPinId);
+  if(f){f.arr.splice(f.idx,1);saveToLS();_folderQuickSave();}
+  dvState.selectedPinId=null;renderPinsOnDrawing();renderTasksPanel();closePinPanel();closePinModal();
+}
+function toggleDvDeleteMenu(e){
+  e.stopPropagation();
+  var m=document.getElementById('dv-delete-menu');
+  var open=m.style.display==='block';
+  if(!open){
+    var hasMkSel=(_mkSelectedIds&&_mkSelectedIds.length>0)||!!_mkSelectedId;
+    var hasPinSel=!!dvState.selectedPinId;
+    var sm=document.getElementById('dv-del-sel-markup');
+    var sp=document.getElementById('dv-del-sel-pin');
+    var sep=document.getElementById('dv-del-sel-sep');
+    if(sm)sm.style.display=hasMkSel?'flex':'none';
+    if(sp)sp.style.display=hasPinSel?'flex':'none';
+    if(sep)sep.style.display=(hasMkSel||hasPinSel)?'block':'none';
+  }
+  m.style.display=open?'none':'block';
+  if(!open){setTimeout(function(){document.addEventListener('click',closeDvDeleteMenu,{once:true});},10);}
+}
+function closeDvDeleteMenu(){var m=document.getElementById('dv-delete-menu');if(m)m.style.display='none';}
+function deleteAllMarkupOnDrawing(){
   if(!dvState.currentDrawingId)return;
   var count=_mkObjects.length;
   if(!count){toast('No markup on this drawing.');return;}
-  if(!await _aConfirm('Delete all '+count+' markup object'+(count!==1?'s':'')+' on this drawing? This cannot be undone.'))return;
+  if(!confirm('Delete all '+count+' markup object'+(count!==1?'s':'')+' on this drawing? This cannot be undone.'))return;
   mkPushHistory();_mkObjects=[];
   var p=getProject();
   if(p&&dvState.currentDrawingId){
@@ -5730,13 +5924,13 @@ async function deleteAllMarkupOnDrawing(){
   renderAllMarkup();saveMarkupData();_forceCloudSave();
   toast('🗑️ Deleted '+count+' markup object'+(count!==1?'s':''));
 }
-async function deleteAllPinsOnDrawing(){
+function deleteAllPinsOnDrawing(){
   if(!dvState.currentDrawingId)return;
   var p=getProject();if(!p)return;
   var ad=getAllDeficiencies(p);
   var pins=ad.filter(function(d){return d.defic.drawingId===dvState.currentDrawingId&&d.defic.pinX!=null;});
   if(!pins.length){toast('No pins on this drawing.');return;}
-  if(!await _aConfirm('Delete all '+pins.length+' pin'+(pins.length!==1?'s':'')+' and their linked deficiencies from this drawing? This cannot be undone.'))return;
+  if(!confirm('Delete all '+pins.length+' pin'+(pins.length!==1?'s':'')+' and their linked deficiencies from this drawing? This cannot be undone.'))return;
   pins.forEach(function(d){d.arr.splice(d.idx,1);});
   saveToLS();_folderQuickSave();renderPinsOnDrawing();renderTasksPanel();renderDeficiencyPanel();
   toast('🗑️ Deleted '+pins.length+' pin'+(pins.length!==1?'s':''));
@@ -5941,6 +6135,8 @@ function renderTasksPanel(){
 }
 
 var _drawingView='grid';
+function collapseAllFolders(){var p=getProject();if(!p)return;if(!p._collapsedFolders)p._collapsedFolders={};p.drawings.forEach(function(d){if(d.folder)p._collapsedFolders[d.folder]=true;});p._collapsedFolders['__unfiled']=true;saveToLS();renderDrawingGallery();}
+function expandAllFolders(){var p=getProject();if(!p)return;p._collapsedFolders={};saveToLS();renderDrawingGallery();}
 
 function toggleFilterMenu(e){e.stopPropagation();var m=document.getElementById('dwg-filter-menu');m.classList.toggle('open');document.addEventListener('click',function h(){m.classList.remove('open');document.removeEventListener('click',h);},{once:true});}
 function closeFilterMenu(){var m=document.getElementById('dwg-filter-menu');if(m)m.classList.remove('open');}
@@ -6070,6 +6266,7 @@ function handlePinClick(deficId){
   renderPinsOnDrawing();
   openPinEditor(deficId);
 }
+
 
 function _mkNewId(){return 'mk_'+ (_mkNextId++);}
 
@@ -7002,10 +7199,38 @@ function loadMarkupData(){
 
 // ── LAYER VISIBILITY ──
 var _layerVis={pins:true,markup:true};
+function toggleLayerVis(layer,btn){
+  _layerVis[layer]=!_layerVis[layer];
+  var on=_layerVis[layer];
+  if(btn){btn.classList.toggle('active',on);btn.style.opacity=on?'1':'0.4';}
+  if(layer==='pins'){var el=document.getElementById('dv-pins-layer');if(el)el.style.opacity=on?'1':'0';}
+  else if(layer==='markup'){var cv=document.getElementById('markup-canvas');if(cv)cv.style.opacity=on?'1':'0';}
+}
+function setLayerVisForExport(pins,markup){
+  var pEl=document.getElementById('dv-pins-layer');var mEl=document.getElementById('markup-canvas');
+  var prev={pOp:pEl?pEl.style.opacity:'',mOp:mEl?mEl.style.opacity:''};
+  if(pEl)pEl.style.opacity=pins?'1':'0';
+  if(mEl)mEl.style.opacity=markup?'1':'0';
+  return function(){if(pEl)pEl.style.opacity=prev.pOp;if(mEl)mEl.style.opacity=prev.mOp;};
+}
+function toggleLayer(layer,show){layerToggle(layer,show);}
 
 var _textSizeIndex=0;
 var _textSizes=[16,24,36,48];
 var _textSizeLabels=['S','M','L','XL'];
+
+function cycleTextSize(){
+  _textSizeIndex=(_textSizeIndex+1)%_textSizes.length;
+  setFontSize(_textSizes[_textSizeIndex]);
+  setMarkupTool('text');
+  var btn=document.getElementById('mk-text');
+  if(btn)btn.title='Text ('+_textSizeLabels[_textSizeIndex]+')';
+  showToast('Text: '+_textSizeLabels[_textSizeIndex],800);
+}
+function toggleColorPicker(){
+  var p=document.getElementById('mk-color-picker');
+  if(p)p.style.display=p.style.display==='none'?'block':'none';
+}
 
 // ═══ TOOLTIP — floating, no layout shift ═══
 function initToolbarTooltips(){
@@ -7091,6 +7316,7 @@ function setMarkupColorNew(color){
   var sw=document.getElementById('mk-color-swatch');if(sw)sw.style.background=color;
   var sub=document.getElementById('color-submenu');if(sub){sub.classList.remove('open');_colorMenuOpen=false;}
 }
+function setMarkupColor(color,el){setMarkupColorNew(color);}
 
 // ═══ SIZE / OPACITY / TEXT-SIZE LABELS ═══
 function updateSizeLabel(v){var el=document.getElementById('mk-size-input');if(el)el.value=v;}
@@ -7106,6 +7332,11 @@ function deleteSelectedShape(){
   renderAllMarkup();saveMarkupData();_forceCloudSave();
   showToast(toDelete.length>1?toDelete.length+' markups deleted':'Markup deleted');
 }
+function redrawAllShapes(){renderAllMarkup();}
+function findShapeAtPoint(x,y){var hit=_mkHitTest(x,y);if(!hit)return -1;for(var i=0;i<_mkObjects.length;i++){if(_mkObjects[i].id===hit.id)return i;}return -1;}
+function handleCanvasSelectClick(e){/* handled inline in initMarkupEvents */}
+function _selectClickHandler(e){/* no-op, handled inline */}
+
 
 // ═══ DRAWING DOWNLOAD DIALOG ═══
 var _dlDrawingId=null;
@@ -7360,6 +7591,8 @@ setTimeout(function(){
   });
 },1000);
 
+function downloadCurrentDrawing(){openDownloadDialog(dvState.currentDrawingId);}
+
 function downloadAllDrawings(){
   var p=getProject();if(!p||!p.drawings.length)return;
   toast('Preparing '+p.drawings.length+' drawings — your browser will download each one...');
@@ -7397,11 +7630,13 @@ var _lbCanvas=null;
 
 // openLightbox: see features section
 
+
 function _lbShowCurrent(){
   _lbShowCurrentDirect();
 }
 
 // closeLightbox: see features section
+
 
 function lightboxPrev(e){e.stopPropagation();if(_lbPhotos.length<2)return;_lbIdx=(_lbIdx-1+_lbPhotos.length)%_lbPhotos.length;_lbShowCurrent();}
 function lightboxNext(e){e.stopPropagation();if(_lbPhotos.length<2)return;_lbIdx=(_lbIdx+1)%_lbPhotos.length;_lbShowCurrent();}
@@ -8054,6 +8289,8 @@ function lightboxSaveMarkup(){
   _lbHideToolbar();
   _lbShowCurrentDirect();
 }
+function lightboxSave(){lightboxSaveMarkup();}
+function lightboxSaveCopy(){lightboxSaveMarkup();}
 
 function _replacePhotoInProject(p,oldSrc,newSrc){
   var replaced=false;
@@ -8082,12 +8319,27 @@ function _replacePhotoInProject(p,oldSrc,newSrc){
   return replaced;
 }
 
+function wirePhotoLightbox(container){
+  if(!container)container=document;
+  container.querySelectorAll('.photo-thumb,.evidence-photo,.resp-photo-thumb,img[data-lightbox]').forEach(function(img){
+    if(img._lbWired)return; img._lbWired=true;
+    img.style.cursor='zoom-in';
+    img.addEventListener('click',function(e){
+      e.stopPropagation();
+      var parent=img.closest('.photo-row,.photo-group,.photo-gallery,.evidence-photos,.resp-photos') || img.parentElement;
+      var imgs=Array.from(parent.querySelectorAll('img[src]')).filter(function(i){return i.src&&i.src.startsWith('data:');});
+      if(!imgs.length)imgs=[img];
+      var idx=imgs.indexOf(img); if(idx<0)idx=0;
+      openLightbox(img.src,imgs.map(function(i){return i.src;}),idx);
+    });
+  });
+}
 // ═══ CONTRACTOR DEFICIENCY SYSTEM — Pump Tool Style ═══
-function addContractor(){var input=document.getElementById('new-contractor-input');var name=(input.value||'').trim();if(!name)return;var p=getProject();if(p.contractors.some(function(c){return c.name.toLowerCase()===name.toLowerCase();})){_aModal('"'+name+'" already exists.');return;}p.contractors.push({id:'ctr_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,deficiencies:[]});input.value='';saveToLS();_folderQuickSave();renderDeficiencyPanel();}
-async function removeContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;if(c.deficiencies.length>0){if(!await _aConfirm('"'+c.name+'" has '+c.deficiencies.length+' deficiencies. Move to General?'))return;c.deficiencies.forEach(function(d){p.generalDeficiencies.push(d);});}else if(!await _aConfirm('Remove "'+c.name+'"?'))return;p.contractors=p.contractors.filter(function(x){return x.id!==cid;});saveToLS();_folderQuickSave();renderDeficiencyPanel();}
+function addContractor(){var input=document.getElementById('new-contractor-input');var name=(input.value||'').trim();if(!name)return;var p=getProject();if(p.contractors.some(function(c){return c.name.toLowerCase()===name.toLowerCase();})){alert('"'+name+'" already exists.');return;}p.contractors.push({id:'ctr_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,deficiencies:[]});input.value='';saveToLS();_folderQuickSave();renderDeficiencyPanel();}
+function removeContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;if(c.deficiencies.length>0){if(!confirm('"'+c.name+'" has '+c.deficiencies.length+' deficiencies. Move to General?'))return;c.deficiencies.forEach(function(d){p.generalDeficiencies.push(d);});}else if(!confirm('Remove "'+c.name+'"?'))return;p.contractors=p.contractors.filter(function(x){return x.id!==cid;});saveToLS();_folderQuickSave();renderDeficiencyPanel();}
 function renderDeficiencyPanel(){renderContractorChips();renderDeficGroups();renderSummaryTable();setTimeout(function(){populateRespPhotos();_loadDataSrcImgs(document.getElementById('panel-deficiencies'));},50);if(_reviewActive)setTimeout(_updateReviewBadge,100);}
 function renderContractorChips(){var p=getProject();if(!p)return;var el=document.getElementById('contractor-chips');if(!p.contractors.length){el.innerHTML='<span style="color:#999;font-size:13px;">No contractors added yet.</span>';return;}el.innerHTML=p.contractors.map(function(c){return'<div class="contractor-chip"><span>'+escHtml(c.name)+'</span><button onclick="renameContractor(\''+c.id+'\')" title="Rename" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;opacity:.7;color:inherit;">✏</button><button onclick="removeContractor(\''+c.id+'\')" title="Remove">✕</button></div>';}).join('');}
-async function renameContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;var nn=await _aPrompt('Rename contractor:',c.name);if(!nn||!nn.trim()||nn.trim()===c.name)return;nn=nn.trim();if(p.contractors.some(function(x){return x.id!==cid&&x.name.toLowerCase()===nn.toLowerCase();})){_aModal('"'+nn+'" already exists.');return;}var oldName=c.name;c.name=nn;// Update _foldedCtrs key if it was set
+function renameContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;var nn=prompt('Rename contractor:',c.name);if(!nn||!nn.trim()||nn.trim()===c.name)return;nn=nn.trim();if(p.contractors.some(function(x){return x.id!==cid&&x.name.toLowerCase()===nn.toLowerCase();})){alert('"'+nn+'" already exists.');return;}var oldName=c.name;c.name=nn;// Update _foldedCtrs key if it was set
 if(_foldedCtrs[oldName]){_foldedCtrs[nn]=_foldedCtrs[oldName];delete _foldedCtrs[oldName];}saveToLS();renderDeficiencyPanel();}
 function renderDeficGroups(){var p=getProject();if(!p)return;var el=document.getElementById('defic-groups');if(!p.contractors.length&&!p.generalDeficiencies.length){el.innerHTML='<p style="color:#999;font-size:13px;padding:12px 0;text-align:center;">Add a contractor above to start recording deficiencies.</p>';return;}var html='';p.contractors.forEach(function(c){html+=buildDeficGroup(c.id,c.name,c.deficiencies);});if(p.generalDeficiencies.length>0)html+=buildDeficGroup(null,'General',p.generalDeficiencies);el.innerHTML=html;}
 
@@ -8191,15 +8443,15 @@ function addDeficEntry(did){
   f.defic.entries.push({description:'',photos:[],priority:'high'});
   pushUndo();saveToLS();renderDeficiencyPanel();
 }
-async function removeDeficEntry(did,ei){
+function removeDeficEntry(did,ei){
   var f=findDeficiency(did);if(!f||!f.defic.entries)return;
-  if(f.defic.entries.length<=1){_aModal('Cannot remove the last observation.');return;}
-  if(!await _aConfirm('Remove observation '+String.fromCharCode(65+ei)+'?'))return;
+  if(f.defic.entries.length<=1){alert('Cannot remove the last observation.');return;}
+  if(!confirm('Remove observation '+String.fromCharCode(65+ei)+'?'))return;
   f.defic.entries.splice(ei,1);
   pushUndo();saveToLS();renderDeficiencyPanel();
 }
-async function removeEntryPhoto(did,ei,pi){
-  if(!await _aConfirm('Remove this photo?'))return;
+function removeEntryPhoto(did,ei,pi){
+  if(!confirm('Remove this photo?'))return;
   var f=findDeficiency(did);if(!f||!f.defic.entries||!f.defic.entries[ei])return;
   var ph=f.defic.entries[ei].photos[pi];
   if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
@@ -8259,10 +8511,10 @@ function processEntryPhotos(did,ei,files){
 function addDeficiencyForGroup(ctrId){var p=getProject();var num=p.nextDeficNum++;var d=newDeficiency(num);if(ctrId){var c=p.contractors.find(function(x){return x.id===ctrId;});if(c)c.deficiencies.push(d);}else{p.generalDeficiencies.push(d);}pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();setTimeout(function(){var el=document.getElementById('defic-item-'+d.id);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},100);}
 function updateDeficField(did,field,val){var f=findDeficiency(did);if(f){f.defic[field]=val;saveToLS();if(field==='status'){renderSummaryTable();_folderQuickSave();}_scheduleReviewUpdate();}}
 
-async function toggleIARInPlace(btn,did){
+function toggleIARInPlace(btn,did){
   var f=findDeficiency(did);if(!f)return;
   if(f.defic.iar){
-    if(!await _aConfirm('Deactivate IAR for deficiency #'+f.defic.num+'?'))return;
+    if(!confirm('Deactivate IAR for deficiency #'+f.defic.num+'?'))return;
   } else {
     // Re-enabling IAR: reset consultant closedItem flags so close button reappears
     if(f.defic.responses){f.defic.responses.forEach(function(r){if(r.closedItem)r.closedItem=false;});}
@@ -8272,7 +8524,7 @@ async function toggleIARInPlace(btn,did){
   else{btn.classList.remove('on');btn.classList.add('off');btn.innerHTML='⚡ IAR';}
   renderDeficiencyPanel();renderSummaryTable();
 }
-async function removeDeficiency(did){if(!await _aConfirm('Delete this deficiency?'))return;var f=findDeficiency(did);if(f){f.arr.splice(f.idx,1);pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();}}
+function removeDeficiency(did){if(!confirm('Delete this deficiency?'))return;var f=findDeficiency(did);if(f){f.arr.splice(f.idx,1);pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();}}
 function duplicateDeficiency(did){
   var f=findDeficiency(did);if(!f)return;
   var p=getProject();var num=p.nextDeficNum++;
@@ -8342,7 +8594,7 @@ function moveDeficiency(did){
 async function reuploadAllToCloud(){
   if(!_csHubMode||!_csProjectId){toast('Only available in Hub mode');return;}
   var p=getProject();if(!p)return;
-  if(!await _aConfirm('This will reset all drawings and photos to "pending" upload status and re-queue everything from local storage to R2.\n\nUse this if files are missing from the cloud. It may take several minutes.\n\nContinue?'))return;
+  if(!confirm('This will reset all drawings and photos to "pending" upload status and re-queue everything from local storage to R2.\n\nUse this if files are missing from the cloud. It may take several minutes.\n\nContinue?'))return;
 
   var queued=0;
   var hubId=_getR2FolderId();
@@ -8462,9 +8714,9 @@ function bulkSelectNone(){
 function _getSelectedDeficIds(){
   var ids=[];document.querySelectorAll('.bulk-checkbox:checked').forEach(function(cb){ids.push(cb.getAttribute('data-defic-id'));});return ids;
 }
-async function bulkSetStatus(newStatus){
+function bulkSetStatus(newStatus){
   var ids=_getSelectedDeficIds();if(!ids.length){toast('No deficiencies selected');return;}
-  if(!await _aConfirm((newStatus==='Addressed & Closed'?'Close':'Reopen')+' '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'?'))return;
+  if(!confirm((newStatus==='Addressed & Closed'?'Close':'Reopen')+' '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'?'))return;
   pushUndo();
   ids.forEach(function(id){var f=findDeficiency(id);if(f){f.defic.status=newStatus;if(newStatus==='Addressed & Closed')f.defic.iar=false;}});
   saveToLS();renderDeficiencyPanel();renderSummaryTable();
@@ -8479,9 +8731,9 @@ function bulkToggleIAR(on){
   toast((on?'Set':'Cleared')+' IAR on '+ids.length+' item'+(ids.length>1?'s':''));
   if(_bulkSelectMode){setTimeout(function(){document.querySelectorAll('.bulk-checkbox').forEach(function(cb){cb.checked=false;});updateBulkCount();},50);}
 }
-async function bulkDeleteDefics(){
+function bulkDeleteDefics(){
   var ids=_getSelectedDeficIds();if(!ids.length){toast('No deficiencies selected');return;}
-  if(!await _aConfirm('Permanently delete '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'? This cannot be undone.'))return;
+  if(!confirm('Permanently delete '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'? This cannot be undone.'))return;
   pushUndo();
   var p=getProject();if(!p)return;
   ids.forEach(function(id){
@@ -8611,11 +8863,11 @@ function addDeficResponse(did,party){var f=findDeficiency(did);if(!f)return;if(!
 function removeDeficResponse(did,ri){var f=findDeficiency(did);if(f&&f.defic.responses){f.defic.responses.splice(ri,1);saveToLS();renderDeficiencyPanel();}}
 function updateDeficResponse(did,ri,field,val){var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]){f.defic.responses[ri][field]=val;saveToLS();_scheduleReviewUpdate();}}
 
-async function consultantCloseItem(did,ri){
+function consultantCloseItem(did,ri){
   var f=findDeficiency(did);if(!f)return;
   var d=f.defic;
   if(!d.responses||!d.responses[ri])return;
-  if(!await _aConfirm('Close deficiency #'+d.num+' and deactivate IAR?\n\nThis marks the item as Addressed & Closed.'))return;
+  if(!confirm('Close deficiency #'+d.num+' and deactivate IAR?\n\nThis marks the item as Addressed & Closed.'))return;
   d.responses[ri].closedItem=true;
   d.responses[ri].closedDate=new Date().toISOString().substring(0,10);
   d.status='Addressed & Closed';
@@ -8626,6 +8878,10 @@ async function consultantCloseItem(did,ri){
   if(typeof renderTasksPanel==='function')renderTasksPanel();
   showToast('Observation closed. IAR deactivated.');
 }
+
+function triggerDeficPhotoUpload(did){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){processDeficPhotos(did,inp.files);};inp.click();}
+function triggerDeficPhotoCamera(did){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){processDeficPhotos(did,inp.files);};inp.click();}
+function handleDeficPhotoDrop(e,did){processDeficPhotos(did,e.dataTransfer.files);}
 
 // ── DEFICIENCY PHOTO RECORD HELPERS ──
 // Photos are now objects: {id, dataUrl, r2Key, r2Status, r2Url}
@@ -8790,17 +9046,17 @@ function _r2EnqueueDeficPhoto(rec,deficId){
 // Auto-cleanup orphaned R2 files — runs once per session in background, 30s after load
 // Compares R2 bucket contents against project references, deletes unreferenced files
 async function _r2CleanupOrphans(){
-  if(!_csHubMode||!_csProjectId||typeof R2Photos==='undefined'){_aModal('Must be in Hub mode.');return;}
+  if(!_csHubMode||!_csProjectId||typeof R2Photos==='undefined'){alert('Must be in Hub mode.');return;}
   var WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
   var proj=getProject();
-  if(!proj){_aModal('No project loaded.');return;}
+  if(!proj){alert('No project loaded.');return;}
 
   // Safety: project must have actual data
   var hasAnyData=(proj.drawings&&proj.drawings.length>0)||
                  (proj.sitePhotos&&proj.sitePhotos.length>0)||
                  (proj.generalDeficiencies&&proj.generalDeficiencies.length>0)||
                  ((proj.contractors||[]).some(function(c){return c.deficiencies&&c.deficiencies.length>0;}));
-  if(!hasAnyData){_aModal('Project appears empty — cleanup aborted to prevent accidental deletion.');return;}
+  if(!hasAnyData){alert('Project appears empty — cleanup aborted to prevent accidental deletion.');return;}
 
   // Build set of ALL referenced r2Keys from local project state
   var referencedKeys=new Set();
@@ -8854,7 +9110,7 @@ async function _r2CleanupOrphans(){
   console.log('[R2Cleanup] R2 has '+allR2Files.length+' total files, '+candidates.length+' orphans');
 
   if(candidates.length===0){
-    _aModal('R2 is already clean — all '+allR2Files.length+' files match your local project.');
+    alert('R2 is already clean — all '+allR2Files.length+' files match your local project.');
     return;
   }
 
@@ -8871,7 +9127,7 @@ async function _r2CleanupOrphans(){
     +'Files to delete:\n'+preview+'\n\n'
     +'This cannot be undone. Continue?';
 
-  if(!await _aConfirm(msg))return;
+  if(!confirm(msg))return;
 
   // Delete orphans
   var deleted=0,failed=0;
@@ -8889,7 +9145,7 @@ async function _r2CleanupOrphans(){
 
   var result='R2 Cleanup complete:\n• Deleted: '+deleted+' files\n• Failed: '+failed+' files\n• Remaining: '+(allR2Files.length-deleted)+' files';
   console.log('[R2Cleanup] '+result);
-  _aModal(result);
+  alert(result);
 
   var dot=document.getElementById('cloud-dot');
   if(dot){
@@ -8988,6 +9244,20 @@ function processDeficPhotos(did,files){
     });
   });
 }
+function removeDeficItemPhoto(did,idx){
+  if(!confirm('Remove this photo?'))return;
+  var f=findDeficiency(did);
+  if(f&&f.defic.photos&&f.defic.photos[idx]){
+    var ph=f.defic.photos[idx];
+    // R2 cleanup
+    if(ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+      var parts=ph.r2Key.split('/');
+      if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});
+    }
+    f.defic.photos.splice(idx,1);
+    saveToLS();renderDeficiencyPanel();
+  }
+}
 function triggerRespPhotoUpload(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){processRespPhotos(did,ri,inp.files);};inp.click();}
 function triggerRespPhotoCamera(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){if(inp.files&&inp.files.length>0){processRespPhotos(did,ri,inp.files);inp.value='';setTimeout(function(){try{inp.click();}catch(ex){}},600);}};inp.click();}
 function handleRespPhotoDrop(e,did,ri){processRespPhotos(did,ri,e.dataTransfer.files);}
@@ -9005,11 +9275,27 @@ function processRespPhotos(did,ri,files){
 }
 
 /* injectEntrySummaries removed — dead code */
+function buildEntrySummary(d){
+if(!d.entries||d.entries.length<=1)return '';
+var html='<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);">';
+d.entries.forEach(function(en,i){
+if(i===0)return;
+var pr=en.priority==='general'?'General / Cosmetic':en.priority==='low'?'Low':'High';
+var prCol=en.priority==='general'?'#1A7A4A':en.priority==='low'?'#E67E22':'#C0392B';
+html+='<div style="font-size:11px;margin-bottom:4px;">';
+html+='<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;color:white;background:'+prCol+';margin-right:6px;">Obs. '+String.fromCharCode(65+i)+' ('+pr+')</span>';
+html+=escHtml(en.description||'(no description)');
+if(en.photos&&en.photos.length)html+=' <span style="color:var(--silver);font-size:10px;">('+en.photos.length+' photo'+(en.photos.length>1?'s':'')+')</span>';
+html+='</div>';
+});
+html+='</div>';
+return html;
+}
 function renderSummaryTable(){var p=getProject();if(!p)return;var wrap=document.getElementById('defic-summary-table-wrap');var ad=getAllDeficiencies(p);if(!ad.length){wrap.innerHTML='';return;}var groups={};ad.forEach(function(d){var k=d.contractorName;if(!groups[k])groups[k]={t:0,i:0,o:0,c:0};groups[k].t++;if(d.defic.iar)groups[k].i++;if(d.defic.status==='Outstanding')groups[k].o++;else groups[k].c++;});var html='<table class="defic-summary-table"><thead><tr><th>Contractor</th><th>Total</th><th>IAR</th><th>Outstanding</th><th>Closed</th></tr></thead><tbody>';var tt=0,ti=0,to=0,tc=0;Object.keys(groups).forEach(function(k){var g=groups[k];tt+=g.t;ti+=g.i;to+=g.o;tc+=g.c;html+='<tr><td style="font-weight:600;">'+escHtml(k)+'</td><td>'+g.t+'</td><td style="color:var(--iar);font-weight:700;">'+g.i+'</td><td style="color:var(--no);font-weight:600;">'+g.o+'</td><td style="color:var(--yes);font-weight:600;">'+g.c+'</td></tr>';});html+='<tr style="font-weight:800;border-top:2px solid var(--slate);"><td>TOTAL</td><td>'+tt+'</td><td style="color:var(--iar);">'+ti+'</td><td style="color:var(--no);">'+to+'</td><td style="color:var(--yes);">'+tc+'</td></tr></tbody></table>';wrap.innerHTML=html;}
 
 function jumpToPin(did){var f=findDeficiency(did);if(!f||!f.defic.drawingId)return;openDrawingViewer(f.defic.drawingId);setTimeout(function(){var area=document.getElementById('dv-canvas-area'),img=document.getElementById('dv-image');var aw=area.clientWidth,ah=area.clientHeight,iw=img.naturalWidth,ih=img.naturalHeight;var s=Math.min(Math.min(aw/iw,ah/ih)*2,4);dvState.scale=s;dvState.panX=aw/2-f.defic.pinX*iw*s;dvState.panY=ah/2-f.defic.pinY*ih*s;applyTransform();dvState.selectedPinId=did;renderPinsOnDrawing();},400);}
 
-async function removeRespPhoto(did,ri,pi){if(!await _aConfirm('Remove this photo?'))return;var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]&&f.defic.responses[ri].photos){var ph=f.defic.responses[ri].photos[pi];if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){var parts=ph.r2Key.split('/');if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});}f.defic.responses[ri].photos.splice(pi,1);saveToLS();renderDeficiencyPanel();}}
+function removeRespPhoto(did,ri,pi){if(!confirm('Remove this photo?'))return;var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]&&f.defic.responses[ri].photos){var ph=f.defic.responses[ri].photos[pi];if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){var parts=ph.r2Key.split('/');if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});}f.defic.responses[ri].photos.splice(pi,1);saveToLS();renderDeficiencyPanel();}}
 function _lbHandleOverlayClick(e){
   // Never close if user is in draw mode (clicks during drawing bubble up as click events)
   if(_lbDrawing)return;
@@ -9294,8 +9580,8 @@ function handlePinEntryFiles(files,idx){
   });
 }
 
-async function removePinEntryPhoto(entryIdx,photoIdx){
-  if(!await _aConfirm('Remove this photo?'))return;
+function removePinEntryPhoto(entryIdx,photoIdx){
+  if(!confirm('Remove this photo?'))return;
   var f=findDeficiency(editingPinId);if(!f)return;
   _ensureEntries(f.defic);
   var entry=f.defic.entries[entryIdx];if(!entry||!entry.photos)return;
@@ -9334,6 +9620,15 @@ var rank={high:3,low:2,general:1};
 var best='general';var bestR=0;
 defic.entries.forEach(function(e){var r=rank[e.priority||'high']||0;if(r>bestR){bestR=r;best=e.priority||'high';}});
 defic.priority=best;
+}
+function setPinPriority(pr){
+  var f=findDeficiency(editingPinId);if(!f)return;
+  var ei=f.defic.activeEntry||0;
+  if(f.defic.entries&&f.defic.entries[ei])f.defic.entries[ei].priority=pr;
+  _recalcPinPriority(f.defic);
+  if(pr==='general')f.defic.status='Addressed & Closed';
+  saveToLS();openPinEditor(editingPinId);
+  renderPinsOnDrawing();renderTasksPanel();
 }
 function setObsPriority(idx,pr){
   var f=findDeficiency(editingPinId);if(!f)return;
@@ -9410,24 +9705,24 @@ function confirmNewPinContractor(){
   _lastContractorId=ctrId;
   pushUndo();saveToLS();openPinEditor(editingPinId);renderPinsOnDrawing();renderTasksPanel();
 }
-async function editPinContractor(){
+function editPinContractor(){
   var sel=document.getElementById('pin-contractor');
   var ctrId=sel?sel.value:'';if(!ctrId||ctrId==='__new__')return;
   var p=getProject();var ctr=(p.contractors||[]).find(function(c){return c.id===ctrId;});
   if(!ctr)return;
-  var nn=await _aPrompt('Rename contractor:',ctr.name);if(!nn||!nn.trim())return;
+  var nn=prompt('Rename contractor:',ctr.name);if(!nn||!nn.trim())return;
   nn=nn.trim();
   var dup=(p.contractors||[]).find(function(c){return c.id!==ctrId&&c.name.toLowerCase()===nn.toLowerCase();});
   if(dup){toast('A contractor named "'+nn+'" already exists');return;}
   ctr.name=nn;pushUndo();saveToLS();openPinEditor(editingPinId);renderPinsOnDrawing();renderTasksPanel();toast('Renamed to "'+nn+'" ✓');
 }
-async function deletePinContractor(){
+function deletePinContractor(){
   var sel=document.getElementById('pin-contractor');
   var ctrId=sel?sel.value:'';if(!ctrId||ctrId==='__new__')return;
   var p=getProject();var ctr=(p.contractors||[]).find(function(c){return c.id===ctrId;});
   if(!ctr)return;
   var cnt=(ctr.deficiencies||[]).length;
-  if(!await _aConfirm('Delete contractor "'+ctr.name+'"'+(cnt>0?' and move '+cnt+' deficienc'+(cnt>1?'ies':'y')+' to General':'')+'?'))return;
+  if(!confirm('Delete contractor "'+ctr.name+'"'+(cnt>0?' and move '+cnt+' deficienc'+(cnt>1?'ies':'y')+' to General':'')+'?'))return;
   // Move all deficiencies to general
   if(!p.generalDeficiencies)p.generalDeficiencies=[];
   (ctr.deficiencies||[]).forEach(function(d){p.generalDeficiencies.push(d);});
@@ -9436,12 +9731,19 @@ async function deletePinContractor(){
   getAllDeficiencies(p).forEach(function(r){(r.defic.entries||[]).forEach(function(en){if(en.contractorId===ctrId)en.contractorId='';});});
   pushUndo();saveToLS();openPinEditor(editingPinId);renderPinsOnDrawing();renderTasksPanel();toast('Contractor deleted');
 }
+function showObsContractorOverride(idx){
+  var f=findDeficiency(editingPinId);if(!f)return;
+  _ensureEntries(f.defic);
+  if(!f.defic.entries[idx])return;
+  f.defic.entries[idx].contractorId=f.defic.entries[idx].contractorId||'__show__';
+  openPinEditor(editingPinId);
+}
 function setObsContractor(idx,val){
   var f=findDeficiency(editingPinId);if(!f)return;
   _ensureEntries(f.defic);
   if(!f.defic.entries[idx])return;
   if(val==='__add_new__'){
-    var name=(_aPrompt('New contractor name:')||'').trim();
+    var name=(prompt('New contractor name:')||'').trim();
     if(!name){openPinEditor(editingPinId);return;}
     var p=getProject();if(!p)return;
     if(!p.contractors)p.contractors=[];
@@ -9458,7 +9760,7 @@ function setObsContractor(idx,val){
   f.defic.entries[idx].contractorId=val||'';
   saveToLS();openPinEditor(editingPinId);
 }
-async function togglePinIAR(){var f=findDeficiency(editingPinId);if(f){if(f.defic.iar&&!await _aConfirm('Deactivate IAR for deficiency #'+f.defic.num+'?'))return;if(!f.defic.iar&&f.defic.responses){f.defic.responses.forEach(function(r){if(r.closedItem)r.closedItem=false;});}f.defic.iar=!f.defic.iar;saveToLS();openPinEditor(editingPinId);}}
+function togglePinIAR(){var f=findDeficiency(editingPinId);if(f){if(f.defic.iar&&!confirm('Deactivate IAR for deficiency #'+f.defic.num+'?'))return;if(!f.defic.iar&&f.defic.responses){f.defic.responses.forEach(function(r){if(r.closedItem)r.closedItem=false;});}f.defic.iar=!f.defic.iar;saveToLS();openPinEditor(editingPinId);}}
 
 function savePinForm(){
   _flushPinEntryDescriptions();
@@ -9479,8 +9781,8 @@ function savePinForm(){
   pushUndo();saveToLS();renderPinsOnDrawing();renderTasksPanel();closePinPanel();closePinModal();
 }
 
-async function deleteCurrentPin(){
-  if(!await _aConfirm('Delete this pin and all its items?'))return;
+function deleteCurrentPin(){
+  if(!confirm('Delete this pin and all its items?'))return;
   var f=findDeficiency(editingPinId);
   if(f){f.arr.splice(f.idx,1);pushUndo();saveToLS();}
   renderPinsOnDrawing();renderTasksPanel();closePinPanel();closePinModal();
@@ -9496,6 +9798,11 @@ function closePinModalOnBackdrop(e){
   }
 }
 function _flushDescIfEditing(){clearTimeout(_autoPinSaveTimer);_flushPinEntryDescriptions();}
+
+function removePinPhoto(idx){removePinEntryPhoto(0,idx);}
+function handlePinPhotoUpload(e){handlePinEntryFiles(e.target.files,0);e.target.value='';}
+function handlePinPhotoDrop(e){handlePinEntryFiles(e.dataTransfer.files,0);}
+function triggerPinCamera(){triggerPinEntryCamera(0);}
 
 function _movePinToDrawing(newDrawingId){
   if(!newDrawingId||!editingPinId)return;
@@ -9746,6 +10053,27 @@ function renderTasksTable(){
   });
 }
 
+function exportTasksCSV(){
+  var p=getProject();if(!p)return;
+  var ad=getAllDeficiencies(p);
+  var dwgMap={};
+  if(p.drawings)p.drawings.forEach(function(dw){dwgMap[dw.id]=dw.name||dw.filename||'';});
+  var rows=[['#','Drawing','Description','Contractor','Priority','Status','IAR','Response','Pinned']];
+  ad.forEach(function(d){
+    var def=d.defic;
+    var csvHasCtr=false,csvHasCon=false;
+    if(def.entries){def.entries.forEach(function(e){if(e.contractorResponse&&e.contractorResponse.trim())csvHasCtr=true;if(e.consultantResponse&&e.consultantResponse.trim())csvHasCon=true;});}
+    var csvResp=csvHasCtr&&csvHasCon?'Both':csvHasCtr?'Contractor':csvHasCon?'Consultant':'None';
+    var _csvDesc=def.entries&&def.entries.length?def.entries.map(function(e,i){return(def.entries.length>1?(String.fromCharCode(65+i)+': '):'')+((e.description||'').replace(/,/g,' '));}).join(' | '):(def.description||'').replace(/,/g,' ');
+    rows.push([def.num,dwgMap[def.drawingId]||'',_csvDesc,d.contractorName,def.priority||'high',def.status||'Outstanding',def.iar?'Yes':'No',csvResp,def.pinX!=null?'Yes':'No']);
+  });
+  var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var fn=((p.info&&p.info.projectNumber)||'project')+'_tasks_'+new Date().toISOString().substring(0,10)+'.csv';
+  var blob=new Blob([csv],{type:'text/csv'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click();URL.revokeObjectURL(a.href);
+  toast('Exported '+ad.length+' tasks');
+}
+
 function renderPinsKanban(){
   var p=getProject();if(!p)return;
   var all=getAllDeficiencies(p);
@@ -9965,7 +10293,7 @@ function selectAllPhotos(){
 
 function deselectAllPhotos(){_selectedPhotos=[];renderPhotoGallery();}
 
-async function deleteSelectedPhotos(){
+function deleteSelectedPhotos(){
   if(!_selectedPhotos.length){showToast('No photos selected');return;}
   var p=getProject();if(!p)return;
   // Separate site vs deficiency photos
@@ -9976,7 +10304,7 @@ async function deleteSelectedPhotos(){
   }
   var msg='Delete '+siteIds.length+' site photo'+(siteIds.length!==1?'s':'')+'?';
   if(deficIds.length>0)msg+='\n('+deficIds.length+' deficiency photo'+(deficIds.length!==1?'s':'')+' will be skipped — remove from pin editor)';
-  if(!await _aConfirm(msg))return;
+  if(!confirm(msg))return;
   siteIds.forEach(function(id){
     var idx=parseInt(id.split('_')[1]);
     if(p.sitePhotos&&p.sitePhotos[idx]){
@@ -10305,6 +10633,21 @@ function updateSitePhotoCaption(idx,val){
 function togglePhotoActionsMenu(e){e.stopPropagation();var m=document.getElementById('photo-actions-menu');m.classList.toggle('open');document.addEventListener('click',function h(){m.classList.remove('open');document.removeEventListener('click',h);},{once:true});}
 function togglePhotoFilterMenu(e){e.stopPropagation();var m=document.getElementById('photo-filter-menu');m.classList.toggle('open');document.addEventListener('click',function h(){m.classList.remove('open');document.removeEventListener('click',h);},{once:true});}
 
+function formatDateTime(d){
+  try{
+    if(d.length<=10)return d;
+    var parts=d.split(' ');
+    var datePart=parts[0];var timePart=parts[1]||'';
+    if(timePart){
+      var tp=timePart.split(':');
+      var h=parseInt(tp[0]);var m=tp[1]||'00';
+      var ampm=h>=12?'PM':'AM';
+      h=h%12||12;
+      return datePart+' '+h+':'+m+' '+ampm;
+    }
+    return d;
+  }catch(e){return d;}
+}
 // ═══ JSON SAVE / LOAD / EXPORT ═══
 
 function saveJSONDownload(){
@@ -10377,7 +10720,7 @@ function loadJSON(event){
           renderDashboard();
           enterProject(data.id);
         });
-      }catch(err){_aModal('Invalid JSON file: '+err.message);}
+      }catch(err){alert('Invalid JSON file: '+err.message);}
     };reader.readAsText(f);
   }
   if(files&&files.length){processFile(files[0]);if(event.target)event.target.value='';return;}
@@ -10388,7 +10731,7 @@ function loadJSON(event){
 function exportAllProjects(){exportAllProjectsJSON();}
 function exportAllProjectsJSON(){
   var keys=Object.keys(allProjects);
-  if(!keys.length){_aModal('No projects to export.');return;}
+  if(!keys.length){alert('No projects to export.');return;}
   var promises=keys.map(function(id){return ADB.exportProjectJSON(id);});
   Promise.all(promises).then(function(projects){
     var all={};projects.forEach(function(p){if(p)all[p.id]=p;});
@@ -10401,6 +10744,23 @@ function exportAllProjectsJSON(){
   });
 }
 
+function importAllProjectsJSON(){
+  var inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=function(){var f=inp.files[0];if(!f)return;
+    var reader=new FileReader();reader.onload=function(e){
+      try{var data=JSON.parse(e.target.result);
+        var keys=Object.keys(data);
+        var chain=Promise.resolve();
+        keys.forEach(function(id){
+          var proj=data[id];if(!proj.id)proj.id=id;
+          allProjects[proj.id]=proj;
+          chain=chain.then(function(){return ADB.saveFullProject(proj);});
+        });
+        chain.then(function(){toast('Imported '+keys.length+' projects');renderDashboard();});
+      }catch(err){alert('Invalid file: '+err.message);}
+    };reader.readAsText(f);
+  };inp.click();
+}
 // ═══ PDF EXPORT — Field Review Report (Deficiency Report vs Full Field Review) ═══
 function showPDFOptions(){
   var overlay=document.getElementById('pdf-picker-overlay');
@@ -10777,7 +11137,7 @@ if(reportDefs.length){
 
 // ── Open popup window ──
 var w=window.open('','_blank');
-if(!w){_aModal('Popup blocked. Allow popups for this site.');return;}
+if(!w){alert('Popup blocked. Allow popups for this site.');return;}
 
 var docHtml='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ARENCON Field Review - '+(p.info.projectName||'Report')+'</title>';
 docHtml+='<style>'+css+'</style></head><body>';
@@ -10854,6 +11214,12 @@ function _finalizePage(){
     pages.push({html:curPageHtml,pageNum:curPageNum});
     curPageNum++;
   }
+}
+
+function _availableH(){
+  if(pages.length===0&&isFirstPage)return PAGE_H-FULL_HEADER_H;
+  if(pages.length===0&&!isFirstPage)return PAGE_H-curUsed;
+  return PAGE_H-curUsed-(isFirstPage?0:COMPACT_HEADER_H);
 }
 
 // Start first page
@@ -11382,6 +11748,16 @@ function showDataWarning(msg){
   var msgEl=document.getElementById('data-warn-msg');if(msgEl)msgEl.textContent=msg;
 }
 
+function showDataSafetyBanner(){
+  var shown=localStorage.getItem('ARENCON_idb_safety_shown');
+  if(shown)return;
+  localStorage.setItem('ARENCON_idb_safety_shown','1');
+  var banner=document.createElement('div');
+  banner.style.cssText='position:fixed;bottom:0;left:0;right:0;background:#2C4A6B;color:white;padding:12px 20px;z-index:9400;display:flex;align-items:center;gap:12px;font-family:Calibri,sans-serif;font-size:13px;';
+  banner.innerHTML='<span>🔒 <strong>Data stored in browser IndexedDB</strong> — supports GBs of photos. <strong>Export regularly</strong> to avoid losing data if browser storage is cleared.</span><button onclick="saveJSON&&saveJSON();this.parentElement.remove();" style="padding:6px 16px;background:#9C2742;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:700;font-family:Calibri,sans-serif;flex-shrink:0;">Export Backup</button><button onclick="this.parentElement.remove();" style="padding:6px 12px;background:rgba(255,255,255,.15);color:white;border:none;border-radius:5px;cursor:pointer;font-family:Calibri,sans-serif;flex-shrink:0;">Got it</button>';
+  document.body.appendChild(banner);
+}
+
 setInterval(updateStorageDisplay,30000);
 // ═══ FEATURE 1: KANBAN / TASK BOARD ═══
 var _deficView='list';var _deficStatusFilter='all';var _deficSearchQuery='';
@@ -11573,6 +11949,7 @@ function rotateDrawing(id){
   img.src=dwg.dataUrl||dwg.r2Url||'';
 }
 
+
 // === BATCH E: Compact Mode ===
 var _compactMode=(localStorage.getItem('ARENCON_compactMode')==='1');
 function toggleCompactMode(){
@@ -11588,11 +11965,11 @@ function _applyCompactMode(){
 }
 
 // === BATCH E: Purge Superseded Drawings ===
-async function purgeSupersededDrawings(){
+function purgeSupersededDrawings(){
   var p=getProject();if(!p)return;
   var supers=p.drawings.filter(function(d){return d._superseded===true;});
   if(!supers.length){toast('No superseded drawings found.');return;}
-  if(!await _aConfirm('Remove '+supers.length+' superseded drawing'+(supers.length!==1?'s':'')+' from this project?\nThis cannot be undone.'))return;
+  if(!confirm('Remove '+supers.length+' superseded drawing'+(supers.length!==1?'s':'')+' from this project?\nThis cannot be undone.'))return;
   p.drawings=p.drawings.filter(function(d){return !d._superseded;});
   saveToLS();renderDrawingGallery();
   toast('🗑 Purged '+supers.length+' superseded drawing'+(supers.length!==1?'s':'')+'.');
@@ -11768,8 +12145,8 @@ function _triggerHardSignOut() {
   setTimeout(signOutSession, 1200);
 }
 
-async function signOutSession() {
-  if(!await _aConfirm('Sign out and return to Project Hub?'))return;
+function signOutSession() {
+  if(!confirm('Sign out and return to Project Hub?'))return;
   // Stop all timers
   clearTimeout(_softLockTimer);
   clearTimeout(_hardSignOutTimer);
@@ -11928,12 +12305,12 @@ if(_csHubMode)_resetSessionTimers();
 <!-- ══ HUB CLOUDSYNC INTEGRATION ══ -->
 <script>
 // ── Issue Report (Hub mode) ──
-async function issueReport(){
+function issueReport(){
   if(!_csHubMode||typeof CloudSync==='undefined')return;
   var p=getProject();if(!p)return;
   var prev=(p.info&&p.info.publishedRevision)||null;
   var next=prev?_incrementRevision(prev):'B01';
-  if(!await _aConfirm('Issue this report as revision '+next+'?'))return;
+  if(!confirm('Issue this report as revision '+next+'?'))return;
   p.info.publishedRevision=next;
   p.info.publishedDate=new Date().toISOString().substring(0,10);
   p.status='issued';
@@ -12692,8 +13069,8 @@ async function _autoDownloadR2(){
 // updates metadata so all devices render sharp via tiled PDF renderer.
 // Call via console: _reuploadPDFsToR2()  or via the ☁️ Re-upload PDFs button
 async function _reuploadPDFsToR2(){
-  if(!_csHubMode||!_csProjectId){_aModal('Must be in Hub mode with a project open.');return;}
-  if(typeof R2Photos==='undefined'){_aModal('R2Photos not initialized.');return;}
+  if(!_csHubMode||!_csProjectId){alert('Must be in Hub mode with a project open.');return;}
+  if(typeof R2Photos==='undefined'){alert('R2Photos not initialized.');return;}
   var p=getProject();if(!p||!p.drawings)return;
   // Stop heartbeat + auto-save during re-upload to prevent interference
   if(window._syncHeartbeatTimer){clearInterval(window._syncHeartbeatTimer);window._syncHeartbeatTimer=null;}
@@ -12712,14 +13089,14 @@ async function _reuploadPDFsToR2(){
   }
   total=candidates.length;
   if(total===0){
-    _aModal('No PDF data found in IDB on this device. Run this from the device that originally uploaded the drawings.');
+    alert('No PDF data found in IDB on this device. Run this from the device that originally uploaded the drawings.');
     // Restart sync
     CloudSync.startAutoSave(function(){var _p2=getProject();if(_p2)_p2._cloudSyncedAt=new Date().toISOString();return _collectFullState();},5000);
     window._syncHeartbeatTimer=setInterval(function(){_syncHeartbeat();},60000);
     return;
   }
   var confirmMsg='Found '+total+' drawings with PDF data. '+skipped+' drawings have no PDF (image-only).\n\nThis will upload the original PDFs to R2, replacing the blurry JPEGs. All devices will then render sharp drawings.\n\nProceed?';
-  if(!await _aConfirm(confirmMsg)){
+  if(!confirm(confirmMsg)){
     CloudSync.startAutoSave(function(){var _p2=getProject();if(_p2)_p2._cloudSyncedAt=new Date().toISOString();return _collectFullState();},5000);
     window._syncHeartbeatTimer=setInterval(function(){_syncHeartbeat();},60000);
     return;
@@ -12762,7 +13139,7 @@ async function _reuploadPDFsToR2(){
   },2000);
   var msg='PDF Re-upload complete: '+done+' uploaded, '+failed+' failed, '+skipped+' skipped (no PDF data).\n\nThe page will now reload to apply changes. All devices will render sharp drawings after they sync.';
   console.log('[PDF Re-upload] '+msg);
-  _aModal(msg);
+  alert(msg);
   // Force reload after cloud save completes
   setTimeout(function(){window.location.reload();},3000);
 }
