@@ -4689,6 +4689,7 @@ function _handlePDFUploadCore(file){
   var reader=new FileReader();
   reader.onload=function(e){
     var arrayBuf=e.target.result;
+    var pdfBufCopy=arrayBuf.slice(0);// Clone BEFORE pdf.js detaches the original
     var ta=new Uint8Array(arrayBuf);
     var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
     pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
@@ -4704,11 +4705,11 @@ function _handlePDFUploadCore(file){
         var conflictNames=existingInFolder.map(function(d){return d.name;});
         _showDrawingConflictModal(conflictNames,_suggestFolderName(bn,p),function(newFolder){
           showDrawingLoading('Processing PDF: 0/'+total+'...');
-          _runPdfPages(pdf,bn,newFolder,total,arrayBuf);
+          _runPdfPages(pdf,bn,newFolder,total,pdfBufCopy);
         },function(){hideDrawingLoading();});
         return;
       }
-      _runPdfPages(pdf,bn,bn,total,arrayBuf);
+      _runPdfPages(pdf,bn,bn,total,pdfBufCopy);
     }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
   };
   reader.readAsArrayBuffer(file);
@@ -5096,6 +5097,7 @@ function _handlePDFUploadToFolderCore(file,folder){
   var reader=new FileReader();
   reader.onload=function(e){
     var arrayBuf=e.target.result;
+    var pdfBufCopy2=arrayBuf.slice(0);// Clone BEFORE pdf.js detaches the original
     var ta=new Uint8Array(arrayBuf);
     var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
     pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
@@ -5110,11 +5112,11 @@ function _handlePDFUploadToFolderCore(file,folder){
         var conflictNames2=existingInFolder.map(function(d){return d.name;});
         _showDrawingConflictModal(conflictNames2,_suggestFolderName(folder||bn,p2),function(newFolder){
           showDrawingLoading('Processing PDF: 0/'+total+'...');
-          _runPdfPagesToFolder(pdf,bn,newFolder,total,arrayBuf);
+          _runPdfPagesToFolder(pdf,bn,newFolder,total,pdfBufCopy2);
         },function(){hideDrawingLoading();});
         return;
       }
-      _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf);
+      _runPdfPagesToFolder(pdf,bn,folder,total,pdfBufCopy2);
     }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
   };
   reader.readAsArrayBuffer(file);
