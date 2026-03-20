@@ -10865,39 +10865,17 @@ function _renderDrawingWithPins(dwgDataUrl, pins, callback){
 function exportPDF(mode){
 if(!currentProjectId)return;var p=getProject();var logo=LOGO_SRC;
 var isField=(mode==='field');
-closePDFPicker();
-
-// Show progress overlay on FRT page during pre-fetch
-var pfOv=document.createElement('div');
-pfOv.id='pdf-prefetch-overlay';
-pfOv.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
-pfOv.innerHTML='<div style="background:white;border-radius:12px;padding:28px 36px;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;min-width:320px;">'
-+'<div style="font-size:16px;font-weight:700;color:#1C2333;margin-bottom:12px;">Preparing PDF Export</div>'
-+'<div id="pf-label" style="font-size:13px;color:#4A5568;margin-bottom:10px;">Fetching photos... 0/0</div>'
-+'<div style="width:100%;height:8px;background:#EDF2F7;border-radius:4px;overflow:hidden;">'
-+'<div id="pf-bar" style="width:0%;height:100%;background:#1A7A4A;border-radius:4px;transition:width .15s;"></div></div>'
-+'<div style="margin-top:12px;font-size:11px;color:#A0AEC0;">This may take a moment for large reports</div></div>';
-document.body.appendChild(pfOv);
-
-_prefetchR2PhotosForPDF(p,function(done,total){
-  try{
-    var lbl=document.getElementById('pf-label');
-    var bar=document.getElementById('pf-bar');
-    if(lbl)lbl.textContent='Fetching photos... '+done+'/'+total;
-    if(bar)bar.style.width=Math.round((done/Math.max(1,total))*100)+'%';
-  }catch(e){}
-}).then(function(r2Cache){
-  try{var ov2=document.getElementById('pdf-prefetch-overlay');if(ov2)ov2.remove();}catch(e){}
-  _exportPDFWithCache(p,logo,isField,mode,r2Cache);
+// Pre-fetch R2 URLs to object URLs for PDF (bare img src can't send auth headers)
+_prefetchR2PhotosForPDF(p).then(function(r2Cache){
+_exportPDFWithCache(p,logo,isField,mode,r2Cache);
 }).catch(function(e){
-  try{var ov3=document.getElementById('pdf-prefetch-overlay');if(ov3)ov3.remove();}catch(e2){}
-  console.warn('[PDF] R2 prefetch failed, proceeding:',e);
-  _exportPDFWithCache(p,logo,isField,mode,{});
+console.warn('[PDF] R2 prefetch failed, proceeding with available URLs:',e);
+_exportPDFWithCache(p,logo,isField,mode,{});
 });
 }
 
-// Fetch all R2 URLs and return map of r2Url → objectURL. progressCb(done,total) called per fetch.
-function _prefetchR2PhotosForPDF(p,progressCb){
+// Fetch all R2 URLs in the project and return a map of r2Url → objectURL
+function _prefetchR2PhotosForPDF(p){
 var urls=[];
 function _collectR2Urls(defics){
   if(!defics)return;
@@ -10913,24 +10891,27 @@ function _collectR2Urls(defics){
 }
 (p.contractors||[]).forEach(function(c){_collectR2Urls(c.deficiencies);});
 _collectR2Urls(p.generalDeficiencies);
+// Also site photos
 (p.sitePhotos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
+// Deduplicate
 urls=[].concat(urls.filter(function(u,i,a){return a.indexOf(u)===i;}));
 if(!urls.length)return Promise.resolve({});
-var cache={};var done=0;var total=urls.length;
-if(progressCb)progressCb(0,total);
-// R2 GET = no auth (Rule 20) — plain fetch, no Bearer token
+var cache={};
+var token=localStorage.getItem('sb-access-token');
+var headers=token?{'Authorization':'Bearer '+token}:{};
 return Promise.all(urls.map(function(url){
-  return fetch(url).then(function(res){
+  return fetch(url,{headers:headers}).then(function(res){
     if(!res.ok)throw new Error(res.status);
     return res.blob();
   }).then(function(blob){
     cache[url]=URL.createObjectURL(blob);
-  }).catch(function(){}).finally(function(){
-    done++;if(progressCb)progressCb(done,total);
+  }).catch(function(){
+    // Skip — photo will be missing in PDF
   });
 })).then(function(){return cache;});
 }
 
+// Resolve photo src for PDF: use R2 cache object URL if available
 function _pdfPhotoSrc(ph,r2Cache){
 if(!ph)return '';
 if(typeof ph==='string')return ph;
@@ -10944,30 +10925,20 @@ var reportDefs=[];var rn=1;
 (p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){reportDefs.push({d:d,ctr:c.name,rn:rn++});});});
 (p.generalDeficiencies||[]).forEach(function(d){reportDefs.push({d:d,ctr:'General',rn:rn++});});
 
-// ── CSS ──
 var css='*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}';
-css+='body{font-family:Calibri,sans-serif;color:#1C2333;font-size:11px;background:#525659;margin:0;padding:20px;}';
-css+='.page{width:8.5in;min-height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
-css+='.page-content{position:relative;}';
-// Full header (page 1)
+css+='body{font-family:Calibri,sans-serif;color:#1C2333;font-size:11px;padding:60px 20px 20px;max-width:900px;margin:0 auto;}';
 css+='.ph{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:3px solid #9C2742;padding-bottom:10px;margin-bottom:14px;}';
 css+='.ph img{height:34px;}.ph-title{font-size:18px;font-weight:700;color:#9C2742;margin-top:4px;}';
 css+='.ph-addr{text-align:right;font-size:9px;color:#4A5568;line-height:1.6;}';
-// Compact repeat header (pages 2+) — OBC-style 3-line running header
-css+='.ph-compact{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #999;padding-bottom:4px;margin-bottom:12px;}';
-css+='.ph-compact-left{font-size:8.5pt;color:#444;line-height:1.6;}';
-css+='.ph-compact-right{font-size:8.5pt;color:#444;line-height:1.6;text-align:right;}';
-// Section styles
-css+='.sh{background:#9C2742;color:white;padding:7px 12px;font-weight:700;font-size:12px;border-radius:4px 4px 0 0;margin-top:16px;}';
+css+='.sh{background:#9C2742;color:white;padding:7px 12px;font-weight:700;font-size:12px;border-radius:4px 4px 0 0;margin-top:16px;page-break-after:avoid;}';
 css+='.sb{border:1px solid #DDE1E7;border-top:none;padding:12px;border-radius:0 0 4px 4px;margin-bottom:4px;}';
 css+='.ig{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}';
 css+='.ii{font-size:10px;}.ii label{font-weight:700;color:#4A5568;text-transform:uppercase;font-size:8px;letter-spacing:.5px;display:block;margin-bottom:1px;}.ii span{color:#1C2333;}';
-css+='.ch{background:#2C4A6B;color:white;padding:6px 12px;font-weight:700;font-size:11px;border-radius:4px;margin-top:12px;margin-bottom:6px;}';
-// Deficiency cards
-css+='.dc{border:1px solid #DDE1E7;border-radius:6px;padding:10px;margin-bottom:10px;}';
+css+='.ch{background:#2C4A6B;color:white;padding:6px 12px;font-weight:700;font-size:11px;border-radius:4px;margin-top:12px;margin-bottom:6px;page-break-after:avoid;break-after:avoid;}';
+css+='.dc{border:1px solid #DDE1E7;border-radius:6px;padding:10px;margin-bottom:10px;page-break-inside:avoid;break-inside:avoid;orphans:3;widows:3;}';
 css+='.dc-inner{display:flex;gap:12px;align-items:flex-start;}';
 css+='.dc-mini{flex-shrink:0;width:160px;max-height:160px;object-fit:contain;border-radius:6px;border:1px solid #DDE1E7;display:block;align-self:flex-start;}';
-css+='.dc-content{flex:1;min-width:0;}';
+css+='.dc-content{flex:1;}';
 css+='.iar{display:inline-block;background:#FF69B4;color:white;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;margin-left:4px;}';
 css+='.so{color:#C0392B;font-weight:700;font-size:11px;}.sc{color:#1A7A4A;font-weight:700;font-size:11px;}';
 css+='.dp{width:160px;height:160px;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;}';
@@ -10978,178 +10949,166 @@ css+='.resp-photos img{width:160px;height:160px;object-fit:cover;border-radius:4
 css+='.st{width:100%;border-collapse:collapse;font-size:10px;margin-top:8px;}';
 css+='.st th{background:#2C3E50;color:white;padding:5px 8px;text-align:left;font-size:9px;}';
 css+='.st td{padding:5px 8px;border-bottom:1px solid #DDE1E7;font-size:10px;}';
-// Appendix
-css+='.app-dwg{margin-bottom:28px;}';
+css+='.app-dwg{margin-bottom:28px;page-break-inside:avoid;break-inside:avoid;}';
 css+='.app-dwg-title{font-weight:700;font-size:12px;color:#1C2333;margin-bottom:8px;padding:6px 10px;background:#F7F8FA;border-radius:4px;border-left:3px solid #9C2742;}';
 css+='.app-dwg img{max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;}';
 css+='.app-pin-table{width:100%;border-collapse:collapse;font-size:10px;margin-top:8px;}';
 css+='.app-pin-table th{background:#F7F8FA;padding:4px 8px;text-align:left;border-bottom:1px solid #DDE1E7;font-size:9px;}';
 css+='.app-pin-table td{padding:4px 8px;border-bottom:1px solid #F0F0F0;}';
-// Continuation markers
-css+='.cont-marker{font-size:9px;color:#9C2742;font-style:italic;padding:4px 0;font-weight:600;}';
-// Print
-css+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}}';
-css+='@page{size:letter;margin:0;}';
+css+='@media print{.np{display:none!important;}#pdf-btn-bar{display:none!important;}body{padding:20px!important;margin:0!important;}.sh{page-break-after:avoid;}.ch{page-break-after:avoid;break-after:avoid;}.dc{page-break-inside:avoid;break-inside:avoid;}.sb{page-break-inside:auto;}}';
 
 var titleLabel='Field Review Report';
+var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ARENCON Field Review - '+(p.info.projectName||'Report')+'</title>';
+h+='<!-- Calibri system font -->';
+h+='<style>'+css+'</style></head><body>';
 
-// ── Build full header HTML (page 1) ──
-var fullHeader='<div class="ph"><div><img src="'+logo+'" alt="ARENCON"><div class="ph-title">'+titleLabel+'</div></div>';
-fullHeader+='<div class="ph-addr">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp; L4X 2Z6, CANADA<br>P: 905 615 1774 &nbsp;|&nbsp; F: 905 615 9351<br>E: mail'+'@'+'arencon.com</div></div>';
+h+='<div class="ph"><div><img src="'+logo+'" alt="ARENCON"><div class="ph-title">'+titleLabel+'</div></div>';
+h+='<div class="ph-addr">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp; L4X 2Z6, CANADA<br>P: 905 615 1774 &nbsp;|&nbsp; F: 905 615 9351<br>E: mail'+'@'+'arencon.com</div></div>';
 
-// Project info grid
-var infoGrid='<div class="sh">Project Information</div><div class="sb"><div class="ig">';
+h+='<div class="sh">Project Information</div><div class="sb"><div class="ig">';
 [['Project No.',p.info.projectNumber],['Project Name',p.info.projectName],['Client',p.info.client],
 ['Project Address',p.info.address],['Date of Inspection',p.info.visitDate],['Prepared By',p.info.inspectorName],
 ['Date of Issue',p.info.dateOfIssue||''],
 ['Revision',p.info.revision||'A01']].forEach(function(f){
-  infoGrid+='<div class="ii"><label>'+f[0]+'</label><span>'+(f[1]||'\u2014')+'</span></div>';
+  h+='<div class="ii"><label>'+f[0]+'</label><span>'+(f[1]||'—')+'</span></div>';
 });
-infoGrid+='</div></div>';
+h+='</div></div>';
 
-// ── Report number + revision for running header ──
-var _rptNum=1;
-try{if(typeof CloudSync!=='undefined'&&CloudSync.instanceNumber)_rptNum=CloudSync.instanceNumber;}catch(e){}
-var _rptRev=p.info.revision||'A01';
-
-// ── Build compact header HTML (pages 2+) — OBC-style ──
-function _compactHeader(pageNum,totalPages){
-  var leftL1=escHtml(p.info.client||'');
-  var leftL2=escHtml((p.info.projectName||'')+(p.info.address?', '+p.info.address:''));
-  var leftL3=escHtml(titleLabel+' #'+_rptNum);
-  var rightL1=escHtml((p.info.projectNumber||'')+' '+_rptRev)+'&nbsp;&nbsp;Page '+pageNum+(totalPages?' of '+totalPages:'');
-  var rightL3=escHtml(date);
-  return '<div class="ph-compact">'
-    +'<div class="ph-compact-left">'+leftL1+'<br>'+leftL2+'<br>'+leftL3+'</div>'
-    +'<div class="ph-compact-right">'+rightL1+'<br>&nbsp;<br>'+rightL3+'</div>'
-    +'</div>';
-}
-
-// ── Build summary table ──
-var summaryHtml='';
 if(reportDefs.length){
   var ctrGroups={};reportDefs.forEach(function(r){if(!ctrGroups[r.ctr])ctrGroups[r.ctr]=[];ctrGroups[r.ctr].push(r);});
-  summaryHtml+='<div class="sh">Deficiency Summary</div><div class="sb">';
-  summaryHtml+='<table class="st"><thead><tr><th>Contractor</th><th>Total</th><th>IAR</th><th>Outstanding</th><th>Closed</th></tr></thead><tbody>';
+
+  h+='<div class="sh">Deficiency Summary</div><div class="sb">';
+  h+='<table class="st"><thead><tr><th>Contractor</th><th>Total</th><th>IAR</th><th>Outstanding</th><th>Closed</th></tr></thead><tbody>';
   Object.keys(ctrGroups).forEach(function(ctr){
     var gc=ctrGroups[ctr];
     var iar=gc.filter(function(r){return r.d.iar;}).length;
     var os=gc.filter(function(r){return r.d.status==='Outstanding';}).length;
     var cl=gc.filter(function(r){return r.d.status==='Closed';}).length;
-    summaryHtml+='<tr><td><strong>'+escHtml(ctr)+'</strong></td><td>'+gc.length+'</td>';
-    summaryHtml+='<td style="color:#FF69B4;font-weight:700;">'+iar+'</td>';
-    summaryHtml+='<td style="color:#C0392B;font-weight:700;">'+os+'</td>';
-    summaryHtml+='<td style="color:#1A7A4A;font-weight:700;">'+cl+'</td></tr>';
+    h+='<tr><td><strong>'+escHtml(ctr)+'</strong></td><td>'+gc.length+'</td>';
+    h+='<td style="color:#FF69B4;font-weight:700;">'+iar+'</td>';
+    h+='<td style="color:#C0392B;font-weight:700;">'+os+'</td>';
+    h+='<td style="color:#1A7A4A;font-weight:700;">'+cl+'</td></tr>';
   });
   var tiar=reportDefs.filter(function(r){return r.d.iar;}).length;
   var tos=reportDefs.filter(function(r){return r.d.status==='Outstanding';}).length;
   var tcl=reportDefs.filter(function(r){return r.d.status==='Closed';}).length;
-  summaryHtml+='<tr style="border-top:2px solid #2C3E50;font-weight:700;"><td>Total</td><td>'+reportDefs.length+'</td>';
-  summaryHtml+='<td style="color:#FF69B4;">'+tiar+'</td><td style="color:#C0392B;">'+tos+'</td><td style="color:#1A7A4A;">'+tcl+'</td></tr>';
-  summaryHtml+='</tbody></table></div>';
-}
+  h+='<tr style="border-top:2px solid #2C3E50;font-weight:700;"><td>Total</td><td>'+reportDefs.length+'</td>';
+  h+='<td style="color:#FF69B4;">'+tiar+'</td><td style="color:#C0392B;">'+tos+'</td><td style="color:#1A7A4A;">'+tcl+'</td></tr>';
+  h+='</tbody></table></div>';
 
-// ── Build individual deficiency card HTML blocks ──
-function _buildDefCardHtml(r){
-  var d=r.d;
-  var hasDwg=isField&&d.drawingId&&d.pinX!=null;
-  var h='<div class="dc" data-defid="'+d.id+'">';
-  h+='<div class="dc-inner">';
-  if(hasDwg){
-    h+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="drawing">';
-  }
-  h+='<div class="dc-content">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-  h+='<div><strong style="color:#9C2742;font-size:13px;">#'+d.num+'</strong>';
-  if(d.iar)h+='<span class="iar">IAR</span>';
-  h+='</div>';
-  h+='<span class="'+(d.status==='Outstanding'?'so':'sc')+'">'+d.status+'</span>';
-  h+='</div>';
-  var hasMultiEntries=d.entries&&d.entries.length>1;
-  if(d.entries&&d.entries.length){
-    d.entries.forEach(function(en,ei){
-      var eLbl=String.fromCharCode(65+ei);
-      var ePr=en.priority==='general'?'General / Cosmetic':en.priority==='low'?'Low':'High';
-      var ePrCol=en.priority==='general'?'#1A7A4A':en.priority==='low'?'#E67E22':'#9C2742';
-      if(hasMultiEntries){
-        h+='<div style="margin-bottom:8px;padding:6px 8px;background:#f8f8f8;border-left:3px solid '+ePrCol+';border-radius:0 4px 4px 0;">';
-        h+='<div style="font-size:10px;font-weight:700;color:'+ePrCol+';margin-bottom:2px;">Observation '+eLbl+' ('+ePr+')</div>';
-      } else {
-        h+='<div style="margin-bottom:8px;">';
+  h+='<div class="sh">Deficiencies ('+reportDefs.length+')</div><div class="sb">';
+  Object.keys(ctrGroups).forEach(function(ctr){
+    h+='<div class="ch">'+escHtml(ctr)+' ('+ctrGroups[ctr].length+')</div>';
+    ctrGroups[ctr].forEach(function(r){
+      var d=r.d;
+      var hasDwg=isField&&d.drawingId&&d.pinX!=null;
+      h+='<div class="dc" id="dc-'+d.id+'">';
+      h+='<div class="dc-inner">';
+      if(hasDwg){
+        h+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="drawing">';
       }
-      h+='<div style="font-size:11px;margin-bottom:4px;"><strong>Description:</strong> '+escHtml(en.description||'\u2014')+'</div>';
-      if(en.photos&&en.photos.length){
-        h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">';
-        en.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
-        h+='</div>';
-      }
+      h+='<div class="dc-content">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+      h+='<div><strong style="color:#9C2742;font-size:13px;">#'+d.num+'</strong>';
+      if(d.iar)h+='<span class="iar">IAR</span>';
       h+='</div>';
-    });
-  } else {
-    var dispD=d.description||'';
-    h+='<div style="margin-bottom:6px;"><strong>Description:</strong> '+escHtml(dispD)+'</div>';
-    var firstPhotos=d.photos||[];
-    if(firstPhotos.length){
-      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">';
-      firstPhotos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
+      h+='<span class="'+(d.status==='Outstanding'?'so':'sc')+'">'+d.status+'</span>';
+      h+='</div>';
+      var _ep1=(d.entries&&d.entries[0]&&d.entries[0].priority)||d.priority||'high';
+var _ep1Lbl=_ep1==='general'?'General':_ep1==='low'?'Low':'High';
+var hasMultiEntries=d.entries&&d.entries.length>1;
+// Render each entry as "Observation A, B, C..." with description + photos together
+if(d.entries&&d.entries.length){
+  d.entries.forEach(function(en,ei){
+    var eLbl=String.fromCharCode(65+ei); // A, B, C...
+    var ePr=en.priority==='general'?'General / Cosmetic':en.priority==='low'?'Low':'High';
+    var ePrCol=en.priority==='general'?'#1A7A4A':en.priority==='low'?'#E67E22':'#9C2742';
+    if(hasMultiEntries){
+      h+='<div style="margin-bottom:8px;padding:6px 8px;background:#f8f8f8;border-left:3px solid '+ePrCol+';border-radius:0 4px 4px 0;">';
+      h+='<div style="font-size:10px;font-weight:700;color:'+ePrCol+';margin-bottom:2px;">Observation '+eLbl+' ('+ePr+')</div>';
+    } else {
+      h+='<div style="margin-bottom:8px;">';
+    }
+    h+='<div style="font-size:11px;margin-bottom:4px;"><strong>Description:</strong> '+escHtml(en.description||'—')+'</div>';
+    if(en.photos&&en.photos.length){
+      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">';
+      en.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
       h+='</div>';
     }
+    h+='</div>';
+  });
+} else {
+  var dispD=d.description||'';
+  h+='<div style="margin-bottom:6px;"><strong>Description:</strong> '+escHtml(dispD)+'</div>';
+  var firstPhotos=d.photos||[];
+  if(firstPhotos.length){
+    h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">';
+    firstPhotos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
+    h+='</div>';
   }
-  if(d.date)h+='<div style="font-size:10px;color:#4A5568;margin-bottom:6px;">Date: '+d.date+'</div>';
-  if(hasDwg){
-    var dwgObj=p.drawings.find(function(x){return x.id===d.drawingId;});
-    if(dwgObj)h+='<div style="font-size:9px;color:#607D8B;margin-bottom:4px;">\uD83D\uDCD0 '+escHtml(dwgObj.name)+'</div>';
-  }
-  if(d.responses&&d.responses.length){
-    d.responses.forEach(function(resp){
-      var isCtr=resp.party==='contractor';
-      h+='<div class="resp-box '+(isCtr?'resp-ctr':'resp-con')+'">';
-      h+='<strong style="color:'+(isCtr?'#E67E22':'#1565C0')+'">'+(isCtr?'Contractor':'Consultant')+' Response:</strong> '+(resp.comment?escHtml(resp.comment):'\u2014');
-      if(resp.photos&&resp.photos.length){
-        h+='<div class="resp-photos">';
-        resp.photos.forEach(function(ph){h+='<img src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
-        h+='</div>';
-      }
-      h+='</div>';
-    });
-  }
-  h+='</div>'; // dc-content
-  h+='</div>'; // dc-inner
-  h+='</div>'; // dc
-  return h;
 }
-
-// ── Build contractor group headers ──
-var ctrGroups2={};
-reportDefs.forEach(function(r){if(!ctrGroups2[r.ctr])ctrGroups2[r.ctr]=[];ctrGroups2[r.ctr].push(r);});
-
-// Create ordered list of content blocks: [{ type:'ctrHeader'|'defCard', html, ctr }]
-var contentBlocks=[];
-if(reportDefs.length){
-  contentBlocks.push({type:'sectionHeader',html:'<div class="sh">Deficiencies ('+reportDefs.length+')</div>'});
-  Object.keys(ctrGroups2).forEach(function(ctr){
-    contentBlocks.push({type:'ctrHeader',html:'<div class="ch">'+escHtml(ctr)+' ('+ctrGroups2[ctr].length+')</div>',ctr:ctr});
-    ctrGroups2[ctr].forEach(function(r){
-      contentBlocks.push({type:'defCard',html:_buildDefCardHtml(r),defId:r.d.id,ctr:ctr});
+      if(d.date)h+='<div style="font-size:10px;color:#4A5568;margin-bottom:6px;">Date: '+d.date+'</div>';
+      if(hasDwg){
+        var dwgObj=p.drawings.find(function(x){return x.id===d.drawingId;});
+        if(dwgObj)h+='<div style="font-size:9px;color:#607D8B;margin-bottom:4px;">📐 '+escHtml(dwgObj.name)+'</div>';
+      }
+      // Photos now rendered per-entry above — skip old combined block
+      if(d.responses&&d.responses.length){
+        d.responses.forEach(function(resp){
+          var isCtr=resp.party==='contractor';
+          h+='<div class="resp-box '+(isCtr?'resp-ctr':'resp-con')+'">';
+          h+='<strong style="color:'+(isCtr?'#E67E22':'#1565C0')+'">'+(isCtr?'Contractor':'Consultant')+' Response:</strong> '+(resp.comment?escHtml(resp.comment):'—');
+          if(resp.photos&&resp.photos.length){
+            h+='<div class="resp-photos">';
+            resp.photos.forEach(function(ph){h+='<img src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
+            h+='</div>';
+          }
+          h+='</div>';
+        });
+      }
+      h+='</div>'; // dc-content
+      h+='</div>'; // dc-inner
+      h+='</div>'; // dc
     });
   });
+  h+='</div>';
 }
 
-// ── Open popup window ──
+if(isField&&p.drawings&&p.drawings.length){
+  var dwgsWithPins=p.drawings.filter(function(dwg){
+    return reportDefs.some(function(r){return r.d.drawingId===dwg.id&&r.d.pinX!=null;});
+  });
+  if(dwgsWithPins.length){
+    h+='<div class="sh" style="margin-top:24px;">Appendix — Drawings with Pins ('+dwgsWithPins.length+')</div><div class="sb">';
+    dwgsWithPins.forEach(function(dwg){
+      var dPins=reportDefs.filter(function(r){return r.d.drawingId===dwg.id&&r.d.pinX!=null;});
+      h+='<div class="app-dwg">';
+      h+='<div class="app-dwg-title">'+escHtml(dwg.name)+' — '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
+      h+='<img class="app-dwg" id="app-dwg-'+dwg.id+'" src="" alt="'+escHtml(dwg.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
+      h+='<table class="app-pin-table"><thead><tr><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
+      dPins.forEach(function(r){
+        var d=r.d;
+        var sc2=d.status==='Outstanding'?'#C0392B':'#1A7A4A';
+        h+='<tr><td><strong style="color:#9C2742;">#'+d.num+'</strong>'+(d.iar?'<span class="iar">IAR</span>':'')+'</td>';
+        h+='<td>'+escHtml(d.description||'—')+'</td>';
+        h+='<td style="color:'+sc2+';font-weight:700;">'+d.status+'</td>';
+        h+='<td>'+escHtml(r.ctr)+'</td></tr>';
+      });
+      h+='</tbody></table>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+}
+
+h+='<div style="position:fixed;bottom:8px;left:20px;right:20px;font-size:9px;color:#999;font-family:Calibri,sans-serif;text-align:center;border-top:1px solid #eee;padding-top:4px;">File: '+escHtml(getProjectFilename(p))+'</div>';
+h+='</body></html>';
+
 var w=window.open('','_blank');
 if(!w){alert('Popup blocked. Allow popups for this site.');return;}
-
-var docHtml='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ARENCON Field Review - '+(p.info.projectName||'Report')+'</title>';
-docHtml+='<style>'+css+'</style></head><body>';
-// Hidden measurement container
-docHtml+='<div id="measure-zone" style="position:absolute;left:-9999px;top:0;width:7.3in;visibility:hidden;"></div>';
-// Pages will be injected here
-docHtml+='<div id="pages-container"></div>';
-docHtml+='</body></html>';
-w.document.write(docHtml);w.document.close();
+w.document.write(h);w.document.close();
 w.document.title='ARENCON Field Review - '+(p.info.projectName||'Report');
 
-// ── Add export bar ──
 try{
   var bar=w.document.createElement('div');
   bar.id='pdf-btn-bar';
@@ -11169,150 +11128,8 @@ try{
   closeBtn.onclick=function(){w.close();};
   bar.appendChild(closeBtn);
   w.document.body.insertBefore(bar,w.document.body.firstChild);
-  w.document.body.style.paddingTop='56px';
 }catch(e){}
 
-// ── Pagination engine ──
-// Constants: 8.5in x 11in at 96dpi = 816 x 1056. With 0.5in padding top/bottom = 0.5in*96=48px each side
-// Usable content height = 1056 - 48 - 48 - 28(footer) = 932px. Use 912 for safety margin.
-var PAGE_H=912;
-var FULL_HEADER_H=0; // measured
-var COMPACT_HEADER_H=0; // measured
-var measureZone=w.document.getElementById('measure-zone');
-var pagesContainer=w.document.getElementById('pages-container');
-// Measure a block of HTML — returns height in px
-function _measure(html){
-  measureZone.innerHTML=html;
-  var h=measureZone.offsetHeight;
-  measureZone.innerHTML='';
-  return h;
-}
-
-// Measure headers
-FULL_HEADER_H=_measure(fullHeader+infoGrid+summaryHtml);
-COMPACT_HEADER_H=_measure(_compactHeader(2,''));
-
-// ── Page builder ──
-var pages=[];
-var curPageHtml='';
-var curUsed=0;
-var curPageNum=1;
-var isFirstPage=true;
-
-function _startPage(){
-  curPageHtml='';curUsed=0;
-  if(isFirstPage){
-    curPageHtml+=fullHeader+infoGrid+summaryHtml;
-    curUsed+=FULL_HEADER_H;
-    isFirstPage=false;
-  }
-  // Compact header added later when page is finalized (needs total page count)
-}
-
-function _finalizePage(){
-  if(curPageHtml.trim()){
-    pages.push({html:curPageHtml,pageNum:curPageNum});
-    curPageNum++;
-  }
-}
-
-function _availableH(){
-  if(pages.length===0&&isFirstPage)return PAGE_H-FULL_HEADER_H;
-  if(pages.length===0&&!isFirstPage)return PAGE_H-curUsed;
-  return PAGE_H-curUsed-(isFirstPage?0:COMPACT_HEADER_H);
-}
-
-// Start first page
-_startPage();
-
-// Add content blocks
-contentBlocks.forEach(function(block){
-  var blockH=_measure(block.html);
-  var avail=PAGE_H-curUsed;
-
-  if(block.type==='sectionHeader'||block.type==='ctrHeader'){
-    // Headers: if less than 80px remaining after header, start new page
-    if(avail<blockH+80){
-      _finalizePage();_startPage();
-    }
-    curPageHtml+=block.html;
-    curUsed+=_measure(block.html);// re-measure in context
-    return;
-  }
-
-  // Deficiency card
-  if(blockH<=avail){
-    // Fits on current page
-    curPageHtml+=block.html;
-    curUsed+=blockH;
-  } else if(blockH<=PAGE_H-COMPACT_HEADER_H){
-    // Doesn't fit here but fits on a fresh page — push to next page
-    // Only do this if current page isn't mostly empty (>40% used)
-    if(curUsed>PAGE_H*0.15){
-      _finalizePage();_startPage();
-    }
-    curPageHtml+=block.html;
-    curUsed+=blockH;
-  } else {
-    // Card is taller than a full page — needs splitting
-    // For now, just place it and let it overflow (CSS will clip at page boundary)
-    // Future enhancement: split at photo/response boundaries
-    if(curUsed>PAGE_H*0.15){
-      _finalizePage();_startPage();
-    }
-    curPageHtml+=block.html;
-    curUsed+=blockH;
-  }
-});
-
-// Finalize last deficiency page
-_finalizePage();
-
-// ── Appendix — Drawings with Pins ──
-if(isField&&p.drawings&&p.drawings.length){
-  var dwgsWithPins=p.drawings.filter(function(dwg){
-    return reportDefs.some(function(r){return r.d.drawingId===dwg.id&&r.d.pinX!=null;});
-  });
-  if(dwgsWithPins.length){
-    // Each drawing gets its own page
-    dwgsWithPins.forEach(function(dwg){
-      var dPins=reportDefs.filter(function(r){return r.d.drawingId===dwg.id&&r.d.pinX!=null;});
-      var appHtml='<div class="sh" style="margin-top:0;">Appendix \u2014 Drawings with Pins</div><div class="sb" style="padding:8px;">';
-      appHtml+='<div class="app-dwg">';
-      appHtml+='<div class="app-dwg-title">'+escHtml(dwg.name)+' \u2014 '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
-      appHtml+='<img class="app-dwg" id="app-dwg-'+dwg.id+'" src="" alt="'+escHtml(dwg.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
-      appHtml+='<table class="app-pin-table"><thead><tr><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
-      dPins.forEach(function(r){
-        var d=r.d;
-        var sc2=d.status==='Outstanding'?'#C0392B':'#1A7A4A';
-        appHtml+='<tr><td><strong style="color:#9C2742;">#'+d.num+'</strong>'+(d.iar?'<span class="iar">IAR</span>':'')+'</td>';
-        appHtml+='<td>'+escHtml(d.description||'\u2014')+'</td>';
-        appHtml+='<td style="color:'+sc2+';font-weight:700;">'+d.status+'</td>';
-        appHtml+='<td>'+escHtml(r.ctr)+'</td></tr>';
-      });
-      appHtml+='</tbody></table></div></div>';
-      pages.push({html:appHtml,pageNum:curPageNum,isAppendix:true});
-      curPageNum++;
-    });
-  }
-}
-
-var totalPages=pages.length;
-
-// ── Render all pages into DOM ──
-var allPagesHtml='';
-pages.forEach(function(pg,idx){
-  var pgNum=idx+1;
-  allPagesHtml+='<div class="page">';
-  if(pgNum>1){
-    allPagesHtml+=_compactHeader(pgNum,totalPages);
-  }
-  allPagesHtml+='<div class="page-content">'+pg.html+'</div>';
-  allPagesHtml+='</div>';
-});
-pagesContainer.innerHTML=allPagesHtml;
-
-// ── Drawing rendering (minimaps + appendix) ──
 if(isField){
   var dwgPinMap={};
   reportDefs.forEach(function(r){
@@ -11326,131 +11143,158 @@ if(isField){
   });
 
   var dwgIds=Object.keys(dwgPinMap);
-  if(dwgIds.length>0){
-    // Add progress bar
-    try{
-      var progWrap=w.document.createElement('div');
-      progWrap.id='pdf-progress-wrap';
-      progWrap.style.cssText='position:fixed;top:44px;left:0;right:0;z-index:9998;background:#1e2533;padding:6px 20px 8px;font-family:Calibri,sans-serif;';
-      var progLabel=w.document.createElement('div');
-      progLabel.id='pdf-progress-label';
-      progLabel.style.cssText='color:rgba(255,255,255,.8);font-size:12px;margin-bottom:4px;';
-      progLabel.textContent='Rendering drawings... 0/'+dwgIds.length;
-      progWrap.appendChild(progLabel);
-      var progTrack=w.document.createElement('div');
-      progTrack.style.cssText='width:100%;height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden;';
-      var progBar=w.document.createElement('div');
-      progBar.id='pdf-progress-bar';
-      progBar.style.cssText='width:0%;height:100%;background:#1A7A4A;border-radius:3px;transition:width .2s;';
-      progTrack.appendChild(progBar);
-      progWrap.appendChild(progTrack);
-      var barEl=w.document.getElementById('pdf-btn-bar');
-      if(barEl&&barEl.nextSibling)barEl.parentNode.insertBefore(progWrap,barEl.nextSibling);
-      else w.document.body.appendChild(progWrap);
-      w.document.body.style.paddingTop='80px';
-    }catch(pe){}
+  if(dwgIds.length===0){closePDFPicker();return;}
 
-    // Pre-fetch drawing images
-    var _dwgFetchPromises=[];
-    dwgIds.forEach(function(id){
-      var info=dwgPinMap[id];
-      if(info.dataUrl)return;
-      var cached=ADB._drawingBlobCache&&ADB._drawingBlobCache[id];
-      if(cached){
-        _dwgFetchPromises.push(new Promise(function(resolve){
-          var reader=new FileReader();
-          reader.onload=function(){info.dataUrl=reader.result;resolve();};
-          reader.onerror=function(){resolve();};
-          reader.readAsDataURL(cached);
-        }));
-        return;
-      }
-      _dwgFetchPromises.push(
-        ADB.get('drawings',id).then(function(rec){
-          if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
+  // Pre-fetch drawing images for any that lack dataUrl (R2-first architecture)
+  var _dwgFetchPromises=[];
+  dwgIds.forEach(function(id){
+    var info=dwgPinMap[id];
+    if(info.dataUrl)return;// Already has dataUrl
+    // Try blob cache first
+    var cached=ADB._drawingBlobCache&&ADB._drawingBlobCache[id];
+    if(cached){
+      _dwgFetchPromises.push(new Promise(function(resolve){
+        var reader=new FileReader();
+        reader.onload=function(){info.dataUrl=reader.result;resolve();};
+        reader.onerror=function(){resolve();};
+        reader.readAsDataURL(cached);
+      }));
+      return;
+    }
+    // Try IDB blob
+    _dwgFetchPromises.push(
+      ADB.get('drawings',id).then(function(rec){
+        if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
+          return new Promise(function(resolve){
+            var reader=new FileReader();
+            reader.onload=function(){info.dataUrl=reader.result;resolve();};
+            reader.onerror=function(){resolve();};
+            reader.readAsDataURL(rec.dataBlob);
+          });
+        }else if(info.r2Url){
+          // Fetch from R2 as last resort
+          return fetch(info.r2Url).then(function(res){return res.blob();}).then(function(blob){
             return new Promise(function(resolve){
               var reader=new FileReader();
               reader.onload=function(){info.dataUrl=reader.result;resolve();};
               reader.onerror=function(){resolve();};
-              reader.readAsDataURL(rec.dataBlob);
+              reader.readAsDataURL(blob);
             });
-          }else if(info.r2Url){
-            return fetch(info.r2Url).then(function(res){return res.blob();}).then(function(blob){
-              return new Promise(function(resolve){
-                var reader=new FileReader();
-                reader.onload=function(){info.dataUrl=reader.result;resolve();};
-                reader.onerror=function(){resolve();};
-                reader.readAsDataURL(blob);
-              });
-            });
-          }
-        }).catch(function(){})
-      );
-    });
-
-    var _pdfTotalWork=0;
-    var _pdfDoneWork=0;
-
-    Promise.all(_dwgFetchPromises).then(function(){
-      dwgIds=dwgIds.filter(function(id){return dwgPinMap[id].dataUrl;});
-      if(dwgIds.length===0){_pdfHideProgress2();return;}
-
-      dwgIds.forEach(function(id){_pdfTotalWork+=1+dwgPinMap[id].pins.length;});
-
-      function _pdfUpdateProgress2(dwgDone){
-        try{
-          var pct=Math.round((_pdfDoneWork/_pdfTotalWork)*100);
-          var lbl=w.document.getElementById('pdf-progress-label');
-          var bar2=w.document.getElementById('pdf-progress-bar');
-          if(lbl)lbl.textContent='Rendering drawings... '+dwgDone+'/'+dwgIds.length+(pct>=100?' \u2014 Done!':'');
-          if(bar2)bar2.style.width=Math.min(100,pct)+'%';
-        }catch(ue){}
-      }
-      function _pdfHideProgress2(){
-        try{var pw=w.document.getElementById('pdf-progress-wrap');if(pw)pw.remove();w.document.body.style.paddingTop='56px';}catch(hp){}
-      }
-
-      var _dwgQueueIdx=0;
-      function _processNextDrawing2(){
-        if(_dwgQueueIdx>=dwgIds.length){_pdfHideProgress2();return;}
-        var dwgId=dwgIds[_dwgQueueIdx];
-        var info=dwgPinMap[dwgId];
-        _renderDrawingWithPins(info.dataUrl,info.pins,function(dataUrl){
-          _pdfDoneWork++;
-          try{var appEl=w.document.getElementById('app-dwg-'+dwgId);if(appEl)appEl.src=dataUrl;}catch(ex){}
-          var pinsDone=0;
-          var totalPins=info.pins.length;
-          if(totalPins===0){
-            _dwgQueueIdx++;_pdfUpdateProgress2(_dwgQueueIdx);
-            setTimeout(_processNextDrawing2,50);return;
-          }
-          info.pins.forEach(function(r){
-            try{
-              var el=w.document.getElementById('mm-'+r.d.id);
-              if(el){
-                _renderDrawingWithSinglePin(info.dataUrl,r.d,function(singleUrl){
-                  try{if(el)el.src=singleUrl;}catch(ex){}
-                  _pdfDoneWork++;pinsDone++;
-                  _pdfUpdateProgress2(_dwgQueueIdx);
-                  if(pinsDone>=totalPins){_dwgQueueIdx++;_pdfUpdateProgress2(_dwgQueueIdx);setTimeout(_processNextDrawing2,50);}
-                });
-              } else {
-                _pdfDoneWork++;pinsDone++;
-                if(pinsDone>=totalPins){_dwgQueueIdx++;_pdfUpdateProgress2(_dwgQueueIdx);setTimeout(_processNextDrawing2,50);}
-              }
-            }catch(ex){
-              _pdfDoneWork++;pinsDone++;
-              if(pinsDone>=totalPins){_dwgQueueIdx++;_pdfUpdateProgress2(_dwgQueueIdx);setTimeout(_processNextDrawing2,50);}
-            }
           });
-        });
-      }
-      setTimeout(_processNextDrawing2,200);
-    });
-  } // end if dwgIds.length>0
-} // end if isField
-} // end _exportPDFWithCache
+        }
+      }).catch(function(){})
+    );
+  });
 
+  // Wait for all drawing images to be loaded, then proceed with rendering
+  Promise.all(_dwgFetchPromises).then(function(){
+    // Filter out any drawings that still have no dataUrl
+    dwgIds=dwgIds.filter(function(id){return dwgPinMap[id].dataUrl;});
+    if(dwgIds.length===0){_pdfHideProgress&&_pdfHideProgress();return;}
+
+  // Count total work items: 1 full-drawing render + N minimap renders per drawing
+  var _pdfTotalWork=0;
+  dwgIds.forEach(function(id){_pdfTotalWork+=1+dwgPinMap[id].pins.length;});
+  var _pdfDoneWork=0;
+
+  // Add progress bar to PDF window
+  try{
+    var progWrap=w.document.createElement('div');
+    progWrap.id='pdf-progress-wrap';
+    progWrap.style.cssText='position:fixed;top:44px;left:0;right:0;z-index:9998;background:#1e2533;padding:6px 20px 8px;font-family:Calibri,sans-serif;';
+    var progLabel=w.document.createElement('div');
+    progLabel.id='pdf-progress-label';
+    progLabel.style.cssText='color:rgba(255,255,255,.8);font-size:12px;margin-bottom:4px;';
+    progLabel.textContent='Rendering drawings... 0/'+dwgIds.length;
+    progWrap.appendChild(progLabel);
+    var progTrack=w.document.createElement('div');
+    progTrack.style.cssText='width:100%;height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden;';
+    var progBar=w.document.createElement('div');
+    progBar.id='pdf-progress-bar';
+    progBar.style.cssText='width:0%;height:100%;background:#1A7A4A;border-radius:3px;transition:width .2s;';
+    progTrack.appendChild(progBar);
+    progWrap.appendChild(progTrack);
+    var barEl=w.document.getElementById('pdf-btn-bar');
+    if(barEl&&barEl.nextSibling)barEl.parentNode.insertBefore(progWrap,barEl.nextSibling);
+    else w.document.body.appendChild(progWrap);
+    w.document.body.style.paddingTop='80px';
+  }catch(pe){}
+
+  function _pdfUpdateProgress(dwgDone){
+    try{
+      var pct=Math.round((_pdfDoneWork/_pdfTotalWork)*100);
+      var lbl=w.document.getElementById('pdf-progress-label');
+      var bar2=w.document.getElementById('pdf-progress-bar');
+      if(lbl)lbl.textContent='Rendering drawings... '+dwgDone+'/'+dwgIds.length+(pct>=100?' — Done!':'');
+      if(bar2)bar2.style.width=Math.min(100,pct)+'%';
+    }catch(ue){}
+  }
+  function _pdfHideProgress(){
+    try{var pw=w.document.getElementById('pdf-progress-wrap');if(pw)pw.remove();w.document.body.style.paddingTop='56px';}catch(hp){}
+  }
+
+  // Sequential chunked rendering — one drawing at a time, minimaps parallel within each
+  var _dwgQueueIdx=0;
+  function _processNextDrawing(){
+    if(_dwgQueueIdx>=dwgIds.length){_pdfHideProgress();return;}
+    var dwgId=dwgIds[_dwgQueueIdx];
+    var info=dwgPinMap[dwgId];
+    _renderDrawingWithPins(info.dataUrl, info.pins, function(dataUrl){
+      _pdfDoneWork++;
+      // Set appendix drawing
+      try{var appEl=w.document.getElementById('app-dwg-'+dwgId);if(appEl)appEl.src=dataUrl;}catch(ex){}
+      // Render minimaps in parallel (original working pattern)
+      var pinsDone=0;
+      var totalPins=info.pins.length;
+      if(totalPins===0){
+        _dwgQueueIdx++;
+        _pdfUpdateProgress(_dwgQueueIdx);
+        setTimeout(_processNextDrawing,50);
+        return;
+      }
+      info.pins.forEach(function(r){
+        try{
+          var el=w.document.getElementById('mm-'+r.d.id);
+          if(el){
+            _renderDrawingWithSinglePin(info.dataUrl,r.d,function(singleUrl){
+              try{if(el)el.src=singleUrl;}catch(ex){}
+              _pdfDoneWork++;
+              pinsDone++;
+              _pdfUpdateProgress(_dwgQueueIdx);
+              if(pinsDone>=totalPins){
+                _dwgQueueIdx++;
+                _pdfUpdateProgress(_dwgQueueIdx);
+                setTimeout(_processNextDrawing,50);
+              }
+            });
+          } else {
+            _pdfDoneWork++;
+            pinsDone++;
+            if(pinsDone>=totalPins){
+              _dwgQueueIdx++;
+              _pdfUpdateProgress(_dwgQueueIdx);
+              setTimeout(_processNextDrawing,50);
+            }
+          }
+        }catch(ex){
+          _pdfDoneWork++;
+          pinsDone++;
+          if(pinsDone>=totalPins){
+            _dwgQueueIdx++;
+            _pdfUpdateProgress(_dwgQueueIdx);
+            setTimeout(_processNextDrawing,50);
+          }
+        }
+      });
+    });
+  }
+  // Delay start to ensure popup DOM is fully ready
+  setTimeout(_processNextDrawing,200);
+  });// end Promise.all(_dwgFetchPromises).then
+}
+
+closePDFPicker();
+}
 // ═══ INIT — async IndexedDB load ═══
 document.addEventListener('DOMContentLoaded',function(){
   initDarkMode();
@@ -12842,13 +12686,6 @@ async function _syncHeartbeat(){
     (p.contractors||[]).forEach(function(c){localDeficCount+=(c.deficiencies||[]).length;});
     localDeficCount+=(p.generalDeficiencies||[]).length;
     var dataActuallyChanged=(cloudDrawCount!==localDrawCount)||(cloudDeficCount!==localDeficCount);
-    // If counts match, cloud is likely our own auto-save — just update sync timestamp to prevent re-push
-    if(!dataActuallyChanged){
-      if(cloudTime>localCurrent){
-        var p2=getProject();if(p2)p2._cloudSyncedAt=cloudUpdatedAt;
-      }
-      _syncLock=false;_heartbeatRunning=false;return;
-    }
     // Only apply if cloud is meaningfully newer AND data actually differs
     if(cloudTime>localCurrent+20000&&dataActuallyChanged){
       // Ghost detection: if cloud has MORE drawings than local after we've been pushing deduped state,
@@ -13318,7 +13155,7 @@ async function _getNextInstanceNumber(){if(!_online)return 1;try{var rows=await 
 async function init(opts){_toolKey=opts.toolKey;_onStatusChange=opts.onStatusChange||null;_projectId=opts.projectId||null;_instanceId=opts.instanceId||null;try{await _openIDB();}catch(e){console.error('[CloudSync] IDB open failed:',e);}try{var user=await _getUser();if(user)_userId=user.id;}catch(e){}if(_projectId&&_online){try{await _loadProjectInfo();}catch(e){}}if(_projectId&&!_instanceId){_instanceNumber=await _getNextInstanceNumber();}window.addEventListener('online',_onOnline);window.addEventListener('offline',_onOffline);_initialized=true;_setStatus(_online?'synced':'offline','Ready');return{projectInfo:_projectInfo,userId:_userId,online:_online,instanceId:_instanceId,instanceNumber:_instanceNumber};}
 function destroy(){stopAutoSave();window.removeEventListener('online',_onOnline);window.removeEventListener('offline',_onOffline);_initialized=false;}
 async function syncNow(){if(!_online){_setStatus('offline','No connection');return false;}if(!_collectStateFn)return false;try{_setStatus('saving','Syncing...');var state=_collectStateFn();await save(state);_setStatus('synced','Force sync complete');return true;}catch(e){_setStatus('error','Sync failed');return false;}}
-return{init:init,save:save,load:load,startAutoSave:startAutoSave,stopAutoSave:stopAutoSave,destroy:destroy,syncNow:syncNow,readUrlParams:readUrlParams,request:_request,resetLastSaved:function(){_lastSavedJson='';},get isInitialized(){return _initialized;},get projectId(){return _projectId;},get instanceId(){return _instanceId;},get instanceNumber(){return _instanceNumber;},get userId(){return _userId;},get online(){return _online;}};})();
+return{init:init,save:save,load:load,startAutoSave:startAutoSave,stopAutoSave:stopAutoSave,destroy:destroy,syncNow:syncNow,readUrlParams:readUrlParams,request:_request,resetLastSaved:function(){_lastSavedJson='';},get isInitialized(){return _initialized;},get projectId(){return _projectId;},get instanceId(){return _instanceId;},get userId(){return _userId;},get online(){return _online;}};})();
 </script>
 </body>
 </html>
