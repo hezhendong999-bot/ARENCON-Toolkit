@@ -308,6 +308,7 @@ body.dark-mode .app-nav{background:#1E293B;border-color:#334155;}
 .nav-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
 .screen{display:none;flex:1;overflow:auto;}
 .screen.active{display:block;}
+#screenTimeline.active{display:flex;flex-direction:column;}
 
 /* Dashboard */
 .dash-wrap{padding:24px;max-width:1100px;margin:0 auto;}
@@ -331,7 +332,7 @@ body.dark-mode .principal-card{background:#1E293B;border-color:#334155;}
 body.dark-mode .princ-cat-pill{background:rgba(156,39,66,.2);}
 
 /* Timeline screen */
-.timeline-wrap{display:flex;height:calc(100vh - 52px - 44px - 28px);overflow:hidden;}
+.timeline-wrap{display:flex;flex:1;overflow:hidden;}
 .timeline-sidebar{width:260px;min-width:260px;border-right:1px solid var(--border);background:var(--white);display:flex;flex-direction:column;overflow:hidden;}
 body.dark-mode .timeline-sidebar{background:#1E293B;border-color:#334155;}
 .tl-filter{padding:10px 12px;border-bottom:1px solid var(--border);}
@@ -394,7 +395,7 @@ body.dark-mode .proj-table tr:hover{background:rgba(255,255,255,.03);}
 </div>
 
 <!-- MAIN CONTENT -->
-<div id="mainWrap" style="display:none;">
+<div id="mainWrap" style="display:none;height:calc(100vh - 52px - 28px);flex-direction:column;">
 
   <!-- NAV BAR -->
   <div class="app-nav">
@@ -1401,7 +1402,7 @@ async function init(){
 async function initAfterAuth(){
   document.getElementById('loginWrap').style.display='none';
   document.getElementById('appHeader').style.display='';
-  document.getElementById('mainWrap').style.display='';
+  document.getElementById('mainWrap').style.display='flex';
   document.querySelector('.app-footer').style.display='';
   
   await loadUserRole();
@@ -1864,7 +1865,7 @@ function buildPersonView(vs,nd,today,ck){
   var h='',cells=buildCells(nd,vs,today);
   state.people.forEach(function(person){
     var items=[];
-    state.projects.forEach(function(proj){(proj.assignments||[]).forEach(function(a){if(a.personId===person.id)items.push({proj:proj,a:a});});});
+    getFilteredProjects().forEach(function(proj){(proj.assignments||[]).forEach(function(a){if(a.personId===person.id)items.push({proj:proj,a:a});});});
     h+='<div class="gantt-row" style="background:var(--smoke);"><div class="group-label"><span class="gl-dot" style="background:'+person.color+';"></span><span class="gl-name">'+esc(person.initials)+' — '+esc(person.name)+'</span><span class="gl-count">'+items.length+'</span></div><div style="margin-left:'+STICKY_W+'px;display:flex;position:relative;height:var(--gantt-row-h);">'+cells+'</div></div>';
     if(!items.length){h+='<div class="gantt-row"><div class="row-label" style="color:var(--silver);font-style:italic;">No assignments</div><div style="margin-left:'+STICKY_W+'px;display:flex;position:relative;height:var(--gantt-row-h);">'+cells+'</div></div>';return;}
     items.sort(function(a,b){return a.a.startDate.localeCompare(b.a.startDate);});
@@ -1953,7 +1954,7 @@ function renderWeekView(){
       var isWe=d>=5?' cal-we':'';
       h+='<div class="cal-day-cell'+isToday+isWe+'">';
       // Find assignments active on this day
-      state.projects.forEach(function(proj){
+      getFilteredProjects().forEach(function(proj){
         (proj.assignments||[]).forEach(function(a){
           if(a.personId!==person.id) return;
           var as=parseDate(a.startDate),ae=parseDate(a.endDate);
@@ -1989,7 +1990,7 @@ function renderDayView(){
   // Show each person as a column-like section
   state.people.forEach(function(person){
     var items=[];
-    state.projects.forEach(function(proj){
+    getFilteredProjects().forEach(function(proj){
       (proj.assignments||[]).forEach(function(a){
         if(a.personId!==person.id) return;
         var as=parseDate(a.startDate),ae=parseDate(a.endDate);
@@ -2108,9 +2109,9 @@ function exportReport(){
 
 function renderAll(){
   var screen=state.currentScreen||'dashboard';
-  document.getElementById('screenDashboard').style.display=screen==='dashboard'?'':'none';
-  document.getElementById('screenTimeline').style.display=screen==='timeline'?'':'none';
-  document.getElementById('screenProjects').style.display=screen==='projects'?'':'none';
+  document.getElementById('screenDashboard').classList.toggle('active',screen==='dashboard');
+  document.getElementById('screenTimeline').classList.toggle('active',screen==='timeline');
+  document.getElementById('screenProjects').classList.toggle('active',screen==='projects');
   // Update nav
   document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.toggle('active',t.dataset.screen===screen);});
   if(screen==='dashboard') renderDashboard();
@@ -2217,7 +2218,7 @@ function getFilteredProjects(){
 
 function renderProjectTable(){
   var el=document.getElementById('projTableContent');
-  var projects=state.projects.slice().sort(function(a,b){
+  var projects=(state.principalFilter?getFilteredProjects():state.projects).slice().sort(function(a,b){
     var po={high:0,medium:1,low:2};return(po[a.priority]||1)-(po[b.priority]||1);
   });
   
