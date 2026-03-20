@@ -1345,6 +1345,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <button class="hdr-btn" id="btn-reupload" onclick="reuploadAllToCloud()" style="display:none;background:#E67E22;" title="Re-upload all drawings and photos to cloud">☁ Re-upload All</button>
       <button class="hdr-btn" id="btn-fix-pdfs" onclick="_reuploadPDFsToR2()" style="display:none;background:#1565C0;" title="Re-upload original PDFs to R2 for sharp drawings on all devices">📄 Fix Blurry</button>
       <button class="hdr-btn" id="btn-r2-cleanup" onclick="_r2CleanupOrphans()" style="display:none;background:#7B1FA2;" title="Delete orphaned R2 files that don't match your local project">🧹 R2 Cleanup</button>
+      <button class="hdr-btn" id="btn-r2-cleanup" onclick="_r2CleanupOrphans()" style="display:none;background:#7B1FA2;" title="Delete orphaned R2 files that don't match your local project">🧹 R2 Cleanup</button>
       <button class="hdr-btn" style="background:#455A64;" id="btn-refresh" onclick="refreshCurrentPage()" title="Refresh">🔄</button>
       <div style="position:relative;display:none;" id="btn-reset-dd">
         <button class="hdr-btn" style="background:#C62828;" onclick="toggleResetMenu(event)" title="Reset options">⚠️</button>
@@ -3441,12 +3442,7 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   // Ensure all site photos have IDs
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){if(ph&&!ph.id)ph.id='sp_'+Math.random().toString(36).substr(2,8);});}
   _requeuePendingUploads(p);
-  // R2 orphan cleanup DISABLED — do not re-enable until root cause of metadata corruption is fully resolved.
-  // R2 files are permanent. Manual cleanup only via Cloudflare dashboard.
-  // if(_csHubMode&&!enterProject._cleanupRan){
-  //   enterProject._cleanupRan=true;
-  //   setTimeout(function(){if(typeof _r2CleanupOrphans==='function')_r2CleanupOrphans().catch(function(){});},8000);
-  // }
+  // R2 orphan cleanup: manual via 🧹 R2 Cleanup button in header (Hub mode)
   // Safety net: rebuild any missing r2Url from r2Key on every project enter
   if(typeof _rebuildMissingR2Urls==='function')_rebuildMissingR2Urls(p);
   var _el;
@@ -5422,6 +5418,13 @@ async function _openTiledPDF(drawingId,pageNum){
       }
     } else {
       hideDrawingLoading();
+      var _fbDwg2=p&&p.drawings.find(function(x){return x.id===drawingId;});
+      if(_fbDwg2){
+        _fbDwg2.pdfTiled=false;
+        saveToLS();
+        _openDrawingImage(_fbDwg2,drawingId);
+        return;
+      }
       toast('Drawing data not found locally or in cloud — please re-upload');
       return;
     }
@@ -11355,6 +11358,7 @@ document.addEventListener('DOMContentLoaded',function(){
       var hubPName=urlParams.get('pname')||'';
       var hubClient=urlParams.get('client')||'';
       var hubAddr=urlParams.get('addr')||'';
+      _csR2Folder=_makeR2FolderSlug(hubPN,hubPName)||_csProjectId;
       // Build R2 folder slug from project number + name
       _csR2Folder=_makeR2FolderSlug(hubPN,hubPName)||_csProjectId;      // Update header for Hub mode
       var hubLink=document.getElementById('hdr-hub-link');
@@ -11377,6 +11381,7 @@ document.addEventListener('DOMContentLoaded',function(){
       // Show sign-out button in Hub mode
       var btnReupload=document.getElementById('btn-reupload');if(btnReupload)btnReupload.style.display='';
       var btnFixPdfs=document.getElementById('btn-fix-pdfs');if(btnFixPdfs)btnFixPdfs.style.display='';
+      var btnR2Cleanup=document.getElementById('btn-r2-cleanup');if(btnR2Cleanup)btnR2Cleanup.style.display='';
       var btnR2Cleanup=document.getElementById('btn-r2-cleanup');if(btnR2Cleanup)btnR2Cleanup.style.display='';
       var btnSignOut=document.getElementById('btn-signout');if(btnSignOut)btnSignOut.style.display='';
       var mobileSignOut=document.getElementById('mobile-signout-btn');if(mobileSignOut)mobileSignOut.style.display='';
@@ -12237,6 +12242,7 @@ function _mergeDrawing(cd,localDrawings){
     markupCleared:cd.markupCleared||(existing?existing.markupCleared:false)||false,
     markupObjects:(cd.markupCleared||(existing&&existing.markupCleared))?[]:(existing?existing.markupObjects:cd.markupObjects||null),
     markupR2Saved:cd.markupR2Saved||(existing?existing.markupR2Saved:false)||false,
+    markupR2Saved:cd.markupR2Saved||(existing?existing.markupR2Saved:false)||false,
     // pdfTiled: local value wins when drawing exists locally (local detects actual file type via fallback)
     // Only take cloud's pdfTiled for drawings that don't exist locally yet
     pdfTiled:existing?(existing.pdfTiled||false):(cd.pdfTiled||false),
@@ -12611,8 +12617,19 @@ async function _syncHeartbeat(){
     var localModified=p._localModifiedAt?new Date(p._localModifiedAt).getTime():0;
     var localCurrent=Math.max(localSyncedAt,localModified);
     var cloudTime=new Date(cloudUpdatedAt).getTime();
-    // Only apply if cloud is meaningfully newer (20s grace)
-    if(cloudTime>localCurrent+20000){
+    // Quick-check: if cloud has same drawing count and defic count as local,
+    // it's likely our own auto-save — skip the merge
+    var cloudDrawCount=(cloudData.drawings||[]).length;
+    var localDrawCount=(p.drawings||[]).length;
+    var cloudDeficCount=0;
+    (cloudData.contractors||[]).forEach(function(c){cloudDeficCount+=(c.deficiencies||[]).length;});
+    cloudDeficCount+=(cloudData.generalDeficiencies||[]).length;
+    var localDeficCount=0;
+    (p.contractors||[]).forEach(function(c){localDeficCount+=(c.deficiencies||[]).length;});
+    localDeficCount+=(p.generalDeficiencies||[]).length;
+    var dataActuallyChanged=(cloudDrawCount!==localDrawCount)||(cloudDeficCount!==localDeficCount);
+    // Only apply if cloud is meaningfully newer AND data actually differs
+    if(cloudTime>localCurrent+20000&&dataActuallyChanged){
       // Ghost detection: if cloud has MORE drawings than local after we've been pushing deduped state,
       // another tab/device is overwriting our saves. Warn and stop.
       var localDrawCount=(p.drawings||[]).length;
