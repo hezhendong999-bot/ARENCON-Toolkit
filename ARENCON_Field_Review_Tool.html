@@ -4720,8 +4720,8 @@ function _runPdfPages(pdf,bn,folder,total,arrayBuf){
         pdf.getPage(pg).then(function(page){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
-          // Render at 3x for crisp drawings (cap at 4096px to avoid mobile crashes)
-          var hiScale=Math.min(3.0,4096/pw,4096/ph);
+          // Render at 3x for crisp drawings — no cap needed for image mode
+          var hiScale=Math.min(4.0,4096/pw,4096/ph);
           var hiVp=page.getViewport({scale:hiScale});
           var hc=document.createElement('canvas');
           hc.width=Math.round(hiVp.width);
@@ -5124,7 +5124,7 @@ function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
         pdf.getPage(pg).then(function(page){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
-          var hiScale=Math.min(3.0,4096/pw,4096/ph);
+          var hiScale=Math.min(4.0,4096/pw,4096/ph);
           var hiVp=page.getViewport({scale:hiScale});
           var hc=document.createElement('canvas');
           hc.width=Math.round(hiVp.width);
@@ -7532,7 +7532,8 @@ function _buildDownloadCanvas(dwg,incPins,incMarkup,callback){
       _addPinsToCanvas(ctx,dwg,incPins,c,callback);
     }
   };
-  img.src=dwg.dataUrl;
+  img.crossOrigin='anonymous';
+  img.src=dwg.dataUrl||dwg.r2Url||'';
 }
 
 function _addPinsToCanvas(ctx,dwg,incPins,canvas,callback){
@@ -9515,7 +9516,13 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
     tabsHtml+entryPanel+
     (d.drawingId
       ? '<div style="margin-top:12px;"><label style="font-size:9px;font-weight:700;color:#4A5568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Location on Drawing</label>'+
-        '<canvas id="pin-mini-map" width="384" height="220" style="width:100%;border-radius:8px;border:1px solid var(--border);background:#f5f5f5;display:block;"></canvas></div>'
+        '<canvas id="pin-mini-map" width="384" height="220" style="width:100%;border-radius:8px;border:1px solid var(--border);background:#f5f5f5;display:block;"></canvas>'+
+        '<div style="margin-top:8px;display:flex;align-items:center;gap:8px;">'+
+        '<label style="font-size:9px;font-weight:700;color:#4A5568;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">Move to:</label>'+
+        '<select id="pin-move-drawing" onchange="_movePinToDrawing(this.value)" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--card-bg);color:var(--text);font-size:12px;font-family:Calibri,sans-serif;">'+
+        '<option value="">— Current drawing —</option>'+
+        (p.drawings||[]).map(function(dw){return '<option value="'+dw.id+'"'+(dw.id===d.drawingId?' disabled':'')+'>'+escHtml(dw.name||dw.filename||dw.id)+'</option>';}).join('')+
+        '</select></div></div>'
       : '');
 
   var oldDl=document.getElementById('pin-desc-suggestions');if(oldDl)oldDl.remove();
@@ -9797,14 +9804,29 @@ function handlePinPhotoUpload(e){handlePinEntryFiles(e.target.files,0);e.target.
 function handlePinPhotoDrop(e){handlePinEntryFiles(e.dataTransfer.files,0);}
 function triggerPinCamera(){triggerPinEntryCamera(0);}
 
+function _movePinToDrawing(newDrawingId){
+  if(!newDrawingId||!editingPinId)return;
+  var f=findDeficiency(editingPinId);if(!f)return;
+  var oldId=f.defic.drawingId;
+  if(newDrawingId===oldId)return;
+  f.defic.drawingId=newDrawingId;
+  saveToLS();_folderQuickSave();
+  renderPinsOnDrawing();
+  openPinEditor(editingPinId);
+  toast('Pin #'+f.defic.num+' moved to new drawing');
+}
+
 function renderPinMiniMap(d){
   var canvas=document.getElementById('pin-mini-map');
   if(!canvas||!d.drawingId)return;
   var p=getProject();if(!p)return;
   var dwg=p.drawings.find(function(x){return x.id===d.drawingId;});
-  if(!dwg||!dwg.dataUrl){canvas.style.display='none';return;}
+  if(!dwg){canvas.style.display='none';return;}
+  var imgSrc=dwg.dataUrl||dwg.r2Url||'';
+  if(!imgSrc){canvas.style.display='none';return;}
   canvas.style.display='block';
   var img=new Image();
+  img.crossOrigin='anonymous';
   img.onload=function(){
     var aspect=img.height/img.width;
     var dpr=Math.min(window.devicePixelRatio||1,3);
@@ -9834,7 +9856,7 @@ function renderPinMiniMap(d){
       ctx.restore();
     }
   };
-  img.src=dwg.dataUrl;
+  img.src=imgSrc;
 }
 
 // ═══ PINS KANBAN BOARD ═══
@@ -11766,7 +11788,8 @@ function rotateDrawing(id){
     var tmp=dwg.width;dwg.width=dwg.height;dwg.height=tmp;
     saveToLS();renderDrawingGallery();toast('Rotated: '+dwg.name);
   };
-  img.src=dwg.dataUrl;
+  img.crossOrigin='anonymous';
+  img.src=dwg.dataUrl||dwg.r2Url||'';
 }
 
 
