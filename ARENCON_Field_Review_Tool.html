@@ -6047,7 +6047,12 @@ window.addEventListener('resize',function(){
     if(typeof fitDrawing==='function')fitDrawing();
     if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
     if(typeof resizeMarkupCanvas==='function')resizeMarkupCanvas();
-  },150);
+    // Second pass after browser fully reflows (catches DevTools close)
+    setTimeout(function(){
+      if(typeof fitDrawing==='function')fitDrawing();
+      if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
+    },200);
+  },100);
 });
 window.addEventListener('orientationchange',function(){
   setTimeout(function(){
