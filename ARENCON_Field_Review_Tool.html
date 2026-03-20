@@ -12465,6 +12465,13 @@ async function _syncHeartbeat(){
     (p.contractors||[]).forEach(function(c){localDeficCount+=(c.deficiencies||[]).length;});
     localDeficCount+=(p.generalDeficiencies||[]).length;
     var dataActuallyChanged=(cloudDrawCount!==localDrawCount)||(cloudDeficCount!==localDeficCount);
+    // If counts match, cloud is likely our own auto-save — just update sync timestamp to prevent re-push
+    if(!dataActuallyChanged){
+      if(cloudTime>localCurrent){
+        var p2=getProject();if(p2)p2._cloudSyncedAt=cloudUpdatedAt;
+      }
+      _syncLock=false;_heartbeatRunning=false;return;
+    }
     // Only apply if cloud is meaningfully newer AND data actually differs
     if(cloudTime>localCurrent+20000&&dataActuallyChanged){
       // Ghost detection: if cloud has MORE drawings than local after we've been pushing deduped state,
