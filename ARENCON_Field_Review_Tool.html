@@ -9812,6 +9812,7 @@ function _movePinToDrawing(newDrawingId){
   f.defic.drawingId=newDrawingId;
   saveToLS();_folderQuickSave();
   renderPinsOnDrawing();
+  renderDrawingGallery();// Update thumbnail pin badges
   openPinEditor(editingPinId);
   toast('Pin #'+f.defic.num+' moved to new drawing');
 }
