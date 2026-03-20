@@ -5412,6 +5412,7 @@ async function _openTiledPDF(drawingId,pageNum){
     var p=getProject();
     var d=p&&p.drawings.find(function(x){return x.id===drawingId;});
     if(d&&d.r2Url){
+      console.log('[DrawingViewer] Tiled: no IDB pdfData, fetching from R2: '+d.r2Url.substring(0,80));
       showDrawingLoading('Downloading drawing from cloud\u2026');
       try{
         var res=await fetch(d.r2Url);
@@ -5419,6 +5420,7 @@ async function _openTiledPDF(drawingId,pageNum){
         var contentType=res.headers.get('content-type')||'';
         // If R2 file is an image (not PDF), fall back to normal image viewer
         if(contentType.indexOf('image/')===0){
+          console.log('[DrawingViewer] Tiled: R2 returned image ('+contentType+'), falling back to image viewer');
           var imgBlob=await res.blob();
           // Cache the JPEG blob as fallback image
           var existing2=await ADB.get('drawings',drawingId).catch(function(){return null;});
@@ -5447,8 +5449,8 @@ async function _openTiledPDF(drawingId,pageNum){
         return;
       }
     } else {
-      hideDrawingLoading();
-      var _fbDwg2=p&&p.drawings.find(function(x){return x.id===drawingId;});
+      console.log('[DrawingViewer] Tiled: no IDB pdfData AND no r2Url — falling back to image viewer');
+      hideDrawingLoading();(function(x){return x.id===drawingId;});
       if(_fbDwg2){
         _fbDwg2.pdfTiled=false;
         saveToLS();
@@ -5616,6 +5618,7 @@ function openDrawingViewer(drawingId){
     // PDF recovery removed — use Fix Blurry button to re-upload PDFs to R2 instead
     // Tiled PDF path — draws from raw PDF stored in pdfData IDB store
     if(d.pdfTiled){
+      console.log('[DrawingViewer] pdfTiled path — id='+drawingId+' r2Url='+(d.r2Url?'yes':'no'));
       showDrawingLoading('Opening drawing…');
       initPanZoom();
       _openTiledPDF(drawingId,d.pdfPage||1);
@@ -5627,6 +5630,7 @@ function openDrawingViewer(drawingId){
 
 function _openDrawingImage(d,drawingId){
   try{
+    console.log('[DrawingViewer] _openDrawingImage id='+drawingId+' r2Url='+(d.r2Url?'yes':'no')+' dataUrl='+(d.dataUrl?'yes':'no')+' hasBlob='+!!d._hasLocalBlob+' pdfTiled='+!!d.pdfTiled);
     function _openWithSrc(blobUrlOrDataUrl){
       var prevBlobUrl=dvState._currentBlobUrl;
       dvState._currentBlobUrl=null;
