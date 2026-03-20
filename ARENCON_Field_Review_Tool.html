@@ -5420,23 +5420,11 @@ async function _openTiledPDF(drawingId,pageNum){
         var contentType=res.headers.get('content-type')||'';
         // If R2 file is an image (not PDF), fall back to normal image viewer
         if(contentType.indexOf('image/')===0){
-          console.log('[DrawingViewer] Tiled: R2 returned image ('+contentType+'), falling back to image viewer');
-          var imgBlob=await res.blob();
-          // Cache the JPEG blob as fallback image
-          var existing2=await ADB.get('drawings',drawingId).catch(function(){return null;});
-          if(existing2){existing2.dataBlob=imgBlob;await ADB.put('drawings',existing2);}
-          else{await ADB.put('drawings',{id:drawingId,projectId:_csProjectId||'',dataBlob:imgBlob});}
-          if(!ADB._drawingBlobCache)ADB._drawingBlobCache={};
-          ADB._drawingBlobCache[drawingId]=imgBlob;
-          d._hasLocalBlob=true;
-          // Only clear pdfTiled if local pdfData is truly gone
-          var localPdf=await ADB.getPdfData(drawingId).catch(function(){return null;});
-          if(!localPdf||!localPdf.buf||localPdf.buf.byteLength<100){
-            d.pdfTiled=false;
-            saveToLS();
-          }
+          console.log('[DrawingViewer] Tiled: R2 returned image ('+contentType+'), switching to image viewer');
+          d.pdfTiled=false;
+          saveToLS();
           hideDrawingLoading();
-          openDrawingViewer(drawingId);
+          _openDrawingImage(d,drawingId);
           return;
         }
         var buf=await res.arrayBuffer();
@@ -5631,75 +5619,51 @@ function openDrawingViewer(drawingId){
 function _openDrawingImage(d,drawingId){
   try{
     console.log('[DrawingViewer] _openDrawingImage id='+drawingId+' r2Url='+(d.r2Url?'yes':'no')+' dataUrl='+(d.dataUrl?'yes':'no')+' hasBlob='+!!d._hasLocalBlob+' pdfTiled='+!!d.pdfTiled);
-    function _openWithSrc(blobUrlOrDataUrl){
+    function _openWithSrc(src){
       var prevBlobUrl=dvState._currentBlobUrl;
       dvState._currentBlobUrl=null;
       var img=document.getElementById('dv-image');
-      img.onerror=function(){
-        // Blob URL failed — try R2 URL as fallback
-        if(d.r2Url&&img.src!==d.r2Url){
-          console.log('[DrawingViewer] Blob URL failed, falling back to R2 URL');
-          img.src=d.r2Url;
-          return;
-        }
-        // Try fetching R2 URL as blob
-        if(d.r2Url){
-          fetch(d.r2Url).then(function(res){return res.blob();}).then(function(blob){
-            var bu=URL.createObjectURL(blob);
-            dvState._currentBlobUrl=bu;
-            img.src=bu;
-          }).catch(function(){});
-        }
-      };
-      img.src=blobUrlOrDataUrl;
       img.onload=function(){
         if(prevBlobUrl){URL.revokeObjectURL(prevBlobUrl);}
         fitDrawing();renderPinsOnDrawing();renderTasksPanel();resizeMarkupCanvas();initMarkupEvents();initSelectModeEvents();
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
       };
+      img.onerror=function(){
+        console.warn('[DrawingViewer] Image load failed for: '+src.substring(0,80));
+        // If blob URL failed, try R2 directly
+        if(d.r2Url&&src!==d.r2Url){
+          console.log('[DrawingViewer] Retrying with R2 URL');
+          img.src=d.r2Url;
+        }
+      };
+      img.src=src;
       initPanZoom();
     }
-    function _openWithBlob(blob){
-      var blobUrl=URL.createObjectURL(blob);
-      dvState._currentBlobUrl=blobUrl;
-      _openWithSrc(blobUrl);
-    }
 
-    // Priority: R2 URL > IDB blob > blob cache > dataUrl
+    // Priority 1: R2 URL — load directly, no blob conversion needed
     if(d.r2Url){
       showDrawingLoading('Loading drawing…');
-      // Try IDB blob first (faster, no network)
-      ADB.get('drawings',d.id).then(function(rec){
-        if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
-          hideDrawingLoading();
-          _openWithBlob(rec.dataBlob);
-        } else {
-          // Fetch from R2
-          fetch(d.r2Url)
-            .then(function(res){if(!res.ok)throw new Error(res.status);return res.blob();})
-            .then(function(blob){hideDrawingLoading();_openWithBlob(blob);})
-            .catch(function(err){hideDrawingLoading();toast('Could not load drawing: '+err.message);});
-        }
-      }).catch(function(){
-        // IDB failed — fetch from R2 directly
-        fetch(d.r2Url)
-          .then(function(res){if(!res.ok)throw new Error(res.status);return res.blob();})
-          .then(function(blob){hideDrawingLoading();_openWithBlob(blob);})
-          .catch(function(err){hideDrawingLoading();toast('Could not load drawing: '+err.message);});
-      });
-    } else if(d._hasLocalBlob&&ADB._drawingBlobCache&&ADB._drawingBlobCache[d.id]){
-      _openWithBlob(ADB._drawingBlobCache[d.id]);
-    } else if(d.dataUrl){
-      _openWithSrc(d.dataUrl);
-    } else {
-      // No R2 URL, no cache, no dataUrl — try IDB as last resort
-      showDrawingLoading('Loading drawing…');
-      ADB.get('drawings',d.id).then(function(rec){
-        hideDrawingLoading();
-        if(rec&&rec.dataBlob&&rec.dataBlob.size>0){_openWithBlob(rec.dataBlob);}
-        else{toast('Drawing not yet uploaded to cloud. Please wait and try again.');}
-      }).catch(function(e){hideDrawingLoading();toast('IDB error: '+e.message);});
+      hideDrawingLoading();
+      _openWithSrc(d.r2Url);
+      return;
     }
+    // Priority 2: dataUrl (base64 inline)
+    if(d.dataUrl){
+      _openWithSrc(d.dataUrl);
+      return;
+    }
+    // Priority 3: IDB blob
+    showDrawingLoading('Loading drawing…');
+    ADB.get('drawings',d.id).then(function(rec){
+      hideDrawingLoading();
+      if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
+        var blobUrl=URL.createObjectURL(rec.dataBlob);
+        dvState._currentBlobUrl=blobUrl;
+        _openWithSrc(blobUrl);
+      } else {
+        toast('Drawing not available — please re-upload');
+      }
+    }).catch(function(e){hideDrawingLoading();toast('IDB error: '+e.message);});
   }catch(err){console.error('_openDrawingImage error:',err);}
 }function closeDrawingViewer(){document.getElementById('drawing-viewer').classList.remove('open');if(window._tiledActive)_closeTiledPDF();if(dvState._currentBlobUrl){URL.revokeObjectURL(dvState._currentBlobUrl);dvState._currentBlobUrl=null;}dvState.currentDrawingId=null;dvState.selectedPinId=null;dvState.pinMode=false;mkState.tool=null;closePinPanel();closePinModal();}
 function prevDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx-1+p.drawings.length)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
