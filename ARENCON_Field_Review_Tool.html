@@ -4696,7 +4696,25 @@ function _handlePDFUploadCore(file){
       var bn=file.name.replace(/\.pdf$/i,'');
       var total=pdf.numPages;
       var done=0;
-      showDrawingLoading('Processing PDF: 0/'+total+'...');
+      // Check for name conflicts — does this folder already exist?
+      var p=getProject();
+      var existingInFolder=(p.drawings||[]).filter(function(d){return (d.folder||'')===bn;});
+      if(existingInFolder.length>0){
+        hideDrawingLoading();
+        var conflictNames=existingInFolder.map(function(d){return d.name;});
+        _showDrawingConflictModal(conflictNames,_suggestFolderName(bn,p),function(newFolder){
+          showDrawingLoading('Processing PDF: 0/'+total+'...');
+          _runPdfPages(pdf,bn,newFolder,total,arrayBuf);
+        },function(){hideDrawingLoading();});
+        return;
+      }
+      _runPdfPages(pdf,bn,bn,total,arrayBuf);
+    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
+  };
+  reader.readAsArrayBuffer(file);
+}
+function _runPdfPages(pdf,bn,folder,total,arrayBuf){
+      var done=0;
       function go(pg){
         pdf.getPage(pg).then(function(page){
           var pv=page.view;
@@ -4722,13 +4740,12 @@ function _handlePDFUploadCore(file){
                   name:pageName,dataUrl:null,thumb:thumbDu,
                   width:fullW,height:fullH,
                   pdfTiled:true,pdfPage:pg,
-                  isOriginal:false,folder:bn,
+                  isOriginal:false,folder:folder,
                   r2Key:'',r2Status:'',r2Url:''
                 };
                 p.drawings.push(newDwg);
                 // Save raw PDF to pdfData IDB store (keyed by drawing id)
-                ADB.savePdfData(newDwg.id,arrayBuf).then(function(){
-                  // Must call saveFullProject AFTER savePdfData so drawing metadata goes to IDB
+                ADB.savePdfData(newDwg.id,arrayBuf.slice(0)).then(function(){
                   saveToLS();
                   done++;
                   showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
@@ -4749,9 +4766,6 @@ function _handlePDFUploadCore(file){
         });
       }
       go(1);
-    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
-  };
-  reader.readAsArrayBuffer(file);
 }
 function showDrawingLoading(msg){var el=document.getElementById('drawing-loading');if(el){el.innerHTML='<span style="display:inline-block;width:16px;height:16px;border:2px solid #F57F17;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></span> '+msg;el.style.display='flex';}}
 function hideDrawingLoading(){var el=document.getElementById('drawing-loading');if(el)el.style.display='none';}
@@ -5088,8 +5102,25 @@ function _handlePDFUploadToFolderCore(file,folder){
       clearTimeout(pdfTimeout2);
       var bn=file.name.replace(/\.pdf$/i,'');
       var total=pdf.numPages;
+      // Check for conflict — does this folder already have drawings?
+      var p2=getProject();
+      var existingInFolder=(p2.drawings||[]).filter(function(d){return (d.folder||'')===folder;});
+      if(existingInFolder.length>0){
+        hideDrawingLoading();
+        var conflictNames2=existingInFolder.map(function(d){return d.name;});
+        _showDrawingConflictModal(conflictNames2,_suggestFolderName(folder||bn,p2),function(newFolder){
+          showDrawingLoading('Processing PDF: 0/'+total+'...');
+          _runPdfPagesToFolder(pdf,bn,newFolder,total,arrayBuf);
+        },function(){hideDrawingLoading();});
+        return;
+      }
+      _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf);
+    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
+  };
+  reader.readAsArrayBuffer(file);
+}
+function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
       var done=0;
-      showDrawingLoading('Processing PDF: 0/'+total+'...');
       function go(pg){
         pdf.getPage(pg).then(function(page){
           var pv=page.view;
@@ -5118,7 +5149,7 @@ function _handlePDFUploadToFolderCore(file,folder){
                   r2Key:'',r2Status:'',r2Url:''
                 };
                 p.drawings.push(newDwg2);
-                ADB.savePdfData(newDwg2.id,arrayBuf).then(function(){
+                ADB.savePdfData(newDwg2.id,arrayBuf.slice(0)).then(function(){
                   saveToLS();
                   done++;
                   showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
@@ -5138,9 +5169,6 @@ function _handlePDFUploadToFolderCore(file,folder){
         });
       }
       go(1);
-    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
-  };
-  reader.readAsArrayBuffer(file);
 }
 function downloadFolderDrawings(fname){
   document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
@@ -5983,6 +6011,16 @@ function _dvToggleMoreMenu(e){
 }
 function _dvCloseMoreMenu(){var m=document.getElementById('dv-more-menu');if(m)m.style.display='none';}
 // Auto-fit on orientation change
+var _fitResizeTimer=null;
+window.addEventListener('resize',function(){
+  if(!document.getElementById('drawing-viewer').classList.contains('open'))return;
+  clearTimeout(_fitResizeTimer);
+  _fitResizeTimer=setTimeout(function(){
+    if(typeof fitDrawing==='function')fitDrawing();
+    if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
+    if(typeof resizeMarkupCanvas==='function')resizeMarkupCanvas();
+  },150);
+});
 window.addEventListener('orientationchange',function(){
   setTimeout(function(){
     if(typeof fitDrawing==='function')fitDrawing();
