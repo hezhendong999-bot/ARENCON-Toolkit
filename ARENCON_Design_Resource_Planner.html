@@ -257,12 +257,19 @@ body.dark-mode .dtc-bar-bg{background:#334155;}
   <span class="cloud-status" id="cloudStatus"><span class="cloud-dot offline"></span>Offline</span>
   <span class="readonly-badge" id="readonlyBadge" style="display:none;">View Only</span>
   <button class="hdr-btn green" id="btnAddProj" onclick="openProjectModal()">+ Project</button>
-  <button class="hdr-btn" style="background:#0277BD;" id="btnDump" onclick="openDumpModal()">📋 Quick Dump</button>
-  <button class="hdr-btn purple" onclick="exportJSON()">⬇ Export</button>
-  <button class="hdr-btn teal" onclick="document.getElementById('loadInput').click()">⬆ Load</button>
+  <button class="hdr-btn" style="background:#0277BD;" id="btnDump" onclick="openDumpModal()">📎 Import</button>
+  <div style="position:relative;display:inline-block;" id="menuWrap">
+    <button class="hdr-btn" style="background:rgba(255,255,255,.12);" onclick="toggleMenu()">⚙</button>
+    <div id="headerMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--white);border-radius:8px;box-shadow:var(--shadow-lg);min-width:180px;z-index:300;overflow:hidden;">
+      <button class="hdr-menu-item" onclick="exportJSON();toggleMenu()">⬇ Export JSON</button>
+      <button class="hdr-menu-item" onclick="document.getElementById('loadInput').click();toggleMenu()">⬆ Load JSON</button>
+      <button class="hdr-menu-item" onclick="exportReport();toggleMenu()">📄 Report</button>
+      <div style="height:1px;background:var(--border);margin:2px 0;"></div>
+      <button class="hdr-menu-item" onclick="toggleDark();toggleMenu()">🌙 Dark Mode</button>
+      <button class="hdr-menu-item" onclick="doSignOut()">↪ Sign Out</button>
+    </div>
+  </div>
   <input type="file" id="loadInput" accept=".json" style="display:none" onchange="importJSON(event)">
-  <button class="dark-toggle" onclick="toggleDark()" title="Toggle dark mode">🌙</button>
-  <button class="hdr-btn" style="background:#455A64;" onclick="doSignOut()">↪ Out</button>
 </div>
 <div class="main-wrap" id="mainWrap">
   <div class="sidebar">
@@ -292,24 +299,22 @@ body.dark-mode .dtc-bar-bg{background:#334155;}
   </div>
   <div class="gantt-area">
     <div class="gantt-toolbar">
-      <div class="view-toggle">
-        <button class="vt-btn active" id="viewGanttProj" onclick="setView('project')" title="Gantt by Project">📊 Project</button>
-        <button class="vt-btn" id="viewGanttPerson" onclick="setView('person')" title="Gantt by Person">📊 Person</button>
-        <button class="vt-btn" id="viewWeek" onclick="setView('week')" title="Week Calendar">📅 Week</button>
-        <button class="vt-btn" id="viewDay" onclick="setView('day')" title="Day View">📋 Day</button>
-      </div>
-      <div class="toolbar-sep"></div>
-      <button class="toolbar-btn active" id="zoomWeek" onclick="setZoom('week')">Week</button>
-      <button class="toolbar-btn" id="zoomMonth" onclick="setZoom('month')">Month</button>
-      <button class="toolbar-btn" id="zoomQuarter" onclick="setZoom('quarter')">Quarter</button>
-      <div class="toolbar-sep" id="ganttZoomSep"></div>
-      <button class="toolbar-btn" onclick="scrollToToday()">📍 Today</button>
+      <select class="toolbar-select" id="viewSelect" onchange="setView(this.value)">
+        <option value="project">📊 Gantt — Project</option>
+        <option value="person">📊 Gantt — Person</option>
+        <option value="week">📅 Week</option>
+        <option value="day">📋 Day</option>
+      </select>
+      <select class="toolbar-select" id="zoomSelect" onchange="setZoom(this.value)">
+        <option value="week">Zoom: Week</option>
+        <option value="month">Zoom: Month</option>
+        <option value="quarter">Zoom: Quarter</option>
+      </select>
       <button class="toolbar-btn" onclick="navTimeline(-1)">◀</button>
+      <button class="toolbar-btn" onclick="scrollToToday()">📍</button>
       <button class="toolbar-btn" onclick="navTimeline(1)">▶</button>
-      <div class="toolbar-sep"></div>
       <span id="conflictIndicator"></span>
       <div style="flex:1;"></div>
-      <button class="toolbar-btn" style="background:var(--arencon);color:#fff;border-color:var(--arencon);" onclick="exportReport()">📄 Report</button>
       <span class="toolbar-label" id="dateRangeLabel"></span>
     </div>
     <div class="gantt-container" id="ganttContainer">
@@ -455,6 +460,15 @@ body.dark-mode .login-card{background:#1E293B;color:#E2E8F0;}
 .cloud-dot.error{background:#ef4444;}
 .cloud-status{font:500 11px var(--font);color:rgba(255,255,255,.7);display:flex;align-items:center;}
 .readonly-badge{background:rgba(255,255,255,.15);padding:3px 10px;border-radius:10px;font:600 11px var(--font);color:rgba(255,255,255,.8);}
+
+.hdr-menu-item{display:block;width:100%;padding:10px 16px;border:none;background:none;font:500 13px var(--font);color:var(--slate);cursor:pointer;text-align:left;transition:background .12s;}
+.hdr-menu-item:hover{background:var(--smoke);}
+body.dark-mode .hdr-menu-item{color:#E2E8F0;}
+body.dark-mode .hdr-menu-item:hover{background:#334155;}
+body.dark-mode #headerMenu{background:#1E293B;border:1px solid #334155;}
+.toolbar-select{padding:5px 10px;border:1px solid var(--border);border-radius:6px;font:500 12px var(--font);color:var(--steel);background:var(--white);cursor:pointer;outline:none;}
+.toolbar-select:focus{border-color:var(--arencon);}
+body.dark-mode .toolbar-select{background:#334155;color:#CBD5E1;border-color:#475569;}
 @keyframes spin{to{transform:rotate(360deg);}}
 #dumpPreview table{width:100%;border-collapse:collapse;font:400 12px var(--font);}
 #dumpPreview th{background:var(--smoke);font:600 11px var(--font);text-transform:uppercase;padding:6px 8px;text-align:left;position:sticky;top:0;border-bottom:2px solid var(--border);}
@@ -1174,6 +1188,9 @@ async function sbRefreshToken(){
 }
 
 /* ═══ AUTH ═══ */
+function toggleMenu(){var m=document.getElementById("headerMenu");m.style.display=m.style.display==="none"?"":"none";}
+document.addEventListener("click",function(e){if(!document.getElementById("menuWrap").contains(e.target))document.getElementById("headerMenu").style.display="none";});
+
 function doSignOut(){
   if(_autoSaveTimer)clearInterval(_autoSaveTimer);
   if(_heartbeatTimer)clearInterval(_heartbeatTimer);
@@ -1348,24 +1365,18 @@ function setZoom(level){
   state.zoomLevel=level;
   COL_W={week:48,month:36,quarter:18}[level]||36;
   document.documentElement.style.setProperty('--gantt-col-w',COL_W+'px');
-  ['zoomWeek','zoomMonth','zoomQuarter'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.toggle('active',id==='zoom'+level.charAt(0).toUpperCase()+level.slice(1));});
+  var zSel=document.getElementById('zoomSelect');if(zSel)zSel.value=level;
   saveState();renderGantt();
 }
 function getVisDays(){return{week:28,month:56,quarter:112}[state.zoomLevel]||56;}
 function setView(m){
   state.viewMode=m;
-  // Update toggle buttons
-  ['viewGanttProj','viewGanttPerson','viewWeek','viewDay'].forEach(function(id){
-    var el=document.getElementById(id);
-    if(el) el.classList.toggle('active',
-      (id==='viewGanttProj'&&m==='project')||(id==='viewGanttPerson'&&m==='person')||
-      (id==='viewWeek'&&m==='week')||(id==='viewDay'&&m==='day'));
-  });
-  // Show/hide gantt zoom controls (only for gantt views)
+  var sel=document.getElementById('viewSelect');
+  if(sel) sel.value=m;
+  // Show/hide zoom select (only for gantt views)
   var isGantt=m==='project'||m==='person';
-  ['zoomWeek','zoomMonth','zoomQuarter','ganttZoomSep'].forEach(function(id){
-    var el=document.getElementById(id);if(el) el.style.display=isGantt?'':'none';
-  });
+  var zSel=document.getElementById('zoomSelect');
+  if(zSel) zSel.style.display=isGantt?'':'none';
   saveState();renderGantt();
 }
 function scrollToToday(){var d=new Date();d.setDate(d.getDate()-5);state.viewStartDate=fmtDate(d);saveState();renderGantt();setTimeout(function(){var l=document.querySelector('.gantt-today-line');if(l)l.scrollIntoView({inline:'center',block:'nearest'});},50);}
