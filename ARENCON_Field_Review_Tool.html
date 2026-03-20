@@ -118,6 +118,47 @@ body.dark-mode .rv-change-old{color:#f07070;}
 body.dark-mode .rv-change-new{color:#66BB6A;}
 </style>
 <script>
+// ═══ Custom Modal System — replaces alert/confirm/prompt ═══
+function _aModal(msg){
+  return new Promise(function(resolve){
+    var ov=document.createElement('div');ov.className='a-modal-overlay';
+    ov.innerHTML='<div class="a-modal"><div class="a-modal-msg"></div><div class="a-modal-btns"><button class="a-modal-btn ok">OK</button></div></div>';
+    ov.querySelector('.a-modal-msg').textContent=msg;
+    ov.querySelector('.ok').onclick=function(){ov.remove();resolve();};
+    ov.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key==='Escape'){ov.remove();resolve();}});
+    document.body.appendChild(ov);ov.querySelector('.ok').focus();
+  });
+}
+function _aConfirm(msg,opts){
+  opts=opts||{};
+  return new Promise(function(resolve){
+    var ov=document.createElement('div');ov.className='a-modal-overlay';
+    var okCls=opts.danger?'a-modal-btn danger':'a-modal-btn ok';
+    var okLabel=opts.okLabel||'OK';
+    var cancelLabel=opts.cancelLabel||'Cancel';
+    ov.innerHTML='<div class="a-modal"><div class="a-modal-msg"></div><div class="a-modal-btns"><button class="a-modal-btn cancel"></button><button class="'+okCls+'"></button></div></div>';
+    ov.querySelector('.a-modal-msg').textContent=msg;
+    ov.querySelector('.cancel').textContent=cancelLabel;
+    ov.querySelector('.'+okCls.split(' ').join('.')).textContent=okLabel;
+    ov.querySelector('.cancel').onclick=function(){ov.remove();resolve(false);};
+    var okBtn=ov.querySelectorAll('.a-modal-btn')[1];
+    okBtn.onclick=function(){ov.remove();resolve(true);};
+    ov.addEventListener('keydown',function(e){if(e.key==='Escape'){ov.remove();resolve(false);}else if(e.key==='Enter'){ov.remove();resolve(true);}});
+    document.body.appendChild(ov);okBtn.focus();
+  });
+}
+function _aPrompt(msg,defaultVal){
+  return new Promise(function(resolve){
+    var ov=document.createElement('div');ov.className='a-modal-overlay';
+    ov.innerHTML='<div class="a-modal"><div class="a-modal-msg"></div><input class="a-modal-input" type="text"><div class="a-modal-btns"><button class="a-modal-btn cancel">Cancel</button><button class="a-modal-btn ok">OK</button></div></div>';
+    ov.querySelector('.a-modal-msg').textContent=msg;
+    var inp=ov.querySelector('.a-modal-input');inp.value=defaultVal||'';
+    ov.querySelector('.cancel').onclick=function(){ov.remove();resolve(null);};
+    ov.querySelector('.ok').onclick=function(){ov.remove();resolve(inp.value);};
+    ov.addEventListener('keydown',function(e){if(e.key==='Escape'){ov.remove();resolve(null);}else if(e.key==='Enter'){ov.remove();resolve(inp.value);}});
+    document.body.appendChild(ov);inp.focus();inp.select();
+  });
+}
 // Lazy pdf.js loader — only loads when a PDF is actually uploaded
 var _pdfjsLoaded=false;
 function ensurePdfJs(cb){
@@ -153,7 +194,6 @@ html{overflow-x:hidden;max-width:100vw;}
 .header-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;}
 .header-save-ts{font-size:10.5px;color:rgba(255,255,255,.5);margin-right:4px;}
 .mobile-file-bar{display:none;align-items:center;gap:6px;padding:3px 12px 5px;font-size:10px;color:rgba(255,255,255,.55);font-family:Calibri,sans-serif;background:rgba(0,0,0,.15);border-top:1px solid rgba(255,255,255,.06);}
-@media(max-width:800px){.mobile-file-bar.has-project{display:flex!important;}}
 .hdr-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:12px;font-weight:600;cursor:pointer;border:none;color:white;transition:all .15s;white-space:nowrap;}.hdr-btn:hover{filter:brightness(1.15);}
 .btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:7px;font-family:Calibri,sans-serif;font-size:13.5px;font-weight:600;cursor:pointer;border:none;transition:all .17s;}
 .btn svg{width:15px;height:15px;flex-shrink:0;}
@@ -206,7 +246,6 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .dl-layer-check{display:flex;align-items:center;gap:6px;font-size:12px;color:#1C2333;padding:6px 10px;border:1.5px solid #DDE1E7;border-radius:6px;cursor:pointer;user-select:none;background:white;transition:all .15s;}
 .dl-layer-check:hover{background:#F7F8FA;border-color:#9C2742;}
 .dl-layer-check input{margin:0;accent-color:#9C2742;}
-@media(max-width:700px){.proj-grid{grid-template-columns:1fr!important;}.proj-grid [style*="grid-column:span 2"]{grid-column:span 1!important;}}
 .field-group{display:flex;flex-direction:column;}
 .field-group label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--silver);margin-bottom:4px;}
 .field-group input,.field-group select,.field-group textarea{width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-family:Calibri,sans-serif;font-size:13.5px;color:var(--slate);background:var(--smoke);transition:border .15s;-webkit-appearance:none;}
@@ -248,7 +287,12 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .dv-toolbar button{background:rgba(255,255,255,.12);border:none;color:white;padding:5px 9px;border-radius:6px;font-family:Calibri,sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;min-width:32px;}.dv-toolbar button:hover{background:rgba(255,255,255,.25);}.dv-toolbar button.active{background:var(--red);color:white;}
 .dv-main{display:flex;flex:1;overflow:hidden;position:relative;}
 .dv-canvas-area{flex:1;overflow:hidden;position:relative;cursor:grab;}.dv-canvas-area.panning{cursor:grabbing;}
-@media(max-width:900px){.dv-canvas-area{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));}}
+@media(max-width:900px){
+  .dv-canvas-area{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));}
+  .zoom-controls{bottom:calc(100px + env(safe-area-inset-bottom,0px))!important;right:10px;z-index:501!important;}.zoom-controls button{width:44px;height:44px;font-size:20px;border-radius:10px;}
+  .drawing-card .select-check{opacity:.45;width:24px;height:24px;font-size:14px;}.drawing-card .select-check.checked{opacity:1;}
+  .dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:auto!important;max-height:120px!important;flex-direction:column-reverse!important;flex-wrap:nowrap!important;align-items:stretch!important;overflow:visible!important;padding:0!important;gap:0!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:none!important;z-index:500!important;padding-bottom:env(safe-area-inset-bottom,0px)!important;background:#1e2028!important;
+}
 .dv-img-wrap{position:absolute;transform-origin:0 0;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
 .dv-img-wrap img{display:block;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;}
 #markup-canvas{position:absolute;top:0;left:0;pointer-events:none;cursor:crosshair;}
@@ -282,7 +326,6 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 /* Zoom controls */
 .zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px;z-index:10;}
 .zoom-controls button{width:30px;height:30px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}.zoom-controls button:hover{background:rgba(42,45,53,.95);}
-@media(max-width:900px){.zoom-controls{bottom:calc(100px + env(safe-area-inset-bottom,0px))!important;right:10px;z-index:501!important;}.zoom-controls button{width:44px;height:44px;font-size:20px;border-radius:10px;}}
 
 /* Pin side panel */
 .pin-panel{position:fixed;top:0;right:0;width:420px;height:100%;background:white;z-index:2500;box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;overflow:hidden;}.pin-panel.open{transform:translateX(0);}
@@ -307,7 +350,6 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .defic-num-circle{min-width:28px;width:28px;height:28px;border-radius:50%;background:#C0392B;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
 .defic-item-content{flex:1;min-width:0;}
 .defic-grid-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-@media(max-width:700px){.defic-grid-2col{grid-template-columns:1fr;}}
 .defic-label{font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
 .defic-controls{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;}
 .defic-controls label{font-size:11px;color:#666;display:block;margin-bottom:2px;}
@@ -362,7 +404,6 @@ body.dark-mode #bulk-action-bar{background:#1a1d24;border-color:#9C2742;}
 .resp-add-btns button{padding:7px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:700;font-family:Calibri,sans-serif;border:none;color:white;transition:opacity .15s;}
 .resp-add-ctr{background:#E67E22;}.resp-add-ctr:hover{background:#cf6d17;}
 .resp-add-con{background:#2C4A6B;}.resp-add-con:hover{background:#1e3450;}
-
 
 /* Summary table */
 .defic-summary-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);}
@@ -423,6 +464,7 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
   .dv-tasks-panel{display:none;}
   .defic-grid-2col{grid-template-columns:1fr;}
   .back-btn{padding:5px 10px;font-size:13px;margin-right:4px;}
+  .mobile-file-bar.has-project{display:flex!important;}
 }
 .mobile-menu-overlay{display:none;position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.5);}.mobile-menu-overlay.open{display:flex;}
 .mobile-menu{position:fixed;top:0;right:0;width:280px;height:100%;background:white;z-index:5001;box-shadow:-4px 0 20px rgba(0,0,0,.15);padding:20px;display:flex;flex-direction:column;gap:10px;}
@@ -460,7 +502,7 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
 .drawing-card .select-check{position:absolute;top:6px;left:6px;width:20px;height:20px;border:2px solid white;border-radius:4px;background:rgba(0,0,0,.3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;opacity:0;transition:opacity .15s;}
 .drawing-card:hover .select-check{opacity:1;}
 .drawing-card .select-check.checked{opacity:1;background:var(--red);border-color:var(--red);}
-@media(max-width:900px){.drawing-card .select-check{opacity:.45;width:24px;height:24px;font-size:14px;}.drawing-card .select-check.checked{opacity:1;}}
+
 /* 3-dot menu — hidden until hover */
 .drawing-card .card-menu-btn{position:absolute;bottom:36px;right:4px;background:rgba(0,0,0,.5);border:none;color:white;font-size:16px;cursor:pointer;padding:2px 6px;border-radius:4px;opacity:0;transition:opacity .15s;z-index:5;}
 .drawing-card:hover .card-menu-btn{opacity:1;}
@@ -622,7 +664,6 @@ body.dark-mode .filter-search{background:#1e2028;border-color:#33373f;color:#d4d
 .kc-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;display:inline-block;}
 .kc-desc{font-size:12px;color:var(--steel);line-height:1.4;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .kc-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-@media(max-width:700px){.kanban-wrap{flex-direction:column;}.kanban-col{min-height:80px;}}
 body.dark-mode .kanban-col{background:#1e2028;border-color:#33373f;}
 body.dark-mode .kanban-card{background:#22252d;border-color:#33373f;color:#d4d8e8;}
 body.dark-mode .kc-num{color:#c0c8e0;}
@@ -678,7 +719,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 
 /* ═══ ALWAYS-ON SIDEBAR TOOLBAR ═══ */
 .dv-sidebar-tools{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:#1e2028;border-right:1px solid #3a3e48;width:56px;flex-shrink:0;overflow-y:auto;overflow-x:visible;z-index:20;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-@media(max-width:900px){.dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:auto!important;max-height:120px!important;flex-direction:column-reverse!important;flex-wrap:nowrap!important;align-items:stretch!important;overflow:visible!important;padding:0!important;gap:0!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:none!important;z-index:500!important;padding-bottom:env(safe-area-inset-bottom,0px)!important;background:#1e2028!important;}
+
 .dv-sidebar-tools .dv-tools-primary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-evenly!important;width:100%!important;height:52px!important;padding:4px 4px 2px!important;background:#1e2028!important;flex-shrink:0!important;}
 .dv-sidebar-tools .dv-tools-secondary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:6px!important;width:100%!important;height:40px!important;padding:2px 8px!important;background:#282c34!important;border-bottom:1px solid #3a3e48!important;flex-shrink:0!important;overflow-x:auto!important;scrollbar-width:none!important;}
 .dv-sidebar-tools .dv-tools-secondary::-webkit-scrollbar{display:none!important;}
@@ -739,7 +780,6 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .dv-toolbar button{padding:5px 8px;font-size:11px;}
   .dv-nav-group .dv-title{max-width:100px;}
 }
-
 
 .folder-checkbox{width:18px;height:18px;accent-color:#9C2742;cursor:pointer;margin-right:8px;flex-shrink:0;vertical-align:middle;}
 .dwg-bulk-bar{display:none;padding:8px 12px;background:var(--smoke);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;align-items:center;gap:8px;flex-wrap:wrap;}
@@ -832,8 +872,6 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .dark-mode .pins-kanban-col-header{color:#c0c8e0;}
 .dark-mode .pins-kanban-col-header .col-count{background:rgba(255,255,255,.1);color:#c0c8e0;}
 .dark-mode .pins-kanban-col-body.drag-over{background:rgba(156,39,66,.15);}
-@media(max-width:700px){.pins-kanban-board{flex-direction:column;}.pins-kanban-col{min-height:80px;}}
-
 /* ═══ PHOTO GALLERY — Google Photos / Fieldwire Style ═══ */
 .photo-header-bar{display:flex;align-items:center;gap:8px;padding:10px 0;flex-wrap:wrap;}
 .photo-date-group{margin-bottom:16px;}
@@ -921,8 +959,6 @@ body.dark-mode .drawing-card.add-card:hover{border-color:var(--red);}
 .hdr-inspector{background:#455A64;}.hdr-inspector:hover{background:#37474F;}
 .folder-linked{position:relative;}.folder-linked::after{content:'✓';position:absolute;top:-2px;right:-2px;background:#1A7A4A;color:white;font-size:8px;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
 .hdr-sm{background:none;border:none;color:rgba(255,255,255,.7);font-size:16px;cursor:pointer;padding:2px 6px;}.hdr-sm:hover{color:white;}
-@media(max-width:700px){.hdr-btn{padding:4px 8px;font-size:11px;}.hdr-btn span{display:none;}}
-
 /* ── Drawing filter dropdown ── */
 .dwg-filter-dd{position:relative;}
 .dwg-filter-menu{right:0;left:auto;}
@@ -1207,6 +1243,11 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   #btn-tasks-toggle{font-size:11px!important;padding:5px 8px!important;}
   /* All Deficiencies tab header */
   #panel-pins .card-header{flex-direction:column;align-items:stretch!important;gap:6px;}
+  .proj-grid{grid-template-columns:1fr!important;}.proj-grid [style*="grid-column:span 2"]{grid-column:span 1!important;}
+  .defic-grid-2col{grid-template-columns:1fr;}
+  .kanban-wrap{flex-direction:column;}.kanban-col{min-height:80px;}
+  .pins-kanban-board{flex-direction:column;}.pins-kanban-col{min-height:80px;}
+  .hdr-btn{padding:4px 8px;font-size:11px;}.hdr-btn span{display:none;}
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1296,7 +1337,6 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   /* --- Pin modal buttons --- */
   .pin-modal .btn,.pin-modal button{min-height:40px;}
 
-
   /* --- Drawing viewer layer toggles --- */
   .dv-layer-toggles button{min-width:38px;min-height:34px;padding:4px 8px!important;}
 
@@ -1305,6 +1345,24 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 
   /* --- Version badge / task badge — decorative, no change needed --- */
 }
+
+/* ═══ Custom Modal System (replaces alert/confirm/prompt) ═══ */
+.a-modal-overlay{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;animation:a-modal-fade-in .15s ease;}
+@keyframes a-modal-fade-in{from{opacity:0}to{opacity:1}}
+.a-modal{background:white;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.3);max-width:420px;width:90%;padding:24px;animation:a-modal-slide-in .15s ease;}
+@keyframes a-modal-slide-in{from{transform:translateY(-12px);opacity:0}to{transform:translateY(0);opacity:1}}
+.a-modal-msg{font-size:14px;color:#1C2333;line-height:1.5;margin-bottom:18px;white-space:pre-wrap;word-break:break-word;}
+.a-modal-input{width:100%;padding:9px 12px;border:1.5px solid #DDE1E7;border-radius:8px;font-size:14px;font-family:Calibri,sans-serif;margin-bottom:16px;box-sizing:border-box;}
+.a-modal-input:focus{outline:none;border-color:#9C2742;}
+.a-modal-btns{display:flex;justify-content:flex-end;gap:10px;}
+.a-modal-btn{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:none;transition:background .12s;}
+.a-modal-btn.ok{background:#9C2742;color:white;}.a-modal-btn.ok:hover{background:#7d1f35;}
+.a-modal-btn.cancel{background:#EDF2F7;color:#4A5568;}.a-modal-btn.cancel:hover{background:#E2E8F0;}
+.a-modal-btn.danger{background:#C0392B;color:white;}.a-modal-btn.danger:hover{background:#A93226;}
+body.dark-mode .a-modal{background:#1e2028;border:1px solid #3a3e48;}
+body.dark-mode .a-modal-msg{color:#d0d8f0;}
+body.dark-mode .a-modal-input{background:#2a3040;border-color:#3a3e48;color:#d0d8f0;}
+body.dark-mode .a-modal-btn.cancel{background:#2a3040;color:#a0a8c0;}
 </style>
 </head>
 <body>
@@ -2438,7 +2496,7 @@ ADB.setReadOnly=function(isReadOnly){
   });
 };
 // ═══ AUTO-SAVE TO FOLDER (2 min interval) ═══
-ADB.startAutoSave=function(getProjectFn,getFilenameFn){
+ADB.startAutoSave=async function(getProjectFn,getFilenameFn){
   if(ADB.autoSaveTimer)clearInterval(ADB.autoSaveTimer);
   if(ADB._idbAutoTimer)clearInterval(ADB._idbAutoTimer);
   // 15-second IDB auto-save (fast, no disk lag)
@@ -2538,92 +2596,6 @@ function applyLockState(){
 }
 
 // ═══ PUBLISH MODAL ═══
-function showPublishModal(){
-  var p = getProject(); if(!p) return;
-  var ex = document.getElementById('publish-modal');if(ex)ex.remove();
-
-  // Calculate next revision
-  var prevRev = (p.info && p.info.publishedRevision) || null;
-  var nextNum = 1;
-  if(prevRev){
-    var m = prevRev.match(/R(\d+)/i);
-    if(m) nextNum = parseInt(m[1]) + 1;
-  }
-  var nextRev = 'R' + String(nextNum).padStart(2,'0');
-
-  var overlay = document.createElement('div');
-  overlay.id = 'publish-modal';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10020;display:flex;align-items:center;justify-content:center;';
-
-  var box = document.createElement('div');
-  box.style.cssText = 'background:var(--card);border-radius:12px;padding:28px;max-width:400px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,.4);font-family:Calibri,sans-serif;';
-
-  var title = document.createElement('div');
-  title.style.cssText = 'font-size:18px;font-weight:800;color:#C62828;margin-bottom:6px;';
-  title.textContent = 'Publish & Lock Report';
-
-  var warning = document.createElement('div');
-  warning.style.cssText = 'font-size:13px;color:var(--silver);margin-bottom:18px;line-height:1.5;';
-  warning.textContent = 'Publishing stamps a revision number and locks this project against further edits. Only an admin can unlock it. A clean distributable copy will be downloaded.';
-
-  var revRow = document.createElement('div');
-  revRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px;';
-  var revLabel = document.createElement('label');
-  revLabel.style.cssText = 'font-size:13px;font-weight:700;color:var(--fg);white-space:nowrap;';
-  revLabel.textContent = 'Revision:';
-  var revInp = document.createElement('input');
-  revInp.id = 'publish-rev-input';
-  revInp.type = 'text';
-  revInp.value = nextRev;
-  revInp.style.cssText = 'flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:15px;font-weight:700;font-family:Calibri,sans-serif;background:var(--bg);color:var(--fg);text-align:center;';
-  revRow.appendChild(revLabel); revRow.appendChild(revInp);
-
-  var pwdLabel = document.createElement('div');
-  pwdLabel.style.cssText = 'font-size:12px;color:var(--silver);margin-bottom:6px;';
-  pwdLabel.textContent = 'Confirm with admin password:';
-
-  var pwdInp = document.createElement('input');
-  pwdInp.id = 'publish-pwd-input';
-  pwdInp.type = 'password';
-  pwdInp.placeholder = 'Admin password';
-  pwdInp.style.cssText = 'width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;font-family:Calibri,sans-serif;background:var(--bg);color:var(--fg);margin-bottom:6px;display:block;';
-
-  var errEl = document.createElement('div');
-  errEl.id = 'publish-err';
-  errEl.style.cssText = 'font-size:12px;color:#C62828;min-height:18px;margin-bottom:10px;';
-
-  var btnRow = document.createElement('div');
-  btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:4px;';
-
-  var btnC = document.createElement('button');
-  btnC.textContent = 'Cancel';
-  btnC.style.cssText = 'padding:8px 18px;border:1.5px solid var(--border);background:transparent;border-radius:7px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;color:var(--fg);';
-  btnC.onclick = function(){overlay.remove();};
-
-  var btnP = document.createElement('button');
-  btnP.textContent = 'Publish & Lock';
-  btnP.style.cssText = 'padding:8px 20px;background:#C62828;color:white;border:none;border-radius:7px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;font-weight:700;';
-  btnP.onclick = function(){
-    var rev = revInp.value.trim().toUpperCase();
-    var pwd = pwdInp.value;
-    if(!rev){errEl.textContent='Enter a revision number.';return;}
-    if(!checkAdminPassword(pwd)){errEl.textContent='Incorrect admin password.';pwdInp.value='';pwdInp.focus();return;}
-    overlay.remove();
-    _doPublish(rev);
-  };
-
-  btnRow.appendChild(btnC); btnRow.appendChild(btnP);
-  box.appendChild(title); box.appendChild(warning);
-  box.appendChild(revRow); box.appendChild(pwdLabel);
-  box.appendChild(pwdInp); box.appendChild(errEl); box.appendChild(btnRow);
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-  setTimeout(function(){revInp.focus();revInp.select();},50);
-  overlay.addEventListener('keydown',function(e){
-    if(e.key==='Escape')overlay.remove();
-    if(e.key==='Enter')btnP.click();
-  });
-}
 
 function _doPublish(rev){
   var p = getProject(); if(!p) return;
@@ -2774,10 +2746,10 @@ function exitReviewMode(){
   toast('Review Mode OFF');
 }
 
-function acceptAllChanges(){
+async function acceptAllChanges(){
   if(!_reviewActive) return;
   var p = getProject(); if(!p) return;
-  if(!confirm('Accept all changes? This resets the baseline to the current state.')) return;
+  if(!await _aConfirm('Accept all changes? This resets the baseline to the current state.')) return;
   _reviewSnapshot = _takeSnapshot(p);
   _updateReviewBadge();
   // Clear blue borders
@@ -3319,19 +3291,6 @@ function editProjectNameInline(){
   span.style.display='none';
   span.parentNode.insertBefore(inp,span.nextSibling);
   inp.focus();inp.select();
-  function commitSave(){
-    var val=inp.value.trim()||current;
-    inp.remove();
-    span.style.display='';
-    if(val===current)return;
-    var p=getProject();if(!p)return;
-    p.info.projectName=val;
-    saveToLS();
-    updateHeaderName();
-    updateProjectDropdown();
-    var f=document.getElementById('field-projectName');if(f)f.value=val;
-    toast('Renamed to: '+val);
-  }
   inp.addEventListener('blur',commit);
   inp.addEventListener('keydown',function(e){
     if(e.key==='Enter'){e.preventDefault();commit();}
@@ -3366,7 +3325,7 @@ function goToDashboard(){
   _goToDashboardReal();
 }
 
-function _showHubSaveLeaveModal(destUrl){
+async function _showHubSaveLeaveModal(destUrl){
   var ex=document.getElementById('hub-save-leave-modal');if(ex)ex.remove();
   var ov=document.createElement('div');
   ov.id='hub-save-leave-modal';
@@ -3492,7 +3451,6 @@ function updateProjectDropdown(){
   html+='<div class="proj-dd-item proj-dd-new" onclick="createProject();closeProjectDropdown();">+ New Project</div>';
   dd.innerHTML=html;
 }
-function toggleProjectDropdown(){var dd=document.getElementById('project-dropdown');if(dd)dd.classList.toggle('open');}
 function closeProjectDropdown(){var dd=document.getElementById('project-dropdown');if(dd)dd.classList.remove('open');}
 
 function openProjectQuickEdit(id,e){
@@ -3533,7 +3491,7 @@ function closeDashMenu(){var m=document.getElementById('dash-context-menu');if(m
 
 function copyProjectLink(id){
   var url=window.location.href.split('#')[0]+'#'+id;
-  navigator.clipboard.writeText(url).then(function(){showToast('Link copied — share this URL with others who have the file');}).catch(function(){prompt('Copy this link:',url);});
+  navigator.clipboard.writeText(url).then(function(){showToast('Link copied — share this URL with others who have the file');}).catch(function(){_aPrompt('Copy this link:',url);});
 }
 function exportSingleProject(id){
   ADB.exportProjectJSON(id).then(function(p){
@@ -3547,10 +3505,10 @@ function exportSingleProject(id){
   });
 }
 
-function archiveProject(id){
+async function archiveProject(id){
   var p=allProjects[id];if(!p)return;
   var name=(p.info.projectName||'Untitled');
-  if(!confirm('Archive "'+name+'"?\n\nThis will:\n  • Export the project as a JSON file\n  • Delete it from this device\n\nYou can restore it anytime using Import.'))return;
+  if(!await _aConfirm('Archive "'+name+'"?\n\nThis will:\n  • Export the project as a JSON file\n  • Delete it from this device\n\nYou can restore it anytime using Import.'))return;
   ADB.exportProjectJSON(id).then(function(full){
     if(!full){showToast('Export failed — project not archived');return;}
     var blob=new Blob([JSON.stringify(full,null,2)],{type:'application/json'});
@@ -3796,10 +3754,10 @@ function toggleStatusDropdown(wrap,id){
     document.addEventListener('click',function _closeSD(){dd.remove();document.removeEventListener('click',_closeSD);});
   },10);
 }
-function setProjectStatus(id,status){
+async function setProjectStatus(id,status){
   var p=allProjects[id];if(!p)return;
   var labels={draft:'Draft',review:'Ready for Review',revision:'Revision Required',issued:'Issued'};
-  if(status==='issued'&&!confirm('Mark as Issued? This means the report has been sent out.'))return;
+  if(status==='issued'&&!await _aConfirm('Mark as Issued? This means the report has been sent out.'))return;
   p.status=status;p.modified=new Date().toISOString();
   saveToLS();renderDashboard();
   showToast('Status → '+labels[status]);
@@ -3831,11 +3789,11 @@ function confirmCreateProject(){
   var cpNum=document.getElementById('cp-num');
   var cpName=document.getElementById('cp-name');
   var cpClient=document.getElementById('cp-client');
-  if(!cpNum||!cpName||!cpClient){alert('Modal fields not found');return;}
+  if(!cpNum||!cpName||!cpClient){_aModal('Modal fields not found');return;}
   var num=cpNum.value.trim();
   var name=cpName.value.trim();
   var client=cpClient.value.trim();
-  if(!name){alert('Please enter a project name.');return;}
+  if(!name){_aModal('Please enter a project name.');return;}
   var p=newProject({projectName:name,projectNumber:num,client:client});
   allProjects[p.id]=p;
   var ov=document.getElementById('create-project-overlay');
@@ -3850,7 +3808,7 @@ function confirmCreateProject(){
 }
 function exportStarredProjects(){
   var starred=Object.values(allProjects).filter(function(p){return p.starred;});
-  if(!starred.length){alert('No starred projects.');return;}
+  if(!starred.length){_aModal('No starred projects.');return;}
   var promises=starred.map(function(p){return ADB.exportProjectJSON(p.id);});
   Promise.all(promises).then(function(projects){
     var all={};projects.forEach(function(p){if(p)all[p.id]=p;});
@@ -3863,7 +3821,7 @@ function exportStarredProjects(){
 }
 function exportUnstarredProjects(){
   var uns=Object.values(allProjects).filter(function(p){return !p.starred;});
-  if(!uns.length){alert('No unstarred projects.');return;}
+  if(!uns.length){_aModal('No unstarred projects.');return;}
   var promises=uns.map(function(p){return ADB.exportProjectJSON(p.id);});
   Promise.all(promises).then(function(projects){
     var all={};projects.forEach(function(p){if(p)all[p.id]=p;});
@@ -3875,7 +3833,7 @@ function exportUnstarredProjects(){
   });
 }
 
-function deleteProject(id){var p=allProjects[id];if(!confirm('Delete "'+((p&&p.info.projectName)||'Untitled')+'"?'))return;delete allProjects[id];
+async function deleteProject(id){var p=allProjects[id];if(!await _aConfirm('Delete "'+((p&&p.info.projectName)||'Untitled')+'"?'))return;delete allProjects[id];
   Promise.all([ADB.del('projects',id),
     ADB.getAllByIndex('drawings','projectId',id).then(function(ds){return Promise.all(ds.map(function(d){return ADB.del('drawings',d.id);}));}),
     ADB.getAllByIndex('photos','projectId',id).then(function(ps){return Promise.all(ps.map(function(p){return ADB.del('photos',p.id);}));}),
@@ -3918,7 +3876,7 @@ function quickAddDeficiency(){if(!currentProjectId)return;switchTab('deficiencie
 
 // ═══ FILE SYSTEM FOLDER ═══
 function chooseFolder(){
-  if(!window.showDirectoryPicker){alert('Your browser does not support folder saving. Use Chrome or Edge desktop.\n\nOn mobile, use the Export button to save/share files.');return;}
+  if(!window.showDirectoryPicker){_aModal('Your browser does not support folder saving. Use Chrome or Edge desktop.\n\nOn mobile, use the Export button to save/share files.');return;}
   ADB.pickFolder().then(function(handle){
     toast('📁 Folder linked — auto-saving every 2 min');
     updateFolderButton();
@@ -3930,20 +3888,20 @@ function chooseFolder(){
       var inspName=_getInspectorName()||'Unknown';
       ADB.writeLockFile(fn,inspName);
     }
-  }).catch(function(e){if(e.name!=='AbortError')alert('Could not access folder: '+e);});
+  }).catch(function(e){if(e.name!=='AbortError')_aModal('Could not access folder: '+e);});
 }
-function saveAsToFolder(){
+async function saveAsToFolder(){
   // Always re-prompt for folder + optionally bump revision
-  if(!window.showDirectoryPicker){alert('Your browser does not support folder saving. Use Chrome or Edge desktop.');return;}
+  if(!window.showDirectoryPicker){_aModal('Your browser does not support folder saving. Use Chrome or Edge desktop.');return;}
   var p=getProject();if(!p)return;
-  var rev=prompt('Revision for new save (current: '+(p.info.revision||'A01')+'):',bumpRevision(p.info.revision||'A01'));
+  var rev=await _aPrompt('Revision for new save (current: '+(p.info.revision||'A01')+'):',bumpRevision(p.info.revision||'A01'));
   if(!rev)return;
   p.info.revision=rev;saveToLS();populateProjectFields();updateSmartFilename();
   ADB.pickFolder().then(function(handle){
     toast('📁 New folder linked');
     updateFolderButton();
     manualSaveToFolder();
-  }).catch(function(e){if(e.name!=='AbortError')alert('Could not access folder: '+e);});
+  }).catch(function(e){if(e.name!=='AbortError')_aModal('Could not access folder: '+e);});
 }
 function bumpRevision(rev){
   // A01→A02, B01→B02, B01A01→B01A02
@@ -3952,72 +3910,13 @@ function bumpRevision(rev){
   if(m[3]){var sub=m[3];var sn=parseInt(sub.slice(1))+1;return m[1]+m[2]+sub[0]+String(sn).padStart(2,'0');}
   var n=parseInt(m[2])+1;return m[1]+String(n).padStart(2,'0')+(m[3]||'');
 }
-function openFromFolder(){
-  if(!window.showOpenFilePicker){alert('Your browser does not support file picking. Use Chrome or Edge desktop.');return;}
-  var _openedFilename='';
-  window.showOpenFilePicker({types:[{description:'JSON Files',accept:{'application/json':['.json']}}],multiple:false}).then(function(handles){
-    if(!handles||!handles.length)return Promise.reject({name:'AbortError'});
-    var fh=handles[0];
-    _openedFilename=fh.name;
-    // Check for lock file — need the parent folder
-    // If we have a folder handle, check lock. Otherwise just open.
-    if(ADB.folderHandle){
-      return ADB.readLockFile(fh.name).then(function(lock){
-        if(lock){
-          var inspName=_getInspectorName()||'You';
-          // If this user is the one who locked it, allow edit
-          if(lock.inspector===inspName){
-            return fh.getFile().then(function(f){return f.text();}).then(function(t){return{text:t,readOnly:false};});
-          }
-          var lockTime=new Date(lock.opened);
-          var ago=Math.round((Date.now()-lockTime.getTime())/60000);
-          var STALE_MINUTES=240; // 4 hours
-          // Stale lock detection: if >4 hours old, auto-expire
-          if(ago>STALE_MINUTES){
-            toast('⚠️ Stale lock from '+lock.inspector+' ('+Math.round(ago/60)+'h ago) — auto-cleared');
-            ADB.removeLockFile();
-            return fh.getFile().then(function(f){return f.text();}).then(function(t){return{text:t,readOnly:false};});
-          }
-          var timeStr=ago<60?ago+' min ago':Math.round(ago/60)+'h ago';
-          var choice=confirm('🔒 This file is currently being edited by:\n\n   '+lock.inspector+' (opened '+timeStr+')\n\nClick OK to open READ-ONLY.\nClick Cancel to abort.');
-          if(!choice)return Promise.reject({name:'AbortError'});
-          return fh.getFile().then(function(f){return f.text();}).then(function(t){return{text:t,readOnly:true};});
-        }
-        return fh.getFile().then(function(f){return f.text();}).then(function(t){return{text:t,readOnly:false};});
-      });
-    }
-    return fh.getFile().then(function(f){return f.text();}).then(function(t){return{text:t,readOnly:false};});
-  }).then(function(result){
-    if(!result||!result.text)return;
-    try{
-      var data=JSON.parse(result.text);
-      if(!data.id)data.id='proj_'+Date.now();
-      if(!data.contractors){data.contractors=[];data.generalDeficiencies=data.deficiencies||[];delete data.deficiencies;data.nextDeficNum=(data.generalDeficiencies||[]).length+1;}
-      allProjects[data.id]=data;
-      ADB.setReadOnly(result.readOnly);
-      if(result.readOnly){
-        document.getElementById('readonly-banner-text').textContent='🔒 Read-only — this file is being edited by another user. Changes will NOT be saved to the shared folder.';
-      }
-      ADB.saveFullProject(data).then(function(){
-        toast(result.readOnly?'Opened READ-ONLY: '+_openedFilename:'Opened: '+(data.info.projectName||'Untitled'));
-        enterProject(data.id);
-        // If not read-only, create our lock file
-        if(!result.readOnly&&ADB.folderHandle){
-          var inspName=_getInspectorName()||'Unknown';
-          ADB.writeLockFile(_openedFilename,inspName);
-          ADB._openedJsonFilename=_openedFilename;
-        }
-      });
-    }catch(err){alert('Invalid JSON file: '+err.message);}
-  }).catch(function(e){if(e.name!=='AbortError')console.warn('Open cancelled',e);});
-}
 
 function _getInspectorName(){
   try{return localStorage.getItem('ARENCON_FR_Inspector')||'';}catch(e){return '';}
 }
 
-function forceUnlockAndEdit(){
-  if(!confirm('This will take over the lock from the other user.\nThey will lose the ability to save.\n\nAre you sure?'))return;
+async function forceUnlockAndEdit(){
+  if(!await _aConfirm('This will take over the lock from the other user.\nThey will lose the ability to save.\n\nAre you sure?'))return;
   ADB.setReadOnly(false);
   var fn=ADB._openedJsonFilename||'';
   if(fn&&ADB.folderHandle){
@@ -4198,14 +4097,14 @@ document.addEventListener('keydown',function(e){
 });
 
 // ═══ RESET ═══
-function resetCurrentProject(){if(!currentProjectId)return;if(!confirm('Reset this project? All data will be cleared.'))return;var p=getProject();var _ci=getInspectorName();var fresh=newProject({projectName:p.info.projectName,projectNumber:p.info.projectNumber,client:p.info.client,inspectorName:_ci});fresh.id=p.id;fresh.created=p.created;allProjects[currentProjectId]=fresh;saveToLS();populateProjectFields();switchTab('info');}
+async function resetCurrentProject(){if(!currentProjectId)return;if(!await _aConfirm('Reset this project? All data will be cleared.'))return;var p=getProject();var _ci=getInspectorName();var fresh=newProject({projectName:p.info.projectName,projectNumber:p.info.projectNumber,client:p.info.client,inspectorName:_ci});fresh.id=p.id;fresh.created=p.created;allProjects[currentProjectId]=fresh;saveToLS();populateProjectFields();switchTab('info');}
 
-function resetCurrentTab(){
+async function resetCurrentTab(){
   if(!currentProjectId||!currentTab)return;
   var p=getProject();if(!p)return;
   var labels={info:'Project Info',drawings:'all drawings',deficiencies:'all deficiencies',photos:'all site photos'};
   var label=labels[currentTab]||currentTab;
-  if(!confirm('Clear '+label+' for this project? This cannot be undone.'))return;
+  if(!await _aConfirm('Clear '+label+' for this project? This cannot be undone.'))return;
   pushUndo();
   if(currentTab==='drawings'){
     getAllDeficiencies(p).forEach(function(r){r.defic.drawingId=null;r.defic.pinX=null;r.defic.pinY=null;});
@@ -4232,26 +4131,9 @@ function resetCurrentTab(){
     resetCurrentProject();return;
   }
 }
-function resetAllProjects(){if(!confirm('DELETE ALL PROJECTS? This cannot be undone!'))return;var check=prompt('Type DELETE to confirm:');if(check!=='DELETE')return;
-  Promise.all([ADB.clear('projects'),ADB.clear('drawings'),ADB.clear('photos'),ADB.clear('sitePhotos'),ADB.clear('backups')]).then(function(){
-    allProjects={};goToDashboard();toast('All projects deleted');
-  });
-}
 
 // ═══ STUB FUNCTIONS for header buttons ═══
-function manualSaveToIDB(){
-  if(!currentProjectId)return;saveToLS();var p=getProject();
-  if(p)ADB.saveFullProject(p).then(function(){
-    updateSaveTimestamp();
-    if(ADB.folderHandle){
-      manualSaveToFolder();
-    }else{
-      showToast('Project saved to browser');
-    }
-  }).catch(function(e){showToast('Save error: '+e.message);});
-}
 function exportProjectJSON(){saveJSON();}
-function shareProject(){if(navigator.share){navigator.share({title:'ARENCON Field Review',text:'Field Review Project',url:window.location.href}).catch(function(){});}else{navigator.clipboard.writeText(window.location.href);showToast('Link copied to clipboard');}}
 var _dashShowAll=false;
 function toggleMyAllProjects(){
   _dashShowAll=!_dashShowAll;
@@ -4288,7 +4170,7 @@ function showInspector(){
     chipDel.style.cssText='padding:4px 8px 4px 4px;border:none;background:transparent;color:#C0392B;font-size:11px;cursor:pointer;opacity:.6;';
     chipDel.title='Remove '+name;
     chipDel.textContent='✕';
-    chipDel.onclick=function(e){e.stopPropagation();if(!confirm('Remove "'+name+'" from inspector history?'))return;_removeInspectorFromHistory(name);overlay.remove();showInspector();};
+    chipDel.onclick=async function(e){e.stopPropagation();if(!await _aConfirm('Remove "'+name+'" from inspector history?'))return;_removeInspectorFromHistory(name);overlay.remove();showInspector();};
     chipWrap.appendChild(chipLabel);chipWrap.appendChild(chipDel);
     chipsWrap.appendChild(chipWrap);
   });
@@ -4393,7 +4275,6 @@ function _showUnsavedModal(onProceed){
   document.getElementById('unsaved-cancel-btn').onclick=function(){ov.remove();};
   ov.addEventListener('keydown',function(e){if(e.key==='Escape')ov.remove();});
 }
-
 
 // ═══ INSPECTOR CHIP — update display ═══
 function _updateInspectorChip(){
@@ -4534,7 +4415,6 @@ function _genThumb(dataUrl, callback){
   }
 }
 
-
 var _selectedDrawings=new Set();
 function toggleFolderSelect(folderId,cb){
   var p=getProject();if(!p)return;
@@ -4559,35 +4439,6 @@ function updateDrawingCheckboxes(){
   });
 }
 function updateBulkBar(){_updateSelectionUI();}
-function bulkDeleteDrawings(){
-  if(!confirm('Delete '+_selectedDrawings.size+' selected drawings?'))return;
-  var p=getProject();if(!p)return;
-  p.drawings=p.drawings.filter(function(d){return!_selectedDrawings.has(d.id);});
-  _selectedDrawings.clear();pushUndo();saveToLS();_folderQuickSave();renderDrawingGallery();toast('Drawings deleted');
-}
-function bulkExportDrawings(){
-  var p=getProject();if(!p)return;
-  _selectedDrawings.forEach(function(did){
-    var d=p.drawings.find(function(x){return x.id===did;});
-    if(d&&d.dataUrl){
-      var a=document.createElement('a');a.href=d.dataUrl;a.download=(d.name||'drawing')+'.png';a.click();
-    }
-  });
-  toast('Exporting '+_selectedDrawings.size+' drawings');
-}
-function bulkMoveDrawings(){
-  var p=getProject();if(!p)return;
-  var folders=[];p.drawings.forEach(function(d){if(d.folder&&folders.indexOf(d.folder)===-1)folders.push(d.folder);});
-  folders.unshift('unfiled');
-  var target=prompt('Move to folder:\n'+folders.join('\n'));
-  if(!target)return;
-  _selectedDrawings.forEach(function(did){
-    var d=p.drawings.find(function(x){return x.id===did;});
-    if(d)d.folder=target==='unfiled'?'':target;
-  });
-  _selectedDrawings.clear();pushUndo();saveToLS();renderDrawingGallery();toast('Drawings moved');
-}
-function clearDrawingSelection(){_selectedDrawings.clear();_selectedFolders.clear();updateBulkBar();updateDrawingCheckboxes();}
 
 // ═══ DRAWINGS: Upload, Gallery, Viewer, Pan/Zoom, Pins ═══
 var dvState={scale:1,panX:0,panY:0,pinMode:false,currentDrawingId:null,selectedPinId:null,draggingPin:false,dragStartX:0,dragStartY:0,origPinX:0,origPinY:0,longPressTimer:null,longPressTriggered:false,_didDrag:false};
@@ -4691,7 +4542,7 @@ function _handlePDFUploadCore(file){
     var arrayBuf=e.target.result;
     var pdfBufCopy=arrayBuf.slice(0);// Clone BEFORE pdf.js detaches the original
     var ta=new Uint8Array(arrayBuf);
-    var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
+    var pdfTimeout=setTimeout(function(){hideDrawingLoading();_aModal('PDF is taking too long (>2 min). Try a smaller file.');},120000);
     pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
       clearTimeout(pdfTimeout);
       var bn=file.name.replace(/\.pdf$/i,'');
@@ -4710,7 +4561,7 @@ function _handlePDFUploadCore(file){
         return;
       }
       _runPdfPages(pdf,bn,bn,total,pdfBufCopy);
-    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
+    }).catch(function(err){hideDrawingLoading();_aModal('PDF error: '+err.message);});
   };
   reader.readAsArrayBuffer(file);
 }
@@ -4758,7 +4609,7 @@ function _runPdfPages(pdf,bn,folder,total,arrayBuf){
                 if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
                 if(pg<total){go(pg+1);}
                 else{renderDrawingGallery();hideDrawingLoading();}
-              }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
+              }catch(encErr){hideDrawingLoading();_aModal('Error on page '+pg+': '+encErr.message);}
             },0);
           });
         });
@@ -5027,33 +4878,17 @@ function _updateSelectionUI(){
 }
 function getSelectedDrawings(){return Array.from(_selectedDrawings);}
 
-function createDrawingFolder(){var name=prompt('Folder name:');if(!name)return;var p=getProject();if(!p._folders)p._folders=[];p._folders.push(name);saveToLS();renderDrawingGallery();}
-function toggleFolder(fname){var p=getProject();if(!p._collapsedFolders)p._collapsedFolders={};p._collapsedFolders[fname]=!p._collapsedFolders[fname];saveToLS();renderDrawingGallery();}
-function folderMenu(fname,e){
-  e.stopPropagation();
+async function createDrawingFolder(){var name=await _aPrompt('Folder name:');if(!name)return;var p=getProject();if(!p._folders)p._folders=[];p._folders.push(name);saveToLS();renderDrawingGallery();}
+async function toggleFolder(fname){var p=getProject();if(!p._collapsedFolders)p._collapsedFolders={};p._collapsedFolders[fname]=!p._collapsedFolders[fname];saveToLS();renderDrawingGallery();}
+async function renameFolderAction(fname){
   document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
-  var btn=e.target;var rect=btn.getBoundingClientRect();
-  var menu=document.createElement('div');menu.className='folder-ctx-menu';
-  var isDark=document.body.classList.contains('dark-mode');
-  var bg=isDark?'#2a2d35':'#ffffff';var bdr=isDark?'#3a3e48':'#DDE1E7';var txt=isDark?'#e0e0e0':'#1C2333';var danger=isDark?'#ff6b6b':'#C0392B';
-  menu.style.cssText='position:fixed;top:'+rect.bottom+'px;left:'+(rect.left-120)+'px;min-width:200px;background:'+bg+';border:1px solid '+bdr+';border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:300;overflow:hidden;font-family:Calibri,sans-serif;';
-  menu.innerHTML='<button onclick="renameFolderAction(\''+escHtml(fname).replace(/'/g,"\\'")+'\')" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:inherit;cursor:pointer;font-size:12px;font-family:Calibri,sans-serif;color:inherit;">✏️ Rename folder</button>'
-  +'<button onclick="addToFolderAction(\''+escHtml(fname).replace(/'/g,"\\'")+'\')" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:inherit;cursor:pointer;font-size:12px;font-family:Calibri,sans-serif;color:inherit;">+ Add new plan</button>'
-  +'<button onclick="downloadFolderDrawings(\''+escHtml(fname).replace(/'/g,"\\'")+'\')" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:inherit;cursor:pointer;font-size:12px;font-family:Calibri,sans-serif;color:inherit;">⬇️ Download folder (with pins+markup)</button>'
-  +'<div style="height:1px;background:'+bdr+';margin:2px 0;"></div>'
-  +'<button onclick="deleteFolderAction(\''+escHtml(fname).replace(/'/g,"\\'")+'\')" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:inherit;cursor:pointer;font-size:12px;font-family:Calibri,sans-serif;color:'+danger+';">🗑️ Delete folder</button>';
-  document.body.appendChild(menu);
-  setTimeout(function(){document.addEventListener('click',function closeFM(){menu.remove();document.removeEventListener('click',closeFM);});},10);
-}
-function renameFolderAction(fname){
-  document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
-  var nn=prompt('Rename folder:',fname);
+  var nn=await _aPrompt('Rename folder:',fname);
   if(nn&&nn!==fname){var p=getProject();p.drawings.forEach(function(d){if(d.folder===fname)d.folder=nn;});if(p._folders){var idx=p._folders.indexOf(fname);if(idx>=0)p._folders[idx]=nn;}saveToLS();renderDrawingGallery();}
 }
 
 // ── Folder rename via button ──
-function promptFolderRename(fname){
-  var nn=prompt('Rename folder:',fname);
+async function promptFolderRename(fname){
+  var nn=await _aPrompt('Rename folder:',fname);
   if(nn&&nn.trim()&&nn.trim()!==fname){
     var p=getProject();
     p.drawings.forEach(function(d){if(d.folder===fname)d.folder=nn.trim();});
@@ -5096,7 +4931,7 @@ function _handlePDFUploadToFolderCore(file,folder){
     var arrayBuf=e.target.result;
     var pdfBufCopy2=arrayBuf.slice(0);// Clone BEFORE pdf.js detaches the original
     var ta=new Uint8Array(arrayBuf);
-    var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
+    var pdfTimeout2=setTimeout(function(){hideDrawingLoading();_aModal('PDF is taking too long (>2 min). Try a smaller file.');},120000);
     pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
       clearTimeout(pdfTimeout2);
       var bn=file.name.replace(/\.pdf$/i,'');
@@ -5114,7 +4949,7 @@ function _handlePDFUploadToFolderCore(file,folder){
         return;
       }
       _runPdfPagesToFolder(pdf,bn,folder,total,pdfBufCopy2);
-    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
+    }).catch(function(err){hideDrawingLoading();_aModal('PDF error: '+err.message);});
   };
   reader.readAsArrayBuffer(file);
 }
@@ -5159,7 +4994,7 @@ function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
                 if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
                 if(pg<total){go(pg+1);}
                 else{renderDrawingGallery();hideDrawingLoading();}
-              }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
+              }catch(encErr){hideDrawingLoading();_aModal('Error on page '+pg+': '+encErr.message);}
             },0);
           });
         });
@@ -5176,9 +5011,9 @@ function downloadFolderDrawings(fname){
     setTimeout(function(){openDownloadDialog(dwg.id);},i*100);
   });
 }
-function deleteFolderAction(fname){
+async function deleteFolderAction(fname){
   document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
-  if(!confirm('Delete folder "'+fname+'"? Drawings will be moved to Unfiled.'))return;
+  if(!await _aConfirm('Delete folder "'+fname+'"? Drawings will be moved to Unfiled.'))return;
   var p=getProject();p.drawings.forEach(function(d){if(d.folder===fname)d.folder='';});saveToLS();renderDrawingGallery();
 }
 function toggleActionsMenu(e){e.stopPropagation();document.getElementById('dwg-actions-menu').classList.toggle('open');}
@@ -5201,24 +5036,24 @@ function closeAllCardMenus(){
 }
 document.addEventListener('click',function(){closeAllCardMenus();var am=document.getElementById('dwg-actions-menu');if(am)am.classList.remove('open');});
 
-function moveDrawingToFolder(id){
+async function moveDrawingToFolder(id){
   closeAllCardMenus();
   var p=getProject();var d=p.drawings.find(function(x){return x.id===id;});if(!d)return;
   var folders={};p.drawings.forEach(function(x){if(x.folder)folders[x.folder]=true;});
   var flist=Object.keys(folders).sort();
   var opts=['(Unfiled)'].concat(flist).concat(['+ New folder']);
-  var ch=prompt('Move to folder:\n'+opts.map(function(o,i){return i+': '+o;}).join('\n'));
+  var ch=await _aPrompt('Move to folder:\n'+opts.map(function(o,i){return i+': '+o;}).join('\n'));
   if(ch===null)return;var idx=parseInt(ch);
   if(idx===0)d.folder='';else if(idx>0&&idx<=flist.length)d.folder=flist[idx-1];
-  else if(idx===flist.length+1){var nn=prompt('New folder name:');if(nn)d.folder=nn;}
+  else if(idx===flist.length+1){var nn=await _aPrompt('New folder name:');if(nn)d.folder=nn;}
   saveToLS();renderDrawingGallery();
 }
 // rotateDrawing: see features section
 
-function batchMoveDrawings(){if(!_selectedDrawings.size){alert('No drawings selected.');return;}var p=getProject();var folders={};p.drawings.forEach(function(x){if(x.folder)folders[x.folder]=true;});var flist=Object.keys(folders);var opts=['(Unfiled)'].concat(flist).concat(['+ New folder']);var ch=prompt('Move '+_selectedDrawings.size+' drawings to:\n'+opts.map(function(o,i){return i+': '+o;}).join('\n'));if(ch===null)return;var idx=parseInt(ch);var target='';if(idx===0)target='';else if(idx>0&&idx<=flist.length)target=flist[idx-1];else if(idx===flist.length+1){var nn=prompt('New folder name:');if(nn)target=nn;else return;}p.drawings.forEach(function(d){if(_selectedDrawings.has(d.id))d.folder=target;});_selectedDrawings.clear();saveToLS();renderDrawingGallery();}
-function batchRenameDrawings(){if(!_selectedDrawings.size){alert('No drawings selected.');return;}var prefix=prompt('Rename all selected with prefix (e.g. "FP"):');if(!prefix)return;var p=getProject();var n=1;p.drawings.forEach(function(d){if(_selectedDrawings.has(d.id)){d.name=prefix+'-'+n;n++;}});_selectedDrawings.clear();saveToLS();renderDrawingGallery();}
-function batchDeleteDrawings(){
-  if(!_selectedDrawings.size&&!_selectedFolders.size){alert('No drawings or folders selected.');return;}
+async function batchMoveDrawings(){if(!_selectedDrawings.size){_aModal('No drawings selected.');return;}var p=getProject();var folders={};p.drawings.forEach(function(x){if(x.folder)folders[x.folder]=true;});var flist=Object.keys(folders);var opts=['(Unfiled)'].concat(flist).concat(['+ New folder']);var ch=await _aPrompt('Move '+_selectedDrawings.size+' drawings to:\n'+opts.map(function(o,i){return i+': '+o;}).join('\n'));if(ch===null)return;var idx=parseInt(ch);var target='';if(idx===0)target='';else if(idx>0&&idx<=flist.length)target=flist[idx-1];else if(idx===flist.length+1){var nn=await _aPrompt('New folder name:');if(nn)target=nn;else return;}p.drawings.forEach(function(d){if(_selectedDrawings.has(d.id))d.folder=target;});_selectedDrawings.clear();saveToLS();renderDrawingGallery();}
+async function batchRenameDrawings(){if(!_selectedDrawings.size){_aModal('No drawings selected.');return;}var prefix=await _aPrompt('Rename all selected with prefix (e.g. "FP"):');if(!prefix)return;var p=getProject();var n=1;p.drawings.forEach(function(d){if(_selectedDrawings.has(d.id)){d.name=prefix+'-'+n;n++;}});_selectedDrawings.clear();saveToLS();renderDrawingGallery();}
+async function batchDeleteDrawings(){
+  if(!_selectedDrawings.size&&!_selectedFolders.size){_aModal('No drawings or folders selected.');return;}
   var p=getProject();if(!p)return;
   // Count what will be deleted
   var dwgCount=_selectedDrawings.size;
@@ -5227,7 +5062,7 @@ function batchDeleteDrawings(){
   if(dwgCount&&folderCount)msg+=dwgCount+' drawing'+(dwgCount>1?'s':'')+' and '+folderCount+' folder'+(folderCount>1?'s':'')+'?';
   else if(folderCount)msg+=folderCount+' folder'+(folderCount>1?'s':'')+' and all drawings inside?';
   else msg+=dwgCount+' selected drawing'+(dwgCount>1?'s':'')+'?';
-  if(!confirm(msg))return;
+  if(!await _aConfirm(msg))return;
   // Delete drawings in selected folders
   if(_selectedFolders.size){
     p.drawings=p.drawings.filter(function(d){
@@ -5252,13 +5087,12 @@ function _cleanEmptyFolders(p){
   var usedFolders={};p.drawings.forEach(function(d){if(d.folder)usedFolders[d.folder]=true;});
   p._folders=p._folders.filter(function(fn){return usedFolders[fn];});
 }
-function renameDrawing(id){var p=getProject();var d=p.drawings.find(function(x){return x.id===id;});if(!d)return;var n=prompt('Rename:',d.name);if(n){d.name=n;saveToLS();renderDrawingGallery();}}
-function removeDrawing(id){if(!confirm('Delete this drawing?'))return;var p=getProject();p.drawings=p.drawings.filter(function(x){return x.id!==id;});(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});});(p.generalDeficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});// Immediate IDB delete + save — bypass debounce so deletion survives page refresh
+async function renameDrawing(id){var p=getProject();var d=p.drawings.find(function(x){return x.id===id;});if(!d)return;var n=await _aPrompt('Rename:',d.name);if(n){d.name=n;saveToLS();renderDrawingGallery();}}
+async function removeDrawing(id){if(!await _aConfirm('Delete this drawing?'))return;var p=getProject();p.drawings=p.drawings.filter(function(x){return x.id!==id;});(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});});(p.generalDeficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});// Immediate IDB delete + save — bypass debounce so deletion survives page refresh
 ADB.delete('drawings',id).catch(function(){});
 ADB.saveFullProject(p).then(function(){ADB.markDirty();updateSaveTimestamp();}).catch(function(e){console.error('Delete save error',e);});
 _debouncedCloudSave();
 renderDrawingGallery();}
-
 
 // ══════════════════════════════════════════════════════════════
 // TILED PDF RENDERER — renders visible tiles on demand from raw PDF
@@ -5691,8 +5525,6 @@ function applyTransform(){
 }
 function zoomIn(){dvState.scale=Math.min(dvState.scale*1.3,10);applyTransform();}
 function zoomOut(){var minS=dvState.fitScale||0.1;dvState.scale=Math.max(dvState.scale/1.3,minS);if(dvState.scale<=minS*1.05){fitDrawing();return;}applyTransform();}
-function toggleSearchBar(){var bar=document.getElementById('dv-search-bar');bar.style.display=bar.style.display==='none'?'flex':'none';if(bar.style.display==='flex')document.getElementById('dv-search-input').focus();}
-function searchPlanText(){var q=(document.getElementById('dv-search-input').value||'').trim();if(!q){alert('Enter search text');return;}alert('Search plan text is a placeholder — OCR-based plan text search requires server-side processing. For now, use drawing names to identify plans.');}
 
 function initPanZoom(){var area=document.getElementById('dv-canvas-area');var na=area.cloneNode(true);area.parentNode.replaceChild(na,area);area=na;var sx,sy,pan=false;
 
@@ -5864,39 +5696,13 @@ area.addEventListener('click',function(e){
 if(!document._dvKeyHandler){document._dvKeyHandler=true;document.addEventListener('keydown',function(e){if(!document.getElementById('drawing-viewer').classList.contains('open'))return;if(e.key==='ArrowLeft')prevDrawing();if(e.key==='ArrowRight')nextDrawing();});}
 }
 
-function deleteSelectedPin(){if(!dvState.selectedPinId)return;if(!confirm('Delete this task?'))return;var f=findDeficiency(dvState.selectedPinId);if(f){f.arr.splice(f.idx,1);saveToLS();_folderQuickSave();}dvState.selectedPinId=null;renderPinsOnDrawing();renderTasksPanel();}
-
 // Delete All Markup / Pins dropdown
-function _dvDeleteSelectedPin(){
-  if(!dvState.selectedPinId)return;
-  if(!confirm('Delete this pin and all its deficiency data?'))return;
-  var f=findDeficiency(dvState.selectedPinId);
-  if(f){f.arr.splice(f.idx,1);saveToLS();_folderQuickSave();}
-  dvState.selectedPinId=null;renderPinsOnDrawing();renderTasksPanel();closePinPanel();closePinModal();
-}
-function toggleDvDeleteMenu(e){
-  e.stopPropagation();
-  var m=document.getElementById('dv-delete-menu');
-  var open=m.style.display==='block';
-  if(!open){
-    var hasMkSel=(_mkSelectedIds&&_mkSelectedIds.length>0)||!!_mkSelectedId;
-    var hasPinSel=!!dvState.selectedPinId;
-    var sm=document.getElementById('dv-del-sel-markup');
-    var sp=document.getElementById('dv-del-sel-pin');
-    var sep=document.getElementById('dv-del-sel-sep');
-    if(sm)sm.style.display=hasMkSel?'flex':'none';
-    if(sp)sp.style.display=hasPinSel?'flex':'none';
-    if(sep)sep.style.display=(hasMkSel||hasPinSel)?'block':'none';
-  }
-  m.style.display=open?'none':'block';
-  if(!open){setTimeout(function(){document.addEventListener('click',closeDvDeleteMenu,{once:true});},10);}
-}
-function closeDvDeleteMenu(){var m=document.getElementById('dv-delete-menu');if(m)m.style.display='none';}
-function deleteAllMarkupOnDrawing(){
+async function closeDvDeleteMenu(){var m=document.getElementById('dv-delete-menu');if(m)m.style.display='none';}
+async function deleteAllMarkupOnDrawing(){
   if(!dvState.currentDrawingId)return;
   var count=_mkObjects.length;
   if(!count){toast('No markup on this drawing.');return;}
-  if(!confirm('Delete all '+count+' markup object'+(count!==1?'s':'')+' on this drawing? This cannot be undone.'))return;
+  if(!await _aConfirm('Delete all '+count+' markup object'+(count!==1?'s':'')+' on this drawing? This cannot be undone.'))return;
   mkPushHistory();_mkObjects=[];
   var p=getProject();
   if(p&&dvState.currentDrawingId){
@@ -5924,13 +5730,13 @@ function deleteAllMarkupOnDrawing(){
   renderAllMarkup();saveMarkupData();_forceCloudSave();
   toast('🗑️ Deleted '+count+' markup object'+(count!==1?'s':''));
 }
-function deleteAllPinsOnDrawing(){
+async function deleteAllPinsOnDrawing(){
   if(!dvState.currentDrawingId)return;
   var p=getProject();if(!p)return;
   var ad=getAllDeficiencies(p);
   var pins=ad.filter(function(d){return d.defic.drawingId===dvState.currentDrawingId&&d.defic.pinX!=null;});
   if(!pins.length){toast('No pins on this drawing.');return;}
-  if(!confirm('Delete all '+pins.length+' pin'+(pins.length!==1?'s':'')+' and their linked deficiencies from this drawing? This cannot be undone.'))return;
+  if(!await _aConfirm('Delete all '+pins.length+' pin'+(pins.length!==1?'s':'')+' and their linked deficiencies from this drawing? This cannot be undone.'))return;
   pins.forEach(function(d){d.arr.splice(d.idx,1);});
   saveToLS();_folderQuickSave();renderPinsOnDrawing();renderTasksPanel();renderDeficiencyPanel();
   toast('🗑️ Deleted '+pins.length+' pin'+(pins.length!==1?'s':''));
@@ -6135,8 +5941,6 @@ function renderTasksPanel(){
 }
 
 var _drawingView='grid';
-function collapseAllFolders(){var p=getProject();if(!p)return;if(!p._collapsedFolders)p._collapsedFolders={};p.drawings.forEach(function(d){if(d.folder)p._collapsedFolders[d.folder]=true;});p._collapsedFolders['__unfiled']=true;saveToLS();renderDrawingGallery();}
-function expandAllFolders(){var p=getProject();if(!p)return;p._collapsedFolders={};saveToLS();renderDrawingGallery();}
 
 function toggleFilterMenu(e){e.stopPropagation();var m=document.getElementById('dwg-filter-menu');m.classList.toggle('open');document.addEventListener('click',function h(){m.classList.remove('open');document.removeEventListener('click',h);},{once:true});}
 function closeFilterMenu(){var m=document.getElementById('dwg-filter-menu');if(m)m.classList.remove('open');}
@@ -6266,7 +6070,6 @@ function handlePinClick(deficId){
   renderPinsOnDrawing();
   openPinEditor(deficId);
 }
-
 
 function _mkNewId(){return 'mk_'+ (_mkNextId++);}
 
@@ -7199,38 +7002,10 @@ function loadMarkupData(){
 
 // ── LAYER VISIBILITY ──
 var _layerVis={pins:true,markup:true};
-function toggleLayerVis(layer,btn){
-  _layerVis[layer]=!_layerVis[layer];
-  var on=_layerVis[layer];
-  if(btn){btn.classList.toggle('active',on);btn.style.opacity=on?'1':'0.4';}
-  if(layer==='pins'){var el=document.getElementById('dv-pins-layer');if(el)el.style.opacity=on?'1':'0';}
-  else if(layer==='markup'){var cv=document.getElementById('markup-canvas');if(cv)cv.style.opacity=on?'1':'0';}
-}
-function setLayerVisForExport(pins,markup){
-  var pEl=document.getElementById('dv-pins-layer');var mEl=document.getElementById('markup-canvas');
-  var prev={pOp:pEl?pEl.style.opacity:'',mOp:mEl?mEl.style.opacity:''};
-  if(pEl)pEl.style.opacity=pins?'1':'0';
-  if(mEl)mEl.style.opacity=markup?'1':'0';
-  return function(){if(pEl)pEl.style.opacity=prev.pOp;if(mEl)mEl.style.opacity=prev.mOp;};
-}
-function toggleLayer(layer,show){layerToggle(layer,show);}
 
 var _textSizeIndex=0;
 var _textSizes=[16,24,36,48];
 var _textSizeLabels=['S','M','L','XL'];
-
-function cycleTextSize(){
-  _textSizeIndex=(_textSizeIndex+1)%_textSizes.length;
-  setFontSize(_textSizes[_textSizeIndex]);
-  setMarkupTool('text');
-  var btn=document.getElementById('mk-text');
-  if(btn)btn.title='Text ('+_textSizeLabels[_textSizeIndex]+')';
-  showToast('Text: '+_textSizeLabels[_textSizeIndex],800);
-}
-function toggleColorPicker(){
-  var p=document.getElementById('mk-color-picker');
-  if(p)p.style.display=p.style.display==='none'?'block':'none';
-}
 
 // ═══ TOOLTIP — floating, no layout shift ═══
 function initToolbarTooltips(){
@@ -7316,7 +7091,6 @@ function setMarkupColorNew(color){
   var sw=document.getElementById('mk-color-swatch');if(sw)sw.style.background=color;
   var sub=document.getElementById('color-submenu');if(sub){sub.classList.remove('open');_colorMenuOpen=false;}
 }
-function setMarkupColor(color,el){setMarkupColorNew(color);}
 
 // ═══ SIZE / OPACITY / TEXT-SIZE LABELS ═══
 function updateSizeLabel(v){var el=document.getElementById('mk-size-input');if(el)el.value=v;}
@@ -7332,11 +7106,6 @@ function deleteSelectedShape(){
   renderAllMarkup();saveMarkupData();_forceCloudSave();
   showToast(toDelete.length>1?toDelete.length+' markups deleted':'Markup deleted');
 }
-function redrawAllShapes(){renderAllMarkup();}
-function findShapeAtPoint(x,y){var hit=_mkHitTest(x,y);if(!hit)return -1;for(var i=0;i<_mkObjects.length;i++){if(_mkObjects[i].id===hit.id)return i;}return -1;}
-function handleCanvasSelectClick(e){/* handled inline in initMarkupEvents */}
-function _selectClickHandler(e){/* no-op, handled inline */}
-
 
 // ═══ DRAWING DOWNLOAD DIALOG ═══
 var _dlDrawingId=null;
@@ -7591,8 +7360,6 @@ setTimeout(function(){
   });
 },1000);
 
-function downloadCurrentDrawing(){openDownloadDialog(dvState.currentDrawingId);}
-
 function downloadAllDrawings(){
   var p=getProject();if(!p||!p.drawings.length)return;
   toast('Preparing '+p.drawings.length+' drawings — your browser will download each one...');
@@ -7630,13 +7397,11 @@ var _lbCanvas=null;
 
 // openLightbox: see features section
 
-
 function _lbShowCurrent(){
   _lbShowCurrentDirect();
 }
 
 // closeLightbox: see features section
-
 
 function lightboxPrev(e){e.stopPropagation();if(_lbPhotos.length<2)return;_lbIdx=(_lbIdx-1+_lbPhotos.length)%_lbPhotos.length;_lbShowCurrent();}
 function lightboxNext(e){e.stopPropagation();if(_lbPhotos.length<2)return;_lbIdx=(_lbIdx+1)%_lbPhotos.length;_lbShowCurrent();}
@@ -8289,8 +8054,6 @@ function lightboxSaveMarkup(){
   _lbHideToolbar();
   _lbShowCurrentDirect();
 }
-function lightboxSave(){lightboxSaveMarkup();}
-function lightboxSaveCopy(){lightboxSaveMarkup();}
 
 function _replacePhotoInProject(p,oldSrc,newSrc){
   var replaced=false;
@@ -8319,27 +8082,12 @@ function _replacePhotoInProject(p,oldSrc,newSrc){
   return replaced;
 }
 
-function wirePhotoLightbox(container){
-  if(!container)container=document;
-  container.querySelectorAll('.photo-thumb,.evidence-photo,.resp-photo-thumb,img[data-lightbox]').forEach(function(img){
-    if(img._lbWired)return; img._lbWired=true;
-    img.style.cursor='zoom-in';
-    img.addEventListener('click',function(e){
-      e.stopPropagation();
-      var parent=img.closest('.photo-row,.photo-group,.photo-gallery,.evidence-photos,.resp-photos') || img.parentElement;
-      var imgs=Array.from(parent.querySelectorAll('img[src]')).filter(function(i){return i.src&&i.src.startsWith('data:');});
-      if(!imgs.length)imgs=[img];
-      var idx=imgs.indexOf(img); if(idx<0)idx=0;
-      openLightbox(img.src,imgs.map(function(i){return i.src;}),idx);
-    });
-  });
-}
 // ═══ CONTRACTOR DEFICIENCY SYSTEM — Pump Tool Style ═══
-function addContractor(){var input=document.getElementById('new-contractor-input');var name=(input.value||'').trim();if(!name)return;var p=getProject();if(p.contractors.some(function(c){return c.name.toLowerCase()===name.toLowerCase();})){alert('"'+name+'" already exists.');return;}p.contractors.push({id:'ctr_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,deficiencies:[]});input.value='';saveToLS();_folderQuickSave();renderDeficiencyPanel();}
-function removeContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;if(c.deficiencies.length>0){if(!confirm('"'+c.name+'" has '+c.deficiencies.length+' deficiencies. Move to General?'))return;c.deficiencies.forEach(function(d){p.generalDeficiencies.push(d);});}else if(!confirm('Remove "'+c.name+'"?'))return;p.contractors=p.contractors.filter(function(x){return x.id!==cid;});saveToLS();_folderQuickSave();renderDeficiencyPanel();}
+function addContractor(){var input=document.getElementById('new-contractor-input');var name=(input.value||'').trim();if(!name)return;var p=getProject();if(p.contractors.some(function(c){return c.name.toLowerCase()===name.toLowerCase();})){_aModal('"'+name+'" already exists.');return;}p.contractors.push({id:'ctr_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,deficiencies:[]});input.value='';saveToLS();_folderQuickSave();renderDeficiencyPanel();}
+async function removeContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;if(c.deficiencies.length>0){if(!await _aConfirm('"'+c.name+'" has '+c.deficiencies.length+' deficiencies. Move to General?'))return;c.deficiencies.forEach(function(d){p.generalDeficiencies.push(d);});}else if(!await _aConfirm('Remove "'+c.name+'"?'))return;p.contractors=p.contractors.filter(function(x){return x.id!==cid;});saveToLS();_folderQuickSave();renderDeficiencyPanel();}
 function renderDeficiencyPanel(){renderContractorChips();renderDeficGroups();renderSummaryTable();setTimeout(function(){populateRespPhotos();_loadDataSrcImgs(document.getElementById('panel-deficiencies'));},50);if(_reviewActive)setTimeout(_updateReviewBadge,100);}
 function renderContractorChips(){var p=getProject();if(!p)return;var el=document.getElementById('contractor-chips');if(!p.contractors.length){el.innerHTML='<span style="color:#999;font-size:13px;">No contractors added yet.</span>';return;}el.innerHTML=p.contractors.map(function(c){return'<div class="contractor-chip"><span>'+escHtml(c.name)+'</span><button onclick="renameContractor(\''+c.id+'\')" title="Rename" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;opacity:.7;color:inherit;">✏</button><button onclick="removeContractor(\''+c.id+'\')" title="Remove">✕</button></div>';}).join('');}
-function renameContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;var nn=prompt('Rename contractor:',c.name);if(!nn||!nn.trim()||nn.trim()===c.name)return;nn=nn.trim();if(p.contractors.some(function(x){return x.id!==cid&&x.name.toLowerCase()===nn.toLowerCase();})){alert('"'+nn+'" already exists.');return;}var oldName=c.name;c.name=nn;// Update _foldedCtrs key if it was set
+async function renameContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;var nn=await _aPrompt('Rename contractor:',c.name);if(!nn||!nn.trim()||nn.trim()===c.name)return;nn=nn.trim();if(p.contractors.some(function(x){return x.id!==cid&&x.name.toLowerCase()===nn.toLowerCase();})){_aModal('"'+nn+'" already exists.');return;}var oldName=c.name;c.name=nn;// Update _foldedCtrs key if it was set
 if(_foldedCtrs[oldName]){_foldedCtrs[nn]=_foldedCtrs[oldName];delete _foldedCtrs[oldName];}saveToLS();renderDeficiencyPanel();}
 function renderDeficGroups(){var p=getProject();if(!p)return;var el=document.getElementById('defic-groups');if(!p.contractors.length&&!p.generalDeficiencies.length){el.innerHTML='<p style="color:#999;font-size:13px;padding:12px 0;text-align:center;">Add a contractor above to start recording deficiencies.</p>';return;}var html='';p.contractors.forEach(function(c){html+=buildDeficGroup(c.id,c.name,c.deficiencies);});if(p.generalDeficiencies.length>0)html+=buildDeficGroup(null,'General',p.generalDeficiencies);el.innerHTML=html;}
 
@@ -8443,15 +8191,15 @@ function addDeficEntry(did){
   f.defic.entries.push({description:'',photos:[],priority:'high'});
   pushUndo();saveToLS();renderDeficiencyPanel();
 }
-function removeDeficEntry(did,ei){
+async function removeDeficEntry(did,ei){
   var f=findDeficiency(did);if(!f||!f.defic.entries)return;
-  if(f.defic.entries.length<=1){alert('Cannot remove the last observation.');return;}
-  if(!confirm('Remove observation '+String.fromCharCode(65+ei)+'?'))return;
+  if(f.defic.entries.length<=1){_aModal('Cannot remove the last observation.');return;}
+  if(!await _aConfirm('Remove observation '+String.fromCharCode(65+ei)+'?'))return;
   f.defic.entries.splice(ei,1);
   pushUndo();saveToLS();renderDeficiencyPanel();
 }
-function removeEntryPhoto(did,ei,pi){
-  if(!confirm('Remove this photo?'))return;
+async function removeEntryPhoto(did,ei,pi){
+  if(!await _aConfirm('Remove this photo?'))return;
   var f=findDeficiency(did);if(!f||!f.defic.entries||!f.defic.entries[ei])return;
   var ph=f.defic.entries[ei].photos[pi];
   if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
@@ -8511,10 +8259,10 @@ function processEntryPhotos(did,ei,files){
 function addDeficiencyForGroup(ctrId){var p=getProject();var num=p.nextDeficNum++;var d=newDeficiency(num);if(ctrId){var c=p.contractors.find(function(x){return x.id===ctrId;});if(c)c.deficiencies.push(d);}else{p.generalDeficiencies.push(d);}pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();setTimeout(function(){var el=document.getElementById('defic-item-'+d.id);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},100);}
 function updateDeficField(did,field,val){var f=findDeficiency(did);if(f){f.defic[field]=val;saveToLS();if(field==='status'){renderSummaryTable();_folderQuickSave();}_scheduleReviewUpdate();}}
 
-function toggleIARInPlace(btn,did){
+async function toggleIARInPlace(btn,did){
   var f=findDeficiency(did);if(!f)return;
   if(f.defic.iar){
-    if(!confirm('Deactivate IAR for deficiency #'+f.defic.num+'?'))return;
+    if(!await _aConfirm('Deactivate IAR for deficiency #'+f.defic.num+'?'))return;
   } else {
     // Re-enabling IAR: reset consultant closedItem flags so close button reappears
     if(f.defic.responses){f.defic.responses.forEach(function(r){if(r.closedItem)r.closedItem=false;});}
@@ -8524,7 +8272,7 @@ function toggleIARInPlace(btn,did){
   else{btn.classList.remove('on');btn.classList.add('off');btn.innerHTML='⚡ IAR';}
   renderDeficiencyPanel();renderSummaryTable();
 }
-function removeDeficiency(did){if(!confirm('Delete this deficiency?'))return;var f=findDeficiency(did);if(f){f.arr.splice(f.idx,1);pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();}}
+async function removeDeficiency(did){if(!await _aConfirm('Delete this deficiency?'))return;var f=findDeficiency(did);if(f){f.arr.splice(f.idx,1);pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();}}
 function duplicateDeficiency(did){
   var f=findDeficiency(did);if(!f)return;
   var p=getProject();var num=p.nextDeficNum++;
@@ -8594,7 +8342,7 @@ function moveDeficiency(did){
 async function reuploadAllToCloud(){
   if(!_csHubMode||!_csProjectId){toast('Only available in Hub mode');return;}
   var p=getProject();if(!p)return;
-  if(!confirm('This will reset all drawings and photos to "pending" upload status and re-queue everything from local storage to R2.\n\nUse this if files are missing from the cloud. It may take several minutes.\n\nContinue?'))return;
+  if(!await _aConfirm('This will reset all drawings and photos to "pending" upload status and re-queue everything from local storage to R2.\n\nUse this if files are missing from the cloud. It may take several minutes.\n\nContinue?'))return;
 
   var queued=0;
   var hubId=_getR2FolderId();
@@ -8714,9 +8462,9 @@ function bulkSelectNone(){
 function _getSelectedDeficIds(){
   var ids=[];document.querySelectorAll('.bulk-checkbox:checked').forEach(function(cb){ids.push(cb.getAttribute('data-defic-id'));});return ids;
 }
-function bulkSetStatus(newStatus){
+async function bulkSetStatus(newStatus){
   var ids=_getSelectedDeficIds();if(!ids.length){toast('No deficiencies selected');return;}
-  if(!confirm((newStatus==='Addressed & Closed'?'Close':'Reopen')+' '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'?'))return;
+  if(!await _aConfirm((newStatus==='Addressed & Closed'?'Close':'Reopen')+' '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'?'))return;
   pushUndo();
   ids.forEach(function(id){var f=findDeficiency(id);if(f){f.defic.status=newStatus;if(newStatus==='Addressed & Closed')f.defic.iar=false;}});
   saveToLS();renderDeficiencyPanel();renderSummaryTable();
@@ -8731,9 +8479,9 @@ function bulkToggleIAR(on){
   toast((on?'Set':'Cleared')+' IAR on '+ids.length+' item'+(ids.length>1?'s':''));
   if(_bulkSelectMode){setTimeout(function(){document.querySelectorAll('.bulk-checkbox').forEach(function(cb){cb.checked=false;});updateBulkCount();},50);}
 }
-function bulkDeleteDefics(){
+async function bulkDeleteDefics(){
   var ids=_getSelectedDeficIds();if(!ids.length){toast('No deficiencies selected');return;}
-  if(!confirm('Permanently delete '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'? This cannot be undone.'))return;
+  if(!await _aConfirm('Permanently delete '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'? This cannot be undone.'))return;
   pushUndo();
   var p=getProject();if(!p)return;
   ids.forEach(function(id){
@@ -8863,11 +8611,11 @@ function addDeficResponse(did,party){var f=findDeficiency(did);if(!f)return;if(!
 function removeDeficResponse(did,ri){var f=findDeficiency(did);if(f&&f.defic.responses){f.defic.responses.splice(ri,1);saveToLS();renderDeficiencyPanel();}}
 function updateDeficResponse(did,ri,field,val){var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]){f.defic.responses[ri][field]=val;saveToLS();_scheduleReviewUpdate();}}
 
-function consultantCloseItem(did,ri){
+async function consultantCloseItem(did,ri){
   var f=findDeficiency(did);if(!f)return;
   var d=f.defic;
   if(!d.responses||!d.responses[ri])return;
-  if(!confirm('Close deficiency #'+d.num+' and deactivate IAR?\n\nThis marks the item as Addressed & Closed.'))return;
+  if(!await _aConfirm('Close deficiency #'+d.num+' and deactivate IAR?\n\nThis marks the item as Addressed & Closed.'))return;
   d.responses[ri].closedItem=true;
   d.responses[ri].closedDate=new Date().toISOString().substring(0,10);
   d.status='Addressed & Closed';
@@ -8878,10 +8626,6 @@ function consultantCloseItem(did,ri){
   if(typeof renderTasksPanel==='function')renderTasksPanel();
   showToast('Observation closed. IAR deactivated.');
 }
-
-function triggerDeficPhotoUpload(did){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){processDeficPhotos(did,inp.files);};inp.click();}
-function triggerDeficPhotoCamera(did){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){processDeficPhotos(did,inp.files);};inp.click();}
-function handleDeficPhotoDrop(e,did){processDeficPhotos(did,e.dataTransfer.files);}
 
 // ── DEFICIENCY PHOTO RECORD HELPERS ──
 // Photos are now objects: {id, dataUrl, r2Key, r2Status, r2Url}
@@ -9046,17 +8790,17 @@ function _r2EnqueueDeficPhoto(rec,deficId){
 // Auto-cleanup orphaned R2 files — runs once per session in background, 30s after load
 // Compares R2 bucket contents against project references, deletes unreferenced files
 async function _r2CleanupOrphans(){
-  if(!_csHubMode||!_csProjectId||typeof R2Photos==='undefined'){alert('Must be in Hub mode.');return;}
+  if(!_csHubMode||!_csProjectId||typeof R2Photos==='undefined'){_aModal('Must be in Hub mode.');return;}
   var WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
   var proj=getProject();
-  if(!proj){alert('No project loaded.');return;}
+  if(!proj){_aModal('No project loaded.');return;}
 
   // Safety: project must have actual data
   var hasAnyData=(proj.drawings&&proj.drawings.length>0)||
                  (proj.sitePhotos&&proj.sitePhotos.length>0)||
                  (proj.generalDeficiencies&&proj.generalDeficiencies.length>0)||
                  ((proj.contractors||[]).some(function(c){return c.deficiencies&&c.deficiencies.length>0;}));
-  if(!hasAnyData){alert('Project appears empty — cleanup aborted to prevent accidental deletion.');return;}
+  if(!hasAnyData){_aModal('Project appears empty — cleanup aborted to prevent accidental deletion.');return;}
 
   // Build set of ALL referenced r2Keys from local project state
   var referencedKeys=new Set();
@@ -9110,7 +8854,7 @@ async function _r2CleanupOrphans(){
   console.log('[R2Cleanup] R2 has '+allR2Files.length+' total files, '+candidates.length+' orphans');
 
   if(candidates.length===0){
-    alert('R2 is already clean — all '+allR2Files.length+' files match your local project.');
+    _aModal('R2 is already clean — all '+allR2Files.length+' files match your local project.');
     return;
   }
 
@@ -9127,7 +8871,7 @@ async function _r2CleanupOrphans(){
     +'Files to delete:\n'+preview+'\n\n'
     +'This cannot be undone. Continue?';
 
-  if(!confirm(msg))return;
+  if(!await _aConfirm(msg))return;
 
   // Delete orphans
   var deleted=0,failed=0;
@@ -9145,7 +8889,7 @@ async function _r2CleanupOrphans(){
 
   var result='R2 Cleanup complete:\n• Deleted: '+deleted+' files\n• Failed: '+failed+' files\n• Remaining: '+(allR2Files.length-deleted)+' files';
   console.log('[R2Cleanup] '+result);
-  alert(result);
+  _aModal(result);
 
   var dot=document.getElementById('cloud-dot');
   if(dot){
@@ -9244,20 +8988,6 @@ function processDeficPhotos(did,files){
     });
   });
 }
-function removeDeficItemPhoto(did,idx){
-  if(!confirm('Remove this photo?'))return;
-  var f=findDeficiency(did);
-  if(f&&f.defic.photos&&f.defic.photos[idx]){
-    var ph=f.defic.photos[idx];
-    // R2 cleanup
-    if(ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
-      var parts=ph.r2Key.split('/');
-      if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});
-    }
-    f.defic.photos.splice(idx,1);
-    saveToLS();renderDeficiencyPanel();
-  }
-}
 function triggerRespPhotoUpload(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){processRespPhotos(did,ri,inp.files);};inp.click();}
 function triggerRespPhotoCamera(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){if(inp.files&&inp.files.length>0){processRespPhotos(did,ri,inp.files);inp.value='';setTimeout(function(){try{inp.click();}catch(ex){}},600);}};inp.click();}
 function handleRespPhotoDrop(e,did,ri){processRespPhotos(did,ri,e.dataTransfer.files);}
@@ -9275,27 +9005,11 @@ function processRespPhotos(did,ri,files){
 }
 
 /* injectEntrySummaries removed — dead code */
-function buildEntrySummary(d){
-if(!d.entries||d.entries.length<=1)return '';
-var html='<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);">';
-d.entries.forEach(function(en,i){
-if(i===0)return;
-var pr=en.priority==='general'?'General / Cosmetic':en.priority==='low'?'Low':'High';
-var prCol=en.priority==='general'?'#1A7A4A':en.priority==='low'?'#E67E22':'#C0392B';
-html+='<div style="font-size:11px;margin-bottom:4px;">';
-html+='<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;color:white;background:'+prCol+';margin-right:6px;">Obs. '+String.fromCharCode(65+i)+' ('+pr+')</span>';
-html+=escHtml(en.description||'(no description)');
-if(en.photos&&en.photos.length)html+=' <span style="color:var(--silver);font-size:10px;">('+en.photos.length+' photo'+(en.photos.length>1?'s':'')+')</span>';
-html+='</div>';
-});
-html+='</div>';
-return html;
-}
 function renderSummaryTable(){var p=getProject();if(!p)return;var wrap=document.getElementById('defic-summary-table-wrap');var ad=getAllDeficiencies(p);if(!ad.length){wrap.innerHTML='';return;}var groups={};ad.forEach(function(d){var k=d.contractorName;if(!groups[k])groups[k]={t:0,i:0,o:0,c:0};groups[k].t++;if(d.defic.iar)groups[k].i++;if(d.defic.status==='Outstanding')groups[k].o++;else groups[k].c++;});var html='<table class="defic-summary-table"><thead><tr><th>Contractor</th><th>Total</th><th>IAR</th><th>Outstanding</th><th>Closed</th></tr></thead><tbody>';var tt=0,ti=0,to=0,tc=0;Object.keys(groups).forEach(function(k){var g=groups[k];tt+=g.t;ti+=g.i;to+=g.o;tc+=g.c;html+='<tr><td style="font-weight:600;">'+escHtml(k)+'</td><td>'+g.t+'</td><td style="color:var(--iar);font-weight:700;">'+g.i+'</td><td style="color:var(--no);font-weight:600;">'+g.o+'</td><td style="color:var(--yes);font-weight:600;">'+g.c+'</td></tr>';});html+='<tr style="font-weight:800;border-top:2px solid var(--slate);"><td>TOTAL</td><td>'+tt+'</td><td style="color:var(--iar);">'+ti+'</td><td style="color:var(--no);">'+to+'</td><td style="color:var(--yes);">'+tc+'</td></tr></tbody></table>';wrap.innerHTML=html;}
 
 function jumpToPin(did){var f=findDeficiency(did);if(!f||!f.defic.drawingId)return;openDrawingViewer(f.defic.drawingId);setTimeout(function(){var area=document.getElementById('dv-canvas-area'),img=document.getElementById('dv-image');var aw=area.clientWidth,ah=area.clientHeight,iw=img.naturalWidth,ih=img.naturalHeight;var s=Math.min(Math.min(aw/iw,ah/ih)*2,4);dvState.scale=s;dvState.panX=aw/2-f.defic.pinX*iw*s;dvState.panY=ah/2-f.defic.pinY*ih*s;applyTransform();dvState.selectedPinId=did;renderPinsOnDrawing();},400);}
 
-function removeRespPhoto(did,ri,pi){if(!confirm('Remove this photo?'))return;var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]&&f.defic.responses[ri].photos){var ph=f.defic.responses[ri].photos[pi];if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){var parts=ph.r2Key.split('/');if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});}f.defic.responses[ri].photos.splice(pi,1);saveToLS();renderDeficiencyPanel();}}
+async function removeRespPhoto(did,ri,pi){if(!await _aConfirm('Remove this photo?'))return;var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]&&f.defic.responses[ri].photos){var ph=f.defic.responses[ri].photos[pi];if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){var parts=ph.r2Key.split('/');if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});}f.defic.responses[ri].photos.splice(pi,1);saveToLS();renderDeficiencyPanel();}}
 function _lbHandleOverlayClick(e){
   // Never close if user is in draw mode (clicks during drawing bubble up as click events)
   if(_lbDrawing)return;
@@ -9580,8 +9294,8 @@ function handlePinEntryFiles(files,idx){
   });
 }
 
-function removePinEntryPhoto(entryIdx,photoIdx){
-  if(!confirm('Remove this photo?'))return;
+async function removePinEntryPhoto(entryIdx,photoIdx){
+  if(!await _aConfirm('Remove this photo?'))return;
   var f=findDeficiency(editingPinId);if(!f)return;
   _ensureEntries(f.defic);
   var entry=f.defic.entries[entryIdx];if(!entry||!entry.photos)return;
@@ -9620,15 +9334,6 @@ var rank={high:3,low:2,general:1};
 var best='general';var bestR=0;
 defic.entries.forEach(function(e){var r=rank[e.priority||'high']||0;if(r>bestR){bestR=r;best=e.priority||'high';}});
 defic.priority=best;
-}
-function setPinPriority(pr){
-  var f=findDeficiency(editingPinId);if(!f)return;
-  var ei=f.defic.activeEntry||0;
-  if(f.defic.entries&&f.defic.entries[ei])f.defic.entries[ei].priority=pr;
-  _recalcPinPriority(f.defic);
-  if(pr==='general')f.defic.status='Addressed & Closed';
-  saveToLS();openPinEditor(editingPinId);
-  renderPinsOnDrawing();renderTasksPanel();
 }
 function setObsPriority(idx,pr){
   var f=findDeficiency(editingPinId);if(!f)return;
@@ -9705,24 +9410,24 @@ function confirmNewPinContractor(){
   _lastContractorId=ctrId;
   pushUndo();saveToLS();openPinEditor(editingPinId);renderPinsOnDrawing();renderTasksPanel();
 }
-function editPinContractor(){
+async function editPinContractor(){
   var sel=document.getElementById('pin-contractor');
   var ctrId=sel?sel.value:'';if(!ctrId||ctrId==='__new__')return;
   var p=getProject();var ctr=(p.contractors||[]).find(function(c){return c.id===ctrId;});
   if(!ctr)return;
-  var nn=prompt('Rename contractor:',ctr.name);if(!nn||!nn.trim())return;
+  var nn=await _aPrompt('Rename contractor:',ctr.name);if(!nn||!nn.trim())return;
   nn=nn.trim();
   var dup=(p.contractors||[]).find(function(c){return c.id!==ctrId&&c.name.toLowerCase()===nn.toLowerCase();});
   if(dup){toast('A contractor named "'+nn+'" already exists');return;}
   ctr.name=nn;pushUndo();saveToLS();openPinEditor(editingPinId);renderPinsOnDrawing();renderTasksPanel();toast('Renamed to "'+nn+'" ✓');
 }
-function deletePinContractor(){
+async function deletePinContractor(){
   var sel=document.getElementById('pin-contractor');
   var ctrId=sel?sel.value:'';if(!ctrId||ctrId==='__new__')return;
   var p=getProject();var ctr=(p.contractors||[]).find(function(c){return c.id===ctrId;});
   if(!ctr)return;
   var cnt=(ctr.deficiencies||[]).length;
-  if(!confirm('Delete contractor "'+ctr.name+'"'+(cnt>0?' and move '+cnt+' deficienc'+(cnt>1?'ies':'y')+' to General':'')+'?'))return;
+  if(!await _aConfirm('Delete contractor "'+ctr.name+'"'+(cnt>0?' and move '+cnt+' deficienc'+(cnt>1?'ies':'y')+' to General':'')+'?'))return;
   // Move all deficiencies to general
   if(!p.generalDeficiencies)p.generalDeficiencies=[];
   (ctr.deficiencies||[]).forEach(function(d){p.generalDeficiencies.push(d);});
@@ -9731,19 +9436,12 @@ function deletePinContractor(){
   getAllDeficiencies(p).forEach(function(r){(r.defic.entries||[]).forEach(function(en){if(en.contractorId===ctrId)en.contractorId='';});});
   pushUndo();saveToLS();openPinEditor(editingPinId);renderPinsOnDrawing();renderTasksPanel();toast('Contractor deleted');
 }
-function showObsContractorOverride(idx){
-  var f=findDeficiency(editingPinId);if(!f)return;
-  _ensureEntries(f.defic);
-  if(!f.defic.entries[idx])return;
-  f.defic.entries[idx].contractorId=f.defic.entries[idx].contractorId||'__show__';
-  openPinEditor(editingPinId);
-}
 function setObsContractor(idx,val){
   var f=findDeficiency(editingPinId);if(!f)return;
   _ensureEntries(f.defic);
   if(!f.defic.entries[idx])return;
   if(val==='__add_new__'){
-    var name=(prompt('New contractor name:')||'').trim();
+    var name=(_aPrompt('New contractor name:')||'').trim();
     if(!name){openPinEditor(editingPinId);return;}
     var p=getProject();if(!p)return;
     if(!p.contractors)p.contractors=[];
@@ -9760,7 +9458,7 @@ function setObsContractor(idx,val){
   f.defic.entries[idx].contractorId=val||'';
   saveToLS();openPinEditor(editingPinId);
 }
-function togglePinIAR(){var f=findDeficiency(editingPinId);if(f){if(f.defic.iar&&!confirm('Deactivate IAR for deficiency #'+f.defic.num+'?'))return;if(!f.defic.iar&&f.defic.responses){f.defic.responses.forEach(function(r){if(r.closedItem)r.closedItem=false;});}f.defic.iar=!f.defic.iar;saveToLS();openPinEditor(editingPinId);}}
+async function togglePinIAR(){var f=findDeficiency(editingPinId);if(f){if(f.defic.iar&&!await _aConfirm('Deactivate IAR for deficiency #'+f.defic.num+'?'))return;if(!f.defic.iar&&f.defic.responses){f.defic.responses.forEach(function(r){if(r.closedItem)r.closedItem=false;});}f.defic.iar=!f.defic.iar;saveToLS();openPinEditor(editingPinId);}}
 
 function savePinForm(){
   _flushPinEntryDescriptions();
@@ -9781,8 +9479,8 @@ function savePinForm(){
   pushUndo();saveToLS();renderPinsOnDrawing();renderTasksPanel();closePinPanel();closePinModal();
 }
 
-function deleteCurrentPin(){
-  if(!confirm('Delete this pin and all its items?'))return;
+async function deleteCurrentPin(){
+  if(!await _aConfirm('Delete this pin and all its items?'))return;
   var f=findDeficiency(editingPinId);
   if(f){f.arr.splice(f.idx,1);pushUndo();saveToLS();}
   renderPinsOnDrawing();renderTasksPanel();closePinPanel();closePinModal();
@@ -9798,11 +9496,6 @@ function closePinModalOnBackdrop(e){
   }
 }
 function _flushDescIfEditing(){clearTimeout(_autoPinSaveTimer);_flushPinEntryDescriptions();}
-
-function removePinPhoto(idx){removePinEntryPhoto(0,idx);}
-function handlePinPhotoUpload(e){handlePinEntryFiles(e.target.files,0);e.target.value='';}
-function handlePinPhotoDrop(e){handlePinEntryFiles(e.dataTransfer.files,0);}
-function triggerPinCamera(){triggerPinEntryCamera(0);}
 
 function _movePinToDrawing(newDrawingId){
   if(!newDrawingId||!editingPinId)return;
@@ -10053,27 +9746,6 @@ function renderTasksTable(){
   });
 }
 
-function exportTasksCSV(){
-  var p=getProject();if(!p)return;
-  var ad=getAllDeficiencies(p);
-  var dwgMap={};
-  if(p.drawings)p.drawings.forEach(function(dw){dwgMap[dw.id]=dw.name||dw.filename||'';});
-  var rows=[['#','Drawing','Description','Contractor','Priority','Status','IAR','Response','Pinned']];
-  ad.forEach(function(d){
-    var def=d.defic;
-    var csvHasCtr=false,csvHasCon=false;
-    if(def.entries){def.entries.forEach(function(e){if(e.contractorResponse&&e.contractorResponse.trim())csvHasCtr=true;if(e.consultantResponse&&e.consultantResponse.trim())csvHasCon=true;});}
-    var csvResp=csvHasCtr&&csvHasCon?'Both':csvHasCtr?'Contractor':csvHasCon?'Consultant':'None';
-    var _csvDesc=def.entries&&def.entries.length?def.entries.map(function(e,i){return(def.entries.length>1?(String.fromCharCode(65+i)+': '):'')+((e.description||'').replace(/,/g,' '));}).join(' | '):(def.description||'').replace(/,/g,' ');
-    rows.push([def.num,dwgMap[def.drawingId]||'',_csvDesc,d.contractorName,def.priority||'high',def.status||'Outstanding',def.iar?'Yes':'No',csvResp,def.pinX!=null?'Yes':'No']);
-  });
-  var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
-  var fn=((p.info&&p.info.projectNumber)||'project')+'_tasks_'+new Date().toISOString().substring(0,10)+'.csv';
-  var blob=new Blob([csv],{type:'text/csv'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click();URL.revokeObjectURL(a.href);
-  toast('Exported '+ad.length+' tasks');
-}
-
 function renderPinsKanban(){
   var p=getProject();if(!p)return;
   var all=getAllDeficiencies(p);
@@ -10293,7 +9965,7 @@ function selectAllPhotos(){
 
 function deselectAllPhotos(){_selectedPhotos=[];renderPhotoGallery();}
 
-function deleteSelectedPhotos(){
+async function deleteSelectedPhotos(){
   if(!_selectedPhotos.length){showToast('No photos selected');return;}
   var p=getProject();if(!p)return;
   // Separate site vs deficiency photos
@@ -10304,7 +9976,7 @@ function deleteSelectedPhotos(){
   }
   var msg='Delete '+siteIds.length+' site photo'+(siteIds.length!==1?'s':'')+'?';
   if(deficIds.length>0)msg+='\n('+deficIds.length+' deficiency photo'+(deficIds.length!==1?'s':'')+' will be skipped — remove from pin editor)';
-  if(!confirm(msg))return;
+  if(!await _aConfirm(msg))return;
   siteIds.forEach(function(id){
     var idx=parseInt(id.split('_')[1]);
     if(p.sitePhotos&&p.sitePhotos[idx]){
@@ -10633,21 +10305,6 @@ function updateSitePhotoCaption(idx,val){
 function togglePhotoActionsMenu(e){e.stopPropagation();var m=document.getElementById('photo-actions-menu');m.classList.toggle('open');document.addEventListener('click',function h(){m.classList.remove('open');document.removeEventListener('click',h);},{once:true});}
 function togglePhotoFilterMenu(e){e.stopPropagation();var m=document.getElementById('photo-filter-menu');m.classList.toggle('open');document.addEventListener('click',function h(){m.classList.remove('open');document.removeEventListener('click',h);},{once:true});}
 
-function formatDateTime(d){
-  try{
-    if(d.length<=10)return d;
-    var parts=d.split(' ');
-    var datePart=parts[0];var timePart=parts[1]||'';
-    if(timePart){
-      var tp=timePart.split(':');
-      var h=parseInt(tp[0]);var m=tp[1]||'00';
-      var ampm=h>=12?'PM':'AM';
-      h=h%12||12;
-      return datePart+' '+h+':'+m+' '+ampm;
-    }
-    return d;
-  }catch(e){return d;}
-}
 // ═══ JSON SAVE / LOAD / EXPORT ═══
 
 function saveJSONDownload(){
@@ -10720,7 +10377,7 @@ function loadJSON(event){
           renderDashboard();
           enterProject(data.id);
         });
-      }catch(err){alert('Invalid JSON file: '+err.message);}
+      }catch(err){_aModal('Invalid JSON file: '+err.message);}
     };reader.readAsText(f);
   }
   if(files&&files.length){processFile(files[0]);if(event.target)event.target.value='';return;}
@@ -10731,7 +10388,7 @@ function loadJSON(event){
 function exportAllProjects(){exportAllProjectsJSON();}
 function exportAllProjectsJSON(){
   var keys=Object.keys(allProjects);
-  if(!keys.length){alert('No projects to export.');return;}
+  if(!keys.length){_aModal('No projects to export.');return;}
   var promises=keys.map(function(id){return ADB.exportProjectJSON(id);});
   Promise.all(promises).then(function(projects){
     var all={};projects.forEach(function(p){if(p)all[p.id]=p;});
@@ -10744,23 +10401,6 @@ function exportAllProjectsJSON(){
   });
 }
 
-function importAllProjectsJSON(){
-  var inp=document.createElement('input');inp.type='file';inp.accept='.json';
-  inp.onchange=function(){var f=inp.files[0];if(!f)return;
-    var reader=new FileReader();reader.onload=function(e){
-      try{var data=JSON.parse(e.target.result);
-        var keys=Object.keys(data);
-        var chain=Promise.resolve();
-        keys.forEach(function(id){
-          var proj=data[id];if(!proj.id)proj.id=id;
-          allProjects[proj.id]=proj;
-          chain=chain.then(function(){return ADB.saveFullProject(proj);});
-        });
-        chain.then(function(){toast('Imported '+keys.length+' projects');renderDashboard();});
-      }catch(err){alert('Invalid file: '+err.message);}
-    };reader.readAsText(f);
-  };inp.click();
-}
 // ═══ PDF EXPORT — Field Review Report (Deficiency Report vs Full Field Review) ═══
 function showPDFOptions(){
   var overlay=document.getElementById('pdf-picker-overlay');
@@ -10865,17 +10505,39 @@ function _renderDrawingWithPins(dwgDataUrl, pins, callback){
 function exportPDF(mode){
 if(!currentProjectId)return;var p=getProject();var logo=LOGO_SRC;
 var isField=(mode==='field');
-// Pre-fetch R2 URLs to object URLs for PDF (bare img src can't send auth headers)
-_prefetchR2PhotosForPDF(p).then(function(r2Cache){
-_exportPDFWithCache(p,logo,isField,mode,r2Cache);
+closePDFPicker();
+
+// Show progress overlay on FRT page during pre-fetch
+var pfOv=document.createElement('div');
+pfOv.id='pdf-prefetch-overlay';
+pfOv.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+pfOv.innerHTML='<div style="background:white;border-radius:12px;padding:28px 36px;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;min-width:320px;">'
++'<div style="font-size:16px;font-weight:700;color:#1C2333;margin-bottom:12px;">Preparing PDF Export</div>'
++'<div id="pf-label" style="font-size:13px;color:#4A5568;margin-bottom:10px;">Fetching photos... 0/0</div>'
++'<div style="width:100%;height:8px;background:#EDF2F7;border-radius:4px;overflow:hidden;">'
++'<div id="pf-bar" style="width:0%;height:100%;background:#1A7A4A;border-radius:4px;transition:width .15s;"></div></div>'
++'<div style="margin-top:12px;font-size:11px;color:#A0AEC0;">This may take a moment for large reports</div></div>';
+document.body.appendChild(pfOv);
+
+_prefetchR2PhotosForPDF(p,function(done,total){
+  try{
+    var lbl=document.getElementById('pf-label');
+    var bar=document.getElementById('pf-bar');
+    if(lbl)lbl.textContent='Fetching photos... '+done+'/'+total;
+    if(bar)bar.style.width=Math.round((done/Math.max(1,total))*100)+'%';
+  }catch(e){}
+}).then(function(r2Cache){
+  try{var ov2=document.getElementById('pdf-prefetch-overlay');if(ov2)ov2.remove();}catch(e){}
+  _exportPDFWithCache(p,logo,isField,mode,r2Cache);
 }).catch(function(e){
-console.warn('[PDF] R2 prefetch failed, proceeding with available URLs:',e);
-_exportPDFWithCache(p,logo,isField,mode,{});
+  try{var ov3=document.getElementById('pdf-prefetch-overlay');if(ov3)ov3.remove();}catch(e2){}
+  console.warn('[PDF] R2 prefetch failed, proceeding:',e);
+  _exportPDFWithCache(p,logo,isField,mode,{});
 });
 }
 
-// Fetch all R2 URLs in the project and return a map of r2Url → objectURL
-function _prefetchR2PhotosForPDF(p){
+// Fetch all R2 URLs and return map of r2Url → objectURL. progressCb(done,total) called per fetch.
+function _prefetchR2PhotosForPDF(p,progressCb){
 var urls=[];
 function _collectR2Urls(defics){
   if(!defics)return;
@@ -10891,27 +10553,24 @@ function _collectR2Urls(defics){
 }
 (p.contractors||[]).forEach(function(c){_collectR2Urls(c.deficiencies);});
 _collectR2Urls(p.generalDeficiencies);
-// Also site photos
 (p.sitePhotos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
-// Deduplicate
 urls=[].concat(urls.filter(function(u,i,a){return a.indexOf(u)===i;}));
 if(!urls.length)return Promise.resolve({});
-var cache={};
-var token=localStorage.getItem('sb-access-token');
-var headers=token?{'Authorization':'Bearer '+token}:{};
+var cache={};var done=0;var total=urls.length;
+if(progressCb)progressCb(0,total);
+// R2 GET = no auth (Rule 20) — plain fetch, no Bearer token
 return Promise.all(urls.map(function(url){
-  return fetch(url,{headers:headers}).then(function(res){
+  return fetch(url).then(function(res){
     if(!res.ok)throw new Error(res.status);
     return res.blob();
   }).then(function(blob){
     cache[url]=URL.createObjectURL(blob);
-  }).catch(function(){
-    // Skip — photo will be missing in PDF
+  }).catch(function(){}).finally(function(){
+    done++;if(progressCb)progressCb(done,total);
   });
 })).then(function(){return cache;});
 }
 
-// Resolve photo src for PDF: use R2 cache object URL if available
 function _pdfPhotoSrc(ph,r2Cache){
 if(!ph)return '';
 if(typeof ph==='string')return ph;
@@ -10925,20 +10584,30 @@ var reportDefs=[];var rn=1;
 (p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){reportDefs.push({d:d,ctr:c.name,rn:rn++});});});
 (p.generalDeficiencies||[]).forEach(function(d){reportDefs.push({d:d,ctr:'General',rn:rn++});});
 
+// ── CSS ──
 var css='*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}';
-css+='body{font-family:Calibri,sans-serif;color:#1C2333;font-size:11px;padding:60px 20px 20px;max-width:900px;margin:0 auto;}';
+css+='body{font-family:Calibri,sans-serif;color:#1C2333;font-size:11px;background:#525659;margin:0;padding:20px;}';
+css+='.page{width:8.5in;min-height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
+css+='.page-content{position:relative;}';
+// Full header (page 1)
 css+='.ph{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:3px solid #9C2742;padding-bottom:10px;margin-bottom:14px;}';
 css+='.ph img{height:34px;}.ph-title{font-size:18px;font-weight:700;color:#9C2742;margin-top:4px;}';
 css+='.ph-addr{text-align:right;font-size:9px;color:#4A5568;line-height:1.6;}';
-css+='.sh{background:#9C2742;color:white;padding:7px 12px;font-weight:700;font-size:12px;border-radius:4px 4px 0 0;margin-top:16px;page-break-after:avoid;}';
+// Compact repeat header (pages 2+) — OBC-style 3-line running header
+css+='.ph-compact{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #999;padding-bottom:4px;margin-bottom:12px;}';
+css+='.ph-compact-left{font-size:8.5pt;color:#444;line-height:1.6;}';
+css+='.ph-compact-right{font-size:8.5pt;color:#444;line-height:1.6;text-align:right;}';
+// Section styles
+css+='.sh{background:#9C2742;color:white;padding:7px 12px;font-weight:700;font-size:12px;border-radius:4px 4px 0 0;margin-top:16px;}';
 css+='.sb{border:1px solid #DDE1E7;border-top:none;padding:12px;border-radius:0 0 4px 4px;margin-bottom:4px;}';
 css+='.ig{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}';
 css+='.ii{font-size:10px;}.ii label{font-weight:700;color:#4A5568;text-transform:uppercase;font-size:8px;letter-spacing:.5px;display:block;margin-bottom:1px;}.ii span{color:#1C2333;}';
-css+='.ch{background:#2C4A6B;color:white;padding:6px 12px;font-weight:700;font-size:11px;border-radius:4px;margin-top:12px;margin-bottom:6px;page-break-after:avoid;break-after:avoid;}';
-css+='.dc{border:1px solid #DDE1E7;border-radius:6px;padding:10px;margin-bottom:10px;page-break-inside:avoid;break-inside:avoid;orphans:3;widows:3;}';
+css+='.ch{background:#2C4A6B;color:white;padding:6px 12px;font-weight:700;font-size:11px;border-radius:4px;margin-top:12px;margin-bottom:6px;}';
+// Deficiency cards
+css+='.dc{border:1px solid #DDE1E7;border-radius:6px;padding:10px;margin-bottom:10px;}';
 css+='.dc-inner{display:flex;gap:12px;align-items:flex-start;}';
 css+='.dc-mini{flex-shrink:0;width:160px;max-height:160px;object-fit:contain;border-radius:6px;border:1px solid #DDE1E7;display:block;align-self:flex-start;}';
-css+='.dc-content{flex:1;}';
+css+='.dc-content{flex:1;min-width:0;}';
 css+='.iar{display:inline-block;background:#FF69B4;color:white;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;margin-left:4px;}';
 css+='.so{color:#C0392B;font-weight:700;font-size:11px;}.sc{color:#1A7A4A;font-weight:700;font-size:11px;}';
 css+='.dp{width:160px;height:160px;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;}';
@@ -10949,166 +10618,178 @@ css+='.resp-photos img{width:160px;height:160px;object-fit:cover;border-radius:4
 css+='.st{width:100%;border-collapse:collapse;font-size:10px;margin-top:8px;}';
 css+='.st th{background:#2C3E50;color:white;padding:5px 8px;text-align:left;font-size:9px;}';
 css+='.st td{padding:5px 8px;border-bottom:1px solid #DDE1E7;font-size:10px;}';
-css+='.app-dwg{margin-bottom:28px;page-break-inside:avoid;break-inside:avoid;}';
+// Appendix
+css+='.app-dwg{margin-bottom:28px;}';
 css+='.app-dwg-title{font-weight:700;font-size:12px;color:#1C2333;margin-bottom:8px;padding:6px 10px;background:#F7F8FA;border-radius:4px;border-left:3px solid #9C2742;}';
 css+='.app-dwg img{max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;}';
 css+='.app-pin-table{width:100%;border-collapse:collapse;font-size:10px;margin-top:8px;}';
 css+='.app-pin-table th{background:#F7F8FA;padding:4px 8px;text-align:left;border-bottom:1px solid #DDE1E7;font-size:9px;}';
 css+='.app-pin-table td{padding:4px 8px;border-bottom:1px solid #F0F0F0;}';
-css+='@media print{.np{display:none!important;}#pdf-btn-bar{display:none!important;}body{padding:20px!important;margin:0!important;}.sh{page-break-after:avoid;}.ch{page-break-after:avoid;break-after:avoid;}.dc{page-break-inside:avoid;break-inside:avoid;}.sb{page-break-inside:auto;}}';
+// Continuation markers
+css+='.cont-marker{font-size:9px;color:#9C2742;font-style:italic;padding:4px 0;font-weight:600;}';
+// Print
+css+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}}';
+css+='@page{size:letter;margin:0;}';
 
 var titleLabel='Field Review Report';
-var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ARENCON Field Review - '+(p.info.projectName||'Report')+'</title>';
-h+='<!-- Calibri system font -->';
-h+='<style>'+css+'</style></head><body>';
 
-h+='<div class="ph"><div><img src="'+logo+'" alt="ARENCON"><div class="ph-title">'+titleLabel+'</div></div>';
-h+='<div class="ph-addr">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp; L4X 2Z6, CANADA<br>P: 905 615 1774 &nbsp;|&nbsp; F: 905 615 9351<br>E: mail'+'@'+'arencon.com</div></div>';
+// ── Build full header HTML (page 1) ──
+var fullHeader='<div class="ph"><div><img src="'+logo+'" alt="ARENCON"><div class="ph-title">'+titleLabel+'</div></div>';
+fullHeader+='<div class="ph-addr">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp; L4X 2Z6, CANADA<br>P: 905 615 1774 &nbsp;|&nbsp; F: 905 615 9351<br>E: mail'+'@'+'arencon.com</div></div>';
 
-h+='<div class="sh">Project Information</div><div class="sb"><div class="ig">';
+// Project info grid
+var infoGrid='<div class="sh">Project Information</div><div class="sb"><div class="ig">';
 [['Project No.',p.info.projectNumber],['Project Name',p.info.projectName],['Client',p.info.client],
 ['Project Address',p.info.address],['Date of Inspection',p.info.visitDate],['Prepared By',p.info.inspectorName],
 ['Date of Issue',p.info.dateOfIssue||''],
 ['Revision',p.info.revision||'A01']].forEach(function(f){
-  h+='<div class="ii"><label>'+f[0]+'</label><span>'+(f[1]||'—')+'</span></div>';
+  infoGrid+='<div class="ii"><label>'+f[0]+'</label><span>'+(f[1]||'\u2014')+'</span></div>';
 });
-h+='</div></div>';
+infoGrid+='</div></div>';
 
+// ── Report number + revision for running header ──
+var _rptNum=1;
+try{if(typeof CloudSync!=='undefined'&&CloudSync.instanceNumber)_rptNum=CloudSync.instanceNumber;}catch(e){}
+var _rptRev=p.info.revision||'A01';
+
+// ── Build compact header HTML (pages 2+) — OBC-style ──
+function _compactHeader(pageNum,totalPages){
+  var leftL1=escHtml(p.info.client||'');
+  var leftL2=escHtml((p.info.projectName||'')+(p.info.address?', '+p.info.address:''));
+  var leftL3=escHtml(titleLabel+' #'+_rptNum);
+  var rightL1=escHtml((p.info.projectNumber||'')+' '+_rptRev)+'&nbsp;&nbsp;Page '+pageNum+(totalPages?' of '+totalPages:'');
+  var rightL3=escHtml(date);
+  return '<div class="ph-compact">'
+    +'<div class="ph-compact-left">'+leftL1+'<br>'+leftL2+'<br>'+leftL3+'</div>'
+    +'<div class="ph-compact-right">'+rightL1+'<br>&nbsp;<br>'+rightL3+'</div>'
+    +'</div>';
+}
+
+// ── Build summary table ──
+var summaryHtml='';
 if(reportDefs.length){
   var ctrGroups={};reportDefs.forEach(function(r){if(!ctrGroups[r.ctr])ctrGroups[r.ctr]=[];ctrGroups[r.ctr].push(r);});
-
-  h+='<div class="sh">Deficiency Summary</div><div class="sb">';
-  h+='<table class="st"><thead><tr><th>Contractor</th><th>Total</th><th>IAR</th><th>Outstanding</th><th>Closed</th></tr></thead><tbody>';
+  summaryHtml+='<div class="sh">Deficiency Summary</div><div class="sb">';
+  summaryHtml+='<table class="st"><thead><tr><th>Contractor</th><th>Total</th><th>IAR</th><th>Outstanding</th><th>Closed</th></tr></thead><tbody>';
   Object.keys(ctrGroups).forEach(function(ctr){
     var gc=ctrGroups[ctr];
     var iar=gc.filter(function(r){return r.d.iar;}).length;
     var os=gc.filter(function(r){return r.d.status==='Outstanding';}).length;
     var cl=gc.filter(function(r){return r.d.status==='Closed';}).length;
-    h+='<tr><td><strong>'+escHtml(ctr)+'</strong></td><td>'+gc.length+'</td>';
-    h+='<td style="color:#FF69B4;font-weight:700;">'+iar+'</td>';
-    h+='<td style="color:#C0392B;font-weight:700;">'+os+'</td>';
-    h+='<td style="color:#1A7A4A;font-weight:700;">'+cl+'</td></tr>';
+    summaryHtml+='<tr><td><strong>'+escHtml(ctr)+'</strong></td><td>'+gc.length+'</td>';
+    summaryHtml+='<td style="color:#FF69B4;font-weight:700;">'+iar+'</td>';
+    summaryHtml+='<td style="color:#C0392B;font-weight:700;">'+os+'</td>';
+    summaryHtml+='<td style="color:#1A7A4A;font-weight:700;">'+cl+'</td></tr>';
   });
   var tiar=reportDefs.filter(function(r){return r.d.iar;}).length;
   var tos=reportDefs.filter(function(r){return r.d.status==='Outstanding';}).length;
   var tcl=reportDefs.filter(function(r){return r.d.status==='Closed';}).length;
-  h+='<tr style="border-top:2px solid #2C3E50;font-weight:700;"><td>Total</td><td>'+reportDefs.length+'</td>';
-  h+='<td style="color:#FF69B4;">'+tiar+'</td><td style="color:#C0392B;">'+tos+'</td><td style="color:#1A7A4A;">'+tcl+'</td></tr>';
-  h+='</tbody></table></div>';
-
-  h+='<div class="sh">Deficiencies ('+reportDefs.length+')</div><div class="sb">';
-  Object.keys(ctrGroups).forEach(function(ctr){
-    h+='<div class="ch">'+escHtml(ctr)+' ('+ctrGroups[ctr].length+')</div>';
-    ctrGroups[ctr].forEach(function(r){
-      var d=r.d;
-      var hasDwg=isField&&d.drawingId&&d.pinX!=null;
-      h+='<div class="dc" id="dc-'+d.id+'">';
-      h+='<div class="dc-inner">';
-      if(hasDwg){
-        h+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="drawing">';
-      }
-      h+='<div class="dc-content">';
-      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-      h+='<div><strong style="color:#9C2742;font-size:13px;">#'+d.num+'</strong>';
-      if(d.iar)h+='<span class="iar">IAR</span>';
-      h+='</div>';
-      h+='<span class="'+(d.status==='Outstanding'?'so':'sc')+'">'+d.status+'</span>';
-      h+='</div>';
-      var _ep1=(d.entries&&d.entries[0]&&d.entries[0].priority)||d.priority||'high';
-var _ep1Lbl=_ep1==='general'?'General':_ep1==='low'?'Low':'High';
-var hasMultiEntries=d.entries&&d.entries.length>1;
-// Render each entry as "Observation A, B, C..." with description + photos together
-if(d.entries&&d.entries.length){
-  d.entries.forEach(function(en,ei){
-    var eLbl=String.fromCharCode(65+ei); // A, B, C...
-    var ePr=en.priority==='general'?'General / Cosmetic':en.priority==='low'?'Low':'High';
-    var ePrCol=en.priority==='general'?'#1A7A4A':en.priority==='low'?'#E67E22':'#9C2742';
-    if(hasMultiEntries){
-      h+='<div style="margin-bottom:8px;padding:6px 8px;background:#f8f8f8;border-left:3px solid '+ePrCol+';border-radius:0 4px 4px 0;">';
-      h+='<div style="font-size:10px;font-weight:700;color:'+ePrCol+';margin-bottom:2px;">Observation '+eLbl+' ('+ePr+')</div>';
-    } else {
-      h+='<div style="margin-bottom:8px;">';
-    }
-    h+='<div style="font-size:11px;margin-bottom:4px;"><strong>Description:</strong> '+escHtml(en.description||'—')+'</div>';
-    if(en.photos&&en.photos.length){
-      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">';
-      en.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
-      h+='</div>';
-    }
-    h+='</div>';
-  });
-} else {
-  var dispD=d.description||'';
-  h+='<div style="margin-bottom:6px;"><strong>Description:</strong> '+escHtml(dispD)+'</div>';
-  var firstPhotos=d.photos||[];
-  if(firstPhotos.length){
-    h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">';
-    firstPhotos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
-    h+='</div>';
-  }
+  summaryHtml+='<tr style="border-top:2px solid #2C3E50;font-weight:700;"><td>Total</td><td>'+reportDefs.length+'</td>';
+  summaryHtml+='<td style="color:#FF69B4;">'+tiar+'</td><td style="color:#C0392B;">'+tos+'</td><td style="color:#1A7A4A;">'+tcl+'</td></tr>';
+  summaryHtml+='</tbody></table></div>';
 }
-      if(d.date)h+='<div style="font-size:10px;color:#4A5568;margin-bottom:6px;">Date: '+d.date+'</div>';
-      if(hasDwg){
-        var dwgObj=p.drawings.find(function(x){return x.id===d.drawingId;});
-        if(dwgObj)h+='<div style="font-size:9px;color:#607D8B;margin-bottom:4px;">📐 '+escHtml(dwgObj.name)+'</div>';
-      }
-      // Photos now rendered per-entry above — skip old combined block
-      if(d.responses&&d.responses.length){
-        d.responses.forEach(function(resp){
-          var isCtr=resp.party==='contractor';
-          h+='<div class="resp-box '+(isCtr?'resp-ctr':'resp-con')+'">';
-          h+='<strong style="color:'+(isCtr?'#E67E22':'#1565C0')+'">'+(isCtr?'Contractor':'Consultant')+' Response:</strong> '+(resp.comment?escHtml(resp.comment):'—');
-          if(resp.photos&&resp.photos.length){
-            h+='<div class="resp-photos">';
-            resp.photos.forEach(function(ph){h+='<img src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
-            h+='</div>';
-          }
-          h+='</div>';
-        });
-      }
-      h+='</div>'; // dc-content
-      h+='</div>'; // dc-inner
-      h+='</div>'; // dc
-    });
-  });
+
+// ── Build individual deficiency card HTML blocks ──
+function _buildDefCardHtml(r){
+  var d=r.d;
+  var hasDwg=isField&&d.drawingId&&d.pinX!=null;
+  var h='<div class="dc" data-defid="'+d.id+'">';
+  h+='<div class="dc-inner">';
+  if(hasDwg){
+    h+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="drawing">';
+  }
+  h+='<div class="dc-content">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+  h+='<div><strong style="color:#9C2742;font-size:13px;">#'+d.num+'</strong>';
+  if(d.iar)h+='<span class="iar">IAR</span>';
   h+='</div>';
-}
-
-if(isField&&p.drawings&&p.drawings.length){
-  var dwgsWithPins=p.drawings.filter(function(dwg){
-    return reportDefs.some(function(r){return r.d.drawingId===dwg.id&&r.d.pinX!=null;});
-  });
-  if(dwgsWithPins.length){
-    h+='<div class="sh" style="margin-top:24px;">Appendix — Drawings with Pins ('+dwgsWithPins.length+')</div><div class="sb">';
-    dwgsWithPins.forEach(function(dwg){
-      var dPins=reportDefs.filter(function(r){return r.d.drawingId===dwg.id&&r.d.pinX!=null;});
-      h+='<div class="app-dwg">';
-      h+='<div class="app-dwg-title">'+escHtml(dwg.name)+' — '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
-      h+='<img class="app-dwg" id="app-dwg-'+dwg.id+'" src="" alt="'+escHtml(dwg.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
-      h+='<table class="app-pin-table"><thead><tr><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
-      dPins.forEach(function(r){
-        var d=r.d;
-        var sc2=d.status==='Outstanding'?'#C0392B':'#1A7A4A';
-        h+='<tr><td><strong style="color:#9C2742;">#'+d.num+'</strong>'+(d.iar?'<span class="iar">IAR</span>':'')+'</td>';
-        h+='<td>'+escHtml(d.description||'—')+'</td>';
-        h+='<td style="color:'+sc2+';font-weight:700;">'+d.status+'</td>';
-        h+='<td>'+escHtml(r.ctr)+'</td></tr>';
-      });
-      h+='</tbody></table>';
+  h+='<span class="'+(d.status==='Outstanding'?'so':'sc')+'">'+d.status+'</span>';
+  h+='</div>';
+  var hasMultiEntries=d.entries&&d.entries.length>1;
+  if(d.entries&&d.entries.length){
+    d.entries.forEach(function(en,ei){
+      var eLbl=String.fromCharCode(65+ei);
+      var ePr=en.priority==='general'?'General / Cosmetic':en.priority==='low'?'Low':'High';
+      var ePrCol=en.priority==='general'?'#1A7A4A':en.priority==='low'?'#E67E22':'#9C2742';
+      if(hasMultiEntries){
+        h+='<div style="margin-bottom:8px;padding:6px 8px;background:#f8f8f8;border-left:3px solid '+ePrCol+';border-radius:0 4px 4px 0;">';
+        h+='<div style="font-size:10px;font-weight:700;color:'+ePrCol+';margin-bottom:2px;">Observation '+eLbl+' ('+ePr+')</div>';
+      } else {
+        h+='<div style="margin-bottom:8px;">';
+      }
+      h+='<div style="font-size:11px;margin-bottom:4px;"><strong>Description:</strong> '+escHtml(en.description||'\u2014')+'</div>';
+      if(en.photos&&en.photos.length){
+        h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">';
+        en.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
+        h+='</div>';
+      }
       h+='</div>';
     });
-    h+='</div>';
+  } else {
+    var dispD=d.description||'';
+    h+='<div style="margin-bottom:6px;"><strong>Description:</strong> '+escHtml(dispD)+'</div>';
+    var firstPhotos=d.photos||[];
+    if(firstPhotos.length){
+      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">';
+      firstPhotos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
+      h+='</div>';
+    }
   }
+  if(d.date)h+='<div style="font-size:10px;color:#4A5568;margin-bottom:6px;">Date: '+d.date+'</div>';
+  if(hasDwg){
+    var dwgObj=p.drawings.find(function(x){return x.id===d.drawingId;});
+    if(dwgObj)h+='<div style="font-size:9px;color:#607D8B;margin-bottom:4px;">\uD83D\uDCD0 '+escHtml(dwgObj.name)+'</div>';
+  }
+  if(d.responses&&d.responses.length){
+    d.responses.forEach(function(resp){
+      var isCtr=resp.party==='contractor';
+      h+='<div class="resp-box '+(isCtr?'resp-ctr':'resp-con')+'">';
+      h+='<strong style="color:'+(isCtr?'#E67E22':'#1565C0')+'">'+(isCtr?'Contractor':'Consultant')+' Response:</strong> '+(resp.comment?escHtml(resp.comment):'\u2014');
+      if(resp.photos&&resp.photos.length){
+        h+='<div class="resp-photos">';
+        resp.photos.forEach(function(ph){h+='<img src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
+        h+='</div>';
+      }
+      h+='</div>';
+    });
+  }
+  h+='</div>'; // dc-content
+  h+='</div>'; // dc-inner
+  h+='</div>'; // dc
+  return h;
 }
 
-h+='<div style="position:fixed;bottom:8px;left:20px;right:20px;font-size:9px;color:#999;font-family:Calibri,sans-serif;text-align:center;border-top:1px solid #eee;padding-top:4px;">File: '+escHtml(getProjectFilename(p))+'</div>';
-h+='</body></html>';
+// ── Build contractor group headers ──
+var ctrGroups2={};
+reportDefs.forEach(function(r){if(!ctrGroups2[r.ctr])ctrGroups2[r.ctr]=[];ctrGroups2[r.ctr].push(r);});
 
+// Create ordered list of content blocks: [{ type:'ctrHeader'|'defCard', html, ctr }]
+var contentBlocks=[];
+if(reportDefs.length){
+  contentBlocks.push({type:'sectionHeader',html:'<div class="sh">Deficiencies ('+reportDefs.length+')</div>'});
+  Object.keys(ctrGroups2).forEach(function(ctr){
+    contentBlocks.push({type:'ctrHeader',html:'<div class="ch">'+escHtml(ctr)+' ('+ctrGroups2[ctr].length+')</div>',ctr:ctr});
+    ctrGroups2[ctr].forEach(function(r){
+      contentBlocks.push({type:'defCard',html:_buildDefCardHtml(r),defId:r.d.id,ctr:ctr});
+    });
+  });
+}
+
+// ── Open popup window ──
 var w=window.open('','_blank');
-if(!w){alert('Popup blocked. Allow popups for this site.');return;}
-w.document.write(h);w.document.close();
+if(!w){_aModal('Popup blocked. Allow popups for this site.');return;}
+
+var docHtml='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ARENCON Field Review - '+(p.info.projectName||'Report')+'</title>';
+docHtml+='<style>'+css+'</style></head><body>';
+// Hidden measurement container
+docHtml+='<div id="measure-zone" style="position:absolute;left:-9999px;top:0;width:7.3in;visibility:hidden;"></div>';
+// Pages will be injected here
+docHtml+='<div id="pages-container"></div>';
+docHtml+='</body></html>';
+w.document.write(docHtml);w.document.close();
 w.document.title='ARENCON Field Review - '+(p.info.projectName||'Report');
 
+// ── Add export bar ──
 try{
   var bar=w.document.createElement('div');
   bar.id='pdf-btn-bar';
@@ -11128,8 +10809,144 @@ try{
   closeBtn.onclick=function(){w.close();};
   bar.appendChild(closeBtn);
   w.document.body.insertBefore(bar,w.document.body.firstChild);
+  w.document.body.style.paddingTop='56px';
 }catch(e){}
 
+// ── Pagination engine ──
+// Constants: 8.5in x 11in at 96dpi = 816 x 1056. With 0.5in padding top/bottom = 0.5in*96=48px each side
+// Usable content height = 1056 - 48 - 48 - 28(footer) = 932px. Use 912 for safety margin.
+var PAGE_H=912;
+var FULL_HEADER_H=0; // measured
+var COMPACT_HEADER_H=0; // measured
+var measureZone=w.document.getElementById('measure-zone');
+var pagesContainer=w.document.getElementById('pages-container');
+// Measure a block of HTML — returns height in px
+function _measure(html){
+  measureZone.innerHTML=html;
+  var h=measureZone.offsetHeight;
+  measureZone.innerHTML='';
+  return h;
+}
+
+// Measure headers
+FULL_HEADER_H=_measure(fullHeader+infoGrid+summaryHtml);
+COMPACT_HEADER_H=_measure(_compactHeader(2,''));
+
+// ── Page builder ──
+var pages=[];
+var curPageHtml='';
+var curUsed=0;
+var curPageNum=1;
+var isFirstPage=true;
+
+function _startPage(){
+  curPageHtml='';curUsed=0;
+  if(isFirstPage){
+    curPageHtml+=fullHeader+infoGrid+summaryHtml;
+    curUsed+=FULL_HEADER_H;
+    isFirstPage=false;
+  }
+  // Compact header added later when page is finalized (needs total page count)
+}
+
+function _finalizePage(){
+  if(curPageHtml.trim()){
+    pages.push({html:curPageHtml,pageNum:curPageNum});
+    curPageNum++;
+  }
+}
+
+// Start first page
+_startPage();
+
+// Add content blocks
+contentBlocks.forEach(function(block){
+  var blockH=_measure(block.html);
+  var avail=PAGE_H-curUsed;
+
+  if(block.type==='sectionHeader'||block.type==='ctrHeader'){
+    // Headers: if less than 80px remaining after header, start new page
+    if(avail<blockH+80){
+      _finalizePage();_startPage();
+    }
+    curPageHtml+=block.html;
+    curUsed+=_measure(block.html);// re-measure in context
+    return;
+  }
+
+  // Deficiency card
+  if(blockH<=avail){
+    // Fits on current page
+    curPageHtml+=block.html;
+    curUsed+=blockH;
+  } else if(blockH<=PAGE_H-COMPACT_HEADER_H){
+    // Doesn't fit here but fits on a fresh page — push to next page
+    // Only do this if current page isn't mostly empty (>40% used)
+    if(curUsed>PAGE_H*0.15){
+      _finalizePage();_startPage();
+    }
+    curPageHtml+=block.html;
+    curUsed+=blockH;
+  } else {
+    // Card is taller than a full page — needs splitting
+    // For now, just place it and let it overflow (CSS will clip at page boundary)
+    // Future enhancement: split at photo/response boundaries
+    if(curUsed>PAGE_H*0.15){
+      _finalizePage();_startPage();
+    }
+    curPageHtml+=block.html;
+    curUsed+=blockH;
+  }
+});
+
+// Finalize last deficiency page
+_finalizePage();
+
+// ── Appendix — Drawings with Pins ──
+if(isField&&p.drawings&&p.drawings.length){
+  var dwgsWithPins=p.drawings.filter(function(dwg){
+    return reportDefs.some(function(r){return r.d.drawingId===dwg.id&&r.d.pinX!=null;});
+  });
+  if(dwgsWithPins.length){
+    // Each drawing gets its own page
+    dwgsWithPins.forEach(function(dwg){
+      var dPins=reportDefs.filter(function(r){return r.d.drawingId===dwg.id&&r.d.pinX!=null;});
+      var appHtml='<div class="sh" style="margin-top:0;">Appendix \u2014 Drawings with Pins</div><div class="sb" style="padding:8px;">';
+      appHtml+='<div class="app-dwg">';
+      appHtml+='<div class="app-dwg-title">'+escHtml(dwg.name)+' \u2014 '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
+      appHtml+='<img class="app-dwg" id="app-dwg-'+dwg.id+'" src="" alt="'+escHtml(dwg.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
+      appHtml+='<table class="app-pin-table"><thead><tr><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
+      dPins.forEach(function(r){
+        var d=r.d;
+        var sc2=d.status==='Outstanding'?'#C0392B':'#1A7A4A';
+        appHtml+='<tr><td><strong style="color:#9C2742;">#'+d.num+'</strong>'+(d.iar?'<span class="iar">IAR</span>':'')+'</td>';
+        appHtml+='<td>'+escHtml(d.description||'\u2014')+'</td>';
+        appHtml+='<td style="color:'+sc2+';font-weight:700;">'+d.status+'</td>';
+        appHtml+='<td>'+escHtml(r.ctr)+'</td></tr>';
+      });
+      appHtml+='</tbody></table></div></div>';
+      pages.push({html:appHtml,pageNum:curPageNum,isAppendix:true});
+      curPageNum++;
+    });
+  }
+}
+
+var totalPages=pages.length;
+
+// ── Render all pages into DOM ──
+var allPagesHtml='';
+pages.forEach(function(pg,idx){
+  var pgNum=idx+1;
+  allPagesHtml+='<div class="page">';
+  if(pgNum>1){
+    allPagesHtml+=_compactHeader(pgNum,totalPages);
+  }
+  allPagesHtml+='<div class="page-content">'+pg.html+'</div>';
+  allPagesHtml+='</div>';
+});
+pagesContainer.innerHTML=allPagesHtml;
+
+// ── Drawing rendering (minimaps + appendix) ──
 if(isField){
   var dwgPinMap={};
   reportDefs.forEach(function(r){
@@ -11143,158 +10960,131 @@ if(isField){
   });
 
   var dwgIds=Object.keys(dwgPinMap);
-  if(dwgIds.length===0){closePDFPicker();return;}
+  if(dwgIds.length>0){
+    // Add progress bar
+    try{
+      var progWrap=w.document.createElement('div');
+      progWrap.id='pdf-progress-wrap';
+      progWrap.style.cssText='position:fixed;top:44px;left:0;right:0;z-index:9998;background:#1e2533;padding:6px 20px 8px;font-family:Calibri,sans-serif;';
+      var progLabel=w.document.createElement('div');
+      progLabel.id='pdf-progress-label';
+      progLabel.style.cssText='color:rgba(255,255,255,.8);font-size:12px;margin-bottom:4px;';
+      progLabel.textContent='Rendering drawings... 0/'+dwgIds.length;
+      progWrap.appendChild(progLabel);
+      var progTrack=w.document.createElement('div');
+      progTrack.style.cssText='width:100%;height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden;';
+      var progBar=w.document.createElement('div');
+      progBar.id='pdf-progress-bar';
+      progBar.style.cssText='width:0%;height:100%;background:#1A7A4A;border-radius:3px;transition:width .2s;';
+      progTrack.appendChild(progBar);
+      progWrap.appendChild(progTrack);
+      var barEl=w.document.getElementById('pdf-btn-bar');
+      if(barEl&&barEl.nextSibling)barEl.parentNode.insertBefore(progWrap,barEl.nextSibling);
+      else w.document.body.appendChild(progWrap);
+      w.document.body.style.paddingTop='80px';
+    }catch(pe){}
 
-  // Pre-fetch drawing images for any that lack dataUrl (R2-first architecture)
-  var _dwgFetchPromises=[];
-  dwgIds.forEach(function(id){
-    var info=dwgPinMap[id];
-    if(info.dataUrl)return;// Already has dataUrl
-    // Try blob cache first
-    var cached=ADB._drawingBlobCache&&ADB._drawingBlobCache[id];
-    if(cached){
-      _dwgFetchPromises.push(new Promise(function(resolve){
-        var reader=new FileReader();
-        reader.onload=function(){info.dataUrl=reader.result;resolve();};
-        reader.onerror=function(){resolve();};
-        reader.readAsDataURL(cached);
-      }));
-      return;
-    }
-    // Try IDB blob
-    _dwgFetchPromises.push(
-      ADB.get('drawings',id).then(function(rec){
-        if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
-          return new Promise(function(resolve){
-            var reader=new FileReader();
-            reader.onload=function(){info.dataUrl=reader.result;resolve();};
-            reader.onerror=function(){resolve();};
-            reader.readAsDataURL(rec.dataBlob);
-          });
-        }else if(info.r2Url){
-          // Fetch from R2 as last resort
-          return fetch(info.r2Url).then(function(res){return res.blob();}).then(function(blob){
+    // Pre-fetch drawing images
+    var _dwgFetchPromises=[];
+    dwgIds.forEach(function(id){
+      var info=dwgPinMap[id];
+      if(info.dataUrl)return;
+      var cached=ADB._drawingBlobCache&&ADB._drawingBlobCache[id];
+      if(cached){
+        _dwgFetchPromises.push(new Promise(function(resolve){
+          var reader=new FileReader();
+          reader.onload=function(){info.dataUrl=reader.result;resolve();};
+          reader.onerror=function(){resolve();};
+          reader.readAsDataURL(cached);
+        }));
+        return;
+      }
+      _dwgFetchPromises.push(
+        ADB.get('drawings',id).then(function(rec){
+          if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
             return new Promise(function(resolve){
               var reader=new FileReader();
               reader.onload=function(){info.dataUrl=reader.result;resolve();};
               reader.onerror=function(){resolve();};
-              reader.readAsDataURL(blob);
+              reader.readAsDataURL(rec.dataBlob);
             });
-          });
-        }
-      }).catch(function(){})
-    );
-  });
-
-  // Wait for all drawing images to be loaded, then proceed with rendering
-  Promise.all(_dwgFetchPromises).then(function(){
-    // Filter out any drawings that still have no dataUrl
-    dwgIds=dwgIds.filter(function(id){return dwgPinMap[id].dataUrl;});
-    if(dwgIds.length===0){_pdfHideProgress&&_pdfHideProgress();return;}
-
-  // Count total work items: 1 full-drawing render + N minimap renders per drawing
-  var _pdfTotalWork=0;
-  dwgIds.forEach(function(id){_pdfTotalWork+=1+dwgPinMap[id].pins.length;});
-  var _pdfDoneWork=0;
-
-  // Add progress bar to PDF window
-  try{
-    var progWrap=w.document.createElement('div');
-    progWrap.id='pdf-progress-wrap';
-    progWrap.style.cssText='position:fixed;top:44px;left:0;right:0;z-index:9998;background:#1e2533;padding:6px 20px 8px;font-family:Calibri,sans-serif;';
-    var progLabel=w.document.createElement('div');
-    progLabel.id='pdf-progress-label';
-    progLabel.style.cssText='color:rgba(255,255,255,.8);font-size:12px;margin-bottom:4px;';
-    progLabel.textContent='Rendering drawings... 0/'+dwgIds.length;
-    progWrap.appendChild(progLabel);
-    var progTrack=w.document.createElement('div');
-    progTrack.style.cssText='width:100%;height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden;';
-    var progBar=w.document.createElement('div');
-    progBar.id='pdf-progress-bar';
-    progBar.style.cssText='width:0%;height:100%;background:#1A7A4A;border-radius:3px;transition:width .2s;';
-    progTrack.appendChild(progBar);
-    progWrap.appendChild(progTrack);
-    var barEl=w.document.getElementById('pdf-btn-bar');
-    if(barEl&&barEl.nextSibling)barEl.parentNode.insertBefore(progWrap,barEl.nextSibling);
-    else w.document.body.appendChild(progWrap);
-    w.document.body.style.paddingTop='80px';
-  }catch(pe){}
-
-  function _pdfUpdateProgress(dwgDone){
-    try{
-      var pct=Math.round((_pdfDoneWork/_pdfTotalWork)*100);
-      var lbl=w.document.getElementById('pdf-progress-label');
-      var bar2=w.document.getElementById('pdf-progress-bar');
-      if(lbl)lbl.textContent='Rendering drawings... '+dwgDone+'/'+dwgIds.length+(pct>=100?' — Done!':'');
-      if(bar2)bar2.style.width=Math.min(100,pct)+'%';
-    }catch(ue){}
-  }
-  function _pdfHideProgress(){
-    try{var pw=w.document.getElementById('pdf-progress-wrap');if(pw)pw.remove();w.document.body.style.paddingTop='56px';}catch(hp){}
-  }
-
-  // Sequential chunked rendering — one drawing at a time, minimaps parallel within each
-  var _dwgQueueIdx=0;
-  function _processNextDrawing(){
-    if(_dwgQueueIdx>=dwgIds.length){_pdfHideProgress();return;}
-    var dwgId=dwgIds[_dwgQueueIdx];
-    var info=dwgPinMap[dwgId];
-    _renderDrawingWithPins(info.dataUrl, info.pins, function(dataUrl){
-      _pdfDoneWork++;
-      // Set appendix drawing
-      try{var appEl=w.document.getElementById('app-dwg-'+dwgId);if(appEl)appEl.src=dataUrl;}catch(ex){}
-      // Render minimaps in parallel (original working pattern)
-      var pinsDone=0;
-      var totalPins=info.pins.length;
-      if(totalPins===0){
-        _dwgQueueIdx++;
-        _pdfUpdateProgress(_dwgQueueIdx);
-        setTimeout(_processNextDrawing,50);
-        return;
-      }
-      info.pins.forEach(function(r){
-        try{
-          var el=w.document.getElementById('mm-'+r.d.id);
-          if(el){
-            _renderDrawingWithSinglePin(info.dataUrl,r.d,function(singleUrl){
-              try{if(el)el.src=singleUrl;}catch(ex){}
-              _pdfDoneWork++;
-              pinsDone++;
-              _pdfUpdateProgress(_dwgQueueIdx);
-              if(pinsDone>=totalPins){
-                _dwgQueueIdx++;
-                _pdfUpdateProgress(_dwgQueueIdx);
-                setTimeout(_processNextDrawing,50);
-              }
+          }else if(info.r2Url){
+            return fetch(info.r2Url).then(function(res){return res.blob();}).then(function(blob){
+              return new Promise(function(resolve){
+                var reader=new FileReader();
+                reader.onload=function(){info.dataUrl=reader.result;resolve();};
+                reader.onerror=function(){resolve();};
+                reader.readAsDataURL(blob);
+              });
             });
-          } else {
-            _pdfDoneWork++;
-            pinsDone++;
-            if(pinsDone>=totalPins){
-              _dwgQueueIdx++;
-              _pdfUpdateProgress(_dwgQueueIdx);
-              setTimeout(_processNextDrawing,50);
-            }
           }
-        }catch(ex){
-          _pdfDoneWork++;
-          pinsDone++;
-          if(pinsDone>=totalPins){
-            _dwgQueueIdx++;
-            _pdfUpdateProgress(_dwgQueueIdx);
-            setTimeout(_processNextDrawing,50);
-          }
-        }
-      });
+        }).catch(function(){})
+      );
     });
-  }
-  // Delay start to ensure popup DOM is fully ready
-  setTimeout(_processNextDrawing,200);
-  });// end Promise.all(_dwgFetchPromises).then
-}
 
-closePDFPicker();
-}
+    var _pdfTotalWork=0;
+    var _pdfDoneWork=0;
+
+    Promise.all(_dwgFetchPromises).then(function(){
+      dwgIds=dwgIds.filter(function(id){return dwgPinMap[id].dataUrl;});
+      if(dwgIds.length===0){_pdfHideProgress2();return;}
+
+      dwgIds.forEach(function(id){_pdfTotalWork+=1+dwgPinMap[id].pins.length;});
+
+      function _pdfUpdateProgress2(dwgDone){
+        try{
+          var pct=Math.round((_pdfDoneWork/_pdfTotalWork)*100);
+          var lbl=w.document.getElementById('pdf-progress-label');
+          var bar2=w.document.getElementById('pdf-progress-bar');
+          if(lbl)lbl.textContent='Rendering drawings... '+dwgDone+'/'+dwgIds.length+(pct>=100?' \u2014 Done!':'');
+          if(bar2)bar2.style.width=Math.min(100,pct)+'%';
+        }catch(ue){}
+      }
+      function _pdfHideProgress2(){
+        try{var pw=w.document.getElementById('pdf-progress-wrap');if(pw)pw.remove();w.document.body.style.paddingTop='56px';}catch(hp){}
+      }
+
+      var _dwgQueueIdx=0;
+      function _processNextDrawing2(){
+        if(_dwgQueueIdx>=dwgIds.length){_pdfHideProgress2();return;}
+        var dwgId=dwgIds[_dwgQueueIdx];
+        var info=dwgPinMap[dwgId];
+        _renderDrawingWithPins(info.dataUrl,info.pins,function(dataUrl){
+          _pdfDoneWork++;
+          try{var appEl=w.document.getElementById('app-dwg-'+dwgId);if(appEl)appEl.src=dataUrl;}catch(ex){}
+          var pinsDone=0;
+          var totalPins=info.pins.length;
+          if(totalPins===0){
+            _dwgQueueIdx++;_pdfUpdateProgress2(_dwgQueueIdx);
+            setTimeout(_processNextDrawing2,50);return;
+          }
+          info.pins.forEach(function(r){
+            try{
+              var el=w.document.getElementById('mm-'+r.d.id);
+              if(el){
+                _renderDrawingWithSinglePin(info.dataUrl,r.d,function(singleUrl){
+                  try{if(el)el.src=singleUrl;}catch(ex){}
+                  _pdfDoneWork++;pinsDone++;
+                  _pdfUpdateProgress2(_dwgQueueIdx);
+                  if(pinsDone>=totalPins){_dwgQueueIdx++;_pdfUpdateProgress2(_dwgQueueIdx);setTimeout(_processNextDrawing2,50);}
+                });
+              } else {
+                _pdfDoneWork++;pinsDone++;
+                if(pinsDone>=totalPins){_dwgQueueIdx++;_pdfUpdateProgress2(_dwgQueueIdx);setTimeout(_processNextDrawing2,50);}
+              }
+            }catch(ex){
+              _pdfDoneWork++;pinsDone++;
+              if(pinsDone>=totalPins){_dwgQueueIdx++;_pdfUpdateProgress2(_dwgQueueIdx);setTimeout(_processNextDrawing2,50);}
+            }
+          });
+        });
+      }
+      setTimeout(_processNextDrawing2,200);
+    });
+  } // end if dwgIds.length>0
+} // end if isField
+} // end _exportPDFWithCache
+
 // ═══ INIT — async IndexedDB load ═══
 document.addEventListener('DOMContentLoaded',function(){
   initDarkMode();
@@ -11592,16 +11382,6 @@ function showDataWarning(msg){
   var msgEl=document.getElementById('data-warn-msg');if(msgEl)msgEl.textContent=msg;
 }
 
-function showDataSafetyBanner(){
-  var shown=localStorage.getItem('ARENCON_idb_safety_shown');
-  if(shown)return;
-  localStorage.setItem('ARENCON_idb_safety_shown','1');
-  var banner=document.createElement('div');
-  banner.style.cssText='position:fixed;bottom:0;left:0;right:0;background:#2C4A6B;color:white;padding:12px 20px;z-index:9400;display:flex;align-items:center;gap:12px;font-family:Calibri,sans-serif;font-size:13px;';
-  banner.innerHTML='<span>🔒 <strong>Data stored in browser IndexedDB</strong> — supports GBs of photos. <strong>Export regularly</strong> to avoid losing data if browser storage is cleared.</span><button onclick="saveJSON&&saveJSON();this.parentElement.remove();" style="padding:6px 16px;background:#9C2742;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:700;font-family:Calibri,sans-serif;flex-shrink:0;">Export Backup</button><button onclick="this.parentElement.remove();" style="padding:6px 12px;background:rgba(255,255,255,.15);color:white;border:none;border-radius:5px;cursor:pointer;font-family:Calibri,sans-serif;flex-shrink:0;">Got it</button>';
-  document.body.appendChild(banner);
-}
-
 setInterval(updateStorageDisplay,30000);
 // ═══ FEATURE 1: KANBAN / TASK BOARD ═══
 var _deficView='list';var _deficStatusFilter='all';var _deficSearchQuery='';
@@ -11793,7 +11573,6 @@ function rotateDrawing(id){
   img.src=dwg.dataUrl||dwg.r2Url||'';
 }
 
-
 // === BATCH E: Compact Mode ===
 var _compactMode=(localStorage.getItem('ARENCON_compactMode')==='1');
 function toggleCompactMode(){
@@ -11809,11 +11588,11 @@ function _applyCompactMode(){
 }
 
 // === BATCH E: Purge Superseded Drawings ===
-function purgeSupersededDrawings(){
+async function purgeSupersededDrawings(){
   var p=getProject();if(!p)return;
   var supers=p.drawings.filter(function(d){return d._superseded===true;});
   if(!supers.length){toast('No superseded drawings found.');return;}
-  if(!confirm('Remove '+supers.length+' superseded drawing'+(supers.length!==1?'s':'')+' from this project?\nThis cannot be undone.'))return;
+  if(!await _aConfirm('Remove '+supers.length+' superseded drawing'+(supers.length!==1?'s':'')+' from this project?\nThis cannot be undone.'))return;
   p.drawings=p.drawings.filter(function(d){return !d._superseded;});
   saveToLS();renderDrawingGallery();
   toast('🗑 Purged '+supers.length+' superseded drawing'+(supers.length!==1?'s':'')+'.');
@@ -11989,8 +11768,8 @@ function _triggerHardSignOut() {
   setTimeout(signOutSession, 1200);
 }
 
-function signOutSession() {
-  if(!confirm('Sign out and return to Project Hub?'))return;
+async function signOutSession() {
+  if(!await _aConfirm('Sign out and return to Project Hub?'))return;
   // Stop all timers
   clearTimeout(_softLockTimer);
   clearTimeout(_hardSignOutTimer);
@@ -12149,12 +11928,12 @@ if(_csHubMode)_resetSessionTimers();
 <!-- ══ HUB CLOUDSYNC INTEGRATION ══ -->
 <script>
 // ── Issue Report (Hub mode) ──
-function issueReport(){
+async function issueReport(){
   if(!_csHubMode||typeof CloudSync==='undefined')return;
   var p=getProject();if(!p)return;
   var prev=(p.info&&p.info.publishedRevision)||null;
   var next=prev?_incrementRevision(prev):'B01';
-  if(!confirm('Issue this report as revision '+next+'?'))return;
+  if(!await _aConfirm('Issue this report as revision '+next+'?'))return;
   p.info.publishedRevision=next;
   p.info.publishedDate=new Date().toISOString().substring(0,10);
   p.status='issued';
@@ -12906,8 +12685,8 @@ async function _autoDownloadR2(){
 // updates metadata so all devices render sharp via tiled PDF renderer.
 // Call via console: _reuploadPDFsToR2()  or via the ☁️ Re-upload PDFs button
 async function _reuploadPDFsToR2(){
-  if(!_csHubMode||!_csProjectId){alert('Must be in Hub mode with a project open.');return;}
-  if(typeof R2Photos==='undefined'){alert('R2Photos not initialized.');return;}
+  if(!_csHubMode||!_csProjectId){_aModal('Must be in Hub mode with a project open.');return;}
+  if(typeof R2Photos==='undefined'){_aModal('R2Photos not initialized.');return;}
   var p=getProject();if(!p||!p.drawings)return;
   // Stop heartbeat + auto-save during re-upload to prevent interference
   if(window._syncHeartbeatTimer){clearInterval(window._syncHeartbeatTimer);window._syncHeartbeatTimer=null;}
@@ -12926,14 +12705,14 @@ async function _reuploadPDFsToR2(){
   }
   total=candidates.length;
   if(total===0){
-    alert('No PDF data found in IDB on this device. Run this from the device that originally uploaded the drawings.');
+    _aModal('No PDF data found in IDB on this device. Run this from the device that originally uploaded the drawings.');
     // Restart sync
     CloudSync.startAutoSave(function(){var _p2=getProject();if(_p2)_p2._cloudSyncedAt=new Date().toISOString();return _collectFullState();},5000);
     window._syncHeartbeatTimer=setInterval(function(){_syncHeartbeat();},60000);
     return;
   }
   var confirmMsg='Found '+total+' drawings with PDF data. '+skipped+' drawings have no PDF (image-only).\n\nThis will upload the original PDFs to R2, replacing the blurry JPEGs. All devices will then render sharp drawings.\n\nProceed?';
-  if(!confirm(confirmMsg)){
+  if(!await _aConfirm(confirmMsg)){
     CloudSync.startAutoSave(function(){var _p2=getProject();if(_p2)_p2._cloudSyncedAt=new Date().toISOString();return _collectFullState();},5000);
     window._syncHeartbeatTimer=setInterval(function(){_syncHeartbeat();},60000);
     return;
@@ -12976,7 +12755,7 @@ async function _reuploadPDFsToR2(){
   },2000);
   var msg='PDF Re-upload complete: '+done+' uploaded, '+failed+' failed, '+skipped+' skipped (no PDF data).\n\nThe page will now reload to apply changes. All devices will render sharp drawings after they sync.';
   console.log('[PDF Re-upload] '+msg);
-  alert(msg);
+  _aModal(msg);
   // Force reload after cloud save completes
   setTimeout(function(){window.location.reload();},3000);
 }
@@ -13155,7 +12934,7 @@ async function _getNextInstanceNumber(){if(!_online)return 1;try{var rows=await 
 async function init(opts){_toolKey=opts.toolKey;_onStatusChange=opts.onStatusChange||null;_projectId=opts.projectId||null;_instanceId=opts.instanceId||null;try{await _openIDB();}catch(e){console.error('[CloudSync] IDB open failed:',e);}try{var user=await _getUser();if(user)_userId=user.id;}catch(e){}if(_projectId&&_online){try{await _loadProjectInfo();}catch(e){}}if(_projectId&&!_instanceId){_instanceNumber=await _getNextInstanceNumber();}window.addEventListener('online',_onOnline);window.addEventListener('offline',_onOffline);_initialized=true;_setStatus(_online?'synced':'offline','Ready');return{projectInfo:_projectInfo,userId:_userId,online:_online,instanceId:_instanceId,instanceNumber:_instanceNumber};}
 function destroy(){stopAutoSave();window.removeEventListener('online',_onOnline);window.removeEventListener('offline',_onOffline);_initialized=false;}
 async function syncNow(){if(!_online){_setStatus('offline','No connection');return false;}if(!_collectStateFn)return false;try{_setStatus('saving','Syncing...');var state=_collectStateFn();await save(state);_setStatus('synced','Force sync complete');return true;}catch(e){_setStatus('error','Sync failed');return false;}}
-return{init:init,save:save,load:load,startAutoSave:startAutoSave,stopAutoSave:stopAutoSave,destroy:destroy,syncNow:syncNow,readUrlParams:readUrlParams,request:_request,resetLastSaved:function(){_lastSavedJson='';},get isInitialized(){return _initialized;},get projectId(){return _projectId;},get instanceId(){return _instanceId;},get userId(){return _userId;},get online(){return _online;}};})();
+return{init:init,save:save,load:load,startAutoSave:startAutoSave,stopAutoSave:stopAutoSave,destroy:destroy,syncNow:syncNow,readUrlParams:readUrlParams,request:_request,resetLastSaved:function(){_lastSavedJson='';},get isInitialized(){return _initialized;},get projectId(){return _projectId;},get instanceId(){return _instanceId;},get instanceNumber(){return _instanceNumber;},get userId(){return _userId;},get online(){return _online;}};})();
 </script>
 </body>
 </html>
