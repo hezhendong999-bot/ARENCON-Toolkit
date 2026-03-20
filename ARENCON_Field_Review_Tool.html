@@ -5619,11 +5619,20 @@ function openDrawingViewer(drawingId){
 function _openDrawingImage(d,drawingId){
   try{
     console.log('[DrawingViewer] _openDrawingImage id='+drawingId+' r2Url='+(d.r2Url?'yes':'no')+' dataUrl='+(d.dataUrl?'yes':'no')+' hasBlob='+!!d._hasLocalBlob+' pdfTiled='+!!d.pdfTiled);
+    // Ensure image element is visible (tiled PDF path may have hidden it)
+    var img=document.getElementById('dv-image');
+    if(img){img.style.display='';} 
+    // Hide tile canvas if it exists (switching from tiled to image mode)
+    var tc=document.getElementById('dv-tile-canvas');
+    if(tc){tc.style.display='none';}
+    if(window._tiledActive)_closeTiledPDF();
+
     function _openWithSrc(src){
       var prevBlobUrl=dvState._currentBlobUrl;
       dvState._currentBlobUrl=null;
       var img=document.getElementById('dv-image');
       img.onload=function(){
+        img.style.display='';// Ensure visible after load
         if(prevBlobUrl){URL.revokeObjectURL(prevBlobUrl);}
         fitDrawing();renderPinsOnDrawing();renderTasksPanel();resizeMarkupCanvas();initMarkupEvents();initSelectModeEvents();
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
