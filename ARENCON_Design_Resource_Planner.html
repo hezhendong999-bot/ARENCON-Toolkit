@@ -286,7 +286,7 @@ body.dark-mode .dtc-bar-bg{background:#334155;}
       <div class="sidebar-scroll">
         <h3 style="padding-top:14px;">Team Members</h3>
         <div class="people-section" id="peopleSection"></div>
-        <h3>Work Types</h3>
+        <h3>Categories</h3>
         <div class="wt-section" id="wtSection"></div>
       </div>
     </div>
@@ -332,6 +332,9 @@ body.dark-mode .dtc-bar-bg{background:#334155;}
       <div><label>Project Number</label><input id="mNum" placeholder="e.g. 7155.18"></div>
       <div><label>Priority</label>
         <select id="mPri"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select>
+      </div>
+      <div><label>Principal</label>
+        <select id="mPrincipal"><option value="">— Select —</option></select>
       </div>
     </div>
     <label>Project Name</label><input id="mName" placeholder="Project name">
@@ -788,7 +791,7 @@ function smartParseCSV(raw) {
 
     // If no people assigned at all, still create the project
     if (!assigns.length) {
-      assigns.push({personName:'', personInitials:'??', personRole:'designer', workType:category, startDate:start, endDate:end});
+      assigns.push({personName:'', personInitials:'??', personRole:'designer', workType:category||'FP Systems/Design', startDate:start, endDate:end});
     }
 
     _dumpResults.push({
@@ -796,6 +799,7 @@ function smartParseCSV(raw) {
       name: pName || wt,
       client: '',
       priority: 'medium',
+      principal: (reviewer||'').split('/')[0].trim().toUpperCase(),
       status: status,
       notes: (wt && wt !== category ? wt : '') + (notes ? (wt ? ' — ' : '') + notes : ''),
       assignments: assigns
@@ -1151,7 +1155,9 @@ function importDumpResults() {
 <script>
 var STORAGE_KEY='ARENCON_ResourcePlanner_v2';
 var COLORS=['#3B82F6','#EF4444','#10B981','#F59E0B','#8B5CF6','#EC4899','#06B6D4','#F97316','#6366F1','#14B8A6','#D946EF','#0EA5E9'];
-var DEFAULT_WT=['FP Systems/Design','Code-I','Code-Non-I','FSP/IST/TFS','Alt Solutions/Modelling','Energy','Legal'];
+var CATEGORIES=['FP Systems/Design','Code-I','Code-Non-I','FSP/IST/TFS','Alt Solutions/Modelling','Energy','Legal'];
+var PRINCIPALS=['AJY','SK','LAS','MNZ','MH'];
+var DEFAULT_WT=CATEGORIES.slice();
 var STICKY_W=180;
 var state={people:[],workTypes:[],projects:[],timeOff:[],zoomLevel:'week',viewMode:'project',viewStartDate:null};
 var _editProjId=null,_editPersonId=null,_dragState=null,COL_W=48;
@@ -1332,7 +1338,7 @@ async function initAfterAuth(){
     setCloudStatus('offline');
   }
   
-  if(!state.workTypes.length) state.workTypes=DEFAULT_WT.slice();
+  state.workTypes=CATEGORIES.slice(); // Always use fixed categories
   if(!state.timeOff) state.timeOff=[];
   if(!state.viewStartDate){var d=new Date();d.setDate(d.getDate()-3);state.viewStartDate=fmtDate(d);}
   setZoom(state.zoomLevel||'week');
@@ -1413,12 +1419,9 @@ function removePerson(id){
 /* WORK TYPES */
 function renderWorkTypes(){
   var sec=document.getElementById('wtSection'),h='';
-  state.workTypes.forEach(function(wt,i){h+='<span class="wt-chip">'+esc(wt)+'<span class="wt-x" onclick="removeWT('+i+')" title="Remove">×</span></span>';});
-  h+='<button class="add-chip-btn" onclick="openModal(\'wtModal\');document.getElementById(\'mwtName\').value=\'\';document.getElementById(\'mwtName\').focus();">+ Add</button>';
+  CATEGORIES.forEach(function(wt){h+='<span class="wt-chip">'+esc(wt)+'</span>';});
   sec.innerHTML=h;
 }
-function saveWorkType(){var n=document.getElementById('mwtName').value.trim();if(!n)return;if(state.workTypes.indexOf(n)<0)state.workTypes.push(n);saveState();closeModal('wtModal');renderWorkTypes();}
-function removeWT(i){state.workTypes.splice(i,1);saveState();renderWorkTypes();}
 
 /* PROJECT LIST */
 function renderProjectList(){
@@ -1434,7 +1437,8 @@ function renderProjectList(){
     h+='<span class="pc-priority '+p.priority+'">'+p.priority+'</span>';
     h+='<button class="pc-del" onclick="event.stopPropagation();quickDel(\''+p.id+'\')" title="Delete">🗑</button>';
     h+='</div>';
-    if(p.client)h+='<div class="pc-client">'+esc(p.client)+'</div>';
+    if(p.principal)h+='<span style="font:700 10px var(--font);color:var(--arencon);margin-right:4px;">'+esc(p.principal)+'</span>';
+    if(p.client)h+='<span class="pc-client">'+esc(p.client)+'</span>';
     if(p.assignments&&p.assignments.length){
       h+='<div class="pc-assigns">';
       p.assignments.forEach(function(a){var person=getP(a.personId);h+='<span class="pc-assign-pill" style="background:'+(person?person.color:'#94A3B8')+';">'+esc(person?person.initials:'??')+' <span class="pill-wt">'+esc(a.workType)+'</span></span>';});
@@ -1447,6 +1451,14 @@ function renderProjectList(){
 function quickDel(id){if(!confirm('Remove this project?'))return;state.projects=state.projects.filter(function(p){return p.id!==id;});saveState();renderAll();}
 
 /* PROJECT MODAL */
+function populatePrincipalDropdown(){
+  var sel=document.getElementById('mPrincipal');if(!sel)return;
+  var val=sel.value;
+  sel.innerHTML='<option value="">— Select —</option>';
+  PRINCIPALS.forEach(function(p){sel.innerHTML+='<option value="'+p+'">'+p+'</option>';});
+  if(val)sel.value=val;
+}
+
 function openProjectModal(editId){
   _editProjId=editId||null;
   document.getElementById('pmTitle').textContent=_editProjId?'Edit Project':'Add Project';
@@ -1457,11 +1469,13 @@ function openProjectModal(editId){
     document.getElementById('mName').value=p.name||'';
     document.getElementById('mClient').value=p.client||'';
     document.getElementById('mPri').value=p.priority||'medium';
+    populatePrincipalDropdown();document.getElementById('mPrincipal').value=p.principal||'';
     document.getElementById('mNotes').value=p.notes||'';
     buildCatChips(p.assignments||[]);
   } else {
     document.getElementById('mNum').value='';document.getElementById('mName').value='';
     document.getElementById('mClient').value='';document.getElementById('mPri').value='medium';
+    populatePrincipalDropdown();
     document.getElementById('mNotes').value='';
     buildCatChips([]);
   }
@@ -1475,7 +1489,7 @@ function buildCatChips(existingAssigns){
   existingAssigns.forEach(function(a){if(a.workType)activeCats[a.workType]=true;});
 
   container.innerHTML='';
-  state.workTypes.forEach(function(wt){
+  CATEGORIES.forEach(function(wt){
     var chip=document.createElement('span');
     chip.className='cat-chip'+(activeCats[wt]?' active':'');
     chip.textContent=wt;
@@ -1574,7 +1588,7 @@ function addAssignRowHTML(container,a){
   }
 
   // Hidden work type field (for collectAssigns)
-  var wtHidden=document.createElement('input');wtHidden.type='hidden';wtHidden.className='ar-wt';wtHidden.value=a.workType||'';
+  var wtHidden=document.createElement('input');wtHidden.type='hidden';wtHidden.className='ar-wt';wtHidden.value=a.workType||'FP Systems/Design';
 
   var sd=document.createElement('input');sd.type='date';sd.className='ar-start';sd.value=a.startDate||'';sd.style.maxWidth='120px';sd.onchange=function(){updateAvail();};
   var ed=document.createElement('input');ed.type='date';ed.className='ar-end';ed.value=a.endDate||'';ed.style.maxWidth='120px';ed.onchange=function(){updateAvail();};
@@ -1662,12 +1676,14 @@ function collectAssigns(){
 function saveProject(){
   var num=document.getElementById('mNum').value.trim(),name=document.getElementById('mName').value.trim();
   var client=document.getElementById('mClient').value.trim(),pri=document.getElementById('mPri').value;
-  var notes=document.getElementById('mNotes').value.trim(),assigns=collectAssigns();
+  var notes=document.getElementById('mNotes').value.trim();
+  var principal=(document.getElementById('mPrincipal')||{}).value||'';
+  var assigns=collectAssigns();
   if(!name){document.getElementById('mName').focus();return;}
   if(!assigns.length){alert('Add at least one assignment.');return;}
   for(var i=0;i<assigns.length;i++){if(parseDate(assigns[i].endDate)<=parseDate(assigns[i].startDate)){alert('End must be after start on assignment '+(i+1)+'.');return;}}
-  if(_editProjId){var p=state.projects.find(function(x){return x.id===_editProjId;});if(p){p.projectNumber=num;p.name=name;p.client=client;p.priority=pri;p.notes=notes;p.assignments=assigns;}}
-  else state.projects.push({id:genId(),projectNumber:num,name:name,client:client,priority:pri,notes:notes,assignments:assigns});
+  if(_editProjId){var p=state.projects.find(function(x){return x.id===_editProjId;});if(p){p.projectNumber=num;p.name=name;p.client=client;p.priority=pri;p.principal=principal;p.notes=notes;p.assignments=assigns;}}
+  else state.projects.push({id:genId(),projectNumber:num,name:name,client:client,priority:pri,principal:principal,notes:notes,assignments:assigns});
   saveState();closeModal('projectModal');_editProjId=null;renderAll();
 }
 function deleteProject(){if(!_editProjId||!confirm('Delete this project?'))return;state.projects=state.projects.filter(function(p){return p.id!==_editProjId;});saveState();closeModal('projectModal');_editProjId=null;renderAll();}
