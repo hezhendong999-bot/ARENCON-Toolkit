@@ -352,6 +352,10 @@ body.dark-mode .tl-proj-item:hover{background:rgba(255,255,255,.03);}
 body.dark-mode .proj-table td{border-color:#334155;}
 body.dark-mode .proj-table tr:hover{background:rgba(255,255,255,.03);}
 .tbl-cat{font:500 10px var(--font);padding:1px 5px;border-radius:4px;background:rgba(156,39,66,.08);color:var(--arencon);display:inline-block;margin:1px;}
+.bulk-bar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;}
+body.dark-mode .bulk-bar{background:#1E293B;border-color:#334155;}
+.bulk-assign-btn{padding:5px 12px;border:none;border-radius:6px;font:700 11px var(--font);color:#fff;cursor:pointer;transition:all .12s;}
+.bulk-assign-btn:hover{opacity:.85;transform:scale(1.03);}
 
 @media(max-width:900px){
   .dash-stats{grid-template-columns:repeat(2,1fr);}
@@ -2222,11 +2226,24 @@ function renderProjectTable(){
     var po={high:0,medium:1,low:2};return(po[a.priority]||1)-(po[b.priority]||1);
   });
   
-  var h='<div class="proj-table-wrap"><table class="proj-table"><thead><tr>';
+  // Bulk action bar
+  var h='<div class="bulk-bar" id="bulkBar">';
+  h+='<label style="font:600 13px var(--font);display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="selectAllProj" onchange="toggleSelectAll(this.checked)"> Select All</label>';
+  h+='<span id="bulkCount" style="font:400 12px var(--font);color:var(--silver);"></span>';
+  h+='<div style="flex:1;"></div>';
+  h+='<span style="font:600 12px var(--font);color:var(--steel);">Assign to:</span>';
+  PRINCIPALS.forEach(function(pr){
+    h+='<button class="bulk-assign-btn" onclick="bulkAssignPrincipal(\''+pr+'\')" style="background:'+getPrincipalColor(pr)+';">'+pr+'</button>';
+  });
+  h+='<button class="bulk-assign-btn" onclick="bulkAssignPrincipal(\'\')" style="background:var(--silver);">Clear</button>';
+  h+='</div>';
+
+  h+='<div class="proj-table-wrap"><table class="proj-table"><thead><tr>';
+  h+='<th style="width:36px;"><input type="checkbox" id="selectAllHead" onchange="toggleSelectAll(this.checked)"></th>';
   h+='<th>#</th><th>Project</th><th>Client</th><th>Principal</th><th>Categories</th><th>Team</th><th>Dates</th><th>Pri</th>';
   h+='</tr></thead><tbody>';
   
-  if(!projects.length) h+='<tr><td colspan="8" style="text-align:center;color:var(--silver);padding:30px;">No projects. Click + Project to start.</td></tr>';
+  if(!projects.length) h+='<tr><td colspan="9" style="text-align:center;color:var(--silver);padding:30px;">No projects. Click + Project to start.</td></tr>';
   
   projects.forEach(function(p){
     var assigns=p.assignments||[];
@@ -2239,10 +2256,11 @@ function renderProjectTable(){
     });
     
     h+='<tr ondblclick="openProjectModal(\''+p.id+'\')" style="cursor:pointer;">';
+    h+='<td onclick="event.stopPropagation();"><input type="checkbox" class="proj-cb" value="'+p.id+'" onchange="updateBulkCount()"></td>';
     h+='<td style="font-weight:700;color:var(--arencon);">'+esc(p.projectNumber||'—')+'</td>';
     h+='<td style="font-weight:600;">'+esc(p.name)+'</td>';
     h+='<td>'+esc(p.client||'—')+'</td>';
-    h+='<td style="font-weight:700;">'+esc(p.principal||'—')+'</td>';
+    h+='<td style="font-weight:700;color:'+(p.principal?getPrincipalColor(p.principal):'var(--silver)')+';">'+esc(p.principal||'—')+'</td>';
     h+='<td>'+Object.keys(cats).map(function(c){return '<span class="tbl-cat">'+esc(c)+'</span>';}).join(' ')+'</td>';
     h+='<td>'+esc(team)+'</td>';
     h+='<td style="font-size:11px;white-space:nowrap;">'+esc(minDate||'?')+' → '+esc(maxDate||'?')+'</td>';
@@ -2252,6 +2270,30 @@ function renderProjectTable(){
   
   h+='</tbody></table></div>';
   el.innerHTML=h;
+}
+
+function toggleSelectAll(checked){
+  document.querySelectorAll('.proj-cb').forEach(function(cb){cb.checked=checked;});
+  var ha=document.getElementById('selectAllHead');if(ha)ha.checked=checked;
+  var sa=document.getElementById('selectAllProj');if(sa)sa.checked=checked;
+  updateBulkCount();
+}
+
+function updateBulkCount(){
+  var checked=document.querySelectorAll('.proj-cb:checked');
+  var el=document.getElementById('bulkCount');
+  if(el) el.textContent=checked.length?checked.length+' selected':'';
+}
+
+function bulkAssignPrincipal(principal){
+  var checked=document.querySelectorAll('.proj-cb:checked');
+  if(!checked.length){alert('Select projects first using the checkboxes.');return;}
+  checked.forEach(function(cb){
+    var proj=state.projects.find(function(p){return p.id===cb.value;});
+    if(proj) proj.principal=principal;
+  });
+  saveState();
+  renderAll();
 }
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeModal('projectModal');closeModal('personModal');closeModal('wtModal');_editProjId=null;}});
 init();
