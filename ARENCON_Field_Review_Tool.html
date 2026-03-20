@@ -5603,13 +5603,26 @@ function openDrawingViewer(drawingId){
     })();
     // Close any previous tiled PDF session
     if(window._tiledActive)_closeTiledPDF();
-    // PDF recovery removed — use Fix Blurry button to re-upload PDFs to R2 instead
-    // Tiled PDF path — draws from raw PDF stored in pdfData IDB store
+    // Tiled PDF path — ONLY if raw PDF data exists locally in IDB
+    // If no local PDF, skip straight to image mode (R2 has the PNG render)
     if(d.pdfTiled){
-      console.log('[DrawingViewer] pdfTiled path — id='+drawingId+' r2Url='+(d.r2Url?'yes':'no'));
-      showDrawingLoading('Opening drawing…');
-      initPanZoom();
-      _openTiledPDF(drawingId,d.pdfPage||1);
+      ADB.getPdfData(drawingId).then(function(rec){
+        if(rec&&rec.buf&&rec.buf.byteLength>100){
+          console.log('[DrawingViewer] pdfTiled path (has local PDF) — id='+drawingId);
+          showDrawingLoading('Opening drawing…');
+          initPanZoom();
+          _openTiledPDF(drawingId,d.pdfPage||1);
+        } else {
+          // No local PDF data — open as image from R2
+          console.log('[DrawingViewer] pdfTiled but no local PDF — using image mode — id='+drawingId+' r2Url='+(d.r2Url?'yes':'no'));
+          d.pdfTiled=false;
+          _openDrawingImage(d,drawingId);
+        }
+      }).catch(function(){
+        console.log('[DrawingViewer] pdfTiled IDB check failed — using image mode — id='+drawingId);
+        d.pdfTiled=false;
+        _openDrawingImage(d,drawingId);
+      });
       return;
     }
     _openDrawingImage(d,drawingId);
