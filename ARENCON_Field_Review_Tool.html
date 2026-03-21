@@ -266,7 +266,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .dv-toolbar button{background:rgba(255,255,255,.12);border:none;color:white;padding:5px 9px;border-radius:6px;font-family:Calibri,sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;min-width:32px;}.dv-toolbar button:hover{background:rgba(255,255,255,.25);}.dv-toolbar button.active{background:var(--red);color:white;}
 .dv-main{display:flex;flex:1;overflow:hidden;position:relative;}
 .dv-canvas-area{flex:1;overflow:hidden;position:relative;cursor:grab;touch-action:none;}.dv-canvas-area.panning{cursor:grabbing;}
-@media(max-width:900px){.dv-canvas-area{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));}}
+@media(max-width:900px){.dv-canvas-area{padding-bottom:0;}}
 .dv-img-wrap{position:absolute;transform-origin:0 0;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
 .dv-img-wrap img{display:block;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;}
 #markup-canvas{position:absolute;top:0;left:0;pointer-events:none;cursor:crosshair;}
@@ -300,7 +300,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 /* Zoom controls */
 .zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px;z-index:10;}
 .zoom-controls button{width:30px;height:30px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}.zoom-controls button:hover{background:rgba(42,45,53,.95);}
-@media(max-width:900px){.zoom-controls{bottom:calc(100px + env(safe-area-inset-bottom,0px))!important;right:10px;z-index:501!important;}.zoom-controls button{width:44px;height:44px;font-size:20px;border-radius:10px;}}
+@media(max-width:900px){.zoom-controls{bottom:12px!important;right:10px;z-index:501!important;}.zoom-controls button{width:44px;height:44px;font-size:20px;border-radius:10px;}}
 
 /* Pin side panel */
 .pin-panel{position:fixed;top:0;right:0;width:420px;height:100%;background:white;z-index:2500;box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;overflow:hidden;}.pin-panel.open{transform:translateX(0);}
@@ -697,25 +697,35 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 
 /* ═══ ALWAYS-ON SIDEBAR TOOLBAR ═══ */
 .dv-sidebar-tools{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:#1e2028;border-right:1px solid #3a3e48;width:56px;flex-shrink:0;overflow-y:auto;overflow-x:visible;z-index:20;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-@media(max-width:900px){.dv-sidebar-tools{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100vw!important;height:auto!important;max-height:120px!important;flex-direction:column-reverse!important;flex-wrap:nowrap!important;align-items:stretch!important;overflow:visible!important;padding:0!important;gap:0!important;border-right:none!important;border-top:1px solid #3a3e48!important;touch-action:none!important;z-index:500!important;padding-bottom:env(safe-area-inset-bottom,0px)!important;background:#1e2028!important;}
-.dv-sidebar-tools .dv-tools-primary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-evenly!important;width:100%!important;height:52px!important;padding:4px max(4px,env(safe-area-inset-right,4px)) 2px max(4px,env(safe-area-inset-left,4px))!important;background:#1e2028!important;flex-shrink:0!important;}
-.dv-sidebar-tools .dv-tools-secondary{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:6px!important;width:100%!important;height:40px!important;padding:2px 8px!important;background:#282c34!important;border-bottom:1px solid #3a3e48!important;flex-shrink:0!important;overflow-x:auto!important;scrollbar-width:none!important;}
-.dv-sidebar-tools .dv-tools-secondary::-webkit-scrollbar{display:none!important;}
+/* Mobile context bar hidden on desktop */
+@media(min-width:901px){#dv-mobile-context{display:none!important;}}
+@media(max-width:900px){
+/* ═══ MOBILE TOP TOOLBAR — tools row sits below dv-toolbar in normal flow ═══ */
+.dv-sidebar-tools{position:relative!important;width:100%!important;height:auto!important;max-height:none!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:space-evenly!important;overflow:visible!important;padding:4px 6px!important;gap:2px!important;border-right:none!important;border-bottom:1px solid #3a3e48!important;border-top:none!important;touch-action:manipulation!important;z-index:20!important;background:#1e2028!important;flex-shrink:0!important;order:0!important;}
 .dv-sidebar-tools .tool-sep{display:none!important;}
-.dv-sidebar-tools .tool-slider-wrap{flex-direction:row!important;align-items:center!important;gap:4px!important;padding:0 4px!important;flex-shrink:0!important;border-right:1px solid #3a3e48!important;margin-right:2px!important;}
-.dv-sidebar-tools .tool-slider-wrap svg{display:none!important;}
-.dv-sidebar-tools .tool-slider-wrap span{font-size:9px!important;color:#aaa!important;min-width:14px!important;}
-.dv-sidebar-tools .tool-slider{writing-mode:horizontal-tb!important;direction:ltr!important;width:56px!important;height:6px!important;-webkit-appearance:none!important;appearance:none!important;}
-.dv-sidebar-tools .tool-slider::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#9C2742;cursor:pointer;}
-.dv-sidebar-tools .tool-slider::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#9C2742;border:none;cursor:pointer;}
-.dv-sidebar-tools .tool-slider-wrap input[type=number]{width:28px!important;font-size:9px!important;padding:2px!important;}
-.dv-sidebar-tools .tool-colors{flex-direction:row!important;}
-.dv-sidebar-tools .dv-tools-primary .tool-btn{width:40px!important;height:40px!important;flex-shrink:0!important;border-radius:10px!important;}
-.dv-sidebar-tools .dv-tools-secondary .tool-btn{width:32px!important;height:32px!important;flex-shrink:0!important;}
-.dv-sidebar-tools .dv-tools-secondary .tool-group{flex-shrink:0!important;}
-.dv-sidebar-tools .dv-tools-secondary .tool-group .tool-btn{width:32px!important;height:32px!important;}
+.dv-sidebar-tools .tool-slider-wrap{display:none!important;}
+.dv-sidebar-tools .tool-colors{display:none!important;}
+.dv-sidebar-tools #tool-color-group{display:none!important;}
+.dv-sidebar-tools #mk-copy-btn{display:none!important;}
+.dv-sidebar-tools .tool-btn[onclick="markupUndo()"]{display:none!important;}
+.dv-sidebar-tools .tool-btn[onclick="markupRedo()"]{display:none!important;}
+.dv-sidebar-tools .tool-btn{width:38px!important;height:38px!important;flex-shrink:0!important;border-radius:10px!important;}
+.dv-sidebar-tools .tool-group .tool-submenu{bottom:auto!important;top:100%!important;left:50%!important;transform:translateX(-50%)!important;}
 .dv-sidebar-tools::-webkit-scrollbar{display:none!important;}
-.dv-sidebar-tools .tool-group .tool-submenu{bottom:auto!important;top:auto!important;left:50%!important;transform:translateX(-50%)!important;}}
+/* Hide the secondary row wrapper if it was created by older JS */
+.dv-sidebar-tools .dv-tools-primary,.dv-sidebar-tools .dv-tools-secondary{display:contents!important;}
+
+/* ═══ MOBILE CONTEXT BAR — +/- steppers for active tool properties ═══ */
+#dv-mobile-context{display:none;flex-direction:row;align-items:center;justify-content:center;gap:10px;padding:5px 10px;background:#282c34;border-bottom:1px solid #3a3e48;flex-shrink:0;width:100%;font-family:Calibri,sans-serif;}
+#dv-mobile-context.visible{display:flex;}
+#dv-mobile-context .ctx-group{display:flex;align-items:center;gap:4px;border-right:1px solid #3a3e48;padding-right:10px;}
+#dv-mobile-context .ctx-group:last-child{border-right:none;padding-right:0;}
+#dv-mobile-context .ctx-label{font-size:10px;color:#888;min-width:12px;text-align:center;}
+#dv-mobile-context .ctx-val{font-size:12px;color:#ddd;min-width:22px;text-align:center;font-weight:600;}
+#dv-mobile-context .ctx-btn{width:32px;height:32px;border-radius:8px;border:none;background:rgba(255,255,255,.1);color:white;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+#dv-mobile-context .ctx-btn:active{background:rgba(255,255,255,.25);}
+#dv-mobile-context .ctx-color-swatch{width:26px;height:26px;border-radius:50%;border:2px solid #fff;cursor:pointer;flex-shrink:0;}
+}
 .dv-sidebar-tools .tool-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#999;border-radius:8px;cursor:pointer;transition:background .15s,color .15s;padding:0;}
 .dv-sidebar-tools .tool-btn:hover{background:#2d3040;color:#ddd;}
 .dv-sidebar-tools .tool-btn.active{background:var(--red);color:white;}
@@ -743,15 +753,11 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .dv-tasks-panel.collapsed .dv-tasks-list,.dv-tasks-panel.collapsed #dv-tasks-summary,.dv-tasks-panel.collapsed>div:not(.dv-tasks-header){display:none!important;}
 .dv-tasks-panel.collapsed{max-height:44px!important;overflow:hidden;}
 .dv-tasks-panel.collapsed #dv-tasks-fold-btn{transform:rotate(-90deg);}
-/* Mobile: collapse sidebar to horizontal scrollable strip */
+/* Mobile: additional layout tweaks for narrow screens */
 @media(max-width:800px){
-  .dv-sidebar-tools{display:flex;flex-direction:row;align-items:center;width:100%;height:52px;border-right:none;border-top:none;border-bottom:none;overflow-x:auto;overflow-y:hidden;padding:6px 8px;order:2;flex-shrink:0;background:#1e2028;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x;gap:6px;}
-  .dv-sidebar-tools::-webkit-scrollbar{display:none;}
-  .dv-sidebar-tools .tool-sep{width:1px;height:26px;margin:0 3px;flex-shrink:0;}
-  .dv-sidebar-tools .tool-btn{width:44px;height:44px;flex-shrink:0;border-radius:10px;}
-  .dv-sidebar-tools .tool-colors{flex-direction:row;}
+  .dv-sidebar-tools .tool-btn{width:36px!important;height:36px!important;}
   .dv-mobile-tools{display:none!important;}
-  .dv-main{flex-direction:row;flex:1;min-height:0;}
+  .dv-main{flex-direction:column;flex:1;min-height:0;}
   .dv-tasks-panel{width:100%;max-height:160px;min-height:0;border-left:none;border-top:1px solid #3a3e48;order:3;flex-shrink:0;}
   .dv-canvas-area{order:1;flex:1;min-height:0;}
   .dv-toolbar{padding:6px 10px;flex-wrap:wrap;gap:6px;}
@@ -1740,6 +1746,34 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 
     <button onclick="fitDrawing()" title="Fit to screen">⊡ Fit</button>
     <button class="dark-toggle" onclick="toggleDarkMode()" title="Toggle dark/light mode" id="dv-dark-toggle">☀️</button>
+  </div>
+  <!-- MOBILE CONTEXT BAR — steppers for thickness/opacity/text-size, shown when tool active -->
+  <div id="dv-mobile-context">
+    <div class="ctx-group" id="ctx-color-group">
+      <div class="ctx-color-swatch" id="ctx-color-dot" onclick="toggleColorMenu(event)" style="background:#C0392B;"></div>
+    </div>
+    <div class="ctx-group" id="ctx-size-group">
+      <span class="ctx-label">W</span>
+      <button class="ctx-btn" ontouchstart="_ctxStepStart('size',-1,event)" ontouchend="_ctxStepStop()" onmousedown="_ctxStepStart('size',-1,event)" onmouseup="_ctxStepStop()" onmouseleave="_ctxStepStop()">−</button>
+      <span class="ctx-val" id="ctx-size-val">3</span>
+      <button class="ctx-btn" ontouchstart="_ctxStepStart('size',1,event)" ontouchend="_ctxStepStop()" onmousedown="_ctxStepStart('size',1,event)" onmouseup="_ctxStepStop()" onmouseleave="_ctxStepStop()">+</button>
+    </div>
+    <div class="ctx-group" id="ctx-opacity-group">
+      <span class="ctx-label">α</span>
+      <button class="ctx-btn" ontouchstart="_ctxStepStart('opacity',-1,event)" ontouchend="_ctxStepStop()" onmousedown="_ctxStepStart('opacity',-1,event)" onmouseup="_ctxStepStop()" onmouseleave="_ctxStepStop()">−</button>
+      <span class="ctx-val" id="ctx-opacity-val">100</span>
+      <button class="ctx-btn" ontouchstart="_ctxStepStart('opacity',1,event)" ontouchend="_ctxStepStop()" onmousedown="_ctxStepStart('opacity',1,event)" onmouseup="_ctxStepStop()" onmouseleave="_ctxStepStop()">+</button>
+    </div>
+    <div class="ctx-group" id="ctx-text-group" style="display:none;">
+      <span class="ctx-label">T</span>
+      <button class="ctx-btn" ontouchstart="_ctxStepStart('textsize',-1,event)" ontouchend="_ctxStepStop()" onmousedown="_ctxStepStart('textsize',-1,event)" onmouseup="_ctxStepStop()" onmouseleave="_ctxStepStop()">−</button>
+      <span class="ctx-val" id="ctx-text-val">20</span>
+      <button class="ctx-btn" ontouchstart="_ctxStepStart('textsize',1,event)" ontouchend="_ctxStepStop()" onmousedown="_ctxStepStart('textsize',1,event)" onmouseup="_ctxStepStop()" onmouseleave="_ctxStepStop()">+</button>
+    </div>
+    <div class="ctx-group" style="border-right:none;padding-right:0;">
+      <button class="ctx-btn" onclick="markupUndo()" style="font-size:14px;" title="Undo">↩</button>
+      <button class="ctx-btn" onclick="markupRedo()" style="font-size:14px;" title="Redo">↪</button>
+    </div>
   </div>
   <div id="dv-tool-tooltip" style="display:none;position:fixed;background:rgba(30,32,40,.92);color:#fff;font-size:11px;font-family:Calibri,sans-serif;padding:4px 10px;border-radius:6px;pointer-events:none;z-index:9999;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);"></div>
   <div class="dv-main">
@@ -5679,53 +5713,55 @@ function openDrawingViewer(drawingId){
     dvState.pinMode=false;
     document.getElementById('dv-canvas-area').classList.remove('pin-mode');
     document.getElementById('drawing-viewer').classList.add('open');
-    // Force mobile toolbar layout — position fixed at bottom to prevent overlap/swipe issues
+    // Force mobile toolbar layout — tools row at top, below dv-toolbar
     (function(){
       var sb=document.getElementById('dv-sidebar-tools');
       var main=document.querySelector('.dv-main');
       var ca=document.getElementById('dv-canvas-area');
       if(!sb)return;
-      var isPortrait=window.innerHeight>window.innerWidth;
       var isMobile=window.innerWidth<900;
       if(isMobile){
-        // Restructure toolbar into two rows on mobile (if not already done)
-        if(!sb.querySelector('.dv-tools-primary')){
-          var primary=document.createElement('div');
-          primary.className='dv-tools-primary';
-          var secondary=document.createElement('div');
-          secondary.className='dv-tools-secondary';
-          // Primary tools (drawing tools): pin, select, pen, highlight, text, shapes, eraser
-          var primaryIds=['mk-pin','mk-select','mk-pen','mk-highlight','mk-text','tool-shapes-group','mk-eraser'];
-          // Secondary: color group, all sliders, undo/redo, copy btn
-          var children=Array.from(sb.children);
-          children.forEach(function(ch){
-            var isP=false;
-            if(ch.id&&primaryIds.indexOf(ch.id)>=0)isP=true;
-            // tool-sep elements — skip (hidden via CSS)
-            if(ch.classList.contains('tool-sep'))return;
-            if(isP){
-              primary.appendChild(ch);
-            }else{
-              // Everything else goes to secondary: color, sliders, undo, redo, copy
-              secondary.appendChild(ch);
-            }
+        // Flatten any old primary/secondary wrappers from prior sessions
+        var oldP=sb.querySelector('.dv-tools-primary');
+        var oldS=sb.querySelector('.dv-tools-secondary');
+        if(oldP||oldS){
+          var frag=document.createDocumentFragment();
+          [oldS,oldP].forEach(function(w){
+            if(!w)return;
+            while(w.firstChild)frag.appendChild(w.firstChild);
+            w.remove();
           });
-          sb.innerHTML='';
-          sb.appendChild(secondary);
-          sb.appendChild(primary);
+          sb.appendChild(frag);
+        }
+        // Hide sliders and undo/redo from sidebar (they live in context bar on mobile)
+        sb.querySelectorAll('.tool-slider-wrap').forEach(function(el){el.style.display='none';});
+        // Move sidebar-tools out of dv-main and into drawing-viewer-overlay, right after dv-mobile-context
+        var overlay=document.getElementById('drawing-viewer');
+        var ctx=document.getElementById('dv-mobile-context');
+        if(sb.parentNode!==overlay){
+          if(ctx&&ctx.nextSibling){
+            overlay.insertBefore(sb,ctx.nextSibling);
+          } else {
+            // fallback: insert before dv-main
+            overlay.insertBefore(sb,main);
+          }
         }
         sb.style.cssText='';// Let CSS handle layout
-        // Add bottom padding to canvas area so toolbar doesn't cover drawing
-        // Measure actual toolbar height + safe area
-        setTimeout(function(){
-          var tbH=sb.offsetHeight||92;
-          if(ca)ca.style.paddingBottom=(tbH+8)+'px';
-        },50);
+        if(ca)ca.style.paddingBottom='';
         if(main)main.style.flexDirection='column';
+        // Sync context bar state
+        _updateMobileContext();
       } else {
+        // Desktop: ensure sidebar is inside dv-main as first child
+        if(sb.parentNode!==main){
+          main.insertBefore(sb,main.firstChild);
+        }
         sb.style.cssText='';
+        sb.querySelectorAll('.tool-slider-wrap').forEach(function(el){el.style.display='';});
         if(ca)ca.style.paddingBottom='';
         if(main)main.style.flexDirection='';
+        var ctx2=document.getElementById('dv-mobile-context');
+        if(ctx2)ctx2.classList.remove('visible');
       }
     })();
     // Close any previous tiled PDF session
@@ -5804,6 +5840,12 @@ function _openDrawingImage(d,drawingId){
   // Free GPU memory — critical on iOS/Safari to prevent crashes
   var _cvs=document.getElementById('markup-canvas');
   if(_cvs){_cvs.width=0;_cvs.height=0;_cvs._lazyReady=false;_cvs._dpr=null;_cvs._logicalW=null;_cvs._logicalH=null;_cvs._mkInitV2=false;}
+  // Hide mobile context bar
+  var ctx=document.getElementById('dv-mobile-context');if(ctx)ctx.classList.remove('visible');
+  // Move sidebar back into dv-main if it was pulled out for mobile
+  var sb=document.getElementById('dv-sidebar-tools');
+  var main=document.querySelector('.dv-main');
+  if(sb&&main&&sb.parentNode!==main){main.insertBefore(sb,main.firstChild);}
   document.getElementById('drawing-viewer').classList.remove('open');if(window._tiledActive)_closeTiledPDF();if(dvState._currentBlobUrl){URL.revokeObjectURL(dvState._currentBlobUrl);dvState._currentBlobUrl=null;}dvState.currentDrawingId=null;dvState.selectedPinId=null;dvState.pinMode=false;mkState.tool=null;closePinPanel();closePinModal();}
 function prevDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx-1+p.drawings.length)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
 function nextDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx+1)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
@@ -5858,7 +5900,7 @@ area.addEventListener('mousedown',function(e){
   // Block area pan when a drawing tool is active — let the markup canvas handle it
   var _drawingTools={pen:1,highlight:1,eraser:1,text:1,rect:1,fillrect:1,circle:1,fillcircle:1,arrow:1,line:1,triangle:1,cloud:1,polyline:1};
   if(mkState.tool&&_drawingTools[mkState.tool])return;
-  if(dvState.pinMode&&!e.target.closest('.dv-toolbar')&&!e.target.closest('.dv-tasks-panel')){handlePinDrop(e);return;}
+  if(dvState.pinMode&&!e.target.closest('.dv-toolbar')&&!e.target.closest('.dv-tasks-panel')&&!e.target.closest('.dv-sidebar-tools')&&!e.target.closest('#dv-mobile-context')){handlePinDrop(e);return;}
   dvState._panPending=true;dvState._panStartX=e.clientX;dvState._panStartY=e.clientY;
   sx=e.clientX-dvState.panX;sy=e.clientY-dvState.panY;
   e.preventDefault();
@@ -5934,7 +5976,7 @@ area.addEventListener('touchstart',function(e){
     // If markup canvas is active, let canvas handle touch
     if(mkState.tool&&mkState.tool!=='select'&&document.getElementById('markup-canvas').classList.contains('drawing-active')){e.preventDefault();return;}
     // Pin mode: single tap places pin
-    if(dvState.pinMode&&!e.target.closest('.dv-toolbar')&&!e.target.closest('.dv-tasks-panel')){handlePinDropTouch(e);e.preventDefault();return;}
+    if(dvState.pinMode&&!e.target.closest('.dv-toolbar')&&!e.target.closest('.dv-tasks-panel')&&!e.target.closest('.dv-sidebar-tools')&&!e.target.closest('#dv-mobile-context')){handlePinDropTouch(e);e.preventDefault();return;}
     // MOBILE: single finger does NOTHING (no pan). Pan is two-finger only.
     // DESKTOP: allow single-finger pan (mouse emulation on desktop touch screens)
     if(!_isMobileDevice){
@@ -6181,22 +6223,27 @@ window.addEventListener('orientationchange',function(){
     var sb=document.getElementById('dv-sidebar-tools');
     var ca=document.getElementById('dv-canvas-area');
     var main=document.querySelector('.dv-main');
+    var overlay=document.getElementById('drawing-viewer');
+    var ctx=document.getElementById('dv-mobile-context');
     var isMobile=window.innerWidth<900;
     if(sb){
       if(isMobile){
-        sb.style.cssText='position:fixed!important;bottom:0!important;left:0!important;right:0!important;'
-          +'width:100vw!important;height:56px!important;z-index:500!important;'
-          +'display:flex!important;flex-direction:row!important;align-items:center!important;'
-          +'overflow-x:auto!important;overflow-y:hidden!important;'
-          +'background:#1e2028!important;border-top:1px solid #3a3e48!important;'
-          +'padding:4px 8px!important;gap:4px!important;'
-          +'touch-action:pan-x!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:none!important;';
-        if(ca)ca.style.paddingBottom='56px';
+        // Move sidebar above dv-main in overlay flow
+        if(sb.parentNode!==overlay){
+          if(ctx&&ctx.nextSibling){overlay.insertBefore(sb,ctx.nextSibling);}
+          else if(main){overlay.insertBefore(sb,main);}
+        }
+        sb.style.cssText='';
+        if(ca)ca.style.paddingBottom='';
         if(main)main.style.flexDirection='column';
+        _updateMobileContext();
       } else {
+        // Desktop: sidebar inside dv-main
+        if(sb.parentNode!==main){main.insertBefore(sb,main.firstChild);}
         sb.style.cssText='';
         if(ca)ca.style.paddingBottom='';
         if(main)main.style.flexDirection='';
+        if(ctx)ctx.classList.remove('visible');
       }
     }
     setTimeout(function(){if(typeof fitDrawing==='function')fitDrawing();},100);
@@ -6331,6 +6378,7 @@ function setToolbarTool(tool){
     var mc=document.getElementById('markup-canvas');_syncCanvasMode(mc,'none');
     document.getElementById('dv-canvas-area').classList.remove('pin-mode');
     updatePinStatus();
+    _updateMobileContext();
     return;
   }
 
@@ -6350,7 +6398,7 @@ function setToolbarTool(tool){
     document.getElementById('dv-canvas-area').classList.remove('pin-mode');
     var mc_sel=document.getElementById('markup-canvas');_syncCanvasMode(mc_sel,'select');
     renderAllMarkup();
-    updatePinStatus();return;
+    updatePinStatus();_updateMobileContext();return;
   } else {
     dvState.pinMode=false;mkState._prevTool=null;
     document.getElementById('dv-canvas-area').classList.remove('pin-mode');
@@ -6380,6 +6428,7 @@ function setToolbarTool(tool){
   }
   var tsw=document.getElementById('mk-text-size-wrap');if(tsw)tsw.style.display=(tool==='text')?'':'none';
   updatePinStatus();
+  _updateMobileContext();
 }
 
 function updatePinStatus(){
@@ -7408,11 +7457,11 @@ function toggleShapesMenu(e){
   if(_shapesMenuOpen){
     var r=e.currentTarget.getBoundingClientRect();
     if(window.innerWidth<=900){
-      // Mobile: position centered above the toolbar
-      sub.style.top='auto';
+      // Mobile: position below the toolbar (toolbar is at top now)
       var tb=document.getElementById('dv-sidebar-tools');
-      var tbH=tb?tb.offsetHeight:92;
-      sub.style.bottom=(tbH+8)+'px';
+      var tbR=tb?tb.getBoundingClientRect():null;
+      sub.style.bottom='auto';
+      sub.style.top=tbR?(tbR.bottom+4)+'px':'120px';
       sub.style.left='50%';
       sub.style.transform='translateX(-50%)';
     }else{
@@ -7443,10 +7492,10 @@ function toggleColorMenu(e){
   if(_colorMenuOpen){
     var r=e.currentTarget.getBoundingClientRect();
     if(window.innerWidth<=900){
-      sub.style.top='auto';
       var tb=document.getElementById('dv-sidebar-tools');
-      var tbH=tb?tb.offsetHeight:92;
-      sub.style.bottom=(tbH+8)+'px';
+      var tbR=tb?tb.getBoundingClientRect():null;
+      sub.style.bottom='auto';
+      sub.style.top=tbR?(tbR.bottom+4)+'px':'120px';
       sub.style.left='50%';
       sub.style.transform='translateX(-50%)';
     }else{
@@ -7462,6 +7511,7 @@ function toggleColorMenu(e){
 function setMarkupColorNew(color){
   mkState.color=color;
   var sw=document.getElementById('mk-color-swatch');if(sw)sw.style.background=color;
+  var csw=document.getElementById('ctx-color-dot');if(csw)csw.style.background=color;
   var sub=document.getElementById('color-submenu');if(sub){sub.classList.remove('open');_colorMenuOpen=false;}
 }
 
@@ -7469,6 +7519,85 @@ function setMarkupColorNew(color){
 function updateSizeLabel(v){var el=document.getElementById('mk-size-input');if(el)el.value=v;}
 function updateOpacityLabel(v){var el=document.getElementById('mk-opacity-input');if(el)el.value=v;}
 function updateTextSizeLabel(v){var el=document.getElementById('mk-text-size-label');if(el)el.textContent=v;mkState.fontSize=parseInt(v);}
+
+// ═══ MOBILE CONTEXT BAR — stepper controls ═══
+var _ctxStepTimer=null,_ctxStepInterval=null;
+function _ctxStepStart(prop,dir,e){
+  if(e)e.preventDefault();
+  _ctxStep(prop,dir);
+  _ctxStepTimer=setTimeout(function(){
+    _ctxStepInterval=setInterval(function(){_ctxStep(prop,dir);},120);
+  },400);
+}
+function _ctxStepStop(){
+  clearTimeout(_ctxStepTimer);clearInterval(_ctxStepInterval);
+  _ctxStepTimer=null;_ctxStepInterval=null;
+}
+function _ctxStep(prop,dir){
+  if(prop==='size'){
+    var steps=[1,2,3,4,5,6,8,10,14,18,24,30];
+    var sl=document.getElementById('mk-size');
+    var cur=parseFloat(sl?sl.value:3);
+    var ci=0;for(var i=0;i<steps.length;i++){if(steps[i]<=cur)ci=i;}
+    var ni=Math.max(0,Math.min(steps.length-1,ci+dir));
+    var nv=steps[ni];
+    if(sl)sl.value=nv;
+    updateSizeLabel(nv);
+    var inp=document.getElementById('mk-size-input');if(inp)inp.value=nv;
+    var el=document.getElementById('ctx-size-val');if(el)el.textContent=nv;
+  }else if(prop==='opacity'){
+    var sl2=document.getElementById('mk-opacity');
+    var cur2=parseInt(sl2?sl2.value:100);
+    var nv2=Math.max(10,Math.min(100,cur2+(dir*10)));
+    if(sl2)sl2.value=nv2;
+    updateOpacityLabel(nv2);
+    var inp2=document.getElementById('mk-opacity-input');if(inp2)inp2.value=nv2;
+    var el2=document.getElementById('ctx-opacity-val');if(el2)el2.textContent=nv2;
+  }else if(prop==='textsize'){
+    var steps2=[10,12,14,16,18,20,24,28,32,36,42,48,56,64,72];
+    var sl3=document.getElementById('mk-text-size');
+    var cur3=parseInt(sl3?sl3.value:20);
+    var ci2=0;for(var j=0;j<steps2.length;j++){if(steps2[j]<=cur3)ci2=j;}
+    var ni2=Math.max(0,Math.min(steps2.length-1,ci2+dir));
+    var nv3=steps2[ni2];
+    if(sl3)sl3.value=nv3;
+    updateTextSizeLabel(nv3);
+    var el3=document.getElementById('ctx-text-val');if(el3)el3.textContent=nv3;
+  }
+}
+function _updateMobileContext(){
+  var ctx=document.getElementById('dv-mobile-context');
+  if(!ctx)return;
+  if(window.innerWidth>=900){ctx.classList.remove('visible');return;}
+  var tool=mkState.tool;
+  var isPin=dvState.pinMode;
+  // Show context bar for any drawing/markup tool (not pin, not null)
+  var showTools=['pen','highlight','text','rect','circle','arrow','line','cloud','polyline','eraser','select'];
+  if(tool&&showTools.indexOf(tool)>=0){
+    ctx.classList.add('visible');
+    // Sync values from sliders
+    var sl=document.getElementById('mk-size');
+    var el=document.getElementById('ctx-size-val');if(el&&sl)el.textContent=Math.round(parseFloat(sl.value));
+    var sl2=document.getElementById('mk-opacity');
+    var el2=document.getElementById('ctx-opacity-val');if(el2&&sl2)el2.textContent=sl2.value;
+    var csw=document.getElementById('ctx-color-dot');if(csw)csw.style.background=mkState.color||'#C0392B';
+    // Text size group visibility
+    var tg=document.getElementById('ctx-text-group');
+    if(tg)tg.style.display=(tool==='text')?'':'none';
+    var sl3=document.getElementById('mk-text-size');
+    var el3=document.getElementById('ctx-text-val');if(el3&&sl3)el3.textContent=sl3.value;
+    // Hide color for eraser
+    var cg=document.getElementById('ctx-color-group');
+    if(cg)cg.style.display=(tool==='eraser')?'none':'';
+    // Hide size for select
+    var sg=document.getElementById('ctx-size-group');
+    if(sg)sg.style.display=(tool==='select')?'none':'';
+    var og=document.getElementById('ctx-opacity-group');
+    if(og)og.style.display=(tool==='select'||tool==='eraser')?'none':'';
+  } else {
+    ctx.classList.remove('visible');
+  }
+}
 
 function deleteSelectedShape(){
   var toDelete=_mkSelectedIds.length>0?_mkSelectedIds:(_mkSelectedId?[_mkSelectedId]:[]);
