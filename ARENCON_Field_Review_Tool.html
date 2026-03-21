@@ -4047,28 +4047,51 @@ function getProjectFilename(p){
   return buildSmartFilename(p)+'.json';
 }
 function buildSmartFilename(p){
-  // Format: {Project#} {Client} {Building} {Address#} {Street} {Scope abbrev} {Revision}
-  // Example: 7155.40 Caplink Enterprise 6885 Langstaff Sprkl & FA A01
+  // Format: {ProjNo} {ClientAbbrev} {StreetNum} {Street} {Building/Location} {ScopeAbbrev} {Revision}
+  // Example: 1490.04 IM 610 Sprucewood Attic Space Sprkl Upgrade A01
+  // Client: 1 word → keep, 2+ words → initials. Strip Ltd/Inc/Corp/Co/LLC/LLP first.
   var parts=[];
   if(p.info.projectNumber)parts.push(p.info.projectNumber.trim());
-  if(p.info.client){var c=p.info.client.trim().replace(/\s+(Ltd|Inc|Corp|Co|LLC|LLP)\.?$/i,'').split(/\s+/)[0];parts.push(c);}
+  if(p.info.client){
+    var c=p.info.client.trim().replace(/\s*[\(\)\.]/g,' ').replace(/\s+/g,' ').trim();
+    var cWords=c.split(/\s+/).filter(function(w){return w.length>0;});
+    if(cWords.length){
+      // Rule 1: First word is all-caps acronym ≤5 chars → use it as-is (FGF, IFAB, ABC)
+      if(cWords[0].length<=5 && /^[A-Z]+$/.test(cWords[0])){parts.push(cWords[0]);}
+      // Rule 2: & groups → initials with & preserved (Give & Go → G&G)
+      else if(cWords.indexOf('&')>0 && cWords.indexOf('&')<cWords.length-1){
+        var ai=cWords.indexOf('&');
+        parts.push(cWords[ai-1].charAt(0).toUpperCase()+'&'+cWords[ai+1].charAt(0).toUpperCase());
+      } else {
+        // Rule 3: Strip suffixes
+        var suffixes=/^(Limited|Ltd|Inc|Incorporated|Corp|Corporation|Co|Company|LLC|LLP)$/i;
+        var real=cWords.filter(function(w){return !suffixes.test(w);});
+        if(!real.length)real=cWords;
+        // Rule 4: 1 word → spell it out. 2+ words → initials
+        if(real.length===1)parts.push(real[0]);
+        else parts.push(real.map(function(w){return w.charAt(0).toUpperCase();}).join(''));
+      }
+    }
+  }
+  // Address: street number + street name (first word only)
+  if(p.info.address){
+    var am=p.info.address.trim().match(/^(\d+)\s+(\S+)/);
+    if(am)parts.push(am[1]+' '+am[2].replace(/[.,]$/,''));
+  }
   if(p.info.projectName){
     var raw=p.info.projectName.trim();
-    // FP scope keywords to extract and abbreviate
-    var fpTerms=/\b(Sprinkler|Fire Alarm|Standpipe|Suppression|Protection|Installation|Inspection|Testing|Commissioning|Modification|Upgrade|Retrofit|Replacement)\b/gi;
+    // FP scope keywords
+    var fpPattern=/\b(Sprinkler|Fire Alarm|Standpipe|Suppression|Protection|Installation|Inspection|Testing|Commissioning|Modification|Upgrade|Retrofit|Replacement|Assessment|Review)\b/gi;
     var scopeWords=[];var match;
-    while((match=fpTerms.exec(raw))!==null)scopeWords.push(match[0]);
-    // Building name = everything before the first FP term, or first word
-    var firstFpIdx=raw.search(/\b(Sprinkler|Fire Alarm|Standpipe|Suppression|Protection|Installation|Inspection|Testing|Commissioning|Modification|Upgrade|Retrofit|Replacement)\b/i);
-    var building=firstFpIdx>0?raw.substring(0,firstFpIdx).trim():raw.split(/\s+/)[0];
-    // Clean building: take first 2 words max, remove trailing conjunctions
-    building=building.replace(/\s*[&,]\s*$/,'').split(/\s+/).slice(0,2).join(' ');
-    if(building)parts.push(building);
-    // Address
-    if(p.info.address){
-      var am=p.info.address.trim().match(/^(\d+)\s+(\S+)/);
-      if(am)parts.push(am[1]+' '+am[2]);
-    }
+    while((match=fpPattern.exec(raw))!==null)scopeWords.push(match[0]);
+    // Building/location = everything before the first FP term
+    var firstFpIdx=raw.search(/\b(Sprinkler|Fire Alarm|Standpipe|Suppression|Protection|Installation|Inspection|Testing|Commissioning|Modification|Upgrade|Retrofit|Replacement|Assessment|Review)\b/i);
+    var building=firstFpIdx>0?raw.substring(0,firstFpIdx).trim():'';
+    // Clean building: remove leading conjunctions/prepositions, max 3 words
+    building=building.replace(/^(for|the|at|of|and|&)\s+/i,'').replace(/\s*[&,]\s*$/,'').replace(/\bAutomatic\b/i,'').replace(/\bSystem\b/i,'').trim();
+    var bWords=building.split(/\s+/).filter(function(w){return w.length>0;});
+    if(bWords.length>3)bWords=bWords.slice(0,3);
+    if(bWords.length)parts.push(bWords.join(' '));
     // Abbreviated scope
     if(scopeWords.length){
       var abbrev=scopeWords.map(function(w){
@@ -4076,13 +4099,14 @@ function buildSmartFilename(p){
           .replace(/Standpipe/i,'Stdp').replace(/Suppression/i,'Supp')
           .replace(/Protection/i,'Prot').replace(/Installation/i,'Install')
           .replace(/Inspection/i,'Insp').replace(/Testing/i,'Test')
-          .replace(/Commissioning/i,'Comm').replace(/Modification/i,'Mod');
-      }).join(' & ');
+          .replace(/Commissioning/i,'Comm').replace(/Modification/i,'Mod')
+          .replace(/Assessment/i,'Assess').replace(/Review/i,'Review');
+      }).join(' ');
       parts.push(abbrev);
+    } else if(!building){
+      // No FP terms and no building — use raw name truncated
+      parts.push(raw.split(/\s+/).slice(0,3).join(' '));
     }
-  } else if(p.info.address){
-    var am2=p.info.address.trim().match(/^(\d+)\s+(\S+)/);
-    if(am2)parts.push(am2[1]+' '+am2[2]);
   }
   parts.push(p.info.revision||'A01');
   return parts.join(' ').replace(/[^a-zA-Z0-9 ._&-]/g,'').replace(/\s+/g,' ').trim()||'Untitled';
@@ -11015,9 +11039,10 @@ var _rptRev=p.info.revision||'A01';
 // ── Build compact header HTML (pages 2+) — OBC-style ──
 function _compactHeader(pageNum,totalPages){
   var leftL1=escHtml(p.info.client||'');
-  var leftL2=escHtml((p.info.projectName||'')+(p.info.address?', '+p.info.address:''));
-  var leftL3=escHtml(titleLabel+' #'+_rptNum);
-  var rightL1=escHtml((p.info.projectNumber||'')+' '+_rptRev)+'&nbsp;&nbsp;Page '+pageNum+(totalPages?' of '+totalPages:'');
+  var leftL2=escHtml(p.info.address||'');
+  var scopePart=p.info.projectName?' - '+escHtml(p.info.projectName):'';
+  var leftL3=escHtml(titleLabel+' #'+_rptNum)+scopePart;
+  var rightL1=escHtml((p.info.projectNumber||'')+' '+_rptRev)+'&nbsp;&nbsp;Page '+pageNum;
   var rightL3=escHtml(date);
   return '<div class="ph-compact">'
     +'<div class="ph-compact-left">'+leftL1+'<br>'+leftL2+'<br>'+leftL3+'</div>'
