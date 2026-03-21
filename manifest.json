@@ -1,19 +1,19 @@
 {
   "name": "ARENCON Field Review Tool",
   "short_name": "ARENCON FRT",
-  "start_url": "./ARENCON_Field_Review_Tool.html",
+  "description": "Fire protection field review and deficiency tracking",
+  "start_url": "ARENCON_Project_Hub.html",
   "display": "standalone",
-  "background_color": "#F7F8FA",
+  "background_color": "#0f1318",
   "theme_color": "#9C2742",
-  "orientation": "any",
   "icons": [
     {
-      "src": "arenconicon192.png",
+      "src": "arencon-icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "arenconicon512.png",
+      "src": "arencon-icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }

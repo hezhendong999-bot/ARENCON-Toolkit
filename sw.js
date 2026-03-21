@@ -1,84 +1,107 @@
-// ARENCON FRT Service Worker — enables full offline use
-var CACHE_NAME = 'arencon-frt-v1';
-var URLS_TO_CACHE = [
+// ARENCON Field Review Tool — Service Worker
+// Strategy: network-first for HTML (always get latest), cache-first for CDN assets
+var CACHE_NAME = 'arencon-frt-v2';
+
+// HTML files to precache on install
+var HTML_FILES = [
   './',
-  './ARENCON_Field_Review_Tool.html',
-  './ARENCON_Project_Hub.html',
-  './arenconicon192.png',
-  './arenconicon512.png',
+  'ARENCON_Field_Review_Tool.html',
+  'ARENCON_Project_Hub.html',
+  'index.html'
+];
+
+// CDN assets to precache (pdf.js etc)
+var CDN_ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
 ];
 
-// Install: cache all critical files
-self.addEventListener('install', function(event) {
-  event.waitUntil(
+// Install — precache HTML + CDN assets
+self.addEventListener('install', function(e) {
+  e.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
-      console.log('[SW] Caching app shell');
-      return cache.addAll(URLS_TO_CACHE);
+      console.log('[SW] Precaching app shell');
+      // Cache CDN assets (these rarely change)
+      var cdnPromises = CDN_ASSETS.map(function(url) {
+        return cache.add(url).catch(function(err) {
+          console.warn('[SW] Failed to cache CDN asset:', url, err);
+        });
+      });
+      // Cache HTML files
+      var htmlPromises = HTML_FILES.map(function(url) {
+        return cache.add(url).catch(function(err) {
+          console.warn('[SW] Failed to cache HTML:', url, err);
+        });
+      });
+      return Promise.all(cdnPromises.concat(htmlPromises));
     }).then(function() {
-      return self.skipWaiting(); // Activate immediately
+      return self.skipWaiting();
     })
   );
 });
 
-// Activate: clear old caches
-self.addEventListener('activate', function(event) {
-  event.waitUntil(
+// Activate — clean up old caches
+self.addEventListener('activate', function(e) {
+  e.waitUntil(
     caches.keys().then(function(names) {
       return Promise.all(
-        names.filter(function(name) { return name !== CACHE_NAME; })
-             .map(function(name) { return caches.delete(name); })
+        names.filter(function(n) { return n !== CACHE_NAME; })
+             .map(function(n) { return caches.delete(n); })
       );
     }).then(function() {
-      return self.clients.claim(); // Take control of all pages immediately
+      return self.clients.claim();
     })
   );
 });
 
-// Fetch: network-first for HTML (get latest version), cache-first for static assets
-self.addEventListener('fetch', function(event) {
-  var url = new URL(event.request.url);
+// Fetch strategy
+self.addEventListener('fetch', function(e) {
+  var url = new URL(e.request.url);
 
-  // Never cache API calls (Supabase, R2 worker)
-  if (url.hostname.includes('supabase.co') || url.hostname.includes('workers.dev')) {
-    return; // Let browser handle normally
+  // Skip non-GET requests
+  if (e.request.method !== 'GET') return;
+
+  // Skip Supabase/R2/API requests — never cache these
+  if (url.hostname.indexOf('supabase') >= 0 ||
+      url.hostname.indexOf('workers.dev') >= 0 ||
+      url.hostname.indexOf('cloudflare') >= 0 && url.pathname.indexOf('/photos/') >= 0) {
+    return;
   }
 
-  // HTML files: network-first (try to get latest, fall back to cache)
-  if (event.request.url.endsWith('.html') || event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).then(function(response) {
-        // Got fresh copy — update cache
-        var clone = response.clone();
-        caches.open(CACHE_NAME).then(function(cache) {
-          cache.put(event.request, clone);
-        });
-        return response;
-      }).catch(function() {
-        // Offline — serve from cache
-        return caches.match(event.request).then(function(cached) {
-          return cached || caches.match('./ARENCON_Field_Review_Tool.html');
+  // CDN assets — cache-first (these are versioned and stable)
+  if (url.hostname === 'cdnjs.cloudflare.com') {
+    e.respondWith(
+      caches.match(e.request).then(function(cached) {
+        return cached || fetch(e.request).then(function(resp) {
+          if (resp.ok) {
+            var clone = resp.clone();
+            caches.open(CACHE_NAME).then(function(c) { c.put(e.request, clone); });
+          }
+          return resp;
         });
       })
     );
     return;
   }
 
-  // Everything else (JS, images, icons): cache-first
-  event.respondWith(
-    caches.match(event.request).then(function(cached) {
-      if (cached) return cached;
-      return fetch(event.request).then(function(response) {
-        // Cache CDN resources for offline PDF rendering
-        if (url.hostname === 'cdnjs.cloudflare.com') {
-          var clone = response.clone();
-          caches.open(CACHE_NAME).then(function(cache) {
-            cache.put(event.request, clone);
-          });
+  // HTML files — network-first (always get latest deploy, fallback to cache offline)
+  if (url.hostname === self.location.hostname) {
+    e.respondWith(
+      fetch(e.request).then(function(resp) {
+        if (resp.ok) {
+          var clone = resp.clone();
+          caches.open(CACHE_NAME).then(function(c) { c.put(e.request, clone); });
         }
-        return response;
-      });
-    })
-  );
+        return resp;
+      }).catch(function() {
+        return caches.match(e.request).then(function(cached) {
+          return cached || new Response('Offline — open FRT on Wi-Fi first to enable offline mode.', {
+            status: 503,
+            headers: { 'Content-Type': 'text/plain' }
+          });
+        });
+      })
+    );
+    return;
+  }
 });
