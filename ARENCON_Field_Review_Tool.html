@@ -5830,6 +5830,10 @@ function _openDrawingImage(d,drawingId){
     function _openWithSrc(src){
       var prevBlobUrl=dvState._currentBlobUrl;
       dvState._currentBlobUrl=null;
+      // Clone canvas area for fresh pan/zoom listeners BEFORE image loads
+      // (img.onload can fire synchronously on cached/blob images, which would
+      // bind markup events to the pre-clone canvas that initPanZoom destroys)
+      initPanZoom();
       var img=document.getElementById('dv-image');
       img.onload=function(){
         img.style.display='';// Ensure visible after load
@@ -5846,7 +5850,6 @@ function _openDrawingImage(d,drawingId){
         }
       };
       img.src=src;
-      initPanZoom();
     }
 
     // Priority 1: IDB blob (fastest, works offline)
