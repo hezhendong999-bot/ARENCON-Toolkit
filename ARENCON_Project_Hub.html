@@ -228,6 +228,8 @@ body.dark-mode .tool-launch-card.disabled .tlc-name{color:#556070;}
 .ri-new:hover{border-color:var(--arencon);background:var(--arencon-light)}
 .ri-loading{font-size:11px;color:var(--steel);padding:8px 14px;font-style:italic;}
 body.dark-mode .ri-row:hover{background:var(--card);}
+body.dark-mode .ri-new{color:#f4a1b5;border-color:#3a4050;}body.dark-mode .ri-new:hover{border-color:var(--arencon);background:rgba(156,39,66,.15);}
+body.dark-mode .ri-row .ri-title{color:var(--fg);}body.dark-mode .ri-row .ri-meta{color:var(--steel);}
 /* Delete project confirm */
 .delete-confirm-input{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font:400 14px Calibri,sans-serif;margin:8px 0;background:var(--bg);color:var(--fg);}
 .delete-confirm-input:focus{outline:none;border-color:#DC2626;box-shadow:0 0 0 3px rgba(220,38,38,.08)}
@@ -461,8 +463,11 @@ body.dark-mode .project-card-check{background:rgba(30,41,59,.9)}
 #pg-lb-actions{display:flex;gap:10px;margin-top:10px;}
 #pg-lb-actions button{padding:7px 18px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:white;border-radius:7px;font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;}
 #pg-lb-actions button:hover{background:rgba(255,255,255,.2);}
-body.dark-mode .pg-filter.active{background:#2a2d3a;box-shadow:none;}
-body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);}
+body.dark-mode .pg-filter-group{background:#151a24;}
+body.dark-mode .pg-filter{color:#8a94b0;}
+body.dark-mode .pg-filter.active{background:var(--arencon);color:white;box-shadow:none;}
+body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);border-color:var(--border);}
+body.dark-mode .pg-action-btn:hover{border-color:var(--arencon);color:#f4a1b5;}
 </style>
 </head>
 <body>
