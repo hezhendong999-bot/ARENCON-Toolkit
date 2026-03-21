@@ -270,7 +270,7 @@ body.dv-open{overflow:hidden!important;}
 @media(max-width:900px){.dv-canvas-area{padding-bottom:0;}}
 .dv-img-wrap{position:absolute;transform-origin:0 0;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
 .dv-img-wrap img{display:block;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;}
-#markup-canvas{position:absolute;top:0;left:0;pointer-events:none;cursor:crosshair;}
+#markup-canvas{position:absolute;top:0;left:0;pointer-events:none;cursor:crosshair;touch-action:none;}
 #dv-image:not([src]),#dv-image[src=""]{display:none!important;}
 #markup-canvas.drawing-active{pointer-events:auto;}
 #dv-pins-layer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
@@ -7367,17 +7367,19 @@ function initMarkupEvents(){
     if(window._mkCopyMode)renderAllMarkup();
   });
   canvas.addEventListener('touchstart',function(e){
+    // Always prevent default scroll if a markup tool or pin mode is active
+    if(mkState.tool||dvState.pinMode){e.preventDefault();e.stopPropagation();}
     if(!canvas.classList.contains('drawing-active')&&!canvas.classList.contains('select-active'))return;
-    if(mkState.tool==='select'){startSelect(e);return;} // startSelect decides capture
-    e.preventDefault();e.stopPropagation();
+    if(mkState.tool==='select'){startSelect(e);return;}
     startDraw(e);
   },{passive:false});
   canvas.addEventListener('touchmove',function(e){
-    if(mkState.tool==='select'&&(_mkDragState||_mkRubberBand)){e.preventDefault();e.stopPropagation();moveSelect(e);return;}
-    if(mkState.drawing){e.preventDefault();e.stopPropagation();moveDraw(e);return;}
+    // Always prevent scroll when tool active
+    if(mkState.tool||mkState.drawing){e.preventDefault();e.stopPropagation();}
+    if(mkState.tool==='select'&&(_mkDragState||_mkRubberBand)){moveSelect(e);return;}
+    if(mkState.drawing){moveDraw(e);return;}
     // Ghost preview on tablet
     if(window._mkCopyMode&&window._mkCopyObj){
-      e.preventDefault();
       var pos=getPos(e);
       _mkDrawCopyGhost(canvas.getContext('2d'),pos,canvas._dpr||1);
     }
