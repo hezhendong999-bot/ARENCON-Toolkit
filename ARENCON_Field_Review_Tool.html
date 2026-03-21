@@ -159,7 +159,7 @@ html{overflow-x:hidden;max-width:100vw;}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 .app-header{background:var(--arencon);color:white;position:sticky;top:0;z-index:1000;box-shadow:0 2px 12px rgba(156,39,66,.3);width:100%;box-sizing:border-box;}
-.header-top{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,.07);gap:8px;overflow:hidden;}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,.07);gap:8px;overflow:visible;}
 .logo-area{display:flex;align-items:center;gap:10px;text-decoration:none;color:white;flex-shrink:1;min-width:0;}
 .logo-area img{height:32px;}
 .header-logo{height:34px;width:auto;background:#fff;padding:3px 7px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.2);display:block;flex-shrink:0;}
@@ -968,7 +968,7 @@ body.dark-mode .drawing-card.add-card:hover{border-color:var(--red);}
 .defic-filter-menu button:hover{background:var(--smoke);}
 .defic-filter-menu button.active{background:var(--smoke);font-weight:700;color:var(--red);}
 .defic-filter-menu .separator{height:1px;background:var(--border);margin:4px 0;}
-.defic-fold-btn{background:white;border:1.5px solid #b8c2cc;color:#4A5568;cursor:pointer;font:600 12.5px Calibri,sans-serif;padding:5px 11px;border-radius:8px;transition:all .17s;}
+.defic-fold-btn{background:white;border:1.5px solid #b8c2cc;color:#4A5568;cursor:pointer;font-weight:600;font-size:calc(12.5px + var(--ts));font-family:Calibri,sans-serif;padding:5px 11px;border-radius:8px;transition:all .17s;}
 .defic-fold-btn:hover{border-color:#9C2742;color:#9C2742;background:#f5f0f2;}
 /* Deficiency Templates */
 .defic-template-overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9500;display:flex;align-items:center;justify-content:center;}
@@ -1338,7 +1338,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 body.text-m{--ts:2px;}
 body.text-l{--ts:4px;}
 /* Text size toggle button */
-.text-size-toggle{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;font-family:Calibri,sans-serif;transition:all .15s;min-height:32px;display:inline-flex;align-items:center;gap:4px;}
+.text-size-toggle{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:calc(13px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;transition:all .15s;min-height:32px;display:inline-flex;align-items:center;gap:4px;}
 .text-size-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
 </style>
 </head>
@@ -3389,8 +3389,8 @@ function _aConfirm(msg,onOk){
   var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
   h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+msg.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</div>';
   h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
-  h+='<button id="_acCancel" style="padding:8px 20px;border:1.5px solid '+bdr+';border-radius:8px;background:none;color:'+fg2+';font:600 13px Calibri,sans-serif;cursor:pointer;">Cancel</button>';
-  h+='<button id="_acOk" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font:600 13px Calibri,sans-serif;cursor:pointer;">Download</button>';
+  h+='<button id="_acCancel" style="padding:8px 20px;border:1.5px solid '+bdr+';border-radius:8px;background:none;color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
+  h+='<button id="_acOk" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Download</button>';
   h+='</div></div>';
   ov.innerHTML=h;
   ov.addEventListener('click',function(e){if(e.target===ov){ov.remove();}});
@@ -3617,7 +3617,7 @@ function _updatePrefetchIndicator(done,total,failed){
   if(!el){
     el=document.createElement('div');el.id='offline-prefetch-indicator';
     var isDark=document.body.classList.contains('dark-mode');
-    el.style.cssText='position:fixed;bottom:16px;right:16px;padding:8px 14px;border-radius:8px;font:600 12px Calibri,sans-serif;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;align-items:center;gap:8px;transition:opacity .3s;'
+    el.style.cssText='position:fixed;bottom:16px;right:16px;padding:8px 14px;border-radius:8px;font-weight:600;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;align-items:center;gap:8px;transition:opacity .3s;'
       +(isDark?'background:#1e2533;color:#d0d8f0;border:1px solid #2a3040;':'background:#fff;color:#1C2333;border:1px solid #DDE1E7;');
     document.body.appendChild(el);
   }
@@ -3762,7 +3762,7 @@ function _checkSyncManifestOnStartup(){
 function _showDataLossWarning(w){
   var entry=w.entry;
   var banner=document.createElement('div');
-  banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#C0392B;color:white;padding:14px 20px;font:600 13px Calibri,sans-serif;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.3);';
+  banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#C0392B;color:white;padding:14px 20px;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.3);';
   var details=[];
   if(entry.deficCount)details.push(entry.deficCount+' deficiencies');
   if(entry.photoCount)details.push(entry.photoCount+' photos');
@@ -3772,7 +3772,7 @@ function _showDataLossWarning(w){
     +'<span style="flex:1;">Data from <b>'+dateStr+'</b> may not have synced to cloud: '+details.join(', ')
     +'. Check this project on the device that created it.</span>'
     +'<button onclick="this.parentNode.remove();SyncManifest.clear(\''+w.projectId+'\')" '
-    +'style="background:rgba(255,255,255,.2);color:white;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font:600 12px Calibri,sans-serif;white-space:nowrap;">Dismiss</button>';
+    +'style="background:rgba(255,255,255,.2);color:white;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-weight:600;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;white-space:nowrap;">Dismiss</button>';
   document.body.appendChild(banner);
 }
 
@@ -12524,25 +12524,25 @@ function issueReport(){
 
   // Option 1: Issue (always available)
   var issueTarget=_calcIssueRevision(parsed);
-  html+='<button onclick="_doIssue(\''+issueTarget+'\');_closeIssueModal();" style="width:100%;padding:12px 16px;border:none;border-radius:8px;background:#1A7A4A;color:white;font:700 14px Calibri,sans-serif;cursor:pointer;margin-bottom:10px;text-align:left;">';
+  html+='<button onclick="_doIssue(\''+issueTarget+'\');_closeIssueModal();" style="width:100%;padding:12px 16px;border:none;border-radius:8px;background:#1A7A4A;color:white;font-weight:700;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-bottom:10px;text-align:left;">';
   html+='📋 Issue Report<span style="float:right;font-weight:400;opacity:.85;">'+rev+' → <b>'+issueTarget+'</b></span></button>';
 
   // Option 2: Revise (only if currently issued — B## pattern without A suffix)
   if(parsed.issued&&!parsed.hasSuffix){
     var reviseTarget=rev+'A01';
-    html+='<button onclick="_doRevise(\''+reviseTarget+'\');_closeIssueModal();" style="width:100%;padding:12px 16px;border:none;border-radius:8px;background:#E67E22;color:white;font:700 14px Calibri,sans-serif;cursor:pointer;margin-bottom:10px;text-align:left;">';
+    html+='<button onclick="_doRevise(\''+reviseTarget+'\');_closeIssueModal();" style="width:100%;padding:12px 16px;border:none;border-radius:8px;background:#E67E22;color:white;font-weight:700;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-bottom:10px;text-align:left;">';
     html+='✏️ Revise Issued Report<span style="float:right;font-weight:400;opacity:.85;">'+rev+' → <b>'+reviseTarget+'</b></span></button>';
   }
 
   // Option 3: Revert to draft (only if issued or revision — B-series)
   if(parsed.issued){
     var draftTarget=_calcRevertDraft(p);
-    html+='<button onclick="_doRevertDraft(\''+draftTarget+'\');_closeIssueModal();" style="width:100%;padding:12px 16px;border:none;border-radius:8px;background:'+bdr+';color:'+fg+';font:700 14px Calibri,sans-serif;cursor:pointer;margin-bottom:10px;text-align:left;border:1.5px solid '+bdr+';">';
+    html+='<button onclick="_doRevertDraft(\''+draftTarget+'\');_closeIssueModal();" style="width:100%;padding:12px 16px;border:none;border-radius:8px;background:'+bdr+';color:'+fg+';font-weight:700;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-bottom:10px;text-align:left;border:1.5px solid '+bdr+';">';
     html+='↩️ Revert to Draft<span style="float:right;font-weight:400;opacity:.85;">'+rev+' → <b>'+draftTarget+'</b></span></button>';
   }
 
   // Cancel
-  html+='<button onclick="_closeIssueModal();" style="width:100%;padding:10px 16px;border:none;border-radius:8px;background:none;color:'+fg2+';font:600 13px Calibri,sans-serif;cursor:pointer;margin-top:4px;">Cancel</button>';
+  html+='<button onclick="_closeIssueModal();" style="width:100%;padding:10px 16px;border:none;border-radius:8px;background:none;color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-top:4px;">Cancel</button>';
   html+='</div>';
   modal.innerHTML=html;
   modal.addEventListener('click',function(e){if(e.target===modal)_closeIssueModal();});
