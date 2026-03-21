@@ -32,7 +32,7 @@
   --iar:#FF69B4;
   font-family:Calibri,'Segoe UI',system-ui,-apple-system,sans-serif;
 }
-body{background:var(--bg);color:var(--fg);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--fg);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;font-size:15px}
 body.dark-mode{
   --smoke:#0f1318;--border:#2a3040;--slate:#d0d8f0;--slate-mid:#1e2533;
   --silver:#8a94b0;--steel:#8a94b0;--card:#1e2533;--fg:#d0d8f0;--bg:#0f1318;
@@ -468,6 +468,47 @@ body.dark-mode .pg-filter{color:#8a94b0;}
 body.dark-mode .pg-filter.active{background:var(--arencon);color:white;box-shadow:none;}
 body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);border-color:var(--border);}
 body.dark-mode .pg-action-btn:hover{border-color:var(--arencon);color:#f4a1b5;}
+
+/* ═══ TEXT SIZE SYSTEM — S/M/L stored in localStorage('arencon-text-size') ═══
+   Default = 'M'. Small = original sizes. Medium = +2px on readable text. Large = +4px.
+   Applies ONLY to readable content — labels, badges, icons stay original. */
+:root{--ts:0px;}
+body.text-m{--ts:2px;}
+body.text-l{--ts:4px;}
+/* Project cards */
+body.text-m .project-card-name,body.text-l .project-card-name{font-size:calc(13px + var(--ts));}
+body.text-m .project-card-client,body.text-l .project-card-client{font-size:calc(11px + var(--ts));}
+body.text-m .project-card-date,body.text-l .project-card-date{font-size:calc(10px + var(--ts));}
+body.text-m .project-card-pm,body.text-l .project-card-pm{font-size:calc(10px + var(--ts));}
+/* Detail view */
+body.text-m .detail-info-item,body.text-l .detail-info-item{font-size:calc(13px + var(--ts));}
+body.text-m .detail-header .detail-sub,body.text-l .detail-header .detail-sub{font-size:calc(13px + var(--ts));}
+/* Tool launch cards */
+body.text-m .tool-launch-card .tlc-name,body.text-l .tool-launch-card .tlc-name{font-size:calc(13px + var(--ts));}
+/* Report instance rows */
+body.text-m .ri-row,body.text-l .ri-row{font-size:calc(12px + var(--ts));}
+/* Admin table */
+body.text-m .admin-table td,body.text-l .admin-table td{font-size:calc(13px + var(--ts));}
+/* Stats strip */
+body.text-m .stats-strip,body.text-l .stats-strip{font-size:calc(12px + var(--ts));}
+/* Login card */
+body.text-m .login-card .sub,body.text-l .login-card .sub{font-size:calc(13px + var(--ts));}
+/* Header user name */
+body.text-m .hdr-user,body.text-l .hdr-user{font-size:calc(13px + var(--ts));}
+/* Empty state */
+body.text-m .empty-state p,body.text-l .empty-state p{font-size:calc(13px + var(--ts));}
+/* R2 storage rows */
+body.text-m .r2-row-name,body.text-l .r2-row-name{font-size:calc(12px + var(--ts));}
+body.text-m .r2-row-count,body.text-l .r2-row-count{font-size:calc(11px + var(--ts));}
+/* Modal fields */
+body.text-m .modal-field input,body.text-m .modal-field select,body.text-m .modal-field textarea,
+body.text-l .modal-field input,body.text-l .modal-field select,body.text-l .modal-field textarea{font-size:calc(13px + var(--ts));}
+/* Form inputs */
+body.text-m input,body.text-m select,body.text-m textarea,
+body.text-l input,body.text-l select,body.text-l textarea{font-size:calc(13px + var(--ts));}
+/* Text size toggle button in header */
+.text-size-toggle{background:rgba(255,255,255,.12);border:none;color:rgba(255,255,255,.8);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.5px;transition:background .15s;}
+.text-size-toggle:hover{background:rgba(255,255,255,.22);}
 </style>
 </head>
 <body>
@@ -485,6 +526,7 @@ body.dark-mode .pg-action-btn:hover{border-color:var(--arencon);color:#f4a1b5;}
   <button class="hdr-btn desktop-only" id="btn-profile" style="display:none" onclick="openProfileModal()">⚙️ Profile</button>
   <button class="hdr-btn desktop-only" id="btn-tools" onclick="window.location.href='index.html'" title="All Tools">🧰 Tools</button>
   <button class="hdr-btn desktop-only" id="btn-dark" onclick="toggleDark()">☀️</button>
+  <button class="hdr-btn text-size-toggle desktop-only" id="btn-text-size" onclick="cycleTextSize()" title="Text size: S/M/L">Aa:M</button>
   <button class="hdr-btn desktop-only" id="btn-logout" style="display:none" onclick="doLogout()">🚪 Logout</button>
   <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
 </div>
@@ -503,6 +545,7 @@ body.dark-mode .pg-action-btn:hover{border-color:var(--arencon);color:#f4a1b5;}
     <button class="mobile-menu-item" id="mob-profile" style="display:none" onclick="openProfileModal();closeMobileMenu()">⚙️ Profile</button>
     <button class="mobile-menu-item" onclick="window.location.href='index.html'">🧰 All Tools</button>
     <button class="mobile-menu-item" onclick="toggleDark();closeMobileMenu()"><span id="mob-dark-label">☀️ Dark Mode</span></button>
+    <button class="mobile-menu-item" onclick="cycleTextSize();closeMobileMenu()"><span id="mob-text-size-label">Aa Text: Medium</span></button>
     <div class="mobile-menu-divider"></div>
     <button class="mobile-menu-item" id="mob-logout" style="display:none" onclick="doLogout()">🚪 Logout</button>
   </div>
@@ -1761,12 +1804,14 @@ function launchTool(key) {
   if (!proj) return;
   var t = AVAILABLE_TOOLS[key];
   if (!t) return;
+  var sfn = buildSmartFilename(proj);
   var url = t.file
     + '?project=' + encodeURIComponent(proj.id)
     + '&pn=' + encodeURIComponent(proj.project_number || '')
     + '&pname=' + encodeURIComponent(proj.project_name || '')
     + '&client=' + encodeURIComponent(proj.client || '')
-    + '&addr=' + encodeURIComponent(proj.address || '');
+    + '&addr=' + encodeURIComponent(proj.address || '')
+    + '&sfn=' + encodeURIComponent(sfn);
   window.open(url, '_blank');
 }
 
@@ -1889,13 +1934,15 @@ function launchToolInstance(key, instanceId) {
   if (!proj) return;
   var t = AVAILABLE_TOOLS[key];
   if (!t) return;
+  var sfn = buildSmartFilename(proj);
   var url = t.file
     + '?project=' + encodeURIComponent(proj.id)
     + '&instance=' + encodeURIComponent(instanceId)
     + '&pn=' + encodeURIComponent(proj.project_number || '')
     + '&pname=' + encodeURIComponent(proj.project_name || '')
     + '&client=' + encodeURIComponent(proj.client || '')
-    + '&addr=' + encodeURIComponent(proj.address || '');
+    + '&addr=' + encodeURIComponent(proj.address || '')
+    + '&sfn=' + encodeURIComponent(sfn);
   window.open(url, '_blank');
 }
 
@@ -2853,13 +2900,65 @@ async function _saveNotes() {
   }
 }
 
+/* ═══ Smart Filename — canonical version, used by all tools via URL param ═══ */
+function buildSmartFilename(p){
+  // Format: {ProjNo} {ClientAbbrev} {StreetNum} {Street} {Building/Location} {ScopeAbbrev}
+  // Hub version: no revision (tool-specific). Fields: project_number, client, address, project_name
+  var parts=[];
+  if(p.project_number)parts.push(p.project_number.trim());
+  if(p.client){
+    var c=p.client.trim().replace(/\s*[\(\)\.]/g,' ').replace(/\s+/g,' ').trim();
+    var cWords=c.split(/\s+/).filter(function(w){return w.length>0;});
+    if(cWords.length){
+      if(cWords[0].length<=5&&/^[A-Z]+$/.test(cWords[0])){parts.push(cWords[0]);}
+      else if(cWords.indexOf('&')>0&&cWords.indexOf('&')<cWords.length-1){
+        var ai=cWords.indexOf('&');
+        parts.push(cWords[ai-1].charAt(0).toUpperCase()+'&'+cWords[ai+1].charAt(0).toUpperCase());
+      } else {
+        var suffixes=/^(Limited|Ltd|Inc|Incorporated|Co|Company|LLC|LLP)$/i;
+        var real=cWords.filter(function(w){return !suffixes.test(w);});
+        if(!real.length)real=cWords;
+        if(real.length===1)parts.push(real[0]);
+        else parts.push(real.map(function(w){return w.charAt(0).toUpperCase();}).join(''));
+      }
+    }
+  }
+  if(p.address){
+    var am=p.address.trim().match(/^(\d+)\s+(\S+)/);
+    if(am)parts.push(am[1]+' '+am[2].replace(/[.,]$/,''));
+  }
+  if(p.project_name){
+    var raw=p.project_name.trim();
+    var fpPattern=/\b(Sprinkler|Fire Alarm|Standpipe|Suppression|Protection|Installation|Inspection|Testing|Commissioning|Modification|Upgrade|Retrofit|Replacement|Assessment|Review)\b/gi;
+    var scopeWords=[];var match;
+    while((match=fpPattern.exec(raw))!==null)scopeWords.push(match[0]);
+    var firstFpIdx=raw.search(/\b(Sprinkler|Fire Alarm|Standpipe|Suppression|Protection|Installation|Inspection|Testing|Commissioning|Modification|Upgrade|Retrofit|Replacement|Assessment|Review)\b/i);
+    var building=firstFpIdx>0?raw.substring(0,firstFpIdx).trim():'';
+    building=building.replace(/^(for|the|at|of|and|&)\s+/i,'').replace(/\s*[&,]\s*$/,'').replace(/\bAutomatic\b/i,'').replace(/\bSystem\b/i,'').trim();
+    var bWords=building.split(/\s+/).filter(function(w){return w.length>0;});
+    if(bWords.length>3)bWords=bWords.slice(0,3);
+    if(bWords.length)parts.push(bWords.join(' '));
+    if(scopeWords.length){
+      var abbrev=scopeWords.map(function(w){
+        return w.replace(/Sprinkler/i,'Sprkl').replace(/Fire Alarm/i,'FA')
+          .replace(/Standpipe/i,'Stdp').replace(/Suppression/i,'Supp')
+          .replace(/Protection/i,'Prot').replace(/Installation/i,'Install')
+          .replace(/Inspection/i,'Insp').replace(/Testing/i,'Test')
+          .replace(/Commissioning/i,'Comm').replace(/Modification/i,'Mod')
+          .replace(/Assessment/i,'Assess').replace(/Review/i,'Review');
+      }).join(' ');
+      parts.push(abbrev);
+    } else if(!building){
+      parts.push(raw.split(/\s+/).slice(0,3).join(' '));
+    }
+  }
+  return parts.join(' ').replace(/[^a-zA-Z0-9 ._&-]/g,'').replace(/\s+/g,' ').trim()||'Untitled';
+}
+
 /* ═══ Export Projects (JSON) ═══ */
 var HUB_SCHEMA_VERSION = 1;
 function _buildProjectFilename(p) {
-  var parts = [p.project_number || 'unknown'];
-  if (p.client) parts.push(p.client);
-  if (p.project_name) parts.push(p.project_name);
-  return parts.join(' ').replace(/[\\/:*?"<>|]/g, '_').trim() + '.json';
+  return buildSmartFilename(p) + '.json';
 }
 
 function _downloadJSON(data, filename) {
@@ -2937,6 +3036,29 @@ function applyDark(on) {
   const mobLabel = document.getElementById('mob-dark-label');
   if (mobLabel) mobLabel.textContent = (on ? '🌙' : '☀️') + ' Dark Mode';
 }
+
+/* ═══ Text Size Toggle — S/M/L ═══ */
+var _textSizes=['S','M','L'];
+var _textClasses={'S':'','M':'text-m','L':'text-l'};
+var _textLabels={'S':'Small','M':'Medium','L':'Large'};
+function cycleTextSize(){
+  var cur=localStorage.getItem('arencon-text-size')||'M';
+  var idx=_textSizes.indexOf(cur);
+  var next=_textSizes[(idx+1)%_textSizes.length];
+  applyTextSize(next);
+  localStorage.setItem('arencon-text-size',next);
+}
+function applyTextSize(size){
+  document.body.classList.remove('text-m','text-l');
+  var cls=_textClasses[size];
+  if(cls)document.body.classList.add(cls);
+  var btn=document.getElementById('btn-text-size');
+  if(btn)btn.textContent='Aa:'+size;
+  var mob=document.getElementById('mob-text-size-label');
+  if(mob)mob.textContent='Aa Text: '+_textLabels[size];
+}
+// Init on load
+(function(){var s=localStorage.getItem('arencon-text-size')||'M';applyTextSize(s);})();
 
 /* ═══ Mobile Menu ═══ */
 function openMobileMenu() {

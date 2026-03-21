@@ -1330,6 +1330,39 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 
   /* --- Version badge / task badge — decorative, no change needed --- */
 }
+
+/* ═══ TEXT SIZE SYSTEM — S/M/L stored in localStorage('arencon-text-size') ═══ */
+:root{--ts:0px;}
+body.text-m{--ts:2px;}
+body.text-l{--ts:4px;}
+/* Section headers & card titles */
+body.text-m .card-header span,body.text-l .card-header span{font-size:calc(14px + var(--ts));}
+/* Field labels */
+body.text-m .field-group label,body.text-l .field-group label{font-size:calc(12px + var(--ts));}
+/* Inputs */
+body.text-m input,body.text-m select,body.text-m textarea,
+body.text-l input,body.text-l select,body.text-l textarea{font-size:calc(13px + var(--ts));}
+/* Deficiency rows */
+body.text-m .defic-card-info,body.text-l .defic-card-info{font-size:calc(12px + var(--ts));}
+body.text-m .defic-card-title,body.text-l .defic-card-title{font-size:calc(13px + var(--ts));}
+/* Task table */
+body.text-m .tt-th,body.text-l .tt-th{font-size:calc(12px + var(--ts));}
+body.text-m #tasks-table td,body.text-l #tasks-table td{font-size:calc(12px + var(--ts));}
+/* Drawing card labels */
+body.text-m .card-footer,body.text-l .card-footer{font-size:calc(10px + var(--ts));}
+/* Photo zone text */
+body.text-m .photo-zone,body.text-l .photo-zone{font-size:calc(13px + var(--ts));}
+/* General content paragraphs */
+body.text-m p,body.text-l p{font-size:calc(13px + var(--ts));}
+/* Toast messages */
+body.text-m .toast-msg,body.text-l .toast-msg{font-size:calc(13px + var(--ts));}
+/* Header elements */
+body.text-m .app-title,body.text-l .app-title{font-size:calc(19px + var(--ts));}
+/* Buttons */
+body.text-m .btn,body.text-m .action-btn,body.text-l .btn,body.text-l .action-btn{font-size:calc(13px + var(--ts));}
+/* Text size toggle */
+.text-size-toggle{background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.8);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.5px;transition:background .15s;min-height:32px;}
+.text-size-toggle:hover{background:rgba(255,255,255,.25);}
 </style>
 </head>
 <body>
@@ -1384,6 +1417,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
         </div>
       </div>
       <button class="hdr-btn" id="dark-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="background:rgba(255,255,255,.15);min-width:38px;justify-content:center;">☀️</button>
+      <button class="hdr-btn text-size-toggle" id="btn-text-size" onclick="cycleTextSize()" title="Text size: S/M/L">Aa:M</button>
       <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
     </div>
   </div>
@@ -1450,6 +1484,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
       <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="mobile-storage-bar" style="height:100%;background:#1A7A4A;width:0%;border-radius:2px;transition:width .3s;"></div></div>
     </div>
     <button class="btn" onclick="closeMobileMenu();">✕ Close</button>
+    <button class="btn" onclick="cycleTextSize();closeMobileMenu();" id="mobile-text-size-btn">Aa Text: Medium</button>
   </div>
 </div>
 <input type="file" id="load-input" accept=".json" style="display:none" onchange="closeLoadModal();loadJSON(event)">
@@ -3169,6 +3204,7 @@ var _initDone=false;
 var _csHubMode=false;
 var _csProjectId=null;
 var _csInstanceId=null;
+var _csHubSfn=null;// Smart filename prefix from Hub URL param
 var _csR2Folder=null;// Sanitized project name for R2 folder paths (e.g. "1490.04_IMCC_Sprucewood")
 function _makeR2FolderSlug(pn,pname){
   // Build human-readable R2 folder from project number + name
@@ -3314,6 +3350,29 @@ function updateSaveTimestamp(){var el=document.getElementById('header-save-ts');
 function initDarkMode(){if(localStorage.getItem(LS_DARK)==='1')document.body.classList.add('dark-mode');updateDarkToggleIcon();}
 function toggleDarkMode(){document.body.classList.toggle('dark-mode');localStorage.setItem(LS_DARK,document.body.classList.contains('dark-mode')?'1':'0');updateDarkToggleIcon();}
 function updateDarkToggleIcon(){var isDark=document.body.classList.contains('dark-mode');var icon=isDark?'🌙':'☀️';var dt=document.getElementById('dark-toggle');if(dt)dt.textContent=icon;var dvdt=document.getElementById('dv-dark-toggle');if(dvdt)dvdt.textContent=icon;}
+
+/* ═══ Text Size Toggle — S/M/L ═══ */
+var _textSizes=['S','M','L'];
+var _textClasses={'S':'','M':'text-m','L':'text-l'};
+var _textLabels={'S':'Small','M':'Medium','L':'Large'};
+function cycleTextSize(){
+  var cur=localStorage.getItem('arencon-text-size')||'M';
+  var idx=_textSizes.indexOf(cur);
+  var next=_textSizes[(idx+1)%_textSizes.length];
+  applyTextSize(next);
+  localStorage.setItem('arencon-text-size',next);
+}
+function applyTextSize(size){
+  document.body.classList.remove('text-m','text-l');
+  var cls=_textClasses[size];
+  if(cls)document.body.classList.add(cls);
+  var btn=document.getElementById('btn-text-size');
+  if(btn)btn.textContent='Aa:'+size;
+  var mob=document.getElementById('mobile-text-size-btn');
+  if(mob)mob.textContent='Aa Text: '+_textLabels[size];
+}
+(function(){var s=localStorage.getItem('arencon-text-size')||'M';applyTextSize(s);})();
+
 function openMobileMenu(){var mm=document.getElementById('mobile-menu-overlay');if(mm)mm.classList.add('open');updateStorageDisplay();}
 function closeMobileMenu(){var mm=document.getElementById('mobile-menu-overlay');if(mm)mm.classList.remove('open');}
 function toggleRepairMenu(e){e.stopPropagation();var m=document.getElementById('repair-menu');if(!m)return;m.classList.toggle('open');if(m.classList.contains('open')){setTimeout(function(){document.addEventListener('click',_closeRepairOnClick,{once:true});},0);}};function _closeRepairOnClick(){closeRepairMenu();}function closeRepairMenu(){var m=document.getElementById('repair-menu');if(m)m.classList.remove('open');}
@@ -4249,6 +4308,12 @@ function getProjectFilename(p){
   return buildSmartFilename(p)+'.json';
 }
 function buildSmartFilename(p){
+  // Hub mode: use Hub-computed smart filename prefix + local revision
+  if(_csHubSfn){
+    var rev=p.info.revision||'A01';
+    return (_csHubSfn+' '+rev).replace(/\s+/g,' ').trim();
+  }
+  // Standalone mode: compute locally
   // Format: {ProjNo} {ClientAbbrev} {StreetNum} {Street} {Building/Location} {ScopeAbbrev} {Revision}
   // Example: 1490.04 IM 610 Sprucewood Attic Space Sprkl Upgrade A01
   // Client: 1 word → keep, 2+ words → initials. Strip Ltd/Inc/Corp/Co/LLC/LLP first.
@@ -11739,6 +11804,7 @@ document.addEventListener('DOMContentLoaded',function(){
       var hubPName=urlParams.get('pname')||'';
       var hubClient=urlParams.get('client')||'';
       var hubAddr=urlParams.get('addr')||'';
+      _csHubSfn=urlParams.get('sfn')||null;
       _csR2Folder=_makeR2FolderSlug(hubPN,hubPName)||_csProjectId;
       // Build R2 folder slug from project number + name
       _csR2Folder=_makeR2FolderSlug(hubPN,hubPName)||_csProjectId;      // Update header for Hub mode
@@ -13609,7 +13675,7 @@ function startAutoSave(collectStateFn,intervalMs){_collectStateFn=collectStateFn
 function stopAutoSave(){if(_autoSaveTimer){clearInterval(_autoSaveTimer);_autoSaveTimer=null;}}
 function _onOnline(){_online=true;_setStatus('saving','Reconnected...');if(_pendingSync&&_collectStateFn){try{var state=_collectStateFn();save(state);}catch(e){_setStatus('error','Sync failed');}}else{_setStatus('synced','Online');}}
 function _onOffline(){_online=false;_setStatus('offline','Working offline');}
-function readUrlParams(){var p=new URLSearchParams(window.location.search);return{projectId:p.get('project')||null,instanceId:p.get('instance')||null,projectNumber:p.get('pn')||null,projectName:p.get('pname')||null,client:p.get('client')||null,address:p.get('addr')||null};}
+function readUrlParams(){var p=new URLSearchParams(window.location.search);return{projectId:p.get('project')||null,instanceId:p.get('instance')||null,projectNumber:p.get('pn')||null,projectName:p.get('pname')||null,client:p.get('client')||null,address:p.get('addr')||null,smartFilename:p.get('sfn')||null};}
 async function _getNextInstanceNumber(){if(!_online)return 1;try{var rows=await _request('/rest/v1/tool_data?select=instance_number&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=instance_number.desc&limit=1');if(rows&&rows.length>0)return rows[0].instance_number+1;}catch(e){}return 1;}
 async function init(opts){_toolKey=opts.toolKey;_onStatusChange=opts.onStatusChange||null;_projectId=opts.projectId||null;_instanceId=opts.instanceId||null;try{await _openIDB();}catch(e){console.error('[CloudSync] IDB open failed:',e);}try{var user=await _getUser();if(user)_userId=user.id;}catch(e){}if(_projectId&&_online){try{await _loadProjectInfo();}catch(e){}}if(_projectId&&!_instanceId){_instanceNumber=await _getNextInstanceNumber();}window.addEventListener('online',_onOnline);window.addEventListener('offline',_onOffline);_initialized=true;_setStatus(_online?'synced':'offline','Ready');return{projectInfo:_projectInfo,userId:_userId,online:_online,instanceId:_instanceId,instanceNumber:_instanceNumber};}
 function destroy(){stopAutoSave();window.removeEventListener('online',_onOnline);window.removeEventListener('offline',_onOffline);_initialized=false;}
