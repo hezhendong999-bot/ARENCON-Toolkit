@@ -257,7 +257,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 /* Drawing viewer overlay */
 .drawing-viewer-overlay{position:fixed;inset:0;z-index:2000;background:#1a1a1a;display:none;flex-direction:column;overflow:hidden;}
 .drawing-viewer-overlay.open{display:flex;}
-.dv-toolbar{background:#2a2d35;padding:6px 10px;display:flex;align-items:center;gap:6px;z-index:10;flex-shrink:0;}
+.dv-toolbar{background:#2a2d35;padding:6px 10px;display:flex;align-items:center;gap:6px;z-index:30;flex-shrink:0;position:relative;}
 .dv-toolbar .dv-title{color:white;font-weight:600;font-size:calc(13px + var(--ts));flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
 .dv-nav-group{display:flex;align-items:center;gap:0;background:rgba(0,0,0,.25);border-radius:7px;overflow:hidden;}
 .dv-nav-group .dv-nav-btn{border-radius:0;background:none;padding:5px 12px;border:none;color:white;cursor:pointer;font-size:calc(14px + var(--ts));}@media(max-width:900px){.dv-nav-group .dv-nav-btn{padding:10px 18px;font-size:22px;min-width:48px;min-height:48px;}}
@@ -3329,25 +3329,25 @@ function toggleDarkMode(){document.body.classList.toggle('dark-mode');localStora
 function updateDarkToggleIcon(){var isDark=document.body.classList.contains('dark-mode');var icon=isDark?'🌙':'☀️';var dt=document.getElementById('dark-toggle');if(dt)dt.textContent=icon;var dvdt=document.getElementById('dv-dark-toggle');if(dvdt)dvdt.textContent=icon;}
 
 /* ═══ Text Size Toggle — S/M/L ═══ */
-var _textSizes=['S','M','L'];
-var _textClasses={'S':'','M':'text-m','L':'text-l'};
-var _textLabels={'S':'Small','M':'Medium','L':'Large'};
+var _appTextSizes=['S','M','L'];
+var _appTextClasses={'S':'','M':'text-m','L':'text-l'};
+var _appTextLabels={'S':'Small','M':'Medium','L':'Large'};
 function cycleTextSize(){
   var cur=localStorage.getItem('arencon-text-size')||'M';
-  var idx=_textSizes.indexOf(cur);
-  var next=_textSizes[(idx+1)%_textSizes.length];
+  var idx=_appTextSizes.indexOf(cur);
+  var next=_appTextSizes[(idx+1)%_appTextSizes.length];
   applyTextSize(next);
   localStorage.setItem('arencon-text-size',next);
 }
 function applyTextSize(size){
-  if(_textSizes.indexOf(size)<0)size='M';// Fix stale localStorage values
+  if(_appTextSizes.indexOf(size)<0)size='M';
   document.body.classList.remove('text-m','text-l');
-  var cls=_textClasses[size];
+  var cls=_appTextClasses[size];
   if(cls)document.body.classList.add(cls);
   var btn=document.getElementById('btn-text-size');
   if(btn)btn.textContent='Aa '+size;
   var mob=document.getElementById('mobile-text-size-btn');
-  if(mob)mob.textContent='Aa Text: '+_textLabels[size];
+  if(mob)mob.textContent='Aa Text: '+_appTextLabels[size];
 }
 (function(){var s=localStorage.getItem('arencon-text-size')||'M';applyTextSize(s);})();
 
