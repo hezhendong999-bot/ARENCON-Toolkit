@@ -34,9 +34,9 @@
 }
 body{background:var(--bg);color:var(--fg);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 body.dark-mode{
-  --smoke:#111827;--border:#1F2937;--slate:#E5E7EB;--slate-mid:#1F2937;
-  --silver:#6B7280;--steel:#9CA3AF;--card:#1F2937;--fg:#F3F4F6;--bg:#0F172A;
-  --navy:#0F172A;--navy-mid:#1E293B;--navy-light:#334155;
+  --smoke:#0f1318;--border:#2a3040;--slate:#d0d8f0;--slate-mid:#1e2533;
+  --silver:#8a94b0;--steel:#8a94b0;--card:#1e2533;--fg:#d0d8f0;--bg:#0f1318;
+  --navy:#0f1318;--navy-mid:#1e2533;--navy-light:#2a3040;
   --shadow:0 1px 3px rgba(0,0,0,.3);--shadow-md:0 4px 6px rgba(0,0,0,.25);--shadow-lg:0 10px 25px rgba(0,0,0,.3);
   --arencon-light:#2D1520;--arencon-glow:rgba(156,39,66,.15);
 }
@@ -342,6 +342,7 @@ body.dark-mode .dash-toolbar{background:var(--card);border-color:var(--border)}
 body.dark-mode .dash-search{background:var(--smoke);border-color:var(--border);color:var(--fg)}
 body.dark-mode .dash-toggle button{background:var(--smoke);color:var(--steel);border-color:var(--border)}
 body.dark-mode .dash-toggle button.active{background:var(--arencon);color:#fff}
+body.dark-mode .tlc-toggle{background:#3a4560;}body.dark-mode .tlc-toggle.on{background:#1A7A4A;}
 body.dark-mode .dash-btn.secondary{background:var(--smoke);border-color:var(--border);color:var(--steel)}
 body.dark-mode .admin-section{background:var(--card);border-color:var(--border)}
 body.dark-mode .admin-section-header{background:linear-gradient(135deg,#1E293B,#334155)}
@@ -472,7 +473,6 @@ body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);}
   </div>
   <button class="hdr-btn desktop-only" id="btn-admin" style="display:none" onclick="showAdmin()">👤 Admin</button>
   <button class="hdr-btn desktop-only" id="btn-profile" style="display:none" onclick="openProfileModal()">⚙️ Profile</button>
-  <button class="hdr-btn desktop-only" id="btn-planner" style="display:none" onclick="window.open('ARENCON_Design_Resource_Planner.html','_blank')">📊 Planner</button>
   <button class="hdr-btn desktop-only" id="btn-tools" onclick="window.location.href='index.html'" title="All Tools">🧰 Tools</button>
   <button class="hdr-btn desktop-only" id="btn-dark" onclick="toggleDark()">☀️</button>
   <button class="hdr-btn desktop-only" id="btn-logout" style="display:none" onclick="doLogout()">🚪 Logout</button>
@@ -491,7 +491,6 @@ body.dark-mode .pg-action-btn{background:var(--card);color:var(--fg);}
     <div class="mobile-menu-divider" id="mob-div-user" style="display:none"></div>
     <button class="mobile-menu-item" id="mob-admin" style="display:none" onclick="showAdmin();closeMobileMenu()">👤 Admin Panel</button>
     <button class="mobile-menu-item" id="mob-profile" style="display:none" onclick="openProfileModal();closeMobileMenu()">⚙️ Profile</button>
-    <button class="mobile-menu-item" id="mob-planner" style="display:none" onclick="window.open('ARENCON_Design_Resource_Planner.html','_blank');closeMobileMenu()">📊 Planner</button>
     <button class="mobile-menu-item" onclick="window.location.href='index.html'">🧰 All Tools</button>
     <button class="mobile-menu-item" onclick="toggleDark();closeMobileMenu()"><span id="mob-dark-label">☀️ Dark Mode</span></button>
     <div class="mobile-menu-divider"></div>
@@ -1141,6 +1140,11 @@ function setupKeyboardShortcuts() {
 
 // ── Session restore ──
 async function tryRestoreSession() {
+  // If user explicitly signed out (from FRT or Hub), don't auto-restore
+  if (sessionStorage.getItem('ARENCON_signed_out') === '1') {
+    document.getElementById('login-screen').style.display = 'flex';
+    return;
+  }
   try {
     const user = await _sb.auth.getUser();
     if (user && user.id) {
@@ -1188,6 +1192,8 @@ async function doLogin() {
   try {
     const data = await _sb.auth.signInWithPassword(email, pass);
     _user = data.user;
+    // Clear signed-out flag on successful manual login
+    sessionStorage.removeItem('ARENCON_signed_out');
 
     // Load profile — but don't block showing the app on last_login update
     await loadProfile();
@@ -1260,6 +1266,7 @@ async function doForgotPassword() {
 
 // ── Logout ──
 async function doLogout() {
+  sessionStorage.setItem('ARENCON_signed_out', '1');
   await _sb.auth.signOut();
   _user = null;
   _profile = null;
@@ -1373,8 +1380,6 @@ function showApp() {
   const isAdmin = _profile && (_profile.role === 'super_admin' || _profile.role === 'admin');
   document.getElementById('btn-admin').style.display = isAdmin ? '' : 'none';
   document.getElementById('mob-admin').style.display = isAdmin ? '' : 'none';
-  document.getElementById('btn-planner').style.display = isAdmin ? '' : 'none';
-  document.getElementById('mob-planner').style.display = isAdmin ? '' : 'none';
 
   // Show profile and bulk buttons for all logged-in users
   document.getElementById('btn-profile').style.display = '';
