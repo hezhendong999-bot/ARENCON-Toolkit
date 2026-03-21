@@ -2043,6 +2043,11 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 <script>
 // ═══ ARENCON IndexedDB Storage Layer ═══
 
+// Debug flag — set to true in console to enable verbose logging: _DEBUG=true
+var _DEBUG=false;
+function _dbg(){if(_DEBUG)console.log.apply(console,arguments);}
+function _dbw(){if(_DEBUG)console.warn.apply(console,arguments);}
+
 var ADB={db:null,DB_NAME:'ARENCON_FieldReview',DB_VER:4,ready:false,_queue:[],folderHandle:null,autoSaveTimer:null,dirty:false};
 
 ADB.open=function(){return new Promise(function(resolve,reject){
@@ -2419,7 +2424,7 @@ ADB.writeToFolder=function(filename,data){return new Promise(function(resolve,re
     var json=JSON.stringify(data,null,2);
     return writable.write(json).then(function(){return writable.close();});
   }).then(function(){resolve(true);}).catch(function(e){
-    console.warn('Folder write failed (permission may have expired):',e);
+    _dbw('Folder write failed (permission may have expired):',e);
     ADB.folderHandle=null;resolve(false);
   });
 });};
@@ -2435,7 +2440,7 @@ ADB.writeLockFile=function(jsonFilename,inspectorName){
   var lockData=JSON.stringify({inspector:inspectorName||'Unknown',opened:new Date().toISOString(),pid:Date.now()});
   return ADB.folderHandle.getFileHandle(lockName,{create:true}).then(function(fh){
     return fh.createWritable().then(function(w){return w.write(lockData).then(function(){return w.close();});});
-  }).then(function(){return true;}).catch(function(e){console.warn('Lock write failed:',e);return false;});
+  }).then(function(){return true;}).catch(function(e){_dbw('Lock write failed:',e);return false;});
 };
 
 ADB.readLockFile=function(jsonFilename){
@@ -3181,7 +3186,7 @@ function _debouncedCloudSave(){
   _cloudSaveTimer=setTimeout(function(){
     if(_syncLock)return;// Re-check after delay
     var p=getProject();if(p)p._cloudSyncedAt=new Date().toISOString();
-    try{CloudSync.save(_collectFullState());}catch(e){console.warn('[CloudSync] Debounced save error:',e);}
+    try{CloudSync.save(_collectFullState());}catch(e){_dbw('[CloudSync] Debounced save error:',e);}
   },2000);
 }
 // Brief non-intrusive autosave confirmation (removed — cloud dot is sufficient)
@@ -3415,50 +3420,78 @@ function populateProjectFields(){var p=getProject();if(!p||!p.info)return;
 var _prefetchActive=false;
 function _prefetchDrawingsForOffline(projectId){
   if(_prefetchActive)return;
-  var p=allProjects[projectId];if(!p||!p.drawings||!p.drawings.length)return;
+  var p=allProjects[projectId];if(!p)return;
   // Find drawings that have r2Url but might not have local blob in IDB
-  var toCheck=p.drawings.filter(function(d){return d.r2Url&&d.r2Status==='uploaded';});
+  var toCheck=[];
+  (p.drawings||[]).filter(function(d){return d.r2Url&&d.r2Status==='uploaded';}).forEach(function(d){
+    toCheck.push({id:d.id,r2Url:d.r2Url,store:'drawings',name:d.name||'drawing'});
+  });
+  // Site photos with r2Url
+  (p.sitePhotos||[]).filter(function(sp){return sp.r2Url;}).forEach(function(sp){
+    toCheck.push({id:sp.id,r2Url:sp.r2Url,store:'sitePhotos',name:'site photo'});
+  });
+  // Deficiency photos (entries + responses)
+  function _collectDeficPhotos(defics){
+    if(!defics)return;
+    function _addFromArr(arr){
+      if(!arr)return;
+      arr.forEach(function(ph){
+        if(ph&&ph.r2Url){toCheck.push({id:ph.id,r2Url:ph.r2Url,store:'photos',name:'deficiency photo'});}
+      });
+    }
+    defics.forEach(function(d){
+      _addFromArr(d.photos);
+      if(d.entries){d.entries.forEach(function(e){_addFromArr(e.photos);});}
+      (d.responses||[]).forEach(function(r){_addFromArr(r.photos);});
+    });
+  }
+  (p.contractors||[]).forEach(function(c){_collectDeficPhotos(c.deficiencies);});
+  _collectDeficPhotos(p.generalDeficiencies);
+
   if(!toCheck.length)return;
   // Check which ones are missing local blobs
   var missing=[];
   var checked=0;
-  toCheck.forEach(function(d){
-    ADB.get('drawings',d.id).then(function(rec){
-      if(!rec||!rec.dataBlob){missing.push(d);}
+  toCheck.forEach(function(item){
+    ADB.get(item.store,item.id).then(function(rec){
+      if(!rec||(!rec.dataBlob&&!rec.dataUrl)){missing.push(item);}
       checked++;
       if(checked===toCheck.length&&missing.length>0){_doOfflinePrefetch(missing,projectId);}
     }).catch(function(){
-      missing.push(d);checked++;
+      missing.push(item);checked++;
       if(checked===toCheck.length&&missing.length>0){_doOfflinePrefetch(missing,projectId);}
     });
   });
 }
-function _doOfflinePrefetch(drawings,projectId){
+function _doOfflinePrefetch(items,projectId){
   _prefetchActive=true;
-  var total=drawings.length;var done=0;var failed=0;
+  var total=items.length;var done=0;var failed=0;
   _updatePrefetchIndicator(done,total,failed);
   // Sequential fetch — simple, no race conditions
   var idx=0;
   function next(){
     if(idx>=total){_prefetchActive=false;_finishPrefetchIndicator(done,failed,total);return;}
-    var i=idx++;var d=drawings[i];
+    var i=idx++;var item=items[i];
     // R2 GET requires no auth (Rule 20)
-    fetch(d.r2Url).then(function(resp){
+    fetch(item.r2Url).then(function(resp){
       if(!resp.ok)throw new Error('HTTP '+resp.status);
       return resp.blob();
     }).then(function(blob){
-      // Save blob to IDB drawings store
-      return ADB.get('drawings',d.id).then(function(existing){
-        var rec=existing||{id:d.id,projectId:projectId,name:d.name,width:d.width||0,height:d.height||0};
-        rec.dataBlob=blob;rec.r2Key=d.r2Key||'';rec.r2Status=d.r2Status||'';rec.r2Url=d.r2Url||'';
-        rec.projectId=projectId;rec.name=d.name;rec.folder=d.folder||'';
-        rec.isOriginal=d.isOriginal||false;rec.thumb=d.thumb||null;
-        return ADB.put('drawings',rec);
+      // Save blob to appropriate IDB store
+      return ADB.get(item.store,item.id).then(function(existing){
+        var rec=existing||{id:item.id,projectId:projectId};
+        rec.dataBlob=blob;
+        if(item.store==='drawings'){
+          rec.name=item.name||'';rec.r2Url=item.r2Url||'';
+        } else {
+          rec.r2Url=item.r2Url||'';
+        }
+        return ADB.put(item.store,rec);
       });
     }).then(function(){
       done++;_updatePrefetchIndicator(done,total,failed);next();
     }).catch(function(e){
-      console.warn('[OfflinePrefetch] Failed: '+d.name,e);
+      _dbw('[OfflinePrefetch] Failed: '+(item.name||item.id),e);
       failed++;done++;_updatePrefetchIndicator(done,total,failed);next();
     });
   }
@@ -3475,7 +3508,7 @@ function _updatePrefetchIndicator(done,total,failed){
   }
   if(done<total){
     el.style.opacity='1';
-    el.innerHTML='<span style="font-size:14px;">📥</span> Caching drawings '+done+'/'+total+'…';
+    el.innerHTML='<span style="font-size:14px;">📥</span> Caching for offline '+done+'/'+total+'…';
   }
 }
 function _finishPrefetchIndicator(done,failed,total){
@@ -3485,7 +3518,7 @@ function _finishPrefetchIndicator(done,failed,total){
   if(failed>0){
     el.innerHTML='<span style="font-size:14px;">⚠️</span> '+cached+'/'+total+' cached ('+failed+' failed)';
   } else {
-    el.innerHTML='<span style="font-size:14px;">✅</span> '+total+' drawings offline ready';
+    el.innerHTML='<span style="font-size:14px;">✅</span> '+total+' items offline ready';
   }
   setTimeout(function(){el.style.opacity='0';setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},400);},3000);
 }
@@ -5450,7 +5483,7 @@ async function _openTiledPDF(drawingId,pageNum){
     var p=getProject();
     var d=p&&p.drawings.find(function(x){return x.id===drawingId;});
     if(d&&d.r2Url){
-      console.log('[DrawingViewer] Tiled: no IDB pdfData, fetching from R2: '+d.r2Url.substring(0,80));
+      _dbg('[DrawingViewer] Tiled: no IDB pdfData, fetching from R2: '+d.r2Url.substring(0,80));
       showDrawingLoading('Downloading drawing from cloud\u2026');
       try{
         var res=await fetch(d.r2Url);
@@ -5458,7 +5491,7 @@ async function _openTiledPDF(drawingId,pageNum){
         var contentType=res.headers.get('content-type')||'';
         // If R2 file is an image (not PDF), fall back to normal image viewer
         if(contentType.indexOf('image/')===0){
-          console.log('[DrawingViewer] Tiled: R2 returned image ('+contentType+'), switching to image viewer');
+          _dbg('[DrawingViewer] Tiled: R2 returned image ('+contentType+'), switching to image viewer');
           d.pdfTiled=false;
           saveToLS();
           hideDrawingLoading();
@@ -5475,7 +5508,7 @@ async function _openTiledPDF(drawingId,pageNum){
         return;
       }
     } else {
-      console.log('[DrawingViewer] Tiled: no IDB pdfData AND no r2Url — falling back to image viewer');
+      _dbg('[DrawingViewer] Tiled: no IDB pdfData AND no r2Url — falling back to image viewer');
       hideDrawingLoading();(function(x){return x.id===drawingId;});
       if(_fbDwg2){
         _fbDwg2.pdfTiled=false;
@@ -5648,7 +5681,7 @@ function openDrawingViewer(drawingId){
 
 function _openDrawingImage(d,drawingId){
   try{
-    console.log('[DrawingViewer] _openDrawingImage id='+drawingId+' r2Url='+(d.r2Url?'yes':'no')+' dataUrl='+(d.dataUrl?'yes':'no')+' hasBlob='+!!d._hasLocalBlob+' pdfTiled='+!!d.pdfTiled);
+    _dbg('[DrawingViewer] _openDrawingImage id='+drawingId+' r2Url='+(d.r2Url?'yes':'no')+' dataUrl='+(d.dataUrl?'yes':'no')+' hasBlob='+!!d._hasLocalBlob+' pdfTiled='+!!d.pdfTiled);
     // Ensure image element is visible (tiled PDF path may have hidden it)
     var img=document.getElementById('dv-image');
     if(img){img.style.display='';} 
@@ -5668,10 +5701,10 @@ function _openDrawingImage(d,drawingId){
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
       };
       img.onerror=function(){
-        console.warn('[DrawingViewer] Image load failed for: '+src.substring(0,80));
+        _dbw('[DrawingViewer] Image load failed for: '+src.substring(0,80));
         // If blob URL failed, try R2 directly
         if(d.r2Url&&src!==d.r2Url){
-          console.log('[DrawingViewer] Retrying with R2 URL');
+          _dbg('[DrawingViewer] Retrying with R2 URL');
           img.src=d.r2Url;
         }
       };
@@ -7151,7 +7184,7 @@ function _forceCloudSave(){
   if(!_csHubMode||typeof CloudSync==='undefined'||!CloudSync.isInitialized)return;
   var p=getProject();if(!p)return;
   p._cloudSyncedAt=new Date().toISOString();
-  try{CloudSync.save(_collectFullState());}catch(e){console.warn('[CloudSync] Force save error:',e);}
+  try{CloudSync.save(_collectFullState());}catch(e){_dbw('[CloudSync] Force save error:',e);}
 }
 function saveMarkupData(){
   var canvas=document.getElementById('markup-canvas');if(!canvas||!dvState.currentDrawingId)return;
@@ -8592,7 +8625,7 @@ async function reuploadAllToCloud(){
           queued++;
         }
       }
-    }catch(e){console.warn('[ReuploadAll] Drawing '+dwg.id+' error:',e);}
+    }catch(e){_dbw('[ReuploadAll] Drawing '+dwg.id+' error:',e);}
   }
 
   // ── Site photos ──
@@ -8618,7 +8651,7 @@ async function reuploadAllToCloud(){
         });
         queued++;
       }
-    }catch(e){console.warn('[ReuploadAll] SitePhoto '+sp.id+' error:',e);}
+    }catch(e){_dbw('[ReuploadAll] SitePhoto '+sp.id+' error:',e);}
   }
 
   // ── Deficiency photos ──
@@ -8956,7 +8989,7 @@ function _r2SaveMarkup(dwg){
   var body=JSON.stringify(dwg.markupObjects);
   fetch('https://arencon-r2-worker.hezhendong999.workers.dev'+path,{method:'PUT',headers:headers,body:body})
     .then(function(res){if(res.ok)dwg.markupR2Saved=true;})
-    .catch(function(e){console.warn('[R2Markup] Upload failed:',e.message);});
+    .catch(function(e){_dbw('[R2Markup] Upload failed:',e.message);});
 }
 
 async function _r2LoadMarkup(dwg){
@@ -8993,7 +9026,7 @@ function _r2EnqueueDeficPhoto(rec,deficId){
   rec.r2Status='pending';
   // Step 1: Save to pendingUploads for crash safety
   ADB.savePending(rec.id,hubId,blob,{deficId:deficId,r2Key:rec.r2Key,fname:fname}).catch(function(e){
-    console.warn('[R2First] Failed to save pending:',e);
+    _dbw('[R2First] Failed to save pending:',e);
   });
   // Step 2: Queue R2 upload
   R2Photos.enqueue({
@@ -9041,7 +9074,7 @@ async function _r2CleanupOrphans(){
   (proj.contractors||[]).forEach(function(c){_addDeficKeys(c.deficiencies);});
   _addDeficKeys(proj.generalDeficiencies);
 
-  console.log('[R2Cleanup] Local project has '+referencedKeys.size+' referenced R2 keys');
+  _dbg('[R2Cleanup] Local project has '+referencedKeys.size+' referenced R2 keys');
 
   // List ALL files from R2 — both UUID and slug paths
   var types=['original','marked','drawings','markup'];
@@ -9071,12 +9104,12 @@ async function _r2CleanupOrphans(){
             candidates.push({bucketKey:bucketKey,storedKey:storedKey,bpid:bpid,btype:btype,bfname:bfname,size:f.size||0});
           }
         });
-      }catch(e){console.warn('[R2Cleanup] List error for '+folderIds[fi]+'/'+types[ti]+':',e.message);}
+      }catch(e){_dbw('[R2Cleanup] List error for '+folderIds[fi]+'/'+types[ti]+':',e.message);}
     }
   }
 
   toast('');// clear
-  console.log('[R2Cleanup] R2 has '+allR2Files.length+' total files, '+candidates.length+' orphans');
+  _dbg('[R2Cleanup] R2 has '+allR2Files.length+' total files, '+candidates.length+' orphans');
 
   if(candidates.length===0){
     alert('R2 is already clean — all '+allR2Files.length+' files match your local project.');
@@ -9105,15 +9138,15 @@ async function _r2CleanupOrphans(){
     try{
       await R2Photos.remove(c.bpid,'frt',c.btype,c.bfname);
       deleted++;
-      if(deleted%10===0)console.log('[R2Cleanup] Progress: '+deleted+'/'+candidates.length);
+      if(deleted%10===0)_dbg('[R2Cleanup] Progress: '+deleted+'/'+candidates.length);
     }catch(e){
-      console.warn('[R2Cleanup] Delete failed:',c.storedKey,e.message);
+      _dbw('[R2Cleanup] Delete failed:',c.storedKey,e.message);
       failed++;
     }
   }
 
   var result='R2 Cleanup complete:\n• Deleted: '+deleted+' files\n• Failed: '+failed+' files\n• Remaining: '+(allR2Files.length-deleted)+' files';
-  console.log('[R2Cleanup] '+result);
+  _dbg('[R2Cleanup] '+result);
   alert(result);
 
   var dot=document.getElementById('cloud-dot');
@@ -9135,7 +9168,7 @@ function _requeuePendingUploads(proj){
     noBlob.forEach(function(p){ADB.deletePending(p.id).catch(function(){});});
     pending=pending.filter(function(p){return p.dataBlob&&p.dataBlob.size>0;});
     if(!pending.length)return;
-    console.log('[R2First] Re-queuing '+pending.length+' pending uploads');
+    _dbg('[R2First] Re-queuing '+pending.length+' pending uploads');
     // Build a map of photo id → record reference in the live project
     var recMap={};
     function _mapDeficPhotos(defics){
@@ -9191,7 +9224,7 @@ function _requeuePendingUploads(proj){
     });
     _updateR2Badge();
   }).catch(function(e){
-    console.warn('[R2First] Failed to load pending uploads:',e);
+    _dbw('[R2First] Failed to load pending uploads:',e);
   });
 }
 
@@ -10210,7 +10243,7 @@ function deleteSelectedPhotos(){
       var sp=p.sitePhotos[idx];
       if(sp.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
         var parts=sp.r2Key.split('/');
-        if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){console.warn('R2 delete failed:',e);});
+        if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){_dbw('R2 delete failed:',e);});
       }
       p.sitePhotos[idx]=null;
     }
@@ -10251,7 +10284,7 @@ function downloadSinglePhoto(src,name){
       var a=document.createElement('a');a.href=objUrl;a.download=(name||'photo')+'.jpg';document.body.appendChild(a);a.click();document.body.removeChild(a);
       setTimeout(function(){URL.revokeObjectURL(objUrl);},1000);
     }).catch(function(e){
-      console.warn('Download failed:',e);toast('Download failed — try again');
+      _dbw('Download failed:',e);toast('Download failed — try again');
     });
   } else {
     var a=document.createElement('a');a.href=src;a.download=(name||'photo')+'.jpg';document.body.appendChild(a);a.click();document.body.removeChild(a);
@@ -10758,7 +10791,7 @@ _prefetchR2PhotosForPDF(p,function(done,total){
   _exportPDFWithCache(p,logo,isField,mode,r2Cache);
 }).catch(function(e){
   try{var ov3=document.getElementById('pdf-prefetch-overlay');if(ov3)ov3.remove();}catch(e2){}
-  console.warn('[PDF] R2 prefetch failed, proceeding:',e);
+  _dbw('[PDF] R2 prefetch failed, proceeding:',e);
   _exportPDFWithCache(p,logo,isField,mode,{});
 });
 }
@@ -10921,70 +10954,111 @@ if(reportDefs.length){
 function _buildDefCardHtml(r){
   var d=r.d;
   var hasDwg=isField&&d.drawingId&&d.pinX!=null;
-  var h='<div class="dc" data-defid="'+d.id+'">';
-  h+='<div class="dc-inner">';
-  if(hasDwg){
-    h+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="drawing">';
-  }
-  h+='<div class="dc-content">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-  h+='<div><strong style="color:#9C2742;font-size:13px;">#'+d.num+'</strong>';
-  if(d.iar)h+='<span class="iar">IAR</span>';
-  h+='</div>';
-  h+='<span class="'+(d.status==='Outstanding'?'so':'sc')+'">'+d.status+'</span>';
-  h+='</div>';
+  // Build card header (always part of first chunk)
+  var hdr='<div class="dc" data-defid="'+d.id+'"><div class="dc-inner">';
+  if(hasDwg) hdr+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="drawing">';
+  hdr+='<div class="dc-content">';
+  hdr+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+  hdr+='<div><strong style="color:#9C2742;font-size:13px;">#'+d.num+'</strong>';
+  if(d.iar)hdr+='<span class="iar">IAR</span>';
+  hdr+='</div>';
+  hdr+='<span class="'+(d.status==='Outstanding'?'so':'sc')+'">'+d.status+'</span>';
+  hdr+='</div>';
+
+  // Build sections as separate chunks for potential splitting
+  var sections=[];
   var hasMultiEntries=d.entries&&d.entries.length>1;
   if(d.entries&&d.entries.length){
     d.entries.forEach(function(en,ei){
       var eLbl=String.fromCharCode(65+ei);
       var ePr=en.priority==='general'?'General / Cosmetic':en.priority==='low'?'Low':'High';
       var ePrCol=en.priority==='general'?'#1A7A4A':en.priority==='low'?'#E67E22':'#9C2742';
+      var s='';
       if(hasMultiEntries){
-        h+='<div style="margin-bottom:8px;padding:6px 8px;background:#f8f8f8;border-left:3px solid '+ePrCol+';border-radius:0 4px 4px 0;">';
-        h+='<div style="font-size:10px;font-weight:700;color:'+ePrCol+';margin-bottom:2px;">Observation '+eLbl+' ('+ePr+')</div>';
+        s+='<div style="margin-bottom:8px;padding:6px 8px;background:#f8f8f8;border-left:3px solid '+ePrCol+';border-radius:0 4px 4px 0;">';
+        s+='<div style="font-size:10px;font-weight:700;color:'+ePrCol+';margin-bottom:2px;">Observation '+eLbl+' ('+ePr+')</div>';
       } else {
-        h+='<div style="margin-bottom:8px;">';
+        s+='<div style="margin-bottom:8px;">';
       }
-      h+='<div style="font-size:11px;margin-bottom:4px;"><strong>Description:</strong> '+escHtml(en.description||'\u2014')+'</div>';
+      s+='<div style="font-size:11px;margin-bottom:4px;"><strong>Description:</strong> '+escHtml(en.description||'\u2014')+'</div>';
       if(en.photos&&en.photos.length){
-        h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">';
-        en.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
-        h+='</div>';
+        s+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">';
+        en.photos.forEach(function(ph){s+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
+        s+='</div>';
       }
-      h+='</div>';
+      s+='</div>';
+      sections.push({type:'observation',html:s});
     });
   } else {
     var dispD=d.description||'';
-    h+='<div style="margin-bottom:6px;"><strong>Description:</strong> '+escHtml(dispD)+'</div>';
+    var s='<div style="margin-bottom:6px;"><strong>Description:</strong> '+escHtml(dispD)+'</div>';
     var firstPhotos=d.photos||[];
     if(firstPhotos.length){
-      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">';
-      firstPhotos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
-      h+='</div>';
+      s+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">';
+      firstPhotos.forEach(function(ph){s+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
+      s+='</div>';
     }
+    sections.push({type:'observation',html:s});
   }
-  if(d.date)h+='<div style="font-size:10px;color:#4A5568;margin-bottom:6px;">Date: '+d.date+'</div>';
-  if(hasDwg){
-    var dwgObj=p.drawings.find(function(x){return x.id===d.drawingId;});
-    if(dwgObj)h+='<div style="font-size:9px;color:#607D8B;margin-bottom:4px;">\uD83D\uDCD0 '+escHtml(dwgObj.name)+'</div>';
-  }
+  // Date + drawing ref
+  var meta='';
+  if(d.date)meta+='<div style="font-size:10px;color:#4A5568;margin-bottom:6px;">Date: '+d.date+'</div>';
+  if(hasDwg){var dwgObj=p.drawings.find(function(x){return x.id===d.drawingId;});if(dwgObj)meta+='<div style="font-size:9px;color:#607D8B;margin-bottom:4px;">\uD83D\uDCD0 '+escHtml(dwgObj.name)+'</div>';}
+  if(meta)sections.push({type:'meta',html:meta});
+  // Responses
   if(d.responses&&d.responses.length){
     d.responses.forEach(function(resp){
       var isCtr=resp.party==='contractor';
-      h+='<div class="resp-box '+(isCtr?'resp-ctr':'resp-con')+'">';
-      h+='<strong style="color:'+(isCtr?'#E67E22':'#1565C0')+'">'+(isCtr?'Contractor':'Consultant')+' Response:</strong> '+(resp.comment?escHtml(resp.comment):'\u2014');
+      var s='<div class="resp-box '+(isCtr?'resp-ctr':'resp-con')+'">';
+      s+='<strong style="color:'+(isCtr?'#E67E22':'#1565C0')+'">'+(isCtr?'Contractor':'Consultant')+' Response:</strong> '+(resp.comment?escHtml(resp.comment):'\u2014');
       if(resp.photos&&resp.photos.length){
-        h+='<div class="resp-photos">';
-        resp.photos.forEach(function(ph){h+='<img src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
-        h+='</div>';
+        s+='<div class="resp-photos">';
+        resp.photos.forEach(function(ph){s+='<img src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
+        s+='</div>';
       }
-      h+='</div>';
+      s+='</div>';
+      sections.push({type:'response',html:s});
     });
   }
-  h+='</div>'; // dc-content
-  h+='</div>'; // dc-inner
-  h+='</div>'; // dc
-  return h;
+  // Return header, sections array, and closing tags for the pagination engine to split
+  return {header:hdr,sections:sections,footer:'</div></div></div>'};
+}
+
+// Build split-aware content blocks from a deficiency card
+function _buildDefBlocks(r){
+  var card=_buildDefCardHtml(r);
+  var contTag='<div style="font-size:9px;color:#888;font-style:italic;margin-bottom:4px;">[continued from previous page]</div>';
+  // First try as single block
+  var fullHtml=card.header;
+  card.sections.forEach(function(s){fullHtml+=s.html;});
+  fullHtml+=card.footer;
+  var fullH=_measure(fullHtml);
+  if(fullH<=PAGE_H-COMPACT_HEADER_H){
+    // Fits on one page — return as single block
+    return [{type:'defCard',html:fullHtml,defId:r.d.id}];
+  }
+  // Needs splitting — build chunks
+  var chunks=[];
+  var curChunkHtml=card.header;
+  var curChunkH=_measure(card.header+card.footer);
+  var maxH=PAGE_H-COMPACT_HEADER_H-20;// 20px safety margin
+  for(var si=0;si<card.sections.length;si++){
+    var secH=_measure(card.sections[si].html);
+    if(curChunkH+secH>maxH&&curChunkHtml!==card.header){
+      // Close current chunk, start new one
+      curChunkHtml+='<div style="font-size:9px;color:#888;font-style:italic;text-align:right;margin-top:4px;">[continued on next page]</div>';
+      curChunkHtml+=card.footer;
+      chunks.push({type:'defCard',html:curChunkHtml,defId:r.d.id,continued:chunks.length>0});
+      curChunkHtml=card.header+contTag;
+      curChunkH=_measure(card.header+contTag+card.footer);
+    }
+    curChunkHtml+=card.sections[si].html;
+    curChunkH+=secH;
+  }
+  // Close final chunk
+  curChunkHtml+=card.footer;
+  chunks.push({type:'defCard',html:curChunkHtml,defId:r.d.id,continued:chunks.length>0});
+  return chunks;
 }
 
 // ── Build contractor group headers ──
@@ -10998,7 +11072,8 @@ if(reportDefs.length){
   Object.keys(ctrGroups2).forEach(function(ctr){
     contentBlocks.push({type:'ctrHeader',html:'<div class="ch">'+escHtml(ctr)+' ('+ctrGroups2[ctr].length+')</div>',ctr:ctr});
     ctrGroups2[ctr].forEach(function(r){
-      contentBlocks.push({type:'defCard',html:_buildDefCardHtml(r),defId:r.d.id,ctr:ctr});
+      var defBlocks=_buildDefBlocks(r);
+      defBlocks.forEach(function(db){contentBlocks.push(db);});
     });
   });
 }
@@ -11117,9 +11192,8 @@ contentBlocks.forEach(function(block){
     curPageHtml+=block.html;
     curUsed+=blockH;
   } else {
-    // Card is taller than a full page — needs splitting
-    // For now, just place it and let it overflow (CSS will clip at page boundary)
-    // Future enhancement: split at photo/response boundaries
+    // Card was already split by _buildDefBlocks, so each chunk fits on a page.
+    // If somehow still oversized (e.g. a single photo is huge), just start a new page and place it.
     if(curUsed>PAGE_H*0.15){
       _finalizePage();_startPage();
     }
@@ -12553,7 +12627,7 @@ function _rebuildMissingR2Urls(proj){
       fixed++;
     }
   });
-  if(fixed>0)console.log('[R2] Rebuilt '+fixed+' missing r2Url(s) from r2Key');
+  if(fixed>0)_dbg('[R2] Rebuilt '+fixed+' missing r2Url(s) from r2Key');
 }
 
 // Auto-dedup drawings by name — removes duplicates keeping first occurrence.
@@ -12569,7 +12643,7 @@ function _autoDedup(proj){
   var removed=proj.drawings.length-keep.length;
   if(removed>0){
     proj.drawings=keep;
-    console.log('[AutoDedup] Removed '+removed+' duplicate drawings ('+keep.length+' remaining)');
+    _dbg('[AutoDedup] Removed '+removed+' duplicate drawings ('+keep.length+' remaining)');
   }
   return removed;
 }
@@ -12580,27 +12654,27 @@ function _autoDedup(proj){
 var _dedupGhostCount=0;
 async function _verifiedDedupSave(proj){
   var expectedCount=(proj.drawings||[]).length;
-  console.log('[VerifiedDedup] Pushing '+expectedCount+' drawings to cloud...');
+  _dbg('[VerifiedDedup] Pushing '+expectedCount+' drawings to cloud...');
   // Attempt 1: normal save
   CloudSync.resetLastSaved();
   var state=_collectFullState();
   if(!state||Object.keys(state).length===0){console.error('[VerifiedDedup] Empty state, aborting');return;}
   try{
     await CloudSync.save(state);
-  }catch(e){console.warn('[VerifiedDedup] Attempt 1 failed:',e.message);}
+  }catch(e){_dbw('[VerifiedDedup] Attempt 1 failed:',e.message);}
   // Verify: re-load from cloud and check drawing count
   try{
     var verify=await CloudSync.load();
     var cloudDrawings=verify&&verify.row&&verify.row.data&&verify.row.data.drawings;
     var cloudCount=cloudDrawings?cloudDrawings.length:0;
-    console.log('[VerifiedDedup] Verification: cloud has '+cloudCount+' drawings (expected '+expectedCount+')');
+    _dbg('[VerifiedDedup] Verification: cloud has '+cloudCount+' drawings (expected '+expectedCount+')');
     if(cloudCount===expectedCount){
-      console.log('[VerifiedDedup] ✓ Cloud confirmed correct');
+      _dbg('[VerifiedDedup] ✓ Cloud confirmed correct');
       _dedupGhostCount=0;
       return;
     }
     // Cloud still wrong — check for duplicate rows
-    console.warn('[VerifiedDedup] Cloud still has '+cloudCount+' — checking for duplicate tool_data rows...');
+    _dbw('[VerifiedDedup] Cloud still has '+cloudCount+' — checking for duplicate tool_data rows...');
     var allRows=await CloudSync.request('/rest/v1/tool_data?select=id,instance_number,updated_at&project_id=eq.'+CloudSync.projectId+'&tool_key=eq.frt&order=updated_at.desc');
     if(allRows&&allRows.length>1){
       console.error('[VerifiedDedup] ⚠ FOUND '+allRows.length+' tool_data rows for this project+frt! IDs: '+allRows.map(function(r){return r.id+' (inst:'+r.instance_number+' updated:'+r.updated_at+')';}).join(' | '));
@@ -12612,8 +12686,8 @@ async function _verifiedDedupSave(proj){
             method:'PATCH',
             body:{data:state,updated_at:new Date().toISOString(),updated_by:CloudSync.userId}
           });
-          console.log('[VerifiedDedup] Patched row '+allRows[ri].id);
-        }catch(e){console.warn('[VerifiedDedup] Failed to patch row '+allRows[ri].id+':',e.message);}
+          _dbg('[VerifiedDedup] Patched row '+allRows[ri].id);
+        }catch(e){_dbw('[VerifiedDedup] Failed to patch row '+allRows[ri].id+':',e.message);}
       }
     } else {
       // Single row but still wrong — raw PATCH
@@ -12622,7 +12696,7 @@ async function _verifiedDedupSave(proj){
         await CloudSync.request('/rest/v1/tool_data?id=eq.'+instanceId,{
           method:'PATCH',
           body:{data:state,updated_at:new Date().toISOString(),updated_by:CloudSync.userId}
-        }).catch(function(e){console.warn('[VerifiedDedup] Raw PATCH failed:',e.message);});
+        }).catch(function(e){_dbw('[VerifiedDedup] Raw PATCH failed:',e.message);});
       }
     }
     CloudSync.resetLastSaved();
@@ -12679,7 +12753,7 @@ async function _initCloudSync(){
     var cloudIsNewer=cloudTime>0&&cloudTime>(localCurrent+3000);
 
     if(cloudIsNewer&&cloudData&&typeof cloudData==='object'){
-      console.log('[CloudSync] Cloud is newer (cloud:'+cloudUpdatedAt+' local:'+p._cloudSyncedAt+') — applying cloud state');
+      _dbg('[CloudSync] Cloud is newer (cloud:'+cloudUpdatedAt+' local:'+p._cloudSyncedAt+') — applying cloud state');
       var pid=currentProjectId;
       if(pid&&allProjects[pid]){
         var cloudProj=cloudData;
@@ -12712,7 +12786,7 @@ async function _initCloudSync(){
         localProj._cloudSyncedAt=new Date().toISOString();
         localProj._localModifiedAt=new Date().toISOString();
         // Save to IDB first, THEN push to cloud — sequential, no race
-        await ADB.saveFullProject(localProj).catch(function(e){console.warn('[CloudSync] IDB save error:',e);});
+        await ADB.saveFullProject(localProj).catch(function(e){_dbw('[CloudSync] IDB save error:',e);});
         // Force-push deduped state to cloud with VERIFICATION
         if(dedupCount>0){
           await _verifiedDedupSave(localProj);
@@ -12723,7 +12797,7 @@ async function _initCloudSync(){
             await CloudSync.save(state0).catch(function(e){});
           }
         }
-        console.log('[CloudSync] Applied cloud state — drawings:'+localProj.drawings.length+(dedupCount?' (deduped '+dedupCount+')':'')+' defics:'+(localProj.generalDeficiencies||[]).length);
+        _dbg('[CloudSync] Applied cloud state — drawings:'+localProj.drawings.length+(dedupCount?' (deduped '+dedupCount+')':'')+' defics:'+(localProj.generalDeficiencies||[]).length);
         setTimeout(function(){
           renderDrawingGallery&&renderDrawingGallery();
           renderDeficiencyPanel&&renderDeficiencyPanel();
@@ -12738,7 +12812,7 @@ async function _initCloudSync(){
         p._localModifiedAt=new Date().toISOString();
         await ADB.saveFullProject(p).catch(function(){});
         await _verifiedDedupSave(p);
-        console.log('[CloudSync] Local dedup: removed '+dedupCount2+' duplicates, pushed to cloud');
+        _dbg('[CloudSync] Local dedup: removed '+dedupCount2+' duplicates, pushed to cloud');
       } else {
         // No dedup needed — just push current state
         p._cloudSyncedAt=new Date().toISOString();
@@ -12842,7 +12916,7 @@ async function _syncHeartbeat(){
           return;
         }
       }
-      console.log('[Heartbeat] Cloud is newer — applying update silently');
+      _dbg('[Heartbeat] Cloud is newer — applying update silently');
       // ═══ MERGE: Cloud owns structure. Local owns binary data. ═══
       if(cloudData.drawings){
         var prevHBDwg=p.drawings||[];
@@ -12875,7 +12949,7 @@ async function _syncHeartbeat(){
         CloudSync.resetLastSaved();
         var hbState=_collectFullState();
         if(hbState&&Object.keys(hbState).length>0){
-          await CloudSync.save(hbState).catch(function(e){console.warn('[Heartbeat] Push error:',e);});
+          await CloudSync.save(hbState).catch(function(e){_dbw('[Heartbeat] Push error:',e);});
         }
       }
       renderDrawingGallery&&renderDrawingGallery();
@@ -12896,7 +12970,7 @@ async function _syncHeartbeat(){
       }
     }
   }catch(e){
-    console.warn('[Heartbeat] Sync check failed:',e.message);
+    _dbw('[Heartbeat] Sync check failed:',e.message);
   }finally{
     _syncLock=false;
     _heartbeatRunning=false;
@@ -12939,7 +13013,7 @@ async function _autoDownloadR2(){
       if(!arr)return;
       arr.forEach(function(ph){
         if(ph&&ph.r2Url&&!ph.dataUrl){
-          tasks.push({type:'deficPhoto',id:ph.id,r2Url:ph.r2Url,store:'pendingUploads'});
+          tasks.push({type:'deficPhoto',id:ph.id,r2Url:ph.r2Url,store:'photos'});
         }
       });
     }
@@ -12966,15 +13040,17 @@ async function _autoDownloadR2(){
       } else if(t.store==='sitePhotos'){
         var rec2=await ADB.get('sitePhotos',t.id).catch(function(){return null;});
         if(rec2&&rec2.dataBlob&&rec2.dataBlob.size>0)continue;
+      } else if(t.store==='photos'){
+        var rec3=await ADB.get('photos',t.id).catch(function(){return null;});
+        if(rec3&&rec3.dataBlob&&rec3.dataBlob.size>0)continue;
       }
-      // Defic photos stored in pendingUploads don't need checking — they're ephemeral
     }catch(e){}
     filteredTasks.push(t);
   }
 
   total=filteredTasks.length;
   if(total===0)return;
-  console.log('[AutoDL] Starting background download of '+total+' R2 items');
+  _dbg('[AutoDL] Starting background download of '+total+' R2 items');
 
   // Show subtle progress on cloud dot
   function _updateDot(){
@@ -13028,16 +13104,26 @@ async function _autoDownloadR2(){
             dataBlob:blob
           });
         }
+      } else if(task.store==='photos'){
+        var phRec=await ADB.get('photos',task.id).catch(function(){return null;});
+        if(phRec){
+          phRec.dataBlob=blob;
+          await ADB.put('photos',phRec);
+        } else {
+          await ADB.put('photos',{
+            id:task.id,projectId:_csProjectId,
+            r2Url:task.r2Url,dataBlob:blob
+          });
+        }
       }
-      // Defic photos: no IDB blob store (R2-first Phase 1) — skip blob save
       done++;
     }catch(e){
-      console.warn('[AutoDL] Failed to download '+task.id+':',e.message);
+      _dbw('[AutoDL] Failed to download '+task.id+':',e.message);
       failed++;
     }
   }
   _updateDot();
-  console.log('[AutoDL] Complete: '+done+'/'+total+' downloaded'+(failed?' ('+failed+' failed)':''));
+  _dbg('[AutoDL] Complete: '+done+'/'+total+' downloaded'+(failed?' ('+failed+' failed)':''));
 }
 
 // ── RE-UPLOAD ORIGINAL PDFs TO R2 ──
@@ -13078,7 +13164,7 @@ async function _reuploadPDFsToR2(){
     window._syncHeartbeatTimer=setInterval(function(){_syncHeartbeat();},60000);
     return;
   }
-  console.log('[PDF Re-upload] Starting: '+total+' PDFs to upload');
+  _dbg('[PDF Re-upload] Starting: '+total+' PDFs to upload');
   toast('Re-uploading '+total+' PDFs to R2… Do not close this tab.',10000);
   // Upload sequentially
   for(var j=0;j<candidates.length;j++){
@@ -13097,7 +13183,7 @@ async function _reuploadPDFsToR2(){
       dwg.r2Url=R2Photos.getUrl(reupFolderId,'frt','drawings',fname);
       dwg.pdfTiled=true;
       done++;
-      console.log('[PDF Re-upload] '+done+'/'+total+' — '+dwg.name+' ✓');
+      _dbg('[PDF Re-upload] '+done+'/'+total+' — '+dwg.name+' ✓');
     }catch(e){
       failed++;
       console.error('[PDF Re-upload] Failed: '+dwg.name+' — '+e.message);
@@ -13115,7 +13201,7 @@ async function _reuploadPDFsToR2(){
     window._syncHeartbeatTimer=setInterval(function(){_syncHeartbeat();},60000);
   },2000);
   var msg='PDF Re-upload complete: '+done+' uploaded, '+failed+' failed, '+skipped+' skipped (no PDF data).\n\nThe page will now reload to apply changes. All devices will render sharp drawings after they sync.';
-  console.log('[PDF Re-upload] '+msg);
+  _dbg('[PDF Re-upload] '+msg);
   alert(msg);
   // Force reload after cloud save completes
   setTimeout(function(){window.location.reload();},3000);
@@ -13216,7 +13302,7 @@ async function _processQueue(){
       _queue.shift();// Remove on success
       if(item.onComplete)item.onComplete(null,result);
     }catch(e){
-      console.warn('[R2Photos] Upload failed:',e.message,', will retry');
+      _dbw('[R2Photos] Upload failed:',e.message,', will retry');
       break;// Leave in queue for retry
     }
     _fireProgress();
@@ -13284,8 +13370,8 @@ async function _getUser(){var token=localStorage.getItem('sb-access-token');if(!
 async function _cloudLoad(){if(!_projectId||!_toolKey)return null;if(_instanceId){var rows=await _request('/rest/v1/tool_data?select=*&id=eq.'+_instanceId);return(rows&&rows.length>0)?rows[0]:null;}var rows=await _request('/rest/v1/tool_data?select=*&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=updated_at.desc&limit=1');return(rows&&rows.length>0)?rows[0]:null;}
 async function _cloudSave(stateJson){if(!_projectId||!_toolKey)return null;var parsed=typeof stateJson==='string'?JSON.parse(stateJson):stateJson;var payload={project_id:_projectId,tool_key:_toolKey,instance_number:_instanceNumber,data:parsed,updated_by:_userId,updated_at:new Date().toISOString()};if(_instanceId){try{var rows=await _request('/rest/v1/tool_data?id=eq.'+_instanceId,{method:'PATCH',body:payload});return(rows&&rows.length>0)?rows[0]:null;}catch(e){if(e.message&&(e.message.indexOf('500')>=0||e.message.indexOf('too large')>=0||e.message.indexOf('Failed to fetch')>=0)){console.warn('[CloudSync] PATCH failed (likely payload too large:'+Math.round(JSON.stringify(payload).length/1024)+'KB), stripping more data...');if(parsed.drawings){parsed.drawings.forEach(function(d){delete d.markupObjects;delete d.markupData;delete d.thumb;delete d.dataUrl;delete d._hasLocalBlob;});}payload.data=parsed;var rows2=await _request('/rest/v1/tool_data?id=eq.'+_instanceId,{method:'PATCH',body:payload});return(rows2&&rows2.length>0)?rows2[0]:null;}throw e;}}else{payload.created_by=_userId;payload.status='draft';var rows=await _request('/rest/v1/tool_data',{method:'POST',body:[payload]});if(rows&&rows.length>0){_instanceId=rows[0].id;_instanceNumber=rows[0].instance_number;return rows[0];}return null;}}
 async function _loadProjectInfo(){if(!_projectId)return null;try{var rows=await _request('/rest/v1/projects?select=*&id=eq.'+_projectId,{headers:{'Accept':'application/vnd.pgrst.object+json'}});_projectInfo=rows;return rows;}catch(e){return null;}}
-async function save(stateJson){if(typeof stateJson!=='string')stateJson=JSON.stringify(stateJson);if(stateJson===_lastSavedJson)return;_lastSavedJson=stateJson;var _parsed=null;try{_parsed=JSON.parse(stateJson);}catch(e){}if(_parsed&&_parsed.drawings)console.log('[CloudSync.save] Pushing '+_parsed.drawings.length+' drawings to cloud');try{await _idbPut2(_idbKey(),{state:stateJson,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:new Date().toISOString()});}catch(e){console.error('[CloudSync] IDB save failed:',e);}if(_online){try{_setStatus('saving','Syncing...');var row=await _cloudSave(stateJson);_pendingSync=false;_setStatus('synced','Saved to cloud');if(row&&row.data&&row.data.drawings)console.log('[CloudSync.save] Cloud confirmed '+row.data.drawings.length+' drawings');return row;}catch(e){console.warn('[CloudSync] Cloud save failed:',e.message);_pendingSync=true;_setStatus('pending','Saved locally');}}else{_pendingSync=true;_setStatus('offline','Saved locally (offline)');}return null;}
-async function load(){var cloudRow=null;if(_online){try{cloudRow=await _cloudLoad();if(cloudRow){_instanceId=cloudRow.id;_instanceNumber=cloudRow.instance_number;if(cloudRow.data&&cloudRow.data.drawings)console.log('[CloudSync.load] Cloud has '+cloudRow.data.drawings.length+' drawings (updated_at:'+cloudRow.updated_at+')');var sj=typeof cloudRow.data==='string'?cloudRow.data:JSON.stringify(cloudRow.data);_lastSavedJson=sj;await _idbPut2(_idbKey(),{state:sj,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:cloudRow.updated_at});_setStatus('synced','Loaded from cloud');return{source:'cloud',state:typeof cloudRow.data==='string'?JSON.parse(cloudRow.data):cloudRow.data,row:cloudRow};}}catch(e){console.warn('[CloudSync] Cloud load failed:',e.message);}}try{var idbData=await _idbGet2(_idbKey());if(idbData&&idbData.state){_setStatus(_online?'synced':'offline','Loaded from cache');return{source:'idb',state:typeof idbData.state==='string'?JSON.parse(idbData.state):idbData.state,row:null};}}catch(e){console.error('[CloudSync] IDB load failed:',e);}_setStatus(_online?'synced':'offline','No saved data');return null;}
+async function save(stateJson){if(typeof stateJson!=='string')stateJson=JSON.stringify(stateJson);if(stateJson===_lastSavedJson)return;_lastSavedJson=stateJson;var _parsed=null;try{_parsed=JSON.parse(stateJson);}catch(e){}if(_parsed&&_parsed.drawings)_dbg('[CloudSync.save] Pushing '+_parsed.drawings.length+' drawings to cloud');try{await _idbPut2(_idbKey(),{state:stateJson,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:new Date().toISOString()});}catch(e){console.error('[CloudSync] IDB save failed:',e);}if(_online){try{_setStatus('saving','Syncing...');var row=await _cloudSave(stateJson);_pendingSync=false;_setStatus('synced','Saved to cloud');if(row&&row.data&&row.data.drawings)_dbg('[CloudSync.save] Cloud confirmed '+row.data.drawings.length+' drawings');return row;}catch(e){console.warn('[CloudSync] Cloud save failed:',e.message);_pendingSync=true;_setStatus('pending','Saved locally');}}else{_pendingSync=true;_setStatus('offline','Saved locally (offline)');}return null;}
+async function load(){var cloudRow=null;if(_online){try{cloudRow=await _cloudLoad();if(cloudRow){_instanceId=cloudRow.id;_instanceNumber=cloudRow.instance_number;if(cloudRow.data&&cloudRow.data.drawings)_dbg('[CloudSync.load] Cloud has '+cloudRow.data.drawings.length+' drawings (updated_at:'+cloudRow.updated_at+')');var sj=typeof cloudRow.data==='string'?cloudRow.data:JSON.stringify(cloudRow.data);_lastSavedJson=sj;await _idbPut2(_idbKey(),{state:sj,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:cloudRow.updated_at});_setStatus('synced','Loaded from cloud');return{source:'cloud',state:typeof cloudRow.data==='string'?JSON.parse(cloudRow.data):cloudRow.data,row:cloudRow};}}catch(e){console.warn('[CloudSync] Cloud load failed:',e.message);}}try{var idbData=await _idbGet2(_idbKey());if(idbData&&idbData.state){_setStatus(_online?'synced':'offline','Loaded from cache');return{source:'idb',state:typeof idbData.state==='string'?JSON.parse(idbData.state):idbData.state,row:null};}}catch(e){console.error('[CloudSync] IDB load failed:',e);}_setStatus(_online?'synced':'offline','No saved data');return null;}
 function startAutoSave(collectStateFn,intervalMs){_collectStateFn=collectStateFn;stopAutoSave();_autoSaveTimer=setInterval(function(){if(!_collectStateFn)return;try{var state=_collectStateFn();save(state);}catch(e){console.error('[CloudSync] Auto-save error:',e);}},intervalMs||AUTOSAVE_MS);}
 function stopAutoSave(){if(_autoSaveTimer){clearInterval(_autoSaveTimer);_autoSaveTimer=null;}}
 function _onOnline(){_online=true;_setStatus('saving','Reconnected...');if(_pendingSync&&_collectStateFn){try{var state=_collectStateFn();save(state);}catch(e){_setStatus('error','Sync failed');}}else{_setStatus('synced','Online');}}
