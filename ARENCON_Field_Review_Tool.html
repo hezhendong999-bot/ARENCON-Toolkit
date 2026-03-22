@@ -2010,12 +2010,12 @@ body.text-l{--ts:4px;}
 </div>
 
 <!-- PHOTO LIGHTBOX -->
-<div id="photo-lightbox" onclick="_lbHandleOverlayClick(event)" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.92);align-items:center;justify-content:center;cursor:zoom-out;">
+<div id="photo-lightbox" onclick="_lbHandleOverlayClick(event)" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.92);align-items:center;justify-content:center;cursor:zoom-out;overflow:hidden;touch-action:none;">
   <button onclick="event.stopPropagation();closeLightbox();" style="position:absolute;top:16px;right:20px;background:rgba(255,255,255,.15);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;">✕</button>
   <button onclick="lightboxPrev(event)" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;z-index:1;">‹</button>
   <div style="position:relative;max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center;">
     <div id="lb-photo-counter" style="color:rgba(255,255,255,.5);font-size:calc(13px + var(--ts));margin-bottom:6px;font-family:Calibri,sans-serif;min-height:20px;"></div>
-    <canvas id="lightbox-canvas" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:block;" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()" onmouseup="event.stopPropagation()"></canvas>
+    <canvas id="lightbox-canvas" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:block;touch-action:none;" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()" onmouseup="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchmove="event.stopPropagation()"></canvas>
     <img id="lightbox-img" src="" alt="" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:none;">
     <div style="margin-top:10px;display:flex;gap:8px;">
       <button onclick="event.stopPropagation();lightboxDrawMode()" id="lb-draw-btn" style="background:rgba(255,255,255,.15);border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">✏️ Mark up</button>
@@ -5927,7 +5927,6 @@ function zoomIn(){dvState.scale=Math.min(dvState.scale*1.3,10);applyTransform();
 function zoomOut(){var minS=dvState.fitScale||0.1;dvState.scale=Math.max(dvState.scale/1.3,minS);if(dvState.scale<=minS*1.05){fitDrawing();return;}applyTransform();}
 
 function initPanZoom(){var area=document.getElementById('dv-canvas-area');
-_mkDbg('initPZ: area='+!!area+' mkCanvas='+!!(area&&area.querySelector('#markup-canvas')));
 var na=area.cloneNode(true);area.parentNode.replaceChild(na,area);area=na;var sx,sy,pan=false;
 
 area.addEventListener('mousedown',function(e){
@@ -6399,7 +6398,6 @@ var _dwgFilterMode='all';
 // ═══ UNIFIED TOOLBAR — Replaces togglePinMode + toggleMarkupMode + setMarkupTool ═══
 function _syncCanvasMode(mc, mode){
   if(!mc) return;
-  _mkDbg('syncMode: mode='+mode+' mcId='+mc.id+' inDOM='+document.body.contains(mc));
   mc.classList.remove('drawing','erasing','text-mode','drawing-active','select-active');
   mc.style.pointerEvents='none';
   if(mode==='draw') { mc.classList.add('drawing','drawing-active'); mc.style.pointerEvents='auto'; }
@@ -6575,7 +6573,6 @@ function resizeMarkupCanvas(){
   var img=document.getElementById('dv-image');
   if(!canvas||!img)return;
   var iw=img.naturalWidth, ih=img.naturalHeight;
-  _mkDbg('resizeMC: iw='+iw+' ih='+ih+' cw='+canvas.width+' ch='+canvas.height+' inDOM='+document.body.contains(canvas));
   // Mobile cap: 1200px on iOS (was 2000 — reduces GPU memory from ~36MB to ~12MB per canvas)
   var _isMobileCap=(/iPad|iPhone|iPod/.test(navigator.userAgent))||(window.innerWidth<=900&&'ontouchstart' in window);
   var mkMaxDim=_isMobileCap?1200:3000;
@@ -7008,20 +7005,8 @@ function finishPolyline(){
 })();
 
 // ── MAIN EVENT SYSTEM ──
-var _mkDbgEl=null;
-function _mkDbg(msg){
-  if(!_mkDbgEl){
-    _mkDbgEl=document.createElement('div');
-    _mkDbgEl.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:rgba(0,0,0,.85);color:#0f0;font:11px monospace;padding:4px 8px;max-height:80px;overflow-y:auto;pointer-events:none;';
-    document.body.appendChild(_mkDbgEl);
-  }
-  _mkDbgEl.innerHTML=msg+'<br>'+_mkDbgEl.innerHTML;
-  if(_mkDbgEl.children.length>8)_mkDbgEl.innerHTML=[].slice.call(_mkDbgEl.children,0,8).map(function(c){return c.outerHTML;}).join('');
-}
 function initMarkupEvents(){
-  var canvas=document.getElementById('markup-canvas');
-  _mkDbg('initMkEv: canvas='+!!canvas+' mkInit='+!!(canvas&&canvas._mkInitV2)+' cw='+((canvas&&canvas.width)||0)+' pe='+(canvas?canvas.style.pointerEvents:'?'));
-  if(!canvas||canvas._mkInitV2)return;canvas._mkInitV2=true;
+  var canvas=document.getElementById('markup-canvas');if(!canvas||canvas._mkInitV2)return;canvas._mkInitV2=true;
   var _penPoints=[];
 
   // ── Eraser visual cursor ──
@@ -7386,7 +7371,6 @@ function initMarkupEvents(){
     if(window._mkCopyMode)renderAllMarkup();
   });
   canvas.addEventListener('touchstart',function(e){
-    _mkDbg('TS: tool='+mkState.tool+' da='+canvas.classList.contains('drawing-active')+' pe='+canvas.style.pointerEvents+' tgt='+e.target.tagName+'#'+e.target.id);
     // Always prevent default scroll if a markup tool or pin mode is active
     if(mkState.tool||dvState.pinMode){e.preventDefault();e.stopPropagation();}
     if(!canvas.classList.contains('drawing-active')&&!canvas.classList.contains('select-active'))return;
@@ -8316,7 +8300,7 @@ function _lbCancelText(){
 
 // ── MOUSE / TOUCH HANDLERS ──
 function _lbDown(e){
-  e.stopPropagation();
+  e.stopPropagation();e.preventDefault();
   var p=_lbGetPos(e);_lbMouse={down:true,x:p.x,y:p.y,sx:p.x,sy:p.y};
 
   if(_lbTool==='text'){_lbPlaceText(e);return;}
@@ -8379,7 +8363,7 @@ function _lbDown(e){
 }
 
 function _lbMove(e){
-  e.stopPropagation();if(!_lbMouse.down)return;
+  e.stopPropagation();e.preventDefault();if(!_lbMouse.down)return;
   var p=_lbGetPos(e);_lbMouse.x=p.x;_lbMouse.y=p.y;
 
   if(_lbTool==='select'){
@@ -8534,6 +8518,9 @@ function _lbHideToolbar(){
 function _lbEnableDrawEvents(){
   if(!_lbCanvas)return;
   _lbCanvas.style.cursor='crosshair';
+  _lbCanvas.style.touchAction='none';
+  var overlay=document.getElementById('photo-lightbox');
+  if(overlay)overlay.style.touchAction='none';
   _lbCanvas.addEventListener('mousedown',_lbDown);
   _lbCanvas.addEventListener('mousemove',_lbMove);
   _lbCanvas.addEventListener('mouseup',_lbUp);
@@ -8554,6 +8541,9 @@ function _lbEnableDrawEvents(){
 function _lbRemoveDrawEvents(){
   if(!_lbCanvas)return;
   _lbCanvas.style.cursor='';
+  _lbCanvas.style.touchAction='';
+  var overlay=document.getElementById('photo-lightbox');
+  if(overlay)overlay.style.touchAction='';
   _lbCanvas.removeEventListener('mousedown',_lbDown);
   _lbCanvas.removeEventListener('mousemove',_lbMove);
   _lbCanvas.removeEventListener('mouseup',_lbUp);
