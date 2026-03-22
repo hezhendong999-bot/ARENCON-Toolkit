@@ -1971,8 +1971,11 @@ async function _loadAndRenderInstances(proj) {
       + t.icon + ' ' + esc(t.name) + '</div>';
 
     if (instances.length > 0) {
+      var sfn = buildSmartFilename(proj);
       instances.forEach(function(inst) {
-        var title = inst.label || (shortName + ' Report #' + inst.instance_number);
+        var prefix = _TOOL_PREFIXES[key] || key.toUpperCase();
+        var defaultTitle = sfn ? (sfn + ' ' + prefix) : (shortName + ' Report #' + inst.instance_number);
+        var title = inst.label || defaultTitle;
         var date = inst.updated_at ? new Date(inst.updated_at).toLocaleDateString('en-CA') : '—';
         var by = inst.updated_by ? (userMap[inst.updated_by] || '—') : '—';
         var status = inst.status || 'draft';
@@ -2052,7 +2055,7 @@ async function createNewReport(key) {
       updated_by: userId
     });
     if (rows && rows.length > 0) {
-      toast(t.name + ' Report #' + nextNum + ' created', 'success');
+      toast(t.name + ' report created', 'success');
       // Launch it
       launchToolInstance(key, rows[0].id);
       // Refresh instances
@@ -2859,7 +2862,10 @@ async function loadRecentActivity() {
       var projLabel = proj ? (proj.project_number + ' · ' + proj.project_name) : '—';
       var toolLabel = _TOOL_SHORT_NAMES[r.tool_key] || r.tool_key;
       var user = _userMap[r.updated_by] || '—';
-      var title = r.label || (toolLabel + ' #' + r.instance_number);
+      var prefix = _TOOL_PREFIXES[r.tool_key] || r.tool_key.toUpperCase();
+      var sfnAct = proj ? buildSmartFilename(proj) : '';
+      var defaultTitle = sfnAct ? (sfnAct + ' ' + prefix) : (toolLabel + ' #' + r.instance_number);
+      var title = r.label || defaultTitle;
       var statusIcon = r.status === 'issued' ? '✅' : r.status === 'review' ? '🔵' : '📝';
       html += '<li class="activity-item">'
         + '<span class="ai-icon">' + statusIcon + '</span>'
