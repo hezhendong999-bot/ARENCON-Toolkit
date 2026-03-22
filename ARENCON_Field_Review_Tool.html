@@ -9613,16 +9613,11 @@ function _lbShowCurrentDirect(){
     var bw=Math.round(natW*bufScale),bh=Math.round(natH*bufScale);
     _lbCanvas.width=bw;
     _lbCanvas.height=bh;
-    // Compute display size: fit canvas within viewport minus toolbar/buttons space
-    var vpW=window.innerWidth*0.9;  // 90vw
-    var vpH=window.innerHeight*0.65; // leave room for toolbar, buttons, counter
-    var dispScale=Math.min(vpW/bw, vpH/bh, 1); // never upscale
-    var dispW=Math.round(bw*dispScale);
-    var dispH=Math.round(bh*dispScale);
-    _lbCanvas.style.width=dispW+'px';
-    _lbCanvas.style.height=dispH+'px';
-    _lbCanvas.style.maxWidth='';
-    _lbCanvas.style.maxHeight='';
+    // Match gallery lightbox sizing: let CSS handle the display constraints
+    _lbCanvas.style.width=bw+'px';
+    _lbCanvas.style.height=bh+'px';
+    _lbCanvas.style.maxWidth='95vw';
+    _lbCanvas.style.maxHeight='80vh';
     _lbCtx=_lbCanvas.getContext('2d');
     // No ctx.scale() — getPos maps directly to buffer coords
     _lbCanvas._dpr=1;
