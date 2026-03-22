@@ -292,6 +292,41 @@ body.dark-mode .ri-row .ri-title{color:var(--fg);}body.dark-mode .ri-row .ri-met
 .toast.error{background:#DC2626}
 .toast.info{background:var(--navy)}
 
+/* ═══ PIN LOCK SCREEN ═══ */
+.pin-lock{display:none;position:fixed;inset:0;z-index:500;background:linear-gradient(160deg,var(--navy) 0%,#1a1a2e 40%,var(--navy-mid) 100%);align-items:center;justify-content:center;flex-direction:column}
+.pin-lock.show{display:flex}
+.pin-lock-card{background:var(--card);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,.3);padding:36px 32px;width:90%;max-width:340px;text-align:center;position:relative;overflow:hidden}
+.pin-lock-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--arencon),#D4456A,var(--arencon))}
+.pin-lock-card img{height:44px;margin:0 auto 10px;display:block;padding:6px 10px;border-radius:8px}
+.pin-lock-title{font-size:calc(18px + var(--ts));font-weight:700;color:var(--fg);margin-bottom:4px}
+.pin-lock-sub{font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:20px}
+.pin-dots{display:flex;justify-content:center;gap:12px;margin-bottom:20px;min-height:24px}
+.pin-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all .15s}
+.pin-dot.filled{background:var(--arencon);border-color:var(--arencon)}
+.pin-dot.error{border-color:var(--red);background:var(--red);animation:pin-shake .4s}
+@keyframes pin-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.pin-error-msg{font-size:calc(12px + var(--ts));color:var(--red);min-height:20px;margin-bottom:8px;font-weight:500}
+.pin-numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:260px;margin:0 auto}
+.pin-key{width:100%;aspect-ratio:1.4;border:1.5px solid var(--border);border-radius:10px;background:var(--bg);color:var(--fg);font-size:24px;font-weight:600;font-family:Calibri,'Segoe UI',system-ui,sans-serif;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;-webkit-user-select:none;user-select:none}
+.pin-key:hover{border-color:var(--arencon);background:var(--arencon-light)}
+.pin-key:active{background:var(--arencon);color:#fff;transform:scale(.95)}
+.pin-key.blank{visibility:hidden;cursor:default}
+.pin-key.backspace{font-size:20px}
+.pin-lock-footer{margin-top:18px;font-size:calc(12px + var(--ts));color:var(--steel)}
+.pin-lock-footer button{background:none;border:none;color:var(--arencon);font-weight:600;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;padding:4px 8px}
+.pin-lock-footer button:hover{text-decoration:underline}
+
+/* ═══ PIN SETUP (in profile modal) ═══ */
+.pin-setup-section{margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.pin-setup-section h3{font-size:calc(15px + var(--ts));font-weight:700;margin-bottom:12px}
+.pin-setup-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.pin-setup-status{font-size:calc(13px + var(--ts));color:var(--fg);flex:1}
+.pin-setup-status .pin-active{color:var(--yes);font-weight:600}
+.pin-setup-status .pin-none{color:var(--steel);font-style:italic}
+.pin-input-group{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.pin-input-group input{width:140px;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:calc(18px + var(--ts));font-family:Calibri,sans-serif;text-align:center;letter-spacing:8px;background:var(--bg);color:var(--fg);outline:none;transition:all .2s}
+.pin-input-group input:focus{border-color:var(--arencon);box-shadow:0 0 0 3px var(--arencon-glow)}
+
 /* ═══ LOADING SPINNER ═══ */
 .spinner{display:inline-block;width:18px;height:18px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -926,11 +961,62 @@ body.text-l{--ts:4px;}
       <button class="dash-btn secondary" onclick="closeProfileModal()">Close</button>
       <button class="dash-btn primary" onclick="changePassword()">Update Password</button>
     </div>
+    <div class="pin-setup-section">
+      <h3>🔑 Lock PIN</h3>
+      <p style="font-size:calc(12px + var(--ts));color:var(--steel);margin-bottom:12px">Set a 4–8 digit PIN for automatic screen lock after inactivity</p>
+      <div class="pin-setup-row">
+        <div class="pin-setup-status" id="pin-status-text"><span class="pin-none">No PIN set</span></div>
+      </div>
+      <div id="pin-setup-form" style="display:none">
+        <div class="pin-input-group">
+          <input type="password" id="pin-current" placeholder="Current" maxlength="8" inputmode="numeric" pattern="[0-9]*" style="display:none">
+          <input type="password" id="pin-new" placeholder="New PIN" maxlength="8" inputmode="numeric" pattern="[0-9]*">
+          <input type="password" id="pin-confirm" placeholder="Confirm" maxlength="8" inputmode="numeric" pattern="[0-9]*">
+        </div>
+        <div class="modal-actions" style="margin-top:8px">
+          <button class="dash-btn secondary" onclick="_pinSetupCancel()">Cancel</button>
+          <button class="dash-btn primary" onclick="_pinSetupSave()">Save PIN</button>
+        </div>
+      </div>
+      <div id="pin-setup-actions">
+        <button class="dash-btn secondary" id="pin-set-btn" onclick="_pinSetupStart(false)">Set PIN</button>
+        <button class="dash-btn secondary" id="pin-change-btn" onclick="_pinSetupStart(true)" style="display:none">Change PIN</button>
+        <button class="dash-btn secondary" id="pin-remove-btn" onclick="_pinRemove()" style="display:none;color:var(--red);border-color:#FCA5A5">Remove PIN</button>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- ═══════════ TOAST ═══════════ -->
 <div class="toast" id="toast"></div>
+
+<!-- ═══════════ PIN LOCK SCREEN ═══════════ -->
+<div class="pin-lock" id="pin-lock">
+  <div class="pin-lock-card">
+    <img id="pin-lock-logo" src="" alt="ARENCON">
+    <div class="pin-lock-title">Session Locked</div>
+    <div class="pin-lock-sub" id="pin-lock-user">Enter PIN to continue</div>
+    <div class="pin-dots" id="pin-dots"></div>
+    <div class="pin-error-msg" id="pin-error"></div>
+    <div class="pin-numpad" id="pin-numpad">
+      <button class="pin-key" onclick="_pinKey('1')">1</button>
+      <button class="pin-key" onclick="_pinKey('2')">2</button>
+      <button class="pin-key" onclick="_pinKey('3')">3</button>
+      <button class="pin-key" onclick="_pinKey('4')">4</button>
+      <button class="pin-key" onclick="_pinKey('5')">5</button>
+      <button class="pin-key" onclick="_pinKey('6')">6</button>
+      <button class="pin-key" onclick="_pinKey('7')">7</button>
+      <button class="pin-key" onclick="_pinKey('8')">8</button>
+      <button class="pin-key" onclick="_pinKey('9')">9</button>
+      <button class="pin-key blank"></button>
+      <button class="pin-key" onclick="_pinKey('0')">0</button>
+      <button class="pin-key backspace" onclick="_pinBackspace()">⌫</button>
+    </div>
+    <div class="pin-lock-footer">
+      <button onclick="_pinSignOut()">Sign out instead</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════ OFFLINE BAR ═══════════ -->
 <div id="offline-bar" style="display:none;background:#E65100;color:#fff;text-align:center;padding:6px;font-weight:600;font-size:calc(12px + var(--ts));font-family:Calibri,'Segoe UI',system-ui,sans-serif;position:sticky;top:54px;z-index:99">
@@ -3776,6 +3862,311 @@ function _pgEscHtml(s) {
     <button onclick="pgLbDownload()">⬇ Download</button>
   </div>
 </div>
+<!-- ═══ PIN LOCK + INACTIVITY MANAGEMENT ═══ -->
+<script>
+(function(){
+  /* ── Constants ── */
+  var SOFT_LOCK_MS  = 4 * 60 * 60 * 1000;  // 4 hours → PIN lock
+  var HARD_LOCK_MS  = 8 * 60 * 60 * 1000;  // 8 hours → full sign-out
+  var CHECK_INTERVAL_MS = 60 * 1000;        // check every 60s
+  var LS_ACTIVITY_KEY = 'ARENCON_lastActivity';
+  var LS_PIN_LEN_KEY  = 'ARENCON_pinLen';   // cached digit count for dot rendering
+  var MAX_ATTEMPTS = 5;
+
+  var _pinEntry = '';
+  var _pinAttempts = 0;
+  var _pinHash = null;    // loaded from profile
+  var _pinDigitCount = 6; // default dot count, updated from LS cache or profile
+  var _checkTimer = null;
+  var _locked = false;
+
+  /* ── SHA-256 hash ── */
+  async function hashPin(pin) {
+    var enc = new TextEncoder().encode(pin);
+    var buf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+  }
+
+  /* ── Activity tracking ── */
+  function stampActivity() {
+    localStorage.setItem(LS_ACTIVITY_KEY, Date.now().toString());
+  }
+
+  function getLastActivity() {
+    var t = localStorage.getItem(LS_ACTIVITY_KEY);
+    return t ? parseInt(t, 10) : Date.now();
+  }
+
+  // Passive activity listeners — lightweight, shared across Hub + tools via localStorage
+  var _actThrottle = 0;
+  function onActivity() {
+    var now = Date.now();
+    if (now - _actThrottle < 30000) return; // throttle: max once per 30s
+    _actThrottle = now;
+    stampActivity();
+  }
+  document.addEventListener('click', onActivity, true);
+  document.addEventListener('touchstart', onActivity, true);
+  document.addEventListener('keydown', onActivity, true);
+
+  // Stamp on load
+  stampActivity();
+
+  /* ── Inactivity checker ── */
+  function startInactivityChecker() {
+    if (_checkTimer) clearInterval(_checkTimer);
+    _checkTimer = setInterval(checkInactivity, CHECK_INTERVAL_MS);
+    // Also check on visibility change (tab comes back)
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') checkInactivity();
+    });
+  }
+
+  function checkInactivity() {
+    // Only check if user is logged in and has a PIN set
+    if (!_user || !_pinHash || _locked) return;
+    var elapsed = Date.now() - getLastActivity();
+    if (elapsed >= HARD_LOCK_MS) {
+      // Full sign-out — no PIN option
+      doLogout();
+      return;
+    }
+    if (elapsed >= SOFT_LOCK_MS) {
+      showPinLock();
+    }
+  }
+
+  /* ── PIN lock screen ── */
+  function showPinLock() {
+    if (_locked) return;
+    _locked = true;
+    _pinEntry = '';
+    _pinAttempts = 0;
+
+    // Set logo
+    var logo = document.querySelector('.hdr img');
+    var lockLogo = document.getElementById('pin-lock-logo');
+    if (logo && lockLogo) lockLogo.src = logo.src;
+
+    // Set user name
+    var sub = document.getElementById('pin-lock-user');
+    if (sub && _profile) sub.textContent = (_profile.full_name || 'User') + ' — Enter PIN to continue';
+
+    // Render dots
+    renderPinDots();
+    document.getElementById('pin-error').textContent = '';
+    document.getElementById('pin-lock').classList.add('show');
+  }
+
+  function renderPinDots() {
+    var container = document.getElementById('pin-dots');
+    var html = '';
+    for (var i = 0; i < _pinDigitCount; i++) {
+      html += '<div class="pin-dot' + (i < _pinEntry.length ? ' filled' : '') + '"></div>';
+    }
+    // If user typed beyond cached digit count (shouldn't happen but be safe)
+    if (_pinEntry.length > _pinDigitCount) {
+      for (var j = _pinDigitCount; j < _pinEntry.length; j++) {
+        html += '<div class="pin-dot filled"></div>';
+      }
+    }
+    container.innerHTML = html;
+  }
+
+  window._pinKey = function(digit) {
+    if (_pinEntry.length >= 8) return; // hard max
+    _pinEntry += digit;
+    document.getElementById('pin-error').textContent = '';
+    renderPinDots();
+
+    // Auto-submit when entry matches cached digit count (or at least 4 digits)
+    if (_pinEntry.length >= _pinDigitCount && _pinEntry.length >= 4) {
+      setTimeout(verifyPin, 150);
+    }
+  };
+
+  window._pinBackspace = function() {
+    if (_pinEntry.length === 0) return;
+    _pinEntry = _pinEntry.slice(0, -1);
+    document.getElementById('pin-error').textContent = '';
+    renderPinDots();
+  };
+
+  async function verifyPin() {
+    var h = await hashPin(_pinEntry);
+    if (h === _pinHash) {
+      // Success
+      _locked = false;
+      _pinAttempts = 0;
+      stampActivity();
+      document.getElementById('pin-lock').classList.remove('show');
+      return;
+    }
+    // Wrong PIN
+    _pinAttempts++;
+    _pinEntry = '';
+    // Shake animation
+    var dots = document.getElementById('pin-dots').querySelectorAll('.pin-dot');
+    dots.forEach(function(d){ d.classList.add('error'); });
+    setTimeout(function(){
+      dots.forEach(function(d){ d.classList.remove('error'); });
+      renderPinDots();
+    }, 500);
+
+    var remaining = MAX_ATTEMPTS - _pinAttempts;
+    if (remaining <= 0) {
+      document.getElementById('pin-error').textContent = 'Too many attempts — signing out';
+      setTimeout(function(){ doLogout(); }, 1200);
+      return;
+    }
+    document.getElementById('pin-error').textContent = 'Wrong PIN — ' + remaining + ' attempt' + (remaining !== 1 ? 's' : '') + ' left';
+  }
+
+  // Keyboard input when lock is visible
+  document.addEventListener('keydown', function(e) {
+    if (!_locked) return;
+    if (e.key >= '0' && e.key <= '9') { _pinKey(e.key); e.preventDefault(); }
+    else if (e.key === 'Backspace') { _pinBackspace(); e.preventDefault(); }
+    else if (e.key === 'Enter' && _pinEntry.length >= 4) { verifyPin(); e.preventDefault(); }
+  });
+
+  window._pinSignOut = function() {
+    _locked = false;
+    document.getElementById('pin-lock').classList.remove('show');
+    doLogout();
+  };
+
+  /* ── Profile modal: PIN setup/change/remove ── */
+  var _pinSetupIsChange = false;
+
+  function refreshPinUI() {
+    var hasPin = !!_pinHash;
+    var statusEl = document.getElementById('pin-status-text');
+    if (hasPin) {
+      statusEl.innerHTML = '<span class="pin-active">✓ PIN is set (' + _pinDigitCount + ' digits)</span>';
+    } else {
+      statusEl.innerHTML = '<span class="pin-none">No PIN set</span>';
+    }
+    document.getElementById('pin-set-btn').style.display = hasPin ? 'none' : '';
+    document.getElementById('pin-change-btn').style.display = hasPin ? '' : 'none';
+    document.getElementById('pin-remove-btn').style.display = hasPin ? '' : 'none';
+    document.getElementById('pin-setup-form').style.display = 'none';
+    document.getElementById('pin-setup-actions').style.display = '';
+  }
+
+  window._pinSetupStart = function(isChange) {
+    _pinSetupIsChange = isChange;
+    document.getElementById('pin-current').value = '';
+    document.getElementById('pin-new').value = '';
+    document.getElementById('pin-confirm').value = '';
+    document.getElementById('pin-current').style.display = isChange ? '' : 'none';
+    document.getElementById('pin-setup-form').style.display = '';
+    document.getElementById('pin-setup-actions').style.display = 'none';
+    // Focus the right input
+    setTimeout(function(){
+      document.getElementById(isChange ? 'pin-current' : 'pin-new').focus();
+    }, 100);
+  };
+
+  window._pinSetupCancel = function() {
+    document.getElementById('pin-setup-form').style.display = 'none';
+    document.getElementById('pin-setup-actions').style.display = '';
+  };
+
+  window._pinSetupSave = async function() {
+    var newVal = document.getElementById('pin-new').value.trim();
+    var confirmVal = document.getElementById('pin-confirm').value.trim();
+
+    // Validate: digits only, 4-8 length
+    if (!/^\d{4,8}$/.test(newVal)) {
+      toast('PIN must be 4–8 digits', 'error');
+      return;
+    }
+    if (newVal !== confirmVal) {
+      toast('PINs do not match', 'error');
+      return;
+    }
+
+    // If changing, verify current PIN first
+    if (_pinSetupIsChange && _pinHash) {
+      var curVal = document.getElementById('pin-current').value.trim();
+      var curHash = await hashPin(curVal);
+      if (curHash !== _pinHash) {
+        toast('Current PIN is incorrect', 'error');
+        return;
+      }
+    }
+
+    // Hash and save
+    var newHash = await hashPin(newVal);
+    try {
+      await _sb.from('profiles').eq('id', _user.id).update({ pin_hash: newHash });
+      _pinHash = newHash;
+      _pinDigitCount = newVal.length;
+      localStorage.setItem(LS_PIN_LEN_KEY, _pinDigitCount.toString());
+      if (_profile) _profile.pin_hash = newHash;
+      refreshPinUI();
+      toast('PIN saved', 'success');
+    } catch (e) {
+      toast('Failed to save PIN: ' + e.message, 'error');
+    }
+  };
+
+  window._pinRemove = async function() {
+    // Simple confirmation via the numpad-style approach: just remove
+    try {
+      await _sb.from('profiles').eq('id', _user.id).update({ pin_hash: null });
+      _pinHash = null;
+      _pinDigitCount = 6;
+      localStorage.removeItem(LS_PIN_LEN_KEY);
+      if (_profile) _profile.pin_hash = null;
+      refreshPinUI();
+      toast('PIN removed', 'success');
+    } catch (e) {
+      toast('Failed to remove PIN: ' + e.message, 'error');
+    }
+  };
+
+  /* ── Hook into existing auth flow ── */
+  // After login/restore, load PIN hash and start checker
+  var _origShowApp = window.showApp;
+  window.showApp = function() {
+    _origShowApp();
+    // Load PIN from profile
+    if (_profile && _profile.pin_hash) {
+      _pinHash = _profile.pin_hash;
+      var cached = localStorage.getItem(LS_PIN_LEN_KEY);
+      _pinDigitCount = cached ? parseInt(cached, 10) : 6;
+    } else {
+      _pinHash = null;
+    }
+    refreshPinUI();
+    stampActivity();
+    startInactivityChecker();
+    // Check immediately in case returning to a stale tab
+    checkInactivity();
+  };
+
+  // Refresh PIN UI when profile modal opens
+  var _origOpenProfile = window.openProfileModal;
+  window.openProfileModal = function() {
+    _origOpenProfile();
+    refreshPinUI();
+  };
+
+  // Clear on logout
+  var _origDoLogout = window.doLogout;
+  window.doLogout = async function() {
+    _locked = false;
+    _pinHash = null;
+    _pinEntry = '';
+    document.getElementById('pin-lock').classList.remove('show');
+    if (_checkTimer) { clearInterval(_checkTimer); _checkTimer = null; }
+    await _origDoLogout();
+  };
+
+})();
+</script>
 <!-- PWA: QR code modal + service worker registration -->
 <script>
 (function(){
