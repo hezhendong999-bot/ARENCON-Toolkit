@@ -1,10 +1,8 @@
 [{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "com.arencon.toolkit",
-    "sha256_cert_fingerprints": [
-      "PLACEHOLDER"
-    ]
-  }
-}]
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.arencon.projecthub",
+        "sha256_cert_fingerprints": ["38:52:B1:8B:54:6E:8B:43:A4:6E:53:6D:A1:23:4A:A2:F9:2A:BD:98:66:38:16:E5:01:C7:B1:6A:28:3F:DD:B8"]
+      }
+    }]
