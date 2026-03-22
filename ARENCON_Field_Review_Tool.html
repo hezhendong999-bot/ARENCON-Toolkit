@@ -8097,7 +8097,7 @@ function _lbRenderAll(){
   if(!_lbCtx||!_lbCanvas)return;
   // Clear and redraw background photo
   _lbCtx.clearRect(0,0,_lbCanvas.width,_lbCanvas.height);
-  if(_lbBgImage)_lbCtx.drawImage(_lbBgImage,0,0);
+  if(_lbBgImage)_lbCtx.drawImage(_lbBgImage,0,0,_lbCanvas.width,_lbCanvas.height);
   // Separate highlights
   var highlights=[],others=[];
   _lbObjects.forEach(function(obj){
@@ -8185,7 +8185,7 @@ function _lbDrawObj(ctx,obj,isSelected){
       for(var e3=1;e3<obj.points.length;e3++)ex2.lineTo(obj.points[e3].x,obj.points[e3].y);
       ex2.stroke();
       var bc=document.createElement('canvas');bc.width=_lbCanvas.width;bc.height=_lbCanvas.height;
-      var bx=bc.getContext('2d');bx.drawImage(ec,0,0);bx.globalCompositeOperation='source-in';bx.drawImage(_lbBgImage,0,0);
+      var bx=bc.getContext('2d');bx.drawImage(ec,0,0);bx.globalCompositeOperation='source-in';bx.drawImage(_lbBgImage,0,0,_lbCanvas.width,_lbCanvas.height);
       ctx.drawImage(bc,0,0);
     }
   } else if(t==='text'){
