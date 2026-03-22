@@ -2013,7 +2013,7 @@ body.text-l{--ts:4px;}
 <div id="photo-lightbox" onclick="_lbHandleOverlayClick(event)" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.92);align-items:center;justify-content:center;cursor:zoom-out;overflow:hidden;touch-action:none;">
   <button onclick="event.stopPropagation();closeLightbox();" style="position:absolute;top:16px;right:20px;background:rgba(255,255,255,.15);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;">✕</button>
   <button onclick="lightboxPrev(event)" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;z-index:1;">‹</button>
-  <div style="position:relative;max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center;">
+  <div style="position:relative;max-width:95vw;max-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:10px 0;">
     <div id="lb-photo-counter" style="color:rgba(255,255,255,.5);font-size:calc(13px + var(--ts));margin-bottom:6px;font-family:Calibri,sans-serif;min-height:20px;"></div>
     <canvas id="lightbox-canvas" style="border-radius:6px;display:block;touch-action:none;" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()" onmouseup="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchmove="event.stopPropagation()"></canvas>
     <img id="lightbox-img" src="" alt="" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:none;">
@@ -9613,10 +9613,9 @@ function _lbShowCurrentDirect(){
     var bw=Math.round(natW*bufScale),bh=Math.round(natH*bufScale);
     _lbCanvas.width=bw;
     _lbCanvas.height=bh;
-    // Match gallery lightbox: img uses max-width:95vw max-height:90vh with aspect ratio preserved
-    // Canvas doesn't auto-preserve aspect ratio, so compute it manually
+    // Compute display size: fit within viewport, leave room for buttons+toolbar below (~160px)
     var maxW=window.innerWidth*0.95;
-    var maxH=window.innerHeight*0.90;
+    var maxH=window.innerHeight-180;
     var scale=Math.min(maxW/bw, maxH/bh, 1);
     _lbCanvas.style.width=Math.round(bw*scale)+'px';
     _lbCanvas.style.height=Math.round(bh*scale)+'px';
