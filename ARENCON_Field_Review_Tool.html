@@ -409,22 +409,21 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
 /* Header filename — unified display replacing duplicate titles */
 /* header-filename moved to project-bar */
 
-/* Mobile */
+/* Mobile — hamburger on tablets + phones (≤1024px) */
 .mobile-menu-btn{display:none;background:rgba(255,255,255,.12);border:none;color:white;padding:7px;border-radius:6px;cursor:pointer;font-size:20px;}
-@media(max-width:800px){
+@media(max-width:1024px){
   .mobile-menu-btn{display:block;}
   /* Hide ALL header-action children — keep only dark toggle + hamburger */
   .header-actions>*{display:none!important;}
   .header-actions>#dark-toggle{display:inline-flex!important;}
   .header-actions>.mobile-menu-btn{display:block!important;}
-  /* Hide left-side badges — JS also enforces this on resize */
+  /* Hide left-side badges — project bar handles these now */
   #r2-upload-badge{display:none!important;}
   #issue-status-badge{display:none!important;}
   .header-nav-arrows{display:none!important;}
   /* Cloud status: keep dot, hide text */
   #cloud-status-text{display:none!important;}
   #cloud-status{gap:0!important;padding:0!important;}
-  /* Filename: show but clamped */
   .app-title{display:none!important;}
   .section-nav .nav-tab{padding:10px 14px;font-size:calc(13px + var(--ts));}
   .proj-grid{grid-template-columns:1fr;}
@@ -10951,7 +10950,7 @@ document.addEventListener('DOMContentLoaded',function(){
 
   // ── Mobile header: hide overflow left-side badges on small screens ──
   function _applyMobileHeaderState(){
-    var isMob=window.innerWidth<=800;
+    var isMob=window.innerWidth<=1024;
     var r2b=document.getElementById('r2-upload-badge');
     if(r2b&&isMob)r2b.style.display='none';
     var hna=document.getElementById('header-nav-arrows');
@@ -12764,7 +12763,7 @@ async function _reuploadPDFsToR2(){
   setTimeout(function(){if(!window._syncHeartbeatTimer)_restartSyncAfterReup();},500);
 }
 
-function _isMobileHeader(){return window.innerWidth<=800;}
+function _isMobileHeader(){return window.innerWidth<=1024;}
 function _updateR2Badge(){
   var el=document.getElementById('r2-upload-badge');
   if(!el)return;
