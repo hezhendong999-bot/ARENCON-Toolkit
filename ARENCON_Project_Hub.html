@@ -3007,9 +3007,9 @@ function applyDark(on) {
 }
 
 /* ═══ Text Size Toggle — S/M/L ═══ */
-var _textSizes=['S','M','L'];
-var _textClasses={'S':'','M':'text-m','L':'text-l'};
-var _textLabels={'S':'Small','M':'Medium','L':'Large'};
+var _textSizes=['S','M'];
+var _textClasses={'S':'','M':'text-m'};
+var _textLabels={'S':'Small','M':'Medium'};
 function cycleTextSize(){
   var cur=localStorage.getItem('arencon-text-size')||'M';
   var idx=_textSizes.indexOf(cur);

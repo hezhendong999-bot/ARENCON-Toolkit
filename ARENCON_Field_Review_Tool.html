@@ -195,7 +195,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .pz-upload:hover{border-color:#9C2742;color:#9C2742;background:#fdf5f7;}
 /* Reports / Export / Review in header — already colored via hdr-* classes, skip */
 /* Mobile menu plain btns */
-.mobile-menu .btn{background:white;color:#37474f;border:1.5px solid #ccd0d8;}
+.mobile-menu .btn{background:white;color:#37474f;border:1.5px solid #ccd0d8;font-size:13px!important;padding:8px 14px!important;}
 .mobile-menu .btn:hover{background:#f5f0f2;border-color:#9C2742;color:#9C2742;}
 /* Pin status select */
 .pin-status-sel{width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:calc(12px + var(--ts));font-weight:700;cursor:pointer;}
@@ -444,7 +444,7 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
   .back-btn{padding:5px 10px;font-size:calc(13px + var(--ts));margin-right:4px;}
 }
 .mobile-menu-overlay{display:none;position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.5);}.mobile-menu-overlay.open{display:flex;}
-.mobile-menu{position:fixed;top:0;right:0;width:280px;height:100%;background:white;z-index:5001;box-shadow:-4px 0 20px rgba(0,0,0,.15);padding:20px;display:flex;flex-direction:column;gap:10px;}
+.mobile-menu{position:fixed;top:0;right:0;width:260px;height:100%;background:white;z-index:5001;box-shadow:-4px 0 20px rgba(0,0,0,.15);padding:16px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;}
 .mobile-menu .btn{width:100%;justify-content:flex-start;color:var(--slate);border:1.5px solid var(--border);background:white;}.mobile-menu .btn:hover{background:var(--smoke);}
 
 /* Offline indicator */
@@ -705,6 +705,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .dv-sidebar-tools{position:relative!important;width:100%!important;height:auto!important;max-height:none!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:space-evenly!important;overflow:visible!important;padding:4px 6px!important;gap:2px!important;border-right:none!important;border-bottom:1px solid #3a3e48!important;border-top:none!important;touch-action:manipulation!important;z-index:20!important;background:#1e2028!important;flex-shrink:0!important;order:0!important;}
 .dv-sidebar-tools .tool-sep{display:none!important;}
 .dv-sidebar-tools .tool-slider-wrap{display:none!important;}
+.dv-sidebar-tools .tool-stepper-wrap{display:none!important;}
 .dv-sidebar-tools .tool-colors{display:none!important;}
 .dv-sidebar-tools #tool-color-group{display:none!important;}
 .dv-sidebar-tools #mk-copy-btn{display:none!important;}
@@ -1029,6 +1030,10 @@ body.dark-mode .resp-consultant{background:#001a33;border-color:#003366;}
 .tool-slider-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;width:100%;}
 .tool-slider{-webkit-appearance:none;appearance:none;writing-mode:vertical-lr;direction:rtl;width:4px;height:50px;background:#3a3e48;border-radius:2px;outline:none;cursor:pointer;}
 .tool-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#9C2742;cursor:pointer;}
+/* Stepper buttons (replaces sliders globally) */
+.tool-stepper-wrap{display:flex;align-items:center;gap:3px;padding:2px 4px;}
+.tool-step-btn{width:28px;height:28px;border-radius:6px;border:none;background:rgba(255,255,255,.1);color:white;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+.tool-step-btn:active{background:rgba(255,255,255,.25);}
 /* ── Floating tooltip ── */
 #dv-tool-tooltip{transition:opacity .15s;}
 /* ── Wider sidebar to fit sliders (desktop only) ── */
@@ -1433,36 +1438,36 @@ body.text-l{--ts:4px;}
   </div>
 </div>
 <div class="mobile-menu-overlay" id="mobile-menu-overlay" onclick="closeMobileMenu()">
-  <div class="mobile-menu" onclick="event.stopPropagation()">
-    <h3 style="margin-bottom:10px;font-size:calc(16px + var(--ts));">Menu</h3>
+  <div class="mobile-menu" onclick="event.stopPropagation()" style="overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <h3 style="font-size:16px;margin:0;">Menu</h3>
+      <button onclick="closeMobileMenu();" style="background:none;border:none;font-size:20px;color:var(--silver);cursor:pointer;padding:4px;">✕</button>
+    </div>
     <button class="btn" id="mobile-pdf-btn" onclick="showPDFOptions();closeMobileMenu();" style="display:none;">📄 Reports</button>
     <button class="btn" id="mobile-review-btn" onclick="toggleReviewMode();closeMobileMenu();" style="display:none;">🔍 Review Mode</button>
-    <button class="btn" onclick="saveJSON();closeMobileMenu();">💾 Export Project (JSON)</button>
-    <button class="btn" onclick="openLoadModal();closeMobileMenu();">📂 Load JSON</button>
-    <div style="height:1px;background:rgba(255,255,255,.1);margin:6px 0;"></div>
-    <button class="btn" onclick="chooseFolder();closeMobileMenu();">📁 Link Folder</button>
+    <button class="btn" onclick="saveJSON();closeMobileMenu();">💾 Export Project</button>
+    <button class="btn" onclick="openLoadModal();closeMobileMenu();">📂 Load Project</button>
     <button class="btn" onclick="saveAsToFolder();closeMobileMenu();">💾 Save As (New Rev)</button>
-    <button class="btn" onclick="showInspector();closeMobileMenu();">👤 Inspector</button>
-    <div style="height:1px;background:rgba(255,255,255,.1);margin:6px 0;"></div>
-    <button class="btn" id="mobile-export-all" onclick="exportAllProjects();closeMobileMenu();" style="display:none;">📦 Export All Projects</button>
+    <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
+    <button class="btn" id="mobile-export-all" onclick="exportAllProjects();closeMobileMenu();" style="display:none;">📦 Export All</button>
     <button class="btn" style="color:#C62828;" onclick="resetCurrentProject();closeMobileMenu();">⚠️ Reset Project</button>
     <button class="btn" id="mobile-clear-all" style="color:#C62828;display:none;" onclick="showWipeConfirmation();closeMobileMenu();">🗑️ Clear All Data</button>
     <div id="mobile-repair-section" style="display:none;">
-      <div style="height:1px;background:rgba(255,255,255,.1);margin:6px 0;"></div>
-      <div style="font-size:calc(11px + var(--ts));color:rgba(255,255,255,.35);padding:2px 10px;font-family:Calibri,sans-serif;">🔧 Repair Tools</div>
-      <button class="btn" onclick="reuploadAllToCloud();closeMobileMenu();">☁️ Re-upload All</button>
-      <button class="btn" onclick="_reuploadPDFsToR2();closeMobileMenu();">📄 Fix Blurry</button>
-      <button class="btn" onclick="_r2CleanupOrphans();closeMobileMenu();">🧹 R2 Cleanup</button>
+      <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
+      <button class="btn" onclick="var rs=this.nextElementSibling;rs.style.display=rs.style.display==='none'?'':'none';" style="color:var(--silver);font-size:12px;">🔧 Repair Tools ▾</button>
+      <div style="display:none;padding-left:8px;">
+        <button class="btn" onclick="reuploadAllToCloud();closeMobileMenu();">☁️ Re-upload All</button>
+        <button class="btn" onclick="_reuploadPDFsToR2();closeMobileMenu();">📄 Fix Blurry</button>
+        <button class="btn" onclick="_r2CleanupOrphans();closeMobileMenu();">🧹 R2 Cleanup</button>
+      </div>
     </div>
     <button class="btn" id="mobile-signout-btn" onclick="signOutSession();closeMobileMenu();" style="display:none;color:#7B1FA2;font-weight:700;">🔓 Sign Out</button>
-    <div style="height:1px;background:rgba(255,255,255,.1);margin:6px 0;"></div>
-    <!-- Storage capacity -->
-    <div id="mobile-storage-info" style="padding:6px 10px;font-size:calc(11px + var(--ts));color:var(--silver);font-family:Calibri,sans-serif;">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span>💾</span><span id="mobile-storage-text">Calculating...</span></div>
+    <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
+    <div id="mobile-storage-info" style="padding:4px 10px;font-size:11px;color:var(--silver);font-family:Calibri,sans-serif;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span>💾</span><span id="mobile-storage-text">Calculating...</span></div>
       <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="mobile-storage-bar" style="height:100%;background:#1A7A4A;width:0%;border-radius:2px;transition:width .3s;"></div></div>
     </div>
-    <button class="btn" onclick="closeMobileMenu();">✕ Close</button>
-    <button class="btn" onclick="cycleTextSize();closeMobileMenu();" id="mobile-text-size-btn">Aa Text: Medium</button>
+    <button class="btn" onclick="cycleTextSize();closeMobileMenu();" id="mobile-text-size-btn" style="font-size:12px;">Aa Text: Medium</button>
   </div>
 </div>
 <input type="file" id="load-input" accept=".json" style="display:none" onchange="closeLoadModal();loadJSON(event)">
@@ -1867,23 +1872,31 @@ body.text-l{--ts:4px;}
         </div>
       </div>
       <div class="tool-sep"></div>
-      <!-- SIZE SLIDER -->
-      <div class="tool-slider-wrap" data-tip="Stroke width">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color:#888;flex-shrink:0;"><circle cx="12" cy="12" r="4"/></svg>
-        <input type="range" id="mk-size" min="1" max="30" step="0.5" value="1" class="tool-slider" oninput="updateSizeLabel(this.value);document.getElementById('mk-size-input').value=this.value" title="Stroke width">
-        <input type="number" id="mk-size-input" min="1" max="30" step="0.5" value="1" style="width:38px;font-size:9px;color:#ccc;background:transparent;border:1px solid #555;border-radius:3px;padding:2px 1px;text-align:center;font-family:Calibri,sans-serif;-moz-appearance:textfield;" oninput="var v=Math.max(1,Math.min(30,parseFloat(this.value)||1));document.getElementById('mk-size').value=v;updateSizeLabel(v)">
+      <!-- SIZE STEPPER -->
+      <div class="tool-stepper-wrap" data-tip="Stroke width">
+        <span style="font-size:9px;color:#888;">W</span>
+        <button class="tool-step-btn" onmousedown="_dvStep('size',-1)" ontouchstart="_dvStep('size',-1);event.preventDefault()">−</button>
+        <span id="mk-size-val" style="font-size:11px;color:#ccc;min-width:22px;text-align:center;">3</span>
+        <button class="tool-step-btn" onmousedown="_dvStep('size',1)" ontouchstart="_dvStep('size',1);event.preventDefault()">+</button>
+        <input type="range" id="mk-size" min="1" max="30" step="0.5" value="3" style="display:none;">
+        <input type="number" id="mk-size-input" value="3" style="display:none;">
       </div>
-      <!-- OPACITY SLIDER -->
-      <div class="tool-slider-wrap" data-tip="Opacity">
+      <!-- OPACITY STEPPER -->
+      <div class="tool-stepper-wrap" data-tip="Opacity">
         <span style="font-size:9px;color:#888;">α</span>
-        <input type="range" id="mk-opacity" min="10" max="100" value="100" class="tool-slider" oninput="updateOpacityLabel(this.value);document.getElementById('mk-opacity-input').value=this.value" title="Opacity">
-        <input type="number" id="mk-opacity-input" min="10" max="100" step="5" value="100" style="width:38px;font-size:9px;color:#ccc;background:transparent;border:1px solid #555;border-radius:3px;padding:2px 1px;text-align:center;font-family:Calibri,sans-serif;-moz-appearance:textfield;" oninput="var v=Math.max(10,Math.min(100,parseInt(this.value)||100));document.getElementById('mk-opacity').value=v;updateOpacityLabel(v)">
+        <button class="tool-step-btn" onmousedown="_dvStep('opacity',-1)" ontouchstart="_dvStep('opacity',-1);event.preventDefault()">−</button>
+        <span id="mk-opacity-val" style="font-size:11px;color:#ccc;min-width:26px;text-align:center;">100</span>
+        <button class="tool-step-btn" onmousedown="_dvStep('opacity',1)" ontouchstart="_dvStep('opacity',1);event.preventDefault()">+</button>
+        <input type="range" id="mk-opacity" min="10" max="100" value="100" style="display:none;">
+        <input type="number" id="mk-opacity-input" value="100" style="display:none;">
       </div>
-      <!-- TEXT SIZE (shown when text tool active) -->
-      <div class="tool-slider-wrap" id="mk-text-size-wrap" style="display:none;" data-tip="Text size">
+      <!-- TEXT SIZE STEPPER (shown when text tool active) -->
+      <div class="tool-stepper-wrap" id="mk-text-size-wrap" style="display:none;" data-tip="Text size">
         <span style="font-size:9px;color:#888;">T</span>
-        <input type="range" id="mk-text-size" min="10" max="72" value="20" class="tool-slider" oninput="updateTextSizeLabel(this.value)" title="Text size">
-        <span id="mk-text-size-label" style="font-size:9px;color:#888;min-width:18px;text-align:center;">20</span>
+        <button class="tool-step-btn" onmousedown="_dvStep('textsize',-1)" ontouchstart="_dvStep('textsize',-1);event.preventDefault()">−</button>
+        <span id="mk-text-size-label" style="font-size:11px;color:#ccc;min-width:22px;text-align:center;">20</span>
+        <button class="tool-step-btn" onmousedown="_dvStep('textsize',1)" ontouchstart="_dvStep('textsize',1);event.preventDefault()">+</button>
+        <input type="range" id="mk-text-size" min="10" max="72" value="20" style="display:none;">
       </div>
       <div class="tool-sep"></div>
       <!-- UNDO / REDO -->
@@ -2061,17 +2074,19 @@ body.text-l{--ts:4px;}
       </div>
       <!-- Separator -->
       <span style="width:1px;height:22px;background:rgba(255,255,255,.2);margin:0 2px;"></span>
-      <!-- Size slider -->
-      <div style="display:flex;align-items:center;gap:4px;" onclick="event.stopPropagation()">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="color:#888;flex-shrink:0;"><circle cx="12" cy="12" r="4"/></svg>
-        <input type="range" id="lb-size" min="1" max="30" step="0.5" value="4" onclick="event.stopPropagation()" oninput="event.stopPropagation();_lbSize=parseFloat(this.value);document.getElementById('lb-size-input').value=this.value" style="width:60px;accent-color:#9C2742;">
-        <input type="number" id="lb-size-input" min="1" max="30" step="0.5" value="4" onclick="event.stopPropagation()" oninput="event.stopPropagation();var v=Math.max(1,Math.min(30,parseFloat(this.value)||1));_lbSize=v;document.getElementById('lb-size').value=v" style="width:36px;font-size:calc(10px + var(--ts));color:#ccc;background:transparent;border:1px solid #555;border-radius:3px;padding:2px 1px;text-align:center;font-family:Calibri,sans-serif;-moz-appearance:textfield;">
+      <!-- Size stepper -->
+      <div style="display:flex;align-items:center;gap:3px;" onclick="event.stopPropagation()">
+        <span style="font-size:10px;color:#888;">W</span>
+        <button class="lb-tool-btn" style="width:28px;height:28px;font-size:15px;font-weight:700;" onclick="event.stopPropagation();_lbStepSize(-1)">−</button>
+        <span id="lb-size-val" style="font-size:11px;color:#ccc;min-width:20px;text-align:center;">4</span>
+        <button class="lb-tool-btn" style="width:28px;height:28px;font-size:15px;font-weight:700;" onclick="event.stopPropagation();_lbStepSize(1)">+</button>
       </div>
-      <!-- Opacity slider -->
-      <div style="display:flex;align-items:center;gap:4px;" onclick="event.stopPropagation()">
-        <span style="font-size:calc(10px + var(--ts));color:#888;">α</span>
-        <input type="range" id="lb-opacity" min="10" max="100" value="100" onclick="event.stopPropagation()" oninput="event.stopPropagation();_lbOpacity=parseInt(this.value)/100;document.getElementById('lb-opacity-input').value=this.value" style="width:60px;accent-color:#9C2742;">
-        <input type="number" id="lb-opacity-input" min="10" max="100" step="5" value="100" onclick="event.stopPropagation()" oninput="event.stopPropagation();var v=Math.max(10,Math.min(100,parseInt(this.value)||100));_lbOpacity=v/100;document.getElementById('lb-opacity').value=v" style="width:36px;font-size:calc(10px + var(--ts));color:#ccc;background:transparent;border:1px solid #555;border-radius:3px;padding:2px 1px;text-align:center;font-family:Calibri,sans-serif;-moz-appearance:textfield;">
+      <!-- Opacity stepper -->
+      <div style="display:flex;align-items:center;gap:3px;" onclick="event.stopPropagation()">
+        <span style="font-size:10px;color:#888;">α</span>
+        <button class="lb-tool-btn" style="width:28px;height:28px;font-size:15px;font-weight:700;" onclick="event.stopPropagation();_lbStepOpacity(-1)">−</button>
+        <span id="lb-opacity-val" style="font-size:11px;color:#ccc;min-width:26px;text-align:center;">100</span>
+        <button class="lb-tool-btn" style="width:28px;height:28px;font-size:15px;font-weight:700;" onclick="event.stopPropagation();_lbStepOpacity(1)">+</button>
       </div>
       <!-- Separator -->
       <span style="width:1px;height:22px;background:rgba(255,255,255,.2);margin:0 2px;"></span>
@@ -3330,9 +3345,9 @@ function toggleDarkMode(){document.body.classList.toggle('dark-mode');localStora
 function updateDarkToggleIcon(){var isDark=document.body.classList.contains('dark-mode');var icon=isDark?'🌙':'☀️';var dt=document.getElementById('dark-toggle');if(dt)dt.textContent=icon;var dvdt=document.getElementById('dv-dark-toggle');if(dvdt)dvdt.textContent=icon;}
 
 /* ═══ Text Size Toggle — S/M/L ═══ */
-var _appTextSizes=['S','M','L'];
-var _appTextClasses={'S':'','M':'text-m','L':'text-l'};
-var _appTextLabels={'S':'Small','M':'Medium','L':'Large'};
+var _appTextSizes=['S','M'];
+var _appTextClasses={'S':'','M':'text-m'};
+var _appTextLabels={'S':'Small','M':'Medium'};
 function cycleTextSize(){
   var cur=localStorage.getItem('arencon-text-size')||'M';
   var idx=_appTextSizes.indexOf(cur);
@@ -5778,8 +5793,8 @@ function openDrawingViewer(drawingId){
           });
           sb.appendChild(frag);
         }
-        // Hide sliders and undo/redo from sidebar (they live in context bar on mobile)
-        sb.querySelectorAll('.tool-slider-wrap').forEach(function(el){el.style.display='none';});
+        // Hide sliders/steppers and undo/redo from sidebar (they live in context bar on mobile)
+        sb.querySelectorAll('.tool-slider-wrap,.tool-stepper-wrap').forEach(function(el){el.style.display='none';});
         // Move sidebar-tools out of dv-main and into drawing-viewer-overlay, right after dv-mobile-context
         var overlay=document.getElementById('drawing-viewer');
         var ctx=document.getElementById('dv-mobile-context');
@@ -5802,7 +5817,7 @@ function openDrawingViewer(drawingId){
           main.insertBefore(sb,main.firstChild);
         }
         sb.style.cssText='';
-        sb.querySelectorAll('.tool-slider-wrap').forEach(function(el){el.style.display='';});
+        sb.querySelectorAll('.tool-slider-wrap,.tool-stepper-wrap').forEach(function(el){el.style.display='';});
         if(ca)ca.style.paddingBottom='';
         if(main)main.style.flexDirection='';
         var ctx2=document.getElementById('dv-mobile-context');
@@ -7615,6 +7630,28 @@ function _ctxStep(prop,dir){
     updateTextSizeLabel(nv3);
     var el3=document.getElementById('ctx-text-val');if(el3)el3.textContent=nv3;
   }
+}
+// Drawing viewer sidebar stepper — calls _ctxStep and also updates sidebar display
+function _dvStep(prop,dir){
+  _ctxStep(prop,dir);
+  // Sync sidebar value displays
+  if(prop==='size'){var el=document.getElementById('mk-size-val');var sl=document.getElementById('mk-size');if(el&&sl)el.textContent=Math.round(parseFloat(sl.value));}
+  if(prop==='opacity'){var el2=document.getElementById('mk-opacity-val');var sl2=document.getElementById('mk-opacity');if(el2&&sl2)el2.textContent=sl2.value;}
+  if(prop==='textsize'){var el3=document.getElementById('mk-text-size-label');var sl3=document.getElementById('mk-text-size');if(el3&&sl3)el3.textContent=sl3.value;}
+}
+// Lightbox stepper functions
+function _lbStepSize(dir){
+  var steps=[1,2,3,4,5,6,8,10,14,18,24,30];
+  var ci=0;for(var i=0;i<steps.length;i++){if(steps[i]<=_lbSize)ci=i;}
+  var ni=Math.max(0,Math.min(steps.length-1,ci+dir));
+  _lbSize=steps[ni];
+  var el=document.getElementById('lb-size-val');if(el)el.textContent=_lbSize;
+}
+function _lbStepOpacity(dir){
+  var cur=Math.round(_lbOpacity*100);
+  cur=Math.max(10,Math.min(100,cur+(dir*10)));
+  _lbOpacity=cur/100;
+  var el=document.getElementById('lb-opacity-val');if(el)el.textContent=cur;
 }
 function _updateMobileContext(){
   var ctx=document.getElementById('dv-mobile-context');
