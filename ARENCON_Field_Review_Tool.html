@@ -2786,13 +2786,13 @@ function exitReviewMode(){
 function acceptAllChanges(){
   if(!_reviewActive) return;
   var p = getProject(); if(!p) return;
-  if(!confirm('Accept all changes? This resets the baseline to the current state.')) return;
-  _reviewSnapshot = _takeSnapshot(p);
-  _updateReviewBadge();
-  // Clear blue borders
-  document.querySelectorAll('.rv-changed').forEach(function(el){ el.classList.remove('rv-changed'); });
-  document.querySelectorAll('.rv-dot').forEach(function(el){ el.classList.remove('has-changes'); });
-  toast('All changes accepted — new baseline set');
+  _aConfirm('Accept all changes? This resets the baseline to the current state.',function(){
+    _reviewSnapshot = _takeSnapshot(p);
+    _updateReviewBadge();
+    document.querySelectorAll('.rv-changed').forEach(function(el){ el.classList.remove('rv-changed'); });
+    document.querySelectorAll('.rv-dot').forEach(function(el){ el.classList.remove('has-changes'); });
+    toast('All changes accepted — new baseline set');
+  });
 }
 
 function _takeSnapshot(p){
@@ -3395,26 +3395,67 @@ function closeMoreMenu(){var m=document.getElementById('more-menu');if(m)m.class
 function confirmDownloadJSON(){
   var p=getProject();if(!p)return;
   var name=p.info.projectName||'Untitled';
-  _aConfirm('Download JSON backup of "'+name+'"?',function(){exportProjectJSON();});
+  _aConfirm('Download JSON backup of "'+name+'"?',function(){exportProjectJSON();},'Download');
 }
-// _aConfirm with callback for download confirmation
-function _aConfirm(msg,onOk){
+// _aConfirm / _aPrompt / _aAlert — callback-based custom modals (no async conversion needed)
+function _aConfirm(msg,onOk,okText){
   var isDark=document.body.classList.contains('dark-mode');
   var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7';
-  var ov=document.createElement('div');ov.id='_a-modal-overlay';
+  var ov=document.createElement('div');ov.className='_a-modal-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
   var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
-  h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+msg.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</div>';
+  h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
   h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
-  h+='<button id="_acCancel" style="padding:8px 20px;border:1.5px solid '+bdr+';border-radius:8px;background:none;color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
-  h+='<button id="_acOk" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Download</button>';
+  h+='<button class="_ac-cancel" style="padding:8px 20px;border:1.5px solid '+bdr+';border-radius:8px;background:none;color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
+  h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">'+(okText||'OK')+'</button>';
   h+='</div></div>';
   ov.innerHTML=h;
-  ov.addEventListener('click',function(e){if(e.target===ov){ov.remove();}});
-  ov.querySelector('#_acCancel').onclick=function(){ov.remove();};
-  ov.querySelector('#_acOk').onclick=function(){ov.remove();if(onOk)onOk();};
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  ov.querySelector('._ac-cancel').onclick=function(){ov.remove();};
+  ov.querySelector('._ac-ok').onclick=function(){ov.remove();if(onOk)onOk();};
   document.body.appendChild(ov);
+  ov.querySelector('._ac-ok').focus();
 }
+function _aPrompt(msg,defVal,onOk){
+  var isDark=document.body.classList.contains('dark-mode');
+  var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7',ibg=isDark?'#151a24':'#F8FAFC';
+  var ov=document.createElement('div');ov.className='_a-modal-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
+  h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:14px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
+  h+='<input class="_ap-input" type="text" value="'+_escAttr(defVal||'')+'" style="width:100%;padding:10px 14px;border:1.5px solid '+bdr+';border-radius:8px;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;background:'+ibg+';color:'+fg+';outline:none;margin-bottom:16px;box-sizing:border-box;">';
+  h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
+  h+='<button class="_ac-cancel" style="padding:8px 20px;border:1.5px solid '+bdr+';border-radius:8px;background:none;color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
+  h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
+  h+='</div></div>';
+  ov.innerHTML=h;
+  var inp=ov.querySelector('._ap-input');
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  ov.querySelector('._ac-cancel').onclick=function(){ov.remove();};
+  ov.querySelector('._ac-ok').onclick=function(){var v=inp.value;ov.remove();if(onOk)onOk(v);};
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){var v=inp.value;ov.remove();if(onOk)onOk(v);}if(e.key==='Escape')ov.remove();});
+  document.body.appendChild(ov);
+  inp.focus();inp.select();
+}
+function _aAlert(msg){
+  var isDark=document.body.classList.contains('dark-mode');
+  var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',bdr=isDark?'#2a3040':'#DDE1E7';
+  var ov=document.createElement('div');ov.className='_a-modal-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
+  h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
+  h+='<div style="display:flex;justify-content:flex-end;">';
+  h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
+  h+='</div></div>';
+  ov.innerHTML=h;
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  ov.querySelector('._ac-ok').onclick=function(){ov.remove();};
+  document.body.appendChild(ov);
+  ov.querySelector('._ac-ok').focus();
+}
+function _escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function _escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
 function switchTab(tab){currentTab=tab;sessionStorage.setItem('ARENCON_lastTab',tab);document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.toggle('active',t.getAttribute('data-tab')===tab);});document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+tab);});if(tab==='deficiencies')renderDeficiencyPanel();if(tab==='drawings')renderDrawingGallery();if(tab==='photos')renderPhotoGallery();if(tab==='pins'){if(typeof _tasksView!=='undefined'&&_tasksView==='kanban')renderPinsKanban();else renderTasksTable();}if(_reviewActive)setTimeout(_updateReviewBadge,100);}
 
 function goToDashboard(){
@@ -3847,7 +3888,7 @@ function closeDashMenu(){var m=document.getElementById('dash-context-menu');if(m
 
 function copyProjectLink(id){
   var url=window.location.href.split('#')[0]+'#'+id;
-  navigator.clipboard.writeText(url).then(function(){showToast('Link copied — share this URL with others who have the file');}).catch(function(){prompt('Copy this link:',url);});
+  navigator.clipboard.writeText(url).then(function(){showToast('Link copied — share this URL with others who have the file');}).catch(function(){_aAlert('Copy this link:\n'+url);});
 }
 function exportSingleProject(id){
   ADB.exportProjectJSON(id).then(function(p){
@@ -3864,7 +3905,7 @@ function exportSingleProject(id){
 function archiveProject(id){
   var p=allProjects[id];if(!p)return;
   var name=(p.info.projectName||'Untitled');
-  if(!confirm('Archive "'+name+'"?\n\nThis will:\n  • Export the project as a JSON file\n  • Delete it from this device\n\nYou can restore it anytime using Import.'))return;
+  _aConfirm('Archive "'+name+'"?\n\nThis will:\n  • Export the project as a JSON file\n  • Delete it from this device\n\nYou can restore it anytime using Import.',function(){
   ADB.exportProjectJSON(id).then(function(full){
     if(!full){showToast('Export failed — project not archived');return;}
     var blob=new Blob([JSON.stringify(full,null,2)],{type:'application/json'});
@@ -3886,6 +3927,7 @@ function archiveProject(id){
   }).catch(function(err){
     showToast('Archive failed: '+err.message);
   });
+  },'Archive');
 }
 
 function openQuickEditModal(id){
@@ -4113,7 +4155,7 @@ function toggleStatusDropdown(wrap,id){
 function setProjectStatus(id,status){
   var p=allProjects[id];if(!p)return;
   var labels={draft:'Draft',review:'Ready for Review',revision:'Revision Required',issued:'Issued'};
-  if(status==='issued'&&!confirm('Mark as Issued? This means the report has been sent out.'))return;
+  if(status==='issued'){_aConfirm('Mark as Issued? This means the report has been sent out.',function(){p.status=status;p.modified=new Date().toISOString();saveToLS();renderDashboard();showToast('Status → '+labels[status]);});return;}
   p.status=status;p.modified=new Date().toISOString();
   saveToLS();renderDashboard();
   showToast('Status → '+labels[status]);
@@ -4145,11 +4187,11 @@ function confirmCreateProject(){
   var cpNum=document.getElementById('cp-num');
   var cpName=document.getElementById('cp-name');
   var cpClient=document.getElementById('cp-client');
-  if(!cpNum||!cpName||!cpClient){alert('Modal fields not found');return;}
+  if(!cpNum||!cpName||!cpClient){_aAlert('Modal fields not found');return;}
   var num=cpNum.value.trim();
   var name=cpName.value.trim();
   var client=cpClient.value.trim();
-  if(!name){alert('Please enter a project name.');return;}
+  if(!name){_aAlert('Please enter a project name.');return;}
   var p=newProject({projectName:name,projectNumber:num,client:client});
   allProjects[p.id]=p;
   var ov=document.getElementById('create-project-overlay');
@@ -4164,7 +4206,7 @@ function confirmCreateProject(){
 }
 function exportStarredProjects(){
   var starred=Object.values(allProjects).filter(function(p){return p.starred;});
-  if(!starred.length){alert('No starred projects.');return;}
+  if(!starred.length){_aAlert('No starred projects.');return;}
   var promises=starred.map(function(p){return ADB.exportProjectJSON(p.id);});
   Promise.all(promises).then(function(projects){
     var all={};projects.forEach(function(p){if(p)all[p.id]=p;});
@@ -4177,7 +4219,7 @@ function exportStarredProjects(){
 }
 function exportUnstarredProjects(){
   var uns=Object.values(allProjects).filter(function(p){return !p.starred;});
-  if(!uns.length){alert('No unstarred projects.');return;}
+  if(!uns.length){_aAlert('No unstarred projects.');return;}
   var promises=uns.map(function(p){return ADB.exportProjectJSON(p.id);});
   Promise.all(promises).then(function(projects){
     var all={};projects.forEach(function(p){if(p)all[p.id]=p;});
@@ -4189,13 +4231,13 @@ function exportUnstarredProjects(){
   });
 }
 
-function deleteProject(id){var p=allProjects[id];if(!confirm('Delete "'+((p&&p.info.projectName)||'Untitled')+'"?'))return;delete allProjects[id];
+function deleteProject(id){var p=allProjects[id];_aConfirm('Delete "'+((p&&p.info.projectName)||'Untitled')+'"?',function(){delete allProjects[id];
   Promise.all([ADB.del('projects',id),
     ADB.getAllByIndex('drawings','projectId',id).then(function(ds){return Promise.all(ds.map(function(d){return ADB.del('drawings',d.id);}));}),
     ADB.getAllByIndex('photos','projectId',id).then(function(ps){return Promise.all(ps.map(function(p){return ADB.del('photos',p.id);}));}),
     ADB.getAllByIndex('sitePhotos','projectId',id).then(function(ps){return Promise.all(ps.map(function(p){return ADB.del('sitePhotos',p.id);}));})
   ]).then(function(){if(currentProjectId===id)goToDashboard();else renderDashboard();});
-}
+},'Delete');}
 function toggleStarProject(id,e){
   if(e)e.stopPropagation();
   if(!allProjects[id])return;
@@ -4232,7 +4274,7 @@ function quickAddDeficiency(){if(!currentProjectId)return;switchTab('deficiencie
 
 // ═══ FILE SYSTEM FOLDER ═══
 function chooseFolder(){
-  if(!window.showDirectoryPicker){alert('Your browser does not support folder saving. Use Chrome or Edge desktop.\n\nOn mobile, use the Export button to save/share files.');return;}
+  if(!window.showDirectoryPicker){_aAlert('Your browser does not support folder saving. Use Chrome or Edge desktop.\n\nOn mobile, use the Export button to save/share files.');return;}
   ADB.pickFolder().then(function(handle){
     toast('📁 Folder linked — auto-saving every 2 min');
     updateFolderButton();
@@ -4244,20 +4286,20 @@ function chooseFolder(){
       var inspName=_getInspectorName()||'Unknown';
       ADB.writeLockFile(fn,inspName);
     }
-  }).catch(function(e){if(e.name!=='AbortError')alert('Could not access folder: '+e);});
+  }).catch(function(e){if(e.name!=='AbortError')_aAlert('Could not access folder: '+e);});
 }
 function saveAsToFolder(){
-  // Always re-prompt for folder + optionally bump revision
-  if(!window.showDirectoryPicker){alert('Your browser does not support folder saving. Use Chrome or Edge desktop.');return;}
+  if(!window.showDirectoryPicker){_aAlert('Your browser does not support folder saving. Use Chrome or Edge desktop.');return;}
   var p=getProject();if(!p)return;
-  var rev=prompt('Revision for new save (current: '+(p.info.revision||'A01')+'):',bumpRevision(p.info.revision||'A01'));
+  _aPrompt('Revision for new save (current: '+(p.info.revision||'A01')+'):',bumpRevision(p.info.revision||'A01'),function(rev){
   if(!rev)return;
   p.info.revision=rev;saveToLS();populateProjectFields();updateSmartFilename();
   ADB.pickFolder().then(function(handle){
     toast('📁 New folder linked');
     updateFolderButton();
     manualSaveToFolder();
-  }).catch(function(e){if(e.name!=='AbortError')alert('Could not access folder: '+e);});
+  }).catch(function(e){if(e.name!=='AbortError')_aAlert('Could not access folder: '+e);});
+  });
 }
 function bumpRevision(rev){
   // A01→A02, B01→B02, B01A01→B01A02
@@ -4272,7 +4314,7 @@ function _getInspectorName(){
 }
 
 function forceUnlockAndEdit(){
-  if(!confirm('This will take over the lock from the other user.\nThey will lose the ability to save.\n\nAre you sure?'))return;
+  _aConfirm('This will take over the lock from the other user.\nThey will lose the ability to save.\n\nAre you sure?',function(){
   ADB.setReadOnly(false);
   var fn=ADB._openedJsonFilename||'';
   if(fn&&ADB.folderHandle){
@@ -4280,6 +4322,7 @@ function forceUnlockAndEdit(){
     ADB.writeLockFile(fn,inspName);
   }
   toast('✏️ Edit mode — you now have the lock');
+  });
 }
 function manualSaveToFolder(){
   if(!currentProjectId)return;
@@ -4486,14 +4529,14 @@ document.addEventListener('keydown',function(e){
 });
 
 // ═══ RESET ═══
-function resetCurrentProject(){if(!currentProjectId)return;if(!confirm('Reset this project? All data will be cleared.'))return;var p=getProject();var _ci=getInspectorName();var fresh=newProject({projectName:p.info.projectName,projectNumber:p.info.projectNumber,client:p.info.client,inspectorName:_ci});fresh.id=p.id;fresh.created=p.created;allProjects[currentProjectId]=fresh;saveToLS();populateProjectFields();switchTab('info');}
+function resetCurrentProject(){if(!currentProjectId)return;_aConfirm('Reset this project? All data will be cleared.',function(){var p=getProject();var _ci=getInspectorName();var fresh=newProject({projectName:p.info.projectName,projectNumber:p.info.projectNumber,client:p.info.client,inspectorName:_ci});fresh.id=p.id;fresh.created=p.created;allProjects[currentProjectId]=fresh;saveToLS();populateProjectFields();switchTab('info');});}
 
 function resetCurrentTab(){
   if(!currentProjectId||!currentTab)return;
   var p=getProject();if(!p)return;
   var labels={info:'Project Info',drawings:'all drawings',deficiencies:'all deficiencies',photos:'all site photos'};
   var label=labels[currentTab]||currentTab;
-  if(!confirm('Clear '+label+' for this project? This cannot be undone.'))return;
+  _aConfirm('Clear '+label+' for this project? This cannot be undone.',function(){
   pushUndo();
   if(currentTab==='drawings'){
     getAllDeficiencies(p).forEach(function(r){r.defic.drawingId=null;r.defic.pinX=null;r.defic.pinY=null;});
@@ -4504,7 +4547,6 @@ function resetCurrentTab(){
     p.generalDeficiencies=[];p.nextDeficNum=1;
     saveToLS();renderDeficiencyPanel();showToast('All deficiencies cleared.');
   }else if(currentTab==='photos'){
-    // Delete R2 copies of site photos
     if(_csHubMode&&typeof R2Photos!=='undefined'){
       var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
       siteArr.forEach(function(ph){
@@ -4519,6 +4561,7 @@ function resetCurrentTab(){
   }else if(currentTab==='info'){
     resetCurrentProject();return;
   }
+  });
 }
 
 // ═══ STUB FUNCTIONS for header buttons ═══
@@ -4559,7 +4602,7 @@ function showInspector(){
     chipDel.style.cssText='padding:4px 8px 4px 4px;border:none;background:transparent;color:#C0392B;font-size:calc(11px + var(--ts));cursor:pointer;opacity:.6;';
     chipDel.title='Remove '+name;
     chipDel.textContent='✕';
-    chipDel.onclick=function(e){e.stopPropagation();if(!confirm('Remove "'+name+'" from inspector history?'))return;_removeInspectorFromHistory(name);overlay.remove();showInspector();};
+    chipDel.onclick=function(e){e.stopPropagation();_aConfirm('Remove "'+name+'" from inspector history?',function(){_removeInspectorFromHistory(name);overlay.remove();showInspector();});};
     chipWrap.appendChild(chipLabel);chipWrap.appendChild(chipDel);
     chipsWrap.appendChild(chipWrap);
   });
@@ -4933,7 +4976,7 @@ function _handlePDFUploadCore(file){
     var arrayBuf=e.target.result;
     var pdfBufCopy=arrayBuf.slice(0);// Clone BEFORE pdf.js detaches the original
     var ta=new Uint8Array(arrayBuf);
-    var pdfTimeout=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
+    var pdfTimeout=setTimeout(function(){hideDrawingLoading();_aAlert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
     pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
       clearTimeout(pdfTimeout);
       var bn=file.name.replace(/\.pdf$/i,'');
@@ -4952,7 +4995,7 @@ function _handlePDFUploadCore(file){
         return;
       }
       _runPdfPages(pdf,bn,bn,total,pdfBufCopy);
-    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
+    }).catch(function(err){hideDrawingLoading();_aAlert('PDF error: '+err.message);});
   };
   reader.readAsArrayBuffer(file);
 }
@@ -5000,7 +5043,7 @@ function _runPdfPages(pdf,bn,folder,total,arrayBuf){
                 if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg);
                 if(pg<total){go(pg+1);}
                 else{renderDrawingGallery();hideDrawingLoading();}
-              }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
+              }catch(encErr){hideDrawingLoading();_aAlert('Error on page '+pg+': '+encErr.message);}
             },0);
           });
         });
@@ -5269,17 +5312,18 @@ function _updateSelectionUI(){
 }
 function getSelectedDrawings(){return Array.from(_selectedDrawings);}
 
-function createDrawingFolder(){var name=prompt('Folder name:');if(!name)return;var p=getProject();if(!p._folders)p._folders=[];p._folders.push(name);saveToLS();renderDrawingGallery();}
+function createDrawingFolder(){_aPrompt('Folder name:','',function(name){if(!name)return;var p=getProject();if(!p._folders)p._folders=[];p._folders.push(name);saveToLS();renderDrawingGallery();});}
 function toggleFolder(fname){var p=getProject();if(!p._collapsedFolders)p._collapsedFolders={};p._collapsedFolders[fname]=!p._collapsedFolders[fname];saveToLS();renderDrawingGallery();}
 function renameFolderAction(fname){
   document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
-  var nn=prompt('Rename folder:',fname);
+  _aPrompt('Rename folder:',fname,function(nn){
   if(nn&&nn!==fname){var p=getProject();p.drawings.forEach(function(d){if(d.folder===fname)d.folder=nn;});if(p._folders){var idx=p._folders.indexOf(fname);if(idx>=0)p._folders[idx]=nn;}saveToLS();renderDrawingGallery();}
+  });
 }
 
 // ── Folder rename via button ──
 function promptFolderRename(fname){
-  var nn=prompt('Rename folder:',fname);
+  _aPrompt('Rename folder:',fname,function(nn){
   if(nn&&nn.trim()&&nn.trim()!==fname){
     var p=getProject();
     p.drawings.forEach(function(d){if(d.folder===fname)d.folder=nn.trim();});
@@ -5287,6 +5331,7 @@ function promptFolderRename(fname){
     if(_selectedFolders.has(fname)){_selectedFolders.delete(fname);_selectedFolders.add(nn.trim());}
     saveToLS();renderDrawingGallery();
   }
+  });
 }
 function addToFolderAction(fname){
   document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
@@ -5322,7 +5367,7 @@ function _handlePDFUploadToFolderCore(file,folder){
     var arrayBuf=e.target.result;
     var pdfBufCopy2=arrayBuf.slice(0);// Clone BEFORE pdf.js detaches the original
     var ta=new Uint8Array(arrayBuf);
-    var pdfTimeout2=setTimeout(function(){hideDrawingLoading();alert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
+    var pdfTimeout2=setTimeout(function(){hideDrawingLoading();_aAlert('PDF is taking too long (>2 min). Try a smaller file.');},120000);
     pdfjsLib.getDocument({data:ta}).promise.then(function(pdf){
       clearTimeout(pdfTimeout2);
       var bn=file.name.replace(/\.pdf$/i,'');
@@ -5340,7 +5385,7 @@ function _handlePDFUploadToFolderCore(file,folder){
         return;
       }
       _runPdfPagesToFolder(pdf,bn,folder,total,pdfBufCopy2);
-    }).catch(function(err){hideDrawingLoading();alert('PDF error: '+err.message);});
+    }).catch(function(err){hideDrawingLoading();_aAlert('PDF error: '+err.message);});
   };
   reader.readAsArrayBuffer(file);
 }
@@ -5385,7 +5430,7 @@ function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
                 if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwg2);
                 if(pg<total){go(pg+1);}
                 else{renderDrawingGallery();hideDrawingLoading();}
-              }catch(encErr){hideDrawingLoading();alert('Error on page '+pg+': '+encErr.message);}
+              }catch(encErr){hideDrawingLoading();_aAlert('Error on page '+pg+': '+encErr.message);}
             },0);
           });
         });
@@ -5404,8 +5449,9 @@ function downloadFolderDrawings(fname){
 }
 function deleteFolderAction(fname){
   document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
-  if(!confirm('Delete folder "'+fname+'"? Drawings will be moved to Unfiled.'))return;
+  _aConfirm('Delete folder "'+fname+'"? Drawings will be moved to Unfiled.',function(){
   var p=getProject();p.drawings.forEach(function(d){if(d.folder===fname)d.folder='';});saveToLS();renderDrawingGallery();
+  },'Delete');
 }
 function toggleActionsMenu(e){e.stopPropagation();document.getElementById('dwg-actions-menu').classList.toggle('open');}
 
@@ -5433,18 +5479,19 @@ function moveDrawingToFolder(id){
   var folders={};p.drawings.forEach(function(x){if(x.folder)folders[x.folder]=true;});
   var flist=Object.keys(folders).sort();
   var opts=['(Unfiled)'].concat(flist).concat(['+ New folder']);
-  var ch=prompt('Move to folder:\n'+opts.map(function(o,i){return i+': '+o;}).join('\n'));
-  if(ch===null)return;var idx=parseInt(ch);
+  _aPrompt('Move to folder:\n'+opts.map(function(o,i){return i+': '+o;}).join('\n'),'',function(ch){
+  if(ch===null||ch==='')return;var idx=parseInt(ch);
   if(idx===0)d.folder='';else if(idx>0&&idx<=flist.length)d.folder=flist[idx-1];
-  else if(idx===flist.length+1){var nn=prompt('New folder name:');if(nn)d.folder=nn;}
+  else if(idx===flist.length+1){_aPrompt('New folder name:','',function(nn){if(nn){d.folder=nn;saveToLS();renderDrawingGallery();}});return;}
   saveToLS();renderDrawingGallery();
+  });
 }
 // rotateDrawing: see features section
 
-function batchMoveDrawings(){if(!_selectedDrawings.size){alert('No drawings selected.');return;}var p=getProject();var folders={};p.drawings.forEach(function(x){if(x.folder)folders[x.folder]=true;});var flist=Object.keys(folders);var opts=['(Unfiled)'].concat(flist).concat(['+ New folder']);var ch=prompt('Move '+_selectedDrawings.size+' drawings to:\n'+opts.map(function(o,i){return i+': '+o;}).join('\n'));if(ch===null)return;var idx=parseInt(ch);var target='';if(idx===0)target='';else if(idx>0&&idx<=flist.length)target=flist[idx-1];else if(idx===flist.length+1){var nn=prompt('New folder name:');if(nn)target=nn;else return;}p.drawings.forEach(function(d){if(_selectedDrawings.has(d.id))d.folder=target;});_selectedDrawings.clear();saveToLS();renderDrawingGallery();}
-function batchRenameDrawings(){if(!_selectedDrawings.size){alert('No drawings selected.');return;}var prefix=prompt('Rename all selected with prefix (e.g. "FP"):');if(!prefix)return;var p=getProject();var n=1;p.drawings.forEach(function(d){if(_selectedDrawings.has(d.id)){d.name=prefix+'-'+n;n++;}});_selectedDrawings.clear();saveToLS();renderDrawingGallery();}
+function batchMoveDrawings(){if(!_selectedDrawings.size){_aAlert('No drawings selected.');return;}var p=getProject();var folders={};p.drawings.forEach(function(x){if(x.folder)folders[x.folder]=true;});var flist=Object.keys(folders);var opts=['(Unfiled)'].concat(flist).concat(['+ New folder']);_aPrompt('Move '+_selectedDrawings.size+' drawings to:\n'+opts.map(function(o,i){return i+': '+o;}).join('\n'),'',function(ch){if(ch===null||ch==='')return;var idx=parseInt(ch);var target='';if(idx===0)target='';else if(idx>0&&idx<=flist.length)target=flist[idx-1];else if(idx===flist.length+1){_aPrompt('New folder name:','',function(nn){if(nn){p.drawings.forEach(function(d){if(_selectedDrawings.has(d.id))d.folder=nn;});_selectedDrawings.clear();saveToLS();renderDrawingGallery();}});return;}p.drawings.forEach(function(d){if(_selectedDrawings.has(d.id))d.folder=target;});_selectedDrawings.clear();saveToLS();renderDrawingGallery();});}
+function batchRenameDrawings(){if(!_selectedDrawings.size){_aAlert('No drawings selected.');return;}_aPrompt('Rename all selected with prefix (e.g. "FP"):','',function(prefix){if(!prefix)return;var p=getProject();var n=1;p.drawings.forEach(function(d){if(_selectedDrawings.has(d.id)){d.name=prefix+'-'+n;n++;}});_selectedDrawings.clear();saveToLS();renderDrawingGallery();});}
 function batchDeleteDrawings(){
-  if(!_selectedDrawings.size&&!_selectedFolders.size){alert('No drawings or folders selected.');return;}
+  if(!_selectedDrawings.size&&!_selectedFolders.size){_aAlert('No drawings or folders selected.');return;}
   var p=getProject();if(!p)return;
   // Count what will be deleted
   var dwgCount=_selectedDrawings.size;
@@ -5453,24 +5500,22 @@ function batchDeleteDrawings(){
   if(dwgCount&&folderCount)msg+=dwgCount+' drawing'+(dwgCount>1?'s':'')+' and '+folderCount+' folder'+(folderCount>1?'s':'')+'?';
   else if(folderCount)msg+=folderCount+' folder'+(folderCount>1?'s':'')+' and all drawings inside?';
   else msg+=dwgCount+' selected drawing'+(dwgCount>1?'s':'')+'?';
-  if(!confirm(msg))return;
+  _aConfirm(msg,function(){
   // Delete drawings in selected folders
   if(_selectedFolders.size){
     p.drawings=p.drawings.filter(function(d){
       if(_selectedFolders.has(d.folder||'unfiled'))return false;
       return true;
     });
-    // Remove folder entries
     if(p._folders){p._folders=p._folders.filter(function(fn){return!_selectedFolders.has(fn);});}
   }
-  // Delete individually selected drawings
   if(_selectedDrawings.size){
     p.drawings=p.drawings.filter(function(d){return!_selectedDrawings.has(d.id);});
   }
-  // Clean up any now-empty folders
   _cleanEmptyFolders(p);
   _selectedDrawings.clear();_selectedFolders.clear();
   pushUndo();saveToLS();renderDrawingGallery();toast('Deleted');
+  },'Delete');
 }
 var _selectedFolders=new Set();
 function _cleanEmptyFolders(p){
@@ -5478,12 +5523,12 @@ function _cleanEmptyFolders(p){
   var usedFolders={};p.drawings.forEach(function(d){if(d.folder)usedFolders[d.folder]=true;});
   p._folders=p._folders.filter(function(fn){return usedFolders[fn];});
 }
-function renameDrawing(id){var p=getProject();var d=p.drawings.find(function(x){return x.id===id;});if(!d)return;var n=prompt('Rename:',d.name);if(n){d.name=n;saveToLS();renderDrawingGallery();}}
-function removeDrawing(id){if(!confirm('Delete this drawing?'))return;var p=getProject();p.drawings=p.drawings.filter(function(x){return x.id!==id;});(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});});(p.generalDeficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});// Immediate IDB delete + save — bypass debounce so deletion survives page refresh
+function renameDrawing(id){var p=getProject();var d=p.drawings.find(function(x){return x.id===id;});if(!d)return;_aPrompt('Rename:',d.name,function(n){if(n){d.name=n;saveToLS();renderDrawingGallery();}});}
+function removeDrawing(id){_aConfirm('Delete this drawing?',function(){var p=getProject();p.drawings=p.drawings.filter(function(x){return x.id!==id;});(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});});(p.generalDeficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});
 ADB.delete('drawings',id).catch(function(){});
 ADB.saveFullProject(p).then(function(){ADB.markDirty();updateSaveTimestamp();}).catch(function(e){console.error('Delete save error',e);});
 _debouncedCloudSave();
-renderDrawingGallery();}
+renderDrawingGallery();},'Delete');}
 
 
 // ══════════════════════════════════════════════════════════════
@@ -6159,7 +6204,7 @@ function deleteAllMarkupOnDrawing(){
   if(!dvState.currentDrawingId)return;
   var count=_mkObjects.length;
   if(!count){toast('No markup on this drawing.');return;}
-  if(!confirm('Delete all '+count+' markup object'+(count!==1?'s':'')+' on this drawing? This cannot be undone.'))return;
+  _aConfirm('Delete all '+count+' markup object'+(count!==1?'s':'')+' on this drawing? This cannot be undone.',function(){
   mkPushHistory();_mkObjects=[];
   var p=getProject();
   if(p&&dvState.currentDrawingId){
@@ -6186,6 +6231,7 @@ function deleteAllMarkupOnDrawing(){
   }
   renderAllMarkup();saveMarkupData();_forceCloudSave();
   toast('🗑️ Deleted '+count+' markup object'+(count!==1?'s':''));
+  },'Delete');
 }
 function deleteAllPinsOnDrawing(){
   if(!dvState.currentDrawingId)return;
@@ -6193,10 +6239,11 @@ function deleteAllPinsOnDrawing(){
   var ad=getAllDeficiencies(p);
   var pins=ad.filter(function(d){return d.defic.drawingId===dvState.currentDrawingId&&d.defic.pinX!=null;});
   if(!pins.length){toast('No pins on this drawing.');return;}
-  if(!confirm('Delete all '+pins.length+' pin'+(pins.length!==1?'s':'')+' and their linked deficiencies from this drawing? This cannot be undone.'))return;
+  _aConfirm('Delete all '+pins.length+' pin'+(pins.length!==1?'s':'')+' and their linked deficiencies from this drawing? This cannot be undone.',function(){
   pins.forEach(function(d){d.arr.splice(d.idx,1);});
   saveToLS();_folderQuickSave();renderPinsOnDrawing();renderTasksPanel();renderDeficiencyPanel();
   toast('🗑️ Deleted '+pins.length+' pin'+(pins.length!==1?'s':''));
+  },'Delete');
 }
 function handlePinDrop(e){var _lp=getProject();if(_lp&&_lp.info&&_lp.info.locked){toast('Project is locked. Admin unlock required.');return;}var img=document.getElementById('dv-image');if(!img)return;var r=img.getBoundingClientRect();var px=(e.clientX-r.left)/r.width,py=(e.clientY-r.top)/r.height;if(px>=0&&px<=1&&py>=0&&py<=1)createPinDeficiency(px,py);}
 function handlePinDropTouch(e){var _lpt=getProject();if(_lpt&&_lpt.info&&_lpt.info.locked)return;var img=document.getElementById('dv-image');if(!img||!e.touches.length)return;var r=img.getBoundingClientRect();var px=(e.touches[0].clientX-r.left)/r.width,py=(e.touches[0].clientY-r.top)/r.height;if(px>=0&&px<=1&&py>=0&&py<=1)createPinDeficiency(px,py);}
@@ -8686,12 +8733,12 @@ function _replacePhotoInProject(p,oldSrc,newSrc){
 }
 
 // ═══ CONTRACTOR DEFICIENCY SYSTEM — Pump Tool Style ═══
-function addContractor(){var input=document.getElementById('new-contractor-input');var name=(input.value||'').trim();if(!name)return;var p=getProject();if(p.contractors.some(function(c){return c.name.toLowerCase()===name.toLowerCase();})){alert('"'+name+'" already exists.');return;}p.contractors.push({id:'ctr_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,deficiencies:[]});input.value='';saveToLS();_folderQuickSave();renderDeficiencyPanel();}
-function removeContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;if(c.deficiencies.length>0){if(!confirm('"'+c.name+'" has '+c.deficiencies.length+' deficiencies. Move to General?'))return;c.deficiencies.forEach(function(d){p.generalDeficiencies.push(d);});}else if(!confirm('Remove "'+c.name+'"?'))return;p.contractors=p.contractors.filter(function(x){return x.id!==cid;});saveToLS();_folderQuickSave();renderDeficiencyPanel();}
+function addContractor(){var input=document.getElementById('new-contractor-input');var name=(input.value||'').trim();if(!name)return;var p=getProject();if(p.contractors.some(function(c){return c.name.toLowerCase()===name.toLowerCase();})){_aAlert('"'+name+'" already exists.');return;}p.contractors.push({id:'ctr_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,deficiencies:[]});input.value='';saveToLS();_folderQuickSave();renderDeficiencyPanel();}
+function removeContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;function _doRemove(){p.contractors=p.contractors.filter(function(x){return x.id!==cid;});saveToLS();_folderQuickSave();renderDeficiencyPanel();}if(c.deficiencies.length>0){_aConfirm('"'+c.name+'" has '+c.deficiencies.length+' deficiencies. Move to General?',function(){c.deficiencies.forEach(function(d){p.generalDeficiencies.push(d);});_doRemove();});}else{_aConfirm('Remove "'+c.name+'"?',function(){_doRemove();},'Remove');}}
 function renderDeficiencyPanel(){renderContractorChips();renderDeficGroups();renderSummaryTable();setTimeout(function(){populateRespPhotos();_loadDataSrcImgs(document.getElementById('panel-deficiencies'));},50);if(_reviewActive)setTimeout(_updateReviewBadge,100);}
 function renderContractorChips(){var p=getProject();if(!p)return;var el=document.getElementById('contractor-chips');if(!p.contractors.length){el.innerHTML='<span style="color:#999;font-size:calc(13px + var(--ts));">No contractors added yet.</span>';return;}el.innerHTML=p.contractors.map(function(c){return'<div class="contractor-chip"><span>'+escHtml(c.name)+'</span><button onclick="renameContractor(\''+c.id+'\')" title="Rename" style="background:none;border:none;cursor:pointer;font-size:calc(11px + var(--ts));padding:0 2px;opacity:.7;color:inherit;">✏</button><button onclick="removeContractor(\''+c.id+'\')" title="Remove">✕</button></div>';}).join('');}
-function renameContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;var nn=prompt('Rename contractor:',c.name);if(!nn||!nn.trim()||nn.trim()===c.name)return;nn=nn.trim();if(p.contractors.some(function(x){return x.id!==cid&&x.name.toLowerCase()===nn.toLowerCase();})){alert('"'+nn+'" already exists.');return;}var oldName=c.name;c.name=nn;// Update _foldedCtrs key if it was set
-if(_foldedCtrs[oldName]){_foldedCtrs[nn]=_foldedCtrs[oldName];delete _foldedCtrs[oldName];}saveToLS();renderDeficiencyPanel();}
+function renameContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;_aPrompt('Rename contractor:',c.name,function(nn){if(!nn||!nn.trim()||nn.trim()===c.name)return;nn=nn.trim();if(p.contractors.some(function(x){return x.id!==cid&&x.name.toLowerCase()===nn.toLowerCase();})){_aAlert('"'+nn+'" already exists.');return;}var oldName=c.name;c.name=nn;
+if(_foldedCtrs[oldName]){_foldedCtrs[nn]=_foldedCtrs[oldName];delete _foldedCtrs[oldName];}saveToLS();renderDeficiencyPanel();});}
 function renderDeficGroups(){var p=getProject();if(!p)return;var el=document.getElementById('defic-groups');if(!p.contractors.length&&!p.generalDeficiencies.length){el.innerHTML='<p style="color:#999;font-size:calc(13px + var(--ts));padding:12px 0;text-align:center;">Add a contractor above to start recording deficiencies.</p>';return;}var html='';p.contractors.forEach(function(c){html+=buildDeficGroup(c.id,c.name,c.deficiencies);});if(p.generalDeficiencies.length>0)html+=buildDeficGroup(null,'General',p.generalDeficiencies);el.innerHTML=html;}
 
 function buildDeficGroup(ctrId,name,items){var safeId=ctrId||'general';var folded=_foldedCtrs[name]||false;var arrow=folded?'\u25B8':'\u25BE';var safeName=name.replace(/'/g,"\\'");var html='<div class="defic-group"><div class="defic-group-header" onclick="toggleCtrFold(\''+safeName+'\')" style="cursor:pointer;user-select:none;"><span style="display:flex;align-items:center;gap:8px;"><span class="ctr-fold-arrow">'+arrow+'</span> \uD83D\uDC77 '+escHtml(name)+'</span><span style="font-size:calc(12px + var(--ts));opacity:.7;">'+items.length+' item'+(items.length!==1?'s':'')+'</span></div>';if(folded){html+='</div>';return html;}if(!items.length)html+='<div class="defic-group-empty">No deficiencies for this contractor.</div>';items.forEach(function(d,i){html+=buildDeficItem(d,ctrId,i);});html+='<div class="add-defic-btn-wrap"><button class="btn btn-outline btn-sm" onclick="addDeficiencyForGroup(\''+(ctrId||'')+'\')">+ Add Deficiency</button><button class="btn btn-outline btn-sm" onclick="showDeficTemplates(\''+(ctrId||'')+'\')">📋 Templates</button></div></div>';return html;}
@@ -8796,13 +8843,14 @@ function addDeficEntry(did){
 }
 function removeDeficEntry(did,ei){
   var f=findDeficiency(did);if(!f||!f.defic.entries)return;
-  if(f.defic.entries.length<=1){alert('Cannot remove the last observation.');return;}
-  if(!confirm('Remove observation '+String.fromCharCode(65+ei)+'?'))return;
+  if(f.defic.entries.length<=1){_aAlert('Cannot remove the last observation.');return;}
+  _aConfirm('Remove observation '+String.fromCharCode(65+ei)+'?',function(){
   f.defic.entries.splice(ei,1);
   pushUndo();saveToLS();renderDeficiencyPanel();
+  },'Remove');
 }
 function removeEntryPhoto(did,ei,pi){
-  if(!confirm('Remove this photo?'))return;
+  _aConfirm('Remove this photo?',function(){
   var f=findDeficiency(did);if(!f||!f.defic.entries||!f.defic.entries[ei])return;
   var ph=f.defic.entries[ei].photos[pi];
   if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
@@ -8810,9 +8858,9 @@ function removeEntryPhoto(did,ei,pi){
     if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});
   }
   f.defic.entries[ei].photos.splice(pi,1);
-  // Sync to d.photos
   _syncDeficPhotos(f.defic);
   saveToLS();renderDeficiencyPanel();
+  },'Remove');
 }
 function _syncDeficPhotos(d){
   var all=[];var seen={};
@@ -8865,17 +8913,18 @@ function updateDeficField(did,field,val){var f=findDeficiency(did);if(f){f.defic
 function toggleIARInPlace(btn,did){
   var f=findDeficiency(did);if(!f)return;
   if(f.defic.iar){
-    if(!confirm('Deactivate IAR for deficiency #'+f.defic.num+'?'))return;
-  } else {
-    // Re-enabling IAR: reset consultant closedItem flags so close button reappears
-    if(f.defic.responses){f.defic.responses.forEach(function(r){if(r.closedItem)r.closedItem=false;});}
+    _aConfirm('Deactivate IAR for deficiency #'+f.defic.num+'?',function(){
+      f.defic.iar=false;saveToLS();_folderQuickSave();
+      btn.classList.remove('on');btn.classList.add('off');btn.innerHTML='⚡ IAR';
+      renderDeficiencyPanel();renderSummaryTable();
+    });return;
   }
-  f.defic.iar=!f.defic.iar;saveToLS();_folderQuickSave();
-  if(f.defic.iar){btn.classList.remove('off');btn.classList.add('on');btn.innerHTML='⚡ IAR ✓';}
-  else{btn.classList.remove('on');btn.classList.add('off');btn.innerHTML='⚡ IAR';}
+  if(f.defic.responses){f.defic.responses.forEach(function(r){if(r.closedItem)r.closedItem=false;});}
+  f.defic.iar=true;saveToLS();_folderQuickSave();
+  btn.classList.remove('off');btn.classList.add('on');btn.innerHTML='⚡ IAR ✓';
   renderDeficiencyPanel();renderSummaryTable();
 }
-function removeDeficiency(did){if(!confirm('Delete this deficiency?'))return;var f=findDeficiency(did);if(f){f.arr.splice(f.idx,1);pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();}}
+function removeDeficiency(did){_aConfirm('Delete this deficiency?',function(){var f=findDeficiency(did);if(f){f.arr.splice(f.idx,1);pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();}},'Delete');}
 function duplicateDeficiency(did){
   var f=findDeficiency(did);if(!f)return;
   var p=getProject();var num=p.nextDeficNum++;
@@ -8945,8 +8994,11 @@ function moveDeficiency(did){
 async function reuploadAllToCloud(){
   if(!_csHubMode||!_csProjectId){toast('Only available in Hub mode');return;}
   var p=getProject();if(!p)return;
-  if(!confirm('This will reset all drawings and photos to "pending" upload status and re-queue everything from local storage to R2.\n\nUse this if files are missing from the cloud. It may take several minutes.\n\nContinue?'))return;
-
+  _aConfirm('This will reset all drawings and photos to "pending" upload status and re-queue everything from local storage to R2.\n\nUse this if files are missing from the cloud. It may take several minutes.\n\nContinue?',function(){
+  _doReuploadAllToCloud(p);
+  });
+}
+async function _doReuploadAllToCloud(p){
   var queued=0;
   var hubId=_getR2FolderId();
 
@@ -9067,12 +9119,13 @@ function _getSelectedDeficIds(){
 }
 function bulkSetStatus(newStatus){
   var ids=_getSelectedDeficIds();if(!ids.length){toast('No deficiencies selected');return;}
-  if(!confirm((newStatus==='Addressed & Closed'?'Close':'Reopen')+' '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'?'))return;
+  _aConfirm((newStatus==='Addressed & Closed'?'Close':'Reopen')+' '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'?',function(){
   pushUndo();
   ids.forEach(function(id){var f=findDeficiency(id);if(f){f.defic.status=newStatus;if(newStatus==='Addressed & Closed')f.defic.iar=false;}});
   saveToLS();renderDeficiencyPanel();renderSummaryTable();
   toast((newStatus==='Addressed & Closed'?'Closed':'Reopened')+' '+ids.length+' item'+(ids.length>1?'s':''));
   if(_bulkSelectMode){setTimeout(function(){document.querySelectorAll('.bulk-checkbox').forEach(function(cb){cb.checked=false;});updateBulkCount();},50);}
+  });
 }
 function bulkToggleIAR(on){
   var ids=_getSelectedDeficIds();if(!ids.length){toast('No deficiencies selected');return;}
@@ -9084,7 +9137,7 @@ function bulkToggleIAR(on){
 }
 function bulkDeleteDefics(){
   var ids=_getSelectedDeficIds();if(!ids.length){toast('No deficiencies selected');return;}
-  if(!confirm('Permanently delete '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'? This cannot be undone.'))return;
+  _aConfirm('Permanently delete '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'? This cannot be undone.',function(){
   pushUndo();
   var p=getProject();if(!p)return;
   ids.forEach(function(id){
@@ -9104,6 +9157,7 @@ function bulkDeleteDefics(){
   saveToLS();_folderQuickSave();renderDeficiencyPanel();renderSummaryTable();
   toast('Deleted '+ids.length+' item'+(ids.length>1?'s':''));
   toggleBulkSelectMode();
+  },'Delete');
 }
 
 // ═══ PIN REASSIGNMENT ═══
@@ -9218,7 +9272,7 @@ function consultantCloseItem(did,ri){
   var f=findDeficiency(did);if(!f)return;
   var d=f.defic;
   if(!d.responses||!d.responses[ri])return;
-  if(!confirm('Close deficiency #'+d.num+' and deactivate IAR?\n\nThis marks the item as Addressed & Closed.'))return;
+  _aConfirm('Close deficiency #'+d.num+' and deactivate IAR?\n\nThis marks the item as Addressed & Closed.',function(){
   d.responses[ri].closedItem=true;
   d.responses[ri].closedDate=new Date().toISOString().substring(0,10);
   d.status='Addressed & Closed';
@@ -9228,6 +9282,7 @@ function consultantCloseItem(did,ri){
   if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
   if(typeof renderTasksPanel==='function')renderTasksPanel();
   showToast('Observation closed. IAR deactivated.');
+  });
 }
 
 
@@ -9394,17 +9449,17 @@ function _r2EnqueueDeficPhoto(rec,deficId){
 // Auto-cleanup orphaned R2 files — runs once per session in background, 30s after load
 // Compares R2 bucket contents against project references, deletes unreferenced files
 async function _r2CleanupOrphans(){
-  if(!_csHubMode||!_csProjectId||typeof R2Photos==='undefined'){alert('Must be in Hub mode.');return;}
+  if(!_csHubMode||!_csProjectId||typeof R2Photos==='undefined'){_aAlert('Must be in Hub mode.');return;}
   var WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
   var proj=getProject();
-  if(!proj){alert('No project loaded.');return;}
+  if(!proj){_aAlert('No project loaded.');return;}
 
   // Safety: project must have actual data
   var hasAnyData=(proj.drawings&&proj.drawings.length>0)||
                  (proj.sitePhotos&&proj.sitePhotos.length>0)||
                  (proj.generalDeficiencies&&proj.generalDeficiencies.length>0)||
                  ((proj.contractors||[]).some(function(c){return c.deficiencies&&c.deficiencies.length>0;}));
-  if(!hasAnyData){alert('Project appears empty — cleanup aborted to prevent accidental deletion.');return;}
+  if(!hasAnyData){_aAlert('Project appears empty — cleanup aborted to prevent accidental deletion.');return;}
 
   // Build set of ALL referenced r2Keys from local project state
   var referencedKeys=new Set();
@@ -9458,7 +9513,7 @@ async function _r2CleanupOrphans(){
   _dbg('[R2Cleanup] R2 has '+allR2Files.length+' total files, '+candidates.length+' orphans');
 
   if(candidates.length===0){
-    alert('R2 is already clean — all '+allR2Files.length+' files match your local project.');
+    _aAlert('R2 is already clean — all '+allR2Files.length+' files match your local project.');
     return;
   }
 
@@ -9475,7 +9530,7 @@ async function _r2CleanupOrphans(){
     +'Files to delete:\n'+preview+'\n\n'
     +'This cannot be undone. Continue?';
 
-  if(!confirm(msg))return;
+  _aConfirm(msg,async function(){
 
   // Delete orphans
   var deleted=0,failed=0;
@@ -9493,7 +9548,7 @@ async function _r2CleanupOrphans(){
 
   var result='R2 Cleanup complete:\n• Deleted: '+deleted+' files\n• Failed: '+failed+' files\n• Remaining: '+(allR2Files.length-deleted)+' files';
   _dbg('[R2Cleanup] '+result);
-  alert(result);
+  _aAlert(result);
 
   var dot=document.getElementById('cloud-dot');
   if(dot){
@@ -9502,6 +9557,7 @@ async function _r2CleanupOrphans(){
     dot.title='Cleaned up '+deleted+' orphan'+(deleted>1?'s':'');
     setTimeout(function(){dot.style.background=prev;dot.title='Saved to cloud';},5000);
   }
+  },'Delete Orphans');
 }
 
 function _requeuePendingUploads(proj){
@@ -9613,7 +9669,7 @@ function renderSummaryTable(){var p=getProject();if(!p)return;var wrap=document.
 
 function jumpToPin(did){var f=findDeficiency(did);if(!f||!f.defic.drawingId)return;openDrawingViewer(f.defic.drawingId);setTimeout(function(){var area=document.getElementById('dv-canvas-area'),img=document.getElementById('dv-image');var aw=area.clientWidth,ah=area.clientHeight,iw=img.naturalWidth,ih=img.naturalHeight;var s=Math.min(Math.min(aw/iw,ah/ih)*2,4);dvState.scale=s;dvState.panX=aw/2-f.defic.pinX*iw*s;dvState.panY=ah/2-f.defic.pinY*ih*s;applyTransform();dvState.selectedPinId=did;renderPinsOnDrawing();},400);}
 
-function removeRespPhoto(did,ri,pi){if(!confirm('Remove this photo?'))return;var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]&&f.defic.responses[ri].photos){var ph=f.defic.responses[ri].photos[pi];if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){var parts=ph.r2Key.split('/');if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});}f.defic.responses[ri].photos.splice(pi,1);saveToLS();renderDeficiencyPanel();}}
+function removeRespPhoto(did,ri,pi){_aConfirm('Remove this photo?',function(){var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]&&f.defic.responses[ri].photos){var ph=f.defic.responses[ri].photos[pi];if(ph&&ph.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){var parts=ph.r2Key.split('/');if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){});}f.defic.responses[ri].photos.splice(pi,1);saveToLS();renderDeficiencyPanel();}},'Remove');}
 function _lbHandleOverlayClick(e){
   // Never close if user is in draw mode (clicks during drawing bubble up as click events)
   if(_lbDrawing)return;
@@ -9905,7 +9961,7 @@ function handlePinEntryFiles(files,idx){
 }
 
 function removePinEntryPhoto(entryIdx,photoIdx){
-  if(!confirm('Remove this photo?'))return;
+  _aConfirm('Remove this photo?',function(){
   var f=findDeficiency(editingPinId);if(!f)return;
   _ensureEntries(f.defic);
   var entry=f.defic.entries[entryIdx];if(!entry||!entry.photos)return;
@@ -9916,6 +9972,7 @@ function removePinEntryPhoto(entryIdx,photoIdx){
   }
   entry.photos.splice(photoIdx,1);
   saveToLS();openPinEditor(editingPinId);
+  },'Remove');
 }
 
 function addPinEntry(){
@@ -10025,11 +10082,12 @@ function editPinContractor(){
   var ctrId=sel?sel.value:'';if(!ctrId||ctrId==='__new__')return;
   var p=getProject();var ctr=(p.contractors||[]).find(function(c){return c.id===ctrId;});
   if(!ctr)return;
-  var nn=prompt('Rename contractor:',ctr.name);if(!nn||!nn.trim())return;
+  _aPrompt('Rename contractor:',ctr.name,function(nn){if(!nn||!nn.trim())return;
   nn=nn.trim();
   var dup=(p.contractors||[]).find(function(c){return c.id!==ctrId&&c.name.toLowerCase()===nn.toLowerCase();});
   if(dup){toast('A contractor named "'+nn+'" already exists');return;}
   ctr.name=nn;pushUndo();saveToLS();openPinEditor(editingPinId);renderPinsOnDrawing();renderTasksPanel();toast('Renamed to "'+nn+'" ✓');
+  });
 }
 function deletePinContractor(){
   var sel=document.getElementById('pin-contractor');
@@ -10037,38 +10095,40 @@ function deletePinContractor(){
   var p=getProject();var ctr=(p.contractors||[]).find(function(c){return c.id===ctrId;});
   if(!ctr)return;
   var cnt=(ctr.deficiencies||[]).length;
-  if(!confirm('Delete contractor "'+ctr.name+'"'+(cnt>0?' and move '+cnt+' deficienc'+(cnt>1?'ies':'y')+' to General':'')+'?'))return;
-  // Move all deficiencies to general
+  _aConfirm('Delete contractor "'+ctr.name+'"'+(cnt>0?' and move '+cnt+' deficienc'+(cnt>1?'ies':'y')+' to General':'')+'?',function(){
   if(!p.generalDeficiencies)p.generalDeficiencies=[];
   (ctr.deficiencies||[]).forEach(function(d){p.generalDeficiencies.push(d);});
   p.contractors=p.contractors.filter(function(c){return c.id!==ctrId;});
-  // Clear any per-obs overrides pointing to this contractor
   getAllDeficiencies(p).forEach(function(r){(r.defic.entries||[]).forEach(function(en){if(en.contractorId===ctrId)en.contractorId='';});});
   pushUndo();saveToLS();openPinEditor(editingPinId);renderPinsOnDrawing();renderTasksPanel();toast('Contractor deleted');
+  },'Delete');
 }
 function setObsContractor(idx,val){
   var f=findDeficiency(editingPinId);if(!f)return;
   _ensureEntries(f.defic);
   if(!f.defic.entries[idx])return;
   if(val==='__add_new__'){
-    var name=(prompt('New contractor name:')||'').trim();
+    _aPrompt('New contractor name:','',function(name){
+    name=(name||'').trim();
     if(!name){openPinEditor(editingPinId);return;}
     var p=getProject();if(!p)return;
     if(!p.contractors)p.contractors=[];
-    // Check for duplicate
     var existing=p.contractors.find(function(c){return c.name.toLowerCase()===name.toLowerCase();});
-    if(existing){val=existing.id;}
+    var newVal;
+    if(existing){newVal=existing.id;}
     else{
       var nc={id:'ctr_'+Date.now(),name:name,deficiencies:[]};
       p.contractors.push(nc);
-      val=nc.id;
+      newVal=nc.id;
     }
-    saveToLS();
+    f.defic.entries[idx].contractorId=newVal||'';
+    saveToLS();openPinEditor(editingPinId);
+    });return;
   }
   f.defic.entries[idx].contractorId=val||'';
   saveToLS();openPinEditor(editingPinId);
 }
-function togglePinIAR(){var f=findDeficiency(editingPinId);if(f){if(f.defic.iar&&!confirm('Deactivate IAR for deficiency #'+f.defic.num+'?'))return;if(!f.defic.iar&&f.defic.responses){f.defic.responses.forEach(function(r){if(r.closedItem)r.closedItem=false;});}f.defic.iar=!f.defic.iar;saveToLS();openPinEditor(editingPinId);}}
+function togglePinIAR(){var f=findDeficiency(editingPinId);if(f){if(f.defic.iar){_aConfirm('Deactivate IAR for deficiency #'+f.defic.num+'?',function(){f.defic.iar=false;saveToLS();openPinEditor(editingPinId);});return;}if(!f.defic.iar&&f.defic.responses){f.defic.responses.forEach(function(r){if(r.closedItem)r.closedItem=false;});}f.defic.iar=!f.defic.iar;saveToLS();openPinEditor(editingPinId);}}
 
 function savePinForm(){
   _flushPinEntryDescriptions();
@@ -10090,10 +10150,11 @@ function savePinForm(){
 }
 
 function deleteCurrentPin(){
-  if(!confirm('Delete this pin and all its items?'))return;
+  _aConfirm('Delete this pin and all its items?',function(){
   var f=findDeficiency(editingPinId);
   if(f){f.arr.splice(f.idx,1);pushUndo();saveToLS();}
   renderPinsOnDrawing();renderTasksPanel();closePinPanel();closePinModal();
+  },'Delete');
 }
 function closePinPanel(){document.getElementById('pin-panel').classList.remove('open');document.getElementById('pin-modal-overlay').classList.remove('open');editingPinId=null;_flushDescIfEditing();}
 function closePinModal(){document.getElementById('pin-modal-overlay').classList.remove('open');document.getElementById('pin-panel').classList.remove('open');editingPinId=null;_flushDescIfEditing();if(currentTab==='pins')renderPinsKanban();}
@@ -10588,7 +10649,7 @@ function deleteSelectedPhotos(){
   }
   var msg='Delete '+siteIds.length+' site photo'+(siteIds.length!==1?'s':'')+'?';
   if(deficIds.length>0)msg+='\n('+deficIds.length+' deficiency photo'+(deficIds.length!==1?'s':'')+' will be skipped — remove from pin editor)';
-  if(!confirm(msg))return;
+  _aConfirm(msg,function(){
   siteIds.forEach(function(id){
     var idx=parseInt(id.split('_')[1]);
     if(p.sitePhotos&&p.sitePhotos[idx]){
@@ -10604,6 +10665,7 @@ function deleteSelectedPhotos(){
   _selectedPhotos=[];
   saveToLS();renderPhotoGallery();
   showToast(siteIds.length+' photo'+(siteIds.length!==1?'s':'')+' deleted'+(deficIds.length>0?' ('+deficIds.length+' deficiency photos skipped)':''));
+  },'Delete');
 }
 
 function downloadSelectedPhotos(){
@@ -10989,7 +11051,7 @@ function loadJSON(event){
           renderDashboard();
           enterProject(data.id);
         });
-      }catch(err){alert('Invalid JSON file: '+err.message);}
+      }catch(err){_aAlert('Invalid JSON file: '+err.message);}
     };reader.readAsText(f);
   }
   if(files&&files.length){processFile(files[0]);if(event.target)event.target.value='';return;}
@@ -11000,7 +11062,7 @@ function loadJSON(event){
 function exportAllProjects(){exportAllProjectsJSON();}
 function exportAllProjectsJSON(){
   var keys=Object.keys(allProjects);
-  if(!keys.length){alert('No projects to export.');return;}
+  if(!keys.length){_aAlert('No projects to export.');return;}
   var promises=keys.map(function(id){return ADB.exportProjectJSON(id);});
   Promise.all(promises).then(function(projects){
     var all={};projects.forEach(function(p){if(p)all[p.id]=p;});
@@ -11383,7 +11445,7 @@ if(reportDefs.length){
 
 // ── Open popup window ──
 var w=window.open('','_blank');
-if(!w){alert('Popup blocked. Allow popups for this site.');return;}
+if(!w){_aAlert('Popup blocked. Allow popups for this site.');return;}
 
 var docHtml='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ARENCON Field Review - '+(p.info.projectName||'Report')+'</title>';
 docHtml+='<style>'+css+'</style></head><body>';
@@ -12242,10 +12304,11 @@ function purgeSupersededDrawings(){
   var p=getProject();if(!p)return;
   var supers=p.drawings.filter(function(d){return d._superseded===true;});
   if(!supers.length){toast('No superseded drawings found.');return;}
-  if(!confirm('Remove '+supers.length+' superseded drawing'+(supers.length!==1?'s':'')+' from this project?\nThis cannot be undone.'))return;
+  _aConfirm('Remove '+supers.length+' superseded drawing'+(supers.length!==1?'s':'')+' from this project?\nThis cannot be undone.',function(){
   p.drawings=p.drawings.filter(function(d){return !d._superseded;});
   saveToLS();renderDrawingGallery();
   toast('🗑 Purged '+supers.length+' superseded drawing'+(supers.length!==1?'s':'')+'.');
+  },'Remove');
 }
 
 // === BATCH E: Project size in dashboard ===
@@ -12419,26 +12482,21 @@ function _triggerHardSignOut() {
 }
 
 function signOutSession() {
-  if(!confirm('Sign out and return to Project Hub?'))return;
-  // Stop all timers
+  _aConfirm('Sign out and return to Project Hub?',function(){
   clearTimeout(_softLockTimer);
   clearTimeout(_hardSignOutTimer);
-  // Save state
   if (currentProjectId && typeof saveToLS === 'function') saveToLS();
-  // Clear Supabase tokens
   localStorage.removeItem('sb-access-token');
   localStorage.removeItem('sb-refresh-token');
   localStorage.removeItem('sb-user-name');
   localStorage.removeItem('sb-user-email');
-  // Stop CloudSync auto-save and heartbeat
   if(window._syncHeartbeatTimer){clearInterval(window._syncHeartbeatTimer);window._syncHeartbeatTimer=null;}
   if (typeof CloudSync !== 'undefined' && CloudSync.isInitialized) {
     try { CloudSync.stopAutoSave(); CloudSync.destroy(); } catch(e) {}
   }
-  // Set signed-out flag so Hub doesn't auto-restore session
   sessionStorage.setItem('ARENCON_signed_out','1');
-  // Redirect to Hub (no ?open= — go to login, not back into project)
   window.location.href = 'ARENCON_Project_Hub.html';
+  },'Sign Out');
 }
 
 // Session timers — Hub mode only (sign-out redirects to Hub)
@@ -13477,8 +13535,8 @@ async function _autoDownloadR2(){
 // updates metadata so all devices render sharp via tiled PDF renderer.
 // Call via console: _reuploadPDFsToR2()  or via the ☁️ Re-upload PDFs button
 async function _reuploadPDFsToR2(){
-  if(!_csHubMode||!_csProjectId){alert('Must be in Hub mode with a project open.');return;}
-  if(typeof R2Photos==='undefined'){alert('R2Photos not initialized.');return;}
+  if(!_csHubMode||!_csProjectId){_aAlert('Must be in Hub mode with a project open.');return;}
+  if(typeof R2Photos==='undefined'){_aAlert('R2Photos not initialized.');return;}
   var p=getProject();if(!p||!p.drawings)return;
   // Stop heartbeat + auto-save during re-upload to prevent interference
   if(window._syncHeartbeatTimer){clearInterval(window._syncHeartbeatTimer);window._syncHeartbeatTimer=null;}
@@ -13497,18 +13555,18 @@ async function _reuploadPDFsToR2(){
   }
   total=candidates.length;
   if(total===0){
-    alert('No PDF data found in IDB on this device. Run this from the device that originally uploaded the drawings.');
+    _aAlert('No PDF data found in IDB on this device. Run this from the device that originally uploaded the drawings.');
     // Restart sync
     CloudSync.startAutoSave(function(){var _p2=getProject();if(_p2)_p2._cloudSyncedAt=new Date().toISOString();return _collectFullState();},5000);
     window._syncHeartbeatTimer=setInterval(function(){_syncHeartbeat();},60000);
     return;
   }
   var confirmMsg='Found '+total+' drawings with PDF data. '+skipped+' drawings have no PDF (image-only).\n\nThis will upload the original PDFs to R2, replacing the blurry JPEGs. All devices will then render sharp drawings.\n\nProceed?';
-  if(!confirm(confirmMsg)){
+  function _restartSyncAfterReup(){
     CloudSync.startAutoSave(function(){var _p2=getProject();if(_p2)_p2._cloudSyncedAt=new Date().toISOString();return _collectFullState();},5000);
     window._syncHeartbeatTimer=setInterval(function(){_syncHeartbeat();},60000);
-    return;
   }
+  _aConfirm(confirmMsg,async function(){
   _dbg('[PDF Re-upload] Starting: '+total+' PDFs to upload');
   toast('Re-uploading '+total+' PDFs to R2… Do not close this tab.',10000);
   // Upload sequentially
@@ -13547,9 +13605,14 @@ async function _reuploadPDFsToR2(){
   },2000);
   var msg='PDF Re-upload complete: '+done+' uploaded, '+failed+' failed, '+skipped+' skipped (no PDF data).\n\nThe page will now reload to apply changes. All devices will render sharp drawings after they sync.';
   _dbg('[PDF Re-upload] '+msg);
-  alert(msg);
+  _aAlert(msg);
   // Force reload after cloud save completes
   setTimeout(function(){window.location.reload();},3000);
+  });
+  // If user cancels the confirm, restart sync
+  // Note: _aConfirm callback only fires on OK. Cancel just closes overlay.
+  // We need sync restarted either way. Use a setTimeout to restart if not already done.
+  setTimeout(function(){if(!window._syncHeartbeatTimer)_restartSyncAfterReup();},500);
 }
 
 function _isMobileHeader(){return window.innerWidth<=800;}
