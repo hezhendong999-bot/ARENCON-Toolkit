@@ -11727,6 +11727,14 @@ document.addEventListener('DOMContentLoaded',function(){
   initDarkMode();
   var logoEl=document.getElementById('logo-img');if(logoEl)logoEl.src=LOGO_SRC;
 
+  // ── Inactivity tracker — shared with Hub PIN lock ──
+  var _actThrottle=0;
+  function _stampActivity(){var n=Date.now();if(n-_actThrottle<30000)return;_actThrottle=n;try{localStorage.setItem('ARENCON_lastActivity',n.toString());}catch(e){}}
+  document.addEventListener('click',_stampActivity,true);
+  document.addEventListener('touchstart',_stampActivity,true);
+  document.addEventListener('keydown',_stampActivity,true);
+  _stampActivity();
+
   // ── Mobile header: hide overflow left-side badges on small screens ──
   function _applyMobileHeaderState(){
     var isMob=window.innerWidth<=800;
