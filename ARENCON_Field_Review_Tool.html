@@ -8302,6 +8302,8 @@ function _lbCancelText(){
 function _lbDown(e){
   e.stopPropagation();e.preventDefault();
   var p=_lbGetPos(e);_lbMouse={down:true,x:p.x,y:p.y,sx:p.x,sy:p.y};
+  // DEBUG — draw a red dot so we know touch is registering
+  if(_lbCtx){_lbCtx.save();_lbCtx.fillStyle='red';_lbCtx.beginPath();_lbCtx.arc(p.x,p.y,8,0,Math.PI*2);_lbCtx.fill();_lbCtx.restore();}
 
   if(_lbTool==='text'){_lbPlaceText(e);return;}
 
@@ -8519,6 +8521,7 @@ function _lbEnableDrawEvents(){
   if(!_lbCanvas)return;
   _lbCanvas.style.cursor='crosshair';
   _lbCanvas.style.touchAction='none';
+  _lbCanvas.style.border='2px solid #0f0';// DEBUG — green border = draw mode active
   var overlay=document.getElementById('photo-lightbox');
   if(overlay)overlay.style.touchAction='none';
   _lbCanvas.addEventListener('mousedown',_lbDown);
