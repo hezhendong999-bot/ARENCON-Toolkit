@@ -2015,7 +2015,7 @@ body.text-l{--ts:4px;}
   <button onclick="lightboxPrev(event)" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;z-index:1;">‹</button>
   <div style="position:relative;max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center;">
     <div id="lb-photo-counter" style="color:rgba(255,255,255,.5);font-size:calc(13px + var(--ts));margin-bottom:6px;font-family:Calibri,sans-serif;min-height:20px;"></div>
-    <canvas id="lightbox-canvas" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:block;touch-action:none;" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()" onmouseup="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchmove="event.stopPropagation()"></canvas>
+    <canvas id="lightbox-canvas" style="border-radius:6px;display:block;touch-action:none;" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()" onmouseup="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchmove="event.stopPropagation()"></canvas>
     <img id="lightbox-img" src="" alt="" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:none;">
     <div style="margin-top:10px;display:flex;gap:8px;">
       <button onclick="event.stopPropagation();lightboxDrawMode()" id="lb-draw-btn" style="background:rgba(255,255,255,.15);border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">✏️ Mark up</button>
@@ -9613,10 +9613,16 @@ function _lbShowCurrentDirect(){
     var bw=Math.round(natW*bufScale),bh=Math.round(natH*bufScale);
     _lbCanvas.width=bw;
     _lbCanvas.height=bh;
-    _lbCanvas.style.maxWidth='90vw';
-    _lbCanvas.style.maxHeight='65vh';
-    _lbCanvas.style.width=bw+'px';
-    _lbCanvas.style.height=bh+'px';
+    // Compute display size: fit canvas within viewport minus toolbar/buttons space
+    var vpW=window.innerWidth*0.9;  // 90vw
+    var vpH=window.innerHeight*0.65; // leave room for toolbar, buttons, counter
+    var dispScale=Math.min(vpW/bw, vpH/bh, 1); // never upscale
+    var dispW=Math.round(bw*dispScale);
+    var dispH=Math.round(bh*dispScale);
+    _lbCanvas.style.width=dispW+'px';
+    _lbCanvas.style.height=dispH+'px';
+    _lbCanvas.style.maxWidth='';
+    _lbCanvas.style.maxHeight='';
     _lbCtx=_lbCanvas.getContext('2d');
     // No ctx.scale() — getPos maps directly to buffer coords
     _lbCanvas._dpr=1;
