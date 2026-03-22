@@ -440,6 +440,12 @@ body.dark-mode .ri-status-sel{background:var(--smoke);border-color:var(--border)
 .bulk-actions-bar .bulk-count{font-size:calc(11px + var(--ts));font-weight:700;color:var(--arencon);min-width:18px;text-align:center;background:var(--arencon-light);padding:2px 6px;border-radius:10px}
 body.dark-mode .bulk-actions-bar{background:var(--navy-light);border-color:var(--border)}
 body.dark-mode .bulk-actions-bar button{color:var(--steel)}
+.dash-more-menu{display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.15);min-width:180px;z-index:10000;overflow:hidden;font-family:Calibri,sans-serif;}
+.dash-more-menu.open{display:block}
+.dash-more-menu button{width:100%;padding:10px 16px;border:none;background:none;text-align:left;font-size:calc(13px + var(--ts));cursor:pointer;font-family:inherit;color:var(--fg);transition:background .15s}
+.dash-more-menu button:hover{background:var(--smoke)}
+body.dark-mode .dash-more-menu{background:var(--navy-light);border-color:var(--border)}
+body.dark-mode .dash-more-menu button:hover{background:rgba(255,255,255,.06)}
 .project-card-check{position:absolute;top:14px;left:14px;width:20px;height:20px;border:2px solid var(--silver);border-radius:50%;background:rgba(255,255,255,.9);cursor:pointer;z-index:3;display:none;align-items:center;justify-content:center;font-size:calc(10px + var(--ts));color:transparent;transition:all .2s}
 body.select-mode .project-card-check{display:flex}
 body.select-mode .project-card-top{padding-left:30px}
@@ -530,7 +536,7 @@ body.text-l{--ts:4px;}
   <button class="hdr-btn desktop-only" id="btn-profile" style="display:none" onclick="openProfileModal()">⚙️ Profile</button>
   <button class="hdr-btn desktop-only" id="btn-tools" onclick="window.location.href='index.html'" title="All Tools">🧰 Tools</button>
   <button class="hdr-btn desktop-only" id="btn-dark" onclick="toggleDark()">☀️</button>
-  <button class="hdr-btn text-size-toggle desktop-only" id="btn-text-size" onclick="cycleTextSize()" title="Text size: Small / Medium / Large">Aa M</button>
+  <button class="hdr-btn text-size-toggle desktop-only" id="btn-text-size" onclick="cycleTextSize()" title="Text size: Small / Medium">M</button>
   <button class="hdr-btn desktop-only" id="btn-logout" style="display:none" onclick="doLogout()">🚪 Logout</button>
   <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
 </div>
@@ -549,7 +555,7 @@ body.text-l{--ts:4px;}
     <button class="mobile-menu-item" id="mob-profile" style="display:none" onclick="openProfileModal();closeMobileMenu()">⚙️ Profile</button>
     <button class="mobile-menu-item" onclick="window.location.href='index.html'">🧰 All Tools</button>
     <button class="mobile-menu-item" onclick="toggleDark();closeMobileMenu()"><span id="mob-dark-label">☀️ Dark Mode</span></button>
-    <button class="mobile-menu-item" onclick="cycleTextSize();closeMobileMenu()"><span id="mob-text-size-label">Aa Text: Medium</span></button>
+    <button class="mobile-menu-item" onclick="cycleTextSize();closeMobileMenu()"><span id="mob-text-size-label">Text: Medium</span></button>
     <div class="mobile-menu-divider"></div>
     <button class="mobile-menu-item" id="mob-logout" style="display:none" onclick="doLogout()">🚪 Logout</button>
   </div>
@@ -617,6 +623,16 @@ body.text-l{--ts:4px;}
         <button class="active" onclick="setFilter('my')">My Projects</button>
         <button onclick="setFilter('all')">All Projects</button>
       </div>
+      <select class="dash-sort" id="dash-sort" onchange="onSortChange()">
+        <option value="number-asc">Sort: Project # A→Z</option>
+        <option value="number-desc">Sort: Project # Z→A</option>
+        <option value="updated">Sort: Last Updated</option>
+        <option value="created-new">Sort: Created (Newest)</option>
+        <option value="created-old">Sort: Created (Oldest)</option>
+        <option value="client">Sort: Client Name</option>
+        <option value="pm">Sort: Project Manager</option>
+        <option value="name">Sort: Name</option>
+      </select>
       <div class="bulk-select-wrap" id="bulk-select-wrap">
         <button class="dash-btn secondary" id="btn-select-toggle" onclick="toggleSelectMode()">☑ Select</button>
         <div class="bulk-actions-bar" id="bulk-actions-bar" style="display:none">
@@ -636,22 +652,17 @@ body.text-l{--ts:4px;}
           <button class="dash-btn secondary" onclick="selectAllVisible()" title="Select all visible">All</button>
           <button class="dash-btn secondary" onclick="selectAllPinned()" title="Select pinned">📌 Pinned</button>
           <button class="dash-btn secondary" onclick="selectAllStarred()" title="Select starred">⭐ Starred</button>
-          <button class="dash-btn secondary" onclick="selectAllUnstarred()" title="Select unstarred">Unstarred</button>
         </div>
       </div>
-      <select class="dash-sort" id="dash-sort" onchange="onSortChange()">
-        <option value="number-asc">Sort: Project # A→Z</option>
-        <option value="number-desc">Sort: Project # Z→A</option>
-        <option value="updated">Sort: Last Updated</option>
-        <option value="created-new">Sort: Created (Newest)</option>
-        <option value="created-old">Sort: Created (Oldest)</option>
-        <option value="client">Sort: Client Name</option>
-        <option value="pm">Sort: Project Manager</option>
-        <option value="name">Sort: Name</option>
-      </select>
-      <button class="dash-btn secondary" id="btn-archived" onclick="toggleArchived()">📦 Archived</button>
-      <button class="dash-btn secondary" id="btn-deleted" onclick="toggleDeleted()">🗑️ Deleted</button>
-      <button class="dash-btn export" onclick="exportAllProjects()">📥 Export All</button>
+      <div class="dash-more-wrap" style="position:relative;display:inline-flex;">
+        <button class="dash-btn secondary" onclick="toggleDashMore(event)">⚙️ More ▾</button>
+        <div class="dash-more-menu" id="dash-more-menu">
+          <button id="btn-archived" onclick="toggleArchived();closeDashMore()">📦 Archived</button>
+          <button id="btn-deleted" onclick="toggleDeleted();closeDashMore()">🗑️ Deleted</button>
+          <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+          <button onclick="exportAllProjects();closeDashMore()">📥 Export All</button>
+        </div>
+      </div>
       <button class="dash-btn primary" onclick="openNewProjectModal()">+ New Project</button>
     </div>
     <!-- Stats strip -->
@@ -1746,6 +1757,19 @@ function setFilter(mode) {
   btns[mode === 'my' ? 0 : 1].classList.add('active');
   renderProjects();
 }
+
+// ── More ▾ dropdown (toolbar) ──
+function toggleDashMore(e){
+  e.stopPropagation();
+  var m=document.getElementById('dash-more-menu');if(!m)return;
+  var isOpen=m.classList.contains('open');
+  closeDashMore();
+  if(!isOpen)m.classList.add('open');
+}
+function closeDashMore(){
+  var m=document.getElementById('dash-more-menu');if(m)m.classList.remove('open');
+}
+document.addEventListener('click',function(){closeDashMore();});
 
 function toggleArchived() {
   _showArchived = !_showArchived;
@@ -3109,9 +3133,9 @@ function applyTextSize(size){
   var cls=_textClasses[size];
   if(cls)document.body.classList.add(cls);
   var btn=document.getElementById('btn-text-size');
-  if(btn)btn.textContent='Aa '+size;
+  if(btn)btn.textContent=size;
   var mob=document.getElementById('mob-text-size-label');
-  if(mob)mob.textContent='Aa Text: '+_textLabels[size];
+  if(mob)mob.textContent='Text: '+_textLabels[size];
 }
 // Init on load
 (function(){var s=localStorage.getItem('arencon-text-size')||'M';applyTextSize(s);})();
@@ -3202,6 +3226,8 @@ async function r2RefreshStatus() {
     { key: 'marked-photos',  label: '✏️ Marked-up Copies',  tool: 'frt', type: 'original', filter: function(n){ return n.indexOf('mkup') !== -1; }, color: '#E65100' },
     { key: 'drawings',       label: '📐 Drawings',          tool: 'frt', type: 'drawings', filter: null, color: '#1565C0' },
     { key: 'markup',         label: '🖊 Markup Data',        tool: 'frt', type: 'markup',   filter: null, color: '#6A1B9A' },
+    { key: 'diesel-photos',  label: '🔥 Diesel Pump Photos', tool: 'diesel', type: 'original', filter: null, color: '#D84315' },
+    { key: 'electric-photos',label: '⚡ Electric Pump Photos',tool: 'electric', type: 'original', filter: null, color: '#F57C00' },
   ];
 
   // Fetch all R2 file lists in parallel
