@@ -9613,11 +9613,12 @@ function _lbShowCurrentDirect(){
     var bw=Math.round(natW*bufScale),bh=Math.round(natH*bufScale);
     _lbCanvas.width=bw;
     _lbCanvas.height=bh;
-    // Match gallery lightbox sizing: let CSS handle the display constraints
-    _lbCanvas.style.width=bw+'px';
-    _lbCanvas.style.height=bh+'px';
-    _lbCanvas.style.maxWidth='95vw';
-    _lbCanvas.style.maxHeight='80vh';
+    // Compute display size: fit within viewport while maintaining aspect ratio
+    var maxW=window.innerWidth*0.92;
+    var maxH=window.innerHeight*0.78;
+    var scale=Math.min(maxW/bw, maxH/bh, 1);
+    _lbCanvas.style.width=Math.round(bw*scale)+'px';
+    _lbCanvas.style.height=Math.round(bh*scale)+'px';
     _lbCtx=_lbCanvas.getContext('2d');
     // No ctx.scale() — getPos maps directly to buffer coords
     _lbCanvas._dpr=1;
