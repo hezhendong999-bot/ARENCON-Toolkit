@@ -8025,10 +8025,8 @@ function _lbToggleColorMenu(forceClose){
 function _lbGetPos(e){
   if(!_lbCanvas)return{x:0,y:0};
   var r=_lbCanvas.getBoundingClientRect();
-  // Map screen coords to logical space (natW×natH) — context transform handles DPR
-  var logW=_lbCanvas._logW||(_lbCanvas.width/(_lbCanvas._dpr||1));
-  var logH=_lbCanvas._logH||(_lbCanvas.height/(_lbCanvas._dpr||1));
-  var sx=logW/r.width,sy=logH/r.height;
+  // Direct mapping: screen coords → buffer coords (no DPR, no ctx.scale)
+  var sx=_lbCanvas.width/r.width,sy=_lbCanvas.height/r.height;
   if(e.touches&&e.touches.length)return{x:(e.touches[0].clientX-r.left)*sx,y:(e.touches[0].clientY-r.top)*sy};
   if(e.changedTouches&&e.changedTouches.length)return{x:(e.changedTouches[0].clientX-r.left)*sx,y:(e.changedTouches[0].clientY-r.top)*sy};
   return{x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy};
@@ -9600,35 +9598,31 @@ function _lbShowCurrentDirect(){
   var src=_lbPhotos[_lbIdx];
   var img=document.getElementById('lightbox-img');
   if(!_lbCanvas)_lbCanvas=document.getElementById('lightbox-canvas');
-  // Always use canvas so draw mode can activate without reload
   img.style.display='none';
   _lbCanvas.style.display='block';
   var image=new Image();
   image.crossOrigin='anonymous';
   image.onload=function(){
-    // On mobile, use DPR=1 to avoid massive canvases and lag
-    var isMobile=window.innerWidth<=900&&('ontouchstart' in window);
-    var dpr=isMobile?1:Math.min(window.devicePixelRatio||1,2);
     var natW=image.naturalWidth||800;
     var natH=image.naturalHeight||600;
-    // Cap canvas size on mobile to prevent lag
-    if(isMobile&&Math.max(natW,natH)>1600){
-      var sc=1600/Math.max(natW,natH);
-      natW=Math.round(natW*sc);natH=Math.round(natH*sc);
-    }
-    _lbCanvas.width=natW*dpr;
-    _lbCanvas.height=natH*dpr;
+    // Cap canvas buffer on mobile to prevent lag
+    var isMobile=window.innerWidth<=900&&('ontouchstart' in window);
+    var maxDim=isMobile?1200:2400;
+    var bufScale=1;
+    if(Math.max(natW,natH)>maxDim){bufScale=maxDim/Math.max(natW,natH);}
+    var bw=Math.round(natW*bufScale),bh=Math.round(natH*bufScale);
+    _lbCanvas.width=bw;
+    _lbCanvas.height=bh;
     _lbCanvas.style.maxWidth='90vw';
     _lbCanvas.style.maxHeight='80vh';
-    // CSS size = logical size (what getPos maps to)
-    _lbCanvas.style.width=natW+'px';
-    _lbCanvas.style.height=natH+'px';
+    // CSS size matches buffer — no DPR scaling, no ctx.scale()
+    _lbCanvas.style.width=bw+'px';
+    _lbCanvas.style.height=bh+'px';
     _lbCtx=_lbCanvas.getContext('2d');
-    if(dpr!==1)_lbCtx.scale(dpr,dpr);
-    _lbCanvas._dpr=dpr;
-    _lbCanvas._logW=natW;_lbCanvas._logH=natH;
+    // No ctx.scale() — getPos maps directly to buffer coords
+    _lbCanvas._dpr=1;
     _lbBgImage=image;
-    _lbCtx.drawImage(image,0,0,natW,natH);
+    _lbCtx.drawImage(image,0,0,bw,bh);
     if(_lbDrawing)_lbEnableDrawEvents();
     var ctr=document.getElementById('lb-photo-counter');
     if(ctr)ctr.textContent=(_lbIdx+1)+' / '+_lbPhotos.length;
