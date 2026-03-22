@@ -9613,9 +9613,10 @@ function _lbShowCurrentDirect(){
     var bw=Math.round(natW*bufScale),bh=Math.round(natH*bufScale);
     _lbCanvas.width=bw;
     _lbCanvas.height=bh;
-    // Compute display size: fit within viewport while maintaining aspect ratio
-    var maxW=window.innerWidth*0.92;
-    var maxH=window.innerHeight*0.78;
+    // Match gallery lightbox: img uses max-width:95vw max-height:90vh with aspect ratio preserved
+    // Canvas doesn't auto-preserve aspect ratio, so compute it manually
+    var maxW=window.innerWidth*0.95;
+    var maxH=window.innerHeight*0.90;
     var scale=Math.min(maxW/bw, maxH/bh, 1);
     _lbCanvas.style.width=Math.round(bw*scale)+'px';
     _lbCanvas.style.height=Math.round(bh*scale)+'px';
