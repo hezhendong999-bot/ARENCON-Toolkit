@@ -100,18 +100,9 @@ body.project-locked .dv-canvas-area{cursor:default!important;}
 #review-banner .rv-badge{background:#1565C0;color:white;padding:2px 10px;border-radius:12px;font-size:calc(11px + var(--ts));font-weight:700;letter-spacing:.3px;}
 #review-banner .rv-badge.has-changes{background:#E65100;animation:rvPulse 2s ease-in-out infinite;}
 @keyframes rvPulse{0%,100%{opacity:1;}50%{opacity:.7;}}
-.rv-btn{padding:5px 14px;border-radius:6px;font-size:calc(12px + var(--ts));font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;border:none;white-space:nowrap;}
-.rv-btn-changes{background:#1565C0;color:white;}.rv-btn-changes:hover{background:#0D47A1;}
-.rv-btn-accept{background:#1A7A4A;color:white;}.rv-btn-accept:hover{background:#15663D;}
-.rv-btn-exit{background:none;border:1.5px solid #90CAF9;color:#1565C0;}.rv-btn-exit:hover{background:rgba(21,101,192,.08);}
 body.dark-mode #review-banner{background:#0a1929;border-color:#1565C0;color:#90CAF9;}
-body.dark-mode .rv-btn-exit{border-color:#1565C0;color:#90CAF9;}
-/* Blue left-border on changed fields */
-.rv-changed{border-left:3px solid #1565C0!important;background:rgba(21,101,192,.04)!important;transition:border-color .3s,background .3s;}
-body.dark-mode .rv-changed{background:rgba(21,101,192,.1)!important;}
-/* Change indicator dot on nav tabs */
-.nav-tab .rv-dot{display:none;width:7px;height:7px;border-radius:50%;background:#E65100;margin-left:4px;flex-shrink:0;}
-body.review-mode .nav-tab .rv-dot.has-changes{display:inline-block;}
+body.dark-mode /* Blue left-border on changed fields */
+body.dark-mode /* Change indicator dot on nav tabs */
 /* Header button */
 .hdr-review{background:#1565C0;}.hdr-review:hover{background:#0D47A1;}
 /* View Changes modal */
@@ -381,7 +372,6 @@ body.dark-mode #bulk-action-bar{background:#1a1d24;border-color:#9C2742;}
 .resp-add-btns button{padding:7px 16px;border-radius:6px;font-size:calc(12px + var(--ts));cursor:pointer;font-weight:700;font-family:Calibri,sans-serif;border:none;color:white;transition:opacity .15s;}
 .resp-add-ctr{background:#E67E22;}.resp-add-ctr:hover{background:#cf6d17;}
 .resp-add-con{background:#2C4A6B;}.resp-add-con:hover{background:#1e3450;}
-
 
 /* Summary table */
 .defic-summary-table{width:100%;border-collapse:separate;border-spacing:0;font-size:calc(12.5px + var(--ts));border-radius:10px;overflow:hidden;border:1.5px solid var(--border);}
@@ -766,7 +756,6 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .dv-toolbar button{padding:5px 8px;font-size:calc(11px + var(--ts));}
   .dv-nav-group .dv-title{max-width:100px;}
 }
-
 
 .folder-checkbox{width:18px;height:18px;accent-color:#9C2742;cursor:pointer;margin-right:8px;flex-shrink:0;vertical-align:middle;}
 .dwg-bulk-bar{display:none;padding:8px 12px;background:var(--smoke);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;align-items:center;gap:8px;flex-wrap:wrap;}
@@ -1327,7 +1316,6 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   /* --- Pin modal buttons --- */
   .pin-modal .btn,.pin-modal button{min-height:40px;}
 
-
   /* --- Drawing viewer layer toggles --- */
   .dv-layer-toggles button{min-width:38px;min-height:34px;padding:4px 8px!important;}
 
@@ -1381,8 +1369,7 @@ body.text-l{--ts:4px;}
       <!-- Project buttons (hidden on dashboard, shown in project) -->
       <button class="hdr-btn" id="btn-pdf" onclick="showPDFOptions()" style="display:none;background:#1A237E;" title="Export PDF Report">📄 Reports</button>
       <button class="hdr-btn" id="btn-issue" onclick="issueReport()" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
-      <button class="hdr-btn hdr-review" id="btn-review" onclick="toggleReviewMode()" style="display:none;" title="Toggle Review Mode">🔍 Review</button>
-      <button class="hdr-btn" id="btn-signout" onclick="signOutSession()" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
+<button class="hdr-btn" id="btn-signout" onclick="signOutSession()" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
       <!-- ⚙️ More dropdown — groups Download, Repair, Reset -->
       <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
         <button class="hdr-btn" style="background:#455A64;" onclick="toggleMoreMenu(event)" title="More options">⚙️ More ▾</button>
@@ -1415,24 +1402,14 @@ body.text-l{--ts:4px;}
   <div id="readonly-banner" style="display:none;padding:10px 18px;background:#FFF3CD;border:1.5px solid #FFD54F;color:#7A5D00;font-size:calc(13px + var(--ts));font-weight:600;font-family:Calibri,sans-serif;align-items:center;gap:10px;margin:0;">
     <span>🔒</span>
     <span id="readonly-banner-text">This file is open in read-only mode.</span>
-    <button onclick="forceUnlockAndEdit()" style="margin-left:auto;background:#9C2742;color:white;border:none;padding:5px 14px;border-radius:6px;font-size:calc(12px + var(--ts));font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Take Over Edit</button>
-  </div>
-  <div id="review-banner">
-    <div class="rv-left">
-      <span>🔍</span>
-      <span>Review Mode</span>
-      <span class="rv-badge" id="rv-change-badge">0 changes</span>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <button class="rv-btn rv-btn-changes" id="rv-view-btn" onclick="showReviewChanges()">📋 View Changes</button>
-      <button class="rv-btn rv-btn-accept" id="rv-accept-btn" onclick="acceptAllChanges()">✔ Accept All</button>
-      <button class="rv-btn rv-btn-exit" onclick="exitReviewMode()">✕ Exit Review</button>
-    </div>
+</div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+</div>
   </div>
   <div class="section-nav" id="section-nav" style="display:none;">
-    <div class="nav-tab active" data-tab="info" onclick="switchTab('info')">Project Info<span class="rv-dot"></span></div>
+    <div class="nav-tab active" data-tab="info" onclick="switchTab('info')">Project Info</div>
     <div class="nav-tab" data-tab="drawings" onclick="switchTab('drawings')">Drawings</div>
-    <div class="nav-tab" data-tab="deficiencies" onclick="switchTab('deficiencies')">Deficiencies<span class="rv-dot"></span></div>
+    <div class="nav-tab" data-tab="deficiencies" onclick="switchTab('deficiencies')">Deficiencies</div>
     <div class="nav-tab" data-tab="pins" onclick="switchTab('pins')">All Deficiencies</div>
     <div class="nav-tab" data-tab="photos" onclick="switchTab('photos')">Photos</div>
   </div>
@@ -1444,11 +1421,9 @@ body.text-l{--ts:4px;}
       <button onclick="closeMobileMenu();" style="background:none;border:none;font-size:20px;color:var(--silver);cursor:pointer;padding:4px;">✕</button>
     </div>
     <button class="btn" id="mobile-pdf-btn" onclick="showPDFOptions();closeMobileMenu();" style="display:none;">📄 Reports</button>
-    <button class="btn" id="mobile-review-btn" onclick="toggleReviewMode();closeMobileMenu();" style="display:none;">🔍 Review Mode</button>
-    <button class="btn" onclick="saveJSON();closeMobileMenu();">💾 Export Project</button>
+<button class="btn" onclick="saveJSON();closeMobileMenu();">💾 Export Project</button>
     <button class="btn" onclick="openLoadModal();closeMobileMenu();">📂 Load Project</button>
-    <button class="btn" onclick="saveAsToFolder();closeMobileMenu();">💾 Save As (New Rev)</button>
-    <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
+<div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
     <button class="btn" id="mobile-export-all" onclick="exportAllProjects();closeMobileMenu();" style="display:none;">📦 Export All</button>
     <button class="btn" style="color:#C62828;" onclick="resetCurrentProject();closeMobileMenu();">⚠️ Reset Project</button>
     <button class="btn" id="mobile-clear-all" style="color:#C62828;display:none;" onclick="showWipeConfirmation();closeMobileMenu();">🗑️ Clear All Data</button>
@@ -1499,23 +1474,6 @@ body.text-l{--ts:4px;}
     <button class="btn" onclick="exportPDF('plain');closePDFPicker();" style="width:100%;margin-bottom:10px;justify-content:center;padding:12px;background:#9C2742;color:white;border:none;font-weight:700;">📝 Deficiency Report <span style="font-size:calc(11px + var(--ts));font-weight:400;opacity:.85;">— deficiencies, photos &amp; comments</span></button>
     <button class="btn" onclick="exportPDF('field');closePDFPicker();" style="width:100%;margin-bottom:10px;justify-content:center;padding:12px;background:#1A237E;color:white;border:none;font-weight:700;">📋 Field Review Report <span style="font-size:calc(11px + var(--ts));font-weight:400;opacity:.85;">— mini-maps + drawing appendix</span></button>
     <button class="btn btn-outline" onclick="closePDFPicker();" style="width:100%;justify-content:center;padding:12px;color:var(--fg);border-color:var(--border);">Cancel</button>
-  </div>
-</div>
-<div id="view-dashboard" style="display:none;">
-  <div class="dashboard">
-    <div class="dashboard-header">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <h2 style="margin:0;">📁 Projects</h2>
-        <button class="btn btn-outline btn-sm" id="btn-my-all-toggle" onclick="toggleMyAllProjects()" style="font-size:calc(12px + var(--ts));padding:4px 12px;">👤 My Projects</button>
-        <input id="dash-search" type="text" placeholder="🔍 Search projects..." oninput="renderDashboard()"
-          style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));min-width:200px;background:var(--surface);">
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="createProject()">+ New Project</button>
-      </div>
-    </div>
-    <div id="project-grid"></div>
-    <div id="empty-state" class="empty-state" style="display:none;"><h3>No Projects Yet</h3><p>Create your first project to start a field review.</p><button class="btn btn-primary" onclick="createProject()">+ New Project</button></div>
   </div>
 </div>
 <div id="view-project" style="display:none;">
@@ -2469,15 +2427,6 @@ ADB.migrateFromLocalStorage=function(){return new Promise(function(resolve){
 });};
 
 // ═══ FILE SYSTEM ACCESS API — save to folder ═══
-ADB.pickFolder=function(){return new Promise(function(resolve,reject){
-  if(!window.showDirectoryPicker){reject('File System Access API not supported');return;}
-  window.showDirectoryPicker({mode:'readwrite'}).then(function(handle){
-    ADB.folderHandle=handle;
-    ADB.put('config',{key:'folderHandle',value:'set'});// Can't store handle, just flag
-    resolve(handle);
-  }).catch(reject);
-});};
-
 ADB.writeToFolder=function(filename,data){return new Promise(function(resolve,reject){
   if(!ADB.folderHandle){resolve(false);return;}
   ADB.folderHandle.getFileHandle(filename,{create:true}).then(function(fh){
@@ -2494,26 +2443,6 @@ ADB.writeToFolder=function(filename,data){return new Promise(function(resolve,re
 // ═══ LOCK FILE SYSTEM ═══
 ADB._lockFilename=null; // tracks current lock so we can clean up
 ADB._readOnly=false;    // true = file is locked by someone else
-
-ADB.writeLockFile=function(jsonFilename,inspectorName){
-  if(!ADB.folderHandle)return Promise.resolve(false);
-  var lockName=jsonFilename+'.lock';
-  ADB._lockFilename=lockName;
-  var lockData=JSON.stringify({inspector:inspectorName||'Unknown',opened:new Date().toISOString(),pid:Date.now()});
-  return ADB.folderHandle.getFileHandle(lockName,{create:true}).then(function(fh){
-    return fh.createWritable().then(function(w){return w.write(lockData).then(function(){return w.close();});});
-  }).then(function(){return true;}).catch(function(e){_dbw('Lock write failed:',e);return false;});
-};
-
-ADB.readLockFile=function(jsonFilename){
-  if(!ADB.folderHandle)return Promise.resolve(null);
-  var lockName=jsonFilename+'.lock';
-  return ADB.folderHandle.getFileHandle(lockName).then(function(fh){
-    return fh.getFile().then(function(f){return f.text();});
-  }).then(function(txt){
-    try{return JSON.parse(txt);}catch(e){return null;}
-  }).catch(function(){return null;}); // no lock file = not locked
-};
 
 ADB.removeLockFile=function(){
   if(!ADB.folderHandle||!ADB._lockFilename)return Promise.resolve(false);
@@ -2634,19 +2563,6 @@ function applyLockState(){
 
 // ═══ PUBLISH MODAL ═══
 
-function _doPublish(rev){
-  var p = getProject(); if(!p) return;
-  if(!p.info) p.info = {};
-  p.info.publishedRevision = rev;
-  p.info.locked = true;
-  p.info.publishedDate = new Date().toISOString().substring(0,10);
-  saveToLS();
-  applyLockState();
-  toast('Published ' + rev + ' — project locked');
-  // Download clean distributable copy
-  setTimeout(function(){_downloadPublishedCopy(rev);}, 400);
-}
-
 function _downloadPublishedCopy(rev){
   var p = getProject(); if(!p) return;
   var projName = (p.info.projectNumber||'project').replace(/[^a-zA-Z0-9_-]/g,'_');
@@ -2740,322 +2656,6 @@ function _doUnlock(){
 }
 
 // ═══ LIGHTWEIGHT REVIEW MODE ═══
-var _reviewSnapshot = null; // {info:{...}, deficiencies:[{id,desc,status,responses:[{comment}]}]}
-var _reviewActive = false;
-
-function toggleReviewMode(){
-  if(_reviewActive) exitReviewMode();
-  else enterReviewMode();
-}
-
-function enterReviewMode(){
-  var p = getProject(); if(!p) return;
-  // Take snapshot of current state
-  _reviewSnapshot = _takeSnapshot(p);
-  _reviewActive = true;
-  document.body.classList.add('review-mode');
-  var banner = document.getElementById('review-banner');
-  if(banner) banner.style.display = 'flex';
-  // Update button text
-  var hb = document.getElementById('btn-review');
-  if(hb){ hb.textContent = '🔍 Reviewing'; hb.style.background = '#0D47A1'; }
-  var mb = document.getElementById('mobile-review-btn');
-  if(mb) mb.textContent = '🔍 Exit Review Mode';
-  _updateReviewBadge();
-  toast('Review Mode ON — changes will be tracked');
-}
-
-function exitReviewMode(){
-  _reviewActive = false;
-  _reviewSnapshot = null;
-  document.body.classList.remove('review-mode');
-  var banner = document.getElementById('review-banner');
-  if(banner) banner.style.display = 'none';
-  // Reset button
-  var hb = document.getElementById('btn-review');
-  if(hb){ hb.textContent = '🔍 Review'; hb.style.background = '#1565C0'; }
-  var mb = document.getElementById('mobile-review-btn');
-  if(mb) mb.textContent = '🔍 Review Mode';
-  // Clear blue borders
-  document.querySelectorAll('.rv-changed').forEach(function(el){ el.classList.remove('rv-changed'); });
-  // Clear nav dots
-  document.querySelectorAll('.rv-dot').forEach(function(el){ el.classList.remove('has-changes'); });
-  toast('Review Mode OFF');
-}
-
-function acceptAllChanges(){
-  if(!_reviewActive) return;
-  var p = getProject(); if(!p) return;
-  _aConfirm('Accept all changes? This resets the baseline to the current state.',function(){
-    _reviewSnapshot = _takeSnapshot(p);
-    _updateReviewBadge();
-    document.querySelectorAll('.rv-changed').forEach(function(el){ el.classList.remove('rv-changed'); });
-    document.querySelectorAll('.rv-dot').forEach(function(el){ el.classList.remove('has-changes'); });
-    toast('All changes accepted — new baseline set');
-  });
-}
-
-function _takeSnapshot(p){
-  var snap = { info: {}, deficiencies: [] };
-  // Snapshot all info fields
-  var fields = ['projectNumber','projectName','client','address','visitDate','inspectorName','dateOfIssue','revision'];
-  fields.forEach(function(f){ snap.info[f] = (p.info && p.info[f]) || ''; });
-  // Snapshot all deficiencies
-  var allDef = getAllDeficiencies(p);
-  allDef.forEach(function(item){
-    var d = item.defic;
-    var entries = d.entries && d.entries.length ? d.entries : [{description: d.description || '', priority: d.priority || 'high'}];
-    var defSnap = {
-      id: d.id,
-      num: d.num,
-      status: d.status || 'Outstanding',
-      date: d.date || '',
-      iar: !!d.iar,
-      contractorName: item.contractorName,
-      entries: entries.map(function(en){ return { description: en.description || '', priority: en.priority || 'high' }; }),
-      responses: (d.responses || []).map(function(r){ return { party: r.party, comment: r.comment || '' }; })
-    };
-    snap.deficiencies.push(defSnap);
-  });
-  // Snapshot contractor names
-  snap.contractors = (p.contractors || []).map(function(c){ return { id: c.id, name: c.name || '' }; });
-  return snap;
-}
-
-function _getReviewChanges(){
-  if(!_reviewSnapshot || !_reviewActive) return { info: [], deficiencies: [], contractors: [] };
-  var p = getProject(); if(!p) return { info: [], deficiencies: [], contractors: [] };
-  var changes = { info: [], deficiencies: [], contractors: [] };
-
-  // Compare info fields
-  var fields = ['projectNumber','projectName','client','address','visitDate','inspectorName','dateOfIssue','revision'];
-  var fieldLabels = { projectNumber:'Project Number', projectName:'Project Name', client:'Client', address:'Address', visitDate:'Visit Date', inspectorName:'Prepared By', dateOfIssue:'Date of Issue', revision:'Revision' };
-  fields.forEach(function(f){
-    var oldVal = _reviewSnapshot.info[f] || '';
-    var newVal = (p.info && p.info[f]) || '';
-    if(oldVal !== newVal){
-      changes.info.push({ field: f, label: fieldLabels[f] || f, oldVal: oldVal, newVal: newVal });
-    }
-  });
-
-  // Compare contractor names
-  (p.contractors || []).forEach(function(c){
-    var snapC = (_reviewSnapshot.contractors || []).find(function(sc){ return sc.id === c.id; });
-    if(snapC && snapC.name !== (c.name || '')){
-      changes.contractors.push({ id: c.id, label: 'Contractor Name', oldVal: snapC.name, newVal: c.name || '' });
-    }
-    if(!snapC){
-      changes.contractors.push({ id: c.id, label: 'New Contractor', oldVal: '', newVal: c.name || '' });
-    }
-  });
-
-  // Compare deficiencies
-  var allDef = getAllDeficiencies(p);
-  var snapMap = {};
-  _reviewSnapshot.deficiencies.forEach(function(sd){ snapMap[sd.id] = sd; });
-
-  allDef.forEach(function(item){
-    var d = item.defic;
-    var sd = snapMap[d.id];
-    if(!sd){
-      // New deficiency
-      changes.deficiencies.push({ num: d.num, type: 'added', label: 'Deficiency #' + d.num + ' (NEW)', items: [{ label: 'Description', oldVal: '', newVal: (d.entries && d.entries[0] ? d.entries[0].description : d.description) || '' }] });
-      return;
-    }
-    var items = [];
-    // Status
-    if((d.status || 'Outstanding') !== sd.status){
-      items.push({ label: 'Status', oldVal: sd.status, newVal: d.status || 'Outstanding' });
-    }
-    // Date
-    if((d.date || '') !== (sd.date || '')){
-      items.push({ label: 'Date', oldVal: sd.date || '(empty)', newVal: d.date || '(empty)' });
-    }
-    // IAR
-    if(!!d.iar !== sd.iar){
-      items.push({ label: 'IAR', oldVal: sd.iar ? 'Yes' : 'No', newVal: d.iar ? 'Yes' : 'No' });
-    }
-    // Entries (descriptions)
-    var entries = d.entries && d.entries.length ? d.entries : [{description: d.description || '', priority: d.priority || 'high'}];
-    entries.forEach(function(en, ei){
-      var snapEn = sd.entries[ei];
-      var newDesc = en.description || '';
-      var oldDesc = snapEn ? (snapEn.description || '') : '';
-      if(newDesc !== oldDesc){
-        var lbl = entries.length > 1 ? 'Obs ' + String.fromCharCode(65 + ei) + ' Description' : 'Description';
-        items.push({ label: lbl, oldVal: oldDesc || '(empty)', newVal: newDesc || '(empty)' });
-      }
-      if(snapEn && (en.priority || 'high') !== (snapEn.priority || 'high')){
-        items.push({ label: 'Priority', oldVal: snapEn.priority, newVal: en.priority });
-      }
-    });
-    // New entries beyond snapshot count
-    if(entries.length > sd.entries.length){
-      for(var i = sd.entries.length; i < entries.length; i++){
-        items.push({ label: 'Obs ' + String.fromCharCode(65 + i) + ' (NEW)', oldVal: '', newVal: entries[i].description || '' });
-      }
-    }
-    // Responses
-    (d.responses || []).forEach(function(r, ri){
-      var sr = sd.responses[ri];
-      var newComment = r.comment || '';
-      var oldComment = sr ? (sr.comment || '') : '';
-      if(newComment !== oldComment){
-        var rLabel = (r.party === 'contractor' ? 'Contractor' : 'Consultant') + ' Response #' + (ri + 1);
-        items.push({ label: rLabel, oldVal: oldComment || '(empty)', newVal: newComment || '(empty)' });
-      }
-    });
-    // New responses beyond snapshot count
-    if((d.responses || []).length > sd.responses.length){
-      for(var j = sd.responses.length; j < d.responses.length; j++){
-        var nr = d.responses[j];
-        items.push({ label: (nr.party === 'contractor' ? 'Contractor' : 'Consultant') + ' Response #' + (j + 1) + ' (NEW)', oldVal: '', newVal: nr.comment || '' });
-      }
-    }
-    if(items.length){
-      changes.deficiencies.push({ num: d.num, type: 'modified', label: 'Deficiency #' + d.num, items: items });
-    }
-    delete snapMap[d.id]; // mark as processed
-  });
-  // Deleted deficiencies (in snapshot but not in current)
-  Object.keys(snapMap).forEach(function(id){
-    var sd = snapMap[id];
-    changes.deficiencies.push({ num: sd.num, type: 'deleted', label: 'Deficiency #' + sd.num + ' (DELETED)', items: [{ label: 'Was', oldVal: (sd.entries[0] ? sd.entries[0].description : '') || '(no description)', newVal: '' }] });
-  });
-
-  changes.deficiencies.sort(function(a, b){ return a.num - b.num; });
-  return changes;
-}
-
-function _countChanges(changes){
-  return changes.info.length + changes.contractors.length + changes.deficiencies.reduce(function(sum, d){ return sum + d.items.length; }, 0);
-}
-
-function _updateReviewBadge(){
-  if(!_reviewActive) return;
-  var changes = _getReviewChanges();
-  var count = _countChanges(changes);
-  var badge = document.getElementById('rv-change-badge');
-  if(badge){
-    badge.textContent = count + ' change' + (count !== 1 ? 's' : '');
-    badge.className = 'rv-badge' + (count > 0 ? ' has-changes' : '');
-  }
-  // Update blue borders on visible fields
-  _applyBlueBorders(changes);
-  // Update nav tab dots
-  _updateNavDots(changes);
-}
-
-function _applyBlueBorders(changes){
-  // Clear existing
-  document.querySelectorAll('.rv-changed').forEach(function(el){ el.classList.remove('rv-changed'); });
-  // Info fields
-  changes.info.forEach(function(c){
-    var el = document.querySelector('[data-field="' + c.field + '"]');
-    if(el) el.classList.add('rv-changed');
-  });
-  // Deficiency items
-  var allDef = getAllDeficiencies();
-  changes.deficiencies.forEach(function(dc){
-    if(dc.type === 'deleted') return;
-    var match = allDef.find(function(x){ return x.defic.num === dc.num; });
-    if(match){
-      var el = document.getElementById('defic-item-' + match.defic.id);
-      if(el) el.classList.add('rv-changed');
-    }
-  });
-}
-
-function _updateNavDots(changes){
-  // info tab: has changes if any info field changed
-  var infoDot = document.querySelector('[data-tab="info"] .rv-dot');
-  if(infoDot) infoDot.classList.toggle('has-changes', changes.info.length > 0);
-  // deficiencies tab: has changes if any deficiency changed
-  var defDot = document.querySelector('[data-tab="deficiencies"] .rv-dot');
-  if(defDot) defDot.classList.toggle('has-changes', changes.deficiencies.length > 0);
-}
-
-function showReviewChanges(){
-  var changes = _getReviewChanges();
-  var count = _countChanges(changes);
-  var ex = document.getElementById('rv-changes-modal'); if(ex) ex.remove();
-
-  var ov = document.createElement('div');
-  ov.id = 'rv-changes-modal';
-  ov.className = 'rv-modal-overlay';
-  ov.onclick = function(e){ if(e.target === ov) ov.remove(); };
-
-  var modal = document.createElement('div');
-  modal.className = 'rv-modal';
-
-  // Header
-  var hdr = document.createElement('div');
-  hdr.className = 'rv-modal-header';
-  hdr.innerHTML = '<div class="rv-modal-title">📋 Review Changes (' + count + ')</div><button class="rv-modal-close" onclick="document.getElementById(\'rv-changes-modal\').remove()">✕</button>';
-  modal.appendChild(hdr);
-
-  // Body
-  var body = document.createElement('div');
-  body.className = 'rv-modal-body';
-
-  if(count === 0){
-    body.innerHTML = '<div class="rv-no-changes">✅ No changes since review started</div>';
-  } else {
-    // Info changes
-    if(changes.info.length){
-      var sec = document.createElement('div'); sec.className = 'rv-section';
-      sec.innerHTML = '<div class="rv-section-title">📝 Project Info</div>';
-      changes.info.forEach(function(c){
-        sec.innerHTML += '<div class="rv-change-row"><div class="rv-change-label">' + _escRv(c.label) + '</div>' +
-          (c.oldVal ? '<div class="rv-change-old">' + _escRv(c.oldVal) + '</div>' : '') +
-          '<div class="rv-change-new">' + _escRv(c.newVal || '(empty)') + '</div></div>';
-      });
-      body.appendChild(sec);
-    }
-    // Contractor changes
-    if(changes.contractors.length){
-      var csec = document.createElement('div'); csec.className = 'rv-section';
-      csec.innerHTML = '<div class="rv-section-title">👷 Contractors</div>';
-      changes.contractors.forEach(function(c){
-        csec.innerHTML += '<div class="rv-change-row"><div class="rv-change-label">' + _escRv(c.label) + '</div>' +
-          (c.oldVal ? '<div class="rv-change-old">' + _escRv(c.oldVal) + '</div>' : '') +
-          '<div class="rv-change-new">' + _escRv(c.newVal || '(empty)') + '</div></div>';
-      });
-      body.appendChild(csec);
-    }
-    // Deficiency changes
-    if(changes.deficiencies.length){
-      var dsec = document.createElement('div'); dsec.className = 'rv-section';
-      dsec.innerHTML = '<div class="rv-section-title">🔴 Deficiencies</div>';
-      changes.deficiencies.forEach(function(dc){
-        var typeColor = dc.type === 'added' ? '#1A7A4A' : dc.type === 'deleted' ? '#C0392B' : '#1565C0';
-        var rowsHtml = '';
-        dc.items.forEach(function(item){
-          rowsHtml += '<div style="margin-top:4px;"><span class="rv-change-label">' + _escRv(item.label) + '</span>';
-          if(item.oldVal) rowsHtml += '<div class="rv-change-old">' + _escRv(item.oldVal) + '</div>';
-          if(item.newVal) rowsHtml += '<div class="rv-change-new">' + _escRv(item.newVal) + '</div>';
-          rowsHtml += '</div>';
-        });
-        dsec.innerHTML += '<div class="rv-change-row" style="border-left-color:' + typeColor + ';"><div class="rv-change-label" style="font-size:calc(12px + var(--ts));font-weight:800;color:var(--fg);margin-bottom:6px;">' + _escRv(dc.label) + '</div>' + rowsHtml + '</div>';
-      });
-      body.appendChild(dsec);
-    }
-  }
-  modal.appendChild(body);
-  ov.appendChild(modal);
-  document.body.appendChild(ov);
-}
-
-function _escRv(s){ return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-// Debounced review badge update — called from field change hooks
-var _rvUpdateTimer = null;
-function _scheduleReviewUpdate(){
-  if(!_reviewActive) return;
-  if(_rvUpdateTimer) clearTimeout(_rvUpdateTimer);
-  _rvUpdateTimer = setTimeout(_updateReviewBadge, 800);
-}
-
 // ═══ SAVE EDIT OVERRIDES TO FILE (bake template text into HTML) ═══
 // ═══ DEFICIENCY TEMPLATES ═══
 var DEFIC_TEMPLATES=[
@@ -3290,7 +2890,7 @@ function onFieldChange(el){
     else if(p.signatures&&p.signatures.hasOwnProperty(f))p.signatures[f]=el.value;
     else p.info[f]=el.value;
   }
-  debouncedSave();_scheduleReviewUpdate();
+  debouncedSave();
 }
 var _saveTimer=null;
 function debouncedSave(){
@@ -3369,7 +2969,7 @@ function applyTextSize(size){
 
 function openMobileMenu(){var mm=document.getElementById('mobile-menu-overlay');if(mm)mm.classList.add('open');updateStorageDisplay();}
 function closeMobileMenu(){var mm=document.getElementById('mobile-menu-overlay');if(mm)mm.classList.remove('open');}
-function toggleRepairMenu(e){e.stopPropagation();var m=document.getElementById('repair-menu');if(!m)return;m.classList.toggle('open');if(m.classList.contains('open')){setTimeout(function(){document.addEventListener('click',_closeRepairOnClick,{once:true});},0);}};function _closeRepairOnClick(){closeRepairMenu();}function closeRepairMenu(){var m=document.getElementById('repair-menu');if(m)m.classList.remove('open');}
+;function _closeRepairOnClick(){closeRepairMenu();}function closeRepairMenu(){var m=document.getElementById('repair-menu');if(m)m.classList.remove('open');}
 
 // ── More ▾ dropdown ──
 function toggleMoreMenu(e){
@@ -3456,7 +3056,7 @@ function _aAlert(msg){
 function _escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function _escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 
-function switchTab(tab){currentTab=tab;sessionStorage.setItem('ARENCON_lastTab',tab);document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.toggle('active',t.getAttribute('data-tab')===tab);});document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+tab);});if(tab==='deficiencies')renderDeficiencyPanel();if(tab==='drawings')renderDrawingGallery();if(tab==='photos')renderPhotoGallery();if(tab==='pins'){if(typeof _tasksView!=='undefined'&&_tasksView==='kanban')renderPinsKanban();else renderTasksTable();}if(_reviewActive)setTimeout(_updateReviewBadge,100);}
+function switchTab(tab){currentTab=tab;sessionStorage.setItem('ARENCON_lastTab',tab);document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.toggle('active',t.getAttribute('data-tab')===tab);});document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+tab);});if(tab==='deficiencies')renderDeficiencyPanel();if(tab==='drawings')renderDrawingGallery();if(tab==='photos')renderPhotoGallery();if(tab==='pins'){if(typeof _tasksView!=='undefined'&&_tasksView==='kanban')renderPinsKanban();else renderTasksTable();}}
 
 function goToDashboard(){
   // Hub mode: show Save & Leave prompt then navigate
@@ -3468,11 +3068,11 @@ function goToDashboard(){
   // Check for unsaved changes before leaving project
   if(currentProjectId&&ADB.dirty&&!ADB.folderHandle){
     _showUnsavedModal(function(){
-      _goToDashboardReal();
+      window.location.href='ARENCON_Project_Hub.html';
     });
     return;
   }
-  _goToDashboardReal();
+  window.location.href='ARENCON_Project_Hub.html';
 }
 
 function _showHubSaveLeaveModal(destUrl){
@@ -3515,35 +3115,6 @@ function _showHubSaveLeaveModal(destUrl){
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   ov.addEventListener('keydown',function(e){if(e.key==='Escape')ov.remove();});
 }
-function _goToDashboardReal(){
-  // Clean up lock file when leaving project
-  if(ADB._lockFilename&&ADB.folderHandle&&!ADB._readOnly){
-    ADB.removeLockFile();
-  }
-  ADB.setReadOnly(false);
-  ADB._openedJsonFilename=null;
-  currentProjectId=null;currentTab='info';history.pushState('',document.title,window.location.pathname+window.location.search);var _e;
-  // Reset all panels to inactive to prevent content leaking
-  document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active');});
-  _e=document.getElementById('view-project');if(_e){_e.style.display='none';_e.style.visibility='hidden';}
-  _e=document.getElementById('view-dashboard');if(_e)_e.style.display='block';
-  _e=document.getElementById('section-nav');if(_e)_e.style.display='none';
-  _e=document.getElementById('back-btn');if(_e)_e.style.display='none';
-  _e=document.getElementById('header-filename');if(_e){_e.textContent='';_e.style.display='none';}
-  _e=document.getElementById('cloud-status');if(_e)_e.style.display='none';
-  ['btn-save-as','btn-folder','btn-open-folder','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','mobile-pdf-btn','btn-more-wrap','btn-publish','btn-save-to-file','btn-review','mobile-review-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
-  document.body.classList.remove('project-locked');
-  var lb=document.getElementById('locked-banner');if(lb)lb.style.display='none';
-  // Exit review mode when going to dashboard
-  if(document.body.classList.contains('review-mode'))exitReviewMode();
-  var lb=document.getElementById('locked-banner');if(lb)lb.style.display='none';
-  ['btn-load','btn-export-all'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='';});
-  var hts=document.getElementById('header-save-ts');if(hts)hts.textContent='';
-  var mfb=document.getElementById('mobile-file-bar');if(mfb)mfb.classList.remove('has-project');
-  // Show dashboard-only mobile menu items
-  var mea=document.getElementById('mobile-export-all');if(mea)mea.style.display='';
-  var mca=document.getElementById('mobile-clear-all');if(mca)mca.style.display='';
-  updateProjectDropdown();renderDashboard();}
 function enterProject(id){var _lov=document.getElementById('hub-loading-overlay');if(_lov)_lov.remove();currentProjectId=id;var p=getProject();if(!p)return;if(!p.contractors)p.contractors=[];if(!p.generalDeficiencies)p.generalDeficiencies=[];if(!p.nextDeficNum)p.nextDeficNum=1;if(!p.settings)p.settings={sketchesEnabled:false};
   // Migrate legacy base64 string photo arrays to record objects
   p.contractors.forEach(function(c){_migrateDeficPhotos(c.deficiencies);});
@@ -3561,7 +3132,7 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   _el=document.getElementById('back-btn');if(_el)_el.style.display='';
   var _enp=(p.info.projectNumber||'');var _ent=(p.info.projectName||'Untitled');_el=document.getElementById('header-filename');if(_el)_el.textContent=buildSmartFilename(p);
   ['btn-save-as','btn-folder','btn-open-folder','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','btn-more-wrap'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='';});
-  updateSmartFilename();updateFolderButton();
+  updateSmartFilename();
   ['btn-load','btn-export-all'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   var mb=document.getElementById('mobile-pdf-btn');if(mb)mb.style.display='';
   var bpub=document.getElementById('btn-publish');if(bpub)bpub.style.display='';
@@ -3861,15 +3432,11 @@ function openProjectQuickEdit(id,e){
     'background:var(--surface,#fff);border:1.5px solid var(--border,#DDE1E7);border-radius:10px;'+
     'box-shadow:0 12px 32px rgba(0,0,0,.25);z-index:9100;min-width:220px;overflow:hidden;font-family:Calibri,sans-serif;';
   var items=[
-    {label:'✏️ Edit Name / Client / Number',fn:function(){openQuickEditModal(id);}},
-    {label:'📋 Copy as Template',fn:function(){duplicateProject(id);}},
     {label:'🔗 Copy Project Link',fn:function(){copyProjectLink(id);}},
     {label:'📤 Export This Project',fn:function(){exportSingleProject(id);}},
-    {label:'📦 Archive & Remove',fn:function(){archiveProject(id);}},
     {label:(p.starred?'★ Unstar':'☆ Star'),fn:function(){toggleStarProject(id,null);}},
     {sep:true},
-    {label:'🗑️ Delete',fn:function(){deleteProject(id);},danger:true}
-  ];
+    ];
   items.forEach(function(it){
     if(it.sep){var sep=document.createElement('div');sep.className='sep-line';menu.appendChild(sep);return;}
     var btn=document.createElement('button');
@@ -3902,230 +3469,6 @@ function exportSingleProject(id){
   });
 }
 
-function archiveProject(id){
-  var p=allProjects[id];if(!p)return;
-  var name=(p.info.projectName||'Untitled');
-  _aConfirm('Archive "'+name+'"?\n\nThis will:\n  • Export the project as a JSON file\n  • Delete it from this device\n\nYou can restore it anytime using Import.',function(){
-  ADB.exportProjectJSON(id).then(function(full){
-    if(!full){showToast('Export failed — project not archived');return;}
-    var blob=new Blob([JSON.stringify(full,null,2)],{type:'application/json'});
-    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-    var safeName=(p.info.projectNumber?p.info.projectNumber+'_':'')+(p.info.projectName||'project').replace(/[^a-zA-Z0-9]/g,'_');
-    a.download='ARENCON_ARCHIVE_'+safeName+'_'+new Date().toISOString().split('T')[0]+'.json';
-    document.body.appendChild(a);a.click();document.body.removeChild(a);
-    URL.revokeObjectURL(a.href);
-    delete allProjects[id];
-    Promise.all([
-      ADB.del('projects',id),
-      ADB.getAllByIndex('drawings','projectId',id).then(function(ds){return Promise.all(ds.map(function(d){return ADB.del('drawings',d.id);}));}),
-      ADB.getAllByIndex('photos','projectId',id).then(function(ps){return Promise.all(ps.map(function(p){return ADB.del('photos',p.id);}));}),
-      ADB.getAllByIndex('sitePhotos','projectId',id).then(function(ps){return Promise.all(ps.map(function(p){return ADB.del('sitePhotos',p.id);}));}),
-    ]).then(function(){
-      if(currentProjectId===id)goToDashboard();else renderDashboard();
-      showToast('✅ Archived: '+name+' — file saved to Downloads');
-    });
-  }).catch(function(err){
-    showToast('Archive failed: '+err.message);
-  });
-  },'Archive');
-}
-
-function openQuickEditModal(id){
-  var p=allProjects[id];if(!p)return;
-  var existing=document.getElementById('quick-edit-overlay');if(existing)existing.remove();
-  var ov=document.createElement('div');
-  ov.id='quick-edit-overlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9200;display:flex;align-items:center;justify-content:center;';
-  var box=document.createElement('div');
-  box.style.cssText='background:var(--surface);border-radius:12px;padding:24px;width:340px;max-width:94vw;box-shadow:0 16px 40px rgba(0,0,0,.2);';
-  function field(labelText,inputId,val,ph){
-    var wrap=document.createElement('div');
-    var lbl=document.createElement('label');
-    lbl.style.cssText='font-size:9px;font-weight:700;color:#4A5568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;';
-    lbl.textContent=labelText;
-    var inp=document.createElement('input');
-    inp.id='qe-'+inputId;
-    inp.value=val||'';
-    inp.placeholder=ph;
-    inp.style.cssText='width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));margin-bottom:10px;box-sizing:border-box;background:var(--surface);color:var(--text);';
-    inp.addEventListener('keydown',function(e){if(e.key==='Enter')saveQuickEdit(id);if(e.key==='Escape')ov.remove();});
-    wrap.appendChild(lbl);wrap.appendChild(inp);
-    return wrap;
-  }
-  var h3=document.createElement('h3');
-  h3.style.cssText='margin:0 0 16px;font-size:calc(16px + var(--ts));color:#9C2742;';
-  h3.textContent='Edit Project Details';
-  var btnRow=document.createElement('div');
-  btnRow.style.cssText='display:flex;gap:8px;margin-top:4px;';
-  var saveBtn=document.createElement('button');
-  saveBtn.style.cssText='flex:1;padding:9px;background:#9C2742;color:white;border:none;border-radius:7px;font-size:calc(13px + var(--ts));font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
-  saveBtn.textContent='Save';
-  saveBtn.onclick=function(){saveQuickEdit(id);};
-  var cancelBtn=document.createElement('button');
-  cancelBtn.style.cssText='flex:1;padding:9px;background:var(--smoke);color:var(--text);border:1.5px solid var(--border);border-radius:7px;font-size:calc(13px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;';
-  cancelBtn.textContent='Cancel';
-  cancelBtn.onclick=function(){ov.remove();};
-  btnRow.appendChild(saveBtn);btnRow.appendChild(cancelBtn);
-  box.appendChild(h3);
-  box.appendChild(field('Project Name','name',p.info.projectName,'Project name'));
-  box.appendChild(field('Project Number','num',p.info.projectNumber,'e.g. 7155.40'));
-  box.appendChild(field('Client','client',p.info.client,'Client name'));
-  box.appendChild(btnRow);
-  ov.appendChild(box);
-  document.body.appendChild(ov);
-  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
-  document.getElementById('qe-name').focus();
-}
-function saveQuickEdit(id){
-  var p=allProjects[id];if(!p)return;
-  var n=document.getElementById('qe-name'),nu=document.getElementById('qe-num'),cl=document.getElementById('qe-client');
-  if(n)p.info.projectName=n.value.trim();
-  if(nu)p.info.projectNumber=nu.value.trim();
-  if(cl)p.info.client=cl.value.trim();
-  p.modified=new Date().toISOString();
-  saveToLS();
-  var ov=document.getElementById('quick-edit-overlay');if(ov)ov.remove();
-  renderDashboard();
-  showToast('Project updated');
-}
-
-function renderDashboard(){
-  var inspName=getInspectorName();
-  var grid=document.getElementById('project-grid');
-  var empty=document.getElementById('empty-state');
-  var keys=Object.keys(allProjects);
-  if(!keys.length){grid.innerHTML='';empty.style.display='block';return;}
-  empty.style.display='none';
-  var q=(document.getElementById('dash-search')&&document.getElementById('dash-search').value||'').toLowerCase().trim();
-  keys.sort(function(a,b){return new Date(allProjects[b].modified)-new Date(allProjects[a].modified);});
-  if(q){keys=keys.filter(function(id){var p=allProjects[id];return (p.info.projectName||'').toLowerCase().includes(q)||(p.info.projectNumber||'').toLowerCase().includes(q)||(p.info.client||'').toLowerCase().includes(q);});}
-  // My Projects filter: when inspector is set and not showing all, filter to matching inspector
-  if(inspName&&!_dashShowAll){
-    keys=keys.filter(function(id){var pi=(allProjects[id].info.inspectorName||'').trim();return !pi||pi.toLowerCase()===inspName.toLowerCase();});
-  }
-  if(!keys.length){grid.innerHTML='<div style="padding:32px;text-align:center;color:var(--silver);">No projects match that search.</div>';return;}
-  var starred=keys.filter(function(id){return allProjects[id].starred;});
-  var unstarred=keys.filter(function(id){return !allProjects[id].starred;});
-
-  function buildCard(id){
-    var p=allProjects[id];
-    var ad=getAllDeficiencies(p);
-    var oc=ad.filter(function(d){return d.defic.status==='Outstanding';}).length;
-    var ic=ad.filter(function(d){return d.defic.iar;}).length;
-    var dc=ad.length,drc=(p.drawings||[]).length;
-    var phc=0;(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){phc+=(d.photos||[]).length;(d.entries||[]).forEach(function(e){phc+=(e.photos||[]).length;});});});(p.generalDeficiencies||[]).forEach(function(d){phc+=(d.photos||[]).length;(d.entries||[]).forEach(function(e){phc+=(e.photos||[]).length;});});
-    var mod=p.modified?new Date(p.modified).toLocaleDateString('en-CA',{year:'numeric',month:'short',day:'numeric'}):'—';
-
-    var card=document.createElement('div');
-    card.className='project-card';
-    card.dataset.pid=id;
-
-    var hdr=document.createElement('div');
-    hdr.className='project-card-header';
-
-    var star=document.createElement('button');
-    star.className='star-btn'+(p.starred?' starred':'');
-    star.title=p.starred?'Unstar':'Star';
-    star.textContent='★';
-    star.dataset.pid=id;
-    star.onclick=function(e){e.stopPropagation();toggleStarProject(id,e);};
-
-    var titleWrap=document.createElement('div');
-    titleWrap.style.cssText='flex:1;min-width:0;';
-    var h3=document.createElement('h3');
-    h3.style.cssText='margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:calc(14px + var(--ts));';
-    var _pnum=p.info.projectNumber||'';
-    var _pname=p.info.projectName||'Untitled';
-    h3.textContent=_pnum?_pnum+' · '+_pname:_pname;
-    var sub=document.createElement('span');
-    sub.style.cssText='font-size:calc(11px + var(--ts));opacity:.7;';
-    sub.textContent=p.info.client||'';
-    titleWrap.appendChild(h3);titleWrap.appendChild(sub);
-
-    var dots=document.createElement('button');
-    dots.className='card-dots-btn';
-    dots.title='Options';
-    dots.textContent='⋮';
-    dots.onclick=function(e){e.stopPropagation();openProjectQuickEdit(id,e);};
-
-    hdr.appendChild(star);hdr.appendChild(titleWrap);
-
-    // Status badge dropdown
-    var statusVal=p.status||'draft';
-    var _sLabels={draft:'Draft',review:'Ready for Review',revision:'Revision Required',issued:'Issued'};
-    var _sCss={draft:'s-draft',review:'s-review',revision:'s-revision',issued:'s-issued'};
-    var swrap=document.createElement('div');
-    swrap.style.cssText='position:relative;flex-shrink:0;';
-    var sbadge=document.createElement('span');
-    sbadge.className='proj-status-badge '+(_sCss[statusVal]||'s-draft');
-    sbadge.textContent=_sLabels[statusVal]||'Draft';
-    sbadge.title='Change status';
-    sbadge.onclick=function(e){e.stopPropagation();toggleStatusDropdown(swrap,id);};
-    swrap.appendChild(sbadge);
-    hdr.appendChild(swrap);
-
-    hdr.appendChild(dots);
-
-    var body=document.createElement('div');
-    body.className='project-card-body';
-    body.innerHTML='<div class="meta">Modified: <span>'+mod+'</span></div>';
-
-    var foot=document.createElement('div');
-    foot.className='project-card-footer';
-    var badges=document.createElement('div');
-    badges.style.cssText='display:flex;gap:6px;flex-wrap:wrap;';
-    if(oc>0)badges.innerHTML+='<span class="badge badge-red">'+oc+' Open</span>';
-    if(ic>0)badges.innerHTML+='<span class="badge badge-pink">'+ic+' IAR</span>';
-    if(dc>0)badges.innerHTML+='<span class="badge badge-blue">'+dc+' Defic.</span>';
-    badges.innerHTML+='<span class="badge badge-green">'+drc+' Dwg</span>';
-    if(phc>0)badges.innerHTML+='<span class="badge" style="background:#e8f4fd;color:#1565C0;">'+phc+' 📷</span>';
-    foot.appendChild(badges);
-
-    card.appendChild(hdr);
-    // Owner banner: show if current inspector is set and project belongs to someone else
-    var curInsp=getInspectorName();
-    var projInsp=(p.info.inspectorName||'').trim();
-    if(curInsp&&projInsp&&projInsp.toLowerCase()!==curInsp.toLowerCase()){
-      var ob=document.createElement('div');
-      ob.className='owner-banner';
-      ob.innerHTML='👤 <span>'+projInsp+'</span>';
-      card.appendChild(ob);
-    }
-    card.appendChild(body);card.appendChild(foot);
-    card.onclick=function(){enterProject(id);};
-    return card;
-  }
-
-  function buildGroup(label,ids,isStarred){
-    var wrap=document.createElement('div');
-    var hdr=document.createElement('div');
-    hdr.className='dash-group-header'+(isStarred?' starred-header':'');
-    hdr.textContent=label+' ('+ids.length+')';
-    if(isStarred){
-      var expBtn=document.createElement('button');
-      expBtn.style.cssText='margin-left:auto;font-size:calc(11px + var(--ts));padding:3px 8px;background:none;border:1.5px solid var(--border);border-radius:5px;cursor:pointer;font-family:Calibri,sans-serif;color:var(--text);';
-      expBtn.textContent='📤 Export';
-      expBtn.onclick=exportStarredProjects;
-      hdr.appendChild(expBtn);
-    } else if(starred.length){
-      var expBtn2=document.createElement('button');
-      expBtn2.style.cssText='margin-left:auto;font-size:calc(11px + var(--ts));padding:3px 8px;background:none;border:1.5px solid var(--border);border-radius:5px;cursor:pointer;font-family:Calibri,sans-serif;color:var(--text);';
-      expBtn2.textContent='📤 Export';
-      expBtn2.onclick=exportUnstarredProjects;
-      hdr.appendChild(expBtn2);
-    }
-    var inner=document.createElement('div');
-    inner.className='project-grid-inner';
-    ids.forEach(function(id){inner.appendChild(buildCard(id));});
-    wrap.appendChild(hdr);wrap.appendChild(inner);
-    return wrap;
-  }
-
-  grid.innerHTML='';
-  if(starred.length)grid.appendChild(buildGroup('★ Starred',starred,true));
-  if(unstarred.length)grid.appendChild(buildGroup(starred.length?'Projects':'All Projects',unstarred,false));
-  setTimeout(fillProjectSizeIndicators,50);
-}
 // === I-4: Project Status Badges (dropdown) ===
 var _statusDefs=[
   {key:'draft',label:'Draft',color:'#90A4AE'},
@@ -4143,7 +3486,7 @@ function toggleStatusDropdown(wrap,id){
     var btn=document.createElement('button');
     if(s.key===cur)btn.className='active';
     btn.innerHTML='<span class="sd-dot" style="background:'+s.color+';"></span>'+s.label;
-    btn.onclick=function(e){e.stopPropagation();setProjectStatus(id,s.key);dd.remove();};
+    
     dd.appendChild(btn);
   });
   wrap.appendChild(dd);
@@ -4151,36 +3494,6 @@ function toggleStatusDropdown(wrap,id){
   setTimeout(function(){
     document.addEventListener('click',function _closeSD(){dd.remove();document.removeEventListener('click',_closeSD);});
   },10);
-}
-function setProjectStatus(id,status){
-  var p=allProjects[id];if(!p)return;
-  var labels={draft:'Draft',review:'Ready for Review',revision:'Revision Required',issued:'Issued'};
-  if(status==='issued'){_aConfirm('Mark as Issued? This means the report has been sent out.',function(){p.status=status;p.modified=new Date().toISOString();saveToLS();renderDashboard();showToast('Status → '+labels[status]);});return;}
-  p.status=status;p.modified=new Date().toISOString();
-  saveToLS();renderDashboard();
-  showToast('Status → '+labels[status]);
-}
-function createProject(){showCreateProjectModal();}
-function showCreateProjectModal(){
-  var ov=document.getElementById('create-project-overlay');
-  if(!ov){
-    ov=document.createElement('div');ov.id='create-project-overlay';
-    ov.style.cssText='position:fixed;inset:0;background:rgba(28,35,51,.92);z-index:5000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
-    ov.innerHTML='<div style="background:white;border-radius:12px;padding:28px;width:420px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.4);font-family:Calibri,sans-serif;">'
-    +'<h3 style="margin:0 0 18px;font-size:18px;color:var(--red);">New Project</h3>'
-    +'<div style="display:grid;gap:12px;">'
-    +'<div class="field-group"><label>Project Number</label><input type="text" id="cp-num" placeholder="XXXX.XX" oninput="formatProjectNumber(this)"></div>'
-    +'<div class="field-group"><label>Project Name</label><input type="text" id="cp-name" placeholder="e.g. Building 1 Sprinkler Upgrade"></div>'
-    +'<div class="field-group"><label>Client</label><input type="text" id="cp-client" placeholder="e.g. ABC Construction"></div>'
-    +'</div>'
-    +'<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">'
-    +'<button onclick="closeCreateProjectModal()" style="padding:8px 20px;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">Cancel</button>'
-    +'<button onclick="confirmCreateProject()" style="padding:8px 20px;border:none;border-radius:6px;background:var(--red);color:white;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;">Create Project</button>'
-    +'</div></div>';
-    document.body.appendChild(ov);
-  }else{ov.style.display='flex';}
-  document.getElementById('cp-num').value='';document.getElementById('cp-name').value='';document.getElementById('cp-client').value='';
-  document.getElementById('cp-num').focus();
 }
 function closeCreateProjectModal(){var ov=document.getElementById('create-project-overlay');if(ov)ov.style.display='none';}
 function confirmCreateProject(){
@@ -4231,21 +3544,13 @@ function exportUnstarredProjects(){
   });
 }
 
-function deleteProject(id){var p=allProjects[id];_aConfirm('Delete "'+((p&&p.info.projectName)||'Untitled')+'"?',function(){delete allProjects[id];
-  Promise.all([ADB.del('projects',id),
-    ADB.getAllByIndex('drawings','projectId',id).then(function(ds){return Promise.all(ds.map(function(d){return ADB.del('drawings',d.id);}));}),
-    ADB.getAllByIndex('photos','projectId',id).then(function(ps){return Promise.all(ps.map(function(p){return ADB.del('photos',p.id);}));}),
-    ADB.getAllByIndex('sitePhotos','projectId',id).then(function(ps){return Promise.all(ps.map(function(p){return ADB.del('sitePhotos',p.id);}));})
-  ]).then(function(){if(currentProjectId===id)goToDashboard();else renderDashboard();});
-},'Delete');}
 function toggleStarProject(id,e){
   if(e)e.stopPropagation();
   if(!allProjects[id])return;
   allProjects[id].starred=!allProjects[id].starred;
-  saveToLS();renderDashboard();
+  saveToLS();
 }
 
-function duplicateProject(id){var src=allProjects[id];if(!src)return;var dup=JSON.parse(JSON.stringify(src));dup.id='proj_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);dup.info.projectName+=' (Copy)';dup.contractors=[];dup.generalDeficiencies=[];dup.nextDeficNum=1;dup.photos=[];dup.drawings=[];dup.created=new Date().toISOString();dup.modified=new Date().toISOString();allProjects[dup.id]=dup;ADB.saveFullProject(dup).then(function(){renderDashboard();});}
 function compressImage(file,maxW,quality,cb){
   // Use createImageBitmap for automatic EXIF orientation (Chrome/Edge)
   if(typeof createImageBitmap==='function'&&file instanceof Blob){
@@ -4273,34 +3578,6 @@ function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 function quickAddDeficiency(){if(!currentProjectId)return;switchTab('deficiencies');var p=getProject();addDeficiencyForGroup(null);}
 
 // ═══ FILE SYSTEM FOLDER ═══
-function chooseFolder(){
-  if(!window.showDirectoryPicker){_aAlert('Your browser does not support folder saving. Use Chrome or Edge desktop.\n\nOn mobile, use the Export button to save/share files.');return;}
-  ADB.pickFolder().then(function(handle){
-    toast('📁 Folder linked — auto-saving every 2 min');
-    updateFolderButton();
-    manualSaveToFolder();
-    // Write lock file for the current project
-    var p=getProject();if(p){
-      var fn=getProjectFilename(p);
-      ADB._openedJsonFilename=fn;
-      var inspName=_getInspectorName()||'Unknown';
-      ADB.writeLockFile(fn,inspName);
-    }
-  }).catch(function(e){if(e.name!=='AbortError')_aAlert('Could not access folder: '+e);});
-}
-function saveAsToFolder(){
-  if(!window.showDirectoryPicker){_aAlert('Your browser does not support folder saving. Use Chrome or Edge desktop.');return;}
-  var p=getProject();if(!p)return;
-  _aPrompt('Revision for new save (current: '+(p.info.revision||'A01')+'):',bumpRevision(p.info.revision||'A01'),function(rev){
-  if(!rev)return;
-  p.info.revision=rev;saveToLS();populateProjectFields();updateSmartFilename();
-  ADB.pickFolder().then(function(handle){
-    toast('📁 New folder linked');
-    updateFolderButton();
-    manualSaveToFolder();
-  }).catch(function(e){if(e.name!=='AbortError')_aAlert('Could not access folder: '+e);});
-  });
-}
 function bumpRevision(rev){
   // A01→A02, B01→B02, B01A01→B01A02
   var m=rev.match(/^([A-Z])(\d+)([A-Z]\d+)?$/);
@@ -4313,33 +3590,6 @@ function _getInspectorName(){
   try{return localStorage.getItem('ARENCON_FR_Inspector')||'';}catch(e){return '';}
 }
 
-function forceUnlockAndEdit(){
-  _aConfirm('This will take over the lock from the other user.\nThey will lose the ability to save.\n\nAre you sure?',function(){
-  ADB.setReadOnly(false);
-  var fn=ADB._openedJsonFilename||'';
-  if(fn&&ADB.folderHandle){
-    var inspName=_getInspectorName()||'Unknown';
-    ADB.writeLockFile(fn,inspName);
-  }
-  toast('✏️ Edit mode — you now have the lock');
-  });
-}
-function manualSaveToFolder(){
-  if(!currentProjectId)return;
-  if(ADB._readOnly){toast('🔒 Read-only mode — cannot save to shared folder');return;}
-  var p=getProject();if(!p)return;
-  var fn=getProjectFilename(p);
-  if(ADB.folderHandle){
-    ADB.exportProjectJSON(p.id).then(function(full){
-      return ADB.writeToFolder(fn,full);
-    }).then(function(ok){
-      if(ok){ADB.dirty=false;toast('💾 Saved: '+fn);updateSaveTimestamp();_updateSyncIndicator(true);_stopSavePulse();}
-      else{toast('Folder access expired — click 📁 to re-link');ADB.folderHandle=null;updateFolderButton();}
-    });
-  }else{
-    saveJSONDownload();
-  }
-}
 function getProjectFilename(p){
   if(p.info.customFilename)return p.info.customFilename.replace(/\.json$/,'')+'.json';
   return buildSmartFilename(p)+'.json';
@@ -4432,42 +3682,6 @@ function _syncMobileDot(){
   var mobDot=document.getElementById('mobile-sync-dot');
   if(mainDot&&mobDot){mobDot.className=mainDot.className;}
 }
-function updateFolderButton(){
-  var saveBtn=document.getElementById('btn-save');
-  var folderBtn=document.getElementById('btn-folder');
-  if(saveBtn){
-    if(ADB.folderHandle){saveBtn.classList.add('folder-linked');saveBtn.title='Save to browser + linked folder';}
-    else{saveBtn.classList.remove('folder-linked');saveBtn.title='Save to browser';}
-  }
-  if(folderBtn){
-    if(ADB.folderHandle){folderBtn.innerHTML='📁 ✓';folderBtn.title='Folder linked — click to change';folderBtn.style.background='#145a28';}
-    else{folderBtn.innerHTML='📁 Folder';folderBtn.title='Link save folder (S: drive)';folderBtn.style.background='#00695C';}
-  }
-  // Hide/show FS API buttons on unsupported browsers
-  var fsButtons=['btn-open-folder','btn-save-as','btn-folder'];
-  var supported=!!window.showDirectoryPicker;
-  fsButtons.forEach(function(id){var e=document.getElementById(id);if(e&&currentProjectId)e.style.display=supported?'':'none';});
-}
-function toggleResetMenu(e){
-  e.stopPropagation();
-  var dd=document.getElementById('reset-dropdown');if(!dd)return;
-  var open=dd.style.display==='block';
-  dd.style.display=open?'none':'block';
-  if(!open){
-    var dk=document.body.classList.contains('dark-mode');
-    dd.style.background=dk?'#1e2533':'white';
-    dd.style.borderColor=dk?'#2a3040':'transparent';
-    dd.style.border=dk?'1px solid #2a3040':'none';
-    var btns=dd.querySelectorAll('button');
-    btns.forEach(function(b){b.style.background=dk?'#1e2533':'white';b.style.color=b.style.color==='rgb(198, 40, 40)'?'#C62828':(dk?'#d0d8f0':'inherit');
-      b.onmouseover=function(){b.style.background=dk?'#283044':(b.style.color==='rgb(198, 40, 40)'?'#FFF5F5':'#f5f5f5');};
-      b.onmouseout=function(){b.style.background=dk?'#1e2533':'white';};
-    });
-    document.addEventListener('click',function h(){dd.style.display='none';document.removeEventListener('click',h);},{once:true});
-  }
-}
-function closeResetMenu(){var dd=document.getElementById('reset-dropdown');if(dd)dd.style.display='none';}
-
 function toast(msg){
   var t=document.createElement('div');
   t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1C2333;color:white;padding:10px 20px;border-radius:8px;font-size:calc(13px + var(--ts));font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.3);transition:opacity .3s;';
@@ -4566,13 +3780,6 @@ function resetCurrentTab(){
 
 // ═══ STUB FUNCTIONS for header buttons ═══
 function exportProjectJSON(){saveJSON();}
-var _dashShowAll=false;
-function toggleMyAllProjects(){
-  _dashShowAll=!_dashShowAll;
-  var btn=document.getElementById('btn-my-all-toggle');
-  if(btn)btn.innerHTML=_dashShowAll?'🌐 All Projects':'👤 My Projects';
-  renderDashboard();
-}
 function showInspector(){
   var curr=localStorage.getItem('ARENCON_FR_Inspector')||'';
   var history=_getInspectorHistory();
@@ -4648,7 +3855,7 @@ function _removeInspectorFromHistory(name){
   if(curr.toLowerCase()===name.toLowerCase()){
     localStorage.removeItem('ARENCON_FR_Inspector');
     _updateInspectorChip();
-    renderDashboard();
+    /* dashboard removed */
   }
 }
 function _applyInspector(){
@@ -4665,7 +3872,7 @@ function _applyInspector(){
     var el=document.getElementById('field-inspectorName');if(el)el.value=name;
   }
   toast('Inspector: '+name);
-  if(prev!==name)renderDashboard();
+  if(prev!==name)/* dashboard removed */
   _updateInspectorChip();
 }
 
@@ -4707,7 +3914,6 @@ function _showUnsavedModal(onProceed){
   document.getElementById('unsaved-cancel-btn').onclick=function(){ov.remove();};
   ov.addEventListener('keydown',function(e){if(e.key==='Escape')ov.remove();});
 }
-
 
 // ═══ INSPECTOR CHIP — update display ═══
 function _updateInspectorChip(){
@@ -4848,7 +4054,6 @@ function _genThumb(dataUrl, callback){
   }
 }
 
-
 var _selectedDrawings=new Set();
 function toggleFolderSelect(folderId,cb){
   var p=getProject();if(!p)return;
@@ -4867,13 +4072,6 @@ function toggleFolderSelect(folderId,cb){
   _updateSelectionUI();
 }
 // toggleDrawingSelect defined below with Set API
-function updateDrawingCheckboxes(){
-  document.querySelectorAll('.dwg-item-cb').forEach(function(cb){
-    cb.checked=_selectedDrawings.has(cb.dataset.did);
-  });
-}
-function updateBulkBar(){_updateSelectionUI();}
-
 // ═══ DRAWINGS: Upload, Gallery, Viewer, Pan/Zoom, Pins ═══
 var dvState={scale:1,panX:0,panY:0,pinMode:false,currentDrawingId:null,selectedPinId:null,draggingPin:false,dragStartX:0,dragStartY:0,origPinX:0,origPinY:0,longPressTimer:null,longPressTriggered:false,_didDrag:false};
 var _showAllDeficiencies=false;
@@ -5314,13 +4512,6 @@ function getSelectedDrawings(){return Array.from(_selectedDrawings);}
 
 function createDrawingFolder(){_aPrompt('Folder name:','',function(name){if(!name)return;var p=getProject();if(!p._folders)p._folders=[];p._folders.push(name);saveToLS();renderDrawingGallery();});}
 function toggleFolder(fname){var p=getProject();if(!p._collapsedFolders)p._collapsedFolders={};p._collapsedFolders[fname]=!p._collapsedFolders[fname];saveToLS();renderDrawingGallery();}
-function renameFolderAction(fname){
-  document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
-  _aPrompt('Rename folder:',fname,function(nn){
-  if(nn&&nn!==fname){var p=getProject();p.drawings.forEach(function(d){if(d.folder===fname)d.folder=nn;});if(p._folders){var idx=p._folders.indexOf(fname);if(idx>=0)p._folders[idx]=nn;}saveToLS();renderDrawingGallery();}
-  });
-}
-
 // ── Folder rename via button ──
 function promptFolderRename(fname){
   _aPrompt('Rename folder:',fname,function(nn){
@@ -5332,16 +4523,6 @@ function promptFolderRename(fname){
     saveToLS();renderDrawingGallery();
   }
   });
-}
-function addToFolderAction(fname){
-  document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
-  var inp=document.createElement('input');inp.type='file';inp.accept='image/*,.pdf,application/pdf';inp.multiple=true;
-  inp.onchange=function(){
-    Array.from(inp.files).forEach(function(f){
-      if(f.type==='application/pdf'){handlePDFUploadToFolder(f,fname);}
-      else if(f.type.startsWith('image/')){handleImageUploadToFolder(f,fname);}
-    });
-  };inp.click();
 }
 function handleImageUploadToFolder(f,folder){
   showDrawingLoading('Processing '+f.name+'...');
@@ -5437,22 +4618,6 @@ function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
       }
       go(1);
 }
-function downloadFolderDrawings(fname){
-  document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
-  var p=getProject();if(!p)return;
-  var items=p.drawings.filter(function(d){return d.folder===fname;});
-  if(!items.length){toast('No drawings in this folder');return;}
-  toast('Preparing '+items.length+' drawing(s)...');
-  items.forEach(function(dwg,i){
-    setTimeout(function(){openDownloadDialog(dwg.id);},i*100);
-  });
-}
-function deleteFolderAction(fname){
-  document.querySelectorAll('.folder-ctx-menu').forEach(function(m){m.remove();});
-  _aConfirm('Delete folder "'+fname+'"? Drawings will be moved to Unfiled.',function(){
-  var p=getProject();p.drawings.forEach(function(d){if(d.folder===fname)d.folder='';});saveToLS();renderDrawingGallery();
-  },'Delete');
-}
 function toggleActionsMenu(e){e.stopPropagation();document.getElementById('dwg-actions-menu').classList.toggle('open');}
 
 function openCardMenu(id,e){
@@ -5529,7 +4694,6 @@ ADB.delete('drawings',id).catch(function(){});
 ADB.saveFullProject(p).then(function(){ADB.markDirty();updateSaveTimestamp();}).catch(function(e){console.error('Delete save error',e);});
 _debouncedCloudSave();
 renderDrawingGallery();},'Delete');}
-
 
 // ══════════════════════════════════════════════════════════════
 // TILED PDF RENDERER — renders visible tiles on demand from raw PDF
@@ -6197,9 +5361,7 @@ area.addEventListener('click',function(e){
 if(!document._dvKeyHandler){document._dvKeyHandler=true;document.addEventListener('keydown',function(e){if(!document.getElementById('drawing-viewer').classList.contains('open'))return;if(e.key==='ArrowLeft')prevDrawing();if(e.key==='ArrowRight')nextDrawing();});}
 }
 
-
 // Delete All Markup / Pins dropdown
-function closeDvDeleteMenu(){var m=document.getElementById('dv-delete-menu');if(m)m.style.display='none';}
 function deleteAllMarkupOnDrawing(){
   if(!dvState.currentDrawingId)return;
   var count=_mkObjects.length;
@@ -6581,7 +5743,6 @@ function handlePinClick(deficId){
   renderPinsOnDrawing();
   openPinEditor(deficId);
 }
-
 
 function _mkNewId(){return 'mk_'+ (_mkNextId++);}
 
@@ -7541,7 +6702,6 @@ var _textSizeIndex=0;
 var _textSizes=[16,24,36,48];
 var _textSizeLabels=['S','M','L','XL'];
 
-
 // ═══ TOOLTIP — floating, no layout shift ═══
 function initToolbarTooltips(){
   var tip=document.getElementById('dv-tool-tooltip');
@@ -7743,7 +6903,6 @@ function deleteSelectedShape(){
   renderAllMarkup();saveMarkupData();_forceCloudSave();
   showToast(toDelete.length>1?toDelete.length+' markups deleted':'Markup deleted');
 }
-
 
 // ═══ DRAWING DOWNLOAD DIALOG ═══
 var _dlDrawingId=null;
@@ -7998,7 +7157,6 @@ setTimeout(function(){
   });
 },1000);
 
-
 function downloadAllDrawings(){
   var p=getProject();if(!p||!p.drawings.length)return;
   toast('Preparing '+p.drawings.length+' drawings — your browser will download each one...');
@@ -8036,13 +7194,11 @@ var _lbCanvas=null;
 
 // openLightbox: see features section
 
-
 function _lbShowCurrent(){
   _lbShowCurrentDirect();
 }
 
 // closeLightbox: see features section
-
 
 function lightboxPrev(e){e.stopPropagation();if(_lbPhotos.length<2)return;_lbIdx=(_lbIdx-1+_lbPhotos.length)%_lbPhotos.length;_lbShowCurrent();}
 function lightboxNext(e){e.stopPropagation();if(_lbPhotos.length<2)return;_lbIdx=(_lbIdx+1)%_lbPhotos.length;_lbShowCurrent();}
@@ -8735,7 +7891,7 @@ function _replacePhotoInProject(p,oldSrc,newSrc){
 // ═══ CONTRACTOR DEFICIENCY SYSTEM — Pump Tool Style ═══
 function addContractor(){var input=document.getElementById('new-contractor-input');var name=(input.value||'').trim();if(!name)return;var p=getProject();if(p.contractors.some(function(c){return c.name.toLowerCase()===name.toLowerCase();})){_aAlert('"'+name+'" already exists.');return;}p.contractors.push({id:'ctr_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,deficiencies:[]});input.value='';saveToLS();_folderQuickSave();renderDeficiencyPanel();}
 function removeContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;function _doRemove(){p.contractors=p.contractors.filter(function(x){return x.id!==cid;});saveToLS();_folderQuickSave();renderDeficiencyPanel();}if(c.deficiencies.length>0){_aConfirm('"'+c.name+'" has '+c.deficiencies.length+' deficiencies. Move to General?',function(){c.deficiencies.forEach(function(d){p.generalDeficiencies.push(d);});_doRemove();});}else{_aConfirm('Remove "'+c.name+'"?',function(){_doRemove();},'Remove');}}
-function renderDeficiencyPanel(){renderContractorChips();renderDeficGroups();renderSummaryTable();setTimeout(function(){populateRespPhotos();_loadDataSrcImgs(document.getElementById('panel-deficiencies'));},50);if(_reviewActive)setTimeout(_updateReviewBadge,100);}
+function renderDeficiencyPanel(){renderContractorChips();renderDeficGroups();renderSummaryTable();setTimeout(function(){populateRespPhotos();_loadDataSrcImgs(document.getElementById('panel-deficiencies'));},50);}
 function renderContractorChips(){var p=getProject();if(!p)return;var el=document.getElementById('contractor-chips');if(!p.contractors.length){el.innerHTML='<span style="color:#999;font-size:calc(13px + var(--ts));">No contractors added yet.</span>';return;}el.innerHTML=p.contractors.map(function(c){return'<div class="contractor-chip"><span>'+escHtml(c.name)+'</span><button onclick="renameContractor(\''+c.id+'\')" title="Rename" style="background:none;border:none;cursor:pointer;font-size:calc(11px + var(--ts));padding:0 2px;opacity:.7;color:inherit;">✏</button><button onclick="removeContractor(\''+c.id+'\')" title="Remove">✕</button></div>';}).join('');}
 function renameContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;_aPrompt('Rename contractor:',c.name,function(nn){if(!nn||!nn.trim()||nn.trim()===c.name)return;nn=nn.trim();if(p.contractors.some(function(x){return x.id!==cid&&x.name.toLowerCase()===nn.toLowerCase();})){_aAlert('"'+nn+'" already exists.');return;}var oldName=c.name;c.name=nn;
 if(_foldedCtrs[oldName]){_foldedCtrs[nn]=_foldedCtrs[oldName];delete _foldedCtrs[oldName];}saveToLS();renderDeficiencyPanel();});}
@@ -8827,7 +7983,7 @@ function updateEntryField(did,ei,field,val){
   if(f.defic.entries[ei])f.defic.entries[ei][field]=val;
   // Sync legacy fields from first entry
   if(ei===0&&field==='description')f.defic.description=val;
-  saveToLS();_scheduleReviewUpdate();
+  saveToLS();
 }
 function updateEntryContractor(did,ei,ctrId){
   var f=findDeficiency(did);if(!f)return;
@@ -8908,7 +8064,7 @@ function processEntryPhotos(did,ei,files){
 }
 
 function addDeficiencyForGroup(ctrId){var p=getProject();var num=p.nextDeficNum++;var d=newDeficiency(num);if(ctrId){var c=p.contractors.find(function(x){return x.id===ctrId;});if(c)c.deficiencies.push(d);}else{p.generalDeficiencies.push(d);}pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();setTimeout(function(){var el=document.getElementById('defic-item-'+d.id);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},100);}
-function updateDeficField(did,field,val){var f=findDeficiency(did);if(f){f.defic[field]=val;saveToLS();if(field==='status'){renderSummaryTable();_folderQuickSave();}_scheduleReviewUpdate();}}
+function updateDeficField(did,field,val){var f=findDeficiency(did);if(f){f.defic[field]=val;saveToLS();if(field==='status'){renderSummaryTable();_folderQuickSave();}}}
 
 function toggleIARInPlace(btn,did){
   var f=findDeficiency(did);if(!f)return;
@@ -9266,7 +8422,7 @@ function populateRespPhotos(){
 
 function addDeficResponse(did,party){var f=findDeficiency(did);if(!f)return;if(!f.defic.responses)f.defic.responses=[];f.defic.responses.push({party:party,comment:'',date:'',photos:[]});saveToLS();renderDeficiencyPanel();}
 function removeDeficResponse(did,ri){var f=findDeficiency(did);if(f&&f.defic.responses){f.defic.responses.splice(ri,1);saveToLS();renderDeficiencyPanel();}}
-function updateDeficResponse(did,ri,field,val){var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]){f.defic.responses[ri][field]=val;saveToLS();_scheduleReviewUpdate();}}
+function updateDeficResponse(did,ri,field,val){var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]){f.defic.responses[ri][field]=val;saveToLS();}}
 
 function consultantCloseItem(did,ri){
   var f=findDeficiency(did);if(!f)return;
@@ -9284,7 +8440,6 @@ function consultantCloseItem(did,ri){
   showToast('Observation closed. IAR deactivated.');
   });
 }
-
 
 // ── DEFICIENCY PHOTO RECORD HELPERS ──
 // Photos are now objects: {id, dataUrl, r2Key, r2Status, r2Url}
@@ -9630,24 +8785,6 @@ function _requeuePendingUploads(proj){
   });
 }
 
-function processDeficPhotos(did,files){
-  var f=findDeficiency(did);if(!f)return;
-  Array.from(files).forEach(function(file){
-    compressImage(file,3200,0.80,function(du){
-      var rec=_makeDeficPhotoRec(du);
-      if(!f.defic.photos)f.defic.photos=[];
-      f.defic.photos.push(rec);
-      if(f.defic.entries&&f.defic.entries[0]){
-        if(!f.defic.entries[0].photos)f.defic.entries[0].photos=[];
-        // Check by id to avoid duplicates
-        var exists=f.defic.entries[0].photos.some(function(p){return p.id===rec.id;});
-        if(!exists)f.defic.entries[0].photos.push(rec);
-      }
-      _r2EnqueueDeficPhoto(rec,f.defic.id);
-      saveToLS();renderDeficiencyPanel();
-    });
-  });
-}
 function triggerRespPhotoUpload(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){processRespPhotos(did,ri,inp.files);};inp.click();}
 function triggerRespPhotoCamera(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){if(inp.files&&inp.files.length>0){processRespPhotos(did,ri,inp.files);inp.value='';setTimeout(function(){try{inp.click();}catch(ex){}},600);}};inp.click();}
 function handleRespPhotoDrop(e,did,ri){processRespPhotos(did,ri,e.dataTransfer.files);}
@@ -10168,7 +9305,6 @@ function closePinModalOnBackdrop(e){
 }
 function _flushDescIfEditing(){clearTimeout(_autoPinSaveTimer);_flushPinEntryDescriptions();}
 
-
 function _movePinToDrawing(newDrawingId){
   if(!newDrawingId||!editingPinId)return;
   var f=findDeficiency(editingPinId);if(!f)return;
@@ -10417,7 +9553,6 @@ function renderTasksTable(){
     });
   });
 }
-
 
 function renderPinsKanban(){
   var p=getProject();if(!p)return;
@@ -10994,8 +10129,7 @@ function saveJSONDownload(){
 }
 
 function saveJSON(){
-  if(ADB.folderHandle){manualSaveToFolder();}
-  else{saveJSONDownload();}
+  saveJSONDownload();
 }
 
 function openLoadModal(){
@@ -11036,7 +10170,7 @@ function loadJSON(event){
             });
             chain.then(function(){
               toast('Loaded '+count+' project'+(count===1?'':'s'));
-              renderDashboard();
+              /* dashboard removed */
               if(count===1)enterProject(data[keys[0]].id);
             });
             return;
@@ -11048,7 +10182,7 @@ function loadJSON(event){
         allProjects[data.id]=data;
         ADB.saveFullProject(data).then(function(){
           toast('Loaded: '+(data.info&&data.info.projectName||'Untitled'));
-          renderDashboard();
+          /* dashboard removed */
           enterProject(data.id);
         });
       }catch(err){_aAlert('Invalid JSON file: '+err.message);}
@@ -11524,7 +10658,6 @@ function _finalizePage(){
   }
 }
 
-
 // Start first page
 _startPage();
 
@@ -11964,7 +11097,7 @@ document.addEventListener('DOMContentLoaded',function(){
         if(hubClient)ep.info.client=hubClient;
         if(hubAddr)ep.info.address=hubAddr;
       }
-      renderDashboard();
+      /* dashboard removed */
       updateProjectDropdown();
       enterProject(existingId);
       switchTab('info');
@@ -11997,7 +11130,7 @@ document.addEventListener('DOMContentLoaded',function(){
       var raw=localStorage.getItem('ARENCON_FieldReview_V2_Projects');
       if(raw)allProjects=JSON.parse(raw);
     }catch(e2){}
-    renderDashboard();
+    /* dashboard removed */
     _initDone=true;
   });
 
@@ -12091,7 +11224,6 @@ function showDataWarning(msg){
   }
   var msgEl=document.getElementById('data-warn-msg');if(msgEl)msgEl.textContent=msg;
 }
-
 
 setInterval(updateStorageDisplay,30000);
 // ═══ FEATURE 1: KANBAN / TASK BOARD ═══
@@ -12283,7 +11415,6 @@ function rotateDrawing(id){
   img.crossOrigin='anonymous';
   img.src=dwg.dataUrl||dwg.r2Url||'';
 }
-
 
 // === BATCH E: Compact Mode ===
 var _compactMode=(localStorage.getItem('ARENCON_compactMode')==='1');
