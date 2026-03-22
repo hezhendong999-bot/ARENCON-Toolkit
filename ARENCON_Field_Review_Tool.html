@@ -9614,14 +9614,9 @@ function _lbShowCurrentDirect(){
     _lbCanvas.width=bw;
     _lbCanvas.height=bh;
     _lbCanvas.style.maxWidth='90vw';
-    _lbCanvas.style.maxHeight='80vh';
-    // Clear explicit size first so browser computes constrained size from intrinsic ratio
-    _lbCanvas.style.width='';
-    _lbCanvas.style.height='';
-    // Force layout, then lock the computed display size to prevent shift when toolbar appears
-    var dispRect=_lbCanvas.getBoundingClientRect();
-    _lbCanvas.style.width=dispRect.width+'px';
-    _lbCanvas.style.height=dispRect.height+'px';
+    _lbCanvas.style.maxHeight='65vh';
+    _lbCanvas.style.width=bw+'px';
+    _lbCanvas.style.height=bh+'px';
     _lbCtx=_lbCanvas.getContext('2d');
     // No ctx.scale() — getPos maps directly to buffer coords
     _lbCanvas._dpr=1;
