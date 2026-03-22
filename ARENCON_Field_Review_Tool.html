@@ -1494,11 +1494,11 @@ body.text-l{--ts:4px;}
   </div>
 </div>
 <div id="pdf-picker-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:6000;align-items:center;justify-content:center;">
-  <div style="background:white;border-radius:12px;max-width:420px;width:90%;padding:28px;box-shadow:var(--shadow-lg);">
-    <h3 style="font-size:18px;margin-bottom:16px;color:var(--slate);">Export PDF Report</h3>
+  <div style="background:var(--card);border-radius:12px;max-width:420px;width:90%;padding:28px;box-shadow:var(--shadow-lg);border:1px solid var(--border);">
+    <h3 style="font-size:18px;margin-bottom:16px;color:var(--fg);">Export PDF Report</h3>
     <button class="btn" onclick="exportPDF('plain');closePDFPicker();" style="width:100%;margin-bottom:10px;justify-content:center;padding:12px;background:#9C2742;color:white;border:none;font-weight:700;">📝 Deficiency Report <span style="font-size:calc(11px + var(--ts));font-weight:400;opacity:.85;">— deficiencies, photos &amp; comments</span></button>
     <button class="btn" onclick="exportPDF('field');closePDFPicker();" style="width:100%;margin-bottom:10px;justify-content:center;padding:12px;background:#1A237E;color:white;border:none;font-weight:700;">📋 Field Review Report <span style="font-size:calc(11px + var(--ts));font-weight:400;opacity:.85;">— mini-maps + drawing appendix</span></button>
-    <button class="btn btn-outline" onclick="closePDFPicker();" style="width:100%;justify-content:center;padding:12px;color:var(--silver);">Cancel</button>
+    <button class="btn btn-outline" onclick="closePDFPicker();" style="width:100%;justify-content:center;padding:12px;color:var(--fg);border-color:var(--border);">Cancel</button>
   </div>
 </div>
 <div id="view-dashboard" style="display:none;">
