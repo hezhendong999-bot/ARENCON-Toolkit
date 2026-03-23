@@ -158,6 +158,7 @@ html{overflow-x:hidden;max-width:100vw;}
 .app-subtitle{font-size:calc(11.5px + var(--ts));color:rgba(255,255,255,.6);margin-top:1px;}
 .header-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;position:relative;z-index:10;}
 .header-save-ts{font-size:10.5px;color:rgba(255,255,255,.5);margin-right:4px;}
+#cloud-status{background:rgba(26,122,74,.7);padding:3px 10px;border-radius:6px;font:600 calc(11px + var(--ts)) Calibri,sans-serif;transition:background .4s;}
 .project-bar{display:none;align-items:center;gap:8px;padding:6px 14px;font-family:Calibri,'Segoe UI',system-ui,sans-serif;background:var(--slate-mid);border-top:1px solid rgba(255,255,255,.06);min-height:32px;flex-wrap:wrap;}
 .project-bar.visible{display:flex;}
 .project-bar .pb-filename{font-size:calc(12px + var(--ts));font-weight:500;color:rgba(255,255,255,.88);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;cursor:pointer;padding:2px 6px;border-radius:4px;transition:background .15s;}
@@ -1385,7 +1386,7 @@ body.text-l{--ts:4px;}
         </div>
       </div>
       <button class="hdr-btn" id="dark-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="background:rgba(255,255,255,.15);min-width:38px;justify-content:center;">☀️</button>
-      <button class="hdr-btn text-size-toggle" id="btn-text-size" onclick="cycleTextSize()" title="Text size: Small / Medium / Large">Aa M</button>
+      <button class="hdr-btn text-size-toggle" id="btn-text-size" onclick="cycleTextSize()" title="Text size: Small / Medium / Large">M</button>
       <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
     </div>
   </div>
@@ -1449,7 +1450,7 @@ body.text-l{--ts:4px;}
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span>💾</span><span id="mobile-storage-text">Calculating...</span></div>
       <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="mobile-storage-bar" style="height:100%;background:#1A7A4A;width:0%;border-radius:2px;transition:width .3s;"></div></div>
     </div>
-    <button class="btn" onclick="cycleTextSize();closeMobileMenu();" id="mobile-text-size-btn" style="font-size:12px;">Aa Text: Medium</button>
+    <button class="btn" onclick="cycleTextSize();closeMobileMenu();" id="mobile-text-size-btn" style="font-size:12px;">Text: Medium</button>
   </div>
 </div>
 <input type="file" id="load-input" accept=".json" style="display:none" onchange="closeLoadModal();loadJSON(event)">
@@ -2968,9 +2969,9 @@ function applyTextSize(size){
   var cls=_appTextClasses[size];
   if(cls)document.body.classList.add(cls);
   var btn=document.getElementById('btn-text-size');
-  if(btn)btn.textContent='Aa '+size;
+  if(btn)btn.textContent=size;
   var mob=document.getElementById('mobile-text-size-btn');
-  if(mob)mob.textContent='Aa Text: '+_appTextLabels[size];
+  if(mob)mob.textContent='Text: '+_appTextLabels[size];
 }
 (function(){var s=localStorage.getItem('arencon-text-size')||'M';applyTextSize(s);})();
 
