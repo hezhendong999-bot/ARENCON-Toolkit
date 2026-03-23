@@ -29,7 +29,7 @@
 body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);font-size:calc(15px + var(--ts));}
 
 /* ── HEADER ── */
-.app-header{background:var(--arencon);color:white;position:sticky;top:0;z-index:1000;box-shadow:0 2px 12px rgba(156,39,66,.3);width:100%;box-sizing:border-box;}
+.app-header{background:linear-gradient(135deg,#1B2438 0%,#243048 100%);color:white;position:sticky;top:0;z-index:1000;box-shadow:0 2px 12px rgba(27,36,56,.4);width:100%;box-sizing:border-box;}
 .header-top{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,.07);gap:8px;overflow:visible;}
 .back-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:none;color:white;padding:6px 14px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;transition:background .15s;margin-right:10px;}.back-btn:hover{background:rgba(255,255,255,.22);}
 .header-logo{height:34px;width:auto;background:#fff;padding:3px 7px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.2);display:block;}
@@ -40,7 +40,7 @@ body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);f
 .app-subtitle{font-size:calc(11.5px + var(--ts));color:var(--silver);margin-top:1px;}
 
 /* ── SECTION NAV ── */
-.section-nav{background:var(--slate-mid);display:flex;gap:0;overflow-x:auto;padding:0 16px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav::-webkit-scrollbar{display:none;}
+.section-nav{background:linear-gradient(135deg,#1B2438 0%,#243048 100%);display:flex;gap:0;overflow-x:auto;padding:0 16px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav::-webkit-scrollbar{display:none;}
 .nav-tab{padding:11px 18px;font-family:Calibri,sans-serif;font-weight:600;font-size:calc(15px + var(--ts));letter-spacing:.4px;color:var(--silver);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;user-select:none;}
 .nav-tab:hover{color:white;}
 .nav-tab.active{color:white;border-bottom-color:var(--red);}
@@ -80,8 +80,7 @@ input[type="checkbox"]{-webkit-appearance:checkbox!important;-moz-appearance:che
 .field-group textarea{resize:vertical;min-height:60px;}
 
 /* ── SECTION HEADER ── */
-.section-title{font-family:Calibri,sans-serif;font-weight:700;font-size:calc(17px + var(--ts));letter-spacing:.7px;text-transform:uppercase;color:#1A7A4A;display:flex;align-items:center;gap:9px;margin:24px 0 10px;}
-.section-title::before{content:'';display:inline-block;width:4px;height:19px;background:var(--red);border-radius:2px;}
+.section-title{font-family:Calibri,sans-serif;font-weight:700;font-size:calc(17px + var(--ts));letter-spacing:.7px;text-transform:uppercase;color:#fff;display:flex;align-items:center;gap:9px;margin:24px 0 10px;background:linear-gradient(135deg,#9C2742,#7d1f35);padding:10px 18px;border-radius:6px;}
 
 .subsection-note{background:var(--warn-bg);border-left:4px solid var(--warn);border-radius:6px;padding:10px 14px;font-size:calc(13px + var(--ts));color:var(--warn);font-weight:500;margin-bottom:12px;line-height:1.5;}
 
@@ -405,14 +404,14 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
 
 /* ══ DARK MODE ══ */
 body.dark-mode{--smoke:#0f1318;--border:#2a3040;--slate:#d0d8f0;--slate-mid:#1e2533;--silver:#8a94b0;--steel:#8a94b0;background:#0f1318;color:#d0d8f0;}
-body.dark-mode .app-header{background:#2a1520;}
-body.dark-mode .section-nav{background:#1e2028;}
+body.dark-mode .app-header{background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);}
+body.dark-mode .section-nav{background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);}
 body.dark-mode .nav-tab{color:#7a8090;}body.dark-mode .nav-tab.active{color:#fff;border-bottom-color:#c13a58;}
 body.dark-mode .card,body.dark-mode .cl-item{background:#1e2533;border-color:#2a3040;}
-body.dark-mode .card-header{background:#9C2742;color:#fff;}
-body.dark-mode .card-header.mid{background:#1e2a40;color:#d0d8f0;}
-body.dark-mode .card-header.red{background:#C0392B;color:#fff;}
-body.dark-mode .section-title{color:#e0a0b0;background:#2a1520;margin-left:-18px;margin-right:-18px;padding:10px 18px;border-radius:6px;}body.dark-mode .section-title::before{background:#9C2742;}
+body.dark-mode .card-header{background:linear-gradient(135deg,#5a1a2a,#3d1220)!important;color:#e8c0cc!important;}
+body.dark-mode .card-header.mid{background:linear-gradient(135deg,#1e2a40,#172235)!important;color:#d0d8f0!important;}
+body.dark-mode .card-header.red{background:linear-gradient(135deg,#5a1a1a,#3d1212)!important;color:#f0a0a0!important;}
+body.dark-mode .section-title{color:#fff;background:linear-gradient(135deg,#6b1a2e,#4a1020);margin-left:-18px;margin-right:-18px;padding:10px 18px;border-radius:6px;}
 body.dark-mode input,body.dark-mode select,body.dark-mode textarea{background:#151a24!important;color:#d0d8f0!important;border:1.5px solid #2a3040!important;border-radius:6px!important;}
 body.dark-mode input:focus,body.dark-mode select:focus,body.dark-mode textarea:focus{background:#22252d!important;border-color:#c13a58!important;box-shadow:0 0 0 2px rgba(193,58,88,.15)!important;}
 body.dark-mode input::placeholder,body.dark-mode textarea::placeholder{color:#606878!important;}
@@ -509,7 +508,7 @@ body.dark-mode td[id*="net-"]{background:#1a2a20!important;color:#4aba5a!importa
 body.dark-mode .calc-cell{background:#1a2830!important;color:#80c0d0!important;}
 body.dark-mode select option{background:#282b34;color:#d4d4d4;}
 .dark-toggle{background:rgba(255,255,255,.12);border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:calc(16px + var(--ts));margin-left:4px;transition:background .15s;}.dark-toggle:hover{background:rgba(255,255,255,.22);}
-.chart-annotation-label{background:rgba(255,255,255,.88)!important;border:1px solid rgba(0,0,0,.12)!important;border-radius:4px!important;padding:1px 5px!important;box-shadow:0 1px 3px rgba(0,0,0,.1)!important;font-weight:700!important;text-shadow:none!important;}
+.chart-annotation-label{background:rgba(255,255,255,.88)!important;border:1px solid rgba(0,0,0,.12)!important;border-radius:4px!important;padding:1px 5px!important;box-shadow:0 1px 3px rgba(0,0,0,.1)!important;font-weight:700!important;color:#1a3a5c!important;text-shadow:none!important;}
 
 /* ══ DARK MODE — Deficiency Section Inline Style Overrides ══ */
 body.dark-mode [style*="background:#fffbf0"]{background:#2a2820!important;color:#c8b880!important;}
@@ -610,7 +609,7 @@ body.dark-mode .card[style*="border:1.5px solid #1A527622"]{border-color:#2a3848
 /* ═══ TEXT SIZE SYSTEM — S/M ═══ */
 :root{--ts:0px;}
 body.text-m{--ts:2px;}
-.text-size-toggle{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:calc(13px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;transition:all .15s;min-height:32px;display:inline-flex;align-items:center;gap:4px;}
+.text-size-toggle{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:calc(12px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;transition:all .15s;display:inline-flex;align-items:center;gap:4px;}
 .text-size-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
 /* ═══ PROJECT BAR ═══ */
 .project-bar{display:none;align-items:center;gap:8px;padding:6px 14px;font-family:Calibri,'Segoe UI',system-ui,sans-serif;background:#2C3E50;border-top:1px solid rgba(255,255,255,.06);min-height:32px;flex-wrap:wrap;}
@@ -651,13 +650,11 @@ body.dark-mode .project-bar{background:#151a24;border-top-color:rgba(255,255,255
           <button onclick="downloadJSON();closeMoreMenu()">💾 Download JSON <span>Save project data to file</span></button>
           <button onclick="importJSON();closeMoreMenu()">📂 Import JSON <span>Load project data from file</span></button>
           <div style="height:1px;background:#eee;margin:2px 0;"></div>
-          <div id="more-repair-section" style="display:none;">
-            <button onclick="_r2ReuploadAll();closeMoreMenu()">☁️ Re-upload All Photos <span>Push all local photos to R2</span></button>
-            <button onclick="_r2CleanupOrphans();closeMoreMenu()">🧹 R2 Cleanup <span>Delete orphaned cloud files</span></button>
-            <div style="height:1px;background:#eee;margin:2px 0;"></div>
-          </div>
           <button onclick="resetCurrentPage();closeMoreMenu()">🗑️ Reset Current Page <span>Clear this page's data</span></button>
           <button onclick="resetAllPages();closeMoreMenu()" style="color:#C62828;">⚠️ Reset All Pages <span>Delete all project data</span></button>
+          <div style="height:1px;background:#eee;margin:2px 0;" id="menu-r2-divider" class="hub-only-menu" hidden></div>
+          <button onclick="_r2ReuploadAll();closeMoreMenu()" id="menu-reupload" class="hub-only-menu" hidden>☁️ Re-upload All Photos <span>Push all local photos to R2</span></button>
+          <button onclick="_r2CleanupOrphans();closeMoreMenu()" id="menu-r2cleanup" class="hub-only-menu" hidden>🧹 R2 Cleanup <span>Delete orphaned cloud files</span></button>
         </div>
       </div>
       <button class="hdr-btn" id="dark-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="background:rgba(255,255,255,.15);min-width:38px;justify-content:center;">☀️</button>
@@ -813,12 +810,12 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
   <!-- ══ SECTION 1: PRE-COMMISSIONING ══ -->
   <div class="panel" id="panel-s1">
-    <div class="card"><div class="card-body"><div id="cl-s1"></div></div></div>
+    <div class="card"><div class="card-header">1. Pre-Commissioning</div><div class="card-body"><div id="cl-s1"></div></div></div>
   </div>
 
   <!-- ══ SECTION 2: VISUAL INSPECTION ══ -->
   <div class="panel" id="panel-s2">
-    <div class="card"><div class="card-body"><div id="cl-s2"></div></div></div>
+    <div class="card"><div class="card-header">2. Visual Inspection</div><div class="card-body"><div id="cl-s2"></div></div></div>
   </div>
 
   <!-- ══ SECTION 3: PUMP/CONTROLLER/LOUVER TESTS ══ -->
@@ -1648,7 +1645,7 @@ function pmuInitEvents(canvas, ctx) {
     hx.beginPath(); hx.moveTo(pts[0].x,pts[0].y);
     for(let i=1;i<pts.length;i++) hx.lineTo(pts[i].x,pts[i].y);
     hx.stroke();
-    ctx.globalAlpha=pmuState.alpha*0.55; ctx.globalCompositeOperation='source-over';
+    ctx.globalAlpha=pmuState.alpha*0.35; ctx.globalCompositeOperation='source-over';
     ctx.drawImage(hlc,0,0);
     ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
   };
@@ -1956,7 +1953,7 @@ function initLbEvents(canvas) {
       hx.stroke();
       var opEl=document.getElementById('lbt-opacity');
       var opac=opEl?(parseInt(opEl.value)||100)/100:1;
-      lbMarkupCtx.globalAlpha=opac*0.55; lbMarkupCtx.globalCompositeOperation='source-over';
+      lbMarkupCtx.globalAlpha=opac*0.35; lbMarkupCtx.globalCompositeOperation='source-over';
       lbMarkupCtx.drawImage(lbHlCanvas,0,0);
       lbMarkupCtx.globalAlpha=1;
     } else if(['arrow','line','circle','square','triangle'].indexOf(lbTool)>=0) {
@@ -1987,7 +1984,7 @@ function initLbEvents(canvas) {
       hx.stroke();
       var opEl=document.getElementById('lbt-opacity');
       var opac=opEl?(parseInt(opEl.value)||100)/100:1;
-      lbMarkupCtx.globalAlpha=opac*0.55; lbMarkupCtx.globalCompositeOperation='source-over';
+      lbMarkupCtx.globalAlpha=opac*0.35; lbMarkupCtx.globalCompositeOperation='source-over';
       lbMarkupCtx.drawImage(lbHlCanvas,0,0);
       lbMarkupCtx.globalAlpha=1;
       _lbHlSnap=null; _lbHlPts=[];
@@ -2021,7 +2018,7 @@ function applyLbStyle(ctx, tool, col, sz) {
     ctx.strokeStyle='rgba(0,0,0,1)'; ctx.lineWidth=Math.max(sz,16); ctx.globalAlpha=1;
   } else if(tool==='highlight') {
     ctx.globalCompositeOperation='source-over';
-    ctx.strokeStyle=col; ctx.lineWidth=sz*3; ctx.globalAlpha=opac*0.55;
+    ctx.strokeStyle=col; ctx.lineWidth=sz*3; ctx.globalAlpha=opac*0.35;
   } else {
     ctx.globalCompositeOperation='source-over';
     ctx.strokeStyle=col; ctx.lineWidth=sz; ctx.globalAlpha=opac;
@@ -2604,8 +2601,17 @@ function updateVerdict() {
   }
 
   el.style.display = 'block';
-  el.style.background = bgCol;
-  el.style.color = 'white';
+  var isDark = document.body.classList.contains('dark-mode');
+  if(isDark) {
+    var darkBg = bgCol==='#1A7A4A'?'rgba(26,122,74,.2)':bgCol==='#E67E22'?'rgba(230,126,34,.2)':bgCol==='#C0392B'?'rgba(192,57,43,.2)':'rgba(120,144,156,.2)';
+    el.style.background = darkBg;
+    el.style.color = bgCol==='#1A7A4A'?'#4ade80':bgCol==='#E67E22'?'#fbbf24':bgCol==='#C0392B'?'#f87171':'#94a3b8';
+    el.style.border = '1px solid ' + (bgCol==='#1A7A4A'?'rgba(26,122,74,.4)':bgCol==='#E67E22'?'rgba(230,126,34,.4)':bgCol==='#C0392B'?'rgba(192,57,43,.4)':'rgba(120,144,156,.3)');
+  } else {
+    el.style.background = bgCol;
+    el.style.color = 'white';
+    el.style.border = 'none';
+  }
   el.textContent = resultText;
 }
 
@@ -4132,21 +4138,33 @@ function _realExportPDF() {
     .proj-tbl{width:100%;border-collapse:collapse;margin-top:14px;}
     .proj-tbl td{padding:4px 8px;font-size:8.5pt;border-bottom:1px solid #EEE;}
     .proj-tbl .lbl{font-weight:bold;color:#666;width:140px;background:#F5F5F5;}
-    h2{font-size:11pt;font-weight:bold;background:#9C2742;color:white;padding:6px 12px;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.5px;}
-    h3{font-size:9.5pt;font-weight:bold;border-left:3px solid #C0392B;padding-left:6px;margin:14px 0 6px;color:#7d1f35;}
+    h2{font-size:11pt;font-weight:bold;background:#9C2742;color:white;padding:6px 12px;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.5px;page-break-inside:avoid;page-break-after:avoid;}
+    h3{font-size:9.5pt;font-weight:bold;border-left:3px solid #C0392B;padding-left:6px;margin:14px 0 6px;color:#7d1f35;page-break-inside:avoid;page-break-after:avoid;}
     table.cl{width:100%;border-collapse:collapse;}
     table.cl th{background:#7d1f35;color:white;padding:5px 8px;text-align:left;font-size:8.5pt;}
     table.cl td{vertical-align:top;border-bottom:1px solid #EEE;}
+    table.cl tr{page-break-inside:avoid;}
     table.dt{width:100%;border-collapse:collapse;margin-bottom:12px;}
     table.dt th{background:#7d1f35;color:white;padding:5px 8px;text-align:center;font-size:8pt;}
     table.dt td{padding:5px 8px;text-align:center;border-bottom:1px solid #EEE;font-size:8.5pt;}
     .defic{border-left:3px solid #C0392B;padding:8px 10px;margin-bottom:8px;background:#FFF9F9;page-break-inside:avoid;}
     .defic-lbl{font-size:7.5pt;color:#C0392B;font-weight:bold;text-transform:uppercase;}
     .iat{color:#C0392B;font-weight:bold;}
-    .footer{margin-top:24px;border-top:1px solid #DDD;padding-top:10px;font-size:7.5pt;color:#888;}
-    @media print{@page{margin:12mm 14mm;} body{background:white!important;padding:0!important;} .page{box-shadow:none!important;margin:0!important;padding:0 0 12px!important;max-width:none!important;min-height:auto!important;} h2{page-break-before:always;} h2:first-of-type{page-break-before:avoid;}}
+    .running-header{display:none;}
+    @media print{
+      @page{margin:18mm 14mm 12mm 14mm;size:letter;}
+      body{background:white!important;padding:0!important;}
+      .page{box-shadow:none!important;margin:0!important;padding:0!important;max-width:none!important;min-height:auto!important;}
+      .running-header{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #999;padding-bottom:4px;margin-bottom:12px;font-size:8pt;color:#444;line-height:1.5;position:running(pageHead);}
+      @page{@top-center{content:element(pageHead);}}
+      @page:first{@top-center{content:none;}}
+    }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
   </style></head><body>
+  <div class="running-header">
+    <div><div style="font-weight:700;">${(proj.client||'—').replace(/</g,'&lt;')}</div><div>${(proj.addr||'—').replace(/</g,'&lt;')}</div><div>Diesel Fire Pump Commissioning Report</div></div>
+    <div style="text-align:right;"><div>${proj.projno||'—'} ${proj.revision||formRevision||''}</div><div>&nbsp;</div><div>${proj.date||new Date().toLocaleDateString('en-CA')}</div></div>
+  </div>
   <div class="page">
   <div class="cover">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:2px;">
@@ -4177,11 +4195,11 @@ function _realExportPDF() {
   </div>
 
   <h2>1. Prior to Commissioning Date</h2>
-  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:8%">Status</th><th style="width:18%">Comments</th><th style="width:20%;text-align:center;">Photos</th></tr></thead>
+  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:44%">Item</th><th style="width:8%">Status</th><th style="width:16%">Comments</th><th style="width:28%;text-align:center;">Photos</th></tr></thead>
   <tbody>${clSection(S1,'s1')}</tbody></table>
 
   <h2>2. Visual Inspection</h2>
-  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:8%">Status</th><th style="width:18%">Comments</th><th style="width:20%;text-align:center;">Photos</th></tr></thead>
+  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:44%">Item</th><th style="width:8%">Status</th><th style="width:16%">Comments</th><th style="width:28%;text-align:center;">Photos</th></tr></thead>
   <tbody>${clSection(S2,'s2')}</tbody></table>
 
   <h2>3. Pump / Controller / Louver Tests</h2>
@@ -4191,43 +4209,75 @@ function _realExportPDF() {
   <tr style="background:#EFF2F7;font-weight:700;"><td colspan="2">Battery #1 Subtotal: ${b1tot.toFixed(2)} s</td><td colspan="2">Battery #2 Subtotal: ${b2tot.toFixed(2)} s</td></tr>
   <tr style="background:${cumTot<=45?'#D4EDDA':'#FADBD8'};font-weight:700;"><td colspan="4">Combined Total: ${cumTot.toFixed(2)} s — ${cumTot<=45?'✓ PASS (≤ 45s)':'✗ FAIL (> 45s) — Engine to run 5 min at full speed'}</td></tr>
   </tbody></table>
-  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:8%">Status</th><th style="width:18%">Comments</th><th style="width:20%;text-align:center;">Photos</th></tr></thead>
+  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:44%">Item</th><th style="width:8%">Status</th><th style="width:16%">Comments</th><th style="width:28%;text-align:center;">Photos</th></tr></thead>
   <tbody>${clSection(S3,'s3')}</tbody></table>
 
   <h2>4. Fire Pump Test Results</h2>
-  <table class="dt" style="max-width:400px;"><thead><tr><th class="left" style="text-align:left">Parameter</th><th>Value</th></tr></thead>
-  <tbody>
-    <tr><td style="text-align:left">PRV Rating (psi)</td><td>${document.getElementById('pm-prv').value||'—'}</td></tr>
-    <tr><td style="text-align:left">Pump Rated Speed (RPM)</td><td>${document.getElementById('pm-rpm').value||'—'}</td></tr>
-    <tr><td style="text-align:left">Equipment Used</td><td>${(function(){var ptype=document.getElementById('pm-type')?document.getElementById('pm-type').value:'std';var sel='input[name=equip3a]:checked';if(ptype==='pld')sel='input[name=equip4b]:checked';else if(ptype==='both')sel='input[name=equip3a]:checked,input[name=equip4b]:checked';var r=[];document.querySelectorAll(sel).forEach(function(c){var t=c.parentElement.textContent.trim();if(r.indexOf(t)<0)r.push(t)});return r.length?r.join(', '):'—'})()}</td></tr>
-    <tr><td style="text-align:left">Total Test Flow (US gpm)</td><td>${document.getElementById('pitot-total-3a')?.textContent||document.getElementById('pitot-total-4b')?.textContent||'—'}</td></tr>
-  </tbody></table>
-  <h3>Standard Fire Pump Performance (w/o PLD)</h3>
-  <table class="dt"><thead><tr><th>Flow %</th><th>Flow (gpm)</th><th>Cutsheet (psi)</th><th>Placard (psi)</th><th>Suction (psi)</th><th>Discharge (psi)</th><th>Net (psi)</th><th>RPM</th><th>Result</th></tr></thead>
-  <tbody>${stdData.map(r=>{
-    const net=(parseFloat(r.discharge)||0)-(parseFloat(r.suction)||0);
-    const cs=parseFloat(r.cutsheet)||0;
-    const pf=cs&&net?(net>=cs*0.95?'PASS':'FAIL'):'—';
-    return `<tr><td>${r.pct}</td><td>${r.flow||'—'}</td><td>${r.cutsheet||'—'}</td><td>${r.placard||'—'}</td><td>${r.suction||'—'}</td><td>${r.discharge||'—'}</td><td>${net?net.toFixed(1):'—'}</td><td>${r.rpm||'—'}</td><td style="font-weight:700;color:${pf==='PASS'?'#1A7A4A':pf==='FAIL'?'#C0392B':'#999'}">${pf}</td></tr>`;
-  }).join('')}</tbody></table>
   ${(function(){
-    var ptype = document.querySelector('.pump-type-btns button[style*="var(--red)"]');
-    var testType = ptype ? ptype.dataset.ptype : 'std';
-    var out = '';
-    if (testType === 'std' || testType === 'both') {
-      if (chartImgA) out += '<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;text-align:center;">3-Point Fire Pump Performance Curve (w/o PRV &amp; PLD)</div><img src="'+chartImgA+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
+    var testType = 'std';
+    var _ri = document.querySelector('input[name="pump-test-type"]:checked');
+    if(_ri) { testType = _ri.value; }
+    else { var _pb = document.querySelector('.pump-type-btns button'); if(_pb) { document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.textContent.indexOf('⦿')===0) testType=b.dataset.ptype; }); } }
+    var gv=function(id){return (document.getElementById(id)||{}).value||'—';};
+    var out='';
+    out+='<table class="dt" style="max-width:400px;"><thead><tr><th class="left" style="text-align:left">Parameter</th><th>Value</th></tr></thead><tbody>';
+    out+='<tr><td style="text-align:left">PRV Rating (psi)</td><td>'+gv('pm-prv')+'</td></tr>';
+    out+='<tr><td style="text-align:left">Pump Rated Speed (RPM)</td><td>'+gv('pm-rpm')+'</td></tr>';
+    out+='<tr><td style="text-align:left">Equipment Used</td><td>'+(function(){var sel='input[name=equip3a]:checked';if(testType==='pld')sel='input[name=equip4b]:checked';else if(testType==='both')sel='input[name=equip3a]:checked,input[name=equip4b]:checked';var r=[];document.querySelectorAll(sel).forEach(function(c){var t=c.parentElement.textContent.trim();if(r.indexOf(t)<0)r.push(t)});return r.length?r.join(', '):'—'})()+'</td></tr>';
+    out+='<tr><td style="text-align:left">Total Test Flow (US gpm)</td><td>'+(document.getElementById('pitot-total-3a')?.textContent||document.getElementById('pitot-total-4b')?.textContent||'—')+'</td></tr>';
+    out+='</tbody></table>';
+
+    // Standard 3-Point table (only if std or both)
+    if(testType==='std'||testType==='both'){
+      out+='<div style="font-size:10pt;font-weight:bold;background:#2C4770;color:white;padding:5px 12px;margin:16px 0 8px;letter-spacing:.3px;border-radius:3px;">Standard Fire Pump Performance (w/o PLD) — 3-Point Test</div>';
+      out+='<table class="dt"><thead><tr><th>Flow %</th><th>Flow (gpm)</th><th>Cutsheet (psi)</th><th>Placard (psi)</th><th>Suction (psi)</th><th>Discharge (psi)</th><th>Net (psi)</th><th>RPM</th><th>Result</th></tr></thead><tbody>';
+      stdData.forEach(function(r){var net=(parseFloat(r.discharge)||0)-(parseFloat(r.suction)||0),cs=parseFloat(r.cutsheet)||0,pf=cs&&net?(net>=cs*0.95?'PASS':'FAIL'):'—';out+='<tr><td>'+r.pct+'</td><td>'+(r.flow||'—')+'</td><td>'+(r.cutsheet||'—')+'</td><td>'+(r.placard||'—')+'</td><td>'+(r.suction||'—')+'</td><td>'+(r.discharge||'—')+'</td><td>'+(net?net.toFixed(1):'—')+'</td><td>'+(r.rpm||'—')+'</td><td style="font-weight:700;color:'+(pf==='PASS'?'#1A7A4A':pf==='FAIL'?'#C0392B':'#999')+'">'+pf+'</td></tr>';});
+      out+='</tbody></table>';
+      // Water Supply & Demand — 3-Point
+      out+='<div style="font-size:9.5pt;font-weight:bold;background:#4A5568;color:white;padding:4px 12px;margin:14px 0 6px;border-radius:3px;">Water Supply &amp; Demand Data (3-Point)</div>';
+      out+='<table class="dt" style="max-width:500px;"><thead><tr><th style="text-align:left">Point</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead><tbody>';
+      out+='<tr><td style="text-align:left">Static</td><td>'+gv('ws-static-flow')+'</td><td>'+gv('ws-static-psi')+'</td></tr>';
+      out+='<tr><td style="text-align:left">Residual</td><td>'+gv('ws-res-flow')+'</td><td>'+gv('ws-res-psi')+'</td></tr>';
+      out+='</tbody></table>';
+      out+='<table class="dt" style="max-width:500px;margin-top:8px;"><thead><tr><th style="text-align:left">Component</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead><tbody>';
+      out+='<tr><td style="text-align:left">Sprinkler System Demand (SD) + Inside Hose</td><td>'+gv('dem-spr-flow')+'</td><td>'+gv('dem-spr-psi')+'</td></tr>';
+      out+='<tr><td style="text-align:left">Outside Hose Allowance (OHL)</td><td>'+gv('dem-hose-flow')+'</td><td>—</td></tr>';
+      var totalDemF=(parseFloat(gv('dem-spr-flow'))||0)+(parseFloat(gv('dem-hose-flow'))||0);
+      out+='<tr style="font-weight:700;"><td style="text-align:left">Total System Demand</td><td>'+totalDemF.toLocaleString()+' gpm</td><td>'+gv('dem-spr-psi')+' psi</td></tr>';
+      out+='</tbody></table>';
+      // Chart
+      if(chartImgA) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">3-Point Fire Pump Performance Curve (w/o PRV &amp; PLD)</div><img src="'+chartImgA+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
     }
-    if (testType === 'pld' || testType === 'both') {
-      if (chartImgB) out += '<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;text-align:center;">7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve</div><img src="'+chartImgB+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
-      if (chartImgC) out += '<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;text-align:center;">7-Point Fire Pump Net Pressure Curve (w/ PLD, w/o PRV &amp; PLD, + PRV Rating)</div><img src="'+chartImgC+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
+
+    // PLD 7-Point table (only if pld or both)
+    if(testType==='pld'||testType==='both'){
+      out+='<div style="font-size:10pt;font-weight:bold;background:#2C4770;color:white;padding:5px 12px;margin:16px 0 8px;letter-spacing:.3px;border-radius:3px;">7-Point Performance Test — Fire Pump with PLD</div>';
+      out+='<table class="dt"><thead><tr><th>Flow %</th><th>Flow (gpm)</th><th>Cutsheet (psi)</th><th>Placard (psi)</th><th colspan="2">w/o PRV &amp; PLD</th><th>RPM</th><th colspan="2">w/ PLD Enabled</th><th>RPM</th><th>Pass/Fail</th></tr><tr><th></th><th></th><th></th><th></th><th>Suction</th><th>Discharge</th><th></th><th>Suction</th><th>Discharge</th><th></th><th></th></tr></thead><tbody>';
+      (typeof pldData!=='undefined'?pldData:[]).forEach(function(r){var net=(parseFloat(r.discharge)||0)-(parseFloat(r.suction)||0),cs=parseFloat(r.cutsheet)||0,pf=cs&&net?(net>=cs*0.95?'PASS':'FAIL'):'—';out+='<tr><td>'+r.pct+'</td><td>'+(r.flow||'—')+'</td><td>'+(r.cutsheet||'—')+'</td><td>'+(r.placard||'—')+'</td><td>'+(r.suction||'—')+'</td><td>'+(r.discharge||'—')+'</td><td>'+(r.rpm||'—')+'</td><td>'+(r.pldSuction||'—')+'</td><td>'+(r.pldDischarge||'—')+'</td><td>'+(r.pldRpm||'—')+'</td><td style="font-weight:700;color:'+(pf==='PASS'?'#1A7A4A':pf==='FAIL'?'#C0392B':'#999')+'">'+pf+'</td></tr>';});
+      out+='</tbody></table>';
+      // Water Supply & Demand — PLD
+      out+='<div style="font-size:9.5pt;font-weight:bold;background:#4A5568;color:white;padding:4px 12px;margin:14px 0 6px;border-radius:3px;">Water Supply &amp; Demand Data (7-Point PLD)</div>';
+      out+='<table class="dt" style="max-width:500px;"><thead><tr><th style="text-align:left">Point</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead><tbody>';
+      out+='<tr><td style="text-align:left">Static</td><td>'+gv('pld-ws-static-flow')+'</td><td>'+gv('pld-ws-static-psi')+'</td></tr>';
+      out+='<tr><td style="text-align:left">Residual</td><td>'+gv('pld-ws-res-flow')+'</td><td>'+gv('pld-ws-res-psi')+'</td></tr>';
+      out+='</tbody></table>';
+      out+='<table class="dt" style="max-width:500px;margin-top:8px;"><thead><tr><th style="text-align:left">Component</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead><tbody>';
+      out+='<tr><td style="text-align:left">Sprinkler System Demand (SD) + Inside Hose</td><td>'+gv('pld-dem-spr-flow')+'</td><td>'+gv('pld-dem-spr-psi')+'</td></tr>';
+      out+='<tr><td style="text-align:left">Outside Hose Allowance (OHL)</td><td>'+gv('pld-dem-hose-flow')+'</td><td>—</td></tr>';
+      var totalDemPld=(parseFloat(gv('pld-dem-spr-flow'))||0)+(parseFloat(gv('pld-dem-hose-flow'))||0);
+      out+='<tr style="font-weight:700;"><td style="text-align:left">Total System Demand</td><td>'+totalDemPld.toLocaleString()+' gpm</td><td>'+gv('pld-dem-spr-psi')+' psi</td></tr>';
+      out+='</tbody></table>';
+      // Charts
+      if(chartImgB) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve</div><img src="'+chartImgB+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
+      if(chartImgC) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">7-Point Fire Pump Net Pressure Curve (w/ PLD, w/o PRV &amp; PLD, + PRV Rating)</div><img src="'+chartImgC+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
     }
     return out;
   })()}
-  <table class="cl" style="margin-top:14px;"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:8%">Status</th><th style="width:18%">Comments</th><th style="width:20%;text-align:center;">Photos</th></tr></thead>
+  <table class="cl" style="margin-top:14px;"><thead><tr><th style="width:4%">#</th><th style="width:44%">Item</th><th style="width:8%">Status</th><th style="width:16%">Comments</th><th style="width:28%;text-align:center;">Photos</th></tr></thead>
   <tbody>${clSection(S4_items,'s4')}</tbody></table>
 
   <h2>5. Fire Alarm &amp; Controller Signaling Tests</h2>
-  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:8%">Status</th><th style="width:18%">Comments</th><th style="width:20%;text-align:center;">Photos</th></tr></thead>
+  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:44%">Item</th><th style="width:8%">Status</th><th style="width:16%">Comments</th><th style="width:28%;text-align:center;">Photos</th></tr></thead>
   <tbody>${clSection(S5_mandatory,'s5m')}${clSection(S5,'s5')}</tbody></table>
 
   <h2>Deficiency Summary</h2>
@@ -4283,12 +4333,25 @@ function _realExportPDF() {
       const net=(parseFloat(r.discharge)||0)-(parseFloat(r.suction)||0), cs=parseFloat(r.cutsheet)||0;
       return (cs&&net) ? (net>=cs*0.95) : null;
     }).filter(x=>x!==null);
-    const allDefs = contractors.flatMap(n=>deficiencies[n]||[]);
+    const allDefs = contractors.flatMap(n=>deficiencies[n]||[]).concat(generalDeficiencies);
     const openIAR = allDefs.some(d=>d.iarStatus && d.status!=='resolved');
     const perfPass = results.length>0 && results.every(r=>r===true);
     const tccVal = (document.getElementById('test-result')||{}).value || '';
+    // Check all checklist sections for any NO
+    var hasAnyNo = false;
+    ['s1','s2','s3','s4','s4pld','s5'].forEach(function(sec){
+      var srcMap={s1:S1,s2:S2,s3:S3,s5:S5}; var items=srcMap[sec]; if(!items) return;
+      items.forEach(function(_,idx){ var id=cid(sec,idx); if(clState[id]&&clState[id].status==='no') hasAnyNo=true; });
+    });
     var resultLabel, resultDesc, col;
-    if(openIAR) {
+    // Rule: Any checklist NO → downgrade to conditional pass at best
+    if(hasAnyNo && openIAR) {
+      resultLabel='FAIL'; resultDesc='Checklist items marked NO + unresolved IAR deficiencies.'; col='#C0392B';
+    } else if(hasAnyNo && tccVal==='fail') {
+      resultLabel='FAIL'; resultDesc='Consultant selected FAIL.'; col='#C0392B';
+    } else if(hasAnyNo) {
+      resultLabel='CONDITIONAL PASS'; resultDesc='One or more checklist items marked NO.'; col='#E67E22';
+    } else if(openIAR) {
       resultLabel='FAIL'; resultDesc='Unresolved IAR deficiencies remain. Test result: FAIL.';
       col='#C0392B';
     } else if(tccVal==='pass' && perfPass) {
@@ -4329,9 +4392,6 @@ function _realExportPDF() {
   <div id="flow-test-photos-print"></div>
   <!-- photos are rendered inline at each checklist item -->
   <div id="sketches-print"></div>
-  <div class="footer">
-    Report generated by ARENCON Inc. Diesel Fire Pump Commissioning System &middot; ${new Date().toLocaleDateString('en-CA')} &middot; Prepared by: ${proj.prepby||'---'} &middot; NFPA 20 (2025) / CSA B139-19 / OBC compliance.
-  </div>
   </div><!-- end .page -->
   
   <!-- Mobile page navigation -->
@@ -4990,7 +5050,7 @@ function initMarkupDrawing(idx, canvas, baseImg) {
     const p = getPos(e);
 
     if(st.mtool==='highlight') {
-      ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=0.55;
+      ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=0.35;
       ctx.strokeStyle=st.mcolor; ctx.lineWidth=st.msize*4; ctx.lineCap='round';
       ctx.lineTo(p.x,p.y); ctx.stroke();
       ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
@@ -5910,11 +5970,6 @@ function _collectCloudState(){
 
 // ═══ R2 PHOTO HELPERS ═══
 var _r2FolderId = null; // set during Hub init
-function _makeR2FolderSlug(pn, pname) {
-  var raw = ((pn || '') + (pname ? ' ' + pname : '')).trim();
-  if (!raw) return null;
-  return raw.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '').substring(0, 80) || null;
-}
 
 function _r2EnqueuePhoto(photoObj){
   if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined') return;
@@ -6404,7 +6459,7 @@ window.addEventListener('load', () => {
       // Hub mode: launched with ?project=<uuid>
       _csHubMode = true;
       _csProjectId = params.projectId;
-      _r2FolderId = _makeR2FolderSlug(params.projectNumber, params.projectName) || params.projectId;
+      _r2FolderId = params.projectId;
       if(typeof R2Photos!=='undefined'){ R2Photos.init({}); }
       _csInstanceId = params.instanceId;
 
@@ -6434,8 +6489,12 @@ window.addEventListener('load', () => {
       if(pdfBtn) pdfBtn.style.display = '';
       var signoutBtn = document.getElementById('btn-signout');
       if(signoutBtn) signoutBtn.style.display = '';
-      var repairSec = document.getElementById('more-repair-section');
-      if(repairSec) repairSec.style.display = '';
+      var reuploadBtn = document.getElementById('menu-reupload');
+      if(reuploadBtn) reuploadBtn.hidden = false;
+      var r2divider = document.getElementById('menu-r2-divider');
+      if(r2divider) r2divider.hidden = false;
+      var r2cleanup = document.getElementById('menu-r2cleanup');
+      if(r2cleanup) r2cleanup.hidden = false;
 
       // Update logo to go to Hub instead of index
       var logoLink = document.getElementById('logo-link');
