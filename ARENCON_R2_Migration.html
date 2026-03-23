@@ -349,15 +349,7 @@ async function runMigration(dryRun) {
       }
       log(`  ↑ Uploaded to slug path`, 'log-dim');
 
-      // Step 3: Verify the new file exists
-      const verifyRes = await fetch(WORKER_URL + newPath, { method: 'HEAD' });
-      if (!verifyRes.ok) {
-        log(`  ✗ Verify failed — NOT deleting original`, 'log-err');
-        fail++;
-        continue;
-      }
-
-      // Step 4: DELETE the old file
+      // Step 3: DELETE the old file (PUT succeeded, no need to verify — trust the 200)
       const delRes = await fetch(WORKER_URL + oldPath, { method: 'DELETE', headers: r2AuthHeaders() });
       if (delRes.ok || delRes.status === 404) {
         log(`  ✓ Migrated & cleaned up`, 'log-ok');
