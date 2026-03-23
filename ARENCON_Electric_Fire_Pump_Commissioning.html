@@ -708,7 +708,7 @@ function openMobileMenu(){var ha=document.querySelector('.header-actions');if(ha
 function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(ha)ha.classList.remove('mobile-open');var bd=document.getElementById('mobile-menu-backdrop');if(bd)bd.style.display='none';}
   </script>
   <script>updateDarkToggleIcon();</script>
-  <div class="section-nav" id="section-nav" style="display:none;">
+  <div class="section-nav" id="section-nav">
     <div class="nav-tab active" onclick="switchPanel('proj')">Project Info</div>
     <div class="nav-tab" id="tab-s1" onclick="switchPanel('s1')">1. Pre-Test<span class="tab-dot" id="dot-s1"></span></div>
     <div class="nav-tab" id="tab-s2" onclick="switchPanel('s2')">2. Visual Inspection<span class="tab-dot" id="dot-s2"></span></div>
