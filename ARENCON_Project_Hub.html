@@ -3388,27 +3388,25 @@ function _pgMakeR2FolderSlug(pn, pname) {
   return raw.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '').substring(0, 80) || null;
 }
 
-// Resolve photo src from r2Url, r2Key, or dataUrl — handles UUID↔slug mismatch
+// Resolve photo src from r2Key using project slug folder — ALWAYS rebuilds, never trusts stored r2Url
 function _pgResolveR2Src(ph, projectId) {
   if (!ph || typeof ph !== 'object') return (typeof ph === 'string') ? ph : '';
-  // If r2Url is set, use it
-  if (ph.r2Url) return ph.r2Url;
-  // If r2Key is set, rebuild r2Url using project slug folder
+  // Always rebuild from r2Key using slug (r2Url in Supabase may be stale)
   if (ph.r2Key) {
     var parts = ph.r2Key.split('/');
     // Expected: ['photos', '{pid}', 'frt', '{type}', '{fname}']
     if (parts.length >= 5 && parts[0] === 'photos') {
-      // Try to get the slug for this project
       var proj = _projects ? _projects.find(function(p) { return p.id === projectId; }) : null;
       var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
-      var folder = slug || parts[1]; // Use slug if available, else keep original
+      var folder = slug || parts[1];
       var type = parts[3];
       var fname = parts.slice(4).join('/');
       return R2_WORKER + '/photos/' + encodeURIComponent(folder) + '/frt/' + encodeURIComponent(type) + '/' + encodeURIComponent(fname);
     }
-    // Fallback: just prepend worker URL
     return R2_WORKER + '/' + ph.r2Key;
   }
+  // Fallback to r2Url if no r2Key
+  if (ph.r2Url) return ph.r2Url;
   return ph.dataUrl || '';
 }
 
@@ -3703,10 +3701,34 @@ function _pgObserveThumbs(grid) {
       if (!src) return;
       observer.unobserve(img);
       if (src.indexOf(R2_WORKER) === 0) {
-        var token = localStorage.getItem('sb-access-token');
-        fetch(src, { headers: token ? { 'Authorization': 'Bearer ' + token } : {} })
-          .then(function(r) { return r.blob(); })
-          .then(function(blob) { img.src = URL.createObjectURL(blob); })
+        fetch(src)
+          .then(function(r) {
+            if (!r.ok) {
+              // 404 fallback: try swapping folder ID (UUID↔slug)
+              if (r.status === 404) {
+                var pathAfter = src.substring(R2_WORKER.length);
+                var parts = pathAfter.split('/');
+                // parts: ['', 'photos', '{folder}', 'frt', '{type}', '{fname}']
+                if (parts.length >= 6 && parts[1] === 'photos' && _detailProjectId) {
+                  var usedFolder = decodeURIComponent(parts[2]);
+                  var proj = _projects ? _projects.find(function(p){ return p.id === _detailProjectId; }) : null;
+                  var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
+                  var tryFolder = (usedFolder === slug) ? _detailProjectId : (usedFolder === _detailProjectId && slug) ? slug : null;
+                  if (tryFolder && tryFolder !== usedFolder) {
+                    parts[2] = encodeURIComponent(tryFolder);
+                    var altUrl = R2_WORKER + parts.join('/');
+                    return fetch(altUrl).then(function(r2) {
+                      if (!r2.ok) throw new Error(r2.status);
+                      return r2.blob();
+                    });
+                  }
+                }
+              }
+              throw new Error(r.status);
+            }
+            return r.blob();
+          })
+          .then(function(blob) { if (blob) img.src = URL.createObjectURL(blob); })
           .catch(function() { img.style.background = '#c0392b20'; });
       } else if (src.startsWith('data:')) {
         img.src = src;
