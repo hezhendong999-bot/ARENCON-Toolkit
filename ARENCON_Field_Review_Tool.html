@@ -4379,12 +4379,40 @@ function _loadR2OrDirect(src,img){
   // R2 Worker GETs require no auth token (Session 24 fix — tokens expire and break images)
   if(typeof R2Photos!=='undefined'&&src.indexOf(R2Photos.WORKER_URL)===0){
     fetch(src).then(function(res){
-      if(!res.ok)throw new Error(res.status);
+      if(!res.ok){
+        // On 404, try swapping folder ID (UUID↔slug mismatch recovery)
+        if(res.status===404&&typeof _getR2FolderId==='function'&&_csProjectId){
+          var slug=_getR2FolderId();
+          var uuid=_csProjectId;
+          var pathAfterBase=src.substring(R2Photos.WORKER_URL.length);
+          // pathAfterBase: /photos/{folder}/frt/{type}/{fname}
+          var parts=pathAfterBase.split('/');
+          if(parts.length>=6&&parts[1]==='photos'){
+            var usedFolder=decodeURIComponent(parts[2]);
+            var tryFolder=(usedFolder===slug)?uuid:(usedFolder===uuid)?slug:null;
+            if(tryFolder&&tryFolder!==usedFolder){
+              parts[2]=encodeURIComponent(tryFolder);
+              var altUrl=R2Photos.WORKER_URL+parts.join('/');
+              return fetch(altUrl).then(function(r2){
+                if(!r2.ok)throw new Error(r2.status);
+                return r2.blob().then(function(blob){
+                  img.src=URL.createObjectURL(blob);
+                  img.removeAttribute('data-r2-failed');
+                  img.removeAttribute('data-r2-src');
+                });
+              });
+            }
+          }
+        }
+        throw new Error(res.status);
+      }
       return res.blob();
     }).then(function(blob){
-      img.src=URL.createObjectURL(blob);
-      img.removeAttribute('data-r2-failed');
-      img.removeAttribute('data-r2-src');
+      if(blob){
+        img.src=URL.createObjectURL(blob);
+        img.removeAttribute('data-r2-failed');
+        img.removeAttribute('data-r2-src');
+      }
     }).catch(function(e){
       img.style.background='#f0f0f0';
       img.setAttribute('data-r2-failed','1');
@@ -12136,29 +12164,39 @@ function _mergeContractors(cloudContractors,localContractors){
 function _rebuildMissingR2Urls(proj){
   if(!proj||!_csProjectId)return;
   var workerUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
-  var pid=_csProjectId;
+  var currentFolder=typeof _getR2FolderId==='function'?_getR2FolderId():_csProjectId;
   var fixed=0;
-  // Drawings
-  (proj.drawings||[]).forEach(function(d){
-    if(d.r2Key&&!d.r2Url){
-      d.r2Url=workerUrl+'/'+d.r2Key;
-      d.r2Status='uploaded';
+  // Helper: extract type+filename from r2Key and rebuild with current folder
+  // r2Key format: photos/{pid}/frt/{type}/{fname}
+  // Rebuild to:   photos/{currentFolder}/frt/{type}/{fname}
+  function _rebuildOne(rec){
+    if(!rec||!rec.r2Key)return;
+    var parts=rec.r2Key.split('/');
+    // Expected: ['photos', '{pid}', 'frt', '{type}', '{fname}']
+    if(parts.length>=5&&parts[0]==='photos'){
+      var type=parts[3];
+      var fname=parts.slice(4).join('/');
+      var newKey='photos/'+currentFolder+'/frt/'+type+'/'+fname;
+      var newUrl=workerUrl+'/'+newKey;
+      if(rec.r2Url!==newUrl){
+        rec.r2Key=newKey;
+        rec.r2Url=newUrl;
+        rec.r2Status='uploaded';
+        fixed++;
+      }
+    }else if(!rec.r2Url){
+      // Fallback: just prepend worker URL
+      rec.r2Url=workerUrl+'/'+rec.r2Key;
+      rec.r2Status='uploaded';
       fixed++;
     }
-  });
+  }
+  // Drawings
+  (proj.drawings||[]).forEach(function(d){_rebuildOne(d);});
   // Deficiency photos (all locations)
   function _fixDeficPhotos(defics){
     if(!defics)return;
-    function _fixArr(arr){
-      if(!arr)return;
-      arr.forEach(function(ph){
-        if(ph&&ph.r2Key&&!ph.r2Url){
-          ph.r2Url=workerUrl+'/'+ph.r2Key;
-          ph.r2Status='uploaded';
-          fixed++;
-        }
-      });
-    }
+    function _fixArr(arr){if(!arr)return;arr.forEach(function(ph){_rebuildOne(ph);});}
     defics.forEach(function(d){
       _fixArr(d.photos);
       if(d.entries){d.entries.forEach(function(e){_fixArr(e.photos);});}
@@ -12168,14 +12206,8 @@ function _rebuildMissingR2Urls(proj){
   (proj.contractors||[]).forEach(function(c){_fixDeficPhotos(c.deficiencies);});
   _fixDeficPhotos(proj.generalDeficiencies);
   // Site photos
-  (proj.sitePhotos||[]).forEach(function(ph){
-    if(ph&&ph.r2Key&&!ph.r2Url){
-      ph.r2Url=workerUrl+'/'+ph.r2Key;
-      ph.r2Status='uploaded';
-      fixed++;
-    }
-  });
-  if(fixed>0)_dbg('[R2] Rebuilt '+fixed+' missing r2Url(s) from r2Key');
+  (proj.sitePhotos||[]).forEach(function(ph){_rebuildOne(ph);});
+  if(fixed>0)_dbg('[R2] Rebuilt '+fixed+' r2Url(s) using current folder: '+currentFolder);
 }
 
 // Auto-dedup drawings by name — removes duplicates keeping first occurrence.

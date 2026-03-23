@@ -3375,12 +3375,43 @@ var _pgLbList = [];         // lightbox-visible photo list
 
 var R2_WORKER = 'https://arencon-r2-worker.hezhendong999.workers.dev';
 
+function _pgMakeR2FolderSlug(pn, pname) {
+  var raw = ((pn || '') + (pname ? ' ' + pname : '')).trim();
+  if (!raw) return null;
+  return raw.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '').substring(0, 80) || null;
+}
+
+// Resolve photo src from r2Url, r2Key, or dataUrl — handles UUID↔slug mismatch
+function _pgResolveR2Src(ph, projectId) {
+  if (!ph || typeof ph !== 'object') return (typeof ph === 'string') ? ph : '';
+  // If r2Url is set, use it
+  if (ph.r2Url) return ph.r2Url;
+  // If r2Key is set, rebuild r2Url using project slug folder
+  if (ph.r2Key) {
+    var parts = ph.r2Key.split('/');
+    // Expected: ['photos', '{pid}', 'frt', '{type}', '{fname}']
+    if (parts.length >= 5 && parts[0] === 'photos') {
+      // Try to get the slug for this project
+      var proj = _projects ? _projects.find(function(p) { return p.id === projectId; }) : null;
+      var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
+      var folder = slug || parts[1]; // Use slug if available, else keep original
+      var type = parts[3];
+      var fname = parts.slice(4).join('/');
+      return R2_WORKER + '/photos/' + encodeURIComponent(folder) + '/frt/' + encodeURIComponent(type) + '/' + encodeURIComponent(fname);
+    }
+    // Fallback: just prepend worker URL
+    return R2_WORKER + '/' + ph.r2Key;
+  }
+  return ph.dataUrl || '';
+}
+
 // ── Extract photos from a single tool_data row ──
 function _pgExtractPhotos(row) {
   var photos = [];
   var toolKey = row.tool_key || '';
   var data = row.data;
   if (!data || typeof data !== 'object') return photos;
+  var projectId = row.project_id || '';
 
   var toolLabel = {
     frt: 'Field Review',
@@ -3405,7 +3436,7 @@ function _pgExtractPhotos(row) {
     // Site photos
     (data.sitePhotos || []).forEach(function(ph) {
       if (!ph) return;
-      var src = ph.r2Url || ph.dataUrl || '';
+      var src = _pgResolveR2Src(ph, projectId);
       if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || ''));
     });
     // Deficiency photos (contractors + general)
@@ -3415,20 +3446,20 @@ function _pgExtractPhotos(row) {
         var numEn = (d.entries && d.entries.length) || 0;
         (d.entries || []).forEach(function(en, ei) {
           (en.photos || []).forEach(function(ph) {
-            var src = (typeof ph === 'string') ? ph : (ph.r2Url || ph.dataUrl || '');
+            var src = _pgResolveR2Src(ph, projectId);
             if (!src) return;
             var obsLabel = numEn > 1 ? ', Obs ' + String.fromCharCode(65 + ei) : '';
             photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
           });
         });
         (d.photos || []).forEach(function(ph) {
-          var src = (typeof ph === 'string') ? ph : (ph.r2Url || ph.dataUrl || '');
+          var src = _pgResolveR2Src(ph, projectId);
           if (!src) return;
           photos.push(_makeRec(src, 'deficiency', pinLabel, d.date || ''));
         });
         (d.responses || []).forEach(function(resp) {
           (resp.photos || []).forEach(function(ph) {
-            var src = (typeof ph === 'string') ? ph : (ph.r2Url || ph.dataUrl || '');
+            var src = _pgResolveR2Src(ph, projectId);
             if (!src) return;
             var rtype = resp.party === 'contractor' ? 'Ctr Resp' : 'Con Resp';
             photos.push(_makeRec(src, 'response', pinLabel + ' ' + rtype, resp.date || d.date || ''));
