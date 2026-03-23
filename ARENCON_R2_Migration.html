@@ -466,6 +466,11 @@ document.getElementById('inp-email').addEventListener('change', function() {
 
 // Show orphan section after scan completes
 function showOrphanSection() {
+  document.getElementById('step-orphan').style.display = '';
+  if (!document.getElementById('orphan-uuids').value.trim()) {
+    document.getElementById('orphan-uuids').value = '';
+  }
+}
 
 // ── Fix Supabase References ──
 function fLog(msg, cls) {
@@ -541,17 +546,6 @@ async function doFixRefs() {
 }
 
 // ── Orphan Cleanup ──
-  document.getElementById('step-orphan').style.display = '';
-  // Pre-fill with known UUIDs from projects that have UUID R2 folders
-  const knownUuids = allProjects.filter(p => {
-    const slug = makeSlug(p.project_number, p.project_name);
-    return slug && slug !== p.id; // has a slug different from UUID
-  }).map(p => p.id);
-  // Don't overwrite if user already typed something
-  if (!document.getElementById('orphan-uuids').value.trim()) {
-    document.getElementById('orphan-uuids').value = '';
-  }
-}
 
 function oLog(msg, cls) {
   const el = document.getElementById('orphan-log');
