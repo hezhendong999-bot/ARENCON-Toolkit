@@ -221,7 +221,8 @@ async function doScan() {
                 console.log('Found', files.length, 'files at', uuid.substring(0,8) + '/' + tool + '/' + type);
                 for (const f of files) {
                   const fname = typeof f === 'string' ? f : (f.key ? f.key.split('/').pop() : (f.name || ''));
-                  if (fname) migrationPlan.push({ project: proj, uuid, slug, tool, type, filename: fname });
+                  const fullKey = typeof f === 'object' && f.key ? f.key : null;
+                  if (fname) migrationPlan.push({ project: proj, uuid, slug, tool, type, filename: fname, fullKey });
                 }
               }
             }
@@ -314,6 +315,8 @@ async function runMigration(dryRun) {
       continue;
     }
 
+    // Worker route format: /photos/{pid}/{tool}/{type}/{filename}
+    // Worker internally maps to bucket key: {pid}/photos/{tool}/{type}/{filename}
     const oldPath = `/photos/${item.uuid}/${item.tool}/${item.type}/${item.filename}`;
     const newPath = `/photos/${item.slug}/${item.tool}/${item.type}/${item.filename}`;
 
@@ -523,8 +526,9 @@ async function doOrphanCleanup() {
           const files = Array.isArray(data.files) ? data.files : [];
           for (const f of files) {
             const fname = typeof f === 'string' ? f : (f.key ? f.key.split('/').pop() : '');
+            const fullKey = typeof f === 'object' && f.key ? f.key : (uuid + '/photos/' + tool + '/' + type + '/' + fname);
             if (!fname) continue;
-            const path = '/photos/' + uuid + '/' + tool + '/' + type + '/' + fname;
+            const path = '/photos/' + fullKey;
             try {
               const delRes = await fetch(WORKER_URL + path, { method: 'DELETE', headers: r2AuthHeaders() });
               if (delRes.ok || delRes.status === 404) {
