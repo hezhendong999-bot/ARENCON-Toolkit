@@ -1487,8 +1487,8 @@ body.text-l{--ts:4px;}
 <div id="view-project" style="display:none;">
   <div class="main-wrap">
     <div class="panel active" id="panel-info">
-      <div class="section-title">Project Information</div>
       <div class="card">
+        <div class="card-header">Project Information</div>
         <div class="card-body">
           <div class="proj-grid">
             <div class="field-group"><label>Project No.</label><input type="text" id="field-projectNumber" data-field="projectNumber" oninput="formatProjectNumber(this);onFieldChange(this);updateHeaderName();updateSmartFilename()" placeholder=""></div>
@@ -1544,8 +1544,11 @@ body.text-l{--ts:4px;}
       </div>
     </div>
         <div class="panel" id="panel-deficiencies">
-      <div class="section-title">Deficiency Log</div>
-      <div id="defic-summary-table-wrap" style="margin-bottom:16px;"></div>
+      <div class="card" style="margin-bottom:16px;">
+      <div class="card-header">Deficiency Log</div>
+      <div class="card-body" style="padding:0;">
+      <div id="defic-summary-table-wrap"></div>
+      </div></div>
       <div class="card" style="margin-bottom:16px;"><div class="card-header red">⚠️ Deficiencies Identified</div>
         <div class="card-body">
           <div style="padding:12px;background:#f8f9fa;border:1px solid var(--border);border-radius:8px;margin-bottom:16px;">
