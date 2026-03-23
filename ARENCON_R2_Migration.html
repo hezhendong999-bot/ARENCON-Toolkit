@@ -97,6 +97,15 @@ td{padding:8px 10px;border-bottom:1px solid #1a2030;}
 <div id="log"></div>
 </div>
 
+<!-- Step 5: Fix Supabase References -->
+<div class="card" id="step-fix-refs" style="display:none;">
+<h2>Step 5: Fix Photo URLs in Supabase</h2>
+<p style="font-size:13px;color:#8a94b0;margin-bottom:12px;">Patches r2Key and r2Url references in Supabase tool_data from UUID paths to slug paths. Run this if photos are missing after file migration.</p>
+<button class="btn-primary" onclick="doFixRefs()">🔧 Fix Photo References</button>
+<div class="status" id="fix-refs-status"></div>
+<div id="fix-refs-log" style="background:#0a0e14;border:1px solid #1a2030;border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;font-family:monospace;font-size:11px;line-height:1.6;white-space:pre-wrap;margin-top:12px;"></div>
+</div>
+
 <!-- Step 4: Orphan Cleanup -->
 <div class="card" id="step-orphan" style="display:none;">
 <h2>Step 4: Delete Orphan R2 Folders</h2>
@@ -268,8 +277,9 @@ async function doScan() {
     } else {
       setStatus('scan-status', 'success', 'All files are already under slug paths. No migration needed!');
     }
-    // Always show orphan cleanup section
+    // Always show orphan cleanup and fix refs sections
     showOrphanSection();
+    document.getElementById('step-fix-refs').style.display = '';
 
   } catch (e) {
     setStatus('scan-status', 'error', e.message);
@@ -456,6 +466,81 @@ document.getElementById('inp-email').addEventListener('change', function() {
 
 // Show orphan section after scan completes
 function showOrphanSection() {
+
+// ── Fix Supabase References ──
+function fLog(msg, cls) {
+  const el = document.getElementById('fix-refs-log');
+  const span = document.createElement('span');
+  span.className = cls || '';
+  span.textContent = msg + '\n';
+  el.appendChild(span);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function doFixRefs() {
+  if (!allProjects.length) { setStatus('fix-refs-status', 'error', 'Run scan first'); return; }
+  document.getElementById('fix-refs-log').innerHTML = '';
+  setStatus('fix-refs-status', 'info', 'Loading tool_data...');
+  let totalFixed = 0;
+
+  for (const proj of allProjects) {
+    const uuid = proj.id;
+    const slug = makeSlug(proj.project_number, proj.project_name);
+    if (!slug || slug === uuid) continue;
+
+    fLog('Project: ' + (proj.project_number || '') + ' ' + (proj.project_name || ''), 'log-info');
+
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/tool_data?select=id,tool_key,data&project_id=eq.' + uuid, {
+        headers: authHeaders()
+      });
+      if (!res.ok) { fLog('  ⚠ Could not load tool_data: ' + res.status, 'log-warn'); continue; }
+      const rows = await res.json();
+
+      for (const row of rows) {
+        if (!row.data) continue;
+        const dataStr = JSON.stringify(row.data);
+        const count = (dataStr.match(new RegExp(uuid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+
+        if (count === 0) {
+          fLog('  ' + row.tool_key + ': 0 UUID refs — already clean', 'log-dim');
+          continue;
+        }
+
+        fLog('  ' + row.tool_key + ': ' + count + ' UUID refs → replacing with slug...', 'log-warn');
+        const updatedStr = dataStr.split(uuid).join(slug);
+        const updatedData = JSON.parse(updatedStr);
+
+        // Verify no UUID refs remain
+        const verify = JSON.stringify(updatedData).match(new RegExp(uuid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'));
+        if (verify) { fLog('  ✗ Still has refs after replace — skipping', 'log-err'); continue; }
+
+        const patchHeaders = authHeaders();
+        patchHeaders['Content-Type'] = 'application/json';
+        patchHeaders['Prefer'] = 'return=minimal';
+        const patchRes = await fetch(
+          SUPABASE_URL + '/rest/v1/tool_data?id=eq.' + row.id,
+          { method: 'PATCH', headers: patchHeaders, body: JSON.stringify({ data: updatedData }) }
+        );
+        if (patchRes.ok) {
+          fLog('  ✓ Patched ' + count + ' refs in ' + row.tool_key, 'log-ok');
+          totalFixed += count;
+        } else {
+          const errText = await patchRes.text();
+          fLog('  ✗ PATCH failed: ' + patchRes.status + ' ' + errText.substring(0, 100), 'log-err');
+        }
+      }
+    } catch (e) {
+      fLog('  ✗ Error: ' + e.message, 'log-err');
+    }
+  }
+
+  fLog('', '');
+  fLog('Done: ' + totalFixed + ' references fixed', totalFixed > 0 ? 'log-ok' : 'log-dim');
+  setStatus('fix-refs-status', totalFixed > 0 ? 'success' : 'info', 'Fixed ' + totalFixed + ' references. Reload your tools to see photos.');
+}
+
+// ── Orphan Cleanup ──
   document.getElementById('step-orphan').style.display = '';
   // Pre-fill with known UUIDs from projects that have UUID R2 folders
   const knownUuids = allProjects.filter(p => {
