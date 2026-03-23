@@ -383,7 +383,7 @@ async function runMigration(dryRun) {
 }
 
 async function updateSupabaseR2Keys() {
-  // For each project that had UUID files, load tool_data rows and replace UUID with slug in r2Key fields
+  // For each project that had UUID files, load tool_data rows and replace UUID with slug in data column
   const projectsToUpdate = [...new Set(migrationPlan.filter(m => m.slug).map(m => m.uuid))];
 
   for (const uuid of projectsToUpdate) {
@@ -393,38 +393,43 @@ async function updateSupabaseR2Keys() {
     try {
       // Load all tool_data for this project
       const res = await fetch(
-        SUPABASE_URL + '/rest/v1/tool_data?select=id,state&project_id=eq.' + uuid,
+        SUPABASE_URL + '/rest/v1/tool_data?select=id,data&project_id=eq.' + uuid,
         { headers: authHeaders() }
       );
       if (!res.ok) { log(`  ⚠ Could not load tool_data for ${uuid.substring(0,8)}`, 'log-warn'); continue; }
       const rows = await res.json();
 
       for (const row of rows) {
-        if (!row.state) continue;
-        const stateStr = typeof row.state === 'string' ? row.state : JSON.stringify(row.state);
+        if (!row.data) continue;
+        const dataStr = typeof row.data === 'string' ? row.data : JSON.stringify(row.data);
 
-        // Replace UUID in r2Key values: "photos/{uuid}/" → "photos/{slug}/"
-        const oldPrefix = 'photos/' + uuid + '/';
-        const newPrefix = 'photos/' + item.slug + '/';
+        // Replace UUID in r2Key and r2Url values
+        const oldPrefix = uuid;
+        const newPrefix = item.slug;
 
-        if (stateStr.indexOf(oldPrefix) === -1) continue;
+        if (dataStr.indexOf(oldPrefix) === -1) continue;
 
-        const updatedStr = stateStr.split(oldPrefix).join(newPrefix);
-        const updatedState = typeof row.state === 'string' ? updatedStr : JSON.parse(updatedStr);
+        const updatedStr = dataStr.split(oldPrefix).join(newPrefix);
+        const updatedData = typeof row.data === 'string' ? updatedStr : JSON.parse(updatedStr);
 
-        // PATCH the row
+        // PATCH the row — needs auth token
+        const patchHeaders = authHeaders();
+        patchHeaders['Content-Type'] = 'application/json';
+        patchHeaders['Prefer'] = 'return=minimal';
         const patchRes = await fetch(
           SUPABASE_URL + '/rest/v1/tool_data?id=eq.' + row.id,
           {
             method: 'PATCH',
-            headers: { ...authHeaders(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-            body: JSON.stringify({ state: updatedState })
+            headers: patchHeaders,
+            body: JSON.stringify({ data: updatedData })
           }
         );
         if (patchRes.ok) {
-          log(`  ✓ Updated r2Key refs in tool_data row ${row.id}`, 'log-ok');
+          const count = (dataStr.match(new RegExp(oldPrefix, 'g')) || []).length;
+          log(`  ✓ Updated ${count} refs in tool_data row ${row.id}`, 'log-ok');
         } else {
-          log(`  ⚠ PATCH failed for row ${row.id}: ${patchRes.status}`, 'log-warn');
+          const errText = await patchRes.text();
+          log(`  ⚠ PATCH failed for row ${row.id}: ${patchRes.status} ${errText.substring(0,100)}`, 'log-warn');
         }
       }
     } catch (e) {
