@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARENCON — R2 Folder Migration Tool</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Calibri,'Segoe UI',sans-serif;background:#0f1318;color:#d0d8f0;min-height:100vh;padding:24px;}
+h1{font-size:22px;font-weight:700;color:#e8b0bc;margin-bottom:4px;}
+h2{font-size:16px;font-weight:600;color:#c0c8e0;margin:20px 0 10px;}
+.subtitle{font-size:13px;color:#8a94b0;margin-bottom:20px;}
+.card{background:#1e2533;border-radius:10px;padding:20px;margin-bottom:16px;border:1px solid #2a3040;}
+label{font-size:13px;font-weight:600;color:#8a94b0;display:block;margin-bottom:4px;}
+input[type=email],input[type=password]{width:100%;padding:10px 14px;border:1.5px solid #2a3040;border-radius:8px;background:#151a24;color:#d0d8f0;font-size:14px;font-family:inherit;outline:none;margin-bottom:12px;}
+input:focus{border-color:#9C2742;}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;font-weight:600;font-size:13px;padding:10px 20px;transition:all .15s;}
+.btn-primary{background:#9C2742;color:white;}
+.btn-primary:hover{background:#b83058;}
+.btn-primary:disabled{background:#4a3040;color:#8a94b0;cursor:not-allowed;}
+.btn-danger{background:#C62828;color:white;}
+.btn-danger:hover{background:#E53935;}
+.btn-secondary{background:#2a3040;color:#d0d8f0;border:1px solid #3a4060;}
+.btn-secondary:hover{background:#3a4060;}
+.status{font-size:12px;padding:6px 12px;border-radius:6px;margin:8px 0;display:none;}
+.status.info{display:block;background:rgba(33,150,243,.15);color:#64B5F6;border:1px solid rgba(33,150,243,.25);}
+.status.success{display:block;background:rgba(76,175,80,.15);color:#81C784;border:1px solid rgba(76,175,80,.25);}
+.status.error{display:block;background:rgba(244,67,54,.15);color:#EF5350;border:1px solid rgba(244,67,54,.25);}
+.status.warn{display:block;background:rgba(255,152,0,.15);color:#FFB74D;border:1px solid rgba(255,152,0,.25);}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;}
+th{text-align:left;padding:8px 10px;background:#151a24;color:#8a94b0;font-weight:600;border-bottom:1px solid #2a3040;}
+td{padding:8px 10px;border-bottom:1px solid #1a2030;}
+.slug{color:#81C784;font-family:monospace;font-size:12px;}
+.uuid{color:#EF9A9A;font-family:monospace;font-size:11px;}
+.file-count{font-weight:700;color:#64B5F6;}
+.migrated{color:#81C784;}
+.skipped{color:#8a94b0;}
+.failed{color:#EF5350;}
+#log{background:#0a0e14;border:1px solid #1a2030;border-radius:8px;padding:12px;max-height:400px;overflow-y:auto;font-family:'Consolas','Courier New',monospace;font-size:11px;line-height:1.6;white-space:pre-wrap;word-break:break-all;margin-top:12px;}
+.log-info{color:#64B5F6;}
+.log-ok{color:#81C784;}
+.log-err{color:#EF5350;}
+.log-warn{color:#FFB74D;}
+.log-dim{color:#5a6480;}
+.progress-bar{height:8px;background:#1a2030;border-radius:4px;margin:10px 0;overflow:hidden;}
+.progress-fill{height:100%;background:#9C2742;border-radius:4px;transition:width .3s;width:0%;}
+.flex-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.stat{font-size:24px;font-weight:700;color:#e8b0bc;}
+.stat-label{font-size:11px;color:#8a94b0;}
+.stat-box{text-align:center;padding:12px 20px;}
+</style>
+</head>
+<body>
+
+<h1>🔄 R2 Folder Migration Tool</h1>
+<p class="subtitle">One-time migration: copies R2 files from UUID folders → human-readable slug folders, then deletes the originals.</p>
+
+<!-- Step 1: Login -->
+<div class="card" id="step-login">
+<h2>Step 1: Login</h2>
+<label>Email</label>
+<input type="email" id="inp-email" placeholder="you@arencon.com">
+<label>Password</label>
+<input type="password" id="inp-password">
+<button class="btn-primary" onclick="doLogin()">Sign In</button>
+<div class="status" id="login-status"></div>
+</div>
+
+<!-- Step 2: Scan -->
+<div class="card" id="step-scan" style="display:none;">
+<h2>Step 2: Scan R2 for UUID Folders</h2>
+<p style="font-size:13px;color:#8a94b0;margin-bottom:12px;">Loads all projects from Supabase, then checks R2 for files stored under UUID paths that should be under slug paths.</p>
+<button class="btn-primary" id="btn-scan" onclick="doScan()">🔍 Scan All Projects</button>
+<div class="progress-bar" id="scan-progress-bar" style="display:none;"><div class="progress-fill" id="scan-progress"></div></div>
+<div class="status" id="scan-status"></div>
+<div id="scan-results" style="display:none;">
+<div class="flex-row" style="margin:16px 0;">
+<div class="stat-box"><div class="stat" id="stat-projects">0</div><div class="stat-label">Projects</div></div>
+<div class="stat-box"><div class="stat" id="stat-uuid-files">0</div><div class="stat-label">UUID Files Found</div></div>
+<div class="stat-box"><div class="stat" id="stat-slug-exists">0</div><div class="stat-label">Already on Slug</div></div>
+<div class="stat-box"><div class="stat" id="stat-to-migrate">0</div><div class="stat-label">Need Migration</div></div>
+</div>
+<table id="scan-table"><thead><tr><th>Project</th><th>UUID</th><th>Slug</th><th>UUID Files</th><th>Status</th></tr></thead><tbody id="scan-tbody"></tbody></table>
+</div>
+</div>
+
+<!-- Step 3: Migrate -->
+<div class="card" id="step-migrate" style="display:none;">
+<h2>Step 3: Migrate Files</h2>
+<p style="font-size:13px;color:#8a94b0;margin-bottom:12px;">For each file under a UUID path: GET → PUT to slug path → verify → DELETE original. Also updates r2Key references in Supabase tool_data.</p>
+<div class="flex-row">
+<button class="btn-danger" id="btn-migrate" onclick="doMigrate()">🚀 Start Migration</button>
+<button class="btn-secondary" onclick="doDryRun()">🧪 Dry Run (no changes)</button>
+</div>
+<div class="progress-bar" id="migrate-progress-bar" style="display:none;"><div class="progress-fill" id="migrate-progress"></div></div>
+<div class="status" id="migrate-status"></div>
+<div id="log"></div>
+</div>
+
+<!-- Step 4: Orphan Cleanup -->
+<div class="card" id="step-orphan" style="display:none;">
+<h2>Step 4: Delete Orphan R2 Folders</h2>
+<p style="font-size:13px;color:#8a94b0;margin-bottom:12px;">Delete all files under UUID folders that don't correspond to any Supabase project (deleted test projects, etc.).</p>
+<label>Enter UUID folder(s) to delete — one per line:</label>
+<textarea id="orphan-uuids" rows="4" style="width:100%;padding:10px;border:1.5px solid #2a3040;border-radius:8px;background:#151a24;color:#d0d8f0;font-family:monospace;font-size:13px;margin-bottom:12px;resize:vertical;"></textarea>
+<div class="flex-row">
+<button class="btn-danger" onclick="doOrphanCleanup()">🗑️ Delete Orphan Files</button>
+<button class="btn-secondary" onclick="doOrphanScan()">🔍 Scan These UUIDs First</button>
+</div>
+<div class="status" id="orphan-status"></div>
+<div id="orphan-log" style="background:#0a0e14;border:1px solid #1a2030;border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;font-family:monospace;font-size:11px;line-height:1.6;white-space:pre-wrap;margin-top:12px;"></div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+const WORKER_URL = 'https://arencon-r2-worker.hezhendong999.workers.dev';
+const TOOLS = ['frt','diesel','electric'];
+const TYPES = ['original','marked','drawings','markup'];
+
+let accessToken = null;
+let allProjects = [];
+let migrationPlan = []; // [{project, uuid, slug, tool, type, filename}, ...]
+
+function setStatus(id, cls, msg) {
+  const el = document.getElementById(id);
+  el.className = 'status ' + cls;
+  el.textContent = msg;
+}
+
+function makeSlug(pn, pname) {
+  const raw = ((pn || '') + (pname ? ' ' + pname : '')).trim();
+  if (!raw) return null;
+  return raw.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '').substring(0, 80) || null;
+}
+
+function isUUID(s) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+}
+
+function authHeaders() {
+  const h = { 'apikey': SUPABASE_ANON_KEY };
+  if (accessToken) h['Authorization'] = 'Bearer ' + accessToken;
+  return h;
+}
+
+function r2AuthHeaders() {
+  const h = {};
+  if (accessToken) h['Authorization'] = 'Bearer ' + accessToken;
+  return h;
+}
+
+// ── Login ──
+async function doLogin() {
+  const email = document.getElementById('inp-email').value.trim();
+  const pw = document.getElementById('inp-password').value;
+  if (!email || !pw) { setStatus('login-status', 'error', 'Enter email and password'); return; }
+  setStatus('login-status', 'info', 'Signing in...');
+  try {
+    const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pw })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error_description || data.msg || 'Login failed');
+    accessToken = data.access_token;
+    localStorage.setItem('sb-access-token', accessToken);
+    if (data.refresh_token) localStorage.setItem('sb-refresh-token', data.refresh_token);
+    setStatus('login-status', 'success', 'Signed in as ' + email);
+    document.getElementById('step-scan').style.display = '';
+  } catch (e) {
+    setStatus('login-status', 'error', e.message);
+  }
+}
+
+// ── Scan ──
+async function doScan() {
+  document.getElementById('btn-scan').disabled = true;
+  setStatus('scan-status', 'info', 'Loading projects from Supabase...');
+  document.getElementById('scan-progress-bar').style.display = '';
+  migrationPlan = [];
+
+  try {
+    // Load all projects
+    const res = await fetch(SUPABASE_URL + '/rest/v1/projects?select=id,project_number,project_name&order=project_number.asc', {
+      headers: authHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to load projects: ' + res.statusText);
+    allProjects = await res.json();
+    document.getElementById('stat-projects').textContent = allProjects.length;
+
+    let totalUuidFiles = 0;
+    let totalSlugExists = 0;
+    let totalToMigrate = 0;
+    const tbody = document.getElementById('scan-tbody');
+    tbody.innerHTML = '';
+
+    for (let pi = 0; pi < allProjects.length; pi++) {
+      const proj = allProjects[pi];
+      const uuid = proj.id;
+      const slug = makeSlug(proj.project_number, proj.project_name);
+      const pct = Math.round(((pi + 1) / allProjects.length) * 100);
+      document.getElementById('scan-progress').style.width = pct + '%';
+      setStatus('scan-status', 'info', `Scanning project ${pi + 1}/${allProjects.length}: ${proj.project_number || ''} ${proj.project_name || ''}`);
+
+      let projUuidFiles = 0;
+      let projSlugFiles = 0;
+
+      // Check each tool + type combo under UUID path
+      for (const tool of TOOLS) {
+        for (const type of TYPES) {
+          try {
+            const listUrl = WORKER_URL + '/list/' + uuid + '/' + tool + '/' + type + '/';
+            const listRes = await fetch(listUrl);
+            if (listRes.ok) {
+              const listData = await listRes.json();
+              const files = Array.isArray(listData.files) ? listData.files : [];
+              if (files.length > 0) {
+                projUuidFiles += files.length;
+                console.log('Found', files.length, 'files at', uuid.substring(0,8) + '/' + tool + '/' + type);
+                for (const f of files) {
+                  const fname = typeof f === 'string' ? f : (f.key ? f.key.split('/').pop() : (f.name || ''));
+                  if (fname) migrationPlan.push({ project: proj, uuid, slug, tool, type, filename: fname });
+                }
+              }
+            }
+          } catch (e) { console.error('Scan error:', e); }
+
+          // Also count slug files (already migrated)
+          if (slug && slug !== uuid) {
+            try {
+              const slugRes = await fetch(WORKER_URL + '/list/' + encodeURIComponent(slug) + '/' + tool + '/' + type + '/');
+              if (slugRes.ok) {
+                const slugData = await slugRes.json();
+                const slugFiles = slugData.files || slugData.objects || [];
+                projSlugFiles += slugFiles.length;
+              }
+            } catch (e) { /* skip */ }
+          }
+        }
+      }
+
+      totalUuidFiles += projUuidFiles;
+      totalSlugExists += projSlugFiles;
+      if (projUuidFiles > 0) totalToMigrate += projUuidFiles;
+
+      if (projUuidFiles > 0 || projSlugFiles > 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${proj.project_number || '—'} ${proj.project_name || ''}</td>`
+          + `<td class="uuid">${uuid.substring(0, 8)}…</td>`
+          + `<td class="slug">${slug || '⚠️ no slug'}</td>`
+          + `<td><span class="file-count">${projUuidFiles}</span> UUID / <span style="color:#81C784">${projSlugFiles}</span> slug</td>`
+          + `<td>${projUuidFiles > 0 ? '<span class="failed">Needs migration</span>' : '<span class="migrated">✓ Clean</span>'}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    document.getElementById('stat-uuid-files').textContent = totalUuidFiles;
+    document.getElementById('stat-slug-exists').textContent = totalSlugExists;
+    document.getElementById('stat-to-migrate').textContent = totalToMigrate;
+    document.getElementById('scan-results').style.display = '';
+
+    if (totalToMigrate > 0) {
+      setStatus('scan-status', 'warn', `Found ${totalToMigrate} files under UUID paths that need migration.`);
+      document.getElementById('step-migrate').style.display = '';
+    } else {
+      setStatus('scan-status', 'success', 'All files are already under slug paths. No migration needed!');
+    }
+    // Always show orphan cleanup section
+    showOrphanSection();
+
+  } catch (e) {
+    setStatus('scan-status', 'error', e.message);
+  }
+  document.getElementById('btn-scan').disabled = false;
+}
+
+// ── Log ──
+function log(msg, cls) {
+  const el = document.getElementById('log');
+  const span = document.createElement('span');
+  span.className = cls || '';
+  span.textContent = msg + '\n';
+  el.appendChild(span);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── Migrate ──
+async function doMigrate() { await runMigration(false); }
+async function doDryRun() { await runMigration(true); }
+
+async function runMigration(dryRun) {
+  if (migrationPlan.length === 0) { setStatus('migrate-status', 'error', 'Nothing to migrate. Run scan first.'); return; }
+
+  document.getElementById('btn-migrate').disabled = true;
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('migrate-progress-bar').style.display = '';
+
+  const mode = dryRun ? '[DRY RUN] ' : '';
+  log(mode + 'Starting migration of ' + migrationPlan.length + ' files...', 'log-info');
+
+  let ok = 0, fail = 0, skip = 0;
+
+  for (let i = 0; i < migrationPlan.length; i++) {
+    const item = migrationPlan[i];
+    const pct = Math.round(((i + 1) / migrationPlan.length) * 100);
+    document.getElementById('migrate-progress').style.width = pct + '%';
+    setStatus('migrate-status', 'info', mode + `Migrating ${i + 1}/${migrationPlan.length} (${ok} ok, ${fail} fail, ${skip} skip)`);
+
+    if (!item.slug) {
+      log(`SKIP: ${item.project.project_number} — no slug (no project number/name)`, 'log-warn');
+      skip++;
+      continue;
+    }
+
+    const oldPath = `/photos/${item.uuid}/${item.tool}/${item.type}/${item.filename}`;
+    const newPath = `/photos/${item.slug}/${item.tool}/${item.type}/${item.filename}`;
+
+    log(`${mode}${item.project.project_number} | ${item.tool}/${item.type}/${item.filename}`, 'log-dim');
+    log(`  FROM: ${oldPath}`, 'log-dim');
+    log(`  TO:   ${newPath}`, 'log-dim');
+
+    if (dryRun) { ok++; continue; }
+
+    try {
+      // Step 1: GET the file from old path (no auth needed for GET)
+      const getRes = await fetch(WORKER_URL + oldPath);
+      if (!getRes.ok) {
+        log(`  ✗ GET failed: ${getRes.status} ${getRes.statusText}`, 'log-err');
+        fail++;
+        continue;
+      }
+      const blob = await getRes.blob();
+      log(`  ↓ Downloaded ${(blob.size / 1024).toFixed(1)} KB`, 'log-dim');
+
+      // Step 2: PUT to new path (auth required)
+      const putHeaders = r2AuthHeaders();
+      putHeaders['Content-Type'] = blob.type || 'application/octet-stream';
+      const putRes = await fetch(WORKER_URL + newPath, { method: 'PUT', headers: putHeaders, body: blob });
+      if (!putRes.ok) {
+        const errData = await putRes.json().catch(() => ({}));
+        log(`  ✗ PUT failed: ${putRes.status} ${errData.error || putRes.statusText}`, 'log-err');
+        fail++;
+        continue;
+      }
+      log(`  ↑ Uploaded to slug path`, 'log-dim');
+
+      // Step 3: Verify the new file exists
+      const verifyRes = await fetch(WORKER_URL + newPath, { method: 'HEAD' });
+      if (!verifyRes.ok) {
+        log(`  ✗ Verify failed — NOT deleting original`, 'log-err');
+        fail++;
+        continue;
+      }
+
+      // Step 4: DELETE the old file
+      const delRes = await fetch(WORKER_URL + oldPath, { method: 'DELETE', headers: r2AuthHeaders() });
+      if (delRes.ok || delRes.status === 404) {
+        log(`  ✓ Migrated & cleaned up`, 'log-ok');
+        ok++;
+      } else {
+        log(`  ⚠ Copied OK but DELETE failed: ${delRes.status}`, 'log-warn');
+        ok++; // File is copied, just old copy remains
+      }
+
+      // Throttle to avoid rate limits
+      if (i % 5 === 4) await new Promise(r => setTimeout(r, 200));
+
+    } catch (e) {
+      log(`  ✗ Error: ${e.message}`, 'log-err');
+      fail++;
+    }
+  }
+
+  // Step 5: Update Supabase tool_data r2Key references
+  if (!dryRun && ok > 0) {
+    log('', '');
+    log('Updating Supabase tool_data r2Key references...', 'log-info');
+    await updateSupabaseR2Keys();
+  }
+
+  log('', '');
+  log(`${mode}Migration complete: ${ok} migrated, ${fail} failed, ${skip} skipped`, ok > 0 && fail === 0 ? 'log-ok' : 'log-warn');
+  setStatus('migrate-status', fail === 0 ? 'success' : 'warn',
+    `${mode}Done: ${ok} migrated, ${fail} failed, ${skip} skipped`);
+  document.getElementById('btn-migrate').disabled = false;
+}
+
+async function updateSupabaseR2Keys() {
+  // For each project that had UUID files, load tool_data rows and replace UUID with slug in r2Key fields
+  const projectsToUpdate = [...new Set(migrationPlan.filter(m => m.slug).map(m => m.uuid))];
+
+  for (const uuid of projectsToUpdate) {
+    const item = migrationPlan.find(m => m.uuid === uuid);
+    if (!item || !item.slug) continue;
+
+    try {
+      // Load all tool_data for this project
+      const res = await fetch(
+        SUPABASE_URL + '/rest/v1/tool_data?select=id,state&project_id=eq.' + uuid,
+        { headers: authHeaders() }
+      );
+      if (!res.ok) { log(`  ⚠ Could not load tool_data for ${uuid.substring(0,8)}`, 'log-warn'); continue; }
+      const rows = await res.json();
+
+      for (const row of rows) {
+        if (!row.state) continue;
+        const stateStr = typeof row.state === 'string' ? row.state : JSON.stringify(row.state);
+
+        // Replace UUID in r2Key values: "photos/{uuid}/" → "photos/{slug}/"
+        const oldPrefix = 'photos/' + uuid + '/';
+        const newPrefix = 'photos/' + item.slug + '/';
+
+        if (stateStr.indexOf(oldPrefix) === -1) continue;
+
+        const updatedStr = stateStr.split(oldPrefix).join(newPrefix);
+        const updatedState = typeof row.state === 'string' ? updatedStr : JSON.parse(updatedStr);
+
+        // PATCH the row
+        const patchRes = await fetch(
+          SUPABASE_URL + '/rest/v1/tool_data?id=eq.' + row.id,
+          {
+            method: 'PATCH',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify({ state: updatedState })
+          }
+        );
+        if (patchRes.ok) {
+          log(`  ✓ Updated r2Key refs in tool_data row ${row.id}`, 'log-ok');
+        } else {
+          log(`  ⚠ PATCH failed for row ${row.id}: ${patchRes.status}`, 'log-warn');
+        }
+      }
+    } catch (e) {
+      log(`  ✗ Error updating tool_data for ${uuid.substring(0,8)}: ${e.message}`, 'log-err');
+    }
+  }
+}
+
+// Auto-fill email
+document.getElementById('inp-email').value = localStorage.getItem('arencon-last-email') || '';
+document.getElementById('inp-email').addEventListener('change', function() {
+  localStorage.setItem('arencon-last-email', this.value);
+});
+
+// Check if already logged in
+(function() {
+  const tok = localStorage.getItem('sb-access-token');
+  if (tok) {
+    accessToken = tok;
+    setStatus('login-status', 'success', 'Using existing session token');
+    document.getElementById('step-scan').style.display = '';
+  }
+})();
+
+// Show orphan section after scan completes
+function showOrphanSection() {
+  document.getElementById('step-orphan').style.display = '';
+  // Pre-fill with known UUIDs from projects that have UUID R2 folders
+  const knownUuids = allProjects.filter(p => {
+    const slug = makeSlug(p.project_number, p.project_name);
+    return slug && slug !== p.id; // has a slug different from UUID
+  }).map(p => p.id);
+  // Don't overwrite if user already typed something
+  if (!document.getElementById('orphan-uuids').value.trim()) {
+    document.getElementById('orphan-uuids').value = '';
+  }
+}
+
+function oLog(msg, cls) {
+  const el = document.getElementById('orphan-log');
+  const span = document.createElement('span');
+  span.className = cls || '';
+  span.textContent = msg + '\n';
+  el.appendChild(span);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function doOrphanScan() {
+  const uuids = document.getElementById('orphan-uuids').value.trim().split('\n').map(s => s.trim()).filter(Boolean);
+  if (!uuids.length) { setStatus('orphan-status', 'error', 'Enter at least one UUID'); return; }
+  document.getElementById('orphan-log').innerHTML = '';
+
+  for (const uuid of uuids) {
+    oLog('Scanning: ' + uuid, 'log-info');
+    let total = 0;
+    for (const tool of TOOLS) {
+      for (const type of TYPES) {
+        try {
+          const res = await fetch(WORKER_URL + '/list/' + uuid + '/' + tool + '/' + type + '/');
+          if (res.ok) {
+            const data = await res.json();
+            const files = Array.isArray(data.files) ? data.files : [];
+            if (files.length > 0) {
+              oLog('  ' + tool + '/' + type + ': ' + files.length + ' files (' + (files.reduce((s,f) => s + (f.size||0), 0) / 1024 / 1024).toFixed(1) + ' MB)', 'log-warn');
+              total += files.length;
+            }
+          }
+        } catch (e) { oLog('  Error: ' + e.message, 'log-err'); }
+      }
+    }
+    if (total === 0) oLog('  No files found', 'log-dim');
+    else oLog('  Total: ' + total + ' files', 'log-warn');
+  }
+  setStatus('orphan-status', 'info', 'Scan complete. Review above, then click Delete if ready.');
+}
+
+async function doOrphanCleanup() {
+  const uuids = document.getElementById('orphan-uuids').value.trim().split('\n').map(s => s.trim()).filter(Boolean);
+  if (!uuids.length) { setStatus('orphan-status', 'error', 'Enter at least one UUID'); return; }
+  document.getElementById('orphan-log').innerHTML = '';
+
+  let deleted = 0, failed = 0;
+  for (const uuid of uuids) {
+    oLog('Cleaning up: ' + uuid, 'log-info');
+    for (const tool of TOOLS) {
+      for (const type of TYPES) {
+        try {
+          const res = await fetch(WORKER_URL + '/list/' + uuid + '/' + tool + '/' + type + '/');
+          if (!res.ok) continue;
+          const data = await res.json();
+          const files = Array.isArray(data.files) ? data.files : [];
+          for (const f of files) {
+            const fname = typeof f === 'string' ? f : (f.key ? f.key.split('/').pop() : '');
+            if (!fname) continue;
+            const path = '/photos/' + uuid + '/' + tool + '/' + type + '/' + fname;
+            try {
+              const delRes = await fetch(WORKER_URL + path, { method: 'DELETE', headers: r2AuthHeaders() });
+              if (delRes.ok || delRes.status === 404) {
+                oLog('  ✓ Deleted: ' + tool + '/' + type + '/' + fname, 'log-ok');
+                deleted++;
+              } else {
+                oLog('  ✗ Delete failed: ' + path + ' (' + delRes.status + ')', 'log-err');
+                failed++;
+              }
+            } catch (e) { oLog('  ✗ Error: ' + e.message, 'log-err'); failed++; }
+          }
+        } catch (e) { /* skip */ }
+      }
+    }
+  }
+  oLog('', '');
+  oLog('Cleanup complete: ' + deleted + ' deleted, ' + failed + ' failed', deleted > 0 ? 'log-ok' : 'log-dim');
+  setStatus('orphan-status', deleted > 0 ? 'success' : 'info', 'Deleted ' + deleted + ' files, ' + failed + ' failed');
+}
+</script>
+</body>
+</html>
