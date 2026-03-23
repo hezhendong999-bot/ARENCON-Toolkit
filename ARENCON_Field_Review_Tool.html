@@ -511,9 +511,9 @@ body.dark-mode .defic-filter-menu button:hover{background:#2a2d3a;}
 body.dark-mode .defic-filter-menu button.active{background:#2a2d3a;color:#f4a1b5;}
 body.dark-mode .nav-tab{color:#8a94b0;}.dark-mode .nav-tab:hover{color:#d0d8f0;}body.dark-mode .nav-tab.active{color:#fff;border-bottom-color:#c13a58;}
 body.dark-mode .card{background:#1e2533;border:1px solid #2a3040;box-shadow:0 2px 8px rgba(0,0,0,.3);}
-body.dark-mode .card-header{background:#9C2742;color:#fff;}
-body.dark-mode .card-header.mid{background:#1e2a40;color:#d0d8f0;}
-body.dark-mode .card-header.red{background:#C0392B;color:#fff;}
+body.dark-mode .card-header{background:linear-gradient(135deg,#5a1a2a,#3d1220)!important;color:#e8c0cc;}
+body.dark-mode .card-header.mid{background:linear-gradient(135deg,#1e2a40,#172235)!important;color:#d0d8f0;}
+body.dark-mode .card-header.red{background:linear-gradient(135deg,#5a1a1a,#3d1212)!important;color:#f0a0a0;}
 body.dark-mode .section-header,body.dark-mode .section-title{color:#d0d8f0;background:rgba(156,39,66,.12);margin-left:-18px;margin-right:-18px;padding:10px 18px;border-radius:6px;}
 body.dark-mode .section-header span,body.dark-mode .section-title::before{background:#9C2742;}
 body.dark-mode input,body.dark-mode select,body.dark-mode textarea{background:#151a24!important;color:#d0d8f0!important;border:1.5px solid #2a3040!important;border-radius:6px!important;}
@@ -1068,8 +1068,9 @@ body.dark-mode .iar-toggle-btn.off{background:#22252d;border-color:#3a3e48;color
 body.dark-mode .iar-toggle-btn.on{background:#3d1520;border-color:#C0392B;color:#ff6b6b;}
 body.dark-mode .remove-defic-btn{background:#5a1a20!important;color:#ffaaaa!important;border-color:#8a2830!important;}
 body.dark-mode .dup-defic-btn{background:#1a2a3a!important;color:#80b0e0!important;border-color:#2a4a6a!important;}
-body.dark-mode .resp-add-ctr{background:#E67E22;color:white;}
-body.dark-mode .resp-add-con{background:#2C4A6B;color:white;}
+body.dark-mode .resp-add-ctr{background:rgba(230,126,34,.25);color:#f0a060;border:1px solid rgba(230,126,34,.3);}
+body.dark-mode .resp-add-con{background:rgba(44,74,107,.35);color:#90b0d0;border:1px solid rgba(44,74,107,.4);}
+body.dark-mode .pz-camera{background:rgba(26,122,74,.3);color:#60c090;border:1px solid rgba(26,122,74,.35);}
 body.dark-mode .resp-contractor{background:#2a2000;border-color:#554400;color:#e0e4ea;}
 body.dark-mode .resp-contractor textarea{background:#211800!important;border-color:#443300!important;color:#e8ddc8!important;}
 body.dark-mode .resp-consultant{background:#0a1a2e;border-color:#1a3a5e;color:#e0e4ea;}
@@ -3008,13 +3009,15 @@ function confirmDownloadJSON(){
 function _aConfirm(msg,onOk,okText){
   var isDark=document.body.classList.contains('dark-mode');
   var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7';
+  var okBg=isDark?'rgba(156,39,66,.35)':'#9C2742',okFg=isDark?'#e8a0b0':'white',okBdr=isDark?'border:1px solid rgba(156,39,66,.4);':'border:none;';
+  var cancelBg=isDark?'rgba(255,255,255,.06)':'none',cancelBdr=isDark?'1.5px solid #3a4050':'1.5px solid '+bdr;
   var ov=document.createElement('div');ov.className='_a-modal-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
   var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
   h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
   h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
-  h+='<button class="_ac-cancel" style="padding:8px 20px;border:1.5px solid '+bdr+';border-radius:8px;background:none;color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
-  h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">'+(okText||'OK')+'</button>';
+  h+='<button class="_ac-cancel" style="padding:8px 20px;border:'+cancelBdr+';border-radius:8px;background:'+cancelBg+';color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
+  h+='<button class="_ac-ok" style="padding:8px 20px;'+okBdr+'border-radius:8px;background:'+okBg+';color:'+okFg+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">'+(okText||'OK')+'</button>';
   h+='</div></div>';
   ov.innerHTML=h;
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
@@ -3026,14 +3029,16 @@ function _aConfirm(msg,onOk,okText){
 function _aPrompt(msg,defVal,onOk){
   var isDark=document.body.classList.contains('dark-mode');
   var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7',ibg=isDark?'#151a24':'#F8FAFC';
+  var okBg=isDark?'rgba(156,39,66,.35)':'#9C2742',okFg=isDark?'#e8a0b0':'white',okBdr=isDark?'border:1px solid rgba(156,39,66,.4);':'border:none;';
+  var cancelBg=isDark?'rgba(255,255,255,.06)':'none',cancelBdr=isDark?'1.5px solid #3a4050':'1.5px solid '+bdr;
   var ov=document.createElement('div');ov.className='_a-modal-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
   var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
   h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:14px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
   h+='<input class="_ap-input" type="text" value="'+_escAttr(defVal||'')+'" style="width:100%;padding:10px 14px;border:1.5px solid '+bdr+';border-radius:8px;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;background:'+ibg+';color:'+fg+';outline:none;margin-bottom:16px;box-sizing:border-box;">';
   h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
-  h+='<button class="_ac-cancel" style="padding:8px 20px;border:1.5px solid '+bdr+';border-radius:8px;background:none;color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
-  h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
+  h+='<button class="_ac-cancel" style="padding:8px 20px;border:'+cancelBdr+';border-radius:8px;background:'+cancelBg+';color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
+  h+='<button class="_ac-ok" style="padding:8px 20px;'+okBdr+'border-radius:8px;background:'+okBg+';color:'+okFg+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
   h+='</div></div>';
   ov.innerHTML=h;
   var inp=ov.querySelector('._ap-input');
@@ -3047,12 +3052,13 @@ function _aPrompt(msg,defVal,onOk){
 function _aAlert(msg){
   var isDark=document.body.classList.contains('dark-mode');
   var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',bdr=isDark?'#2a3040':'#DDE1E7';
+  var okBg=isDark?'rgba(156,39,66,.35)':'#9C2742',okFg=isDark?'#e8a0b0':'white',okBdr=isDark?'border:1px solid rgba(156,39,66,.4);':'border:none;';
   var ov=document.createElement('div');ov.className='_a-modal-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
   var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
   h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
   h+='<div style="display:flex;justify-content:flex-end;">';
-  h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
+  h+='<button class="_ac-ok" style="padding:8px 20px;'+okBdr+'border-radius:8px;background:'+okBg+';color:'+okFg+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
   h+='</div></div>';
   ov.innerHTML=h;
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
