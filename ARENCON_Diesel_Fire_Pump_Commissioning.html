@@ -6329,7 +6329,7 @@ window.addEventListener('beforeunload', function(e) {
 window.addEventListener('load', () => {
   // ── Inactivity tracker — shared with Hub PIN lock ──
   var _actThrottle=0;
-  function _stampActivity(){var n=Date.now();if(n-_actThrottle<30000)return;_actThrottle=n;try{localStorage.setItem('ARENCON_lastActivity',n.toString());}catch(e){}}
+  function _stampActivity(){var n=Date.now();if(n-_actThrottle<30000)return;_actThrottle=n;try{localStorage.setItem('ARENCON_lastActivity',n.toString());}catch(e){} if(typeof _resetSessionTimers==='function')_resetSessionTimers();}
   document.addEventListener('click',_stampActivity,true);
   document.addEventListener('touchstart',_stampActivity,true);
   document.addEventListener('keydown',_stampActivity,true);
@@ -6456,6 +6456,7 @@ window.addEventListener('load', () => {
         // Start auto-save (30s)
         CloudSync.startAutoSave(_collectCloudState, 30000);
         _wireNavIntercepts();
+        _resetSessionTimers();
         updateProgress();
         updateIDBStorageBar();
       }).catch(function(e){
@@ -6942,14 +6943,97 @@ function _closeMoreOnClick(){closeMoreMenu();}
 function closeMoreMenu(){var m=document.getElementById('more-menu');if(m)m.classList.remove('open');}
 
 // ═══ SIGN OUT ═══
+// ═══ TIERED SESSION MANAGEMENT ═══
+// Tier 1 — Soft lock:    20 min idle  → blur UI, show "Session Locked" overlay
+// Tier 2 — Full sign-out: 8 hr idle  → clear token, redirect to Hub
+var _softLockTimer = null;
+var _hardSignOutTimer = null;
+var _sessionLocked = false;
+var SOFT_LOCK_MS  = 20 * 60 * 1000;   // 20 minutes
+var HARD_SIGNOUT_MS = 8 * 60 * 60 * 1000; // 8 hours
+
+function _resetSessionTimers() {
+  if (_sessionLocked) return;
+  clearTimeout(_softLockTimer);
+  clearTimeout(_hardSignOutTimer);
+  _softLockTimer   = setTimeout(_triggerSoftLock,   SOFT_LOCK_MS);
+  _hardSignOutTimer = setTimeout(_triggerHardSignOut, HARD_SIGNOUT_MS);
+}
+
+function _triggerSoftLock() {
+  if (_sessionLocked || !_csHubMode) return;
+  _sessionLocked = true;
+  // Auto-save before locking
+  try { if(typeof CloudSync!=='undefined'&&CloudSync.isInitialized){var s=_collectCloudState();CloudSync.save(s);} } catch(e){}
+
+  var userName = '';
+  try { userName = localStorage.getItem('sb-user-name') || ''; } catch(e){}
+
+  var overlay = document.createElement('div');
+  overlay.id = 'soft-lock-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:19000;background:rgba(18,22,32,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+
+  overlay.innerHTML =
+    '<div style="background:#1C2333;border-radius:16px;padding:32px 28px;max-width:400px;width:92%;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,.5);">'
+    + '<div style="font-size:32px;margin-bottom:8px;">🔒</div>'
+    + '<div style="font-size:19px;font-weight:700;color:white;margin-bottom:4px;">Session Locked</div>'
+    + '<div style="font-size:calc(12px + var(--ts));color:rgba(255,255,255,.4);margin-bottom:20px;">Locked after 20 min of inactivity. Work has been saved.</div>'
+    + (userName ? '<div style="background:rgba(156,39,66,.18);border:2px solid #9C2742;border-radius:12px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;gap:12px;justify-content:center;">'
+      + '<div style="width:40px;height:40px;border-radius:50%;background:#9C2742;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">👤</div>'
+      + '<div style="text-align:left;"><div style="font-size:calc(11px + var(--ts));color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;">Locked by</div>'
+      + '<div style="font-size:17px;font-weight:700;color:white;">' + userName + '</div></div>'
+      + '</div>' : '')
+    + '<button id="soft-lock-resume-btn" onclick="window._softLockResume()" '
+    + 'style="width:100%;padding:13px;background:#9C2742;color:white;border:none;border-radius:8px;font-size:calc(15px + var(--ts));font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;margin-bottom:16px;">'
+    + 'Unlock & Continue' + (userName ? ' as ' + userName : '') + '</button>'
+    + '<div style="margin-top:16px;border-top:1px solid rgba(255,255,255,.08);padding-top:14px;">'
+    + '<button onclick="signOutSession()" style="background:none;border:none;color:rgba(255,255,255,.3);font-size:calc(12px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;">Sign Out</button>'
+    + '</div></div>';
+
+  document.body.appendChild(overlay);
+  setTimeout(function(){ var btn=document.getElementById('soft-lock-resume-btn'); if(btn)btn.focus(); }, 50);
+
+  var elapsed = Date.now() - (parseInt(localStorage.getItem('ARENCON_lastActivity'))||Date.now());
+  var remaining = Math.max(60000, HARD_SIGNOUT_MS - elapsed);
+  clearTimeout(_hardSignOutTimer);
+  _hardSignOutTimer = setTimeout(_triggerHardSignOut, remaining);
+}
+
+window._softLockResume = function() { _dismissSoftLock(); };
+
+function _dismissSoftLock() {
+  _sessionLocked = false;
+  var ov = document.getElementById('soft-lock-overlay');
+  if (ov) ov.remove();
+  _resetSessionTimers();
+}
+
+function _triggerHardSignOut() {
+  try { if(typeof CloudSync!=='undefined'&&CloudSync.isInitialized){var s=_collectCloudState();CloudSync.save(s);} } catch(e){}
+  showToast('Session expired — signing out', 2000);
+  setTimeout(function(){
+    _doSignOut();
+  }, 1200);
+}
+
+function _doSignOut(){
+  clearTimeout(_softLockTimer);
+  clearTimeout(_hardSignOutTimer);
+  localStorage.removeItem('sb-access-token');
+  localStorage.removeItem('sb-refresh-token');
+  localStorage.removeItem('sb-user-name');
+  localStorage.removeItem('sb-user-email');
+  localStorage.removeItem('ARENCON_lastActivity');
+  if(typeof CloudSync!=='undefined'&&CloudSync.isInitialized){
+    try{CloudSync.stopAutoSave();CloudSync.destroy();}catch(e){}
+  }
+  sessionStorage.setItem('ARENCON_signed_out','1');
+  window.location.href='ARENCON_Project_Hub.html';
+}
+
 function signOutSession(){
-  _aConfirm('Sign out of this session?',function(){
-    sessionStorage.setItem('ARENCON_signed_out','1');
-    localStorage.removeItem('ARENCON_lastActivity');
-    if(typeof CloudSync!=='undefined'&&CloudSync.isInitialized){
-      try{CloudSync.stopAutoSave();}catch(e){}
-    }
-    window.location.href='ARENCON_Project_Hub.html';
+  _aConfirm('Sign out and return to Project Hub?',function(){
+    _doSignOut();
   },'Sign Out');
 }
 
