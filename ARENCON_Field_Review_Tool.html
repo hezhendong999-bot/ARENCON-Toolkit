@@ -1385,7 +1385,7 @@ body.text-l{--ts:4px;}
         </div>
       </div>
       <button class="hdr-btn" id="dark-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="background:rgba(255,255,255,.15);min-width:38px;justify-content:center;">☀️</button>
-      <button class="hdr-btn text-size-toggle" id="btn-text-size" onclick="cycleTextSize()" title="Text size: Small / Medium">M</button>
+      <button class="hdr-btn text-size-toggle" id="btn-text-size" onclick="cycleTextSize()" title="Text size: Small / Medium / Large">Aa M</button>
       <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
     </div>
   </div>
@@ -1449,7 +1449,7 @@ body.text-l{--ts:4px;}
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span>💾</span><span id="mobile-storage-text">Calculating...</span></div>
       <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="mobile-storage-bar" style="height:100%;background:#1A7A4A;width:0%;border-radius:2px;transition:width .3s;"></div></div>
     </div>
-    <button class="btn" onclick="cycleTextSize();closeMobileMenu();" id="mobile-text-size-btn" style="font-size:12px;">Text: Medium</button>
+    <button class="btn" onclick="cycleTextSize();closeMobileMenu();" id="mobile-text-size-btn" style="font-size:12px;">Aa Text: Medium</button>
   </div>
 </div>
 <input type="file" id="load-input" accept=".json" style="display:none" onchange="closeLoadModal();loadJSON(event)">
@@ -2968,9 +2968,9 @@ function applyTextSize(size){
   var cls=_appTextClasses[size];
   if(cls)document.body.classList.add(cls);
   var btn=document.getElementById('btn-text-size');
-  if(btn)btn.textContent=size;
+  if(btn)btn.textContent='Aa '+size;
   var mob=document.getElementById('mobile-text-size-btn');
-  if(mob)mob.textContent='Text: '+_appTextLabels[size];
+  if(mob)mob.textContent='Aa Text: '+_appTextLabels[size];
 }
 (function(){var s=localStorage.getItem('arencon-text-size')||'M';applyTextSize(s);})();
 
@@ -10590,7 +10590,10 @@ if(reportDefs.length){
 var w=window.open('','_blank');
 if(!w){_aAlert('Popup blocked. Allow popups for this site.');return;}
 
-var docHtml='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ARENCON Field Review - '+(p.info.projectName||'Report')+'</title>';
+var _pdfSmartName=buildSmartFilename(p);
+var _pdfTitle=_pdfSmartName+' Field Review Report'+(_rptNum>1?' #'+_rptNum:'')+' '+_rptRev;
+
+var docHtml='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+escHtml(_pdfTitle)+'</title>';
 docHtml+='<style>'+css+'</style></head><body>';
 // Hidden measurement container
 docHtml+='<div id="measure-zone" style="position:absolute;left:-9999px;top:0;width:7.3in;visibility:hidden;"></div>';
