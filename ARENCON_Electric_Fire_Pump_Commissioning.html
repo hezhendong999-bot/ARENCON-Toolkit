@@ -607,9 +607,13 @@ body.dark-mode .project-bar{background:#151a24;border-top-color:rgba(255,255,255
         <button class="hdr-btn" style="background:#455A64;" onclick="toggleMoreMenu(event)" title="More options">⚙️ More ▾</button>
         <div class="hdr-repair-menu" id="more-menu">
           <button onclick="downloadJSON();closeMoreMenu()">💾 Download JSON <span>Save project data to file</span></button>
+          <button onclick="importJSON();closeMoreMenu()">📂 Import JSON <span>Load project data from file</span></button>
           <div style="height:1px;background:#eee;margin:2px 0;"></div>
           <button onclick="resetCurrentPage();closeMoreMenu()">🗑️ Reset Current Page <span>Clear this page's data</span></button>
           <button onclick="resetAllPages();closeMoreMenu()" style="color:#C62828;">⚠️ Reset All Pages <span>Delete all project data</span></button>
+          <div style="height:1px;background:#eee;margin:2px 0;" id="menu-r2-divider" class="hub-only-menu" hidden></div>
+          <button onclick="_r2ReuploadAll();closeMoreMenu()" id="menu-reupload" class="hub-only-menu" hidden>☁️ Re-upload All Photos <span>Push all local photos to R2</span></button>
+          <button onclick="_r2CleanupOrphans();closeMoreMenu()" id="menu-r2cleanup" class="hub-only-menu" hidden>🧹 R2 Cleanup <span>Delete orphaned cloud files</span></button>
         </div>
       </div>
       <button class="hdr-btn" id="dark-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="background:rgba(255,255,255,.15);min-width:38px;justify-content:center;">☀️</button>
@@ -1516,7 +1520,6 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
       <button id="lb-prev" onclick="lightboxNav(-1)" style="background:rgba(255,255,255,.15);border:none;color:white;font-size:16px;cursor:pointer;padding:6px 14px;border-radius:6px;">‹ Prev</button>
       <button id="lb-next" onclick="lightboxNav(1)" style="background:rgba(255,255,255,.15);border:none;color:white;font-size:16px;cursor:pointer;padding:6px 14px;border-radius:6px;">Next ›</button>
       <a id="lb-download" href="" download style="background:#1A7A4A;border:none;color:white;font-size:12px;cursor:pointer;padding:6px 14px;border-radius:6px;text-decoration:none;display:flex;align-items:center;gap:4px;">⬇ Save</a>
-        <a class="hdr-repair-item" onclick="closeMoreMenu();_r2ReuploadAll();" style="display:none;" id="menu-reupload">☁ Re-upload All Photos</a>
       <button onclick="saveLbMarkup()" style="background:#2196F3;border:none;color:white;font-size:12px;cursor:pointer;padding:6px 14px;border-radius:6px;" title="Save markup back to photo">💾 Save Markup</button>
       <button onclick="closeLightbox()" style="background:rgba(255,255,255,.15);border:none;color:white;font-size:20px;cursor:pointer;width:38px;height:38px;border-radius:50%;">✕</button>
     </div>
@@ -1697,29 +1700,6 @@ function deficRespTimelineCamera(name, idx, ci) {
 
 
 
-function _createModal(titleText, bodyHtml, opts) {
-  opts = opts || {};
-  var overlay = document.createElement('div');
-  overlay.className = '_arencon-modal-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;';
-  var box = document.createElement('div');
-  box.style.cssText = 'background:white;border-radius:12px;padding:0;max-width:'+(opts.maxWidth||'440px')+';width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:Calibri,sans-serif;overflow:hidden;';
-  // Header with title + X button
-  var header = document.createElement('div');
-  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:16px 20px 12px;border-bottom:1px solid #eee;';
-  header.innerHTML = '<div style="font-size:17px;font-weight:700;color:#333;">'+titleText+'</div>'
-    + '<button onclick="this.closest(\'.'+overlay.className+'\').remove()" style="background:none;border:none;font-size:22px;color:#999;cursor:pointer;padding:0 4px;line-height:1;" title="Close">\u2715</button>';
-  box.appendChild(header);
-  // Body
-  var body = document.createElement('div');
-  body.style.cssText = 'padding:16px 20px 20px;';
-  body.innerHTML = bodyHtml;
-  box.appendChild(body);
-  overlay.appendChild(box);
-  // Click outside to close
-  overlay.onclick = function(ev){ if(ev.target===overlay) overlay.remove(); };
-  return { overlay: overlay, box: box, body: body, close: function(){ overlay.remove(); } };
-}
 
 var _editModeSnapshot = null;
 
@@ -1981,15 +1961,6 @@ function addChecklistRow(baseCount, containerId, section) {
   showToast('✓ Row added. Enable Edit mode to customize the text.');
 }
 
-function deleteChecklistRow(section, idx, baseLen) {
-  const customIdx = idx - baseLen;
-  if(customItems[section] && customIdx >= 0) {
-    customItems[section].splice(customIdx, 1);
-    const contMap = {'s1':'cl-s1','s2':'cl-s2','s3':'cl-s3','s4':'cl-s4','s4pld':'cl-s4pld','s5m':'cl-s5-mandatory','s5':'cl-s5'};
-    const srcMap = {'s1':S1,'s2':S2,'s3gen':S3_gen,'s3':S3,'s4':S4_items,'s4pld':S4_items,'s5m':S5_mandatory,'s5':S5};
-    renderChecklist(srcMap[section]||[], contMap[section], section);
-  }
-}
 
 function buildItem(id, item, section, idx, isCustom) {
   const s = clState[id];
@@ -2433,11 +2404,13 @@ function updateProgress() {
     secCounts[sec].total++;
     if(clState[k].status) secCounts[sec].done++;
   }
-  ['s1','s2','s3gen','s3','s4','s4pld','s5'].forEach(function(sec){
+  ['s1','s2','s3','s4','s4pld','s5'].forEach(function(sec){
     var dot = document.getElementById('dot-'+sec);
     if(dot) {
-      var c = secCounts[sec];
-      dot.className = 'tab-dot' + (c && c.done < c.total ? ' visible' : '');
+      var c = secCounts[sec] || {total:0,done:0};
+      // Merge s3gen into s3 tab dot
+      if(sec==='s3' && secCounts['s3gen']){ c={total:c.total+secCounts['s3gen'].total, done:c.done+secCounts['s3gen'].done}; }
+      dot.className = 'tab-dot' + (c.total && c.done < c.total ? ' visible' : '');
     }
   });
   var missing = total - ans;
@@ -2475,7 +2448,6 @@ function setBatPower(bKey, idx, mode) {
 }
 
 // Legacy stub — no longer computes totals but kept for compat
-function updateBatTotals() {}
 
 // ── GLOBAL TABLE INPUT DELEGATION (prevents re-render / focus loss bug) ──
 document.addEventListener('input', function(e) {
@@ -2696,8 +2668,6 @@ function renderPumpCurveTable() {
 // ══════════════════════════════════════════════════
 
 // Transform Q to Q^1.85 space for NFPA hydraulic chart
-function toHW(q) { return q <= 0 ? 0 : Math.pow(q, 1.85); }
-function fromHW(hw) { return hw <= 0 ? 0 : Math.pow(hw, 1/1.85); }
 
 // Old v10 chart functions removed — see new chart architecture below
 
@@ -3005,7 +2975,6 @@ function getOhlLine() { return getOhlLine3pt(); }
 
 // ── Pitot Pressure Rows ──
 var pitotCounts={'3a':0,'4b':0};
-function initPitotRows(tab){for(var i=0;i<3;i++)addPitotRow(tab);}
 function addPitotRow(tab){
   if(pitotCounts[tab]>=8){showToast('Maximum 8 pitot rows');return;}
   pitotCounts[tab]++;var n=pitotCounts[tab];
@@ -3037,10 +3006,6 @@ function calcPitotTotal(tab){
 //           4=staticPt, 5=residualPt, 6=sprDemLine, 7=sprDemPt, 8=ohlLine, 9=totalDemand
 // ══════════════════════════════════════════════════
 // Smart label helper — returns offset anchor so labels never stack
-function smartAlign(allDatasets, dsIdx, ptIdx, defaultAlign) {
-  // We return a safe direction by scanning all annotated points from all datasets
-  return defaultAlign || 'top';
-}
 
 function initChart3pt() {
   const canvas = document.getElementById('chart3pt');
@@ -3458,110 +3423,8 @@ function applyChartDarkMode() {
   } catch(e) {}
 }
 function refreshAllCharts() { updateChart3pt(); updatePldChart(); updatePldNetChart(); }
-function updatePldSupplyChart() {} // legacy stub — keep to avoid errors
 
 
-// ══════════════════════════════════════════════════
-// EXPORT TO EMAIL
-// ══════════════════════════════════════════════════
-var _emailHistory = JSON.parse(localStorage.getItem('_emailHistory') || '[]');
-
-function showEmailExport() {
-  var curTab = PANELS.find(function(p){return document.getElementById('panel-'+p)&&document.getElementById('panel-'+p).classList.contains('active');}) || 'proj';
-
-  // Step 1: Save dialog
-  var m = _createModal('Export to Email',
-    '<div style="font-size:13px;color:#555;margin-bottom:18px;">Would you like to save changes before sending?</div>'
-    + '<div style="display:flex;gap:10px;justify-content:flex-end;">'
-    + '<button id="_em_cancel" style="padding:9px 18px;border-radius:8px;border:2px solid #ccc;background:white;color:#555;font-weight:700;cursor:pointer;font-size:13px;">Cancel</button>'
-    + '<button id="_em_nosave" style="padding:9px 18px;border-radius:8px;border:2px solid #1565C0;background:#E3F2FD;color:#1565C0;font-weight:700;cursor:pointer;font-size:13px;">Skip &amp; Continue</button>'
-    + '<button id="_em_save" style="padding:9px 18px;border-radius:8px;border:none;background:#1A7A4A;color:white;font-weight:700;cursor:pointer;font-size:13px;">Save &amp; Continue</button>'
-    + '</div>');
-  document.body.appendChild(m.overlay);
-  m.body.querySelector('#_em_cancel').onclick = function(){ m.close(); switchPanel(curTab); };
-  m.overlay.onclick = function(ev){ if(ev.target===m.overlay){ m.close(); switchPanel(curTab); }};
-  m.body.querySelector('#_em_nosave').onclick = function(){ m.close(); _showEmailInput(curTab); };
-  m.body.querySelector('#_em_save').onclick = function(){
-    m.close();
-    saveState();
-    showToast('\u2713 Saved', 1500);
-    setTimeout(function(){ _showEmailInput(curTab); }, 500);
-  };
-}
-
-
-
-function _showEmailInput(curTab) {
-  var overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-  var box = document.createElement('div');
-  box.style.cssText = 'background:white;border-radius:12px;padding:28px 32px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:Calibri,sans-serif;';
-  box.innerHTML = '<div style="font-size:17px;font-weight:700;margin-bottom:14px;">\u2709 Send Report via Email</div>'
-    + '<div style="margin-bottom:12px;">'
-    + '  <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Recipient Email Address</label>'
-    + '  <div style="position:relative;">'
-    + '    <input type="email" id="_em_input" list="_em_list" placeholder="name@domain.com" style="width:100%;padding:10px 12px;border:2px solid #ccc;border-radius:8px;font-size:14px;box-sizing:border-box;" autocomplete="email">'
-    + '    <datalist id="_em_list">' + _emailHistory.map(function(e){return '<option value="'+e+'">';}).join('') + '</datalist>'
-    + '  </div>'
-    + '</div>'
-    + '<div style="display:flex;gap:8px;margin-bottom:18px;">'
-    + '  <button class="btn btn-sm" onclick="var i=document.getElementById(\'_em_input\');if(i.value&&i.value.indexOf(\'@\')<0)i.value+=\'@gmail.com\';else if(!i.value)i.value=\'@gmail.com\'" style="font-size:12px;padding:6px 12px;border:1.5px solid #ccc;border-radius:6px;background:#f5f5f5;cursor:pointer;font-weight:600;">@gmail.com</button>'
-    + '  <button class="btn btn-sm" onclick="var i=document.getElementById(\'_em_input\');if(i.value&&i.value.indexOf(\'@\')<0)i.value+=\'@arencon.com\';else if(!i.value)i.value=\'@arencon.com\'" style="font-size:12px;padding:6px 12px;border:1.5px solid #ccc;border-radius:6px;background:#f5f5f5;cursor:pointer;font-weight:600;">@arencon.com</button>'
-    + '</div>'
-    + '<div style="display:flex;gap:10px;justify-content:flex-end;">'
-    + '  <button id="_em_cancel2" style="padding:9px 18px;border-radius:8px;border:2px solid #ccc;background:white;color:#555;font-weight:700;cursor:pointer;font-size:13px;">Cancel</button>'
-    + '  <button id="_em_send" style="padding:9px 18px;border-radius:8px;border:none;background:#0277BD;color:white;font-weight:700;cursor:pointer;font-size:13px;">\u2709 Send</button>'
-    + '</div>';
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-
-  setTimeout(function(){ document.getElementById('_em_input').focus(); }, 100);
-
-  box.querySelector('#_em_cancel2').onclick = function(){ document.body.removeChild(overlay); switchPanel(curTab); };
-  overlay.onclick = function(e){ if(e.target===overlay){ document.body.removeChild(overlay); switchPanel(curTab); }};
-
-  box.querySelector('#_em_send').onclick = function(){
-    var email = document.getElementById('_em_input').value.trim();
-    if(!email || email.indexOf('@') < 0) { showToast('Please enter a valid email address', 2000); return; }
-    // Save to history
-    if(_emailHistory.indexOf(email) < 0) {
-      _emailHistory.unshift(email);
-      if(_emailHistory.length > 10) _emailHistory.pop();
-      try { localStorage.setItem('_emailHistory', JSON.stringify(_emailHistory)); } catch(e){}
-    }
-    var proj = document.getElementById('pi-projno');
-    var projName = proj && proj.value ? proj.value : 'Fire_Pump_Report';
-    var fname = 'ARENCON_Fire_Pump_' + projName.replace(/[^a-zA-Z0-9_-]/g,'_') + '.html';
-    
-    // Always use download + mailto approach (most reliable across all platforms)
-    try {
-      var html = _buildSaveHtml();
-      var blob = new Blob([html], {type:'text/html;charset=utf-8'});
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = fname;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(a.href);
-      
-      // Open email client after download
-      var subject = encodeURIComponent('ARENCON Fire Pump Commissioning Report - ' + projName);
-      var body = encodeURIComponent('Hi,\n\nPlease find the attached Fire Pump Commissioning Report for project: ' + projName + '.\n\nThe report file \"' + fname + '\" has been downloaded and is ready to attach to this email.\n\nBest regards');
-      setTimeout(function(){
-        window.location.href = 'mailto:' + email + '?subject=' + subject + '&body=' + body;
-      }, 800);
-      showToast('\u2713 File downloaded as \"' + fname + '\" — attach it to the email that opens.', 6000);
-    } catch(err) {
-      showToast('Error: ' + err.message, 3000);
-    }
-    document.body.removeChild(overlay);
-    switchPanel(curTab);
-  };
-}
-
-
-// ══════════════════════════════════════════════════
 // JSON EXPORT / IMPORT
 // ══════════════════════════════════════════════════
 // ══════════════════════════════════════════════════
@@ -4249,8 +4112,6 @@ function clearGenericSig(idx) {
   if(img) { img.src=''; img.style.display='none'; }
   setSigMode(idx,'draw');
 }
-function clearContractorSig(idx) { clearGenericSig(idx); }
-function removeContractorRow(i) { removeSignRow('contractor',i); }
 
 // ══════════════════════════════════════════════════
 // PANEL SWITCHING
@@ -4401,7 +4262,8 @@ function _realExportPDF() {
   let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:Arial,sans-serif;font-size:9pt;color:#1C2333;}
+    body{font-family:Calibri,sans-serif;font-size:9pt;color:#1C2333;background:#525659;margin:0;padding:56px 0 40px;}
+    .page{background:white;max-width:8.5in;margin:20px auto;padding:40px 50px;box-shadow:0 2px 12px rgba(0,0,0,.3);min-height:11in;box-sizing:border-box;}
     .cover{padding:20px 40px 15px;border-bottom:3px solid #9C2742;margin-bottom:20px;}
     .cover-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
     .firm-info{text-align:right;font-size:7.5pt;color:#333;line-height:1.6;}
@@ -4424,9 +4286,9 @@ function _realExportPDF() {
     .iat{color:#C0392B;font-weight:bold;}
     .footer{margin-top:24px;border-top:1px solid #DDD;padding-top:10px;font-size:7.5pt;color:#888;}
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-    @media print{@page{margin:12mm 14mm;} h2{page-break-before:always;} h2:first-of-type{page-break-before:avoid;}}
+    @media print{@page{margin:12mm 14mm;} body{background:white!important;padding:0!important;} .page{box-shadow:none!important;margin:0!important;padding:0 0 12px!important;max-width:none!important;min-height:auto!important;} h2{page-break-before:always;} h2:first-of-type{page-break-before:avoid;}}
   </style></head><body>
-
+  <div class="page">
   <div class="cover">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:2px;">
       <div>
@@ -4622,6 +4484,7 @@ function _realExportPDF() {
   <div class="footer">
     Report generated by ARENCON Inc. Electric Fire Pump Acceptance Test System &middot; ${new Date().toLocaleDateString('en-CA')} &middot; Prepared by: ${proj.prepby||proj.eng||'---'} &middot; NFPA 20 (2022) / CEC / OBC compliance.
   </div>
+  </div><!-- end .page -->
   
   <!-- Mobile page navigation -->
   <div id="mobile-page-nav" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:100;background:#2C3E50;border-top:3px solid #9C2742;padding:16px;box-shadow:0 -4px 12px rgba(0,0,0,.15);">
@@ -4770,7 +4633,6 @@ function _realExportPDF() {
     var hideStyle = w.document.createElement('style');
     hideStyle.textContent = '@media print { #pdf-btn-bar { display:none !important; } body { padding-top:0 !important; } }';
     w.document.head.appendChild(hideStyle);
-    w.document.body.style.paddingTop = '56px';
   } catch(btnErr) { console.error('PDF btn error:', btnErr); }
   } catch(err) { console.error('PDF error:', err); showToast('PDF error: '+err.message, 5000); }
 }
@@ -5857,7 +5719,6 @@ let _atRunning=false, _atStart=0, _atElapsed=0, _atTimer=null;
 let _atPldRunning=false, _atPldStart=0, _atPldElapsed=0, _atPldTimer=null;
 let at4a1Status='', at4b1Status='';
 
-function _fmtSw(ms){ return (ms/1000).toFixed(2); }
 
 // ── 4a Stopwatch ──
 function atSwToggle(){
@@ -5990,12 +5851,6 @@ function getProjectSaveKey(){
   return 'electric_'+pno;
 }
 // Legacy alias kept for any remaining references
-function showLocationToast(){
-  if(!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(function(pos){
-    showToast('📍 Shared from: '+pos.coords.latitude.toFixed(4)+', '+pos.coords.longitude.toFixed(4), 4000);
-  }, function(){}, {timeout:5000});
-}
 
 // ── 7. Photo auto-compression (1600px / 85%) ──
 function compressImage(dataUrl, maxWidth, quality, callback){
@@ -6316,15 +6171,6 @@ const SAVE_KEY = 'arencon_epump_v10';
 // Revision system
 let formRevision = 'R00';
 let formDateModified = '';
-function getNextDraftRevision(rev) {
-  let m = rev.match(/^(B\d+A)(\d+)$/);
-  if(m) return m[1]+String(parseInt(m[2])+1).padStart(2,'0');
-  m = rev.match(/^(A)(\d+)$/);
-  if(m) return m[1]+String(parseInt(m[2])+1).padStart(2,'0');
-  m = rev.match(/^(B\d+)$/);
-  if(m) return m[1]+'A01';
-  return rev;
-}
 function addContractorField() {
   const container = document.getElementById('contractor-fields');
   if(!container) return;
@@ -6409,17 +6255,6 @@ function collectState() {
 
 
 // ═══ BUILD SAVE HTML (used by email export) ═══
-function _buildSaveHtml() {
-  var state = collectState();
-  var json = JSON.stringify(state);
-  var clone = document.documentElement.cloneNode(true);
-  var embScript = clone.querySelector('#embedded-state');
-  if(embScript) embScript.textContent = json;
-  var toasts = clone.querySelectorAll('#save-toast');
-  toasts.forEach(function(t){ t.remove(); });
-  return '<!DOCTYPE html>\n<html>' + clone.innerHTML + '</html>';
-}
-
 // ═══ CLOUD STATE — strips base64 photos from CloudSync payload ═══
 function _collectCloudState(){
   var s=collectState();
@@ -6505,6 +6340,69 @@ function _r2ReuploadAll(){
     }
   }); }
   showToast('Re-uploading ' + count + ' photos to R2...', 3000);
+}
+
+// ═══ R2 PREFETCH — download photos from R2 URLs back into local state ═══
+function _r2PrefetchPhotos(){
+  if(!_csHubMode) return;
+  var queue=[];
+  function _scan(arr){if(!arr)return;arr.forEach(function(p){if(p&&p.r2Url&&!p.d)queue.push(p);});}
+  if(typeof clState!=='undefined'){Object.keys(clState).forEach(function(k){_scan(clState[k].photos);});}
+  if(typeof deficiencies!=='undefined'){Object.keys(deficiencies).forEach(function(k){(deficiencies[k]||[]).forEach(function(d){_scan(d.photos);if(d.responses)d.responses.forEach(function(r){_scan(r.photos);});});});}
+  if(typeof generalDeficiencies!=='undefined'){generalDeficiencies.forEach(function(d){_scan(d.photos);if(d.responses)d.responses.forEach(function(r){_scan(r.photos);});});}
+  if(typeof flowTestPhotos!=='undefined')_scan(flowTestPhotos);
+  if(typeof flowTestPhotosPld!=='undefined')_scan(flowTestPhotosPld);
+  if(!queue.length)return;
+  console.log('[R2Prefetch] Fetching '+queue.length+' photos from R2...');
+  var done=0,fail=0;
+  function _next(){
+    if(!queue.length){
+      if(done)console.log('[R2Prefetch] Done: '+done+' fetched, '+fail+' failed');
+      return;
+    }
+    var p=queue.shift();
+    fetch(p.r2Url).then(function(r){if(!r.ok)throw new Error(r.status);return r.blob();}).then(function(blob){
+      var reader=new FileReader();
+      reader.onload=function(){p.d=reader.result;done++;_next();};
+      reader.onerror=function(){fail++;_next();};
+      reader.readAsDataURL(blob);
+    }).catch(function(){fail++;_next();});
+  }
+  // Fetch 3 in parallel
+  for(var i=0;i<Math.min(3,queue.length);i++) _next();
+}
+
+// ═══ R2 ORPHAN CLEANUP — compare R2 files against local state ═══
+async function _r2CleanupOrphans(){
+  if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined'){ showToast('Must be in Hub mode',2000); return; }
+  try{
+    var workerUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
+    var listUrl=workerUrl+'/list/'+_r2FolderId+'/electric/original/';
+    var resp=await fetch(listUrl);
+    if(!resp.ok)throw new Error('R2 list failed: '+resp.status);
+    var data=await resp.json();
+    var r2Files=(data.objects||[]).map(function(o){return o.key;});
+    if(!r2Files.length){ showToast('R2 storage is empty — nothing to clean',2000); return; }
+    var localKeys={};
+    function _addKeys(arr){if(!arr)return;arr.forEach(function(p){if(p&&p.r2Key)localKeys[p.r2Key]=true;});}
+    if(typeof clState!=='undefined'){Object.keys(clState).forEach(function(k){_addKeys(clState[k].photos);});}
+    if(typeof deficiencies!=='undefined'){Object.keys(deficiencies).forEach(function(k){(deficiencies[k]||[]).forEach(function(d){_addKeys(d.photos);if(d.responses)d.responses.forEach(function(r){_addKeys(r.photos);});});});}
+    if(typeof generalDeficiencies!=='undefined'){generalDeficiencies.forEach(function(d){_addKeys(d.photos);if(d.responses)d.responses.forEach(function(r){_addKeys(r.photos);});});}
+    if(typeof flowTestPhotos!=='undefined')_addKeys(flowTestPhotos);
+    if(typeof flowTestPhotosPld!=='undefined')_addKeys(flowTestPhotosPld);
+    var orphans=r2Files.filter(function(k){return !localKeys[k];});
+    if(!orphans.length){ showToast('R2 is clean — all '+r2Files.length+' files match local data',2000); return; }
+    _aConfirm('Found '+orphans.length+' orphaned R2 files (out of '+r2Files.length+' total).\\n\\nDelete them?',async function(){
+      var deleted=0;
+      for(var i=0;i<orphans.length;i++){
+        try{
+          var dr=await fetch(workerUrl+'/upload',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:orphans[i]})});
+          if(dr.ok)deleted++;
+        }catch(e){console.warn('[R2Cleanup] delete failed:',orphans[i]);}
+      }
+      showToast('Deleted '+deleted+'/'+orphans.length+' orphan files',3000);
+    },'Delete Orphans');
+  }catch(e){ showToast('R2 cleanup error: '+e.message,3000); console.error('[R2Cleanup]',e); }
 }
 
 
@@ -6690,7 +6588,6 @@ function _applyLoadedState(raw) {
 // RESET FUNCTIONS
 // ══════════════════════════════════════════════════
 function resetAllPages() {
-  _saveUndoPage();
   _aConfirm('Reset ALL pages for this project? This will clear all entered data permanently.',function(){
   localStorage.removeItem(SAVE_KEY);
   var _rkey=getProjectSaveKey();localStorage.removeItem(_rkey);
@@ -6700,24 +6597,6 @@ function resetAllPages() {
 }
 
 
-var _undoPageState = null;
-var _undoAllState = null;
-function _saveUndoPage() { try { _undoPageState = JSON.stringify(collectState()); } catch(e){} }
-function _saveUndoAll() { try { _undoAllState = JSON.stringify(collectState()); } catch(e){} }
-function undoResetPage() {
-  if(!_undoPageState) { showToast('No page reset to undo.', 2000); return; }
-  _aConfirm('Undo last page reset?',function(){
-    try { localStorage.setItem(SAVE_KEY, _undoPageState); _undoPageState=null; location.reload(); }
-    catch(e) { showToast('Undo failed: '+e.message, 3000); }
-  },'Undo');
-}
-function undoResetAll() {
-  if(!_undoAllState) { showToast('No full reset to undo.', 2000); return; }
-  _aConfirm('Undo last Reset All?',function(){
-    try { localStorage.setItem(SAVE_KEY, _undoAllState); _undoAllState=null; location.reload(); }
-    catch(e) { showToast('Undo failed: '+e.message, 3000); }
-  },'Undo');
-}
 
 function resetCurrentPage() {
   _pushUndo();
@@ -6725,7 +6604,6 @@ function resetCurrentPage() {
   if (!active) return;
   const label = {'proj':'Project Info','s1':'Pre-Commissioning','s2':'Visual Inspection','s3':'Controller Tests',
     's4':'3-Point Test','s4pld':'7-Point VFD','s5':'FA & Signaling','defic':'Deficiencies','sign':'Signature','sketch':'Sketches'}[active]||active;
-  _saveUndoPage();
   _aConfirm(`Reset "${label}" page? This clears only this page's data.`,function(){
   if (active === 'proj') {
     ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date','pi-eng',
@@ -6934,7 +6812,11 @@ window.addEventListener('load', () => {
       var signoutBtn = document.getElementById('btn-signout');
       if(signoutBtn) signoutBtn.style.display = '';
       var reuploadBtn = document.getElementById('menu-reupload');
-      if(reuploadBtn) reuploadBtn.style.display = '';
+      if(reuploadBtn) reuploadBtn.hidden = false;
+      var r2divider = document.getElementById('menu-r2-divider');
+      if(r2divider) r2divider.hidden = false;
+      var r2cleanup = document.getElementById('menu-r2cleanup');
+      if(r2cleanup) r2cleanup.hidden = false;
 
       // Pre-populate project fields from URL params
       if(params.projectNumber){ var el=document.getElementById('pi-projno'); if(el){el.value=params.projectNumber; el.readOnly=true; el.style.background='#eee';} }
@@ -6961,6 +6843,7 @@ window.addEventListener('load', () => {
         if(result && result.state){
           _applyLoadedState(JSON.stringify(result.state));
           showToast('Project loaded from ' + result.source, 2000);
+          if(result.source==='cloud') setTimeout(_r2PrefetchPhotos, 800);
         }
         var badge = document.getElementById('issue-status-badge');
         if(badge && result && result.row){
@@ -7503,6 +7386,25 @@ function downloadJSON(){
       URL.revokeObjectURL(a.href);
     }catch(e){showToast('Download failed: '+e.message,3000);}
   },'Download');
+}
+function importJSON(){
+  var inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
+  inp.onchange=function(){
+    var f=inp.files[0];if(!f)return;
+    _aConfirm('Import "'+f.name+'"? This will REPLACE all current data.',function(){
+      var r=new FileReader();
+      r.onload=function(ev){
+        try{
+          JSON.parse(ev.target.result); // validate
+          _applyLoadedState(ev.target.result);
+          showToast('Imported successfully',2000);
+          debounceAutosave();
+        }catch(e){showToast('Import failed: '+e.message,3000);}
+      };
+      r.readAsText(f);
+    },'Import');
+  };
+  inp.click();
 }
 // ═══ TEXT SIZE S/M ═══
 var _appTextSizes=['S','M'];
