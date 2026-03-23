@@ -3220,6 +3220,11 @@ async function r2RefreshStatus() {
   grid.innerHTML = '';
 
   var WORKER = 'https://arencon-r2-worker.hezhendong999.workers.dev';
+  // Build slug folder for R2 list path (same logic as FRT _makeR2FolderSlug)
+  var proj = _projects ? _projects.find(function(p){ return p.id === projId; }) : null;
+  var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
+  var r2Folder = slug || projId;
+
   // Always refresh token before R2 calls to avoid 401/empty results
   try { await _sb.auth.refreshSession(); } catch(e) {}
   var token = localStorage.getItem('sb-access-token');
@@ -3239,7 +3244,7 @@ async function r2RefreshStatus() {
   // Fetch all R2 file lists in parallel
   var results = await Promise.all(types.map(async function(t) {
     try {
-      var path = '/list/' + encodeURIComponent(projId) + '/' + encodeURIComponent(t.tool) + '/' + encodeURIComponent(t.type);
+      var path = '/list/' + encodeURIComponent(r2Folder) + '/' + encodeURIComponent(t.tool) + '/' + encodeURIComponent(t.type);
       var res = await fetch(WORKER + path, { headers: headers });
       if (!res.ok) {
         if (res.status === 404) return { type: t, files: [], error: null };
@@ -3444,17 +3449,25 @@ function _pgExtractPhotos(row) {
       (defics || []).forEach(function(d) {
         var pinLabel = 'Pin ' + (d.num || '?');
         var numEn = (d.entries && d.entries.length) || 0;
+        var seenIds = {};
         (d.entries || []).forEach(function(en, ei) {
           (en.photos || []).forEach(function(ph) {
             var src = _pgResolveR2Src(ph, projectId);
             if (!src) return;
+            var pid = (typeof ph === 'object' && ph.id) ? ph.id : src;
+            if (seenIds[pid]) return;
+            seenIds[pid] = true;
             var obsLabel = numEn > 1 ? ', Obs ' + String.fromCharCode(65 + ei) : '';
             photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
           });
         });
+        // d.photos is a mirror of entries — only use if entries didn't have photos
         (d.photos || []).forEach(function(ph) {
           var src = _pgResolveR2Src(ph, projectId);
           if (!src) return;
+          var pid = (typeof ph === 'object' && ph.id) ? ph.id : src;
+          if (seenIds[pid]) return;
+          seenIds[pid] = true;
           photos.push(_makeRec(src, 'deficiency', pinLabel, d.date || ''));
         });
         (d.responses || []).forEach(function(resp) {
