@@ -9145,9 +9145,10 @@ function triggerPinEntryPhoto(idx){_pinEntryTarget=idx;document.getElementById('
 function triggerPinEntryCamera(idx){_pinEntryTarget=idx;document.getElementById('pin-ei-camera').click();}
 function handlePinEntryUpload(e,idx){
   var isCameraInput=e.target.id==='pin-ei-camera'||e.target.hasAttribute('capture');
+  var hadFiles=e.target.files&&e.target.files.length>0;
   handlePinEntryFiles(e.target.files,idx);
   e.target.value='';
-  if(isCameraInput&&e.target.files&&e.target.files.length>0){
+  if(isCameraInput&&hadFiles){
     var inp=e.target;
     setTimeout(function(){try{inp.click();}catch(ex){}},600);
   }
@@ -10185,10 +10186,11 @@ function openGalleryLightboxMarkup(){
 
 function handlePhotoUploadEvent(e){
   var isCameraInput=e.target.id==='photo-camera-input'||e.target.hasAttribute('capture');
+  var hadFiles=e.target.files&&e.target.files.length>0;
   handlePhotoFiles(e.target.files);
   e.target.value='';
   // Continuous camera: re-open camera after a brief delay (user closes via back/cancel)
-  if(isCameraInput&&e.target.files&&e.target.files.length>0){
+  if(isCameraInput&&hadFiles){
     var inp=e.target;
     setTimeout(function(){try{inp.click();}catch(ex){}},600);
   }
