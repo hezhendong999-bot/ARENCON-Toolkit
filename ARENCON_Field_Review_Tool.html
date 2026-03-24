@@ -605,6 +605,10 @@ body.dark-mode .contractor-chip{background:#1e2230;border-color:#2a3040;color:#b
 body.dark-mode .defic-group{border-color:#2a2e38;}
 body.dark-mode .defic-group-header{background:#14171e;color:#d8dce8;}
 body.dark-mode .hdr-btn{opacity:1;box-shadow:0 1px 4px rgba(0,0,0,.4);}body.dark-mode .hdr-btn:hover{opacity:1;filter:brightness(1.2);}
+body.dark-mode #btn-pdf{background:rgba(26,35,126,.35)!important;color:#90a0d0!important;border:1px solid rgba(26,35,126,.4)!important;}
+body.dark-mode #btn-issue{background:rgba(26,122,74,.3)!important;color:#60c090!important;border:1px solid rgba(26,122,74,.35)!important;}
+body.dark-mode #btn-signout{background:rgba(123,31,162,.3)!important;color:#b080d0!important;border:1px solid rgba(123,31,162,.35)!important;}
+body.dark-mode .hdr-export,body.dark-mode .hdr-export-all{background:rgba(123,31,162,.3)!important;color:#b080d0!important;border:1px solid rgba(123,31,162,.35)!important;}
 body.dark-mode .contractor-chip button:hover{color:#e06050;}
 /* Dark mode — drawing cards */
 body.dark-mode .drawing-card{background:#1a1d24;border-color:#2a2e38;}
@@ -1394,7 +1398,7 @@ body.text-l{--ts:4px;}
   <div class="project-bar" id="project-bar">
     <span class="pb-badge" id="pb-badge" onclick="issueReport()" title="Click to change status">DRAFT</span>
     <span class="pb-filename" id="pb-filename" onclick="editProjectNameInline()" title="Click to rename project"></span>
-    <span class="pb-cloud" id="pb-cloud" style="display:none;">
+    <span class="pb-cloud" id="pb-cloud" style="display:none!important;">
       <span id="pb-cloud-dot" style="width:8px;height:8px;border-radius:50%;background:#34D399;display:inline-block;transition:background .4s;"></span>
       <span id="pb-cloud-text">Saved to cloud</span>
     </span>
@@ -8100,9 +8104,8 @@ function processEntryPhotos(did,ei,files){
       var rec=_makeDeficPhotoRec(du);
       if(!f.defic.entries[ei].photos)f.defic.entries[ei].photos=[];
       f.defic.entries[ei].photos.push(rec);
-      // Sync to d.photos
-      if(!f.defic.photos)f.defic.photos=[];
-      f.defic.photos.push(rec);
+      // Rebuild d.photos from entries (avoids duplicates — Session 40 fix)
+      _syncDeficPhotos(f.defic);
       _r2EnqueueDeficPhoto(rec,f.defic.id);
       saveToLS();_folderQuickSave();renderDeficiencyPanel();
     });
@@ -12424,9 +12427,8 @@ async function _initCloudSync(){
       var _pbb=document.getElementById('pb-badge');
       if(_pbb){var st2=result.row.status||'draft';_pbb.textContent=st2.toUpperCase();_pbb.style.background=st2==='issued'?'#1A7A4A':st2==='revision'?'#E67E22':'#6B7280';}
     }
-    // Show project bar + cloud indicator
+    // Show project bar (cloud status shown in header only — pb-cloud removed as redundant)
     var _pbEl=document.getElementById('project-bar');if(_pbEl)_pbEl.classList.add('visible');
-    var _pbcEl=document.getElementById('pb-cloud');if(_pbcEl)_pbcEl.style.display='flex';
 
     // ═══ RELEASE SYNC LOCK — all dedup saves are complete ═══
     _syncLock=false;
