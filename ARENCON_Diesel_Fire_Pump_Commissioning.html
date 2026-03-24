@@ -189,10 +189,10 @@ body.dark-mode .sticky-cols tbody tr.total-row td:first-child,body.dark-mode .st
 /* ── DEFICIENCY TABLE ── */
 .defic-view-btn{padding:8px 16px;border:1.5px solid var(--border);border-radius:8px;background:var(--smoke);color:var(--steel);font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;transition:all .15s;}
 .defic-view-btn:hover{border-color:var(--red);color:var(--slate);}
-.defic-view-btn.active{background:var(--red);color:white;border-color:var(--red);}
+.defic-view-btn.active{background:#9C2742;color:white;border-color:#9C2742;}
 body.dark-mode .defic-view-btn{background:#22252d;color:#a0a8b8;border-color:#33373f;}
-body.dark-mode .defic-view-btn:hover{border-color:#c13a58;color:#d0d4e0;}
-body.dark-mode .defic-view-btn.active{background:#9C2742;color:white;border-color:#9C2742;}
+body.dark-mode .defic-view-btn:hover{border-color:#9C2742;color:#e8a0b0;}
+body.dark-mode .defic-view-btn.active{background:rgba(156,39,66,.45);color:#f0c0d0;border-color:rgba(156,39,66,.6);}
 .all-defic-tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:calc(12.5px + var(--ts));border-radius:8px;overflow:hidden;border:1.5px solid var(--border);}
 .all-defic-tbl th{background:var(--slate-mid);color:white;padding:9px 12px;text-align:left;font-size:calc(10.5px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
 .all-defic-tbl td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
@@ -280,8 +280,8 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
 .sketch-canvas{display:block;width:100%;cursor:crosshair;touch-action:none;}
 .sketch-toolbar{display:flex;gap:5px;padding:7px 10px;background:var(--smoke);border-top:1px solid var(--border);flex-wrap:wrap;align-items:center;}
 .tool-btn{padding:5px 10px;border-radius:5px;font-size:calc(12px + var(--ts));font-weight:600;font-family:Calibri,sans-serif;cursor:pointer;border:1.5px solid var(--border);background:white;color:var(--slate);transition:all .14s;}
-.tool-btn.active{background:var(--slate);color:white;border-color:var(--slate);}
-.tool-btn:hover{border-color:var(--slate);}
+.tool-btn.active{background:#9C2742;color:white;border-color:#9C2742;}
+.tool-btn:hover{border-color:#9C2742;color:#9C2742;}
 .color-dot{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid var(--border);transition:border-color .14s;flex-shrink:0;}
 .color-dot.active{border-color:var(--slate);box-shadow:0 0 0 2px white,0 0 0 3.5px var(--slate);}
 /* size-slider removed — using +/− steppers */
@@ -441,7 +441,9 @@ body.dark-mode .photo-zone,body.dark-mode [style*="border:2px dashed"]{backgroun
 body.dark-mode .chart-wrap{background:#22252d;border-color:#33373f;}
 body.dark-mode .chart-annotation-label{background:none!important;border:none!important;box-shadow:none!important;text-shadow:0 0 6px rgba(34,37,45,.95),0 0 12px rgba(34,37,45,.85),0 1px 2px rgba(0,0,0,.9);}
 body.dark-mode .app-footer{background:#14161a;color:rgba(255,255,255,.4);}
-body.dark-mode .tool-btn{background:#3a4460!important;color:#d0d8f0!important;border-color:#5a6888!important;}
+body.dark-mode .tool-btn{background:#323a4e!important;color:#d0d8f0!important;border-color:#4a5570!important;}
+body.dark-mode .tool-btn:hover{background:#3e4868!important;border-color:#9C2742!important;color:#e8a0b0!important;}
+body.dark-mode .tool-btn.active{background:rgba(156,39,66,.45)!important;color:#f0c0d0!important;border-color:rgba(156,39,66,.6)!important;}
 body.dark-mode .sketch-entry{background:#22252d;border-color:#33373f;}
 body.dark-mode .sig-wrap{background:#22252d;border-color:#33373f;}
 body.dark-mode canvas:not(.sig-canvas):not(.sketch-canvas):not([id^="sc-"]):not([id*="sig"]):not([id*="chart"]):not([id*="Chart"]):not([id*="netPerf"]):not([id="qrCanvas"]){background:#fff!important;border-color:#3a3e48!important;}
@@ -457,11 +459,11 @@ body.dark-mode .btn-outline{background:#2e3850!important;border:1.5px solid #607
 body.dark-mode .btn-outline:hover{background:#3a4868!important;border-color:#8090c0!important;color:#e0e8ff!important;}
 body.dark-mode .btn-danger{background:#7a1a24!important;color:#ffaaaa!important;border-color:#a02030!important;}
 body.dark-mode .btn-danger:hover{background:#9a2030!important;}
-body.dark-mode .btn-sm{background:#3a4460!important;color:#e0e6f8!important;border-color:#5a6888!important;}
-body.dark-mode .btn-sm:hover{background:#4a5878!important;}
-body.dark-mode .btn-primary.btn-sm{background:#9C2742!important;color:white!important;}
-body.dark-mode .btn-outline.btn-sm{background:#2e3850!important;border:1.5px solid #6070a0!important;color:#c8d4f0!important;}
-body.dark-mode .btn-outline.btn-sm:hover{background:#3a4868!important;border-color:#9C2742!important;color:#f4a1b5!important;}
+body.dark-mode .btn-sm{background:#323a4e!important;color:#d0d8f0!important;border-color:#4a5570!important;}
+body.dark-mode .btn-sm:hover{background:#3e4868!important;}
+body.dark-mode .btn-primary.btn-sm{background:rgba(156,39,66,.35)!important;color:#e8a0b0!important;border:1px solid rgba(156,39,66,.4)!important;}
+body.dark-mode .btn-outline.btn-sm{background:#242c3a!important;border:1.5px solid #556080!important;color:#b4bee0!important;}
+body.dark-mode .btn-outline.btn-sm:hover{background:#2e3850!important;border-color:#9C2742!important;color:#f4a1b5!important;}
 body.dark-mode .btn-outline[style*="color:#c00"]{color:#e07070!important;border-color:#5a2020!important;background:#2a1818!important;}
 body.dark-mode .hdr-btn{opacity:1;box-shadow:0 1px 4px rgba(0,0,0,.4);}body.dark-mode .hdr-btn:hover{opacity:1;filter:brightness(1.2);}
 body.dark-mode .hdr-repair-menu{background:#1e2533;border:1px solid #2a3040;}
@@ -669,8 +671,10 @@ function toggleDarkMode(){document.body.classList.toggle('dark-mode');localStora
 function updateDarkToggleIcon(){var b=document.getElementById('dark-toggle');if(b){b.textContent=document.body.classList.contains('dark-mode')?'\u2600\uFE0F':'\uD83C\uDF19';b.title=document.body.classList.contains('dark-mode')?'Switch to light mode':'Switch to dark mode';}}
 function _refreshDarkButtons(){
   // Re-apply pump test type buttons with correct dark/light colors
-  var active=document.querySelector('.pump-type-btns button[style*="var(--red)"]');
-  if(active&&typeof setPumpTestType==='function') setPumpTestType(active.dataset.ptype||'std');
+  var _ri=document.querySelector('input[name="pump-test-type"]:checked');
+  var ptype=_ri?_ri.value:'std';
+  if(!_ri){document.querySelectorAll('.pump-type-btns button').forEach(function(b){if(b.textContent.indexOf('⦿')===0)ptype=b.dataset.ptype;});}
+  if(typeof setPumpTestType==='function') setPumpTestType(ptype);
 }
 initDarkMode();
 // ── Custom modals — callback-based replacements for confirm/prompt/alert ──
@@ -822,7 +826,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
   <div class="panel" id="panel-s3">
 
     <div class="card">
-      <div class="card-header mid">Battery Start-Up Time Test</div>
+      <div class="card-header">Battery Start-Up Time Test</div>
       <div class="card-body">
         <div class="subsection-note">
           Pump to be operated <strong>12 times</strong> for controller test (6 manual, 6 automatic).<br>
@@ -855,20 +859,19 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
       </div>
     </div>
 
-    <div class="section-title" style="margin-top:20px;">3. Controller &amp; Louver Items</div>
-    <div class="card"><div class="card-body"><div id="cl-s3"></div></div></div>
+    <div class="card" style="margin-top:20px;"><div class="card-header">3. Controller &amp; Louver Items</div><div class="card-body"><div id="cl-s3"></div></div></div>
   </div>
 
   <!-- ══ SECTION 4a: 3-POINT TEST ══ -->
   <div class="panel" id="panel-s4">
 
     <div class="card">
-      <div class="card-header mid">Test Setup</div>
+      <div class="card-header">Test Setup</div>
       <div class="card-body">
         <div style="background:var(--warn-bg);border:1.5px solid var(--warn);border-radius:8px;padding:12px 16px;margin-bottom:14px;">
           <div style="font-size:13px;font-weight:600;color:var(--warn);margin-bottom:8px;">⚙ Pump Test Type — Select which test applies (controls which tab is active):</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;" class="pump-type-btns">
-            <button type="button" onclick="setPumpTestType('std')" data-ptype="std" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid var(--red);background:var(--red);color:white;">⦿ 3-Point Standard (w/o PLD)</button>
+            <button type="button" onclick="setPumpTestType('std')" data-ptype="std" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid #c27a2a;background:#c27a2a;color:white;">⦿ 3-Point Standard (w/o PLD)</button>
             <button type="button" onclick="setPumpTestType('pld')" data-ptype="pld" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid #ccc;background:white;color:#666;">○ 7-Point with PLD</button>
             <button type="button" onclick="setPumpTestType('both')" data-ptype="both" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid #ccc;background:white;color:#666;">○ Both (run both tests)</button>
           </div>
@@ -922,7 +925,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
     <!-- Standard pump table -->
     <div class="card" style="margin-top:14px;">
-      <div class="card-header mid">Standard Fire Pump Performance (w/o PLD) — 3-Point Test</div>
+      <div class="card-header">Standard Fire Pump Performance (w/o PLD) — 3-Point Test</div>
       <div class="card-body">
         <div class="tbl-wrap">
           <table class="data-table sticky-cols" id="std-table">
@@ -947,7 +950,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
     <!-- ── 4a INDEPENDENT: Water Supply & Demand Data ── -->
     <div class="card" style="margin-top:14px;">
-      <div class="card-header mid">
+      <div class="card-header">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
         Water Supply &amp; Demand Data
       </div>
@@ -998,7 +1001,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
     <!-- ── COMBINED CHART: 3-Point Fire Pump Performance + Supply & Demand ── -->
     <div class="card" style="margin-top:14px;">
-      <div class="card-header mid">
+      <div class="card-header">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
         3-Point Fire Pump Performance Test, Water Supply &amp; System Demand Curve
       </div>
@@ -1020,9 +1023,17 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
     <!-- Test Setup card for PLD -->
     <div class="card" style="margin-bottom:14px;">
-      <div class="card-header mid">PLD Test Setup</div>
+      <div class="card-header">PLD Test Setup</div>
       <div class="card-body" style="padding:10px 16px;">
-        <!-- Line 2: Equipment -->
+        <div style="background:var(--warn-bg);border:1.5px solid var(--warn);border-radius:8px;padding:12px 16px;margin-bottom:14px;">
+          <div style="font-size:13px;font-weight:600;color:var(--warn);margin-bottom:8px;">⚙ Pump Test Type — Select which test applies (controls which tab is active):</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;" class="pump-type-btns">
+            <button type="button" onclick="setPumpTestType('std')" data-ptype="std" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid #ccc;background:white;color:#666;">○ 3-Point Standard (w/o PLD)</button>
+            <button type="button" onclick="setPumpTestType('pld')" data-ptype="pld" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid #ccc;background:white;color:#666;">○ 7-Point with PLD</button>
+            <button type="button" onclick="setPumpTestType('both')" data-ptype="both" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid #ccc;background:white;color:#666;">○ Both (run both tests)</button>
+          </div>
+          <div id="tab-type-note-4b" style="font-size:11.5px;color:#888;margin-top:6px;"></div>
+        </div>
         <div style="margin-bottom:12px;margin-top:10px;">
           <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--silver);display:block;margin-bottom:6px;">Equipment Used (select all that apply)</label>
           <div id="equip-grid-4b" style="display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;border:1.5px solid var(--border);border-radius:7px;padding:8px 12px;background:var(--smoke);">
@@ -1109,7 +1120,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
     <!-- ── 4b INDEPENDENT: Water Supply & Demand Data ── -->
     <div class="card" style="margin-top:14px;">
-      <div class="card-header mid">
+      <div class="card-header">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
         Water Supply &amp; Demand Data
       </div>
@@ -1160,7 +1171,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
     <!-- ── CHART B: 7-Point PLD Discharge Pressure Curve ── -->
     <div class="card" style="margin-top:14px;">
-      <div class="card-header mid">
+      <div class="card-header">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
         7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve
       </div>
@@ -1176,7 +1187,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
     <!-- ── CHART D: 7-Point Fire Pump Net Pressure Curve ── -->
     <div class="card" style="margin-top:14px;">
-      <div class="card-header mid">
+      <div class="card-header">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
         7-Point Fire Pump Net Pressure Curve (w/ PLD, w/o PRV &amp; PLD, + PRV Rating)
       </div>
@@ -1198,7 +1209,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
   <div class="panel" id="panel-s5">
 
     <div class="card">
-      <div class="card-header mid">Mandatory FACP Signals — Confirm terminals connected and live-tested</div>
+      <div class="card-header">Mandatory FACP Signals — Confirm terminals connected and live-tested</div>
       <div class="card-body">
         <div id="cl-s5-mandatory"></div>
         <div class="subsection-note" style="margin:16px 0 10px;padding:10px 14px;border-radius:6px;font-size:13px;">
@@ -1280,7 +1291,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
     <!-- Consultant Signature -->
     <div class="card">
-      <div class="card-header mid">Consultant Signature</div>
+      <div class="card-header">Consultant Signature</div>
       <div class="card-body">
         <div class="proj-grid" style="margin-bottom:20px;">
           <div class="field-group"><label>Consultant Name</label><input type="text" id="so-name" placeholder="Full name"></div>
@@ -1309,7 +1320,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
     <!-- Contractor Sign-offs -->
     <div class="card" style="margin-top:16px;">
-      <div class="card-header mid" style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
         <span>Contractor Signature</span>
         <button class="btn btn-outline btn-sm" onclick="addSignRow('contractor')" style="font-size:12px;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
@@ -1324,7 +1335,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
     <!-- Witness Sign-offs -->
     <div class="card" style="margin-top:16px;">
-      <div class="card-header mid" style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#1A5276,#1A7A4A);">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#1A5276,#1A7A4A);">
         <span style="color:white;">Witness Signature</span>
         <button class="btn btn-outline btn-sm" onclick="addSignRow('witness')" style="font-size:12px;background:rgba(255,255,255,.15);color:white;border-color:rgba(255,255,255,.4);">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
@@ -1341,7 +1352,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
   <!-- ══ SKETCHES ══ -->
   <div class="panel" id="panel-sketch">
     <div class="card">
-      <div class="card-header mid">
+      <div class="card-header">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
         Sketch Entries
       </div>
@@ -1645,7 +1656,7 @@ function pmuInitEvents(canvas, ctx) {
     hx.beginPath(); hx.moveTo(pts[0].x,pts[0].y);
     for(let i=1;i<pts.length;i++) hx.lineTo(pts[i].x,pts[i].y);
     hx.stroke();
-    ctx.globalAlpha=pmuState.alpha*0.35; ctx.globalCompositeOperation='source-over';
+    ctx.globalAlpha=pmuState.alpha*0.55; ctx.globalCompositeOperation='source-over';
     ctx.drawImage(hlc,0,0);
     ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
   };
@@ -3434,8 +3445,8 @@ function buildDeficItem(name, safe, d, i) {
       +'<div class="photo-zone" ondragover="event.preventDefault();this.style.borderColor=\'var(--red)\';" ondragleave="this.style.borderColor=\'var(--border)\';" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';deficRespTimelineDrop(event,\''+safe+'\','+i+','+ci+')" style="padding:14px;min-height:80px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">'
       +'<span>Drag & drop photos</span>'
       +'<div style="display:flex;gap:5px;">'
-      +'<button onclick="deficRespTimelineUpload(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:11px;cursor:pointer;">📎 Upload</button>'
-      +'<button onclick="deficRespTimelineCamera(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:11px;cursor:pointer;">📷 Camera</button>'
+      +'<button onclick="deficRespTimelineUpload(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button>'
+      +'<button onclick="deficRespTimelineCamera(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button>'
       +'</div></div></div></div></div>';
   });
 
@@ -3459,8 +3470,8 @@ function buildDeficItem(name, safe, d, i) {
     +'<div class="photo-zone" ondragover="handleDragOver(event,\'_d_'+safe+'_'+i+'\')" ondragleave="handleDragLeave(event,\'_d_'+safe+'_'+i+'\')" ondrop="deficDrop(event,\''+safe+'\','+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;" onclick="deficUpload(\''+safe+'\','+i+')">'
     +'<span>Drag & drop photos here</span>'
     +'<div style="display:flex;gap:5px;">'
-    +'<button onclick="event.stopPropagation();deficUpload(\''+safe+'\','+i+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:11px;cursor:pointer;">📎 Upload</button>'
-    +'<button onclick="event.stopPropagation();deficCamera(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:11px;cursor:pointer;">📷 Camera</button></div></div></div></div>'
+    +'<button onclick="event.stopPropagation();deficUpload(\''+safe+'\','+i+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button>'
+    +'<button onclick="event.stopPropagation();deficCamera(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="deficiencies[\''+safe+'\']['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="deficiencies[\''+safe+'\']['+i+'].status=this.value;_checkDeficStatusChange(\''+safe+'\','+i+');updateDeficSummary();">'
@@ -3627,13 +3638,13 @@ function buildGeneralDeficItem(d, i) {
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Comment</div><textarea placeholder="'+label+' response..." style="width:100%;height:100px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].responses['+ci+'].comment=this.value">'+(cr.comment||'')+'</textarea></div>';
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Response Photos</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">'+crPhotosHtml+'</div>';
     respHtml += '<div class="photo-zone" ondragover="event.preventDefault();this.style.borderColor=\'var(--red)\';" ondragleave="this.style.borderColor=\'var(--border)\';" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';genDeficRespDrop(event,'+i+','+ci+')" style="padding:14px;min-height:80px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">';
-    respHtml += '<span>Drag & drop photos</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespUpload('+i+','+ci+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:11px;cursor:pointer;">📎 Upload</button><button onclick="genDeficRespCamera('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:11px;cursor:pointer;">📷 Camera</button></div></div></div></div></div>';
+    respHtml += '<span>Drag & drop photos</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespUpload('+i+','+ci+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button><button onclick="genDeficRespCamera('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div></div>';
   });
   respHtml += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'contractor\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #E67E22;border-radius:5px;background:#fffbf0;color:#E67E22;font-size:12px;cursor:pointer;font-weight:600;">+ Add Contractor Response</button>';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'consultant\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #1565C0;border-radius:5px;background:#f0f4ff;color:#1565C0;font-size:12px;cursor:pointer;font-weight:600;">+ Add Consultant Response</button></div>';
 
-  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:#455A64;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;">G'+(i+1)+'</div><div style="flex:1;min-width:0;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag & drop photos here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficUpload('+i+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:11px;cursor:pointer;">📎 Upload</button><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:11px;cursor:pointer;">📷 Camera</button></div></div></div></div>'
+  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:#455A64;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;">G'+(i+1)+'</div><div style="flex:1;min-width:0;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag & drop photos here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficUpload('+i+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="generalDeficiencies['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="generalDeficiencies['+i+'].status=this.value;updateDeficSummary();renderGeneralDeficGroup();"><option value="open" '+(sc==='open'?'selected':'')+'>● Outstanding</option><option value="in-progress" '+(sc==='in-progress'?'selected':'')+'>● In Progress</option><option value="resolved" '+(sc==='resolved'?'selected':'')+'>● Addressed & Closed</option></select></div>'
@@ -4027,7 +4038,6 @@ function getProjInfo() {
     addr: document.getElementById('pi-addr').value,
     prepby: document.getElementById('pi-prepby').value,
     date: document.getElementById('pi-date').value,
-    eng: document.getElementById('pi-eng')?.value || '',
     contractor: document.getElementById('pi-contractor').value,
     version: document.getElementById('pi-version')?.value || '',
     revision: document.getElementById('pi-revision')?.value || formRevision,
@@ -4647,7 +4657,7 @@ function addSketchEntry() {
             <div style="font-size:13px;color:#888;">Drag & drop a site photo here to annotate</div>
             <div style="display:flex;gap:6px;">
               <button class="btn btn-outline btn-sm" onclick="triggerSketchPhoto(${uid})">📎 Upload Photo</button>
-              <button class="btn btn-sm" style="background:#1A7A4A;color:white;border:none;border-radius:5px;padding:5px 12px;font-size:11px;cursor:pointer;" onclick="_sketchPhotoCamera(${uid})">📷 Camera</button>
+              <button class="btn btn-sm" style="background:#1A7A4A;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_sketchPhotoCamera(${uid})">📷 Camera</button>
             </div>
           </div>
         </div>
@@ -4676,7 +4686,7 @@ function addSketchEntry() {
             </div>
             <button class="tool-btn" onclick="undoMarkup(${uid})">↩ Undo</button>
             <button class="tool-btn" onclick="clearMarkupCanvas(${uid})">🗑 Clear</button>
-            <button class="btn btn-outline btn-sm" onclick="triggerSketchPhoto(${uid})" style="font-size:11px;">📷 Change Photo</button>
+            <button class="btn btn-outline btn-sm" onclick="triggerSketchPhoto(${uid})" style="font-size:calc(12.5px + var(--ts));">📷 Change Photo</button>
           </div>
         </div>
       </div>
@@ -4792,8 +4802,8 @@ function initSketchCanvas(uid) {
     for(let i=1;i<pts.length;i++) hlCtx.lineTo(pts[i].x, pts[i].y);
     hlCtx.stroke();
     // Composite offscreen onto main at target alpha
-    ctx.globalAlpha = st.alpha!=null ? Math.min(st.alpha,0.55) : 0.4;
-    ctx.globalCompositeOperation = 'darken';
+    ctx.globalAlpha = st.alpha!=null ? Math.min(st.alpha,0.55) : 0.55;
+    ctx.globalCompositeOperation = 'source-over';
     ctx.drawImage(hlCanvas, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
@@ -4861,8 +4871,10 @@ function initSketchCanvas(uid) {
       _skInitStrokes(uid);
       _skStrokes[uid].push(st._curStroke);
     }
+    var wasHL = st._curStroke && st._curStroke.tool==='highlight';
     st._curStroke=null; st.strokePts=[]; st.snapshot=null;
     ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+    if(wasHL) _skRedraw(uid);
   });
   canvas.addEventListener('mouseleave',()=>{
     const st=sketchState[uid];
@@ -4872,8 +4884,10 @@ function initSketchCanvas(uid) {
     if(st._curStroke && st._curStroke.points.length>1) {
       _skInitStrokes(uid); _skStrokes[uid].push(st._curStroke);
     }
+    var wasHL = st._curStroke && st._curStroke.tool==='highlight';
     st._curStroke=null; st.strokePts=[]; st.snapshot=null;
     ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+    if(wasHL) _skRedraw(uid);
   });
   canvas.addEventListener('touchstart',e=>{
     e.preventDefault(); const st=sketchState[uid];
@@ -4911,8 +4925,10 @@ function initSketchCanvas(uid) {
     if(st._curStroke && st._curStroke.points.length>1) {
       _skInitStrokes(uid); _skStrokes[uid].push(st._curStroke);
     }
+    var wasHL = st._curStroke && st._curStroke.tool==='highlight';
     st._curStroke=null; st.strokePts=[]; st.snapshot=null;
     ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+    if(wasHL) _skRedraw(uid);
   });
   // Keyboard: Delete/Backspace removes selected stroke
   document.addEventListener('keydown', function(ev) {
@@ -5495,8 +5511,7 @@ function _applyStateInPlace(jsonStr) {
       if(el) el.value = kv[1];
     });
     if(s.testType) {
-      var r = document.querySelector('input[name="pump-test-type"][value="'+s.testType+'"]');
-      if(r) { r.checked=true; setPumpTestType(s.testType); }
+      setPumpTestType(s.testType);
     }
     // Restore equipment checkboxes
     if(s.equipChecked) {
@@ -5589,9 +5604,9 @@ function setPumpTestType(type) {
   document.querySelectorAll('.pump-type-btns button').forEach(function(b) {
     var isAct = b.dataset.ptype === type;
     var isDark = document.body.classList.contains('dark-mode');
-    b.style.background = isAct ? 'var(--red)' : (isDark ? '#323a4e' : 'white');
+    b.style.background = isAct ? (isDark ? '#6b4c1a' : '#c27a2a') : (isDark ? '#323a4e' : 'white');
     b.style.color = isAct ? 'white' : (isDark ? '#d4daf0' : '#666');
-    b.style.borderColor = isAct ? 'var(--red)' : (isDark ? '#4a5570' : '#ccc');
+    b.style.borderColor = isAct ? (isDark ? '#a07030' : '#c27a2a') : (isDark ? '#4a5570' : '#ccc');
     b.textContent = b.textContent.replace(/^[⦿○]/, isAct ? '⦿' : '○');
   });
   // Show note in both tabs
@@ -5899,7 +5914,7 @@ function saveState(){
 
 function collectState() {
   const proj = {};
-  ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date','pi-eng',
+  ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date',
    'pi-contractor','pi-version','pi-ref','pi-revision','pi-date-modified',
    'pm-prv','pm-rpm','pm-equip','pm-pitot','pm-pitotflow','pm-rated-flow',
    'pm-pitot-pld','pm-pitotflow-pld','pm-rated-flow-pld',
@@ -5913,7 +5928,8 @@ function collectState() {
     const el = document.getElementById(id);
     if (el) proj[id] = el.value;
   });
-  const testType = document.querySelector('input[name="pump-test-type"]:checked')?.value || 'std';
+  var testType = 'std';
+  document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.textContent.indexOf('⦿')===0) testType=b.dataset.ptype; });
   // Equipment checkboxes
   const equipChecked = [];
   document.querySelectorAll('input[name="equip3a"]').forEach(function(cb,i){ if(cb.checked) equipChecked.push(i); });
@@ -6304,7 +6320,7 @@ function resetCurrentPage() {
     's4':'3-Point Test','s4pld':'7-Point PLD','s5':'FA & Signaling','defic':'Deficiencies','sign':'Signature','sketch':'Sketches'}[active]||active;
   _aConfirm(`Reset "${label}" page? This clears only this page's data.`,function(){
   if (active === 'proj') {
-    ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date','pi-eng',
+    ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date',
      'pi-contractor','pi-version'].forEach(id => {
       const el = document.getElementById(id); if(el) el.value = '';
     });
