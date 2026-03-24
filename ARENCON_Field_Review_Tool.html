@@ -265,7 +265,7 @@ body.dv-open{overflow:hidden!important;}
 .dv-canvas-area{flex:1;overflow:hidden;position:relative;cursor:grab;touch-action:none;}.dv-canvas-area.panning{cursor:grabbing;}
 @media(max-width:900px){.dv-canvas-area{padding-bottom:0;}}
 .dv-img-wrap{position:absolute;transform-origin:0 0;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
-.dv-img-wrap img{display:block;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;}
+.dv-img-wrap img{display:block;image-rendering:auto;}
 #markup-canvas{position:absolute;top:0;left:0;pointer-events:none;cursor:crosshair;touch-action:none;}
 #dv-image:not([src]),#dv-image[src=""]{display:none!important;}
 #markup-canvas.drawing-active{pointer-events:auto;}
@@ -4766,10 +4766,11 @@ var _tileState = {
   tileSize: 512,      // tile pixel size at 1x
   tiles: {},          // key: 'z_tx_ty' → canvas element
   tileCount: 0,
-  maxTiles: 24,       // max tiles in memory before LRU evict
+  maxTiles: 20,       // max tiles in memory before LRU evict
   tileOrder: [],      // LRU order (keys)
   renderTimer: null,
-  baseScale: 2.0      // render quality: PDF points → pixels at 1x zoom
+  baseScale: 1.5,     // fit-view quality (lower = less memory at overview)
+  maxRenderScale: 4.0 // zoom-in quality cap (higher = crisper when zoomed)
 };
 
 function _tileKey(z,tx,ty){return z+'_'+tx+'_'+ty;}
@@ -4814,8 +4815,8 @@ function _tiledRenderVisible(){
   var maxTy=Math.ceil(drawH/tileS);
 
   // Render scale: match current zoom so tiles are crisp at current zoom level
-  // Cap at 3x to prevent OOM on high zoom
-  var renderScale=Math.min(3.0, Math.max(1.0, dvState.scale||1) * _tileState.baseScale);
+  // Capped by maxRenderScale to prevent OOM on high zoom
+  var renderScale=Math.min(_tileState.maxRenderScale||4.0, Math.max(1.0, dvState.scale||1) * _tileState.baseScale);
   var zKey=Math.round(renderScale*4)*10; // quantise: 0.25 zoom steps to limit tile variations
 
   for(var tx=txMin;tx<=Math.min(txMax,maxTx-1);tx++){
@@ -4840,8 +4841,8 @@ function _tiledRenderVisible(){
         var vp=page.getViewport({scale:renderScale});
         // Translate viewport so only the tile region renders
         var tileVP=page.getViewport({scale:renderScale,offsetX:-x0*renderScale,offsetY:-y0*renderScale});
-        var tileW=Math.round(Math.min(tileS,drawW-tx2*tileS)*2);
-        var tileH=Math.round(Math.min(tileS,drawH-ty2*tileS)*2);
+        var tileW=Math.round(Math.min(tileS,drawW-tx2*tileS)*(renderScale/s));
+        var tileH=Math.round(Math.min(tileS,drawH-ty2*tileS)*(renderScale/s));
         var tc=document.createElement('canvas');
         tc.width=tileW;tc.height=tileH;
         var ctx=tc.getContext('2d');
