@@ -209,7 +209,7 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .panel{display:none;}.panel.active{display:block;}
 .section-title{font-family:Calibri,sans-serif;font-weight:700;font-size:17px;letter-spacing:.7px;text-transform:uppercase;color:var(--steel);display:flex;align-items:center;gap:9px;margin:24px 0 10px;}.section-title::before{content:'';display:inline-block;width:3px;height:19px;background:#9C2742;border-radius:2px;}
 .card{background:white;border-radius:11px;border:1.5px solid #DDE1E7;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;overflow:hidden;}
-.card-header{background:var(--arencon);color:white;padding:13px 20px;font-family:Calibri,sans-serif;font-weight:700;font-size:17px;letter-spacing:.5px;display:flex;align-items:center;gap:10px;}
+.card-header{background:var(--arencon);color:white;padding:13px 20px;font-family:Calibri,sans-serif;font-weight:700;font-size:calc(15px + var(--ts));letter-spacing:.5px;display:flex;align-items:center;gap:10px;}
 .card-header.mid{background:var(--arencon-mid);}.card-header.red{background:var(--red);}
 .card-body{padding:20px;}
 .proj-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;}
@@ -302,10 +302,10 @@ body.dv-open{overflow:hidden!important;}
 /* Pin side panel */
 .pin-panel{position:fixed;top:0;right:0;width:420px;height:100%;background:white;z-index:2500;box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;overflow:hidden;}.pin-panel.open{transform:translateX(0);}
 .pin-panel-header{background:var(--arencon);color:white;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}.pin-panel-header h3{font-size:calc(16px + var(--ts));font-weight:700;margin:0;}
-.pin-panel-body{flex:1;overflow-y:auto;padding:18px;}.pin-panel-body .field-group{margin-bottom:14px;}
+.pin-panel-body{flex:1;overflow-y:auto;padding:18px;scrollbar-width:none;-ms-overflow-style:none;}.pin-panel-body::-webkit-scrollbar{display:none;}.pin-panel-body .field-group{margin-bottom:14px;}
 .pin-panel-footer{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;}
 .pin-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:3000;display:none;align-items:center;justify-content:center;padding:20px;}.pin-modal-overlay.open{display:flex;}
-.pin-modal{background:white;border-radius:12px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);}.pin-modal .pin-panel-header{border-radius:12px 12px 0 0;}.pin-modal .pin-panel-body{padding:18px;}.pin-modal .pin-panel-footer{border-top:1px solid var(--border);padding:12px 18px;display:flex;gap:8px;}
+.pin-modal{background:white;border-radius:12px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);scrollbar-width:none;-ms-overflow-style:none;}.pin-modal::-webkit-scrollbar{display:none;}.pin-modal .pin-panel-header{border-radius:12px 12px 0 0;}.pin-modal .pin-panel-body{padding:18px;}.pin-modal .pin-panel-footer{border-top:1px solid var(--border);padding:12px 18px;display:flex;gap:8px;}
 
 /* Deficiency section — pump tool style */
 .contractor-chips{display:flex;flex-wrap:wrap;gap:8px;min-height:28px;margin-bottom:10px;}
@@ -1658,9 +1658,9 @@ body.text-l{--ts:4px;}
       <div class="card"><div class="card-header">📷 Site Photos</div>
         <div class="card-body">
           <div class="photo-header-bar">
-            <div class="photo-actions-dd"><button class="btn btn-outline btn-sm" id="photo-actions-btn" onclick="togglePhotoActionsMenu(event)">Actions ▾</button><div class="photo-actions-menu" id="photo-actions-menu"><button onclick="selectAllPhotos()">Select all</button><button onclick="deselectAllPhotos()">Deselect all</button><div class="separator"></div><button onclick="downloadSelectedPhotos()">Export selected</button><div class="separator"></div><button class="danger" onclick="deleteSelectedPhotos()">Delete selected</button></div></div>
+            <div class="photo-actions-dd"><button class="btn btn-outline btn-sm" id="photo-actions-btn" onclick="togglePhotoActionsMenu(event)">Actions ▾</button><div class="photo-actions-menu" id="photo-actions-menu"><button onclick="selectAllPhotos()">Select all</button><button onclick="deselectAllPhotos()">Deselect all</button><div class="separator"></div><button onclick="downloadSelectedPhotos()">Export selected</button><button onclick="reassignSelectedPhotos()">↗ Reassign selected</button><div class="separator"></div><button class="danger" onclick="deleteSelectedPhotos()">Delete selected</button></div></div>
             <div style="flex:1;"></div>
-            <div class="photo-filter-dd"><button class="btn btn-outline btn-sm" onclick="togglePhotoFilterMenu(event)">⚙ Filters</button><div class="photo-filter-menu" id="photo-filter-menu"><button onclick="filterPhotos('all')">All photos</button><button onclick="filterPhotos('deficiency')">Deficiency photos</button><button onclick="filterPhotos('site')">Site photos</button></div></div>
+            <div class="photo-filter-dd"><button class="btn btn-outline btn-sm" onclick="togglePhotoFilterMenu(event)">⚙ Filters</button><div class="photo-filter-menu" id="photo-filter-menu"><button onclick="filterPhotos('all')">All photos</button><button onclick="filterPhotos('deficiency')">Deficiency photos</button><button onclick="filterPhotos('general')">General photos</button><button onclick="filterPhotos('site')">Site photos</button></div></div>
           </div>
           <div class="photo-zone" id="photo-upload-area" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');handlePhotoFiles(event.dataTransfer.files)">
             <div style="text-align:center;padding:16px;">
@@ -1728,7 +1728,6 @@ body.text-l{--ts:4px;}
       </div>
     </div>
 
-    <button onclick="fitDrawing()" title="Fit to screen">⊡ Fit</button>
     <button class="dark-toggle" onclick="toggleDarkMode()" title="Toggle dark/light mode" id="dv-dark-toggle">☀️</button>
   </div>
   <!-- MOBILE CONTEXT BAR — steppers for thickness/opacity/text-size, shown when tool active -->
@@ -2940,7 +2939,16 @@ function editProjectNameInline(){
   span.style.display='none';
   span.parentNode.insertBefore(inp,span.nextSibling);
   inp.focus();inp.select();
-  
+  var committed=false;
+  function commit(){
+    if(committed)return;committed=true;
+    var nv=inp.value.trim()||current;
+    p.info.projectName=nv;
+    span.textContent=nv;
+    span.style.display='';
+    if(inp.parentNode)inp.parentNode.removeChild(inp);
+    saveToLS();_forceCloudSave();
+  }
   inp.addEventListener('blur',commit);
   inp.addEventListener('keydown',function(e){
     if(e.key==='Enter'){e.preventDefault();commit();}
@@ -4423,9 +4431,13 @@ function _loadR2OrDirect(src,img){
         img.removeAttribute('data-r2-src');
       }
     }).catch(function(e){
-      img.style.background='#f0f0f0';
+      // Ghost photo: R2 file doesn't exist — hide the thumbnail and mark for cleanup
+      img.style.display='none';
       img.setAttribute('data-r2-failed','1');
       img.setAttribute('data-r2-src',src);
+      // Hide the parent photo-thumb container too
+      var thumb=img.closest('.photo-thumb');
+      if(thumb)thumb.style.display='none';
     });
   }else{
     img.src=src;
@@ -7995,7 +8007,7 @@ function buildDeficItem(d,ctrId,i){
   var obsHtml='';
   entries.forEach(function(en,ei){
     var prCol=en.priority==='general'?'#1A7A4A':en.priority==='low'?'#E67E22':'#C0392B';
-    var prLabel=en.priority==='general'?'General / Cosmetic':en.priority==='low'?'Low':'High';
+    var prLabel=en.priority==='general'?'General':en.priority==='low'?'Low':'High';
     var obsLabel=entries.length>1?'Obs. '+String.fromCharCode(65+ei)+' ('+prLabel+')':'Observation';
 
     // Entry photos
@@ -8966,7 +8978,7 @@ function openPinEditor(did){
   delBtn=document.getElementById('pin-modal-delete-btn');
 
   var _eiLbl=d.activeEntry||0;var _epLbl=(d.entries&&d.entries[_eiLbl]&&d.entries[_eiLbl].priority)||d.priority||'high';
-var priorityLabel=_epLbl==='general'?'General / Cosmetic':_epLbl==='low'?'Low Priority':'High Priority';
+var priorityLabel=_epLbl==='general'?'General':_epLbl==='low'?'Low Priority':'High Priority';
   title.textContent='Pin #'+d.num+' — '+priorityLabel;
   delBtn.style.display='';
   setTimeout(function(){renderPinMiniMap(d);},50);
@@ -9056,7 +9068,7 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
     '<div style="display:flex;gap:6px;">'+
     '<button class="priority-btn high'+(pHigh?' selected':'')+'\" onclick="setObsPriority('+ae+',\'high\')">High</button>'+
     '<button class="priority-btn low'+(pLow?' selected':'')+'\" onclick="setObsPriority('+ae+',\'low\')">Low</button>'+
-    '<button class="priority-btn general'+(pGen?' selected':'')+'\" onclick="setObsPriority('+ae+',\'general\')">General / Cosmetic</button>'+
+    '<button class="priority-btn general'+(pGen?' selected':'')+'\" onclick="setObsPriority('+ae+',\'general\')">General</button>'+
     '</div></div>'+
     '<textarea id="pin-desc-0" rows="3" list="pin-desc-suggestions" placeholder="'+(pGen?'Note or observation...':'Describe the deficiency...')+
     '" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:calc(12px + var(--ts));resize:vertical;" oninput="autoPinSave()">'+escHtml(entry.description||'')+'</textarea>'+
@@ -9070,10 +9082,17 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
     '</div>'+ph+'</div>';
 
   // Fix 8: Status — always-colored via CSS, not dynamic inline style
-  var statusSel='<select id="pin-status" class="pin-status-sel" data-status="'+(d.status||'Outstanding')+'" onchange="this.dataset.status=this.value;autoPinSave()">'
-    +'<option value="Outstanding"'+(d.status==='Outstanding'?' selected':'')+'>● Outstanding</option>'
-    +'<option value="Addressed & Closed"'+(d.status==='Addressed & Closed'?' selected':'')+'>✔ Addressed & Closed</option>'
-    +'</select>';
+  var allGeneral=d.entries.every(function(en){return en.priority==='general';});
+  var statusSel;
+  if(allGeneral){
+    statusSel='<select id="pin-status" class="pin-status-sel" disabled data-status="N/A" style="opacity:.5;cursor:not-allowed;">'
+      +'<option selected>— Not a deficiency —</option></select>';
+  } else {
+    statusSel='<select id="pin-status" class="pin-status-sel" data-status="'+(d.status||'Outstanding')+'" onchange="this.dataset.status=this.value;autoPinSave()">'
+      +'<option value="Outstanding"'+(d.status==='Outstanding'?' selected':'')+'>● Outstanding</option>'
+      +'<option value="Addressed & Closed"'+(d.status==='Addressed & Closed'?' selected':'')+'>✔ Addressed & Closed</option>'
+      +'</select>';
+  }
 
   body.innerHTML=
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'+
@@ -9083,7 +9102,7 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
     '</div>'+
     '<div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;">'+
     '<div style="flex:1;"><label style="font-size:9px;font-weight:700;color:#4A5568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Status</label>'+statusSel+'</div>'+
-    '<div><button class="iar-toggle-btn '+(d.iar?'on':'off')+'" id="pin-iar-btn" onclick="togglePinIAR()">IAR'+(d.iar?' on':'')+'</button></div>'+
+    '<div><button class="iar-toggle-btn '+(d.iar?'on':'off')+'" id="pin-iar-btn" onclick="togglePinIAR()"'+(allGeneral?' disabled style="opacity:.4;cursor:not-allowed;"':'')+'>IAR'+(d.iar?' on':'')+'</button></div>'+
     '</div>'+
     '<div style="margin-bottom:4px;"><label style="font-size:9px;font-weight:700;color:#4A5568;text-transform:uppercase;letter-spacing:.5px;">Observations</label></div>'+
     tabsHtml+entryPanel+
@@ -9200,9 +9219,9 @@ function setObsPriority(idx,pr){
   _ensureEntries(f.defic);
   if(f.defic.entries&&f.defic.entries[idx])f.defic.entries[idx].priority=pr;
   _recalcPinPriority(f.defic);
-  // If ALL observations are general, auto-close; otherwise keep current status
+  // If ALL observations are general, status is not applicable
   var allGen=f.defic.entries.every(function(en){return en.priority==='general';});
-  if(allGen)f.defic.status='Addressed & Closed';
+  if(allGen)f.defic.status='N/A';
   saveToLS();openPinEditor(editingPinId);
   renderPinsOnDrawing();renderTasksPanel();
 }
@@ -9710,7 +9729,7 @@ function _pkbChangePriority(deficId,newPriority){
   // Recalc from entries (same logic as existing recalcDeficPriority)
   saveToLS();
   renderPinsKanban();
-  showToast('Pin #'+f.defic.num+' → '+(newPriority==='general'?'General / Cosmetic':newPriority==='low'?'Low':'High')+' priority');
+  showToast('Pin #'+f.defic.num+' → '+(newPriority==='general'?'General':newPriority==='low'?'Low':'High')+' priority');
 }
 
 function _pkbCardClick(deficId){
@@ -9729,7 +9748,8 @@ function renderPhotoGallery(){
   var allPhotos=_buildUnifiedPhotoList(p);
 
   if(_photoFilter==='site')allPhotos=allPhotos.filter(function(p){return p.type==='site';});
-  if(_photoFilter==='deficiency')allPhotos=allPhotos.filter(function(p){return p.type==='deficiency'||p.type==='response';});
+  if(_photoFilter==='deficiency')allPhotos=allPhotos.filter(function(p){return (p.type==='deficiency'||p.type==='response')&&p.deficPriority!=='general';});
+  if(_photoFilter==='general')allPhotos=allPhotos.filter(function(p){return p.type==='deficiency'&&p.deficPriority==='general';});
 
   if(!allPhotos.length){grid.innerHTML='<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:16px;">No photos yet. Upload photos above or add them through deficiency pins.</p>';return;}
 
@@ -9753,9 +9773,9 @@ function renderPhotoGallery(){
     html+='<div class="photo-thumb-grid">';
     photos.forEach(function(ph){
       var sel=_selectedPhotos.indexOf(ph.id)>=0;
-      var typeColor=ph.type==='site'?'#1A7A4A':ph.type==='response'?'#2C4A6B':'#9C2742';
-      var typeLabel=ph.type==='site'?'Site':ph.type==='response'?'Resp':('Pin '+ph.deficNum);
-      var typeLabel=ph.type==='site'?'Site':ph.type==='response'?'Resp':('Pin '+ph.deficNum);
+      var isGeneral=ph.deficPriority==='general';
+      var typeColor=ph.type==='site'?'#1A7A4A':ph.type==='response'?'#2C4A6B':isGeneral?'#1A7A4A':'#9C2742';
+      var typeLabel=ph.type==='site'?'Site':ph.type==='response'?'Resp':((isGeneral?'General · ':'')+'Pin '+ph.deficNum);
       var r2Icon=ph.r2Status==='uploaded'?'☁':ph.r2Status==='pending'?'⏳':ph.r2Status==='error'?'⚠':'';
       html+='<div class="photo-thumb'+(sel?' selected':'')+'" data-photo-id="'+ph.id+'">';
       // Image first so overlays sit on top
@@ -9859,6 +9879,112 @@ function deleteSelectedPhotos(){
   },'Delete');
 }
 
+function reassignSelectedPhotos(){
+  if(!_selectedPhotos.length){showToast('No photos selected');return;}
+  var p=getProject();if(!p)return;
+  var m=document.getElementById('photo-actions-menu');if(m)m.classList.remove('open');
+  // Build destination list: Site Photos + all pins
+  var ad=getAllDeficiencies(p);
+  var opts='<option value="">— Choose destination —</option>';
+  opts+='<option value="__site__">📷 Site Photos</option>';
+  opts+='<optgroup label="Pins">';
+  ad.forEach(function(r){
+    var desc=(r.defic.entries&&r.defic.entries[0]?r.defic.entries[0].description:r.defic.description)||'(no description)';
+    if(desc.length>40)desc=desc.substring(0,37)+'...';
+    var prTag=r.defic.priority==='general'?' [General]':r.defic.priority==='low'?' [Low]':'';
+    opts+='<option value="'+r.defic.id+'">Pin #'+r.defic.num+prTag+' — '+escHtml(desc)+'</option>';
+  });
+  opts+='</optgroup>';
+
+  var overlay=document.createElement('div');
+  overlay.id='reassign-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  overlay.onclick=function(e){if(e.target===overlay){overlay.remove();}};
+  var card=document.createElement('div');
+  card.style.cssText='background:white;border-radius:12px;padding:24px;width:420px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.4);';
+  if(document.body.classList.contains('dark-mode'))card.style.cssText+='background:#1e2533;color:#d0d8f0;';
+  card.innerHTML=
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'+
+    '<h3 style="margin:0;font-size:calc(16px + var(--ts));color:#9C2742;font-weight:700;">Reassign '+_selectedPhotos.length+' Photo'+ (_selectedPhotos.length!==1?'s':'')+'</h3>'+
+    '<button onclick="this.closest(\'#reassign-overlay\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#888;">✕</button></div>'+
+    '<p style="font-size:calc(12px + var(--ts));color:#607D8B;margin-bottom:12px;">Move selected photos to a different pin or to site photos.</p>'+
+    '<select id="reassign-dest" style="width:100%;padding:8px 10px;border:1.5px solid #ccc;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));margin-bottom:16px;">'+opts+'</select>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
+    '<button onclick="this.closest(\'#reassign-overlay\').remove()" style="padding:8px 16px;border:1.5px solid #ccc;border-radius:6px;background:white;cursor:pointer;font-family:inherit;font-size:calc(13px + var(--ts));">Cancel</button>'+
+    '<button onclick="_doReassign()" style="padding:8px 16px;border:none;border-radius:6px;background:#9C2742;color:white;cursor:pointer;font-family:inherit;font-size:calc(13px + var(--ts));font-weight:700;">Move</button></div>';
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+}
+
+function _doReassign(){
+  var dest=document.getElementById('reassign-dest');
+  if(!dest||!dest.value){showToast('Select a destination');return;}
+  var destVal=dest.value;
+  var p=getProject();if(!p)return;
+  var allPhotos=_buildUnifiedPhotoList(p);
+  var moved=0;
+
+  _selectedPhotos.forEach(function(selId){
+    var ph=allPhotos.find(function(x){return x.id===selId;});
+    if(!ph)return;
+
+    // Extract the photo record (dataUrl/r2Key etc)
+    var photoRec=null;
+    if(ph.type==='site'){
+      var sArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
+      if(sArr[ph.idx]){photoRec=JSON.parse(JSON.stringify(sArr[ph.idx]));sArr[ph.idx]=null;}
+    } else if(ph.type==='deficiency'){
+      var sf=findDeficiency(ph.deficId);
+      if(sf&&sf.defic.entries){
+        // Find and remove the photo from the source entry
+        for(var ei=0;ei<sf.defic.entries.length;ei++){
+          var ent=sf.defic.entries[ei];
+          if(ent.photos){
+            for(var pi=ent.photos.length-1;pi>=0;pi--){
+              var epid=_deficPhotoId(ent.photos[pi])||_deficPhotoSrc(ent.photos[pi]);
+              // Match by the unified id pattern
+              if(selId==='def_'+sf.defic.id+'_e'+ei+'_'+pi||selId==='def_'+sf.defic.id+'_'+pi){
+                photoRec=JSON.parse(JSON.stringify(ent.photos[pi]));
+                ent.photos.splice(pi,1);
+                break;
+              }
+            }
+          }
+          if(photoRec)break;
+        }
+        if(photoRec)_syncDeficPhotos(sf.defic);
+      }
+    }
+    if(!photoRec)return;
+
+    // Place into destination
+    if(destVal==='__site__'){
+      if(!p.sitePhotos)p.sitePhotos=[];
+      var siteRec={id:'sp_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),dataUrl:photoRec.dataUrl||'',date:photoRec.date||photoRec.uploadDate||new Date().toISOString().substring(0,19).replace('T',' '),uploadDate:new Date().toISOString().substring(0,19).replace('T',' '),caption:'',r2Key:photoRec.r2Key||'',r2Url:photoRec.r2Url||'',r2Status:photoRec.r2Status||''};
+      p.sitePhotos.push(siteRec);
+    } else {
+      var df=findDeficiency(destVal);
+      if(df){
+        _ensureEntries(df.defic);
+        var ae=df.defic.activeEntry||0;
+        if(!df.defic.entries[ae].photos)df.defic.entries[ae].photos=[];
+        df.defic.entries[ae].photos.push(photoRec);
+        _syncDeficPhotos(df.defic);
+      }
+    }
+    moved++;
+  });
+
+  // Clean nulls from sitePhotos
+  if(p.sitePhotos)p.sitePhotos=p.sitePhotos.filter(function(x){return x!==null;});
+
+  _selectedPhotos=[];
+  var overlay=document.getElementById('reassign-overlay');
+  if(overlay)overlay.remove();
+  saveToLS();_forceCloudSave();renderPhotoGallery();
+  showToast(moved+' photo'+(moved!==1?'s':'')+' reassigned');
+}
+
 function downloadSelectedPhotos(){
   if(!_selectedPhotos.length){showToast('No photos selected');return;}
   var p=getProject();if(!p)return;
@@ -9948,7 +10074,7 @@ function _buildUnifiedPhotoList(p){
         var refs=srcToPins[pid]||[];
         var uniqueRefs=[];refs.forEach(function(r2){if(uniqueRefs.indexOf(r2)<0)uniqueRefs.push(r2);});
         var caption=uniqueRefs.join(' | ');
-        allPhotos.push({src:_deficPhotoSrc(ph),date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,idx:pi,id:'def_'+d.id+'_e'+ei+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
+        allPhotos.push({src:_deficPhotoSrc(ph),date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:'def_'+d.id+'_e'+ei+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
       });}
     });}
     if(d.photos){d.photos.forEach(function(ph,pi){
@@ -9957,7 +10083,7 @@ function _buildUnifiedPhotoList(p){
       var refs=srcToPins[pid]||[];
       var uniqueRefs=[];refs.forEach(function(r2){if(uniqueRefs.indexOf(r2)<0)uniqueRefs.push(r2);});
       var caption=uniqueRefs.join(' | ');
-      allPhotos.push({src:_deficPhotoSrc(ph),date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,idx:pi,id:'def_'+d.id+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
+      allPhotos.push({src:_deficPhotoSrc(ph),date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:'def_'+d.id+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
     });}
     if(d.responses){d.responses.forEach(function(resp,ri){
       if(resp.photos){resp.photos.forEach(function(ph,pi){
@@ -10572,7 +10698,7 @@ function _buildDefCardHtml(r){
   if(d.entries&&d.entries.length){
     d.entries.forEach(function(en,ei){
       var eLbl=String.fromCharCode(65+ei);
-      var ePr=en.priority==='general'?'General / Cosmetic':en.priority==='low'?'Low':'High';
+      var ePr=en.priority==='general'?'General':en.priority==='low'?'Low':'High';
       var ePrCol=en.priority==='general'?'#1A7A4A':en.priority==='low'?'#E67E22':'#9C2742';
       if(hasMultiEntries){
         h+='<div class="dc-split" style="margin-bottom:8px;padding:6px 8px;background:#f8f8f8;border-left:3px solid '+ePrCol+';border-radius:0 4px 4px 0;">';
