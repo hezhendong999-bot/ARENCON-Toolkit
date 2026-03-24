@@ -296,8 +296,8 @@ body.dv-open{overflow:hidden!important;}
 
 /* Zoom controls */
 .zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px;z-index:10;}
-.zoom-controls button{width:30px;height:30px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:calc(16px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}.zoom-controls button:hover{background:rgba(42,45,53,.95);}
-@media(max-width:900px){.zoom-controls{bottom:12px!important;right:10px;z-index:501!important;}.zoom-controls button{width:44px;height:44px;font-size:20px;border-radius:10px;}}
+.zoom-controls button{width:30px;height:30px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:calc(16px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);touch-action:manipulation;-webkit-tap-highlight-color:transparent;}.zoom-controls button:hover{background:rgba(42,45,53,.95);}
+@media(max-width:900px){.zoom-controls{bottom:12px!important;right:10px;z-index:501!important;}.zoom-controls button{width:48px;height:48px;font-size:22px;border-radius:12px;background:rgba(42,45,53,.9);}}
 
 /* Pin side panel */
 .pin-panel{position:fixed;top:0;right:0;width:420px;height:100%;background:white;z-index:2500;box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;overflow:hidden;}.pin-panel.open{transform:translateX(0);}
@@ -525,8 +525,8 @@ body.dark-mode .photo-zone{background:#14171e!important;border-color:#2a2e38!imp
 /* Dark mode buttons - visible against #12151a body */
 body.dark-mode .btn{background:#323a4e!important;color:#d4daf0!important;border-color:#4a5570!important;}
 body.dark-mode .btn:hover{background:#3e4868!important;}
-body.dark-mode .btn-primary{background:#9C2742!important;color:white!important;border:none!important;}
-body.dark-mode .btn-primary:hover{background:#b83050!important;}
+body.dark-mode .btn-primary{background:rgba(156,39,66,.35)!important;color:#e8a0b0!important;border:1px solid rgba(156,39,66,.4)!important;}
+body.dark-mode .btn-primary:hover{background:rgba(156,39,66,.5)!important;}
 body.dark-mode .btn-outline{background:#242c3a!important;border:1.5px solid #556080!important;color:#b4bee0!important;}
 body.dark-mode .btn-outline:hover{background:#2e3850!important;border-color:#7080a8!important;color:#d4daf0!important;}
 body.dark-mode .btn-danger,body.dark-mode .dwg-bulk-btn.danger{background:#7a1a24!important;color:#ffaaaa!important;border-color:#a02030!important;}
@@ -542,7 +542,7 @@ body.dark-mode .mobile-menu .menu-section-label{color:#7a8ab0!important;}
 body.dark-mode .mobile-menu .btn:hover{background:#3e4868!important;}
 body.dark-mode .btn-sm{background:#323a4e!important;color:#d0d8f0!important;border-color:#4a5570!important;}
 body.dark-mode .btn-sm:hover{background:#3e4868!important;}
-body.dark-mode .btn-primary.btn-sm{background:#9C2742!important;color:white!important;}
+body.dark-mode .btn-primary.btn-sm{background:rgba(156,39,66,.35)!important;color:#e8a0b0!important;border:1px solid rgba(156,39,66,.4)!important;}
 body.dark-mode .btn-outline.btn-sm{background:#242c3a!important;border:1.5px solid #556080!important;color:#b4bee0!important;}
 body.dark-mode .btn-outline.btn-sm:hover{background:#2e3850!important;border-color:#9C2742!important;color:#f4a1b5!important;}
 /* Dark mode — context button overrides */
@@ -1075,6 +1075,7 @@ body.dark-mode .dup-defic-btn{background:#1a2a3a!important;color:#80b0e0!importa
 body.dark-mode .resp-add-ctr{background:rgba(230,126,34,.25);color:#f0a060;border:1px solid rgba(230,126,34,.3);}
 body.dark-mode .resp-add-con{background:rgba(44,74,107,.35);color:#90b0d0;border:1px solid rgba(44,74,107,.4);}
 body.dark-mode .pz-camera{background:rgba(26,122,74,.3);color:#60c090;border:1px solid rgba(26,122,74,.35);}
+body.dark-mode #issue-status-badge{background:rgba(230,81,0,.3)!important;color:#f0b060!important;}
 body.dark-mode .resp-contractor{background:#2a2000;border-color:#554400;color:#e0e4ea;}
 body.dark-mode .resp-contractor textarea{background:#211800!important;border-color:#443300!important;color:#e8ddc8!important;}
 body.dark-mode .resp-consultant{background:#0a1a2e;border-color:#1a3a5e;color:#e0e4ea;}
@@ -1372,7 +1373,6 @@ body.text-l{--ts:4px;}
       <!-- Project buttons (hidden on dashboard, shown in project) -->
       <button class="hdr-btn" id="btn-pdf" onclick="showPDFOptions()" style="display:none;background:#1A237E;" title="Export PDF Report">📄 Reports</button>
       <button class="hdr-btn" id="btn-issue" onclick="issueReport()" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
-<button class="hdr-btn" id="btn-signout" onclick="signOutSession()" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
       <!-- ⚙️ More dropdown — groups Download, Repair, Reset -->
       <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
         <button class="hdr-btn" style="background:#455A64;" onclick="toggleMoreMenu(event)" title="More options">⚙️ More ▾</button>
@@ -1391,6 +1391,7 @@ body.text-l{--ts:4px;}
       </div>
       <button class="hdr-btn" id="dark-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="background:rgba(255,255,255,.15);min-width:38px;justify-content:center;">☀️</button>
       <button class="hdr-btn text-size-toggle" id="btn-text-size" onclick="cycleTextSize()" title="Text size: Small / Medium / Large">M</button>
+      <button class="hdr-btn" id="btn-signout" onclick="signOutSession()" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
       <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
     </div>
   </div>
@@ -1492,7 +1493,7 @@ body.text-l{--ts:4px;}
   <div class="main-wrap">
     <div class="panel active" id="panel-info">
       <div class="card">
-        <div class="card-header">Project Information</div>
+        <div class="card-header">📋 Project Information</div>
         <div class="card-body">
           <div class="proj-grid">
             <div class="field-group"><label>Project No.</label><input type="text" id="field-projectNumber" data-field="projectNumber" oninput="formatProjectNumber(this);onFieldChange(this);updateHeaderName();updateSmartFilename()" placeholder=""></div>
@@ -1506,14 +1507,6 @@ body.text-l{--ts:4px;}
             
             <div class="field-group"><label>Revision</label><input type="text" id="field-revision" data-field="revision" oninput="onFieldChange(this);updateSmartFilename()" placeholder="A01" style="font-weight:700;font-size:calc(15px + var(--ts));text-align:center;max-width:100px;"></div>
             <div class="field-group"><label>Date Modified</label><input type="text" data-field="dateModified" readonly style="background:var(--smoke);color:var(--silver);" id="field-date-modified"></div>
-          </div>
-        </div>
-      </div>
-      <div class="card" style="margin-top:14px;">
-        <div class="card-body" style="padding:12px 20px;">
-          <div class="field-group"><label>💾 Save Filename <span style="font-weight:400;text-transform:none;font-size:calc(10px + var(--ts));color:var(--silver);">(blank = auto-generate)</span></label>
-          <input type="text" id="field-customFilename" data-field="customFilename" oninput="onFieldChange(this)" placeholder="" style="font-family:monospace;font-size:calc(13px + var(--ts));">
-          <div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-top:4px;">Auto: <span id="auto-filename-preview" style="font-family:monospace;color:var(--steel);"></span></div>
           </div>
         </div>
       </div>
@@ -1549,7 +1542,7 @@ body.text-l{--ts:4px;}
     </div>
         <div class="panel" id="panel-deficiencies">
       <div class="card" style="margin-bottom:16px;">
-      <div class="card-header">Deficiency Log</div>
+      <div class="card-header">📊 Deficiency Log</div>
       <div class="card-body" style="padding:0;">
       <div id="defic-summary-table-wrap"></div>
       </div></div>
@@ -1591,7 +1584,7 @@ body.text-l{--ts:4px;}
     <div class="panel" id="panel-pins">
       <div class="card">
         <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <span>All Deficiencies</span>
+          <span>📌 All Deficiencies</span>
           <div style="display:flex;align-items:center;gap:6px;">
             <div style="display:flex;border:1.5px solid var(--border);border-radius:6px;overflow:hidden;">
               <button id="tasks-view-table" onclick="setTasksView('table')" style="border:1.5px solid #9C2742;background:#9C2742;color:white;padding:5px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:700;border-radius:4px 0 0 4px;">Table</button>
@@ -1765,6 +1758,9 @@ body.text-l{--ts:4px;}
       <button class="ctx-btn" onclick="markupUndo()" style="font-size:calc(14px + var(--ts));" title="Undo">↩</button>
       <button class="ctx-btn" onclick="markupRedo()" style="font-size:calc(14px + var(--ts));" title="Redo">↪</button>
     </div>
+    <div class="ctx-group" id="ctx-delete-group" style="border-right:none;padding-right:0;display:none;">
+      <button class="ctx-btn" onclick="deleteSelectedShape()" style="background:rgba(192,57,43,.35);color:#f09090;" title="Delete selected">🗑</button>
+    </div>
   </div>
   <div id="dv-tool-tooltip" style="display:none;position:fixed;background:rgba(30,32,40,.92);color:#fff;font-size:11px;font-family:Calibri,sans-serif;padding:4px 10px;border-radius:6px;pointer-events:none;z-index:9999;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);"></div>
   <div class="dv-main">
@@ -1887,10 +1883,10 @@ body.text-l{--ts:4px;}
         <canvas class="markup-canvas" id="markup-canvas"></canvas>
         <div id="dv-pins-layer"></div>
       </div>
-      <div class="zoom-controls" ontouchstart="event.stopPropagation();" ontouchmove="event.stopPropagation();" ontouchend="event.stopPropagation();">
-        <button onclick="zoomIn()" ontouchstart="event.stopPropagation();" ontouchend="event.stopPropagation();event.preventDefault();zoomIn();">+</button>
-        <button onclick="zoomOut()" ontouchstart="event.stopPropagation();" ontouchend="event.stopPropagation();event.preventDefault();zoomOut();">−</button>
-        <button onclick="fitDrawing()" ontouchstart="event.stopPropagation();" ontouchend="event.stopPropagation();event.preventDefault();fitDrawing();" style="font-size:calc(12px + var(--ts));">⊡</button>
+      <div class="zoom-controls" ontouchstart="event.stopPropagation();" ontouchmove="event.stopPropagation();" ontouchend="event.stopPropagation();" onpointerdown="event.stopPropagation();">
+        <button onpointerup="event.stopPropagation();event.preventDefault();zoomIn();" ontouchstart="event.stopPropagation();" ontouchend="event.stopPropagation();event.preventDefault();zoomIn();" onclick="zoomIn()">+</button>
+        <button onpointerup="event.stopPropagation();event.preventDefault();zoomOut();" ontouchstart="event.stopPropagation();" ontouchend="event.stopPropagation();event.preventDefault();zoomOut();" onclick="zoomOut()">−</button>
+        <button onpointerup="event.stopPropagation();event.preventDefault();fitDrawing();" ontouchstart="event.stopPropagation();" ontouchend="event.stopPropagation();event.preventDefault();fitDrawing();" onclick="fitDrawing()" style="font-size:calc(12px + var(--ts));">⊡</button>
       </div>
     </div>
     <!-- RIGHT TASKS PANEL -->
@@ -5300,12 +5296,12 @@ area.addEventListener('touchstart',function(e){
     if(mkState.tool&&mkState.tool!=='select'&&document.getElementById('markup-canvas').classList.contains('drawing-active')){e.preventDefault();return;}
     // Pin mode: single tap places pin
     if(dvState.pinMode&&!e.target.closest('.dv-toolbar')&&!e.target.closest('.dv-tasks-panel')&&!e.target.closest('.dv-sidebar-tools')&&!e.target.closest('#dv-mobile-context')){handlePinDropTouch(e);e.preventDefault();return;}
-    // MOBILE: single finger does NOTHING (no pan). Pan is two-finger only.
-    // DESKTOP: allow single-finger pan (mouse emulation on desktop touch screens)
-    if(!_isMobileDevice){
+    // Single-finger pan: allowed on desktop always, on mobile only when zoomed in
+    var _isZoomed=dvState.scale>(dvState.fitScale||0.1)*1.08;
+    if(!_isMobileDevice||_isZoomed){
       pan=true;sx=e.touches[0].clientX-dvState.panX;sy=e.touches[0].clientY-dvState.panY;
     }
-    // On mobile, record start for tap detection but don't start pan
+    // Record start for tap detection
     dvState._touchStartX=e.touches[0].clientX;dvState._touchStartY=e.touches[0].clientY;
   }else if(e.touches.length===2){
     pan=false;
@@ -5333,12 +5329,12 @@ area.addEventListener('touchmove',function(e){
     }else{
       // Cancel long-press if finger moved
       if(dvState.longPressTimer&&!dvState.longPressTriggered){clearTimeout(dvState.longPressTimer);dvState.longPressTimer=null;}
-      // Desktop: allow single-finger pan
-      if(pan&&!_isMobileDevice){
+      // Single-finger pan: desktop always, mobile when zoomed in
+      var _canPan=pan&&(!_isMobileDevice||(dvState.scale>(dvState.fitScale||0.1)*1.08));
+      if(_canPan){
         if(!dvState._panHidden){dvState._panHidden=true;var pl=document.getElementById('dv-pins-layer');var mc=document.getElementById('markup-canvas');if(pl)pl.style.opacity='0';if(mc)mc.style.opacity='0';}
         if(!dvState._rafPending){dvState._rafPending=true;var tx=e.touches[0].clientX,ty=e.touches[0].clientY;requestAnimationFrame(function(){dvState.panX=tx-sx;dvState.panY=ty-sy;applyTransform();dvState._rafPending=false;});}
       }
-      // Mobile: single finger does nothing (no pan)
     }
   }else if(e.touches.length===2){
     // TWO-FINGER: combined pan + pinch-zoom (like Google Maps)
@@ -5943,6 +5939,8 @@ function renderAllMarkup(){
     var sel=_mkFindObj(_mkSelectedId);
     if(sel&&sel.type!=='highlight')_drawSelectionHandles(ctx,sel);
   }
+  // Refresh mobile delete button visibility
+  if(window.innerWidth<900)_updateMobileContext();
 }
 
 // ── COPY MODE GHOST PREVIEW ──
@@ -6105,9 +6103,13 @@ function _drawSelectionHandles(ctx,obj){
     ctx.fillRect(pt[0]-hs,pt[1]-hs,hs*2,hs*2);
     ctx.strokeRect(pt[0]-hs,pt[1]-hs,hs*2,hs*2);
   });
-  // × delete button — top-right, offset from corner
+  // × delete button — top-right, offset from corner, clamped to canvas
   var delOff=delR+pad;
   var dx=b.x2+delOff, dy=b.y1-delOff;
+  // Clamp within canvas bounds so button is always tappable
+  var cw=ctx.canvas.width, ch=ctx.canvas.height;
+  dx=Math.max(delR+2,Math.min(cw-delR-2,dx));
+  dy=Math.max(delR+2,Math.min(ch-delR-2,dy));
   ctx.beginPath();ctx.arc(dx,dy,delR,0,Math.PI*2);
   ctx.fillStyle='#C0392B';ctx.fill();
   ctx.strokeStyle='white';ctx.lineWidth=lw;ctx.stroke();
@@ -6137,8 +6139,10 @@ function _mkHitHandle(x,y,obj){
   var invZ=1/zoom;
   var pad=6*invZ, delR=9*invZ, delOff=delR+pad;
   var hs=Math.max(8,14*invZ); // generous tap zone
-  // Check × delete button first
+  // Check × delete button first — clamped to canvas like _drawSelectionHandles
   var dx=b.x2+delOff, dy=b.y1-delOff;
+  var canvas=document.getElementById('markup-canvas');
+  if(canvas){var cw=canvas.width,ch=canvas.height;dx=Math.max(delR+2,Math.min(cw-delR-2,dx));dy=Math.max(delR+2,Math.min(ch-delR-2,dy));}
   if(Math.abs(x-dx)<delR*1.5&&Math.abs(y-dy)<delR*1.5)return 'delete';
   var handles=[
     {name:'nw',x:b.x1-pad,y:b.y1-pad},
@@ -6939,6 +6943,9 @@ function _updateMobileContext(){
     if(sg)sg.style.display=(tool==='select')?'none':'';
     var og=document.getElementById('ctx-opacity-group');
     if(og)og.style.display=(tool==='select'||tool==='eraser')?'none':'';
+    // Show delete button when shape selected in select mode
+    var dg=document.getElementById('ctx-delete-group');
+    if(dg)dg.style.display=(tool==='select'&&(_mkSelectedId||_mkSelectedIds.length))?'':'none';
   } else {
     ctx.classList.remove('visible');
   }
@@ -10438,8 +10445,8 @@ return ph.dataUrl||ph.r2Url||'';
 function _exportPDFWithCache(p,logo,isField,mode,r2Cache){
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
 var reportDefs=[];var rn=1;
-(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){reportDefs.push({d:d,ctr:c.name,rn:rn++});});});
-(p.generalDeficiencies||[]).forEach(function(d){reportDefs.push({d:d,ctr:'General',rn:rn++});});
+(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.priority==='general')return;reportDefs.push({d:d,ctr:c.name,rn:rn++});});});
+(p.generalDeficiencies||[]).forEach(function(d){if(d.priority==='general')return;reportDefs.push({d:d,ctr:'General',rn:rn++});});
 
 // ── CSS ──
 var css='*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}';
