@@ -10185,9 +10185,11 @@ function openGalleryLightboxMarkup(){
 function handlePhotoUploadEvent(e){
   var isCameraInput=e.target.id==='photo-camera-input'||e.target.hasAttribute('capture');
   var hadFiles=e.target.files&&e.target.files.length>0;
+  console.log('[CAM-DEBUG] handlePhotoUploadEvent: isCameraInput='+isCameraInput+' hadFiles='+hadFiles+' id='+e.target.id);
   handlePhotoFiles(e.target.files);
   e.target.value='';
   if(isCameraInput&&hadFiles){
+    console.log('[CAM-DEBUG] showing camera bar for site');
     _showCameraBar({type:'site'});
   }
 }
@@ -11963,11 +11965,13 @@ if(_csHubMode)_resetSessionTimers();
 // ── Continuous Camera Bar System ──
 var _camBar={ctx:null,count:0};
 function _showCameraBar(ctx){
+  console.log('[CAM-DEBUG] _showCameraBar called with type='+ctx.type);
   // If context changed (different photo zone), reset count
   var sameCtx=_camBar.ctx&&_camBar.ctx.type===ctx.type&&_camBar.ctx.did===ctx.did&&_camBar.ctx.ei===ctx.ei&&_camBar.ctx.ri===ctx.ri&&_camBar.ctx.idx===ctx.idx;
   if(!sameCtx){_camBar.count=0;}
   _camBar.ctx=ctx;_camBar.count++;
   var bar=document.getElementById('camera-bar');
+  console.log('[CAM-DEBUG] bar element found='+(!!bar));
   var countEl=document.getElementById('camera-bar-count');
   if(countEl)countEl.textContent=_camBar.count+' photo'+(_camBar.count>1?'s':'')+' taken';
   if(bar)bar.style.display='block';
