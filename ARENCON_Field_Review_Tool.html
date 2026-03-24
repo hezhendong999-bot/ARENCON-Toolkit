@@ -8111,7 +8111,6 @@ function triggerEntryPhotoCamera(did,ei){
     if(inp.files&&inp.files.length>0){
       processEntryPhotos(did,ei,inp.files);
       inp.value='';
-      _showCameraBar({type:'entry',did:did,ei:ei});
     }
   };inp.click();
 }
@@ -8854,7 +8853,7 @@ function _requeuePendingUploads(proj){
 }
 
 function triggerRespPhotoUpload(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){processRespPhotos(did,ri,inp.files);};inp.click();}
-function triggerRespPhotoCamera(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){if(inp.files&&inp.files.length>0){processRespPhotos(did,ri,inp.files);inp.value='';_showCameraBar({type:'resp',did:did,ri:ri});}};inp.click();}
+function triggerRespPhotoCamera(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){if(inp.files&&inp.files.length>0){processRespPhotos(did,ri,inp.files);inp.value='';}};inp.click();}
 function handleRespPhotoDrop(e,did,ri){processRespPhotos(did,ri,e.dataTransfer.files);}
 function processRespPhotos(did,ri,files){
   var f=findDeficiency(did);if(!f||!f.defic.responses||!f.defic.responses[ri])return;
@@ -9143,13 +9142,8 @@ var _pinEntryTarget=0;
 function triggerPinEntryPhoto(idx){_pinEntryTarget=idx;document.getElementById('pin-ei-upload').click();}
 function triggerPinEntryCamera(idx){_pinEntryTarget=idx;document.getElementById('pin-ei-camera').click();}
 function handlePinEntryUpload(e,idx){
-  var isCameraInput=e.target.id==='pin-ei-camera'||e.target.hasAttribute('capture');
-  var hadFiles=e.target.files&&e.target.files.length>0;
   handlePinEntryFiles(e.target.files,idx);
   e.target.value='';
-  if(isCameraInput&&hadFiles){
-    _showCameraBar({type:'pin',idx:idx});
-  }
 }
 function handlePinEntryPhotoDrop(e,idx){handlePinEntryFiles(e.dataTransfer.files,idx);}
 
@@ -10183,15 +10177,8 @@ function openGalleryLightboxMarkup(){
 }
 
 function handlePhotoUploadEvent(e){
-  var isCameraInput=e.target.id==='photo-camera-input'||e.target.hasAttribute('capture');
-  var hadFiles=e.target.files&&e.target.files.length>0;
-  console.log('[CAM-DEBUG] handlePhotoUploadEvent: isCameraInput='+isCameraInput+' hadFiles='+hadFiles+' id='+e.target.id);
   handlePhotoFiles(e.target.files);
   e.target.value='';
-  if(isCameraInput&&hadFiles){
-    console.log('[CAM-DEBUG] showing camera bar for site');
-    _showCameraBar({type:'site'});
-  }
 }
 function triggerPhotoCamera(){document.getElementById('photo-camera-input').click();}
 
@@ -11952,54 +11939,6 @@ if(_csHubMode)_resetSessionTimers();
     </div>
   </div>
 </div>
-<!-- ══ STICKY CAMERA BAR — continuous photo capture ══ -->
-<div id="camera-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:10010;background:var(--card,#fff);border-top:2px solid #9C2742;box-shadow:0 -4px 20px rgba(0,0,0,.25);padding:12px 16px;font-family:Calibri,sans-serif;">
-  <div style="display:flex;align-items:center;justify-content:center;gap:10px;max-width:400px;margin:0 auto;">
-    <span id="camera-bar-count" style="font-size:calc(13px + var(--ts));color:var(--fg,#333);font-weight:600;white-space:nowrap;">1 photo taken</span>
-    <button id="camera-bar-btn" onclick="_cameraBarTakeAnother()" style="flex:1;max-width:200px;padding:10px 16px;background:#1A7A4A;color:white;border:none;border-radius:8px;cursor:pointer;font-family:inherit;font-size:calc(14px + var(--ts));font-weight:700;">📷 Take Another</button>
-    <button onclick="_hideCameraBar()" style="padding:10px 16px;background:var(--outline-bg,#f0f0f0);color:var(--fg,#333);border:1.5px solid var(--border,#ddd);border-radius:8px;cursor:pointer;font-family:inherit;font-size:calc(13px + var(--ts));">Done</button>
-  </div>
-  <input type="file" id="camera-bar-input" accept="image/*" capture="environment" style="display:none">
-</div>
-<script>
-// ── Continuous Camera Bar System ──
-var _camBar={ctx:null,count:0};
-function _showCameraBar(ctx){
-  console.log('[CAM-DEBUG] _showCameraBar called with type='+ctx.type);
-  // If context changed (different photo zone), reset count
-  var sameCtx=_camBar.ctx&&_camBar.ctx.type===ctx.type&&_camBar.ctx.did===ctx.did&&_camBar.ctx.ei===ctx.ei&&_camBar.ctx.ri===ctx.ri&&_camBar.ctx.idx===ctx.idx;
-  if(!sameCtx){_camBar.count=0;}
-  _camBar.ctx=ctx;_camBar.count++;
-  var bar=document.getElementById('camera-bar');
-  console.log('[CAM-DEBUG] bar element found='+(!!bar));
-  var countEl=document.getElementById('camera-bar-count');
-  if(countEl)countEl.textContent=_camBar.count+' photo'+(_camBar.count>1?'s':'')+' taken';
-  if(bar)bar.style.display='block';
-  // Wire up the hidden input's onchange for this context
-  var inp=document.getElementById('camera-bar-input');
-  if(inp)inp.onchange=function(){
-    if(!inp.files||!inp.files.length)return;
-    _camBarProcessFiles(inp.files);
-    inp.value='';
-    _camBar.count++;
-    if(countEl)countEl.textContent=_camBar.count+' photo'+(_camBar.count>1?'s':'')+' taken';
-  };
-}
-function _hideCameraBar(){
-  var bar=document.getElementById('camera-bar');if(bar)bar.style.display='none';
-  _camBar.ctx=null;_camBar.count=0;
-}
-function _cameraBarTakeAnother(){
-  document.getElementById('camera-bar-input').click();
-}
-function _camBarProcessFiles(files){
-  var c=_camBar.ctx;if(!c)return;
-  if(c.type==='site'){handlePhotoFiles(files);}
-  else if(c.type==='entry'){processEntryPhotos(c.did,c.ei,files);}
-  else if(c.type==='resp'){processRespPhotos(c.did,c.ri,files);}
-  else if(c.type==='pin'){handlePinEntryFiles(files,c.idx);}
-}
-</script>
 <!-- ══ HUB CLOUDSYNC INTEGRATION ══ -->
 <script>
 // ── Issue Report (Hub mode) ──
