@@ -10838,8 +10838,15 @@ var w=window.open('','_blank');
 if(!w){_aAlert('Popup blocked. Allow popups for this site.');return;}
 
 var _pdfSmartName=buildSmartFilename(p);
-var _pdfCtrSuffix=(_ctrFilterId!=='__all__'&&_ctrFilterName)?' - '+_ctrFilterName:'';
-var _pdfTitle=_pdfSmartName+' Field Review Report'+_pdfCtrSuffix+(_rptNum>1?' #'+_rptNum:'')+' '+_rptRev;
+// Smart name ends with revision (e.g. "... B01") — strip it for PDF title construction
+var _pdfRev=p.info.revision||'A01';
+var _pdfBaseName=_pdfSmartName;
+if(_pdfBaseName.endsWith(' '+_pdfRev)){_pdfBaseName=_pdfBaseName.slice(0,-(_pdfRev.length+1));}
+// Abbreviate for filename: "Report" → "Rpt", "Upgrade" → "Upg", "Sprinkler" already "Sprkl"
+var _pdfAbbrevBase=_pdfBaseName.replace(/Upgrade/g,'Upg').replace(/Report/g,'Rpt');
+var _pdfCtrPart=(_ctrFilterId!=='__all__'&&_ctrFilterName)?' '+_ctrFilterName:'';
+var _pdfInstPart=(_rptNum>1)?' #'+_rptNum:'';
+var _pdfTitle=_pdfAbbrevBase+' Field Review Rpt'+_pdfInstPart+_pdfCtrPart+' '+_pdfRev;
 
 var docHtml='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+escHtml(_pdfTitle)+'</title>';
 docHtml+='<style>'+css+'</style></head><body>';
