@@ -126,10 +126,8 @@ body.dark-mode{
 .project-card-pm{font-size:calc(10px + var(--ts));color:var(--steel);font-weight:500;margin-left:auto}
 /* Card bottom: tool icons + progress + backup */
 .project-card-bottom{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.tool-icon-btn{cursor:default;padding:1px;line-height:1;opacity:.85;transition:opacity .15s;display:inline-flex;align-items:center;gap:2px;}
+.tool-icon-btn{font-size:calc(15px + var(--ts));cursor:default;padding:1px;line-height:1;opacity:.8;transition:opacity .15s}
 .tool-icon-btn:hover{opacity:1}
-.tool-icon-btn svg{vertical-align:middle;}
-.tool-short{font-size:calc(9px + var(--ts));font-weight:700;letter-spacing:.3px;color:var(--fg-muted,#888);font-family:Calibri,sans-serif;}
 .project-card-bottom .progress-chip{margin-left:auto}
 .backup-status{font-size:9.5px;color:var(--silver);font-weight:500;margin-left:auto}
 .backup-status.not-backed{color:var(--warn)}
@@ -197,8 +195,7 @@ body.dark-mode .dash-sort{background:var(--card);border-color:var(--border);colo
 .tool-launch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
 .tool-launch-card{display:flex;align-items:center;gap:10px;padding:14px 16px;border:1.5px solid var(--border);border-left:3px solid var(--arencon);border-radius:var(--radius);cursor:pointer;transition:all .25s;background:rgba(156,39,66,0.04);}
 .tool-launch-card:hover{border-color:var(--arencon);background:var(--arencon-light);box-shadow:var(--shadow-md)}
-.tool-launch-card .tlc-icon{flex-shrink:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center;}
-.tool-launch-card .tlc-icon svg{width:28px;height:28px;}
+.tool-launch-card .tlc-icon{font-size:22px;flex-shrink:0;}
 .tool-launch-card .tlc-name{font-size:calc(13px + var(--ts));font-weight:600;color:var(--fg);}
 .tool-launch-card.disabled{opacity:1;cursor:default;background:var(--smoke);border-left:3px solid var(--border);}
 .tool-launch-card.disabled .tlc-name{color:var(--silver);}
@@ -214,7 +211,11 @@ body.dark-mode .tool-launch-card.disabled .tlc-name{color:#556070;}
 .tlc-toggle::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.15);}
 .tlc-toggle.on{background:var(--arencon);}
 .tlc-toggle.on::after{transform:translateX(16px);}
-.tool-launch-card{position:relative;padding-right:56px;}
+.tlc-qr{position:absolute;top:12px;right:54px;background:none;border:1.5px solid var(--border);border-radius:6px;padding:2px 6px;font-size:14px;cursor:pointer;z-index:2;line-height:1;transition:all .15s;pointer-events:auto;}
+.tlc-qr:hover{border-color:var(--arencon);background:var(--arencon-light);}
+body.dark-mode .tlc-qr{border-color:#2a3040;background:transparent;}
+body.dark-mode .tlc-qr:hover{border-color:var(--arencon);background:rgba(156,39,66,.2);}
+.tool-launch-card{position:relative;padding-right:96px;}
 /* Report instance rows */
 .ri-list{margin-top:10px;padding-left:0;}
 .ri-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;font-weight:400;font-size:calc(12.5px + var(--ts));font-family:Calibri,sans-serif;color:var(--fg);cursor:pointer;transition:all .15s;border:1px solid transparent;}
@@ -513,7 +514,10 @@ body.dark-mode .pg-tool-body{background:#151920;}
 /* Lightbox */
 #pg-lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:20000;flex-direction:column;align-items:center;justify-content:center;}
 #pg-lightbox.open{display:flex;}
-#pg-lb-img{max-width:92vw;max-height:78vh;object-fit:contain;border-radius:6px;}
+#pg-lb-img{max-width:92vw;max-height:78vh;object-fit:contain;border-radius:6px;transform-origin:0 0;transition:transform .15s ease-out;}
+#pg-lb-wrap{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;max-width:95vw;max-height:85vh;touch-action:none;}
+#pg-lb-zoom-hint{position:absolute;bottom:8px;right:10px;background:rgba(0,0,0,.55);color:rgba(255,255,255,.7);font-size:11px;padding:2px 8px;border-radius:4px;pointer-events:none;font-family:Calibri,sans-serif;opacity:0;transition:opacity .3s;}
+#pg-lb-zoom-hint.vis{opacity:1;}
 #pg-lb-close{position:absolute;top:16px;right:18px;background:rgba(255,255,255,.12);border:none;color:white;font-size:22px;cursor:pointer;border-radius:6px;padding:4px 10px;line-height:1;}
 .pg-lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border:none;color:white;font-size:28px;cursor:pointer;border-radius:6px;padding:6px 12px;line-height:1;}
 #pg-lb-prev{left:16px;}
@@ -1714,7 +1718,7 @@ function _renderProjectCard(p, myId) {
   // Tool icons (hover for name)
   var tools = (p.enabled_tools || []);
   var toolIcons = tools.length > 0
-    ? tools.map(function(t) { var ti = AVAILABLE_TOOLS[t]; return ti ? '<span class="tool-icon-btn" title="' + esc(ti.name) + '">' + ti.icon + '<span class="tool-short">' + ti.short + '</span></span>' : ''; }).join('')
+    ? tools.map(function(t) { var ti = AVAILABLE_TOOLS[t]; return ti ? '<span class="tool-icon-btn" title="' + esc(ti.name) + '">' + ti.icon + '</span>' : ''; }).join('')
     : '<span style="font-size:calc(10px + var(--ts));color:var(--silver)">No tools</span>';
 
   // Progress chips
@@ -1805,21 +1809,13 @@ function toggleDeleted() {
 }
 
 /* ═══ AVAILABLE TOOLS REGISTRY ═══ */
-var _toolSvg={
-  frt:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#9C2742" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="14" height="18" rx="2"/><path d="M7 7h6M7 11h6M7 15h4"/><path d="M19 8l2-2m-2 6h2m-2 4l2 2" stroke-width="1.5"/></svg>',
-  diesel:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#E65100" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="12" height="12" rx="2"/><rect x="5" y="10" width="3.5" height="4" rx="1"/><rect x="10" y="10" width="3.5" height="4" rx="1"/><path d="M9 3v5M7 3h4" stroke-width="1.5"/><path d="M15 11h3a2 2 0 012 2v4a1 1 0 01-1 1h-1" /><circle cx="6" cy="18" r="1" fill="#E65100"/><circle cx="12" cy="18" r="1" fill="#E65100"/></svg>',
-  electric:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1565C0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="14" r="7"/><circle cx="10" cy="14" r="3"/><path d="M10 7v-3M10 21v-1M3 14H2m17 0h-1" stroke-width="1.5"/><path d="M18 4l-2 5h3l-2 5" stroke="#F9A825" stroke-width="2" fill="none"/></svg>',
-  ist:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#C62828" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 00-3 3v2h6V6a3 3 0 00-3-3z" fill="#C62828" fill-opacity=".15"/><rect x="7" y="8" width="10" height="6" rx="1"/><path d="M12 14v4"/><circle cx="12" cy="20" r="1.5" fill="#C62828"/><path d="M3 5c1-1 2-1.5 3-1.5M21 5c-1-1-2-1.5-3-1.5" stroke-width="1.5" opacity=".5"/><path d="M1 7c1.5-1.5 3-2.5 5-2.5M23 7c-1.5-1.5-3-2.5-5-2.5" stroke-width="1.5" opacity=".3"/></svg>',
-  obc:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#2E7D32" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="14" height="20" rx="2"/><path d="M7 6h6M7 10h6M7 14h4"/><path d="M15 13l2.5 2.5L22 11" stroke="#2E7D32" stroke-width="2.2"/></svg>',
-  dd:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#5E35B1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="1" width="18" height="22" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/><path d="M7 7l1 1 2-2" stroke-width="1.5"/><path d="M7 11l1 1 2-2" stroke-width="1.5"/><path d="M7 15l1 1 2-2" stroke-width="1.5"/></svg>'
-};
 const AVAILABLE_TOOLS = {
-  frt:      { name: 'Field Review Report',             icon: _toolSvg.frt, file: 'ARENCON_Field_Review_Tool.html', short: 'FRT', pdfName: 'Field Review Rpt' },
-  diesel:   { name: 'Diesel Fire Pump Commissioning', icon: _toolSvg.diesel, file: 'ARENCON_Diesel_Fire_Pump_Commissioning.html', short: 'DFP', pdfName: 'Diesel Pump Rpt' },
-  electric: { name: 'Electric Fire Pump Acceptance',   icon: _toolSvg.electric, file: 'ARENCON_Electric_Fire_Pump_Commissioning.html', short: 'EFP', pdfName: 'Electric Pump Rpt' },
-  ist:      { name: 'Integrated Systems Testing',      icon: _toolSvg.ist, file: 'ARENCON_IST_S1001.html', short: 'IST', pdfName: 'IST Rpt' },
-  obc:      { name: 'OBC Compliance Report',           icon: _toolSvg.obc, file: 'ARENCON_OBC_Report_Generator.html', short: 'OBC', pdfName: 'OBC Rpt' },
-  dd:       { name: 'Due Diligence Checklist',         icon: _toolSvg.dd, file: 'ARENCON_DD_Checklist.html', short: 'DD', pdfName: 'DD Rpt' }
+  frt:      { name: 'Field Review Report',             icon: '📋', file: 'ARENCON_Field_Review_Tool.html' },
+  diesel:   { name: 'Diesel Fire Pump Commissioning', icon: '🔥', file: 'ARENCON_Diesel_Fire_Pump_Commissioning.html' },
+  electric: { name: 'Electric Fire Pump Acceptance',   icon: '⚡', file: 'ARENCON_Electric_Fire_Pump_Commissioning.html' },
+  ist:      { name: 'Integrated Systems Testing',      icon: '🔗', file: 'ARENCON_IST_S1001.html' },
+  obc:      { name: 'OBC Compliance Report',           icon: '📋', file: 'ARENCON_OBC_Report_Generator.html' },
+  dd:       { name: 'Due Diligence Checklist',         icon: '✅', file: 'ARENCON_DD_Checklist.html' }
 };
 
 function toolName(key) {
@@ -1888,6 +1884,8 @@ function _renderDetailTools(proj) {
     var toggleHtml = isViewer ? '' :
       '<button class="tlc-toggle' + (enabled ? ' on' : '') + '" onclick="event.stopPropagation();toggleTool(\'' + key + '\')" title="' + (enabled ? 'Disable' : 'Enable') + ' ' + esc(t.name) + '"></button>';
 
+    var qrHtml = enabled ? '<button class="tlc-qr" onclick="event.stopPropagation();openToolQR(\'' + _detailProjectId + '\',\'' + key + '\')" title="QR Code for ' + esc(t.name) + '">📱</button>' : '';
+
     html += '<div class="tool-launch-card' + (enabled ? '' : ' disabled') + '" id="tlc-' + key + '"'
       + (enabled ? ' onclick="launchTool(\'' + key + '\')"' : '')
       + ' title="' + (enabled ? 'Click to open ' + esc(t.name) : 'Toggle switch to enable') + '">'
@@ -1895,6 +1893,7 @@ function _renderDetailTools(proj) {
       + '<div><div class="tlc-name">' + esc(t.name) + '</div>'
       + (enabled ? '' : '<div class="tlc-badge">Not enabled</div>')
       + '</div>'
+      + qrHtml
       + toggleHtml
       + '</div>';
   });
@@ -3663,7 +3662,7 @@ function _pgRender() {
     toolGroups[tKey].push(ph);
   });
 
-  var toolIcons = { frt:'📋', diesel:'🔥', electric:'⚡', ist:'🔔', obc:'🏛', dd:'✅' };
+  var toolIcons = { frt:'📋', diesel:'🔥', electric:'⚡', ist:'🧪', obc:'📖', dd:'📝' };
 
   var html = '';
   toolOrder.forEach(function(toolName) {
@@ -3974,15 +3973,132 @@ function pgDeleteOne(id) {
   toast('To delete a photo, open the tool and remove it there. Hub gallery is a read-only view.', 'info');
 }
 
+// ═══ Hub Lightbox Zoom Engine ═══
+var _hlbZ={s:1,px:0,py:0,drag:false,lx:0,ly:0,pinchDist:0,pinchS:1,pinchMid:null,hintTimer:0,inited:false};
+function _hlbZoomReset(){_hlbZ.s=1;_hlbZ.px=0;_hlbZ.py=0;_hlbZ.drag=false;_hlbApply();}
+function _hlbApply(){
+  var img=document.getElementById('pg-lb-img');if(!img)return;
+  if(_hlbZ.s<=1){_hlbZ.s=1;_hlbZ.px=0;_hlbZ.py=0;}
+  img.style.transform='translate('+_hlbZ.px+'px,'+_hlbZ.py+'px) scale('+_hlbZ.s+')';
+  img.style.cursor=_hlbZ.s>1?'grab':'zoom-in';
+  var h=document.getElementById('pg-lb-zoom-hint');if(h){
+    var pct=Math.round(_hlbZ.s*100);h.textContent=pct+'%';
+    h.classList.add('vis');clearTimeout(_hlbZ.hintTimer);
+    _hlbZ.hintTimer=setTimeout(function(){h.classList.remove('vis');},1200);
+  }
+}
+function _hlbClamp(){
+  if(_hlbZ.s<=1){_hlbZ.s=1;_hlbZ.px=0;_hlbZ.py=0;return;}
+  var wrap=document.getElementById('pg-lb-wrap');if(!wrap)return;
+  var img=document.getElementById('pg-lb-img');if(!img)return;
+  var ww=wrap.clientWidth,wh=wrap.clientHeight;
+  var iw=img.naturalWidth||1,ih=img.naturalHeight||1;
+  var fitS=Math.min(ww/iw,wh/ih,1);
+  var dw=iw*fitS*_hlbZ.s,dh=ih*fitS*_hlbZ.s;
+  var maxPx=Math.max(0,(dw-ww)/2),maxPy=Math.max(0,(dh-wh)/2);
+  _hlbZ.px=Math.max(-maxPx,Math.min(maxPx,_hlbZ.px));
+  _hlbZ.py=Math.max(-maxPy,Math.min(maxPy,_hlbZ.py));
+}
+function _hlbZoomAt(cx,cy,delta){
+  var wrap=document.getElementById('pg-lb-wrap');if(!wrap)return;
+  var r=wrap.getBoundingClientRect();
+  var ox=(cx-r.left-r.width/2-_hlbZ.px)/_hlbZ.s;
+  var oy=(cy-r.top-r.height/2-_hlbZ.py)/_hlbZ.s;
+  var ns=Math.max(1,Math.min(8,_hlbZ.s*delta));
+  _hlbZ.px-=ox*(ns-_hlbZ.s);_hlbZ.py-=oy*(ns-_hlbZ.s);
+  _hlbZ.s=ns;_hlbClamp();_hlbApply();
+}
+function _hlbZoomInit(){
+  if(_hlbZ.inited)return;_hlbZ.inited=true;
+  var wrap=document.getElementById('pg-lb-wrap');if(!wrap)return;
+  // Mouse wheel
+  wrap.addEventListener('wheel',function(e){
+    e.preventDefault();e.stopPropagation();
+    var d=e.deltaY<0?1.15:1/1.15;
+    _hlbZoomAt(e.clientX,e.clientY,d);
+  },{passive:false});
+  // Double-click toggle
+  var _dc=0,_dt=0;
+  wrap.addEventListener('click',function(e){
+    _dc++;if(_dc===1){_dt=setTimeout(function(){_dc=0;},300);}
+    else if(_dc===2){clearTimeout(_dt);_dc=0;
+      if(_hlbZ.s>1.05){_hlbZoomReset();}else{_hlbZoomAt(e.clientX,e.clientY,3);}
+    }
+  });
+  // Mouse drag pan
+  wrap.addEventListener('mousedown',function(e){
+    if(_hlbZ.s<=1)return;e.preventDefault();
+    _hlbZ.drag=true;_hlbZ.lx=e.clientX;_hlbZ.ly=e.clientY;
+    var img=document.getElementById('pg-lb-img');if(img)img.style.cursor='grabbing';
+  });
+  window.addEventListener('mousemove',function(e){
+    if(!_hlbZ.drag)return;
+    _hlbZ.px+=e.clientX-_hlbZ.lx;_hlbZ.py+=e.clientY-_hlbZ.ly;
+    _hlbZ.lx=e.clientX;_hlbZ.ly=e.clientY;
+    _hlbClamp();_hlbApply();
+  });
+  window.addEventListener('mouseup',function(){
+    if(_hlbZ.drag){_hlbZ.drag=false;
+      var img=document.getElementById('pg-lb-img');if(img&&_hlbZ.s>1)img.style.cursor='grab';
+    }
+  });
+  // Touch: pinch zoom + pan
+  var _td=0,_tm=null,_ts=null;
+  wrap.addEventListener('touchstart',function(e){
+    if(e.touches.length===2){
+      e.preventDefault();
+      var dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;
+      _td=Math.hypot(dx,dy);
+      _tm={x:(e.touches[0].clientX+e.touches[1].clientX)/2,y:(e.touches[0].clientY+e.touches[1].clientY)/2};
+      _hlbZ.pinchS=_hlbZ.s;
+    } else if(e.touches.length===1&&_hlbZ.s>1){
+      _ts={x:e.touches[0].clientX,y:e.touches[0].clientY,px:_hlbZ.px,py:_hlbZ.py};
+    }
+  },{passive:false});
+  wrap.addEventListener('touchmove',function(e){
+    if(e.touches.length===2&&_td>0){
+      e.preventDefault();
+      var dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;
+      var nd=Math.hypot(dx,dy);var ratio=nd/_td;
+      var ns=Math.max(1,Math.min(8,_hlbZ.pinchS*ratio));
+      var mx=(e.touches[0].clientX+e.touches[1].clientX)/2,my=(e.touches[0].clientY+e.touches[1].clientY)/2;
+      if(_tm){_hlbZ.px+=(mx-_tm.x);_hlbZ.py+=(my-_tm.y);_tm={x:mx,y:my};}
+      _hlbZ.s=ns;_hlbClamp();_hlbApply();
+    } else if(e.touches.length===1&&_ts&&_hlbZ.s>1){
+      e.preventDefault();
+      _hlbZ.px=_ts.px+(e.touches[0].clientX-_ts.x);
+      _hlbZ.py=_ts.py+(e.touches[0].clientY-_ts.y);
+      _hlbClamp();_hlbApply();
+    }
+  },{passive:false});
+  wrap.addEventListener('touchend',function(e){
+    if(e.touches.length<2){_td=0;_tm=null;}
+    if(e.touches.length===0)_ts=null;
+  });
+  // Double-tap
+  var _dtl=0;
+  wrap.addEventListener('touchend',function(e){
+    if(e.touches.length>0)return;
+    var now=Date.now();
+    if(now-_dtl<350){
+      var t=e.changedTouches[0];
+      if(_hlbZ.s>1.05){_hlbZoomReset();}else{_hlbZoomAt(t.clientX,t.clientY,3);}
+      _dtl=0;
+    } else {_dtl=now;}
+  });
+}
+
 // ── Lightbox ──
 function pgLbOpen(id) {
   _pgLbList = _pgFiltered;
   _pgLbIdx = _pgLbList.findIndex(function(p) { return p.id === id; });
   if (_pgLbIdx < 0) _pgLbIdx = 0;
+  _hlbZoomReset();
   _pgLbShow();
   var lb = document.getElementById('pg-lightbox');
   if (lb) lb.classList.add('open');
   document.body.style.overflow = 'hidden';
+  _hlbZoomInit();
 }
 
 function _pgLbShow() {
@@ -4006,11 +4122,13 @@ function _pgLbShow() {
 }
 
 function pgLbNav(dir) {
+  _hlbZoomReset();
   _pgLbIdx = (_pgLbIdx + dir + _pgLbList.length) % _pgLbList.length;
   _pgLbShow();
 }
 
 function pgLbClose() {
+  _hlbZoomReset();
   var lb = document.getElementById('pg-lightbox');
   if (lb) lb.classList.remove('open');
   document.body.style.overflow = '';
@@ -4028,6 +4146,9 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') pgLbNav(-1);
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') pgLbNav(1);
   if (e.key === 'Escape') pgLbClose();
+  if (e.key === '=' || e.key === '+') _hlbZoomAt(window.innerWidth/2, window.innerHeight/2, 1.3);
+  if (e.key === '-' || e.key === '_') _hlbZoomAt(window.innerWidth/2, window.innerHeight/2, 1/1.3);
+  if (e.key === '0') { e.preventDefault(); _hlbZoomReset(); }
 });
 
 // ── Helpers ──
@@ -4043,7 +4164,7 @@ function _pgEscHtml(s) {
 <div id="pg-lightbox">
   <button id="pg-lb-close" onclick="pgLbClose()">✕</button>
   <button class="pg-lb-nav" id="pg-lb-prev" onclick="pgLbNav(-1)">‹</button>
-  <img id="pg-lb-img" src="" alt="">
+  <div id="pg-lb-wrap"><img id="pg-lb-img" src="" alt=""><div id="pg-lb-zoom-hint"></div></div>
   <button class="pg-lb-nav" id="pg-lb-next" onclick="pgLbNav(1)">›</button>
   <div id="pg-lb-info"></div>
   <div id="pg-lb-actions">
@@ -4405,6 +4526,26 @@ function _pgEscHtml(s) {
     var proj=_projects?_projects.find(function(p){return p.id===projectId;}):null;
     var name=proj?(proj.project_number||'')+' '+(proj.project_name||''):'Project';
     openQRModal(url,'Open Project','Scan to open: '+name.trim());
+  };
+
+  // QR for a specific tool within a project
+  window.openToolQR=function(projectId,toolKey){
+    if(!projectId||!toolKey)return;
+    var proj=_projects?_projects.find(function(p){return p.id===projectId;}):null;
+    var pn=proj?proj.project_number||'':'';
+    var pname=proj?proj.project_name||'':'';
+    var client=proj?proj.client||'':'';
+    var addr=proj?proj.address||'':'';
+    var toolFile=AVAILABLE_TOOLS[toolKey]?AVAILABLE_TOOLS[toolKey].file:'';
+    if(!toolFile)return;
+    var base='https://hezhendong999-bot.github.io/ARENCON-Toolkit/';
+    var url=base+toolFile+'?project='+encodeURIComponent(projectId)
+      +'&pn='+encodeURIComponent(pn)
+      +'&pname='+encodeURIComponent(pname)
+      +'&client='+encodeURIComponent(client)
+      +'&addr='+encodeURIComponent(addr);
+    var toolLabel=AVAILABLE_TOOLS[toolKey]?AVAILABLE_TOOLS[toolKey].name:toolKey;
+    openQRModal(url,'Open '+toolLabel,'Scan to open tool for: '+(pn+' '+pname).trim());
   };
 
   // Close on Escape
