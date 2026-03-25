@@ -861,25 +861,21 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .photo-date-header input[type=checkbox]{width:16px;height:16px;}
 .photo-thumb-grid{display:flex;flex-wrap:wrap;gap:6px;}
 .photo-thumb{width:120px;position:relative;border-radius:6px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:border-color .15s;background:#e8eaf0;flex-shrink:0;}
-.photo-thumb:hover{border-color:rgba(33,150,243,.5);}
-.photo-thumb.selected{border-color:#E6930A;box-shadow:0 0 0 1px #E6930A;}
+.photo-thumb:hover{border-color:rgba(156,39,66,.4);}
+.photo-thumb.selected{border-color:#9C2742;box-shadow:0 0 0 1px #9C2742;}
 .photo-thumb img{width:120px;height:100px;object-fit:cover;display:block;}
-/* Checkbox — small pill top-left, only on hover/selected */
-.photo-thumb .photo-select-check{position:absolute;top:4px;left:4px;z-index:3;opacity:0;transition:opacity .15s;}
-.photo-thumb:hover .photo-select-check,.photo-thumb.selected .photo-select-check{opacity:1;}
-.photo-thumb .photo-select-check input{width:14px;height:14px;cursor:pointer;accent-color:#E6930A;margin:0;}
-/* Hover bar — date + download, sits above caption row */
-.photo-thumb .photo-hover-info{position:absolute;top:0;left:0;right:0;background:linear-gradient(rgba(0,0,0,.55),transparent);padding:4px 6px 8px;display:flex;align-items:center;justify-content:space-between;opacity:0;transition:opacity .15s;}
-.photo-thumb:hover .photo-hover-info{opacity:1;}
-.photo-hover-date{font-size:9px;color:rgba(255,255,255,.9);line-height:1.2;}
-.photo-dl-btn{background:none;border:none;color:white;cursor:pointer;font-size:calc(12px + var(--ts));padding:0;line-height:1;}
+.photo-thumb-cb{position:absolute;top:4px;left:4px;accent-color:#9C2742;width:22px;height:22px;cursor:pointer;z-index:3;margin:0;}
+.photo-type-badge{position:absolute;top:6px;left:30px;color:white;font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;z-index:2;pointer-events:none;line-height:1.6;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.photo-r2-icon{position:absolute;bottom:4px;left:4px;font-size:9px;z-index:2;pointer-events:none;line-height:1;filter:drop-shadow(0 0 2px rgba(0,0,0,.7));}
+.photo-thumb-del{position:absolute;top:4px;right:4px;background:rgba(220,38,38,.85);color:white;border:none;border-radius:50%;width:26px;height:26px;font-size:13px;line-height:26px;text-align:center;cursor:pointer;z-index:3;opacity:0;transition:opacity .15s;padding:0;}
+.photo-thumb-dl{position:absolute;bottom:4px;right:4px;background:rgba(26,122,74,.85);color:white;border:none;border-radius:50%;width:26px;height:26px;font-size:12px;line-height:26px;text-align:center;cursor:pointer;z-index:3;opacity:0;transition:opacity .15s;padding:0;}
+.photo-thumb:hover .photo-thumb-del,.photo-thumb:hover .photo-thumb-dl{opacity:1;}
+.photo-thumb-del:hover{background:#DC2626;transform:scale(1.1);}
+.photo-thumb-dl:hover{background:#1A7A4A;transform:scale(1.1);}/* Checkbox — small pill top-left, only on hover/selected */
+/* Old photo overlay styles removed — replaced by Hub-style thumb-cb/del/dl *//* Hover bar — date + download, sits above caption row */
+/* Old hover-info removed — date shown in lightbox instead */
 /* Caption row — below image, not overlapping */
-.photo-caption-row{padding:3px 5px;background:var(--smoke,#F5F7FA);border-top:1px solid var(--border,#DDE1E7);}
-.photo-caption-input{width:100%;background:transparent;border:none;color:var(--fg,#1B2438);font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;padding:0;outline:none;text-overflow:ellipsis;}
-.photo-caption-input::placeholder{color:var(--silver,#9EAAB8);}
-.photo-caption-input:focus{border-bottom:1px solid var(--red,#9C2742);}
-body.dark-mode .photo-caption-row{background:#1e2028;border-top-color:#2a2e38;}
-body.dark-mode .photo-caption-input{color:#d4d8e8;}
+/* Caption input removed from grid — captions editable in lightbox */
 
 /* ═══ PHOTO LIGHTBOX ═══ */
 .photo-lightbox-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:8000;align-items:center;justify-content:center;flex-direction:column;}
@@ -932,8 +928,8 @@ body.dark-mode .dwg-actions-menu,.dark-mode .dwg-filter-menu,.dark-mode .photo-a
 body.dark-mode .dwg-actions-menu button,.dark-mode .dwg-filter-menu button,.dark-mode .photo-actions-menu button,.dark-mode .photo-filter-menu button{color:#c8d0e8!important;background:#252b38!important;}
 body.dark-mode .dwg-actions-menu button:hover,.dark-mode .dwg-filter-menu button:hover{background:#2e3650!important;}
 body.dark-mode .photo-date-header{border-bottom-color:#3a3e48;color:#ccc;}
-body.dark-mode .photo-thumb{border-color:transparent;}
-body.dark-mode .photo-thumb.selected{border-color:#E6930A;}
+body.dark-mode .photo-thumb{border-color:transparent;background:#1a1e28;}
+body.dark-mode .photo-thumb.selected{border-color:#9C2742;}
 body.dark-mode .drawing-card.add-card{border-color:#555;}
 body.dark-mode .drawing-card.add-card:hover{border-color:var(--red);}
 
@@ -9969,27 +9965,18 @@ function renderPhotoGallery(){
       var typeLabel=ph.type==='site'?'Site':ph.type==='response'?'Resp':((isGeneral?'General · ':'')+'Pin '+ph.deficNum);
       var r2Icon=ph.r2Status==='uploaded'?'☁':ph.r2Status==='pending'?'⏳':ph.r2Status==='error'?'⚠':'';
       html+='<div class="photo-thumb'+(sel?' selected':'')+'" data-photo-id="'+ph.id+'">';
-      // Image first so overlays sit on top
+      // Image — click opens lightbox
       html+='<img data-src="'+ph.src+'" onclick="openPhotoLightbox(\''+ph.id+'\')" loading="lazy">';
-      // Checkbox — top-left, small, on hover/select only
-      html+='<div class="photo-select-check" onclick="event.stopPropagation();togglePhotoSelect(\''+ph.id+'\')">' +
-            '<input type="checkbox" '+(sel?'checked':'')+' tabindex="-1"></div>';
-      // Type badge — top-right
-      html+='<div style="position:absolute;top:4px;right:4px;background:'+typeColor+';color:white;font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;z-index:2;pointer-events:none;line-height:1.6;">'+typeLabel+'</div>';
-      // R2 icon — bottom-right of image area
-      if(r2Icon)html+='<div style="position:absolute;bottom:'+(ph.type==='site'?'26':'4')+'px;right:4px;font-size:9px;z-index:2;pointer-events:none;line-height:1;filter:drop-shadow(0 0 2px rgba(0,0,0,.7));" title="Cloud: '+ph.r2Status+'">'+r2Icon+'</div>';
-      // Hover bar — top gradient, date + download
-      html+='<div class="photo-hover-info">';
-      html+='<span class="photo-hover-date">'+(ph.date?(ph.date+'').substring(0,10):'')+' </span>';
-      html+='<button class="photo-dl-btn" onclick="event.stopPropagation();downloadPhoto(\''+ph.id+'\')" title="Download">⬇</button>';
-      html+='</div>';
-      // Caption — below image, not overlapping
-      if(ph.type==='site'){
-        html+='<div class="photo-caption-row" onclick="event.stopPropagation()">';
-        html+='<input type="text" class="photo-caption-input" placeholder="Add caption…" value="'+escHtml(ph.caption||'')+'"';
-        html+=' onchange="updateSitePhotoCaption('+ph.idx+',this.value)" onkeydown="if(event.key===\'Enter\'){this.blur();}">';
-        html+='</div>';
-      }
+      // Checkbox — always visible, top-left, 22px
+      html+='<input type="checkbox" class="photo-thumb-cb" '+(sel?'checked':'')+' onclick="event.stopPropagation();togglePhotoSelect(\''+ph.id+'\')">';
+      // Type badge — top-left, next to checkbox
+      html+='<div class="photo-type-badge" style="background:'+typeColor+';">'+typeLabel+'</div>';
+      // R2 cloud icon — bottom-left
+      if(r2Icon)html+='<div class="photo-r2-icon" title="Cloud: '+ph.r2Status+'">'+r2Icon+'</div>';
+      // Delete button — top-right, on hover (site photos only)
+      if(ph.type==='site')html+='<button class="photo-thumb-del" onclick="event.stopPropagation();deleteSingleSitePhoto(\''+ph.id+'\','+ph.idx+')" title="Delete">🗑</button>';
+      // Download button — bottom-right, on hover
+      html+='<button class="photo-thumb-dl" onclick="event.stopPropagation();downloadPhoto(\''+ph.id+'\')" title="Download">⬇</button>';
       html+='</div>';
     });
     html+='</div></div>';
@@ -10067,6 +10054,23 @@ function deleteSelectedPhotos(){
   _selectedPhotos=[];
   saveToLS();renderPhotoGallery();
   showToast(siteIds.length+' photo'+(siteIds.length!==1?'s':'')+' deleted'+(deficIds.length>0?' ('+deficIds.length+' deficiency photos skipped)':''));
+  },'Delete');
+}
+
+function deleteSingleSitePhoto(photoId,idx){
+  _aConfirm('Delete this site photo?',function(){
+    var p=getProject();if(!p)return;
+    if(p.sitePhotos&&p.sitePhotos[idx]){
+      var sp=p.sitePhotos[idx];
+      if(sp.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+        var parts=sp.r2Key.split('/');
+        if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){_dbw('R2 delete failed:',e);});
+      }
+      p.sitePhotos.splice(idx,1);
+    }
+    _selectedPhotos=_selectedPhotos.filter(function(id){return id!==photoId;});
+    saveToLS();renderPhotoGallery();
+    showToast('Photo deleted');
   },'Delete');
 }
 
@@ -10929,13 +10933,13 @@ css+='.ph-compact{display:flex;align-items:flex-end;justify-content:space-betwee
 css+='.ph-compact-left{font-size:8.5pt;color:#444;line-height:1.6;}';
 css+='.ph-compact-right{font-size:8.5pt;color:#444;line-height:1.6;text-align:right;}';
 // Section styles
-css+='.sh{background:#9C2742;color:white;padding:7px 12px;font-weight:700;font-size:12px;border-radius:4px 4px 0 0;margin-top:16px;}';
-css+='.sb{border:1px solid #DDE1E7;border-top:none;padding:12px;border-radius:0 0 4px 4px;margin-bottom:4px;}';
+css+='.sh{background:#9C2742;color:white;padding:7px 12px;font-weight:700;font-size:12px;border-radius:6px 6px 0 0;margin-top:16px;margin-bottom:0;letter-spacing:.3px;}';
+css+='.sb{border:1px solid #DDE1E7;border-top:none;padding:12px;border-radius:0 0 6px 6px;margin-bottom:4px;background:#FAFBFC;}';
 css+='.ig{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}';
 css+='.ii{font-size:10px;}.ii label{font-weight:700;color:#4A5568;text-transform:uppercase;font-size:8px;letter-spacing:.5px;display:block;margin-bottom:1px;}.ii span{color:#1C2333;}';
-css+='.ch{background:#2C4A6B;color:white;padding:6px 12px;font-weight:700;font-size:11px;border-radius:4px;margin-top:12px;margin-bottom:6px;}';
+css+='.ch{background:#2C4A6B;color:white;padding:6px 12px;font-weight:700;font-size:11px;border-radius:6px;margin-top:14px;margin-bottom:0;letter-spacing:.3px;}';
 // Deficiency cards
-css+='.dc{border:1px solid #DDE1E7;border-radius:6px;padding:10px;margin-bottom:10px;}';
+css+='.dc{border:1px solid #DDE1E7;border-radius:6px;padding:10px;margin-bottom:10px;background:#FAFBFC;}';
 css+='.dc-inner{display:flex;gap:12px;align-items:flex-start;}';
 css+='.dc-mini{flex-shrink:0;width:160px;max-height:160px;object-fit:contain;border-radius:6px;border:1px solid #DDE1E7;display:block;align-self:flex-start;}';
 css+='.dc-content{flex:1;min-width:0;}';

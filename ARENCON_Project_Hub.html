@@ -218,11 +218,11 @@ body.dark-mode .tlc-qr:hover{border-color:var(--arencon);background:rgba(156,39,
 .tool-launch-card{position:relative;padding-right:96px;}
 /* Report instance rows */
 .ri-list{margin-top:10px;padding-left:0;}
-.ri-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;font-weight:400;font-size:calc(12.5px + var(--ts));font-family:Calibri,sans-serif;color:var(--fg);cursor:pointer;transition:all .15s;border:1px solid transparent;}
+.ri-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;font-weight:400;font-size:calc(12.5px + var(--ts));font-family:Calibri,sans-serif;color:var(--fg);cursor:pointer;transition:all .15s;border:1px solid transparent;flex-wrap:wrap;overflow:hidden;}
 .ri-row:hover{background:var(--smoke);border-color:var(--border);}
 .ri-row .ri-icon{font-size:calc(10px + var(--ts));color:var(--arencon);}
-.ri-row .ri-title{flex:1;font-weight:600;font-size:calc(12.5px + var(--ts));}
-.ri-row .ri-meta{font-size:calc(10px + var(--ts));color:var(--steel);display:flex;gap:8px;align-items:center;}
+.ri-row .ri-title{flex:1;font-weight:600;font-size:calc(12.5px + var(--ts));min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ri-row .ri-meta{font-size:calc(10px + var(--ts));color:var(--steel);display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 .ri-status{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
 .ri-status.draft{background:#FEF3C7;color:#92400E}.ri-status.review{background:#DBEAFE;color:#1D4ED8}.ri-status.issued{background:#D1FAE5;color:#065F46}.ri-status.revision{background:#FCE7F3;color:#9D174D}
 .ri-new{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border:1.5px dashed var(--border);border-radius:8px;font-weight:600;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;color:var(--arencon);cursor:pointer;background:none;margin-top:8px;transition:all .2s;}
@@ -1040,7 +1040,7 @@ body.text-l{--ts:4px;}
       <button class="pin-key" onclick="_pinKey('7')">7</button>
       <button class="pin-key" onclick="_pinKey('8')">8</button>
       <button class="pin-key" onclick="_pinKey('9')">9</button>
-      <button class="pin-key blank"></button>
+      <button class="pin-key confirm" onclick="_pinConfirm()" style="background:var(--arencon);color:white;font-size:calc(13px + var(--ts));font-weight:700;">OK</button>
       <button class="pin-key" onclick="_pinKey('0')">0</button>
       <button class="pin-key backspace" onclick="_pinBackspace()">⌫</button>
     </div>
@@ -3217,11 +3217,18 @@ document.addEventListener('click', e => {
 });
 
 /* ═══ Token refresh timer ═══ */
+var _refreshFailCount = 0;
 setInterval(async () => {
   if (_user && _sb) {
     try {
-      await _sb.auth.refreshSession();
-    } catch (e) { /* ignore */ }
+      var result = await _sb.auth.refreshSession();
+      if (result) _refreshFailCount = 0;
+      else _refreshFailCount++;
+    } catch (e) { _refreshFailCount++; }
+    // After 3 consecutive failures, stop trying (token is dead)
+    if (_refreshFailCount >= 3) {
+      console.warn('Token refresh failed 3x — session may be expired');
+    }
   }
 }, 1800000); // 30 min
 
@@ -4299,6 +4306,14 @@ function _pgEscHtml(s) {
     _pinEntry = _pinEntry.slice(0, -1);
     document.getElementById('pin-error').textContent = '';
     renderPinDots();
+  };
+
+  window._pinConfirm = function() {
+    if (_pinEntry.length < 4) {
+      document.getElementById('pin-error').textContent = 'PIN must be at least 4 digits';
+      return;
+    }
+    verifyPin();
   };
 
   async function verifyPin() {
