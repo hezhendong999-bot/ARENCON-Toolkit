@@ -126,8 +126,9 @@ body.dark-mode{
 .project-card-pm{font-size:calc(10px + var(--ts));color:var(--steel);font-weight:500;margin-left:auto}
 /* Card bottom: tool icons + progress + backup */
 .project-card-bottom{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.tool-icon-btn{font-size:calc(15px + var(--ts));cursor:default;padding:1px;line-height:1;opacity:.8;transition:opacity .15s}
+.tool-icon-btn{font-size:calc(15px + var(--ts));cursor:default;padding:1px;line-height:1;opacity:.8;transition:opacity .15s;display:inline-flex;align-items:center;gap:2px;}
 .tool-icon-btn:hover{opacity:1}
+.tool-short{font-size:calc(9px + var(--ts));font-weight:700;letter-spacing:.3px;color:var(--fg-muted,#888);font-family:Calibri,sans-serif;}
 .project-card-bottom .progress-chip{margin-left:auto}
 .backup-status{font-size:9.5px;color:var(--silver);font-weight:500;margin-left:auto}
 .backup-status.not-backed{color:var(--warn)}
@@ -211,11 +212,7 @@ body.dark-mode .tool-launch-card.disabled .tlc-name{color:#556070;}
 .tlc-toggle::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.15);}
 .tlc-toggle.on{background:var(--arencon);}
 .tlc-toggle.on::after{transform:translateX(16px);}
-.tlc-qr{position:absolute;top:12px;right:54px;background:none;border:1.5px solid var(--border);border-radius:6px;padding:2px 6px;font-size:14px;cursor:pointer;z-index:2;line-height:1;transition:all .15s;pointer-events:auto;}
-.tlc-qr:hover{border-color:var(--arencon);background:var(--arencon-light);}
-body.dark-mode .tlc-qr{border-color:#2a3040;background:transparent;}
-body.dark-mode .tlc-qr:hover{border-color:var(--arencon);background:rgba(156,39,66,.2);}
-.tool-launch-card{position:relative;padding-right:96px;}
+.tool-launch-card{position:relative;padding-right:56px;}
 /* Report instance rows */
 .ri-list{margin-top:10px;padding-left:0;}
 .ri-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;font-weight:400;font-size:calc(12.5px + var(--ts));font-family:Calibri,sans-serif;color:var(--fg);cursor:pointer;transition:all .15s;border:1px solid transparent;}
@@ -1715,7 +1712,7 @@ function _renderProjectCard(p, myId) {
   // Tool icons (hover for name)
   var tools = (p.enabled_tools || []);
   var toolIcons = tools.length > 0
-    ? tools.map(function(t) { var ti = AVAILABLE_TOOLS[t]; return ti ? '<span class="tool-icon-btn" title="' + esc(ti.name) + '">' + ti.icon + '</span>' : ''; }).join('')
+    ? tools.map(function(t) { var ti = AVAILABLE_TOOLS[t]; return ti ? '<span class="tool-icon-btn" title="' + esc(ti.name) + '">' + ti.icon + '<span class="tool-short">' + ti.short + '</span></span>' : ''; }).join('')
     : '<span style="font-size:calc(10px + var(--ts));color:var(--silver)">No tools</span>';
 
   // Progress chips
@@ -1807,12 +1804,12 @@ function toggleDeleted() {
 
 /* ═══ AVAILABLE TOOLS REGISTRY ═══ */
 const AVAILABLE_TOOLS = {
-  frt:      { name: 'Field Review Report',             icon: '📋', file: 'ARENCON_Field_Review_Tool.html' },
-  diesel:   { name: 'Diesel Fire Pump Commissioning', icon: '🔥', file: 'ARENCON_Diesel_Fire_Pump_Commissioning.html' },
-  electric: { name: 'Electric Fire Pump Acceptance',   icon: '⚡', file: 'ARENCON_Electric_Fire_Pump_Commissioning.html' },
-  ist:      { name: 'Integrated Systems Testing',      icon: '🔗', file: 'ARENCON_IST_S1001.html' },
-  obc:      { name: 'OBC Compliance Report',           icon: '📋', file: 'ARENCON_OBC_Report_Generator.html' },
-  dd:       { name: 'Due Diligence Checklist',         icon: '✅', file: 'ARENCON_DD_Checklist.html' }
+  frt:      { name: 'Field Review Report',             icon: '📋', file: 'ARENCON_Field_Review_Tool.html', short: 'FRT', pdfName: 'Field Review Report' },
+  diesel:   { name: 'Diesel Fire Pump Commissioning', icon: '🔥', file: 'ARENCON_Diesel_Fire_Pump_Commissioning.html', short: 'DFP', pdfName: 'Diesel Pump Report' },
+  electric: { name: 'Electric Fire Pump Acceptance',   icon: '⚡', file: 'ARENCON_Electric_Fire_Pump_Commissioning.html', short: 'EFP', pdfName: 'Electric Pump Report' },
+  ist:      { name: 'Integrated Systems Testing',      icon: '🔗', file: 'ARENCON_IST_S1001.html', short: 'IST', pdfName: 'IST Report' },
+  obc:      { name: 'OBC Compliance Report',           icon: '📋', file: 'ARENCON_OBC_Report_Generator.html', short: 'OBC', pdfName: 'OBC Report' },
+  dd:       { name: 'Due Diligence Checklist',         icon: '✅', file: 'ARENCON_DD_Checklist.html', short: 'DD', pdfName: 'DD Report' }
 };
 
 function toolName(key) {
@@ -1881,8 +1878,6 @@ function _renderDetailTools(proj) {
     var toggleHtml = isViewer ? '' :
       '<button class="tlc-toggle' + (enabled ? ' on' : '') + '" onclick="event.stopPropagation();toggleTool(\'' + key + '\')" title="' + (enabled ? 'Disable' : 'Enable') + ' ' + esc(t.name) + '"></button>';
 
-    var qrHtml = enabled ? '<button class="tlc-qr" onclick="event.stopPropagation();openToolQR(\'' + _detailProjectId + '\',\'' + key + '\')" title="QR Code for ' + esc(t.name) + '">📱</button>' : '';
-
     html += '<div class="tool-launch-card' + (enabled ? '' : ' disabled') + '" id="tlc-' + key + '"'
       + (enabled ? ' onclick="launchTool(\'' + key + '\')"' : '')
       + ' title="' + (enabled ? 'Click to open ' + esc(t.name) : 'Toggle switch to enable') + '">'
@@ -1890,7 +1885,6 @@ function _renderDetailTools(proj) {
       + '<div><div class="tlc-name">' + esc(t.name) + '</div>'
       + (enabled ? '' : '<div class="tlc-badge">Not enabled</div>')
       + '</div>'
-      + qrHtml
       + toggleHtml
       + '</div>';
   });
@@ -4401,26 +4395,6 @@ function _pgEscHtml(s) {
     var proj=_projects?_projects.find(function(p){return p.id===projectId;}):null;
     var name=proj?(proj.project_number||'')+' '+(proj.project_name||''):'Project';
     openQRModal(url,'Open Project','Scan to open: '+name.trim());
-  };
-
-  // QR for a specific tool within a project
-  window.openToolQR=function(projectId,toolKey){
-    if(!projectId||!toolKey)return;
-    var proj=_projects?_projects.find(function(p){return p.id===projectId;}):null;
-    var pn=proj?proj.project_number||'':'';
-    var pname=proj?proj.project_name||'':'';
-    var client=proj?proj.client||'':'';
-    var addr=proj?proj.address||'':'';
-    var toolFile=AVAILABLE_TOOLS[toolKey]?AVAILABLE_TOOLS[toolKey].file:'';
-    if(!toolFile)return;
-    var base='https://hezhendong999-bot.github.io/ARENCON-Toolkit/';
-    var url=base+toolFile+'?project='+encodeURIComponent(projectId)
-      +'&pn='+encodeURIComponent(pn)
-      +'&pname='+encodeURIComponent(pname)
-      +'&client='+encodeURIComponent(client)
-      +'&addr='+encodeURIComponent(addr);
-    var toolLabel=AVAILABLE_TOOLS[toolKey]?AVAILABLE_TOOLS[toolKey].name:toolKey;
-    openQRModal(url,'Open '+toolLabel,'Scan to open tool for: '+(pn+' '+pname).trim());
   };
 
   // Close on Escape

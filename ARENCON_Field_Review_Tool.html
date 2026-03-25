@@ -1392,6 +1392,7 @@ body.text-l{--ts:4px;}
       <button class="hdr-btn" id="dark-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="background:rgba(255,255,255,.15);min-width:38px;justify-content:center;">☀️</button>
       <button class="hdr-btn text-size-toggle" id="btn-text-size" onclick="cycleTextSize()" title="Text size: Small / Medium / Large">M</button>
       <button class="hdr-btn" id="btn-signout" onclick="signOutSession()" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
+      <button class="hdr-btn" id="btn-qr" onclick="showToolQR()" style="display:none;background:rgba(255,255,255,.15);min-width:38px;justify-content:center;" title="QR Code for this tool">📱</button>
       <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
     </div>
   </div>
@@ -1450,6 +1451,7 @@ body.text-l{--ts:4px;}
       </div>
     </div>
     <button class="btn" id="mobile-signout-btn" onclick="signOutSession();closeMobileMenu();" style="display:none;color:#7B1FA2;font-weight:700;">🔓 Sign Out</button>
+    <button class="btn" id="mobile-qr-btn" onclick="showToolQR();closeMobileMenu();" style="display:none;">📱 QR Code</button>
     <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
     <div id="mobile-storage-info" style="padding:4px 10px;font-size:11px;color:var(--silver);font-family:Calibri,sans-serif;">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span>💾</span><span id="mobile-storage-text">Calculating...</span></div>
@@ -10647,14 +10649,14 @@ css+='.ph-addr{text-align:right;font-size:9px;color:#4A5568;line-height:1.6;}';
 css+='.ph-compact{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #999;padding-bottom:4px;margin-bottom:12px;}';
 css+='.ph-compact-left{font-size:8.5pt;color:#444;line-height:1.6;}';
 css+='.ph-compact-right{font-size:8.5pt;color:#444;line-height:1.6;text-align:right;}';
-// Section styles
-css+='.sh{background:#9C2742;color:white;padding:7px 12px;font-weight:700;font-size:12px;border-radius:4px 4px 0 0;margin-top:16px;}';
-css+='.sb{border:1px solid #DDE1E7;border-top:none;padding:12px;border-radius:0 0 4px 4px;margin-bottom:4px;}';
-css+='.ig{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}';
+// Section styles — connected header+body cards
+css+='.sh{background:#9C2742;color:white;padding:8px 14px;font-weight:700;font-size:12px;border-radius:6px 6px 0 0;margin-top:18px;margin-bottom:0;letter-spacing:.3px;}';
+css+='.sb{border:1.5px solid #DDE1E7;border-top:none;padding:14px;border-radius:0 0 6px 6px;margin-bottom:8px;background:#FAFBFC;}';
+css+='.ig{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}';
 css+='.ii{font-size:10px;}.ii label{font-weight:700;color:#4A5568;text-transform:uppercase;font-size:8px;letter-spacing:.5px;display:block;margin-bottom:1px;}.ii span{color:#1C2333;}';
-css+='.ch{background:#2C4A6B;color:white;padding:6px 12px;font-weight:700;font-size:11px;border-radius:4px;margin-top:12px;margin-bottom:6px;}';
+css+='.ch{background:#2C4A6B;color:white;padding:7px 14px;font-weight:700;font-size:11px;border-radius:6px 6px 0 0;margin-top:14px;margin-bottom:0;letter-spacing:.3px;}';
 // Deficiency cards
-css+='.dc{border:1px solid #DDE1E7;border-radius:6px;padding:10px;margin-bottom:10px;}';
+css+='.dc{border:1px solid #DDE1E7;border-radius:6px;padding:10px;margin-bottom:10px;background:white;}';
 css+='.dc-inner{display:flex;gap:12px;align-items:flex-start;}';
 css+='.dc-mini{flex-shrink:0;width:160px;max-height:160px;object-fit:contain;border-radius:6px;border:1px solid #DDE1E7;display:block;align-self:flex-start;}';
 css+='.dc-content{flex:1;min-width:0;}';
@@ -10682,20 +10684,28 @@ css+='@media print{body{background:white!important;padding:0!important;margin:0!
 css+='@page{size:letter;margin:0;}';
 
 var titleLabel='Field Review Report';
-var _ctrSubtitle='';
-if(_ctrFilterId!=='__all__'&&_ctrFilterName){
-  _ctrSubtitle=' — '+_ctrFilterName;
-}
 
 // ── Build full header HTML (page 1) ──
-var fullHeader='<div class="ph"><div><img src="'+logo+'" alt="ARENCON"><div class="ph-title">'+titleLabel+(_ctrSubtitle?'<div style="font-size:12px;font-weight:600;color:#4A5568;margin-top:2px;">'+escHtml(_ctrFilterName)+'</div>':'')+'</div></div>';
+var fullHeader='<div class="ph"><div><img src="'+logo+'" alt="ARENCON"><div class="ph-title">'+titleLabel+'</div></div>';
 fullHeader+='<div class="ph-addr">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp; L4X 2Z6, CANADA<br>P: 905 615 1774 &nbsp;|&nbsp; F: 905 615 9351<br>E: mail'+'@'+'arencon.com</div></div>';
 
 // Project info grid
+// Build contractor list for info grid
+var _ctrListForInfo='';
+if(_ctrFilterId==='__all__'){
+  var _ctrNames=(p.contractors||[]).map(function(c){return c.name;});
+  if((p.generalDeficiencies||[]).length>0)_ctrNames.push('General');
+  _ctrListForInfo=_ctrNames.join(', ')||'\u2014';
+} else if(_ctrFilterId==='__general__'){
+  _ctrListForInfo='General';
+} else {
+  _ctrListForInfo=_ctrFilterName||'\u2014';
+}
+
 var infoGrid='<div class="sh">Project Information</div><div class="sb"><div class="ig">';
 [['Project No.',p.info.projectNumber],['Project Name',p.info.projectName],['Client',p.info.client],
-['Project Address',p.info.address],['Date of Inspection',p.info.visitDate],['Prepared By',p.info.inspectorName],
-['Date of Issue',p.info.dateOfIssue||''],
+['Project Address',p.info.address],['Contractor(s)',_ctrListForInfo],['Prepared By',p.info.inspectorName],
+['Date of Inspection',p.info.visitDate],['Date of Issue',p.info.dateOfIssue||''],
 ['Revision',p.info.revision||'A01']].forEach(function(f){
   infoGrid+='<div class="ii"><label>'+f[0]+'</label><span>'+(f[1]||'\u2014')+'</span></div>';
 });
@@ -10839,7 +10849,7 @@ docHtml+='<div id="measure-zone" style="position:absolute;left:-9999px;top:0;wid
 docHtml+='<div id="pages-container"></div>';
 docHtml+='</body></html>';
 w.document.write(docHtml);w.document.close();
-w.document.title='ARENCON Field Review - '+(p.info.projectName||'Report')+_pdfCtrSuffix;
+w.document.title=_pdfTitle;
 
 // ── Add export bar ──
 try{
@@ -11329,7 +11339,9 @@ document.addEventListener('DOMContentLoaded',function(){
       var btnMoreWrap=document.getElementById('btn-more-wrap');if(btnMoreWrap)btnMoreWrap.style.display='';
       var moreRepair=document.getElementById('more-repair-section');if(moreRepair)moreRepair.style.display='';
       var btnSignOut=document.getElementById('btn-signout');if(btnSignOut)btnSignOut.style.display='';
+      var btnQR=document.getElementById('btn-qr');if(btnQR)btnQR.style.display='';
       var mobileSignOut=document.getElementById('mobile-signout-btn');if(mobileSignOut)mobileSignOut.style.display='';
+      var mobileQR=document.getElementById('mobile-qr-btn');if(mobileQR)mobileQR.style.display='';
       var mobileRepair=document.getElementById('mobile-repair-section');if(mobileRepair)mobileRepair.style.display='';
       // Hide Save As / Folder / Open / Inspector / sync indicator in Hub mode
       ['btn-save-as','btn-folder','btn-open-folder','btn-inspector'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
@@ -12023,6 +12035,53 @@ if(_csHubMode)_resetSessionTimers();
     </div>
   </div>
 </div>
+<!-- ══ TOOL QR CODE MODAL ══ -->
+<div id="tool-qr-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10030;align-items:center;justify-content:center;flex-direction:column;gap:16px;" onclick="if(event.target===this)closeToolQR()">
+  <div style="background:white;border-radius:16px;padding:28px 32px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);max-width:340px;width:90%;">
+    <h3 id="tool-qr-title" style="font-size:calc(16px + var(--ts));font-weight:700;color:#1B2438;margin:0 0 4px;">Share This Tool</h3>
+    <p id="tool-qr-desc" style="font-size:calc(12px + var(--ts));color:#64748b;margin:0 0 16px;">Scan to open on another device</p>
+    <div id="tool-qr-code" style="display:inline-block;background:white;padding:0;border-radius:4px;"></div>
+    <div id="tool-qr-url" style="font-size:10px;color:#94a3b8;margin-top:12px;word-break:break-all;max-width:280px;margin-left:auto;margin-right:auto;"></div>
+  </div>
+  <button onclick="closeToolQR()" style="background:rgba(255,255,255,.15);border:none;color:white;padding:10px 28px;border-radius:8px;font-weight:600;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">✕ Close</button>
+</div>
+<script>
+var _toolQRLoaded=false,_toolQRLastUrl='';
+function showToolQR(){
+  var url=window.location.href;
+  var overlay=document.getElementById('tool-qr-overlay');
+  if(overlay)overlay.style.display='flex';
+  var titleEl=document.getElementById('tool-qr-title');
+  var descEl=document.getElementById('tool-qr-desc');
+  var urlEl=document.getElementById('tool-qr-url');
+  if(titleEl)titleEl.textContent='Share This Tool';
+  var p=getProject();
+  if(descEl)descEl.textContent='Scan to open'+(p&&p.info&&p.info.projectName?' — '+p.info.projectName:'');
+  if(urlEl)urlEl.textContent=url.replace('https://','');
+  document.body.style.overflow='hidden';
+  // Load QR library lazily
+  if(!_toolQRLoaded&&typeof QRCode==='undefined'){
+    var s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload=function(){_toolQRLoaded=true;_renderToolQR(url);};
+    document.head.appendChild(s);
+  }else{_renderToolQR(url);}
+}
+function _renderToolQR(url){
+  if(url===_toolQRLastUrl)return;
+  var el=document.getElementById('tool-qr-code');
+  if(!el||typeof QRCode==='undefined')return;
+  el.innerHTML='';
+  new QRCode(el,{text:url,width:256,height:256,colorDark:'#1B2438',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+  _toolQRLastUrl=url;
+}
+function closeToolQR(){
+  var overlay=document.getElementById('tool-qr-overlay');
+  if(overlay)overlay.style.display='none';
+  document.body.style.overflow='';
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){var ov=document.getElementById('tool-qr-overlay');if(ov&&ov.style.display==='flex')closeToolQR();}});
+</script>
 <!-- ══ HUB CLOUDSYNC INTEGRATION ══ -->
 <script>
 // ── Issue Report (Hub mode) ──
