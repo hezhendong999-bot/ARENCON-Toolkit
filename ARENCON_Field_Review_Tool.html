@@ -1483,7 +1483,13 @@ body.text-l{--ts:4px;}
 </div>
 <div id="pdf-picker-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:6000;align-items:center;justify-content:center;">
   <div style="background:var(--card);border-radius:12px;max-width:420px;width:90%;padding:28px;box-shadow:var(--shadow-lg);border:1px solid var(--border);">
-    <h3 style="font-size:18px;margin-bottom:16px;color:var(--fg);">Export PDF Report</h3>
+    <h3 style="font-size:18px;margin-bottom:12px;color:var(--fg);">Export PDF Report</h3>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:calc(11px + var(--ts));font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Contractor Scope</label>
+      <select id="pdf-ctr-filter" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--card);color:var(--fg);">
+        <option value="__all__">All Contractors</option>
+      </select>
+    </div>
     <button class="btn" onclick="exportPDF('plain');closePDFPicker();" style="width:100%;margin-bottom:10px;justify-content:center;padding:12px;background:#9C2742;color:white;border:none;font-weight:700;">📝 Deficiency Report <span style="font-size:calc(11px + var(--ts));font-weight:400;opacity:.85;">— deficiencies, photos &amp; comments</span></button>
     <button class="btn" onclick="exportPDF('field');closePDFPicker();" style="width:100%;margin-bottom:10px;justify-content:center;padding:12px;background:#1A237E;color:white;border:none;font-weight:700;">📋 Field Review Report <span style="font-size:calc(11px + var(--ts));font-weight:400;opacity:.85;">— mini-maps + drawing appendix</span></button>
     <button class="btn btn-outline" onclick="closePDFPicker();" style="width:100%;justify-content:center;padding:12px;color:var(--fg);border-color:var(--border);">Cancel</button>
@@ -2249,16 +2255,24 @@ ADB.saveDeficPhoto=function(id,projectId,deficId,respIdx,dataUrl){
 
 ADB.saveSitePhoto=function(photo,projectId){
   var rec={id:photo.id,projectId:projectId,caption:photo.caption||'',timestamp:photo.date||photo.uploadDate||photo.timestamp||''};
-  // Always save blob if we have a dataUrl — R2 is additive backup, not a replacement
-  // Only skip blob if definitively uploaded to R2 AND r2Url confirmed
-  if(photo.dataUrl){
-    rec.dataBlob=ADB.dataUrlToBlob(photo.dataUrl);
-  }
   // Always preserve R2 metadata
   rec.r2Key=photo.r2Key||'';
   rec.r2Status=photo.r2Status||'';
   rec.r2Url=photo.r2Url||'';
-  return ADB.put('sitePhotos',rec);
+  // If we have a dataUrl, convert to blob and save
+  if(photo.dataUrl){
+    rec.dataBlob=ADB.dataUrlToBlob(photo.dataUrl);
+    return ADB.put('sitePhotos',rec);
+  }
+  // No dataUrl — preserve any existing blob in IDB (e.g. from offline prefetch)
+  return ADB.get('sitePhotos',photo.id).then(function(existing){
+    if(existing&&existing.dataBlob&&existing.dataBlob.size>0){
+      rec.dataBlob=existing.dataBlob;
+    }
+    return ADB.put('sitePhotos',rec);
+  }).catch(function(){
+    return ADB.put('sitePhotos',rec);
+  });
 };
 
 // ═══ PENDING UPLOADS — temp blob holding area for R2-first architecture ═══
@@ -3237,6 +3251,25 @@ function _doOfflinePrefetch(items,projectId){
   _prefetchActive=true;
   var total=items.length;var done=0;var failed=0;
   _updatePrefetchIndicator(done,total,failed);
+  // Build alternate URL for 404 fallback (UUID↔slug swap)
+  var slug=(typeof _getR2FolderId==='function')?_getR2FolderId():null;
+  var uuid=_csProjectId||null;
+  function _altUrl(url){
+    if(!slug||!uuid||!url)return null;
+    var base=(typeof R2Photos!=='undefined')?R2Photos.WORKER_URL:'';
+    if(!base||url.indexOf(base)!==0)return null;
+    var path=url.substring(base.length);
+    var parts=path.split('/');
+    if(parts.length>=6&&parts[1]==='photos'){
+      var usedFolder=decodeURIComponent(parts[2]);
+      var tryFolder=(usedFolder===slug)?uuid:(usedFolder===uuid)?slug:null;
+      if(tryFolder&&tryFolder!==usedFolder){
+        parts[2]=encodeURIComponent(tryFolder);
+        return base+parts.join('/');
+      }
+    }
+    return null;
+  }
   // Sequential fetch — simple, no race conditions
   var idx=0;
   function next(){
@@ -3244,8 +3277,17 @@ function _doOfflinePrefetch(items,projectId){
     var i=idx++;var item=items[i];
     // R2 GET requires no auth (Rule 20)
     fetch(item.r2Url).then(function(resp){
-      if(!resp.ok)throw new Error('HTTP '+resp.status);
-      return resp.blob();
+      if(resp.ok)return resp.blob();
+      // 404 → try alternate folder path
+      if(resp.status===404){
+        var alt=_altUrl(item.r2Url);
+        if(alt)return fetch(alt).then(function(r2){
+          if(!r2.ok)throw new Error('HTTP '+r2.status+' (alt)');
+          item.r2Url=alt;// Update for IDB save
+          return r2.blob();
+        });
+      }
+      throw new Error('HTTP '+resp.status);
     }).then(function(blob){
       // Save blob to appropriate IDB store
       return ADB.get(item.store,item.id).then(function(existing){
@@ -7880,39 +7922,45 @@ function lightboxSaveMarkup(){
   var p=getProject&&getProject();
   var wasDeficPhoto=false;
   if(p){
-    // Determine if original came from sitePhotos BEFORE replacing (r2Url or dataUrl match)
     if(!p.sitePhotos)p.sitePhotos=[];
+    // Determine if original came from sitePhotos BEFORE replacing
     var origWasSitePhoto=p.sitePhotos.some(function(ph){
       return ph&&((ph.dataUrl&&ph.dataUrl===origSrc)||(ph.r2Url&&ph.r2Url===origSrc)||(ph.r2Url&&origSrc&&origSrc.indexOf(ph.r2Url.split('/').pop())>=0));
     });
+
+    // Replace the photo in-place (defic or site) with the marked-up version
     wasDeficPhoto=_replacePhotoInProject(p,origSrc,markedSrc);
-    if(!origWasSitePhoto){
-    var _srcCaption='';
-    try{
-      var _allPh=_buildUnifiedPhotoList(p);
-      var _srcPh=_allPh.find(function(x){return x.src===origSrc;});
-      if(_srcPh&&_srcPh.caption)_srcCaption=_srcPh.caption;
-    }catch(e){}
-    var _mkupRec={id:'sp_mkup_'+Date.now(),dataUrl:markedSrc,caption:_srcCaption||'',timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};
-    if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'){
-      var _mkupFname=_r2Filename('mkup','jpg');
-      var _mkupFolderId=_getR2FolderId();
-      _mkupRec.r2Key='photos/'+_mkupFolderId+'/frt/original/'+_mkupFname;
-      _mkupRec.r2Status='pending';
-      var _mkupBlob=R2Photos.dataUrlToBlob(markedSrc);
-      if(_mkupBlob){
-        ADB.savePending(_mkupRec.id,_csProjectId,_mkupBlob,{type:'mkup',fname:_mkupFname,r2Key:_mkupRec.r2Key}).catch(function(){});
-        R2Photos.enqueue({projectId:_mkupFolderId,tool:'frt',type:'original',filename:_mkupFname,blob:_mkupBlob,
-          onComplete:function(err){
-            if(!err){_mkupRec.r2Status='uploaded';_mkupRec.r2Url=R2Photos.getUrl(_mkupFolderId,'frt','original',_mkupFname);
-              ADB.deletePending(_mkupRec.id).catch(function(){});saveToLS&&saveToLS();_updateR2Badge&&_updateR2Badge();}
-            else{_mkupRec.r2Status='error';}
-          }
-        });
+
+    // If original was a DEFICIENCY photo (not site photo):
+    // Save the ORIGINAL (pre-markup) as a new site photo for preservation
+    if(!origWasSitePhoto&&wasDeficPhoto){
+      var _srcCaption='';
+      try{
+        var _allPh=_buildUnifiedPhotoList(p);
+        var _srcPh=_allPh.find(function(x){return x.src===markedSrc;});// find the now-replaced record
+        if(_srcPh&&_srcPh.caption)_srcCaption=_srcPh.caption;
+      }catch(e){}
+      // Save the ORIGINAL (unmarked) as site photo — not the marked copy
+      var _origRec={id:'sp_orig_'+Date.now(),dataUrl:origSrc,caption:(_srcCaption?_srcCaption+' (original)':'Original'),timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};
+      if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'){
+        var _origFname=_r2Filename('site','jpg');
+        var _origFolderId=_getR2FolderId();
+        _origRec.r2Key='photos/'+_origFolderId+'/frt/original/'+_origFname;
+        _origRec.r2Status='pending';
+        var _origBlob=R2Photos.dataUrlToBlob(origSrc);
+        if(_origBlob){
+          ADB.savePending(_origRec.id,_csProjectId,_origBlob,{type:'site',fname:_origFname,r2Key:_origRec.r2Key}).catch(function(){});
+          R2Photos.enqueue({projectId:_origFolderId,tool:'frt',type:'original',filename:_origFname,blob:_origBlob,
+            onComplete:function(err){
+              if(!err){_origRec.r2Status='uploaded';_origRec.r2Url=R2Photos.getUrl(_origFolderId,'frt','original',_origFname);
+                ADB.deletePending(_origRec.id).catch(function(){});saveToLS&&saveToLS();_updateR2Badge&&_updateR2Badge();}
+              else{_origRec.r2Status='error';}
+            }
+          });
+        }
       }
-    }
-      p.sitePhotos.push(_mkupRec);
-    }// end if(!origWasSitePhoto)
+      p.sitePhotos.push(_origRec);
+    }// end if defic photo was marked up
 
     saveToLS&&saveToLS();
     showToast&&showToast('Markup saved');
@@ -10383,6 +10431,19 @@ function exportAllProjectsJSON(){
 function showPDFOptions(){
   var overlay=document.getElementById('pdf-picker-overlay');
   if(overlay)overlay.style.display='flex';
+  // Populate contractor dropdown
+  var sel=document.getElementById('pdf-ctr-filter');
+  if(sel){
+    var p=getProject();
+    var html='<option value="__all__">All Contractors</option>';
+    if(p&&p.contractors){
+      p.contractors.forEach(function(c){
+        html+='<option value="'+c.id+'">'+escHtml(c.name)+'</option>';
+      });
+    }
+    html+='<option value="__general__">General (unassigned)</option>';
+    sel.innerHTML=html;
+  }
 }
 function closePDFPicker(){
   var overlay=document.getElementById('pdf-picker-overlay');
@@ -10483,6 +10544,7 @@ function _renderDrawingWithPins(dwgDataUrl, pins, callback){
 function exportPDF(mode){
 if(!currentProjectId)return;var p=getProject();var logo=LOGO_SRC;
 var isField=(mode==='field');
+var ctrFilter=(document.getElementById('pdf-ctr-filter')||{}).value||'__all__';
 closePDFPicker();
 
 // Show progress overlay on FRT page during pre-fetch
@@ -10506,11 +10568,11 @@ _prefetchR2PhotosForPDF(p,function(done,total){
   }catch(e){}
 }).then(function(r2Cache){
   try{var ov2=document.getElementById('pdf-prefetch-overlay');if(ov2)ov2.remove();}catch(e){}
-  _exportPDFWithCache(p,logo,isField,mode,r2Cache);
+  _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter);
 }).catch(function(e){
   try{var ov3=document.getElementById('pdf-prefetch-overlay');if(ov3)ov3.remove();}catch(e2){}
   _dbw('[PDF] R2 prefetch failed, proceeding:',e);
-  _exportPDFWithCache(p,logo,isField,mode,{});
+  _exportPDFWithCache(p,logo,isField,mode,{},ctrFilter);
 });
 }
 
@@ -10556,11 +10618,21 @@ if(ph.r2Url&&r2Cache&&r2Cache[ph.r2Url])return r2Cache[ph.r2Url];
 return ph.dataUrl||ph.r2Url||'';
 }
 
-function _exportPDFWithCache(p,logo,isField,mode,r2Cache){
+function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter){
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
 var reportDefs=[];var rn=1;
-(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.priority==='general')return;reportDefs.push({d:d,ctr:c.name,rn:rn++});});});
-(p.generalDeficiencies||[]).forEach(function(d){if(d.priority==='general')return;reportDefs.push({d:d,ctr:'General',rn:rn++});});
+var _ctrFilterId=ctrFilter||'__all__';
+var _ctrFilterName='';
+(p.contractors||[]).forEach(function(c){
+  if(_ctrFilterId!=='__all__'&&_ctrFilterId!=='__general__'&&c.id!==_ctrFilterId)return;
+  if(_ctrFilterId==='__general__')return;
+  if(c.id===_ctrFilterId)_ctrFilterName=c.name;
+  (c.deficiencies||[]).forEach(function(d){if(d.priority==='general')return;reportDefs.push({d:d,ctr:c.name,rn:rn++});});
+});
+if(_ctrFilterId==='__all__'||_ctrFilterId==='__general__'){
+  (p.generalDeficiencies||[]).forEach(function(d){if(d.priority==='general')return;reportDefs.push({d:d,ctr:'General',rn:rn++});});
+}
+if(_ctrFilterId==='__general__')_ctrFilterName='General';
 
 // ── CSS ──
 var css='*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}';
@@ -10610,9 +10682,13 @@ css+='@media print{body{background:white!important;padding:0!important;margin:0!
 css+='@page{size:letter;margin:0;}';
 
 var titleLabel='Field Review Report';
+var _ctrSubtitle='';
+if(_ctrFilterId!=='__all__'&&_ctrFilterName){
+  _ctrSubtitle=' — '+_ctrFilterName;
+}
 
 // ── Build full header HTML (page 1) ──
-var fullHeader='<div class="ph"><div><img src="'+logo+'" alt="ARENCON"><div class="ph-title">'+titleLabel+'</div></div>';
+var fullHeader='<div class="ph"><div><img src="'+logo+'" alt="ARENCON"><div class="ph-title">'+titleLabel+(_ctrSubtitle?'<div style="font-size:12px;font-weight:600;color:#4A5568;margin-top:2px;">'+escHtml(_ctrFilterName)+'</div>':'')+'</div></div>';
 fullHeader+='<div class="ph-addr">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp; L4X 2Z6, CANADA<br>P: 905 615 1774 &nbsp;|&nbsp; F: 905 615 9351<br>E: mail'+'@'+'arencon.com</div></div>';
 
 // Project info grid
@@ -10752,7 +10828,8 @@ var w=window.open('','_blank');
 if(!w){_aAlert('Popup blocked. Allow popups for this site.');return;}
 
 var _pdfSmartName=buildSmartFilename(p);
-var _pdfTitle=_pdfSmartName+' Field Review Report'+(_rptNum>1?' #'+_rptNum:'')+' '+_rptRev;
+var _pdfCtrSuffix=(_ctrFilterId!=='__all__'&&_ctrFilterName)?' - '+_ctrFilterName:'';
+var _pdfTitle=_pdfSmartName+' Field Review Report'+_pdfCtrSuffix+(_rptNum>1?' #'+_rptNum:'')+' '+_rptRev;
 
 var docHtml='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+escHtml(_pdfTitle)+'</title>';
 docHtml+='<style>'+css+'</style></head><body>';
@@ -10762,7 +10839,7 @@ docHtml+='<div id="measure-zone" style="position:absolute;left:-9999px;top:0;wid
 docHtml+='<div id="pages-container"></div>';
 docHtml+='</body></html>';
 w.document.write(docHtml);w.document.close();
-w.document.title='ARENCON Field Review - '+(p.info.projectName||'Report');
+w.document.title='ARENCON Field Review - '+(p.info.projectName||'Report')+_pdfCtrSuffix;
 
 // ── Add export bar ──
 try{
@@ -11182,6 +11259,13 @@ document.addEventListener('DOMContentLoaded',function(){
     var urlParams=new URLSearchParams(window.location.search);
     var hubProjectId=urlParams.get('project');
     if(hubProjectId){
+      // ── AUTH GATE: Hub mode requires ARENCON account ──
+      var _authToken=localStorage.getItem('sb-access-token');
+      if(!_authToken){
+        // No token at all — redirect to Hub login
+        window.location.href='ARENCON_Project_Hub.html';
+        return;
+      }
       _csHubMode=true;
       _csProjectId=hubProjectId;
       _csInstanceId=urlParams.get('instance')||null;
@@ -12436,6 +12520,11 @@ async function _initCloudSync(){
       if(txt)txt.textContent=msg||status;
     }
   });
+    // ── AUTH GATE: reject expired/invalid tokens ──
+    if(!info||!info.userId){
+      window.location.href='ARENCON_Project_Hub.html';
+      return;
+    }
     // Store user identity for inspector chip (Hub mode)
     if(info&&info.userId){
       try{

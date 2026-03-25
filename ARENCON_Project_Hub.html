@@ -71,9 +71,6 @@ body.dark-mode{
 .login-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
 .login-forgot{display:inline-block;margin-top:16px;font-size:calc(13px + var(--ts));color:var(--arencon);cursor:pointer;text-decoration:none;border:none;background:none;font-weight:500}
 .login-forgot:hover{text-decoration:underline}
-.qr-section{margin-top:24px;padding-top:20px;border-top:1px solid var(--border,#e2e8f0);text-align:center;}
-.qr-show-btn{background:none;border:1.5px solid var(--border,#e2e8f0);border-radius:8px;padding:10px 20px;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,'Segoe UI',sans-serif;color:var(--steel,#64748b);cursor:pointer;transition:all .2s;width:100%;}
-.qr-show-btn:hover{border-color:var(--arencon,#9C2742);color:var(--arencon,#9C2742);}
 .qr-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
 .qr-modal-overlay.open{display:flex;}
 .qr-modal-box{background:white;border-radius:16px;padding:28px 32px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);}
@@ -214,7 +211,11 @@ body.dark-mode .tool-launch-card.disabled .tlc-name{color:#556070;}
 .tlc-toggle::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.15);}
 .tlc-toggle.on{background:var(--arencon);}
 .tlc-toggle.on::after{transform:translateX(16px);}
-.tool-launch-card{position:relative;padding-right:56px;}
+.tlc-qr{position:absolute;top:12px;right:54px;background:none;border:1.5px solid var(--border);border-radius:6px;padding:2px 6px;font-size:14px;cursor:pointer;z-index:2;line-height:1;transition:all .15s;pointer-events:auto;}
+.tlc-qr:hover{border-color:var(--arencon);background:var(--arencon-light);}
+body.dark-mode .tlc-qr{border-color:#2a3040;background:transparent;}
+body.dark-mode .tlc-qr:hover{border-color:var(--arencon);background:rgba(156,39,66,.2);}
+.tool-launch-card{position:relative;padding-right:96px;}
 /* Report instance rows */
 .ri-list{margin-top:10px;padding-left:0;}
 .ri-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;font-weight:400;font-size:calc(12.5px + var(--ts));font-family:Calibri,sans-serif;color:var(--fg);cursor:pointer;transition:all .15s;border:1px solid transparent;}
@@ -383,9 +384,12 @@ body.dark-mode .project-card:hover{border-color:var(--arencon);box-shadow:0 4px 
 body.dark-mode .dash-toolbar{background:var(--card);border-color:var(--border)}
 body.dark-mode .dash-search{background:var(--smoke);border-color:var(--border);color:var(--fg)}
 body.dark-mode .dash-toggle button{background:var(--smoke);color:var(--steel);border-color:var(--border)}
-body.dark-mode .dash-toggle button.active{background:var(--arencon);color:#fff;border-color:var(--arencon)}
+body.dark-mode .dash-toggle button.active{background:rgba(156,39,66,.35);color:#e8a0b0;border-color:rgba(156,39,66,.4)}
+body.dark-mode .dash-btn.primary{background:rgba(156,39,66,.35);color:#e8a0b0;box-shadow:none;border:1px solid rgba(156,39,66,.4)}
+body.dark-mode .dash-btn.primary:hover{background:rgba(156,39,66,.5);box-shadow:none;transform:none}
+body.dark-mode .dash-btn.secondary{background:rgba(255,255,255,.06);border-color:#3a4050;color:#a0aac4}
+body.dark-mode .dash-btn.secondary:hover{background:rgba(255,255,255,.1);border-color:#5a6070;color:#d0d8f0}
 body.dark-mode .tlc-toggle{background:#3a4560;}body.dark-mode .tlc-toggle.on{background:#34D399;box-shadow:0 0 8px rgba(52,211,153,.3);}
-body.dark-mode .dash-btn.secondary{background:var(--smoke);border-color:var(--border);color:var(--steel)}
 body.dark-mode .admin-section{background:var(--card);border-color:var(--border)}
 body.dark-mode .admin-section-header{background:linear-gradient(135deg,#1E293B,#334155)}
 body.dark-mode .admin-table th{border-color:var(--border)}
@@ -481,6 +485,15 @@ body.dark-mode .project-card-check{background:rgba(30,41,59,.9)}
 .pg-action-btn:hover{border-color:#9C2742;color:#9C2742;}
 .pg-dl-btn{background:#9C2742;color:white;border-color:#9C2742;}
 .pg-dl-btn:hover{background:#7a1f34;border-color:#7a1f34;color:white;}
+.pg-tool-section{margin-bottom:20px;border:1px solid var(--border,#DDE1E7);border-radius:10px;overflow:hidden;}
+.pg-tool-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--smoke,#F5F7FA);cursor:pointer;user-select:none;font-size:calc(14px + var(--ts));font-weight:700;color:var(--fg,#1B2438);font-family:Calibri,sans-serif;border-bottom:1px solid var(--border,#DDE1E7);}
+.pg-tool-header:hover{background:var(--border,#E8ECF0);}
+.pg-tool-arrow{font-size:calc(14px + var(--ts));color:var(--fg-muted,#888);transition:transform .15s;}
+.pg-tool-body{padding:10px 12px;}
+body.dark-mode .pg-tool-section{border-color:#2a3040;}
+body.dark-mode .pg-tool-header{background:#1a1f2a;color:#d0d8f0;border-bottom-color:#2a3040;}
+body.dark-mode .pg-tool-header:hover{background:#222838;}
+body.dark-mode .pg-tool-body{background:#151920;}
 .pg-date-group{margin-bottom:18px;}
 .pg-date-label{font-size:calc(12px + var(--ts));font-weight:700;color:var(--fg-muted,#888);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
 .pg-date-cb{accent-color:#9C2742;width:14px;height:14px;cursor:pointer;}
@@ -490,10 +503,14 @@ body.dark-mode .project-card-check{background:rgba(30,41,59,.9)}
 .pg-thumb.selected{border-color:#9C2742;}
 .pg-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
 .pg-thumb-badge{position:absolute;top:4px;right:4px;font-size:8px;font-weight:700;padding:2px 5px;border-radius:3px;color:white;pointer-events:none;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.pg-thumb-cb{position:absolute;top:4px;left:4px;accent-color:#9C2742;width:16px;height:16px;cursor:pointer;opacity:0;transition:opacity .15s;}
-.pg-thumb:hover .pg-thumb-cb,.pg-thumb.selected .pg-thumb-cb{opacity:1;}
-.pg-thumb-tool{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.55);color:rgba(255,255,255,.8);font-size:8px;padding:2px 4px;text-align:center;}
-.pg-r2-icon{position:absolute;bottom:4px;right:4px;font-size:calc(10px + var(--ts));filter:drop-shadow(0 0 2px rgba(0,0,0,.5));}
+.pg-thumb-cb{position:absolute;top:4px;left:4px;accent-color:#9C2742;width:22px;height:22px;cursor:pointer;transition:opacity .15s;}
+.pg-thumb.selected .pg-thumb-cb{opacity:1;}
+.pg-r2-icon{position:absolute;bottom:4px;left:4px;font-size:calc(10px + var(--ts));filter:drop-shadow(0 0 2px rgba(0,0,0,.5));}
+.pg-thumb-del{position:absolute;top:4px;right:4px;background:rgba(220,38,38,.85);color:white;border:none;border-radius:50%;width:26px;height:26px;font-size:13px;line-height:26px;text-align:center;cursor:pointer;z-index:3;opacity:0;transition:opacity .15s;padding:0;}
+.pg-thumb-dl{position:absolute;bottom:4px;right:4px;background:rgba(26,122,74,.85);color:white;border:none;border-radius:50%;width:26px;height:26px;font-size:12px;line-height:26px;text-align:center;cursor:pointer;z-index:3;opacity:0;transition:opacity .15s;padding:0;}
+.pg-thumb:hover .pg-thumb-del,.pg-thumb:hover .pg-thumb-dl{opacity:1;}
+.pg-thumb-del:hover{background:#DC2626;transform:scale(1.1);}
+.pg-thumb-dl:hover{background:#1A7A4A;transform:scale(1.1);}
 /* Lightbox */
 #pg-lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:20000;flex-direction:column;align-items:center;justify-content:center;}
 #pg-lightbox.open{display:flex;}
@@ -538,6 +555,7 @@ body.text-l{--ts:4px;}
   <button class="hdr-btn desktop-only" id="btn-profile" style="display:none" onclick="openProfileModal()">⚙️ Profile</button>
   <button class="hdr-btn desktop-only" id="btn-tools" onclick="window.location.href='index.html'" title="All Tools">🧰 Tools</button>
   <button class="hdr-btn desktop-only" id="btn-dark" onclick="toggleDark()">☀️</button>
+  <button class="hdr-btn desktop-only" onclick="openHubQR()" title="Show QR Code">📱</button>
   <button class="hdr-btn text-size-toggle desktop-only" id="btn-text-size" onclick="cycleTextSize()" title="Text size: Small / Medium">M</button>
   <button class="hdr-btn desktop-only" id="btn-logout" style="display:none" onclick="doLogout()">🚪 Logout</button>
   <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
@@ -557,6 +575,7 @@ body.text-l{--ts:4px;}
     <button class="mobile-menu-item" id="mob-profile" style="display:none" onclick="openProfileModal();closeMobileMenu()">⚙️ Profile</button>
     <button class="mobile-menu-item" onclick="window.location.href='index.html'">🧰 All Tools</button>
     <button class="mobile-menu-item" onclick="toggleDark();closeMobileMenu()"><span id="mob-dark-label">☀️ Dark Mode</span></button>
+    <button class="mobile-menu-item" onclick="openHubQR();closeMobileMenu()">📱 QR Code</button>
     <button class="mobile-menu-item" onclick="cycleTextSize();closeMobileMenu()"><span id="mob-text-size-label">Text: Medium</span></button>
     <div class="mobile-menu-divider"></div>
     <button class="mobile-menu-item" id="mob-logout" style="display:none" onclick="doLogout()">🚪 Logout</button>
@@ -595,10 +614,6 @@ body.text-l{--ts:4px;}
       </div>
       <button class="login-btn" id="forgot-btn" onclick="doForgotPassword()">Send Reset Link</button>
       <button class="login-forgot" onclick="showLoginForm()">← Back to login</button>
-    </div>
-    <!-- QR Code button -->
-    <div class="qr-section">
-      <button class="qr-show-btn" onclick="openQRModal()">📱 Show QR Code for Mobile</button>
     </div>
   </div>
 </div>
@@ -823,6 +838,7 @@ body.text-l{--ts:4px;}
     </div>
     <div class="detail-section detail-actions" id="detail-danger-zone">
       <button class="btn-action" id="btn-edit-proj" onclick="openEditProjectModal()">✏️ Edit Project</button>
+      <button class="btn-action" id="btn-qr-proj" onclick="openProjectQR(_detailProjectId)" title="QR Code for this project">📱 QR</button>
       <button class="btn-archive" id="btn-archive-proj" onclick="toggleArchiveProject()">📦 Archive</button>
       <button class="btn-action" id="btn-restore-proj" style="display:none;background:var(--yes-bg);color:var(--yes);border-color:var(--yes)" onclick="restoreFromDetail()">↩️ Restore</button>
       <div style="flex:1"></div>
@@ -1865,6 +1881,8 @@ function _renderDetailTools(proj) {
     var toggleHtml = isViewer ? '' :
       '<button class="tlc-toggle' + (enabled ? ' on' : '') + '" onclick="event.stopPropagation();toggleTool(\'' + key + '\')" title="' + (enabled ? 'Disable' : 'Enable') + ' ' + esc(t.name) + '"></button>';
 
+    var qrHtml = enabled ? '<button class="tlc-qr" onclick="event.stopPropagation();openToolQR(\'' + _detailProjectId + '\',\'' + key + '\')" title="QR Code for ' + esc(t.name) + '">📱</button>' : '';
+
     html += '<div class="tool-launch-card' + (enabled ? '' : ' disabled') + '" id="tlc-' + key + '"'
       + (enabled ? ' onclick="launchTool(\'' + key + '\')"' : '')
       + ' title="' + (enabled ? 'Click to open ' + esc(t.name) : 'Toggle switch to enable') + '">'
@@ -1872,6 +1890,7 @@ function _renderDetailTools(proj) {
       + '<div><div class="tlc-name">' + esc(t.name) + '</div>'
       + (enabled ? '' : '<div class="tlc-badge">Not enabled</div>')
       + '</div>'
+      + qrHtml
       + toggleHtml
       + '</div>';
   });
@@ -3433,7 +3452,8 @@ function _pgExtractPhotos(row) {
   function _makeRec(src, type, caption, date) {
     if (!src) return null;
     return { src: src, type: type, caption: caption || '', tool: label, toolKey: toolKey,
-             date: date || row.updated_at || '', id: 'pg_' + Math.random().toString(36).substr(2,9) };
+             date: date || row.updated_at || '', id: 'pg_' + Math.random().toString(36).substr(2,9),
+             instanceNum: instNum };
   }
 
   // ── FRT ──
@@ -3630,54 +3650,80 @@ function _pgRender() {
   }
   if (empty) empty.style.display = 'none';
 
-  // Group by date
-  var groups = {};
-  var groupOrder = [];
+  // Group by tool, then by date within each tool
+  var toolGroups = {};
+  var toolOrder = [];
   _pgFiltered.forEach(function(ph) {
-    var key = (ph.date || '').substring(0, 10) || 'Unknown date';
-    // Normalise date keys — handle ISO and "YYYY-MM-DD HH:MM:SS" formats
-    if (key.length === 10 && key.indexOf('-') === 4) { /* ok */ }
-    else key = 'Unknown date';
-    if (!groups[key]) { groups[key] = []; groupOrder.push(key); }
-    groups[key].push(ph);
+    var tKey = ph.tool || 'Unknown';
+    if (!toolGroups[tKey]) { toolGroups[tKey] = []; toolOrder.push(tKey); }
+    toolGroups[tKey].push(ph);
   });
-  // Sort newest first, unknown date last
-  groupOrder.sort(function(a, b) {
-    if (a === 'Unknown date') return 1;
-    if (b === 'Unknown date') return -1;
-    return b.localeCompare(a);
-  });
+
+  var toolIcons = { frt:'📋', diesel:'🔥', electric:'⚡', ist:'🧪', obc:'📖', dd:'📝' };
 
   var html = '';
-  groupOrder.forEach(function(dateKey) {
-    var photos = groups[dateKey];
-    var allSel = photos.every(function(p) { return _pgSelected.has(p.id); });
-    var friendlyDate = dateKey === 'Unknown date' ? 'Unknown date' : (function() {
-      try { return new Date(dateKey + 'T12:00:00').toLocaleDateString('en-US', {weekday:'long',year:'numeric',month:'long',day:'numeric'}); }
-      catch(e) { return dateKey; }
-    })();
+  toolOrder.forEach(function(toolName) {
+    var toolPhotos = toolGroups[toolName];
+    var firstPh = toolPhotos[0];
+    var icon = (firstPh && firstPh.toolKey && toolIcons[firstPh.toolKey]) || '📷';
+    var toolId = 'pgtool_' + (firstPh ? firstPh.toolKey + '_' + (firstPh.instanceNum || 1) : Math.random().toString(36).substr(2,6));
 
-    html += '<div class="pg-date-group">';
-    html += '<div class="pg-date-label">';
-    html += '<input type="checkbox" class="pg-date-cb" ' + (allSel ? 'checked' : '') + ' onchange="pgToggleDateGroup(\'' + dateKey + '\',this.checked)" title="Select all on this date">';
-    html += friendlyDate + ' <span style="font-weight:400;color:var(--fg-muted);">(' + photos.length + ')</span></div>';
-    html += '<div class="pg-thumbs">';
+    // Date sub-groups within this tool
+    var dateGroups = {};
+    var dateOrder = [];
+    toolPhotos.forEach(function(ph) {
+      var key = (ph.date || '').substring(0, 10) || 'Unknown date';
+      if (key.length !== 10 || key.indexOf('-') !== 4) key = 'Unknown date';
+      if (!dateGroups[key]) { dateGroups[key] = []; dateOrder.push(key); }
+      dateGroups[key].push(ph);
+    });
+    dateOrder.sort(function(a, b) {
+      if (a === 'Unknown date') return 1;
+      if (b === 'Unknown date') return -1;
+      return b.localeCompare(a);
+    });
 
-    photos.forEach(function(ph, idx) {
-      var sel = _pgSelected.has(ph.id);
-      var badgeColor = ph.type === 'site' ? '#1A7A4A' : ph.type === 'response' ? '#2C4A6B' : '#9C2742';
-      var badgeLabel = ph.type === 'site' ? 'Site' : (ph.caption || ('Pin ' + (ph.deficNum || '?')));
-      var isR2 = ph.src && ph.src.indexOf(R2_WORKER) === 0;
-      var r2Icon = isR2 ? '<span class="pg-r2-icon" title="Stored in cloud">☁️</span>' : '';
+    // Tool section header (foldable)
+    html += '<div class="pg-tool-section" id="' + toolId + '">';
+    html += '<div class="pg-tool-header" onclick="pgToggleToolSection(\'' + toolId + '\')">';
+    html += '<span>' + icon + ' ' + _pgEscHtml(toolName) + ' <span style="font-weight:400;color:var(--fg-muted);">(' + toolPhotos.length + ' photo' + (toolPhotos.length !== 1 ? 's' : '') + ')</span></span>';
+    html += '<span class="pg-tool-arrow" id="arrow-' + toolId + '">▾</span>';
+    html += '</div>';
+    html += '<div class="pg-tool-body" id="body-' + toolId + '">';
 
-      html += '<div class="pg-thumb' + (sel ? ' selected' : '') + '" data-pg-id="' + ph.id + '" '
-            + 'onclick="pgThumbClick(\'' + ph.id + '\')" title="Click to view">';
-      html += '<input type="checkbox" class="pg-thumb-cb" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation();pgToggleOne(\'' + ph.id + '\',event)">';
-      html += '<img data-pg-src="' + _pgEsc(ph.src) + '" src="" loading="lazy" style="background:#ddd;">';
-      html += '<div class="pg-thumb-badge" style="background:' + badgeColor + ';">' + _pgEscHtml(badgeLabel) + '</div>';
-      html += '<div class="pg-thumb-tool">' + _pgEscHtml(ph.tool) + '</div>';
-      html += r2Icon;
-      html += '</div>';
+    dateOrder.forEach(function(dateKey) {
+      var photos = dateGroups[dateKey];
+      var allSel = photos.every(function(p) { return _pgSelected.has(p.id); });
+      var friendlyDate = dateKey === 'Unknown date' ? 'Unknown date' : (function() {
+        try { return new Date(dateKey + 'T12:00:00').toLocaleDateString('en-US', {weekday:'long',year:'numeric',month:'long',day:'numeric'}); }
+        catch(e) { return dateKey; }
+      })();
+
+      html += '<div class="pg-date-group">';
+      html += '<div class="pg-date-label">';
+      html += '<input type="checkbox" class="pg-date-cb" ' + (allSel ? 'checked' : '') + ' onchange="pgToggleDateGroup(\'' + dateKey + '\',this.checked)" title="Select all on this date">';
+      html += friendlyDate + ' <span style="font-weight:400;color:var(--fg-muted);">(' + photos.length + ')</span></div>';
+      html += '<div class="pg-thumbs">';
+
+      photos.forEach(function(ph) {
+        var sel = _pgSelected.has(ph.id);
+        var badgeColor = ph.type === 'site' ? '#1A7A4A' : ph.type === 'response' ? '#2C4A6B' : '#9C2742';
+        var badgeLabel = ph.type === 'site' ? 'Site' : (ph.caption || ('Pin ' + (ph.deficNum || '?')));
+        var isR2 = ph.src && ph.src.indexOf(R2_WORKER) === 0;
+        var r2Icon = isR2 ? '<span class="pg-r2-icon" title="Stored in cloud">☁️</span>' : '';
+
+        html += '<div class="pg-thumb' + (sel ? ' selected' : '') + '" data-pg-id="' + ph.id + '" '
+              + 'onclick="pgThumbClick(\'' + ph.id + '\',event)" ondblclick="pgLbOpen(\'' + ph.id + '\')">';
+        html += '<input type="checkbox" class="pg-thumb-cb" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation();pgToggleOne(\'' + ph.id + '\',event)">';
+        html += '<img data-pg-src="' + _pgEsc(ph.src) + '" src="" loading="lazy" style="background:#ddd;">';
+        html += '<div class="pg-thumb-badge" style="background:' + badgeColor + ';">' + _pgEscHtml(badgeLabel) + '</div>';
+        html += '<button class="pg-thumb-del" onclick="event.stopPropagation();pgDeleteOne(\'' + ph.id + '\')" title="Delete">🗑</button>';
+        html += '<button class="pg-thumb-dl" onclick="event.stopPropagation();pgDownloadOne(\'' + ph.id + '\')" title="Download">⬇</button>';
+        html += r2Icon;
+        html += '</div>';
+      });
+
+      html += '</div></div>';
     });
 
     html += '</div></div>';
@@ -3686,6 +3732,15 @@ function _pgRender() {
   grid.innerHTML = html;
   _pgObserveThumbs(grid);
   _pgUpdateSelUI();
+}
+
+function pgToggleToolSection(toolId) {
+  var body = document.getElementById('body-' + toolId);
+  var arrow = document.getElementById('arrow-' + toolId);
+  if (!body) return;
+  var collapsed = body.style.display === 'none';
+  body.style.display = collapsed ? '' : 'none';
+  if (arrow) arrow.textContent = collapsed ? '▾' : '▸';
 }
 
 // ── Lazy-load + R2 auth fetch ──
@@ -3729,7 +3784,12 @@ function _pgObserveThumbs(grid) {
             return r.blob();
           })
           .then(function(blob) { if (blob) img.src = URL.createObjectURL(blob); })
-          .catch(function() { img.style.background = '#c0392b20'; });
+          .catch(function() {
+            // Ghost photo — hide thumbnail entirely
+            img.style.display = 'none';
+            var thumb = img.closest('.pg-thumb');
+            if (thumb) thumb.style.display = 'none';
+          });
       } else if (src.startsWith('data:')) {
         img.src = src;
       } else {
@@ -3744,9 +3804,23 @@ function _pgObserveThumbs(grid) {
 // ── Selection ──
 var _pgLastClickId = null;
 
-function pgThumbClick(id) {
-  // Single click on photo = open lightbox
-  pgLbOpen(id);
+function pgThumbClick(id, e) {
+  // Single click = toggle selection; shift+click = range select; double-click opens lightbox (separate handler)
+  if (e && e.shiftKey && _pgLastClickId && _pgLastClickId !== id) {
+    var ids = _pgFiltered.map(function(p) { return p.id; });
+    var a = ids.indexOf(_pgLastClickId), b = ids.indexOf(id);
+    if (a !== -1 && b !== -1) {
+      var lo = Math.min(a,b), hi = Math.max(a,b);
+      var addOrRemove = !_pgSelected.has(id);
+      for (var i = lo; i <= hi; i++) {
+        if (addOrRemove) _pgSelected.add(ids[i]); else _pgSelected.delete(ids[i]);
+      }
+    }
+  } else {
+    if (_pgSelected.has(id)) _pgSelected.delete(id); else _pgSelected.add(id);
+  }
+  _pgLastClickId = id;
+  _pgRefreshSelectionUI();
 }
 
 function pgToggleOne(id, e) {
@@ -3886,6 +3960,16 @@ function pgDownloadAll() {
   toast('Downloading all ' + _pgFiltered.length + ' photos', 'success');
 }
 
+function pgDownloadOne(id) {
+  var ph = _pgFiltered.find(function(p) { return p.id === id; });
+  if (ph) _pgFetchAndDownload(ph, (ph.tool + '_' + ph.type + '.jpg').replace(/\s+/g, '_'));
+}
+
+function pgDeleteOne(id) {
+  // Hub gallery is read-only view of tool data — show info message
+  toast('To delete a photo, open the tool and remove it there. Hub gallery is a read-only view.', 'info');
+}
+
 // ── Lightbox ──
 function pgLbOpen(id) {
   _pgLbList = _pgFiltered;
@@ -3905,10 +3989,10 @@ function _pgLbShow() {
   if (!img) return;
   img.src = '';
   if (ph.src.indexOf(R2_WORKER) === 0) {
-    var token = localStorage.getItem('sb-access-token');
-    fetch(ph.src, { headers: token ? { 'Authorization': 'Bearer ' + token } : {} })
-      .then(function(r) { return r.blob(); })
-      .then(function(blob) { img.src = URL.createObjectURL(blob); });
+    fetch(ph.src)
+      .then(function(r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+      .then(function(blob) { img.src = URL.createObjectURL(blob); })
+      .catch(function() { img.alt = 'Photo not found'; });
   } else {
     img.src = ph.src;
   }
@@ -4271,25 +4355,32 @@ function _pgEscHtml(s) {
 <script>
 (function(){
   var hubUrl='https://hezhendong999-bot.github.io/ARENCON-Toolkit/ARENCON_Project_Hub.html';
-  var _qrGenerated=false;
+  var _qrLastUrl='';
 
-  window.openQRModal=function(){
+  window.openQRModal=function(url,title,desc){
+    var qrUrl=url||hubUrl;
     var overlay=document.getElementById('qr-modal-overlay');
     if(overlay)overlay.classList.add('open');
-    // Generate QR lazily on first open
-    if(!_qrGenerated&&typeof QRCode!=='undefined'){
-      var el=document.getElementById('qr-code-large');
-      if(el){
-        new QRCode(el,{
-          text:hubUrl,
-          width:256,
-          height:256,
-          colorDark:'#1B2438',
-          colorLight:'#ffffff',
-          correctLevel:QRCode.CorrectLevel.M
-        });
-        _qrGenerated=true;
-      }
+    // Update title/desc
+    var h3=overlay.querySelector('.qr-modal-box h3');
+    var p=overlay.querySelector('.qr-modal-box p');
+    var urlEl=overlay.querySelector('.qr-modal-url');
+    if(h3)h3.textContent=title||'Open on Mobile';
+    if(p)p.textContent=desc||'Scan with your phone camera';
+    if(urlEl)urlEl.textContent=qrUrl.replace('https://','');
+    // Regenerate QR if URL changed
+    var el=document.getElementById('qr-code-large');
+    if(el&&typeof QRCode!=='undefined'&&qrUrl!==_qrLastUrl){
+      el.innerHTML='';
+      new QRCode(el,{
+        text:qrUrl,
+        width:256,
+        height:256,
+        colorDark:'#1B2438',
+        colorLight:'#ffffff',
+        correctLevel:QRCode.CorrectLevel.M
+      });
+      _qrLastUrl=qrUrl;
     }
     document.body.style.overflow='hidden';
   };
@@ -4298,6 +4389,38 @@ function _pgEscHtml(s) {
     var overlay=document.getElementById('qr-modal-overlay');
     if(overlay)overlay.classList.remove('open');
     document.body.style.overflow='';
+  };
+
+  // QR for Hub (post-login) — no args = Hub URL
+  window.openHubQR=function(){openQRModal(hubUrl,'Open Hub on Mobile','Scan to open the Project Hub');};
+
+  // QR for a specific project
+  window.openProjectQR=function(projectId){
+    if(!projectId)return;
+    var url=hubUrl+'?open='+encodeURIComponent(projectId);
+    var proj=_projects?_projects.find(function(p){return p.id===projectId;}):null;
+    var name=proj?(proj.project_number||'')+' '+(proj.project_name||''):'Project';
+    openQRModal(url,'Open Project','Scan to open: '+name.trim());
+  };
+
+  // QR for a specific tool within a project
+  window.openToolQR=function(projectId,toolKey){
+    if(!projectId||!toolKey)return;
+    var proj=_projects?_projects.find(function(p){return p.id===projectId;}):null;
+    var pn=proj?proj.project_number||'':'';
+    var pname=proj?proj.project_name||'':'';
+    var client=proj?proj.client||'':'';
+    var addr=proj?proj.address||'':'';
+    var toolFile=AVAILABLE_TOOLS[toolKey]?AVAILABLE_TOOLS[toolKey].file:'';
+    if(!toolFile)return;
+    var base='https://hezhendong999-bot.github.io/ARENCON-Toolkit/';
+    var url=base+toolFile+'?project='+encodeURIComponent(projectId)
+      +'&pn='+encodeURIComponent(pn)
+      +'&pname='+encodeURIComponent(pname)
+      +'&client='+encodeURIComponent(client)
+      +'&addr='+encodeURIComponent(addr);
+    var toolLabel=AVAILABLE_TOOLS[toolKey]?AVAILABLE_TOOLS[toolKey].name:toolKey;
+    openQRModal(url,'Open '+toolLabel,'Scan to open tool for: '+(pn+' '+pname).trim());
   };
 
   // Close on Escape
