@@ -4009,10 +4009,12 @@ function _hlbClamp(){
 function _hlbZoomAt(cx,cy,delta){
   var wrap=document.getElementById('pg-lb-wrap');if(!wrap)return;
   var r=wrap.getBoundingClientRect();
-  var ox=(cx-r.left-r.width/2-_hlbZ.px)/_hlbZ.s;
-  var oy=(cy-r.top-r.height/2-_hlbZ.py)/_hlbZ.s;
+  var mx=cx-r.left, my=cy-r.top;
+  var imgX=(mx-_hlbZ.px)/_hlbZ.s;
+  var imgY=(my-_hlbZ.py)/_hlbZ.s;
   var ns=Math.max(1,Math.min(8,_hlbZ.s*delta));
-  _hlbZ.px-=ox*(ns-_hlbZ.s);_hlbZ.py-=oy*(ns-_hlbZ.s);
+  _hlbZ.px=mx-imgX*ns;
+  _hlbZ.py=my-imgY*ns;
   _hlbZ.s=ns;_hlbClamp();_hlbApply();
 }
 function _hlbZoomInit(){

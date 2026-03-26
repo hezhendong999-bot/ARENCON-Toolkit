@@ -1395,10 +1395,10 @@ body.text-l{--ts:4px;}
           <button onclick="resetCurrentProject();closeMoreMenu()" style="color:#C62828;">⚠️ Reset Entire Project <span>Delete all project data</span></button>
         </div>
       </div>
+      <button class="hdr-btn" id="btn-qr" onclick="openFrtQR()" style="display:none;background:rgba(255,255,255,.15);" title="QR Code for this tool">📱</button>
       <button class="hdr-btn" id="dark-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="background:rgba(255,255,255,.15);min-width:38px;justify-content:center;">☀️</button>
       <button class="hdr-btn text-size-toggle" id="btn-text-size" onclick="cycleTextSize()" title="Text size: Small / Medium / Large">M</button>
       <button class="hdr-btn" id="btn-signout" onclick="signOutSession()" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
-      <button class="hdr-btn" id="btn-qr" onclick="openFrtQR()" style="display:none;background:rgba(255,255,255,.15);" title="QR Code for this tool">📱</button>
       <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
     </div>
   </div>
@@ -8986,10 +8986,12 @@ function _mlbClamp(){
 function _mlbZoomAt(cx,cy,delta){
   var wrap=document.getElementById('lb-canvas-wrap');if(!wrap)return;
   var r=wrap.getBoundingClientRect();
-  var ox=(cx-r.left-r.width/2-_mlbZ.px)/_mlbZ.s;
-  var oy=(cy-r.top-r.height/2-_mlbZ.py)/_mlbZ.s;
+  var mx=cx-r.left, my=cy-r.top;
+  var imgX=(mx-_mlbZ.px)/_mlbZ.s;
+  var imgY=(my-_mlbZ.py)/_mlbZ.s;
   var ns=Math.max(1,Math.min(8,_mlbZ.s*delta));
-  _mlbZ.px-=ox*(ns-_mlbZ.s);_mlbZ.py-=oy*(ns-_mlbZ.s);
+  _mlbZ.px=mx-imgX*ns;
+  _mlbZ.py=my-imgY*ns;
   _mlbZ.s=ns;_mlbClamp();_mlbApply();
 }
 function _mlbZoomInit(){
@@ -10380,11 +10382,17 @@ function _glbClamp(){
 }
 function _glbZoomAt(cx,cy,delta){
   var wrap=document.getElementById('glb-img-wrap');if(!wrap)return;
+  var img=document.getElementById('glb-img');if(!img)return;
   var r=wrap.getBoundingClientRect();
-  var ox=(cx-r.left-r.width/2-_glbZ.px)/_glbZ.s;
-  var oy=(cy-r.top-r.height/2-_glbZ.py)/_glbZ.s;
+  // Cursor position relative to wrapper
+  var mx=cx-r.left, my=cy-r.top;
+  // Point on image in image-local (pre-transform) coords
+  var imgX=(mx-_glbZ.px)/_glbZ.s;
+  var imgY=(my-_glbZ.py)/_glbZ.s;
   var ns=Math.max(1,Math.min(8,_glbZ.s*delta));
-  _glbZ.px-=ox*(ns-_glbZ.s);_glbZ.py-=oy*(ns-_glbZ.s);
+  // Adjust pan so the same image point stays under the cursor
+  _glbZ.px=mx-imgX*ns;
+  _glbZ.py=my-imgY*ns;
   _glbZ.s=ns;_glbClamp();_glbApply();
 }
 function _glbZoomInit(wrap){
@@ -10934,14 +10942,21 @@ css+='.ph-addr{text-align:right;font-size:9px;color:#4A5568;line-height:1.6;}';
 css+='.ph-compact{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #999;padding-bottom:4px;margin-bottom:12px;}';
 css+='.ph-compact-left{font-size:8.5pt;color:#444;line-height:1.6;}';
 css+='.ph-compact-right{font-size:8.5pt;color:#444;line-height:1.6;text-align:right;}';
-// Section styles
-css+='.sh{background:#9C2742;color:white;padding:7px 12px;font-weight:700;font-size:12px;border-radius:6px 6px 0 0;margin-top:16px;margin-bottom:0;letter-spacing:.3px;}';
-css+='.sb{border:1px solid #DDE1E7;border-top:none;padding:12px;border-radius:0 0 6px 6px;margin-bottom:4px;background:#FAFBFC;}';
+// Section card — single card with colored top bar built in
+css+='.sec-card{border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;overflow:hidden;}';
+css+='.sec-card-hdr{background:#9C2742;color:white;padding:7px 14px;font-weight:700;font-size:12px;letter-spacing:.3px;}';
+css+='.sec-card-body{padding:12px;}';
+// Legacy sh/sb kept for Project Info compatibility
+css+='.sh{background:#9C2742;color:white;padding:7px 14px;font-weight:700;font-size:12px;border-radius:6px 6px 0 0;margin-top:16px;margin-bottom:0;letter-spacing:.3px;}';
+css+='.sb{border:1px solid #DDE1E7;border-top:none;padding:12px;border-radius:0 0 6px 6px;margin-bottom:0;}';
 css+='.ig{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}';
 css+='.ii{font-size:10px;}.ii label{font-weight:700;color:#4A5568;text-transform:uppercase;font-size:8px;letter-spacing:.5px;display:block;margin-bottom:1px;}.ii span{color:#1C2333;}';
-css+='.ch{background:#2C4A6B;color:white;padding:6px 12px;font-weight:700;font-size:11px;border-radius:6px;margin-top:14px;margin-bottom:0;letter-spacing:.3px;}';
-// Deficiency cards
-css+='.dc{border:1px solid #DDE1E7;border-radius:6px;padding:10px;margin-bottom:10px;background:#FAFBFC;}';
+// Contractor group header — sits above deficiency cards, connected
+css+='.ch{background:#2C4A6B;color:white;padding:6px 14px;font-weight:700;font-size:11px;border-radius:6px 6px 0 0;margin-top:14px;margin-bottom:0;letter-spacing:.3px;}';
+// Deficiency cards — no top radius when under a .ch, border connects
+css+='.dc{border:1px solid #DDE1E7;border-top:none;padding:10px;margin-bottom:0;background:white;}';
+css+='.dc:last-child{border-radius:0 0 6px 6px;margin-bottom:10px;}';
+css+='.dc-first{border-top:none;}';
 css+='.dc-inner{display:flex;gap:12px;align-items:flex-start;}';
 css+='.dc-mini{flex-shrink:0;width:160px;max-height:160px;object-fit:contain;border-radius:6px;border:1px solid #DDE1E7;display:block;align-self:flex-start;}';
 css+='.dc-content{flex:1;min-width:0;}';
@@ -11011,7 +11026,7 @@ function _compactHeader(pageNum,totalPages){
 var summaryHtml='';
 if(reportDefs.length){
   var ctrGroups={};reportDefs.forEach(function(r){if(!ctrGroups[r.ctr])ctrGroups[r.ctr]=[];ctrGroups[r.ctr].push(r);});
-  summaryHtml+='<div class="sh">Deficiency Summary</div><div class="sb">';
+  summaryHtml+='<div class="sec-card"><div class="sec-card-hdr">Deficiency Summary</div><div class="sec-card-body">';
   summaryHtml+='<table class="st"><thead><tr><th>Contractor</th><th>Total</th><th>IAR</th><th>Outstanding</th><th>Closed</th></tr></thead><tbody>';
   Object.keys(ctrGroups).forEach(function(ctr){
     var gc=ctrGroups[ctr];
@@ -11028,7 +11043,7 @@ if(reportDefs.length){
   var tcl=reportDefs.filter(function(r){return r.d.status==='Closed';}).length;
   summaryHtml+='<tr style="border-top:2px solid #2C3E50;font-weight:700;"><td>Total</td><td>'+reportDefs.length+'</td>';
   summaryHtml+='<td style="color:#FF69B4;">'+tiar+'</td><td style="color:#C0392B;">'+tos+'</td><td style="color:#1A7A4A;">'+tcl+'</td></tr>';
-  summaryHtml+='</tbody></table></div>';
+  summaryHtml+='</tbody></table></div></div>';
 }
 
 // ── Build individual deficiency card HTML blocks ──
@@ -11101,10 +11116,9 @@ reportDefs.forEach(function(r){if(!ctrGroups2[r.ctr])ctrGroups2[r.ctr]=[];ctrGro
 // Create ordered list of content blocks: [{ type:'ctrHeader'|'defCard', html, ctr }]
 var contentBlocks=[];
 if(reportDefs.length){
-  contentBlocks.push({type:'sectionHeader',html:'<div class="sh">Deficiencies ('+reportDefs.length+')</div>'});
   Object.keys(ctrGroups2).forEach(function(ctr){
     contentBlocks.push({type:'ctrHeader',html:'<div class="ch">'+escHtml(ctr)+' ('+ctrGroups2[ctr].length+')</div>',ctr:ctr});
-    ctrGroups2[ctr].forEach(function(r){
+    ctrGroups2[ctr].forEach(function(r,ri){
       contentBlocks.push({type:'defCard',html:_buildDefCardHtml(r),defId:r.d.id,ctr:ctr});
     });
   });
