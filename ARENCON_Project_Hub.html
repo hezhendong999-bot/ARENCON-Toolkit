@@ -1884,7 +1884,7 @@ function _renderDetailTools(proj) {
     var toggleHtml = isViewer ? '' :
       '<button class="tlc-toggle' + (enabled ? ' on' : '') + '" onclick="event.stopPropagation();toggleTool(\'' + key + '\')" title="' + (enabled ? 'Disable' : 'Enable') + ' ' + esc(t.name) + '"></button>';
 
-    var qrHtml = enabled ? '<button class="tlc-qr" onclick="event.stopPropagation();openToolQR(\'' + _detailProjectId + '\',\'' + key + '\')" title="QR Code for ' + esc(t.name) + '">📱</button>' : '';
+    var qrHtml = ''; // QR moved to each tool's own header (Rule 185)
 
     html += '<div class="tool-launch-card' + (enabled ? '' : ' disabled') + '" id="tlc-' + key + '"'
       + (enabled ? ' onclick="launchTool(\'' + key + '\')"' : '')
