@@ -10942,10 +10942,10 @@ var css='*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:e
 css+='body{font-family:Calibri,sans-serif;color:#1C2333;font-size:11pt;background:#525659;margin:0;padding:20px;}';
 css+='.page{width:8.5in;min-height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
 css+='.page-content{position:relative;}';
-// Full header (page 1)
-css+='.ph{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:3px solid #9C2742;padding-bottom:10px;margin-bottom:0;}';
+// Full header (page 1) — logo left, address right with red vertical line
+css+='.ph{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:10px;margin-bottom:0;}';
 css+='.ph img{height:34px;}';
-css+='.ph-addr{text-align:right;font-size:9pt;color:#4A5568;line-height:1.6;}';
+css+='.ph-addr{text-align:left;font-size:9pt;color:#1C2333;line-height:1.7;border-left:2px solid #9C2742;padding-left:10px;}';
 // Compact repeat header (pages 2+) — OBC-style 3-line running header
 css+='.ph-compact{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #999;padding-bottom:4px;margin-bottom:12px;}';
 css+='.ph-compact-left{font-size:8.5pt;color:#444;line-height:1.6;}';
@@ -10990,15 +10990,16 @@ css+='.cont-marker{font-size:9pt;color:#9C2742;font-style:italic;padding:4px 0;f
 // Print
 css+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}}';
 css+='@page{size:letter;margin:0;}';
-// Title block — centered, matching ARENCON Word template
-css+='.title-block{text-align:center;margin:18px 0 4px;padding-bottom:0;}';
-css+='.title-block .tb-line1{font-size:13pt;font-weight:700;color:#1C2333;letter-spacing:1px;font-variant:small-caps;margin-bottom:1px;}';
-css+='.title-block .tb-line2{font-size:14pt;font-weight:700;color:#1C2333;font-variant:small-caps;margin-bottom:1px;}';
-css+='.title-block .tb-line3{font-size:13pt;font-weight:700;color:#1C2333;font-variant:small-caps;margin-bottom:8px;}';
+// Title block — centered, no border lines (lines go around project info below)
+css+='.title-block{text-align:center;margin:12px 0 0;padding:14px 0 12px;}';
+css+='.title-block .tb-line1{font-family:"Times New Roman",Times,serif;font-size:13pt;font-weight:700;color:#1C2333;letter-spacing:1px;font-variant:small-caps;margin-bottom:1px;}';
+css+='.title-block .tb-line2{font-family:"Times New Roman",Times,serif;font-size:14pt;font-weight:700;color:#1C2333;font-variant:small-caps;margin-bottom:1px;}';
+css+='.title-block .tb-line3{font-family:"Times New Roman",Times,serif;font-size:13pt;font-weight:700;color:#1C2333;font-variant:small-caps;margin-bottom:8px;}';
 css+='.title-block .tb-line4{font-size:11pt;font-weight:700;color:#333;margin-bottom:2px;}';
-// Project info — left-aligned label:value list with top rule (matching template)
-css+='.pi-list{margin-top:10px;padding-top:10px;border-top:2px solid #1C2333;}';
+// Project info — left-aligned label:value list sandwiched between two burgundy lines
+css+='.pi-list{margin-top:4px;padding:10px 0;border-top:2px solid #1C2333;border-bottom:2px solid #1C2333;}';
 css+='.pi-row{display:flex;gap:10px;margin-bottom:3px;font-size:11pt;}';
+css+='.pi-row:last-child{margin-bottom:0;}';
 css+='.pi-label{min-width:145px;font-weight:400;color:#1C2333;}';
 css+='.pi-value{font-weight:400;color:#1C2333;}';
 
@@ -11010,7 +11011,7 @@ if(_ctrFilterId!=='__all__'&&_ctrFilterName){
 
 // ── Build full header HTML (page 1) ──
 var fullHeader='<div class="ph"><div><img src="'+logo+'" alt="ARENCON"></div>';
-fullHeader+='<div class="ph-addr">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp; L4X 2Z6, CANADA<br>P: 905 615 1774 &nbsp;|&nbsp; F: 905 615 9351<br>E: mail'+'@'+'arencon.com</div></div>';
+fullHeader+='<div class="ph-addr">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp;&nbsp; L4X 2Z6<br>CANADA<br><br>P: 905 615 1774<br>F: 905 615 9351<br>E: mail'+'@'+'arencon.com</div></div>';
 
 // Project info grid
 // ── Report number + revision ──
@@ -11335,7 +11336,7 @@ contentBlocks.forEach(function(block){
 
 // Finalize last deficiency page — inject closing note first if needed
 if(!isFinalComm&&reportDefs.length){
-  var _noteHtml='<div style="margin-top:16px;padding:10px 0 0;font-size:11pt;color:#333;font-style:italic;border-top:1px solid #DDE1E7;">Note: Further deficiencies may be noted in future field reports following final commissioning.</div>';
+  var _noteHtml='<div style="margin-top:16px;padding:10px 0 0;font-size:11pt;color:#333;">Note: Further deficiencies may be noted in future field reports following final commissioning.</div>';
   var _noteH=_measure(_noteHtml);
   if(curUsed+_noteH>PAGE_H){
     _finalizePage();_startPage();
