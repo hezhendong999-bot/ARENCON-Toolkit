@@ -1498,6 +1498,13 @@ body.text-l{--ts:4px;}
         <option value="__all__">All Contractors</option>
       </select>
     </div>
+    <div style="margin-bottom:14px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:calc(13px + var(--ts));color:var(--fg);">
+        <input type="checkbox" id="pdf-final-comm" style="width:18px;height:18px;accent-color:#9C2742;cursor:pointer;">
+        <span>Final Commissioning Report</span>
+      </label>
+      <div style="font-size:calc(10px + var(--ts));color:var(--steel);margin-top:2px;margin-left:26px;">Omits "further deficiencies" closing note</div>
+    </div>
     <button class="btn" onclick="exportPDF('plain');closePDFPicker();" style="width:100%;margin-bottom:10px;justify-content:center;padding:12px;background:#9C2742;color:white;border:none;font-weight:700;">📝 Deficiency Report <span style="font-size:calc(11px + var(--ts));font-weight:400;opacity:.85;">— deficiencies, photos &amp; comments</span></button>
     <button class="btn" onclick="exportPDF('field');closePDFPicker();" style="width:100%;margin-bottom:10px;justify-content:center;padding:12px;background:#1A237E;color:white;border:none;font-weight:700;">📋 Field Review Report <span style="font-size:calc(11px + var(--ts));font-weight:400;opacity:.85;">— mini-maps + drawing appendix</span></button>
     <button class="btn btn-outline" onclick="closePDFPicker();" style="width:100%;justify-content:center;padding:12px;color:var(--fg);border-color:var(--border);">Cancel</button>
@@ -10840,6 +10847,7 @@ function exportPDF(mode){
 if(!currentProjectId)return;var p=getProject();var logo=LOGO_SRC;
 var isField=(mode==='field');
 var ctrFilter=(document.getElementById('pdf-ctr-filter')||{}).value||'__all__';
+var isFinalComm=!!(document.getElementById('pdf-final-comm')||{}).checked;
 closePDFPicker();
 
 // Show progress overlay on FRT page during pre-fetch
@@ -10863,11 +10871,11 @@ _prefetchR2PhotosForPDF(p,function(done,total){
   }catch(e){}
 }).then(function(r2Cache){
   try{var ov2=document.getElementById('pdf-prefetch-overlay');if(ov2)ov2.remove();}catch(e){}
-  _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter);
+  _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm);
 }).catch(function(e){
   try{var ov3=document.getElementById('pdf-prefetch-overlay');if(ov3)ov3.remove();}catch(e2){}
   _dbw('[PDF] R2 prefetch failed, proceeding:',e);
-  _exportPDFWithCache(p,logo,isField,mode,{},ctrFilter);
+  _exportPDFWithCache(p,logo,isField,mode,{},ctrFilter,isFinalComm);
 });
 }
 
@@ -10913,7 +10921,7 @@ if(ph.r2Url&&r2Cache&&r2Cache[ph.r2Url])return r2Cache[ph.r2Url];
 return ph.dataUrl||ph.r2Url||'';
 }
 
-function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter){
+function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm){
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
 var reportDefs=[];var rn=1;
 var _ctrFilterId=ctrFilter||'__all__';
@@ -10931,28 +10939,28 @@ if(_ctrFilterId==='__general__')_ctrFilterName='General';
 
 // ── CSS ──
 var css='*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}';
-css+='body{font-family:Calibri,sans-serif;color:#1C2333;font-size:11px;background:#525659;margin:0;padding:20px;}';
+css+='body{font-family:Calibri,sans-serif;color:#1C2333;font-size:11pt;background:#525659;margin:0;padding:20px;}';
 css+='.page{width:8.5in;min-height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
 css+='.page-content{position:relative;}';
 // Full header (page 1)
-css+='.ph{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:3px solid #9C2742;padding-bottom:10px;margin-bottom:14px;}';
-css+='.ph img{height:34px;}.ph-title{font-size:18px;font-weight:700;color:#9C2742;margin-top:4px;}';
-css+='.ph-addr{text-align:right;font-size:9px;color:#4A5568;line-height:1.6;}';
+css+='.ph{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:3px solid #9C2742;padding-bottom:10px;margin-bottom:0;}';
+css+='.ph img{height:34px;}';
+css+='.ph-addr{text-align:right;font-size:9pt;color:#4A5568;line-height:1.6;}';
 // Compact repeat header (pages 2+) — OBC-style 3-line running header
 css+='.ph-compact{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #999;padding-bottom:4px;margin-bottom:12px;}';
 css+='.ph-compact-left{font-size:8.5pt;color:#444;line-height:1.6;}';
 css+='.ph-compact-right{font-size:8.5pt;color:#444;line-height:1.6;text-align:right;}';
 // Section card — single card with colored top bar built in
 css+='.sec-card{border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;overflow:hidden;}';
-css+='.sec-card-hdr{background:#9C2742;color:white;padding:7px 14px;font-weight:700;font-size:12px;letter-spacing:.3px;}';
+css+='.sec-card-hdr{background:#9C2742;color:white;padding:7px 14px;font-weight:700;font-size:12pt;letter-spacing:.3px;}';
 css+='.sec-card-body{padding:12px;}';
 // Legacy sh/sb kept for Project Info compatibility
-css+='.sh{background:#9C2742;color:white;padding:7px 14px;font-weight:700;font-size:12px;border-radius:6px 6px 0 0;margin-top:16px;margin-bottom:0;letter-spacing:.3px;}';
+css+='.sh{background:#9C2742;color:white;padding:7px 14px;font-weight:700;font-size:12pt;border-radius:6px 6px 0 0;margin-top:16px;margin-bottom:0;letter-spacing:.3px;}';
 css+='.sb{border:1px solid #DDE1E7;border-top:none;padding:12px;border-radius:0 0 6px 6px;margin-bottom:0;}';
 css+='.ig{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}';
-css+='.ii{font-size:10px;}.ii label{font-weight:700;color:#4A5568;text-transform:uppercase;font-size:8px;letter-spacing:.5px;display:block;margin-bottom:1px;}.ii span{color:#1C2333;}';
+css+='.ii{font-size:11pt;}.ii label{font-weight:700;color:#4A5568;text-transform:uppercase;font-size:8pt;letter-spacing:.5px;display:block;margin-bottom:1px;}.ii span{color:#1C2333;}';
 // Contractor group header — sits above deficiency cards, connected
-css+='.ch{background:#2C4A6B;color:white;padding:6px 14px;font-weight:700;font-size:11px;border-radius:6px 6px 0 0;margin-top:14px;margin-bottom:0;letter-spacing:.3px;}';
+css+='.ch{background:#2C4A6B;color:white;padding:6px 14px;font-weight:700;font-size:11pt;border-radius:6px 6px 0 0;margin-top:14px;margin-bottom:0;letter-spacing:.3px;}';
 // Deficiency cards — no top radius when under a .ch, border connects
 css+='.dc{border:1px solid #DDE1E7;border-top:none;padding:10px;margin-bottom:0;background:white;}';
 css+='.dc:last-child{border-radius:0 0 6px 6px;margin-bottom:10px;}';
@@ -10960,53 +10968,80 @@ css+='.dc-first{border-top:none;}';
 css+='.dc-inner{display:flex;gap:12px;align-items:flex-start;}';
 css+='.dc-mini{flex-shrink:0;width:160px;max-height:160px;object-fit:contain;border-radius:6px;border:1px solid #DDE1E7;display:block;align-self:flex-start;}';
 css+='.dc-content{flex:1;min-width:0;}';
-css+='.iar{display:inline-block;background:#FF69B4;color:white;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;margin-left:4px;}';
-css+='.so{color:#C0392B;font-weight:700;font-size:11px;}.sc{color:#1A7A4A;font-weight:700;font-size:11px;}';
+css+='.iar{display:inline-block;background:#FF69B4;color:white;padding:1px 7px;border-radius:10px;font-size:9pt;font-weight:700;margin-left:4px;}';
+css+='.so{color:#C0392B;font-weight:700;font-size:11pt;}.sc{color:#1A7A4A;font-weight:700;font-size:11pt;}';
 css+='.dp{width:160px;height:160px;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;}';
-css+='.resp-box{padding:6px 10px;border-radius:4px;margin-top:6px;font-size:10px;}';
+css+='.resp-box{padding:6px 10px;border-radius:4px;margin-top:6px;font-size:11pt;}';
 css+='.resp-ctr{background:#FFF8E1;border:1px solid #FFE082;}.resp-con{background:#E8F0FE;border:1px solid #B3D4FC;}';
 css+='.resp-photos{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}';
 css+='.resp-photos img{width:160px;height:160px;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;}';
-css+='.st{width:100%;border-collapse:collapse;font-size:10px;margin-top:8px;}';
-css+='.st th{background:#2C3E50;color:white;padding:5px 8px;text-align:left;font-size:9px;}';
-css+='.st td{padding:5px 8px;border-bottom:1px solid #DDE1E7;font-size:10px;}';
+css+='.st{width:100%;border-collapse:collapse;font-size:11pt;margin-top:0;}';
+css+='.st th{background:#9C2742;color:white;padding:6px 10px;text-align:left;font-size:10pt;font-weight:700;}';
+css+='.st td{padding:6px 10px;border-bottom:1px solid #DDE1E7;font-size:11pt;}';
 // Appendix
 css+='.app-dwg{margin-bottom:28px;}';
-css+='.app-dwg-title{font-weight:700;font-size:12px;color:#1C2333;margin-bottom:8px;padding:6px 10px;background:#F7F8FA;border-radius:4px;border-left:3px solid #9C2742;}';
+css+='.app-dwg-title{font-weight:700;font-size:12pt;color:#1C2333;margin-bottom:8px;padding:6px 10px;background:#F7F8FA;border-radius:4px;border-left:3px solid #9C2742;}';
 css+='.app-dwg img{max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;}';
-css+='.app-pin-table{width:100%;border-collapse:collapse;font-size:10px;margin-top:8px;}';
-css+='.app-pin-table th{background:#F7F8FA;padding:4px 8px;text-align:left;border-bottom:1px solid #DDE1E7;font-size:9px;}';
+css+='.app-pin-table{width:100%;border-collapse:collapse;font-size:11pt;margin-top:8px;}';
+css+='.app-pin-table th{background:#F7F8FA;padding:4px 8px;text-align:left;border-bottom:1px solid #DDE1E7;font-size:9pt;}';
 css+='.app-pin-table td{padding:4px 8px;border-bottom:1px solid #F0F0F0;}';
 // Continuation markers
-css+='.cont-marker{font-size:9px;color:#9C2742;font-style:italic;padding:4px 0;font-weight:600;}';
+css+='.cont-marker{font-size:9pt;color:#9C2742;font-style:italic;padding:4px 0;font-weight:600;}';
 // Print
 css+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}}';
 css+='@page{size:letter;margin:0;}';
+// Title block — centered below header
+css+='.title-block{text-align:center;margin:18px 0 8px;padding-bottom:12px;border-bottom:1px solid #CCC;}';
+css+='.title-block .tb-line1{font-size:12pt;font-weight:700;color:#1C2333;letter-spacing:.5px;margin-bottom:2px;}';
+css+='.title-block .tb-line2{font-size:14pt;font-weight:700;color:#1C2333;margin-bottom:2px;}';
+css+='.title-block .tb-line3{font-size:12pt;font-weight:600;color:#1C2333;margin-bottom:6px;}';
+css+='.title-block .tb-line4{font-size:11pt;font-weight:600;color:#333;margin-bottom:2px;}';
+css+='.title-block .tb-line5{font-size:11pt;font-weight:600;color:#333;}';
 
 var titleLabel='Field Review Report';
 var _ctrSubtitle='';
 if(_ctrFilterId!=='__all__'&&_ctrFilterName){
-  _ctrSubtitle=' — '+_ctrFilterName;
+  _ctrSubtitle=_ctrFilterName;
 }
 
 // ── Build full header HTML (page 1) ──
-var fullHeader='<div class="ph"><div><img src="'+logo+'" alt="ARENCON"><div class="ph-title">'+titleLabel+(_ctrSubtitle?'<div style="font-size:12px;font-weight:600;color:#4A5568;margin-top:2px;">'+escHtml(_ctrFilterName)+'</div>':'')+'</div></div>';
+var fullHeader='<div class="ph"><div><img src="'+logo+'" alt="ARENCON"></div>';
 fullHeader+='<div class="ph-addr">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp; L4X 2Z6, CANADA<br>P: 905 615 1774 &nbsp;|&nbsp; F: 905 615 9351<br>E: mail'+'@'+'arencon.com</div></div>';
 
 // Project info grid
+// ── Report number + revision ──
+var _rptNum=1;
+try{if(typeof CloudSync!=='undefined'&&CloudSync.instanceNumber)_rptNum=CloudSync.instanceNumber;}catch(e){}
+var _rptRev=p.info.revision||'A01';
+
+// Build contractor list for Project Info
+var _pdfCtrList=(p.contractors||[]).map(function(c){return c.name;}).join(', ')||'\u2014';
+// Distribution = filtered contractor name if single, else all contractors
+var _pdfDistribution=_ctrSubtitle?escHtml(_ctrSubtitle):escHtml(_pdfCtrList);
+
+// ── Centered title block ──
+var titleBlock='<div class="title-block">';
+titleBlock+='<div class="tb-line1">Fire Protection Engineering</div>';
+titleBlock+='<div class="tb-line2">'+escHtml(titleLabel)+' #'+_rptNum+'</div>';
+if(p.info.projectName)titleBlock+='<div class="tb-line3">'+escHtml(p.info.projectName)+'</div>';
+var _tbClientAddr=[];
+if(p.info.client)_tbClientAddr.push(escHtml(p.info.client));
+if(p.info.address)_tbClientAddr.push(escHtml(p.info.address));
+if(_tbClientAddr.length)titleBlock+='<div class="tb-line4">'+_tbClientAddr.join('. ')+'</div>';
+if(_ctrSubtitle)titleBlock+='<div class="tb-line5">'+escHtml(_ctrSubtitle)+'</div>';
+titleBlock+='</div>';
+
 var infoGrid='<div class="sh">Project Information</div><div class="sb"><div class="ig">';
 [['Project No.',p.info.projectNumber],['Project Name',p.info.projectName],['Client',p.info.client],
 ['Project Address',p.info.address],['Date of Inspection',p.info.visitDate],['Prepared By',p.info.inspectorName],
-['Date of Issue',p.info.dateOfIssue||''],
-['Revision',p.info.revision||'A01']].forEach(function(f){
+['Date of Issue',p.info.dateOfIssue||''],['Revision',_rptRev],
+['Contractor(s)',_pdfCtrList],['Distribution',(_ctrSubtitle||_pdfCtrList)]].forEach(function(f){
   infoGrid+='<div class="ii"><label>'+f[0]+'</label><span>'+(f[1]||'\u2014')+'</span></div>';
 });
 infoGrid+='</div></div>';
 
-// ── Report number + revision for running header ──
-var _rptNum=1;
-try{if(typeof CloudSync!=='undefined'&&CloudSync.instanceNumber)_rptNum=CloudSync.instanceNumber;}catch(e){}
-var _rptRev=p.info.revision||'A01';
+// Prepend title block to header
+fullHeader+=titleBlock;
 
 // ── Build compact header HTML (pages 2+) — OBC-style ──
 function _compactHeader(pageNum,totalPages){
@@ -11022,28 +11057,28 @@ function _compactHeader(pageNum,totalPages){
     +'</div>';
 }
 
-// ── Build summary table ──
+// ── Build summary table — Option C: single burgundy header row ──
 var summaryHtml='';
 if(reportDefs.length){
   var ctrGroups={};reportDefs.forEach(function(r){if(!ctrGroups[r.ctr])ctrGroups[r.ctr]=[];ctrGroups[r.ctr].push(r);});
-  summaryHtml+='<div class="sec-card"><div class="sec-card-hdr">Deficiency Summary</div><div class="sec-card-body">';
-  summaryHtml+='<table class="st"><thead><tr><th>Contractor</th><th>Total</th><th>IAR</th><th>Outstanding</th><th>Closed</th></tr></thead><tbody>';
+  summaryHtml+='<div style="border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;overflow:hidden;">';
+  summaryHtml+='<table class="st"><thead><tr><th>Deficiency Summary</th><th style="text-align:center;">Total</th><th style="text-align:center;">IAR</th><th style="text-align:center;">Outstanding</th><th style="text-align:center;">Closed</th></tr></thead><tbody>';
   Object.keys(ctrGroups).forEach(function(ctr){
     var gc=ctrGroups[ctr];
     var iar=gc.filter(function(r){return r.d.iar;}).length;
     var os=gc.filter(function(r){return r.d.status==='Outstanding';}).length;
     var cl=gc.filter(function(r){return r.d.status==='Closed';}).length;
-    summaryHtml+='<tr><td><strong>'+escHtml(ctr)+'</strong></td><td>'+gc.length+'</td>';
-    summaryHtml+='<td style="color:#FF69B4;font-weight:700;">'+iar+'</td>';
-    summaryHtml+='<td style="color:#C0392B;font-weight:700;">'+os+'</td>';
-    summaryHtml+='<td style="color:#1A7A4A;font-weight:700;">'+cl+'</td></tr>';
+    summaryHtml+='<tr><td><strong>'+escHtml(ctr)+'</strong></td><td style="text-align:center;">'+gc.length+'</td>';
+    summaryHtml+='<td style="text-align:center;color:#FF69B4;font-weight:700;">'+iar+'</td>';
+    summaryHtml+='<td style="text-align:center;color:#C0392B;font-weight:700;">'+os+'</td>';
+    summaryHtml+='<td style="text-align:center;color:#1A7A4A;font-weight:700;">'+cl+'</td></tr>';
   });
   var tiar=reportDefs.filter(function(r){return r.d.iar;}).length;
   var tos=reportDefs.filter(function(r){return r.d.status==='Outstanding';}).length;
   var tcl=reportDefs.filter(function(r){return r.d.status==='Closed';}).length;
-  summaryHtml+='<tr style="border-top:2px solid #2C3E50;font-weight:700;"><td>Total</td><td>'+reportDefs.length+'</td>';
-  summaryHtml+='<td style="color:#FF69B4;">'+tiar+'</td><td style="color:#C0392B;">'+tos+'</td><td style="color:#1A7A4A;">'+tcl+'</td></tr>';
-  summaryHtml+='</tbody></table></div></div>';
+  summaryHtml+='<tr style="border-top:2px solid #9C2742;font-weight:700;"><td>Total</td><td style="text-align:center;">'+reportDefs.length+'</td>';
+  summaryHtml+='<td style="text-align:center;color:#FF69B4;">'+tiar+'</td><td style="text-align:center;color:#C0392B;">'+tos+'</td><td style="text-align:center;color:#1A7A4A;">'+tcl+'</td></tr>';
+  summaryHtml+='</tbody></table></div>';
 }
 
 // ── Build individual deficiency card HTML blocks ──
@@ -11054,7 +11089,7 @@ function _buildDefCardHtml(r){
   if(hasDwg) h+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="drawing">';
   h+='<div class="dc-content">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-  h+='<div><strong style="color:#9C2742;font-size:13px;">#'+d.num+'</strong>';
+  h+='<div><strong style="color:#9C2742;font-size:13pt;">#'+d.num+'</strong>';
   if(d.iar)h+='<span class="iar">IAR</span>';
   h+='</div>';
   h+='<span class="'+(d.status==='Outstanding'?'so':'sc')+'">'+d.status+'</span>';
@@ -11068,11 +11103,11 @@ function _buildDefCardHtml(r){
       var ePrCol=en.priority==='general'?'#1A7A4A':en.priority==='low'?'#E67E22':'#9C2742';
       if(hasMultiEntries){
         h+='<div class="dc-split" style="margin-bottom:8px;padding:6px 8px;background:#f8f8f8;border-left:3px solid '+ePrCol+';border-radius:0 4px 4px 0;">';
-        h+='<div style="font-size:10px;font-weight:700;color:'+ePrCol+';margin-bottom:2px;">Observation '+eLbl+' ('+ePr+')</div>';
+        h+='<div style="font-size:10pt;font-weight:700;color:'+ePrCol+';margin-bottom:2px;">Observation '+eLbl+' ('+ePr+')</div>';
       } else {
         h+='<div class="dc-split" style="margin-bottom:8px;">';
       }
-      h+='<div style="font-size:11px;margin-bottom:4px;"><strong>Description:</strong> '+escHtml(en.description||'\u2014')+'</div>';
+      h+='<div style="font-size:11pt;margin-bottom:4px;"><strong>Description:</strong> '+escHtml(en.description||'\u2014')+'</div>';
       if(en.photos&&en.photos.length){
         h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">';
         en.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
@@ -11090,8 +11125,8 @@ function _buildDefCardHtml(r){
       h+='</div>';
     }
   }
-  if(d.date)h+='<div style="font-size:10px;color:#4A5568;margin-bottom:6px;">Date: '+d.date+'</div>';
-  if(hasDwg){var dwgObj=p.drawings.find(function(x){return x.id===d.drawingId;});if(dwgObj)h+='<div style="font-size:9px;color:#607D8B;margin-bottom:4px;">\uD83D\uDCD0 '+escHtml(dwgObj.name)+'</div>';}
+  if(d.date)h+='<div style="font-size:10pt;color:#4A5568;margin-bottom:6px;">Date: '+d.date+'</div>';
+  if(hasDwg){var dwgObj=p.drawings.find(function(x){return x.id===d.drawingId;});if(dwgObj)h+='<div style="font-size:9pt;color:#607D8B;margin-bottom:4px;">\uD83D\uDCD0 '+escHtml(dwgObj.name)+'</div>';}
   if(d.responses&&d.responses.length){
     d.responses.forEach(function(resp){
       var isCtr=resp.party==='contractor';
@@ -11122,6 +11157,11 @@ if(reportDefs.length){
       contentBlocks.push({type:'defCard',html:_buildDefCardHtml(r),defId:r.d.id,ctr:ctr});
     });
   });
+}
+
+// ── Closing note (unless Final Commissioning) ──
+if(!isFinalComm){
+  contentBlocks.push({type:'closingNote',html:'<div style="margin-top:16px;padding:10px 14px;font-size:11pt;color:#333;font-style:italic;border-top:1px solid #DDE1E7;">Note: Further deficiencies may be noted in future field reports following final commissioning.</div>'});
 }
 
 // ── Open popup window ──
