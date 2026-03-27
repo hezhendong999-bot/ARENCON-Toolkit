@@ -9849,7 +9849,7 @@ function renderPhotoGallery(){
       // Image — click opens lightbox
       html+='<img data-src="'+ph.src+'" onclick="openPhotoLightbox(\''+ph.id+'\')" loading="lazy">';
       // Checkbox — always visible, top-left, 22px
-      html+='<input type="checkbox" class="photo-thumb-cb" '+(sel?'checked':'')+' onclick="event.stopPropagation();togglePhotoSelect(\''+ph.id+'\')">';
+      html+='<input type="checkbox" class="photo-thumb-cb" '+(sel?'checked':'')+' onclick="event.stopPropagation();togglePhotoSelect(\''+ph.id+'\',event)">';
       // Type badge — top-left, next to checkbox
       html+='<div class="photo-type-badge" style="background:'+typeColor+';">'+typeLabel+'</div>';
       // R2 cloud icon — bottom-left
@@ -9890,14 +9890,52 @@ function toggleDateGroup(dateKey,checked){
       if(!checked&&idx>=0)_selectedPhotos.splice(idx,1);
     }
   });
-  renderPhotoGallery();
+  _syncPhotoSelectionDOM();
 }
 
-function togglePhotoSelect(id){
+var _lastClickedPhotoId=null;
+function togglePhotoSelect(id,event){
   var idx=_selectedPhotos.indexOf(id);
+  // Shift-click range select
+  if(event&&event.shiftKey&&_lastClickedPhotoId&&_lastClickedPhotoId!==id){
+    var p=getProject();if(p){
+      var list=getPhotoList(p);
+      var ids=list.map(function(ph){return ph.id;});
+      var startIdx=ids.indexOf(_lastClickedPhotoId);
+      var endIdx=ids.indexOf(id);
+      if(startIdx>=0&&endIdx>=0){
+        var lo=Math.min(startIdx,endIdx),hi=Math.max(startIdx,endIdx);
+        for(var ri=lo;ri<=hi;ri++){
+          if(_selectedPhotos.indexOf(ids[ri])<0)_selectedPhotos.push(ids[ri]);
+        }
+        _syncPhotoSelectionDOM();
+        return;
+      }
+    }
+  }
+  // Normal toggle
   if(idx>=0)_selectedPhotos.splice(idx,1);
   else _selectedPhotos.push(id);
-  renderPhotoGallery();
+  _lastClickedPhotoId=id;
+  // DOM-only update — no full re-render
+  _syncPhotoSelectionDOM();
+}
+
+function _syncPhotoSelectionDOM(){
+  // Update all thumbnail DOM elements without rebuilding innerHTML
+  document.querySelectorAll('.photo-thumb[data-photo-id]').forEach(function(el){
+    var pid=el.getAttribute('data-photo-id');
+    var sel=_selectedPhotos.indexOf(pid)>=0;
+    el.classList.toggle('selected',sel);
+    var cb=el.querySelector('.photo-thumb-cb');
+    if(cb)cb.checked=sel;
+  });
+  // Update actions button count
+  var btn=document.getElementById('photo-actions-btn');
+  if(btn){
+    if(_selectedPhotos.length>0)btn.textContent='Actions ('+_selectedPhotos.length+') \u25BE';
+    else btn.textContent='Actions \u25BE';
+  }
 }
 
 function selectAllPhotos(){
