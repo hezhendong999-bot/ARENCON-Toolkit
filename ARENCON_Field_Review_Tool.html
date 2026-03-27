@@ -10065,10 +10065,8 @@ function downloadSelectedPhotos(){
   if(!_selectedPhotos.length){showToast('No photos selected');return;}
   var p=getProject();if(!p)return;
   var list=getPhotoList(p);
-  _selectedPhotos.forEach(function(id){
-    var ph=list.find(function(x){return x.id===id;});
-    if(ph)downloadSinglePhoto(ph.src,ph.id);
-  });
+  var photos=_selectedPhotos.map(function(id){return list.find(function(x){return x.id===id;});}).filter(Boolean);
+  _zipAndDownloadPhotos(photos,p,'FRT photos');
 }
 
 function downloadPhoto(id){
@@ -10076,6 +10074,62 @@ function downloadPhoto(id){
   var list=getPhotoList(p);
   var ph=list.find(function(x){return x.id===id;});
   if(ph)downloadSinglePhoto(ph.src,id);
+}
+
+// ── Zip bulk download ──
+function _zipAndDownloadPhotos(photos,p,suffix){
+  if(!photos.length){showToast('No photos to download');return;}
+  // Lazy-load JSZip from CDN
+  if(typeof JSZip==='undefined'){
+    var sc=document.createElement('script');
+    sc.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    sc.onload=function(){_doZipDownload(photos,p,suffix);};
+    sc.onerror=function(){showToast('Failed to load zip library — falling back to individual downloads');photos.forEach(function(ph,i){setTimeout(function(){downloadSinglePhoto(ph.src,ph.id);},i*300);});};
+    document.head.appendChild(sc);
+  } else {
+    _doZipDownload(photos,p,suffix);
+  }
+}
+function _doZipDownload(photos,p,suffix){
+  var zip=new JSZip();
+  var smartName=buildSmartFilename(p).replace(/\s+[A-Z]\d{2}([A-Z]\d{2})?$/,'');// strip revision
+  var folderName=(smartName+' '+suffix).replace(/[^a-zA-Z0-9 ._&-]/g,'').replace(/\s+/g,' ').trim();
+  var folder=zip.folder(folderName);
+  var done=0;var total=photos.length;
+  // Show progress
+  showToast('Preparing zip: 0/'+total+'...');
+  var promises=photos.map(function(ph,i){
+    return _fetchPhotoBlob(ph.src).then(function(blob){
+      var ext=blob.type==='image/png'?'.png':'.jpg';
+      var fname=(ph.caption||ph.type||'photo')+'_'+(i+1)+ext;
+      fname=fname.replace(/[^a-zA-Z0-9._-]/g,'_');
+      folder.file(fname,blob);
+      done++;
+      if(done%5===0||done===total)showToast('Preparing zip: '+done+'/'+total+'...');
+    }).catch(function(){done++;});
+  });
+  Promise.all(promises).then(function(){
+    showToast('Compressing '+done+' photos...');
+    return zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+  }).then(function(blob){
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');a.href=url;a.download=folderName+'.zip';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url);},5000);
+    showToast('Downloaded '+folderName+'.zip');
+  }).catch(function(e){
+    _dbw('Zip failed:',e);showToast('Zip failed — try again');
+  });
+}
+function _fetchPhotoBlob(src){
+  if(!src)return Promise.reject('no src');
+  if(typeof R2Photos!=='undefined'&&src&&src.indexOf(R2Photos.WORKER_URL)===0){
+    return fetch(src).then(function(r){if(!r.ok)throw new Error(r.status);return r.blob();});
+  }
+  if(src.startsWith('data:')){
+    return fetch(src).then(function(r){return r.blob();});
+  }
+  return fetch(src).then(function(r){if(!r.ok)throw new Error(r.status);return r.blob();});
 }
 
 function downloadSinglePhoto(src,name){
@@ -10869,8 +10923,8 @@ css+='@page{size:letter;margin:0;}';
 // Title block — centered, no border lines (lines go around project info below)
 css+='.title-block{text-align:center;margin:12px 0 0;padding:14px 0 12px;line-height:0.85;}';
 css+='.title-block .tb-line1{font-family:"BlairMdITC TT","BlairMdITC TT Medium","Times New Roman",serif;font-size:12pt;font-weight:400;color:#1C2333;letter-spacing:1px;margin-bottom:1px;}';
-css+='.title-block .tb-line2{font-family:"BlairMdITC TT","BlairMdITC TT Medium","Times New Roman",serif;font-size:12pt;font-weight:400;color:#1C2333;margin-bottom:1px;}';
-css+='.title-block .tb-line4{font-family:Calibri,sans-serif;font-size:11pt;font-weight:700;color:#333;line-height:1.23;margin-bottom:2px;}';
+css+='.title-block .tb-line2{font-family:"BlairMdITC TT","BlairMdITC TT Medium","Times New Roman",serif;font-size:12pt;font-weight:400;color:#1C2333;margin-bottom:10px;}';
+css+='.title-block .tb-line4{font-family:Calibri,sans-serif;font-size:12pt;font-weight:700;color:#333;line-height:1.23;margin-bottom:2px;}';
 // Project info — left-aligned label:value list sandwiched between two burgundy lines
 css+='.pi-list{margin-top:4px;padding:10px 0;border-top:2px solid #1C2333;border-bottom:2px solid #1C2333;}';
 css+='.pi-row{display:flex;gap:10px;margin-bottom:3px;font-family:Calibri,sans-serif;font-size:11pt;line-height:1.23;}';
