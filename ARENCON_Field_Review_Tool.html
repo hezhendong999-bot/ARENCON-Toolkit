@@ -7887,6 +7887,7 @@ function lightboxSaveMarkup(){
 
 function _replacePhotoInProject(p,oldSrc,newSrc){
   var replaced=false;
+  var hubId=_csHubMode?_getR2FolderId():null;
   var ad=getAllDeficiencies(p);
   ad.forEach(function(r){
     var d=r.defic;
@@ -7894,8 +7895,25 @@ function _replacePhotoInProject(p,oldSrc,newSrc){
       if(!ph||typeof ph!=='object')return;
       if((ph.dataUrl&&ph.dataUrl===oldSrc)||(ph.r2Url&&ph.r2Url===oldSrc)){
         ph.dataUrl=newSrc;
-        if(ph.r2Key){ph.r2Status='pending';ph.r2Url='';}
-        if(typeof _r2EnqueueDeficPhoto==='function'&&d.id)_r2EnqueueDeficPhoto(ph,d.id);
+        // Upload marked version to R2 with new filename
+        if(hubId&&typeof R2Photos!=='undefined'){
+          var blob=R2Photos.dataUrlToBlob(newSrc);
+          if(blob){
+            var fname=_r2Filename('mkup','jpg');
+            ph.r2Key='photos/'+hubId+'/frt/marked/'+fname;
+            ph.r2Status='pending';ph.r2Url='';
+            ADB.savePending(ph.id+'_mkup',hubId,blob,{deficId:d.id,r2Key:ph.r2Key,fname:fname}).catch(function(){});
+            R2Photos.enqueue({projectId:hubId,tool:'frt',type:'marked',filename:fname,blob:blob,
+              onComplete:function(err){
+                if(!err){ph.r2Status='uploaded';ph.r2Url=R2Photos.getUrl(hubId,'frt','marked',fname);
+                  ADB.deletePending(ph.id+'_mkup').catch(function(){});saveToLS&&saveToLS();_updateR2Badge&&_updateR2Badge();}
+                else{ph.r2Status='error';}
+              }
+            });
+          }
+        } else {
+          if(ph.r2Key){ph.r2Status='pending';ph.r2Url='';}
+        }
         replaced=true;
       }
     }
@@ -7905,7 +7923,26 @@ function _replacePhotoInProject(p,oldSrc,newSrc){
   });
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){
     if(ph&&((ph.dataUrl&&ph.dataUrl===oldSrc)||(ph.r2Url&&ph.r2Url===oldSrc))){
-      ph.dataUrl=newSrc;if(ph.r2Key){ph.r2Status='pending';ph.r2Url='';}
+      ph.dataUrl=newSrc;
+      // Upload marked site photo to R2
+      if(hubId&&typeof R2Photos!=='undefined'){
+        var blob=R2Photos.dataUrlToBlob(newSrc);
+        if(blob){
+          var fname=_r2Filename('mkup','jpg');
+          ph.r2Key='photos/'+hubId+'/frt/marked/'+fname;
+          ph.r2Status='pending';ph.r2Url='';
+          ADB.savePending(ph.id+'_mkup',hubId,blob,{r2Key:ph.r2Key,fname:fname}).catch(function(){});
+          R2Photos.enqueue({projectId:hubId,tool:'frt',type:'marked',filename:fname,blob:blob,
+            onComplete:function(err){
+              if(!err){ph.r2Status='uploaded';ph.r2Url=R2Photos.getUrl(hubId,'frt','marked',fname);
+                ADB.deletePending(ph.id+'_mkup').catch(function(){});saveToLS&&saveToLS();_updateR2Badge&&_updateR2Badge();}
+              else{ph.r2Status='error';}
+            }
+          });
+        }
+      } else {
+        if(ph.r2Key){ph.r2Status='pending';ph.r2Url='';}
+      }
       replaced=true;
     }
   });}
