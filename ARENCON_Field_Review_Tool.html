@@ -10960,7 +10960,7 @@ css+='.sb{border:1px solid #DDE1E7;border-top:none;padding:12px;border-radius:0 
 css+='.ig{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}';
 css+='.ii{font-size:11pt;}.ii label{font-weight:700;color:#4A5568;text-transform:uppercase;font-size:8pt;letter-spacing:.5px;display:block;margin-bottom:1px;}.ii span{color:#1C2333;}';
 // Contractor group header — sits above deficiency cards, connected
-css+='.ch{background:#2C4A6B;color:white;padding:6px 14px;font-weight:700;font-size:11pt;border-radius:6px 6px 0 0;margin-top:14px;margin-bottom:0;letter-spacing:.3px;}';
+css+='.ch{background:#9C2742;color:white;padding:6px 14px;font-weight:700;font-size:11pt;border-radius:6px 6px 0 0;margin-top:14px;margin-bottom:0;letter-spacing:.3px;}';
 // Deficiency cards — no top radius when under a .ch, border connects
 css+='.dc{border:1px solid #DDE1E7;border-top:none;padding:10px;margin-bottom:0;background:white;}';
 css+='.dc:last-child{border-radius:0 0 6px 6px;margin-bottom:10px;}';
@@ -10990,13 +10990,17 @@ css+='.cont-marker{font-size:9pt;color:#9C2742;font-style:italic;padding:4px 0;f
 // Print
 css+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}}';
 css+='@page{size:letter;margin:0;}';
-// Title block — centered below header
-css+='.title-block{text-align:center;margin:18px 0 8px;padding-bottom:12px;border-bottom:1px solid #CCC;}';
-css+='.title-block .tb-line1{font-size:12pt;font-weight:700;color:#1C2333;letter-spacing:.5px;margin-bottom:2px;}';
-css+='.title-block .tb-line2{font-size:14pt;font-weight:700;color:#1C2333;margin-bottom:2px;}';
-css+='.title-block .tb-line3{font-size:12pt;font-weight:600;color:#1C2333;margin-bottom:6px;}';
-css+='.title-block .tb-line4{font-size:11pt;font-weight:600;color:#333;margin-bottom:2px;}';
-css+='.title-block .tb-line5{font-size:11pt;font-weight:600;color:#333;}';
+// Title block — centered, matching ARENCON Word template
+css+='.title-block{text-align:center;margin:18px 0 4px;padding-bottom:0;}';
+css+='.title-block .tb-line1{font-size:13pt;font-weight:700;color:#1C2333;letter-spacing:1px;font-variant:small-caps;margin-bottom:1px;}';
+css+='.title-block .tb-line2{font-size:14pt;font-weight:700;color:#1C2333;font-variant:small-caps;margin-bottom:1px;}';
+css+='.title-block .tb-line3{font-size:13pt;font-weight:700;color:#1C2333;font-variant:small-caps;margin-bottom:8px;}';
+css+='.title-block .tb-line4{font-size:11pt;font-weight:700;color:#333;margin-bottom:2px;}';
+// Project info — left-aligned label:value list with top rule (matching template)
+css+='.pi-list{margin-top:10px;padding-top:10px;border-top:2px solid #1C2333;}';
+css+='.pi-row{display:flex;gap:10px;margin-bottom:3px;font-size:11pt;}';
+css+='.pi-label{min-width:145px;font-weight:400;color:#1C2333;}';
+css+='.pi-value{font-weight:400;color:#1C2333;}';
 
 var titleLabel='Field Review Report';
 var _ctrSubtitle='';
@@ -11015,11 +11019,22 @@ try{if(typeof CloudSync!=='undefined'&&CloudSync.instanceNumber)_rptNum=CloudSyn
 var _rptRev=p.info.revision||'A01';
 
 // Build contractor list for Project Info
-var _pdfCtrList=(p.contractors||[]).map(function(c){return c.name;}).join(', ')||'\u2014';
-// Distribution = filtered contractor name if single, else all contractors
-var _pdfDistribution=_ctrSubtitle?escHtml(_ctrSubtitle):escHtml(_pdfCtrList);
+var _pdfCtrList=(p.contractors||[]).map(function(c){return c.name;}).join(', ')||'';
+// Distribution: always client first, then contractor(s)
+var _pdfDistParts=[];
+if(p.info.client)_pdfDistParts.push(p.info.client);
+if(_ctrSubtitle){
+  // Filtered to one contractor — add just that one
+  if(_ctrSubtitle!==p.info.client)_pdfDistParts.push(_ctrSubtitle);
+} else if(_pdfCtrList){
+  // All contractors
+  (p.contractors||[]).forEach(function(c){
+    if(c.name!==p.info.client)_pdfDistParts.push(c.name);
+  });
+}
+var _pdfDistribution=_pdfDistParts.join(', ')||'\u2014';
 
-// ── Centered title block ──
+// ── Centered title block — matches ARENCON Word template ──
 var titleBlock='<div class="title-block">';
 titleBlock+='<div class="tb-line1">Fire Protection Engineering</div>';
 titleBlock+='<div class="tb-line2">'+escHtml(titleLabel)+' #'+_rptNum+'</div>';
@@ -11028,17 +11043,18 @@ var _tbClientAddr=[];
 if(p.info.client)_tbClientAddr.push(escHtml(p.info.client));
 if(p.info.address)_tbClientAddr.push(escHtml(p.info.address));
 if(_tbClientAddr.length)titleBlock+='<div class="tb-line4">'+_tbClientAddr.join('. ')+'</div>';
-if(_ctrSubtitle)titleBlock+='<div class="tb-line5">'+escHtml(_ctrSubtitle)+'</div>';
 titleBlock+='</div>';
 
-var infoGrid='<div class="sh">Project Information</div><div class="sb"><div class="ig">';
-[['Project No.',p.info.projectNumber],['Project Name',p.info.projectName],['Client',p.info.client],
-['Project Address',p.info.address],['Date of Inspection',p.info.visitDate],['Prepared By',p.info.inspectorName],
-['Date of Issue',p.info.dateOfIssue||''],['Revision',_rptRev],
-['Contractor(s)',_pdfCtrList],['Distribution',(_ctrSubtitle||_pdfCtrList)]].forEach(function(f){
-  infoGrid+='<div class="ii"><label>'+f[0]+'</label><span>'+(f[1]||'\u2014')+'</span></div>';
+// ── Project info — label:value list (matching template layout) ──
+var infoGrid='<div class="pi-list">';
+[['Date of Issue:',p.info.dateOfIssue||'\u2014'],
+['Date of Site Review:',p.info.visitDate||'\u2014'],
+['Distribution:',_pdfDistribution],
+['Prepared By:',p.info.inspectorName||'\u2014'],
+['Project No.:',p.info.projectNumber||'\u2014']].forEach(function(f){
+  infoGrid+='<div class="pi-row"><span class="pi-label">'+f[0]+'</span><span class="pi-value">'+escHtml(f[1])+'</span></div>';
 });
-infoGrid+='</div></div>';
+infoGrid+='</div>';
 
 // Prepend title block to header
 fullHeader+=titleBlock;
@@ -11157,11 +11173,6 @@ if(reportDefs.length){
       contentBlocks.push({type:'defCard',html:_buildDefCardHtml(r),defId:r.d.id,ctr:ctr});
     });
   });
-}
-
-// ── Closing note (unless Final Commissioning) ──
-if(!isFinalComm){
-  contentBlocks.push({type:'closingNote',html:'<div style="margin-top:16px;padding:10px 14px;font-size:11pt;color:#333;font-style:italic;border-top:1px solid #DDE1E7;">Note: Further deficiencies may be noted in future field reports following final commissioning.</div>'});
 }
 
 // ── Open popup window ──
@@ -11322,7 +11333,16 @@ contentBlocks.forEach(function(block){
   }
 });
 
-// Finalize last deficiency page
+// Finalize last deficiency page — inject closing note first if needed
+if(!isFinalComm&&reportDefs.length){
+  var _noteHtml='<div style="margin-top:16px;padding:10px 0 0;font-size:11pt;color:#333;font-style:italic;border-top:1px solid #DDE1E7;">Note: Further deficiencies may be noted in future field reports following final commissioning.</div>';
+  var _noteH=_measure(_noteHtml);
+  if(curUsed+_noteH>PAGE_H){
+    _finalizePage();_startPage();
+  }
+  curPageHtml+=_noteHtml;
+  curUsed+=_noteH;
+}
 _finalizePage();
 
 // ── Appendix — Drawings with Pins ──
