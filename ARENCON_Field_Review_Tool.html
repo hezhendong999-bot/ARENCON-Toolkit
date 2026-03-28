@@ -3089,8 +3089,7 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   ADB.put('config',{key:'lastProject',value:id});
   window.location.hash=id;
   updateProjectDropdown();populateProjectFields();switchTab('info');applyLockState();
-  // Auto-prefetch drawings from R2 into IDB for offline use
-  setTimeout(function(){_prefetchDrawingsForOffline(id);},500);
+  // Prefetch moved to after CloudSync init (where r2Urls are corrected)
 }
 function populateProjectFields(){var p=getProject();if(!p||!p.info)return;
   Object.keys(p.info).forEach(function(key){
@@ -13169,6 +13168,8 @@ async function _initCloudSync(){
         if(typeof renderPhotoGallery==='function'&&currentTab==='photos')renderPhotoGallery();
       },100);
     }
+    // Auto-prefetch drawings from R2 into IDB for offline use (after URLs are corrected)
+    setTimeout(function(){_prefetchDrawingsForOffline(currentProjectId);},1500);
     // Auto-download R2 content to IDB for offline use
     setTimeout(function(){_autoDownloadR2();},3000);
   }catch(e){
