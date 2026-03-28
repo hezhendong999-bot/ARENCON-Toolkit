@@ -2262,6 +2262,38 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
         });
         Promise.all(spPromises).then(function(spResults){
           proj.sitePhotos=spResults.filter(function(s){return s;});
+          // ── Fix stale r2Keys/r2Urls at source (Session 46) ──
+          // Rebuild ALL r2Keys using current _csR2Folder BEFORE resolving.
+          // This prevents 404s from stale folder slugs (e.g. space vs underscore).
+          if(typeof _csR2Folder==='string'&&_csR2Folder){
+            var workerUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
+            var fixCount=0;
+            var _fixR2Rec=function(rec){
+              if(!rec||!rec.r2Key)return;
+              var pts=rec.r2Key.split('/');
+              if(pts.length>=5&&pts[0]==='photos'){
+                var correctKey='photos/'+_csR2Folder+'/frt/'+pts[3]+'/'+pts.slice(4).join('/');
+                var correctUrl=workerUrl+'/'+correctKey;
+                if(rec.r2Url!==correctUrl){rec.r2Key=correctKey;rec.r2Url=correctUrl;rec.r2Status='uploaded';fixCount++;}
+              }
+            };
+            (proj.drawings||[]).forEach(_fixR2Rec);
+            (proj.sitePhotos||[]).forEach(_fixR2Rec);
+            var _fixDeficArr=function(defics){if(!defics)return;defics.forEach(function(d){
+              (d.photos||[]).forEach(_fixR2Rec);
+              if(d.entries){d.entries.forEach(function(e){(e.photos||[]).forEach(_fixR2Rec);});}
+              (d.responses||[]).forEach(function(r){(r.photos||[]).forEach(_fixR2Rec);});
+            });};
+            (proj.contractors||[]).forEach(function(c){_fixDeficArr(c.deficiencies);});
+            _fixDeficArr(proj.generalDeficiencies);
+            if(fixCount>0){
+              console.log('[R2] Fixed '+fixCount+' stale r2Url(s) at load → '+_csR2Folder);
+              // Persist fixes to IDB so they don't recur
+              ADB.saveProject(proj).catch(function(){});
+              (proj.drawings||[]).forEach(function(d){if(d.r2Key)ADB.saveDrawing(d,proj.id).catch(function(){});});
+              (proj.sitePhotos||[]).forEach(function(sp){if(sp.r2Key)ADB.saveSitePhoto(sp,proj.id).catch(function(){});});
+            }
+          }
           resolve(proj);
         });
       });
