@@ -4459,7 +4459,7 @@ function buildDrawingCard(d,ad){
   html+='<span class="card-name" onclick="openDrawingViewer(\''+d.id+'\')">'+escHtml(d.name)+'</span>';
   html+='<button class="card-menu-btn" onclick="event.stopPropagation();openCardMenu(\''+d.id+'\',event);">⋮</button>';
   html+='</div>';
-  html+='<div class="card-context-menu" id="ctx-'+d.id+'"><button onclick="renameDrawing(\''+d.id+'\')">✏️ Rename</button><button onclick="moveDrawingToFolder(\''+d.id+'\')">📁 Move to folder...</button><button onclick="rotateDrawing(\''+d.id+'\')">🔄 Rotate 90°</button><button onclick="uploadNewVersion(\''+d.id+'\')">⬆️ Upload new version</button><div class="separator"></div><button onclick="openDownloadDialog(\''+d.id+'\')">⬇️ Download drawing</button><div class="separator"></div><button class="danger" onclick="removeDrawing(\''+d.id+'\')">🗑️ Delete</button></div>';
+  html+='<div class="card-context-menu" id="ctx-'+d.id+'"><button onclick="renameDrawing(\''+d.id+'\')">✏️ Rename</button><button onclick="moveDrawingToFolder(\''+d.id+'\')">📁 Move to folder...</button><button onclick="rotateDrawing(\''+d.id+'\')">🔄 Rotate 90°</button><button onclick="replaceDrawingBlob(\''+d.id+'\')">🔧 Replace image</button><button onclick="uploadNewVersion(\''+d.id+'\')">⬆️ Upload new version</button><div class="separator"></div><button onclick="openDownloadDialog(\''+d.id+'\')">⬇️ Download drawing</button><div class="separator"></div><button class="danger" onclick="removeDrawing(\''+d.id+'\')">🗑️ Delete</button></div>';
   html+='</div>';
   return html;
 }
@@ -12185,6 +12185,81 @@ function uploadNewVersion(drawingId){
       });
     }
   };inp.click();
+}
+
+// ═══ REPLACE DRAWING IMAGE — recovers lost blob data while preserving ID, pins, and all links ═══
+function replaceDrawingBlob(drawingId){
+  var p=getProject();var dwg=p.drawings.find(function(d){return d.id===drawingId;});
+  if(!dwg){toast('Drawing not found');return;}
+  closeAllCardMenus();
+  var inp=document.createElement('input');inp.type='file';inp.accept='image/*,.pdf';
+  inp.onchange=function(){
+    var f=inp.files[0];if(!f)return;
+    if(f.type==='application/pdf'){
+      ensurePdfJs(function(){
+        var reader=new FileReader();reader.onload=function(e){
+          var ta=new Uint8Array(e.target.result);
+          pdfjsLib.getDocument(ta).promise.then(function(pdf){
+            if(pdf.numPages===1){
+              // Single page PDF — render and replace directly
+              _replaceWithPdfPage(pdf,1,dwg,f.name);
+            }else{
+              // Multi-page PDF — ask which page
+              _aPrompt('PDF has '+pdf.numPages+' pages.\\nWhich page for "'+dwg.name+'"? (1-'+pdf.numPages+')','1',function(ans){
+                var pageNum=parseInt(ans);
+                if(!pageNum||pageNum<1||pageNum>pdf.numPages){toast('Invalid page number');return;}
+                _replaceWithPdfPage(pdf,pageNum,dwg,f.name);
+              });
+            }
+          }).catch(function(err){toast('PDF read error: '+err.message);});
+        };reader.readAsArrayBuffer(f);
+      });
+    }else{
+      // Image file
+      compressImage(f,6000,0.93,function(du,w,h){
+        dwg.dataUrl=du;dwg.width=w;dwg.height=h;
+        dwg.thumb=_makeThumb(du,200);
+        // Save blob to IDB
+        ADB.saveDrawing(dwg,p.id).then(function(){
+          saveToLS();renderDrawingGallery();
+          toast('Image replaced: '+dwg.name);
+        });
+      });
+    }
+  };inp.click();
+}
+function _replaceWithPdfPage(pdf,pageNum,dwg,fileName){
+  var p=getProject();
+  pdf.getPage(pageNum).then(function(page){
+    var vp=page.getViewport({scale:2.0});
+    var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
+    page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){
+      var dataUrl=cv.toDataURL('image/png');
+      dwg.dataUrl=dataUrl;dwg.width=vp.width;dwg.height=vp.height;
+      dwg.thumb=_makeThumb(dataUrl,200);
+      dwg.pdfTiled=false;dwg.pdfPage=pageNum;
+      // Save blob to IDB
+      ADB.saveDrawing(dwg,p.id).then(function(){
+        saveToLS();renderDrawingGallery();
+        toast('Drawing restored: '+dwg.name+' (page '+pageNum+')');
+        // Upload to R2 if in Hub mode
+        if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(dwg);
+      });
+    });
+  });
+}
+function _makeThumb(dataUrl,maxW){
+  try{
+    var img=new Image();
+    var cv=document.createElement('canvas');
+    // Synchronous approach using existing dataUrl
+    img.src=dataUrl;
+    if(!img.width)return null;
+    var ratio=Math.min(maxW/img.width,maxW/img.height);
+    cv.width=Math.round(img.width*ratio);cv.height=Math.round(img.height*ratio);
+    cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+    return cv.toDataURL('image/jpeg',0.5);
+  }catch(e){return null;}
 }
 
 // ═══ FEATURE 6: DRAWING ROTATE ═══
