@@ -1265,6 +1265,7 @@ body.text-l{--ts:4px;}
             <button onclick="reuploadAllToCloud();closeMoreMenu()">☁️ Re-upload All <span>Push all drawings &amp; photos to R2</span></button>
             <button onclick="_reuploadPDFsToR2();closeMoreMenu()">📄 Fix Blurry <span>Re-upload PDFs at full resolution</span></button>
             <button onclick="_r2CleanupOrphans();closeMoreMenu()">🧹 R2 Cleanup <span>Delete orphaned cloud files</span></button>
+            <button onclick="_repairR2Links(true);closeMoreMenu()">🔗 Repair R2 Links <span>Fix photo/drawing filename mismatches</span></button>
             <div style="height:1px;background:#eee;margin:2px 0;"></div>
           </div>
           <button onclick="resetCurrentTab();closeMoreMenu()">🗑️ Reset Current Tab <span>Clear this tab's data</span></button>
@@ -1330,6 +1331,7 @@ body.text-l{--ts:4px;}
         <button class="btn" onclick="reuploadAllToCloud();closeMobileMenu();">☁️ Re-upload All</button>
         <button class="btn" onclick="_reuploadPDFsToR2();closeMobileMenu();">📄 Fix Blurry</button>
         <button class="btn" onclick="_r2CleanupOrphans();closeMobileMenu();">🧹 R2 Cleanup</button>
+        <button class="btn" onclick="_repairR2Links(true);closeMobileMenu();">🔗 Repair R2 Links</button>
       </div>
     </div>
     <button class="btn" id="mobile-signout-btn" onclick="signOutSession();closeMobileMenu();" style="display:none;color:#7B1FA2;font-weight:700;">🔓 Sign Out</button>
@@ -3111,8 +3113,18 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   ADB.put('config',{key:'lastProject',value:id});
   window.location.hash=id;
   updateProjectDropdown();populateProjectFields();switchTab('info');applyLockState();
-  // Auto-prefetch drawings from R2 into IDB for offline use
-  setTimeout(function(){_prefetchDrawingsForOffline(id);},500);
+  // Auto-repair R2 links (if needed) then prefetch for offline use
+  if(_csHubMode){
+    setTimeout(function(){
+      _repairR2Links().then(function(){
+        _prefetchDrawingsForOffline(id);
+      }).catch(function(){
+        _prefetchDrawingsForOffline(id);
+      });
+    },500);
+  } else {
+    setTimeout(function(){_prefetchDrawingsForOffline(id);},500);
+  }
 }
 function populateProjectFields(){var p=getProject();if(!p||!p.info)return;
   Object.keys(p.info).forEach(function(key){
@@ -5108,11 +5120,25 @@ function _openDrawingImage(d,drawingId){
     ADB.get('drawings',d.id).then(function(rec){
       if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
         hideDrawingLoading();
+        _dbg('[DrawingViewer] Loaded from IDB blob: '+d.name+' ('+Math.round(rec.dataBlob.size/1024)+'KB)');
         var blobUrl=URL.createObjectURL(rec.dataBlob);
         dvState._currentBlobUrl=blobUrl;
         _openWithSrc(blobUrl);
         return;
       }
+      // Priority 1b: Check in-memory blob cache (populated at loadFullProject)
+      if(ADB._drawingBlobCache&&ADB._drawingBlobCache[d.id]){
+        var cachedBlob=ADB._drawingBlobCache[d.id];
+        if(cachedBlob.size>0){
+          hideDrawingLoading();
+          _dbg('[DrawingViewer] Loaded from memory cache: '+d.name+' ('+Math.round(cachedBlob.size/1024)+'KB)');
+          var cBlobUrl=URL.createObjectURL(cachedBlob);
+          dvState._currentBlobUrl=cBlobUrl;
+          _openWithSrc(cBlobUrl);
+          return;
+        }
+      }
+      _dbg('[DrawingViewer] No IDB blob for: '+d.name+' (rec='+(rec?'exists':'null')+', blobSize='+(rec&&rec.dataBlob?rec.dataBlob.size:'none')+')');
       // Priority 2: R2 URL (online fetch)
       if(d.r2Url){
         hideDrawingLoading();
@@ -12929,6 +12955,216 @@ function _rebuildMissingR2Urls(proj){
   if(fixed>0)_dbg('[R2] Rebuilt '+fixed+' r2Url(s) using current folder: '+currentFolder);
 }
 
+// ═══ R2 LINK REPAIR — fixes filename mismatches between project data and actual R2 files ═══
+// One-time repair: fetches actual R2 file listing, matches to project records by type+chronological order,
+// updates r2Key/r2Url to point to real files. Session 47 — fixes Session 46 BUG 1.
+async function _repairR2Links(forceRun){
+  var p=getProject();if(!p)return;
+  // Skip if already repaired this project in this session (unless forced via button)
+  if(!forceRun&&window._r2RepairDone&&window._r2RepairDone[p.id])return;
+  window._r2RepairInProgress=true;
+  try{
+  var workerUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
+  var folder=_getR2FolderId();
+  if(!folder){toast('No R2 folder configured');window._r2RepairInProgress=false;return;}
+  console.log('[R2 Repair] Starting repair for folder: '+folder);
+
+  // Step 1: List actual R2 files for all types
+  var types=['original','marked','drawings','markup'];
+  var r2Files={};// type → [{key, fname, prefix, ts}]
+  for(var ti=0;ti<types.length;ti++){
+    var type=types[ti];
+    try{
+      var listUrl=workerUrl+'/list/'+encodeURIComponent(folder)+'/frt/'+type+'/';
+      var resp=await fetch(listUrl);
+      if(!resp.ok){console.warn('[R2 Repair] List failed for '+type+': '+resp.status);r2Files[type]=[];continue;}
+      var data=await resp.json();
+      r2Files[type]=(data.files||[]).map(function(f){
+        var fname=f.key.split('/').pop();
+        // Extract prefix (site_, defic_, dwg_, mkup_) and timestamp from filename
+        var m=fname.match(/^(site|defic|dwg|mkup)_(\d+)_/);
+        var prefix=m?m[1]:'';
+        var ts=m?parseInt(m[2],10):0;
+        // Also try base36 timestamp format: prefix_base36ts_random.ext
+        if(!m){
+          var m2=fname.match(/^(?:\d+\.\d+_)?(site|defic|dwg|mkup)_([a-z0-9]+)_/);
+          if(m2){prefix=m2[1];ts=parseInt(m2[2],36)||0;}
+        }
+        return{key:f.key,fname:fname,prefix:prefix,ts:ts,size:f.size||0};
+      });
+      console.log('[R2 Repair] '+type+': '+r2Files[type].length+' files on R2');
+    }catch(e){console.error('[R2 Repair] List error for '+type,e);r2Files[type]=[];}
+  }
+
+  // Step 2: Collect all project records that have r2Key
+  var fixCount=0;
+  var origFiles=r2Files['original']||[];
+
+  // Group R2 files by prefix
+  var r2ByPrefix={};
+  origFiles.forEach(function(f){
+    if(!r2ByPrefix[f.prefix])r2ByPrefix[f.prefix]=[];
+    r2ByPrefix[f.prefix].push(f);
+  });
+  // Sort each group by timestamp
+  Object.keys(r2ByPrefix).forEach(function(k){r2ByPrefix[k].sort(function(a,b){return a.ts-b.ts;});});
+
+  // Build a Set of actual R2 filenames for quick lookup
+  var r2FnameSet=new Set();
+  origFiles.forEach(function(f){r2FnameSet.add(f.fname);});
+  // Also include drawings and markup
+  (r2Files['drawings']||[]).forEach(function(f){r2FnameSet.add(f.fname);});
+  (r2Files['markup']||[]).forEach(function(f){r2FnameSet.add(f.fname);});
+
+  // Step 3: Fix site photos
+  var siteRecords=(p.sitePhotos||[]).filter(function(sp){return sp.r2Key;});
+  // Separate into: already correct (fname exists on R2) vs needs fixing
+  var siteMismatch=[];
+  siteRecords.forEach(function(sp){
+    var fname=sp.r2Key.split('/').pop();
+    if(!r2FnameSet.has(fname))siteMismatch.push(sp);
+  });
+  var r2SiteFiles=(r2ByPrefix['site']||[]).slice();// copy
+  // Remove already-matched R2 files (those whose fname IS in a correct record)
+  var matchedR2Fnames=new Set();
+  siteRecords.forEach(function(sp){
+    var fname=sp.r2Key.split('/').pop();
+    if(r2FnameSet.has(fname))matchedR2Fnames.add(fname);
+  });
+  r2SiteFiles=r2SiteFiles.filter(function(f){return !matchedR2Fnames.has(f.fname);});
+  // Sort mismatched records by their embedded timestamp for chronological matching
+  siteMismatch.sort(function(a,b){
+    var tA=_extractTsFromR2Key(a.r2Key),tB=_extractTsFromR2Key(b.r2Key);
+    return tA-tB;
+  });
+  // Match chronologically
+  var siteMatched=Math.min(siteMismatch.length,r2SiteFiles.length);
+  for(var si=0;si<siteMatched;si++){
+    var rec=siteMismatch[si],rf=r2SiteFiles[si];
+    var newKey='photos/'+folder+'/frt/original/'+rf.fname;
+    var newUrl=workerUrl+'/'+newKey;
+    console.log('[R2 Repair] Site photo: '+rec.r2Key.split('/').pop()+' → '+rf.fname);
+    rec.r2Key=newKey;rec.r2Url=newUrl;rec.r2Status='uploaded';
+    fixCount++;
+  }
+
+  // Step 4: Fix deficiency photos
+  var allDeficRecs=[];
+  function _collectDeficPhotos(defics){
+    if(!defics)return;
+    defics.forEach(function(d){
+      (d.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)allDeficRecs.push(ph);});
+      if(d.entries){d.entries.forEach(function(e){(e.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)allDeficRecs.push(ph);});});}
+      (d.responses||[]).forEach(function(r){(r.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)allDeficRecs.push(ph);});});
+    });
+  }
+  (p.contractors||[]).forEach(function(c){_collectDeficPhotos(c.deficiencies);});
+  _collectDeficPhotos(p.generalDeficiencies);
+
+  var deficMismatch=[];
+  allDeficRecs.forEach(function(ph){
+    var fname=ph.r2Key.split('/').pop();
+    if(!r2FnameSet.has(fname))deficMismatch.push(ph);
+  });
+  var r2DeficFiles=(r2ByPrefix['defic']||[]).slice();
+  var matchedDeficFnames=new Set();
+  allDeficRecs.forEach(function(ph){
+    var fname=ph.r2Key.split('/').pop();
+    if(r2FnameSet.has(fname))matchedDeficFnames.add(fname);
+  });
+  r2DeficFiles=r2DeficFiles.filter(function(f){return !matchedDeficFnames.has(f.fname);});
+  deficMismatch.sort(function(a,b){
+    var tA=_extractTsFromR2Key(a.r2Key),tB=_extractTsFromR2Key(b.r2Key);
+    return tA-tB;
+  });
+  var deficMatched=Math.min(deficMismatch.length,r2DeficFiles.length);
+  for(var di=0;di<deficMatched;di++){
+    var drec=deficMismatch[di],drf=r2DeficFiles[di];
+    var dNewKey='photos/'+folder+'/frt/original/'+drf.fname;
+    var dNewUrl=workerUrl+'/'+dNewKey;
+    console.log('[R2 Repair] Defic photo: '+drec.r2Key.split('/').pop()+' → '+drf.fname);
+    drec.r2Key=dNewKey;drec.r2Url=dNewUrl;drec.r2Status='uploaded';
+    fixCount++;
+  }
+
+  // Step 5: Fix drawings
+  var r2DwgFiles=(r2Files['drawings']||[]).slice();
+  var dwgMismatch=[];
+  (p.drawings||[]).forEach(function(d){
+    if(!d.r2Key)return;
+    var fname=d.r2Key.split('/').pop();
+    if(!r2FnameSet.has(fname))dwgMismatch.push(d);
+  });
+  if(r2DwgFiles.length>0){
+    var matchedDwgFnames=new Set();
+    (p.drawings||[]).forEach(function(d){
+      if(!d.r2Key)return;
+      var fname=d.r2Key.split('/').pop();
+      if(r2FnameSet.has(fname))matchedDwgFnames.add(fname);
+    });
+    r2DwgFiles=r2DwgFiles.filter(function(f){return !matchedDwgFnames.has(f.fname);});
+    dwgMismatch.sort(function(a,b){return _extractTsFromR2Key(a.r2Key)-_extractTsFromR2Key(b.r2Key);});
+    var dwgMatched=Math.min(dwgMismatch.length,r2DwgFiles.length);
+    for(var wi=0;wi<dwgMatched;wi++){
+      var wrec=dwgMismatch[wi],wrf=r2DwgFiles[wi];
+      var wNewKey='photos/'+folder+'/frt/drawings/'+wrf.fname;
+      var wNewUrl=workerUrl+'/'+wNewKey;
+      console.log('[R2 Repair] Drawing: '+wrec.r2Key.split('/').pop()+' → '+wrf.fname);
+      wrec.r2Key=wNewKey;wrec.r2Url=wNewUrl;wrec.r2Status='uploaded';
+      fixCount++;
+    }
+  }
+
+  // Step 6: For drawings with r2Key but NO matching R2 file (never uploaded), clear the r2 fields
+  // so the viewer falls back to IDB blob instead of trying a 404 URL
+  var dwgCleared=0;
+  (p.drawings||[]).forEach(function(d){
+    if(!d.r2Key)return;
+    var fname=d.r2Key.split('/').pop();
+    if(!r2FnameSet.has(fname)){
+      console.log('[R2 Repair] Drawing has no R2 file, clearing r2 fields: '+d.name+' ('+fname+')');
+      d.r2Key='';d.r2Url='';d.r2Status='';
+      dwgCleared++;
+    }
+  });
+
+  // Step 7: Persist to IDB + cloud
+  if(fixCount>0||dwgCleared>0){
+    console.log('[R2 Repair] Fixed '+fixCount+' r2 links, cleared '+dwgCleared+' drawings with no R2 file');
+    await ADB.saveFullProject(p);
+    // Push to cloud
+    if(typeof CloudSync!=='undefined'&&CloudSync.isInitialized){
+      try{CloudSync.save(_collectFullState());}catch(e){}
+    }
+    toast('R2 links repaired: '+fixCount+' photos fixed'+(dwgCleared?' + '+dwgCleared+' drawings reset to local':''));
+    // Refresh the view
+    if(typeof renderSitePhotos==='function')renderSitePhotos();
+    if(typeof renderDrawingGallery==='function')renderDrawingGallery();
+  }else{
+    console.log('[R2 Repair] No mismatches found — all r2Keys match actual R2 files');
+  }
+  if(!window._r2RepairDone)window._r2RepairDone={};
+  window._r2RepairDone[p.id]=true;
+  window._r2RepairInProgress=false;
+  }catch(repairErr){
+    console.error('[R2 Repair] Error:',repairErr);
+    window._r2RepairInProgress=false;
+  }
+}
+
+// Helper: extract numeric timestamp from r2Key filename for sorting
+function _extractTsFromR2Key(r2Key){
+  if(!r2Key)return 0;
+  var fname=r2Key.split('/').pop();
+  // Old format: prefix_1773768474718_random.jpg (decimal timestamp)
+  var m=fname.match(/^(?:site|defic|dwg|mkup)_(\d{10,})_/);
+  if(m)return parseInt(m[1],10);
+  // New format: 1490.04_prefix_base36ts_random.jpg
+  var m2=fname.match(/^(?:\d+\.\d+_)?(?:site|defic|dwg|mkup)_([a-z0-9]+)_/);
+  if(m2)return parseInt(m2[1],36)||0;
+  return 0;
+}
+
 // Auto-dedup drawings by name — removes duplicates keeping first occurrence.
 // Pure function: modifies proj.drawings in place, returns count of removed items.
 // Caller is responsible for saving to IDB and cloud.
@@ -13178,7 +13414,14 @@ async function _initCloudSync(){
       },100);
     }
     // Auto-download R2 content to IDB for offline use
-    setTimeout(function(){_autoDownloadR2();},3000);
+    setTimeout(function(){
+      // Wait for R2 repair to finish first (prevents 404 spam from stale URLs)
+      if(window._r2RepairInProgress){
+        var _waitRepair=setInterval(function(){
+          if(!window._r2RepairInProgress){clearInterval(_waitRepair);_autoDownloadR2();}
+        },500);
+      }else{_autoDownloadR2();}
+    },3000);
   }catch(e){
     _syncLock=false;
     console.error('CloudSync init error:',e);
