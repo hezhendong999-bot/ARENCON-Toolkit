@@ -3171,23 +3171,9 @@ function _prefetchDrawingsForOffline(projectId){
   (p.sitePhotos||[]).filter(function(sp){return sp.r2Url;}).forEach(function(sp){
     toCheck.push({id:sp.id,r2Url:sp.r2Url,store:'sitePhotos',name:'site photo'});
   });
-  // Deficiency photos (entries + responses)
-  function _collectDeficPhotos(defics){
-    if(!defics)return;
-    function _addFromArr(arr){
-      if(!arr)return;
-      arr.forEach(function(ph){
-        if(ph&&ph.r2Url){toCheck.push({id:ph.id,r2Url:ph.r2Url,store:'photos',name:'deficiency photo'});}
-      });
-    }
-    defics.forEach(function(d){
-      _addFromArr(d.photos);
-      if(d.entries){d.entries.forEach(function(e){_addFromArr(e.photos);});}
-      (d.responses||[]).forEach(function(r){_addFromArr(r.photos);});
-    });
-  }
-  (p.contractors||[]).forEach(function(c){_collectDeficPhotos(c.deficiencies);});
-  _collectDeficPhotos(p.generalDeficiencies);
+  // Deficiency photos: skip prefetch — blobs are not stored in IDB after R2 upload,
+  // and r2Key filenames may not match actual R2 files. Defic photos load on-demand
+  // from R2 or from the pin editor when needed.
 
   if(!toCheck.length)return;
   // Check which ones are missing local blobs
