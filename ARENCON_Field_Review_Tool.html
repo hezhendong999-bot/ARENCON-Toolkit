@@ -3195,7 +3195,7 @@ function _prefetchDrawingsForOffline(projectId){
   var checked=0;
   toCheck.forEach(function(item){
     ADB.get(item.store,item.id).then(function(rec){
-      if(!rec||(!rec.dataBlob&&!rec.dataUrl)){missing.push(item);}
+      if(!rec||((!rec.dataBlob||!rec.dataBlob.size)&&!rec.dataUrl)){missing.push(item);}
       checked++;
       if(checked===toCheck.length&&missing.length>0){_doOfflinePrefetch(missing,projectId);}
     }).catch(function(){
@@ -4391,30 +4391,60 @@ async function _refreshR2Token(){
 
 function _loadR2OrDirect(src,img){
   if(!src||typeof src!=='string'){img.style.background='#f0f0f0';return;}
-  // R2 Worker GETs require no auth token (Session 24 fix — tokens expire and break images)
-  if(typeof R2Photos!=='undefined'&&src.indexOf(R2Photos.WORKER_URL)===0){
-    fetch(src).then(function(res){
+  // Non-R2 URLs (blob:, data:, etc.) — load directly
+  if(typeof R2Photos==='undefined'||src.indexOf(R2Photos.WORKER_URL)!==0){
+    img.src=src;return;
+  }
+  // R2 URL — try local IDB blob first, only fetch from R2 if missing
+  // Extract photo ID from the img's parent context
+  var photoId=img.closest('[data-photo-id]');
+  photoId=photoId?photoId.getAttribute('data-photo-id'):null;
+  var dwgId=img.closest('[data-dwg-id]');
+  dwgId=dwgId?dwgId.getAttribute('data-dwg-id'):null;
+  // Try IDB lookup first
+  var idbCheck=null;
+  if(dwgId){
+    // Drawing — check blob cache first (instant)
+    if(ADB._drawingBlobCache&&ADB._drawingBlobCache[dwgId]){
+      img.src=URL.createObjectURL(ADB._drawingBlobCache[dwgId]);return;
+    }
+    idbCheck=ADB.get('drawings',dwgId).then(function(rec){
+      if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
+        if(!ADB._drawingBlobCache)ADB._drawingBlobCache={};
+        ADB._drawingBlobCache[dwgId]=rec.dataBlob;
+        return URL.createObjectURL(rec.dataBlob);
+      }
+      return null;
+    });
+  }else if(photoId){
+    // Photo — check sitePhotos then defic photos store
+    var spId=photoId;
+    idbCheck=ADB.get('sitePhotos',spId).then(function(rec){
+      if(rec&&rec.dataBlob&&rec.dataBlob.size>0)return URL.createObjectURL(rec.dataBlob);
+      return ADB.get('photos',spId).then(function(rec2){
+        if(rec2&&rec2.dataBlob&&rec2.dataBlob.size>0)return URL.createObjectURL(rec2.dataBlob);
+        return null;
+      });
+    });
+  }else{
+    idbCheck=Promise.resolve(null);
+  }
+  idbCheck.then(function(localUrl){
+    if(localUrl){img.src=localUrl;return;}
+    // No local blob — fetch from R2 (no auth needed)
+    return fetch(src).then(function(res){
       if(!res.ok){
-        // On 404, try swapping folder ID (UUID↔slug mismatch recovery)
         if(res.status===404&&typeof _getR2FolderId==='function'&&_csProjectId){
-          var slug=_getR2FolderId();
-          var uuid=_csProjectId;
-          var pathAfterBase=src.substring(R2Photos.WORKER_URL.length);
-          // pathAfterBase: /photos/{folder}/frt/{type}/{fname}
-          var parts=pathAfterBase.split('/');
+          var slug=_getR2FolderId();var uuid=_csProjectId;
+          var parts=src.substring(R2Photos.WORKER_URL.length).split('/');
           if(parts.length>=6&&parts[1]==='photos'){
             var usedFolder=decodeURIComponent(parts[2]);
             var tryFolder=(usedFolder===slug)?uuid:(usedFolder===uuid)?slug:null;
             if(tryFolder&&tryFolder!==usedFolder){
               parts[2]=encodeURIComponent(tryFolder);
-              var altUrl=R2Photos.WORKER_URL+parts.join('/');
-              return fetch(altUrl).then(function(r2){
+              return fetch(R2Photos.WORKER_URL+parts.join('/')).then(function(r2){
                 if(!r2.ok)throw new Error(r2.status);
-                return r2.blob().then(function(blob){
-                  img.src=URL.createObjectURL(blob);
-                  img.removeAttribute('data-r2-failed');
-                  img.removeAttribute('data-r2-src');
-                });
+                return r2.blob().then(function(blob){img.src=URL.createObjectURL(blob);});
               });
             }
           }
@@ -4423,23 +4453,14 @@ function _loadR2OrDirect(src,img){
       }
       return res.blob();
     }).then(function(blob){
-      if(blob){
-        img.src=URL.createObjectURL(blob);
-        img.removeAttribute('data-r2-failed');
-        img.removeAttribute('data-r2-src');
-      }
-    }).catch(function(e){
-      // Ghost photo: R2 file doesn't exist — hide the thumbnail and mark for cleanup
-      img.style.display='none';
-      img.setAttribute('data-r2-failed','1');
-      img.setAttribute('data-r2-src',src);
-      // Hide the parent photo-thumb container too
-      var thumb=img.closest('.photo-thumb');
-      if(thumb)thumb.style.display='none';
+      if(blob)img.src=URL.createObjectURL(blob);
     });
-  }else{
-    img.src=src;
-  }
+  }).catch(function(){
+    img.setAttribute('data-r2-failed','1');
+    img.setAttribute('data-r2-src',src);
+    var thumb=img.closest('.photo-thumb')||img.closest('.drawing-thumb');
+    if(thumb)thumb.style.opacity='0.3';
+  });
 }
 
 // Load all data-src images in a container (for deficiency/pin panels after render)
