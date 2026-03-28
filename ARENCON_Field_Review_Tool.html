@@ -3092,7 +3092,17 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   // Ensure all site photos have IDs
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){if(ph&&!ph.id)ph.id='sp_'+Math.random().toString(36).substr(2,8);});}
   // Ghost cleanup: remove sitePhotos with no image data (failed markup originals)
-  if(p.sitePhotos){var _gcBefore=p.sitePhotos.length;p.sitePhotos=p.sitePhotos.filter(function(ph){if(!ph)return false;return !!(ph.dataUrl||ph.r2Url||ph.r2Key);});if(p.sitePhotos.length<_gcBefore)console.log('[Ghost cleanup] Removed '+ (_gcBefore-p.sitePhotos.length)+' empty sitePhoto records');}  _requeuePendingUploads(p);
+  if(p.sitePhotos){var _gcBefore=p.sitePhotos.length;p.sitePhotos=p.sitePhotos.filter(function(ph){if(!ph)return false;return !!(ph.dataUrl||ph.r2Url||ph.r2Key);});if(p.sitePhotos.length<_gcBefore)console.log('[Ghost cleanup] Removed '+ (_gcBefore-p.sitePhotos.length)+' empty sitePhoto records');}
+  // Ghost cleanup: remove defic photos with no image data
+  var _gcDefic=0;
+  function _gcDeficPhotos(defics){if(!defics)return;defics.forEach(function(d){
+    function _gcArr(arr){if(!arr)return;for(var i=arr.length-1;i>=0;i--){var ph=arr[i];if(!ph)continue;if(typeof ph==='object'&&!ph.r2Key&&!ph.r2Url&&!ph.dataUrl){arr.splice(i,1);_gcDefic++;}}}
+    _gcArr(d.photos);if(d.entries){d.entries.forEach(function(e){_gcArr(e.photos);});}(d.responses||[]).forEach(function(r){_gcArr(r.photos);});
+  });}
+  (p.contractors||[]).forEach(function(c){_gcDeficPhotos(c.deficiencies);});
+  _gcDeficPhotos(p.generalDeficiencies);
+  if(_gcDefic>0)console.log('[Ghost cleanup] Removed '+_gcDefic+' empty defic photo records');
+  _requeuePendingUploads(p);
   // R2 orphan cleanup: manual via 🧹 R2 Cleanup button in header (Hub mode)
   // Safety net: rebuild any missing r2Url from r2Key on every project enter
   if(typeof _rebuildMissingR2Urls==='function')_rebuildMissingR2Urls(p);
@@ -13223,9 +13233,33 @@ async function _repairR2Links(forceRun){
   deficMismatch.forEach(function(r){_repairRecord(r,'original');});
   dwgMismatch.forEach(function(r){_repairRecord(r,'drawings');});
 
+  // Step 6: Remove ghost defic photos (records with no r2Url, no dataUrl, no IDB blob)
+  var ghostCount=0;
+  function _removeGhostDeficPhotos(defics){
+    if(!defics)return;
+    defics.forEach(function(d){
+      function _filterGhosts(arr){
+        if(!arr||!arr.length)return;
+        for(var i=arr.length-1;i>=0;i--){
+          var ph=arr[i];
+          if(!ph)continue;
+          if(typeof ph==='object'&&!ph.r2Key&&!ph.r2Url&&!ph.dataUrl){
+            arr.splice(i,1);ghostCount++;
+          }
+        }
+      }
+      _filterGhosts(d.photos);
+      if(d.entries){d.entries.forEach(function(e){_filterGhosts(e.photos);});}
+      (d.responses||[]).forEach(function(r){_filterGhosts(r.photos);});
+    });
+  }
+  (p.contractors||[]).forEach(function(c){_removeGhostDeficPhotos(c.deficiencies);});
+  _removeGhostDeficPhotos(p.generalDeficiencies);
+  if(ghostCount>0)console.log('[R2 Repair] Removed '+ghostCount+' ghost defic photo records');
+
   // Step 7: Persist to IDB + cloud
-  if(fixCount>0||clearCount>0){
-    console.log('[R2 Repair] Fixed '+fixCount+' r2 links, cleared '+clearCount+' records with no R2 file');
+  if(fixCount>0||clearCount>0||ghostCount>0){
+    console.log('[R2 Repair] Fixed '+fixCount+' r2 links, cleared '+clearCount+' records, removed '+ghostCount+' ghosts');
     await ADB.saveFullProject(p);
     // Push to cloud so merge doesn't re-apply wrong keys
     if(typeof CloudSync!=='undefined'&&CloudSync.isInitialized){
