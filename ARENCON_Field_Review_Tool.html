@@ -2131,9 +2131,10 @@ ADB.saveDrawing=function(drawing,projectId){
   rec.r2Key=drawing.r2Key||'';
   rec.r2Status=drawing.r2Status||'';
   rec.r2Url=drawing.r2Url||'';
-  // pdfTiled guard: if no blob in memory, read existing IDB record first
-  // to preserve dataBlob — never overwrite with empty
-  if(drawing.pdfTiled&&!rec.dataBlob){
+  // If no blob in memory, read existing IDB record to preserve dataBlob
+  // This prevents saveFullProject from wiping blobs when drawings are loaded lazily
+  // (loadFullProject sets dataUrl:null for performance — blob stays in IDB only)
+  if(!rec.dataBlob){
     return ADB.get('drawings',drawing.id).then(function(existing){
       if(existing&&existing.dataBlob)rec.dataBlob=existing.dataBlob;
       if(existing&&existing.markupBlob&&!rec.markupBlob)rec.markupBlob=existing.markupBlob;
@@ -3113,16 +3114,9 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   ADB.put('config',{key:'lastProject',value:id});
   window.location.hash=id;
   updateProjectDropdown();populateProjectFields();switchTab('info');applyLockState();
-  // Auto-repair R2 links (if needed) then prefetch for offline use
-  if(_csHubMode){
-    setTimeout(function(){
-      _repairR2Links().then(function(){
-        _prefetchDrawingsForOffline(id);
-      }).catch(function(){
-        _prefetchDrawingsForOffline(id);
-      });
-    },500);
-  } else {
+  // Prefetch runs after CloudSync init (which triggers repair first)
+  // Standalone mode: prefetch immediately
+  if(!_csHubMode){
     setTimeout(function(){_prefetchDrawingsForOffline(id);},500);
   }
 }
@@ -3175,11 +3169,16 @@ function _prefetchDrawingsForOffline(projectId){
   // Check which ones are missing local blobs
   var missing=[];
   var checked=0;
+  var _cachedCount=0;
   toCheck.forEach(function(item){
     ADB.get(item.store,item.id).then(function(rec){
       if(!rec||(!rec.dataBlob&&!rec.dataUrl)){missing.push(item);}
+      else{_cachedCount++;}
       checked++;
-      if(checked===toCheck.length&&missing.length>0){_doOfflinePrefetch(missing,projectId);}
+      if(checked===toCheck.length){
+        console.log('[OfflinePrefetch] '+_cachedCount+'/'+toCheck.length+' already cached, '+missing.length+' need download');
+        if(missing.length>0){_doOfflinePrefetch(missing,projectId);}
+      }
     }).catch(function(){
       missing.push(item);checked++;
       if(checked===toCheck.length&&missing.length>0){_doOfflinePrefetch(missing,projectId);}
@@ -12990,9 +12989,10 @@ async function _repairR2Links(forceRun){
           var m2=fname.match(/^(?:\d+\.\d+_)?(site|defic|dwg|mkup)_([a-z0-9]+)_/);
           if(m2){prefix=m2[1];ts=parseInt(m2[2],36)||0;}
         }
+        if(!prefix)console.warn('[R2 Repair] Unrecognized filename format: '+fname);
         return{key:f.key,fname:fname,prefix:prefix,ts:ts,size:f.size||0};
       });
-      console.log('[R2 Repair] '+type+': '+r2Files[type].length+' files on R2');
+      console.log('[R2 Repair] Listed '+type+': '+r2Files[type].length+' files');
     }catch(e){console.error('[R2 Repair] List error for '+type,e);r2Files[type]=[];}
   }
 
@@ -13018,6 +13018,10 @@ async function _repairR2Links(forceRun){
 
   // Step 3: Fix site photos
   var siteRecords=(p.sitePhotos||[]).filter(function(sp){return sp.r2Key;});
+  console.log('[R2 Repair] Site photos with r2Key: '+siteRecords.length+' / '+(p.sitePhotos||[]).length+' total');
+  if(siteRecords.length>0)console.log('[R2 Repair] Sample r2Key fname: '+siteRecords[0].r2Key.split('/').pop());
+  if(origFiles.length>0)console.log('[R2 Repair] Sample R2 fname: '+origFiles[0].fname);
+  console.log('[R2 Repair] R2 site files: '+(r2ByPrefix['site']||[]).length+', R2 defic files: '+(r2ByPrefix['defic']||[]).length);
   // Separate into: already correct (fname exists on R2) vs needs fixing
   var siteMismatch=[];
   siteRecords.forEach(function(sp){
@@ -13032,6 +13036,7 @@ async function _repairR2Links(forceRun){
     if(r2FnameSet.has(fname))matchedR2Fnames.add(fname);
   });
   r2SiteFiles=r2SiteFiles.filter(function(f){return !matchedR2Fnames.has(f.fname);});
+  console.log('[R2 Repair] Site mismatches: '+siteMismatch.length+', unmatched R2 files: '+r2SiteFiles.length);
   // Sort mismatched records by their embedded timestamp for chronological matching
   siteMismatch.sort(function(a,b){
     var tA=_extractTsFromR2Key(a.r2Key),tB=_extractTsFromR2Key(b.r2Key);
@@ -13066,6 +13071,7 @@ async function _repairR2Links(forceRun){
     var fname=ph.r2Key.split('/').pop();
     if(!r2FnameSet.has(fname))deficMismatch.push(ph);
   });
+  console.log('[R2 Repair] Defic records with r2Key: '+allDeficRecs.length+', mismatches: '+deficMismatch.length);
   var r2DeficFiles=(r2ByPrefix['defic']||[]).slice();
   var matchedDeficFnames=new Set();
   allDeficRecs.forEach(function(ph){
@@ -13413,6 +13419,15 @@ async function _initCloudSync(){
         if(typeof renderPhotoGallery==='function'&&currentTab==='photos')renderPhotoGallery();
       },100);
     }
+    // R2 Link Repair — fix filename mismatches AFTER all merges complete
+    // Then prefetch for offline use once links are correct
+    setTimeout(function(){
+      _repairR2Links().then(function(){
+        _prefetchDrawingsForOffline(currentProjectId);
+      }).catch(function(){
+        _prefetchDrawingsForOffline(currentProjectId);
+      });
+    },200);
     // Auto-download R2 content to IDB for offline use
     setTimeout(function(){
       // Wait for R2 repair to finish first (prevents 404 spam from stale URLs)
@@ -13617,8 +13632,8 @@ async function _autoDownloadR2(){
   }
 
   total=filteredTasks.length;
-  if(total===0)return;
-  _dbg('[AutoDL] Starting background download of '+total+' R2 items');
+  if(total===0){_dbg('[AutoDL] All '+tasks.length+' items already cached — skipping download');return;}
+  _dbg('[AutoDL] Starting background download of '+total+' R2 items ('+( tasks.length-total)+' already cached)');
 
   // Show subtle progress on cloud dot
   function _updateDot(){
