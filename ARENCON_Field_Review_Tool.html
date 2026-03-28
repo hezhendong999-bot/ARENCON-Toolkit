@@ -2963,7 +2963,10 @@ function confirmDownloadJSON(){
 function _aConfirm(msg,onOk,okText){
   var isDark=document.body.classList.contains('dark-mode');
   var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7';
-  var okBg=isDark?'rgba(156,39,66,.35)':'#9C2742',okFg=isDark?'#e8a0b0':'white',okBdr=isDark?'border:1px solid rgba(156,39,66,.4);':'border:none;';
+  var isDestructive=okText&&/delete|remove|reset|clear/i.test(okText);
+  var okBg,okFg,okBdr;
+  if(isDestructive){okBg=isDark?'rgba(156,39,66,.35)':'#9C2742';okFg=isDark?'#e8a0b0':'white';okBdr=isDark?'border:1px solid rgba(156,39,66,.4);':'border:none;';}
+  else{okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A';okFg='white';okBdr=isDark?'border:1px solid rgba(26,122,74,.4);':'border:none;';}
   var cancelBg=isDark?'rgba(255,255,255,.06)':'none',cancelBdr=isDark?'1.5px solid #3a4050':'1.5px solid '+bdr;
   var ov=document.createElement('div');ov.className='_a-modal-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
@@ -2983,7 +2986,7 @@ function _aConfirm(msg,onOk,okText){
 function _aPrompt(msg,defVal,onOk){
   var isDark=document.body.classList.contains('dark-mode');
   var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7',ibg=isDark?'#151a24':'#F8FAFC';
-  var okBg=isDark?'rgba(156,39,66,.35)':'#9C2742',okFg=isDark?'#e8a0b0':'white',okBdr=isDark?'border:1px solid rgba(156,39,66,.4);':'border:none;';
+  var okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A',okFg='white',okBdr=isDark?'border:1px solid rgba(26,122,74,.4);':'border:none;';
   var cancelBg=isDark?'rgba(255,255,255,.06)':'none',cancelBdr=isDark?'1.5px solid #3a4050':'1.5px solid '+bdr;
   var ov=document.createElement('div');ov.className='_a-modal-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
@@ -3006,7 +3009,7 @@ function _aPrompt(msg,defVal,onOk){
 function _aAlert(msg){
   var isDark=document.body.classList.contains('dark-mode');
   var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',bdr=isDark?'#2a3040':'#DDE1E7';
-  var okBg=isDark?'rgba(156,39,66,.35)':'#9C2742',okFg=isDark?'#e8a0b0':'white',okBdr=isDark?'border:1px solid rgba(156,39,66,.4);':'border:none;';
+  var okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A',okFg='white',okBdr=isDark?'border:1px solid rgba(26,122,74,.4);':'border:none;';
   var ov=document.createElement('div');ov.className='_a-modal-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
   var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
@@ -5089,7 +5092,7 @@ function _openDrawingImage(d,drawingId){
     _dbg('[DrawingViewer] _openDrawingImage id='+drawingId+' r2Url='+(d.r2Url?'yes':'no')+' dataUrl='+(d.dataUrl?'yes':'no')+' hasBlob='+!!d._hasLocalBlob+' pdfTiled='+!!d.pdfTiled);
     // Ensure image element is visible (tiled PDF path may have hidden it)
     var img=document.getElementById('dv-image');
-    if(img){img.style.display='';}
+    if(img){img.style.display='';img.src='';img.removeAttribute('src');}// Clear previous image
     // Hide tile canvas if it exists (switching from tiled to image mode)
     var tc=document.getElementById('dv-tile-canvas');
     if(tc){tc.style.display='none';}
@@ -5540,12 +5543,16 @@ window.addEventListener('resize',function(){
     if(typeof fitDrawing==='function')fitDrawing();
     if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
     if(typeof resizeMarkupCanvas==='function')resizeMarkupCanvas();
-    // Second pass after browser fully reflows (catches DevTools close)
+    // Multiple passes — DevTools open/close causes delayed reflow
     setTimeout(function(){
       if(typeof fitDrawing==='function')fitDrawing();
       if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
     },200);
-  },100);
+    setTimeout(function(){
+      if(typeof fitDrawing==='function')fitDrawing();
+      if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
+    },500);
+  },50);
 });
 window.addEventListener('orientationchange',function(){
   setTimeout(function(){
