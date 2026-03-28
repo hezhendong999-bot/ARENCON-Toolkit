@@ -3058,12 +3058,22 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
     var beforeCount=p.sitePhotos.length;
     p.sitePhotos=p.sitePhotos.filter(function(ph){
       if(!ph)return false;
+      // Ghost original backups: sp_orig_ IDs with no local data are always ghosts
+      if(ph.id&&ph.id.indexOf('sp_orig_')===0&&(!ph.dataUrl||ph.dataUrl.length<50))return false;
       if(ph.dataUrl&&ph.dataUrl.length>50)return true;// has local data
-      if(ph.r2Url&&ph.r2Status==='uploaded')return true;// has confirmed R2 upload
-      if(ph.r2Key&&ph.r2Status==='uploaded')return true;// has R2 key that was uploaded
+      if(ph.r2Url&&ph.r2Url.length>50&&ph.r2Status==='uploaded')return true;// has confirmed R2 upload with real URL
+      if(ph.r2Key&&ph.r2Key.length>10&&ph.r2Status==='uploaded')return true;// has R2 key that was uploaded
       return false;// ghost — no usable source
     });
-    if(p.sitePhotos.length<beforeCount)_dbg('[Cleanup] Removed '+(beforeCount-p.sitePhotos.length)+' ghost site photo(s)');
+    if(p.sitePhotos.length<beforeCount){
+      _dbg('[Cleanup] Removed '+(beforeCount-p.sitePhotos.length)+' ghost site photo(s)');
+      // Persist cleanup immediately
+      ADB.saveFullProject(p).catch(function(){});
+      if(typeof CloudSync!=='undefined'&&CloudSync.isInitialized){
+        CloudSync.resetLastSaved();
+        try{CloudSync.save(_collectFullState());}catch(e){}
+      }
+    }
   }  _requeuePendingUploads(p);
   // R2 orphan cleanup: manual via 🧹 R2 Cleanup button in header (Hub mode)
   // Safety net: rebuild any missing r2Url from r2Key on every project enter
