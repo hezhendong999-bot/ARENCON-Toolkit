@@ -1264,8 +1264,8 @@ body.text-l{--ts:4px;}
           <div id="more-repair-section" style="display:none;">
             <button onclick="reuploadAllToCloud();closeMoreMenu()">☁️ Re-upload All <span>Push all drawings &amp; photos to R2</span></button>
             <button onclick="_reuploadPDFsToR2();closeMoreMenu()">📄 Fix Blurry <span>Re-upload PDFs at full resolution</span></button>
-            <button onclick="_r2CleanupOrphans();closeMoreMenu()">🧹 R2 Cleanup <span>Delete orphaned cloud files</span></button>
-            <button onclick="_repairR2Links(true);closeMoreMenu()">🔗 Repair R2 Links <span>Fix photo/drawing filename mismatches</span></button>
+            <button class="admin-only" onclick="_r2CleanupOrphans();closeMoreMenu()">🧹 R2 Cleanup <span>Delete orphaned cloud files</span></button>
+            <button class="admin-only" onclick="_repairR2Links(true);closeMoreMenu()">🔗 Repair R2 Links <span>Fix photo/drawing filename mismatches</span></button>
             <div style="height:1px;background:#eee;margin:2px 0;"></div>
           </div>
           <button onclick="resetCurrentTab();closeMoreMenu()">🗑️ Reset Current Tab <span>Clear this tab's data</span></button>
@@ -1330,8 +1330,8 @@ body.text-l{--ts:4px;}
       <div style="display:none;padding-left:8px;">
         <button class="btn" onclick="reuploadAllToCloud();closeMobileMenu();">☁️ Re-upload All</button>
         <button class="btn" onclick="_reuploadPDFsToR2();closeMobileMenu();">📄 Fix Blurry</button>
-        <button class="btn" onclick="_r2CleanupOrphans();closeMobileMenu();">🧹 R2 Cleanup</button>
-        <button class="btn" onclick="_repairR2Links(true);closeMobileMenu();">🔗 Repair R2 Links</button>
+        <button class="btn admin-only" onclick="_r2CleanupOrphans();closeMobileMenu();">🧹 R2 Cleanup</button>
+        <button class="btn admin-only" onclick="_repairR2Links(true);closeMobileMenu();">🔗 Repair R2 Links</button>
       </div>
     </div>
     <button class="btn" id="mobile-signout-btn" onclick="signOutSession();closeMobileMenu();" style="display:none;color:#7B1FA2;font-weight:700;">🔓 Sign Out</button>
@@ -2929,7 +2929,7 @@ function applyTextSize(size){
 }
 (function(){var s=localStorage.getItem('arencon-text-size')||'M';applyTextSize(s);})();
 
-function openMobileMenu(){var mm=document.getElementById('mobile-menu-overlay');if(mm)mm.classList.add('open');updateStorageDisplay();}
+function openMobileMenu(){var mm=document.getElementById('mobile-menu-overlay');if(mm){mm.classList.add('open');var admin=_isAdmin();mm.querySelectorAll('.admin-only').forEach(function(b){b.style.display=admin?'':'none';});}updateStorageDisplay();}
 function closeMobileMenu(){var mm=document.getElementById('mobile-menu-overlay');if(mm)mm.classList.remove('open');}
 ;function _closeRepairOnClick(){closeRepairMenu();}function closeRepairMenu(){var m=document.getElementById('repair-menu');if(m)m.classList.remove('open');}
 
@@ -2939,6 +2939,9 @@ function toggleMoreMenu(e){
   var m=document.getElementById('more-menu');if(!m)return;
   var isOpen=m.classList.contains('open');
   m.classList.toggle('open');
+  // Hide admin-only buttons for non-admin users
+  var admin=_isAdmin();
+  m.querySelectorAll('.admin-only').forEach(function(b){b.style.display=admin?'':'none';});
   // Apply dark mode colors
   if(!isOpen){
     var dk=document.body.classList.contains('dark-mode');
@@ -3761,7 +3764,17 @@ document.addEventListener('keydown',function(e){
 });
 
 // ═══ RESET ═══
-function resetCurrentProject(){if(!currentProjectId)return;_aConfirm('Reset this project? All data will be cleared.',function(){var p=getProject();var _ci=getInspectorName();var fresh=newProject({projectName:p.info.projectName,projectNumber:p.info.projectNumber,client:p.info.client,inspectorName:_ci});fresh.id=p.id;fresh.created=p.created;allProjects[currentProjectId]=fresh;saveToLS();populateProjectFields();switchTab('info');});}
+function resetCurrentProject(){
+  if(!currentProjectId)return;
+  _aPrompt('This will permanently delete ALL data in this project.\n\nType "reset" to confirm:','',function(val){
+    if(!val||val.trim().toLowerCase()!=='reset'){toast('Reset cancelled — you must type "reset" to confirm.');return;}
+    var p=getProject();var _ci=getInspectorName();
+    var fresh=newProject({projectName:p.info.projectName,projectNumber:p.info.projectNumber,client:p.info.client,inspectorName:_ci});
+    fresh.id=p.id;fresh.created=p.created;
+    allProjects[currentProjectId]=fresh;saveToLS();populateProjectFields();switchTab('info');
+    toast('Project has been reset.');
+  });
+}
 
 function resetCurrentTab(){
   if(!currentProjectId||!currentTab)return;
@@ -3854,6 +3867,7 @@ function showInspector(){
   overlay.addEventListener('keydown',function(e){if(e.key==='Enter')_applyInspector();if(e.key==='Escape')overlay.remove();});
 }
 function getInspectorName(){return localStorage.getItem('ARENCON_FR_Inspector')||'';}
+function _isAdmin(){var e=(localStorage.getItem('sb-user-email')||'').toLowerCase();return e==='mhe@arencon.com';}
 function _getInspectorHistory(){
   try{var raw=localStorage.getItem('ARENCON_FR_InspectorHistory');return raw?JSON.parse(raw):[];}catch(e){return[];}
 }
