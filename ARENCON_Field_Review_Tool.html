@@ -10371,7 +10371,7 @@ function _buildUnifiedPhotoList(p){
 
   var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
   if(siteArr.length){siteArr.forEach(function(ph,i){
-    var src=(typeof ph==='string')?ph:(ph.r2Url||ph.dataUrl||'');
+    var src=(typeof ph==='string')?ph:((ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'');
     var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('site_'+i);
     allPhotos.push({src:src,date:ph.date||ph.uploadDate||ph.timestamp||null,type:'site',idx:i,id:realId,caption:ph.caption||'',r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
   });}
