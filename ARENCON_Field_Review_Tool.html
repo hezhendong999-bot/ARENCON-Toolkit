@@ -7848,16 +7848,20 @@ function lightboxSaveMarkup(){
         var _srcPh=_allPh.find(function(x){return x.src===markedSrc;});// find the now-replaced record
         if(_srcPh&&_srcPh.caption)_srcCaption=_srcPh.caption;
       }catch(e){}
-      var _origRec={id:'sp_orig_'+Date.now(),dataUrl:origSrc,caption:(_srcCaption?_srcCaption+' (original)':'Original'),timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};
-      if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'){
-        var _origFname=_r2Filename('site','jpg');
-        var _origFolderId=_getR2FolderId();
-        _origRec.r2Key='photos/'+_origFolderId+'/frt/original/'+_origFname;
-        _origRec.r2Status='pending';
-        var _origBlob=R2Photos.dataUrlToBlob(origSrc);
-        if(_origBlob){
-          ADB.savePending(_origRec.id,_csProjectId,_origBlob,{type:'site',fname:_origFname,r2Key:_origRec.r2Key}).catch(function(){});
-          R2Photos.enqueue({projectId:_origFolderId,tool:'frt',type:'original',filename:_origFname,blob:_origBlob,
+      var _origRec={id:'sp_orig_'+Date.now(),dataUrl:'',caption:(_srcCaption?_srcCaption+' (original)':'Original'),timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};
+      p.sitePhotos.push(_origRec);
+      // origSrc may be a blob: URL or data: URL — handle both
+      var _origIsBlob=origSrc&&origSrc.indexOf('blob:')===0;
+      var _origIsData=origSrc&&origSrc.indexOf('data:')===0;
+      function _saveOrigToR2AndIDB(blob,dataUrl){
+        _origRec.dataUrl=dataUrl||'';
+        if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'&&blob){
+          var _origFname=_r2Filename('site','jpg');
+          var _origFolderId=_getR2FolderId();
+          _origRec.r2Key='photos/'+_origFolderId+'/frt/original/'+_origFname;
+          _origRec.r2Status='pending';
+          ADB.savePending(_origRec.id,_csProjectId,blob,{type:'site',fname:_origFname,r2Key:_origRec.r2Key}).catch(function(){});
+          R2Photos.enqueue({projectId:_origFolderId,tool:'frt',type:'original',filename:_origFname,blob:blob,
             onComplete:function(err){
               if(!err){_origRec.r2Status='uploaded';_origRec.r2Url=R2Photos.getUrl(_origFolderId,'frt','original',_origFname);
                 ADB.deletePending(_origRec.id).catch(function(){});saveToLS&&saveToLS();_updateR2Badge&&_updateR2Badge();}
@@ -7865,8 +7869,23 @@ function lightboxSaveMarkup(){
             }
           });
         }
+        // Save blob to IDB sitePhotos store
+        if(dataUrl&&_origRec.id&&p.id){
+          ADB.saveSitePhoto(_origRec,p.id).catch(function(){});
+        }
+        saveToLS&&saveToLS();
       }
-      p.sitePhotos.push(_origRec);
+      if(_origIsBlob){
+        // Fetch blob from blob URL, convert to dataUrl for IDB storage
+        fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
+          ADB.blobToDataUrl(blob).then(function(du){
+            _saveOrigToR2AndIDB(blob,du);
+          }).catch(function(){_saveOrigToR2AndIDB(blob,'');});
+        }).catch(function(e){console.warn('[Markup] Failed to fetch original blob:',e);});
+      } else if(_origIsData){
+        var _origBlob=R2Photos.dataUrlToBlob(origSrc);
+        _saveOrigToR2AndIDB(_origBlob,origSrc);
+      }
     }// end save original to gallery
 
     saveToLS&&saveToLS();
@@ -7924,6 +7943,10 @@ function _replacePhotoInProject(p,oldSrc,newSrc){
     function _matchReplace(ph){
       if(!_matchPhoto(ph))return;
       ph.dataUrl=newSrc;
+      // Save marked blob to IDB photos store (defic photos aren't saved by saveFullProject)
+      if(ph.id&&p.id){
+        ADB.saveDeficPhoto(ph.id,p.id,d.id,null,newSrc).catch(function(e){console.warn('[Markup] IDB defic photo save error:',e);});
+      }
       _uploadMarkedToR2(ph,d.id);
       replaced=true;
     }
