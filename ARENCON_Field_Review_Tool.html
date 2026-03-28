@@ -2265,6 +2265,9 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
           // ── Fix stale r2Keys/r2Urls at source (Session 46) ──
           // Rebuild ALL r2Keys using current _csR2Folder BEFORE resolving.
           // This prevents 404s from stale folder slugs (e.g. space vs underscore).
+          console.log('[R2 fix] _csR2Folder=',_csR2Folder,'drawings=',proj.drawings?proj.drawings.length:0,'sitePhotos=',proj.sitePhotos?proj.sitePhotos.length:0);
+          if(proj.drawings&&proj.drawings[0]&&proj.drawings[0].r2Url)console.log('[R2 fix] Sample drawing r2Url BEFORE:',proj.drawings[0].r2Url);
+          if(proj.sitePhotos&&proj.sitePhotos[0]&&proj.sitePhotos[0].r2Url)console.log('[R2 fix] Sample sitePhoto r2Url BEFORE:',proj.sitePhotos[0].r2Url);
           if(typeof _csR2Folder==='string'&&_csR2Folder){
             var workerUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
             var fixCount=0;
