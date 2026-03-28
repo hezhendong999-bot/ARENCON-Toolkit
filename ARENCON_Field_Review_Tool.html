@@ -11720,6 +11720,10 @@ document.addEventListener('DOMContentLoaded',function(){
     var hubProjectId=urlParams.get('project');
     if(hubProjectId){
       // Find the local project ID for this Hub project
+      // Set R2 folder slug EARLY so loadFullProject can fix stale r2Keys
+      var _earlyPN=urlParams.get('pn')||'';
+      var _earlyPName=urlParams.get('pname')||'';
+      if(_earlyPN||_earlyPName)_csR2Folder=_makeR2FolderSlug(_earlyPN,_earlyPName)||hubProjectId;
       return ADB.getAll('projects').then(function(projects){
         allProjects={};
         var targetMeta=null;
