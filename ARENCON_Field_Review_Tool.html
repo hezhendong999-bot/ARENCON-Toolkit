@@ -1265,6 +1265,7 @@ body.text-l{--ts:4px;}
             <button onclick="reuploadAllToCloud();closeMoreMenu()">☁️ Re-upload All <span>Push all drawings &amp; photos to R2</span></button>
             <button onclick="_reuploadPDFsToR2();closeMoreMenu()">📄 Fix Blurry <span>Re-upload PDFs at full resolution</span></button>
             <button onclick="_r2CleanupOrphans();closeMoreMenu()">🧹 R2 Cleanup <span>Delete orphaned cloud files</span></button>
+            <button onclick="_r2RepairLinks();closeMoreMenu()">🔧 Repair R2 Links <span>Remap photo links to actual R2 files</span></button>
             <div style="height:1px;background:#eee;margin:2px 0;"></div>
           </div>
           <button onclick="resetCurrentTab();closeMoreMenu()">🗑️ Reset Current Tab <span>Clear this tab's data</span></button>
@@ -4376,13 +4377,45 @@ async function _refreshR2Token(){
   return null;
 }
 
+// R2 file list cache — prevents 404s by checking if file exists before fetching
+var _r2FileCache=null;// Set of filenames that exist on R2
+var _r2FileCacheLoading=false;
+function _loadR2FileCache(){
+  if(_r2FileCache||_r2FileCacheLoading||!_csHubMode)return Promise.resolve();
+  _r2FileCacheLoading=true;
+  var slug=typeof _getR2FolderId==='function'?_getR2FolderId():_csProjectId;
+  var WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
+  return Promise.all([
+    fetch(WORKER+'/list/'+encodeURIComponent(slug)+'/frt/original/').then(function(r){return r.ok?r.json():[];}).catch(function(){return[];}),
+    fetch(WORKER+'/list/'+encodeURIComponent(slug)+'/frt/drawings/').then(function(r){return r.ok?r.json():[];}).catch(function(){return[];}),
+    fetch(WORKER+'/list/'+encodeURIComponent(slug)+'/frt/marked/').then(function(r){return r.ok?r.json():[];}).catch(function(){return[];})
+  ]).then(function(results){
+    _r2FileCache=new Set();
+    results.forEach(function(data){
+      var files=(data&&data.files)?data.files:(Array.isArray(data)?data:[]);
+      files.forEach(function(f){
+        var key=typeof f==='string'?f:(f.key||'');
+        var fname=key.split('/').pop();
+        if(fname)_r2FileCache.add(fname);
+      });
+    });
+    _r2FileCacheLoading=false;
+  }).catch(function(){_r2FileCacheLoading=false;});
+}
+
 function _loadR2OrDirect(src,img){
   if(!src||typeof src!=='string'){img.style.background='#f0f0f0';return;}
   // Non-R2 URLs (blob:, data:) — load directly
   if(typeof R2Photos==='undefined'||src.indexOf(R2Photos.WORKER_URL)!==0){
     img.src=src;return;
   }
-  // R2 URL — use fetch() to avoid browser "Failed to load resource" console spam
+  // Extract filename from R2 URL
+  var fname=src.split('/').pop();
+  // If we have a file cache and this filename isn't in it, skip fetch entirely
+  if(_r2FileCache&&!_r2FileCache.has(fname)){
+    img.style.background='#e0e0e0';return;
+  }
+  // R2 URL — use fetch() to load (silent on 404 compared to img.src)
   fetch(src).then(function(res){
     if(!res.ok){
       // On 404, try swapping folder ID (UUID↔slug recovery)
@@ -4393,6 +4426,8 @@ function _loadR2OrDirect(src,img){
           var usedFolder=decodeURIComponent(parts[2]);
           var tryFolder=(usedFolder===slug)?uuid:(usedFolder===uuid)?slug:null;
           if(tryFolder&&tryFolder!==usedFolder){
+            // Check cache for alternate path too
+            if(_r2FileCache&&!_r2FileCache.has(fname))throw new Error('not in cache');
             return fetch(R2Photos.WORKER_URL+'/photos/'+encodeURIComponent(tryFolder)+'/'+parts.slice(3).join('/')).then(function(r2){
               if(!r2.ok)throw new Error(r2.status);
               return r2.blob();
@@ -4406,7 +4441,6 @@ function _loadR2OrDirect(src,img){
   }).then(function(blob){
     if(blob)img.src=URL.createObjectURL(blob);
   }).catch(function(){
-    // Silent fail — gray placeholder, no console error
     img.style.background='#e0e0e0';
   });
 }
@@ -8829,6 +8863,130 @@ async function _r2CleanupOrphans(){
   },'Delete Orphans');
 }
 
+// ── Repair R2 Links: remap project r2Keys to match actual R2 filenames ──
+async function _r2RepairLinks(){
+  if(!_csHubMode||!_csProjectId){_aAlert('Must be in Hub mode.');return;}
+  var p=getProject();if(!p){_aAlert('No project loaded.');return;}
+  var WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
+  var slug=_getR2FolderId();
+
+  // 1) List all actual R2 files
+  var r2Sites=[],r2Defics=[],r2Dwgs=[];
+  try{
+    var res1=await fetch(WORKER+'/list/'+encodeURIComponent(slug)+'/frt/original/');
+    if(res1.ok){var d1=await res1.json();(d1.files||d1||[]).forEach(function(f){
+      var fn=(f.key||f).split('/').pop();
+      if(fn.startsWith('site_'))r2Sites.push({fname:fn,ts:parseInt(fn.split('_')[1])||0});
+      else if(fn.startsWith('defic_'))r2Defics.push({fname:fn,ts:parseInt(fn.split('_')[1])||0});
+    });}
+    var res2=await fetch(WORKER+'/list/'+encodeURIComponent(slug)+'/frt/drawings/');
+    if(res2.ok){var d2=await res2.json();(d2.files||d2||[]).forEach(function(f){
+      var fn=(f.key||f).split('/').pop();
+      r2Dwgs.push({fname:fn});
+    });}
+  }catch(e){_aAlert('Failed to list R2 files: '+e.message);return;}
+
+  // Sort by timestamp
+  r2Sites.sort(function(a,b){return a.ts-b.ts;});
+  r2Defics.sort(function(a,b){return a.ts-b.ts;});
+
+  // 2) Collect project photos that have r2Key but whose filename doesn't match any R2 file
+  var r2SiteSet=new Set(r2Sites.map(function(f){return f.fname;}));
+  var r2DeficSet=new Set(r2Defics.map(function(f){return f.fname;}));
+
+  // Site photos with broken r2Keys
+  var brokenSites=[];
+  (p.sitePhotos||[]).forEach(function(sp,i){
+    if(!sp||!sp.r2Key)return;
+    var fn=sp.r2Key.split('/').pop();
+    if(!r2SiteSet.has(fn))brokenSites.push({idx:i,rec:sp,curFname:fn});
+  });
+
+  // Defic photos with broken r2Keys
+  var brokenDefics=[];
+  function _collectBroken(defics){
+    if(!defics)return;
+    defics.forEach(function(d){
+      function _checkArr(arr){if(!arr)return;arr.forEach(function(ph){
+        if(!ph||!ph.r2Key)return;
+        var fn=ph.r2Key.split('/').pop();
+        if(!r2DeficSet.has(fn))brokenDefics.push({rec:ph,curFname:fn});
+      });}
+      _checkArr(d.photos);
+      if(d.entries)d.entries.forEach(function(e){_checkArr(e.photos);});
+      (d.responses||[]).forEach(function(r){_checkArr(r.photos);});
+    });
+  }
+  (p.contractors||[]).forEach(function(c){_collectBroken(c.deficiencies);});
+  _collectBroken(p.generalDeficiencies);
+
+  if(!brokenSites.length&&!brokenDefics.length){
+    _aAlert('All R2 links are valid — nothing to repair.');return;
+  }
+
+  // 3) Match broken records to unmatched R2 files by order
+  // Find which R2 files are NOT referenced by any valid project record
+  var usedSites=new Set();
+  (p.sitePhotos||[]).forEach(function(sp){
+    if(!sp||!sp.r2Key)return;
+    var fn=sp.r2Key.split('/').pop();
+    if(r2SiteSet.has(fn))usedSites.add(fn);
+  });
+  var unusedR2Sites=r2Sites.filter(function(f){return !usedSites.has(f.fname);});
+
+  var usedDefics=new Set();
+  function _collectUsed(defics){
+    if(!defics)return;
+    defics.forEach(function(d){
+      function _checkUsed(arr){if(!arr)return;arr.forEach(function(ph){
+        if(!ph||!ph.r2Key)return;
+        var fn=ph.r2Key.split('/').pop();
+        if(r2DeficSet.has(fn))usedDefics.add(fn);
+      });}
+      _checkUsed(d.photos);
+      if(d.entries)d.entries.forEach(function(e){_checkUsed(e.photos);});
+      (d.responses||[]).forEach(function(r){_checkUsed(r.photos);});
+    });
+  }
+  (p.contractors||[]).forEach(function(c){_collectUsed(c.deficiencies);});
+  _collectUsed(p.generalDeficiencies);
+  var unusedR2Defics=r2Defics.filter(function(f){return !usedDefics.has(f.fname);});
+
+  // 4) Remap: assign unused R2 files to broken records in order
+  var fixedSites=0,fixedDefics=0;
+  for(var si=0;si<brokenSites.length&&si<unusedR2Sites.length;si++){
+    var bs=brokenSites[si].rec;
+    var newFname=unusedR2Sites[si].fname;
+    bs.r2Key='photos/'+slug+'/frt/original/'+newFname;
+    bs.r2Url=WORKER+'/photos/'+encodeURIComponent(slug)+'/frt/original/'+newFname;
+    bs.r2Status='uploaded';
+    fixedSites++;
+  }
+  for(var di=0;di<brokenDefics.length&&di<unusedR2Defics.length;di++){
+    var bd=brokenDefics[di].rec;
+    var newFname2=unusedR2Defics[di].fname;
+    bd.r2Key='photos/'+slug+'/frt/original/'+newFname2;
+    bd.r2Url=WORKER+'/photos/'+encodeURIComponent(slug)+'/frt/original/'+newFname2;
+    bd.r2Status='uploaded';
+    fixedDefics++;
+  }
+
+  // 5) Save and refresh
+  saveToLS();
+  _r2FileCache=null;// Clear cache so it reloads
+  if(typeof _loadR2FileCache==='function')_loadR2FileCache();
+  if(typeof renderPhotoGallery==='function')renderPhotoGallery();
+  if(typeof renderDeficiencyPanel==='function')renderDeficiencyPanel();
+
+  var unmatchedSites=brokenSites.length-fixedSites;
+  var unmatchedDefics=brokenDefics.length-fixedDefics;
+  var msg='R2 Link Repair Complete:\n\n'
+    +'• Site photos repaired: '+fixedSites+'/'+brokenSites.length+'\n'
+    +'• Deficiency photos repaired: '+fixedDefics+'/'+brokenDefics.length+'\n'
+    +(unmatchedSites+unmatchedDefics>0?'\n⚠ '+(unmatchedSites+unmatchedDefics)+' photos could not be matched (no unused R2 files available)':'');
+  _aAlert(msg);
+}
+
 function _requeuePendingUploads(proj){
   if(!_csHubMode||typeof R2Photos==='undefined'||!_csProjectId)return;
   var hubId=_getR2FolderId();
@@ -11730,6 +11888,8 @@ document.addEventListener('DOMContentLoaded',function(){
       var _earlyPN=urlParams.get('pn')||'';
       var _earlyPName=urlParams.get('pname')||'';
       if(_earlyPN||_earlyPName)_csR2Folder=_makeR2FolderSlug(_earlyPN,_earlyPName)||hubProjectId;
+      // Pre-load R2 file listing so _loadR2OrDirect can skip missing files (no 404s)
+      if(typeof _loadR2FileCache==='function')_loadR2FileCache();
       return ADB.getAll('projects').then(function(projects){
         allProjects={};
         var targetMeta=null;
