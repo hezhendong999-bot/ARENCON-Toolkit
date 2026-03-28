@@ -2247,7 +2247,9 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
         var spPromises=sitePhotos.map(function(sp){
           // If on R2, skip blob conversion entirely — display via r2Url
           if(sp.r2Status==='uploaded'&&sp.r2Url){
-            return Promise.resolve({id:sp.id,dataUrl:'',caption:sp.caption||'',date:sp.timestamp||'',
+            // Create blob URL if blob exists — instant, no base64 conversion needed
+            var blobUrl=(sp.dataBlob&&sp.dataBlob.size>0)?URL.createObjectURL(sp.dataBlob):'';
+            return Promise.resolve({id:sp.id,dataUrl:blobUrl,caption:sp.caption||'',date:sp.timestamp||'',
               uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:'uploaded',r2Url:sp.r2Url});
           }
           // Local-only: convert blob to dataUrl
@@ -2265,9 +2267,6 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
           // ── Fix stale r2Keys/r2Urls at source (Session 46) ──
           // Rebuild ALL r2Keys using current _csR2Folder BEFORE resolving.
           // This prevents 404s from stale folder slugs (e.g. space vs underscore).
-          console.log('[R2 fix] _csR2Folder=',_csR2Folder,'drawings=',proj.drawings?proj.drawings.length:0,'sitePhotos=',proj.sitePhotos?proj.sitePhotos.length:0);
-          if(proj.drawings&&proj.drawings[0]&&proj.drawings[0].r2Url)console.log('[R2 fix] Sample drawing r2Url BEFORE:',proj.drawings[0].r2Url);
-          if(proj.sitePhotos&&proj.sitePhotos[0]&&proj.sitePhotos[0].r2Url)console.log('[R2 fix] Sample sitePhoto r2Url BEFORE:',proj.sitePhotos[0].r2Url);
           if(typeof _csR2Folder==='string'&&_csR2Folder){
             var workerUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
             var fixCount=0;
@@ -3082,6 +3081,32 @@ function _showHubSaveLeaveModal(destUrl){
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   ov.addEventListener('keydown',function(e){if(e.key==='Escape')ov.remove();});
 }
+// Preload defic photo blobs from IDB — creates blob URLs for in-memory records
+// so gallery uses local data instead of hitting R2 (which may 404).
+function _preloadDeficPhotoBlobs(p){
+  if(!p||!ADB.ready)return;
+  var allPhotos=[];
+  function _collect(defics){
+    if(!defics)return;
+    defics.forEach(function(d){
+      if(d.entries){d.entries.forEach(function(e){(e.photos||[]).forEach(function(ph){if(ph&&ph.id&&!ph.dataUrl)allPhotos.push(ph);});});}
+      (d.photos||[]).forEach(function(ph){if(ph&&ph.id&&!ph.dataUrl)allPhotos.push(ph);});
+      (d.responses||[]).forEach(function(r){(r.photos||[]).forEach(function(ph){if(ph&&ph.id&&!ph.dataUrl)allPhotos.push(ph);});});
+    });
+  }
+  (p.contractors||[]).forEach(function(c){_collect(c.deficiencies);});
+  _collect(p.generalDeficiencies);
+  if(!allPhotos.length)return;
+  var loaded=0;
+  allPhotos.forEach(function(ph){
+    ADB.get('photos',ph.id).then(function(rec){
+      if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
+        ph.dataUrl=URL.createObjectURL(rec.dataBlob);
+        loaded++;
+      }
+    }).catch(function(){});
+  });
+}
 function enterProject(id){var _lov=document.getElementById('hub-loading-overlay');if(_lov)_lov.remove();currentProjectId=id;var p=getProject();if(!p)return;if(!p.contractors)p.contractors=[];if(!p.generalDeficiencies)p.generalDeficiencies=[];if(!p.nextDeficNum)p.nextDeficNum=1;if(!p.settings)p.settings={sketchesEnabled:false};
   // Migrate legacy base64 string photo arrays to record objects
   p.contractors.forEach(function(c){_migrateDeficPhotos(c.deficiencies);});
@@ -3093,6 +3118,8 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   // R2 orphan cleanup: manual via 🧹 R2 Cleanup button in header (Hub mode)
   // Safety net: rebuild any missing r2Url from r2Key on every project enter
   if(typeof _rebuildMissingR2Urls==='function')_rebuildMissingR2Urls(p);
+  // Preload defic photo blobs from IDB — prevents R2 404s when photos exist locally
+  _preloadDeficPhotoBlobs(p);
   var _el;
   _el=document.getElementById('view-dashboard');if(_el)_el.style.display='none';
   _el=document.getElementById('view-project');if(_el){_el.style.display='block';_el.style.visibility='visible';}
@@ -4435,7 +4462,14 @@ function buildDrawingCard(d,ad){
   var sel=_selectedDrawings.has(d.id);
   var html='<div class="drawing-card'+(sel?' selected':'')+'" data-dwg-id="'+d.id+'" ontouchstart="_dwgCardTouchStart(event,\''+d.id+'\')" ontouchmove="_dwgCardTouchMove(event)" ontouchend="_dwgCardTouchEnd(event,\''+d.id+'\')">';
   html+='<div class="card-thumb drawing-thumb" onclick="openDrawingViewer(\''+d.id+'\')">';
-  var _thumbSrc=d.thumb||d.dataUrl||(d.r2Url?d.r2Url:null);
+  var _thumbSrc=d.thumb||d.dataUrl||null;
+  // If no local thumb/dataUrl but blob exists in cache, generate thumb on the fly
+  if(!_thumbSrc&&d._hasLocalBlob&&ADB._drawingBlobCache&&ADB._drawingBlobCache[d.id]){
+    var _blobUrl=URL.createObjectURL(ADB._drawingBlobCache[d.id]);
+    _thumbSrc=_blobUrl;
+  }
+  // Only fall back to R2 URL if no local source available
+  if(!_thumbSrc&&d.r2Url)_thumbSrc=d.r2Url;
   html+='<img data-src="'+(_thumbSrc||'')+'" alt="'+escHtml(d.name)+'" loading="lazy" style="background:#e8e8e8;">';
   if(pc>0)html+='<div class="pin-badge">'+pc+'</div>';
   if(d._version&&d._version>1)html+='<div class="version-badge">v'+d._version+'</div>';
@@ -8558,7 +8592,7 @@ function consultantCloseItem(did,ri){
 function _deficPhotoSrc(ph){
   if(!ph)return '';
   if(typeof ph==='string')return ph;// Legacy base64 string
-  return ph.r2Url||ph.dataUrl||'';
+  return ph.dataUrl||ph.r2Url||'';
 }
 function _deficPhotoId(ph){
   if(!ph)return '';
@@ -10336,7 +10370,7 @@ function _buildUnifiedPhotoList(p){
 
   var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
   if(siteArr.length){siteArr.forEach(function(ph,i){
-    var src=(typeof ph==='string')?ph:(ph.r2Url||ph.dataUrl||'');
+    var src=(typeof ph==='string')?ph:(ph.dataUrl||ph.r2Url||'');
     var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('site_'+i);
     allPhotos.push({src:src,date:ph.date||ph.uploadDate||ph.timestamp||null,type:'site',idx:i,id:realId,caption:ph.caption||'',r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
   });}
