@@ -7828,7 +7828,6 @@ function lightboxSaveMarkup(){
     showToast&&showToast('Markup save failed — empty canvas export','error');
     return;
   }
-  console.log('[Markup Save] toDataURL succeeded, length=',markedSrc.length,'origSrc type=',origSrc?origSrc.substring(0,30):'null','_lbPhotoIds=',_lbPhotoIds,'_lbIdx=',_lbIdx);
   // Update in-memory photo array so lightbox shows marked version
   _lbPhotos[_lbIdx]=markedSrc;
   _lbOrigSrc=markedSrc;
@@ -7911,7 +7910,6 @@ function _replacePhotoInProject(p,oldSrc,newSrc){
   var hubId=_csHubMode?_getR2FolderId():null;
   // Get the photo ID from the lightbox if available
   var targetId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])?_lbPhotoIds[_lbIdx]:null;
-  console.log('[Markup Save] targetId=',targetId,'hubId=',hubId,'oldSrc type=',oldSrc?oldSrc.substring(0,30):'null','newSrc length=',newSrc?newSrc.length:0);
 
   function _matchPhoto(ph){
     if(!ph||typeof ph!=='object')return false;
@@ -7944,7 +7942,6 @@ function _replacePhotoInProject(p,oldSrc,newSrc){
     var d=r.defic;
     function _matchReplace(ph){
       if(!_matchPhoto(ph))return;
-      console.log('[Markup Save] MATCHED photo:',ph.id,'type=defic, setting dataUrl length=',newSrc.length);
       ph.dataUrl=newSrc;
       // Save marked blob to IDB photos store (defic photos aren't saved by saveFullProject)
       if(ph.id&&p.id){
@@ -7959,13 +7956,11 @@ function _replacePhotoInProject(p,oldSrc,newSrc){
   });
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){
     if(_matchPhoto(ph)){
-      console.log('[Markup Save] MATCHED photo:',ph.id,'type=site, setting dataUrl length=',newSrc.length);
       ph.dataUrl=newSrc;
       _uploadMarkedToR2(ph,null);
       replaced=true;
     }
   });}
-  console.log('[Markup Save] _replacePhotoInProject result: replaced=',replaced);
   return replaced;
 }
 
@@ -12644,6 +12639,30 @@ function _collectFullState(){
   var p=getProject();if(!p)return{};
   // Deep copy project state for CloudSync
   var state=JSON.parse(JSON.stringify(p));
+
+  // ── NORMALIZE R2 KEYS — ensure all use current folder slug before cloud push ──
+  var _cfSlug=typeof _getR2FolderId==='function'?_getR2FolderId():null;
+  if(_cfSlug){
+    var _wUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
+    function _fixR2(rec){
+      if(!rec||!rec.r2Key)return;
+      var pts=rec.r2Key.split('/');
+      if(pts.length>=5&&pts[0]==='photos'){
+        var correctKey='photos/'+_cfSlug+'/frt/'+pts[3]+'/'+pts.slice(4).join('/');
+        rec.r2Key=correctKey;
+        rec.r2Url=_wUrl+'/'+correctKey;
+      }
+    }
+    (state.drawings||[]).forEach(_fixR2);
+    function _fixDeficR2(defics){if(!defics)return;defics.forEach(function(d){
+      (d.photos||[]).forEach(_fixR2);
+      if(d.entries){d.entries.forEach(function(e){(e.photos||[]).forEach(_fixR2);});}
+      (d.responses||[]).forEach(function(r){(r.photos||[]).forEach(_fixR2);});
+    });}
+    (state.contractors||[]).forEach(function(c){_fixDeficR2(c.deficiencies);});
+    _fixDeficR2(state.generalDeficiencies);
+    (state.sitePhotos||[]).forEach(_fixR2);
+  }
 
   // ── STRIP INTERNAL FIELDS — not part of project data ──
   // These change every save cycle and cause unnecessary cloud pushes
