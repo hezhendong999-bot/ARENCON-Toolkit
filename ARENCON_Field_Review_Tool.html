@@ -3053,7 +3053,8 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   _migrateDeficPhotos(p.generalDeficiencies);
   // Ensure all site photos have IDs
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){if(ph&&!ph.id)ph.id='sp_'+Math.random().toString(36).substr(2,8);});}
-  _requeuePendingUploads(p);
+  // Ghost cleanup: remove sitePhotos with no image data (failed markup originals)
+  if(p.sitePhotos){var _gcBefore=p.sitePhotos.length;p.sitePhotos=p.sitePhotos.filter(function(ph){if(!ph)return false;return !!(ph.dataUrl||ph.r2Url||ph.r2Key);});if(p.sitePhotos.length<_gcBefore)console.log('[Ghost cleanup] Removed '+ (_gcBefore-p.sitePhotos.length)+' empty sitePhoto records');}  _requeuePendingUploads(p);
   // R2 orphan cleanup: manual via 🧹 R2 Cleanup button in header (Hub mode)
   // Safety net: rebuild any missing r2Url from r2Key on every project enter
   if(typeof _rebuildMissingR2Urls==='function')_rebuildMissingR2Urls(p);
