@@ -10288,6 +10288,8 @@ function getPhotoList(p){
 
 // Unified photo list builder — used by both gallery rendering and lightbox
 function _buildUnifiedPhotoList(p){
+  // Ensure R2 URLs are rebuilt with current folder before rendering
+  if(typeof _rebuildMissingR2Urls==='function'&&_csHubMode)_rebuildMissingR2Urls(p);
   var allPhotos=[];
   var srcToPins={}; // track which pins reference each photo src
 
@@ -13066,6 +13068,7 @@ async function _initCloudSync(){
           renderDrawingGallery&&renderDrawingGallery();
           renderDeficiencyPanel&&renderDeficiencyPanel();
           renderSummaryTable&&renderSummaryTable();
+          if(typeof renderPhotoGallery==='function'&&currentTab==='photos')renderPhotoGallery();
         },200);
       }
     } else if(p){
@@ -13120,6 +13123,21 @@ async function _initCloudSync(){
     // Initialize R2 photo uploads
     if(typeof R2Photos!=='undefined'){
       R2Photos.init({wifiOnly:false,onProgress:function(info){_updateR2Badge();}});
+    }
+    // Final URL rebuild — ensure ALL r2Urls use current folder slug after all merges
+    var _p2=getProject();
+    if(_p2&&typeof _rebuildMissingR2Urls==='function'){
+      _rebuildMissingR2Urls(_p2);
+      ADB.saveFullProject(_p2).catch(function(){});
+      // Push fixed URLs to cloud so they persist
+      CloudSync.resetLastSaved();
+      try{CloudSync.save(_collectFullState());}catch(e){}
+      // Re-render all panels with correct URLs
+      setTimeout(function(){
+        if(typeof renderDrawingGallery==='function')renderDrawingGallery();
+        if(typeof renderDeficiencyPanel==='function')renderDeficiencyPanel();
+        if(typeof renderPhotoGallery==='function'&&currentTab==='photos')renderPhotoGallery();
+      },100);
     }
     // Auto-download R2 content to IDB for offline use
     setTimeout(function(){_autoDownloadR2();},3000);
