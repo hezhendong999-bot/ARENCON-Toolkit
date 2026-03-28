@@ -13165,8 +13165,9 @@ async function _initCloudSync(){
         if(typeof renderPhotoGallery==='function'&&currentTab==='photos')renderPhotoGallery();
       },100);
     }
-    // Auto-download R2 content to IDB for offline use
-    setTimeout(function(){_autoDownloadR2();},3000);
+    // Auto-download R2 content to IDB disabled — photos load from IDB blobs.
+    // _autoDownloadR2 was fetching R2 URLs with mismatched filenames, causing 404s.
+    // setTimeout(function(){_autoDownloadR2();},3000);
   }catch(e){
     _syncLock=false;
     console.error('CloudSync init error:',e);
