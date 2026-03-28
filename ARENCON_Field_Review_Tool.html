@@ -3053,28 +3053,7 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   _migrateDeficPhotos(p.generalDeficiencies);
   // Ensure all site photos have IDs
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){if(ph&&!ph.id)ph.id='sp_'+Math.random().toString(36).substr(2,8);});}
-  // Remove ghost site photos — records with no dataUrl AND no valid r2Url (failed original backups)
-  if(p.sitePhotos){
-    var beforeCount=p.sitePhotos.length;
-    p.sitePhotos=p.sitePhotos.filter(function(ph){
-      if(!ph)return false;
-      // Ghost original backups: sp_orig_ IDs with no local data are always ghosts
-      if(ph.id&&ph.id.indexOf('sp_orig_')===0&&(!ph.dataUrl||ph.dataUrl.length<50))return false;
-      if(ph.dataUrl&&ph.dataUrl.length>50)return true;// has local data
-      if(ph.r2Url&&ph.r2Url.length>50&&ph.r2Status==='uploaded')return true;// has confirmed R2 upload with real URL
-      if(ph.r2Key&&ph.r2Key.length>10&&ph.r2Status==='uploaded')return true;// has R2 key that was uploaded
-      return false;// ghost — no usable source
-    });
-    if(p.sitePhotos.length<beforeCount){
-      _dbg('[Cleanup] Removed '+(beforeCount-p.sitePhotos.length)+' ghost site photo(s)');
-      // Persist cleanup immediately
-      ADB.saveFullProject(p).catch(function(){});
-      if(typeof CloudSync!=='undefined'&&CloudSync.isInitialized){
-        CloudSync.resetLastSaved();
-        try{CloudSync.save(_collectFullState());}catch(e){}
-      }
-    }
-  }  _requeuePendingUploads(p);
+  _requeuePendingUploads(p);
   // R2 orphan cleanup: manual via 🧹 R2 Cleanup button in header (Hub mode)
   // Safety net: rebuild any missing r2Url from r2Key on every project enter
   if(typeof _rebuildMissingR2Urls==='function')_rebuildMissingR2Urls(p);
@@ -3099,7 +3078,8 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   ADB.put('config',{key:'lastProject',value:id});
   window.location.hash=id;
   updateProjectDropdown();populateProjectFields();switchTab('info');applyLockState();
-  // Prefetch moved to after CloudSync init (where r2Urls are corrected)
+  // Auto-prefetch drawings from R2 into IDB for offline use
+  setTimeout(function(){_prefetchDrawingsForOffline(id);},500);
 }
 function populateProjectFields(){var p=getProject();if(!p||!p.info)return;
   Object.keys(p.info).forEach(function(key){
@@ -10056,27 +10036,30 @@ function deselectAllPhotos(){_selectedPhotos=[];renderPhotoGallery();}
 function deleteSelectedPhotos(){
   if(!_selectedPhotos.length){showToast('No photos selected');return;}
   var p=getProject();if(!p)return;
-  // Separate site vs deficiency photos
-  var siteIds=_selectedPhotos.filter(function(id){return id.startsWith('site_');});
-  var deficIds=_selectedPhotos.filter(function(id){return !id.startsWith('site_');});
+  // Use unified photo list to correctly classify by type (not ID prefix)
+  var allPh=_buildUnifiedPhotoList(p);
+  var phMap={};allPh.forEach(function(ph){phMap[ph.id]=ph;});
+  var siteIds=_selectedPhotos.filter(function(id){var ph=phMap[id];return ph&&ph.type==='site';});
+  var deficIds=_selectedPhotos.filter(function(id){var ph=phMap[id];return !ph||ph.type!=='site';});
   if(siteIds.length===0&&deficIds.length>0){
     showToast('Deficiency photos can only be removed from the pin editor');return;
   }
   var msg='Delete '+siteIds.length+' site photo'+(siteIds.length!==1?'s':'')+'?';
   if(deficIds.length>0)msg+='\n('+deficIds.length+' deficiency photo'+(deficIds.length!==1?'s':'')+' will be skipped — remove from pin editor)';
   _aConfirm(msg,function(){
-  siteIds.forEach(function(id){
-    var idx=parseInt(id.split('_')[1]);
-    if(p.sitePhotos&&p.sitePhotos[idx]){
-      var sp=p.sitePhotos[idx];
-      if(sp.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+  var deleteSet={};siteIds.forEach(function(id){deleteSet[id]=true;});
+  if(p.sitePhotos){
+    p.sitePhotos=p.sitePhotos.filter(function(sp,i){
+      var realId=(sp&&typeof sp==='object'&&sp.id)?sp.id:('site_'+i);
+      if(!deleteSet[realId])return true;
+      // Cleanup R2 if applicable
+      if(sp&&sp.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
         var parts=sp.r2Key.split('/');
         if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){_dbw('R2 delete failed:',e);});
       }
-      p.sitePhotos[idx]=null;
-    }
-  });
-  if(p.sitePhotos)p.sitePhotos=p.sitePhotos.filter(function(x){return x!==null;});
+      return false;
+    });
+  }
   _selectedPhotos=[];
   saveToLS();renderPhotoGallery();
   showToast(siteIds.length+' photo'+(siteIds.length!==1?'s':'')+' deleted'+(deficIds.length>0?' ('+deficIds.length+' deficiency photos skipped)':''));
@@ -10085,14 +10068,21 @@ function deleteSelectedPhotos(){
 
 function deleteSingleSitePhoto(photoId,idx){
   _aConfirm('Delete this site photo?',function(){
-    var p=getProject();if(!p)return;
-    if(p.sitePhotos&&p.sitePhotos[idx]){
-      var sp=p.sitePhotos[idx];
-      if(sp.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+    var p=getProject();if(!p||!p.sitePhotos)return;
+    // Find by ID first, fall back to index
+    var found=-1;
+    for(var i=0;i<p.sitePhotos.length;i++){
+      var sp=p.sitePhotos[i];
+      if(sp&&typeof sp==='object'&&sp.id===photoId){found=i;break;}
+    }
+    if(found<0&&idx>=0&&idx<p.sitePhotos.length)found=idx;
+    if(found>=0){
+      var sp=p.sitePhotos[found];
+      if(sp&&sp.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
         var parts=sp.r2Key.split('/');
         if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){_dbw('R2 delete failed:',e);});
       }
-      p.sitePhotos.splice(idx,1);
+      p.sitePhotos.splice(found,1);
     }
     _selectedPhotos=_selectedPhotos.filter(function(id){return id!==photoId;});
     saveToLS();renderPhotoGallery();
@@ -12660,30 +12650,6 @@ function _collectFullState(){
   // Deep copy project state for CloudSync
   var state=JSON.parse(JSON.stringify(p));
 
-  // ── NORMALIZE R2 KEYS — ensure all use current folder slug before cloud push ──
-  var _cfSlug=typeof _getR2FolderId==='function'?_getR2FolderId():null;
-  if(_cfSlug){
-    var _wUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
-    function _fixR2(rec){
-      if(!rec||!rec.r2Key)return;
-      var pts=rec.r2Key.split('/');
-      if(pts.length>=5&&pts[0]==='photos'){
-        var correctKey='photos/'+_cfSlug+'/frt/'+pts[3]+'/'+pts.slice(4).join('/');
-        rec.r2Key=correctKey;
-        rec.r2Url=_wUrl+'/'+correctKey;
-      }
-    }
-    (state.drawings||[]).forEach(_fixR2);
-    function _fixDeficR2(defics){if(!defics)return;defics.forEach(function(d){
-      (d.photos||[]).forEach(_fixR2);
-      if(d.entries){d.entries.forEach(function(e){(e.photos||[]).forEach(_fixR2);});}
-      (d.responses||[]).forEach(function(r){(r.photos||[]).forEach(_fixR2);});
-    });}
-    (state.contractors||[]).forEach(function(c){_fixDeficR2(c.deficiencies);});
-    _fixDeficR2(state.generalDeficiencies);
-    (state.sitePhotos||[]).forEach(_fixR2);
-  }
-
   // ── STRIP INTERNAL FIELDS — not part of project data ──
   // These change every save cycle and cause unnecessary cloud pushes
   delete state._cloudSyncedAt;
@@ -13178,8 +13144,6 @@ async function _initCloudSync(){
         if(typeof renderPhotoGallery==='function'&&currentTab==='photos')renderPhotoGallery();
       },100);
     }
-    // Auto-prefetch drawings from R2 into IDB for offline use (after URLs are corrected)
-    setTimeout(function(){_prefetchDrawingsForOffline(currentProjectId);},1500);
     // Auto-download R2 content to IDB for offline use
     setTimeout(function(){_autoDownloadR2();},3000);
   }catch(e){
