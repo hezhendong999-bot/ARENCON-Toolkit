@@ -4378,15 +4378,21 @@ async function _refreshR2Token(){
 
 function _loadR2OrDirect(src,img){
   if(!src||typeof src!=='string'){img.style.background='#f0f0f0';return;}
-  // Non-R2 URLs (blob:, data:, file:, etc.) — load directly, no network
+  // Non-R2 URLs (blob:, data:) — load directly
   if(typeof R2Photos==='undefined'||src.indexOf(R2Photos.WORKER_URL)!==0){
     img.src=src;return;
   }
-  // R2 URL — DO NOT set as img.src (causes browser 404 console errors).
-  // Instead show placeholder. Photos should already have local blob URLs
-  // from loadFullProject or _preloadDeficPhotoBlobs.
-  img.style.background='linear-gradient(135deg,#e8e8e8 25%,#f5f5f5 50%,#e8e8e8 75%)';
-  img.alt='Loading...';
+  // R2 URL — use fetch() to avoid browser "Failed to load resource" console errors.
+  // fetch() errors are caught silently; img.src errors are not.
+  fetch(src).then(function(res){
+    if(!res.ok)throw new Error(res.status);
+    return res.blob();
+  }).then(function(blob){
+    if(blob)img.src=URL.createObjectURL(blob);
+  }).catch(function(){
+    // Silently fail — no console error, no hidden thumbnail
+    img.style.background='#e0e0e0';
+  });
 }
 
 // Load all data-src images in a container (for deficiency/pin panels after render)
