@@ -4382,15 +4382,31 @@ function _loadR2OrDirect(src,img){
   if(typeof R2Photos==='undefined'||src.indexOf(R2Photos.WORKER_URL)!==0){
     img.src=src;return;
   }
-  // R2 URL — use fetch() to avoid browser "Failed to load resource" console errors.
-  // fetch() errors are caught silently; img.src errors are not.
+  // R2 URL — use fetch() to avoid browser "Failed to load resource" console spam
   fetch(src).then(function(res){
-    if(!res.ok)throw new Error(res.status);
+    if(!res.ok){
+      // On 404, try swapping folder ID (UUID↔slug recovery)
+      if(res.status===404&&typeof _getR2FolderId==='function'&&_csProjectId){
+        var slug=_getR2FolderId();var uuid=_csProjectId;
+        var parts=src.substring(R2Photos.WORKER_URL.length).split('/');
+        if(parts.length>=6&&parts[1]==='photos'){
+          var usedFolder=decodeURIComponent(parts[2]);
+          var tryFolder=(usedFolder===slug)?uuid:(usedFolder===uuid)?slug:null;
+          if(tryFolder&&tryFolder!==usedFolder){
+            return fetch(R2Photos.WORKER_URL+'/photos/'+encodeURIComponent(tryFolder)+'/'+parts.slice(3).join('/')).then(function(r2){
+              if(!r2.ok)throw new Error(r2.status);
+              return r2.blob();
+            });
+          }
+        }
+      }
+      throw new Error(res.status);
+    }
     return res.blob();
   }).then(function(blob){
     if(blob)img.src=URL.createObjectURL(blob);
   }).catch(function(){
-    // Silently fail — no console error, no hidden thumbnail
+    // Silent fail — gray placeholder, no console error
     img.style.background='#e0e0e0';
   });
 }
