@@ -4370,8 +4370,16 @@ async function _refreshR2Token(){
   return null;
 }
 
+var _r2FailedUrls={};// Cache of URLs that returned 404 — prevents repeated fetch spam
 function _loadR2OrDirect(src,img){
   if(!src||typeof src!=='string'){img.style.background='#f0f0f0';return;}
+  // Skip URLs that already failed (cleared when repair runs)
+  if(_r2FailedUrls[src]){
+    img.style.opacity='0.4';
+    img.setAttribute('data-r2-failed','1');
+    img.setAttribute('data-r2-src',src);
+    return;
+  }
   // R2 Worker GETs require no auth token (Session 24 fix — tokens expire and break images)
   if(typeof R2Photos!=='undefined'&&src.indexOf(R2Photos.WORKER_URL)===0){
     fetch(src).then(function(res){
@@ -4390,7 +4398,7 @@ function _loadR2OrDirect(src,img){
               parts[2]=encodeURIComponent(tryFolder);
               var altUrl=R2Photos.WORKER_URL+parts.join('/');
               return fetch(altUrl).then(function(r2){
-                if(!r2.ok)throw new Error(r2.status);
+                if(!r2.ok){_r2FailedUrls[src]=true;_r2FailedUrls[altUrl]=true;throw new Error(r2.status);}
                 return r2.blob().then(function(blob){
                   img.src=URL.createObjectURL(blob);
                   img.removeAttribute('data-r2-failed');
@@ -4400,6 +4408,7 @@ function _loadR2OrDirect(src,img){
             }
           }
         }
+        _r2FailedUrls[src]=true;
         throw new Error(res.status);
       }
       return res.blob();
@@ -4410,13 +4419,10 @@ function _loadR2OrDirect(src,img){
         img.removeAttribute('data-r2-src');
       }
     }).catch(function(e){
-      // Ghost photo: R2 file doesn't exist — hide the thumbnail and mark for cleanup
-      img.style.display='none';
+      // Ghost photo: R2 file doesn't exist — dim the thumbnail, mark for cleanup
+      img.style.opacity='0.4';
       img.setAttribute('data-r2-failed','1');
       img.setAttribute('data-r2-src',src);
-      // Hide the parent photo-thumb container too
-      var thumb=img.closest('.photo-thumb');
-      if(thumb)thumb.style.display='none';
     });
   }else{
     img.src=src;
@@ -12966,7 +12972,10 @@ async function _repairR2Links(forceRun){
   var workerUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
   var folder=_getR2FolderId();
   if(!folder){toast('No R2 folder configured');window._r2RepairInProgress=false;return;}
-  console.log('[R2 Repair] Starting repair for folder: '+folder);
+  console.warn('[R2 Repair] ════════════════════════════════════');
+  console.warn('[R2 Repair] Starting repair for folder: '+folder);
+  console.warn('[R2 Repair] sitePhotos: '+(p.sitePhotos||[]).length+', drawings: '+(p.drawings||[]).length);
+  console.warn('[R2 Repair] ════════════════════════════════════');
 
   // Step 1: List actual R2 files for all types
   var types=['original','marked','drawings','markup'];
@@ -13138,14 +13147,17 @@ async function _repairR2Links(forceRun){
   if(fixCount>0||dwgCleared>0){
     console.log('[R2 Repair] Fixed '+fixCount+' r2 links, cleared '+dwgCleared+' drawings with no R2 file');
     await ADB.saveFullProject(p);
-    // Push to cloud
+    // Push to cloud so merge doesn't re-apply wrong keys
     if(typeof CloudSync!=='undefined'&&CloudSync.isInitialized){
-      try{CloudSync.save(_collectFullState());}catch(e){}
+      try{CloudSync.resetLastSaved();CloudSync.save(_collectFullState());}catch(e){}
     }
     toast('R2 links repaired: '+fixCount+' photos fixed'+(dwgCleared?' + '+dwgCleared+' drawings reset to local':''));
-    // Refresh the view
-    if(typeof renderSitePhotos==='function')renderSitePhotos();
+    // Clear 404 cache so re-render tries the corrected URLs
+    _r2FailedUrls={};
+    // Refresh the view with corrected URLs
+    if(typeof renderPhotoGallery==='function'&&currentTab==='photos')renderPhotoGallery();
     if(typeof renderDrawingGallery==='function')renderDrawingGallery();
+    if(typeof renderDeficiencyPanel==='function')renderDeficiencyPanel();
   }else{
     console.log('[R2 Repair] No mismatches found — all r2Keys match actual R2 files');
   }
