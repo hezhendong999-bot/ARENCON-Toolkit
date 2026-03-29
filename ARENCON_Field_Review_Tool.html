@@ -2092,23 +2092,26 @@ ADB.deletePdfData=function(drawingId){
 ADB.saveProject=function(proj){
   var meta=JSON.parse(JSON.stringify(proj));
   meta.drawings=(meta.drawings||[]).map(function(d){return{id:d.id,name:d.name,width:d.width,height:d.height,isOriginal:d.isOriginal,folder:d.folder||'',r2Key:d.r2Key||'',r2Status:d.r2Status||'',r2Url:d.r2Url||'',heights:d.heights||null,markupObjects:d.markupObjects||null,pdfTiled:d.pdfTiled||false,pdfPage:d.pdfPage||1,thumb:d.thumb||null};});
-  // Defic photos: keep records (id, r2Key, r2Status, r2Url) but strip dataUrl blobs
+  // Defic photos: keep records (id, r2Key, r2Status, r2Url, markup fields) but strip dataUrl blobs
   function _stripDeficPhotoBlobs(d){
-    if(d.photos)d.photos=d.photos.map(function(ph){
+    function _stripPh(ph){
       if(typeof ph==='string')return{id:'dp_'+Math.random().toString(36).substr(2,8),r2Key:'',r2Status:'',r2Url:''};
-      return{id:ph.id||'',r2Key:ph.r2Key||'',r2Status:ph.r2Status||'',r2Url:ph.r2Url||''};
-    });
+      var rec={id:ph.id||'',r2Key:ph.r2Key||'',r2Status:ph.r2Status||'',r2Url:ph.r2Url||''};
+      // Preserve non-destructive markup fields
+      if(ph.markupObjects&&ph.markupObjects.length)rec.markupObjects=ph.markupObjects;
+      if(ph._origBackupId)rec._origBackupId=ph._origBackupId;
+      if(ph.markedR2Key)rec.markedR2Key=ph.markedR2Key;
+      if(ph.markedR2Url)rec.markedR2Url=ph.markedR2Url;
+      // markedPreview is large base64 — DON'T save inline in project metadata
+      // It's regenerated on the fly from markupObjects when needed
+      return rec;
+    }
+    if(d.photos)d.photos=d.photos.map(_stripPh);
     if(d.entries){d.entries.forEach(function(e){
-      if(e.photos)e.photos=e.photos.map(function(ph){
-        if(typeof ph==='string')return{id:'dp_'+Math.random().toString(36).substr(2,8),r2Key:'',r2Status:'',r2Url:''};
-        return{id:ph.id||'',r2Key:ph.r2Key||'',r2Status:ph.r2Status||'',r2Url:ph.r2Url||''};
-      });
+      if(e.photos)e.photos=e.photos.map(_stripPh);
     });}
     (d.responses||[]).forEach(function(r){
-      if(r.photos)r.photos=r.photos.map(function(ph){
-        if(typeof ph==='string')return{id:'dp_'+Math.random().toString(36).substr(2,8),r2Key:'',r2Status:'',r2Url:''};
-        return{id:ph.id||'',r2Key:ph.r2Key||'',r2Status:ph.r2Status||'',r2Url:ph.r2Url||''};
-      });
+      if(r.photos)r.photos=r.photos.map(_stripPh);
     });
   }
   (meta.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(_stripDeficPhotoBlobs);});
@@ -13062,13 +13065,15 @@ function _collectFullState(){
     });
   }
 
-  // 2) Deficiency photos: strip base64 from d.photos, d.entries[].photos, d.responses[].photos
+  // 2) Deficiency photos: strip base64 blobs from d.photos, d.entries[].photos, d.responses[].photos
+  // Keep: id, r2Key, r2Status, r2Url, markupObjects, _origBackupId, markedR2Key, markedR2Url
+  // Strip: dataUrl (large base64), markedPreview (large base64)
   function _stripDeficPhotos(defics){
     if(!defics)return;
     function _stripArr(arr){
       if(!arr)return;
       arr.forEach(function(ph){
-        if(typeof ph==='object'&&ph){delete ph.dataUrl;delete ph.markupObjects;delete ph.markedPreview;}// Keep id, r2Key, r2Status, r2Url, _origBackupId
+        if(typeof ph==='object'&&ph){delete ph.dataUrl;delete ph.markedPreview;}
       });
     }
     defics.forEach(function(d){
@@ -13210,6 +13215,12 @@ function _mergeDeficR2Fields(cloudDefics,localDefics){
         if(!ph.r2Url&&local.r2Url)ph.r2Url=local.r2Url;
         // Preserve local dataUrl if cloud doesn't have it (cloud strips base64)
         if(!ph.dataUrl&&local.dataUrl)ph.dataUrl=local.dataUrl;
+        // Preserve non-destructive markup fields (cloud strips these)
+        if(!ph.markupObjects&&local.markupObjects)ph.markupObjects=local.markupObjects;
+        if(!ph.markedPreview&&local.markedPreview)ph.markedPreview=local.markedPreview;
+        if(!ph.markedR2Key&&local.markedR2Key)ph.markedR2Key=local.markedR2Key;
+        if(!ph.markedR2Url&&local.markedR2Url)ph.markedR2Url=local.markedR2Url;
+        if(!ph._origBackupId&&local._origBackupId)ph._origBackupId=local._origBackupId;
       }
     });
   }
