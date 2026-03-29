@@ -8263,10 +8263,12 @@ function lightboxSaveMarkup(){
       if(typeof renderPhotoGallery==='function'){
         renderPhotoGallery();
         // Force-load all thumbnails (backup may be above viewport, outside IntersectionObserver)
-        setTimeout(function(){
+        function _forceLoadAllThumbs(){
           var grid=document.getElementById('photo-gallery-grid');
           if(grid){grid.querySelectorAll('img[data-src]').forEach(function(img){_loadThumbSrc(img);});}
-        },100);
+        }
+        setTimeout(_forceLoadAllThumbs,200);
+        setTimeout(_forceLoadAllThumbs,1000);
       }
     }
     if(_origIsBlob){
@@ -10982,7 +10984,21 @@ function showLightboxAt(idx){
   }
   _glbZoomReset();
   overlay.style.display='flex';
-  _loadR2OrDirect(ph.thumbSrc||ph.src,document.getElementById('glb-img'));
+  // Check for fresh markup preview (may have been regenerated after gallery list was built)
+  var _glbDisplaySrc=ph.thumbSrc||ph.src;
+  if(ph.hasMarkup&&ph.id&&_glbDisplaySrc===ph.src){
+    // thumbSrc wasn't set (no preview at render time) — check now
+    var _p2=getProject();
+    if(_p2){
+      var _rec2=_findPhotoRecById(_p2,ph.id);
+      if(_rec2&&_rec2.photo){
+        var _ph2=_rec2.photo;
+        if(_ph2.markedPreview&&_ph2.markedPreview.length>100)_glbDisplaySrc=_ph2.markedPreview;
+        else if(_ph2.id&&_markupPreviewCache[_ph2.id]&&_markupPreviewCache[_ph2.id].preview)_glbDisplaySrc=_markupPreviewCache[_ph2.id].preview;
+      }
+    }
+  }
+  _loadR2OrDirect(_glbDisplaySrc,document.getElementById('glb-img'));
   document.getElementById('glb-counter').textContent='Photo '+(idx+1)+' of '+_lightboxPhotos.length;
   document.getElementById('glb-info').textContent=(ph.date?(ph.date+'').substring(0,10)+' · ':'')+((ph.caption)||(ph.type==='site'?'Site Photo':ph.type==='response'?'Response Photo':('Pin #'+ph.deficNum)));
   var capEl=document.getElementById('glb-caption-text');
