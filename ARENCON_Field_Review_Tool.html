@@ -904,6 +904,13 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 #lb-canvas-wrap canvas{transform-origin:0 0;}
 #lb-zoom-hint{position:absolute;bottom:6px;right:8px;background:rgba(0,0,0,.55);color:rgba(255,255,255,.7);font-size:11px;padding:2px 8px;border-radius:4px;pointer-events:none;font-family:Calibri,sans-serif;opacity:0;transition:opacity .3s;}
 #lb-zoom-hint.vis{opacity:1;}
+/* Markup lightbox close/nav — matches gallery lightbox (.photo-lightbox-overlay) pattern */
+#photo-lightbox .lb-close{position:absolute;top:-8px;right:-8px;font-size:22px;color:white;cursor:pointer;z-index:2;background:rgba(0,0,0,.6);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.3);transition:background .15s;}
+#photo-lightbox .lb-close:hover{background:rgba(156,39,66,.8);}
+#photo-lightbox .lb-nav{position:absolute;top:50%;transform:translateY(-50%);font-size:36px;color:white;cursor:pointer;z-index:2;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);opacity:.8;user-select:none;border:1.5px solid rgba(255,255,255,.2);transition:all .15s;}
+#photo-lightbox .lb-nav:hover{opacity:1;background:rgba(0,0,0,.7);}
+#photo-lightbox .lb-prev{left:-22px;}
+#photo-lightbox .lb-next{right:-22px;}
 #lb-toolbar{position:relative;}
 /* Defic-item status select — driven by parent wrapper data-status */
 .defic-item[data-status="Outstanding"] .defic-controls select{color:#C0392B!important;font-weight:700;}
@@ -1245,8 +1252,8 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   #lb-toolbar{gap:6px!important;padding:8px 10px!important;}
 
   /* --- Lightbox nav/close buttons: already 40-44px but ensure consistent --- */
-  #photo-lightbox button[onclick*="lightboxPrev"],
-  #photo-lightbox button[onclick*="lightboxNext"]{width:48px;height:48px;font-size:26px;}
+  #photo-lightbox .lb-nav{width:48px;height:48px;font-size:26px;}
+  #photo-lightbox .lb-close{width:40px;height:40px;}
 
   /* --- Lightbox action bar buttons --- */
   #lb-draw-btn,#lb-save-btn,#lb-clear-btn,#lb-revert-btn{padding:10px 18px!important;font-size:calc(14px + var(--ts))!important;}
@@ -1975,25 +1982,24 @@ body.text-l{--ts:4px;}
 </div>
 
 <!-- PHOTO LIGHTBOX -->
-<div id="photo-lightbox" onclick="_lbHandleOverlayClick(event)" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.92);align-items:center;justify-content:center;cursor:zoom-out;overflow:hidden;touch-action:none;">
-  <div style="position:relative;max-width:95vw;max-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:10px 0;">
-    <div id="lb-photo-counter" style="color:rgba(255,255,255,.5);font-size:calc(13px + var(--ts));margin-bottom:6px;font-family:Calibri,sans-serif;min-height:20px;"></div>
-    <div id="lb-outer-wrap" style="position:relative;">
+<div id="photo-lightbox" onclick="_lbHandleOverlayClick(event)" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.92);flex-direction:column;align-items:center;justify-content:center;cursor:zoom-out;overflow:hidden;touch-action:none;">
+  <div id="lb-photo-counter" style="color:rgba(255,255,255,.5);font-size:calc(13px + var(--ts));margin-bottom:6px;font-family:Calibri,sans-serif;min-height:20px;"></div>
+  <div id="lb-content-wrap" style="position:relative;display:flex;align-items:center;justify-content:center;max-width:95vw;max-height:85vh;">
+    <div class="lb-close" onclick="event.stopPropagation();closeLightbox();">✕</div>
+    <div class="lb-nav lb-prev" onclick="lightboxPrev(event)" ontouchend="event.stopPropagation();event.preventDefault();lightboxPrev(event)">‹</div>
     <div id="lb-canvas-wrap" style="position:relative;">
-    <canvas id="lightbox-canvas" tabindex="0" style="border-radius:6px;display:block;touch-action:none;outline:none;"></canvas>
+    <canvas id="lightbox-canvas" tabindex="0" style="border-radius:6px;display:block;touch-action:none;outline:none;max-width:95vw;max-height:85vh;"></canvas>
     <div id="lb-zoom-hint"></div>
     </div>
-    <button onclick="event.stopPropagation();closeLightbox();" style="position:absolute;top:-8px;right:-8px;background:rgba(0,0,0,.7);border:2px solid rgba(255,255,255,.5);color:white;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);">✕</button>
-    <button onclick="lightboxPrev(event)" ontouchend="event.stopPropagation();event.preventDefault();lightboxPrev(event)" style="position:absolute;left:-22px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.4);color:white;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;z-index:10;backdrop-filter:blur(4px);">‹</button>
-    <button onclick="lightboxNext(event)" ontouchend="event.stopPropagation();event.preventDefault();lightboxNext(event)" style="position:absolute;right:-22px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.4);color:white;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;z-index:10;backdrop-filter:blur(4px);">›</button>
-    </div>
-    <img id="lightbox-img" src="" alt="" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:none;">
-    <div style="margin-top:10px;display:flex;gap:8px;">
-      <button onclick="event.stopPropagation();lightboxDrawMode()" ontouchend="event.stopPropagation();event.preventDefault();lightboxDrawMode()" id="lb-draw-btn" style="background:rgba(255,255,255,.15);border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">✏️ Mark up</button>
-      <button onclick="event.stopPropagation();lightboxSaveMarkup()" ontouchend="event.stopPropagation();event.preventDefault();lightboxSaveMarkup()" id="lb-save-btn" style="display:none;background:#1A7A4A;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">💾 Save</button>
-      <button onclick="event.stopPropagation();lightboxClearDraw()" ontouchend="event.stopPropagation();event.preventDefault();lightboxClearDraw()" id="lb-clear-btn" style="display:none;background:#C0392B;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">✕ Clear</button>
-      <button onclick="event.stopPropagation();lightboxRevertMarkup()" ontouchend="event.stopPropagation();event.preventDefault();lightboxRevertMarkup()" id="lb-revert-btn" style="display:none;background:#9C2742;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">↩ Revert to Original</button>
-    </div>
+    <div class="lb-nav lb-next" onclick="lightboxNext(event)" ontouchend="event.stopPropagation();event.preventDefault();lightboxNext(event)">›</div>
+  </div>
+  <img id="lightbox-img" src="" alt="" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:none;">
+  <div style="margin-top:10px;display:flex;gap:8px;">
+    <button onclick="event.stopPropagation();lightboxDrawMode()" ontouchend="event.stopPropagation();event.preventDefault();lightboxDrawMode()" id="lb-draw-btn" style="background:rgba(255,255,255,.15);border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">✏️ Mark up</button>
+    <button onclick="event.stopPropagation();lightboxSaveMarkup()" ontouchend="event.stopPropagation();event.preventDefault();lightboxSaveMarkup()" id="lb-save-btn" style="display:none;background:#1A7A4A;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">💾 Save</button>
+    <button onclick="event.stopPropagation();lightboxClearDraw()" ontouchend="event.stopPropagation();event.preventDefault();lightboxClearDraw()" id="lb-clear-btn" style="display:none;background:#C0392B;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">✕ Clear</button>
+    <button onclick="event.stopPropagation();lightboxRevertMarkup()" ontouchend="event.stopPropagation();event.preventDefault();lightboxRevertMarkup()" id="lb-revert-btn" style="display:none;background:#9C2742;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">↩ Revert to Original</button>
+  </div>
     <!-- Photo markup toolbar — unified with drawing toolbar style -->
     <div id="lb-toolbar" style="display:none;margin-top:8px;padding:6px 12px;background:rgba(20,22,30,.95);border-radius:10px;border:1px solid rgba(255,255,255,.1);flex-wrap:wrap;gap:5px;align-items:center;max-width:90vw;justify-content:center;">
       <!-- Tools -->
@@ -8215,7 +8221,7 @@ function lightboxSaveMarkup(){
         saveToLS&&saveToLS();
         if(typeof renderPhotoGallery==='function')renderPhotoGallery();
       } else {
-        console.warn('[Markup] orig backup skipped — no dataUrl or blob for',origRec.id);
+        console.warn('[Markup] orig backup skipped — no dataUrl or blob');
       }
       // Upload to R2 if in Hub mode
       if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'&&blob){
@@ -9729,9 +9735,11 @@ function _lbHandleOverlayClick(e){
   if(_lbDrawing)return;
   // Never close if zoomed in (user may be panning)
   if(_mlbZ.s>1.05)return;
-  // Never close if clicking on canvas or its wrapper
+  // Never close if clicking on canvas, its wrapper, or the content wrapper (nav buttons)
   var wrap=document.getElementById('lb-canvas-wrap');
   if(wrap&&wrap.contains(e.target))return;
+  var contentWrap=document.getElementById('lb-content-wrap');
+  if(contentWrap&&contentWrap.contains(e.target))return;
   if(e.target===e.currentTarget||e.target.id==='photo-lightbox')closeLightbox(e);
 }
 function openPhotoLightboxDirect(src,photosArr,startIdx,photoIdsArr){
@@ -11155,7 +11163,6 @@ function _downloadWithMarkup(photoRec,origSrc,fname){
     image.onerror=function(){downloadSinglePhoto(origSrc,fname);};
     image.src=imgSrc;
   }
-  // Fetch R2 URLs as blob to avoid CORS tainting
   if(origSrc&&origSrc.indexOf('http')===0&&origSrc.indexOf('data:')!==0){
     fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
       _doComposite(URL.createObjectURL(blob));
