@@ -298,6 +298,64 @@ body.dv-open{overflow:hidden!important;}
 .reassign-dwg-card img{width:100%;height:80px;object-fit:cover;border-radius:4px;margin-bottom:5px;background:#f0f0f0;}
 .reassign-dwg-card .dwg-card-name{font-size:calc(11px + var(--ts));font-weight:700;color:var(--fg,#1B2438);word-break:break-word;line-height:1.3;}
 body.dark-mode .reassign-dwg-card{border-color:#2a2e38;background:#1a1d24;color:#d4d8e8;}
+
+/* ═══ DEFICIENCY LIFECYCLE TABS ═══ */
+.defic-lifecycle-tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:12px;}
+.dlc-tab{flex:1;padding:10px 16px;border:none;background:none;font-family:Calibri,sans-serif;font-size:calc(14px + var(--ts));font-weight:600;color:var(--steel);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;}
+.dlc-tab:hover{background:var(--smoke);}
+.dlc-tab.active{color:var(--arencon);border-bottom-color:var(--arencon);font-weight:700;}
+body.dark-mode .defic-lifecycle-tabs{border-color:#2a3040;}
+body.dark-mode .dlc-tab{color:#8090b0;}
+body.dark-mode .dlc-tab:hover{background:#1e2533;}
+body.dark-mode .dlc-tab.active{color:#f4a1b5;border-bottom-color:#9C2742;}
+
+/* ═══ OBSERVATION CHECKBOXES ═══ */
+.obs-row{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--smoke);}
+.obs-row:last-child{border-bottom:none;}
+.obs-check{width:20px;height:20px;accent-color:#1A7A4A;flex-shrink:0;margin-top:3px;cursor:pointer;}
+.obs-text{flex:1;min-width:0;}
+.obs-text.addressed{text-decoration:line-through;opacity:.55;}
+.obs-label{font-size:calc(11px + var(--ts));color:var(--steel);font-weight:600;margin-bottom:2px;}
+.obs-noted{font-size:calc(10px + var(--ts));color:var(--silver);margin-top:2px;}
+body.dark-mode .obs-row{border-color:#2a3040;}
+
+/* ═══ ACTIVITY LOG ═══ */
+.activity-section{margin-top:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.activity-header{padding:8px 12px;background:var(--smoke);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:calc(12px + var(--ts));font-weight:600;color:var(--steel);user-select:none;}
+.activity-header:hover{background:#e8ecf0;}
+.activity-body{max-height:0;overflow:hidden;transition:max-height .25s ease;}
+.activity-section.open .activity-body{max-height:2000px;}
+.activity-entry{padding:8px 12px;border-top:1px solid var(--border);font-size:calc(12px + var(--ts));}
+.activity-entry:first-child{border-top:none;}
+.activity-entry-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.activity-entry-label{font-weight:700;color:var(--steel);}
+.activity-entry-date{font-size:calc(11px + var(--ts));color:var(--silver);}
+.activity-entry-text{color:var(--fg);line-height:1.45;}
+body.dark-mode .activity-section{border-color:#2a3040;}
+body.dark-mode .activity-header{background:#1a1d24;}
+body.dark-mode .activity-header:hover{background:#22262f;}
+body.dark-mode .activity-entry{border-color:#2a3040;}
+
+/* ═══ CLOSED DEFICIENCY LIST ═══ */
+.closed-frt-group{border:1.5px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden;}
+.closed-frt-header{padding:10px 16px;background:var(--smoke);font-weight:700;font-size:calc(13px + var(--ts));cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;color:var(--steel);}
+.closed-frt-header:hover{background:#e8ecf0;}
+.closed-item{padding:10px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:calc(12px + var(--ts));}
+.closed-item-num{min-width:28px;width:28px;height:28px;border-radius:50%;background:#1A7A4A;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:calc(12px + var(--ts));flex-shrink:0;opacity:.8;}
+.closed-item-body{flex:1;min-width:0;}
+.closed-item-desc{font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.closed-item-meta{font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;}
+.closed-item .reopen-btn{padding:4px 10px;border:1.5px solid #E67E22;border-radius:5px;background:#FFF8F0;color:#E67E22;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;flex-shrink:0;}
+.closed-item .reopen-btn:hover{background:#FEF3C7;border-color:#D35400;}
+body.dark-mode .closed-frt-group{border-color:#2a3040;}
+body.dark-mode .closed-frt-header{background:#1a1d24;color:#8090b0;}
+body.dark-mode .closed-frt-header:hover{background:#22262f;}
+body.dark-mode .closed-item{border-color:#2a3040;}
+body.dark-mode .closed-item-num{background:#1a6b3a;}
+body.dark-mode .closed-item .reopen-btn{background:#2a2520;border-color:#E67E22;color:#F5A623;}
+
+/* ═══ DEFICIENCY NOTED SUBTITLE ═══ */
+.defic-noted{font-size:calc(11px + var(--ts));color:var(--silver);margin-bottom:6px;font-style:italic;}
 body.dark-mode .reassign-dwg-card:hover{border-color:#1565C0;background:#172032;}
 body.dark-mode .reassign-dwg-card.selected{border-color:#1A7A4A;background:#0d2018;}
 body.dark-mode .pin-unassigned-badge{color:#FEF3C7;background:#78350F;border-color:#92400E;}
@@ -1454,8 +1512,14 @@ body.text-l{--ts:4px;}
             <div class="contractor-add"><input type="text" id="new-contractor-input" placeholder="e.g. ABC Sprinklers" onkeydown="if(event.key==='Enter'){addContractor();event.preventDefault();}"><button class="btn btn-outline btn-sm" onclick="addContractor()">+ Add Contractor</button>
               <button class="btn btn-sm btn-general-defic" onclick="quickAddDeficiency()" title="Add general deficiency">+ General Deficiency</button></div>
           </div>
+          <!-- Active / Closed tabs -->
+          <div class="defic-lifecycle-tabs" id="defic-lifecycle-tabs">
+            <button class="dlc-tab active" data-dlc="active" onclick="switchDeficLifecycleTab('active')">Active (<span id="dlc-active-count">0</span>)</button>
+            <button class="dlc-tab" data-dlc="closed" onclick="switchDeficLifecycleTab('closed')">Closed (<span id="dlc-closed-count">0</span>)</button>
+          </div>
+          <div id="defic-active-view">
           <div class="defic-toolbar">
-            <div class="defic-filter-dd"><button class="btn btn-outline btn-sm" onclick="toggleDeficFilterMenu(event)">⚙ Filters</button><div class="defic-filter-menu" id="defic-filter-menu"><button class="active" onclick="filterDeficStatus(null,'all')">All</button><button onclick="filterDeficStatus(null,'Outstanding')">Outstanding</button><button onclick="filterDeficStatus(null,'Closed')">Closed</button><button onclick="filterDeficStatus(null,'iar')">IAR</button></div></div>
+            <div class="defic-filter-dd"><button class="btn btn-outline btn-sm" onclick="toggleDeficFilterMenu(event)">⚙ Filters</button><div class="defic-filter-menu" id="defic-filter-menu"><button class="active" onclick="filterDeficStatus(null,'all')">All</button><button onclick="filterDeficStatus(null,'Outstanding')">Outstanding</button><button onclick="filterDeficStatus(null,'iar')">IAR</button></div></div>
             <button class="btn btn-outline btn-sm" onclick="showDeficTemplates()" title="Insert from template library">📋 Templates</button>
             <input type="text" class="filter-search" id="defic-search" placeholder="🔍 Search deficiencies..." oninput="filterDeficiencies()" style="flex:1;min-width:140px;max-width:280px;padding:8px 12px;">
             <div style="flex:1;"></div>
@@ -1464,8 +1528,8 @@ body.text-l{--ts:4px;}
           </div>
           <div id="bulk-action-bar" style="display:none;padding:8px 12px;background:var(--smoke);border:1.5px solid var(--arencon);border-radius:8px;margin-bottom:8px;display:none;align-items:center;gap:8px;flex-wrap:wrap;">
             <span style="font-weight:700;font-size:calc(12px + var(--ts));color:var(--arencon);" id="bulk-count">0 selected</span>
-            <button class="btn btn-sm" style="background:#1A7A4A;color:white;border:none;" onclick="bulkSetStatus('Addressed & Closed')">✓ Close Selected</button>
-            <button class="btn btn-sm" style="background:#C0392B;color:white;border:none;" onclick="bulkSetStatus('Outstanding')">● Reopen Selected</button>
+            <button class="btn btn-sm" style="background:#1A7A4A;color:white;border:none;" onclick="bulkSetStatus('closed')">✓ Close Selected</button>
+            <button class="btn btn-sm" style="background:#C0392B;color:white;border:none;" onclick="bulkSetStatus('open')">● Reopen Selected</button>
             <button class="btn btn-sm" style="background:#FF69B4;color:white;border:none;" onclick="bulkToggleIAR(true)">⚡ Set IAR</button>
             <button class="btn btn-sm" style="background:#888;color:white;border:none;" onclick="bulkToggleIAR(false)">Clear IAR</button>
             <div style="flex:1;"></div>
@@ -1478,6 +1542,10 @@ body.text-l{--ts:4px;}
           </div>
           <div id="defic-groups"></div>
           <div id="defic-kanban" style="display:none;"></div>
+          </div><!-- /defic-active-view -->
+          <div id="defic-closed-view" style="display:none;">
+            <div id="defic-closed-groups"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -2112,6 +2180,13 @@ ADB.saveProject=function(proj){
     (d.responses||[]).forEach(function(r){
       if(r.photos)r.photos=r.photos.map(_stripPh);
     });
+    // New lifecycle fields
+    if(d.observations){d.observations.forEach(function(o){
+      if(o.photos)o.photos=o.photos.map(_stripPh);
+    });}
+    (d.activity||[]).forEach(function(a){
+      if(a.photos)a.photos=a.photos.map(_stripPh);
+    });
   }
   (meta.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(_stripDeficPhotoBlobs);});
   (meta.generalDeficiencies||[]).forEach(_stripDeficPhotoBlobs);
@@ -2248,6 +2323,7 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
             (d.photos||[]).forEach(function(ph){
               if(ph.id&&pendingMap[ph.id])ph.r2Status=ph.r2Status||'pending';
             });
+            // Old format
             if(d.entries){d.entries.forEach(function(e){
               (e.photos||[]).forEach(function(ph){
                 if(ph.id&&pendingMap[ph.id])ph.r2Status=ph.r2Status||'pending';
@@ -2255,6 +2331,17 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
             });}
             (d.responses||[]).forEach(function(r){
               (r.photos||[]).forEach(function(ph){
+                if(ph.id&&pendingMap[ph.id])ph.r2Status=ph.r2Status||'pending';
+              });
+            });
+            // New format
+            if(d.observations){d.observations.forEach(function(o){
+              (o.photos||[]).forEach(function(ph){
+                if(ph.id&&pendingMap[ph.id])ph.r2Status=ph.r2Status||'pending';
+              });
+            });}
+            (d.activity||[]).forEach(function(a){
+              (a.photos||[]).forEach(function(ph){
                 if(ph.id&&pendingMap[ph.id])ph.r2Status=ph.r2Status||'pending';
               });
             });
@@ -2274,8 +2361,6 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
           return f;
         }
         var spPromises=sitePhotos.map(function(sp){
-          // DEBUG: log raw IDB record to see if markupObjects survived
-          if(sp.markupObjects)console.log('[ADB.loadFull RAW] id='+sp.id+' HAS markupObjects count='+sp.markupObjects.length);
           var mkFields=_spMarkupFields(sp);
           // If on R2, skip blob conversion entirely — display via r2Url
           if(sp.r2Status==='uploaded'&&sp.r2Url){
@@ -2319,6 +2404,8 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
               (d.photos||[]).forEach(_fixR2Rec);
               if(d.entries){d.entries.forEach(function(e){(e.photos||[]).forEach(_fixR2Rec);});}
               (d.responses||[]).forEach(function(r){(r.photos||[]).forEach(_fixR2Rec);});
+              if(d.observations){d.observations.forEach(function(o){(o.photos||[]).forEach(_fixR2Rec);});}
+              (d.activity||[]).forEach(function(a){(a.photos||[]).forEach(_fixR2Rec);});
             });};
             (proj.contractors||[]).forEach(function(c){_fixDeficArr(c.deficiencies);});
             _fixDeficArr(proj.generalDeficiencies);
@@ -2764,7 +2851,7 @@ function _insertTemplate(t){
   var d=newDeficiency(num);
   d.description=t.desc;
   d.priority=t.pri;
-  d.entries=[{description:t.desc,photos:[],priority:t.pri}];
+  d.observations[0].text=t.desc;
   if(ctrId){
     var ctr=p.contractors.find(function(x){return x.id===ctrId;});
     if(ctr)ctr.deficiencies.push(d);
@@ -2802,10 +2889,43 @@ function _getR2FolderId(){return _csR2Folder||_csProjectId;}
 // pdf.js worker loaded from CDN
 
 function newProject(d){var id='proj_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);return{id:id,info:{projectNumber:d.projectNumber||'',projectName:d.projectName||'',client:d.client||'',address:d.address||'',city:d.city||'',province:d.province||'Ontario',dateOfIssue:d.dateOfIssue||'',scope:d.scope||'',revision:d.revision||'A01',customFilename:d.customFilename||'',dateModified:'',visitDate:d.visitDate||new Date().toISOString().split('T')[0],inspectorName:d.inspectorName||'',weather:d.weather||'',purpose:d.purpose||'',generalNotes:d.generalNotes||''},status:'draft',settings:{sketchesEnabled:false},contractors:[],generalDeficiencies:[],nextDeficNum:1,drawings:[],photos:[],sketches:[],signatures:{sigInspectorName:'',sigInspectorDate:'',sigInspectorData:'',sigWitnessName:'',sigWitnessDate:'',sigWitnessData:''},created:new Date().toISOString(),modified:new Date().toISOString()};}
-function newDeficiency(num){return{id:'def_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),num:num,description:'',status:'Outstanding',iar:false,photos:[],date:new Date().toISOString().split('T')[0],responses:[],drawingId:null,pinX:null,pinY:null,created:new Date().toISOString(),priority:'high',entries:[{description:'',photos:[],priority:'high'}]};}
+function newDeficiency(num){
+  var p=getProject();var inst=(p&&p.currentFrtInstance)||1;var today=new Date().toISOString().split('T')[0];
+  return{id:'def_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),num:num,
+    // Legacy fields kept for backward compat readers
+    description:'',status:'open',iar:false,photos:[],date:today,drawingId:null,pinX:null,pinY:null,created:new Date().toISOString(),priority:'high',
+    // ── Lifecycle fields ──
+    notedOnInstance:inst,notedDate:today,closedOnInstance:null,closedDate:null,closedNote:'',
+    // ── Observations (replaces entries[]) ──
+    observations:[{id:'obs_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),text:'',photos:[],notedOnInstance:inst,notedDate:today,addressed:false}],
+    // ── Activity log (replaces responses[]) ──
+    activity:[]
+  };
+}
 function getProject(){return allProjects[currentProjectId];}
 function getAllDeficiencies(p){if(!p)p=getProject();if(!p)return[];var all=[];(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:c.name,contractorId:c.id});});});(p.generalDeficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:'General',contractorId:null});});all.sort(function(a,b){return a.defic.num-b.defic.num;});return all;}
 function findDeficiency(deficId,p){if(!p)p=getProject();if(!p)return null;for(var i=0;i<(p.contractors||[]).length;i++){var c=p.contractors[i];for(var j=0;j<(c.deficiencies||[]).length;j++){if(c.deficiencies[j].id===deficId)return{defic:c.deficiencies[j],contractor:c,arr:c.deficiencies,idx:j};}}for(var k=0;k<(p.generalDeficiencies||[]).length;k++){if(p.generalDeficiencies[k].id===deficId)return{defic:p.generalDeficiencies[k],contractor:null,arr:p.generalDeficiencies,idx:k};}return null;}
+
+// Helper: get first observation text from a deficiency (handles both old and new format)
+function _deficDesc(d){
+  if(d.observations&&d.observations.length&&d.observations[0].text)return d.observations[0].text;
+  if(d.entries&&d.entries.length&&d.entries[0].description)return d.entries[0].description;
+  return d.description||'';
+}
+// Helper: get all observation/entry photos from a deficiency
+function _deficAllPhotos(d){
+  var all=[];
+  (d.observations||[]).forEach(function(o){(o.photos||[]).forEach(function(ph){all.push(ph);});});
+  if(!d.observations||!d.observations.length){
+    (d.entries||[]).forEach(function(e){(e.photos||[]).forEach(function(ph){all.push(ph);});});
+    (d.photos||[]).forEach(function(ph){all.push(ph);});
+  }
+  return all;
+}
+// Helper: check if deficiency is open
+function _deficIsOpen(d){return d.status==='open'||d.status==='Outstanding';}
+// Helper: check if deficiency is closed
+function _deficIsClosed(d){return d.status==='closed'||d.status==='Addressed & Closed';}
 
 // ═══ SAVE — writes to IndexedDB + marks dirty for folder sync ═══
 function saveToLS(){
@@ -3130,6 +3250,8 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   // Migrate legacy base64 string photo arrays to record objects
   p.contractors.forEach(function(c){_migrateDeficPhotos(c.deficiencies);});
   _migrateDeficPhotos(p.generalDeficiencies);
+  // Migrate entries/responses → observations/activity + lifecycle fields
+  _migrateDeficLifecycle(p);
   // Ensure all site photos have IDs
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){if(ph&&!ph.id)ph.id='sp_'+Math.random().toString(36).substr(2,8);});}
   // Ghost cleanup: remove sitePhotos with no image data (failed markup originals)
@@ -3139,6 +3261,7 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   function _gcDeficPhotos(defics){if(!defics)return;defics.forEach(function(d){
     function _gcArr(arr){if(!arr)return;for(var i=arr.length-1;i>=0;i--){var ph=arr[i];if(!ph)continue;if(typeof ph==='object'&&!ph.r2Key&&!ph.r2Url&&!ph.dataUrl){arr.splice(i,1);_gcDefic++;}}}
     _gcArr(d.photos);if(d.entries){d.entries.forEach(function(e){_gcArr(e.photos);});}(d.responses||[]).forEach(function(r){_gcArr(r.photos);});
+    if(d.observations){d.observations.forEach(function(o){_gcArr(o.photos);});}(d.activity||[]).forEach(function(a){_gcArr(a.photos);});
   });}
   (p.contractors||[]).forEach(function(c){_gcDeficPhotos(c.deficiencies);});
   _gcDeficPhotos(p.generalDeficiencies);
@@ -3201,7 +3324,7 @@ function _prefetchDrawingsForOffline(projectId){
   (p.sitePhotos||[]).filter(function(sp){return sp.r2Url;}).forEach(function(sp){
     toCheck.push({id:sp.id,r2Url:sp.r2Url,store:'sitePhotos',name:'site photo'});
   });
-  // Deficiency photos (entries + responses)
+  // Deficiency photos (entries/responses + observations/activity)
   function _collectDeficPhotos(defics){
     if(!defics)return;
     function _addFromArr(arr){
@@ -3214,6 +3337,8 @@ function _prefetchDrawingsForOffline(projectId){
       _addFromArr(d.photos);
       if(d.entries){d.entries.forEach(function(e){_addFromArr(e.photos);});}
       (d.responses||[]).forEach(function(r){_addFromArr(r.photos);});
+      if(d.observations){d.observations.forEach(function(o){_addFromArr(o.photos);});}
+      (d.activity||[]).forEach(function(a){_addFromArr(a.photos);});
     });
   }
   (p.contractors||[]).forEach(function(c){_collectDeficPhotos(c.deficiencies);});
@@ -5551,7 +5676,7 @@ function renderPinsOnDrawing(){var layer=document.getElementById('dv-pins-layer'
 // To keep pins readable, we make them large in drawing coords and they'll look right when zoomed
 var baseW=3000;var pinScale=Math.max(0.8,Math.min(2.0,Math.max(iw,ih)/baseW));
 var pw=Math.round(36*pinScale),ph2=Math.round(48*pinScale);
-var html='';pins.forEach(function(d){var px=d.defic.pinX*iw,py=d.defic.pinY*ih;var pr=d.defic.priority||'high';var _pinDesc=(d.defic.entries&&d.defic.entries[0]?d.defic.entries[0].description:d.defic.description)||'';var fill=d.defic.iar?'#E91E8C':(pr==='general'?'#1A7A4A':pr==='low'?'#E67E22':'#C0392B');var isOutstanding=d.defic.status==='Outstanding'&&!d.defic.iar;var isClosed=d.defic.status==='Addressed & Closed';
+var html='';pins.forEach(function(d){var px=d.defic.pinX*iw,py=d.defic.pinY*ih;var pr=d.defic.priority||'high';var _pinDesc=_deficDesc(d.defic);var fill=d.defic.iar?'#E91E8C':(pr==='general'?'#1A7A4A':pr==='low'?'#E67E22':'#C0392B');var isOutstanding=_deficIsOpen(d.defic)&&!d.defic.iar;var isClosed=_deficIsClosed(d.defic);
 var shadow=isOutstanding?'drop-shadow(0 0 3px '+fill+') drop-shadow(0 2px 5px rgba(0,0,0,.6))':'drop-shadow(0 2px 4px rgba(0,0,0,.45))';
 var alpha=isClosed?'0.5':'1';
 var numStr=String(d.defic.num);var numFs=numStr.length<=2?'14':numStr.length===3?'11':'9';
@@ -5708,7 +5833,7 @@ function renderTasksPanel(){
   var p=getProject();if(!p){list.innerHTML='';return;}
   var ad=getAllDeficiencies(p);
   var items=_showAllDeficiencies?ad:ad.filter(function(d){return d.defic.drawingId===dvState.currentDrawingId&&d.defic.pinX!=null;});
-  var total=items.length,outstanding=items.filter(function(d){return d.defic.status==='Outstanding';}).length,iar=items.filter(function(d){return d.defic.iar;}).length;
+  var total=items.length,outstanding=items.filter(function(d){return _deficIsOpen(d.defic);}).length,iar=items.filter(function(d){return d.defic.iar;}).length;
   if(countEl)countEl.textContent=total;
   if(summaryEl){
     if(_showAllDeficiencies&&total>0){summaryEl.style.display='';summaryEl.innerHTML='Total: <strong style="color:#c0c8e0;">'+total+'</strong> &nbsp;•&nbsp; Outstanding: <strong style="color:#ff8080;">'+outstanding+'</strong> &nbsp;•&nbsp; IAR: <strong style="color:#FF69B4;">'+iar+'</strong>';}
@@ -5719,7 +5844,7 @@ function renderTasksPanel(){
   items.forEach(function(d){
     var pr2=d.defic.priority||'high';
     var fill=d.defic.iar?'#FF69B4':(pr2==='general'?'#1A7A4A':pr2==='low'?'#E67E22':'#C0392B');
-    var dispDesc=(d.defic.entries&&d.defic.entries[0]&&d.defic.entries[0].description)||d.defic.description||'';
+    var dispDesc=_deficDesc(d.defic);
     var isOtherDwg=_showAllDeficiencies&&d.defic.drawingId&&d.defic.drawingId!==dvState.currentDrawingId;
     var onclickStr=isOtherDwg?'jumpToPin(\x27'+d.defic.id+'\x27)':'openPinEditor(\x27'+d.defic.id+'\x27)';
     html+='<div class="dv-task-item" onclick="'+onclickStr+'">';
@@ -7250,7 +7375,7 @@ function _addPinsToCanvas(ctx,dwg,incPins,canvas,callback){
   pins.forEach(function(r){
     var d=r.defic;
     var px=d.pinX*canvas.width,py=d.pinY*canvas.height;
-    var fill=d.iar?'#FF69B4':(d.status==='Outstanding'?'#C0392B':'#1A7A4A');
+    var fill=d.iar?'#FF69B4':(_deficIsOpen(d)?'#C0392B':'#1A7A4A');
     var r0=Math.max(3,4*scale),tipY=r0*2.2;
     ctx.save();ctx.translate(px,py-tipY);
     ctx.beginPath();ctx.arc(0,0,r0,Math.PI,0,false);
@@ -7890,6 +8015,16 @@ function _findPhotoRecById(p,targetId){
         if(resp.photos[rpi]&&typeof resp.photos[rpi]==='object'&&resp.photos[rpi].id===targetId)return{photo:resp.photos[rpi],locationType:'responsePhoto',container:resp.photos,idx:rpi,deficId:d.id};
       }}
     }}
+    if(d.observations){for(var oi=0;oi<d.observations.length;oi++){
+      var obs=d.observations[oi];if(obs.photos){for(var opi=0;opi<obs.photos.length;opi++){
+        if(obs.photos[opi]&&typeof obs.photos[opi]==='object'&&obs.photos[opi].id===targetId)return{photo:obs.photos[opi],locationType:'obsPhoto',container:obs.photos,idx:opi,deficId:d.id};
+      }}
+    }}
+    if(d.activity){for(var ai=0;ai<d.activity.length;ai++){
+      var act=d.activity[ai];if(act.photos){for(var api=0;api<act.photos.length;api++){
+        if(act.photos[api]&&typeof act.photos[api]==='object'&&act.photos[api].id===targetId)return{photo:act.photos[api],locationType:'activityPhoto',container:act.photos,idx:api,deficId:d.id};
+      }}
+    }}
   }
   return null;
 }
@@ -8152,93 +8287,166 @@ function lightboxRevertMarkup(){
   },'Remove All Markup');
 }
 
-function _replacePhotoInProject(p,oldSrc,newSrc){
-  var replaced=false;
-  var hubId=_csHubMode?_getR2FolderId():null;
-  // Get the photo ID from the lightbox if available
-  var targetId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])?_lbPhotoIds[_lbIdx]:null;
-
-  function _matchPhoto(ph){
-    if(!ph||typeof ph!=='object')return false;
-    // Match by ID first (reliable), then fallback to src matching
-    if(targetId&&ph.id===targetId) return true;
-    if(ph.dataUrl&&ph.dataUrl===oldSrc) return true;
-    if(ph.r2Url&&ph.r2Url===oldSrc) return true;
-    return false;
-  }
-
-  function _uploadMarkedToR2(ph,deficId){
-    if(!hubId||typeof R2Photos==='undefined')return;
-    var blob=R2Photos.dataUrlToBlob(newSrc);
-    if(!blob)return;
-    var fname=_r2Filename('mkup','jpg');
-    ph.r2Key='photos/'+hubId+'/frt/marked/'+fname;
-    ph.r2Status='pending';ph.r2Url='';
-    ADB.savePending(ph.id+'_mkup',hubId,blob,{deficId:deficId||'',r2Key:ph.r2Key,fname:fname}).catch(function(){});
-    R2Photos.enqueue({projectId:hubId,tool:'frt',type:'marked',filename:fname,blob:blob,
-      onComplete:function(err){
-        if(!err){ph.r2Status='uploaded';ph.r2Url=R2Photos.getUrl(hubId,'frt','marked',fname);
-          ADB.deletePending(ph.id+'_mkup').catch(function(){});saveToLS&&saveToLS();_updateR2Badge&&_updateR2Badge();}
-        else{ph.r2Status='error';}
-      }
-    });
-  }
-
-  var ad=getAllDeficiencies(p);
-  ad.forEach(function(r){
-    var d=r.defic;
-    function _matchReplace(ph){
-      if(!_matchPhoto(ph))return;
-      ph.dataUrl=newSrc;
-      // Save marked blob to IDB photos store (defic photos aren't saved by saveFullProject)
-      if(ph.id&&p.id){
-        ADB.saveDeficPhoto(ph.id,p.id,d.id,null,newSrc).catch(function(e){console.warn('[Markup] IDB defic photo save error:',e);});
-      }
-      _uploadMarkedToR2(ph,d.id);
-      replaced=true;
-    }
-    if(d.photos){d.photos.forEach(_matchReplace);}
-    if(d.entries){d.entries.forEach(function(en){if(en.photos){en.photos.forEach(_matchReplace);}});}
-    if(d.responses){d.responses.forEach(function(resp){if(resp.photos){resp.photos.forEach(_matchReplace);}});}
-  });
-  if(p.sitePhotos){p.sitePhotos.forEach(function(ph){
-    if(_matchPhoto(ph)){
-      ph.dataUrl=newSrc;
-      _uploadMarkedToR2(ph,null);
-      replaced=true;
-    }
-  });}
-  return replaced;
-}
 
 // ═══ CONTRACTOR DEFICIENCY SYSTEM — Pump Tool Style ═══
 function addContractor(){var input=document.getElementById('new-contractor-input');var name=(input.value||'').trim();if(!name)return;var p=getProject();if(p.contractors.some(function(c){return c.name.toLowerCase()===name.toLowerCase();})){_aAlert('"'+name+'" already exists.');return;}p.contractors.push({id:'ctr_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,deficiencies:[]});input.value='';saveToLS();_folderQuickSave();renderDeficiencyPanel();}
 function removeContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;function _doRemove(){p.contractors=p.contractors.filter(function(x){return x.id!==cid;});saveToLS();_folderQuickSave();renderDeficiencyPanel();}if(c.deficiencies.length>0){_aConfirm('"'+c.name+'" has '+c.deficiencies.length+' deficiencies. Move to General?',function(){c.deficiencies.forEach(function(d){p.generalDeficiencies.push(d);});_doRemove();});}else{_aConfirm('Remove "'+c.name+'"?',function(){_doRemove();},'Remove');}}
-function renderDeficiencyPanel(){renderContractorChips();renderDeficGroups();renderSummaryTable();setTimeout(function(){populateRespPhotos();_loadDataSrcImgs(document.getElementById('panel-deficiencies'));},50);}
+function renderDeficiencyPanel(){renderContractorChips();_updateDeficLifecycleCounts();renderDeficGroups();renderClosedDeficView();renderSummaryTable();setTimeout(function(){populateRespPhotos();_loadDataSrcImgs(document.getElementById('panel-deficiencies'));},50);}
+
+var _deficLifecycleTab='active';
+function switchDeficLifecycleTab(tab){
+  _deficLifecycleTab=tab;
+  document.querySelectorAll('.dlc-tab').forEach(function(t){t.classList.toggle('active',t.getAttribute('data-dlc')===tab);});
+  document.getElementById('defic-active-view').style.display=tab==='active'?'':'none';
+  document.getElementById('defic-closed-view').style.display=tab==='closed'?'':'none';
+  if(tab==='closed')renderClosedDeficView();
+}
+function _updateDeficLifecycleCounts(){
+  var p=getProject();if(!p)return;
+  var ad=getAllDeficiencies(p);
+  var ac=0,cc=0;
+  ad.forEach(function(d){if(_deficIsOpen(d.defic))ac++;else cc++;});
+  var ael=document.getElementById('dlc-active-count');if(ael)ael.textContent=ac;
+  var cel=document.getElementById('dlc-closed-count');if(cel)cel.textContent=cc;
+}
 function renderContractorChips(){var p=getProject();if(!p)return;var el=document.getElementById('contractor-chips');if(!p.contractors.length){el.innerHTML='<span style="color:#999;font-size:calc(13px + var(--ts));">No contractors added yet.</span>';return;}el.innerHTML=p.contractors.map(function(c){return'<div class="contractor-chip"><span>'+escHtml(c.name)+'</span><button onclick="renameContractor(\''+c.id+'\')" title="Rename" style="background:none;border:none;cursor:pointer;font-size:calc(11px + var(--ts));padding:0 2px;opacity:.7;color:inherit;">✏</button><button onclick="removeContractor(\''+c.id+'\')" title="Remove">✕</button></div>';}).join('');}
 function renameContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;_aPrompt('Rename contractor:',c.name,function(nn){if(!nn||!nn.trim()||nn.trim()===c.name)return;nn=nn.trim();if(p.contractors.some(function(x){return x.id!==cid&&x.name.toLowerCase()===nn.toLowerCase();})){_aAlert('"'+nn+'" already exists.');return;}var oldName=c.name;c.name=nn;
 if(_foldedCtrs[oldName]){_foldedCtrs[nn]=_foldedCtrs[oldName];delete _foldedCtrs[oldName];}saveToLS();renderDeficiencyPanel();});}
-function renderDeficGroups(){var p=getProject();if(!p)return;var el=document.getElementById('defic-groups');if(!p.contractors.length&&!p.generalDeficiencies.length){el.innerHTML='<p style="color:#999;font-size:calc(13px + var(--ts));padding:12px 0;text-align:center;">Add a contractor above to start recording deficiencies.</p>';return;}var html='';p.contractors.forEach(function(c){html+=buildDeficGroup(c.id,c.name,c.deficiencies);});if(p.generalDeficiencies.length>0)html+=buildDeficGroup(null,'General',p.generalDeficiencies);el.innerHTML=html;}
+function renderDeficGroups(){var p=getProject();if(!p)return;var el=document.getElementById('defic-groups');if(!p.contractors.length&&!p.generalDeficiencies.length){el.innerHTML='<p style="color:#999;font-size:calc(13px + var(--ts));padding:12px 0;text-align:center;">Add a contractor above to start recording deficiencies.</p>';return;}var html='';p.contractors.forEach(function(c){var active=c.deficiencies.filter(function(d){return _deficIsOpen(d);});html+=buildDeficGroup(c.id,c.name,active,c.deficiencies.length);});var genActive=(p.generalDeficiencies||[]).filter(function(d){return _deficIsOpen(d);});if(genActive.length>0||p.generalDeficiencies.length>0)html+=buildDeficGroup(null,'General',genActive,p.generalDeficiencies.length);el.innerHTML=html;}
 
-function buildDeficGroup(ctrId,name,items){var safeId=ctrId||'general';var folded=_foldedCtrs[name]||false;var arrow=folded?'\u25B8':'\u25BE';var safeName=name.replace(/'/g,"\\'");var html='<div class="defic-group"><div class="defic-group-header" onclick="toggleCtrFold(\''+safeName+'\')" style="cursor:pointer;user-select:none;"><span style="display:flex;align-items:center;gap:8px;"><span class="ctr-fold-arrow">'+arrow+'</span> \uD83D\uDC77 '+escHtml(name)+'</span><span style="font-size:calc(12px + var(--ts));opacity:.7;">'+items.length+' item'+(items.length!==1?'s':'')+'</span></div>';if(folded){html+='</div>';return html;}if(!items.length)html+='<div class="defic-group-empty">No deficiencies for this contractor.</div>';items.forEach(function(d,i){html+=buildDeficItem(d,ctrId,i);});html+='<div class="add-defic-btn-wrap"><button class="btn btn-outline btn-sm" onclick="addDeficiencyForGroup(\''+(ctrId||'')+'\')">+ Add Deficiency</button><button class="btn btn-outline btn-sm" onclick="showDeficTemplates(\''+(ctrId||'')+'\')">📋 Templates</button></div></div>';return html;}
+function buildDeficGroup(ctrId,name,items,totalCount){var safeId=ctrId||'general';var folded=_foldedCtrs[name]||false;var arrow=folded?'\u25B8':'\u25BE';var safeName=name.replace(/'/g,"\\'");var countLabel=items.length+' active'+(totalCount&&totalCount>items.length?' / '+totalCount+' total':'');var html='<div class="defic-group"><div class="defic-group-header" onclick="toggleCtrFold(\''+safeName+'\')" style="cursor:pointer;user-select:none;"><span style="display:flex;align-items:center;gap:8px;"><span class="ctr-fold-arrow">'+arrow+'</span> \uD83D\uDC77 '+escHtml(name)+'</span><span style="font-size:calc(12px + var(--ts));opacity:.7;">'+countLabel+'</span></div>';if(folded){html+='</div>';return html;}if(!items.length)html+='<div class="defic-group-empty">No active deficiencies for this contractor.</div>';items.forEach(function(d,i){html+=buildDeficItem(d,ctrId,i);});html+='<div class="add-defic-btn-wrap"><button class="btn btn-outline btn-sm" onclick="addDeficiencyForGroup(\''+(ctrId||'')+'\')">+ Add Deficiency</button><button class="btn btn-outline btn-sm" onclick="showDeficTemplates(\''+(ctrId||'')+'\')">📋 Templates</button></div></div>';return html;}
+
+// ═══ CLOSED DEFICIENCY VIEW — grouped by FRT # ═══
+function renderClosedDeficView(){
+  var el=document.getElementById('defic-closed-groups');if(!el)return;
+  var p=getProject();if(!p){el.innerHTML='';return;}
+  var ad=getAllDeficiencies(p);
+  var closed=ad.filter(function(d){return _deficIsClosed(d.defic);});
+  if(!closed.length){el.innerHTML='<p style="color:#999;font-size:calc(13px + var(--ts));padding:24px 0;text-align:center;">No closed deficiencies yet.</p>';return;}
+  // Group by closedOnInstance
+  var groups={};
+  closed.forEach(function(d){
+    var inst=d.defic.closedOnInstance||1;
+    if(!groups[inst])groups[inst]=[];
+    groups[inst].push(d);
+  });
+  // Sort instance numbers descending (newest first)
+  var instNums=Object.keys(groups).map(Number).sort(function(a,b){return b-a;});
+  var html='';
+  instNums.forEach(function(inst){
+    var items=groups[inst];
+    var closedDate=items[0].defic.closedDate||'';
+    var headerLabel='Closed in FRT #'+inst+(closedDate?' — '+closedDate:'')+' ('+items.length+' item'+(items.length!==1?'s':'')+')';
+    html+='<div class="closed-frt-group">';
+    html+='<div class="closed-frt-header" onclick="this.parentElement.classList.toggle(\'collapsed\')"><span>\u25BE '+escHtml(headerLabel)+'</span></div>';
+    items.forEach(function(d){
+      var desc=_deficDesc(d.defic);
+      var truncDesc=desc.length>60?desc.substring(0,60)+'…':desc;
+      var note=d.defic.closedNote||'Addressed';
+      html+='<div class="closed-item">';
+      html+='<div class="closed-item-num">'+d.defic.num+'</div>';
+      html+='<div class="closed-item-body">';
+      html+='<div class="closed-item-desc">'+escHtml(truncDesc)+'</div>';
+      html+='<div class="closed-item-meta">Noted FRT #'+(d.defic.notedOnInstance||1)+' • '+escHtml(d.contractorName)+' • '+escHtml(note)+'</div>';
+      html+='</div>';
+      html+='<button class="reopen-btn" onclick="reopenDeficiency(\''+d.defic.id+'\')">Re-open</button>';
+      html+='</div>';
+    });
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+
+function reopenDeficiency(did){
+  _aConfirm('Re-open this deficiency? It will move back to the Active tab.',function(){
+    var f=findDeficiency(did);if(!f)return;
+    var d=f.defic;
+    var p=getProject();
+    var inst=(p&&p.currentFrtInstance)||1;
+    d.status='open';
+    d.closedOnInstance=null;
+    d.closedDate=null;
+    d.closedNote='';
+    // Uncheck all observations
+    if(d.observations){d.observations.forEach(function(o){o.addressed=false;});}
+    // Auto-log activity entry (autoGenerated — hidden from PDF)
+    if(!d.activity)d.activity=[];
+    d.activity.unshift({
+      id:'act_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
+      date:new Date().toISOString().split('T')[0],
+      label:'Re-opened',
+      text:'Previously closed in FRT #'+(d.closedOnInstance||'?'),
+      photos:[],
+      instance:inst,
+      autoGenerated:true
+    });
+    pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();
+    toast('Deficiency #'+d.num+' re-opened');
+  },'Re-open');
+}
+
+// ═══ OBSERVATION CHECKBOX + AUTO-CLOSE ═══
+function toggleObsAddressed(did,obsIdx){
+  var f=findDeficiency(did);if(!f)return;
+  var d=f.defic;
+  if(!d.observations||!d.observations[obsIdx])return;
+  d.observations[obsIdx].addressed=!d.observations[obsIdx].addressed;
+  // Sync to entries bridge
+  if(d.entries&&d.entries[obsIdx])d.entries[obsIdx]._addressed=d.observations[obsIdx].addressed;
+  saveToLS();
+  // Check if all observations are now addressed → auto-close prompt
+  var allDone=d.observations.every(function(o){return o.addressed;});
+  if(allDone&&d.observations.length>0){
+    _aConfirm('All observations addressed. Close this deficiency?',function(){
+      closeDeficiency(did,'');
+    },function(){
+      // User said no — leave checkboxes checked but deficiency stays open
+      renderDeficiencyPanel();
+    },'Close','Keep Open');
+  }else{
+    renderDeficiencyPanel();
+  }
+}
+
+function closeDeficiency(did,note){
+  var f=findDeficiency(did);if(!f)return;
+  var d=f.defic;
+  var p=getProject();
+  var inst=(p&&p.currentFrtInstance)||1;
+  d.status='closed';
+  d.closedOnInstance=inst;
+  d.closedDate=new Date().toISOString().split('T')[0];
+  d.closedNote=note||'';
+  pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();
+  toast('Deficiency #'+d.num+' closed');
+}
+
+function manualCloseDeficiency(did){
+  _aPrompt('Closing note (optional):','',function(note){
+    closeDeficiency(did,note||'');
+  });
+}
+
+// ═══ OBSERVATION MANAGEMENT (new format) ═══
+function addObservation(did){
+  var f=findDeficiency(did);if(!f)return;
+  var d=f.defic;var p=getProject();
+  var inst=(p&&p.currentFrtInstance)||1;
+  if(!d.observations)d.observations=[];
+  var obs={id:'obs_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),text:'',photos:[],notedOnInstance:inst,notedDate:new Date().toISOString().split('T')[0],addressed:false};
+  d.observations.push(obs);
+  // Bridge to entries
+  if(!d.entries)d.entries=[];
+  d.entries.push({description:'',photos:[],priority:d.priority||'high'});
+  pushUndo();saveToLS();renderDeficiencyPanel();
+}
 
 function buildDeficItem(d,ctrId,i){
   var ctrName=ctrId?(getProject().contractors.find(function(x){return x.id===ctrId;})||{}).name||'':'General';
-  var sc=d.status==='Outstanding'?'#C0392B':'#1A7A4A';
   var safe=escHtml;
 
-  // Build response HTML (unchanged)
-  var respHtml='';(d.responses||[]).forEach(function(r,ri){
-    var isCtr=r.party==='contractor';var cls=isCtr?'resp-contractor':'resp-consultant';
-    var icon=isCtr?'⚡':'🔍';var lbl=isCtr?'Contractor':'Consultant';
-    var closeBtn='';
-    if(!isCtr){
-      if(r.closedItem){closeBtn='<div style="margin-top:8px;padding:6px 10px;background:#EAFAF1;border:1px solid #1A7A4A;border-radius:6px;font-size:calc(11px + var(--ts));font-weight:700;color:#1A7A4A;">✔ Closed by Consultant — IAR deactivated</div>';}
-      else if(d.iar){closeBtn='<button style="margin-top:8px;width:100%;padding:7px;background:#1A7A4A;color:white;border:none;border-radius:6px;font-size:calc(12px + var(--ts));font-weight:700;cursor:pointer;font-family:inherit;" onclick="consultantCloseItem(\''+d.id+'\','+ri+')">✔ Close (deactivates IAR)</button>';}
-    }
-    respHtml+='<div class="'+cls+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div class="resp-label" style="color:'+(isCtr?'#E67E22':'#1565C0')+';">'+icon+' '+lbl+' Response #'+(ri+1)+'</div><button class="remove-defic-btn" onclick="removeDeficResponse(\''+d.id+'\','+ri+')">✕ Remove</button></div><div class="defic-grid-2col"><div><div class="defic-label">Comment</div><textarea style="width:100%;height:80px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:inherit;resize:vertical;" oninput="updateDeficResponse(\''+d.id+'\','+ri+',\'comment\',this.value)">'+safe(r.comment)+'</textarea></div><div><div class="defic-label">Response Photos</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;" id="resp-photos-'+d.id+'-'+ri+'"></div><div class="photo-zone" style="min-height:80px;padding:10px;" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleRespPhotoDrop(event,\''+d.id+'\','+ri+')"><span>Drag & drop photos</span><div class="photo-zone-btns"><button class="pz-upload" onclick="event.stopPropagation();triggerRespPhotoUpload(\''+d.id+'\','+ri+')">📎 Upload</button><button class="pz-camera" onclick="event.stopPropagation();triggerRespPhotoCamera(\''+d.id+'\','+ri+')">📷 Camera</button><button class="pz-upload" onclick="event.stopPropagation();openPhotoPicker(\'resp\',\''+d.id+'\','+ri+')" style="background:#7B1FA2;color:white;">📸 Gallery</button></div></div></div></div>'+closeBtn+'</div>';
-  });
-  respHtml+='<div class="resp-add-btns"><button class="resp-add-ctr" onclick="addDeficResponse(\''+d.id+'\',\'contractor\')">+ Contractor Response</button><button class="resp-add-con" onclick="addDeficResponse(\''+d.id+'\',\'consultant\')">+ Consultant Response</button></div>';
+  // Noted subtitle
+  var notedHtml='<div class="defic-noted">Noted: FRT #'+(d.notedOnInstance||1)+' — '+(d.notedDate||d.date||'')+'</div>';
 
   // Drawing link
   var dwgHtml='';
@@ -8248,57 +8456,99 @@ function buildDeficItem(d,ctrId,i){
     if(d.drawingId&&_dwgFound){
       dwgHtml='<div style="font-size:calc(11px + var(--ts));color:var(--arencon);cursor:pointer;font-weight:600;margin-top:4px;" onclick="jumpToPin(\''+d.id+'\')">📌 '+safe(_dwgFound.name)+'</div>';
     } else {
-      var _unassignedLabel=d.drawingId?'📌 Unassigned (drawing deleted)':'📌 Not pinned to a drawing';
       dwgHtml='<div style="margin-top:4px;display:flex;align-items:center;flex-wrap:wrap;gap:4px;">'
-        +'<span class="pin-unassigned-badge">'+_unassignedLabel+'</span>'
-        +'<button class="pin-reassign-btn" onclick="event.stopPropagation();openReassignModal(\''+d.id+'\')">📌 Assign to Drawing…</button>'
+        +'<span class="pin-unassigned-badge">📌 '+(d.drawingId?'Unassigned (drawing deleted)':'Not pinned')+'</span>'
+        +'<button class="pin-reassign-btn" onclick="event.stopPropagation();openReassignModal(\''+d.id+'\')">📌 Assign…</button>'
         +'</div>';
     }
   }
 
-  // Build observation rows — one per entry (or one for legacy single-description deficiencies)
-  var entries=d.entries&&d.entries.length?d.entries:[{description:d.description||'',photos:d.photos||[],priority:d.priority||'high'}];
-  var obsHtml='';
-  entries.forEach(function(en,ei){
-    var prCol=en.priority==='general'?'#1A7A4A':en.priority==='low'?'#E67E22':'#C0392B';
-    var prLabel=en.priority==='general'?'General':en.priority==='low'?'Low':'High';
-    var obsLabel=entries.length>1?'Obs. '+String.fromCharCode(65+ei)+' ('+prLabel+')':'Observation';
-
-    // Entry photos
-    var enPhotos=en.photos||[];
-    var enThumbsHtml='';enPhotos.forEach(function(ph,pi){
-      var psrc=_deficPhotoSrc(ph);
-      var pthumb=_deficPhotoThumbSrc(ph);
-      var pid=_deficPhotoId(ph);
-      enThumbsHtml+='<div class="photo-thumb"><img data-src="'+escHtml(pthumb)+'" data-photo-id="'+escHtml(pid)+'" data-orig-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.origSrc||this.dataset.src||this.src,null,null,[this.dataset.photoId])" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+ei+','+pi+')">✕</button></div>';
+  // Build observation rows with checkboxes (new lifecycle format)
+  var obs=d.observations&&d.observations.length?d.observations:null;
+  var entries=d.entries&&d.entries.length?d.entries:null;
+  var obsHtml='<div style="margin-bottom:6px;">';
+  if(obs){
+    obs.forEach(function(o,oi){
+      var lbl=obs.length>1?String.fromCharCode(65+oi)+') ':'';
+      var addrClass=o.addressed?' addressed':'';
+      obsHtml+='<div class="obs-row">';
+      obsHtml+='<input type="checkbox" class="obs-check" '+(o.addressed?'checked':'')+' onchange="toggleObsAddressed(\''+d.id+'\','+oi+')">';
+      obsHtml+='<div class="obs-text'+addrClass+'">';
+      obsHtml+='<div class="obs-label">'+lbl+'Observation'+(o.notedOnInstance&&o.notedOnInstance!==(d.notedOnInstance||1)?' <span style="color:var(--link);">(FRT #'+o.notedOnInstance+')</span>':'')+'</div>';
+      // Use entries[oi] for the textarea (bridge keeps them in sync)
+      var entryDesc=(entries&&entries[oi])?entries[oi].description||'':o.text||'';
+      obsHtml+='<textarea style="width:100%;height:70px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:inherit;resize:vertical;" oninput="updateEntryField(\''+d.id+'\','+oi+',\'description\',this.value)">'+safe(entryDesc)+'</textarea>';
+      // Photos
+      var enPhotos=(entries&&entries[oi])?entries[oi].photos||[]:o.photos||[];
+      if(enPhotos.length){
+        obsHtml+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin:4px 0;">';
+        enPhotos.forEach(function(ph,pi){
+          var psrc=_deficPhotoSrc(ph);var pid=_deficPhotoId(ph);
+          obsHtml+='<div class="photo-thumb"><img data-src="'+safe(psrc)+'" data-photo-id="'+safe(pid)+'" data-orig-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.origSrc||this.dataset.src||this.src,null,null,[this.dataset.photoId])" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+oi+','+pi+')">✕</button></div>';
+        });
+        obsHtml+='</div>';
+      }
+      obsHtml+='<div class="photo-zone" style="min-height:60px;padding:8px;" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleEntryPhotoDrop(event,\''+d.id+'\','+oi+')"><span>Drag & drop</span><div class="photo-zone-btns"><button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+oi+')">📎 Upload</button><button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+oi+')">📷 Camera</button></div></div>';
+      if(o.addressed)obsHtml+='<div class="obs-noted">✔ Addressed</div>';
+      obsHtml+='</div></div>';
     });
+  }else if(entries){
+    // Fallback: render old entries format (pre-migration)
+    entries.forEach(function(en,ei){
+      obsHtml+='<div class="obs-row"><div class="obs-text">';
+      obsHtml+='<div class="obs-label">'+(entries.length>1?String.fromCharCode(65+ei)+') ':'')+'Observation</div>';
+      obsHtml+='<textarea style="width:100%;height:70px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:inherit;resize:vertical;" oninput="updateEntryField(\''+d.id+'\','+ei+',\'description\',this.value)">'+safe(en.description||'')+'</textarea>';
+      var enPhotos=en.photos||[];
+      if(enPhotos.length){
+        obsHtml+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin:4px 0;">';
+        enPhotos.forEach(function(ph,pi){
+          var psrc=_deficPhotoSrc(ph);var pid=_deficPhotoId(ph);
+          obsHtml+='<div class="photo-thumb"><img data-src="'+safe(psrc)+'" data-photo-id="'+safe(pid)+'" onclick="openPhotoLightboxDirect(this.dataset.src||this.src)" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+ei+','+pi+')">✕</button></div>';
+        });
+        obsHtml+='</div>';
+      }
+      obsHtml+='<div class="photo-zone" style="min-height:60px;padding:8px;" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleEntryPhotoDrop(event,\''+d.id+'\','+ei+')"><span>Drag & drop</span><div class="photo-zone-btns"><button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+ei+')">📎 Upload</button><button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+ei+')">📷 Camera</button></div></div>';
+      obsHtml+='</div></div>';
+    });
+  }
+  obsHtml+='<button class="btn btn-outline btn-sm" style="margin-top:6px;font-size:calc(11px + var(--ts));" onclick="addObservation(\''+d.id+'\')">+ Add Observation</button>';
+  obsHtml+='</div>';
 
-    obsHtml+='<div class="pin-entry-row" style="border-left:3px solid '+prCol+';">';
-    obsHtml+='<div class="row-num">'+obsLabel+'</div>';
-    // Per-observation contractor override dropdown
-    var _enCtrId=en.contractorId||'';
-    var _pObj=getProject();
-    var _ctrOpts='<option value="">— Same as pin —</option>';
-    (_pObj.contractors||[]).forEach(function(cc){_ctrOpts+='<option value="'+cc.id+'"'+(cc.id===_enCtrId?' selected':'')+'>'+escHtml(cc.name)+'</option>';});
-    if(_enCtrId||entries.length>1){
-      var _ctrOverrideLabel=_enCtrId?(_pObj.contractors||[]).reduce(function(a,c){return c.id===_enCtrId?c.name:a;},''):'';
-      obsHtml+='<div style="margin-bottom:4px;display:flex;align-items:center;gap:6px;"><label style="font-size:8px;font-weight:700;color:#E67E22;text-transform:uppercase;letter-spacing:.4px;flex-shrink:0;">Contractor</label><select style="flex:1;padding:2px 5px;border:1px solid '+((_enCtrId)?'#E67E22':'#DDE1E7')+';border-radius:4px;font-family:inherit;font-size:calc(10px + var(--ts));" onchange="updateEntryContractor(\''+d.id+'\','+ei+',this.value)">'+_ctrOpts+'</select></div>';
-    }
-    if(entries.length>1)obsHtml+='<button class="row-del" onclick="removeDeficEntry(\''+d.id+'\','+ei+')" title="Remove observation">✕</button>';
-    obsHtml+='<div class="defic-grid-2col"><div>';
-    obsHtml+='<div class="defic-label">Description</div>';
-    obsHtml+='<textarea style="width:100%;height:90px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:inherit;resize:vertical;" oninput="updateEntryField(\''+d.id+'\','+ei+',\'description\',this.value)">'+safe(en.description||'')+'</textarea>';
-    obsHtml+='</div><div>';
-    obsHtml+='<div class="defic-label">Evidence Photos</div>';
-    obsHtml+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+enThumbsHtml+'</div>';
-    obsHtml+='<div class="photo-zone" style="min-height:80px;" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleEntryPhotoDrop(event,\''+d.id+'\','+ei+')"><span>Drag & drop photos</span><div class="photo-zone-btns"><button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+ei+')">📎 Upload</button><button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+ei+')">📷 Camera</button><button class="pz-upload" onclick="event.stopPropagation();openPhotoPicker(\'entry\',\''+d.id+'\','+ei+')" style="background:#7B1FA2;color:white;">📸 Gallery</button></div></div>';
-    obsHtml+='</div></div></div>';
-  });
-  // Add Observation button (for multi-entry pins)
-  obsHtml+='<button class="btn btn-outline btn-sm" style="margin-top:6px;font-size:calc(11px + var(--ts));" onclick="addDeficEntry(\''+d.id+'\')">+ Add Observation</button>';
+  // Activity log section (collapsed by default)
+  var actArr=d.activity&&d.activity.length?d.activity:(d.responses&&d.responses.length?d.responses.map(function(r){return{date:r.date||'',label:r.party==='contractor'?'Contractor Response':'ARENCON Follow-up',text:r.comment||'',photos:r.photos||[]};}):null);
+  var actHtml='';
+  if(actArr&&actArr.length){
+    actHtml+='<div class="activity-section" id="act-sect-'+d.id+'">';
+    actHtml+='<div class="activity-header" onclick="this.parentElement.classList.toggle(\'open\')"><span>Activity ('+actArr.length+' entr'+(actArr.length===1?'y':'ies')+')</span><span>\u25BE</span></div>';
+    actHtml+='<div class="activity-body">';
+    // Newest first
+    actArr.slice().sort(function(a,b){return(b.date||'').localeCompare(a.date||'');}).forEach(function(a){
+      actHtml+='<div class="activity-entry"><div class="activity-entry-header"><span class="activity-entry-label">'+safe(a.label||'Note')+'</span><span class="activity-entry-date">'+(a.date||'')+' '+(a.instance?'(FRT #'+a.instance+')':'')+'</span></div>';
+      actHtml+='<div class="activity-entry-text">'+safe(a.text||'')+'</div></div>';
+    });
+    actHtml+='</div></div>';
+  }
+  actHtml+='<div style="margin-top:4px;"><button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));" onclick="showAddActivityForm(\''+d.id+'\')">+ Add Activity Entry</button></div>';
 
-  var _allDescs=entries.map(function(e){return e.description||'';}).join(' ');
-  return '<div class="defic-item" id="defic-item-'+d.id+'" data-desc="'+escHtml(_allDescs||d.description||'')+'" data-num="'+d.num+'" data-status="'+d.status+'" data-entries="'+entries.length+'" data-iar="'+d.iar+'" data-ctr="'+escHtml(ctrName)+'"><div class="defic-item-row"><input type="checkbox" class="bulk-checkbox" data-defic-id="'+d.id+'" onchange="updateBulkCount()"><div class="defic-num-circle">'+d.num+'</div><div class="defic-item-content">'+obsHtml+dwgHtml+'<div class="defic-controls"><div><label>Date</label><input type="date" value="'+(d.date||'')+'" oninput="updateDeficField(\''+d.id+'\',\'date\',this.value)"></div><div><label>Status</label><select style="color:'+sc+';font-weight:600;" onchange="updateDeficField(\''+d.id+'\',\'status\',this.value);renderDeficiencyPanel();"><option value="Outstanding"'+(d.status==='Outstanding'?' selected':'')+'>● Outstanding</option><option value="Addressed & Closed"'+(d.status==='Addressed & Closed'?' selected':'')+'>✔ Addressed & Closed</option></select></div><div><label style="color:transparent;">.</label><button class="iar-toggle-btn '+(d.iar?'on':'off')+'" onclick="toggleIARInPlace(this,\''+d.id+'\')">⚡ IAR'+(d.iar?' ✓':'')+'</button></div><div><label style="color:transparent;">.</label><button class="dup-defic-btn" onclick="duplicateDeficiency(\''+d.id+'\')" title="Duplicate">⧉ Dup</button></div><div><label style="color:transparent;">.</label><button class="dup-defic-btn" onclick="moveDeficiency(\''+d.id+'\')" title="Move to another contractor" style="background:#1565C0;color:white;">↗ Move</button></div><div><label style="color:transparent;">.</label><button class="remove-defic-btn" onclick="removeDeficiency(\''+d.id+'\')">✕ Remove</button></div></div></div></div>'+respHtml+'</div>';
+  // Controls row
+  var prColor=d.priority==='general'?'#1A7A4A':d.priority==='low'?'#E67E22':'#C0392B';
+  var _allDescs=(obs?obs.map(function(o){return o.text||'';}).join(' '):(entries?entries.map(function(e){return e.description||'';}).join(' '):''));
+  var statusLabel=_deficIsOpen(d)?'Outstanding':'Closed';
+
+  return '<div class="defic-item" id="defic-item-'+d.id+'" data-desc="'+safe(_allDescs||d.description||'')+'" data-num="'+d.num+'" data-status="'+statusLabel+'" data-entries="'+(obs?obs.length:entries?entries.length:0)+'" data-iar="'+d.iar+'" data-ctr="'+safe(ctrName)+'">'
+    +'<div class="defic-item-row">'
+    +'<input type="checkbox" class="bulk-checkbox" data-defic-id="'+d.id+'" onchange="updateBulkCount()">'
+    +'<div class="defic-num-circle" style="background:'+prColor+';">'+d.num+'</div>'
+    +'<div class="defic-item-content">'
+    +notedHtml+obsHtml+dwgHtml+actHtml
+    +'<div class="defic-controls">'
+    +'<div><label>Priority</label><select style="color:'+prColor+';font-weight:600;" onchange="updateDeficField(\''+d.id+'\',\'priority\',this.value);renderDeficiencyPanel();"><option value="high"'+(d.priority==='high'?' selected':'')+' style="color:#C0392B;">● High</option><option value="low"'+(d.priority==='low'?' selected':'')+' style="color:#E67E22;">● Low</option><option value="general"'+(d.priority==='general'?' selected':'')+' style="color:#1A7A4A;">● General</option></select></div>'
+    +'<div><label style="color:transparent;">.</label><button class="iar-toggle-btn '+(d.iar?'on':'off')+'" onclick="toggleIARInPlace(this,\''+d.id+'\')">⚡ IAR'+(d.iar?' ✓':'')+'</button></div>'
+    +'<div><label style="color:transparent;">.</label><button class="btn btn-sm" style="background:#1A7A4A;color:white;border:none;font-weight:600;padding:5px 10px;border-radius:5px;font-size:calc(11px + var(--ts));cursor:pointer;" onclick="manualCloseDeficiency(\''+d.id+'\')">✔ Close</button></div>'
+    +'<div><label style="color:transparent;">.</label><button class="dup-defic-btn" onclick="duplicateDeficiency(\''+d.id+'\')" title="Duplicate">⧉ Dup</button></div>'
+    +'<div><label style="color:transparent;">.</label><button class="dup-defic-btn" onclick="moveDeficiency(\''+d.id+'\')" title="Move" style="background:#1565C0;color:white;">↗ Move</button></div>'
+    +'<div><label style="color:transparent;">.</label><button class="remove-defic-btn" onclick="removeDeficiency(\''+d.id+'\')">✕ Remove</button></div>'
+    +'</div></div></div></div>';
 }
 
 // ── Entry-level CRUD for observation-per-row ──
@@ -8308,6 +8558,10 @@ function updateEntryField(did,ei,field,val){
   if(f.defic.entries[ei])f.defic.entries[ei][field]=val;
   // Sync legacy fields from first entry
   if(ei===0&&field==='description')f.defic.description=val;
+  // Sync observations from entries bridge
+  if(f.defic.observations&&f.defic.observations[ei]&&field==='description'){
+    f.defic.observations[ei].text=val;
+  }
   saveToLS();
 }
 function updateEntryContractor(did,ei,ctrId){
@@ -8408,11 +8662,17 @@ function duplicateDeficiency(did){
   var p=getProject();var num=p.nextDeficNum++;
   var src=f.defic;
   var d=newDeficiency(num);
-  d.description=src.description||'';
-  d.status='Outstanding';d.iar=false;
+  d.description=_deficDesc(src);
+  d.status='open';d.iar=false;
   d.drawingId=src.drawingId;d.pinX=src.pinX;d.pinY=src.pinY;
-  d.entries=(src.entries||[]).map(function(en){return{description:en.description||'',photos:[],priority:en.priority||'high'};});
+  // Duplicate observations (new format)
+  if(src.observations&&src.observations.length){
+    d.observations=src.observations.map(function(o){return{id:'obs_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),text:o.text||'',photos:[],notedOnInstance:d.notedOnInstance,notedDate:d.notedDate,addressed:false};});
+  }
+  // Also create entries[] bridge for pin editor compat
+  d.entries=d.observations.map(function(o){return{description:o.text||'',photos:[],priority:d.priority||'high'};});
   if(!d.entries.length)d.entries=[{description:d.description,photos:[],priority:'high'}];
+  d.activity=[];
   f.arr.splice(f.idx+1,0,d);
   pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();
   setTimeout(function(){var el=document.getElementById('defic-item-'+d.id);if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.boxShadow='0 0 0 3px rgba(21,101,192,.3)';setTimeout(function(){el.style.boxShadow='';},2000);}},100);
@@ -8597,11 +8857,21 @@ function _getSelectedDeficIds(){
 }
 function bulkSetStatus(newStatus){
   var ids=_getSelectedDeficIds();if(!ids.length){toast('No deficiencies selected');return;}
-  _aConfirm((newStatus==='Addressed & Closed'?'Close':'Reopen')+' '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'?',function(){
-  pushUndo();
-  ids.forEach(function(id){var f=findDeficiency(id);if(f){f.defic.status=newStatus;if(newStatus==='Addressed & Closed')f.defic.iar=false;}});
+  var isClose=newStatus==='closed'||newStatus==='Addressed & Closed';
+  _aConfirm((isClose?'Close':'Reopen')+' '+ids.length+' deficienc'+(ids.length>1?'ies':'y')+'?',function(){
+  pushUndo();var p=getProject();var inst=(p&&p.currentFrtInstance)||1;
+  ids.forEach(function(id){var f=findDeficiency(id);if(f){
+    if(isClose){
+      f.defic.status='closed';f.defic.iar=false;
+      f.defic.closedOnInstance=inst;f.defic.closedDate=new Date().toISOString().split('T')[0];
+      if(f.defic.observations)f.defic.observations.forEach(function(o){o.addressed=true;});
+    }else{
+      f.defic.status='open';f.defic.closedOnInstance=null;f.defic.closedDate=null;f.defic.closedNote='';
+      if(f.defic.observations)f.defic.observations.forEach(function(o){o.addressed=false;});
+    }
+  }});
   saveToLS();renderDeficiencyPanel();renderSummaryTable();
-  toast((newStatus==='Addressed & Closed'?'Closed':'Reopened')+' '+ids.length+' item'+(ids.length>1?'s':''));
+  toast((isClose?'Closed':'Reopened')+' '+ids.length+' item'+(ids.length>1?'s':''));
   if(_bulkSelectMode){setTimeout(function(){document.querySelectorAll('.bulk-checkbox').forEach(function(cb){cb.checked=false;});updateBulkCount();},50);}
   });
 }
@@ -8748,6 +9018,92 @@ function addDeficResponse(did,party){var f=findDeficiency(did);if(!f)return;if(!
 function removeDeficResponse(did,ri){var f=findDeficiency(did);if(f&&f.defic.responses){f.defic.responses.splice(ri,1);saveToLS();renderDeficiencyPanel();}}
 function updateDeficResponse(did,ri,field,val){var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]){f.defic.responses[ri][field]=val;saveToLS();}}
 
+// ═══ ACTIVITY LOG — Add Entry Form ═══
+function showAddActivityForm(did){
+  var f=findDeficiency(did);if(!f)return;
+  var p=getProject();var inst=(p&&p.currentFrtInstance)||1;
+  var today=new Date().toISOString().split('T')[0];
+  var ov=document.createElement('div');
+  ov.className='modal-overlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+  var labels=['Contractor Response','ARENCON Follow-up','Site Observation','Client Note','Custom'];
+  var optHtml=labels.map(function(l){return'<option value="'+l+'">'+l+'</option>';}).join('');
+  ov.innerHTML='<div style="background:var(--bg,white);border-radius:12px;padding:24px;width:90%;max-width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3);">'
+    +'<div style="font-weight:700;font-size:calc(16px + var(--ts));margin-bottom:16px;color:var(--fg,#1B2438);">Add Activity Entry — Pin #'+f.defic.num+'</div>'
+    +'<div style="margin-bottom:12px;"><label class="defic-label">Label</label>'
+    +'<select id="act-label-sel" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);" onchange="var ci=document.getElementById(\'act-custom-input\');ci.style.display=this.value===\'Custom\'?\'block\':\'none\';">'+optHtml+'</select>'
+    +'<input id="act-custom-input" type="text" placeholder="Custom label…" style="display:none;width:100%;margin-top:6px;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;">'
+    +'</div>'
+    +'<div style="margin-bottom:12px;"><label class="defic-label">Date</label>'
+    +'<input id="act-date-input" type="date" value="'+today+'" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;">'
+    +'</div>'
+    +'<div style="margin-bottom:12px;"><label class="defic-label">Notes</label>'
+    +'<div style="display:flex;gap:4px;margin-bottom:4px;">'
+    +'<button id="act-bold-btn" style="padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg,white);cursor:pointer;font-weight:900;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));color:var(--fg);" onclick="document.execCommand(\'bold\')">B</button>'
+    +'<button id="act-italic-btn" style="padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg,white);cursor:pointer;font-style:italic;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));color:var(--fg);" onclick="document.execCommand(\'italic\')">I</button>'
+    +'</div>'
+    +'<div id="act-text-editor" contenteditable="true" style="width:100%;min-height:80px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;outline:none;line-height:1.5;"></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">'
+    +'<button style="padding:8px 20px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg,white);color:var(--fg);cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button>'
+    +'<button style="padding:8px 20px;border:none;border-radius:6px;background:#9C2742;color:white;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:700;" onclick="submitActivityEntry(\''+did+'\','+inst+')">Add Entry</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  // Focus the text editor
+  setTimeout(function(){var ed=document.getElementById('act-text-editor');if(ed)ed.focus();},100);
+}
+
+function submitActivityEntry(did,inst){
+  var f=findDeficiency(did);if(!f)return;
+  var selEl=document.getElementById('act-label-sel');
+  var customEl=document.getElementById('act-custom-input');
+  var dateEl=document.getElementById('act-date-input');
+  var textEl=document.getElementById('act-text-editor');
+  var label=selEl.value==='Custom'?(customEl.value||'').trim()||'Note':selEl.value;
+  var date=dateEl.value||new Date().toISOString().split('T')[0];
+  // Sanitize rich text: only allow <b> and <i>
+  var rawHtml=(textEl.innerHTML||'').trim();
+  var text=_sanitizeRichText(rawHtml);
+  if(!text||text.replace(/<[^>]*>/g,'').trim()===''){toast('Please enter some text.');return;}
+  if(!f.defic.activity)f.defic.activity=[];
+  f.defic.activity.unshift({
+    id:'act_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
+    date:date,label:label,text:text,photos:[],instance:inst
+  });
+  pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();
+  // Close modal
+  var ov=document.querySelector('.modal-overlay');if(ov)ov.remove();
+  toast('Activity entry added');
+}
+
+function _sanitizeRichText(html){
+  // Strip all tags except <b>, <i>, <br>
+  var tmp=document.createElement('div');
+  tmp.innerHTML=html;
+  // Walk all elements — remove disallowed tags but keep their text
+  function _walk(node){
+    var children=Array.from(node.childNodes);
+    children.forEach(function(child){
+      if(child.nodeType===1){// Element
+        var tag=child.tagName.toLowerCase();
+        if(tag==='b'||tag==='strong'||tag==='i'||tag==='em'||tag==='br'){
+          // Normalize strong→b, em→i
+          if(tag==='strong'){var b=document.createElement('b');b.innerHTML=child.innerHTML;child.replaceWith(b);_walk(b);}
+          else if(tag==='em'){var i=document.createElement('i');i.innerHTML=child.innerHTML;child.replaceWith(i);_walk(i);}
+          else{_walk(child);}
+        }else{
+          // Unwrap: replace element with its children
+          var frag=document.createDocumentFragment();
+          while(child.firstChild)frag.appendChild(child.firstChild);
+          child.replaceWith(frag);
+        }
+      }
+    });
+  }
+  _walk(tmp);
+  return tmp.innerHTML;
+}
+
 function consultantCloseItem(did,ri){
   var f=findDeficiency(did);if(!f)return;
   var d=f.defic;
@@ -8755,8 +9111,10 @@ function consultantCloseItem(did,ri){
   _aConfirm('Close deficiency #'+d.num+' and deactivate IAR?\n\nThis marks the item as Addressed & Closed.',function(){
   d.responses[ri].closedItem=true;
   d.responses[ri].closedDate=new Date().toISOString().substring(0,10);
-  d.status='Addressed & Closed';
+  d.status='closed';
   d.iar=false;
+  var p=getProject();var inst=(p&&p.currentFrtInstance)||1;
+  d.closedOnInstance=inst;d.closedDate=new Date().toISOString().split('T')[0];
   pushUndo();saveToLS();_folderQuickSave();
   renderDeficiencyPanel();
   if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
@@ -8789,15 +9147,107 @@ function _makeDeficPhotoRec(dataUrl){
 // Migrate legacy string arrays to record objects
 function _migrateDeficPhotos(defics){
   if(!defics)return;
+  function _migPh(ph){return typeof ph==='string'?{id:'dp_'+Math.random().toString(36).substr(2,8),dataUrl:ph,r2Key:'',r2Status:'',r2Url:''}:ph;}
   defics.forEach(function(d){
-    if(d.photos)d.photos=d.photos.map(function(ph){return typeof ph==='string'?{id:'dp_'+Math.random().toString(36).substr(2,8),dataUrl:ph,r2Key:'',r2Status:'',r2Url:''}:ph;});
-    if(d.entries){d.entries.forEach(function(e){
-      if(e.photos)e.photos=e.photos.map(function(ph){return typeof ph==='string'?{id:'dp_'+Math.random().toString(36).substr(2,8),dataUrl:ph,r2Key:'',r2Status:'',r2Url:''}:ph;});
-    });}
-    if(d.responses){d.responses.forEach(function(r){
-      if(r.photos)r.photos=r.photos.map(function(ph){return typeof ph==='string'?{id:'dp_'+Math.random().toString(36).substr(2,8),dataUrl:ph,r2Key:'',r2Status:'',r2Url:''}:ph;});
-    });}
+    if(d.photos)d.photos=d.photos.map(_migPh);
+    // Old format
+    if(d.entries){d.entries.forEach(function(e){if(e.photos)e.photos=e.photos.map(_migPh);});}
+    if(d.responses){d.responses.forEach(function(r){if(r.photos)r.photos=r.photos.map(_migPh);});}
+    // New format
+    if(d.observations){d.observations.forEach(function(o){if(o.photos)o.photos=o.photos.map(_migPh);});}
+    if(d.activity){d.activity.forEach(function(a){if(a.photos)a.photos=a.photos.map(_migPh);});}
   });
+}
+
+// ═══ LIFECYCLE MIGRATION — entries[] → observations[], responses[] → activity[] ═══
+function _migrateDeficLifecycle(p){
+  if(!p)return;
+  var inst=(p.currentFrtInstance)||1;
+  var createdDate=p.created||new Date().toISOString().split('T')[0];
+
+  // Init frtInstances if missing
+  if(!p.frtInstances){
+    p.frtInstances=[{number:1,createdDate:createdDate,siteVisitDate:createdDate,revision:'B01',notes:''}];
+  }
+  if(!p.currentFrtInstance)p.currentFrtInstance=1;
+
+  function _migrateArr(defics){
+    if(!defics)return;
+    defics.forEach(function(d){
+      // Skip if already migrated (has observations array)
+      if(d.observations)return;
+
+      // ── entries[] → observations[] ──
+      var obs=[];
+      if(d.entries&&d.entries.length){
+        d.entries.forEach(function(en){
+          obs.push({
+            id:'obs_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
+            text:en.description||'',
+            photos:en.photos||[],
+            notedOnInstance:inst,
+            notedDate:d.date||createdDate,
+            addressed:false
+          });
+        });
+      }else if(d.description){
+        // Legacy single-description deficiency
+        obs.push({
+          id:'obs_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
+          text:d.description||'',
+          photos:d.photos||[],
+          notedOnInstance:inst,
+          notedDate:d.date||createdDate,
+          addressed:false
+        });
+      }else{
+        // Empty — create blank observation
+        obs.push({
+          id:'obs_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
+          text:'',photos:[],notedOnInstance:inst,notedDate:d.date||createdDate,addressed:false
+        });
+      }
+      d.observations=obs;
+
+      // ── responses[] → activity[] ──
+      var act=[];
+      if(d.responses&&d.responses.length){
+        d.responses.forEach(function(r){
+          act.push({
+            id:'act_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
+            date:r.date||'',
+            label:r.party==='contractor'?'Contractor Response':r.party==='consultant'?'ARENCON Follow-up':'Note',
+            text:r.comment||r.text||'',
+            photos:r.photos||[],
+            instance:inst
+          });
+        });
+      }
+      d.activity=act;
+
+      // ── Lifecycle fields ──
+      if(!d.notedOnInstance)d.notedOnInstance=inst;
+      if(!d.notedDate)d.notedDate=d.date||createdDate;
+      // Map old status to new
+      if(d.status==='Outstanding'){
+        d.status='open';
+      }else if(d.status==='Addressed & Closed'){
+        d.status='closed';
+        if(!d.closedOnInstance)d.closedOnInstance=inst;
+        if(!d.closedDate)d.closedDate=d.date||createdDate;
+      }else if(d.status!=='open'&&d.status!=='closed'){
+        d.status='open';
+      }
+      if(d.closedNote===undefined)d.closedNote='';
+      if(d.closedOnInstance===undefined)d.closedOnInstance=null;
+      if(d.closedDate===undefined)d.closedDate=null;
+
+      // Clean up old fields (keep for one cycle for backward compat with cloud merge)
+      // delete d.entries; delete d.responses; — deferred to avoid breaking in-flight cloud data
+    });
+  }
+  (p.contractors||[]).forEach(function(c){_migrateArr(c.deficiencies);});
+  _migrateArr(p.generalDeficiencies);
 }
 // Queue R2 upload for a deficiency photo record (R2-first hybrid)
 // 1. Save blob to pendingUploads IDB store (crash-safe holding area)
@@ -8954,6 +9404,8 @@ async function _r2CleanupOrphans(){
       (d.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)referencedKeys.add(ph.r2Key);});
       (d.entries||[]).forEach(function(e){(e.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)referencedKeys.add(ph.r2Key);});});
       (d.responses||[]).forEach(function(r){(r.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)referencedKeys.add(ph.r2Key);});});
+      (d.observations||[]).forEach(function(o){(o.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)referencedKeys.add(ph.r2Key);});});
+      (d.activity||[]).forEach(function(a){(a.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)referencedKeys.add(ph.r2Key);});});
     });
   }
   (proj.contractors||[]).forEach(function(c){_addDeficKeys(c.deficiencies);});
@@ -9067,6 +9519,12 @@ function _requeuePendingUploads(proj){
         (d.responses||[]).forEach(function(r){
           (r.photos||[]).forEach(function(ph){if(ph&&ph.id)recMap[ph.id]=ph;});
         });
+        if(d.observations){d.observations.forEach(function(o){
+          (o.photos||[]).forEach(function(ph){if(ph&&ph.id)recMap[ph.id]=ph;});
+        });}
+        (d.activity||[]).forEach(function(a){
+          (a.photos||[]).forEach(function(ph){if(ph&&ph.id)recMap[ph.id]=ph;});
+        });
       });
     }
     (proj.contractors||[]).forEach(function(c){_mapDeficPhotos(c.deficiencies);});
@@ -9131,7 +9589,7 @@ function processRespPhotos(did,ri,files){
 }
 
 /* injectEntrySummaries removed — dead code */
-function renderSummaryTable(){var p=getProject();if(!p)return;var wrap=document.getElementById('defic-summary-table-wrap');var ad=getAllDeficiencies(p);if(!ad.length){wrap.innerHTML='';return;}var groups={};ad.forEach(function(d){var k=d.contractorName;if(!groups[k])groups[k]={t:0,i:0,o:0,c:0};groups[k].t++;if(d.defic.iar)groups[k].i++;if(d.defic.status==='Outstanding')groups[k].o++;else groups[k].c++;});var html='<table class="defic-summary-table"><thead><tr><th>Contractor</th><th>Total</th><th>IAR</th><th>Outstanding</th><th>Closed</th></tr></thead><tbody>';var tt=0,ti=0,to=0,tc=0;Object.keys(groups).forEach(function(k){var g=groups[k];tt+=g.t;ti+=g.i;to+=g.o;tc+=g.c;html+='<tr><td style="font-weight:600;">'+escHtml(k)+'</td><td>'+g.t+'</td><td style="color:var(--iar);font-weight:700;">'+g.i+'</td><td style="color:var(--no);font-weight:600;">'+g.o+'</td><td style="color:var(--yes);font-weight:600;">'+g.c+'</td></tr>';});html+='<tr style="font-weight:800;border-top:2px solid var(--slate);"><td>TOTAL</td><td>'+tt+'</td><td style="color:var(--iar);">'+ti+'</td><td style="color:var(--no);">'+to+'</td><td style="color:var(--yes);">'+tc+'</td></tr></tbody></table>';wrap.innerHTML=html;}
+function renderSummaryTable(){var p=getProject();if(!p)return;var wrap=document.getElementById('defic-summary-table-wrap');var ad=getAllDeficiencies(p);if(!ad.length){wrap.innerHTML='';return;}var curInst=p.currentFrtInstance||1;var groups={};ad.forEach(function(d){var k=d.contractorName;if(!groups[k])groups[k]={t:0,i:0,o:0,c:0,n:0};groups[k].t++;if(d.defic.iar)groups[k].i++;var st=d.defic.status||'open';if(st==='open'||st==='Outstanding')groups[k].o++;else groups[k].c++;if(d.defic.notedOnInstance===curInst)groups[k].n++;});var html='<table class="defic-summary-table"><thead><tr><th>Contractor</th><th>Total</th><th>New This Report</th><th>Outstanding</th><th>IAR</th><th>Closed</th></tr></thead><tbody>';var tt=0,ti=0,to=0,tc=0,tn=0;Object.keys(groups).forEach(function(k){var g=groups[k];tt+=g.t;ti+=g.i;to+=g.o;tc+=g.c;tn+=g.n;html+='<tr><td style="font-weight:600;">'+escHtml(k)+'</td><td>'+g.t+'</td><td style="color:var(--link);font-weight:600;">'+g.n+'</td><td style="color:var(--no);font-weight:600;">'+g.o+'</td><td style="color:var(--iar);font-weight:700;">'+g.i+'</td><td style="color:var(--yes);font-weight:600;">'+g.c+'</td></tr>';});html+='<tr style="font-weight:800;border-top:2px solid var(--slate);"><td>TOTAL</td><td>'+tt+'</td><td style="color:var(--link);">'+tn+'</td><td style="color:var(--no);">'+to+'</td><td style="color:var(--iar);">'+ti+'</td><td style="color:var(--yes);">'+tc+'</td></tr></tbody></table>';wrap.innerHTML=html;}
 
 function jumpToPin(did){var f=findDeficiency(did);if(!f||!f.defic.drawingId)return;openDrawingViewer(f.defic.drawingId);setTimeout(function(){var area=document.getElementById('dv-canvas-area'),img=document.getElementById('dv-image');var aw=area.clientWidth,ah=area.clientHeight,iw=img.naturalWidth,ih=img.naturalHeight;var s=Math.min(Math.min(aw/iw,ah/ih)*2,4);dvState.scale=s;dvState.panX=aw/2-f.defic.pinX*iw*s;dvState.panY=ah/2-f.defic.pinY*ih*s;applyTransform();dvState.selectedPinId=did;renderPinsOnDrawing();},400);}
 
@@ -9389,9 +9847,25 @@ function toggleCtrFold(name){_foldedCtrs[name]=!_foldedCtrs[name];
 // ═══ PIN EDITOR — side panel / mobile modal ═══
 
 function _ensureEntries(d){
+  // Bridge: if observations[] exists but entries[] doesn't, create entries[] from observations[]
+  if(d.observations&&d.observations.length&&(!d.entries||!d.entries.length)){
+    d.entries=d.observations.map(function(o){return{description:o.text||'',photos:o.photos||[],priority:d.priority||'high'};});
+  }
   if(!d.entries||!d.entries.length){
     d.entries=[{description:d.description||'',photos:d.photos||[]}];
     d.description='';d.photos=[];
+  }
+  // Sync back: keep observations[] mirrored from entries[] for lifecycle system
+  if(d.observations&&d.observations.length===d.entries.length){
+    d.entries.forEach(function(en,i){
+      if(d.observations[i]){d.observations[i].text=en.description||'';d.observations[i].photos=en.photos||[];}
+    });
+  }else if(d.observations){
+    // Length mismatch — rebuild observations from entries
+    var p=getProject();var inst=(p&&p.currentFrtInstance)||1;var today=new Date().toISOString().split('T')[0];
+    d.observations=d.entries.map(function(en){
+      return{id:'obs_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),text:en.description||'',photos:en.photos||[],notedOnInstance:inst,notedDate:d.notedDate||today,addressed:false};
+    });
   }
 }
 
@@ -9444,7 +9918,7 @@ var priorityLabel=_epLbl==='general'?'General':_epLbl==='low'?'Low Priority':'Hi
   allDescs.forEach(function(s){datalistHtml+='<option value="'+escHtml(s)+'"></option>';});
   datalistHtml+='</datalist>';
 
-  var sc=d.status==='Outstanding'?'#C0392B':'#1A7A4A';
+  var sc=_deficIsOpen(d)?'#C0392B':'#1A7A4A';
   var _ei=d.activeEntry||0;var _ep=(d.entries&&d.entries[_ei]&&d.entries[_ei].priority)||d.priority||'high';
 var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
   var ae=d.activeEntry;
@@ -9523,9 +9997,9 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
     statusSel='<select id="pin-status" class="pin-status-sel" disabled data-status="N/A" style="opacity:.5;cursor:not-allowed;">'
       +'<option selected>— Not a deficiency —</option></select>';
   } else {
-    statusSel='<select id="pin-status" class="pin-status-sel" data-status="'+(d.status||'Outstanding')+'" onchange="this.dataset.status=this.value;autoPinSave()">'
-      +'<option value="Outstanding"'+(d.status==='Outstanding'?' selected':'')+'>● Outstanding</option>'
-      +'<option value="Addressed & Closed"'+(d.status==='Addressed & Closed'?' selected':'')+'>✔ Addressed & Closed</option>'
+    statusSel='<select id="pin-status" class="pin-status-sel" data-status="'+(d.status||'open')+'" onchange="this.dataset.status=this.value;autoPinSave()">'
+      +'<option value="open"'+(_deficIsOpen(d)?' selected':'')+'>● Outstanding</option>'
+      +'<option value="closed"'+(_deficIsClosed(d)?' selected':'')+'>✔ Addressed & Closed</option>'
       +'</select>';
   }
 
@@ -9926,8 +10400,8 @@ function renderTasksTable(){
     }
     if(fStatus!=='all'){
       if(fStatus==='IAR'&&!def.iar)return false;
-      if(fStatus==='Outstanding'&&(def.iar||def.status==='Addressed & Closed'))return false;
-      if(fStatus==='Closed'&&def.status!=='Addressed & Closed')return false;
+      if(fStatus==='Outstanding'&&(def.iar||_deficIsClosed(def)))return false;
+      if(fStatus==='Closed'&&!_deficIsClosed(def))return false;
     }
     if(fPri!=='all'&&(def.priority||'high')!==fPri)return false;
     if(fCtr!=='all'&&d.contractorName!==fCtr)return false;
@@ -9948,7 +10422,7 @@ function renderTasksTable(){
     else if(col==='contractor'){av=a.contractorName.toLowerCase();bv=b.contractorName.toLowerCase();}
     else if(col==='priority'){var po={high:0,low:1,general:2};av=po[a.defic.priority||'high'];bv=po[b.defic.priority||'high'];}
     else if(col==='status'){
-      var so=function(d){return d.defic.iar?0:d.defic.status==='Outstanding'?1:2;};
+      var so=function(d){return d.defic.iar?0:_deficIsOpen(d.defic)?1:2;};
       av=so(a);bv=so(b);
     }else if(col==='response'){
       var ro=function(d){
@@ -9992,8 +10466,8 @@ function renderTasksTable(){
     var entries=def.entries&&def.entries.length?def.entries:[{description:def.description||'',priority:def.priority||'high',photos:[]}];
     var multiObs=entries.length>1;
     var dwgN=dwgMap[def.drawingId]||'';
-    var sc=def.iar?'iar':def.status==='Addressed & Closed'?'closed':'outstanding';
-    var sl=def.iar?'IAR':def.status==='Addressed & Closed'?'Closed':'Outstanding';
+    var sc=def.iar?'iar':_deficIsClosed(def)?'closed':'outstanding';
+    var sl=def.iar?'IAR':_deficIsClosed(def)?'Closed':'Outstanding';
 
     entries.forEach(function(en,ei){
       var pr=en.priority||def.priority||'high';
@@ -10118,7 +10592,7 @@ function _pkbCard(d,p){
   // Status badge
   var badgeCls='outstanding';var badgeTxt='Outstanding';
   if(defic.iar){badgeCls='iar';badgeTxt='⚡ IAR';}
-  else if(defic.status==='Addressed & Closed'){badgeCls='closed';badgeTxt='Closed';}
+  else if(_deficIsClosed(defic)){badgeCls='closed';badgeTxt='Closed';}
   // Drawing name
   var dwgName='';
   if(defic.drawingId&&p.drawings){var dwg=p.drawings.find(function(x){return x.id===defic.drawingId;});if(dwg)dwgName=dwg.name||dwg.filename||'';}
@@ -10588,8 +11062,6 @@ function _buildUnifiedPhotoList(p){
   if(siteArr.length){siteArr.forEach(function(ph,i){
     var src=(typeof ph==='string')?ph:((ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'');
     if(!src||src.length<5)return;// Skip ghost records with no displayable image
-    // For photos with non-destructive markup, just flag it — thumbnail shows original image with ✏️ badge
-    // Composited previews are unreliable (CORS tainting, canvas size mismatch)
     var hasMarkup=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
     var thumbSrc=src;
     var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('site_'+i);
@@ -10597,24 +11069,36 @@ function _buildUnifiedPhotoList(p){
   });}
 
   var ad=getAllDeficiencies(p);
+  // Helper: get observations or entries for a deficiency (backward compat)
+  function _getObs(d){
+    if(d.observations&&d.observations.length)return d.observations.map(function(o,i){return{photos:o.photos||[],label:o.text||'',idx:i};});
+    if(d.entries&&d.entries.length)return d.entries.map(function(e,i){return{photos:e.photos||[],label:e.description||'',idx:i};});
+    return[];
+  }
+  // Helper: get activity or responses for a deficiency (backward compat)
+  function _getAct(d){
+    if(d.activity&&d.activity.length)return d.activity.map(function(a,i){return{photos:a.photos||[],label:a.label||'Activity',date:a.date||'',idx:i};});
+    if(d.responses&&d.responses.length)return d.responses.map(function(r,i){return{photos:r.photos||[],label:r.party==='contractor'?'Ctr Resp':'Con Resp',date:r.date||'',idx:i};});
+    return[];
+  }
   // First pass: map every photo id to all pins/observations that reference it
   ad.forEach(function(r){
     var d=r.defic;
-    var numEn=(d.entries&&d.entries.length)||0;
-    if(d.entries){d.entries.forEach(function(en,ei){
-      if(en.photos){en.photos.forEach(function(ph){
+    var obs=_getObs(d);
+    obs.forEach(function(o,oi){
+      if(o.photos){o.photos.forEach(function(ph){
         var pid=_deficPhotoId(ph)||_deficPhotoSrc(ph);
         if(!srcToPins[pid])srcToPins[pid]=[];
-        var obsLabel=numEn>1?', Obs '+String.fromCharCode(65+ei):'';
+        var obsLabel=obs.length>1?', Obs '+String.fromCharCode(65+oi):'';
         srcToPins[pid].push('Pin '+d.num+obsLabel);
       });}
-    });}
-    // d.photos not in entries
+    });
+    // d.photos not in observations
     if(d.photos){d.photos.forEach(function(ph){
       var pid=_deficPhotoId(ph)||_deficPhotoSrc(ph);
-      var inEntry=false;
-      if(d.entries){d.entries.forEach(function(en){if(en.photos){en.photos.forEach(function(ep){if((_deficPhotoId(ep)||_deficPhotoSrc(ep))===pid)inEntry=true;});}});}
-      if(!inEntry){
+      var inObs=false;
+      obs.forEach(function(o){if(o.photos){o.photos.forEach(function(ep){if((_deficPhotoId(ep)||_deficPhotoSrc(ep))===pid)inObs=true;});}});
+      if(!inObs){
         if(!srcToPins[pid])srcToPins[pid]=[];
         srcToPins[pid].push('Pin '+d.num);
       }
@@ -10625,9 +11109,9 @@ function _buildUnifiedPhotoList(p){
   var seen={};
   ad.forEach(function(r){
     var d=r.defic;
-    var numEn=(d.entries&&d.entries.length)||0;
-    if(d.entries){d.entries.forEach(function(en,ei){
-      if(en.photos){en.photos.forEach(function(ph,pi){
+    var obs=_getObs(d);
+    obs.forEach(function(o,oi){
+      if(o.photos){o.photos.forEach(function(ph,pi){
         var pid=_deficPhotoId(ph)||_deficPhotoSrc(ph);
         if(seen[pid])return;seen[pid]=true;
         var refs=srcToPins[pid]||[];
@@ -10635,9 +11119,9 @@ function _buildUnifiedPhotoList(p){
         var caption=uniqueRefs.join(' | ');
         var phSrc=_deficPhotoSrc(ph);
         var phHasMk=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
-        allPhotos.push({src:phSrc,thumbSrc:phSrc,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:'def_'+d.id+'_e'+ei+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk});
+        allPhotos.push({src:phSrc,thumbSrc:phSrc,date:d.date||d.notedDate||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:'def_'+d.id+'_o'+oi+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk});
       });}
-    });}
+    });
     if(d.photos){d.photos.forEach(function(ph,pi){
       var pid=_deficPhotoId(ph)||_deficPhotoSrc(ph);
       if(seen[pid])return;seen[pid]=true;
@@ -10647,19 +11131,20 @@ function _buildUnifiedPhotoList(p){
       var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('def_'+d.id+'_'+pi);
       var phSrc2=_deficPhotoSrc(ph);
       var phHasMk2=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
-      allPhotos.push({src:phSrc2,thumbSrc:phSrc2,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:realId,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk2});
+      allPhotos.push({src:phSrc2,thumbSrc:phSrc2,date:d.date||d.notedDate||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:realId,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk2});
     });}
-    if(d.responses){d.responses.forEach(function(resp,ri){
-      if(resp.photos){resp.photos.forEach(function(ph,pi){
+    // Activity/response photos
+    var acts=_getAct(d);
+    acts.forEach(function(a,ai){
+      if(a.photos){a.photos.forEach(function(ph,pi){
         var pid=_deficPhotoId(ph)||_deficPhotoSrc(ph);
         if(seen[pid])return;seen[pid]=true;
-        var rtype=resp.party==='contractor'?'Ctr Resp':'Con Resp';
-        var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('resp_'+d.id+'_'+ri+'_'+pi);
+        var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('act_'+d.id+'_'+ai+'_'+pi);
         var phSrc3=_deficPhotoSrc(ph);
         var phHasMk3=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
-        allPhotos.push({src:phSrc3,thumbSrc:phSrc3,date:resp.date||d.date||null,type:'response',deficId:d.id,deficNum:d.num,respIdx:ri,idx:pi,id:realId,caption:'Pin '+d.num+' '+rtype,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk3});
+        allPhotos.push({src:phSrc3,thumbSrc:phSrc3,date:a.date||d.date||d.notedDate||null,type:'activity',deficId:d.id,deficNum:d.num,actIdx:ai,idx:pi,id:realId,caption:'Pin '+d.num+' '+a.label,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk3});
       });}
-    });}
+    });
   });
   return allPhotos;
 }
@@ -11269,7 +11754,7 @@ function _renderDrawingWithPins(dwgDataUrl, pins, callback){
       var d=r.d;
       if(d.pinX==null||d.pinY==null)return;
       var px=d.pinX*canvas.width, py=d.pinY*canvas.height;
-      var fill=d.iar?'#FF69B4':(d.status==='Outstanding'?'#C0392B':'#1A7A4A');
+      var fill=d.iar?'#FF69B4':(_deficIsOpen(d)?'#C0392B':'#1A7A4A');
 
       var scale=canvas.width/1200;
       var r0=Math.max(8,14*scale);
@@ -11553,16 +12038,16 @@ if(reportDefs.length){
   Object.keys(ctrGroups).forEach(function(ctr){
     var gc=ctrGroups[ctr];
     var iar=gc.filter(function(r){return r.d.iar;}).length;
-    var os=gc.filter(function(r){return r.d.status==='Outstanding';}).length;
-    var cl=gc.filter(function(r){return r.d.status==='Closed';}).length;
+    var os=gc.filter(function(r){return _deficIsOpen(r.d);}).length;
+    var cl=gc.filter(function(r){return _deficIsClosed(r.d);}).length;
     summaryHtml+='<tr><td><strong>'+escHtml(ctr)+'</strong></td><td style="text-align:center;">'+gc.length+'</td>';
     summaryHtml+='<td style="text-align:center;color:#FF69B4;font-weight:700;">'+iar+'</td>';
     summaryHtml+='<td style="text-align:center;color:#C0392B;font-weight:700;">'+os+'</td>';
     summaryHtml+='<td style="text-align:center;color:#1A7A4A;font-weight:700;">'+cl+'</td></tr>';
   });
   var tiar=reportDefs.filter(function(r){return r.d.iar;}).length;
-  var tos=reportDefs.filter(function(r){return r.d.status==='Outstanding';}).length;
-  var tcl=reportDefs.filter(function(r){return r.d.status==='Closed';}).length;
+  var tos=reportDefs.filter(function(r){return _deficIsOpen(r.d);}).length;
+  var tcl=reportDefs.filter(function(r){return _deficIsClosed(r.d);}).length;
   summaryHtml+='<tr style="border-top:2px solid #9C2742;font-weight:700;"><td>Total</td><td style="text-align:center;">'+reportDefs.length+'</td>';
   summaryHtml+='<td style="text-align:center;color:#FF69B4;">'+tiar+'</td><td style="text-align:center;color:#C0392B;">'+tos+'</td><td style="text-align:center;color:#1A7A4A;">'+tcl+'</td></tr>';
   summaryHtml+='</tbody></table></div>';
@@ -11579,7 +12064,7 @@ function _buildDefCardHtml(r){
   h+='<div><strong style="color:#9C2742;font-size:13pt;">#'+d.num+'</strong>';
   if(d.iar)h+='<span class="iar">IAR</span>';
   h+='</div>';
-  h+='<span class="'+(d.status==='Outstanding'?'so':'sc')+'">'+d.status+'</span>';
+  h+='<span class="'+(_deficIsOpen(d)?'so':'sc')+'">'+(_deficIsOpen(d)?'Outstanding':'Closed')+'</span>';
   h+='</div>';
   // Build sections as separate divs with data-split markers for potential page splitting
   var hasMultiEntries=d.entries&&d.entries.length>1;
@@ -11834,10 +12319,10 @@ if(isField&&p.drawings&&p.drawings.length){
       appHtml+='<table class="app-pin-table"><thead><tr><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
       dPins.forEach(function(r){
         var d=r.d;
-        var sc2=d.status==='Outstanding'?'#C0392B':'#1A7A4A';
+        var sc2=_deficIsOpen(d)?'#C0392B':'#1A7A4A';
         appHtml+='<tr><td><strong style="color:#9C2742;">#'+d.num+'</strong>'+(d.iar?'<span class="iar">IAR</span>':'')+'</td>';
-        appHtml+='<td>'+escHtml(d.description||'\u2014')+'</td>';
-        appHtml+='<td style="color:'+sc2+';font-weight:700;">'+d.status+'</td>';
+        appHtml+='<td>'+escHtml(_deficDesc(d)||'\u2014')+'</td>';
+        appHtml+='<td style="color:'+sc2+';font-weight:700;">'+(_deficIsOpen(d)?'Outstanding':'Closed')+'</td>';
         appHtml+='<td>'+escHtml(r.ctr)+'</td></tr>';
       });
       appHtml+='</tbody></table></div></div>';
@@ -12392,8 +12877,8 @@ function filterDeficiencies(){
     var ctr=(el.getAttribute('data-ctr')||'').toLowerCase();
     var matchSearch=!_deficSearchQuery||desc.indexOf(_deficSearchQuery)>=0||('#'+num).indexOf(_deficSearchQuery)>=0||ctr.indexOf(_deficSearchQuery)>=0;
     var matchStatus=_deficStatusFilter==='all'||
-      (_deficStatusFilter==='Outstanding'&&status==='Outstanding'&&!iar)||
-      (_deficStatusFilter==='Closed'&&status==='Closed')||
+      (_deficStatusFilter==='Outstanding'&&(status==='Outstanding'||status==='open')&&!iar)||
+      (_deficStatusFilter==='Closed'&&(status==='Closed'||status==='closed'))||
       (_deficStatusFilter==='iar'&&iar);
     el.style.display=(matchSearch&&matchStatus)?'':'none';
   });
@@ -13130,8 +13615,12 @@ function _collectFullState(){
     }
     defics.forEach(function(d){
       _stripArr(d.photos);
+      // Old format
       if(d.entries){d.entries.forEach(function(e){_stripArr(e.photos);});}
       if(d.responses){d.responses.forEach(function(r){_stripArr(r.photos);});}
+      // New format
+      if(d.observations){d.observations.forEach(function(o){_stripArr(o.photos);});}
+      if(d.activity){d.activity.forEach(function(a){_stripArr(a.photos);});}
     });
   }
   (state.contractors||[]).forEach(function(c){_stripDeficPhotos(c.deficiencies);});
@@ -13260,6 +13749,12 @@ function _mergeDeficR2Fields(cloudDefics,localDefics){
       (d.responses||[]).forEach(function(r){
         (r.photos||[]).forEach(function(ph){if(ph&&ph.id)localPhotoMap[ph.id]=ph;});
       });
+      if(d.observations){d.observations.forEach(function(o){
+        (o.photos||[]).forEach(function(ph){if(ph&&ph.id)localPhotoMap[ph.id]=ph;});
+      });}
+      (d.activity||[]).forEach(function(a){
+        (a.photos||[]).forEach(function(ph){if(ph&&ph.id)localPhotoMap[ph.id]=ph;});
+      });
     });
   }
   _indexPhotos(localDefics);
@@ -13287,6 +13782,8 @@ function _mergeDeficR2Fields(cloudDefics,localDefics){
     _fillPhotos(d.photos);
     if(d.entries){d.entries.forEach(function(e){_fillPhotos(e.photos);});}
     (d.responses||[]).forEach(function(r){_fillPhotos(r.photos);});
+    if(d.observations){d.observations.forEach(function(o){_fillPhotos(o.photos);});}
+    (d.activity||[]).forEach(function(a){_fillPhotos(a.photos);});
   });
 }
 
@@ -13345,6 +13842,8 @@ function _rebuildMissingR2Urls(proj){
       _fixArr(d.photos);
       if(d.entries){d.entries.forEach(function(e){_fixArr(e.photos);});}
       (d.responses||[]).forEach(function(r){_fixArr(r.photos);});
+      if(d.observations){d.observations.forEach(function(o){_fixArr(o.photos);});}
+      (d.activity||[]).forEach(function(a){_fixArr(a.photos);});
     });
   }
   (proj.contractors||[]).forEach(function(c){_fixDeficPhotos(c.deficiencies);});
@@ -13505,6 +14004,8 @@ async function _repairR2Links(forceRun){
       (d.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)allDeficRecs.push(ph);});
       if(d.entries){d.entries.forEach(function(e){(e.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)allDeficRecs.push(ph);});});}
       (d.responses||[]).forEach(function(r){(r.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)allDeficRecs.push(ph);});});
+      if(d.observations){d.observations.forEach(function(o){(o.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)allDeficRecs.push(ph);});});}
+      (d.activity||[]).forEach(function(a){(a.photos||[]).forEach(function(ph){if(ph&&ph.r2Key)allDeficRecs.push(ph);});});
     });
   }
   (p.contractors||[]).forEach(function(c){_collectDeficPhotos(c.deficiencies);});
@@ -14036,6 +14537,8 @@ async function _autoDownloadR2(){
       _addFromArr(d.photos);
       if(d.entries){d.entries.forEach(function(e){_addFromArr(e.photos);});}
       (d.responses||[]).forEach(function(r){_addFromArr(r.photos);});
+      if(d.observations){d.observations.forEach(function(o){_addFromArr(o.photos);});}
+      (d.activity||[]).forEach(function(a){_addFromArr(a.photos);});
     });
   }
   (p.contractors||[]).forEach(function(c){_collectDeficPhotoTasks(c.deficiencies);});
