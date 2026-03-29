@@ -8235,12 +8235,8 @@ function lightboxSaveMarkup(){
     var _origIsData=origSrc&&origSrc.indexOf('data:')===0;
     function _saveOrigBackup(blob,dataUrl){
       _origRec.dataUrl=dataUrl||'';
-      // Create blob URL for fast thumbnail display (data URLs can be very large and slow to render)
-      if(blob&&!_origRec._blobUrl){
-        try{_origRec._blobUrl=URL.createObjectURL(blob);}catch(e){}
-      }
-      // Push to sitePhotos only when we have displayable data (dataUrl or blobUrl or r2Url)
-      var hasDisplayableData=!!(dataUrl&&dataUrl.length>20)||!!_origRec._blobUrl;
+      // Push to sitePhotos only when we have displayable data
+      var hasDisplayableData=!!(dataUrl&&dataUrl.length>20);
       if(!_origPushed&&hasDisplayableData){p.sitePhotos.push(_origRec);_origPushed=true;}
       console.log('[Markup] Original backup created: id='+_origRec.id+' dataUrl='+(dataUrl?dataUrl.substring(0,30)+'...':'EMPTY')+' pushed='+_origPushed+' forPhoto='+ph.id);
       if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'&&blob){
@@ -9022,10 +9018,9 @@ function _deficPhotoThumbSrc(ph){
   if(ph.markupObjects&&ph.markupObjects.length>0){
     if(ph.markedPreview&&ph.markedPreview.length>100)return ph.markedPreview;
     if(ph.id&&_markupPreviewCache[ph.id]&&_markupPreviewCache[ph.id].preview)return _markupPreviewCache[ph.id].preview;
-    if(ph.markedR2Url&&ph.markedR2Url.length>5&&ph.markedR2Url.indexOf('http')===0)return ph.markedR2Url;
   }
   // Also check cache even without markupObjects on record (might have been stripped)
-  if(ph.id&&_markupPreviewCache[ph.id]&&_markupPreviewCache[ph.id].preview)return _markupPreviewCache[ph.id].preview;
+  if(ph.id&&!ph._markupCleared&&_markupPreviewCache[ph.id]&&_markupPreviewCache[ph.id].preview)return _markupPreviewCache[ph.id].preview;
   return _deficPhotoSrc(ph);
 }
 function _deficPhotoId(ph){
@@ -10849,7 +10844,7 @@ function _buildUnifiedPhotoList(p){
 
   var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
   if(siteArr.length){siteArr.forEach(function(ph,i){
-    var src=(typeof ph==='string')?ph:((ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph._blobUrl)?ph._blobUrl:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'');
+    var src=(typeof ph==='string')?ph:((ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'');
     if(!src||src.length<5)return;// Skip ghost records with no displayable image
     // For photos with non-destructive markup, just flag it — thumbnail shows original image with ✏️ badge
     // Composited previews are unreliable (CORS tainting, canvas size mismatch)
@@ -10908,7 +10903,7 @@ function _buildUnifiedPhotoList(p){
           ph.markedPreview=_markupPreviewCache[phId].preview;
         }
         var phThumb=phSrc;
-        if(phHasMk){if(ph.markedPreview&&ph.markedPreview.length>100)phThumb=ph.markedPreview;else if(_markupPreviewCache[phId]&&_markupPreviewCache[phId].preview)phThumb=_markupPreviewCache[phId].preview;else if(ph.markedR2Url&&ph.markedR2Url.length>5&&ph.markedR2Url.indexOf("http")===0)phThumb=ph.markedR2Url;}
+        if(phHasMk){if(ph.markedPreview&&ph.markedPreview.length>100)phThumb=ph.markedPreview;else if(_markupPreviewCache[phId]&&_markupPreviewCache[phId].preview)phThumb=_markupPreviewCache[phId].preview;}
         allPhotos.push({src:phSrc,thumbSrc:phThumb,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:'def_'+d.id+'_e'+ei+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk});
       });}
     });}
@@ -10926,7 +10921,7 @@ function _buildUnifiedPhotoList(p){
         phHasMk2=true;ph.markupObjects=_markupPreviewCache[phId2].objects;ph.markedPreview=_markupPreviewCache[phId2].preview;
       }
       var phThumb2=phSrc2;
-      if(phHasMk2){if(ph.markedPreview&&ph.markedPreview.length>100)phThumb2=ph.markedPreview;else if(_markupPreviewCache[phId2]&&_markupPreviewCache[phId2].preview)phThumb2=_markupPreviewCache[phId2].preview;else if(ph.markedR2Url&&ph.markedR2Url.length>5&&ph.markedR2Url.indexOf('http')===0)phThumb2=ph.markedR2Url;}
+      if(phHasMk2){if(ph.markedPreview&&ph.markedPreview.length>100)phThumb2=ph.markedPreview;else if(_markupPreviewCache[phId2]&&_markupPreviewCache[phId2].preview)phThumb2=_markupPreviewCache[phId2].preview;}
       allPhotos.push({src:phSrc2,thumbSrc:phThumb2,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:realId,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk2});
     });}
     if(d.responses){d.responses.forEach(function(resp,ri){
@@ -10942,7 +10937,7 @@ function _buildUnifiedPhotoList(p){
           phHasMk3=true;ph.markupObjects=_markupPreviewCache[phId3].objects;ph.markedPreview=_markupPreviewCache[phId3].preview;
         }
         var phThumb3=phSrc3;
-        if(phHasMk3){if(ph.markedPreview&&ph.markedPreview.length>100)phThumb3=ph.markedPreview;else if(_markupPreviewCache[phId3]&&_markupPreviewCache[phId3].preview)phThumb3=_markupPreviewCache[phId3].preview;else if(ph.markedR2Url&&ph.markedR2Url.length>5&&ph.markedR2Url.indexOf('http')===0)phThumb3=ph.markedR2Url;}
+        if(phHasMk3){if(ph.markedPreview&&ph.markedPreview.length>100)phThumb3=ph.markedPreview;else if(_markupPreviewCache[phId3]&&_markupPreviewCache[phId3].preview)phThumb3=_markupPreviewCache[phId3].preview;}
         allPhotos.push({src:phSrc3,thumbSrc:phThumb3,date:resp.date||d.date||null,type:'response',deficId:d.id,deficNum:d.num,respIdx:ri,idx:pi,id:realId,caption:'Pin '+d.num+' '+rtype,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk3});
       });}
     });}
