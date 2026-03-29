@@ -8086,6 +8086,7 @@ function lightboxSaveMarkup(){
 
   saveToLS&&saveToLS();
   showToast&&showToast('Markup saved');
+  console.log('[Markup Save] Calling renderPhotoGallery. currentTab='+currentTab);
   if(typeof renderPhotoGallery==='function')renderPhotoGallery();
 
   // Show revert button now that markup exists
@@ -10230,7 +10231,7 @@ function renderPhotoGallery(){
       // Type badge — top-left, next to checkbox
       html+='<div class="photo-type-badge" style="background:'+typeColor+';">'+typeLabel+'</div>';
       // Markup badge — bottom-left next to R2 icon if photo has markup objects
-      if(ph.hasMarkup)html+='<div class="photo-markup-badge" title="Has editable markup">✏️</div>';
+      if(ph.hasMarkup){html+='<div class="photo-markup-badge" title="Has editable markup">✏️</div>';console.log('[Gallery Render] markup photo id='+ph.id+' thumbSrc differs='+(ph.thumbSrc!==ph.src)+' thumbLen='+(ph.thumbSrc?ph.thumbSrc.length:0));}
       // R2 cloud icon — bottom-left
       if(r2Icon)html+='<div class="photo-r2-icon" title="Cloud: '+ph.r2Status+'">'+r2Icon+'</div>';
       // Delete button — top-right, on hover (site photos only)
@@ -10645,6 +10646,7 @@ function _buildUnifiedPhotoList(p){
         var phHasMk=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
         var phThumb=phSrc;
         if(phHasMk){if(ph.markedR2Url&&ph.markedR2Url.length>5)phThumb=ph.markedR2Url;else if(ph.markedPreview&&ph.markedPreview.length>5)phThumb=ph.markedPreview;}
+        if(ph&&ph.id&&(ph.markupObjects||ph.markedPreview))console.log('[Gallery] defic photo id='+ph.id+' hasMk='+phHasMk+' mkObjLen='+(ph.markupObjects?ph.markupObjects.length:0)+' prevLen='+(ph.markedPreview?ph.markedPreview.length:0)+' markedR2Url='+(ph.markedR2Url||'none')+' thumbSrc='+(phThumb?phThumb.substring(0,40):'empty'));
         allPhotos.push({src:phSrc,thumbSrc:phThumb,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:'def_'+d.id+'_e'+ei+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk});
       });}
     });}
