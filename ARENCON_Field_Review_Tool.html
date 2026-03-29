@@ -2097,10 +2097,12 @@ ADB.saveProject=function(proj){
     function _stripPh(ph){
       if(typeof ph==='string')return{id:'dp_'+Math.random().toString(36).substr(2,8),r2Key:'',r2Status:'',r2Url:''};
       var rec={id:ph.id||'',r2Key:ph.r2Key||'',r2Status:ph.r2Status||'',r2Url:ph.r2Url||''};
-      // Preserve non-destructive markup: objects + canvas dimensions only
-      if(ph.markupObjects&&ph.markupObjects.length)rec.markupObjects=ph.markupObjects;
-      if(ph._markupCanvasW)rec._markupCanvasW=ph._markupCanvasW;
-      if(ph._markupCanvasH)rec._markupCanvasH=ph._markupCanvasH;
+      // Always write markup fields — null means "reverted", presence means "has markup"
+      rec.markupObjects=(ph.markupObjects&&ph.markupObjects.length)?ph.markupObjects:null;
+      rec._markupCanvasW=ph._markupCanvasW||null;
+      rec._markupCanvasH=ph._markupCanvasH||null;
+      // Track original backup photo ID
+      rec._origBackupId=ph._origBackupId||null;
       return rec;
     }
     if(d.photos)d.photos=d.photos.map(_stripPh);
@@ -2158,10 +2160,13 @@ ADB.saveSitePhoto=function(photo,projectId){
   rec.r2Key=photo.r2Key||'';
   rec.r2Status=photo.r2Status||'';
   rec.r2Url=photo.r2Url||'';
-  // Preserve non-destructive markup: objects + canvas dimensions only
-  if(photo.markupObjects&&photo.markupObjects.length)rec.markupObjects=photo.markupObjects;
-  if(photo._markupCanvasW)rec._markupCanvasW=photo._markupCanvasW;
-  if(photo._markupCanvasH)rec._markupCanvasH=photo._markupCanvasH;
+  // Always write markup fields — null means "reverted/none"
+  rec.markupObjects=(photo.markupObjects&&photo.markupObjects.length)?photo.markupObjects:null;
+  rec._markupCanvasW=photo._markupCanvasW||null;
+  rec._markupCanvasH=photo._markupCanvasH||null;
+  rec._origBackupId=photo._origBackupId||null;
+  // Track whether markup was explicitly set (save or revert) this call
+  var _markupExplicit=('markupObjects' in photo);
   // If we have a dataUrl, convert to blob and save
   if(photo.dataUrl){
     rec.dataBlob=ADB.dataUrlToBlob(photo.dataUrl);
@@ -2172,10 +2177,11 @@ ADB.saveSitePhoto=function(photo,projectId){
     if(existing&&existing.dataBlob&&existing.dataBlob.size>0){
       rec.dataBlob=existing.dataBlob;
     }
-    // Preserve markup fields from existing IDB record if not on current record
-    if(!rec.markupObjects&&existing&&existing.markupObjects)rec.markupObjects=existing.markupObjects;
-    if(!rec._markupCanvasW&&existing&&existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
-    if(!rec._markupCanvasH&&existing&&existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
+    // Only inherit markup from IDB if caller didn't explicitly set it
+    if(!_markupExplicit&&!rec.markupObjects&&existing&&existing.markupObjects)rec.markupObjects=existing.markupObjects;
+    if(!_markupExplicit&&!rec._markupCanvasW&&existing&&existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
+    if(!_markupExplicit&&!rec._markupCanvasH&&existing&&existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
+    if(!rec._origBackupId&&existing&&existing._origBackupId)rec._origBackupId=existing._origBackupId;
     return ADB.put('sitePhotos',rec);
   }).catch(function(){
     return ADB.put('sitePhotos',rec);
@@ -2260,9 +2266,11 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
         // Helper to carry markup fields from IDB record to in-memory record
         function _spMarkupFields(sp){
           var f={};
-          if(sp.markupObjects&&sp.markupObjects.length)f.markupObjects=sp.markupObjects;
-          if(sp._markupCanvasW)f._markupCanvasW=sp._markupCanvasW;
-          if(sp._markupCanvasH)f._markupCanvasH=sp._markupCanvasH;
+          // Always carry markup fields from IDB — null means "reverted"
+          f.markupObjects=(sp.markupObjects&&sp.markupObjects.length)?sp.markupObjects:null;
+          f._markupCanvasW=sp._markupCanvasW||null;
+          f._markupCanvasH=sp._markupCanvasH||null;
+          f._origBackupId=sp._origBackupId||null;
           return f;
         }
         var spPromises=sitePhotos.map(function(sp){
@@ -7997,23 +8005,75 @@ function _lbRemoveDrawEvents(){
 // A composited preview is generated for thumbnails. Objects are re-editable.
 // ── SAVE MARKUP (non-destructive) ──
 // Saves markup objects + canvas dimensions on the photo record.
-// Original image is NEVER modified. No composited previews, no R2 marked upload, no backup photos.
+// On FIRST save, creates an "(original)" backup as a site photo.
 function lightboxSaveMarkup(){
   if(!_lbCanvas||!_lbObjects.length)return;
   // Clear selection handles before saving state
   _lbSelectedId=null;_lbSelectedIds=[];_lbRenderAll();
 
   var p=getProject&&getProject();if(!p)return;
+  if(!p.sitePhotos)p.sitePhotos=[];
   var targetId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])?_lbPhotoIds[_lbIdx]:null;
   if(!targetId){showToast&&showToast('Cannot save — photo ID not found','error');return;}
   var rec=_findPhotoRecById(p,targetId);
   if(!rec){showToast&&showToast('Cannot save — photo record not found','error');return;}
   var ph=rec.photo;
 
-  // Save the only 3 fields that matter
+  // Save markup objects + canvas dimensions
   ph.markupObjects=JSON.parse(JSON.stringify(_lbObjects));
   ph._markupCanvasW=_lbCanvas.width;
   ph._markupCanvasH=_lbCanvas.height;
+
+  // ── CREATE "(original)" backup on FIRST markup only ──
+  if(!ph._origBackupId&&_lbObjects.length>0){
+    var origSrc=_lbOrigSrc||_lbPhotos[_lbIdx];
+    var origCaption=ph.caption||'';
+    var origRec={id:'sp_orig_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
+      dataUrl:'',caption:(origCaption?origCaption+' (original)':'Original'),
+      timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};
+    ph._origBackupId=origRec.id;
+
+    // Helper: finalize the backup record — save to sitePhotos array + IDB + R2
+    function _finishOrigBackup(blob,dataUrl){
+      origRec.dataUrl=dataUrl||'';
+      if(dataUrl&&dataUrl.length>20){
+        p.sitePhotos.push(origRec);
+        if(p.id)ADB.saveSitePhoto(origRec,p.id).catch(function(){});
+        saveToLS&&saveToLS();
+        if(typeof renderPhotoGallery==='function')renderPhotoGallery();
+      }
+      // Upload to R2 if in Hub mode
+      if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'&&blob){
+        var fname=_r2Filename('site','jpg');
+        var folderId=_getR2FolderId();
+        origRec.r2Key='photos/'+folderId+'/frt/original/'+fname;
+        origRec.r2Status='pending';
+        ADB.savePending(origRec.id,_csProjectId,blob,{type:'site',fname:fname,r2Key:origRec.r2Key}).catch(function(){});
+        R2Photos.enqueue({projectId:folderId,tool:'frt',type:'original',filename:fname,blob:blob,
+          onComplete:function(err){
+            if(!err){origRec.r2Status='uploaded';origRec.r2Url=R2Photos.getUrl(folderId,'frt','original',fname);
+              ADB.deletePending(origRec.id).catch(function(){});
+              if(p.id)ADB.saveSitePhoto(origRec,p.id).catch(function(){});
+              saveToLS&&saveToLS();_updateR2Badge&&_updateR2Badge();}
+            else{origRec.r2Status='error';}
+          }
+        });
+      }
+    }
+    // Resolve origSrc to blob+dataUrl
+    if(origSrc&&origSrc.indexOf('blob:')===0){
+      fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
+        ADB.blobToDataUrl(blob).then(function(du){_finishOrigBackup(blob,du);}).catch(function(){_finishOrigBackup(blob,'');});
+      }).catch(function(){});
+    } else if(origSrc&&origSrc.indexOf('data:')===0){
+      var blob2=(typeof R2Photos!=='undefined')?R2Photos.dataUrlToBlob(origSrc):null;
+      _finishOrigBackup(blob2,origSrc);
+    } else if(origSrc&&origSrc.indexOf('http')===0){
+      fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
+        ADB.blobToDataUrl(blob).then(function(du){_finishOrigBackup(blob,du);}).catch(function(){_finishOrigBackup(blob,'');});
+      }).catch(function(){});
+    }
+  }
 
   // Persist to IDB (site photos go to sitePhotos store; defic photos go via saveProject)
   if(rec.locationType==='site'&&ph.id&&p.id){
@@ -8033,9 +8093,7 @@ function lightboxSaveMarkup(){
 }
 
 // ── REVERT TO ORIGINAL ──
-// Clears all markup objects, deletes the "(original)" backup photo, restores clean image
-// ── REVERT TO ORIGINAL ──
-// Clears all markup objects. Original image was never modified, so just null the objects.
+// Clears all markup objects, deletes the "(original)" backup photo, restores clean image.
 function lightboxRevertMarkup(){
   var targetId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])?_lbPhotoIds[_lbIdx]:null;
   if(!targetId)return;
@@ -8046,10 +8104,30 @@ function lightboxRevertMarkup(){
   if(!ph.markupObjects||!ph.markupObjects.length){showToast&&showToast('No markup to revert');return;}
 
   _aConfirm('Revert this photo to the original? All markup will be removed.',function(){
-    // Clear the only 3 markup fields
+    // Clear markup fields
     ph.markupObjects=null;
-    delete ph._markupCanvasW;
-    delete ph._markupCanvasH;
+    ph._markupCanvasW=null;
+    ph._markupCanvasH=null;
+
+    // Delete the "(original)" backup photo from sitePhotos
+    if(ph._origBackupId&&p.sitePhotos){
+      var backupIdx=-1;
+      for(var i=0;i<p.sitePhotos.length;i++){
+        if(p.sitePhotos[i]&&p.sitePhotos[i].id===ph._origBackupId){backupIdx=i;break;}
+      }
+      if(backupIdx>=0){
+        var backupRec=p.sitePhotos[backupIdx];
+        // Delete from IDB sitePhotos store
+        if(backupRec.id&&p.id)ADB.delete('sitePhotos',backupRec.id).catch(function(){});
+        // Delete from R2 if uploaded
+        if(backupRec.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+          var parts=backupRec.r2Key.split('/');
+          if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts.slice(4).join('/')).catch(function(){});
+        }
+        p.sitePhotos.splice(backupIdx,1);
+      }
+      ph._origBackupId=null;
+    }
 
     // Clear lightbox canvas objects and exit draw mode
     _lbObjects=[];_lbUndoStack=[];_lbRedoStack=[];
@@ -13062,7 +13140,7 @@ function _collectFullState(){
   // 3) Site photos: strip dataUrl and markupObjects (markup persists in IDB sitePhotos store, not cloud)
   if(state.sitePhotos){
     state.sitePhotos.forEach(function(ph){
-      if(ph){delete ph.dataUrl;delete ph.markupObjects;delete ph._markupCanvasW;delete ph._markupCanvasH;}
+      if(ph){delete ph.dataUrl;delete ph.markupObjects;delete ph._markupCanvasW;delete ph._markupCanvasH;delete ph._origBackupId;}
     });
   }
   // Legacy photos array (same treatment)
@@ -13161,6 +13239,7 @@ function _mergeSitePhoto(cph,localSitePhotos){
     if(existing.markupObjects&&existing.markupObjects.length)rec.markupObjects=existing.markupObjects;
     if(existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
     if(existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
+    if(existing._origBackupId)rec._origBackupId=existing._origBackupId;
   }
   return rec;
 }
@@ -13196,10 +13275,11 @@ function _mergeDeficR2Fields(cloudDefics,localDefics){
         if(!ph.r2Url&&local.r2Url)ph.r2Url=local.r2Url;
         // Preserve local dataUrl if cloud doesn't have it (cloud strips base64)
         if(!ph.dataUrl&&local.dataUrl)ph.dataUrl=local.dataUrl;
-        // Preserve non-destructive markup from local (3 fields only)
+        // Preserve non-destructive markup from local (3 fields + backup ID)
         if(!ph.markupObjects&&local.markupObjects)ph.markupObjects=local.markupObjects;
         if(!ph._markupCanvasW&&local._markupCanvasW)ph._markupCanvasW=local._markupCanvasW;
         if(!ph._markupCanvasH&&local._markupCanvasH)ph._markupCanvasH=local._markupCanvasH;
+        if(!ph._origBackupId&&local._origBackupId)ph._origBackupId=local._origBackupId;
       }
     });
   }
