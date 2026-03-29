@@ -8235,9 +8235,12 @@ function lightboxSaveMarkup(){
     var _origIsData=origSrc&&origSrc.indexOf('data:')===0;
     function _saveOrigBackup(blob,dataUrl){
       _origRec.dataUrl=dataUrl||'';
-      // Push to sitePhotos only when we have displayable data (dataUrl or r2Url)
-      // This prevents ghost records that appear empty in Photo Gallery
-      var hasDisplayableData=!!(dataUrl&&dataUrl.length>20);
+      // Create blob URL for fast thumbnail display (data URLs can be very large and slow to render)
+      if(blob&&!_origRec._blobUrl){
+        try{_origRec._blobUrl=URL.createObjectURL(blob);}catch(e){}
+      }
+      // Push to sitePhotos only when we have displayable data (dataUrl or blobUrl or r2Url)
+      var hasDisplayableData=!!(dataUrl&&dataUrl.length>20)||!!_origRec._blobUrl;
       if(!_origPushed&&hasDisplayableData){p.sitePhotos.push(_origRec);_origPushed=true;}
       console.log('[Markup] Original backup created: id='+_origRec.id+' dataUrl='+(dataUrl?dataUrl.substring(0,30)+'...':'EMPTY')+' pushed='+_origPushed+' forPhoto='+ph.id);
       if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'&&blob){
@@ -8261,7 +8264,14 @@ function lightboxSaveMarkup(){
         ADB.saveSitePhoto(_origRec,p.id).catch(function(){});
       }
       saveToLS&&saveToLS();
-      if(typeof renderPhotoGallery==='function')renderPhotoGallery();
+      if(typeof renderPhotoGallery==='function'){
+        renderPhotoGallery();
+        // Force-load all thumbnails (backup may be above viewport, outside IntersectionObserver)
+        setTimeout(function(){
+          var grid=document.getElementById('photo-gallery-grid');
+          if(grid){grid.querySelectorAll('img[data-src]').forEach(function(img){_loadThumbSrc(img);});}
+        },100);
+      }
     }
     if(_origIsBlob){
       fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
@@ -10839,7 +10849,7 @@ function _buildUnifiedPhotoList(p){
 
   var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
   if(siteArr.length){siteArr.forEach(function(ph,i){
-    var src=(typeof ph==='string')?ph:((ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'');
+    var src=(typeof ph==='string')?ph:((ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph._blobUrl)?ph._blobUrl:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'');
     if(!src||src.length<5)return;// Skip ghost records with no displayable image
     // For photos with non-destructive markup, just flag it — thumbnail shows original image with ✏️ badge
     // Composited previews are unreliable (CORS tainting, canvas size mismatch)
@@ -10977,7 +10987,67 @@ function showLightboxAt(idx){
   }
   _glbZoomReset();
   overlay.style.display='flex';
-  _loadR2OrDirect(ph.thumbSrc||ph.src,document.getElementById('glb-img'));
+  // For photos with markup, generate composited preview on-the-fly for gallery lightbox
+  var _glbPhRec=null;
+  if(ph.hasMarkup&&ph.id){
+    var _p=getProject();
+    if(_p){var _f=_findPhotoRecById(_p,ph.id);if(_f)_glbPhRec=_f.photo;}
+    if(!_glbPhRec&&ph.id){
+      // Try looking up by unified list id format (def_xxx_eN_N)
+      var _parts=ph.id.split('_e');
+      if(_parts.length>1){
+        var _deficId=_parts[0].replace('def_','');
+        // Find the actual photo record from deficiency
+        if(_p){var _f2=_findPhotoRecById(_p,_deficId);} // won't work but try direct
+      }
+    }
+  }
+  if(_glbPhRec&&_glbPhRec.markupObjects&&_glbPhRec.markupObjects.length>0&&ph.src){
+    // Generate composited preview: load original image, draw markup objects, display
+    var _glbMkImg=new Image();_glbMkImg.crossOrigin='anonymous';
+    function _renderGlbMarkup(imgEl){
+      var cw=_glbPhRec._markupCanvasW||imgEl.naturalWidth||800;
+      var ch=_glbPhRec._markupCanvasH||imgEl.naturalHeight||600;
+      var c=document.createElement('canvas');c.width=cw;c.height=ch;
+      var ctx=c.getContext('2d');ctx.drawImage(imgEl,0,0,cw,ch);
+      var _prevBg=_lbBgImage;_lbBgImage=imgEl;
+      var highlights=[],others=[];
+      _glbPhRec.markupObjects.forEach(function(obj){if(obj.type==='highlight')highlights.push(obj);else others.push(obj);});
+      others.forEach(function(obj){_lbDrawObj(ctx,obj,false);});
+      if(highlights.length){
+        var hc=document.createElement('canvas');hc.width=cw;hc.height=ch;
+        var hx=hc.getContext('2d');
+        highlights.forEach(function(obj){
+          if(!obj.points||obj.points.length<2)return;
+          hx.strokeStyle=obj.color||'#F1C40F';hx.lineWidth=(obj.size||4)*4;
+          hx.lineCap='round';hx.lineJoin='round';hx.globalAlpha=1;
+          hx.beginPath();hx.moveTo(obj.points[0].x,obj.points[0].y);
+          for(var i=1;i<obj.points.length;i++)hx.lineTo(obj.points[i].x,obj.points[i].y);
+          hx.stroke();
+        });
+        ctx.save();ctx.globalAlpha=0.3;ctx.drawImage(hc,0,0);ctx.restore();
+      }
+      _lbBgImage=_prevBg;
+      try{
+        var du=c.toDataURL('image/jpeg',0.92);
+        var glbImg=document.getElementById('glb-img');
+        if(glbImg)glbImg.src=du;
+      }catch(e){
+        _loadR2OrDirect(ph.src,document.getElementById('glb-img'));
+      }
+    }
+    if(ph.src.indexOf('http')===0){
+      fetch(ph.src).then(function(r){return r.blob();}).then(function(blob){
+        _glbMkImg.onload=function(){_renderGlbMarkup(_glbMkImg);};
+        _glbMkImg.src=URL.createObjectURL(blob);
+      }).catch(function(){_loadR2OrDirect(ph.src,document.getElementById('glb-img'));});
+    } else {
+      _glbMkImg.onload=function(){_renderGlbMarkup(_glbMkImg);};
+      _glbMkImg.src=ph.src;
+    }
+  } else {
+    _loadR2OrDirect(ph.thumbSrc||ph.src,document.getElementById('glb-img'));
+  }
   document.getElementById('glb-counter').textContent='Photo '+(idx+1)+' of '+_lightboxPhotos.length;
   document.getElementById('glb-info').textContent=(ph.date?(ph.date+'').substring(0,10)+' · ':'')+((ph.caption)||(ph.type==='site'?'Site Photo':ph.type==='response'?'Response Photo':('Pin #'+ph.deficNum)));
   var capEl=document.getElementById('glb-caption-text');
