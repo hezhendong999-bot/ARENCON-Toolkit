@@ -10906,6 +10906,7 @@ function _buildUnifiedPhotoList(p){
         }
         var phThumb=phSrc;
         if(phHasMk){if(ph.markedPreview&&ph.markedPreview.length>100)phThumb=ph.markedPreview;else if(_markupPreviewCache[phId]&&_markupPreviewCache[phId].preview)phThumb=_markupPreviewCache[phId].preview;}
+        if(ph._markupCleared)console.log('[UnifiedList] Reverted photo '+phId+': hasMk='+phHasMk+' thumbDiffers='+(phThumb!==phSrc)+' cleared=true');
         allPhotos.push({src:phSrc,thumbSrc:phThumb,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:'def_'+d.id+'_e'+ei+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk});
       });}
     });}
