@@ -2097,19 +2097,10 @@ ADB.saveProject=function(proj){
     function _stripPh(ph){
       if(typeof ph==='string')return{id:'dp_'+Math.random().toString(36).substr(2,8),r2Key:'',r2Status:'',r2Url:''};
       var rec={id:ph.id||'',r2Key:ph.r2Key||'',r2Status:ph.r2Status||'',r2Url:ph.r2Url||''};
-      // Preserve non-destructive markup fields
-      if(ph.markupObjects&&ph.markupObjects.length){rec.markupObjects=ph.markupObjects;console.log('[StripPh] Preserved markupObjects for '+ph.id+' count='+ph.markupObjects.length);}
-      // Fallback: check global cache
-      if(!rec.markupObjects&&!ph._markupCleared&&ph.id&&typeof _markupPreviewCache!=='undefined'&&_markupPreviewCache[ph.id]&&_markupPreviewCache[ph.id].objects){
-        rec.markupObjects=_markupPreviewCache[ph.id].objects;
-        console.log('[StripPh] Restored markupObjects from CACHE for '+ph.id+' count='+rec.markupObjects.length);
-      }
-      if(ph._origBackupId)rec._origBackupId=ph._origBackupId;
-      if(ph.markedR2Key)rec.markedR2Key=ph.markedR2Key;
-      if(ph.markedR2Url)rec.markedR2Url=ph.markedR2Url;
+      // Preserve non-destructive markup: objects + canvas dimensions only
+      if(ph.markupObjects&&ph.markupObjects.length)rec.markupObjects=ph.markupObjects;
       if(ph._markupCanvasW)rec._markupCanvasW=ph._markupCanvasW;
       if(ph._markupCanvasH)rec._markupCanvasH=ph._markupCanvasH;
-      if(ph._markupCleared)rec._markupCleared=true;
       return rec;
     }
     if(d.photos)d.photos=d.photos.map(_stripPh);
@@ -2167,14 +2158,10 @@ ADB.saveSitePhoto=function(photo,projectId){
   rec.r2Key=photo.r2Key||'';
   rec.r2Status=photo.r2Status||'';
   rec.r2Url=photo.r2Url||'';
-  // Preserve non-destructive markup fields
+  // Preserve non-destructive markup: objects + canvas dimensions only
   if(photo.markupObjects&&photo.markupObjects.length)rec.markupObjects=photo.markupObjects;
   if(photo._markupCanvasW)rec._markupCanvasW=photo._markupCanvasW;
   if(photo._markupCanvasH)rec._markupCanvasH=photo._markupCanvasH;
-  if(photo._origBackupId)rec._origBackupId=photo._origBackupId;
-  if(photo.markedR2Key)rec.markedR2Key=photo.markedR2Key;
-  if(photo.markedR2Url)rec.markedR2Url=photo.markedR2Url;
-  if(rec.markupObjects)console.log('[ADB.saveSitePhoto] Saving markupObjects for '+rec.id+' count='+rec.markupObjects.length+' canvasW='+(rec._markupCanvasW||'none'));
   // If we have a dataUrl, convert to blob and save
   if(photo.dataUrl){
     rec.dataBlob=ADB.dataUrlToBlob(photo.dataUrl);
@@ -2186,15 +2173,9 @@ ADB.saveSitePhoto=function(photo,projectId){
       rec.dataBlob=existing.dataBlob;
     }
     // Preserve markup fields from existing IDB record if not on current record
-    // BUT NOT if markup was explicitly cleared (revert)
-    if(!photo._markupCleared){
-      if(!rec.markupObjects&&existing&&existing.markupObjects)rec.markupObjects=existing.markupObjects;
-      if(!rec._markupCanvasW&&existing&&existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
-      if(!rec._markupCanvasH&&existing&&existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
-      if(!rec._origBackupId&&existing&&existing._origBackupId)rec._origBackupId=existing._origBackupId;
-      if(!rec.markedR2Key&&existing&&existing.markedR2Key)rec.markedR2Key=existing.markedR2Key;
-      if(!rec.markedR2Url&&existing&&existing.markedR2Url)rec.markedR2Url=existing.markedR2Url;
-    }
+    if(!rec.markupObjects&&existing&&existing.markupObjects)rec.markupObjects=existing.markupObjects;
+    if(!rec._markupCanvasW&&existing&&existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
+    if(!rec._markupCanvasH&&existing&&existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
     return ADB.put('sitePhotos',rec);
   }).catch(function(){
     return ADB.put('sitePhotos',rec);
@@ -2282,10 +2263,6 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
           if(sp.markupObjects&&sp.markupObjects.length)f.markupObjects=sp.markupObjects;
           if(sp._markupCanvasW)f._markupCanvasW=sp._markupCanvasW;
           if(sp._markupCanvasH)f._markupCanvasH=sp._markupCanvasH;
-          if(sp._origBackupId)f._origBackupId=sp._origBackupId;
-          if(sp.markedR2Key)f.markedR2Key=sp.markedR2Key;
-          if(sp.markedR2Url)f.markedR2Url=sp.markedR2Url;
-          if(f.markupObjects)console.log('[ADB.loadFull] Restored markupObjects for '+sp.id+' count='+f.markupObjects.length+' canvasW='+(f._markupCanvasW||'none'));
           return f;
         }
         var spPromises=sitePhotos.map(function(sp){
@@ -3188,8 +3165,6 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   if(!_csHubMode){
     setTimeout(function(){_prefetchDrawingsForOffline(id);},500);
   }
-  // Auto-regenerate markup previews immediately (don't wait — user may switch to Photos tab)
-  if(typeof _autoRegenerateMarkupPreviews==='function')_autoRegenerateMarkupPreviews();
 }
 function populateProjectFields(){var p=getProject();if(!p||!p.info)return;
   Object.keys(p.info).forEach(function(key){
@@ -7372,157 +7347,6 @@ var _lbDragState=null;      // {mode:'move'|'resize', handle, startX,startY,orig
 var _lbRubberBand=null;     // {sx,sy,ex,ey} while rubber-banding
 var _lbOrigSrc='';
 var _lbBgImage=null;
-var _lbOrigBackupId=''; // ID of the "(original)" backup sitePhoto created on first markup
-var _markupPreviewCache={}; // photoId → {preview: base64, objects: [...]} — survives object reference changes
-
-// Regenerate composited preview from original image + markup objects
-// origCanvasW/H = canvas buffer dimensions when markup was drawn (stored as ph._markupCanvasW/H)
-// If not provided, recompute from image natural dimensions using the same formula as lightbox
-function _regenerateMarkupPreview(photoSrc, markupObjects, callback, origCanvasW, origCanvasH){
-  if(!photoSrc||!markupObjects||!markupObjects.length){if(callback)callback(null);return;}
-  var img=new Image();
-  img.crossOrigin='anonymous';
-  function _doRender(imgEl){
-    var natW=imgEl.naturalWidth||800,natH=imgEl.naturalHeight||600;
-    // Determine canvas buffer size — MUST match the lightbox canvas size when markup was drawn
-    var bufW,bufH;
-    if(origCanvasW&&origCanvasW>10){
-      bufW=origCanvasW;bufH=origCanvasH||Math.round(natH*(origCanvasW/natW));
-      console.log('[MarkupPreview] Using stored canvas size: '+bufW+'x'+bufH+' (from _markupCanvasW/H)');
-    } else {
-      // No stored canvas size (legacy data) — recompute from lightbox formula
-      // Lightbox uses maxDim=2400 on desktop, 1200 on mobile. We don't know which device
-      // was used, so try both and pick the one that makes markup coordinates plausible.
-      // Heuristic: check if markup points exceed 1200-scale bounds → was desktop (2400)
-      var maxPt=0;
-      markupObjects.forEach(function(obj){
-        if(obj.points)obj.points.forEach(function(pt){
-          if(pt.x>maxPt)maxPt=pt.x;if(pt.y>maxPt)maxPt=pt.y;
-        });
-        if(obj.x1!=null&&obj.x1>maxPt)maxPt=obj.x1;
-        if(obj.y1!=null&&obj.y1>maxPt)maxPt=obj.y1;
-        if(obj.x2!=null&&obj.x2>maxPt)maxPt=obj.x2;
-        if(obj.y2!=null&&obj.y2>maxPt)maxPt=obj.y2;
-      });
-      var maxDim=(maxPt>1250)?2400:1200;
-      var bufScale=1;
-      if(Math.max(natW,natH)>maxDim)bufScale=maxDim/Math.max(natW,natH);
-      bufW=Math.round(natW*bufScale);bufH=Math.round(natH*bufScale);
-      console.log('[MarkupPreview] Legacy data — maxPt='+Math.round(maxPt)+' maxDim='+maxDim+' natW='+natW+' natH='+natH+' bufW='+bufW+' bufH='+bufH);
-    }
-    // Render at the same size as the original lightbox canvas
-    var c=document.createElement('canvas');
-    c.width=bufW;c.height=bufH;
-    var ctx=c.getContext('2d');
-    ctx.drawImage(imgEl,0,0,bufW,bufH);
-    // Temporarily set _lbBgImage so _lbDrawObj eraser branch can restore background pixels
-    var _prevBgImage=_lbBgImage;
-    _lbBgImage=imgEl;
-    // Draw non-highlight objects (coordinates are already in this canvas space)
-    var highlights=[],others=[];
-    markupObjects.forEach(function(obj){if(obj.type==='highlight')highlights.push(obj);else others.push(obj);});
-    others.forEach(function(obj){_lbDrawObj(ctx,obj,false);});
-    // Highlight composite (same pattern as _lbRenderAll)
-    if(highlights.length){
-      var hc=document.createElement('canvas');hc.width=bufW;hc.height=bufH;
-      var hx=hc.getContext('2d');
-      highlights.forEach(function(obj){
-        if(!obj.points||obj.points.length<2)return;
-        hx.strokeStyle=obj.color||'#F1C40F';hx.lineWidth=(obj.size||4)*4;
-        hx.lineCap='round';hx.lineJoin='round';hx.globalAlpha=1;
-        hx.beginPath();hx.moveTo(obj.points[0].x,obj.points[0].y);
-        for(var i=1;i<obj.points.length;i++)hx.lineTo(obj.points[i].x,obj.points[i].y);
-        hx.stroke();
-      });
-      ctx.save();ctx.globalAlpha=0.3;ctx.drawImage(hc,0,0);ctx.restore();
-    }
-    // Restore global _lbBgImage
-    _lbBgImage=_prevBgImage;
-    // Scale down to thumbnail-friendly size for storage (max 1200px)
-    var outCanvas=c;
-    if(Math.max(bufW,bufH)>1200){
-      outCanvas=document.createElement('canvas');
-      var outScale=1200/Math.max(bufW,bufH);
-      outCanvas.width=Math.round(bufW*outScale);outCanvas.height=Math.round(bufH*outScale);
-      outCanvas.getContext('2d').drawImage(c,0,0,outCanvas.width,outCanvas.height);
-    }
-    try{
-      var result=outCanvas.toDataURL('image/jpeg',0.85);
-      console.log('[MarkupPreview] Generated preview: outCanvas='+outCanvas.width+'x'+outCanvas.height+' resultLen='+result.length+' objects='+markupObjects.length);
-      if(callback)callback(result);
-    }
-    catch(e){console.warn('[MarkupPreview] toDataURL failed:',e);if(callback)callback(null);}
-  }
-  // Load image — handle R2 URLs via blob fetch to avoid CORS
-  if(photoSrc.indexOf('http')===0){
-    fetch(photoSrc).then(function(r){return r.blob();}).then(function(blob){
-      img.onload=function(){_doRender(img);};
-      img.src=URL.createObjectURL(blob);
-    }).catch(function(){if(callback)callback(null);});
-  } else {
-    img.onload=function(){_doRender(img);};
-    img.onerror=function(){if(callback)callback(null);};
-    img.src=photoSrc;
-  }
-}
-
-// Auto-regenerate markup previews for photos that have markupObjects but no markedPreview
-// Called once after project loads
-function _autoRegenerateMarkupPreviews(){
-  var p=getProject&&getProject();if(!p)return;
-  var ad=getAllDeficiencies(p);
-  var queue=[];
-  ad.forEach(function(r){var d=r.defic;
-    function _check(ph){
-      if(ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0&&!ph.markedPreview&&!_markupPreviewCache[ph.id]){
-        var src=_deficPhotoSrc(ph);
-        if(src&&src.length>5)queue.push({ph:ph,src:src});
-      }
-    }
-    if(d.entries){d.entries.forEach(function(en){if(en.photos)en.photos.forEach(_check);});}
-    if(d.photos)d.photos.forEach(_check);
-    if(d.responses){d.responses.forEach(function(r2){if(r2.photos)r2.photos.forEach(_check);});}
-  });
-  // Also check site photos
-  if(p.sitePhotos){p.sitePhotos.forEach(function(ph){
-    if(ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0&&!ph.markedPreview&&!_markupPreviewCache[ph.id]){
-      var src=(ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'';
-      console.log('[MarkupPreview] Site photo queued: id='+ph.id+' src='+(src?src.substring(0,60)+'...':'EMPTY')+' objects='+ph.markupObjects.length);
-      if(src)queue.push({ph:ph,src:src});
-    }
-  });}
-  console.log('[MarkupPreview] Total site photos: '+(p.sitePhotos?p.sitePhotos.length:0)+' with markup: '+queue.length+' (defic+site combined)');
-  if(!queue.length){console.log('[MarkupPreview] Nothing to regenerate — checking why...');
-    if(p.sitePhotos){p.sitePhotos.forEach(function(ph){
-      if(ph&&typeof ph==='object'){
-        var hasMk=ph.markupObjects&&ph.markupObjects.length>0;
-        var hasPrev=!!ph.markedPreview;
-        var hasCached=!!(ph.id&&_markupPreviewCache[ph.id]);
-        if(hasMk||hasPrev||hasCached)console.log('[MarkupPreview] Site photo '+ph.id+': hasMk='+hasMk+' hasPrev='+hasPrev+' cached='+hasCached);
-      }
-    });}
-    return;
-  }
-  console.log('[MarkupPreview] Regenerating '+queue.length+' markup preview(s)...');
-  var idx=0;
-  function _next(){
-    if(idx>=queue.length){
-      console.log('[MarkupPreview] Done regenerating '+queue.length+' preview(s)');
-      if(typeof renderPhotoGallery==='function')renderPhotoGallery();
-      if(typeof renderDeficiencyPanel==='function'&&currentTab==='deficiencies')renderDeficiencyPanel();
-      return;
-    }
-    var item=queue[idx++];
-    _regenerateMarkupPreview(item.src,item.ph.markupObjects,function(preview){
-      if(preview){
-        item.ph.markedPreview=preview;
-        _markupPreviewCache[item.ph.id]={preview:preview,objects:item.ph.markupObjects,canvasW:item.ph._markupCanvasW||0,canvasH:item.ph._markupCanvasH||0};
-      }
-      setTimeout(_next,50);// stagger to avoid blocking UI
-    },item.ph._markupCanvasW||0,item.ph._markupCanvasH||0);
-  }
-  _next();
-}
 
 // Tool state
 var _lbTool='pen',_lbColor='#C0392B',_lbSize=4,_lbOpacity=1;
@@ -8080,15 +7904,6 @@ function lightboxDrawMode(){
         _existingObjects=JSON.parse(JSON.stringify(rec.photo.markupObjects));
         _existingObjects.forEach(function(o){if(!o.id)o.id=_lbNewId();});
       }
-      // Fallback: check global cache
-      if(!_existingObjects&&!(rec&&rec.photo&&rec.photo._markupCleared)&&_markupPreviewCache[_targetId]&&_markupPreviewCache[_targetId].objects&&_markupPreviewCache[_targetId].objects.length>0){
-        _existingObjects=JSON.parse(JSON.stringify(_markupPreviewCache[_targetId].objects));
-        _existingObjects.forEach(function(o){if(!o.id)o.id=_lbNewId();});
-        // Restore onto the record too
-        if(rec&&rec.photo){rec.photo.markupObjects=_markupPreviewCache[_targetId].objects;rec.photo.markedPreview=_markupPreviewCache[_targetId].preview;}
-      }
-      // Track the backup original ID if it exists
-      _lbOrigBackupId=(rec&&rec.photo&&rec.photo._origBackupId)||'';
     }
   }
   if(_existingObjects){
@@ -8180,143 +7995,34 @@ function _lbRemoveDrawEvents(){
 // ── SAVE (Non-Destructive) ──
 // Saves markup objects on the photo record. Original image is NEVER modified.
 // A composited preview is generated for thumbnails. Objects are re-editable.
+// ── SAVE MARKUP (non-destructive) ──
+// Saves markup objects + canvas dimensions on the photo record.
+// Original image is NEVER modified. No composited previews, no R2 marked upload, no backup photos.
 function lightboxSaveMarkup(){
-  if(!_lbCanvas)return;
-  // Render final without selection handles
-  var hadSel=_lbSelectedId;_lbSelectedId=null;_lbSelectedIds=[];_lbRenderAll();
+  if(!_lbCanvas||!_lbObjects.length)return;
+  // Clear selection handles before saving state
+  _lbSelectedId=null;_lbSelectedIds=[];_lbRenderAll();
 
-  // Generate composited preview (for thumbnail display only — NOT the source of truth)
-  var markedSrc;
-  try{
-    markedSrc=_lbCanvas.toDataURL('image/jpeg',0.92);
-  }catch(e){
-    showToast&&showToast('Cannot save markup — photo may need to be re-taken locally','error');
-    console.error('[Markup] toDataURL failed (tainted canvas):',e);
-    return;
-  }
-  if(!markedSrc||markedSrc==='data:,'||markedSrc.length<100){
-    showToast&&showToast('Markup save failed — empty canvas export','error');
-    return;
-  }
-
-  var p=getProject&&getProject();
-  if(!p)return;
-  if(!p.sitePhotos)p.sitePhotos=[];
-
+  var p=getProject&&getProject();if(!p)return;
   var targetId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])?_lbPhotoIds[_lbIdx]:null;
-  console.log('[Markup Save] targetId=',targetId,'_lbPhotoIds=',_lbPhotoIds,'_lbIdx=',_lbIdx);
   if(!targetId){showToast&&showToast('Cannot save — photo ID not found','error');return;}
-
   var rec=_findPhotoRecById(p,targetId);
-  console.log('[Markup Save] rec found=',!!rec, rec?rec.locationType:'N/A');
   if(!rec){showToast&&showToast('Cannot save — photo record not found','error');return;}
   var ph=rec.photo;
 
-  // Save markup objects (the editable data — this is non-destructive)
+  // Save the only 3 fields that matter
   ph.markupObjects=JSON.parse(JSON.stringify(_lbObjects));
-  delete ph._markupCleared; // Clear revert flag — new markup replaces it
-  // Store canvas buffer size so _regenerateMarkupPreview can scale correctly
   ph._markupCanvasW=_lbCanvas.width;
   ph._markupCanvasH=_lbCanvas.height;
 
-  // ── CREATE "(original)" backup on FIRST markup only ──
-  var isFirstMarkup=!ph._origBackupId;
-  if(isFirstMarkup&&_lbObjects.length>0){
-    var origSrc=_lbOrigSrc||_lbPhotos[_lbIdx];
-    var _srcCaption=ph.caption||'';
-    var _origRec={id:'sp_orig_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),dataUrl:'',caption:(_srcCaption?_srcCaption+' (original)':'Original'),timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};
-    // Set the backup ID immediately so repeated saves don't create duplicates
-    ph._origBackupId=_origRec.id;
-    _lbOrigBackupId=_origRec.id;
-    var _origPushed=false; // track whether record was added to sitePhotos
-
-    // Resolve origSrc to dataUrl and save to IDB + R2
-    var _origIsBlob=origSrc&&origSrc.indexOf('blob:')===0;
-    var _origIsData=origSrc&&origSrc.indexOf('data:')===0;
-    function _saveOrigBackup(blob,dataUrl){
-      _origRec.dataUrl=dataUrl||'';
-      // Push to sitePhotos only when we have displayable data
-      var hasDisplayableData=!!(dataUrl&&dataUrl.length>20);
-      if(!_origPushed&&hasDisplayableData){p.sitePhotos.push(_origRec);_origPushed=true;}
-      console.log('[Markup] Original backup created: id='+_origRec.id+' dataUrl='+(dataUrl?dataUrl.substring(0,30)+'...':'EMPTY')+' pushed='+_origPushed+' forPhoto='+ph.id);
-      if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'&&blob){
-        var _origFname=_r2Filename('site','jpg');
-        var _origFolderId=_getR2FolderId();
-        _origRec.r2Key='photos/'+_origFolderId+'/frt/original/'+_origFname;
-        _origRec.r2Status='pending';
-        ADB.savePending(_origRec.id,_csProjectId,blob,{type:'site',fname:_origFname,r2Key:_origRec.r2Key}).catch(function(){});
-        R2Photos.enqueue({projectId:_origFolderId,tool:'frt',type:'original',filename:_origFname,blob:blob,
-          onComplete:function(err){
-            if(!err){_origRec.r2Status='uploaded';_origRec.r2Url=R2Photos.getUrl(_origFolderId,'frt','original',_origFname);
-              // If not yet pushed to sitePhotos (dataUrl was empty), push now that we have r2Url
-              if(!_origPushed){p.sitePhotos.push(_origRec);_origPushed=true;}
-              ADB.deletePending(_origRec.id).catch(function(){});saveToLS&&saveToLS();_updateR2Badge&&_updateR2Badge();}
-            else{_origRec.r2Status='error';}
-          }
-        });
-      }
-      // Save to IDB sitePhotos store if we have displayable data
-      if(dataUrl&&_origRec.id&&p.id){
-        ADB.saveSitePhoto(_origRec,p.id).catch(function(){});
-      }
-      saveToLS&&saveToLS();
-      if(typeof renderPhotoGallery==='function'){
-        renderPhotoGallery();
-        // Force-load all thumbnails (backup may be above viewport, outside IntersectionObserver)
-        function _forceLoadAllThumbs(){
-          var grid=document.getElementById('photo-gallery-grid');
-          if(grid){grid.querySelectorAll('img[data-src]').forEach(function(img){_loadThumbSrc(img);});}
-        }
-        setTimeout(_forceLoadAllThumbs,200);
-        setTimeout(_forceLoadAllThumbs,1000);
-      }
-    }
-    if(_origIsBlob){
-      fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
-        ADB.blobToDataUrl(blob).then(function(du){
-          _saveOrigBackup(blob,du);
-        }).catch(function(){_saveOrigBackup(blob,'');});
-      }).catch(function(e){console.warn('[Markup] Failed to fetch original blob:',e);});
-    } else if(_origIsData){
-      var _origBlob=(typeof R2Photos!=='undefined')?R2Photos.dataUrlToBlob(origSrc):null;
-      _saveOrigBackup(_origBlob,origSrc);
-    } else if(origSrc&&origSrc.indexOf('http')===0){
-      // R2 URL — fetch as blob, convert to dataUrl for IDB backup
-      fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
-        ADB.blobToDataUrl(blob).then(function(du){
-          _saveOrigBackup(blob,du);
-        }).catch(function(){_saveOrigBackup(blob,'');});
-      }).catch(function(e){console.warn('[Markup] Failed to fetch original from R2:',e);});
-    }
+  // Persist to IDB (site photos go to sitePhotos store; defic photos go via saveProject)
+  if(rec.locationType==='site'&&ph.id&&p.id){
+    ADB.saveSitePhoto(ph,p.id).catch(function(e){console.warn('[Markup] saveSitePhoto error:',e);});
   }
-
-  // ── Upload composited preview to R2 as 'marked' type ──
-  if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'){
-    var mkBlob=R2Photos.dataUrlToBlob(markedSrc);
-    if(mkBlob){
-      var mkFname=_r2Filename('mkup','jpg');
-      var hubId=_getR2FolderId();
-      ph.markedR2Key='photos/'+hubId+'/frt/marked/'+mkFname;
-      ADB.savePending(ph.id+'_mkprev',_csProjectId,mkBlob,{r2Key:ph.markedR2Key,fname:mkFname}).catch(function(){});
-      R2Photos.enqueue({projectId:hubId,tool:'frt',type:'marked',filename:mkFname,blob:mkBlob,
-        onComplete:function(err){
-          if(!err){ph.markedR2Url=R2Photos.getUrl(hubId,'frt','marked',mkFname);
-            ADB.deletePending(ph.id+'_mkprev').catch(function(){});saveToLS&&saveToLS();}
-        }
-      });
-    }
-  }
-
-  // Save composited preview to IDB for offline thumbnail display
-  ph.markedPreview=markedSrc;
-  // Also save to global cache keyed by photo ID — survives object reference changes from save/load cycles
-  _markupPreviewCache[ph.id]={preview:markedSrc,objects:JSON.parse(JSON.stringify(_lbObjects)),canvasW:_lbCanvas.width,canvasH:_lbCanvas.height};
-  console.log('[Markup Save] Complete. ph.markupObjects.length='+ph.markupObjects.length+' cached='+ph.id+' prevLen='+markedSrc.length+' loc='+rec.locationType);
-
   saveToLS&&saveToLS();
   showToast&&showToast('Markup saved');
-  console.log('[Markup Save] Calling renderPhotoGallery. currentTab='+currentTab);
   if(typeof renderPhotoGallery==='function')renderPhotoGallery();
+  if(typeof renderDeficiencyPanel==='function'&&currentTab==='deficiencies')renderDeficiencyPanel();
 
   // Show revert button now that markup exists
   var revertBtn=document.getElementById('lb-revert-btn');
@@ -8328,6 +8034,8 @@ function lightboxSaveMarkup(){
 
 // ── REVERT TO ORIGINAL ──
 // Clears all markup objects, deletes the "(original)" backup photo, restores clean image
+// ── REVERT TO ORIGINAL ──
+// Clears all markup objects. Original image was never modified, so just null the objects.
 function lightboxRevertMarkup(){
   var targetId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])?_lbPhotoIds[_lbIdx]:null;
   if(!targetId)return;
@@ -8338,49 +8046,24 @@ function lightboxRevertMarkup(){
   if(!ph.markupObjects||!ph.markupObjects.length){showToast&&showToast('No markup to revert');return;}
 
   _aConfirm('Revert this photo to the original? All markup will be removed.',function(){
-    // Clear markup objects and marked preview
+    // Clear the only 3 markup fields
     ph.markupObjects=null;
-    ph._markupCleared=true; // Flag so cloud merge doesn't restore old markup
-    // Delete marked preview from R2 if uploaded
-    if(ph.markedR2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
-      var mkParts=ph.markedR2Key.split('/');
-      if(mkParts.length>=5)R2Photos.remove(mkParts[1],mkParts[2],mkParts[3],mkParts.slice(4).join('/')).catch(function(){});
-    }
-    delete ph.markedPreview;
-    delete ph.markedR2Key;
-    delete ph.markedR2Url;
+    delete ph._markupCanvasW;
+    delete ph._markupCanvasH;
 
-    // Delete the "(original)" backup photo from sitePhotos
-    if(ph._origBackupId&&p.sitePhotos){
-      var backupIdx=-1;
-      for(var i=0;i<p.sitePhotos.length;i++){
-        if(p.sitePhotos[i]&&p.sitePhotos[i].id===ph._origBackupId){backupIdx=i;break;}
-      }
-      if(backupIdx>=0){
-        var backupRec=p.sitePhotos[backupIdx];
-        // Delete from IDB sitePhotos store
-        if(backupRec.id&&p.id){ADB.delete('sitePhotos',backupRec.id).catch(function(){});}
-        // Delete from R2 if uploaded
-        if(backupRec.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
-          var parts=backupRec.r2Key.split('/');
-          if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts.slice(4).join('/')).catch(function(){});
-        }
-        p.sitePhotos.splice(backupIdx,1);
-      }
-      delete ph._origBackupId;
-    }
-    _lbOrigBackupId='';
-    // Clear global cache
-    if(targetId)delete _markupPreviewCache[targetId];
-
-    // Clear lightbox canvas objects and re-render clean
+    // Clear lightbox canvas objects and exit draw mode
     _lbObjects=[];_lbUndoStack=[];_lbRedoStack=[];
     _lbSelectedId=null;_lbSelectedIds=[];
     _lbHideToolbar();
 
+    // Persist
+    if(rec.locationType==='site'&&ph.id&&p.id){
+      ADB.saveSitePhoto(ph,p.id).catch(function(e){console.warn('[Markup] revert saveSitePhoto error:',e);});
+    }
     saveToLS&&saveToLS();
     showToast&&showToast('Markup removed — photo reverted to original');
     if(typeof renderPhotoGallery==='function')renderPhotoGallery();
+    if(typeof renderDeficiencyPanel==='function'&&currentTab==='deficiencies')renderDeficiencyPanel();
 
     // Reload the clean image on canvas
     _lbShowCurrentDirect();
@@ -9013,16 +8696,8 @@ function _deficPhotoSrc(ph){
   return ph.r2Url||ph.dataUrl||'';
 }
 // Returns the display thumbnail src — prefers composited markup preview over original
+// Thumbnail always shows original photo. Markup indicated by ✏️ badge in gallery.
 function _deficPhotoThumbSrc(ph){
-  if(!ph||typeof ph==='string')return _deficPhotoSrc(ph);
-  // If markup was explicitly cleared (revert), always show original
-  if(ph._markupCleared)return _deficPhotoSrc(ph);
-  if(ph.markupObjects&&ph.markupObjects.length>0){
-    if(ph.markedPreview&&ph.markedPreview.length>100)return ph.markedPreview;
-    if(ph.id&&_markupPreviewCache[ph.id]&&_markupPreviewCache[ph.id].preview)return _markupPreviewCache[ph.id].preview;
-  }
-  // Also check cache even without markupObjects on record (might have been stripped)
-  if(ph.id&&!ph._markupCleared&&_markupPreviewCache[ph.id]&&_markupPreviewCache[ph.id].preview)return _markupPreviewCache[ph.id].preview;
   return _deficPhotoSrc(ph);
 }
 function _deficPhotoId(ph){
@@ -9554,12 +9229,6 @@ function _lbShowCurrentDirect(){
     if(_p){var _found=_findPhotoRecById(_p,_targetId);if(_found)_photoRec=_found.photo;}
   }
   var _hasMarkup=_photoRec&&_photoRec.markupObjects&&_photoRec.markupObjects.length>0;
-  // Fallback: check global cache if record lost markupObjects
-  if(!_hasMarkup&&_targetId&&!(_photoRec&&_photoRec._markupCleared)&&_markupPreviewCache[_targetId]&&_markupPreviewCache[_targetId].objects&&_markupPreviewCache[_targetId].objects.length>0){
-    _hasMarkup=true;
-    if(_photoRec){_photoRec.markupObjects=_markupPreviewCache[_targetId].objects;_photoRec.markedPreview=_markupPreviewCache[_targetId].preview;}
-  }
-  console.log('[LB Show] targetId=',_targetId,'photoRec found=',!!_photoRec,'hasMarkup=',_hasMarkup,_hasMarkup?'objects='+(_photoRec?_photoRec.markupObjects.length:0):'','cached='+!!(_markupPreviewCache[_targetId]));
 
   // Show/hide revert button
   var revertBtn=document.getElementById('lb-revert-btn');
@@ -9585,18 +9254,15 @@ function _lbShowCurrentDirect(){
       _lbCanvas.style.width=Math.round(bw*scale)+'px';
       _lbCanvas.style.height=Math.round(bh*scale)+'px';
       _lbCtx=_lbCanvas.getContext('2d');
-      // No ctx.scale() — getPos maps directly to buffer coords
       _lbCanvas._dpr=1;
       _lbBgImage=image;
       _lbCtx.drawImage(image,0,0,bw,bh);
       // Restore markup objects if photo has them (non-destructive render)
       if(_hasMarkup&&!_lbDrawing){
-        // Load objects and render as preview (not in draw mode — just visual overlay)
         _lbObjects=JSON.parse(JSON.stringify(_photoRec.markupObjects));
         _lbObjects.forEach(function(o){if(!o.id)o.id=_lbNewId();});
         _lbRenderAll();
       } else if(_lbDrawing){
-        // Already in draw mode — just re-render existing _lbObjects
         _lbRenderAll();
       }
       if(_lbDrawing)_lbEnableDrawEvents();
@@ -9610,7 +9276,6 @@ function _lbShowCurrentDirect(){
     fetch(src).then(function(r){return r.blob();}).then(function(blob){
       _lbLoadImage(URL.createObjectURL(blob));
     }).catch(function(){
-      // Fallback: try direct crossOrigin load
       image.crossOrigin='anonymous';
       _lbLoadImage(src);
     });
@@ -10493,9 +10158,6 @@ function renderPhotoGallery(){
     renderPhotoGallery._regenPending=true;
     setTimeout(function(){
       renderPhotoGallery._regenPending=false;
-      if(typeof _autoRegenerateMarkupPreviews==='function'){
-        _autoRegenerateMarkupPreviews();
-      }
     },500);
   }
 
@@ -10895,19 +10557,7 @@ function _buildUnifiedPhotoList(p){
         var caption=uniqueRefs.join(' | ');
         var phSrc=_deficPhotoSrc(ph);
         var phHasMk=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
-        // Fallback: check global markup cache if photo record lost markupObjects
-        // BUT NOT if markup was explicitly cleared (revert)
-        var phId=ph&&ph.id?ph.id:'';
-        if(!phHasMk&&phId&&!ph._markupCleared&&_markupPreviewCache[phId]&&_markupPreviewCache[phId].objects&&_markupPreviewCache[phId].objects.length>0){
-          phHasMk=true;
-          // Restore from cache
-          ph.markupObjects=_markupPreviewCache[phId].objects;
-          ph.markedPreview=_markupPreviewCache[phId].preview;
-        }
-        var phThumb=phSrc;
-        if(phHasMk){if(ph.markedPreview&&ph.markedPreview.length>100)phThumb=ph.markedPreview;else if(_markupPreviewCache[phId]&&_markupPreviewCache[phId].preview)phThumb=_markupPreviewCache[phId].preview;}
-        if(ph._markupCleared)console.log('[UnifiedList] Reverted photo '+phId+': hasMk='+phHasMk+' thumbDiffers='+(phThumb!==phSrc)+' cleared=true');
-        allPhotos.push({src:phSrc,thumbSrc:phThumb,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:'def_'+d.id+'_e'+ei+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk});
+        allPhotos.push({src:phSrc,thumbSrc:phSrc,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:'def_'+d.id+'_e'+ei+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk});
       });}
     });}
     if(d.photos){d.photos.forEach(function(ph,pi){
@@ -10919,13 +10569,7 @@ function _buildUnifiedPhotoList(p){
       var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('def_'+d.id+'_'+pi);
       var phSrc2=_deficPhotoSrc(ph);
       var phHasMk2=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
-      var phId2=ph&&ph.id?ph.id:'';
-      if(!phHasMk2&&phId2&&!(ph&&ph._markupCleared)&&_markupPreviewCache[phId2]&&_markupPreviewCache[phId2].objects&&_markupPreviewCache[phId2].objects.length>0){
-        phHasMk2=true;ph.markupObjects=_markupPreviewCache[phId2].objects;ph.markedPreview=_markupPreviewCache[phId2].preview;
-      }
-      var phThumb2=phSrc2;
-      if(phHasMk2){if(ph.markedPreview&&ph.markedPreview.length>100)phThumb2=ph.markedPreview;else if(_markupPreviewCache[phId2]&&_markupPreviewCache[phId2].preview)phThumb2=_markupPreviewCache[phId2].preview;}
-      allPhotos.push({src:phSrc2,thumbSrc:phThumb2,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:realId,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk2});
+      allPhotos.push({src:phSrc2,thumbSrc:phSrc2,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:realId,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk2});
     });}
     if(d.responses){d.responses.forEach(function(resp,ri){
       if(resp.photos){resp.photos.forEach(function(ph,pi){
@@ -10935,13 +10579,7 @@ function _buildUnifiedPhotoList(p){
         var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('resp_'+d.id+'_'+ri+'_'+pi);
         var phSrc3=_deficPhotoSrc(ph);
         var phHasMk3=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
-        var phId3=ph&&ph.id?ph.id:'';
-        if(!phHasMk3&&phId3&&!(ph&&ph._markupCleared)&&_markupPreviewCache[phId3]&&_markupPreviewCache[phId3].objects&&_markupPreviewCache[phId3].objects.length>0){
-          phHasMk3=true;ph.markupObjects=_markupPreviewCache[phId3].objects;ph.markedPreview=_markupPreviewCache[phId3].preview;
-        }
-        var phThumb3=phSrc3;
-        if(phHasMk3){if(ph.markedPreview&&ph.markedPreview.length>100)phThumb3=ph.markedPreview;else if(_markupPreviewCache[phId3]&&_markupPreviewCache[phId3].preview)phThumb3=_markupPreviewCache[phId3].preview;}
-        allPhotos.push({src:phSrc3,thumbSrc:phThumb3,date:resp.date||d.date||null,type:'response',deficId:d.id,deficNum:d.num,respIdx:ri,idx:pi,id:realId,caption:'Pin '+d.num+' '+rtype,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk3});
+        allPhotos.push({src:phSrc3,thumbSrc:phSrc3,date:resp.date||d.date||null,type:'response',deficId:d.id,deficNum:d.num,respIdx:ri,idx:pi,id:realId,caption:'Pin '+d.num+' '+rtype,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk3});
       });}
     });}
   });
@@ -10955,6 +10593,66 @@ function openPhotoLightbox(id){
   _lightboxIdx=_lightboxPhotos.findIndex(function(x){return x.id===id;});
   if(_lightboxIdx<0)_lightboxIdx=0;
   showLightboxAt(_lightboxIdx);
+}
+
+// On-the-fly markup composite: loads original photo, renders markup objects via canvas, sets img.src
+function _glbRenderMarkupComposite(ph,imgEl){
+  var p=getProject();if(!p){_loadR2OrDirect(ph.src,imgEl);return;}
+  var rec=_findPhotoRecById(p,ph.id);
+  if(!rec||!rec.photo||!rec.photo.markupObjects||!rec.photo.markupObjects.length){
+    _loadR2OrDirect(ph.src,imgEl);return;
+  }
+  var photoRec=rec.photo;
+  var origSrc=ph.src;
+  var image=new Image();
+  function _doComposite(imgSrc){
+    image.onload=function(){
+      var natW=image.naturalWidth||800,natH=image.naturalHeight||600;
+      // Use stored canvas size if available, otherwise compute from image
+      var bufW=photoRec._markupCanvasW||0,bufH=photoRec._markupCanvasH||0;
+      if(bufW<10){
+        var maxDim=1200;
+        var bufScale=1;
+        if(Math.max(natW,natH)>maxDim)bufScale=maxDim/Math.max(natW,natH);
+        bufW=Math.round(natW*bufScale);bufH=Math.round(natH*bufScale);
+      }
+      var c=document.createElement('canvas');c.width=bufW;c.height=bufH;
+      var ctx=c.getContext('2d');
+      ctx.drawImage(image,0,0,bufW,bufH);
+      // Temporarily set _lbBgImage for eraser support in _lbDrawObj
+      var prevBg=_lbBgImage;_lbBgImage=image;
+      // Render non-highlight objects, then highlights via offscreen composite
+      var highlights=[],others=[];
+      photoRec.markupObjects.forEach(function(obj){if(obj.type==='highlight')highlights.push(obj);else others.push(obj);});
+      others.forEach(function(obj){_lbDrawObj(ctx,obj,false);});
+      if(highlights.length){
+        var hc=document.createElement('canvas');hc.width=bufW;hc.height=bufH;
+        var hx=hc.getContext('2d');
+        highlights.forEach(function(obj){
+          if(!obj.points||obj.points.length<2)return;
+          hx.strokeStyle=obj.color||'#F1C40F';hx.lineWidth=(obj.size||4)*4;
+          hx.lineCap='round';hx.lineJoin='round';hx.globalAlpha=1;
+          hx.beginPath();hx.moveTo(obj.points[0].x,obj.points[0].y);
+          for(var i=1;i<obj.points.length;i++)hx.lineTo(obj.points[i].x,obj.points[i].y);
+          hx.stroke();
+        });
+        ctx.save();ctx.globalAlpha=0.35;ctx.drawImage(hc,0,0);ctx.restore();
+      }
+      _lbBgImage=prevBg;
+      try{imgEl.src=c.toDataURL('image/jpeg',0.92);}
+      catch(e){_loadR2OrDirect(origSrc,imgEl);}
+    };
+    image.onerror=function(){_loadR2OrDirect(origSrc,imgEl);};
+    image.src=imgSrc;
+  }
+  // Fetch R2 URLs as blob to avoid CORS tainting
+  if(origSrc.indexOf('http')===0&&origSrc.indexOf('data:')!==0){
+    fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
+      _doComposite(URL.createObjectURL(blob));
+    }).catch(function(){_loadR2OrDirect(origSrc,imgEl);});
+  } else {
+    _doComposite(origSrc);
+  }
 }
 
 function showLightboxAt(idx){
@@ -10985,21 +10683,13 @@ function showLightboxAt(idx){
   }
   _glbZoomReset();
   overlay.style.display='flex';
-  // Check for fresh markup preview (may have been regenerated after gallery list was built)
-  var _glbDisplaySrc=ph.thumbSrc||ph.src;
-  if(ph.hasMarkup&&ph.id&&_glbDisplaySrc===ph.src){
-    // thumbSrc wasn't set (no preview at render time) — check now
-    var _p2=getProject();
-    if(_p2){
-      var _rec2=_findPhotoRecById(_p2,ph.id);
-      if(_rec2&&_rec2.photo){
-        var _ph2=_rec2.photo;
-        if(_ph2.markedPreview&&_ph2.markedPreview.length>100)_glbDisplaySrc=_ph2.markedPreview;
-        else if(_ph2.id&&_markupPreviewCache[_ph2.id]&&_markupPreviewCache[_ph2.id].preview)_glbDisplaySrc=_markupPreviewCache[_ph2.id].preview;
-      }
-    }
+  // Display the photo — if it has markup, render on-the-fly via canvas composite
+  var _glbImg=document.getElementById('glb-img');
+  if(ph.hasMarkup&&ph.id){
+    _glbRenderMarkupComposite(ph,_glbImg);
+  } else {
+    _loadR2OrDirect(ph.src,_glbImg);
   }
-  _loadR2OrDirect(_glbDisplaySrc,document.getElementById('glb-img'));
   document.getElementById('glb-counter').textContent='Photo '+(idx+1)+' of '+_lightboxPhotos.length;
   document.getElementById('glb-info').textContent=(ph.date?(ph.date+'').substring(0,10)+' · ':'')+((ph.caption)||(ph.type==='site'?'Site Photo':ph.type==='response'?'Response Photo':('Pin #'+ph.deficNum)));
   var capEl=document.getElementById('glb-caption-text');
@@ -13350,14 +13040,14 @@ function _collectFullState(){
   }
 
   // 2) Deficiency photos: strip base64 blobs from d.photos, d.entries[].photos, d.responses[].photos
-  // Keep: id, r2Key, r2Status, r2Url, markupObjects, _origBackupId, markedR2Key, markedR2Url
-  // Strip: dataUrl (large base64), markedPreview (large base64)
+  // Keep: id, r2Key, r2Status, r2Url, markupObjects, _markupCanvasW, _markupCanvasH
+  // Strip: dataUrl (large base64)
   function _stripDeficPhotos(defics){
     if(!defics)return;
     function _stripArr(arr){
       if(!arr)return;
       arr.forEach(function(ph){
-        if(typeof ph==='object'&&ph){delete ph.dataUrl;delete ph.markedPreview;}
+        if(typeof ph==='object'&&ph){delete ph.dataUrl;}
       });
     }
     defics.forEach(function(d){
@@ -13369,10 +13059,10 @@ function _collectFullState(){
   (state.contractors||[]).forEach(function(c){_stripDeficPhotos(c.deficiencies);});
   _stripDeficPhotos(state.generalDeficiencies);
 
-  // 3) Site photos: strip dataUrl, markupObjects, markedPreview (keep r2Key/r2Url/r2Status/_origBackupId)
+  // 3) Site photos: strip dataUrl and markupObjects (markup persists in IDB sitePhotos store, not cloud)
   if(state.sitePhotos){
     state.sitePhotos.forEach(function(ph){
-      if(ph){delete ph.dataUrl;delete ph.markupObjects;delete ph.markedPreview;}
+      if(ph){delete ph.dataUrl;delete ph.markupObjects;delete ph._markupCanvasW;delete ph._markupCanvasH;}
     });
   }
   // Legacy photos array (same treatment)
@@ -13466,19 +13156,11 @@ function _mergeSitePhoto(cph,localSitePhotos){
     r2Key:r2.r2Key,r2Status:r2.r2Status,r2Url:r2.r2Url,
     dataUrl:existing?existing.dataUrl:null
   };
-  // Preserve non-destructive markup fields from local (cloud strips these)
+  // Preserve non-destructive markup from local (cloud strips site photo markup)
   if(existing){
-    // If local explicitly cleared markup (revert), don't restore from cloud
-    if(!existing._markupCleared){
-      if(existing.markupObjects&&existing.markupObjects.length)rec.markupObjects=existing.markupObjects;
-      if(existing.markedPreview)rec.markedPreview=existing.markedPreview;
-      if(existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
-      if(existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
-      if(existing._origBackupId)rec._origBackupId=existing._origBackupId;
-      if(existing.markedR2Key)rec.markedR2Key=existing.markedR2Key;
-      if(existing.markedR2Url)rec.markedR2Url=existing.markedR2Url;
-    }
-    if(existing.markupObjects)console.log('[_mergeSitePhoto] '+cph.id+': existing HAS markupObjects count='+existing.markupObjects.length+' cleared='+!!existing._markupCleared+' → rec has='+(!!rec.markupObjects));
+    if(existing.markupObjects&&existing.markupObjects.length)rec.markupObjects=existing.markupObjects;
+    if(existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
+    if(existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
   }
   return rec;
 }
@@ -13514,21 +13196,10 @@ function _mergeDeficR2Fields(cloudDefics,localDefics){
         if(!ph.r2Url&&local.r2Url)ph.r2Url=local.r2Url;
         // Preserve local dataUrl if cloud doesn't have it (cloud strips base64)
         if(!ph.dataUrl&&local.dataUrl)ph.dataUrl=local.dataUrl;
-        // Preserve non-destructive markup fields (cloud strips these)
-        // BUT: if local has _markupCleared flag, DON'T restore from cloud — user reverted
-        if(local._markupCleared){
-          ph.markupObjects=null;ph.markedPreview=null;ph.markedR2Key=null;ph.markedR2Url=null;
-          ph._origBackupId=null;ph._markupCanvasW=null;ph._markupCanvasH=null;
-          ph._markupCleared=true;
-        } else {
-          if(!ph.markupObjects&&local.markupObjects)ph.markupObjects=local.markupObjects;
-          if(!ph.markedPreview&&local.markedPreview)ph.markedPreview=local.markedPreview;
-          if(!ph.markedR2Key&&local.markedR2Key)ph.markedR2Key=local.markedR2Key;
-          if(!ph.markedR2Url&&local.markedR2Url)ph.markedR2Url=local.markedR2Url;
-          if(!ph._origBackupId&&local._origBackupId)ph._origBackupId=local._origBackupId;
-          if(!ph._markupCanvasW&&local._markupCanvasW)ph._markupCanvasW=local._markupCanvasW;
-          if(!ph._markupCanvasH&&local._markupCanvasH)ph._markupCanvasH=local._markupCanvasH;
-        }
+        // Preserve non-destructive markup from local (3 fields only)
+        if(!ph.markupObjects&&local.markupObjects)ph.markupObjects=local.markupObjects;
+        if(!ph._markupCanvasW&&local._markupCanvasW)ph._markupCanvasW=local._markupCanvasW;
+        if(!ph._markupCanvasH&&local._markupCanvasH)ph._markupCanvasH=local._markupCanvasH;
       }
     });
   }
@@ -13581,11 +13252,6 @@ function _rebuildMissingR2Urls(proj){
       // Fallback: just prepend worker URL
       rec.r2Url=workerUrl+'/'+rec.r2Key;
       rec.r2Status='uploaded';
-      fixed++;
-    }
-    // Rebuild markedR2Url from markedR2Key if missing (after refresh/merge)
-    if(rec.markedR2Key&&!rec.markedR2Url){
-      rec.markedR2Url=workerUrl+'/'+rec.markedR2Key;
       fixed++;
     }
   }
