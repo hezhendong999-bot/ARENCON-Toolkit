@@ -3143,6 +3143,8 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   if(!_csHubMode){
     setTimeout(function(){_prefetchDrawingsForOffline(id);},500);
   }
+  // Auto-regenerate markup previews for photos that have markupObjects but lost markedPreview (after refresh)
+  setTimeout(function(){if(typeof _autoRegenerateMarkupPreviews==='function')_autoRegenerateMarkupPreviews();},2000);
 }
 function populateProjectFields(){var p=getProject();if(!p||!p.info)return;
   Object.keys(p.info).forEach(function(key){
@@ -7327,6 +7329,101 @@ var _lbOrigSrc='';
 var _lbBgImage=null;
 var _lbOrigBackupId=''; // ID of the "(original)" backup sitePhoto created on first markup
 var _markupPreviewCache={}; // photoId → {preview: base64, objects: [...]} — survives object reference changes
+
+// Regenerate composited preview from original image + markup objects
+// Used after refresh when markedPreview is gone but markupObjects survive in IDB
+function _regenerateMarkupPreview(photoSrc, markupObjects, callback){
+  if(!photoSrc||!markupObjects||!markupObjects.length){if(callback)callback(null);return;}
+  var img=new Image();
+  img.crossOrigin='anonymous';
+  function _doRender(imgEl){
+    var c=document.createElement('canvas');
+    var maxDim=1200;
+    var w=imgEl.naturalWidth||800,h=imgEl.naturalHeight||600;
+    var scale=1;if(Math.max(w,h)>maxDim)scale=maxDim/Math.max(w,h);
+    c.width=Math.round(w*scale);c.height=Math.round(h*scale);
+    var ctx=c.getContext('2d');
+    ctx.drawImage(imgEl,0,0,c.width,c.height);
+    // Draw non-highlight objects
+    var highlights=[],others=[];
+    markupObjects.forEach(function(obj){if(obj.type==='highlight')highlights.push(obj);else others.push(obj);});
+    others.forEach(function(obj){_lbDrawObj(ctx,obj,false);});
+    // Highlight composite
+    if(highlights.length){
+      var hc=document.createElement('canvas');hc.width=c.width;hc.height=c.height;
+      var hx=hc.getContext('2d');
+      highlights.forEach(function(obj){
+        if(!obj.points||obj.points.length<2)return;
+        hx.strokeStyle=obj.color||'#F1C40F';hx.lineWidth=(obj.size||4)*4;
+        hx.lineCap='round';hx.lineJoin='round';hx.globalAlpha=1;
+        hx.beginPath();hx.moveTo(obj.points[0].x,obj.points[0].y);
+        for(var i=1;i<obj.points.length;i++)hx.lineTo(obj.points[i].x,obj.points[i].y);
+        hx.stroke();
+      });
+      ctx.save();ctx.globalAlpha=0.3;ctx.drawImage(hc,0,0);ctx.restore();
+    }
+    try{var result=c.toDataURL('image/jpeg',0.85);if(callback)callback(result);}
+    catch(e){console.warn('[MarkupPreview] toDataURL failed:',e);if(callback)callback(null);}
+  }
+  // Load image — handle R2 URLs via blob fetch to avoid CORS
+  if(photoSrc.indexOf('http')===0){
+    fetch(photoSrc).then(function(r){return r.blob();}).then(function(blob){
+      img.onload=function(){_doRender(img);};
+      img.src=URL.createObjectURL(blob);
+    }).catch(function(){if(callback)callback(null);});
+  } else {
+    img.onload=function(){_doRender(img);};
+    img.onerror=function(){if(callback)callback(null);};
+    img.src=photoSrc;
+  }
+}
+
+// Auto-regenerate markup previews for photos that have markupObjects but no markedPreview
+// Called once after project loads
+function _autoRegenerateMarkupPreviews(){
+  var p=getProject&&getProject();if(!p)return;
+  var ad=getAllDeficiencies(p);
+  var queue=[];
+  ad.forEach(function(r){var d=r.defic;
+    function _check(ph){
+      if(ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0&&!ph.markedPreview&&!_markupPreviewCache[ph.id]){
+        var src=_deficPhotoSrc(ph);
+        if(src&&src.length>5)queue.push({ph:ph,src:src});
+      }
+    }
+    if(d.entries){d.entries.forEach(function(en){if(en.photos)en.photos.forEach(_check);});}
+    if(d.photos)d.photos.forEach(_check);
+    if(d.responses){d.responses.forEach(function(r2){if(r2.photos)r2.photos.forEach(_check);});}
+  });
+  // Also check site photos
+  if(p.sitePhotos){p.sitePhotos.forEach(function(ph){
+    if(ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0&&!ph.markedPreview&&!_markupPreviewCache[ph.id]){
+      var src=(ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'';
+      if(src)queue.push({ph:ph,src:src});
+    }
+  });}
+  if(!queue.length)return;
+  console.log('[MarkupPreview] Regenerating '+queue.length+' markup preview(s)...');
+  var idx=0;
+  function _next(){
+    if(idx>=queue.length){
+      console.log('[MarkupPreview] Done regenerating '+queue.length+' preview(s)');
+      if(typeof renderPhotoGallery==='function')renderPhotoGallery();
+      if(typeof renderDeficiencyPanel==='function'&&currentTab==='deficiencies')renderDeficiencyPanel();
+      return;
+    }
+    var item=queue[idx++];
+    _regenerateMarkupPreview(item.src,item.ph.markupObjects,function(preview){
+      if(preview){
+        item.ph.markedPreview=preview;
+        _markupPreviewCache[item.ph.id]={preview:preview,objects:item.ph.markupObjects};
+      }
+      setTimeout(_next,50);// stagger to avoid blocking UI
+    });
+  }
+  _next();
+}
+
 // Tool state
 var _lbTool='pen',_lbColor='#C0392B',_lbSize=4,_lbOpacity=1;
 var _lbMouse={down:false,x:0,y:0,sx:0,sy:0};
