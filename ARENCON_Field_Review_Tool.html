@@ -10987,67 +10987,7 @@ function showLightboxAt(idx){
   }
   _glbZoomReset();
   overlay.style.display='flex';
-  // For photos with markup, generate composited preview on-the-fly for gallery lightbox
-  var _glbPhRec=null;
-  if(ph.hasMarkup&&ph.id){
-    var _p=getProject();
-    if(_p){var _f=_findPhotoRecById(_p,ph.id);if(_f)_glbPhRec=_f.photo;}
-    if(!_glbPhRec&&ph.id){
-      // Try looking up by unified list id format (def_xxx_eN_N)
-      var _parts=ph.id.split('_e');
-      if(_parts.length>1){
-        var _deficId=_parts[0].replace('def_','');
-        // Find the actual photo record from deficiency
-        if(_p){var _f2=_findPhotoRecById(_p,_deficId);} // won't work but try direct
-      }
-    }
-  }
-  if(_glbPhRec&&_glbPhRec.markupObjects&&_glbPhRec.markupObjects.length>0&&ph.src){
-    // Generate composited preview: load original image, draw markup objects, display
-    var _glbMkImg=new Image();_glbMkImg.crossOrigin='anonymous';
-    function _renderGlbMarkup(imgEl){
-      var cw=_glbPhRec._markupCanvasW||imgEl.naturalWidth||800;
-      var ch=_glbPhRec._markupCanvasH||imgEl.naturalHeight||600;
-      var c=document.createElement('canvas');c.width=cw;c.height=ch;
-      var ctx=c.getContext('2d');ctx.drawImage(imgEl,0,0,cw,ch);
-      var _prevBg=_lbBgImage;_lbBgImage=imgEl;
-      var highlights=[],others=[];
-      _glbPhRec.markupObjects.forEach(function(obj){if(obj.type==='highlight')highlights.push(obj);else others.push(obj);});
-      others.forEach(function(obj){_lbDrawObj(ctx,obj,false);});
-      if(highlights.length){
-        var hc=document.createElement('canvas');hc.width=cw;hc.height=ch;
-        var hx=hc.getContext('2d');
-        highlights.forEach(function(obj){
-          if(!obj.points||obj.points.length<2)return;
-          hx.strokeStyle=obj.color||'#F1C40F';hx.lineWidth=(obj.size||4)*4;
-          hx.lineCap='round';hx.lineJoin='round';hx.globalAlpha=1;
-          hx.beginPath();hx.moveTo(obj.points[0].x,obj.points[0].y);
-          for(var i=1;i<obj.points.length;i++)hx.lineTo(obj.points[i].x,obj.points[i].y);
-          hx.stroke();
-        });
-        ctx.save();ctx.globalAlpha=0.3;ctx.drawImage(hc,0,0);ctx.restore();
-      }
-      _lbBgImage=_prevBg;
-      try{
-        var du=c.toDataURL('image/jpeg',0.92);
-        var glbImg=document.getElementById('glb-img');
-        if(glbImg)glbImg.src=du;
-      }catch(e){
-        _loadR2OrDirect(ph.src,document.getElementById('glb-img'));
-      }
-    }
-    if(ph.src.indexOf('http')===0){
-      fetch(ph.src).then(function(r){return r.blob();}).then(function(blob){
-        _glbMkImg.onload=function(){_renderGlbMarkup(_glbMkImg);};
-        _glbMkImg.src=URL.createObjectURL(blob);
-      }).catch(function(){_loadR2OrDirect(ph.src,document.getElementById('glb-img'));});
-    } else {
-      _glbMkImg.onload=function(){_renderGlbMarkup(_glbMkImg);};
-      _glbMkImg.src=ph.src;
-    }
-  } else {
-    _loadR2OrDirect(ph.thumbSrc||ph.src,document.getElementById('glb-img'));
-  }
+  _loadR2OrDirect(ph.thumbSrc||ph.src,document.getElementById('glb-img'));
   document.getElementById('glb-counter').textContent='Photo '+(idx+1)+' of '+_lightboxPhotos.length;
   document.getElementById('glb-info').textContent=(ph.date?(ph.date+'').substring(0,10)+' · ':'')+((ph.caption)||(ph.type==='site'?'Site Photo':ph.type==='response'?'Response Photo':('Pin #'+ph.deficNum)));
   var capEl=document.getElementById('glb-caption-text');
