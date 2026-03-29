@@ -2173,6 +2173,7 @@ ADB.saveSitePhoto=function(photo,projectId){
   if(photo._origBackupId)rec._origBackupId=photo._origBackupId;
   if(photo.markedR2Key)rec.markedR2Key=photo.markedR2Key;
   if(photo.markedR2Url)rec.markedR2Url=photo.markedR2Url;
+  if(rec.markupObjects)console.log('[ADB.saveSitePhoto] Saving markupObjects for '+rec.id+' count='+rec.markupObjects.length+' canvasW='+(rec._markupCanvasW||'none'));
   // If we have a dataUrl, convert to blob and save
   if(photo.dataUrl){
     rec.dataBlob=ADB.dataUrlToBlob(photo.dataUrl);
@@ -2280,6 +2281,7 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
           if(sp._origBackupId)f._origBackupId=sp._origBackupId;
           if(sp.markedR2Key)f.markedR2Key=sp.markedR2Key;
           if(sp.markedR2Url)f.markedR2Url=sp.markedR2Url;
+          if(f.markupObjects)console.log('[ADB.loadFull] Restored markupObjects for '+sp.id+' count='+f.markupObjects.length+' canvasW='+(f._markupCanvasW||'none'));
           return f;
         }
         var spPromises=sitePhotos.map(function(sp){
@@ -7474,10 +7476,22 @@ function _autoRegenerateMarkupPreviews(){
   if(p.sitePhotos){p.sitePhotos.forEach(function(ph){
     if(ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0&&!ph.markedPreview&&!_markupPreviewCache[ph.id]){
       var src=(ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'';
+      console.log('[MarkupPreview] Site photo queued: id='+ph.id+' src='+(src?src.substring(0,60)+'...':'EMPTY')+' objects='+ph.markupObjects.length);
       if(src)queue.push({ph:ph,src:src});
     }
   });}
-  if(!queue.length)return;
+  console.log('[MarkupPreview] Total site photos: '+(p.sitePhotos?p.sitePhotos.length:0)+' with markup: '+queue.length+' (defic+site combined)');
+  if(!queue.length){console.log('[MarkupPreview] Nothing to regenerate — checking why...');
+    if(p.sitePhotos){p.sitePhotos.forEach(function(ph){
+      if(ph&&typeof ph==='object'){
+        var hasMk=ph.markupObjects&&ph.markupObjects.length>0;
+        var hasPrev=!!ph.markedPreview;
+        var hasCached=!!(ph.id&&_markupPreviewCache[ph.id]);
+        if(hasMk||hasPrev||hasCached)console.log('[MarkupPreview] Site photo '+ph.id+': hasMk='+hasMk+' hasPrev='+hasPrev+' cached='+hasCached);
+      }
+    });}
+    return;
+  }
   console.log('[MarkupPreview] Regenerating '+queue.length+' markup preview(s)...');
   var idx=0;
   function _next(){
