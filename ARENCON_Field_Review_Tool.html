@@ -7323,6 +7323,7 @@ var _lbRubberBand=null;     // {sx,sy,ex,ey} while rubber-banding
 var _lbOrigSrc='';
 var _lbBgImage=null;
 var _lbOrigBackupId=''; // ID of the "(original)" backup sitePhoto created on first markup
+var _markupPreviewCache={}; // photoId → {preview: base64, objects: [...]} — survives object reference changes
 // Tool state
 var _lbTool='pen',_lbColor='#C0392B',_lbSize=4,_lbOpacity=1;
 var _lbMouse={down:false,x:0,y:0,sx:0,sy:0};
@@ -7877,6 +7878,13 @@ function lightboxDrawMode(){
         _existingObjects=JSON.parse(JSON.stringify(rec.photo.markupObjects));
         _existingObjects.forEach(function(o){if(!o.id)o.id=_lbNewId();});
       }
+      // Fallback: check global cache
+      if(!_existingObjects&&_markupPreviewCache[_targetId]&&_markupPreviewCache[_targetId].objects&&_markupPreviewCache[_targetId].objects.length>0){
+        _existingObjects=JSON.parse(JSON.stringify(_markupPreviewCache[_targetId].objects));
+        _existingObjects.forEach(function(o){if(!o.id)o.id=_lbNewId();});
+        // Restore onto the record too
+        if(rec&&rec.photo){rec.photo.markupObjects=_markupPreviewCache[_targetId].objects;rec.photo.markedPreview=_markupPreviewCache[_targetId].preview;}
+      }
       // Track the backup original ID if it exists
       _lbOrigBackupId=(rec&&rec.photo&&rec.photo._origBackupId)||'';
     }
@@ -8082,7 +8090,9 @@ function lightboxSaveMarkup(){
 
   // Save composited preview to IDB for offline thumbnail display
   ph.markedPreview=markedSrc;
-  console.log('[Markup Save] Complete. ph.markupObjects.length='+ph.markupObjects.length+' ph.markedPreview set='+(!!ph.markedPreview)+' prevLen='+markedSrc.length+' ph.id='+ph.id+' loc='+rec.locationType);
+  // Also save to global cache keyed by photo ID — survives object reference changes from save/load cycles
+  _markupPreviewCache[ph.id]={preview:markedSrc,objects:JSON.parse(JSON.stringify(_lbObjects))};
+  console.log('[Markup Save] Complete. ph.markupObjects.length='+ph.markupObjects.length+' cached='+ph.id+' prevLen='+markedSrc.length+' loc='+rec.locationType);
 
   saveToLS&&saveToLS();
   showToast&&showToast('Markup saved');
@@ -8140,6 +8150,8 @@ function lightboxRevertMarkup(){
       delete ph._origBackupId;
     }
     _lbOrigBackupId='';
+    // Clear global cache
+    if(targetId)delete _markupPreviewCache[targetId];
 
     // Clear lightbox canvas objects and re-render clean
     _lbObjects=[];_lbUndoStack=[];_lbRedoStack=[];
@@ -9318,7 +9330,12 @@ function _lbShowCurrentDirect(){
     if(_p){var _found=_findPhotoRecById(_p,_targetId);if(_found)_photoRec=_found.photo;}
   }
   var _hasMarkup=_photoRec&&_photoRec.markupObjects&&_photoRec.markupObjects.length>0;
-  console.log('[LB Show] targetId=',_targetId,'photoRec found=',!!_photoRec,'hasMarkup=',_hasMarkup,_hasMarkup?'objects='+_photoRec.markupObjects.length:'');
+  // Fallback: check global cache if record lost markupObjects
+  if(!_hasMarkup&&_targetId&&_markupPreviewCache[_targetId]&&_markupPreviewCache[_targetId].objects&&_markupPreviewCache[_targetId].objects.length>0){
+    _hasMarkup=true;
+    if(_photoRec){_photoRec.markupObjects=_markupPreviewCache[_targetId].objects;_photoRec.markedPreview=_markupPreviewCache[_targetId].preview;}
+  }
+  console.log('[LB Show] targetId=',_targetId,'photoRec found=',!!_photoRec,'hasMarkup=',_hasMarkup,_hasMarkup?'objects='+(_photoRec?_photoRec.markupObjects.length:0):'','cached='+!!(_markupPreviewCache[_targetId]));
 
   // Show/hide revert button
   var revertBtn=document.getElementById('lb-revert-btn');
@@ -10190,11 +10207,6 @@ var _photoFilter='all';
 function renderPhotoGallery(){
   var p=getProject();if(!p)return;
   var grid=document.getElementById('photo-gallery-grid');if(!grid)return;
-  // DEBUG: directly check defic photo records for markupObjects
-  var _dbgAd=getAllDeficiencies(p);
-  _dbgAd.forEach(function(r){var d=r.defic;if(d.entries){d.entries.forEach(function(en,ei){if(en.photos){en.photos.forEach(function(ph,pi){
-    if(ph&&typeof ph==='object'&&ph.markupObjects)console.log('[Gallery DBG] FOUND markupObjects on defic photo: id='+ph.id+' objs='+ph.markupObjects.length+' preview='+(ph.markedPreview?'YES('+ph.markedPreview.length+')':'NO'));
-  });}});}});
 
   var allPhotos=_buildUnifiedPhotoList(p);
 
@@ -10649,9 +10661,16 @@ function _buildUnifiedPhotoList(p){
         var caption=uniqueRefs.join(' | ');
         var phSrc=_deficPhotoSrc(ph);
         var phHasMk=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
+        // Fallback: check global markup cache if photo record lost markupObjects
+        var phId=ph&&ph.id?ph.id:'';
+        if(!phHasMk&&phId&&_markupPreviewCache[phId]&&_markupPreviewCache[phId].objects&&_markupPreviewCache[phId].objects.length>0){
+          phHasMk=true;
+          // Restore from cache
+          ph.markupObjects=_markupPreviewCache[phId].objects;
+          ph.markedPreview=_markupPreviewCache[phId].preview;
+        }
         var phThumb=phSrc;
-        if(phHasMk){if(ph.markedR2Url&&ph.markedR2Url.length>5)phThumb=ph.markedR2Url;else if(ph.markedPreview&&ph.markedPreview.length>5)phThumb=ph.markedPreview;}
-        if(ph&&ph.id&&(ph.markupObjects||ph.markedPreview))console.log('[Gallery] defic photo id='+ph.id+' hasMk='+phHasMk+' mkObjLen='+(ph.markupObjects?ph.markupObjects.length:0)+' prevLen='+(ph.markedPreview?ph.markedPreview.length:0)+' markedR2Url='+(ph.markedR2Url||'none')+' thumbSrc='+(phThumb?phThumb.substring(0,40):'empty'));
+        if(phHasMk){if(ph.markedR2Url&&ph.markedR2Url.length>5)phThumb=ph.markedR2Url;else if(ph.markedPreview&&ph.markedPreview.length>5)phThumb=ph.markedPreview;else if(_markupPreviewCache[phId]&&_markupPreviewCache[phId].preview)phThumb=_markupPreviewCache[phId].preview;}
         allPhotos.push({src:phSrc,thumbSrc:phThumb,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:'def_'+d.id+'_e'+ei+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk});
       });}
     });}
@@ -10664,8 +10683,12 @@ function _buildUnifiedPhotoList(p){
       var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('def_'+d.id+'_'+pi);
       var phSrc2=_deficPhotoSrc(ph);
       var phHasMk2=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
+      var phId2=ph&&ph.id?ph.id:'';
+      if(!phHasMk2&&phId2&&_markupPreviewCache[phId2]&&_markupPreviewCache[phId2].objects&&_markupPreviewCache[phId2].objects.length>0){
+        phHasMk2=true;ph.markupObjects=_markupPreviewCache[phId2].objects;ph.markedPreview=_markupPreviewCache[phId2].preview;
+      }
       var phThumb2=phSrc2;
-      if(phHasMk2){if(ph.markedR2Url&&ph.markedR2Url.length>5)phThumb2=ph.markedR2Url;else if(ph.markedPreview&&ph.markedPreview.length>5)phThumb2=ph.markedPreview;}
+      if(phHasMk2){if(ph.markedR2Url&&ph.markedR2Url.length>5)phThumb2=ph.markedR2Url;else if(ph.markedPreview&&ph.markedPreview.length>5)phThumb2=ph.markedPreview;else if(_markupPreviewCache[phId2]&&_markupPreviewCache[phId2].preview)phThumb2=_markupPreviewCache[phId2].preview;}
       allPhotos.push({src:phSrc2,thumbSrc:phThumb2,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:realId,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk2});
     });}
     if(d.responses){d.responses.forEach(function(resp,ri){
@@ -10676,8 +10699,12 @@ function _buildUnifiedPhotoList(p){
         var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('resp_'+d.id+'_'+ri+'_'+pi);
         var phSrc3=_deficPhotoSrc(ph);
         var phHasMk3=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
+        var phId3=ph&&ph.id?ph.id:'';
+        if(!phHasMk3&&phId3&&_markupPreviewCache[phId3]&&_markupPreviewCache[phId3].objects&&_markupPreviewCache[phId3].objects.length>0){
+          phHasMk3=true;ph.markupObjects=_markupPreviewCache[phId3].objects;ph.markedPreview=_markupPreviewCache[phId3].preview;
+        }
         var phThumb3=phSrc3;
-        if(phHasMk3){if(ph.markedR2Url&&ph.markedR2Url.length>5)phThumb3=ph.markedR2Url;else if(ph.markedPreview&&ph.markedPreview.length>5)phThumb3=ph.markedPreview;}
+        if(phHasMk3){if(ph.markedR2Url&&ph.markedR2Url.length>5)phThumb3=ph.markedR2Url;else if(ph.markedPreview&&ph.markedPreview.length>5)phThumb3=ph.markedPreview;else if(_markupPreviewCache[phId3]&&_markupPreviewCache[phId3].preview)phThumb3=_markupPreviewCache[phId3].preview;}
         allPhotos.push({src:phSrc3,thumbSrc:phThumb3,date:resp.date||d.date||null,type:'response',deficId:d.id,deficNum:d.num,respIdx:ri,idx:pi,id:realId,caption:'Pin '+d.num+' '+rtype,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk3});
       });}
     });}
