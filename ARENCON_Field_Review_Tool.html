@@ -2098,12 +2098,15 @@ ADB.saveProject=function(proj){
       if(typeof ph==='string')return{id:'dp_'+Math.random().toString(36).substr(2,8),r2Key:'',r2Status:'',r2Url:''};
       var rec={id:ph.id||'',r2Key:ph.r2Key||'',r2Status:ph.r2Status||'',r2Url:ph.r2Url||''};
       // Preserve non-destructive markup fields
-      if(ph.markupObjects&&ph.markupObjects.length)rec.markupObjects=ph.markupObjects;
+      if(ph.markupObjects&&ph.markupObjects.length){rec.markupObjects=ph.markupObjects;console.log('[StripPh] Preserved markupObjects for '+ph.id+' count='+ph.markupObjects.length);}
+      // Fallback: check global cache
+      if(!rec.markupObjects&&ph.id&&typeof _markupPreviewCache!=='undefined'&&_markupPreviewCache[ph.id]&&_markupPreviewCache[ph.id].objects){
+        rec.markupObjects=_markupPreviewCache[ph.id].objects;
+        console.log('[StripPh] Restored markupObjects from CACHE for '+ph.id+' count='+rec.markupObjects.length);
+      }
       if(ph._origBackupId)rec._origBackupId=ph._origBackupId;
       if(ph.markedR2Key)rec.markedR2Key=ph.markedR2Key;
       if(ph.markedR2Url)rec.markedR2Url=ph.markedR2Url;
-      // markedPreview is large base64 — DON'T save inline in project metadata
-      // It's regenerated on the fly from markupObjects when needed
       return rec;
     }
     if(d.photos)d.photos=d.photos.map(_stripPh);
