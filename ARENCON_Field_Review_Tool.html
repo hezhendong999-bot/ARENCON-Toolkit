@@ -1981,9 +1981,9 @@ body.text-l{--ts:4px;}
     <div id="lb-canvas-wrap" style="position:relative;">
     <canvas id="lightbox-canvas" tabindex="0" style="border-radius:6px;display:block;touch-action:none;outline:none;"></canvas>
     <div id="lb-zoom-hint"></div>
-    <button onclick="event.stopPropagation();closeLightbox();" style="position:fixed;top:12px;right:12px;background:rgba(0,0,0,.7);border:2px solid rgba(255,255,255,.5);color:white;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;z-index:8010;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);">✕</button>
-    <button onclick="lightboxPrev(event)" style="position:fixed;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.4);color:white;width:48px;height:48px;border-radius:50%;font-size:26px;cursor:pointer;z-index:8010;backdrop-filter:blur(4px);">‹</button>
-    <button onclick="lightboxNext(event)" style="position:fixed;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.4);color:white;width:48px;height:48px;border-radius:50%;font-size:26px;cursor:pointer;z-index:8010;backdrop-filter:blur(4px);">›</button>
+    <button onclick="event.stopPropagation();closeLightbox();" style="position:absolute;top:-6px;right:-6px;background:rgba(0,0,0,.7);border:2px solid rgba(255,255,255,.5);color:white;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);">✕</button>
+    <button onclick="lightboxPrev(event)" style="position:absolute;left:-24px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.4);color:white;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;z-index:10;backdrop-filter:blur(4px);">‹</button>
+    <button onclick="lightboxNext(event)" style="position:absolute;right:-24px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.4);color:white;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;z-index:10;backdrop-filter:blur(4px);">›</button>
     </div>
     <img id="lightbox-img" src="" alt="" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:none;">
     <div style="margin-top:10px;display:flex;gap:8px;">
@@ -11234,7 +11234,8 @@ function _buildUnifiedPhotoList(p){
         var caption=uniqueRefs.join(' | ');
         var phSrc=_deficPhotoSrc(ph);
         var phHasMk=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
-        allPhotos.push({src:phSrc,thumbSrc:phSrc,date:d.date||d.notedDate||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:'def_'+d.id+'_o'+oi+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk});
+        var obsRealId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('def_'+d.id+'_o'+oi+'_'+pi);
+        allPhotos.push({src:phSrc,thumbSrc:phSrc,date:d.date||d.notedDate||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:obsRealId,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk});
       });}
     });
     if(d.photos){d.photos.forEach(function(ph,pi){
