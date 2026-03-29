@@ -8079,6 +8079,7 @@ function lightboxSaveMarkup(){
 
   // Save composited preview to IDB for offline thumbnail display
   ph.markedPreview=markedSrc;
+  console.log('[Markup Save] Complete. ph.markupObjects.length='+ph.markupObjects.length+' ph.markedPreview set='+(!!ph.markedPreview)+' prevLen='+markedSrc.length+' ph.id='+ph.id+' loc='+rec.locationType);
 
   saveToLS&&saveToLS();
   showToast&&showToast('Markup saved');
@@ -8270,8 +8271,9 @@ function buildDeficItem(d,ctrId,i){
     var enPhotos=en.photos||[];
     var enThumbsHtml='';enPhotos.forEach(function(ph,pi){
       var psrc=_deficPhotoSrc(ph);
+      var pthumb=_deficPhotoThumbSrc(ph);
       var pid=_deficPhotoId(ph);
-      enThumbsHtml+='<div class="photo-thumb"><img data-src="'+escHtml(psrc)+'" data-photo-id="'+escHtml(pid)+'" onclick="openPhotoLightboxDirect(this.dataset.src||this.src,null,null,[this.dataset.photoId])" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+ei+','+pi+')">✕</button></div>';
+      enThumbsHtml+='<div class="photo-thumb"><img data-src="'+escHtml(pthumb)+'" data-photo-id="'+escHtml(pid)+'" data-orig-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.origSrc||this.dataset.src||this.src,null,null,[this.dataset.photoId])" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+ei+','+pi+')">✕</button></div>';
     });
 
     obsHtml+='<div class="pin-entry-row" style="border-left:3px solid '+prCol+';">';
@@ -8732,9 +8734,10 @@ function populateRespPhotos(){
       if(r.photos&&r.photos.length){
         r.photos.forEach(function(phRec,pi){
           var psrc=_deficPhotoSrc(phRec);
+          var pthumb=_deficPhotoThumbSrc(phRec);
           var pid=_deficPhotoId(phRec);
           html+="<div style=\"position:relative;width:60px;height:60px;flex-shrink:0;\">";
-          html+="<img data-src=\""+escHtml(psrc)+"\" data-photo-id=\""+escHtml(pid)+"\" style=\"width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer;\" onclick=\"openPhotoLightboxDirect(this.dataset.src||this.src,null,null,[this.dataset.photoId])\">";
+          html+="<img data-src=\""+escHtml(pthumb)+"\" data-photo-id=\""+escHtml(pid)+"\" data-orig-src=\""+escHtml(psrc)+"\" style=\"width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer;\" onclick=\"openPhotoLightboxDirect(this.dataset.origSrc||this.dataset.src||this.src,null,null,[this.dataset.photoId])\">";
           html+="<button onclick=\"removeRespPhoto(&quot;"+d.defic.id+"&quot;,"+ri+","+pi+")\" style=\"position:absolute;top:-4px;right:-4px;background:var(--red);color:white;border:none;border-radius:50%;width:20px;height:20px;min-width:20px;min-height:20px;padding:0;font-size:calc(11px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;\">✕</button>";
           html+="</div>";
         });
@@ -8772,6 +8775,15 @@ function _deficPhotoSrc(ph){
   if(!ph)return '';
   if(typeof ph==='string')return ph;// Legacy base64 string
   return ph.r2Url||ph.dataUrl||'';
+}
+// Returns the display thumbnail src — prefers composited markup preview over original
+function _deficPhotoThumbSrc(ph){
+  if(!ph||typeof ph==='string')return _deficPhotoSrc(ph);
+  if(ph.markupObjects&&ph.markupObjects.length>0){
+    if(ph.markedR2Url&&ph.markedR2Url.length>5)return ph.markedR2Url;
+    if(ph.markedPreview&&ph.markedPreview.length>5)return ph.markedPreview;
+  }
+  return _deficPhotoSrc(ph);
 }
 function _deficPhotoId(ph){
   if(!ph)return '';
@@ -9462,9 +9474,10 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
     ph='<div class="evidence-photos" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
     entry.photos.forEach(function(phRec,pi){
       var psrc=_deficPhotoSrc(phRec);
+      var pthumb=_deficPhotoThumbSrc(phRec);
       var pid=_deficPhotoId(phRec);
       ph+='<div style="position:relative;width:68px;height:68px;border-radius:6px;overflow:hidden;border:1px solid var(--border);">';
-      ph+='<img data-src="'+escHtml(psrc)+'" data-photo-id="'+escHtml(pid)+'" onclick="openPhotoLightboxDirect(this.dataset.src||this.src,null,null,[this.dataset.photoId]);event.stopPropagation();" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;">';
+      ph+='<img data-src="'+escHtml(pthumb)+'" data-photo-id="'+escHtml(pid)+'" data-orig-src="'+escHtml(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.origSrc||this.dataset.src||this.src,null,null,[this.dataset.photoId]);event.stopPropagation();" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;">';
       ph+='<button onclick="removePinEntryPhoto('+ae+','+pi+')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:white;border:none;border-radius:50%;width:20px;height:20px;min-width:20px;min-height:20px;padding:0;font-size:calc(11px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>';
       ph+='</div>';
     });
