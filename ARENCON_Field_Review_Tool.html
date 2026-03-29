@@ -1981,9 +1981,9 @@ body.text-l{--ts:4px;}
     <div id="lb-canvas-wrap" style="position:relative;">
     <canvas id="lightbox-canvas" tabindex="0" style="border-radius:6px;display:block;touch-action:none;outline:none;"></canvas>
     <div id="lb-zoom-hint"></div>
-    <button onclick="event.stopPropagation();closeLightbox();" style="position:absolute;top:-8px;right:-8px;background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.3);color:white;width:36px;height:36px;border-radius:50%;font-size:22px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;">✕</button>
-    <button onclick="lightboxPrev(event)" style="position:absolute;left:-22px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);border:1.5px solid rgba(255,255,255,.2);color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;z-index:1;opacity:.8;">‹</button>
-    <button onclick="lightboxNext(event)" style="position:absolute;right:-22px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);border:1.5px solid rgba(255,255,255,.2);color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;z-index:1;opacity:.8;">›</button>
+    <button onclick="event.stopPropagation();closeLightbox();" style="position:fixed;top:12px;right:12px;background:rgba(0,0,0,.7);border:2px solid rgba(255,255,255,.5);color:white;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;z-index:8010;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);">✕</button>
+    <button onclick="lightboxPrev(event)" style="position:fixed;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.4);color:white;width:48px;height:48px;border-radius:50%;font-size:26px;cursor:pointer;z-index:8010;backdrop-filter:blur(4px);">‹</button>
+    <button onclick="lightboxNext(event)" style="position:fixed;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.4);color:white;width:48px;height:48px;border-radius:50%;font-size:26px;cursor:pointer;z-index:8010;backdrop-filter:blur(4px);">›</button>
     </div>
     <img id="lightbox-img" src="" alt="" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:none;">
     <div style="margin-top:10px;display:flex;gap:8px;">
@@ -8504,6 +8504,17 @@ function addObservation(did){
   d.entries.push({description:'',photos:[],priority:d.priority||'high'});
   pushUndo();saveToLS();renderDeficiencyPanel();
 }
+function removeObservation(did,oi){
+  var f=findDeficiency(did);if(!f)return;
+  var d=f.defic;
+  var totalObs=d.observations?d.observations.length:d.entries?d.entries.length:0;
+  if(totalObs<=1){_aAlert('Cannot remove the last observation.');return;}
+  _aConfirm('Remove this observation?',function(){
+    if(d.observations&&d.observations[oi])d.observations.splice(oi,1);
+    if(d.entries&&d.entries[oi])d.entries.splice(oi,1);
+    pushUndo();saveToLS();renderDeficiencyPanel();
+  },'Remove');
+}
 
 function buildDeficItem(d,ctrId,i){
   var ctrName=ctrId?(getProject().contractors.find(function(x){return x.id===ctrId;})||{}).name||'':'General';
@@ -8527,9 +8538,11 @@ function buildDeficItem(d,ctrId,i){
     var addrClass=isAddr?' addressed':'';
     var pillClass=isAddr?'addressed':'open';
     var pillText=isAddr?'✔ Addressed':'● Open';
-    var lbl=(obs&&obs.length>1)||(entries&&entries.length>1)?String.fromCharCode(65+oi)+') ':'';
+    var totalObs=obs?obs.length:entries?entries.length:1;
+    var lbl=totalObs>1?String.fromCharCode(65+oi)+') ':'';
+    var delBtn=totalObs>1?'<button style="background:none;border:none;color:#C0392B;cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 4px;opacity:.6;flex-shrink:0;" onclick="removeObservation(\''+d.id+'\','+oi+')" title="Remove observation">✕</button>':'';
     var h='<div class="obs-row"><div class="obs-text'+addrClass+'">';
-    h+='<div class="obs-label"><span>'+lbl+'Observation'+frtLabel+'</span><button class="obs-toggle '+pillClass+'" onclick="toggleObsAddressed(\''+d.id+'\','+oi+')">'+pillText+'</button></div>';
+    h+='<div class="obs-label"><span>'+lbl+'Observation'+frtLabel+'</span><div style="display:flex;align-items:center;gap:4px;">'+delBtn+'<button class="obs-toggle '+pillClass+'" onclick="toggleObsAddressed(\''+d.id+'\','+oi+')">'+pillText+'</button></div></div>';
     h+='<textarea style="width:100%;height:60px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:inherit;resize:vertical;" oninput="updateEntryField(\''+d.id+'\','+oi+',\'description\',this.value)" list="defic-desc-suggestions">'+safe(text)+'</textarea>';
     if(photos&&photos.length){
       h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0;">';
@@ -12166,9 +12179,19 @@ function _buildDefCardHtml(r){
   h+='<span class="'+(_deficIsOpen(d)?'so':'sc')+'">'+(_deficIsOpen(d)?'Outstanding':'Closed')+'</span>';
   h+='</div>';
   // Build sections as separate divs with data-split markers for potential page splitting
-  var hasMultiEntries=d.entries&&d.entries.length>1;
+  // Filter out addressed observations from PDF
+  var pdfEntries=[];
   if(d.entries&&d.entries.length){
     d.entries.forEach(function(en,ei){
+      // Skip addressed observations
+      if(d.observations&&d.observations[ei]&&d.observations[ei].addressed)return;
+      pdfEntries.push({en:en,ei:ei});
+    });
+  }
+  var hasMultiEntries=pdfEntries.length>1;
+  if(pdfEntries.length){
+    pdfEntries.forEach(function(pe){
+      var en=pe.en;var ei=pe.ei;
       var eLbl=String.fromCharCode(65+ei);
       var ePr=en.priority==='general'?'General':en.priority==='low'?'Low':'High';
       var ePrCol=en.priority==='general'?'#1A7A4A':en.priority==='low'?'#E67E22':'#9C2742';
@@ -12186,7 +12209,7 @@ function _buildDefCardHtml(r){
       }
       h+='</div>';
     });
-  } else {
+  } else if(!d.entries||!d.entries.length){
     var dispD=d.description||'';
     h+='<div class="dc-split" style="margin-bottom:6px;"><strong>Description:</strong> '+escHtml(dispD)+'</div>';
     var firstPhotos=d.photos||[];
