@@ -791,6 +791,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .photo-thumb:hover .photo-thumb-del,.photo-thumb:hover .photo-thumb-dl{opacity:1;}
 .photo-thumb-del:hover{background:#DC2626;transform:scale(1.1);}
 .photo-thumb-dl:hover{background:#1A7A4A;transform:scale(1.1);}/* Checkbox — small pill top-left, only on hover/selected */
+.photo-markup-badge{position:absolute;bottom:4px;left:26px;font-size:12px;z-index:3;opacity:.85;}
 /* Old photo overlay styles removed — replaced by Hub-style thumb-cb/del/dl *//* Hover bar — date + download, sits above caption row */
 /* Old hover-info removed — date shown in lightbox instead */
 /* Caption row — below image, not overlapping */
@@ -1173,7 +1174,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   #photo-lightbox button[onclick*="lightboxNext"]{width:48px;height:48px;font-size:26px;}
 
   /* --- Lightbox action bar buttons --- */
-  #lb-draw-btn,#lb-save-btn,#lb-clear-btn{padding:10px 18px!important;font-size:calc(14px + var(--ts))!important;}
+  #lb-draw-btn,#lb-save-btn,#lb-clear-btn,#lb-revert-btn{padding:10px 18px!important;font-size:calc(14px + var(--ts))!important;}
 
   /* --- Kanban cards — larger tap area --- */
 
@@ -1904,6 +1905,7 @@ body.text-l{--ts:4px;}
       <button onclick="event.stopPropagation();lightboxDrawMode()" ontouchend="event.stopPropagation();event.preventDefault();lightboxDrawMode()" id="lb-draw-btn" style="background:rgba(255,255,255,.15);border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">✏️ Mark up</button>
       <button onclick="event.stopPropagation();lightboxSaveMarkup()" ontouchend="event.stopPropagation();event.preventDefault();lightboxSaveMarkup()" id="lb-save-btn" style="display:none;background:#1A7A4A;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">💾 Save</button>
       <button onclick="event.stopPropagation();lightboxClearDraw()" ontouchend="event.stopPropagation();event.preventDefault();lightboxClearDraw()" id="lb-clear-btn" style="display:none;background:#C0392B;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">✕ Clear</button>
+      <button onclick="event.stopPropagation();lightboxRevertMarkup()" ontouchend="event.stopPropagation();event.preventDefault();lightboxRevertMarkup()" id="lb-revert-btn" style="display:none;background:#9C2742;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">↩ Revert to Original</button>
     </div>
     <!-- Photo markup toolbar — unified with drawing toolbar style -->
     <div id="lb-toolbar" style="display:none;margin-top:8px;padding:6px 12px;background:rgba(20,22,30,.95);border-radius:10px;border:1px solid rgba(255,255,255,.1);flex-wrap:wrap;gap:5px;align-items:center;max-width:90vw;justify-content:center;">
@@ -7317,6 +7319,7 @@ var _lbDragState=null;      // {mode:'move'|'resize', handle, startX,startY,orig
 var _lbRubberBand=null;     // {sx,sy,ex,ey} while rubber-banding
 var _lbOrigSrc='';
 var _lbBgImage=null;
+var _lbOrigBackupId=''; // ID of the "(original)" backup sitePhoto created on first markup
 // Tool state
 var _lbTool='pen',_lbColor='#C0392B',_lbSize=4,_lbOpacity=1;
 var _lbMouse={down:false,x:0,y:0,sx:0,sy:0};
@@ -7823,13 +7826,64 @@ function _lbUp(e){
   _lbRenderAll();
 }
 
+// ── FIND PHOTO RECORD BY ID ──
+// Returns {photo, locationType, container} or null
+// locationType: 'site' | 'deficPhoto' | 'entryPhoto' | 'responsePhoto'
+function _findPhotoRecById(p,targetId){
+  if(!p||!targetId)return null;
+  // Site photos
+  if(p.sitePhotos){for(var i=0;i<p.sitePhotos.length;i++){
+    var sp=p.sitePhotos[i];if(sp&&typeof sp==='object'&&sp.id===targetId)return{photo:sp,locationType:'site',container:p.sitePhotos,idx:i};
+  }}
+  // Deficiency photos (all containers)
+  var ad=getAllDeficiencies(p);
+  for(var di=0;di<ad.length;di++){
+    var d=ad[di].defic;
+    if(d.photos){for(var pi=0;pi<d.photos.length;pi++){
+      if(d.photos[pi]&&typeof d.photos[pi]==='object'&&d.photos[pi].id===targetId)return{photo:d.photos[pi],locationType:'deficPhoto',container:d.photos,idx:pi,deficId:d.id};
+    }}
+    if(d.entries){for(var ei=0;ei<d.entries.length;ei++){
+      var en=d.entries[ei];if(en.photos){for(var epi=0;epi<en.photos.length;epi++){
+        if(en.photos[epi]&&typeof en.photos[epi]==='object'&&en.photos[epi].id===targetId)return{photo:en.photos[epi],locationType:'entryPhoto',container:en.photos,idx:epi,deficId:d.id};
+      }}
+    }}
+    if(d.responses){for(var ri=0;ri<d.responses.length;ri++){
+      var resp=d.responses[ri];if(resp.photos){for(var rpi=0;rpi<resp.photos.length;rpi++){
+        if(resp.photos[rpi]&&typeof resp.photos[rpi]==='object'&&resp.photos[rpi].id===targetId)return{photo:resp.photos[rpi],locationType:'responsePhoto',container:resp.photos,idx:rpi,deficId:d.id};
+      }}
+    }}
+  }
+  return null;
+}
+
 // ── DRAW MODE ACTIVATION ──
 function lightboxDrawMode(){
   if(!_lbCanvas)_lbCanvas=document.getElementById('lightbox-canvas');
   if(!_lbCtx)_lbCtx=_lbCanvas.getContext('2d');
   _lbDrawing=true;
   _lbTool='pen';_lbColor='#C0392B';_lbSize=4;_lbOpacity=1;
-  _lbObjects=[];_lbUndoStack=[];_lbRedoStack=[];_lbSelectedId=null;_lbSelectedIds=[];
+  _lbSelectedId=null;_lbSelectedIds=[];
+  // Restore existing markup objects if the photo already has them
+  var _existingObjects=null;
+  var _targetId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])?_lbPhotoIds[_lbIdx]:null;
+  if(_targetId){
+    var p=getProject&&getProject();
+    if(p){
+      var rec=_findPhotoRecById(p,_targetId);
+      if(rec&&rec.photo&&rec.photo.markupObjects&&rec.photo.markupObjects.length){
+        _existingObjects=JSON.parse(JSON.stringify(rec.photo.markupObjects));
+        _existingObjects.forEach(function(o){if(!o.id)o.id=_lbNewId();});
+      }
+      // Track the backup original ID if it exists
+      _lbOrigBackupId=(rec&&rec.photo&&rec.photo._origBackupId)||'';
+    }
+  }
+  if(_existingObjects){
+    _lbObjects=_existingObjects;
+    _lbUndoStack=[];_lbRedoStack=[];
+  } else {
+    _lbObjects=[];_lbUndoStack=[];_lbRedoStack=[];
+  }
   _lbOrigSrc=_lbPhotos[_lbIdx];
   document.getElementById('lb-draw-btn').style.display='none';
   document.getElementById('lb-save-btn').style.display='';
@@ -7842,7 +7896,12 @@ function lightboxDrawMode(){
   var op=document.getElementById('lb-opacity');if(op)op.value='100';
   var opi=document.getElementById('lb-opacity-input');if(opi)opi.value='100';
   document.querySelectorAll('.lb-tool-btn').forEach(function(b){b.classList.toggle('active',b.dataset.lbTool==='pen');});
+  // Show revert button if markup already exists
+  var _revertBtn=document.getElementById('lb-revert-btn');
+  if(_revertBtn)_revertBtn.style.display=_existingObjects?'':'none';
   _lbEnableDrawEvents();
+  // Re-render with restored objects
+  if(_existingObjects)_lbRenderAll();
 }
 
 function lightboxClearDraw(){
@@ -7905,12 +7964,15 @@ function _lbRemoveDrawEvents(){
   _lbCancelText();
 }
 
-// ── SAVE ──
+// ── SAVE (Non-Destructive) ──
+// Saves markup objects on the photo record. Original image is NEVER modified.
+// A composited preview is generated for thumbnails. Objects are re-editable.
 function lightboxSaveMarkup(){
   if(!_lbCanvas)return;
   // Render final without selection handles
   var hadSel=_lbSelectedId;_lbSelectedId=null;_lbSelectedIds=[];_lbRenderAll();
-  var origSrc=_lbOrigSrc||_lbPhotos[_lbIdx];
+
+  // Generate composited preview (for thumbnail display only — NOT the source of truth)
   var markedSrc;
   try{
     markedSrc=_lbCanvas.toDataURL('image/jpeg',0.92);
@@ -7923,81 +7985,160 @@ function lightboxSaveMarkup(){
     showToast&&showToast('Markup save failed — empty canvas export','error');
     return;
   }
-  // Update in-memory photo array so lightbox shows marked version
-  _lbPhotos[_lbIdx]=markedSrc;
-  _lbOrigSrc=markedSrc;
+
   var p=getProject&&getProject();
-  var wasDeficPhoto=false;
-  if(p){
-    if(!p.sitePhotos)p.sitePhotos=[];
+  if(!p)return;
+  if(!p.sitePhotos)p.sitePhotos=[];
 
-    // Replace the photo in-place (defic or site) with the marked-up version
-    wasDeficPhoto=_replacePhotoInProject(p,origSrc,markedSrc);
+  var targetId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])?_lbPhotoIds[_lbIdx]:null;
+  if(!targetId){showToast&&showToast('Cannot save — photo ID not found','error');return;}
 
-    // Always save the ORIGINAL (pre-markup) as a new Photo Gallery entry
-    // This ensures an unmarked copy is always preserved
-    {
-      var _srcCaption='';
-      try{
-        var _allPh=_buildUnifiedPhotoList(p);
-        var _srcPh=_allPh.find(function(x){return x.src===markedSrc;});// find the now-replaced record
-        if(_srcPh&&_srcPh.caption)_srcCaption=_srcPh.caption;
-      }catch(e){}
-      var _origRec={id:'sp_orig_'+Date.now(),dataUrl:'',caption:(_srcCaption?_srcCaption+' (original)':'Original'),timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};
-      p.sitePhotos.push(_origRec);
-      // origSrc may be a blob: URL or data: URL — handle both
-      var _origIsBlob=origSrc&&origSrc.indexOf('blob:')===0;
-      var _origIsData=origSrc&&origSrc.indexOf('data:')===0;
-      function _saveOrigToR2AndIDB(blob,dataUrl){
-        _origRec.dataUrl=dataUrl||'';
-        if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'&&blob){
-          var _origFname=_r2Filename('site','jpg');
-          var _origFolderId=_getR2FolderId();
-          _origRec.r2Key='photos/'+_origFolderId+'/frt/original/'+_origFname;
-          _origRec.r2Status='pending';
-          ADB.savePending(_origRec.id,_csProjectId,blob,{type:'site',fname:_origFname,r2Key:_origRec.r2Key}).catch(function(){});
-          R2Photos.enqueue({projectId:_origFolderId,tool:'frt',type:'original',filename:_origFname,blob:blob,
-            onComplete:function(err){
-              if(!err){_origRec.r2Status='uploaded';_origRec.r2Url=R2Photos.getUrl(_origFolderId,'frt','original',_origFname);
-                ADB.deletePending(_origRec.id).catch(function(){});saveToLS&&saveToLS();_updateR2Badge&&_updateR2Badge();}
-              else{_origRec.r2Status='error';}
-            }
-          });
-        }
-        // Save blob to IDB sitePhotos store
-        if(dataUrl&&_origRec.id&&p.id){
-          ADB.saveSitePhoto(_origRec,p.id).catch(function(){});
-        }
-        saveToLS&&saveToLS();
+  var rec=_findPhotoRecById(p,targetId);
+  if(!rec){showToast&&showToast('Cannot save — photo record not found','error');return;}
+  var ph=rec.photo;
+
+  // Save markup objects (the editable data — this is non-destructive)
+  ph.markupObjects=JSON.parse(JSON.stringify(_lbObjects));
+
+  // ── CREATE "(original)" backup on FIRST markup only ──
+  var isFirstMarkup=!ph._origBackupId;
+  if(isFirstMarkup&&_lbObjects.length>0){
+    var origSrc=_lbOrigSrc||_lbPhotos[_lbIdx];
+    var _srcCaption=ph.caption||'';
+    var _origRec={id:'sp_orig_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),dataUrl:'',caption:(_srcCaption?_srcCaption+' (original)':'Original'),timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};
+    p.sitePhotos.push(_origRec);
+    ph._origBackupId=_origRec.id;
+    _lbOrigBackupId=_origRec.id;
+
+    // Resolve origSrc to dataUrl and save to IDB + R2
+    var _origIsBlob=origSrc&&origSrc.indexOf('blob:')===0;
+    var _origIsData=origSrc&&origSrc.indexOf('data:')===0;
+    function _saveOrigBackup(blob,dataUrl){
+      _origRec.dataUrl=dataUrl||'';
+      if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'&&blob){
+        var _origFname=_r2Filename('site','jpg');
+        var _origFolderId=_getR2FolderId();
+        _origRec.r2Key='photos/'+_origFolderId+'/frt/original/'+_origFname;
+        _origRec.r2Status='pending';
+        ADB.savePending(_origRec.id,_csProjectId,blob,{type:'site',fname:_origFname,r2Key:_origRec.r2Key}).catch(function(){});
+        R2Photos.enqueue({projectId:_origFolderId,tool:'frt',type:'original',filename:_origFname,blob:blob,
+          onComplete:function(err){
+            if(!err){_origRec.r2Status='uploaded';_origRec.r2Url=R2Photos.getUrl(_origFolderId,'frt','original',_origFname);
+              ADB.deletePending(_origRec.id).catch(function(){});saveToLS&&saveToLS();_updateR2Badge&&_updateR2Badge();}
+            else{_origRec.r2Status='error';}
+          }
+        });
       }
-      if(_origIsBlob){
-        // Fetch blob from blob URL, convert to dataUrl for IDB storage
-        fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
-          ADB.blobToDataUrl(blob).then(function(du){
-            _saveOrigToR2AndIDB(blob,du);
-          }).catch(function(){_saveOrigToR2AndIDB(blob,'');});
-        }).catch(function(e){console.warn('[Markup] Failed to fetch original blob:',e);});
-      } else if(_origIsData){
-        var _origBlob=R2Photos.dataUrlToBlob(origSrc);
-        _saveOrigToR2AndIDB(_origBlob,origSrc);
+      if(dataUrl&&_origRec.id&&p.id){
+        ADB.saveSitePhoto(_origRec,p.id).catch(function(){});
       }
-    }// end save original to gallery
+      saveToLS&&saveToLS();
+    }
+    if(_origIsBlob){
+      fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
+        ADB.blobToDataUrl(blob).then(function(du){
+          _saveOrigBackup(blob,du);
+        }).catch(function(){_saveOrigBackup(blob,'');});
+      }).catch(function(e){console.warn('[Markup] Failed to fetch original blob:',e);});
+    } else if(_origIsData){
+      var _origBlob=(typeof R2Photos!=='undefined')?R2Photos.dataUrlToBlob(origSrc):null;
+      _saveOrigBackup(_origBlob,origSrc);
+    }
+  }
+
+  // ── Upload composited preview to R2 as 'marked' type ──
+  if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'){
+    var mkBlob=R2Photos.dataUrlToBlob(markedSrc);
+    if(mkBlob){
+      var mkFname=_r2Filename('mkup','jpg');
+      var hubId=_getR2FolderId();
+      ph.markedR2Key='photos/'+hubId+'/frt/marked/'+mkFname;
+      ADB.savePending(ph.id+'_mkprev',_csProjectId,mkBlob,{r2Key:ph.markedR2Key,fname:mkFname}).catch(function(){});
+      R2Photos.enqueue({projectId:hubId,tool:'frt',type:'marked',filename:mkFname,blob:mkBlob,
+        onComplete:function(err){
+          if(!err){ph.markedR2Url=R2Photos.getUrl(hubId,'frt','marked',mkFname);
+            ADB.deletePending(ph.id+'_mkprev').catch(function(){});saveToLS&&saveToLS();}
+        }
+      });
+    }
+  }
+
+  // Save composited preview to IDB for offline thumbnail display
+  ph.markedPreview=markedSrc;
+
+  saveToLS&&saveToLS();
+  showToast&&showToast('Markup saved');
+  if(typeof renderPhotoGallery==='function')renderPhotoGallery();
+
+  // Show revert button now that markup exists
+  var revertBtn=document.getElementById('lb-revert-btn');
+  if(revertBtn)revertBtn.style.display='';
+
+  // Stay in draw mode so user can continue editing
+  _lbRenderAll();
+}
+
+// ── REVERT TO ORIGINAL ──
+// Clears all markup objects, deletes the "(original)" backup photo, restores clean image
+function lightboxRevertMarkup(){
+  var targetId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])?_lbPhotoIds[_lbIdx]:null;
+  if(!targetId)return;
+  var p=getProject&&getProject();if(!p)return;
+  var rec=_findPhotoRecById(p,targetId);
+  if(!rec)return;
+  var ph=rec.photo;
+  if(!ph.markupObjects||!ph.markupObjects.length){showToast&&showToast('No markup to revert');return;}
+
+  _aConfirm('Revert this photo to the original? All markup will be removed.',function(yes){
+    if(!yes)return;
+    // Clear markup objects and marked preview
+    ph.markupObjects=null;
+    // Delete marked preview from R2 if uploaded
+    if(ph.markedR2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+      var mkParts=ph.markedR2Key.split('/');
+      if(mkParts.length>=5)R2Photos.remove(mkParts[1],mkParts[2],mkParts[3],mkParts.slice(4).join('/')).catch(function(){});
+    }
+    delete ph.markedPreview;
+    delete ph.markedR2Key;
+    delete ph.markedR2Url;
+
+    // Delete the "(original)" backup photo from sitePhotos
+    if(ph._origBackupId&&p.sitePhotos){
+      var backupIdx=-1;
+      for(var i=0;i<p.sitePhotos.length;i++){
+        if(p.sitePhotos[i]&&p.sitePhotos[i].id===ph._origBackupId){backupIdx=i;break;}
+      }
+      if(backupIdx>=0){
+        var backupRec=p.sitePhotos[backupIdx];
+        // Delete from IDB sitePhotos store
+        if(backupRec.id&&p.id){ADB.delete('sitePhotos',backupRec.id).catch(function(){});}
+        // Delete from R2 if uploaded
+        if(backupRec.r2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
+          var parts=backupRec.r2Key.split('/');
+          if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts.slice(4).join('/')).catch(function(){});
+        }
+        p.sitePhotos.splice(backupIdx,1);
+      }
+      delete ph._origBackupId;
+    }
+    _lbOrigBackupId='';
+
+    // Clear lightbox canvas objects and re-render clean
+    _lbObjects=[];_lbUndoStack=[];_lbRedoStack=[];
+    _lbSelectedId=null;_lbSelectedIds=[];
+    _lbHideToolbar();
 
     saveToLS&&saveToLS();
-    showToast&&showToast('Markup saved');
+    showToast&&showToast('Markup removed — photo reverted to original');
     if(typeof renderPhotoGallery==='function')renderPhotoGallery();
-  }// end if(p)
-  // Update all DOM <img> elements showing origSrc to show the new marked version
-  // (data-src is removed after lazy-load so we must update img.src directly)
-  document.querySelectorAll('img').forEach(function(img){
-    if(img.src===origSrc||(img.getAttribute&&img.getAttribute('data-src')===origSrc)){
-      img.src=markedSrc;
-      img.removeAttribute('data-src');
-    }
-  });
-  // Reload lightbox canvas with saved marked image
-  _lbHideToolbar();
-  _lbShowCurrentDirect();
+
+    // Reload the clean image on canvas
+    _lbShowCurrentDirect();
+
+    // Hide revert button
+    var revertBtn=document.getElementById('lb-revert-btn');
+    if(revertBtn)revertBtn.style.display='none';
+  },'Revert to Original','Cancel');
 }
 
 function _replacePhotoInProject(p,oldSrc,newSrc){
@@ -9139,6 +9280,20 @@ function _lbShowCurrentDirect(){
   if(!_lbCanvas)_lbCanvas=document.getElementById('lightbox-canvas');
   img.style.display='none';
   _lbCanvas.style.display='block';
+
+  // Look up the photo record to check for existing markup
+  var _targetId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])?_lbPhotoIds[_lbIdx]:null;
+  var _photoRec=null;
+  if(_targetId){
+    var _p=getProject&&getProject();
+    if(_p){var _found=_findPhotoRecById(_p,_targetId);if(_found)_photoRec=_found.photo;}
+  }
+  var _hasMarkup=_photoRec&&_photoRec.markupObjects&&_photoRec.markupObjects.length>0;
+
+  // Show/hide revert button
+  var revertBtn=document.getElementById('lb-revert-btn');
+  if(revertBtn)revertBtn.style.display=_hasMarkup?'':'none';
+
   var image=new Image();
   function _lbLoadImage(imgSrc){
     image.onload=function(){
@@ -9163,6 +9318,16 @@ function _lbShowCurrentDirect(){
       _lbCanvas._dpr=1;
       _lbBgImage=image;
       _lbCtx.drawImage(image,0,0,bw,bh);
+      // Restore markup objects if photo has them (non-destructive render)
+      if(_hasMarkup&&!_lbDrawing){
+        // Load objects and render as preview (not in draw mode — just visual overlay)
+        _lbObjects=JSON.parse(JSON.stringify(_photoRec.markupObjects));
+        _lbObjects.forEach(function(o){if(!o.id)o.id=_lbNewId();});
+        _lbRenderAll();
+      } else if(_lbDrawing){
+        // Already in draw mode — just re-render existing _lbObjects
+        _lbRenderAll();
+      }
       if(_lbDrawing)_lbEnableDrawEvents();
       var ctr=document.getElementById('lb-photo-counter');
       if(ctr)ctr.textContent=(_lbIdx+1)+' / '+_lbPhotos.length;
@@ -10028,12 +10193,14 @@ function renderPhotoGallery(){
       var typeLabel=ph.type==='site'?'Site':ph.type==='response'?'Resp':((isGeneral?'General · ':'')+'Pin '+ph.deficNum);
       var r2Icon=ph.r2Status==='uploaded'?'☁':ph.r2Status==='pending'?'⏳':ph.r2Status==='error'?'⚠':'';
       html+='<div class="photo-thumb'+(sel?' selected':'')+'" data-photo-id="'+ph.id+'">';
-      // Image — click opens lightbox
-      html+='<img data-src="'+ph.src+'" onclick="openPhotoLightbox(\''+ph.id+'\')" loading="lazy">';
+      // Image — click opens lightbox; use thumbSrc for composited preview if marked
+      html+='<img data-src="'+(ph.thumbSrc||ph.src)+'" onclick="openPhotoLightbox(\''+ph.id+'\')" loading="lazy">';
       // Checkbox — always visible, top-left, 22px
       html+='<input type="checkbox" class="photo-thumb-cb" '+(sel?'checked':'')+' onclick="event.stopPropagation();togglePhotoSelect(\''+ph.id+'\',event)">';
       // Type badge — top-left, next to checkbox
       html+='<div class="photo-type-badge" style="background:'+typeColor+';">'+typeLabel+'</div>';
+      // Markup badge — bottom-left next to R2 icon if photo has markup objects
+      if(ph.hasMarkup)html+='<div class="photo-markup-badge" title="Has editable markup">✏️</div>';
       // R2 cloud icon — bottom-left
       if(r2Icon)html+='<div class="photo-r2-icon" title="Cloud: '+ph.r2Status+'">'+r2Icon+'</div>';
       // Delete button — top-right, on hover (site photos only)
@@ -10396,8 +10563,15 @@ function _buildUnifiedPhotoList(p){
   var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
   if(siteArr.length){siteArr.forEach(function(ph,i){
     var src=(typeof ph==='string')?ph:((ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'');
+    // For photos with non-destructive markup, show the composited preview as thumbnail
+    var hasMarkup=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
+    var thumbSrc=src;
+    if(hasMarkup){
+      if(ph.markedR2Url&&ph.markedR2Url.length>5)thumbSrc=ph.markedR2Url;
+      else if(ph.markedPreview&&ph.markedPreview.length>5)thumbSrc=ph.markedPreview;
+    }
     var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('site_'+i);
-    allPhotos.push({src:src,date:ph.date||ph.uploadDate||ph.timestamp||null,type:'site',idx:i,id:realId,caption:ph.caption||'',r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
+    allPhotos.push({src:src,thumbSrc:thumbSrc,date:ph.date||ph.uploadDate||ph.timestamp||null,type:'site',idx:i,id:realId,caption:ph.caption||'',r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:hasMarkup});
   });}
 
   var ad=getAllDeficiencies(p);
@@ -10437,7 +10611,11 @@ function _buildUnifiedPhotoList(p){
         var refs=srcToPins[pid]||[];
         var uniqueRefs=[];refs.forEach(function(r2){if(uniqueRefs.indexOf(r2)<0)uniqueRefs.push(r2);});
         var caption=uniqueRefs.join(' | ');
-        allPhotos.push({src:_deficPhotoSrc(ph),date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:'def_'+d.id+'_e'+ei+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
+        var phSrc=_deficPhotoSrc(ph);
+        var phHasMk=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
+        var phThumb=phSrc;
+        if(phHasMk){if(ph.markedR2Url&&ph.markedR2Url.length>5)phThumb=ph.markedR2Url;else if(ph.markedPreview&&ph.markedPreview.length>5)phThumb=ph.markedPreview;}
+        allPhotos.push({src:phSrc,thumbSrc:phThumb,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:'def_'+d.id+'_e'+ei+'_'+pi,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk});
       });}
     });}
     if(d.photos){d.photos.forEach(function(ph,pi){
@@ -10447,7 +10625,11 @@ function _buildUnifiedPhotoList(p){
       var uniqueRefs=[];refs.forEach(function(r2){if(uniqueRefs.indexOf(r2)<0)uniqueRefs.push(r2);});
       var caption=uniqueRefs.join(' | ');
       var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('def_'+d.id+'_'+pi);
-      allPhotos.push({src:_deficPhotoSrc(ph),date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:realId,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
+      var phSrc2=_deficPhotoSrc(ph);
+      var phHasMk2=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
+      var phThumb2=phSrc2;
+      if(phHasMk2){if(ph.markedR2Url&&ph.markedR2Url.length>5)phThumb2=ph.markedR2Url;else if(ph.markedPreview&&ph.markedPreview.length>5)phThumb2=ph.markedPreview;}
+      allPhotos.push({src:phSrc2,thumbSrc:phThumb2,date:d.date||null,type:'deficiency',deficId:d.id,deficNum:d.num,deficPriority:d.priority||'high',idx:pi,id:realId,caption:caption,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk2});
     });}
     if(d.responses){d.responses.forEach(function(resp,ri){
       if(resp.photos){resp.photos.forEach(function(ph,pi){
@@ -10455,7 +10637,11 @@ function _buildUnifiedPhotoList(p){
         if(seen[pid])return;seen[pid]=true;
         var rtype=resp.party==='contractor'?'Ctr Resp':'Con Resp';
         var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('resp_'+d.id+'_'+ri+'_'+pi);
-        allPhotos.push({src:_deficPhotoSrc(ph),date:resp.date||d.date||null,type:'response',deficId:d.id,deficNum:d.num,respIdx:ri,idx:pi,id:realId,caption:'Pin '+d.num+' '+rtype,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null});
+        var phSrc3=_deficPhotoSrc(ph);
+        var phHasMk3=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
+        var phThumb3=phSrc3;
+        if(phHasMk3){if(ph.markedR2Url&&ph.markedR2Url.length>5)phThumb3=ph.markedR2Url;else if(ph.markedPreview&&ph.markedPreview.length>5)phThumb3=ph.markedPreview;}
+        allPhotos.push({src:phSrc3,thumbSrc:phThumb3,date:resp.date||d.date||null,type:'response',deficId:d.id,deficNum:d.num,respIdx:ri,idx:pi,id:realId,caption:'Pin '+d.num+' '+rtype,r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:phHasMk3});
       });}
     });}
   });
@@ -10499,7 +10685,7 @@ function showLightboxAt(idx){
   }
   _glbZoomReset();
   overlay.style.display='flex';
-  _loadR2OrDirect(ph.src,document.getElementById('glb-img'));
+  _loadR2OrDirect(ph.thumbSrc||ph.src,document.getElementById('glb-img'));
   document.getElementById('glb-counter').textContent='Photo '+(idx+1)+' of '+_lightboxPhotos.length;
   document.getElementById('glb-info').textContent=(ph.date?(ph.date+'').substring(0,10)+' · ':'')+((ph.caption)||(ph.type==='site'?'Site Photo':ph.type==='response'?'Response Photo':('Pin #'+ph.deficNum)));
   var capEl=document.getElementById('glb-caption-text');
@@ -10713,11 +10899,16 @@ function rotateLbPhoto(){
 function openGalleryLightboxMarkup(){
   var ph=_lightboxPhotos[_lightboxIdx];
   if(!ph||ph.type!=='site')return;
-  var imgEl=document.getElementById('glb-img');
-  if(!imgEl||!imgEl.src||imgEl.src==='about:blank')return;
-  var captureSrc=imgEl.src;
+  // Use the ORIGINAL src (not the composited preview) so canvas loads clean image
+  // _lbShowCurrentDirect will overlay markupObjects on top
+  var origSrc=ph.src;
+  if(!origSrc||origSrc.length<5){
+    var imgEl=document.getElementById('glb-img');
+    if(imgEl&&imgEl.src&&imgEl.src!=='about:blank')origSrc=imgEl.src;
+  }
+  if(!origSrc||origSrc.length<5)return;
   // Open markup lightbox FIRST (no flash), then close gallery
-  openPhotoLightboxDirect(captureSrc,null,null,[ph.id]);
+  openPhotoLightboxDirect(origSrc,null,null,[ph.id]);
   closePhotoLightbox();
   var lbDrawBtn=document.getElementById('lb-draw-btn');
   if(lbDrawBtn)lbDrawBtn.click();
@@ -12850,7 +13041,7 @@ function _collectFullState(){
     function _stripArr(arr){
       if(!arr)return;
       arr.forEach(function(ph){
-        if(typeof ph==='object'&&ph){delete ph.dataUrl;}// Keep id, r2Key, r2Status, r2Url
+        if(typeof ph==='object'&&ph){delete ph.dataUrl;delete ph.markupObjects;delete ph.markedPreview;}// Keep id, r2Key, r2Status, r2Url, _origBackupId
       });
     }
     defics.forEach(function(d){
@@ -12862,10 +13053,10 @@ function _collectFullState(){
   (state.contractors||[]).forEach(function(c){_stripDeficPhotos(c.deficiencies);});
   _stripDeficPhotos(state.generalDeficiencies);
 
-  // 3) Site photos: strip dataUrl (keep r2Key/r2Url/r2Status metadata if present)
+  // 3) Site photos: strip dataUrl, markupObjects, markedPreview (keep r2Key/r2Url/r2Status/_origBackupId)
   if(state.sitePhotos){
     state.sitePhotos.forEach(function(ph){
-      if(ph)delete ph.dataUrl;
+      if(ph){delete ph.dataUrl;delete ph.markupObjects;delete ph.markedPreview;}
     });
   }
   // Legacy photos array (same treatment)
