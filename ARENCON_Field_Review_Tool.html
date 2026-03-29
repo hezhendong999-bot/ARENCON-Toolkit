@@ -2100,7 +2100,7 @@ ADB.saveProject=function(proj){
       // Preserve non-destructive markup fields
       if(ph.markupObjects&&ph.markupObjects.length){rec.markupObjects=ph.markupObjects;console.log('[StripPh] Preserved markupObjects for '+ph.id+' count='+ph.markupObjects.length);}
       // Fallback: check global cache
-      if(!rec.markupObjects&&ph.id&&typeof _markupPreviewCache!=='undefined'&&_markupPreviewCache[ph.id]&&_markupPreviewCache[ph.id].objects){
+      if(!rec.markupObjects&&!ph._markupCleared&&ph.id&&typeof _markupPreviewCache!=='undefined'&&_markupPreviewCache[ph.id]&&_markupPreviewCache[ph.id].objects){
         rec.markupObjects=_markupPreviewCache[ph.id].objects;
         console.log('[StripPh] Restored markupObjects from CACHE for '+ph.id+' count='+rec.markupObjects.length);
       }
@@ -2109,6 +2109,7 @@ ADB.saveProject=function(proj){
       if(ph.markedR2Url)rec.markedR2Url=ph.markedR2Url;
       if(ph._markupCanvasW)rec._markupCanvasW=ph._markupCanvasW;
       if(ph._markupCanvasH)rec._markupCanvasH=ph._markupCanvasH;
+      if(ph._markupCleared)rec._markupCleared=true;
       return rec;
     }
     if(d.photos)d.photos=d.photos.map(_stripPh);
@@ -2185,12 +2186,15 @@ ADB.saveSitePhoto=function(photo,projectId){
       rec.dataBlob=existing.dataBlob;
     }
     // Preserve markup fields from existing IDB record if not on current record
-    if(!rec.markupObjects&&existing&&existing.markupObjects)rec.markupObjects=existing.markupObjects;
-    if(!rec._markupCanvasW&&existing&&existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
-    if(!rec._markupCanvasH&&existing&&existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
-    if(!rec._origBackupId&&existing&&existing._origBackupId)rec._origBackupId=existing._origBackupId;
-    if(!rec.markedR2Key&&existing&&existing.markedR2Key)rec.markedR2Key=existing.markedR2Key;
-    if(!rec.markedR2Url&&existing&&existing.markedR2Url)rec.markedR2Url=existing.markedR2Url;
+    // BUT NOT if markup was explicitly cleared (revert)
+    if(!photo._markupCleared){
+      if(!rec.markupObjects&&existing&&existing.markupObjects)rec.markupObjects=existing.markupObjects;
+      if(!rec._markupCanvasW&&existing&&existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
+      if(!rec._markupCanvasH&&existing&&existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
+      if(!rec._origBackupId&&existing&&existing._origBackupId)rec._origBackupId=existing._origBackupId;
+      if(!rec.markedR2Key&&existing&&existing.markedR2Key)rec.markedR2Key=existing.markedR2Key;
+      if(!rec.markedR2Url&&existing&&existing.markedR2Url)rec.markedR2Url=existing.markedR2Url;
+    }
     return ADB.put('sitePhotos',rec);
   }).catch(function(){
     return ADB.put('sitePhotos',rec);
@@ -8077,7 +8081,7 @@ function lightboxDrawMode(){
         _existingObjects.forEach(function(o){if(!o.id)o.id=_lbNewId();});
       }
       // Fallback: check global cache
-      if(!_existingObjects&&_markupPreviewCache[_targetId]&&_markupPreviewCache[_targetId].objects&&_markupPreviewCache[_targetId].objects.length>0){
+      if(!_existingObjects&&!(rec&&rec.photo&&rec.photo._markupCleared)&&_markupPreviewCache[_targetId]&&_markupPreviewCache[_targetId].objects&&_markupPreviewCache[_targetId].objects.length>0){
         _existingObjects=JSON.parse(JSON.stringify(_markupPreviewCache[_targetId].objects));
         _existingObjects.forEach(function(o){if(!o.id)o.id=_lbNewId();});
         // Restore onto the record too
@@ -8210,6 +8214,7 @@ function lightboxSaveMarkup(){
 
   // Save markup objects (the editable data — this is non-destructive)
   ph.markupObjects=JSON.parse(JSON.stringify(_lbObjects));
+  delete ph._markupCleared; // Clear revert flag — new markup replaces it
   // Store canvas buffer size so _regenerateMarkupPreview can scale correctly
   ph._markupCanvasW=_lbCanvas.width;
   ph._markupCanvasH=_lbCanvas.height;
@@ -8327,6 +8332,7 @@ function lightboxRevertMarkup(){
   _aConfirm('Revert this photo to the original? All markup will be removed.',function(){
     // Clear markup objects and marked preview
     ph.markupObjects=null;
+    ph._markupCleared=true; // Flag so cloud merge doesn't restore old markup
     // Delete marked preview from R2 if uploaded
     if(ph.markedR2Key&&_csHubMode&&typeof R2Photos!=='undefined'){
       var mkParts=ph.markedR2Key.split('/');
@@ -9001,6 +9007,8 @@ function _deficPhotoSrc(ph){
 // Returns the display thumbnail src — prefers composited markup preview over original
 function _deficPhotoThumbSrc(ph){
   if(!ph||typeof ph==='string')return _deficPhotoSrc(ph);
+  // If markup was explicitly cleared (revert), always show original
+  if(ph._markupCleared)return _deficPhotoSrc(ph);
   if(ph.markupObjects&&ph.markupObjects.length>0){
     if(ph.markedPreview&&ph.markedPreview.length>100)return ph.markedPreview;
     if(ph.id&&_markupPreviewCache[ph.id]&&_markupPreviewCache[ph.id].preview)return _markupPreviewCache[ph.id].preview;
@@ -9540,7 +9548,7 @@ function _lbShowCurrentDirect(){
   }
   var _hasMarkup=_photoRec&&_photoRec.markupObjects&&_photoRec.markupObjects.length>0;
   // Fallback: check global cache if record lost markupObjects
-  if(!_hasMarkup&&_targetId&&_markupPreviewCache[_targetId]&&_markupPreviewCache[_targetId].objects&&_markupPreviewCache[_targetId].objects.length>0){
+  if(!_hasMarkup&&_targetId&&!(_photoRec&&_photoRec._markupCleared)&&_markupPreviewCache[_targetId]&&_markupPreviewCache[_targetId].objects&&_markupPreviewCache[_targetId].objects.length>0){
     _hasMarkup=true;
     if(_photoRec){_photoRec.markupObjects=_markupPreviewCache[_targetId].objects;_photoRec.markedPreview=_markupPreviewCache[_targetId].preview;}
   }
@@ -10833,13 +10841,10 @@ function _buildUnifiedPhotoList(p){
   if(siteArr.length){siteArr.forEach(function(ph,i){
     var src=(typeof ph==='string')?ph:((ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'');
     if(!src||src.length<5)return;// Skip ghost records with no displayable image
-    // For photos with non-destructive markup, show the composited preview as thumbnail
+    // For photos with non-destructive markup, just flag it — thumbnail shows original image with ✏️ badge
+    // Composited previews are unreliable (CORS tainting, canvas size mismatch)
     var hasMarkup=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
     var thumbSrc=src;
-    if(hasMarkup){
-      if(ph.markedPreview&&ph.markedPreview.length>100)thumbSrc=ph.markedPreview;
-      else if(ph.markedR2Url&&ph.markedR2Url.length>5&&ph.markedR2Url.indexOf('http')===0)thumbSrc=ph.markedR2Url;
-    }
     var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('site_'+i);
     allPhotos.push({src:src,thumbSrc:thumbSrc,date:ph.date||ph.uploadDate||ph.timestamp||null,type:'site',idx:i,id:realId,caption:ph.caption||'',r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:hasMarkup});
   });}
@@ -10884,8 +10889,9 @@ function _buildUnifiedPhotoList(p){
         var phSrc=_deficPhotoSrc(ph);
         var phHasMk=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
         // Fallback: check global markup cache if photo record lost markupObjects
+        // BUT NOT if markup was explicitly cleared (revert)
         var phId=ph&&ph.id?ph.id:'';
-        if(!phHasMk&&phId&&_markupPreviewCache[phId]&&_markupPreviewCache[phId].objects&&_markupPreviewCache[phId].objects.length>0){
+        if(!phHasMk&&phId&&!ph._markupCleared&&_markupPreviewCache[phId]&&_markupPreviewCache[phId].objects&&_markupPreviewCache[phId].objects.length>0){
           phHasMk=true;
           // Restore from cache
           ph.markupObjects=_markupPreviewCache[phId].objects;
@@ -10906,7 +10912,7 @@ function _buildUnifiedPhotoList(p){
       var phSrc2=_deficPhotoSrc(ph);
       var phHasMk2=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
       var phId2=ph&&ph.id?ph.id:'';
-      if(!phHasMk2&&phId2&&_markupPreviewCache[phId2]&&_markupPreviewCache[phId2].objects&&_markupPreviewCache[phId2].objects.length>0){
+      if(!phHasMk2&&phId2&&!(ph&&ph._markupCleared)&&_markupPreviewCache[phId2]&&_markupPreviewCache[phId2].objects&&_markupPreviewCache[phId2].objects.length>0){
         phHasMk2=true;ph.markupObjects=_markupPreviewCache[phId2].objects;ph.markedPreview=_markupPreviewCache[phId2].preview;
       }
       var phThumb2=phSrc2;
@@ -10922,7 +10928,7 @@ function _buildUnifiedPhotoList(p){
         var phSrc3=_deficPhotoSrc(ph);
         var phHasMk3=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
         var phId3=ph&&ph.id?ph.id:'';
-        if(!phHasMk3&&phId3&&_markupPreviewCache[phId3]&&_markupPreviewCache[phId3].objects&&_markupPreviewCache[phId3].objects.length>0){
+        if(!phHasMk3&&phId3&&!(ph&&ph._markupCleared)&&_markupPreviewCache[phId3]&&_markupPreviewCache[phId3].objects&&_markupPreviewCache[phId3].objects.length>0){
           phHasMk3=true;ph.markupObjects=_markupPreviewCache[phId3].objects;ph.markedPreview=_markupPreviewCache[phId3].preview;
         }
         var phThumb3=phSrc3;
@@ -13440,13 +13446,16 @@ function _mergeSitePhoto(cph,localSitePhotos){
   };
   // Preserve non-destructive markup fields from local (cloud strips these)
   if(existing){
-    if(existing.markupObjects&&existing.markupObjects.length)rec.markupObjects=existing.markupObjects;
-    if(existing.markedPreview)rec.markedPreview=existing.markedPreview;
-    if(existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
-    if(existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
-    if(existing._origBackupId)rec._origBackupId=existing._origBackupId;
-    if(existing.markedR2Key)rec.markedR2Key=existing.markedR2Key;
-    if(existing.markedR2Url)rec.markedR2Url=existing.markedR2Url;
+    // If local explicitly cleared markup (revert), don't restore from cloud
+    if(!existing._markupCleared){
+      if(existing.markupObjects&&existing.markupObjects.length)rec.markupObjects=existing.markupObjects;
+      if(existing.markedPreview)rec.markedPreview=existing.markedPreview;
+      if(existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
+      if(existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
+      if(existing._origBackupId)rec._origBackupId=existing._origBackupId;
+      if(existing.markedR2Key)rec.markedR2Key=existing.markedR2Key;
+      if(existing.markedR2Url)rec.markedR2Url=existing.markedR2Url;
+    }
   }
   return rec;
 }
@@ -13483,13 +13492,20 @@ function _mergeDeficR2Fields(cloudDefics,localDefics){
         // Preserve local dataUrl if cloud doesn't have it (cloud strips base64)
         if(!ph.dataUrl&&local.dataUrl)ph.dataUrl=local.dataUrl;
         // Preserve non-destructive markup fields (cloud strips these)
-        if(!ph.markupObjects&&local.markupObjects)ph.markupObjects=local.markupObjects;
-        if(!ph.markedPreview&&local.markedPreview)ph.markedPreview=local.markedPreview;
-        if(!ph.markedR2Key&&local.markedR2Key)ph.markedR2Key=local.markedR2Key;
-        if(!ph.markedR2Url&&local.markedR2Url)ph.markedR2Url=local.markedR2Url;
-        if(!ph._origBackupId&&local._origBackupId)ph._origBackupId=local._origBackupId;
-        if(!ph._markupCanvasW&&local._markupCanvasW)ph._markupCanvasW=local._markupCanvasW;
-        if(!ph._markupCanvasH&&local._markupCanvasH)ph._markupCanvasH=local._markupCanvasH;
+        // BUT: if local has _markupCleared flag, DON'T restore from cloud — user reverted
+        if(local._markupCleared){
+          ph.markupObjects=null;ph.markedPreview=null;ph.markedR2Key=null;ph.markedR2Url=null;
+          ph._origBackupId=null;ph._markupCanvasW=null;ph._markupCanvasH=null;
+          ph._markupCleared=true;
+        } else {
+          if(!ph.markupObjects&&local.markupObjects)ph.markupObjects=local.markupObjects;
+          if(!ph.markedPreview&&local.markedPreview)ph.markedPreview=local.markedPreview;
+          if(!ph.markedR2Key&&local.markedR2Key)ph.markedR2Key=local.markedR2Key;
+          if(!ph.markedR2Url&&local.markedR2Url)ph.markedR2Url=local.markedR2Url;
+          if(!ph._origBackupId&&local._origBackupId)ph._origBackupId=local._origBackupId;
+          if(!ph._markupCanvasW&&local._markupCanvasW)ph._markupCanvasW=local._markupCanvasW;
+          if(!ph._markupCanvasH&&local._markupCanvasH)ph._markupCanvasH=local._markupCanvasH;
+        }
       }
     });
   }
