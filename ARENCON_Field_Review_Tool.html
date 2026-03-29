@@ -2285,6 +2285,8 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
           return f;
         }
         var spPromises=sitePhotos.map(function(sp){
+          // DEBUG: log raw IDB record to see if markupObjects survived
+          if(sp.markupObjects)console.log('[ADB.loadFull RAW] id='+sp.id+' HAS markupObjects count='+sp.markupObjects.length);
           var mkFields=_spMarkupFields(sp);
           // If on R2, skip blob conversion entirely — display via r2Url
           if(sp.r2Status==='uploaded'&&sp.r2Url){
@@ -2339,6 +2341,11 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
               (proj.sitePhotos||[]).forEach(function(sp){if(sp.r2Key)ADB.saveSitePhoto(sp,proj.id).catch(function(){});});
             }
           }
+          // DEBUG: verify final state of sitePhotos markup
+          var mkCount=0;
+          (proj.sitePhotos||[]).forEach(function(sp){if(sp.markupObjects&&sp.markupObjects.length)mkCount++;});
+          if(mkCount>0)console.log('[ADB.loadFull FINAL] '+mkCount+' site photo(s) have markupObjects after load');
+          else console.log('[ADB.loadFull FINAL] NO site photos have markupObjects. Total sitePhotos='+proj.sitePhotos.length);
           resolve(proj);
         });
       });
