@@ -10190,6 +10190,11 @@ var _photoFilter='all';
 function renderPhotoGallery(){
   var p=getProject();if(!p)return;
   var grid=document.getElementById('photo-gallery-grid');if(!grid)return;
+  // DEBUG: directly check defic photo records for markupObjects
+  var _dbgAd=getAllDeficiencies(p);
+  _dbgAd.forEach(function(r){var d=r.defic;if(d.entries){d.entries.forEach(function(en,ei){if(en.photos){en.photos.forEach(function(ph,pi){
+    if(ph&&typeof ph==='object'&&ph.markupObjects)console.log('[Gallery DBG] FOUND markupObjects on defic photo: id='+ph.id+' objs='+ph.markupObjects.length+' preview='+(ph.markedPreview?'YES('+ph.markedPreview.length+')':'NO'));
+  });}});}});
 
   var allPhotos=_buildUnifiedPhotoList(p);
 
