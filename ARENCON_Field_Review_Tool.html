@@ -309,15 +309,32 @@ body.dark-mode .dlc-tab{color:#8090b0;}
 body.dark-mode .dlc-tab:hover{background:#1e2533;}
 body.dark-mode .dlc-tab.active{color:#f4a1b5;border-bottom-color:#9C2742;}
 
-/* ═══ OBSERVATION CHECKBOXES ═══ */
-.obs-row{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--smoke);}
+/* ═══ OBSERVATION TOGGLE PILL ═══ */
+.obs-row{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--smoke);}
 .obs-row:last-child{border-bottom:none;}
-.obs-check{width:20px;height:20px;accent-color:#1A7A4A;flex-shrink:0;margin-top:3px;cursor:pointer;}
+.obs-toggle{padding:3px 10px;border-radius:12px;font-size:calc(10px + var(--ts));font-weight:700;cursor:pointer;border:1.5px solid;white-space:nowrap;flex-shrink:0;margin-top:2px;font-family:Calibri,sans-serif;transition:all .15s;}
+.obs-toggle.open{background:#FFF5F5;color:#C0392B;border-color:#C0392B;}
+.obs-toggle.addressed{background:#EAFAF1;color:#1A7A4A;border-color:#1A7A4A;}
 .obs-text{flex:1;min-width:0;}
-.obs-text.addressed{text-decoration:line-through;opacity:.55;}
-.obs-label{font-size:calc(11px + var(--ts));color:var(--steel);font-weight:600;margin-bottom:2px;}
+.obs-text.addressed textarea{opacity:.55;}
+.obs-label{font-size:calc(11px + var(--ts));color:var(--steel);font-weight:600;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .obs-noted{font-size:calc(10px + var(--ts));color:var(--silver);margin-top:2px;}
 body.dark-mode .obs-row{border-color:#2a3040;}
+body.dark-mode .obs-toggle.open{background:rgba(192,57,43,.15);color:#ff8080;border-color:#C0392B;}
+body.dark-mode .obs-toggle.addressed{background:rgba(26,122,74,.15);color:#6fcf97;border-color:#1A7A4A;}
+
+/* ═══ COMPACT PHOTO ZONE ═══ */
+.photo-zone-compact{display:flex;align-items:center;gap:6px;padding:6px 10px;border:1.5px dashed var(--border);border-radius:6px;margin-top:4px;background:var(--smoke);transition:background .15s,border-color .15s;}
+.photo-zone-compact.drag-over{border-color:var(--arencon);background:rgba(156,39,66,.06);}
+.photo-zone-compact .pz-upload,.photo-zone-compact .pz-camera{padding:3px 8px;font-size:calc(11px + var(--ts));}
+body.dark-mode .photo-zone-compact{background:#151a24;border-color:#2a3040;}
+body.dark-mode .photo-zone-compact.drag-over{border-color:#9C2742;background:rgba(156,39,66,.12);}
+
+/* ═══ DEFIC MORE MENU ═══ */
+.defic-more-menu button:hover{background:var(--smoke);}
+body.dark-mode .defic-more-menu{background:#1e2533;border-color:#2a3040;}
+body.dark-mode .defic-more-menu button{color:#d0d8f0;}
+body.dark-mode .defic-more-menu button:hover{background:#2a3040;}
 
 /* ═══ ACTIVITY LOG ═══ */
 .activity-section{margin-top:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
@@ -1520,7 +1537,6 @@ body.text-l{--ts:4px;}
           <div id="defic-active-view">
           <div class="defic-toolbar">
             <div class="defic-filter-dd"><button class="btn btn-outline btn-sm" onclick="toggleDeficFilterMenu(event)">⚙ Filters</button><div class="defic-filter-menu" id="defic-filter-menu"><button class="active" onclick="filterDeficStatus(null,'all')">All</button><button onclick="filterDeficStatus(null,'Outstanding')">Outstanding</button><button onclick="filterDeficStatus(null,'iar')">IAR</button></div></div>
-            <button class="btn btn-outline btn-sm" onclick="showDeficTemplates()" title="Insert from template library">📋 Templates</button>
             <input type="text" class="filter-search" id="defic-search" placeholder="🔍 Search deficiencies..." oninput="filterDeficiencies()" style="flex:1;min-width:140px;max-width:280px;padding:8px 12px;">
             <div style="flex:1;"></div>
             <button class="btn btn-outline btn-sm" id="bulk-select-toggle" onclick="toggleBulkSelectMode()" title="Select multiple deficiencies">☐ Select</button>
@@ -3143,6 +3159,25 @@ function _aConfirm(msg,onOk,okText){
   ov.querySelector('._ac-ok').onclick=function(){ov.remove();if(onOk)onOk();};
   document.body.appendChild(ov);
   ov.querySelector('._ac-ok').focus();
+}
+// Two-button confirm with custom labels and separate callbacks
+function _aConfirmTwoBtn(msg,okText,onOk,cancelText,onCancel){
+  var isDark=document.body.classList.contains('dark-mode');
+  var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7';
+  var okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A',cancelBg=isDark?'rgba(255,255,255,.06)':'none',cancelBdr=isDark?'1.5px solid #3a4050':'1.5px solid '+bdr;
+  var ov=document.createElement('div');ov.className='_a-modal-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
+  h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
+  h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
+  h+='<button class="_ac-cancel" style="padding:8px 20px;border:'+cancelBdr+';border-radius:8px;background:'+cancelBg+';color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">'+(cancelText||'Cancel')+'</button>';
+  h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:'+okBg+';color:white;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">'+(okText||'OK')+'</button>';
+  h+='</div></div>';
+  ov.innerHTML=h;
+  ov.addEventListener('click',function(e){if(e.target===ov){ov.remove();if(onCancel)onCancel();}});
+  ov.querySelector('._ac-cancel').onclick=function(){ov.remove();if(onCancel)onCancel();};
+  ov.querySelector('._ac-ok').onclick=function(){ov.remove();if(onOk)onOk();};
+  document.body.appendChild(ov);
 }
 function _aPrompt(msg,defVal,onOk){
   var isDark=document.body.classList.contains('dark-mode');
@@ -8308,13 +8343,44 @@ function _updateDeficLifecycleCounts(){
   ad.forEach(function(d){if(_deficIsOpen(d.defic))ac++;else cc++;});
   var ael=document.getElementById('dlc-active-count');if(ael)ael.textContent=ac;
   var cel=document.getElementById('dlc-closed-count');if(cel)cel.textContent=cc;
+  // Build description autocomplete datalist
+  _buildDeficDescSuggestions(p);
+}
+function toggleDeficMore(id){
+  var el=document.getElementById(id);if(!el)return;
+  var show=el.style.display==='none';
+  // Close all other menus
+  document.querySelectorAll('.defic-more-menu').forEach(function(m){m.style.display='none';});
+  el.style.display=show?'block':'none';
+  if(show){
+    // Auto-close on outside click
+    setTimeout(function(){
+      function _close(e){if(!el.contains(e.target)){el.style.display='none';document.removeEventListener('click',_close);}}
+      document.addEventListener('click',_close);
+    },10);
+  }
+}
+function _buildDeficDescSuggestions(p){
+  // Collect all unique observation descriptions for autocomplete
+  var existing=document.getElementById('defic-desc-suggestions');
+  if(existing)existing.remove();
+  var descs=new Set();
+  var ad=getAllDeficiencies(p);
+  ad.forEach(function(d){
+    if(d.defic.observations){d.defic.observations.forEach(function(o){if(o.text&&o.text.trim().length>3)descs.add(o.text.trim());});}
+    if(d.defic.entries){d.defic.entries.forEach(function(e){if(e.description&&e.description.trim().length>3)descs.add(e.description.trim());});}
+  });
+  if(!descs.size)return;
+  var dl=document.createElement('datalist');dl.id='defic-desc-suggestions';
+  descs.forEach(function(s){var opt=document.createElement('option');opt.value=s;dl.appendChild(opt);});
+  document.body.appendChild(dl);
 }
 function renderContractorChips(){var p=getProject();if(!p)return;var el=document.getElementById('contractor-chips');if(!p.contractors.length){el.innerHTML='<span style="color:#999;font-size:calc(13px + var(--ts));">No contractors added yet.</span>';return;}el.innerHTML=p.contractors.map(function(c){return'<div class="contractor-chip"><span>'+escHtml(c.name)+'</span><button onclick="renameContractor(\''+c.id+'\')" title="Rename" style="background:none;border:none;cursor:pointer;font-size:calc(11px + var(--ts));padding:0 2px;opacity:.7;color:inherit;">✏</button><button onclick="removeContractor(\''+c.id+'\')" title="Remove">✕</button></div>';}).join('');}
 function renameContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;_aPrompt('Rename contractor:',c.name,function(nn){if(!nn||!nn.trim()||nn.trim()===c.name)return;nn=nn.trim();if(p.contractors.some(function(x){return x.id!==cid&&x.name.toLowerCase()===nn.toLowerCase();})){_aAlert('"'+nn+'" already exists.');return;}var oldName=c.name;c.name=nn;
 if(_foldedCtrs[oldName]){_foldedCtrs[nn]=_foldedCtrs[oldName];delete _foldedCtrs[oldName];}saveToLS();renderDeficiencyPanel();});}
 function renderDeficGroups(){var p=getProject();if(!p)return;var el=document.getElementById('defic-groups');if(!p.contractors.length&&!p.generalDeficiencies.length){el.innerHTML='<p style="color:#999;font-size:calc(13px + var(--ts));padding:12px 0;text-align:center;">Add a contractor above to start recording deficiencies.</p>';return;}var html='';p.contractors.forEach(function(c){var active=c.deficiencies.filter(function(d){return _deficIsOpen(d);});html+=buildDeficGroup(c.id,c.name,active,c.deficiencies.length);});var genActive=(p.generalDeficiencies||[]).filter(function(d){return _deficIsOpen(d);});if(genActive.length>0||p.generalDeficiencies.length>0)html+=buildDeficGroup(null,'General',genActive,p.generalDeficiencies.length);el.innerHTML=html;}
 
-function buildDeficGroup(ctrId,name,items,totalCount){var safeId=ctrId||'general';var folded=_foldedCtrs[name]||false;var arrow=folded?'\u25B8':'\u25BE';var safeName=name.replace(/'/g,"\\'");var countLabel=items.length+' active'+(totalCount&&totalCount>items.length?' / '+totalCount+' total':'');var html='<div class="defic-group"><div class="defic-group-header" onclick="toggleCtrFold(\''+safeName+'\')" style="cursor:pointer;user-select:none;"><span style="display:flex;align-items:center;gap:8px;"><span class="ctr-fold-arrow">'+arrow+'</span> \uD83D\uDC77 '+escHtml(name)+'</span><span style="font-size:calc(12px + var(--ts));opacity:.7;">'+countLabel+'</span></div>';if(folded){html+='</div>';return html;}if(!items.length)html+='<div class="defic-group-empty">No active deficiencies for this contractor.</div>';items.forEach(function(d,i){html+=buildDeficItem(d,ctrId,i);});html+='<div class="add-defic-btn-wrap"><button class="btn btn-outline btn-sm" onclick="addDeficiencyForGroup(\''+(ctrId||'')+'\')">+ Add Deficiency</button><button class="btn btn-outline btn-sm" onclick="showDeficTemplates(\''+(ctrId||'')+'\')">📋 Templates</button></div></div>';return html;}
+function buildDeficGroup(ctrId,name,items,totalCount){var safeId=ctrId||'general';var folded=_foldedCtrs[name]||false;var arrow=folded?'\u25B8':'\u25BE';var safeName=name.replace(/'/g,"\\'");var countLabel=items.length+' active'+(totalCount&&totalCount>items.length?' / '+totalCount+' total':'');var html='<div class="defic-group"><div class="defic-group-header" onclick="toggleCtrFold(\''+safeName+'\')" style="cursor:pointer;user-select:none;"><span style="display:flex;align-items:center;gap:8px;"><span class="ctr-fold-arrow">'+arrow+'</span> \uD83D\uDC77 '+escHtml(name)+'</span><span style="font-size:calc(12px + var(--ts));opacity:.7;">'+countLabel+'</span></div>';if(folded){html+='</div>';return html;}if(!items.length)html+='<div class="defic-group-empty">No active deficiencies for this contractor.</div>';items.forEach(function(d,i){html+=buildDeficItem(d,ctrId,i);});html+='<div class="add-defic-btn-wrap"><button class="btn btn-outline btn-sm" onclick="addDeficiencyForGroup(\''+(ctrId||'')+'\')">+ Add Deficiency</button></div></div>';return html;}
 
 // ═══ CLOSED DEFICIENCY VIEW — grouped by FRT # ═══
 function renderClosedDeficView(){
@@ -8397,12 +8463,10 @@ function toggleObsAddressed(did,obsIdx){
   // Check if all observations are now addressed → auto-close prompt
   var allDone=d.observations.every(function(o){return o.addressed;});
   if(allDone&&d.observations.length>0){
-    _aConfirm('All observations addressed. Close this deficiency?',function(){
-      closeDeficiency(did,'');
-    },function(){
-      // User said no — leave checkboxes checked but deficiency stays open
-      renderDeficiencyPanel();
-    },'Close','Keep Open');
+    _aConfirmTwoBtn('All observations addressed. Close this deficiency?',
+      'Close',function(){closeDeficiency(did,'');},
+      'Keep Open',function(){renderDeficiencyPanel();}
+    );
   }else{
     renderDeficiencyPanel();
   }
@@ -8444,96 +8508,95 @@ function addObservation(did){
 function buildDeficItem(d,ctrId,i){
   var ctrName=ctrId?(getProject().contractors.find(function(x){return x.id===ctrId;})||{}).name||'':'General';
   var safe=escHtml;
-
-  // Noted subtitle
   var notedHtml='<div class="defic-noted">Noted: FRT #'+(d.notedOnInstance||1)+' — '+(d.notedDate||d.date||'')+'</div>';
 
   // Drawing link
   var dwgHtml='';
   if(d.drawingId){
-    var _dwgP=getProject();
-    var _dwgFound=_dwgP.drawings.find(function(x){return x.id===d.drawingId;});
-    if(d.drawingId&&_dwgFound){
-      dwgHtml='<div style="font-size:calc(11px + var(--ts));color:var(--arencon);cursor:pointer;font-weight:600;margin-top:4px;" onclick="jumpToPin(\''+d.id+'\')">📌 '+safe(_dwgFound.name)+'</div>';
-    } else {
-      dwgHtml='<div style="margin-top:4px;display:flex;align-items:center;flex-wrap:wrap;gap:4px;">'
-        +'<span class="pin-unassigned-badge">📌 '+(d.drawingId?'Unassigned (drawing deleted)':'Not pinned')+'</span>'
-        +'<button class="pin-reassign-btn" onclick="event.stopPropagation();openReassignModal(\''+d.id+'\')">📌 Assign…</button>'
-        +'</div>';
-    }
+    var _dwgP=getProject();var _dwgFound=_dwgP.drawings.find(function(x){return x.id===d.drawingId;});
+    if(_dwgFound){dwgHtml='<div style="font-size:calc(11px + var(--ts));color:var(--arencon);cursor:pointer;font-weight:600;margin-top:4px;" onclick="jumpToPin(\''+d.id+'\')">📌 '+safe(_dwgFound.name)+'</div>';}
+    else{dwgHtml='<div style="margin-top:4px;"><span class="pin-unassigned-badge">📌 Unassigned</span> <button class="pin-reassign-btn" onclick="event.stopPropagation();openReassignModal(\''+d.id+'\')">Assign…</button></div>';}
   }
 
-  // Build observation rows with checkboxes (new lifecycle format)
+  // Observation rows with toggle pills
   var obs=d.observations&&d.observations.length?d.observations:null;
   var entries=d.entries&&d.entries.length?d.entries:null;
   var obsHtml='<div style="margin-bottom:6px;">';
+
+  function _buildObsRow(text,photos,oi,isAddr,frtLabel){
+    var addrClass=isAddr?' addressed':'';
+    var pillClass=isAddr?'addressed':'open';
+    var pillText=isAddr?'✔ Addressed':'● Open';
+    var lbl=(obs&&obs.length>1)||(entries&&entries.length>1)?String.fromCharCode(65+oi)+') ':'';
+    var h='<div class="obs-row"><div class="obs-text'+addrClass+'">';
+    h+='<div class="obs-label"><span>'+lbl+'Observation'+frtLabel+'</span><button class="obs-toggle '+pillClass+'" onclick="toggleObsAddressed(\''+d.id+'\','+oi+')">'+pillText+'</button></div>';
+    h+='<textarea style="width:100%;height:60px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:inherit;resize:vertical;" oninput="updateEntryField(\''+d.id+'\','+oi+',\'description\',this.value)" list="defic-desc-suggestions">'+safe(text)+'</textarea>';
+    if(photos&&photos.length){
+      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0;">';
+      photos.forEach(function(ph,pi){
+        var psrc=_deficPhotoSrc(ph);var pid=_deficPhotoId(ph);
+        h+='<div class="photo-thumb"><img data-src="'+safe(psrc)+'" data-photo-id="'+safe(pid)+'" data-orig-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.origSrc||this.dataset.src||this.src,null,null,[this.dataset.photoId])" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+oi+','+pi+')">✕</button></div>';
+      });
+      h+='</div>';
+    }
+    // Compact photo zone — inline row, not full-width block
+    h+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleEntryPhotoDrop(event,\''+d.id+'\','+oi+')">';
+    h+='<span style="font-size:calc(11px + var(--ts));color:var(--silver);">Drop photos or</span>';
+    h+='<button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+oi+')">📎 Upload</button>';
+    h+='<button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+oi+')">📷 Camera</button>';
+    h+='</div>';
+    h+='</div></div>';
+    return h;
+  }
+
   if(obs){
     obs.forEach(function(o,oi){
-      var lbl=obs.length>1?String.fromCharCode(65+oi)+') ':'';
-      var addrClass=o.addressed?' addressed':'';
-      obsHtml+='<div class="obs-row">';
-      obsHtml+='<input type="checkbox" class="obs-check" '+(o.addressed?'checked':'')+' onchange="toggleObsAddressed(\''+d.id+'\','+oi+')">';
-      obsHtml+='<div class="obs-text'+addrClass+'">';
-      obsHtml+='<div class="obs-label">'+lbl+'Observation'+(o.notedOnInstance&&o.notedOnInstance!==(d.notedOnInstance||1)?' <span style="color:var(--link);">(FRT #'+o.notedOnInstance+')</span>':'')+'</div>';
-      // Use entries[oi] for the textarea (bridge keeps them in sync)
       var entryDesc=(entries&&entries[oi])?entries[oi].description||'':o.text||'';
-      obsHtml+='<textarea style="width:100%;height:70px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:inherit;resize:vertical;" oninput="updateEntryField(\''+d.id+'\','+oi+',\'description\',this.value)">'+safe(entryDesc)+'</textarea>';
-      // Photos
       var enPhotos=(entries&&entries[oi])?entries[oi].photos||[]:o.photos||[];
-      if(enPhotos.length){
-        obsHtml+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin:4px 0;">';
-        enPhotos.forEach(function(ph,pi){
-          var psrc=_deficPhotoSrc(ph);var pid=_deficPhotoId(ph);
-          obsHtml+='<div class="photo-thumb"><img data-src="'+safe(psrc)+'" data-photo-id="'+safe(pid)+'" data-orig-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.origSrc||this.dataset.src||this.src,null,null,[this.dataset.photoId])" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+oi+','+pi+')">✕</button></div>';
-        });
-        obsHtml+='</div>';
-      }
-      obsHtml+='<div class="photo-zone" style="min-height:60px;padding:8px;" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleEntryPhotoDrop(event,\''+d.id+'\','+oi+')"><span>Drag & drop</span><div class="photo-zone-btns"><button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+oi+')">📎 Upload</button><button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+oi+')">📷 Camera</button></div></div>';
-      if(o.addressed)obsHtml+='<div class="obs-noted">✔ Addressed</div>';
-      obsHtml+='</div></div>';
+      var frtLabel=o.notedOnInstance&&o.notedOnInstance!==(d.notedOnInstance||1)?' <span style="color:var(--link);font-size:calc(10px + var(--ts));">(FRT #'+o.notedOnInstance+')</span>':'';
+      obsHtml+=_buildObsRow(entryDesc,enPhotos,oi,o.addressed,frtLabel);
     });
   }else if(entries){
-    // Fallback: render old entries format (pre-migration)
     entries.forEach(function(en,ei){
-      obsHtml+='<div class="obs-row"><div class="obs-text">';
-      obsHtml+='<div class="obs-label">'+(entries.length>1?String.fromCharCode(65+ei)+') ':'')+'Observation</div>';
-      obsHtml+='<textarea style="width:100%;height:70px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:inherit;resize:vertical;" oninput="updateEntryField(\''+d.id+'\','+ei+',\'description\',this.value)">'+safe(en.description||'')+'</textarea>';
-      var enPhotos=en.photos||[];
-      if(enPhotos.length){
-        obsHtml+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin:4px 0;">';
-        enPhotos.forEach(function(ph,pi){
-          var psrc=_deficPhotoSrc(ph);var pid=_deficPhotoId(ph);
-          obsHtml+='<div class="photo-thumb"><img data-src="'+safe(psrc)+'" data-photo-id="'+safe(pid)+'" onclick="openPhotoLightboxDirect(this.dataset.src||this.src)" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+ei+','+pi+')">✕</button></div>';
-        });
-        obsHtml+='</div>';
-      }
-      obsHtml+='<div class="photo-zone" style="min-height:60px;padding:8px;" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleEntryPhotoDrop(event,\''+d.id+'\','+ei+')"><span>Drag & drop</span><div class="photo-zone-btns"><button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+ei+')">📎 Upload</button><button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+ei+')">📷 Camera</button></div></div>';
-      obsHtml+='</div></div>';
+      obsHtml+=_buildObsRow(en.description||'',en.photos||[],ei,false,'');
     });
   }
-  obsHtml+='<button class="btn btn-outline btn-sm" style="margin-top:6px;font-size:calc(11px + var(--ts));" onclick="addObservation(\''+d.id+'\')">+ Add Observation</button>';
+  obsHtml+='<button class="btn btn-outline btn-sm" style="margin-top:4px;font-size:calc(11px + var(--ts));" onclick="addObservation(\''+d.id+'\')">+ Add Observation</button>';
   obsHtml+='</div>';
 
-  // Activity log section (collapsed by default)
-  var actArr=d.activity&&d.activity.length?d.activity:(d.responses&&d.responses.length?d.responses.map(function(r){return{date:r.date||'',label:r.party==='contractor'?'Contractor Response':'ARENCON Follow-up',text:r.comment||'',photos:r.photos||[]};}):null);
+  // Responses section (replaces Activity Log)
+  var actArr=d.activity&&d.activity.length?d.activity:(d.responses&&d.responses.length?d.responses.map(function(r){return{date:r.date||'',label:r.party==='contractor'?'Contractor Response':'ARENCON',text:r.comment||'',photos:r.photos||[]};}):null);
   var actHtml='';
   if(actArr&&actArr.length){
-    actHtml+='<div class="activity-section" id="act-sect-'+d.id+'">';
-    actHtml+='<div class="activity-header" onclick="this.parentElement.classList.toggle(\'open\')"><span>Activity ('+actArr.length+' entr'+(actArr.length===1?'y':'ies')+')</span><span>\u25BE</span></div>';
+    actHtml+='<div class="activity-section open" id="act-sect-'+d.id+'">';
+    actHtml+='<div class="activity-header" onclick="this.parentElement.classList.toggle(\'open\')"><span>Responses ('+actArr.length+')</span><span>\u25BE</span></div>';
     actHtml+='<div class="activity-body">';
-    // Newest first
     actArr.slice().sort(function(a,b){return(b.date||'').localeCompare(a.date||'');}).forEach(function(a){
-      actHtml+='<div class="activity-entry"><div class="activity-entry-header"><span class="activity-entry-label">'+safe(a.label||'Note')+'</span><span class="activity-entry-date">'+(a.date||'')+' '+(a.instance?'(FRT #'+a.instance+')':'')+'</span></div>';
-      actHtml+='<div class="activity-entry-text">'+safe(a.text||'')+'</div></div>';
+      var isCtr=(a.label||'').indexOf('Contractor')>=0;
+      var lColor=isCtr?'#E67E22':'#1565C0';
+      actHtml+='<div class="activity-entry"><div class="activity-entry-header"><span class="activity-entry-label" style="color:'+lColor+';">'+(isCtr?'⚡':'🔍')+' '+safe(a.label||'Note')+'</span><span class="activity-entry-date">'+(a.date||'')+'</span></div>';
+      // Rich text — render as HTML (already sanitized)
+      actHtml+='<div class="activity-entry-text">'+(a.text||'')+'</div>';
+      // Activity photos
+      if(a.photos&&a.photos.length){
+        actHtml+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">';
+        a.photos.forEach(function(ph){var psrc=_deficPhotoSrc(ph);actHtml+='<div class="photo-thumb" style="width:56px;height:56px;"><img data-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.src||this.src)" style="cursor:zoom-in;"></div>';});
+        actHtml+='</div>';
+      }
+      actHtml+='</div>';
     });
     actHtml+='</div></div>';
   }
-  actHtml+='<div style="margin-top:4px;"><button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));" onclick="showAddActivityForm(\''+d.id+'\')">+ Add Activity Entry</button></div>';
+  actHtml+='<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">';
+  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));color:#E67E22;border-color:#E67E22;" onclick="showAddActivityForm(\''+d.id+'\',\'Contractor Response\')">+ Contractor Response</button>';
+  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));color:#1565C0;border-color:#1565C0;" onclick="showAddActivityForm(\''+d.id+'\',\'ARENCON\')">+ ARENCON Comment</button>';
+  actHtml+='</div>';
 
-  // Controls row
+  // Controls: Priority + IAR + Close + Remove visible, Dup/Move in ⋯ More
   var prColor=d.priority==='general'?'#1A7A4A':d.priority==='low'?'#E67E22':'#C0392B';
   var _allDescs=(obs?obs.map(function(o){return o.text||'';}).join(' '):(entries?entries.map(function(e){return e.description||'';}).join(' '):''));
   var statusLabel=_deficIsOpen(d)?'Outstanding':'Closed';
+  var moreId='more-'+d.id;
 
   return '<div class="defic-item" id="defic-item-'+d.id+'" data-desc="'+safe(_allDescs||d.description||'')+'" data-num="'+d.num+'" data-status="'+statusLabel+'" data-entries="'+(obs?obs.length:entries?entries.length:0)+'" data-iar="'+d.iar+'" data-ctr="'+safe(ctrName)+'">'
     +'<div class="defic-item-row">'
@@ -8541,13 +8604,16 @@ function buildDeficItem(d,ctrId,i){
     +'<div class="defic-num-circle" style="background:'+prColor+';">'+d.num+'</div>'
     +'<div class="defic-item-content">'
     +notedHtml+obsHtml+dwgHtml+actHtml
-    +'<div class="defic-controls">'
-    +'<div><label>Priority</label><select style="color:'+prColor+';font-weight:600;" onchange="updateDeficField(\''+d.id+'\',\'priority\',this.value);renderDeficiencyPanel();"><option value="high"'+(d.priority==='high'?' selected':'')+' style="color:#C0392B;">● High</option><option value="low"'+(d.priority==='low'?' selected':'')+' style="color:#E67E22;">● Low</option><option value="general"'+(d.priority==='general'?' selected':'')+' style="color:#1A7A4A;">● General</option></select></div>'
-    +'<div><label style="color:transparent;">.</label><button class="iar-toggle-btn '+(d.iar?'on':'off')+'" onclick="toggleIARInPlace(this,\''+d.id+'\')">⚡ IAR'+(d.iar?' ✓':'')+'</button></div>'
-    +'<div><label style="color:transparent;">.</label><button class="btn btn-sm" style="background:#1A7A4A;color:white;border:none;font-weight:600;padding:5px 10px;border-radius:5px;font-size:calc(11px + var(--ts));cursor:pointer;" onclick="manualCloseDeficiency(\''+d.id+'\')">✔ Close</button></div>'
-    +'<div><label style="color:transparent;">.</label><button class="dup-defic-btn" onclick="duplicateDeficiency(\''+d.id+'\')" title="Duplicate">⧉ Dup</button></div>'
-    +'<div><label style="color:transparent;">.</label><button class="dup-defic-btn" onclick="moveDeficiency(\''+d.id+'\')" title="Move" style="background:#1565C0;color:white;">↗ Move</button></div>'
-    +'<div><label style="color:transparent;">.</label><button class="remove-defic-btn" onclick="removeDeficiency(\''+d.id+'\')">✕ Remove</button></div>'
+    +'<div class="defic-controls" style="margin-top:8px;">'
+    +'<select style="color:'+prColor+';font-weight:600;padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;" onchange="updateDeficField(\''+d.id+'\',\'priority\',this.value);renderDeficiencyPanel();"><option value="high"'+(d.priority==='high'?' selected':'')+' style="color:#C0392B;">● High</option><option value="low"'+(d.priority==='low'?' selected':'')+' style="color:#E67E22;">● Low</option><option value="general"'+(d.priority==='general'?' selected':'')+' style="color:#1A7A4A;">● General</option></select>'
+    +'<button class="iar-toggle-btn '+(d.iar?'on':'off')+'" onclick="toggleIARInPlace(this,\''+d.id+'\')">⚡ IAR'+(d.iar?' ✓':'')+'</button>'
+    +'<button class="btn btn-sm" style="background:#1A7A4A;color:white;border:none;font-weight:600;padding:5px 10px;border-radius:5px;font-size:calc(11px + var(--ts));cursor:pointer;" onclick="manualCloseDeficiency(\''+d.id+'\')">✔ Close</button>'
+    +'<button class="remove-defic-btn" onclick="removeDeficiency(\''+d.id+'\')">✕ Remove</button>'
+    +'<div style="position:relative;"><button class="btn btn-outline btn-sm" onclick="toggleDeficMore(\''+moreId+'\')" style="padding:4px 8px;font-size:calc(12px + var(--ts));">⋯</button>'
+    +'<div id="'+moreId+'" class="defic-more-menu" style="display:none;position:absolute;right:0;bottom:100%;background:var(--bg,white);border:1.5px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:100;min-width:140px;padding:4px 0;">'
+    +'<button onclick="duplicateDeficiency(\''+d.id+'\');toggleDeficMore(\''+moreId+'\')" style="display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));color:var(--fg);">⧉ Duplicate</button>'
+    +'<button onclick="moveDeficiency(\''+d.id+'\');toggleDeficMore(\''+moreId+'\')" style="display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));color:var(--fg);">↗ Move to…</button>'
+    +'</div></div>'
     +'</div></div></div></div>';
 }
 
@@ -9019,61 +9085,94 @@ function removeDeficResponse(did,ri){var f=findDeficiency(did);if(f&&f.defic.res
 function updateDeficResponse(did,ri,field,val){var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]){f.defic.responses[ri][field]=val;saveToLS();}}
 
 // ═══ ACTIVITY LOG — Add Entry Form ═══
-function showAddActivityForm(did){
+function showAddActivityForm(did,defaultLabel){
   var f=findDeficiency(did);if(!f)return;
   var p=getProject();var inst=(p&&p.currentFrtInstance)||1;
   var today=new Date().toISOString().split('T')[0];
+  var isCtr=(defaultLabel||'').indexOf('Contractor')>=0;
+  var titleLabel=isCtr?'Contractor Response':'ARENCON Comment';
   var ov=document.createElement('div');
   ov.className='modal-overlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
-  var labels=['Contractor Response','ARENCON Follow-up','Site Observation','Client Note','Custom'];
-  var optHtml=labels.map(function(l){return'<option value="'+l+'">'+l+'</option>';}).join('');
+  // Store pending photos on the overlay element
+  ov._pendingPhotos=[];
   ov.innerHTML='<div style="background:var(--bg,white);border-radius:12px;padding:24px;width:90%;max-width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3);">'
-    +'<div style="font-weight:700;font-size:calc(16px + var(--ts));margin-bottom:16px;color:var(--fg,#1B2438);">Add Activity Entry — Pin #'+f.defic.num+'</div>'
-    +'<div style="margin-bottom:12px;"><label class="defic-label">Label</label>'
-    +'<select id="act-label-sel" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);" onchange="var ci=document.getElementById(\'act-custom-input\');ci.style.display=this.value===\'Custom\'?\'block\':\'none\';">'+optHtml+'</select>'
-    +'<input id="act-custom-input" type="text" placeholder="Custom label…" style="display:none;width:100%;margin-top:6px;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;">'
-    +'</div>'
+    +'<div style="font-weight:700;font-size:calc(16px + var(--ts));margin-bottom:16px;color:var(--fg,#1B2438);">'+titleLabel+' — Pin #'+f.defic.num+'</div>'
     +'<div style="margin-bottom:12px;"><label class="defic-label">Date</label>'
     +'<input id="act-date-input" type="date" value="'+today+'" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;">'
     +'</div>'
-    +'<div style="margin-bottom:12px;"><label class="defic-label">Notes</label>'
+    +'<div style="margin-bottom:12px;"><label class="defic-label">Comment</label>'
     +'<div style="display:flex;gap:4px;margin-bottom:4px;">'
-    +'<button id="act-bold-btn" style="padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg,white);cursor:pointer;font-weight:900;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));color:var(--fg);" onclick="document.execCommand(\'bold\')">B</button>'
-    +'<button id="act-italic-btn" style="padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg,white);cursor:pointer;font-style:italic;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));color:var(--fg);" onclick="document.execCommand(\'italic\')">I</button>'
+    +'<button style="padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg,white);cursor:pointer;font-weight:900;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));color:var(--fg);" onclick="document.execCommand(\'bold\')">B</button>'
+    +'<button style="padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg,white);cursor:pointer;font-style:italic;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));color:var(--fg);" onclick="document.execCommand(\'italic\')">I</button>'
     +'</div>'
     +'<div id="act-text-editor" contenteditable="true" style="width:100%;min-height:80px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;outline:none;line-height:1.5;"></div>'
     +'</div>'
+    +'<div style="margin-bottom:12px;"><label class="defic-label">Photos (optional)</label>'
+    +'<div id="act-photo-thumbs" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;"></div>'
+    +'<div class="photo-zone-compact" id="act-photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');_actFormPhotoDrop(event)">'
+    +'<span style="font-size:calc(11px + var(--ts));color:var(--silver);">Drop photos or</span>'
+    +'<button class="pz-upload" onclick="event.stopPropagation();_actFormPhotoUpload()">📎 Upload</button>'
+    +'</div></div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">'
     +'<button style="padding:8px 20px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg,white);color:var(--fg);cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button>'
-    +'<button style="padding:8px 20px;border:none;border-radius:6px;background:#9C2742;color:white;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:700;" onclick="submitActivityEntry(\''+did+'\','+inst+')">Add Entry</button>'
+    +'<button style="padding:8px 20px;border:none;border-radius:6px;background:#9C2742;color:white;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:700;" onclick="submitActivityEntry(\''+did+'\','+inst+',\''+(defaultLabel||'ARENCON')+'\')">Add Entry</button>'
     +'</div></div>';
   document.body.appendChild(ov);
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
-  // Focus the text editor
   setTimeout(function(){var ed=document.getElementById('act-text-editor');if(ed)ed.focus();},100);
 }
+// Activity form photo handlers
+function _actFormPhotoUpload(){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){_actFormAddFiles(inp.files);};inp.click();}
+function _actFormPhotoDrop(e){_actFormAddFiles(e.dataTransfer.files);}
+function _actFormAddFiles(files){
+  var ov=document.querySelector('.modal-overlay');if(!ov)return;
+  Array.from(files).forEach(function(file){
+    if(!file.type.startsWith('image/'))return;
+    compressImage(file,3200,0.80,function(du){
+      var rec=_makeDeficPhotoRec(du);
+      ov._pendingPhotos.push(rec);
+      _actFormRenderThumbs();
+    });
+  });
+}
+function _actFormRenderThumbs(){
+  var ov=document.querySelector('.modal-overlay');if(!ov)return;
+  var el=document.getElementById('act-photo-thumbs');if(!el)return;
+  el.innerHTML='';
+  (ov._pendingPhotos||[]).forEach(function(ph,i){
+    el.innerHTML+='<div class="photo-thumb" style="width:56px;height:56px;"><img src="'+ph.dataUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:4px;"><button class="photo-remove" onclick="event.stopPropagation();_actFormRemovePhoto('+i+')">✕</button></div>';
+  });
+}
 
-function submitActivityEntry(did,inst){
+function _actFormRemovePhoto(idx){
+  var ov=document.querySelector('.modal-overlay');if(!ov)return;
+  (ov._pendingPhotos||[]).splice(idx,1);
+  _actFormRenderThumbs();
+}
+
+function submitActivityEntry(did,inst,label){
   var f=findDeficiency(did);if(!f)return;
-  var selEl=document.getElementById('act-label-sel');
-  var customEl=document.getElementById('act-custom-input');
   var dateEl=document.getElementById('act-date-input');
   var textEl=document.getElementById('act-text-editor');
-  var label=selEl.value==='Custom'?(customEl.value||'').trim()||'Note':selEl.value;
   var date=dateEl.value||new Date().toISOString().split('T')[0];
-  // Sanitize rich text: only allow <b> and <i>
   var rawHtml=(textEl.innerHTML||'').trim();
   var text=_sanitizeRichText(rawHtml);
   if(!text||text.replace(/<[^>]*>/g,'').trim()===''){toast('Please enter some text.');return;}
+  // Collect photos from modal
+  var ov=document.querySelector('.modal-overlay');
+  var photos=(ov&&ov._pendingPhotos)?ov._pendingPhotos:[];
   if(!f.defic.activity)f.defic.activity=[];
   f.defic.activity.unshift({
     id:'act_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
-    date:date,label:label,text:text,photos:[],instance:inst
+    date:date,label:label||'ARENCON',text:text,photos:photos,instance:inst
   });
+  // Enqueue photos to R2
+  if(photos.length&&typeof _r2EnqueueDeficPhoto==='function'){
+    photos.forEach(function(rec){_r2EnqueueDeficPhoto(rec,f.defic.id);});
+  }
   pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();
-  // Close modal
-  var ov=document.querySelector('.modal-overlay');if(ov)ov.remove();
-  toast('Activity entry added');
+  if(ov)ov.remove();
+  toast('Response added');
 }
 
 function _sanitizeRichText(html){
