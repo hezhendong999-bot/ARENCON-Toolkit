@@ -1978,12 +1978,14 @@ body.text-l{--ts:4px;}
 <div id="photo-lightbox" onclick="_lbHandleOverlayClick(event)" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.92);align-items:center;justify-content:center;cursor:zoom-out;overflow:hidden;touch-action:none;">
   <div style="position:relative;max-width:95vw;max-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:10px 0;">
     <div id="lb-photo-counter" style="color:rgba(255,255,255,.5);font-size:calc(13px + var(--ts));margin-bottom:6px;font-family:Calibri,sans-serif;min-height:20px;"></div>
+    <div id="lb-outer-wrap" style="position:relative;">
     <div id="lb-canvas-wrap" style="position:relative;">
     <canvas id="lightbox-canvas" tabindex="0" style="border-radius:6px;display:block;touch-action:none;outline:none;"></canvas>
     <div id="lb-zoom-hint"></div>
-    <button onclick="event.stopPropagation();closeLightbox();" style="position:absolute;top:-6px;right:-6px;background:rgba(0,0,0,.7);border:2px solid rgba(255,255,255,.5);color:white;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);">✕</button>
-    <button onclick="lightboxPrev(event)" style="position:absolute;left:-24px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.4);color:white;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;z-index:10;backdrop-filter:blur(4px);">‹</button>
-    <button onclick="lightboxNext(event)" style="position:absolute;right:-24px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.4);color:white;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;z-index:10;backdrop-filter:blur(4px);">›</button>
+    </div>
+    <button onclick="event.stopPropagation();closeLightbox();" style="position:absolute;top:-8px;right:-8px;background:rgba(0,0,0,.7);border:2px solid rgba(255,255,255,.5);color:white;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);">✕</button>
+    <button onclick="lightboxPrev(event)" ontouchend="event.stopPropagation();event.preventDefault();lightboxPrev(event)" style="position:absolute;left:-22px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.4);color:white;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;z-index:10;backdrop-filter:blur(4px);">‹</button>
+    <button onclick="lightboxNext(event)" ontouchend="event.stopPropagation();event.preventDefault();lightboxNext(event)" style="position:absolute;right:-22px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.4);color:white;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;z-index:10;backdrop-filter:blur(4px);">›</button>
     </div>
     <img id="lightbox-img" src="" alt="" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:none;">
     <div style="margin-top:10px;display:flex;gap:8px;">
@@ -8201,16 +8203,19 @@ function lightboxSaveMarkup(){
     var origRec={id:'sp_orig_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
       dataUrl:'',caption:(origCaption?origCaption+' (original)':'Original'),
       timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};
-    ph._origBackupId=origRec.id;
 
     // Helper: finalize the backup record — save to sitePhotos array + IDB + R2
     function _finishOrigBackup(blob,dataUrl){
       origRec.dataUrl=dataUrl||'';
-      if(dataUrl&&dataUrl.length>20){
+      if((dataUrl&&dataUrl.length>20)||blob){
+        // Only set _origBackupId on SUCCESS — prevents ghost ID if fetch fails
+        ph._origBackupId=origRec.id;
         p.sitePhotos.push(origRec);
-        if(p.id)ADB.saveSitePhoto(origRec,p.id).catch(function(){});
+        if(p.id)ADB.saveSitePhoto(origRec,p.id).catch(function(e){console.warn('[Markup] orig backup IDB error:',e);});
         saveToLS&&saveToLS();
         if(typeof renderPhotoGallery==='function')renderPhotoGallery();
+      } else {
+        console.warn('[Markup] orig backup skipped — no dataUrl or blob for',origRec.id);
       }
       // Upload to R2 if in Hub mode
       if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'&&blob){
@@ -8225,7 +8230,7 @@ function lightboxSaveMarkup(){
               ADB.deletePending(origRec.id).catch(function(){});
               if(p.id)ADB.saveSitePhoto(origRec,p.id).catch(function(){});
               saveToLS&&saveToLS();_updateR2Badge&&_updateR2Badge();}
-            else{origRec.r2Status='error';}
+            else{origRec.r2Status='error';console.warn('[Markup] orig backup R2 upload error');}
           }
         });
       }
@@ -8233,15 +8238,17 @@ function lightboxSaveMarkup(){
     // Resolve origSrc to blob+dataUrl
     if(origSrc&&origSrc.indexOf('blob:')===0){
       fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
-        ADB.blobToDataUrl(blob).then(function(du){_finishOrigBackup(blob,du);}).catch(function(){_finishOrigBackup(blob,'');});
-      }).catch(function(){});
+        ADB.blobToDataUrl(blob).then(function(du){_finishOrigBackup(blob,du);}).catch(function(e){console.warn('[Markup] orig blob→dataUrl error:',e);_finishOrigBackup(blob,'');});
+      }).catch(function(e){console.warn('[Markup] orig blob fetch error:',e);});
     } else if(origSrc&&origSrc.indexOf('data:')===0){
       var blob2=(typeof R2Photos!=='undefined')?R2Photos.dataUrlToBlob(origSrc):null;
       _finishOrigBackup(blob2,origSrc);
     } else if(origSrc&&origSrc.indexOf('http')===0){
       fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
-        ADB.blobToDataUrl(blob).then(function(du){_finishOrigBackup(blob,du);}).catch(function(){_finishOrigBackup(blob,'');});
-      }).catch(function(){});
+        ADB.blobToDataUrl(blob).then(function(du){_finishOrigBackup(blob,du);}).catch(function(e){console.warn('[Markup] orig R2→dataUrl error:',e);_finishOrigBackup(blob,'');});
+      }).catch(function(e){console.warn('[Markup] orig R2 fetch error:',e);});
+    } else {
+      console.warn('[Markup] orig backup — no valid src:',origSrc?origSrc.substring(0,30):'(empty)');
     }
   }
 
@@ -8250,6 +8257,10 @@ function lightboxSaveMarkup(){
     ADB.saveSitePhoto(ph,p.id).catch(function(e){console.warn('[Markup] saveSitePhoto error:',e);});
   }
   saveToLS&&saveToLS();
+  // Force immediate cloud push so markup state is authoritative
+  if(_csHubMode&&typeof CloudSync!=='undefined'){
+    try{CloudSync.resetLastSaved();CloudSync.save(_collectFullState());}catch(e){}
+  }
   showToast&&showToast('Markup saved');
   if(typeof renderPhotoGallery==='function')renderPhotoGallery();
   if(typeof renderDeficiencyPanel==='function'&&currentTab==='deficiencies')renderDeficiencyPanel();
@@ -8309,6 +8320,10 @@ function lightboxRevertMarkup(){
       ADB.saveSitePhoto(ph,p.id).catch(function(e){console.warn('[Markup] revert saveSitePhoto error:',e);});
     }
     saveToLS&&saveToLS();
+    // Force immediate cloud push so heartbeat doesn't restore old markup
+    if(_csHubMode&&typeof CloudSync!=='undefined'){
+      try{CloudSync.resetLastSaved();CloudSync.save(_collectFullState());}catch(e){}
+    }
     showToast&&showToast('Markup removed — photo reverted to original');
     if(typeof renderPhotoGallery==='function')renderPhotoGallery();
     if(typeof renderDeficiencyPanel==='function'&&currentTab==='deficiencies')renderDeficiencyPanel();
@@ -11083,7 +11098,71 @@ function downloadPhoto(id){
   var p=getProject();if(!p)return;
   var list=getPhotoList(p);
   var ph=list.find(function(x){return x.id===id;});
-  if(ph)downloadSinglePhoto(ph.src,id);
+  if(!ph)return;
+  // If photo has markup, composite it before download
+  var rec=_findPhotoRecById(p,ph.id||id);
+  if(rec&&rec.photo&&rec.photo.markupObjects&&rec.photo.markupObjects.length){
+    _downloadWithMarkup(rec.photo,ph.src,id);
+  } else {
+    downloadSinglePhoto(ph.src,id);
+  }
+}
+
+// Composite markup onto photo and trigger download
+function _downloadWithMarkup(photoRec,origSrc,fname){
+  function _doComposite(imgSrc){
+    var image=new Image();
+    image.crossOrigin='anonymous';
+    image.onload=function(){
+      var natW=image.naturalWidth||800,natH=image.naturalHeight||600;
+      var bufW=photoRec._markupCanvasW||0,bufH=photoRec._markupCanvasH||0;
+      if(bufW<10){
+        var maxDim=1200;var bufScale=1;
+        if(Math.max(natW,natH)>maxDim)bufScale=maxDim/Math.max(natW,natH);
+        bufW=Math.round(natW*bufScale);bufH=Math.round(natH*bufScale);
+      }
+      var c=document.createElement('canvas');c.width=bufW;c.height=bufH;
+      var ctx=c.getContext('2d');
+      ctx.drawImage(image,0,0,bufW,bufH);
+      var prevBg=_lbBgImage;_lbBgImage=image;
+      var highlights=[],others=[];
+      photoRec.markupObjects.forEach(function(obj){if(obj.type==='highlight')highlights.push(obj);else others.push(obj);});
+      others.forEach(function(obj){_lbDrawObj(ctx,obj,false);});
+      if(highlights.length){
+        var hc=document.createElement('canvas');hc.width=bufW;hc.height=bufH;
+        var hx=hc.getContext('2d');
+        highlights.forEach(function(obj){
+          if(!obj.points||obj.points.length<2)return;
+          hx.strokeStyle=obj.color||'#F1C40F';hx.lineWidth=(obj.size||4)*4;
+          hx.lineCap='round';hx.lineJoin='round';hx.globalAlpha=1;
+          hx.beginPath();hx.moveTo(obj.points[0].x,obj.points[0].y);
+          for(var i=1;i<obj.points.length;i++)hx.lineTo(obj.points[i].x,obj.points[i].y);
+          hx.stroke();
+        });
+        ctx.save();ctx.globalAlpha=0.35;ctx.drawImage(hc,0,0);ctx.restore();
+      }
+      _lbBgImage=prevBg;
+      try{
+        c.toBlob(function(blob){
+          if(!blob){downloadSinglePhoto(origSrc,fname);return;}
+          var objUrl=URL.createObjectURL(blob);
+          var a=document.createElement('a');a.href=objUrl;a.download=(fname||'photo')+'.jpg';
+          document.body.appendChild(a);a.click();document.body.removeChild(a);
+          setTimeout(function(){URL.revokeObjectURL(objUrl);},2000);
+        },'image/jpeg',0.92);
+      } catch(e){downloadSinglePhoto(origSrc,fname);}
+    };
+    image.onerror=function(){downloadSinglePhoto(origSrc,fname);};
+    image.src=imgSrc;
+  }
+  // Fetch R2 URLs as blob to avoid CORS tainting
+  if(origSrc&&origSrc.indexOf('http')===0&&origSrc.indexOf('data:')!==0){
+    fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
+      _doComposite(URL.createObjectURL(blob));
+    }).catch(function(){downloadSinglePhoto(origSrc,fname);});
+  } else {
+    _doComposite(origSrc);
+  }
 }
 
 // ── Zip bulk download ──
@@ -13897,10 +13976,12 @@ function _mergeDeficR2Fields(cloudDefics,localDefics){
         // Preserve local dataUrl if cloud doesn't have it (cloud strips base64)
         if(!ph.dataUrl&&local.dataUrl)ph.dataUrl=local.dataUrl;
         // Preserve non-destructive markup from local (3 fields + backup ID)
-        if(!ph.markupObjects&&local.markupObjects)ph.markupObjects=local.markupObjects;
-        if(!ph._markupCanvasW&&local._markupCanvasW)ph._markupCanvasW=local._markupCanvasW;
-        if(!ph._markupCanvasH&&local._markupCanvasH)ph._markupCanvasH=local._markupCanvasH;
-        if(!ph._origBackupId&&local._origBackupId)ph._origBackupId=local._origBackupId;
+        // CRITICAL: use 'in' check — cloud keeps defic markup including null (reverted).
+        // Only inherit from local when cloud has NO markupObjects property at all.
+        if(!('markupObjects' in ph)&&local.markupObjects)ph.markupObjects=local.markupObjects;
+        if(!('_markupCanvasW' in ph)&&local._markupCanvasW)ph._markupCanvasW=local._markupCanvasW;
+        if(!('_markupCanvasH' in ph)&&local._markupCanvasH)ph._markupCanvasH=local._markupCanvasH;
+        if(!('_origBackupId' in ph)&&local._origBackupId)ph._origBackupId=local._origBackupId;
       }
     });
   }
