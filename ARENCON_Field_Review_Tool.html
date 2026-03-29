@@ -8540,9 +8540,8 @@ function buildDeficItem(d,ctrId,i){
     var pillText=isAddr?'✔ Addressed':'● Open';
     var totalObs=obs?obs.length:entries?entries.length:1;
     var lbl=totalObs>1?String.fromCharCode(65+oi)+') ':'';
-    var delBtn=totalObs>1?'<button style="background:none;border:none;color:#C0392B;cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 4px;opacity:.6;flex-shrink:0;" onclick="removeObservation(\''+d.id+'\','+oi+')" title="Remove observation">✕</button>':'';
     var h='<div class="obs-row"><div class="obs-text'+addrClass+'">';
-    h+='<div class="obs-label"><span>'+lbl+'Observation'+frtLabel+'</span><div style="display:flex;align-items:center;gap:4px;">'+delBtn+'<button class="obs-toggle '+pillClass+'" onclick="toggleObsAddressed(\''+d.id+'\','+oi+')">'+pillText+'</button></div></div>';
+    h+='<div class="obs-label"><span>'+lbl+'Observation'+frtLabel+'</span><button class="obs-toggle '+pillClass+'" onclick="toggleObsAddressed(\''+d.id+'\','+oi+')">'+pillText+'</button></div>';
     h+='<textarea style="width:100%;height:60px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:inherit;resize:vertical;" oninput="updateEntryField(\''+d.id+'\','+oi+',\'description\',this.value)" list="defic-desc-suggestions">'+safe(text)+'</textarea>';
     if(photos&&photos.length){
       h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0;">';
@@ -8552,12 +8551,16 @@ function buildDeficItem(d,ctrId,i){
       });
       h+='</div>';
     }
-    // Compact photo zone — inline row, not full-width block
+    // Compact photo zone
     h+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleEntryPhotoDrop(event,\''+d.id+'\','+oi+')">';
     h+='<span style="font-size:calc(11px + var(--ts));color:var(--silver);">Drop photos or</span>';
     h+='<button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+oi+')">📎 Upload</button>';
     h+='<button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+oi+')">📷 Camera</button>';
     h+='</div>';
+    // Remove observation button — styled like Remove button, below the photo zone, only when 2+ observations
+    if(totalObs>1){
+      h+='<div style="margin-top:4px;text-align:right;"><button class="remove-defic-btn" onclick="removeObservation(\''+d.id+'\','+oi+')" style="font-size:calc(10px + var(--ts));padding:3px 8px;">✕ Remove Obs</button></div>';
+    }
     h+='</div></div>';
     return h;
   }
