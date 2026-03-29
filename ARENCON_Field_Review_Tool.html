@@ -7334,49 +7334,54 @@ var _markupPreviewCache={}; // photoId → {preview: base64, objects: [...]} —
 
 // Regenerate composited preview from original image + markup objects
 // origCanvasW/H = canvas buffer dimensions when markup was drawn (stored as ph._markupCanvasW/H)
-// If not provided, assumes objects were drawn at the same scale as the regeneration canvas
+// If not provided, recompute from image natural dimensions using the same formula as lightbox
 function _regenerateMarkupPreview(photoSrc, markupObjects, callback, origCanvasW, origCanvasH){
   if(!photoSrc||!markupObjects||!markupObjects.length){if(callback)callback(null);return;}
   var img=new Image();
   img.crossOrigin='anonymous';
   function _doRender(imgEl){
-    var c=document.createElement('canvas');
-    var maxDim=1200;
-    var w=imgEl.naturalWidth||800,h=imgEl.naturalHeight||600;
-    var scale=1;if(Math.max(w,h)>maxDim)scale=maxDim/Math.max(w,h);
-    c.width=Math.round(w*scale);c.height=Math.round(h*scale);
-    var ctx=c.getContext('2d');
-    ctx.drawImage(imgEl,0,0,c.width,c.height);
-    // Compute coordinate scale factor if objects were drawn on a different-sized canvas
-    var coordScale=1;
-    if(origCanvasW&&origCanvasW>0&&c.width>0){
-      coordScale=c.width/origCanvasW;
-    }
-    // Deep copy and scale object coordinates if needed
-    var scaledObjs=markupObjects;
-    if(Math.abs(coordScale-1)>0.01){
-      scaledObjs=JSON.parse(JSON.stringify(markupObjects));
-      scaledObjs.forEach(function(obj){
-        if(obj.points){obj.points.forEach(function(pt){pt.x*=coordScale;pt.y*=coordScale;});}
-        if(obj.x!=null)obj.x*=coordScale;
-        if(obj.y!=null)obj.y*=coordScale;
-        if(obj.w!=null)obj.w*=coordScale;
-        if(obj.h!=null)obj.h*=coordScale;
-        if(obj.size)obj.size*=coordScale;
-        if(obj.fontSize)obj.fontSize*=coordScale;
-        if(obj.x2!=null)obj.x2*=coordScale;
-        if(obj.y2!=null)obj.y2*=coordScale;
-        if(obj.rx!=null)obj.rx*=coordScale;
-        if(obj.ry!=null)obj.ry*=coordScale;
+    var natW=imgEl.naturalWidth||800,natH=imgEl.naturalHeight||600;
+    // Determine canvas buffer size — MUST match the lightbox canvas size when markup was drawn
+    var bufW,bufH;
+    if(origCanvasW&&origCanvasW>10){
+      bufW=origCanvasW;bufH=origCanvasH||Math.round(natH*(origCanvasW/natW));
+      console.log('[MarkupPreview] Using stored canvas size: '+bufW+'x'+bufH+' (from _markupCanvasW/H)');
+    } else {
+      // No stored canvas size (legacy data) — recompute from lightbox formula
+      // Lightbox uses maxDim=2400 on desktop, 1200 on mobile. We don't know which device
+      // was used, so try both and pick the one that makes markup coordinates plausible.
+      // Heuristic: check if markup points exceed 1200-scale bounds → was desktop (2400)
+      var maxPt=0;
+      markupObjects.forEach(function(obj){
+        if(obj.points)obj.points.forEach(function(pt){
+          if(pt.x>maxPt)maxPt=pt.x;if(pt.y>maxPt)maxPt=pt.y;
+        });
+        if(obj.x1!=null&&obj.x1>maxPt)maxPt=obj.x1;
+        if(obj.y1!=null&&obj.y1>maxPt)maxPt=obj.y1;
+        if(obj.x2!=null&&obj.x2>maxPt)maxPt=obj.x2;
+        if(obj.y2!=null&&obj.y2>maxPt)maxPt=obj.y2;
       });
+      var maxDim=(maxPt>1250)?2400:1200;
+      var bufScale=1;
+      if(Math.max(natW,natH)>maxDim)bufScale=maxDim/Math.max(natW,natH);
+      bufW=Math.round(natW*bufScale);bufH=Math.round(natH*bufScale);
+      console.log('[MarkupPreview] Legacy data — maxPt='+Math.round(maxPt)+' maxDim='+maxDim+' natW='+natW+' natH='+natH+' bufW='+bufW+' bufH='+bufH);
     }
-    // Draw non-highlight objects
+    // Render at the same size as the original lightbox canvas
+    var c=document.createElement('canvas');
+    c.width=bufW;c.height=bufH;
+    var ctx=c.getContext('2d');
+    ctx.drawImage(imgEl,0,0,bufW,bufH);
+    // Temporarily set _lbBgImage so _lbDrawObj eraser branch can restore background pixels
+    var _prevBgImage=_lbBgImage;
+    _lbBgImage=imgEl;
+    // Draw non-highlight objects (coordinates are already in this canvas space)
     var highlights=[],others=[];
-    scaledObjs.forEach(function(obj){if(obj.type==='highlight')highlights.push(obj);else others.push(obj);});
+    markupObjects.forEach(function(obj){if(obj.type==='highlight')highlights.push(obj);else others.push(obj);});
     others.forEach(function(obj){_lbDrawObj(ctx,obj,false);});
-    // Highlight composite
+    // Highlight composite (same pattern as _lbRenderAll)
     if(highlights.length){
-      var hc=document.createElement('canvas');hc.width=c.width;hc.height=c.height;
+      var hc=document.createElement('canvas');hc.width=bufW;hc.height=bufH;
       var hx=hc.getContext('2d');
       highlights.forEach(function(obj){
         if(!obj.points||obj.points.length<2)return;
@@ -7388,7 +7393,21 @@ function _regenerateMarkupPreview(photoSrc, markupObjects, callback, origCanvasW
       });
       ctx.save();ctx.globalAlpha=0.3;ctx.drawImage(hc,0,0);ctx.restore();
     }
-    try{var result=c.toDataURL('image/jpeg',0.85);if(callback)callback(result);}
+    // Restore global _lbBgImage
+    _lbBgImage=_prevBgImage;
+    // Scale down to thumbnail-friendly size for storage (max 1200px)
+    var outCanvas=c;
+    if(Math.max(bufW,bufH)>1200){
+      outCanvas=document.createElement('canvas');
+      var outScale=1200/Math.max(bufW,bufH);
+      outCanvas.width=Math.round(bufW*outScale);outCanvas.height=Math.round(bufH*outScale);
+      outCanvas.getContext('2d').drawImage(c,0,0,outCanvas.width,outCanvas.height);
+    }
+    try{
+      var result=outCanvas.toDataURL('image/jpeg',0.85);
+      console.log('[MarkupPreview] Generated preview: outCanvas='+outCanvas.width+'x'+outCanvas.height+' resultLen='+result.length+' objects='+markupObjects.length);
+      if(callback)callback(result);
+    }
     catch(e){console.warn('[MarkupPreview] toDataURL failed:',e);if(callback)callback(null);}
   }
   // Load image — handle R2 URLs via blob fetch to avoid CORS
@@ -7649,17 +7668,19 @@ function _lbDrawObj(ctx,obj,isSelected){
     ctx.beginPath();ctx.moveTo(obj.points[0].x,obj.points[0].y);
     for(var e2=1;e2<obj.points.length;e2++)ctx.lineTo(obj.points[e2].x,obj.points[e2].y);
     ctx.stroke();
-    // Restore bg pixels where erased
-    if(_lbBgImage){
+    // Restore bg pixels where erased — use ctx.canvas for dimensions (works in both lightbox and regeneration)
+    var _eraserBg=_lbBgImage;
+    var _eraserW=ctx.canvas.width,_eraserH=ctx.canvas.height;
+    if(_eraserBg){
       ctx.restore();ctx.save();
-      var ec=document.createElement('canvas');ec.width=_lbCanvas.width;ec.height=_lbCanvas.height;
+      var ec=document.createElement('canvas');ec.width=_eraserW;ec.height=_eraserH;
       var ex2=ec.getContext('2d');
       ex2.strokeStyle='white';ex2.lineWidth=(obj.size||4)*3;ex2.lineCap='round';ex2.lineJoin='round';
       ex2.beginPath();ex2.moveTo(obj.points[0].x,obj.points[0].y);
       for(var e3=1;e3<obj.points.length;e3++)ex2.lineTo(obj.points[e3].x,obj.points[e3].y);
       ex2.stroke();
-      var bc=document.createElement('canvas');bc.width=_lbCanvas.width;bc.height=_lbCanvas.height;
-      var bx=bc.getContext('2d');bx.drawImage(ec,0,0);bx.globalCompositeOperation='source-in';bx.drawImage(_lbBgImage,0,0,_lbCanvas.width,_lbCanvas.height);
+      var bc=document.createElement('canvas');bc.width=_eraserW;bc.height=_eraserH;
+      var bx=bc.getContext('2d');bx.drawImage(ec,0,0);bx.globalCompositeOperation='source-in';bx.drawImage(_eraserBg,0,0,_eraserW,_eraserH);
       ctx.drawImage(bc,0,0);
     }
   } else if(t==='text'){
