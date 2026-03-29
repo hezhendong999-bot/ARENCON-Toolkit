@@ -2166,6 +2166,13 @@ ADB.saveSitePhoto=function(photo,projectId){
   rec.r2Key=photo.r2Key||'';
   rec.r2Status=photo.r2Status||'';
   rec.r2Url=photo.r2Url||'';
+  // Preserve non-destructive markup fields
+  if(photo.markupObjects&&photo.markupObjects.length)rec.markupObjects=photo.markupObjects;
+  if(photo._markupCanvasW)rec._markupCanvasW=photo._markupCanvasW;
+  if(photo._markupCanvasH)rec._markupCanvasH=photo._markupCanvasH;
+  if(photo._origBackupId)rec._origBackupId=photo._origBackupId;
+  if(photo.markedR2Key)rec.markedR2Key=photo.markedR2Key;
+  if(photo.markedR2Url)rec.markedR2Url=photo.markedR2Url;
   // If we have a dataUrl, convert to blob and save
   if(photo.dataUrl){
     rec.dataBlob=ADB.dataUrlToBlob(photo.dataUrl);
@@ -2176,6 +2183,13 @@ ADB.saveSitePhoto=function(photo,projectId){
     if(existing&&existing.dataBlob&&existing.dataBlob.size>0){
       rec.dataBlob=existing.dataBlob;
     }
+    // Preserve markup fields from existing IDB record if not on current record
+    if(!rec.markupObjects&&existing&&existing.markupObjects)rec.markupObjects=existing.markupObjects;
+    if(!rec._markupCanvasW&&existing&&existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
+    if(!rec._markupCanvasH&&existing&&existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
+    if(!rec._origBackupId&&existing&&existing._origBackupId)rec._origBackupId=existing._origBackupId;
+    if(!rec.markedR2Key&&existing&&existing.markedR2Key)rec.markedR2Key=existing.markedR2Key;
+    if(!rec.markedR2Url&&existing&&existing.markedR2Url)rec.markedR2Url=existing.markedR2Url;
     return ADB.put('sitePhotos',rec);
   }).catch(function(){
     return ADB.put('sitePhotos',rec);
@@ -2257,18 +2271,34 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
         (proj.contractors||[]).forEach(function(c){_rehydrateDeficPhotos(c.deficiencies);});
         _rehydrateDeficPhotos(proj.generalDeficiencies);
         // ── Site photos: R2-first load — skip blob for uploaded photos (fast startup) ──
+        // Helper to carry markup fields from IDB record to in-memory record
+        function _spMarkupFields(sp){
+          var f={};
+          if(sp.markupObjects&&sp.markupObjects.length)f.markupObjects=sp.markupObjects;
+          if(sp._markupCanvasW)f._markupCanvasW=sp._markupCanvasW;
+          if(sp._markupCanvasH)f._markupCanvasH=sp._markupCanvasH;
+          if(sp._origBackupId)f._origBackupId=sp._origBackupId;
+          if(sp.markedR2Key)f.markedR2Key=sp.markedR2Key;
+          if(sp.markedR2Url)f.markedR2Url=sp.markedR2Url;
+          return f;
+        }
         var spPromises=sitePhotos.map(function(sp){
+          var mkFields=_spMarkupFields(sp);
           // If on R2, skip blob conversion entirely — display via r2Url
           if(sp.r2Status==='uploaded'&&sp.r2Url){
-            return Promise.resolve({id:sp.id,dataUrl:'',caption:sp.caption||'',date:sp.timestamp||'',
-              uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:'uploaded',r2Url:sp.r2Url});
+            var rec={id:sp.id,dataUrl:'',caption:sp.caption||'',date:sp.timestamp||'',
+              uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:'uploaded',r2Url:sp.r2Url};
+            Object.assign(rec,mkFields);
+            return Promise.resolve(rec);
           }
           // Local-only: convert blob to dataUrl
           var blobP=sp.dataBlob?ADB.blobToDataUrl(sp.dataBlob):Promise.resolve(null);
           return blobP.then(function(url){
             if(url){
-              return {id:sp.id,dataUrl:url,caption:sp.caption||'',date:sp.timestamp||'',
+              var rec2={id:sp.id,dataUrl:url,caption:sp.caption||'',date:sp.timestamp||'',
                 uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:sp.r2Status||'',r2Url:sp.r2Url||''};
+              Object.assign(rec2,mkFields);
+              return rec2;
             }
             return null;
           });
@@ -13381,12 +13411,23 @@ function _mergeDrawing(cd,localDrawings){
 function _mergeSitePhoto(cph,localSitePhotos){
   var existing=(localSitePhotos||[]).find(function(x){return x.id===cph.id;});
   var r2=_mergeR2Fields(cph,existing);
-  return {
+  var rec={
     id:cph.id||'sp_'+Math.random().toString(36).substr(2,8),
     caption:cph.caption||'',timestamp:cph.timestamp||cph.date||'',
     r2Key:r2.r2Key,r2Status:r2.r2Status,r2Url:r2.r2Url,
     dataUrl:existing?existing.dataUrl:null
   };
+  // Preserve non-destructive markup fields from local (cloud strips these)
+  if(existing){
+    if(existing.markupObjects&&existing.markupObjects.length)rec.markupObjects=existing.markupObjects;
+    if(existing.markedPreview)rec.markedPreview=existing.markedPreview;
+    if(existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
+    if(existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
+    if(existing._origBackupId)rec._origBackupId=existing._origBackupId;
+    if(existing.markedR2Key)rec.markedR2Key=existing.markedR2Key;
+    if(existing.markedR2Url)rec.markedR2Url=existing.markedR2Url;
+  }
+  return rec;
 }
 
 // Merge deficiency photo arrays: preserve local R2 fields when cloud is empty
