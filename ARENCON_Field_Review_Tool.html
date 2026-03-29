@@ -1892,13 +1892,14 @@ body.text-l{--ts:4px;}
 
 <!-- PHOTO LIGHTBOX -->
 <div id="photo-lightbox" onclick="_lbHandleOverlayClick(event)" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.92);align-items:center;justify-content:center;cursor:zoom-out;overflow:hidden;touch-action:none;">
-  <button onclick="event.stopPropagation();closeLightbox();" style="position:absolute;top:16px;right:20px;background:rgba(255,255,255,.15);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;">✕</button>
-  <button onclick="lightboxPrev(event)" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;z-index:1;">‹</button>
   <div style="position:relative;max-width:95vw;max-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:10px 0;">
     <div id="lb-photo-counter" style="color:rgba(255,255,255,.5);font-size:calc(13px + var(--ts));margin-bottom:6px;font-family:Calibri,sans-serif;min-height:20px;"></div>
-    <div id="lb-canvas-wrap">
-    <canvas id="lightbox-canvas" style="border-radius:6px;display:block;touch-action:none;"></canvas>
+    <div id="lb-canvas-wrap" style="position:relative;">
+    <canvas id="lightbox-canvas" tabindex="0" style="border-radius:6px;display:block;touch-action:none;outline:none;"></canvas>
     <div id="lb-zoom-hint"></div>
+    <button onclick="event.stopPropagation();closeLightbox();" style="position:absolute;top:-8px;right:-8px;background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.3);color:white;width:36px;height:36px;border-radius:50%;font-size:22px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;">✕</button>
+    <button onclick="lightboxPrev(event)" style="position:absolute;left:-22px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);border:1.5px solid rgba(255,255,255,.2);color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;z-index:1;opacity:.8;">‹</button>
+    <button onclick="lightboxNext(event)" style="position:absolute;right:-22px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);border:1.5px solid rgba(255,255,255,.2);color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;z-index:1;opacity:.8;">›</button>
     </div>
     <img id="lightbox-img" src="" alt="" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:none;">
     <div style="margin-top:10px;display:flex;gap:8px;">
@@ -1971,7 +1972,6 @@ body.text-l{--ts:4px;}
       <input id="lb-text-input" type="text" placeholder="Type text, Enter to place" onclick="event.stopPropagation()" onkeydown="event.stopPropagation();if(event.key==='Enter'){event.preventDefault();_lbCommitText();}if(event.key==='Escape'){event.preventDefault();_lbCancelText();}" onblur="setTimeout(function(){_lbCommitText();},80)" style="background:rgba(20,22,30,.9);color:white;border:1.5px solid #9C2742;border-radius:5px;padding:5px 8px;font-family:Calibri,sans-serif;font-size:calc(14px + var(--ts));min-width:160px;outline:none;">
     </div>
   </div>
-  <button onclick="lightboxNext(event)" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;z-index:1;">›</button>
 </div>
 
 <script>
@@ -7938,7 +7938,7 @@ function _lbEnableDrawEvents(){
       if(kev.key==='z'&&!kev.shiftKey){kev.preventDefault();_lbUndo();}
       else if(kev.key==='y'||(kev.key==='z'&&kev.shiftKey)){kev.preventDefault();_lbRedo();}
     }
-    if((kev.key==='Delete'||kev.key==='Backspace')&&_lbSelectedId&&document.activeElement===document.body){
+    if((kev.key==='Delete'||kev.key==='Backspace')&&(_lbSelectedId||_lbSelectedIds.length>0)&&(document.activeElement===document.body||document.activeElement===_lbCanvas||document.activeElement&&document.activeElement.tagName==='CANVAS')){
       kev.preventDefault();_lbDeleteSelected();
     }
   };
@@ -7991,9 +7991,11 @@ function lightboxSaveMarkup(){
   if(!p.sitePhotos)p.sitePhotos=[];
 
   var targetId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])?_lbPhotoIds[_lbIdx]:null;
+  console.log('[Markup Save] targetId=',targetId,'_lbPhotoIds=',_lbPhotoIds,'_lbIdx=',_lbIdx);
   if(!targetId){showToast&&showToast('Cannot save — photo ID not found','error');return;}
 
   var rec=_findPhotoRecById(p,targetId);
+  console.log('[Markup Save] rec found=',!!rec, rec?rec.locationType:'N/A');
   if(!rec){showToast&&showToast('Cannot save — photo record not found','error');return;}
   var ph=rec.photo;
 
@@ -8043,6 +8045,13 @@ function lightboxSaveMarkup(){
     } else if(_origIsData){
       var _origBlob=(typeof R2Photos!=='undefined')?R2Photos.dataUrlToBlob(origSrc):null;
       _saveOrigBackup(_origBlob,origSrc);
+    } else if(origSrc&&origSrc.indexOf('http')===0){
+      // R2 URL — fetch as blob, convert to dataUrl for IDB backup
+      fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
+        ADB.blobToDataUrl(blob).then(function(du){
+          _saveOrigBackup(blob,du);
+        }).catch(function(){_saveOrigBackup(blob,'');});
+      }).catch(function(e){console.warn('[Markup] Failed to fetch original from R2:',e);});
     }
   }
 
@@ -8089,8 +8098,7 @@ function lightboxRevertMarkup(){
   var ph=rec.photo;
   if(!ph.markupObjects||!ph.markupObjects.length){showToast&&showToast('No markup to revert');return;}
 
-  _aConfirm('Revert this photo to the original? All markup will be removed.',function(yes){
-    if(!yes)return;
+  _aConfirm('Revert this photo to the original? All markup will be removed.',function(){
     // Clear markup objects and marked preview
     ph.markupObjects=null;
     // Delete marked preview from R2 if uploaded
@@ -8138,7 +8146,7 @@ function lightboxRevertMarkup(){
     // Hide revert button
     var revertBtn=document.getElementById('lb-revert-btn');
     if(revertBtn)revertBtn.style.display='none';
-  },'Revert to Original','Cancel');
+  },'Remove All Markup');
 }
 
 function _replacePhotoInProject(p,oldSrc,newSrc){
@@ -9289,6 +9297,7 @@ function _lbShowCurrentDirect(){
     if(_p){var _found=_findPhotoRecById(_p,_targetId);if(_found)_photoRec=_found.photo;}
   }
   var _hasMarkup=_photoRec&&_photoRec.markupObjects&&_photoRec.markupObjects.length>0;
+  console.log('[LB Show] targetId=',_targetId,'photoRec found=',!!_photoRec,'hasMarkup=',_hasMarkup,_hasMarkup?'objects='+_photoRec.markupObjects.length:'');
 
   // Show/hide revert button
   var revertBtn=document.getElementById('lb-revert-btn');
