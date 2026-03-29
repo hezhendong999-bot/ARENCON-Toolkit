@@ -8008,15 +8008,19 @@ function lightboxSaveMarkup(){
     var origSrc=_lbOrigSrc||_lbPhotos[_lbIdx];
     var _srcCaption=ph.caption||'';
     var _origRec={id:'sp_orig_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),dataUrl:'',caption:(_srcCaption?_srcCaption+' (original)':'Original'),timestamp:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};
-    p.sitePhotos.push(_origRec);
+    // Set the backup ID immediately so repeated saves don't create duplicates
     ph._origBackupId=_origRec.id;
     _lbOrigBackupId=_origRec.id;
+    var _origPushed=false; // track whether record was added to sitePhotos
 
     // Resolve origSrc to dataUrl and save to IDB + R2
     var _origIsBlob=origSrc&&origSrc.indexOf('blob:')===0;
     var _origIsData=origSrc&&origSrc.indexOf('data:')===0;
     function _saveOrigBackup(blob,dataUrl){
       _origRec.dataUrl=dataUrl||'';
+      // Push to sitePhotos only when we have actual data (prevents ghost cleanup from removing it)
+      if(!_origPushed){p.sitePhotos.push(_origRec);_origPushed=true;}
+      console.log('[Markup] Original backup created: id='+_origRec.id+' dataUrl='+(dataUrl?dataUrl.substring(0,30)+'...':'EMPTY')+' forPhoto='+ph.id);
       if(_csHubMode&&_csProjectId&&typeof R2Photos!=='undefined'&&blob){
         var _origFname=_r2Filename('site','jpg');
         var _origFolderId=_getR2FolderId();
@@ -8035,6 +8039,7 @@ function lightboxSaveMarkup(){
         ADB.saveSitePhoto(_origRec,p.id).catch(function(){});
       }
       saveToLS&&saveToLS();
+      if(typeof renderPhotoGallery==='function')renderPhotoGallery();
     }
     if(_origIsBlob){
       fetch(origSrc).then(function(r){return r.blob();}).then(function(blob){
