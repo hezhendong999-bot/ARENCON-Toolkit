@@ -275,7 +275,7 @@ body.dv-open{overflow:hidden!important;}
 .ctr-fold-arrow{font-size:calc(14px + var(--ts));width:16px;display:inline-block;text-align:center;transition:transform .15s;}
 .defic-group-empty{padding:12px 16px;color:#999;font-size:calc(13px + var(--ts));font-style:italic;}
 .defic-item{border-top:1px solid var(--border);padding:14px 16px;}
-.defic-item:nth-child(even){background:rgba(0,0,0,.02);}
+.defic-item:nth-child(even){background:rgba(0,0,0,.045);}
 .defic-item-row{display:flex;gap:10px;align-items:flex-start;}
 .defic-num-circle{min-width:28px;width:28px;height:28px;border-radius:50%;background:#C0392B;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:calc(12px + var(--ts));flex-shrink:0;}
 .defic-item-content{flex:1;min-width:0;}
@@ -612,7 +612,7 @@ body.dark-mode .project-card{background:#1e2533;border-color:#2a3040;box-shadow:
 body.dark-mode .project-card:hover{border-color:#9C2742;box-shadow:0 4px 16px rgba(156,39,66,.2);}
 /* Dark mode — deficiency items */
 body.dark-mode .defic-item{background:#1e2533;border-color:#2a3040;}
-body.dark-mode .defic-item:nth-child(even){background:#232a3a;}
+body.dark-mode .defic-item:nth-child(even){background:#283040;}
 body.dark-mode .defic-num-circle{background:#9C2742;color:#fff;}
 body.dark-mode .contractor-chip{background:#1e2230;border-color:#2a3040;color:#b0b8d0;}
 body.dark-mode .defic-group{border-color:#2a2e38;}
@@ -8671,7 +8671,8 @@ function buildDeficItem(d,ctrId,i){
           }
         }
       }
-      actHtml+='<div class="activity-entry"><div class="activity-entry-header"><span class="activity-entry-label" style="color:'+lColor+';">'+(isCtr?'⚡':'🔍')+' '+safe(a.label||'Note')+obsRefTag+'</span><span class="activity-entry-date">'+(a.date||'')+'</span></div>';
+      var _actId=a.id||'';
+      actHtml+='<div class="activity-entry"><div class="activity-entry-header"><span class="activity-entry-label" style="color:'+lColor+';">'+(isCtr?'⚡':'🔍')+' '+safe(a.label||'Note')+obsRefTag+'</span><span class="activity-entry-date">'+(a.date||'')+' <button onclick="editActivityEntry(\''+d.id+'\',\''+_actId+'\')" style="background:none;border:none;cursor:pointer;font-size:calc(10px + var(--ts));color:var(--link);padding:0 2px;" title="Edit">✏</button><button onclick="removeActivityEntry(\''+d.id+'\',\''+_actId+'\')" style="background:none;border:none;cursor:pointer;font-size:calc(10px + var(--ts));color:#C0392B;padding:0 2px;" title="Delete">✕</button></span></div>';
       // Rich text — render as HTML (already sanitized)
       actHtml+='<div class="activity-entry-text">'+(a.text||'')+'</div>';
       // Activity photos
@@ -8685,8 +8686,8 @@ function buildDeficItem(d,ctrId,i){
     actHtml+='</div></div>';
   }
   actHtml+='<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">';
-  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));color:#E67E22;border-color:#E67E22;" onclick="showAddActivityForm(\''+d.id+'\',\'Contractor Response\')">+ Contractor Response</button>';
-  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));color:#1565C0;border-color:#1565C0;" onclick="showAddActivityForm(\''+d.id+'\',\'ARENCON\')">+ ARENCON Comment</button>';
+  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));" onclick="showAddActivityForm(\''+d.id+'\',\'Contractor Response\')">+ Contractor Response</button>';
+  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));" onclick="showAddActivityForm(\''+d.id+'\',\'ARENCON\')">+ ARENCON Comment</button>';
   actHtml+='</div>';
 
   // Controls: Priority + IAR + Close + Remove visible, Dup/Move in ⋯ More
@@ -9289,6 +9290,74 @@ function submitActivityEntry(did,inst,label){
   pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();
   if(ov)ov.remove();
   toast('Response added');
+}
+
+function removeActivityEntry(did,actId){
+  _aConfirm('Delete this activity entry?',function(){
+    var f=findDeficiency(did);if(!f)return;
+    if(!f.defic.activity)return;
+    f.defic.activity=f.defic.activity.filter(function(a){return a.id!==actId;});
+    pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();
+    toast('Entry removed');
+  },'Delete');
+}
+
+function editActivityEntry(did,actId){
+  var f=findDeficiency(did);if(!f)return;
+  if(!f.defic.activity)return;
+  var act=f.defic.activity.find(function(a){return a.id===actId;});
+  if(!act)return;
+  var p=getProject();var inst=(p&&p.currentFrtInstance)||1;
+  var isCtr=(act.label||'').indexOf('Contractor')>=0;
+  var titleLabel=isCtr?'Edit Contractor Response':'Edit ARENCON Comment';
+  var d=f.defic;
+  // Build observation reference options
+  var obsOpts='<option value="">All observations</option>';
+  var obs2=d.observations&&d.observations.length?d.observations:null;
+  var entries2=d.entries&&d.entries.length?d.entries:null;
+  if(obs2&&obs2.length>1){
+    obs2.forEach(function(o,oi){
+      var txt=(entries2&&entries2[oi])?entries2[oi].description||'':o.text||'';
+      var trunc=txt.length>50?txt.substring(0,50)+'\u2026':txt;
+      var sel=(act.obsRef&&act.obsRef===o.id)?' selected':'';
+      obsOpts+='<option value="'+o.id+'"'+sel+'>'+String.fromCharCode(65+oi)+') '+escHtml(trunc||'(empty)')+'</option>';
+    });
+  }
+  var showObsRef=obs2&&obs2.length>1;
+  var ov=document.createElement('div');
+  ov.className='modal-overlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+  ov.innerHTML='<div style="background:var(--bg,white);border-radius:12px;padding:24px;width:90%;max-width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3);">'
+    +'<div style="font-weight:700;font-size:calc(16px + var(--ts));margin-bottom:16px;color:var(--fg,#1B2438);">'+titleLabel+' \u2014 Pin #'+f.defic.num+'</div>'
+    +(showObsRef?'<div style="margin-bottom:12px;"><label class="defic-label">Regarding</label>'
+    +'<select id="act-edit-obs-ref" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;">'
+    +obsOpts+'</select></div>':'')
+    +'<div style="margin-bottom:12px;"><label class="defic-label">Date</label>'
+    +'<input id="act-edit-date" type="date" value="'+(act.date||'')+'" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;">'
+    +'</div>'
+    +'<div style="margin-bottom:12px;"><label class="defic-label">Comment</label>'
+    +'<div id="act-edit-text" contenteditable="true" style="width:100%;min-height:80px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;outline:none;line-height:1.5;">'+(act.text||'')+'</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">'
+    +'<button style="padding:8px 20px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg,white);color:var(--fg);cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button>'
+    +'<button style="padding:8px 20px;border:none;border-radius:6px;background:#9C2742;color:white;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:700;" onclick="_saveEditActivity(\''+did+'\',\''+actId+'\')">Save</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+}
+
+function _saveEditActivity(did,actId){
+  var f=findDeficiency(did);if(!f)return;
+  var act=f.defic.activity.find(function(a){return a.id===actId;});
+  if(!act)return;
+  var dateEl=document.getElementById('act-edit-date');
+  var textEl=document.getElementById('act-edit-text');
+  var obsRefEl=document.getElementById('act-edit-obs-ref');
+  if(dateEl)act.date=dateEl.value;
+  if(textEl)act.text=_sanitizeRichText(textEl.innerHTML||'');
+  if(obsRefEl)act.obsRef=obsRefEl.value||null;
+  pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();
+  var ov=document.querySelector('.modal-overlay');if(ov)ov.remove();
+  toast('Entry updated');
 }
 
 function _sanitizeRichText(html){
@@ -12244,7 +12313,7 @@ css+='.resp-ctr{background:#FFF8E1;border:1px solid #FFE082;}.resp-con{backgroun
 css+='.resp-photos{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}';
 css+='.resp-photos img{width:160px;height:160px;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;}';
 css+='.st{width:100%;border-collapse:collapse;font-size:11pt;margin-top:0;}';
-css+='.st th{background:#9C2742;color:white;padding:6px 10px;text-align:left;font-size:10pt;font-weight:700;}';
+css+='.st th{background:#9C2742;color:white;padding:6px 10px;text-align:left;font-size:11pt;font-weight:700;}';
 css+='.st td{padding:6px 10px;border-bottom:1px solid #DDE1E7;font-size:11pt;}';
 // Appendix
 css+='.app-dwg{margin-bottom:28px;}';
@@ -12331,13 +12400,14 @@ fullHeader+=titleBlock;
 function _compactHeader(pageNum,totalPages){
   var leftL1=escHtml(p.info.client||'');
   var leftL2=escHtml(p.info.address||'');
+  var leftLine1=leftL1+(leftL1&&leftL2?' \u2014 ':'')+leftL2;
   var scopePart=p.info.projectName?' - '+escHtml(p.info.projectName):'';
   var leftL3=escHtml(titleLabel+' #'+_rptNum)+scopePart;
   var rightL1=escHtml((p.info.projectNumber||'')+' '+_rptRev)+'&nbsp;&nbsp;Page '+pageNum;
   var rightL3=escHtml(date);
   return '<div class="ph-compact">'
-    +'<div class="ph-compact-left">'+leftL1+'<br>'+leftL2+'<br>'+leftL3+'</div>'
-    +'<div class="ph-compact-right">'+rightL1+'<br>&nbsp;<br>'+rightL3+'</div>'
+    +'<div class="ph-compact-left">'+leftLine1+'<br>'+leftL3+'</div>'
+    +'<div class="ph-compact-right">'+rightL1+'<br>'+rightL3+'</div>'
     +'</div>';
 }
 
@@ -12597,15 +12667,23 @@ function _finalizePage(){
 // Start first page
 _startPage();
 
+// Track current contractor group for continuation headers
+var _activeCtrHeader='';
+var _activeCtrHeaderHtml='';
+
 // Add content blocks
 contentBlocks.forEach(function(block){
   var blockH=_measure(block.html);
   var avail=PAGE_H-curUsed;
 
   if(block.type==='sectionHeader'||block.type==='ctrHeader'){
+    // Track active contractor group
+    _activeCtrHeader=block.ctr||'';
+    _activeCtrHeaderHtml=block.html.replace('</div>','')+ ' \u2014 continued</div>';
     // Headers: if less than 80px remaining after header, start new page
     if(avail<blockH+80){
       _finalizePage();_startPage();
+      // Don't inject continuation — original header will be placed next
     }
     curPageHtml+=block.html;
     curUsed+=_measure(block.html);// re-measure in context
@@ -12619,9 +12697,13 @@ contentBlocks.forEach(function(block){
     curUsed+=blockH;
   } else if(blockH<=PAGE_H-COMPACT_HEADER_H){
     // Doesn't fit here but fits on a fresh page — push to next page
-    // Only do this if current page isn't mostly empty (>40% used)
     if(curUsed>PAGE_H*0.15){
       _finalizePage();_startPage();
+      // Inject continuation header for the active contractor group
+      if(_activeCtrHeaderHtml){
+        curPageHtml+=_activeCtrHeaderHtml;
+        curUsed+=_measure(_activeCtrHeaderHtml);
+      }
     }
     curPageHtml+=block.html;
     curUsed+=blockH;
@@ -12629,6 +12711,11 @@ contentBlocks.forEach(function(block){
     // Card is taller than a full page — split at dc-split boundaries
     if(curUsed>PAGE_H*0.15){
       _finalizePage();_startPage();
+      // Inject continuation header
+      if(_activeCtrHeaderHtml){
+        curPageHtml+=_activeCtrHeaderHtml;
+        curUsed+=_measure(_activeCtrHeaderHtml);
+      }
     }
     // Parse the card HTML into header + splittable sections + footer
     var splitParts=block.html.split(/<div class="dc-split/);
@@ -12654,6 +12741,11 @@ contentBlocks.forEach(function(block){
           // Close current card chunk and page
           curPageHtml+=contTo+cardFtr;
           _finalizePage();_startPage();
+          // Inject continuation header
+          if(_activeCtrHeaderHtml){
+            curPageHtml+=_activeCtrHeaderHtml;
+            curUsed+=_measure(_activeCtrHeaderHtml);
+          }
           // Start new card chunk with header + continued marker
           curPageHtml+=cardHdr+contFrom;
           curUsed+=_measure(cardHdr+contFrom+cardFtr);
@@ -12692,7 +12784,7 @@ if(closedSummaryDefs.length){
   var closedHtml='<div style="border:1px solid #DDE1E7;border-radius:6px;overflow:hidden;">';
   closedHtml+='<table style="width:100%;border-collapse:collapse;font-size:10pt;">';
   closedHtml+='<thead><tr style="background:#9C2742;color:white;"><th colspan="5" style="padding:8px 12px;text-align:left;font-size:12pt;letter-spacing:.3px;">Previously Closed Items</th></tr>';
-  closedHtml+='<tr style="background:#f0f0f0;font-weight:700;font-size:9pt;text-transform:uppercase;letter-spacing:.5px;color:#4A5568;"><th style="padding:5px 10px;text-align:left;">Pin</th><th style="padding:5px 10px;text-align:left;">Description</th><th style="padding:5px 10px;text-align:left;">Contractor</th><th style="padding:5px 10px;text-align:left;">Noted</th><th style="padding:5px 10px;text-align:left;">Status</th></tr></thead>';
+  closedHtml+='<tr style="background:#f5eef0;font-weight:700;font-size:9pt;text-transform:uppercase;letter-spacing:.5px;color:#4A5568;"><th style="padding:5px 10px;text-align:left;">Pin</th><th style="padding:5px 10px;text-align:left;">Description</th><th style="padding:5px 10px;text-align:left;">Contractor</th><th style="padding:5px 10px;text-align:left;">Noted</th><th style="padding:5px 10px;text-align:left;">Status</th></tr></thead>';
   closedHtml+='<tbody>';
   _csInstNums.forEach(function(inst){
     var items=_csGroups[inst];
