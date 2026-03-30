@@ -1024,8 +1024,8 @@ body.dark-mode .resp-consultant{background:#001a33;border-color:#003366;}
 .tool-slider{-webkit-appearance:none;appearance:none;writing-mode:vertical-lr;direction:rtl;width:4px;height:50px;background:#3a3e48;border-radius:2px;outline:none;cursor:pointer;}
 .tool-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#9C2742;cursor:pointer;}
 /* Stepper buttons (replaces sliders globally) */
-.tool-stepper-wrap{display:flex;align-items:center;gap:3px;padding:2px 4px;}
-.tool-step-btn{width:28px;height:28px;border-radius:6px;border:none;background:rgba(255,255,255,.1);color:white;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+.tool-stepper-wrap{display:flex;flex-direction:column;align-items:center;gap:1px;padding:2px 0;width:100%;}
+.tool-step-btn{width:28px;height:20px;border-radius:4px;border:none;background:rgba(255,255,255,.1);color:white;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 .tool-step-btn:active{background:rgba(255,255,255,.25);}
 /* ── Floating tooltip ── */
 #dv-tool-tooltip{transition:opacity .15s;}
@@ -1836,28 +1836,28 @@ body.text-l{--ts:4px;}
       <div class="tool-sep"></div>
       <!-- SIZE STEPPER -->
       <div class="tool-stepper-wrap" data-tip="Stroke width">
-        <span style="font-size:9px;color:#888;">W</span>
-        <button class="tool-step-btn" onmousedown="_dvStep('size',-1)" ontouchstart="_dvStep('size',-1);event.preventDefault()">−</button>
-        <span id="mk-size-val" style="font-size:11px;color:#ccc;min-width:22px;text-align:center;">3</span>
+        <span style="font-size:8px;color:#888;letter-spacing:.5px;">WIDTH</span>
         <button class="tool-step-btn" onmousedown="_dvStep('size',1)" ontouchstart="_dvStep('size',1);event.preventDefault()">+</button>
+        <span id="mk-size-val" style="font-size:11px;color:#ccc;min-width:22px;text-align:center;">3</span>
+        <button class="tool-step-btn" onmousedown="_dvStep('size',-1)" ontouchstart="_dvStep('size',-1);event.preventDefault()">−</button>
         <input type="range" id="mk-size" min="1" max="30" step="0.5" value="3" style="display:none;">
         <input type="number" id="mk-size-input" value="3" style="display:none;">
       </div>
       <!-- OPACITY STEPPER -->
       <div class="tool-stepper-wrap" data-tip="Opacity">
-        <span style="font-size:9px;color:#888;">α</span>
-        <button class="tool-step-btn" onmousedown="_dvStep('opacity',-1)" ontouchstart="_dvStep('opacity',-1);event.preventDefault()">−</button>
-        <span id="mk-opacity-val" style="font-size:11px;color:#ccc;min-width:26px;text-align:center;">100</span>
+        <span style="font-size:8px;color:#888;letter-spacing:.5px;">OPAC</span>
         <button class="tool-step-btn" onmousedown="_dvStep('opacity',1)" ontouchstart="_dvStep('opacity',1);event.preventDefault()">+</button>
+        <span id="mk-opacity-val" style="font-size:11px;color:#ccc;min-width:22px;text-align:center;">100</span>
+        <button class="tool-step-btn" onmousedown="_dvStep('opacity',-1)" ontouchstart="_dvStep('opacity',-1);event.preventDefault()">−</button>
         <input type="range" id="mk-opacity" min="10" max="100" value="100" style="display:none;">
         <input type="number" id="mk-opacity-input" value="100" style="display:none;">
       </div>
       <!-- TEXT SIZE STEPPER (shown when text tool active) -->
       <div class="tool-stepper-wrap" id="mk-text-size-wrap" style="display:none;" data-tip="Text size">
-        <span style="font-size:9px;color:#888;">T</span>
-        <button class="tool-step-btn" onmousedown="_dvStep('textsize',-1)" ontouchstart="_dvStep('textsize',-1);event.preventDefault()">−</button>
-        <span id="mk-text-size-label" style="font-size:11px;color:#ccc;min-width:22px;text-align:center;">20</span>
+        <span style="font-size:8px;color:#888;letter-spacing:.5px;">SIZE</span>
         <button class="tool-step-btn" onmousedown="_dvStep('textsize',1)" ontouchstart="_dvStep('textsize',1);event.preventDefault()">+</button>
+        <span id="mk-text-size-label" style="font-size:11px;color:#ccc;min-width:22px;text-align:center;">20</span>
+        <button class="tool-step-btn" onmousedown="_dvStep('textsize',-1)" ontouchstart="_dvStep('textsize',-1);event.preventDefault()">−</button>
         <input type="range" id="mk-text-size" min="10" max="72" value="20" style="display:none;">
       </div>
       <div class="tool-sep"></div>
