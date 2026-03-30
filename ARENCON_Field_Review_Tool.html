@@ -1365,6 +1365,7 @@ body.text-l{--ts:4px;}
   <!-- ═══ PROJECT BAR — full-width filename + status below header ═══ -->
   <div class="project-bar" id="project-bar">
     <span class="pb-badge" id="pb-badge" onclick="issueReport()" title="Click to change status">DRAFT</span>
+    <span class="pb-inst" id="pb-inst" title="Current FRT instance number" style="font-size:calc(10px + var(--ts));font-weight:700;padding:2px 8px;border-radius:4px;color:#fff;background:#2C4A6B;letter-spacing:.3px;flex-shrink:0;white-space:nowrap;display:none;">FRT #1</span>
     <span class="pb-filename" id="pb-filename" onclick="editProjectNameInline()" title="Click to rename project"></span>
     <span class="pb-cloud" id="pb-cloud" style="display:none!important;">
       <span id="pb-cloud-dot" style="width:8px;height:8px;border-radius:50%;background:#34D399;display:inline-block;transition:background .4s;"></span>
@@ -8237,7 +8238,6 @@ function lightboxSaveMarkup(){
   // ── CREATE "(original)" backup on FIRST markup only ──
   if(!ph._origBackupId&&_lbObjects.length>0){
     var origSrc=_lbOrigSrc||_lbPhotos[_lbIdx];
-    console.log('[Markup] Creating original backup — origSrc type:', origSrc?origSrc.substring(0,30):'(empty)', 'locationType:', rec.locationType, 'photoId:', ph.id);
     var origCaption=ph.caption||'';
     var origRec={id:'sp_orig_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
       dataUrl:'',caption:(origCaption?origCaption+' (original)':'Original'),
@@ -8290,10 +8290,8 @@ function lightboxSaveMarkup(){
       console.warn('[Markup] orig backup — no valid src:',origSrc?origSrc.substring(0,30):'(empty)');
     }
   } else if(_lbObjects.length>0){
-    console.log('[Markup] Backup SKIPPED — ph._origBackupId already set:',ph._origBackupId,'locationType:',rec.locationType);
   }
 
-  console.log('[Markup] Save — locationType:',rec.locationType,'photoId:',ph.id,'objects:',_lbObjects.length,'_origBackupId:',ph._origBackupId);
   // Persist to IDB (site photos go to sitePhotos store; defic photos go via saveProject)
   if(rec.locationType==='site'&&ph.id&&p.id){
     ADB.saveSitePhoto(ph,p.id).catch(function(e){console.warn('[Markup] saveSitePhoto error:',e);});
@@ -8385,7 +8383,7 @@ function lightboxRevertMarkup(){
 // ═══ CONTRACTOR DEFICIENCY SYSTEM — Pump Tool Style ═══
 function addContractor(){var input=document.getElementById('new-contractor-input');var name=(input.value||'').trim();if(!name)return;var p=getProject();if(p.contractors.some(function(c){return c.name.toLowerCase()===name.toLowerCase();})){_aAlert('"'+name+'" already exists.');return;}p.contractors.push({id:'ctr_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,deficiencies:[]});input.value='';saveToLS();_folderQuickSave();renderDeficiencyPanel();}
 function removeContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;function _doRemove(){p.contractors=p.contractors.filter(function(x){return x.id!==cid;});saveToLS();_folderQuickSave();renderDeficiencyPanel();}if(c.deficiencies.length>0){_aConfirm('"'+c.name+'" has '+c.deficiencies.length+' deficiencies. Move to General?',function(){c.deficiencies.forEach(function(d){p.generalDeficiencies.push(d);});_doRemove();});}else{_aConfirm('Remove "'+c.name+'"?',function(){_doRemove();},'Remove');}}
-function renderDeficiencyPanel(){renderContractorChips();_updateDeficLifecycleCounts();renderDeficGroups();renderClosedDeficView();renderSummaryTable();setTimeout(function(){populateRespPhotos();_loadDataSrcImgs(document.getElementById('panel-deficiencies'));},50);}
+function renderDeficiencyPanel(){renderContractorChips();_updateDeficLifecycleCounts();_updateFrtInstanceIndicator();renderDeficGroups();renderClosedDeficView();renderSummaryTable();setTimeout(function(){populateRespPhotos();_loadDataSrcImgs(document.getElementById('panel-deficiencies'));},50);}
 
 var _deficLifecycleTab='active';
 function switchDeficLifecycleTab(tab){
@@ -8404,6 +8402,16 @@ function _updateDeficLifecycleCounts(){
   var cel=document.getElementById('dlc-closed-count');if(cel)cel.textContent=cc;
   // Build description autocomplete datalist
   _buildDeficDescSuggestions(p);
+}
+// ═══ FRT INSTANCE INDICATOR — shows current FRT # in project bar ═══
+function _updateFrtInstanceIndicator(p){
+  if(!p)p=getProject();if(!p)return;
+  var inst=p.currentFrtInstance||1;
+  var el=document.getElementById('pb-inst');
+  if(el){
+    el.textContent='FRT #'+inst;
+    el.style.display=(_csHubMode||inst>1)?'inline-block':'none';
+  }
 }
 function toggleDeficMore(id){
   var el=document.getElementById(id);if(!el)return;
@@ -9936,13 +9944,11 @@ function _lbShowCurrentDirect(){
   // Look up the photo record to check for existing markup
   var _targetId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])?_lbPhotoIds[_lbIdx]:null;
   var _photoRec=null;
-  var _foundLoc=null;
   if(_targetId){
     var _p=getProject&&getProject();
-    if(_p){var _found=_findPhotoRecById(_p,_targetId);if(_found){_photoRec=_found.photo;_foundLoc=_found.locationType;}}
+    if(_p){var _found=_findPhotoRecById(_p,_targetId);if(_found)_photoRec=_found.photo;}
   }
   var _hasMarkup=_photoRec&&_photoRec.markupObjects&&_photoRec.markupObjects.length>0;
-  if(_hasMarkup)console.log('[Markup LB] Photo has markup — id:',_targetId,'locationType:',_foundLoc,'objects:',_photoRec.markupObjects.length,'origBackupId:',_photoRec._origBackupId);
 
   // Show/hide revert button
   var revertBtn=document.getElementById('lb-revert-btn');
@@ -12153,6 +12159,18 @@ if(_ctrFilterId==='__all__'||_ctrFilterId==='__general__'){
 }
 if(_ctrFilterId==='__general__')_ctrFilterName='General';
 
+// ── T+0 PDF SPLIT: main body vs closed summary ──
+var _curInst=p.currentFrtInstance||1;
+try{if(typeof CloudSync!=='undefined'&&CloudSync.instanceNumber)_curInst=CloudSync.instanceNumber;}catch(e){}
+// Main body: open items + items closed in current instance
+var mainBodyDefs=reportDefs.filter(function(r){
+  if(_deficIsOpen(r.d))return true;
+  if(_deficIsClosed(r.d)&&(r.d.closedOnInstance||1)===_curInst)return true;
+  return false;
+});
+// Closed summary: ALL closed items (for back-of-report table)
+var closedSummaryDefs=reportDefs.filter(function(r){return _deficIsClosed(r.d);});
+
 // ── CSS ──
 var css='*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}';
 css+='body{font-family:Calibri,sans-serif;color:#1C2333;font-size:11pt;line-height:1.23;background:#525659;margin:0;padding:20px;}';
@@ -12295,13 +12313,15 @@ var summaryHtml='';
 if(reportDefs.length){
   var ctrGroups={};reportDefs.forEach(function(r){if(!ctrGroups[r.ctr])ctrGroups[r.ctr]=[];ctrGroups[r.ctr].push(r);});
   summaryHtml+='<div style="border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;overflow:hidden;">';
-  summaryHtml+='<table class="st"><thead><tr><th>Deficiency Summary</th><th style="text-align:center;">Total</th><th style="text-align:center;">IAR</th><th style="text-align:center;">Outstanding</th><th style="text-align:center;">Closed</th></tr></thead><tbody>';
+  summaryHtml+='<table class="st"><thead><tr><th>Deficiency Summary</th><th style="text-align:center;">Total</th><th style="text-align:center;">New This Report</th><th style="text-align:center;">IAR</th><th style="text-align:center;">Outstanding</th><th style="text-align:center;">Closed</th></tr></thead><tbody>';
   Object.keys(ctrGroups).forEach(function(ctr){
     var gc=ctrGroups[ctr];
     var iar=gc.filter(function(r){return r.d.iar;}).length;
     var os=gc.filter(function(r){return _deficIsOpen(r.d);}).length;
     var cl=gc.filter(function(r){return _deficIsClosed(r.d);}).length;
+    var nw=gc.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length;
     summaryHtml+='<tr><td><strong>'+escHtml(ctr)+'</strong></td><td style="text-align:center;">'+gc.length+'</td>';
+    summaryHtml+='<td style="text-align:center;color:#1565C0;font-weight:700;">'+nw+'</td>';
     summaryHtml+='<td style="text-align:center;color:#FF69B4;font-weight:700;">'+iar+'</td>';
     summaryHtml+='<td style="text-align:center;color:#C0392B;font-weight:700;">'+os+'</td>';
     summaryHtml+='<td style="text-align:center;color:#1A7A4A;font-weight:700;">'+cl+'</td></tr>';
@@ -12309,7 +12329,9 @@ if(reportDefs.length){
   var tiar=reportDefs.filter(function(r){return r.d.iar;}).length;
   var tos=reportDefs.filter(function(r){return _deficIsOpen(r.d);}).length;
   var tcl=reportDefs.filter(function(r){return _deficIsClosed(r.d);}).length;
+  var tnw=reportDefs.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length;
   summaryHtml+='<tr style="border-top:2px solid #9C2742;font-weight:700;"><td>Total</td><td style="text-align:center;">'+reportDefs.length+'</td>';
+  summaryHtml+='<td style="text-align:center;color:#1565C0;">'+tnw+'</td>';
   summaryHtml+='<td style="text-align:center;color:#FF69B4;">'+tiar+'</td><td style="text-align:center;color:#C0392B;">'+tos+'</td><td style="text-align:center;color:#1A7A4A;">'+tcl+'</td></tr>';
   summaryHtml+='</tbody></table></div>';
 }
@@ -12321,44 +12343,61 @@ function _buildDefCardHtml(r){
   var h='<div class="dc" data-defid="'+d.id+'"><div class="dc-inner">';
   if(hasDwg) h+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="drawing">';
   h+='<div class="dc-content">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+  // Header: pin number + IAR + status
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
   h+='<div><strong style="color:#9C2742;font-size:13pt;">#'+d.num+'</strong>';
   if(d.iar)h+='<span class="iar">IAR</span>';
   h+='</div>';
   h+='<span class="'+(_deficIsOpen(d)?'so':'sc')+'">'+(_deficIsOpen(d)?'Outstanding':'Closed')+'</span>';
   h+='</div>';
-  // Build sections as separate divs with data-split markers for potential page splitting
-  // Filter out addressed observations from PDF
-  var pdfEntries=[];
-  if(d.entries&&d.entries.length){
-    d.entries.forEach(function(en,ei){
-      // Skip addressed observations
-      if(d.observations&&d.observations[ei]&&d.observations[ei].addressed)return;
-      pdfEntries.push({en:en,ei:ei});
+  // Noted line
+  var _notedInst=d.notedOnInstance||1;
+  var _notedDate=d.notedDate||d.date||'';
+  h+='<div class="dc-split" style="font-size:9.5pt;color:#4A5568;margin-bottom:6px;">Noted: FRT #'+_notedInst+(_notedDate?' \u2014 '+_notedDate:'')+(r.ctr?' \u2014 '+escHtml(r.ctr):'')+'</div>';
+  // Closed line (if closed)
+  if(_deficIsClosed(d)){
+    var _closedInst=d.closedOnInstance||_curInst;
+    var _closedDate=d.closedDate||'';
+    var _closedNote=d.closedNote||'Addressed';
+    h+='<div class="dc-split" style="font-size:9.5pt;color:#1A7A4A;margin-bottom:6px;font-weight:600;">Closed: FRT #'+_closedInst+(_closedDate?' \u2014 '+_closedDate:'')+' \u2014 '+escHtml(_closedNote)+'</div>';
+  }
+  // Observations with addressed/open status
+  var obs=d.observations&&d.observations.length?d.observations:null;
+  var entries=d.entries&&d.entries.length?d.entries:null;
+  var pdfObs=[];
+  if(obs){
+    obs.forEach(function(o,oi){
+      var enText=(entries&&entries[oi])?entries[oi].description||'':o.text||'';
+      var enPhotos=(entries&&entries[oi])?entries[oi].photos||[]:o.photos||[];
+      pdfObs.push({text:enText,photos:enPhotos,addressed:o.addressed,notedOnInstance:o.notedOnInstance,oi:oi});
+    });
+  }else if(entries){
+    entries.forEach(function(en,ei){
+      pdfObs.push({text:en.description||'',photos:en.photos||[],addressed:false,notedOnInstance:_notedInst,oi:ei});
     });
   }
-  var hasMultiEntries=pdfEntries.length>1;
-  if(pdfEntries.length){
-    pdfEntries.forEach(function(pe){
-      var en=pe.en;var ei=pe.ei;
-      var eLbl=String.fromCharCode(65+ei);
-      var ePr=en.priority==='general'?'General':en.priority==='low'?'Low':'High';
-      var ePrCol=en.priority==='general'?'#1A7A4A':en.priority==='low'?'#E67E22':'#9C2742';
-      if(hasMultiEntries){
-        h+='<div class="dc-split" style="margin-bottom:8px;padding:6px 8px;background:#f8f8f8;border-left:3px solid '+ePrCol+';border-radius:0 4px 4px 0;">';
-        h+='<div style="font-size:10pt;font-weight:700;color:'+ePrCol+';margin-bottom:2px;">Observation '+eLbl+' ('+ePr+')</div>';
-      } else {
-        h+='<div class="dc-split" style="margin-bottom:8px;">';
+  var hasMulti=pdfObs.length>1;
+  if(pdfObs.length){
+    pdfObs.forEach(function(po){
+      var eLbl=hasMulti?String.fromCharCode(65+po.oi)+') ':'';
+      var addrMark=po.addressed?'\u2611 ':'';
+      var addrStyle=po.addressed?'color:#6B7280;':'';
+      var frtTag=(po.notedOnInstance&&po.notedOnInstance!==_notedInst)?' (FRT #'+po.notedOnInstance+')':'';
+      if(hasMulti){
+        h+='<div class="dc-split" style="margin-bottom:6px;padding:6px 8px;background:#f8f8f8;border-left:3px solid '+(po.addressed?'#1A7A4A':'#9C2742')+';border-radius:0 4px 4px 0;">';
+        h+='<div style="font-size:10pt;font-weight:700;color:'+(po.addressed?'#1A7A4A':'#9C2742')+';margin-bottom:2px;">'+addrMark+eLbl+'Observation'+(po.addressed?' \u2014 Addressed':'')+frtTag+'</div>';
+      }else{
+        h+='<div class="dc-split" style="margin-bottom:6px;">';
       }
-      h+='<div style="font-size:11pt;margin-bottom:4px;"><strong>Description:</strong> '+escHtml(en.description||'\u2014')+'</div>';
-      if(en.photos&&en.photos.length){
+      h+='<div style="font-size:11pt;margin-bottom:4px;'+addrStyle+'"><strong>Description:</strong> '+escHtml(po.text||'\u2014')+'</div>';
+      if(po.photos&&po.photos.length&&!po.addressed){
         h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">';
-        en.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
+        po.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
         h+='</div>';
       }
       h+='</div>';
     });
-  } else if(!d.entries||!d.entries.length){
+  }else{
     var dispD=d.description||'';
     h+='<div class="dc-split" style="margin-bottom:6px;"><strong>Description:</strong> '+escHtml(dispD)+'</div>';
     var firstPhotos=d.photos||[];
@@ -12368,32 +12407,44 @@ function _buildDefCardHtml(r){
       h+='</div>';
     }
   }
-  if(d.date)h+='<div style="font-size:10pt;color:#4A5568;margin-bottom:6px;">Date: '+d.date+'</div>';
   if(hasDwg){var dwgObj=p.drawings.find(function(x){return x.id===d.drawingId;});if(dwgObj)h+='<div style="font-size:9pt;color:#607D8B;margin-bottom:4px;">\uD83D\uDCD0 '+escHtml(dwgObj.name)+'</div>';}
-  if(d.responses&&d.responses.length){
-    d.responses.forEach(function(resp){
-      var isCtr=resp.party==='contractor';
-      h+='<div class="dc-split resp-box '+(isCtr?'resp-ctr':'resp-con')+'">';
-      h+='<strong style="color:'+(isCtr?'#E67E22':'#1565C0')+'">'+(isCtr?'Contractor':'Consultant')+' Response:</strong> '+(resp.comment?escHtml(resp.comment):'\u2014');
-      if(resp.photos&&resp.photos.length){
-        h+='<div class="resp-photos">';
-        resp.photos.forEach(function(ph){h+='<img src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
+  // Activity log (new lifecycle format + legacy responses)
+  var actArr=d.activity&&d.activity.length?d.activity:(d.responses&&d.responses.length?d.responses.map(function(r2){return{date:r2.date||'',label:r2.party==='contractor'?'Contractor Response':'ARENCON',text:r2.comment||r2.text||'',photos:r2.photos||[],instance:_notedInst};}):null);
+  if(actArr&&actArr.length){
+    // Filter out autoGenerated entries (re-open logs) from PDF
+    var pdfAct=actArr.filter(function(a){return !a.autoGenerated;});
+    if(pdfAct.length){
+      h+='<div class="dc-split" style="margin-top:6px;padding-top:6px;border-top:1px solid #DDE1E7;">';
+      h+='<div style="font-size:9.5pt;font-weight:700;color:#4A5568;margin-bottom:4px;">Activity Log ('+pdfAct.length+')</div>';
+      pdfAct.sort(function(a,b){return(b.date||'').localeCompare(a.date||'');}).forEach(function(a){
+        var isCtr=(a.label||'').indexOf('Contractor')>=0;
+        var lColor=isCtr?'#E67E22':'#1565C0';
+        var instTag=a.instance?' (FRT #'+a.instance+')':'';
+        h+='<div style="margin-bottom:4px;padding:4px 6px;background:'+(isCtr?'#FEF3E2':'#EBF4FF')+';border-radius:3px;font-size:10pt;">';
+        h+='<div style="display:flex;justify-content:space-between;align-items:center;"><strong style="color:'+lColor+';">'+escHtml(a.label||'Note')+instTag+'</strong><span style="color:#888;font-size:9pt;">'+(a.date||'')+'</span></div>';
+        // Render rich text (already sanitized b/i/br tags)
+        h+='<div style="margin-top:2px;">'+(a.text||'\u2014')+'</div>';
+        if(a.photos&&a.photos.length){
+          h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;">';
+          a.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'" style="max-height:50px;">';});
+          h+='</div>';
+        }
         h+='</div>';
-      }
+      });
       h+='</div>';
-    });
+    }
   }
   h+='</div></div></div>';
   return h;
 }
 
-// ── Build contractor group headers ──
+// ── Build contractor group headers (main body only — T+0 filter) ──
 var ctrGroups2={};
-reportDefs.forEach(function(r){if(!ctrGroups2[r.ctr])ctrGroups2[r.ctr]=[];ctrGroups2[r.ctr].push(r);});
+mainBodyDefs.forEach(function(r){if(!ctrGroups2[r.ctr])ctrGroups2[r.ctr]=[];ctrGroups2[r.ctr].push(r);});
 
 // Create ordered list of content blocks: [{ type:'ctrHeader'|'defCard', html, ctr }]
 var contentBlocks=[];
-if(reportDefs.length){
+if(mainBodyDefs.length){
   Object.keys(ctrGroups2).forEach(function(ctr){
     contentBlocks.push({type:'ctrHeader',html:'<div class="ch">'+escHtml(ctr)+' ('+ctrGroups2[ctr].length+')</div>',ctr:ctr});
     ctrGroups2[ctr].forEach(function(r,ri){
@@ -12563,7 +12614,7 @@ contentBlocks.forEach(function(block){
 });
 
 // Finalize last deficiency page — inject closing note first if needed
-if(!isFinalComm&&reportDefs.length){
+if(!isFinalComm&&mainBodyDefs.length){
   var _noteHtml='<div style="margin-top:16px;padding:10px 0 0;font-size:11pt;color:#333;">Note: Further deficiencies may be noted in future field reports following final commissioning.</div>';
   var _noteH=_measure(_noteHtml);
   if(curUsed+_noteH>PAGE_H){
@@ -12573,6 +12624,55 @@ if(!isFinalComm&&reportDefs.length){
   curUsed+=_noteH;
 }
 _finalizePage();
+
+// ── Closed Items Summary (back of report) — grouped by FRT # ──
+if(closedSummaryDefs.length){
+  // Group by closedOnInstance
+  var _csGroups={};
+  closedSummaryDefs.forEach(function(r){
+    var inst=r.d.closedOnInstance||1;
+    if(!_csGroups[inst])_csGroups[inst]=[];
+    _csGroups[inst].push(r);
+  });
+  var _csInstNums=Object.keys(_csGroups).map(Number).sort(function(a,b){return a-b;});
+  var closedHtml='<div class="sh" style="margin-top:0;">Previously Closed Items</div>';
+  closedHtml+='<div style="border:1px solid #DDE1E7;border-radius:6px;overflow:hidden;">';
+  closedHtml+='<table style="width:100%;border-collapse:collapse;font-size:10pt;">';
+  closedHtml+='<thead><tr style="background:#9C2742;color:white;"><th style="padding:6px 10px;text-align:left;">Pin</th><th style="padding:6px 10px;text-align:left;">Description</th><th style="padding:6px 10px;text-align:left;">Contractor</th><th style="padding:6px 10px;text-align:left;">Noted</th><th style="padding:6px 10px;text-align:left;">Status</th></tr></thead>';
+  closedHtml+='<tbody>';
+  _csInstNums.forEach(function(inst){
+    var items=_csGroups[inst];
+    var closedDate=items[0].d.closedDate||'';
+    closedHtml+='<tr><td colspan="5" style="padding:6px 10px;background:#f0f0f0;font-weight:700;font-size:10pt;border-top:1.5px solid #DDE1E7;">Closed in FRT #'+inst+(closedDate?' \u2014 '+closedDate:'')+' ('+items.length+' item'+(items.length!==1?'s':'')+')</td></tr>';
+    items.forEach(function(r,ri){
+      var desc=_deficDesc(r.d);
+      var truncDesc=desc.length>80?desc.substring(0,80)+'\u2026':desc;
+      var note=r.d.closedNote||'Addressed';
+      var bg=ri%2===0?'#fff':'#fafafa';
+      closedHtml+='<tr style="background:'+bg+';"><td style="padding:5px 10px;font-weight:700;color:#9C2742;">#'+r.d.num+'</td>';
+      closedHtml+='<td style="padding:5px 10px;">'+escHtml(truncDesc)+'</td>';
+      closedHtml+='<td style="padding:5px 10px;">'+escHtml(r.ctr)+'</td>';
+      closedHtml+='<td style="padding:5px 10px;">FRT #'+(r.d.notedOnInstance||1)+'</td>';
+      closedHtml+='<td style="padding:5px 10px;color:#1A7A4A;font-weight:600;">'+escHtml(note)+'</td></tr>';
+    });
+  });
+  closedHtml+='</tbody></table></div>';
+  // Paginate the closed summary
+  var closedSumH=_measure(closedHtml);
+  if(closedSumH<=PAGE_H-COMPACT_HEADER_H){
+    // Fits on one page
+    _startPage();
+    curPageHtml+=closedHtml;
+    curUsed+=closedSumH;
+    _finalizePage();
+  }else{
+    // Just put it on its own page(s) — the table will flow naturally
+    _startPage();
+    curPageHtml+=closedHtml;
+    curUsed+=closedSumH;
+    _finalizePage();
+  }
+}
 
 // ── Appendix — Drawings with Pins ──
 if(isField&&p.drawings&&p.drawings.length){
@@ -13996,7 +14096,7 @@ function _mergeSitePhoto(cph,localSitePhotos){
   };
   // Preserve non-destructive markup from local (cloud strips site photo markup)
   if(existing){
-    if(existing.markupObjects&&existing.markupObjects.length){rec.markupObjects=existing.markupObjects;console.log('[Merge] Site photo',rec.id,'inheriting markupObjects from local:',existing.markupObjects.length,'objects');}
+    if(existing.markupObjects&&existing.markupObjects.length)rec.markupObjects=existing.markupObjects;
     if(existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
     if(existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
     if(existing._origBackupId)rec._origBackupId=existing._origBackupId;
@@ -14046,8 +14146,7 @@ function _mergeDeficR2Fields(cloudDefics,localDefics){
         // Preserve non-destructive markup from local (3 fields + backup ID)
         // CRITICAL: use 'in' check — cloud keeps defic markup including null (reverted).
         // Only inherit from local when cloud has NO markupObjects property at all.
-        if(!('markupObjects' in ph)&&local.markupObjects){ph.markupObjects=local.markupObjects;console.log('[Merge] Defic photo',ph.id,'inheriting markupObjects from local:',local.markupObjects.length);}
-        if(('markupObjects' in ph)&&ph.markupObjects&&ph.markupObjects.length)console.log('[Merge] Defic photo',ph.id,'has markupObjects from cloud:',ph.markupObjects.length);
+        if(!('markupObjects' in ph)&&local.markupObjects)ph.markupObjects=local.markupObjects;
         if(!('_markupCanvasW' in ph)&&local._markupCanvasW)ph._markupCanvasW=local._markupCanvasW;
         if(!('_markupCanvasH' in ph)&&local._markupCanvasH)ph._markupCanvasH=local._markupCanvasH;
         if(!('_origBackupId' in ph)&&local._origBackupId)ph._origBackupId=local._origBackupId;
@@ -14573,6 +14672,23 @@ async function _initCloudSync(){
         CloudSync.resetLastSaved();
         try{CloudSync.save(_collectFullState());}catch(e){}
       }
+    }
+
+    // ═══ INSTANCE AWARENESS — sync currentFrtInstance from cloud row ═══
+    var _csInstNum=CloudSync.instanceNumber||1;
+    var _p3=getProject();
+    if(_p3){
+      // Always adopt the cloud instance_number as currentFrtInstance
+      _p3.currentFrtInstance=_csInstNum;
+      // Ensure frtInstances array has a record for this instance
+      if(!_p3.frtInstances)_p3.frtInstances=[];
+      var _hasInst=_p3.frtInstances.some(function(fi){return fi.number===_csInstNum;});
+      if(!_hasInst){
+        var _today=new Date().toISOString().split('T')[0];
+        _p3.frtInstances.push({number:_csInstNum,createdDate:_today,siteVisitDate:_today,revision:'B01',notes:''});
+        _p3.frtInstances.sort(function(a,b){return a.number-b.number;});
+      }
+      _updateFrtInstanceIndicator(_p3);
     }
 
     // Show status badge
