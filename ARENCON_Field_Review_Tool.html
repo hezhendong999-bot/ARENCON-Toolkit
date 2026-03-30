@@ -2280,7 +2280,7 @@ ADB.saveSitePhoto=function(photo,projectId){
     if(!_markupExplicit&&!rec.markupObjects&&existing&&existing.markupObjects)rec.markupObjects=existing.markupObjects;
     if(!_markupExplicit&&!rec._markupCanvasW&&existing&&existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
     if(!_markupExplicit&&!rec._markupCanvasH&&existing&&existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
-    if(!rec._origBackupId&&existing&&existing._origBackupId)rec._origBackupId=existing._origBackupId;
+    if(!_markupExplicit&&!rec._origBackupId&&existing&&existing._origBackupId)rec._origBackupId=existing._origBackupId;
     return ADB.put('sitePhotos',rec);
   }).catch(function(){
     return ADB.put('sitePhotos',rec);
@@ -8042,9 +8042,21 @@ function _findPhotoRecById(p,targetId){
     var sp=p.sitePhotos[i];if(sp&&typeof sp==='object'&&sp.id===targetId)return{photo:sp,locationType:'site',container:p.sitePhotos,idx:i};
   }}
   // Deficiency photos (all containers)
+  // Search observations/activity FIRST — they are the primary location in lifecycle model
   var ad=getAllDeficiencies(p);
   for(var di=0;di<ad.length;di++){
     var d=ad[di].defic;
+    if(d.observations){for(var oi=0;oi<d.observations.length;oi++){
+      var obs=d.observations[oi];if(obs.photos){for(var opi=0;opi<obs.photos.length;opi++){
+        if(obs.photos[opi]&&typeof obs.photos[opi]==='object'&&obs.photos[opi].id===targetId)return{photo:obs.photos[opi],locationType:'obsPhoto',container:obs.photos,idx:opi,deficId:d.id};
+      }}
+    }}
+    if(d.activity){for(var ai=0;ai<d.activity.length;ai++){
+      var act=d.activity[ai];if(act.photos){for(var api=0;api<act.photos.length;api++){
+        if(act.photos[api]&&typeof act.photos[api]==='object'&&act.photos[api].id===targetId)return{photo:act.photos[api],locationType:'activityPhoto',container:act.photos,idx:api,deficId:d.id};
+      }}
+    }}
+    // Legacy containers — fallback
     if(d.photos){for(var pi=0;pi<d.photos.length;pi++){
       if(d.photos[pi]&&typeof d.photos[pi]==='object'&&d.photos[pi].id===targetId)return{photo:d.photos[pi],locationType:'deficPhoto',container:d.photos,idx:pi,deficId:d.id};
     }}
@@ -8056,16 +8068,6 @@ function _findPhotoRecById(p,targetId){
     if(d.responses){for(var ri=0;ri<d.responses.length;ri++){
       var resp=d.responses[ri];if(resp.photos){for(var rpi=0;rpi<resp.photos.length;rpi++){
         if(resp.photos[rpi]&&typeof resp.photos[rpi]==='object'&&resp.photos[rpi].id===targetId)return{photo:resp.photos[rpi],locationType:'responsePhoto',container:resp.photos,idx:rpi,deficId:d.id};
-      }}
-    }}
-    if(d.observations){for(var oi=0;oi<d.observations.length;oi++){
-      var obs=d.observations[oi];if(obs.photos){for(var opi=0;opi<obs.photos.length;opi++){
-        if(obs.photos[opi]&&typeof obs.photos[opi]==='object'&&obs.photos[opi].id===targetId)return{photo:obs.photos[opi],locationType:'obsPhoto',container:obs.photos,idx:opi,deficId:d.id};
-      }}
-    }}
-    if(d.activity){for(var ai=0;ai<d.activity.length;ai++){
-      var act=d.activity[ai];if(act.photos){for(var api=0;api<act.photos.length;api++){
-        if(act.photos[api]&&typeof act.photos[api]==='object'&&act.photos[api].id===targetId)return{photo:act.photos[api],locationType:'activityPhoto',container:act.photos,idx:api,deficId:d.id};
       }}
     }}
   }
@@ -8205,6 +8207,7 @@ function lightboxSaveMarkup(){
   // ── CREATE "(original)" backup on FIRST markup only ──
   if(!ph._origBackupId&&_lbObjects.length>0){
     var origSrc=_lbOrigSrc||_lbPhotos[_lbIdx];
+    console.log('[Markup] Creating original backup — origSrc type:', origSrc?origSrc.substring(0,30):'(empty)', 'locationType:', rec.locationType, 'photoId:', ph.id);
     var origCaption=ph.caption||'';
     var origRec={id:'sp_orig_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
       dataUrl:'',caption:(origCaption?origCaption+' (original)':'Original'),
