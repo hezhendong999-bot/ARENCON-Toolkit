@@ -8259,8 +8259,11 @@ function lightboxSaveMarkup(){
     } else {
       console.warn('[Markup] orig backup — no valid src:',origSrc?origSrc.substring(0,30):'(empty)');
     }
+  } else if(_lbObjects.length>0){
+    console.log('[Markup] Backup SKIPPED — ph._origBackupId already set:',ph._origBackupId,'locationType:',rec.locationType);
   }
 
+  console.log('[Markup] Save — locationType:',rec.locationType,'photoId:',ph.id,'objects:',_lbObjects.length,'_origBackupId:',ph._origBackupId);
   // Persist to IDB (site photos go to sitePhotos store; defic photos go via saveProject)
   if(rec.locationType==='site'&&ph.id&&p.id){
     ADB.saveSitePhoto(ph,p.id).catch(function(e){console.warn('[Markup] saveSitePhoto error:',e);});
@@ -9901,11 +9904,13 @@ function _lbShowCurrentDirect(){
   // Look up the photo record to check for existing markup
   var _targetId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])?_lbPhotoIds[_lbIdx]:null;
   var _photoRec=null;
+  var _foundLoc=null;
   if(_targetId){
     var _p=getProject&&getProject();
-    if(_p){var _found=_findPhotoRecById(_p,_targetId);if(_found)_photoRec=_found.photo;}
+    if(_p){var _found=_findPhotoRecById(_p,_targetId);if(_found){_photoRec=_found.photo;_foundLoc=_found.locationType;}}
   }
   var _hasMarkup=_photoRec&&_photoRec.markupObjects&&_photoRec.markupObjects.length>0;
+  if(_hasMarkup)console.log('[Markup LB] Photo has markup — id:',_targetId,'locationType:',_foundLoc,'objects:',_photoRec.markupObjects.length,'origBackupId:',_photoRec._origBackupId);
 
   // Show/hide revert button
   var revertBtn=document.getElementById('lb-revert-btn');
@@ -13940,11 +13945,13 @@ function _mergeSitePhoto(cph,localSitePhotos){
   };
   // Preserve non-destructive markup from local (cloud strips site photo markup)
   if(existing){
-    if(existing.markupObjects&&existing.markupObjects.length)rec.markupObjects=existing.markupObjects;
+    if(existing.markupObjects&&existing.markupObjects.length){rec.markupObjects=existing.markupObjects;console.log('[Merge] Site photo',rec.id,'inheriting markupObjects from local:',existing.markupObjects.length,'objects');}
     if(existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
     if(existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
     if(existing._origBackupId)rec._origBackupId=existing._origBackupId;
   }
+  // Also check if cloud unexpectedly has markupObjects (old data)
+  if(cph.markupObjects&&cph.markupObjects.length)console.warn('[Merge] Cloud site photo',rec.id,'has markupObjects:',cph.markupObjects.length,'— should have been stripped!');
   return rec;
 }
 
@@ -13988,7 +13995,8 @@ function _mergeDeficR2Fields(cloudDefics,localDefics){
         // Preserve non-destructive markup from local (3 fields + backup ID)
         // CRITICAL: use 'in' check — cloud keeps defic markup including null (reverted).
         // Only inherit from local when cloud has NO markupObjects property at all.
-        if(!('markupObjects' in ph)&&local.markupObjects)ph.markupObjects=local.markupObjects;
+        if(!('markupObjects' in ph)&&local.markupObjects){ph.markupObjects=local.markupObjects;console.log('[Merge] Defic photo',ph.id,'inheriting markupObjects from local:',local.markupObjects.length);}
+        if(('markupObjects' in ph)&&ph.markupObjects&&ph.markupObjects.length)console.log('[Merge] Defic photo',ph.id,'has markupObjects from cloud:',ph.markupObjects.length);
         if(!('_markupCanvasW' in ph)&&local._markupCanvasW)ph._markupCanvasW=local._markupCanvasW;
         if(!('_markupCanvasH' in ph)&&local._markupCanvasH)ph._markupCanvasH=local._markupCanvasH;
         if(!('_origBackupId' in ph)&&local._origBackupId)ph._origBackupId=local._origBackupId;
