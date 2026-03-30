@@ -275,7 +275,7 @@ body.dv-open{overflow:hidden!important;}
 .ctr-fold-arrow{font-size:calc(14px + var(--ts));width:16px;display:inline-block;text-align:center;transition:transform .15s;}
 .defic-group-empty{padding:12px 16px;color:#999;font-size:calc(13px + var(--ts));font-style:italic;}
 .defic-item{border-top:1px solid var(--border);padding:14px 16px;}
-.defic-item:nth-child(even){background:rgba(0,0,0,.045);}
+.defic-item:nth-child(even){background:rgba(0,0,0,.07);}
 .defic-item-row{display:flex;gap:10px;align-items:flex-start;}
 .defic-num-circle{min-width:28px;width:28px;height:28px;border-radius:50%;background:#C0392B;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:calc(12px + var(--ts));flex-shrink:0;}
 .defic-item-content{flex:1;min-width:0;}
@@ -612,7 +612,7 @@ body.dark-mode .project-card{background:#1e2533;border-color:#2a3040;box-shadow:
 body.dark-mode .project-card:hover{border-color:#9C2742;box-shadow:0 4px 16px rgba(156,39,66,.2);}
 /* Dark mode — deficiency items */
 body.dark-mode .defic-item{background:#1e2533;border-color:#2a3040;}
-body.dark-mode .defic-item:nth-child(even){background:#283040;}
+body.dark-mode .defic-item:nth-child(even){background:#2a3348;}
 body.dark-mode .defic-num-circle{background:#9C2742;color:#fff;}
 body.dark-mode .contractor-chip{background:#1e2230;border-color:#2a3040;color:#b0b8d0;}
 body.dark-mode .defic-group{border-color:#2a2e38;}
@@ -8686,8 +8686,8 @@ function buildDeficItem(d,ctrId,i){
     actHtml+='</div></div>';
   }
   actHtml+='<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">';
-  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));" onclick="showAddActivityForm(\''+d.id+'\',\'Contractor Response\')">+ Contractor Response</button>';
-  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));" onclick="showAddActivityForm(\''+d.id+'\',\'ARENCON\')">+ ARENCON Comment</button>';
+  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));color:#9C2742;border-color:#9C2742;" onclick="showAddActivityForm(\''+d.id+'\',\'Contractor Response\')">+ Contractor Response</button>';
+  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));color:#9C2742;border-color:#9C2742;" onclick="showAddActivityForm(\''+d.id+'\',\'ARENCON\')">+ ARENCON Comment</button>';
   actHtml+='</div>';
 
   // Controls: Priority + IAR + Close + Remove visible, Dup/Move in ⋯ More
@@ -12378,7 +12378,7 @@ titleBlock+='<div class="tb-line2">'+escHtml(titleLabel)+' #'+_rptNum+'</div>';
 var _tbClientAddr=[];
 if(p.info.client)_tbClientAddr.push(escHtml(p.info.client));
 if(p.info.address)_tbClientAddr.push(escHtml(p.info.address));
-if(_tbClientAddr.length)titleBlock+='<div class="tb-line4">'+_tbClientAddr.join('. ')+'</div>';
+if(_tbClientAddr.length)titleBlock+='<div class="tb-line4">'+_tbClientAddr.join(' - ')+'</div>';
 if(p.info.projectName)titleBlock+='<div class="tb-line4">'+escHtml(p.info.projectName)+'</div>';
 titleBlock+='</div>';
 
@@ -12400,14 +12400,13 @@ fullHeader+=titleBlock;
 function _compactHeader(pageNum,totalPages){
   var leftL1=escHtml(p.info.client||'');
   var leftL2=escHtml(p.info.address||'');
-  var leftLine1=leftL1+(leftL1&&leftL2?' \u2014 ':'')+leftL2;
   var scopePart=p.info.projectName?' - '+escHtml(p.info.projectName):'';
   var leftL3=escHtml(titleLabel+' #'+_rptNum)+scopePart;
   var rightL1=escHtml((p.info.projectNumber||'')+' '+_rptRev)+'&nbsp;&nbsp;Page '+pageNum;
   var rightL3=escHtml(date);
   return '<div class="ph-compact">'
-    +'<div class="ph-compact-left">'+leftLine1+'<br>'+leftL3+'</div>'
-    +'<div class="ph-compact-right">'+rightL1+'<br>'+rightL3+'</div>'
+    +'<div class="ph-compact-left">'+leftL1+'<br>'+leftL2+'<br>'+leftL3+'</div>'
+    +'<div class="ph-compact-right">'+rightL1+'<br>&nbsp;<br>'+rightL3+'</div>'
     +'</div>';
 }
 
@@ -12784,7 +12783,7 @@ if(closedSummaryDefs.length){
   var closedHtml='<div style="border:1px solid #DDE1E7;border-radius:6px;overflow:hidden;">';
   closedHtml+='<table style="width:100%;border-collapse:collapse;font-size:10pt;">';
   closedHtml+='<thead><tr style="background:#9C2742;color:white;"><th colspan="5" style="padding:8px 12px;text-align:left;font-size:12pt;letter-spacing:.3px;">Previously Closed Items</th></tr>';
-  closedHtml+='<tr style="background:#f5eef0;font-weight:700;font-size:9pt;text-transform:uppercase;letter-spacing:.5px;color:#4A5568;"><th style="padding:5px 10px;text-align:left;">Pin</th><th style="padding:5px 10px;text-align:left;">Description</th><th style="padding:5px 10px;text-align:left;">Contractor</th><th style="padding:5px 10px;text-align:left;">Noted</th><th style="padding:5px 10px;text-align:left;">Status</th></tr></thead>';
+  closedHtml+='<tr style="background:#4A5568;font-weight:700;font-size:9pt;text-transform:uppercase;letter-spacing:.5px;color:white;"><th style="padding:5px 10px;text-align:left;">Pin</th><th style="padding:5px 10px;text-align:left;">Description</th><th style="padding:5px 10px;text-align:left;">Contractor</th><th style="padding:5px 10px;text-align:left;">Noted</th><th style="padding:5px 10px;text-align:left;">Status</th></tr></thead>';
   closedHtml+='<tbody>';
   _csInstNums.forEach(function(inst){
     var items=_csGroups[inst];
