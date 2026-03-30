@@ -1960,7 +1960,7 @@ function closeDetail() {
 }
 
 /* ═══ Report Instances — Load & Render ═══ */
-var _TOOL_PREFIXES = { frt:'FR', diesel:'DP', electric:'EP', ist:'IST', obc:'OBC', dd:'DD' };
+var _TOOL_PREFIXES = { frt:'FRT', diesel:'DFP', electric:'EFP', ist:'IST', obc:'OBC', dd:'DD' };
 var _TOOL_SHORT_NAMES = { frt:'Field Review', diesel:'Diesel Fire Pump Commissioning', electric:'Electric Fire Pump Commissioning', ist:'IST', obc:'OBC Compliance', dd:'Due Diligence' };
 
 async function _loadAndRenderInstances(proj) {
@@ -2001,7 +2001,7 @@ async function _loadAndRenderInstances(proj) {
       var sfn = buildSmartFilename(proj);
       instances.forEach(function(inst) {
         var prefix = _TOOL_PREFIXES[key] || key.toUpperCase();
-        var defaultTitle = sfn ? (sfn + ' ' + prefix) : (shortName + ' Report #' + inst.instance_number);
+        var defaultTitle = sfn ? (sfn + ' ' + prefix + ' #' + inst.instance_number) : (shortName + ' Report #' + inst.instance_number);
         var title = inst.label || defaultTitle;
         var date = inst.updated_at ? new Date(inst.updated_at).toLocaleDateString('en-CA') : '—';
         var by = inst.updated_by ? (userMap[inst.updated_by] || '—') : '—';
@@ -2891,7 +2891,7 @@ async function loadRecentActivity() {
       var user = _userMap[r.updated_by] || '—';
       var prefix = _TOOL_PREFIXES[r.tool_key] || r.tool_key.toUpperCase();
       var sfnAct = proj ? buildSmartFilename(proj) : '';
-      var defaultTitle = sfnAct ? (sfnAct + ' ' + prefix) : (toolLabel + ' #' + r.instance_number);
+      var defaultTitle = sfnAct ? (sfnAct + ' ' + prefix + ' #' + r.instance_number) : (toolLabel + ' #' + r.instance_number);
       var title = r.label || defaultTitle;
       var statusIcon = r.status === 'issued' ? '✅' : r.status === 'review' ? '🔵' : '📝';
       html += '<li class="activity-item">'

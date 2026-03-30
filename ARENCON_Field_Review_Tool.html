@@ -275,6 +275,7 @@ body.dv-open{overflow:hidden!important;}
 .ctr-fold-arrow{font-size:calc(14px + var(--ts));width:16px;display:inline-block;text-align:center;transition:transform .15s;}
 .defic-group-empty{padding:12px 16px;color:#999;font-size:calc(13px + var(--ts));font-style:italic;}
 .defic-item{border-top:1px solid var(--border);padding:14px 16px;}
+.defic-item:nth-child(even){background:rgba(0,0,0,.02);}
 .defic-item-row{display:flex;gap:10px;align-items:flex-start;}
 .defic-num-circle{min-width:28px;width:28px;height:28px;border-radius:50%;background:#C0392B;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:calc(12px + var(--ts));flex-shrink:0;}
 .defic-item-content{flex:1;min-width:0;}
@@ -611,6 +612,7 @@ body.dark-mode .project-card{background:#1e2533;border-color:#2a3040;box-shadow:
 body.dark-mode .project-card:hover{border-color:#9C2742;box-shadow:0 4px 16px rgba(156,39,66,.2);}
 /* Dark mode — deficiency items */
 body.dark-mode .defic-item{background:#1e2533;border-color:#2a3040;}
+body.dark-mode .defic-item:nth-child(even){background:#232a3a;}
 body.dark-mode .defic-num-circle{background:#9C2742;color:#fff;}
 body.dark-mode .contractor-chip{background:#1e2230;border-color:#2a3040;color:#b0b8d0;}
 body.dark-mode .defic-group{border-color:#2a2e38;}
@@ -8657,7 +8659,19 @@ function buildDeficItem(d,ctrId,i){
     actArr.slice().sort(function(a,b){return(b.date||'').localeCompare(a.date||'');}).forEach(function(a){
       var isCtr=(a.label||'').indexOf('Contractor')>=0;
       var lColor=isCtr?'#E67E22':'#1565C0';
-      actHtml+='<div class="activity-entry"><div class="activity-entry-header"><span class="activity-entry-label" style="color:'+lColor+';">'+(isCtr?'⚡':'🔍')+' '+safe(a.label||'Note')+'</span><span class="activity-entry-date">'+(a.date||'')+'</span></div>';
+      // Resolve obsRef to observation letter + text
+      var obsRefTag='';
+      if(a.obsRef&&obs){
+        for(var _ri=0;_ri<obs.length;_ri++){
+          if(obs[_ri].id===a.obsRef){
+            var _rText=(entries&&entries[_ri])?entries[_ri].description||'':obs[_ri].text||'';
+            var _rTrunc=_rText.length>40?_rText.substring(0,40)+'\u2026':_rText;
+            obsRefTag=' <span style="font-size:calc(10px + var(--ts));color:#888;font-weight:400;">(Re: '+String.fromCharCode(65+_ri)+' \u2014 '+safe(_rTrunc||'(empty)')+')</span>';
+            break;
+          }
+        }
+      }
+      actHtml+='<div class="activity-entry"><div class="activity-entry-header"><span class="activity-entry-label" style="color:'+lColor+';">'+(isCtr?'⚡':'🔍')+' '+safe(a.label||'Note')+obsRefTag+'</span><span class="activity-entry-date">'+(a.date||'')+'</span></div>';
       // Rich text — render as HTML (already sanitized)
       actHtml+='<div class="activity-entry-text">'+(a.text||'')+'</div>';
       // Activity photos
@@ -9174,12 +9188,28 @@ function showAddActivityForm(did,defaultLabel){
   var today=new Date().toISOString().split('T')[0];
   var isCtr=(defaultLabel||'').indexOf('Contractor')>=0;
   var titleLabel=isCtr?'Contractor Response':'ARENCON Comment';
+  var d=f.defic;
+  // Build observation reference options
+  var obsOpts='<option value="">All observations</option>';
+  var obs=d.observations&&d.observations.length?d.observations:null;
+  var entries=d.entries&&d.entries.length?d.entries:null;
+  if(obs&&obs.length>1){
+    obs.forEach(function(o,oi){
+      var txt=(entries&&entries[oi])?entries[oi].description||'':o.text||'';
+      var trunc=txt.length>50?txt.substring(0,50)+'\u2026':txt;
+      obsOpts+='<option value="'+o.id+'">'+String.fromCharCode(65+oi)+') '+escHtml(trunc||'(empty)')+'</option>';
+    });
+  }
+  var showObsRef=obs&&obs.length>1;
   var ov=document.createElement('div');
   ov.className='modal-overlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
   // Store pending photos on the overlay element
   ov._pendingPhotos=[];
   ov.innerHTML='<div style="background:var(--bg,white);border-radius:12px;padding:24px;width:90%;max-width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3);">'
-    +'<div style="font-weight:700;font-size:calc(16px + var(--ts));margin-bottom:16px;color:var(--fg,#1B2438);">'+titleLabel+' — Pin #'+f.defic.num+'</div>'
+    +'<div style="font-weight:700;font-size:calc(16px + var(--ts));margin-bottom:16px;color:var(--fg,#1B2438);">'+titleLabel+' \u2014 Pin #'+f.defic.num+'</div>'
+    +(showObsRef?'<div style="margin-bottom:12px;"><label class="defic-label">Regarding</label>'
+    +'<select id="act-obs-ref" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;">'
+    +obsOpts+'</select></div>':'')
     +'<div style="margin-bottom:12px;"><label class="defic-label">Date</label>'
     +'<input id="act-date-input" type="date" value="'+today+'" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;">'
     +'</div>'
@@ -9237,17 +9267,20 @@ function submitActivityEntry(did,inst,label){
   var f=findDeficiency(did);if(!f)return;
   var dateEl=document.getElementById('act-date-input');
   var textEl=document.getElementById('act-text-editor');
+  var obsRefEl=document.getElementById('act-obs-ref');
   var date=dateEl.value||new Date().toISOString().split('T')[0];
   var rawHtml=(textEl.innerHTML||'').trim();
   var text=_sanitizeRichText(rawHtml);
   if(!text||text.replace(/<[^>]*>/g,'').trim()===''){toast('Please enter some text.');return;}
+  var obsRef=(obsRefEl&&obsRefEl.value)?obsRefEl.value:null;
   // Collect photos from modal
   var ov=document.querySelector('.modal-overlay');
   var photos=(ov&&ov._pendingPhotos)?ov._pendingPhotos:[];
   if(!f.defic.activity)f.defic.activity=[];
   f.defic.activity.unshift({
     id:'act_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
-    date:date,label:label||'ARENCON',text:text,photos:photos,instance:inst
+    date:date,label:label||'ARENCON',text:text,photos:photos,instance:inst,
+    obsRef:obsRef
   });
   // Enqueue photos to R2
   if(photos.length&&typeof _r2EnqueueDeficPhoto==='function'){
@@ -12183,8 +12216,8 @@ css+='.ph img{height:34px;}';
 css+='.ph-addr{text-align:left;font-family:Arial,sans-serif;font-size:6pt;color:#1C2333;line-height:1.26;border-left:2px solid #9C2742;padding-left:10px;}';
 // Compact repeat header (pages 2+) — OBC-style 3-line running header
 css+='.ph-compact{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #000;padding-bottom:4px;margin-bottom:12px;}';
-css+='.ph-compact-left{font-size:8.5pt;color:#000;line-height:1.6;}';
-css+='.ph-compact-right{font-size:8.5pt;color:#000;line-height:1.6;text-align:right;}';
+css+='.ph-compact-left{font-size:11pt;color:#000;line-height:1;}';
+css+='.ph-compact-right{font-size:11pt;color:#000;line-height:1;text-align:right;}';
 // Section card — single card with colored top bar built in
 css+='.sec-card{border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;overflow:hidden;}';
 css+='.sec-card-hdr{background:#9C2742;color:white;padding:7px 14px;font-weight:700;font-size:12pt;letter-spacing:.3px;}';
@@ -12340,28 +12373,42 @@ if(reportDefs.length){
 function _buildDefCardHtml(r){
   var d=r.d;
   var hasDwg=isField&&d.drawingId&&d.pinX!=null;
+  var isClosed=_deficIsClosed(d);
+
+  // ── CLOSED T+0 COMPACT CARD (closed in current instance — no full detail) ──
+  if(isClosed){
+    var _ci=d.closedOnInstance||_curInst;
+    var _cd=d.closedDate||'';
+    var _cn=d.closedNote||'Addressed';
+    var ch='<div class="dc" data-defid="'+d.id+'"><div class="dc-inner">';
+    if(hasDwg) ch+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="drawing">';
+    ch+='<div class="dc-content">';
+    ch+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">';
+    ch+='<div><strong style="color:#9C2742;font-size:13pt;">#'+d.num+'</strong>';
+    if(d.iar)ch+='<span class="iar">IAR</span>';
+    ch+=' <span style="font-size:11pt;color:#333;">'+escHtml(_deficDesc(d)||'\u2014')+'</span></div>';
+    ch+='<span class="sc">Closed</span></div>';
+    ch+='<div style="font-size:9.5pt;color:#4A5568;">Noted FRT #'+(d.notedOnInstance||1)+' \u2014 '+escHtml(r.ctr)+'</div>';
+    ch+='<div style="font-size:9.5pt;color:#1A7A4A;font-weight:600;">Closed FRT #'+_ci+(_cd?' \u2014 '+_cd:'')+' \u2014 '+escHtml(_cn)+'</div>';
+    ch+='</div></div></div>';
+    return ch;
+  }
+
+  // ── OPEN/OUTSTANDING FULL CARD ──
   var h='<div class="dc" data-defid="'+d.id+'"><div class="dc-inner">';
   if(hasDwg) h+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="drawing">';
   h+='<div class="dc-content">';
-  // Header: pin number + IAR + status
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
   h+='<div><strong style="color:#9C2742;font-size:13pt;">#'+d.num+'</strong>';
   if(d.iar)h+='<span class="iar">IAR</span>';
   h+='</div>';
-  h+='<span class="'+(_deficIsOpen(d)?'so':'sc')+'">'+(_deficIsOpen(d)?'Outstanding':'Closed')+'</span>';
+  h+='<span class="so">Outstanding</span>';
   h+='</div>';
   // Noted line
   var _notedInst=d.notedOnInstance||1;
   var _notedDate=d.notedDate||d.date||'';
   h+='<div class="dc-split" style="font-size:9.5pt;color:#4A5568;margin-bottom:6px;">Noted: FRT #'+_notedInst+(_notedDate?' \u2014 '+_notedDate:'')+(r.ctr?' \u2014 '+escHtml(r.ctr):'')+'</div>';
-  // Closed line (if closed)
-  if(_deficIsClosed(d)){
-    var _closedInst=d.closedOnInstance||_curInst;
-    var _closedDate=d.closedDate||'';
-    var _closedNote=d.closedNote||'Addressed';
-    h+='<div class="dc-split" style="font-size:9.5pt;color:#1A7A4A;margin-bottom:6px;font-weight:600;">Closed: FRT #'+_closedInst+(_closedDate?' \u2014 '+_closedDate:'')+' \u2014 '+escHtml(_closedNote)+'</div>';
-  }
-  // Observations with addressed/open status
+  // Observations
   var obs=d.observations&&d.observations.length?d.observations:null;
   var entries=d.entries&&d.entries.length?d.entries:null;
   var pdfObs=[];
@@ -12380,22 +12427,26 @@ function _buildDefCardHtml(r){
   if(pdfObs.length){
     pdfObs.forEach(function(po){
       var eLbl=hasMulti?String.fromCharCode(65+po.oi)+') ':'';
-      var addrMark=po.addressed?'\u2611 ':'';
-      var addrStyle=po.addressed?'color:#6B7280;':'';
       var frtTag=(po.notedOnInstance&&po.notedOnInstance!==_notedInst)?' (FRT #'+po.notedOnInstance+')':'';
-      if(hasMulti){
-        h+='<div class="dc-split" style="margin-bottom:6px;padding:6px 8px;background:#f8f8f8;border-left:3px solid '+(po.addressed?'#1A7A4A':'#9C2742')+';border-radius:0 4px 4px 0;">';
-        h+='<div style="font-size:10pt;font-weight:700;color:'+(po.addressed?'#1A7A4A':'#9C2742')+';margin-bottom:2px;">'+addrMark+eLbl+'Observation'+(po.addressed?' \u2014 Addressed':'')+frtTag+'</div>';
+      if(po.addressed){
+        // ── ADDRESSED: compact one-liner ──
+        h+='<div class="dc-split" style="font-size:10pt;color:#6B7280;margin-bottom:3px;">\u2611 '+eLbl+escHtml(po.text||'\u2014')+' \u2014 <span style="color:#1A7A4A;font-weight:600;">Addressed</span>'+frtTag+'</div>';
       }else{
-        h+='<div class="dc-split" style="margin-bottom:6px;">';
-      }
-      h+='<div style="font-size:11pt;margin-bottom:4px;'+addrStyle+'"><strong>Description:</strong> '+escHtml(po.text||'\u2014')+'</div>';
-      if(po.photos&&po.photos.length&&!po.addressed){
-        h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">';
-        po.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
+        // ── OPEN: full bordered box ──
+        if(hasMulti){
+          h+='<div class="dc-split" style="margin-bottom:6px;padding:6px 8px;background:#f8f8f8;border-left:3px solid #9C2742;border-radius:0 4px 4px 0;">';
+          h+='<div style="font-size:10pt;font-weight:700;color:#9C2742;margin-bottom:2px;">'+eLbl+'Observation'+frtTag+'</div>';
+        }else{
+          h+='<div class="dc-split" style="margin-bottom:6px;">';
+        }
+        h+='<div style="font-size:11pt;margin-bottom:4px;"><strong>Description:</strong> '+escHtml(po.text||'\u2014')+'</div>';
+        if(po.photos&&po.photos.length){
+          h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">';
+          po.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});
+          h+='</div>';
+        }
         h+='</div>';
       }
-      h+='</div>';
     });
   }else{
     var dispD=d.description||'';
@@ -12408,28 +12459,31 @@ function _buildDefCardHtml(r){
     }
   }
   if(hasDwg){var dwgObj=p.drawings.find(function(x){return x.id===d.drawingId;});if(dwgObj)h+='<div style="font-size:9pt;color:#607D8B;margin-bottom:4px;">\uD83D\uDCD0 '+escHtml(dwgObj.name)+'</div>';}
-  // Activity log (new lifecycle format + legacy responses)
+  // Activity log — compact inline format
   var actArr=d.activity&&d.activity.length?d.activity:(d.responses&&d.responses.length?d.responses.map(function(r2){return{date:r2.date||'',label:r2.party==='contractor'?'Contractor Response':'ARENCON',text:r2.comment||r2.text||'',photos:r2.photos||[],instance:_notedInst};}):null);
   if(actArr&&actArr.length){
-    // Filter out autoGenerated entries (re-open logs) from PDF
     var pdfAct=actArr.filter(function(a){return !a.autoGenerated;});
     if(pdfAct.length){
-      h+='<div class="dc-split" style="margin-top:6px;padding-top:6px;border-top:1px solid #DDE1E7;">';
-      h+='<div style="font-size:9.5pt;font-weight:700;color:#4A5568;margin-bottom:4px;">Activity Log ('+pdfAct.length+')</div>';
+      h+='<div class="dc-split" style="margin-top:4px;padding-top:4px;border-top:1px solid #DDE1E7;font-size:9pt;color:#4A5568;">';
+      h+='<div style="font-weight:700;margin-bottom:2px;">Activity:</div>';
       pdfAct.sort(function(a,b){return(b.date||'').localeCompare(a.date||'');}).forEach(function(a){
         var isCtr=(a.label||'').indexOf('Contractor')>=0;
         var lColor=isCtr?'#E67E22':'#1565C0';
         var instTag=a.instance?' (FRT #'+a.instance+')':'';
-        h+='<div style="margin-bottom:4px;padding:4px 6px;background:'+(isCtr?'#FEF3E2':'#EBF4FF')+';border-radius:3px;font-size:10pt;">';
-        h+='<div style="display:flex;justify-content:space-between;align-items:center;"><strong style="color:'+lColor+';">'+escHtml(a.label||'Note')+instTag+'</strong><span style="color:#888;font-size:9pt;">'+(a.date||'')+'</span></div>';
-        // Render rich text (already sanitized b/i/br tags)
-        h+='<div style="margin-top:2px;">'+(a.text||'\u2014')+'</div>';
-        if(a.photos&&a.photos.length){
-          h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;">';
-          a.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'" style="max-height:50px;">';});
-          h+='</div>';
+        // Resolve obsRef
+        var obsRefPdf='';
+        if(a.obsRef&&obs){
+          for(var _pi=0;_pi<obs.length;_pi++){
+            if(obs[_pi].id===a.obsRef){
+              var _pTxt=(entries&&entries[_pi])?entries[_pi].description||'':obs[_pi].text||'';
+              var _pTrunc=_pTxt.length>30?_pTxt.substring(0,30)+'\u2026':_pTxt;
+              obsRefPdf=' (Re: '+String.fromCharCode(65+_pi)+' \u2014 '+escHtml(_pTrunc||'(empty)')+')';
+              break;
+            }
+          }
         }
-        h+='</div>';
+        var plainText=(a.text||'\u2014').replace(/<[^>]*>/g,'');
+        h+='<div style="margin-bottom:2px;padding-left:8px;">'+(a.date||'')+' \u2014 <strong style="color:'+lColor+';">'+escHtml(a.label||'Note')+instTag+obsRefPdf+':</strong> '+escHtml(plainText)+'</div>';
       });
       h+='</div>';
     }
@@ -12635,15 +12689,15 @@ if(closedSummaryDefs.length){
     _csGroups[inst].push(r);
   });
   var _csInstNums=Object.keys(_csGroups).map(Number).sort(function(a,b){return a-b;});
-  var closedHtml='<div class="sh" style="margin-top:0;">Previously Closed Items</div>';
-  closedHtml+='<div style="border:1px solid #DDE1E7;border-radius:6px;overflow:hidden;">';
+  var closedHtml='<div style="border:1px solid #DDE1E7;border-radius:6px;overflow:hidden;">';
   closedHtml+='<table style="width:100%;border-collapse:collapse;font-size:10pt;">';
-  closedHtml+='<thead><tr style="background:#9C2742;color:white;"><th style="padding:6px 10px;text-align:left;">Pin</th><th style="padding:6px 10px;text-align:left;">Description</th><th style="padding:6px 10px;text-align:left;">Contractor</th><th style="padding:6px 10px;text-align:left;">Noted</th><th style="padding:6px 10px;text-align:left;">Status</th></tr></thead>';
+  closedHtml+='<thead><tr style="background:#9C2742;color:white;"><th colspan="5" style="padding:8px 12px;text-align:left;font-size:12pt;letter-spacing:.3px;">Previously Closed Items</th></tr>';
+  closedHtml+='<tr style="background:#f0f0f0;font-weight:700;font-size:9pt;text-transform:uppercase;letter-spacing:.5px;color:#4A5568;"><th style="padding:5px 10px;text-align:left;">Pin</th><th style="padding:5px 10px;text-align:left;">Description</th><th style="padding:5px 10px;text-align:left;">Contractor</th><th style="padding:5px 10px;text-align:left;">Noted</th><th style="padding:5px 10px;text-align:left;">Status</th></tr></thead>';
   closedHtml+='<tbody>';
   _csInstNums.forEach(function(inst){
     var items=_csGroups[inst];
     var closedDate=items[0].d.closedDate||'';
-    closedHtml+='<tr><td colspan="5" style="padding:6px 10px;background:#f0f0f0;font-weight:700;font-size:10pt;border-top:1.5px solid #DDE1E7;">Closed in FRT #'+inst+(closedDate?' \u2014 '+closedDate:'')+' ('+items.length+' item'+(items.length!==1?'s':'')+')</td></tr>';
+    closedHtml+='<tr><td colspan="5" style="padding:6px 10px;background:#e8e0e3;font-weight:700;font-size:9.5pt;border-top:1.5px solid #DDE1E7;color:#9C2742;">Closed in FRT #'+inst+(closedDate?' \u2014 '+closedDate:'')+' ('+items.length+' item'+(items.length!==1?'s':'')+')</td></tr>';
     items.forEach(function(r,ri){
       var desc=_deficDesc(r.d);
       var truncDesc=desc.length>80?desc.substring(0,80)+'\u2026':desc;
