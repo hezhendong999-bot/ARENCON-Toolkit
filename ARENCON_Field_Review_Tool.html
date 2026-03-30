@@ -8183,6 +8183,34 @@ function _lbRemoveDrawEvents(){
 // ── SAVE (Non-Destructive) ──
 // Saves markup objects on the photo record. Original image is NEVER modified.
 // A composited preview is generated for thumbnails. Objects are re-editable.
+
+// Propagate markup fields from a source photo to ALL copies with the same ID
+// across all deficiency containers (d.photos, d.entries[].photos, d.observations[].photos, d.activity[].photos)
+function _propagateMarkupToAllCopies(p,srcPh){
+  if(!p||!srcPh||!srcPh.id)return;
+  var tid=srcPh.id;
+  function _syncArr(arr){
+    if(!arr)return;
+    arr.forEach(function(ph){
+      if(ph&&typeof ph==='object'&&ph.id===tid&&ph!==srcPh){
+        ph.markupObjects=srcPh.markupObjects;
+        ph._markupCanvasW=srcPh._markupCanvasW;
+        ph._markupCanvasH=srcPh._markupCanvasH;
+        ph._origBackupId=srcPh._origBackupId;
+      }
+    });
+  }
+  var ad=getAllDeficiencies(p);
+  for(var di=0;di<ad.length;di++){
+    var d=ad[di].defic;
+    _syncArr(d.photos);
+    if(d.entries){d.entries.forEach(function(e){_syncArr(e.photos);});}
+    if(d.observations){d.observations.forEach(function(o){_syncArr(o.photos);});}
+    if(d.activity){d.activity.forEach(function(a){_syncArr(a.photos);});}
+    if(d.responses){d.responses.forEach(function(r){_syncArr(r.photos);});}
+  }
+}
+
 // ── SAVE MARKUP (non-destructive) ──
 // Saves markup objects + canvas dimensions on the photo record.
 // On FIRST save, creates an "(original)" backup as a site photo.
@@ -8203,6 +8231,8 @@ function lightboxSaveMarkup(){
   ph.markupObjects=JSON.parse(JSON.stringify(_lbObjects));
   ph._markupCanvasW=_lbCanvas.width;
   ph._markupCanvasH=_lbCanvas.height;
+  // Propagate to ALL copies of this photo across all deficiency containers
+  if(ph.id)_propagateMarkupToAllCopies(p,ph);
 
   // ── CREATE "(original)" backup on FIRST markup only ──
   if(!ph._origBackupId&&_lbObjects.length>0){
@@ -8301,6 +8331,8 @@ function lightboxRevertMarkup(){
     ph.markupObjects=null;
     ph._markupCanvasW=null;
     ph._markupCanvasH=null;
+    // Propagate null to ALL copies of this photo across all deficiency containers
+    if(ph.id)_propagateMarkupToAllCopies(p,ph);
 
     // Delete the "(original)" backup photo from sitePhotos
     if(ph._origBackupId&&p.sitePhotos){
@@ -10004,7 +10036,26 @@ function _ensureEntries(d){
   // Sync back: keep observations[] mirrored from entries[] for lifecycle system
   if(d.observations&&d.observations.length===d.entries.length){
     d.entries.forEach(function(en,i){
-      if(d.observations[i]){d.observations[i].text=en.description||'';d.observations[i].photos=en.photos||[];}
+      if(d.observations[i]){
+        d.observations[i].text=en.description||'';
+        // Share the same photos array — but preserve markup from whichever copy has it
+        if(en.photos!==d.observations[i].photos){
+          // Different arrays — merge markup from observation into entry photos before replacing
+          var obsPhotos=d.observations[i].photos||[];
+          (en.photos||[]).forEach(function(ep){
+            if(ep&&ep.id){
+              var match=obsPhotos.find(function(op){return op&&op.id===ep.id;});
+              if(match&&match.markupObjects&&!ep.markupObjects){
+                ep.markupObjects=match.markupObjects;
+                ep._markupCanvasW=match._markupCanvasW;
+                ep._markupCanvasH=match._markupCanvasH;
+                ep._origBackupId=match._origBackupId;
+              }
+            }
+          });
+        }
+        d.observations[i].photos=en.photos||[];
+      }
     });
   }else if(d.observations){
     // Length mismatch — rebuild observations from entries
