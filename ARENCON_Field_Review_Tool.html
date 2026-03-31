@@ -8595,7 +8595,9 @@ function removeObservation(did,oi){
 function buildDeficItem(d,ctrId,i){
   var ctrName=ctrId?(getProject().contractors.find(function(x){return x.id===ctrId;})||{}).name||'':'Site General';
   var safe=escHtml;
-  var notedHtml='<div class="defic-noted">Noted: FRT #'+(d.notedOnInstance||1)+' — '+(d.notedDate||d.date||'')+'</div>';
+  var _p=getProject();var _curI=(_p&&_p.currentFrtInstance)||1;
+  var _showNotedInst=(d.notedOnInstance||1)!==_curI;
+  var notedHtml=_showNotedInst?'<div class="defic-noted">Noted: FRT #'+(d.notedOnInstance||1)+' — '+(d.notedDate||d.date||'')+'</div>':'<div class="defic-noted">'+(d.notedDate||d.date||'')+'</div>';
 
   // Drawing link
   var dwgHtml='';
@@ -8635,11 +8637,12 @@ function buildDeficItem(d,ctrId,i){
   var totalObs=obs?obs.length:entries?entries.length:1;
 
   function _buildObsCard(text,photos,oi,isAddr,frtLabel,obsId){
+    var _isGreen=isAddr||_deficIsClosed(d);
     var pillClass=isAddr?'addressed':'open';
     var pillText=isAddr?'\u2714 Addressed':'\u25CF Open';
     var lbl=totalObs>1?String.fromCharCode(65+oi)+') ':'';
-    var borderColor=isAddr?'#1A7A4A':'var(--border)';
-    var bgColor=isAddr?'rgba(26,122,74,.03)':'transparent';
+    var borderColor=_isGreen?'#1A7A4A':'var(--border)';
+    var bgColor=_isGreen?'rgba(26,122,74,.03)':'transparent';
     var h='<div style="border:1.5px solid '+borderColor+';border-radius:8px;padding:10px 12px;margin-bottom:8px;background:'+bgColor+';">';
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
     h+='<span style="font-weight:700;font-size:calc(13px + var(--ts));color:var(--fg);">'+lbl+'Observation'+frtLabel+'</span>';
@@ -8663,12 +8666,6 @@ function buildDeficItem(d,ctrId,i){
     if(obsActs.length){
       h+='<div style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--border);">';
       obsActs.forEach(function(a){h+=_buildActEntry(a);});
-      h+='</div>';
-    }
-    if(obsId){
-      h+='<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">';
-      h+='<button class="btn btn-outline btn-sm" style="font-size:calc(10px + var(--ts));color:#9C2742;border-color:#9C2742;padding:3px 8px;" onclick="showAddActivityFormForObs(\''+d.id+'\',\'Contractor Response\',\''+obsId+'\')">+ Response</button>';
-      h+='<button class="btn btn-outline btn-sm" style="font-size:calc(10px + var(--ts));color:#9C2742;border-color:#9C2742;padding:3px 8px;" onclick="showAddActivityFormForObs(\''+d.id+'\',\'ARENCON\',\''+obsId+'\')">+ Comment</button>';
       h+='</div>';
     }
     if(totalObs>1){
@@ -8704,8 +8701,8 @@ function buildDeficItem(d,ctrId,i){
     actHtml+='</div></div>';
   }
   actHtml+='<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">';
-  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));color:#9C2742;border-color:#9C2742;" onclick="showAddActivityForm(\''+d.id+'\',\'Contractor Response\')">+ Contractor Response</button>';
-  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));color:#9C2742;border-color:#9C2742;" onclick="showAddActivityForm(\''+d.id+'\',\'ARENCON\')">+ ARENCON Comment</button>';
+  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));color:#888;border-color:#b8c2cc;" onclick="showAddActivityForm(\''+d.id+'\',\'Contractor Response\')">+ Contractor Response</button>';
+  actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));color:#888;border-color:#b8c2cc;" onclick="showAddActivityForm(\''+d.id+'\',\'ARENCON\')">+ ARENCON Comment</button>';
   actHtml+='</div>';
 
 
@@ -12510,13 +12507,23 @@ function _buildDefCardHtml(r){
   h+='<span class="'+(isClosed?'sc':'so')+'">'+(isClosed?'Closed':'Outstanding')+'</span>';
   h+='</div>';
   // Noted line
-  h+='<div class="dc-split" style="font-size:9.5pt;color:#4A5568;margin-bottom:4px;">Noted: FRT #'+_notedInst+(_notedDate?' \u2014 '+_notedDate:'')+(r.ctr?' \u2014 '+escHtml(r.ctr):'')+'</div>';
-  // Closed line
+  // Noted line — only show FRT # when different from current instance
+  var _pdfShowInst=(_notedInst!==_curInst);
+  if(_pdfShowInst){
+    h+='<div class="dc-split" style="font-size:9.5pt;color:#4A5568;margin-bottom:4px;">Noted: FRT #'+_notedInst+(_notedDate?' \u2014 '+_notedDate:'')+(r.ctr?' \u2014 '+escHtml(r.ctr):'')+'</div>';
+  }else{
+    h+='<div class="dc-split" style="font-size:9.5pt;color:#4A5568;margin-bottom:4px;">'+(_notedDate||'')+(r.ctr?' \u2014 '+escHtml(r.ctr):'')+'</div>';
+  }
+  // Closed line — only show FRT # when different from current instance
   if(isClosed){
     var _ci=d.closedOnInstance||_curInst;
     var _cd=d.closedDate||'';
     var _cn=d.closedNote||'Addressed';
-    h+='<div class="dc-split" style="font-size:9.5pt;color:#1A7A4A;margin-bottom:6px;font-weight:600;">Closed: FRT #'+_ci+(_cd?' \u2014 '+_cd:'')+' \u2014 '+escHtml(_cn)+'</div>';
+    if(_ci!==_curInst){
+      h+='<div class="dc-split" style="font-size:9.5pt;color:#1A7A4A;margin-bottom:6px;font-weight:600;">Closed: FRT #'+_ci+(_cd?' \u2014 '+_cd:'')+' \u2014 '+escHtml(_cn)+'</div>';
+    }else{
+      h+='<div class="dc-split" style="font-size:9.5pt;color:#1A7A4A;margin-bottom:6px;font-weight:600;">Closed'+(_cd?' \u2014 '+_cd:'')+' \u2014 '+escHtml(_cn)+'</div>';
+    }
   }
 
   // ── OBSERVATION CARDS (matching UI layout) ──
@@ -12558,10 +12565,12 @@ function _buildDefCardHtml(r){
         }
         h+='</div>';
       }else{
-        // Open observation card — burgundy border
-        h+='<div class="dc-split" style="margin-bottom:6px;padding:6px 8px;border:1px solid #DDE1E7;border-left:3px solid #9C2742;border-radius:0 4px 4px 0;">';
+        // Open/non-addressed observation card — green if deficiency closed, burgundy if open
+        var _obsBorder=isClosed?'#1A7A4A':'#9C2742';
+        var _obsBg=isClosed?'rgba(26,122,74,.03)':'transparent';
+        h+='<div class="dc-split" style="margin-bottom:6px;padding:6px 8px;border:1px solid '+(isClosed?'#1A7A4A':'#DDE1E7')+';border-left:3px solid '+_obsBorder+';border-radius:0 4px 4px 0;background:'+_obsBg+';">';
         if(hasMulti){
-          h+='<div style="font-size:10pt;font-weight:700;color:#9C2742;margin-bottom:2px;">'+eLbl+'Observation'+frtTag+'</div>';
+          h+='<div style="font-size:10pt;font-weight:700;color:'+_obsBorder+';margin-bottom:2px;">'+eLbl+'Observation'+frtTag+'</div>';
         }
         h+='<div style="font-size:11pt;margin-bottom:4px;"><strong>Description:</strong> '+escHtml(po.text||'\u2014')+'</div>';
         if(po.photos&&po.photos.length){
@@ -14012,7 +14021,7 @@ function issueReport(){
   }
 
   // Cancel
-  html+='<button onclick="_closeIssueModal();" style="width:100%;padding:10px 16px;border:none;border-radius:8px;background:none;color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-top:4px;">Cancel</button>';
+  html+='<button onclick="_closeIssueModal();" style="width:100%;padding:10px 16px;border:1.5px solid '+fg2+';border-radius:8px;background:none;color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-top:4px;">Cancel</button>';
   html+='</div>';
   modal.innerHTML=html;
   modal.addEventListener('click',function(e){if(e.target===modal)_closeIssueModal();});
