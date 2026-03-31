@@ -325,9 +325,9 @@ body.dark-mode .obs-toggle.open{background:rgba(192,57,43,.15);color:#ff8080;bor
 body.dark-mode .obs-toggle.addressed{background:rgba(26,122,74,.15);color:#6fcf97;border-color:#1A7A4A;}
 
 /* ═══ COMPACT PHOTO ZONE ═══ */
-.photo-zone-compact{display:flex;align-items:center;gap:6px;padding:6px 10px;border:1.5px dashed var(--border);border-radius:6px;margin-top:4px;background:var(--smoke);transition:background .15s,border-color .15s;}
+.photo-zone-compact{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 10px;border:1.5px dashed var(--border);border-radius:8px;margin-top:6px;background:var(--smoke);transition:background .15s,border-color .15s;min-height:52px;flex-wrap:wrap;}
 .photo-zone-compact.drag-over{border-color:var(--arencon);background:rgba(156,39,66,.06);}
-.photo-zone-compact .pz-upload,.photo-zone-compact .pz-camera{padding:3px 8px;font-size:calc(11px + var(--ts));}
+.photo-zone-compact .pz-upload,.photo-zone-compact .pz-camera{padding:5px 12px;font-size:calc(11px + var(--ts));border-radius:6px;}
 body.dark-mode .photo-zone-compact{background:#151a24;border-color:#2a3040;}
 body.dark-mode .photo-zone-compact.drag-over{border-color:#9C2742;background:rgba(156,39,66,.12);}
 
@@ -2930,7 +2930,7 @@ function newDeficiency(num){
   };
 }
 function getProject(){return allProjects[currentProjectId];}
-function getAllDeficiencies(p){if(!p)p=getProject();if(!p)return[];var all=[];(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:c.name,contractorId:c.id});});});(p.generalDeficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:'General',contractorId:null});});all.sort(function(a,b){return a.defic.num-b.defic.num;});return all;}
+function getAllDeficiencies(p){if(!p)p=getProject();if(!p)return[];var all=[];(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:c.name,contractorId:c.id});});});(p.generalDeficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:'Site General',contractorId:null});});all.sort(function(a,b){return a.defic.num-b.defic.num;});return all;}
 function findDeficiency(deficId,p){if(!p)p=getProject();if(!p)return null;for(var i=0;i<(p.contractors||[]).length;i++){var c=p.contractors[i];for(var j=0;j<(c.deficiencies||[]).length;j++){if(c.deficiencies[j].id===deficId)return{defic:c.deficiencies[j],contractor:c,arr:c.deficiencies,idx:j};}}for(var k=0;k<(p.generalDeficiencies||[]).length;k++){if(p.generalDeficiencies[k].id===deficId)return{defic:p.generalDeficiencies[k],contractor:null,arr:p.generalDeficiencies,idx:k};}return null;}
 
 // Helper: get first observation text from a deficiency (handles both old and new format)
@@ -5898,7 +5898,7 @@ function renderTasksPanel(){
     html+='<div class="dv-task-desc">'+(dispDesc||'<em style="color:#666;">No description</em>')+'</div>';
     if(d.defic.iar)html+='<span class="dv-task-badge" style="background:#FFF0F5;color:#FF69B4;">IAR</span>';
     if(_showAllDeficiencies){
-      var dwgLabel=d.defic.pinX!=null?'📍 '+(dwgMap[d.defic.drawingId]||'Drawing'):'General';
+      var dwgLabel=d.defic.pinX!=null?'📍 '+(dwgMap[d.defic.drawingId]||'Drawing'):'Site General';
       html+='<span class="dv-task-badge" style="background:'+(isOtherDwg?'#1e2d40':'#1e2d28')+';color:'+(isOtherDwg?'#7ab0e0':'#7ad0a0')+';font-size:9px;">'+dwgLabel+'</span>';
     }else{
       var pr3=d.defic.priority||'high';var prLabel=pr3==='general'?'General':pr3==='low'?'Low':'';
@@ -8447,7 +8447,7 @@ function _buildDeficDescSuggestions(p){
 function renderContractorChips(){var p=getProject();if(!p)return;var el=document.getElementById('contractor-chips');if(!p.contractors.length){el.innerHTML='<span style="color:#999;font-size:calc(13px + var(--ts));">No contractors added yet.</span>';return;}el.innerHTML=p.contractors.map(function(c){return'<div class="contractor-chip"><span>'+escHtml(c.name)+'</span><button onclick="renameContractor(\''+c.id+'\')" title="Rename" style="background:none;border:none;cursor:pointer;font-size:calc(11px + var(--ts));padding:0 2px;opacity:.7;color:inherit;">✏</button><button onclick="removeContractor(\''+c.id+'\')" title="Remove">✕</button></div>';}).join('');}
 function renameContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;_aPrompt('Rename contractor:',c.name,function(nn){if(!nn||!nn.trim()||nn.trim()===c.name)return;nn=nn.trim();if(p.contractors.some(function(x){return x.id!==cid&&x.name.toLowerCase()===nn.toLowerCase();})){_aAlert('"'+nn+'" already exists.');return;}var oldName=c.name;c.name=nn;
 if(_foldedCtrs[oldName]){_foldedCtrs[nn]=_foldedCtrs[oldName];delete _foldedCtrs[oldName];}saveToLS();renderDeficiencyPanel();});}
-function renderDeficGroups(){var p=getProject();if(!p)return;var el=document.getElementById('defic-groups');if(!p.contractors.length&&!p.generalDeficiencies.length){el.innerHTML='<p style="color:#999;font-size:calc(13px + var(--ts));padding:12px 0;text-align:center;">Add a contractor above to start recording deficiencies.</p>';return;}var html='';p.contractors.forEach(function(c){var active=c.deficiencies.filter(function(d){return _deficIsOpen(d);});html+=buildDeficGroup(c.id,c.name,active,c.deficiencies.length);});var genActive=(p.generalDeficiencies||[]).filter(function(d){return _deficIsOpen(d);});if(genActive.length>0||p.generalDeficiencies.length>0)html+=buildDeficGroup(null,'General',genActive,p.generalDeficiencies.length);el.innerHTML=html;}
+function renderDeficGroups(){var p=getProject();if(!p)return;var el=document.getElementById('defic-groups');if(!p.contractors.length&&!p.generalDeficiencies.length){el.innerHTML='<p style="color:#999;font-size:calc(13px + var(--ts));padding:12px 0;text-align:center;">Add a contractor above to start recording deficiencies.</p>';return;}var html='';p.contractors.forEach(function(c){var active=c.deficiencies.filter(function(d){return _deficIsOpen(d);});html+=buildDeficGroup(c.id,c.name,active,c.deficiencies.length);});var genActive=(p.generalDeficiencies||[]).filter(function(d){return _deficIsOpen(d);});if(genActive.length>0||p.generalDeficiencies.length>0)html+=buildDeficGroup(null,'Site General',genActive,p.generalDeficiencies.length);el.innerHTML=html;}
 
 function buildDeficGroup(ctrId,name,items,totalCount){var safeId=ctrId||'general';var folded=_foldedCtrs[name]||false;var arrow=folded?'\u25B8':'\u25BE';var safeName=name.replace(/'/g,"\\'");var countLabel=items.length+' active'+(totalCount&&totalCount>items.length?' / '+totalCount+' total':'');var html='<div class="defic-group"><div class="defic-group-header" onclick="toggleCtrFold(\''+safeName+'\')" style="cursor:pointer;user-select:none;"><span style="display:flex;align-items:center;gap:8px;"><span class="ctr-fold-arrow">'+arrow+'</span> \uD83D\uDC77 '+escHtml(name)+'</span><span style="font-size:calc(12px + var(--ts));opacity:.7;">'+countLabel+'</span></div>';if(folded){html+='</div>';return html;}if(!items.length)html+='<div class="defic-group-empty">No active deficiencies for this contractor.</div>';items.forEach(function(d,i){html+=buildDeficItem(d,ctrId,i);});html+='<div class="add-defic-btn-wrap"><button class="btn btn-outline btn-sm" onclick="addDeficiencyForGroup(\''+(ctrId||'')+'\')">+ Add Deficiency</button></div></div>';return html;}
 
@@ -8586,7 +8586,7 @@ function removeObservation(did,oi){
 }
 
 function buildDeficItem(d,ctrId,i){
-  var ctrName=ctrId?(getProject().contractors.find(function(x){return x.id===ctrId;})||{}).name||'':'General';
+  var ctrName=ctrId?(getProject().contractors.find(function(x){return x.id===ctrId;})||{}).name||'':'Site General';
   var safe=escHtml;
   var notedHtml='<div class="defic-noted">Noted: FRT #'+(d.notedOnInstance||1)+' — '+(d.notedDate||d.date||'')+'</div>';
 
@@ -8601,9 +8601,40 @@ function buildDeficItem(d,ctrId,i){
   // Observation rows with toggle pills
   var obs=d.observations&&d.observations.length?d.observations:null;
   var entries=d.entries&&d.entries.length?d.entries:null;
+  // Pre-build activity array for obsRef grouping
+  var actArr=d.activity&&d.activity.length?d.activity:(d.responses&&d.responses.length?d.responses.map(function(r){return{date:r.date||'',label:r.party==='contractor'?'Contractor Response':'ARENCON',text:r.comment||'',photos:r.photos||[]};}):null);
+  var sortedAct=actArr?actArr.slice().sort(function(a,b){return(b.date||'').localeCompare(a.date||'');}):[];
+
+  // Helper: render a single activity entry
+  function _buildActEntry(a){
+    var isCtr=(a.label||'').indexOf('Contractor')>=0;
+    var lColor=isCtr?'#E67E22':'#1565C0';
+    var obsRefTag='';
+    if(a.obsRef&&obs){
+      for(var _ri=0;_ri<obs.length;_ri++){
+        if(obs[_ri].id===a.obsRef){
+          var _rText=(entries&&entries[_ri])?entries[_ri].description||'':obs[_ri].text||'';
+          var _rTrunc=_rText.length>40?_rText.substring(0,40)+'\u2026':_rText;
+          obsRefTag=' <span style="font-size:calc(10px + var(--ts));color:#888;font-weight:400;">(Re: '+String.fromCharCode(65+_ri)+' \u2014 '+safe(_rTrunc||'(empty)')+')</span>';
+          break;
+        }
+      }
+    }
+    var _actId=a.id||'';
+    var h='<div class="activity-entry"><div class="activity-entry-header"><span class="activity-entry-label" style="color:'+lColor+';">'+(isCtr?'⚡':'🔍')+' '+safe(a.label||'Note')+obsRefTag+'</span><span class="activity-entry-date">'+(a.date||'')+' <button onclick="editActivityEntry(\''+d.id+'\',\''+_actId+'\')" style="background:none;border:none;cursor:pointer;font-size:calc(10px + var(--ts));color:var(--link);padding:0 2px;" title="Edit">✏</button><button onclick="removeActivityEntry(\''+d.id+'\',\''+_actId+'\')" style="background:none;border:none;cursor:pointer;font-size:calc(10px + var(--ts));color:#C0392B;padding:0 2px;" title="Delete">✕</button></span></div>';
+    h+='<div class="activity-entry-text">'+(a.text||'')+'</div>';
+    if(a.photos&&a.photos.length){
+      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">';
+      a.photos.forEach(function(ph){var psrc=_deficPhotoSrc(ph);h+='<div class="photo-thumb" style="width:56px;height:56px;"><img data-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.src||this.src)" style="cursor:zoom-in;"></div>';});
+      h+='</div>';
+    }
+    h+='</div>';
+    return h;
+  }
+
   var obsHtml='<div style="margin-bottom:6px;">';
 
-  function _buildObsRow(text,photos,oi,isAddr,frtLabel){
+  function _buildObsRow(text,photos,oi,isAddr,frtLabel,obsId){
     var addrClass=isAddr?' addressed':'';
     var pillClass=isAddr?'addressed':'open';
     var pillText=isAddr?'✔ Addressed':'● Open';
@@ -8626,9 +8657,18 @@ function buildDeficItem(d,ctrId,i){
     h+='<button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+oi+')">📎 Upload</button>';
     h+='<button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+oi+')">📷 Camera</button>';
     h+='</div>';
-    // Remove observation button — styled like Remove button, below the photo zone, only when 2+ observations
+    // Remove observation button
     if(totalObs>1){
       h+='<div style="margin-top:4px;text-align:right;"><button class="remove-defic-btn" onclick="removeObservation(\''+d.id+'\','+oi+')" style="font-size:calc(10px + var(--ts));padding:3px 8px;">✕ Remove Obs</button></div>';
+    }
+    // Activity entries for THIS observation (obsRef matches)
+    if(obsId&&sortedAct.length){
+      var obsActs=sortedAct.filter(function(a){return a.obsRef===obsId;});
+      if(obsActs.length){
+        h+='<div style="margin-top:6px;padding-top:4px;border-top:1px dashed var(--border);">';
+        obsActs.forEach(function(a){h+=_buildActEntry(a);});
+        h+='</div>';
+      }
     }
     h+='</div></div>';
     return h;
@@ -8639,50 +8679,25 @@ function buildDeficItem(d,ctrId,i){
       var entryDesc=(entries&&entries[oi])?entries[oi].description||'':o.text||'';
       var enPhotos=(entries&&entries[oi])?entries[oi].photos||[]:o.photos||[];
       var frtLabel=o.notedOnInstance&&o.notedOnInstance!==(d.notedOnInstance||1)?' <span style="color:var(--link);font-size:calc(10px + var(--ts));">(FRT #'+o.notedOnInstance+')</span>':'';
-      obsHtml+=_buildObsRow(entryDesc,enPhotos,oi,o.addressed,frtLabel);
+      obsHtml+=_buildObsRow(entryDesc,enPhotos,oi,o.addressed,frtLabel,o.id);
     });
   }else if(entries){
     entries.forEach(function(en,ei){
-      obsHtml+=_buildObsRow(en.description||'',en.photos||[],ei,false,'');
+      obsHtml+=_buildObsRow(en.description||'',en.photos||[],ei,false,'',null);
     });
   }
   obsHtml+='<button class="btn btn-outline btn-sm" style="margin-top:4px;font-size:calc(11px + var(--ts));" onclick="addObservation(\''+d.id+'\')">+ Add Observation</button>';
   obsHtml+='</div>';
 
-  // Responses section (replaces Activity Log)
-  var actArr=d.activity&&d.activity.length?d.activity:(d.responses&&d.responses.length?d.responses.map(function(r){return{date:r.date||'',label:r.party==='contractor'?'Contractor Response':'ARENCON',text:r.comment||'',photos:r.photos||[]};}):null);
+  // General activity entries (no obsRef or obsRef not matching any observation)
+  var obsIds=obs?obs.map(function(o){return o.id;}):[];
+  var generalActs=sortedAct.filter(function(a){return !a.obsRef||obsIds.indexOf(a.obsRef)<0;});
   var actHtml='';
-  if(actArr&&actArr.length){
+  if(generalActs.length){
     actHtml+='<div class="activity-section open" id="act-sect-'+d.id+'">';
-    actHtml+='<div class="activity-header" onclick="this.parentElement.classList.toggle(\'open\')"><span>Responses ('+actArr.length+')</span><span>\u25BE</span></div>';
+    actHtml+='<div class="activity-header" onclick="this.parentElement.classList.toggle(\'open\')"><span>General Responses ('+generalActs.length+')</span><span>\u25BE</span></div>';
     actHtml+='<div class="activity-body">';
-    actArr.slice().sort(function(a,b){return(b.date||'').localeCompare(a.date||'');}).forEach(function(a){
-      var isCtr=(a.label||'').indexOf('Contractor')>=0;
-      var lColor=isCtr?'#E67E22':'#1565C0';
-      // Resolve obsRef to observation letter + text
-      var obsRefTag='';
-      if(a.obsRef&&obs){
-        for(var _ri=0;_ri<obs.length;_ri++){
-          if(obs[_ri].id===a.obsRef){
-            var _rText=(entries&&entries[_ri])?entries[_ri].description||'':obs[_ri].text||'';
-            var _rTrunc=_rText.length>40?_rText.substring(0,40)+'\u2026':_rText;
-            obsRefTag=' <span style="font-size:calc(10px + var(--ts));color:#888;font-weight:400;">(Re: '+String.fromCharCode(65+_ri)+' \u2014 '+safe(_rTrunc||'(empty)')+')</span>';
-            break;
-          }
-        }
-      }
-      var _actId=a.id||'';
-      actHtml+='<div class="activity-entry"><div class="activity-entry-header"><span class="activity-entry-label" style="color:'+lColor+';">'+(isCtr?'⚡':'🔍')+' '+safe(a.label||'Note')+obsRefTag+'</span><span class="activity-entry-date">'+(a.date||'')+' <button onclick="editActivityEntry(\''+d.id+'\',\''+_actId+'\')" style="background:none;border:none;cursor:pointer;font-size:calc(10px + var(--ts));color:var(--link);padding:0 2px;" title="Edit">✏</button><button onclick="removeActivityEntry(\''+d.id+'\',\''+_actId+'\')" style="background:none;border:none;cursor:pointer;font-size:calc(10px + var(--ts));color:#C0392B;padding:0 2px;" title="Delete">✕</button></span></div>';
-      // Rich text — render as HTML (already sanitized)
-      actHtml+='<div class="activity-entry-text">'+(a.text||'')+'</div>';
-      // Activity photos
-      if(a.photos&&a.photos.length){
-        actHtml+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">';
-        a.photos.forEach(function(ph){var psrc=_deficPhotoSrc(ph);actHtml+='<div class="photo-thumb" style="width:56px;height:56px;"><img data-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.src||this.src)" style="cursor:zoom-in;"></div>';});
-        actHtml+='</div>';
-      }
-      actHtml+='</div>';
-    });
+    generalActs.forEach(function(a){actHtml+=_buildActEntry(a);});
     actHtml+='</div></div>';
   }
   actHtml+='<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">';
@@ -10122,7 +10137,7 @@ function toggleDeficFilterMenu(e){
 
 var _foldedCtrs={};
 var _allFolded=false;
-function foldAllDefics(){var p=getProject();if(!p)return;(p.contractors||[]).forEach(function(c){_foldedCtrs[c.name]=true;});_foldedCtrs['General']=true;_allFolded=true;_updateFoldBtn();renderDeficiencyPanel();}
+function foldAllDefics(){var p=getProject();if(!p)return;(p.contractors||[]).forEach(function(c){_foldedCtrs[c.name]=true;});_foldedCtrs['Site General']=true;_allFolded=true;_updateFoldBtn();renderDeficiencyPanel();}
 function unfoldAllDefics(){_foldedCtrs={};_allFolded=false;_updateFoldBtn();renderDeficiencyPanel();}
 function toggleFoldAllDefics(){if(_allFolded)unfoldAllDefics();else foldAllDefics();}
 function _updateFoldBtn(){var btn=document.getElementById('defic-fold-toggle-btn');if(btn){btn.textContent=_allFolded?'▶ Unfold All':'▼ Fold All';btn.title=_allFolded?'Unfold all':'Fold all';}}
@@ -10199,7 +10214,7 @@ var priorityLabel=_epLbl==='general'?'General':_epLbl==='low'?'Low Priority':'Hi
   if(d.drawingId){var dwg=p.drawings.find(function(x){return x.id===d.drawingId;});if(dwg)dwgName=dwg.name;}
 
   var curCtrId=f.contractor?f.contractor.id:'';
-  var ctrHtml='<select id="pin-contractor" style="width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:calc(12px + var(--ts));" onchange="handlePinContractorChange(this)"><option value="">General</option>';
+  var ctrHtml='<select id="pin-contractor" style="width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:calc(12px + var(--ts));" onchange="handlePinContractorChange(this)"><option value="">Site General</option>';
   (p.contractors||[]).forEach(function(cc){
     ctrHtml+='<option value="'+cc.id+'"'+(cc.id===curCtrId?' selected':'')+'>'+escHtml(cc.name)+'</option>';
   });
@@ -12257,9 +12272,9 @@ var _ctrFilterName='';
   (c.deficiencies||[]).forEach(function(d){if(d.priority==='general')return;reportDefs.push({d:d,ctr:c.name,rn:rn++});});
 });
 if(_ctrFilterId==='__all__'||_ctrFilterId==='__general__'){
-  (p.generalDeficiencies||[]).forEach(function(d){if(d.priority==='general')return;reportDefs.push({d:d,ctr:'General',rn:rn++});});
+  (p.generalDeficiencies||[]).forEach(function(d){if(d.priority==='general')return;reportDefs.push({d:d,ctr:'Site General',rn:rn++});});
 }
-if(_ctrFilterId==='__general__')_ctrFilterName='General';
+if(_ctrFilterId==='__general__')_ctrFilterName='Site General';
 
 // ── T+0 PDF SPLIT: main body vs closed summary ──
 var _curInst=p.currentFrtInstance||1;

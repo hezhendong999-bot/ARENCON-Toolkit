@@ -2006,6 +2006,20 @@ async function _loadAndRenderInstances(proj) {
         var date = inst.updated_at ? new Date(inst.updated_at).toLocaleDateString('en-CA') : '—';
         var by = inst.updated_by ? (userMap[inst.updated_by] || '—') : '—';
         var status = inst.status || 'draft';
+        // Deficiency counts for FRT instances
+        var deficBadge = '';
+        if (key === 'frt' && inst.data) {
+          var _d = typeof inst.data === 'string' ? JSON.parse(inst.data) : inst.data;
+          var _allD = [];
+          (_d.contractors || []).forEach(function(c) { (_d && c.deficiencies || []).forEach(function(df) { _allD.push(df); }); });
+          (_d.generalDeficiencies || []).forEach(function(df) { _allD.push(df); });
+          var _open = _allD.filter(function(df) { return df.status === 'open' || df.status === 'Outstanding'; }).length;
+          var _closed = _allD.filter(function(df) { return df.status === 'closed' || df.status === 'Addressed & Closed'; }).length;
+          var _noted = _allD.filter(function(df) { return (df.notedOnInstance || 1) === inst.instance_number; }).length;
+          if (_allD.length > 0) {
+            deficBadge = '<span style="font-size:calc(10px + var(--ts));color:rgba(255,255,255,.6);margin-left:4px;">(' + _noted + ' noted, ' + _open + ' open, ' + _closed + ' closed)</span>';
+          }
+        }
         var isViewer = _profile && _profile.role === 'viewer';
         var actionsHtml = isViewer ? '' :
           '<span class="ri-actions">'
@@ -2019,7 +2033,7 @@ async function _loadAndRenderInstances(proj) {
           + '</span>';
         html += '<div class="ri-row" onclick="launchToolInstance(\'' + key + '\',\'' + inst.id + '\')" title="Open ' + esc(title) + '">'
           + '<span class="ri-icon">→</span>'
-          + '<span class="ri-title">' + esc(title) + '</span>'
+          + '<span class="ri-title">' + esc(title) + deficBadge + '</span>'
           + '<span class="ri-meta">'
           + '<span>' + date + '</span>'
           + '<span>' + esc(by) + '</span>'
