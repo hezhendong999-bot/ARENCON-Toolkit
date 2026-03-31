@@ -1469,6 +1469,13 @@ body.text-l{--ts:4px;}
       </label>
       <div style="font-size:calc(10px + var(--ts));color:var(--steel);margin-top:2px;margin-left:26px;">Omits "further deficiencies" closing note</div>
     </div>
+    <div style="margin-bottom:14px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:calc(13px + var(--ts));color:var(--fg);">
+        <input type="checkbox" id="pdf-show-closed" checked style="width:18px;height:18px;accent-color:#9C2742;cursor:pointer;">
+        <span>Include Previously Closed Items</span>
+      </label>
+      <div style="font-size:calc(10px + var(--ts));color:var(--steel);margin-top:2px;margin-left:26px;">Appends closed items summary at back of report</div>
+    </div>
     <button class="btn" onclick="exportPDF('plain');closePDFPicker();" style="width:100%;margin-bottom:10px;justify-content:center;padding:12px;background:#9C2742;color:white;border:none;font-weight:700;">📝 Deficiency Report <span style="font-size:calc(11px + var(--ts));font-weight:400;opacity:.85;">— deficiencies, photos &amp; comments</span></button>
     <button class="btn" onclick="exportPDF('field');closePDFPicker();" style="width:100%;margin-bottom:10px;justify-content:center;padding:12px;background:#1A237E;color:white;border:none;font-weight:700;">📋 Field Review Report <span style="font-size:calc(11px + var(--ts));font-weight:400;opacity:.85;">— mini-maps + drawing appendix</span></button>
     <button class="btn btn-outline" onclick="closePDFPicker();" style="width:100%;justify-content:center;padding:12px;color:var(--fg);border-color:var(--border);">Cancel</button>
@@ -8598,79 +8605,76 @@ function buildDeficItem(d,ctrId,i){
     else{dwgHtml='<div style="margin-top:4px;"><span class="pin-unassigned-badge">📌 Unassigned</span> <button class="pin-reassign-btn" onclick="event.stopPropagation();openReassignModal(\''+d.id+'\')">Assign…</button></div>';}
   }
 
-  // Observation rows with toggle pills
+  // Observation cards — each obs is a self-contained card with photos + activity thread
   var obs=d.observations&&d.observations.length?d.observations:null;
   var entries=d.entries&&d.entries.length?d.entries:null;
-  // Pre-build activity array for obsRef grouping
   var actArr=d.activity&&d.activity.length?d.activity:(d.responses&&d.responses.length?d.responses.map(function(r){return{date:r.date||'',label:r.party==='contractor'?'Contractor Response':'ARENCON',text:r.comment||'',photos:r.photos||[]};}):null);
   var sortedAct=actArr?actArr.slice().sort(function(a,b){return(b.date||'').localeCompare(a.date||'');}):[];
 
-  // Helper: render a single activity entry
   function _buildActEntry(a){
     var isCtr=(a.label||'').indexOf('Contractor')>=0;
     var lColor=isCtr?'#E67E22':'#1565C0';
-    var obsRefTag='';
-    if(a.obsRef&&obs){
-      for(var _ri=0;_ri<obs.length;_ri++){
-        if(obs[_ri].id===a.obsRef){
-          var _rText=(entries&&entries[_ri])?entries[_ri].description||'':obs[_ri].text||'';
-          var _rTrunc=_rText.length>40?_rText.substring(0,40)+'\u2026':_rText;
-          obsRefTag=' <span style="font-size:calc(10px + var(--ts));color:#888;font-weight:400;">(Re: '+String.fromCharCode(65+_ri)+' \u2014 '+safe(_rTrunc||'(empty)')+')</span>';
-          break;
-        }
-      }
-    }
     var _actId=a.id||'';
-    var h='<div class="activity-entry"><div class="activity-entry-header"><span class="activity-entry-label" style="color:'+lColor+';">'+(isCtr?'⚡':'🔍')+' '+safe(a.label||'Note')+obsRefTag+'</span><span class="activity-entry-date">'+(a.date||'')+' <button onclick="editActivityEntry(\''+d.id+'\',\''+_actId+'\')" style="background:none;border:none;cursor:pointer;font-size:calc(10px + var(--ts));color:var(--link);padding:0 2px;" title="Edit">✏</button><button onclick="removeActivityEntry(\''+d.id+'\',\''+_actId+'\')" style="background:none;border:none;cursor:pointer;font-size:calc(10px + var(--ts));color:#C0392B;padding:0 2px;" title="Delete">✕</button></span></div>';
-    h+='<div class="activity-entry-text">'+(a.text||'')+'</div>';
+    var h='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px;margin-bottom:4px;padding:4px 6px;background:'+(isCtr?'rgba(230,126,34,.06)':'rgba(21,101,192,.06)')+';border-radius:4px;font-size:calc(11px + var(--ts));">';
+    h+='<div style="flex:1;min-width:0;"><span style="color:'+lColor+';font-weight:600;">'+(isCtr?'\u26A1':'\uD83D\uDD0D')+' '+safe(a.label||'Note')+'</span> <span style="color:#888;font-size:calc(10px + var(--ts));">'+(a.date||'')+'</span>';
+    h+='<div style="margin-top:2px;">'+(a.text||'')+'</div>';
     if(a.photos&&a.photos.length){
-      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">';
-      a.photos.forEach(function(ph){var psrc=_deficPhotoSrc(ph);h+='<div class="photo-thumb" style="width:56px;height:56px;"><img data-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.src||this.src)" style="cursor:zoom-in;"></div>';});
+      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;">';
+      a.photos.forEach(function(ph){var psrc=_deficPhotoSrc(ph);h+='<div class="photo-thumb" style="width:48px;height:48px;"><img data-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.src||this.src)" style="cursor:zoom-in;"></div>';});
       h+='</div>';
     }
     h+='</div>';
+    h+='<div style="flex-shrink:0;display:flex;gap:2px;">';
+    h+='<button onclick="editActivityEntry(\''+d.id+'\',\''+_actId+'\')" style="background:none;border:none;cursor:pointer;font-size:calc(10px + var(--ts));color:var(--link);padding:2px;" title="Edit">\u270F</button>';
+    h+='<button onclick="removeActivityEntry(\''+d.id+'\',\''+_actId+'\')" style="background:none;border:none;cursor:pointer;font-size:calc(10px + var(--ts));color:#C0392B;padding:2px;" title="Delete">\u2715</button>';
+    h+='</div></div>';
     return h;
   }
 
   var obsHtml='<div style="margin-bottom:6px;">';
+  var totalObs=obs?obs.length:entries?entries.length:1;
 
-  function _buildObsRow(text,photos,oi,isAddr,frtLabel,obsId){
-    var addrClass=isAddr?' addressed':'';
+  function _buildObsCard(text,photos,oi,isAddr,frtLabel,obsId){
     var pillClass=isAddr?'addressed':'open';
-    var pillText=isAddr?'✔ Addressed':'● Open';
-    var totalObs=obs?obs.length:entries?entries.length:1;
+    var pillText=isAddr?'\u2714 Addressed':'\u25CF Open';
     var lbl=totalObs>1?String.fromCharCode(65+oi)+') ':'';
-    var h='<div class="obs-row"><div class="obs-text'+addrClass+'">';
-    h+='<div class="obs-label"><span>'+lbl+'Observation'+frtLabel+'</span><button class="obs-toggle '+pillClass+'" onclick="toggleObsAddressed(\''+d.id+'\','+oi+')">'+pillText+'</button></div>';
-    h+='<textarea style="width:100%;height:60px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:inherit;resize:vertical;" oninput="updateEntryField(\''+d.id+'\','+oi+',\'description\',this.value)" list="defic-desc-suggestions">'+safe(text)+'</textarea>';
+    var borderColor=isAddr?'#1A7A4A':'var(--border)';
+    var bgColor=isAddr?'rgba(26,122,74,.03)':'transparent';
+    var h='<div style="border:1.5px solid '+borderColor+';border-radius:8px;padding:10px 12px;margin-bottom:8px;background:'+bgColor+';">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+    h+='<span style="font-weight:700;font-size:calc(13px + var(--ts));color:var(--fg);">'+lbl+'Observation'+frtLabel+'</span>';
+    h+='<button class="obs-toggle '+pillClass+'" onclick="toggleObsAddressed(\''+d.id+'\','+oi+')">'+pillText+'</button>';
+    h+='</div>';
+    h+='<textarea style="width:100%;height:56px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="updateEntryField(\''+d.id+'\','+oi+',\'description\',this.value)" list="defic-desc-suggestions">'+safe(text)+'</textarea>';
     if(photos&&photos.length){
-      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0;">';
+      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;">';
       photos.forEach(function(ph,pi){
         var psrc=_deficPhotoSrc(ph);var pid=_deficPhotoId(ph);
-        h+='<div class="photo-thumb"><img data-src="'+safe(psrc)+'" data-photo-id="'+safe(pid)+'" data-orig-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.origSrc||this.dataset.src||this.src,null,null,[this.dataset.photoId])" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+oi+','+pi+')">✕</button></div>';
+        h+='<div class="photo-thumb"><img data-src="'+safe(psrc)+'" data-photo-id="'+safe(pid)+'" data-orig-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.origSrc||this.dataset.src||this.src,null,null,[this.dataset.photoId])" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+oi+','+pi+')">\u2715</button></div>';
       });
       h+='</div>';
     }
-    // Compact photo zone
     h+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleEntryPhotoDrop(event,\''+d.id+'\','+oi+')">';
     h+='<span style="font-size:calc(11px + var(--ts));color:var(--silver);">Drop photos or</span>';
-    h+='<button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+oi+')">📎 Upload</button>';
-    h+='<button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+oi+')">📷 Camera</button>';
+    h+='<button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+oi+')">\uD83D\uDCCE Upload</button>';
+    h+='<button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+oi+')">\uD83D\uDCF7 Camera</button>';
     h+='</div>';
-    // Remove observation button
+    var obsActs=obsId?sortedAct.filter(function(a){return a.obsRef===obsId;}):[];
+    if(obsActs.length){
+      h+='<div style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--border);">';
+      obsActs.forEach(function(a){h+=_buildActEntry(a);});
+      h+='</div>';
+    }
+    if(obsId){
+      h+='<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">';
+      h+='<button class="btn btn-outline btn-sm" style="font-size:calc(10px + var(--ts));color:#9C2742;border-color:#9C2742;padding:3px 8px;" onclick="showAddActivityFormForObs(\''+d.id+'\',\'Contractor Response\',\''+obsId+'\')">+ Response</button>';
+      h+='<button class="btn btn-outline btn-sm" style="font-size:calc(10px + var(--ts));color:#9C2742;border-color:#9C2742;padding:3px 8px;" onclick="showAddActivityFormForObs(\''+d.id+'\',\'ARENCON\',\''+obsId+'\')">+ Comment</button>';
+      h+='</div>';
+    }
     if(totalObs>1){
-      h+='<div style="margin-top:4px;text-align:right;"><button class="remove-defic-btn" onclick="removeObservation(\''+d.id+'\','+oi+')" style="font-size:calc(10px + var(--ts));padding:3px 8px;">✕ Remove Obs</button></div>';
+      h+='<div style="margin-top:4px;text-align:right;"><button class="remove-defic-btn" onclick="removeObservation(\''+d.id+'\','+oi+')" style="font-size:calc(10px + var(--ts));padding:3px 8px;">\u2715 Remove Obs</button></div>';
     }
-    // Activity entries for THIS observation (obsRef matches)
-    if(obsId&&sortedAct.length){
-      var obsActs=sortedAct.filter(function(a){return a.obsRef===obsId;});
-      if(obsActs.length){
-        h+='<div style="margin-top:6px;padding-top:4px;border-top:1px dashed var(--border);">';
-        obsActs.forEach(function(a){h+=_buildActEntry(a);});
-        h+='</div>';
-      }
-    }
-    h+='</div></div>';
+    h+='</div>';
     return h;
   }
 
@@ -8679,17 +8683,16 @@ function buildDeficItem(d,ctrId,i){
       var entryDesc=(entries&&entries[oi])?entries[oi].description||'':o.text||'';
       var enPhotos=(entries&&entries[oi])?entries[oi].photos||[]:o.photos||[];
       var frtLabel=o.notedOnInstance&&o.notedOnInstance!==(d.notedOnInstance||1)?' <span style="color:var(--link);font-size:calc(10px + var(--ts));">(FRT #'+o.notedOnInstance+')</span>':'';
-      obsHtml+=_buildObsRow(entryDesc,enPhotos,oi,o.addressed,frtLabel,o.id);
+      obsHtml+=_buildObsCard(entryDesc,enPhotos,oi,o.addressed,frtLabel,o.id);
     });
   }else if(entries){
     entries.forEach(function(en,ei){
-      obsHtml+=_buildObsRow(en.description||'',en.photos||[],ei,false,'',null);
+      obsHtml+=_buildObsCard(en.description||'',en.photos||[],ei,false,'',null);
     });
   }
   obsHtml+='<button class="btn btn-outline btn-sm" style="margin-top:4px;font-size:calc(11px + var(--ts));" onclick="addObservation(\''+d.id+'\')">+ Add Observation</button>';
   obsHtml+='</div>';
 
-  // General activity entries (no obsRef or obsRef not matching any observation)
   var obsIds=obs?obs.map(function(o){return o.id;}):[];
   var generalActs=sortedAct.filter(function(a){return !a.obsRef||obsIds.indexOf(a.obsRef)<0;});
   var actHtml='';
@@ -8704,6 +8707,7 @@ function buildDeficItem(d,ctrId,i){
   actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));color:#9C2742;border-color:#9C2742;" onclick="showAddActivityForm(\''+d.id+'\',\'Contractor Response\')">+ Contractor Response</button>';
   actHtml+='<button class="btn btn-outline btn-sm" style="font-size:calc(11px + var(--ts));color:#9C2742;border-color:#9C2742;" onclick="showAddActivityForm(\''+d.id+'\',\'ARENCON\')">+ ARENCON Comment</button>';
   actHtml+='</div>';
+
 
   // Controls: Priority + IAR + Close + Remove visible, Dup/Move in ⋯ More
   var prColor=d.priority==='general'?'#1A7A4A':d.priority==='low'?'#E67E22':'#C0392B';
@@ -9249,6 +9253,15 @@ function showAddActivityForm(did,defaultLabel){
   document.body.appendChild(ov);
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   setTimeout(function(){var ed=document.getElementById('act-text-editor');if(ed)ed.focus();},100);
+}
+// Shortcut: open activity form with obsRef pre-selected
+function showAddActivityFormForObs(did,defaultLabel,obsId){
+  showAddActivityForm(did,defaultLabel);
+  // Pre-select the obsRef dropdown after modal renders
+  setTimeout(function(){
+    var sel=document.getElementById('act-obs-ref');
+    if(sel&&obsId){sel.value=obsId;}
+  },50);
 }
 // Activity form photo handlers
 function _actFormPhotoUpload(){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){_actFormAddFiles(inp.files);};inp.click();}
@@ -12082,7 +12095,7 @@ function showPDFOptions(){
         html+='<option value="'+c.id+'">'+escHtml(c.name)+'</option>';
       });
     }
-    html+='<option value="__general__">General (unassigned)</option>';
+    html+='<option value="__general__">Site General (unassigned)</option>';
     sel.innerHTML=html;
   }
 }
@@ -12187,6 +12200,7 @@ if(!currentProjectId)return;var p=getProject();var logo=LOGO_SRC;
 var isField=(mode==='field');
 var ctrFilter=(document.getElementById('pdf-ctr-filter')||{}).value||'__all__';
 var isFinalComm=!!(document.getElementById('pdf-final-comm')||{}).checked;
+var showClosedSummary=!!(document.getElementById('pdf-show-closed')||{}).checked;
 closePDFPicker();
 
 // Show progress overlay on FRT page during pre-fetch
@@ -12210,11 +12224,11 @@ _prefetchR2PhotosForPDF(p,function(done,total){
   }catch(e){}
 }).then(function(r2Cache){
   try{var ov2=document.getElementById('pdf-prefetch-overlay');if(ov2)ov2.remove();}catch(e){}
-  _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm);
+  _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary);
 }).catch(function(e){
   try{var ov3=document.getElementById('pdf-prefetch-overlay');if(ov3)ov3.remove();}catch(e2){}
   _dbw('[PDF] R2 prefetch failed, proceeding:',e);
-  _exportPDFWithCache(p,logo,isField,mode,{},ctrFilter,isFinalComm);
+  _exportPDFWithCache(p,logo,isField,mode,{},ctrFilter,isFinalComm,showClosedSummary);
 });
 }
 
@@ -12260,7 +12274,7 @@ if(ph.r2Url&&r2Cache&&r2Cache[ph.r2Url])return r2Cache[ph.r2Url];
 return ph.dataUrl||ph.r2Url||'';
 }
 
-function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm){
+function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary){
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
 var reportDefs=[];var rn=1;
 var _ctrFilterId=ctrFilter||'__all__';
@@ -12786,7 +12800,7 @@ if(!isFinalComm&&mainBodyDefs.length){
 _finalizePage();
 
 // ── Closed Items Summary (back of report) — grouped by FRT # ──
-if(closedSummaryDefs.length){
+if(showClosedSummary&&closedSummaryDefs.length){
   // Group by closedOnInstance
   var _csGroups={};
   closedSummaryDefs.forEach(function(r){
