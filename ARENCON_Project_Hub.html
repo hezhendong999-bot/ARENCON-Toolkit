@@ -844,7 +844,6 @@ body.text-l{--ts:4px;}
     </div>
     <div class="detail-section detail-actions" id="detail-danger-zone">
       <button class="btn-action" id="btn-edit-proj" onclick="openEditProjectModal()">✏️ Edit Project</button>
-      <button class="btn-action" id="btn-qr-proj" onclick="openProjectQR(_detailProjectId)" title="QR Code for this project">📱 QR</button>
       <button class="btn-archive" id="btn-archive-proj" onclick="toggleArchiveProject()">📦 Archive</button>
       <button class="btn-action" id="btn-restore-proj" style="display:none;background:var(--yes-bg);color:var(--yes);border-color:var(--yes)" onclick="restoreFromDetail()">↩️ Restore</button>
       <div style="flex:1"></div>
@@ -1961,7 +1960,7 @@ function closeDetail() {
 
 /* ═══ Report Instances — Load & Render ═══ */
 var _TOOL_PREFIXES = { frt:'FRT', diesel:'DFP', electric:'EFP', ist:'IST', obc:'OBC', dd:'DD' };
-var _TOOL_SHORT_NAMES = { frt:'Field Review Report', diesel:'Diesel Fire Pump Commissioning Report', electric:'Electric Fire Pump Commissioning Report', ist:'IST Report', obc:'OBC Compliance Report', dd:'Due Diligence Report' };
+var _TOOL_SHORT_NAMES = { frt:'Field Review', diesel:'Diesel Fire Pump Commissioning', electric:'Electric Fire Pump Commissioning', ist:'IST', obc:'OBC Compliance', dd:'Due Diligence' };
 
 async function _loadAndRenderInstances(proj) {
   var container = document.getElementById('detail-instances');
@@ -2001,7 +2000,7 @@ async function _loadAndRenderInstances(proj) {
       var sfn = buildSmartFilename(proj);
       instances.forEach(function(inst) {
         var prefix = _TOOL_PREFIXES[key] || key.toUpperCase();
-        var defaultTitle = sfn ? (sfn + ' ' + prefix + ' #' + inst.instance_number) : (shortName + ' #' + inst.instance_number);
+        var defaultTitle = sfn ? (sfn + ' ' + prefix + ' #' + inst.instance_number) : (shortName + ' Report #' + inst.instance_number);
         var title = inst.label || defaultTitle;
         var date = inst.updated_at ? new Date(inst.updated_at).toLocaleDateString('en-CA') : '—';
         var by = inst.updated_by ? (userMap[inst.updated_by] || '—') : '—';
@@ -3465,16 +3464,16 @@ function _pgExtractPhotos(row) {
   var projectId = row.project_id || '';
 
   var toolLabel = {
-    frt: 'Field Review Report',
-    diesel: 'Diesel Fire Pump Commissioning Report',
-    electric: 'Electric Fire Pump Commissioning Report',
-    ist: 'IST Report',
-    obc: 'OBC Compliance Report',
-    dd: 'Due Diligence Report'
+    frt: 'Field Review',
+    diesel: 'Diesel Pump',
+    electric: 'Electric Pump',
+    ist: 'IST',
+    obc: 'OBC Report',
+    dd: 'Due Diligence'
   }[toolKey] || toolKey;
 
   var instNum = row.instance_number || 1;
-  var label = row.label || (toolLabel + ' #' + instNum);
+  var label = row.label || (toolLabel + (instNum > 1 ? ' #' + instNum : ''));
 
   function _makeRec(src, type, caption, date) {
     if (!src) return null;
@@ -3485,15 +3484,20 @@ function _pgExtractPhotos(row) {
 
   // ── FRT ──
   if (toolKey === 'frt') {
-    // Site photos
+    var _curI = data.currentFrtInstance || instNum;
+    // Site photos — T+0 rule: only show photos from current instance
     (data.sitePhotos || []).forEach(function(ph) {
       if (!ph) return;
+      // Skip site photos from earlier instances (T+0 rule)
+      if (ph.instance && ph.instance !== _curI) return;
       var src = _pgResolveR2Src(ph, projectId);
       if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || ''));
     });
-    // Deficiency photos (contractors + general)
+    // Deficiency photos (contractors + general) — T+0 rule: skip closed deficiencies from earlier instances
     function _extractDefics(defics) {
       (defics || []).forEach(function(d) {
+        // T+0 filter: skip deficiencies closed in earlier instances
+        if (d.status === 'closed' && (d.closedOnInstance || 1) !== _curI) return;
         var pinLabel = 'Pin ' + (d.num || '?');
         var numEn = (d.entries && d.entries.length) || 0;
         var seenIds = {};
