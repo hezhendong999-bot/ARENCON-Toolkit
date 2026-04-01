@@ -781,6 +781,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
     <div class="nav-tab" id="tab-defic" onclick="switchPanel('defic')">6. Deficiencies</div>
     <div class="nav-tab" id="tab-sign" onclick="switchPanel('sign')">7. Signature</div>
     <div class="nav-tab" id="tab-sketch" onclick="switchPanel('sketch')">8. Sketches</div>
+    <div class="nav-tab" id="tab-photos" onclick="switchPanel('photos')">📷 Photos</div>
   </div>
 </header>
   <div class="project-bar" id="project-bar">
@@ -1391,6 +1392,28 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           Add Sketch / Photo Markup
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PHOTOS GALLERY PANEL (Session 53 — Batch 2) ══ -->
+  <div class="panel" id="panel-photos">
+    <div class="section-title">📷 All Project Photos</div>
+    <div class="card">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="_pgSelectAll()">☑ Select All</button>
+          <button class="btn btn-outline btn-sm" onclick="_pgDeselectAll()">☐ Deselect</button>
+          <div style="flex:1;"></div>
+          <button class="btn btn-outline btn-sm" onclick="_pgDownloadSelected()" style="color:#1A7A4A;border-color:#1A7A4A;">⬇ Download Selected</button>
+          <button class="btn btn-outline btn-sm" onclick="_pgReassignSelected()" style="color:#2C4770;border-color:#2C4770;">↗ Reassign</button>
+          <button class="btn btn-outline btn-sm" onclick="_pgDeleteSelected()" style="color:#C0392B;border-color:#C0392B;">🗑 Delete Selected</button>
+        </div>
+        <div id="photos-gallery-count" style="font-size:calc(12px + var(--ts));color:var(--silver);margin-bottom:8px;"></div>
+        <div id="photos-gallery-grid" class="photo-thumb-grid"></div>
+        <div id="photos-gallery-empty" style="display:none;text-align:center;padding:40px;color:var(--silver);font-size:calc(14px + var(--ts));">
+          No photos yet. Photos from checklists, flow tests, deficiencies, and sketches will appear here.
+        </div>
       </div>
     </div>
   </div>
@@ -4011,7 +4034,7 @@ function clearGenericSig(idx) {
 // ══════════════════════════════════════════════════
 // PANEL SWITCHING
 // ══════════════════════════════════════════════════
-const PANELS = ['proj','s1','s2','s3','s4','s4pld','s5','defic','sign','sketch'];
+const PANELS = ['proj','s1','s2','s3','s4','s4pld','s5','defic','sign','sketch','photos'];
 let _tabRendered = {};
 function switchPanel(id) {
   PANELS.forEach(p => {
@@ -4048,6 +4071,7 @@ function switchPanel(id) {
       });
     }
     if (id === 'defic') { renderContractorTags(); renderDeficGroups(); renderGeneralDeficGroup(); updateDeficSummary(); }
+    if (id === 'photos') { if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); }
   updateNavButtons();
   } catch(err) { console.error('switchPanel chart error:', err); }
 }
@@ -7170,7 +7194,550 @@ function _skDeleteSelected(uid) {
   _skSelected[uid]=null;
   _skRedraw(uid);
 }
+
+
 </script>
+
+<!-- ══ BATCH 2: PHOTO SYSTEM MODULE (Session 53) ══ -->
+<script>
+// ═══════════════════════════════════════════════════════
+// PHOTO GALLERY, CAPTIONS, LIGHTBOX ZOOM, BULK OPS, REASSIGN
+// ═══════════════════════════════════════════════════════
+
+// ── Photo Gallery: collect all photos from all sections ──
+var _pgSelected = new Set();
+function _collectAllPhotos(){
+  var all = [];
+  // 1. Flow test photos (3-point)
+  (flowTestPhotos||[]).forEach(function(p,i){
+    all.push({photo:p, type:'flowtest', label:'Flow Test (3-pt)', section:'flowtest', idx:i, src:p.r2Url||p.d});
+  });
+  // 2. Flow test photos (PLD)
+  (flowTestPhotosPld||[]).forEach(function(p,i){
+    all.push({photo:p, type:'flowtest-pld', label:'Flow Test (PLD)', section:'flowtestpld', idx:i, src:p.r2Url||p.d});
+  });
+  // 3. Checklist item photos
+  Object.keys(clState||{}).forEach(function(id){
+    var st = clState[id];
+    if(!st || !st.photos) return;
+    st.photos.forEach(function(p,pi){
+      all.push({photo:p, type:'checklist', label:'Checklist: '+id, section:'cl_'+id, idx:pi, src:p.r2Url||p.d});
+    });
+  });
+  // 4. Deficiency photos (per contractor)
+  Object.keys(deficiencies||{}).forEach(function(ctr){
+    (deficiencies[ctr]||[]).forEach(function(d,di){
+      (d.photos||[]).forEach(function(p,pi){
+        all.push({photo:p, type:'deficiency', label:ctr+' #'+(di+1), section:'def_'+ctr+'_'+di, idx:pi, src:p.r2Url||p.d});
+      });
+      // Response photos
+      (d.responses||[]).forEach(function(r,ri){
+        (r.photos||[]).forEach(function(p,pi){
+          all.push({photo:p, type:'response', label:ctr+' #'+(di+1)+' Response', section:'resp_'+ctr+'_'+di+'_'+ri, idx:pi, src:p.r2Url||p.d});
+        });
+      });
+    });
+  });
+  // 5. General deficiency photos
+  (generalDeficiencies||[]).forEach(function(d,di){
+    (d.photos||[]).forEach(function(p,pi){
+      all.push({photo:p, type:'general-defic', label:'General #'+(di+1), section:'gdef_'+di, idx:pi, src:p.r2Url||p.d});
+    });
+  });
+  return all;
+}
+
+function _renderPhotoGallery(){
+  var all = _collectAllPhotos();
+  var grid = document.getElementById('photos-gallery-grid');
+  var empty = document.getElementById('photos-gallery-empty');
+  var count = document.getElementById('photos-gallery-count');
+  if(!grid) return;
+  if(!all.length){
+    grid.innerHTML = '';
+    if(empty) empty.style.display = 'block';
+    if(count) count.textContent = '';
+    return;
+  }
+  if(empty) empty.style.display = 'none';
+  if(count) count.textContent = all.length + ' photo' + (all.length!==1?'s':'');
+  
+  // Clean up stale selections
+  var validIds = new Set(all.map(function(a){return a.photo.id||'';}));
+  _pgSelected.forEach(function(id){ if(!validIds.has(id)) _pgSelected.delete(id); });
+  
+  var html = '';
+  all.forEach(function(item, i){
+    var p = item.photo;
+    var pid = p.id || ('pg_'+i);
+    var sel = _pgSelected.has(pid) ? ' selected' : '';
+    var caption = p.caption || '';
+    var date = p.date ? (p.date+'').substring(0,10) : '';
+    var badgeColor = item.type==='deficiency'||item.type==='response' ? '#C0392B' : 
+                     item.type==='flowtest'||item.type==='flowtest-pld' ? '#2C4770' :
+                     item.type==='general-defic' ? '#E67E22' : '#455A64';
+    var hasR2 = p.r2Url ? '<span class="photo-r2-icon">☁️</span>' : '';
+    
+    html += '<div class="photo-thumb'+sel+'" onclick="_pgToggleSelect(event,\''+pid+'\')" data-pg-id="'+pid+'" data-pg-idx="'+i+'">'
+      + '<input type="checkbox" class="photo-thumb-cb" '+(sel?' checked':'')+' onclick="event.stopPropagation();_pgToggleSelect(event,\''+pid+'\')">'
+      + '<span class="photo-type-badge" style="background:'+badgeColor+'">'+item.label.substring(0,15)+'</span>'
+      + hasR2
+      + '<img src="'+(item.src||'')+'" loading="lazy" onclick="event.stopPropagation();_pgOpenLightbox('+i+')">'
+      + '<button class="photo-thumb-del" onclick="event.stopPropagation();_pgDeleteOne('+i+')" title="Delete">🗑</button>'
+      + '<button class="photo-thumb-dl" onclick="event.stopPropagation();_pgDownloadOne('+i+')" title="Download">⬇</button>'
+      + (caption ? '<div style="font-size:9px;padding:2px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--steel);">'+caption.substring(0,20)+'</div>' : '')
+      + '</div>';
+  });
+  grid.innerHTML = html;
+}
+
+function _pgToggleSelect(e, pid){
+  if(_pgSelected.has(pid)) _pgSelected.delete(pid);
+  else _pgSelected.add(pid);
+  var el = document.querySelector('[data-pg-id="'+pid+'"]');
+  if(el){
+    el.classList.toggle('selected', _pgSelected.has(pid));
+    var cb = el.querySelector('.photo-thumb-cb');
+    if(cb) cb.checked = _pgSelected.has(pid);
+  }
+}
+function _pgSelectAll(){
+  var all = _collectAllPhotos();
+  all.forEach(function(item){ _pgSelected.add(item.photo.id||''); });
+  _renderPhotoGallery();
+}
+function _pgDeselectAll(){
+  _pgSelected.clear();
+  _renderPhotoGallery();
+}
+
+// ── Gallery lightbox ──
+function _pgOpenLightbox(idx){
+  var all = _collectAllPhotos();
+  var photos = all.map(function(a){ return a.photo; });
+  openLightbox(photos, idx, {renderer: _renderPhotoGallery});
+}
+
+// ── Bulk download with JSZip ──
+function _pgDownloadSelected(){
+  var all = _collectAllPhotos();
+  var selected = all.filter(function(a){ return _pgSelected.has(a.photo.id||''); });
+  if(!selected.length){ showToast('No photos selected'); return; }
+  _pgBulkDownload(selected);
+}
+function _pgDownloadOne(idx){
+  var all = _collectAllPhotos();
+  if(!all[idx]) return;
+  _pgBulkDownload([all[idx]]);
+}
+async function _pgBulkDownload(items){
+  if(items.length === 1){
+    // Single photo — direct download
+    var p = items[0].photo;
+    var a = document.createElement('a');
+    a.href = p.r2Url || p.d;
+    a.download = p.n || ('photo_'+Date.now()+'.jpg');
+    document.body.appendChild(a); a.click(); a.remove();
+    return;
+  }
+  // Multiple — use JSZip
+  showToast('Preparing download...');
+  if(typeof JSZip === 'undefined'){
+    var sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    sc.onload = function(){ _pgZipDownload(items); };
+    document.head.appendChild(sc);
+  } else {
+    _pgZipDownload(items);
+  }
+}
+async function _pgZipDownload(items){
+  try {
+    var zip = new JSZip();
+    for(var i=0; i<items.length; i++){
+      var p = items[i].photo;
+      var src = p.r2Url || p.d;
+      var name = (p.n || ('photo_'+(i+1)+'.jpg'));
+      if(src.startsWith('data:')){
+        var parts = src.split(',');
+        zip.file(name, parts[1], {base64:true});
+      } else {
+        try {
+          var resp = await fetch(src);
+          var blob = await resp.blob();
+          zip.file(name, blob);
+        } catch(e){ console.warn('Skip fetch:', name); }
+      }
+    }
+    var blob = await zip.generateAsync({type:'blob'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'photos_export_'+new Date().toISOString().substring(0,10)+'.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(a.href);
+    showToast('Downloaded '+items.length+' photos');
+  } catch(e){
+    console.error('Zip error:', e);
+    showToast('Download error: '+e.message);
+  }
+}
+
+// ── Bulk delete ──
+function _pgDeleteSelected(){
+  var all = _collectAllPhotos();
+  var selected = all.filter(function(a){ return _pgSelected.has(a.photo.id||''); });
+  if(!selected.length){ showToast('No photos selected'); return; }
+  _aConfirm('Delete '+selected.length+' selected photo(s)? This cannot be undone.', function(){
+    selected.forEach(function(item){ _pgRemovePhoto(item); });
+    _pgSelected.clear();
+    _renderPhotoGallery();
+    saveState();
+    showToast('Deleted '+selected.length+' photos');
+  }, 'Delete');
+}
+function _pgDeleteOne(idx){
+  var all = _collectAllPhotos();
+  if(!all[idx]) return;
+  _aConfirm('Delete this photo?', function(){
+    _pgRemovePhoto(all[idx]);
+    _renderPhotoGallery();
+    saveState();
+  }, 'Delete');
+}
+function _pgRemovePhoto(item){
+  if(item.type==='flowtest'){
+    flowTestPhotos.splice(item.idx, 1);
+    renderFlowTestThumbs();
+  } else if(item.type==='flowtest-pld'){
+    flowTestPhotosPld.splice(item.idx, 1);
+    renderFlowTestThumbsPld();
+  } else if(item.type==='checklist'){
+    var id = item.section.replace('cl_','');
+    if(clState[id] && clState[id].photos) clState[id].photos.splice(item.idx, 1);
+  } else if(item.type==='deficiency'){
+    var parts = item.section.replace('def_','').split('_');
+    var ctr = parts.slice(0,-1).join('_'), di = parseInt(parts[parts.length-1]);
+    if(deficiencies[ctr] && deficiencies[ctr][di]) deficiencies[ctr][di].photos.splice(item.idx, 1);
+  } else if(item.type==='response'){
+    var parts = item.section.replace('resp_','').split('_');
+    var ri = parseInt(parts.pop()), di = parseInt(parts.pop()), ctr = parts.join('_');
+    if(deficiencies[ctr] && deficiencies[ctr][di] && deficiencies[ctr][di].responses[ri])
+      deficiencies[ctr][di].responses[ri].photos.splice(item.idx, 1);
+  } else if(item.type==='general-defic'){
+    var di = parseInt(item.section.replace('gdef_',''));
+    if(generalDeficiencies[di]) generalDeficiencies[di].photos.splice(item.idx, 1);
+  }
+}
+
+// ── Photo reassign ──
+function _pgReassignSelected(){
+  var all = _collectAllPhotos();
+  var selected = all.filter(function(a){ return _pgSelected.has(a.photo.id||''); });
+  if(!selected.length){ showToast('No photos selected'); return; }
+  // Build destination list
+  var dests = ['Flow Test (3-pt)', 'Flow Test (PLD)'];
+  Object.keys(deficiencies||{}).forEach(function(ctr){
+    (deficiencies[ctr]||[]).forEach(function(d,di){
+      dests.push(ctr+' Deficiency #'+(di+1));
+    });
+  });
+  (generalDeficiencies||[]).forEach(function(d,di){
+    dests.push('General Deficiency #'+(di+1));
+  });
+  // Simple modal with select
+  var html = '<div style="padding:20px;max-width:400px;"><div style="font-weight:700;font-size:15px;margin-bottom:12px;">Reassign '+selected.length+' photo(s) to:</div>'
+    + '<select id="_pg_reassign_dest" style="width:100%;padding:8px;font-size:14px;border-radius:6px;border:1.5px solid var(--border);font-family:Calibri,sans-serif;">'
+    + dests.map(function(d,i){ return '<option value="'+i+'">'+d+'</option>'; }).join('')
+    + '</select></div>';
+  _aConfirm(html, function(){
+    var destIdx = parseInt(document.getElementById('_pg_reassign_dest').value);
+    var dest = dests[destIdx];
+    // Copy photos to destination
+    selected.forEach(function(item){
+      var photoCopy = JSON.parse(JSON.stringify(item.photo));
+      photoCopy.id = 'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
+      if(dest === 'Flow Test (3-pt)') flowTestPhotos.push(photoCopy);
+      else if(dest === 'Flow Test (PLD)') flowTestPhotosPld.push(photoCopy);
+      else if(dest.indexOf('General Deficiency') === 0){
+        var gi = parseInt(dest.replace('General Deficiency #',''))-1;
+        if(generalDeficiencies[gi]){ if(!generalDeficiencies[gi].photos) generalDeficiencies[gi].photos=[]; generalDeficiencies[gi].photos.push(photoCopy); }
+      } else {
+        // Contractor deficiency
+        Object.keys(deficiencies).forEach(function(ctr){
+          (deficiencies[ctr]||[]).forEach(function(d,di){
+            if(dest === ctr+' Deficiency #'+(di+1)){ if(!d.photos) d.photos=[]; d.photos.push(photoCopy); }
+          });
+        });
+      }
+      // Remove from source
+      _pgRemovePhoto(item);
+    });
+    _pgSelected.clear();
+    _renderPhotoGallery();
+    renderFlowTestThumbs();
+    renderFlowTestThumbsPld();
+    saveState();
+    showToast('Reassigned '+selected.length+' photos');
+  }, 'Reassign');
+}
+
+// ── Photo captions & dates ──
+// Extend openLightbox to show caption + date editing
+var _origOpenLightbox = typeof openLightbox === 'function' ? openLightbox : null;
+function _enhancedOpenLightbox(photos, idx, ctx){
+  if(_origOpenLightbox) _origOpenLightbox(photos, idx, ctx);
+  // After lightbox opens, inject caption/date UI
+  setTimeout(function(){
+    var lb = document.getElementById('photo-lightbox');
+    if(!lb || lb.style.display === 'none') return;
+    var existing = document.getElementById('lb-caption-wrap');
+    if(existing) existing.remove();
+    var p = photos[idx];
+    if(!p || typeof p !== 'object') return;
+    var wrap = document.createElement('div');
+    wrap.id = 'lb-caption-wrap';
+    wrap.style.cssText = 'width:min(95vw,600px);margin:8px auto 0;display:flex;gap:8px;align-items:center;';
+    wrap.innerHTML = '<input id="lb-caption" type="text" placeholder="Caption..." value="'+(p.caption||'').replace(/"/g,'&quot;')+'" style="flex:1;padding:6px 10px;border:1px solid rgba(255,255,255,.3);border-radius:5px;background:rgba(255,255,255,.1);color:white;font-family:Calibri,sans-serif;font-size:13px;" onchange="if(lbPhotos[lbIdx]&&typeof lbPhotos[lbIdx]===\'object\')lbPhotos[lbIdx].caption=this.value">'
+      + '<input id="lb-date" type="date" value="'+(p.date||'')+'" style="padding:5px 8px;border:1px solid rgba(255,255,255,.3);border-radius:5px;background:rgba(255,255,255,.1);color:white;font-family:Calibri,sans-serif;font-size:12px;" onchange="if(lbPhotos[lbIdx]&&typeof lbPhotos[lbIdx]===\'object\')lbPhotos[lbIdx].date=this.value">';
+    var imgWrap = lb.querySelector('img[id=lightbox-img]') || lb.querySelector('img');
+    if(imgWrap && imgWrap.parentNode) imgWrap.parentNode.insertAdjacentElement('afterend', wrap);
+  }, 200);
+}
+// Override openLightbox — deferred to ensure original is defined
+setTimeout(function(){
+  if(typeof openLightbox === 'function' && openLightbox !== _enhancedOpenLightbox){
+    _origOpenLightbox = openLightbox;
+    openLightbox = _enhancedOpenLightbox;
+  }
+}, 500);
+
+// Ensure new photos get date stamp automatically
+var _origCompressImage = typeof compressImage === 'function' ? compressImage : null;
+// Instead of wrapping compressImage, we patch the photo object creation points
+// Auto-stamp date on photo creation via a post-creation hook
+(function(){
+  var _origPush = Array.prototype.push;
+  // We can't easily patch push — instead we'll rely on the gallery to show dates
+  // and let captions be manually entered in lightbox
+})();
+
+// ── Lightbox zoom (pinch/wheel/double-tap) ──
+var _lbZoom = {s:1, px:0, py:0, pinching:false, lastDist:0};
+function _initLbZoom(){
+  var img = document.getElementById('lightbox-img');
+  if(!img) return;
+  var wrap = img.parentElement;
+  if(!wrap || wrap._zoomInit) return;
+  wrap._zoomInit = true;
+  wrap.style.overflow = 'hidden';
+  wrap.style.touchAction = 'none';
+  img.style.transformOrigin = '0 0';
+  
+  // Mouse wheel zoom
+  wrap.addEventListener('wheel', function(e){
+    e.preventDefault();
+    var rect = wrap.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var imgX = (mx - _lbZoom.px) / _lbZoom.s;
+    var imgY = (my - _lbZoom.py) / _lbZoom.s;
+    var delta = e.deltaY > 0 ? 0.9 : 1.1;
+    var ns = Math.max(1, Math.min(8, _lbZoom.s * delta));
+    _lbZoom.px = mx - imgX * ns;
+    _lbZoom.py = my - imgY * ns;
+    _lbZoom.s = ns;
+    if(ns <= 1){ _lbZoom.px=0; _lbZoom.py=0; _lbZoom.s=1; }
+    _lbApplyZoom(img);
+    _lbShowZoomHint();
+  }, {passive:false});
+  
+  // Touch pinch zoom
+  var touches = {};
+  wrap.addEventListener('touchstart', function(e){
+    if(e.touches.length === 2){
+      _lbZoom.pinching = true;
+      _lbZoom.lastDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    }
+  }, {passive:true});
+  wrap.addEventListener('touchmove', function(e){
+    if(_lbZoom.pinching && e.touches.length === 2){
+      e.preventDefault();
+      var dist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      var scale = dist / _lbZoom.lastDist;
+      var rect = wrap.getBoundingClientRect();
+      var cx = (e.touches[0].clientX + e.touches[1].clientX)/2 - rect.left;
+      var cy = (e.touches[0].clientY + e.touches[1].clientY)/2 - rect.top;
+      var imgX = (cx - _lbZoom.px) / _lbZoom.s;
+      var imgY = (cy - _lbZoom.py) / _lbZoom.s;
+      var ns = Math.max(1, Math.min(8, _lbZoom.s * scale));
+      _lbZoom.px = cx - imgX * ns;
+      _lbZoom.py = cy - imgY * ns;
+      _lbZoom.s = ns;
+      if(ns <= 1){ _lbZoom.px=0; _lbZoom.py=0; _lbZoom.s=1; }
+      _lbApplyZoom(img);
+      _lbShowZoomHint();
+      _lbZoom.lastDist = dist;
+    } else if(_lbZoom.s > 1.05 && e.touches.length === 1){
+      // Pan when zoomed
+      e.preventDefault();
+    }
+  }, {passive:false});
+  wrap.addEventListener('touchend', function(e){
+    if(e.touches.length < 2) _lbZoom.pinching = false;
+  }, {passive:true});
+  
+  // Double-click/tap toggle
+  var lastTap = 0;
+  wrap.addEventListener('dblclick', function(e){
+    e.preventDefault();
+    if(_lbZoom.s > 1.05){
+      _lbZoom.s=1; _lbZoom.px=0; _lbZoom.py=0;
+    } else {
+      var rect = wrap.getBoundingClientRect();
+      var mx = e.clientX - rect.left;
+      var my = e.clientY - rect.top;
+      var imgX = (mx - _lbZoom.px) / _lbZoom.s;
+      var imgY = (my - _lbZoom.py) / _lbZoom.s;
+      _lbZoom.s = 3;
+      _lbZoom.px = mx - imgX * 3;
+      _lbZoom.py = my - imgY * 3;
+    }
+    _lbApplyZoom(img);
+    _lbShowZoomHint();
+  });
+  
+  // Keyboard zoom
+  document.addEventListener('keydown', function(e){
+    var lb = document.getElementById('photo-lightbox');
+    if(!lb || lb.style.display === 'none') return;
+    if(e.key === '+' || e.key === '='){ _lbZoom.s = Math.min(8, _lbZoom.s * 1.2); _lbApplyZoom(img); _lbShowZoomHint(); }
+    else if(e.key === '-'){ _lbZoom.s = Math.max(1, _lbZoom.s * 0.8); if(_lbZoom.s<=1){_lbZoom.px=0;_lbZoom.py=0;_lbZoom.s=1;} _lbApplyZoom(img); _lbShowZoomHint(); }
+    else if(e.key === '0'){ _lbZoom.s=1;_lbZoom.px=0;_lbZoom.py=0; _lbApplyZoom(img); _lbShowZoomHint(); }
+  });
+}
+function _lbApplyZoom(img){
+  img.style.transform = 'translate('+_lbZoom.px+'px,'+_lbZoom.py+'px) scale('+_lbZoom.s+')';
+  img.style.transition = 'transform .15s ease-out';
+}
+function _lbResetZoom(){
+  _lbZoom.s=1; _lbZoom.px=0; _lbZoom.py=0;
+  var img = document.getElementById('lightbox-img');
+  if(img){ img.style.transform=''; img.style.transition=''; }
+}
+function _lbShowZoomHint(){
+  var hint = document.getElementById('lb-zoom-hint');
+  if(!hint){
+    hint = document.createElement('div');
+    hint.id = 'lb-zoom-hint';
+    hint.style.cssText = 'position:fixed;bottom:60px;right:20px;background:rgba(0,0,0,.55);color:rgba(255,255,255,.7);font-size:11px;padding:2px 8px;border-radius:4px;pointer-events:none;font-family:Calibri,sans-serif;z-index:10001;transition:opacity .3s;';
+    document.body.appendChild(hint);
+  }
+  hint.textContent = Math.round(_lbZoom.s*100)+'%';
+  hint.style.opacity = '1';
+  clearTimeout(hint._timer);
+  hint._timer = setTimeout(function(){ hint.style.opacity='0'; }, 1200);
+}
+
+// Hook into lightbox open to init zoom — deferred
+var _origLbNav = null;
+var _origCloseLb = null;
+setTimeout(function(){
+  _origLbNav = typeof lightboxNav === 'function' ? lightboxNav : null;
+  _origCloseLb = typeof closeLightbox === 'function' ? closeLightbox : null;
+  // Wrap lightboxNav to reset zoom on nav
+  if(_origLbNav){
+    lightboxNav = function(dir){
+      _lbResetZoom();
+      _origLbNav(dir);
+      // Re-add caption UI
+      setTimeout(function(){
+        var p = lbPhotos[lbIdx];
+        var wrap = document.getElementById('lb-caption-wrap');
+        if(wrap && p && typeof p==='object'){
+          var ci = wrap.querySelector('#lb-caption');
+          var di = wrap.querySelector('#lb-date');
+          if(ci) ci.value = p.caption||'';
+          if(di) di.value = p.date||'';
+        }
+      }, 100);
+    };
+  }
+  // Wrap closeLightbox to reset zoom
+  if(_origCloseLb){
+    closeLightbox = function(){
+      _lbResetZoom();
+      var cw = document.getElementById('lb-caption-wrap');
+      if(cw) cw.remove();
+      _origCloseLb();
+    };
+  }
+  // Init zoom when lightbox opens — use MutationObserver
+  var lb = document.getElementById('photo-lightbox');
+  if(lb){
+    var obs = new MutationObserver(function(mutations){
+      mutations.forEach(function(m){
+        if(m.attributeName === 'style' && lb.style.display !== 'none'){
+          setTimeout(_initLbZoom, 100);
+          _lbResetZoom();
+        }
+      });
+    });
+    obs.observe(lb, {attributes:true, attributeFilter:['style']});
+  }
+}, 600);
+
+// ── Non-destructive photo markup (4-field architecture) ──
+// Override saveLbMarkup to store markupObjects instead of baking
+var _ndSaveLbMarkup = function(){
+  var img = document.getElementById('lightbox-img');
+  var mkCanvas = document.getElementById('lb-markup-canvas');
+  if(!img || !mkCanvas) return;
+  var ctx = mkCanvas.getContext('2d');
+  
+  var p = lbPhotos[lbIdx];
+  if(!p || typeof p !== 'object') return;
+  
+  // Store the canvas image data as markupObjects (serialized canvas state)
+  // For simplicity, store as a dataURL of the markup layer only
+  var markupDataUrl = mkCanvas.toDataURL('image/png');
+  p.markupObjects = markupDataUrl; // Stores markup layer separately
+  p._markupCanvasW = mkCanvas.width;
+  p._markupCanvasH = mkCanvas.height;
+  
+  // Create original backup if first time
+  if(!p._origBackupId && p.d){
+    p._origBackupId = 'orig_'+p.id;
+    // Store original in ADB photos store
+    ADB.put('photos', {id: p._origBackupId, data: p.d}).catch(function(e){console.warn('Orig backup error:',e);});
+  }
+  
+  // Composite for display (non-destructive — original p.d is unchanged)
+  var out = document.createElement('canvas');
+  out.width = img.naturalWidth || mkCanvas.width;
+  out.height = img.naturalHeight || mkCanvas.height;
+  var outCtx = out.getContext('2d');
+  outCtx.drawImage(img, 0, 0, out.width, out.height);
+  outCtx.drawImage(mkCanvas, 0, 0, out.width, out.height);
+  
+  // Update display only — original is preserved
+  img.src = out.toDataURL('image/jpeg', 0.95);
+  document.getElementById('lb-download').href = img.src;
+  
+  // Clear markup canvas
+  ctx.clearRect(0, 0, mkCanvas.width, mkCanvas.height);
+  if(typeof lbMarkupUndo !== 'undefined') lbMarkupUndo = [];
+  
+  showToast('\u2713 Markup saved (non-destructive)');
+  if(lbPhotoCtx && lbPhotoCtx.renderer) lbPhotoCtx.renderer();
+  saveState();
+};
+// Replace the original saveLbMarkup — deferred
+setTimeout(function(){
+  if(typeof saveLbMarkup === 'function') saveLbMarkup = _ndSaveLbMarkup;
+}, 500);
+
+</script>
+
 <script id="embedded-state" type="application/json">{}</script>
 
 <script>
