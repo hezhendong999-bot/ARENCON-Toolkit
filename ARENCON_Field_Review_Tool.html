@@ -4451,8 +4451,10 @@ function _runPdfPages(pdf,bn,folder,total,arrayBuf){
         pdf.getPage(pg).then(function(page){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
-          // Render at 3x for crisp drawings — no cap needed for image mode
-          var hiScale=Math.min(4.0,4096/pw,4096/ph);
+          // Device-aware render cap: iPhone canvas limit ~16.7MP (4096px), iPad/Desktop ~67MP (8192px)
+          var _isIPhone=/iPhone|iPod/.test(navigator.userAgent)&&!(/iPad/.test(navigator.userAgent));
+          var _pdfMaxDim=_isIPhone?4096:8192;
+          var hiScale=Math.min(4.0,_pdfMaxDim/pw,_pdfMaxDim/ph);
           var hiVp=page.getViewport({scale:hiScale});
           var hc=document.createElement('canvas');
           hc.width=Math.round(hiVp.width);
@@ -4862,7 +4864,9 @@ function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
         pdf.getPage(pg).then(function(page){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
-          var hiScale=Math.min(4.0,4096/pw,4096/ph);
+          var _isIPhone2=/iPhone|iPod/.test(navigator.userAgent)&&!(/iPad/.test(navigator.userAgent));
+          var _pdfMaxDim2=_isIPhone2?4096:8192;
+          var hiScale=Math.min(4.0,_pdfMaxDim2/pw,_pdfMaxDim2/ph);
           var hiVp=page.getViewport({scale:hiScale});
           var hc=document.createElement('canvas');
           hc.width=Math.round(hiVp.width);
