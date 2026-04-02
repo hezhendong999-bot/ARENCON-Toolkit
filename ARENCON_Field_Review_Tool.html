@@ -178,8 +178,8 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .section-nav{background:linear-gradient(135deg,#1B2438 0%,#243048 100%);display:flex;gap:0;overflow-x:auto;padding:0 16px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav::-webkit-scrollbar{display:none;}
 .nav-tab{padding:11px 18px;font-family:Calibri,sans-serif;font-weight:600;font-size:calc(15px + var(--ts));letter-spacing:.4px;color:var(--silver);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;user-select:none;}.nav-tab:hover{color:white;}.nav-tab.active{color:white;border-bottom-color:var(--red);}
 #issue-status-badge{transition:filter .15s,transform .15s;}#issue-status-badge:hover{filter:brightness(1.2);transform:scale(1.05);}
-.main-wrap{max-width:1400px;margin:0 auto;padding:22px 18px 70px;box-sizing:border-box;overflow-x:hidden;min-height:calc(100vh - 60px);}
-.panel{display:none;opacity:0;transition:opacity .15s ease;}.panel.active{display:block;opacity:1;}
+.main-wrap{max-width:1400px;margin:0 auto;padding:22px 18px 70px;box-sizing:border-box;overflow-x:hidden;}
+.panel{display:none;}.panel.active{display:block;}
 .card{background:white;border-radius:11px;border:1.5px solid #DDE1E7;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;overflow:hidden;}
 .card-header{background:var(--arencon);color:white;padding:13px 20px;font-family:Calibri,sans-serif;font-weight:700;font-size:calc(15px + var(--ts));letter-spacing:.5px;display:flex;align-items:center;gap:10px;}
 .card-header.mid{background:var(--arencon-mid);}.card-header.red{background:var(--red);}
@@ -700,11 +700,15 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 /* Mobile context bar hidden on desktop */
 @media(min-width:901px){#dv-mobile-context{display:none!important;}}
 @media(max-width:900px){
-/* ═══ MOBILE TOP TOOLBAR — horizontally scrollable, all tools accessible ═══ */
-.dv-sidebar-tools{position:relative!important;width:100%!important;height:auto!important;max-height:none!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:flex-start!important;overflow-x:auto!important;overflow-y:hidden!important;padding:4px 6px!important;gap:2px!important;border-right:none!important;border-bottom:1px solid #3a3e48!important;border-top:none!important;touch-action:pan-x!important;z-index:20!important;background:#1e2028!important;flex-shrink:0!important;order:0!important;-webkit-overflow-scrolling:touch!important;}
-.dv-sidebar-tools .tool-sep{width:1px!important;height:28px!important;margin:0 2px!important;flex-shrink:0!important;background:#3a3e48!important;}
+/* ═══ MOBILE TOP TOOLBAR — tools row sits below dv-toolbar in normal flow ═══ */
+.dv-sidebar-tools{position:relative!important;width:100%!important;height:auto!important;max-height:none!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:space-evenly!important;overflow:visible!important;padding:4px 6px!important;gap:2px!important;border-right:none!important;border-bottom:1px solid #3a3e48!important;border-top:none!important;touch-action:manipulation!important;z-index:20!important;background:#1e2028!important;flex-shrink:0!important;order:0!important;}
+.dv-sidebar-tools .tool-sep{display:none!important;}
 .dv-sidebar-tools .tool-slider-wrap{display:none!important;}
 .dv-sidebar-tools .tool-stepper-wrap{display:none!important;}
+.dv-sidebar-tools #tool-color-group{display:none!important;}
+.dv-sidebar-tools #mk-copy-btn{display:none!important;}
+.dv-sidebar-tools .tool-btn[onclick="markupUndo()"]{display:none!important;}
+.dv-sidebar-tools .tool-btn[onclick="markupRedo()"]{display:none!important;}
 .dv-sidebar-tools .tool-btn{width:38px!important;height:38px!important;flex-shrink:0!important;border-radius:10px!important;}
 .dv-sidebar-tools .tool-group .tool-submenu{bottom:auto!important;top:100%!important;left:50%!important;transform:translateX(-50%)!important;}
 .dv-sidebar-tools::-webkit-scrollbar{display:none!important;}
@@ -3239,20 +3243,10 @@ function _escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;
 function switchTab(tab){currentTab=tab;sessionStorage.setItem('ARENCON_lastTab',tab);document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.toggle('active',t.getAttribute('data-tab')===tab);});document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+tab);});if(tab==='deficiencies')renderDeficiencyPanel();if(tab==='drawings')renderDrawingGallery();if(tab==='photos')renderPhotoGallery();if(tab==='pins'){if(typeof _tasksView!=='undefined'&&_tasksView==='kanban')renderPinsKanban();else renderTasksTable();}}
 
 function goToDashboard(){
-  // Hub mode: navigate to Hub project detail page
+  // Hub mode: show Save & Leave prompt then navigate
   if(_csHubMode){
     var destUrl='ARENCON_Project_Hub.html'+(_csProjectId?'?open='+encodeURIComponent(_csProjectId):'');
-    // Check if there are recent unsaved changes (within last 3s since auto-save debounce is 2s)
-    var p=getProject();
-    var lastMod=p&&p._localModifiedAt?new Date(p._localModifiedAt).getTime():0;
-    var lastSync=p&&p._cloudSyncedAt?new Date(p._cloudSyncedAt).getTime():0;
-    var hasUnsaved=lastMod>(lastSync+3000);
-    if(hasUnsaved){
-      _showHubSaveLeaveModal(destUrl);
-    }else{
-      // No unsaved changes — navigate directly without prompt
-      window.location.href=destUrl;
-    }
+    _showHubSaveLeaveModal(destUrl);
     return;
   }
   // Check for unsaved changes before leaving project
@@ -3803,15 +3797,7 @@ function compressImage(file,maxW,quality,cb){
       if(h>maxW){w=Math.round(w*maxW/h);h=maxW;}
       var c=document.createElement('canvas');c.width=w;c.height=h;
       c.getContext('2d').drawImage(bmp,0,0,w,h);bmp.close();
-      var du=c.toDataURL('image/jpeg',quality);
-      // Validate: if output is suspiciously small (<5KB for a photo), the canvas render failed — fallback
-      if(du.length<5000&&w>100){
-        console.warn('[compressImage] createImageBitmap produced suspiciously small output ('+du.length+' chars), falling back');
-        c.width=1;c.height=1;// free memory
-        _compressImageFallback(file,maxW,quality,cb);
-        return;
-      }
-      cb(du,w,h);
+      cb(c.toDataURL('image/jpeg',quality),w,h);
     }).catch(function(){_compressImageFallback(file,maxW,quality,cb);});
   }else{_compressImageFallback(file,maxW,quality,cb);}
 }
@@ -3976,8 +3962,8 @@ document.addEventListener('keydown',function(e){
         _mkSelectedId=null;_mkSelectedIds=[];if(typeof renderAllMarkup==='function')renderAllMarkup();
         didCancel=true;
       }
-      // ESC NEVER closes the drawing viewer — only cancels active tool/copy/selection (Rule 29)
-      // If nothing was active, ESC does nothing
+      // Only close viewer if nothing was active to cancel
+      if(!didCancel&&typeof closeDrawingViewer==='function'){closeDrawingViewer();}
       return;
     }
     var dd=document.getElementById('download-dialog');if(dd&&dd.style.display==='flex'){if(typeof closeDownloadDialog==='function')closeDownloadDialog();return;}
@@ -4465,10 +4451,8 @@ function _runPdfPages(pdf,bn,folder,total,arrayBuf){
         pdf.getPage(pg).then(function(page){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
-          // Device-aware render cap: iPhone canvas limit ~16.7MP (4096px), iPad/Desktop ~67MP (8192px)
-          var _isIPhone=/iPhone|iPod/.test(navigator.userAgent)&&!(/iPad/.test(navigator.userAgent));
-          var _pdfMaxDim=_isIPhone?4096:8192;
-          var hiScale=Math.min(4.0,_pdfMaxDim/pw,_pdfMaxDim/ph);
+          // Render at 3x for crisp drawings — no cap needed for image mode
+          var hiScale=Math.min(4.0,4096/pw,4096/ph);
           var hiVp=page.getViewport({scale:hiScale});
           var hc=document.createElement('canvas');
           hc.width=Math.round(hiVp.width);
@@ -4878,9 +4862,7 @@ function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
         pdf.getPage(pg).then(function(page){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
-          var _isIPhone2=/iPhone|iPod/.test(navigator.userAgent)&&!(/iPad/.test(navigator.userAgent));
-          var _pdfMaxDim2=_isIPhone2?4096:8192;
-          var hiScale=Math.min(4.0,_pdfMaxDim2/pw,_pdfMaxDim2/ph);
+          var hiScale=Math.min(4.0,4096/pw,4096/ph);
           var hiVp=page.getViewport({scale:hiScale});
           var hc=document.createElement('canvas');
           hc.width=Math.round(hiVp.width);
@@ -4993,23 +4975,8 @@ function _cleanEmptyFolders(p){
   p._folders=p._folders.filter(function(fn){return usedFolders[fn];});
 }
 function renameDrawing(id){var p=getProject();var d=p.drawings.find(function(x){return x.id===id;});if(!d)return;_aPrompt('Rename:',d.name,function(n){if(n){d.name=n;saveToLS();renderDrawingGallery();}});}
-function removeDrawing(id){_aConfirm('Delete this drawing?',function(){var p=getProject();
-// Find drawing before removing to get R2 key for cleanup
-var dwgToDelete=p.drawings.find(function(x){return x.id===id;});
-p.drawings=p.drawings.filter(function(x){return x.id!==id;});(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});});(p.generalDeficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});
+function removeDrawing(id){_aConfirm('Delete this drawing?',function(){var p=getProject();p.drawings=p.drawings.filter(function(x){return x.id!==id;});(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});});(p.generalDeficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});
 ADB.delete('drawings',id).catch(function(){});
-// Delete from R2 so it can't be re-downloaded by auto-prefetch or orphan recovery
-if(dwgToDelete&&dwgToDelete.r2Key&&_csHubMode){
-  var _tok=localStorage.getItem('sb-access-token');
-  var _hdrs={};if(_tok)_hdrs['Authorization']='Bearer '+_tok;
-  fetch('https://arencon-r2-worker.hezhendong999.workers.dev/'+dwgToDelete.r2Key,{method:'DELETE',headers:_hdrs}).catch(function(){});
-  // Also delete markup JSON if it exists
-  var _mFid=_getR2FolderId();
-  if(_mFid){
-    var _mkPath='/photos/'+encodeURIComponent(_mFid)+'/frt/markup/'+encodeURIComponent(id)+'.json';
-    fetch('https://arencon-r2-worker.hezhendong999.workers.dev'+_mkPath,{method:'DELETE',headers:_hdrs}).catch(function(){});
-  }
-}
 ADB.saveFullProject(p).then(function(){ADB.markDirty();updateSaveTimestamp();}).catch(function(e){console.error('Delete save error',e);});
 _debouncedCloudSave();
 renderDrawingGallery();},'Delete');}
@@ -5382,7 +5349,7 @@ function _openDrawingImage(d,drawingId){
       img.onload=function(){
         img.style.display='';// Ensure visible after load
         if(prevBlobUrl){URL.revokeObjectURL(prevBlobUrl);}
-        fitDrawing();renderPinsOnDrawing();renderTasksPanel();resizeMarkupCanvas();initMarkupEvents();initSelectModeEvents();
+        fitDrawing();renderPinsOnDrawing();renderTasksPanel();_lazyCanvasSize();initMarkupEvents();initSelectModeEvents();
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
       };
       img.onerror=function(){
@@ -5457,7 +5424,8 @@ function prevDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var 
 function nextDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx+1)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
 
 function fitDrawing(){
-  requestAnimationFrame(function(){
+  // Double-rAF: first rAF schedules after current frame, second runs after browser reflow
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
     var a=document.getElementById('dv-canvas-area');
     if(!a)return;
     var aw=a.clientWidth,ah=a.clientHeight;
@@ -5475,7 +5443,7 @@ function fitDrawing(){
     dvState.fitScale=s;dvState.scale=s;
     dvState.panX=(aw-iw*s)/2;dvState.panY=(ah-ih*s)/2;
     applyTransform();
-  });
+  });});
 }
 function applyTransform(){
   document.getElementById('dv-img-wrap').style.transform='translate3d('+dvState.panX+'px,'+dvState.panY+'px,0) scale('+dvState.scale+')';
@@ -5725,10 +5693,7 @@ function deleteAllMarkupOnDrawing(){
       }
     }
   }
-  renderAllMarkup();saveMarkupData();
-  // Clear legacy fields AFTER saveMarkupData (which overwrites markupData with canvas.toDataURL)
-  if(_dwgDel){_dwgDel.markupData=null;_dwgDel.markupR2Saved=false;_dwgDel.markupShapes=[];_mkShapes=[];saveToLS();}
-  _forceCloudSave();
+  renderAllMarkup();saveMarkupData();_forceCloudSave();
   toast('🗑️ Deleted '+count+' markup object'+(count!==1?'s':''));
   },'Delete');
 }
@@ -5830,18 +5795,6 @@ window.addEventListener('resize',function(){
     },500);
   },50);
 });
-// Re-fit drawing when page regains visibility (DevTools close, tab switch)
-document.addEventListener('visibilitychange',function(){
-  if(document.visibilityState==='visible'&&document.getElementById('drawing-viewer').classList.contains('open')){
-    setTimeout(function(){fitDrawing();renderPinsOnDrawing();},100);
-    setTimeout(function(){fitDrawing();},400);
-  }
-});
-window.addEventListener('focus',function(){
-  if(document.getElementById('drawing-viewer').classList.contains('open')){
-    setTimeout(function(){fitDrawing();renderPinsOnDrawing();},100);
-  }
-});
 window.addEventListener('orientationchange',function(){
   setTimeout(function(){
     if(typeof fitDrawing==='function')fitDrawing();
@@ -5877,17 +5830,8 @@ window.addEventListener('orientationchange',function(){
 });
 window.addEventListener('resize',function(){
   if(document.getElementById('drawing-viewer')&&document.getElementById('drawing-viewer').classList.contains('open')){
-    if(mkState&&mkState.drawing)return;
     clearTimeout(window._dvResizeTimer);
-    window._dvResizeTimer=setTimeout(function(){
-      if(mkState&&mkState.drawing)return;
-      if(typeof fitDrawing==='function')fitDrawing();
-      if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
-      // Multiple delayed passes for DevTools close (viewport settles gradually)
-      setTimeout(function(){if(!mkState||!mkState.drawing){fitDrawing();renderPinsOnDrawing();}},300);
-      setTimeout(function(){if(!mkState||!mkState.drawing){fitDrawing();renderPinsOnDrawing();}},700);
-      setTimeout(function(){if(!mkState||!mkState.drawing){fitDrawing();}},1200);
-    },100);
+    window._dvResizeTimer=setTimeout(function(){if(typeof fitDrawing==='function')fitDrawing();},200);
   }
 });
 function layerToggle(layer,show){
@@ -6111,8 +6055,6 @@ function _mkNewId(){return 'mk_'+ (_mkNextId++);}
 // ── UNDO SYSTEM (object snapshots, not pixel data) ──
 function mkPushHistory(){
   var snap=JSON.stringify(_mkObjects);
-  // Skip duplicate: if snapshot matches current top of stack, don't push
-  if(_mkUndoStack.length>0&&_mkUndoStack[_mkUndoIdx]===snap)return;
   if(_mkUndoIdx<_mkUndoStack.length-1)_mkUndoStack=_mkUndoStack.slice(0,_mkUndoIdx+1);
   _mkUndoStack.push(snap);
   if(_mkUndoStack.length>40)_mkUndoStack.shift();
@@ -6160,10 +6102,10 @@ function resizeMarkupCanvas(){
   var img=document.getElementById('dv-image');
   if(!canvas||!img)return;
   var iw=img.naturalWidth, ih=img.naturalHeight;
-  // Mobile cap: 1200px on iOS (was 2000 — reduces GPU memory from ~36MB to ~12MB per canvas)
-  var _isIPhone=(/iPhone|iPod/.test(navigator.userAgent))&&!(/iPad/.test(navigator.userAgent));
-  var _isMobileCap=_isIPhone||(window.innerWidth<=900&&'ontouchstart' in window);
-  var mkMaxDim=_isIPhone?1536:(_isMobileCap?2400:3000);
+  // Device-aware canvas caps: iPhone 1536, iPad/tablet 2400, desktop 3000
+  var _isIPhone=/iPhone|iPod/.test(navigator.userAgent);
+  var _isIPadOrTablet=(/iPad/.test(navigator.userAgent))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||(window.innerWidth<=1200&&'ontouchstart' in window&&!_isIPhone);
+  var mkMaxDim=_isIPhone?1536:(_isIPadOrTablet?2400:3000);
   var mkScale=1;
   if(Math.max(iw,ih)>mkMaxDim){mkScale=mkMaxDim/Math.max(iw,ih);}
   var cw=Math.round(iw*mkScale), ch=Math.round(ih*mkScale);
@@ -6404,46 +6346,36 @@ function _drawSelectionHandles(ctx,obj){
   var zoom=dvState.scale||1;
   // invZ: canvas-coordinate size for a fixed screen pixel — no dpr since ctx is identity
   var invZ=1/zoom;
-  var pad=4*invZ;          // 4px screen padding around bounding box
-  var hs=4*invZ;           // 4px screen half-size for corner handles (small circles)
-  var dashLen=Math.max(2,5*invZ), dashGap=Math.max(1,3*invZ);
-  var lw=Math.max(0.3,1*invZ);
-  var bx1=b.x1-pad, by1=b.y1-pad, bw=(b.x2-b.x1)+pad*2, bh=(b.y2-b.y1)+pad*2;
+  var pad=6*invZ;          // 6px screen padding around bounding box
+  var hs=7*invZ;           // 7px screen half-size for corner handles
+  var delR=9*invZ;         // 9px screen radius for × button
+  var dashLen=Math.max(2,6*invZ), dashGap=Math.max(1,4*invZ);
+  var lw=Math.max(0.3,1.5*invZ);
   ctx.save();
-  // Subtle selection rectangle — thin solid line with slight blue tint fill
-  ctx.fillStyle='rgba(33,150,243,.04)';
-  ctx.fillRect(bx1,by1,bw,bh);
-  ctx.strokeStyle='rgba(33,150,243,.6)';
+  // Dashed selection rectangle
+  ctx.strokeStyle='#2196F3';
   ctx.lineWidth=lw;
   ctx.setLineDash([dashLen,dashGap]);
-  ctx.strokeRect(bx1,by1,bw,bh);
+  ctx.strokeRect(b.x1-pad,b.y1-pad,(b.x2-b.x1)+pad*2,(b.y2-b.y1)+pad*2);
   ctx.setLineDash([]);
-  // Small circular corner resize handles — filled blue dots
-  var corners=[[bx1,by1],[bx1+bw,by1],[bx1,by1+bh],[bx1+bw,by1+bh]];
-  corners.forEach(function(pt){
-    ctx.beginPath();ctx.arc(pt[0],pt[1],hs,0,Math.PI*2);
-    ctx.fillStyle='#2196F3';ctx.fill();
-    ctx.strokeStyle='white';ctx.lineWidth=Math.max(0.3,0.8*invZ);ctx.stroke();
+  // Corner resize handles
+  [[b.x1-pad,b.y1-pad],[b.x2+pad,b.y1-pad],[b.x1-pad,b.y2+pad],[b.x2+pad,b.y2+pad]].forEach(function(pt){
+    ctx.fillStyle='white';ctx.strokeStyle='#2196F3';ctx.lineWidth=lw;
+    ctx.fillRect(pt[0]-hs,pt[1]-hs,hs*2,hs*2);
+    ctx.strokeRect(pt[0]-hs,pt[1]-hs,hs*2,hs*2);
   });
-  // Edge midpoint handles — tiny circles for edge resize
-  var midH=3*invZ;
-  [[bx1+bw/2,by1],[bx1+bw/2,by1+bh],[bx1,by1+bh/2],[bx1+bw,by1+bh/2]].forEach(function(pt){
-    ctx.beginPath();ctx.arc(pt[0],pt[1],midH,0,Math.PI*2);
-    ctx.fillStyle='white';ctx.fill();
-    ctx.strokeStyle='#2196F3';ctx.lineWidth=Math.max(0.3,0.6*invZ);ctx.stroke();
-  });
-  // Small × delete button — subtle, top-right, slightly offset
-  var delR=6*invZ;
-  var delOff=delR+pad+2*invZ;
+  // × delete button — top-right, offset from corner, clamped to canvas
+  var delOff=delR+pad;
   var dx=b.x2+delOff, dy=b.y1-delOff;
   // Clamp within canvas bounds so button is always tappable
   var cw=ctx.canvas.width, ch=ctx.canvas.height;
   dx=Math.max(delR+2,Math.min(cw-delR-2,dx));
   dy=Math.max(delR+2,Math.min(ch-delR-2,dy));
   ctx.beginPath();ctx.arc(dx,dy,delR,0,Math.PI*2);
-  ctx.fillStyle='rgba(192,57,43,.85)';ctx.fill();
-  var xOff=delR*0.4;
-  ctx.strokeStyle='white';ctx.lineWidth=Math.max(0.5,1.2*invZ);ctx.lineCap='round';
+  ctx.fillStyle='#C0392B';ctx.fill();
+  ctx.strokeStyle='white';ctx.lineWidth=lw;ctx.stroke();
+  ctx.strokeStyle='white';ctx.lineWidth=Math.max(0.5,1.5*invZ);ctx.lineCap='round';
+  var xOff=delR*0.45;
   ctx.beginPath();ctx.moveTo(dx-xOff,dy-xOff);ctx.lineTo(dx+xOff,dy+xOff);ctx.stroke();
   ctx.beginPath();ctx.moveTo(dx+xOff,dy-xOff);ctx.lineTo(dx-xOff,dy+xOff);ctx.stroke();
   ctx.restore();
@@ -6466,19 +6398,18 @@ function _mkHitHandle(x,y,obj){
   // Match the zoom-aware sizing from _drawSelectionHandles
   var zoom=dvState.scale||1;
   var invZ=1/zoom;
-  var pad=4*invZ, delR=6*invZ, delOff=delR+pad+2*invZ;
-  var hs=Math.max(8,12*invZ); // generous tap zone
+  var pad=6*invZ, delR=9*invZ, delOff=delR+pad;
+  var hs=Math.max(8,14*invZ); // generous tap zone
   // Check × delete button first — clamped to canvas like _drawSelectionHandles
   var dx=b.x2+delOff, dy=b.y1-delOff;
   var canvas=document.getElementById('markup-canvas');
   if(canvas){var cw=canvas.width,ch=canvas.height;dx=Math.max(delR+2,Math.min(cw-delR-2,dx));dy=Math.max(delR+2,Math.min(ch-delR-2,dy));}
-  if(Math.abs(x-dx)<delR*2&&Math.abs(y-dy)<delR*2)return 'delete';
-  var bx1=b.x1-pad,by1=b.y1-pad,bw=(b.x2-b.x1)+pad*2,bh=(b.y2-b.y1)+pad*2;
+  if(Math.abs(x-dx)<delR*1.5&&Math.abs(y-dy)<delR*1.5)return 'delete';
   var handles=[
-    {name:'nw',x:bx1,y:by1},
-    {name:'ne',x:bx1+bw,y:by1},
-    {name:'sw',x:bx1,y:by1+bh},
-    {name:'se',x:bx1+bw,y:by1+bh}
+    {name:'nw',x:b.x1-pad,y:b.y1-pad},
+    {name:'ne',x:b.x2+pad,y:b.y1-pad},
+    {name:'sw',x:b.x1-pad,y:b.y2+pad},
+    {name:'se',x:b.x2+pad,y:b.y2+pad}
   ];
   for(var i=0;i<handles.length;i++){
     if(Math.abs(x-handles[i].x)<hs&&Math.abs(y-handles[i].y)<hs)return handles[i].name;
@@ -6727,8 +6658,7 @@ function initMarkupEvents(){
         renderAllMarkup();
         _mkDrawCache=ctx2.getImageData(0,0,canvas2.width,canvas2.height);
       }
-      // Shape preview — use identity transform (getPos returns buffer pixel coords, same as renderAllMarkup)
-      ctx2.setTransform(1,0,0,1,0,0);
+      ctx2.setTransform(dpr2,0,0,dpr2,0,0);
       ctx2.save();
       ctx2.globalAlpha=getOpacity();
       ctx2.strokeStyle=mkState.color;ctx2.fillStyle=mkState.color;ctx2.lineWidth=getSize();
@@ -6742,6 +6672,7 @@ function initMarkupEvents(){
     if(!mkState.drawing)return;
     mkState.drawing=false;
     _mkHlSnap=null;
+    mkPushHistory();
 
     var type=mkState.tool;
     if(type==='pen'||type==='highlight'||type==='eraser'){
@@ -6749,16 +6680,17 @@ function initMarkupEvents(){
         var newPenObj={id:_mkNewId(),type:type,points:_penPoints.slice(),
           color:mkState.color,size:getSize(),opacity:getOpacity()};
         _mkObjects.push(newPenObj);
+        // Do NOT auto-select — stay in drawing mode so user can keep drawing
       }
     } else if(type&&type!=='polyline'&&type!=='select'){
       var newShapeObj={id:_mkNewId(),type:type,
         x1:mkState.startX,y1:mkState.startY,x2:mkState._endX||mkState.startX,y2:mkState._endY||mkState.startY,
         color:mkState.color,size:getSize(),opacity:getOpacity()};
       _mkObjects.push(newShapeObj);
+      // Do NOT auto-select — stay in drawing mode so user can keep drawing
     }
     _penPoints=[];
     _mkDrawCache=null;
-    mkPushHistory();// Push AFTER adding object — captures complete "after" state
     renderAllMarkup();
     saveMarkupData();
   }
@@ -6885,9 +6817,9 @@ function initMarkupEvents(){
       // Draw rubber band overlay
       renderAllMarkup();
       var rb=_mkRubberBand;
-      var ctx=canvas.getContext('2d');
-      ctx.save();ctx.setTransform(1,0,0,1,0,0);
-      ctx.strokeStyle='#2196F3';ctx.lineWidth=1.5;ctx.setLineDash([6,3]);
+      var ctx=canvas.getContext('2d');var dpr=canvas._dpr||1;
+      ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
+      ctx.strokeStyle='#2196F3';ctx.lineWidth=1.5/dpr;ctx.setLineDash([6,3]);
       ctx.fillStyle='rgba(33,150,243,.08)';
       var rx=Math.min(rb.sx,rb.ex),ry=Math.min(rb.sy,rb.ey),rw=Math.abs(rb.ex-rb.sx),rh=Math.abs(rb.ey-rb.sy);
       ctx.fillRect(rx,ry,rw,rh);ctx.strokeRect(rx,ry,rw,rh);
@@ -7101,18 +7033,11 @@ function initToolbarTooltips(){
     });
     el.addEventListener('mouseleave',function(){tip.style.display='none';});
   });
-  // Mobile: add touchend handlers to shape sub-tool buttons (canvas touchend blocks onclick)
-  document.querySelectorAll('.sub-tool-btn').forEach(function(btn){
-    btn.addEventListener('touchend',function(e){
-      e.stopPropagation();e.preventDefault();
-      var oc=btn.getAttribute('onclick');
-      if(oc){try{eval(oc);}catch(ex){}}
-    },{passive:false});
-  });
 }
 
 // ═══ SHAPES SUBMENU ═══
 var _shapesMenuOpen=false;
+var _shapesMenuJustOpened=false;
 function toggleShapesMenu(e){
   e.stopPropagation();
   e.preventDefault();
@@ -7120,6 +7045,7 @@ function toggleShapesMenu(e){
   if(!sub)return;
   _shapesMenuOpen=!_shapesMenuOpen;
   if(_shapesMenuOpen){
+    _shapesMenuJustOpened=true;
     var r=e.currentTarget.getBoundingClientRect();
     if(window.innerWidth<=900){
       // Mobile: position below the toolbar (toolbar is at top now)
@@ -7137,7 +7063,17 @@ function toggleShapesMenu(e){
     }
   }
   sub.classList.toggle('open',_shapesMenuOpen);
-  if(_shapesMenuOpen){setTimeout(function(){document.addEventListener('click',function h(){sub.classList.remove('open');_shapesMenuOpen=false;document.removeEventListener('click',h);},{once:true});},50);}
+  if(_shapesMenuOpen){
+    setTimeout(function(){_shapesMenuJustOpened=false;},100);
+    function _closeShapesMenu(ev){
+      if(_shapesMenuJustOpened)return;
+      sub.classList.remove('open');_shapesMenuOpen=false;
+      document.removeEventListener('click',_closeShapesMenu);
+      document.removeEventListener('touchend',_closeShapesMenu);
+    }
+    document.addEventListener('click',_closeShapesMenu);
+    document.addEventListener('touchend',_closeShapesMenu);
+  }
 }
 function setToolbarToolFromShape(tool){
   var btn=document.getElementById('mk-shapes');
@@ -8584,7 +8520,6 @@ function reopenDeficiency(did){
     var d=f.defic;
     var p=getProject();
     var inst=(p&&p.currentFrtInstance)||1;
-    var prevClosedInst=d.closedOnInstance||inst;
     d.status='open';
     d.closedOnInstance=null;
     d.closedDate=null;
@@ -8597,7 +8532,7 @@ function reopenDeficiency(did){
       id:'act_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
       date:new Date().toISOString().split('T')[0],
       label:'Re-opened',
-      text:'Previously closed in FRT #'+prevClosedInst,
+      text:'Previously closed in FRT #'+(d.closedOnInstance||'?'),
       photos:[],
       instance:inst,
       autoGenerated:true
@@ -8900,7 +8835,7 @@ function processEntryPhotos(did,ei,files){
 }
 
 function addDeficiencyForGroup(ctrId){var p=getProject();var num=p.nextDeficNum++;var d=newDeficiency(num);if(ctrId){var c=p.contractors.find(function(x){return x.id===ctrId;});if(c)c.deficiencies.push(d);}else{p.generalDeficiencies.push(d);}pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();setTimeout(function(){var el=document.getElementById('defic-item-'+d.id);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},100);}
-function updateDeficField(did,field,val){var f=findDeficiency(did);if(f){f.defic[field]=val;if(field==='priority'&&val!=='high'&&f.defic.iar){f.defic.iar=false;}saveToLS();if(field==='status'){renderSummaryTable();_folderQuickSave();}}}
+function updateDeficField(did,field,val){var f=findDeficiency(did);if(f){f.defic[field]=val;saveToLS();if(field==='status'){renderSummaryTable();_folderQuickSave();}}}
 
 function toggleIARInPlace(btn,did){
   var f=findDeficiency(did);if(!f)return;
@@ -8952,57 +8887,24 @@ function moveDeficiency(did){
   else{p.contractors.forEach(function(c,i){if(c.deficiencies===f.arr)currentLabel=c.name||'Contractor '+(i+1);});}
   targets=targets.filter(function(t){return t.label!==currentLabel;});
   if(!targets.length){toast('No other contractors to move to');return;}
-  // Build picker — include "+ New Contractor" option
+  // Build picker
   var opts=targets.map(function(t,i){return '<option value="'+i+'">'+escHtml(t.label)+'</option>';}).join('');
-  opts+='<option value="__new__">+ New Contractor</option>';
   var html='<div style="text-align:center;padding:20px;font-family:Calibri,sans-serif;">'+
     '<div style="font-weight:700;font-size:calc(15px + var(--ts));margin-bottom:12px;">Move Deficiency #'+f.defic.num+'</div>'+
     '<div style="font-size:calc(12px + var(--ts));color:#4A5568;margin-bottom:12px;">Currently under: <strong>'+escHtml(currentLabel)+'</strong></div>'+
     '<select id="move-target" style="width:100%;padding:8px;border:1.5px solid #DDE1E7;border-radius:6px;font-family:inherit;font-size:calc(13px + var(--ts));margin-bottom:14px;">'+opts+'</select>'+
-    '<div id="move-new-ctr-wrap" style="display:none;margin-bottom:14px;"><input id="move-new-ctr-name" type="text" placeholder="New contractor name" style="width:100%;padding:8px;border:1.5px solid #DDE1E7;border-radius:6px;font-family:inherit;font-size:calc(13px + var(--ts));box-sizing:border-box;"></div>'+
     '<div style="display:flex;gap:8px;justify-content:center;">'+
     '<button onclick="document.getElementById(\'move-modal\').remove()" style="padding:8px 20px;border:1.5px solid #DDE1E7;border-radius:6px;background:white;cursor:pointer;font-family:inherit;">Cancel</button>'+
     '<button id="move-confirm-btn" style="padding:8px 20px;border:none;border-radius:6px;background:#1565C0;color:white;font-weight:700;cursor:pointer;font-family:inherit;">Move</button>'+
     '</div></div>';
   var overlay=document.createElement('div');overlay.id='move-modal';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10050;display:flex;align-items:center;justify-content:center;';
-  var _isDark=document.body.classList.contains('dark-mode');
-  var card=document.createElement('div');card.style.cssText='background:'+(_isDark?'#1e2533':'white')+';border-radius:12px;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3);color:'+(_isDark?'#d0d8f0':'inherit')+';';
+  var card=document.createElement('div');card.style.cssText='background:white;border-radius:12px;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3);';
   card.innerHTML=html;overlay.appendChild(card);document.body.appendChild(overlay);
-  // Style inputs for dark mode
-  if(_isDark){
-    card.querySelectorAll('select,input[type="text"]').forEach(function(el){el.style.background='#2a3040';el.style.color='#d0d8f0';el.style.borderColor='#3a4050';});
-    var cancelBtn=card.querySelector('button[onclick*="move-modal"]');
-    if(cancelBtn){cancelBtn.style.background='#2a3040';cancelBtn.style.color='#d0d8f0';cancelBtn.style.borderColor='#3a4050';}
-  }
   overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
-  // Show/hide new contractor name input
-  document.getElementById('move-target').onchange=function(){
-    var wrap=document.getElementById('move-new-ctr-wrap');
-    if(wrap)wrap.style.display=this.value==='__new__'?'block':'none';
-  };
   document.getElementById('move-confirm-btn').onclick=function(){
     var sel=document.getElementById('move-target');
-    var val=sel.value;
-    // Handle "+ New Contractor"
-    if(val==='__new__'){
-      var newName=(document.getElementById('move-new-ctr-name').value||'').trim();
-      if(!newName){toast('Enter a contractor name');return;}
-      // Check for duplicate
-      var dup=p.contractors.some(function(c){return(c.name||'').toLowerCase()===newName.toLowerCase();});
-      if(dup){toast('Contractor "'+newName+'" already exists');return;}
-      // Create new contractor
-      var newCtr={id:'ctr_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:newName,deficiencies:[]};
-      p.contractors.push(newCtr);
-      // Move deficiency
-      f.arr.splice(f.idx,1);
-      newCtr.deficiencies.push(f.defic);
-      overlay.remove();
-      pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();
-      toast('Moved #'+f.defic.num+' → '+newName+' (new)');
-      return;
-    }
-    var t=targets[parseInt(val)];
+    var t=targets[parseInt(sel.value)];
     // Remove from current array
     f.arr.splice(f.idx,1);
     // Add to target
@@ -10146,16 +10048,6 @@ function _mlbTouchInit(wrap){
       var nd=Math.hypot(dx,dy);var ratio=nd/_tDist2;
       var ns=Math.max(1,Math.min(8,_mlbZ.pinchS*ratio));
       var mx=(e.touches[0].clientX+e.touches[1].clientX)/2,my=(e.touches[0].clientY+e.touches[1].clientY)/2;
-      // Zoom centered on midpoint between fingers
-      var wr2=document.getElementById('lb-canvas-wrap');
-      if(wr2){
-        var wR2=wr2.getBoundingClientRect();
-        var rx2=mx-wR2.left, ry2=my-wR2.top;
-        var imgX2=(rx2-_mlbZ.px)/_mlbZ.s;
-        var imgY2=(ry2-_mlbZ.py)/_mlbZ.s;
-        _mlbZ.px=rx2-imgX2*ns;
-        _mlbZ.py=ry2-imgY2*ns;
-      }
       if(_tMid2){_mlbZ.px+=(mx-_tMid2.x);_mlbZ.py+=(my-_tMid2.y);_tMid2={x:mx,y:my};}
       _mlbZ.s=ns;_mlbClamp();_mlbApply();
     } else if(e.touches.length===1&&_tSingle2&&_mlbZ.s>1&&!_lbDrawing){
@@ -10570,8 +10462,6 @@ var rank={high:3,low:2,general:1};
 var best='general';var bestR=0;
 defic.entries.forEach(function(e){var r=rank[e.priority||'high']||0;if(r>bestR){bestR=r;best=e.priority||'high';}});
 defic.priority=best;
-// IAR only valid for High priority — auto-disable when priority drops
-if(best!=='high'&&defic.iar)defic.iar=false;
 }
 function setObsPriority(idx,pr){
   var f=findDeficiency(editingPinId);if(!f)return;
@@ -11083,10 +10973,9 @@ function _pkbChangePriority(deficId,newPriority){
   if(f.defic.priority===newPriority)return;
   pushUndo();
   f.defic.priority=newPriority;
-  // IAR only valid for High priority — auto-disable when dragged to Low/General
-  if(newPriority!=='high'&&f.defic.iar)f.defic.iar=false;
   // Also update entries priority if present
   if(f.defic.entries){f.defic.entries.forEach(function(en){en.priority=newPriority;});}
+  // Recalc from entries (same logic as existing recalcDeficPriority)
   saveToLS();
   renderPinsKanban();
   showToast('Pin #'+f.defic.num+' → '+(newPriority==='general'?'General':newPriority==='low'?'Low':'High')+' priority');
@@ -11576,17 +11465,11 @@ function _buildUnifiedPhotoList(p){
   if(typeof _rebuildMissingR2Urls==='function'&&_csHubMode)_rebuildMissingR2Urls(p);
   var allPhotos=[];
   var srcToPins={}; // track which pins reference each photo src
-  var _curI=p.currentFrtInstance||1;
 
-  // T+0 photo gallery rule: only show site photos from current instance,
-  // and deficiency photos only for open deficiencies + deficiencies closed in current instance
   var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
   if(siteArr.length){siteArr.forEach(function(ph,i){
-    var src=(typeof ph==='string')?ph:((ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:(ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:'');
+    var src=(typeof ph==='string')?ph:((ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'');
     if(!src||src.length<5)return;// Skip ghost records with no displayable image
-    // T+0 rule: only show site photos taken in current FRT instance
-    // Photos without instance field are legacy — show them (backward compat)
-    if(ph&&typeof ph==='object'&&ph.instance&&ph.instance!==_curI)return;
     var hasMarkup=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
     var thumbSrc=src;
     var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('site_'+i);
@@ -11594,13 +11477,6 @@ function _buildUnifiedPhotoList(p){
   });}
 
   var ad=getAllDeficiencies(p);
-  // T+0 filter: only include deficiencies that are open OR closed in current instance
-  var adFiltered=ad.filter(function(r){
-    var d=r.defic;
-    if(d.status!=='closed')return true;// open — include
-    if((d.closedOnInstance||1)===_curI)return true;// closed T+0 — include
-    return false;// closed in earlier instance — exclude
-  });
   // Helper: get observations or entries for a deficiency (backward compat)
   function _getObs(d){
     if(d.observations&&d.observations.length)return d.observations.map(function(o,i){return{photos:o.photos||[],label:o.text||'',idx:i};});
@@ -11614,7 +11490,7 @@ function _buildUnifiedPhotoList(p){
     return[];
   }
   // First pass: map every photo id to all pins/observations that reference it
-  adFiltered.forEach(function(r){
+  ad.forEach(function(r){
     var d=r.defic;
     var obs=_getObs(d);
     obs.forEach(function(o,oi){
@@ -11639,7 +11515,7 @@ function _buildUnifiedPhotoList(p){
 
   // Second pass: collect unique photos with combined labels
   var seen={};
-  adFiltered.forEach(function(r){
+  ad.forEach(function(r){
     var d=r.defic;
     var obs=_getObs(d);
     obs.forEach(function(o,oi){
@@ -11907,19 +11783,7 @@ function _glbZoomInit(wrap){
       var nd=Math.hypot(dx,dy);var ratio=nd/_tDist;
       var ns=Math.max(1,Math.min(8,_glbZ.pinch*ratio));
       var mx=(e.touches[0].clientX+e.touches[1].clientX)/2,my=(e.touches[0].clientY+e.touches[1].clientY)/2;
-      // Zoom centered on midpoint between fingers
-      var wr=document.getElementById('glb-img-wrap');
-      if(wr){
-        var wR=wr.getBoundingClientRect();
-        var rx=mx-wR.left, ry=my-wR.top;
-        // Image point under midpoint at previous scale
-        var imgX=(rx-_glbZ.px)/_glbZ.s;
-        var imgY=(ry-_glbZ.py)/_glbZ.s;
-        // Keep same image point under midpoint at new scale
-        _glbZ.px=rx-imgX*ns;
-        _glbZ.py=ry-imgY*ns;
-      }
-      // Also apply pan from midpoint movement
+      // Pan during pinch
       if(_tMid){_glbZ.px+=(mx-_tMid.x);_glbZ.py+=(my-_tMid.y);_tMid={x:mx,y:my};}
       _glbZ.s=ns;_glbClamp();_glbApply();
     } else if(e.touches.length===1&&_tSingleStart&&_glbZ.s>1){
@@ -12040,7 +11904,7 @@ function handlePhotoFiles(files){
     compressImage(f,3200,0.88,function(du){
       var dateStr=new Date().toISOString().substring(0,19).replace('T',' ');
       getExifDate(f,function(exifDate){
-        var photoRec={id:'sp_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),dataUrl:du,date:exifDate||dateStr,uploadDate:dateStr,caption:'',instance:(p.currentFrtInstance||1)};
+        var photoRec={id:'sp_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),dataUrl:du,date:exifDate||dateStr,uploadDate:dateStr,caption:''};
         // In Hub mode, queue R2 upload with crash-safe pendingUploads store
         if(hubId&&typeof R2Photos!=='undefined'){
           var fname=_r2Filename('site','jpg');
@@ -14780,97 +14644,15 @@ async function _repairR2Links(forceRun){
   _removeGhostDeficPhotos(p.generalDeficiencies);
   if(ghostCount>0)console.log('[R2 Repair] Removed '+ghostCount+' ghost defic photo records');
 
-  // Step 6b: ORPHAN RECOVERY — create records for R2 files that have NO matching project records
-  // ONLY runs on manual "Repair R2 Links" button click (forceRun=true), NOT on auto-run.
-  // This prevents deliberately deleted drawings/photos from being re-created on every project load.
-  var orphanCount=0;
-  if(forceRun){
-  var _claimedFnames=new Set();
-  // Collect all filenames that ARE matched to records
-  allSiteRecs.forEach(function(r){if(r.r2Key){var fn=r.r2Key.split('/').pop();_claimedFnames.add(fn);}});
-  allDeficRecs.forEach(function(r){if(r.r2Key){var fn=r.r2Key.split('/').pop();_claimedFnames.add(fn);}});
-  allDwgRecs.forEach(function(r){if(r.r2Key){var fn=r.r2Key.split('/').pop();_claimedFnames.add(fn);}});
-
-  // Recover orphan site photos (original/ type, site_ prefix, no matching record)
-  var orphanSiteFiles=(r2Files['original']||[]).filter(function(f){
-    return f.prefix==='site'&&!_claimedFnames.has(f.fname);
-  });
-  if(orphanSiteFiles.length>0){
-    console.log('[R2 Repair] Found '+orphanSiteFiles.length+' orphan site photos on R2 — creating records');
-    if(!p.sitePhotos)p.sitePhotos=[];
-    orphanSiteFiles.forEach(function(f){
-      var r2Key='photos/'+folder+'/frt/original/'+f.fname;
-      var r2Url=workerUrl+'/'+r2Key;
-      var newRec={
-        id:'sp_'+Date.now()+'_'+Math.random().toString(36).substr(2,6)+'_'+orphanCount,
-        r2Key:r2Key,r2Url:r2Url,r2Status:'uploaded',
-        caption:'(recovered from R2)',
-        date:new Date().toISOString().split('T')[0],
-        timestamp:f.ts||Date.now()
-      };
-      p.sitePhotos.push(newRec);
-      orphanCount++;
-    });
-  }
-
-  // Recover orphan drawings (drawings/ type, dwg_ prefix, no matching record)
-  var orphanDwgFiles=(r2Files['drawings']||[]).filter(function(f){
-    return f.prefix==='dwg'&&!_claimedFnames.has(f.fname);
-  });
-  if(orphanDwgFiles.length>0){
-    console.log('[R2 Repair] Found '+orphanDwgFiles.length+' orphan drawings on R2 — creating records');
-    if(!p.drawings)p.drawings=[];
-    orphanDwgFiles.forEach(function(f){
-      var r2Key='photos/'+folder+'/frt/drawings/'+f.fname;
-      var r2Url=workerUrl+'/'+r2Key;
-      // Try to extract a readable name from filename: dwg_timestamp_random.ext → Drawing (recovered N)
-      var newRec={
-        id:'dwg_'+Date.now()+'_'+Math.random().toString(36).substr(2,6)+'_'+orphanCount,
-        name:'Drawing (recovered '+(orphanDwgFiles.indexOf(f)+1)+')',
-        r2Key:r2Key,r2Url:r2Url,r2Status:'uploaded',
-        folder:'',pins:[],
-        pdfTiled:false
-      };
-      p.drawings.push(newRec);
-      orphanCount++;
-    });
-  }
-
-  // Recover orphan deficiency photos (original/ type, defic_ prefix, no matching record)
-  // These get added to sitePhotos since we can't know which deficiency they belonged to
-  var orphanDeficFiles=(r2Files['original']||[]).filter(function(f){
-    return f.prefix==='defic'&&!_claimedFnames.has(f.fname);
-  });
-  if(orphanDeficFiles.length>0){
-    console.log('[R2 Repair] Found '+orphanDeficFiles.length+' orphan deficiency photos on R2 — recovering to site photos');
-    if(!p.sitePhotos)p.sitePhotos=[];
-    orphanDeficFiles.forEach(function(f){
-      var r2Key='photos/'+folder+'/frt/original/'+f.fname;
-      var r2Url=workerUrl+'/'+r2Key;
-      var newRec={
-        id:'sp_'+Date.now()+'_'+Math.random().toString(36).substr(2,6)+'_'+orphanCount,
-        r2Key:r2Key,r2Url:r2Url,r2Status:'uploaded',
-        caption:'(recovered deficiency photo)',
-        date:new Date().toISOString().split('T')[0],
-        timestamp:f.ts||Date.now()
-      };
-      p.sitePhotos.push(newRec);
-      orphanCount++;
-    });
-  }
-
-  if(orphanCount>0)console.log('[R2 Repair] Recovered '+orphanCount+' orphan R2 files as new records');
-  }// end forceRun orphan recovery
-
   // Step 7: Persist to IDB + cloud
-  if(fixCount>0||clearCount>0||ghostCount>0||orphanCount>0){
-    console.log('[R2 Repair] Fixed '+fixCount+' r2 links, cleared '+clearCount+' records, removed '+ghostCount+' ghosts, recovered '+orphanCount+' orphans');
+  if(fixCount>0||clearCount>0||ghostCount>0){
+    console.log('[R2 Repair] Fixed '+fixCount+' r2 links, cleared '+clearCount+' records, removed '+ghostCount+' ghosts');
     await ADB.saveFullProject(p);
     // Push to cloud so merge doesn't re-apply wrong keys
     if(typeof CloudSync!=='undefined'&&CloudSync.isInitialized){
       try{CloudSync.resetLastSaved();CloudSync.save(_collectFullState());}catch(e){}
     }
-    toast('R2 repaired: '+fixCount+' fixed'+(orphanCount>0?', '+orphanCount+' recovered':''));
+    toast('R2 repaired: '+fixCount+' fixed, '+clearCount+' cleared');
     // Clear 404 cache so re-render tries the corrected URLs
     _r2FailedUrls={};
     // Refresh the view with corrected URLs
@@ -15039,8 +14821,8 @@ async function _initCloudSync(){
         if(cloudProj.drawings&&cloudProj.drawings.length>0){
           var prevLocal=localProj.drawings||[];
           localProj.drawings=cloudProj.drawings.map(function(d){return _mergeDrawing(d,prevLocal);});
-        }else if(cloudProj.drawings&&cloudProj.drawings.length===0&&(localProj.drawings||[]).length>0){
-          console.warn('[CloudSync] ⛔ Blocked empty cloud drawings from wiping '+localProj.drawings.length+' local drawings');
+        }else if(cloudProj.drawings&&cloudProj.drawings.length===0){
+          if(localProj._cloudSyncedAt)localProj.drawings=[];
         }
         if(cloudProj.contractors&&cloudProj.contractors.length>0){
           _mergeContractors(cloudProj.contractors,localProj.contractors);
@@ -15052,13 +14834,11 @@ async function _initCloudSync(){
         }
         if(typeof cloudProj.nextDeficNum!=='undefined'&&cloudProj.nextDeficNum>0)localProj.nextDeficNum=cloudProj.nextDeficNum;
         if(cloudProj._folders)localProj._folders=cloudProj._folders;
-        if(cloudProj.sitePhotos&&cloudProj.sitePhotos.length>0){
+        if(cloudProj.sitePhotos){
           var prevSP=localProj.sitePhotos||[];
           var _mkInPrev=prevSP.filter(function(sp){return sp&&sp.markupObjects&&sp.markupObjects.length>0;}).length;
           console.log('[CloudSync] Merging sitePhotos: cloud='+cloudProj.sitePhotos.length+' local='+prevSP.length+' localWithMarkup='+_mkInPrev);
           localProj.sitePhotos=cloudProj.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevSP);});
-        }else if(cloudProj.sitePhotos&&cloudProj.sitePhotos.length===0&&(localProj.sitePhotos||[]).length>0){
-          console.warn('[CloudSync] ⛔ Blocked empty cloud sitePhotos from wiping '+localProj.sitePhotos.length+' local photos');
         }
         if(cloudProj.info)localProj.info=Object.assign(localProj.info||{},cloudProj.info);
         _rebuildMissingR2Urls(localProj);
@@ -15253,11 +15033,9 @@ async function _syncHeartbeat(){
       }
       _dbg('[Heartbeat] Cloud is newer — applying update silently');
       // ═══ MERGE: Cloud owns structure. Local owns binary data. ═══
-      if(cloudData.drawings&&cloudData.drawings.length>0){
+      if(cloudData.drawings){
         var prevHBDwg=p.drawings||[];
         p.drawings=cloudData.drawings.map(function(d){return _mergeDrawing(d,prevHBDwg);});
-      }else if(cloudData.drawings&&cloudData.drawings.length===0&&(p.drawings||[]).length>0){
-        console.warn('[Heartbeat] ⛔ Blocked empty cloud drawings from wiping '+p.drawings.length+' local drawings');
       }
       if(cloudData.contractors){
         _mergeContractors(cloudData.contractors,p.contractors);
@@ -15269,13 +15047,11 @@ async function _syncHeartbeat(){
       }
       if(typeof cloudData.nextDeficNum!=='undefined'&&cloudData.nextDeficNum>0)p.nextDeficNum=cloudData.nextDeficNum;
       if(cloudData._folders)p._folders=cloudData._folders;
-      if(cloudData.sitePhotos&&cloudData.sitePhotos.length>0){
+      if(cloudData.sitePhotos){
         var prevHBSP=p.sitePhotos||[];
         var _mkInHB=prevHBSP.filter(function(sp){return sp&&sp.markupObjects&&sp.markupObjects.length>0;}).length;
         console.log('[Heartbeat] Merging sitePhotos: cloud='+cloudData.sitePhotos.length+' local='+prevHBSP.length+' localWithMarkup='+_mkInHB);
         p.sitePhotos=cloudData.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevHBSP);});
-      }else if(cloudData.sitePhotos&&cloudData.sitePhotos.length===0&&(p.sitePhotos||[]).length>0){
-        console.warn('[Heartbeat] ⛔ Blocked empty cloud sitePhotos from wiping '+p.sitePhotos.length+' local photos');
       }
       if(cloudData.info)p.info=Object.assign(p.info||{},cloudData.info);
       _rebuildMissingR2Urls(p);

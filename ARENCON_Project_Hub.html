@@ -844,6 +844,7 @@ body.text-l{--ts:4px;}
     </div>
     <div class="detail-section detail-actions" id="detail-danger-zone">
       <button class="btn-action" id="btn-edit-proj" onclick="openEditProjectModal()">✏️ Edit Project</button>
+      <button class="btn-action" id="btn-qr-proj" onclick="openProjectQR(_detailProjectId)" title="QR Code for this project">📱 QR</button>
       <button class="btn-archive" id="btn-archive-proj" onclick="toggleArchiveProject()">📦 Archive</button>
       <button class="btn-action" id="btn-restore-proj" style="display:none;background:var(--yes-bg);color:var(--yes);border-color:var(--yes)" onclick="restoreFromDetail()">↩️ Restore</button>
       <div style="flex:1"></div>
@@ -878,8 +879,8 @@ body.text-l{--ts:4px;}
       <select id="np-pm"><option value="">— Select —</option></select>
     </div>
     <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeNewProjectModal()" style="color:#C0392B;border-color:rgba(192,57,43,.3);">Cancel</button>
-      <button class="dash-btn" id="np-create-btn" onclick="createProject()" style="background:linear-gradient(135deg,#1A7A4A,#15633B);color:#fff;box-shadow:0 2px 6px rgba(26,122,74,.2);">Create Project</button>
+      <button class="dash-btn secondary" onclick="closeNewProjectModal()">Cancel</button>
+      <button class="dash-btn primary" id="np-create-btn" onclick="createProject()">Create Project</button>
     </div>
   </div>
 </div>
@@ -959,8 +960,8 @@ body.text-l{--ts:4px;}
       </select>
     </div>
     <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeEditProjectModal()" style="color:#C0392B;border-color:rgba(192,57,43,.3);">Cancel</button>
-      <button class="dash-btn" id="ep-save-btn" onclick="saveEditProject()" style="background:linear-gradient(135deg,#1A7A4A,#15633B);color:#fff;box-shadow:0 2px 6px rgba(26,122,74,.2);">Save Changes</button>
+      <button class="dash-btn secondary" onclick="closeEditProjectModal()">Cancel</button>
+      <button class="dash-btn primary" id="ep-save-btn" onclick="saveEditProject()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -1287,8 +1288,8 @@ async function tryRestoreSession() {
     document.getElementById('login-screen').style.display = 'flex';
     return;
   }
+  // Try getUser first
   try {
-    // First try: use current access token
     const user = await _sb.auth.getUser();
     if (user && user.id) {
       _user = user;
@@ -1296,11 +1297,13 @@ async function tryRestoreSession() {
       showApp();
       return;
     }
-  } catch (e) {}
-  // Access token expired or invalid — try refresh
+  } catch (e) {
+    console.warn('[Hub] getUser failed:', e.message || e);
+  }
+  // Try refresh session independently
   try {
     const refreshed = await _sb.auth.refreshSession();
-    if (refreshed && refreshed.access_token) {
+    if (refreshed) {
       const user2 = await _sb.auth.getUser();
       if (user2 && user2.id) {
         _user = user2;
@@ -1309,8 +1312,10 @@ async function tryRestoreSession() {
         return;
       }
     }
-  } catch (e2) {}
-  // Both failed — show login
+  } catch (e) {
+    console.warn('[Hub] refreshSession failed:', e.message || e);
+  }
+  // Show login
   document.getElementById('login-screen').style.display = 'flex';
 }
 
@@ -1502,6 +1507,7 @@ function _populatePMDropdowns() {
 
 <script>
 /* ═══ Show App (post-login) ═══ */
+var _hubPopstateReady = false;
 function showApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'block';
@@ -1528,6 +1534,9 @@ function showApp() {
   document.getElementById('btn-profile').style.display = '';
   document.getElementById('mob-profile').style.display = '';
 
+  // Set initial history state for dashboard
+  try { history.replaceState({view:'dashboard'}, '', window.location.pathname); } catch(e){}
+
   showDashboard();
   loadUserMap();
   loadAllInstanceCounts().then(function() {
@@ -1535,7 +1544,31 @@ function showApp() {
     loadProjects();
     loadRecentActivity();
   });
+
+  // Enable popstate after a tick to avoid firing on initial page load
+  setTimeout(function(){ _hubPopstateReady = true; }, 200);
 }
+
+// ── Browser back button handler ──
+window.addEventListener('popstate', function(e) {
+  if (!_hubPopstateReady) return; // Ignore initial page load popstate
+  var state = e.state;
+  if (!state || state.view === 'dashboard') {
+    // Back to dashboard from project detail
+    if (_detailProjectId) {
+      showDashboard();
+    }
+  } else if (state.view === 'project' && state.id) {
+    // Forward to project detail
+    var proj = _projects.find(function(p){ return p.id === state.id; });
+    if (proj) {
+      _detailProjectId = state.id;
+      document.getElementById('dash-view').style.display = 'none';
+      document.getElementById('admin-panel').style.display = 'none';
+      document.getElementById('project-detail').style.display = 'block';
+    }
+  }
+});
 
 function formatRole(role) {
   const map = { super_admin: 'Super Admin', admin: 'Admin', inspector: 'Inspector', viewer: 'Viewer' };
@@ -1553,8 +1586,6 @@ function showDashboard() {
   document.getElementById('admin-panel').style.display = 'none';
   document.getElementById('project-detail').style.display = 'none';
   _detailProjectId = null;
-  // Clean URL when returning to dashboard
-  try{if(window.location.search)history.replaceState({view:'dashboard'},'',window.location.pathname);}catch(e){}
   // Restore persisted sort preference
   var savedSort = localStorage.getItem('arencon-hub-sort');
   if (savedSort) {
@@ -1562,16 +1593,6 @@ function showDashboard() {
     if (sel) sel.value = savedSort;
   }
 }
-// Browser back button: tier navigation (detail → dashboard)
-window.addEventListener('popstate',function(e){
-  if(_detailProjectId){
-    // Currently in detail view → go back to dashboard
-    document.getElementById('dash-view').style.display='block';
-    document.getElementById('admin-panel').style.display='none';
-    document.getElementById('project-detail').style.display='none';
-    _detailProjectId=null;
-  }
-});
 
 function showAdmin() {
   document.getElementById('dash-view').style.display = 'none';
@@ -1594,6 +1615,8 @@ async function loadProjects() {
   var urlParams = new URLSearchParams(window.location.search);
   var openId = urlParams.get('open');
   if (openId) {
+    // Clean up the URL so back button doesn't re-trigger ?open=
+    try { history.replaceState({view:'dashboard'}, '', window.location.pathname); } catch(e){}
     var proj = _projects.find(function(p){ return p.id === openId; });
     if (proj) openProject(openId);
   }
@@ -1849,8 +1872,9 @@ function openProject(projectId) {
     return;
   }
   _detailProjectId = projectId;
-  // Push browser history state for tier navigation (back button goes detail → dashboard)
-  try{history.pushState({view:'detail',projectId:projectId},'',window.location.pathname+'?open='+encodeURIComponent(projectId));}catch(e){}
+
+  // Push history state so browser back returns to dashboard
+  try { history.pushState({view:'project',id:projectId}, '', window.location.pathname); } catch(e){}
 
   // Hide dashboard + admin, show detail
   document.getElementById('dash-view').style.display = 'none';
@@ -3241,8 +3265,11 @@ function formatDate(iso) {
 }
 
 /* ═══ Close modals on outside click ═══ */
-// Modal overlays: NO click-outside-to-close (prevents accidental misclick close)
-// Users must use Cancel/Close buttons to dismiss modals
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('modal-overlay')) {
+    e.target.classList.remove('show');
+  }
+});
 
 /* ═══ Token refresh timer ═══ */
 var _refreshFailCount = 0;
@@ -3496,20 +3523,15 @@ function _pgExtractPhotos(row) {
 
   // ── FRT ──
   if (toolKey === 'frt') {
-    var _curI = data.currentFrtInstance || instNum;
-    // Site photos — T+0 rule: only show photos from current instance
+    // Site photos
     (data.sitePhotos || []).forEach(function(ph) {
       if (!ph) return;
-      // Skip site photos from earlier instances (T+0 rule)
-      if (ph.instance && ph.instance !== _curI) return;
       var src = _pgResolveR2Src(ph, projectId);
       if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || ''));
     });
-    // Deficiency photos (contractors + general) — T+0 rule: skip closed deficiencies from earlier instances
+    // Deficiency photos (contractors + general)
     function _extractDefics(defics) {
       (defics || []).forEach(function(d) {
-        // T+0 filter: skip deficiencies closed in earlier instances
-        if (d.status === 'closed' && (d.closedOnInstance || 1) !== _curI) return;
         var pinLabel = 'Pin ' + (d.num || '?');
         var numEn = (d.entries && d.entries.length) || 0;
         var seenIds = {};
