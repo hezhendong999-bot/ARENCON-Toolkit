@@ -6259,32 +6259,44 @@ function renderAllMarkup(){
   others.forEach(function(obj){
     _drawObject(ctx,obj,obj.id===_mkSelectedId);
   });
-  // Draw ALL highlights on offscreen canvas at full opacity, composite once
+  // Draw ALL highlights on offscreen canvas — grouped by opacity to prevent stacking
   if(highlights.length>0){
     if(!renderAllMarkup._hlCanvas)renderAllMarkup._hlCanvas=document.createElement('canvas');
     var hlc=renderAllMarkup._hlCanvas;
     hlc.width=canvas.width;hlc.height=canvas.height;
     var hx=hlc.getContext('2d');
-    hx.clearRect(0,0,hlc.width,hlc.height);
-    hx.setTransform(1,0,0,1,0,0);
+    // Group highlights by opacity value (anti-stacking requires same-opacity strokes together)
+    var opGroups={};
     highlights.forEach(function(obj){
-      if(!obj.points||obj.points.length<2)return;
-      hx.strokeStyle=obj.color||'#F1C40F';
-      hx.lineWidth=(obj.size||2)*4;
-      hx.lineCap='round';hx.lineJoin='round';
-      hx.globalAlpha=1;
-      hx.globalCompositeOperation='source-over';
-      hx.beginPath();hx.moveTo(obj.points[0].x,obj.points[0].y);
-      for(var i=1;i<obj.points.length;i++)hx.lineTo(obj.points[i].x,obj.points[i].y);
-      hx.stroke();
+      var op=obj.opacity!=null?obj.opacity:1;
+      var key=Math.round(op*100);// group by 1% increments
+      if(!opGroups[key])opGroups[key]={opacity:op,objs:[]};
+      opGroups[key].objs.push(obj);
     });
-    // Composite highlight layer onto main canvas at reduced alpha
-    ctx.save();
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.globalAlpha=0.3;
-    ctx.globalCompositeOperation='source-over';
-    ctx.drawImage(hlc,0,0);
-    ctx.restore();
+    // Render each opacity group: draw at full alpha on offscreen, composite at 0.3×opacity
+    var opKeys=Object.keys(opGroups);
+    for(var gi=0;gi<opKeys.length;gi++){
+      var grp=opGroups[opKeys[gi]];
+      hx.clearRect(0,0,hlc.width,hlc.height);
+      hx.setTransform(1,0,0,1,0,0);
+      grp.objs.forEach(function(obj){
+        if(!obj.points||obj.points.length<2)return;
+        hx.strokeStyle=obj.color||'#F1C40F';
+        hx.lineWidth=(obj.size||2)*4;
+        hx.lineCap='round';hx.lineJoin='round';
+        hx.globalAlpha=1;
+        hx.globalCompositeOperation='source-over';
+        hx.beginPath();hx.moveTo(obj.points[0].x,obj.points[0].y);
+        for(var i=1;i<obj.points.length;i++)hx.lineTo(obj.points[i].x,obj.points[i].y);
+        hx.stroke();
+      });
+      ctx.save();
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.globalAlpha=0.3*grp.opacity;
+      ctx.globalCompositeOperation='source-over';
+      ctx.drawImage(hlc,0,0);
+      ctx.restore();
+    }
     ctx.setTransform(1,0,0,1,0,0);
     // Draw selection handles for selected highlight(s)
     highlights.forEach(function(obj){
@@ -7819,21 +7831,32 @@ function _lbRenderAll(){
   });
   // Draw non-highlights
   others.forEach(function(obj){_lbDrawObj(_lbCtx,obj,obj.id===_lbSelectedId);});
-  // Draw ALL highlights on offscreen, composite once at 0.3 — never stacks
+  // Draw ALL highlights on offscreen — grouped by opacity, never stacks
   if(highlights.length>0){
     _lbHlCanvas.width=_lbCanvas.width;_lbHlCanvas.height=_lbCanvas.height;
     var hx=_lbHlCanvas.getContext('2d');
-    hx.clearRect(0,0,_lbHlCanvas.width,_lbHlCanvas.height);
+    var opGrps={};
     highlights.forEach(function(obj){
-      if(!obj.points||obj.points.length<2)return;
-      hx.strokeStyle=obj.color||'#F1C40F';hx.lineWidth=(obj.size||4)*4;
-      hx.lineCap='round';hx.lineJoin='round';hx.globalAlpha=1;hx.globalCompositeOperation='source-over';
-      hx.beginPath();hx.moveTo(obj.points[0].x,obj.points[0].y);
-      for(var i=1;i<obj.points.length;i++)hx.lineTo(obj.points[i].x,obj.points[i].y);
-      hx.stroke();
+      var op=obj.opacity!=null?obj.opacity:1;
+      var key=Math.round(op*100);
+      if(!opGrps[key])opGrps[key]={opacity:op,objs:[]};
+      opGrps[key].objs.push(obj);
     });
-    _lbCtx.save();_lbCtx.globalAlpha=0.3;_lbCtx.globalCompositeOperation='source-over';
-    _lbCtx.drawImage(_lbHlCanvas,0,0);_lbCtx.restore();
+    var opK=Object.keys(opGrps);
+    for(var gi=0;gi<opK.length;gi++){
+      var grp=opGrps[opK[gi]];
+      hx.clearRect(0,0,_lbHlCanvas.width,_lbHlCanvas.height);
+      grp.objs.forEach(function(obj){
+        if(!obj.points||obj.points.length<2)return;
+        hx.strokeStyle=obj.color||'#F1C40F';hx.lineWidth=(obj.size||4)*4;
+        hx.lineCap='round';hx.lineJoin='round';hx.globalAlpha=1;hx.globalCompositeOperation='source-over';
+        hx.beginPath();hx.moveTo(obj.points[0].x,obj.points[0].y);
+        for(var i=1;i<obj.points.length;i++)hx.lineTo(obj.points[i].x,obj.points[i].y);
+        hx.stroke();
+      });
+      _lbCtx.save();_lbCtx.globalAlpha=0.3*grp.opacity;_lbCtx.globalCompositeOperation='source-over';
+      _lbCtx.drawImage(_lbHlCanvas,0,0);_lbCtx.restore();
+    }
     // Selection handles for selected highlight(s)
     highlights.forEach(function(obj){
       if(obj.id===_lbSelectedId||_lbSelectedIds.indexOf(obj.id)>=0)_lbDrawHandles(obj);
