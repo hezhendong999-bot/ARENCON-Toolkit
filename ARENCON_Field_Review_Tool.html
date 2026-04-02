@@ -3239,10 +3239,20 @@ function _escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;
 function switchTab(tab){currentTab=tab;sessionStorage.setItem('ARENCON_lastTab',tab);document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.toggle('active',t.getAttribute('data-tab')===tab);});document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+tab);});if(tab==='deficiencies')renderDeficiencyPanel();if(tab==='drawings')renderDrawingGallery();if(tab==='photos')renderPhotoGallery();if(tab==='pins'){if(typeof _tasksView!=='undefined'&&_tasksView==='kanban')renderPinsKanban();else renderTasksTable();}}
 
 function goToDashboard(){
-  // Hub mode: show Save & Leave prompt then navigate
+  // Hub mode: navigate to Hub project detail page
   if(_csHubMode){
     var destUrl='ARENCON_Project_Hub.html'+(_csProjectId?'?open='+encodeURIComponent(_csProjectId):'');
-    _showHubSaveLeaveModal(destUrl);
+    // Check if there are recent unsaved changes (within last 3s since auto-save debounce is 2s)
+    var p=getProject();
+    var lastMod=p&&p._localModifiedAt?new Date(p._localModifiedAt).getTime():0;
+    var lastSync=p&&p._cloudSyncedAt?new Date(p._cloudSyncedAt).getTime():0;
+    var hasUnsaved=lastMod>(lastSync+3000);
+    if(hasUnsaved){
+      _showHubSaveLeaveModal(destUrl);
+    }else{
+      // No unsaved changes — navigate directly without prompt
+      window.location.href=destUrl;
+    }
     return;
   }
   // Check for unsaved changes before leaving project
@@ -5867,8 +5877,19 @@ window.addEventListener('orientationchange',function(){
 });
 window.addEventListener('resize',function(){
   if(document.getElementById('drawing-viewer')&&document.getElementById('drawing-viewer').classList.contains('open')){
+    // Don't auto-fit while user is actively drawing — causes jarring zoom reset
+    if(mkState&&mkState.drawing)return;
     clearTimeout(window._dvResizeTimer);
-    window._dvResizeTimer=setTimeout(function(){if(typeof fitDrawing==='function')fitDrawing();},200);
+    window._dvResizeTimer=setTimeout(function(){
+      if(mkState&&mkState.drawing)return;
+      if(typeof fitDrawing==='function')fitDrawing();
+      if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
+      // Second pass for DevTools close (viewport settles after ~500ms)
+      setTimeout(function(){
+        if(mkState&&mkState.drawing)return;
+        if(typeof fitDrawing==='function')fitDrawing();
+      },400);
+    },200);
   }
 });
 function layerToggle(layer,show){
@@ -6092,6 +6113,8 @@ function _mkNewId(){return 'mk_'+ (_mkNextId++);}
 // ── UNDO SYSTEM (object snapshots, not pixel data) ──
 function mkPushHistory(){
   var snap=JSON.stringify(_mkObjects);
+  // Skip duplicate: if snapshot matches current top of stack, don't push
+  if(_mkUndoStack.length>0&&_mkUndoStack[_mkUndoIdx]===snap)return;
   if(_mkUndoIdx<_mkUndoStack.length-1)_mkUndoStack=_mkUndoStack.slice(0,_mkUndoIdx+1);
   _mkUndoStack.push(snap);
   if(_mkUndoStack.length>40)_mkUndoStack.shift();
@@ -6140,8 +6163,9 @@ function resizeMarkupCanvas(){
   if(!canvas||!img)return;
   var iw=img.naturalWidth, ih=img.naturalHeight;
   // Mobile cap: 1200px on iOS (was 2000 — reduces GPU memory from ~36MB to ~12MB per canvas)
-  var _isMobileCap=(/iPad|iPhone|iPod/.test(navigator.userAgent))||(window.innerWidth<=900&&'ontouchstart' in window);
-  var mkMaxDim=_isMobileCap?1200:3000;
+  var _isIPhone=(/iPhone|iPod/.test(navigator.userAgent))&&!(/iPad/.test(navigator.userAgent));
+  var _isMobileCap=_isIPhone||(window.innerWidth<=900&&'ontouchstart' in window);
+  var mkMaxDim=_isIPhone?1536:(_isMobileCap?2400:3000);
   var mkScale=1;
   if(Math.max(iw,ih)>mkMaxDim){mkScale=mkMaxDim/Math.max(iw,ih);}
   var cw=Math.round(iw*mkScale), ch=Math.round(ih*mkScale);
@@ -7080,6 +7104,14 @@ function initToolbarTooltips(){
       tip.style.top=(e.clientY-8)+'px';
     });
     el.addEventListener('mouseleave',function(){tip.style.display='none';});
+  });
+  // Mobile: add touchend handlers to shape sub-tool buttons (canvas touchend blocks onclick)
+  document.querySelectorAll('.sub-tool-btn').forEach(function(btn){
+    btn.addEventListener('touchend',function(e){
+      e.stopPropagation();e.preventDefault();
+      var oc=btn.getAttribute('onclick');
+      if(oc){try{eval(oc);}catch(ex){}}
+    },{passive:false});
   });
 }
 
@@ -8938,8 +8970,15 @@ function moveDeficiency(did){
     '</div></div>';
   var overlay=document.createElement('div');overlay.id='move-modal';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10050;display:flex;align-items:center;justify-content:center;';
-  var card=document.createElement('div');card.style.cssText='background:white;border-radius:12px;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3);';
+  var _isDark=document.body.classList.contains('dark-mode');
+  var card=document.createElement('div');card.style.cssText='background:'+(_isDark?'#1e2533':'white')+';border-radius:12px;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3);color:'+(_isDark?'#d0d8f0':'inherit')+';';
   card.innerHTML=html;overlay.appendChild(card);document.body.appendChild(overlay);
+  // Style inputs for dark mode
+  if(_isDark){
+    card.querySelectorAll('select,input[type="text"]').forEach(function(el){el.style.background='#2a3040';el.style.color='#d0d8f0';el.style.borderColor='#3a4050';});
+    var cancelBtn=card.querySelector('button[onclick*="move-modal"]');
+    if(cancelBtn){cancelBtn.style.background='#2a3040';cancelBtn.style.color='#d0d8f0';cancelBtn.style.borderColor='#3a4050';}
+  }
   overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
   // Show/hide new contractor name input
   document.getElementById('move-target').onchange=function(){
@@ -11048,9 +11087,10 @@ function _pkbChangePriority(deficId,newPriority){
   if(f.defic.priority===newPriority)return;
   pushUndo();
   f.defic.priority=newPriority;
+  // IAR only valid for High priority — auto-disable when dragged to Low/General
+  if(newPriority!=='high'&&f.defic.iar)f.defic.iar=false;
   // Also update entries priority if present
   if(f.defic.entries){f.defic.entries.forEach(function(en){en.priority=newPriority;});}
-  // Recalc from entries (same logic as existing recalcDeficPriority)
   saveToLS();
   renderPinsKanban();
   showToast('Pin #'+f.defic.num+' → '+(newPriority==='general'?'General':newPriority==='low'?'Low':'High')+' priority');
