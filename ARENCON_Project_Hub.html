@@ -878,8 +878,8 @@ body.text-l{--ts:4px;}
       <select id="np-pm"><option value="">— Select —</option></select>
     </div>
     <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeNewProjectModal()">Cancel</button>
-      <button class="dash-btn primary" id="np-create-btn" onclick="createProject()">Create Project</button>
+      <button class="dash-btn secondary" onclick="closeNewProjectModal()" style="color:#C0392B;border-color:rgba(192,57,43,.3);">Cancel</button>
+      <button class="dash-btn" id="np-create-btn" onclick="createProject()" style="background:linear-gradient(135deg,#1A7A4A,#15633B);color:#fff;box-shadow:0 2px 6px rgba(26,122,74,.2);">Create Project</button>
     </div>
   </div>
 </div>
@@ -959,8 +959,8 @@ body.text-l{--ts:4px;}
       </select>
     </div>
     <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeEditProjectModal()">Cancel</button>
-      <button class="dash-btn primary" id="ep-save-btn" onclick="saveEditProject()">Save Changes</button>
+      <button class="dash-btn secondary" onclick="closeEditProjectModal()" style="color:#C0392B;border-color:rgba(192,57,43,.3);">Cancel</button>
+      <button class="dash-btn" id="ep-save-btn" onclick="saveEditProject()" style="background:linear-gradient(135deg,#1A7A4A,#15633B);color:#fff;box-shadow:0 2px 6px rgba(26,122,74,.2);">Save Changes</button>
     </div>
   </div>
 </div>
@@ -1552,6 +1552,8 @@ function showDashboard() {
   document.getElementById('admin-panel').style.display = 'none';
   document.getElementById('project-detail').style.display = 'none';
   _detailProjectId = null;
+  // Clean URL when returning to dashboard
+  try{if(window.location.search)history.replaceState({view:'dashboard'},'',window.location.pathname);}catch(e){}
   // Restore persisted sort preference
   var savedSort = localStorage.getItem('arencon-hub-sort');
   if (savedSort) {
@@ -1559,6 +1561,16 @@ function showDashboard() {
     if (sel) sel.value = savedSort;
   }
 }
+// Browser back button: tier navigation (detail → dashboard)
+window.addEventListener('popstate',function(e){
+  if(_detailProjectId){
+    // Currently in detail view → go back to dashboard
+    document.getElementById('dash-view').style.display='block';
+    document.getElementById('admin-panel').style.display='none';
+    document.getElementById('project-detail').style.display='none';
+    _detailProjectId=null;
+  }
+});
 
 function showAdmin() {
   document.getElementById('dash-view').style.display = 'none';
@@ -1836,6 +1848,8 @@ function openProject(projectId) {
     return;
   }
   _detailProjectId = projectId;
+  // Push browser history state for tier navigation (back button goes detail → dashboard)
+  try{history.pushState({view:'detail',projectId:projectId},'',window.location.pathname+'?open='+encodeURIComponent(projectId));}catch(e){}
 
   // Hide dashboard + admin, show detail
   document.getElementById('dash-view').style.display = 'none';
@@ -3226,11 +3240,8 @@ function formatDate(iso) {
 }
 
 /* ═══ Close modals on outside click ═══ */
-document.addEventListener('click', e => {
-  if (e.target.classList.contains('modal-overlay')) {
-    e.target.classList.remove('show');
-  }
-});
+// Modal overlays: NO click-outside-to-close (prevents accidental misclick close)
+// Users must use Cancel/Close buttons to dismiss modals
 
 /* ═══ Token refresh timer ═══ */
 var _refreshFailCount = 0;
