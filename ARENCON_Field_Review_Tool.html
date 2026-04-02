@@ -5812,7 +5812,6 @@ window.addEventListener('resize',function(){
 });
 window.addEventListener('orientationchange',function(){
   setTimeout(function(){
-    if(typeof fitDrawing==='function')fitDrawing();
     if(!document.getElementById('drawing-viewer').classList.contains('open'))return;
     var sb=document.getElementById('dv-sidebar-tools');
     var ca=document.getElementById('dv-canvas-area');
@@ -5822,7 +5821,6 @@ window.addEventListener('orientationchange',function(){
     var isMobile=window.innerWidth<900;
     if(sb){
       if(isMobile){
-        // Move sidebar above dv-main in overlay flow
         if(sb.parentNode!==overlay){
           if(ctx&&ctx.nextSibling){overlay.insertBefore(sb,ctx.nextSibling);}
           else if(main){overlay.insertBefore(sb,main);}
@@ -5832,7 +5830,6 @@ window.addEventListener('orientationchange',function(){
         if(main)main.style.flexDirection='column';
         _updateMobileContext();
       } else {
-        // Desktop: sidebar inside dv-main
         if(sb.parentNode!==main){main.insertBefore(sb,main.firstChild);}
         sb.style.cssText='';
         if(ca)ca.style.paddingBottom='';
@@ -5840,7 +5837,13 @@ window.addEventListener('orientationchange',function(){
         if(ctx)ctx.classList.remove('visible');
       }
     }
-    setTimeout(function(){if(typeof fitDrawing==='function')fitDrawing();},100);
+    // Use shared debounce timer — fitDrawing fires once after all events settle
+    clearTimeout(_fitResizeTimer);
+    _fitResizeTimer=setTimeout(function(){
+      if(typeof fitDrawing==='function')fitDrawing();
+      if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
+      if(typeof resizeMarkupCanvas==='function')resizeMarkupCanvas();
+    },500);
   },300);
 });
 function layerToggle(layer,show){
@@ -6688,7 +6691,6 @@ function initMarkupEvents(){
     if(!mkState.drawing)return;
     mkState.drawing=false;
     _mkHlSnap=null;
-    mkPushHistory();
 
     var type=mkState.tool;
     if(type==='pen'||type==='highlight'||type==='eraser'){
@@ -6705,6 +6707,8 @@ function initMarkupEvents(){
       _mkObjects.push(newShapeObj);
       // Do NOT auto-select — stay in drawing mode so user can keep drawing
     }
+    // Push history AFTER adding object — stack captures the completed state
+    mkPushHistory();
     _penPoints=[];
     _mkDrawCache=null;
     renderAllMarkup();
