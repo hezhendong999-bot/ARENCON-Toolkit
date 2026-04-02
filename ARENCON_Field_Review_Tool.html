@@ -5877,19 +5877,17 @@ window.addEventListener('orientationchange',function(){
 });
 window.addEventListener('resize',function(){
   if(document.getElementById('drawing-viewer')&&document.getElementById('drawing-viewer').classList.contains('open')){
-    // Don't auto-fit while user is actively drawing — causes jarring zoom reset
     if(mkState&&mkState.drawing)return;
     clearTimeout(window._dvResizeTimer);
     window._dvResizeTimer=setTimeout(function(){
       if(mkState&&mkState.drawing)return;
       if(typeof fitDrawing==='function')fitDrawing();
       if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
-      // Second pass for DevTools close (viewport settles after ~500ms)
-      setTimeout(function(){
-        if(mkState&&mkState.drawing)return;
-        if(typeof fitDrawing==='function')fitDrawing();
-      },400);
-    },200);
+      // Multiple delayed passes for DevTools close (viewport settles gradually)
+      setTimeout(function(){if(!mkState||!mkState.drawing){fitDrawing();renderPinsOnDrawing();}},300);
+      setTimeout(function(){if(!mkState||!mkState.drawing){fitDrawing();renderPinsOnDrawing();}},700);
+      setTimeout(function(){if(!mkState||!mkState.drawing){fitDrawing();}},1200);
+    },100);
   }
 });
 function layerToggle(layer,show){
@@ -6744,7 +6742,6 @@ function initMarkupEvents(){
     if(!mkState.drawing)return;
     mkState.drawing=false;
     _mkHlSnap=null;
-    mkPushHistory();
 
     var type=mkState.tool;
     if(type==='pen'||type==='highlight'||type==='eraser'){
@@ -6752,17 +6749,16 @@ function initMarkupEvents(){
         var newPenObj={id:_mkNewId(),type:type,points:_penPoints.slice(),
           color:mkState.color,size:getSize(),opacity:getOpacity()};
         _mkObjects.push(newPenObj);
-        // Do NOT auto-select — stay in drawing mode so user can keep drawing
       }
     } else if(type&&type!=='polyline'&&type!=='select'){
       var newShapeObj={id:_mkNewId(),type:type,
         x1:mkState.startX,y1:mkState.startY,x2:mkState._endX||mkState.startX,y2:mkState._endY||mkState.startY,
         color:mkState.color,size:getSize(),opacity:getOpacity()};
       _mkObjects.push(newShapeObj);
-      // Do NOT auto-select — stay in drawing mode so user can keep drawing
     }
     _penPoints=[];
     _mkDrawCache=null;
+    mkPushHistory();// Push AFTER adding object — captures complete "after" state
     renderAllMarkup();
     saveMarkupData();
   }

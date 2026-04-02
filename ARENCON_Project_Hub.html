@@ -1288,6 +1288,7 @@ async function tryRestoreSession() {
     return;
   }
   try {
+    // First try: use current access token
     const user = await _sb.auth.getUser();
     if (user && user.id) {
       _user = user;
@@ -1295,9 +1296,11 @@ async function tryRestoreSession() {
       showApp();
       return;
     }
-    // Try refresh
+  } catch (e) {}
+  // Access token expired or invalid — try refresh
+  try {
     const refreshed = await _sb.auth.refreshSession();
-    if (refreshed) {
+    if (refreshed && refreshed.access_token) {
       const user2 = await _sb.auth.getUser();
       if (user2 && user2.id) {
         _user = user2;
@@ -1306,10 +1309,8 @@ async function tryRestoreSession() {
         return;
       }
     }
-  } catch (e) {
-    // No existing session
-  }
-  // Show login
+  } catch (e2) {}
+  // Both failed — show login
   document.getElementById('login-screen').style.display = 'flex';
 }
 
