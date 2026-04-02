@@ -710,7 +710,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .dv-sidebar-tools .tool-btn[onclick="markupUndo()"]{display:none!important;}
 .dv-sidebar-tools .tool-btn[onclick="markupRedo()"]{display:none!important;}
 .dv-sidebar-tools .tool-btn{width:38px!important;height:38px!important;flex-shrink:0!important;border-radius:10px!important;}
-.dv-sidebar-tools .tool-group .tool-submenu{bottom:auto!important;top:100%!important;left:50%!important;transform:translateX(-50%)!important;}
+.dv-sidebar-tools .tool-group .tool-submenu{/* JS handles positioning via toggleShapesMenu/toggleColorMenu */}
 .dv-sidebar-tools::-webkit-scrollbar{display:none!important;}
 /* Hide the secondary row wrapper if it was created by older JS */
 .dv-sidebar-tools .dv-tools-primary,.dv-sidebar-tools .dv-tools-secondary{display:contents!important;}
@@ -7058,14 +7058,15 @@ function initToolbarTooltips(){
     });
     el.addEventListener('mouseleave',function(){tip.style.display='none';});
   });
-  // Bind shapes + color submenu toggles via pointerup (fires once, no double-fire)
+  // Bind shapes + color submenu toggles via click (most reliable on all platforms)
+  // The timestamp guard inside each toggle function prevents any double-fire
   var shapesBtn=document.getElementById('mk-shapes');
   if(shapesBtn){
-    shapesBtn.addEventListener('pointerup',function(e){toggleShapesMenu(e);});
+    shapesBtn.addEventListener('click',function(e){toggleShapesMenu(e);});
   }
   var colorBtn=document.getElementById('mk-color-btn');
   if(colorBtn){
-    colorBtn.addEventListener('pointerup',function(e){toggleColorMenu(e);});
+    colorBtn.addEventListener('click',function(e){toggleColorMenu(e);});
   }
 }
 
@@ -7101,14 +7102,15 @@ function toggleShapesMenu(e){
   }
   sub.classList.toggle('open',_shapesMenuOpen);
   if(_shapesMenuOpen){
-    // Close on next interaction anywhere else — delayed to avoid same-event close
     setTimeout(function(){
       function _closeShapes(){
-        sub.classList.remove('open');_shapesMenuOpen=false;
-        document.removeEventListener('pointerdown',_closeShapes,true);
+        var sub2=document.getElementById('shapes-submenu');
+        if(sub2)sub2.classList.remove('open');
+        _shapesMenuOpen=false;
+        document.removeEventListener('click',_closeShapes,true);
       }
-      document.addEventListener('pointerdown',_closeShapes,true);
-    },50);
+      document.addEventListener('click',_closeShapes,true);
+    },150);
   }
 }
 function setToolbarToolFromShape(tool){
@@ -7152,11 +7154,13 @@ function toggleColorMenu(e){
   if(_colorMenuOpen){
     setTimeout(function(){
       function _closeColor(){
-        sub.classList.remove('open');_colorMenuOpen=false;
-        document.removeEventListener('pointerdown',_closeColor,true);
+        var sub2=document.getElementById('color-submenu');
+        if(sub2)sub2.classList.remove('open');
+        _colorMenuOpen=false;
+        document.removeEventListener('click',_closeColor,true);
       }
-      document.addEventListener('pointerdown',_closeColor,true);
-    },50);
+      document.addEventListener('click',_closeColor,true);
+    },150);
   }
 }
 function setMarkupColorNew(color){
