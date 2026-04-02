@@ -480,6 +480,7 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
 .folder-rename-btn{background:none;border:none;cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 4px;border-radius:4px;opacity:0;transition:opacity .15s;vertical-align:middle;}
 .dwg-folder-header:hover .folder-rename-btn{opacity:.6;}
 .folder-rename-btn:hover{opacity:1!important;background:rgba(156,39,66,.1);}
+@media(pointer:coarse){.folder-rename-btn{opacity:.5;padding:6px 8px;}}
 .folder-icon{font-size:calc(16px + var(--ts));}
 .dwg-folder-body{display:flex;flex-wrap:wrap;gap:12px;padding:12px 16px;}
 .dwg-folder-body.collapsed{display:none;}
@@ -4622,7 +4623,7 @@ var p=getProject();if(!p)return;var g=document.getElementById('drawing-gallery')
     html+='<div class="dwg-folder-header" onclick="toggleFolder(\x27'+escHtml(fn)+'\x27)">';
     html+='<input type="checkbox" class="folder-checkbox" data-folder-id="'+escHtml(fn)+'" onclick="event.stopPropagation();toggleFolderSelect(\x27'+escHtml(fn)+'\x27,this)" title="Select all in folder">';
     html+='<span class="folder-toggle">'+(collapsed?'▶':'▼')+'</span>';
-    html+='<span class="folder-icon">📁</span> <strong>'+escHtml(fn)+'</strong> <button class="folder-rename-btn" onclick="event.stopPropagation();promptFolderRename(\\x27'+escHtml(fn)+'\\x27)" title="Rename folder">✏️</button>';
+    html+='<span class="folder-icon">📁</span> <strong>'+escHtml(fn)+'</strong> <button class="folder-rename-btn" onclick="event.stopPropagation();promptFolderRename(\x27'+escHtml(fn)+'\x27)" title="Rename folder">✏️</button>';
     html+='<span class="folder-count">('+items.length+' plans)</span>';
     html+='</div>';
     if(!collapsed){
