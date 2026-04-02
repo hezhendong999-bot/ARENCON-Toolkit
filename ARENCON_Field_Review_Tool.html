@@ -2153,6 +2153,17 @@ ADB.del=function(store,key){return new Promise(function(resolve,reject){
   tx.onerror=function(e){reject(e);};
 });};
 
+// Batch put + delete in a single IDB transaction (perf: 1 tx instead of N)
+ADB.batchPutDelete=function(store,putRecs,delKeys){return new Promise(function(resolve,reject){
+  if((!putRecs||!putRecs.length)&&(!delKeys||!delKeys.length)){resolve();return;}
+  var tx=ADB._tx(store,'readwrite');
+  var os=tx.objectStore(store);
+  (putRecs||[]).forEach(function(rec){os.put(rec);});
+  (delKeys||[]).forEach(function(key){os.delete(key);});
+  tx.oncomplete=function(){resolve();};
+  tx.onerror=function(e){reject(e.target?e.target.error:e);};
+});};
+
 ADB.clear=function(store){return new Promise(function(resolve,reject){
   var tx=ADB._tx(store,'readwrite');
   tx.objectStore(store).clear();
@@ -2464,46 +2475,106 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
 });};
 
 // ═══ FULL SAVE — saves project + all blobs ═══
+// Perf: reads existing records once per store, then batch-writes in 1 transaction per store
+// Before: N drawings × 1-2 txns + M photos × 1-2 txns + cleanup reads = up to 2(N+M)+3 transactions
+// After: 1 project meta + 1 read drawings + 1 write drawings + 1 read photos + 1 write photos = 5 transactions
 ADB.saveFullProject=function(proj){
   var pid=proj.id;
-  var promises=[ADB.saveProject(proj)];
-  // Save drawings — track all IDs; save if has dataUrl (local) or r2Url (uploaded, keep metadata)
+  // ── 1. Save project metadata (strips blobs, stores references only) ──
+  var metaPromise=ADB.saveProject(proj);
+
+  // ── 2. Drawings: read existing → merge blobs → batch write + cleanup ──
   var drawingIds=[];
+  var drawingsToSave=[];
   (proj.drawings||[]).forEach(function(d){
     if(d&&d.id){
       drawingIds.push(d.id);
-      if(d.dataUrl||d.dataBlob||d.r2Url||d.pdfTiled){promises.push(ADB.saveDrawing(d,pid));}
+      if(d.dataUrl||d.dataBlob||d.r2Url||d.pdfTiled)drawingsToSave.push(d);
     }
   });
-  // Clean stale drawings from IDB that are no longer in project
-  promises.push(ADB.getAllByIndex('drawings','projectId',pid).then(function(idbDrawings){
-    var delPromises=[];
-    (idbDrawings||[]).forEach(function(idbD){
-      if(drawingIds.indexOf(idbD.id)<0){delPromises.push(ADB.delete('drawings',idbD.id));}
+  var drawingPromise=ADB.getAllByIndex('drawings','projectId',pid).then(function(idbDrawings){
+    var existMap={};
+    (idbDrawings||[]).forEach(function(d){existMap[d.id]=d;});
+    // Build records — mirrors saveDrawing() logic exactly
+    var putRecs=[];
+    drawingsToSave.forEach(function(drawing){
+      var rec={id:drawing.id,projectId:pid,name:drawing.name,
+        width:drawing.width||0,height:drawing.height||0,
+        isOriginal:drawing.isOriginal||false,folder:drawing.folder||'',
+        pdfTiled:drawing.pdfTiled||false,pdfPage:drawing.pdfPage||1,
+        thumb:drawing.thumb||null};
+      if(drawing.dataUrl)rec.dataBlob=ADB.dataUrlToBlob(drawing.dataUrl);
+      else if(drawing.dataBlob)rec.dataBlob=drawing.dataBlob;
+      if(drawing.markupData)rec.markupBlob=ADB.dataUrlToBlob(drawing.markupData);
+      else if(drawing.markupBlob)rec.markupBlob=drawing.markupBlob;
+      rec.r2Key=drawing.r2Key||'';
+      rec.r2Status=drawing.r2Status||'';
+      rec.r2Url=drawing.r2Url||'';
+      // Preserve existing blob if not in memory (lazy loading — same as saveDrawing)
+      if(!rec.dataBlob){
+        var existing=existMap[drawing.id];
+        if(existing&&existing.dataBlob)rec.dataBlob=existing.dataBlob;
+        if(existing&&existing.markupBlob&&!rec.markupBlob)rec.markupBlob=existing.markupBlob;
+      }
+      putRecs.push(rec);
     });
-    return Promise.all(delPromises);
-  }).catch(function(){}));
+    // Stale drawing IDs to delete
+    var delKeys=[];
+    (idbDrawings||[]).forEach(function(idbD){
+      if(drawingIds.indexOf(idbD.id)<0)delKeys.push(idbD.id);
+    });
+    return ADB.batchPutDelete('drawings',putRecs,delKeys);
+  }).catch(function(e){console.error('Drawing batch save error:',e);});
+
   // ── Deficiency photos: NO blob save (R2-first Phase 1) ──
   // Photo records (id, r2Key, r2Status, r2Url) are saved inline in project metadata via saveProject().
   // Pending uploads (blobs awaiting R2) are in the pendingUploads store, managed by _r2EnqueueDeficPhoto.
-  // Save site photos — Phase 2: save if has dataUrl (local) OR r2Url (uploaded to R2)
+
+  // ── 3. Site photos: read existing → merge blobs → batch write + cleanup ──
   var sitePhotoIds=[];
+  var photosToSave=[];
   (proj.sitePhotos||[]).forEach(function(ph){
     if(ph&&ph.id){
       sitePhotoIds.push(ph.id);
-      // Save to IDB: if has dataUrl (local/pending) or has r2Url (keep metadata even after blob gone)
-      if(ph.dataUrl||ph.r2Url){promises.push(ADB.saveSitePhoto(ph,pid));}
+      if(ph.dataUrl||ph.r2Url)photosToSave.push(ph);
     }
   });
-  // Clean stale site photos from IDB
-  promises.push(ADB.getAllByIndex('sitePhotos','projectId',pid).then(function(idbSPs){
-    var delPromises=[];
-    (idbSPs||[]).forEach(function(idbSP){
-      if(sitePhotoIds.indexOf(idbSP.id)<0){delPromises.push(ADB.delete('sitePhotos',idbSP.id));}
+  var photoPromise=ADB.getAllByIndex('sitePhotos','projectId',pid).then(function(idbSPs){
+    var existMap={};
+    (idbSPs||[]).forEach(function(sp){existMap[sp.id]=sp;});
+    // Build records — mirrors saveSitePhoto() logic exactly
+    var putRecs=[];
+    photosToSave.forEach(function(photo){
+      var rec={id:photo.id,projectId:pid,caption:photo.caption||'',
+        timestamp:photo.date||photo.uploadDate||photo.timestamp||''};
+      rec.r2Key=photo.r2Key||'';
+      rec.r2Status=photo.r2Status||'';
+      rec.r2Url=photo.r2Url||'';
+      rec.markupObjects=(photo.markupObjects&&photo.markupObjects.length)?photo.markupObjects:null;
+      rec._markupCanvasW=photo._markupCanvasW||null;
+      rec._markupCanvasH=photo._markupCanvasH||null;
+      rec._origBackupId=photo._origBackupId||null;
+      var _markupExplicit=('markupObjects' in photo);
+      if(photo.dataUrl){
+        rec.dataBlob=ADB.dataUrlToBlob(photo.dataUrl);
+      } else {
+        var existing=existMap[photo.id];
+        if(existing&&existing.dataBlob&&existing.dataBlob.size>0)rec.dataBlob=existing.dataBlob;
+        if(!_markupExplicit&&!rec.markupObjects&&existing&&existing.markupObjects)rec.markupObjects=existing.markupObjects;
+        if(!_markupExplicit&&!rec._markupCanvasW&&existing&&existing._markupCanvasW)rec._markupCanvasW=existing._markupCanvasW;
+        if(!_markupExplicit&&!rec._markupCanvasH&&existing&&existing._markupCanvasH)rec._markupCanvasH=existing._markupCanvasH;
+        if(!_markupExplicit&&!rec._origBackupId&&existing&&existing._origBackupId)rec._origBackupId=existing._origBackupId;
+      }
+      putRecs.push(rec);
     });
-    return Promise.all(delPromises);
-  }).catch(function(){}));
-  return Promise.all(promises);
+    var delKeys=[];
+    (idbSPs||[]).forEach(function(idbSP){
+      if(sitePhotoIds.indexOf(idbSP.id)<0)delKeys.push(idbSP.id);
+    });
+    return ADB.batchPutDelete('sitePhotos',putRecs,delKeys);
+  }).catch(function(e){console.error('Site photo batch save error:',e);});
+
+  return Promise.all([metaPromise,drawingPromise,photoPromise]);
 };
 
 // ═══ JSON EXPORT (full project with base64) ═══
@@ -8475,7 +8546,38 @@ function lightboxRevertMarkup(){
 // ═══ CONTRACTOR DEFICIENCY SYSTEM — Pump Tool Style ═══
 function addContractor(){var input=document.getElementById('new-contractor-input');var name=(input.value||'').trim();if(!name)return;var p=getProject();if(p.contractors.some(function(c){return c.name.toLowerCase()===name.toLowerCase();})){_aAlert('"'+name+'" already exists.');return;}p.contractors.push({id:'ctr_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:name,deficiencies:[]});input.value='';saveToLS();_folderQuickSave();renderDeficiencyPanel();}
 function removeContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;function _doRemove(){p.contractors=p.contractors.filter(function(x){return x.id!==cid;});saveToLS();_folderQuickSave();renderDeficiencyPanel();}if(c.deficiencies.length>0){_aConfirm('"'+c.name+'" has '+c.deficiencies.length+' deficiencies. Move to General?',function(){c.deficiencies.forEach(function(d){p.generalDeficiencies.push(d);});_doRemove();});}else{_aConfirm('Remove "'+c.name+'"?',function(){_doRemove();},'Remove');}}
-function renderDeficiencyPanel(){renderContractorChips();_updateDeficLifecycleCounts();_updateFrtInstanceIndicator();renderDeficGroups();renderClosedDeficView();renderSummaryTable();setTimeout(function(){populateRespPhotos();_loadDataSrcImgs(document.getElementById('panel-deficiencies'));},50);}
+var _rdpTimer=null;
+var _rdpLastKey='';
+// Content key — captures structural changes that require DOM rebuild
+function _deficContentKey(){
+  var p=getProject();if(!p)return '';
+  try{
+    var k='';
+    // Include fold state (affects DOM output of buildDeficGroup)
+    var fkeys=Object.keys(_foldedCtrs).sort();
+    for(var fi=0;fi<fkeys.length;fi++)k+='F'+fkeys[fi]+(_foldedCtrs[fkeys[fi]]?'1':'0');
+    (p.contractors||[]).forEach(function(c){
+      k+=c.id+c.name+c.deficiencies.length+',';
+      c.deficiencies.forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;});
+    });
+    (p.generalDeficiencies||[]).forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;});
+    return k;
+  }catch(e){return ''+Date.now();}// force render on error
+}
+function renderDeficiencyPanel(){
+  // Debounce: collapse rapid successive calls into one render (16ms ≈ 1 frame)
+  if(_rdpTimer)clearTimeout(_rdpTimer);
+  _rdpTimer=setTimeout(_doRenderDeficiencyPanel,16);
+}
+function _doRenderDeficiencyPanel(){
+  _rdpTimer=null;
+  renderContractorChips();_updateDeficLifecycleCounts();_updateFrtInstanceIndicator();
+  // Skip expensive DOM rebuild if deficiency structure hasn't changed
+  var key=_deficContentKey();
+  if(key!==_rdpLastKey){_rdpLastKey=key;renderDeficGroups();}
+  renderClosedDeficView();renderSummaryTable();
+  setTimeout(function(){populateRespPhotos();_loadDataSrcImgs(document.getElementById('panel-deficiencies'));},50);
+}
 
 var _deficLifecycleTab='active';
 function switchDeficLifecycleTab(tab){
