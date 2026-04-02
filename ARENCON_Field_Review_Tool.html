@@ -1789,7 +1789,7 @@ body.text-l{--ts:4px;}
       </button>
       <!-- SHAPES GROUP -->
       <div class="tool-group" id="tool-shapes-group">
-        <button class="tool-btn tool-group-btn" id="mk-shapes" onclick="toggleShapesMenu(event)" ontouchend="event.stopPropagation();event.preventDefault();toggleShapesMenu(event);" data-tip="Shapes">
+        <button class="tool-btn tool-group-btn" id="mk-shapes" data-tip="Shapes">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
           <span class="tool-group-arrow">▸</span>
         </button>
@@ -1816,7 +1816,7 @@ body.text-l{--ts:4px;}
       <div class="tool-sep"></div>
       <!-- COLOR PICKER GROUP -->
       <div class="tool-group" id="tool-color-group">
-        <button class="tool-btn tool-group-btn" id="mk-color-btn" onclick="toggleColorMenu(event)" ontouchend="event.stopPropagation();event.preventDefault();toggleColorMenu(event);" data-tip="Color" style="padding:0;">
+        <button class="tool-btn tool-group-btn" id="mk-color-btn" data-tip="Color" style="padding:0;">
           <div id="mk-color-swatch" style="width:20px;height:20px;border-radius:50%;background:#C0392B;border:2px solid #fff;"></div>
         </button>
         <div class="tool-submenu color-submenu" id="color-submenu">
@@ -5432,12 +5432,23 @@ function _openDrawingImage(d,drawingId){
 function prevDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx-1+p.drawings.length)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
 function nextDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx+1)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
 
+var _fitRetryCount=0;
 function fitDrawing(){
-  // Double-rAF: first rAF schedules after current frame, second runs after browser reflow
+  // Double-rAF ensures browser has reflowed
   requestAnimationFrame(function(){requestAnimationFrame(function(){
     var a=document.getElementById('dv-canvas-area');
     if(!a)return;
     var aw=a.clientWidth,ah=a.clientHeight;
+    // If dimensions are zero (DevTools transition), retry with escalating delay
+    if(!aw||!ah){
+      if(_fitRetryCount<6){
+        _fitRetryCount++;
+        var delay=[50,100,200,400,800,1500][_fitRetryCount-1]||500;
+        setTimeout(fitDrawing,delay);
+      }
+      return;
+    }
+    _fitRetryCount=0; // reset on success
     var iw,ih;
     if(window._tiledActive&&_tileState.pageW){
       iw=_tileState.pageW*_tileState.baseScale;
@@ -5447,7 +5458,7 @@ function fitDrawing(){
       if(!img)return;
       iw=img.naturalWidth;ih=img.naturalHeight;
     }
-    if(!iw||!ih||!aw||!ah)return;
+    if(!iw||!ih)return;
     var s=Math.min(aw/iw,ah/ih)*(window.innerWidth<=700?0.95:0.97);
     dvState.fitScale=s;dvState.scale=s;
     dvState.panX=(aw-iw*s)/2;dvState.panY=(ah-ih*s)/2;
@@ -6111,12 +6122,17 @@ function resizeMarkupCanvas(){
   var img=document.getElementById('dv-image');
   if(!canvas||!img)return;
   var iw=img.naturalWidth, ih=img.naturalHeight;
-  // Device-aware canvas caps: iPhone 1536, iPad/tablet 2400, desktop 3000
+  // Maximum sharpness: use image natural dimensions, capped by total pixel count
+  // to prevent Safari GPU crashes. Safe limits (RGBA = 4 bytes/pixel):
+  // iPhone: 16M pixels (~64MB) → up to 4096×4096
+  // iPad/tablet: 16M pixels → up to 4096×4096
+  // Desktop: 25M pixels (~100MB) → up to 5000×5000
   var _isIPhone=/iPhone|iPod/.test(navigator.userAgent);
-  var _isIPadOrTablet=(/iPad/.test(navigator.userAgent))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||(window.innerWidth<=1200&&'ontouchstart' in window&&!_isIPhone);
-  var mkMaxDim=_isIPhone?1536:(_isIPadOrTablet?2400:3000);
+  var _isTablet=(/iPad/.test(navigator.userAgent))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||(window.innerWidth<=1200&&'ontouchstart' in window&&!_isIPhone);
+  var maxPixels=_isIPhone?16000000:(_isTablet?16000000:25000000);
+  var totalPixels=iw*ih;
   var mkScale=1;
-  if(Math.max(iw,ih)>mkMaxDim){mkScale=mkMaxDim/Math.max(iw,ih);}
+  if(totalPixels>maxPixels){mkScale=Math.sqrt(maxPixels/totalPixels);}
   var cw=Math.round(iw*mkScale), ch=Math.round(ih*mkScale);
   if(canvas.width!==cw||canvas.height!==ch){
     canvas.width=cw;canvas.height=ch;
@@ -7042,22 +7058,34 @@ function initToolbarTooltips(){
     });
     el.addEventListener('mouseleave',function(){tip.style.display='none';});
   });
+  // Bind shapes + color submenu toggles via pointerup (fires once, no double-fire)
+  var shapesBtn=document.getElementById('mk-shapes');
+  if(shapesBtn){
+    shapesBtn.addEventListener('pointerup',function(e){toggleShapesMenu(e);});
+  }
+  var colorBtn=document.getElementById('mk-color-btn');
+  if(colorBtn){
+    colorBtn.addEventListener('pointerup',function(e){toggleColorMenu(e);});
+  }
 }
 
 // ═══ SHAPES SUBMENU ═══
 var _shapesMenuOpen=false;
-var _shapesMenuJustOpened=false;
+var _shapesLastToggle=0;
 function toggleShapesMenu(e){
+  // Dedup: ignore if fired within 300ms of last toggle (touchend+click double-fire)
+  var now=Date.now();
+  if(now-_shapesLastToggle<300)return;
+  _shapesLastToggle=now;
   e.stopPropagation();
   e.preventDefault();
   var sub=document.getElementById('shapes-submenu');
   if(!sub)return;
   _shapesMenuOpen=!_shapesMenuOpen;
   if(_shapesMenuOpen){
-    _shapesMenuJustOpened=true;
-    var r=e.currentTarget.getBoundingClientRect();
+    var btn=document.getElementById('mk-shapes');
+    var r=btn?btn.getBoundingClientRect():{top:120,bottom:120};
     if(window.innerWidth<=900){
-      // Mobile: position below the toolbar (toolbar is at top now)
       var tb=document.getElementById('dv-sidebar-tools');
       var tbR=tb?tb.getBoundingClientRect():null;
       sub.style.bottom='auto';
@@ -7073,15 +7101,14 @@ function toggleShapesMenu(e){
   }
   sub.classList.toggle('open',_shapesMenuOpen);
   if(_shapesMenuOpen){
-    setTimeout(function(){_shapesMenuJustOpened=false;},100);
-    function _closeShapesMenu(ev){
-      if(_shapesMenuJustOpened)return;
-      sub.classList.remove('open');_shapesMenuOpen=false;
-      document.removeEventListener('click',_closeShapesMenu);
-      document.removeEventListener('touchend',_closeShapesMenu);
-    }
-    document.addEventListener('click',_closeShapesMenu);
-    document.addEventListener('touchend',_closeShapesMenu);
+    // Close on next interaction anywhere else — delayed to avoid same-event close
+    setTimeout(function(){
+      function _closeShapes(){
+        sub.classList.remove('open');_shapesMenuOpen=false;
+        document.removeEventListener('pointerdown',_closeShapes,true);
+      }
+      document.addEventListener('pointerdown',_closeShapes,true);
+    },50);
   }
 }
 function setToolbarToolFromShape(tool){
@@ -7094,16 +7121,19 @@ function setToolbarToolFromShape(tool){
 
 // ═══ COLOR PICKER ═══
 var _colorMenuOpen=false;
-var _colorMenuJustOpened=false;
+var _colorLastToggle=0;
 function toggleColorMenu(e){
+  var now=Date.now();
+  if(now-_colorLastToggle<300)return;
+  _colorLastToggle=now;
   e.stopPropagation();
   e.preventDefault();
   var sub=document.getElementById('color-submenu');
   if(!sub)return;
   _colorMenuOpen=!_colorMenuOpen;
   if(_colorMenuOpen){
-    _colorMenuJustOpened=true;
-    var r=e.currentTarget.getBoundingClientRect();
+    var btn=document.getElementById('mk-color-btn');
+    var r=btn?btn.getBoundingClientRect():{top:120,bottom:120};
     if(window.innerWidth<=900){
       var tb=document.getElementById('dv-sidebar-tools');
       var tbR=tb?tb.getBoundingClientRect():null;
@@ -7120,15 +7150,13 @@ function toggleColorMenu(e){
   }
   sub.classList.toggle('open',_colorMenuOpen);
   if(_colorMenuOpen){
-    setTimeout(function(){_colorMenuJustOpened=false;},100);
-    function _closeColorMenu(){
-      if(_colorMenuJustOpened)return;
-      sub.classList.remove('open');_colorMenuOpen=false;
-      document.removeEventListener('click',_closeColorMenu);
-      document.removeEventListener('touchend',_closeColorMenu);
-    }
-    document.addEventListener('click',_closeColorMenu);
-    document.addEventListener('touchend',_closeColorMenu);
+    setTimeout(function(){
+      function _closeColor(){
+        sub.classList.remove('open');_colorMenuOpen=false;
+        document.removeEventListener('pointerdown',_closeColor,true);
+      }
+      document.addEventListener('pointerdown',_closeColor,true);
+    },50);
   }
 }
 function setMarkupColorNew(color){
