@@ -1816,7 +1816,7 @@ body.text-l{--ts:4px;}
       <div class="tool-sep"></div>
       <!-- COLOR PICKER GROUP -->
       <div class="tool-group" id="tool-color-group">
-        <button class="tool-btn tool-group-btn" id="mk-color-btn" onclick="toggleColorMenu(event)" data-tip="Color" style="padding:0;">
+        <button class="tool-btn tool-group-btn" id="mk-color-btn" onclick="toggleColorMenu(event)" ontouchend="event.stopPropagation();event.preventDefault();toggleColorMenu(event);" data-tip="Color" style="padding:0;">
           <div id="mk-color-swatch" style="width:20px;height:20px;border-radius:50%;background:#C0392B;border:2px solid #fff;"></div>
         </button>
         <div class="tool-submenu color-submenu" id="color-submenu">
@@ -3243,9 +3243,18 @@ function _escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;
 function switchTab(tab){currentTab=tab;sessionStorage.setItem('ARENCON_lastTab',tab);document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.toggle('active',t.getAttribute('data-tab')===tab);});document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+tab);});if(tab==='deficiencies')renderDeficiencyPanel();if(tab==='drawings')renderDrawingGallery();if(tab==='photos')renderPhotoGallery();if(tab==='pins'){if(typeof _tasksView!=='undefined'&&_tasksView==='kanban')renderPinsKanban();else renderTasksTable();}}
 
 function goToDashboard(){
-  // Hub mode: show Save & Leave prompt then navigate
+  // Hub mode: check if unsaved, skip modal if not
   if(_csHubMode){
     var destUrl='ARENCON_Project_Hub.html'+(_csProjectId?'?open='+encodeURIComponent(_csProjectId):'');
+    // Skip save prompt if no unsaved changes since last cloud sync
+    var p=getProject();
+    var lastMod=p&&p._localModifiedAt?new Date(p._localModifiedAt).getTime():0;
+    var lastSync=p&&p._cloudSyncedAt?new Date(p._cloudSyncedAt).getTime():0;
+    var hasUnsaved=lastMod>(lastSync+3000);
+    if(!hasUnsaved){
+      window.location.href=destUrl;
+      return;
+    }
     _showHubSaveLeaveModal(destUrl);
     return;
   }
@@ -7085,12 +7094,15 @@ function setToolbarToolFromShape(tool){
 
 // ═══ COLOR PICKER ═══
 var _colorMenuOpen=false;
+var _colorMenuJustOpened=false;
 function toggleColorMenu(e){
   e.stopPropagation();
+  e.preventDefault();
   var sub=document.getElementById('color-submenu');
   if(!sub)return;
   _colorMenuOpen=!_colorMenuOpen;
   if(_colorMenuOpen){
+    _colorMenuJustOpened=true;
     var r=e.currentTarget.getBoundingClientRect();
     if(window.innerWidth<=900){
       var tb=document.getElementById('dv-sidebar-tools');
@@ -7107,7 +7119,17 @@ function toggleColorMenu(e){
     }
   }
   sub.classList.toggle('open',_colorMenuOpen);
-  if(_colorMenuOpen){document.addEventListener('click',function h(){sub.classList.remove('open');_colorMenuOpen=false;document.removeEventListener('click',h);},{once:true});}
+  if(_colorMenuOpen){
+    setTimeout(function(){_colorMenuJustOpened=false;},100);
+    function _closeColorMenu(){
+      if(_colorMenuJustOpened)return;
+      sub.classList.remove('open');_colorMenuOpen=false;
+      document.removeEventListener('click',_closeColorMenu);
+      document.removeEventListener('touchend',_closeColorMenu);
+    }
+    document.addEventListener('click',_closeColorMenu);
+    document.addEventListener('touchend',_closeColorMenu);
+  }
 }
 function setMarkupColorNew(color){
   mkState.color=color;

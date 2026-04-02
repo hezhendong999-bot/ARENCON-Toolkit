@@ -1508,9 +1508,16 @@ function _populatePMDropdowns() {
 <script>
 /* ═══ Show App (post-login) ═══ */
 var _hubPopstateReady = false;
+var _pendingOpenId = null;
 function showApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'block';
+
+  // Capture ?open= BEFORE replaceState strips query string
+  try {
+    var _urlP = new URLSearchParams(window.location.search);
+    _pendingOpenId = _urlP.get('open') || null;
+  } catch(e) { _pendingOpenId = null; }
 
   // Update header user info
   const name = _profile ? _profile.full_name : 'User';
@@ -1534,7 +1541,7 @@ function showApp() {
   document.getElementById('btn-profile').style.display = '';
   document.getElementById('mob-profile').style.display = '';
 
-  // Set initial history state for dashboard
+  // Clean URL of ?open= param (already captured above)
   try { history.replaceState({view:'dashboard'}, '', window.location.pathname); } catch(e){}
 
   showDashboard();
@@ -1611,14 +1618,12 @@ async function loadProjects() {
     _projects = [];
   }
   renderProjects();
-  // Check for ?open= param to auto-open a project detail
-  var urlParams = new URLSearchParams(window.location.search);
-  var openId = urlParams.get('open');
-  if (openId) {
-    // Clean up the URL so back button doesn't re-trigger ?open=
-    try { history.replaceState({view:'dashboard'}, '', window.location.pathname); } catch(e){}
-    var proj = _projects.find(function(p){ return p.id === openId; });
-    if (proj) openProject(openId);
+  // Check for pending ?open= param (captured before replaceState in showApp)
+  if (_pendingOpenId) {
+    var _oid = _pendingOpenId;
+    _pendingOpenId = null; // consume it once
+    var proj = _projects.find(function(p){ return p.id === _oid; });
+    if (proj) openProject(_oid);
   }
 }
 
