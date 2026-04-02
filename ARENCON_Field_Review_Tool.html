@@ -6735,6 +6735,7 @@ function initMarkupEvents(){
 
   // Rubber-band state for drawing toolbar
   var _mkRubberBand=null;  // {sx,sy,ex,ey}
+  var _mkRafId=0; // RAF throttle for renderAllMarkup during drag (perf optimization)
   // Copy mode uses window vars so setToolbarTool can check/clear them
   window._mkCopyMode=window._mkCopyMode||false;
   window._mkCopyObj=window._mkCopyObj||null;
@@ -6843,23 +6844,29 @@ function initMarkupEvents(){
         if(_mkDragState.mode==='move')_mkMoveObj(obj,dx,dy);
         else _mkResizeObj(obj,_mkDragState.handle,dx,dy);
       }
-      renderAllMarkup();
+      // RAF throttle: render max once per animation frame during drag
+      if(!_mkRafId)_mkRafId=requestAnimationFrame(function(){_mkRafId=0;renderAllMarkup();});
     } else if(_mkRubberBand){
       _mkRubberBand.ex=pos.x;_mkRubberBand.ey=pos.y;
-      // Draw rubber band overlay
-      renderAllMarkup();
-      var rb=_mkRubberBand;
-      var ctx=canvas.getContext('2d');var dpr=canvas._dpr||1;
-      ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
-      ctx.strokeStyle='#2196F3';ctx.lineWidth=1.5/dpr;ctx.setLineDash([6,3]);
-      ctx.fillStyle='rgba(33,150,243,.08)';
-      var rx=Math.min(rb.sx,rb.ex),ry=Math.min(rb.sy,rb.ey),rw=Math.abs(rb.ex-rb.sx),rh=Math.abs(rb.ey-rb.sy);
-      ctx.fillRect(rx,ry,rw,rh);ctx.strokeRect(rx,ry,rw,rh);
-      ctx.restore();
+      // RAF throttle: render rubber band max once per animation frame
+      if(!_mkRafId)_mkRafId=requestAnimationFrame(function(){
+        _mkRafId=0;
+        renderAllMarkup();
+        var rb=_mkRubberBand;if(!rb)return;
+        var ctx=canvas.getContext('2d');var dpr=canvas._dpr||1;
+        ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
+        ctx.strokeStyle='#2196F3';ctx.lineWidth=1.5/dpr;ctx.setLineDash([6,3]);
+        ctx.fillStyle='rgba(33,150,243,.08)';
+        var rx=Math.min(rb.sx,rb.ex),ry=Math.min(rb.sy,rb.ey),rw=Math.abs(rb.ex-rb.sx),rh=Math.abs(rb.ey-rb.sy);
+        ctx.fillRect(rx,ry,rw,rh);ctx.strokeRect(rx,ry,rw,rh);
+        ctx.restore();
+      });
     }
   }
 
   function endSelect(e){
+    // Cancel any pending RAF from drag throttle — ensure clean final render
+    if(_mkRafId){cancelAnimationFrame(_mkRafId);_mkRafId=0;}
     if(_mkDragState&&_mkDragState.moved){saveMarkupData();}
     // Double-click text to re-edit
     if(_mkDragState&&!_mkDragState.moved&&_mkSelectedId){
@@ -14505,6 +14512,16 @@ async function _repairR2Links(forceRun){
   var p=getProject();if(!p)return;
   // Skip if already repaired this project in this session (unless forced via button)
   if(!forceRun&&window._r2RepairDone&&window._r2RepairDone[p.id])return;
+  // Skip if repaired recently (persistent across page reloads — saves 4 network requests per load)
+  if(!forceRun){
+    try{
+      var _rts=localStorage.getItem('ARENCON_r2repair_'+p.id);
+      if(_rts&&(Date.now()-parseInt(_rts,10))<14400000){// 4 hours
+        console.log('[R2 Repair] Skipped — repaired '+(Math.round((Date.now()-parseInt(_rts,10))/60000))+'min ago (threshold: 240min)');
+        return;
+      }
+    }catch(e){}
+  }
   window._r2RepairInProgress=true;
   try{
   var workerUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
@@ -14725,6 +14742,8 @@ async function _repairR2Links(forceRun){
   }
   if(!window._r2RepairDone)window._r2RepairDone={};
   window._r2RepairDone[p.id]=true;
+  // Persist repair timestamp so next page load skips redundant 4-request scan
+  try{localStorage.setItem('ARENCON_r2repair_'+p.id,''+Date.now());}catch(e){}
   window._r2RepairInProgress=false;
   }catch(repairErr){
     console.error('[R2 Repair] Error:',repairErr);
