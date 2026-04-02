@@ -5350,6 +5350,9 @@ function _openDrawingImage(d,drawingId){
     function _openWithSrc(src){
       var prevBlobUrl=dvState._currentBlobUrl;
       dvState._currentBlobUrl=null;
+      // Reset markup loaded flag so loadMarkupData runs fresh for the new drawing
+      var mkCanvas=document.getElementById('markup-canvas');
+      if(mkCanvas)mkCanvas._markupLoaded=false;
       // Clone canvas area for fresh pan/zoom listeners BEFORE image loads
       // (img.onload can fire synchronously on cached/blob images, which would
       // bind markup events to the pre-clone canvas that initPanZoom destroys)
@@ -6119,8 +6122,10 @@ function resizeMarkupCanvas(){
   // iPhone: 16M pixels (~64MB) → up to 4096×4096
   // iPad/tablet: 16M pixels → up to 4096×4096
   // Desktop: 25M pixels (~100MB) → up to 5000×5000
+  // Device detection must be stable (not depend on viewport width which changes during DevTools toggle)
+  // Use touch capability + UA string, NOT window.innerWidth
   var _isIPhone=/iPhone|iPod/.test(navigator.userAgent);
-  var _isTablet=(/iPad/.test(navigator.userAgent))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||(window.innerWidth<=1200&&'ontouchstart' in window&&!_isIPhone);
+  var _isTablet=(/iPad/.test(navigator.userAgent))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||(/Android/.test(navigator.userAgent)&&!/Mobile/.test(navigator.userAgent));
   var maxPixels=_isIPhone?16000000:(_isTablet?16000000:25000000);
   var totalPixels=iw*ih;
   var mkScale=1;
@@ -6137,7 +6142,14 @@ function resizeMarkupCanvas(){
     canvas._dpr=mkScale;
     canvas._logicalW=iw;canvas._logicalH=ih;
     canvas._lazyReady=false; // fully allocated now
-    loadMarkupData();
+    // Only load markup data on first allocation. On subsequent resizes (e.g. DevTools toggle
+    // changes viewport → different pixel cap), markup is already in _mkObjects — just re-render.
+    if(!canvas._markupLoaded){
+      canvas._markupLoaded=true;
+      loadMarkupData();
+    } else {
+      renderAllMarkup();
+    }
   } else {
     canvas.style.width=iw+'px';canvas.style.height=ih+'px';
     if(!canvas._dpr){canvas._dpr=mkScale;canvas._logicalW=iw;canvas._logicalH=ih;}
