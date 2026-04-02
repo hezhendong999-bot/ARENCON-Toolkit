@@ -178,8 +178,8 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .section-nav{background:linear-gradient(135deg,#1B2438 0%,#243048 100%);display:flex;gap:0;overflow-x:auto;padding:0 16px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav::-webkit-scrollbar{display:none;}
 .nav-tab{padding:11px 18px;font-family:Calibri,sans-serif;font-weight:600;font-size:calc(15px + var(--ts));letter-spacing:.4px;color:var(--silver);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;user-select:none;}.nav-tab:hover{color:white;}.nav-tab.active{color:white;border-bottom-color:var(--red);}
 #issue-status-badge{transition:filter .15s,transform .15s;}#issue-status-badge:hover{filter:brightness(1.2);transform:scale(1.05);}
-.main-wrap{max-width:1400px;margin:0 auto;padding:22px 18px 70px;box-sizing:border-box;overflow-x:hidden;}
-.panel{display:none;}.panel.active{display:block;}
+.main-wrap{max-width:1400px;margin:0 auto;padding:22px 18px 70px;box-sizing:border-box;overflow-x:hidden;min-height:calc(100vh - 60px);}
+.panel{display:none;opacity:0;transition:opacity .15s ease;}.panel.active{display:block;opacity:1;}
 .card{background:white;border-radius:11px;border:1.5px solid #DDE1E7;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;overflow:hidden;}
 .card-header{background:var(--arencon);color:white;padding:13px 20px;font-family:Calibri,sans-serif;font-weight:700;font-size:calc(15px + var(--ts));letter-spacing:.5px;display:flex;align-items:center;gap:10px;}
 .card-header.mid{background:var(--arencon-mid);}.card-header.red{background:var(--red);}
@@ -4979,8 +4979,23 @@ function _cleanEmptyFolders(p){
   p._folders=p._folders.filter(function(fn){return usedFolders[fn];});
 }
 function renameDrawing(id){var p=getProject();var d=p.drawings.find(function(x){return x.id===id;});if(!d)return;_aPrompt('Rename:',d.name,function(n){if(n){d.name=n;saveToLS();renderDrawingGallery();}});}
-function removeDrawing(id){_aConfirm('Delete this drawing?',function(){var p=getProject();p.drawings=p.drawings.filter(function(x){return x.id!==id;});(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});});(p.generalDeficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});
+function removeDrawing(id){_aConfirm('Delete this drawing?',function(){var p=getProject();
+// Find drawing before removing to get R2 key for cleanup
+var dwgToDelete=p.drawings.find(function(x){return x.id===id;});
+p.drawings=p.drawings.filter(function(x){return x.id!==id;});(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});});(p.generalDeficiencies||[]).forEach(function(d){if(d.drawingId===id){d.drawingId=null;d.pinX=null;d.pinY=null;}});
 ADB.delete('drawings',id).catch(function(){});
+// Delete from R2 so it can't be re-downloaded by auto-prefetch or orphan recovery
+if(dwgToDelete&&dwgToDelete.r2Key&&_csHubMode){
+  var _tok=localStorage.getItem('sb-access-token');
+  var _hdrs={};if(_tok)_hdrs['Authorization']='Bearer '+_tok;
+  fetch('https://arencon-r2-worker.hezhendong999.workers.dev/'+dwgToDelete.r2Key,{method:'DELETE',headers:_hdrs}).catch(function(){});
+  // Also delete markup JSON if it exists
+  var _mFid=_getR2FolderId();
+  if(_mFid){
+    var _mkPath='/photos/'+encodeURIComponent(_mFid)+'/frt/markup/'+encodeURIComponent(id)+'.json';
+    fetch('https://arencon-r2-worker.hezhendong999.workers.dev'+_mkPath,{method:'DELETE',headers:_hdrs}).catch(function(){});
+  }
+}
 ADB.saveFullProject(p).then(function(){ADB.markDirty();updateSaveTimestamp();}).catch(function(e){console.error('Delete save error',e);});
 _debouncedCloudSave();
 renderDrawingGallery();},'Delete');}
@@ -5353,7 +5368,7 @@ function _openDrawingImage(d,drawingId){
       img.onload=function(){
         img.style.display='';// Ensure visible after load
         if(prevBlobUrl){URL.revokeObjectURL(prevBlobUrl);}
-        fitDrawing();renderPinsOnDrawing();renderTasksPanel();_lazyCanvasSize();initMarkupEvents();initSelectModeEvents();
+        fitDrawing();renderPinsOnDrawing();renderTasksPanel();resizeMarkupCanvas();initMarkupEvents();initSelectModeEvents();
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
       };
       img.onerror=function(){
@@ -5696,7 +5711,10 @@ function deleteAllMarkupOnDrawing(){
       }
     }
   }
-  renderAllMarkup();saveMarkupData();_forceCloudSave();
+  renderAllMarkup();saveMarkupData();
+  // Clear legacy fields AFTER saveMarkupData (which overwrites markupData with canvas.toDataURL)
+  if(_dwgDel){_dwgDel.markupData=null;_dwgDel.markupR2Saved=false;_dwgDel.markupShapes=[];_mkShapes=[];saveToLS();}
+  _forceCloudSave();
   toast('🗑️ Deleted '+count+' markup object'+(count!==1?'s':''));
   },'Delete');
 }
@@ -5797,6 +5815,18 @@ window.addEventListener('resize',function(){
       if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
     },500);
   },50);
+});
+// Re-fit drawing when page regains visibility (DevTools close, tab switch)
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'&&document.getElementById('drawing-viewer').classList.contains('open')){
+    setTimeout(function(){fitDrawing();renderPinsOnDrawing();},100);
+    setTimeout(function(){fitDrawing();},400);
+  }
+});
+window.addEventListener('focus',function(){
+  if(document.getElementById('drawing-viewer').classList.contains('open')){
+    setTimeout(function(){fitDrawing();renderPinsOnDrawing();},100);
+  }
 });
 window.addEventListener('orientationchange',function(){
   setTimeout(function(){
@@ -14700,8 +14730,10 @@ async function _repairR2Links(forceRun){
   if(ghostCount>0)console.log('[R2 Repair] Removed '+ghostCount+' ghost defic photo records');
 
   // Step 6b: ORPHAN RECOVERY — create records for R2 files that have NO matching project records
-  // This handles the case where cloud sync wiped local records but R2 still has the files
+  // ONLY runs on manual "Repair R2 Links" button click (forceRun=true), NOT on auto-run.
+  // This prevents deliberately deleted drawings/photos from being re-created on every project load.
   var orphanCount=0;
+  if(forceRun){
   var _claimedFnames=new Set();
   // Collect all filenames that ARE matched to records
   allSiteRecs.forEach(function(r){if(r.r2Key){var fn=r.r2Key.split('/').pop();_claimedFnames.add(fn);}});
@@ -14777,6 +14809,7 @@ async function _repairR2Links(forceRun){
   }
 
   if(orphanCount>0)console.log('[R2 Repair] Recovered '+orphanCount+' orphan R2 files as new records');
+  }// end forceRun orphan recovery
 
   // Step 7: Persist to IDB + cloud
   if(fixCount>0||clearCount>0||ghostCount>0||orphanCount>0){
