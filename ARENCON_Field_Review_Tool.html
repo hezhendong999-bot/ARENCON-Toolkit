@@ -3434,6 +3434,8 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   if(!_csHubMode){
     setTimeout(function(){_prefetchDrawingsForOffline(id);},500);
   }
+  // Pre-cache drawing snapshots in background for instant viewer opens
+  _preCacheDrawingSnapshots();
 }
 function populateProjectFields(){var p=getProject();if(!p||!p.info)return;
   Object.keys(p.info).forEach(function(key){
@@ -4425,6 +4427,147 @@ function _maybeCacheGalleryThumb(drawingId,blob){
   });
 }
 
+// ═══ SNAPSHOT PRE-GENERATION — instant viewer open, first time, every time ═══
+// Generate 1500px JPEG snapshot from an image source (dataUrl or blobUrl) and save to IDB
+function _genSnapshotFromSrc(src,drawingId,callback){
+  try{
+    var snapMaxW=1500;
+    var img=new Image();
+    img.onload=function(){
+      var sw=Math.min(snapMaxW,img.width);
+      var sh=Math.round(sw*(img.height/img.width));
+      var cv=document.createElement('canvas');
+      cv.width=sw;cv.height=sh;
+      cv.getContext('2d').drawImage(img,0,0,sw,sh);
+      cv.toBlob(function(blob){
+        cv.width=1;cv.height=1;
+        if(!blob||blob.size<500){if(callback)callback(false);return;}
+        ADB.get('drawings',drawingId).then(function(rec){
+          if(!rec)rec={id:drawingId,projectId:_csProjectId||''};
+          rec.snapshotBlob=blob;rec.snapshotW=sw;rec.snapshotH=sh;
+          return ADB.put('drawings',rec);
+        }).then(function(){
+          _dbg('[Snapshot] Pre-generated for '+drawingId+': '+sw+'x'+sh+' ('+Math.round(blob.size/1024)+'KB)');
+          if(callback)callback(true);
+        }).catch(function(){if(callback)callback(false);});
+      },'image/jpeg',0.70);
+    };
+    img.onerror=function(){if(callback)callback(false);};
+    img.src=src;
+  }catch(e){if(callback)callback(false);}
+}
+// Generate snapshot from a Blob (for R2-fetched drawings)
+function _genSnapshotFromBlob(blob,drawingId,callback){
+  var url=URL.createObjectURL(blob);
+  _genSnapshotFromSrc(url,drawingId,function(ok){
+    URL.revokeObjectURL(url);
+    if(callback)callback(ok);
+  });
+}
+// Background pre-cache: after project loads, generate snapshots for all drawings missing them
+var _preCacheRunning=false;
+function _preCacheDrawingSnapshots(){
+  if(_preCacheRunning)return;
+  var p=getProject();if(!p||!p.drawings||!p.drawings.length)return;
+  _preCacheRunning=true;
+  // Collect drawings that need snapshots
+  var queue=[];
+  p.drawings.forEach(function(d){queue.push(d.id);});
+  var idx=0;
+  function _next(){
+    if(idx>=queue.length){_preCacheRunning=false;_dbg('[Snapshot] Pre-cache complete: checked '+queue.length+' drawings');return;}
+    var did=queue[idx++];
+    // Check if snapshot already exists in IDB
+    ADB.get('drawings',did).then(function(rec){
+      if(rec&&rec.snapshotBlob&&rec.snapshotBlob.size>1000){
+        // Already has snapshot — skip
+        setTimeout(_next,50);
+        return;
+      }
+      // Need to generate — find source
+      var d=p.drawings.find(function(x){return x.id===did;});
+      if(!d){setTimeout(_next,50);return;}
+      // Priority 1: IDB blob
+      if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
+        _genSnapshotFromBlob(rec.dataBlob,did,function(){setTimeout(_next,200);});
+        return;
+      }
+      // Priority 2: In-memory dataUrl
+      if(d.dataUrl){
+        _genSnapshotFromSrc(d.dataUrl,did,function(){setTimeout(_next,200);});
+        return;
+      }
+      // Priority 3: R2 URL (fetch in background)
+      if(d.r2Url&&!d.pdfTiled){
+        fetch(d.r2Url).then(function(res){
+          if(!res.ok)throw new Error(res.status);
+          return res.blob();
+        }).then(function(blob){
+          _genSnapshotFromBlob(blob,did,function(){setTimeout(_next,300);});
+        }).catch(function(){setTimeout(_next,100);});
+        return;
+      }
+      // Priority 4: PDF — render first page snapshot
+      if(d.pdfTiled){
+        _genPdfSnapshot(did,d,function(){setTimeout(_next,300);});
+        return;
+      }
+      setTimeout(_next,50);
+    }).catch(function(){setTimeout(_next,50);});
+  }
+  // Start after a delay to let UI settle
+  setTimeout(_next,2000);
+}
+// Generate snapshot from stored PDF data
+function _genPdfSnapshot(drawingId,dwg,callback){
+  ADB.getPdfData(drawingId).then(function(rec){
+    if(!rec||!rec.buf){
+      // Try fetching from R2
+      if(dwg.r2Url){
+        fetch(dwg.r2Url).then(function(res){
+          if(!res.ok)throw new Error(res.status);
+          return res.arrayBuffer();
+        }).then(function(buf){
+          _renderPdfSnapshot(buf,drawingId,dwg.pdfPage||1,callback);
+        }).catch(function(){if(callback)callback();});
+        return;
+      }
+      if(callback)callback();
+      return;
+    }
+    _renderPdfSnapshot(rec.buf,drawingId,dwg.pdfPage||1,callback);
+  }).catch(function(){if(callback)callback();});
+}
+function _renderPdfSnapshot(buf,drawingId,pageNum,callback){
+  ensurePdfJs(function(){
+    pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise.then(function(pdf){
+      pdf.getPage(pageNum||1).then(function(page){
+        var pv=page.view;
+        var snapMaxW=1500;
+        var snapScale=Math.min(snapMaxW/pv[2],snapMaxW/pv[3],3.0);
+        var vp=page.getViewport({scale:snapScale});
+        var cv=document.createElement('canvas');
+        cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);
+        page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){
+          cv.toBlob(function(blob){
+            var sw=cv.width,sh=cv.height;
+            cv.width=1;cv.height=1;
+            if(!blob||blob.size<500){if(callback)callback();return;}
+            ADB.get('drawings',drawingId).then(function(rec2){
+              if(!rec2)rec2={id:drawingId,projectId:_csProjectId||''};
+              rec2.snapshotBlob=blob;rec2.snapshotW=sw;rec2.snapshotH=sh;
+              return ADB.put('drawings',rec2);
+            }).then(function(){
+              _dbg('[Snapshot] PDF pre-generated for '+drawingId+': '+sw+'x'+sh+' ('+Math.round(blob.size/1024)+'KB)');
+              if(callback)callback();
+            }).catch(function(){if(callback)callback();});
+          },'image/jpeg',0.70);
+        }).catch(function(){if(callback)callback();});
+      }).catch(function(){if(callback)callback();});
+    }).catch(function(){if(callback)callback();});
+  });
+}
+
 var _selectedDrawings=new Set();
 function toggleFolderSelect(folderId,cb){
   var p=getProject();if(!p)return;
@@ -4534,6 +4677,8 @@ function handleImageDrawingUpload(f){
         newDwgI.thumb=t;
         p.drawings.push(newDwgI);if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwgI);
         saveToLS();hideDrawingLoading();renderDrawingGallery();
+        // Pre-generate viewer snapshot so first open is instant
+        _genSnapshotFromSrc(e.target.result,newDwgI.id);
       });
     }
     if(conflicts.length){hideDrawingLoading();_showDrawingConflictModal(conflicts,_suggestFolderName(baseName,p),doSave,function(){hideDrawingLoading();});}
@@ -4580,16 +4725,22 @@ function _runPdfPages(pdf,bn,folder,total,arrayBuf){
           var pw=pv[2],ph=pv[3];
           // Compute intended render dimensions (used for markup coordinate space)
           var hiScale=Math.min(4.0,4096/pw,4096/ph);
-          // Generate thumb only — PDF is rendered on-demand in the viewer
-          var thumbScale=Math.min(1.0,300/pw,300/ph);
-          var thumbVp=page.getViewport({scale:thumbScale});
-          var tc=document.createElement('canvas');
-          tc.width=Math.round(thumbVp.width);tc.height=Math.round(thumbVp.height);
-          page.render({canvasContext:tc.getContext('2d'),viewport:thumbVp}).promise.then(function(){
+          // Render at snapshot scale (1500px) — derive thumb from same canvas
+          var snapScale=Math.min(3.0,1500/pw,1500/ph);
+          var snapVp=page.getViewport({scale:snapScale});
+          var sc=document.createElement('canvas');
+          sc.width=Math.round(snapVp.width);sc.height=Math.round(snapVp.height);
+          page.render({canvasContext:sc.getContext('2d'),viewport:snapVp}).promise.then(function(){
             setTimeout(function(){
               try{
-                var thumbDu=tc.toDataURL('image/jpeg',0.70);
-                tc.width=1;tc.height=1;
+                // Derive thumb (200px) from snapshot canvas — no second render needed
+                var thumbMaxW=200;
+                var thumbScaleR=Math.min(1,thumbMaxW/sc.width);
+                var tw=Math.round(sc.width*thumbScaleR),th=Math.round(sc.height*thumbScaleR);
+                var thumbC=document.createElement('canvas');thumbC.width=tw;thumbC.height=th;
+                thumbC.getContext('2d').drawImage(sc,0,0,tw,th);
+                var thumbDu=thumbC.toDataURL('image/jpeg',0.70);
+                thumbC.width=1;thumbC.height=1;
                 var p=getProject();if(!p)return;
                 var pageName=total>1?bn+' - Page '+pg:bn;
                 pageName=getUniqueDrawingName(pageName,p);
@@ -4604,6 +4755,15 @@ function _runPdfPages(pdf,bn,folder,total,arrayBuf){
                 p.drawings.push(newDwg);
                 // Store PDF buffer in pdfData IDB (one copy per drawing for R2 compat)
                 ADB.savePdfData(newDwg.id,arrayBuf).catch(function(e){console.error('PDF save error:',e);});
+                // Generate viewer snapshot from the already-rendered canvas
+                var snapW2=sc.width,snapH2=sc.height;
+                sc.toBlob(function(snapBlob){
+                  sc.width=1;sc.height=1;// free GPU
+                  if(snapBlob&&snapBlob.size>500){
+                    var snapRec={id:newDwg.id,projectId:_csProjectId||'',snapshotBlob:snapBlob,snapshotW:snapW2,snapshotH:snapH2};
+                    ADB.put('drawings',snapRec).catch(function(){});
+                  }
+                },'image/jpeg',0.70);
                 saveToLS();
                 done++;
                 showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
@@ -4948,6 +5108,8 @@ function handleImageUploadToFolder(f,folder){
         newDwgF.thumb=t;
         p.drawings.push(newDwgF);if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwgF);
         saveToLS();hideDrawingLoading();renderDrawingGallery();
+        // Pre-generate viewer snapshot so first open is instant
+        _genSnapshotFromSrc(e.target.result,newDwgF.id);
       });
     }
     if(conflicts.length){hideDrawingLoading();_showDrawingConflictModal(conflicts,_suggestFolderName(folder||baseName,p),doSave,function(){hideDrawingLoading();});}
@@ -4991,16 +5153,22 @@ function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
           var hiScale=Math.min(4.0,4096/pw,4096/ph);
-          // Generate thumb only — PDF rendered on-demand in viewer
-          var thumbScale=Math.min(1.0,300/pw,300/ph);
-          var thumbVp=page.getViewport({scale:thumbScale});
-          var tc=document.createElement('canvas');
-          tc.width=Math.round(thumbVp.width);tc.height=Math.round(thumbVp.height);
-          page.render({canvasContext:tc.getContext('2d'),viewport:thumbVp}).promise.then(function(){
+          // Render at snapshot scale (1500px) — derive thumb from same canvas
+          var snapScale=Math.min(3.0,1500/pw,1500/ph);
+          var snapVp=page.getViewport({scale:snapScale});
+          var sc=document.createElement('canvas');
+          sc.width=Math.round(snapVp.width);sc.height=Math.round(snapVp.height);
+          page.render({canvasContext:sc.getContext('2d'),viewport:snapVp}).promise.then(function(){
             setTimeout(function(){
               try{
-                var thumbDu=tc.toDataURL('image/jpeg',0.70);
-                tc.width=1;tc.height=1;
+                // Derive thumb (200px) from snapshot canvas
+                var thumbMaxW=200;
+                var thumbScaleR=Math.min(1,thumbMaxW/sc.width);
+                var tw=Math.round(sc.width*thumbScaleR),th=Math.round(sc.height*thumbScaleR);
+                var thumbC=document.createElement('canvas');thumbC.width=tw;thumbC.height=th;
+                thumbC.getContext('2d').drawImage(sc,0,0,tw,th);
+                var thumbDu=thumbC.toDataURL('image/jpeg',0.70);
+                thumbC.width=1;thumbC.height=1;
                 var p=getProject();if(!p)return;
                 var pageName=total>1?bn+' - Page '+pg:bn;
                 pageName=getUniqueDrawingName(pageName,p);
@@ -5014,6 +5182,15 @@ function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
                 };
                 p.drawings.push(newDwg2);
                 ADB.savePdfData(newDwg2.id,arrayBuf).catch(function(e){console.error('PDF save error:',e);});
+                // Generate viewer snapshot from the already-rendered canvas
+                var snapW2=sc.width,snapH2=sc.height;
+                sc.toBlob(function(snapBlob){
+                  sc.width=1;sc.height=1;
+                  if(snapBlob&&snapBlob.size>500){
+                    var snapRec={id:newDwg2.id,projectId:_csProjectId||'',snapshotBlob:snapBlob,snapshotW:snapW2,snapshotH:snapH2};
+                    ADB.put('drawings',snapRec).catch(function(){});
+                  }
+                },'image/jpeg',0.70);
                 saveToLS();
                 done++;
                 showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
