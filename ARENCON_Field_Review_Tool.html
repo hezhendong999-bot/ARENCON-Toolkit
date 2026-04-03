@@ -5952,7 +5952,12 @@ function zoomIn(){dvState.scale=Math.min(dvState.scale*1.3,10);applyTransform();
 function zoomOut(){var minS=dvState.fitScale||0.1;dvState.scale=Math.max(dvState.scale/1.3,minS);if(dvState.scale<=minS*1.05){fitDrawing();return;}applyTransform();}
 
 function initPanZoom(){var area=document.getElementById('dv-canvas-area');
-var na=area.cloneNode(true);area.parentNode.replaceChild(na,area);area=na;var sx,sy,pan=false;
+// First init only: clone to clear stale listeners. Subsequent opens skip clone (prevents flash).
+if(!area._pzInit){
+var na=area.cloneNode(true);area.parentNode.replaceChild(na,area);area=na;
+area._pzInit=true;
+} else { return; }
+var sx,sy,pan=false;
 
 area.addEventListener('mousedown',function(e){
   dvState._didDrag=false;
