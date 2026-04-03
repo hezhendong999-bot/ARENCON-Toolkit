@@ -1689,7 +1689,7 @@ body.text-l{--ts:4px;}
     <div class="dv-nav-group">
       <button class="dv-nav-btn" onclick="prevDrawing()" title="Previous drawing (← key)">◄</button>
       <span class="dv-title" id="dv-title">Drawing</span>
-      <span style="color:rgba(255,255,255,.4);font-size:10px;margin-left:4px;" id="dv-build">b56.8</span>
+      <span style="color:rgba(255,255,255,.4);font-size:10px;margin-left:4px;" id="dv-build">b56.9</span>
       <button class="dv-nav-btn" onclick="nextDrawing()" title="Next drawing (→ key)">►</button>
     </div>
     <span style="flex:1;"></span>
@@ -6781,114 +6781,96 @@ function initMarkupEvents(){
     return{x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy};
   }
 
-  // Offscreen canvas for highlight (prevents opacity stacking)
-  var _mkHlCanvas = document.createElement('canvas');
-  var _mkHlSnap = null;
+  // ── OVERLAY CANVAS SYSTEM ──
+  // ALL active drawing happens on a tiny 2M overlay canvas (fast on Samsung's weak GPU).
+  // Main markup canvas is NEVER touched during drawing — only on endDraw via renderAllMarkup().
+  // This gives smooth drawing on Samsung + sharp final result on all devices.
+  var _mkHlCanvas = document.createElement('canvas'); // kept for renderAllMarkup highlight composite
+
+  function _ensureOverlay(){
+    var mc=document.getElementById('markup-canvas');if(!mc)return null;
+    var ov=document.getElementById('markup-overlay');
+    if(!ov){
+      ov=document.createElement('canvas');
+      ov.id='markup-overlay';
+      ov.style.cssText='position:absolute;top:0;left:0;pointer-events:none;display:none;';
+      mc.parentNode.insertBefore(ov,mc.nextSibling);
+    }
+    var lw=mc._logicalW||mc.width,lh=mc._logicalH||mc.height;
+    ov.style.width=lw+'px';ov.style.height=lh+'px';
+    // 2M pixel cap — Samsung's confirmed smooth threshold
+    var ovMax=2000000;var ovPx=lw*lh;var ovScale=ovPx>ovMax?Math.sqrt(ovMax/ovPx):1;
+    ov.width=Math.round(lw*ovScale);ov.height=Math.round(lh*ovScale);
+    ov._dpr=ovScale;ov._logicalW=lw;ov._logicalH=lh;
+    return ov;
+  }
 
   function startDraw(e){
     if(!mkState.tool||mkState.tool==='select')return;
     if(mkState.tool==='text'){handleTextPlace(e);return;}
     if(mkState.tool==='polyline'){handlePolylineClick(e);return;}
-
-    // Pause tile rendering to free GPU for markup
     if(window._tiledActive)_tileState._paused=true;
-
     mkState.drawing=true;_penPoints=[];
     var pos=getPos(e);mkState.startX=pos.x;mkState.startY=pos.y;_penPoints.push(pos);
-
-    // For highlight and shape preview: use lightweight overlay canvas
-    // Main markup canvas stays untouched during drawing (no re-render, no getImageData)
-    if(mkState.tool==='highlight'||mkState.tool!=='pen'&&mkState.tool!=='eraser'){
-      var mc=document.getElementById('markup-canvas');
-      var ov=document.getElementById('markup-overlay');
-      if(!ov){
-        ov=document.createElement('canvas');
-        ov.id='markup-overlay';
-        ov.style.cssText='position:absolute;top:0;left:0;pointer-events:none;';
-        mc.parentNode.insertBefore(ov,mc.nextSibling);
-      }
-      // Match main canvas CSS size; buffer can be smaller for performance
-      var lw=mc._logicalW||mc.width,lh=mc._logicalH||mc.height;
-      ov.style.width=lw+'px';ov.style.height=lh+'px';
-      // Overlay buffer: cap at 2M for Samsung (only drawing 1 stroke, fuzz acceptable)
-      var ovMax=2000000;var ovPx=lw*lh;var ovScale=ovPx>ovMax?Math.sqrt(ovMax/ovPx):1;
-      ov.width=Math.round(lw*ovScale);ov.height=Math.round(lh*ovScale);
-      ov._dpr=ovScale;ov._logicalW=lw;ov._logicalH=lh;
+    // Show overlay for ALL tools
+    var ov=_ensureOverlay();
+    if(ov){
       ov.style.display='block';
-      // Highlight: use CSS opacity for non-stacking (single stroke = no overlap)
-      ov.style.opacity=mkState.tool==='highlight'?(0.3*getOpacity()):'1';
+      if(mkState.tool==='highlight') ov.style.opacity=String(0.3*getOpacity());
+      else if(mkState.tool==='eraser') ov.style.opacity='0.5';
+      else ov.style.opacity='1';
     }
   }
 
   function moveDraw(e){
     if(!mkState.drawing)return;
     var pos=getPos(e);mkState._endX=pos.x;mkState._endY=pos.y;
+    var ov=document.getElementById('markup-overlay');
+    if(!ov)return;
+    var ctx=ov.getContext('2d');
+    var d=ov._dpr||1;
 
-    if(mkState.tool==='pen'||mkState.tool==='eraser'){
-      // Pen/eraser: pure incremental segment on main canvas (already fast)
+    if(mkState.tool==='pen'||mkState.tool==='highlight'||mkState.tool==='eraser'){
       _penPoints.push(pos);
-      var canvas=document.getElementById('markup-canvas');
-      var ctx=canvas.getContext('2d');
-      var dpr=canvas._dpr||1;
       if(_penPoints.length<2)return;
-      var n=_penPoints.length;
-      var p0=_penPoints[n-2],p1=_penPoints[n-1];
-      ctx.setTransform(dpr,0,0,dpr,0,0);
-      ctx.save();
-      if(mkState.tool==='eraser'){
-        ctx.globalCompositeOperation='destination-out';
-        ctx.lineWidth=getSize()*3;
+      if(mkState.tool==='highlight'){
+        // Full stroke redraw (non-stacking within one stroke)
+        ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,ov.width,ov.height);
+        ctx.setTransform(d,0,0,d,0,0);
+        ctx.strokeStyle=mkState.color;ctx.lineWidth=getSize()*4;
+        ctx.globalAlpha=1;ctx.lineCap='round';ctx.lineJoin='round';
+        ctx.beginPath();ctx.moveTo(_penPoints[0].x,_penPoints[0].y);
+        for(var i=1;i<_penPoints.length;i++)ctx.lineTo(_penPoints[i].x,_penPoints[i].y);
+        ctx.stroke();
       } else {
-        ctx.strokeStyle=mkState.color;ctx.lineWidth=getSize();
-        ctx.globalAlpha=getOpacity();
+        // Pen/eraser: incremental lineTo (one segment per event, fast)
+        var n=_penPoints.length,p0=_penPoints[n-2],p1=_penPoints[n-1];
+        ctx.setTransform(d,0,0,d,0,0);ctx.save();
+        ctx.strokeStyle=mkState.tool==='eraser'?'#C0392B':mkState.color;
+        ctx.lineWidth=mkState.tool==='eraser'?getSize()*3:getSize();
+        if(mkState.tool==='pen')ctx.globalAlpha=getOpacity();
+        ctx.lineCap='round';ctx.lineJoin='round';
+        ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);ctx.stroke();
+        ctx.restore();
       }
-      ctx.lineCap='round';ctx.lineJoin='round';
-      ctx.beginPath();
-      ctx.moveTo(p0.x,p0.y);
-      ctx.lineTo(p1.x,p1.y);
-      ctx.stroke();
-      ctx.restore();
-    } else if(mkState.tool==='highlight'){
-      // Highlight: draw on overlay canvas (lightweight, no main canvas touch)
-      _penPoints.push(pos);
-      var ov=document.getElementById('markup-overlay');
-      if(!ov||_penPoints.length<2)return;
-      var ovCtx=ov.getContext('2d');
-      var ovDpr=ov._dpr||1;
-      // Clear and redraw full stroke (needed for non-stacking within single stroke)
-      ovCtx.setTransform(1,0,0,1,0,0);
-      ovCtx.clearRect(0,0,ov.width,ov.height);
-      ovCtx.setTransform(ovDpr,0,0,ovDpr,0,0);
-      ovCtx.strokeStyle=mkState.color;ovCtx.lineWidth=getSize()*4;
-      ovCtx.globalAlpha=1;ovCtx.lineCap='round';ovCtx.lineJoin='round';
-      ovCtx.beginPath();ovCtx.moveTo(_penPoints[0].x,_penPoints[0].y);
-      for(var i=1;i<_penPoints.length;i++)ovCtx.lineTo(_penPoints[i].x,_penPoints[i].y);
-      ovCtx.stroke();
     } else {
-      // Shape preview: draw on overlay canvas
-      var ov2=document.getElementById('markup-overlay');
-      if(!ov2)return;
-      var ovCtx2=ov2.getContext('2d');
-      var ovDpr2=ov2._dpr||1;
-      ovCtx2.setTransform(1,0,0,1,0,0);
-      ovCtx2.clearRect(0,0,ov2.width,ov2.height);
-      ovCtx2.setTransform(ovDpr2,0,0,ovDpr2,0,0);
-      ovCtx2.save();
-      ovCtx2.globalAlpha=getOpacity();
-      ovCtx2.strokeStyle=mkState.color;ovCtx2.fillStyle=mkState.color;ovCtx2.lineWidth=getSize();
-      ovCtx2.lineCap='round';ovCtx2.lineJoin='round';
-      _drawShapeObj(ovCtx2,mkState.tool,mkState.startX,mkState.startY,pos.x,pos.y);
-      ovCtx2.restore();
+      // Shape preview
+      ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,ov.width,ov.height);
+      ctx.setTransform(d,0,0,d,0,0);ctx.save();
+      ctx.globalAlpha=getOpacity();
+      ctx.strokeStyle=mkState.color;ctx.fillStyle=mkState.color;ctx.lineWidth=getSize();
+      ctx.lineCap='round';ctx.lineJoin='round';
+      _drawShapeObj(ctx,mkState.tool,mkState.startX,mkState.startY,pos.x,pos.y);
+      ctx.restore();
     }
   }
 
   function endDraw(e){
     if(!mkState.drawing)return;
     mkState.drawing=false;
-
-    // Hide and clear overlay canvas
+    // Hide overlay
     var ov=document.getElementById('markup-overlay');
-    if(ov){ov.style.display='none';var _oCtx=ov.getContext('2d');_oCtx.setTransform(1,0,0,1,0,0);_oCtx.clearRect(0,0,ov.width,ov.height);}
+    if(ov){ov.style.display='none';var c=ov.getContext('2d');c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,ov.width,ov.height);}
 
     var type=mkState.tool;
     if(type==='pen'||type==='highlight'||type==='eraser'){
