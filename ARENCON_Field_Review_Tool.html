@@ -6283,6 +6283,8 @@ function resizeMarkupCanvas(){
   if(totalPixels>maxPixels){mkScale=Math.sqrt(maxPixels/totalPixels);}
   var cw=Math.round(iw*mkScale), ch=Math.round(ih*mkScale);
   console.log('[Markup] resizeMarkupCanvas: logical '+iw+'x'+ih+' ('+Math.round(totalPixels/1e6)+'M), buffer '+cw+'x'+ch+' ('+Math.round(cw*ch/1e6)+'M), cap='+Math.round(maxPixels/1e6)+'M, androidTab='+_isAndroidTablet+', dpr='+mkScale.toFixed(3));
+  // Visible diagnostic — remove after confirming cap works on Samsung
+  toast('Markup: '+cw+'x'+ch+' ('+Math.round(cw*ch/1e6)+'M px) cap='+Math.round(maxPixels/1e6)+'M android='+_isAndroidTablet);
   if(canvas.width!==cw||canvas.height!==ch){
     canvas.width=cw;canvas.height=ch;
     canvas.style.width=iw+'px';canvas.style.height=ih+'px';
