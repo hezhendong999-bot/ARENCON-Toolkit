@@ -1689,7 +1689,7 @@ body.text-l{--ts:4px;}
     <div class="dv-nav-group">
       <button class="dv-nav-btn" onclick="prevDrawing()" title="Previous drawing (← key)">◄</button>
       <span class="dv-title" id="dv-title">Drawing</span>
-      <span style="color:rgba(255,255,255,.4);font-size:10px;margin-left:4px;" id="dv-build">b56.5</span>
+      <span style="color:rgba(255,255,255,.4);font-size:10px;margin-left:4px;" id="dv-build">b56.7</span>
       <button class="dv-nav-btn" onclick="nextDrawing()" title="Next drawing (→ key)">►</button>
     </div>
     <span style="flex:1;"></span>
@@ -5320,8 +5320,8 @@ async function _openTiledPDF(drawingId,pageNum){
         var _ua2=navigator.userAgent;
         var _isAndroidTablet=/Android/.test(_ua2)&&(!/Mobile/.test(_ua2)||/SM-T|SM-X|Tablet/.test(_ua2));
         var _isTablet=(/iPad/.test(_ua2))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||_isAndroidTablet;
-        // Samsung Galaxy Tab A (4GB) — 4M cap balances smooth drawing + readable markup
-        var maxPixels=_isIPhone?16000000:(_isAndroidTablet?4000000:(_isTablet?16000000:25000000));
+        // Android tablets: 10M cap. Real perf fix is eliminating getImageData from hot path
+        var maxPixels=_isIPhone?16000000:(_isAndroidTablet?10000000:(_isTablet?16000000:25000000));
         var totalPixels=drawW*drawH;
         var mkScale=1;
         if(totalPixels>maxPixels){mkScale=Math.sqrt(maxPixels/totalPixels);}
@@ -6280,9 +6280,9 @@ function resizeMarkupCanvas(){
   // Android tablet: no "Mobile" in UA, OR Samsung Tab model (SM-T*), OR "Tablet" keyword
   var _isAndroidTablet=/Android/.test(_ua)&&(!/Mobile/.test(_ua)||/SM-T|SM-X|Tablet/.test(_ua));
   var _isTablet=(/iPad/.test(_ua))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||_isAndroidTablet;
-  // Samsung Galaxy Tab A (4GB RAM) chokes at 12M+ during pen ops — 4M cap for Android tablets
-  // 2M was smooth but too fuzzy when zoomed. 4M = good balance (e.g., 2449x1633 for a 4500x3000 drawing)
-  var maxPixels=_isIPhone?16000000:(_isAndroidTablet?4000000:(_isTablet?16000000:25000000));
+  // Android tablets: 10M (dpr ~0.86 for typical drawing, good quality)
+  // Real perf fix is eliminating getImageData/putImageData from drawing hot path
+  var maxPixels=_isIPhone?16000000:(_isAndroidTablet?10000000:(_isTablet?16000000:25000000));
   var totalPixels=iw*ih;
   var mkScale=1;
   if(totalPixels>maxPixels){mkScale=Math.sqrt(maxPixels/totalPixels);}
@@ -6760,7 +6760,7 @@ function initMarkupEvents(){
     if(mkState.tool==='eraser'){
       var sz=getSize()*3*2; // eraser uses size*3 radius, show diameter
       var r=canvas.getBoundingClientRect();
-      var scale=r.width/canvas.width;
+      var scale=r.width/(canvas._logicalW||canvas.width);
       var diam=sz*scale;
       _eraserCursor.style.width=diam+'px';_eraserCursor.style.height=diam+'px';
       _eraserCursor.style.left=(ev.clientX-diam/2)+'px';
@@ -6795,13 +6795,10 @@ function initMarkupEvents(){
 
     mkState.drawing=true;_penPoints=[];
     var pos=getPos(e);mkState.startX=pos.x;mkState.startY=pos.y;_penPoints.push(pos);
-    // Snapshot for highlight offscreen composite
-    if(mkState.tool==='highlight'){
-      var canvas=document.getElementById('markup-canvas');
-      var ctx=canvas.getContext('2d');
-      _mkHlSnap=ctx.getImageData(0,0,canvas.width,canvas.height);
-    }
+    // No getImageData snapshot — highlight and shape preview use renderAllMarkup() re-render
   }
+
+  var _mkDrawRafId=0; // RAF throttle for highlight/shape preview
 
   function moveDraw(e){
     if(!mkState.drawing)return;
@@ -6815,24 +6812,29 @@ function initMarkupEvents(){
       if(_penPoints.length<2)return;
 
       if(mkState.tool==='highlight'){
-        // Offscreen composite: restore snapshot, draw full stroke on offscreen, composite once
-        if(_mkHlSnap) ctx.putImageData(_mkHlSnap,0,0);
-        _mkHlCanvas.width=canvas.width; _mkHlCanvas.height=canvas.height;
-        var hx=_mkHlCanvas.getContext('2d');
-        hx.clearRect(0,0,_mkHlCanvas.width,_mkHlCanvas.height);
-        hx.setTransform(dpr,0,0,dpr,0,0);
-        hx.strokeStyle=mkState.color; hx.lineWidth=getSize()*4; hx.globalAlpha=1;
-        hx.lineCap='round'; hx.lineJoin='round';
-        hx.beginPath(); hx.moveTo(_penPoints[0].x,_penPoints[0].y);
-        for(var i=1;i<_penPoints.length;i++) hx.lineTo(_penPoints[i].x,_penPoints[i].y);
-        hx.stroke();
-        ctx.save();
-        ctx.setTransform(1,0,0,1,0,0);
-        ctx.globalAlpha=0.3*getOpacity(); ctx.globalCompositeOperation='source-over';
-        ctx.drawImage(_mkHlCanvas,0,0);
-        ctx.restore();
+        // Re-render all objects + overlay in-progress highlight (no getImageData needed)
+        // RAF throttle: max 60fps
+        if(!_mkDrawRafId)_mkDrawRafId=requestAnimationFrame(function(){
+          _mkDrawRafId=0;
+          renderAllMarkup(); // clears canvas, redraws all existing objects
+          // Now overlay in-progress highlight stroke via offscreen composite
+          _mkHlCanvas.width=canvas.width; _mkHlCanvas.height=canvas.height;
+          var hx=_mkHlCanvas.getContext('2d');
+          hx.clearRect(0,0,_mkHlCanvas.width,_mkHlCanvas.height);
+          hx.setTransform(dpr,0,0,dpr,0,0);
+          hx.strokeStyle=mkState.color; hx.lineWidth=getSize()*4; hx.globalAlpha=1;
+          hx.lineCap='round'; hx.lineJoin='round';
+          hx.beginPath(); hx.moveTo(_penPoints[0].x,_penPoints[0].y);
+          for(var i=1;i<_penPoints.length;i++) hx.lineTo(_penPoints[i].x,_penPoints[i].y);
+          hx.stroke();
+          ctx.save();
+          ctx.setTransform(1,0,0,1,0,0);
+          ctx.globalAlpha=0.3*getOpacity(); ctx.globalCompositeOperation='source-over';
+          ctx.drawImage(_mkHlCanvas,0,0);
+          ctx.restore();
+        });
       } else {
-        // Pen/eraser: pure incremental segment
+        // Pen/eraser: pure incremental segment (already fast, no change needed)
         var n=_penPoints.length;
         var p0=_penPoints[n-2],p1=_penPoints[n-1];
         ctx.setTransform(dpr,0,0,dpr,0,0);
@@ -6852,34 +6854,30 @@ function initMarkupEvents(){
         ctx.restore();
       }
     } else {
-      // Shape preview — use cached background
+      // Shape preview — re-render all objects + overlay preview (no getImageData cache)
       var canvas2=document.getElementById('markup-canvas');
       var ctx2=canvas2.getContext('2d');
       var dpr2=canvas2._dpr||1;
-      if(_mkDrawCache){
-        ctx2.putImageData(_mkDrawCache,0,0);
-      } else {
-        ctx2.setTransform(1,0,0,1,0,0);
-        ctx2.clearRect(0,0,canvas2.width,canvas2.height);
-        // Use renderAllMarkup's compositing logic for correct highlight layering
-        renderAllMarkup();
-        _mkDrawCache=ctx2.getImageData(0,0,canvas2.width,canvas2.height);
-      }
-      // Shape preview: getPos returns logical coords, dpr transform maps to buffer
-      ctx2.setTransform(dpr2,0,0,dpr2,0,0);
-      ctx2.save();
-      ctx2.globalAlpha=getOpacity();
-      ctx2.strokeStyle=mkState.color;ctx2.fillStyle=mkState.color;ctx2.lineWidth=getSize();
-      ctx2.lineCap='round';ctx2.lineJoin='round';
-      _drawShapeObj(ctx2,mkState.tool,mkState.startX,mkState.startY,pos.x,pos.y);
-      ctx2.restore();
+      // RAF throttle: max 60fps
+      if(!_mkDrawRafId)_mkDrawRafId=requestAnimationFrame(function(){
+        _mkDrawRafId=0;
+        renderAllMarkup(); // clears canvas, redraws all existing objects
+        ctx2.setTransform(dpr2,0,0,dpr2,0,0);
+        ctx2.save();
+        ctx2.globalAlpha=getOpacity();
+        ctx2.strokeStyle=mkState.color;ctx2.fillStyle=mkState.color;ctx2.lineWidth=getSize();
+        ctx2.lineCap='round';ctx2.lineJoin='round';
+        _drawShapeObj(ctx2,mkState.tool,mkState.startX,mkState.startY,mkState._endX,mkState._endY);
+        ctx2.restore();
+      });
     }
   }
 
   function endDraw(e){
     if(!mkState.drawing)return;
     mkState.drawing=false;
-    _mkHlSnap=null;
+    // Cancel any pending RAF from highlight/shape throttle
+    if(_mkDrawRafId){cancelAnimationFrame(_mkDrawRafId);_mkDrawRafId=0;}
 
     var type=mkState.tool;
     if(type==='pen'||type==='highlight'||type==='eraser'){
@@ -6899,7 +6897,6 @@ function initMarkupEvents(){
     // Push history AFTER adding object — stack captures the completed state
     mkPushHistory();
     _penPoints=[];
-    _mkDrawCache=null;
     renderAllMarkup();
     saveMarkupData();
     // Resume tile rendering (was paused during drawing to free GPU)
