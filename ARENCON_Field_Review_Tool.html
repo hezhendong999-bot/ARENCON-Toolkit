@@ -5315,8 +5315,9 @@ async function _openTiledPDF(drawingId,pageNum){
       if(mc){
         // Device detection — UA + touch, never viewport width (changes in DevTools)
         var _isIPhone=/iPhone|iPod/.test(navigator.userAgent);
-        var _isAndroidTablet=/Android/.test(navigator.userAgent)&&!/Mobile/.test(navigator.userAgent);
-        var _isTablet=(/iPad/.test(navigator.userAgent))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||_isAndroidTablet;
+        var _ua2=navigator.userAgent;
+        var _isAndroidTablet=/Android/.test(_ua2)&&(!/Mobile/.test(_ua2)||/SM-T|SM-X|Tablet/.test(_ua2));
+        var _isTablet=(/iPad/.test(_ua2))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||_isAndroidTablet;
         // Samsung Galaxy Tab A (4GB) chokes even at 6M during pen ops — cap at 2M for Android tablets
         var maxPixels=_isIPhone?16000000:(_isAndroidTablet?2000000:(_isTablet?16000000:25000000));
         var totalPixels=drawW*drawH;
@@ -6271,12 +6272,17 @@ function resizeMarkupCanvas(){
   // Device detection must be stable (not depend on viewport width which changes during DevTools toggle)
   // Use touch capability + UA string, NOT window.innerWidth
   var _isIPhone=/iPhone|iPod/.test(navigator.userAgent);
-  var _isTablet=(/iPad/.test(navigator.userAgent))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||(/Android/.test(navigator.userAgent)&&!/Mobile/.test(navigator.userAgent));
-  var maxPixels=_isIPhone?16000000:(_isTablet?16000000:25000000);
+  var _ua=navigator.userAgent;
+  // Android tablet: no "Mobile" in UA, OR Samsung Tab model (SM-T*), OR "Tablet" keyword
+  var _isAndroidTablet=/Android/.test(_ua)&&(!/Mobile/.test(_ua)||/SM-T|SM-X|Tablet/.test(_ua));
+  var _isTablet=(/iPad/.test(_ua))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||_isAndroidTablet;
+  // Samsung Galaxy Tab A (4GB RAM) chokes at 12M+ during pen ops — 2M cap for Android tablets
+  var maxPixels=_isIPhone?16000000:(_isAndroidTablet?2000000:(_isTablet?16000000:25000000));
   var totalPixels=iw*ih;
   var mkScale=1;
   if(totalPixels>maxPixels){mkScale=Math.sqrt(maxPixels/totalPixels);}
   var cw=Math.round(iw*mkScale), ch=Math.round(ih*mkScale);
+  console.log('[Markup] resizeMarkupCanvas: logical '+iw+'x'+ih+' ('+Math.round(totalPixels/1e6)+'M), buffer '+cw+'x'+ch+' ('+Math.round(cw*ch/1e6)+'M), cap='+Math.round(maxPixels/1e6)+'M, androidTab='+_isAndroidTablet+', dpr='+mkScale.toFixed(3));
   if(canvas.width!==cw||canvas.height!==ch){
     canvas.width=cw;canvas.height=ch;
     canvas.style.width=iw+'px';canvas.style.height=ih+'px';
