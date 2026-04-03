@@ -5072,7 +5072,6 @@ var _tileState = {
   maxRenderScale: 4.0, // zoom-in quality cap (higher = crisper when zoomed)
   _rendering: {},     // keys currently being rendered (prevent double-render)
   _queue: [],         // sequential render queue [{tx,ty,key,qKey,rk}]
-  _busy: false,       // true while a tile is rendering (sequential gate)
   _paused: false      // true during active markup drawing (yield GPU to pen)
 };
 
@@ -5145,76 +5144,78 @@ function _tiledRenderVisible(){
 }
 
 function _tileProcessQueue(){
-  if(_tileState._busy||!_tileState._queue.length||_tileState._paused)return;
-  var job=_tileState._queue.shift();
-  if(!job)return;
-  // Skip if already rendered at this quality (could have been done by previous queue run)
-  var existing=_tileState.tiles[job.key];
-  if(existing&&existing.quality===job.qKey){_tileProcessQueue();return;}
-  if(_tileState._rendering[job.rk]){_tileProcessQueue();return;}
+  if(_tileState._paused||!_tileState._queue.length)return;
+  // Allow up to 4 concurrent renders for fast initial display
+  var maxConcurrent=4;
+  var activeCount=Object.keys(_tileState._rendering).length;
+  while(_tileState._queue.length&&activeCount<maxConcurrent){
+    var job=_tileState._queue.shift();
+    if(!job)break;
+    var existing=_tileState.tiles[job.key];
+    if(existing&&existing.quality===job.qKey){continue;}
+    if(_tileState._rendering[job.rk]){continue;}
 
-  _tileState._busy=true;
-  _tileState._rendering[job.rk]=true;
+    _tileState._rendering[job.rk]=true;
+    activeCount++;
 
-  var drawingId=_tileState.drawingId;
-  var page=_tileState.page;
-  var bs=_tileState.baseScale;
-  var tileS=_tileState.tileSize;
-  var drawW=_tileState.drawW,drawH=_tileState.drawH;
-  var renderScale=job.renderScale;
-  var layer=document.getElementById('dv-tiles-layer');
+    (function(j){
+      var drawingId=_tileState.drawingId;
+      var page=_tileState.page;
+      var bs=_tileState.baseScale;
+      var tileS=_tileState.tileSize;
+      var drawW=_tileState.drawW,drawH=_tileState.drawH;
+      var renderScale=j.renderScale;
+      var layer=document.getElementById('dv-tiles-layer');
 
-  var logicalX=job.tx*tileS, logicalY=job.ty*tileS;
-  var logicalW=Math.min(tileS,drawW-logicalX);
-  var logicalH=Math.min(tileS,drawH-logicalY);
-  if(logicalW<=0||logicalH<=0){
-    delete _tileState._rendering[job.rk];
-    _tileState._busy=false;
-    _tileProcessQueue();
-    return;
+      var logicalX=j.tx*tileS, logicalY=j.ty*tileS;
+      var logicalW=Math.min(tileS,drawW-logicalX);
+      var logicalH=Math.min(tileS,drawH-logicalY);
+      if(logicalW<=0||logicalH<=0){
+        delete _tileState._rendering[j.rk];
+        return;
+      }
+
+      var pdfX=logicalX/bs, pdfY=logicalY/bs;
+      var bufW=Math.round(logicalW*(renderScale/bs));
+      var bufH=Math.round(logicalH*(renderScale/bs));
+
+      var tc=document.createElement('canvas');
+      tc.width=bufW;tc.height=bufH;
+      var ctx=tc.getContext('2d');
+
+      page.render({
+        canvasContext:ctx,
+        viewport:page.getViewport({scale:renderScale}),
+        transform:[1,0,0,1,-pdfX*renderScale,-pdfY*renderScale]
+      }).promise.then(function(){
+        delete _tileState._rendering[j.rk];
+        if(_tileState.drawingId!==drawingId)return;
+
+        tc.style.cssText='position:absolute;left:'+logicalX+'px;top:'+logicalY+'px;width:'+logicalW+'px;height:'+logicalH+'px;image-rendering:auto;';
+
+        var prev=_tileState.tiles[j.key];
+        if(prev&&prev.canvas){
+          prev.canvas.width=1;prev.canvas.height=1;
+          if(layer&&prev.canvas.parentNode===layer)layer.removeChild(prev.canvas);
+          var pi=_tileState.tileOrder.indexOf(j.key);
+          if(pi>=0)_tileState.tileOrder.splice(pi,1);
+          _tileState.tileCount--;
+        }
+
+        _tileState.tiles[j.key]={canvas:tc,quality:j.qKey};
+        _tileState.tileOrder.push(j.key);
+        _tileState.tileCount++;
+        if(layer)layer.appendChild(tc);
+        _tileEvictLRU();
+        // Continue processing queue
+        _tileProcessQueue();
+      }).catch(function(err){
+        delete _tileState._rendering[j.rk];
+        console.warn('[Tile] render failed',j.key,err);
+        _tileProcessQueue();
+      });
+    })(job);
   }
-
-  var pdfX=logicalX/bs, pdfY=logicalY/bs;
-  var bufW=Math.round(logicalW*(renderScale/bs));
-  var bufH=Math.round(logicalH*(renderScale/bs));
-
-  var tc=document.createElement('canvas');
-  tc.width=bufW;tc.height=bufH;
-  var ctx=tc.getContext('2d');
-
-  page.render({
-    canvasContext:ctx,
-    viewport:page.getViewport({scale:renderScale}),
-    transform:[1,0,0,1,-pdfX*renderScale,-pdfY*renderScale]
-  }).promise.then(function(){
-    delete _tileState._rendering[job.rk];
-    _tileState._busy=false;
-    if(_tileState.drawingId!==drawingId){_tileProcessQueue();return;}
-
-    tc.style.cssText='position:absolute;left:'+logicalX+'px;top:'+logicalY+'px;width:'+logicalW+'px;height:'+logicalH+'px;image-rendering:auto;';
-
-    var prev=_tileState.tiles[job.key];
-    if(prev&&prev.canvas){
-      prev.canvas.width=1;prev.canvas.height=1;
-      if(layer&&prev.canvas.parentNode===layer)layer.removeChild(prev.canvas);
-      var pi=_tileState.tileOrder.indexOf(job.key);
-      if(pi>=0)_tileState.tileOrder.splice(pi,1);
-      _tileState.tileCount--;
-    }
-
-    _tileState.tiles[job.key]={canvas:tc,quality:job.qKey};
-    _tileState.tileOrder.push(job.key);
-    _tileState.tileCount++;
-    if(layer)layer.appendChild(tc);
-    _tileEvictLRU();
-    // Process next tile after a micro-yield (let GPU breathe)
-    setTimeout(_tileProcessQueue,4);
-  }).catch(function(err){
-    delete _tileState._rendering[job.rk];
-    _tileState._busy=false;
-    console.warn('[Tile] render failed',job.key,err);
-    _tileProcessQueue();
-  });
 }
 
 function _tiledScheduleRender(){
@@ -5225,7 +5226,7 @@ function _tiledScheduleRender(){
 async function _openTiledPDF(drawingId,pageNum){
   _tileState.drawingId=drawingId;
   _tileState.tiles={};_tileState.tileCount=0;_tileState.tileOrder=[];
-  _tileState._rendering={};_tileState._queue=[];_tileState._busy=false;_tileState._paused=false;
+  _tileState._rendering={};_tileState._queue=[];_tileState._paused=false;
   _tileState.pdfDoc=null;_tileState.page=null;
 
   var rec=await ADB.getPdfData(drawingId).catch(function(){return null;});
@@ -5318,8 +5319,8 @@ async function _openTiledPDF(drawingId,pageNum){
         var _ua2=navigator.userAgent;
         var _isAndroidTablet=/Android/.test(_ua2)&&(!/Mobile/.test(_ua2)||/SM-T|SM-X|Tablet/.test(_ua2));
         var _isTablet=(/iPad/.test(_ua2))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||_isAndroidTablet;
-        // Samsung Galaxy Tab A (4GB) chokes even at 6M during pen ops — cap at 2M for Android tablets
-        var maxPixels=_isIPhone?16000000:(_isAndroidTablet?2000000:(_isTablet?16000000:25000000));
+        // Samsung Galaxy Tab A (4GB) — 4M cap balances smooth drawing + readable markup
+        var maxPixels=_isIPhone?16000000:(_isAndroidTablet?4000000:(_isTablet?16000000:25000000));
         var totalPixels=drawW*drawH;
         var mkScale=1;
         if(totalPixels>maxPixels){mkScale=Math.sqrt(maxPixels/totalPixels);}
@@ -5376,7 +5377,7 @@ async function _openTiledPDF(drawingId,pageNum){
 function _closeTiledPDF(){
   window._tiledActive=false;
   _tileState.pdfDoc=null;_tileState.page=null;
-  _tileState._rendering={};_tileState._queue=[];_tileState._busy=false;_tileState._paused=false;
+  _tileState._rendering={};_tileState._queue=[];_tileState._paused=false;
   Object.keys(_tileState.tiles).forEach(function(k){
     var t=_tileState.tiles[k];
     if(t&&t.canvas){t.canvas.width=1;t.canvas.height=1;}
@@ -6276,8 +6277,9 @@ function resizeMarkupCanvas(){
   // Android tablet: no "Mobile" in UA, OR Samsung Tab model (SM-T*), OR "Tablet" keyword
   var _isAndroidTablet=/Android/.test(_ua)&&(!/Mobile/.test(_ua)||/SM-T|SM-X|Tablet/.test(_ua));
   var _isTablet=(/iPad/.test(_ua))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||_isAndroidTablet;
-  // Samsung Galaxy Tab A (4GB RAM) chokes at 12M+ during pen ops — 2M cap for Android tablets
-  var maxPixels=_isIPhone?16000000:(_isAndroidTablet?2000000:(_isTablet?16000000:25000000));
+  // Samsung Galaxy Tab A (4GB RAM) chokes at 12M+ during pen ops — 4M cap for Android tablets
+  // 2M was smooth but too fuzzy when zoomed. 4M = good balance (e.g., 2449x1633 for a 4500x3000 drawing)
+  var maxPixels=_isIPhone?16000000:(_isAndroidTablet?4000000:(_isTablet?16000000:25000000));
   var totalPixels=iw*ih;
   var mkScale=1;
   if(totalPixels>maxPixels){mkScale=Math.sqrt(maxPixels/totalPixels);}
