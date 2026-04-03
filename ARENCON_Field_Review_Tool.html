@@ -5061,24 +5061,27 @@ var _tileState = {
   page: null,         // pdf.js page object
   pageNum: 1,
   pageW: 0, pageH: 0, // native PDF points
-  tileSize: 512,      // tile pixel size at 1x
-  tiles: {},          // key: 'z_tx_ty' → canvas element
+  drawW: 0, drawH: 0, // logical drawing pixels (= pageW * baseScale)
+  tileSize: 512,      // tile pixel size in logical space
+  tiles: {},          // key: 'tx_ty' → {canvas, quality}
   tileCount: 0,
-  maxTiles: 20,       // max tiles in memory before LRU evict
+  maxTiles: 24,       // max tiles in memory before LRU evict
   tileOrder: [],      // LRU order (keys)
   renderTimer: null,
   baseScale: 1.5,     // fit-view quality (lower = less memory at overview)
-  maxRenderScale: 4.0 // zoom-in quality cap (higher = crisper when zoomed)
+  maxRenderScale: 4.0, // zoom-in quality cap (higher = crisper when zoomed)
+  _rendering: {}      // keys currently being rendered (prevent double-render)
 };
 
-function _tileKey(z,tx,ty){return z+'_'+tx+'_'+ty;}
+function _tileKey(tx,ty){return tx+'_'+ty;}
 
 function _tileEvictLRU(){
+  var layer=document.getElementById('dv-tiles-layer');
   while(_tileState.tileCount>_tileState.maxTiles&&_tileState.tileOrder.length){
     var oldest=_tileState.tileOrder.shift();
     if(_tileState.tiles[oldest]){
-      var c=_tileState.tiles[oldest];
-      c.width=1;c.height=1; // free GPU memory
+      var t=_tileState.tiles[oldest];
+      if(t.canvas){t.canvas.width=1;t.canvas.height=1;if(layer&&t.canvas.parentNode===layer)layer.removeChild(t.canvas);}
       delete _tileState.tiles[oldest];
       _tileState.tileCount--;
     }
@@ -5088,22 +5091,20 @@ function _tileEvictLRU(){
 function _tiledRenderVisible(){
   if(!_tileState.pdfDoc||!_tileState.page)return;
   var area=document.getElementById('dv-canvas-area');
-  var wrap=document.getElementById('dv-img-wrap');
-  if(!area||!wrap)return;
+  var layer=document.getElementById('dv-tiles-layer');
+  if(!area||!layer)return;
 
   var scale=dvState.scale||1;
   var panX=dvState.panX||0,panY=dvState.panY||0;
   var areaW=area.clientWidth,areaH=area.clientHeight;
+  var drawW=_tileState.drawW,drawH=_tileState.drawH;
 
-  // What part of the drawing (in drawing pixels) is visible?
-  var drawW=_tileState.pageW*_tileState.baseScale;
-  var drawH=_tileState.pageH*_tileState.baseScale;
+  // Visible region in logical drawing pixels
   var visX0=Math.max(0,-panX/scale);
   var visY0=Math.max(0,-panY/scale);
   var visX1=Math.min(drawW,(areaW-panX)/scale);
   var visY1=Math.min(drawH,(areaH-panY)/scale);
 
-  // Tile size in drawing pixels at current zoom
   var tileS=_tileState.tileSize;
   var txMin=Math.floor(visX0/tileS);
   var tyMin=Math.floor(visY0/tileS);
@@ -5112,74 +5113,81 @@ function _tiledRenderVisible(){
   var maxTx=Math.ceil(drawW/tileS);
   var maxTy=Math.ceil(drawH/tileS);
 
-  // Render scale: match current zoom so tiles are crisp at current zoom level
-  // Capped by maxRenderScale to prevent OOM on high zoom
-  var renderScale=Math.min(_tileState.maxRenderScale||4.0, Math.max(1.0, dvState.scale||1) * _tileState.baseScale);
-  var zKey=Math.round(renderScale*4)*10; // quantise: 0.25 zoom steps to limit tile variations
+  // Render quality: match current zoom so tiles stay crisp
+  var renderScale=Math.min(_tileState.maxRenderScale, Math.max(1.0, scale) * _tileState.baseScale);
+  var qKey=Math.round(renderScale*4); // quantise to 0.25 steps
+
+  var drawingId=_tileState.drawingId;
+  var page=_tileState.page;
+  var bs=_tileState.baseScale;
 
   for(var tx=txMin;tx<=Math.min(txMax,maxTx-1);tx++){
     for(var ty=tyMin;ty<=Math.min(tyMax,maxTy-1);ty++){
-      var key=_tileKey(zKey,tx,ty);
-      if(_tileState.tiles[key]){
-        // Move to front of LRU
+      var key=_tileKey(tx,ty);
+      var existing=_tileState.tiles[key];
+      if(existing&&existing.quality===qKey){
+        // Touch LRU
         var idx=_tileState.tileOrder.indexOf(key);
         if(idx>=0)_tileState.tileOrder.splice(idx,1);
         _tileState.tileOrder.push(key);
         continue;
       }
-      // Render this tile
-      (function(tx2,ty2,key2){
-        var page=_tileState.page;
-        var s=_tileState.baseScale;
-        // Clip rect in PDF points for this tile
-        var x0=tx2*tileS/s, y0=ty2*tileS/s;
-        var tw=Math.min(tileS,(drawW-tx2*tileS))/s;
-        var th=Math.min(tileS,(drawH-ty2*tileS))/s;
-        if(tw<=0||th<=0)return;
-        var vp=page.getViewport({scale:renderScale});
-        // Translate viewport so only the tile region renders
-        var tileVP=page.getViewport({scale:renderScale,offsetX:-x0*renderScale,offsetY:-y0*renderScale});
-        var tileW=Math.round(Math.min(tileS,drawW-tx2*tileS)*(renderScale/s));
-        var tileH=Math.round(Math.min(tileS,drawH-ty2*tileS)*(renderScale/s));
+      // Skip if already rendering this tile at this quality
+      var rk=key+'@'+qKey;
+      if(_tileState._rendering[rk])continue;
+      _tileState._rendering[rk]=true;
+
+      // Render tile
+      (function(tx2,ty2,key2,qKey2,rk2){
+        var logicalX=tx2*tileS, logicalY=ty2*tileS;
+        var logicalW=Math.min(tileS,drawW-logicalX);
+        var logicalH=Math.min(tileS,drawH-logicalY);
+        if(logicalW<=0||logicalH<=0){delete _tileState._rendering[rk2];return;}
+
+        // PDF points for this tile region
+        var pdfX=logicalX/bs, pdfY=logicalY/bs;
+        // Buffer size: logical size × quality factor
+        var bufW=Math.round(logicalW*(renderScale/bs));
+        var bufH=Math.round(logicalH*(renderScale/bs));
+
         var tc=document.createElement('canvas');
-        tc.width=tileW;tc.height=tileH;
+        tc.width=bufW;tc.height=bufH;
         var ctx=tc.getContext('2d');
-        page.render({canvasContext:ctx,viewport:tileVP,transform:[1,0,0,1,-x0*renderScale,-y0*renderScale]})
-          .promise.then(function(){
-            if(_tileState.drawingId!==drawingId)return; // drawing changed since render started
-            _tileState.tiles[key2]=tc;
-            _tileState.tileOrder.push(key2);
-            _tileState.tileCount++;
-            _tileEvictLRU();
-            _tiledComposite();
-          }).catch(function(){});
-      })(tx,ty,key);
+
+        page.render({
+          canvasContext:ctx,
+          viewport:page.getViewport({scale:renderScale}),
+          transform:[1,0,0,1,-pdfX*renderScale,-pdfY*renderScale]
+        }).promise.then(function(){
+          delete _tileState._rendering[rk2];
+          if(_tileState.drawingId!==drawingId)return;
+
+          // Position tile canvas in the tiles layer
+          tc.style.cssText='position:absolute;left:'+logicalX+'px;top:'+logicalY+'px;width:'+logicalW+'px;height:'+logicalH+'px;image-rendering:auto;';
+
+          // Replace existing tile if quality upgrade
+          var prev=_tileState.tiles[key2];
+          if(prev&&prev.canvas){
+            prev.canvas.width=1;prev.canvas.height=1;
+            if(prev.canvas.parentNode===layer)layer.removeChild(prev.canvas);
+            // Remove from LRU
+            var pi=_tileState.tileOrder.indexOf(key2);
+            if(pi>=0)_tileState.tileOrder.splice(pi,1);
+            _tileState.tileCount--;
+          }
+
+          _tileState.tiles[key2]={canvas:tc,quality:qKey2};
+          _tileState.tileOrder.push(key2);
+          _tileState.tileCount++;
+          layer.appendChild(tc);
+          _tileEvictLRU();
+        }).catch(function(err){
+          delete _tileState._rendering[rk2];
+          console.warn('[Tile] render failed',key2,err);
+        });
+      })(tx,ty,key,qKey,rk);
     }
   }
-}
-
-function _tiledComposite(){
-  // Draw all cached tiles onto the main dv-tile-canvas
-  var tc=document.getElementById('dv-tile-canvas');
-  if(!tc)return;
-  var drawW=_tileState.pageW*_tileState.baseScale;
-  var drawH=_tileState.pageH*_tileState.baseScale;
-  if(tc.width!==Math.round(drawW)||tc.height!==Math.round(drawH)){
-    tc.width=Math.round(drawW);tc.height=Math.round(drawH);
-    tc.style.width=Math.round(drawW)+'px';tc.style.height=Math.round(drawH)+'px';
-  }
-  var ctx=tc.getContext('2d');
-  ctx.clearRect(0,0,tc.width,tc.height);
-  ctx.fillStyle='white';ctx.fillRect(0,0,tc.width,tc.height);
-  var tileS=_tileState.tileSize;
-  Object.keys(_tileState.tiles).forEach(function(key){
-    var parts=key.split('_');
-    var tx=parseInt(parts[1]),ty=parseInt(parts[2]);
-    var tile=_tileState.tiles[key];
-    var dx=tx*tileS,dy=ty*tileS;
-    var dw=Math.min(tileS,drawW-dx),dh=Math.min(tileS,drawH-dy);
-    ctx.drawImage(tile,0,0,tile.width,tile.height,dx,dy,dw,dh);
-  });
 }
 
 function _tiledScheduleRender(){
@@ -5190,6 +5198,7 @@ function _tiledScheduleRender(){
 async function _openTiledPDF(drawingId,pageNum){
   _tileState.drawingId=drawingId;
   _tileState.tiles={};_tileState.tileCount=0;_tileState.tileOrder=[];
+  _tileState._rendering={};
   _tileState.pdfDoc=null;_tileState.page=null;
 
   var rec=await ADB.getPdfData(drawingId).catch(function(){return null;});
@@ -5224,7 +5233,8 @@ async function _openTiledPDF(drawingId,pageNum){
       }
     } else {
       _dbg('[DrawingViewer] Tiled: no IDB pdfData AND no r2Url — falling back to image viewer');
-      hideDrawingLoading();(function(x){return x.id===drawingId;});
+      hideDrawingLoading();
+      var _fbDwg2=getProject()&&getProject().drawings.find(function(x){return x.id===drawingId;});
       if(_fbDwg2){
         _fbDwg2.pdfTiled=false;
         saveToLS();
@@ -5247,56 +5257,67 @@ async function _openTiledPDF(drawingId,pageNum){
       _tileState.pageW=pv[2];
       _tileState.pageH=pv[3];
 
-      // Setup display canvas instead of img element
-      var area=document.getElementById('dv-canvas-area');
-      var img=document.getElementById('dv-image');
-      if(img){img.src='';img.style.display='none';}
-
-      var tc=document.getElementById('dv-tile-canvas');
-      if(!tc){
-        tc=document.createElement('canvas');
-        tc.id='dv-tile-canvas';
-        tc.style.cssText='display:block;position:absolute;top:0;left:0;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;';
-        var wrap=document.getElementById('dv-img-wrap');
-        if(wrap)wrap.insertBefore(tc,wrap.firstChild);
-      }
-      tc.style.display='block';
-
       // Use stored drawing dimensions for consistent markup coordinates
       var dwgRec=getProject()&&getProject().drawings.find(function(x){return x.id===drawingId;});
       var drawW=dwgRec?dwgRec.width:Math.round(_tileState.pageW*_tileState.baseScale);
       var drawH=dwgRec?dwgRec.height:Math.round(_tileState.pageH*_tileState.baseScale);
-      // Compute render scale from stored dimensions
-      var renderScale=drawW/_tileState.pageW;
-      tc.width=drawW;tc.height=drawH;
-      tc.style.width=drawW+'px';tc.style.height=drawH+'px';
+      _tileState.drawW=drawW;
+      _tileState.drawH=drawH;
+      // Update baseScale to match stored dimensions
+      _tileState.baseScale=drawW/_tileState.pageW;
 
-      // Also size the markup canvas to match
+      // Hide image element
+      var img=document.getElementById('dv-image');
+      if(img){img.src='';img.style.display='none';}
+
+      // Remove old tile canvas if present
+      var oldTc=document.getElementById('dv-tile-canvas');
+      if(oldTc&&oldTc.parentNode)oldTc.parentNode.removeChild(oldTc);
+
+      // Create tiles layer — white background, sized to logical drawing dims
+      var wrap=document.getElementById('dv-img-wrap');
+      var layer=document.getElementById('dv-tiles-layer');
+      if(layer&&layer.parentNode)layer.parentNode.removeChild(layer);
+      layer=document.createElement('div');
+      layer.id='dv-tiles-layer';
+      layer.style.cssText='position:absolute;top:0;left:0;width:'+drawW+'px;height:'+drawH+'px;background:white;overflow:hidden;';
+      wrap.insertBefore(layer,wrap.firstChild);
+
+      // Size the markup canvas with pixel cap for constrained devices
       var mc=document.getElementById('markup-canvas');
       if(mc){
-        mc.width=drawW;mc.height=drawH;
+        // Device detection — UA + touch, never viewport width (changes in DevTools)
+        var _isIPhone=/iPhone|iPod/.test(navigator.userAgent);
+        var _isAndroidTablet=/Android/.test(navigator.userAgent)&&!/Mobile/.test(navigator.userAgent);
+        var _isTablet=(/iPad/.test(navigator.userAgent))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||_isAndroidTablet;
+        // Samsung Galaxy Tab A (4GB) chokes at 12M — cap at 6M for Android tablets, 16M for iPad, 25M desktop
+        var maxPixels=_isIPhone?16000000:(_isAndroidTablet?6000000:(_isTablet?16000000:25000000));
+        var totalPixels=drawW*drawH;
+        var mkScale=1;
+        if(totalPixels>maxPixels){mkScale=Math.sqrt(maxPixels/totalPixels);}
+        var cw=Math.round(drawW*mkScale), ch=Math.round(drawH*mkScale);
+        mc.width=cw;mc.height=ch;
         mc.style.width=drawW+'px';mc.style.height=drawH+'px';
-        mc._dpr=1;mc._logicalW=drawW;mc._logicalH=drawH;
+        mc._dpr=mkScale;mc._logicalW=drawW;mc._logicalH=drawH;
+        mc._markupLoaded=false;
+        var mctx=mc.getContext('2d');
+        mctx.imageSmoothingEnabled=true;mctx.imageSmoothingQuality='high';
+        _dbg('[DrawingViewer] Markup canvas: logical '+drawW+'x'+drawH+', buffer '+cw+'x'+ch+' (_dpr='+mkScale.toFixed(3)+', '+Math.round(cw*ch/1000000)+'M px)');
       }
 
-      // Render entire PDF page to canvas (no tiling, no giant blobs)
-      var renderVp=pg.getViewport({scale:renderScale});
-      showDrawingLoading('Rendering drawing\u2026');
-      pg.render({canvasContext:tc.getContext('2d'),viewport:renderVp}).promise.then(function(){
-        hideDrawingLoading();
-        fitDrawing();
-        renderPinsOnDrawing();
-        renderTasksPanel();
-        initMarkupEvents();
-        initSelectModeEvents();
-        loadMarkupData();
-        window._tiledActive=true;// flag for cleanup in closeDrawingViewer
-        if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);}
-      }).catch(function(renderErr){
-        hideDrawingLoading();
-        console.error('PDF page render error:',renderErr);
-        toast('Drawing render failed: '+renderErr.message);
-      });
+      showDrawingLoading('Loading tiles\u2026');
+      // Kick off tiled rendering — tiles appear as they render
+      hideDrawingLoading();
+      fitDrawing();
+      renderPinsOnDrawing();
+      renderTasksPanel();
+      initMarkupEvents();
+      initSelectModeEvents();
+      loadMarkupData();
+      window._tiledActive=true;
+      // Initial tile render after fit (so viewport is known)
+      _tiledRenderVisible();
+      if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();_tiledRenderVisible();},200);}
     }catch(err){
       console.error('Tiled PDF error:',err);
       // Mark this drawing as having corrupted PDF data — prevents recovery loop
@@ -5327,12 +5348,16 @@ async function _openTiledPDF(drawingId,pageNum){
 function _closeTiledPDF(){
   window._tiledActive=false;
   _tileState.pdfDoc=null;_tileState.page=null;
+  _tileState._rendering={};
   Object.keys(_tileState.tiles).forEach(function(k){
-    var c=_tileState.tiles[k];if(c){c.width=1;c.height=1;}
+    var t=_tileState.tiles[k];
+    if(t&&t.canvas){t.canvas.width=1;t.canvas.height=1;}
   });
   _tileState.tiles={};_tileState.tileCount=0;_tileState.tileOrder=[];
-  var tc=document.getElementById('dv-tile-canvas');
-  if(tc){tc.width=1;tc.height=1;tc.style.display='none';}
+  var layer=document.getElementById('dv-tiles-layer');
+  if(layer&&layer.parentNode)layer.parentNode.removeChild(layer);
+  var oldTc=document.getElementById('dv-tile-canvas');
+  if(oldTc&&oldTc.parentNode)oldTc.parentNode.removeChild(oldTc);
   var img=document.getElementById('dv-image');
   if(img)img.style.display='block';
 }
@@ -5416,9 +5441,11 @@ function _openDrawingImage(d,drawingId){
     // Ensure image element is visible (tiled PDF path may have hidden it)
     var img=document.getElementById('dv-image');
     if(img){img.style.display='';img.src='';img.removeAttribute('src');}// Clear previous image
-    // Hide tile canvas if it exists (switching from tiled to image mode)
+    // Hide tile canvas / tiles layer if present (switching from tiled to image mode)
     var tc=document.getElementById('dv-tile-canvas');
     if(tc){tc.style.display='none';}
+    var tl=document.getElementById('dv-tiles-layer');
+    if(tl&&tl.parentNode)tl.parentNode.removeChild(tl);
     if(window._tiledActive)_closeTiledPDF();
 
     function _openWithSrc(src){
@@ -5545,9 +5572,9 @@ function fitDrawing(){
     }
     _fitRetryCount=0; // reset on success
     var iw,ih;
-    if(window._tiledActive&&_tileState.pageW){
-      iw=_tileState.pageW*_tileState.baseScale;
-      ih=_tileState.pageH*_tileState.baseScale;
+    if(window._tiledActive&&_tileState.drawW){
+      iw=_tileState.drawW;
+      ih=_tileState.drawH;
     } else {
       var img=document.getElementById('dv-image');
       if(!img)return;
@@ -6256,11 +6283,12 @@ function getSize(){var el=document.getElementById('mk-size');return el?parseFloa
 function renderAllMarkup(){
   var canvas=document.getElementById('markup-canvas');if(!canvas)return;
   var ctx=canvas.getContext('2d');
-  // Draw in buffer pixel space (0..canvas.width). getPos() returns coords in this space.
-  // No transform needed — buffer pixels map 1:1 to canvas coordinates.
+  var dpr=canvas._dpr||1;
+  // Clear in buffer space (identity), then set dpr transform for logical-space drawing
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  var lw=canvas.width,lh=canvas.height;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  var lw=canvas._logicalW||canvas.width/dpr,lh=canvas._logicalH||canvas.height/dpr;
   // Show/hide copy button based on selection — always visible in select mode, dimmed when nothing selected
   var cb=document.getElementById('mk-copy-btn');
   if(cb){
@@ -6298,7 +6326,7 @@ function renderAllMarkup(){
     for(var gi=0;gi<opKeys.length;gi++){
       var grp=opGroups[opKeys[gi]];
       hx.clearRect(0,0,hlc.width,hlc.height);
-      hx.setTransform(1,0,0,1,0,0);
+      hx.setTransform(dpr,0,0,dpr,0,0);
       grp.objs.forEach(function(obj){
         if(!obj.points||obj.points.length<2)return;
         hx.strokeStyle=obj.color||'#F1C40F';
@@ -6317,7 +6345,7 @@ function renderAllMarkup(){
       ctx.drawImage(hlc,0,0);
       ctx.restore();
     }
-    ctx.setTransform(1,0,0,1,0,0);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
     // Draw selection handles for selected highlight(s)
     highlights.forEach(function(obj){
       if(obj.id===_mkSelectedId||_mkSelectedIds.indexOf(obj.id)>=0)_drawSelectionHandles(ctx,obj);
@@ -6349,7 +6377,8 @@ function _mkDrawCopyGhost(ctx,pos,dpr){
   var cy=(bbs.reduce(function(a,b){return a+b.y1;},0)/bbs.length+bbs.reduce(function(a,b){return a+b.y2;},0)/bbs.length)/2;
   var dx=pos.x-cx,dy=pos.y-cy;
   ctx.save();
-  ctx.setTransform(1,0,0,1,0,0);
+  var _gDpr=canvas._dpr||1;
+  ctx.setTransform(_gDpr,0,0,_gDpr,0,0);
   ctx.globalAlpha=0.4;
   copies.forEach(function(src){
     var ghost=JSON.parse(JSON.stringify(src));
@@ -6501,7 +6530,7 @@ function _drawSelectionHandles(ctx,obj){
   var delOff=delR+pad;
   var dx=b.x2+delOff, dy=b.y1-delOff;
   // Clamp within canvas bounds so button is always tappable
-  var cw=ctx.canvas.width, ch=ctx.canvas.height;
+  var cw=ctx.canvas._logicalW||ctx.canvas.width, ch=ctx.canvas._logicalH||ctx.canvas.height;
   dx=Math.max(delR+2,Math.min(cw-delR-2,dx));
   dy=Math.max(delR+2,Math.min(ch-delR-2,dy));
   ctx.beginPath();ctx.arc(dx,dy,delR,0,Math.PI*2);
@@ -6536,7 +6565,7 @@ function _mkHitHandle(x,y,obj){
   // Check × delete button first — clamped to canvas like _drawSelectionHandles
   var dx=b.x2+delOff, dy=b.y1-delOff;
   var canvas=document.getElementById('markup-canvas');
-  if(canvas){var cw=canvas.width,ch=canvas.height;dx=Math.max(delR+2,Math.min(cw-delR-2,dx));dy=Math.max(delR+2,Math.min(ch-delR-2,dy));}
+  if(canvas){var cw=canvas._logicalW||canvas.width,ch=canvas._logicalH||canvas.height;dx=Math.max(delR+2,Math.min(cw-delR-2,dx));dy=Math.max(delR+2,Math.min(ch-delR-2,dy));}
   if(Math.abs(x-dx)<delR*1.5&&Math.abs(y-dy)<delR*1.5)return 'delete';
   var handles=[
     {name:'nw',x:b.x1-pad,y:b.y1-pad},
@@ -6586,7 +6615,8 @@ function _mkResizeObj(obj,handle,dx,dy){
 // ── TEXT PLACEMENT ──
 function handleTextPlace(e){
   var canvas=document.getElementById('markup-canvas');var r=canvas.getBoundingClientRect();
-  var sx=canvas.width/r.width,sy=canvas.height/r.height;var cx,cy;
+  var lw=canvas._logicalW||canvas.width,lh=canvas._logicalH||canvas.height;
+  var sx=lw/r.width,sy=lh/r.height;var cx,cy;
   if(e.touches){cx=(e.touches[0].clientX-r.left)*sx;cy=(e.touches[0].clientY-r.top)*sy;}
   else{cx=(e.clientX-r.left)*sx;cy=(e.clientY-r.top)*sy;}
   var existing=document.getElementById('mk-text-input-overlay');if(existing)existing.remove();
@@ -6636,7 +6666,8 @@ var _polylineActive=false;
 function handlePolylineClick(e){
   var canvas=document.getElementById('markup-canvas');
   var r=canvas.getBoundingClientRect();
-  var sx=canvas.width/r.width,sy=canvas.height/r.height;
+  var lw=canvas._logicalW||canvas.width,lh=canvas._logicalH||canvas.height;
+  var sx=lw/r.width,sy=lh/r.height;
   var x,y;
   if(e.touches){x=(e.touches[0].clientX-r.left)*sx;y=(e.touches[0].clientY-r.top)*sy;}
   else{x=(e.clientX-r.left)*sx;y=(e.clientY-r.top)*sy;}
@@ -6703,7 +6734,8 @@ function initMarkupEvents(){
 
   function getPos(e){
     var r=canvas.getBoundingClientRect();
-    var sx=canvas.width/r.width,sy=canvas.height/r.height;
+    var lw=canvas._logicalW||canvas.width,lh=canvas._logicalH||canvas.height;
+    var sx=lw/r.width,sy=lh/r.height;
     if(e.touches)return{x:(e.touches[0].clientX-r.left)*sx,y:(e.touches[0].clientY-r.top)*sy};
     if(e.changedTouches)return{x:(e.changedTouches[0].clientX-r.left)*sx,y:(e.changedTouches[0].clientY-r.top)*sy};
     return{x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy};
@@ -6745,7 +6777,7 @@ function initMarkupEvents(){
         _mkHlCanvas.width=canvas.width; _mkHlCanvas.height=canvas.height;
         var hx=_mkHlCanvas.getContext('2d');
         hx.clearRect(0,0,_mkHlCanvas.width,_mkHlCanvas.height);
-        hx.setTransform(1,0,0,1,0,0);
+        hx.setTransform(dpr,0,0,dpr,0,0);
         hx.strokeStyle=mkState.color; hx.lineWidth=getSize()*4; hx.globalAlpha=1;
         hx.lineCap='round'; hx.lineJoin='round';
         hx.beginPath(); hx.moveTo(_penPoints[0].x,_penPoints[0].y);
@@ -6760,7 +6792,7 @@ function initMarkupEvents(){
         // Pen/eraser: pure incremental segment
         var n=_penPoints.length;
         var p0=_penPoints[n-2],p1=_penPoints[n-1];
-        ctx.setTransform(1,0,0,1,0,0);
+        ctx.setTransform(dpr,0,0,dpr,0,0);
         ctx.save();
         if(mkState.tool==='eraser'){
           ctx.globalCompositeOperation='destination-out';
@@ -6785,15 +6817,13 @@ function initMarkupEvents(){
         ctx2.putImageData(_mkDrawCache,0,0);
       } else {
         ctx2.setTransform(1,0,0,1,0,0);
-        var lw2=canvas2._logicalW||canvas2.width/dpr2,lh2=canvas2._logicalH||canvas2.height/dpr2;
-        ctx2.clearRect(0,0,lw2,lh2);
+        ctx2.clearRect(0,0,canvas2.width,canvas2.height);
         // Use renderAllMarkup's compositing logic for correct highlight layering
         renderAllMarkup();
         _mkDrawCache=ctx2.getImageData(0,0,canvas2.width,canvas2.height);
       }
-      // Shape preview transform must match renderAllMarkup's identity transform
-      // getPos returns buffer-space coordinates, no additional scaling needed
-      ctx2.setTransform(1,0,0,1,0,0);
+      // Shape preview: getPos returns logical coords, dpr transform maps to buffer
+      ctx2.setTransform(dpr2,0,0,dpr2,0,0);
       ctx2.save();
       ctx2.globalAlpha=getOpacity();
       ctx2.strokeStyle=mkState.color;ctx2.fillStyle=mkState.color;ctx2.lineWidth=getSize();
