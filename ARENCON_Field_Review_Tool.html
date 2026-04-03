@@ -5849,7 +5849,7 @@ function _openDrawingImage(d,drawingId){
           initPanZoom();// Re-init with actual image dimensions
         }
         if(prevBlobUrl){URL.revokeObjectURL(prevBlobUrl);}
-        fitDrawing();renderPinsOnDrawing();renderTasksPanel();_lazyCanvasSize();initMarkupEvents();initSelectModeEvents();
+        fitDrawing();renderPinsOnDrawing();renderTasksPanel();resizeMarkupCanvas();initMarkupEvents();initSelectModeEvents();
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
         // Generate snapshot for next open
         _saveDrawingSnapshot(drawingId);
@@ -7156,8 +7156,8 @@ function initMarkupEvents(){
     }
     var lw=mc._logicalW||mc.width,lh=mc._logicalH||mc.height;
     ov.style.width=lw+'px';ov.style.height=lh+'px';
-    // 5.5M pixel cap — balance between Samsung GPU performance and drawing visibility
-    var ovMax=5000000;var ovPx=lw*lh;var ovScale=ovPx>ovMax?Math.sqrt(ovMax/ovPx):1;
+    // 4.5M pixel cap — Samsung Galaxy Tab A sweet spot (5M was laggy, 4M too fuzzy)
+    var ovMax=4500000;var ovPx=lw*lh;var ovScale=ovPx>ovMax?Math.sqrt(ovMax/ovPx):1;
     ov.width=Math.round(lw*ovScale);ov.height=Math.round(lh*ovScale);
     ov._dpr=ovScale;ov._logicalW=lw;ov._logicalH=lh;
     return ov;
