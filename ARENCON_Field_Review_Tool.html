@@ -4532,38 +4532,32 @@ function _runPdfPages(pdf,bn,folder,total,arrayBuf){
         pdf.getPage(pg).then(function(page){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
-          // Render at 3x for crisp drawings — no cap needed for image mode
+          // Compute intended render dimensions (used for markup coordinate space)
           var hiScale=Math.min(4.0,4096/pw,4096/ph);
-          var hiVp=page.getViewport({scale:hiScale});
-          var hc=document.createElement('canvas');
-          hc.width=Math.round(hiVp.width);
-          hc.height=Math.round(hiVp.height);
-          page.render({canvasContext:hc.getContext('2d'),viewport:hiVp}).promise.then(function(){
+          // Generate thumb only — PDF is rendered on-demand in the viewer
+          var thumbScale=Math.min(1.0,300/pw,300/ph);
+          var thumbVp=page.getViewport({scale:thumbScale});
+          var tc=document.createElement('canvas');
+          tc.width=Math.round(thumbVp.width);tc.height=Math.round(thumbVp.height);
+          page.render({canvasContext:tc.getContext('2d'),viewport:thumbVp}).promise.then(function(){
             setTimeout(function(){
               try{
-                var fullDu=hc.toDataURL('image/jpeg',0.92);
-                // Small thumb for gallery card
-                var thumbScale=Math.min(1.0,300/pw,300/ph);
-                var thumbVp=page.getViewport({scale:thumbScale});
-                var tc=document.createElement('canvas');
-                tc.width=Math.round(thumbVp.width);tc.height=Math.round(thumbVp.height);
-                var tctx=tc.getContext('2d');
-                tctx.drawImage(hc,0,0,tc.width,tc.height);
                 var thumbDu=tc.toDataURL('image/jpeg',0.70);
                 tc.width=1;tc.height=1;
-                hc.width=1;hc.height=1;// free memory
                 var p=getProject();if(!p)return;
                 var pageName=total>1?bn+' - Page '+pg:bn;
                 pageName=getUniqueDrawingName(pageName,p);
                 var newDwg={
                   id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
-                  name:pageName,dataUrl:fullDu,thumb:thumbDu,
+                  name:pageName,dataUrl:null,thumb:thumbDu,
                   width:Math.round(pw*hiScale),height:Math.round(ph*hiScale),
-                  pdfTiled:false,pdfPage:pg,
+                  pdfTiled:true,pdfPage:pg,
                   isOriginal:false,folder:folder,
                   r2Key:'',r2Status:'',r2Url:''
                 };
                 p.drawings.push(newDwg);
+                // Store PDF buffer in pdfData IDB (one copy per drawing for R2 compat)
+                ADB.savePdfData(newDwg.id,arrayBuf).catch(function(e){console.error('PDF save error:',e);});
                 saveToLS();
                 done++;
                 showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
@@ -4944,34 +4938,29 @@ function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
           var hiScale=Math.min(4.0,4096/pw,4096/ph);
-          var hiVp=page.getViewport({scale:hiScale});
-          var hc=document.createElement('canvas');
-          hc.width=Math.round(hiVp.width);
-          hc.height=Math.round(hiVp.height);
-          page.render({canvasContext:hc.getContext('2d'),viewport:hiVp}).promise.then(function(){
+          // Generate thumb only — PDF rendered on-demand in viewer
+          var thumbScale=Math.min(1.0,300/pw,300/ph);
+          var thumbVp=page.getViewport({scale:thumbScale});
+          var tc=document.createElement('canvas');
+          tc.width=Math.round(thumbVp.width);tc.height=Math.round(thumbVp.height);
+          page.render({canvasContext:tc.getContext('2d'),viewport:thumbVp}).promise.then(function(){
             setTimeout(function(){
               try{
-                var fullDu=hc.toDataURL('image/jpeg',0.92);
-                var thumbScale=Math.min(1.0,300/pw,300/ph);
-                var thumbVp=page.getViewport({scale:thumbScale});
-                var tc=document.createElement('canvas');
-                tc.width=Math.round(thumbVp.width);tc.height=Math.round(thumbVp.height);
-                tc.getContext('2d').drawImage(hc,0,0,tc.width,tc.height);
                 var thumbDu=tc.toDataURL('image/jpeg',0.70);
                 tc.width=1;tc.height=1;
-                hc.width=1;hc.height=1;
                 var p=getProject();if(!p)return;
                 var pageName=total>1?bn+' - Page '+pg:bn;
                 pageName=getUniqueDrawingName(pageName,p);
                 var newDwg2={
                   id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
-                  name:pageName,dataUrl:fullDu,thumb:thumbDu,
+                  name:pageName,dataUrl:null,thumb:thumbDu,
                   width:Math.round(pw*hiScale),height:Math.round(ph*hiScale),
-                  pdfTiled:false,pdfPage:pg,
+                  pdfTiled:true,pdfPage:pg,
                   isOriginal:false,folder:folder,
                   r2Key:'',r2Status:'',r2Url:''
                 };
                 p.drawings.push(newDwg2);
+                ADB.savePdfData(newDwg2.id,arrayBuf).catch(function(e){console.error('PDF save error:',e);});
                 saveToLS();
                 done++;
                 showDrawingLoading('Processing PDF: '+done+'/'+total+'...');
@@ -5258,7 +5247,7 @@ async function _openTiledPDF(drawingId,pageNum){
       _tileState.pageW=pv[2];
       _tileState.pageH=pv[3];
 
-      // Setup tile canvas instead of img element
+      // Setup display canvas instead of img element
       var area=document.getElementById('dv-canvas-area');
       var img=document.getElementById('dv-image');
       if(img){img.src='';img.style.display='none';}
@@ -5273,8 +5262,12 @@ async function _openTiledPDF(drawingId,pageNum){
       }
       tc.style.display='block';
 
-      var drawW=Math.round(_tileState.pageW*_tileState.baseScale);
-      var drawH=Math.round(_tileState.pageH*_tileState.baseScale);
+      // Use stored drawing dimensions for consistent markup coordinates
+      var dwgRec=getProject()&&getProject().drawings.find(function(x){return x.id===drawingId;});
+      var drawW=dwgRec?dwgRec.width:Math.round(_tileState.pageW*_tileState.baseScale);
+      var drawH=dwgRec?dwgRec.height:Math.round(_tileState.pageH*_tileState.baseScale);
+      // Compute render scale from stored dimensions
+      var renderScale=drawW/_tileState.pageW;
       tc.width=drawW;tc.height=drawH;
       tc.style.width=drawW+'px';tc.style.height=drawH+'px';
 
@@ -5286,20 +5279,24 @@ async function _openTiledPDF(drawingId,pageNum){
         mc._dpr=1;mc._logicalW=drawW;mc._logicalH=drawH;
       }
 
-      hideDrawingLoading();
-      fitDrawing();
-      renderPinsOnDrawing();
-      renderTasksPanel();
-      initMarkupEvents();
-      initSelectModeEvents();
-      loadMarkupData();
-
-      // Render initial tiles
-      _tiledRenderVisible();
-
-      // Hook into pan/zoom to re-render tiles
-      window._tiledActive=true;
-      if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);}
+      // Render entire PDF page to canvas (no tiling, no giant blobs)
+      var renderVp=pg.getViewport({scale:renderScale});
+      showDrawingLoading('Rendering drawing\u2026');
+      pg.render({canvasContext:tc.getContext('2d'),viewport:renderVp}).promise.then(function(){
+        hideDrawingLoading();
+        fitDrawing();
+        renderPinsOnDrawing();
+        renderTasksPanel();
+        initMarkupEvents();
+        initSelectModeEvents();
+        loadMarkupData();
+        window._tiledActive=true;// flag for cleanup in closeDrawingViewer
+        if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);}
+      }).catch(function(renderErr){
+        hideDrawingLoading();
+        console.error('PDF page render error:',renderErr);
+        toast('Drawing render failed: '+renderErr.message);
+      });
     }catch(err){
       console.error('Tiled PDF error:',err);
       // Mark this drawing as having corrupted PDF data — prevents recovery loop
@@ -5403,8 +5400,13 @@ function openDrawingViewer(drawingId){
     })();
     // Close any previous tiled PDF session
     if(window._tiledActive)_closeTiledPDF();
-    // All drawings load as images — tiled PDF renderer disabled (unreliable)
-    _openDrawingImage(d,drawingId);
+    // PDF-backed drawings: render from stored PDF on-demand (no giant blobs)
+    // Image-backed drawings: load from IDB blob / R2 URL
+    if(d.pdfTiled){
+      _openTiledPDF(drawingId,d.pdfPage||1);
+    } else {
+      _openDrawingImage(d,drawingId);
+    }
   }catch(e){console.error('openDrawingViewer error:',e);}
 }
 
