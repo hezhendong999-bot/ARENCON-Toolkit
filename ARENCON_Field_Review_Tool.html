@@ -4533,7 +4533,7 @@ function _runPdfPages(pdf,bn,folder,total,arrayBuf){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
           // Render at 3x for crisp drawings — no cap needed for image mode
-          var hiScale=Math.min(4.0,3000/pw,3000/ph);
+          var hiScale=Math.min(4.0,4096/pw,4096/ph);
           var hiVp=page.getViewport({scale:hiScale});
           var hc=document.createElement('canvas');
           hc.width=Math.round(hiVp.width);
@@ -4943,7 +4943,7 @@ function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
         pdf.getPage(pg).then(function(page){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
-          var hiScale=Math.min(4.0,3000/pw,3000/ph);
+          var hiScale=Math.min(4.0,4096/pw,4096/ph);
           var hiVp=page.getViewport({scale:hiScale});
           var hc=document.createElement('canvas');
           hc.width=Math.round(hiVp.width);
@@ -5443,53 +5443,28 @@ function _openDrawingImage(d,drawingId){
       img.src=src;
     }
 
-    // ── Safe blob decode: off-thread via createImageBitmap, auto-downscale large images ──
-    // Prevents black strips / GPU crashes on constrained devices (Samsung tablets, older iPads)
+    // ── Safe blob decode: off-thread via createImageBitmap to prevent main-thread choking ──
+    // Does NOT downscale — markup coordinates depend on original image dimensions
     function _safeOpenBlob(blob){
-      var MAX_DIM=3000;// max px per dimension for display — sharp on any tablet
-      // Small blobs (<4MB) are safe to decode directly
+      var url=URL.createObjectURL(blob);
+      dvState._currentBlobUrl=url;
+      // Small blobs (<4MB) — open directly, no pre-decode needed
       if(blob.size<4*1024*1024){
-        var url=URL.createObjectURL(blob);
-        dvState._currentBlobUrl=url;
         _openWithSrc(url);
         return;
       }
-      // Large blob — use createImageBitmap for off-thread decode
+      // Large blob — pre-decode off-thread via createImageBitmap to warm the browser cache
+      // This prevents main-thread blocking and black strip rendering failures
       if(typeof createImageBitmap!=='undefined'){
         createImageBitmap(blob).then(function(bmp){
-          var w=bmp.width,h=bmp.height;
-          if(w<=MAX_DIM&&h<=MAX_DIM){
-            // Within safe limits — use directly
-            bmp.close();
-            var url=URL.createObjectURL(blob);
-            dvState._currentBlobUrl=url;
-            _openWithSrc(url);
-            return;
-          }
-          // Oversized — downscale to safe dimensions
-          _dbg('[DrawingViewer] Downscaling oversized image: '+w+'×'+h+' → max '+MAX_DIM+'px');
-          var scale=Math.min(MAX_DIM/w,MAX_DIM/h);
-          var nw=Math.round(w*scale),nh=Math.round(h*scale);
-          var c=document.createElement('canvas');
-          c.width=nw;c.height=nh;
-          c.getContext('2d').drawImage(bmp,0,0,nw,nh);
-          bmp.close();
-          c.toBlob(function(smallBlob){
-            c.width=1;c.height=1;// free canvas memory
-            var url=URL.createObjectURL(smallBlob);
-            dvState._currentBlobUrl=url;
-            _openWithSrc(url);
-          },'image/jpeg',0.92);
+          _dbg('[DrawingViewer] Off-thread pre-decode OK: '+bmp.width+'×'+bmp.height+' ('+Math.round(blob.size/1024)+'KB)');
+          bmp.close();// free bitmap — we just wanted to pre-decode
+          _openWithSrc(url);
         }).catch(function(e){
-          _dbw('[DrawingViewer] createImageBitmap failed: '+e.message+' — falling back to direct blob URL');
-          var url=URL.createObjectURL(blob);
-          dvState._currentBlobUrl=url;
+          _dbw('[DrawingViewer] createImageBitmap failed: '+e.message+' — using blob URL directly');
           _openWithSrc(url);
         });
       } else {
-        // No createImageBitmap (very old browser) — use blob URL directly
-        var url=URL.createObjectURL(blob);
-        dvState._currentBlobUrl=url;
         _openWithSrc(url);
       }
     }
@@ -13775,7 +13750,7 @@ function uploadNewVersion(drawingId){
         pdfjsLib.getDocument(ta).promise.then(function(pdf){
           pdf.getPage(1).then(function(page){
             var pv=page.view;var _vpw=pv[2],_vph=pv[3];
-            var _vs=Math.min(4.0,3000/_vpw,3000/_vph);
+            var _vs=Math.min(4.0,4096/_vpw,4096/_vph);
             var vp=page.getViewport({scale:_vs});
             var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
             page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){
@@ -13840,7 +13815,7 @@ function _replaceWithPdfPage(pdf,pageNum,dwg,fileName){
   var p=getProject();
   pdf.getPage(pageNum).then(function(page){
     var pv=page.view;var _rpw=pv[2],_rph=pv[3];
-    var _rs=Math.min(4.0,3000/_rpw,3000/_rph);
+    var _rs=Math.min(4.0,4096/_rpw,4096/_rph);
     var vp=page.getViewport({scale:_rs});
     var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
     page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){
