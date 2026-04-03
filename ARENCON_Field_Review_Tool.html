@@ -5590,6 +5590,8 @@ async function _openTiledPDF(drawingId,pageNum){
       // Kick off tiled rendering — tiles appear as they render
       hideDrawingLoading();
       fitDrawing();
+      // Reveal drawing after fit
+      var _wrap2=document.getElementById('dv-img-wrap');if(_wrap2)_wrap2.style.opacity='1';
       renderPinsOnDrawing();
       renderTasksPanel();
       initMarkupEvents();
@@ -5817,6 +5819,8 @@ function _openDrawingImage(d,drawingId){
         img.style.display='';
         if(prevBlobUrl){URL.revokeObjectURL(prevBlobUrl);}
         fitDrawing();renderPinsOnDrawing();renderTasksPanel();resizeMarkupCanvas();initMarkupEvents();initSelectModeEvents();
+        // Reveal drawing after fit — prevents stale content flash during transition
+        var _wrap=document.getElementById('dv-img-wrap');if(_wrap)_wrap.style.opacity='1';
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
       };
       img.onerror=function(){
@@ -5952,11 +5956,9 @@ function zoomIn(){dvState.scale=Math.min(dvState.scale*1.3,10);applyTransform();
 function zoomOut(){var minS=dvState.fitScale||0.1;dvState.scale=Math.max(dvState.scale/1.3,minS);if(dvState.scale<=minS*1.05){fitDrawing();return;}applyTransform();}
 
 function initPanZoom(){var area=document.getElementById('dv-canvas-area');
-// First init only: clone to clear stale listeners. Subsequent opens skip clone (prevents flash).
-if(!area._pzInit){
 var na=area.cloneNode(true);area.parentNode.replaceChild(na,area);area=na;
-area._pzInit=true;
-} else { return; }
+// Hide img-wrap during transition to prevent stale content flash
+var wrap=na.querySelector('#dv-img-wrap');if(wrap)wrap.style.opacity='0';
 var sx,sy,pan=false;
 
 area.addEventListener('mousedown',function(e){
