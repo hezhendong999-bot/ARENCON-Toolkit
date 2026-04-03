@@ -1,6 +1,6 @@
 // ARENCON Field Review Tool — Service Worker
 // Strategy: network-first for HTML (always get latest), cache-first for CDN assets
-var CACHE_NAME = 'arencon-frt-v4';
+var CACHE_NAME = 'arencon-frt-v5';
 
 // HTML files to precache on install
 var HTML_FILES = [
