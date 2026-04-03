@@ -5839,9 +5839,8 @@ function _openDrawingImage(d,drawingId){
     _dbg('[DrawingViewer] _openDrawingImage id='+drawingId+' r2Url='+(d.r2Url?'yes':'no')+' dataUrl='+(d.dataUrl?'yes':'no')+' hasBlob='+!!d._hasLocalBlob+' pdfTiled='+!!d.pdfTiled);
     // Ensure image element is visible (tiled PDF path may have hidden it)
     var img=document.getElementById('dv-image');
-    // If snapshot is showing, keep it visible as placeholder; otherwise clear
-    if(img&&!dvState._snapshotShowing){img.style.display='';img.src='';img.removeAttribute('src');}
-    else if(img){img.style.display='';}
+    // Keep current image visible while new one loads — prevents flash on drawing switch
+    if(img){img.style.display='';}
     // Hide tile canvas / tiles layer if present (switching from tiled to image mode)
     var tc=document.getElementById('dv-tile-canvas');
     if(tc){tc.style.display='none';}
