@@ -5070,7 +5070,10 @@ var _tileState = {
   renderTimer: null,
   baseScale: 1.5,     // fit-view quality (lower = less memory at overview)
   maxRenderScale: 4.0, // zoom-in quality cap (higher = crisper when zoomed)
-  _rendering: {}      // keys currently being rendered (prevent double-render)
+  _rendering: {},     // keys currently being rendered (prevent double-render)
+  _queue: [],         // sequential render queue [{tx,ty,key,qKey,rk}]
+  _busy: false,       // true while a tile is rendering (sequential gate)
+  _paused: false      // true during active markup drawing (yield GPU to pen)
 };
 
 function _tileKey(tx,ty){return tx+'_'+ty;}
@@ -5090,6 +5093,7 @@ function _tileEvictLRU(){
 
 function _tiledRenderVisible(){
   if(!_tileState.pdfDoc||!_tileState.page)return;
+  if(_tileState._paused)return; // yield GPU to markup drawing
   var area=document.getElementById('dv-canvas-area');
   var layer=document.getElementById('dv-tiles-layer');
   if(!area||!layer)return;
@@ -5117,9 +5121,8 @@ function _tiledRenderVisible(){
   var renderScale=Math.min(_tileState.maxRenderScale, Math.max(1.0, scale) * _tileState.baseScale);
   var qKey=Math.round(renderScale*4); // quantise to 0.25 steps
 
-  var drawingId=_tileState.drawingId;
-  var page=_tileState.page;
-  var bs=_tileState.baseScale;
+  // Clear queue — rebuild from current viewport
+  _tileState._queue=[];
 
   for(var tx=txMin;tx<=Math.min(txMax,maxTx-1);tx++){
     for(var ty=tyMin;ty<=Math.min(tyMax,maxTy-1);ty++){
@@ -5132,62 +5135,86 @@ function _tiledRenderVisible(){
         _tileState.tileOrder.push(key);
         continue;
       }
-      // Skip if already rendering this tile at this quality
       var rk=key+'@'+qKey;
       if(_tileState._rendering[rk])continue;
-      _tileState._rendering[rk]=true;
-
-      // Render tile
-      (function(tx2,ty2,key2,qKey2,rk2){
-        var logicalX=tx2*tileS, logicalY=ty2*tileS;
-        var logicalW=Math.min(tileS,drawW-logicalX);
-        var logicalH=Math.min(tileS,drawH-logicalY);
-        if(logicalW<=0||logicalH<=0){delete _tileState._rendering[rk2];return;}
-
-        // PDF points for this tile region
-        var pdfX=logicalX/bs, pdfY=logicalY/bs;
-        // Buffer size: logical size × quality factor
-        var bufW=Math.round(logicalW*(renderScale/bs));
-        var bufH=Math.round(logicalH*(renderScale/bs));
-
-        var tc=document.createElement('canvas');
-        tc.width=bufW;tc.height=bufH;
-        var ctx=tc.getContext('2d');
-
-        page.render({
-          canvasContext:ctx,
-          viewport:page.getViewport({scale:renderScale}),
-          transform:[1,0,0,1,-pdfX*renderScale,-pdfY*renderScale]
-        }).promise.then(function(){
-          delete _tileState._rendering[rk2];
-          if(_tileState.drawingId!==drawingId)return;
-
-          // Position tile canvas in the tiles layer
-          tc.style.cssText='position:absolute;left:'+logicalX+'px;top:'+logicalY+'px;width:'+logicalW+'px;height:'+logicalH+'px;image-rendering:auto;';
-
-          // Replace existing tile if quality upgrade
-          var prev=_tileState.tiles[key2];
-          if(prev&&prev.canvas){
-            prev.canvas.width=1;prev.canvas.height=1;
-            if(prev.canvas.parentNode===layer)layer.removeChild(prev.canvas);
-            // Remove from LRU
-            var pi=_tileState.tileOrder.indexOf(key2);
-            if(pi>=0)_tileState.tileOrder.splice(pi,1);
-            _tileState.tileCount--;
-          }
-
-          _tileState.tiles[key2]={canvas:tc,quality:qKey2};
-          _tileState.tileOrder.push(key2);
-          _tileState.tileCount++;
-          layer.appendChild(tc);
-          _tileEvictLRU();
-        }).catch(function(err){
-          delete _tileState._rendering[rk2];
-          console.warn('[Tile] render failed',key2,err);
-        });
-      })(tx,ty,key,qKey,rk);
+      _tileState._queue.push({tx:tx,ty:ty,key:key,qKey:qKey,rk:rk,renderScale:renderScale});
     }
   }
+  // Kick sequential processing
+  _tileProcessQueue();
+}
+
+function _tileProcessQueue(){
+  if(_tileState._busy||!_tileState._queue.length||_tileState._paused)return;
+  var job=_tileState._queue.shift();
+  if(!job)return;
+  // Skip if already rendered at this quality (could have been done by previous queue run)
+  var existing=_tileState.tiles[job.key];
+  if(existing&&existing.quality===job.qKey){_tileProcessQueue();return;}
+  if(_tileState._rendering[job.rk]){_tileProcessQueue();return;}
+
+  _tileState._busy=true;
+  _tileState._rendering[job.rk]=true;
+
+  var drawingId=_tileState.drawingId;
+  var page=_tileState.page;
+  var bs=_tileState.baseScale;
+  var tileS=_tileState.tileSize;
+  var drawW=_tileState.drawW,drawH=_tileState.drawH;
+  var renderScale=job.renderScale;
+  var layer=document.getElementById('dv-tiles-layer');
+
+  var logicalX=job.tx*tileS, logicalY=job.ty*tileS;
+  var logicalW=Math.min(tileS,drawW-logicalX);
+  var logicalH=Math.min(tileS,drawH-logicalY);
+  if(logicalW<=0||logicalH<=0){
+    delete _tileState._rendering[job.rk];
+    _tileState._busy=false;
+    _tileProcessQueue();
+    return;
+  }
+
+  var pdfX=logicalX/bs, pdfY=logicalY/bs;
+  var bufW=Math.round(logicalW*(renderScale/bs));
+  var bufH=Math.round(logicalH*(renderScale/bs));
+
+  var tc=document.createElement('canvas');
+  tc.width=bufW;tc.height=bufH;
+  var ctx=tc.getContext('2d');
+
+  page.render({
+    canvasContext:ctx,
+    viewport:page.getViewport({scale:renderScale}),
+    transform:[1,0,0,1,-pdfX*renderScale,-pdfY*renderScale]
+  }).promise.then(function(){
+    delete _tileState._rendering[job.rk];
+    _tileState._busy=false;
+    if(_tileState.drawingId!==drawingId){_tileProcessQueue();return;}
+
+    tc.style.cssText='position:absolute;left:'+logicalX+'px;top:'+logicalY+'px;width:'+logicalW+'px;height:'+logicalH+'px;image-rendering:auto;';
+
+    var prev=_tileState.tiles[job.key];
+    if(prev&&prev.canvas){
+      prev.canvas.width=1;prev.canvas.height=1;
+      if(layer&&prev.canvas.parentNode===layer)layer.removeChild(prev.canvas);
+      var pi=_tileState.tileOrder.indexOf(job.key);
+      if(pi>=0)_tileState.tileOrder.splice(pi,1);
+      _tileState.tileCount--;
+    }
+
+    _tileState.tiles[job.key]={canvas:tc,quality:job.qKey};
+    _tileState.tileOrder.push(job.key);
+    _tileState.tileCount++;
+    if(layer)layer.appendChild(tc);
+    _tileEvictLRU();
+    // Process next tile after a micro-yield (let GPU breathe)
+    setTimeout(_tileProcessQueue,4);
+  }).catch(function(err){
+    delete _tileState._rendering[job.rk];
+    _tileState._busy=false;
+    console.warn('[Tile] render failed',job.key,err);
+    _tileProcessQueue();
+  });
 }
 
 function _tiledScheduleRender(){
@@ -5198,7 +5225,7 @@ function _tiledScheduleRender(){
 async function _openTiledPDF(drawingId,pageNum){
   _tileState.drawingId=drawingId;
   _tileState.tiles={};_tileState.tileCount=0;_tileState.tileOrder=[];
-  _tileState._rendering={};
+  _tileState._rendering={};_tileState._queue=[];_tileState._busy=false;_tileState._paused=false;
   _tileState.pdfDoc=null;_tileState.page=null;
 
   var rec=await ADB.getPdfData(drawingId).catch(function(){return null;});
@@ -5290,8 +5317,8 @@ async function _openTiledPDF(drawingId,pageNum){
         var _isIPhone=/iPhone|iPod/.test(navigator.userAgent);
         var _isAndroidTablet=/Android/.test(navigator.userAgent)&&!/Mobile/.test(navigator.userAgent);
         var _isTablet=(/iPad/.test(navigator.userAgent))||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||_isAndroidTablet;
-        // Samsung Galaxy Tab A (4GB) chokes at 12M — cap at 6M for Android tablets, 16M for iPad, 25M desktop
-        var maxPixels=_isIPhone?16000000:(_isAndroidTablet?6000000:(_isTablet?16000000:25000000));
+        // Samsung Galaxy Tab A (4GB) chokes even at 6M during pen ops — cap at 2M for Android tablets
+        var maxPixels=_isIPhone?16000000:(_isAndroidTablet?2000000:(_isTablet?16000000:25000000));
         var totalPixels=drawW*drawH;
         var mkScale=1;
         if(totalPixels>maxPixels){mkScale=Math.sqrt(maxPixels/totalPixels);}
@@ -5348,7 +5375,7 @@ async function _openTiledPDF(drawingId,pageNum){
 function _closeTiledPDF(){
   window._tiledActive=false;
   _tileState.pdfDoc=null;_tileState.page=null;
-  _tileState._rendering={};
+  _tileState._rendering={};_tileState._queue=[];_tileState._busy=false;_tileState._paused=false;
   Object.keys(_tileState.tiles).forEach(function(k){
     var t=_tileState.tiles[k];
     if(t&&t.canvas){t.canvas.width=1;t.canvas.height=1;}
@@ -6750,6 +6777,9 @@ function initMarkupEvents(){
     if(mkState.tool==='text'){handleTextPlace(e);return;}
     if(mkState.tool==='polyline'){handlePolylineClick(e);return;}
 
+    // Pause tile rendering to free GPU for markup
+    if(window._tiledActive)_tileState._paused=true;
+
     mkState.drawing=true;_penPoints=[];
     var pos=getPos(e);mkState.startX=pos.x;mkState.startY=pos.y;_penPoints.push(pos);
     // Snapshot for highlight offscreen composite
@@ -6859,6 +6889,8 @@ function initMarkupEvents(){
     _mkDrawCache=null;
     renderAllMarkup();
     saveMarkupData();
+    // Resume tile rendering (was paused during drawing to free GPU)
+    if(window._tiledActive&&_tileState._paused){_tileState._paused=false;_tiledScheduleRender();}
   }
 
   // ── SELECT MODE HANDLERS ──
