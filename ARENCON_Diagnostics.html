@@ -24,6 +24,11 @@ button:active{opacity:.7;}
 <h1>🔧 ARENCON Device Diagnostics</h1>
 <p style="color:#8a94b0;margin-bottom:16px;">Run this on the Samsung tablet to identify rendering & performance issues.</p>
 
+<div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;">
+<button onclick="runAll()" style="background:#1A7A4A;">▶ Run All Tests</button>
+<button onclick="copyResults()" id="copy-btn" style="background:#2C4770;">📋 Copy All Results</button>
+</div>
+
 <div class="card" id="device-info"></div>
 
 <h2>1. Canvas Rendering Test</h2>
@@ -497,6 +502,48 @@ function runViewerSim() {
 
 // Auto-populate memory info
 (function() {
+
+function runAll() {
+  log('═══ Running all tests... ═══');
+  runCanvasTest();
+  setTimeout(function(){ runMemoryTest(); }, 300);
+  setTimeout(function(){ runIDBTest(); }, 600);
+  setTimeout(function(){ runCanvasSizeTest(); }, 900);
+  setTimeout(function(){ runOffscreenTest(); }, 1200);
+  setTimeout(function(){ runViewerSim(); log('═══ All tests complete ═══'); }, 1500);
+}
+window.runAll = runAll;
+
+function copyResults() {
+  var text = '=== ARENCON Device Diagnostics ===\n';
+  text += 'Date: ' + new Date().toISOString() + '\n\n';
+  text += _log.join('\n');
+  
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      var btn = document.getElementById('copy-btn');
+      btn.textContent = '✅ Copied!';
+      btn.style.background = '#1A7A4A';
+      setTimeout(function(){ btn.textContent = '📋 Copy All Results'; btn.style.background = '#2C4770'; }, 2000);
+    }).catch(function() { fallbackCopy(text); });
+  } else {
+    fallbackCopy(text);
+  }
+}
+function fallbackCopy(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  ta.remove();
+  var btn = document.getElementById('copy-btn');
+  btn.textContent = '✅ Copied!';
+  btn.style.background = '#1A7A4A';
+  setTimeout(function(){ btn.textContent = '📋 Copy All Results'; btn.style.background = '#2C4770'; }, 2000);
+}
+window.copyResults = copyResults;
   var html = '';
   if (performance.memory) {
     html += row('JS Heap Used', Math.round(performance.memory.usedJSHeapSize / 1e6) + ' MB');
