@@ -1689,7 +1689,7 @@ body.text-l{--ts:4px;}
     <div class="dv-nav-group">
       <button class="dv-nav-btn" onclick="prevDrawing()" title="Previous drawing (← key)">◄</button>
       <span class="dv-title" id="dv-title">Drawing</span>
-      <span style="color:rgba(255,255,255,.4);font-size:10px;margin-left:4px;" id="dv-build">b56.7</span>
+      <span style="color:rgba(255,255,255,.4);font-size:10px;margin-left:4px;" id="dv-build">b56.8</span>
       <button class="dv-nav-btn" onclick="nextDrawing()" title="Next drawing (→ key)">►</button>
     </div>
     <span style="flex:1;"></span>
@@ -6795,89 +6795,100 @@ function initMarkupEvents(){
 
     mkState.drawing=true;_penPoints=[];
     var pos=getPos(e);mkState.startX=pos.x;mkState.startY=pos.y;_penPoints.push(pos);
-    // No getImageData snapshot — highlight and shape preview use renderAllMarkup() re-render
-  }
 
-  var _mkDrawRafId=0; // RAF throttle for highlight/shape preview
+    // For highlight and shape preview: use lightweight overlay canvas
+    // Main markup canvas stays untouched during drawing (no re-render, no getImageData)
+    if(mkState.tool==='highlight'||mkState.tool!=='pen'&&mkState.tool!=='eraser'){
+      var mc=document.getElementById('markup-canvas');
+      var ov=document.getElementById('markup-overlay');
+      if(!ov){
+        ov=document.createElement('canvas');
+        ov.id='markup-overlay';
+        ov.style.cssText='position:absolute;top:0;left:0;pointer-events:none;';
+        mc.parentNode.insertBefore(ov,mc.nextSibling);
+      }
+      // Match main canvas CSS size; buffer can be smaller for performance
+      var lw=mc._logicalW||mc.width,lh=mc._logicalH||mc.height;
+      ov.style.width=lw+'px';ov.style.height=lh+'px';
+      // Overlay buffer: cap at 2M for Samsung (only drawing 1 stroke, fuzz acceptable)
+      var ovMax=2000000;var ovPx=lw*lh;var ovScale=ovPx>ovMax?Math.sqrt(ovMax/ovPx):1;
+      ov.width=Math.round(lw*ovScale);ov.height=Math.round(lh*ovScale);
+      ov._dpr=ovScale;ov._logicalW=lw;ov._logicalH=lh;
+      ov.style.display='block';
+      // Highlight: use CSS opacity for non-stacking (single stroke = no overlap)
+      ov.style.opacity=mkState.tool==='highlight'?(0.3*getOpacity()):'1';
+    }
+  }
 
   function moveDraw(e){
     if(!mkState.drawing)return;
     var pos=getPos(e);mkState._endX=pos.x;mkState._endY=pos.y;
 
-    if(mkState.tool==='pen'||mkState.tool==='highlight'||mkState.tool==='eraser'){
+    if(mkState.tool==='pen'||mkState.tool==='eraser'){
+      // Pen/eraser: pure incremental segment on main canvas (already fast)
       _penPoints.push(pos);
       var canvas=document.getElementById('markup-canvas');
       var ctx=canvas.getContext('2d');
       var dpr=canvas._dpr||1;
       if(_penPoints.length<2)return;
-
-      if(mkState.tool==='highlight'){
-        // Re-render all objects + overlay in-progress highlight (no getImageData needed)
-        // RAF throttle: max 60fps
-        if(!_mkDrawRafId)_mkDrawRafId=requestAnimationFrame(function(){
-          _mkDrawRafId=0;
-          renderAllMarkup(); // clears canvas, redraws all existing objects
-          // Now overlay in-progress highlight stroke via offscreen composite
-          _mkHlCanvas.width=canvas.width; _mkHlCanvas.height=canvas.height;
-          var hx=_mkHlCanvas.getContext('2d');
-          hx.clearRect(0,0,_mkHlCanvas.width,_mkHlCanvas.height);
-          hx.setTransform(dpr,0,0,dpr,0,0);
-          hx.strokeStyle=mkState.color; hx.lineWidth=getSize()*4; hx.globalAlpha=1;
-          hx.lineCap='round'; hx.lineJoin='round';
-          hx.beginPath(); hx.moveTo(_penPoints[0].x,_penPoints[0].y);
-          for(var i=1;i<_penPoints.length;i++) hx.lineTo(_penPoints[i].x,_penPoints[i].y);
-          hx.stroke();
-          ctx.save();
-          ctx.setTransform(1,0,0,1,0,0);
-          ctx.globalAlpha=0.3*getOpacity(); ctx.globalCompositeOperation='source-over';
-          ctx.drawImage(_mkHlCanvas,0,0);
-          ctx.restore();
-        });
+      var n=_penPoints.length;
+      var p0=_penPoints[n-2],p1=_penPoints[n-1];
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      ctx.save();
+      if(mkState.tool==='eraser'){
+        ctx.globalCompositeOperation='destination-out';
+        ctx.lineWidth=getSize()*3;
       } else {
-        // Pen/eraser: pure incremental segment (already fast, no change needed)
-        var n=_penPoints.length;
-        var p0=_penPoints[n-2],p1=_penPoints[n-1];
-        ctx.setTransform(dpr,0,0,dpr,0,0);
-        ctx.save();
-        if(mkState.tool==='eraser'){
-          ctx.globalCompositeOperation='destination-out';
-          ctx.lineWidth=getSize()*3;
-        } else {
-          ctx.strokeStyle=mkState.color;ctx.lineWidth=getSize();
-          ctx.globalAlpha=getOpacity();
-        }
-        ctx.lineCap='round';ctx.lineJoin='round';
-        ctx.beginPath();
-        ctx.moveTo(p0.x,p0.y);
-        ctx.lineTo(p1.x,p1.y);
-        ctx.stroke();
-        ctx.restore();
+        ctx.strokeStyle=mkState.color;ctx.lineWidth=getSize();
+        ctx.globalAlpha=getOpacity();
       }
+      ctx.lineCap='round';ctx.lineJoin='round';
+      ctx.beginPath();
+      ctx.moveTo(p0.x,p0.y);
+      ctx.lineTo(p1.x,p1.y);
+      ctx.stroke();
+      ctx.restore();
+    } else if(mkState.tool==='highlight'){
+      // Highlight: draw on overlay canvas (lightweight, no main canvas touch)
+      _penPoints.push(pos);
+      var ov=document.getElementById('markup-overlay');
+      if(!ov||_penPoints.length<2)return;
+      var ovCtx=ov.getContext('2d');
+      var ovDpr=ov._dpr||1;
+      // Clear and redraw full stroke (needed for non-stacking within single stroke)
+      ovCtx.setTransform(1,0,0,1,0,0);
+      ovCtx.clearRect(0,0,ov.width,ov.height);
+      ovCtx.setTransform(ovDpr,0,0,ovDpr,0,0);
+      ovCtx.strokeStyle=mkState.color;ovCtx.lineWidth=getSize()*4;
+      ovCtx.globalAlpha=1;ovCtx.lineCap='round';ovCtx.lineJoin='round';
+      ovCtx.beginPath();ovCtx.moveTo(_penPoints[0].x,_penPoints[0].y);
+      for(var i=1;i<_penPoints.length;i++)ovCtx.lineTo(_penPoints[i].x,_penPoints[i].y);
+      ovCtx.stroke();
     } else {
-      // Shape preview — re-render all objects + overlay preview (no getImageData cache)
-      var canvas2=document.getElementById('markup-canvas');
-      var ctx2=canvas2.getContext('2d');
-      var dpr2=canvas2._dpr||1;
-      // RAF throttle: max 60fps
-      if(!_mkDrawRafId)_mkDrawRafId=requestAnimationFrame(function(){
-        _mkDrawRafId=0;
-        renderAllMarkup(); // clears canvas, redraws all existing objects
-        ctx2.setTransform(dpr2,0,0,dpr2,0,0);
-        ctx2.save();
-        ctx2.globalAlpha=getOpacity();
-        ctx2.strokeStyle=mkState.color;ctx2.fillStyle=mkState.color;ctx2.lineWidth=getSize();
-        ctx2.lineCap='round';ctx2.lineJoin='round';
-        _drawShapeObj(ctx2,mkState.tool,mkState.startX,mkState.startY,mkState._endX,mkState._endY);
-        ctx2.restore();
-      });
+      // Shape preview: draw on overlay canvas
+      var ov2=document.getElementById('markup-overlay');
+      if(!ov2)return;
+      var ovCtx2=ov2.getContext('2d');
+      var ovDpr2=ov2._dpr||1;
+      ovCtx2.setTransform(1,0,0,1,0,0);
+      ovCtx2.clearRect(0,0,ov2.width,ov2.height);
+      ovCtx2.setTransform(ovDpr2,0,0,ovDpr2,0,0);
+      ovCtx2.save();
+      ovCtx2.globalAlpha=getOpacity();
+      ovCtx2.strokeStyle=mkState.color;ovCtx2.fillStyle=mkState.color;ovCtx2.lineWidth=getSize();
+      ovCtx2.lineCap='round';ovCtx2.lineJoin='round';
+      _drawShapeObj(ovCtx2,mkState.tool,mkState.startX,mkState.startY,pos.x,pos.y);
+      ovCtx2.restore();
     }
   }
 
   function endDraw(e){
     if(!mkState.drawing)return;
     mkState.drawing=false;
-    // Cancel any pending RAF from highlight/shape throttle
-    if(_mkDrawRafId){cancelAnimationFrame(_mkDrawRafId);_mkDrawRafId=0;}
+
+    // Hide and clear overlay canvas
+    var ov=document.getElementById('markup-overlay');
+    if(ov){ov.style.display='none';var _oCtx=ov.getContext('2d');_oCtx.setTransform(1,0,0,1,0,0);_oCtx.clearRect(0,0,ov.width,ov.height);}
 
     var type=mkState.tool;
     if(type==='pen'||type==='highlight'||type==='eraser'){
