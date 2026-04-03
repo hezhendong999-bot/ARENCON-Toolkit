@@ -760,7 +760,10 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .dv-canvas-area{order:1;flex:1;min-height:0;}
   .dv-toolbar{padding:6px 10px;flex-wrap:wrap;gap:6px;}
   .dv-toolbar button{padding:5px 8px;font-size:calc(11px + var(--ts));}
-  .dv-nav-group .dv-title{max-width:100px;}
+  /* Title fills available header space on tablet portrait */
+  .dv-toolbar>span[style*="flex:1"]{flex:0 0 0px!important;}
+  .dv-nav-group{flex:1!important;}
+  .dv-nav-group .dv-title{flex:1!important;max-width:none!important;}
 }
 
 .folder-checkbox{width:18px;height:18px;accent-color:#9C2742;cursor:pointer;margin-right:8px;flex-shrink:0;vertical-align:middle;}
@@ -1196,7 +1199,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   /* --- Drawing viewer toolbar wraps */
   .dv-toolbar{flex-wrap:wrap;gap:4px;padding:6px 8px;}
   .dv-toolbar button{padding:6px 10px;font-size:calc(12px + var(--ts));min-height:38px;}
-  .dv-nav-group .dv-title{max-width:80px;font-size:calc(12px + var(--ts));}
+  .dv-nav-group .dv-title{font-size:calc(12px + var(--ts));}
   .dv-nav-group .dv-nav-btn{padding:8px 16px!important;font-size:18px!important;min-width:44px;min-height:44px;}
   /* Hide text labels on toolbar buttons — icon only */
   #dv-layers-btn{font-size:0!important;padding:5px 8px!important;}
@@ -6005,7 +6008,11 @@ function zoomIn(){dvState.scale=Math.min(dvState.scale*1.3,10);applyTransform();
 function zoomOut(){var minS=dvState.fitScale||0.1;dvState.scale=Math.max(dvState.scale/1.3,minS);if(dvState.scale<=minS*1.05){fitDrawing();return;}applyTransform();}
 
 function initPanZoom(){var area=document.getElementById('dv-canvas-area');
-var na=area.cloneNode(true);area.parentNode.replaceChild(na,area);area=na;var sx,sy,pan=false;
+// Skip clone on subsequent calls — listeners persist, fitDrawing() resets scale/pan state
+if(area._panZoomInit){return;}
+var na=area.cloneNode(true);area.parentNode.replaceChild(na,area);area=na;
+area._panZoomInit=true;
+var sx,sy,pan=false;
 
 area.addEventListener('mousedown',function(e){
   dvState._didDrag=false;
