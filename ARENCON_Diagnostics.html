@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ARENCON Device Diagnostics</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Calibri,sans-serif;background:#1B2438;color:#d0d8f0;padding:16px;font-size:15px;}
+h1{color:#9C2742;margin-bottom:16px;font-size:20px;}
+h2{color:#d88a9e;margin:20px 0 8px;font-size:16px;border-bottom:1px solid #2a3348;padding-bottom:4px;}
+.card{background:#1e2533;border-radius:8px;padding:14px;margin-bottom:12px;border:1px solid #2a3348;}
+.row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+.label{color:#8a94b0;}
+.val{font-weight:600;text-align:right;max-width:60%;word-break:break-all;}
+.pass{color:#1A7A4A;} .warn{color:#E67E22;} .fail{color:#C0392B;}
+button{background:#9C2742;color:white;border:none;padding:10px 20px;border-radius:6px;font-size:15px;font-family:inherit;cursor:pointer;margin:4px;}
+button:active{opacity:.7;}
+#log{background:#0f1318;border-radius:8px;padding:12px;margin-top:12px;font-family:monospace;font-size:12px;max-height:400px;overflow:auto;white-space:pre-wrap;line-height:1.6;}
+.test-canvas{border:1px solid #444;margin:8px 0;display:block;}
+</style>
+</head>
+<body>
+<h1>🔧 ARENCON Device Diagnostics</h1>
+<p style="color:#8a94b0;margin-bottom:16px;">Run this on the Samsung tablet to identify rendering & performance issues.</p>
+
+<div class="card" id="device-info"></div>
+
+<h2>1. Canvas Rendering Test</h2>
+<div class="card">
+<p>Drawing a 2000×1500 canvas with strokes + highlight composite:</p>
+<canvas id="test-canvas" class="test-canvas" width="300" height="200"></canvas>
+<div id="canvas-results"></div>
+<button onclick="runCanvasTest()">Run Canvas Test</button>
+</div>
+
+<h2>2. Memory & GPU Limits</h2>
+<div class="card" id="memory-info"></div>
+<button onclick="runMemoryTest()">Run Memory Stress Test</button>
+<div id="memory-results"></div>
+
+<h2>3. IndexedDB Performance</h2>
+<div class="card">
+<button onclick="runIDBTest()">Run IDB Test</button>
+<div id="idb-results"></div>
+</div>
+
+<h2>4. Canvas Size Limits</h2>
+<div class="card">
+<button onclick="runCanvasSizeTest()">Find Max Canvas Size</button>
+<div id="size-results"></div>
+</div>
+
+<h2>5. Offscreen Canvas Test</h2>
+<div class="card">
+<button onclick="runOffscreenTest()">Test Highlight Composite</button>
+<div id="offscreen-results"></div>
+</div>
+
+<h2>6. Drawing Viewer Simulation</h2>
+<div class="card">
+<p>Simulates loading a 4000×3000 drawing + markup rendering:</p>
+<button onclick="runViewerSim()">Simulate Drawing Viewer</button>
+<div id="viewer-results"></div>
+</div>
+
+<h2>Full Log</h2>
+<div id="log"></div>
+
+<script>
+var _log = [];
+function log(msg, cls) {
+  _log.push(msg);
+  var el = document.getElementById('log');
+  var span = '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + msg + '</span>\n';
+  el.innerHTML += span;
+  el.scrollTop = el.scrollHeight;
+}
+
+function row(label, val, cls) {
+  return '<div class="row"><span class="label">' + label + '</span><span class="val ' + (cls||'') + '">' + val + '</span></div>';
+}
+
+// ══ DEVICE INFO ══
+(function() {
+  var ua = navigator.userAgent;
+  var dpr = window.devicePixelRatio || 1;
+  var w = screen.width, h = screen.height;
+  var iw = window.innerWidth, ih = window.innerHeight;
+  var mem = navigator.deviceMemory || 'unknown';
+  var cores = navigator.hardwareConcurrency || 'unknown';
+  var touch = navigator.maxTouchPoints || 0;
+  var isTablet = touch > 0 && Math.max(w, h) > 600;
+
+  var html = '';
+  html += row('User Agent', ua.length > 80 ? ua.substring(0, 80) + '...' : ua);
+  html += row('Screen', w + '×' + h + ' @ ' + dpr + 'x DPR');
+  html += row('Viewport', iw + '×' + ih);
+  html += row('Buffer at DPR', Math.round(iw * dpr) + '×' + Math.round(ih * dpr) + ' (' + Math.round(iw * dpr * ih * dpr / 1e6) + 'M pixels)');
+  html += row('Device Memory', mem + ' GB');
+  html += row('CPU Cores', cores);
+  html += row('Touch Points', touch);
+  html += row('Device Type', isTablet ? 'Tablet/Touch' : 'Desktop/Mouse');
+
+  // WebGL renderer
+  try {
+    var c = document.createElement('canvas');
+    var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+    if (gl) {
+      var dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      var renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+      var vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR);
+      var maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+      html += row('GPU Renderer', renderer);
+      html += row('GPU Vendor', vendor);
+      html += row('Max Texture', maxTex + '×' + maxTex + ' (' + Math.round(maxTex * maxTex / 1e6) + 'M pixels)', maxTex >= 4096 ? 'pass' : 'warn');
+    }
+  } catch(e) { html += row('WebGL', 'Not available', 'fail'); }
+
+  document.getElementById('device-info').innerHTML = html;
+
+  log('═══ Device Info ═══');
+  log('UA: ' + ua);
+  log('Screen: ' + w + '×' + h + ' @ ' + dpr + 'x DPR');
+  log('Memory: ' + mem + 'GB, Cores: ' + cores);
+})();
+
+// ══ CANVAS RENDERING TEST ══
+function runCanvasTest() {
+  var el = document.getElementById('canvas-results');
+  el.innerHTML = 'Running...';
+  var results = '';
+
+  // Test 1: Basic 2D context
+  try {
+    var c = document.getElementById('test-canvas');
+    var ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height);
+
+    var t0 = performance.now();
+    // Draw 50 random strokes
+    for (var i = 0; i < 50; i++) {
+      ctx.strokeStyle = 'hsl(' + (i * 7) + ',80%,60%)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.random() * 300, Math.random() * 200);
+      for (var j = 0; j < 20; j++) {
+        ctx.lineTo(Math.random() * 300, Math.random() * 200);
+      }
+      ctx.stroke();
+    }
+    var t1 = performance.now();
+    var strokeTime = Math.round(t1 - t0);
+    results += row('50 strokes (20pts each)', strokeTime + 'ms', strokeTime < 50 ? 'pass' : strokeTime < 200 ? 'warn' : 'fail');
+    log('Canvas 50 strokes: ' + strokeTime + 'ms');
+
+    // Test 2: getImageData (used for shape preview cache)
+    t0 = performance.now();
+    var imgData = ctx.getImageData(0, 0, c.width, c.height);
+    t1 = performance.now();
+    var getTime = Math.round(t1 - t0);
+    results += row('getImageData 300×200', getTime + 'ms', getTime < 10 ? 'pass' : getTime < 50 ? 'warn' : 'fail');
+    log('getImageData: ' + getTime + 'ms');
+
+    // Test 3: putImageData
+    t0 = performance.now();
+    ctx.putImageData(imgData, 0, 0);
+    t1 = performance.now();
+    var putTime = Math.round(t1 - t0);
+    results += row('putImageData 300×200', putTime + 'ms', putTime < 10 ? 'pass' : putTime < 50 ? 'warn' : 'fail');
+    log('putImageData: ' + putTime + 'ms');
+
+    // Test 4: drawImage (offscreen composite — highlight pattern)
+    var offscreen = document.createElement('canvas');
+    offscreen.width = 300; offscreen.height = 200;
+    var ox = offscreen.getContext('2d');
+    ox.strokeStyle = '#F1C40F'; ox.lineWidth = 12;
+    ox.beginPath(); ox.moveTo(10, 100); ox.lineTo(290, 100); ox.stroke();
+
+    t0 = performance.now();
+    for (var k = 0; k < 100; k++) {
+      ctx.save();
+      ctx.globalAlpha = 0.3;
+      ctx.drawImage(offscreen, 0, 0);
+      ctx.restore();
+    }
+    t1 = performance.now();
+    var compTime = Math.round(t1 - t0);
+    results += row('100× drawImage composite', compTime + 'ms', compTime < 50 ? 'pass' : compTime < 200 ? 'warn' : 'fail');
+    log('drawImage composite ×100: ' + compTime + 'ms');
+
+  } catch(e) {
+    results += row('Canvas Error', e.message, 'fail');
+    log('Canvas ERROR: ' + e.message, 'fail');
+  }
+
+  el.innerHTML = results;
+}
+
+// ══ MEMORY TEST ══
+function runMemoryTest() {
+  var el = document.getElementById('memory-results');
+  el.innerHTML = 'Running...';
+  var results = '';
+
+  // Check performance.memory (Chrome only)
+  if (performance.memory) {
+    var m = performance.memory;
+    results += row('JS Heap Used', Math.round(m.usedJSHeapSize / 1e6) + ' MB');
+    results += row('JS Heap Total', Math.round(m.totalJSHeapSize / 1e6) + ' MB');
+    results += row('JS Heap Limit', Math.round(m.jsHeapSizeLimit / 1e6) + ' MB', m.jsHeapSizeLimit > 500e6 ? 'pass' : 'warn');
+    log('Heap: ' + Math.round(m.usedJSHeapSize / 1e6) + '/' + Math.round(m.jsHeapSizeLimit / 1e6) + ' MB');
+  } else {
+    results += row('performance.memory', 'Not available (non-Chrome)', 'warn');
+  }
+
+  // Allocate large arrays to test available memory
+  var blocks = [];
+  var totalMB = 0;
+  try {
+    for (var i = 0; i < 200; i++) {
+      blocks.push(new Uint8Array(10 * 1024 * 1024)); // 10MB each
+      totalMB += 10;
+    }
+  } catch(e) {
+    // Expected — hit memory limit
+  }
+  results += row('Max allocatable', totalMB + ' MB', totalMB > 200 ? 'pass' : totalMB > 50 ? 'warn' : 'fail');
+  log('Max alloc: ' + totalMB + 'MB before OOM');
+  blocks = null; // free
+
+  el.innerHTML = results;
+}
+
+// ══ IDB TEST ══
+function runIDBTest() {
+  var el = document.getElementById('idb-results');
+  el.innerHTML = 'Running...';
+
+  var dbName = '_arencon_diag_test';
+  var req = indexedDB.open(dbName, 1);
+  req.onupgradeneeded = function(e) {
+    e.target.result.createObjectStore('test', {keyPath: 'id'});
+  };
+  req.onsuccess = function(e) {
+    var db = e.target.result;
+    var results = '';
+
+    // Write test: 50 records of 100KB each
+    var t0 = performance.now();
+    var tx = db.transaction('test', 'readwrite');
+    var os = tx.objectStore('test');
+    var blob = new Uint8Array(100 * 1024); // 100KB
+    for (var i = 0; i < 50; i++) {
+      os.put({id: 'rec_' + i, data: blob.slice()});
+    }
+    tx.oncomplete = function() {
+      var writeTime = Math.round(performance.now() - t0);
+      results += row('Write 50×100KB (1 tx)', writeTime + 'ms', writeTime < 500 ? 'pass' : writeTime < 2000 ? 'warn' : 'fail');
+      log('IDB write 50×100KB: ' + writeTime + 'ms');
+
+      // Read test
+      var t1 = performance.now();
+      var tx2 = db.transaction('test');
+      var req2 = tx2.objectStore('test').getAll();
+      req2.onsuccess = function() {
+        var readTime = Math.round(performance.now() - t1);
+        results += row('Read all 50 records', readTime + 'ms', readTime < 200 ? 'pass' : readTime < 1000 ? 'warn' : 'fail');
+        log('IDB read all: ' + readTime + 'ms');
+
+        // Cleanup
+        indexedDB.deleteDatabase(dbName);
+        el.innerHTML = results;
+      };
+    };
+    tx.onerror = function(e) {
+      results += row('Write Error', e.target.error, 'fail');
+      el.innerHTML = results;
+    };
+  };
+  req.onerror = function(e) {
+    el.innerHTML = row('IDB Open Error', e.target.error, 'fail');
+    log('IDB open FAILED', 'fail');
+  };
+}
+
+// ══ CANVAS SIZE LIMITS ══
+function runCanvasSizeTest() {
+  var el = document.getElementById('size-results');
+  el.innerHTML = 'Testing...';
+  var results = '';
+  var dpr = window.devicePixelRatio || 1;
+
+  // Test specific sizes that FRT uses
+  var sizes = [
+    [2000, 1500, '2000×1500 (small drawing)'],
+    [4000, 3000, '4000×3000 (typical drawing)'],
+    [6000, 4000, '6000×4000 (large drawing)'],
+    [8000, 6000, '8000×6000 (very large)'],
+  ];
+
+  // Also test at DPR
+  sizes.push([Math.round(4000 * dpr), Math.round(3000 * dpr), '4000×3000 @ ' + dpr + 'x DPR (' + Math.round(4000 * dpr) + '×' + Math.round(3000 * dpr) + ')']);
+
+  sizes.forEach(function(s) {
+    try {
+      var c = document.createElement('canvas');
+      c.width = s[0]; c.height = s[1];
+      var ctx = c.getContext('2d');
+      // Actually draw to force GPU allocation
+      ctx.fillStyle = 'red';
+      ctx.fillRect(0, 0, 10, 10);
+      var px = ctx.getImageData(0, 0, 1, 1).data;
+      var ok = px[0] === 255 && px[1] === 0;
+      var mp = Math.round(s[0] * s[1] / 1e6);
+      results += row(s[2], ok ? mp + 'M px ✓' : 'FAILED', ok ? 'pass' : 'fail');
+      log('Canvas ' + s[2] + ': ' + (ok ? 'OK' : 'FAILED') + ' (' + mp + 'M px)');
+      c = null;
+    } catch(e) {
+      results += row(s[2], 'ERROR: ' + e.message, 'fail');
+      log('Canvas ' + s[2] + ': ERROR ' + e.message, 'fail');
+    }
+  });
+
+  // Find max pixel count
+  var maxMp = 0;
+  for (var mp = 1; mp <= 64; mp++) {
+    try {
+      var side = Math.round(Math.sqrt(mp * 1e6));
+      var c = document.createElement('canvas');
+      c.width = side; c.height = side;
+      var ctx = c.getContext('2d');
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(0, 0, 1, 1);
+      var px = ctx.getImageData(0, 0, 1, 1).data;
+      if (px[0] === 255) maxMp = mp;
+      c = null;
+    } catch(e) { break; }
+  }
+  results += row('Max working canvas', maxMp + 'M pixels', maxMp >= 16 ? 'pass' : maxMp >= 8 ? 'warn' : 'fail');
+  log('Max canvas: ' + maxMp + 'M pixels');
+
+  el.innerHTML = results;
+}
+
+// ══ OFFSCREEN COMPOSITE TEST ══
+function runOffscreenTest() {
+  var el = document.getElementById('offscreen-results');
+  el.innerHTML = 'Running...';
+  var results = '';
+
+  try {
+    // Simulate FRT highlight rendering at realistic size
+    var W = 3000, H = 2000;
+    var main = document.createElement('canvas');
+    main.width = W; main.height = H;
+    var ctx = main.getContext('2d');
+
+    var offscreen = document.createElement('canvas');
+    offscreen.width = W; offscreen.height = H;
+    var hx = offscreen.getContext('2d');
+
+    // Draw 10 highlight strokes on offscreen
+    var t0 = performance.now();
+    hx.clearRect(0, 0, W, H);
+    for (var i = 0; i < 10; i++) {
+      hx.strokeStyle = '#F1C40F';
+      hx.lineWidth = 24;
+      hx.lineCap = 'round';
+      hx.globalAlpha = 1;
+      hx.beginPath();
+      hx.moveTo(100, 200 + i * 150);
+      for (var j = 0; j < 50; j++) {
+        hx.lineTo(100 + j * 50, 200 + i * 150 + Math.sin(j) * 30);
+      }
+      hx.stroke();
+    }
+    // Composite
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    ctx.drawImage(offscreen, 0, 0);
+    ctx.restore();
+    var hlTime = Math.round(performance.now() - t0);
+    results += row('10 highlights @ ' + W + '×' + H, hlTime + 'ms', hlTime < 100 ? 'pass' : hlTime < 500 ? 'warn' : 'fail');
+    log('Highlight composite ' + W + '×' + H + ': ' + hlTime + 'ms');
+
+    // Test repeated renders (simulates drag)
+    t0 = performance.now();
+    for (var r = 0; r < 30; r++) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.save();
+      ctx.globalAlpha = 0.3;
+      ctx.drawImage(offscreen, 0, 0);
+      ctx.restore();
+    }
+    var dragTime = Math.round(performance.now() - t0);
+    results += row('30× re-composite (drag sim)', dragTime + 'ms', dragTime < 200 ? 'pass' : dragTime < 1000 ? 'warn' : 'fail');
+    log('30× re-composite: ' + dragTime + 'ms (' + Math.round(dragTime / 30) + 'ms/frame)');
+
+    main = null; offscreen = null;
+  } catch(e) {
+    results += row('Offscreen Error', e.message, 'fail');
+    log('Offscreen ERROR: ' + e.message, 'fail');
+  }
+
+  el.innerHTML = results;
+}
+
+// ══ DRAWING VIEWER SIMULATION ══
+function runViewerSim() {
+  var el = document.getElementById('viewer-results');
+  el.innerHTML = 'Simulating...';
+  var results = '';
+  var dpr = window.devicePixelRatio || 1;
+
+  try {
+    // Simulate what FRT does: create a canvas at image size × DPR
+    var imgW = 4000, imgH = 3000;
+
+    // Test 1: Canvas at full DPR (what FRT currently does)
+    var bufW = Math.round(imgW * dpr), bufH = Math.round(imgH * dpr);
+    var totalPx = bufW * bufH;
+    results += row('Image size', imgW + '×' + imgH);
+    results += row('DPR', dpr + 'x');
+    results += row('Buffer would be', bufW + '×' + bufH + ' (' + Math.round(totalPx / 1e6) + 'M px)');
+
+    // Check if FRT's pixel cap would engage
+    var CAP_MOBILE = 16e6, CAP_DESKTOP = 25e6;
+    var isTouch = navigator.maxTouchPoints > 0;
+    var cap = isTouch ? CAP_MOBILE : CAP_DESKTOP;
+    var needsScale = totalPx > cap;
+    results += row('Pixel cap', Math.round(cap / 1e6) + 'M (' + (isTouch ? 'mobile' : 'desktop') + ')');
+    results += row('Needs downscale?', needsScale ? 'YES — ' + Math.round(totalPx / 1e6) + 'M > ' + Math.round(cap / 1e6) + 'M' : 'No', needsScale ? 'warn' : 'pass');
+
+    // Actually create the canvas
+    var scale = needsScale ? Math.sqrt(cap / totalPx) : 1;
+    var finalW = Math.round(bufW * scale), finalH = Math.round(bufH * scale);
+    results += row('Actual buffer', finalW + '×' + finalH + ' (' + Math.round(finalW * finalH / 1e6) + 'M px)');
+
+    var t0 = performance.now();
+    var c = document.createElement('canvas');
+    c.width = finalW; c.height = finalH;
+    var ctx = c.getContext('2d');
+
+    // Draw a test pattern
+    ctx.fillStyle = '#eee';
+    ctx.fillRect(0, 0, finalW, finalH);
+
+    // Draw 20 markup objects (pen strokes)
+    for (var i = 0; i < 20; i++) {
+      ctx.strokeStyle = 'hsl(' + (i * 18) + ',70%,50%)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (var j = 0; j < 100; j++) {
+        var x = (j / 100) * finalW;
+        var y = (i / 20) * finalH + Math.sin(j * 0.1) * 50;
+        if (j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    // Highlight composite
+    var hlc = document.createElement('canvas');
+    hlc.width = finalW; hlc.height = finalH;
+    var hx = hlc.getContext('2d');
+    for (var h = 0; h < 5; h++) {
+      hx.strokeStyle = '#F1C40F';
+      hx.lineWidth = 30;
+      hx.lineCap = 'round';
+      hx.globalAlpha = 1;
+      hx.beginPath();
+      hx.moveTo(100, 200 + h * 300);
+      hx.lineTo(finalW - 100, 200 + h * 300);
+      hx.stroke();
+    }
+    ctx.save(); ctx.globalAlpha = 0.3;
+    ctx.drawImage(hlc, 0, 0);
+    ctx.restore();
+
+    var totalTime = Math.round(performance.now() - t0);
+    results += row('Full render time', totalTime + 'ms', totalTime < 200 ? 'pass' : totalTime < 1000 ? 'warn' : 'fail');
+    log('Viewer sim ' + finalW + '×' + finalH + ': ' + totalTime + 'ms');
+
+    // Verify canvas is working
+    var px = ctx.getImageData(Math.round(finalW / 2), Math.round(finalH / 2), 1, 1).data;
+    var canvasWorks = px[0] > 0 || px[1] > 0 || px[2] > 0;
+    results += row('Canvas output valid?', canvasWorks ? 'YES ✓' : 'NO — blank/corrupt!', canvasWorks ? 'pass' : 'fail');
+
+    c = null; hlc = null;
+  } catch(e) {
+    results += row('Simulation Error', e.message, 'fail');
+    log('Viewer sim ERROR: ' + e.message, 'fail');
+  }
+
+  el.innerHTML = results;
+}
+
+// Auto-populate memory info
+(function() {
+  var html = '';
+  if (performance.memory) {
+    html += row('JS Heap Used', Math.round(performance.memory.usedJSHeapSize / 1e6) + ' MB');
+    html += row('JS Heap Limit', Math.round(performance.memory.jsHeapSizeLimit / 1e6) + ' MB');
+  } else {
+    html += row('performance.memory', 'Not available');
+  }
+  html += row('Device Memory API', (navigator.deviceMemory || 'N/A') + ' GB');
+  document.getElementById('memory-info').innerHTML = html;
+})();
+</script>
+</body>
+</html>
