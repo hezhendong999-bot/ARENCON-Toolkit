@@ -1689,7 +1689,7 @@ body.text-l{--ts:4px;}
     <div class="dv-nav-group">
       <button class="dv-nav-btn" onclick="prevDrawing()" title="Previous drawing (← key)">◄</button>
       <span class="dv-title" id="dv-title">Drawing</span>
-      <span style="color:rgba(255,255,255,.4);font-size:10px;margin-left:4px;" id="dv-build">b56.10</span>
+      <span style="color:rgba(255,255,255,.4);font-size:10px;margin-left:4px;" id="dv-build">b56.11</span>
       <button class="dv-nav-btn" onclick="nextDrawing()" title="Next drawing (→ key)">►</button>
     </div>
     <span style="flex:1;"></span>
@@ -6798,8 +6798,8 @@ function initMarkupEvents(){
     }
     var lw=mc._logicalW||mc.width,lh=mc._logicalH||mc.height;
     ov.style.width=lw+'px';ov.style.height=lh+'px';
-    // 4M pixel cap — balance between Samsung GPU performance and drawing visibility
-    var ovMax=4000000;var ovPx=lw*lh;var ovScale=ovPx>ovMax?Math.sqrt(ovMax/ovPx):1;
+    // 5M pixel cap — balance between Samsung GPU performance and drawing visibility
+    var ovMax=5000000;var ovPx=lw*lh;var ovScale=ovPx>ovMax?Math.sqrt(ovMax/ovPx):1;
     ov.width=Math.round(lw*ovScale);ov.height=Math.round(lh*ovScale);
     ov._dpr=ovScale;ov._logicalW=lw;ov._logicalH=lh;
     return ov;
