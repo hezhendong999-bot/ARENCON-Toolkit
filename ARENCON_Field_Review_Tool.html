@@ -5674,7 +5674,7 @@ area.addEventListener('mousemove',function(e){
     }
   }
   if(!pan)return;dvState._didDrag=true;
-  if(!dvState._panHidden){dvState._panHidden=true;var pl=document.getElementById('dv-pins-layer');var mc=document.getElementById('markup-canvas');if(pl)pl.style.opacity='0';if(mc)mc.style.opacity='0';}
+  if(!dvState._panHidden){dvState._panHidden=true;var pl=document.getElementById('dv-pins-layer');if(pl)pl.style.opacity='0';}
   if(!dvState._rafPending){dvState._rafPending=true;var mx2=e.clientX,my2=e.clientY;requestAnimationFrame(function(){dvState.panX=mx2-sx;dvState.panY=my2-sy;applyTransform();dvState._rafPending=false;});}
 });
 
@@ -5694,7 +5694,7 @@ area.addEventListener('mouseup',function(e){
     dvState.draggingPin=false;dvState.selectedPinId=null;renderPinsOnDrawing();return;
   }
   pan=false;dvState._panPending=false;area.classList.remove('panning');
-  if(dvState._panHidden){dvState._panHidden=false;var pl=document.getElementById('dv-pins-layer');var mc=document.getElementById('markup-canvas');if(pl)pl.style.opacity='';if(mc)mc.style.opacity='';}
+  if(dvState._panHidden){dvState._panHidden=false;var pl=document.getElementById('dv-pins-layer');if(pl)pl.style.opacity='';}
 });
 
 area.addEventListener('mouseleave',function(){clearTimeout(dvState.longPressTimer);pan=false;dvState._panPending=false;area.classList.remove('panning');if(dvState.draggingPin){dvState.draggingPin=false;renderPinsOnDrawing();}});
@@ -5762,7 +5762,7 @@ area.addEventListener('touchmove',function(e){
       // Single-finger pan: desktop always, mobile when zoomed in
       var _canPan=pan&&(!_isMobileDevice||(dvState.scale>(dvState.fitScale||0.1)*1.08));
       if(_canPan){
-        if(!dvState._panHidden){dvState._panHidden=true;var pl=document.getElementById('dv-pins-layer');var mc=document.getElementById('markup-canvas');if(pl)pl.style.opacity='0';if(mc)mc.style.opacity='0';}
+        if(!dvState._panHidden){dvState._panHidden=true;var pl=document.getElementById('dv-pins-layer');if(pl)pl.style.opacity='0';}
         if(!dvState._rafPending){dvState._rafPending=true;var tx=e.touches[0].clientX,ty=e.touches[0].clientY;requestAnimationFrame(function(){dvState.panX=tx-sx;dvState.panY=ty-sy;applyTransform();dvState._rafPending=false;});}
       }
     }
@@ -5795,7 +5795,7 @@ area.addEventListener('touchmove',function(e){
     _tfMidX=newMidX;_tfMidY=newMidY;
 
     // Hide layers during active gesture for performance
-    if(!dvState._panHidden){dvState._panHidden=true;var pl2=document.getElementById('dv-pins-layer');var mc2=document.getElementById('markup-canvas');if(pl2)pl2.style.opacity='0';if(mc2)mc2.style.opacity='0';}
+    if(!dvState._panHidden){dvState._panHidden=true;var pl2=document.getElementById('dv-pins-layer');if(pl2)pl2.style.opacity='0';}
 
     if(ns<=(dvState.fitScale||0.1)*1.05){fitDrawing();}else{applyTransform();}
   }
@@ -5823,7 +5823,7 @@ area.addEventListener('touchend',function(e){
   // Snap to fit if zoomed out past fit scale
   if(dvState.scale<=(dvState.fitScale||0.1)*1.08){fitDrawing();}
   // Restore pin+markup layers after gesture
-  if(dvState._panHidden){dvState._panHidden=false;var pl=document.getElementById('dv-pins-layer');var mc=document.getElementById('markup-canvas');if(pl)pl.style.opacity='';if(mc)mc.style.opacity='';}
+  if(dvState._panHidden){dvState._panHidden=false;var pl=document.getElementById('dv-pins-layer');if(pl)pl.style.opacity='';}
 });
 
 area.addEventListener('click',function(e){
@@ -6798,7 +6798,7 @@ function initMarkupEvents(){
     }
     var lw=mc._logicalW||mc.width,lh=mc._logicalH||mc.height;
     ov.style.width=lw+'px';ov.style.height=lh+'px';
-    // 5.5M pixel cap — balance between Samsung GPU performance and drawing visibility
+    // 5.5.5M pixel cap — balance between Samsung GPU performance and drawing visibility
     var ovMax=5500000;var ovPx=lw*lh;var ovScale=ovPx>ovMax?Math.sqrt(ovMax/ovPx):1;
     ov.width=Math.round(lw*ovScale);ov.height=Math.round(lh*ovScale);
     ov._dpr=ovScale;ov._logicalW=lw;ov._logicalH=lh;
