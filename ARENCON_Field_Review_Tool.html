@@ -4533,7 +4533,7 @@ function _runPdfPages(pdf,bn,folder,total,arrayBuf){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
           // Render at 3x for crisp drawings — no cap needed for image mode
-          var hiScale=Math.min(4.0,4096/pw,4096/ph);
+          var hiScale=Math.min(4.0,3000/pw,3000/ph);
           var hiVp=page.getViewport({scale:hiScale});
           var hc=document.createElement('canvas');
           hc.width=Math.round(hiVp.width);
@@ -4541,7 +4541,7 @@ function _runPdfPages(pdf,bn,folder,total,arrayBuf){
           page.render({canvasContext:hc.getContext('2d'),viewport:hiVp}).promise.then(function(){
             setTimeout(function(){
               try{
-                var fullDu=hc.toDataURL('image/png');
+                var fullDu=hc.toDataURL('image/jpeg',0.92);
                 // Small thumb for gallery card
                 var thumbScale=Math.min(1.0,300/pw,300/ph);
                 var thumbVp=page.getViewport({scale:thumbScale});
@@ -4558,7 +4558,7 @@ function _runPdfPages(pdf,bn,folder,total,arrayBuf){
                 var newDwg={
                   id:'dwg_'+Date.now()+'_pg'+pg+'_'+Math.random().toString(36).substr(2,4),
                   name:pageName,dataUrl:fullDu,thumb:thumbDu,
-                  width:hc.width||Math.round(pw*hiScale),height:hc.height||Math.round(ph*hiScale),
+                  width:Math.round(pw*hiScale),height:Math.round(ph*hiScale),
                   pdfTiled:false,pdfPage:pg,
                   isOriginal:false,folder:folder,
                   r2Key:'',r2Status:'',r2Url:''
@@ -4943,7 +4943,7 @@ function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
         pdf.getPage(pg).then(function(page){
           var pv=page.view;
           var pw=pv[2],ph=pv[3];
-          var hiScale=Math.min(4.0,4096/pw,4096/ph);
+          var hiScale=Math.min(4.0,3000/pw,3000/ph);
           var hiVp=page.getViewport({scale:hiScale});
           var hc=document.createElement('canvas');
           hc.width=Math.round(hiVp.width);
@@ -4951,7 +4951,7 @@ function _runPdfPagesToFolder(pdf,bn,folder,total,arrayBuf){
           page.render({canvasContext:hc.getContext('2d'),viewport:hiVp}).promise.then(function(){
             setTimeout(function(){
               try{
-                var fullDu=hc.toDataURL('image/png');
+                var fullDu=hc.toDataURL('image/jpeg',0.92);
                 var thumbScale=Math.min(1.0,300/pw,300/ph);
                 var thumbVp=page.getViewport({scale:thumbScale});
                 var tc=document.createElement('canvas');
@@ -5425,20 +5425,16 @@ function _openDrawingImage(d,drawingId){
       // Reset markup loaded flag so loadMarkupData runs fresh for the new drawing
       var mkCanvas=document.getElementById('markup-canvas');
       if(mkCanvas)mkCanvas._markupLoaded=false;
-      // Clone canvas area for fresh pan/zoom listeners BEFORE image loads
-      // (img.onload can fire synchronously on cached/blob images, which would
-      // bind markup events to the pre-clone canvas that initPanZoom destroys)
       initPanZoom();
       var img=document.getElementById('dv-image');
       img.onload=function(){
-        img.style.display='';// Ensure visible after load
+        img.style.display='';
         if(prevBlobUrl){URL.revokeObjectURL(prevBlobUrl);}
         fitDrawing();renderPinsOnDrawing();renderTasksPanel();_lazyCanvasSize();initMarkupEvents();initSelectModeEvents();
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
       };
       img.onerror=function(){
         _dbw('[DrawingViewer] Image load failed for: '+src.substring(0,80));
-        // If blob URL failed, try R2 directly
         if(d.r2Url&&src!==d.r2Url){
           _dbg('[DrawingViewer] Retrying with R2 URL');
           img.src=d.r2Url;
@@ -5447,26 +5443,73 @@ function _openDrawingImage(d,drawingId){
       img.src=src;
     }
 
+    // ── Safe blob decode: off-thread via createImageBitmap, auto-downscale large images ──
+    // Prevents black strips / GPU crashes on constrained devices (Samsung tablets, older iPads)
+    function _safeOpenBlob(blob){
+      var MAX_DIM=3000;// max px per dimension for display — sharp on any tablet
+      // Small blobs (<4MB) are safe to decode directly
+      if(blob.size<4*1024*1024){
+        var url=URL.createObjectURL(blob);
+        dvState._currentBlobUrl=url;
+        _openWithSrc(url);
+        return;
+      }
+      // Large blob — use createImageBitmap for off-thread decode
+      if(typeof createImageBitmap!=='undefined'){
+        createImageBitmap(blob).then(function(bmp){
+          var w=bmp.width,h=bmp.height;
+          if(w<=MAX_DIM&&h<=MAX_DIM){
+            // Within safe limits — use directly
+            bmp.close();
+            var url=URL.createObjectURL(blob);
+            dvState._currentBlobUrl=url;
+            _openWithSrc(url);
+            return;
+          }
+          // Oversized — downscale to safe dimensions
+          _dbg('[DrawingViewer] Downscaling oversized image: '+w+'×'+h+' → max '+MAX_DIM+'px');
+          var scale=Math.min(MAX_DIM/w,MAX_DIM/h);
+          var nw=Math.round(w*scale),nh=Math.round(h*scale);
+          var c=document.createElement('canvas');
+          c.width=nw;c.height=nh;
+          c.getContext('2d').drawImage(bmp,0,0,nw,nh);
+          bmp.close();
+          c.toBlob(function(smallBlob){
+            c.width=1;c.height=1;// free canvas memory
+            var url=URL.createObjectURL(smallBlob);
+            dvState._currentBlobUrl=url;
+            _openWithSrc(url);
+          },'image/jpeg',0.92);
+        }).catch(function(e){
+          _dbw('[DrawingViewer] createImageBitmap failed: '+e.message+' — falling back to direct blob URL');
+          var url=URL.createObjectURL(blob);
+          dvState._currentBlobUrl=url;
+          _openWithSrc(url);
+        });
+      } else {
+        // No createImageBitmap (very old browser) — use blob URL directly
+        var url=URL.createObjectURL(blob);
+        dvState._currentBlobUrl=url;
+        _openWithSrc(url);
+      }
+    }
+
     // Priority 1: IDB blob (fastest, works offline)
     showDrawingLoading('Loading drawing…');
     ADB.get('drawings',d.id).then(function(rec){
       if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
         hideDrawingLoading();
         _dbg('[DrawingViewer] Loaded from IDB blob: '+d.name+' ('+Math.round(rec.dataBlob.size/1024)+'KB)');
-        var blobUrl=URL.createObjectURL(rec.dataBlob);
-        dvState._currentBlobUrl=blobUrl;
-        _openWithSrc(blobUrl);
+        _safeOpenBlob(rec.dataBlob);
         return;
       }
-      // Priority 1b: Check in-memory blob cache (populated at loadFullProject)
+      // Priority 1b: Check in-memory blob cache
       if(ADB._drawingBlobCache&&ADB._drawingBlobCache[d.id]){
         var cachedBlob=ADB._drawingBlobCache[d.id];
         if(cachedBlob.size>0){
           hideDrawingLoading();
           _dbg('[DrawingViewer] Loaded from memory cache: '+d.name+' ('+Math.round(cachedBlob.size/1024)+'KB)');
-          var cBlobUrl=URL.createObjectURL(cachedBlob);
-          dvState._currentBlobUrl=cBlobUrl;
-          _openWithSrc(cBlobUrl);
+          _safeOpenBlob(cachedBlob);
           return;
         }
       }
@@ -13731,10 +13774,12 @@ function uploadNewVersion(drawingId){
         var ta=new Uint8Array(e.target.result);
         pdfjsLib.getDocument(ta).promise.then(function(pdf){
           pdf.getPage(1).then(function(page){
-            var vp=page.getViewport({scale:1.5});
+            var pv=page.view;var _vpw=pv[2],_vph=pv[3];
+            var _vs=Math.min(4.0,3000/_vpw,3000/_vph);
+            var vp=page.getViewport({scale:_vs});
             var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
             page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){
-              var newDwg={id:'dwg_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:oldName,dataUrl:cv.toDataURL('image/png'),width:vp.width,height:vp.height,isOriginal:false,folder:dwg.folder,_version:(dwg._version||1)+1,_versionDate:new Date().toISOString(),_previousVersionId:dwg.id};
+              var newDwg={id:'dwg_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:oldName,dataUrl:cv.toDataURL('image/jpeg',0.92),width:vp.width,height:vp.height,isOriginal:false,folder:dwg.folder,_version:(dwg._version||1)+1,_versionDate:new Date().toISOString(),_previousVersionId:dwg.id};
               p.drawings.push(newDwg);saveToLS();renderDrawingGallery();toast('New version uploaded: '+oldName+' v'+newDwg._version);
             });
           });
@@ -13794,10 +13839,12 @@ function replaceDrawingBlob(drawingId){
 function _replaceWithPdfPage(pdf,pageNum,dwg,fileName){
   var p=getProject();
   pdf.getPage(pageNum).then(function(page){
-    var vp=page.getViewport({scale:2.0});
+    var pv=page.view;var _rpw=pv[2],_rph=pv[3];
+    var _rs=Math.min(4.0,3000/_rpw,3000/_rph);
+    var vp=page.getViewport({scale:_rs});
     var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
     page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){
-      var dataUrl=cv.toDataURL('image/png');
+      var dataUrl=cv.toDataURL('image/jpeg',0.92);
       dwg.dataUrl=dataUrl;dwg.width=vp.width;dwg.height=vp.height;
       dwg.thumb=_makeThumb(dataUrl,200);
       dwg.pdfTiled=false;dwg.pdfPage=pageNum;
@@ -13838,7 +13885,7 @@ function rotateDrawing(id){
     ctx.translate(cv.width/2,cv.height/2);
     ctx.rotate(Math.PI/2);
     ctx.drawImage(img,-img.width/2,-img.height/2);
-    dwg.dataUrl=cv.toDataURL('image/png');
+    dwg.dataUrl=cv.toDataURL('image/jpeg',0.92);
     var tmp=dwg.width;dwg.width=dwg.height;dwg.height=tmp;
     saveToLS();renderDrawingGallery();toast('Rotated: '+dwg.name);
   };
