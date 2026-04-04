@@ -2277,7 +2277,6 @@ ADB.saveDrawing=function(drawing,projectId){
       if(existing&&existing.dataBlob)rec.dataBlob=existing.dataBlob;
       if(existing&&existing.markupBlob&&!rec.markupBlob)rec.markupBlob=existing.markupBlob;
       if(existing&&existing.markupObjects&&existing.markupObjects.length&&(!rec.markupObjects||!rec.markupObjects.length))rec.markupObjects=existing.markupObjects;
-      if(existing&&existing.snapshotBlob){rec.snapshotBlob=existing.snapshotBlob;rec.snapshotW=existing.snapshotW;rec.snapshotH=existing.snapshotH;}
       return ADB.put('drawings',rec);
     }).catch(function(){return ADB.put('drawings',rec);});
   }
@@ -2544,8 +2543,6 @@ ADB.saveFullProject=function(proj){
         if(existing&&existing.markupBlob&&!rec.markupBlob)rec.markupBlob=existing.markupBlob;
       }
       // Always preserve snapshot cache from existing IDB record
-      var existSnap=existMap[drawing.id];
-      if(existSnap&&existSnap.snapshotBlob){rec.snapshotBlob=existSnap.snapshotBlob;rec.snapshotW=existSnap.snapshotW;rec.snapshotH=existSnap.snapshotH;}
       putRecs.push(rec);
     });
     // Stale drawing IDs to delete
@@ -2776,23 +2773,6 @@ function applyLockState(){
 
 // ═══ PUBLISH MODAL ═══
 
-function _downloadPublishedCopy(rev){
-  var p = getProject(); if(!p) return;
-  var projName = (p.info.projectNumber||'project').replace(/[^a-zA-Z0-9_-]/g,'_');
-  var filename = projName + '_' + rev + '_published.html';
-  // Build a minimal self-contained copy: current page HTML + embedded project JSON
-  var pageHTML = document.documentElement.outerHTML;
-  // Inject published flag comment at top
-  var publishedMeta = '<!-- ARENCON PUBLISHED REPORT | ' + (p.info.projectName||'') + ' | ' + rev + ' | ' + (p.info.publishedDate||'') + ' -->';
-  pageHTML = publishedMeta + '\n' + pageHTML;
-  var blob = new Blob([pageHTML], {type:'text/html'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  toast('Downloaded: ' + filename);
-}
 
 // ═══ UNLOCK MODAL ═══
 function showUnlockModal(){
@@ -3048,15 +3028,6 @@ function _deficDesc(d){
   return d.description||'';
 }
 // Helper: get all observation/entry photos from a deficiency
-function _deficAllPhotos(d){
-  var all=[];
-  (d.observations||[]).forEach(function(o){(o.photos||[]).forEach(function(ph){all.push(ph);});});
-  if(!d.observations||!d.observations.length){
-    (d.entries||[]).forEach(function(e){(e.photos||[]).forEach(function(ph){all.push(ph);});});
-    (d.photos||[]).forEach(function(ph){all.push(ph);});
-  }
-  return all;
-}
 // Helper: check if deficiency is open
 function _deficIsOpen(d){return d.status==='open'||d.status==='Outstanding';}
 // Helper: check if deficiency is closed
@@ -3224,7 +3195,7 @@ function applyTextSize(size){
 
 function openMobileMenu(){var mm=document.getElementById('mobile-menu-overlay');if(mm){mm.classList.add('open');var admin=_isAdmin();mm.querySelectorAll('.admin-only').forEach(function(b){b.style.display=admin?'':'none';});}updateStorageDisplay();}
 function closeMobileMenu(){var mm=document.getElementById('mobile-menu-overlay');if(mm)mm.classList.remove('open');}
-;function _closeRepairOnClick(){closeRepairMenu();}function closeRepairMenu(){var m=document.getElementById('repair-menu');if(m)m.classList.remove('open');}
+;function closeRepairMenu(){var m=document.getElementById('repair-menu');if(m)m.classList.remove('open');}
 
 // ── More ▾ dropdown ──
 function toggleMoreMenu(e){
@@ -3770,36 +3741,6 @@ function updateProjectDropdown(){
 }
 function closeProjectDropdown(){var dd=document.getElementById('project-dropdown');if(dd)dd.classList.remove('open');}
 
-function openProjectQuickEdit(id,e){
-  e.stopPropagation();
-  var p=allProjects[id];if(!p)return;
-  var rect=e.target.getBoundingClientRect();
-  var ov=document.getElementById('dash-context-menu');if(ov)ov.remove();
-  var menu=document.createElement('div');
-  menu.id='dash-context-menu';
-  menu.style.cssText='position:fixed;top:'+(rect.bottom+4)+'px;left:'+(rect.left-180)+'px;'+
-    'background:var(--surface,#fff);border:1.5px solid var(--border,#DDE1E7);border-radius:10px;'+
-    'box-shadow:0 12px 32px rgba(0,0,0,.25);z-index:9100;min-width:220px;overflow:hidden;font-family:Calibri,sans-serif;';
-  var items=[
-    {label:'🔗 Copy Project Link',fn:function(){copyProjectLink(id);}},
-    {label:'📤 Export This Project',fn:function(){exportSingleProject(id);}},
-    {label:(p.starred?'★ Unstar':'☆ Star'),fn:function(){toggleStarProject(id,null);}},
-    {sep:true},
-    ];
-  items.forEach(function(it){
-    if(it.sep){var sep=document.createElement('div');sep.className='sep-line';menu.appendChild(sep);return;}
-    var btn=document.createElement('button');
-    btn.textContent=it.label;
-    if(it.danger)btn.className='danger';
-    btn.onclick=function(){closeDashMenu();it.fn();};
-    menu.appendChild(btn);
-  });
-  document.body.appendChild(menu);
-  var mr=menu.getBoundingClientRect();
-  if(mr.right>window.innerWidth-8)menu.style.left=(window.innerWidth-mr.width-8)+'px';
-  if(mr.bottom>window.innerHeight-8)menu.style.top=(rect.top-mr.height-4)+'px';
-  setTimeout(function(){document.addEventListener('click',closeDashMenu,{once:true});},10);
-}
 function closeDashMenu(){var m=document.getElementById('dash-context-menu');if(m)m.remove();}
 
 function copyProjectLink(id){
@@ -3825,73 +3766,6 @@ var _statusDefs=[
   {key:'revision',label:'Revision Required',color:'#C62828'},
   {key:'issued',label:'Issued',color:'#2E7D32'}
 ];
-function toggleStatusDropdown(wrap,id){
-  // Close any existing dropdown
-  document.querySelectorAll('.proj-status-dd.open').forEach(function(d){d.remove();});
-  var dd=document.createElement('div');
-  dd.className='proj-status-dd open';
-  var cur=(allProjects[id]&&allProjects[id].status)||'draft';
-  _statusDefs.forEach(function(s){
-    var btn=document.createElement('button');
-    if(s.key===cur)btn.className='active';
-    btn.innerHTML='<span class="sd-dot" style="background:'+s.color+';"></span>'+s.label;
-
-    dd.appendChild(btn);
-  });
-  wrap.appendChild(dd);
-  // Close on outside click
-  setTimeout(function(){
-    document.addEventListener('click',function _closeSD(){dd.remove();document.removeEventListener('click',_closeSD);});
-  },10);
-}
-function closeCreateProjectModal(){var ov=document.getElementById('create-project-overlay');if(ov)ov.style.display='none';}
-function confirmCreateProject(){
-  var cpNum=document.getElementById('cp-num');
-  var cpName=document.getElementById('cp-name');
-  var cpClient=document.getElementById('cp-client');
-  if(!cpNum||!cpName||!cpClient){_aAlert('Modal fields not found');return;}
-  var num=cpNum.value.trim();
-  var name=cpName.value.trim();
-  var client=cpClient.value.trim();
-  if(!name){_aAlert('Please enter a project name.');return;}
-  var p=newProject({projectName:name,projectNumber:num,client:client});
-  allProjects[p.id]=p;
-  var ov=document.getElementById('create-project-overlay');
-  if(ov)ov.remove();
-  enterProject(p.id);
-  switchTab('info');
-  setTimeout(function(){
-    populateProjectFields();
-    saveToLS();
-  },50);
-  ADB.saveFullProject(p).catch(function(e){console.error('IDB save error:',e);});
-}
-function exportStarredProjects(){
-  var starred=Object.values(allProjects).filter(function(p){return p.starred;});
-  if(!starred.length){_aAlert('No starred projects.');return;}
-  var promises=starred.map(function(p){return ADB.exportProjectJSON(p.id);});
-  Promise.all(promises).then(function(projects){
-    var all={};projects.forEach(function(p){if(p)all[p.id]=p;});
-    var blob=new Blob([JSON.stringify(all,null,2)],{type:'application/json'});
-    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-    a.download='ARENCON_Starred_'+new Date().toISOString().split('T')[0]+'.json';
-    a.click();URL.revokeObjectURL(a.href);
-    showToast('Exported '+starred.length+' starred projects');
-  });
-}
-function exportUnstarredProjects(){
-  var uns=Object.values(allProjects).filter(function(p){return !p.starred;});
-  if(!uns.length){_aAlert('No unstarred projects.');return;}
-  var promises=uns.map(function(p){return ADB.exportProjectJSON(p.id);});
-  Promise.all(promises).then(function(projects){
-    var all={};projects.forEach(function(p){if(p)all[p.id]=p;});
-    var blob=new Blob([JSON.stringify(all,null,2)],{type:'application/json'});
-    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-    a.download='ARENCON_Unstarred_'+new Date().toISOString().split('T')[0]+'.json';
-    a.click();URL.revokeObjectURL(a.href);
-    showToast('Exported '+uns.length+' unstarred projects');
-  });
-}
 
 function toggleStarProject(id,e){
   if(e)e.stopPropagation();
@@ -3927,17 +3801,7 @@ function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 function quickAddDeficiency(){if(!currentProjectId)return;switchTab('deficiencies');var p=getProject();addDeficiencyForGroup(null);}
 
 // ═══ FILE SYSTEM FOLDER ═══
-function bumpRevision(rev){
-  // A01→A02, B01→B02, B01A01→B01A02
-  var m=rev.match(/^([A-Z])(\d+)([A-Z]\d+)?$/);
-  if(!m)return rev;
-  if(m[3]){var sub=m[3];var sn=parseInt(sub.slice(1))+1;return m[1]+m[2]+sub[0]+String(sn).padStart(2,'0');}
-  var n=parseInt(m[2])+1;return m[1]+String(n).padStart(2,'0')+(m[3]||'');
-}
 
-function _getInspectorName(){
-  try{return localStorage.getItem('ARENCON_FR_Inspector')||'';}catch(e){return '';}
-}
 
 function getProjectFilename(p){
   if(p.info.customFilename)return p.info.customFilename.replace(/\.json$/,'')+'.json';
@@ -4454,41 +4318,7 @@ function _maybeCacheGalleryThumb(drawingId,blob){
 
 // ═══ SNAPSHOT PRE-GENERATION — instant viewer open, first time, every time ═══
 // Generate 1500px JPEG snapshot from an image source (dataUrl or blobUrl) and save to IDB
-function _genSnapshotFromSrc(src,drawingId,callback){
-  try{
-    var snapMaxW=1500;
-    var img=new Image();
-    img.onload=function(){
-      var sw=Math.min(snapMaxW,img.width);
-      var sh=Math.round(sw*(img.height/img.width));
-      var cv=document.createElement('canvas');
-      cv.width=sw;cv.height=sh;
-      cv.getContext('2d').drawImage(img,0,0,sw,sh);
-      cv.toBlob(function(blob){
-        cv.width=1;cv.height=1;
-        if(!blob||blob.size<500){if(callback)callback(false);return;}
-        ADB.get('drawings',drawingId).then(function(rec){
-          if(!rec)rec={id:drawingId,projectId:_csProjectId||''};
-          rec.snapshotBlob=blob;rec.snapshotW=sw;rec.snapshotH=sh;
-          return ADB.put('drawings',rec);
-        }).then(function(){
-          _dbg('[Snapshot] Pre-generated for '+drawingId+': '+sw+'x'+sh+' ('+Math.round(blob.size/1024)+'KB)');
-          if(callback)callback(true);
-        }).catch(function(){if(callback)callback(false);});
-      },'image/jpeg',0.70);
-    };
-    img.onerror=function(){if(callback)callback(false);};
-    img.src=src;
-  }catch(e){if(callback)callback(false);}
-}
 // Generate snapshot from a Blob (for R2-fetched drawings)
-function _genSnapshotFromBlob(blob,drawingId,callback){
-  var url=URL.createObjectURL(blob);
-  _genSnapshotFromSrc(url,drawingId,function(ok){
-    URL.revokeObjectURL(url);
-    if(callback)callback(ok);
-  });
-}
 // Background pre-cache: after project loads, generate snapshots for all drawings missing them
 var _preCacheRunning=false;
 function _preCacheDrawingSnapshots(){
@@ -4506,35 +4336,9 @@ function _preCacheDrawingSnapshots(){
     var did=queue[idx++];
     // Check if snapshot already exists in IDB
     ADB.get('drawings',did).then(function(rec){
-      if(rec&&rec.snapshotBlob&&rec.snapshotBlob.size>1000){
-        // Already has snapshot — skip
-        setTimeout(_next,50);
-        return;
-      }
-      // Need to generate — find source
       var d=p.drawings.find(function(x){return x.id===did;});
       if(!d){setTimeout(_next,50);return;}
-      // Priority 1: IDB blob
-      if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
-        _genSnapshotFromBlob(rec.dataBlob,did,function(){setTimeout(_next,200);});
-        return;
-      }
-      // Priority 2: In-memory dataUrl
-      if(d.dataUrl){
-        _genSnapshotFromSrc(d.dataUrl,did,function(){setTimeout(_next,200);});
-        return;
-      }
-      // Priority 3: R2 URL (fetch in background)
-      if(d.r2Url&&!d.pdfTiled){
-        fetch(d.r2Url).then(function(res){
-          if(!res.ok)throw new Error(res.status);
-          return res.blob();
-        }).then(function(blob){
-          _genSnapshotFromBlob(blob,did,function(){setTimeout(_next,300);});
-        }).catch(function(){setTimeout(_next,100);});
-        return;
-      }
-      // Priority 4: PDF — migrate to pre-rendered image (eliminates pdf.js from viewing)
+      // Only process PDF drawings that need migration to pre-rendered image
       if(d.pdfTiled){
         _migratePdfToImage(did,d,function(){setTimeout(_next,300);});
         return;
@@ -4727,7 +4531,6 @@ function handleImageDrawingUpload(f){
         p.drawings.push(newDwgI);if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwgI);
         saveToLS();hideDrawingLoading();renderDrawingGallery();
         // Pre-generate viewer snapshot so first open is instant
-        _genSnapshotFromSrc(e.target.result,newDwgI.id);
       });
     }
     if(conflicts.length){hideDrawingLoading();_showDrawingConflictModal(conflicts,_suggestFolderName(baseName,p),doSave,function(){hideDrawingLoading();});}
@@ -5158,7 +4961,6 @@ function handleImageUploadToFolder(f,folder){
         p.drawings.push(newDwgF);if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwgF);
         saveToLS();hideDrawingLoading();renderDrawingGallery();
         // Pre-generate viewer snapshot so first open is instant
-        _genSnapshotFromSrc(e.target.result,newDwgF.id);
       });
     }
     if(conflicts.length){hideDrawingLoading();_showDrawingConflictModal(conflicts,_suggestFolderName(folder||baseName,p),doSave,function(){hideDrawingLoading();});}
@@ -5670,78 +5472,7 @@ function _closeTiledPDF(){
 // Captures mid-res JPEG of the drawing on first open, stores in IDB.
 // Subsequent opens show snapshot instantly while full-res loads on top.
 var _snapshotPending={};
-function _saveDrawingSnapshot(drawingId){
-  if(_snapshotPending[drawingId])return;
-  _snapshotPending[drawingId]=true;
-  // Delay to let rendering settle (tiles finish, image fully decoded)
-  setTimeout(function(){
-    try{
-      var snapW=1500;// max snapshot width — good balance of speed vs clarity
-      var srcW,srcH,drawFn;
-      if(window._tiledActive&&_tileState.drawW){
-        // Tiled PDF: composite visible tiles into snapshot
-        srcW=_tileState.drawW;srcH=_tileState.drawH;
-        var layer=document.getElementById('dv-tiles-layer');
-        if(!layer){delete _snapshotPending[drawingId];return;}
-        drawFn=function(ctx,w,h){
-          ctx.fillStyle='white';ctx.fillRect(0,0,w,h);
-          var scale=w/srcW;
-          var tiles=layer.querySelectorAll('canvas');
-          tiles.forEach(function(tc){
-            var tx=parseFloat(tc.style.left)||0;
-            var ty=parseFloat(tc.style.top)||0;
-            var tw=parseFloat(tc.style.width)||tc.width;
-            var th=parseFloat(tc.style.height)||tc.height;
-            try{ctx.drawImage(tc,tx*scale,ty*scale,tw*scale,th*scale);}catch(e){}
-          });
-        };
-      } else {
-        // Image drawing: use dv-image element
-        var dvImg=document.getElementById('dv-image');
-        if(!dvImg||!dvImg.naturalWidth){delete _snapshotPending[drawingId];return;}
-        srcW=dvImg.naturalWidth;srcH=dvImg.naturalHeight;
-        drawFn=function(ctx,w,h){ctx.drawImage(dvImg,0,0,w,h);};
-      }
-      var ratio=srcH/srcW;
-      var sw=Math.min(snapW,srcW);
-      var sh=Math.round(sw*ratio);
-      var cv=document.createElement('canvas');
-      cv.width=sw;cv.height=sh;
-      var ctx=cv.getContext('2d');
-      drawFn(ctx,sw,sh);
-      cv.toBlob(function(blob){
-        cv.width=1;cv.height=1;// release GPU memory
-        delete _snapshotPending[drawingId];
-        if(!blob||blob.size<1000)return;// too small = failed capture
-        // Store in IDB drawing record
-        ADB.get('drawings',drawingId).then(function(rec){
-          if(!rec)rec={id:drawingId,projectId:_csProjectId||''};
-          rec.snapshotBlob=blob;
-          rec.snapshotW=sw;
-          rec.snapshotH=sh;
-          return ADB.put('drawings',rec);
-        }).then(function(){
-          _dbg('[Snapshot] Saved for '+drawingId+': '+sw+'x'+sh+' ('+Math.round(blob.size/1024)+'KB)');
-        }).catch(function(e){
-          _dbg('[Snapshot] Save failed: '+e.message);
-        });
-      },'image/jpeg',0.70);
-    }catch(e){
-      delete _snapshotPending[drawingId];
-      _dbg('[Snapshot] Generation error: '+e.message);
-    }
-  },1500);// 1.5s delay — ensures tiles/image fully rendered
-}
 
-function _loadDrawingSnapshot(drawingId,callback){
-  ADB.get('drawings',drawingId).then(function(rec){
-    if(rec&&rec.snapshotBlob&&rec.snapshotBlob.size>1000){
-      callback(rec.snapshotBlob,rec.snapshotW||0,rec.snapshotH||0);
-    } else {
-      callback(null);
-    }
-  }).catch(function(){callback(null);});
-}
 // ══════════════════════════════════════════════════════════════
 function openDrawingViewer(drawingId){
   try{
@@ -9449,26 +9180,6 @@ function updateEntryField(did,ei,field,val){
   }
   saveToLS();
 }
-function updateEntryContractor(did,ei,ctrId){
-  var f=findDeficiency(did);if(!f)return;
-  if(!f.defic.entries||!f.defic.entries[ei])return;
-  f.defic.entries[ei].contractorId=ctrId||'';
-  saveToLS();renderDeficiencyPanel();
-}
-function addDeficEntry(did){
-  var f=findDeficiency(did);if(!f)return;
-  if(!f.defic.entries)f.defic.entries=[{description:f.defic.description||'',photos:f.defic.photos||[],priority:'high'}];
-  f.defic.entries.push({description:'',photos:[],priority:'high'});
-  pushUndo();saveToLS();renderDeficiencyPanel();
-}
-function removeDeficEntry(did,ei){
-  var f=findDeficiency(did);if(!f||!f.defic.entries)return;
-  if(f.defic.entries.length<=1){_aAlert('Cannot remove the last observation.');return;}
-  _aConfirm('Remove observation '+String.fromCharCode(65+ei)+'?',function(){
-  f.defic.entries.splice(ei,1);
-  pushUndo();saveToLS();renderDeficiencyPanel();
-  },'Remove');
-}
 function removeEntryPhoto(did,ei,pi){
   _aConfirm('Remove this photo?',function(){
   var f=findDeficiency(did);if(!f||!f.defic.entries||!f.defic.entries[ei])return;
@@ -10105,9 +9816,6 @@ function populateRespPhotos(){
   });
 }
 
-function addDeficResponse(did,party){var f=findDeficiency(did);if(!f)return;if(!f.defic.responses)f.defic.responses=[];f.defic.responses.push({party:party,comment:'',date:'',photos:[]});saveToLS();renderDeficiencyPanel();}
-function removeDeficResponse(did,ri){var f=findDeficiency(did);if(f&&f.defic.responses){f.defic.responses.splice(ri,1);saveToLS();renderDeficiencyPanel();}}
-function updateDeficResponse(did,ri,field,val){var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]){f.defic.responses[ri][field]=val;saveToLS();}}
 
 // ═══ ACTIVITY LOG — Add Entry Form ═══
 function showAddActivityForm(did,defaultLabel){
@@ -10163,14 +9871,6 @@ function showAddActivityForm(did,defaultLabel){
   setTimeout(function(){var ed=document.getElementById('act-text-editor');if(ed)ed.focus();},100);
 }
 // Shortcut: open activity form with obsRef pre-selected
-function showAddActivityFormForObs(did,defaultLabel,obsId){
-  showAddActivityForm(did,defaultLabel);
-  // Pre-select the obsRef dropdown after modal renders
-  setTimeout(function(){
-    var sel=document.getElementById('act-obs-ref');
-    if(sel&&obsId){sel.value=obsId;}
-  },50);
-}
 // Activity form photo handlers
 function _actFormPhotoUpload(){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){_actFormAddFiles(inp.files);};inp.click();}
 function _actFormPhotoDrop(e){_actFormAddFiles(e.dataTransfer.files);}
@@ -10324,24 +10024,6 @@ function _sanitizeRichText(html){
   return tmp.innerHTML;
 }
 
-function consultantCloseItem(did,ri){
-  var f=findDeficiency(did);if(!f)return;
-  var d=f.defic;
-  if(!d.responses||!d.responses[ri])return;
-  _aConfirm('Close deficiency #'+d.num+' and deactivate IAR?\n\nThis marks the item as Addressed & Closed.',function(){
-  d.responses[ri].closedItem=true;
-  d.responses[ri].closedDate=new Date().toISOString().substring(0,10);
-  d.status='closed';
-  d.iar=false;
-  var p=getProject();var inst=(p&&p.currentFrtInstance)||1;
-  d.closedOnInstance=inst;d.closedDate=new Date().toISOString().split('T')[0];
-  pushUndo();saveToLS();_folderQuickSave();
-  renderDeficiencyPanel();
-  if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
-  if(typeof renderTasksPanel==='function')renderTasksPanel();
-  showToast('Observation closed. IAR deactivated.');
-  });
-}
 
 // ── DEFICIENCY PHOTO RECORD HELPERS ──
 // Photos are now objects: {id, dataUrl, r2Key, r2Status, r2Url}
@@ -10792,21 +10474,6 @@ function _requeuePendingUploads(proj){
   });
 }
 
-function triggerRespPhotoUpload(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){processRespPhotos(did,ri,inp.files);};inp.click();}
-function triggerRespPhotoCamera(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){if(inp.files&&inp.files.length>0){processRespPhotos(did,ri,inp.files);inp.value='';}};inp.click();}
-function handleRespPhotoDrop(e,did,ri){processRespPhotos(did,ri,e.dataTransfer.files);}
-function processRespPhotos(did,ri,files){
-  var f=findDeficiency(did);if(!f||!f.defic.responses||!f.defic.responses[ri])return;
-  Array.from(files).forEach(function(file){
-    compressImage(file,3200,0.80,function(du){
-      var rec=_makeDeficPhotoRec(du);
-      if(!f.defic.responses[ri].photos)f.defic.responses[ri].photos=[];
-      f.defic.responses[ri].photos.push(rec);
-      _r2EnqueueDeficPhoto(rec,f.defic.id);
-      saveToLS();renderDeficiencyPanel();
-    });
-  });
-}
 
 /* injectEntrySummaries removed — dead code */
 function renderSummaryTable(){var p=getProject();if(!p)return;var wrap=document.getElementById('defic-summary-table-wrap');var ad=getAllDeficiencies(p);if(!ad.length){wrap.innerHTML='';return;}var curInst=p.currentFrtInstance||1;var groups={};ad.forEach(function(d){var k=d.contractorName;if(!groups[k])groups[k]={t:0,i:0,o:0,c:0,n:0};groups[k].t++;if(d.defic.iar)groups[k].i++;var st=d.defic.status||'open';if(st==='open'||st==='Outstanding')groups[k].o++;else groups[k].c++;if(d.defic.notedOnInstance===curInst)groups[k].n++;});var html='<table class="defic-summary-table"><thead><tr><th>Contractor</th><th>Total</th><th>New This Report</th><th>Outstanding</th><th>IAR</th><th>Closed</th></tr></thead><tbody>';var tt=0,ti=0,to=0,tc=0,tn=0;Object.keys(groups).forEach(function(k){var g=groups[k];tt+=g.t;ti+=g.i;to+=g.o;tc+=g.c;tn+=g.n;html+='<tr><td style="font-weight:600;">'+escHtml(k)+'</td><td>'+g.t+'</td><td style="color:var(--link);font-weight:600;">'+g.n+'</td><td style="color:var(--no);font-weight:600;">'+g.o+'</td><td style="color:var(--iar);font-weight:700;">'+g.i+'</td><td style="color:var(--yes);font-weight:600;">'+g.c+'</td></tr>';});html+='<tr style="font-weight:800;border-top:2px solid var(--slate);"><td>TOTAL</td><td>'+tt+'</td><td style="color:var(--link);">'+tn+'</td><td style="color:var(--no);">'+to+'</td><td style="color:var(--iar);">'+ti+'</td><td style="color:var(--yes);">'+tc+'</td></tr></tbody></table>';wrap.innerHTML=html;}
@@ -12884,14 +12551,6 @@ function parseExifDate(view,start){
 }
 
 function filterPhotos(mode){_photoFilter=mode;renderPhotoGallery();var m=document.getElementById('photo-filter-menu');if(m)m.classList.remove('open');}
-function updateSitePhotoCaption(idx,val){
-  var p=getProject();if(!p)return;
-  var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
-  var ph=siteArr[idx];
-  if(!ph||typeof ph==='string')return;
-  ph.caption=(val||'').trim();
-  saveToLS();_folderQuickSave();
-}
 function togglePhotoActionsMenu(e){e.stopPropagation();var m=document.getElementById('photo-actions-menu');m.classList.toggle('open');document.addEventListener('click',function h(){m.classList.remove('open');document.removeEventListener('click',h);},{once:true});}
 function togglePhotoFilterMenu(e){e.stopPropagation();var m=document.getElementById('photo-filter-menu');m.classList.toggle('open');document.addEventListener('click',function h(){m.classList.remove('open');document.removeEventListener('click',h);},{once:true});}
 
@@ -14647,20 +14306,6 @@ function purgeSupersededDrawings(){
 }
 
 // === BATCH E: Project size in dashboard ===
-function fillProjectSizeIndicators(){
-  document.querySelectorAll('[data-proj-size]').forEach(function(el){
-    var card=el.closest('.project-card');if(!card)return;
-    var pid=card.getAttribute('data-project-id');if(!pid)return;
-    ADB.get('projects',pid).then(function(p){
-      if(!p)return;
-      var dwgs=(p.drawings||[]).length;
-      var photos=0;
-      (p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){photos+=(d.photos||[]).length;(d.entries||[]).forEach(function(e){photos+=(e.photos||[]).length;});});});
-      (p.generalDeficiencies||[]).forEach(function(d){photos+=(d.photos||[]).length;(d.entries||[]).forEach(function(e){photos+=(e.photos||[]).length;});});
-      el.textContent=dwgs+' dwg'+(dwgs!==1?'s':'')+' · '+photos+' photo'+(photos!==1?'s':'');
-    }).catch(function(){});
-  });
-}
 
 // ═══ TIERED SESSION MANAGEMENT ═══
 // Tier 1 — Soft lock:    20 min idle  → blur UI, show "Who's working?" overlay
@@ -14852,52 +14497,6 @@ if(_csHubMode){
 var _pickerTarget=null; // {type:'entry',did:'...',ei:0} or {type:'resp',did:'...',ri:0}
 var _pickerSelected=[];
 
-function openPhotoPicker(targetType,did,idx){
-  _pickerTarget={type:targetType,did:did,idx:idx};
-  _pickerSelected=[];
-  var p=getProject();if(!p)return;
-  var modal=document.getElementById('photo-picker-modal');
-  var grid=document.getElementById('photo-picker-grid');
-  // Collect all available photos
-  var photos=[];
-  var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
-  siteArr.forEach(function(ph,i){
-    var src=ph.dataUrl||ph;
-    photos.push({src:src,label:'Site Photo '+(i+1),id:'pick_site_'+i});
-  });
-  var ad=getAllDeficiencies(p);
-  ad.forEach(function(r){
-    var d=r.defic;
-    var numEn=(d.entries&&d.entries.length)||0;
-    if(d.entries){d.entries.forEach(function(en,ei){
-      if(en.photos){en.photos.forEach(function(ph,pi){
-        var obsLbl=numEn>1?', Obs '+String.fromCharCode(65+ei):'';
-        photos.push({src:ph,label:'Pin '+d.num+obsLbl,id:'pick_d_'+d.id+'_e'+ei+'_'+pi});
-      });}
-    });}
-    if(d.responses){d.responses.forEach(function(resp,ri){
-      if(resp.photos){resp.photos.forEach(function(ph,pi){
-        var rt=resp.party==='contractor'?'Ctr':'Con';
-        photos.push({src:ph,label:'Pin '+d.num+' '+rt+' Resp',id:'pick_r_'+d.id+'_'+ri+'_'+pi});
-      });}
-    });}
-  });
-  if(!photos.length){toast('No photos in gallery yet.');return;}
-  // Render grid
-  var html='';
-  photos.forEach(function(ph){
-    html+='<div class="pp-thumb" data-pp-src="'+ph.id+'" onclick="togglePickerPhoto(this,\''+ph.id+'\')" style="position:relative;cursor:pointer;border-radius:6px;overflow:hidden;border:2px solid transparent;aspect-ratio:1;">';
-    html+='<img src="'+ph.src+'" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">';
-    html+='<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);color:white;font-size:8px;padding:2px 4px;text-align:center;">'+escHtml(ph.label)+'</div>';
-    html+='<div class="pp-check" style="display:none;position:absolute;top:4px;right:4px;background:#9C2742;color:white;width:20px;height:20px;border-radius:50%;font-size:calc(12px + var(--ts));font-weight:700;align-items:center;justify-content:center;">✓</div>';
-    html+='</div>';
-  });
-  grid.innerHTML=html;
-  // Store src mapping
-  grid._photoMap={};photos.forEach(function(ph){grid._photoMap[ph.id]=ph.src;});
-  _updatePickerCount();
-  modal.style.display='flex';
-}
 
 function togglePickerPhoto(el,id){
   var idx=_pickerSelected.indexOf(id);
