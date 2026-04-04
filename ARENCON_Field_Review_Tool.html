@@ -5818,9 +5818,16 @@ function _openDrawingImage(d,drawingId){
       img.onload=function(){
         img.style.display='';
         if(prevBlobUrl){URL.revokeObjectURL(prevBlobUrl);}
-        fitDrawing();renderPinsOnDrawing();renderTasksPanel();_lazyCanvasSize();initMarkupEvents();initSelectModeEvents();
+        fitDrawing();
+        // Defer non-essential work so first zoom gesture isn't blocked
+        requestAnimationFrame(function(){
+          renderPinsOnDrawing();renderTasksPanel();_lazyCanvasSize();
+          requestAnimationFrame(function(){
+            initMarkupEvents();initSelectModeEvents();
+          });
+        });
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
-        // Defer heavy markup canvas allocation so it doesn't block first zoom gesture
+        // Defer heavy markup canvas allocation
         setTimeout(function(){if(dvState.currentDrawingId===drawingId)resizeMarkupCanvas();},500);
       };
       img.onerror=function(){
