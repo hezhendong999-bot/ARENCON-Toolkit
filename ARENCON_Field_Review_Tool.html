@@ -9634,8 +9634,11 @@ function _gpAttach(){
     f.defic.entries[_gpTarget.obsIdx].photos=obs.photos;
   }
   _syncDeficPhotos(f.defic);
+  var _refreshDid=_gpTarget.did;
   saveToLS();_folderQuickSave();renderDeficiencyPanel();
   _gpClose();
+  // Refresh pin editor if it's open
+  if(editingPinId===_refreshDid)openPinEditor(_refreshDid);
   toast(count+' photo'+(count!==1?'s':'')+' attached ✓');
 }
 function _safeAttr(s){return(s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
@@ -9649,6 +9652,7 @@ function galleryAssignToPin(){
   var ad=getAllDeficiencies(p);
   if(!ad.length){_aAlert('No deficiencies exist yet. Create one first.');return;}
   var html='<div style="max-height:400px;overflow-y:auto;">';
+  html+='<button onclick="_closeCustomModal();_clearGallerySelection();toast(\'Kept as site photo ✓\')" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;border-bottom:2px solid var(--border);background:transparent;color:var(--fg);font-size:calc(13px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;font-weight:700;" onmouseover="this.style.background=\'var(--smoke)\'" onmouseout="this.style.background=\'transparent\'">📷 Site Photo (no pin)</button>';
   ad.forEach(function(d){
     var desc=_deficDesc(d.defic);
     var truncDesc=desc.length>50?desc.substring(0,50)+'…':desc;
@@ -11227,6 +11231,7 @@ var pHigh=_ep==='high';var pLow=_ep==='low';var pGen=_ep==='general';
     '<span style="font-size:calc(11px + var(--ts));">Drop photos or </span>'+
     '<button onclick="event.stopPropagation();triggerPinEntryPhoto('+ae+')" style="font-size:calc(11px + var(--ts));padding:3px 8px;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-family:inherit;">Upload</button>'+
     '<button onclick="event.stopPropagation();triggerPinEntryCamera('+ae+')" style="font-size:calc(11px + var(--ts));padding:3px 8px;border:none;border-radius:4px;cursor:pointer;font-family:inherit;background:#1A7A4A;color:white;margin-left:4px;">Camera</button>'+
+    '<button class="pz-gallery" onclick="event.stopPropagation();openGalleryPicker(\''+d.id+'\','+ae+')" style="font-size:calc(11px + var(--ts));padding:3px 8px;margin-left:4px;">+ Gallery</button>'+
     '</div>'+ph+'</div>';
 
   // Fix 8: Status — always-colored via CSS, not dynamic inline style
@@ -14415,6 +14420,7 @@ function _lbAssignToPin(){
   if(!currentPhoto&&!currentSrc){_aAlert('Cannot identify this photo.');return;}
   // Build deficiency list
   var html='<div style="max-height:400px;overflow-y:auto;">';
+  html+='<button onclick="_closeCustomModal();toast(\'Kept as site photo ✓\')" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;border-bottom:2px solid var(--border);background:transparent;color:var(--fg);font-size:calc(13px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;font-weight:700;" onmouseover="this.style.background=\'var(--smoke)\'" onmouseout="this.style.background=\'transparent\'">📷 Site Photo (no pin)</button>';
   ad.forEach(function(d){
     var desc=_deficDesc(d.defic);
     var truncDesc=desc.length>50?desc.substring(0,50)+'…':desc;
