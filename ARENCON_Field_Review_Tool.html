@@ -9522,13 +9522,15 @@ function processEntryPhotos(did,ei,files){
   });
 }
 
-// ═══ GALLERY PICKER — pick sitePhotos to attach to a deficiency observation ═══
+// ═══ GALLERY PICKER — pick photos from unified gallery to attach to a deficiency observation ═══
 var _gpTarget=null; // {did, obsIdx}
+var _gpPhotoList=[]; // unified photo list for current picker session
 function openGalleryPicker(did,obsIdx){
   _gpTarget={did:did,obsIdx:obsIdx};
   var p=getProject();if(!p)return;
-  var sp=p.sitePhotos||[];
-  if(!sp.length){_aAlert('No photos in the gallery yet. Take photos from the Photos tab first.');return;}
+  var allPhotos=getPhotoList(p);
+  if(!allPhotos.length){_aAlert('No photos in the gallery yet. Take photos from the Photos tab first.');return;}
+  _gpPhotoList=allPhotos;
   // Build modal
   var overlay=document.getElementById('gallery-picker-overlay');
   if(!overlay){
@@ -9553,9 +9555,10 @@ function openGalleryPicker(did,obsIdx){
   html+='<button onclick="_gpClose()" style="background:#455A64;color:white;border:none;padding:8px 14px;border-radius:6px;font-size:calc(13px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
   html+='</div></div>';
   html+='<div style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-content:start;" id="gp-grid">';
-  sp.forEach(function(ph,i){
-    var src=ph.r2Url||ph.dataUrl||'';
+  allPhotos.forEach(function(ph,i){
+    var src=ph.src||ph.thumbSrc||'';
     var alreadyAttached=existingIds[ph.id];
+    var tag=ph.type==='site'?'':'Pin '+((ph.deficNum)||'');
     html+='<div class="gp-thumb'+(alreadyAttached?' gp-attached':'')+'" data-idx="'+i+'" onclick="'+(alreadyAttached?'':'_gpToggle(this,'+i+')')+'" style="width:120px;height:120px;border-radius:8px;overflow:hidden;position:relative;cursor:'+(alreadyAttached?'not-allowed':'pointer')+';border:3px solid '+(alreadyAttached?'#546E7A':'transparent')+';flex-shrink:0;opacity:'+(alreadyAttached?'0.4':'1')+';">';
     html+='<img data-src="'+_safeAttr(src)+'" style="width:100%;height:100%;object-fit:cover;">';
     if(alreadyAttached)html+='<div style="position:absolute;top:4px;right:4px;background:#546E7A;color:white;font-size:9px;padding:2px 6px;border-radius:4px;">Added</div>';
@@ -9598,17 +9601,15 @@ function _gpAttach(){
   var obs=f.defic.observations&&f.defic.observations[_gpTarget.obsIdx];
   if(!obs){_gpClose();return;}
   if(!obs.photos)obs.photos=[];
-  var sp=p.sitePhotos||[];
   var count=0;
   window._gpSelected.forEach(function(idx){
-    var photo=sp[idx];if(!photo)return;
-    // Copy photo to observation (keep original in gallery)
+    var photo=_gpPhotoList[idx];if(!photo)return;
     var rec={
       id:'dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
-      dataUrl:photo.dataUrl||'',
-      r2Key:photo.r2Key||'',r2Status:photo.r2Status||'',r2Url:photo.r2Url||'',
-      _galleryRef:photo.id, // track source for reassignment
-      timestamp:photo.timestamp||photo.date||''
+      dataUrl:'',
+      r2Key:photo.r2Key||'',r2Status:'',r2Url:photo.src||'',
+      _galleryRef:photo.id,
+      timestamp:photo.date||''
     };
     obs.photos.push(rec);
     count++;
