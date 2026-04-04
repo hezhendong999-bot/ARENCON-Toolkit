@@ -9034,9 +9034,9 @@ function _deficContentKey(){
     for(var fi=0;fi<fkeys.length;fi++)k+='F'+fkeys[fi]+(_foldedCtrs[fkeys[fi]]?'1':'0');
     (p.contractors||[]).forEach(function(c){
       k+=c.id+c.name+c.deficiencies.length+',';
-      c.deficiencies.forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;});
+      c.deficiencies.forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;(d.observations||[]).forEach(function(o){k+=(o.photos||[]).length;});});
     });
-    (p.generalDeficiencies||[]).forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;});
+    (p.generalDeficiencies||[]).forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;(d.observations||[]).forEach(function(o){k+=(o.photos||[]).length;});});
     return k;
   }catch(e){return ''+Date.now();}// force render on error
 }
@@ -9342,7 +9342,7 @@ function buildDeficItem(d,ctrId,i){
       h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;">';
       photos.forEach(function(ph,pi){
         var psrc=_deficPhotoSrc(ph);var pid=_deficPhotoId(ph);
-        h+='<div class="photo-thumb"><img data-src="'+safe(psrc)+'" data-photo-id="'+safe(pid)+'" data-orig-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.origSrc||this.dataset.src||this.src,null,null,[this.dataset.photoId])" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+oi+','+pi+')">\u2715</button></div>';
+        h+='<div class="photo-thumb"><img src="'+safe(psrc)+'" data-photo-id="'+safe(pid)+'" data-orig-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.origSrc||this.src,null,null,[this.dataset.photoId])" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+oi+','+pi+')">\u2715</button></div>';
       });
       h+='</div>';
     }
