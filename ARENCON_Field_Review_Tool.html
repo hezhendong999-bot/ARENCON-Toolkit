@@ -9348,7 +9348,11 @@ function buildDeficItem(d,ctrId,i){
   if(obs){
     obs.forEach(function(o,oi){
       var entryDesc=(entries&&entries[oi])?entries[oi].description||'':o.text||'';
-      var enPhotos=(entries&&entries[oi])?entries[oi].photos||[]:o.photos||[];
+      // Prefer observations photos (current format), fall back to entries photos (legacy)
+      var obsPhotos=o.photos||[];
+      var entryPhotos=(entries&&entries[oi])?entries[oi].photos||[]:[];
+      // Merge: use observations photos if they exist, otherwise entries
+      var enPhotos=obsPhotos.length>0?obsPhotos:(entryPhotos.length>0?entryPhotos:[]);
       var frtLabel=o.notedOnInstance&&o.notedOnInstance!==(d.notedOnInstance||1)?' <span style="color:var(--link);font-size:calc(10px + var(--ts));">(FRT #'+o.notedOnInstance+')</span>':'';
       obsHtml+=_buildObsCard(entryDesc,enPhotos,oi,o.addressed,frtLabel,o.id);
     });
@@ -9449,11 +9453,15 @@ function removeEntryPhoto(did,ei,pi){
 }
 function _syncDeficPhotos(d){
   var all=[];var seen={};
-  (d.entries||[]).forEach(function(en){(en.photos||[]).forEach(function(ph){
+  function _addPh(ph){
     var pid=_deficPhotoId(ph);
     if(pid&&!seen[pid]){seen[pid]=true;all.push(ph);}
     else if(!pid){all.push(ph);}
-  });});
+  }
+  // Observations (current format) — primary source
+  (d.observations||[]).forEach(function(o){(o.photos||[]).forEach(_addPh);});
+  // Entries (legacy format) — secondary source
+  (d.entries||[]).forEach(function(en){(en.photos||[]).forEach(_addPh);});
   d.photos=all;
 }
 function handleEntryPhotoDrop(e,did,ei){
@@ -9475,13 +9483,19 @@ function triggerEntryPhotoCamera(did,ei){
 }
 function processEntryPhotos(did,ei,files){
   var f=findDeficiency(did);if(!f)return;
-  if(!f.defic.entries)f.defic.entries=[{description:f.defic.description||'',photos:f.defic.photos||[],priority:'high'}];
   Array.from(files).forEach(function(file){
     compressImage(file,3200,0.80,function(du){
       var rec=_makeDeficPhotoRec(du);
-      if(!f.defic.entries[ei].photos)f.defic.entries[ei].photos=[];
-      f.defic.entries[ei].photos.push(rec);
-      // Rebuild d.photos from entries (avoids duplicates — Session 40 fix)
+      // Write to observations (current format)
+      if(f.defic.observations&&f.defic.observations[ei]){
+        if(!f.defic.observations[ei].photos)f.defic.observations[ei].photos=[];
+        f.defic.observations[ei].photos.push(rec);
+      }
+      // Also sync to entries for backward compat
+      if(f.defic.entries&&f.defic.entries[ei]){
+        if(!f.defic.entries[ei].photos)f.defic.entries[ei].photos=[];
+        f.defic.entries[ei].photos.push(rec);
+      }
       _syncDeficPhotos(f.defic);
       _r2EnqueueDeficPhoto(rec,f.defic.id);
       saveToLS();_folderQuickSave();renderDeficiencyPanel();
