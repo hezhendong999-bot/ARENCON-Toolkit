@@ -1695,6 +1695,9 @@ body.text-l{--ts:4px;}
       <button class="dv-nav-btn" onclick="nextDrawing()" title="Next drawing (→ key)">►</button>
     </div>
     <span style="flex:1;"></span>
+    <!-- Undo/Redo — always visible -->
+    <button onclick="markupUndo()" title="Undo (Ctrl+Z)" style="font-size:calc(15px + var(--ts));padding:5px 8px;min-width:36px;">↩</button>
+    <button onclick="markupRedo()" title="Redo (Ctrl+Y)" style="font-size:calc(15px + var(--ts));padding:5px 8px;min-width:36px;">↪</button>
     <!-- Layers dropdown button -->
     <div style="position:relative;display:inline-block;" id="dv-layers-wrap">
       <button id="dv-layers-btn" onclick="toggleLayersDropdown(event)" title="Layer visibility"
