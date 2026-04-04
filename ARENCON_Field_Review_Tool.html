@@ -5592,8 +5592,6 @@ async function _openTiledPDF(drawingId,pageNum){
       // Kick off tiled rendering — tiles appear as they render
       hideDrawingLoading();
       fitDrawing();
-      // Reveal drawing after fit
-      var _wrap2=document.getElementById('dv-img-wrap');if(_wrap2)_wrap2.style.opacity='1';
       renderPinsOnDrawing();
       renderTasksPanel();
       initMarkupEvents();
@@ -5821,8 +5819,6 @@ function _openDrawingImage(d,drawingId){
         img.style.display='';
         if(prevBlobUrl){URL.revokeObjectURL(prevBlobUrl);}
         fitDrawing();renderPinsOnDrawing();renderTasksPanel();_lazyCanvasSize();initMarkupEvents();initSelectModeEvents();
-        // Reveal drawing after fit — prevents stale content flash during transition
-        var _wrap=document.getElementById('dv-img-wrap');if(_wrap)_wrap.style.opacity='1';
         if(window.innerWidth<=700){setTimeout(function(){fitDrawing();renderPinsOnDrawing();},200);setTimeout(function(){fitDrawing();},500);}
         // Defer heavy markup canvas allocation so it doesn't block first zoom gesture
         setTimeout(function(){if(dvState.currentDrawingId===drawingId)resizeMarkupCanvas();},500);
@@ -5950,6 +5946,8 @@ function fitDrawing(){
     dvState.fitScale=s;dvState.scale=s;
     dvState.panX=(aw-iw*s)/2;dvState.panY=(ah-ih*s)/2;
     applyTransform();
+    // Reveal wrap after positioning — prevents stale content flash
+    var _w=document.getElementById('dv-img-wrap');if(_w&&_w.style.opacity==='0')_w.style.opacity='1';
   });});
 }
 function applyTransform(){
