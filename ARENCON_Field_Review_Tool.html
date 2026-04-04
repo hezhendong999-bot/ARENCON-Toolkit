@@ -1553,6 +1553,7 @@ body.text-l{--ts:4px;}
           <!-- Active / Closed tabs -->
           <div class="defic-lifecycle-tabs" id="defic-lifecycle-tabs">
             <button class="dlc-tab active" data-dlc="active" onclick="switchDeficLifecycleTab('active')">Active (<span id="dlc-active-count">0</span>)</button>
+            <button class="dlc-tab" data-dlc="general" onclick="switchDeficLifecycleTab('general')">Site General (<span id="dlc-general-count">0</span>)</button>
             <button class="dlc-tab" data-dlc="closed" onclick="switchDeficLifecycleTab('closed')">Closed (<span id="dlc-closed-count">0</span>)</button>
           </div>
           <div id="defic-active-view">
@@ -1582,6 +1583,9 @@ body.text-l{--ts:4px;}
           </div><!-- /defic-active-view -->
           <div id="defic-closed-view" style="display:none;">
             <div id="defic-closed-groups"></div>
+          </div>
+          <div id="defic-general-view" style="display:none;">
+            <div id="defic-general-groups"></div>
           </div>
         </div>
       </div>
@@ -9043,7 +9047,7 @@ function _doRenderDeficiencyPanel(){
   // Skip expensive DOM rebuild if deficiency structure hasn't changed
   var key=_deficContentKey();
   if(key!==_rdpLastKey){_rdpLastKey=key;renderDeficGroups();}
-  renderClosedDeficView();renderSummaryTable();
+  renderClosedDeficView();renderGeneralDeficView();renderSummaryTable();
   setTimeout(function(){populateRespPhotos();_loadDataSrcImgs(document.getElementById('panel-deficiencies'));},50);
 }
 
@@ -9052,15 +9056,19 @@ function switchDeficLifecycleTab(tab){
   _deficLifecycleTab=tab;
   document.querySelectorAll('.dlc-tab').forEach(function(t){t.classList.toggle('active',t.getAttribute('data-dlc')===tab);});
   document.getElementById('defic-active-view').style.display=tab==='active'?'':'none';
+  document.getElementById('defic-general-view').style.display=tab==='general'?'':'none';
   document.getElementById('defic-closed-view').style.display=tab==='closed'?'':'none';
   if(tab==='closed')renderClosedDeficView();
+  if(tab==='general')renderGeneralDeficView();
 }
 function _updateDeficLifecycleCounts(){
   var p=getProject();if(!p)return;
   var ad=getAllDeficiencies(p);
-  var ac=0,cc=0;
+  var ac=0,cc=0,gc=0;
   ad.forEach(function(d){if(_deficIsOpen(d.defic))ac++;else cc++;});
+  gc=(p.generalDeficiencies||[]).length;
   var ael=document.getElementById('dlc-active-count');if(ael)ael.textContent=ac;
+  var gel=document.getElementById('dlc-general-count');if(gel)gel.textContent=gc;
   var cel=document.getElementById('dlc-closed-count');if(cel)cel.textContent=cc;
   // Build description autocomplete datalist
   _buildDeficDescSuggestions(p);
@@ -9116,7 +9124,7 @@ function renderClosedDeficView(){
   var el=document.getElementById('defic-closed-groups');if(!el)return;
   var p=getProject();if(!p){el.innerHTML='';return;}
   var ad=getAllDeficiencies(p);
-  var closed=ad.filter(function(d){return _deficIsClosed(d.defic);});
+  var closed=ad.filter(function(d){return !_deficIsOpen(d.defic);});
   if(!closed.length){el.innerHTML='<p style="color:#999;font-size:calc(13px + var(--ts));padding:24px 0;text-align:center;">No closed deficiencies yet.</p>';return;}
   // Group by closedOnInstance
   var groups={};
@@ -9149,6 +9157,14 @@ function renderClosedDeficView(){
     });
     html+='</div>';
   });
+  el.innerHTML=html;
+}
+function renderGeneralDeficView(){
+  var el=document.getElementById('defic-general-groups');if(!el)return;
+  var p=getProject();if(!p){el.innerHTML='';return;}
+  var gen=p.generalDeficiencies||[];
+  if(!gen.length){el.innerHTML='<p style="color:#999;font-size:calc(13px + var(--ts));padding:24px 0;text-align:center;">No site general deficiencies. Use "+ General Deficiency" to add one.</p>';return;}
+  var html=buildDeficGroup(null,'Site General',gen.filter(function(d){return _deficIsOpen(d);}),gen.length);
   el.innerHTML=html;
 }
 
