@@ -15819,7 +15819,11 @@ async function _initCloudSync(){
           var prevSP=localProj.sitePhotos||[];
           var _mkInPrev=prevSP.filter(function(sp){return sp&&sp.markupObjects&&sp.markupObjects.length>0;}).length;
           console.log('[CloudSync] Merging sitePhotos: cloud='+cloudProj.sitePhotos.length+' local='+prevSP.length+' localWithMarkup='+_mkInPrev);
-          localProj.sitePhotos=cloudProj.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevSP);});
+          var merged=cloudProj.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevSP);});
+          // Preserve local-only photos not in cloud (newly added, not yet synced)
+          var cloudIds=new Set();cloudProj.sitePhotos.forEach(function(ph){if(ph.id)cloudIds.add(ph.id);});
+          prevSP.forEach(function(lp){if(lp&&lp.id&&!cloudIds.has(lp.id))merged.push(lp);});
+          localProj.sitePhotos=merged;
         }
         if(cloudProj.info)localProj.info=Object.assign(localProj.info||{},cloudProj.info);
         _rebuildMissingR2Urls(localProj);
@@ -16032,7 +16036,10 @@ async function _syncHeartbeat(){
         var prevHBSP=p.sitePhotos||[];
         var _mkInHB=prevHBSP.filter(function(sp){return sp&&sp.markupObjects&&sp.markupObjects.length>0;}).length;
         console.log('[Heartbeat] Merging sitePhotos: cloud='+cloudData.sitePhotos.length+' local='+prevHBSP.length+' localWithMarkup='+_mkInHB);
-        p.sitePhotos=cloudData.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevHBSP);});
+        var hbMerged=cloudData.sitePhotos.map(function(ph){return _mergeSitePhoto(ph,prevHBSP);});
+        var hbCloudIds=new Set();cloudData.sitePhotos.forEach(function(ph){if(ph.id)hbCloudIds.add(ph.id);});
+        prevHBSP.forEach(function(lp){if(lp&&lp.id&&!hbCloudIds.has(lp.id))hbMerged.push(lp);});
+        p.sitePhotos=hbMerged;
       }
       if(cloudData.info)p.info=Object.assign(p.info||{},cloudData.info);
       _rebuildMissingR2Urls(p);
