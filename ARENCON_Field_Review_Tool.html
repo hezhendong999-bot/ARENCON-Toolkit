@@ -6004,11 +6004,9 @@ function zoomIn(){dvState.scale=Math.min(dvState.scale*1.3,10);applyTransform();
 function zoomOut(){var minS=dvState.fitScale||0.1;dvState.scale=Math.max(dvState.scale/1.3,minS);if(dvState.scale<=minS*1.05){fitDrawing();return;}applyTransform();}
 
 function initPanZoom(){var area=document.getElementById('dv-canvas-area');
+var na=area.cloneNode(true);area.parentNode.replaceChild(na,area);area=na;
 // Hide img-wrap during transition to prevent stale content flash
-var wrap=document.getElementById('dv-img-wrap');if(wrap)wrap.style.opacity='0';
-// Only attach listeners on first call — no DOM clone needed (eliminates GPU texture re-upload lag)
-if(area._pzInit)return;
-area._pzInit=true;
+var wrap=na.querySelector('#dv-img-wrap');if(wrap)wrap.style.opacity='0';
 var sx,sy,pan=false;
 
 area.addEventListener('mousedown',function(e){
