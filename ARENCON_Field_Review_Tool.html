@@ -9046,6 +9046,21 @@ function renderDeficiencyPanel(){
 }
 function _doRenderDeficiencyPanel(){
   _rdpTimer=null;
+  // One-time migration: fix "FRT #?" in existing activity entries
+  var p=getProject();
+  if(p&&!p._frtQFixed){
+    var ad=getAllDeficiencies(p);var fixed=0;
+    ad.forEach(function(d){
+      (d.defic.activity||[]).forEach(function(a){
+        if(a.text&&a.text.indexOf('FRT #?')>=0){
+          a.text=a.text.replace('FRT #?','FRT #'+(d.defic.notedOnInstance||1));
+          fixed++;
+        }
+      });
+    });
+    p._frtQFixed=true;
+    if(fixed>0){saveToLS();_dbg('[Migration] Fixed '+fixed+' "FRT #?" activity entries');}
+  }
   renderContractorChips();_updateDeficLifecycleCounts();_updateFrtInstanceIndicator();
   // Skip expensive DOM rebuild if deficiency structure hasn't changed
   var key=_deficContentKey();
