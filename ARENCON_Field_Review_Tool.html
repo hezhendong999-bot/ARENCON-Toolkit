@@ -5902,6 +5902,23 @@ function _openDrawingImage(d,drawingId){
     });
   }catch(err){console.error('_openDrawingImage error:',err);}
 }function closeDrawingViewer(){
+  // ── SAVE MARKUP IMMEDIATELY before destroying canvas ──
+  // saveToLS is debounced 600ms — if app closes before debounce fires, markup is lost
+  if(dvState.currentDrawingId&&_mkObjects.length>0){
+    var p=getProject();
+    if(p){
+      var dwg=p.drawings.find(function(d){return d.id===dvState.currentDrawingId;});
+      if(dwg){dwg.markupObjects=JSON.parse(JSON.stringify(_mkObjects));}
+    }
+  }
+  // Flush to IDB immediately (bypass 600ms debounce)
+  if(saveToLS._timer){clearTimeout(saveToLS._timer);saveToLS._timer=null;}
+  var _p=getProject();
+  if(_p){
+    _p._localModifiedAt=new Date().toISOString();
+    ADB.saveFullProject(_p).catch(function(e){console.error('Viewer close save error:',e);});
+    if(typeof _debouncedCloudSave==='function')_debouncedCloudSave();
+  }
   // Free GPU memory — critical on iOS/Safari to prevent crashes
   var _cvs=document.getElementById('markup-canvas');
   if(_cvs){_cvs.width=0;_cvs.height=0;_cvs._lazyReady=false;_cvs._dpr=null;_cvs._logicalW=null;_cvs._logicalH=null;_cvs._mkInitV2=false;}
@@ -5912,8 +5929,8 @@ function _openDrawingImage(d,drawingId){
   var main=document.querySelector('.dv-main');
   if(sb&&main&&sb.parentNode!==main){main.insertBefore(sb,main.firstChild);}
   document.getElementById('drawing-viewer').classList.remove('open');document.body.classList.remove('dv-open');if(window._tiledActive)_closeTiledPDF();if(dvState._currentBlobUrl){URL.revokeObjectURL(dvState._currentBlobUrl);dvState._currentBlobUrl=null;}dvState.currentDrawingId=null;dvState.selectedPinId=null;dvState.pinMode=false;mkState.tool=null;closePinPanel();closePinModal();}
-function prevDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx-1+p.drawings.length)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
-function nextDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx+1)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
+function prevDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;if(dvState.currentDrawingId&&_mkObjects.length>0){var _d=p.drawings.find(function(x){return x.id===dvState.currentDrawingId;});if(_d)_d.markupObjects=JSON.parse(JSON.stringify(_mkObjects));}var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx-1+p.drawings.length)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
+function nextDrawing(){var p=getProject();if(!p||p.drawings.length<2)return;if(dvState.currentDrawingId&&_mkObjects.length>0){var _d=p.drawings.find(function(x){return x.id===dvState.currentDrawingId;});if(_d)_d.markupObjects=JSON.parse(JSON.stringify(_mkObjects));}var idx=p.drawings.findIndex(function(d){return d.id===dvState.currentDrawingId;});idx=(idx+1)%p.drawings.length;openDrawingViewer(p.drawings[idx].id);}
 
 var _fitRetryCount=0;
 function fitDrawing(){
@@ -14790,10 +14807,9 @@ function _collectFullState(){
       delete d.markupData;
       delete d.thumb;
       delete d._hasLocalBlob;
-      // markupObjects are large (pen strokes with coordinate arrays) and saved to R2 separately.
-      // Strip unconditionally to prevent Supabase row size limit (500 errors).
-      // Markup is preserved in IDB locally and in R2 via markupR2Saved flag.
-      delete d.markupObjects;
+      // markupObjects are KEPT in cloud — they're small JSON (stroke coords).
+      // Only strip large binary data (dataUrl, markupData, thumb).
+      // Previously stripped unconditionally which caused cross-device markup loss.
     });
   }
 
