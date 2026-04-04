@@ -1667,7 +1667,7 @@ body.text-l{--ts:4px;}
       <div class="card"><div class="card-header">📷 Photo Gallery</div>
         <div class="card-body">
           <div class="photo-header-bar">
-            <div class="photo-actions-dd"><button class="btn btn-outline btn-sm" id="photo-actions-btn" onclick="togglePhotoActionsMenu(event)">Actions ▾</button><div class="photo-actions-menu" id="photo-actions-menu"><button onclick="selectAllPhotos()">Select all</button><button onclick="deselectAllPhotos()">Deselect all</button><div class="separator"></div><button onclick="downloadSelectedPhotos()">Export selected</button><button onclick="reassignSelectedPhotos()">↗ Reassign selected</button><div class="separator"></div><button class="danger" onclick="deleteSelectedPhotos()">Delete selected</button></div></div>
+            <div class="photo-actions-dd"><button class="btn btn-outline btn-sm" id="photo-actions-btn" onclick="togglePhotoActionsMenu(event)">Actions ▾</button><div class="photo-actions-menu" id="photo-actions-menu"><button onclick="selectAllPhotos()">Select all</button><button onclick="deselectAllPhotos()">Deselect all</button><div class="separator"></div><button onclick="downloadSelectedPhotos()">Export selected</button><button onclick="reassignSelectedPhotos()">↗ Reassign selected</button><button onclick="galleryAssignToPin()">📌 Assign to Pin</button><div class="separator"></div><button class="danger" onclick="deleteSelectedPhotos()">Delete selected</button></div></div>
             <div style="flex:1;"></div>
             <div class="photo-filter-dd"><button class="btn btn-outline btn-sm" onclick="togglePhotoFilterMenu(event)">⚙ Filters</button><div class="photo-filter-menu" id="photo-filter-menu"><button onclick="filterPhotos('all')">All photos</button><button onclick="filterPhotos('deficiency')">Deficiency photos</button><button onclick="filterPhotos('general')">General photos</button><button onclick="filterPhotos('site')">Site photos</button></div></div>
           </div>
@@ -9329,8 +9329,9 @@ function buildDeficItem(d,ctrId,i){
     }
     h+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');handleEntryPhotoDrop(event,\''+d.id+'\','+oi+')">';
     h+='<span style="font-size:calc(11px + var(--ts));color:var(--silver);">Drop photos or</span>';
-    h+='<button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+oi+')">\uD83D\uDCCE Upload</button>';
-    h+='<button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+oi+')">\uD83D\uDCF7 Camera</button>';
+    h+='<button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+oi+')">📎 Upload</button>';
+    h+='<button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+oi+')">📷 Camera</button>';
+    h+='<button class="pz-gallery" onclick="event.stopPropagation();openGalleryPicker(\''+d.id+'\','+oi+')" style="background:#37474F;color:white;border:1px solid #546E7A;">🖼 Gallery</button>';
     h+='</div>';
     var obsActs=obsId?sortedAct.filter(function(a){return a.obsRef===obsId;}):[];
     if(obsActs.length){
@@ -9503,6 +9504,184 @@ function processEntryPhotos(did,ei,files){
   });
 }
 
+// ═══ GALLERY PICKER — pick sitePhotos to attach to a deficiency observation ═══
+var _gpTarget=null; // {did, obsIdx}
+function openGalleryPicker(did,obsIdx){
+  _gpTarget={did:did,obsIdx:obsIdx};
+  var p=getProject();if(!p)return;
+  var sp=p.sitePhotos||[];
+  if(!sp.length){_aAlert('No photos in the gallery yet. Take photos from the Photos tab first.');return;}
+  // Build modal
+  var overlay=document.getElementById('gallery-picker-overlay');
+  if(!overlay){
+    overlay=document.createElement('div');overlay.id='gallery-picker-overlay';
+    overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);z-index:99999;display:flex;flex-direction:column;font-family:Calibri,sans-serif;';
+    document.body.appendChild(overlay);
+  }
+  // Find which photos are already on this observation
+  var f=findDeficiency(did);
+  var existingIds={};
+  if(f&&f.defic.observations&&f.defic.observations[obsIdx]){
+    (f.defic.observations[obsIdx].photos||[]).forEach(function(ph){
+      if(ph._galleryRef)existingIds[ph._galleryRef]=true;
+      if(ph.id)existingIds[ph.id]=true;
+    });
+  }
+  var html='<div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #3a3e48;flex-shrink:0;">';
+  html+='<span style="font-size:calc(15px + var(--ts));font-weight:700;color:white;">Pick Photos from Gallery</span>';
+  html+='<div style="display:flex;gap:8px;align-items:center;">';
+  html+='<span id="gp-count" style="font-size:calc(12px + var(--ts));color:#8a9ab8;">0 selected</span>';
+  html+='<button onclick="_gpAttach()" style="background:#1A7A4A;color:white;border:none;padding:8px 18px;border-radius:6px;font-size:calc(13px + var(--ts));font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Attach</button>';
+  html+='<button onclick="_gpClose()" style="background:#455A64;color:white;border:none;padding:8px 14px;border-radius:6px;font-size:calc(13px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
+  html+='</div></div>';
+  html+='<div style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-content:start;" id="gp-grid">';
+  sp.forEach(function(ph,i){
+    var src=ph.r2Url||ph.dataUrl||'';
+    var alreadyAttached=existingIds[ph.id];
+    html+='<div class="gp-thumb'+(alreadyAttached?' gp-attached':'')+'" data-idx="'+i+'" onclick="'+(alreadyAttached?'':'_gpToggle(this,'+i+')')+'" style="width:120px;height:120px;border-radius:8px;overflow:hidden;position:relative;cursor:'+(alreadyAttached?'not-allowed':'pointer')+';border:3px solid '+(alreadyAttached?'#546E7A':'transparent')+';flex-shrink:0;opacity:'+(alreadyAttached?'0.4':'1')+';">';
+    html+='<img data-src="'+_safeAttr(src)+'" style="width:100%;height:100%;object-fit:cover;">';
+    if(alreadyAttached)html+='<div style="position:absolute;top:4px;right:4px;background:#546E7A;color:white;font-size:9px;padding:2px 6px;border-radius:4px;">Added</div>';
+    html+='<div class="gp-check" style="display:none;position:absolute;top:4px;left:4px;width:24px;height:24px;background:#1A7A4A;border-radius:50%;color:white;font-size:16px;text-align:center;line-height:24px;">✓</div>';
+    html+='</div>';
+  });
+  html+='</div>';
+  overlay.innerHTML=html;
+  overlay.style.display='flex';
+  // Lazy-load images
+  setTimeout(function(){
+    overlay.querySelectorAll('img[data-src]').forEach(function(img){
+      img.src=img.dataset.src;img.removeAttribute('data-src');
+    });
+  },50);
+  window._gpSelected=new Set();
+}
+function _gpToggle(el,idx){
+  if(window._gpSelected.has(idx)){
+    window._gpSelected.delete(idx);
+    el.style.border='3px solid transparent';
+    el.querySelector('.gp-check').style.display='none';
+  }else{
+    window._gpSelected.add(idx);
+    el.style.border='3px solid #1A7A4A';
+    el.querySelector('.gp-check').style.display='';
+  }
+  var cel=document.getElementById('gp-count');
+  if(cel)cel.textContent=window._gpSelected.size+' selected';
+}
+function _gpClose(){
+  var overlay=document.getElementById('gallery-picker-overlay');
+  if(overlay)overlay.style.display='none';
+  _gpTarget=null;window._gpSelected=null;
+}
+function _gpAttach(){
+  if(!_gpTarget||!window._gpSelected||!window._gpSelected.size){_gpClose();return;}
+  var p=getProject();if(!p){_gpClose();return;}
+  var f=findDeficiency(_gpTarget.did);if(!f){_gpClose();return;}
+  var obs=f.defic.observations&&f.defic.observations[_gpTarget.obsIdx];
+  if(!obs){_gpClose();return;}
+  if(!obs.photos)obs.photos=[];
+  var sp=p.sitePhotos||[];
+  var count=0;
+  window._gpSelected.forEach(function(idx){
+    var photo=sp[idx];if(!photo)return;
+    // Copy photo to observation (keep original in gallery)
+    var rec={
+      id:'dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
+      dataUrl:photo.dataUrl||'',
+      r2Key:photo.r2Key||'',r2Status:photo.r2Status||'',r2Url:photo.r2Url||'',
+      _galleryRef:photo.id, // track source for reassignment
+      timestamp:photo.timestamp||photo.date||''
+    };
+    obs.photos.push(rec);
+    count++;
+  });
+  // Sync entries for backward compat
+  if(f.defic.entries&&f.defic.entries[_gpTarget.obsIdx]){
+    f.defic.entries[_gpTarget.obsIdx].photos=obs.photos;
+  }
+  _syncDeficPhotos(f.defic);
+  saveToLS();_folderQuickSave();renderDeficiencyPanel();
+  _gpClose();
+  toast(count+' photo'+(count!==1?'s':'')+' attached ✓');
+}
+function _safeAttr(s){return(s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+// ═══ GALLERY: Assign selected photos to a deficiency pin ═══
+function galleryAssignToPin(){
+  var p=getProject();if(!p)return;
+  var selected=_getSelectedGalleryPhotos();
+  if(!selected||!selected.length){_aAlert('Select at least one photo first.');return;}
+  // Build deficiency list
+  var ad=getAllDeficiencies(p);
+  if(!ad.length){_aAlert('No deficiencies exist yet. Create one first.');return;}
+  var html='<div style="max-height:400px;overflow-y:auto;">';
+  ad.forEach(function(d){
+    var desc=_deficDesc(d.defic);
+    var truncDesc=desc.length>50?desc.substring(0,50)+'…':desc;
+    var label='#'+d.defic.num+' — '+truncDesc+' ('+d.contractorName+')';
+    html+='<button onclick="_galleryDoAssign(\''+d.defic.id+'\')" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;border-bottom:1px solid var(--border);background:transparent;color:var(--fg);font-size:calc(13px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;" onmouseover="this.style.background=\'var(--smoke)\'" onmouseout="this.style.background=\'transparent\'">'+escHtml(label)+'</button>';
+  });
+  html+='</div>';
+  _showCustomModal('Assign '+selected.length+' photo'+(selected.length!==1?'s':'')+' to which deficiency?',html);
+}
+function _galleryDoAssign(did){
+  var p=getProject();if(!p)return;
+  var f=findDeficiency(did);if(!f)return;
+  var selected=_getSelectedGalleryPhotos();if(!selected||!selected.length)return;
+  // Attach to first observation
+  var obs=f.defic.observations&&f.defic.observations[0];
+  if(!obs){_aAlert('Deficiency has no observations.');return;}
+  if(!obs.photos)obs.photos=[];
+  var count=0;
+  selected.forEach(function(photo){
+    var rec={
+      id:'dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
+      dataUrl:photo.dataUrl||'',
+      r2Key:photo.r2Key||'',r2Status:photo.r2Status||'',r2Url:photo.r2Url||'',
+      _galleryRef:photo.id,
+      timestamp:photo.timestamp||photo.date||''
+    };
+    obs.photos.push(rec);
+    count++;
+  });
+  if(f.defic.entries&&f.defic.entries[0]){
+    f.defic.entries[0].photos=obs.photos;
+  }
+  _syncDeficPhotos(f.defic);
+  _closeCustomModal();
+  _clearGallerySelection();
+  saveToLS();_folderQuickSave();renderDeficiencyPanel();
+  toast(count+' photo'+(count!==1?'s':'')+' assigned to #'+f.defic.num+' ✓');
+}
+function _getSelectedGalleryPhotos(){
+  var p=getProject();if(!p)return[];
+  var sp=p.sitePhotos||[];
+  var selIds=_selectedPhotos||[];
+  if(!selIds.length)return[];
+  return sp.filter(function(ph){return selIds.indexOf(ph.id)>=0;});
+}
+function _clearGallerySelection(){
+  _selectedPhotos=[];
+  renderPhotoGallery();
+}
+function _showCustomModal(title,bodyHtml){
+  var overlay=document.getElementById('gallery-picker-overlay');
+  if(!overlay){
+    overlay=document.createElement('div');overlay.id='gallery-picker-overlay';
+    overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML='<div style="background:var(--card);border-radius:12px;max-width:500px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.4);overflow:hidden;">'+
+    '<div style="padding:14px 18px;border-bottom:1px solid var(--border);font-size:calc(14px + var(--ts));font-weight:700;color:var(--fg);">'+escHtml(title)+'</div>'+
+    bodyHtml+
+    '<div style="padding:10px 18px;border-top:1px solid var(--border);text-align:right;"><button onclick="_closeCustomModal()" style="background:#455A64;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button></div>'+
+    '</div>';
+  overlay.style.display='flex';
+}
+function _closeCustomModal(){
+  var overlay=document.getElementById('gallery-picker-overlay');
+  if(overlay)overlay.style.display='none';
+}
 function addDeficiencyForGroup(ctrId){var p=getProject();var num=p.nextDeficNum++;var d=newDeficiency(num);if(ctrId){var c=p.contractors.find(function(x){return x.id===ctrId;});if(c)c.deficiencies.push(d);}else{p.generalDeficiencies.push(d);}pushUndo();saveToLS();_folderQuickSave();renderDeficiencyPanel();setTimeout(function(){var el=document.getElementById('defic-item-'+d.id);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},100);}
 function updateDeficField(did,field,val){var f=findDeficiency(did);if(f){f.defic[field]=val;saveToLS();if(field==='status'){renderSummaryTable();_folderQuickSave();}}}
 
