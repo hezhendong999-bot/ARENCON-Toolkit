@@ -4479,6 +4479,8 @@ function _preCacheDrawingSnapshots(){
   var idx=0;
   function _next(){
     if(idx>=queue.length){_preCacheRunning=false;_dbg('[Snapshot] Pre-cache complete: checked '+queue.length+' drawings');return;}
+    // Pause while drawing viewer is open — don't compete for CPU during markup/zoom
+    if(dvState.currentDrawingId){setTimeout(_next,2000);return;}
     var did=queue[idx++];
     // Check if snapshot already exists in IDB
     ADB.get('drawings',did).then(function(rec){
@@ -7129,8 +7131,9 @@ function initMarkupEvents(){
     }
     var lw=mc._logicalW||mc.width,lh=mc._logicalH||mc.height;
     ov.style.width=lw+'px';ov.style.height=lh+'px';
-    // 4.5M pixel cap — Samsung Galaxy Tab A sweet spot (5M was laggy, 4M too fuzzy)
-    var ovMax=4500000;var ovPx=lw*lh;var ovScale=ovPx>ovMax?Math.sqrt(ovMax/ovPx):1;
+    // 3M pixel cap — Samsung Galaxy Tab A needs this low for smooth pen strokes
+    // Preview is slightly softer but strokes snap sharp on finger lift (main canvas render)
+    var ovMax=3000000;var ovPx=lw*lh;var ovScale=ovPx>ovMax?Math.sqrt(ovMax/ovPx):1;
     ov.width=Math.round(lw*ovScale);ov.height=Math.round(lh*ovScale);
     ov._dpr=ovScale;ov._logicalW=lw;ov._logicalH=lh;
     return ov;
