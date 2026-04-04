@@ -398,7 +398,7 @@ body.dark-mode #bulk-action-bar{background:#1a1d24;border-color:#9C2742;}
 .photo-zone.drag-over{border-color:var(--red)!important;background:rgba(139,0,0,.03)!important;}
 .photo-zone-btns{display:flex;gap:5px;}
 .photo-zone-btns button{font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));cursor:pointer;border-radius:5px;padding:5px 10px;}
-.pz-upload{border:1.5px solid var(--border);background:var(--smoke);color:var(--steel);}.pz-camera{border:none;background:#1A7A4A;color:white;}
+.pz-upload{border:1.5px solid var(--border);background:var(--smoke);color:var(--steel);}.pz-camera{border:none;background:#1A7A4A;color:white;}.pz-gallery{border:none;background:#37474F;color:white;border-radius:5px;padding:4px 10px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;}
 .photo-thumb{position:relative;display:inline-block;}.photo-thumb img{width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,.1);cursor:zoom-in;}
 .photo-thumb .photo-remove{position:absolute;top:-4px;right:-4px;background:#c00;color:white;border:none;border-radius:50%;width:20px;height:20px;min-width:20px;min-height:20px;padding:0;font-size:calc(11px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
 
@@ -1078,6 +1078,7 @@ body.dark-mode .dup-defic-btn{background:rgba(255,255,255,.06)!important;color:#
 body.dark-mode .resp-add-ctr{background:rgba(230,126,34,.25);color:#f0a060;border:1px solid rgba(230,126,34,.3);}
 body.dark-mode .resp-add-con{background:rgba(44,74,107,.35);color:#90b0d0;border:1px solid rgba(44,74,107,.4);}
 body.dark-mode .pz-camera{background:rgba(26,122,74,.3);color:#60c090;border:1px solid rgba(26,122,74,.35);}
+body.dark-mode .pz-gallery{background:rgba(55,71,79,.5);color:#90a4ae;border:1px solid rgba(84,110,122,.4);}
 body.dark-mode #issue-status-badge{background:rgba(230,81,0,.3)!important;color:#f0b060!important;}
 body.dark-mode .resp-contractor{background:#2a2000;border-color:#554400;color:#e0e4ea;}
 body.dark-mode .resp-contractor textarea{background:#211800!important;border-color:#443300!important;color:#e8ddc8!important;}
@@ -9349,7 +9350,7 @@ function buildDeficItem(d,ctrId,i){
     h+='<span style="font-size:calc(11px + var(--ts));color:var(--silver);">Drop photos or</span>';
     h+='<button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+oi+')">📎 Upload</button>';
     h+='<button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+oi+')">📷 Camera</button>';
-    h+='<button class="pz-gallery" onclick="event.stopPropagation();openGalleryPicker(\''+d.id+'\','+oi+')" style="background:#37474F;color:white;border:1px solid #546E7A;">+ Gallery</button>';
+    h+='<button class="pz-gallery" onclick="event.stopPropagation();openGalleryPicker(\''+d.id+'\','+oi+')">+ Gallery</button>';
     h+='</div>';
     var obsActs=obsId?sortedAct.filter(function(a){return a.obsRef===obsId;}):[];
     if(obsActs.length){
@@ -9604,10 +9605,11 @@ function _gpAttach(){
   var count=0;
   window._gpSelected.forEach(function(idx){
     var photo=_gpPhotoList[idx];if(!photo)return;
+    var photoSrc=photo.src||photo.thumbSrc||'';
     var rec={
       id:'dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
-      dataUrl:'',
-      r2Key:photo.r2Key||'',r2Status:'',r2Url:photo.src||'',
+      dataUrl:photoSrc,
+      r2Key:photo.r2Key||'',r2Status:'',r2Url:photoSrc,
       _galleryRef:photo.id,
       timestamp:photo.date||''
     };
@@ -9653,10 +9655,11 @@ function _galleryDoAssign(did){
   if(!obs.photos)obs.photos=[];
   var count=0;
   selected.forEach(function(photo){
+    var photoSrc=photo.r2Url||photo.dataUrl||photo.src||'';
     var rec={
       id:'dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
-      dataUrl:photo.dataUrl||'',
-      r2Key:photo.r2Key||'',r2Status:photo.r2Status||'',r2Url:photo.r2Url||'',
+      dataUrl:photoSrc,
+      r2Key:photo.r2Key||'',r2Status:photo.r2Status||'',r2Url:photoSrc,
       _galleryRef:photo.id,
       timestamp:photo.timestamp||photo.date||''
     };
@@ -14427,16 +14430,17 @@ function _lbDoAssign(did){
   }
   var rec;
   if(photo){
+    var photoSrc=photo.r2Url||photo.dataUrl||photo.src||'';
     rec={
       id:'dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
-      dataUrl:photo.dataUrl||'',
-      r2Key:photo.r2Key||'',r2Status:photo.r2Status||'',r2Url:photo.r2Url||'',
+      dataUrl:photoSrc,
+      r2Key:photo.r2Key||'',r2Status:photo.r2Status||'',r2Url:photoSrc,
       _galleryRef:photo.id,
       timestamp:photo.timestamp||photo.date||''
     };
   }else{
     var src=_lbPhotos&&_lbPhotos[_lbIdx]||'';
-    rec={id:'dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),dataUrl:src,r2Key:'',r2Status:'',r2Url:'',timestamp:''};
+    rec={id:'dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),dataUrl:src,r2Key:'',r2Status:'',r2Url:src,timestamp:''};
   }
   obs.photos.push(rec);
   if(f.defic.entries&&f.defic.entries[0])f.defic.entries[0].photos=obs.photos;
