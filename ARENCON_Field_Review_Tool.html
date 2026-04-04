@@ -3018,7 +3018,15 @@ function newDeficiency(num){
   };
 }
 function getProject(){return allProjects[currentProjectId];}
-function getAllDeficiencies(p){if(!p)p=getProject();if(!p)return[];var all=[];(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:c.name,contractorId:c.id});});});(p.generalDeficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:'Site General',contractorId:null});});all.sort(function(a,b){return a.defic.num-b.defic.num;});return all;}
+var _adCacheKey='',_adCacheResult=[];
+function getAllDeficiencies(p){if(!p)p=getProject();if(!p)return[];
+  // Cache: invalidate when structure changes (avoids walking all contractors 26x per render)
+  var key=p.id+'_'+(p.contractors||[]).length+'_'+(p.generalDeficiencies||[]).length;
+  (p.contractors||[]).forEach(function(c){key+='_'+c.id+'_'+c.deficiencies.length;});
+  if(key===_adCacheKey)return _adCacheResult;
+  var all=[];(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:c.name,contractorId:c.id});});});(p.generalDeficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:'Site General',contractorId:null});});all.sort(function(a,b){return a.defic.num-b.defic.num;});
+  _adCacheKey=key;_adCacheResult=all;return all;
+}
 function findDeficiency(deficId,p){if(!p)p=getProject();if(!p)return null;for(var i=0;i<(p.contractors||[]).length;i++){var c=p.contractors[i];for(var j=0;j<(c.deficiencies||[]).length;j++){if(c.deficiencies[j].id===deficId)return{defic:c.deficiencies[j],contractor:c,arr:c.deficiencies,idx:j};}}for(var k=0;k<(p.generalDeficiencies||[]).length;k++){if(p.generalDeficiencies[k].id===deficId)return{defic:p.generalDeficiencies[k],contractor:null,arr:p.generalDeficiencies,idx:k};}return null;}
 
 // Helper: get first observation text from a deficiency (handles both old and new format)
@@ -3036,6 +3044,7 @@ function _deficIsClosed(d){return d.status==='closed'||d.status==='Addressed & C
 // ═══ SAVE — writes to IndexedDB + marks dirty for folder sync ═══
 function saveToLS(){
   if(!currentProjectId||!allProjects[currentProjectId])return;
+  _adCacheKey='';// invalidate getAllDeficiencies cache
   allProjects[currentProjectId].modified=new Date().toISOString();
   // Debounced full save — batches rapid changes
   if(saveToLS._timer)clearTimeout(saveToLS._timer);
@@ -3227,87 +3236,74 @@ function confirmDownloadJSON(){
   _aConfirm('Download JSON backup of "'+name+'"?',function(){exportProjectJSON();},'Download');
 }
 // _aConfirm / _aPrompt / _aAlert — callback-based custom modals (no async conversion needed)
-function _aConfirm(msg,onOk,okText){
+// ═══ SHARED MODAL BUILDER ═══
+function _aModalBase(){
   var isDark=document.body.classList.contains('dark-mode');
   var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7';
-  var isDestructive=okText&&/delete|remove|reset|clear/i.test(okText);
-  var okBg,okFg,okBdr;
-  if(isDestructive){okBg=isDark?'rgba(156,39,66,.35)':'#9C2742';okFg=isDark?'#e8a0b0':'white';okBdr=isDark?'border:1px solid rgba(156,39,66,.4);':'border:none;';}
-  else{okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A';okFg='white';okBdr=isDark?'border:1px solid rgba(26,122,74,.4);':'border:none;';}
+  var okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A',okBdr=isDark?'border:1px solid rgba(26,122,74,.4);':'border:none;';
   var cancelBg=isDark?'rgba(255,255,255,.06)':'none',cancelBdr=isDark?'1.5px solid #3a4050':'1.5px solid '+bdr;
+  var ibg=isDark?'#151a24':'#F8FAFC';
+  var btnBase='padding:8px 20px;border-radius:8px;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;';
   var ov=document.createElement('div');ov.className='_a-modal-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
-  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
-  h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
-  h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
-  h+='<button class="_ac-cancel" style="padding:8px 20px;border:'+cancelBdr+';border-radius:8px;background:'+cancelBg+';color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
-  h+='<button class="_ac-ok" style="padding:8px 20px;'+okBdr+'border-radius:8px;background:'+okBg+';color:'+okFg+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">'+(okText||'OK')+'</button>';
-  h+='</div></div>';
-  ov.innerHTML=h;
-  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
-  ov.querySelector('._ac-cancel').onclick=function(){ov.remove();};
-  ov.querySelector('._ac-ok').onclick=function(){ov.remove();if(onOk)onOk();};
-  document.body.appendChild(ov);
-  ov.querySelector('._ac-ok').focus();
+  return{ov:ov,bg:bg,fg:fg,fg2:fg2,bdr:bdr,okBg:okBg,okBdr:okBdr,cancelBg:cancelBg,cancelBdr:cancelBdr,ibg:ibg,btnBase:btnBase,isDark:isDark};
 }
-// Two-button confirm with custom labels and separate callbacks
+function _aConfirm(msg,onOk,okText){
+  var m=_aModalBase();
+  var isDestructive=okText&&/delete|remove|reset|clear/i.test(okText);
+  var okBg=isDestructive?(m.isDark?'rgba(156,39,66,.35)':'#9C2742'):m.okBg;
+  var okFg=isDestructive?(m.isDark?'#e8a0b0':'white'):'white';
+  var okBdr2=isDestructive?(m.isDark?'border:1px solid rgba(156,39,66,.4);':'border:none;'):m.okBdr;
+  m.ov.innerHTML='<div style="background:'+m.bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+m.fg+';border:1px solid '+m.bdr+';">'+
+    '<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>'+
+    '<div style="display:flex;gap:10px;justify-content:flex-end;">'+
+    '<button class="_ac-cancel" style="'+m.btnBase+'border:'+m.cancelBdr+';background:'+m.cancelBg+';color:'+m.fg2+';">Cancel</button>'+
+    '<button class="_ac-ok" style="'+m.btnBase+okBdr2+'background:'+okBg+';color:'+okFg+';">'+(okText||'OK')+'</button>'+
+    '</div></div>';
+  m.ov.addEventListener('click',function(e){if(e.target===m.ov)m.ov.remove();});
+  m.ov.querySelector('._ac-cancel').onclick=function(){m.ov.remove();};
+  m.ov.querySelector('._ac-ok').onclick=function(){m.ov.remove();if(onOk)onOk();};
+  document.body.appendChild(m.ov);m.ov.querySelector('._ac-ok').focus();
+}
 function _aConfirmTwoBtn(msg,okText,onOk,cancelText,onCancel){
-  var isDark=document.body.classList.contains('dark-mode');
-  var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7';
-  var okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A',cancelBg=isDark?'rgba(255,255,255,.06)':'none',cancelBdr=isDark?'1.5px solid #3a4050':'1.5px solid '+bdr;
-  var ov=document.createElement('div');ov.className='_a-modal-ov';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
-  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
-  h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
-  h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
-  h+='<button class="_ac-cancel" style="padding:8px 20px;border:'+cancelBdr+';border-radius:8px;background:'+cancelBg+';color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">'+(cancelText||'Cancel')+'</button>';
-  h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:'+okBg+';color:white;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">'+(okText||'OK')+'</button>';
-  h+='</div></div>';
-  ov.innerHTML=h;
-  ov.addEventListener('click',function(e){if(e.target===ov){ov.remove();if(onCancel)onCancel();}});
-  ov.querySelector('._ac-cancel').onclick=function(){ov.remove();if(onCancel)onCancel();};
-  ov.querySelector('._ac-ok').onclick=function(){ov.remove();if(onOk)onOk();};
-  document.body.appendChild(ov);
+  var m=_aModalBase();
+  m.ov.innerHTML='<div style="background:'+m.bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+m.fg+';border:1px solid '+m.bdr+';">'+
+    '<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>'+
+    '<div style="display:flex;gap:10px;justify-content:flex-end;">'+
+    '<button class="_ac-cancel" style="'+m.btnBase+'border:'+m.cancelBdr+';background:'+m.cancelBg+';color:'+m.fg2+';">'+(cancelText||'Cancel')+'</button>'+
+    '<button class="_ac-ok" style="'+m.btnBase+m.okBdr+'background:'+m.okBg+';color:white;">'+(okText||'OK')+'</button>'+
+    '</div></div>';
+  m.ov.addEventListener('click',function(e){if(e.target===m.ov){m.ov.remove();if(onCancel)onCancel();}});
+  m.ov.querySelector('._ac-cancel').onclick=function(){m.ov.remove();if(onCancel)onCancel();};
+  m.ov.querySelector('._ac-ok').onclick=function(){m.ov.remove();if(onOk)onOk();};
+  document.body.appendChild(m.ov);
 }
 function _aPrompt(msg,defVal,onOk){
-  var isDark=document.body.classList.contains('dark-mode');
-  var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7',ibg=isDark?'#151a24':'#F8FAFC';
-  var okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A',okFg='white',okBdr=isDark?'border:1px solid rgba(26,122,74,.4);':'border:none;';
-  var cancelBg=isDark?'rgba(255,255,255,.06)':'none',cancelBdr=isDark?'1.5px solid #3a4050':'1.5px solid '+bdr;
-  var ov=document.createElement('div');ov.className='_a-modal-ov';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
-  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
-  h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:14px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
-  h+='<input class="_ap-input" type="text" value="'+_escAttr(defVal||'')+'" style="width:100%;padding:10px 14px;border:1.5px solid '+bdr+';border-radius:8px;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;background:'+ibg+';color:'+fg+';outline:none;margin-bottom:16px;box-sizing:border-box;">';
-  h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
-  h+='<button class="_ac-cancel" style="padding:8px 20px;border:'+cancelBdr+';border-radius:8px;background:'+cancelBg+';color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
-  h+='<button class="_ac-ok" style="padding:8px 20px;'+okBdr+'border-radius:8px;background:'+okBg+';color:'+okFg+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
-  h+='</div></div>';
-  ov.innerHTML=h;
-  var inp=ov.querySelector('._ap-input');
-  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
-  ov.querySelector('._ac-cancel').onclick=function(){ov.remove();};
-  ov.querySelector('._ac-ok').onclick=function(){var v=inp.value;ov.remove();if(onOk)onOk(v);};
-  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){var v=inp.value;ov.remove();if(onOk)onOk(v);}if(e.key==='Escape')ov.remove();});
-  document.body.appendChild(ov);
-  inp.focus();inp.select();
+  var m=_aModalBase();
+  m.ov.innerHTML='<div style="background:'+m.bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+m.fg+';border:1px solid '+m.bdr+';">'+
+    '<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:14px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>'+
+    '<input class="_ap-input" type="text" value="'+_escAttr(defVal||'')+'" style="width:100%;padding:10px 14px;border:1.5px solid '+m.bdr+';border-radius:8px;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;background:'+m.ibg+';color:'+m.fg+';outline:none;margin-bottom:16px;box-sizing:border-box;">'+
+    '<div style="display:flex;gap:10px;justify-content:flex-end;">'+
+    '<button class="_ac-cancel" style="'+m.btnBase+'border:'+m.cancelBdr+';background:'+m.cancelBg+';color:'+m.fg2+';">Cancel</button>'+
+    '<button class="_ac-ok" style="'+m.btnBase+m.okBdr+'background:'+m.okBg+';color:white;">OK</button>'+
+    '</div></div>';
+  var inp=m.ov.querySelector('._ap-input');
+  m.ov.addEventListener('click',function(e){if(e.target===m.ov)m.ov.remove();});
+  m.ov.querySelector('._ac-cancel').onclick=function(){m.ov.remove();};
+  m.ov.querySelector('._ac-ok').onclick=function(){var v=inp.value;m.ov.remove();if(onOk)onOk(v);};
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){var v=inp.value;m.ov.remove();if(onOk)onOk(v);}if(e.key==='Escape')m.ov.remove();});
+  document.body.appendChild(m.ov);inp.focus();inp.select();
 }
 function _aAlert(msg){
-  var isDark=document.body.classList.contains('dark-mode');
-  var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',bdr=isDark?'#2a3040':'#DDE1E7';
-  var okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A',okFg='white',okBdr=isDark?'border:1px solid rgba(26,122,74,.4);':'border:none;';
-  var ov=document.createElement('div');ov.className='_a-modal-ov';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
-  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
-  h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
-  h+='<div style="display:flex;justify-content:flex-end;">';
-  h+='<button class="_ac-ok" style="padding:8px 20px;'+okBdr+'border-radius:8px;background:'+okBg+';color:'+okFg+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
-  h+='</div></div>';
-  ov.innerHTML=h;
-  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
-  ov.querySelector('._ac-ok').onclick=function(){ov.remove();};
-  document.body.appendChild(ov);
-  ov.querySelector('._ac-ok').focus();
+  var m=_aModalBase();
+  m.ov.innerHTML='<div style="background:'+m.bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+m.fg+';border:1px solid '+m.bdr+';">'+
+    '<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>'+
+    '<div style="display:flex;justify-content:flex-end;">'+
+    '<button class="_ac-ok" style="'+m.btnBase+m.okBdr+'background:'+m.okBg+';color:white;">OK</button>'+
+    '</div></div>';
+  m.ov.addEventListener('click',function(e){if(e.target===m.ov)m.ov.remove();});
+  m.ov.querySelector('._ac-ok').onclick=function(){m.ov.remove();};
+  document.body.appendChild(m.ov);m.ov.querySelector('._ac-ok').focus();
 }
 function _escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function _escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
