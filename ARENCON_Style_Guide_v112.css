@@ -1,0 +1,1054 @@
+/* ═══════════════════════════════════════════════════════
+   ARENCON STYLE GUIDE v112 — COMPLETE (Sessions 43-54)
+   Last updated: 2026-04-02 (Session 54 — Drawing viewer markup, submenu, resize fixes)
+   ═══════════════════════════════════════════════════════
+
+   Complete style guide sections 61-85.
+   This is the full file — no additions files needed.
+
+   ═══════════════════════════════════════════════════════ */
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   61. LIGHTBOX ZOOM — ALL TOOLS (Session 43)
+   ═══════════════════════════════════════════════════════════════════
+
+   Every lightbox (gallery img-based AND markup canvas-based) must support:
+   - Mouse wheel zoom centered on cursor (PC)
+   - Pinch-to-zoom with two fingers (mobile)
+   - Pan when zoomed: mouse drag (PC) / single-finger drag (mobile)
+   - Double-click / double-tap: toggle fit ↔ 3x zoom
+   - Keyboard: + zoom in, - zoom out, 0 reset
+   - Zoom % indicator: shows briefly (1.2s) then fades
+
+   ARCHITECTURE:
+   - Wrap the <img> or <canvas> in a container div with `overflow:hidden; touch-action:none`
+   - Apply zoom via CSS `transform: translate(px,py) scale(s)` with `transform-origin: 0 0`
+   - NEVER resize the canvas buffer for zoom — CSS transform only
+   - `getBoundingClientRect()` includes CSS transforms, so coordinate mapping (e.g. _lbGetPos) works unchanged
+
+   ZOOM-AT-CURSOR MATH (critical — old center-pivot math was wrong):
+   ```
+   // mx, my = cursor position relative to wrapper
+   var mx = cursorClientX - wrapperRect.left;
+   var my = cursorClientY - wrapperRect.top;
+   // What image point is under cursor at current zoom
+   var imgX = (mx - currentPanX) / currentScale;
+   var imgY = (my - currentPanY) / currentScale;
+   // After new scale, keep same image point under cursor
+   newPanX = mx - imgX * newScale;
+   newPanY = my - imgY * newScale;
+   ```
+
+   CLAMP:
+   - Minimum scale = 1 (fit). Maximum scale = 8.
+   - When scale ≤ 1, reset pan to 0,0.
+   - Pan clamped so image edges don't go past wrapper edges.
+
+   MARKUP LIGHTBOX SPECIAL:
+   - Two-finger pinch always works, even in draw mode (listeners on overlay with `capture:true`)
+   - Single-finger: draws when _lbDrawing=true, pans when zoomed + not drawing
+   - Mouse: left-click draws when in draw mode, pans when zoomed + not in draw mode
+   - Overlay click-to-close blocked when zoomed (`_mlbZ.s > 1.05`)
+
+   ZOOM RESET: on prev/next navigation, on close, on Escape.
+
+   CSS ADDITIONS:
+*/
+
+/* FRT Gallery Lightbox zoom wrapper */
+.photo-lightbox-overlay .lb-img-wrap {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 95vw;
+  max-height: 85vh;
+  touch-action: none;
+}
+.photo-lightbox-overlay .lb-img-wrap img {
+  transition: transform .15s ease-out;
+  transform-origin: 0 0;
+}
+
+/* FRT Markup Lightbox zoom wrapper */
+#lb-canvas-wrap {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+}
+#lb-canvas-wrap canvas {
+  transform-origin: 0 0;
+}
+
+/* Hub Lightbox zoom wrapper */
+#pg-lb-wrap {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 95vw;
+  max-height: 85vh;
+  touch-action: none;
+}
+#pg-lb-img {
+  transform-origin: 0 0;
+  transition: transform .15s ease-out;
+}
+
+/* Zoom % hint badge (all lightboxes) */
+.lb-zoom-hint,
+#lb-zoom-hint,
+#pg-lb-zoom-hint {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  background: rgba(0,0,0,.55);
+  color: rgba(255,255,255,.7);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  font-family: Calibri, sans-serif;
+  opacity: 0;
+  transition: opacity .3s;
+}
+.lb-zoom-hint.vis,
+#lb-zoom-hint.vis,
+#pg-lb-zoom-hint.vis {
+  opacity: 1;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   62. PHOTO GALLERY THUMBNAILS — HUB STYLE (Session 43)
+   ═══════════════════════════════════════════════════════════════════
+
+   ALL tools must use this pattern for photo gallery thumbnails.
+   Replaces old `.photo-select-check`, `.photo-hover-info`, `.photo-caption-row`.
+
+   Elements on each thumbnail:
+   - Checkbox: always visible, 22px, top-left, accent #9C2742
+   - Type badge: top-left offset right of checkbox
+   - 🗑 Delete button: top-right, on hover (site photos only)
+   - ⬇ Download button: bottom-right, on hover
+   - ☁ R2 icon: bottom-left
+   - NO caption input in grid (captions editable in lightbox)
+*/
+
+.photo-thumb-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.photo-thumb {
+  width: 120px;
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color .15s;
+  background: #e8eaf0;
+  flex-shrink: 0;
+}
+.photo-thumb:hover { border-color: rgba(156,39,66,.4); }
+.photo-thumb.selected { border-color: #9C2742; box-shadow: 0 0 0 1px #9C2742; }
+.photo-thumb img { width: 120px; height: 100px; object-fit: cover; display: block; }
+
+/* Checkbox — always visible */
+.photo-thumb-cb {
+  position: absolute; top: 4px; left: 4px;
+  accent-color: #9C2742;
+  width: 22px; height: 22px;
+  cursor: pointer; z-index: 3; margin: 0;
+}
+
+/* Type badge */
+.photo-type-badge {
+  position: absolute; top: 6px; left: 30px;
+  color: white; font-size: 8px; font-weight: 700;
+  padding: 1px 4px; border-radius: 3px; z-index: 2;
+  pointer-events: none; line-height: 1.6;
+  max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* R2 cloud icon */
+.photo-r2-icon {
+  position: absolute; bottom: 4px; left: 4px;
+  font-size: 9px; z-index: 2; pointer-events: none;
+  line-height: 1; filter: drop-shadow(0 0 2px rgba(0,0,0,.7));
+}
+
+/* Delete button — hover only, site photos only */
+.photo-thumb-del {
+  position: absolute; top: 4px; right: 4px;
+  background: rgba(220,38,38,.85); color: white; border: none;
+  border-radius: 50%; width: 26px; height: 26px;
+  font-size: 13px; line-height: 26px; text-align: center;
+  cursor: pointer; z-index: 3;
+  opacity: 0; transition: opacity .15s; padding: 0;
+}
+
+/* Download button — hover only */
+.photo-thumb-dl {
+  position: absolute; bottom: 4px; right: 4px;
+  background: rgba(26,122,74,.85); color: white; border: none;
+  border-radius: 50%; width: 26px; height: 26px;
+  font-size: 12px; line-height: 26px; text-align: center;
+  cursor: pointer; z-index: 3;
+  opacity: 0; transition: opacity .15s; padding: 0;
+}
+
+.photo-thumb:hover .photo-thumb-del,
+.photo-thumb:hover .photo-thumb-dl { opacity: 1; }
+.photo-thumb-del:hover { background: #DC2626; transform: scale(1.1); }
+.photo-thumb-dl:hover { background: #1A7A4A; transform: scale(1.1); }
+
+/* Dark mode */
+body.dark-mode .photo-thumb { border-color: transparent; background: #1a1e28; }
+body.dark-mode .photo-thumb.selected { border-color: #9C2742; }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   63. QR CODE MODAL — ALL TOOLS (Session 43)
+   ═══════════════════════════════════════════════════════════════════
+
+   Each tool has a 📱 QR button in its header (Hub mode only).
+   Hub tool cards do NOT have QR buttons — QR lives in each tool's own header.
+
+   PATTERN:
+   - Button: `<button class="hdr-btn" id="btn-qr" onclick="openFrtQR()" style="display:none">📱</button>`
+   - Hidden by default, shown when Hub mode initializes
+   - Lazy-loads qrcodejs from CDN: https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js
+   - QR content = `window.location.href` (full URL with all project params)
+   - Staff scans → lands on exact same page
+   - `_frtQrLastUrl` reset on close to regenerate if URL params changed
+   - Escape key closes modal
+
+   HEADER BUTTON ORDER (all tools):
+   Reports → Issue → ⚙️ More ▾ → 📱 QR → ☀️ Dark → M Text → 🔓 Sign Out → ☰
+   Sign Out always rightmost before hamburger.
+
+   QR Modal HTML (self-contained, add before </body>):
+   - Overlay: fixed, inset:0, z-index:9000, rgba(0,0,0,.75)
+   - Card: white, border-radius:16px, padding:28px 32px
+   - QR element: inline-block, 256x256
+   - URL text: 10px, gray, word-break
+   - Close button: rgba white, below card
+*/
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   64. PDF SECTION STYLES — REDESIGNED (Session 43)
+   ═══════════════════════════════════════════════════════════════════
+
+   PRINCIPLES:
+   - Minimize standalone title bars. Headers integrate INTO their content cards.
+   - No "box in box" — contractor header connects directly to deficiency cards.
+   - No standalone "Deficiencies (X)" section header — contractor headers are enough.
+
+   PATTERN 1: `.sec-card` — Integrated header+body card
+   Used for: Deficiency Summary, any non-paginated section with title + content.
+   ```
+   <div class="sec-card">
+     <div class="sec-card-hdr">Deficiency Summary</div>
+     <div class="sec-card-body">...table content...</div>
+   </div>
+   ```
+*/
+.sec-card {
+  border: 1px solid #DDE1E7;
+  border-radius: 6px;
+  margin-top: 16px;
+  overflow: hidden;
+}
+.sec-card-hdr {
+  background: #9C2742;
+  color: white;
+  padding: 7px 14px;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .3px;
+}
+.sec-card-body {
+  padding: 12px;
+}
+
+/*
+   PATTERN 2: `.sh` + `.sb` — Connected header+body (legacy, still used for Project Info)
+*/
+.sh {
+  background: #9C2742;
+  color: white;
+  padding: 7px 14px;
+  font-weight: 700;
+  font-size: 12px;
+  border-radius: 6px 6px 0 0;
+  margin-top: 16px;
+  margin-bottom: 0;
+  letter-spacing: .3px;
+}
+.sb {
+  border: 1px solid #DDE1E7;
+  border-top: none;
+  padding: 12px;
+  border-radius: 0 0 6px 6px;
+  margin-bottom: 0;
+}
+
+/*
+   PATTERN 3: `.ch` + `.dc` — Contractor header connected to deficiency cards
+   `.ch` has top-only radius, no bottom margin.
+   `.dc` cards have no top border, no border-radius (except last child).
+*/
+.ch {
+  background: #9C2742;  /* updated Session 44 — was #2C4A6B */
+  color: white;
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 11px;
+  border-radius: 6px 6px 0 0;
+  margin-top: 14px;
+  margin-bottom: 0;
+  letter-spacing: .3px;
+}
+.dc {
+  border: 1px solid #DDE1E7;
+  border-top: none;
+  padding: 10px;
+  margin-bottom: 0;
+  background: white;
+}
+.dc:last-child {
+  border-radius: 0 0 6px 6px;
+  margin-bottom: 10px;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   65. PIN LOCK NUMPAD — OK BUTTON (Session 43)
+   ═══════════════════════════════════════════════════════════════════
+
+   Bottom-left key of numpad is burgundy "OK" button (was blank).
+   Calls `_pinConfirm()` which validates ≥4 digits before verifyPin().
+   Styled inline: background:var(--arencon), color:white, font-weight:700.
+*/
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   66. REPORT INSTANCE ROW OVERFLOW (Session 43)
+   ═══════════════════════════════════════════════════════════════════
+*/
+.ri-row {
+  flex-wrap: wrap;
+  overflow: hidden;
+}
+.ri-row .ri-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   67. HUB GALLERY — VIEW-ONLY (Session 43)
+   ═══════════════════════════════════════════════════════════════════
+
+   Hub photo gallery is permanently read-only.
+   No photo deletion from Hub. `pgDeleteOne` shows info toast:
+   "To delete a photo, open the tool and remove it there."
+   Photos are deleted from their source tool (FRT, Diesel, Electric, etc.) only.
+*/
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   68. HEADER BUTTON ORDER — ALL TOOLS (Session 43)
+   ═══════════════════════════════════════════════════════════════════
+
+   Desktop (left to right):
+   Reports → Issue → ⚙️ More ▾ → 📱 QR → ☀️ Dark → M Text → 🔓 Sign Out → ☰
+
+   Sign Out is ALWAYS the rightmost button before the hamburger menu.
+   QR button is Hub-mode only (hidden by default, shown in Hub init).
+
+   Mobile menu order should match desktop order.
+*/
+
+
+/* ═══════════════════════════════════════════════════════
+   SESSION 44 ADDITIONS
+   Last updated: 2026-03-27 (Session 44 — PDF template match, lightbox UX, markup save, UI polish)
+   ═══════════════════════════════════════════════════════
+
+   Sections 69-76 added in Session 44.
+
+   ═══════════════════════════════════════════════════════ */
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   69. PDF FONTS — TEMPLATE-MATCHED (Session 44)
+   ═══════════════════════════════════════════════════════════════════
+
+   THREE font specs for the PDF export, matching the ARENCON Word template exactly:
+
+   1. ADDRESS BLOCK (top-right, company info):
+      Font: Arial, 6pt, line-height 1.26x, color #1C2333
+      Has burgundy vertical line on left: border-left: 2px solid #9C2742
+      Text-align: left (within a right-positioned flex child)
+
+   2. REPORT TITLE (centered block):
+      Font: BlairMdITC TT, 12pt, line-height 0.85x, small-caps
+      Embedded via @font-face (base64 from Blaimim.ttf, ~72KB)
+      Fallback chain: "BlairMdITC TT", "Times New Roman", serif
+      Font-weight: 400 (normal — the font is inherently medium weight)
+
+   3. EVERYTHING ELSE (body, project info, deficiency cards, tables):
+      Font: Calibri, 11pt, line-height 1.23x
+
+   The BlairMdITC TT font is embedded in the PDF CSS as:
+   css+='@font-face{font-family:"BlairMdITC TT";
+     src:url(data:font/truetype;base64,...) format("truetype");
+     font-weight:normal;font-style:normal;}';
+
+   Source file: Blaimim.ttf → base64 stored in Blaimim_base64.txt
+*/
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   70. PDF TITLE BLOCK LAYOUT (Session 44)
+   ═══════════════════════════════════════════════════════════════════
+
+   ORDER (top to bottom, centered):
+   1. "Fire Protection Engineering"    — tb-line1 (BlairMdITC, small-caps)
+   2. "Field Review Report #X"         — tb-line2 (BlairMdITC, small-caps)
+   3. "Client. Address"                — tb-line4 (Calibri 11pt bold)
+   4. "Project Name / Scope"           — tb-line4 (Calibri 11pt bold)
+
+   Client+address comes BEFORE project name (matching Word template).
+   NO contractor name in title block — contractor shown in Distribution field.
+
+   CSS:
+*/
+.title-block {
+  text-align: center;
+  margin: 12px 0 0;
+  padding: 14px 0 12px;
+  line-height: 0.85;
+}
+.title-block .tb-line1,
+.title-block .tb-line2 {
+  font-family: "BlairMdITC TT", "Times New Roman", serif;
+  font-size: 12pt;
+  font-weight: 400;
+  color: #1C2333;
+  font-variant: small-caps;
+  margin-bottom: 1px;
+}
+.title-block .tb-line1 { letter-spacing: 1px; }
+.title-block .tb-line4 {
+  font-family: Calibri, sans-serif;
+  font-size: 11pt;
+  font-weight: 700;
+  color: #333;
+  line-height: 1.23;
+  margin-bottom: 2px;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   71. PDF PROJECT INFO — LABEL:VALUE LIST (Session 44)
+   ═══════════════════════════════════════════════════════════════════
+
+   Replaces the old 3-column `.ig` grid with a left-aligned label:value list.
+   Two black horizontal lines sandwich the section (NOT burgundy).
+
+   Fields (in order):
+   - Date of Issue
+   - Date of Site Review
+   - Distribution (auto-computed: client + contractor(s))
+   - Prepared By
+   - Project No.
+
+   Fields REMOVED from Project Info (now in title block):
+   - Client, Address, Project Name, Revision, Contractor(s)
+*/
+.pi-list {
+  margin-top: 4px;
+  padding: 10px 0;
+  border-top: 2px solid #1C2333;
+  border-bottom: 2px solid #1C2333;
+}
+.pi-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 3px;
+  font-family: Calibri, sans-serif;
+  font-size: 11pt;
+  line-height: 1.23;
+}
+.pi-row:last-child { margin-bottom: 0; }
+.pi-label {
+  min-width: 145px;
+  font-weight: 400;
+  color: #1C2333;
+}
+.pi-value {
+  font-weight: 400;
+  color: #1C2333;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   72. PDF DEFICIENCY SUMMARY — OPTION C (Session 44)
+   ═══════════════════════════════════════════════════════════════════
+
+   Single burgundy header row doubles as section title AND column headers.
+   "Deficiency Summary" is the first <th>, followed by Total/IAR/Outstanding/Closed.
+   NO sec-card wrapper. NO double-header.
+
+   .st th { background: #9C2742; } (was #2C3E50 navy)
+   Values center-aligned in data columns.
+*/
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   73. PDF CONTRACTOR GROUP HEADERS — BURGUNDY (Session 44)
+   ═══════════════════════════════════════════════════════════════════
+
+   Changed from navy #2C4A6B to burgundy #9C2742 for brand consistency.
+*/
+.ch {
+  background: #9C2742;  /* was #2C4A6B */
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   74. PDF CLOSING NOTE (Session 44)
+   ═══════════════════════════════════════════════════════════════════
+
+   "Note: Further deficiencies may be noted in future field reports
+   following final commissioning."
+
+   - Plain text, NOT italic
+   - NO border-top / horizontal line above
+   - Injected inline on last deficiency page (not its own page)
+   - Suppressed when "Final Commissioning" checkbox checked in PDF picker
+   - Font: Calibri 11pt (inherits body)
+*/
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   75. GALLERY LIGHTBOX — CONTROLS NEAR PHOTO (Session 44)
+   ═══════════════════════════════════════════════════════════════════
+
+   Close/nav buttons positioned relative to photo content, not screen edges.
+
+   Structure:
+   <div class="photo-lightbox-overlay">
+     <div class="lb-content">          ← NEW wrapper
+       <div class="lb-close">✕</div>   ← top-right of photo
+       <div class="lb-nav lb-prev">‹</div>  ← left edge of photo
+       <div class="lb-img-wrap">...</div>
+       <div class="lb-nav lb-next">›</div>  ← right edge of photo
+     </div>
+     <div class="lb-meta">...</div>
+     <div class="lb-actions">...</div>
+   </div>
+*/
+.photo-lightbox-overlay .lb-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 95vw;
+  max-height: 85vh;
+}
+.photo-lightbox-overlay .lb-close {
+  position: absolute;
+  top: -8px; right: -8px;
+  font-size: 22px; color: white;
+  cursor: pointer; z-index: 2;
+  background: rgba(0,0,0,.6);
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid rgba(255,255,255,.3);
+  transition: background .15s;
+}
+.photo-lightbox-overlay .lb-close:hover { background: rgba(156,39,66,.8); }
+.photo-lightbox-overlay .lb-nav {
+  position: absolute;
+  top: 50%; transform: translateY(-50%);
+  font-size: 36px; color: white;
+  cursor: pointer; z-index: 2;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.5);
+  opacity: .8; user-select: none;
+  border: 1.5px solid rgba(255,255,255,.2);
+  transition: all .15s;
+}
+.photo-lightbox-overlay .lb-nav:hover { opacity: 1; background: rgba(0,0,0,.7); }
+.photo-lightbox-overlay .lb-prev { left: -22px; }
+.photo-lightbox-overlay .lb-next { right: -22px; }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   76. DARK MODE BUTTONS — NO NAVY (Session 44)
+   ═══════════════════════════════════════════════════════════════════
+
+   ALL dark mode outline/utility buttons use transparent backgrounds,
+   NOT the old navy #242c3a/#556080.
+
+   Pattern:
+   background: rgba(255,255,255,.06)
+   border: 1.5px solid rgba(255,255,255,.2)
+   color: #c8d0e0
+
+   Hover: background rgba(156,39,66,.15), border #9C2742, color #f4a1b5
+
+   Applies to:
+   - .btn-outline.btn-sm (Filters, Select All, Actions, etc.)
+   - .dup-defic-btn (Dup, Move buttons)
+   - .iar-toggle-btn.off
+   - .pz-upload (Import from Camera Roll)
+   - #bulk-select-toggle
+*/
+body.dark-mode .btn-outline.btn-sm {
+  background: rgba(255,255,255,.06) !important;
+  border: 1.5px solid rgba(255,255,255,.2) !important;
+  color: #c8d0e0 !important;
+}
+body.dark-mode .btn-outline.btn-sm:hover {
+  background: rgba(156,39,66,.15) !important;
+  border-color: #9C2742 !important;
+  color: #f4a1b5 !important;
+}
+body.dark-mode .dup-defic-btn {
+  background: rgba(255,255,255,.06) !important;
+  color: #90c0f0 !important;
+  border-color: rgba(255,255,255,.15) !important;
+}
+body.dark-mode .iar-toggle-btn.off {
+  background: rgba(255,255,255,.06);
+  border-color: rgba(255,255,255,.15);
+  color: #a0a8b8;
+}
+body.dark-mode .pz-upload {
+  background: rgba(255,255,255,.06) !important;
+  color: #c0c8d8 !important;
+  border-color: rgba(255,255,255,.15) !important;
+}
+body.dark-mode #bulk-select-toggle {
+  background: rgba(255,255,255,.06) !important;
+  color: #c0c8d8 !important;
+  border-color: rgba(255,255,255,.15) !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   77. MODAL BUTTON COLORS — ALL TOOLS (Session 47)
+   ═══════════════════════════════════════════════════════════════════
+
+   Convention: OK/confirm buttons use GREEN, destructive buttons use BURGUNDY.
+   Applied to all three modal types: _aConfirm, _aPrompt, _aAlert.
+
+   LIGHT MODE:
+   - OK/Confirm: background #1A7A4A (green), color white
+   - Destructive: background #9C2742 (burgundy), color white
+   - Cancel: background none, border 1.5px solid #DDE1E7, color #4A5568
+
+   DARK MODE:
+   - OK/Confirm: background rgba(26,122,74,.4), color white, border 1px solid rgba(26,122,74,.4)
+   - Destructive: background rgba(156,39,66,.35), color #e8a0b0, border 1px solid rgba(156,39,66,.4)
+   - Cancel: background rgba(255,255,255,.06), border 1.5px solid #3a4050, color #8a94b0
+
+   DESTRUCTIVE DETECTION:
+   _aConfirm auto-detects via regex /delete|remove|reset|clear/i on the okText parameter.
+   _aPrompt and _aAlert always use green (non-destructive).
+
+   RULE: Never use burgundy/red for OK buttons on non-destructive modals.
+   RULE: This applies to ALL tools — FRT, Diesel, Electric, IST, OBC, DD, Hub.
+*/
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   78. ADMIN-ONLY BUTTONS — FRT (Session 47)
+   ═══════════════════════════════════════════════════════════════════
+
+   Buttons with class .admin-only are hidden for non-admin users.
+   _isAdmin() checks localStorage('sb-user-email') === 'mhe@arencon.com'.
+   Visibility toggled in toggleMoreMenu() and openMobileMenu().
+
+   Currently admin-only:
+   - R2 Cleanup (dangerous — can permanently delete cloud files)
+   - Repair R2 Links (modifies r2Keys — can break photo loading if misused)
+
+   Visible to everyone:
+   - Download JSON
+   - Re-upload All
+   - Fix Blurry
+   - Reset Current Tab (simple OK confirm)
+   - Reset Entire Project (requires typing "reset" to confirm)
+
+   RULE: When adding new dangerous/admin tools, add class="admin-only".
+   RULE: Reset Entire Project uses _aPrompt, not _aConfirm. User must type "reset".
+   RULE: Apply same pattern to Hub and other tools when they get similar admin features.
+*/
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   79. DRAWING CARD CONTEXT MENU — REPLACE IMAGE (Session 47)
+   ═══════════════════════════════════════════════════════════════════
+
+   Drawing card context menu order:
+   Rename
+   Move to folder...
+   Rotate 90
+   Replace image       <- NEW (Session 47)
+   Upload new version
+   -------
+   Download drawing
+   -------
+   Delete
+
+   "Replace image" replaces the blob data on the EXISTING drawing record.
+   All pins, deficiency links, folder assignment, and name are preserved.
+   Use case: recovering from data loss (e.g. blob wipe bug).
+
+   For multi-page PDFs, prompts user to select which page.
+   Generates new thumbnail. Auto-uploads to R2 in Hub mode.
+
+   "Upload new version" creates a NEW drawing record (different ID).
+   Pins do NOT transfer. Old version marked as superseded.
+*/
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   80. NON-DESTRUCTIVE PHOTO MARKUP — ARCHITECTURE (Session 50)
+   ═══════════════════════════════════════════════════════════════════
+
+   COMPLETE REWRITE in Session 50. Sessions 48-49 system was removed.
+
+   ── PRINCIPLE ──
+   markupObjects is the ONLY source of truth.
+   No composited previews. No caches. No R2 marked type. No flags.
+
+   ── 4 FIELDS ON PHOTO RECORDS ──
+   markupObjects   — JSON array of drawing objects, or null
+   _markupCanvasW  — canvas buffer width when markup was drawn, or null
+   _markupCanvasH  — canvas buffer height when markup was drawn, or null
+   _origBackupId   — ID of "(original)" backup site photo, or null
+
+   ── SAVE (lightboxSaveMarkup) ──
+   1. Store markupObjects (deep copy of _lbObjects)
+   2. Store _markupCanvasW / _markupCanvasH from canvas buffer
+   3. On FIRST save only: create "(original)" backup site photo
+      - Tracked by _origBackupId — prevents duplicates on repeated saves
+      - Saved to sitePhotos array + IDB + R2 original/ type
+   4. Persist via saveSitePhoto (site) or saveToLS→saveProject (defic)
+
+   ── REVERT (lightboxRevertMarkup) ──
+   1. Set markupObjects = null, _markupCanvasW/H = null
+   2. Delete backup photo from sitePhotos + IDB + R2
+   3. Set _origBackupId = null
+   4. Persist same paths as save
+
+   ── THUMBNAIL DISPLAY ──
+   Always show original photo. ✏️ badge when hasMarkup flag set.
+   _deficPhotoThumbSrc always returns original src.
+   _buildUnifiedPhotoList sets hasMarkup from markupObjects, no fallbacks.
+
+   ── GALLERY LIGHTBOX DISPLAY ──
+   _glbRenderMarkupComposite() renders on-the-fly:
+   - Fetch original as blob (avoids CORS tainting)
+   - Create temp canvas at stored _markupCanvasW/H
+   - Draw original, then _lbDrawObj each object
+   - Highlights via offscreen composite at 0.35 opacity
+   - Export canvas to img.src
+   - Fallback to original on any error
+
+   ── MARKUP LIGHTBOX DISPLAY ──
+   _lbShowCurrentDirect reads markupObjects from record.
+   No cache fallbacks. Revert button shown when objects exist.
+   lightboxDrawMode restores objects for re-editing from record only.
+
+   ── PERSISTENCE (ALL PATHS) ──
+   _stripPh:           ALWAYS writes markupObjects (even null)
+   saveSitePhoto:       ALWAYS writes markupObjects (even null)
+   _spMarkupFields:     Carries all 4 fields from IDB
+   _collectFullState:   Keeps markup on defic photos, strips from site photos
+   _mergeSitePhoto:     Preserves 4 fields from local
+   _mergeDeficR2Fields: Preserves 4 fields from local
+
+   ── BANNED PATTERNS (NEVER re-add) ──
+   _markupPreviewCache    — caused ghost restoration of reverted markup
+   markedPreview          — too large for IDB, stripped by cloud, unreliable
+   markedR2Key/Url        — R2 marked/ type PUT succeeds but GET 404s → dark photos
+   _markupCleared         — flag system with 12+ check points, whack-a-mole
+   _autoRegenerateMarkupPreviews — fed the broken cache
+   _regenerateMarkupPreview      — fed the broken cache
+   _replacePhotoInProject        — old destructive bake-in save
+   Any in-memory cache keyed by photo ID for markup data
+
+   ── WHY THE OLD SYSTEM FAILED ──
+   1. Too many data paths (8+) for the same information
+   2. _stripPh only wrote truthy values → null reverts didn't persist in IDB
+   3. _markupPreviewCache restored reverted markup via 12+ fallback paths
+   4. markedR2Url always 404'd → thumbnails showed dark/broken images
+   5. markedPreview too large for IDB project metadata → stripped → lost
+   6. _markupCleared flag checked inconsistently across all code paths
+   7. Site photos vs defic photos had completely different persistence chains
+*/
+
+/* ═══════════════════════════════════════════════════════════════════
+   81. PDF LIFECYCLE EXPORT — T+0 FILTERING & VISUAL HIERARCHY (Session 52)
+   ═══════════════════════════════════════════════════════════════════
+
+   T+0 RULE:
+   - Main body: open items + items closed in CURRENT FRT instance
+   - Back summary ("Previously Closed Items"): ALL closed items
+   - Items closed in earlier instances → back summary ONLY
+
+   DEFICIENCY CARD VISUAL HIERARCHY:
+   - Open observations: full bordered box (border-left:3px solid #9C2742) + photos
+   - Addressed observations: compact one-liner — "☑ A) text — Addressed" (gray #6B7280, no box)
+   - Closed T+0 items: compact 3-line card (pin+desc, noted, closed) — no photos, no obs boxes
+   - Activity log: 9pt indented lines, no colored backgrounds. "Activity:" header, then
+     "date — Label (FRT #N)(Re: A — obs text): comment" per line
+
+   PREVIOUSLY CLOSED ITEMS TABLE:
+   - Burgundy #9C2742 title row: "Previously Closed Items" (colspan=5)
+   - Dark slate #4A5568 column labels row: PIN/DESCRIPTION/CONTRACTOR/NOTED/STATUS (white text, 9pt uppercase)
+   - Light mauve #e8e0e3 FRT group rows: "Closed in FRT #N — date (N items)" (burgundy text)
+   - Alternating white/#fafafa data rows
+
+   CONTRACTOR GROUP CONTINUATION:
+   - When a contractor group spans a page break, inject burgundy header
+     with " — continued" appended on the new page
+   - Tracked via _activeCtrHeader / _activeCtrHeaderHtml in pagination
+
+   COMPACT HEADER (PAGE 2+):
+   - 11pt font, 1x line-height, black text, black bottom border
+   - Three rows left: client / address / report title
+   - NO dash between client and address (dash only on page 1 title block)
+
+   PAGE 1 TITLE BLOCK:
+   - Client - Address joined with " - " dash separator (Calibri 12pt bold)
+   - Project Name on separate line below
+
+   SUMMARY TABLE:
+   - 6 columns: Contractor | Total | New This Report | IAR | Outstanding | Closed
+   - .st th font-size: 11pt (consistent with section titles)
+   - "New This Report" = items where notedOnInstance === currentFrtInstance
+*/
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   82. DEFICIENCY LIFECYCLE UI — INSTANCE BADGE, ALTERNATING ROWS,
+       ACTIVITY EDIT/DELETE, OBSREF (Session 52)
+   ═══════════════════════════════════════════════════════════════════
+
+   FRT INSTANCE BADGE:
+   - Slate blue pill in project bar (#pb-inst): "FRT #N"
+   - Visible in Hub mode or when instance > 1
+   - Style: font-size calc(10px + var(--ts)), font-weight 700, padding 2px 8px,
+     border-radius 4px, color #fff, background #2C4A6B
+   - Updated by _updateFrtInstanceIndicator() from renderDeficiencyPanel + _initCloudSync
+
+   ALTERNATING DEFICIENCY ROWS:
+   - .defic-item:nth-child(even) { background: rgba(0,0,0,.07) }
+   - Dark mode: .defic-item:nth-child(even) { background: #2a3348 }
+   - Provides visual separation between adjacent deficiency cards
+
+   ACTIVITY ENTRY EDIT/DELETE:
+   - ✏ edit + ✕ delete buttons inline next to date in activity entry header
+   - Style: background:none, border:none, cursor:pointer, font-size calc(10px + var(--ts))
+   - Edit: color var(--link). Delete: color #C0392B
+   - Edit modal mirrors the add form (date, obsRef dropdown, rich text editor)
+
+   ACTIVITY BUTTONS — BURGUNDY ACCENT:
+   - "+ Contractor Response" and "+ ARENCON Comment" buttons
+   - .btn-outline.btn-sm with inline color:#9C2742;border-color:#9C2742
+   - Matches ARENCON brand. NOT orange/blue (old style) or plain gray.
+
+   OBSERVATION REFERENCE ("REGARDING") DROPDOWN:
+   - Shown only when deficiency has 2+ observations
+   - Label: "Regarding"
+   - Options: "All observations" / "A) [text truncated 50ch]" / "B) ..."
+   - Stored: obsRef = observation.id or null
+   - UI display: "(Re: A — Aisles with loads)" after the activity label, gray #888, smaller font
+   - PDF display: same format in compact activity lines
+
+   HUB INSTANCE LABELS:
+   - _TOOL_PREFIXES: frt→FRT, diesel→DFP, electric→EFP (not FR/DP/EP)
+   - Instance titles append " #N": "1490.04 IMCC... FRT #1"
+   - Applied to project detail + activity feed
+*/
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   83. CARRY-FORWARD ITEMS COMPLETED (Session 52 continued)
+   ═══════════════════════════════════════════════════════════════════
+
+   ACTIVITY ENTRIES GROUPED UNDER OBSERVATIONS:
+   - Entries with obsRef matching an observation ID render below that observation
+   - Separated by dashed top border (border-top: 1px dashed var(--border))
+   - Entries without obsRef fall to "General Responses" collapsible section
+   - _buildActEntry(a) helper renders consistently in both locations
+   - _buildObsRow now takes obsId parameter for filtering
+
+   "GENERAL" → "SITE GENERAL":
+   - Contractor display label for unassigned deficiencies
+   - Updated in: getAllDeficiencies, buildDeficItem, renderDeficGroups, PDF export,
+     ctrFilterName, foldAllDefics, pin editor dropdown, drawing pin label
+   - Template categories (cat:'General') and priority label UNCHANGED
+
+   PHOTO ZONE REDESIGN:
+   .photo-zone-compact {
+     min-height: 52px;         (was implicit ~32px)
+     padding: 12px 10px;       (was 6px 10px)
+     justify-content: center;
+     flex-wrap: wrap;
+     border-radius: 8px;       (was 6px)
+   }
+   .photo-zone-compact .pz-upload,
+   .photo-zone-compact .pz-camera {
+     padding: 5px 12px;        (was 3px 8px)
+     border-radius: 6px;
+   }
+
+   HUB FRT INSTANCE DEFICIENCY COUNTS:
+   - Shown after ri-title: "(N noted, N open, N closed)"
+   - Style: font-size calc(10px + var(--ts)), color rgba(255,255,255,.6), margin-left 4px
+   - Only for key==='frt' instances with data containing deficiencies
+
+   DRAWING TOOLBAR STEPPERS — VERTICAL:
+   .tool-stepper-wrap {
+     flex-direction: column;
+     align-items: center;
+     gap: 1px;
+     width: 100%;
+   }
+   .tool-step-btn {
+     width: 28px;
+     height: 20px;              (was 28px)
+     border-radius: 4px;        (was 6px)
+     font-size: 13px;           (was 15px)
+   }
+   Labels: WIDTH / OPAC / SIZE (8px uppercase, #888)
+   Stack: label → + → value → −
+
+   ALTERNATING ROW COLORS (FINAL):
+   .defic-item:nth-child(even) { background: rgba(0,0,0,.07) }
+   body.dark-mode .defic-item:nth-child(even) { background: #2a3348 }
+*/
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   84. MARKUP CANVAS — PIXEL-COUNT CAPS & DEVICE DETECTION (Session 54)
+   ═══════════════════════════════════════════════════════════════════
+
+   CANVAS BUFFER SIZING:
+   - Use total pixel count cap, NOT per-axis dimension cap
+   - iPhone/iPad: 16M pixels (e.g. 4000×4000 max)
+   - Desktop: 25M pixels (e.g. 5000×5000 max)
+   - Formula: if (iw*ih > maxPixels) mkScale = sqrt(maxPixels / (iw*ih))
+   - Most drawings (< 16M pixels) get FULL native resolution buffer
+
+   DEVICE DETECTION (STABLE):
+   - iPhone: /iPhone|iPod/.test(navigator.userAgent)
+   - iPad/Tablet: /iPad/.test(UA) || (platform==='MacIntel' && maxTouchPoints>1) || Android tablet
+   - NEVER use window.innerWidth for device detection — changes during DevTools toggle
+   - Canvas _dpr = mkScale (1.0 when no downscale needed)
+
+   SHAPE PREVIEW TRANSFORM:
+   - MUST use setTransform(1,0,0,1,0,0) — identity, matching renderAllMarkup
+   - NEVER use setTransform(dpr,0,0,dpr,0,0) — causes offset when dpr < 1
+   - getPos() returns buffer-space coordinates, no additional scaling needed
+
+   UNDO STACK PROTECTION:
+   - loadMarkupData() resets _mkUndoStack — only call on FIRST canvas allocation
+   - canvas._markupLoaded flag: true after first loadMarkupData, reset on new drawing open
+   - resizeMarkupCanvas: if _markupLoaded, call renderAllMarkup() instead of loadMarkupData()
+   - mkPushHistory() called AFTER _mkObjects.push() in endDraw(), not before
+*/
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   85. DRAWING VIEWER SUBMENU & RESIZE — MOBILE FIX (Session 54)
+   ═══════════════════════════════════════════════════════════════════
+
+   SUBMENU POSITIONING (SHAPES & COLOR):
+   - NO CSS !important rules for top/left/transform on .tool-submenu in mobile media queries
+   - JS handles all positioning via getBoundingClientRect() of toolbar
+   - Mobile: position below toolbar (tbR.bottom + 4), centered horizontally
+   - Desktop: position beside button (r.top, left:56px)
+
+   SUBMENU EVENT BINDING:
+   - NO inline onclick/ontouchend on submenu buttons (causes double-fire on mobile)
+   - Single 'click' listener bound in initToolbarTooltips()
+   - 300ms timestamp dedup guard inside toggleShapesMenu/toggleColorMenu
+   - Close handler: delayed (150ms) click on document (capture:true)
+   - Sub-tool buttons (.sub-tool-btn) keep inline onclick for setToolbarToolFromShape()
+
+   RESIZE DEBOUNCE:
+   - Single _fitResizeTimer shared between resize and orientationchange handlers
+   - 500ms debounce — DevTools open/close fires ~8 resize events over ~300ms
+   - NO cascade retries (no inner setTimeout for fitDrawing)
+   - fitDrawing has its own retry-on-zero logic (6 attempts, escalating delays)
+   - orientationchange: toolbar rearrangement runs immediately, fitDrawing goes through debounce
+
+   HUB LOGIN SCREEN:
+   - #login-screen starts with style="display:none" in HTML
+   - tryRestoreSession shows it only if no session found
+   - Prevents flash during async Supabase session check
+
+   HUB PHOTO GALLERY LABELS:
+   - _pgExtractPhotos toolLabel: frt='Field Review Report', diesel='Diesel Pump Commissioning Report',
+     electric='Electric Pump Commissioning Report', ist='IST Report', obc='OBC Report', dd='DD Report'
+   - Instance number ALWAYS appended: toolLabel + ' #' + instNum (no instNum>1 guard)
+   - _TOOL_SHORT_NAMES matches the same labels
+*/
+
+/* ═══ SESSION 57 ADDITIONS ═══ */
+
+/* Gallery picker button on observation photo zones */
+.pz-gallery {
+  border: none;
+  background: #37474F;
+  color: white;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-family: Calibri, sans-serif;
+  font-size: calc(11px + var(--ts));
+  font-weight: 600;
+  cursor: pointer;
+}
+body.dark-mode .pz-gallery {
+  background: rgba(55,71,79,.5);
+  color: #90a4ae;
+  border: 1px solid rgba(84,110,122,.4);
+}
+
+/* Drawing title fills header on tablet portrait */
+@media(max-width:800px) {
+  .dv-toolbar > span[style*="flex:1"] { flex: 0 0 0px !important; }
+  .dv-nav-group { flex: 1 !important; }
+  .dv-nav-group .dv-title { flex: 1 !important; max-width: none !important; }
+}
+
+/* Overlay canvas cap: 3M pixels (Samsung Tab A sweet spot) */
+/* Applied in JS: var ovMax = 3000000; */
+
+/* Deficiency lifecycle: three tabs (Active | Site General | Closed) */
+/* Site General tab uses same .dlc-tab styling as Active/Closed */
+
+/* Undo/redo buttons in dv-toolbar — always visible */
+/* Uses standard .dv-toolbar button styling, font-size: calc(15px + var(--ts)) */
+
