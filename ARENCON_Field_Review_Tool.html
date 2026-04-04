@@ -9658,10 +9658,21 @@ function _galleryDoAssign(did){
 }
 function _getSelectedGalleryPhotos(){
   var p=getProject();if(!p)return[];
-  var sp=p.sitePhotos||[];
   var selIds=_selectedPhotos||[];
   if(!selIds.length)return[];
-  return sp.filter(function(ph){return selIds.indexOf(ph.id)>=0;});
+  // Search unified photo list (site + deficiency photos)
+  var allPhotos=getPhotoList(p);
+  var results=[];
+  selIds.forEach(function(id){
+    var ph=allPhotos.find(function(x){return x.id===id;});
+    if(ph){
+      // Build a photo record from the unified entry
+      var sp=(p.sitePhotos||[]).find(function(s){return s.id===id;});
+      if(sp){results.push(sp);}
+      else{results.push({id:id,dataUrl:'',r2Key:ph.r2Key||'',r2Status:'',r2Url:ph.src||'',timestamp:ph.date||''});}
+    }
+  });
+  return results;
 }
 function _clearGallerySelection(){
   _selectedPhotos=[];
@@ -14388,8 +14399,16 @@ function _lbDoAssign(did){
   if(!obs){_aAlert('Deficiency has no observations.');return;}
   if(!obs.photos)obs.photos=[];
   var currentPhotoId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])||null;
-  var sp=p.sitePhotos||[];
-  var photo=currentPhotoId?sp.find(function(ph){return ph.id===currentPhotoId;}):null;
+  var photo=null;
+  if(currentPhotoId){
+    // Search sitePhotos first, then unified list
+    photo=(p.sitePhotos||[]).find(function(ph){return ph.id===currentPhotoId;});
+    if(!photo){
+      var allPh=getPhotoList(p);
+      var entry=allPh.find(function(x){return x.id===currentPhotoId;});
+      if(entry)photo={id:currentPhotoId,dataUrl:'',r2Key:entry.r2Key||'',r2Status:'',r2Url:entry.src||'',timestamp:entry.date||''};
+    }
+  }
   var rec;
   if(photo){
     rec={
