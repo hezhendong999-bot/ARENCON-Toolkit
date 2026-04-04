@@ -1,170 +1,165 @@
 # HANDOFF — Session 57
 **Date:** April 4, 2026  
-**File:** `ARENCON_Field_Review_Tool.html` (16,537 lines)  
-**Last GitHub SHA:** `b77ae3afa266ac302b09d78a0099cef94db9a712`
+**File:** `ARENCON_Field_Review_Tool.html` (16,132 lines — down from 16,537)  
+**Last GitHub SHA:** `d01f40e5d03b843eab389231528e1db3a8e585cf`
 
 ---
 
 ## Session Focus
-Drawing viewer performance, markup persistence, photo management, deficiency lifecycle fixes.
+Drawing viewer performance, markup persistence, photo management, deficiency lifecycle, code cleanup.
 
 ---
 
 ## CRITICAL FIXES (Data Loss Prevention)
 
 ### 1. Markup Objects Now Persist Across Reloads
-**Root cause found:** IDB has two stores for drawings — `projects` meta (saved `markupObjects` ✓) and `drawings` blob store (did NOT save `markupObjects` ✗). On every page load, `loadFullProject` loaded drawings from the blob store (without markupObjects) and **overwrote** the project meta's drawings. Every reload wiped markupObjects.
+**Root cause:** IDB `drawings` blob store never saved `markupObjects`. On every page load, `loadFullProject` loaded drawings from blob store (without markupObjects) and overwrote project meta's drawings (which had them).
 
-**Three fixes applied:**
+**Fixes:**
 - `ADB.saveFullProject` — IDB drawings store now includes `markupObjects`
 - `ADB.saveDrawing` — single-drawing save also preserves `markupObjects`
-- `ADB.loadFullProject` — after loading from IDB drawings store, merges `markupObjects` from project meta as safety net
+- `ADB.loadFullProject` — merges `markupObjects` from project meta into resolved drawings as safety net
+- Existing IDB merge path preserves `markupObjects` from existing records
 
 ### 2. Markup Objects Now Sync to Cloud
-**Root cause:** `_collectFullState()` ran `delete d.markupObjects` on every cloud push (line 14813). Markups only existed in local IDB — never reached Supabase. Cloud merge then overwrote local with empty cloud data.
+**Root cause:** `_collectFullState()` ran `delete d.markupObjects` on every cloud push.
 
-**Fix:** Removed the `delete d.markupObjects` line. Markup data (small JSON stroke coordinates) now syncs to Supabase. Fallback strip in `_cloudSave` only fires on genuine 500 errors (payload too large).
+**Fix:** Removed the delete. Markup (small JSON stroke coords) now syncs to Supabase. Fallback strip in `_cloudSave` only fires on genuine 500 errors.
 
 ### 3. Markup Saved on Viewer Close
-**Root cause:** `closeDrawingViewer()` never saved markup. `saveToLS()` debounced at 600ms — if app closed within that window, markup lost.
+**Root cause:** `closeDrawingViewer()` never saved markup. `saveToLS()` debounced at 600ms.
 
-**Fix:** `closeDrawingViewer()` now:
-- Copies `_mkObjects` to `dwg.markupObjects` immediately
-- Flushes IDB immediately (clears debounce timer)
-- Triggers `_debouncedCloudSave()`
-- `prevDrawing()`/`nextDrawing()` also save before switching
+**Fix:** `closeDrawingViewer()` copies `_mkObjects` to `dwg.markupObjects`, flushes IDB immediately, triggers cloud save. `prevDrawing()`/`nextDrawing()` also save before switching.
 
 ### 4. Site Photos No Longer Disappear on Reload
-**Root cause:** Cloud merge for sitePhotos replaced `localProj.sitePhotos` with ONLY what existed in Supabase. Local-only photos (newly added, not yet synced) were dropped. Next `saveFullProject` then deleted them from IDB too.
+**Root cause:** Cloud merge replaced `localProj.sitePhotos` with ONLY what existed in Supabase. Local-only photos dropped. Next save deleted them from IDB too.
 
-**Fix:** Both init merge and heartbeat merge now preserve local-only sitePhotos. After mapping cloud sitePhotos, any local photos whose IDs aren't in the cloud set are appended to the merged array.
+**Fix:** Both init merge and heartbeat merge now append local-only sitePhotos (IDs not in cloud set) to the merged array.
 
 ---
 
 ## DRAWING VIEWER CHANGES
 
-### PDF Pre-Render at Upload (Eliminates pdf.js from Viewing)
-- `_runPdfPages` and `_runPdfPagesToFolder` rewritten: render at full resolution (up to 4096px, JPEG quality 0.85) during upload
-- JPEG blob stored in IDB `drawings` store as `dataBlob`
-- Drawing set to `pdfTiled: false` — viewer uses fast `<img>` path
-- Background migration: `_migratePdfToImage()` converts existing `pdfTiled:true` drawings on project enter
-- Pre-cache pauses when drawing viewer is open (`dvState.currentDrawingId` check)
+### PDF Pre-Render at Upload
+- `_runPdfPages` / `_runPdfPagesToFolder`: render full-res JPEG (up to 4096px, quality 0.85) at upload
+- JPEG blob stored in IDB as `dataBlob`, `pdfTiled:false`
+- Viewer uses fast `<img>` path — no pdf.js, no tile rendering
+- Background migration: `_migratePdfToImage()` converts existing `pdfTiled:true` on project enter
+- Pre-cache simplified to PDF migration only (snapshot generation removed)
 
-### Snapshot System Removed
-- Built, tested, then removed — caused MORE flashing (old→snapshot→full-res = 3 visual states)
-- Pre-rendered JPEGs load from IDB in ~100ms, no intermediate needed
-- `_saveDrawingSnapshot`, `_loadDrawingSnapshot` code still exists but NOT called
+### Snapshot System Fully Removed
+- `_saveDrawingSnapshot`, `_loadDrawingSnapshot`, `_genSnapshotFromSrc`, `_genSnapshotFromBlob` — all deleted
+- Snapshot preservation in `saveDrawing`/`saveFullProject` — removed
+- Snapshot generation in image upload handlers — removed
+- Pre-cache snapshot branches — removed (only PDF migration remains)
 
 ### Flash Prevention
-- `initPanZoom()` clones DOM (required for iPhone memory), hides `dv-img-wrap` with `opacity:0`
-- `fitDrawing()` reveals wrap (`opacity:1`) inside rAF callback AFTER `applyTransform()`
-- Old image stays visible during switch (no src clearing)
+- `initPanZoom()` clones DOM (required for iPhone), hides `dv-img-wrap` with `opacity:0`
+- `fitDrawing()` reveals wrap inside rAF after `applyTransform()`
+- Old image stays visible during switch
 
 ### Performance Deferrals
-- `img.onload` only runs `fitDrawing()` synchronously
-- Pins, tasks panel, canvas sizing deferred to `requestAnimationFrame`
-- Markup events deferred to second rAF
-- `resizeMarkupCanvas()` deferred 500ms (heavy allocation)
-- Overlay canvas cap: 3M pixels (Samsung Tab A sweet spot)
+- `img.onload`: only `fitDrawing()` synchronous; pins/tasks/canvas deferred via rAF chain
+- `resizeMarkupCanvas()` deferred 500ms
+- Overlay canvas cap: 3M pixels
+- Pre-cache pauses when viewer open
 
-### initPanZoom — Clone vs No-Clone
-**Decision: CLONE (reverted).** No-clone eliminated first-zoom GPU lag on Samsung but crashed iPhone Safari. iPhones need DOM cleanup. First-zoom lag optimization needs AbortController approach (next session).
+### initPanZoom — MUST Clone
+No-clone crashed iPhone Safari. Clone is required. First-zoom GPU lag on Samsung accepted — fix via AbortController is future work.
 
-### Drawing Title Width (Tablet Portrait)
-At `@media(max-width:800px)`:
-- `flex:1` spacers collapsed
-- `.dv-nav-group` becomes `flex:1`
-- `.dv-title` becomes `flex:1; max-width:none`
-At `@media(max-width:700px)`: removed `max-width:80px`
-
-### Undo/Redo Always Visible
-Added ↩/↪ buttons to `dv-toolbar` (between nav group and Layers), always visible regardless of active tool.
+### UI Changes
+- Drawing title fills header on tablet portrait (flex:1, no max-width)
+- Undo/redo always visible in toolbar
 
 ---
 
-## DEFICIENCY LIFECYCLE FIXES
+## DEFICIENCY LIFECYCLE
 
-### Site General Tab Added
-Three tabs: **Active** | **Site General** | **Closed**
-- Site General shows only `p.generalDeficiencies`
-- Count updates via `_updateDeficLifecycleCounts()`
-- Renders via `renderGeneralDeficView()` using `buildDeficGroup(null,'Site General',...)`
+### Site General Tab
+Three tabs: **Active** | **Site General** | **Closed**. `renderGeneralDeficView()` function. Count via `_updateDeficLifecycleCounts()`.
 
 ### Closed Tab Fixed
-- Was showing "No closed deficiencies yet" despite count showing 2
-- Root cause: `renderClosedDeficView` used `_deficIsClosed()` (only `status==='closed'`), but tab counter used `!_deficIsOpen()` (anything not open)
-- Fix: changed to `!_deficIsOpen(d.defic)` to match counter logic
+Changed filter from `_deficIsClosed(d.defic)` to `!_deficIsOpen(d.defic)` — matches counter logic.
 
-### Reopen Activity Log "FRT #?" Fixed
-- `reopenDeficiency()` set `closedOnInstance=null` BEFORE creating activity entry that referenced it
-- Fix: capture `prevClosedInst` before nulling
-- One-time data migration in `_doRenderDeficiencyPanel` scans existing activity entries and replaces "FRT #?" with correct instance number
+### Reopen "FRT #?" Fixed
+Captured `prevClosedInst` before nulling `closedOnInstance`. One-time data migration replaces existing "FRT #?" entries.
 
 ---
 
 ## PHOTO MANAGEMENT
 
-### Observation Photos Fix
-- `processEntryPhotos` wrote to `entries[ei].photos` (legacy) but renderer checked `observations[oi].photos` (current)
-- Fix: now writes to BOTH `observations[ei].photos` (primary) and `entries[ei].photos` (compat)
-- Renderer prefers `observations.photos`, falls back to `entries.photos`
+### Observation Photos Fixed
+- `processEntryPhotos` writes to `observations[ei].photos` (primary) + `entries[ei].photos` (compat)
+- Renderer prefers observations, falls back to entries
 - `_syncDeficPhotos` gathers from both arrays
-- Observation photos now use `src` directly (not `data-src` lazy loading) — eliminates broken thumbnail chain
-- Deficiency content key includes photo counts — triggers re-render on photo changes
+- Thumbnails use `src` directly (not `data-src` lazy loading)
+- Content key includes photo counts per observation
 
 ### Gallery Picker ("+ Gallery" button)
-- Each observation photo zone has three buttons: Upload | Camera | **+ Gallery**
-- Opens full-screen picker showing ALL photos from unified list (`getPhotoList`)
-- Tap to select (green checkmark), "Attach" copies to observation
-- Photos already attached show "Added" badge (greyed out)
-- `_gpPhotoList` stores unified list for session; `_gpAttach` creates photo records with `_galleryRef` tracking
+- On each observation photo zone (`.pz-gallery` CSS class)
+- Opens full-screen picker with ALL photos from unified `getPhotoList()`
+- `_gpPhotoList` stores session list; `_gpAttach` creates records with `_galleryRef`
+- Photos already attached show "Added" badge
 
-### Assign to Pin from Gallery
-**Two entry points:**
-1. **Gallery Actions → 📌 Assign to Pin** — bulk assign selected photos to a deficiency
-2. **Lightbox → 📌 Assign to Pin** — assign current photo to a deficiency
-
-Both show deficiency picker with "📷 Site Photo (no pin)" option at top.
-
-### Photo Display Fix
-- Attached photos showed empty boxes because `dataUrl` and `r2Url` weren't being copied from unified photo list correctly
-- All three attach functions now store displayable source in BOTH `dataUrl` and `r2Url`
+### Assign to Pin
+- **Lightbox:** "Assign to Pin" button — `_lbAssignToPin()` / `_lbDoAssign()`
+- **Gallery Actions:** "Assign to Pin" — `galleryAssignToPin()` / `_galleryDoAssign()`
+- Both show "Site Photo (no pin)" option at top
+- All assign functions search unified photo list, store displayable src in both `dataUrl` and `r2Url`
 
 ---
 
-## ARCHITECTURE RULES (NEW)
+## CODE CLEANUP
 
-1. **initPanZoom MUST clone** — no-clone crashes iPhone Safari. First-zoom lag is accepted tradeoff.
-2. **IDB drawings store MUST save markupObjects** — prevents loss on reload
-3. **`_collectFullState()` MUST keep markupObjects** on drawings — never strip from cloud sync
-4. **Cloud merge MUST preserve local-only sitePhotos** — append locals not in cloud set
-5. **Observation photos use `src` directly** — not `data-src` lazy loading (too few to need it, chain breaks)
-6. **Deficiency content key MUST include photo counts** per observation
-7. **Pre-cache pauses when viewer open** — `dvState.currentDrawingId` check in `_next()`
+### 28 Dead Functions Removed (~15KB)
+**Hub-only (6):** `openProjectQuickEdit`, `toggleStatusDropdown`, `closeCreateProjectModal`, `confirmCreateProject`, `exportStarredProjects`, `exportUnstarredProjects`
+
+**Legacy entry/response (10):** `updateEntryContractor`, `addDeficEntry`, `removeDeficEntry`, `addDeficResponse`, `removeDeficResponse`, `updateDeficResponse`, `triggerRespPhotoUpload`, `triggerRespPhotoCamera`, `handleRespPhotoDrop`, `processRespPhotos`
+
+**Dead misc (12):** `_downloadPublishedCopy`, `_deficAllPhotos`, `_closeRepairOnClick`, `bumpRevision`, `_getInspectorName`, `showAddActivityFormForObs`, `consultantCloseItem`, `updateSitePhotoCaption`, `fillProjectSizeIndicators`, `openPhotoPicker`, `_saveDrawingSnapshot`, `_loadDrawingSnapshot`
+
+### Shared Modal Builder
+`_aModalBase()` extracts dark/light theme colors and button styles. `_aAlert`, `_aConfirm`, `_aConfirmTwoBtn`, `_aPrompt` all use it. 85+ call sites unchanged.
+
+### getAllDeficiencies Cache
+Was called 26x per render cycle. Now caches with structural key. Invalidated on `saveToLS()`.
+
+### Net Result
+16,537 to 16,132 lines (405 lines / ~20KB removed)
+
+---
+
+## NEW ARCHITECTURE RULES (321–342)
+
+321. PDF pre-render at upload — `pdfTiled:false` for new uploads
+322. Pre-cache pauses when viewer open — `dvState.currentDrawingId` check
+323. Overlay canvas 3M pixels — Samsung Tab A sweet spot
+324. initPanZoom MUST clone — no-clone crashes iPhone Safari
+325. img.onload deferred work — only fitDrawing synchronous
+326. IDB drawings store MUST save markupObjects
+327. loadFullProject merges markupObjects from meta
+328. `_collectFullState()` MUST keep markupObjects
+329. Markup saved on viewer close — immediate IDB flush
+330. Cloud merge preserves local-only sitePhotos
+331. Observation photos write to observations (not entries)
+332. Observation photo thumbnails use `src` directly
+333. Deficiency content key includes photo counts
+334. Gallery picker uses unified photo list
+335-336. Photo assign from lightbox + gallery Actions
+337. `.pz-gallery` CSS class for Gallery button
+338. Site General tab between Active/Closed
+339. Closed tab uses `!_deficIsOpen`
+340. Reopen captures closedOnInstance before nulling
+341. Undo/redo always visible in toolbar
+342. Drawing title fills header on tablet portrait
 
 ---
 
 ## PENDING / NEXT SESSION
 
-### First-Zoom Lag (Samsung)
-- Cloning forces GPU texture re-upload on every drawing open
-- Fix: refactor `initPanZoom` to use AbortController for listener management instead of DOM cloning
-- This preserves iPhone memory cleanup while avoiding GPU texture cost
-- AbortController supported on Chrome 90+ (Samsung Tab A has it)
-
-### Markup Cross-Device Sync
-- `_collectFullState()` now includes markupObjects in cloud sync
-- R2 markup sync (`_r2SaveMarkup`, `_r2LoadMarkup`) exists but may not be fully working
-- Need to verify: draw markup on tablet → close viewer → wait for sync → open on PC → verify markup appears
-
-### Photo-Pin Architecture
-- Gallery photos (`sitePhotos`) and deficiency observation photos (`observations[].photos`) are separate arrays
-- Gallery picker copies photos between them (with `_galleryRef` tracking)
-- Long-term: should photos live in one place with references?
-
-### Session 57 Handoff Document
-- This document ✓
-
-### Updated Project Knowledge
-- Needs update with new architecture rules from this session
-- Not done yet — carry to next session
+1. **First-zoom lag (Samsung)** — refactor initPanZoom to use AbortController instead of DOM cloning
+2. **Markup cross-device sync verification** — draw on tablet, verify appears on PC
+3. **Updated Project Knowledge** — v112 delivered, needs upload to Claude Project
+4. **Updated Style Guide** — v112 delivered, needs upload to Claude Project
+5. **CloudSync merge bug** — deficiency photo metadata wiped during cloud-to-local merges (pre-existing)
+6. **Highlight opacity** — `0.3 x opacity` multiplier produces imperceptible visual changes (pre-existing)
