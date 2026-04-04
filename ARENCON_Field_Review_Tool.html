@@ -2015,8 +2015,9 @@ body.text-l{--ts:4px;}
     <div class="lb-nav lb-next" onclick="lightboxNext(event)" ontouchend="event.stopPropagation();event.preventDefault();lightboxNext(event)">›</div>
   </div>
   <img id="lightbox-img" src="" alt="" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:6px;display:none;">
-  <div style="margin-top:10px;display:flex;gap:8px;">
+  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
     <button onclick="event.stopPropagation();lightboxDrawMode()" ontouchend="event.stopPropagation();event.preventDefault();lightboxDrawMode()" id="lb-draw-btn" style="background:rgba(255,255,255,.15);border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">✏️ Mark up</button>
+    <button onclick="event.stopPropagation();_lbAssignToPin()" ontouchend="event.stopPropagation();event.preventDefault();_lbAssignToPin()" id="lb-assign-btn" style="background:#37474F;border:1px solid #546E7A;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">📌 Assign to Pin</button>
     <button onclick="event.stopPropagation();lightboxSaveMarkup()" ontouchend="event.stopPropagation();event.preventDefault();lightboxSaveMarkup()" id="lb-save-btn" style="display:none;background:#1A7A4A;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">💾 Save</button>
     <button onclick="event.stopPropagation();lightboxClearDraw()" ontouchend="event.stopPropagation();event.preventDefault();lightboxClearDraw()" id="lb-clear-btn" style="display:none;background:#C0392B;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">✕ Clear</button>
     <button onclick="event.stopPropagation();lightboxRevertMarkup()" ontouchend="event.stopPropagation();event.preventDefault();lightboxRevertMarkup()" id="lb-revert-btn" style="display:none;background:#9C2742;border:none;color:white;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">↩ Revert to Original</button>
@@ -5989,9 +5990,11 @@ function zoomIn(){dvState.scale=Math.min(dvState.scale*1.3,10);applyTransform();
 function zoomOut(){var minS=dvState.fitScale||0.1;dvState.scale=Math.max(dvState.scale/1.3,minS);if(dvState.scale<=minS*1.05){fitDrawing();return;}applyTransform();}
 
 function initPanZoom(){var area=document.getElementById('dv-canvas-area');
-var na=area.cloneNode(true);area.parentNode.replaceChild(na,area);area=na;
 // Hide img-wrap during transition to prevent stale content flash
-var wrap=na.querySelector('#dv-img-wrap');if(wrap)wrap.style.opacity='0';
+var wrap=document.getElementById('dv-img-wrap');if(wrap)wrap.style.opacity='0';
+// Only attach listeners on first call — no DOM clone needed (eliminates GPU texture re-upload lag)
+if(area._pzInit)return;
+area._pzInit=true;
 var sx,sy,pan=false;
 
 area.addEventListener('mousedown',function(e){
@@ -9331,7 +9334,7 @@ function buildDeficItem(d,ctrId,i){
     h+='<span style="font-size:calc(11px + var(--ts));color:var(--silver);">Drop photos or</span>';
     h+='<button class="pz-upload" onclick="event.stopPropagation();triggerEntryPhotoUpload(\''+d.id+'\','+oi+')">📎 Upload</button>';
     h+='<button class="pz-camera" onclick="event.stopPropagation();triggerEntryPhotoCamera(\''+d.id+'\','+oi+')">📷 Camera</button>';
-    h+='<button class="pz-gallery" onclick="event.stopPropagation();openGalleryPicker(\''+d.id+'\','+oi+')" style="background:#37474F;color:white;border:1px solid #546E7A;">🖼 Gallery</button>';
+    h+='<button class="pz-gallery" onclick="event.stopPropagation();openGalleryPicker(\''+d.id+'\','+oi+')" style="background:#37474F;color:white;border:1px solid #546E7A;">+ Gallery</button>';
     h+='</div>';
     var obsActs=obsId?sortedAct.filter(function(a){return a.obsRef===obsId;}):[];
     if(obsActs.length){
@@ -14349,6 +14352,63 @@ function openLightbox(photos,idx){
   var cap=document.getElementById('lightbox-caption');if(cap)cap.textContent=_lightboxPhotos[_lightboxIdx].caption||'';
   ov.classList.add('open');
   document.addEventListener('keydown',lightboxKey);
+}
+// ═══ LIGHTBOX: Assign current photo to a deficiency pin ═══
+function _lbAssignToPin(){
+  var p=getProject();if(!p)return;
+  var ad=getAllDeficiencies(p);
+  if(!ad.length){_aAlert('No deficiencies exist yet. Create one first.');return;}
+  // Find current photo info
+  var currentPhotoId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])||null;
+  var sp=p.sitePhotos||[];
+  var currentPhoto=null;
+  if(currentPhotoId){currentPhoto=sp.find(function(ph){return ph.id===currentPhotoId;});}
+  // If not found in sitePhotos, try to get src from lightbox
+  var currentSrc=null;
+  if(!currentPhoto){
+    var img=document.getElementById('lightbox-canvas');
+    if(img)currentSrc=_lbPhotos&&_lbPhotos[_lbIdx]||'';
+  }
+  if(!currentPhoto&&!currentSrc){_aAlert('Cannot identify this photo.');return;}
+  // Build deficiency list
+  var html='<div style="max-height:400px;overflow-y:auto;">';
+  ad.forEach(function(d){
+    var desc=_deficDesc(d.defic);
+    var truncDesc=desc.length>50?desc.substring(0,50)+'…':desc;
+    var label='#'+d.defic.num+' — '+truncDesc+' ('+d.contractorName+')';
+    html+='<button onclick="_lbDoAssign(\''+d.defic.id+'\')" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;border-bottom:1px solid var(--border);background:transparent;color:var(--fg);font-size:calc(13px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;" onmouseover="this.style.background=\'var(--smoke)\'" onmouseout="this.style.background=\'transparent\'">'+escHtml(label)+'</button>';
+  });
+  html+='</div>';
+  _showCustomModal('Assign this photo to which deficiency?',html);
+}
+function _lbDoAssign(did){
+  var p=getProject();if(!p)return;
+  var f=findDeficiency(did);if(!f)return;
+  var obs=f.defic.observations&&f.defic.observations[0];
+  if(!obs){_aAlert('Deficiency has no observations.');return;}
+  if(!obs.photos)obs.photos=[];
+  var currentPhotoId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])||null;
+  var sp=p.sitePhotos||[];
+  var photo=currentPhotoId?sp.find(function(ph){return ph.id===currentPhotoId;}):null;
+  var rec;
+  if(photo){
+    rec={
+      id:'dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
+      dataUrl:photo.dataUrl||'',
+      r2Key:photo.r2Key||'',r2Status:photo.r2Status||'',r2Url:photo.r2Url||'',
+      _galleryRef:photo.id,
+      timestamp:photo.timestamp||photo.date||''
+    };
+  }else{
+    var src=_lbPhotos&&_lbPhotos[_lbIdx]||'';
+    rec={id:'dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),dataUrl:src,r2Key:'',r2Status:'',r2Url:'',timestamp:''};
+  }
+  obs.photos.push(rec);
+  if(f.defic.entries&&f.defic.entries[0])f.defic.entries[0].photos=obs.photos;
+  _syncDeficPhotos(f.defic);
+  _closeCustomModal();
+  saveToLS();_folderQuickSave();renderDeficiencyPanel();
+  toast('Photo assigned to #'+f.defic.num+' ✓');
 }
 function closeLightbox(e){
   if(e&&e.target!==e.currentTarget&&e.target.tagName!=='DIV')return;
