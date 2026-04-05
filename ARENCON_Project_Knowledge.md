@@ -9,7 +9,7 @@ Upload to the Claude Project along with:
 - Current tool HTML files (stable filenames — no version numbers)
 - Current session handoff document
 
-Last updated: 2026-04-04 (Session 57 — Markup persistence, photo management, drawing viewer performance, deficiency lifecycle)
+Last updated: 2026-04-05 (Session 58 — AI Writing Assistant, AIUsage dashboard, photo recovery)
 
 ---
 
@@ -127,6 +127,7 @@ FRT=#9C2742, Diesel=#E65100, Electric=#1565C0, IST=#C62828, OBC=#2E7D32, DD=#5E3
 | Hosting | GitHub Pages |
 | Database + Auth | Supabase |
 | Photo/Drawing storage | Cloudflare R2 via Worker |
+| AI Writing Assistant | Cloudflare Worker → Anthropic API (Sonnet/Haiku) |
 | Local backup | IndexedDB (permanent) |
 | Future | Azure (Cosmos DB + Blob + Entra ID) |
 
@@ -625,53 +626,6 @@ Rule: **ZERO opacity stacking** — offscreen composite pattern only.
 
 244. **"(original)" backup: push inside async callback** — never push with empty `dataUrl`. `_origPushed` flag prevents duplicates.
 
-
-### Session 57 — Drawing Viewer Performance, Markup Persistence, Photo Management
-
-321. **PDF pre-render at upload** — `_runPdfPages` and `_runPdfPagesToFolder` render full-res JPEG (up to 4096px, quality 0.85) at upload time. JPEG blob stored in IDB `drawings` store as `dataBlob`. Drawing set to `pdfTiled:false`. Viewer uses fast `<img>` path — no pdf.js, no tile rendering. Background migration (`_migratePdfToImage`) converts existing `pdfTiled:true` drawings on project enter.
-
-322. **Pre-cache pauses when viewer open** — `_preCacheDrawingSnapshots._next()` checks `dvState.currentDrawingId` — if viewer is open, waits 2000ms and retries. Prevents CPU contention during markup/zoom.
-
-323. **Overlay canvas 3M pixels** — dropped from 5M to 3M for Samsung Galaxy Tab A smooth pen strokes. Preview slightly softer but strokes responsive. Sharp snap on finger lift (10M main canvas render).
-
-324. **initPanZoom MUST clone** — no-clone crashes iPhone Safari (memory exhaustion). Clone is required. Wrap hidden with `opacity:0` during transition, revealed inside `fitDrawing()` rAF after `applyTransform()`. First-zoom GPU lag on Samsung is accepted tradeoff — fix via AbortController is a future session task.
-
-325. **img.onload deferred work** — only `fitDrawing()` runs synchronously. Pins, tasks panel, canvas sizing deferred to `requestAnimationFrame`. Markup events deferred to second rAF. `resizeMarkupCanvas()` deferred 500ms (heavy allocation).
-
-326. **IDB drawings store MUST save markupObjects** — `ADB.saveFullProject` and `ADB.saveDrawing` both include `markupObjects` in IDB drawings store records. Previously missing — caused markup loss on every reload.
-
-327. **loadFullProject merges markupObjects from meta** — after loading drawings from IDB blob store, `loadFullProject` checks project meta for markupObjects and merges them into resolved drawings as safety net. Prevents loss when IDB drawings store and meta store are out of sync.
-
-328. **`_collectFullState()` MUST keep markupObjects** — never strip from cloud sync. Markup data (small JSON stroke coordinates) syncs to Supabase with every cloud push. Fallback strip in `_cloudSave` only fires on genuine 500 errors (payload too large).
-
-329. **Markup saved on viewer close** — `closeDrawingViewer()` copies `_mkObjects` to `dwg.markupObjects`, flushes IDB immediately (clears debounce timer), triggers `_debouncedCloudSave()`. `prevDrawing()`/`nextDrawing()` also save before switching.
-
-330. **Cloud merge preserves local-only sitePhotos** — both init merge and heartbeat merge append local sitePhotos whose IDs aren't in the cloud set. Prevents photos from disappearing when cloud data doesn't include newly added local photos.
-
-331. **Observation photos write to observations (not entries)** — `processEntryPhotos` writes to `observations[ei].photos` (current format) AND `entries[ei].photos` (backward compat). Renderer prefers `observations.photos`, falls back to `entries.photos`. `_syncDeficPhotos` gathers from both arrays.
-
-332. **Observation photo thumbnails use `src` directly** — not `data-src` lazy loading. Too few per observation to need lazy loading, and the lazy-load chain (`data-src` → `_loadThumbSrc` → `_loadR2OrDirect`) fails silently on some R2 URLs.
-
-333. **Deficiency content key includes photo counts** — `_deficContentKey()` now includes `(o.photos||[]).length` for each observation. Ensures `renderDeficGroups()` re-runs when photos change.
-
-334. **Gallery picker uses unified photo list** — `openGalleryPicker` uses `getPhotoList(p)` (all photos — site + deficiency). `_gpPhotoList` stores session list. `_gpAttach` creates photo records with `_galleryRef` field tracking source photo ID.
-
-335. **Photo assign from lightbox** — "📌 Assign to Pin" button in lightbox (next to "✏️ Mark up"). Opens deficiency picker with "📷 Site Photo (no pin)" option at top. `_lbAssignToPin()` / `_lbDoAssign()` functions.
-
-336. **Photo assign from gallery Actions** — "📌 Assign to Pin" in Actions dropdown. Uses `_getSelectedGalleryPhotos()` which searches unified photo list (not just sitePhotos). `galleryAssignToPin()` / `_galleryDoAssign()` functions.
-
-337. **Gallery button on observation photo zones** — `+ Gallery` button with `.pz-gallery` CSS class. Dark mode: `background:rgba(55,71,79,.5);color:#90a4ae;border:1px solid rgba(84,110,122,.4)`.
-
-338. **Site General tab** — three deficiency lifecycle tabs: Active | Site General | Closed. Site General shows only `p.generalDeficiencies`. `renderGeneralDeficView()` uses `buildDeficGroup(null,'Site General',...)`.
-
-339. **Closed tab uses `!_deficIsOpen`** — not `_deficIsClosed` (which only matches specific status strings). Matches tab counter logic: anything not open = closed.
-
-340. **Reopen captures closedOnInstance before nulling** — `var prevClosedInst=d.closedOnInstance||inst` captured before `d.closedOnInstance=null`. One-time migration fixes existing "FRT #?" entries: `a.text.replace('FRT #?','FRT #'+(d.defic.notedOnInstance||1))`.
-
-341. **Undo/redo always visible in toolbar** — ↩/↪ buttons in `dv-toolbar` between nav group and Layers button. Call `markupUndo()`/`markupRedo()`. Always visible regardless of active tool.
-
-342. **Drawing title fills header on tablet portrait** — at `@media(max-width:800px)`: `flex:1` spacers collapsed, `.dv-nav-group` becomes `flex:1`, `.dv-title` becomes `flex:1; max-width:none`. At 700px: removed `max-width:80px`.
-
 ---
 
 ## ⚠️ Production Readiness — Remaining Gaps
@@ -1020,6 +974,75 @@ ALL buttons in FRT and Hub use translucent backgrounds in dark mode:
 319. **`_tileState.drawW / drawH`** — logical drawing dimensions. `baseScale` = `drawW / pageW`. Used by `fitDrawing`, tile rendering, and markup canvas sizing.
 
 320. **SW cache bump required for TWA updates** — `sw.js` `CACHE_NAME` must be bumped to force HTML refresh on Android TWA. Close/reopen app twice after bump. Current: `arencon-frt-v10`.
+
+### Session 57 — Drawing Viewer Performance, Markup Persistence, Photo Management
+
+321. **Markup objects persist across reloads** — IDB `drawings` store now saves `markupObjects`. `loadFullProject` merges from project meta as safety net. `_collectFullState()` no longer strips `markupObjects`.
+
+322. **Markup saved on viewer close** — `closeDrawingViewer()` copies `_mkObjects` to `dwg.markupObjects`, flushes IDB immediately, triggers cloud save.
+
+323. **Site photos preserved on cloud merge** — Both init merge and heartbeat merge now append local-only sitePhotos not found in cloud set.
+
+324. **PDF pre-render at upload** — PDFs rendered to full-resolution JPEG at upload time. pdf.js removed from viewing path. Background migration for existing `pdfTiled:true` drawings.
+
+325. **Overlay canvas cap: 3M pixels** — Samsung Tab A sweet spot (down from 5M). Responsive on Samsung while maintaining quality.
+
+326. **Site General tab** — Three lifecycle tabs: Active | Site General | Closed. `_updateDeficLifecycleCounts()` tracks counts.
+
+### Session 58 — AI Writing Assistant + Usage Dashboard
+
+327. **AI Writing Assistant — Cloudflare Worker** (`arencon-ai-worker`) at `https://arencon-ai-worker.hezhendong999.workers.dev`. Proxies to Anthropic API. Two modes: `rewrite` (Sonnet — full professional rewrite) and `quickfix` (Haiku — typos only). Validates Supabase JWT. Logs usage to `ai_usage_log`. Worker secrets: `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`.
+
+328. **AIAssist frontend module** — `AIAssist.reviewAll(mode)` collects all observation texts, activity entries, and closed notes from data model. Sends to Worker. Displays slide-in review panel with word-level diff (LCS algorithm). Accept/Skip per suggestion, Accept All. Saves immediately per accept. Re-renders deficiency panel on close.
+
+329. **Model selector dropdown** — `✨ AI Review ▾` header button opens dropdown: Full Rewrite (Sonnet) and Quick Fix (Haiku). Mobile menu has both options separately.
+
+330. **AIUsage admin dashboard** — `📊` button (admin-only). Queries `ai_usage_log` from Supabase. Summary by project (number, name, tool, reviews, cost) and by user. Detail log. Quick period buttons: This Cycle, Last Cycle, This Month, This Week, Today. Billing day saved to Supabase `app_settings` table (default: 20th). CSV and PDF export.
+
+331. **Supabase `ai_usage_log` table** — Tracks: user_id, user_email, tool, project_number, project_name, action, model, input_tokens, output_tokens, cost_usd, field_count, accepted_count. RLS: users see own, admins see all.
+
+332. **Supabase `app_settings` table** — Key-value store for company-wide settings. RLS: anyone reads, admins write. Used for billing cycle day.
+
+333. **Content key includes text length** — `_deficContentKey()` includes `(o.text||'').length` per observation so AI text changes trigger DOM re-render immediately.
+
+334. **Auth token from localStorage** — `localStorage.getItem('sb-access-token')`, NOT `CloudSync.getToken()`.
+
+335. **Project variable is `getProject()`** — returns `allProjects[currentProjectId]`, NOT `_proj`.
+
+336. **Deficiency fields are flat** — `d.num`, `d.observations`, `d.activity`, `d.closedNote`. NOT nested under `d.defic`. `getAllDeficiencies()` wraps them as `{defic: d, contractorName, contractorId}`.
+
+337. **IDB database name** — `ARENCON_FieldReview` (version 4). Stores: `backups`, `config`, `drawings`, `pdfData`, `pendingUploads`, `photos`, `projects`, `sitePhotos`. NOT `arencon-frt`.
+
+---
+
+## AI Writing Assistant Architecture
+
+### Cloudflare Worker — `arencon-ai-worker`
+- **URL:** `https://arencon-ai-worker.hezhendong999.workers.dev`
+- **Method:** POST with JSON body `{fields, context, mode}`
+- **Auth:** Bearer token (Supabase JWT) in Authorization header
+- **Modes:** `rewrite` (Sonnet) or `quickfix` (Haiku)
+- **Response:** `{suggestions: [{id, improved, changes}], usage: {input_tokens, output_tokens, cost_usd}}`
+- **Secrets:** `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (all encrypted in Cloudflare)
+- **Usage logging:** Non-blocking POST to `ai_usage_log` via service_role key
+
+### Frontend Module — `AIAssist`
+- IIFE module, same pattern as CloudSync/R2Photos
+- `AIAssist.reviewAll(mode)` — main entry point
+- `AIAssist._accept(idx)` / `AIAssist._skip(idx)` / `AIAssist._acceptAll()` — panel actions
+- `AIAssist._toggleMenu()` / `AIAssist._closeMenu()` — dropdown control
+- Field collection walks: `p.contractors[].deficiencies[].observations[].text`, `d.activity[].text`, `d.closedNote`, `p.generalDeficiencies[]`
+- Write-back updates data model directly, saves IDB + cloud per accept
+- Word-level diff via LCS algorithm, green additions / red strikethrough deletions
+
+### Frontend Module — `AIUsage`
+- Admin-only (`_isAdmin()` check)
+- `AIUsage.open()` — opens modal, loads billing day from Supabase, fetches usage data
+- Billing day stored in `app_settings` table, not localStorage
+- Quick period buttons calculate date ranges based on billing cycle day
+- CSV export: all columns including tokens and cost
+- PDF export: opens print dialog with formatted report
+
 ---
 
 ## ⚠️ Production Readiness — Updated Gaps
@@ -1039,7 +1062,7 @@ ALL buttons in FRT and Hub use translucent backgrounds in dark mode:
 
 ## Files to Keep in Claude Project
 1. `ARENCON_Project_Knowledge.md` (this file — complete, no additions files needed)
-2. `ARENCON_Style_Guide_v111.css` (complete, no additions files needed)
+2. `ARENCON_Style_Guide_v113.css` (complete, no additions files needed)
 3. `ARENCON_FRT_Core_Template.md` (reusable architecture reference — upload for any new tool build)
 4. `logo_base64.txt`
 5. `Blaimim_base64.txt` (BlairMdITC TT font for PDF title block)
@@ -1048,6 +1071,7 @@ ALL buttons in FRT and Hub use translucent backgrounds in dark mode:
 8. `index.html`
 9. `ARENCON_Project_Hub.html`
 10. `ARENCON_Field_Review_Tool.html`
-11. `HANDOFF_SESSION_57.md`
-12. `ARENCON_Logo.png`
-13. `arenconicon192.png` / `arenconicon512.png`
+11. `HANDOFF_SESSION_58.md`
+12. `FRT_REWRITE_ROADMAP.md`
+13. `FRT_REWRITE_BUSINESS_CASE.md`
+14. `HANDOFF_AI_WRITING_ASSISTANT.md`
