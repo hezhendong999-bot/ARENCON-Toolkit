@@ -2542,12 +2542,29 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
             var workerUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
             var fixCount=0;
             var _fixR2Rec=function(rec){
-              if(!rec||!rec.r2Key)return;
-              var pts=rec.r2Key.split('/');
-              if(pts.length>=5&&pts[0]==='photos'){
-                var correctKey='photos/'+_csR2Folder+'/frt/'+pts[3]+'/'+pts.slice(4).join('/');
-                var correctUrl=workerUrl+'/'+correctKey;
-                if(rec.r2Url!==correctUrl){rec.r2Key=correctKey;rec.r2Url=correctUrl;rec.r2Status='uploaded';fixCount++;}
+              if(!rec)return;
+              // Case 1: r2Key exists — rebuild with current folder slug
+              if(rec.r2Key){
+                var pts=rec.r2Key.split('/');
+                if(pts.length>=5&&pts[0]==='photos'){
+                  var correctKey='photos/'+_csR2Folder+'/frt/'+pts[3]+'/'+pts.slice(4).join('/');
+                  var correctUrl=workerUrl+'/'+correctKey;
+                  if(rec.r2Url!==correctUrl){rec.r2Key=correctKey;rec.r2Url=correctUrl;rec.r2Status='uploaded';fixCount++;}
+                }
+                return;
+              }
+              // Case 2: no r2Key but r2Url exists — reconstruct r2Key from r2Url (Session 61 ghost fix)
+              if(!rec.r2Key&&rec.r2Url&&rec.r2Url.indexOf(workerUrl)===0){
+                var urlPath=rec.r2Url.substring(workerUrl.length);// /photos/{folder}/frt/{type}/{fname}
+                var uParts=urlPath.split('/').filter(function(s){return s;});
+                // Expected: ['photos','{folder}','frt','{type}','{fname}']
+                if(uParts.length>=5&&uParts[0]==='photos'&&uParts[2]==='frt'){
+                  var uFname=uParts.slice(4).join('/');
+                  var uType=uParts[3];
+                  var correctKey='photos/'+_csR2Folder+'/frt/'+uType+'/'+uFname;
+                  var correctUrl=workerUrl+'/'+correctKey;
+                  rec.r2Key=correctKey;rec.r2Url=correctUrl;rec.r2Status='uploaded';fixCount++;
+                }
               }
             };
             (proj.drawings||[]).forEach(_fixR2Rec);
@@ -2569,12 +2586,61 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
               (proj.sitePhotos||[]).forEach(function(sp){if(sp.r2Key)ADB.saveSitePhoto(sp,proj.id).catch(function(){});});
             }
           }
-          // DEBUG: verify final state of sitePhotos markup
+          // ── Session 61: Remove ghost sitePhotos (no r2Key + no IDB blob) + dedup by r2Key ──
+          if(proj.sitePhotos&&proj.sitePhotos.length>0){
+            var beforeCount=proj.sitePhotos.length;
+            var seenR2Keys={};
+            proj.sitePhotos=proj.sitePhotos.filter(function(sp){
+              if(!sp)return false;
+              // Remove if no r2Key AND no dataUrl (unrecoverable ghost record)
+              if(!sp.r2Key&&!sp.dataUrl){
+                if(_DEBUG)console.log('[R2 cleanup] Removing ghost sitePhoto '+sp.id+' (no r2Key, no blob, r2Url='+(sp.r2Url||'none')+')');
+                return false;
+              }
+              // Dedup: skip if another record already has same r2Key
+              if(sp.r2Key){
+                if(seenR2Keys[sp.r2Key]){
+                  if(_DEBUG)console.log('[R2 cleanup] Removing duplicate sitePhoto '+sp.id+' (same r2Key as '+seenR2Keys[sp.r2Key]+')');
+                  return false;
+                }
+                seenR2Keys[sp.r2Key]=sp.id;
+              }
+              return true;
+            });
+            var removed=beforeCount-proj.sitePhotos.length;
+            if(removed>0){
+              if(_DEBUG)console.log('[R2 cleanup] Removed '+removed+' ghost/duplicate sitePhoto(s)');
+              ADB.saveProject(proj).catch(function(){});
+            }
+          }
           var mkCount=0;
           (proj.sitePhotos||[]).forEach(function(sp){if(sp.markupObjects&&sp.markupObjects.length)mkCount++;});
           if(mkCount>0)if(_DEBUG)console.log('[ADB.loadFull FINAL] '+mkCount+' site photo(s) have markupObjects after load');
           else if(_DEBUG)console.log('[ADB.loadFull FINAL] NO site photos have markupObjects. Total sitePhotos='+proj.sitePhotos.length);
           resolve(proj);
+          // ── Session 61: Async R2 validation — remove sitePhotos whose R2 file is 404 ──
+          if(_csHubMode&&proj.sitePhotos&&proj.sitePhotos.length>0){
+            setTimeout(function(){
+              var toCheck=proj.sitePhotos.filter(function(sp){return sp.r2Url&&!sp.dataUrl;});
+              if(!toCheck.length)return;
+              var removed=[];
+              var done=0;
+              toCheck.forEach(function(sp){
+                fetch(sp.r2Url,{method:'HEAD'}).then(function(res){
+                  if(!res.ok)removed.push(sp.id);
+                }).catch(function(){removed.push(sp.id);}).then(function(){
+                  done++;
+                  if(done===toCheck.length&&removed.length>0){
+                    proj.sitePhotos=proj.sitePhotos.filter(function(s){return removed.indexOf(s.id)===-1;});
+                    if(_DEBUG)console.log('[R2 validate] Removed '+removed.length+' sitePhoto(s) with 404 R2 URLs: '+removed.join(', '));
+                    ADB.saveProject(proj).catch(function(){});
+                    if(typeof _cloudSave==='function')_cloudSave();
+                    if(typeof renderGallery==='function')renderGallery();
+                  }
+                });
+              });
+            },3000);// Delay to let initial render complete first
+          }
         });
       });
     });
