@@ -2618,29 +2618,6 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
           if(mkCount>0)if(_DEBUG)console.log('[ADB.loadFull FINAL] '+mkCount+' site photo(s) have markupObjects after load');
           else if(_DEBUG)console.log('[ADB.loadFull FINAL] NO site photos have markupObjects. Total sitePhotos='+proj.sitePhotos.length);
           resolve(proj);
-          // ── Session 61: Async R2 validation — remove sitePhotos whose R2 file is 404 ──
-          if(_csHubMode&&proj.sitePhotos&&proj.sitePhotos.length>0){
-            setTimeout(function(){
-              var toCheck=proj.sitePhotos.filter(function(sp){return sp.r2Url&&!sp.dataUrl;});
-              if(!toCheck.length)return;
-              var removed=[];
-              var done=0;
-              toCheck.forEach(function(sp){
-                fetch(sp.r2Url,{method:'HEAD'}).then(function(res){
-                  if(!res.ok)removed.push(sp.id);
-                }).catch(function(){removed.push(sp.id);}).then(function(){
-                  done++;
-                  if(done===toCheck.length&&removed.length>0){
-                    proj.sitePhotos=proj.sitePhotos.filter(function(s){return removed.indexOf(s.id)===-1;});
-                    if(_DEBUG)console.log('[R2 validate] Removed '+removed.length+' sitePhoto(s) with 404 R2 URLs: '+removed.join(', '));
-                    ADB.saveProject(proj).catch(function(){});
-                    if(typeof _cloudSave==='function')_cloudSave();
-                    if(typeof renderGallery==='function')renderGallery();
-                  }
-                });
-              });
-            },3000);// Delay to let initial render complete first
-          }
         });
       });
     });
