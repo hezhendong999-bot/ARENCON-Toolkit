@@ -9978,17 +9978,17 @@ function moveDeficiency(did){
   if(!targets.length){toast('No other contractors to move to');return;}
   // Build picker
   var opts=targets.map(function(t,i){return '<option value="'+i+'">'+escHtml(t.label)+'</option>';}).join('');
-  var html='<div style="text-align:center;padding:20px;font-family:Calibri,sans-serif;">'+
-    '<div style="font-weight:700;font-size:calc(15px + var(--ts));margin-bottom:12px;">Move Deficiency #'+f.defic.num+'</div>'+
-    '<div style="font-size:calc(12px + var(--ts));color:#4A5568;margin-bottom:12px;">Currently under: <strong>'+escHtml(currentLabel)+'</strong></div>'+
-    '<select id="move-target" style="width:100%;padding:8px;border:1.5px solid #DDE1E7;border-radius:6px;font-family:inherit;font-size:calc(13px + var(--ts));margin-bottom:14px;">'+opts+'</select>'+
+  var html='<div style="text-align:center;padding:20px;font-family:Calibri,sans-serif;color:var(--fg,#1C2333);">'+
+    '<div style="font-weight:700;font-size:calc(15px + var(--ts));margin-bottom:12px;color:var(--arencon,#9C2742);">Move Deficiency #'+f.defic.num+'</div>'+
+    '<div style="font-size:calc(12px + var(--ts));color:var(--silver,#4A5568);margin-bottom:12px;">Currently under: <strong>'+escHtml(currentLabel)+'</strong></div>'+
+    '<select id="move-target" style="width:100%;padding:8px;border:1.5px solid var(--border,#DDE1E7);border-radius:6px;font-family:inherit;font-size:calc(13px + var(--ts));margin-bottom:14px;background:var(--bg,white);color:var(--fg,#1C2333);">'+opts+'</select>'+
     '<div style="display:flex;gap:8px;justify-content:center;">'+
-    '<button onclick="document.getElementById(\'move-modal\').remove()" style="padding:8px 20px;border:1.5px solid #DDE1E7;border-radius:6px;background:white;cursor:pointer;font-family:inherit;">Cancel</button>'+
+    '<button onclick="document.getElementById(\'move-modal\').remove()" style="padding:8px 20px;border:1.5px solid var(--border,#DDE1E7);border-radius:6px;background:var(--smoke,#f5f5f5);color:var(--fg,#1C2333);cursor:pointer;font-family:inherit;">Cancel</button>'+
     '<button id="move-confirm-btn" style="padding:8px 20px;border:none;border-radius:6px;background:#1565C0;color:white;font-weight:700;cursor:pointer;font-family:inherit;">Move</button>'+
     '</div></div>';
   var overlay=document.createElement('div');overlay.id='move-modal';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10050;display:flex;align-items:center;justify-content:center;';
-  var card=document.createElement('div');card.style.cssText='background:white;border-radius:12px;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3);';
+  var card=document.createElement('div');card.style.cssText='background:var(--bg,white);color:var(--fg,#1C2333);border-radius:12px;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3);';
   card.innerHTML=html;overlay.appendChild(card);document.body.appendChild(overlay);
   overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
   document.getElementById('move-confirm-btn').onclick=function(){
