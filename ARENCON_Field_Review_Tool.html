@@ -1310,83 +1310,6 @@ body.text-l{--ts:4px;}
 /* Text size toggle button */
 .text-size-toggle{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:calc(12px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;transition:all .15s;display:inline-flex;align-items:center;gap:4px;}
 .text-size-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
-
-/* ═══ AI REVIEW PANEL ═══ */
-.ai-panel-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:8999;background:rgba(0,0,0,.3);display:none;opacity:0;transition:opacity .2s;}
-.ai-panel-overlay.open{display:block;opacity:1;}
-.ai-panel{position:fixed;top:0;right:0;bottom:0;width:420px;max-width:100vw;z-index:9000;background:var(--bg,#fff);border-left:3px solid #9C2742;box-shadow:-4px 0 24px rgba(0,0,0,.15);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;}
-.ai-panel.open{transform:translateX(0);}
-.ai-panel-hdr{background:#9C2742;color:white;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
-.ai-panel-hdr h3{margin:0;font-size:calc(16px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;}
-.ai-panel-hdr-btns{display:flex;gap:8px;align-items:center;}
-.ai-panel-hdr-btns button{border:none;border-radius:6px;padding:6px 14px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;}
-.ai-btn-accept-all{background:rgba(255,255,255,.2);color:white;border:1.5px solid rgba(255,255,255,.4)!important;}
-.ai-btn-accept-all:hover{background:rgba(255,255,255,.3);}
-.ai-btn-close{background:none;color:white;font-size:18px;padding:4px 8px!important;line-height:1;}
-.ai-panel-counter{padding:8px 18px;font-size:calc(12px + var(--ts));color:var(--steel,#607D8B);border-bottom:1px solid var(--border,#ddd);font-family:Calibri,sans-serif;font-weight:600;}
-.ai-panel-body{flex:1;overflow-y:auto;padding:0;scrollbar-width:thin;}
-.ai-suggestion{padding:16px 18px;border-bottom:1px solid var(--border,#ddd);}
-.ai-suggestion.processed{opacity:.5;}
-.ai-field-label{font-size:calc(11px + var(--ts));color:#9C2742;font-weight:700;margin-bottom:8px;cursor:pointer;font-family:Calibri,sans-serif;}
-.ai-field-label:hover{text-decoration:underline;}
-.ai-text-box{border:1px solid var(--border,#ddd);border-radius:6px;padding:10px 12px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;line-height:1.5;margin-bottom:6px;background:var(--smoke,#F5F5F5);}
-.ai-text-box-label{font-size:calc(10px + var(--ts));font-weight:700;color:var(--steel,#607D8B);margin-bottom:4px;font-family:Calibri,sans-serif;}
-.ai-diff-add{background:#d4edda;padding:0 2px;border-radius:2px;}
-.ai-diff-del{background:#f8d7da;text-decoration:line-through;padding:0 2px;border-radius:2px;color:#999;}
-.ai-suggestion-btns{display:flex;gap:8px;margin-top:10px;}
-.ai-suggestion-btns button{border:none;border-radius:6px;padding:7px 18px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;}
-.ai-btn-accept{background:#1A7A4A;color:white;}
-.ai-btn-accept:hover{filter:brightness(1.1);}
-.ai-btn-skip{background:none;color:#6B7280;border:1.5px solid #6B7280!important;}
-.ai-btn-skip:hover{background:#f5f5f5;}
-.ai-panel-loading{padding:24px 18px;text-align:center;color:var(--steel,#607D8B);font-family:Calibri,sans-serif;}
-.ai-panel-loading .ai-spinner{display:inline-block;width:20px;height:20px;border:3px solid #ddd;border-top-color:#9C2742;border-radius:50%;animation:ai-spin .6s linear infinite;margin-bottom:8px;}
-@keyframes ai-spin{to{transform:rotate(360deg);}}
-.ai-panel-done{padding:32px 18px;text-align:center;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;color:#1A7A4A;font-weight:600;}
-.ai-changes-note{font-size:calc(10px + var(--ts));color:var(--steel,#607D8B);margin-top:4px;font-style:italic;}
-/* Dark mode */
-body.dark-mode .ai-panel{background:var(--bg,#0f1318);border-left-color:#b0304e;}
-body.dark-mode .ai-text-box{background:#1a1d24;border-color:#2a3040;}
-body.dark-mode .ai-diff-add{background:#0a2e1a;color:#6ddb8d;}
-body.dark-mode .ai-diff-del{background:#2e1010;color:#e88;}
-body.dark-mode .ai-btn-skip{color:#8a94b0;border-color:#3a4050!important;}
-body.dark-mode .ai-btn-skip:hover{background:#1e2533;}
-body.dark-mode .ai-panel-overlay{background:rgba(0,0,0,.5);}
-/* Mobile: bottom sheet */
-@media(max-width:600px){
-  .ai-panel{top:auto;bottom:0;left:0;right:0;width:100%;height:75vh;border-left:none;border-top:3px solid #9C2742;transform:translateY(100%);border-radius:16px 16px 0 0;}
-  .ai-panel.open{transform:translateY(0);}
-}
-/* Header AI Review button */
-.hdr-btn.hdr-ai{background:#7B1FA2;}
-.hdr-btn.hdr-ai:disabled{opacity:.5;cursor:not-allowed;}
-.hdr-btn.hdr-ai .ai-spin-icon{display:inline-block;animation:ai-spin .6s linear infinite;}
-/* ═══ AI USAGE DASHBOARD ═══ */
-.ai-usage-overlay{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.6);display:none;overflow-y:auto;}
-.ai-usage-overlay.open{display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;}
-.ai-usage-modal{background:var(--bg,#fff);border-radius:12px;max-width:900px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3);font-family:Calibri,sans-serif;overflow:hidden;}
-.ai-usage-hdr{background:#9C2742;color:white;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;}
-.ai-usage-hdr h3{margin:0;font-size:calc(16px + var(--ts));font-weight:700;}
-.ai-usage-hdr-btns{display:flex;gap:6px;}
-.ai-usage-hdr-btns button{border:none;border-radius:6px;padding:6px 12px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;color:white;background:rgba(255,255,255,.2);}
-.ai-usage-hdr-btns button:hover{background:rgba(255,255,255,.3);}
-.ai-usage-filters{padding:12px 18px;border-bottom:1px solid var(--border,#ddd);display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:calc(12px + var(--ts));}
-.ai-usage-filters input[type=date]{font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));padding:4px 8px;border:1px solid var(--border,#ccc);border-radius:6px;background:var(--bg,#fff);color:var(--fg,#333);}
-.ai-usage-filters button{background:#9C2742;color:white;border:none;border-radius:6px;padding:6px 14px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;}
-.ai-usage-body{padding:18px;max-height:70vh;overflow-y:auto;}
-.ai-usage-section{margin-bottom:20px;}
-.ai-usage-section h4{margin:0 0 8px;font-size:calc(13px + var(--ts));color:#9C2742;font-weight:700;border-bottom:2px solid #9C2742;padding-bottom:4px;}
-.ai-usage-table{width:100%;border-collapse:collapse;font-size:calc(12px + var(--ts));}
-.ai-usage-table th{background:var(--smoke,#f5f5f5);padding:8px 10px;text-align:left;font-weight:700;color:var(--steel,#607D8B);border-bottom:2px solid var(--border,#ddd);}
-.ai-usage-table td{padding:7px 10px;border-bottom:1px solid var(--border,#eee);}
-.ai-usage-table tr:hover td{background:rgba(156,39,66,.04);}
-.ai-usage-table .total-row td{font-weight:700;border-top:2px solid var(--border,#ccc);background:var(--smoke,#f5f5f5);}
-.ai-usage-table .cost{text-align:right;font-family:'Courier New',monospace;}
-.ai-usage-loading{padding:32px;text-align:center;color:var(--steel,#607D8B);}
-body.dark-mode .ai-usage-modal{background:#0f1318;}
-body.dark-mode .ai-usage-table th{background:#1a1d24;}
-body.dark-mode .ai-usage-table .total-row td{background:#1a1d24;}
-body.dark-mode .ai-usage-filters input[type=date]{background:#1a1d24;color:#d0d8f0;border-color:#2a3040;}
 </style>
 </head>
 <body>
@@ -1422,14 +1345,6 @@ body.dark-mode .ai-usage-filters input[type=date]{background:#1a1d24;color:#d0d8
       <!-- Project buttons (hidden on dashboard, shown in project) -->
       <button class="hdr-btn" id="btn-pdf" onclick="showPDFOptions()" style="display:none;background:#1A237E;" title="Export PDF Report">📄 Reports</button>
       <button class="hdr-btn" id="btn-issue" onclick="issueReport()" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
-      <div class="hdr-repair-wrap" id="btn-ai-wrap" style="display:none;position:relative;">
-        <button class="hdr-btn hdr-ai" id="btn-ai-review" onclick="AIAssist._toggleMenu()" title="AI Review">✨ AI Review ▾</button>
-        <div class="hdr-repair-menu" id="ai-mode-menu">
-          <button onclick="AIAssist.reviewAll('rewrite');AIAssist._closeMenu()">✨ Full Rewrite <span>Professional report language (Sonnet)</span></button>
-          <button onclick="AIAssist.reviewAll('quickfix');AIAssist._closeMenu()">🔤 Quick Fix <span>Typos &amp; grammar only (Haiku)</span></button>
-        </div>
-      </div>
-      <button class="hdr-btn admin-only" id="btn-ai-usage" onclick="AIUsage.open()" style="display:none;background:#455A64;" title="AI Usage Tracking">📊</button>
       <!-- ⚙️ More dropdown — groups Download, Repair, Reset -->
       <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
         <button class="hdr-btn" style="background:#455A64;" onclick="toggleMoreMenu(event)" title="More options">⚙️ More ▾</button>
@@ -1494,8 +1409,6 @@ body.dark-mode .ai-usage-filters input[type=date]{background:#1a1d24;color:#d0d8
       <button onclick="closeMobileMenu();" style="background:none;border:none;font-size:20px;color:var(--silver);cursor:pointer;padding:4px;">✕</button>
     </div>
     <button class="btn" id="mobile-pdf-btn" onclick="showPDFOptions();closeMobileMenu();" style="display:none;">📄 Reports</button>
-    <button class="btn" id="mobile-ai-btn" onclick="AIAssist.reviewAll('rewrite');closeMobileMenu();" style="display:none;">✨ Full Rewrite</button>
-    <button class="btn" id="mobile-ai-btn2" onclick="AIAssist.reviewAll('quickfix');closeMobileMenu();" style="display:none;">🔤 Quick Fix</button>
 <button class="btn" onclick="saveJSON();closeMobileMenu();">💾 Export Project</button>
     <button class="btn" onclick="openLoadModal();closeMobileMenu();">📂 Load Project</button>
 <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
@@ -3530,13 +3443,10 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   var _enp=(p.info.projectNumber||'');var _ent=(p.info.projectName||'Untitled');_el=document.getElementById('header-filename');if(_el)_el.textContent=buildSmartFilename(p);var _pbf2=document.getElementById('pb-filename');if(_pbf2)_pbf2.textContent=buildSmartFilename(p);
   // Set initial badge state
   var _st0=p.status||'draft';var _pbb0=document.getElementById('pb-badge');if(_pbb0){_pbb0.textContent=_st0.toUpperCase();_pbb0.style.background=_st0==='issued'?'#1A7A4A':_st0==='revision'?'#E67E22':'#6B7280';}
-  ['btn-save-as','btn-folder','btn-open-folder','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','btn-more-wrap','btn-ai-wrap'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='';});
-  if(_isAdmin()){var aub=document.getElementById('btn-ai-usage');if(aub)aub.style.display='';}
+  ['btn-save-as','btn-folder','btn-open-folder','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','btn-more-wrap'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='';});
   updateSmartFilename();
   ['btn-load','btn-export-all'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   var mb=document.getElementById('mobile-pdf-btn');if(mb)mb.style.display='';
-  var mab=document.getElementById('mobile-ai-btn');if(mab)mab.style.display='';
-  var mab2=document.getElementById('mobile-ai-btn2');if(mab2)mab2.style.display='';
   var bpub=document.getElementById('btn-publish');if(bpub)bpub.style.display='';
   // Hide dashboard-only mobile menu items
   var mea=document.getElementById('mobile-export-all');if(mea)mea.style.display='none';
@@ -9135,9 +9045,9 @@ function _deficContentKey(){
     for(var fi=0;fi<fkeys.length;fi++)k+='F'+fkeys[fi]+(_foldedCtrs[fkeys[fi]]?'1':'0');
     (p.contractors||[]).forEach(function(c){
       k+=c.id+c.name+c.deficiencies.length+',';
-      c.deficiencies.forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;(d.observations||[]).forEach(function(o){k+=(o.photos||[]).length+(o.text||'').length;});});
+      c.deficiencies.forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;(d.observations||[]).forEach(function(o){k+=(o.photos||[]).length;});});
     });
-    (p.generalDeficiencies||[]).forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;(d.observations||[]).forEach(function(o){k+=(o.photos||[]).length+(o.text||'').length;});});
+    (p.generalDeficiencies||[]).forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;(d.observations||[]).forEach(function(o){k+=(o.photos||[]).length;});});
     return k;
   }catch(e){return ''+Date.now();}// force render on error
 }
@@ -9185,8 +9095,12 @@ function _updateDeficLifecycleCounts(){
   var p=getProject();if(!p)return;
   var ad=getAllDeficiencies(p);
   var ac=0,cc=0,gc=0;
-  ad.forEach(function(d){if(_deficIsOpen(d.defic))ac++;else cc++;});
-  gc=(p.generalDeficiencies||[]).length;
+  ad.forEach(function(d){
+    // generalDeficiencies have contractorId===null — count them separately
+    if(d.contractorId===null){gc++;}
+    else if(_deficIsOpen(d.defic))ac++;
+    else cc++;
+  });
   var ael=document.getElementById('dlc-active-count');if(ael)ael.textContent=ac;
   var gel=document.getElementById('dlc-general-count');if(gel)gel.textContent=gc;
   var cel=document.getElementById('dlc-closed-count');if(cel)cel.textContent=cc;
@@ -9235,7 +9149,7 @@ function _buildDeficDescSuggestions(p){
 function renderContractorChips(){var p=getProject();if(!p)return;var el=document.getElementById('contractor-chips');if(!p.contractors.length){el.innerHTML='<span style="color:#999;font-size:calc(13px + var(--ts));">No contractors added yet.</span>';return;}el.innerHTML=p.contractors.map(function(c){return'<div class="contractor-chip"><span>'+escHtml(c.name)+'</span><button onclick="renameContractor(\''+c.id+'\')" title="Rename" style="background:none;border:none;cursor:pointer;font-size:calc(11px + var(--ts));padding:0 2px;opacity:.7;color:inherit;">✏</button><button onclick="removeContractor(\''+c.id+'\')" title="Remove">✕</button></div>';}).join('');}
 function renameContractor(cid){var p=getProject();var c=p.contractors.find(function(x){return x.id===cid;});if(!c)return;_aPrompt('Rename contractor:',c.name,function(nn){if(!nn||!nn.trim()||nn.trim()===c.name)return;nn=nn.trim();if(p.contractors.some(function(x){return x.id!==cid&&x.name.toLowerCase()===nn.toLowerCase();})){_aAlert('"'+nn+'" already exists.');return;}var oldName=c.name;c.name=nn;
 if(_foldedCtrs[oldName]){_foldedCtrs[nn]=_foldedCtrs[oldName];delete _foldedCtrs[oldName];}saveToLS();renderDeficiencyPanel();});}
-function renderDeficGroups(){var p=getProject();if(!p)return;var el=document.getElementById('defic-groups');if(!p.contractors.length&&!p.generalDeficiencies.length){el.innerHTML='<p style="color:#999;font-size:calc(13px + var(--ts));padding:12px 0;text-align:center;">Add a contractor above to start recording deficiencies.</p>';return;}var html='';p.contractors.forEach(function(c){var active=c.deficiencies.filter(function(d){return _deficIsOpen(d);});html+=buildDeficGroup(c.id,c.name,active,c.deficiencies.length);});var genActive=(p.generalDeficiencies||[]).filter(function(d){return _deficIsOpen(d);});if(genActive.length>0||p.generalDeficiencies.length>0)html+=buildDeficGroup(null,'Site General',genActive,p.generalDeficiencies.length);el.innerHTML=html;}
+function renderDeficGroups(){var p=getProject();if(!p)return;var el=document.getElementById('defic-groups');if(!p.contractors.length){el.innerHTML='<p style="color:#999;font-size:calc(13px + var(--ts));padding:12px 0;text-align:center;">Add a contractor above to start recording deficiencies.</p>';return;}var html='';p.contractors.forEach(function(c){var active=c.deficiencies.filter(function(d){return _deficIsOpen(d);});html+=buildDeficGroup(c.id,c.name,active,c.deficiencies.length);});el.innerHTML=html;}
 
 function buildDeficGroup(ctrId,name,items,totalCount){var safeId=ctrId||'general';var folded=_foldedCtrs[name]||false;var arrow=folded?'\u25B8':'\u25BE';var safeName=name.replace(/'/g,"\\'");var countLabel=items.length+' active'+(totalCount&&totalCount>items.length?' / '+totalCount+' total':'');var html='<div class="defic-group"><div class="defic-group-header" onclick="toggleCtrFold(\''+safeName+'\')" style="cursor:pointer;user-select:none;"><span style="display:flex;align-items:center;gap:8px;"><span class="ctr-fold-arrow">'+arrow+'</span> \uD83D\uDC77 '+escHtml(name)+'</span><span style="font-size:calc(12px + var(--ts));opacity:.7;">'+countLabel+'</span></div>';if(folded){html+='</div>';return html;}if(!items.length)html+='<div class="defic-group-empty">No active deficiencies for this contractor.</div>';items.forEach(function(d,i){html+=buildDeficItem(d,ctrId,i);});html+='<div class="add-defic-btn-wrap"><button class="btn btn-outline btn-sm" onclick="addDeficiencyForGroup(\''+(ctrId||'')+'\')">+ Add Deficiency</button></div></div>';return html;}
 
@@ -10439,6 +10353,8 @@ function consultantCloseItem(did,ri){
 function _deficPhotoSrc(ph){
   if(!ph)return '';
   if(typeof ph==='string')return ph;// Legacy base64 string
+  // Local blob takes priority over R2 — prevents broken thumbnails when R2 URL is stale
+  if(ph.dataUrl&&typeof ph.dataUrl==='string'&&ph.dataUrl.indexOf('data:')===0)return ph.dataUrl;
   return ph.r2Url||ph.dataUrl||'';
 }
 // Returns the display thumbnail src — prefers composited markup preview over original
@@ -12149,11 +12065,13 @@ function deleteSelectedPhotos(){
         var parts=sp.r2Key.split('/');
         if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){_dbw('R2 delete failed:',e);});
       }
+      // Cleanup IDB sitePhotos blob store
+      if(sp&&sp.id&&typeof ADB!=='undefined')ADB.delete('sitePhotos',sp.id).catch(function(){});
       return false;
     });
   }
   _selectedPhotos=[];
-  saveToLS();renderPhotoGallery();
+  saveToLS();_folderQuickSave();renderPhotoGallery();
   showToast(siteIds.length+' photo'+(siteIds.length!==1?'s':'')+' deleted'+(deficIds.length>0?' ('+deficIds.length+' deficiency photos skipped)':''));
   },'Delete');
 }
@@ -12174,10 +12092,12 @@ function deleteSingleSitePhoto(photoId,idx){
         var parts=sp.r2Key.split('/');
         if(parts.length>=5)R2Photos.remove(parts[1],parts[2],parts[3],parts[4]).catch(function(e){_dbw('R2 delete failed:',e);});
       }
+      // Cleanup IDB sitePhotos blob store
+      if(sp&&sp.id&&typeof ADB!=='undefined')ADB.delete('sitePhotos',sp.id).catch(function(){});
       p.sitePhotos.splice(found,1);
     }
     _selectedPhotos=_selectedPhotos.filter(function(id){return id!==photoId;});
-    saveToLS();renderPhotoGallery();
+    saveToLS();_folderQuickSave();renderPhotoGallery();
     showToast('Photo deleted');
   },'Delete');
 }
@@ -12455,7 +12375,7 @@ function _buildUnifiedPhotoList(p){
 
   var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
   if(siteArr.length){siteArr.forEach(function(ph,i){
-    var src=(typeof ph==='string')?ph:((ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'');
+    var src=(typeof ph==='string')?ph:((ph.dataUrl&&typeof ph.dataUrl==='string'&&ph.dataUrl.indexOf('data:')===0)?ph.dataUrl:(ph.r2Url&&ph.r2Url.length>5)?ph.r2Url:(ph.dataUrl&&ph.dataUrl.length>5)?ph.dataUrl:'');
     if(!src||src.length<5)return;// Skip ghost records with no displayable image
     var hasMarkup=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
     var thumbSrc=src;
@@ -15037,673 +14957,6 @@ function confirmPhotoPick(){
   if(count){saveToLS();_folderQuickSave();renderDeficiencyPanel();toast('📸 Attached '+count+' photo'+(count!==1?'s':''));}
   closePhotoPicker();
 }
-
-// ═══════════════════════════════════════════════════════════════════
-// AIAssist — AI Writing Assistant Module
-// Collects text fields from FRT data model, sends to Cloudflare Worker
-// proxy → Anthropic API, shows review panel with diff view.
-// ═══════════════════════════════════════════════════════════════════
-var AIAssist=(function(){
-'use strict';
-
-var WORKER_URL='https://arencon-ai-worker.hezhendong999.workers.dev';
-var _panel=null, _overlay=null;
-var _suggestions=[];
-var _fieldMap={};
-var _processed=0;
-var _accepted=0;
-var _busy=false;
-
-// ── Field Collection ──
-function _collectFields(){
-  var fields=[];
-  _fieldMap={};
-  var p=getProject();
-  if(!p||!p.contractors)return fields;
-  var minLen=8;
-  p.contractors.forEach(function(c,ci){
-    if(!c.deficiencies)return;
-    c.deficiencies.forEach(function(d,di){
-      var dLabel=(c.name||'General')+' \u2192 #'+(d.num||'?');
-      if(d.observations){
-        d.observations.forEach(function(o,oi){
-          if(o.text&&o.text.trim().length>=minLen){
-            var fid='c'+ci+'_d'+di+'_o'+oi;
-            fields.push({id:fid,label:dLabel+' \u2192 Obs '+(oi+1),text:o.text.trim()});
-            _fieldMap[fid]={path:[ci,di,'obs',oi],original:o.text.trim(),label:dLabel+' \u2192 Obs '+(oi+1)};
-          }
-        });
-      }
-      if(d.activity){
-        d.activity.forEach(function(a,ai){
-          if(a.text&&a.text.trim().length>=minLen){
-            var fid='c'+ci+'_d'+di+'_a'+ai;
-            var aDate=a.date||'';
-            fields.push({id:fid,label:dLabel+' \u2192 Activity '+(aDate?aDate:(ai+1)),text:a.text.trim()});
-            _fieldMap[fid]={path:[ci,di,'act',ai],original:a.text.trim(),label:dLabel+' \u2192 Activity '+(aDate?aDate:(ai+1))};
-          }
-        });
-      }
-      if(d.closedNote&&d.closedNote.trim().length>=minLen){
-        var fid='c'+ci+'_d'+di+'_cn';
-        fields.push({id:fid,label:dLabel+' \u2192 Closed Note',text:d.closedNote.trim()});
-        _fieldMap[fid]={path:[ci,di,'cn',0],original:d.closedNote.trim(),label:dLabel+' \u2192 Closed Note'};
-      }
-    });
-  });
-  if(p.generalDeficiencies){
-    p.generalDeficiencies.forEach(function(d,di){
-      var dLabel='Site General \u2192 #'+(d.num||'?');
-      if(d.observations){
-        d.observations.forEach(function(o,oi){
-          if(o.text&&o.text.trim().length>=minLen){
-            var fid='g'+di+'_o'+oi;
-            fields.push({id:fid,label:dLabel+' \u2192 Obs '+(oi+1),text:o.text.trim()});
-            _fieldMap[fid]={path:['gen',di,'obs',oi],original:o.text.trim(),label:dLabel+' \u2192 Obs '+(oi+1)};
-          }
-        });
-      }
-      if(d.activity){
-        d.activity.forEach(function(a,ai){
-          if(a.text&&a.text.trim().length>=minLen){
-            var fid='g'+di+'_a'+ai;
-            var aDate=a.date||'';
-            fields.push({id:fid,label:dLabel+' \u2192 Activity '+(aDate?aDate:(ai+1)),text:a.text.trim()});
-            _fieldMap[fid]={path:['gen',di,'act',ai],original:a.text.trim(),label:dLabel+' \u2192 Activity '+(aDate?aDate:(ai+1))};
-          }
-        });
-      }
-    });
-  }
-  return fields;
-}
-
-// ── Word-Level Diff ──
-function _wordDiff(original,improved){
-  if(original===improved)return {html:_esc(improved),changed:false};
-  var a=original.split(/(\s+)/), b=improved.split(/(\s+)/);
-  var m=a.length, n=b.length;
-  if(m>200||n>200){
-    return {html:'<span class="ai-diff-del">'+_esc(original)+'</span> <span class="ai-diff-add">'+_esc(improved)+'</span>',changed:true};
-  }
-  var dp=[];
-  for(var i=0;i<=m;i++){dp[i]=[];for(var j=0;j<=n;j++)dp[i][j]=0;}
-  for(i=1;i<=m;i++)for(j=1;j<=n;j++){
-    if(a[i-1]===b[j-1])dp[i][j]=dp[i-1][j-1]+1;
-    else dp[i][j]=Math.max(dp[i-1][j],dp[i][j-1]);
-  }
-  var result=[];
-  i=m;j=n;
-  while(i>0||j>0){
-    if(i>0&&j>0&&a[i-1]===b[j-1]){
-      result.unshift({type:'same',text:a[i-1]});i--;j--;
-    } else if(j>0&&(i===0||dp[i][j-1]>=dp[i-1][j])){
-      result.unshift({type:'add',text:b[j-1]});j--;
-    } else {
-      result.unshift({type:'del',text:a[i-1]});i--;
-    }
-  }
-  var html='';
-  result.forEach(function(r){
-    if(r.type==='same')html+=_esc(r.text);
-    else if(r.type==='add')html+='<span class="ai-diff-add">'+_esc(r.text)+'</span>';
-    else html+='<span class="ai-diff-del">'+_esc(r.text)+'</span>';
-  });
-  return {html:html,changed:true};
-}
-
-function _esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-
-// ── Panel UI ──
-function _ensurePanel(){
-  if(_panel)return;
-  _overlay=document.createElement('div');
-  _overlay.className='ai-panel-overlay';
-  _overlay.onclick=function(){_closePanel();};
-  document.body.appendChild(_overlay);
-  _panel=document.createElement('div');
-  _panel.className='ai-panel';
-  _panel.onclick=function(e){e.stopPropagation();};
-  _panel.innerHTML='<div class="ai-panel-hdr"><h3>\u2728 AI Review</h3><div class="ai-panel-hdr-btns">'
-    +'<button class="ai-btn-accept-all" id="ai-accept-all" onclick="AIAssist._acceptAll()">Accept All</button>'
-    +'<button class="ai-btn-close" onclick="AIAssist._closePanel()">\u2715</button>'
-    +'</div></div>'
-    +'<div class="ai-panel-counter" id="ai-counter"></div>'
-    +'<div class="ai-panel-body" id="ai-body"></div>';
-  document.body.appendChild(_panel);
-}
-
-function _openPanel(){
-  _ensurePanel();
-  requestAnimationFrame(function(){
-    _overlay.classList.add('open');
-    _panel.classList.add('open');
-  });
-}
-
-function _closePanel(){
-  if(_overlay)_overlay.classList.remove('open');
-  if(_panel)_panel.classList.remove('open');
-  if(_accepted>0){_rdpLastKey='';renderDeficiencyPanel();}
-  _busy=false;
-  _updateBtn(false);
-}
-
-function _updateCounter(){
-  var el=document.getElementById('ai-counter');
-  if(!el)return;
-  var total=_suggestions.length;
-  var remaining=total-_processed;
-  if(remaining<=0)el.textContent='\u2714 All done \u2014 '+_accepted+' accepted, '+(total-_accepted)+' skipped';
-  else el.textContent=(_processed+1)+' of '+total+' suggestions';
-}
-
-function _renderSuggestions(suggestions){
-  _suggestions=suggestions.filter(function(s){
-    var fm=_fieldMap[s.id];
-    return fm&&s.improved&&s.improved!==fm.original;
-  });
-  _processed=0;
-  _accepted=0;
-  var body=document.getElementById('ai-body');
-  if(!body)return;
-  body.innerHTML='';
-  if(_suggestions.length===0){
-    body.innerHTML='<div class="ai-panel-done">\u2714 All text looks good \u2014 no suggestions</div>';
-    _updateCounter();
-    document.getElementById('ai-accept-all').style.display='none';
-    setTimeout(function(){_closePanel();},3000);
-    return;
-  }
-  document.getElementById('ai-accept-all').style.display='';
-  _suggestions.forEach(function(s,idx){
-    var fm=_fieldMap[s.id];
-    if(!fm)return;
-    var diff=_wordDiff(fm.original,s.improved);
-    var div=document.createElement('div');
-    div.className='ai-suggestion';
-    div.id='ai-sug-'+idx;
-    div.innerHTML='<div class="ai-field-label">'+_esc(fm.label)+'</div>'
-      +'<div class="ai-text-box-label">Original</div>'
-      +'<div class="ai-text-box">'+_esc(fm.original)+'</div>'
-      +'<div class="ai-text-box-label">Suggested</div>'
-      +'<div class="ai-text-box">'+diff.html+'</div>'
-      +(s.changes&&s.changes!=='no changes needed'?'<div class="ai-changes-note">'+_esc(s.changes)+'</div>':'')
-      +'<div class="ai-suggestion-btns">'
-      +'<button class="ai-btn-accept" onclick="AIAssist._accept('+idx+')">Accept</button>'
-      +'<button class="ai-btn-skip" onclick="AIAssist._skip('+idx+')">Skip</button>'
-      +'</div>';
-    body.appendChild(div);
-  });
-  _updateCounter();
-  var first=document.getElementById('ai-sug-0');
-  if(first)first.scrollIntoView({behavior:'smooth',block:'start'});
-}
-
-// ── Accept / Skip ──
-function _accept(idx){
-  var s=_suggestions[idx];
-  if(!s)return;
-  var fm=_fieldMap[s.id];
-  if(!fm)return;
-  _writeBack(fm.path,s.improved);
-  // Save immediately after each accept
-  saveToLS();
-  _folderQuickSave();
-  var el=document.getElementById('ai-sug-'+idx);
-  if(el){el.classList.add('processed');el.querySelector('.ai-suggestion-btns').innerHTML='<span style="color:#1A7A4A;font-weight:600;">\u2714 Accepted</span>';}
-  _processed++;
-  _accepted++;
-  _updateCounter();
-  _scrollToNext(idx);
-  if(_processed>=_suggestions.length)_finishReview();
-}
-
-function _skip(idx){
-  var el=document.getElementById('ai-sug-'+idx);
-  if(el){el.classList.add('processed');el.querySelector('.ai-suggestion-btns').innerHTML='<span style="color:#6B7280;">Skipped</span>';}
-  _processed++;
-  _updateCounter();
-  _scrollToNext(idx);
-  if(_processed>=_suggestions.length)_finishReview();
-}
-
-function _acceptAll(){
-  _suggestions.forEach(function(s,idx){
-    var el=document.getElementById('ai-sug-'+idx);
-    if(el&&!el.classList.contains('processed'))_accept(idx);
-  });
-}
-
-function _scrollToNext(currentIdx){
-  for(var i=currentIdx+1;i<_suggestions.length;i++){
-    var el=document.getElementById('ai-sug-'+i);
-    if(el&&!el.classList.contains('processed')){
-      el.scrollIntoView({behavior:'smooth',block:'start'});
-      return;
-    }
-  }
-}
-
-function _finishReview(){
-  if(_accepted>0){
-    saveToLS();
-    _folderQuickSave();
-    _rdpLastKey='';
-    renderDeficiencyPanel();
-  }
-  _updateCounter();
-  setTimeout(function(){_closePanel();},2500);
-}
-
-// ── Write-Back to Data Model ──
-function _writeBack(path,newText){
-  var p=getProject();
-  if(!p)return;
-  var ci=path[0],di=path[1],type=path[2],idx=path[3];
-  var deficArr;
-  if(ci==='gen'){
-    deficArr=p.generalDeficiencies;
-  } else {
-    if(!p.contractors||!p.contractors[ci])return;
-    deficArr=p.contractors[ci].deficiencies;
-  }
-  if(!deficArr||!deficArr[di])return;
-  var d=deficArr[di];
-  if(type==='obs'){
-    if(d.observations&&d.observations[idx])d.observations[idx].text=newText;
-    if(d.entries&&d.entries[idx]){d.entries[idx].text=newText;d.entries[idx].description=newText;}
-    if(idx===0)d.description=newText;
-  } else if(type==='act'){
-    if(d.activity&&d.activity[idx])d.activity[idx].text=newText;
-  } else if(type==='cn'){
-    d.closedNote=newText;
-  }
-}
-
-// ── Button State ──
-function _updateBtn(busy,mode){
-  var btn=document.getElementById('btn-ai-review');
-  if(!btn)return;
-  if(busy){
-    btn.disabled=true;
-    btn.innerHTML='<span class="ai-spin-icon">\u2728</span> '+(mode==='quickfix'?'Checking':'Rewriting')+'\u2026';
-  } else {
-    btn.disabled=false;
-    btn.innerHTML='\u2728 AI Review \u25BE';
-  }
-}
-
-function _toggleMenu(){
-  var m=document.getElementById('ai-mode-menu');
-  if(m)m.classList.toggle('open');
-}
-function _closeMenu(){
-  var m=document.getElementById('ai-mode-menu');
-  if(m)m.classList.remove('open');
-}
-
-// ── Get Auth Token ──
-function _getToken(){
-  var t=localStorage.getItem('sb-access-token');
-  if(t)return t;
-  return null;
-}
-
-// ── Main Entry ──
-function reviewAll(mode){
-  if(_busy)return;
-  if(!mode)mode='rewrite';
-  if(!getProject()){toast('\u26A0 Open a project first');return;}
-  var token=_getToken();
-  if(!token){toast('\u26A0 AI Review requires cloud login');return;}
-  var fields=_collectFields();
-  if(fields.length===0){toast('\u2714 No text fields to review');return;}
-  _busy=true;
-  _updateBtn(true,mode);
-  _openPanel();
-  var body=document.getElementById('ai-body');
-  var modeLabel=mode==='quickfix'?'Quick Fix (Haiku)':'Full Rewrite (Sonnet)';
-  if(body)body.innerHTML='<div class="ai-panel-loading"><div class="ai-spinner"></div><br>'+modeLabel+'<br>Reviewing '+fields.length+' field'+(fields.length!==1?'s':'')+'\u2026</div>';
-  document.getElementById('ai-accept-all').style.display='none';
-  var ctr=document.getElementById('ai-counter');
-  if(ctr)ctr.textContent=modeLabel+' \u2014 Sending\u2026';
-  var context={
-    tool:'frt',
-    projectNumber:(getProject().info&&getProject().info.projectNumber)||'',
-    projectName:(getProject().info&&getProject().info.projectName)||''
-  };
-  fetch(WORKER_URL,{
-    method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-    body:JSON.stringify({fields:fields,context:context,mode:mode})
-  })
-  .then(function(res){
-    if(!res.ok)return res.json().then(function(e){throw new Error(e.error||'API error '+res.status);});
-    return res.json();
-  })
-  .then(function(data){
-    _busy=false;
-    _updateBtn(false);
-    if(!data.suggestions||!Array.isArray(data.suggestions)){
-      throw new Error('Invalid response from AI');
-    }
-    _renderSuggestions(data.suggestions);
-    if(data.usage&&data.usage.cost_usd!==undefined){
-      var ctr2=document.getElementById('ai-counter');
-      if(ctr2)ctr2.textContent+=(' \u00B7 Cost: $'+data.usage.cost_usd.toFixed(4));
-    }
-  })
-  .catch(function(err){
-    _busy=false;
-    _updateBtn(false);
-    console.error('AIAssist error:',err);
-    var body2=document.getElementById('ai-body');
-    if(body2)body2.innerHTML='<div class="ai-panel-loading" style="color:#C62828;">\u26A0 '+_esc(err.message||'Failed to connect to AI service')+'<br><br><button class="ai-btn-skip" onclick="AIAssist._closePanel()" style="border:1.5px solid #6B7280!important;">Close</button></div>';
-    var ctr3=document.getElementById('ai-counter');
-    if(ctr3)ctr3.textContent='Error';
-  });
-}
-
-return {
-  reviewAll:reviewAll,
-  _accept:_accept,
-  _skip:_skip,
-  _acceptAll:_acceptAll,
-  _closePanel:_closePanel,
-  _toggleMenu:_toggleMenu,
-  _closeMenu:_closeMenu
-};
-})();
-
-// ═══════════════════════════════════════════════════════════════════
-// AIUsage — Admin AI Usage Tracking Dashboard
-// Queries ai_usage_log from Supabase, renders summary tables,
-// exports to CSV and print-to-PDF.
-// ═══════════════════════════════════════════════════════════════════
-var AIUsage=(function(){
-'use strict';
-
-var SB_URL='https://xsemvinxsyphjiaqgywv.supabase.co';
-var _overlay=null;
-var _data=[];
-
-function _sbHeaders(){
-  var h={'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU','Content-Type':'application/json'};
-  var t=localStorage.getItem('sb-access-token');
-  if(t)h['Authorization']='Bearer '+t;
-  return h;
-}
-
-function open(){
-  if(!_isAdmin()){toast('\u26A0 Admin access required');return;}
-  _ensureOverlay();
-  _overlay.classList.add('open');
-  // Load billing day from cloud, then set dates and fetch
-  _loadBillingDay(function(){
-    _setBillingCycleDates('current');
-    _fetchData();
-  });
-}
-
-function close(){
-  if(_overlay)_overlay.classList.remove('open');
-}
-
-var _billingDay=20; // in-memory cache
-
-function _loadBillingDay(cb){
-  fetch(SB_URL+'/rest/v1/app_settings?key=eq.billing_day&select=value',{headers:_sbHeaders()})
-  .then(function(r){return r.json();})
-  .then(function(rows){
-    if(rows&&rows.length>0){
-      _billingDay=parseInt(rows[0].value)||20;
-    }
-    var el=document.getElementById('ai-usage-bday');
-    if(el)el.value=_billingDay;
-    if(cb)cb();
-  })
-  .catch(function(){if(cb)cb();});
-}
-
-function _saveBillingDay(d){
-  d=Math.max(1,Math.min(28,parseInt(d)||20));
-  _billingDay=d;
-  var el=document.getElementById('ai-usage-bday');
-  if(el)el.value=d;
-  // Upsert to Supabase
-  fetch(SB_URL+'/rest/v1/app_settings?key=eq.billing_day',{
-    method:'PATCH',
-    headers:_sbHeaders(),
-    body:JSON.stringify({value:String(d),updated_at:new Date().toISOString()})
-  }).then(function(r){
-    if(r.ok)toast('\u2714 Billing day saved: '+d+'th');
-    else toast('\u26A0 Failed to save billing day');
-  }).catch(function(){toast('\u26A0 Failed to save billing day');});
-}
-
-function _getBillingDay(){return _billingDay;}
-
-function _billingCycleRange(offset){
-  var day=_getBillingDay();
-  var now=new Date();
-  var y=now.getFullYear(), m=now.getMonth(), d=now.getDate();
-  var startM, startY, endM, endY;
-  if(d>=day){
-    startM=m+offset; startY=y; endM=m+1+offset; endY=y;
-  } else {
-    startM=m-1+offset; startY=y; endM=m+offset; endY=y;
-  }
-  while(startM<0){startM+=12;startY--;}
-  while(startM>11){startM-=12;startY++;}
-  while(endM<0){endM+=12;endY--;}
-  while(endM>11){endM-=12;endY++;}
-  var from=new Date(startY,startM,day);
-  var to=new Date(endY,endM,day-1);
-  return {from:from,to:to};
-}
-
-function _setBillingCycleDates(period){
-  var fromEl=document.getElementById('ai-usage-from');
-  var toEl=document.getElementById('ai-usage-to');
-  if(!fromEl||!toEl)return;
-  var now=new Date();
-  var from,to;
-  if(period==='current'||period==='last'){
-    var r=_billingCycleRange(period==='last'?-1:0);
-    from=r.from;to=r.to;
-  } else if(period==='month'){
-    from=new Date(now.getFullYear(),now.getMonth(),1);
-    to=new Date(now.getFullYear(),now.getMonth()+1,0);
-  } else if(period==='week'){
-    var dow=now.getDay();
-    from=new Date(now);from.setDate(now.getDate()-dow);
-    to=new Date(now);
-  } else if(period==='today'){
-    from=new Date(now);to=new Date(now);
-  }
-  if(from)fromEl.value=from.toISOString().split('T')[0];
-  if(to)toEl.value=to.toISOString().split('T')[0];
-}
-
-function _ensureOverlay(){
-  if(_overlay)return;
-  var bday=_getBillingDay();
-  _overlay=document.createElement('div');
-  _overlay.className='ai-usage-overlay';
-  _overlay.onclick=function(e){if(e.target===_overlay)close();};
-  _overlay.innerHTML='<div class="ai-usage-modal" onclick="event.stopPropagation()">'
-    +'<div class="ai-usage-hdr"><h3>\uD83D\uDCCA AI Usage Tracking</h3><div class="ai-usage-hdr-btns">'
-    +'<button onclick="AIUsage.exportCSV()">\uD83D\uDCC4 CSV</button>'
-    +'<button onclick="AIUsage.exportPDF()">\uD83D\uDCC4 PDF</button>'
-    +'<button onclick="AIUsage.close()" style="font-size:16px;">\u2715</button>'
-    +'</div></div>'
-    +'<div class="ai-usage-filters">'
-    +'<button onclick="AIUsage._setBillingCycleDates(\'current\');AIUsage._fetchData()" style="background:#1A7A4A;">This Cycle</button>'
-    +'<button onclick="AIUsage._setBillingCycleDates(\'last\');AIUsage._fetchData()">Last Cycle</button>'
-    +'<button onclick="AIUsage._setBillingCycleDates(\'month\');AIUsage._fetchData()">This Month</button>'
-    +'<button onclick="AIUsage._setBillingCycleDates(\'week\');AIUsage._fetchData()">This Week</button>'
-    +'<button onclick="AIUsage._setBillingCycleDates(\'today\');AIUsage._fetchData()">Today</button>'
-    +'</div>'
-    +'<div class="ai-usage-filters" style="border-bottom:1px solid var(--border,#ddd);">'
-    +'<label>From</label><input type="date" id="ai-usage-from">'
-    +'<label>To</label><input type="date" id="ai-usage-to">'
-    +'<button onclick="AIUsage._fetchData()">Filter</button>'
-    +'<span style="margin-left:auto;font-size:calc(11px + var(--ts));color:var(--steel,#607D8B);">Billing day: <input type="number" id="ai-usage-bday" value="'+bday+'" min="1" max="28" style="width:40px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));padding:2px 4px;border:1px solid var(--border,#ccc);border-radius:4px;background:var(--bg,#fff);color:var(--fg,#333);" onchange="AIUsage._saveBillingDay(this.value)"> of month</span>'
-    +'</div>'
-    +'<div class="ai-usage-body" id="ai-usage-body">'
-    +'<div class="ai-usage-loading">Loading...</div>'
-    +'</div></div>';
-  document.body.appendChild(_overlay);
-}
-
-function _fetchData(){
-  var body=document.getElementById('ai-usage-body');
-  if(body)body.innerHTML='<div class="ai-usage-loading"><div class="ai-spinner" style="display:inline-block;width:20px;height:20px;border:3px solid #ddd;border-top-color:#9C2742;border-radius:50%;animation:ai-spin .6s linear infinite;"></div><br>Loading usage data\u2026</div>';
-  var from=document.getElementById('ai-usage-from').value;
-  var to=document.getElementById('ai-usage-to').value;
-  var q='/rest/v1/ai_usage_log?select=*&order=created_at.desc';
-  if(from)q+='&created_at=gte.'+from+'T00:00:00Z';
-  if(to)q+='&created_at=lte.'+to+'T23:59:59Z';
-  fetch(SB_URL+q,{headers:_sbHeaders()})
-  .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-  .then(function(rows){_data=rows||[];_render();})
-  .catch(function(err){
-    if(body)body.innerHTML='<div class="ai-usage-loading" style="color:#C62828;">\u26A0 '+err.message+'</div>';
-  });
-}
-
-function _render(){
-  var body=document.getElementById('ai-usage-body');
-  if(!body)return;
-  if(_data.length===0){body.innerHTML='<div class="ai-usage-loading">No AI usage records found for this date range.</div>';return;}
-
-  // Group by project
-  var byProj={};
-  var byUser={};
-  var totalCost=0, totalReviews=0, totalFields=0;
-  _data.forEach(function(r){
-    var pk=(r.project_number||'(none)')+'|'+(r.project_name||'(unnamed)');
-    if(!byProj[pk])byProj[pk]={num:r.project_number||'(none)',name:r.project_name||'(unnamed)',reviews:0,fields:0,cost:0,tools:{}};
-    byProj[pk].reviews++;
-    byProj[pk].fields+=(r.field_count||0);
-    byProj[pk].cost+=(parseFloat(r.cost_usd)||0);
-    byProj[pk].tools[r.tool||'?']=true;
-
-    var uk=r.user_email||'unknown';
-    if(!byUser[uk])byUser[uk]={email:uk,reviews:0,fields:0,cost:0};
-    byUser[uk].reviews++;
-    byUser[uk].fields+=(r.field_count||0);
-    byUser[uk].cost+=(parseFloat(r.cost_usd)||0);
-
-    totalCost+=(parseFloat(r.cost_usd)||0);
-    totalReviews++;
-    totalFields+=(r.field_count||0);
-  });
-
-  var html='';
-  // Project summary
-  html+='<div class="ai-usage-section"><h4>Summary by Project</h4><table class="ai-usage-table">';
-  html+='<tr><th>Project #</th><th>Project Name</th><th>Tool(s)</th><th>Reviews</th><th>Fields</th><th class="cost">Cost</th></tr>';
-  var projKeys=Object.keys(byProj).sort();
-  projKeys.forEach(function(k){
-    var p=byProj[k];
-    html+='<tr><td>'+_esc(p.num)+'</td><td>'+_esc(p.name)+'</td><td>'+_esc(Object.keys(p.tools).join(', '))+'</td><td>'+p.reviews+'</td><td>'+p.fields+'</td><td class="cost">$'+p.cost.toFixed(4)+'</td></tr>';
-  });
-  html+='<tr class="total-row"><td colspan="3">TOTAL</td><td>'+totalReviews+'</td><td>'+totalFields+'</td><td class="cost">$'+totalCost.toFixed(4)+'</td></tr>';
-  html+='</table></div>';
-
-  // User summary
-  html+='<div class="ai-usage-section"><h4>Summary by User</h4><table class="ai-usage-table">';
-  html+='<tr><th>User</th><th>Reviews</th><th>Fields</th><th class="cost">Cost</th></tr>';
-  Object.keys(byUser).sort().forEach(function(k){
-    var u=byUser[k];
-    html+='<tr><td>'+_esc(u.email)+'</td><td>'+u.reviews+'</td><td>'+u.fields+'</td><td class="cost">$'+u.cost.toFixed(4)+'</td></tr>';
-  });
-  html+='</table></div>';
-
-  // Detail log
-  html+='<div class="ai-usage-section"><h4>Detail Log</h4><table class="ai-usage-table">';
-  html+='<tr><th>Date</th><th>User</th><th>Project #</th><th>Tool</th><th>Fields</th><th class="cost">Cost</th></tr>';
-  _data.forEach(function(r){
-    var dt=r.created_at?new Date(r.created_at).toLocaleDateString():'?';
-    html+='<tr><td>'+dt+'</td><td>'+_esc(r.user_email||'?')+'</td><td>'+_esc(r.project_number||'-')+'</td><td>'+_esc(r.tool||'?')+'</td><td>'+(r.field_count||0)+'</td><td class="cost">$'+(parseFloat(r.cost_usd)||0).toFixed(4)+'</td></tr>';
-  });
-  html+='</table></div>';
-
-  body.innerHTML=html;
-}
-
-function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-
-function exportCSV(){
-  if(!_data.length){toast('No data to export');return;}
-  var lines=['Date,User,Project Number,Project Name,Tool,Model,Fields,Accepted,Input Tokens,Output Tokens,Cost USD'];
-  _data.forEach(function(r){
-    lines.push([
-      r.created_at?new Date(r.created_at).toISOString():'',
-      '"'+(r.user_email||'')+'"',
-      '"'+(r.project_number||'')+'"',
-      '"'+(r.project_name||'')+'"',
-      r.tool||'',
-      r.model||'',
-      r.field_count||0,
-      r.accepted_count||'',
-      r.input_tokens||0,
-      r.output_tokens||0,
-      (parseFloat(r.cost_usd)||0).toFixed(6)
-    ].join(','));
-  });
-  var blob=new Blob([lines.join('\n')],{type:'text/csv'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  var from=document.getElementById('ai-usage-from').value||'all';
-  var to=document.getElementById('ai-usage-to').value||'all';
-  a.download='ARENCON_AI_Usage_'+from+'_to_'+to+'.csv';
-  a.click();
-  URL.revokeObjectURL(a.href);
-  toast('\uD83D\uDCC4 CSV downloaded');
-}
-
-function exportPDF(){
-  if(!_data.length){toast('No data to export');return;}
-  var from=document.getElementById('ai-usage-from').value||'';
-  var to=document.getElementById('ai-usage-to').value||'';
-
-  // Group by project for summary
-  var byProj={};var totalCost=0,totalReviews=0;
-  _data.forEach(function(r){
-    var pk=r.project_number||'(none)';
-    if(!byProj[pk])byProj[pk]={num:pk,name:r.project_name||'',reviews:0,fields:0,cost:0};
-    byProj[pk].reviews++;byProj[pk].fields+=(r.field_count||0);byProj[pk].cost+=(parseFloat(r.cost_usd)||0);
-    totalCost+=(parseFloat(r.cost_usd)||0);totalReviews++;
-  });
-
-  var w=window.open('','_blank','width=800,height=600');
-  w.document.write('<!DOCTYPE html><html><head><title>ARENCON AI Usage Report</title>');
-  w.document.write('<style>body{font-family:Calibri,sans-serif;padding:24px;color:#333;}h1{color:#9C2742;font-size:20px;margin-bottom:4px;}h2{color:#9C2742;font-size:15px;margin:20px 0 8px;border-bottom:2px solid #9C2742;padding-bottom:4px;}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}th{background:#f5f5f5;padding:6px 8px;text-align:left;border-bottom:2px solid #ccc;font-weight:700;}td{padding:5px 8px;border-bottom:1px solid #eee;}.cost{text-align:right;font-family:Courier New,monospace;}.total td{font-weight:700;border-top:2px solid #999;background:#f5f5f5;}.meta{font-size:12px;color:#666;margin-bottom:16px;}@media print{body{padding:12px;}}</style>');
-  w.document.write('</head><body>');
-  w.document.write('<h1>ARENCON Inc. \u2014 AI Usage Report</h1>');
-  w.document.write('<div class="meta">Period: '+(from||'all')+' to '+(to||'all')+' \u00B7 Generated: '+new Date().toLocaleDateString()+'</div>');
-
-  w.document.write('<h2>Summary by Project</h2><table><tr><th>Project #</th><th>Project Name</th><th>Reviews</th><th>Fields</th><th class="cost">Cost</th></tr>');
-  Object.keys(byProj).sort().forEach(function(k){
-    var p=byProj[k];
-    w.document.write('<tr><td>'+p.num+'</td><td>'+p.name+'</td><td>'+p.reviews+'</td><td>'+p.fields+'</td><td class="cost">$'+p.cost.toFixed(4)+'</td></tr>');
-  });
-  w.document.write('<tr class="total"><td colspan="2">TOTAL</td><td>'+totalReviews+'</td><td></td><td class="cost">$'+totalCost.toFixed(4)+'</td></tr></table>');
-
-  w.document.write('<h2>Detail Log</h2><table><tr><th>Date</th><th>User</th><th>Project #</th><th>Tool</th><th>Fields</th><th class="cost">Cost</th></tr>');
-  _data.forEach(function(r){
-    w.document.write('<tr><td>'+(r.created_at?new Date(r.created_at).toLocaleDateString():'')+'</td><td>'+(r.user_email||'')+'</td><td>'+(r.project_number||'')+'</td><td>'+(r.tool||'')+'</td><td>'+(r.field_count||0)+'</td><td class="cost">$'+(parseFloat(r.cost_usd)||0).toFixed(4)+'</td></tr>');
-  });
-  w.document.write('</table></body></html>');
-  w.document.close();
-  setTimeout(function(){w.print();},500);
-}
-
-return {open:open,close:close,_fetchData:_fetchData,_setBillingCycleDates:_setBillingCycleDates,_saveBillingDay:_saveBillingDay,exportCSV:exportCSV,exportPDF:exportPDF};
-})();
 
 if(_csHubMode)_resetSessionTimers();
 
