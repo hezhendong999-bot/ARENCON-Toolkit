@@ -1,43 +1,28 @@
 /**
- * ARENCON R2 Storage Worker — Cloudflare Worker
- * Handles photo/drawing storage in Cloudflare R2 bucket.
- *
- * R2 Binding: BUCKET → arencon-files
- * Supabase secrets: SUPABASE_URL, SUPABASE_SERVICE_KEY (for JWT validation on writes)
- *
- * Routes:
- *   GET  /photos/{pid}/{tool}/{type}/{filename}   — serve file (unauthenticated, CORS)
- *   PUT  /photos/{pid}/{tool}/{type}/{filename}   — upload file (authenticated)
- *   DELETE /photos/{pid}/{tool}/{type}/{filename}  — delete file (authenticated)
- *   GET  /list/{pid}/{tool}/{type}/               — list files by prefix (unauthenticated)
- *   OPTIONS *                                      — CORS preflight
- *
- * CRITICAL: Do NOT decodeURIComponent on paths — R2 keys are stored with %20 encoding
- * because R2Photos.upload() uses encodeURIComponent() to build PUT paths.
- *
- * RESTORED+FIXED in Session 60.
+ * ARENCON R2 Storage Worker — with diagnostic endpoint
+ * Temporarily includes /debug to check bucket access
  */
 
 const ALLOWED_ORIGINS = [
   'https://hezhendong999-bot.github.io',
   'http://localhost',
-  'http://127.0.0.1'
+  'http://127.0.0.1',
+  '*'
 ];
 
 function corsHeaders(origin) {
-  const allowed = ALLOWED_ORIGINS.some(o => origin && origin.startsWith(o));
   return {
-    'Access-Control-Allow-Origin': allowed ? origin : '*',
+    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400'
   };
 }
 
-function jsonResponse(data, status, origin) {
-  return new Response(JSON.stringify(data), {
+function jsonResponse(data, status) {
+  return new Response(JSON.stringify(data, null, 2), {
     status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) }
+    headers: { 'Content-Type': 'application/json', ...corsHeaders() }
   });
 }
 
@@ -58,23 +43,40 @@ async function validateAuth(request, env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const origin = request.headers.get('Origin') || '';
-    const cors = corsHeaders(origin);
+    const cors = corsHeaders();
 
-    // CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
     }
 
-    // CRITICAL: Use raw pathname — do NOT decode. R2 keys match the encoded URL path.
     const rawPath = url.pathname;
 
-    // ── LIST: GET /list/{pid}/{tool}/{type}/ ──
+    // ── DEBUG: GET /debug — list first 20 keys in bucket ──
+    if (request.method === 'GET' && rawPath === '/debug') {
+      try {
+        const hasBucket = !!env.BUCKET;
+        const bucketType = typeof env.BUCKET;
+        if (!hasBucket) {
+          return jsonResponse({ error: 'env.BUCKET is not bound', type: bucketType, envKeys: Object.keys(env) }, 500);
+        }
+        const listed = await env.BUCKET.list({ limit: 20 });
+        return jsonResponse({
+          status: 'ok',
+          bucketBound: true,
+          totalObjects: listed.objects.length,
+          truncated: listed.truncated,
+          keys: listed.objects.map(o => ({ key: o.key, size: o.size }))
+        }, 200);
+      } catch (e) {
+        return jsonResponse({ error: 'Bucket list failed: ' + e.message, stack: e.stack }, 500);
+      }
+    }
+
+    // ── LIST: GET /list/... ──
     if (request.method === 'GET' && rawPath.startsWith('/list/')) {
-      // Strip /list/ prefix, build R2 prefix from remaining path
-      const afterList = rawPath.substring(6).replace(/\/$/, ''); // remove trailing slash
-      if (!afterList || afterList.split('/').length < 2) {
-        return jsonResponse({ error: 'Invalid list path' }, 400, origin);
+      const afterList = rawPath.substring(6).replace(/\/$/, '');
+      if (!afterList) {
+        return jsonResponse({ error: 'Empty list path' }, 400);
       }
       const prefix = afterList + '/';
       try {
@@ -82,85 +84,72 @@ export default {
         const files = listed.objects.map(obj => ({
           key: obj.key,
           size: obj.size,
-          uploaded: obj.uploaded,
-          httpEtag: obj.httpEtag
+          uploaded: obj.uploaded
         }));
-        return jsonResponse({ files, truncated: listed.truncated }, 200, origin);
+        return jsonResponse({ files, truncated: listed.truncated, prefix }, 200);
       } catch (e) {
-        return jsonResponse({ error: 'List failed: ' + e.message }, 500, origin);
+        return jsonResponse({ error: 'List failed: ' + e.message }, 500);
       }
     }
 
-    // ── PHOTOS: /photos/{pid}/{tool}/{type}/{filename} ──
+    // ── PHOTOS: /photos/... ──
     if (rawPath.startsWith('/photos/')) {
-      // R2 key = path without leading slash
-      const r2Key = rawPath.substring(1); // "photos/..."
+      const r2Key = rawPath.substring(1); // remove leading /
 
-      // GET — serve file (unauthenticated)
       if (request.method === 'GET') {
         try {
-          // Try exact key first
+          // Try raw key first
           let object = await env.BUCKET.get(r2Key);
-          
-          // If not found, try decoded key (handles mixed storage formats)
+          // Fallback: decoded key
           if (!object) {
             try {
-              const decodedKey = decodeURIComponent(r2Key);
-              if (decodedKey !== r2Key) {
-                object = await env.BUCKET.get(decodedKey);
-              }
+              const decoded = decodeURIComponent(r2Key);
+              if (decoded !== r2Key) object = await env.BUCKET.get(decoded);
             } catch(e) {}
           }
-          
           if (!object) {
-            return new Response('Not Found', { status: 404, headers: cors });
+            return jsonResponse({ error: 'Not found', triedKey: r2Key }, 404);
           }
           const headers = new Headers(cors);
           headers.set('Content-Type', object.httpMetadata?.contentType || 'image/jpeg');
           headers.set('Cache-Control', 'public, max-age=31536000');
-          headers.set('ETag', object.httpEtag || '');
           return new Response(object.body, { status: 200, headers });
         } catch (e) {
-          return jsonResponse({ error: 'Get failed: ' + e.message }, 500, origin);
+          return jsonResponse({ error: 'Get failed: ' + e.message }, 500);
         }
       }
 
-      // PUT — upload (authenticated)
       if (request.method === 'PUT') {
         if (!(await validateAuth(request, env))) {
-          return jsonResponse({ error: 'Unauthorized' }, 401, origin);
+          return jsonResponse({ error: 'Unauthorized' }, 401);
         }
         try {
           const contentType = request.headers.get('Content-Type') || 'image/jpeg';
           const body = await request.arrayBuffer();
-          await env.BUCKET.put(r2Key, body, {
-            httpMetadata: { contentType }
-          });
-          return jsonResponse({ success: true, key: r2Key, size: body.byteLength }, 200, origin);
+          await env.BUCKET.put(r2Key, body, { httpMetadata: { contentType } });
+          return jsonResponse({ success: true, key: r2Key, size: body.byteLength }, 200);
         } catch (e) {
-          return jsonResponse({ error: 'Upload failed: ' + e.message }, 500, origin);
+          return jsonResponse({ error: 'Upload failed: ' + e.message }, 500);
         }
       }
 
-      // DELETE — remove (authenticated)
       if (request.method === 'DELETE') {
         if (!(await validateAuth(request, env))) {
-          return jsonResponse({ error: 'Unauthorized' }, 401, origin);
+          return jsonResponse({ error: 'Unauthorized' }, 401);
         }
         try {
-          // Delete both encoded and decoded versions
           await env.BUCKET.delete(r2Key);
           try {
-            const decodedKey = decodeURIComponent(r2Key);
-            if (decodedKey !== r2Key) await env.BUCKET.delete(decodedKey);
+            const decoded = decodeURIComponent(r2Key);
+            if (decoded !== r2Key) await env.BUCKET.delete(decoded);
           } catch(e) {}
-          return jsonResponse({ success: true, deleted: r2Key }, 200, origin);
+          return jsonResponse({ success: true, deleted: r2Key }, 200);
         } catch (e) {
-          return jsonResponse({ error: 'Delete failed: ' + e.message }, 500, origin);
+          return jsonResponse({ error: 'Delete failed: ' + e.message }, 500);
         }
       }
     }
 
-    return jsonResponse({ error: 'Not found' }, 404, origin);
+    return jsonResponse({ error: 'Not found', path: rawPath }, 404);
   }
 };
