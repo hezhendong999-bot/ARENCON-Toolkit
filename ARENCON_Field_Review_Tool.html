@@ -2432,13 +2432,23 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
         }
         var spPromises=sitePhotos.map(function(sp){
           var mkFields=_spMarkupFields(sp);
-          // Always convert blob if available — dataUrl serves as fallback when R2 URLs are broken (404)
+          // If on R2, skip blob conversion — display via r2Url (fallback to IDB in _loadR2OrDirect on 404)
+          if(sp.r2Status==='uploaded'&&sp.r2Url){
+            var rec={id:sp.id,dataUrl:'',caption:sp.caption||'',date:sp.timestamp||'',
+              uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:'uploaded',r2Url:sp.r2Url};
+            Object.assign(rec,mkFields);
+            return Promise.resolve(rec);
+          }
+          // Local-only: convert blob to dataUrl
           var blobP=sp.dataBlob?ADB.blobToDataUrl(sp.dataBlob):Promise.resolve(null);
           return blobP.then(function(url){
-            var rec={id:sp.id,dataUrl:url||'',caption:sp.caption||'',date:sp.timestamp||'',
-              uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:sp.r2Status||'',r2Url:sp.r2Url||''};
-            Object.assign(rec,mkFields);
-            return rec;
+            if(url){
+              var rec2={id:sp.id,dataUrl:url,caption:sp.caption||'',date:sp.timestamp||'',
+                uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:sp.r2Status||'',r2Url:sp.r2Url||''};
+              Object.assign(rec2,mkFields);
+              return rec2;
+            }
+            return null;
           });
         });
         Promise.all(spPromises).then(function(spResults){
@@ -4985,14 +4995,45 @@ function _loadR2OrDirect(src,img){
         if(dwgId)_maybeCacheGalleryThumb(dwgId,blob);
       }
     }).catch(function(e){
-      // Ghost photo: R2 file doesn't exist — dim the thumbnail, mark for cleanup
-      img.style.opacity='0.4';
-      img.setAttribute('data-r2-failed','1');
-      img.setAttribute('data-r2-src',src);
+      // R2 failed — try IDB sitePhotos blob store as fallback
+      _tryIDBFallback(src,img);
     });
   }else{
     img.src=src;
   }
+}
+
+// Fallback: when R2 returns 404, search IDB for the blob by matching r2Url
+function _tryIDBFallback(r2Src,img){
+  var p=getProject();if(!p)return _markPhotoFailed(r2Src,img);
+  // Find the sitePhoto or defic photo record with this r2Url
+  var sp=null;
+  (p.sitePhotos||[]).forEach(function(s){if(s&&s.r2Url===r2Src)sp=s;});
+  if(!sp){
+    // Also check deficiency photos
+    var ad=getAllDeficiencies(p);
+    ad.forEach(function(d){
+      (d.defic.observations||[]).forEach(function(o){(o.photos||[]).forEach(function(ph){if(ph&&ph.r2Url===r2Src&&!sp)sp=ph;});});
+      (d.defic.activity||[]).forEach(function(a){(a.photos||[]).forEach(function(ph){if(ph&&ph.r2Url===r2Src&&!sp)sp=ph;});});
+    });
+  }
+  if(!sp||!sp.id)return _markPhotoFailed(r2Src,img);
+  // Try loading blob from IDB
+  var storeName=(sp.id&&sp.id.indexOf('sp_')===0)?'sitePhotos':'photos';
+  ADB.get(storeName,sp.id).then(function(rec){
+    if(rec&&rec.dataBlob){
+      ADB.blobToDataUrl(rec.dataBlob).then(function(url){
+        if(url){img.src=url;img.style.opacity='';img.removeAttribute('data-r2-failed');}
+        else _markPhotoFailed(r2Src,img);
+      });
+    }else _markPhotoFailed(r2Src,img);
+  }).catch(function(){_markPhotoFailed(r2Src,img);});
+}
+function _markPhotoFailed(src,img){
+  _r2FailedUrls[src]=true;
+  img.style.opacity='0.4';
+  img.setAttribute('data-r2-failed','1');
+  img.setAttribute('data-r2-src',src);
 }
 
 // Load all data-src images in a container (for deficiency/pin panels after render)
@@ -9048,19 +9089,18 @@ function renderDeficiencyPanel(){
 }
 function _doRenderDeficiencyPanel(){
   _rdpTimer=null;
-  // One-time migration: fix "FRT #?" in existing activity entries
+  // Migration: fix "FRT #?" in existing activity entries (runs every render — lightweight scan)
   var p=getProject();
-  if(p&&!p._frtQFixed){
+  if(p){
     var ad=getAllDeficiencies(p);var fixed=0;
     ad.forEach(function(d){
       (d.defic.activity||[]).forEach(function(a){
         if(a.text&&a.text.indexOf('FRT #?')>=0){
-          a.text=a.text.replace('FRT #?','FRT #'+(d.defic.notedOnInstance||1));
+          a.text=a.text.replace('FRT #?','FRT #'+(d.defic.closedOnInstance||d.defic.notedOnInstance||1));
           fixed++;
         }
       });
     });
-    p._frtQFixed=true;
     if(fixed>0){saveToLS();_dbg('[Migration] Fixed '+fixed+' "FRT #?" activity entries');}
   }
   renderContractorChips();_updateDeficLifecycleCounts();_updateFrtInstanceIndicator();
@@ -9188,7 +9228,8 @@ function renderGeneralDeficView(){
   var p=getProject();if(!p){el.innerHTML='';return;}
   var gen=p.generalDeficiencies||[];
   if(!gen.length){el.innerHTML='<p style="color:#999;font-size:calc(13px + var(--ts));padding:24px 0;text-align:center;">No site general deficiencies. Use "+ General Deficiency" to add one.</p>';return;}
-  var html=buildDeficGroup(null,'Site General',gen.filter(function(d){return _deficIsOpen(d);}),gen.length);
+  // Show ALL generalDeficiencies (open + closed + any status) — this is their dedicated tab
+  var html=buildDeficGroup(null,'Site General',gen,gen.length);
   el.innerHTML=html;
 }
 
@@ -9198,7 +9239,7 @@ function reopenDeficiency(did){
     var d=f.defic;
     var p=getProject();
     var inst=(p&&p.currentFrtInstance)||1;
-    var prevClosedInst=d.closedOnInstance||inst;
+    var prevClosedInst=d.closedOnInstance||d.notedOnInstance||inst||1;
     d.status='open';
     d.closedOnInstance=null;
     d.closedDate=null;
