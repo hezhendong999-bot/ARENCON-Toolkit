@@ -9188,7 +9188,8 @@ function renderClosedDeficView(){
   var el=document.getElementById('defic-closed-groups');if(!el)return;
   var p=getProject();if(!p){el.innerHTML='';return;}
   var ad=getAllDeficiencies(p);
-  var closed=ad.filter(function(d){return !_deficIsOpen(d.defic);});
+  // Exclude generalDeficiencies — closed generals show in the Site General tab
+  var closed=ad.filter(function(d){return d.contractorId!==null&&!_deficIsOpen(d.defic);});
   if(!closed.length){el.innerHTML='<p style="color:#999;font-size:calc(13px + var(--ts));padding:24px 0;text-align:center;">No closed deficiencies yet.</p>';return;}
   // Group by closedOnInstance
   var groups={};
