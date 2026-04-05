@@ -3525,6 +3525,8 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   // Set initial badge state
   var _st0=p.status||'draft';var _pbb0=document.getElementById('pb-badge');if(_pbb0){_pbb0.textContent=_st0.toUpperCase();_pbb0.style.background=_st0==='issued'?'#1A7A4A':_st0==='revision'?'#E67E22':'#6B7280';}
   ['btn-save-as','btn-folder','btn-open-folder','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','btn-more-wrap'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='';});
+  // Show AI Usage button for admin users
+  var _aiuBtn=document.getElementById('btn-ai-usage');if(_aiuBtn)_aiuBtn.style.display=_isAdmin()?'':'none';
   updateSmartFilename();
   ['btn-load','btn-export-all'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   var mb=document.getElementById('mobile-pdf-btn');if(mb)mb.style.display='';
