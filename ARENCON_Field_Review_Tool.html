@@ -5027,11 +5027,9 @@ async function _refreshR2Token(){
 var _r2FailedUrls={};// Cache of URLs that returned 404 — prevents repeated fetch spam
 function _loadR2OrDirect(src,img){
   if(!src||typeof src!=='string'){img.style.background='#f0f0f0';return;}
-  // Skip URLs that already failed (cleared when repair runs)
+  // Skip URLs that already failed — but still try IDB fallback
   if(_r2FailedUrls[src]){
-    img.style.opacity='0.4';
-    img.setAttribute('data-r2-failed','1');
-    img.setAttribute('data-r2-src',src);
+    _tryIDBFallback(src,img);
     return;
   }
   // R2 Worker GETs require no auth token (Session 24 fix — tokens expire and break images)
