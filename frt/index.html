@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="../manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
+<link rel="apple-touch-icon" href="../arencon-icon-192.png">
+<title>ARENCON — Field Review Tool</title>
+<link rel="stylesheet" href="css/frt.css">
+<script>
+// Service Worker registration — network-first HTML, cache-first CDN assets
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('../sw.js').then(function(reg){
+      setInterval(function(){reg.update();},30*60*1000);
+    }).catch(function(err){console.warn('[SW] Registration failed:',err);});
+  });
+}
+</script>
+<script>
+// Lazy pdf.js loader — only loads when a PDF is actually uploaded
+var _pdfjsLoaded=false;
+function ensurePdfJs(cb){
+  if(_pdfjsLoaded&&typeof pdfjsLib!=='undefined'){cb();return;}
+  var s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  s.crossOrigin='anonymous';
+  s.onload=function(){
+    if(typeof pdfjsLib!=='undefined'){
+      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      _pdfjsLoaded=true;
+      cb();
+    }else{console.warn('pdf.js failed to load');cb();}
+  };
+  s.onerror=function(){console.warn('pdf.js CDN load failed — PDF upload will not work offline');cb();};
+  document.head.appendChild(s);
+}
+</script>
+</head>
+<body>
+
+<!-- ═══ OFFLINE BAR ═══ -->
+<div class="offline-bar" id="offline-bar">📡 You are offline — data is saved locally</div>
+
+<!-- ═══ APP HEADER ═══ -->
+<div class="app-header">
+  <div class="header-top">
+    <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;overflow:hidden;">
+      <button class="back-btn" id="back-btn" style="display:none;flex-shrink:0;">←</button>
+      <a href="../index.html" class="logo-area" id="logo-link" title="Back to Toolkit" style="flex-shrink:0;">
+        <img id="logo-img" src="" alt="ARENCON Inc." class="header-logo">
+      </a>
+      <span id="cloud-status" style="display:none;align-items:center;gap:5px;font-size:calc(11px + var(--ts));color:rgba(255,255,255,.7);flex-shrink:0;">
+        <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
+        <span id="cloud-status-text">Saved to cloud</span>
+      </span>
+      <span id="r2-upload-badge" style="display:none;font-size:calc(10px + var(--ts));font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.3px;flex-shrink:0;white-space:nowrap;"></span>
+      <span id="issue-status-badge" style="display:none;font-size:calc(10px + var(--ts));font-weight:700;padding:2px 8px;border-radius:4px;color:#fff;background:#E65100;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;white-space:nowrap;cursor:pointer;" title="Click to change status">DRAFT</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Field Review Tool</span>
+      <span class="header-nav-arrows" id="header-nav-arrows" style="flex-shrink:0;">
+        <button class="hdr-sm" id="btn-undo" title="Undo (Ctrl+Z)" style="opacity:0.4;">↩</button>
+        <button class="hdr-sm" id="btn-redo" title="Redo (Ctrl+Y)" style="opacity:0.4;">↪</button>
+      </span>
+      <span id="header-filename" style="display:none;"></span>
+    </div>
+    <div class="header-actions">
+      <span class="header-save-ts" id="header-save-ts"></span>
+      <div class="sync-indicator" id="sync-indicator"><span class="sync-dot no-folder"></span><span id="sync-label">No folder</span></div>
+      <div class="inspector-chip" id="inspector-chip" title="Change inspector"><span class="ic-icon">👤</span><span class="ic-name" id="inspector-chip-name">Set Name</span></div>
+      <div id="storage-display" class="storage-bar" title="Browser storage usage" style="cursor:help;">
+        <div class="storage-bar-track"><div class="storage-bar-fill" style="width:0%"></div></div>
+        <span class="storage-label" style="font-size:9px;color:rgba(255,255,255,.45);white-space:nowrap;">IDB</span>
+      </div>
+      <!-- Dashboard buttons -->
+      <button class="hdr-btn hdr-load" id="btn-load" title="Load JSON">📂 Load</button>
+      <button class="hdr-btn hdr-export-all" id="btn-export-all" title="Export All Projects">📦 Export All</button>
+      <!-- Project buttons (hidden on dashboard, shown in project) -->
+      <button class="hdr-btn" id="btn-pdf" style="display:none;background:#1A237E;" title="Export PDF Report">📄 Reports</button>
+      <button class="hdr-btn" id="btn-issue" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
+      <!-- ⚙️ More dropdown -->
+      <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
+        <button class="hdr-btn" style="background:#455A64;" title="More options">⚙️ More ▾</button>
+        <div class="hdr-repair-menu" id="more-menu">
+          <button id="btn-export">💾 Download JSON <span>Save project data to file</span></button>
+          <div style="height:1px;background:#eee;margin:2px 0;"></div>
+          <div id="more-repair-section" style="display:none;">
+            <button>☁️ Re-upload All <span>Push all drawings &amp; photos to R2</span></button>
+            <button>📄 Fix Blurry <span>Re-upload PDFs at full resolution</span></button>
+            <button class="admin-only">🧹 R2 Cleanup <span>Delete orphaned cloud files</span></button>
+            <button class="admin-only">🔗 Repair R2 Links <span>Fix photo/drawing filename mismatches</span></button>
+            <div style="height:1px;background:#eee;margin:2px 0;"></div>
+          </div>
+          <button>🗑️ Reset Current Tab <span>Clear this tab's data</span></button>
+          <button style="color:#C62828;">⚠️ Reset Entire Project <span>Delete all project data</span></button>
+        </div>
+      </div>
+      <button class="hdr-btn" id="btn-qr" style="display:none;background:rgba(255,255,255,.15);" title="QR Code for this tool">📱</button>
+      <button class="hdr-btn" id="dark-toggle" title="Toggle Dark Mode" style="background:rgba(255,255,255,.15);min-width:38px;justify-content:center;">☀️</button>
+      <button class="hdr-btn text-size-toggle" id="btn-text-size" title="Text size: Small / Medium / Large">M</button>
+      <button class="hdr-btn" id="btn-signout" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
+      <button class="mobile-menu-btn" id="mobile-menu-btn">☰</button>
+    </div>
+  </div>
+
+  <!-- ═══ PROJECT BAR ═══ -->
+  <div class="project-bar" id="project-bar">
+    <span class="pb-badge" id="pb-badge" title="Click to change status">DRAFT</span>
+    <span class="pb-inst" id="pb-inst" title="Current FRT instance number" style="font-size:calc(10px + var(--ts));font-weight:700;padding:2px 8px;border-radius:4px;color:#fff;background:#2C4A6B;letter-spacing:.3px;flex-shrink:0;white-space:nowrap;display:none;">FRT #1</span>
+    <span class="pb-filename" id="pb-filename" title="Click to rename project"></span>
+    <span class="pb-cloud" id="pb-cloud" style="display:none!important;">
+      <span id="pb-cloud-dot" style="width:8px;height:8px;border-radius:50%;background:#34D399;display:inline-block;transition:background .4s;"></span>
+      <span id="pb-cloud-text">Saved to cloud</span>
+    </span>
+  </div>
+
+  <!-- ═══ LOCKED BANNER ═══ -->
+  <div id="locked-banner">
+    <div class="lb-left">
+      <span>🔒</span>
+      <span>This project is published and locked.</span>
+      <span class="lb-rev" id="locked-banner-rev"></span>
+    </div>
+    <button class="btn-unlock">🔓 Admin Unlock</button>
+  </div>
+
+  <!-- ═══ READONLY BANNER ═══ -->
+  <div id="readonly-banner" style="display:none;padding:10px 18px;background:#FFF3CD;border:1.5px solid #FFD54F;color:#7A5D00;font-size:calc(13px + var(--ts));font-weight:600;font-family:Calibri,sans-serif;align-items:center;gap:10px;margin:0;">
+    <span>🔒</span>
+    <span id="readonly-banner-text">This file is open in read-only mode.</span>
+  </div>
+
+  <!-- ═══ REVIEW BANNER ═══ -->
+  <div id="review-banner" style="display:none;">
+    <span>📝 Review Mode</span>
+  </div>
+
+  <!-- ═══ TAB NAVIGATION ═══ -->
+  <div class="section-nav" id="section-nav" style="display:none;">
+    <div class="nav-tab active" data-tab="info">Project Info</div>
+    <div class="nav-tab" data-tab="drawings">Drawings</div>
+    <div class="nav-tab" data-tab="deficiencies">Deficiencies</div>
+    <div class="nav-tab" data-tab="pins">All Deficiencies</div>
+    <div class="nav-tab" data-tab="photos">Photos</div>
+  </div>
+</div>
+
+<!-- ═══ MOBILE MENU OVERLAY ═══ -->
+<div class="mobile-menu-overlay" id="mobile-menu-overlay">
+  <div class="mobile-menu" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <h3 style="font-size:16px;margin:0;">Menu</h3>
+      <button id="mobile-menu-close" style="background:none;border:none;font-size:20px;color:var(--silver);cursor:pointer;padding:4px;">✕</button>
+    </div>
+    <button class="btn" id="mobile-pdf-btn" style="display:none;">📄 Reports</button>
+    <button class="btn" id="mobile-export-btn">💾 Export Project</button>
+    <button class="btn" id="mobile-load-btn">📂 Load Project</button>
+    <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
+    <button class="btn" id="mobile-export-all" style="display:none;">📦 Export All</button>
+    <button class="btn" id="mobile-reset-btn" style="color:#C62828;">⚠️ Reset Project</button>
+    <button class="btn" id="mobile-clear-all" style="color:#C62828;display:none;">🗑️ Clear All Data</button>
+    <div id="mobile-repair-section" style="display:none;">
+      <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
+      <button class="btn" id="mobile-repair-toggle" style="color:var(--silver);font-size:12px;">🔧 Repair Tools ▾</button>
+      <div id="mobile-repair-tools" style="display:none;padding-left:8px;">
+        <button class="btn">☁️ Re-upload All</button>
+        <button class="btn">📄 Fix Blurry</button>
+        <button class="btn admin-only">🧹 R2 Cleanup</button>
+        <button class="btn admin-only">🔗 Repair R2 Links</button>
+      </div>
+    </div>
+    <button class="btn" id="mobile-signout-btn" style="display:none;color:#7B1FA2;font-weight:700;">🔓 Sign Out</button>
+    <button class="btn" id="mobile-qr-btn" style="display:none;">📱 QR Code</button>
+    <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
+    <div id="mobile-storage-info" style="padding:4px 10px;font-size:11px;color:var(--silver);font-family:Calibri,sans-serif;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span>💾</span><span id="mobile-storage-text">Calculating...</span></div>
+      <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="mobile-storage-bar" style="height:100%;background:#1A7A4A;width:0%;border-radius:2px;transition:width .3s;"></div></div>
+    </div>
+    <button class="btn" id="mobile-text-size-btn" style="font-size:12px;">Text: Medium</button>
+  </div>
+</div>
+
+<!-- ═══ HIDDEN FILE INPUTS ═══ -->
+<input type="file" id="load-input" accept=".json" style="display:none">
+<input type="file" id="drawing-file-input" accept="image/*,.pdf" multiple style="display:none">
+<input type="file" id="photo-file-input" accept="image/*" multiple capture="environment" style="display:none">
+
+<!-- ═══ MAIN CONTENT ═══ -->
+<div id="view-project" style="display:none;">
+  <div class="main-wrap">
+
+    <!-- PROJECT INFO PANEL -->
+    <div class="panel active" id="panel-info">
+      <div class="card">
+        <div class="card-header">📋 Project Information</div>
+        <div class="card-body">
+          <div class="proj-grid">
+            <div class="field-group"><label>Project No.</label><input type="text" id="field-projectNumber" data-field="projectNumber" placeholder=""></div>
+            <div class="field-group"><label>Client</label><input type="text" id="field-client" data-field="client" placeholder="e.g. Caplink Ltd"></div>
+            <div class="field-group"><label>Building & Project Scope</label><input type="text" id="field-projectName" data-field="projectName" placeholder="e.g. Enterprise Sprinkler & Fire Alarm Upgrade"></div>
+            <div class="field-group" style="grid-column:span 2"><label>Project Address</label><input type="text" data-field="address" placeholder="e.g. 6885 Langstaff Rd."></div>
+            <div class="field-group"><label>Date of Inspection</label><input type="date" id="field-visitDate" data-field="visitDate"></div>
+            <div class="field-group"><label>Prepared By</label><input type="text" data-field="inspectorName" placeholder=""></div>
+            <div class="field-group"><label>Date of Issue</label><input type="date" data-field="dateOfIssue"></div>
+            <div class="field-group"><label>Revision</label><input type="text" id="field-revision" data-field="revision" placeholder="A01" style="font-weight:700;font-size:calc(15px + var(--ts));text-align:center;max-width:100px;"></div>
+            <div class="field-group"><label>Date Modified</label><input type="text" data-field="dateModified" readonly style="background:var(--smoke);color:var(--silver);" id="field-date-modified"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DRAWINGS PANEL -->
+    <div class="panel" id="panel-drawings">
+      <div class="card" style="margin-top:14px;">
+        <div class="card-header">📐 Drawings</div>
+        <div class="card-body">
+          <div class="dwg-header-bar">
+            <button class="btn btn-outline btn-sm" id="btn-new-folder">+ New Folder</button>
+            <button class="btn btn-outline btn-sm" id="btn-dwg-select-all" title="Select all drawings">☑ Select All</button>
+            <button class="btn btn-outline btn-sm" id="btn-dwg-deselect-all" style="display:none;" title="Deselect all drawings">☐ Deselect All</button>
+            <span id="dwg-sel-count" style="display:none;font-size:calc(11px + var(--ts));font-weight:700;color:var(--arencon);white-space:nowrap;"></span>
+          </div>
+          <div id="drawings-container"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEFICIENCIES PANEL -->
+    <div class="panel" id="panel-deficiencies">
+      <div id="defic-lifecycle-tabs" style="display:none;">
+        <div class="dlc-tab active" data-dlc="active">Active</div>
+        <div class="dlc-tab" data-dlc="general">Site General</div>
+        <div class="dlc-tab" data-dlc="closed">Closed</div>
+      </div>
+      <div id="deficiencies-container"></div>
+    </div>
+
+    <!-- ALL DEFICIENCIES PANEL (pins/tasks) -->
+    <div class="panel" id="panel-pins">
+      <div class="card">
+        <div class="card-header">📌 All Deficiencies</div>
+        <div class="card-body" id="pins-container"></div>
+      </div>
+    </div>
+
+    <!-- PHOTOS PANEL -->
+    <div class="panel" id="panel-photos">
+      <div class="card">
+        <div class="card-header">📷 Site Photos</div>
+        <div class="card-body" id="photos-container"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ DRAWING VIEWER OVERLAY ═══ -->
+<div class="drawing-viewer-overlay" id="drawing-viewer-overlay">
+  <div class="dv-toolbar" id="dv-toolbar">
+    <div class="dv-nav-group">
+      <button class="dv-nav-btn" id="dv-prev" title="Previous drawing">◀</button>
+      <span class="dv-title" id="dv-title"></span>
+      <button class="dv-nav-btn" id="dv-next" title="Next drawing">▶</button>
+    </div>
+    <span style="flex:1;"></span>
+    <button id="dv-dark-toggle" title="Toggle Dark Mode" style="font-size:calc(14px + var(--ts));">☀️</button>
+    <button id="dv-close" title="Close viewer">✕</button>
+  </div>
+  <div class="dv-main">
+    <div class="dv-canvas-area" id="dv-canvas-area">
+      <div class="dv-img-wrap" id="dv-img-wrap">
+        <img id="dv-image" alt="" style="display:block;">
+        <canvas id="markup-canvas"></canvas>
+        <div id="dv-pins-layer"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TOAST CONTAINER ═══ -->
+<div id="toast-container" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;"></div>
+
+<!-- ═══ LOADING OVERLAY ═══ -->
+<div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:white;padding:28px 36px;border-radius:12px;text-align:center;box-shadow:var(--shadow-lg);">
+    <div style="width:36px;height:36px;border:3px solid #ddd;border-top-color:#9C2742;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px;"></div>
+    <div id="loading-text" style="font-family:Calibri,sans-serif;font-size:14px;color:#4A5568;">Loading...</div>
+  </div>
+</div>
+
+<!-- ═══ MODULE ENTRY POINT ═══ -->
+<script type="module" src="js/app.js"></script>
+
+</body>
+</html>
