@@ -13420,13 +13420,15 @@ function _renderDrawingWithPins(dwgDataUrl, pins, callback){
   var img=new Image();
   img.onload=function(){
     var iw=img.naturalWidth,ih=img.naturalHeight;
+    console.log('[PDF render] Drawing loaded: '+iw+'x'+ih+' ('+pins.length+' pins)');
     // Mobile canvas cap: 5M pixels for appendix (needs more detail than minimap)
     var maxPx=5000000;var px2=iw*ih;
     var scale=px2>maxPx?Math.sqrt(maxPx/px2):1;
     canvas.width=Math.round(iw*scale);
     canvas.height=Math.round(ih*scale);
-    var ctx;try{ctx=canvas.getContext('2d');}catch(e){callback('');return;}
-    if(!ctx){callback('');return;}
+    console.log('[PDF render] Canvas: '+canvas.width+'x'+canvas.height+' (scale='+scale.toFixed(3)+')');
+    var ctx;try{ctx=canvas.getContext('2d');}catch(e){console.error('[PDF render] getContext failed:',e);callback('');return;}
+    if(!ctx){console.error('[PDF render] ctx is null');callback('');return;}
     ctx.drawImage(img,0,0,canvas.width,canvas.height);
 
     pins.forEach(function(r){
@@ -13472,9 +13474,9 @@ function _renderDrawingWithPins(dwgDataUrl, pins, callback){
       ctx.restore();
     });
 
-    try{callback(canvas.toDataURL('image/jpeg',0.92));}catch(e){callback('');};
+    try{var result=canvas.toDataURL('image/jpeg',0.92);console.log('[PDF render] ✓ toDataURL success: '+result.length+' chars');callback(result);}catch(e){console.error('[PDF render] toDataURL failed:',e);callback('');};
   };
-  img.onerror=function(){callback('');};
+  img.onerror=function(){console.error('[PDF render] Image failed to load from dataUrl ('+((dwgDataUrl||'').length)+' chars)');callback('');};
   img.src=dwgDataUrl;
 }
 
@@ -14363,9 +14365,11 @@ if(isField){
         var info=dwgPinMap[dwgId];
         _renderDrawingWithPins(info.dataUrl,info.pins,function(dataUrl){
           _pdfDoneWork++;
-          try{var appEl=w.document.getElementById('app-dwg-'+dwgId);if(appEl)appEl.src=dataUrl;}catch(ex){}
+          console.log('[PDF render] Appendix callback for '+dwgId+': dataUrl='+(dataUrl?dataUrl.length+' chars':'EMPTY'));
+          try{var appEl=w.document.getElementById('app-dwg-'+dwgId);if(appEl){appEl.src=dataUrl;console.log('[PDF render] Set appendix img src for '+dwgId);}else{console.warn('[PDF render] No appEl found for app-dwg-'+dwgId);}}catch(ex){console.error('[PDF render] Error setting appendix src:',ex);}
           var pinsDone=0;
           var totalPins=info.pins.length;
+          console.log('[PDF render] Processing '+totalPins+' mini-map pin(s)...');
           if(totalPins===0){
             _dwgQueueIdx++;_pdfUpdateProgress2(_dwgQueueIdx);
             setTimeout(_processNextDrawing2,50);return;
