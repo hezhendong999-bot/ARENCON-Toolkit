@@ -9135,9 +9135,9 @@ function _deficContentKey(){
     for(var fi=0;fi<fkeys.length;fi++)k+='F'+fkeys[fi]+(_foldedCtrs[fkeys[fi]]?'1':'0');
     (p.contractors||[]).forEach(function(c){
       k+=c.id+c.name+c.deficiencies.length+',';
-      c.deficiencies.forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;(d.observations||[]).forEach(function(o){k+=(o.photos||[]).length;});});
+      c.deficiencies.forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;(d.observations||[]).forEach(function(o){k+=(o.photos||[]).length+(o.text||'').length;});});
     });
-    (p.generalDeficiencies||[]).forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;(d.observations||[]).forEach(function(o){k+=(o.photos||[]).length;});});
+    (p.generalDeficiencies||[]).forEach(function(d){k+=d.id+(d.status||'')+(d.priority||'')+((d.observations||[]).length)+((d.activity||[]).length)+(d.closedNote||'').length;(d.observations||[]).forEach(function(o){k+=(o.photos||[]).length+(o.text||'').length;});});
     return k;
   }catch(e){return ''+Date.now();}// force render on error
 }
