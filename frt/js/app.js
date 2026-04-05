@@ -1,23 +1,11 @@
 /**
- * ARENCON Field Review Tool v2 — Entry Point
- * ═══════════════════════════════════════════
+ * ARENCON FRT v2 — Entry Point
+ * ═══════════════════════════════
  * 
- * This is the main entry point for the modular FRT.
- * Responsibilities:
- *   - Tab switching
- *   - Dark mode toggle
- *   - Text size cycling
- *   - Logo loading
- *   - Hub mode detection (URL param ?project=<uuid>)
- *   - Module initialization orchestration
- *   - Global event listeners (online/offline, beforeunload, keyboard shortcuts)
- * 
- * All data operations go through Model (data/model.js).
- * All UI rendering is handled by UI modules (ui/*.js).
- * This file ONLY handles the shell — it never touches data directly.
+ * Shell orchestration: tab switching, dark mode, text size,
+ * logo loading, module init, event wiring, boot sequence.
  */
 
-// ── Module Imports ───────────────────────────────────────
 import { Model } from './data/model.js';
 import { IDB } from './data/idb.js';
 import { SyncEngine } from './data/sync.js';
@@ -36,34 +24,34 @@ import { initPDFExport } from './export/pdf.js';
 import { initJSONExport } from './export/json.js';
 
 // ── Constants ────────────────────────────────────────────
-const LS_DARK = 'arencon-frt-dark';
-const LS_TEXT_SIZE = 'arencon-text-size';
-const TEXT_SIZES = ['S', 'M'];
-const TEXT_CLASSES = { S: '', M: 'text-m' };
-const TEXT_LABELS = { S: 'Small', M: 'Medium' };
+var LS_DARK = 'arencon-frt-dark';
+var LS_TEXT_SIZE = 'arencon-text-size';
+var TEXT_SIZES = ['S', 'M'];
+var TEXT_CLASSES = { S: '', M: 'text-m' };
+var TEXT_LABELS = { S: 'Small', M: 'Medium' };
 
 // ── State ────────────────────────────────────────────────
-let _currentTab = 'info';
-let _hubMode = false;
-let _projectId = null;
+var _currentTab = 'info';
+var _hubMode = false;
+var _projectId = null;
 
 // ── Hub Mode Detection ───────────────────────────────────
 function detectHubMode() {
-  const params = new URLSearchParams(window.location.search);
-  const pid = params.get('project');
+  var params = new URLSearchParams(window.location.search);
+  var pid = params.get('project');
   if (pid) {
     _hubMode = true;
     _projectId = pid;
-    // Update logo link to point to Hub
-    const logoLink = document.getElementById('logo-link');
+    var logoLink = document.getElementById('logo-link');
     if (logoLink) logoLink.href = '../ARENCON_Project_Hub.html';
-    // Show back button
-    const backBtn = document.getElementById('back-btn');
+    var backBtn = document.getElementById('back-btn');
     if (backBtn) {
       backBtn.style.display = '';
-      backBtn.addEventListener('click', goToDashboard);
+      backBtn.addEventListener('click', function() {
+        window.location.href = '../ARENCON_Project_Hub.html';
+      });
     }
-    console.log('[FRT v2] Hub mode — project:', pid);
+    console.log('[FRT v2] Hub mode \u2014 project:', pid);
   } else {
     _hubMode = false;
     _projectId = null;
@@ -72,62 +60,41 @@ function detectHubMode() {
   return { hubMode: _hubMode, projectId: _projectId };
 }
 
-function goToDashboard() {
-  // In Hub mode, navigate back to the Hub
-  if (_hubMode) {
-    window.location.href = '../ARENCON_Project_Hub.html';
-  }
-}
-
 // ── Logo Loading ─────────────────────────────────────────
-async function loadLogo() {
-  const img = document.getElementById('logo-img');
+function loadLogo() {
+  var img = document.getElementById('logo-img');
   if (!img) return;
-  try {
-    // Try fetching from parent directory (same repo root)
-    const resp = await fetch('../logo_base64.txt');
-    if (resp.ok) {
-      const b64 = await resp.text();
-      img.src = b64.trim();
-    } else {
-      console.warn('[FRT v2] Logo fetch failed:', resp.status);
-    }
-  } catch (err) {
+  fetch('../logo_base64.txt').then(function(resp) {
+    if (resp.ok) return resp.text();
+    throw new Error('Logo fetch: ' + resp.status);
+  }).then(function(b64) {
+    img.src = b64.trim();
+  }).catch(function(err) {
     console.warn('[FRT v2] Logo load error:', err);
-  }
+  });
 }
 
 // ── Tab Switching ────────────────────────────────────────
 function switchTab(tabName) {
   _currentTab = tabName;
 
-  // Update nav tab active state
   document.querySelectorAll('.nav-tab').forEach(function(t) {
     t.classList.toggle('active', t.dataset.tab === tabName);
   });
 
-  // Update panel visibility
   document.querySelectorAll('.panel').forEach(function(p) {
     var panelTab = p.id.replace('panel-', '');
     p.classList.toggle('active', panelTab === tabName);
   });
 
-  // Notify UI modules so they can render/refresh
+  // Render the active tab
   switch (tabName) {
-    case 'info':       initProjectInfo.render(); break;
-    case 'drawings':   initDrawings.render(); break;
+    case 'info': initProjectInfo.render(); break;
+    case 'drawings': initDrawings.render(); break;
     case 'deficiencies': initDeficiencies.render(); break;
-    case 'pins':       initPins.render(); break;
-    case 'photos':     initPhotos.render(); break;
+    case 'pins': initPins.render(); break;
+    case 'photos': initPhotos.render(); break;
   }
-}
-
-function initTabListeners() {
-  document.querySelectorAll('.nav-tab').forEach(function(tab) {
-    tab.addEventListener('click', function() {
-      switchTab(this.dataset.tab);
-    });
-  });
 }
 
 // ── Dark Mode ────────────────────────────────────────────
@@ -140,7 +107,7 @@ function toggleDarkMode() {
 
 function updateDarkToggleIcon() {
   var isDark = document.body.classList.contains('dark-mode');
-  var icon = isDark ? '🌙' : '☀️';
+  var icon = isDark ? '\uD83C\uDF19' : '\u2600\uFE0F';
   var dt = document.getElementById('dark-toggle');
   if (dt) dt.textContent = icon;
   var dvdt = document.getElementById('dv-dark-toggle');
@@ -148,9 +115,7 @@ function updateDarkToggleIcon() {
 }
 
 function restoreDarkMode() {
-  if (localStorage.getItem(LS_DARK) === '1') {
-    document.body.classList.add('dark-mode');
-  }
+  if (localStorage.getItem(LS_DARK) === '1') document.body.classList.add('dark-mode');
   updateDarkToggleIcon();
 }
 
@@ -189,63 +154,77 @@ function closeMobileMenu() {
   if (mm) mm.classList.remove('open');
 }
 
-// ── More Dropdown ────────────────────────────────────────
-function toggleMoreMenu(e) {
-  if (e) e.stopPropagation();
-  var m = document.getElementById('more-menu');
-  if (m) m.classList.toggle('open');
-}
+// ── JSON Load/Export Wiring ──────────────────────────────
+function wireLoadExport() {
+  // Load button opens file picker
+  var btnLoad = document.getElementById('btn-load');
+  if (btnLoad) btnLoad.addEventListener('click', function() {
+    document.getElementById('load-input').click();
+  });
 
-function closeMoreMenu() {
-  var m = document.getElementById('more-menu');
-  if (m) m.classList.remove('open');
+  // File input triggers import
+  var loadInput = document.getElementById('load-input');
+  if (loadInput) loadInput.addEventListener('change', function(e) {
+    if (e.target.files && e.target.files[0]) {
+      initJSONExport.importJSON(e.target.files[0]);
+      e.target.value = '';
+    }
+  });
+
+  // Export button (in More menu and mobile)
+  var btnExport = document.getElementById('btn-export');
+  if (btnExport) btnExport.addEventListener('click', function() {
+    initJSONExport.exportJSON();
+  });
+
+  // Mobile buttons
+  var mobileExport = document.getElementById('mobile-export-btn');
+  if (mobileExport) mobileExport.addEventListener('click', function() {
+    initJSONExport.exportJSON();
+    closeMobileMenu();
+  });
+  var mobileLoad = document.getElementById('mobile-load-btn');
+  if (mobileLoad) mobileLoad.addEventListener('click', function() {
+    document.getElementById('load-input').click();
+    closeMobileMenu();
+  });
 }
 
 // ── Online/Offline ───────────────────────────────────────
 function updateOnlineStatus() {
   var bar = document.getElementById('offline-bar');
-  if (bar) {
-    bar.classList.toggle('show', !navigator.onLine);
-  }
+  if (bar) bar.classList.toggle('show', !navigator.onLine);
 }
 
 // ── Keyboard Shortcuts ───────────────────────────────────
 function handleKeyboard(e) {
-  // Ctrl+S — save
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault();
-    // TODO: trigger save via Model
-    toast('Saved ✓');
-  }
-  // Ctrl+Z — undo
-  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-    e.preventDefault();
-    // TODO: undo via Model
-  }
-  // Ctrl+Y or Ctrl+Shift+Z — redo
-  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-    e.preventDefault();
-    // TODO: redo via Model
+    Model.saveNow().then(function() { toast('Saved \u2713'); });
   }
 }
 
 // ── beforeunload ─────────────────────────────────────────
 function handleBeforeUnload(e) {
-  // In Hub mode, suppress the leave warning (URL param check, not flag)
   var params = new URLSearchParams(window.location.search);
   if (params.get('project')) return;
+  if (Model.hasUnsavedChanges()) { e.preventDefault(); e.returnValue = ''; }
+}
 
-  // In standalone mode with unsaved changes, warn
-  if (Model.hasUnsavedChanges()) {
-    e.preventDefault();
-    e.returnValue = '';
-  }
+// ── Show/Hide Project View ───────────────────────────────
+function showProjectView() {
+  var vp = document.getElementById('view-project');
+  if (vp) vp.style.display = '';
+  var sn = document.getElementById('section-nav');
+  if (sn) sn.style.display = '';
 }
 
 // ── Wire All Event Listeners ─────────────────────────────
 function wireEvents() {
   // Tab navigation
-  initTabListeners();
+  document.querySelectorAll('.nav-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() { switchTab(this.dataset.tab); });
+  });
 
   // Dark mode
   var darkBtn = document.getElementById('dark-toggle');
@@ -268,25 +247,11 @@ function wireEvents() {
   if (mmClose) mmClose.addEventListener('click', closeMobileMenu);
   var mmTextSize = document.getElementById('mobile-text-size-btn');
   if (mmTextSize) mmTextSize.addEventListener('click', function() {
-    cycleTextSize();
-    closeMobileMenu();
+    cycleTextSize(); closeMobileMenu();
   });
 
-  // More dropdown — close on outside click
-  document.addEventListener('click', function() {
-    closeMoreMenu();
-  });
-
-  // Online/offline
-  window.addEventListener('online', updateOnlineStatus);
-  window.addEventListener('offline', updateOnlineStatus);
-  updateOnlineStatus();
-
-  // Keyboard
-  document.addEventListener('keydown', handleKeyboard);
-
-  // beforeunload
-  window.addEventListener('beforeunload', handleBeforeUnload);
+  // Load/export
+  wireLoadExport();
 
   // Drawing viewer close
   var dvClose = document.getElementById('dv-close');
@@ -295,18 +260,33 @@ function wireEvents() {
     if (overlay) overlay.classList.remove('open');
     document.body.classList.remove('dv-open');
   });
+
+  // Online/offline
+  window.addEventListener('online', updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
+  updateOnlineStatus();
+
+  // Keyboard + beforeunload
+  document.addEventListener('keydown', handleKeyboard);
+  window.addEventListener('beforeunload', handleBeforeUnload);
+
+  // Close dropdowns on outside click
+  document.addEventListener('click', function() {
+    var m = document.getElementById('more-menu');
+    if (m) m.classList.remove('open');
+  });
 }
 
 // ── Boot Sequence ────────────────────────────────────────
-async function boot() {
+function boot() {
   console.log('[FRT v2] Booting...');
   var t0 = performance.now();
 
-  // 1. Restore preferences (sync — before first paint matters)
+  // 1. Restore preferences (sync — before first paint)
   restoreDarkMode();
   restoreTextSize();
 
-  // 2. Load logo (async — non-blocking)
+  // 2. Load logo (async)
   loadLogo();
 
   // 3. Detect Hub mode
@@ -315,57 +295,53 @@ async function boot() {
   // 4. Wire all event listeners
   wireEvents();
 
-  // 5. Initialize IDB (creates stores if needed)
-  try {
-    await IDB.init();
+  // 5. Initialize IDB then load project
+  IDB.init().then(function() {
     console.log('[FRT v2] IDB ready');
-  } catch (err) {
-    console.error('[FRT v2] IDB init failed:', err);
-    // Continue — we degrade gracefully without IDB
-  }
 
-  // 6. If Hub mode, authenticate and load project from cloud
-  if (mode.hubMode) {
-    try {
-      var session = await Auth.restoreSession();
-      if (session) {
-        console.log('[FRT v2] Auth session restored');
-        await SyncEngine.pull(mode.projectId);
-      } else {
-        console.warn('[FRT v2] No auth session — working offline');
-      }
-    } catch (err) {
-      console.error('[FRT v2] Auth/sync error:', err);
+    // Try to load last project from IDB
+    return Model.loadLastProject();
+  }).then(function(loaded) {
+    if (loaded) {
+      console.log('[FRT v2] Loaded project from IDB');
+    } else {
+      // No project found — create a new empty one
+      Model.newProject();
+      console.log('[FRT v2] Created new empty project');
     }
-  }
 
-  // 7. Show the project view and nav
-  var viewProject = document.getElementById('view-project');
-  if (viewProject) viewProject.style.display = '';
-  var sectionNav = document.getElementById('section-nav');
-  if (sectionNav) sectionNav.style.display = '';
+    // Show project view and render
+    showProjectView();
+    switchTab('info');
 
-  // 8. Render the initial tab
-  switchTab('info');
+    // Start auto-save
+    Model.startAutoSave();
 
-  var elapsed = (performance.now() - t0).toFixed(0);
-  console.log('[FRT v2] Boot complete in ' + elapsed + 'ms');
+    var elapsed = (performance.now() - t0).toFixed(0);
+    console.log('[FRT v2] Boot complete in ' + elapsed + 'ms');
+
+  }).catch(function(err) {
+    console.error('[FRT v2] Boot error:', err);
+    // Even if IDB fails, show the UI with a new project
+    Model.newProject();
+    showProjectView();
+    switchTab('info');
+  });
 }
 
 // ── Start ────────────────────────────────────────────────
-boot().catch(function(err) {
-  console.error('[FRT v2] Boot failed:', err);
-});
+boot();
 
-// ── Exports (for debugging in console) ───────────────────
+// ── Debug exports ────────────────────────────────────────
 window._frt = {
   Model: Model,
   IDB: IDB,
   SyncEngine: SyncEngine,
   R2: R2,
   Auth: Auth,
+  toast: toast,
   switchTab: switchTab,
   toggleDarkMode: toggleDarkMode,
   version: '2.0.0-alpha',
-  phase: 0
+  phase: '1-A'
 };
