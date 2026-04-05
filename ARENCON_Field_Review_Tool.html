@@ -2432,23 +2432,13 @@ ADB.loadFullProject=function(projectId){return new Promise(function(resolve,reje
         }
         var spPromises=sitePhotos.map(function(sp){
           var mkFields=_spMarkupFields(sp);
-          // If on R2, skip blob conversion entirely — display via r2Url
-          if(sp.r2Status==='uploaded'&&sp.r2Url){
-            var rec={id:sp.id,dataUrl:'',caption:sp.caption||'',date:sp.timestamp||'',
-              uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:'uploaded',r2Url:sp.r2Url};
-            Object.assign(rec,mkFields);
-            return Promise.resolve(rec);
-          }
-          // Local-only: convert blob to dataUrl
+          // Always convert blob if available — dataUrl serves as fallback when R2 URLs are broken (404)
           var blobP=sp.dataBlob?ADB.blobToDataUrl(sp.dataBlob):Promise.resolve(null);
           return blobP.then(function(url){
-            if(url){
-              var rec2={id:sp.id,dataUrl:url,caption:sp.caption||'',date:sp.timestamp||'',
-                uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:sp.r2Status||'',r2Url:sp.r2Url||''};
-              Object.assign(rec2,mkFields);
-              return rec2;
-            }
-            return null;
+            var rec={id:sp.id,dataUrl:url||'',caption:sp.caption||'',date:sp.timestamp||'',
+              uploadDate:sp.timestamp||'',r2Key:sp.r2Key||'',r2Status:sp.r2Status||'',r2Url:sp.r2Url||''};
+            Object.assign(rec,mkFields);
+            return rec;
           });
         });
         Promise.all(spPromises).then(function(spResults){
