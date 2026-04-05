@@ -13420,15 +13420,13 @@ function _renderDrawingWithPins(dwgDataUrl, pins, callback){
   var img=new Image();
   img.onload=function(){
     var iw=img.naturalWidth,ih=img.naturalHeight;
-    console.log('[PDF render] Drawing loaded: '+iw+'x'+ih+' ('+pins.length+' pins)');
     // Mobile canvas cap: 5M pixels for appendix (needs more detail than minimap)
     var maxPx=5000000;var px2=iw*ih;
     var scale=px2>maxPx?Math.sqrt(maxPx/px2):1;
     canvas.width=Math.round(iw*scale);
     canvas.height=Math.round(ih*scale);
-    console.log('[PDF render] Canvas: '+canvas.width+'x'+canvas.height+' (scale='+scale.toFixed(3)+')');
-    var ctx;try{ctx=canvas.getContext('2d');}catch(e){console.error('[PDF render] getContext failed:',e);callback('');return;}
-    if(!ctx){console.error('[PDF render] ctx is null');callback('');return;}
+    var ctx;try{ctx=canvas.getContext('2d');}catch(e){callback('');return;}
+    if(!ctx){callback('');return;}
     ctx.drawImage(img,0,0,canvas.width,canvas.height);
 
     pins.forEach(function(r){
@@ -13474,9 +13472,9 @@ function _renderDrawingWithPins(dwgDataUrl, pins, callback){
       ctx.restore();
     });
 
-    try{var result=canvas.toDataURL('image/jpeg',0.92);console.log('[PDF render] ✓ toDataURL success: '+result.length+' chars');callback(result);}catch(e){console.error('[PDF render] toDataURL failed:',e);callback('');};
+    try{callback(canvas.toDataURL('image/jpeg',0.92));}catch(e){callback('');};
   };
-  img.onerror=function(){console.error('[PDF render] Image failed to load from dataUrl ('+((dwgDataUrl||'').length)+' chars)');callback('');};
+  img.onerror=function(){callback('');};
   img.src=dwgDataUrl;
 }
 
@@ -14302,34 +14300,28 @@ if(isField){
         return;
       }
       _dwgFetchPromises.push(
-        ADB.get('drawings',id).catch(function(e){console.log('[PDF] IDB get failed for '+id+' (expected if no store):',e.message||e);return null;}).then(function(rec){
+        ADB.get('drawings',id).catch(function(){return null;}).then(function(rec){
           if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
-            console.log('[PDF] Loading drawing '+id+' from IDB blob ('+rec.dataBlob.size+' bytes)');
             return new Promise(function(resolve){
               var reader=new FileReader();
-              reader.onload=function(){info.dataUrl=reader.result;console.log('[PDF] ✓ Drawing '+id+' loaded from IDB, dataUrl length: '+(reader.result||'').length);resolve();};
-              reader.onerror=function(){console.warn('[PDF] FileReader error for '+id);resolve();};
+              reader.onload=function(){info.dataUrl=reader.result;resolve();};
+              reader.onerror=function(){resolve();};
               reader.readAsDataURL(rec.dataBlob);
             });
           }else if(info.r2Url){
-            console.log('[PDF] Fetching drawing '+id+' from R2: '+info.r2Url.substring(info.r2Url.length-40));
             return fetch(info.r2Url).then(function(res){
               if(!res.ok)throw new Error(res.status);
-              console.log('[PDF] R2 response OK for '+id+', reading blob...');
               return res.blob();
             }).then(function(blob){
-              console.log('[PDF] Blob for '+id+': '+blob.size+' bytes, type: '+blob.type);
               return new Promise(function(resolve){
                 var reader=new FileReader();
-                reader.onload=function(){info.dataUrl=reader.result;console.log('[PDF] ✓ Drawing '+id+' loaded from R2, dataUrl length: '+(reader.result||'').length);resolve();};
-                reader.onerror=function(){console.warn('[PDF] FileReader error for R2 blob '+id);resolve();};
+                reader.onload=function(){info.dataUrl=reader.result;resolve();};
+                reader.onerror=function(){resolve();};
                 reader.readAsDataURL(blob);
               });
             });
-          }else{
-            console.warn('[PDF] Drawing '+id+' has no IDB blob and no r2Url — skipping');
           }
-        }).catch(function(e){console.warn('[PDF] Drawing fetch failed for '+id+':',e);})
+        }).catch(function(e){if(_DEBUG)console.warn('[PDF] Drawing fetch failed for '+id+':',e);})
       );
     });
 
@@ -14337,10 +14329,7 @@ if(isField){
     var _pdfDoneWork=0;
 
     Promise.all(_dwgFetchPromises).then(function(){
-      console.log('[PDF] All drawing fetches complete. Checking dataUrls...');
-      dwgIds.forEach(function(id){console.log('[PDF]   '+id+': dataUrl='+(dwgPinMap[id].dataUrl?'YES ('+dwgPinMap[id].dataUrl.length+' chars)':'NO'));});
       dwgIds=dwgIds.filter(function(id){return dwgPinMap[id].dataUrl;});
-      console.log('[PDF] Drawings with dataUrl after filter: '+dwgIds.length);
       if(dwgIds.length===0){_pdfHideProgress2();return;}
 
       dwgIds.forEach(function(id){_pdfTotalWork+=1+dwgPinMap[id].pins.length;});
@@ -14365,11 +14354,9 @@ if(isField){
         var info=dwgPinMap[dwgId];
         _renderDrawingWithPins(info.dataUrl,info.pins,function(dataUrl){
           _pdfDoneWork++;
-          console.log('[PDF render] Appendix callback for '+dwgId+': dataUrl='+(dataUrl?dataUrl.length+' chars':'EMPTY'));
-          try{var appEl=w.document.getElementById('app-dwg-'+dwgId);if(appEl){appEl.src=dataUrl;console.log('[PDF render] Set appendix img src for '+dwgId);}else{console.warn('[PDF render] No appEl found for app-dwg-'+dwgId);}}catch(ex){console.error('[PDF render] Error setting appendix src:',ex);}
+          try{var appEl=w.document.getElementById('app-dwg-'+dwgId);if(appEl)appEl.src=dataUrl;}catch(ex){}
           var pinsDone=0;
           var totalPins=info.pins.length;
-          console.log('[PDF render] Processing '+totalPins+' mini-map pin(s)...');
           if(totalPins===0){
             _dwgQueueIdx++;_pdfUpdateProgress2(_dwgQueueIdx);
             setTimeout(_processNextDrawing2,50);return;
