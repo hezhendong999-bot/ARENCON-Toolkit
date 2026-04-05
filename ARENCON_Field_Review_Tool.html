@@ -13545,6 +13545,7 @@ css+='.dc:last-child{border-radius:0 0 6px 6px;margin-bottom:10px;}';
 css+='.dc-first{border-top:none;}';
 css+='.dc-inner{display:flex;gap:12px;align-items:flex-start;}';
 css+='.dc-mini{flex-shrink:0;width:160px;max-height:160px;object-fit:contain;border-radius:6px;border:1px solid #DDE1E7;display:block;align-self:flex-start;}';
+css+='.dc-mini[src=""]{display:none!important;}';
 css+='.dc-content{flex:1;min-width:0;}';
 css+='.iar{display:inline-block;background:#FF69B4;color:white;padding:1px 7px;border-radius:10px;font-size:9pt;font-weight:700;margin-left:4px;}';
 css+='.so{color:#C0392B;font-weight:700;font-size:11pt;}.sc{color:#1A7A4A;font-weight:700;font-size:11pt;}';
@@ -13560,6 +13561,7 @@ css+='.st td{padding:6px 10px;border-bottom:1px solid #DDE1E7;font-size:11pt;}';
 css+='.app-dwg{margin-bottom:28px;}';
 css+='.app-dwg-title{font-weight:700;font-size:12pt;color:#1C2333;margin-bottom:8px;padding:6px 10px;background:#F7F8FA;border-radius:4px;border-left:3px solid #9C2742;}';
 css+='.app-dwg img{max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;}';
+css+='.app-dwg img[src=""]{display:none!important;}img[src=""]{display:none!important;}';
 css+='.app-pin-table{width:100%;border-collapse:collapse;font-size:11pt;margin-top:8px;}';
 css+='.app-pin-table th{background:#F7F8FA;padding:4px 8px;text-align:left;border-bottom:1px solid #DDE1E7;font-size:9pt;}';
 css+='.app-pin-table td{padding:4px 8px;border-bottom:1px solid #F0F0F0;}';
@@ -13713,7 +13715,7 @@ function _buildDefCardHtml(r){
 
   // ── CARD HEADER ──
   var h='<div class="dc" data-defid="'+d.id+'"><div class="dc-inner">';
-  if(hasDwg) h+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="drawing">';
+  if(hasDwg) h+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="" onerror="this.style.display=\'none\'">';
   h+='<div class="dc-content">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
   h+='<div><strong style="color:#9C2742;font-size:13pt;">#'+d.num+'</strong>';
@@ -14095,7 +14097,7 @@ if(isField&&p.drawings&&p.drawings.length){
       var appHtml='<div class="sh" style="margin-top:0;">Appendix \u2014 Drawings with Pins</div><div class="sb" style="padding:8px;">';
       appHtml+='<div class="app-dwg">';
       appHtml+='<div class="app-dwg-title">'+escHtml(dwg.name)+' \u2014 '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
-      appHtml+='<img class="app-dwg" id="app-dwg-'+dwg.id+'" src="" alt="'+escHtml(dwg.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
+      appHtml+='<img class="app-dwg" id="app-dwg-'+dwg.id+'" src="" alt="" onerror="this.style.display=\'none\'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
       appHtml+='<table class="app-pin-table"><thead><tr><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
       dPins.forEach(function(r){
         var d=r.d;
