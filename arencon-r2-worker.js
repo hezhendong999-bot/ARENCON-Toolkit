@@ -12,7 +12,10 @@
  *   GET  /list/{pid}/{tool}/{type}/               — list files by prefix (unauthenticated)
  *   OPTIONS *                                      — CORS preflight
  *
- * RESTORED in Session 60 after accidental overwrite with AI Worker code.
+ * CRITICAL: Do NOT decodeURIComponent on paths — R2 keys are stored with %20 encoding
+ * because R2Photos.upload() uses encodeURIComponent() to build PUT paths.
+ *
+ * RESTORED+FIXED in Session 60.
  */
 
 const ALLOWED_ORIGINS = [
@@ -63,16 +66,17 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
 
-    const path = decodeURIComponent(url.pathname);
+    // CRITICAL: Use raw pathname — do NOT decode. R2 keys match the encoded URL path.
+    const rawPath = url.pathname;
 
     // ── LIST: GET /list/{pid}/{tool}/{type}/ ──
-    if (request.method === 'GET' && path.startsWith('/list/')) {
-      const parts = path.replace('/list/', '').replace(/\/$/, '').split('/');
-      if (parts.length < 3) {
+    if (request.method === 'GET' && rawPath.startsWith('/list/')) {
+      // Strip /list/ prefix, build R2 prefix from remaining path
+      const afterList = rawPath.substring(6).replace(/\/$/, ''); // remove trailing slash
+      if (!afterList || afterList.split('/').length < 2) {
         return jsonResponse({ error: 'Invalid list path' }, 400, origin);
       }
-      // R2 key prefix: {pid}/{tool}/{type}/  (list API uses folder WITHOUT /photos/ prefix)
-      const prefix = parts.join('/') + '/';
+      const prefix = afterList + '/';
       try {
         const listed = await env.BUCKET.list({ prefix, limit: 1000 });
         const files = listed.objects.map(obj => ({
@@ -88,13 +92,26 @@ export default {
     }
 
     // ── PHOTOS: /photos/{pid}/{tool}/{type}/{filename} ──
-    if (path.startsWith('/photos/')) {
-      const r2Key = path.replace(/^\//, ''); // Remove leading slash → "photos/..."
+    if (rawPath.startsWith('/photos/')) {
+      // R2 key = path without leading slash
+      const r2Key = rawPath.substring(1); // "photos/..."
 
       // GET — serve file (unauthenticated)
       if (request.method === 'GET') {
         try {
-          const object = await env.BUCKET.get(r2Key);
+          // Try exact key first
+          let object = await env.BUCKET.get(r2Key);
+          
+          // If not found, try decoded key (handles mixed storage formats)
+          if (!object) {
+            try {
+              const decodedKey = decodeURIComponent(r2Key);
+              if (decodedKey !== r2Key) {
+                object = await env.BUCKET.get(decodedKey);
+              }
+            } catch(e) {}
+          }
+          
           if (!object) {
             return new Response('Not Found', { status: 404, headers: cors });
           }
@@ -131,7 +148,12 @@ export default {
           return jsonResponse({ error: 'Unauthorized' }, 401, origin);
         }
         try {
+          // Delete both encoded and decoded versions
           await env.BUCKET.delete(r2Key);
+          try {
+            const decodedKey = decodeURIComponent(r2Key);
+            if (decodedKey !== r2Key) await env.BUCKET.delete(decodedKey);
+          } catch(e) {}
           return jsonResponse({ success: true, deleted: r2Key }, 200, origin);
         } catch (e) {
           return jsonResponse({ error: 'Delete failed: ' + e.message }, 500, origin);
