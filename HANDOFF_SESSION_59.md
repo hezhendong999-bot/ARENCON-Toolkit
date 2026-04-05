@@ -119,7 +119,13 @@ Session 58's AI Writing Assistant (AIAssist) and AI Usage Dashboard (AIUsage) we
 - Selecting one highlights both (same or similar ID)
 - Cosmetic issue — doesn't cause data loss after root fix
 
-### Priority 4: Mobile PDF Report Issues (from Session 58)
+### Priority 4: Hub vs FRT Photo Gallery Inconsistency
+- Hub Project Photos panel reads from R2 storage listing
+- FRT Photo Gallery reads from in-memory project data (sitePhotos + deficiency photos)
+- These can be out of sync — e.g., Pin 7's photo uploaded to R2 via console doesn't appear in Hub until next R2 scan
+- Need to reconcile: Hub should either pull from same unified source as FRT, or re-scan R2 after FRT sync
+
+### Priority 5: Mobile PDF Report Issues (from Session 58)
 - Text formatting, missing mini-maps, incomplete drawing appendixes on mobile
 - Not addressed this session
 
