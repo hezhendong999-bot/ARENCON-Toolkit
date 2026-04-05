@@ -5115,7 +5115,11 @@ function _tryIDBFallback(r2Src,img){
     ADB.get(attempt.store,attempt.id).then(function(rec){
       if(rec&&rec.dataBlob){
         ADB.blobToDataUrl(rec.dataBlob).then(function(url){
-          if(url){img.src=url;img.style.opacity='';img.removeAttribute('data-r2-failed');}
+          if(url){img.src=url;img.style.opacity='';img.removeAttribute('data-r2-failed');
+            // Update data attributes so lightbox uses the IDB blob, not the broken R2 URL
+            if(img.hasAttribute('data-orig-src'))img.setAttribute('data-orig-src',url);
+            if(img.hasAttribute('data-src'))img.setAttribute('data-src',url);
+          }
           else tryNext(i+1);
         });
       }else tryNext(i+1);
