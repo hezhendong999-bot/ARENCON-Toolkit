@@ -15184,7 +15184,7 @@ function _openPanel(){
 function _closePanel(){
   if(_overlay)_overlay.classList.remove('open');
   if(_panel)_panel.classList.remove('open');
-  if(_accepted>0)renderDeficiencyPanel();
+  if(_accepted>0){_rdpLastKey='';renderDeficiencyPanel();}
   _busy=false;
   _updateBtn(false);
 }
@@ -15289,6 +15289,7 @@ function _finishReview(){
   if(_accepted>0){
     saveToLS();
     _folderQuickSave();
+    _rdpLastKey='';
     renderDeficiencyPanel();
   }
   _updateCounter();
