@@ -14300,26 +14300,32 @@ if(isField){
         return;
       }
       _dwgFetchPromises.push(
-        ADB.get('drawings',id).catch(function(){return null;}).then(function(rec){
+        ADB.get('drawings',id).catch(function(e){console.log('[PDF] IDB get failed for '+id+' (expected if no store):',e.message||e);return null;}).then(function(rec){
           if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
+            console.log('[PDF] Loading drawing '+id+' from IDB blob ('+rec.dataBlob.size+' bytes)');
             return new Promise(function(resolve){
               var reader=new FileReader();
-              reader.onload=function(){info.dataUrl=reader.result;resolve();};
-              reader.onerror=function(){resolve();};
+              reader.onload=function(){info.dataUrl=reader.result;console.log('[PDF] ✓ Drawing '+id+' loaded from IDB, dataUrl length: '+(reader.result||'').length);resolve();};
+              reader.onerror=function(){console.warn('[PDF] FileReader error for '+id);resolve();};
               reader.readAsDataURL(rec.dataBlob);
             });
           }else if(info.r2Url){
+            console.log('[PDF] Fetching drawing '+id+' from R2: '+info.r2Url.substring(info.r2Url.length-40));
             return fetch(info.r2Url).then(function(res){
               if(!res.ok)throw new Error(res.status);
+              console.log('[PDF] R2 response OK for '+id+', reading blob...');
               return res.blob();
             }).then(function(blob){
+              console.log('[PDF] Blob for '+id+': '+blob.size+' bytes, type: '+blob.type);
               return new Promise(function(resolve){
                 var reader=new FileReader();
-                reader.onload=function(){info.dataUrl=reader.result;resolve();};
-                reader.onerror=function(){resolve();};
+                reader.onload=function(){info.dataUrl=reader.result;console.log('[PDF] ✓ Drawing '+id+' loaded from R2, dataUrl length: '+(reader.result||'').length);resolve();};
+                reader.onerror=function(){console.warn('[PDF] FileReader error for R2 blob '+id);resolve();};
                 reader.readAsDataURL(blob);
               });
             });
+          }else{
+            console.warn('[PDF] Drawing '+id+' has no IDB blob and no r2Url — skipping');
           }
         }).catch(function(e){console.warn('[PDF] Drawing fetch failed for '+id+':',e);})
       );
@@ -14329,7 +14335,10 @@ if(isField){
     var _pdfDoneWork=0;
 
     Promise.all(_dwgFetchPromises).then(function(){
+      console.log('[PDF] All drawing fetches complete. Checking dataUrls...');
+      dwgIds.forEach(function(id){console.log('[PDF]   '+id+': dataUrl='+(dwgPinMap[id].dataUrl?'YES ('+dwgPinMap[id].dataUrl.length+' chars)':'NO'));});
       dwgIds=dwgIds.filter(function(id){return dwgPinMap[id].dataUrl;});
+      console.log('[PDF] Drawings with dataUrl after filter: '+dwgIds.length);
       if(dwgIds.length===0){_pdfHideProgress2();return;}
 
       dwgIds.forEach(function(id){_pdfTotalWork+=1+dwgPinMap[id].pins.length;});
