@@ -14462,6 +14462,14 @@ document.addEventListener('DOMContentLoaded',function(){
       /* dashboard removed */
       updateProjectDropdown();
       enterProject(existingId);
+      // Rebuild R2 folder from loaded project data if URL params were empty
+      if(_csR2Folder===_csProjectId){
+        var _lp=allProjects[existingId];
+        if(_lp&&_lp.info){
+          var _lpSlug=_makeR2FolderSlug(_lp.info.projectNumber,_lp.info.projectName);
+          if(_lpSlug){_csR2Folder=_lpSlug;_rebuildMissingR2Urls(_lp);}
+        }
+      }
       switchTab('info');
       // Make Hub-sourced fields read-only
       setTimeout(function(){
