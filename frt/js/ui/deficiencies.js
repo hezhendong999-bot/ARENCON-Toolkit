@@ -116,8 +116,13 @@ export var initDeficiencies = {
       _renderClosedTab(closedDefics, container);
     }
 
-    // Update tab counts
-    _updateDlcCounts(activeDefics.length, (proj.generalDeficiencies || []).filter(deficIsOpen).length, closedDefics.length);
+    // Update tab counts — Active excludes general deficiencies
+    var ctrActiveCount = 0;
+    (proj.contractors || []).forEach(function(c) {
+      (c.deficiencies || []).forEach(function(d) { if (deficIsOpen(d)) ctrActiveCount++; });
+    });
+    var genActiveCount = (proj.generalDeficiencies || []).filter(deficIsOpen).length;
+    _updateDlcCounts(ctrActiveCount, genActiveCount, closedDefics.length);
   }
 };
 
