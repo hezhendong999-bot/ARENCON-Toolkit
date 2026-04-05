@@ -544,6 +544,51 @@ body.text-l{--ts:4px;}
 /* Text size toggle button */
 .text-size-toggle{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:calc(13px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;transition:all .15s;min-height:32px;display:inline-flex;align-items:center;gap:4px;}
 .text-size-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
+/* ═══ AI Usage Panel ═══ */
+.ai-usage-panel{display:none;padding:24px}
+.aiu-period-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.aiu-period-bar button{padding:6px 14px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;transition:all .15s}
+.aiu-period-bar button:hover{border-color:var(--arencon);color:var(--arencon)}
+.aiu-period-bar button.active{background:var(--arencon);color:#fff;border-color:var(--arencon)}
+.aiu-period-label{font-size:calc(15px + var(--ts));font-weight:700;color:var(--fg);min-width:180px;text-align:center}
+.aiu-filter-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.aiu-filter-row select,.aiu-filter-row input{padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg);color:var(--fg)}
+.aiu-summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.aiu-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;text-align:center}
+.aiu-card-val{font-size:calc(22px + var(--ts));font-weight:700;color:var(--arencon)}
+.aiu-card-label{font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+.aiu-table{width:100%;border-collapse:collapse}
+.aiu-table th{text-align:left;padding:10px 12px;border-bottom:2px solid var(--border);font-size:calc(11px + var(--ts));font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.6px}
+.aiu-table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:calc(13px + var(--ts));color:var(--fg);vertical-align:middle}
+.aiu-table tr:hover td{background:var(--arencon-glow)}
+.aiu-table .cost-cell{font-weight:700;font-variant-numeric:tabular-nums}
+.aiu-invoiced-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:12px;font-size:calc(11px + var(--ts));font-weight:600}
+.aiu-invoiced-badge.done{background:#D1FAE5;color:#065F46}
+.aiu-invoiced-badge.pending{background:#FEF3C7;color:#92400E}
+body.dark-mode .aiu-invoiced-badge.done{background:#064E3B;color:#6EE7B7}
+body.dark-mode .aiu-invoiced-badge.pending{background:#78350F;color:#FCD34D}
+.aiu-mark-btn{padding:4px 12px;border:1.5px solid #059669;border-radius:6px;background:transparent;color:#059669;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;transition:all .15s}
+.aiu-mark-btn:hover{background:#059669;color:#fff}
+.aiu-mark-btn.done{border-color:var(--border);color:var(--silver);cursor:default;opacity:.6}
+.aiu-mark-btn.done:hover{background:transparent;color:var(--silver)}
+.aiu-actions-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.aiu-actions-bar button{padding:7px 16px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;border:1.5px solid var(--border);transition:all .15s}
+.aiu-export-btn{background:var(--bg);color:var(--fg)}
+.aiu-export-btn:hover{border-color:var(--arencon);color:var(--arencon)}
+.aiu-markall-btn{background:#059669;color:#fff;border-color:#059669}
+.aiu-markall-btn:hover{background:#047857}
+@media(max-width:700px){
+  .aiu-period-bar{flex-direction:column;align-items:stretch}
+  .aiu-period-label{text-align:left;min-width:auto}
+  .aiu-summary-cards{grid-template-columns:1fr 1fr}
+  .aiu-table{font-size:calc(12px + var(--ts))}
+  .aiu-table th,.aiu-table td{padding:8px 6px}
+}
+body.dark-mode .ai-usage-panel .admin-section{background:var(--card);border-color:var(--border)}
+body.dark-mode .ai-usage-panel .admin-section-header{background:linear-gradient(135deg,#1E293B,#334155)}
+body.dark-mode .aiu-card{background:var(--card);border-color:var(--border)}
+body.dark-mode .aiu-mark-btn{border-color:#34D399;color:#34D399}
+body.dark-mode .aiu-mark-btn:hover{background:#059669;color:#fff}
 </style>
 </head>
 <body>
@@ -558,6 +603,7 @@ body.text-l{--ts:4px;}
     <span class="user-role" id="hdr-user-role"></span>
   </div>
   <button class="hdr-btn desktop-only" id="btn-admin" style="display:none" onclick="showAdmin()">👤 Admin</button>
+  <button class="hdr-btn desktop-only" id="btn-aiusage" style="display:none" onclick="showAIUsage()">📊 AI Usage</button>
   <button class="hdr-btn desktop-only" id="btn-profile" style="display:none" onclick="openProfileModal()">⚙️ Profile</button>
   <button class="hdr-btn desktop-only" id="btn-tools" onclick="window.location.href='index.html'" title="All Tools">🧰 Tools</button>
   <button class="hdr-btn desktop-only" id="btn-dark" onclick="toggleDark()">☀️</button>
@@ -578,6 +624,7 @@ body.text-l{--ts:4px;}
     </div>
     <div class="mobile-menu-divider" id="mob-div-user" style="display:none"></div>
     <button class="mobile-menu-item" id="mob-admin" style="display:none" onclick="showAdmin();closeMobileMenu()">👤 Admin Panel</button>
+    <button class="mobile-menu-item" id="mob-aiusage" style="display:none" onclick="showAIUsage();closeMobileMenu()">📊 AI Usage</button>
     <button class="mobile-menu-item" id="mob-profile" style="display:none" onclick="openProfileModal();closeMobileMenu()">⚙️ Profile</button>
     <button class="mobile-menu-item" onclick="window.location.href='index.html'">🧰 All Tools</button>
     <button class="mobile-menu-item" onclick="toggleDark();closeMobileMenu()"><span id="mob-dark-label">☀️ Dark Mode</span></button>
@@ -771,6 +818,69 @@ body.text-l{--ts:4px;}
           No users found
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ═══ AI USAGE PANEL ═══ -->
+  <div class="ai-usage-panel" id="ai-usage-panel">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="dash-btn secondary" onclick="showDashboard()">← Back to Dashboard</button>
+      <h2 style="font-size:20px;font-weight:700;color:var(--fg)">📊 AI Usage & Invoicing</h2>
+    </div>
+
+    <!-- Period Navigation -->
+    <div class="aiu-period-bar">
+      <button onclick="AIUsage.prevPeriod()">◀ Prev</button>
+      <div class="aiu-period-label" id="aiu-period-label">—</div>
+      <button onclick="AIUsage.nextPeriod()">Next ▶</button>
+      <div style="flex:1"></div>
+      <label style="font-size:calc(12px + var(--ts));color:var(--silver)">Billing Day:
+        <input type="number" id="aiu-billing-day" min="1" max="28" value="20" style="width:52px;padding:4px 6px;border:1.5px solid var(--border);border-radius:4px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg);color:var(--fg)" onchange="AIUsage.saveBillingDay(this.value)">
+      </label>
+    </div>
+
+    <!-- Filters -->
+    <div class="aiu-filter-row">
+      <label style="font-size:calc(12px + var(--ts));color:var(--silver)">PM:
+        <select id="aiu-pm-filter" onchange="AIUsage.refresh()" style="min-width:160px">
+          <option value="all">All PMs</option>
+          <option value="mine">My Projects</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="aiu-summary-cards" id="aiu-summary-cards"></div>
+
+    <!-- Main Table -->
+    <div class="admin-section">
+      <div class="admin-section-header">Usage by Project</div>
+      <div class="admin-section-body" style="padding:0;overflow-x:auto">
+        <table class="aiu-table">
+          <thead>
+            <tr>
+              <th>Project #</th>
+              <th>Project Name</th>
+              <th>PM</th>
+              <th>Tool</th>
+              <th>Reviews</th>
+              <th>Cost (USD)</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="aiu-table-body"></tbody>
+        </table>
+        <div id="aiu-empty" style="text-align:center;padding:30px;color:var(--silver);display:none">
+          No AI usage found for this period
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="aiu-actions-bar">
+      <button class="aiu-actions-bar aiu-markall-btn" onclick="AIUsage.markAll()">✓ Mark All as Invoiced</button>
+      <button class="aiu-actions-bar aiu-export-btn" onclick="AIUsage.exportCSV()">📥 Export CSV</button>
     </div>
   </div>
 
@@ -1203,6 +1313,10 @@ function createSupabaseClient(url, key) {
         select(cols) { _select = cols || '*'; return builder; },
         eq(col, val) { _filters.push(`${col}=eq.${val}`); return builder; },
         neq(col, val) { _filters.push(`${col}=neq.${val}`); return builder; },
+        gte(col, val) { _filters.push(`${col}=gte.${encodeURIComponent(val)}`); return builder; },
+        lte(col, val) { _filters.push(`${col}=lte.${encodeURIComponent(val)}`); return builder; },
+        lt(col, val) { _filters.push(`${col}=lt.${encodeURIComponent(val)}`); return builder; },
+        inFilter(col, vals) { _filters.push(`${col}=in.(${vals.map(v => encodeURIComponent(v)).join(',')})`); return builder; },
         ilike(col, val) { _filters.push(`${col}=ilike.${encodeURIComponent(val)}`); return builder; },
         order(col, opts = {}) { _order = col + (opts.ascending === false ? '.desc' : '.asc'); return builder; },
         single() { _single = true; return builder; },
@@ -1537,6 +1651,11 @@ function showApp() {
   document.getElementById('btn-admin').style.display = isAdmin ? '' : 'none';
   document.getElementById('mob-admin').style.display = isAdmin ? '' : 'none';
 
+  // Show AI Usage button for admin + inspector (PMs are inspectors)
+  const canSeeUsage = _profile && (_profile.role === 'super_admin' || _profile.role === 'admin' || _profile.role === 'inspector');
+  document.getElementById('btn-aiusage').style.display = canSeeUsage ? '' : 'none';
+  document.getElementById('mob-aiusage').style.display = canSeeUsage ? '' : 'none';
+
   // Show profile and bulk buttons for all logged-in users
   document.getElementById('btn-profile').style.display = '';
   document.getElementById('mob-profile').style.display = '';
@@ -1572,6 +1691,7 @@ window.addEventListener('popstate', function(e) {
       _detailProjectId = state.id;
       document.getElementById('dash-view').style.display = 'none';
       document.getElementById('admin-panel').style.display = 'none';
+      document.getElementById('ai-usage-panel').style.display = 'none';
       document.getElementById('project-detail').style.display = 'block';
     }
   }
@@ -1587,10 +1707,11 @@ function roleClass(role) {
   return map[role] || 'role-viewer';
 }
 
-/* ═══ Dashboard / Admin toggle ═══ */
+/* ═══ Dashboard / Admin / AI Usage toggle ═══ */
 function showDashboard() {
   document.getElementById('dash-view').style.display = 'block';
   document.getElementById('admin-panel').style.display = 'none';
+  document.getElementById('ai-usage-panel').style.display = 'none';
   document.getElementById('project-detail').style.display = 'none';
   _detailProjectId = null;
   // Restore persisted sort preference
@@ -1604,9 +1725,19 @@ function showDashboard() {
 function showAdmin() {
   document.getElementById('dash-view').style.display = 'none';
   document.getElementById('admin-panel').style.display = 'block';
+  document.getElementById('ai-usage-panel').style.display = 'none';
   document.getElementById('project-detail').style.display = 'none';
   _detailProjectId = null;
   loadAdminUsers();
+}
+
+function showAIUsage() {
+  document.getElementById('dash-view').style.display = 'none';
+  document.getElementById('admin-panel').style.display = 'none';
+  document.getElementById('ai-usage-panel').style.display = 'block';
+  document.getElementById('project-detail').style.display = 'none';
+  _detailProjectId = null;
+  AIUsage.init();
 }
 
 /* ═══ Load Projects ═══ */
@@ -1881,9 +2012,10 @@ function openProject(projectId) {
   // Push history state so browser back returns to dashboard
   try { history.pushState({view:'project',id:projectId}, '', window.location.pathname); } catch(e){}
 
-  // Hide dashboard + admin, show detail
+  // Hide dashboard + admin + AI usage, show detail
   document.getElementById('dash-view').style.display = 'none';
   document.getElementById('admin-panel').style.display = 'none';
+  document.getElementById('ai-usage-panel').style.display = 'none';
   var detail = document.getElementById('project-detail');
   detail.style.display = 'block';
 
@@ -3291,6 +3423,405 @@ setInterval(async () => {
     }
   }
 }, 1800000); // 30 min
+
+
+// ═══ AI USAGE & INVOICING MODULE ═══
+var AIUsage = (function() {
+  'use strict';
+
+  var _billingDay = 20;
+  var _currentPeriodStart = null;
+  var _currentPeriodEnd = null;
+  var _usageData = [];
+  var _invoiceMarks = {};
+  var _initialized = false;
+
+  // ── Period calculation ──
+  function calcPeriod(refDate, billingDay) {
+    var d = refDate || new Date();
+    var y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
+    var start, end;
+    if (day >= billingDay) {
+      start = new Date(y, m, billingDay);
+      end = new Date(y, m + 1, billingDay - 1);
+    } else {
+      start = new Date(y, m - 1, billingDay);
+      end = new Date(y, m, billingDay - 1);
+    }
+    return { start: start, end: end };
+  }
+
+  function fmtDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function fmtPeriodLabel(s, e) {
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return months[s.getMonth()] + ' ' + s.getDate() + ', ' + s.getFullYear() +
+           '  →  ' + months[e.getMonth()] + ' ' + e.getDate() + ', ' + e.getFullYear();
+  }
+
+  function fmtCost(n) { return '$' + (n || 0).toFixed(4); }
+
+  // ── Init ──
+  async function init() {
+    await loadBillingDay();
+    // Populate PM filter dropdown from _userMap
+    populatePMFilter();
+    // Set current period to today's cycle
+    var period = calcPeriod(new Date(), _billingDay);
+    _currentPeriodStart = period.start;
+    _currentPeriodEnd = period.end;
+    await refresh();
+  }
+
+  function populatePMFilter() {
+    var sel = document.getElementById('aiu-pm-filter');
+    if (!sel) return;
+    var isAdmin = _profile && (_profile.role === 'super_admin' || _profile.role === 'admin');
+    var entries = Object.entries(_userMap).sort(function(a,b){ return a[1].localeCompare(b[1]); });
+    sel.innerHTML = '';
+    if (isAdmin) {
+      sel.innerHTML += '<option value="all">All PMs</option>';
+    }
+    sel.innerHTML += '<option value="mine"' + (!isAdmin ? ' selected' : '') + '>My Projects</option>';
+    if (isAdmin) {
+      entries.forEach(function(e) {
+        sel.innerHTML += '<option value="' + e[0] + '">' + e[1] + '</option>';
+      });
+    }
+  }
+
+  // ── Load billing day from Supabase app_settings ──
+  async function loadBillingDay() {
+    try {
+      var rows = await _sb.from('app_settings').eq('key', 'billing_cycle_day').select('*').execute();
+      if (rows && rows.length > 0 && rows[0].value) {
+        _billingDay = parseInt(rows[0].value, 10) || 20;
+      }
+    } catch(e) {
+      console.warn('Could not load billing day:', e);
+    }
+    var inp = document.getElementById('aiu-billing-day');
+    if (inp) inp.value = _billingDay;
+  }
+
+  async function saveBillingDay(val) {
+    var day = parseInt(val, 10);
+    if (!day || day < 1 || day > 28) return;
+    _billingDay = day;
+    try {
+      // Upsert — try update first, then insert
+      var existing = await _sb.from('app_settings').eq('key', 'billing_cycle_day').select('*').execute();
+      if (existing && existing.length > 0) {
+        await _sb.from('app_settings').eq('key', 'billing_cycle_day').update({ value: String(day) });
+      } else {
+        await _sb.from('app_settings').insert({ key: 'billing_cycle_day', value: String(day) });
+      }
+      toast('Billing day saved: ' + day, 'success');
+    } catch(e) {
+      console.error('Failed to save billing day:', e);
+      toast('Failed to save billing day', 'error');
+    }
+    // Recalculate current period
+    var period = calcPeriod(new Date(), _billingDay);
+    _currentPeriodStart = period.start;
+    _currentPeriodEnd = period.end;
+    await refresh();
+  }
+
+  // ── Period navigation ──
+  function prevPeriod() {
+    var d = new Date(_currentPeriodStart);
+    d.setDate(d.getDate() - 1); // go back 1 day into previous cycle
+    var period = calcPeriod(d, _billingDay);
+    _currentPeriodStart = period.start;
+    _currentPeriodEnd = period.end;
+    refresh();
+  }
+
+  function nextPeriod() {
+    var d = new Date(_currentPeriodEnd);
+    d.setDate(d.getDate() + 1); // go forward 1 day into next cycle
+    var period = calcPeriod(d, _billingDay);
+    _currentPeriodStart = period.start;
+    _currentPeriodEnd = period.end;
+    refresh();
+  }
+
+  // ── Fetch data ──
+  async function refresh() {
+    if (!_currentPeriodStart || !_currentPeriodEnd) return;
+
+    // Update period label
+    document.getElementById('aiu-period-label').textContent = fmtPeriodLabel(_currentPeriodStart, _currentPeriodEnd);
+
+    var startISO = _currentPeriodStart.toISOString();
+    var endDate = new Date(_currentPeriodEnd);
+    endDate.setHours(23, 59, 59, 999);
+    var endISO = endDate.toISOString();
+
+    try {
+      // Fetch usage logs for period
+      _usageData = await _sb.from('ai_usage_log')
+        .select('*')
+        .gte('created_at', startISO)
+        .lte('created_at', endISO)
+        .order('created_at', { ascending: false })
+        .execute() || [];
+
+      // Fetch invoice marks for period
+      var marks = await _sb.from('ai_invoice_marks')
+        .select('*')
+        .gte('period_start', fmtDate(_currentPeriodStart))
+        .lte('period_start', fmtDate(_currentPeriodStart))
+        .execute() || [];
+
+      _invoiceMarks = {};
+      marks.forEach(function(m) {
+        _invoiceMarks[m.project_number] = m;
+      });
+    } catch(e) {
+      console.error('Failed to fetch AI usage:', e);
+      _usageData = [];
+      _invoiceMarks = {};
+    }
+
+    render();
+  }
+
+  // ── Group and render ──
+  function render() {
+    var pmFilter = document.getElementById('aiu-pm-filter').value;
+    var myId = _profile ? _profile.id : null;
+
+    // Build project → PM map from _projects
+    var projPMMap = {};
+    _projects.forEach(function(p) {
+      if (p.project_number) projPMMap[p.project_number] = p.project_manager || null;
+    });
+
+    // Group usage by project_number
+    var grouped = {};
+    _usageData.forEach(function(row) {
+      var pn = row.project_number || 'Unallocated';
+      if (!grouped[pn]) {
+        grouped[pn] = {
+          project_number: pn,
+          project_name: row.project_name || '—',
+          pm: projPMMap[pn] || null,
+          tools: {},
+          reviews: 0,
+          fields: 0,
+          cost: 0,
+          rows: []
+        };
+      }
+      var g = grouped[pn];
+      g.reviews++;
+      g.fields += (row.field_count || 0);
+      g.cost += parseFloat(row.cost_usd || 0);
+      g.rows.push(row);
+      var t = row.tool || '—';
+      if (!g.tools[t]) g.tools[t] = 0;
+      g.tools[t]++;
+    });
+
+    // Apply PM filter
+    var filtered = Object.values(grouped);
+    if (pmFilter === 'mine') {
+      filtered = filtered.filter(function(g) { return g.pm === myId; });
+    } else if (pmFilter !== 'all') {
+      filtered = filtered.filter(function(g) { return g.pm === pmFilter; });
+    }
+
+    // Sort by project number
+    filtered.sort(function(a,b) { return (a.project_number || '').localeCompare(b.project_number || ''); });
+
+    // Summary cards
+    var totalCost = 0, totalReviews = 0, invoicedCount = 0, pendingCount = 0;
+    filtered.forEach(function(g) {
+      totalCost += g.cost;
+      totalReviews += g.reviews;
+      if (_invoiceMarks[g.project_number]) invoicedCount++;
+      else pendingCount++;
+    });
+
+    document.getElementById('aiu-summary-cards').innerHTML =
+      '<div class="aiu-card"><div class="aiu-card-val">' + fmtCost(totalCost) + '</div><div class="aiu-card-label">Total Cost</div></div>' +
+      '<div class="aiu-card"><div class="aiu-card-val">' + totalReviews + '</div><div class="aiu-card-label">Reviews</div></div>' +
+      '<div class="aiu-card"><div class="aiu-card-val" style="color:#059669">' + invoicedCount + '</div><div class="aiu-card-label">Invoiced</div></div>' +
+      '<div class="aiu-card"><div class="aiu-card-val" style="color:#D97706">' + pendingCount + '</div><div class="aiu-card-label">Pending</div></div>';
+
+    // Table
+    var tbody = document.getElementById('aiu-table-body');
+    var empty = document.getElementById('aiu-empty');
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    var html = '';
+    filtered.forEach(function(g) {
+      var pmName = g.pm ? (_userMap[g.pm] || '—') : '—';
+      var toolList = Object.keys(g.tools).join(', ');
+      var isMarked = !!_invoiceMarks[g.project_number];
+      var mark = _invoiceMarks[g.project_number];
+      var statusBadge = isMarked
+        ? '<span class="aiu-invoiced-badge done">✓ Invoiced</span>'
+        : '<span class="aiu-invoiced-badge pending">⏳ Pending</span>';
+      var statusDetail = '';
+      if (isMarked && mark) {
+        var markedBy = mark.marked_by_email ? mark.marked_by_email.split('@')[0] : '—';
+        var markedAt = mark.marked_at ? new Date(mark.marked_at).toLocaleDateString() : '';
+        statusDetail = '<div style="font-size:10px;color:var(--silver);margin-top:2px">' + markedBy + ' · ' + markedAt + '</div>';
+      }
+      var actionBtn = isMarked
+        ? '<button class="aiu-mark-btn done" disabled>✓ Done</button>'
+        : '<button class="aiu-mark-btn" onclick="AIUsage.markProject(\'' + g.project_number.replace(/'/g,"\\'") + '\')">Mark Invoiced</button>';
+
+      html += '<tr>'
+        + '<td style="font-weight:700">' + (g.project_number || '—') + '</td>'
+        + '<td>' + (g.project_name || '—') + '</td>'
+        + '<td>' + pmName + '</td>'
+        + '<td>' + toolList + '</td>'
+        + '<td style="text-align:center">' + g.reviews + '</td>'
+        + '<td class="cost-cell">' + fmtCost(g.cost) + '</td>'
+        + '<td>' + statusBadge + statusDetail + '</td>'
+        + '<td>' + actionBtn + '</td>'
+        + '</tr>';
+    });
+
+    tbody.innerHTML = html;
+  }
+
+  // ── Mark project as invoiced ──
+  async function markProject(projectNumber) {
+    if (!_currentPeriodStart || !_profile) return;
+    try {
+      await _sb.from('ai_invoice_marks').insert({
+        project_number: projectNumber,
+        period_start: fmtDate(_currentPeriodStart),
+        period_end: fmtDate(_currentPeriodEnd),
+        marked_by: _profile.id,
+        marked_by_email: _profile.email || ''
+      });
+      toast(projectNumber + ' marked as invoiced', 'success');
+      await refresh();
+    } catch(e) {
+      console.error('Failed to mark invoiced:', e);
+      toast('Failed to mark as invoiced: ' + (e.message || e), 'error');
+    }
+  }
+
+  // ── Mark all as invoiced ──
+  async function markAll() {
+    if (!_currentPeriodStart || !_profile) return;
+    var pmFilter = document.getElementById('aiu-pm-filter').value;
+    var myId = _profile ? _profile.id : null;
+
+    // Build project → PM map
+    var projPMMap = {};
+    _projects.forEach(function(p) {
+      if (p.project_number) projPMMap[p.project_number] = p.project_manager || null;
+    });
+
+    // Collect unmarked project numbers from current view
+    var grouped = {};
+    _usageData.forEach(function(row) {
+      var pn = row.project_number || 'Unallocated';
+      grouped[pn] = { pm: projPMMap[pn] || null };
+    });
+
+    var unmarked = Object.keys(grouped).filter(function(pn) {
+      if (_invoiceMarks[pn]) return false;
+      var g = grouped[pn];
+      if (pmFilter === 'mine') return g.pm === myId;
+      if (pmFilter !== 'all') return g.pm === pmFilter;
+      return true;
+    });
+
+    if (unmarked.length === 0) {
+      toast('All projects already invoiced', 'info');
+      return;
+    }
+
+    if (!confirm('Mark ' + unmarked.length + ' project(s) as invoiced for this period?')) return;
+
+    var success = 0;
+    for (var i = 0; i < unmarked.length; i++) {
+      try {
+        await _sb.from('ai_invoice_marks').insert({
+          project_number: unmarked[i],
+          period_start: fmtDate(_currentPeriodStart),
+          period_end: fmtDate(_currentPeriodEnd),
+          marked_by: _profile.id,
+          marked_by_email: _profile.email || ''
+        });
+        success++;
+      } catch(e) {
+        console.warn('Failed to mark ' + unmarked[i] + ':', e);
+      }
+    }
+
+    toast(success + ' project(s) marked as invoiced', 'success');
+    await refresh();
+  }
+
+  // ── Export CSV ──
+  function exportCSV() {
+    if (!_usageData || _usageData.length === 0) {
+      toast('No data to export', 'info');
+      return;
+    }
+
+    var pmFilter = document.getElementById('aiu-pm-filter').value;
+    var myId = _profile ? _profile.id : null;
+    var projPMMap = {};
+    _projects.forEach(function(p) {
+      if (p.project_number) projPMMap[p.project_number] = p.project_manager || null;
+    });
+
+    var rows = _usageData.filter(function(row) {
+      var pm = projPMMap[row.project_number] || null;
+      if (pmFilter === 'mine') return pm === myId;
+      if (pmFilter !== 'all') return pm === pmFilter;
+      return true;
+    });
+
+    var csv = 'Date,Project #,Project Name,PM,Tool,Model,Fields,Cost (USD),Invoiced\n';
+    rows.forEach(function(r) {
+      var pm = projPMMap[r.project_number] || null;
+      var pmName = pm ? (_userMap[pm] || '—') : '—';
+      var invoiced = _invoiceMarks[r.project_number] ? 'Yes' : 'No';
+      var dt = r.created_at ? new Date(r.created_at).toLocaleDateString() : '—';
+      csv += '"' + dt + '","' + (r.project_number || '') + '","' + (r.project_name || '').replace(/"/g,'""') + '","' + pmName.replace(/"/g,'""') + '","' + (r.tool || '') + '","' + (r.model || '') + '",' + (r.field_count || 0) + ',' + (r.cost_usd || 0) + ',' + invoiced + '\n';
+    });
+
+    var periodStr = fmtDate(_currentPeriodStart) + '_to_' + fmtDate(_currentPeriodEnd);
+    var blob = new Blob([csv], { type: 'text/csv' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ARENCON_AI_Usage_' + periodStr + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('CSV exported', 'success');
+  }
+
+  return {
+    init: init,
+    refresh: refresh,
+    prevPeriod: prevPeriod,
+    nextPeriod: nextPeriod,
+    saveBillingDay: saveBillingDay,
+    markProject: markProject,
+    markAll: markAll,
+    exportCSV: exportCSV
+  };
+})();
 
 
 // ═══ R2 STORAGE STATUS PANEL ═══
