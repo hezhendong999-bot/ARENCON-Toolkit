@@ -57,16 +57,47 @@ async function validateAuth(request, env) {
  * Convert URL path to R2 key.
  * URL:  /photos/{slug}/{tool}/{type}/{fname...}
  * R2:   {slug}/photos/{tool}/{type}/{fname...}
+ * Also handles legacy URLs where slug has spaces instead of underscores.
  */
 function urlPathToR2Key(rawPath) {
   // rawPath = /photos/{slug}/{tool}/{type}/{fname}
   // Remove leading /photos/ → {slug}/{tool}/{type}/{fname}
   const afterPhotos = rawPath.substring(8); // skip "/photos/"
   const slashIdx = afterPhotos.indexOf('/');
-  if (slashIdx < 0) return afterPhotos; // shouldn't happen
+  if (slashIdx < 0) return afterPhotos;
   const slug = afterPhotos.substring(0, slashIdx);
   const rest = afterPhotos.substring(slashIdx); // /{tool}/{type}/{fname}
   return slug + '/photos' + rest;
+}
+
+/**
+ * Try multiple key variations to find the file in R2.
+ * Handles: encoded %20, decoded spaces, underscore slugs.
+ */
+async function getR2Object(bucket, rawPath) {
+  const key1 = urlPathToR2Key(rawPath);
+  let obj = await bucket.get(key1);
+  if (obj) return obj;
+
+  // Try decoded version (spaces)
+  try {
+    const decoded = decodeURIComponent(key1);
+    if (decoded !== key1) {
+      obj = await bucket.get(decoded);
+      if (obj) return obj;
+    }
+  } catch(e) {}
+
+  // Try with spaces→underscores (legacy slug conversion)
+  try {
+    const underscored = decodeURIComponent(key1).replace(/\s/g, '_');
+    if (underscored !== key1) {
+      obj = await bucket.get(underscored);
+      if (obj) return obj;
+    }
+  } catch(e) {}
+
+  return null;
 }
 
 /**
@@ -113,9 +144,18 @@ export default {
 
     // ── LIST: GET /list/{slug}/{tool}/{type} ──
     if (request.method === 'GET' && rawPath.startsWith('/list/')) {
-      const prefix = listPathToR2Prefix(rawPath);
+      let prefix = listPathToR2Prefix(rawPath);
       try {
-        const listed = await env.BUCKET.list({ prefix, limit: 1000 });
+        let listed = await env.BUCKET.list({ prefix, limit: 1000 });
+        // If no results, try decoded+underscored prefix
+        if (listed.objects.length === 0) {
+          try {
+            const altPrefix = decodeURIComponent(prefix).replace(/\s/g, '_');
+            if (altPrefix !== prefix) {
+              listed = await env.BUCKET.list({ prefix: altPrefix, limit: 1000 });
+            }
+          } catch(e) {}
+        }
         const files = listed.objects.map(obj => ({
           key: obj.key,
           size: obj.size,
@@ -135,14 +175,7 @@ export default {
       // GET — serve file (unauthenticated)
       if (request.method === 'GET') {
         try {
-          let object = await env.BUCKET.get(r2Key);
-          // Fallback: try decoded key for legacy keys with %20
-          if (!object) {
-            try {
-              const decoded = decodeURIComponent(r2Key);
-              if (decoded !== r2Key) object = await env.BUCKET.get(decoded);
-            } catch(e) {}
-          }
+          const object = await getR2Object(env.BUCKET, rawPath);
           if (!object) {
             return new Response('Not Found', { status: 404, headers: cors });
           }
