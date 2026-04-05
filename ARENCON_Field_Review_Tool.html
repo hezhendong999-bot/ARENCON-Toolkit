@@ -10156,6 +10156,80 @@ async function _doReuploadAllToCloud(p){
   toast('Re-queued '+queued+' files for upload — uploading in background');
   _updateR2Badge&&_updateR2Badge();
 }
+// ── Session 61: Auto-repair site photos with broken R2 URLs ──
+// Lists actual R2 files, finds sitePhotos whose filenames don't match,
+// loads blob from IDB, re-uploads with correct filename. NEVER deletes records.
+var _r2RepairRan=false;
+async function _repairSitePhotoR2(){
+  if(_r2RepairRan||!_csHubMode||typeof R2Photos==='undefined')return;
+  _r2RepairRan=true;
+  var p=getProject();if(!p||!p.sitePhotos||!p.sitePhotos.length)return;
+  var folder=_getR2FolderId();if(!folder)return;
+  // Step 1: List actual R2 files
+  var r2Files;
+  try{r2Files=await R2Photos.list(folder,'frt','original');}catch(e){console.warn('[R2 Repair] List failed:',e);return;}
+  var r2Fnames=new Set();
+  (r2Files.files||[]).forEach(function(f){r2Fnames.add(f.key.split('/').pop());});
+  console.log('[R2 Repair] R2 has '+r2Fnames.size+' original files for '+folder);
+  // Step 2: Find site photos needing repair
+  var needRepair=[];
+  p.sitePhotos.forEach(function(sp){
+    if(!sp)return;
+    // Check if current r2Key filename exists in R2
+    var curFname=sp.r2Key?sp.r2Key.split('/').pop():'';
+    if(curFname&&r2Fnames.has(curFname))return;// File exists in R2, OK
+    // Also check r2Url filename
+    var urlFname=sp.r2Url?sp.r2Url.split('/').pop():'';
+    if(urlFname&&r2Fnames.has(urlFname))return;// URL filename matches, OK
+    // Photo has no matching R2 file — needs repair
+    needRepair.push(sp);
+  });
+  if(!needRepair.length){console.log('[R2 Repair] All site photos OK');return;}
+  console.log('[R2 Repair] '+needRepair.length+' site photo(s) need repair — checking IDB for blobs');
+  // Step 3: For each broken photo, try to load blob from IDB and re-upload
+  var fixed=0;var noBlob=0;
+  for(var i=0;i<needRepair.length;i++){
+    var sp=needRepair[i];
+    var blob=null;
+    // Try to get blob from IDB
+    if(sp.dataUrl&&sp.dataUrl.length>100){
+      try{blob=R2Photos.dataUrlToBlob(sp.dataUrl);}catch(e){}
+    }
+    if(!blob){
+      // Try IDB sitePhotos store
+      try{
+        var idbRec=await ADB.get('sitePhotos',sp.id);
+        if(idbRec&&idbRec.dataBlob&&idbRec.dataBlob.size>0)blob=idbRec.dataBlob;
+      }catch(e){}
+    }
+    if(!blob){
+      // Try IDB photos store (legacy)
+      try{
+        var legRec=await ADB.get('photos',sp.id);
+        if(legRec&&legRec.dataBlob&&legRec.dataBlob.size>0)blob=legRec.dataBlob;
+      }catch(e){}
+    }
+    if(!blob){noBlob++;continue;}// No blob anywhere — can't fix, leave record intact
+    // Upload to R2 with correct filename
+    var fname=_r2Filename('site','jpg');
+    try{
+      await R2Photos.upload(folder,'frt','original',fname,blob);
+      sp.r2Key='photos/'+folder+'/frt/original/'+fname;
+      sp.r2Url=R2Photos.getUrl(folder,'frt','original',fname);
+      sp.r2Status='uploaded';
+      fixed++;
+      console.log('[R2 Repair] ✓ Re-uploaded '+sp.id+' → '+fname);
+    }catch(e){console.warn('[R2 Repair] Upload failed for '+sp.id+':',e);}
+  }
+  if(fixed>0){
+    saveToLS();
+    if(typeof _cloudSave==='function')_cloudSave();
+    if(typeof renderPhotoGallery==='function')renderPhotoGallery();
+    console.log('[R2 Repair] Fixed '+fixed+' site photo(s), '+noBlob+' had no blob (unrecoverable on this device)');
+  }else if(noBlob>0){
+    console.log('[R2 Repair] Skipped — '+noBlob+' photo(s) have no local blob. Open project on a device with the original photos to repair.');
+  }
+}
 var _bulkSelectMode=false;
 function toggleBulkSelectMode(){
   _bulkSelectMode=!_bulkSelectMode;
@@ -15993,6 +16067,9 @@ async function _repairR2Links(forceRun){
   window._r2RepairDone[p.id]=true;
   // Persist repair timestamp so next page load skips redundant 4-request scan
   try{localStorage.setItem('ARENCON_r2repair_'+p.id,''+Date.now());}catch(e){}
+  // Session 61: After link repair, re-upload any sitePhotos that have IDB blobs but no R2 file
+  _r2RepairRan=false;// Reset so it runs even if called before
+  await _repairSitePhotoR2();
   window._r2RepairInProgress=false;
   }catch(repairErr){
     console.error('[R2 Repair] Error:',repairErr);
