@@ -13194,6 +13194,14 @@ function _collectR2Urls(defics){
   if(!defics)return;
   defics.forEach(function(d){
     (d.photos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
+    // New format: observations + activity
+    if(d.observations){d.observations.forEach(function(o){
+      (o.photos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
+    });}
+    (d.activity||[]).forEach(function(a){
+      (a.photos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
+    });
+    // Legacy format: entries + responses
     if(d.entries){d.entries.forEach(function(e){
       (e.photos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
     });}
@@ -13216,10 +13224,37 @@ return Promise.all(urls.map(function(url){
     return res.blob();
   }).then(function(blob){
     cache[url]=URL.createObjectURL(blob);
-  }).catch(function(){}).finally(function(){
+  }).catch(function(){
+    // R2 failed — try IDB blob fallback for PDF
+    return _pdfIDBFallback(p,url).then(function(blobUrl){
+      if(blobUrl)cache[url]=blobUrl;
+    }).catch(function(){});
+  }).finally(function(){
     done++;if(progressCb)progressCb(done,total);
   });
 })).then(function(){return cache;});
+}
+
+// IDB fallback for PDF photos — finds photo record by r2Url, loads blob from IDB store
+function _pdfIDBFallback(p,r2Url){
+  // Search sitePhotos
+  var sp=null;
+  (p.sitePhotos||[]).forEach(function(s){if(s&&s.r2Url===r2Url)sp=s;});
+  if(!sp){
+    // Search deficiency photos
+    var ad=getAllDeficiencies(p);
+    ad.forEach(function(d){
+      (d.defic.observations||[]).forEach(function(o){(o.photos||[]).forEach(function(ph){if(ph&&ph.r2Url===r2Url&&!sp)sp=ph;});});
+      (d.defic.activity||[]).forEach(function(a){(a.photos||[]).forEach(function(ph){if(ph&&ph.r2Url===r2Url&&!sp)sp=ph;});});
+      (d.defic.photos||[]).forEach(function(ph){if(ph&&ph.r2Url===r2Url&&!sp)sp=ph;});
+    });
+  }
+  if(!sp||!sp.id)return Promise.resolve(null);
+  var storeName=(sp.id.indexOf('sp_')===0)?'sitePhotos':'photos';
+  return ADB.get(storeName,sp.id).then(function(rec){
+    if(rec&&rec.dataBlob)return URL.createObjectURL(rec.dataBlob);
+    return null;
+  });
 }
 
 function _pdfPhotoSrc(ph,r2Cache){
