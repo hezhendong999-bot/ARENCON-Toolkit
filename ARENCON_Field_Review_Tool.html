@@ -3099,7 +3099,7 @@ function _makeR2FolderSlug(pn,pname){
   var raw=((pn||'')+(pname?' '+pname:'')).trim();
   if(!raw)return null;
   // Replace unsafe chars: keep alphanumeric, dots, dashes, underscores; spaces → underscores
-  return raw.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9._-]/g,'').substring(0,80)||null;
+  return raw.replace(/\s/g,'_').replace(/[^a-zA-Z0-9._-]/g,'').substring(0,80)||null;
 }
 // Returns the R2 folder ID for new uploads — uses project name slug if available, falls back to UUID
 function _getR2FolderId(){return _csR2Folder||_csProjectId;}
