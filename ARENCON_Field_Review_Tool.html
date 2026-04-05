@@ -13834,7 +13834,7 @@ function _buildDefCardHtml(r){
 
   // ── CARD HEADER ──
   var h='<div class="dc" data-defid="'+d.id+'"><div class="dc-inner">';
-  if(hasDwg) h+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="" onerror="this.style.display=\'none\'">';
+  if(hasDwg) h+='<img class="dc-mini" id="mm-'+d.id+'" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">';
   h+='<div class="dc-content">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
   h+='<div><strong style="color:#9C2742;font-size:13pt;">#'+d.num+'</strong>';
@@ -14216,7 +14216,7 @@ if(isField&&p.drawings&&p.drawings.length){
       var appHtml='<div class="sh" style="margin-top:0;">Appendix \u2014 Drawings with Pins</div><div class="sb" style="padding:8px;">';
       appHtml+='<div class="app-dwg">';
       appHtml+='<div class="app-dwg-title">'+escHtml(dwg.name)+' \u2014 '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
-      appHtml+='<img class="app-dwg" id="app-dwg-'+dwg.id+'" src="" alt="" onerror="this.style.display=\'none\'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
+      appHtml+='<img class="app-dwg" id="app-dwg-'+dwg.id+'" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
       appHtml+='<table class="app-pin-table"><thead><tr><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
       dPins.forEach(function(r){
         var d=r.d;
