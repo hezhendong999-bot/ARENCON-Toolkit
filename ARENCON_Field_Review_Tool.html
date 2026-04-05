@@ -15022,9 +15022,10 @@ var _busy=false;
 function _collectFields(){
   var fields=[];
   _fieldMap={};
-  if(!_proj||!_proj.contractors)return fields;
+  var p=getProject();
+  if(!p||!p.contractors)return fields;
   var minLen=8;
-  _proj.contractors.forEach(function(c,ci){
+  p.contractors.forEach(function(c,ci){
     if(!c.deficiencies)return;
     c.deficiencies.forEach(function(d,di){
       var dLabel=(c.name||'General')+' \u2192 #'+(d.defic.num||'?');
@@ -15054,8 +15055,8 @@ function _collectFields(){
       }
     });
   });
-  if(_proj.generalDeficiencies){
-    _proj.generalDeficiencies.forEach(function(d,di){
+  if(p.generalDeficiencies){
+    p.generalDeficiencies.forEach(function(d,di){
       var dLabel='Site General \u2192 #'+(d.defic.num||'?');
       if(d.observations){
         d.observations.forEach(function(o,oi){
@@ -15256,14 +15257,15 @@ function _finishReview(){
 
 // ── Write-Back to Data Model ──
 function _writeBack(path,newText){
-  if(!_proj)return;
+  var p=getProject();
+  if(!p)return;
   var ci=path[0],di=path[1],type=path[2],idx=path[3];
   var deficArr;
   if(ci==='gen'){
-    deficArr=_proj.generalDeficiencies;
+    deficArr=p.generalDeficiencies;
   } else {
-    if(!_proj.contractors||!_proj.contractors[ci])return;
-    deficArr=_proj.contractors[ci].deficiencies;
+    if(!p.contractors||!p.contractors[ci])return;
+    deficArr=p.contractors[ci].deficiencies;
   }
   if(!deficArr||!deficArr[di])return;
   var d=deficArr[di];
@@ -15300,7 +15302,7 @@ function _getToken(){
 // ── Main Entry ──
 function reviewAll(){
   if(_busy)return;
-  if(!_proj){toast('\u26A0 Open a project first');return;}
+  if(!getProject()){toast('\u26A0 Open a project first');return;}
   var token=_getToken();
   if(!token){toast('\u26A0 AI Review requires cloud login');return;}
   var fields=_collectFields();
@@ -15315,8 +15317,8 @@ function reviewAll(){
   if(ctr)ctr.textContent='Sending to AI\u2026';
   var context={
     tool:'frt',
-    projectNumber:(_proj.info&&_proj.info.projectNumber)||'',
-    projectName:(_proj.info&&_proj.info.projectName)||''
+    projectNumber:(getProject().info&&getProject().info.projectNumber)||'',
+    projectName:(getProject().info&&getProject().info.projectName)||''
   };
   fetch(WORKER_URL,{
     method:'POST',
