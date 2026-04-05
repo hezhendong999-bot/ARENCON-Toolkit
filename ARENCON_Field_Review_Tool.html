@@ -15433,26 +15433,52 @@ function open(){
   if(!_isAdmin()){toast('\u26A0 Admin access required');return;}
   _ensureOverlay();
   _overlay.classList.add('open');
-  _setBillingCycleDates('current');
-  _fetchData();
+  // Load billing day from cloud, then set dates and fetch
+  _loadBillingDay(function(){
+    _setBillingCycleDates('current');
+    _fetchData();
+  });
 }
 
 function close(){
   if(_overlay)_overlay.classList.remove('open');
 }
 
-function _getBillingDay(){
-  return parseInt(localStorage.getItem('arencon-billing-day'))||20;
-}
-function _setBillingDay(d){
-  d=Math.max(1,Math.min(28,parseInt(d)||20));
-  localStorage.setItem('arencon-billing-day',d);
-  var el=document.getElementById('ai-usage-bday');
-  if(el)el.value=d;
+var _billingDay=20; // in-memory cache
+
+function _loadBillingDay(cb){
+  fetch(SB_URL+'/rest/v1/app_settings?key=eq.billing_day&select=value',{headers:_sbHeaders()})
+  .then(function(r){return r.json();})
+  .then(function(rows){
+    if(rows&&rows.length>0){
+      _billingDay=parseInt(rows[0].value)||20;
+    }
+    var el=document.getElementById('ai-usage-bday');
+    if(el)el.value=_billingDay;
+    if(cb)cb();
+  })
+  .catch(function(){if(cb)cb();});
 }
 
+function _saveBillingDay(d){
+  d=Math.max(1,Math.min(28,parseInt(d)||20));
+  _billingDay=d;
+  var el=document.getElementById('ai-usage-bday');
+  if(el)el.value=d;
+  // Upsert to Supabase
+  fetch(SB_URL+'/rest/v1/app_settings?key=eq.billing_day',{
+    method:'PATCH',
+    headers:_sbHeaders(),
+    body:JSON.stringify({value:String(d),updated_at:new Date().toISOString()})
+  }).then(function(r){
+    if(r.ok)toast('\u2714 Billing day saved: '+d+'th');
+    else toast('\u26A0 Failed to save billing day');
+  }).catch(function(){toast('\u26A0 Failed to save billing day');});
+}
+
+function _getBillingDay(){return _billingDay;}
+
 function _billingCycleRange(offset){
-  // offset: 0 = current cycle, -1 = last cycle
   var day=_getBillingDay();
   var now=new Date();
   var y=now.getFullYear(), m=now.getMonth(), d=now.getDate();
@@ -15462,7 +15488,6 @@ function _billingCycleRange(offset){
   } else {
     startM=m-1+offset; startY=y; endM=m+offset; endY=y;
   }
-  // Normalize month overflow
   while(startM<0){startM+=12;startY--;}
   while(startM>11){startM-=12;startY++;}
   while(endM<0){endM+=12;endY--;}
@@ -15518,7 +15543,7 @@ function _ensureOverlay(){
     +'<label>From</label><input type="date" id="ai-usage-from">'
     +'<label>To</label><input type="date" id="ai-usage-to">'
     +'<button onclick="AIUsage._fetchData()">Filter</button>'
-    +'<span style="margin-left:auto;font-size:calc(11px + var(--ts));color:var(--steel,#607D8B);">Billing day: <input type="number" id="ai-usage-bday" value="'+bday+'" min="1" max="28" style="width:40px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));padding:2px 4px;border:1px solid var(--border,#ccc);border-radius:4px;background:var(--bg,#fff);color:var(--fg,#333);" onchange="AIUsage._setBillingDay(this.value)"> of month</span>'
+    +'<span style="margin-left:auto;font-size:calc(11px + var(--ts));color:var(--steel,#607D8B);">Billing day: <input type="number" id="ai-usage-bday" value="'+bday+'" min="1" max="28" style="width:40px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));padding:2px 4px;border:1px solid var(--border,#ccc);border-radius:4px;background:var(--bg,#fff);color:var(--fg,#333);" onchange="AIUsage._saveBillingDay(this.value)"> of month</span>'
     +'</div>'
     +'<div class="ai-usage-body" id="ai-usage-body">'
     +'<div class="ai-usage-loading">Loading...</div>'
@@ -15671,7 +15696,7 @@ function exportPDF(){
   setTimeout(function(){w.print();},500);
 }
 
-return {open:open,close:close,_fetchData:_fetchData,_setBillingCycleDates:_setBillingCycleDates,_setBillingDay:_setBillingDay,exportCSV:exportCSV,exportPDF:exportPDF};
+return {open:open,close:close,_fetchData:_fetchData,_setBillingCycleDates:_setBillingCycleDates,_saveBillingDay:_saveBillingDay,exportCSV:exportCSV,exportPDF:exportPDF};
 })();
 
 if(_csHubMode)_resetSessionTimers();
