@@ -1310,6 +1310,57 @@ body.text-l{--ts:4px;}
 /* Text size toggle button */
 .text-size-toggle{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:calc(12px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;transition:all .15s;display:inline-flex;align-items:center;gap:4px;}
 .text-size-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
+
+/* ═══ AI REVIEW PANEL ═══ */
+.ai-panel-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:8999;background:rgba(0,0,0,.3);display:none;opacity:0;transition:opacity .2s;}
+.ai-panel-overlay.open{display:block;opacity:1;}
+.ai-panel{position:fixed;top:0;right:0;bottom:0;width:420px;max-width:100vw;z-index:9000;background:var(--bg,#fff);border-left:3px solid #9C2742;box-shadow:-4px 0 24px rgba(0,0,0,.15);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;}
+.ai-panel.open{transform:translateX(0);}
+.ai-panel-hdr{background:#9C2742;color:white;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.ai-panel-hdr h3{margin:0;font-size:calc(16px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;}
+.ai-panel-hdr-btns{display:flex;gap:8px;align-items:center;}
+.ai-panel-hdr-btns button{border:none;border-radius:6px;padding:6px 14px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;}
+.ai-btn-accept-all{background:rgba(255,255,255,.2);color:white;border:1.5px solid rgba(255,255,255,.4)!important;}
+.ai-btn-accept-all:hover{background:rgba(255,255,255,.3);}
+.ai-btn-close{background:none;color:white;font-size:18px;padding:4px 8px!important;line-height:1;}
+.ai-panel-counter{padding:8px 18px;font-size:calc(12px + var(--ts));color:var(--steel,#607D8B);border-bottom:1px solid var(--border,#ddd);font-family:Calibri,sans-serif;font-weight:600;}
+.ai-panel-body{flex:1;overflow-y:auto;padding:0;scrollbar-width:thin;}
+.ai-suggestion{padding:16px 18px;border-bottom:1px solid var(--border,#ddd);}
+.ai-suggestion.processed{opacity:.5;}
+.ai-field-label{font-size:calc(11px + var(--ts));color:#9C2742;font-weight:700;margin-bottom:8px;cursor:pointer;font-family:Calibri,sans-serif;}
+.ai-field-label:hover{text-decoration:underline;}
+.ai-text-box{border:1px solid var(--border,#ddd);border-radius:6px;padding:10px 12px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;line-height:1.5;margin-bottom:6px;background:var(--smoke,#F5F5F5);}
+.ai-text-box-label{font-size:calc(10px + var(--ts));font-weight:700;color:var(--steel,#607D8B);margin-bottom:4px;font-family:Calibri,sans-serif;}
+.ai-diff-add{background:#d4edda;padding:0 2px;border-radius:2px;}
+.ai-diff-del{background:#f8d7da;text-decoration:line-through;padding:0 2px;border-radius:2px;color:#999;}
+.ai-suggestion-btns{display:flex;gap:8px;margin-top:10px;}
+.ai-suggestion-btns button{border:none;border-radius:6px;padding:7px 18px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;}
+.ai-btn-accept{background:#1A7A4A;color:white;}
+.ai-btn-accept:hover{filter:brightness(1.1);}
+.ai-btn-skip{background:none;color:#6B7280;border:1.5px solid #6B7280!important;}
+.ai-btn-skip:hover{background:#f5f5f5;}
+.ai-panel-loading{padding:24px 18px;text-align:center;color:var(--steel,#607D8B);font-family:Calibri,sans-serif;}
+.ai-panel-loading .ai-spinner{display:inline-block;width:20px;height:20px;border:3px solid #ddd;border-top-color:#9C2742;border-radius:50%;animation:ai-spin .6s linear infinite;margin-bottom:8px;}
+@keyframes ai-spin{to{transform:rotate(360deg);}}
+.ai-panel-done{padding:32px 18px;text-align:center;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;color:#1A7A4A;font-weight:600;}
+.ai-changes-note{font-size:calc(10px + var(--ts));color:var(--steel,#607D8B);margin-top:4px;font-style:italic;}
+/* Dark mode */
+body.dark-mode .ai-panel{background:var(--bg,#0f1318);border-left-color:#b0304e;}
+body.dark-mode .ai-text-box{background:#1a1d24;border-color:#2a3040;}
+body.dark-mode .ai-diff-add{background:#0a2e1a;color:#6ddb8d;}
+body.dark-mode .ai-diff-del{background:#2e1010;color:#e88;}
+body.dark-mode .ai-btn-skip{color:#8a94b0;border-color:#3a4050!important;}
+body.dark-mode .ai-btn-skip:hover{background:#1e2533;}
+body.dark-mode .ai-panel-overlay{background:rgba(0,0,0,.5);}
+/* Mobile: bottom sheet */
+@media(max-width:600px){
+  .ai-panel{top:auto;bottom:0;left:0;right:0;width:100%;height:75vh;border-left:none;border-top:3px solid #9C2742;transform:translateY(100%);border-radius:16px 16px 0 0;}
+  .ai-panel.open{transform:translateY(0);}
+}
+/* Header AI Review button */
+.hdr-btn.hdr-ai{background:#7B1FA2;}
+.hdr-btn.hdr-ai:disabled{opacity:.5;cursor:not-allowed;}
+.hdr-btn.hdr-ai .ai-spin-icon{display:inline-block;animation:ai-spin .6s linear infinite;}
 </style>
 </head>
 <body>
@@ -1345,6 +1396,7 @@ body.text-l{--ts:4px;}
       <!-- Project buttons (hidden on dashboard, shown in project) -->
       <button class="hdr-btn" id="btn-pdf" onclick="showPDFOptions()" style="display:none;background:#1A237E;" title="Export PDF Report">📄 Reports</button>
       <button class="hdr-btn" id="btn-issue" onclick="issueReport()" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
+      <button class="hdr-btn hdr-ai" id="btn-ai-review" onclick="AIAssist.reviewAll()" style="display:none;" title="AI Review — polish all text fields">✨ AI Review</button>
       <!-- ⚙️ More dropdown — groups Download, Repair, Reset -->
       <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
         <button class="hdr-btn" style="background:#455A64;" onclick="toggleMoreMenu(event)" title="More options">⚙️ More ▾</button>
@@ -1409,6 +1461,7 @@ body.text-l{--ts:4px;}
       <button onclick="closeMobileMenu();" style="background:none;border:none;font-size:20px;color:var(--silver);cursor:pointer;padding:4px;">✕</button>
     </div>
     <button class="btn" id="mobile-pdf-btn" onclick="showPDFOptions();closeMobileMenu();" style="display:none;">📄 Reports</button>
+    <button class="btn" id="mobile-ai-btn" onclick="AIAssist.reviewAll();closeMobileMenu();" style="display:none;">✨ AI Review</button>
 <button class="btn" onclick="saveJSON();closeMobileMenu();">💾 Export Project</button>
     <button class="btn" onclick="openLoadModal();closeMobileMenu();">📂 Load Project</button>
 <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
@@ -2277,6 +2330,7 @@ ADB.saveDrawing=function(drawing,projectId){
       if(existing&&existing.dataBlob)rec.dataBlob=existing.dataBlob;
       if(existing&&existing.markupBlob&&!rec.markupBlob)rec.markupBlob=existing.markupBlob;
       if(existing&&existing.markupObjects&&existing.markupObjects.length&&(!rec.markupObjects||!rec.markupObjects.length))rec.markupObjects=existing.markupObjects;
+      if(existing&&existing.snapshotBlob){rec.snapshotBlob=existing.snapshotBlob;rec.snapshotW=existing.snapshotW;rec.snapshotH=existing.snapshotH;}
       return ADB.put('drawings',rec);
     }).catch(function(){return ADB.put('drawings',rec);});
   }
@@ -2543,6 +2597,8 @@ ADB.saveFullProject=function(proj){
         if(existing&&existing.markupBlob&&!rec.markupBlob)rec.markupBlob=existing.markupBlob;
       }
       // Always preserve snapshot cache from existing IDB record
+      var existSnap=existMap[drawing.id];
+      if(existSnap&&existSnap.snapshotBlob){rec.snapshotBlob=existSnap.snapshotBlob;rec.snapshotW=existSnap.snapshotW;rec.snapshotH=existSnap.snapshotH;}
       putRecs.push(rec);
     });
     // Stale drawing IDs to delete
@@ -2773,6 +2829,23 @@ function applyLockState(){
 
 // ═══ PUBLISH MODAL ═══
 
+function _downloadPublishedCopy(rev){
+  var p = getProject(); if(!p) return;
+  var projName = (p.info.projectNumber||'project').replace(/[^a-zA-Z0-9_-]/g,'_');
+  var filename = projName + '_' + rev + '_published.html';
+  // Build a minimal self-contained copy: current page HTML + embedded project JSON
+  var pageHTML = document.documentElement.outerHTML;
+  // Inject published flag comment at top
+  var publishedMeta = '<!-- ARENCON PUBLISHED REPORT | ' + (p.info.projectName||'') + ' | ' + rev + ' | ' + (p.info.publishedDate||'') + ' -->';
+  pageHTML = publishedMeta + '\n' + pageHTML;
+  var blob = new Blob([pageHTML], {type:'text/html'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Downloaded: ' + filename);
+}
 
 // ═══ UNLOCK MODAL ═══
 function showUnlockModal(){
@@ -3018,15 +3091,7 @@ function newDeficiency(num){
   };
 }
 function getProject(){return allProjects[currentProjectId];}
-var _adCacheKey='',_adCacheResult=[];
-function getAllDeficiencies(p){if(!p)p=getProject();if(!p)return[];
-  // Cache: invalidate when structure changes (avoids walking all contractors 26x per render)
-  var key=p.id+'_'+(p.contractors||[]).length+'_'+(p.generalDeficiencies||[]).length;
-  (p.contractors||[]).forEach(function(c){key+='_'+c.id+'_'+c.deficiencies.length;});
-  if(key===_adCacheKey)return _adCacheResult;
-  var all=[];(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:c.name,contractorId:c.id});});});(p.generalDeficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:'Site General',contractorId:null});});all.sort(function(a,b){return a.defic.num-b.defic.num;});
-  _adCacheKey=key;_adCacheResult=all;return all;
-}
+function getAllDeficiencies(p){if(!p)p=getProject();if(!p)return[];var all=[];(p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:c.name,contractorId:c.id});});});(p.generalDeficiencies||[]).forEach(function(d){all.push({defic:d,contractorName:'Site General',contractorId:null});});all.sort(function(a,b){return a.defic.num-b.defic.num;});return all;}
 function findDeficiency(deficId,p){if(!p)p=getProject();if(!p)return null;for(var i=0;i<(p.contractors||[]).length;i++){var c=p.contractors[i];for(var j=0;j<(c.deficiencies||[]).length;j++){if(c.deficiencies[j].id===deficId)return{defic:c.deficiencies[j],contractor:c,arr:c.deficiencies,idx:j};}}for(var k=0;k<(p.generalDeficiencies||[]).length;k++){if(p.generalDeficiencies[k].id===deficId)return{defic:p.generalDeficiencies[k],contractor:null,arr:p.generalDeficiencies,idx:k};}return null;}
 
 // Helper: get first observation text from a deficiency (handles both old and new format)
@@ -3036,6 +3101,15 @@ function _deficDesc(d){
   return d.description||'';
 }
 // Helper: get all observation/entry photos from a deficiency
+function _deficAllPhotos(d){
+  var all=[];
+  (d.observations||[]).forEach(function(o){(o.photos||[]).forEach(function(ph){all.push(ph);});});
+  if(!d.observations||!d.observations.length){
+    (d.entries||[]).forEach(function(e){(e.photos||[]).forEach(function(ph){all.push(ph);});});
+    (d.photos||[]).forEach(function(ph){all.push(ph);});
+  }
+  return all;
+}
 // Helper: check if deficiency is open
 function _deficIsOpen(d){return d.status==='open'||d.status==='Outstanding';}
 // Helper: check if deficiency is closed
@@ -3044,7 +3118,6 @@ function _deficIsClosed(d){return d.status==='closed'||d.status==='Addressed & C
 // ═══ SAVE — writes to IndexedDB + marks dirty for folder sync ═══
 function saveToLS(){
   if(!currentProjectId||!allProjects[currentProjectId])return;
-  _adCacheKey='';// invalidate getAllDeficiencies cache
   allProjects[currentProjectId].modified=new Date().toISOString();
   // Debounced full save — batches rapid changes
   if(saveToLS._timer)clearTimeout(saveToLS._timer);
@@ -3204,7 +3277,7 @@ function applyTextSize(size){
 
 function openMobileMenu(){var mm=document.getElementById('mobile-menu-overlay');if(mm){mm.classList.add('open');var admin=_isAdmin();mm.querySelectorAll('.admin-only').forEach(function(b){b.style.display=admin?'':'none';});}updateStorageDisplay();}
 function closeMobileMenu(){var mm=document.getElementById('mobile-menu-overlay');if(mm)mm.classList.remove('open');}
-;function closeRepairMenu(){var m=document.getElementById('repair-menu');if(m)m.classList.remove('open');}
+;function _closeRepairOnClick(){closeRepairMenu();}function closeRepairMenu(){var m=document.getElementById('repair-menu');if(m)m.classList.remove('open');}
 
 // ── More ▾ dropdown ──
 function toggleMoreMenu(e){
@@ -3236,74 +3309,87 @@ function confirmDownloadJSON(){
   _aConfirm('Download JSON backup of "'+name+'"?',function(){exportProjectJSON();},'Download');
 }
 // _aConfirm / _aPrompt / _aAlert — callback-based custom modals (no async conversion needed)
-// ═══ SHARED MODAL BUILDER ═══
-function _aModalBase(){
+function _aConfirm(msg,onOk,okText){
   var isDark=document.body.classList.contains('dark-mode');
   var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7';
-  var okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A',okBdr=isDark?'border:1px solid rgba(26,122,74,.4);':'border:none;';
+  var isDestructive=okText&&/delete|remove|reset|clear/i.test(okText);
+  var okBg,okFg,okBdr;
+  if(isDestructive){okBg=isDark?'rgba(156,39,66,.35)':'#9C2742';okFg=isDark?'#e8a0b0':'white';okBdr=isDark?'border:1px solid rgba(156,39,66,.4);':'border:none;';}
+  else{okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A';okFg='white';okBdr=isDark?'border:1px solid rgba(26,122,74,.4);':'border:none;';}
   var cancelBg=isDark?'rgba(255,255,255,.06)':'none',cancelBdr=isDark?'1.5px solid #3a4050':'1.5px solid '+bdr;
-  var ibg=isDark?'#151a24':'#F8FAFC';
-  var btnBase='padding:8px 20px;border-radius:8px;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;';
   var ov=document.createElement('div');ov.className='_a-modal-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
-  return{ov:ov,bg:bg,fg:fg,fg2:fg2,bdr:bdr,okBg:okBg,okBdr:okBdr,cancelBg:cancelBg,cancelBdr:cancelBdr,ibg:ibg,btnBase:btnBase,isDark:isDark};
+  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
+  h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
+  h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
+  h+='<button class="_ac-cancel" style="padding:8px 20px;border:'+cancelBdr+';border-radius:8px;background:'+cancelBg+';color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
+  h+='<button class="_ac-ok" style="padding:8px 20px;'+okBdr+'border-radius:8px;background:'+okBg+';color:'+okFg+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">'+(okText||'OK')+'</button>';
+  h+='</div></div>';
+  ov.innerHTML=h;
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  ov.querySelector('._ac-cancel').onclick=function(){ov.remove();};
+  ov.querySelector('._ac-ok').onclick=function(){ov.remove();if(onOk)onOk();};
+  document.body.appendChild(ov);
+  ov.querySelector('._ac-ok').focus();
 }
-function _aConfirm(msg,onOk,okText){
-  var m=_aModalBase();
-  var isDestructive=okText&&/delete|remove|reset|clear/i.test(okText);
-  var okBg=isDestructive?(m.isDark?'rgba(156,39,66,.35)':'#9C2742'):m.okBg;
-  var okFg=isDestructive?(m.isDark?'#e8a0b0':'white'):'white';
-  var okBdr2=isDestructive?(m.isDark?'border:1px solid rgba(156,39,66,.4);':'border:none;'):m.okBdr;
-  m.ov.innerHTML='<div style="background:'+m.bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+m.fg+';border:1px solid '+m.bdr+';">'+
-    '<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>'+
-    '<div style="display:flex;gap:10px;justify-content:flex-end;">'+
-    '<button class="_ac-cancel" style="'+m.btnBase+'border:'+m.cancelBdr+';background:'+m.cancelBg+';color:'+m.fg2+';">Cancel</button>'+
-    '<button class="_ac-ok" style="'+m.btnBase+okBdr2+'background:'+okBg+';color:'+okFg+';">'+(okText||'OK')+'</button>'+
-    '</div></div>';
-  m.ov.addEventListener('click',function(e){if(e.target===m.ov)m.ov.remove();});
-  m.ov.querySelector('._ac-cancel').onclick=function(){m.ov.remove();};
-  m.ov.querySelector('._ac-ok').onclick=function(){m.ov.remove();if(onOk)onOk();};
-  document.body.appendChild(m.ov);m.ov.querySelector('._ac-ok').focus();
-}
+// Two-button confirm with custom labels and separate callbacks
 function _aConfirmTwoBtn(msg,okText,onOk,cancelText,onCancel){
-  var m=_aModalBase();
-  m.ov.innerHTML='<div style="background:'+m.bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+m.fg+';border:1px solid '+m.bdr+';">'+
-    '<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>'+
-    '<div style="display:flex;gap:10px;justify-content:flex-end;">'+
-    '<button class="_ac-cancel" style="'+m.btnBase+'border:'+m.cancelBdr+';background:'+m.cancelBg+';color:'+m.fg2+';">'+(cancelText||'Cancel')+'</button>'+
-    '<button class="_ac-ok" style="'+m.btnBase+m.okBdr+'background:'+m.okBg+';color:white;">'+(okText||'OK')+'</button>'+
-    '</div></div>';
-  m.ov.addEventListener('click',function(e){if(e.target===m.ov){m.ov.remove();if(onCancel)onCancel();}});
-  m.ov.querySelector('._ac-cancel').onclick=function(){m.ov.remove();if(onCancel)onCancel();};
-  m.ov.querySelector('._ac-ok').onclick=function(){m.ov.remove();if(onOk)onOk();};
-  document.body.appendChild(m.ov);
+  var isDark=document.body.classList.contains('dark-mode');
+  var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7';
+  var okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A',cancelBg=isDark?'rgba(255,255,255,.06)':'none',cancelBdr=isDark?'1.5px solid #3a4050':'1.5px solid '+bdr;
+  var ov=document.createElement('div');ov.className='_a-modal-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
+  h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
+  h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
+  h+='<button class="_ac-cancel" style="padding:8px 20px;border:'+cancelBdr+';border-radius:8px;background:'+cancelBg+';color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">'+(cancelText||'Cancel')+'</button>';
+  h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:'+okBg+';color:white;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">'+(okText||'OK')+'</button>';
+  h+='</div></div>';
+  ov.innerHTML=h;
+  ov.addEventListener('click',function(e){if(e.target===ov){ov.remove();if(onCancel)onCancel();}});
+  ov.querySelector('._ac-cancel').onclick=function(){ov.remove();if(onCancel)onCancel();};
+  ov.querySelector('._ac-ok').onclick=function(){ov.remove();if(onOk)onOk();};
+  document.body.appendChild(ov);
 }
 function _aPrompt(msg,defVal,onOk){
-  var m=_aModalBase();
-  m.ov.innerHTML='<div style="background:'+m.bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+m.fg+';border:1px solid '+m.bdr+';">'+
-    '<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:14px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>'+
-    '<input class="_ap-input" type="text" value="'+_escAttr(defVal||'')+'" style="width:100%;padding:10px 14px;border:1.5px solid '+m.bdr+';border-radius:8px;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;background:'+m.ibg+';color:'+m.fg+';outline:none;margin-bottom:16px;box-sizing:border-box;">'+
-    '<div style="display:flex;gap:10px;justify-content:flex-end;">'+
-    '<button class="_ac-cancel" style="'+m.btnBase+'border:'+m.cancelBdr+';background:'+m.cancelBg+';color:'+m.fg2+';">Cancel</button>'+
-    '<button class="_ac-ok" style="'+m.btnBase+m.okBdr+'background:'+m.okBg+';color:white;">OK</button>'+
-    '</div></div>';
-  var inp=m.ov.querySelector('._ap-input');
-  m.ov.addEventListener('click',function(e){if(e.target===m.ov)m.ov.remove();});
-  m.ov.querySelector('._ac-cancel').onclick=function(){m.ov.remove();};
-  m.ov.querySelector('._ac-ok').onclick=function(){var v=inp.value;m.ov.remove();if(onOk)onOk(v);};
-  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){var v=inp.value;m.ov.remove();if(onOk)onOk(v);}if(e.key==='Escape')m.ov.remove();});
-  document.body.appendChild(m.ov);inp.focus();inp.select();
+  var isDark=document.body.classList.contains('dark-mode');
+  var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7',ibg=isDark?'#151a24':'#F8FAFC';
+  var okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A',okFg='white',okBdr=isDark?'border:1px solid rgba(26,122,74,.4);':'border:none;';
+  var cancelBg=isDark?'rgba(255,255,255,.06)':'none',cancelBdr=isDark?'1.5px solid #3a4050':'1.5px solid '+bdr;
+  var ov=document.createElement('div');ov.className='_a-modal-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
+  h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:14px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
+  h+='<input class="_ap-input" type="text" value="'+_escAttr(defVal||'')+'" style="width:100%;padding:10px 14px;border:1.5px solid '+bdr+';border-radius:8px;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;background:'+ibg+';color:'+fg+';outline:none;margin-bottom:16px;box-sizing:border-box;">';
+  h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
+  h+='<button class="_ac-cancel" style="padding:8px 20px;border:'+cancelBdr+';border-radius:8px;background:'+cancelBg+';color:'+fg2+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
+  h+='<button class="_ac-ok" style="padding:8px 20px;'+okBdr+'border-radius:8px;background:'+okBg+';color:'+okFg+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
+  h+='</div></div>';
+  ov.innerHTML=h;
+  var inp=ov.querySelector('._ap-input');
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  ov.querySelector('._ac-cancel').onclick=function(){ov.remove();};
+  ov.querySelector('._ac-ok').onclick=function(){var v=inp.value;ov.remove();if(onOk)onOk(v);};
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){var v=inp.value;ov.remove();if(onOk)onOk(v);}if(e.key==='Escape')ov.remove();});
+  document.body.appendChild(ov);
+  inp.focus();inp.select();
 }
 function _aAlert(msg){
-  var m=_aModalBase();
-  m.ov.innerHTML='<div style="background:'+m.bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+m.fg+';border:1px solid '+m.bdr+';">'+
-    '<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>'+
-    '<div style="display:flex;justify-content:flex-end;">'+
-    '<button class="_ac-ok" style="'+m.btnBase+m.okBdr+'background:'+m.okBg+';color:white;">OK</button>'+
-    '</div></div>';
-  m.ov.addEventListener('click',function(e){if(e.target===m.ov)m.ov.remove();});
-  m.ov.querySelector('._ac-ok').onclick=function(){m.ov.remove();};
-  document.body.appendChild(m.ov);m.ov.querySelector('._ac-ok').focus();
+  var isDark=document.body.classList.contains('dark-mode');
+  var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',bdr=isDark?'#2a3040':'#DDE1E7';
+  var okBg=isDark?'rgba(26,122,74,.4)':'#1A7A4A',okFg='white',okBdr=isDark?'border:1px solid rgba(26,122,74,.4);':'border:none;';
+  var ov=document.createElement('div');ov.className='_a-modal-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
+  h+='<div style="font-size:calc(14px + var(--ts));line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
+  h+='<div style="display:flex;justify-content:flex-end;">';
+  h+='<button class="_ac-ok" style="padding:8px 20px;'+okBdr+'border-radius:8px;background:'+okBg+';color:'+okFg+';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
+  h+='</div></div>';
+  ov.innerHTML=h;
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  ov.querySelector('._ac-ok').onclick=function(){ov.remove();};
+  document.body.appendChild(ov);
+  ov.querySelector('._ac-ok').focus();
 }
 function _escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function _escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
@@ -3410,10 +3496,11 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   var _enp=(p.info.projectNumber||'');var _ent=(p.info.projectName||'Untitled');_el=document.getElementById('header-filename');if(_el)_el.textContent=buildSmartFilename(p);var _pbf2=document.getElementById('pb-filename');if(_pbf2)_pbf2.textContent=buildSmartFilename(p);
   // Set initial badge state
   var _st0=p.status||'draft';var _pbb0=document.getElementById('pb-badge');if(_pbb0){_pbb0.textContent=_st0.toUpperCase();_pbb0.style.background=_st0==='issued'?'#1A7A4A':_st0==='revision'?'#E67E22':'#6B7280';}
-  ['btn-save-as','btn-folder','btn-open-folder','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','btn-more-wrap'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='';});
+  ['btn-save-as','btn-folder','btn-open-folder','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','btn-more-wrap','btn-ai-review'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='';});
   updateSmartFilename();
   ['btn-load','btn-export-all'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   var mb=document.getElementById('mobile-pdf-btn');if(mb)mb.style.display='';
+  var mab=document.getElementById('mobile-ai-btn');if(mab)mab.style.display='';
   var bpub=document.getElementById('btn-publish');if(bpub)bpub.style.display='';
   // Hide dashboard-only mobile menu items
   var mea=document.getElementById('mobile-export-all');if(mea)mea.style.display='none';
@@ -3737,6 +3824,36 @@ function updateProjectDropdown(){
 }
 function closeProjectDropdown(){var dd=document.getElementById('project-dropdown');if(dd)dd.classList.remove('open');}
 
+function openProjectQuickEdit(id,e){
+  e.stopPropagation();
+  var p=allProjects[id];if(!p)return;
+  var rect=e.target.getBoundingClientRect();
+  var ov=document.getElementById('dash-context-menu');if(ov)ov.remove();
+  var menu=document.createElement('div');
+  menu.id='dash-context-menu';
+  menu.style.cssText='position:fixed;top:'+(rect.bottom+4)+'px;left:'+(rect.left-180)+'px;'+
+    'background:var(--surface,#fff);border:1.5px solid var(--border,#DDE1E7);border-radius:10px;'+
+    'box-shadow:0 12px 32px rgba(0,0,0,.25);z-index:9100;min-width:220px;overflow:hidden;font-family:Calibri,sans-serif;';
+  var items=[
+    {label:'🔗 Copy Project Link',fn:function(){copyProjectLink(id);}},
+    {label:'📤 Export This Project',fn:function(){exportSingleProject(id);}},
+    {label:(p.starred?'★ Unstar':'☆ Star'),fn:function(){toggleStarProject(id,null);}},
+    {sep:true},
+    ];
+  items.forEach(function(it){
+    if(it.sep){var sep=document.createElement('div');sep.className='sep-line';menu.appendChild(sep);return;}
+    var btn=document.createElement('button');
+    btn.textContent=it.label;
+    if(it.danger)btn.className='danger';
+    btn.onclick=function(){closeDashMenu();it.fn();};
+    menu.appendChild(btn);
+  });
+  document.body.appendChild(menu);
+  var mr=menu.getBoundingClientRect();
+  if(mr.right>window.innerWidth-8)menu.style.left=(window.innerWidth-mr.width-8)+'px';
+  if(mr.bottom>window.innerHeight-8)menu.style.top=(rect.top-mr.height-4)+'px';
+  setTimeout(function(){document.addEventListener('click',closeDashMenu,{once:true});},10);
+}
 function closeDashMenu(){var m=document.getElementById('dash-context-menu');if(m)m.remove();}
 
 function copyProjectLink(id){
@@ -3762,6 +3879,73 @@ var _statusDefs=[
   {key:'revision',label:'Revision Required',color:'#C62828'},
   {key:'issued',label:'Issued',color:'#2E7D32'}
 ];
+function toggleStatusDropdown(wrap,id){
+  // Close any existing dropdown
+  document.querySelectorAll('.proj-status-dd.open').forEach(function(d){d.remove();});
+  var dd=document.createElement('div');
+  dd.className='proj-status-dd open';
+  var cur=(allProjects[id]&&allProjects[id].status)||'draft';
+  _statusDefs.forEach(function(s){
+    var btn=document.createElement('button');
+    if(s.key===cur)btn.className='active';
+    btn.innerHTML='<span class="sd-dot" style="background:'+s.color+';"></span>'+s.label;
+
+    dd.appendChild(btn);
+  });
+  wrap.appendChild(dd);
+  // Close on outside click
+  setTimeout(function(){
+    document.addEventListener('click',function _closeSD(){dd.remove();document.removeEventListener('click',_closeSD);});
+  },10);
+}
+function closeCreateProjectModal(){var ov=document.getElementById('create-project-overlay');if(ov)ov.style.display='none';}
+function confirmCreateProject(){
+  var cpNum=document.getElementById('cp-num');
+  var cpName=document.getElementById('cp-name');
+  var cpClient=document.getElementById('cp-client');
+  if(!cpNum||!cpName||!cpClient){_aAlert('Modal fields not found');return;}
+  var num=cpNum.value.trim();
+  var name=cpName.value.trim();
+  var client=cpClient.value.trim();
+  if(!name){_aAlert('Please enter a project name.');return;}
+  var p=newProject({projectName:name,projectNumber:num,client:client});
+  allProjects[p.id]=p;
+  var ov=document.getElementById('create-project-overlay');
+  if(ov)ov.remove();
+  enterProject(p.id);
+  switchTab('info');
+  setTimeout(function(){
+    populateProjectFields();
+    saveToLS();
+  },50);
+  ADB.saveFullProject(p).catch(function(e){console.error('IDB save error:',e);});
+}
+function exportStarredProjects(){
+  var starred=Object.values(allProjects).filter(function(p){return p.starred;});
+  if(!starred.length){_aAlert('No starred projects.');return;}
+  var promises=starred.map(function(p){return ADB.exportProjectJSON(p.id);});
+  Promise.all(promises).then(function(projects){
+    var all={};projects.forEach(function(p){if(p)all[p.id]=p;});
+    var blob=new Blob([JSON.stringify(all,null,2)],{type:'application/json'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='ARENCON_Starred_'+new Date().toISOString().split('T')[0]+'.json';
+    a.click();URL.revokeObjectURL(a.href);
+    showToast('Exported '+starred.length+' starred projects');
+  });
+}
+function exportUnstarredProjects(){
+  var uns=Object.values(allProjects).filter(function(p){return !p.starred;});
+  if(!uns.length){_aAlert('No unstarred projects.');return;}
+  var promises=uns.map(function(p){return ADB.exportProjectJSON(p.id);});
+  Promise.all(promises).then(function(projects){
+    var all={};projects.forEach(function(p){if(p)all[p.id]=p;});
+    var blob=new Blob([JSON.stringify(all,null,2)],{type:'application/json'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='ARENCON_Unstarred_'+new Date().toISOString().split('T')[0]+'.json';
+    a.click();URL.revokeObjectURL(a.href);
+    showToast('Exported '+uns.length+' unstarred projects');
+  });
+}
 
 function toggleStarProject(id,e){
   if(e)e.stopPropagation();
@@ -3797,7 +3981,17 @@ function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 function quickAddDeficiency(){if(!currentProjectId)return;switchTab('deficiencies');var p=getProject();addDeficiencyForGroup(null);}
 
 // ═══ FILE SYSTEM FOLDER ═══
+function bumpRevision(rev){
+  // A01→A02, B01→B02, B01A01→B01A02
+  var m=rev.match(/^([A-Z])(\d+)([A-Z]\d+)?$/);
+  if(!m)return rev;
+  if(m[3]){var sub=m[3];var sn=parseInt(sub.slice(1))+1;return m[1]+m[2]+sub[0]+String(sn).padStart(2,'0');}
+  var n=parseInt(m[2])+1;return m[1]+String(n).padStart(2,'0')+(m[3]||'');
+}
 
+function _getInspectorName(){
+  try{return localStorage.getItem('ARENCON_FR_Inspector')||'';}catch(e){return '';}
+}
 
 function getProjectFilename(p){
   if(p.info.customFilename)return p.info.customFilename.replace(/\.json$/,'')+'.json';
@@ -4314,7 +4508,41 @@ function _maybeCacheGalleryThumb(drawingId,blob){
 
 // ═══ SNAPSHOT PRE-GENERATION — instant viewer open, first time, every time ═══
 // Generate 1500px JPEG snapshot from an image source (dataUrl or blobUrl) and save to IDB
+function _genSnapshotFromSrc(src,drawingId,callback){
+  try{
+    var snapMaxW=1500;
+    var img=new Image();
+    img.onload=function(){
+      var sw=Math.min(snapMaxW,img.width);
+      var sh=Math.round(sw*(img.height/img.width));
+      var cv=document.createElement('canvas');
+      cv.width=sw;cv.height=sh;
+      cv.getContext('2d').drawImage(img,0,0,sw,sh);
+      cv.toBlob(function(blob){
+        cv.width=1;cv.height=1;
+        if(!blob||blob.size<500){if(callback)callback(false);return;}
+        ADB.get('drawings',drawingId).then(function(rec){
+          if(!rec)rec={id:drawingId,projectId:_csProjectId||''};
+          rec.snapshotBlob=blob;rec.snapshotW=sw;rec.snapshotH=sh;
+          return ADB.put('drawings',rec);
+        }).then(function(){
+          _dbg('[Snapshot] Pre-generated for '+drawingId+': '+sw+'x'+sh+' ('+Math.round(blob.size/1024)+'KB)');
+          if(callback)callback(true);
+        }).catch(function(){if(callback)callback(false);});
+      },'image/jpeg',0.70);
+    };
+    img.onerror=function(){if(callback)callback(false);};
+    img.src=src;
+  }catch(e){if(callback)callback(false);}
+}
 // Generate snapshot from a Blob (for R2-fetched drawings)
+function _genSnapshotFromBlob(blob,drawingId,callback){
+  var url=URL.createObjectURL(blob);
+  _genSnapshotFromSrc(url,drawingId,function(ok){
+    URL.revokeObjectURL(url);
+    if(callback)callback(ok);
+  });
+}
 // Background pre-cache: after project loads, generate snapshots for all drawings missing them
 var _preCacheRunning=false;
 function _preCacheDrawingSnapshots(){
@@ -4332,9 +4560,35 @@ function _preCacheDrawingSnapshots(){
     var did=queue[idx++];
     // Check if snapshot already exists in IDB
     ADB.get('drawings',did).then(function(rec){
+      if(rec&&rec.snapshotBlob&&rec.snapshotBlob.size>1000){
+        // Already has snapshot — skip
+        setTimeout(_next,50);
+        return;
+      }
+      // Need to generate — find source
       var d=p.drawings.find(function(x){return x.id===did;});
       if(!d){setTimeout(_next,50);return;}
-      // Only process PDF drawings that need migration to pre-rendered image
+      // Priority 1: IDB blob
+      if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
+        _genSnapshotFromBlob(rec.dataBlob,did,function(){setTimeout(_next,200);});
+        return;
+      }
+      // Priority 2: In-memory dataUrl
+      if(d.dataUrl){
+        _genSnapshotFromSrc(d.dataUrl,did,function(){setTimeout(_next,200);});
+        return;
+      }
+      // Priority 3: R2 URL (fetch in background)
+      if(d.r2Url&&!d.pdfTiled){
+        fetch(d.r2Url).then(function(res){
+          if(!res.ok)throw new Error(res.status);
+          return res.blob();
+        }).then(function(blob){
+          _genSnapshotFromBlob(blob,did,function(){setTimeout(_next,300);});
+        }).catch(function(){setTimeout(_next,100);});
+        return;
+      }
+      // Priority 4: PDF — migrate to pre-rendered image (eliminates pdf.js from viewing)
       if(d.pdfTiled){
         _migratePdfToImage(did,d,function(){setTimeout(_next,300);});
         return;
@@ -4527,6 +4781,7 @@ function handleImageDrawingUpload(f){
         p.drawings.push(newDwgI);if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwgI);
         saveToLS();hideDrawingLoading();renderDrawingGallery();
         // Pre-generate viewer snapshot so first open is instant
+        _genSnapshotFromSrc(e.target.result,newDwgI.id);
       });
     }
     if(conflicts.length){hideDrawingLoading();_showDrawingConflictModal(conflicts,_suggestFolderName(baseName,p),doSave,function(){hideDrawingLoading();});}
@@ -4957,6 +5212,7 @@ function handleImageUploadToFolder(f,folder){
         p.drawings.push(newDwgF);if(typeof _r2EnqueueDrawing==='function')_r2EnqueueDrawing(newDwgF);
         saveToLS();hideDrawingLoading();renderDrawingGallery();
         // Pre-generate viewer snapshot so first open is instant
+        _genSnapshotFromSrc(e.target.result,newDwgF.id);
       });
     }
     if(conflicts.length){hideDrawingLoading();_showDrawingConflictModal(conflicts,_suggestFolderName(folder||baseName,p),doSave,function(){hideDrawingLoading();});}
@@ -5468,7 +5724,78 @@ function _closeTiledPDF(){
 // Captures mid-res JPEG of the drawing on first open, stores in IDB.
 // Subsequent opens show snapshot instantly while full-res loads on top.
 var _snapshotPending={};
+function _saveDrawingSnapshot(drawingId){
+  if(_snapshotPending[drawingId])return;
+  _snapshotPending[drawingId]=true;
+  // Delay to let rendering settle (tiles finish, image fully decoded)
+  setTimeout(function(){
+    try{
+      var snapW=1500;// max snapshot width — good balance of speed vs clarity
+      var srcW,srcH,drawFn;
+      if(window._tiledActive&&_tileState.drawW){
+        // Tiled PDF: composite visible tiles into snapshot
+        srcW=_tileState.drawW;srcH=_tileState.drawH;
+        var layer=document.getElementById('dv-tiles-layer');
+        if(!layer){delete _snapshotPending[drawingId];return;}
+        drawFn=function(ctx,w,h){
+          ctx.fillStyle='white';ctx.fillRect(0,0,w,h);
+          var scale=w/srcW;
+          var tiles=layer.querySelectorAll('canvas');
+          tiles.forEach(function(tc){
+            var tx=parseFloat(tc.style.left)||0;
+            var ty=parseFloat(tc.style.top)||0;
+            var tw=parseFloat(tc.style.width)||tc.width;
+            var th=parseFloat(tc.style.height)||tc.height;
+            try{ctx.drawImage(tc,tx*scale,ty*scale,tw*scale,th*scale);}catch(e){}
+          });
+        };
+      } else {
+        // Image drawing: use dv-image element
+        var dvImg=document.getElementById('dv-image');
+        if(!dvImg||!dvImg.naturalWidth){delete _snapshotPending[drawingId];return;}
+        srcW=dvImg.naturalWidth;srcH=dvImg.naturalHeight;
+        drawFn=function(ctx,w,h){ctx.drawImage(dvImg,0,0,w,h);};
+      }
+      var ratio=srcH/srcW;
+      var sw=Math.min(snapW,srcW);
+      var sh=Math.round(sw*ratio);
+      var cv=document.createElement('canvas');
+      cv.width=sw;cv.height=sh;
+      var ctx=cv.getContext('2d');
+      drawFn(ctx,sw,sh);
+      cv.toBlob(function(blob){
+        cv.width=1;cv.height=1;// release GPU memory
+        delete _snapshotPending[drawingId];
+        if(!blob||blob.size<1000)return;// too small = failed capture
+        // Store in IDB drawing record
+        ADB.get('drawings',drawingId).then(function(rec){
+          if(!rec)rec={id:drawingId,projectId:_csProjectId||''};
+          rec.snapshotBlob=blob;
+          rec.snapshotW=sw;
+          rec.snapshotH=sh;
+          return ADB.put('drawings',rec);
+        }).then(function(){
+          _dbg('[Snapshot] Saved for '+drawingId+': '+sw+'x'+sh+' ('+Math.round(blob.size/1024)+'KB)');
+        }).catch(function(e){
+          _dbg('[Snapshot] Save failed: '+e.message);
+        });
+      },'image/jpeg',0.70);
+    }catch(e){
+      delete _snapshotPending[drawingId];
+      _dbg('[Snapshot] Generation error: '+e.message);
+    }
+  },1500);// 1.5s delay — ensures tiles/image fully rendered
+}
 
+function _loadDrawingSnapshot(drawingId,callback){
+  ADB.get('drawings',drawingId).then(function(rec){
+    if(rec&&rec.snapshotBlob&&rec.snapshotBlob.size>1000){
+      callback(rec.snapshotBlob,rec.snapshotW||0,rec.snapshotH||0);
+    } else {
+      callback(null);
+    }
+  }).catch(function(){callback(null);});
+}
 // ══════════════════════════════════════════════════════════════
 function openDrawingViewer(drawingId){
   try{
@@ -9176,6 +9503,26 @@ function updateEntryField(did,ei,field,val){
   }
   saveToLS();
 }
+function updateEntryContractor(did,ei,ctrId){
+  var f=findDeficiency(did);if(!f)return;
+  if(!f.defic.entries||!f.defic.entries[ei])return;
+  f.defic.entries[ei].contractorId=ctrId||'';
+  saveToLS();renderDeficiencyPanel();
+}
+function addDeficEntry(did){
+  var f=findDeficiency(did);if(!f)return;
+  if(!f.defic.entries)f.defic.entries=[{description:f.defic.description||'',photos:f.defic.photos||[],priority:'high'}];
+  f.defic.entries.push({description:'',photos:[],priority:'high'});
+  pushUndo();saveToLS();renderDeficiencyPanel();
+}
+function removeDeficEntry(did,ei){
+  var f=findDeficiency(did);if(!f||!f.defic.entries)return;
+  if(f.defic.entries.length<=1){_aAlert('Cannot remove the last observation.');return;}
+  _aConfirm('Remove observation '+String.fromCharCode(65+ei)+'?',function(){
+  f.defic.entries.splice(ei,1);
+  pushUndo();saveToLS();renderDeficiencyPanel();
+  },'Remove');
+}
 function removeEntryPhoto(did,ei,pi){
   _aConfirm('Remove this photo?',function(){
   var f=findDeficiency(did);if(!f||!f.defic.entries||!f.defic.entries[ei])return;
@@ -9812,6 +10159,9 @@ function populateRespPhotos(){
   });
 }
 
+function addDeficResponse(did,party){var f=findDeficiency(did);if(!f)return;if(!f.defic.responses)f.defic.responses=[];f.defic.responses.push({party:party,comment:'',date:'',photos:[]});saveToLS();renderDeficiencyPanel();}
+function removeDeficResponse(did,ri){var f=findDeficiency(did);if(f&&f.defic.responses){f.defic.responses.splice(ri,1);saveToLS();renderDeficiencyPanel();}}
+function updateDeficResponse(did,ri,field,val){var f=findDeficiency(did);if(f&&f.defic.responses&&f.defic.responses[ri]){f.defic.responses[ri][field]=val;saveToLS();}}
 
 // ═══ ACTIVITY LOG — Add Entry Form ═══
 function showAddActivityForm(did,defaultLabel){
@@ -9867,6 +10217,14 @@ function showAddActivityForm(did,defaultLabel){
   setTimeout(function(){var ed=document.getElementById('act-text-editor');if(ed)ed.focus();},100);
 }
 // Shortcut: open activity form with obsRef pre-selected
+function showAddActivityFormForObs(did,defaultLabel,obsId){
+  showAddActivityForm(did,defaultLabel);
+  // Pre-select the obsRef dropdown after modal renders
+  setTimeout(function(){
+    var sel=document.getElementById('act-obs-ref');
+    if(sel&&obsId){sel.value=obsId;}
+  },50);
+}
 // Activity form photo handlers
 function _actFormPhotoUpload(){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){_actFormAddFiles(inp.files);};inp.click();}
 function _actFormPhotoDrop(e){_actFormAddFiles(e.dataTransfer.files);}
@@ -10020,6 +10378,24 @@ function _sanitizeRichText(html){
   return tmp.innerHTML;
 }
 
+function consultantCloseItem(did,ri){
+  var f=findDeficiency(did);if(!f)return;
+  var d=f.defic;
+  if(!d.responses||!d.responses[ri])return;
+  _aConfirm('Close deficiency #'+d.num+' and deactivate IAR?\n\nThis marks the item as Addressed & Closed.',function(){
+  d.responses[ri].closedItem=true;
+  d.responses[ri].closedDate=new Date().toISOString().substring(0,10);
+  d.status='closed';
+  d.iar=false;
+  var p=getProject();var inst=(p&&p.currentFrtInstance)||1;
+  d.closedOnInstance=inst;d.closedDate=new Date().toISOString().split('T')[0];
+  pushUndo();saveToLS();_folderQuickSave();
+  renderDeficiencyPanel();
+  if(typeof renderPinsOnDrawing==='function')renderPinsOnDrawing();
+  if(typeof renderTasksPanel==='function')renderTasksPanel();
+  showToast('Observation closed. IAR deactivated.');
+  });
+}
 
 // ── DEFICIENCY PHOTO RECORD HELPERS ──
 // Photos are now objects: {id, dataUrl, r2Key, r2Status, r2Url}
@@ -10470,6 +10846,21 @@ function _requeuePendingUploads(proj){
   });
 }
 
+function triggerRespPhotoUpload(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){processRespPhotos(did,ri,inp.files);};inp.click();}
+function triggerRespPhotoCamera(did,ri){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){if(inp.files&&inp.files.length>0){processRespPhotos(did,ri,inp.files);inp.value='';}};inp.click();}
+function handleRespPhotoDrop(e,did,ri){processRespPhotos(did,ri,e.dataTransfer.files);}
+function processRespPhotos(did,ri,files){
+  var f=findDeficiency(did);if(!f||!f.defic.responses||!f.defic.responses[ri])return;
+  Array.from(files).forEach(function(file){
+    compressImage(file,3200,0.80,function(du){
+      var rec=_makeDeficPhotoRec(du);
+      if(!f.defic.responses[ri].photos)f.defic.responses[ri].photos=[];
+      f.defic.responses[ri].photos.push(rec);
+      _r2EnqueueDeficPhoto(rec,f.defic.id);
+      saveToLS();renderDeficiencyPanel();
+    });
+  });
+}
 
 /* injectEntrySummaries removed — dead code */
 function renderSummaryTable(){var p=getProject();if(!p)return;var wrap=document.getElementById('defic-summary-table-wrap');var ad=getAllDeficiencies(p);if(!ad.length){wrap.innerHTML='';return;}var curInst=p.currentFrtInstance||1;var groups={};ad.forEach(function(d){var k=d.contractorName;if(!groups[k])groups[k]={t:0,i:0,o:0,c:0,n:0};groups[k].t++;if(d.defic.iar)groups[k].i++;var st=d.defic.status||'open';if(st==='open'||st==='Outstanding')groups[k].o++;else groups[k].c++;if(d.defic.notedOnInstance===curInst)groups[k].n++;});var html='<table class="defic-summary-table"><thead><tr><th>Contractor</th><th>Total</th><th>New This Report</th><th>Outstanding</th><th>IAR</th><th>Closed</th></tr></thead><tbody>';var tt=0,ti=0,to=0,tc=0,tn=0;Object.keys(groups).forEach(function(k){var g=groups[k];tt+=g.t;ti+=g.i;to+=g.o;tc+=g.c;tn+=g.n;html+='<tr><td style="font-weight:600;">'+escHtml(k)+'</td><td>'+g.t+'</td><td style="color:var(--link);font-weight:600;">'+g.n+'</td><td style="color:var(--no);font-weight:600;">'+g.o+'</td><td style="color:var(--iar);font-weight:700;">'+g.i+'</td><td style="color:var(--yes);font-weight:600;">'+g.c+'</td></tr>';});html+='<tr style="font-weight:800;border-top:2px solid var(--slate);"><td>TOTAL</td><td>'+tt+'</td><td style="color:var(--link);">'+tn+'</td><td style="color:var(--no);">'+to+'</td><td style="color:var(--iar);">'+ti+'</td><td style="color:var(--yes);">'+tc+'</td></tr></tbody></table>';wrap.innerHTML=html;}
@@ -12547,6 +12938,14 @@ function parseExifDate(view,start){
 }
 
 function filterPhotos(mode){_photoFilter=mode;renderPhotoGallery();var m=document.getElementById('photo-filter-menu');if(m)m.classList.remove('open');}
+function updateSitePhotoCaption(idx,val){
+  var p=getProject();if(!p)return;
+  var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
+  var ph=siteArr[idx];
+  if(!ph||typeof ph==='string')return;
+  ph.caption=(val||'').trim();
+  saveToLS();_folderQuickSave();
+}
 function togglePhotoActionsMenu(e){e.stopPropagation();var m=document.getElementById('photo-actions-menu');m.classList.toggle('open');document.addEventListener('click',function h(){m.classList.remove('open');document.removeEventListener('click',h);},{once:true});}
 function togglePhotoFilterMenu(e){e.stopPropagation();var m=document.getElementById('photo-filter-menu');m.classList.toggle('open');document.addEventListener('click',function h(){m.classList.remove('open');document.removeEventListener('click',h);},{once:true});}
 
@@ -14302,6 +14701,20 @@ function purgeSupersededDrawings(){
 }
 
 // === BATCH E: Project size in dashboard ===
+function fillProjectSizeIndicators(){
+  document.querySelectorAll('[data-proj-size]').forEach(function(el){
+    var card=el.closest('.project-card');if(!card)return;
+    var pid=card.getAttribute('data-project-id');if(!pid)return;
+    ADB.get('projects',pid).then(function(p){
+      if(!p)return;
+      var dwgs=(p.drawings||[]).length;
+      var photos=0;
+      (p.contractors||[]).forEach(function(c){(c.deficiencies||[]).forEach(function(d){photos+=(d.photos||[]).length;(d.entries||[]).forEach(function(e){photos+=(e.photos||[]).length;});});});
+      (p.generalDeficiencies||[]).forEach(function(d){photos+=(d.photos||[]).length;(d.entries||[]).forEach(function(e){photos+=(e.photos||[]).length;});});
+      el.textContent=dwgs+' dwg'+(dwgs!==1?'s':'')+' · '+photos+' photo'+(photos!==1?'s':'');
+    }).catch(function(){});
+  });
+}
 
 // ═══ TIERED SESSION MANAGEMENT ═══
 // Tier 1 — Soft lock:    20 min idle  → blur UI, show "Who's working?" overlay
@@ -14493,6 +14906,52 @@ if(_csHubMode){
 var _pickerTarget=null; // {type:'entry',did:'...',ei:0} or {type:'resp',did:'...',ri:0}
 var _pickerSelected=[];
 
+function openPhotoPicker(targetType,did,idx){
+  _pickerTarget={type:targetType,did:did,idx:idx};
+  _pickerSelected=[];
+  var p=getProject();if(!p)return;
+  var modal=document.getElementById('photo-picker-modal');
+  var grid=document.getElementById('photo-picker-grid');
+  // Collect all available photos
+  var photos=[];
+  var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
+  siteArr.forEach(function(ph,i){
+    var src=ph.dataUrl||ph;
+    photos.push({src:src,label:'Site Photo '+(i+1),id:'pick_site_'+i});
+  });
+  var ad=getAllDeficiencies(p);
+  ad.forEach(function(r){
+    var d=r.defic;
+    var numEn=(d.entries&&d.entries.length)||0;
+    if(d.entries){d.entries.forEach(function(en,ei){
+      if(en.photos){en.photos.forEach(function(ph,pi){
+        var obsLbl=numEn>1?', Obs '+String.fromCharCode(65+ei):'';
+        photos.push({src:ph,label:'Pin '+d.num+obsLbl,id:'pick_d_'+d.id+'_e'+ei+'_'+pi});
+      });}
+    });}
+    if(d.responses){d.responses.forEach(function(resp,ri){
+      if(resp.photos){resp.photos.forEach(function(ph,pi){
+        var rt=resp.party==='contractor'?'Ctr':'Con';
+        photos.push({src:ph,label:'Pin '+d.num+' '+rt+' Resp',id:'pick_r_'+d.id+'_'+ri+'_'+pi});
+      });}
+    });}
+  });
+  if(!photos.length){toast('No photos in gallery yet.');return;}
+  // Render grid
+  var html='';
+  photos.forEach(function(ph){
+    html+='<div class="pp-thumb" data-pp-src="'+ph.id+'" onclick="togglePickerPhoto(this,\''+ph.id+'\')" style="position:relative;cursor:pointer;border-radius:6px;overflow:hidden;border:2px solid transparent;aspect-ratio:1;">';
+    html+='<img src="'+ph.src+'" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">';
+    html+='<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);color:white;font-size:8px;padding:2px 4px;text-align:center;">'+escHtml(ph.label)+'</div>';
+    html+='<div class="pp-check" style="display:none;position:absolute;top:4px;right:4px;background:#9C2742;color:white;width:20px;height:20px;border-radius:50%;font-size:calc(12px + var(--ts));font-weight:700;align-items:center;justify-content:center;">✓</div>';
+    html+='</div>';
+  });
+  grid.innerHTML=html;
+  // Store src mapping
+  grid._photoMap={};photos.forEach(function(ph){grid._photoMap[ph.id]=ph.src;});
+  _updatePickerCount();
+  modal.style.display='flex';
+}
 
 function togglePickerPhoto(el,id){
   var idx=_pickerSelected.indexOf(id);
@@ -14542,6 +15001,366 @@ function confirmPhotoPick(){
   if(count){saveToLS();_folderQuickSave();renderDeficiencyPanel();toast('📸 Attached '+count+' photo'+(count!==1?'s':''));}
   closePhotoPicker();
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// AIAssist — AI Writing Assistant Module
+// Collects text fields from FRT data model, sends to Cloudflare Worker
+// proxy → Anthropic API, shows review panel with diff view.
+// ═══════════════════════════════════════════════════════════════════
+var AIAssist=(function(){
+'use strict';
+
+var WORKER_URL='https://arencon-ai-worker.hezhendong999.workers.dev';
+var _panel=null, _overlay=null;
+var _suggestions=[];
+var _fieldMap={};
+var _processed=0;
+var _accepted=0;
+var _busy=false;
+
+// ── Field Collection ──
+function _collectFields(){
+  var fields=[];
+  _fieldMap={};
+  if(!_proj||!_proj.contractors)return fields;
+  var minLen=8;
+  _proj.contractors.forEach(function(c,ci){
+    if(!c.deficiencies)return;
+    c.deficiencies.forEach(function(d,di){
+      var dLabel=(c.name||'General')+' \u2192 #'+(d.defic.num||'?');
+      if(d.observations){
+        d.observations.forEach(function(o,oi){
+          if(o.text&&o.text.trim().length>=minLen){
+            var fid='c'+ci+'_d'+di+'_o'+oi;
+            fields.push({id:fid,label:dLabel+' \u2192 Obs '+(oi+1),text:o.text.trim()});
+            _fieldMap[fid]={path:[ci,di,'obs',oi],original:o.text.trim(),label:dLabel+' \u2192 Obs '+(oi+1)};
+          }
+        });
+      }
+      if(d.activityLog){
+        d.activityLog.forEach(function(a,ai){
+          if(a.text&&a.text.trim().length>=minLen){
+            var fid='c'+ci+'_d'+di+'_a'+ai;
+            var aDate=a.date||'';
+            fields.push({id:fid,label:dLabel+' \u2192 Activity '+(aDate?aDate:(ai+1)),text:a.text.trim()});
+            _fieldMap[fid]={path:[ci,di,'act',ai],original:a.text.trim(),label:dLabel+' \u2192 Activity '+(aDate?aDate:(ai+1))};
+          }
+        });
+      }
+      if(d.defic.closedNote&&d.defic.closedNote.trim().length>=minLen){
+        var fid='c'+ci+'_d'+di+'_cn';
+        fields.push({id:fid,label:dLabel+' \u2192 Closed Note',text:d.defic.closedNote.trim()});
+        _fieldMap[fid]={path:[ci,di,'cn',0],original:d.defic.closedNote.trim(),label:dLabel+' \u2192 Closed Note'};
+      }
+    });
+  });
+  if(_proj.generalDeficiencies){
+    _proj.generalDeficiencies.forEach(function(d,di){
+      var dLabel='Site General \u2192 #'+(d.defic.num||'?');
+      if(d.observations){
+        d.observations.forEach(function(o,oi){
+          if(o.text&&o.text.trim().length>=minLen){
+            var fid='g'+di+'_o'+oi;
+            fields.push({id:fid,label:dLabel+' \u2192 Obs '+(oi+1),text:o.text.trim()});
+            _fieldMap[fid]={path:['gen',di,'obs',oi],original:o.text.trim(),label:dLabel+' \u2192 Obs '+(oi+1)};
+          }
+        });
+      }
+      if(d.activityLog){
+        d.activityLog.forEach(function(a,ai){
+          if(a.text&&a.text.trim().length>=minLen){
+            var fid='g'+di+'_a'+ai;
+            var aDate=a.date||'';
+            fields.push({id:fid,label:dLabel+' \u2192 Activity '+(aDate?aDate:(ai+1)),text:a.text.trim()});
+            _fieldMap[fid]={path:['gen',di,'act',ai],original:a.text.trim(),label:dLabel+' \u2192 Activity '+(aDate?aDate:(ai+1))};
+          }
+        });
+      }
+    });
+  }
+  return fields;
+}
+
+// ── Word-Level Diff ──
+function _wordDiff(original,improved){
+  if(original===improved)return {html:_esc(improved),changed:false};
+  var a=original.split(/(\s+)/), b=improved.split(/(\s+)/);
+  var m=a.length, n=b.length;
+  if(m>200||n>200){
+    return {html:'<span class="ai-diff-del">'+_esc(original)+'</span> <span class="ai-diff-add">'+_esc(improved)+'</span>',changed:true};
+  }
+  var dp=[];
+  for(var i=0;i<=m;i++){dp[i]=[];for(var j=0;j<=n;j++)dp[i][j]=0;}
+  for(i=1;i<=m;i++)for(j=1;j<=n;j++){
+    if(a[i-1]===b[j-1])dp[i][j]=dp[i-1][j-1]+1;
+    else dp[i][j]=Math.max(dp[i-1][j],dp[i][j-1]);
+  }
+  var result=[];
+  i=m;j=n;
+  while(i>0||j>0){
+    if(i>0&&j>0&&a[i-1]===b[j-1]){
+      result.unshift({type:'same',text:a[i-1]});i--;j--;
+    } else if(j>0&&(i===0||dp[i][j-1]>=dp[i-1][j])){
+      result.unshift({type:'add',text:b[j-1]});j--;
+    } else {
+      result.unshift({type:'del',text:a[i-1]});i--;
+    }
+  }
+  var html='';
+  result.forEach(function(r){
+    if(r.type==='same')html+=_esc(r.text);
+    else if(r.type==='add')html+='<span class="ai-diff-add">'+_esc(r.text)+'</span>';
+    else html+='<span class="ai-diff-del">'+_esc(r.text)+'</span>';
+  });
+  return {html:html,changed:true};
+}
+
+function _esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ── Panel UI ──
+function _ensurePanel(){
+  if(_panel)return;
+  _overlay=document.createElement('div');
+  _overlay.className='ai-panel-overlay';
+  _overlay.onclick=function(){_closePanel();};
+  document.body.appendChild(_overlay);
+  _panel=document.createElement('div');
+  _panel.className='ai-panel';
+  _panel.onclick=function(e){e.stopPropagation();};
+  _panel.innerHTML='<div class="ai-panel-hdr"><h3>\u2728 AI Review</h3><div class="ai-panel-hdr-btns">'
+    +'<button class="ai-btn-accept-all" id="ai-accept-all" onclick="AIAssist._acceptAll()">Accept All</button>'
+    +'<button class="ai-btn-close" onclick="AIAssist._closePanel()">\u2715</button>'
+    +'</div></div>'
+    +'<div class="ai-panel-counter" id="ai-counter"></div>'
+    +'<div class="ai-panel-body" id="ai-body"></div>';
+  document.body.appendChild(_panel);
+}
+
+function _openPanel(){
+  _ensurePanel();
+  requestAnimationFrame(function(){
+    _overlay.classList.add('open');
+    _panel.classList.add('open');
+  });
+}
+
+function _closePanel(){
+  if(_overlay)_overlay.classList.remove('open');
+  if(_panel)_panel.classList.remove('open');
+  _busy=false;
+  _updateBtn(false);
+}
+
+function _updateCounter(){
+  var el=document.getElementById('ai-counter');
+  if(!el)return;
+  var total=_suggestions.length;
+  var remaining=total-_processed;
+  if(remaining<=0)el.textContent='\u2714 All done \u2014 '+_accepted+' accepted, '+(total-_accepted)+' skipped';
+  else el.textContent=(_processed+1)+' of '+total+' suggestions';
+}
+
+function _renderSuggestions(suggestions){
+  _suggestions=suggestions.filter(function(s){
+    var fm=_fieldMap[s.id];
+    return fm&&s.improved&&s.improved!==fm.original;
+  });
+  _processed=0;
+  _accepted=0;
+  var body=document.getElementById('ai-body');
+  if(!body)return;
+  body.innerHTML='';
+  if(_suggestions.length===0){
+    body.innerHTML='<div class="ai-panel-done">\u2714 All text looks good \u2014 no suggestions</div>';
+    _updateCounter();
+    document.getElementById('ai-accept-all').style.display='none';
+    setTimeout(function(){_closePanel();},3000);
+    return;
+  }
+  document.getElementById('ai-accept-all').style.display='';
+  _suggestions.forEach(function(s,idx){
+    var fm=_fieldMap[s.id];
+    if(!fm)return;
+    var diff=_wordDiff(fm.original,s.improved);
+    var div=document.createElement('div');
+    div.className='ai-suggestion';
+    div.id='ai-sug-'+idx;
+    div.innerHTML='<div class="ai-field-label">'+_esc(fm.label)+'</div>'
+      +'<div class="ai-text-box-label">Original</div>'
+      +'<div class="ai-text-box">'+_esc(fm.original)+'</div>'
+      +'<div class="ai-text-box-label">Suggested</div>'
+      +'<div class="ai-text-box">'+diff.html+'</div>'
+      +(s.changes&&s.changes!=='no changes needed'?'<div class="ai-changes-note">'+_esc(s.changes)+'</div>':'')
+      +'<div class="ai-suggestion-btns">'
+      +'<button class="ai-btn-accept" onclick="AIAssist._accept('+idx+')">Accept</button>'
+      +'<button class="ai-btn-skip" onclick="AIAssist._skip('+idx+')">Skip</button>'
+      +'</div>';
+    body.appendChild(div);
+  });
+  _updateCounter();
+  var first=document.getElementById('ai-sug-0');
+  if(first)first.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ── Accept / Skip ──
+function _accept(idx){
+  var s=_suggestions[idx];
+  if(!s)return;
+  var fm=_fieldMap[s.id];
+  if(!fm)return;
+  _writeBack(fm.path,s.improved);
+  var el=document.getElementById('ai-sug-'+idx);
+  if(el){el.classList.add('processed');el.querySelector('.ai-suggestion-btns').innerHTML='<span style="color:#1A7A4A;font-weight:600;">\u2714 Accepted</span>';}
+  _processed++;
+  _accepted++;
+  _updateCounter();
+  _scrollToNext(idx);
+  if(_processed>=_suggestions.length)_finishReview();
+}
+
+function _skip(idx){
+  var el=document.getElementById('ai-sug-'+idx);
+  if(el){el.classList.add('processed');el.querySelector('.ai-suggestion-btns').innerHTML='<span style="color:#6B7280;">Skipped</span>';}
+  _processed++;
+  _updateCounter();
+  _scrollToNext(idx);
+  if(_processed>=_suggestions.length)_finishReview();
+}
+
+function _acceptAll(){
+  _suggestions.forEach(function(s,idx){
+    var el=document.getElementById('ai-sug-'+idx);
+    if(el&&!el.classList.contains('processed'))_accept(idx);
+  });
+}
+
+function _scrollToNext(currentIdx){
+  for(var i=currentIdx+1;i<_suggestions.length;i++){
+    var el=document.getElementById('ai-sug-'+i);
+    if(el&&!el.classList.contains('processed')){
+      el.scrollIntoView({behavior:'smooth',block:'start'});
+      return;
+    }
+  }
+}
+
+function _finishReview(){
+  if(_accepted>0){
+    saveToLS();
+    _folderQuickSave();
+    renderDeficiencyPanel();
+  }
+  _updateCounter();
+  setTimeout(function(){_closePanel();},2500);
+}
+
+// ── Write-Back to Data Model ──
+function _writeBack(path,newText){
+  if(!_proj)return;
+  var ci=path[0],di=path[1],type=path[2],idx=path[3];
+  var deficArr;
+  if(ci==='gen'){
+    deficArr=_proj.generalDeficiencies;
+  } else {
+    if(!_proj.contractors||!_proj.contractors[ci])return;
+    deficArr=_proj.contractors[ci].deficiencies;
+  }
+  if(!deficArr||!deficArr[di])return;
+  var d=deficArr[di];
+  if(type==='obs'){
+    if(d.observations&&d.observations[idx])d.observations[idx].text=newText;
+    if(d.entries&&d.entries[idx])d.entries[idx].text=newText;
+  } else if(type==='act'){
+    if(d.activityLog&&d.activityLog[idx])d.activityLog[idx].text=newText;
+  } else if(type==='cn'){
+    d.defic.closedNote=newText;
+  }
+}
+
+// ── Button State ──
+function _updateBtn(busy){
+  var btn=document.getElementById('btn-ai-review');
+  if(!btn)return;
+  if(busy){
+    btn.disabled=true;
+    btn.innerHTML='<span class="ai-spin-icon">\u2728</span> Reviewing\u2026';
+  } else {
+    btn.disabled=false;
+    btn.innerHTML='\u2728 AI Review';
+  }
+}
+
+// ── Get Auth Token ──
+function _getToken(){
+  if(typeof CloudSync!=='undefined'&&CloudSync.getToken)return CloudSync.getToken();
+  if(typeof _sbClient!=='undefined'&&_sbClient){
+    var sess=_sbClient.auth&&_sbClient.auth.session&&_sbClient.auth.session();
+    if(sess&&sess.access_token)return sess.access_token;
+  }
+  return null;
+}
+
+// ── Main Entry ──
+function reviewAll(){
+  if(_busy)return;
+  if(!_proj){toast('\u26A0 Open a project first');return;}
+  var token=_getToken();
+  if(!token){toast('\u26A0 AI Review requires cloud login');return;}
+  var fields=_collectFields();
+  if(fields.length===0){toast('\u2714 No text fields to review');return;}
+  _busy=true;
+  _updateBtn(true);
+  _openPanel();
+  var body=document.getElementById('ai-body');
+  if(body)body.innerHTML='<div class="ai-panel-loading"><div class="ai-spinner"></div><br>Reviewing '+fields.length+' field'+(fields.length!==1?'s':'')+'\u2026</div>';
+  document.getElementById('ai-accept-all').style.display='none';
+  var ctr=document.getElementById('ai-counter');
+  if(ctr)ctr.textContent='Sending to AI\u2026';
+  var context={
+    tool:'frt',
+    projectNumber:(_proj.info&&_proj.info.projectNumber)||'',
+    projectName:(_proj.info&&_proj.info.projectName)||''
+  };
+  fetch(WORKER_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+    body:JSON.stringify({fields:fields,context:context})
+  })
+  .then(function(res){
+    if(!res.ok)return res.json().then(function(e){throw new Error(e.error||'API error '+res.status);});
+    return res.json();
+  })
+  .then(function(data){
+    _busy=false;
+    _updateBtn(false);
+    if(!data.suggestions||!Array.isArray(data.suggestions)){
+      throw new Error('Invalid response from AI');
+    }
+    _renderSuggestions(data.suggestions);
+    if(data.usage&&data.usage.cost_usd!==undefined){
+      var ctr2=document.getElementById('ai-counter');
+      if(ctr2)ctr2.textContent+=(' \u00B7 Cost: $'+data.usage.cost_usd.toFixed(4));
+    }
+  })
+  .catch(function(err){
+    _busy=false;
+    _updateBtn(false);
+    console.error('AIAssist error:',err);
+    var body2=document.getElementById('ai-body');
+    if(body2)body2.innerHTML='<div class="ai-panel-loading" style="color:#C62828;">\u26A0 '+_esc(err.message||'Failed to connect to AI service')+'<br><br><button class="ai-btn-skip" onclick="AIAssist._closePanel()" style="border:1.5px solid #6B7280!important;">Close</button></div>';
+    var ctr3=document.getElementById('ai-counter');
+    if(ctr3)ctr3.textContent='Error';
+  });
+}
+
+return {
+  reviewAll:reviewAll,
+  _accept:_accept,
+  _skip:_skip,
+  _acceptAll:_acceptAll,
+  _closePanel:_closePanel
+};
+})();
 
 if(_csHubMode)_resetSessionTimers();
 
