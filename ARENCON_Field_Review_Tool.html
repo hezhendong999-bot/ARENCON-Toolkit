@@ -15184,6 +15184,7 @@ function _openPanel(){
 function _closePanel(){
   if(_overlay)_overlay.classList.remove('open');
   if(_panel)_panel.classList.remove('open');
+  if(_accepted>0)renderDeficiencyPanel();
   _busy=false;
   _updateBtn(false);
 }
@@ -15246,6 +15247,9 @@ function _accept(idx){
   var fm=_fieldMap[s.id];
   if(!fm)return;
   _writeBack(fm.path,s.improved);
+  // Save immediately after each accept
+  saveToLS();
+  _folderQuickSave();
   var el=document.getElementById('ai-sug-'+idx);
   if(el){el.classList.add('processed');el.querySelector('.ai-suggestion-btns').innerHTML='<span style="color:#1A7A4A;font-weight:600;">\u2714 Accepted</span>';}
   _processed++;
