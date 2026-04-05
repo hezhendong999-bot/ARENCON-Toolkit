@@ -9470,7 +9470,7 @@ function buildDeficItem(d,ctrId,i){
       h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;">';
       photos.forEach(function(ph,pi){
         var psrc=_deficPhotoSrc(ph);var pid=_deficPhotoId(ph);
-        h+='<div class="photo-thumb"><img src="'+safe(psrc)+'" data-photo-id="'+safe(pid)+'" data-orig-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.origSrc||this.src,null,null,[this.dataset.photoId])" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+oi+','+pi+')">\u2715</button></div>';
+        h+='<div class="photo-thumb"><img data-src="'+safe(psrc)+'" data-photo-id="'+safe(pid)+'" data-orig-src="'+safe(psrc)+'" onclick="openPhotoLightboxDirect(this.dataset.origSrc||this.dataset.src||this.src,null,null,[this.dataset.photoId])" style="cursor:zoom-in;"><button class="photo-remove" onclick="removeEntryPhoto(\''+d.id+'\','+oi+','+pi+')">\u2715</button></div>';
       });
       h+='</div>';
     }
