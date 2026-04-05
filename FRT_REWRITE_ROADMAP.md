@@ -16,9 +16,10 @@
 | 4 | Tile-based drawing viewer | 3-4 | 19 |
 | 5 | WebGL markup engine | 4-5 | 24 |
 | 6 | Web Worker integration | 2-3 | 27 |
-| 7 | Android Capacitor app | 1-2 | 29 |
-| 8 | Testing, migration, cutover | 2-3 | 32 |
-| **Total** | | **24-32 sessions** | |
+| 7 | Hub + other tools compatibility | 2-3 | 30 |
+| 8 | Android Capacitor app | 1-2 | 32 |
+| 9 | Testing, migration, cutover | 2-3 | 35 |
+| **Total** | | **27-35 sessions** | |
 
 Current FRT stays live and functional throughout. New version developed in parallel. Cutover is one deploy — inspectors see no interruption.
 
@@ -31,6 +32,7 @@ Current FRT stays live and functional throughout. New version developed in paral
 - Module file layout with build-free ES modules (native `<script type="module">`)
 - HTML shell that loads modules
 - Shared CSS file (extracted from current FRT — same styles, same variables)
+- Updated service worker to cache module files (not single HTML)
 - Development workflow: edit modules → deploy to GitHub Pages → test
 
 **File structure:**
@@ -46,6 +48,7 @@ ARENCON-Toolkit/
         model.js            ← in-memory state, getProject(), getAllDeficiencies()
         idb.js              ← IndexedDB operations (normalized stores)
         sync.js             ← incremental CloudSync engine
+        sync-compat.js      ← backward compat: reads/writes old tool_data format during transition
         r2.js               ← R2 photo/drawing upload/download
       ui/
         projectInfo.js      ← Project Info tab
@@ -59,7 +62,7 @@ ARENCON-Toolkit/
         markup.js           ← WebGL markup engine (Pixi.js)
         pins.js             ← Pin overlay, pin editor
       export/
-        pdf.js              ← PDF report (copied from current FRT)
+        pdf.js              ← PDF report (copied from current FRT — zero changes)
         json.js             ← JSON import/export
       shared/
         dialogs.js          ← _aAlert, _aConfirm, _aPrompt (shared modal builder)
@@ -67,8 +70,11 @@ ARENCON-Toolkit/
         darkmode.js         ← dark mode toggle
         auth.js             ← Supabase auth
         compress.js         ← image compression
+      ai/
+        assistant.js        ← AI Writing Assistant client
     worker/
       sync-worker.js        ← Web Worker for background sync/IDB
+    sw.js                   ← service worker (caches all modules)
     assets/
       logo_base64.txt
       Blaimim_base64.txt
@@ -76,7 +82,7 @@ ARENCON-Toolkit/
 
 **No build tools.** Native ES modules (`import`/`export`) work in all modern browsers and Android TWA. No webpack, no npm, no node_modules. Edit a file, push to GitHub, Ctrl+Shift+R. Same workflow you have today.
 
-**Decision:** Do we keep single-file for other tools (Diesel Pump, Electric Pump, IST, DD, OBC) or migrate them too? Recommendation: keep them single-file for now. They're small and stable. Only FRT needs this.
+**Service Worker update:** Current SW caches one HTML file. New SW must cache the HTML shell + all JS modules + CSS. Strategy: network-first for HTML shell (picks up new deploys), cache-first for JS/CSS (versioned via query string or hash). On deploy, bump SW version to force refresh.
 
 ---
 
@@ -92,16 +98,17 @@ This is the foundation. Everything else depends on it.
 
 ```
 IDB stores:
-  projects        → {id, name, number, client, address, ...}
+  projects        → {id, name, number, client, address, currentFrtInstance, ...}
   contractors     → {id, projectId, name}
-  deficiencies    → {id, projectId, contractorId, num, status, priority, ...}
+  deficiencies    → {id, projectId, contractorId, num, status, priority, instanceNumber, ...}
   observations    → {id, deficiencyId, text, addressed, notedOnInstance, ...}
   drawings        → {id, projectId, name, folder, width, height, pdfTiled, ...}
   drawingBlobs    → {id, dataBlob}  (separate store for heavy blobs)
+  drawingTiles    → {id, drawingId, level, x, y, blob}  (for Phase 4)
   markupObjects   → {id, drawingId, objects: [...]}
   photos          → {id, projectId, entityType, entityId, r2Key, r2Url, ...}
   photoBlobs      → {id, dataBlob}  (separate store for heavy blobs)
-  activityLog     → {id, deficiencyId, date, label, text, ...}
+  activityLog     → {id, deficiencyId, obsRef, date, label, text, instanceNumber, ...}
   syncQueue       → {id, entityType, entityId, action, timestamp, data}
 ```
 
@@ -118,7 +125,8 @@ const Model = {
   getDeficiency(id) { ... },
   getAllDeficiencies() { ... },  // cached, walks contractors once
   getDrawing(id) { ... },
-  getPhotosForDeficiency(deficId) { ... },
+  getPhotosForEntity(entityType, entityId) { ... },
+  getDeficienciesForInstance(instanceNumber) { ... },  // FRT #1, #2, etc.
   
   // Mutations (all go through here — single point of control)
   updateDeficiency(id, changes) {
@@ -134,19 +142,29 @@ const Model = {
 };
 ```
 
+**FRT multi-instance handling:** `deficiencies` and `activityLog` stores have `instanceNumber` field. `Model.getDeficienciesForInstance(n)` filters by instance. Creating FRT #2 increments `project.currentFrtInstance` — existing deficiencies keep their `notedOnInstance`, new ones get the current instance. Closed items tracked by `closedOnInstance`. Same logic as current FRT, just normalized.
+
 **Key principle:** UI never writes to data directly. All mutations go through `Model.updateDeficiency()`, `Model.addPhoto()`, etc. The Model handles persistence and sync. UI just renders what the Model tells it.
 
 ### Session 1-C: Incremental Sync Engine
 
-**Supabase schema (new tables):**
+**Supabase schema (new tables — added alongside existing, not replacing):**
 
 ```sql
--- One row per entity, not one blob per project
+-- New normalized tables (coexist with tool_data during transition)
+CREATE TABLE frt_projects (
+  id TEXT PRIMARY KEY,
+  data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ,
+  updated_by TEXT
+);
+
 CREATE TABLE frt_deficiencies (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
   contractor_id TEXT,
-  data JSONB NOT NULL,        -- {num, status, priority, description, ...}
+  instance_number INTEGER DEFAULT 1,
+  data JSONB NOT NULL,
   updated_at TIMESTAMPTZ,
   updated_by TEXT
 );
@@ -154,14 +172,14 @@ CREATE TABLE frt_deficiencies (
 CREATE TABLE frt_drawings (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
-  data JSONB NOT NULL,        -- {name, folder, width, height, ...}
+  data JSONB NOT NULL,
   updated_at TIMESTAMPTZ
 );
 
 CREATE TABLE frt_markup (
-  id TEXT PRIMARY KEY,         -- same as drawing_id
+  id TEXT PRIMARY KEY,
   drawing_id TEXT NOT NULL,
-  objects JSONB,               -- [{type:'pen', points:[...], color:'#C00', ...}]
+  objects JSONB,
   updated_at TIMESTAMPTZ
 );
 
@@ -169,12 +187,24 @@ CREATE TABLE frt_photos (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
   entity_type TEXT,            -- 'site', 'observation', 'activity'
-  entity_id TEXT,              -- deficiency or observation ID
+  entity_id TEXT,
   r2_key TEXT,
   updated_at TIMESTAMPTZ
 );
 
--- Keep existing tool_data table for backward compat during migration
+CREATE TABLE frt_activity (
+  id TEXT PRIMARY KEY,
+  deficiency_id TEXT NOT NULL,
+  obs_ref TEXT,
+  instance_number INTEGER DEFAULT 1,
+  data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ
+);
+
+-- Existing tool_data table KEPT for:
+-- 1. Diesel Pump, Electric Pump, IST, OBC, DD (still use blob format)
+-- 2. Old FRT clients that haven't refreshed yet (backward compat)
+-- 3. Rollback safety net
 ```
 
 **Sync protocol:**
@@ -201,7 +231,17 @@ CREATE TABLE frt_photos (
 
 **No more `_collectFullState()`.** No more `JSON.parse(JSON.stringify(project))`. No more 500KB payloads. Each sync is 1-5KB.
 
-### Session 1-D: Migration Tool
+### Session 1-D: Backward Compatibility Layer
+
+**Critical:** During rollout, some devices will still run the OLD FRT (single-blob `tool_data`). New FRT uses normalized tables. They must coexist.
+
+**`sync-compat.js` module:**
+- On load: check if project exists in new tables. If not, read from `tool_data` blob and migrate.
+- On save: write to new normalized tables AND write a blob summary to `tool_data` (dual-write). Old FRT clients can still read `tool_data`.
+- Dual-write continues until all devices have upgraded (Mark manually disables via config after confirming).
+- Old `tool_data` rows NEVER deleted — permanent backup.
+
+### Session 1-E: Migration Tool
 
 One-time migration that converts existing projects from old format to new:
 - Read `tool_data` blob from Supabase
@@ -241,7 +281,7 @@ Inspector's browser → Cloudflare Worker → Anthropic API (Claude Sonnet)
 
 **UI:** Button on each observation card: "✨ AI Review". Click → dropdown of 4 styles → sends observation text + optional photo → returns improved text in a diff view → Accept / Edit / Reject.
 
-**Photo analysis:** "📷 AI Describe" button on observation photos. Sends photo to Claude Sonnet vision → returns description: "Sprinkler deflector at approximately 4 inches from ceiling, showing inadequate clearance per NFPA 13 Section 8.6.5.1." Inspector reviews and accepts/edits.
+**Photo analysis:** "📷 AI Describe" button on observation photos. Sends photo to Claude Sonnet vision → returns description. Inspector reviews and accepts/edits.
 
 ### Session 2-C: Batch Processing
 
@@ -261,20 +301,23 @@ Move current HTML/JS into modules. **Zero visual changes.** Same CSS, same HTML 
 
 ### Session 3-B: Deficiency Panel
 - Extract deficiency rendering into `deficiencies.js`
-- Observation cards, contractor chips, lifecycle tabs
+- Observation cards, contractor chips, lifecycle tabs (Active / Site General / Closed)
 - Wire to new Model (subscribe to changes, render on notification)
 - Photo zones with Gallery picker
+- FRT instance system (FRT #1, #2 — instance-scoped queries)
 
 ### Session 3-C: Drawing Gallery + Photo Gallery
 - Extract into `drawings.js` and `photos.js`
 - Gallery rendering, lightbox, photo selection
-- Assign-to-pin flows
+- Assign-to-pin flows (lightbox + gallery Actions)
+- Photo auto-link: tag photos with last-viewed deficiency
 
 ### Session 3-D: All Deficiencies + Pin Editor + Remaining UI
 - Tasks table/kanban view
 - Pin editor modal
 - JSON import/export
 - All remaining dialogs and modals
+- Offline queue indicator: "3 changes pending" badge in header
 
 ### Session 3-E: PDF Export
 - Copy `_exportPDFWithCache`, `_finalizePage`, `_pdfActLine`, `go(pg)` into `pdf.js` module
@@ -293,7 +336,7 @@ At upload time (or one-time migration for existing drawings):
 ```
 PDF/Image → Full-res JPEG (current behavior)
           → Slice into 256×256 tile pyramid
-          → Store tiles in IDB: {drawingId, level, x, y, blob}
+          → Store tiles in IDB: drawingTiles store {drawingId, level, x, y, blob}
           → Upload tiles to R2: photos/{pid}/frt/tiles/{drawingId}/{level}/{x}_{y}.jpg
 
 Pyramid levels:
@@ -307,38 +350,28 @@ Pyramid levels:
 ### Session 4-B: Tile Viewer
 
 Replace current `<img>` viewer with tile container:
-```
-<div id="tile-container" style="transform: translate3d(panX, panY, 0) scale(zoom)">
-  <!-- Only visible tiles rendered as <img> elements -->
-  <img style="position:absolute; left:512px; top:256px" src="blob:tile_L2_2_1">
-  <img style="position:absolute; left:768px; top:256px" src="blob:tile_L2_3_1">
-  ...
-</div>
-```
-
-- On pan/zoom: calculate visible viewport → determine which tiles needed → load from IDB/R2 → append to container
+- On pan/zoom: calculate visible viewport → determine which tiles needed → load from IDB/R2
 - LRU cache: keep ~30 tiles in DOM, evict oldest
 - Level switching: zoom in past threshold → swap for higher-res level tiles
 - Result: constant ~2MB memory regardless of drawing size
+- No more initPanZoom DOM clone — tile container persists, tiles swap in/out
 
 ### Session 4-C: Tile Migration + R2 Upload
-
 - Background migration: convert existing full-res JPEGs to tile pyramids
 - R2 tile upload: each tile uploaded individually (small files, fast)
 - Fallback: if tiles not yet generated, load full JPEG (current behavior)
+- Drawing versioning prep: when a revised drawing is uploaded, old tiles archived, new tiles generated. Both versions accessible.
 
 ---
 
 ## Phase 5 — WebGL Markup Engine (4-5 sessions)
 
 ### Session 5-A: Pixi.js Integration + Basic Strokes
-
 - Replace Canvas 2D with Pixi.js WebGL renderer
 - Pen tool: GPU-accelerated line rendering, no pixel cap
 - Coordinate system: same logical coordinates as current (backward compatible with existing markupObjects)
 
 ### Session 5-B: All Shape Tools
-
 - Highlight (GPU blending — true non-stacking opacity)
 - Eraser (stencil buffer — instant, no getImageData)
 - Rectangle, circle, arrow, line, triangle, cloud, polyline
@@ -346,14 +379,12 @@ Replace current `<img>` viewer with tile container:
 - Fill variants (fillrect, fillcircle)
 
 ### Session 5-C: Selection + Manipulation
-
 - Select tool: GPU-based hit testing (color picking — instant, no loop)
 - Move, resize handles
 - Copy/paste
 - Undo/redo stack (same architecture, just WebGL render)
 
 ### Session 5-D: Integration with Tile Viewer
-
 - Markup layer overlays tile container
 - Same transform (pan/zoom) applied to both
 - Pin markers rendered in markup layer (GPU-accelerated)
@@ -374,74 +405,104 @@ Move to background thread:
 - JSON serialization
 - Image compression
 
-```javascript
-// Main thread (UI)
-SyncWorker.postMessage({action: 'saveDeficiency', id: 'def_123', data: {...}});
-
-// Worker thread (background)
-onmessage = async (e) => {
-  if (e.data.action === 'saveDeficiency') {
-    await idb.put('deficiencies', e.data.data);      // IDB write — doesn't block UI
-    syncQueue.push({entity: 'deficiency', ...});      // queue for cloud
-    postMessage({action: 'saved', id: e.data.id});    // notify main thread
-  }
-};
-```
+Main thread only handles touch events and rendering. Zero stutter from saves, syncs, or uploads.
 
 ### Session 6-B: Offline Queue + Background Sync
-
 - Persistent sync queue in IDB (survives app kill)
 - Retry with exponential backoff
 - Conflict resolution in worker (never blocks UI)
-- Status reporting to main thread: "3 changes pending" badge
-
-**Result:** The main thread ONLY handles touch events and rendering. Every data operation happens in the background. Zero stutter from saves, syncs, or uploads. Ever.
+- Status reporting to main thread: "3 changes pending" badge in header
+- Offline indicator: clear visual state showing online/offline/syncing
 
 ---
 
-## Phase 7 — Android Capacitor App (1-2 sessions)
+## Phase 7 — Hub + Other Tools Compatibility (2-3 sessions)
 
-### Session 7-A: Capacitor Setup
+### Session 7-A: Project Hub Update
 
-- `npx @capacitor/cli create` with existing web app
+Hub currently reads FRT data from `tool_data` blob. Must be updated to read from new normalized tables:
+
+- **Project Photos panel:** currently reads `sitePhotos` from tool_data blob → update to query `frt_photos` table
+- **Cloud Storage panel:** currently counts files in tool_data → update to count rows in normalized tables
+- **Report instances:** currently reads `currentFrtInstance` from tool_data → update to read from `frt_projects`
+- **Project detail info:** tool toggle states, status badges → same source, new table
+
+**Backward compat:** Hub checks for normalized tables first. If not found (project not yet migrated), falls back to `tool_data` blob read. Handles both old and new FRT clients seamlessly.
+
+### Session 7-B: Other Tools Compatibility
+
+**Diesel Pump + Electric Pump:** Both use CloudSync with `tool_data` table. They are NOT being rewritten — they stay single-file, blob-based. The `tool_data` table remains untouched. New FRT normalized tables are ADDITIONAL tables, not replacements. Zero impact on other tools.
+
+**IST, OBC, DD:** Same — still use `tool_data` or localStorage. Unaffected.
+
+**Training Center:** Has its own development track (Tier 1 infrastructure in `HANDOFF_TRAINING_CENTER.md`). Shares Supabase auth and R2 bucket but uses separate tables/paths. Training Center Tier 1 (auth, cloud, R2) can proceed independently — the infrastructure patterns from the FRT rewrite (normalized IDB, incremental sync, Web Worker) can be adopted by Training Center later.
+
+### Session 7-C: Service Worker + PWA
+
+- Rewrite `sw.js` to cache modular file structure
+- Cache strategy: network-first for HTML shell, cache-first for JS/CSS modules
+- Version stamping: bump cache version on deploy to force module refresh
+- Offline manifest: list all modules for pre-caching
+- Test: airplane mode after initial load — all modules load from cache
+
+---
+
+## Phase 8 — Android Capacitor App (1-2 sessions)
+
+### Session 8-A: Capacitor Setup
+- `npx @capacitor/cli create` with modular web app
 - Configure: app name "ARENCON Hub", package `com.arencon.hub`
-- Point to GitHub Pages URL (live loading, same as TWA)
-- OR bundle HTML/JS/CSS into APK (offline-first, update via in-app download)
+- Bundle HTML/JS/CSS into APK (offline-first)
 - Build APK, test on Samsung Galaxy Tab A
 
-### Session 7-B: Native Plugins
-
+### Session 8-B: Native Plugins
 - Camera plugin (faster than web API, direct file system access)
 - File system plugin (store photos outside IDB — gigabytes available)
 - Background sync plugin (sync even when app is backgrounded)
 - Splash screen + app icon (ARENCON branding)
 
-**Distribution:** Same as current — sideload via email/USB/Drive. No Google Play needed.
+**Distribution:** Same as current — sideload via email/USB/Drive. No Google Play needed. Replaces current TWA.
 
 ---
 
-## Phase 8 — Testing, Migration, Cutover (2-3 sessions)
+## Phase 9 — Testing, Migration, Cutover (2-3 sessions)
 
-### Session 8-A: Parallel Testing
-
+### Session 9-A: Parallel Testing
 - Deploy new FRT alongside old (different URL path)
 - Open same project on both versions
 - Compare: every tab, every dialog, every workflow
 - PDF report comparison: pixel-level diff
 - Tablet testing: Samsung Tab A + iPhone
 
-### Session 8-B: Data Migration
-
+### Session 9-B: Data Migration
 - Run migration tool on all active projects
 - Verify: entity counts match, photos load, markup appears
 - Keep old `tool_data` rows as backup (never delete)
+- Dual-write enabled: new FRT writes to both normalized tables AND tool_data
 
-### Session 8-C: Cutover
-
+### Session 9-C: Cutover
 - Point `ARENCON_Field_Review_Tool.html` to new modular version
 - Old version archived at `ARENCON_Field_Review_Tool_legacy.html`
 - Monitor for 1 week — any issues, instant rollback
-- After 1 week stable: remove legacy file
+- After 2 weeks stable: disable dual-write (new tables only)
+- Old `tool_data` rows kept permanently as backup
+
+---
+
+## Future Features (Post-Rewrite)
+
+These become straightforward to build on the new architecture:
+
+| Feature | Effort | Notes |
+|---------|--------|-------|
+| **Photo auto-link** | 1 session | Tag photos with last-viewed deficiency automatically |
+| **Drawing versioning** | 2 sessions | Upload revised drawing, overlay compare, version history |
+| **Offline queue indicator** | Built into Phase 6 | "3 changes pending" badge |
+| **Real-time multi-user** | 2-3 sessions | Supabase Realtime subscriptions on normalized tables |
+| **Deficiency statistics dashboard** | 1-2 sessions | Charts, trends, contractor metrics |
+| **iOS Capacitor app** | 1-2 sessions | Same codebase as Android, requires $99/yr Apple Developer |
+| **Training Center cloud infrastructure** | 2-3 sessions | Reuse FRT's normalized IDB + sync patterns |
+| **Google Drive / M365 sync** | 2-3 sessions | Per-entity export, OAuth flow |
 
 ---
 
@@ -451,8 +512,8 @@ onmessage = async (e) => {
 |------|-----|------|
 | iOS Capacitor app | $99/year Apple Developer, pending principal approval | After demo approval |
 | React Native / Flutter rewrite | Not needed — Capacitor + WebGL gets us to 90-95% of native | Only if principals demand App Store presence |
-| Real-time collaboration | Two inspectors editing same deficiency simultaneously | After incremental sync is stable |
-| Other tool rewrites (Diesel, Electric, IST) | They're small and stable | Only if they grow complex |
+| Other tool rewrites (Diesel, Electric, IST, DD, OBC) | They're small and stable. tool_data table untouched. | Only if they grow complex |
+| Google Drive / M365 integration | Planned but not blocking. Easier to build after normalized sync. | Post-rewrite |
 
 ---
 
@@ -464,6 +525,9 @@ onmessage = async (e) => {
 | New version has bugs old one didn't | Parallel testing phase. One-click rollback to old version. |
 | Inspectors confused by changes | Zero visual changes. Same buttons, same workflows. |
 | Data migration fails | Old data untouched. Migration is additive (writes to new tables, never deletes old). |
+| Old FRT and new FRT open on different devices | Dual-write layer: new FRT writes to both normalized tables AND tool_data blob. Old FRT reads blob normally. |
+| Hub breaks when FRT schema changes | Hub gets backward-compat update (Phase 7): tries normalized tables first, falls back to tool_data. |
+| Diesel/Electric Pump tools break | They don't. tool_data table is untouched. New tables are additions. |
 | WebGL not supported on old device | Fallback to Canvas 2D (current behavior). Feature-detect at runtime. |
 | Pixi.js too large (200KB) | Loaded async, cached by service worker. One-time download. |
 
@@ -471,7 +535,7 @@ onmessage = async (e) => {
 
 ## Success Criteria
 
-After Phase 8 cutover, these must all be true:
+After Phase 9 cutover, these must all be true:
 
 1. Drawing opens in <200ms on Samsung Galaxy Tab A
 2. Markup drawing at 60fps with no pixel cap
@@ -482,3 +546,6 @@ After Phase 8 cutover, these must all be true:
 7. App loads in <1 second on tablet
 8. AI Writing Assistant processes observation in <3 seconds
 9. Android Capacitor APK installed and running on Samsung tablets
+10. Project Hub reads data correctly from new schema
+11. Diesel/Electric Pump tools unaffected — still work with tool_data
+12. Offline mode works: airplane mode after initial load, all features functional, sync on reconnect
