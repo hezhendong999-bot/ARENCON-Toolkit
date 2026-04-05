@@ -5099,16 +5099,28 @@ function _tryIDBFallback(r2Src,img){
     });
   }
   if(!sp||!sp.id)return _markPhotoFailed(r2Src,img);
-  // Try loading blob from IDB
-  var storeName=(sp.id&&sp.id.indexOf('sp_')===0)?'sitePhotos':'photos';
-  ADB.get(storeName,sp.id).then(function(rec){
-    if(rec&&rec.dataBlob){
-      ADB.blobToDataUrl(rec.dataBlob).then(function(url){
-        if(url){img.src=url;img.style.opacity='';img.removeAttribute('data-r2-failed');}
-        else _markPhotoFailed(r2Src,img);
-      });
-    }else _markPhotoFailed(r2Src,img);
-  }).catch(function(){_markPhotoFailed(r2Src,img);});
+  // Try the photo's own ID first, then follow _galleryRef to original site photo
+  var idsToTry=[];
+  var storeName=(sp.id.indexOf('sp_')===0)?'sitePhotos':'photos';
+  idsToTry.push({store:storeName,id:sp.id});
+  // If this is a deficiency photo assigned from gallery, the blob lives under the original site photo ID
+  if(sp._galleryRef)idsToTry.push({store:'sitePhotos',id:sp._galleryRef});
+  // Also try the other store as fallback
+  if(storeName==='photos')idsToTry.push({store:'sitePhotos',id:sp.id});
+  else idsToTry.push({store:'photos',id:sp.id});
+
+  (function tryNext(i){
+    if(i>=idsToTry.length)return _markPhotoFailed(r2Src,img);
+    var attempt=idsToTry[i];
+    ADB.get(attempt.store,attempt.id).then(function(rec){
+      if(rec&&rec.dataBlob){
+        ADB.blobToDataUrl(rec.dataBlob).then(function(url){
+          if(url){img.src=url;img.style.opacity='';img.removeAttribute('data-r2-failed');}
+          else tryNext(i+1);
+        });
+      }else tryNext(i+1);
+    }).catch(function(){tryNext(i+1);});
+  })(0);
 }
 function _markPhotoFailed(src,img){
   _r2FailedUrls[src]=true;
@@ -13331,11 +13343,22 @@ function _pdfIDBFallback(p,r2Url){
     });
   }
   if(!sp||!sp.id)return Promise.resolve(null);
-  var storeName=(sp.id.indexOf('sp_')===0)?'sitePhotos':'photos';
-  return ADB.get(storeName,sp.id).then(function(rec){
-    if(rec&&rec.dataBlob)return URL.createObjectURL(rec.dataBlob);
-    return null;
-  });
+  // Try own ID first, then _galleryRef (deficiency photos' blobs live under original site photo ID)
+  var attempts=[];
+  var store1=(sp.id.indexOf('sp_')===0)?'sitePhotos':'photos';
+  attempts.push({store:store1,id:sp.id});
+  if(sp._galleryRef)attempts.push({store:'sitePhotos',id:sp._galleryRef});
+  if(store1==='photos')attempts.push({store:'sitePhotos',id:sp.id});
+
+  return attempts.reduce(function(chain,att){
+    return chain.then(function(result){
+      if(result)return result;
+      return ADB.get(att.store,att.id).then(function(rec){
+        if(rec&&rec.dataBlob)return URL.createObjectURL(rec.dataBlob);
+        return null;
+      }).catch(function(){return null;});
+    });
+  },Promise.resolve(null));
 }
 
 function _pdfPhotoSrc(ph,r2Cache){
