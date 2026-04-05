@@ -11166,11 +11166,37 @@ function _lbShowCurrentDirect(){
   }
   // For R2 URLs: fetch as blob to avoid CORS canvas tainting (mobile Safari strict)
   if(src.indexOf('http')===0&&src.indexOf('data:')!==0){
-    fetch(src).then(function(r){return r.blob();}).then(function(blob){
+    fetch(src).then(function(r){
+      if(!r.ok)throw new Error(r.status);
+      return r.blob();
+    }).then(function(blob){
       _lbLoadImage(URL.createObjectURL(blob));
     }).catch(function(){
-      image.crossOrigin='anonymous';
-      _lbLoadImage(src);
+      // R2 failed — try IDB fallback for lightbox
+      var _lbP=getProject&&getProject();
+      if(_lbP&&_targetId){
+        var _lbRec=_findPhotoRecById(_lbP,_targetId);
+        var _lbPh=_lbRec?_lbRec.photo:null;
+        // Build list of IDB store+id attempts (follow _galleryRef)
+        var _lbAttempts=[];
+        if(_lbPh&&_lbPh.id){
+          var _lbStore=(_lbPh.id.indexOf('sp_')===0)?'sitePhotos':'photos';
+          _lbAttempts.push({store:_lbStore,id:_lbPh.id});
+          if(_lbPh._galleryRef)_lbAttempts.push({store:'sitePhotos',id:_lbPh._galleryRef});
+          if(_lbStore==='photos')_lbAttempts.push({store:'sitePhotos',id:_lbPh.id});
+        }
+        (function _lbTryNext(idx){
+          if(idx>=_lbAttempts.length){image.crossOrigin='anonymous';_lbLoadImage(src);return;}
+          var att=_lbAttempts[idx];
+          ADB.get(att.store,att.id).then(function(rec){
+            if(rec&&rec.dataBlob){_lbLoadImage(URL.createObjectURL(rec.dataBlob));}
+            else _lbTryNext(idx+1);
+          }).catch(function(){_lbTryNext(idx+1);});
+        })(0);
+      } else {
+        image.crossOrigin='anonymous';
+        _lbLoadImage(src);
+      }
     });
   } else {
     _lbLoadImage(src);
