@@ -12404,6 +12404,7 @@ function _buildUnifiedPhotoList(p){
   if(typeof _rebuildMissingR2Urls==='function'&&_csHubMode)_rebuildMissingR2Urls(p);
   var allPhotos=[];
   var srcToPins={}; // track which pins reference each photo src
+  var _seenIds={}; // global dedup by ID — prevents site+defic duplicates from co-selecting
 
   var siteArr=(p.sitePhotos&&p.sitePhotos.length)?p.sitePhotos:(p.photos&&p.photos.length)?p.photos:[];
   if(siteArr.length){siteArr.forEach(function(ph,i){
@@ -12412,6 +12413,7 @@ function _buildUnifiedPhotoList(p){
     var hasMarkup=ph&&typeof ph==='object'&&ph.markupObjects&&ph.markupObjects.length>0;
     var thumbSrc=src;
     var realId=(ph&&typeof ph==='object'&&ph.id)?ph.id:('site_'+i);
+    _seenIds[realId]=true;
     allPhotos.push({src:src,thumbSrc:thumbSrc,date:ph.date||ph.uploadDate||ph.timestamp||null,type:'site',idx:i,id:realId,caption:ph.caption||'',r2Status:ph.r2Status||null,r2Key:ph.r2Key||null,hasMarkup:hasMarkup});
   });}
 
@@ -12453,14 +12455,16 @@ function _buildUnifiedPhotoList(p){
   });
 
   // Second pass: collect unique photos with combined labels
-  var seen={};
+  var seen=Object.assign({},_seenIds); // Start with site photo IDs already seen
   ad.forEach(function(r){
     var d=r.defic;
     var obs=_getObs(d);
     obs.forEach(function(o,oi){
       if(o.photos){o.photos.forEach(function(ph,pi){
         var pid=_deficPhotoId(ph)||_deficPhotoSrc(ph);
-        if(seen[pid])return;seen[pid]=true;
+        // Also skip if this defic photo references a site photo already in the list
+        var gref=(ph&&ph._galleryRef)?ph._galleryRef:null;
+        if(seen[pid]||(gref&&_seenIds[gref]))return;seen[pid]=true;
         var refs=srcToPins[pid]||[];
         var uniqueRefs=[];refs.forEach(function(r2){if(uniqueRefs.indexOf(r2)<0)uniqueRefs.push(r2);});
         var caption=uniqueRefs.join(' | ');
