@@ -9798,31 +9798,87 @@ function _galleryDoAssign(did){
   var p=getProject();if(!p)return;
   var f=findDeficiency(did);if(!f)return;
   var selected=_getSelectedGalleryPhotos();if(!selected||!selected.length)return;
-  // Attach to first observation
   var obs=f.defic.observations&&f.defic.observations[0];
   if(!obs){_aAlert('Deficiency has no observations.');return;}
   if(!obs.photos)obs.photos=[];
-  var count=0;
-  selected.forEach(function(photo){
-    var photoSrc=photo.r2Url||photo.dataUrl||photo.src||'';
-    var rec={
-      id:'dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
-      dataUrl:photoSrc,
-      r2Key:photo.r2Key||'',r2Status:photo.r2Status||'',r2Url:photoSrc,
-      _galleryRef:photo.id,
-      timestamp:photo.timestamp||photo.date||''
-    };
-    obs.photos.push(rec);
-    count++;
-  });
-  if(f.defic.entries&&f.defic.entries[0]){
-    f.defic.entries[0].photos=obs.photos;
-  }
-  _syncDeficPhotos(f.defic);
   _closeCustomModal();
   _clearGallerySelection();
-  saveToLS();_folderQuickSave();renderDeficiencyPanel();
-  toast(count+' photo'+(count!==1?'s':'')+' assigned to #'+f.defic.num+' ✓');
+  var total=selected.length,done=0;
+  toast('Assigning '+total+' photo'+(total!==1?'s':'')+'…');
+  // Process each photo: load blob → save to IDB → upload to R2 → create record
+  var chain=Promise.resolve();
+  selected.forEach(function(photo){
+    chain=chain.then(function(){return _createDeficPhotoFromSource(photo,obs,p,f.defic);}).then(function(){done++;});
+  });
+  chain.then(function(){
+    if(f.defic.entries&&f.defic.entries[0])f.defic.entries[0].photos=obs.photos;
+    _syncDeficPhotos(f.defic);
+    saveToLS();_folderQuickSave();_rdpLastKey='';renderDeficiencyPanel();
+    toast(done+' photo'+(done!==1?'s':'')+' assigned to #'+f.defic.num+' ✓');
+  }).catch(function(e){
+    console.error('Photo assign failed:',e);
+    saveToLS();renderDeficiencyPanel();
+    toast('Some photos failed to assign','error');
+  });
+}
+
+// ═══ CORE: Create a deficiency photo from a source photo ═══
+// Loads blob from IDB, saves under new ID, uploads to R2, returns Promise
+function _createDeficPhotoFromSource(sourcePhoto,obs,p,defic){
+  var newId='dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
+  var sourceId=sourcePhoto.id||'';
+  // Step 1: Find the blob — try source photo's stores
+  function _findBlob(){
+    var stores=[
+      {store:'sitePhotos',id:sourceId},
+      {store:'photos',id:sourceId}
+    ];
+    if(sourcePhoto._galleryRef){
+      stores.unshift({store:'sitePhotos',id:sourcePhoto._galleryRef});
+    }
+    return stores.reduce(function(chain,att){
+      return chain.then(function(result){
+        if(result)return result;
+        return ADB.get(att.store,att.id).then(function(rec){
+          return(rec&&rec.dataBlob)?rec.dataBlob:null;
+        }).catch(function(){return null;});
+      });
+    },Promise.resolve(null));
+  }
+  return _findBlob().then(function(blob){
+    if(!blob){
+      // No blob found — fall back to URL-only record (legacy behavior)
+      console.warn('[AssignPhoto] No IDB blob for',sourceId,'— using URL reference');
+      var photoSrc=sourcePhoto.r2Url||sourcePhoto.dataUrl||sourcePhoto.src||'';
+      obs.photos.push({id:newId,dataUrl:'',r2Key:sourcePhoto.r2Key||'',r2Status:sourcePhoto.r2Status||'',r2Url:photoSrc,_galleryRef:sourceId,timestamp:sourcePhoto.timestamp||sourcePhoto.date||''});
+      return;
+    }
+    // Step 2: Save blob to IDB photos store under new ID
+    var pid=currentProjectId||p.id||'';
+    return ADB.put('photos',{id:newId,projectId:pid,dataBlob:blob}).then(function(){
+      // Step 3: Upload to R2 under own key (if Hub mode)
+      if(_csHubMode&&typeof R2Photos!=='undefined'&&typeof _getR2FolderId==='function'){
+        var folder=_getR2FolderId();
+        var fname=newId.replace(/[^a-zA-Z0-9_]/g,'')+'.jpg';
+        return R2Photos.upload(folder,'frt','original',fname,blob).then(function(){
+          var r2Key='photos/'+folder+'/frt/original/'+fname;
+          var r2Url=R2Photos.WORKER_URL+'/'+r2Key;
+          obs.photos.push({id:newId,dataUrl:'',r2Key:r2Key,r2Status:'uploaded',r2Url:r2Url,_galleryRef:sourceId,timestamp:sourcePhoto.timestamp||sourcePhoto.date||''});
+          console.log('[AssignPhoto] ✓ Uploaded to R2:',r2Url);
+        }).catch(function(e){
+          console.warn('[AssignPhoto] R2 upload failed, saving local only:',e);
+          return ADB.blobToDataUrl(blob).then(function(url){
+            obs.photos.push({id:newId,dataUrl:url||'',r2Key:'',r2Status:'',r2Url:'',_galleryRef:sourceId,timestamp:sourcePhoto.timestamp||sourcePhoto.date||''});
+          });
+        });
+      }else{
+        // Standalone mode — save with dataUrl
+        return ADB.blobToDataUrl(blob).then(function(url){
+          obs.photos.push({id:newId,dataUrl:url||'',r2Key:'',r2Status:'',r2Url:'',_galleryRef:sourceId,timestamp:sourcePhoto.timestamp||sourcePhoto.date||''});
+        });
+      }
+    });
+  });
 }
 function _getSelectedGalleryPhotos(){
   var p=getProject();if(!p)return[];
@@ -14651,7 +14707,6 @@ function _lbDoAssign(did){
   var currentPhotoId=(_lbPhotoIds&&_lbPhotoIds[_lbIdx])||null;
   var photo=null;
   if(currentPhotoId){
-    // Search sitePhotos first, then unified list
     photo=(p.sitePhotos||[]).find(function(ph){return ph.id===currentPhotoId;});
     if(!photo){
       var allPh=getPhotoList(p);
@@ -14659,26 +14714,21 @@ function _lbDoAssign(did){
       if(entry)photo={id:currentPhotoId,dataUrl:'',r2Key:entry.r2Key||'',r2Status:'',r2Url:entry.src||'',timestamp:entry.date||''};
     }
   }
-  var rec;
-  if(photo){
-    var photoSrc=photo.r2Url||photo.dataUrl||photo.src||'';
-    rec={
-      id:'dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
-      dataUrl:photoSrc,
-      r2Key:photo.r2Key||'',r2Status:photo.r2Status||'',r2Url:photoSrc,
-      _galleryRef:photo.id,
-      timestamp:photo.timestamp||photo.date||''
-    };
-  }else{
+  if(!photo){
     var src=_lbPhotos&&_lbPhotos[_lbIdx]||'';
-    rec={id:'dph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),dataUrl:src,r2Key:'',r2Status:'',r2Url:src,timestamp:''};
+    photo={id:'lb_'+Date.now(),dataUrl:src,r2Key:'',r2Status:'',r2Url:src,timestamp:''};
   }
-  obs.photos.push(rec);
-  if(f.defic.entries&&f.defic.entries[0])f.defic.entries[0].photos=obs.photos;
-  _syncDeficPhotos(f.defic);
   _closeCustomModal();
-  saveToLS();_folderQuickSave();renderDeficiencyPanel();
-  toast('Photo assigned to #'+f.defic.num+' ✓');
+  toast('Assigning photo…');
+  _createDeficPhotoFromSource(photo,obs,p,f.defic).then(function(){
+    if(f.defic.entries&&f.defic.entries[0])f.defic.entries[0].photos=obs.photos;
+    _syncDeficPhotos(f.defic);
+    saveToLS();_folderQuickSave();_rdpLastKey='';renderDeficiencyPanel();
+    toast('Photo assigned to #'+f.defic.num+' ✓');
+  }).catch(function(e){
+    console.error('Photo assign failed:',e);
+    toast('Failed to assign photo','error');
+  });
 }
 function closeLightbox(e){
   if(e&&e.target!==e.currentTarget&&e.target.tagName!=='DIV')return;
