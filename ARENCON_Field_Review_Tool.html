@@ -1422,7 +1422,13 @@ body.dark-mode .ai-usage-filters input[type=date]{background:#1a1d24;color:#d0d8
       <!-- Project buttons (hidden on dashboard, shown in project) -->
       <button class="hdr-btn" id="btn-pdf" onclick="showPDFOptions()" style="display:none;background:#1A237E;" title="Export PDF Report">📄 Reports</button>
       <button class="hdr-btn" id="btn-issue" onclick="issueReport()" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
-      <button class="hdr-btn hdr-ai" id="btn-ai-review" onclick="AIAssist.reviewAll()" style="display:none;" title="AI Review — polish all text fields">✨ AI Review</button>
+      <div class="hdr-repair-wrap" id="btn-ai-wrap" style="display:none;position:relative;">
+        <button class="hdr-btn hdr-ai" id="btn-ai-review" onclick="AIAssist._toggleMenu()" title="AI Review">✨ AI Review ▾</button>
+        <div class="hdr-repair-menu" id="ai-mode-menu">
+          <button onclick="AIAssist.reviewAll('rewrite');AIAssist._closeMenu()">✨ Full Rewrite <span>Professional report language (Sonnet)</span></button>
+          <button onclick="AIAssist.reviewAll('quickfix');AIAssist._closeMenu()">🔤 Quick Fix <span>Typos &amp; grammar only (Haiku)</span></button>
+        </div>
+      </div>
       <button class="hdr-btn admin-only" id="btn-ai-usage" onclick="AIUsage.open()" style="display:none;background:#455A64;" title="AI Usage Tracking">📊</button>
       <!-- ⚙️ More dropdown — groups Download, Repair, Reset -->
       <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
@@ -1488,7 +1494,8 @@ body.dark-mode .ai-usage-filters input[type=date]{background:#1a1d24;color:#d0d8
       <button onclick="closeMobileMenu();" style="background:none;border:none;font-size:20px;color:var(--silver);cursor:pointer;padding:4px;">✕</button>
     </div>
     <button class="btn" id="mobile-pdf-btn" onclick="showPDFOptions();closeMobileMenu();" style="display:none;">📄 Reports</button>
-    <button class="btn" id="mobile-ai-btn" onclick="AIAssist.reviewAll();closeMobileMenu();" style="display:none;">✨ AI Review</button>
+    <button class="btn" id="mobile-ai-btn" onclick="AIAssist.reviewAll('rewrite');closeMobileMenu();" style="display:none;">✨ Full Rewrite</button>
+    <button class="btn" id="mobile-ai-btn2" onclick="AIAssist.reviewAll('quickfix');closeMobileMenu();" style="display:none;">🔤 Quick Fix</button>
 <button class="btn" onclick="saveJSON();closeMobileMenu();">💾 Export Project</button>
     <button class="btn" onclick="openLoadModal();closeMobileMenu();">📂 Load Project</button>
 <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
@@ -3523,12 +3530,13 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   var _enp=(p.info.projectNumber||'');var _ent=(p.info.projectName||'Untitled');_el=document.getElementById('header-filename');if(_el)_el.textContent=buildSmartFilename(p);var _pbf2=document.getElementById('pb-filename');if(_pbf2)_pbf2.textContent=buildSmartFilename(p);
   // Set initial badge state
   var _st0=p.status||'draft';var _pbb0=document.getElementById('pb-badge');if(_pbb0){_pbb0.textContent=_st0.toUpperCase();_pbb0.style.background=_st0==='issued'?'#1A7A4A':_st0==='revision'?'#E67E22':'#6B7280';}
-  ['btn-save-as','btn-folder','btn-open-folder','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','btn-more-wrap','btn-ai-review'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='';});
+  ['btn-save-as','btn-folder','btn-open-folder','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','btn-more-wrap','btn-ai-wrap'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='';});
   if(_isAdmin()){var aub=document.getElementById('btn-ai-usage');if(aub)aub.style.display='';}
   updateSmartFilename();
   ['btn-load','btn-export-all'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   var mb=document.getElementById('mobile-pdf-btn');if(mb)mb.style.display='';
   var mab=document.getElementById('mobile-ai-btn');if(mab)mab.style.display='';
+  var mab2=document.getElementById('mobile-ai-btn2');if(mab2)mab2.style.display='';
   var bpub=document.getElementById('btn-publish');if(bpub)bpub.style.display='';
   // Hide dashboard-only mobile menu items
   var mea=document.getElementById('mobile-export-all');if(mea)mea.style.display='none';
@@ -15308,16 +15316,25 @@ function _writeBack(path,newText){
 }
 
 // ── Button State ──
-function _updateBtn(busy){
+function _updateBtn(busy,mode){
   var btn=document.getElementById('btn-ai-review');
   if(!btn)return;
   if(busy){
     btn.disabled=true;
-    btn.innerHTML='<span class="ai-spin-icon">\u2728</span> Reviewing\u2026';
+    btn.innerHTML='<span class="ai-spin-icon">\u2728</span> '+(mode==='quickfix'?'Checking':'Rewriting')+'\u2026';
   } else {
     btn.disabled=false;
-    btn.innerHTML='\u2728 AI Review';
+    btn.innerHTML='\u2728 AI Review \u25BE';
   }
+}
+
+function _toggleMenu(){
+  var m=document.getElementById('ai-mode-menu');
+  if(m)m.classList.toggle('open');
+}
+function _closeMenu(){
+  var m=document.getElementById('ai-mode-menu');
+  if(m)m.classList.remove('open');
 }
 
 // ── Get Auth Token ──
@@ -15328,21 +15345,23 @@ function _getToken(){
 }
 
 // ── Main Entry ──
-function reviewAll(){
+function reviewAll(mode){
   if(_busy)return;
+  if(!mode)mode='rewrite';
   if(!getProject()){toast('\u26A0 Open a project first');return;}
   var token=_getToken();
   if(!token){toast('\u26A0 AI Review requires cloud login');return;}
   var fields=_collectFields();
   if(fields.length===0){toast('\u2714 No text fields to review');return;}
   _busy=true;
-  _updateBtn(true);
+  _updateBtn(true,mode);
   _openPanel();
   var body=document.getElementById('ai-body');
-  if(body)body.innerHTML='<div class="ai-panel-loading"><div class="ai-spinner"></div><br>Reviewing '+fields.length+' field'+(fields.length!==1?'s':'')+'\u2026</div>';
+  var modeLabel=mode==='quickfix'?'Quick Fix (Haiku)':'Full Rewrite (Sonnet)';
+  if(body)body.innerHTML='<div class="ai-panel-loading"><div class="ai-spinner"></div><br>'+modeLabel+'<br>Reviewing '+fields.length+' field'+(fields.length!==1?'s':'')+'\u2026</div>';
   document.getElementById('ai-accept-all').style.display='none';
   var ctr=document.getElementById('ai-counter');
-  if(ctr)ctr.textContent='Sending to AI\u2026';
+  if(ctr)ctr.textContent=modeLabel+' \u2014 Sending\u2026';
   var context={
     tool:'frt',
     projectNumber:(getProject().info&&getProject().info.projectNumber)||'',
@@ -15351,7 +15370,7 @@ function reviewAll(){
   fetch(WORKER_URL,{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-    body:JSON.stringify({fields:fields,context:context})
+    body:JSON.stringify({fields:fields,context:context,mode:mode})
   })
   .then(function(res){
     if(!res.ok)return res.json().then(function(e){throw new Error(e.error||'API error '+res.status);});
@@ -15385,7 +15404,9 @@ return {
   _accept:_accept,
   _skip:_skip,
   _acceptAll:_acceptAll,
-  _closePanel:_closePanel
+  _closePanel:_closePanel,
+  _toggleMenu:_toggleMenu,
+  _closeMenu:_closeMenu
 };
 })();
 
@@ -15412,10 +15433,7 @@ function open(){
   if(!_isAdmin()){toast('\u26A0 Admin access required');return;}
   _ensureOverlay();
   _overlay.classList.add('open');
-  var today=new Date().toISOString().split('T')[0];
-  var monthAgo=new Date(Date.now()-30*86400000).toISOString().split('T')[0];
-  document.getElementById('ai-usage-from').value=monthAgo;
-  document.getElementById('ai-usage-to').value=today;
+  _setBillingCycleDates('current');
   _fetchData();
 }
 
@@ -15423,21 +15441,84 @@ function close(){
   if(_overlay)_overlay.classList.remove('open');
 }
 
+function _getBillingDay(){
+  return parseInt(localStorage.getItem('arencon-billing-day'))||20;
+}
+function _setBillingDay(d){
+  d=Math.max(1,Math.min(28,parseInt(d)||20));
+  localStorage.setItem('arencon-billing-day',d);
+  var el=document.getElementById('ai-usage-bday');
+  if(el)el.value=d;
+}
+
+function _billingCycleRange(offset){
+  // offset: 0 = current cycle, -1 = last cycle
+  var day=_getBillingDay();
+  var now=new Date();
+  var y=now.getFullYear(), m=now.getMonth(), d=now.getDate();
+  var startM, startY, endM, endY;
+  if(d>=day){
+    startM=m+offset; startY=y; endM=m+1+offset; endY=y;
+  } else {
+    startM=m-1+offset; startY=y; endM=m+offset; endY=y;
+  }
+  // Normalize month overflow
+  while(startM<0){startM+=12;startY--;}
+  while(startM>11){startM-=12;startY++;}
+  while(endM<0){endM+=12;endY--;}
+  while(endM>11){endM-=12;endY++;}
+  var from=new Date(startY,startM,day);
+  var to=new Date(endY,endM,day-1);
+  return {from:from,to:to};
+}
+
+function _setBillingCycleDates(period){
+  var fromEl=document.getElementById('ai-usage-from');
+  var toEl=document.getElementById('ai-usage-to');
+  if(!fromEl||!toEl)return;
+  var now=new Date();
+  var from,to;
+  if(period==='current'||period==='last'){
+    var r=_billingCycleRange(period==='last'?-1:0);
+    from=r.from;to=r.to;
+  } else if(period==='month'){
+    from=new Date(now.getFullYear(),now.getMonth(),1);
+    to=new Date(now.getFullYear(),now.getMonth()+1,0);
+  } else if(period==='week'){
+    var dow=now.getDay();
+    from=new Date(now);from.setDate(now.getDate()-dow);
+    to=new Date(now);
+  } else if(period==='today'){
+    from=new Date(now);to=new Date(now);
+  }
+  if(from)fromEl.value=from.toISOString().split('T')[0];
+  if(to)toEl.value=to.toISOString().split('T')[0];
+}
+
 function _ensureOverlay(){
   if(_overlay)return;
+  var bday=_getBillingDay();
   _overlay=document.createElement('div');
   _overlay.className='ai-usage-overlay';
   _overlay.onclick=function(e){if(e.target===_overlay)close();};
   _overlay.innerHTML='<div class="ai-usage-modal" onclick="event.stopPropagation()">'
     +'<div class="ai-usage-hdr"><h3>\uD83D\uDCCA AI Usage Tracking</h3><div class="ai-usage-hdr-btns">'
-    +'<button onclick="AIUsage.exportCSV()">\uD83D\uDCC4 Excel CSV</button>'
+    +'<button onclick="AIUsage.exportCSV()">\uD83D\uDCC4 CSV</button>'
     +'<button onclick="AIUsage.exportPDF()">\uD83D\uDCC4 PDF</button>'
     +'<button onclick="AIUsage.close()" style="font-size:16px;">\u2715</button>'
     +'</div></div>'
     +'<div class="ai-usage-filters">'
+    +'<button onclick="AIUsage._setBillingCycleDates(\'current\');AIUsage._fetchData()" style="background:#1A7A4A;">This Cycle</button>'
+    +'<button onclick="AIUsage._setBillingCycleDates(\'last\');AIUsage._fetchData()">Last Cycle</button>'
+    +'<button onclick="AIUsage._setBillingCycleDates(\'month\');AIUsage._fetchData()">This Month</button>'
+    +'<button onclick="AIUsage._setBillingCycleDates(\'week\');AIUsage._fetchData()">This Week</button>'
+    +'<button onclick="AIUsage._setBillingCycleDates(\'today\');AIUsage._fetchData()">Today</button>'
+    +'</div>'
+    +'<div class="ai-usage-filters" style="border-bottom:1px solid var(--border,#ddd);">'
     +'<label>From</label><input type="date" id="ai-usage-from">'
     +'<label>To</label><input type="date" id="ai-usage-to">'
     +'<button onclick="AIUsage._fetchData()">Filter</button>'
+    +'<span style="margin-left:auto;font-size:calc(11px + var(--ts));color:var(--steel,#607D8B);">Billing day: <input type="number" id="ai-usage-bday" value="'+bday+'" min="1" max="28" style="width:40px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));padding:2px 4px;border:1px solid var(--border,#ccc);border-radius:4px;background:var(--bg,#fff);color:var(--fg,#333);" onchange="AIUsage._setBillingDay(this.value)"> of month</span>'
     +'</div>'
     +'<div class="ai-usage-body" id="ai-usage-body">'
     +'<div class="ai-usage-loading">Loading...</div>'
@@ -15590,7 +15671,7 @@ function exportPDF(){
   setTimeout(function(){w.print();},500);
 }
 
-return {open:open,close:close,_fetchData:_fetchData,exportCSV:exportCSV,exportPDF:exportPDF};
+return {open:open,close:close,_fetchData:_fetchData,_setBillingCycleDates:_setBillingCycleDates,_setBillingDay:_setBillingDay,exportCSV:exportCSV,exportPDF:exportPDF};
 })();
 
 if(_csHubMode)_resetSessionTimers();
