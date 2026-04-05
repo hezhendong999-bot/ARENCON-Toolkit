@@ -110,7 +110,29 @@ The photo loading pipeline (`_loadR2OrDirect` / `_loadThumbSrc`) tries R2 URL fi
 ## PENDING — Next Session
 
 ### Priority 1: Fix Photo R2 URL Persistence Bug
-See detailed fix plan above. This blocks reliable photo display.
+See detailed fix plan above. This blocks reliable photo display. Photos with valid local IDB blobs should NEVER attempt R2 fetch. CloudSync merge must preserve local base64 dataUrl over cloud r2Url.
+
+### Priority 2: R2 Repair Safety
+- Add check: if photo has local IDB blob, NEVER delete the record
+- Add confirmation dialog before any record deletion
+- Log what would be deleted before actually deleting
+
+### Priority 3: Active Tab Shows Site General Deficiencies (BUG)
+- Active tab renders `generalDeficiencies` under "Site General" group — should ONLY appear in the Site General tab
+- When user deletes a deficiency from Active tab's "Site General" group, it also deletes the item from `p.generalDeficiencies` — because they're the same array
+- **Fix:** Active tab (`renderDeficGroups`) must filter OUT generalDeficiencies. Only contractor deficiencies appear on Active tab. Site General tab is the only place generalDeficiencies render.
+
+### Priority 4: Pin Photos Not Showing in Deficiency Panel
+- Pin #5 has photos assigned (visible in Photo Gallery as "General - Pin 5" tagged photos)
+- But the deficiency observation card for Pin #5 shows no photos
+- Likely the observation's `photos[]` array is empty even though sitePhotos have `pinLabel` referencing Pin 5
+- **Fix:** Either the pin assignment needs to copy photo references into `observation.photos[]`, or the deficiency renderer needs to check sitePhotos for matching pin labels
+
+### Priority 5: Deleted Photos Show as Broken Thumbnails
+- Mark deleted duplicate photos from his phone (tablet)
+- The photo records remain in the project data with r2Urls pointing to deleted R2 files
+- On PC they show as broken/empty thumbnails
+- **Fix:** Photo deletion must remove the record from `sitePhotos[]` array AND delete from IDB blob store AND delete from R2. Currently one or more of these steps is failing on mobile.
 
 ### Priority 2: R2 Repair Safety
 - Add check: if photo has local IDB blob, NEVER delete the record
