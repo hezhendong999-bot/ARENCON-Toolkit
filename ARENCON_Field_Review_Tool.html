@@ -15028,7 +15028,7 @@ function _collectFields(){
   p.contractors.forEach(function(c,ci){
     if(!c.deficiencies)return;
     c.deficiencies.forEach(function(d,di){
-      var dLabel=(c.name||'General')+' \u2192 #'+(d.defic.num||'?');
+      var dLabel=(c.name||'General')+' \u2192 #'+(d.num||'?');
       if(d.observations){
         d.observations.forEach(function(o,oi){
           if(o.text&&o.text.trim().length>=minLen){
@@ -15038,8 +15038,8 @@ function _collectFields(){
           }
         });
       }
-      if(d.activityLog){
-        d.activityLog.forEach(function(a,ai){
+      if(d.activity){
+        d.activity.forEach(function(a,ai){
           if(a.text&&a.text.trim().length>=minLen){
             var fid='c'+ci+'_d'+di+'_a'+ai;
             var aDate=a.date||'';
@@ -15048,16 +15048,16 @@ function _collectFields(){
           }
         });
       }
-      if(d.defic.closedNote&&d.defic.closedNote.trim().length>=minLen){
+      if(d.closedNote&&d.closedNote.trim().length>=minLen){
         var fid='c'+ci+'_d'+di+'_cn';
-        fields.push({id:fid,label:dLabel+' \u2192 Closed Note',text:d.defic.closedNote.trim()});
-        _fieldMap[fid]={path:[ci,di,'cn',0],original:d.defic.closedNote.trim(),label:dLabel+' \u2192 Closed Note'};
+        fields.push({id:fid,label:dLabel+' \u2192 Closed Note',text:d.closedNote.trim()});
+        _fieldMap[fid]={path:[ci,di,'cn',0],original:d.closedNote.trim(),label:dLabel+' \u2192 Closed Note'};
       }
     });
   });
   if(p.generalDeficiencies){
     p.generalDeficiencies.forEach(function(d,di){
-      var dLabel='Site General \u2192 #'+(d.defic.num||'?');
+      var dLabel='Site General \u2192 #'+(d.num||'?');
       if(d.observations){
         d.observations.forEach(function(o,oi){
           if(o.text&&o.text.trim().length>=minLen){
@@ -15067,8 +15067,8 @@ function _collectFields(){
           }
         });
       }
-      if(d.activityLog){
-        d.activityLog.forEach(function(a,ai){
+      if(d.activity){
+        d.activity.forEach(function(a,ai){
           if(a.text&&a.text.trim().length>=minLen){
             var fid='g'+di+'_a'+ai;
             var aDate=a.date||'';
@@ -15273,9 +15273,9 @@ function _writeBack(path,newText){
     if(d.observations&&d.observations[idx])d.observations[idx].text=newText;
     if(d.entries&&d.entries[idx])d.entries[idx].text=newText;
   } else if(type==='act'){
-    if(d.activityLog&&d.activityLog[idx])d.activityLog[idx].text=newText;
+    if(d.activity&&d.activity[idx])d.activity[idx].text=newText;
   } else if(type==='cn'){
-    d.defic.closedNote=newText;
+    d.closedNote=newText;
   }
 }
 
