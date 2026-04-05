@@ -1361,6 +1361,32 @@ body.dark-mode .ai-panel-overlay{background:rgba(0,0,0,.5);}
 .hdr-btn.hdr-ai{background:#7B1FA2;}
 .hdr-btn.hdr-ai:disabled{opacity:.5;cursor:not-allowed;}
 .hdr-btn.hdr-ai .ai-spin-icon{display:inline-block;animation:ai-spin .6s linear infinite;}
+/* ═══ AI USAGE DASHBOARD ═══ */
+.ai-usage-overlay{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.6);display:none;overflow-y:auto;}
+.ai-usage-overlay.open{display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;}
+.ai-usage-modal{background:var(--bg,#fff);border-radius:12px;max-width:900px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3);font-family:Calibri,sans-serif;overflow:hidden;}
+.ai-usage-hdr{background:#9C2742;color:white;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;}
+.ai-usage-hdr h3{margin:0;font-size:calc(16px + var(--ts));font-weight:700;}
+.ai-usage-hdr-btns{display:flex;gap:6px;}
+.ai-usage-hdr-btns button{border:none;border-radius:6px;padding:6px 12px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;color:white;background:rgba(255,255,255,.2);}
+.ai-usage-hdr-btns button:hover{background:rgba(255,255,255,.3);}
+.ai-usage-filters{padding:12px 18px;border-bottom:1px solid var(--border,#ddd);display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:calc(12px + var(--ts));}
+.ai-usage-filters input[type=date]{font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));padding:4px 8px;border:1px solid var(--border,#ccc);border-radius:6px;background:var(--bg,#fff);color:var(--fg,#333);}
+.ai-usage-filters button{background:#9C2742;color:white;border:none;border-radius:6px;padding:6px 14px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;}
+.ai-usage-body{padding:18px;max-height:70vh;overflow-y:auto;}
+.ai-usage-section{margin-bottom:20px;}
+.ai-usage-section h4{margin:0 0 8px;font-size:calc(13px + var(--ts));color:#9C2742;font-weight:700;border-bottom:2px solid #9C2742;padding-bottom:4px;}
+.ai-usage-table{width:100%;border-collapse:collapse;font-size:calc(12px + var(--ts));}
+.ai-usage-table th{background:var(--smoke,#f5f5f5);padding:8px 10px;text-align:left;font-weight:700;color:var(--steel,#607D8B);border-bottom:2px solid var(--border,#ddd);}
+.ai-usage-table td{padding:7px 10px;border-bottom:1px solid var(--border,#eee);}
+.ai-usage-table tr:hover td{background:rgba(156,39,66,.04);}
+.ai-usage-table .total-row td{font-weight:700;border-top:2px solid var(--border,#ccc);background:var(--smoke,#f5f5f5);}
+.ai-usage-table .cost{text-align:right;font-family:'Courier New',monospace;}
+.ai-usage-loading{padding:32px;text-align:center;color:var(--steel,#607D8B);}
+body.dark-mode .ai-usage-modal{background:#0f1318;}
+body.dark-mode .ai-usage-table th{background:#1a1d24;}
+body.dark-mode .ai-usage-table .total-row td{background:#1a1d24;}
+body.dark-mode .ai-usage-filters input[type=date]{background:#1a1d24;color:#d0d8f0;border-color:#2a3040;}
 </style>
 </head>
 <body>
@@ -1397,6 +1423,7 @@ body.dark-mode .ai-panel-overlay{background:rgba(0,0,0,.5);}
       <button class="hdr-btn" id="btn-pdf" onclick="showPDFOptions()" style="display:none;background:#1A237E;" title="Export PDF Report">📄 Reports</button>
       <button class="hdr-btn" id="btn-issue" onclick="issueReport()" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
       <button class="hdr-btn hdr-ai" id="btn-ai-review" onclick="AIAssist.reviewAll()" style="display:none;" title="AI Review — polish all text fields">✨ AI Review</button>
+      <button class="hdr-btn admin-only" id="btn-ai-usage" onclick="AIUsage.open()" style="display:none;background:#455A64;" title="AI Usage Tracking">📊</button>
       <!-- ⚙️ More dropdown — groups Download, Repair, Reset -->
       <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
         <button class="hdr-btn" style="background:#455A64;" onclick="toggleMoreMenu(event)" title="More options">⚙️ More ▾</button>
@@ -3497,6 +3524,7 @@ function enterProject(id){var _lov=document.getElementById('hub-loading-overlay'
   // Set initial badge state
   var _st0=p.status||'draft';var _pbb0=document.getElementById('pb-badge');if(_pbb0){_pbb0.textContent=_st0.toUpperCase();_pbb0.style.background=_st0==='issued'?'#1A7A4A':_st0==='revision'?'#E67E22':'#6B7280';}
   ['btn-save-as','btn-folder','btn-open-folder','btn-pdf','btn-export','btn-share','btn-inspector','header-nav-arrows','btn-more-wrap','btn-ai-review'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='';});
+  if(_isAdmin()){var aub=document.getElementById('btn-ai-usage');if(aub)aub.style.display='';}
   updateSmartFilename();
   ['btn-load','btn-export-all'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   var mb=document.getElementById('mobile-pdf-btn');if(mb)mb.style.display='';
@@ -15359,6 +15387,210 @@ return {
   _acceptAll:_acceptAll,
   _closePanel:_closePanel
 };
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+// AIUsage — Admin AI Usage Tracking Dashboard
+// Queries ai_usage_log from Supabase, renders summary tables,
+// exports to CSV and print-to-PDF.
+// ═══════════════════════════════════════════════════════════════════
+var AIUsage=(function(){
+'use strict';
+
+var SB_URL='https://xsemvinxsyphjiaqgywv.supabase.co';
+var _overlay=null;
+var _data=[];
+
+function _sbHeaders(){
+  var h={'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU','Content-Type':'application/json'};
+  var t=localStorage.getItem('sb-access-token');
+  if(t)h['Authorization']='Bearer '+t;
+  return h;
+}
+
+function open(){
+  if(!_isAdmin()){toast('\u26A0 Admin access required');return;}
+  _ensureOverlay();
+  _overlay.classList.add('open');
+  var today=new Date().toISOString().split('T')[0];
+  var monthAgo=new Date(Date.now()-30*86400000).toISOString().split('T')[0];
+  document.getElementById('ai-usage-from').value=monthAgo;
+  document.getElementById('ai-usage-to').value=today;
+  _fetchData();
+}
+
+function close(){
+  if(_overlay)_overlay.classList.remove('open');
+}
+
+function _ensureOverlay(){
+  if(_overlay)return;
+  _overlay=document.createElement('div');
+  _overlay.className='ai-usage-overlay';
+  _overlay.onclick=function(e){if(e.target===_overlay)close();};
+  _overlay.innerHTML='<div class="ai-usage-modal" onclick="event.stopPropagation()">'
+    +'<div class="ai-usage-hdr"><h3>\uD83D\uDCCA AI Usage Tracking</h3><div class="ai-usage-hdr-btns">'
+    +'<button onclick="AIUsage.exportCSV()">\uD83D\uDCC4 Excel CSV</button>'
+    +'<button onclick="AIUsage.exportPDF()">\uD83D\uDCC4 PDF</button>'
+    +'<button onclick="AIUsage.close()" style="font-size:16px;">\u2715</button>'
+    +'</div></div>'
+    +'<div class="ai-usage-filters">'
+    +'<label>From</label><input type="date" id="ai-usage-from">'
+    +'<label>To</label><input type="date" id="ai-usage-to">'
+    +'<button onclick="AIUsage._fetchData()">Filter</button>'
+    +'</div>'
+    +'<div class="ai-usage-body" id="ai-usage-body">'
+    +'<div class="ai-usage-loading">Loading...</div>'
+    +'</div></div>';
+  document.body.appendChild(_overlay);
+}
+
+function _fetchData(){
+  var body=document.getElementById('ai-usage-body');
+  if(body)body.innerHTML='<div class="ai-usage-loading"><div class="ai-spinner" style="display:inline-block;width:20px;height:20px;border:3px solid #ddd;border-top-color:#9C2742;border-radius:50%;animation:ai-spin .6s linear infinite;"></div><br>Loading usage data\u2026</div>';
+  var from=document.getElementById('ai-usage-from').value;
+  var to=document.getElementById('ai-usage-to').value;
+  var q='/rest/v1/ai_usage_log?select=*&order=created_at.desc';
+  if(from)q+='&created_at=gte.'+from+'T00:00:00Z';
+  if(to)q+='&created_at=lte.'+to+'T23:59:59Z';
+  fetch(SB_URL+q,{headers:_sbHeaders()})
+  .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+  .then(function(rows){_data=rows||[];_render();})
+  .catch(function(err){
+    if(body)body.innerHTML='<div class="ai-usage-loading" style="color:#C62828;">\u26A0 '+err.message+'</div>';
+  });
+}
+
+function _render(){
+  var body=document.getElementById('ai-usage-body');
+  if(!body)return;
+  if(_data.length===0){body.innerHTML='<div class="ai-usage-loading">No AI usage records found for this date range.</div>';return;}
+
+  // Group by project
+  var byProj={};
+  var byUser={};
+  var totalCost=0, totalReviews=0, totalFields=0;
+  _data.forEach(function(r){
+    var pk=(r.project_number||'(none)')+'|'+(r.project_name||'(unnamed)');
+    if(!byProj[pk])byProj[pk]={num:r.project_number||'(none)',name:r.project_name||'(unnamed)',reviews:0,fields:0,cost:0,tools:{}};
+    byProj[pk].reviews++;
+    byProj[pk].fields+=(r.field_count||0);
+    byProj[pk].cost+=(parseFloat(r.cost_usd)||0);
+    byProj[pk].tools[r.tool||'?']=true;
+
+    var uk=r.user_email||'unknown';
+    if(!byUser[uk])byUser[uk]={email:uk,reviews:0,fields:0,cost:0};
+    byUser[uk].reviews++;
+    byUser[uk].fields+=(r.field_count||0);
+    byUser[uk].cost+=(parseFloat(r.cost_usd)||0);
+
+    totalCost+=(parseFloat(r.cost_usd)||0);
+    totalReviews++;
+    totalFields+=(r.field_count||0);
+  });
+
+  var html='';
+  // Project summary
+  html+='<div class="ai-usage-section"><h4>Summary by Project</h4><table class="ai-usage-table">';
+  html+='<tr><th>Project #</th><th>Project Name</th><th>Tool(s)</th><th>Reviews</th><th>Fields</th><th class="cost">Cost</th></tr>';
+  var projKeys=Object.keys(byProj).sort();
+  projKeys.forEach(function(k){
+    var p=byProj[k];
+    html+='<tr><td>'+_esc(p.num)+'</td><td>'+_esc(p.name)+'</td><td>'+_esc(Object.keys(p.tools).join(', '))+'</td><td>'+p.reviews+'</td><td>'+p.fields+'</td><td class="cost">$'+p.cost.toFixed(4)+'</td></tr>';
+  });
+  html+='<tr class="total-row"><td colspan="3">TOTAL</td><td>'+totalReviews+'</td><td>'+totalFields+'</td><td class="cost">$'+totalCost.toFixed(4)+'</td></tr>';
+  html+='</table></div>';
+
+  // User summary
+  html+='<div class="ai-usage-section"><h4>Summary by User</h4><table class="ai-usage-table">';
+  html+='<tr><th>User</th><th>Reviews</th><th>Fields</th><th class="cost">Cost</th></tr>';
+  Object.keys(byUser).sort().forEach(function(k){
+    var u=byUser[k];
+    html+='<tr><td>'+_esc(u.email)+'</td><td>'+u.reviews+'</td><td>'+u.fields+'</td><td class="cost">$'+u.cost.toFixed(4)+'</td></tr>';
+  });
+  html+='</table></div>';
+
+  // Detail log
+  html+='<div class="ai-usage-section"><h4>Detail Log</h4><table class="ai-usage-table">';
+  html+='<tr><th>Date</th><th>User</th><th>Project #</th><th>Tool</th><th>Fields</th><th class="cost">Cost</th></tr>';
+  _data.forEach(function(r){
+    var dt=r.created_at?new Date(r.created_at).toLocaleDateString():'?';
+    html+='<tr><td>'+dt+'</td><td>'+_esc(r.user_email||'?')+'</td><td>'+_esc(r.project_number||'-')+'</td><td>'+_esc(r.tool||'?')+'</td><td>'+(r.field_count||0)+'</td><td class="cost">$'+(parseFloat(r.cost_usd)||0).toFixed(4)+'</td></tr>';
+  });
+  html+='</table></div>';
+
+  body.innerHTML=html;
+}
+
+function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function exportCSV(){
+  if(!_data.length){toast('No data to export');return;}
+  var lines=['Date,User,Project Number,Project Name,Tool,Model,Fields,Accepted,Input Tokens,Output Tokens,Cost USD'];
+  _data.forEach(function(r){
+    lines.push([
+      r.created_at?new Date(r.created_at).toISOString():'',
+      '"'+(r.user_email||'')+'"',
+      '"'+(r.project_number||'')+'"',
+      '"'+(r.project_name||'')+'"',
+      r.tool||'',
+      r.model||'',
+      r.field_count||0,
+      r.accepted_count||'',
+      r.input_tokens||0,
+      r.output_tokens||0,
+      (parseFloat(r.cost_usd)||0).toFixed(6)
+    ].join(','));
+  });
+  var blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  var from=document.getElementById('ai-usage-from').value||'all';
+  var to=document.getElementById('ai-usage-to').value||'all';
+  a.download='ARENCON_AI_Usage_'+from+'_to_'+to+'.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('\uD83D\uDCC4 CSV downloaded');
+}
+
+function exportPDF(){
+  if(!_data.length){toast('No data to export');return;}
+  var from=document.getElementById('ai-usage-from').value||'';
+  var to=document.getElementById('ai-usage-to').value||'';
+
+  // Group by project for summary
+  var byProj={};var totalCost=0,totalReviews=0;
+  _data.forEach(function(r){
+    var pk=r.project_number||'(none)';
+    if(!byProj[pk])byProj[pk]={num:pk,name:r.project_name||'',reviews:0,fields:0,cost:0};
+    byProj[pk].reviews++;byProj[pk].fields+=(r.field_count||0);byProj[pk].cost+=(parseFloat(r.cost_usd)||0);
+    totalCost+=(parseFloat(r.cost_usd)||0);totalReviews++;
+  });
+
+  var w=window.open('','_blank','width=800,height=600');
+  w.document.write('<!DOCTYPE html><html><head><title>ARENCON AI Usage Report</title>');
+  w.document.write('<style>body{font-family:Calibri,sans-serif;padding:24px;color:#333;}h1{color:#9C2742;font-size:20px;margin-bottom:4px;}h2{color:#9C2742;font-size:15px;margin:20px 0 8px;border-bottom:2px solid #9C2742;padding-bottom:4px;}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}th{background:#f5f5f5;padding:6px 8px;text-align:left;border-bottom:2px solid #ccc;font-weight:700;}td{padding:5px 8px;border-bottom:1px solid #eee;}.cost{text-align:right;font-family:Courier New,monospace;}.total td{font-weight:700;border-top:2px solid #999;background:#f5f5f5;}.meta{font-size:12px;color:#666;margin-bottom:16px;}@media print{body{padding:12px;}}</style>');
+  w.document.write('</head><body>');
+  w.document.write('<h1>ARENCON Inc. \u2014 AI Usage Report</h1>');
+  w.document.write('<div class="meta">Period: '+(from||'all')+' to '+(to||'all')+' \u00B7 Generated: '+new Date().toLocaleDateString()+'</div>');
+
+  w.document.write('<h2>Summary by Project</h2><table><tr><th>Project #</th><th>Project Name</th><th>Reviews</th><th>Fields</th><th class="cost">Cost</th></tr>');
+  Object.keys(byProj).sort().forEach(function(k){
+    var p=byProj[k];
+    w.document.write('<tr><td>'+p.num+'</td><td>'+p.name+'</td><td>'+p.reviews+'</td><td>'+p.fields+'</td><td class="cost">$'+p.cost.toFixed(4)+'</td></tr>');
+  });
+  w.document.write('<tr class="total"><td colspan="2">TOTAL</td><td>'+totalReviews+'</td><td></td><td class="cost">$'+totalCost.toFixed(4)+'</td></tr></table>');
+
+  w.document.write('<h2>Detail Log</h2><table><tr><th>Date</th><th>User</th><th>Project #</th><th>Tool</th><th>Fields</th><th class="cost">Cost</th></tr>');
+  _data.forEach(function(r){
+    w.document.write('<tr><td>'+(r.created_at?new Date(r.created_at).toLocaleDateString():'')+'</td><td>'+(r.user_email||'')+'</td><td>'+(r.project_number||'')+'</td><td>'+(r.tool||'')+'</td><td>'+(r.field_count||0)+'</td><td class="cost">$'+(parseFloat(r.cost_usd)||0).toFixed(4)+'</td></tr>');
+  });
+  w.document.write('</table></body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},500);
+}
+
+return {open:open,close:close,_fetchData:_fetchData,exportCSV:exportCSV,exportPDF:exportPDF};
 })();
 
 if(_csHubMode)_resetSessionTimers();
