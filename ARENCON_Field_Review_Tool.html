@@ -9892,16 +9892,26 @@ function _createDeficPhotoFromSource(sourcePhoto,obs,p,defic){
     },Promise.resolve(null));
   }
   return _findBlob().then(function(blob){
+    if(!blob&&sourcePhoto.r2Url){
+      // No IDB blob — fetch from R2 URL directly (Session 61: PC with no IDB stores)
+      return fetch(sourcePhoto.r2Url).then(function(res){
+        if(!res.ok)throw new Error(res.status);
+        return res.blob();
+      }).catch(function(){return null;});
+    }
+    return blob;
+  }).then(function(blob){
+    if(!blob&&(sourcePhoto.dataUrl&&sourcePhoto.dataUrl.length>100)){
+      // Last resort: convert in-memory dataUrl to blob
+      try{blob=R2Photos.dataUrlToBlob(sourcePhoto.dataUrl);}catch(e){}
+    }
     if(!blob){
-      // No blob found — fall back to URL-only record (legacy behavior)
-      console.warn('[AssignPhoto] No IDB blob for',sourceId,'— using URL reference');
-      var photoSrc=sourcePhoto.r2Url||sourcePhoto.dataUrl||sourcePhoto.src||'';
-      obs.photos.push({id:newId,dataUrl:'',r2Key:sourcePhoto.r2Key||'',r2Status:sourcePhoto.r2Status||'',r2Url:photoSrc,_galleryRef:sourceId,timestamp:sourcePhoto.timestamp||sourcePhoto.date||''});
+      console.warn('[AssignPhoto] No blob for',sourceId,'— cannot assign');
       return;
     }
-    // Step 2: Save blob to IDB photos store under new ID
+    // Step 2: Save blob to IDB photos store under new ID (skip if store doesn't exist)
     var pid=currentProjectId||p.id||'';
-    return ADB.put('photos',{id:newId,projectId:pid,dataBlob:blob}).then(function(){
+    return ADB.put('photos',{id:newId,projectId:pid,dataBlob:blob}).catch(function(){return null;}).then(function(){
       // Step 3: Upload to R2 under own key (if Hub mode)
       if(_csHubMode&&typeof R2Photos!=='undefined'&&typeof _getR2FolderId==='function'){
         var folder=_getR2FolderId();
