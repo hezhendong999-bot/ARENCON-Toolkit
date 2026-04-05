@@ -9,7 +9,7 @@ Upload to the Claude Project along with:
 - Current tool HTML files (stable filenames — no version numbers)
 - Current session handoff document
 
-Last updated: 2026-04-05 (Session 58 — AI Writing Assistant, AIUsage dashboard, photo recovery)
+Last updated: 2026-04-05 (Session 60 — AI Worker fix, quick contractor reassign, gallery dedup, mobile PDF canvas cap)
 
 ---
 
@@ -1005,6 +1005,16 @@ ALL buttons in FRT and Hub use translucent backgrounds in dark mode:
 
 333. **Content key includes text length** — `_deficContentKey()` includes `(o.text||'').length` per observation so AI text changes trigger DOM re-render immediately.
 
+334. **Every deficiency photo MUST have its own R2 file** — Never borrow another photo's R2 URL. All three assign paths (`_galleryDoAssign`, `_lbDoAssign`, `_gpAttach`) use `_createDeficPhotoFromSource()` which: finds blob from IDB → saves under new ID → uploads to R2 under own key → creates photo record with own r2Key/r2Url. Session 59 fixed the first two paths; Session 60 fixed `_gpAttach`.
+
+335. **Quick contractor reassign** — Site General tab deficiency cards show a blue "🔀 Assign…" dropdown with all contractors listed. `quickReassignDefic(did, targetCtrId)` splices from `generalDeficiencies` and pushes to target contractor. Only visible when `!ctrId` and contractors exist.
+
+336. **Gallery `_galleryRef` dedup** — In `_buildUnifiedPhotoList()`, deficiency photos with `_galleryRef` matching a site photo ID in `_seenIds` are skipped from the gallery view. Prevents identical thumbnails from appearing side by side.
+
+337. **PDF canvas caps for mobile** — `_renderDrawingWithSinglePin()` capped at 3M pixels; `_renderDrawingWithPins()` capped at 5M pixels. Scale factor: `sqrt(maxPx/actualPx)`. Both have `try/catch` on `getContext('2d')` and `toDataURL()`, plus `img.onerror` handlers. Prevents silent canvas failures on Samsung Tab A and iOS Safari.
+
+338. **AI Worker `ctx.waitUntil()`** — Cloudflare Workers kill pending promises after the response returns. Any non-blocking fire-and-forget fetch (like usage logging) MUST be wrapped in `ctx.waitUntil(promise)`. Handler signature: `async fetch(request, env, ctx)` — the third `ctx` parameter is required.
+
 334. **Auth token from localStorage** — `localStorage.getItem('sb-access-token')`, NOT `CloudSync.getToken()`.
 
 335. **Project variable is `getProject()`** — returns `allProjects[currentProjectId]`, NOT `_proj`.
@@ -1024,7 +1034,8 @@ ALL buttons in FRT and Hub use translucent backgrounds in dark mode:
 - **Modes:** `rewrite` (Sonnet) or `quickfix` (Haiku)
 - **Response:** `{suggestions: [{id, improved, changes}], usage: {input_tokens, output_tokens, cost_usd}}`
 - **Secrets:** `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (all encrypted in Cloudflare)
-- **Usage logging:** Non-blocking POST to `ai_usage_log` via service_role key
+- **Usage logging:** Non-blocking POST to `ai_usage_log` via service_role key, wrapped in `ctx.waitUntil()` (Session 60 fix — without waitUntil, Cloudflare kills the logging fetch after the response returns)
+- **Source code:** `arencon-ai-worker.js` in GitHub repo (deploy manually via Cloudflare Dashboard → Edit Code → paste → Deploy)
 
 ### Frontend Module — `AIAssist`
 - IIFE module, same pattern as CloudSync/R2Photos
@@ -1071,7 +1082,7 @@ ALL buttons in FRT and Hub use translucent backgrounds in dark mode:
 8. `index.html`
 9. `ARENCON_Project_Hub.html`
 10. `ARENCON_Field_Review_Tool.html`
-11. `HANDOFF_SESSION_58.md`
+11. `HANDOFF_SESSION_60.md`
 12. `FRT_REWRITE_ROADMAP.md`
 13. `FRT_REWRITE_BUSINESS_CASE.md`
 14. `HANDOFF_AI_WRITING_ASSISTANT.md`
