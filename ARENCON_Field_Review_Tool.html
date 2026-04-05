@@ -12585,9 +12585,7 @@ function _buildUnifiedPhotoList(p){
     obs.forEach(function(o,oi){
       if(o.photos){o.photos.forEach(function(ph,pi){
         var pid=_deficPhotoId(ph)||_deficPhotoSrc(ph);
-        // Also skip if this defic photo references a site photo already in the list
-        var gref=(ph&&ph._galleryRef)?ph._galleryRef:null;
-        if(seen[pid]||(gref&&_seenIds[gref]))return;seen[pid]=true;
+        if(seen[pid])return;seen[pid]=true;
         var refs=srcToPins[pid]||[];
         var uniqueRefs=[];refs.forEach(function(r2){if(uniqueRefs.indexOf(r2)<0)uniqueRefs.push(r2);});
         var caption=uniqueRefs.join(' | ');
