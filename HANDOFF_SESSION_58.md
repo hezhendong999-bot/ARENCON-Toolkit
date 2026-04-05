@@ -134,20 +134,19 @@ See detailed fix plan above. This blocks reliable photo display. Photos with val
 - On PC they show as broken/empty thumbnails
 - **Fix:** Photo deletion must remove the record from `sitePhotos[]` array AND delete from IDB blob store AND delete from R2. Currently one or more of these steps is failing on mobile.
 
-### Priority 2: R2 Repair Safety
-- Add check: if photo has local IDB blob, NEVER delete the record
-- Add confirmation dialog before any record deletion
-- Log what would be deleted before actually deleting
+### Priority 6: Mobile PDF Report Rendering Issues
+- PC PDF export looks perfect
+- Mobile PDF export has multiple problems:
+  - Text formatting is messed up
+  - Mini map (drawing thumbnail showing pin location) is missing from deficiency cards
+  - Drawing appendixes section is missing/incomplete
+- **Fix:** Investigate PDF rendering pipeline differences on mobile Safari/Chrome — likely canvas rendering or image loading timing issues on mobile browsers
 
-### Priority 3: AI Writing Assistant Polish
-- Mark reported #6 "Low point drain was observed." and #7 "#Provide 2 anchors" were NOT rewritten by the AI — Sonnet said "no suggestions" on second run because they were already changed. Verify the previous accept actually updated these.
+### Priority 7: AI Writing Assistant Polish
 - Test with more complex field notes to validate Sonnet rewrite quality
 - Mobile bottom sheet needs testing on Samsung Tab A
 
-### Priority 4: Worker File Deployment
-- Mark needs to update the Cloudflare Worker with the latest `arencon-ai-worker.js` (has Sonnet/Haiku dual mode + better prompts). May or may not be done yet.
-
-### Priority 5: Handoff Documents
+### Priority 8: Handoff Documents
 - Update `ARENCON_Project_Knowledge.md` with AI Writing Assistant architecture
 - Update `ARENCON_Style_Guide` with AI panel CSS specs
 
