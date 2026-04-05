@@ -15292,11 +15292,8 @@ function _updateBtn(busy){
 
 // ── Get Auth Token ──
 function _getToken(){
-  if(typeof CloudSync!=='undefined'&&CloudSync.getToken)return CloudSync.getToken();
-  if(typeof _sbClient!=='undefined'&&_sbClient){
-    var sess=_sbClient.auth&&_sbClient.auth.session&&_sbClient.auth.session();
-    if(sess&&sess.access_token)return sess.access_token;
-  }
+  var t=localStorage.getItem('sb-access-token');
+  if(t)return t;
   return null;
 }
 
