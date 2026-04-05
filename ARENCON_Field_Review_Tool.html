@@ -14300,7 +14300,7 @@ if(isField){
         return;
       }
       _dwgFetchPromises.push(
-        ADB.get('drawings',id).then(function(rec){
+        ADB.get('drawings',id).catch(function(){return null;}).then(function(rec){
           if(rec&&rec.dataBlob&&rec.dataBlob.size>0){
             return new Promise(function(resolve){
               var reader=new FileReader();
@@ -14309,7 +14309,10 @@ if(isField){
               reader.readAsDataURL(rec.dataBlob);
             });
           }else if(info.r2Url){
-            return fetch(info.r2Url).then(function(res){return res.blob();}).then(function(blob){
+            return fetch(info.r2Url).then(function(res){
+              if(!res.ok)throw new Error(res.status);
+              return res.blob();
+            }).then(function(blob){
               return new Promise(function(resolve){
                 var reader=new FileReader();
                 reader.onload=function(){info.dataUrl=reader.result;resolve();};
@@ -14318,7 +14321,7 @@ if(isField){
               });
             });
           }
-        }).catch(function(){})
+        }).catch(function(e){console.warn('[PDF] Drawing fetch failed for '+id+':',e);})
       );
     });
 
