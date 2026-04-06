@@ -20,18 +20,24 @@ function _deficDesc(d){
 function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback){
   var img=new Image();
   img.onload=function(){
-    var MAX_PX=3000000;var scale=Math.min(1,Math.sqrt(MAX_PX/(img.width*img.height)));
-    var w=Math.round(img.width*scale);var h=Math.round(img.height*scale);
-    var canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
-    var ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
-    var px=(pinData.pinX||0)*w;var py=(pinData.pinY||0)*h;
-    var r=Math.max(12,w*0.012);
-    ctx.beginPath();ctx.arc(px,py,r,0,2*Math.PI);
+    // Crop region centered on pin — show ~25% of drawing around pin
+    var cropFrac=0.25;
+    var cropW=Math.max(img.width*cropFrac,400);var cropH=Math.max(img.height*cropFrac,300);
+    var px=(pinData.pinX||0.5)*img.width;var py=(pinData.pinY||0.5)*img.height;
+    cropW=Math.min(cropW,img.width);cropH=Math.min(cropH,img.height);
+    var sx=Math.max(0,Math.min(px-cropW/2,img.width-cropW));
+    var sy=Math.max(0,Math.min(py-cropH/2,img.height-cropH));
+    var outW=Math.min(800,cropW);var outScale=outW/cropW;var outH=Math.round(cropH*outScale);
+    var canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;
+    var ctx=canvas.getContext('2d');ctx.drawImage(img,sx,sy,cropW,cropH,0,0,outW,outH);
+    var pinCX=(px-sx)*outScale;var pinCY=(py-sy)*outScale;
+    var r=Math.max(14,outW*0.025);
+    ctx.beginPath();ctx.arc(pinCX,pinCY,r,0,2*Math.PI);
     ctx.fillStyle=_deficIsClosed(pinData)?'#1A7A4A':'#C0392B';
-    ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+    ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.stroke();
     ctx.fillStyle='#fff';ctx.font='bold '+Math.round(r*1.1)+'px Calibri';
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(String(pinData.num||'?'),px,py);
+    ctx.fillText(String(pinData.num||'?'),pinCX,pinCY);
     callback(canvas.toDataURL('image/jpeg',0.92));
   };
   img.src=dwgDataUrl;
@@ -97,9 +103,11 @@ function _pdfPhotoSrc(ph,r2Cache){
   return ph.dataUrl||ph.r2Url||'';
 }
 
-function _buildCSS(){
+function _buildCSS(fontB64){
   var c='*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}';
   c+='body{font-family:Calibri,sans-serif;color:#1C2333;font-size:11pt;line-height:1.23;background:#525659;margin:0;padding:20px;}';
+  if(fontB64){c+='@font-face{font-family:"BlairMdITC TT";src:url(data:font/truetype;base64,'+fontB64+') format("truetype");font-weight:normal;font-style:normal;}';}
+  var blairFam=fontB64?'"BlairMdITC TT","Times New Roman",serif':'Calibri,sans-serif';
   c+='.page{width:8.5in;min-height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
   c+='.page-content{position:relative;}';
   c+='.ph{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:10px;margin-bottom:0;}';
@@ -129,8 +137,8 @@ function _buildCSS(){
   c+='.app-pin-table th{background:#F7F8FA;padding:4px 8px;text-align:left;border-bottom:1px solid #DDE1E7;font-size:9pt;}';
   c+='.app-pin-table td{padding:4px 8px;border-bottom:1px solid #F0F0F0;}';
   c+='.title-block{text-align:center;margin:12px 0 0;padding:14px 0 12px;line-height:0.85;}';
-  c+='.title-block .tb-line1{font-family:Calibri,sans-serif;font-size:12pt;font-weight:400;color:#1C2333;letter-spacing:1px;margin-bottom:1px;}';
-  c+='.title-block .tb-line2{font-family:Calibri,sans-serif;font-size:12pt;font-weight:400;color:#1C2333;margin-bottom:10px;}';
+  c+='.title-block .tb-line1{font-family:'+blairFam+';font-size:12pt;font-weight:400;color:#1C2333;letter-spacing:1px;margin-bottom:1px;}';
+  c+='.title-block .tb-line2{font-family:'+blairFam+';font-size:12pt;font-weight:400;color:#1C2333;margin-bottom:10px;}';
   c+='.title-block .tb-line4{font-family:Calibri,sans-serif;font-size:12pt;font-weight:700;color:#333;line-height:1.23;margin-bottom:2px;}';
   c+='.pi-list{margin-top:4px;padding:10px 0;border-top:2px solid #1C2333;border-bottom:2px solid #1C2333;}';
   c+='.pi-row{display:flex;gap:10px;margin-bottom:3px;font-family:Calibri,sans-serif;font-size:11pt;line-height:1.23;}.pi-row:last-child{margin-bottom:0;}';
@@ -140,7 +148,7 @@ function _buildCSS(){
   return c;
 }
 
-function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary){
+function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary,fontB64){
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
 var reportDefs=[];var rn=1;
 var _ctrFilterId=ctrFilter||'__all__';var _ctrFilterName='';
@@ -162,7 +170,7 @@ var mainBodyDefs=reportDefs.filter(function(r){
   return false;
 });
 var closedSummaryDefs=reportDefs.filter(function(r){return _deficIsClosed(r.d);});
-var css=_buildCSS();
+var css=_buildCSS(fontB64);
 var _rptNum=p.currentFrtInstance||1;
 var _rptRev=(p.info&&p.info.revision)||'A01';
 var _ctrSubtitle='';
@@ -464,20 +472,24 @@ export const initPDFExport={
     pfOv.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
     pfOv.innerHTML='<div style="background:white;border-radius:12px;padding:28px 36px;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;min-width:320px;"><div style="font-size:16px;font-weight:700;color:#1C2333;margin-bottom:12px;">Preparing PDF Export</div><div id="pf-label" style="font-size:13px;color:#4A5568;margin-bottom:10px;">Fetching photos... 0/0</div><div style="width:100%;height:8px;background:#EDF2F7;border-radius:4px;overflow:hidden;"><div id="pf-bar" style="width:0%;height:100%;background:#1A7A4A;border-radius:4px;transition:width .15s;"></div></div><div style="margin-top:12px;font-size:11px;color:#A0AEC0;">This may take a moment for large reports</div></div>';
     document.body.appendChild(pfOv);
-    fetch('../logo_base64.txt').then(function(resp){return resp.ok?resp.text():'';}).then(function(logo){
-      logo=(logo||'').trim();
+    Promise.all([
+      fetch('../logo_base64.txt').then(function(r){return r.ok?r.text():'';}).catch(function(){return '';}),
+      fetch('../Blaimim_base64.txt').then(function(r){return r.ok?r.text():'';}).catch(function(){return '';})
+    ]).then(function(results){
+      var logo=(results[0]||'').trim();
+      var fontB64=(results[1]||'').trim();
       return _prefetchR2PhotosForPDF(p,function(done,total){
         try{var lbl=document.getElementById('pf-label');var bar=document.getElementById('pf-bar');
         if(lbl)lbl.textContent='Fetching photos... '+done+'/'+total;
         if(bar)bar.style.width=Math.round((done/Math.max(1,total))*100)+'%';}catch(e){}
       }).then(function(r2Cache){
         try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e){}
-        _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary);
+        _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64);
       });
     }).catch(function(e){
       try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e2){}
       console.warn('[PDF] Error:',e);
-      _exportPDFWithCache(p,'',isField,type,{},opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary);
+      _exportPDFWithCache(p,'',isField,type,{},opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,'');
     });
   }
 };
