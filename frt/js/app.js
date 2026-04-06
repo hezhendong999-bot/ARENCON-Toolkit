@@ -246,12 +246,9 @@ function _updateHeaderForProject() {
     pbBadge.style.background = colors[st] || '#E65100';
   }
 
-  // Update issue status badge in header
+  // Update issue status badge in header — HIDDEN, project bar badge is sufficient
   var isb = document.getElementById('issue-status-badge');
-  if (isb) {
-    isb.textContent = (proj.status || 'draft').toUpperCase();
-    isb.style.display = '';
-  }
+  if (isb) isb.style.display = 'none';
 
   // Toggle header buttons: hide dashboard, show project
   var dashBtns = ['btn-load', 'btn-export-all'];
