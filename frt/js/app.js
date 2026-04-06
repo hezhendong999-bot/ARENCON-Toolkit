@@ -272,6 +272,71 @@ function _updateHeaderForProject() {
   document.title = 'ARENCON \u2014 ' + Model.getSmartFilename();
 }
 
+// ── Cloud Sync (Hub Mode) ────────────────────────────────
+var _cloudSyncTimer = null;
+var _cloudSyncInterval = 30000; // 30 seconds
+
+function _startCloudSync() {
+  if (_cloudSyncTimer) clearInterval(_cloudSyncTimer);
+
+  // Update cloud status indicator
+  _setCloudStatus('synced', 'Loaded from cloud');
+
+  // Listen for local saves → push to cloud
+  Model.onChange('saved', function() {
+    // Debounce cloud push — don't push on every keystroke save
+    if (_cloudSyncTimer) clearInterval(_cloudSyncTimer);
+    _cloudSyncTimer = setTimeout(function() {
+      _pushToCloud();
+      // Restart periodic sync
+      _cloudSyncTimer = setInterval(_pushToCloud, _cloudSyncInterval);
+    }, 5000); // Wait 5s after last local save before pushing
+  });
+
+  // Also do periodic sync
+  _cloudSyncTimer = setInterval(_pushToCloud, _cloudSyncInterval);
+  console.log('[FRT v2] Cloud sync started (every ' + _cloudSyncInterval / 1000 + 's)');
+}
+
+function _pushToCloud() {
+  if (!_hubMode || !_projectId) return;
+  _setCloudStatus('saving', 'Syncing...');
+  SyncEngine.push(_projectId).then(function(row) {
+    if (row) {
+      _setCloudStatus('synced', 'Saved to cloud');
+    } else {
+      _setCloudStatus('pending', 'Saved locally');
+    }
+  }).catch(function(err) {
+    console.warn('[FRT v2] Cloud push failed:', err);
+    _setCloudStatus('error', 'Sync failed');
+  });
+}
+
+function _setCloudStatus(status, text) {
+  var dot = document.getElementById('cloud-dot');
+  var label = document.getElementById('cloud-status-text');
+  var wrap = document.getElementById('cloud-status');
+  if (wrap) wrap.style.display = 'flex';
+  if (label) label.textContent = text || '';
+  if (dot) {
+    var colors = { synced: '#34D399', saving: '#FBBF24', pending: '#F59E0B', error: '#EF4444', offline: '#9CA3AF' };
+    dot.style.background = colors[status] || '#9CA3AF';
+  }
+}
+
+// ── Sign Out ─────────────────────────────────────────────
+function _signOut() {
+  showConfirm('Sign Out', 'Sign out of your ARENCON account?').then(function(yes) {
+    if (yes) {
+      Auth.signOut().then(function() {
+        toast('Signed out');
+        window.location.href = '../ARENCON_Project_Hub.html';
+      });
+    }
+  });
+}
+
 // ── Wire All Event Listeners ─────────────────────────────
 function wireEvents() {
   // Tab navigation
@@ -314,9 +379,21 @@ function wireEvents() {
     document.body.classList.remove('dv-open');
   });
 
+  // Sign Out buttons
+  var soBtn = document.getElementById('btn-signout');
+  if (soBtn) soBtn.addEventListener('click', _signOut);
+  var msoBtn = document.getElementById('mobile-signout-btn');
+  if (msoBtn) msoBtn.addEventListener('click', function() { closeMobileMenu(); _signOut(); });
+
   // Online/offline
-  window.addEventListener('online', updateOnlineStatus);
-  window.addEventListener('offline', updateOnlineStatus);
+  window.addEventListener('online', function() {
+    updateOnlineStatus();
+    if (_hubMode) _setCloudStatus('synced', 'Back online');
+  });
+  window.addEventListener('offline', function() {
+    updateOnlineStatus();
+    if (_hubMode) _setCloudStatus('offline', 'Working offline');
+  });
   updateOnlineStatus();
 
   // Keyboard + beforeunload
@@ -405,6 +482,11 @@ function boot() {
 
     // Start auto-save
     Model.startAutoSave();
+
+    // In Hub mode: start cloud sync heartbeat
+    if (_hubMode && _projectId) {
+      _startCloudSync();
+    }
 
     var elapsed = (performance.now() - t0).toFixed(0);
     console.log('[FRT v2] Boot complete in ' + elapsed + 'ms');
