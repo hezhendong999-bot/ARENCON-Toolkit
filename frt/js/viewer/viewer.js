@@ -27,7 +27,7 @@ function _applyTransform() {
   _clampPan();
   var wrap = document.getElementById('dv-img-wrap');
   if (wrap) {
-    wrap.style.transform = 'translate(' + _panX + 'px,' + _panY + 'px) scale(' + _scale + ')';
+    wrap.style.transform = 'translate3d(' + _panX + 'px,' + _panY + 'px,0) scale(' + _scale + ')';
   }
 }
 
@@ -65,7 +65,7 @@ function _resetView() {
   _clampPan(); // Centers the image
   var wrap = document.getElementById('dv-img-wrap');
   if (wrap) {
-    wrap.style.transform = 'translate(' + _panX + 'px,' + _panY + 'px) scale(' + _scale + ')';
+    wrap.style.transform = 'translate3d(' + _panX + 'px,' + _panY + 'px,0) scale(' + _scale + ')';
   }
 }
 
@@ -97,6 +97,9 @@ function _showDrawing(idx) {
   if (src) {
     // Calculate fit scale once image loads
     img.onload = function() {
+      // Force GPU compositing layer immediately (reduces first-zoom lag on Samsung)
+      img.style.transform = 'translateZ(0)';
+      img.style.willChange = 'transform';
       _calcFitScale();
       _scale = _fitScale;
       _panX = 0;
@@ -118,6 +121,13 @@ function _showDrawing(idx) {
   _panY = 0;
   overlay.classList.add('open');
   document.body.classList.add('dv-open');
+
+  // Pre-warm GPU compositing layer on the wrapper
+  var wrap = document.getElementById('dv-img-wrap');
+  if (wrap) {
+    wrap.style.transform = 'translate3d(0,0,0) scale(1)';
+    wrap.style.willChange = 'transform';
+  }
 }
 
 export var initViewer = {
