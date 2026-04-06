@@ -45,7 +45,7 @@ export var initPhotos = {
       html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
       sitePhotos.forEach(function(p, i) {
         var imgSrc = p.thumb || p.r2Url || p.dataUrl || '';
-        html += '<div style="width:120px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--smoke);">';
+        html += '<div data-action="open-site-lightbox" data-photo-idx="' + i + '" style="width:120px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--smoke);cursor:pointer;transition:opacity .12s;" onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'">';
         if (imgSrc) {
           html += '<img src="' + esc(imgSrc) + '" loading="lazy" style="width:120px;height:100px;object-fit:cover;display:block;" onerror="this.style.display=\'none\'">';
         } else {
@@ -65,6 +65,23 @@ export var initPhotos = {
 };
 
 Model.onChange('project', function() { initPhotos.render(); });
+
+// Site photo lightbox click
+document.addEventListener('click', function(e) {
+  var el = e.target.closest && e.target.closest('[data-action="open-site-lightbox"]');
+  if (!el) return;
+  var idx = parseInt(el.getAttribute('data-photo-idx') || '0');
+  var proj = Model.getProject();
+  if (!proj) return;
+  var photos = proj.photos || [];
+  if (photos.length && window._frtLightbox) {
+    // Use full-res URLs for lightbox (not thumbs)
+    var fullPhotos = photos.map(function(p) {
+      return { r2Url: p.r2Url, dataUrl: p.dataUrl, caption: p.caption || p.filename || '', filename: p.filename };
+    });
+    window._frtLightbox.open(fullPhotos, idx);
+  }
+});
 
 // ── Site Photo Upload ───────────────────────────────────
 function _compressSitePhoto(file, cb) {

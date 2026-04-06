@@ -51,7 +51,13 @@ function buildDeficCard(d, ctrId) {
   });
   h += '</select>';
   if (d.drawingId) {
-    h += '<button data-action="view-pin" data-defic-id="' + esc(d.id) + '" style="border:none;background:#2196F3;color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">\uD83D\uDCCC Pinned</button>';
+    // Find the drawing name
+    var _dwgs = Model.getDrawings();
+    var _dwgName = '';
+    for (var _di = 0; _di < _dwgs.length; _di++) { if (_dwgs[_di].id === d.drawingId) { _dwgName = _dwgs[_di].name || 'Drawing'; break; } }
+    if (_dwgName.length > 18) _dwgName = _dwgName.substring(0, 18) + '\u2026';
+    h += '<button data-action="view-pin" data-defic-id="' + esc(d.id) + '" style="border:none;background:#2196F3;color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;" title="View on: ' + esc(_dwgName) + '">\uD83D\uDCCC ' + esc(_dwgName) + '</button>';
+    h += '<button data-action="remove-pin" data-defic-id="' + esc(d.id) + '" style="border:none;background:#E53E3E;color:white;border-radius:4px;padding:2px 6px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Remove pin">\u2715</button>';
   } else {
     h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
   }
@@ -81,10 +87,10 @@ function buildDeficCard(d, ctrId) {
       var obsPhotos = o.photos || [];
       if (obsPhotos.length) {
         h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;">';
-        obsPhotos.forEach(function(ph) {
+        obsPhotos.forEach(function(ph, phi) {
           var src = ph.r2Url || ph.dataUrl || '';
           if (src) {
-            h += '<div style="width:60px;height:60px;border-radius:4px;overflow:hidden;border:1px solid var(--border);">';
+            h += '<div data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" style="width:60px;height:60px;border-radius:4px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:opacity .12s;" onmouseover="this.style.opacity=\'.8\'" onmouseout="this.style.opacity=\'1\'">';
             h += '<img src="' + esc(src) + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy">';
             h += '</div>';
           }
@@ -424,6 +430,38 @@ document.addEventListener('click', function(e) {
       if (action === 'place-pin') toast('Tap on the drawing to place pin');
     } else {
       toast('Open the Drawings tab first');
+    }
+  }
+
+  if (action === 'remove-pin') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    if (!deficId) { var btn3 = e.target.closest('[data-defic-id]'); if (btn3) deficId = btn3.getAttribute('data-defic-id'); }
+    if (deficId) {
+      var f = Model.findDeficiency(deficId);
+      if (f) {
+        f.defic.drawingId = null;
+        f.defic.pinX = null;
+        f.defic.pinY = null;
+        Model._notify('deficiency', { action: 'pin-remove', deficId: deficId });
+        Model.saveNow();
+        initDeficiencies.render();
+        toast('Pin removed');
+      }
+    }
+  }
+
+  if (action === 'open-lightbox') {
+    var el = e.target.closest('[data-action="open-lightbox"]');
+    if (!el) return;
+    var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
+    var photoIdx = parseInt(el.getAttribute('data-photo-idx') || '0');
+    var f = Model.findDeficiency(deficId);
+    if (f && f.defic.observations && f.defic.observations[obsIdx]) {
+      var photos = f.defic.observations[obsIdx].photos || [];
+      if (photos.length && window._frtLightbox) {
+        window._frtLightbox.open(photos, photoIdx);
+      }
     }
   }
 });

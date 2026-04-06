@@ -324,6 +324,27 @@ function ensurePdfJs(cb){
   </div>
 </div>
 
+<!-- ═══ PHOTO LIGHTBOX OVERLAY ═══ -->
+<div class="lightbox-overlay" id="lightbox-overlay">
+  <div class="lb-toolbar">
+    <span id="lb-info" style="flex:1;font-size:calc(13px + var(--ts));color:#d0d8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+    <span id="lb-counter" style="font-size:calc(12px + var(--ts));color:#8a94b0;margin-right:8px;"></span>
+    <button id="lb-close" class="lb-close-btn" title="Close">✕</button>
+  </div>
+  <div class="lb-canvas" id="lb-canvas">
+    <div class="lb-img-wrap" id="lb-img-wrap">
+      <img id="lb-image" alt="" style="display:block;">
+    </div>
+    <button class="lb-nav-btn lb-nav-prev" id="lb-prev" title="Previous">◀</button>
+    <button class="lb-nav-btn lb-nav-next" id="lb-next" title="Next">▶</button>
+  </div>
+</div>
+
+<!-- ═══ PIN INFO POPUP ═══ -->
+<div id="pin-info-popup" class="pin-info-popup" style="display:none;">
+  <div id="pin-info-content"></div>
+</div>
+
 <!-- ═══ TOAST CONTAINER ═══ -->
 <div id="toast-container" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;"></div>
 

@@ -467,15 +467,182 @@ document.getElementById('dv-canvas-area').addEventListener('touchend', function(
   }
 });
 
-// Pin marker click — select pin
+// Pin marker click — show info popup
 document.addEventListener('click', function(e) {
   var marker = e.target.closest && e.target.closest('.pin-marker[data-defic-id]');
-  if (!marker) return;
+  if (!marker) {
+    // Close popup on outside click (but not if clicking popup itself)
+    if (!e.target.closest || !e.target.closest('.pin-info-popup')) _closePinPopup();
+    return;
+  }
+  if (_pinModeDeficId) return; // Don't show popup in placement mode
+  if (_pinDragging) return; // Don't show popup during drag
   var deficId = marker.getAttribute('data-defic-id');
-  // Toggle selection
-  document.querySelectorAll('.pin-marker.selected').forEach(function(m) { m.classList.remove('selected'); });
-  marker.classList.add('selected');
-  console.log('[Viewer] Pin selected:', deficId);
+  _showPinPopup(deficId, marker);
+});
+
+// ── Pin Info Popup ──────────────────────────────────────
+function _showPinPopup(deficId, markerEl) {
+  var popup = document.getElementById('pin-info-popup');
+  if (!popup) return;
+  var f = Model.findDeficiency(deficId);
+  if (!f) return;
+  var d = f.defic;
+  var desc = (d.observations && d.observations.length && d.observations[0].text) ? d.observations[0].text : (d.description || '');
+  if (desc.length > 120) desc = desc.substring(0, 120) + '\u2026';
+  var isClosed = d.status === 'closed' || d.status === 'Addressed & Closed';
+  var statusColor = isClosed ? '#1A7A4A' : '#C0392B';
+  var statusText = isClosed ? 'Closed' : 'Outstanding';
+
+  var html = '<div class="pip-header">';
+  html += '<span class="pip-num">#' + (d.num || '?') + '</span>';
+  html += '<span class="pip-status" style="background:' + statusColor + '22;color:' + statusColor + ';">' + statusText + '</span>';
+  if (f.contractorName) html += '<span style="font-size:calc(11px + var(--ts));color:#8a94b0;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (f.contractorName || '') + '</span>';
+  html += '</div>';
+  if (desc) html += '<div class="pip-body">' + desc.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div>';
+  html += '<div class="pip-actions">';
+  html += '<button class="pip-btn pip-btn-move" data-pip-action="move" data-defic-id="' + deficId + '">↕ Move</button>';
+  html += '<button class="pip-btn pip-btn-remove" data-pip-action="remove" data-defic-id="' + deficId + '">🗑 Remove</button>';
+  html += '<button class="pip-btn pip-btn-close" data-pip-action="close-popup">✕</button>';
+  html += '</div>';
+
+  document.getElementById('pin-info-content').innerHTML = html;
+
+  // Position popup near the marker
+  var mRect = markerEl.getBoundingClientRect();
+  var pw = 280; // approx popup width
+  var left = mRect.left + mRect.width / 2 - pw / 2;
+  var top = mRect.top - 8; // above the pin
+  // Keep on screen
+  left = Math.max(8, Math.min(window.innerWidth - pw - 8, left));
+  if (top < 60) top = mRect.bottom + 8; // Below if too high
+
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
+  popup.style.transform = 'translateY(-100%)';
+  if (top === mRect.bottom + 8) popup.style.transform = 'none';
+  popup.style.display = 'block';
+}
+
+function _closePinPopup() {
+  var popup = document.getElementById('pin-info-popup');
+  if (popup) popup.style.display = 'none';
+}
+
+// Pin popup action buttons
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest && e.target.closest('[data-pip-action]');
+  if (!btn) return;
+  var action = btn.getAttribute('data-pip-action');
+  var deficId = btn.getAttribute('data-defic-id');
+
+  if (action === 'close-popup') { _closePinPopup(); return; }
+
+  if (action === 'remove') {
+    var f = Model.findDeficiency(deficId);
+    if (f) {
+      f.defic.drawingId = null;
+      f.defic.pinX = null;
+      f.defic.pinY = null;
+      Model._notify('deficiency', { action: 'pin-remove', deficId: deficId });
+      Model.saveNow();
+      _renderPins();
+      _closePinPopup();
+      console.log('[Viewer] Pin removed for deficiency', deficId);
+    }
+    return;
+  }
+
+  if (action === 'move') {
+    _closePinPopup();
+    _startPinPlace(deficId);
+    // Update button to show active state
+    var pinBtn = document.getElementById('dv-pin-btn');
+    if (pinBtn) { pinBtn.style.background = '#2196F3'; pinBtn.textContent = '\uD83D\uDCCC Moving...'; }
+    console.log('[Viewer] Pin move mode — deficiency:', deficId);
+    return;
+  }
+});
+
+// ── Pin Drag-to-Move (long press) ───────────────────────
+var _pinDragging = false;
+var _pinDragDeficId = null;
+var _pinLongPressTimer = null;
+var _pinDragMarker = null;
+
+document.addEventListener('touchstart', function(e) {
+  var marker = e.target.closest && e.target.closest('.pin-marker[data-defic-id]');
+  if (!marker || _pinModeDeficId) return;
+  var deficId = marker.getAttribute('data-defic-id');
+  _pinLongPressTimer = setTimeout(function() {
+    _pinDragging = true;
+    _pinDragDeficId = deficId;
+    _pinDragMarker = marker;
+    marker.classList.add('dragging');
+    var area = document.getElementById('dv-canvas-area');
+    if (area) area.classList.add('pin-drag-mode');
+    console.log('[Viewer] Pin drag started:', deficId);
+  }, 400);
+}, { passive: true });
+
+document.addEventListener('touchmove', function(e) {
+  if (_pinLongPressTimer && !_pinDragging) {
+    // Cancel long-press if finger moves
+    clearTimeout(_pinLongPressTimer);
+    _pinLongPressTimer = null;
+  }
+  if (!_pinDragging || !_pinDragMarker) return;
+  e.preventDefault();
+  var touch = e.touches[0];
+  if (!touch) return;
+  // Move the marker visually (follow finger)
+  var area = document.getElementById('dv-canvas-area');
+  if (!area) return;
+  var rect = area.getBoundingClientRect();
+  var wrap = document.getElementById('dv-img-wrap');
+  if (!wrap) return;
+  // Convert screen position to image-relative
+  var wRect = wrap.getBoundingClientRect();
+  var px = touch.clientX - wRect.left;
+  var py = touch.clientY - wRect.top;
+  _pinDragMarker.style.left = px + 'px';
+  _pinDragMarker.style.top = py + 'px';
+}, { passive: false });
+
+document.addEventListener('touchend', function(e) {
+  if (_pinLongPressTimer) { clearTimeout(_pinLongPressTimer); _pinLongPressTimer = null; }
+  if (!_pinDragging || !_pinDragDeficId) return;
+
+  var area = document.getElementById('dv-canvas-area');
+  if (area) area.classList.remove('pin-drag-mode');
+  if (_pinDragMarker) _pinDragMarker.classList.remove('dragging');
+
+  // Calculate final position
+  var touch = (e.changedTouches && e.changedTouches[0]) || null;
+  if (touch) {
+    var img = document.getElementById('dv-image');
+    var wrap = document.getElementById('dv-img-wrap');
+    if (img && wrap && img.naturalWidth) {
+      var wRect = wrap.getBoundingClientRect();
+      var px = (touch.clientX - wRect.left) / _scale;
+      var py = (touch.clientY - wRect.top) / _scale;
+      var pinX = Math.max(0, Math.min(1, px / img.naturalWidth));
+      var pinY = Math.max(0, Math.min(1, py / img.naturalHeight));
+      var f = Model.findDeficiency(_pinDragDeficId);
+      if (f) {
+        f.defic.pinX = pinX;
+        f.defic.pinY = pinY;
+        Model._notify('deficiency', { action: 'pin-move', deficId: _pinDragDeficId });
+        Model.saveNow();
+        console.log('[Viewer] Pin moved to', pinX.toFixed(3), pinY.toFixed(3));
+      }
+    }
+  }
+
+  _pinDragging = false;
+  _pinDragDeficId = null;
+  _pinDragMarker = null;
+  _renderPins();
 });
 
 // Expose for deficiency cards

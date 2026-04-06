@@ -18,6 +18,7 @@ import { initDeficiencies } from './ui/deficiencies.js';
 import { initDrawings } from './ui/drawings.js';
 import { initPhotos } from './ui/photos.js';
 import { initPins } from './ui/pins.js';
+import { Lightbox } from './ui/lightbox.js';
 import { initViewer } from './viewer/viewer.js';
 import { initMarkup } from './viewer/markup.js';
 import { initPDFExport } from './export/pdf.js';

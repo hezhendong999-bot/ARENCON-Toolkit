@@ -1283,3 +1283,39 @@ body.text-l{--ts:4px;}
 /* Text size toggle button */
 .text-size-toggle{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:calc(12px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;transition:all .15s;display:inline-flex;align-items:center;gap:4px;}
 .text-size-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
+
+/* ═══ PHOTO LIGHTBOX ═══ */
+.lightbox-overlay{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.95);display:none;flex-direction:column;font-family:Calibri,sans-serif;}
+.lightbox-overlay.open{display:flex;}
+body.lb-open{overflow:hidden;}
+.lb-toolbar{display:flex;align-items:center;padding:8px 16px;background:rgba(20,26,36,.9);border-bottom:1px solid rgba(255,255,255,.1);min-height:44px;z-index:2;flex-shrink:0;}
+.lb-close-btn{background:none;border:none;color:white;font-size:calc(20px + var(--ts));cursor:pointer;padding:4px 8px;line-height:1;}
+.lb-canvas{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;touch-action:none;cursor:grab;}
+.lb-canvas:active{cursor:grabbing;}
+.lb-img-wrap{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;}
+.lb-img-wrap img{display:block;max-width:none;max-height:none;user-select:none;-webkit-user-select:none;pointer-events:none;}
+.lb-nav-btn{position:absolute;top:50%;transform:translateY(-50%);z-index:3;background:rgba(0,0,0,.5);border:none;color:white;font-size:calc(20px + var(--ts));padding:12px 14px;cursor:pointer;border-radius:8px;transition:background .15s;}
+.lb-nav-btn:hover{background:rgba(0,0,0,.8);}
+.lb-nav-prev{left:12px;}
+.lb-nav-next{right:12px;}
+@media(pointer:coarse){
+  .lb-nav-btn{padding:14px 16px;font-size:calc(22px + var(--ts));}
+}
+
+/* ═══ PIN INFO POPUP ═══ */
+.pin-info-popup{position:fixed;z-index:9200;background:#1e2533;border:1px solid #3a4860;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.6);min-width:220px;max-width:320px;font-family:Calibri,sans-serif;animation:pinPopIn .15s ease-out;}
+@keyframes pinPopIn{from{transform:scale(.92);opacity:0;}to{transform:scale(1);opacity:1;}}
+.pin-info-popup .pip-header{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #2a3548;}
+.pin-info-popup .pip-num{background:#9C2742;color:white;font-weight:800;font-size:calc(14px + var(--ts));padding:4px 10px;border-radius:6px;min-width:28px;text-align:center;}
+.pin-info-popup .pip-status{font-size:calc(11px + var(--ts));font-weight:700;padding:2px 8px;border-radius:4px;}
+.pin-info-popup .pip-body{padding:10px 14px;font-size:calc(12px + var(--ts));color:#bcc5da;max-height:120px;overflow-y:auto;line-height:1.45;}
+.pin-info-popup .pip-actions{display:flex;gap:6px;padding:8px 14px;border-top:1px solid #2a3548;}
+.pin-info-popup .pip-btn{flex:1;border:none;border-radius:6px;padding:7px 10px;font-size:calc(11px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;text-align:center;transition:filter .12s;}
+.pin-info-popup .pip-btn:hover{filter:brightness(1.15);}
+.pin-info-popup .pip-btn-move{background:#2196F3;color:white;}
+.pin-info-popup .pip-btn-remove{background:#E53E3E;color:white;}
+.pin-info-popup .pip-btn-close{background:#455A64;color:white;}
+
+/* Pin drag ghost — visual feedback during drag */
+.pin-marker.dragging{opacity:.6;z-index:100;pointer-events:none;}
+.dv-canvas-area.pin-drag-mode{cursor:crosshair!important;}
