@@ -24,9 +24,37 @@ function _getDrawingsList() {
 }
 
 function _applyTransform() {
+  _clampPan();
   var wrap = document.getElementById('dv-img-wrap');
   if (wrap) {
     wrap.style.transform = 'translate(' + _panX + 'px,' + _panY + 'px) scale(' + _scale + ')';
+  }
+}
+
+function _clampPan() {
+  var img = document.getElementById('dv-image');
+  var area = document.getElementById('dv-canvas-area');
+  if (!img || !area || !img.naturalWidth) return;
+
+  var aw = area.clientWidth;
+  var ah = area.clientHeight;
+  var sw = img.naturalWidth * _scale;
+  var sh = img.naturalHeight * _scale;
+
+  if (sw <= aw) {
+    // Image fits horizontally — center it
+    _panX = (aw - sw) / 2;
+  } else {
+    // Image wider than viewport — clamp edges
+    _panX = Math.min(0, Math.max(aw - sw, _panX));
+  }
+
+  if (sh <= ah) {
+    // Image fits vertically — center it
+    _panY = (ah - sh) / 2;
+  } else {
+    // Image taller than viewport — clamp edges
+    _panY = Math.min(0, Math.max(ah - sh, _panY));
   }
 }
 
@@ -34,7 +62,11 @@ function _resetView() {
   _scale = _fitScale;
   _panX = 0;
   _panY = 0;
-  _applyTransform();
+  _clampPan(); // Centers the image
+  var wrap = document.getElementById('dv-img-wrap');
+  if (wrap) {
+    wrap.style.transform = 'translate(' + _panX + 'px,' + _panY + 'px) scale(' + _scale + ')';
+  }
 }
 
 function _calcFitScale() {
