@@ -8,6 +8,7 @@
  */
 
 import { Model } from '../data/model.js';
+import { initViewer } from '../viewer/viewer.js';
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
@@ -20,7 +21,7 @@ function countPins(drawingId, allDefics) {
 function buildDrawingCard(d, allDefics) {
   var pins = countPins(d.id, allDefics);
   var imgSrc = d.r2Url || d.dataUrl || '';
-  var h = '<div class="drawing-card" style="width:180px;display:inline-block;vertical-align:top;margin:0 8px 12px 0;">';
+  var h = '<div class="drawing-card" data-drawing-id="' + esc(d.id) + '" style="width:180px;display:inline-block;vertical-align:top;margin:0 8px 12px 0;cursor:pointer;">';
 
   if (imgSrc) {
     h += '<div class="drawing-thumb" style="height:120px;overflow:hidden;">';
@@ -99,3 +100,11 @@ export var initDrawings = {
 };
 
 Model.onChange('project', function() { initDrawings.render(); });
+
+// Click handler: open drawing in viewer
+document.addEventListener('click', function(e) {
+  var card = e.target.closest && e.target.closest('.drawing-card[data-drawing-id]');
+  if (!card) return;
+  var drawingId = card.getAttribute('data-drawing-id');
+  if (drawingId) initViewer.open(drawingId);
+});
