@@ -61,13 +61,60 @@ function createNewProject(overrides) {
 
 // ── Smart Filename ───────────────────────────────────────
 function buildSmartFilename(proj) {
-  if (!proj || !proj.info) return 'Untitled Project';
+  if (!proj || !proj.info) return 'Untitled';
+  var p = proj;
+  // Format: {ProjNo} {ClientAbbrev} {StreetNum} {Street} {Building/Location} {ScopeAbbrev} {Revision}
+  // Example: 1490.04 IM 610 Sprucewood Attic Space Sprkl Upgrade A01
   var parts = [];
-  if (proj.info.projectNumber) parts.push(proj.info.projectNumber);
-  if (proj.info.client) parts.push(proj.info.client);
-  if (proj.info.projectName) parts.push(proj.info.projectName);
-  if (proj.info.revision) parts.push(proj.info.revision);
-  return parts.length ? parts.join(' \u2014 ') : 'Untitled Project';
+  if (p.info.projectNumber) parts.push(p.info.projectNumber.trim());
+  if (p.info.client) {
+    var c = p.info.client.trim().replace(/\s*[\(\)\.]/g, ' ').replace(/\s+/g, ' ').trim();
+    var cWords = c.split(/\s+/).filter(function(w) { return w.length > 0; });
+    if (cWords.length) {
+      if (cWords[0].length <= 5 && /^[A-Z]+$/.test(cWords[0])) { parts.push(cWords[0]); }
+      else if (cWords.indexOf('&') > 0 && cWords.indexOf('&') < cWords.length - 1) {
+        var ai = cWords.indexOf('&');
+        parts.push(cWords[ai - 1].charAt(0).toUpperCase() + '&' + cWords[ai + 1].charAt(0).toUpperCase());
+      } else {
+        var suffixes = /^(Limited|Ltd|Inc|Incorporated|Co|Company|LLC|LLP)$/i;
+        var real = cWords.filter(function(w) { return !suffixes.test(w); });
+        if (!real.length) real = cWords;
+        if (real.length === 1) parts.push(real[0]);
+        else parts.push(real.map(function(w) { return w.charAt(0).toUpperCase(); }).join(''));
+      }
+    }
+  }
+  if (p.info.address) {
+    var am = p.info.address.trim().match(/^(\d+)\s+(\S+)/);
+    if (am) parts.push(am[1] + ' ' + am[2].replace(/[.,]$/, ''));
+  }
+  if (p.info.projectName) {
+    var raw = p.info.projectName.trim();
+    var fpPattern = /\b(Sprinkler|Fire Alarm|Standpipe|Suppression|Protection|Installation|Inspection|Testing|Commissioning|Modification|Upgrade|Retrofit|Replacement|Assessment|Review)\b/gi;
+    var scopeWords = []; var match;
+    while ((match = fpPattern.exec(raw)) !== null) scopeWords.push(match[0]);
+    var firstFpIdx = raw.search(/\b(Sprinkler|Fire Alarm|Standpipe|Suppression|Protection|Installation|Inspection|Testing|Commissioning|Modification|Upgrade|Retrofit|Replacement|Assessment|Review)\b/i);
+    var building = firstFpIdx > 0 ? raw.substring(0, firstFpIdx).trim() : '';
+    building = building.replace(/^(for|the|at|of|and|&)\s+/i, '').replace(/\s*[&,]\s*$/, '').replace(/\bAutomatic\b/i, '').replace(/\bSystem\b/i, '').trim();
+    var bWords = building.split(/\s+/).filter(function(w) { return w.length > 0; });
+    if (bWords.length > 3) bWords = bWords.slice(0, 3);
+    if (bWords.length) parts.push(bWords.join(' '));
+    if (scopeWords.length) {
+      var abbrev = scopeWords.map(function(w) {
+        return w.replace(/Sprinkler/i, 'Sprkl').replace(/Fire Alarm/i, 'FA')
+          .replace(/Standpipe/i, 'Stdp').replace(/Suppression/i, 'Supp')
+          .replace(/Protection/i, 'Prot').replace(/Installation/i, 'Install')
+          .replace(/Inspection/i, 'Insp').replace(/Testing/i, 'Test')
+          .replace(/Commissioning/i, 'Comm').replace(/Modification/i, 'Mod')
+          .replace(/Assessment/i, 'Assess').replace(/Review/i, 'Review');
+      }).join(' ');
+      parts.push(abbrev);
+    } else if (!building) {
+      parts.push(raw.split(/\s+/).slice(0, 3).join(' '));
+    }
+  }
+  parts.push(p.info.revision || 'A01');
+  return parts.join(' ').replace(/[^a-zA-Z0-9 ._&-]/g, '').replace(/\s+/g, ' ').trim() || 'Untitled';
 }
 
 // ── Debounced Save ───────────────────────────────────────
