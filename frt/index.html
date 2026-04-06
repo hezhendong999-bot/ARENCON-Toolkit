@@ -273,7 +273,21 @@ function ensurePdfJs(cb){
     <div class="panel" id="panel-photos">
       <div class="card">
         <div class="card-header">📷 Site Photos</div>
-        <div class="card-body" id="photos-container"></div>
+        <div class="card-body">
+          <div id="site-photo-upload" style="border:2px dashed rgba(156,39,66,.5);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px;cursor:pointer;background:rgba(156,39,66,.04);"
+               ondragover="event.preventDefault();this.style.borderColor='#9C2742';this.style.background='rgba(156,39,66,.08)';"
+               ondragleave="this.style.borderColor='rgba(156,39,66,.5)';this.style.background='rgba(156,39,66,.04)';"
+               ondrop="event.preventDefault();this.style.borderColor='rgba(156,39,66,.5)';this.style.background='rgba(156,39,66,.04)';if(window._handleSitePhotoDrop)window._handleSitePhotoDrop(event.dataTransfer.files);">
+            <div style="font-size:calc(13px + var(--ts));color:var(--silver);margin-bottom:6px;">📷 Drop site photos here</div>
+            <div style="display:flex;gap:8px;justify-content:center;">
+              <button class="btn btn-outline btn-sm" id="site-photo-upload-btn">Upload</button>
+              <button class="btn btn-outline btn-sm" id="site-photo-camera-btn">📷 Camera</button>
+            </div>
+          </div>
+          <input type="file" id="site-photo-input" accept="image/*" multiple style="display:none">
+          <input type="file" id="site-photo-camera" accept="image/*" capture="environment" style="display:none">
+          <div id="photos-container"></div>
+        </div>
       </div>
     </div>
 
