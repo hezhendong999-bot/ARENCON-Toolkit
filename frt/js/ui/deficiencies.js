@@ -746,3 +746,66 @@ document.addEventListener('keydown', function(e) {
     }
   }
 });
+
+// ── Deficiency Search ────────────────────────────────────
+var _searchQuery = '';
+var _statusFilter = 'all';
+
+document.addEventListener('input', function(e) {
+  if (e.target.id === 'defic-search') {
+    _searchQuery = (e.target.value || '').trim().toLowerCase();
+    _applySearchFilter();
+  }
+});
+
+document.addEventListener('change', function(e) {
+  if (e.target.id === 'defic-filter-sel') {
+    _statusFilter = e.target.value;
+    _applySearchFilter();
+  }
+});
+
+function _applySearchFilter() {
+  var container = document.getElementById('deficiencies-container');
+  if (!container) return;
+  var items = container.querySelectorAll('.defic-item');
+  items.forEach(function(item) {
+    var deficId = item.getAttribute('data-defic-id');
+    var f = Model.findDeficiency(deficId);
+    if (!f) { item.style.display = ''; return; }
+    var d = f.defic;
+    var show = true;
+    // Status filter
+    if (_statusFilter === 'outstanding') {
+      show = deficIsOpen(d) && !d.iar;
+    } else if (_statusFilter === 'iar') {
+      show = !!d.iar;
+    }
+    // Search filter
+    if (show && _searchQuery) {
+      var text = (deficDesc(d) + ' ' + (d.num || '')).toLowerCase();
+      show = text.indexOf(_searchQuery) >= 0;
+    }
+    item.style.display = show ? '' : 'none';
+  });
+}
+
+// ── Fold All Toggle ──────────────────────────────────────
+var _allFolded = false;
+document.addEventListener('click', function(e) {
+  if (e.target.id === 'defic-fold-all-btn' || (e.target.closest && e.target.closest('#defic-fold-all-btn'))) {
+    _allFolded = !_allFolded;
+    var container = document.getElementById('deficiencies-container');
+    if (!container) return;
+    container.querySelectorAll('.defic-group').forEach(function(g) {
+      var ctrId = g.getAttribute('data-ctr-id');
+      var body = g.querySelector('.defic-group-body');
+      var arrow = g.querySelector('.ctr-fold-arrow');
+      if (ctrId) _foldedGroups[ctrId] = _allFolded;
+      if (body) body.style.display = _allFolded ? 'none' : '';
+      if (arrow) arrow.textContent = _allFolded ? '\u25B6' : '\u25BC';
+    });
+    var btn = document.getElementById('defic-fold-all-btn');
+    if (btn) btn.textContent = _allFolded ? '\u25B6 Unfold All' : '\u25BC Fold All';
+  }
+});

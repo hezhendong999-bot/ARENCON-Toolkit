@@ -256,6 +256,16 @@ function ensurePdfJs(cb){
             <div class="dlc-tab" data-dlc="general">Site General</div>
             <div class="dlc-tab" data-dlc="closed">Closed</div>
           </div>
+          <!-- Deficiency toolbar -->
+          <div id="defic-toolbar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:0 2px;">
+            <input type="text" id="defic-search" placeholder="🔍 Search deficiencies..." style="flex:1;min-width:140px;max-width:280px;padding:7px 12px;border:1.5px solid var(--border);border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));background:var(--smoke);color:var(--fg);">
+            <select id="defic-filter-sel" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));background:var(--smoke);color:var(--fg);">
+              <option value="all">All</option>
+              <option value="outstanding">Outstanding</option>
+              <option value="iar">IAR</option>
+            </select>
+            <button class="btn btn-outline btn-sm" id="defic-fold-all-btn" title="Fold/Unfold all">▼ Fold All</button>
+          </div>
           <div id="deficiencies-container"></div>
         </div>
       </div>

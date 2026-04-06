@@ -12,9 +12,12 @@ import { IDB } from '../data/idb.js';
 import { R2 } from '../data/r2.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm } from '../shared/dialogs.js';
+import { showPrompt } from '../shared/dialogs.js';
 import { initViewer } from '../viewer/viewer.js';
 
-function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+var _foldedFolders = {};
 
 function countPins(drawingId, allDefics) {
   var n = 0;
@@ -91,10 +94,15 @@ export var initDrawings = {
     var folderNames = Object.keys(folders).sort();
     folderNames.forEach(function(fn) {
       var items = folders[fn];
-      html += '<div style="margin-bottom:16px;">';
-      html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;font-weight:700;font-size:calc(14px + var(--ts));color:var(--steel);">';
-      html += '\u25BE \uD83D\uDCC1 ' + esc(fn) + ' <span style="font-weight:400;color:var(--silver);">(' + items.length + ' plans)</span></div>';
-      html += '<div style="display:flex;flex-wrap:wrap;">';
+      var isFolded = _foldedFolders[fn];
+      html += '<div class="dwg-folder-group" data-folder="' + esc(fn) + '" style="margin-bottom:16px;border:1px solid var(--border);border-radius:10px;overflow:hidden;">';
+      html += '<div class="dwg-folder-hdr" data-action="toggle-folder" data-folder="' + esc(fn) + '" style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--smoke);cursor:pointer;user-select:none;">';
+      html += '<span style="font-size:12px;width:14px;">' + (isFolded ? '\u25B6' : '\u25BC') + '</span>';
+      html += '\uD83D\uDCC1 <span style="font-weight:700;font-size:calc(14px + var(--ts));color:var(--steel);">' + esc(fn) + '</span>';
+      html += '<span style="font-weight:400;color:var(--silver);font-size:calc(12px + var(--ts));">(' + items.length + ')</span>';
+      html += '<button data-action="rename-folder" data-folder="' + esc(fn) + '" style="border:none;background:none;cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 4px;color:var(--silver);margin-left:auto;" title="Rename folder">✏️</button>';
+      html += '</div>';
+      html += '<div class="dwg-folder-body" style="padding:8px;display:flex;flex-wrap:wrap;' + (isFolded ? 'display:none;' : '') + '">';
       items.forEach(function(d) { html += buildDrawingCard(d, allDefics); });
       html += '</div></div>';
     });
@@ -134,8 +142,44 @@ function _lazyGenThumbs(list, idx) {
 
 Model.onChange('project', function() { initDrawings.render(); });
 
-// Click handler: open drawing in viewer
+// Click handler: open drawing in viewer + folder ops
 document.addEventListener('click', function(e) {
+  // Toggle folder
+  var foldHdr = e.target.closest && e.target.closest('[data-action="toggle-folder"]');
+  if (foldHdr) {
+    var fn = foldHdr.getAttribute('data-folder');
+    if (fn) {
+      _foldedFolders[fn] = !_foldedFolders[fn];
+      var group = document.querySelector('.dwg-folder-group[data-folder="' + fn + '"]');
+      if (group) {
+        var body = group.querySelector('.dwg-folder-body');
+        var arrow = foldHdr.querySelector('span');
+        if (body) body.style.display = _foldedFolders[fn] ? 'none' : 'flex';
+        if (arrow) arrow.textContent = _foldedFolders[fn] ? '\u25B6' : '\u25BC';
+      }
+    }
+    return;
+  }
+
+  // Rename folder
+  var renameBtn = e.target.closest && e.target.closest('[data-action="rename-folder"]');
+  if (renameBtn) {
+    e.stopPropagation();
+    var oldName = renameBtn.getAttribute('data-folder');
+    showPrompt('Rename Folder', 'New folder name:', oldName).then(function(newName) {
+      if (newName && newName.trim() && newName.trim() !== oldName) {
+        var drawings = Model.getDrawings();
+        drawings.forEach(function(d) {
+          if (d.folder === oldName) d.folder = newName.trim();
+        });
+        Model.saveNow();
+        initDrawings.render();
+        toast('Folder renamed');
+      }
+    });
+    return;
+  }
+
   // Delete drawing
   var delBtn = e.target.closest && e.target.closest('[data-action="delete-drawing"]');
   if (delBtn) {
@@ -158,6 +202,18 @@ document.addEventListener('click', function(e) {
   if (!card) return;
   var drawingId = card.getAttribute('data-drawing-id');
   if (drawingId) initViewer.open(drawingId);
+});
+
+// New Folder button
+var newFolderBtn = document.getElementById('btn-new-folder');
+if (newFolderBtn) newFolderBtn.addEventListener('click', function() {
+  showPrompt('New Folder', 'Folder name:').then(function(name) {
+    if (name && name.trim()) {
+      // Folder is created implicitly when a drawing is assigned to it
+      // For now, toast feedback — user will upload or move drawings into it
+      toast('Folder "' + name.trim() + '" ready — upload drawings or move existing ones');
+    }
+  });
 });
 
 // ── Upload Handlers ─────────────────────────────────────
