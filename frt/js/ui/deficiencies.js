@@ -157,6 +157,75 @@ function buildGroup(ctrId, name, items, totalCount) {
   return h;
 }
 
+// ── Deficiency Log Summary Table ─────────────────────────
+function _renderDeficLog(proj, allDefics) {
+  var el = document.getElementById('defic-log-container');
+  if (!el) return;
+  if (!allDefics.length) { el.innerHTML = '<p style="color:var(--silver);font-size:calc(12px + var(--ts));padding:8px;">No deficiencies recorded yet.</p>'; return; }
+  var _curInst = proj.currentFrtInstance || 1;
+  var ctrGroups = {};
+  allDefics.forEach(function(d) {
+    var name = d.contractorName || 'Site General';
+    if (!ctrGroups[name]) ctrGroups[name] = [];
+    ctrGroups[name].push(d);
+  });
+  var h = '<table style="width:100%;border-collapse:collapse;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;">';
+  h += '<thead><tr style="border-bottom:2px solid var(--border);"><th style="text-align:left;padding:6px 10px;font-weight:700;text-transform:uppercase;font-size:calc(10px + var(--ts));letter-spacing:.5px;color:var(--steel);">Contractor</th>';
+  h += '<th style="text-align:center;padding:6px 10px;font-weight:700;text-transform:uppercase;font-size:calc(10px + var(--ts));letter-spacing:.5px;color:var(--steel);">Total</th>';
+  h += '<th style="text-align:center;padding:6px 10px;font-weight:700;text-transform:uppercase;font-size:calc(10px + var(--ts));letter-spacing:.5px;color:var(--steel);">New This Report</th>';
+  h += '<th style="text-align:center;padding:6px 10px;font-weight:700;text-transform:uppercase;font-size:calc(10px + var(--ts));letter-spacing:.5px;color:var(--steel);">Outstanding</th>';
+  h += '<th style="text-align:center;padding:6px 10px;font-weight:700;text-transform:uppercase;font-size:calc(10px + var(--ts));letter-spacing:.5px;color:var(--steel);">IAR</th>';
+  h += '<th style="text-align:center;padding:6px 10px;font-weight:700;text-transform:uppercase;font-size:calc(10px + var(--ts));letter-spacing:.5px;color:var(--steel);">Closed</th></tr></thead><tbody>';
+  var tTotal = 0, tNew = 0, tOut = 0, tIar = 0, tClosed = 0;
+  Object.keys(ctrGroups).forEach(function(name) {
+    var gc = ctrGroups[name];
+    var total = gc.length;
+    var nw = gc.filter(function(d) { return (d.defic.notedOnInstance || 1) === _curInst; }).length;
+    var outstanding = gc.filter(function(d) { return deficIsOpen(d.defic); }).length;
+    var iar = gc.filter(function(d) { return d.defic.iar; }).length;
+    var closed = gc.filter(function(d) { return deficIsClosed(d.defic); }).length;
+    tTotal += total; tNew += nw; tOut += outstanding; tIar += iar; tClosed += closed;
+    h += '<tr style="border-bottom:1px solid var(--border);">';
+    h += '<td style="padding:6px 10px;font-weight:600;">' + esc(name) + '</td>';
+    h += '<td style="text-align:center;padding:6px 10px;">' + total + '</td>';
+    h += '<td style="text-align:center;padding:6px 10px;font-weight:700;">' + nw + '</td>';
+    h += '<td style="text-align:center;padding:6px 10px;color:#C0392B;font-weight:700;">' + outstanding + '</td>';
+    h += '<td style="text-align:center;padding:6px 10px;color:#FF69B4;font-weight:700;">' + iar + '</td>';
+    h += '<td style="text-align:center;padding:6px 10px;color:#1A7A4A;font-weight:700;">' + closed + '</td></tr>';
+  });
+  h += '<tr style="border-top:2px solid var(--arencon);font-weight:700;">';
+  h += '<td style="padding:6px 10px;">TOTAL</td>';
+  h += '<td style="text-align:center;padding:6px 10px;">' + tTotal + '</td>';
+  h += '<td style="text-align:center;padding:6px 10px;">' + tNew + '</td>';
+  h += '<td style="text-align:center;padding:6px 10px;color:#C0392B;">' + tOut + '</td>';
+  h += '<td style="text-align:center;padding:6px 10px;color:#FF69B4;">' + tIar + '</td>';
+  h += '<td style="text-align:center;padding:6px 10px;color:#1A7A4A;">' + tClosed + '</td></tr>';
+  h += '</tbody></table>';
+  el.innerHTML = h;
+}
+
+// ── Contractors on Site Chips ────────────────────────────
+function _renderContractorsOnSite(proj) {
+  var el = document.getElementById('contractors-on-site');
+  if (!el) return;
+  var ctrs = proj.contractors || [];
+  var h = '<div style="font-size:calc(10px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--steel);margin-bottom:6px;">Contractors on Site</div>';
+  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px;">';
+  ctrs.forEach(function(c) {
+    h += '<span style="display:inline-flex;align-items:center;gap:4px;background:var(--smoke);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:calc(12px + var(--ts));font-weight:600;color:var(--fg);">' + esc(c.name);
+    h += ' <button data-action="remove-contractor" data-ctr-id="' + esc(c.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(14px + var(--ts));line-height:1;padding:0 2px;" title="Remove contractor">\u2014 \u2715</button>';
+    h += '</span>';
+  });
+  h += '</div>';
+  // Input row
+  h += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">';
+  h += '<input type="text" id="new-contractor-input" placeholder="e.g. ABC Sprinklers" style="flex:1;min-width:160px;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;background:var(--smoke);color:var(--fg);">';
+  h += '<button class="btn btn-outline btn-sm" data-action="add-contractor" style="color:#1A7A4A;border-color:rgba(26,122,74,.3);">+ Add Contractor</button>';
+  h += '<button class="btn btn-outline btn-sm" data-action="add-general" style="color:#6A1B9A;border-color:rgba(106,27,154,.3);">+ General Deficiency</button>';
+  h += '</div>';
+  el.innerHTML = h;
+}
+
 // ── Render ───────────────────────────────────────────────
 export var initDeficiencies = {
 
@@ -170,6 +239,13 @@ export var initDeficiencies = {
     if (dlcTabs) dlcTabs.style.display = 'flex';
 
     var allDefics = Model.getAllDeficiencies(proj);
+
+    // Render Deficiency Log summary table
+    _renderDeficLog(proj, allDefics);
+
+    // Render Contractors on Site chips
+    _renderContractorsOnSite(proj);
+
     var activeCount = 0, generalCount = 0, closedCount = 0;
     allDefics.forEach(function(d) {
       if (deficIsClosed(d.defic)) closedCount++;
@@ -192,12 +268,6 @@ export var initDeficiencies = {
 function _renderActiveTab(proj, container) {
   var html = '';
 
-  // Add Contractor button
-  html += '<div style="padding:10px 0 6px;display:flex;gap:8px;flex-wrap:wrap;">';
-  html += '<button class="btn btn-outline btn-sm" data-action="add-contractor" style="color:#1A7A4A;border-color:rgba(26,122,74,.3);">+ Add Contractor</button>';
-  html += '<button class="btn btn-outline btn-sm" data-action="add-general" style="color:#6A1B9A;border-color:rgba(106,27,154,.3);">+ General Deficiency</button>';
-  html += '</div>';
-
   (proj.contractors || []).forEach(function(c) {
     var active = (c.deficiencies || []).filter(deficIsOpen);
     var total = (c.deficiencies || []).length;
@@ -212,9 +282,7 @@ function _renderActiveTab(proj, container) {
 
 function _renderGeneralTab(proj, container) {
   var gen = (proj.generalDeficiencies || []).filter(deficIsOpen);
-  var html = '<div style="padding:10px 0 6px;">';
-  html += '<button class="btn btn-outline btn-sm" data-action="add-general" style="color:#6A1B9A;border-color:rgba(106,27,154,.3);">+ General Deficiency</button>';
-  html += '</div>';
+  var html = '';
   if (!gen.length) {
     html += '<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:16px;text-align:center;">No site general deficiencies.</p>';
   } else {
@@ -269,13 +337,35 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'add-contractor') {
-    showPrompt('Add Contractor', 'Contractor name').then(function(name) {
-      if (name) {
-        Model.addContractor(name);
-        initDeficiencies.render();
-        toast('Added: ' + name);
+    var inp = document.getElementById('new-contractor-input');
+    var name = inp ? inp.value.trim() : '';
+    if (!name) {
+      showPrompt('Add Contractor', 'Contractor name').then(function(n) {
+        if (n) { Model.addContractor(n); initDeficiencies.render(); toast('Added: ' + n); }
+      });
+    } else {
+      Model.addContractor(name);
+      if (inp) inp.value = '';
+      initDeficiencies.render();
+      toast('Added: ' + name);
+    }
+  }
+
+  if (action === 'remove-contractor') {
+    var ctrId = e.target.getAttribute('data-ctr-id');
+    if (!ctrId) { var btn2 = e.target.closest('[data-ctr-id]'); if (btn2) ctrId = btn2.getAttribute('data-ctr-id'); }
+    if (ctrId) {
+      var proj = Model.getProject();
+      var ctr = (proj.contractors || []).find(function(c) { return c.id === ctrId; });
+      var deficCount = ctr ? (ctr.deficiencies || []).length : 0;
+      if (deficCount > 0) {
+        showConfirm('Remove Contractor', (ctr.name || 'Contractor') + ' has ' + deficCount + ' deficiencies. Remove anyway?').then(function(yes) {
+          if (yes) { Model.removeContractor(ctrId); initDeficiencies.render(); toast('Removed contractor'); }
+        });
+      } else {
+        Model.removeContractor(ctrId); initDeficiencies.render(); toast('Removed contractor');
       }
-    });
+    }
   }
 
   if (action === 'add-defic') {
@@ -446,6 +536,20 @@ document.addEventListener('drop', function(e) {
   for (var i = 0; i < e.dataTransfer.files.length; i++) {
     if (e.dataTransfer.files[i].type.startsWith('image/')) {
       _compressAndAdd(e.dataTransfer.files[i], deficId, obsIdx);
+    }
+  }
+});
+
+// Enter key on contractor name input
+document.addEventListener('keydown', function(e) {
+  if (e.target.id === 'new-contractor-input' && e.key === 'Enter') {
+    e.preventDefault();
+    var name = e.target.value.trim();
+    if (name) {
+      Model.addContractor(name);
+      e.target.value = '';
+      initDeficiencies.render();
+      toast('Added: ' + name);
     }
   }
 });

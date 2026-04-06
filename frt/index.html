@@ -241,12 +241,24 @@ function ensurePdfJs(cb){
 
     <!-- DEFICIENCIES PANEL -->
     <div class="panel" id="panel-deficiencies">
-      <div class="defic-lifecycle-tabs" id="defic-lifecycle-tabs" style="display:none;">
-        <div class="dlc-tab active" data-dlc="active">Active</div>
-        <div class="dlc-tab" data-dlc="general">Site General</div>
-        <div class="dlc-tab" data-dlc="closed">Closed</div>
+      <!-- Deficiency Log summary table -->
+      <div class="card" style="margin-top:14px;" id="defic-log-card">
+        <div class="card-header">📋 Deficiency Log</div>
+        <div class="card-body" id="defic-log-container"></div>
       </div>
-      <div id="deficiencies-container"></div>
+      <!-- Deficiencies Identified section -->
+      <div class="card" style="margin-top:14px;">
+        <div class="card-header">⚠ Deficiencies Identified</div>
+        <div class="card-body">
+          <div id="contractors-on-site"></div>
+          <div class="defic-lifecycle-tabs" id="defic-lifecycle-tabs" style="display:none;">
+            <div class="dlc-tab active" data-dlc="active">Active</div>
+            <div class="dlc-tab" data-dlc="general">Site General</div>
+            <div class="dlc-tab" data-dlc="closed">Closed</div>
+          </div>
+          <div id="deficiencies-container"></div>
+        </div>
+      </div>
     </div>
 
     <!-- ALL DEFICIENCIES PANEL (pins/tasks) -->
