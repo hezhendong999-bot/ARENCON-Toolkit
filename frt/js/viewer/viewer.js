@@ -378,17 +378,29 @@ function _renderPins() {
   var ih = img.naturalHeight;
   var allDefics = Model.getAllDeficiencies();
   var pins = allDefics.filter(function(d) { return d.defic.drawingId === drawingId && d.defic.pinX != null; });
+  // Pin size scales with drawing resolution
+  var baseW = 3000;
+  var pinScale = Math.max(0.8, Math.min(2.0, Math.max(iw, ih) / baseW));
+  var pw = Math.round(36 * pinScale);
+  var ph2 = Math.round(48 * pinScale);
   var html = '';
   pins.forEach(function(d) {
     var px = d.defic.pinX * iw;
     var py = d.defic.pinY * ih;
+    var pr = d.defic.priority || 'high';
     var isClosed = d.defic.status === 'closed' || d.defic.status === 'Addressed & Closed';
-    var color = isClosed ? '#1A7A4A' : '#C0392B';
-    var r = 14;
-    html += '<div class="pin-marker" data-defic-id="' + d.defic.id + '" style="left:' + (px - r) + 'px;top:' + (py - r) + 'px;width:' + (r * 2) + 'px;height:' + (r * 2) + 'px;">';
-    html += '<svg width="' + (r * 2) + '" height="' + (r * 2) + '" viewBox="0 0 28 28">';
-    html += '<circle cx="14" cy="14" r="13" fill="' + color + '" stroke="#fff" stroke-width="2"/>';
-    html += '<text x="14" y="14" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="Calibri,sans-serif" font-weight="700" font-size="13">' + (d.defic.num || '?') + '</text>';
+    var fill = d.defic.iar ? '#E91E8C' : (pr === 'general' ? '#1A7A4A' : pr === 'low' ? '#E67E22' : '#C0392B');
+    var isOutstanding = !isClosed && !d.defic.iar;
+    var shadow = isOutstanding ? 'drop-shadow(0 0 3px ' + fill + ') drop-shadow(0 2px 5px rgba(0,0,0,.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,.45))';
+    var alpha = isClosed ? '0.5' : '1';
+    var numStr = String(d.defic.num);
+    var numFs = numStr.length <= 2 ? '14' : numStr.length === 3 ? '11' : '9';
+    html += '<div class="pin-marker" data-defic-id="' + d.defic.id + '" data-priority="' + pr + '" style="left:' + px + 'px;top:' + py + 'px;width:' + pw + 'px;height:' + ph2 + 'px;transform:translate(-50%,-100%);opacity:' + alpha + ';">';
+    html += '<svg viewBox="0 0 32 42" width="' + pw + '" height="' + ph2 + '" style="filter:' + shadow + ';overflow:visible;">';
+    html += '<path d="M16 1C8.3 1 2 7.3 2 15c0 10.5 14 25 14 25s14-14.5 14-25C30 7.3 23.7 1 16 1z" fill="white"/>';
+    html += '<path d="M16 3C9.4 3 4 8.4 4 15c0 9.5 12 22 12 22s12-12.5 12-22C28 8.4 22.6 3 16 3z" fill="' + fill + '"/>';
+    html += '<circle cx="16" cy="14" r="9" fill="white" opacity="0.95"/>';
+    html += '<text x="16" y="14.5" text-anchor="middle" dominant-baseline="central" font-size="' + numFs + '" font-weight="900" font-family="Calibri,Arial,sans-serif" fill="' + fill + '">' + d.defic.num + '</text>';
     html += '</svg></div>';
   });
   layer.innerHTML = html;
