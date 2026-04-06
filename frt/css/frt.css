@@ -88,10 +88,7 @@ body.project-locked .dv-canvas-area{cursor:default!important;}
 #review-banner{display:none;padding:10px 18px;background:#E3F2FD;border-bottom:2px solid #1565C0;color:#0D47A1;font-size:calc(13px + var(--ts));font-weight:600;font-family:Calibri,sans-serif;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;}
 @keyframes rvPulse{0%,100%{opacity:1;}50%{opacity:.7;}}
 body.dark-mode #review-banner{background:#0a1929;border-color:#1565C0;color:#90CAF9;}
-body.dark-mode /* Blue left-border on changed fields */
-body.dark-mode /* Change indicator dot on nav tabs */
-/* Header button */
-/* View Changes modal */
+/* ── CSS Variables ── */
 :root{--red:#C0392B;--red-dark:#96281B;--red-light:#FADBD8;--slate:#1C2333;--slate-mid:#2C3E50;--arencon:#9C2742;--arencon-mid:#7d1f35;--steel:#4A5568;--silver:#A0AEC0;--smoke:#F7F8FA;--border:#DDE1E7;--yes:#1A7A4A;--yes-bg:#D4EDDA;--no:#C0392B;--no-bg:#FADBD8;--na:#5A6473;--na-bg:#E8ECF0;--warn:#B7791F;--warn-bg:#FEFCBF;--iar:#FF69B4;--shadow:0 2px 12px rgba(28,35,51,.10);--shadow-lg:0 8px 32px rgba(28,35,51,.14);--surface:#ffffff;--text:#1C2333;--card:#ffffff;--fg:#1C2333;--bg:#F7F8FA;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);font-size:calc(15px + var(--ts));overflow-x:hidden;-webkit-overflow-scrolling:touch;}
