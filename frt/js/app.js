@@ -12,7 +12,7 @@ import { SyncEngine } from './data/sync.js';
 import { R2 } from './data/r2.js';
 import { Auth } from './shared/auth.js';
 import { toast } from './shared/toast.js';
-import { showDialog, showConfirm, showAlert } from './shared/dialogs.js';
+import { showDialog, showConfirm, showAlert, showPrompt } from './shared/dialogs.js';
 import { initProjectInfo } from './ui/projectInfo.js';
 import { initDeficiencies } from './ui/deficiencies.js';
 import { initDrawings } from './ui/drawings.js';

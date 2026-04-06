@@ -12,7 +12,7 @@
 
 import { Model } from '../data/model.js';
 import { toast } from '../shared/toast.js';
-import { showConfirm } from '../shared/dialogs.js';
+import { showConfirm, showPrompt } from '../shared/dialogs.js';
 
 // ── Helpers ──────────────────────────────────────────────
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -208,12 +208,13 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'add-contractor') {
-    var name = prompt('Contractor name:');
-    if (name && name.trim()) {
-      Model.addContractor(name.trim());
-      initDeficiencies.render();
-      toast('Added: ' + name.trim());
-    }
+    showPrompt('Add Contractor', 'Contractor name').then(function(name) {
+      if (name) {
+        Model.addContractor(name);
+        initDeficiencies.render();
+        toast('Added: ' + name);
+      }
+    });
   }
 
   if (action === 'add-defic') {
