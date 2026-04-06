@@ -2,8 +2,8 @@
  * ARENCON FRT v2 — Photos UI
  * ═══════════════════════════
  * 
- * Read-only site photos summary. No thumbnails yet (need IDB/R2 blobs).
- * Shows count and metadata for each photo.
+ * Site photos summary. Shows count and basic info.
+ * No thumbnails yet (Phase 2 — requires IDB/R2 blob loading).
  */
 
 import { Model } from '../data/model.js';
@@ -14,10 +14,13 @@ export var initPhotos = {
   render: function() {
     var container = document.getElementById('photos-container');
     if (!container) return;
-    var photos = Model.getSitePhotos();
+    var proj = Model.getProject();
+    if (!proj) { container.innerHTML = ''; return; }
 
-    // Also count deficiency photos
-    var allDefics = Model.getAllDeficiencies();
+    var sitePhotos = proj.photos || [];
+    var allDefics = Model.getAllDeficiencies(proj);
+
+    // Count deficiency photos
     var deficPhotoCount = 0;
     allDefics.forEach(function(d) {
       (d.defic.observations || []).forEach(function(o) {
@@ -26,41 +29,46 @@ export var initPhotos = {
       deficPhotoCount += (d.defic.photos || []).length;
     });
 
-    if (!photos.length && deficPhotoCount === 0) {
-      container.innerHTML = '<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:12px;">No photos in project.</p>';
+    if (!sitePhotos.length && !deficPhotoCount) {
+      container.innerHTML = '<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:12px;">No photos in this project.</p>';
       return;
     }
 
-    var html = '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">';
+    var html = '<div style="padding:8px 0;">';
 
-    // Site photos stat
-    html += '<div style="background:var(--smoke);border-radius:8px;padding:12px 20px;text-align:center;">';
-    html += '<div style="font-size:24px;font-weight:500;color:var(--fg);">' + photos.length + '</div>';
-    html += '<div style="font-size:12px;color:var(--silver);text-transform:uppercase;letter-spacing:.5px;">Site Photos</div>';
+    // Summary stats
+    html += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">';
+    if (sitePhotos.length) {
+      html += '<div style="background:var(--smoke);border-radius:8px;padding:12px 18px;flex:1;min-width:120px;">';
+      html += '<div style="font-size:24px;font-weight:700;color:var(--fg);">' + sitePhotos.length + '</div>';
+      html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Site Photos</div>';
+      html += '</div>';
+    }
+    if (deficPhotoCount) {
+      html += '<div style="background:var(--smoke);border-radius:8px;padding:12px 18px;flex:1;min-width:120px;">';
+      html += '<div style="font-size:24px;font-weight:700;color:var(--fg);">' + deficPhotoCount + '</div>';
+      html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Deficiency Photos</div>';
+      html += '</div>';
+    }
     html += '</div>';
 
-    // Deficiency photos stat
-    html += '<div style="background:var(--smoke);border-radius:8px;padding:12px 20px;text-align:center;">';
-    html += '<div style="font-size:24px;font-weight:500;color:var(--fg);">' + deficPhotoCount + '</div>';
-    html += '<div style="font-size:12px;color:var(--silver);text-transform:uppercase;letter-spacing:.5px;">Deficiency Photos</div>';
-    html += '</div>';
-
-    html += '</div>';
-
-    // Photo list (metadata only — no thumbnails until IDB/R2 integration)
-    if (photos.length) {
-      html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;margin-bottom:8px;">Site Photo Records</div>';
-      photos.forEach(function(p, i) {
+    // Site photo list (names only, no thumbnails)
+    if (sitePhotos.length) {
+      html += '<div style="font-weight:700;font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:8px;">Site Photos</div>';
+      sitePhotos.forEach(function(p, i) {
         var hasR2 = p.r2Key || p.r2Url;
-        html += '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:calc(12px + var(--ts));display:flex;align-items:center;gap:8px;">';
+        html += '<div style="padding:6px 10px;border-bottom:1px solid var(--border);font-size:calc(12px + var(--ts));display:flex;align-items:center;gap:8px;">';
         html += '<span style="color:var(--silver);">' + (i + 1) + '.</span>';
-        html += '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(p.caption || p.id || 'Photo ' + (i + 1)) + '</span>';
-        if (hasR2) html += '<span style="font-size:10px;">\u2601\uFE0F</span>';
+        html += '<span style="flex:1;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(p.name || p.filename || 'Photo ' + (i + 1)) + '</span>';
+        if (p.caption) html += '<span style="color:var(--silver);font-size:calc(11px + var(--ts));">' + esc(p.caption) + '</span>';
+        if (hasR2) html += '<span style="font-size:9px;">\u2601\uFE0F</span>';
         html += '</div>';
       });
     }
 
+    html += '</div>';
     container.innerHTML = html;
+    console.log('[Photos] Site:', sitePhotos.length, '| Deficiency:', deficPhotoCount);
   }
 };
 
