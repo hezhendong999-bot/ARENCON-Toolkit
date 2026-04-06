@@ -65,6 +65,7 @@ function buildDeficCard(d, ctrId) {
     h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
   }
   // Delete deficiency
+  h += '<button data-action="reassign-defic" data-defic-id="' + esc(d.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(12px + var(--ts));padding:0 2px;" title="Move to another contractor">\u21C4</button>';
   h += '<button data-action="delete-defic" data-defic-id="' + esc(d.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(14px + var(--ts));padding:0 2px;margin-left:auto;" title="Delete deficiency">\uD83D\uDDD1</button>';
   h += '</div>';
 
@@ -162,17 +163,22 @@ function buildDeficCard(d, ctrId) {
   return h;
 }
 
+var _foldedGroups = {};
+
 // ── Group Builder ────────────────────────────────────────
 function buildGroup(ctrId, name, items, totalCount) {
   var countLabel = items.length + ' active';
   if (totalCount && totalCount > items.length) countLabel += ' / ' + totalCount + ' total';
+  var isFolded = _foldedGroups[ctrId || '__general__'];
+  var arrow = isFolded ? '\u25B6' : '\u25BC';
 
-  var h = '<div class="defic-group">';
-  h += '<div class="defic-group-header" style="background:#1C2333;color:white;padding:10px 16px;">';
-  h += '<span style="display:flex;align-items:center;gap:8px;">\u25BE \uD83D\uDC77 ' + esc(name) + '</span>';
+  var h = '<div class="defic-group" data-ctr-id="' + esc(ctrId || '__general__') + '">';
+  h += '<div class="defic-group-header" data-action="toggle-fold" data-ctr-id="' + esc(ctrId || '__general__') + '" style="background:#1C2333;color:white;padding:10px 16px;cursor:pointer;user-select:none;">';
+  h += '<span style="display:flex;align-items:center;gap:8px;"><span class="ctr-fold-arrow" style="font-size:12px;width:14px;display:inline-block;">' + arrow + '</span> \uD83D\uDC77 ' + esc(name) + '</span>';
   h += '<span style="font-size:calc(12px + var(--ts));opacity:.7;">' + countLabel + '</span>';
   h += '</div>';
 
+  h += '<div class="defic-group-body" style="' + (isFolded ? 'display:none;' : '') + '">';
   if (!items.length) {
     h += '<div class="defic-group-empty">No active deficiencies for this contractor.</div>';
   }
@@ -180,7 +186,7 @@ function buildGroup(ctrId, name, items, totalCount) {
 
   h += '<div class="add-defic-btn-wrap">';
   h += '<button class="btn btn-outline btn-sm" data-action="add-defic" data-ctr-id="' + esc(ctrId || '') + '">+ Add Deficiency</button>';
-  h += '</div></div>';
+  h += '</div></div></div>';
   return h;
 }
 
@@ -363,6 +369,22 @@ document.addEventListener('click', function(e) {
     e.target = btn;
   }
 
+  if (action === 'toggle-fold') {
+    var ctrId = e.target.getAttribute('data-ctr-id');
+    if (!ctrId) { var el2 = e.target.closest('[data-ctr-id]'); if (el2) ctrId = el2.getAttribute('data-ctr-id'); }
+    if (ctrId) {
+      _foldedGroups[ctrId] = !_foldedGroups[ctrId];
+      var group = document.querySelector('.defic-group[data-ctr-id="' + ctrId + '"]');
+      if (group) {
+        var body = group.querySelector('.defic-group-body');
+        var arrow = group.querySelector('.ctr-fold-arrow');
+        if (body) body.style.display = _foldedGroups[ctrId] ? 'none' : '';
+        if (arrow) arrow.textContent = _foldedGroups[ctrId] ? '\u25B6' : '\u25BC';
+      }
+    }
+    return;
+  }
+
   if (action === 'add-contractor') {
     var inp = document.getElementById('new-contractor-input');
     var name = inp ? inp.value.trim() : '';
@@ -500,6 +522,45 @@ document.addEventListener('click', function(e) {
         }
       });
     }
+  }
+
+  if (action === 'reassign-defic') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    if (!deficId) { var btn6 = e.target.closest('[data-defic-id]'); if (btn6) deficId = btn6.getAttribute('data-defic-id'); }
+    if (!deficId) return;
+    var proj = Model.getProject();
+    if (!proj) return;
+    var f = Model.findDeficiency(deficId);
+    if (!f) return;
+    var curCtrId = f.contractor ? f.contractor.id : null;
+    // Build contractor picker
+    var opts = '<option value="">Site General</option>';
+    (proj.contractors || []).forEach(function(c) {
+      if (c.id !== curCtrId) {
+        opts += '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>';
+      }
+    });
+    // Build custom overlay
+    var h2 = '<div id="reassign-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';
+    h2 += '<div style="background:white;border-radius:12px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:280px;max-width:380px;">';
+    h2 += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Move #' + f.defic.num + ' to:</div>';
+    h2 += '<select id="reassign-sel" style="width:100%;padding:8px;border:1.5px solid #DDE1E7;border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;margin-bottom:12px;">' + opts + '</select>';
+    h2 += '<div style="display:flex;gap:8px;">';
+    h2 += '<button id="reassign-ok" style="flex:1;padding:8px;background:#F59E0B;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Move</button>';
+    h2 += '<button id="reassign-cancel" style="padding:8px 16px;background:#f5f5f5;color:#4A5568;border:1px solid #DDE1E7;border-radius:6px;font-size:14px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
+    h2 += '</div></div></div>';
+    var d2 = document.createElement('div'); d2.innerHTML = h2;
+    var ov2 = d2.firstChild; document.body.appendChild(ov2);
+
+    ov2.querySelector('#reassign-ok').addEventListener('click', function() {
+      var newCtrId = ov2.querySelector('#reassign-sel').value || null;
+      Model.reassignDeficiency(deficId, newCtrId);
+      ov2.remove();
+      initDeficiencies.render();
+      toast('Deficiency moved');
+    });
+    ov2.querySelector('#reassign-cancel').addEventListener('click', function() { ov2.remove(); });
+    ov2.addEventListener('click', function(ev) { if (ev.target === ov2) ov2.remove(); });
   }
 
   if (action === 'toggle-iar') {

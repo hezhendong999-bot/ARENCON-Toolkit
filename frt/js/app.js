@@ -213,7 +213,170 @@ function handleKeyboard(e) {
   }
 }
 
-// ── beforeunload ─────────────────────────────────────────
+// ── Inspector System ─────────────────────────────────────
+var LS_INSPECTOR = 'ARENCON_FR_Inspector';
+var LS_INSPECTOR_HISTORY = 'ARENCON_FR_InspectorHist';
+
+function getInspectorName() { return localStorage.getItem(LS_INSPECTOR) || ''; }
+
+function _updateInspectorChip() {
+  var name = getInspectorName();
+  var chip = document.getElementById('inspector-chip-name');
+  if (chip) chip.textContent = name || 'Set Name';
+}
+
+function _showInspectorModal() {
+  var current = getInspectorName();
+  var histRaw = localStorage.getItem(LS_INSPECTOR_HISTORY) || '[]';
+  var history = [];
+  try { history = JSON.parse(histRaw); } catch(e) {}
+
+  var h = '<div id="insp-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';
+  h += '<div style="background:white;border-radius:12px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:300px;max-width:380px;width:90%;">';
+  h += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Inspector</div>';
+  h += '<input type="text" id="insp-input" value="' + (current || '').replace(/"/g,'&quot;') + '" placeholder="Your name" style="width:100%;padding:8px;border:1.5px solid #DDE1E7;border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;box-sizing:border-box;margin-bottom:8px;">';
+  if (history.length) {
+    h += '<div style="font-size:11px;font-weight:600;color:#718096;margin-bottom:4px;">Recent:</div>';
+    history.forEach(function(n) {
+      h += '<div class="insp-hist-item" data-name="' + n.replace(/"/g,'&quot;') + '" style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:4px;cursor:pointer;margin-bottom:2px;">';
+      h += '<span style="flex:1;font-size:13px;">' + n + '</span>';
+      h += '<button class="insp-hist-del" data-name="' + n.replace(/"/g,'&quot;') + '" style="border:none;background:none;color:#A0AEC0;cursor:pointer;font-size:14px;padding:0;">✕</button>';
+      h += '</div>';
+    });
+  }
+  h += '<div style="display:flex;gap:8px;margin-top:12px;">';
+  h += '<button id="insp-ok" style="flex:1;padding:8px;background:#1A7A4A;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Apply</button>';
+  h += '<button id="insp-cancel" style="padding:8px 16px;background:#f5f5f5;color:#4A5568;border:1px solid #DDE1E7;border-radius:6px;font-size:14px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
+  h += '</div></div></div>';
+
+  var div = document.createElement('div');
+  div.innerHTML = h;
+  var overlay = div.firstChild;
+  document.body.appendChild(overlay);
+
+  var input = overlay.querySelector('#insp-input');
+  function _applyInspector() {
+    var name = input.value.trim();
+    if (name) {
+      localStorage.setItem(LS_INSPECTOR, name);
+      var hist = [];
+      try { hist = JSON.parse(localStorage.getItem(LS_INSPECTOR_HISTORY) || '[]'); } catch(e) {}
+      hist = hist.filter(function(n) { return n !== name; });
+      hist.unshift(name);
+      if (hist.length > 5) hist = hist.slice(0, 5);
+      localStorage.setItem(LS_INSPECTOR_HISTORY, JSON.stringify(hist));
+      Model.updateField('inspectorName', name);
+    }
+    _updateInspectorChip();
+    overlay.remove();
+  }
+  overlay.querySelector('#insp-ok').addEventListener('click', _applyInspector);
+  overlay.querySelector('#insp-cancel').addEventListener('click', function() { overlay.remove(); });
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  input.addEventListener('keydown', function(e) { if (e.key === 'Enter') _applyInspector(); if (e.key === 'Escape') overlay.remove(); });
+  overlay.querySelectorAll('.insp-hist-item').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      if (e.target.classList.contains('insp-hist-del')) return;
+      input.value = el.getAttribute('data-name');
+    });
+  });
+  overlay.querySelectorAll('.insp-hist-del').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var name = el.getAttribute('data-name');
+      var hist = [];
+      try { hist = JSON.parse(localStorage.getItem(LS_INSPECTOR_HISTORY) || '[]'); } catch(e) {}
+      hist = hist.filter(function(n) { return n !== name; });
+      localStorage.setItem(LS_INSPECTOR_HISTORY, JSON.stringify(hist));
+      overlay.remove();
+      _showInspectorModal();
+    });
+  });
+  input.focus();
+  input.select();
+}
+
+// ── FRT Instance Management ─────────────────────────────
+function _updateFrtInstanceIndicator() {
+  var proj = Model.getProject();
+  if (!proj) return;
+  var inst = proj.currentFrtInstance || 1;
+  var badge = document.getElementById('pb-inst');
+  if (badge) {
+    badge.textContent = 'FRT #' + inst;
+    badge.style.display = '';
+  }
+}
+
+function _showNewInstanceDialog() {
+  var proj = Model.getProject();
+  if (!proj) return;
+  var cur = proj.currentFrtInstance || 1;
+  var next = cur + 1;
+  showConfirm('New FRT Instance',
+    'Create FRT #' + next + '? This starts a new visit. Existing deficiencies carry forward. New deficiencies will be marked as noted on FRT #' + next + '.'
+  ).then(function(yes) {
+    if (yes) {
+      proj.currentFrtInstance = next;
+      proj.info.visitDate = new Date().toISOString().split('T')[0];
+      Model.saveNow();
+      _updateFrtInstanceIndicator();
+      toast('FRT #' + next + ' created');
+    }
+  });
+}
+
+// ── Project Rename ──────────────────────────────────────
+function _showRenameDialog() {
+  var proj = Model.getProject();
+  if (!proj) return;
+  var current = proj.info.customFilename || Model.getSmartFilename();
+  showPrompt('Rename Project', 'Custom filename:', current).then(function(name) {
+    if (name !== null && name !== undefined) {
+      proj.info.customFilename = name.trim();
+      Model.saveNow();
+      _updateHeaderForProject();
+      toast('Renamed');
+    }
+  });
+}
+
+// ── Leave Dialog (3-button, Hub mode) ───────────────────
+function _showLeaveDialog(destUrl) {
+  var h = '<div id="leave-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';
+  h += '<div style="background:white;border-radius:12px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:300px;max-width:380px;width:90%;">';
+  h += '<div style="text-align:center;margin-bottom:16px;">';
+  h += '<div style="font-size:32px;margin-bottom:8px;">\uD83D\uDCBE</div>';
+  h += '<div style="font-size:14px;color:#718096;">You have unsaved changes.</div>';
+  h += '</div>';
+  h += '<div style="display:flex;flex-direction:column;gap:8px;">';
+  h += '<button id="leave-save" style="width:100%;padding:11px;background:#1A7A4A;color:white;border:none;border-radius:8px;font-size:calc(13px + var(--ts));font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Save & Leave</button>';
+  h += '<button id="leave-nosave" style="width:100%;padding:11px;background:#f9f9f9;color:#2C3E50;border:1.5px solid #CBD5E0;border-radius:8px;font-size:calc(13px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;">Leave without saving</button>';
+  h += '<button id="leave-cancel" style="width:100%;padding:11px;background:white;color:#9C2742;border:1.5px solid #9C2742;border-radius:8px;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;">Cancel \u2014 go back</button>';
+  h += '</div></div></div>';
+
+  var div = document.createElement('div');
+  div.innerHTML = h;
+  var overlay = div.firstChild;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#leave-save').addEventListener('click', function() {
+    Model.saveNow().then(function() {
+      if (_hubMode && _projectId) return SyncEngine.push(_projectId);
+    }).then(function() {
+      overlay.remove();
+      window.location.href = destUrl;
+    });
+  });
+  overlay.querySelector('#leave-nosave').addEventListener('click', function() {
+    overlay.remove();
+    window.location.href = destUrl;
+  });
+  overlay.querySelector('#leave-cancel').addEventListener('click', function() {
+    overlay.remove();
+  });
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+}
 function handleBeforeUnload(e) {
   var params = new URLSearchParams(window.location.search);
   if (params.get('project')) return;
@@ -271,6 +434,17 @@ function _updateHeaderForProject() {
 
   // Update page title
   document.title = 'ARENCON \u2014 ' + Model.getSmartFilename();
+
+  // Update inspector chip
+  _updateInspectorChip();
+  // Set inspector from project if available
+  if (proj.info && proj.info.inspectorName && !getInspectorName()) {
+    localStorage.setItem(LS_INSPECTOR, proj.info.inspectorName);
+    _updateInspectorChip();
+  }
+
+  // Update FRT instance indicator
+  _updateFrtInstanceIndicator();
 }
 
 // ── Cloud Sync (Hub Mode) ────────────────────────────────
@@ -405,6 +579,45 @@ function wireEvents() {
   document.addEventListener('click', function() {
     var m = document.getElementById('more-menu');
     if (m) m.classList.remove('open');
+  });
+
+  // Inspector chip
+  var inspChip = document.getElementById('inspector-chip');
+  if (inspChip) inspChip.addEventListener('click', _showInspectorModal);
+
+  // FRT Instance badge (click to create new)
+  var instBadge = document.getElementById('pb-inst');
+  if (instBadge) instBadge.addEventListener('click', _showNewInstanceDialog);
+  instBadge && (instBadge.style.cursor = 'pointer');
+
+  // Project filename rename
+  var pbFn = document.getElementById('pb-filename');
+  if (pbFn) {
+    pbFn.style.cursor = 'pointer';
+    pbFn.title = 'Click to rename project';
+    pbFn.addEventListener('click', _showRenameDialog);
+  }
+
+  // Back button with leave dialog
+  var backBtn = document.getElementById('back-btn');
+  if (backBtn) backBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    var logoLink = document.getElementById('logo-link');
+    var destUrl = logoLink ? logoLink.href : '../index.html';
+    if (_hubMode && Model.hasUnsavedChanges()) {
+      _showLeaveDialog(destUrl);
+    } else {
+      window.location.href = destUrl;
+    }
+  });
+
+  // Logo click with leave dialog in Hub mode
+  var logoLink = document.getElementById('logo-link');
+  if (logoLink) logoLink.addEventListener('click', function(e) {
+    if (_hubMode && Model.hasUnsavedChanges()) {
+      e.preventDefault();
+      _showLeaveDialog(logoLink.href);
+    }
   });
 
   // More dropdown button

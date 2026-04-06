@@ -457,6 +457,28 @@ export var Model = {
     return removed;
   },
 
+  reassignDeficiency: function(deficId, newCtrId) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return false;
+    var defic = f.defic;
+    // Remove from current location
+    f.arr.splice(f.idx, 1);
+    // Add to new contractor (or general if null)
+    if (newCtrId) {
+      var ctr = _project.contractors.find(function(c) { return c.id === newCtrId; });
+      if (!ctr) return false;
+      if (!ctr.deficiencies) ctr.deficiencies = [];
+      ctr.deficiencies.push(defic);
+    } else {
+      if (!_project.generalDeficiencies) _project.generalDeficiencies = [];
+      _project.generalDeficiencies.push(defic);
+    }
+    _dirty = true;
+    _queueSave();
+    this._notify('deficiency', { action: 'reassign', deficId: deficId, newCtrId: newCtrId });
+    return true;
+  },
+
   getAllDeficiencies: function(proj) {
     if (!proj) proj = _project;
     if (!proj) return [];
