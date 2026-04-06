@@ -1317,6 +1317,34 @@ body.lb-open{overflow:hidden;}
 .pin-marker.dragging{opacity:.6;z-index:100;pointer-events:none;}
 .dv-canvas-area.pin-drag-mode{cursor:crosshair!important;}
 
+/* ═══ TASKS TABLE — STATUS/PRIORITY BADGES + JUMP ═══ */
+.tt-th{padding:8px 10px;text-align:left;cursor:pointer;white-space:nowrap;user-select:none;color:var(--steel);font-weight:700;font-size:calc(12px + var(--ts));}
+.tt-th:hover{color:var(--fg);}
+#tasks-table tbody tr{border-bottom:1px solid var(--border);}
+#tasks-table tbody tr:hover{background:rgba(156,39,66,.04);}
+.tt-status,.tt-priority{display:inline-block;padding:2px 8px;border-radius:4px;font-size:calc(11px + var(--ts));font-weight:700;white-space:nowrap;}
+.tt-status.outstanding{background:#FDEDEC;color:#C0392B;}
+.tt-status.closed{background:#EAFAF1;color:#1A7A4A;}
+.tt-status.iar{background:#FFF0F6;color:#FF69B4;}
+.tt-priority.high{background:#FDEDEC;color:#C0392B;}
+.tt-priority.low{background:#FEF9E7;color:#E67E22;}
+.tt-priority.general{background:#EAFAF1;color:#1A7A4A;}
+.tt-jump{background:none;border:1.5px solid var(--border);cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 8px;border-radius:4px;color:var(--arencon);font-family:Calibri,sans-serif;font-weight:600;}
+.tt-jump:hover{background:rgba(156,39,66,.1);}
+body.dark-mode .tt-status.outstanding{background:#3a1515;color:#f07070;}
+body.dark-mode .tt-status.closed{background:#0d2a1a;color:#50c878;}
+body.dark-mode .tt-status.iar{background:#2a0a1a;color:#ff90c0;}
+body.dark-mode .tt-priority.high{background:#3a1515;color:#f07070;}
+body.dark-mode .tt-priority.low{background:#2a1e00;color:#f0a030;}
+body.dark-mode .tt-priority.general{background:#0d2a1a;color:#50c878;}
+body.dark-mode #tasks-search,body.dark-mode #tasks-filter-status,body.dark-mode #tasks-filter-priority,body.dark-mode #tasks-filter-contractor{background:#242c3a!important;border-color:#4a5570!important;color:#d4d8e8!important;}
+
+/* ═══ HEADER BUTTON AUTO-SIZING ═══ */
+.hdr-btn,.mobile-menu-btn,#dark-toggle{line-height:1;min-height:0;height:auto;}
+@media(max-width:1200px){.hdr-btn{padding:4px 10px;font-size:calc(11px + var(--ts));}}
+@media(max-width:900px){.hdr-btn{padding:4px 8px;font-size:calc(11px + var(--ts));}.hdr-btn span{display:none;}}
+@media(pointer:coarse){.hdr-btn,.mobile-menu-btn,#dark-toggle{min-height:38px;padding:6px 10px!important;}}
+
 /* ═══ AI WRITING ASSISTANT ═══ */
 .ai-panel-overlay{position:fixed;inset:0;z-index:8999;background:rgba(0,0,0,.3);display:none;opacity:0;transition:opacity .2s;}
 .ai-panel-overlay.open{display:block;opacity:1;}

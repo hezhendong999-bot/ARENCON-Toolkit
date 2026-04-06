@@ -1,10 +1,10 @@
 /**
  * ARENCON FRT v2 — All Deficiencies (Pins/Tasks) UI
- * Sortable table with status badges, IAR, pin indicators, clickable rows.
+ * Matches v1 layout: search + status/priority/contractor filters,
+ * table with #, Drawing, Description, Contractor, Status, Priority, Pin, Jump columns.
  */
 
 import { Model } from '../data/model.js';
-import { toast } from '../shared/toast.js';
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function deficDesc(d) {
@@ -15,7 +15,27 @@ function deficDesc(d) {
 
 var _sortField = 'num';
 var _sortDir = 'asc';
-var _searchQuery = '';
+
+function _getFilters() {
+  return {
+    search: ((document.getElementById('tasks-search') || {}).value || '').toLowerCase().trim(),
+    status: ((document.getElementById('tasks-filter-status') || {}).value) || 'all',
+    priority: ((document.getElementById('tasks-filter-priority') || {}).value) || 'all',
+    contractor: ((document.getElementById('tasks-filter-contractor') || {}).value) || 'all'
+  };
+}
+
+function _getDrawingName(drawingId) {
+  if (!drawingId) return '';
+  var drawings = Model.getDrawings();
+  for (var i = 0; i < drawings.length; i++) {
+    if (drawings[i].id === drawingId) {
+      var n = drawings[i].name || '';
+      return n.length > 20 ? n.substring(0, 20) + '\u2026' : n;
+    }
+  }
+  return '';
+}
 
 export var initPins = {
   render: function() {
@@ -30,14 +50,29 @@ export var initPins = {
       return;
     }
 
-    // Filter by search
-    var filtered = all;
-    if (_searchQuery) {
-      filtered = all.filter(function(d) {
-        var text = ((d.defic.num || '') + ' ' + deficDesc(d.defic) + ' ' + (d.contractorName || '')).toLowerCase();
-        return text.indexOf(_searchQuery) >= 0;
-      });
-    }
+    var f = _getFilters();
+
+    // Build contractor dropdown options
+    var ctrSet = {};
+    all.forEach(function(d) { ctrSet[d.contractorName || 'Site General'] = true; });
+    var ctrOpts = '<option value="all">All Contractors</option>';
+    Object.keys(ctrSet).sort().forEach(function(n) { ctrOpts += '<option value="' + esc(n) + '"' + (f.contractor === n ? ' selected' : '') + '>' + esc(n) + '</option>'; });
+
+    // Filter
+    var filtered = all.filter(function(d) {
+      var dd = d.defic;
+      var isClosed = dd.status === 'closed' || dd.status === 'Addressed & Closed';
+      if (f.status === 'Outstanding' && (isClosed || dd.iar)) return false;
+      if (f.status === 'Closed' && !isClosed) return false;
+      if (f.status === 'IAR' && !dd.iar) return false;
+      if (f.priority !== 'all' && (dd.priority || 'general') !== f.priority) return false;
+      if (f.contractor !== 'all' && (d.contractorName || 'Site General') !== f.contractor) return false;
+      if (f.search) {
+        var text = ((dd.num || '') + ' ' + deficDesc(dd) + ' ' + (d.contractorName || '')).toLowerCase();
+        if (text.indexOf(f.search) < 0) return false;
+      }
+      return true;
+    });
 
     // Sort
     filtered.sort(function(a, b) {
@@ -46,46 +81,62 @@ export var initPins = {
       else if (_sortField === 'status') { av = a.defic.status || ''; bv = b.defic.status || ''; }
       else if (_sortField === 'priority') { av = a.defic.priority || ''; bv = b.defic.priority || ''; }
       else if (_sortField === 'contractor') { av = a.contractorName || ''; bv = b.contractorName || ''; }
+      else if (_sortField === 'drawing') { av = _getDrawingName(a.defic.drawingId); bv = _getDrawingName(b.defic.drawingId); }
       else { av = deficDesc(a.defic); bv = deficDesc(b.defic); }
       if (typeof av === 'number') return _sortDir === 'asc' ? av - bv : bv - av;
       return _sortDir === 'asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
     });
 
     var arrow = _sortDir === 'asc' ? ' \u25B4' : ' \u25BE';
-    function thSort(field, label) {
-      return '<th data-sort="' + field + '" style="cursor:pointer;user-select:none;text-align:left;">' + label + (_sortField === field ? arrow : '') + '</th>';
+    function th(field, label) {
+      return '<th class="tt-th" data-sort="' + field + '">' + label + (_sortField === field ? arrow : '') + '</th>';
     }
 
-    var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">';
-    h += '<div style="font-size:calc(12px + var(--ts));color:var(--silver);">' + all.length + ' deficiencies' + (filtered.length !== all.length ? ' (' + filtered.length + ' shown)' : '') + '</div>';
-    h += '<div style="flex:1;"></div>';
-    h += '<input type="text" id="pins-search" placeholder="\uD83D\uDD0D Search..." value="' + esc(_searchQuery) + '" style="max-width:200px;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));background:var(--smoke);color:var(--fg);">';
+    // Filter bar (matches v1)
+    var h = '<div style="padding:10px 14px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+    h += '<input id="tasks-search" type="text" placeholder="Search..." value="' + esc(f.search) + '" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));width:160px;background:var(--bg);color:var(--fg);">';
+    h += '<select id="tasks-filter-status" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg);color:var(--fg);">';
+    h += '<option value="all"' + (f.status === 'all' ? ' selected' : '') + '>All Status</option>';
+    h += '<option value="Outstanding"' + (f.status === 'Outstanding' ? ' selected' : '') + '>Outstanding</option>';
+    h += '<option value="Closed"' + (f.status === 'Closed' ? ' selected' : '') + '>Closed</option>';
+    h += '<option value="IAR"' + (f.status === 'IAR' ? ' selected' : '') + '>IAR</option></select>';
+    h += '<select id="tasks-filter-priority" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg);color:var(--fg);">';
+    h += '<option value="all"' + (f.priority === 'all' ? ' selected' : '') + '>All Priority</option>';
+    h += '<option value="high"' + (f.priority === 'high' ? ' selected' : '') + '>High</option>';
+    h += '<option value="low"' + (f.priority === 'low' ? ' selected' : '') + '>Low</option>';
+    h += '<option value="general"' + (f.priority === 'general' ? ' selected' : '') + '>General</option></select>';
+    h += '<select id="tasks-filter-contractor" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg);color:var(--fg);">' + ctrOpts + '</select>';
+    h += '<span style="font-size:calc(12px + var(--ts));color:var(--silver);">' + filtered.length + ' pin' + (filtered.length !== 1 ? 's' : '') + '</span>';
     h += '</div>';
 
+    // Table
     h += '<div style="overflow-x:auto;">';
-    h += '<table class="defic-summary-table">';
-    h += '<thead><tr>';
-    h += thSort('num', '#') + thSort('desc', 'Description') + thSort('contractor', 'Contractor') + thSort('status', 'Status') + thSort('priority', 'Priority') + '<th style="text-align:center;">IAR</th><th style="text-align:center;">Pin</th>';
+    h += '<table id="tasks-table" style="width:100%;border-collapse:collapse;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;">';
+    h += '<thead><tr style="background:var(--smoke);border-bottom:2px solid var(--border);">';
+    h += th('num', '#') + th('drawing', 'Drawing') + th('description', 'Description') + th('contractor', 'Contractor') + th('status', 'Status') + th('priority', 'Priority') + '<th class="tt-th">Pin</th><th class="tt-th"></th>';
     h += '</tr></thead><tbody>';
 
-    filtered.forEach(function(d, i) {
-      var desc = deficDesc(d.defic);
-      var trunc = desc.length > 60 ? desc.substring(0, 60) + '\u2026' : desc;
-      var isClosed = d.defic.status === 'closed' || d.defic.status === 'Addressed & Closed';
-      var statusColor = isClosed ? '#1A7A4A' : '#C0392B';
-      var statusText = isClosed ? 'Closed' : 'Outstanding';
-      var priColors = { high: '#C0392B', low: '#E67E22', general: '#1A7A4A' };
-      var pri = d.defic.priority || 'general';
-      var hasPinIcon = d.defic.drawingId && d.defic.pinX != null ? '\uD83D\uDCCC' : '';
-      var iarIcon = d.defic.iar ? '<span style="color:#E91E8C;font-weight:700;">IAR</span>' : '';
-      h += '<tr data-action="jump-defic" data-defic-id="' + esc(d.defic.id) + '" style="cursor:pointer;">';
-      h += '<td style="font-weight:700;color:#9C2742;">' + (d.defic.num || '?') + '</td>';
-      h += '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(trunc) + '</td>';
-      h += '<td>' + esc(d.contractorName) + '</td>';
-      h += '<td><span style="color:' + statusColor + ';font-weight:700;font-size:calc(11px + var(--ts));">' + statusText + '</span></td>';
-      h += '<td><span style="color:' + (priColors[pri] || '#4A5568') + ';font-weight:600;font-size:calc(11px + var(--ts));">' + esc(pri.charAt(0).toUpperCase() + pri.slice(1)) + '</span></td>';
-      h += '<td style="text-align:center;">' + iarIcon + '</td>';
-      h += '<td style="text-align:center;">' + hasPinIcon + '</td>';
+    filtered.forEach(function(d) {
+      var dd = d.defic;
+      var desc = deficDesc(dd);
+      var trunc = desc.length > 40 ? desc.substring(0, 40) + '\u2026' : desc;
+      var isClosed = dd.status === 'closed' || dd.status === 'Addressed & Closed';
+      var isIAR = dd.iar;
+      var statusText = isIAR ? 'IAR' : (isClosed ? 'Closed' : 'Outstanding');
+      var statusCls = isIAR ? 'iar' : (isClosed ? 'closed' : 'outstanding');
+      var priCls = dd.priority || 'general';
+      var dwgName = _getDrawingName(dd.drawingId);
+      var hasPinIcon = dd.drawingId && dd.pinX != null ? '\uD83D\uDCCC' : '\u2014';
+
+      h += '<tr data-defic-id="' + esc(dd.id) + '" style="border-bottom:1px solid var(--border);">';
+      h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">#' + (dd.num || '?') + '</td>';
+      h += '<td style="padding:8px 10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(11px + var(--ts));color:var(--steel);">' + esc(dwgName || '\u2014') + '</td>';
+      h += '<td style="padding:8px 10px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(trunc || '(no description)') + '</td>';
+      h += '<td style="padding:8px 10px;">' + esc(d.contractorName) + '</td>';
+      h += '<td style="padding:8px 10px;"><span class="tt-status ' + statusCls + '">' + statusText + '</span></td>';
+      h += '<td style="padding:8px 10px;"><span class="tt-priority ' + priCls + '">' + esc((dd.priority || 'general').charAt(0).toUpperCase() + (dd.priority || 'general').slice(1)) + '</span></td>';
+      h += '<td style="padding:8px 10px;text-align:center;">' + hasPinIcon + '</td>';
+      h += '<td style="padding:8px 10px;"><button class="tt-jump" data-action="jump-defic" data-defic-id="' + esc(dd.id) + '">Jump</button></td>';
       h += '</tr>';
     });
     h += '</tbody></table></div>';
@@ -95,9 +146,10 @@ export var initPins = {
 
 Model.onChange('project', function() { initPins.render(); });
 
-// Sort header click
+// Sort, filter, and jump handlers
 document.addEventListener('click', function(e) {
-  var th = e.target.closest && e.target.closest('[data-sort]');
+  // Sort header
+  var th = e.target.closest && e.target.closest('.tt-th[data-sort]');
   if (th && th.closest('#pins-container')) {
     var field = th.getAttribute('data-sort');
     if (_sortField === field) _sortDir = _sortDir === 'asc' ? 'desc' : 'asc';
@@ -106,16 +158,13 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // Row click — jump to deficiency tab
-  var row = e.target.closest && e.target.closest('[data-action="jump-defic"]');
-  if (row) {
-    var deficId = row.getAttribute('data-defic-id');
+  // Jump button
+  var jump = e.target.closest && e.target.closest('[data-action="jump-defic"]');
+  if (jump) {
+    var deficId = jump.getAttribute('data-defic-id');
     if (deficId) {
-      // Switch to deficiencies tab
-      var tabs = document.querySelectorAll('.nav-tab');
-      tabs.forEach(function(t) { t.classList.toggle('active', t.dataset.tab === 'deficiencies'); });
+      document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === 'deficiencies'); });
       document.querySelectorAll('.panel').forEach(function(p) { p.classList.toggle('active', p.id === 'panel-deficiencies'); });
-      // Try to scroll to the deficiency card
       setTimeout(function() {
         var card = document.querySelector('.defic-item[data-defic-id="' + deficId + '"]');
         if (card) {
@@ -125,16 +174,16 @@ document.addEventListener('click', function(e) {
         }
       }, 100);
     }
+    return;
   }
 });
 
-// Search input
+// Filter change handlers
 document.addEventListener('input', function(e) {
-  if (e.target.id === 'pins-search') {
-    _searchQuery = (e.target.value || '').trim().toLowerCase();
+  if (e.target.id === 'tasks-search') initPins.render();
+});
+document.addEventListener('change', function(e) {
+  if (e.target.id === 'tasks-filter-status' || e.target.id === 'tasks-filter-priority' || e.target.id === 'tasks-filter-contractor') {
     initPins.render();
-    // Restore focus after re-render
-    var inp = document.getElementById('pins-search');
-    if (inp) { inp.focus(); inp.selectionStart = inp.selectionEnd = inp.value.length; }
   }
 });
