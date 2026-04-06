@@ -8,10 +8,23 @@
 
 import { Auth } from '../shared/auth.js';
 import { Model } from './model.js';
+import { IDB } from './idb.js';
 
 var _instanceId = null;
 var _instanceNumber = 1;
 var _toolKey = 'frt';
+var _pendingSync = false;
+var _online = navigator.onLine;
+
+// Track online/offline
+window.addEventListener('online', function() {
+  _online = true;
+  if (_pendingSync) {
+    console.log('[Sync] Back online — flushing pending changes');
+    SyncEngine.flush();
+  }
+});
+window.addEventListener('offline', function() { _online = false; });
 
 export var SyncEngine = {
 
@@ -55,10 +68,24 @@ export var SyncEngine = {
 
   /**
    * Push current project state to Supabase.
+   * If offline, marks as pending and pushes on reconnect.
    */
   push: function(projectId) {
     var proj = Model.getProject();
     if (!proj) return Promise.resolve(null);
+
+    if (!_online) {
+      _pendingSync = true;
+      console.log('[Sync] Offline — queued for sync');
+      // Save to IDB sync queue as backup
+      IDB.put('syncQueue', {
+        id: 'pending_' + Date.now(),
+        projectId: projectId,
+        timestamp: new Date().toISOString(),
+        status: 'pending'
+      });
+      return Promise.resolve(null);
+    }
 
     // Strip binary data before pushing
     var data = JSON.parse(JSON.stringify(proj));
@@ -67,6 +94,21 @@ export var SyncEngine = {
       delete d.markupObjects; delete d.markupData;
     });
     (data.photos || []).forEach(function(p) { delete p.dataUrl; delete p.dataBlob; });
+    // Strip observation photo dataUrls (they're large base64 strings)
+    (data.contractors || []).forEach(function(c) {
+      (c.deficiencies || []).forEach(function(d) {
+        (d.observations || []).forEach(function(o) {
+          (o.photos || []).forEach(function(p) { delete p.dataUrl; delete p.dataBlob; });
+        });
+        (d.photos || []).forEach(function(p) { delete p.dataUrl; delete p.dataBlob; });
+      });
+    });
+    (data.generalDeficiencies || []).forEach(function(d) {
+      (d.observations || []).forEach(function(o) {
+        (o.photos || []).forEach(function(p) { delete p.dataUrl; delete p.dataBlob; });
+      });
+      (d.photos || []).forEach(function(p) { delete p.dataUrl; delete p.dataBlob; });
+    });
 
     var user = Auth.getUser();
     var payload = {
@@ -98,12 +140,16 @@ export var SyncEngine = {
       if (rows && rows.length > 0) {
         _instanceId = rows[0].id;
         _instanceNumber = rows[0].instance_number;
+        _pendingSync = false;
+        // Clear sync queue
+        IDB.clear('syncQueue');
         console.log('[Sync] Pushed to cloud — instance:', _instanceId);
         return rows[0];
       }
       return null;
     }).catch(function(err) {
       console.warn('[Sync] Push failed:', err.message);
+      _pendingSync = true;
       return null;
     });
   },
@@ -127,10 +173,20 @@ export var SyncEngine = {
   },
 
   startHeartbeat: function(intervalMs) {
-    console.log('[Sync] startHeartbeat() — stub');
+    var self = this;
+    this.stopHeartbeat();
+    this._heartbeat = setInterval(function() {
+      if (_online && _pendingSync) {
+        self.flush();
+      }
+    }, intervalMs || 30000);
+    console.log('[Sync] Heartbeat started');
   },
 
   stopHeartbeat: function() {
-    console.log('[Sync] stopHeartbeat() — stub');
-  }
+    if (this._heartbeat) { clearInterval(this._heartbeat); this._heartbeat = null; }
+  },
+
+  get isPending() { return _pendingSync; },
+  get isOnline() { return _online; }
 };
