@@ -50,7 +50,11 @@ function buildDeficCard(d, ctrId) {
     h += '<option value="' + p + '"' + (d.priority === p ? ' selected' : '') + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
   });
   h += '</select>';
-  if (d.drawingId) h += '<span style="font-size:calc(11px + var(--ts));color:var(--silver);">\uD83D\uDCCC</span>';
+  if (d.drawingId) {
+    h += '<button data-action="view-pin" data-defic-id="' + esc(d.id) + '" style="border:none;background:#2196F3;color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">\uD83D\uDCCC Pinned</button>';
+  } else {
+    h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
+  }
   h += '</div>';
 
   // Multiple observations
@@ -321,6 +325,16 @@ document.addEventListener('click', function(e) {
     var obsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
     Model.toggleObsAddressed(deficId, obsIdx);
     initDeficiencies.render();
+  }
+
+  if (action === 'place-pin' || action === 'view-pin') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    if (window._frtStartPinPlace) {
+      window._frtStartPinPlace(deficId);
+      if (action === 'place-pin') toast('Tap on the drawing to place pin');
+    } else {
+      toast('Open the Drawings tab first');
+    }
   }
 });
 

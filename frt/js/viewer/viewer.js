@@ -99,13 +99,12 @@ function _showDrawing(idx) {
   function _loadImg(url, label) {
     img.onload = function() {
       console.log('[Viewer] Image loaded (' + (label || 'unknown') + '): ' + img.naturalWidth + '×' + img.naturalHeight);
-      img.style.transform = 'translateZ(0)';
-      img.style.willChange = 'transform';
       _calcFitScale();
       _scale = _fitScale;
       _panX = 0;
       _panY = 0;
       _applyTransform();
+      _renderPins();
     };
     img.src = url;
     img.style.display = 'block';
@@ -144,11 +143,10 @@ function _showDrawing(idx) {
   overlay.classList.add('open');
   document.body.classList.add('dv-open');
 
-  // Pre-warm GPU compositing layer on the wrapper
+  // Position wrapper at initial state
   var wrap = document.getElementById('dv-img-wrap');
   if (wrap) {
     wrap.style.transform = 'translate3d(0,0,0) scale(1)';
-    wrap.style.willChange = 'transform';
   }
 }
 
@@ -364,3 +362,120 @@ document.addEventListener('touchend', function(e) {
     _singleTouchY = e.touches[0].clientY;
   }
 });
+
+// ── Pin Rendering ───────────────────────────────────────
+var _pinModeDeficId = null;
+
+function _renderPins() {
+  var layer = document.getElementById('dv-pins-layer');
+  if (!layer) return;
+  var drawings = _getDrawingsList();
+  if (_currentDrawingIdx < 0 || _currentDrawingIdx >= drawings.length) { layer.innerHTML = ''; return; }
+  var drawingId = drawings[_currentDrawingIdx].id;
+  var img = document.getElementById('dv-image');
+  if (!img || !img.naturalWidth) { layer.innerHTML = ''; return; }
+  var iw = img.naturalWidth;
+  var ih = img.naturalHeight;
+  var allDefics = Model.getAllDeficiencies();
+  var pins = allDefics.filter(function(d) { return d.defic.drawingId === drawingId && d.defic.pinX != null; });
+  var html = '';
+  pins.forEach(function(d) {
+    var px = d.defic.pinX * iw;
+    var py = d.defic.pinY * ih;
+    var isClosed = d.defic.status === 'closed' || d.defic.status === 'Addressed & Closed';
+    var color = isClosed ? '#1A7A4A' : '#C0392B';
+    var r = 14;
+    html += '<div class="pin-marker" data-defic-id="' + d.defic.id + '" style="left:' + (px - r) + 'px;top:' + (py - r) + 'px;width:' + (r * 2) + 'px;height:' + (r * 2) + 'px;">';
+    html += '<svg width="' + (r * 2) + '" height="' + (r * 2) + '" viewBox="0 0 28 28">';
+    html += '<circle cx="14" cy="14" r="13" fill="' + color + '" stroke="#fff" stroke-width="2"/>';
+    html += '<text x="14" y="14" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="Calibri,sans-serif" font-weight="700" font-size="13">' + (d.defic.num || '?') + '</text>';
+    html += '</svg></div>';
+  });
+  layer.innerHTML = html;
+}
+
+// ── Pin Placement Mode ──────────────────────────────────
+function _startPinPlace(deficId) {
+  _pinModeDeficId = deficId;
+  var area = document.getElementById('dv-canvas-area');
+  if (area) area.classList.add('pin-mode');
+  console.log('[Viewer] Pin placement mode — deficiency:', deficId);
+}
+
+function _handlePinDrop(e) {
+  if (!_pinModeDeficId) return;
+  var img = document.getElementById('dv-image');
+  var wrap = document.getElementById('dv-img-wrap');
+  if (!img || !wrap || !img.naturalWidth) return;
+
+  // Get click position relative to the image
+  var rect = wrap.getBoundingClientRect();
+  var clickX = (e.clientX - rect.left) / _scale;
+  var clickY = (e.clientY - rect.top) / _scale;
+  var pinX = Math.max(0, Math.min(1, clickX / img.naturalWidth));
+  var pinY = Math.max(0, Math.min(1, clickY / img.naturalHeight));
+
+  // Save pin to deficiency
+  var drawings = _getDrawingsList();
+  var drawingId = drawings[_currentDrawingIdx] ? drawings[_currentDrawingIdx].id : null;
+  if (!drawingId) return;
+
+  var f = Model.findDeficiency(_pinModeDeficId);
+  if (f) {
+    f.defic.drawingId = drawingId;
+    f.defic.pinX = pinX;
+    f.defic.pinY = pinY;
+    Model._notify('deficiency', { action: 'pin', deficId: _pinModeDeficId });
+    Model.saveNow();
+    console.log('[Viewer] Pin placed at', pinX.toFixed(3), pinY.toFixed(3), 'on drawing', drawingId);
+  }
+
+  // Exit pin mode
+  _pinModeDeficId = null;
+  var area = document.getElementById('dv-canvas-area');
+  if (area) area.classList.remove('pin-mode');
+  _renderPins();
+}
+
+// Pin drop click handler (only active in pin-mode)
+document.getElementById('dv-canvas-area').addEventListener('click', function(e) {
+  if (!_pinModeDeficId) return;
+  if (e.target.closest('.dv-toolbar') || e.target.closest('#dv-close')) return;
+  _handlePinDrop(e);
+});
+
+// Pin drop touch handler
+document.getElementById('dv-canvas-area').addEventListener('touchend', function(e) {
+  if (!_pinModeDeficId) return;
+  if (e.target.closest('.dv-toolbar') || e.target.closest('#dv-close')) return;
+  if (e.changedTouches && e.changedTouches.length) {
+    _handlePinDrop({ clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY });
+  }
+});
+
+// Pin marker click — select pin
+document.addEventListener('click', function(e) {
+  var marker = e.target.closest && e.target.closest('.pin-marker[data-defic-id]');
+  if (!marker) return;
+  var deficId = marker.getAttribute('data-defic-id');
+  // Toggle selection
+  document.querySelectorAll('.pin-marker.selected').forEach(function(m) { m.classList.remove('selected'); });
+  marker.classList.add('selected');
+  console.log('[Viewer] Pin selected:', deficId);
+});
+
+// Expose for deficiency cards
+window._frtStartPinPlace = function(deficId) {
+  // Open current drawing in viewer if not already open
+  var overlay = document.getElementById('drawing-viewer-overlay');
+  if (!overlay || !overlay.classList.contains('open')) {
+    // Open first drawing
+    var drawings = _getDrawingsList();
+    if (drawings.length) {
+      _showDrawing(0);
+      setTimeout(function() { _startPinPlace(deficId); }, 500);
+    }
+  } else {
+    _startPinPlace(deficId);
+  }
+};
