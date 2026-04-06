@@ -12,6 +12,7 @@ import { Model } from '../data/model.js';
 var _currentDrawingIdx = -1;
 var _drawings = [];
 var _scale = 1;
+var _fitScale = 1;
 var _panX = 0;
 var _panY = 0;
 var _dragging = false;
@@ -30,10 +31,22 @@ function _applyTransform() {
 }
 
 function _resetView() {
-  _scale = 1;
+  _scale = _fitScale;
   _panX = 0;
   _panY = 0;
   _applyTransform();
+}
+
+function _calcFitScale() {
+  var img = document.getElementById('dv-image');
+  var area = document.getElementById('dv-canvas-area');
+  if (!img || !area || !img.naturalWidth) { _fitScale = 1; return; }
+  var aw = area.clientWidth;
+  var ah = area.clientHeight;
+  var iw = img.naturalWidth;
+  var ih = img.naturalHeight;
+  _fitScale = Math.min(aw / iw, ah / ih);
+  if (_fitScale > 1) _fitScale = 1; // Don't upscale small images
 }
 
 function _showDrawing(idx) {
@@ -48,9 +61,16 @@ function _showDrawing(idx) {
 
   if (!overlay || !img) return;
 
-  // Set image source (R2 URL or dataUrl)
   var src = d.r2Url || d.dataUrl || '';
   if (src) {
+    // Calculate fit scale once image loads
+    img.onload = function() {
+      _calcFitScale();
+      _scale = _fitScale;
+      _panX = 0;
+      _panY = 0;
+      _applyTransform();
+    };
     img.src = src;
     img.style.display = 'block';
   } else {
@@ -59,7 +79,11 @@ function _showDrawing(idx) {
 
   if (title) title.textContent = d.name || 'Drawing ' + (idx + 1);
 
-  _resetView();
+  // Show overlay immediately, image will fit when loaded
+  _fitScale = 1;
+  _scale = 1;
+  _panX = 0;
+  _panY = 0;
   overlay.classList.add('open');
   document.body.classList.add('dv-open');
 }
@@ -120,7 +144,7 @@ document.addEventListener('mousedown', function(e) {
 
 document.addEventListener('mousemove', function(e) {
   if (!_dragging) return;
-  if (_scale <= 1) return; // No pan at fit
+  if (_scale <= _fitScale) return; // No pan at fit
   _panX += e.clientX - _lastX;
   _panY += e.clientY - _lastY;
   _lastX = e.clientX;
@@ -147,13 +171,13 @@ document.addEventListener('wheel', function(e) {
   var imgY = (my - _panY) / _scale;
 
   var delta = e.deltaY > 0 ? 0.9 : 1.1;
-  var newScale = Math.max(1, Math.min(8, _scale * delta));
+  var newScale = Math.max(_fitScale, Math.min(8, _scale * delta));
 
-  // At fit (scale 1), reset pan
-  if (newScale <= 1) {
+  // At fit scale, reset pan
+  if (newScale <= _fitScale) {
     _panX = 0;
     _panY = 0;
-    _scale = 1;
+    _scale = _fitScale;
     _applyTransform();
     return;
   }
@@ -173,6 +197,6 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'ArrowLeft') { initViewer.prev(); e.preventDefault(); }
   if (e.key === 'ArrowRight') { initViewer.next(); e.preventDefault(); }
   if (e.key === '+' || e.key === '=') { _scale = Math.min(8, _scale * 1.2); _applyTransform(); }
-  if (e.key === '-') { _scale = Math.max(1, _scale / 1.2); if (_scale <= 1) { _panX = 0; _panY = 0; } _applyTransform(); }
+  if (e.key === '-') { _scale = Math.max(_fitScale, _scale / 1.2); if (_scale <= _fitScale) { _panX = 0; _panY = 0; } _applyTransform(); }
   if (e.key === '0') { _resetView(); }
 });
