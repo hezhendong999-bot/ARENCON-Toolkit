@@ -155,6 +155,11 @@ function closeMobileMenu() {
   if (mm) mm.classList.remove('open');
 }
 
+function closeMoreMenu() {
+  var m = document.getElementById('more-menu');
+  if (m) m.classList.remove('open');
+}
+
 // ── JSON Load/Export Wiring ──────────────────────────────
 function wireLoadExport() {
   // Load button opens file picker
@@ -196,6 +201,161 @@ function wireLoadExport() {
   if (mobileLoad) mobileLoad.addEventListener('click', function() {
     document.getElementById('load-input').click();
     closeMobileMenu();
+  });
+
+  // Mobile Reset Project
+  var mobileReset = document.getElementById('mobile-reset-btn');
+  if (mobileReset) mobileReset.addEventListener('click', function() {
+    closeMobileMenu();
+    _resetProject();
+  });
+
+  // Mobile repair toggle
+  var mobileRepairToggle = document.getElementById('mobile-repair-toggle');
+  if (mobileRepairToggle) mobileRepairToggle.addEventListener('click', function() {
+    var tools = document.getElementById('mobile-repair-tools');
+    if (tools) tools.style.display = tools.style.display === 'none' ? '' : 'none';
+  });
+
+  // Mobile PDF
+  var mobilePdf = document.getElementById('mobile-pdf-btn');
+  if (mobilePdf) mobilePdf.addEventListener('click', function() {
+    closeMobileMenu(); _openPDFPicker();
+  });
+
+  // More menu buttons — delegate
+  var moreMenu = document.getElementById('more-menu');
+  if (moreMenu) {
+    moreMenu.querySelectorAll('button').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var text = btn.textContent || '';
+        closeMoreMenu();
+        if (text.indexOf('Re-upload') >= 0) _reuploadAll();
+        else if (text.indexOf('Reset Current') >= 0) _resetCurrentTab();
+        else if (text.indexOf('Reset Entire') >= 0) _resetProject();
+      });
+    });
+  }
+}
+
+// ── Reset Helpers ───────────────────────────────────────
+function _resetProject() {
+  showConfirm('Reset Project', 'This will delete ALL project data. Are you sure?').then(function(yes) {
+    if (yes) {
+      Model.newProject();
+      _updateHeaderForProject();
+      switchTab('info');
+      toast('Project reset');
+    }
+  });
+}
+
+function _resetCurrentTab() {
+  var activeTab = document.querySelector('.nav-tab.active');
+  var tab = activeTab ? activeTab.dataset.tab : 'info';
+  showConfirm('Reset Tab', 'Clear all data from the "' + tab + '" tab?').then(function(yes) {
+    if (yes) {
+      var proj = Model.getProject();
+      if (!proj) return;
+      if (tab === 'drawings') { proj.drawings = []; }
+      else if (tab === 'photos') { proj.photos = []; }
+      else if (tab === 'deficiencies') { proj.contractors = []; proj.generalDeficiencies = []; }
+      Model.saveNow();
+      Model._notify('project', proj);
+      toast(tab + ' data cleared');
+    }
+  });
+}
+
+function _reuploadAll() {
+  var pid = new URLSearchParams(window.location.search).get('project');
+  if (!pid) { toast('Only available in Hub mode'); return; }
+  var proj = Model.getProject();
+  if (!proj) return;
+  toast('Re-uploading all files to R2...');
+  var count = 0;
+  // Upload all drawings missing r2Url
+  var chain = Promise.resolve();
+  (proj.drawings || []).forEach(function(d) {
+    if (!d.r2Url) {
+      chain = chain.then(function() {
+        return IDB.get('drawingBlobs', d.id).then(function(rec) {
+          if (rec && rec.dataBlob) {
+            count++;
+            return R2.uploadDrawing(pid, d, rec.dataBlob);
+          }
+        });
+      });
+    }
+  });
+  // Upload all photos missing r2Url
+  function _walkPhotos(photos) {
+    (photos || []).forEach(function(ph) {
+      if (!ph.r2Url && ph.dataUrl) {
+        chain = chain.then(function() {
+          count++;
+          return R2.uploadPhoto(pid, ph, 'original');
+        });
+      }
+    });
+  }
+  _walkPhotos(proj.photos);
+  (proj.contractors || []).forEach(function(c) {
+    (c.deficiencies || []).forEach(function(d) {
+      (d.observations || []).forEach(function(o) { _walkPhotos(o.photos); });
+    });
+  });
+  chain.then(function() {
+    Model.saveNow();
+    toast('Re-upload complete: ' + count + ' files');
+  });
+}
+
+// ── QR Code ─────────────────────────────────────────────
+function _showQR() {
+  var url = window.location.href;
+  var h = '<div id="qr-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';
+  h += '<div style="background:white;border-radius:12px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;max-width:340px;">';
+  h += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Scan to Open</div>';
+  h += '<div id="qr-canvas" style="margin:0 auto 12px;"></div>';
+  h += '<div style="font-size:11px;color:#718096;word-break:break-all;margin-bottom:12px;">' + url + '</div>';
+  h += '<button id="qr-close" style="padding:8px 24px;background:#455A64;color:white;border:none;border-radius:6px;font-size:14px;cursor:pointer;font-family:Calibri,sans-serif;">Close</button>';
+  h += '</div></div>';
+  var div = document.createElement('div'); div.innerHTML = h;
+  var overlay = div.firstChild; document.body.appendChild(overlay);
+  overlay.querySelector('#qr-close').addEventListener('click', function() { overlay.remove(); });
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+
+  // Load qrcodejs if not already loaded
+  if (typeof QRCode !== 'undefined') {
+    new QRCode(overlay.querySelector('#qr-canvas'), { text: url, width: 200, height: 200 });
+  } else {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload = function() { new QRCode(overlay.querySelector('#qr-canvas'), { text: url, width: 200, height: 200 }); };
+    s.onerror = function() {
+      var c = overlay.querySelector('#qr-canvas');
+      if (c) c.innerHTML = '<div style="padding:20px;color:#C0392B;">QR library failed to load</div>';
+    };
+    document.head.appendChild(s);
+  }
+}
+
+// ── Storage Usage Display ───────────────────────────────
+function _updateStorageDisplay() {
+  if (!navigator.storage || !navigator.storage.estimate) return;
+  navigator.storage.estimate().then(function(est) {
+    var usedMB = Math.round((est.usage || 0) / 1024 / 1024);
+    var totalMB = Math.round((est.quota || 0) / 1024 / 1024);
+    var pct = totalMB > 0 ? Math.round(usedMB / totalMB * 100) : 0;
+    var fill = document.querySelector('.storage-bar-fill');
+    if (fill) fill.style.width = pct + '%';
+    var label = document.querySelector('.storage-label');
+    if (label) label.textContent = usedMB + 'MB';
+    var mobText = document.getElementById('mobile-storage-text');
+    if (mobText) mobText.textContent = usedMB + ' MB used / ' + totalMB + ' MB available';
+    var mobBar = document.getElementById('mobile-storage-bar');
+    if (mobBar) mobBar.style.width = pct + '%';
   });
 }
 
@@ -638,6 +798,12 @@ function wireEvents() {
   if (mobilePdfBtn) mobilePdfBtn.addEventListener('click', function() {
     closeMobileMenu(); _openPDFPicker();
   });
+
+  // QR Code button
+  var qrBtn = document.getElementById('btn-qr');
+  if (qrBtn) qrBtn.addEventListener('click', _showQR);
+  var mobileQr = document.getElementById('mobile-qr-btn');
+  if (mobileQr) mobileQr.addEventListener('click', function() { closeMobileMenu(); _showQR(); });
 }
 
 // ── PDF Picker Dialog ───────────────────────────────────
@@ -780,6 +946,15 @@ function boot() {
 
     var elapsed = (performance.now() - t0).toFixed(0);
     console.log('[FRT v2] Boot complete in ' + elapsed + 'ms');
+
+    // Update storage display
+    _updateStorageDisplay();
+
+    // Show mobile PDF button in project mode
+    var mp = document.getElementById('mobile-pdf-btn');
+    if (mp) mp.style.display = '';
+    var mq = document.getElementById('mobile-qr-btn');
+    if (mq && _hubMode) mq.style.display = '';
 
   }).catch(function(err) {
     console.error('[FRT v2] Boot error:', err);

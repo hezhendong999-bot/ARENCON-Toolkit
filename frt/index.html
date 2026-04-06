@@ -219,9 +219,9 @@ function ensurePdfJs(cb){
         <div class="card-body">
           <div class="dwg-header-bar">
             <button class="btn btn-outline btn-sm" id="btn-new-folder">+ New Folder</button>
-            <button class="btn btn-outline btn-sm" id="btn-dwg-select-all" title="Select all drawings">☑ Select All</button>
-            <button class="btn btn-outline btn-sm" id="btn-dwg-deselect-all" style="display:none;" title="Deselect all drawings">☐ Deselect All</button>
-            <span id="dwg-sel-count" style="display:none;font-size:calc(11px + var(--ts));font-weight:700;color:var(--arencon);white-space:nowrap;"></span>
+            <button class="btn btn-outline btn-sm" id="btn-dwg-compact" title="Compact card view">☷ Compact</button>
+            <div style="flex:1;"></div>
+            <input type="text" id="dwg-search" placeholder="Search drawings..." style="max-width:200px;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;background:var(--smoke);color:var(--fg);">
           </div>
           <!-- Upload zone -->
           <div id="dwg-upload-zone" style="border:2px dashed rgba(156,39,66,.5);border-radius:10px;padding:28px 20px;text-align:center;margin:10px 0 14px;cursor:pointer;transition:border-color .2s,background .2s;background:rgba(156,39,66,.04);"
@@ -337,7 +337,7 @@ function ensurePdfJs(cb){
 <!-- ═══ PHOTO LIGHTBOX OVERLAY ═══ -->
 <div class="lightbox-overlay" id="lightbox-overlay">
   <div class="lb-toolbar">
-    <span id="lb-info" style="flex:1;font-size:calc(13px + var(--ts));color:#d0d8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+    <span id="lb-info" style="flex:1;font-size:calc(13px + var(--ts));color:#d0d8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;" title="Click to edit caption"></span>
     <span id="lb-counter" style="font-size:calc(12px + var(--ts));color:#8a94b0;margin-right:8px;"></span>
     <button id="lb-close" class="lb-close-btn" title="Close">✕</button>
   </div>

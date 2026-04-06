@@ -314,5 +314,32 @@ export var Lightbox = {
   isOpen: function() { return _isOpen; }
 };
 
+// Caption editing
+document.addEventListener('click', function(e) {
+  if (!_isOpen) return;
+  var info = _el('lb-info');
+  if (e.target === info || (e.target.closest && e.target.closest('#lb-info'))) {
+    var p = _photos[_idx];
+    if (!p) return;
+    // Replace info bar with input
+    var current = p.caption || p.filename || '';
+    info.innerHTML = '<input id="lb-caption-input" type="text" value="' + current.replace(/"/g, '&quot;') + '" placeholder="Add caption..." style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:4px;padding:4px 8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;color:#d0d8f0;outline:none;">';
+    var inp = info.querySelector('#lb-caption-input');
+    if (inp) {
+      inp.focus();
+      inp.select();
+      inp.addEventListener('blur', function() {
+        p.caption = inp.value.trim();
+        info.textContent = p.caption || p.filename || '';
+      });
+      inp.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter') { inp.blur(); ev.preventDefault(); }
+        if (ev.key === 'Escape') { inp.value = current; inp.blur(); ev.preventDefault(); }
+        ev.stopPropagation(); // Prevent lightbox keyboard shortcuts
+      });
+    }
+  }
+});
+
 // Global access for cross-module use
 window._frtLightbox = Lightbox;

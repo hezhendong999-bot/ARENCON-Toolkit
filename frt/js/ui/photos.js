@@ -1,6 +1,7 @@
 /**
  * ARENCON FRT v2 — Photos UI
- * Site photo gallery with upload, thumbnails, and summary stats.
+ * Full photo gallery: site photos + deficiency photos, grouped by source.
+ * Upload zone with drag-drop, camera, and import buttons.
  */
 
 import { Model } from '../data/model.js';
@@ -19,32 +20,45 @@ export var initPhotos = {
 
     var sitePhotos = proj.photos || [];
     var allDefics = Model.getAllDeficiencies(proj);
-    var deficPhotoCount = 0;
+
+    // Collect all deficiency photos with source info
+    var deficPhotos = [];
     allDefics.forEach(function(d) {
-      (d.defic.observations || []).forEach(function(o) {
-        deficPhotoCount += (o.photos || []).length;
+      (d.defic.observations || []).forEach(function(o, oi) {
+        (o.photos || []).forEach(function(ph, phi) {
+          deficPhotos.push({
+            photo: ph,
+            deficNum: d.defic.num,
+            deficId: d.defic.id,
+            obsIdx: oi,
+            photoIdx: phi,
+            contractorName: d.contractorName
+          });
+        });
       });
-      deficPhotoCount += (d.defic.photos || []).length;
     });
+
+    var totalCount = sitePhotos.length + deficPhotos.length;
 
     var html = '';
 
     // Summary stats
     html += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">';
-    html += '<div style="background:var(--smoke);border-radius:8px;padding:12px 18px;flex:1;min-width:120px;">';
+    html += '<div style="background:var(--smoke);border-radius:8px;padding:12px 18px;flex:1;min-width:100px;">';
+    html += '<div style="font-size:24px;font-weight:700;color:var(--fg);">' + totalCount + '</div>';
+    html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Total Photos</div></div>';
+    html += '<div style="background:var(--smoke);border-radius:8px;padding:12px 18px;flex:1;min-width:100px;">';
     html += '<div style="font-size:24px;font-weight:700;color:var(--fg);">' + sitePhotos.length + '</div>';
-    html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Site Photos</div>';
-    html += '</div>';
-    html += '<div style="background:var(--smoke);border-radius:8px;padding:12px 18px;flex:1;min-width:120px;">';
-    html += '<div style="font-size:24px;font-weight:700;color:var(--fg);">' + deficPhotoCount + '</div>';
-    html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Deficiency Photos</div>';
-    html += '</div>';
+    html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Site Photos</div></div>';
+    html += '<div style="background:var(--smoke);border-radius:8px;padding:12px 18px;flex:1;min-width:100px;">';
+    html += '<div style="font-size:24px;font-weight:700;color:var(--fg);">' + deficPhotos.length + '</div>';
+    html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Deficiency Photos</div></div>';
     html += '</div>';
 
-    // Site photo grid
+    // Site photos section
     if (sitePhotos.length) {
       html += '<div style="font-weight:700;font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:8px;">Site Photos</div>';
-      html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">';
       sitePhotos.forEach(function(p, i) {
         var imgSrc = p.thumb || p.r2Url || p.dataUrl || '';
         html += '<div style="position:relative;width:120px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--smoke);">';
@@ -58,30 +72,62 @@ export var initPhotos = {
         html += '</div>';
       });
       html += '</div>';
-    } else if (!deficPhotoCount) {
-      html += '<p style="color:var(--silver);font-size:calc(13px + var(--ts));text-align:center;padding:16px;">No photos yet. Upload site photos above or add photos to deficiencies.</p>';
+    }
+
+    // Deficiency photos section
+    if (deficPhotos.length) {
+      html += '<div style="font-weight:700;font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:8px;">Deficiency Photos</div>';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">';
+      deficPhotos.forEach(function(dp) {
+        var ph = dp.photo;
+        var imgSrc = ph.r2Url || ph.dataUrl || '';
+        if (!imgSrc) return;
+        html += '<div data-action="open-defic-lightbox" data-defic-id="' + esc(dp.deficId) + '" data-obs-idx="' + dp.obsIdx + '" data-photo-idx="' + dp.photoIdx + '" style="position:relative;width:120px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--smoke);cursor:pointer;">';
+        html += '<img src="' + esc(imgSrc) + '" loading="lazy" style="width:120px;height:100px;object-fit:cover;display:block;">';
+        html += '<div style="padding:3px 6px;font-size:calc(10px + var(--ts));color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">#' + dp.deficNum + ' \u2022 ' + esc(dp.contractorName) + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    if (!totalCount) {
+      html += '<p style="color:var(--silver);font-size:calc(13px + var(--ts));text-align:center;padding:16px;">No photos yet. Upload site photos or add photos to deficiencies.</p>';
     }
 
     container.innerHTML = html;
-    console.log('[Photos] Site:', sitePhotos.length, '| Deficiency:', deficPhotoCount);
   }
 };
 
 Model.onChange('project', function() { initPhotos.render(); });
 
-// Site photo lightbox click
+// Click handlers
 document.addEventListener('click', function(e) {
+  // Site photo lightbox
   var el = e.target.closest && e.target.closest('[data-action="open-site-lightbox"]');
   if (el) {
     var idx = parseInt(el.getAttribute('data-photo-idx') || '0');
     var proj = Model.getProject();
-    if (!proj) return;
-    var photos = proj.photos || [];
-    if (photos.length && window._frtLightbox) {
-      var fullPhotos = photos.map(function(p) {
+    if (proj && (proj.photos || []).length && window._frtLightbox) {
+      var fullPhotos = (proj.photos || []).map(function(p) {
         return { r2Url: p.r2Url, dataUrl: p.dataUrl, caption: p.caption || p.filename || '', filename: p.filename };
       });
       window._frtLightbox.open(fullPhotos, idx);
+    }
+    return;
+  }
+
+  // Deficiency photo lightbox from gallery
+  var dp = e.target.closest && e.target.closest('[data-action="open-defic-lightbox"]');
+  if (dp) {
+    var deficId = dp.getAttribute('data-defic-id');
+    var obsIdx = parseInt(dp.getAttribute('data-obs-idx') || '0');
+    var photoIdx = parseInt(dp.getAttribute('data-photo-idx') || '0');
+    var f = Model.findDeficiency(deficId);
+    if (f && f.defic.observations && f.defic.observations[obsIdx]) {
+      var photos = f.defic.observations[obsIdx].photos || [];
+      if (photos.length && window._frtLightbox) {
+        window._frtLightbox.open(photos, photoIdx);
+      }
     }
     return;
   }
@@ -113,7 +159,6 @@ function _compressSitePhoto(file, cb) {
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      // Generate thumbnail
       var tw = Math.min(200, w);
       var ts = tw / w;
       var tc = document.createElement('canvas');
@@ -146,12 +191,9 @@ function _addSitePhoto(file) {
     Model.saveNow();
     initPhotos.render();
     toast('Site photo added');
-    // R2 upload in Hub mode (fire-and-forget)
     var pid = new URLSearchParams(window.location.search).get('project');
     if (pid) {
-      R2.uploadPhoto(pid, photo, 'original').then(function() {
-        Model.saveNow();
-      });
+      R2.uploadPhoto(pid, photo, 'original').then(function() { Model.saveNow(); });
     }
   });
 }

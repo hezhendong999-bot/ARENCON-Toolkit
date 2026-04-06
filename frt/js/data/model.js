@@ -479,6 +479,35 @@ export var Model = {
     return true;
   },
 
+  duplicateDeficiency: function(deficId) {
+    var f = this.findDeficiency(deficId);
+    if (!f || !_project) return null;
+    var src = f.defic;
+    var num = _project.nextDeficNum || 1;
+    _project.nextDeficNum = num + 1;
+    var inst = (_project.currentFrtInstance) || 1;
+    var newDefic = JSON.parse(JSON.stringify(src));
+    newDefic.id = 'def_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    newDefic.num = num;
+    newDefic.notedOnInstance = inst;
+    newDefic.notedDate = new Date().toISOString().split('T')[0];
+    newDefic.status = 'open';
+    newDefic.closedDate = null;
+    newDefic.closedOnInstance = null;
+    newDefic.closedNote = '';
+    newDefic.drawingId = null;
+    newDefic.pinX = null;
+    newDefic.pinY = null;
+    newDefic.activity = [];
+    // Strip photo dataUrls from copy (they reference the same R2 files)
+    (newDefic.observations || []).forEach(function(o) { o.photos = []; o.addressed = false; });
+    f.arr.push(newDefic);
+    _dirty = true;
+    _queueSave();
+    this._notify('deficiency', { action: 'add', defic: newDefic });
+    return newDefic;
+  },
+
   getAllDeficiencies: function(proj) {
     if (!proj) proj = _project;
     if (!proj) return [];

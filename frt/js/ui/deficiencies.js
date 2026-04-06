@@ -66,6 +66,7 @@ function buildDeficCard(d, ctrId) {
   }
   // Delete deficiency
   h += '<button data-action="reassign-defic" data-defic-id="' + esc(d.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(12px + var(--ts));padding:0 2px;" title="Move to another contractor">\u21C4</button>';
+  h += '<button data-action="dup-defic" data-defic-id="' + esc(d.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(12px + var(--ts));padding:0 2px;" title="Duplicate deficiency">\uD83D\uDCCB</button>';
   h += '<button data-action="delete-defic" data-defic-id="' + esc(d.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(14px + var(--ts));padding:0 2px;margin-left:auto;" title="Delete deficiency">\uD83D\uDDD1</button>';
   h += '</div>';
 
@@ -569,6 +570,18 @@ document.addEventListener('click', function(e) {
     if (deficId) {
       Model.toggleIAR(deficId);
       initDeficiencies.render();
+    }
+  }
+
+  if (action === 'dup-defic') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    if (!deficId) { var btn7 = e.target.closest('[data-defic-id]'); if (btn7) deficId = btn7.getAttribute('data-defic-id'); }
+    if (deficId) {
+      var newDefic = Model.duplicateDeficiency(deficId);
+      if (newDefic) {
+        initDeficiencies.render();
+        toast('Duplicated as #' + newDefic.num);
+      }
     }
   }
 

@@ -41,7 +41,7 @@ function buildDrawingCard(d, allDefics) {
   }
 
   h += '<div style="padding:6px 10px;display:flex;justify-content:space-between;align-items:center;gap:4px;border-top:1px solid var(--border);">';
-  h += '<span style="font-size:calc(12px + var(--ts));font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">' + esc(d.name || 'Untitled') + '</span>';
+  h += '<span class="dwg-card-name" data-action="rename-drawing" data-drawing-id="' + esc(d.id) + '" style="font-size:calc(12px + var(--ts));font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;cursor:pointer;" title="Click to rename">' + esc(d.name || 'Untitled') + '</span>';
   if (pins > 0) {
     h += '<span class="pin-count" style="font-size:calc(11px + var(--ts));color:var(--silver);background:var(--smoke);padding:2px 8px;border-radius:10px;flex-shrink:0;">\uD83D\uDCCC ' + pins + '</span>';
   }
@@ -177,6 +177,26 @@ document.addEventListener('click', function(e) {
         toast('Folder renamed');
       }
     });
+    return;
+  }
+
+  // Rename drawing
+  var renameDrawBtn = e.target.closest && e.target.closest('[data-action="rename-drawing"]');
+  if (renameDrawBtn) {
+    e.stopPropagation();
+    var drawingId = renameDrawBtn.getAttribute('data-drawing-id');
+    var drawings = Model.getDrawings();
+    var dwg = drawings.find(function(d) { return d.id === drawingId; });
+    if (dwg) {
+      showPrompt('Rename Drawing', 'New name:', dwg.name || '').then(function(newName) {
+        if (newName && newName.trim()) {
+          dwg.name = newName.trim();
+          Model.saveNow();
+          initDrawings.render();
+          toast('Drawing renamed');
+        }
+      });
+    }
     return;
   }
 
@@ -410,3 +430,37 @@ if (dwgFileInput) {
 
 // Expose drag-drop handler for HTML ondrop
 window._handleDrawingDrop = handleDrawingFiles;
+
+// ── Compact Mode Toggle ─────────────────────────────────
+var _compactMode = false;
+var compactBtn = document.getElementById('btn-dwg-compact');
+if (compactBtn) compactBtn.addEventListener('click', function() {
+  _compactMode = !_compactMode;
+  var container = document.getElementById('drawings-container');
+  if (container) {
+    container.querySelectorAll('.drawing-card').forEach(function(card) {
+      if (_compactMode) {
+        card.style.width = '90px';
+        var thumb = card.querySelector('.drawing-thumb');
+        if (thumb) thumb.style.height = '64px';
+      } else {
+        card.style.width = '180px';
+        var thumb = card.querySelector('.drawing-thumb');
+        if (thumb) thumb.style.height = '120px';
+      }
+    });
+  }
+  compactBtn.textContent = _compactMode ? '\u2637 Normal' : '\u2637 Compact';
+});
+
+// ── Drawing Search ──────────────────────────────────────
+var dwgSearch = document.getElementById('dwg-search');
+if (dwgSearch) dwgSearch.addEventListener('input', function() {
+  var q = (dwgSearch.value || '').trim().toLowerCase();
+  var container = document.getElementById('drawings-container');
+  if (!container) return;
+  container.querySelectorAll('.drawing-card').forEach(function(card) {
+    var name = (card.querySelector('.dwg-card-name') || {}).textContent || '';
+    card.style.display = (!q || name.toLowerCase().indexOf(q) >= 0) ? '' : 'none';
+  });
+});
