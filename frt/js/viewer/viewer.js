@@ -96,8 +96,9 @@ function _showDrawing(idx) {
 
   var src = d.thumb || d.r2Url || d.dataUrl || '';
 
-  function _loadImg(url) {
+  function _loadImg(url, label) {
     img.onload = function() {
+      console.log('[Viewer] Image loaded (' + (label || 'unknown') + '): ' + img.naturalWidth + '×' + img.naturalHeight);
       img.style.transform = 'translateZ(0)';
       img.style.willChange = 'transform';
       _calcFitScale();
@@ -110,21 +111,26 @@ function _showDrawing(idx) {
     img.style.display = 'block';
   }
 
-  if (d.r2Url || d.dataUrl) {
-    _loadImg(d.r2Url || d.dataUrl);
+  if (d.r2Url) {
+    _loadImg(d.r2Url, 'r2Url');
+  } else if (d.dataUrl) {
+    _loadImg(d.dataUrl, 'dataUrl');
   } else {
     // No URL — try loading full-res blob from IDB drawingBlobs
     img.style.display = 'none';
+    console.log('[Viewer] No URL for drawing ' + d.id + ' — loading from IDB drawingBlobs...');
     IDB.get('drawingBlobs', d.id).then(function(rec) {
       if (rec && rec.dataBlob && rec.dataBlob.size > 0) {
+        console.log('[Viewer] IDB blob found: ' + Math.round(rec.dataBlob.size / 1024) + 'KB');
         var objUrl = URL.createObjectURL(rec.dataBlob);
-        _loadImg(objUrl);
-      } else if (d.thumb) {
-        // Fall back to thumbnail
-        _loadImg(d.thumb);
+        _loadImg(objUrl, 'IDB blob');
+      } else {
+        console.warn('[Viewer] No IDB blob found — falling back to thumb (' + (d.thumb ? '200px' : 'none') + ')');
+        if (d.thumb) _loadImg(d.thumb, 'thumb-fallback');
       }
-    }).catch(function() {
-      if (d.thumb) _loadImg(d.thumb);
+    }).catch(function(err) {
+      console.warn('[Viewer] IDB load error:', err, '— falling back to thumb');
+      if (d.thumb) _loadImg(d.thumb, 'thumb-fallback');
     });
   }
 
