@@ -219,6 +219,54 @@ function showProjectView() {
   if (sn) sn.style.display = '';
 }
 
+// ── Update Header When Project Loads ─────────────────────
+function _updateHeaderForProject() {
+  var proj = Model.getProject();
+  if (!proj) return;
+
+  // Show project bar with filename + badge
+  var pb = document.getElementById('project-bar');
+  if (pb) pb.classList.add('visible');
+  var pbFn = document.getElementById('pb-filename');
+  if (pbFn) pbFn.textContent = Model.getSmartFilename();
+  var pbBadge = document.getElementById('pb-badge');
+  if (pbBadge) {
+    var st = (proj.status || 'draft').toUpperCase();
+    pbBadge.textContent = st;
+    // Badge colors by status
+    var colors = { DRAFT: '#E65100', ISSUED: '#1A7A4A', PUBLISHED: '#1A237E', LOCKED: '#B71C1C' };
+    pbBadge.style.background = colors[st] || '#E65100';
+  }
+
+  // Update issue status badge in header
+  var isb = document.getElementById('issue-status-badge');
+  if (isb) {
+    isb.textContent = (proj.status || 'draft').toUpperCase();
+    isb.style.display = '';
+  }
+
+  // Toggle header buttons: hide dashboard, show project
+  var dashBtns = ['btn-load', 'btn-export-all'];
+  var projBtns = ['btn-pdf', 'btn-issue', 'btn-more-wrap', 'btn-qr'];
+  dashBtns.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  projBtns.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
+
+  // Show repair section for admin
+  var repairSec = document.getElementById('more-repair-section');
+  if (repairSec) repairSec.style.display = '';
+  var mobileRepair = document.getElementById('mobile-repair-section');
+  if (mobileRepair) mobileRepair.style.display = '';
+
+  // Update page title
+  document.title = 'ARENCON \u2014 ' + Model.getSmartFilename();
+}
+
 // ── Wire All Event Listeners ─────────────────────────────
 function wireEvents() {
   // Tab navigation
@@ -312,6 +360,7 @@ function boot() {
 
     // Show project view and render
     showProjectView();
+    _updateHeaderForProject();
     switchTab('info');
 
     // Start auto-save
@@ -325,7 +374,13 @@ function boot() {
     // Even if IDB fails, show the UI with a new project
     Model.newProject();
     showProjectView();
+    _updateHeaderForProject();
     switchTab('info');
+  });
+
+  // Update header whenever a new project is loaded (e.g., JSON import)
+  Model.onChange('project', function() {
+    _updateHeaderForProject();
   });
 }
 
