@@ -2,11 +2,17 @@
  * ARENCON FRT v2 — Deficiencies UI
  * ═════════════════════════════════
  * 
- * Read-only renderer for contractor groups and deficiency cards.
- * Phase 1: displays data from Model. No editing yet.
+ * Interactive deficiency management:
+ *   - Add/remove contractors
+ *   - Add deficiencies per contractor or general
+ *   - Edit observation text (two-way binding)
+ *   - Change status/priority
+ *   - Lifecycle tabs (Active / Site General / Closed)
  */
 
 import { Model } from '../data/model.js';
+import { toast } from '../shared/toast.js';
+import { showConfirm } from '../shared/dialogs.js';
 
 // ── Helpers ──────────────────────────────────────────────
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -17,51 +23,47 @@ function deficDesc(d) {
 }
 function deficIsOpen(d) { return d.status === 'open' || d.status === 'Outstanding'; }
 function deficIsClosed(d) { return d.status === 'closed' || d.status === 'Addressed & Closed'; }
-function obsCount(d) {
-  if (d.observations) return d.observations.length;
-  if (d.entries) return d.entries.length;
-  return 0;
-}
-function photoCount(d) {
-  var n = 0;
-  (d.observations || []).forEach(function(o) { n += (o.photos || []).length; });
-  (d.photos || []).forEach(function() { n++; });
-  return n;
-}
 
-// ── Active DLC tab ───────────────────────────────────────
 var _activeDlcTab = 'active';
 
-// ── Card Builder ─────────────────────────────────────────
-function buildDeficCard(d) {
-  var desc = deficDesc(d);
-  var truncDesc = desc.length > 120 ? desc.substring(0, 120) + '\u2026' : desc;
+// ── Deficiency Card (interactive) ────────────────────────
+function buildDeficCard(d, ctrId) {
+  var obs = d.observations || [];
+  var firstObs = obs.length ? obs[0] : null;
   var isOpen = deficIsOpen(d);
   var isClosed = deficIsClosed(d);
-  var statusText = isClosed ? 'Closed' : (d.status === 'iar' ? 'IAR' : 'Outstanding');
-  var statusClass = isClosed ? 'closed' : (d.status === 'iar' ? 'iar' : 'outstanding');
-  var nObs = obsCount(d);
-  var nPhotos = photoCount(d);
   var circleColor = isClosed ? '#1A7A4A' : '#C0392B';
 
-  var h = '<div class="defic-item" data-status="' + esc(d.status || 'open') + '">';
+  var h = '<div class="defic-item" data-defic-id="' + esc(d.id) + '" data-status="' + esc(d.status || 'open') + '">';
   h += '<div class="defic-item-row">';
   h += '<div class="defic-num-circle" style="background:' + circleColor + ';">' + (d.num || '?') + '</div>';
   h += '<div class="defic-item-content">';
 
   // Status + priority row
-  h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">';
-  h += '<span class="tt-status ' + statusClass + '">' + statusText + '</span>';
-  if (d.priority && d.priority !== 'general') {
-    h += '<span class="tt-priority ' + esc(d.priority) + '">' + esc(d.priority.charAt(0).toUpperCase() + d.priority.slice(1)) + '</span>';
-  }
-  if (nObs > 0) h += '<span style="font-size:calc(11px + var(--ts));color:var(--silver);">\uD83D\uDCDD ' + nObs + '</span>';
-  if (nPhotos > 0) h += '<span style="font-size:calc(11px + var(--ts));color:var(--silver);">\uD83D\uDCF7 ' + nPhotos + '</span>';
+  h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">';
+  h += '<select class="pin-status-sel" data-action="status" data-defic-id="' + esc(d.id) + '" data-status="' + esc(d.status === 'open' ? 'Outstanding' : d.status === 'closed' ? 'Addressed & Closed' : d.status || 'Outstanding') + '" style="width:auto;padding:3px 8px;font-size:calc(11px + var(--ts));">';
+  h += '<option value="open"' + (isOpen ? ' selected' : '') + '>Outstanding</option>';
+  h += '<option value="closed"' + (isClosed ? ' selected' : '') + '>Addressed &amp; Closed</option>';
+  h += '</select>';
+  h += '<select data-action="priority" data-defic-id="' + esc(d.id) + '" style="padding:3px 8px;border:1.5px solid var(--border);border-radius:4px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;background:var(--smoke);">';
+  var pris = ['general', 'high', 'low'];
+  pris.forEach(function(p) {
+    h += '<option value="' + p + '"' + (d.priority === p ? ' selected' : '') + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
+  });
+  h += '</select>';
   if (d.drawingId) h += '<span style="font-size:calc(11px + var(--ts));color:var(--silver);">\uD83D\uDCCC</span>';
   h += '</div>';
 
-  // Description
-  h += '<div style="font-size:calc(13px + var(--ts));color:var(--fg);line-height:1.45;">' + esc(truncDesc) + '</div>';
+  // Observation textarea
+  if (firstObs) {
+    h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="0" ';
+    h += 'style="width:100%;min-height:56px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);"';
+    h += ' placeholder="Describe the deficiency...">' + esc(firstObs.text || '') + '</textarea>';
+  } else {
+    h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="0" ';
+    h += 'style="width:100%;min-height:56px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);"';
+    h += ' placeholder="Describe the deficiency..."></textarea>';
+  }
 
   // Noted date
   if (d.notedDate || d.date) {
@@ -86,8 +88,11 @@ function buildGroup(ctrId, name, items, totalCount) {
   if (!items.length) {
     h += '<div class="defic-group-empty">No active deficiencies for this contractor.</div>';
   }
-  items.forEach(function(d) { h += buildDeficCard(d); });
-  h += '</div>';
+  items.forEach(function(d) { h += buildDeficCard(d, ctrId); });
+
+  h += '<div class="add-defic-btn-wrap">';
+  h += '<button class="btn btn-outline btn-sm" data-action="add-defic" data-ctr-id="' + esc(ctrId || '') + '">+ Add Deficiency</button>';
+  h += '</div></div>';
   return h;
 }
 
@@ -100,55 +105,61 @@ export var initDeficiencies = {
     if (!container) return;
     if (!proj) { container.innerHTML = ''; return; }
 
-    // Show lifecycle tabs
     var dlcTabs = document.getElementById('defic-lifecycle-tabs');
     if (dlcTabs) dlcTabs.style.display = 'flex';
 
     var allDefics = Model.getAllDeficiencies(proj);
-    var activeDefics = allDefics.filter(function(d) { return deficIsOpen(d.defic); });
-    var closedDefics = allDefics.filter(function(d) { return deficIsClosed(d.defic); });
+    var activeCount = 0, generalCount = 0, closedCount = 0;
+    allDefics.forEach(function(d) {
+      if (deficIsClosed(d.defic)) closedCount++;
+      else if (!d.contractorId) generalCount++;
+      else activeCount++;
+    });
 
     if (_activeDlcTab === 'active') {
       _renderActiveTab(proj, container);
     } else if (_activeDlcTab === 'general') {
       _renderGeneralTab(proj, container);
     } else if (_activeDlcTab === 'closed') {
-      _renderClosedTab(closedDefics, container);
+      _renderClosedTab(allDefics.filter(function(d) { return deficIsClosed(d.defic); }), container);
     }
 
-    // Update tab counts — Active excludes general deficiencies
-    var ctrActiveCount = 0;
-    (proj.contractors || []).forEach(function(c) {
-      (c.deficiencies || []).forEach(function(d) { if (deficIsOpen(d)) ctrActiveCount++; });
-    });
-    var genActiveCount = (proj.generalDeficiencies || []).filter(deficIsOpen).length;
-    _updateDlcCounts(ctrActiveCount, genActiveCount, closedDefics.length);
+    _updateDlcCounts(activeCount, generalCount, closedCount);
   }
 };
 
 function _renderActiveTab(proj, container) {
   var html = '';
-  // Render each contractor group
+
+  // Add Contractor button
+  html += '<div style="padding:10px 0 6px;display:flex;gap:8px;flex-wrap:wrap;">';
+  html += '<button class="btn btn-outline btn-sm" data-action="add-contractor" style="color:#1A7A4A;border-color:rgba(26,122,74,.3);">+ Add Contractor</button>';
+  html += '<button class="btn btn-outline btn-sm" data-action="add-general" style="color:#6A1B9A;border-color:rgba(106,27,154,.3);">+ General Deficiency</button>';
+  html += '</div>';
+
   (proj.contractors || []).forEach(function(c) {
     var active = (c.deficiencies || []).filter(deficIsOpen);
     var total = (c.deficiencies || []).length;
-    if (total > 0) {
-      html += buildGroup(c.id, c.name || 'Unnamed Contractor', active, total);
-    }
+    html += buildGroup(c.id, c.name || 'Unnamed Contractor', active, total);
   });
-  if (!html) {
-    html = '<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:24px 0;text-align:center;">No contractor deficiencies. Load a project with deficiency data to see them here.</p>';
+
+  if (!(proj.contractors || []).length) {
+    html += '<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:16px;text-align:center;">No contractors yet. Click "+ Add Contractor" to start.</p>';
   }
   container.innerHTML = html;
 }
 
 function _renderGeneralTab(proj, container) {
   var gen = (proj.generalDeficiencies || []).filter(deficIsOpen);
+  var html = '<div style="padding:10px 0 6px;">';
+  html += '<button class="btn btn-outline btn-sm" data-action="add-general" style="color:#6A1B9A;border-color:rgba(106,27,154,.3);">+ General Deficiency</button>';
+  html += '</div>';
   if (!gen.length) {
-    container.innerHTML = '<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:24px 0;text-align:center;">No site general deficiencies.</p>';
-    return;
+    html += '<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:16px;text-align:center;">No site general deficiencies.</p>';
+  } else {
+    html += buildGroup(null, 'Site General', gen, (proj.generalDeficiencies || []).length);
   }
-  container.innerHTML = buildGroup(null, 'Site General', gen, (proj.generalDeficiencies || []).length);
+  container.innerHTML = html;
 }
 
 function _renderClosedTab(closedDefics, container) {
@@ -157,13 +168,12 @@ function _renderClosedTab(closedDefics, container) {
     return;
   }
   var html = '';
-  closedDefics.forEach(function(d) { html += buildDeficCard(d.defic); });
+  closedDefics.forEach(function(d) { html += buildDeficCard(d.defic, d.contractorId); });
   container.innerHTML = '<div class="defic-group"><div class="defic-group-header" style="background:#1C2333;color:white;padding:10px 16px;"><span>\u2705 Closed Items</span><span style="font-size:calc(12px + var(--ts));opacity:.7;">' + closedDefics.length + '</span></div>' + html + '</div>';
 }
 
 function _updateDlcCounts(activeCount, generalCount, closedCount) {
-  var tabs = document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab');
-  tabs.forEach(function(tab) {
+  document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(tab) {
     var type = tab.getAttribute('data-dlc');
     var count = type === 'active' ? activeCount : type === 'general' ? generalCount : closedCount;
     var label = type === 'active' ? 'Active' : type === 'general' ? 'Site General' : 'Closed';
@@ -171,17 +181,95 @@ function _updateDlcCounts(activeCount, generalCount, closedCount) {
   });
 }
 
-// ── DLC Tab Switching ────────────────────────────────────
+// ── Event Delegation ─────────────────────────────────────
+var _obsDebounce = {};
+
 document.addEventListener('click', function(e) {
-  var tab = e.target.closest && e.target.closest('.dlc-tab');
-  if (!tab) return;
-  var type = tab.getAttribute('data-dlc');
-  if (!type) return;
-  _activeDlcTab = type;
-  document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
-    t.classList.toggle('active', t.getAttribute('data-dlc') === type);
-  });
-  initDeficiencies.render();
+  // DLC tab switching
+  var dlcTab = e.target.closest && e.target.closest('.dlc-tab');
+  if (dlcTab) {
+    var type = dlcTab.getAttribute('data-dlc');
+    if (type) {
+      _activeDlcTab = type;
+      document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
+        t.classList.toggle('active', t.getAttribute('data-dlc') === type);
+      });
+      initDeficiencies.render();
+    }
+    return;
+  }
+
+  var action = e.target.getAttribute && e.target.getAttribute('data-action');
+  if (!action) {
+    var btn = e.target.closest && e.target.closest('[data-action]');
+    if (btn) action = btn.getAttribute('data-action');
+    else return;
+    e.target = btn;
+  }
+
+  if (action === 'add-contractor') {
+    var name = prompt('Contractor name:');
+    if (name && name.trim()) {
+      Model.addContractor(name.trim());
+      initDeficiencies.render();
+      toast('Added: ' + name.trim());
+    }
+  }
+
+  if (action === 'add-defic') {
+    var ctrId = e.target.getAttribute('data-ctr-id') || null;
+    var defic = Model.addDeficiency(ctrId || null);
+    if (defic) {
+      initDeficiencies.render();
+      toast('Deficiency #' + defic.num + ' added');
+    }
+  }
+
+  if (action === 'add-general') {
+    var defic = Model.addDeficiency(null);
+    if (defic) {
+      _activeDlcTab = 'general';
+      document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
+        t.classList.toggle('active', t.getAttribute('data-dlc') === 'general');
+      });
+      initDeficiencies.render();
+      toast('General deficiency #' + defic.num + ' added');
+    }
+  }
+});
+
+// Status and priority changes via select
+document.addEventListener('change', function(e) {
+  var action = e.target.getAttribute && e.target.getAttribute('data-action');
+  if (!action) return;
+
+  if (action === 'status') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    Model.updateDeficStatus(deficId, e.target.value);
+    // Re-render after status change (item may move tabs)
+    setTimeout(function() { initDeficiencies.render(); }, 50);
+  }
+
+  if (action === 'priority') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    Model.updateDeficPriority(deficId, e.target.value);
+  }
+});
+
+// Observation text editing with debounce
+document.addEventListener('input', function(e) {
+  var action = e.target.getAttribute && e.target.getAttribute('data-action');
+  if (action !== 'obs-text') return;
+
+  var deficId = e.target.getAttribute('data-defic-id');
+  var obsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
+  var text = e.target.value;
+
+  // Debounce: don't save on every keystroke
+  if (_obsDebounce[deficId]) clearTimeout(_obsDebounce[deficId]);
+  _obsDebounce[deficId] = setTimeout(function() {
+    Model.updateObservation(deficId, obsIdx, text);
+  }, 500);
 });
 
 // Re-render when project loads

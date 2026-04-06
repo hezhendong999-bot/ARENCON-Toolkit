@@ -184,6 +184,123 @@ export var Model = {
 
   getSmartFilename: function() { return buildSmartFilename(_project); },
 
+  // ── Contractor Mutations ─────────────────────────────
+  addContractor: function(name) {
+    if (!_project) return null;
+    var ctr = {
+      id: 'ctr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      name: name || 'New Contractor',
+      deficiencies: []
+    };
+    _project.contractors.push(ctr);
+    _dirty = true;
+    _queueSave();
+    this._notify('contractor', { action: 'add', contractor: ctr });
+    return ctr;
+  },
+
+  removeContractor: function(ctrId) {
+    if (!_project) return;
+    var idx = _project.contractors.findIndex(function(c) { return c.id === ctrId; });
+    if (idx >= 0) {
+      _project.contractors.splice(idx, 1);
+      _dirty = true;
+      _queueSave();
+      this._notify('contractor', { action: 'remove', id: ctrId });
+    }
+  },
+
+  // ── Deficiency Mutations ─────────────────────────────
+  addDeficiency: function(ctrId) {
+    if (!_project) return null;
+    var inst = (_project.currentFrtInstance) || 1;
+    var today = new Date().toISOString().split('T')[0];
+    var num = _project.nextDeficNum || 1;
+    _project.nextDeficNum = num + 1;
+
+    var defic = {
+      id: 'def_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      num: num,
+      status: 'open',
+      priority: 'general',
+      category: '',
+      drawingId: null,
+      pinX: null, pinY: null,
+      date: today,
+      notedDate: today,
+      notedOnInstance: inst,
+      observations: [{
+        id: 'obs_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        text: '',
+        photos: [],
+        notedOnInstance: inst,
+        notedDate: today,
+        addressed: false
+      }],
+      photos: [],
+      activity: []
+    };
+
+    if (ctrId) {
+      var ctr = _project.contractors.find(function(c) { return c.id === ctrId; });
+      if (ctr) {
+        if (!ctr.deficiencies) ctr.deficiencies = [];
+        ctr.deficiencies.push(defic);
+      }
+    } else {
+      if (!_project.generalDeficiencies) _project.generalDeficiencies = [];
+      _project.generalDeficiencies.push(defic);
+    }
+
+    _dirty = true;
+    _queueSave();
+    this._notify('deficiency', { action: 'add', defic: defic, ctrId: ctrId });
+    return defic;
+  },
+
+  updateObservation: function(deficId, obsIdx, text) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return;
+    var obs = f.defic.observations || f.defic.entries;
+    if (!obs || !obs[obsIdx]) return;
+    if (f.defic.observations) f.defic.observations[obsIdx].text = text;
+    else if (f.defic.entries) f.defic.entries[obsIdx].description = text;
+    _dirty = true;
+    _queueSave();
+  },
+
+  updateDeficStatus: function(deficId, newStatus) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return;
+    var oldStatus = f.defic.status;
+    f.defic.status = newStatus;
+
+    // If closing, record closure metadata
+    if ((newStatus === 'closed' || newStatus === 'Addressed & Closed') &&
+        oldStatus !== 'closed' && oldStatus !== 'Addressed & Closed') {
+      f.defic.closedDate = new Date().toISOString().split('T')[0];
+      f.defic.closedOnInstance = (_project && _project.currentFrtInstance) || 1;
+    }
+    // If reopening, clear closure metadata
+    if ((newStatus === 'open' || newStatus === 'Outstanding') &&
+        (oldStatus === 'closed' || oldStatus === 'Addressed & Closed')) {
+      f.defic.closedDate = null;
+      f.defic.closedOnInstance = null;
+    }
+
+    _dirty = true;
+    _queueSave();
+    this._notify('deficiency', { action: 'status', deficId: deficId, status: newStatus });
+  },
+
+  updateDeficPriority: function(deficId, priority) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return;
+    f.defic.priority = priority;
+    _dirty = true;
+    _queueSave();
+  },
+
   getAllDeficiencies: function(proj) {
     if (!proj) proj = _project;
     if (!proj) return [];
