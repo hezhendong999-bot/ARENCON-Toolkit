@@ -78,7 +78,7 @@ function buildGroup(ctrId, name, items, totalCount) {
   if (totalCount && totalCount > items.length) countLabel += ' / ' + totalCount + ' total';
 
   var h = '<div class="defic-group">';
-  h += '<div class="defic-group-header">';
+  h += '<div class="defic-group-header" style="background:#1C2333;color:white;padding:10px 16px;">';
   h += '<span style="display:flex;align-items:center;gap:8px;">\u25BE \uD83D\uDC77 ' + esc(name) + '</span>';
   h += '<span style="font-size:calc(12px + var(--ts));opacity:.7;">' + countLabel + '</span>';
   h += '</div>';
@@ -158,7 +158,7 @@ function _renderClosedTab(closedDefics, container) {
   }
   var html = '';
   closedDefics.forEach(function(d) { html += buildDeficCard(d.defic); });
-  container.innerHTML = '<div class="defic-group"><div class="defic-group-header"><span>\u2705 Closed Items</span><span style="font-size:calc(12px + var(--ts));opacity:.7;">' + closedDefics.length + '</span></div>' + html + '</div>';
+  container.innerHTML = '<div class="defic-group"><div class="defic-group-header" style="background:#1C2333;color:white;padding:10px 16px;"><span>\u2705 Closed Items</span><span style="font-size:calc(12px + var(--ts));opacity:.7;">' + closedDefics.length + '</span></div>' + html + '</div>';
 }
 
 function _updateDlcCounts(activeCount, generalCount, closedCount) {
