@@ -22,20 +22,20 @@ function countPins(drawingId, allDefics) {
 
 function buildDrawingCard(d, allDefics) {
   var pins = countPins(d.id, allDefics);
-  var imgSrc = d.thumb || d.r2Url || d.dataUrl || '';
-  var h = '<div class="drawing-card" data-drawing-id="' + esc(d.id) + '" style="width:180px;display:inline-block;vertical-align:top;margin:0 8px 12px 0;cursor:pointer;">';
+  var imgSrc = d.thumb || '';
+  var h = '<div class="drawing-card" data-drawing-id="' + esc(d.id) + '" style="width:180px;display:inline-block;vertical-align:top;margin:0 8px 12px 0;cursor:pointer;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.08);">';
 
   if (imgSrc) {
-    h += '<div class="drawing-thumb" style="height:120px;overflow:hidden;">';
-    h += '<img src="' + esc(imgSrc) + '" style="width:100%;height:120px;object-fit:cover;display:block;" loading="lazy" onerror="this.parentElement.innerHTML=\'\\uD83D\\uDCC4\';this.parentElement.style.cssText=\'height:120px;background:#e8eaf0;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:32px;\'">';
+    h += '<div class="drawing-thumb" style="height:120px;overflow:hidden;border-radius:4px 4px 0 0;">';
+    h += '<img src="' + esc(imgSrc) + '" style="width:100%;height:120px;object-fit:cover;display:block;" loading="lazy" decoding="async">';
     h += '</div>';
   } else {
-    h += '<div class="drawing-thumb" style="height:120px;background:#e8eaf0;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:32px;">';
+    h += '<div class="drawing-thumb" style="height:120px;background:var(--smoke);display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:32px;border-radius:4px 4px 0 0;">';
     h += '\uD83D\uDCC4';
     h += '</div>';
   }
 
-  h += '<div style="padding:8px 10px;display:flex;justify-content:space-between;align-items:center;gap:4px;">';
+  h += '<div style="padding:6px 10px;display:flex;justify-content:space-between;align-items:center;gap:4px;border-top:1px solid var(--border);">';
   h += '<span style="font-size:calc(12px + var(--ts));font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">' + esc(d.name || 'Untitled') + '</span>';
   if (pins > 0) {
     h += '<span class="pin-count" style="font-size:calc(11px + var(--ts));color:var(--silver);background:var(--smoke);padding:2px 8px;border-radius:10px;flex-shrink:0;">\uD83D\uDCCC ' + pins + '</span>';
@@ -98,8 +98,36 @@ export var initDrawings = {
 
     container.innerHTML = html;
     console.log('[Drawings] Rendered', drawings.length, 'drawings in', folderNames.length + 1, 'groups');
+
+    // Lazy-generate thumbnails for drawings missing them (cloud-synced from v1)
+    var needThumb = drawings.filter(function(d) { return !d.thumb && d.r2Url; });
+    if (needThumb.length) _lazyGenThumbs(needThumb, 0);
   }
 };
+
+function _lazyGenThumbs(list, idx) {
+  if (idx >= list.length) return;
+  var d = list[idx];
+  var img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = function() {
+    var maxW = 200;
+    var scale = Math.min(1, maxW / img.width);
+    var tw = Math.round(img.width * scale);
+    var th = Math.round(img.height * scale);
+    var c = document.createElement('canvas'); c.width = tw; c.height = th;
+    c.getContext('2d').drawImage(img, 0, 0, tw, th);
+    d.thumb = c.toDataURL('image/jpeg', 0.7);
+    c.width = 1; c.height = 1;
+    // Update the card image in-place without full re-render
+    var card = document.querySelector('.drawing-card[data-drawing-id="' + d.id + '"] .drawing-thumb');
+    if (card) card.innerHTML = '<img src="' + d.thumb + '" style="width:100%;height:120px;object-fit:cover;display:block;" decoding="async">';
+    // Continue to next after short delay
+    setTimeout(function() { _lazyGenThumbs(list, idx + 1); }, 200);
+  };
+  img.onerror = function() { setTimeout(function() { _lazyGenThumbs(list, idx + 1); }, 100); };
+  img.src = d.r2Url;
+}
 
 Model.onChange('project', function() { initDrawings.render(); });
 
