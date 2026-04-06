@@ -22,7 +22,7 @@ function countPins(drawingId, allDefics) {
 
 function buildDrawingCard(d, allDefics) {
   var pins = countPins(d.id, allDefics);
-  var imgSrc = d.r2Url || d.dataUrl || '';
+  var imgSrc = d.thumb || d.r2Url || d.dataUrl || '';
   var h = '<div class="drawing-card" data-drawing-id="' + esc(d.id) + '" style="width:180px;display:inline-block;vertical-align:top;margin:0 8px 12px 0;cursor:pointer;">';
 
   if (imgSrc) {
@@ -168,14 +168,14 @@ function _handleImageUpload(f) {
       var newDwg = {
         id: 'dwg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
         name: _getUniqueName(baseName),
-        dataUrl: dataUrl,
+        dataUrl: null,
         thumb: thumb,
         width: 0, height: 0,
         isOriginal: true, folder: '',
         r2Key: '', r2Status: '', r2Url: ''
       };
       Model.addDrawing(newDwg);
-      // Save blob to IDB drawingBlobs store
+      // Save full-res blob to IDB drawingBlobs store (not on project object)
       fetch(dataUrl).then(function(r) { return r.blob(); }).then(function(blob) {
         IDB.put('drawingBlobs', { id: newDwg.id, dataBlob: blob }).catch(function(err) {
           console.warn('[Drawings] IDB blob save error:', err);
