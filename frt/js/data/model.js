@@ -421,6 +421,17 @@ export var Model = {
   },
 
   getDrawings: function() { return _project ? (_project.drawings || []) : []; },
+
+  addDrawing: function(dwg) {
+    if (!_project) return null;
+    if (!_project.drawings) _project.drawings = [];
+    _project.drawings.push(dwg);
+    _dirty = true;
+    _queueSave();
+    this._notify('drawing', { action: 'add', drawing: dwg });
+    return dwg;
+  },
+
   getSitePhotos: function() { return _project ? (_project.photos || []) : []; },
   hasUnsavedChanges: function() { return _dirty; },
 

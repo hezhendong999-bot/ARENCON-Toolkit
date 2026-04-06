@@ -223,6 +223,17 @@ function ensurePdfJs(cb){
             <button class="btn btn-outline btn-sm" id="btn-dwg-deselect-all" style="display:none;" title="Deselect all drawings">☐ Deselect All</button>
             <span id="dwg-sel-count" style="display:none;font-size:calc(11px + var(--ts));font-weight:700;color:var(--arencon);white-space:nowrap;"></span>
           </div>
+          <!-- Upload zone -->
+          <div id="dwg-upload-zone" style="border:2px dashed var(--border);border-radius:10px;padding:28px 20px;text-align:center;margin:10px 0 14px;cursor:pointer;transition:border-color .2s,background .2s;"
+               ondragover="event.preventDefault();this.style.borderColor='#9C2742';this.style.background='rgba(156,39,66,.06)';"
+               ondragleave="this.style.borderColor='';this.style.background='';"
+               ondrop="event.preventDefault();this.style.borderColor='';this.style.background='';if(window._handleDrawingDrop)window._handleDrawingDrop(event.dataTransfer.files);">
+            <div style="font-size:calc(13px + var(--ts));color:var(--silver);margin-bottom:6px;">📄 Drag and drop your plans here</div>
+            <div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-bottom:10px;">or</div>
+            <button class="btn btn-primary btn-sm" onclick="document.getElementById('drawing-file-input').click()">Select files</button>
+          </div>
+          <!-- Loading indicator -->
+          <div id="drawing-loading" style="display:none;align-items:center;gap:8px;padding:10px;font-size:calc(13px + var(--ts));color:var(--steel);"></div>
           <div id="drawings-container"></div>
         </div>
       </div>
