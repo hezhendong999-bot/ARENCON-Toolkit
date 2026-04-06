@@ -53,7 +53,7 @@ export var initPins = {
 
     var arrow = _sortDir === 'asc' ? ' \u25B4' : ' \u25BE';
     function thSort(field, label) {
-      return '<th data-sort="' + field + '" style="cursor:pointer;user-select:none;padding:8px 10px;text-align:left;font-size:calc(11px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--steel);">' + label + (_sortField === field ? arrow : '') + '</th>';
+      return '<th data-sort="' + field + '" style="cursor:pointer;user-select:none;text-align:left;">' + label + (_sortField === field ? arrow : '') + '</th>';
     }
 
     var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">';
@@ -63,9 +63,9 @@ export var initPins = {
     h += '</div>';
 
     h += '<div style="overflow-x:auto;">';
-    h += '<table style="width:100%;border-collapse:collapse;font-size:calc(13px + var(--ts));">';
-    h += '<thead><tr style="border-bottom:2px solid var(--border);">';
-    h += thSort('num', '#') + thSort('desc', 'Description') + thSort('contractor', 'Contractor') + thSort('status', 'Status') + thSort('priority', 'Priority') + '<th style="padding:8px 10px;text-align:center;font-size:calc(11px + var(--ts));font-weight:700;color:var(--steel);">IAR</th><th style="padding:8px 10px;text-align:center;font-size:calc(11px + var(--ts));font-weight:700;color:var(--steel);">Pin</th>';
+    h += '<table class="defic-summary-table">';
+    h += '<thead><tr>';
+    h += thSort('num', '#') + thSort('desc', 'Description') + thSort('contractor', 'Contractor') + thSort('status', 'Status') + thSort('priority', 'Priority') + '<th style="text-align:center;">IAR</th><th style="text-align:center;">Pin</th>';
     h += '</tr></thead><tbody>';
 
     filtered.forEach(function(d, i) {
@@ -78,15 +78,14 @@ export var initPins = {
       var pri = d.defic.priority || 'general';
       var hasPinIcon = d.defic.drawingId && d.defic.pinX != null ? '\uD83D\uDCCC' : '';
       var iarIcon = d.defic.iar ? '<span style="color:#E91E8C;font-weight:700;">IAR</span>' : '';
-      var bg = i % 2 === 0 ? 'transparent' : 'var(--smoke)';
-      h += '<tr data-action="jump-defic" data-defic-id="' + esc(d.defic.id) + '" style="border-bottom:1px solid var(--border);background:' + bg + ';cursor:pointer;" onmouseover="this.style.background=\'rgba(156,39,66,.04)\'" onmouseout="this.style.background=\'' + bg + '\'">';
-      h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">' + (d.defic.num || '?') + '</td>';
-      h += '<td style="padding:8px 10px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(trunc) + '</td>';
-      h += '<td style="padding:8px 10px;">' + esc(d.contractorName) + '</td>';
-      h += '<td style="padding:8px 10px;"><span style="color:' + statusColor + ';font-weight:700;font-size:calc(11px + var(--ts));">' + statusText + '</span></td>';
-      h += '<td style="padding:8px 10px;"><span style="color:' + (priColors[pri] || '#4A5568') + ';font-weight:600;font-size:calc(11px + var(--ts));">' + esc(pri.charAt(0).toUpperCase() + pri.slice(1)) + '</span></td>';
-      h += '<td style="padding:8px 10px;text-align:center;">' + iarIcon + '</td>';
-      h += '<td style="padding:8px 10px;text-align:center;">' + hasPinIcon + '</td>';
+      h += '<tr data-action="jump-defic" data-defic-id="' + esc(d.defic.id) + '" style="cursor:pointer;">';
+      h += '<td style="font-weight:700;color:#9C2742;">' + (d.defic.num || '?') + '</td>';
+      h += '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(trunc) + '</td>';
+      h += '<td>' + esc(d.contractorName) + '</td>';
+      h += '<td><span style="color:' + statusColor + ';font-weight:700;font-size:calc(11px + var(--ts));">' + statusText + '</span></td>';
+      h += '<td><span style="color:' + (priColors[pri] || '#4A5568') + ';font-weight:600;font-size:calc(11px + var(--ts));">' + esc(pri.charAt(0).toUpperCase() + pri.slice(1)) + '</span></td>';
+      h += '<td style="text-align:center;">' + iarIcon + '</td>';
+      h += '<td style="text-align:center;">' + hasPinIcon + '</td>';
       h += '</tr>';
     });
     h += '</tbody></table></div>';
