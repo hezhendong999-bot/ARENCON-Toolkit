@@ -120,6 +120,7 @@ document.addEventListener('mousedown', function(e) {
 
 document.addEventListener('mousemove', function(e) {
   if (!_dragging) return;
+  if (_scale <= 1) return; // No pan at fit
   _panX += e.clientX - _lastX;
   _panY += e.clientY - _lastY;
   _lastX = e.clientX;
@@ -146,7 +147,16 @@ document.addEventListener('wheel', function(e) {
   var imgY = (my - _panY) / _scale;
 
   var delta = e.deltaY > 0 ? 0.9 : 1.1;
-  var newScale = Math.max(0.1, Math.min(8, _scale * delta));
+  var newScale = Math.max(1, Math.min(8, _scale * delta));
+
+  // At fit (scale 1), reset pan
+  if (newScale <= 1) {
+    _panX = 0;
+    _panY = 0;
+    _scale = 1;
+    _applyTransform();
+    return;
+  }
 
   _panX = mx - imgX * newScale;
   _panY = my - imgY * newScale;
@@ -160,10 +170,9 @@ document.addEventListener('keydown', function(e) {
   var overlay = document.getElementById('drawing-viewer-overlay');
   if (!overlay || !overlay.classList.contains('open')) return;
 
-  if (e.key === 'Escape') { initViewer.close(); e.preventDefault(); }
   if (e.key === 'ArrowLeft') { initViewer.prev(); e.preventDefault(); }
   if (e.key === 'ArrowRight') { initViewer.next(); e.preventDefault(); }
   if (e.key === '+' || e.key === '=') { _scale = Math.min(8, _scale * 1.2); _applyTransform(); }
-  if (e.key === '-') { _scale = Math.max(0.1, _scale / 1.2); _applyTransform(); }
+  if (e.key === '-') { _scale = Math.max(1, _scale / 1.2); if (_scale <= 1) { _panX = 0; _panY = 0; } _applyTransform(); }
   if (e.key === '0') { _resetView(); }
 });
