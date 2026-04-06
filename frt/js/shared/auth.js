@@ -2,75 +2,136 @@
  * ARENCON FRT v2 — Authentication
  * ════════════════════════════════
  * 
- * Supabase email/password auth (@arencon.com only).
- * 
- * Phase 1 will implement:
- *   - restoreSession() → session | null
- *   - signIn(email, password) → session
- *   - signOut()
- *   - getToken() → JWT (auto-refreshed)
- *   - isAdmin() → boolean
- *   - onAuthChange(callback)
- *   - Token auto-refresh before expiry (fixes P1: silent R2 failures)
+ * Supabase auth via REST API (same pattern as v1 CloudSync).
+ * Reads tokens from localStorage (shared with Hub on same domain).
+ * Auto-refreshes expired access tokens.
  */
 
-const SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzkzOTY2MDcsImV4cCI6MjA1NDk3MjYwN30.wrVnZMOQlDL93-eomsKXG-JMYnrOzmm7RNNiDdfJl-Y';
+var SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
 
-let _session = null;
+var _user = null;
+var _role = null;
 
-export const Auth = {
+function _getHeaders() {
+  var h = {
+    'apikey': SUPABASE_ANON_KEY,
+    'Content-Type': 'application/json'
+  };
+  var token = localStorage.getItem('sb-access-token');
+  h['Authorization'] = 'Bearer ' + (token || SUPABASE_ANON_KEY);
+  return h;
+}
+
+export var Auth = {
+
+  SUPABASE_URL: SUPABASE_URL,
+  SUPABASE_ANON_KEY: SUPABASE_ANON_KEY,
 
   /**
-   * Attempt to restore a saved session from localStorage.
-   * Returns session object or null.
+   * Make an authenticated request to Supabase REST API.
    */
-  async restoreSession() {
-    // TODO Phase 1: restore from localStorage, refresh if expired
-    console.log('[Auth] restoreSession() — stub');
-    return null;
+  request: function(path, opts) {
+    opts = opts || {};
+    return fetch(SUPABASE_URL + path, {
+      method: opts.method || 'GET',
+      headers: Object.assign({}, _getHeaders(), opts.headers || {}),
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    }).then(function(res) {
+      if (!res.ok) {
+        return res.json().catch(function() { return { message: res.statusText }; }).then(function(err) {
+          throw new Error(err.message || err.msg || res.statusText);
+        });
+      }
+      return res.text().then(function(text) { return text ? JSON.parse(text) : null; });
+    });
   },
 
   /**
-   * Sign in with email and password.
+   * Restore session — reads tokens from localStorage, refreshes if needed.
+   * Returns user object or null.
    */
-  async signIn(email, password) {
-    // TODO Phase 1
-    console.log('[Auth] signIn() — stub');
-    return null;
+  restoreSession: function() {
+    var token = localStorage.getItem('sb-access-token');
+    if (!token) {
+      console.log('[Auth] No access token found');
+      return Promise.resolve(null);
+    }
+
+    var self = this;
+    return this.request('/auth/v1/user', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    }).then(function(user) {
+      _user = user;
+      console.log('[Auth] Session restored:', user.email);
+      return self._loadRole(user.id).then(function() { return user; });
+    }).catch(function(err) {
+      console.log('[Auth] Token expired, attempting refresh...');
+      return self._refreshToken();
+    });
   },
 
   /**
-   * Sign out and clear session.
+   * Refresh expired access token using refresh token.
    */
-  async signOut() {
-    // TODO Phase 1
-    _session = null;
-    console.log('[Auth] signOut() — stub');
+  _refreshToken: function() {
+    var rt = localStorage.getItem('sb-refresh-token');
+    if (!rt) {
+      console.log('[Auth] No refresh token');
+      return Promise.resolve(null);
+    }
+
+    var self = this;
+    return this.request('/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      body: { refresh_token: rt },
+      headers: { 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
+    }).then(function(data) {
+      if (data && data.access_token) {
+        localStorage.setItem('sb-access-token', data.access_token);
+        localStorage.setItem('sb-refresh-token', data.refresh_token);
+        console.log('[Auth] Token refreshed');
+        return self.request('/auth/v1/user', {
+          headers: { 'Authorization': 'Bearer ' + data.access_token }
+        }).then(function(user) {
+          _user = user;
+          return self._loadRole(user.id).then(function() { return user; });
+        });
+      }
+      return null;
+    }).catch(function(err) {
+      console.warn('[Auth] Refresh failed:', err.message);
+      return null;
+    });
   },
 
   /**
-   * Get current auth token (JWT).
-   * Auto-refreshes if within 5 minutes of expiry.
+   * Load user role from profiles table.
    */
-  async getToken() {
-    // TODO Phase 1
-    if (_session && _session.access_token) return _session.access_token;
-    return null;
+  _loadRole: function(userId) {
+    return this.request('/rest/v1/profiles?id=eq.' + userId + '&select=role').then(function(rows) {
+      if (rows && rows.length > 0) _role = rows[0].role;
+    }).catch(function() { _role = 'inspector'; });
   },
 
-  /**
-   * Check if current user has admin role.
-   */
-  isAdmin() {
-    // TODO Phase 1: check profiles table role
-    return false;
+  getToken: function() {
+    return localStorage.getItem('sb-access-token');
   },
 
-  /**
-   * Get current session.
-   */
-  getSession() {
-    return _session;
+  getUser: function() { return _user; },
+
+  isAdmin: function() {
+    return _role === 'admin' || _role === 'super_admin';
+  },
+
+  getSession: function() { return _user; },
+
+  signOut: function() {
+    _user = null;
+    _role = null;
+    localStorage.removeItem('sb-access-token');
+    localStorage.removeItem('sb-refresh-token');
+    console.log('[Auth] Signed out');
+    return Promise.resolve();
   }
 };

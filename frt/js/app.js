@@ -366,17 +366,41 @@ function boot() {
   IDB.init().then(function() {
     console.log('[FRT v2] IDB ready');
 
-    // Try to load last project from IDB
-    return Model.loadLastProject();
-  }).then(function(loaded) {
-    if (loaded) {
-      console.log('[FRT v2] Loaded project from IDB');
+    if (_hubMode && _projectId) {
+      // Hub mode: authenticate, then pull from cloud
+      return Auth.restoreSession().then(function(user) {
+        if (user) {
+          console.log('[FRT v2] Authenticated as:', user.email);
+          // Show sign-out button
+          var soBtn = document.getElementById('btn-signout');
+          if (soBtn) soBtn.style.display = '';
+          var mso = document.getElementById('mobile-signout-btn');
+          if (mso) mso.style.display = '';
+          // Read instance from URL
+          var params = new URLSearchParams(window.location.search);
+          var instanceId = params.get('instance');
+          return SyncEngine.pull(_projectId, instanceId);
+        } else {
+          console.warn('[FRT v2] No auth session — trying IDB');
+          return Model.loadLastProject().then(function(ok) { return ok ? Model.getProject() : null; });
+        }
+      }).then(function(data) {
+        if (!data && !Model.getProject()) {
+          // No cloud data and no IDB — create empty project
+          Model.newProject();
+          console.log('[FRT v2] Created new project for Hub');
+        }
+      });
     } else {
-      // No project found — create a new empty one
-      Model.newProject();
-      console.log('[FRT v2] Created new empty project');
+      // Standalone: load from IDB
+      return Model.loadLastProject().then(function(loaded) {
+        if (!loaded) {
+          Model.newProject();
+          console.log('[FRT v2] Created new empty project');
+        }
+      });
     }
-
+  }).then(function() {
     // Show project view and render
     showProjectView();
     _updateHeaderForProject();

@@ -2,67 +2,135 @@
  * ARENCON FRT v2 — Sync Engine
  * ════════════════════════════
  * 
- * Incremental sync to Supabase. Replaces the monolithic
- * _collectFullState() → tool_data blob approach.
- * 
- * Phase 1 will implement:
- *   - syncQueue: tracks pending changes per entity
- *   - flush(): batches and pushes pending changes (every 2s or on demand)
- *   - pull(projectId): fetches changes since lastSync timestamp
- *   - poll(): lightweight heartbeat (every 15s)
- *   - Conflict resolution: newer timestamp wins per-field
- *   - Auth token auto-refresh before expiry (fixes P1)
- * 
- * Supabase tables (new, per-entity):
- *   frt_deficiencies, frt_drawings, frt_markup, frt_photos
- *   (existing tool_data retained for backward compat during migration)
+ * Loads/saves project data from Supabase tool_data table.
+ * Backward compatible with v1 CloudSync format.
  */
 
-const SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+import { Auth } from '../shared/auth.js';
+import { Model } from './model.js';
 
-export const SyncEngine = {
+var _instanceId = null;
+var _instanceNumber = 1;
+var _toolKey = 'frt';
+
+export var SyncEngine = {
+
+  get instanceId() { return _instanceId; },
+  get instanceNumber() { return _instanceNumber; },
 
   /**
-   * Pull all data for a project from Supabase.
-   * Used on initial load and after reconnect.
+   * Pull project data from Supabase.
+   * Reads from tool_data table (v1 format — single blob per project/tool/instance).
    */
-  async pull(projectId) {
-    // TODO Phase 1: fetch from new per-entity tables
-    // Fallback: fetch from tool_data blob (backward compat)
-    console.log('[Sync] pull() — stub — projectId:', projectId);
+  pull: function(projectId, instanceId) {
+    var path;
+    if (instanceId) {
+      path = '/rest/v1/tool_data?select=*&id=eq.' + instanceId;
+    } else {
+      path = '/rest/v1/tool_data?select=*&project_id=eq.' + projectId + '&tool_key=eq.' + _toolKey + '&order=updated_at.desc&limit=1';
+    }
+
+    return Auth.request(path).then(function(rows) {
+      if (!rows || !rows.length) {
+        console.log('[Sync] No cloud data found for project:', projectId);
+        return null;
+      }
+
+      var row = rows[0];
+      _instanceId = row.id;
+      _instanceNumber = row.instance_number || 1;
+
+      var data = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+      if (data) {
+        Model.setProject(data);
+        console.log('[Sync] Loaded from cloud — instance:', _instanceId, 'updated:', row.updated_at);
+        return data;
+      }
+      return null;
+    }).catch(function(err) {
+      console.warn('[Sync] Pull failed:', err.message);
+      return null;
+    });
   },
 
   /**
-   * Flush pending changes to Supabase.
-   * Reads syncQueue from IDB, batches by entity type, pushes via UPSERT.
+   * Push current project state to Supabase.
    */
-  async flush() {
-    // TODO Phase 1
-    console.log('[Sync] flush() — stub');
+  push: function(projectId) {
+    var proj = Model.getProject();
+    if (!proj) return Promise.resolve(null);
+
+    // Strip binary data before pushing
+    var data = JSON.parse(JSON.stringify(proj));
+    (data.drawings || []).forEach(function(d) {
+      delete d.dataUrl; delete d.dataBlob; delete d.thumb; delete d._hasLocalBlob;
+      delete d.markupObjects; delete d.markupData;
+    });
+    (data.photos || []).forEach(function(p) { delete p.dataUrl; delete p.dataBlob; });
+
+    var user = Auth.getUser();
+    var payload = {
+      project_id: projectId,
+      tool_key: _toolKey,
+      instance_number: _instanceNumber,
+      data: data,
+      updated_by: user ? user.id : null,
+      updated_at: new Date().toISOString()
+    };
+
+    var method, path;
+    if (_instanceId) {
+      method = 'PATCH';
+      path = '/rest/v1/tool_data?id=eq.' + _instanceId;
+    } else {
+      method = 'POST';
+      path = '/rest/v1/tool_data';
+      payload.created_by = user ? user.id : null;
+      payload.status = 'draft';
+      payload = [payload];
+    }
+
+    return Auth.request(path, {
+      method: method,
+      body: method === 'POST' ? payload : payload,
+      headers: { 'Prefer': 'return=representation' }
+    }).then(function(rows) {
+      if (rows && rows.length > 0) {
+        _instanceId = rows[0].id;
+        _instanceNumber = rows[0].instance_number;
+        console.log('[Sync] Pushed to cloud — instance:', _instanceId);
+        return rows[0];
+      }
+      return null;
+    }).catch(function(err) {
+      console.warn('[Sync] Push failed:', err.message);
+      return null;
+    });
   },
 
   /**
-   * Lightweight poll for remote changes.
-   * Only fetches records with updated_at > lastPoll.
+   * Flush pending changes (alias for push).
    */
-  async poll() {
-    // TODO Phase 1
+  flush: function() {
+    var params = new URLSearchParams(window.location.search);
+    var pid = params.get('project');
+    if (!pid) return Promise.resolve();
+    return this.push(pid);
+  },
+
+  /**
+   * Poll for remote changes (stub — full implementation in Phase 1-C).
+   */
+  poll: function() {
     console.log('[Sync] poll() — stub');
+    return Promise.resolve();
   },
 
-  /**
-   * Start the sync heartbeat timer.
-   */
-  startHeartbeat(intervalMs) {
-    // TODO Phase 1
-    console.log('[Sync] startHeartbeat() — stub — interval:', intervalMs);
+  startHeartbeat: function(intervalMs) {
+    console.log('[Sync] startHeartbeat() — stub');
   },
 
-  /**
-   * Stop the sync heartbeat.
-   */
-  stopHeartbeat() {
-    // TODO Phase 1
+  stopHeartbeat: function() {
     console.log('[Sync] stopHeartbeat() — stub');
   }
 };
