@@ -13,6 +13,7 @@
 import { Model } from '../data/model.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm, showPrompt } from '../shared/dialogs.js';
+import { R2 } from '../data/r2.js';
 
 // ── Helpers ──────────────────────────────────────────────
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -50,6 +51,8 @@ function buildDeficCard(d, ctrId) {
     h += '<option value="' + p + '"' + (d.priority === p ? ' selected' : '') + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
   });
   h += '</select>';
+  // IAR toggle
+  h += '<button data-action="toggle-iar" data-defic-id="' + esc(d.id) + '" style="border:none;background:' + (d.iar ? '#E91E8C' : '#CBD5E0') + ';color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">' + (d.iar ? 'IAR' : 'IAR') + '</button>';
   if (d.drawingId) {
     // Find the drawing name
     var _dwgs = Model.getDrawings();
@@ -61,7 +64,17 @@ function buildDeficCard(d, ctrId) {
   } else {
     h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
   }
+  // Delete deficiency
+  h += '<button data-action="delete-defic" data-defic-id="' + esc(d.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(14px + var(--ts));padding:0 2px;margin-left:auto;" title="Delete deficiency">\uD83D\uDDD1</button>';
   h += '</div>';
+
+  // Closed note (only when status is closed)
+  if (isClosed) {
+    h += '<div style="margin-bottom:6px;">';
+    h += '<div style="font-size:calc(10px + var(--ts));font-weight:700;color:#1A7A4A;margin-bottom:2px;">Closed Note</div>';
+    h += '<textarea data-action="closed-note" data-defic-id="' + esc(d.id) + '" style="width:100%;min-height:36px;border:1.5px solid rgba(26,122,74,.3);border-radius:6px;padding:6px 8px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:rgba(26,122,74,.03);" placeholder="Closing remarks...">' + esc(d.closedNote || '') + '</textarea>';
+    h += '</div>';
+  }
 
   // Multiple observations
   var hasMulti = obs.length > 1;
@@ -84,14 +97,14 @@ function buildDeficCard(d, ctrId) {
       h += 'style="width:100%;min-height:56px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);"';
       h += ' placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
       // Observation photos
-      var obsPhotos = o.photos || [];
       if (obsPhotos.length) {
         h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;">';
         obsPhotos.forEach(function(ph, phi) {
           var src = ph.r2Url || ph.dataUrl || '';
           if (src) {
-            h += '<div data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" style="width:60px;height:60px;border-radius:4px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:opacity .12s;" onmouseover="this.style.opacity=\'.8\'" onmouseout="this.style.opacity=\'1\'">';
-            h += '<img src="' + esc(src) + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy">';
+            h += '<div style="position:relative;width:60px;height:60px;border-radius:4px;overflow:hidden;border:1px solid var(--border);">';
+            h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" src="' + esc(src) + '" style="width:100%;height:100%;object-fit:cover;cursor:pointer;" loading="lazy">';
+            h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" style="position:absolute;top:1px;right:1px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;text-align:center;cursor:pointer;padding:0;" title="Remove photo">\u2715</button>';
             h += '</div>';
           }
         });
@@ -131,6 +144,14 @@ function buildDeficCard(d, ctrId) {
     });
     h += '</div>';
   }
+
+  // Activity log add entry
+  h += '<div style="margin-top:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;">';
+  h += '<select data-action="activity-label-sel" data-defic-id="' + esc(d.id) + '" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;background:var(--smoke);">';
+  h += '<option value="ARENCON">ARENCON</option><option value="Contractor">Contractor</option></select>';
+  h += '<input type="text" data-action="activity-text-inp" data-defic-id="' + esc(d.id) + '" placeholder="Add activity note..." style="flex:1;min-width:100px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;background:var(--smoke);color:var(--fg);">';
+  h += '<button data-action="add-activity" data-defic-id="' + esc(d.id) + '" style="border:none;background:#1565C0;color:white;border-radius:4px;padding:4px 10px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">+ Add</button>';
+  h += '</div>';
 
   // Noted date
   if (d.notedDate || d.date) {
@@ -464,6 +485,62 @@ document.addEventListener('click', function(e) {
       }
     }
   }
+
+  if (action === 'delete-defic') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    if (!deficId) { var btn4 = e.target.closest('[data-defic-id]'); if (btn4) deficId = btn4.getAttribute('data-defic-id'); }
+    if (deficId) {
+      var f = Model.findDeficiency(deficId);
+      var num = f ? f.defic.num : '?';
+      showConfirm('Delete Deficiency', 'Delete deficiency #' + num + '? This cannot be undone.').then(function(yes) {
+        if (yes) {
+          Model.removeDeficiency(deficId);
+          initDeficiencies.render();
+          toast('Deficiency #' + num + ' deleted');
+        }
+      });
+    }
+  }
+
+  if (action === 'toggle-iar') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    if (!deficId) { var btn5 = e.target.closest('[data-defic-id]'); if (btn5) deficId = btn5.getAttribute('data-defic-id'); }
+    if (deficId) {
+      Model.toggleIAR(deficId);
+      initDeficiencies.render();
+    }
+  }
+
+  if (action === 'delete-obs-photo') {
+    var el = e.target.closest('[data-action="delete-obs-photo"]');
+    if (!el) return;
+    var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
+    var photoIdx = parseInt(el.getAttribute('data-photo-idx') || '0');
+    showConfirm('Remove Photo', 'Remove this photo?').then(function(yes) {
+      if (yes) {
+        Model.removeObservationPhoto(deficId, obsIdx, photoIdx);
+        initDeficiencies.render();
+        toast('Photo removed');
+      }
+    });
+  }
+
+  if (action === 'add-activity') {
+    var el = e.target.closest('[data-action="add-activity"]');
+    if (!el) return;
+    var deficId = el.getAttribute('data-defic-id');
+    var card = el.closest('.defic-item');
+    if (!card) return;
+    var labelSel = card.querySelector('[data-action="activity-label-sel"]');
+    var textInp = card.querySelector('[data-action="activity-text-inp"]');
+    var label = labelSel ? labelSel.value : 'ARENCON';
+    var text = textInp ? textInp.value.trim() : '';
+    if (!text) { toast('Enter activity note text'); return; }
+    Model.addActivityEntry(deficId, label, text);
+    initDeficiencies.render();
+    toast('Activity note added');
+  }
 });
 
 // Status and priority changes via select
@@ -485,19 +562,29 @@ document.addEventListener('change', function(e) {
 });
 
 // Observation text editing with debounce
+var _noteDebounce = {};
 document.addEventListener('input', function(e) {
   var action = e.target.getAttribute && e.target.getAttribute('data-action');
-  if (action !== 'obs-text') return;
 
-  var deficId = e.target.getAttribute('data-defic-id');
-  var obsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
-  var text = e.target.value;
+  if (action === 'obs-text') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    var obsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
+    var text = e.target.value;
+    if (_obsDebounce[deficId]) clearTimeout(_obsDebounce[deficId]);
+    _obsDebounce[deficId] = setTimeout(function() {
+      Model.updateObservation(deficId, obsIdx, text);
+    }, 500);
+  }
 
-  // Debounce: don't save on every keystroke
-  if (_obsDebounce[deficId]) clearTimeout(_obsDebounce[deficId]);
-  _obsDebounce[deficId] = setTimeout(function() {
-    Model.updateObservation(deficId, obsIdx, text);
-  }, 500);
+  if (action === 'closed-note') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    var text = e.target.value;
+    var key = 'cn_' + deficId;
+    if (_noteDebounce[key]) clearTimeout(_noteDebounce[key]);
+    _noteDebounce[key] = setTimeout(function() {
+      Model.updateClosedNote(deficId, text);
+    }, 500);
+  }
 });
 
 // Re-render when project loads
@@ -512,7 +599,6 @@ function _compressAndAdd(file, deficId, obsIdx) {
   reader.onload = function(e) {
     var img = new Image();
     img.onload = function() {
-      // Compress to max 1600px wide, JPEG 0.8 quality
       var maxW = 1600;
       var w = img.width;
       var h = img.height;
@@ -523,9 +609,17 @@ function _compressAndAdd(file, deficId, obsIdx) {
       var ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, w, h);
       var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      Model.addObservationPhoto(deficId, obsIdx, dataUrl);
+      var photo = Model.addObservationPhoto(deficId, obsIdx, dataUrl);
       initDeficiencies.render();
       toast('Photo added');
+      // R2 upload in Hub mode (fire-and-forget)
+      var pid = new URLSearchParams(window.location.search).get('project');
+      if (pid && photo) {
+        R2.uploadPhoto(pid, photo, 'original').then(function() {
+          Model.saveNow(); // Save updated r2Key/r2Url
+        });
+      }
+      canvas.width = 1; canvas.height = 1;
     };
     img.src = e.target.result;
   };

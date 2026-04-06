@@ -5,6 +5,8 @@
 
 import { Model } from '../data/model.js';
 import { toast } from '../shared/toast.js';
+import { showConfirm } from '../shared/dialogs.js';
+import { R2 } from '../data/r2.js';
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
@@ -45,12 +47,13 @@ export var initPhotos = {
       html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
       sitePhotos.forEach(function(p, i) {
         var imgSrc = p.thumb || p.r2Url || p.dataUrl || '';
-        html += '<div data-action="open-site-lightbox" data-photo-idx="' + i + '" style="width:120px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--smoke);cursor:pointer;transition:opacity .12s;" onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'">';
+        html += '<div style="position:relative;width:120px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--smoke);">';
         if (imgSrc) {
-          html += '<img src="' + esc(imgSrc) + '" loading="lazy" style="width:120px;height:100px;object-fit:cover;display:block;" onerror="this.style.display=\'none\'">';
+          html += '<img data-action="open-site-lightbox" data-photo-idx="' + i + '" src="' + esc(imgSrc) + '" loading="lazy" style="width:120px;height:100px;object-fit:cover;display:block;cursor:pointer;" onerror="this.style.display=\'none\'">';
         } else {
           html += '<div style="width:120px;height:100px;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:24px;">\uD83D\uDCF7</div>';
         }
+        html += '<button data-action="delete-site-photo" data-photo-idx="' + i + '" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:12px;line-height:22px;text-align:center;cursor:pointer;padding:0;" title="Remove photo">\u2715</button>';
         html += '<div style="padding:3px 6px;font-size:calc(10px + var(--ts));color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(p.caption || p.filename || 'Photo ' + (i + 1)) + '</div>';
         html += '</div>';
       });
@@ -69,17 +72,31 @@ Model.onChange('project', function() { initPhotos.render(); });
 // Site photo lightbox click
 document.addEventListener('click', function(e) {
   var el = e.target.closest && e.target.closest('[data-action="open-site-lightbox"]');
-  if (!el) return;
-  var idx = parseInt(el.getAttribute('data-photo-idx') || '0');
-  var proj = Model.getProject();
-  if (!proj) return;
-  var photos = proj.photos || [];
-  if (photos.length && window._frtLightbox) {
-    // Use full-res URLs for lightbox (not thumbs)
-    var fullPhotos = photos.map(function(p) {
-      return { r2Url: p.r2Url, dataUrl: p.dataUrl, caption: p.caption || p.filename || '', filename: p.filename };
+  if (el) {
+    var idx = parseInt(el.getAttribute('data-photo-idx') || '0');
+    var proj = Model.getProject();
+    if (!proj) return;
+    var photos = proj.photos || [];
+    if (photos.length && window._frtLightbox) {
+      var fullPhotos = photos.map(function(p) {
+        return { r2Url: p.r2Url, dataUrl: p.dataUrl, caption: p.caption || p.filename || '', filename: p.filename };
+      });
+      window._frtLightbox.open(fullPhotos, idx);
+    }
+    return;
+  }
+
+  // Delete site photo
+  var del = e.target.closest && e.target.closest('[data-action="delete-site-photo"]');
+  if (del) {
+    var idx = parseInt(del.getAttribute('data-photo-idx') || '0');
+    showConfirm('Remove Photo', 'Remove this site photo?').then(function(yes) {
+      if (yes) {
+        Model.removeSitePhoto(idx);
+        initPhotos.render();
+        toast('Site photo removed');
+      }
     });
-    window._frtLightbox.open(fullPhotos, idx);
   }
 });
 
@@ -129,6 +146,13 @@ function _addSitePhoto(file) {
     Model.saveNow();
     initPhotos.render();
     toast('Site photo added');
+    // R2 upload in Hub mode (fire-and-forget)
+    var pid = new URLSearchParams(window.location.search).get('project');
+    if (pid) {
+      R2.uploadPhoto(pid, photo, 'original').then(function() {
+        Model.saveNow();
+      });
+    }
   });
 }
 

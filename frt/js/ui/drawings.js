@@ -9,8 +9,10 @@
 
 import { Model } from '../data/model.js';
 import { IDB } from '../data/idb.js';
-import { initViewer } from '../viewer/viewer.js';
+import { R2 } from '../data/r2.js';
 import { toast } from '../shared/toast.js';
+import { showConfirm } from '../shared/dialogs.js';
+import { initViewer } from '../viewer/viewer.js';
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
@@ -40,6 +42,7 @@ function buildDrawingCard(d, allDefics) {
   if (pins > 0) {
     h += '<span class="pin-count" style="font-size:calc(11px + var(--ts));color:var(--silver);background:var(--smoke);padding:2px 8px;border-radius:10px;flex-shrink:0;">\uD83D\uDCCC ' + pins + '</span>';
   }
+  h += '<button data-action="delete-drawing" data-drawing-id="' + esc(d.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(13px + var(--ts));padding:0 2px;flex-shrink:0;" title="Delete drawing">\uD83D\uDDD1</button>';
   h += '</div>';
   h += '</div>';
   return h;
@@ -133,6 +136,24 @@ Model.onChange('project', function() { initDrawings.render(); });
 
 // Click handler: open drawing in viewer
 document.addEventListener('click', function(e) {
+  // Delete drawing
+  var delBtn = e.target.closest && e.target.closest('[data-action="delete-drawing"]');
+  if (delBtn) {
+    e.stopPropagation();
+    var drawingId = delBtn.getAttribute('data-drawing-id');
+    var drawings = Model.getDrawings();
+    var dwg = drawings.find(function(d) { return d.id === drawingId; });
+    var name = dwg ? (dwg.name || 'Untitled') : 'this drawing';
+    showConfirm('Delete Drawing', 'Delete "' + name + '"? Pins on this drawing will be removed.').then(function(yes) {
+      if (yes) {
+        Model.removeDrawing(drawingId);
+        initDrawings.render();
+        toast('Drawing deleted');
+      }
+    });
+    return;
+  }
+
   var card = e.target.closest && e.target.closest('.drawing-card[data-drawing-id]');
   if (!card) return;
   var drawingId = card.getAttribute('data-drawing-id');
@@ -208,6 +229,11 @@ function _handleImageUpload(f) {
         IDB.put('drawingBlobs', { id: newDwg.id, dataBlob: blob }).catch(function(err) {
           console.warn('[Drawings] IDB blob save error:', err);
         });
+        // R2 upload in Hub mode (fire-and-forget)
+        var pid = new URLSearchParams(window.location.search).get('project');
+        if (pid) {
+          R2.uploadDrawing(pid, newDwg, blob).then(function() { Model.saveNow(); });
+        }
       });
       _hideDwgLoading();
       initDrawings.render();
@@ -295,6 +321,11 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf) {
               name: newDwg.name, width: hcW, height: hcH,
               folder: folder, pdfPage: pg
             }).catch(function(err) { console.error('[Drawings] IDB save error:', err); });
+            // R2 upload in Hub mode (fire-and-forget)
+            var pid = new URLSearchParams(window.location.search).get('project');
+            if (pid && imgBlob) {
+              R2.uploadDrawing(pid, newDwg, imgBlob).then(function() { Model.saveNow(); });
+            }
             done++;
             _showDwgLoading('Processing PDF: ' + done + '/' + total + '...');
             if (pg < total) { go(pg + 1); }

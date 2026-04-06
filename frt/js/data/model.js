@@ -387,6 +387,76 @@ export var Model = {
     return photo;
   },
 
+  removeObservationPhoto: function(deficId, obsIdx, photoIdx) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return null;
+    var obs = f.defic.observations || [];
+    if (!obs[obsIdx]) return null;
+    var photos = obs[obsIdx].photos || [];
+    if (photoIdx < 0 || photoIdx >= photos.length) return null;
+    var removed = photos.splice(photoIdx, 1)[0];
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'remove', deficId: deficId, photo: removed });
+    return removed;
+  },
+
+  removeDeficiency: function(deficId) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return false;
+    f.arr.splice(f.idx, 1);
+    _dirty = true;
+    _queueSave();
+    this._notify('deficiency', { action: 'remove', deficId: deficId });
+    return true;
+  },
+
+  toggleIAR: function(deficId) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return;
+    f.defic.iar = !f.defic.iar;
+    _dirty = true;
+    _queueSave();
+    this._notify('deficiency', { action: 'iar', deficId: deficId, iar: f.defic.iar });
+  },
+
+  updateClosedNote: function(deficId, note) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return;
+    f.defic.closedNote = note;
+    _dirty = true;
+    _queueSave();
+  },
+
+  removeDrawing: function(drawingId) {
+    if (!_project || !_project.drawings) return false;
+    var idx = _project.drawings.findIndex(function(d) { return d.id === drawingId; });
+    if (idx < 0) return false;
+    var removed = _project.drawings.splice(idx, 1)[0];
+    // Also clear pins referencing this drawing
+    this.getAllDeficiencies().forEach(function(d) {
+      if (d.defic.drawingId === drawingId) {
+        d.defic.drawingId = null;
+        d.defic.pinX = null;
+        d.defic.pinY = null;
+      }
+    });
+    _dirty = true;
+    _queueSave();
+    this._notify('drawing', { action: 'remove', drawing: removed });
+    return true;
+  },
+
+  removeSitePhoto: function(photoIdx) {
+    if (!_project || !_project.photos) return null;
+    if (photoIdx < 0 || photoIdx >= _project.photos.length) return null;
+    var removed = _project.photos.splice(photoIdx, 1)[0];
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'remove-site', photo: removed });
+    return removed;
+  },
+
   getAllDeficiencies: function(proj) {
     if (!proj) proj = _project;
     if (!proj) return [];

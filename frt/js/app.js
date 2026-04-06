@@ -552,12 +552,17 @@ function boot() {
     _updateHeaderForProject();
     switchTab('info');
 
+    // Rebuild missing R2 URLs (safety net for sync issues)
+    var proj = Model.getProject();
+    if (proj) R2.rebuildUrls(proj);
+
     // Start auto-save
     Model.startAutoSave();
 
-    // In Hub mode: start cloud sync heartbeat
+    // In Hub mode: start cloud sync heartbeat + process pending R2 uploads
     if (_hubMode && _projectId) {
       _startCloudSync();
+      R2.processPendingUploads(_projectId);
     }
 
     var elapsed = (performance.now() - t0).toFixed(0);
