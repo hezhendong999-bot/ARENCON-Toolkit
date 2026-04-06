@@ -23,6 +23,8 @@ import { initViewer } from './viewer/viewer.js';
 import { initMarkup } from './viewer/markup.js';
 import { initPDFExport } from './export/pdf.js';
 import { initJSONExport } from './export/json.js';
+import { AIAssist } from './ai/assistant.js';
+import { AIUsage } from './ai/usage.js';
 
 // ── Constants ────────────────────────────────────────────
 var LS_DARK = 'arencon-frt-dark';
@@ -576,7 +578,7 @@ function _updateHeaderForProject() {
 
   // Toggle header buttons: hide dashboard, show project
   var dashBtns = ['btn-load', 'btn-export-all'];
-  var projBtns = ['btn-pdf', 'btn-issue', 'btn-more-wrap', 'btn-qr'];
+  var projBtns = ['btn-pdf', 'btn-issue', 'btn-more-wrap', 'btn-qr', 'btn-ai-review'];
   dashBtns.forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
@@ -585,6 +587,19 @@ function _updateHeaderForProject() {
     var el = document.getElementById(id);
     if (el) el.style.display = '';
   });
+
+  // Show AI usage button for admins
+  var aiUsageBtn = document.getElementById('btn-ai-usage');
+  var role = localStorage.getItem('ARENCON_role') || '';
+  if (aiUsageBtn) aiUsageBtn.style.display = (role === 'super_admin' || role === 'admin') ? '' : 'none';
+
+  // Show mobile AI buttons
+  var mar = document.getElementById('mobile-ai-rewrite');
+  if (mar) mar.style.display = '';
+  var maq = document.getElementById('mobile-ai-quickfix');
+  if (maq) maq.style.display = '';
+  var mau = document.getElementById('mobile-ai-usage');
+  if (mau && (role === 'super_admin' || role === 'admin')) mau.style.display = '';
 
   // Show repair section for admin
   var repairSec = document.getElementById('more-repair-section');
@@ -804,6 +819,43 @@ function wireEvents() {
   if (qrBtn) qrBtn.addEventListener('click', _showQR);
   var mobileQr = document.getElementById('mobile-qr-btn');
   if (mobileQr) mobileQr.addEventListener('click', function() { closeMobileMenu(); _showQR(); });
+
+  // AI Review buttons
+  var aiBtn = document.getElementById('btn-ai-review');
+  if (aiBtn) aiBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var m = document.getElementById('ai-mode-menu');
+    if (m) m.classList.toggle('open');
+  });
+  var aiRewrite = document.getElementById('ai-mode-rewrite');
+  if (aiRewrite) aiRewrite.addEventListener('click', function() {
+    var m = document.getElementById('ai-mode-menu');
+    if (m) m.classList.remove('open');
+    AIAssist.reviewAll('rewrite');
+  });
+  var aiQuickfix = document.getElementById('ai-mode-quickfix');
+  if (aiQuickfix) aiQuickfix.addEventListener('click', function() {
+    var m = document.getElementById('ai-mode-menu');
+    if (m) m.classList.remove('open');
+    AIAssist.reviewAll('quickfix');
+  });
+  // Mobile AI buttons
+  var mobileAiR = document.getElementById('mobile-ai-rewrite');
+  if (mobileAiR) mobileAiR.addEventListener('click', function() { closeMobileMenu(); AIAssist.reviewAll('rewrite'); });
+  var mobileAiQ = document.getElementById('mobile-ai-quickfix');
+  if (mobileAiQ) mobileAiQ.addEventListener('click', function() { closeMobileMenu(); AIAssist.reviewAll('quickfix'); });
+  // AI Usage button
+  var aiUsageBtn = document.getElementById('btn-ai-usage');
+  if (aiUsageBtn) aiUsageBtn.addEventListener('click', function() { AIUsage.open(); });
+  var mobileAiU = document.getElementById('mobile-ai-usage');
+  if (mobileAiU) mobileAiU.addEventListener('click', function() { closeMobileMenu(); AIUsage.open(); });
+  // Close AI mode menu on outside click
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest || !e.target.closest('#btn-ai-wrap')) {
+      var m = document.getElementById('ai-mode-menu');
+      if (m) m.classList.remove('open');
+    }
+  });
 }
 
 // ── PDF Picker Dialog ───────────────────────────────────

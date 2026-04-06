@@ -79,6 +79,14 @@ function ensurePdfJs(cb){
       <button class="hdr-btn hdr-export-all" id="btn-export-all" title="Export All Projects">📦 Export All</button>
       <!-- Project buttons (hidden on dashboard, shown in project) -->
       <button class="hdr-btn" id="btn-pdf" style="display:none;background:#1A237E;" title="Export PDF Report">📄 Reports</button>
+      <div style="position:relative;display:inline-block;" id="btn-ai-wrap" style="display:none;">
+        <button class="hdr-btn hdr-ai" id="btn-ai-review" style="display:none;background:#7B2D8E;" title="AI Review">✨ AI Review ▾</button>
+        <div class="ai-mode-menu" id="ai-mode-menu">
+          <button id="ai-mode-rewrite">✨ Full Rewrite <span>Professional report language (Sonnet)</span></button>
+          <button id="ai-mode-quickfix">🔤 Quick Fix <span>Typos &amp; grammar only (Haiku)</span></button>
+        </div>
+      </div>
+      <button class="hdr-btn admin-only" id="btn-ai-usage" style="display:none;background:#455A64;" title="AI Usage Tracking">📊</button>
       <button class="hdr-btn" id="btn-issue" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
       <!-- ⚙️ More dropdown -->
       <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
@@ -156,6 +164,9 @@ function ensurePdfJs(cb){
       <button id="mobile-menu-close" style="background:none;border:none;font-size:20px;color:var(--silver);cursor:pointer;padding:4px;">✕</button>
     </div>
     <button class="btn" id="mobile-pdf-btn" style="display:none;">📄 Reports</button>
+    <button class="btn" id="mobile-ai-rewrite" style="display:none;">✨ Full Rewrite</button>
+    <button class="btn" id="mobile-ai-quickfix" style="display:none;">🔤 Quick Fix</button>
+    <button class="btn admin-only" id="mobile-ai-usage" style="display:none;">📊 AI Usage</button>
     <button class="btn" id="mobile-export-btn">💾 Export Project</button>
     <button class="btn" id="mobile-load-btn">📂 Load Project</button>
     <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
