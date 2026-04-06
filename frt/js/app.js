@@ -323,6 +323,17 @@ function wireEvents() {
     var m = document.getElementById('more-menu');
     if (m) m.classList.remove('open');
   });
+
+  // More dropdown button
+  var moreWrap = document.getElementById('btn-more-wrap');
+  if (moreWrap) {
+    var moreBtn = moreWrap.querySelector('.hdr-btn');
+    if (moreBtn) moreBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var m = document.getElementById('more-menu');
+      if (m) m.classList.toggle('open');
+    });
+  }
 }
 
 // ── Boot Sequence ────────────────────────────────────────
