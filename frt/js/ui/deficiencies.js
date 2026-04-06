@@ -59,11 +59,34 @@ function buildDeficCard(d, ctrId) {
     h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="0" ';
     h += 'style="width:100%;min-height:56px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);"';
     h += ' placeholder="Describe the deficiency...">' + esc(firstObs.text || '') + '</textarea>';
+
+    // Show existing observation photos
+    var obsPhotos = firstObs.photos || [];
+    if (obsPhotos.length) {
+      h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;">';
+      obsPhotos.forEach(function(ph) {
+        var src = ph.r2Url || ph.dataUrl || '';
+        if (src) {
+          h += '<div style="width:60px;height:60px;border-radius:4px;overflow:hidden;border:1px solid var(--border);">';
+          h += '<img src="' + esc(src) + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy">';
+          h += '</div>';
+        }
+      });
+      h += '</div>';
+    }
   } else {
     h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="0" ';
     h += 'style="width:100%;min-height:56px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);"';
     h += ' placeholder="Describe the deficiency..."></textarea>';
   }
+
+  // Photo zone
+  h += '<div class="photo-zone-compact" data-action="photo-drop" data-defic-id="' + esc(d.id) + '"';
+  h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
+  h += ' ondragleave="this.classList.remove(\'drag-over\')">';
+  h += '<button class="pz-upload" data-action="photo-upload" data-defic-id="' + esc(d.id) + '">\uD83D\uDCCE Upload</button>';
+  h += '<button class="pz-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" style="border:none;background:#37474F;color:white;border-radius:5px;padding:4px 10px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;">\uD83D\uDCF7 Camera</button>';
+  h += '</div>';
 
   // Noted date
   if (d.notedDate || d.date) {
@@ -275,3 +298,75 @@ document.addEventListener('input', function(e) {
 
 // Re-render when project loads
 Model.onChange('project', function() { initDeficiencies.render(); });
+
+// ── Photo Upload Handling ────────────────────────────────
+var _photoTargetDeficId = null;
+
+function _compressAndAdd(file, deficId) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      // Compress to max 1600px wide, JPEG 0.8 quality
+      var maxW = 1600;
+      var w = img.width;
+      var h = img.height;
+      if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+      var canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      Model.addObservationPhoto(deficId, 0, dataUrl);
+      initDeficiencies.render();
+      toast('Photo added');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+document.addEventListener('click', function(e) {
+  var action = e.target.getAttribute && e.target.getAttribute('data-action');
+  if (!action) {
+    var btn = e.target.closest && e.target.closest('[data-action]');
+    if (btn) action = btn.getAttribute('data-action');
+    if (!action) return;
+    e.target = btn;
+  }
+
+  if (action === 'photo-upload' || action === 'photo-camera') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    if (!deficId) return;
+    _photoTargetDeficId = deficId;
+
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.multiple = true;
+    if (action === 'photo-camera') inp.capture = 'environment';
+    inp.onchange = function() {
+      if (!inp.files || !inp.files.length) return;
+      for (var i = 0; i < inp.files.length; i++) {
+        _compressAndAdd(inp.files[i], _photoTargetDeficId);
+      }
+    };
+    inp.click();
+  }
+});
+
+// Drag & drop on photo zones
+document.addEventListener('drop', function(e) {
+  var zone = e.target.closest && e.target.closest('[data-action="photo-drop"]');
+  if (!zone) return;
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  var deficId = zone.getAttribute('data-defic-id');
+  if (!deficId || !e.dataTransfer || !e.dataTransfer.files) return;
+  for (var i = 0; i < e.dataTransfer.files.length; i++) {
+    if (e.dataTransfer.files[i].type.startsWith('image/')) {
+      _compressAndAdd(e.dataTransfer.files[i], deficId);
+    }
+  }
+});

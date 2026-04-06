@@ -301,6 +301,25 @@ export var Model = {
     _queueSave();
   },
 
+  addObservationPhoto: function(deficId, obsIdx, photoData) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return;
+    var obs = f.defic.observations || [];
+    if (!obs[obsIdx]) return;
+    if (!obs[obsIdx].photos) obs[obsIdx].photos = [];
+    var photo = {
+      id: 'ph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      dataUrl: photoData,
+      filename: 'photo_' + Date.now() + '.jpg',
+      addedDate: new Date().toISOString().split('T')[0]
+    };
+    obs[obsIdx].photos.push(photo);
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'add', deficId: deficId, photo: photo });
+    return photo;
+  },
+
   getAllDeficiencies: function(proj) {
     if (!proj) proj = _project;
     if (!proj) return [];
