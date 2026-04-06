@@ -19,10 +19,19 @@ function countPins(drawingId, allDefics) {
 
 function buildDrawingCard(d, allDefics) {
   var pins = countPins(d.id, allDefics);
+  var imgSrc = d.r2Url || d.dataUrl || '';
   var h = '<div class="drawing-card" style="width:180px;display:inline-block;vertical-align:top;margin:0 8px 12px 0;">';
-  h += '<div class="drawing-thumb" style="height:120px;background:#e8eaf0;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:32px;">';
-  h += '\uD83D\uDCC4';
-  h += '</div>';
+
+  if (imgSrc) {
+    h += '<div class="drawing-thumb" style="height:120px;overflow:hidden;">';
+    h += '<img src="' + esc(imgSrc) + '" style="width:100%;height:120px;object-fit:cover;display:block;" loading="lazy" onerror="this.parentElement.innerHTML=\'\\uD83D\\uDCC4\';this.parentElement.style.cssText=\'height:120px;background:#e8eaf0;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:32px;\'">';
+    h += '</div>';
+  } else {
+    h += '<div class="drawing-thumb" style="height:120px;background:#e8eaf0;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:32px;">';
+    h += '\uD83D\uDCC4';
+    h += '</div>';
+  }
+
   h += '<div style="padding:8px 10px;display:flex;justify-content:space-between;align-items:center;gap:4px;">';
   h += '<span style="font-size:calc(12px + var(--ts));font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">' + esc(d.name || 'Untitled') + '</span>';
   if (pins > 0) {

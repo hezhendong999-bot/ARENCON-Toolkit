@@ -55,15 +55,19 @@ export var initPhotos = {
     // Site photo list (names only, no thumbnails)
     if (sitePhotos.length) {
       html += '<div style="font-weight:700;font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:8px;">Site Photos</div>';
+      html += '<div class="photo-thumb-grid">';
       sitePhotos.forEach(function(p, i) {
-        var hasR2 = p.r2Key || p.r2Url;
-        html += '<div style="padding:6px 10px;border-bottom:1px solid var(--border);font-size:calc(12px + var(--ts));display:flex;align-items:center;gap:8px;">';
-        html += '<span style="color:var(--silver);">' + (i + 1) + '.</span>';
-        html += '<span style="flex:1;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(p.name || p.filename || 'Photo ' + (i + 1)) + '</span>';
-        if (p.caption) html += '<span style="color:var(--silver);font-size:calc(11px + var(--ts));">' + esc(p.caption) + '</span>';
-        if (hasR2) html += '<span style="font-size:9px;">\u2601\uFE0F</span>';
+        var imgSrc = p.r2Url || p.dataUrl || '';
+        html += '<div class="photo-thumb">';
+        if (imgSrc) {
+          html += '<img src="' + esc(imgSrc) + '" loading="lazy" style="width:120px;height:100px;object-fit:cover;display:block;" onerror="this.style.display=\'none\'">';
+        } else {
+          html += '<div style="width:120px;height:100px;background:#e8eaf0;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:20px;">\uD83D\uDCF7</div>';
+        }
+        if (p.caption) html += '<div style="padding:3px 6px;font-size:calc(10px + var(--ts));color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(p.caption) + '</div>';
         html += '</div>';
       });
+      html += '</div>';
     }
 
     html += '</div>';
