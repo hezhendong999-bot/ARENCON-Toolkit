@@ -8,6 +8,7 @@
  */
 
 import { Model } from '../data/model.js';
+import { IDB } from '../data/idb.js';
 
 var _currentDrawingIdx = -1;
 var _drawings = [];
@@ -93,11 +94,10 @@ function _showDrawing(idx) {
 
   if (!overlay || !img) return;
 
-  var src = d.r2Url || d.dataUrl || '';
-  if (src) {
-    // Calculate fit scale once image loads
+  var src = d.thumb || d.r2Url || d.dataUrl || '';
+
+  function _loadImg(url) {
     img.onload = function() {
-      // Force GPU compositing layer immediately (reduces first-zoom lag on Samsung)
       img.style.transform = 'translateZ(0)';
       img.style.willChange = 'transform';
       _calcFitScale();
@@ -106,10 +106,26 @@ function _showDrawing(idx) {
       _panY = 0;
       _applyTransform();
     };
-    img.src = src;
+    img.src = url;
     img.style.display = 'block';
+  }
+
+  if (d.r2Url || d.dataUrl) {
+    _loadImg(d.r2Url || d.dataUrl);
   } else {
+    // No URL — try loading full-res blob from IDB drawingBlobs
     img.style.display = 'none';
+    IDB.get('drawingBlobs', d.id).then(function(rec) {
+      if (rec && rec.dataBlob && rec.dataBlob.size > 0) {
+        var objUrl = URL.createObjectURL(rec.dataBlob);
+        _loadImg(objUrl);
+      } else if (d.thumb) {
+        // Fall back to thumbnail
+        _loadImg(d.thumb);
+      }
+    }).catch(function() {
+      if (d.thumb) _loadImg(d.thumb);
+    });
   }
 
   if (title) title.textContent = d.name || 'Drawing ' + (idx + 1);
