@@ -175,6 +175,14 @@ function wireLoadExport() {
   var btnExport = document.getElementById('btn-export');
   if (btnExport) btnExport.addEventListener('click', function() {
     initJSONExport.exportJSON();
+    closeMoreMenu();
+  });
+
+  // Load button in More menu
+  var btnLoadMore = document.getElementById('btn-load-more');
+  if (btnLoadMore) btnLoadMore.addEventListener('click', function() {
+    document.getElementById('load-input').click();
+    closeMoreMenu();
   });
 
   // Mobile buttons
