@@ -231,7 +231,7 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf) {
     pdf.getPage(pg).then(function(page) {
       var pv = page.view;
       var pw = pv[2], ph = pv[3];
-      var hiScale = Math.min(4.0, 4096 / pw, 4096 / ph);
+      var hiScale = Math.min(4.0, 8192 / pw, 8192 / ph);
       var hiVp = page.getViewport({ scale: hiScale });
       var hc = document.createElement('canvas');
       var hcW = Math.round(hiVp.width), hcH = Math.round(hiVp.height);
