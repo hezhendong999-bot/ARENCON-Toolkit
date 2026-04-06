@@ -221,7 +221,7 @@ document.addEventListener('wheel', function(e) {
   _applyTransform();
 }, { passive: false });
 
-// Keyboard: Escape closes, +/- zooms
+// Keyboard: +/- zooms, arrows navigate
 document.addEventListener('keydown', function(e) {
   var overlay = document.getElementById('drawing-viewer-overlay');
   if (!overlay || !overlay.classList.contains('open')) return;
@@ -231,4 +231,104 @@ document.addEventListener('keydown', function(e) {
   if (e.key === '+' || e.key === '=') { _scale = Math.min(8, _scale * 1.2); _applyTransform(); }
   if (e.key === '-') { _scale = Math.max(_fitScale, _scale / 1.2); if (_scale <= _fitScale) { _panX = 0; _panY = 0; } _applyTransform(); }
   if (e.key === '0') { _resetView(); }
+});
+
+// ── Touch: Pinch-to-zoom + single-finger pan + double-tap ──
+var _touchStartDist = 0;
+var _touchStartScale = 1;
+var _touchStartMidX = 0;
+var _touchStartMidY = 0;
+var _touchStartPanX = 0;
+var _touchStartPanY = 0;
+var _singleTouchX = 0;
+var _singleTouchY = 0;
+var _lastTapTime = 0;
+
+document.addEventListener('touchstart', function(e) {
+  var area = document.getElementById('dv-canvas-area');
+  if (!area || !area.contains(e.target)) return;
+
+  if (e.touches.length === 2) {
+    // Pinch start
+    e.preventDefault();
+    var dx = e.touches[1].clientX - e.touches[0].clientX;
+    var dy = e.touches[1].clientY - e.touches[0].clientY;
+    _touchStartDist = Math.sqrt(dx * dx + dy * dy);
+    _touchStartScale = _scale;
+    var rect = area.getBoundingClientRect();
+    _touchStartMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+    _touchStartMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+    _touchStartPanX = _panX;
+    _touchStartPanY = _panY;
+  } else if (e.touches.length === 1) {
+    _singleTouchX = e.touches[0].clientX;
+    _singleTouchY = e.touches[0].clientY;
+
+    // Double-tap detection
+    var now = Date.now();
+    if (now - _lastTapTime < 350) {
+      e.preventDefault();
+      // Toggle fit ↔ 3x zoom
+      if (_scale > _fitScale * 1.5) {
+        _resetView();
+      } else {
+        var rect = area.getBoundingClientRect();
+        var mx = e.touches[0].clientX - rect.left;
+        var my = e.touches[0].clientY - rect.top;
+        var imgX = (mx - _panX) / _scale;
+        var imgY = (my - _panY) / _scale;
+        _scale = Math.min(8, _fitScale * 3);
+        _panX = mx - imgX * _scale;
+        _panY = my - imgY * _scale;
+        _applyTransform();
+      }
+      _lastTapTime = 0;
+    } else {
+      _lastTapTime = now;
+    }
+  }
+}, { passive: false });
+
+document.addEventListener('touchmove', function(e) {
+  var area = document.getElementById('dv-canvas-area');
+  if (!area || !area.contains(e.target)) return;
+
+  if (e.touches.length === 2) {
+    // Pinch zoom
+    e.preventDefault();
+    var dx = e.touches[1].clientX - e.touches[0].clientX;
+    var dy = e.touches[1].clientY - e.touches[0].clientY;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (_touchStartDist === 0) return;
+
+    var ratio = dist / _touchStartDist;
+    var newScale = Math.max(_fitScale, Math.min(8, _touchStartScale * ratio));
+
+    // Zoom centered on pinch midpoint
+    var imgX = (_touchStartMidX - _touchStartPanX) / _touchStartScale;
+    var imgY = (_touchStartMidY - _touchStartPanY) / _touchStartScale;
+    _scale = newScale;
+    _panX = _touchStartMidX - imgX * newScale;
+    _panY = _touchStartMidY - imgY * newScale;
+    _applyTransform();
+
+  } else if (e.touches.length === 1 && _scale > _fitScale) {
+    // Single finger pan (only when zoomed in)
+    e.preventDefault();
+    _panX += e.touches[0].clientX - _singleTouchX;
+    _panY += e.touches[0].clientY - _singleTouchY;
+    _singleTouchX = e.touches[0].clientX;
+    _singleTouchY = e.touches[0].clientY;
+    _applyTransform();
+  }
+}, { passive: false });
+
+document.addEventListener('touchend', function(e) {
+  if (e.touches.length < 2) {
+    _touchStartDist = 0;
+  }
+  if (e.touches.length === 1) {
+    _singleTouchX = e.touches[0].clientX;
+    _singleTouchY = e.touches[0].clientY;
+  }
 });
