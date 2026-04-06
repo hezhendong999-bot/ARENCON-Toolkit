@@ -29,7 +29,6 @@ var _activeDlcTab = 'active';
 // ── Deficiency Card (interactive) ────────────────────────
 function buildDeficCard(d, ctrId) {
   var obs = d.observations || [];
-  var firstObs = obs.length ? obs[0] : null;
   var isOpen = deficIsOpen(d);
   var isClosed = deficIsClosed(d);
   var circleColor = isClosed ? '#1A7A4A' : '#C0392B';
@@ -54,39 +53,74 @@ function buildDeficCard(d, ctrId) {
   if (d.drawingId) h += '<span style="font-size:calc(11px + var(--ts));color:var(--silver);">\uD83D\uDCCC</span>';
   h += '</div>';
 
-  // Observation textarea
-  if (firstObs) {
-    h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="0" ';
-    h += 'style="width:100%;min-height:56px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);"';
-    h += ' placeholder="Describe the deficiency...">' + esc(firstObs.text || '') + '</textarea>';
-
-    // Show existing observation photos
-    var obsPhotos = firstObs.photos || [];
-    if (obsPhotos.length) {
-      h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;">';
-      obsPhotos.forEach(function(ph) {
-        var src = ph.r2Url || ph.dataUrl || '';
-        if (src) {
-          h += '<div style="width:60px;height:60px;border-radius:4px;overflow:hidden;border:1px solid var(--border);">';
-          h += '<img src="' + esc(src) + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy">';
-          h += '</div>';
-        }
-      });
+  // Multiple observations
+  var hasMulti = obs.length > 1;
+  if (obs.length) {
+    obs.forEach(function(o, oi) {
+      var lbl = hasMulti ? String.fromCharCode(65 + oi) + ') ' : '';
+      var addrCls = o.addressed ? 'border-left:3px solid #1A7A4A;background:rgba(26,122,74,.05);' : '';
+      h += '<div style="margin-bottom:8px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;' + addrCls + '">';
+      // Observation header row
+      if (hasMulti) {
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+        h += '<span style="font-size:calc(11px + var(--ts));font-weight:700;color:' + (o.addressed ? '#1A7A4A' : 'var(--ink)') + ';">' + lbl + 'Observation</span>';
+        h += '<div style="display:flex;gap:4px;align-items:center;">';
+        h += '<button data-action="toggle-addressed" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:' + (o.addressed ? '#1A7A4A' : '#CBD5E0') + ';color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">' + (o.addressed ? '\u2611 Addressed' : '\u2610 Open') + '</button>';
+        if (obs.length > 1) h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#E53E3E;color:white;border-radius:4px;padding:2px 6px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Remove observation">\u2715</button>';
+        h += '</div></div>';
+      }
+      // Textarea
+      h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" ';
+      h += 'style="width:100%;min-height:56px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);"';
+      h += ' placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
+      // Observation photos
+      var obsPhotos = o.photos || [];
+      if (obsPhotos.length) {
+        h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;">';
+        obsPhotos.forEach(function(ph) {
+          var src = ph.r2Url || ph.dataUrl || '';
+          if (src) {
+            h += '<div style="width:60px;height:60px;border-radius:4px;overflow:hidden;border:1px solid var(--border);">';
+            h += '<img src="' + esc(src) + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy">';
+            h += '</div>';
+          }
+        });
+        h += '</div>';
+      }
+      // Photo zone per observation
+      h += '<div class="photo-zone-compact" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
+      h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
+      h += ' ondragleave="this.classList.remove(\'drag-over\')">';
+      h += '<button class="pz-upload" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCCE Upload</button>';
+      h += '<button class="pz-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#37474F;color:white;border-radius:5px;padding:4px 10px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;">\uD83D\uDCF7 Camera</button>';
       h += '</div>';
-    }
+      h += '</div>';
+    });
+    // Add observation button
+    h += '<button data-action="add-obs" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:4px 10px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-bottom:6px;">+ Add Observation</button>';
   } else {
     h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="0" ';
     h += 'style="width:100%;min-height:56px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);"';
     h += ' placeholder="Describe the deficiency..."></textarea>';
   }
 
-  // Photo zone
-  h += '<div class="photo-zone-compact" data-action="photo-drop" data-defic-id="' + esc(d.id) + '"';
-  h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
-  h += ' ondragleave="this.classList.remove(\'drag-over\')">';
-  h += '<button class="pz-upload" data-action="photo-upload" data-defic-id="' + esc(d.id) + '">\uD83D\uDCCE Upload</button>';
-  h += '<button class="pz-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" style="border:none;background:#37474F;color:white;border-radius:5px;padding:4px 10px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;">\uD83D\uDCF7 Camera</button>';
-  h += '</div>';
+  // Activity log
+  var activity = d.activity || [];
+  if (activity.length) {
+    h += '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);">';
+    h += '<div style="font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);margin-bottom:4px;">Activity Log</div>';
+    activity.slice().sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); }).forEach(function(a) {
+      if (a.autoGenerated) return;
+      var isCtr = (a.label || '').indexOf('Contractor') >= 0;
+      var bgColor = isCtr ? '#FEF3E2' : '#EBF4FF';
+      var lColor = isCtr ? '#E67E22' : '#1565C0';
+      h += '<div style="margin-bottom:3px;padding:4px 6px;background:' + bgColor + ';border-radius:4px;font-size:calc(11px + var(--ts));">';
+      h += '<span style="color:' + lColor + ';font-weight:600;">' + esc(a.label || 'Note') + '</span> <span style="color:var(--silver);font-size:calc(10px + var(--ts));">' + esc(a.date || '') + '</span>';
+      h += '<div style="margin-top:2px;">' + esc(a.text || '\u2014') + '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
 
   // Noted date
   if (d.notedDate || d.date) {
@@ -260,6 +294,34 @@ document.addEventListener('click', function(e) {
       toast('General deficiency #' + defic.num + ' added');
     }
   }
+
+  if (action === 'add-obs') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    var obs = Model.addObservation(deficId);
+    if (obs) {
+      initDeficiencies.render();
+      toast('Observation added');
+    }
+  }
+
+  if (action === 'remove-obs') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    var obsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
+    showConfirm('Remove Observation', 'Remove this observation? This cannot be undone.').then(function(yes) {
+      if (yes) {
+        Model.removeObservation(deficId, obsIdx);
+        initDeficiencies.render();
+        toast('Observation removed');
+      }
+    });
+  }
+
+  if (action === 'toggle-addressed') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    var obsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
+    Model.toggleObsAddressed(deficId, obsIdx);
+    initDeficiencies.render();
+  }
 });
 
 // Status and priority changes via select
@@ -301,8 +363,9 @@ Model.onChange('project', function() { initDeficiencies.render(); });
 
 // ── Photo Upload Handling ────────────────────────────────
 var _photoTargetDeficId = null;
+var _photoTargetObsIdx = 0;
 
-function _compressAndAdd(file, deficId) {
+function _compressAndAdd(file, deficId, obsIdx) {
   var reader = new FileReader();
   reader.onload = function(e) {
     var img = new Image();
@@ -318,7 +381,7 @@ function _compressAndAdd(file, deficId) {
       var ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, w, h);
       var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      Model.addObservationPhoto(deficId, 0, dataUrl);
+      Model.addObservationPhoto(deficId, obsIdx, dataUrl);
       initDeficiencies.render();
       toast('Photo added');
     };
@@ -340,6 +403,7 @@ document.addEventListener('click', function(e) {
     var deficId = e.target.getAttribute('data-defic-id');
     if (!deficId) return;
     _photoTargetDeficId = deficId;
+    _photoTargetObsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
 
     var inp = document.createElement('input');
     inp.type = 'file';
@@ -349,7 +413,7 @@ document.addEventListener('click', function(e) {
     inp.onchange = function() {
       if (!inp.files || !inp.files.length) return;
       for (var i = 0; i < inp.files.length; i++) {
-        _compressAndAdd(inp.files[i], _photoTargetDeficId);
+        _compressAndAdd(inp.files[i], _photoTargetDeficId, _photoTargetObsIdx);
       }
     };
     inp.click();
@@ -363,10 +427,11 @@ document.addEventListener('drop', function(e) {
   e.preventDefault();
   zone.classList.remove('drag-over');
   var deficId = zone.getAttribute('data-defic-id');
+  var obsIdx = parseInt(zone.getAttribute('data-obs-idx') || '0');
   if (!deficId || !e.dataTransfer || !e.dataTransfer.files) return;
   for (var i = 0; i < e.dataTransfer.files.length; i++) {
     if (e.dataTransfer.files[i].type.startsWith('image/')) {
-      _compressAndAdd(e.dataTransfer.files[i], deficId);
+      _compressAndAdd(e.dataTransfer.files[i], deficId, obsIdx);
     }
   }
 });
