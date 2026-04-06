@@ -107,7 +107,7 @@ function toggleDarkMode() {
 
 function updateDarkToggleIcon() {
   var isDark = document.body.classList.contains('dark-mode');
-  var icon = isDark ? '\u263D' : '\u2600\uFE0E';
+  var icon = isDark ? '\uD83C\uDF19' : '\u2600\uFE0F';
   var dt = document.getElementById('dark-toggle');
   if (dt) dt.textContent = icon;
   var dvdt = document.getElementById('dv-dark-toggle');
