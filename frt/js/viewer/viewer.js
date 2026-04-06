@@ -446,6 +446,8 @@ function _handlePinDrop(e) {
   _pinModeDeficId = null;
   var area = document.getElementById('dv-canvas-area');
   if (area) area.classList.remove('pin-mode');
+  var btn = document.getElementById('dv-pin-btn');
+  if (btn) { btn.style.background = 'rgba(255,255,255,.12)'; btn.textContent = '\uD83D\uDCCC Pin'; }
   _renderPins();
 }
 
@@ -491,3 +493,83 @@ window._frtStartPinPlace = function(deficId) {
     _startPinPlace(deficId);
   }
 };
+
+// ── Pin Button in Toolbar ───────────────────────────────
+var _pinPickerOpen = false;
+
+function _togglePinPicker() {
+  var picker = document.getElementById('dv-pin-picker');
+  if (!picker) return;
+  _pinPickerOpen = !_pinPickerOpen;
+  picker.style.display = _pinPickerOpen ? 'block' : 'none';
+  if (_pinPickerOpen) _populatePinPicker();
+}
+
+function _populatePinPicker() {
+  var list = document.getElementById('dv-pin-list');
+  if (!list) return;
+  var allDefics = Model.getAllDeficiencies();
+  var drawings = _getDrawingsList();
+  var currentDwgId = (_currentDrawingIdx >= 0 && _currentDrawingIdx < drawings.length) ? drawings[_currentDrawingIdx].id : null;
+  var html = '';
+  allDefics.forEach(function(d) {
+    var def = d.defic;
+    var isPinned = def.drawingId && def.pinX != null;
+    var isOnThis = def.drawingId === currentDwgId;
+    var desc = (def.observations && def.observations.length && def.observations[0].text) ? def.observations[0].text : (def.description || '');
+    if (desc.length > 50) desc = desc.substring(0, 50) + '\u2026';
+    var isClosed = def.status === 'closed' || def.status === 'Addressed & Closed';
+    var statusColor = isClosed ? '#1A7A4A' : '#C0392B';
+    html += '<div data-action="pick-pin-defic" data-defic-id="' + def.id + '" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #2a3040;display:flex;align-items:center;gap:8px;'
+      + (isOnThis ? 'background:rgba(33,150,243,.1);' : '') + '" onmouseover="this.style.background=\'rgba(255,255,255,.05)\'" onmouseout="this.style.background=\'' + (isOnThis ? 'rgba(33,150,243,.1)' : '') + '\'">';
+    html += '<span style="font-weight:700;color:#9C2742;font-size:13px;min-width:28px;">#' + def.num + '</span>';
+    html += '<span style="flex:1;font-size:12px;color:#d0d8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (desc || '\u2014') + '</span>';
+    if (isPinned) html += '<span style="font-size:10px;color:#2196F3;">📌</span>';
+    html += '</div>';
+  });
+  if (!allDefics.length) html = '<div style="padding:12px;color:#8a94b0;text-align:center;font-size:12px;">No deficiencies yet</div>';
+  list.innerHTML = html;
+}
+
+// Pin button click
+var pinBtn = document.getElementById('dv-pin-btn');
+if (pinBtn) {
+  pinBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (_pinModeDeficId) {
+      // Cancel pin mode
+      _pinModeDeficId = null;
+      var area = document.getElementById('dv-canvas-area');
+      if (area) area.classList.remove('pin-mode');
+      pinBtn.style.background = 'rgba(255,255,255,.12)';
+      pinBtn.textContent = '\uD83D\uDCCC Pin';
+      return;
+    }
+    _togglePinPicker();
+  });
+}
+
+// Pin picker item click
+document.addEventListener('click', function(e) {
+  if (e.target.closest && e.target.closest('[data-action="pick-pin-defic"]')) {
+    var el = e.target.closest('[data-action="pick-pin-defic"]');
+    var deficId = el.getAttribute('data-defic-id');
+    var picker = document.getElementById('dv-pin-picker');
+    if (picker) picker.style.display = 'none';
+    _pinPickerOpen = false;
+    _startPinPlace(deficId);
+    // Update button to show active state
+    var btn = document.getElementById('dv-pin-btn');
+    if (btn) {
+      btn.style.background = '#C0392B';
+      btn.textContent = '\uD83D\uDCCC Placing...';
+    }
+    return;
+  }
+  // Close picker on outside click
+  if (_pinPickerOpen && !e.target.closest('#dv-pin-wrap')) {
+    var picker = document.getElementById('dv-pin-picker');
+    if (picker) picker.style.display = 'none';
+    _pinPickerOpen = false;
+  }
+});
