@@ -1,13 +1,36 @@
 // ARENCON Field Review Tool — Service Worker
-// Strategy: network-first for HTML (always get latest), cache-first for CDN assets
-var CACHE_NAME = 'arencon-frt-v10';
+// Strategy: network-first for HTML/JS/CSS (always get latest), cache-first for CDN assets
+var CACHE_NAME = 'arencon-frt-v11';
 
-// HTML files to precache on install
-var HTML_FILES = [
+// Files to precache on install
+var APP_FILES = [
   './',
   'ARENCON_Field_Review_Tool.html',
   'ARENCON_Project_Hub.html',
-  'index.html'
+  'index.html',
+  // FRT v2 modular files
+  'frt/index.html',
+  'frt/css/frt.css',
+  'frt/js/app.js',
+  'frt/js/data/model.js',
+  'frt/js/data/idb.js',
+  'frt/js/data/sync.js',
+  'frt/js/data/r2.js',
+  'frt/js/ui/projectInfo.js',
+  'frt/js/ui/deficiencies.js',
+  'frt/js/ui/drawings.js',
+  'frt/js/ui/photos.js',
+  'frt/js/ui/pins.js',
+  'frt/js/ui/lightbox.js',
+  'frt/js/viewer/viewer.js',
+  'frt/js/viewer/markup.js',
+  'frt/js/export/pdf.js',
+  'frt/js/export/json.js',
+  'frt/js/shared/auth.js',
+  'frt/js/shared/dialogs.js',
+  'frt/js/shared/toast.js',
+  'frt/js/ai/assistant.js',
+  'frt/js/ai/usage.js'
 ];
 
 // CDN assets to precache (pdf.js etc)
@@ -16,24 +39,22 @@ var CDN_ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
 ];
 
-// Install — precache HTML + CDN assets
+// Install — precache app shell + CDN assets
 self.addEventListener('install', function(e) {
   e.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
-      console.log('[SW] Precaching app shell');
-      // Cache CDN assets (these rarely change)
+      console.log('[SW] Precaching app shell + modules');
       var cdnPromises = CDN_ASSETS.map(function(url) {
         return cache.add(url).catch(function(err) {
           console.warn('[SW] Failed to cache CDN asset:', url, err);
         });
       });
-      // Cache HTML files
-      var htmlPromises = HTML_FILES.map(function(url) {
+      var appPromises = APP_FILES.map(function(url) {
         return cache.add(url).catch(function(err) {
-          console.warn('[SW] Failed to cache HTML:', url, err);
+          console.warn('[SW] Failed to cache:', url, err);
         });
       });
-      return Promise.all(cdnPromises.concat(htmlPromises));
+      return Promise.all(cdnPromises.concat(appPromises));
     }).then(function() {
       return self.skipWaiting();
     })
@@ -84,7 +105,7 @@ self.addEventListener('fetch', function(e) {
     return;
   }
 
-  // HTML files — network-first (always get latest deploy, fallback to cache offline)
+  // Same-origin files — network-first (always get latest deploy, fallback to cache offline)
   if (url.hostname === self.location.hostname) {
     e.respondWith(
       fetch(e.request).then(function(resp) {
