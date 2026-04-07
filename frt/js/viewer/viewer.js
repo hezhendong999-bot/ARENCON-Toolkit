@@ -690,82 +690,219 @@ window._frtStartPinPlace = function(deficId) {
   }
 };
 
-// ── Pin Button in Toolbar ───────────────────────────────
-var _pinPickerOpen = false;
+// ── Tasks Panel ─────────────────────────────────────────
+var _tasksVisible = false;
+var _tasksFilter = 'pinned'; // 'pinned' or 'all'
 
-function _togglePinPicker() {
-  var picker = document.getElementById('dv-pin-picker');
-  if (!picker) return;
-  _pinPickerOpen = !_pinPickerOpen;
-  picker.style.display = _pinPickerOpen ? 'block' : 'none';
-  if (_pinPickerOpen) _populatePinPicker();
+function _toggleTasks() {
+  _tasksVisible = !_tasksVisible;
+  var panel = document.getElementById('dv-tasks-panel');
+  if (panel) panel.classList.toggle('visible', _tasksVisible);
+  var btn = document.getElementById('dv-tasks-btn');
+  if (btn) btn.classList.toggle('active', _tasksVisible);
+  if (_tasksVisible) _renderTasks();
 }
 
-function _populatePinPicker() {
-  var list = document.getElementById('dv-pin-list');
+function _renderTasks() {
+  var list = document.getElementById('dv-tasks-list');
   if (!list) return;
   var allDefics = Model.getAllDeficiencies();
   var drawings = _getDrawingsList();
   var currentDwgId = (_currentDrawingIdx >= 0 && _currentDrawingIdx < drawings.length) ? drawings[_currentDrawingIdx].id : null;
+
+  var filtered = allDefics;
+  if (_tasksFilter === 'pinned') {
+    filtered = allDefics.filter(function(d) { return d.defic.drawingId === currentDwgId && d.defic.pinX != null; });
+  }
+
   var html = '';
-  allDefics.forEach(function(d) {
+  if (!filtered.length) {
+    html = '<div style="padding:16px;color:#8a94b0;text-align:center;font-size:calc(12px + var(--ts));">No ' + (_tasksFilter === 'pinned' ? 'pins on this drawing' : 'deficiencies') + '</div>';
+  }
+  filtered.forEach(function(d) {
     var def = d.defic;
-    var isPinned = def.drawingId && def.pinX != null;
-    var isOnThis = def.drawingId === currentDwgId;
-    var desc = (def.observations && def.observations.length && def.observations[0].text) ? def.observations[0].text : (def.description || '');
-    if (desc.length > 50) desc = desc.substring(0, 50) + '\u2026';
+    var desc = (def.observations && def.observations.length && def.observations[0].text) ? def.observations[0].text : '';
+    if (desc.length > 60) desc = desc.substring(0, 60) + '\u2026';
     var isClosed = def.status === 'closed' || def.status === 'Addressed & Closed';
-    var statusColor = isClosed ? '#1A7A4A' : '#C0392B';
-    html += '<div data-action="pick-pin-defic" data-defic-id="' + def.id + '" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #2a3040;display:flex;align-items:center;gap:8px;'
-      + (isOnThis ? 'background:rgba(33,150,243,.1);' : '') + '" onmouseover="this.style.background=\'rgba(255,255,255,.05)\'" onmouseout="this.style.background=\'' + (isOnThis ? 'rgba(33,150,243,.1)' : '') + '\'">';
-    html += '<span style="font-weight:700;color:#9C2742;font-size:13px;min-width:28px;">#' + def.num + '</span>';
-    html += '<span style="flex:1;font-size:12px;color:#d0d8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (desc || '\u2014') + '</span>';
-    if (isPinned) html += '<span style="font-size:10px;color:#2196F3;">📌</span>';
+    var fill = def.iar ? '#E91E8C' : (def.priority === 'general' ? '#1A7A4A' : def.priority === 'low' ? '#E67E22' : '#C0392B');
+    if (isClosed) fill = '#1A7A4A';
+    var isPinned = def.drawingId && def.pinX != null;
+    html += '<div class="dv-task-item" data-task-defic-id="' + def.id + '">';
+    html += '<div class="dv-task-dot" style="background:' + fill + ';">' + def.num + '</div>';
+    html += '<div class="dv-task-desc">' + (desc || '\u2014') + '</div>';
+    html += '<button class="dv-task-pin-btn" data-task-pin="' + def.id + '" title="' + (isPinned ? 'Move pin' : 'Place pin') + '">' + (isPinned ? '📌' : '📍') + '</button>';
     html += '</div>';
   });
-  if (!allDefics.length) html = '<div style="padding:12px;color:#8a94b0;text-align:center;font-size:12px;">No deficiencies yet</div>';
   list.innerHTML = html;
+  var countEl = document.getElementById('dv-tasks-count');
+  if (countEl) countEl.textContent = filtered.length;
 }
 
-// Pin button click
-var pinBtn = document.getElementById('dv-pin-btn');
-if (pinBtn) {
-  pinBtn.addEventListener('click', function(e) {
-    e.stopPropagation();
-    if (_pinModeDeficId) {
-      // Cancel pin mode
-      _pinModeDeficId = null;
-      var area = document.getElementById('dv-canvas-area');
-      if (area) area.classList.remove('pin-mode');
-      pinBtn.style.background = 'rgba(255,255,255,.12)';
-      pinBtn.textContent = '\uD83D\uDCCC Pin';
-      return;
-    }
-    _togglePinPicker();
-  });
-}
-
-// Pin picker item click
+// Tasks event handlers
 document.addEventListener('click', function(e) {
-  if (e.target.closest && e.target.closest('[data-action="pick-pin-defic"]')) {
-    var el = e.target.closest('[data-action="pick-pin-defic"]');
-    var deficId = el.getAttribute('data-defic-id');
-    var picker = document.getElementById('dv-pin-picker');
-    if (picker) picker.style.display = 'none';
-    _pinPickerOpen = false;
-    _startPinPlace(deficId);
-    // Update button to show active state
-    var btn = document.getElementById('dv-pin-btn');
-    if (btn) {
-      btn.style.background = '#C0392B';
-      btn.textContent = '\uD83D\uDCCC Placing...';
-    }
+  // Tasks toggle
+  if (e.target.closest && e.target.closest('#dv-tasks-btn')) { _toggleTasks(); return; }
+
+  // Tasks filter toggle
+  if (e.target.closest && e.target.closest('#dv-tasks-filter')) {
+    _tasksFilter = _tasksFilter === 'pinned' ? 'all' : 'pinned';
+    var fb = document.getElementById('dv-tasks-filter');
+    if (fb) fb.textContent = _tasksFilter === 'pinned' ? 'Pinned' : 'All Items';
+    _renderTasks();
     return;
   }
-  // Close picker on outside click
-  if (_pinPickerOpen && !e.target.closest('#dv-pin-wrap')) {
-    var picker = document.getElementById('dv-pin-picker');
-    if (picker) picker.style.display = 'none';
-    _pinPickerOpen = false;
+
+  // Task pin button
+  if (e.target.closest && e.target.closest('[data-task-pin]')) {
+    var deficId = e.target.closest('[data-task-pin]').getAttribute('data-task-pin');
+    _startPinPlace(deficId);
+    return;
+  }
+
+  // New Task button
+  if (e.target.closest && e.target.closest('#dv-new-task')) {
+    // Could create a new deficiency — for now just log
+    console.log('[Viewer] New Task clicked');
+    return;
+  }
+
+  // Tasks fold
+  if (e.target.closest && e.target.closest('#dv-tasks-fold-btn')) {
+    var panel = document.getElementById('dv-tasks-panel');
+    if (panel) panel.classList.toggle('collapsed');
+    return;
   }
 });
+
+// ── Layers Toggle ───────────────────────────────────────
+document.addEventListener('click', function(e) {
+  if (e.target.closest && e.target.closest('#dv-layers-btn')) {
+    var menu = document.getElementById('dv-layers-menu');
+    if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    e.stopPropagation();
+    return;
+  }
+  // Close on outside click
+  if (!e.target.closest || !e.target.closest('#dv-layers-menu')) {
+    var m = document.getElementById('dv-layers-menu');
+    if (m) m.style.display = 'none';
+  }
+});
+
+document.addEventListener('change', function(e) {
+  if (e.target.id === 'layer-all') {
+    var checked = e.target.checked;
+    var lt = document.getElementById('layer-tasks');
+    var lm = document.getElementById('layer-markups');
+    if (lt) lt.checked = checked;
+    if (lm) lm.checked = checked;
+  }
+  if (e.target.id === 'layer-tasks' || e.target.id === 'layer-all') {
+    var show = document.getElementById('layer-tasks');
+    var pinsLayer = document.getElementById('dv-pins-layer');
+    if (pinsLayer) pinsLayer.style.display = (show && show.checked) ? '' : 'none';
+  }
+  if (e.target.id === 'layer-markups' || e.target.id === 'layer-all') {
+    var show2 = document.getElementById('layer-markups');
+    var mc = document.getElementById('markup-canvas');
+    if (mc) mc.style.display = (show2 && show2.checked) ? '' : 'none';
+  }
+});
+
+// ── Heights Panel ───────────────────────────────────────
+document.addEventListener('click', function(e) {
+  if (e.target.closest && e.target.closest('[data-dv-action="heights"]')) {
+    _openHeights();
+    var mm = document.getElementById('dv-more-menu');
+    if (mm) mm.style.display = 'none';
+    return;
+  }
+  if (e.target.closest && e.target.closest('#dv-heights-close')) {
+    var hp = document.getElementById('dv-heights-panel');
+    if (hp) hp.style.display = 'none';
+    return;
+  }
+  if (e.target.closest && e.target.closest('#dv-heights-add')) {
+    _addHeightRow();
+    return;
+  }
+  if (e.target.closest && e.target.closest('#dv-heights-save')) {
+    _saveHeights();
+    return;
+  }
+  if (e.target.closest && e.target.closest('.ht-del')) {
+    e.target.closest('.dv-heights-row').remove();
+    return;
+  }
+});
+
+function _openHeights() {
+  var panel = document.getElementById('dv-heights-panel');
+  if (!panel) return;
+  panel.style.display = 'flex';
+  // Load existing heights for current drawing
+  var drawings = _getDrawingsList();
+  if (_currentDrawingIdx < 0 || _currentDrawingIdx >= drawings.length) return;
+  var dwg = drawings[_currentDrawingIdx];
+  var heights = (dwg.heights && dwg.heights.length) ? dwg.heights : [
+    { label: 'U/S Ceiling Deck', value: "5'-0\"", unit: 'A.F.F.' },
+    { label: 'U/S Branchline', value: "5'-0\"", unit: 'A.F.F.' },
+    { label: 'U/S Sprinkler Deflectors', value: "5'-0\"", unit: 'A.F.F.' },
+    { label: 'U/S Cross Main', value: "5'-0\"", unit: 'A.F.F.' },
+    { label: 'U/S Feed Main', value: "5'-0\"", unit: 'A.F.F.' },
+    { label: 'Top of Storage', value: "5'-0\"", unit: 'A.F.F.' }
+  ];
+  var rows = document.getElementById('dv-heights-rows');
+  if (rows) {
+    var html = '';
+    heights.forEach(function(h) {
+      html += '<div class="dv-heights-row">';
+      html += '<input type="text" value="' + (h.label || '').replace(/"/g,'&quot;') + '" placeholder="Label">';
+      html += '<input type="text" value="' + (h.value || '').replace(/"/g,'&quot;') + '" placeholder="Value" style="max-width:70px;">';
+      html += '<span class="ht-unit">' + (h.unit || 'A.F.F.') + '</span>';
+      html += '<button class="ht-del" title="Remove">✕</button>';
+      html += '</div>';
+    });
+    rows.innerHTML = html;
+  }
+  // Populate copy-from dropdown
+  var sel = document.getElementById('dv-heights-copy-select');
+  if (sel) {
+    var opts = '<option value="">\u2014 Select a drawing to copy from \u2014</option>';
+    drawings.forEach(function(d, i) {
+      if (i !== _currentDrawingIdx) {
+        opts += '<option value="' + d.id + '">' + (d.name || 'Drawing ' + (i + 1)) + '</option>';
+      }
+    });
+    sel.innerHTML = opts;
+  }
+}
+
+function _addHeightRow() {
+  var rows = document.getElementById('dv-heights-rows');
+  if (!rows) return;
+  var div = document.createElement('div');
+  div.className = 'dv-heights-row';
+  div.innerHTML = '<input type="text" placeholder="Label"><input type="text" placeholder="Value" style="max-width:70px;"><span class="ht-unit">A.F.F.</span><button class="ht-del" title="Remove">✕</button>';
+  rows.appendChild(div);
+}
+
+function _saveHeights() {
+  var rows = document.getElementById('dv-heights-rows');
+  if (!rows) return;
+  var drawings = _getDrawingsList();
+  if (_currentDrawingIdx < 0 || _currentDrawingIdx >= drawings.length) return;
+  var dwg = drawings[_currentDrawingIdx];
+  var heights = [];
+  rows.querySelectorAll('.dv-heights-row').forEach(function(row) {
+    var inputs = row.querySelectorAll('input');
+    if (inputs[0] && inputs[0].value.trim()) {
+      heights.push({ label: inputs[0].value.trim(), value: inputs[1] ? inputs[1].value.trim() : '', unit: 'A.F.F.' });
+    }
+  });
+  dwg.heights = heights;
+  Model.saveNow();
+  var panel = document.getElementById('dv-heights-panel');
+  if (panel) panel.style.display = 'none';
+  console.log('[Viewer] Heights saved:', heights.length, 'rows');
+}
