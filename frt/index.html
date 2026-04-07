@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=73">
+<link rel="stylesheet" href="css/frt.css?v=74">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -564,9 +564,71 @@ function ensurePdfJs(cb){
   </div>
 </div>
 
-<!-- ═══ PIN INFO POPUP ═══ -->
-<div id="pin-info-popup" class="pin-info-popup" style="display:none;">
-  <div id="pin-info-content"></div>
+<!-- ═══ PIN EDITOR MODAL ═══ -->
+<div id="pin-editor-overlay" class="pin-editor-overlay" style="display:none;">
+  <div class="pin-editor-modal">
+    <div class="pin-editor-header">
+      <span id="pe-title">Pin #1 — High Priority</span>
+      <button id="pe-close" class="pe-close-btn">✕</button>
+    </div>
+    <div class="pin-editor-body">
+      <div class="pe-row">
+        <div class="pe-field" style="flex:2;">
+          <label class="pe-label">CONTRACTOR</label>
+          <select id="pe-contractor" class="pe-select"></select>
+        </div>
+        <div class="pe-field" style="flex:1;">
+          <label class="pe-label">DATE</label>
+          <input type="date" id="pe-date" class="pe-input">
+        </div>
+      </div>
+      <div class="pe-row">
+        <div class="pe-field" style="flex:1;">
+          <label class="pe-label">STATUS</label>
+          <select id="pe-status" class="pe-select">
+            <option value="open">• Outstanding</option>
+            <option value="closed">• Addressed &amp; Closed</option>
+          </select>
+        </div>
+        <button id="pe-iar" class="pe-iar-btn">IAR</button>
+      </div>
+      <div class="pe-section">
+        <label class="pe-label">OBSERVATIONS</label>
+        <div class="pe-obs-tabs" id="pe-obs-tabs"></div>
+      </div>
+      <div class="pe-obs-content" id="pe-obs-content">
+        <div class="pe-section">
+          <label class="pe-label">PRIORITY / TYPE</label>
+          <div class="pe-priority-row">
+            <button class="pe-pri-btn pe-pri-high active" data-pe-pri="high">High</button>
+            <button class="pe-pri-btn pe-pri-low" data-pe-pri="low">Low</button>
+            <button class="pe-pri-btn pe-pri-general" data-pe-pri="general">General</button>
+          </div>
+        </div>
+        <textarea id="pe-obs-text" class="pe-textarea" placeholder="Describe the deficiency..."></textarea>
+        <div class="pe-photo-zone">
+          <div style="color:#8a94b0;font-size:calc(12px + var(--ts));margin-bottom:6px;">Drop photos or</div>
+          <button class="pe-photo-btn" id="pe-upload-btn">Upload</button>
+          <button class="pe-photo-btn pe-camera-btn" id="pe-camera-btn">Camera</button>
+        </div>
+      </div>
+      <div class="pe-section">
+        <label class="pe-label">LOCATION ON DRAWING</label>
+        <div class="pe-location-thumb" id="pe-location-thumb"></div>
+      </div>
+      <div class="pe-row" style="margin-top:8px;">
+        <div class="pe-field" style="flex:1;">
+          <label class="pe-label">MOVE TO:</label>
+          <select id="pe-move-to" class="pe-select"></select>
+        </div>
+      </div>
+    </div>
+    <div class="pin-editor-footer">
+      <button id="pe-save" class="pe-save-btn">Save</button>
+      <button id="pe-delete" class="pe-delete-btn">Delete Pin</button>
+      <button id="pe-cancel" class="pe-cancel-btn">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ TOAST CONTAINER ═══ -->
