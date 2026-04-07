@@ -243,20 +243,20 @@ function _renderContractorsOnSite(proj) {
   var el = document.getElementById('contractors-on-site');
   if (!el) return;
   var ctrs = proj.contractors || [];
-  var h = '<div style="font-size:calc(10px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--steel);margin-bottom:6px;">Contractors on Site</div>';
-  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px;">';
+  var h = '<div style="padding:12px;background:var(--smoke);border:1px solid var(--border);border-radius:8px;margin-bottom:16px;">';
+  h += '<div style="font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel);margin-bottom:8px;">Contractors on Site</div>';
+  h += '<div class="contractor-chips" style="display:flex;flex-wrap:wrap;gap:8px;min-height:28px;margin-bottom:10px;">';
   ctrs.forEach(function(c) {
-    h += '<span style="display:inline-flex;align-items:center;gap:4px;background:var(--smoke);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:calc(12px + var(--ts));font-weight:600;color:var(--fg);">' + esc(c.name);
-    h += ' <button data-action="remove-contractor" data-ctr-id="' + esc(c.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(14px + var(--ts));line-height:1;padding:0 2px;" title="Remove contractor">\u2014 \u2715</button>';
+    h += '<span class="contractor-chip">' + esc(c.name);
+    h += ' <button data-action="remove-contractor" data-ctr-id="' + esc(c.id) + '" style="background:none;border:none;color:var(--silver);cursor:pointer;font-size:calc(14px + var(--ts));line-height:1;padding:0 2px;" title="Remove contractor">\u2014 \u2715</button>';
     h += '</span>';
   });
   h += '</div>';
-  // Input row
-  h += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">';
-  h += '<input type="text" id="new-contractor-input" placeholder="e.g. ABC Sprinklers" style="flex:1;min-width:160px;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;background:var(--smoke);color:var(--fg);">';
-  h += '<button class="btn btn-outline btn-sm" data-action="add-contractor" style="color:#1A7A4A;border-color:rgba(26,122,74,.3);">+ Add Contractor</button>';
-  h += '<button class="btn btn-outline btn-sm" data-action="add-general" style="color:#6A1B9A;border-color:rgba(106,27,154,.3);">+ General Deficiency</button>';
-  h += '</div>';
+  h += '<div class="contractor-add" style="display:flex;gap:8px;align-items:center;">';
+  h += '<input type="text" id="new-contractor-input" placeholder="e.g. ABC Sprinklers" style="flex:1;max-width:240px;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--smoke);color:var(--fg);">';
+  h += '<button class="btn btn-outline btn-sm" data-action="add-contractor" style="color:var(--steel);border-color:var(--border);">+ Add Contractor</button>';
+  h += '<button class="btn btn-sm" data-action="add-general" style="background:none;border:1.5px solid #9C2742;color:#9C2742;border-radius:6px;padding:5px 12px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;">+ General Deficiency</button>';
+  h += '</div></div>';
   el.innerHTML = h;
 }
 
@@ -391,13 +391,19 @@ document.addEventListener('click', function(e) {
     var name = inp ? inp.value.trim() : '';
     if (!name) {
       showPrompt('Add Contractor', 'Contractor name').then(function(n) {
-        if (n) { Model.addContractor(n); initDeficiencies.render(); toast('Added: ' + n); }
+        if (n) {
+          var ctr = Model.addContractor(n);
+          if (ctr) { var d = Model.addDeficiency(ctr.id); }
+          initDeficiencies.render();
+          toast('Added: ' + n + (d ? ' with deficiency #' + d.num : ''));
+        }
       });
     } else {
-      Model.addContractor(name);
+      var ctr = Model.addContractor(name);
+      if (ctr) { var d = Model.addDeficiency(ctr.id); }
       if (inp) inp.value = '';
       initDeficiencies.render();
-      toast('Added: ' + name);
+      toast('Added: ' + name + (d ? ' with deficiency #' + d.num : ''));
     }
   }
 

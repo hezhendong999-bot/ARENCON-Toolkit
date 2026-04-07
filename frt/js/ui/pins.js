@@ -126,7 +126,7 @@ export var initPins = {
       var statusCls = isIAR ? 'iar' : (isClosed ? 'closed' : 'outstanding');
       var priCls = dd.priority || 'general';
       var dwgName = _getDrawingName(dd.drawingId);
-      var hasPinIcon = dd.drawingId && dd.pinX != null ? '\uD83D\uDCCC' : '\u2014';
+      var hasPinIcon = dd.drawingId && dd.pinX != null ? '<svg width="14" height="18" viewBox="0 0 32 42" style="vertical-align:middle;"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 26 16 26s16-14 16-26C32 7.2 24.8 0 16 0z" fill="#C0392B"/><circle cx="16" cy="14" r="6" fill="white"/></svg>' : '\u2014';
 
       h += '<tr data-defic-id="' + esc(dd.id) + '" style="border-bottom:1px solid var(--border);">';
       h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">#' + (dd.num || '?') + '</td>';

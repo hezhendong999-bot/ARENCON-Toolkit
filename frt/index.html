@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=66">
+<link rel="stylesheet" href="css/frt.css?v=67">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -107,10 +107,10 @@ function ensurePdfJs(cb){
         </div>
       </div>
       <button class="hdr-btn" id="btn-qr" style="display:none;background:rgba(255,255,255,.15);" title="QR Code for this tool">📱</button>
-      <button class="hdr-btn" id="dark-toggle" title="Toggle Dark Mode" style="background:rgba(255,255,255,.15);min-width:38px;justify-content:center;">☀️</button>
+      <button id="dark-toggle" title="Toggle Dark Mode">☀️</button>
       <button class="hdr-btn text-size-toggle" id="btn-text-size" title="Text size: Small / Medium / Large">M</button>
       <button class="hdr-btn" id="btn-signout" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
-      <button class="mobile-menu-btn" id="mobile-menu-btn">☰</button>
+      <button id="mobile-menu-btn">☰</button>
     </div>
   </div>
 
@@ -230,21 +230,31 @@ function ensurePdfJs(cb){
         <div class="card-body">
           <div class="dwg-header-bar">
             <button class="btn btn-outline btn-sm" id="btn-new-folder">+ New Folder</button>
-            <button class="btn btn-outline btn-sm" id="btn-dwg-compact" title="Compact card view">☷ Compact</button>
+            <button class="btn btn-outline btn-sm" id="btn-dwg-select-all" title="Select all drawings">☑ Select All</button>
+            <button class="btn btn-outline btn-sm" id="btn-dwg-actions">Actions ▾</button>
             <div style="flex:1;"></div>
-            <input type="text" id="dwg-search" placeholder="Search drawings..." style="max-width:200px;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;background:var(--smoke);color:var(--fg);">
+            <button class="btn btn-outline btn-sm" id="btn-dwg-compact" title="Compact card view">☷ Compact</button>
+            <button class="btn btn-outline btn-sm" id="btn-dwg-purge" title="Remove superseded drawings">🗑 Purge Old</button>
+            <button class="btn btn-outline btn-sm" id="btn-dwg-filters">⚙ Filters</button>
           </div>
           <!-- Upload zone -->
-          <div id="dwg-upload-zone" style="border:2px dashed rgba(156,39,66,.5);border-radius:10px;padding:28px 20px;text-align:center;margin:10px 0 14px;cursor:pointer;transition:border-color .2s,background .2s;background:rgba(156,39,66,.04);"
-               ondragover="event.preventDefault();this.style.borderColor='#9C2742';this.style.background='rgba(156,39,66,.06)';"
-               ondragleave="this.style.borderColor='';this.style.background='';"
-               ondrop="event.preventDefault();this.style.borderColor='';this.style.background='';if(window._handleDrawingDrop)window._handleDrawingDrop(event.dataTransfer.files);">
-            <div style="font-size:calc(13px + var(--ts));color:var(--silver);margin-bottom:6px;">📄 Drag and drop your plans here</div>
-            <div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-bottom:10px;">or</div>
-            <button class="btn btn-primary btn-sm" onclick="document.getElementById('drawing-file-input').click()">Select files</button>
+          <div class="upload-box" id="dwg-upload-zone"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="event.preventDefault();this.classList.remove('drag-over');if(window._handleDrawingDrop)window._handleDrawingDrop(event.dataTransfer.files);">
+            <div style="text-align:center;padding:20px 16px;">
+              <div style="font-size:24px;margin-bottom:4px;opacity:.3;">📐</div>
+              <div style="font-weight:600;font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:4px;">Drag and drop your plans here</div>
+              <div style="font-size:calc(12px + var(--ts));color:var(--silver);margin-bottom:8px;">or</div>
+              <button class="btn btn-primary btn-sm" onclick="document.getElementById('drawing-file-input').click()">Select files</button>
+            </div>
           </div>
           <!-- Loading indicator -->
           <div id="drawing-loading" style="display:none;align-items:center;gap:8px;padding:10px;font-size:calc(13px + var(--ts));color:var(--steel);"></div>
+          <!-- Search -->
+          <div style="display:flex;align-items:center;gap:8px;margin:10px 0;">
+            <input type="text" id="dwg-search" placeholder="Search drawings..." style="flex:1;max-width:280px;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;background:var(--smoke);color:var(--fg);">
+          </div>
           <div id="drawings-container"></div>
         </div>
       </div>
@@ -269,12 +279,15 @@ function ensurePdfJs(cb){
           </div>
           <!-- Deficiency toolbar -->
           <div id="defic-toolbar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:0 2px;">
+            <button class="btn btn-outline btn-sm" id="defic-filters-btn">⚙ Filters</button>
             <input type="text" id="defic-search" placeholder="🔍 Search deficiencies..." style="flex:1;min-width:140px;max-width:280px;padding:7px 12px;border:1.5px solid var(--border);border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));background:var(--smoke);color:var(--fg);">
             <select id="defic-filter-sel" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));background:var(--smoke);color:var(--fg);">
               <option value="all">All</option>
               <option value="outstanding">Outstanding</option>
               <option value="iar">IAR</option>
             </select>
+            <div style="flex:1;"></div>
+            <button class="btn btn-outline btn-sm" id="defic-select-btn" title="Select multiple deficiencies">☐ Select</button>
             <button class="btn btn-outline btn-sm" id="defic-fold-all-btn" title="Fold/Unfold all">▼ Fold All</button>
           </div>
           <div id="deficiencies-container"></div>
@@ -285,7 +298,13 @@ function ensurePdfJs(cb){
     <!-- ALL DEFICIENCIES PANEL (pins/tasks) -->
     <div class="panel" id="panel-pins">
       <div class="card">
-        <div class="card-header">📌 All Deficiencies</div>
+        <div class="card-header" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <span>📌 All Deficiencies</span>
+          <div style="display:flex;border:1.5px solid rgba(255,255,255,.3);border-radius:6px;overflow:hidden;">
+            <button id="tasks-view-table" style="border:none;background:rgba(255,255,255,.2);color:white;padding:4px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:700;">Table</button>
+            <button id="tasks-view-board" style="border:none;background:transparent;color:rgba(255,255,255,.6);padding:4px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));">Board</button>
+          </div>
+        </div>
         <div class="card-body" style="padding:0;" id="pins-container"></div>
       </div>
     </div>
@@ -293,16 +312,24 @@ function ensurePdfJs(cb){
     <!-- PHOTOS PANEL -->
     <div class="panel" id="panel-photos">
       <div class="card">
-        <div class="card-header">📷 Site Photos</div>
+        <div class="card-header">📷 Photo Gallery</div>
         <div class="card-body">
-          <div id="site-photo-upload" style="border:2px dashed rgba(156,39,66,.5);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px;cursor:pointer;background:rgba(156,39,66,.04);"
-               ondragover="event.preventDefault();this.style.borderColor='#9C2742';this.style.background='rgba(156,39,66,.08)';"
-               ondragleave="this.style.borderColor='rgba(156,39,66,.5)';this.style.background='rgba(156,39,66,.04)';"
-               ondrop="event.preventDefault();this.style.borderColor='rgba(156,39,66,.5)';this.style.background='rgba(156,39,66,.04)';if(window._handleSitePhotoDrop)window._handleSitePhotoDrop(event.dataTransfer.files);">
-            <div style="font-size:calc(13px + var(--ts));color:var(--silver);margin-bottom:6px;">📷 Drop site photos here</div>
-            <div style="display:flex;gap:8px;justify-content:center;">
-              <button class="btn btn-outline btn-sm" id="site-photo-upload-btn">Upload</button>
-              <button class="btn btn-outline btn-sm" id="site-photo-camera-btn">📷 Camera</button>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <button class="btn btn-outline btn-sm" id="photo-actions-btn">Actions ▾</button>
+            <div style="flex:1;"></div>
+            <button class="btn btn-outline btn-sm" id="photo-filters-btn">⚙ Filters</button>
+          </div>
+          <div class="photo-zone" id="site-photo-upload"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="event.preventDefault();this.classList.remove('drag-over');if(window._handleSitePhotoDrop)window._handleSitePhotoDrop(event.dataTransfer.files);">
+            <div style="text-align:center;padding:16px;">
+              <div style="font-size:calc(12px + var(--ts));color:var(--steel);">Drag & drop photos, or import from camera roll</div>
+              <div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;">Select multiple at once</div>
+              <div style="margin-top:8px;display:flex;gap:8px;justify-content:center;">
+                <button class="btn btn-outline btn-sm" id="site-photo-upload-btn">📥 Import from Camera Roll</button>
+                <button class="pz-camera" id="site-photo-camera-btn" style="border:none;background:#1A7A4A;color:white;padding:6px 14px;border-radius:6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">📷 Camera</button>
+              </div>
             </div>
           </div>
           <input type="file" id="site-photo-input" accept="image/*" multiple style="display:none">
