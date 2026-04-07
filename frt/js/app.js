@@ -353,7 +353,7 @@ function _updateStorageDisplay() {
     var fill = document.querySelector('.storage-bar-fill');
     if (fill) fill.style.width = pct + '%';
     var label = document.querySelector('.storage-label');
-    if (label) label.textContent = usedMB + 'MB';
+    if (label) label.textContent = usedMB + 'MB / ' + totalMB + 'MB (' + pct + '%)';
     var mobText = document.getElementById('mobile-storage-text');
     if (mobText) mobText.textContent = usedMB + ' MB used / ' + totalMB + ' MB available';
     var mobBar = document.getElementById('mobile-storage-bar');
