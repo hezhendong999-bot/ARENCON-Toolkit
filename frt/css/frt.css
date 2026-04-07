@@ -241,6 +241,9 @@ body.dv-open{overflow:hidden!important;}
 /* ZOOM CONTROLS */
 .zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px;z-index:10;}
 .zoom-controls button{width:30px;height:30px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:calc(16px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);touch-action:manipulation;-webkit-tap-highlight-color:transparent;}.zoom-controls button:hover{background:rgba(42,45,53,.95);}
+/* NAV CONTROLS — bottom-left */
+.dv-nav-controls{position:absolute;bottom:12px;left:12px;display:flex;gap:3px;z-index:10;}
+.dv-nav-controls .dv-nav-btn{width:36px;height:36px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:calc(14px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);touch-action:manipulation;-webkit-tap-highlight-color:transparent;}.dv-nav-controls .dv-nav-btn:hover{background:rgba(42,45,53,.95);}
 /* MORE MENU */
 .dv-menu-item{width:100%;padding:10px 16px;border:none;background:transparent;color:white;text-align:left;font-size:calc(13px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;display:flex;align-items:center;gap:10px;}.dv-menu-item:hover{background:rgba(255,255,255,.08);}
 #markup-overlay{z-index:4;}
