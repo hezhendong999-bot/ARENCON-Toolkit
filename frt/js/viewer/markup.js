@@ -499,16 +499,55 @@ function _endDraw(e) {
 
 function _handleTextPlace(e) {
   var pos = _getPos(e);
-  var text = prompt('Enter text:');
-  if (!text || !text.trim()) return;
-  _objects.push({
-    id: _newId(), type: 'text', text: text.trim(),
-    x1: pos.x, y1: pos.y,
-    color: _color, fontSize: _fontSize, bold: false, opacity: _opacity
-  });
-  _pushHistory();
-  _renderAll();
-  _markDirty();
+  var mc = _getCanvas();
+  if (!mc) return;
+  var r = mc.getBoundingClientRect();
+  var lw = mc._logicalW || mc.width;
+  var sx = r.width / lw;
+
+  var input = document.getElementById('mk-text-input');
+  if (!input) return;
+
+  // Position inline textarea at click point
+  input.style.display = 'block';
+  input.style.left = (r.left + pos.x * sx) + 'px';
+  input.style.top = (r.top + pos.y * sx) + 'px';
+  input.style.fontSize = (_fontSize * sx) + 'px';
+  input.style.color = _color;
+  input.style.fontFamily = 'Calibri,sans-serif';
+  input.style.fontWeight = '400';
+  input.style.position = 'fixed';
+  input.style.zIndex = '9999';
+  input.value = '';
+  input.focus();
+
+  // Capture position for commit
+  input._mkX = pos.x;
+  input._mkY = pos.y;
+
+  // On blur or Enter, commit text
+  function _commitText() {
+    var txt = input.value.trim();
+    input.style.display = 'none';
+    input.removeEventListener('blur', _commitText);
+    input.removeEventListener('keydown', _onKey);
+    if (txt) {
+      _objects.push({
+        id: _newId(), type: 'text', text: txt,
+        x1: input._mkX, y1: input._mkY,
+        color: _color, fontSize: _fontSize, bold: false, opacity: _opacity
+      });
+      _pushHistory();
+      _renderAll();
+      _markDirty();
+    }
+  }
+  function _onKey(ev) {
+    if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); _commitText(); }
+    if (ev.key === 'Escape') { input.style.display = 'none'; input.removeEventListener('blur', _commitText); input.removeEventListener('keydown', _onKey); }
+  }
+  input.addEventListener('blur', _commitText);
+  input.addEventListener('keydown', _onKey);
 }
 
 // ── Polyline Tool ───────────────────────────────────────
