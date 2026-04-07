@@ -500,26 +500,33 @@ function _endDraw(e) {
 function _handleTextPlace(e) {
   var pos = _getPos(e);
   var mc = _getCanvas();
-  if (!mc) return;
+  if (!mc) { console.warn('[Markup] Text: no canvas'); return; }
+  console.log('[Markup] Text tool placed at', pos.x.toFixed(0), pos.y.toFixed(0));
 
-  // Create a temporary input directly on the page at the click position
-  var existing = document.getElementById('mk-text-input');
-  if (existing) existing.style.display = 'none';
+  // Remove any previous text input
+  var prev = document.querySelectorAll('.mk-text-input-live');
+  prev.forEach(function(el) { if (el.parentNode) el.parentNode.removeChild(el); });
+
+  // Get screen position of click
+  var screenX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 200);
+  var screenY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 200);
 
   var input = document.createElement('textarea');
-  input.className = 'mk-text-input';
-  input.style.cssText = 'position:fixed;z-index:99999;display:block;background:rgba(30,37,51,.85);border:1.5px solid #2196F3;color:' + _color + ';font-family:Calibri,sans-serif;resize:none;outline:none;padding:4px 6px;min-width:100px;min-height:28px;overflow:hidden;border-radius:4px;';
+  input.className = 'mk-text-input-live';
+  input.style.cssText = 'position:fixed;z-index:99999;display:block;background:rgba(30,37,51,.9);border:2px solid #2196F3;color:' + _color + ';font-family:Calibri,sans-serif;resize:both;outline:none;padding:6px 8px;min-width:120px;min-height:32px;overflow:hidden;border-radius:4px;box-shadow:0 4px 16px rgba(0,0,0,.5);';
   input.style.fontSize = _fontSize + 'px';
-  input.style.left = (e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 100)) + 'px';
-  input.style.top = (e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 100)) + 'px';
+  input.style.left = screenX + 'px';
+  input.style.top = screenY + 'px';
   input.placeholder = 'Type here...';
-  document.body.appendChild(input);
 
-  // Store drawing-space coords
+  // Append inside the viewer overlay for z-index compatibility
+  var overlay = document.getElementById('drawing-viewer-overlay');
+  (overlay || document.body).appendChild(input);
+
   input._mkX = pos.x;
-  input._mkY = pos.y + _fontSize; // baseline offset
+  input._mkY = pos.y + _fontSize;
 
-  setTimeout(function() { input.focus(); }, 50);
+  setTimeout(function() { input.focus(); }, 80);
 
   var committed = false;
   function _commit() {
@@ -536,12 +543,14 @@ function _handleTextPlace(e) {
       _pushHistory();
       _renderAll();
       _markDirty();
+      console.log('[Markup] Text committed:', txt);
     }
   }
-  input.addEventListener('blur', function() { setTimeout(_commit, 100); });
+  input.addEventListener('blur', function() { setTimeout(_commit, 150); });
   input.addEventListener('keydown', function(ev) {
     if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); _commit(); }
     if (ev.key === 'Escape') { if (input.parentNode) input.parentNode.removeChild(input); committed = true; }
+    ev.stopPropagation(); // Prevent viewer keyboard shortcuts
   });
 }
 
@@ -1025,9 +1034,11 @@ function _wireEvents() {
 
   // Canvas mouse events
   var mc = _getCanvas();
-  if (!mc) return;
+  if (!mc) { console.warn('[Markup] No canvas found during event wiring!'); return; }
+  console.log('[Markup] Wiring canvas events on element:', mc.id);
 
   mc.addEventListener('mousedown', function(e) {
+    console.log('[Markup] Canvas mousedown — tool:', _tool);
     if (_tool === 'select') { _handleSelectDown(e); return; }
     _startDraw(e);
   });
