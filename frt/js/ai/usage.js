@@ -212,17 +212,37 @@ function exportPDF() {
   var desc = 'Billing cycle: ' + (from || '?') + ' to ' + (to || '?');
   if (uf !== 'all') desc += ' \u00B7 PM: ' + uf;
   if (pf !== 'all') desc += ' \u00B7 Project: ' + pf;
-  var w = window.open('', '_blank', 'width=800,height=600');
-  w.document.write('<!DOCTYPE html><html><head><title>ARENCON AI Usage Report</title><style>body{font-family:Calibri,sans-serif;padding:24px;color:#333;}h1{color:#9C2742;font-size:20px;}h2{color:#9C2742;font-size:15px;border-bottom:2px solid #9C2742;padding-bottom:4px;margin:20px 0 8px;}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}th{background:#f5f5f5;padding:6px 8px;text-align:left;border-bottom:2px solid #ccc;font-weight:700;}td{padding:5px 8px;border-bottom:1px solid #eee;}.r{text-align:right;}.cost{text-align:right;font-family:Courier New,monospace;}.total td{font-weight:700;border-top:2px solid #999;background:#f5f5f5;}.meta{font-size:12px;color:#666;margin-bottom:16px;}@media print{body{padding:12px;}}</style></head><body>');
+
+  var w = window.open('', '_blank', 'width=850,height=700');
+  w.document.write('<!DOCTYPE html><html><head><title>ARENCON AI Usage Report</title><style>');
+  // Export bar styles
+  w.document.write('.export-bar{position:fixed;top:0;left:0;right:0;height:48px;background:#2C4770;display:flex;align-items:center;padding:0 16px;gap:10px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}');
+  w.document.write('.export-bar button{border:none;border-radius:6px;padding:8px 18px;font-family:Calibri,sans-serif;font-size:14px;font-weight:700;cursor:pointer;}');
+  w.document.write('.export-bar .btn-export{background:#1A7A4A;color:white;}.export-bar .btn-export:hover{background:#15693f;}');
+  w.document.write('.export-bar .btn-close{background:#455A64;color:white;}.export-bar .btn-close:hover{background:#37474F;}');
+  w.document.write('.export-bar .hint{flex:1;color:rgba(255,255,255,.6);font-size:12px;font-family:Calibri,sans-serif;}');
+  // Page styles
+  w.document.write('body{margin:0;padding:0;background:#525659;font-family:Calibri,sans-serif;}');
+  w.document.write('.page{width:8.5in;min-height:11in;margin:60px auto 20px;padding:0.75in;background:white;box-shadow:0 2px 12px rgba(0,0,0,.3);box-sizing:border-box;color:#333;}');
+  w.document.write('h1{color:#9C2742;font-size:20px;margin:0 0 4px;}h2{color:#9C2742;font-size:15px;border-bottom:2px solid #9C2742;padding-bottom:4px;margin:20px 0 8px;}');
+  w.document.write('table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}th{background:#f5f5f5;padding:6px 8px;text-align:left;border-bottom:2px solid #ccc;font-weight:700;}td{padding:5px 8px;border-bottom:1px solid #eee;}');
+  w.document.write('.r{text-align:right;}.cost{text-align:right;font-family:Courier New,monospace;}.total td{font-weight:700;border-top:2px solid #999;background:#f5f5f5;}.meta{font-size:12px;color:#666;margin-bottom:16px;}');
+  w.document.write('@media print{.export-bar{display:none!important;}.page{margin:0;padding:0.5in;box-shadow:none;min-height:auto;}}');
+  w.document.write('</style></head><body>');
+
+  // Export bar
+  w.document.write('<div class="export-bar"><button class="btn-export" onclick="window.print()">\uD83D\uDCC4 Export PDF</button><span class="hint">Preview \u2014 click Export to save as PDF</span><button class="btn-close" onclick="window.close()">\u2715 Close</button></div>');
+
+  // Page content
+  w.document.write('<div class="page">');
   w.document.write('<h1>ARENCON Inc. \u2014 AI Usage Report</h1><div class="meta">' + desc + '<br>Generated: ' + new Date().toLocaleDateString() + '</div>');
   w.document.write('<h2>Summary by Project</h2><table><tr><th>Project #</th><th>Name</th><th class="r">Reviews</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
   Object.keys(byProj).sort().forEach(function(k) { var p = byProj[k]; w.document.write('<tr><td>' + p.num + '</td><td>' + p.name + '</td><td class="r">' + p.rev + '</td><td class="r">' + p.fld + '</td><td class="cost">$' + p.cost.toFixed(4) + '</td></tr>'); });
   w.document.write('<tr class="total"><td colspan="2">TOTAL</td><td class="r">' + tRev + '</td><td></td><td class="cost">$' + tCost.toFixed(4) + '</td></tr></table>');
   w.document.write('<h2>Detail Log</h2><table><tr><th>Date</th><th>User</th><th>Project #</th><th>Tool</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
   fd.forEach(function(r) { w.document.write('<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td><td>' + (r.user_email || '') + '</td><td>' + (r.project_number || '') + '</td><td>' + (r.tool || '') + '</td><td class="r">' + (r.field_count || 0) + '</td><td class="cost">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>'); });
-  w.document.write('</table></body></html>');
+  w.document.write('</table></div></body></html>');
   w.document.close();
-  setTimeout(function() { w.print(); }, 500);
 }
 
 export var AIUsage = { open: open, close: close, exportCSV: exportCSV, exportPDF: exportPDF };
