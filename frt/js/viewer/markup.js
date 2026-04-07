@@ -434,7 +434,7 @@ function _moveDraw(e) {
       var p0 = _penPoints[n - 2], p1 = _penPoints[n - 1];
       ctx.setTransform(d, 0, 0, d, 0, 0);
       ctx.save();
-      ctx.strokeStyle = _tool === 'eraser' ? '#C0392B' : _color;
+      ctx.strokeStyle = _tool === 'eraser' ? '#8a94b0' : _color;
       ctx.lineWidth = _tool === 'eraser' ? _lineWidth * 3 : _lineWidth;
       if (_tool === 'pen') ctx.globalAlpha = _opacity;
       ctx.lineCap = 'round';
@@ -501,36 +501,32 @@ function _handleTextPlace(e) {
   var pos = _getPos(e);
   var mc = _getCanvas();
   if (!mc) return;
-  var r = mc.getBoundingClientRect();
-  var lw = mc._logicalW || mc.width;
-  var sx = r.width / lw;
 
-  var input = document.getElementById('mk-text-input');
-  if (!input) return;
+  // Create a temporary input directly on the page at the click position
+  var existing = document.getElementById('mk-text-input');
+  if (existing) existing.style.display = 'none';
 
-  // Position inline textarea at click point
-  input.style.display = 'block';
-  input.style.left = (r.left + pos.x * sx) + 'px';
-  input.style.top = (r.top + pos.y * sx) + 'px';
-  input.style.fontSize = (_fontSize * sx) + 'px';
-  input.style.color = _color;
-  input.style.fontFamily = 'Calibri,sans-serif';
-  input.style.fontWeight = '400';
-  input.style.position = 'fixed';
-  input.style.zIndex = '9999';
-  input.value = '';
-  input.focus();
+  var input = document.createElement('textarea');
+  input.className = 'mk-text-input';
+  input.style.cssText = 'position:fixed;z-index:99999;display:block;background:rgba(30,37,51,.85);border:1.5px solid #2196F3;color:' + _color + ';font-family:Calibri,sans-serif;resize:none;outline:none;padding:4px 6px;min-width:100px;min-height:28px;overflow:hidden;border-radius:4px;';
+  input.style.fontSize = _fontSize + 'px';
+  input.style.left = (e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 100)) + 'px';
+  input.style.top = (e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 100)) + 'px';
+  input.placeholder = 'Type here...';
+  document.body.appendChild(input);
 
-  // Capture position for commit
+  // Store drawing-space coords
   input._mkX = pos.x;
-  input._mkY = pos.y;
+  input._mkY = pos.y + _fontSize; // baseline offset
 
-  // On blur or Enter, commit text
-  function _commitText() {
+  setTimeout(function() { input.focus(); }, 50);
+
+  var committed = false;
+  function _commit() {
+    if (committed) return;
+    committed = true;
     var txt = input.value.trim();
-    input.style.display = 'none';
-    input.removeEventListener('blur', _commitText);
-    input.removeEventListener('keydown', _onKey);
+    if (input.parentNode) input.parentNode.removeChild(input);
     if (txt) {
       _objects.push({
         id: _newId(), type: 'text', text: txt,
@@ -542,12 +538,11 @@ function _handleTextPlace(e) {
       _markDirty();
     }
   }
-  function _onKey(ev) {
-    if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); _commitText(); }
-    if (ev.key === 'Escape') { input.style.display = 'none'; input.removeEventListener('blur', _commitText); input.removeEventListener('keydown', _onKey); }
-  }
-  input.addEventListener('blur', _commitText);
-  input.addEventListener('keydown', _onKey);
+  input.addEventListener('blur', function() { setTimeout(_commit, 100); });
+  input.addEventListener('keydown', function(ev) {
+    if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); _commit(); }
+    if (ev.key === 'Escape') { if (input.parentNode) input.parentNode.removeChild(input); committed = true; }
+  });
 }
 
 // ── Polyline Tool ───────────────────────────────────────
@@ -661,7 +656,7 @@ function _updateEraserCursor(e) {
   if (!_eraserCursor) {
     _eraserCursor = document.createElement('div');
     _eraserCursor.id = 'eraser-cursor';
-    _eraserCursor.style.cssText = 'position:fixed;pointer-events:none;border:2px solid #C0392B;border-radius:50%;z-index:2600;display:none;box-shadow:0 0 4px rgba(0,0,0,.3);';
+    _eraserCursor.style.cssText = 'position:fixed;pointer-events:none;border:2px solid #8a94b0;border-radius:50%;z-index:2600;display:none;box-shadow:0 0 4px rgba(0,0,0,.3);';
     document.body.appendChild(_eraserCursor);
   }
   if (_tool === 'eraser') {
