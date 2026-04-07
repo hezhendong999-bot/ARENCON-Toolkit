@@ -28,24 +28,23 @@ function countPins(drawingId, allDefics) {
 function buildDrawingCard(d, allDefics) {
   var pins = countPins(d.id, allDefics);
   var imgSrc = d.thumb || '';
-  var h = '<div class="drawing-card" data-drawing-id="' + esc(d.id) + '" style="width:180px;display:inline-block;vertical-align:top;margin:0 8px 12px 0;cursor:pointer;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.08);">';
+  var h = '<div class="drawing-card" data-drawing-id="' + esc(d.id) + '">';
 
+  // Card thumb with pin badge + select check overlays
+  h += '<div class="card-thumb drawing-thumb" data-action="open-viewer" data-drawing-id="' + esc(d.id) + '">';
   if (imgSrc) {
-    h += '<div class="drawing-thumb" style="height:120px;overflow:hidden;border-radius:4px 4px 0 0;">';
-    h += '<img src="' + esc(imgSrc) + '" style="width:100%;height:120px;object-fit:cover;display:block;" loading="lazy" decoding="async">';
-    h += '</div>';
+    h += '<img src="' + esc(imgSrc) + '" alt="' + esc(d.name) + '" loading="lazy" decoding="async">';
   } else {
-    h += '<div class="drawing-thumb" style="height:120px;background:var(--smoke);display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:32px;border-radius:4px 4px 0 0;">';
-    h += '\uD83D\uDCC4';
-    h += '</div>';
+    h += '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:32px;background:var(--smoke);">\uD83D\uDCC4</div>';
   }
+  if (pins > 0) h += '<div class="pin-badge">' + pins + '</div>';
+  h += '</div>';
 
-  h += '<div style="padding:6px 10px;display:flex;justify-content:space-between;align-items:center;gap:4px;border-top:1px solid var(--border);">';
-  h += '<span class="dwg-card-name" data-action="rename-drawing" data-drawing-id="' + esc(d.id) + '" style="font-size:calc(12px + var(--ts));font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;cursor:pointer;" title="Click to rename">' + esc(d.name || 'Untitled') + '</span>';
-  if (pins > 0) {
-    h += '<span class="pin-count" style="font-size:calc(11px + var(--ts));color:var(--silver);background:var(--smoke);padding:2px 8px;border-radius:10px;flex-shrink:0;">\uD83D\uDCCC ' + pins + '</span>';
-  }
-  h += '<button data-action="delete-drawing" data-drawing-id="' + esc(d.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(13px + var(--ts));padding:0 2px;flex-shrink:0;" title="Delete drawing">\uD83D\uDDD1</button>';
+  // Card footer with select check + name + menu
+  h += '<div class="card-footer">';
+  h += '<div class="select-check" data-action="toggle-drawing-select" data-drawing-id="' + esc(d.id) + '"></div>';
+  h += '<span class="card-name" data-action="open-viewer" data-drawing-id="' + esc(d.id) + '">' + esc(d.name || 'Untitled') + '</span>';
+  h += '<button class="card-menu-btn" data-action="drawing-menu" data-drawing-id="' + esc(d.id) + '">\u22EE</button>';
   h += '</div>';
   h += '</div>';
   return h;
@@ -97,12 +96,13 @@ export var initDrawings = {
       var isFolded = _foldedFolders[fn];
       html += '<div class="dwg-folder-group" data-folder="' + esc(fn) + '" style="margin-bottom:16px;border:1px solid var(--border);border-radius:10px;overflow:hidden;">';
       html += '<div class="dwg-folder-hdr" data-action="toggle-folder" data-folder="' + esc(fn) + '" style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--smoke);cursor:pointer;user-select:none;">';
+      html += '<input type="checkbox" class="folder-checkbox" data-folder-name="' + esc(fn) + '" onclick="event.stopPropagation();" title="Select all in folder">';
       html += '<span style="font-size:12px;width:14px;">' + (isFolded ? '\u25B6' : '\u25BC') + '</span>';
-      html += '\uD83D\uDCC1 <span style="font-weight:700;font-size:calc(14px + var(--ts));color:var(--steel);">' + esc(fn) + '</span>';
-      html += '<span style="font-weight:400;color:var(--silver);font-size:calc(12px + var(--ts));">(' + items.length + ')</span>';
-      html += '<button data-action="rename-folder" data-folder="' + esc(fn) + '" style="border:none;background:none;cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 4px;color:var(--silver);margin-left:auto;" title="Rename folder">✏️</button>';
+      html += '\uD83D\uDCC1 <strong style="font-size:calc(14px + var(--ts));color:var(--steel);">' + esc(fn) + '</strong>';
+      html += ' <span style="font-weight:400;color:var(--silver);font-size:calc(12px + var(--ts));">(' + items.length + ' plans)</span>';
+      html += '<button data-action="rename-folder" data-folder="' + esc(fn) + '" style="border:none;background:none;cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 4px;color:var(--silver);margin-left:auto;" title="Rename folder">\u270F\uFE0F</button>';
       html += '</div>';
-      html += '<div class="dwg-folder-body" style="padding:8px;display:flex;flex-wrap:wrap;' + (isFolded ? 'display:none;' : '') + '">';
+      html += '<div class="dwg-folder-body dwg-card-row" style="padding:8px;display:flex;flex-wrap:wrap;' + (isFolded ? 'display:none;' : '') + '">';
       items.forEach(function(d) { html += buildDrawingCard(d, allDefics); });
       html += '</div></div>';
     });
