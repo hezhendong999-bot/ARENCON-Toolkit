@@ -496,99 +496,245 @@ document.getElementById('dv-canvas-area').addEventListener('touchend', function(
   }
 });
 
-// Pin marker click — show info popup
+// Pin marker click — open pin editor
 document.addEventListener('click', function(e) {
   var marker = e.target.closest && e.target.closest('.pin-marker[data-defic-id]');
-  if (!marker) {
-    // Close popup on outside click (but not if clicking popup itself)
-    if (!e.target.closest || !e.target.closest('.pin-info-popup')) _closePinPopup();
-    return;
-  }
-  if (_pinModeDeficId) return; // Don't show popup in placement mode
-  if (_pinDragging) return; // Don't show popup during drag
+  if (!marker) return;
+  if (_pinModeDeficId) return;
+  if (_pinDragging) return;
   var deficId = marker.getAttribute('data-defic-id');
-  _showPinPopup(deficId, marker);
+  _openPinEditor(deficId);
 });
 
-// ── Pin Info Popup ──────────────────────────────────────
-function _showPinPopup(deficId, markerEl) {
-  var popup = document.getElementById('pin-info-popup');
-  if (!popup) return;
+// ── Pin Editor Modal ───────────────────────────────────
+var _peDeficId = null;
+var _peObsIdx = 0;
+
+function _openPinEditor(deficId) {
   var f = Model.findDeficiency(deficId);
   if (!f) return;
+  _peDeficId = deficId;
+  _peObsIdx = 0;
   var d = f.defic;
-  var desc = (d.observations && d.observations.length && d.observations[0].text) ? d.observations[0].text : (d.description || '');
-  if (desc.length > 120) desc = desc.substring(0, 120) + '\u2026';
-  var isClosed = d.status === 'closed' || d.status === 'Addressed & Closed';
-  var statusColor = isClosed ? '#1A7A4A' : '#C0392B';
-  var statusText = isClosed ? 'Closed' : 'Outstanding';
+  var overlay = document.getElementById('pin-editor-overlay');
+  if (!overlay) return;
 
-  var html = '<div class="pip-header">';
-  html += '<span class="pip-num">#' + (d.num || '?') + '</span>';
-  html += '<span class="pip-status" style="background:' + statusColor + '22;color:' + statusColor + ';">' + statusText + '</span>';
-  if (f.contractorName) html += '<span style="font-size:calc(11px + var(--ts));color:#8a94b0;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (f.contractorName || '') + '</span>';
-  html += '</div>';
-  if (desc) html += '<div class="pip-body">' + desc.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div>';
-  html += '<div class="pip-actions">';
-  html += '<button class="pip-btn pip-btn-move" data-pip-action="move" data-defic-id="' + deficId + '">↕ Move</button>';
-  html += '<button class="pip-btn pip-btn-remove" data-pip-action="remove" data-defic-id="' + deficId + '">🗑 Remove</button>';
-  html += '<button class="pip-btn pip-btn-close" data-pip-action="close-popup">✕</button>';
-  html += '</div>';
+  // Title
+  var prLabel = d.priority === 'general' ? 'General' : d.priority === 'low' ? 'Low Priority' : 'High Priority';
+  document.getElementById('pe-title').textContent = 'Pin #' + d.num + ' \u2014 ' + prLabel;
 
-  document.getElementById('pin-info-content').innerHTML = html;
+  // Contractor dropdown
+  var cSel = document.getElementById('pe-contractor');
+  if (cSel) {
+    var proj = Model.getProject();
+    var opts = '';
+    (proj.contractors || []).forEach(function(c) { opts += '<option value="' + c.id + '"' + (f.contractorId === c.id ? ' selected' : '') + '>' + c.name + '</option>'; });
+    cSel.innerHTML = opts;
+  }
 
-  // Position popup near the marker
-  var mRect = markerEl.getBoundingClientRect();
-  var pw = 280; // approx popup width
-  var left = mRect.left + mRect.width / 2 - pw / 2;
-  var top = mRect.top - 8; // above the pin
-  // Keep on screen
-  left = Math.max(8, Math.min(window.innerWidth - pw - 8, left));
-  if (top < 60) top = mRect.bottom + 8; // Below if too high
+  // Date
+  var dateIn = document.getElementById('pe-date');
+  if (dateIn) dateIn.value = d.date || new Date().toISOString().split('T')[0];
 
-  popup.style.left = left + 'px';
-  popup.style.top = top + 'px';
-  popup.style.transform = 'translateY(-100%)';
-  if (top === mRect.bottom + 8) popup.style.transform = 'none';
-  popup.style.display = 'block';
+  // Status
+  var statusSel = document.getElementById('pe-status');
+  if (statusSel) statusSel.value = (d.status === 'closed' || d.status === 'Addressed & Closed') ? 'closed' : 'open';
+
+  // IAR
+  var iarBtn = document.getElementById('pe-iar');
+  if (iarBtn) iarBtn.classList.toggle('active', !!d.iar);
+
+  // Observations tabs
+  _peRenderObsTabs(d);
+  _peRenderObsContent(d, 0);
+
+  // Move-to dropdown
+  var moveSel = document.getElementById('pe-move-to');
+  if (moveSel) {
+    var drawings = _getDrawingsList();
+    var currentDwgId = (_currentDrawingIdx >= 0 && drawings[_currentDrawingIdx]) ? drawings[_currentDrawingIdx].id : null;
+    var opts2 = '<option value="' + (currentDwgId || '') + '">\u2014 Current drawing \u2014</option>';
+    drawings.forEach(function(dw) {
+      if (dw.id !== currentDwgId) opts2 += '<option value="' + dw.id + '">' + (dw.name || 'Drawing') + '</option>';
+    });
+    moveSel.innerHTML = opts2;
+  }
+
+  // Location thumbnail
+  var thumb = document.getElementById('pe-location-thumb');
+  if (thumb) {
+    var img = document.getElementById('dv-image');
+    if (img && img.src) {
+      thumb.innerHTML = '<img src="' + img.src + '" alt="">' +
+        (d.pinX != null ? '<div style="position:absolute;left:' + (d.pinX * 100) + '%;top:' + (d.pinY * 100) + '%;transform:translate(-50%,-100%);font-size:20px;">📍</div>' : '');
+    }
+  }
+
+  overlay.style.display = 'flex';
 }
 
-function _closePinPopup() {
-  var popup = document.getElementById('pin-info-popup');
-  if (popup) popup.style.display = 'none';
+function _peRenderObsTabs(d) {
+  var tabs = document.getElementById('pe-obs-tabs');
+  if (!tabs) return;
+  var obs = d.observations || [];
+  if (!obs.length) obs = [{ text: '', addressed: false }];
+  var html = '';
+  obs.forEach(function(o, i) {
+    html += '<button class="pe-obs-tab' + (i === _peObsIdx ? ' active' : '') + '" data-pe-obs="' + i + '">Obs. #' + (i + 1) + '</button>';
+  });
+  html += '<button class="pe-obs-tab-add" data-pe-obs-add>+</button>';
+  tabs.innerHTML = html;
 }
 
-// Pin popup action buttons
+function _peRenderObsContent(d, idx) {
+  var obs = d.observations || [];
+  if (!obs.length) obs = [{ text: '', addressed: false }];
+  var o = obs[idx] || obs[0];
+
+  var prBtns = document.querySelectorAll('.pe-pri-btn');
+  prBtns.forEach(function(btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-pe-pri') === (d.priority || 'high'));
+  });
+
+  var textarea = document.getElementById('pe-obs-text');
+  if (textarea) textarea.value = o.text || '';
+}
+
+function _closePinEditor() {
+  var overlay = document.getElementById('pin-editor-overlay');
+  if (overlay) overlay.style.display = 'none';
+  _peDeficId = null;
+}
+
+function _savePinEditor() {
+  if (!_peDeficId) return;
+  var f = Model.findDeficiency(_peDeficId);
+  if (!f) return;
+  var d = f.defic;
+
+  // Read fields
+  var cSel = document.getElementById('pe-contractor');
+  if (cSel && cSel.value) {
+    // Move deficiency to new contractor if changed
+    var proj = Model.getProject();
+    if (proj && proj.contractors) {
+      var newCtrId = cSel.value;
+      if (newCtrId !== f.contractorId) {
+        // Remove from old contractor
+        var oldCtr = proj.contractors.find(function(c) { return c.id === f.contractorId; });
+        if (oldCtr && oldCtr.deficiencies) {
+          oldCtr.deficiencies = oldCtr.deficiencies.filter(function(x) { return x.id !== _peDeficId; });
+        }
+        // Add to new contractor
+        var newCtr = proj.contractors.find(function(c) { return c.id === newCtrId; });
+        if (newCtr) {
+          if (!newCtr.deficiencies) newCtr.deficiencies = [];
+          newCtr.deficiencies.push(d);
+        }
+      }
+    }
+  }
+
+  var dateIn = document.getElementById('pe-date');
+  if (dateIn) d.date = dateIn.value;
+
+  var statusSel = document.getElementById('pe-status');
+  if (statusSel) d.status = statusSel.value;
+
+  // Save current observation text
+  var textarea = document.getElementById('pe-obs-text');
+  if (textarea) {
+    if (!d.observations || !d.observations.length) d.observations = [{ text: '', addressed: false }];
+    if (d.observations[_peObsIdx]) d.observations[_peObsIdx].text = textarea.value;
+  }
+
+  // Move to different drawing
+  var moveSel = document.getElementById('pe-move-to');
+  if (moveSel && moveSel.value && moveSel.value !== d.drawingId) {
+    d.drawingId = moveSel.value;
+    // Keep pinX/pinY — just changes which drawing the pin is on
+  }
+
+  Model.saveNow();
+  _renderPins();
+  if (_tasksVisible) _renderTasks();
+  _closePinEditor();
+  console.log('[Viewer] Pin editor saved for deficiency', _peDeficId);
+}
+
+// Pin editor event handlers
 document.addEventListener('click', function(e) {
-  var btn = e.target.closest && e.target.closest('[data-pip-action]');
-  if (!btn) return;
-  var action = btn.getAttribute('data-pip-action');
-  var deficId = btn.getAttribute('data-defic-id');
+  if (e.target.closest && e.target.closest('#pe-close')) { _closePinEditor(); return; }
+  if (e.target.closest && e.target.closest('#pe-cancel')) { _closePinEditor(); return; }
+  if (e.target.closest && e.target.closest('#pe-save')) { _savePinEditor(); return; }
 
-  if (action === 'close-popup') { _closePinPopup(); return; }
-
-  if (action === 'remove') {
-    var f = Model.findDeficiency(deficId);
-    if (f) {
-      f.defic.drawingId = null;
-      f.defic.pinX = null;
-      f.defic.pinY = null;
-      Model._notify('deficiency', { action: 'pin-remove', deficId: deficId });
-      Model.saveNow();
-      _renderPins();
-      _closePinPopup();
-      console.log('[Viewer] Pin removed for deficiency', deficId);
+  if (e.target.closest && e.target.closest('#pe-delete')) {
+    if (confirm('Delete this pin?')) {
+      var f2 = Model.findDeficiency(_peDeficId);
+      if (f2) {
+        f2.defic.drawingId = null;
+        f2.defic.pinX = null;
+        f2.defic.pinY = null;
+        Model.saveNow();
+        _renderPins();
+        if (_tasksVisible) _renderTasks();
+      }
+      _closePinEditor();
     }
     return;
   }
 
-  if (action === 'move') {
-    _closePinPopup();
-    _startPinPlace(deficId);
-    // Update button to show active state
-    var pinBtn = document.getElementById('dv-pin-btn');
-    if (pinBtn) { pinBtn.style.background = '#2196F3'; pinBtn.textContent = '\uD83D\uDCCC Moving...'; }
-    console.log('[Viewer] Pin move mode — deficiency:', deficId);
+  // IAR toggle
+  if (e.target.closest && e.target.closest('#pe-iar')) {
+    var f3 = Model.findDeficiency(_peDeficId);
+    if (f3) { f3.defic.iar = !f3.defic.iar; }
+    e.target.closest('#pe-iar').classList.toggle('active');
+    return;
+  }
+
+  // Priority buttons
+  var priBtn = e.target.closest && e.target.closest('[data-pe-pri]');
+  if (priBtn) {
+    var pri = priBtn.getAttribute('data-pe-pri');
+    var f4 = Model.findDeficiency(_peDeficId);
+    if (f4) f4.defic.priority = pri;
+    document.querySelectorAll('.pe-pri-btn').forEach(function(b) { b.classList.toggle('active', b.getAttribute('data-pe-pri') === pri); });
+    return;
+  }
+
+  // Obs tab click
+  var obsTab = e.target.closest && e.target.closest('[data-pe-obs]');
+  if (obsTab) {
+    var f5 = Model.findDeficiency(_peDeficId);
+    if (!f5) return;
+    // Save current obs text first
+    var ta = document.getElementById('pe-obs-text');
+    if (ta && f5.defic.observations && f5.defic.observations[_peObsIdx]) {
+      f5.defic.observations[_peObsIdx].text = ta.value;
+    }
+    _peObsIdx = parseInt(obsTab.getAttribute('data-pe-obs'), 10);
+    _peRenderObsTabs(f5.defic);
+    _peRenderObsContent(f5.defic, _peObsIdx);
+    return;
+  }
+
+  // Add obs tab
+  if (e.target.closest && e.target.closest('[data-pe-obs-add]')) {
+    var f6 = Model.findDeficiency(_peDeficId);
+    if (!f6) return;
+    if (!f6.defic.observations) f6.defic.observations = [];
+    f6.defic.observations.push({ text: '', addressed: false });
+    _peObsIdx = f6.defic.observations.length - 1;
+    _peRenderObsTabs(f6.defic);
+    _peRenderObsContent(f6.defic, _peObsIdx);
+    return;
+  }
+
+  // Task item click — jump to pin
+  var taskItem = e.target.closest && e.target.closest('.dv-task-item[data-task-defic-id]');
+  if (taskItem && !e.target.closest('[data-task-pin]')) {
+    var tid = taskItem.getAttribute('data-task-defic-id');
+    _openPinEditor(tid);
     return;
   }
 });
