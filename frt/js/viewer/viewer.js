@@ -10,6 +10,7 @@
 import { Model } from '../data/model.js';
 import { IDB } from '../data/idb.js';
 import { Markup } from './markup.js';
+import { showConfirm } from '../shared/dialogs.js';
 
 var _currentDrawingIdx = -1;
 var _drawings = [];
@@ -677,8 +678,12 @@ document.addEventListener('click', function(e) {
   if (e.target.closest && e.target.closest('#pe-save')) { _savePinEditor(); return; }
 
   if (e.target.closest && e.target.closest('#pe-delete')) {
-    if (confirm('Delete this pin?')) {
-      var f2 = Model.findDeficiency(_peDeficId);
+    var delId = _peDeficId;
+    console.log('[Viewer] Delete pin clicked — deficId:', delId);
+    showConfirm('Delete Pin', 'Remove this pin from the drawing?').then(function(yes) {
+      if (!yes) return;
+      var f2 = Model.findDeficiency(delId);
+      console.log('[Viewer] Delete pin — found:', !!f2);
       if (f2) {
         f2.defic.drawingId = null;
         f2.defic.pinX = null;
@@ -686,9 +691,10 @@ document.addEventListener('click', function(e) {
         Model.saveNow();
         _renderPins();
         if (_tasksVisible) _renderTasks();
+        console.log('[Viewer] Pin deleted for deficiency', delId);
       }
       _closePinEditor();
-    }
+    });
     return;
   }
 
