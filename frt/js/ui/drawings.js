@@ -131,8 +131,12 @@ function _lazyGenThumbs(list, idx) {
     d.thumb = c.toDataURL('image/jpeg', 0.7);
     c.width = 1; c.height = 1;
     // Update the card image in-place without full re-render
-    var card = document.querySelector('.drawing-card[data-drawing-id="' + d.id + '"] .drawing-thumb');
-    if (card) card.innerHTML = '<img src="' + d.thumb + '" style="width:100%;height:120px;object-fit:cover;display:block;" decoding="async">';
+    var card = document.querySelector('.drawing-card[data-drawing-id="' + d.id + '"] .card-thumb');
+    if (card) {
+      var pinBadge = card.querySelector('.pin-badge');
+      var pinHTML = pinBadge ? pinBadge.outerHTML : '';
+      card.innerHTML = '<img src="' + d.thumb + '" alt="' + (d.name || '') + '" decoding="async">' + pinHTML;
+    }
     // Continue to next after short delay
     setTimeout(function() { _lazyGenThumbs(list, idx + 1); }, 200);
   };
@@ -142,29 +146,49 @@ function _lazyGenThumbs(list, idx) {
 
 Model.onChange('project', function() { initDrawings.render(); });
 
-// Click handler: open drawing in viewer + folder ops
-document.addEventListener('click', function(e) {
-  // Toggle folder
-  var foldHdr = e.target.closest && e.target.closest('[data-action="toggle-folder"]');
-  if (foldHdr) {
-    var fn = foldHdr.getAttribute('data-folder');
-    if (fn) {
-      _foldedFolders[fn] = !_foldedFolders[fn];
-      var group = document.querySelector('.dwg-folder-group[data-folder="' + fn + '"]');
-      if (group) {
-        var body = group.querySelector('.dwg-folder-body');
-        var arrow = foldHdr.querySelector('span');
-        if (body) body.style.display = _foldedFolders[fn] ? 'none' : 'flex';
-        if (arrow) arrow.textContent = _foldedFolders[fn] ? '\u25B6' : '\u25BC';
-      }
-    }
-    return;
-  }
+// ── Drawing Selection State ─────────────────────────────
+var _selectedDrawings = new Set();
+var _lastSelectedId = null;
 
-  // Rename folder
+function _toggleSelect(drawingId, shiftKey) {
+  if (shiftKey && _lastSelectedId && _lastSelectedId !== drawingId) {
+    // Shift-click: select range like Google Photos
+    var cards = Array.from(document.querySelectorAll('.drawing-card[data-drawing-id]'));
+    var ids = cards.map(function(c) { return c.getAttribute('data-drawing-id'); });
+    var a = ids.indexOf(_lastSelectedId);
+    var b = ids.indexOf(drawingId);
+    if (a >= 0 && b >= 0) {
+      var start = Math.min(a, b), end = Math.max(a, b);
+      for (var i = start; i <= end; i++) _selectedDrawings.add(ids[i]);
+    }
+  } else {
+    if (_selectedDrawings.has(drawingId)) _selectedDrawings.delete(drawingId);
+    else _selectedDrawings.add(drawingId);
+  }
+  _lastSelectedId = drawingId;
+  _updateSelectionUI();
+}
+
+function _updateSelectionUI() {
+  document.querySelectorAll('.drawing-card[data-drawing-id]').forEach(function(card) {
+    var id = card.getAttribute('data-drawing-id');
+    var sel = _selectedDrawings.has(id);
+    card.classList.toggle('selected', sel);
+    var check = card.querySelector('.select-check');
+    if (check) {
+      check.classList.toggle('checked', sel);
+      check.textContent = sel ? '\u2713' : '';
+    }
+  });
+}
+
+// ── Click Handler ───────────────────────────────────────
+document.addEventListener('click', function(e) {
+  // 1) Rename folder (MUST be before toggle-folder)
   var renameBtn = e.target.closest && e.target.closest('[data-action="rename-folder"]');
   if (renameBtn) {
     e.stopPropagation();
+    e.preventDefault();
     var oldName = renameBtn.getAttribute('data-folder');
     showPrompt('Rename Folder', 'New folder name:', oldName).then(function(newName) {
       if (newName && newName.trim() && newName.trim() !== oldName) {
@@ -180,48 +204,74 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // Rename drawing
-  var renameDrawBtn = e.target.closest && e.target.closest('[data-action="rename-drawing"]');
-  if (renameDrawBtn) {
+  // 2) Folder checkbox (stop propagation so it doesn't toggle fold)
+  if (e.target.classList && e.target.classList.contains('folder-checkbox')) {
     e.stopPropagation();
-    var drawingId = renameDrawBtn.getAttribute('data-drawing-id');
-    var drawings = Model.getDrawings();
-    var dwg = drawings.find(function(d) { return d.id === drawingId; });
-    if (dwg) {
-      showPrompt('Rename Drawing', 'New name:', dwg.name || '').then(function(newName) {
-        if (newName && newName.trim()) {
-          dwg.name = newName.trim();
-          Model.saveNow();
-          initDrawings.render();
-          toast('Drawing renamed');
-        }
-      });
+    var folderName = e.target.getAttribute('data-folder-name');
+    var checked = e.target.checked;
+    document.querySelectorAll('.drawing-card[data-drawing-id]').forEach(function(card) {
+      var id = card.getAttribute('data-drawing-id');
+      var drawings = Model.getDrawings();
+      var dwg = drawings.find(function(d) { return d.id === id; });
+      if (dwg && (dwg.folder || '') === (folderName || '')) {
+        if (checked) _selectedDrawings.add(id);
+        else _selectedDrawings.delete(id);
+      }
+    });
+    _updateSelectionUI();
+    return;
+  }
+
+  // 3) Toggle folder fold/unfold
+  var foldHdr = e.target.closest && e.target.closest('[data-action="toggle-folder"]');
+  if (foldHdr && !e.target.closest('[data-action="rename-folder"]') && !e.target.classList.contains('folder-checkbox')) {
+    var fn = foldHdr.getAttribute('data-folder');
+    if (fn) {
+      _foldedFolders[fn] = !_foldedFolders[fn];
+      var group = document.querySelector('.dwg-folder-group[data-folder="' + fn + '"]');
+      if (group) {
+        var body = group.querySelector('.dwg-folder-body');
+        var arrow = foldHdr.querySelector('span');
+        if (body) body.style.display = _foldedFolders[fn] ? 'none' : 'flex';
+        if (arrow) arrow.textContent = _foldedFolders[fn] ? '\u25B6' : '\u25BC';
+      }
     }
     return;
   }
 
-  // Delete drawing
-  var delBtn = e.target.closest && e.target.closest('[data-action="delete-drawing"]');
-  if (delBtn) {
+  // 4) Toggle drawing selection (click on select-check)
+  var selCheck = e.target.closest && e.target.closest('[data-action="toggle-drawing-select"]');
+  if (selCheck) {
     e.stopPropagation();
-    var drawingId = delBtn.getAttribute('data-drawing-id');
-    var drawings = Model.getDrawings();
-    var dwg = drawings.find(function(d) { return d.id === drawingId; });
-    var name = dwg ? (dwg.name || 'Untitled') : 'this drawing';
-    showConfirm('Delete Drawing', 'Delete "' + name + '"? Pins on this drawing will be removed.').then(function(yes) {
-      if (yes) {
-        Model.removeDrawing(drawingId);
-        initDrawings.render();
-        toast('Drawing deleted');
-      }
-    });
+    var drawingId = selCheck.getAttribute('data-drawing-id');
+    if (drawingId) _toggleSelect(drawingId, e.shiftKey);
     return;
   }
 
+  // 5) Drawing menu button
+  var menuBtn = e.target.closest && e.target.closest('[data-action="drawing-menu"]');
+  if (menuBtn) {
+    e.stopPropagation();
+    var drawingId = menuBtn.getAttribute('data-drawing-id');
+    // TODO: open context menu for drawing
+    toast('Menu: ' + drawingId);
+    return;
+  }
+
+  // 6) Open viewer (click on card-thumb or card-name)
+  var openBtn = e.target.closest && e.target.closest('[data-action="open-viewer"]');
+  if (openBtn) {
+    var drawingId = openBtn.getAttribute('data-drawing-id');
+    if (drawingId) initViewer.open(drawingId);
+    return;
+  }
+
+  // 7) Fallback: clicking anywhere on drawing card opens viewer
   var card = e.target.closest && e.target.closest('.drawing-card[data-drawing-id]');
-  if (!card) return;
-  var drawingId = card.getAttribute('data-drawing-id');
-  if (drawingId) initViewer.open(drawingId);
+  if (card) {
+    var drawingId = card.getAttribute('data-drawing-id');
+    if (drawingId) initViewer.open(drawingId);
+  }
 });
 
 // New Folder button
@@ -229,11 +279,23 @@ var newFolderBtn = document.getElementById('btn-new-folder');
 if (newFolderBtn) newFolderBtn.addEventListener('click', function() {
   showPrompt('New Folder', 'Folder name:').then(function(name) {
     if (name && name.trim()) {
-      // Folder is created implicitly when a drawing is assigned to it
-      // For now, toast feedback — user will upload or move drawings into it
       toast('Folder "' + name.trim() + '" ready — upload drawings or move existing ones');
     }
   });
+});
+
+// Select All button
+var selectAllBtn = document.getElementById('btn-dwg-select-all');
+if (selectAllBtn) selectAllBtn.addEventListener('click', function() {
+  var cards = document.querySelectorAll('.drawing-card[data-drawing-id]');
+  if (_selectedDrawings.size === cards.length && cards.length > 0) {
+    _selectedDrawings.clear();
+    toast('Deselected all');
+  } else {
+    cards.forEach(function(c) { _selectedDrawings.add(c.getAttribute('data-drawing-id')); });
+    toast(_selectedDrawings.size + ' drawings selected');
+  }
+  _updateSelectionUI();
 });
 
 // ── Upload Handlers ─────────────────────────────────────
