@@ -588,10 +588,9 @@ function _updateHeaderForProject() {
     if (el) el.style.display = '';
   });
 
-  // Show AI usage button for admins
+  // Show AI usage button for all users (everyone tracks their own project costs)
   var aiUsageBtn = document.getElementById('btn-ai-usage');
-  var role = localStorage.getItem('ARENCON_role') || '';
-  if (aiUsageBtn) aiUsageBtn.style.display = (role === 'super_admin' || role === 'admin') ? '' : 'none';
+  if (aiUsageBtn) aiUsageBtn.style.display = '';
 
   // Show mobile AI buttons
   var mar = document.getElementById('mobile-ai-rewrite');
@@ -599,7 +598,7 @@ function _updateHeaderForProject() {
   var maq = document.getElementById('mobile-ai-quickfix');
   if (maq) maq.style.display = '';
   var mau = document.getElementById('mobile-ai-usage');
-  if (mau && (role === 'super_admin' || role === 'admin')) mau.style.display = '';
+  if (mau) mau.style.display = '';
 
   // Show repair section for admin
   var repairSec = document.getElementById('more-repair-section');

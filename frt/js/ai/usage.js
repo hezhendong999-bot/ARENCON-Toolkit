@@ -33,7 +33,6 @@ function _isAdmin() {
 }
 
 function open() {
-  if (!_isAdmin()) { toast('\u26A0 Admin access required'); return; }
   _ensureOverlay();
   _overlay.classList.add('open');
   _loadBillingDay(function() {

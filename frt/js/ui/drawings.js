@@ -190,6 +190,88 @@ function _updateSelectionUI() {
   });
 }
 
+// ── Drawing Context Menu ─────────────────────────────────
+var _activeMenu = null;
+function _closeActiveMenu() {
+  if (_activeMenu) { _activeMenu.remove(); _activeMenu = null; }
+  document.removeEventListener('click', _closeActiveMenu);
+}
+
+function _showDrawingContextMenu(drawingId, anchorEl) {
+  _closeActiveMenu();
+  var menu = document.createElement('div');
+  menu.className = 'card-context-menu';
+  menu.style.cssText = 'display:block;position:fixed;z-index:9000;';
+  menu.innerHTML = '<button data-ctx="rename">\u270F\uFE0F Rename</button>'
+    + '<button data-ctx="move">\uD83D\uDCC1 Move to folder...</button>'
+    + '<button data-ctx="rotate">\uD83D\uDD04 Rotate 90\u00B0</button>'
+    + '<button data-ctx="replace">\uD83D\uDD27 Replace image</button>'
+    + '<button data-ctx="newversion">\u2B06\uFE0F Upload new version</button>'
+    + '<div class="separator"></div>'
+    + '<button data-ctx="download">\u2B07\uFE0F Download drawing</button>'
+    + '<div class="separator"></div>'
+    + '<button data-ctx="delete" class="danger">\uD83D\uDDD1\uFE0F Delete</button>';
+  document.body.appendChild(menu);
+  _activeMenu = menu;
+
+  // Position near anchor
+  var rect = anchorEl.getBoundingClientRect();
+  menu.style.top = Math.min(rect.bottom + 4, window.innerHeight - menu.offsetHeight - 8) + 'px';
+  menu.style.left = Math.min(rect.left, window.innerWidth - menu.offsetWidth - 8) + 'px';
+
+  menu.addEventListener('click', function(ev) {
+    var btn = ev.target.closest('[data-ctx]');
+    if (!btn) return;
+    var act = btn.getAttribute('data-ctx');
+    _closeActiveMenu();
+    var drawings = Model.getDrawings();
+    var dwg = drawings.find(function(d) { return d.id === drawingId; });
+    if (!dwg && act !== 'delete') return;
+
+    if (act === 'rename') {
+      showPrompt('Rename Drawing', 'New name:', dwg.name || '').then(function(n) {
+        if (n && n.trim()) { dwg.name = n.trim(); Model.saveNow(); initDrawings.render(); toast('Renamed'); }
+      });
+    } else if (act === 'move') {
+      var proj = Model.getProject();
+      var folders = [];
+      (proj.drawings || []).forEach(function(d) { if (d.folder && folders.indexOf(d.folder) < 0) folders.push(d.folder); });
+      showPrompt('Move to Folder', 'Folder name (or type new):', dwg.folder || '').then(function(fn) {
+        if (fn !== null) { dwg.folder = fn.trim() || ''; Model.saveNow(); initDrawings.render(); toast('Moved'); }
+      });
+    } else if (act === 'rotate') {
+      toast('Rotate: requires viewer — open drawing first');
+    } else if (act === 'replace') {
+      var inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*,.pdf';
+      inp.onchange = function() {
+        if (inp.files[0]) {
+          var reader = new FileReader();
+          reader.onload = function() {
+            dwg.dataUrl = reader.result;
+            dwg.thumb = '';
+            Model.saveNow();
+            initDrawings.render();
+            toast('Image replaced');
+          };
+          reader.readAsDataURL(inp.files[0]);
+        }
+      };
+      inp.click();
+    } else if (act === 'download') {
+      var src = dwg.r2Url || dwg.dataUrl || dwg.thumb;
+      if (src) { var a = document.createElement('a'); a.href = src; a.download = (dwg.name || 'drawing') + '.png'; a.click(); toast('Downloading...'); }
+      else toast('No image data available');
+    } else if (act === 'delete') {
+      showConfirm('Delete Drawing', 'Delete "' + (dwg ? dwg.name : 'this drawing') + '"? Pins will be removed.').then(function(yes) {
+        if (yes) { Model.removeDrawing(drawingId); initDrawings.render(); toast('Deleted'); }
+      });
+    }
+  });
+
+  setTimeout(function() { document.addEventListener('click', _closeActiveMenu); }, 10);
+}
+
 // ── Click Handler ───────────────────────────────────────
 document.addEventListener('click', function(e) {
   // 1) Rename folder (MUST be before toggle-folder)
@@ -259,8 +341,7 @@ document.addEventListener('click', function(e) {
   if (menuBtn) {
     e.stopPropagation();
     var drawingId = menuBtn.getAttribute('data-drawing-id');
-    // TODO: open context menu for drawing
-    toast('Menu: ' + drawingId);
+    _showDrawingContextMenu(drawingId, menuBtn);
     return;
   }
 
@@ -304,9 +385,10 @@ if (selectAllBtn) selectAllBtn.addEventListener('click', function() {
   _updateSelectionUI();
 });
 
-// Drawing search
-var dwgSearchEl = document.getElementById('dwg-search');
-if (dwgSearchEl) dwgSearchEl.addEventListener('input', function() { initDrawings.render(); });
+// Drawing search — delegated to always work regardless of DOM timing
+document.addEventListener('input', function(e) {
+  if (e.target.id === 'dwg-search') initDrawings.render();
+});
 
 // ── Upload Handlers ─────────────────────────────────────
 
