@@ -482,9 +482,17 @@ function _handlePinDrop(e) {
 
 // Pin drop click handler (only active in pin-mode)
 document.getElementById('dv-canvas-area').addEventListener('click', function(e) {
-  if (!_pinModeDeficId) return;
-  if (e.target.closest('.dv-toolbar') || e.target.closest('#dv-close')) return;
-  _handlePinDrop(e);
+  if (e.target.closest('.dv-toolbar') || e.target.closest('#dv-close') || e.target.closest('.dv-sidebar-tools') || e.target.closest('.zoom-controls')) return;
+  if (_pinModeDeficId) {
+    _handlePinDrop(e);
+    return;
+  }
+  // If in pin mode (sidebar pin button active) but no deficiency selected — open Tasks
+  var pinBtn = document.getElementById('mk-pin');
+  if (pinBtn && pinBtn.classList.contains('active') && !_tasksVisible) {
+    _toggleTasks();
+    console.log('[Viewer] Auto-opened Tasks panel for pin placement');
+  }
 });
 
 // Pin drop touch handler
