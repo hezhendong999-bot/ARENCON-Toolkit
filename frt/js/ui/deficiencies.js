@@ -828,3 +828,16 @@ document.addEventListener('click', function(e) {
     if (btn) btn.textContent = _allFolded ? '\u25B6 Unfold All' : '\u25BC Fold All';
   }
 });
+
+// ── Renumber Deficiencies ───────────────────────────────
+document.addEventListener('click', function(e) {
+  if (e.target.id === 'defic-renumber-btn' || (e.target.closest && e.target.closest('#defic-renumber-btn'))) {
+    var count = Model.renumberDeficiencies();
+    if (count > 0) {
+      initDeficiencies.render();
+      toast('\u2714 Renumbered ' + count + ' deficiencies (1\u2013' + count + ')');
+    } else {
+      toast('No deficiencies to renumber');
+    }
+  }
+});

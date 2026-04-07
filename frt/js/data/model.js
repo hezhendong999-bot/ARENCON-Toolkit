@@ -543,6 +543,18 @@ export var Model = {
 
   getDrawings: function() { return _project ? (_project.drawings || []) : []; },
 
+  renumberDeficiencies: function() {
+    if (!_project) return 0;
+    var all = this.getAllDeficiencies(_project);
+    all.forEach(function(item, idx) {
+      item.defic.num = idx + 1;
+    });
+    _dirty = true;
+    _queueSave();
+    this._notify('project', _project);
+    return all.length;
+  },
+
   addDrawing: function(dwg) {
     if (!_project) return null;
     if (!_project.drawings) _project.drawings = [];

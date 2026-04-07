@@ -407,14 +407,12 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
 /* Header filename — unified display replacing duplicate titles */
 /* header-filename moved to project-bar */
 
-/* Mobile — hamburger on tablets + phones (≤1024px) */
-.mobile-menu-btn{display:none;background:rgba(255,255,255,.12);border:none;color:white;padding:7px;border-radius:6px;cursor:pointer;font-size:20px;}
+/* Mobile — hamburger ALWAYS visible; hides other btns ≤1024px */
 @media(max-width:1024px){
-  .mobile-menu-btn{display:block;}
-  /* Hide ALL header-action children — keep only dark toggle + hamburger */
+  /* Hide header action buttons — keep dark toggle + hamburger */
   .header-actions>*{display:none!important;}
   .header-actions>#dark-toggle{display:inline-flex!important;}
-  .header-actions>.mobile-menu-btn{display:block!important;}
+  .header-actions>#mobile-menu-btn{display:inline-flex!important;}
   /* Hide left-side badges — project bar handles these now */
   #r2-upload-badge{display:none!important;}
   #issue-status-badge{display:none!important;}
@@ -738,7 +736,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 .folder-icon{font-size:calc(16px + var(--ts));}
 .folder-count{font-size:calc(12px + var(--ts));color:var(--silver);margin-left:4px;}
 .dwg-card-row{display:flex;flex-wrap:wrap;gap:12px;padding:0 4px 8px 4px;}
-.drawing-card{width:160px;border-radius:8px;border:2px solid var(--border);overflow:hidden;position:relative;background:var(--white);transition:border-color .15s,box-shadow .15s;flex-shrink:0;}
+.drawing-card{width:160px;border-radius:8px;border:2px solid var(--border);overflow:hidden;position:relative;background:var(--white);transition:border-color .15s,box-shadow .15s;flex-shrink:0;user-select:none;-webkit-user-select:none;}
 .drawing-card:hover{border-color:var(--red);box-shadow:0 2px 8px rgba(0,0,0,.1);}
 .drawing-card.selected{border-color:#2196F3;box-shadow:0 0 0 2px rgba(33,150,243,.3);}
 .drawing-card .card-thumb{cursor:pointer;height:110px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f5f5f5;position:relative;}

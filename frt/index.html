@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=68">
+<link rel="stylesheet" href="css/frt.css?v=69">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -287,6 +287,7 @@ function ensurePdfJs(cb){
               <option value="iar">IAR</option>
             </select>
             <div style="flex:1;"></div>
+            <button class="btn btn-outline btn-sm" id="defic-renumber-btn" title="Renumber deficiencies sequentially (1, 2, 3...)">#↕ Renumber</button>
             <button class="btn btn-outline btn-sm" id="defic-select-btn" title="Select multiple deficiencies">☐ Select</button>
             <button class="btn btn-outline btn-sm" id="defic-fold-all-btn" title="Fold/Unfold all">▼ Fold All</button>
           </div>
