@@ -322,11 +322,11 @@ body.dv-open{overflow:hidden!important;}
 .pe-pri-high{background:#C0392B;border-color:#C0392B;}.pe-pri-high:not(.active){background:transparent;color:#C0392B;border-color:#C0392B;opacity:.7;}
 .pe-pri-low{background:#E67E22;border-color:#E67E22;}.pe-pri-low:not(.active){background:transparent;color:#E67E22;border-color:#E67E22;opacity:.7;}
 .pe-pri-general{background:#1A7A4A;border-color:#1A7A4A;}.pe-pri-general:not(.active){background:transparent;color:#1A7A4A;border-color:#1A7A4A;opacity:.7;}
-.pe-textarea{width:100%;min-height:70px;padding:10px;border-radius:6px;background:#2a2d35;color:white;border:1px solid #3a3e48;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));resize:vertical;box-sizing:border-box;}
+.pe-textarea{width:100%;min-height:100px;padding:10px;border-radius:6px;background:#2a2d35;color:white;border:1px solid #3a3e48;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));resize:vertical;box-sizing:border-box;}
 .pe-photo-zone{border:2px dashed #3a3e48;border-radius:8px;padding:14px;text-align:center;}
 .pe-photo-btn{padding:6px 18px;border-radius:6px;border:1px solid #3a3e48;background:#2a2d35;color:white;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));margin:3px;}.pe-camera-btn{background:#1A7A4A;border-color:#1A7A4A;}
 /* Big drawing panel */
-.pe-location-big{flex:1;min-height:200px;background:#2a2d35;border:1px solid #3a3e48;border-radius:8px;overflow:hidden;position:relative;}
+.pe-location-big{flex:1;min-height:280px;background:#2a2d35;border:1px solid #3a3e48;border-radius:8px;overflow:hidden;position:relative;}
 .pe-location-big img{width:100%;height:100%;object-fit:contain;}
 /* Small drawing (mobile fallback) */
 .pe-location-thumb{width:100%;height:160px;background:#2a2d35;border:1px solid #3a3e48;border-radius:8px;overflow:hidden;position:relative;}
@@ -340,10 +340,14 @@ body.dv-open{overflow:hidden!important;}
 @media(max-width:768px){
   .pin-editor-modal{max-width:100%;border-radius:0;max-height:100vh;}
   .pin-editor-overlay{padding:0;}
-  .pe-split{flex-direction:column;}
+  .pe-split{flex-direction:column;overflow-y:auto;}
   .pe-drawing-panel{display:none;}
   .pe-mobile-drawing{display:block;}
-  .pe-compact-row{flex-direction:column;gap:6px;}
+  .pe-compact-row{flex-direction:column;gap:8px;}
+  .pe-compact-row .pe-field{width:100%;}
+  .pe-compact-row .pe-iar-btn{align-self:flex-start;width:auto;}
+  .pe-fields{padding:12px 14px;}
+  .pe-location-thumb{height:200px;}
 }
 
 /* Drawing viewer right panel (tasks/pins list) */
