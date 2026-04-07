@@ -104,7 +104,7 @@ export var initDrawings = {
       var isFolded = _foldedFolders[fn];
       html += '<div class="dwg-folder-group" data-folder="' + esc(fn) + '" style="margin-bottom:16px;border:1px solid var(--border);border-radius:10px;overflow:hidden;">';
       html += '<div class="dwg-folder-hdr" data-action="toggle-folder" data-folder="' + esc(fn) + '" style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--smoke);cursor:pointer;user-select:none;">';
-      html += '<input type="checkbox" class="folder-checkbox" data-folder-name="' + esc(fn) + '" onclick="event.stopPropagation();" title="Select all in folder">';
+      html += '<input type="checkbox" class="folder-checkbox" data-folder-name="' + esc(fn) + '" title="Select all in folder">';
       html += '<span style="font-size:12px;width:14px;">' + (isFolded ? '\u25B6' : '\u25BC') + '</span>';
       html += '\uD83D\uDCC1 <strong style="font-size:calc(14px + var(--ts));color:var(--steel);">' + esc(fn) + '</strong>';
       html += ' <span style="font-weight:400;color:var(--silver);font-size:calc(12px + var(--ts));">(' + items.length + ' plans)</span>';

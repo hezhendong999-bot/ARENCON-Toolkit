@@ -43,14 +43,14 @@ export var initPhotos = {
     var html = '';
 
     // Summary stats
-    html += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">';
-    html += '<div style="background:var(--smoke);border-radius:8px;padding:12px 18px;flex:1;min-width:100px;">';
+    html += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin:20px 0 16px;">';
+    html += '<div style="background:var(--smoke);border:1px solid var(--border);border-radius:8px;padding:12px 18px;flex:1;min-width:100px;">';
     html += '<div style="font-size:24px;font-weight:700;color:var(--fg);">' + totalCount + '</div>';
     html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Total Photos</div></div>';
-    html += '<div style="background:var(--smoke);border-radius:8px;padding:12px 18px;flex:1;min-width:100px;">';
+    html += '<div style="background:var(--smoke);border:1px solid var(--border);border-radius:8px;padding:12px 18px;flex:1;min-width:100px;">';
     html += '<div style="font-size:24px;font-weight:700;color:var(--fg);">' + sitePhotos.length + '</div>';
     html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Site Photos</div></div>';
-    html += '<div style="background:var(--smoke);border-radius:8px;padding:12px 18px;flex:1;min-width:100px;">';
+    html += '<div style="background:var(--smoke);border:1px solid var(--border);border-radius:8px;padding:12px 18px;flex:1;min-width:100px;">';
     html += '<div style="font-size:24px;font-weight:700;color:var(--fg);">' + deficPhotos.length + '</div>';
     html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Deficiency Photos</div></div>';
     html += '</div>';
@@ -76,7 +76,6 @@ export var initPhotos = {
 
     // Deficiency photos section
     if (deficPhotos.length) {
-      html += '<div style="font-weight:700;font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:8px;">Deficiency Photos</div>';
       html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">';
       deficPhotos.forEach(function(dp) {
         var ph = dp.photo;
