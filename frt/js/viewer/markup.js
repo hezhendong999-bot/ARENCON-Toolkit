@@ -55,7 +55,6 @@ function _findObj(id) {
 
 function _getCanvas() { return document.getElementById('markup-canvas'); }
 function _getOverlay() { return document.getElementById('markup-overlay'); }
-function _getToolbar() { return document.getElementById('mk-toolbar'); }
 
 // ── Canvas Allocation ───────────────────────────────────
 
@@ -713,58 +712,33 @@ function _loadMarkup(drawingId) {
 // ── Toolbar ─────────────────────────────────────────────
 
 function _buildToolbar() {
-  var existing = _getToolbar();
-  if (existing) { existing.style.display = 'flex'; return; }
+  // Static sidebar in index.html — just set pin as default active
+  var sidebar = document.getElementById('dv-sidebar-tools');
+  if (sidebar) sidebar.style.display = '';
+  // Default: pin mode (handled by viewer.js), no markup tool active
+  _setActiveTool(null);
+}
 
-  var bar = document.createElement('div');
-  bar.id = 'mk-toolbar';
-  bar.className = 'mk-toolbar';
+function _updateSizeLabels() {
+  var sv = document.getElementById('mk-size-val');
+  if (sv) sv.textContent = _lineWidth;
+  var cv = document.getElementById('ctx-size-val');
+  if (cv) cv.textContent = _lineWidth;
+  var ov = document.getElementById('mk-opacity-val');
+  if (ov) ov.textContent = Math.round(_opacity * 100);
+  var co = document.getElementById('ctx-opacity-val');
+  if (co) co.textContent = Math.round(_opacity * 100);
+  var tv = document.getElementById('mk-text-size-label');
+  if (tv) tv.textContent = _fontSize;
+  var ct = document.getElementById('ctx-text-val');
+  if (ct) ct.textContent = _fontSize;
+}
 
-  bar.innerHTML =
-    '<div class="mk-tools-row">' +
-      '<button class="mk-btn" data-mk-tool="pen" title="Pen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>' +
-      '<button class="mk-btn" data-mk-tool="highlight" title="Highlighter"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg></button>' +
-      '<button class="mk-btn" data-mk-tool="text" title="Text"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg></button>' +
-      '<div class="mk-shape-wrap">' +
-        '<button class="mk-btn" id="mk-shape-main" data-mk-tool="rect" title="Shapes"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>' +
-        '<button class="mk-btn mk-shape-expand" id="mk-shape-expand" title="More shapes">\u25BE</button>' +
-        '<div class="mk-shape-menu" id="mk-shape-menu">' +
-          '<button class="mk-btn" data-mk-tool="rect" title="Rectangle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>' +
-          '<button class="mk-btn" data-mk-tool="fillrect" title="Filled Rect"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>' +
-          '<button class="mk-btn" data-mk-tool="circle" title="Circle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg></button>' +
-          '<button class="mk-btn" data-mk-tool="fillcircle" title="Filled Circle"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg></button>' +
-          '<button class="mk-btn" data-mk-tool="arrow" title="Arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>' +
-          '<button class="mk-btn" data-mk-tool="line" title="Line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20 20 4"/></svg></button>' +
-          '<button class="mk-btn" data-mk-tool="triangle" title="Triangle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3L22 21H2z"/></svg></button>' +
-          '<button class="mk-btn" data-mk-tool="cloud" title="Cloud"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19a4.5 4.5 0 1 0 0-9h-.1A5.5 5.5 0 0 0 7 13.5 3.5 3.5 0 0 0 3.5 17 3.5 3.5 0 0 0 7 20.5h10.5"/></svg></button>' +
-          '<button class="mk-btn" data-mk-tool="polyline" title="Polyline"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,20 8,8 14,14 19,4"/></svg></button>' +
-        '</div>' +
-      '</div>' +
-      '<button class="mk-btn" data-mk-tool="eraser" title="Eraser"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/></svg></button>' +
-      '<button class="mk-btn" data-mk-tool="select" title="Select"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg></button>' +
-      '<span class="mk-sep"></span>' +
-      '<input type="color" id="mk-color" value="#C0392B" title="Color" class="mk-color-input">' +
-      '<span class="mk-sep"></span>' +
-      '<button class="mk-btn mk-step" id="mk-size-down" title="Thinner">\u2212</button>' +
-      '<span class="mk-size-label" id="mk-size-label">3</span>' +
-      '<button class="mk-btn mk-step" id="mk-size-up" title="Thicker">+</button>' +
-      '<span class="mk-sep mk-font-sep"></span>' +
-      '<span class="mk-lbl" style="display:none;">Font:</span>' +
-      '<button class="mk-btn mk-step" id="mk-font-down" title="Smaller font" style="display:none;">\u2212</button>' +
-      '<span class="mk-size-label" id="mk-font-label" style="display:none;">20</span>' +
-      '<button class="mk-btn mk-step" id="mk-font-up" title="Larger font" style="display:none;">+</button>' +
-      '<span class="mk-sep"></span>' +
-      '<button class="mk-btn" id="mk-undo" title="Undo (Ctrl+Z)" style="opacity:0.3;">\u21A9</button>' +
-      '<button class="mk-btn" id="mk-redo" title="Redo (Ctrl+Y)" style="opacity:0.3;">\u21AA</button>' +
-      '<span class="mk-sep"></span>' +
-      '<button class="mk-btn mk-del" id="mk-delete" title="Delete selected" style="display:none;">\uD83D\uDDD1</button>' +
-    '</div>';
-
-  // Insert after dv-toolbar
-  var dvToolbar = document.getElementById('dv-toolbar');
-  if (dvToolbar && dvToolbar.parentNode) {
-    dvToolbar.parentNode.insertBefore(bar, dvToolbar.nextSibling);
-  }
+function _updateColorSwatch() {
+  var sw = document.getElementById('mk-color-swatch');
+  if (sw) sw.style.background = _color;
+  var cd = document.getElementById('ctx-color-dot');
+  if (cd) cd.style.background = _color;
 }
 
 function _setActiveTool(tool) {
@@ -776,17 +750,19 @@ function _setActiveTool(tool) {
   _selectedId = null;
   _isDrawing = false;
 
-  var bar = _getToolbar();
-  if (bar) {
-    bar.querySelectorAll('.mk-btn[data-mk-tool]').forEach(function(btn) {
+  // Update sidebar button states
+  var sidebar = document.getElementById('dv-sidebar-tools');
+  if (sidebar) {
+    sidebar.querySelectorAll('.tool-btn[data-mk-tool]').forEach(function(btn) {
       btn.classList.toggle('active', btn.getAttribute('data-mk-tool') === tool);
     });
   }
 
+  // Canvas mode
   var mc = _getCanvas();
   if (mc) {
     mc.classList.remove('drawing-active', 'select-active', 'text-mode');
-    if (tool && tool !== 'select') {
+    if (tool && tool !== 'select' && tool !== 'pin') {
       mc.classList.add('drawing-active');
       mc.style.pointerEvents = 'auto';
     } else if (tool === 'select') {
@@ -797,33 +773,37 @@ function _setActiveTool(tool) {
     }
   }
 
+  // Canvas area cursor
   var area = document.getElementById('dv-canvas-area');
   if (area) {
     area.classList.remove('drawing', 'erasing', 'text-mode');
     if (tool === 'eraser') area.classList.add('erasing');
     else if (tool === 'text') area.classList.add('text-mode');
-    else if (tool && tool !== 'select') area.classList.add('drawing');
+    else if (tool && tool !== 'select' && tool !== 'pin') area.classList.add('drawing');
   }
 
   if (_eraserCursor && tool !== 'eraser') _eraserCursor.style.display = 'none';
 
-  // Show/hide font controls
-  var showFont = (tool === 'text');
-  ['mk-font-down', 'mk-font-up', 'mk-font-label'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = showFont ? '' : 'none';
-  });
-  if (bar) {
-    var lbl = bar.querySelector('.mk-lbl');
-    if (lbl) lbl.style.display = showFont ? '' : 'none';
-    var fsep = bar.querySelector('.mk-font-sep');
-    if (fsep) fsep.style.display = showFont ? '' : 'none';
-  }
+  // Show/hide text size stepper
+  var tsw = document.getElementById('mk-text-size-wrap');
+  if (tsw) tsw.style.display = (tool === 'text') ? '' : 'none';
+  var ctg = document.getElementById('ctx-text-group');
+  if (ctg) ctg.style.display = (tool === 'text') ? '' : 'none';
 
-  // Show/hide delete button
-  var delBtn = document.getElementById('mk-delete');
-  if (delBtn) delBtn.style.display = (tool === 'select') ? '' : 'none';
+  // Show/hide copy button
+  var copyBtn = document.getElementById('mk-copy-btn');
+  if (copyBtn) copyBtn.style.display = (tool === 'select') ? '' : 'none';
 
+  // Show/hide mobile context bar
+  var ctx = document.getElementById('dv-mobile-context');
+  if (ctx) ctx.style.display = (tool && tool !== 'pin') ? 'flex' : 'none';
+
+  // Show/hide delete group
+  var dg = document.getElementById('ctx-delete-group');
+  if (dg) dg.style.display = (tool === 'select') ? '' : 'none';
+
+  _updateSizeLabels();
+  _updateColorSwatch();
   _renderAll();
 }
 
@@ -833,90 +813,144 @@ function _wireEvents() {
   if (_eventsWired) return;
   _eventsWired = true;
 
-  // Toolbar clicks (delegated on document)
+  // Sidebar tool clicks (delegated)
   document.addEventListener('click', function(e) {
-    // Only handle if inside mk-toolbar
-    var toolbar = e.target.closest && e.target.closest('#mk-toolbar');
-    if (!toolbar) {
-      // Close shape menu on outside click
-      if (!e.target.closest || !e.target.closest('.mk-shape-wrap')) {
-        var m2 = document.getElementById('mk-shape-menu');
-        if (m2) m2.classList.remove('open');
-      }
-      return;
-    }
-
-    var btn = e.target.closest('[data-mk-tool]');
+    // Tool button in sidebar
+    var btn = e.target.closest && e.target.closest('#dv-sidebar-tools .tool-btn[data-mk-tool]');
     if (btn) {
       var tool = btn.getAttribute('data-mk-tool');
-      var menu = document.getElementById('mk-shape-menu');
-      if (menu && menu.contains(btn)) {
-        var main = document.getElementById('mk-shape-main');
-        if (main) {
-          main.setAttribute('data-mk-tool', tool);
-          main.innerHTML = btn.innerHTML;
-          main.title = btn.title;
+      // If from shapes submenu, update main button icon and close menu
+      var submenu = document.getElementById('shapes-submenu');
+      if (submenu && submenu.contains(btn)) {
+        var mainBtn = document.getElementById('mk-shapes-btn');
+        if (mainBtn) {
+          mainBtn.innerHTML = btn.innerHTML + '<span class="tool-group-arrow">\u25B8</span>';
         }
-        menu.classList.remove('open');
+        submenu.classList.remove('open');
       }
       _setActiveTool(tool);
       e.stopPropagation();
       return;
     }
 
-    if (e.target.closest('#mk-shape-expand')) {
-      var m = document.getElementById('mk-shape-menu');
-      if (m) m.classList.toggle('open');
+    // Shapes group button — toggle submenu
+    if (e.target.closest && e.target.closest('#mk-shapes-btn')) {
+      var sm = document.getElementById('shapes-submenu');
+      if (sm) sm.classList.toggle('open');
       e.stopPropagation();
       return;
     }
 
-    if (e.target.closest('#mk-undo')) { _undo(); e.stopPropagation(); return; }
-    if (e.target.closest('#mk-redo')) { _redo(); e.stopPropagation(); return; }
-    if (e.target.closest('#mk-size-down')) {
-      _lineWidth = Math.max(1, _lineWidth - 1);
-      var sl = document.getElementById('mk-size-label');
-      if (sl) sl.textContent = _lineWidth;
+    // Color dot click
+    var colorDot = e.target.closest && e.target.closest('[data-mk-color]');
+    if (colorDot) {
+      _color = colorDot.getAttribute('data-mk-color');
+      _updateColorSwatch();
+      var csm = document.getElementById('color-submenu');
+      if (csm) csm.classList.remove('open');
       e.stopPropagation();
       return;
     }
-    if (e.target.closest('#mk-size-up')) {
-      _lineWidth = Math.min(20, _lineWidth + 1);
-      var sl2 = document.getElementById('mk-size-label');
-      if (sl2) sl2.textContent = _lineWidth;
+
+    // Color picker button — toggle color menu
+    if (e.target.closest && (e.target.closest('#mk-color-btn') || e.target.closest('#ctx-color-dot'))) {
+      var cm = document.getElementById('color-submenu');
+      if (cm) cm.classList.toggle('open');
       e.stopPropagation();
       return;
     }
-    if (e.target.closest('#mk-font-down')) {
-      _fontSize = Math.max(8, _fontSize - 2);
-      var fl = document.getElementById('mk-font-label');
-      if (fl) fl.textContent = _fontSize;
+
+    // Context bar / sidebar step buttons
+    var ctxBtn = e.target.closest && e.target.closest('[data-ctx]');
+    if (ctxBtn) {
+      var action = ctxBtn.getAttribute('data-ctx');
+      if (action === 'size-up') _lineWidth = Math.min(30, _lineWidth + 1);
+      else if (action === 'size-down') _lineWidth = Math.max(1, _lineWidth - 1);
+      else if (action === 'opacity-up') _opacity = Math.min(1, _opacity + 0.1);
+      else if (action === 'opacity-down') _opacity = Math.max(0.1, _opacity - 0.1);
+      else if (action === 'textsize-up') _fontSize = Math.min(72, _fontSize + 2);
+      else if (action === 'textsize-down') _fontSize = Math.max(8, _fontSize - 2);
+      else if (action === 'undo') { _undo(); return; }
+      else if (action === 'redo') { _redo(); return; }
+      else if (action === 'delete') {
+        if (_selectedId) {
+          _objects = _objects.filter(function(o) { return o.id !== _selectedId; });
+          _selectedId = null;
+          _pushHistory();
+          _renderAll();
+          _markDirty();
+        }
+        return;
+      }
+      _updateSizeLabels();
       e.stopPropagation();
       return;
     }
-    if (e.target.closest('#mk-font-up')) {
-      _fontSize = Math.min(72, _fontSize + 2);
-      var fl2 = document.getElementById('mk-font-label');
-      if (fl2) fl2.textContent = _fontSize;
+
+    // Undo/redo buttons in sidebar
+    if (e.target.closest && e.target.closest('#mk-undo')) { _undo(); e.stopPropagation(); return; }
+    if (e.target.closest && e.target.closest('#mk-redo')) { _redo(); e.stopPropagation(); return; }
+
+    // More menu
+    if (e.target.closest && e.target.closest('#dv-more-btn')) {
+      var mm = document.getElementById('dv-more-menu');
+      if (mm) mm.style.display = mm.style.display === 'none' ? 'block' : 'none';
       e.stopPropagation();
       return;
     }
-    if (e.target.closest('#mk-delete')) {
-      if (_selectedId) {
-        _objects = _objects.filter(function(o) { return o.id !== _selectedId; });
-        _selectedId = null;
-        _pushHistory();
-        _renderAll();
-        _markDirty();
+    var menuItem = e.target.closest && e.target.closest('[data-dv-action]');
+    if (menuItem) {
+      var act = menuItem.getAttribute('data-dv-action');
+      var mmenu = document.getElementById('dv-more-menu');
+      if (mmenu) mmenu.style.display = 'none';
+      if (act === 'delete-all-markup') {
+        if (confirm('Delete all markup on this drawing?')) {
+          _objects = [];
+          _pushHistory();
+          _renderAll();
+          _markDirty();
+        }
+      } else if (act === 'delete-all-pins') {
+        _deleteAllPins();
+      } else if (act === 'download') {
+        _downloadDrawing();
       }
       e.stopPropagation();
       return;
     }
+
+    // Zoom controls
+    var zoomBtn = e.target.closest && e.target.closest('[data-zoom]');
+    if (zoomBtn) {
+      var z = zoomBtn.getAttribute('data-zoom');
+      if (z === 'in' && window._frtZoomIn) window._frtZoomIn();
+      else if (z === 'out' && window._frtZoomOut) window._frtZoomOut();
+      else if (z === 'fit' && window._frtZoomFit) window._frtZoomFit();
+      e.stopPropagation();
+      return;
+    }
+
+    // Close menus on outside click
+    if (!e.target.closest || !e.target.closest('.tool-submenu')) {
+      var sm2 = document.getElementById('shapes-submenu');
+      if (sm2) sm2.classList.remove('open');
+      var cm2 = document.getElementById('color-submenu');
+      if (cm2) cm2.classList.remove('open');
+    }
+    if (!e.target.closest || !e.target.closest('#dv-more-btn')) {
+      var mm2 = document.getElementById('dv-more-menu');
+      if (mm2) mm2.style.display = 'none';
+    }
   });
 
-  // Color picker
+  // Custom color picker
   document.addEventListener('input', function(e) {
-    if (e.target.id === 'mk-color') _color = e.target.value;
+    if (e.target.id === 'mk-custom-color') {
+      _color = e.target.value;
+      _updateColorSwatch();
+      var csm = document.getElementById('color-submenu');
+      if (csm) csm.classList.remove('open');
+    }
   });
 
   // Canvas mouse events
@@ -944,7 +978,7 @@ function _wireEvents() {
   // Canvas touch events
   mc.addEventListener('touchstart', function(e) {
     if (e.touches.length > 1) return;
-    if (!_tool) return;
+    if (!_tool || _tool === 'pin') return;
     e.preventDefault();
     if (_tool === 'select') { _handleSelectDown(e); return; }
     _startDraw(e);
@@ -952,14 +986,14 @@ function _wireEvents() {
 
   mc.addEventListener('touchmove', function(e) {
     if (e.touches.length > 1) return;
-    if (!_tool) return;
+    if (!_tool || _tool === 'pin') return;
     e.preventDefault();
     if (_tool === 'select') { _handleSelectMove(e); return; }
     _moveDraw(e);
   }, { passive: false });
 
   mc.addEventListener('touchend', function(e) {
-    if (!_tool) return;
+    if (!_tool || _tool === 'pin') return;
     if (_tool === 'select') { _handleSelectUp(); return; }
     _endDraw(e);
   });
@@ -971,26 +1005,23 @@ function _wireEvents() {
     }
   });
 
-  // Keyboard shortcuts (Escape, Ctrl+Z, Delete)
+  // Keyboard shortcuts
   document.addEventListener('keydown', function(e) {
     var overlay = document.getElementById('drawing-viewer-overlay');
     if (!overlay || !overlay.classList.contains('open')) return;
 
-    // Escape: cancel active tool, NOT close viewer
     if (e.key === 'Escape') {
       if (_tool === 'polyline' && _polyPoints.length >= 2) { _finishPolyline(); e.stopPropagation(); return; }
-      if (_tool) {
-        _setActiveTool(null);
+      if (_tool && _tool !== 'pin') {
+        _setActiveTool('pin');
         e.stopPropagation();
         return;
       }
     }
 
-    // Ctrl+Z / Ctrl+Y
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); _undo(); return; }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); _redo(); return; }
 
-    // Delete selected
     if ((e.key === 'Delete' || e.key === 'Backspace') && _selectedId && _tool === 'select') {
       _objects = _objects.filter(function(o) { return o.id !== _selectedId; });
       _selectedId = null;
@@ -1001,13 +1032,68 @@ function _wireEvents() {
     }
   });
 
-  // Prevent toolbar touch events from propagating to pan/zoom
-  var mkToolbar = _getToolbar();
-  if (mkToolbar) {
-    mkToolbar.addEventListener('touchstart', function(e) { e.stopPropagation(); }, { passive: false });
-    mkToolbar.addEventListener('touchmove', function(e) { e.stopPropagation(); }, { passive: false });
-    mkToolbar.addEventListener('touchend', function(e) { e.stopPropagation(); }, { passive: false });
+  // Prevent sidebar touch events from propagating to pan/zoom
+  var sidebar = document.getElementById('dv-sidebar-tools');
+  if (sidebar) {
+    sidebar.addEventListener('touchstart', function(e) { e.stopPropagation(); }, { passive: false });
+    sidebar.addEventListener('touchmove', function(e) { e.stopPropagation(); }, { passive: false });
+    sidebar.addEventListener('touchend', function(e) { e.stopPropagation(); }, { passive: false });
   }
+  var ctxBar = document.getElementById('dv-mobile-context');
+  if (ctxBar) {
+    ctxBar.addEventListener('touchstart', function(e) { e.stopPropagation(); }, { passive: false });
+    ctxBar.addEventListener('touchmove', function(e) { e.stopPropagation(); }, { passive: false });
+    ctxBar.addEventListener('touchend', function(e) { e.stopPropagation(); }, { passive: false });
+  }
+  var zoomCtrl = document.getElementById('zoom-controls');
+  if (zoomCtrl) {
+    zoomCtrl.addEventListener('touchstart', function(e) { e.stopPropagation(); }, { passive: false });
+    zoomCtrl.addEventListener('touchmove', function(e) { e.stopPropagation(); }, { passive: false });
+    zoomCtrl.addEventListener('touchend', function(e) { e.stopPropagation(); }, { passive: false });
+  }
+}
+
+// ── More Menu Actions ───────────────────────────────────
+
+function _deleteAllPins() {
+  if (!confirm('Delete all pins on this drawing?')) return;
+  var proj = Model.getProject();
+  if (!proj) return;
+  var drawings = Model.getDrawings();
+  if (_drawingId == null) return;
+  var allDefics = Model.getAllDeficiencies();
+  var count = 0;
+  allDefics.forEach(function(d) {
+    if (d.defic.drawingId === _drawingId) {
+      d.defic.drawingId = null;
+      d.defic.pinX = null;
+      d.defic.pinY = null;
+      count++;
+    }
+  });
+  if (count > 0) {
+    Model.saveNow();
+    // Re-render pins (viewer.js handles pin layer)
+    var layer = document.getElementById('dv-pins-layer');
+    if (layer) layer.innerHTML = '';
+    console.log('[Markup] Deleted ' + count + ' pins from drawing ' + _drawingId);
+  }
+}
+
+function _downloadDrawing() {
+  var img = document.getElementById('dv-image');
+  if (!img || !img.src) return;
+  var a = document.createElement('a');
+  a.href = img.src;
+  var drawings = Model.getDrawings();
+  var d = null;
+  for (var i = 0; i < drawings.length; i++) {
+    if (drawings[i].id === _drawingId) { d = drawings[i]; break; }
+  }
+  a.download = (d && d.name) ? d.name : 'drawing';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 // ── Public API ──────────────────────────────────────────
@@ -1023,6 +1109,8 @@ export var Markup = {
     _buildToolbar();
     _wireEvents();
     _loadMarkup(drawingId);
+    // Default to pin tool
+    _setActiveTool('pin');
 
     console.log('[Markup] Initialized for drawing:', drawingId);
   },
@@ -1038,9 +1126,6 @@ export var Markup = {
     _isDrawing = false;
     _tool = null;
 
-    var bar = _getToolbar();
-    if (bar) bar.style.display = 'none';
-
     var mc = _getCanvas();
     if (mc) {
       mc.style.pointerEvents = 'none';
@@ -1055,6 +1140,10 @@ export var Markup = {
 
     if (_eraserCursor) _eraserCursor.style.display = 'none';
 
+    // Hide mobile context bar
+    var ctxBar = document.getElementById('dv-mobile-context');
+    if (ctxBar) ctxBar.style.display = 'none';
+
     console.log('[Markup] Destroyed');
   },
 
@@ -1065,7 +1154,7 @@ export var Markup = {
   getObjects: function() { return _objects; },
   setTool: function(tool) { _setActiveTool(tool); },
   renderAll: function() { _renderAll(); },
-  isActive: function() { return !!_tool; }
+  isActive: function() { return _tool && _tool !== 'pin'; }
 };
 
 export var initMarkup = Markup;
