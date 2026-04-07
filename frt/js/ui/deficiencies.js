@@ -247,9 +247,10 @@ function _renderContractorsOnSite(proj) {
   h += '<div style="font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel);margin-bottom:8px;">Contractors on Site</div>';
   h += '<div class="contractor-chips" style="display:flex;flex-wrap:wrap;gap:8px;min-height:28px;margin-bottom:10px;">';
   ctrs.forEach(function(c) {
-    h += '<span class="contractor-chip">' + esc(c.name);
-    h += ' <button data-action="remove-contractor" data-ctr-id="' + esc(c.id) + '" style="background:none;border:none;color:var(--silver);cursor:pointer;font-size:calc(14px + var(--ts));line-height:1;padding:0 2px;" title="Remove contractor">\u2014 \u2715</button>';
-    h += '</span>';
+    h += '<div class="contractor-chip"><span>' + esc(c.name) + '</span>';
+    h += '<button data-action="edit-contractor" data-ctr-id="' + esc(c.id) + '" title="Rename" style="background:none;border:none;cursor:pointer;font-size:calc(11px + var(--ts));padding:0 2px;opacity:.7;color:inherit;">\u270F</button>';
+    h += '<button data-action="remove-contractor" data-ctr-id="' + esc(c.id) + '" title="Remove">\u2715</button>';
+    h += '</div>';
   });
   h += '</div>';
   h += '<div class="contractor-add" style="display:flex;gap:8px;align-items:center;">';
@@ -407,20 +408,39 @@ document.addEventListener('click', function(e) {
     }
   }
 
+  if (action === 'edit-contractor') {
+    var ctrId = e.target.getAttribute('data-ctr-id');
+    if (!ctrId) { var btn2 = e.target.closest('[data-ctr-id]'); if (btn2) ctrId = btn2.getAttribute('data-ctr-id'); }
+    if (ctrId) {
+      var proj = Model.getProject();
+      var ctr = (proj.contractors || []).find(function(c) { return c.id === ctrId; });
+      if (ctr) {
+        showPrompt('Rename Contractor', 'New name:', ctr.name).then(function(newName) {
+          if (newName && newName.trim() && newName.trim() !== ctr.name) {
+            ctr.name = newName.trim();
+            Model.saveNow();
+            initDeficiencies.render();
+            toast('Renamed to: ' + ctr.name);
+          }
+        });
+      }
+    }
+  }
+
   if (action === 'remove-contractor') {
     var ctrId = e.target.getAttribute('data-ctr-id');
     if (!ctrId) { var btn2 = e.target.closest('[data-ctr-id]'); if (btn2) ctrId = btn2.getAttribute('data-ctr-id'); }
     if (ctrId) {
       var proj = Model.getProject();
       var ctr = (proj.contractors || []).find(function(c) { return c.id === ctrId; });
+      var ctrName = ctr ? (ctr.name || 'Contractor') : 'Contractor';
       var deficCount = ctr ? (ctr.deficiencies || []).length : 0;
-      if (deficCount > 0) {
-        showConfirm('Remove Contractor', (ctr.name || 'Contractor') + ' has ' + deficCount + ' deficiencies. Remove anyway?').then(function(yes) {
-          if (yes) { Model.removeContractor(ctrId); initDeficiencies.render(); toast('Removed contractor'); }
-        });
-      } else {
-        Model.removeContractor(ctrId); initDeficiencies.render(); toast('Removed contractor');
-      }
+      var msg = deficCount > 0
+        ? 'Remove "' + ctrName + '"? This contractor has ' + deficCount + ' deficienc' + (deficCount === 1 ? 'y' : 'ies') + ' that will be deleted.'
+        : 'Remove "' + ctrName + '"?';
+      showConfirm('Remove Contractor', msg).then(function(yes) {
+        if (yes) { Model.removeContractor(ctrId); initDeficiencies.render(); toast('Removed: ' + ctrName); }
+      });
     }
   }
 

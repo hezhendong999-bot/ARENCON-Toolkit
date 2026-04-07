@@ -63,6 +63,14 @@ export var initDrawings = {
       return;
     }
 
+    // Apply search filter
+    var searchQ = ((document.getElementById('dwg-search') || {}).value || '').toLowerCase().trim();
+    if (searchQ) {
+      drawings = drawings.filter(function(d) {
+        return (d.name || '').toLowerCase().indexOf(searchQ) >= 0 || (d.folder || '').toLowerCase().indexOf(searchQ) >= 0;
+      });
+    }
+
     var allDefics = Model.getAllDeficiencies(proj);
 
     // Group by folder
@@ -207,17 +215,15 @@ document.addEventListener('click', function(e) {
   // 2) Folder checkbox (stop propagation so it doesn't toggle fold)
   if (e.target.classList && e.target.classList.contains('folder-checkbox')) {
     e.stopPropagation();
-    var folderName = e.target.getAttribute('data-folder-name');
     var checked = e.target.checked;
-    document.querySelectorAll('.drawing-card[data-drawing-id]').forEach(function(card) {
-      var id = card.getAttribute('data-drawing-id');
-      var drawings = Model.getDrawings();
-      var dwg = drawings.find(function(d) { return d.id === id; });
-      if (dwg && (dwg.folder || '') === (folderName || '')) {
+    var folderGroup = e.target.closest('.dwg-folder-group');
+    if (folderGroup) {
+      folderGroup.querySelectorAll('.drawing-card[data-drawing-id]').forEach(function(card) {
+        var id = card.getAttribute('data-drawing-id');
         if (checked) _selectedDrawings.add(id);
         else _selectedDrawings.delete(id);
-      }
-    });
+      });
+    }
     _updateSelectionUI();
     return;
   }
@@ -297,6 +303,10 @@ if (selectAllBtn) selectAllBtn.addEventListener('click', function() {
   }
   _updateSelectionUI();
 });
+
+// Drawing search
+var dwgSearchEl = document.getElementById('dwg-search');
+if (dwgSearchEl) dwgSearchEl.addEventListener('input', function() { initDrawings.render(); });
 
 // ── Upload Handlers ─────────────────────────────────────
 
