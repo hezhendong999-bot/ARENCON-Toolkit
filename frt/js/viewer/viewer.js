@@ -905,10 +905,27 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // New Task button
+  // New Task button — create deficiency + start pin placement
   if (e.target.closest && e.target.closest('#dv-new-task')) {
-    // Could create a new deficiency — for now just log
-    console.log('[Viewer] New Task clicked');
+    var proj = Model.getProject();
+    if (!proj) return;
+    // Find or create "Site General" contractor
+    var siteGen = null;
+    if (proj.contractors) {
+      siteGen = proj.contractors.find(function(c) { return c.name === 'Site General'; });
+    }
+    if (!siteGen) {
+      siteGen = Model.addContractor('Site General');
+    }
+    // Create new deficiency
+    var newDefic = Model.addDeficiency(siteGen.id);
+    if (newDefic) {
+      console.log('[Viewer] New task created — deficiency #' + newDefic.num);
+      _startPinPlace(newDefic.id);
+      // Show feedback
+      var area = document.getElementById('dv-canvas-area');
+      if (area) area.classList.add('pin-mode');
+    }
     return;
   }
 
