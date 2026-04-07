@@ -19,6 +19,7 @@
 
 import { Model } from '../data/model.js';
 import { IDB } from '../data/idb.js';
+import { showConfirm } from '../shared/dialogs.js';
 
 // ── State ───────────────────────────────────────────────
 var _drawingId = null;
@@ -983,12 +984,13 @@ function _wireEvents() {
       var mmenu = document.getElementById('dv-more-menu');
       if (mmenu) mmenu.style.display = 'none';
       if (act === 'delete-all-markup') {
-        if (confirm('Delete all markup on this drawing?')) {
+        showConfirm('Delete All Markup', 'Remove all markup on this drawing?').then(function(yes) {
+          if (!yes) return;
           _objects = [];
           _pushHistory();
           _renderAll();
           _markDirty();
-        }
+        });
       } else if (act === 'delete-all-pins') {
         _deleteAllPins();
       } else if (act === 'download') {
@@ -1159,28 +1161,23 @@ function _wireEvents() {
 // ── More Menu Actions ───────────────────────────────────
 
 function _deleteAllPins() {
-  if (!confirm('Delete all pins on this drawing?')) return;
-  var proj = Model.getProject();
-  if (!proj) return;
-  var drawings = Model.getDrawings();
-  if (_drawingId == null) return;
-  var allDefics = Model.getAllDeficiencies();
-  var count = 0;
-  allDefics.forEach(function(d) {
-    if (d.defic.drawingId === _drawingId) {
-      d.defic.drawingId = null;
-      d.defic.pinX = null;
-      d.defic.pinY = null;
-      count++;
+  showConfirm('Delete All Pins', 'Remove all pins from this drawing?').then(function(yes) {
+    if (!yes) return;
+    if (_drawingId == null) return;
+    var allDefics = Model.getAllDeficiencies();
+    var count = 0;
+    allDefics.forEach(function(d) {
+      if (d.defic.drawingId === _drawingId) {
+        d.defic.drawingId = null; d.defic.pinX = null; d.defic.pinY = null; count++;
+      }
+    });
+    if (count > 0) {
+      Model.saveNow();
+      var layer = document.getElementById('dv-pins-layer');
+      if (layer) layer.innerHTML = '';
+      console.log('[Markup] Deleted ' + count + ' pins from drawing ' + _drawingId);
     }
   });
-  if (count > 0) {
-    Model.saveNow();
-    // Re-render pins (viewer.js handles pin layer)
-    var layer = document.getElementById('dv-pins-layer');
-    if (layer) layer.innerHTML = '';
-    console.log('[Markup] Deleted ' + count + ' pins from drawing ' + _drawingId);
-  }
 }
 
 function _downloadDrawing() {
