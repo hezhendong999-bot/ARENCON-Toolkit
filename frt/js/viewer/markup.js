@@ -807,6 +807,34 @@ function _setActiveTool(tool) {
   _renderAll();
 }
 
+// ── Submenu Positioning ─────────────────────────────────
+
+function _positionSubmenu(menu, anchorBtn) {
+  if (!menu || !anchorBtn) return;
+  var rect = anchorBtn.getBoundingClientRect();
+  var sidebar = document.getElementById('dv-sidebar-tools');
+  // Check if sidebar is horizontal (mobile) or vertical (desktop)
+  if (sidebar && sidebar.offsetWidth > sidebar.offsetHeight) {
+    // Horizontal sidebar — position below button
+    menu.style.left = rect.left + 'px';
+    menu.style.top = (rect.bottom + 4) + 'px';
+  } else {
+    // Vertical sidebar — position to the right
+    menu.style.left = (rect.right + 4) + 'px';
+    menu.style.top = rect.top + 'px';
+  }
+  // Keep on screen
+  requestAnimationFrame(function() {
+    var mr = menu.getBoundingClientRect();
+    if (mr.right > window.innerWidth - 8) {
+      menu.style.left = (window.innerWidth - mr.width - 8) + 'px';
+    }
+    if (mr.bottom > window.innerHeight - 8) {
+      menu.style.top = (window.innerHeight - mr.height - 8) + 'px';
+    }
+  });
+}
+
 // ── Event Wiring ────────────────────────────────────────
 
 function _wireEvents() {
@@ -836,7 +864,11 @@ function _wireEvents() {
     // Shapes group button — toggle submenu
     if (e.target.closest && e.target.closest('#mk-shapes-btn')) {
       var sm = document.getElementById('shapes-submenu');
-      if (sm) sm.classList.toggle('open');
+      if (sm) {
+        var isOpen = sm.classList.contains('open');
+        sm.classList.toggle('open');
+        if (!isOpen) _positionSubmenu(sm, e.target.closest('#mk-shapes-btn'));
+      }
       e.stopPropagation();
       return;
     }
@@ -855,7 +887,11 @@ function _wireEvents() {
     // Color picker button — toggle color menu
     if (e.target.closest && (e.target.closest('#mk-color-btn') || e.target.closest('#ctx-color-dot'))) {
       var cm = document.getElementById('color-submenu');
-      if (cm) cm.classList.toggle('open');
+      if (cm) {
+        var isOpen = cm.classList.contains('open');
+        cm.classList.toggle('open');
+        if (!isOpen) _positionSubmenu(cm, e.target.closest('#mk-color-btn') || e.target.closest('#ctx-color-dot'));
+      }
       e.stopPropagation();
       return;
     }
@@ -1038,6 +1074,28 @@ function _wireEvents() {
     sidebar.addEventListener('touchstart', function(e) { e.stopPropagation(); }, { passive: false });
     sidebar.addEventListener('touchmove', function(e) { e.stopPropagation(); }, { passive: false });
     sidebar.addEventListener('touchend', function(e) { e.stopPropagation(); }, { passive: false });
+
+    // Tooltip on hover
+    var tooltip = document.createElement('div');
+    tooltip.id = 'dv-tool-tooltip';
+    tooltip.style.cssText = 'display:none;position:fixed;background:rgba(30,32,40,.92);color:#fff;font-size:11px;font-family:Calibri,sans-serif;padding:4px 10px;border-radius:6px;pointer-events:none;z-index:9999;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);';
+    document.body.appendChild(tooltip);
+    sidebar.addEventListener('mouseover', function(e) {
+      var btn = e.target.closest && e.target.closest('[data-tip]');
+      if (btn) {
+        var tip = btn.getAttribute('data-tip');
+        tooltip.textContent = tip;
+        tooltip.style.display = 'block';
+        var r = btn.getBoundingClientRect();
+        tooltip.style.left = (r.right + 8) + 'px';
+        tooltip.style.top = (r.top + r.height / 2 - 12) + 'px';
+      }
+    });
+    sidebar.addEventListener('mouseout', function(e) {
+      if (e.target.closest && e.target.closest('[data-tip]')) {
+        tooltip.style.display = 'none';
+      }
+    });
   }
   var ctxBar = document.getElementById('dv-mobile-context');
   if (ctxBar) {
