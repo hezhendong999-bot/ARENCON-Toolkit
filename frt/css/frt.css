@@ -208,6 +208,31 @@ body.dv-open{overflow:hidden!important;}
 .dv-pin-status{background:rgba(42,45,53,.9);color:#ccc;padding:5px 14px;font-size:calc(11.5px + var(--ts));text-align:center;flex-shrink:0;}
 .dv-pin-status kbd{background:rgba(255,255,255,.15);padding:1px 6px;border-radius:3px;font-size:calc(11px + var(--ts));}
 
+/* ═══ MARKUP TOOLBAR ═══ */
+.mk-toolbar{background:#2a2d35;padding:4px 8px;display:flex;align-items:center;flex-shrink:0;border-top:1px solid #3a3e48;z-index:30;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.mk-tools-row{display:flex;align-items:center;gap:3px;flex-wrap:nowrap;min-width:0;}
+.mk-btn{background:rgba(255,255,255,.1);border:none;color:white;padding:5px 7px;border-radius:5px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;display:inline-flex;align-items:center;justify-content:center;min-width:30px;min-height:30px;transition:background .12s;-webkit-tap-highlight-color:transparent;}
+.mk-btn:hover{background:rgba(255,255,255,.22);}
+.mk-btn.active{background:var(--arencon,#9C2742);color:white;}
+.mk-btn svg{width:16px;height:16px;flex-shrink:0;}
+.mk-step{min-width:26px;padding:3px 5px;font-size:calc(15px + var(--ts));font-weight:700;}
+.mk-del{color:#ef5350;}
+.mk-sep{width:1px;height:22px;background:rgba(255,255,255,.15);margin:0 3px;flex-shrink:0;}
+.mk-size-label{color:#d0d8f0;font-size:calc(12px + var(--ts));font-weight:700;min-width:18px;text-align:center;user-select:none;}
+.mk-lbl{color:#8a94b0;font-size:calc(11px + var(--ts));white-space:nowrap;user-select:none;}
+.mk-color-input{width:28px;height:28px;border:none;border-radius:5px;padding:0;cursor:pointer;background:transparent;-webkit-appearance:none;}
+.mk-color-input::-webkit-color-swatch-wrapper{padding:2px;}
+.mk-color-input::-webkit-color-swatch{border:1px solid rgba(255,255,255,.3);border-radius:4px;}
+.mk-shape-wrap{position:relative;display:inline-flex;gap:1px;}
+.mk-shape-expand{min-width:18px!important;padding:3px 2px!important;font-size:calc(10px + var(--ts))!important;border-radius:0 5px 5px 0!important;}
+.mk-shape-wrap>.mk-btn:first-child{border-radius:5px 0 0 5px;}
+.mk-shape-menu{display:none;position:absolute;top:100%;left:0;margin-top:4px;background:#1e2533;border:1px solid #3a3e48;border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:100;gap:4px;flex-wrap:wrap;min-width:180px;}
+.mk-shape-menu.open{display:flex;}
+.mk-shape-menu .mk-btn{min-width:34px;min-height:34px;}
+#markup-overlay{z-index:4;}
+@media(pointer:coarse){.mk-btn{min-width:36px;min-height:36px;padding:6px 8px;}.mk-step{min-width:32px;}.mk-color-input{width:34px;height:34px;}}
+@media(max-width:600px){.mk-toolbar{padding:3px 4px;}.mk-tools-row{gap:2px;}.mk-sep{margin:0 2px;}.mk-btn{min-width:28px;min-height:28px;padding:4px 5px;}}
+
 /* Drawing viewer right panel (tasks/pins list) */
 .dv-tasks-panel{width:300px;background:#2a2d35;border-left:1px solid #3a3e48;display:none;flex-direction:column;overflow:hidden;flex-shrink:0;}
 .drawing-viewer-overlay.open .dv-tasks-panel{display:none;}
