@@ -106,14 +106,14 @@ export var initPins = {
     h += '<option value="low"' + (f.priority === 'low' ? ' selected' : '') + '>Low</option>';
     h += '<option value="general"' + (f.priority === 'general' ? ' selected' : '') + '>General</option></select>';
     h += '<select id="tasks-filter-contractor" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg);color:var(--fg);">' + ctrOpts + '</select>';
-    h += '<span style="font-size:calc(12px + var(--ts));color:var(--silver);">' + filtered.length + ' pin' + (filtered.length !== 1 ? 's' : '') + '</span>';
+    h += '<span style="font-size:calc(12px + var(--ts));color:var(--silver);">' + filtered.length + ' deficiencie' + (filtered.length !== 1 ? 's' : '') + '</span>';
     h += '</div>';
 
     // Table
     h += '<div style="overflow-x:auto;">';
     h += '<table id="tasks-table" style="width:100%;border-collapse:collapse;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;">';
     h += '<thead><tr style="background:var(--smoke);border-bottom:2px solid var(--border);">';
-    h += th('num', '#') + th('drawing', 'Drawing') + th('description', 'Description') + th('contractor', 'Contractor') + th('status', 'Status') + th('priority', 'Priority') + '<th class="tt-th">Pin</th><th class="tt-th"></th>';
+    h += th('num', '#') + th('drawing', 'Drawing') + th('description', 'Description') + th('contractor', 'Contractor') + th('status', 'Status') + th('priority', 'Priority') + '<th class="tt-th"></th>';
     h += '</tr></thead><tbody>';
 
     filtered.forEach(function(d) {
@@ -126,7 +126,6 @@ export var initPins = {
       var statusCls = isIAR ? 'iar' : (isClosed ? 'closed' : 'outstanding');
       var priCls = dd.priority || 'general';
       var dwgName = _getDrawingName(dd.drawingId);
-      var hasPinIcon = dd.drawingId && dd.pinX != null ? '<svg width="14" height="18" viewBox="0 0 32 42" style="vertical-align:middle;"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 26 16 26s16-14 16-26C32 7.2 24.8 0 16 0z" fill="#C0392B"/><circle cx="16" cy="14" r="6" fill="white"/></svg>' : '\u2014';
 
       h += '<tr data-defic-id="' + esc(dd.id) + '" style="border-bottom:1px solid var(--border);">';
       h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">#' + (dd.num || '?') + '</td>';
@@ -135,7 +134,6 @@ export var initPins = {
       h += '<td style="padding:8px 10px;">' + esc(d.contractorName) + '</td>';
       h += '<td style="padding:8px 10px;"><span class="tt-status ' + statusCls + '">' + statusText + '</span></td>';
       h += '<td style="padding:8px 10px;"><span class="tt-priority ' + priCls + '">' + esc((dd.priority || 'general').charAt(0).toUpperCase() + (dd.priority || 'general').slice(1)) + '</span></td>';
-      h += '<td style="padding:8px 10px;text-align:center;">' + hasPinIcon + '</td>';
       h += '<td style="padding:8px 10px;"><button class="tt-jump" data-action="jump-defic" data-defic-id="' + esc(dd.id) + '">Jump</button></td>';
       h += '</tr>';
     });
