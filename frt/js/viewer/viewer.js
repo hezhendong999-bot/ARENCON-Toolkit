@@ -71,6 +71,20 @@ function _resetView() {
   }
 }
 
+// Zoom controls (used by markup.js zoom buttons)
+window._frtZoomIn = function() {
+  _scale = Math.min(8, _scale * 1.3);
+  _applyTransform();
+};
+window._frtZoomOut = function() {
+  _scale = Math.max(_fitScale, _scale / 1.3);
+  if (_scale <= _fitScale) { _panX = 0; _panY = 0; }
+  _applyTransform();
+};
+window._frtZoomFit = function() {
+  _resetView();
+};
+
 function _calcFitScale() {
   var img = document.getElementById('dv-image');
   var area = document.getElementById('dv-canvas-area');
