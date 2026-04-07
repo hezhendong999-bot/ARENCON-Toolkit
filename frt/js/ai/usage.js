@@ -166,7 +166,7 @@ function _render() {
   var byProj = {}, byUser = {}, tCost = 0, tRev = 0, tFld = 0;
   fd.forEach(function(r) {
     var pk = (r.project_number || '(none)') + '|' + (r.project_name || '');
-    if (!byProj[pk]) byProj[pk] = { num: r.project_number || '(none)', name: r.project_name || '', rev: 0, fld: 0, cost: 0, tools: {} };
+    if (!byProj[pk]) byProj[pk] = { num: r.project_number || '(none)', client: r.client_name || r.client || '', name: r.project_name || '', rev: 0, fld: 0, cost: 0, tools: {} };
     byProj[pk].rev++; byProj[pk].fld += (r.field_count || 0); byProj[pk].cost += (parseFloat(r.cost_usd) || 0); byProj[pk].tools[r.tool || '?'] = true;
     var uk = r.user_email || '?';
     if (!byUser[uk]) byUser[uk] = { email: uk, rev: 0, fld: 0, cost: 0 };
@@ -176,9 +176,9 @@ function _render() {
 
   var h = '<div style="padding:8px 0;font-size:calc(12px + var(--ts));color:var(--steel);">' + fd.length + ' records \u00B7 ' + from + ' to ' + to + ' \u00B7 Total: <strong style="color:var(--fg);">$' + tCost.toFixed(4) + '</strong></div>';
   // Project table
-  h += '<div class="ai-usage-section"><h4>Summary by Project</h4><table class="ai-usage-table"><tr><th style="min-width:80px;">Project #</th><th>Name</th><th style="width:70px;">Tool(s)</th><th style="width:60px;text-align:right;">Reviews</th><th style="width:50px;text-align:right;">Fields</th><th style="width:80px;text-align:right;">Cost</th></tr>';
-  Object.keys(byProj).sort().forEach(function(k) { var p = byProj[k]; h += '<tr><td>' + _esc(p.num) + '</td><td>' + _esc(p.name) + '</td><td>' + _esc(Object.keys(p.tools).join(', ')) + '</td><td style="text-align:right;">' + p.rev + '</td><td style="text-align:right;">' + p.fld + '</td><td style="text-align:right;font-family:Courier New,monospace;">$' + p.cost.toFixed(4) + '</td></tr>'; });
-  h += '<tr class="total-row"><td colspan="3"><strong>TOTAL</strong></td><td style="text-align:right;"><strong>' + tRev + '</strong></td><td style="text-align:right;"><strong>' + tFld + '</strong></td><td style="text-align:right;font-family:Courier New,monospace;"><strong>$' + tCost.toFixed(4) + '</strong></td></tr></table></div>';
+  h += '<div class="ai-usage-section"><h4>Summary by Project</h4><table class="ai-usage-table"><tr><th style="min-width:80px;">Project #</th><th>Client</th><th>Project Name</th><th style="width:70px;">Tool(s)</th><th style="width:60px;text-align:right;">Reviews</th><th style="width:50px;text-align:right;">Fields</th><th style="width:80px;text-align:right;">Cost</th></tr>';
+  Object.keys(byProj).sort().forEach(function(k) { var p = byProj[k]; h += '<tr><td>' + _esc(p.num) + '</td><td>' + _esc(p.client) + '</td><td>' + _esc(p.name) + '</td><td>' + _esc(Object.keys(p.tools).join(', ')) + '</td><td style="text-align:right;">' + p.rev + '</td><td style="text-align:right;">' + p.fld + '</td><td style="text-align:right;font-family:Courier New,monospace;">$' + p.cost.toFixed(4) + '</td></tr>'; });
+  h += '<tr class="total-row"><td colspan="4"><strong>TOTAL</strong></td><td style="text-align:right;"><strong>' + tRev + '</strong></td><td style="text-align:right;"><strong>' + tFld + '</strong></td><td style="text-align:right;font-family:Courier New,monospace;"><strong>$' + tCost.toFixed(4) + '</strong></td></tr></table></div>';
   // User table
   h += '<div class="ai-usage-section"><h4>Summary by User</h4><table class="ai-usage-table"><tr><th>User</th><th style="width:60px;text-align:right;">Reviews</th><th style="width:50px;text-align:right;">Fields</th><th style="width:80px;text-align:right;">Cost</th></tr>';
   Object.keys(byUser).sort().forEach(function(k) { var u = byUser[k]; h += '<tr><td>' + _esc(u.email) + '</td><td style="text-align:right;">' + u.rev + '</td><td style="text-align:right;">' + u.fld + '</td><td style="text-align:right;font-family:Courier New,monospace;">$' + u.cost.toFixed(4) + '</td></tr>'; });
@@ -236,9 +236,9 @@ function exportPDF() {
   // Page content
   w.document.write('<div class="page">');
   w.document.write('<h1>ARENCON Inc. \u2014 AI Usage Report</h1><div class="meta">' + desc + '<br>Generated: ' + new Date().toLocaleDateString() + '</div>');
-  w.document.write('<h2>Summary by Project</h2><table><tr><th>Project #</th><th>Name</th><th class="r">Reviews</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
-  Object.keys(byProj).sort().forEach(function(k) { var p = byProj[k]; w.document.write('<tr><td>' + p.num + '</td><td>' + p.name + '</td><td class="r">' + p.rev + '</td><td class="r">' + p.fld + '</td><td class="cost">$' + p.cost.toFixed(4) + '</td></tr>'); });
-  w.document.write('<tr class="total"><td colspan="2">TOTAL</td><td class="r">' + tRev + '</td><td></td><td class="cost">$' + tCost.toFixed(4) + '</td></tr></table>');
+  w.document.write('<h2>Summary by Project</h2><table><tr><th>Project #</th><th>Client</th><th>Project Name</th><th class="r">Reviews</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
+  Object.keys(byProj).sort().forEach(function(k) { var p = byProj[k]; w.document.write('<tr><td>' + p.num + '</td><td>' + (p.client || '') + '</td><td>' + p.name + '</td><td class="r">' + p.rev + '</td><td class="r">' + p.fld + '</td><td class="cost">$' + p.cost.toFixed(4) + '</td></tr>'); });
+  w.document.write('<tr class="total"><td colspan="3">TOTAL</td><td class="r">' + tRev + '</td><td></td><td class="cost">$' + tCost.toFixed(4) + '</td></tr></table>');
   w.document.write('<h2>Detail Log</h2><table><tr><th>Date</th><th>User</th><th>Project #</th><th>Tool</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
   fd.forEach(function(r) { w.document.write('<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td><td>' + (r.user_email || '') + '</td><td>' + (r.project_number || '') + '</td><td>' + (r.tool || '') + '</td><td class="r">' + (r.field_count || 0) + '</td><td class="cost">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>'); });
   w.document.write('</table></div></body></html>');
