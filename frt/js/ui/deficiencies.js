@@ -41,7 +41,7 @@ function buildDeficCard(d, ctrId) {
 
   // Status + priority row
   h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">';
-  h += '<select class="pin-status-sel" data-action="status" data-defic-id="' + esc(d.id) + '" data-status="' + esc(d.status === 'open' ? 'Outstanding' : d.status === 'closed' ? 'Addressed & Closed' : d.status || 'Outstanding') + '" style="width:auto;padding:3px 8px;font-size:calc(11px + var(--ts));">';
+  h += '<select class="pin-status-sel" data-action="status" data-defic-id="' + esc(d.id) + '" style="width:auto;padding:3px 8px;font-size:calc(11px + var(--ts));">';
   h += '<option value="open"' + (isOpen ? ' selected' : '') + '>Outstanding</option>';
   h += '<option value="closed"' + (isClosed ? ' selected' : '') + '>Addressed &amp; Closed</option>';
   h += '</select>';
@@ -52,22 +52,16 @@ function buildDeficCard(d, ctrId) {
   });
   h += '</select>';
   // IAR toggle
-  h += '<button data-action="toggle-iar" data-defic-id="' + esc(d.id) + '" style="border:none;background:' + (d.iar ? '#E91E8C' : '#CBD5E0') + ';color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">' + (d.iar ? 'IAR' : 'IAR') + '</button>';
+  h += '<button data-action="toggle-iar" data-defic-id="' + esc(d.id) + '" style="border:none;background:' + (d.iar ? '#E91E8C' : '#CBD5E0') + ';color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">' + (d.iar ? '\u26A1 IAR' : 'IAR') + '</button>';
   if (d.drawingId) {
-    // Find the drawing name
     var _dwgs = Model.getDrawings();
     var _dwgName = '';
     for (var _di = 0; _di < _dwgs.length; _di++) { if (_dwgs[_di].id === d.drawingId) { _dwgName = _dwgs[_di].name || 'Drawing'; break; } }
     if (_dwgName.length > 18) _dwgName = _dwgName.substring(0, 18) + '\u2026';
     h += '<button data-action="view-pin" data-defic-id="' + esc(d.id) + '" style="border:none;background:#2196F3;color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;" title="View on: ' + esc(_dwgName) + '">\uD83D\uDCCC ' + esc(_dwgName) + '</button>';
-    h += '<button data-action="remove-pin" data-defic-id="' + esc(d.id) + '" style="border:none;background:#E53E3E;color:white;border-radius:4px;padding:2px 6px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Remove pin">\u2715</button>';
   } else {
     h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
   }
-  // Delete deficiency
-  h += '<button data-action="reassign-defic" data-defic-id="' + esc(d.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(12px + var(--ts));padding:0 2px;" title="Move to another contractor">\u21C4</button>';
-  h += '<button data-action="dup-defic" data-defic-id="' + esc(d.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(12px + var(--ts));padding:0 2px;" title="Duplicate deficiency">\uD83D\uDCCB</button>';
-  h += '<button data-action="delete-defic" data-defic-id="' + esc(d.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(14px + var(--ts));padding:0 2px;margin-left:auto;" title="Delete deficiency">\uD83D\uDDD1</button>';
   h += '</div>';
 
   // Closed note (only when status is closed)
@@ -148,13 +142,35 @@ function buildDeficCard(d, ctrId) {
     h += '</div>';
   }
 
-  // Activity log add entry
-  h += '<div style="margin-top:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;">';
-  h += '<select data-action="activity-label-sel" data-defic-id="' + esc(d.id) + '" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;background:var(--smoke);">';
-  h += '<option value="ARENCON">ARENCON</option><option value="Contractor">Contractor</option></select>';
-  h += '<input type="text" data-action="activity-text-inp" data-defic-id="' + esc(d.id) + '" placeholder="Add activity note..." style="flex:1;min-width:100px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;background:var(--smoke);color:var(--fg);">';
-  h += '<button data-action="add-activity" data-defic-id="' + esc(d.id) + '" style="border:none;background:#1565C0;color:white;border-radius:4px;padding:4px 10px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">+ Add</button>';
+  // Activity add buttons + card action footer
+  h += '<div class="defic-actions">';
+  h += '<button class="defic-act-btn act-response" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="Contractor Response">+ Response</button>';
+  h += '<button class="defic-act-btn act-comment" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="ARENCON">+ Comment</button>';
+  if (isOpen) {
+    h += '<button class="defic-act-btn act-close" data-action="close-defic" data-defic-id="' + esc(d.id) + '">\u2714 Close</button>';
+  } else {
+    h += '<button class="defic-act-btn act-reopen" data-action="reopen-defic" data-defic-id="' + esc(d.id) + '">\u21A9 Reopen</button>';
+  }
+  h += '<button class="defic-act-btn act-remove" data-action="delete-defic" data-defic-id="' + esc(d.id) + '">\u2715 Remove</button>';
+  h += '<div style="position:relative;margin-left:auto;">';
+  h += '<button class="defic-act-btn act-more" data-action="toggle-more" data-defic-id="' + esc(d.id) + '">\u22EF</button>';
+  h += '<div class="defic-more-popup" id="more-' + esc(d.id) + '">';
+  h += '<button data-action="dup-defic" data-defic-id="' + esc(d.id) + '">\u29C9 Duplicate</button>';
+  h += '<button data-action="reassign-defic" data-defic-id="' + esc(d.id) + '">\u21D7 Move to\u2026</button>';
+  if (d.drawingId) {
+    h += '<button data-action="remove-pin" data-defic-id="' + esc(d.id) + '">\uD83D\uDCCC Remove Pin</button>';
+  }
+  h += '</div></div>';
   h += '</div>';
+
+  // Inline activity input (hidden by default, shown by + Response / + Comment)
+  h += '<div class="defic-activity-input" data-defic-id="' + esc(d.id) + '" style="display:none;margin-top:6px;display:none;">';
+  h += '<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">';
+  h += '<span class="defic-activity-label" style="font-size:calc(11px + var(--ts));font-weight:600;color:var(--silver);"></span>';
+  h += '<input type="text" data-action="activity-text-inp" data-defic-id="' + esc(d.id) + '" placeholder="Add note..." style="flex:1;min-width:100px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;background:var(--smoke);color:var(--fg);">';
+  h += '<button data-action="add-activity" data-defic-id="' + esc(d.id) + '" style="border:none;background:#1565C0;color:white;border-radius:4px;padding:4px 10px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">Add</button>';
+  h += '<button data-action="cancel-activity" data-defic-id="' + esc(d.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 4px;">\u2715</button>';
+  h += '</div></div>';
 
   // Noted date
   if (d.notedDate || d.date) {
@@ -627,20 +643,74 @@ document.addEventListener('click', function(e) {
     });
   }
 
-  if (action === 'add-activity') {
-    var el = el.closest('[data-action="add-activity"]');
-    if (!el) return;
+  if (action === 'show-add-activity') {
     var deficId = el.getAttribute('data-defic-id');
+    var label = el.getAttribute('data-label') || 'ARENCON';
     var card = el.closest('.defic-item');
     if (!card) return;
-    var labelSel = card.querySelector('[data-action="activity-label-sel"]');
+    var inputWrap = card.querySelector('.defic-activity-input[data-defic-id="' + deficId + '"]');
+    if (inputWrap) {
+      inputWrap.style.display = 'block';
+      var lbl = inputWrap.querySelector('.defic-activity-label');
+      if (lbl) lbl.textContent = label + ':';
+      inputWrap.setAttribute('data-current-label', label);
+      var inp = inputWrap.querySelector('[data-action="activity-text-inp"]');
+      if (inp) { inp.value = ''; inp.focus(); }
+    }
+  }
+
+  if (action === 'cancel-activity') {
+    var card = el.closest('.defic-item');
+    if (card) {
+      var inputWrap = card.querySelector('.defic-activity-input');
+      if (inputWrap) inputWrap.style.display = 'none';
+    }
+  }
+
+  if (action === 'add-activity') {
+    var card = el.closest('.defic-item');
+    if (!card) return;
+    var deficId = el.getAttribute('data-defic-id');
+    var inputWrap = card.querySelector('.defic-activity-input[data-defic-id="' + deficId + '"]');
+    var label = inputWrap ? inputWrap.getAttribute('data-current-label') || 'ARENCON' : 'ARENCON';
     var textInp = card.querySelector('[data-action="activity-text-inp"]');
-    var label = labelSel ? labelSel.value : 'ARENCON';
     var text = textInp ? textInp.value.trim() : '';
     if (!text) { toast('Enter activity note text'); return; }
     Model.addActivityEntry(deficId, label, text);
     initDeficiencies.render();
     toast('Activity note added');
+  }
+
+  if (action === 'close-defic') {
+    var deficId = el.getAttribute('data-defic-id');
+    Model.updateDeficStatus(deficId, 'closed');
+    setTimeout(function() { initDeficiencies.render(); }, 50);
+    toast('Deficiency closed');
+  }
+
+  if (action === 'reopen-defic') {
+    var deficId = el.getAttribute('data-defic-id');
+    Model.updateDeficStatus(deficId, 'open');
+    setTimeout(function() { initDeficiencies.render(); }, 50);
+    toast('Deficiency reopened');
+  }
+
+  if (action === 'toggle-more') {
+    var deficId = el.getAttribute('data-defic-id');
+    var popup = document.getElementById('more-' + deficId);
+    if (popup) {
+      var wasOpen = popup.classList.contains('open');
+      // Close all open popups first
+      document.querySelectorAll('.defic-more-popup.open').forEach(function(p) { p.classList.remove('open'); });
+      if (!wasOpen) popup.classList.add('open');
+    }
+  }
+});
+
+// Close more popups on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('[data-action="toggle-more"]') && !e.target.closest('.defic-more-popup')) {
+    document.querySelectorAll('.defic-more-popup.open').forEach(function(p) { p.classList.remove('open'); });
   }
 });
 

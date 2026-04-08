@@ -113,6 +113,7 @@ function _showDrawing(idx) {
   var src = d.thumb || d.r2Url || d.dataUrl || '';
 
   function _loadImg(url, label) {
+    img.style.opacity = '0';
     img.onload = function() {
       console.log('[Viewer] Image loaded (' + (label || 'unknown') + '): ' + img.naturalWidth + '×' + img.naturalHeight);
       _calcFitScale();
@@ -121,6 +122,7 @@ function _showDrawing(idx) {
       _panY = 0;
       _applyTransform();
       _renderPins();
+      img.style.opacity = '1';
       // Initialize markup engine after image loads
       Markup.init(d.id);
     };

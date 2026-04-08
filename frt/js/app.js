@@ -574,16 +574,27 @@ function _updateHeaderForProject() {
   if (pbFn) pbFn.textContent = Model.getSmartFilename();
   var pbBadge = document.getElementById('pb-badge');
   if (pbBadge) {
-    var st = (proj.status || 'draft').toUpperCase();
+    var rev = (proj.info && proj.info.revision) || 'A01';
+    var parsed = _parseRevision(rev);
+    var st = parsed.issued ? (parsed.hasSuffix ? 'REVISION' : 'ISSUED') : 'DRAFT';
     pbBadge.textContent = st;
-    // Badge colors by status
-    var colors = { DRAFT: '#E65100', ISSUED: '#1A7A4A', PUBLISHED: '#1A237E', LOCKED: '#B71C1C' };
-    pbBadge.style.background = colors[st] || '#E65100';
+    var colors = { DRAFT: '#6B7280', ISSUED: '#1A7A4A', REVISION: '#E67E22' };
+    pbBadge.style.background = colors[st] || '#6B7280';
+    pbBadge.style.cursor = 'pointer';
   }
 
-  // Update issue status badge in header — HIDDEN, project bar badge is sufficient
+  // Update issue status badge in header
   var isb = document.getElementById('issue-status-badge');
-  if (isb) isb.style.display = 'none';
+  if (isb) {
+    var rev2 = (proj.info && proj.info.revision) || 'A01';
+    var parsed2 = _parseRevision(rev2);
+    var st2 = parsed2.issued ? (parsed2.hasSuffix ? 'REVISION' : 'ISSUED') : 'DRAFT';
+    isb.textContent = st2;
+    var colors2 = { DRAFT: '#6B7280', ISSUED: '#1A7A4A', REVISION: '#E67E22' };
+    isb.style.background = colors2[st2] || '#6B7280';
+    isb.style.display = 'inline-block';
+    isb.style.cursor = 'pointer';
+  }
 
   // Toggle header buttons: hide dashboard, show project
   var dashBtns = ['btn-load', 'btn-export-all'];
@@ -1046,6 +1057,177 @@ document.addEventListener('keydown', function(e) {
     }
   }
 });
+
+// ═══════════════════════════════════════════════════════
+//  ISSUE SYSTEM — DRAFT → ISSUED → REVISION
+// ═══════════════════════════════════════════════════════
+
+function _parseRevision(rev) {
+  var m;
+  // B##A## pattern (revision of issued)
+  m = rev.match(/^([B-Z])(\d{2,})A(\d{2,})$/);
+  if (m) return { issued: true, hasSuffix: true, letter: m[1], major: parseInt(m[2]), suffixNum: parseInt(m[3]) };
+  // B## pattern (issued)
+  m = rev.match(/^([B-Z])(\d{2,})$/);
+  if (m) return { issued: true, hasSuffix: false, letter: m[1], major: parseInt(m[2]), suffixNum: 0 };
+  // A## pattern (draft)
+  m = rev.match(/^A(\d{2,})$/);
+  if (m) return { issued: false, hasSuffix: false, letter: 'A', major: parseInt(m[1]), suffixNum: 0 };
+  return { issued: false, hasSuffix: false, letter: 'A', major: 1, suffixNum: 0 };
+}
+
+function _calcIssueRevision(parsed) {
+  if (!parsed.issued) return 'B01';
+  if (parsed.hasSuffix) {
+    var next = parsed.major + 1;
+    return parsed.letter + (next < 10 ? '0' : '') + next;
+  }
+  var next2 = parsed.major + 1;
+  return parsed.letter + (next2 < 10 ? '0' : '') + next2;
+}
+
+function _calcRevertDraft(proj) {
+  var highest = 0;
+  var info = proj.info || {};
+  if (info._lastDraftNum) { highest = info._lastDraftNum; }
+  else {
+    var m = (info.revision || '').match(/^A(\d+)$/);
+    if (m) highest = parseInt(m[1]);
+  }
+  var next = highest + 1;
+  return 'A' + (next < 10 ? '0' : '') + next;
+}
+
+function _issueReport() {
+  var proj = Model.getProject();
+  if (!proj) { toast('No project loaded'); return; }
+  var rev = (proj.info && proj.info.revision) || 'A01';
+  var parsed = _parseRevision(rev);
+  var isDark = document.body.classList.contains('dark-mode');
+  var bg = isDark ? '#1e2533' : '#fff';
+  var fg = isDark ? '#d0d8f0' : '#1C2333';
+  var fg2 = isDark ? '#8a94b0' : '#4A5568';
+  var bdr = isDark ? '#2a3040' : '#DDE1E7';
+
+  var modal = document.createElement('div');
+  modal.id = 'issue-modal-overlay';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+
+  var html = '<div style="background:' + bg + ';border-radius:12px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:' + fg + ';">';
+  html += '<div style="font-size:18px;font-weight:700;margin-bottom:4px;">\uD83D\uDCCB Report Status</div>';
+  html += '<div style="font-size:calc(13px + var(--ts));color:' + fg2 + ';margin-bottom:20px;">Current revision: <b style="color:' + fg + ';">' + rev + '</b></div>';
+
+  // Option 1: Issue
+  var issueTarget = _calcIssueRevision(parsed);
+  html += '<button data-issue-action="issue" data-rev="' + issueTarget + '" style="width:100%;padding:12px 16px;border:none;border-radius:8px;background:#1A7A4A;color:white;font-weight:700;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-bottom:10px;text-align:left;">';
+  html += '\uD83D\uDCCB Issue Report<span style="float:right;font-weight:400;opacity:.85;">' + rev + ' \u2192 <b>' + issueTarget + '</b></span></button>';
+
+  // Option 2: Revise (only if issued B## without A suffix)
+  if (parsed.issued && !parsed.hasSuffix) {
+    var reviseTarget = rev + 'A01';
+    html += '<button data-issue-action="revise" data-rev="' + reviseTarget + '" style="width:100%;padding:12px 16px;border:none;border-radius:8px;background:#E67E22;color:white;font-weight:700;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-bottom:10px;text-align:left;">';
+    html += '\u270F\uFE0F Revise Issued Report<span style="float:right;font-weight:400;opacity:.85;">' + rev + ' \u2192 <b>' + reviseTarget + '</b></span></button>';
+  }
+
+  // Option 3: Revert to draft (only if B-series)
+  if (parsed.issued) {
+    var draftTarget = _calcRevertDraft(proj);
+    html += '<button data-issue-action="revert" data-rev="' + draftTarget + '" style="width:100%;padding:12px 16px;border:none;border-radius:8px;background:' + bdr + ';color:' + fg + ';font-weight:700;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-bottom:10px;text-align:left;border:1.5px solid ' + bdr + ';">';
+    html += '\u21A9\uFE0F Revert to Draft<span style="float:right;font-weight:400;opacity:.85;">' + rev + ' \u2192 <b>' + draftTarget + '</b></span></button>';
+  }
+
+  // Cancel
+  html += '<button data-issue-action="cancel" style="width:100%;padding:10px 16px;border:1.5px solid ' + fg2 + ';border-radius:8px;background:none;color:' + fg2 + ';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-top:4px;">Cancel</button>';
+  html += '</div>';
+  modal.innerHTML = html;
+
+  // Delegated click handler
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) { modal.remove(); return; }
+    var btn = e.target.closest('[data-issue-action]');
+    if (!btn) return;
+    var act = btn.getAttribute('data-issue-action');
+    var newRev = btn.getAttribute('data-rev') || '';
+    modal.remove();
+    if (act === 'issue') _doIssue(newRev);
+    else if (act === 'revise') _doRevise(newRev);
+    else if (act === 'revert') _doRevertDraft(newRev);
+  });
+
+  document.body.appendChild(modal);
+}
+
+function _doIssue(newRev) {
+  var proj = Model.getProject();
+  if (!proj) return;
+  var curRev = (proj.info && proj.info.revision) || 'A01';
+  var draftMatch = curRev.match(/^A(\d+)$/);
+  if (draftMatch) {
+    if (!proj.info) proj.info = {};
+    proj.info._lastDraftNum = parseInt(draftMatch[1]);
+  }
+  proj.info.revision = newRev;
+  proj.info.dateOfIssue = new Date().toISOString().substring(0, 10);
+  proj.status = 'issued';
+  Model.save();
+  _updateProjectUI();
+  // Update revision field if visible
+  var revEl = document.querySelector('[data-field="revision"]');
+  if (revEl) revEl.value = newRev;
+  var doiEl = document.querySelector('[data-field="dateOfIssue"]');
+  if (doiEl) doiEl.value = proj.info.dateOfIssue;
+  // Update Supabase status
+  _syncIssueStatus('issued');
+  toast('Report issued as ' + newRev);
+}
+
+function _doRevise(newRev) {
+  var proj = Model.getProject();
+  if (!proj) return;
+  if (!proj.info) proj.info = {};
+  proj.info.revision = newRev;
+  proj.status = 'draft';
+  Model.save();
+  _updateProjectUI();
+  var revEl = document.querySelector('[data-field="revision"]');
+  if (revEl) revEl.value = newRev;
+  _syncIssueStatus('revision');
+  toast('Revision started: ' + newRev);
+}
+
+function _doRevertDraft(newRev) {
+  var proj = Model.getProject();
+  if (!proj) return;
+  if (!proj.info) proj.info = {};
+  proj.info.revision = newRev;
+  proj.status = 'draft';
+  Model.save();
+  _updateProjectUI();
+  var revEl = document.querySelector('[data-field="revision"]');
+  if (revEl) revEl.value = newRev;
+  _syncIssueStatus('draft');
+  toast('Reverted to draft: ' + newRev);
+}
+
+function _syncIssueStatus(status) {
+  if (typeof SyncEngine !== 'undefined' && SyncEngine.instanceId) {
+    Auth.request('/rest/v1/tool_data?id=eq.' + SyncEngine.instanceId, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: status, updated_at: new Date().toISOString() }),
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }
+    }).catch(function(e) { console.error('[Issue] Status sync failed:', e); });
+  }
+}
+
+// Wire issue button + badge clicks
+(function() {
+  var btnIssue = document.getElementById('btn-issue');
+  if (btnIssue) btnIssue.addEventListener('click', _issueReport);
+  var isb = document.getElementById('issue-status-badge');
+  if (isb) isb.addEventListener('click', _issueReport);
+  var pbBadge = document.getElementById('pb-badge');
+  if (pbBadge) pbBadge.addEventListener('click', _issueReport);
+})();
 
 // ── Start ────────────────────────────────────────────────
 boot();

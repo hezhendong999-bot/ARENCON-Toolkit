@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=79">
+<link rel="stylesheet" href="css/frt.css?v=80">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -414,17 +414,23 @@ function ensurePdfJs(cb){
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-7 1-4 7z"/></svg>
       </button>
       <div class="tool-sep"></div>
-      <button id="mk-pen" class="tool-btn" data-mk-tool="pen" data-tip="Pen">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-      </button>
-      <button id="mk-highlight" class="tool-btn" data-mk-tool="highlight" data-tip="Highlighter">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>
-      </button>
-      <button id="mk-text" class="tool-btn" data-mk-tool="text" data-tip="Text">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
-      </button>
+      <!-- PEN GROUP -->
+      <div class="tool-group" id="tool-pen-group">
+        <button class="tool-btn tool-group-btn" id="mk-pen-btn" data-mk-group="pen" data-tip="Drawing tools">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+          <span class="tool-group-arrow">▸</span>
+        </button>
+        <div class="tool-submenu" id="pen-submenu">
+          <button class="tool-btn sub-tool-btn" data-mk-tool="pen" data-tip="Pen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+          <button class="tool-btn sub-tool-btn" data-mk-tool="highlight" data-tip="Highlighter"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg></button>
+          <button class="tool-btn sub-tool-btn" data-mk-tool="line" data-tip="Line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20 20 4"/></svg></button>
+          <button class="tool-btn sub-tool-btn" data-mk-tool="arrow" data-tip="Arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          <button class="tool-btn sub-tool-btn" data-mk-tool="polyline" data-tip="Polyline"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,20 8,8 14,14 19,4"/></svg></button>
+        </div>
+      </div>
+      <!-- SHAPE GROUP -->
       <div class="tool-group" id="tool-shapes-group">
-        <button class="tool-btn tool-group-btn" id="mk-shapes-btn" data-tip="Shapes">
+        <button class="tool-btn tool-group-btn" id="mk-shapes-btn" data-mk-group="shapes" data-tip="Shapes">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
           <span class="tool-group-arrow">▸</span>
         </button>
@@ -433,13 +439,13 @@ function ensurePdfJs(cb){
           <button class="tool-btn sub-tool-btn" data-mk-tool="fillrect" data-tip="Filled Rect"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>
           <button class="tool-btn sub-tool-btn" data-mk-tool="circle" data-tip="Circle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg></button>
           <button class="tool-btn sub-tool-btn" data-mk-tool="fillcircle" data-tip="Filled Circle"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg></button>
-          <button class="tool-btn sub-tool-btn" data-mk-tool="arrow" data-tip="Arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-          <button class="tool-btn sub-tool-btn" data-mk-tool="line" data-tip="Line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20 20 4"/></svg></button>
           <button class="tool-btn sub-tool-btn" data-mk-tool="triangle" data-tip="Triangle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3L22 21H2z"/></svg></button>
           <button class="tool-btn sub-tool-btn" data-mk-tool="cloud" data-tip="Cloud"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19a4.5 4.5 0 1 0 0-9h-.1A5.5 5.5 0 0 0 7 13.5 3.5 3.5 0 0 0 3.5 17 3.5 3.5 0 0 0 7 20.5h10.5"/></svg></button>
-          <button class="tool-btn sub-tool-btn" data-mk-tool="polyline" data-tip="Polyline"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,20 8,8 14,14 19,4"/></svg></button>
         </div>
       </div>
+      <button id="mk-text" class="tool-btn" data-mk-tool="text" data-tip="Text">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+      </button>
       <button id="mk-eraser" class="tool-btn" data-mk-tool="eraser" data-tip="Eraser">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/></svg>
       </button>

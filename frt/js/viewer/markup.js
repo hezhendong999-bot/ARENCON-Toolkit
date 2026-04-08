@@ -923,6 +923,14 @@ function _setActiveTool(tool) {
     sidebar.querySelectorAll('.tool-btn[data-mk-tool]').forEach(function(btn) {
       btn.classList.toggle('active', btn.getAttribute('data-mk-tool') === tool);
     });
+    // Highlight pen group button when a pen sub-tool is active
+    var penGroupBtn = document.getElementById('mk-pen-btn');
+    var penTools = ['pen', 'highlight', 'line', 'arrow', 'polyline'];
+    if (penGroupBtn) penGroupBtn.classList.toggle('active', penTools.indexOf(tool) >= 0);
+    // Highlight shapes group button when a shape sub-tool is active
+    var shapesGroupBtn = document.getElementById('mk-shapes-btn');
+    var shapeTools = ['rect', 'fillrect', 'circle', 'fillcircle', 'triangle', 'cloud'];
+    if (shapesGroupBtn) shapesGroupBtn.classList.toggle('active', shapeTools.indexOf(tool) >= 0);
   }
 
   // Canvas mode
@@ -1008,15 +1016,32 @@ function _wireEvents() {
   if (_eventsWired) return;
   _eventsWired = true;
 
+  // Track last-used tool per group
+  var _lastPenTool = 'pen';
+  var _lastShapeTool = 'rect';
+  var _penTools = ['pen', 'highlight', 'line', 'arrow', 'polyline'];
+  var _shapeTools = ['rect', 'fillrect', 'circle', 'fillcircle', 'triangle', 'cloud'];
+
   // Sidebar tool clicks (delegated)
   document.addEventListener('click', function(e) {
     // Tool button in sidebar
     var btn = e.target.closest && e.target.closest('#dv-sidebar-tools .tool-btn[data-mk-tool]');
     if (btn) {
       var tool = btn.getAttribute('data-mk-tool');
-      // If from shapes submenu, update main button icon and close menu
+      // If from pen submenu, update main button icon, remember, close menu
+      var penSub = document.getElementById('pen-submenu');
+      if (penSub && penSub.contains(btn)) {
+        _lastPenTool = tool;
+        var penMain = document.getElementById('mk-pen-btn');
+        if (penMain) {
+          penMain.innerHTML = btn.innerHTML + '<span class="tool-group-arrow">\u25B8</span>';
+        }
+        penSub.classList.remove('open');
+      }
+      // If from shapes submenu, update main button icon, remember, close menu
       var submenu = document.getElementById('shapes-submenu');
       if (submenu && submenu.contains(btn)) {
+        _lastShapeTool = tool;
         var mainBtn = document.getElementById('mk-shapes-btn');
         if (mainBtn) {
           mainBtn.innerHTML = btn.innerHTML + '<span class="tool-group-arrow">\u25B8</span>';
@@ -1033,13 +1058,37 @@ function _wireEvents() {
       return;
     }
 
-    // Shapes group button — toggle submenu
-    if (e.target.closest && e.target.closest('#mk-shapes-btn')) {
+    // Pen group button — click activates last pen tool, or toggle submenu
+    var penGroupBtn = e.target.closest && e.target.closest('#mk-pen-btn');
+    if (penGroupBtn) {
+      var penSm = document.getElementById('pen-submenu');
+      // If a pen tool is already active, toggle submenu
+      if (_penTools.indexOf(_tool) >= 0) {
+        if (penSm) {
+          var isOpen = penSm.classList.contains('open');
+          penSm.classList.toggle('open');
+          if (!isOpen) _positionSubmenu(penSm, penGroupBtn);
+        }
+      } else {
+        // Activate last pen tool
+        _setActiveTool(_lastPenTool);
+      }
+      e.stopPropagation();
+      return;
+    }
+
+    // Shapes group button — click activates last shape tool, or toggle submenu
+    var shapesGroupBtn = e.target.closest && e.target.closest('#mk-shapes-btn');
+    if (shapesGroupBtn) {
       var sm = document.getElementById('shapes-submenu');
-      if (sm) {
-        var isOpen = sm.classList.contains('open');
-        sm.classList.toggle('open');
-        if (!isOpen) _positionSubmenu(sm, e.target.closest('#mk-shapes-btn'));
+      if (_shapeTools.indexOf(_tool) >= 0) {
+        if (sm) {
+          var isOpen = sm.classList.contains('open');
+          sm.classList.toggle('open');
+          if (!isOpen) _positionSubmenu(sm, shapesGroupBtn);
+        }
+      } else {
+        _setActiveTool(_lastShapeTool);
       }
       e.stopPropagation();
       return;
@@ -1141,6 +1190,8 @@ function _wireEvents() {
 
     // Close menus on outside click
     if (!e.target.closest || !e.target.closest('.tool-submenu')) {
+      var ps2 = document.getElementById('pen-submenu');
+      if (ps2) ps2.classList.remove('open');
       var sm2 = document.getElementById('shapes-submenu');
       if (sm2) sm2.classList.remove('open');
       var cm2 = document.getElementById('color-submenu');

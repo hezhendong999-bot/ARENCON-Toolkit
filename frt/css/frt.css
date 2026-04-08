@@ -198,6 +198,7 @@ body.dv-open{overflow:hidden!important;}
 .dv-img-wrap img{display:block;image-rendering:auto;}
 #markup-canvas{position:absolute;top:0;left:0;pointer-events:none;cursor:crosshair;touch-action:none;}
 #dv-image:not([src]),#dv-image[src=""]{display:none!important;}
+#dv-image{transition:opacity .15s ease;}
 #markup-canvas.drawing-active{pointer-events:auto;}
 #dv-pins-layer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
 #dv-pins-layer .pin-marker{pointer-events:auto;}
@@ -406,6 +407,26 @@ body.dv-open{overflow:hidden!important;}
 .iar-toggle-btn.off{border:1.5px solid var(--border);background:white;color:#666;}
 .iar-toggle-btn.on{border:1.5px solid #C0392B;background:#FFF5F5;color:#C0392B;font-weight:700;}
 .remove-defic-btn{padding:5px 8px;border:1.5px solid rgba(192,57,43,.25);border-radius:5px;background:rgba(192,57,43,.04);color:#C0392B;font-size:calc(11px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;font-weight:600;opacity:.75;}.remove-defic-btn:hover{background:#FDEDEC;border-color:#C0392B;opacity:1;}
+/* Deficiency card action bar */
+.defic-actions{display:flex;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);flex-wrap:wrap;align-items:center;}
+.defic-act-btn{padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:transparent;font-size:calc(11px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;font-weight:600;transition:background .15s,border-color .15s,opacity .15s;opacity:.8;}
+.defic-act-btn:hover{opacity:1;}
+.defic-act-btn.act-close{color:#1A7A4A;border-color:rgba(26,122,74,.35);}.defic-act-btn.act-close:hover{background:rgba(26,122,74,.08);border-color:#1A7A4A;}
+.defic-act-btn.act-reopen{color:#E67E22;border-color:rgba(230,126,34,.35);}.defic-act-btn.act-reopen:hover{background:rgba(230,126,34,.08);border-color:#E67E22;}
+.defic-act-btn.act-remove{color:#C0392B;border-color:rgba(192,57,43,.25);}.defic-act-btn.act-remove:hover{background:#FDEDEC;border-color:#C0392B;}
+.defic-act-btn.act-response{color:#E67E22;border-color:rgba(230,126,34,.25);}.defic-act-btn.act-response:hover{background:rgba(230,126,34,.06);border-color:#E67E22;}
+.defic-act-btn.act-comment{color:#1565C0;border-color:rgba(21,101,192,.25);}.defic-act-btn.act-comment:hover{background:rgba(21,101,192,.06);border-color:#1565C0;}
+.defic-act-btn.act-more{color:var(--silver);border-color:var(--border);padding:5px 8px;}.defic-act-btn.act-more:hover{background:var(--smoke);}
+.defic-more-popup{display:none;position:absolute;right:0;bottom:100%;background:var(--bg,white);border:1.5px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:100;min-width:140px;padding:4px 0;}
+.defic-more-popup.open{display:block;}
+.defic-more-popup button{display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));color:var(--fg);}.defic-more-popup button:hover{background:var(--smoke);}
+body.dark-mode .defic-act-btn.act-close{color:#80c8a0;border-color:rgba(80,180,120,.35);}
+body.dark-mode .defic-act-btn.act-reopen{color:#FFB74D;border-color:rgba(255,183,77,.35);}
+body.dark-mode .defic-act-btn.act-remove{color:#ff8a8a;border-color:rgba(255,100,100,.3);background:rgba(192,57,43,.08);}
+body.dark-mode .defic-act-btn.act-response{color:#FFB74D;border-color:rgba(255,183,77,.3);}
+body.dark-mode .defic-act-btn.act-comment{color:#90c0f0;border-color:rgba(144,192,240,.3);}
+body.dark-mode .defic-more-popup{background:#1e2533;border-color:#3a3e48;}
+body.dark-mode .defic-more-popup button{color:#d0d8f0;}body.dark-mode .defic-more-popup button:hover{background:#2a2e3a;}
 .pin-unassigned-badge{display:inline-flex;align-items:center;gap:5px;font-size:calc(11px + var(--ts));font-weight:700;color:#92400E;background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:5px;padding:3px 8px;margin-top:4px;cursor:default;}
 .pin-reassign-btn{padding:3px 8px;border:1.5px solid #F59E0B;border-radius:5px;background:#FFFBEB;color:#92400E;font-size:calc(11px + var(--ts));font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;margin-left:6px;}
 .pin-reassign-btn:hover{background:#FEF3C7;}
