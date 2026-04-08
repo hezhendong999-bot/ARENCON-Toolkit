@@ -791,7 +791,7 @@ document.addEventListener('click', function(e) {
 
   // Task item click — jump to pin
   var taskItem = e.target.closest && e.target.closest('.dv-task-item[data-task-defic-id]');
-  if (taskItem && !e.target.closest('[data-task-pin]')) {
+  if (taskItem && !e.target.closest('[data-task-pin]') && !e.target.closest('[data-task-del]')) {
     var tid = taskItem.getAttribute('data-task-defic-id');
     _openPinEditor(tid);
     return;
@@ -936,6 +936,7 @@ function _renderTasks() {
     html += '<div class="dv-task-dot" style="background:' + fill + ';">' + def.num + '</div>';
     html += '<div class="dv-task-desc">' + (desc || '\u2014') + '</div>';
     html += '<button class="dv-task-pin-btn" data-task-pin="' + def.id + '" title="' + (isPinned ? 'Move pin' : 'Place pin') + '">' + (isPinned ? '📌' : '📍') + '</button>';
+    html += '<button class="dv-task-del-btn" data-task-del="' + def.id + '" title="Delete deficiency">\u2715</button>';
     html += '</div>';
   });
   list.innerHTML = html;
@@ -954,6 +955,23 @@ document.addEventListener('click', function(e) {
     var fb = document.getElementById('dv-tasks-filter');
     if (fb) fb.textContent = _tasksFilter === 'pinned' ? 'Pinned' : 'All Items';
     _renderTasks();
+    return;
+  }
+
+  // Task delete button — delete the deficiency entirely
+  if (e.target.closest && e.target.closest('[data-task-del]')) {
+    var delId = e.target.closest('[data-task-del]').getAttribute('data-task-del');
+    var f = Model.findDeficiency(delId);
+    var label = f ? '#' + f.defic.num : 'this deficiency';
+    showConfirm('Delete Deficiency', 'Permanently delete deficiency ' + label + '? This cannot be undone.').then(function(yes) {
+      if (yes) {
+        Model.removeDeficiency(delId);
+        Model.saveNow();
+        _renderPins();
+        _renderTasks();
+        console.log('[Viewer] Deficiency deleted from Tasks:', delId);
+      }
+    });
     return;
   }
 
