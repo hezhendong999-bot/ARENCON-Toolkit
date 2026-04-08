@@ -73,10 +73,7 @@ export var initJSONExport = {
 
         if (!proj) { toast('No project data found'); return; }
 
-        // Strip inspector from imported data — inspector is per-user, not per-project
-        if (proj.info) {
-          delete proj.info.inspectorName;
-        }
+        // Strip signature data from imported projects — signatures are per-session
         if (proj.signatures) {
           delete proj.signatures.sigInspectorName;
           delete proj.signatures.sigInspectorDate;

@@ -620,11 +620,6 @@ function _updateHeaderForProject() {
 
   // Update inspector chip
   _updateInspectorChip();
-  // Set inspector from project if available
-  if (proj.info && proj.info.inspectorName && !getInspectorName()) {
-    localStorage.setItem(LS_INSPECTOR, proj.info.inspectorName);
-    _updateInspectorChip();
-  }
 
   // Update FRT instance indicator
   _updateFrtInstanceIndicator();
