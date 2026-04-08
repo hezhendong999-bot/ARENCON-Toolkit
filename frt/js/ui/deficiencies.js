@@ -152,7 +152,7 @@ function buildDeficCard(d, ctrId) {
     h += '<button class="defic-act-btn act-reopen" data-action="reopen-defic" data-defic-id="' + esc(d.id) + '">\u21A9 Reopen</button>';
   }
   h += '<button class="defic-act-btn act-remove" data-action="delete-defic" data-defic-id="' + esc(d.id) + '">\u2715 Remove</button>';
-  h += '<div style="position:relative;margin-left:auto;">';
+  h += '<div style="position:relative;">';
   h += '<button class="defic-act-btn act-more" data-action="toggle-more" data-defic-id="' + esc(d.id) + '">\u22EF</button>';
   h += '<div class="defic-more-popup" id="more-' + esc(d.id) + '">';
   h += '<button data-action="dup-defic" data-defic-id="' + esc(d.id) + '">\u29C9 Duplicate</button>';

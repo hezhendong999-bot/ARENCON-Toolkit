@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=80">
+<link rel="stylesheet" href="css/frt.css?v=81">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -476,8 +476,8 @@ function ensurePdfJs(cb){
         </div>
       </div>
       <div class="tool-sep"></div>
-      <div class="tool-stepper-wrap" data-tip="Stroke width">
-        <span style="font-size:8px;color:#888;letter-spacing:.5px;">WIDTH</span>
+      <div class="tool-stepper-wrap" data-tip="Size (stroke width / text size)">
+        <span style="font-size:8px;color:#888;letter-spacing:.5px;">SIZE</span>
         <button class="tool-step-btn" data-ctx="size-up">+</button>
         <span id="mk-size-val" style="font-size:11px;color:#ccc;min-width:22px;text-align:center;">3</span>
         <button class="tool-step-btn" data-ctx="size-down">−</button>
@@ -487,12 +487,6 @@ function ensurePdfJs(cb){
         <button class="tool-step-btn" data-ctx="opacity-up">+</button>
         <span id="mk-opacity-val" style="font-size:11px;color:#ccc;min-width:22px;text-align:center;">100</span>
         <button class="tool-step-btn" data-ctx="opacity-down">−</button>
-      </div>
-      <div class="tool-stepper-wrap" id="mk-text-size-wrap" style="display:none;" data-tip="Text size">
-        <span style="font-size:8px;color:#888;letter-spacing:.5px;">SIZE</span>
-        <button class="tool-step-btn" data-ctx="textsize-up">+</button>
-        <span id="mk-text-size-label" style="font-size:11px;color:#ccc;min-width:22px;text-align:center;">20</span>
-        <button class="tool-step-btn" data-ctx="textsize-down">−</button>
       </div>
       <div class="tool-sep"></div>
       <button class="tool-btn" id="mk-undo" data-tip="Undo (Ctrl+Z)">

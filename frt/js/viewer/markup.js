@@ -886,18 +886,15 @@ function _buildToolbar() {
 }
 
 function _updateSizeLabels() {
+  var sizeVal = _tool === 'text' ? _fontSize : _lineWidth;
   var sv = document.getElementById('mk-size-val');
-  if (sv) sv.textContent = _lineWidth;
+  if (sv) sv.textContent = sizeVal;
   var cv = document.getElementById('ctx-size-val');
-  if (cv) cv.textContent = _lineWidth;
+  if (cv) cv.textContent = sizeVal;
   var ov = document.getElementById('mk-opacity-val');
   if (ov) ov.textContent = Math.round(_opacity * 100);
   var co = document.getElementById('ctx-opacity-val');
   if (co) co.textContent = Math.round(_opacity * 100);
-  var tv = document.getElementById('mk-text-size-label');
-  if (tv) tv.textContent = _fontSize;
-  var ct = document.getElementById('ctx-text-val');
-  if (ct) ct.textContent = _fontSize;
 }
 
 function _updateColorSwatch() {
@@ -959,11 +956,8 @@ function _setActiveTool(tool) {
 
   if (_eraserCursor && tool !== 'eraser') _eraserCursor.style.display = 'none';
 
-  // Show/hide text size stepper
-  var tsw = document.getElementById('mk-text-size-wrap');
-  if (tsw) tsw.style.display = (tool === 'text') ? '' : 'none';
-  var ctg = document.getElementById('ctx-text-group');
-  if (ctg) ctg.style.display = (tool === 'text') ? '' : 'none';
+  // Update SIZE label to reflect tool (text size vs stroke width)
+  _updateSizeLabels();
 
   // Show/hide copy button
   var copyBtn = document.getElementById('mk-copy-btn');
@@ -1058,37 +1052,33 @@ function _wireEvents() {
       return;
     }
 
-    // Pen group button — click activates last pen tool, or toggle submenu
+    // Pen group button — single click opens submenu
     var penGroupBtn = e.target.closest && e.target.closest('#mk-pen-btn');
     if (penGroupBtn) {
       var penSm = document.getElementById('pen-submenu');
-      // If a pen tool is already active, toggle submenu
-      if (_penTools.indexOf(_tool) >= 0) {
-        if (penSm) {
-          var isOpen = penSm.classList.contains('open');
-          penSm.classList.toggle('open');
-          if (!isOpen) _positionSubmenu(penSm, penGroupBtn);
-        }
-      } else {
-        // Activate last pen tool
-        _setActiveTool(_lastPenTool);
+      if (penSm) {
+        // Close shapes submenu if open
+        var ss = document.getElementById('shapes-submenu');
+        if (ss) ss.classList.remove('open');
+        var isOpen = penSm.classList.contains('open');
+        penSm.classList.toggle('open');
+        if (!isOpen) _positionSubmenu(penSm, penGroupBtn);
       }
       e.stopPropagation();
       return;
     }
 
-    // Shapes group button — click activates last shape tool, or toggle submenu
+    // Shapes group button — single click opens submenu
     var shapesGroupBtn = e.target.closest && e.target.closest('#mk-shapes-btn');
     if (shapesGroupBtn) {
       var sm = document.getElementById('shapes-submenu');
-      if (_shapeTools.indexOf(_tool) >= 0) {
-        if (sm) {
-          var isOpen = sm.classList.contains('open');
-          sm.classList.toggle('open');
-          if (!isOpen) _positionSubmenu(sm, shapesGroupBtn);
-        }
-      } else {
-        _setActiveTool(_lastShapeTool);
+      if (sm) {
+        // Close pen submenu if open
+        var ps = document.getElementById('pen-submenu');
+        if (ps) ps.classList.remove('open');
+        var isOpen = sm.classList.contains('open');
+        sm.classList.toggle('open');
+        if (!isOpen) _positionSubmenu(sm, shapesGroupBtn);
       }
       e.stopPropagation();
       return;
@@ -1121,12 +1111,16 @@ function _wireEvents() {
     var ctxBtn = e.target.closest && e.target.closest('[data-ctx]');
     if (ctxBtn) {
       var action = ctxBtn.getAttribute('data-ctx');
-      if (action === 'size-up') _lineWidth = Math.min(30, _lineWidth + 1);
-      else if (action === 'size-down') _lineWidth = Math.max(1, _lineWidth - 1);
+      if (action === 'size-up') {
+        if (_tool === 'text') _fontSize = Math.min(72, _fontSize + 2);
+        else _lineWidth = Math.min(30, _lineWidth + 1);
+      }
+      else if (action === 'size-down') {
+        if (_tool === 'text') _fontSize = Math.max(8, _fontSize - 2);
+        else _lineWidth = Math.max(1, _lineWidth - 1);
+      }
       else if (action === 'opacity-up') _opacity = Math.min(1, _opacity + 0.1);
       else if (action === 'opacity-down') _opacity = Math.max(0.1, _opacity - 0.1);
-      else if (action === 'textsize-up') _fontSize = Math.min(72, _fontSize + 2);
-      else if (action === 'textsize-down') _fontSize = Math.max(8, _fontSize - 2);
       else if (action === 'undo') { _undo(); return; }
       else if (action === 'redo') { _redo(); return; }
       else if (action === 'delete') {

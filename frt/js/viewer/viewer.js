@@ -98,6 +98,23 @@ function _calcFitScale() {
   if (_fitScale > 1) _fitScale = 1; // Don't upscale small images
 }
 
+// Recalculate on viewport resize (fixes DevTools open/close, orientation change, etc.)
+var _resizeTimer = null;
+window.addEventListener('resize', function() {
+  var overlay = document.getElementById('drawing-viewer-overlay');
+  if (!overlay || !overlay.classList.contains('open')) return;
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(function() {
+    _calcFitScale();
+    _scale = _fitScale;
+    _panX = 0;
+    _panY = 0;
+    _applyTransform();
+    _renderPins();
+    if (typeof Markup !== 'undefined' && Markup.resize) Markup.resize();
+  }, 200);
+});
+
 function _showDrawing(idx) {
   _drawings = _getDrawingsList();
   if (idx < 0 || idx >= _drawings.length) return;
@@ -113,7 +130,8 @@ function _showDrawing(idx) {
   var src = d.thumb || d.r2Url || d.dataUrl || '';
 
   function _loadImg(url, label) {
-    img.style.opacity = '0';
+    // Binary hide — visibility:hidden prevents any paint of old image
+    img.style.visibility = 'hidden';
     img.onload = function() {
       console.log('[Viewer] Image loaded (' + (label || 'unknown') + '): ' + img.naturalWidth + '×' + img.naturalHeight);
       _calcFitScale();
@@ -122,7 +140,8 @@ function _showDrawing(idx) {
       _panY = 0;
       _applyTransform();
       _renderPins();
-      img.style.opacity = '1';
+      // Show after transform applied
+      img.style.visibility = 'visible';
       // Initialize markup engine after image loads
       Markup.init(d.id);
     };
