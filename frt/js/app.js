@@ -951,6 +951,12 @@ function boot() {
       return Auth.restoreSession().then(function(user) {
         if (user) {
           console.log('[FRT v2] Authenticated as:', user.email);
+          // Set inspector from authenticated user
+          var emailPrefix = (user.email || '').split('@')[0].toUpperCase();
+          if (emailPrefix) {
+            localStorage.setItem(LS_INSPECTOR, emailPrefix);
+            _updateInspectorChip();
+          }
           // Show sign-out button
           var soBtn = document.getElementById('btn-signout');
           if (soBtn) soBtn.style.display = '';
