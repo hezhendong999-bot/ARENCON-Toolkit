@@ -164,7 +164,7 @@ function buildDeficCard(d, ctrId) {
   h += '</div>';
 
   // Inline activity input (hidden by default, shown by + Response / + Comment)
-  h += '<div class="defic-activity-input" data-defic-id="' + esc(d.id) + '" style="display:none;margin-top:6px;display:none;">';
+  h += '<div class="defic-activity-input" data-defic-id="' + esc(d.id) + '" style="display:none;margin-top:6px;">';
   h += '<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">';
   h += '<span class="defic-activity-label" style="font-size:calc(11px + var(--ts));font-weight:600;color:var(--silver);"></span>';
   h += '<input type="text" data-action="activity-text-inp" data-defic-id="' + esc(d.id) + '" placeholder="Add note..." style="flex:1;min-width:100px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;background:var(--smoke);color:var(--fg);">';
