@@ -946,7 +946,7 @@ function _setActiveTool(tool) {
     area.classList.remove('drawing', 'erasing', 'text-mode');
     if (tool === 'eraser') area.classList.add('erasing');
     else if (tool === 'text') area.classList.add('text-mode');
-    else if (tool && tool !== 'select' && tool !== 'pin') area.classList.add('drawing');
+    else if (tool && tool !== 'select') area.classList.add('drawing');
   }
 
   if (_eraserCursor && tool !== 'eraser') _eraserCursor.style.display = 'none';
@@ -1023,7 +1023,12 @@ function _wireEvents() {
         }
         submenu.classList.remove('open');
       }
-      _setActiveTool(tool);
+      // Toggle: clicking active tool deactivates to pan mode
+      if (tool === _tool) {
+        _setActiveTool(null);
+      } else {
+        _setActiveTool(tool);
+      }
       e.stopPropagation();
       return;
     }
@@ -1397,6 +1402,7 @@ export var Markup = {
 
   getObjects: function() { return _objects; },
   setTool: function(tool) { _setActiveTool(tool); },
+  getTool: function() { return _tool; },
   renderAll: function() { _renderAll(); },
   isActive: function() { return _tool && _tool !== 'pin'; }
 };
