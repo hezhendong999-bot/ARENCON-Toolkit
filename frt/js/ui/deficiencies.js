@@ -683,9 +683,15 @@ document.addEventListener('click', function(e) {
 
   if (action === 'close-defic') {
     var deficId = el.getAttribute('data-defic-id');
-    Model.updateDeficStatus(deficId, 'closed');
-    setTimeout(function() { initDeficiencies.render(); }, 50);
-    toast('Deficiency closed');
+    var _cd = Model.findDeficiency(deficId);
+    var _cnum = _cd ? _cd.defic.num || '?' : '?';
+    showPrompt('\u2714 Close Deficiency #' + _cnum, 'Closing note (optional):').then(function(note) {
+      if (note === null) return; // cancelled
+      Model.updateDeficStatus(deficId, 'closed');
+      if (note) Model.updateClosedNote(deficId, note);
+      setTimeout(function() { initDeficiencies.render(); }, 50);
+      toast('Deficiency #' + _cnum + ' closed');
+    });
   }
 
   if (action === 'reopen-defic') {
