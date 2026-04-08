@@ -908,6 +908,7 @@ window._frtStartPinPlace = function(deficId) {
 };
 
 // ── Tasks Panel ─────────────────────────────────────────
+window._frtRenderTasks = function() { _renderTasks(); };
 var _tasksVisible = false;
 var _tasksFilter = 'pinned'; // 'pinned' or 'all'
 

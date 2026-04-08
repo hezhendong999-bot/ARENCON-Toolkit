@@ -393,22 +393,31 @@ function _showInspectorModal() {
   var history = [];
   try { history = JSON.parse(histRaw); } catch(e) {}
 
+  var _isDark = document.body.classList.contains('dark-mode');
+  var _bg = _isDark ? '#1e2533' : 'white';
+  var _fg = _isDark ? '#d0d8f0' : '#1a202c';
+  var _bdr = _isDark ? '#3a4050' : '#DDE1E7';
+  var _inputBg = _isDark ? '#151a24' : 'white';
+  var _labelCol = _isDark ? '#8a94b0' : '#718096';
+  var _cancelBg = _isDark ? '#2a3040' : '#f5f5f5';
+  var _cancelFg = _isDark ? '#d0d8f0' : '#4A5568';
+
   var h = '<div id="insp-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';
-  h += '<div style="background:white;border-radius:12px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:300px;max-width:380px;width:90%;">';
-  h += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Inspector</div>';
-  h += '<input type="text" id="insp-input" value="' + (current || '').replace(/"/g,'&quot;') + '" placeholder="Your name" style="width:100%;padding:8px;border:1.5px solid #DDE1E7;border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;box-sizing:border-box;margin-bottom:8px;">';
+  h += '<div style="background:' + _bg + ';color:' + _fg + ';border-radius:12px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:300px;max-width:380px;width:90%;">';
+  h += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;color:' + _fg + ';">Inspector</div>';
+  h += '<input type="text" id="insp-input" value="' + (current || '').replace(/"/g,'&quot;') + '" placeholder="Your name" style="width:100%;padding:8px;border:1.5px solid ' + _bdr + ';border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;box-sizing:border-box;margin-bottom:8px;background:' + _inputBg + ';color:' + _fg + ';">';
   if (history.length) {
-    h += '<div style="font-size:11px;font-weight:600;color:#718096;margin-bottom:4px;">Recent:</div>';
+    h += '<div style="font-size:11px;font-weight:600;color:' + _labelCol + ';margin-bottom:4px;">Recent:</div>';
     history.forEach(function(n) {
       h += '<div class="insp-hist-item" data-name="' + n.replace(/"/g,'&quot;') + '" style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:4px;cursor:pointer;margin-bottom:2px;">';
       h += '<span style="flex:1;font-size:13px;">' + n + '</span>';
-      h += '<button class="insp-hist-del" data-name="' + n.replace(/"/g,'&quot;') + '" style="border:none;background:none;color:#A0AEC0;cursor:pointer;font-size:14px;padding:0;">✕</button>';
+      h += '<button class="insp-hist-del" data-name="' + n.replace(/"/g,'&quot;') + '" style="border:none;background:none;color:' + _labelCol + ';cursor:pointer;font-size:14px;padding:0;">✕</button>';
       h += '</div>';
     });
   }
   h += '<div style="display:flex;gap:8px;margin-top:12px;">';
   h += '<button id="insp-ok" style="flex:1;padding:8px;background:#1A7A4A;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Apply</button>';
-  h += '<button id="insp-cancel" style="padding:8px 16px;background:#f5f5f5;color:#4A5568;border:1px solid #DDE1E7;border-radius:6px;font-size:14px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
+  h += '<button id="insp-cancel" style="padding:8px 16px;background:' + _cancelBg + ';color:' + _cancelFg + ';border:1px solid ' + _bdr + ';border-radius:6px;font-size:14px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
   h += '</div></div></div>';
 
   var div = document.createElement('div');

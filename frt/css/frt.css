@@ -43,6 +43,7 @@ body.dark-mode .tt-response.contractor{background:#2a1800;color:#FFB74D;}
 body.dark-mode .tt-response.consultant{background:#071525;color:#4FC3F7;}
 body.dark-mode .tt-response.both{background:#0a2010;color:#66BB6A;}
 .tt-status{font-size:calc(11px + var(--ts));font-weight:700;padding:2px 7px;border-radius:4px;}
+#pins-container tr[data-defic-id]{cursor:pointer;transition:background .1s;}#pins-container tr[data-defic-id]:hover{background:rgba(156,39,66,.06);}
 .tt-status.outstanding{background:#FDEDEC;color:#C0392B;}
 .tt-status.closed{background:#EAFAF1;color:#1A7A4A;}
 .tt-status.iar{background:#FFF0F6;color:#FF69B4;}
@@ -599,9 +600,9 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
 .dwg-folder-body{display:flex;flex-wrap:wrap;gap:12px;padding:12px 16px;}
 .dwg-folder-body.collapsed{display:none;}
 /* Context menu */
-.card-context-menu{display:none;position:absolute;right:4px;bottom:36px;background:white;border:1.5px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:200;min-width:160px;overflow:hidden;font-family:Calibri,sans-serif;}
+.card-context-menu{display:none;position:absolute;right:4px;bottom:36px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:200;min-width:140px;max-width:200px;overflow:hidden;font-family:Calibri,sans-serif;}
 .card-context-menu.open{display:block;}
-.card-context-menu button{display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:white;cursor:pointer;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;color:var(--slate);transition:background .1s;}
+.card-context-menu button{display:block;width:100%;text-align:left;padding:7px 12px;border:none;background:var(--bg);cursor:pointer;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;color:var(--fg);transition:background .1s;white-space:nowrap;}
 .card-context-menu button:hover{background:var(--smoke);}
 .card-context-menu button.danger{color:var(--no);}
 .card-context-menu button.danger:hover{background:#FADBD8;}
@@ -1233,7 +1234,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 .inspector-chip .ic-name{overflow:hidden;text-overflow:ellipsis;}
 
 /* ═══ SYNC STATUS in header ═══ */
-.sync-indicator{font-size:calc(10px + var(--ts));color:rgba(255,255,255,.45);white-space:nowrap;display:flex;align-items:center;gap:4px;}
+.sync-indicator{display:none!important;}
 .sync-indicator .sync-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 .sync-dot.synced{background:#4CAF50;}
 .sync-dot.dirty{background:#FF9800;}

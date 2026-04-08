@@ -158,6 +158,13 @@ document.addEventListener('click', function(e) {
 
   // Jump button
   var jump = e.target.closest && e.target.closest('[data-action="jump-defic"]');
+  // Also handle row click (but not on buttons/inputs)
+  if (!jump) {
+    var row = e.target.closest && e.target.closest('#pins-container tr[data-defic-id]');
+    if (row && !e.target.closest('button') && !e.target.closest('select') && !e.target.closest('input')) {
+      jump = row;
+    }
+  }
   if (jump) {
     var deficId = jump.getAttribute('data-defic-id');
     if (deficId) {

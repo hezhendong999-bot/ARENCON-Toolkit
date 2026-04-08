@@ -856,6 +856,7 @@ document.addEventListener('click', function(e) {
     var count = Model.renumberDeficiencies();
     if (count > 0) {
       initDeficiencies.render();
+      if (window._frtRenderTasks) window._frtRenderTasks();
       toast('\u2714 Renumbered ' + count + ' deficiencies (1\u2013' + count + ')');
     } else {
       toast('No deficiencies to renumber');
