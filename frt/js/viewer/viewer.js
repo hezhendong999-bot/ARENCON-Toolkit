@@ -439,6 +439,8 @@ function _renderPins() {
 // ── Pin Placement Mode ──────────────────────────────────
 function _startPinPlace(deficId) {
   _pinModeDeficId = deficId;
+  // Deactivate any active markup tool so canvas releases pointer-events
+  Markup.setTool('pin');
   var area = document.getElementById('dv-canvas-area');
   if (area) area.classList.add('pin-mode');
   console.log('[Viewer] Pin placement mode — deficiency:', deficId);

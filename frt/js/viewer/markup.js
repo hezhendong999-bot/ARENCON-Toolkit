@@ -27,7 +27,7 @@ var _objects = [];
 var _undoStack = [];
 var _redoStack = [];
 var _maxUndo = 40;
-var _selectedId = null;
+var _selectedIds = [];
 var _penPoints = [];
 var _polyPoints = [];
 var _isDrawing = false;
@@ -149,7 +149,7 @@ function _undo() {
   if (!_undoStack.length) return;
   _redoStack.push(JSON.stringify(_objects));
   _objects = JSON.parse(_undoStack.pop());
-  _selectedId = null;
+  _selectedIds = [];
   _renderAll();
   _markDirty();
   _updateUndoButtons();
@@ -159,7 +159,7 @@ function _redo() {
   if (!_redoStack.length) return;
   _undoStack.push(JSON.stringify(_objects));
   _objects = JSON.parse(_redoStack.pop());
-  _selectedId = null;
+  _selectedIds = [];
   _renderAll();
   _markDirty();
   _updateUndoButtons();
@@ -236,13 +236,29 @@ function _renderAll() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     highlights.forEach(function(obj) {
-      if (obj.id === _selectedId) _drawSelectionHandles(ctx, obj);
+      // Selection handles drawn as group below
     });
   }
 
-  if (_selectedId) {
-    var sel = _findObj(_selectedId);
-    if (sel && sel.type !== 'highlight') _drawSelectionHandles(ctx, sel);
+  // Draw grouped selection box around all selected items
+  if (_selectedIds.length) {
+    _drawGroupedSelection(ctx);
+  }
+
+  // Draw rubber-band selection rectangle if active
+  if (_rubberBand) {
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = '#2196F3';
+    ctx.fillStyle = 'rgba(33,150,243,.08)';
+    ctx.lineWidth = 1;
+    var rx = Math.min(_rubberBand.x1, _rubberBand.x2);
+    var ry = Math.min(_rubberBand.y1, _rubberBand.y2);
+    var rw = Math.abs(_rubberBand.x2 - _rubberBand.x1);
+    var rh = Math.abs(_rubberBand.y2 - _rubberBand.y1);
+    ctx.fillRect(rx, ry, rw, rh);
+    ctx.strokeRect(rx, ry, rw, rh);
+    ctx.restore();
   }
 }
 
@@ -347,22 +363,69 @@ function _drawCloudObj(ctx, x1, y1, x2, y2) {
   ctx.stroke();
 }
 
-function _drawSelectionHandles(ctx, obj) {
-  var b = _getBounds(obj);
+// ── Rubber-band state ───────────────────────────────────
+var _rubberBand = null; // {x1,y1,x2,y2} during drag-select
+
+function _getGroupBounds() {
+  var x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  _selectedIds.forEach(function(id) {
+    var obj = _findObj(id);
+    if (!obj) return;
+    var b = _getBounds(obj);
+    if (!b) return;
+    if (b.x1 < x1) x1 = b.x1;
+    if (b.y1 < y1) y1 = b.y1;
+    if (b.x2 > x2) x2 = b.x2;
+    if (b.y2 > y2) y2 = b.y2;
+  });
+  if (x1 === Infinity) return null;
+  return { x1: x1, y1: y1, x2: x2, y2: y2 };
+}
+
+function _drawGroupedSelection(ctx) {
+  var b = _getGroupBounds();
   if (!b) return;
+  var pad = 6;
+  var bx = b.x1 - pad, by = b.y1 - pad, bw = b.x2 - b.x1 + pad * 2, bh = b.y2 - b.y1 + pad * 2;
   ctx.save();
-  ctx.setLineDash([4, 4]);
+  // Dashed border
+  ctx.setLineDash([5, 4]);
   ctx.strokeStyle = '#2196F3';
   ctx.lineWidth = 1.5;
   ctx.globalAlpha = 1;
-  ctx.strokeRect(b.x1 - 4, b.y1 - 4, b.x2 - b.x1 + 8, b.y2 - b.y1 + 8);
+  ctx.strokeRect(bx, by, bw, bh);
   ctx.setLineDash([]);
-  var hs = 6;
-  ctx.fillStyle = '#2196F3';
-  [[b.x1, b.y1], [b.x2, b.y1], [b.x1, b.y2], [b.x2, b.y2]].forEach(function(p) {
-    ctx.fillRect(p[0] - hs / 2 - 4, p[1] - hs / 2 - 4, hs, hs);
+  // Corner resize handles
+  var hs = 7;
+  ctx.fillStyle = 'white';
+  ctx.strokeStyle = '#2196F3';
+  ctx.lineWidth = 1.5;
+  [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]].forEach(function(p) {
+    ctx.fillRect(p[0] - hs / 2, p[1] - hs / 2, hs, hs);
+    ctx.strokeRect(p[0] - hs / 2, p[1] - hs / 2, hs, hs);
   });
+  // Delete button (red X) — top-right outside box
+  var dx = bx + bw + 4, dy = by - 14;
+  ctx.fillStyle = '#E53E3E';
+  ctx.beginPath();
+  ctx.arc(dx + 8, dy + 8, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'white';
+  ctx.font = 'bold 12px Calibri,sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('\u2715', dx + 8, dy + 8);
   ctx.restore();
+}
+
+function _hitDeleteButton(pos) {
+  var b = _getGroupBounds();
+  if (!b) return false;
+  var pad = 6;
+  var dx = b.x2 + pad + 4 + 8;
+  var dy = b.y1 - pad - 14 + 8;
+  var dist = Math.sqrt((pos.x - dx) * (pos.x - dx) + (pos.y - dy) * (pos.y - dy));
+  return dist <= 12;
 }
 
 function _getBounds(obj) {
@@ -606,24 +669,47 @@ function _finishPolyline() {
 
 var _dragState = null;
 
-function _handleSelectDown(e) {
-  if (_tool !== 'select') return;
-  var pos = _getPos(e);
-  var hit = null;
+function _hitTestObjects(pos) {
   for (var i = _objects.length - 1; i >= 0; i--) {
     var b = _getBounds(_objects[i]);
     if (b && pos.x >= b.x1 - 6 && pos.x <= b.x2 + 6 && pos.y >= b.y1 - 6 && pos.y <= b.y2 + 6) {
-      hit = _objects[i];
-      break;
+      return _objects[i];
     }
   }
+  return null;
+}
+
+function _handleSelectDown(e) {
+  if (_tool !== 'select') return;
+  var pos = _getPos(e);
+
+  // Check if clicking the grouped delete button
+  if (_selectedIds.length && _hitDeleteButton(pos)) {
+    _objects = _objects.filter(function(o) { return _selectedIds.indexOf(o.id) === -1; });
+    _selectedIds = [];
+    _pushHistory();
+    _renderAll();
+    _markDirty();
+    return;
+  }
+
+  var hit = _hitTestObjects(pos);
   if (hit) {
-    _selectedId = hit.id;
-    _dragState = { id: hit.id, startX: pos.x, startY: pos.y, moved: false };
+    // Clicked an object
+    if (_selectedIds.indexOf(hit.id) !== -1) {
+      // Already selected — start dragging the group
+      _dragState = { type: 'move', startX: pos.x, startY: pos.y, moved: false };
+    } else {
+      // New selection (replace, not add)
+      _selectedIds = [hit.id];
+      _dragState = { type: 'move', startX: pos.x, startY: pos.y, moved: false };
+    }
     _renderAll();
   } else {
-    _selectedId = null;
-    _dragState = null;
+    // Clicked empty space — start rubber-band
+    _selectedIds = [];
+    _rubberBand = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y };
+    _dragState = { type: 'rubberband' };
     _renderAll();
   }
 }
@@ -631,27 +717,63 @@ function _handleSelectDown(e) {
 function _handleSelectMove(e) {
   if (!_dragState) return;
   var pos = _getPos(e);
-  var dx = pos.x - _dragState.startX;
-  var dy = pos.y - _dragState.startY;
-  if (Math.abs(dx) < 2 && Math.abs(dy) < 2 && !_dragState.moved) return;
-  _dragState.moved = true;
 
-  var obj = _findObj(_dragState.id);
-  if (!obj) return;
-
-  if (obj.points) {
-    obj.points.forEach(function(p) { p.x += dx; p.y += dy; });
+  if (_dragState.type === 'rubberband') {
+    _rubberBand.x2 = pos.x;
+    _rubberBand.y2 = pos.y;
+    _renderAll();
+    return;
   }
-  if (obj.x1 != null) { obj.x1 += dx; obj.y1 += dy; obj.x2 += dx; obj.y2 += dy; }
 
-  _dragState.startX = pos.x;
-  _dragState.startY = pos.y;
-  _renderAll();
+  if (_dragState.type === 'move') {
+    var dx = pos.x - _dragState.startX;
+    var dy = pos.y - _dragState.startY;
+    if (Math.abs(dx) < 2 && Math.abs(dy) < 2 && !_dragState.moved) return;
+    _dragState.moved = true;
+
+    // Move all selected objects
+    _selectedIds.forEach(function(id) {
+      var obj = _findObj(id);
+      if (!obj) return;
+      if (obj.points) {
+        obj.points.forEach(function(p) { p.x += dx; p.y += dy; });
+      }
+      if (obj.x1 != null) { obj.x1 += dx; obj.y1 += dy; obj.x2 += dx; obj.y2 += dy; }
+    });
+
+    _dragState.startX = pos.x;
+    _dragState.startY = pos.y;
+    _renderAll();
+  }
 }
 
 function _handleSelectUp() {
   if (!_dragState) return;
-  if (_dragState.moved) {
+
+  if (_dragState.type === 'rubberband' && _rubberBand) {
+    // Find all objects intersecting the rubber-band rectangle
+    var rx1 = Math.min(_rubberBand.x1, _rubberBand.x2);
+    var ry1 = Math.min(_rubberBand.y1, _rubberBand.y2);
+    var rx2 = Math.max(_rubberBand.x1, _rubberBand.x2);
+    var ry2 = Math.max(_rubberBand.y1, _rubberBand.y2);
+    // Only count as rubber-band if dragged at least 4px
+    if (Math.abs(rx2 - rx1) > 4 || Math.abs(ry2 - ry1) > 4) {
+      var hits = [];
+      _objects.forEach(function(obj) {
+        var b = _getBounds(obj);
+        if (!b) return;
+        // Intersection test: object bounds overlap rubber-band
+        if (b.x2 >= rx1 && b.x1 <= rx2 && b.y2 >= ry1 && b.y1 <= ry2) {
+          hits.push(obj.id);
+        }
+      });
+      _selectedIds = hits;
+    }
+    _rubberBand = null;
+    _renderAll();
+  }
+
+  if (_dragState.type === 'move' && _dragState.moved) {
     _pushHistory();
     _markDirty();
   }
@@ -720,7 +842,7 @@ function _loadMarkup(drawingId) {
   _objects = [];
   _undoStack = [];
   _redoStack = [];
-  _selectedId = null;
+  _selectedIds = [];
 
   // Try model drawings array first (v1 compat)
   var proj = Model.getProject();
@@ -791,7 +913,8 @@ function _setActiveTool(tool) {
   }
 
   _tool = tool;
-  _selectedId = null;
+  _selectedIds = [];
+  _rubberBand = null;
   _isDrawing = false;
 
   // Update sidebar button states
@@ -953,9 +1076,9 @@ function _wireEvents() {
       else if (action === 'undo') { _undo(); return; }
       else if (action === 'redo') { _redo(); return; }
       else if (action === 'delete') {
-        if (_selectedId) {
-          _objects = _objects.filter(function(o) { return o.id !== _selectedId; });
-          _selectedId = null;
+        if (_selectedIds.length) {
+          _objects = _objects.filter(function(o) { return _selectedIds.indexOf(o.id) === -1; });
+          _selectedIds = [];
           _pushHistory();
           _renderAll();
           _markDirty();
@@ -1094,7 +1217,27 @@ function _wireEvents() {
     if (!overlay || !overlay.classList.contains('open')) return;
 
     if (e.key === 'Escape') {
+      // If mid-stroke: cancel and discard
+      if (_isDrawing) {
+        _isDrawing = false;
+        _penPoints = [];
+        var ov = _getOverlay();
+        if (ov) { ov.getContext('2d').clearRect(0, 0, ov.width, ov.height); ov.style.display = 'none'; }
+        _renderAll();
+        e.stopPropagation();
+        return;
+      }
+      // If polyline in progress: finish it
       if (_tool === 'polyline' && _polyPoints.length >= 2) { _finishPolyline(); e.stopPropagation(); return; }
+      // If objects selected: clear selection first
+      if (_selectedIds.length) {
+        _selectedIds = [];
+        _rubberBand = null;
+        _renderAll();
+        e.stopPropagation();
+        return;
+      }
+      // If any tool active: deselect → back to pin/navigate mode
       if (_tool && _tool !== 'pin') {
         _setActiveTool('pin');
         e.stopPropagation();
@@ -1105,9 +1248,9 @@ function _wireEvents() {
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); _undo(); return; }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); _redo(); return; }
 
-    if ((e.key === 'Delete' || e.key === 'Backspace') && _selectedId && _tool === 'select') {
-      _objects = _objects.filter(function(o) { return o.id !== _selectedId; });
-      _selectedId = null;
+    if ((e.key === 'Delete' || e.key === 'Backspace') && _selectedIds.length && _tool === 'select') {
+      _objects = _objects.filter(function(o) { return _selectedIds.indexOf(o.id) === -1; });
+      _selectedIds = [];
       _pushHistory();
       _renderAll();
       _markDirty();
@@ -1222,7 +1365,8 @@ export var Markup = {
     _objects = [];
     _undoStack = [];
     _redoStack = [];
-    _selectedId = null;
+    _selectedIds = [];
+    _rubberBand = null;
     _isDrawing = false;
     _tool = null;
 

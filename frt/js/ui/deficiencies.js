@@ -99,6 +99,7 @@ function buildDeficCard(d, ctrId) {
       h += 'style="width:100%;min-height:56px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);"';
       h += ' placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
       // Observation photos
+      var obsPhotos = o.photos || [];
       if (obsPhotos.length) {
         h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;">';
         obsPhotos.forEach(function(ph, phi) {
@@ -364,16 +365,16 @@ document.addEventListener('click', function(e) {
   }
 
   var action = e.target.getAttribute && e.target.getAttribute('data-action');
+  var el = e.target;
   if (!action) {
-    var btn = e.target.closest && e.target.closest('[data-action]');
-    if (btn) action = btn.getAttribute('data-action');
+    el = e.target.closest && e.target.closest('[data-action]');
+    if (el) action = el.getAttribute('data-action');
     else return;
-    e.target = btn;
   }
 
   if (action === 'toggle-fold') {
-    var ctrId = e.target.getAttribute('data-ctr-id');
-    if (!ctrId) { var el2 = e.target.closest('[data-ctr-id]'); if (el2) ctrId = el2.getAttribute('data-ctr-id'); }
+    var ctrId = el.getAttribute('data-ctr-id');
+    if (!ctrId) { var el2 = el.closest('[data-ctr-id]'); if (el2) ctrId = el2.getAttribute('data-ctr-id'); }
     if (ctrId) {
       _foldedGroups[ctrId] = !_foldedGroups[ctrId];
       var group = document.querySelector('.defic-group[data-ctr-id="' + ctrId + '"]');
@@ -409,8 +410,8 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'edit-contractor') {
-    var ctrId = e.target.getAttribute('data-ctr-id');
-    if (!ctrId) { var btn2 = e.target.closest('[data-ctr-id]'); if (btn2) ctrId = btn2.getAttribute('data-ctr-id'); }
+    var ctrId = el.getAttribute('data-ctr-id');
+    if (!ctrId) { var btn2 = el.closest('[data-ctr-id]'); if (btn2) ctrId = btn2.getAttribute('data-ctr-id'); }
     if (ctrId) {
       var proj = Model.getProject();
       var ctr = (proj.contractors || []).find(function(c) { return c.id === ctrId; });
@@ -428,8 +429,8 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'remove-contractor') {
-    var ctrId = e.target.getAttribute('data-ctr-id');
-    if (!ctrId) { var btn2 = e.target.closest('[data-ctr-id]'); if (btn2) ctrId = btn2.getAttribute('data-ctr-id'); }
+    var ctrId = el.getAttribute('data-ctr-id');
+    if (!ctrId) { var btn2 = el.closest('[data-ctr-id]'); if (btn2) ctrId = btn2.getAttribute('data-ctr-id'); }
     if (ctrId) {
       var proj = Model.getProject();
       var ctr = (proj.contractors || []).find(function(c) { return c.id === ctrId; });
@@ -445,7 +446,7 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'add-defic') {
-    var ctrId = e.target.getAttribute('data-ctr-id') || null;
+    var ctrId = el.getAttribute('data-ctr-id') || null;
     var defic = Model.addDeficiency(ctrId || null);
     if (defic) {
       initDeficiencies.render();
@@ -466,7 +467,7 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'add-obs') {
-    var deficId = e.target.getAttribute('data-defic-id');
+    var deficId = el.getAttribute('data-defic-id');
     var obs = Model.addObservation(deficId);
     if (obs) {
       initDeficiencies.render();
@@ -475,8 +476,8 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'remove-obs') {
-    var deficId = e.target.getAttribute('data-defic-id');
-    var obsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
+    var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
     showConfirm('Remove Observation', 'Remove this observation? This cannot be undone.').then(function(yes) {
       if (yes) {
         Model.removeObservation(deficId, obsIdx);
@@ -487,14 +488,14 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'toggle-addressed') {
-    var deficId = e.target.getAttribute('data-defic-id');
-    var obsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
+    var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
     Model.toggleObsAddressed(deficId, obsIdx);
     initDeficiencies.render();
   }
 
   if (action === 'place-pin' || action === 'view-pin') {
-    var deficId = e.target.getAttribute('data-defic-id');
+    var deficId = el.getAttribute('data-defic-id');
     if (window._frtStartPinPlace) {
       window._frtStartPinPlace(deficId);
       if (action === 'place-pin') toast('Tap on the drawing to place pin');
@@ -504,8 +505,8 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'remove-pin') {
-    var deficId = e.target.getAttribute('data-defic-id');
-    if (!deficId) { var btn3 = e.target.closest('[data-defic-id]'); if (btn3) deficId = btn3.getAttribute('data-defic-id'); }
+    var deficId = el.getAttribute('data-defic-id');
+    if (!deficId) { var btn3 = el.closest('[data-defic-id]'); if (btn3) deficId = btn3.getAttribute('data-defic-id'); }
     if (deficId) {
       var f = Model.findDeficiency(deficId);
       if (f) {
@@ -521,7 +522,7 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'open-lightbox') {
-    var el = e.target.closest('[data-action="open-lightbox"]');
+    var el = el.closest('[data-action="open-lightbox"]');
     if (!el) return;
     var deficId = el.getAttribute('data-defic-id');
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
@@ -536,8 +537,8 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'delete-defic') {
-    var deficId = e.target.getAttribute('data-defic-id');
-    if (!deficId) { var btn4 = e.target.closest('[data-defic-id]'); if (btn4) deficId = btn4.getAttribute('data-defic-id'); }
+    var deficId = el.getAttribute('data-defic-id');
+    if (!deficId) { var btn4 = el.closest('[data-defic-id]'); if (btn4) deficId = btn4.getAttribute('data-defic-id'); }
     if (deficId) {
       var f = Model.findDeficiency(deficId);
       var num = f ? f.defic.num : '?';
@@ -552,8 +553,8 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'reassign-defic') {
-    var deficId = e.target.getAttribute('data-defic-id');
-    if (!deficId) { var btn6 = e.target.closest('[data-defic-id]'); if (btn6) deficId = btn6.getAttribute('data-defic-id'); }
+    var deficId = el.getAttribute('data-defic-id');
+    if (!deficId) { var btn6 = el.closest('[data-defic-id]'); if (btn6) deficId = btn6.getAttribute('data-defic-id'); }
     if (!deficId) return;
     var proj = Model.getProject();
     if (!proj) return;
@@ -591,8 +592,8 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'toggle-iar') {
-    var deficId = e.target.getAttribute('data-defic-id');
-    if (!deficId) { var btn5 = e.target.closest('[data-defic-id]'); if (btn5) deficId = btn5.getAttribute('data-defic-id'); }
+    var deficId = el.getAttribute('data-defic-id');
+    if (!deficId) { var btn5 = el.closest('[data-defic-id]'); if (btn5) deficId = btn5.getAttribute('data-defic-id'); }
     if (deficId) {
       Model.toggleIAR(deficId);
       initDeficiencies.render();
@@ -600,8 +601,8 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'dup-defic') {
-    var deficId = e.target.getAttribute('data-defic-id');
-    if (!deficId) { var btn7 = e.target.closest('[data-defic-id]'); if (btn7) deficId = btn7.getAttribute('data-defic-id'); }
+    var deficId = el.getAttribute('data-defic-id');
+    if (!deficId) { var btn7 = el.closest('[data-defic-id]'); if (btn7) deficId = btn7.getAttribute('data-defic-id'); }
     if (deficId) {
       var newDefic = Model.duplicateDeficiency(deficId);
       if (newDefic) {
@@ -612,7 +613,7 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'delete-obs-photo') {
-    var el = e.target.closest('[data-action="delete-obs-photo"]');
+    var el = el.closest('[data-action="delete-obs-photo"]');
     if (!el) return;
     var deficId = el.getAttribute('data-defic-id');
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
@@ -627,7 +628,7 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'add-activity') {
-    var el = e.target.closest('[data-action="add-activity"]');
+    var el = el.closest('[data-action="add-activity"]');
     if (!el) return;
     var deficId = el.getAttribute('data-defic-id');
     var card = el.closest('.defic-item');
@@ -728,18 +729,18 @@ function _compressAndAdd(file, deficId, obsIdx) {
 
 document.addEventListener('click', function(e) {
   var action = e.target.getAttribute && e.target.getAttribute('data-action');
+  var el = e.target;
   if (!action) {
-    var btn = e.target.closest && e.target.closest('[data-action]');
-    if (btn) action = btn.getAttribute('data-action');
+    el = e.target.closest && e.target.closest('[data-action]');
+    if (el) action = el.getAttribute('data-action');
     if (!action) return;
-    e.target = btn;
   }
 
   if (action === 'photo-upload' || action === 'photo-camera') {
-    var deficId = e.target.getAttribute('data-defic-id');
+    var deficId = el.getAttribute('data-defic-id');
     if (!deficId) return;
     _photoTargetDeficId = deficId;
-    _photoTargetObsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
+    _photoTargetObsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
 
     var inp = document.createElement('input');
     inp.type = 'file';
