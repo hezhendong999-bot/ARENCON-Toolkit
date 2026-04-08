@@ -489,46 +489,48 @@ function _handlePinDrop(e) {
   _renderPins();
 }
 
+// ── Pin drop shared logic with debounce ───────────────
+var _lastPinDropTime = 0;
+
+function _pinToolDrop(clientX, clientY) {
+  // Debounce: prevent touch+click double-fire
+  var now = Date.now();
+  if (now - _lastPinDropTime < 400) return;
+  _lastPinDropTime = now;
+
+  var img = document.getElementById('dv-image');
+  var wrap = document.getElementById('dv-img-wrap');
+  if (!img || !wrap || !img.naturalWidth) return;
+
+  var rect = wrap.getBoundingClientRect();
+  var clickX = (clientX - rect.left) / _scale;
+  var clickY = (clientY - rect.top) / _scale;
+  var pinX = Math.max(0, Math.min(1, clickX / img.naturalWidth));
+  var pinY = Math.max(0, Math.min(1, clickY / img.naturalHeight));
+
+  var drawings = _getDrawingsList();
+  var drawingId = drawings[_currentDrawingIdx] ? drawings[_currentDrawingIdx].id : null;
+  if (!drawingId) return;
+
+  var newDefic = Model.addDeficiency(null);
+  if (newDefic) {
+    newDefic.drawingId = drawingId;
+    newDefic.pinX = pinX;
+    newDefic.pinY = pinY;
+    Model._notify('deficiency', { action: 'pin', deficId: newDefic.id });
+    Model.saveNow();
+    _renderPins();
+    console.log('[Viewer] Pin tool: created deficiency #' + newDefic.num + ' at', pinX.toFixed(3), pinY.toFixed(3));
+    _openPinEditor(newDefic.id);
+  }
+}
+
 // Pin drop click handler
 document.getElementById('dv-canvas-area').addEventListener('click', function(e) {
   if (e.target.closest('.dv-toolbar') || e.target.closest('#dv-close') || e.target.closest('.dv-sidebar-tools') || e.target.closest('.zoom-controls') || e.target.closest('.dv-nav-controls')) return;
 
-  // Specific deficiency pin placement (from Tasks panel 📍)
-  if (_pinModeDeficId) {
-    _handlePinDrop(e);
-    return;
-  }
-
-  // Pin sidebar tool active — create new deficiency + place pin
-  if (Markup.getTool() === 'pin') {
-    var img = document.getElementById('dv-image');
-    var wrap = document.getElementById('dv-img-wrap');
-    if (!img || !wrap || !img.naturalWidth) return;
-
-    var rect = wrap.getBoundingClientRect();
-    var clickX = (e.clientX - rect.left) / _scale;
-    var clickY = (e.clientY - rect.top) / _scale;
-    var pinX = Math.max(0, Math.min(1, clickX / img.naturalWidth));
-    var pinY = Math.max(0, Math.min(1, clickY / img.naturalHeight));
-
-    var drawings = _getDrawingsList();
-    var drawingId = drawings[_currentDrawingIdx] ? drawings[_currentDrawingIdx].id : null;
-    if (!drawingId) return;
-
-    // Create new Site General deficiency and pin it
-    var newDefic = Model.addDeficiency(null);
-    if (newDefic) {
-      newDefic.drawingId = drawingId;
-      newDefic.pinX = pinX;
-      newDefic.pinY = pinY;
-      Model._notify('deficiency', { action: 'pin', deficId: newDefic.id });
-      Model.saveNow();
-      _renderPins();
-      _openPinEditor(newDefic.id);
-      console.log('[Viewer] Pin tool: created deficiency #' + newDefic.num + ' at', pinX.toFixed(3), pinY.toFixed(3));
-    }
-    return;
-  }
+  if (_pinModeDeficId) { _handlePinDrop(e); return; }
+  if (Markup.getTool() === 'pin') { _pinToolDrop(e.clientX, e.clientY); return; }
 });
 
 // Pin drop touch handler
@@ -537,39 +539,8 @@ document.getElementById('dv-canvas-area').addEventListener('touchend', function(
   var touch = e.changedTouches && e.changedTouches.length ? e.changedTouches[0] : null;
   if (!touch) return;
 
-  // Specific deficiency pin placement
-  if (_pinModeDeficId) {
-    _handlePinDrop({ clientX: touch.clientX, clientY: touch.clientY });
-    return;
-  }
-
-  // Pin sidebar tool — create + place
-  if (Markup.getTool() === 'pin') {
-    var img = document.getElementById('dv-image');
-    var wrap = document.getElementById('dv-img-wrap');
-    if (!img || !wrap || !img.naturalWidth) return;
-
-    var rect = wrap.getBoundingClientRect();
-    var clickX = (touch.clientX - rect.left) / _scale;
-    var clickY = (touch.clientY - rect.top) / _scale;
-    var pinX = Math.max(0, Math.min(1, clickX / img.naturalWidth));
-    var pinY = Math.max(0, Math.min(1, clickY / img.naturalHeight));
-
-    var drawings = _getDrawingsList();
-    var drawingId = drawings[_currentDrawingIdx] ? drawings[_currentDrawingIdx].id : null;
-    if (!drawingId) return;
-
-    var newDefic = Model.addDeficiency(null);
-    if (newDefic) {
-      newDefic.drawingId = drawingId;
-      newDefic.pinX = pinX;
-      newDefic.pinY = pinY;
-      Model._notify('deficiency', { action: 'pin', deficId: newDefic.id });
-      Model.saveNow();
-      _renderPins();
-      _openPinEditor(newDefic.id);
-    }
-  }
+  if (_pinModeDeficId) { _handlePinDrop({ clientX: touch.clientX, clientY: touch.clientY }); return; }
+  if (Markup.getTool() === 'pin') { _pinToolDrop(touch.clientX, touch.clientY); return; }
 });
 
 // Pin marker click — open pin editor
@@ -734,8 +705,8 @@ function _savePinEditor() {
   Model.saveNow();
   _renderPins();
   if (_tasksVisible) _renderTasks();
-  _closePinEditor();
   console.log('[Viewer] Pin editor saved for deficiency', _peDeficId);
+  _closePinEditor();
 }
 
 // Pin editor event handlers
