@@ -575,8 +575,8 @@ function _openPinEditor(deficId) {
   var cSel = document.getElementById('pe-contractor');
   if (cSel) {
     var proj = Model.getProject();
-    var opts = '';
-    (proj.contractors || []).forEach(function(c) { opts += '<option value="' + c.id + '"' + (f.contractorId === c.id ? ' selected' : '') + '>' + c.name + '</option>'; });
+    var opts = '<option value=""' + (!f.contractor ? ' selected' : '') + '>Site General</option>';
+    (proj.contractors || []).forEach(function(c) { opts += '<option value="' + c.id + '"' + (f.contractor && f.contractor.id === c.id ? ' selected' : '') + '>' + c.name + '</option>'; });
     cSel.innerHTML = opts;
   }
 
@@ -667,25 +667,36 @@ function _savePinEditor() {
   if (!f) return;
   var d = f.defic;
 
-  // Read fields
+  // Read fields — contractor assignment
   var cSel = document.getElementById('pe-contractor');
-  if (cSel && cSel.value) {
-    // Move deficiency to new contractor if changed
+  if (cSel != null) {
     var proj = Model.getProject();
-    if (proj && proj.contractors) {
-      var newCtrId = cSel.value;
-      if (newCtrId !== f.contractorId) {
-        // Remove from old contractor
-        var oldCtr = proj.contractors.find(function(c) { return c.id === f.contractorId; });
+    var newCtrId = cSel.value || null; // empty string = Site General = null
+    var oldCtrId = f.contractor ? f.contractor.id : null;
+    if (newCtrId !== oldCtrId) {
+      // Remove from old location
+      if (oldCtrId) {
+        var oldCtr = (proj.contractors || []).find(function(c) { return c.id === oldCtrId; });
         if (oldCtr && oldCtr.deficiencies) {
           oldCtr.deficiencies = oldCtr.deficiencies.filter(function(x) { return x.id !== _peDeficId; });
         }
-        // Add to new contractor
-        var newCtr = proj.contractors.find(function(c) { return c.id === newCtrId; });
+      } else {
+        // Was in generalDeficiencies
+        if (proj.generalDeficiencies) {
+          proj.generalDeficiencies = proj.generalDeficiencies.filter(function(x) { return x.id !== _peDeficId; });
+        }
+      }
+      // Add to new location
+      if (newCtrId) {
+        var newCtr = (proj.contractors || []).find(function(c) { return c.id === newCtrId; });
         if (newCtr) {
           if (!newCtr.deficiencies) newCtr.deficiencies = [];
           newCtr.deficiencies.push(d);
         }
+      } else {
+        // Moving to Site General
+        if (!proj.generalDeficiencies) proj.generalDeficiencies = [];
+        proj.generalDeficiencies.push(d);
       }
     }
   }
