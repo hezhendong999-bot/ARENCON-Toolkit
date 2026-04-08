@@ -610,10 +610,17 @@ function _openPinEditor(deficId) {
   // Location thumbnail
   var thumb = document.getElementById('pe-location-thumb');
   if (thumb) {
-    var img = document.getElementById('dv-image');
-    if (img && img.src) {
-      thumb.innerHTML = '<img src="' + img.src + '" alt="">' +
-        (d.pinX != null ? '<div style="position:absolute;left:' + (d.pinX * 100) + '%;top:' + (d.pinY * 100) + '%;transform:translate(-50%,-100%);font-size:20px;">📍</div>' : '');
+    var dvImg = document.getElementById('dv-image');
+    if (dvImg && dvImg.src && dvImg.src !== '') {
+      var pinHtml = '';
+      if (d.pinX != null && d.pinY != null) {
+        pinHtml = '<div style="position:absolute;left:' + (d.pinX * 100) + '%;top:' + (d.pinY * 100) + '%;transform:translate(-50%,-100%);z-index:2;">' +
+          '<svg width="24" height="32" viewBox="0 0 32 42"><path d="M16 3C9.4 3 4 8.4 4 15c0 9.5 12 22 12 22s12-12.5 12-22C28 8.4 22.6 3 16 3z" fill="#C0392B"/><circle cx="16" cy="14" r="6" fill="white" opacity="0.9"/></svg>' +
+          '</div>';
+      }
+      thumb.innerHTML = '<img src="' + dvImg.src + '" crossOrigin="anonymous" alt="" style="width:100%;height:100%;object-fit:contain;display:block;">' + pinHtml;
+    } else {
+      thumb.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:13px;">No drawing loaded</div>';
     }
   }
 
