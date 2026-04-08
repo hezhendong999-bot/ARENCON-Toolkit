@@ -222,8 +222,9 @@ var canvasArea = null;
 document.addEventListener('mousedown', function(e) {
   canvasArea = document.getElementById('dv-canvas-area');
   if (!canvasArea || !canvasArea.contains(e.target)) return;
-  // Don't pan when markup tool is active
+  // Don't pan when markup tool is active or pin placement mode
   if (Markup.isActive()) return;
+  if (_pinModeDeficId) return;
   _dragging = true;
   _lastX = e.clientX;
   _lastY = e.clientY;
@@ -318,8 +319,9 @@ document.addEventListener('touchstart', function(e) {
     _touchStartPanX = _panX;
     _touchStartPanY = _panY;
   } else if (e.touches.length === 1) {
-    // Skip single-touch when markup tool is active (markup handles its own touch)
+    // Skip single-touch when markup tool is active or pin placement mode
     if (Markup.isActive()) return;
+    if (_pinModeDeficId) return;
     _singleTouchX = e.touches[0].clientX;
     _singleTouchY = e.touches[0].clientY;
 
@@ -372,8 +374,9 @@ document.addEventListener('touchmove', function(e) {
     _applyTransform();
 
   } else if (e.touches.length === 1 && _scale > _fitScale) {
-    // Single finger pan (only when zoomed in, not when markup active)
+    // Single finger pan (only when zoomed in, not when markup active or pin mode)
     if (Markup.isActive()) return;
+    if (_pinModeDeficId) return;
     e.preventDefault();
     _panX += e.touches[0].clientX - _singleTouchX;
     _panY += e.touches[0].clientY - _singleTouchY;

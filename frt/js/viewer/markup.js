@@ -881,7 +881,7 @@ function _buildToolbar() {
   // Static sidebar in index.html — just set pin as default active
   var sidebar = document.getElementById('dv-sidebar-tools');
   if (sidebar) sidebar.style.display = '';
-  // Default: pin mode (handled by viewer.js), no markup tool active
+  // Default: pan mode (no tool active), markup canvas has pointer-events:none
   _setActiveTool(null);
 }
 
@@ -1237,9 +1237,9 @@ function _wireEvents() {
         e.stopPropagation();
         return;
       }
-      // If any tool active: deselect → back to pin/navigate mode
-      if (_tool && _tool !== 'pin') {
-        _setActiveTool('pin');
+      // If any tool active: deselect → back to pan mode
+      if (_tool) {
+        _setActiveTool(null);
         e.stopPropagation();
         return;
       }
@@ -1352,8 +1352,8 @@ export var Markup = {
     _buildToolbar();
     _wireEvents();
     _loadMarkup(drawingId);
-    // Default to pin tool
-    _setActiveTool('pin');
+    // Default to pan mode (no tool active)
+    _setActiveTool(null);
 
     console.log('[Markup] Initialized for drawing:', drawingId);
   },
