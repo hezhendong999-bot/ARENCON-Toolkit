@@ -1250,8 +1250,13 @@ function _wireEvents() {
       }
     }
 
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); _undo(); return; }
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); _redo(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      if (_undoStack.length) { e.preventDefault(); _undo(); return; }
+      // Fall through to project-level undo
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+      if (_redoStack.length) { e.preventDefault(); _redo(); return; }
+    }
 
     if ((e.key === 'Delete' || e.key === 'Backspace') && _selectedIds.length && _tool === 'select') {
       _objects = _objects.filter(function(o) { return _selectedIds.indexOf(o.id) === -1; });

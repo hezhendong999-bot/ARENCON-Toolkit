@@ -414,11 +414,12 @@ function _renderPins() {
   var ih = img.naturalHeight;
   var allDefics = Model.getAllDeficiencies();
   var pins = allDefics.filter(function(d) { return d.defic.drawingId === drawingId && d.defic.pinX != null; });
-  // Pin size scales with drawing resolution
-  var baseW = 3000;
-  var pinScale = Math.max(0.8, Math.min(2.0, Math.max(iw, ih) / baseW));
-  var pw = Math.round(36 * pinScale);
-  var ph2 = Math.round(48 * pinScale);
+  // Pin size scales proportionally with drawing resolution
+  // Target: pin width = ~1% of drawing width (consistent visual size)
+  var pw = Math.round(Math.max(iw, ih) * 0.01);
+  if (pw < 24) pw = 24;
+  if (pw > 96) pw = 96;
+  var ph2 = Math.round(pw * 42 / 32);
   var html = '';
   pins.forEach(function(d) {
     var px = d.defic.pinX * iw;
@@ -963,7 +964,7 @@ document.addEventListener('click', function(e) {
     var delId = e.target.closest('[data-task-del]').getAttribute('data-task-del');
     var f = Model.findDeficiency(delId);
     var label = f ? '#' + f.defic.num : 'this deficiency';
-    showConfirm('Delete Deficiency', 'Permanently delete deficiency ' + label + '? This cannot be undone.').then(function(yes) {
+    showConfirm('Delete Deficiency', 'Delete deficiency ' + label + '? You can undo with Ctrl+Z.').then(function(yes) {
       if (yes) {
         Model.removeDeficiency(delId);
         Model.saveNow();

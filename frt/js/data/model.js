@@ -12,6 +12,7 @@ import { IDB } from './idb.js';
 var _project = null;
 var _dirty = false;
 var _saveTimer = null;
+var _undoStack = [];
 var _listeners = {};
 var _autoSaveInterval = null;
 
@@ -404,12 +405,48 @@ export var Model = {
   removeDeficiency: function(deficId) {
     var f = this.findDeficiency(deficId);
     if (!f) return false;
+    // Save for undo
+    _undoStack.push({
+      type: 'deleteDefic',
+      defic: JSON.parse(JSON.stringify(f.defic)),
+      contractorId: f.contractor ? f.contractor.id : null
+    });
+    if (_undoStack.length > 20) _undoStack.shift();
     f.arr.splice(f.idx, 1);
     _dirty = true;
     _queueSave();
     this._notify('deficiency', { action: 'remove', deficId: deficId });
     return true;
   },
+
+  undoLast: function() {
+    if (!_undoStack.length || !_project) return null;
+    var entry = _undoStack.pop();
+    if (entry.type === 'deleteDefic') {
+      if (entry.contractorId) {
+        var ctr = (_project.contractors || []).find(function(c) { return c.id === entry.contractorId; });
+        if (ctr) {
+          if (!ctr.deficiencies) ctr.deficiencies = [];
+          ctr.deficiencies.push(entry.defic);
+        } else {
+          // Contractor was deleted — put in general
+          if (!_project.generalDeficiencies) _project.generalDeficiencies = [];
+          _project.generalDeficiencies.push(entry.defic);
+        }
+      } else {
+        if (!_project.generalDeficiencies) _project.generalDeficiencies = [];
+        _project.generalDeficiencies.push(entry.defic);
+      }
+      _dirty = true;
+      _queueSave();
+      this._notify('deficiency', { action: 'undo-delete', defic: entry.defic });
+      console.log('[Model] Undo: restored deficiency #' + entry.defic.num);
+      return entry;
+    }
+    return null;
+  },
+
+  hasUndo: function() { return _undoStack.length > 0; },
 
   toggleIAR: function(deficId) {
     var f = this.findDeficiency(deficId);

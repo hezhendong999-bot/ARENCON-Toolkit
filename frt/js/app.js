@@ -1022,6 +1022,21 @@ function boot() {
   });
 }
 
+// ── Project-level Undo (Ctrl+Z) ─────────────────────────
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    // Skip if markup undo handled it (markup handler runs first and stops propagation)
+    if (!Model.hasUndo()) return;
+    e.preventDefault();
+    var entry = Model.undoLast();
+    if (entry) {
+      toast('Undo: restored deficiency #' + entry.defic.num);
+      // Refresh visible UI
+      if (typeof initDeficiencies !== 'undefined' && initDeficiencies.render) initDeficiencies.render();
+    }
+  }
+});
+
 // ── Start ────────────────────────────────────────────────
 boot();
 
