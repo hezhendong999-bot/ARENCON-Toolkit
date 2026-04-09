@@ -154,9 +154,6 @@ export function showPrompt(title, label, defaultVal) {
 function _createOverlay() {
   var overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9500;display:flex;align-items:center;justify-content:center;';
-  overlay.addEventListener('click', function(e) {
-    if (e.target === overlay) _removeOverlay(overlay);
-  });
   return overlay;
 }
 

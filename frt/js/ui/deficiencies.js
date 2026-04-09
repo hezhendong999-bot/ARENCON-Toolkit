@@ -86,9 +86,13 @@ function _showActivityModal(deficId, label) {
   ov.innerHTML = h;
   document.body.appendChild(ov);
 
-  // Wire B/I buttons
-  ov.querySelector('#am-bold-btn').addEventListener('click', function() { document.execCommand('bold'); });
-  ov.querySelector('#am-italic-btn').addEventListener('click', function() { document.execCommand('italic'); });
+  // Wire B/I buttons (mousedown preventDefault keeps focus on contenteditable)
+  var boldBtn = ov.querySelector('#am-bold-btn');
+  var italicBtn = ov.querySelector('#am-italic-btn');
+  boldBtn.addEventListener('mousedown', function(e) { e.preventDefault(); });
+  italicBtn.addEventListener('mousedown', function(e) { e.preventDefault(); });
+  boldBtn.addEventListener('click', function() { document.execCommand('bold'); });
+  italicBtn.addEventListener('click', function() { document.execCommand('italic'); });
 
   // Wire photo zone drop
   var zone = ov.querySelector('#am-photo-zone');
@@ -114,7 +118,6 @@ function _showActivityModal(deficId, label) {
   ov.querySelector('#am-upload-btn').addEventListener('click', function(ev) { ev.stopPropagation(); _amFileInput(false); });
 
   ov.querySelector('#am-cancel').addEventListener('click', function() { _activityModalPhotos = []; ov.remove(); });
-  ov.addEventListener('click', function(ev) { if (ev.target === ov) { _activityModalPhotos = []; ov.remove(); } });
 
   ov.querySelector('#am-save').addEventListener('click', function() {
     var editor = ov.querySelector('#am-text');
@@ -751,7 +754,6 @@ document.addEventListener('click', function(e) {
       toast('Deficiency moved');
     });
     ov2.querySelector('#reassign-cancel').addEventListener('click', function() { ov2.remove(); });
-    ov2.addEventListener('click', function(ev) { if (ev.target === ov2) ov2.remove(); });
   }
 
   if (action === 'toggle-iar') {
