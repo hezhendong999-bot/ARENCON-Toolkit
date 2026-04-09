@@ -29,9 +29,9 @@ import { AIUsage } from './ai/usage.js';
 // ── Constants ────────────────────────────────────────────
 var LS_DARK = 'arencon-frt-dark';
 var LS_TEXT_SIZE = 'arencon-text-size';
-var TEXT_SIZES = ['S', 'M'];
-var TEXT_CLASSES = { S: '', M: 'text-m' };
-var TEXT_LABELS = { S: 'Small', M: 'Medium' };
+var TEXT_SIZES = ['S', 'L'];
+var TEXT_CLASSES = { S: 'text-m', L: 'text-l' };
+var TEXT_LABELS = { S: 'Small', L: 'Large' };
 
 // ── State ────────────────────────────────────────────────
 var _currentTab = 'info';
@@ -132,7 +132,7 @@ function cycleTextSize() {
 }
 
 function applyTextSize(size) {
-  if (TEXT_SIZES.indexOf(size) < 0) size = 'M';
+  if (TEXT_SIZES.indexOf(size) < 0) size = 'S';
   document.body.classList.remove('text-m', 'text-l');
   var cls = TEXT_CLASSES[size];
   if (cls) document.body.classList.add(cls);
@@ -143,7 +143,7 @@ function applyTextSize(size) {
 }
 
 function restoreTextSize() {
-  applyTextSize(localStorage.getItem(LS_TEXT_SIZE) || 'M');
+  applyTextSize(localStorage.getItem(LS_TEXT_SIZE) || 'S');
 }
 
 // ── Mobile Menu ──────────────────────────────────────────
@@ -873,30 +873,30 @@ function _openPDFPicker() {
     ctrOpts += '<option value="__general__">Site General Only</option>';
   }
 
-  var h = '<div id="pdf-picker-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';
-  h += '<div style="background:white;border-radius:12px;padding:24px 32px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:340px;max-width:440px;">';
-  h += '<div style="font-size:18px;font-weight:700;color:#1C2333;margin-bottom:16px;">Export PDF Report</div>';
+  var h = '<div id="pdf-picker-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';
+  h += '<div style="background:var(--bg,white);border-radius:12px;padding:24px 32px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:340px;max-width:440px;color:var(--fg,#1B2438);">';
+  h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Export PDF Report</div>';
 
   // Report type
-  h += '<div style="margin-bottom:14px;"><label style="font-weight:600;font-size:13px;color:#4A5568;display:block;margin-bottom:4px;">Report Type</label>';
-  h += '<select id="pdf-type" style="width:100%;padding:8px;border:1.5px solid #DDE1E7;border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;">';
+  h += '<div style="margin-bottom:14px;"><label style="font-weight:600;font-size:13px;color:var(--steel,#4A5568);display:block;margin-bottom:4px;">Report Type</label>';
+  h += '<select id="pdf-type" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;background:var(--bg,white);color:var(--fg);">';
   h += '<option value="field">Field Review Report (with drawings)</option>';
   h += '<option value="plain">Deficiency Report (no drawings)</option>';
   h += '</select></div>';
 
   // Contractor filter
-  h += '<div style="margin-bottom:14px;"><label style="font-weight:600;font-size:13px;color:#4A5568;display:block;margin-bottom:4px;">Contractor Filter</label>';
-  h += '<select id="pdf-ctr-filter" style="width:100%;padding:8px;border:1.5px solid #DDE1E7;border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;">' + ctrOpts + '</select></div>';
+  h += '<div style="margin-bottom:14px;"><label style="font-weight:600;font-size:13px;color:var(--steel,#4A5568);display:block;margin-bottom:4px;">Contractor Filter</label>';
+  h += '<select id="pdf-ctr-filter" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;background:var(--bg,white);color:var(--fg);">' + ctrOpts + '</select></div>';
 
   // Checkboxes
-  h += '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#1C2333;cursor:pointer;">';
+  h += '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">';
   h += '<input type="checkbox" id="pdf-final-comm"> Final Commissioning (suppress future note)</label></div>';
-  h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#1C2333;cursor:pointer;">';
+  h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">';
   h += '<input type="checkbox" id="pdf-show-closed" checked> Include Closed Items Summary</label></div>';
 
   // Buttons
   h += '<div style="display:flex;gap:8px;justify-content:flex-end;">';
-  h += '<button id="pdf-cancel" style="padding:8px 20px;background:#F5F5F5;color:#4A5568;border:1px solid #DDE1E7;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
+  h += '<button id="pdf-cancel" style="padding:8px 20px;background:var(--bg,white);color:var(--fg);border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
   h += '<button id="pdf-go" style="padding:8px 24px;background:#1A237E;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">\uD83D\uDCC4 Generate PDF</button>';
   h += '</div></div></div>';
 
@@ -907,7 +907,6 @@ function _openPDFPicker() {
 
   // Wire buttons
   overlay.querySelector('#pdf-cancel').addEventListener('click', function() { overlay.remove(); });
-  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
   overlay.querySelector('#pdf-go').addEventListener('click', function() {
     var type = document.getElementById('pdf-type').value;
     var ctrFilter = document.getElementById('pdf-ctr-filter').value;

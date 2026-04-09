@@ -237,18 +237,15 @@ document.addEventListener('click', function(e) {
     initViewer.next();
   }
 
-  // Double-click title to rename drawing (modal)
-  if (e.target.id === 'dv-title' || (e.target.closest && e.target.closest('#dv-title'))) {
-    // Handled by dblclick listener below
-  }
+  // Pencil button opens rename modal (handled below)
 });
 
-// Drawing title double-click → rename modal
-document.addEventListener('dblclick', function(e) {
-  var titleEl = e.target.id === 'dv-title' ? e.target : (e.target.closest && e.target.closest('#dv-title'));
-  if (!titleEl) return;
+// Drawing rename pencil button → modal
+document.addEventListener('click', function(e) {
+  if (!e.target.closest || !e.target.closest('#dv-rename-btn')) return;
   var overlay = document.getElementById('drawing-viewer-overlay');
   if (!overlay || !overlay.classList.contains('open')) return;
+  var titleEl = document.getElementById('dv-title');
   var drawings = _getDrawingsList();
   if (_currentDrawingIdx < 0 || _currentDrawingIdx >= drawings.length) return;
   var d = drawings[_currentDrawingIdx];
