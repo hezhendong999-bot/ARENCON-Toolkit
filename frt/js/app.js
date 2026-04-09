@@ -578,22 +578,9 @@ function _updateHeaderForProject() {
     var parsed = _parseRevision(rev);
     var st = parsed.issued ? (parsed.hasSuffix ? 'REVISION' : 'ISSUED') : 'DRAFT';
     pbBadge.textContent = st;
-    var colors = { DRAFT: '#6B7280', ISSUED: '#1A7A4A', REVISION: '#E67E22' };
-    pbBadge.style.background = colors[st] || '#6B7280';
+    var colors = { DRAFT: '#E67E22', ISSUED: '#1A7A4A', REVISION: '#E67E22' };
+    pbBadge.style.background = colors[st] || '#E67E22';
     pbBadge.style.cursor = 'pointer';
-  }
-
-  // Update issue status badge in header
-  var isb = document.getElementById('issue-status-badge');
-  if (isb) {
-    var rev2 = (proj.info && proj.info.revision) || 'A01';
-    var parsed2 = _parseRevision(rev2);
-    var st2 = parsed2.issued ? (parsed2.hasSuffix ? 'REVISION' : 'ISSUED') : 'DRAFT';
-    isb.textContent = st2;
-    var colors2 = { DRAFT: '#6B7280', ISSUED: '#1A7A4A', REVISION: '#E67E22' };
-    isb.style.background = colors2[st2] || '#6B7280';
-    isb.style.display = 'inline-block';
-    isb.style.cursor = 'pointer';
   }
 
   // Toggle header buttons: hide dashboard, show project
@@ -1223,8 +1210,6 @@ function _syncIssueStatus(status) {
 (function() {
   var btnIssue = document.getElementById('btn-issue');
   if (btnIssue) btnIssue.addEventListener('click', _issueReport);
-  var isb = document.getElementById('issue-status-badge');
-  if (isb) isb.addEventListener('click', _issueReport);
   var pbBadge = document.getElementById('pb-badge');
   if (pbBadge) pbBadge.addEventListener('click', _issueReport);
 })();

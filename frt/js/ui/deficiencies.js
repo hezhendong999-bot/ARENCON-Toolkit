@@ -63,13 +63,9 @@ function _showActivityModal(deficId, label) {
   // Date
   h += '<div style="margin-bottom:12px;"><label class="defic-label" style="display:block;font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel,#4A5568);margin-bottom:3px;">Date</label>';
   h += '<input type="date" id="am-date" value="' + new Date().toISOString().split('T')[0] + '" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;"></div>';
-  // Comment with B/I formatting
+  // Comment
   h += '<div style="margin-bottom:12px;"><label class="defic-label" style="display:block;font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel,#4A5568);margin-bottom:3px;">Comment</label>';
-  h += '<div style="display:flex;gap:4px;margin-bottom:4px;">';
-  h += '<button id="am-bold-btn" style="padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg,white);cursor:pointer;font-weight:900;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));color:var(--fg);">B</button>';
-  h += '<button id="am-italic-btn" style="padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg,white);cursor:pointer;font-style:italic;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));color:var(--fg);">I</button>';
-  h += '</div>';
-  h += '<div id="am-text" contenteditable="true" style="width:100%;min-height:80px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;outline:none;line-height:1.5;"></div></div>';
+  h += '<textarea id="am-text" rows="4" placeholder="Enter response or comment..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));resize:vertical;box-sizing:border-box;background:var(--bg,white);color:var(--fg);outline:none;line-height:1.5;"></textarea></div>';
   // Photos
   h += '<div style="margin-bottom:12px;"><label class="defic-label" style="display:block;font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel,#4A5568);margin-bottom:3px;">Photos (optional)</label>';
   h += '<div id="am-photo-thumbs" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;"></div>';
@@ -85,14 +81,6 @@ function _showActivityModal(deficId, label) {
 
   ov.innerHTML = h;
   document.body.appendChild(ov);
-
-  // Wire B/I buttons (mousedown preventDefault keeps focus on contenteditable)
-  var boldBtn = ov.querySelector('#am-bold-btn');
-  var italicBtn = ov.querySelector('#am-italic-btn');
-  boldBtn.addEventListener('mousedown', function(e) { e.preventDefault(); });
-  italicBtn.addEventListener('mousedown', function(e) { e.preventDefault(); });
-  boldBtn.addEventListener('click', function() { document.execCommand('bold'); });
-  italicBtn.addEventListener('click', function() { document.execCommand('italic'); });
 
   // Wire photo zone drop
   var zone = ov.querySelector('#am-photo-zone');
@@ -120,18 +108,16 @@ function _showActivityModal(deficId, label) {
   ov.querySelector('#am-cancel').addEventListener('click', function() { _activityModalPhotos = []; ov.remove(); });
 
   ov.querySelector('#am-save').addEventListener('click', function() {
-    var editor = ov.querySelector('#am-text');
-    var text = editor ? (editor.innerText || '').trim() : '';
-    var htmlText = editor ? editor.innerHTML : '';
+    var textEl = ov.querySelector('#am-text');
+    var text = textEl ? (textEl.value || '').trim() : '';
     var date = ov.querySelector('#am-date').value || new Date().toISOString().split('T')[0];
     var obsRefEl = ov.querySelector('#am-obs-ref');
     var obsRef = obsRefEl ? obsRefEl.value || null : null;
-    if (!text && !_activityModalPhotos.length) { toast('Enter a comment or add photos'); return; }
+    if (!text && !_activityModalPhotos.length) { toast('Enter a comment or add photos'); return;  }
 
     var entry = Model.addActivityEntry(deficId, label, text || '\u2014', obsRef);
     if (entry) {
       entry.date = date;
-      if (htmlText && htmlText !== text) entry.htmlText = htmlText;
       if (_activityModalPhotos.length) {
         entry.photos = _activityModalPhotos.map(function(p) { return { id: p.id, dataUrl: p.dataUrl, filename: p.filename }; });
       }
