@@ -701,12 +701,7 @@ function _handleSelectDown(e) {
 
   var hit = _hitTestObjects(pos);
   if (hit) {
-    // Text object: re-open for editing
-    if (hit.type === 'text') {
-      _editTextObject(hit, e);
-      return;
-    }
-    // Clicked an object
+    // Clicked an object — select it for move (including text)
     if (_selectedIds.indexOf(hit.id) !== -1) {
       // Already selected — start dragging the group
       _dragState = { type: 'move', startX: pos.x, startY: pos.y, moved: false };
@@ -1398,10 +1393,19 @@ function _wireEvents() {
     _endDraw(e);
   });
 
-  // Double-click finishes polyline
-  mc.addEventListener('dblclick', function() {
+  // Double-click: finishes polyline OR edits text object
+  mc.addEventListener('dblclick', function(e) {
     if (_tool === 'polyline' && _polyPoints.length >= 2) {
       _finishPolyline();
+      return;
+    }
+    // Double-click on text object with selector → edit it
+    if (_tool === 'select') {
+      var pos = _getPos(e);
+      var hit = _hitTestObjects(pos);
+      if (hit && hit.type === 'text') {
+        _editTextObject(hit, e);
+      }
     }
   });
 

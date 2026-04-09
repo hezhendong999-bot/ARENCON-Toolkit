@@ -424,6 +424,8 @@ document.addEventListener('touchend', function(e) {
 var _pinModeDeficId = null;
 
 function _renderPins() {
+  // Don't rebuild during active drag (would destroy marker reference)
+  if (_pinDragging || _pinMouseDragging) return;
   var layer = document.getElementById('dv-pins-layer');
   if (!layer) return;
   var drawings = _getDrawingsList();
@@ -873,10 +875,10 @@ document.addEventListener('touchmove', function(e) {
   var rect = area.getBoundingClientRect();
   var wrap = document.getElementById('dv-img-wrap');
   if (!wrap) return;
-  // Convert screen position to image-relative
+  // Convert screen position to image-relative (account for scale transform)
   var wRect = wrap.getBoundingClientRect();
-  var px = touch.clientX - wRect.left;
-  var py = touch.clientY - wRect.top;
+  var px = (touch.clientX - wRect.left) / _scale;
+  var py = (touch.clientY - wRect.top) / _scale;
   _pinDragMarker.style.left = px + 'px';
   _pinDragMarker.style.top = py + 'px';
 }, { passive: false });
@@ -936,15 +938,12 @@ document.addEventListener('mousedown', function(e) {
   _pinMouseStartX = e.clientX;
   _pinMouseStartY = e.clientY;
 
-  // Selector tool: instant drag on mousedown (no long-press needed)
+  // Selector tool: start drag after small movement threshold (not instant)
   if (Markup.getTool() === 'select') {
-    _pinMouseDragging = true;
     _pinMouseDragDeficId = deficId;
     _pinMouseDragMarker = marker;
-    marker.classList.add('dragging');
-    var area = document.getElementById('dv-canvas-area');
-    if (area) area.classList.add('pin-drag-mode');
     e.preventDefault();
+    e.stopPropagation();
     return;
   }
 
@@ -957,14 +956,22 @@ document.addEventListener('mousedown', function(e) {
     var area = document.getElementById('dv-canvas-area');
     if (area) area.classList.add('pin-drag-mode');
   }, 400);
-});
+}, true); // Use capture phase
 
 document.addEventListener('mousemove', function(e) {
   if (_pinMouseLongPress && !_pinMouseDragging) {
-    // Cancel long-press if mouse moves > 5px
     if (Math.abs(e.clientX - _pinMouseStartX) > 5 || Math.abs(e.clientY - _pinMouseStartY) > 5) {
       clearTimeout(_pinMouseLongPress);
       _pinMouseLongPress = null;
+    }
+  }
+  // For selector mode: activate dragging after 4px threshold
+  if (!_pinMouseDragging && _pinMouseDragDeficId && _pinMouseDragMarker) {
+    if (Math.abs(e.clientX - _pinMouseStartX) > 4 || Math.abs(e.clientY - _pinMouseStartY) > 4) {
+      _pinMouseDragging = true;
+      _pinMouseDragMarker.classList.add('dragging');
+      var area = document.getElementById('dv-canvas-area');
+      if (area) area.classList.add('pin-drag-mode');
     }
   }
   if (!_pinMouseDragging || !_pinMouseDragMarker) return;
@@ -972,14 +979,23 @@ document.addEventListener('mousemove', function(e) {
   var wrap = document.getElementById('dv-img-wrap');
   if (!wrap) return;
   var wRect = wrap.getBoundingClientRect();
-  var px = e.clientX - wRect.left;
-  var py = e.clientY - wRect.top;
+  // Convert screen coords to wrap's internal coordinate space (divide by scale)
+  var px = (e.clientX - wRect.left) / _scale;
+  var py = (e.clientY - wRect.top) / _scale;
   _pinMouseDragMarker.style.left = px + 'px';
   _pinMouseDragMarker.style.top = py + 'px';
 });
 
 document.addEventListener('mouseup', function(e) {
   if (_pinMouseLongPress) { clearTimeout(_pinMouseLongPress); _pinMouseLongPress = null; }
+
+  // If selector mode started but drag never activated (no movement), just select pin visually
+  if (_pinMouseDragDeficId && !_pinMouseDragging) {
+    _pinMouseDragDeficId = null;
+    _pinMouseDragMarker = null;
+    return;
+  }
+
   if (!_pinMouseDragging || !_pinMouseDragDeficId) return;
 
   var area = document.getElementById('dv-canvas-area');
