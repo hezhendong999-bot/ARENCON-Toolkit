@@ -346,7 +346,9 @@ function ensurePdfJs(cb){
 <div class="drawing-viewer-overlay" id="drawing-viewer-overlay">
   <div class="dv-toolbar" id="dv-toolbar">
     <button id="dv-close" class="dv-close-btn" title="Close viewer">← Close</button>
-    <span class="dv-title" id="dv-title"></span>
+    <button class="dv-nav-btn" id="dv-prev" title="Previous drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">◀</button>
+    <button class="dv-nav-btn" id="dv-next" title="Next drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">▶</button>
+    <span class="dv-title" id="dv-title" title="Click to rename" style="cursor:text;"></span>
     <!-- Layers -->
     <div style="position:relative;display:inline-block;">
       <button id="dv-layers-btn" title="Layers">≡ Layers</button>
@@ -504,11 +506,6 @@ function ensurePdfJs(cb){
       </div>
       <!-- Inline text input for text tool -->
       <textarea id="mk-text-input" class="mk-text-input" style="display:none;" placeholder="Type here..."></textarea>
-      <!-- Nav buttons bottom-left -->
-      <div class="dv-nav-controls" id="dv-nav-controls">
-        <button class="dv-nav-btn" id="dv-prev" title="Previous drawing">◀</button>
-        <button class="dv-nav-btn" id="dv-next" title="Next drawing">▶</button>
-      </div>
       <div class="zoom-controls" id="zoom-controls">
         <button data-zoom="in" title="Zoom in">+</button>
         <button data-zoom="out" title="Zoom out">−</button>

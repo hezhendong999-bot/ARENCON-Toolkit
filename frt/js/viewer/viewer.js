@@ -236,6 +236,41 @@ document.addEventListener('click', function(e) {
   if (e.target.id === 'dv-next' || (e.target.closest && e.target.closest('#dv-next'))) {
     initViewer.next();
   }
+
+  // Click title to rename drawing
+  if (e.target.id === 'dv-title' || (e.target.closest && e.target.closest('#dv-title'))) {
+    var titleEl = document.getElementById('dv-title');
+    if (!titleEl || titleEl.querySelector('input')) return; // already editing
+    var drawings = _getDrawingsList();
+    if (_currentDrawingIdx < 0 || _currentDrawingIdx >= drawings.length) return;
+    var d = drawings[_currentDrawingIdx];
+    var oldName = d.name || '';
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.value = oldName;
+    inp.style.cssText = 'background:rgba(255,255,255,.15);border:1.5px solid #2196F3;border-radius:4px;color:white;font-family:Calibri,sans-serif;font-size:inherit;padding:2px 8px;width:280px;max-width:60vw;outline:none;';
+    titleEl.textContent = '';
+    titleEl.appendChild(inp);
+    inp.focus();
+    inp.select();
+    var committed = false;
+    function _commitRename() {
+      if (committed) return;
+      committed = true;
+      var newName = inp.value.trim();
+      if (newName && newName !== oldName) {
+        d.name = newName;
+        Model.saveNow();
+      }
+      titleEl.textContent = d.name || 'Drawing ' + (_currentDrawingIdx + 1);
+    }
+    inp.addEventListener('blur', function() { setTimeout(_commitRename, 100); });
+    inp.addEventListener('keydown', function(ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); _commitRename(); }
+      if (ev.key === 'Escape') { committed = true; titleEl.textContent = oldName || 'Drawing ' + (_currentDrawingIdx + 1); }
+      ev.stopPropagation();
+    });
+  }
 });
 
 // Pan: mouse drag

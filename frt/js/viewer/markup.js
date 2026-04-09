@@ -287,6 +287,13 @@ function _drawObject(ctx, obj) {
     return;
   }
   else if (t === 'text') {
+    // Apply rotation if present
+    if (obj.rotation) {
+      var tcx = obj.x1, tcy = obj.y1 - (obj.fontSize || 20) / 2;
+      ctx.translate(tcx, tcy);
+      ctx.rotate(obj.rotation);
+      ctx.translate(-tcx, -tcy);
+    }
     ctx.font = (obj.bold ? '700 ' : '400 ') + (obj.fontSize || 20) + 'px Calibri,sans-serif';
     ctx.fillText(obj.text || '', obj.x1, obj.y1);
   }
@@ -307,6 +314,13 @@ function _drawObject(ctx, obj) {
     ctx.stroke();
   }
   else {
+    // Apply rotation for shapes if present
+    if (obj.rotation) {
+      var scx = (obj.x1 + obj.x2) / 2, scy = (obj.y1 + obj.y2) / 2;
+      ctx.translate(scx, scy);
+      ctx.rotate(obj.rotation);
+      ctx.translate(-scx, -scy);
+    }
     _drawShapeObj(ctx, t, obj.x1, obj.y1, obj.x2, obj.y2);
   }
   ctx.restore();
@@ -939,12 +953,19 @@ function _handleSelectMove(e) {
       if (!obj) return;
       function rot(px, py) { return { x: cx + (px - cx) * cosA - (py - cy) * sinA, y: cy + (px - cx) * sinA + (py - cy) * cosA }; }
       if (orig.points) {
+        // Point-based objects: rotate actual coordinates (pen, highlight, polyline, eraser)
         obj.points = orig.points.map(function(p) { return rot(p.x, p.y); });
-      }
-      if (orig.x1 != null) {
-        var r1 = rot(orig.x1, orig.y1);
-        obj.x1 = r1.x; obj.y1 = r1.y;
-        if (orig.x2 != null) { var r2 = rot(orig.x2, orig.y2); obj.x2 = r2.x; obj.y2 = r2.y; }
+      } else if (orig.x1 != null) {
+        // Shape objects: store rotation angle, keep coordinates unchanged
+        // Rotate center position around the group center
+        var origCx = ((orig.x1 || 0) + (orig.x2 || 0)) / 2;
+        var origCy = ((orig.y1 || 0) + (orig.y2 || 0)) / 2;
+        var newC = rot(origCx, origCy);
+        var hw = Math.abs((orig.x2 || 0) - (orig.x1 || 0)) / 2;
+        var hh = Math.abs((orig.y2 || 0) - (orig.y1 || 0)) / 2;
+        obj.x1 = newC.x - hw; obj.y1 = newC.y - hh;
+        obj.x2 = newC.x + hw; obj.y2 = newC.y + hh;
+        obj.rotation = (orig.rotation || 0) + dAngle;
       }
     });
     _renderAll();
