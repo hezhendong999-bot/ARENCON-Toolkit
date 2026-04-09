@@ -843,11 +843,29 @@ var _pinDragging = false;
 var _pinDragDeficId = null;
 var _pinLongPressTimer = null;
 var _pinDragMarker = null;
+var _pinTouchOffsetX = 0;
+var _pinTouchOffsetY = 0;
+var _pinTouchStartX = 0;
+var _pinTouchStartY = 0;
 
 document.addEventListener('touchstart', function(e) {
   var marker = e.target.closest && e.target.closest('.pin-marker[data-defic-id]');
   if (!marker || _pinModeDeficId) return;
   var deficId = marker.getAttribute('data-defic-id');
+  var touch = e.touches[0];
+  if (touch) {
+    _pinTouchStartX = touch.clientX;
+    _pinTouchStartY = touch.clientY;
+    // Pre-calculate offset
+    var wrap = document.getElementById('dv-img-wrap');
+    if (wrap) {
+      var wRect = wrap.getBoundingClientRect();
+      var cx = (touch.clientX - wRect.left) / _scale;
+      var cy = (touch.clientY - wRect.top) / _scale;
+      _pinTouchOffsetX = parseFloat(marker.style.left || 0) - cx;
+      _pinTouchOffsetY = parseFloat(marker.style.top || 0) - cy;
+    }
+  }
   _pinLongPressTimer = setTimeout(function() {
     _pinDragging = true;
     _pinDragDeficId = deficId;
@@ -861,7 +879,6 @@ document.addEventListener('touchstart', function(e) {
 
 document.addEventListener('touchmove', function(e) {
   if (_pinLongPressTimer && !_pinDragging) {
-    // Cancel long-press if finger moves
     clearTimeout(_pinLongPressTimer);
     _pinLongPressTimer = null;
   }
@@ -869,16 +886,11 @@ document.addEventListener('touchmove', function(e) {
   e.preventDefault();
   var touch = e.touches[0];
   if (!touch) return;
-  // Move the marker visually (follow finger)
-  var area = document.getElementById('dv-canvas-area');
-  if (!area) return;
-  var rect = area.getBoundingClientRect();
   var wrap = document.getElementById('dv-img-wrap');
   if (!wrap) return;
-  // Convert screen position to image-relative (account for scale transform)
   var wRect = wrap.getBoundingClientRect();
-  var px = (touch.clientX - wRect.left) / _scale;
-  var py = (touch.clientY - wRect.top) / _scale;
+  var px = (touch.clientX - wRect.left) / _scale + _pinTouchOffsetX;
+  var py = (touch.clientY - wRect.top) / _scale + _pinTouchOffsetY;
   _pinDragMarker.style.left = px + 'px';
   _pinDragMarker.style.top = py + 'px';
 }, { passive: false });
@@ -891,17 +903,16 @@ document.addEventListener('touchend', function(e) {
   if (area) area.classList.remove('pin-drag-mode');
   if (_pinDragMarker) _pinDragMarker.classList.remove('dragging');
 
-  // Calculate final position
   var touch = (e.changedTouches && e.changedTouches[0]) || null;
   if (touch) {
     var img = document.getElementById('dv-image');
     var wrap = document.getElementById('dv-img-wrap');
     if (img && wrap && img.naturalWidth) {
       var wRect = wrap.getBoundingClientRect();
-      var px = (touch.clientX - wRect.left) / _scale;
-      var py = (touch.clientY - wRect.top) / _scale;
-      var pinX = Math.max(0, Math.min(1, px / img.naturalWidth));
-      var pinY = Math.max(0, Math.min(1, py / img.naturalHeight));
+      var finalLeft = (touch.clientX - wRect.left) / _scale + _pinTouchOffsetX;
+      var finalTop = (touch.clientY - wRect.top) / _scale + _pinTouchOffsetY;
+      var pinX = Math.max(0, Math.min(1, finalLeft / img.naturalWidth));
+      var pinY = Math.max(0, Math.min(1, finalTop / img.naturalHeight));
       var f = Model.findDeficiency(_pinDragDeficId);
       if (f) {
         f.defic.pinX = pinX;
@@ -927,6 +938,8 @@ var _pinMouseDragDeficId = null;
 var _pinMouseDragMarker = null;
 var _pinMouseStartX = 0;
 var _pinMouseStartY = 0;
+var _pinMouseOffsetX = 0; // Offset from cursor to marker left (prevents jump)
+var _pinMouseOffsetY = 0;
 
 document.addEventListener('mousedown', function(e) {
   if (e.button !== 0) return;
@@ -937,6 +950,16 @@ document.addEventListener('mousedown', function(e) {
   var deficId = marker.getAttribute('data-defic-id');
   _pinMouseStartX = e.clientX;
   _pinMouseStartY = e.clientY;
+
+  // Pre-calculate offset between cursor and marker's current position
+  var wrap = document.getElementById('dv-img-wrap');
+  if (wrap) {
+    var wRect = wrap.getBoundingClientRect();
+    var cursorInWrap_X = (e.clientX - wRect.left) / _scale;
+    var cursorInWrap_Y = (e.clientY - wRect.top) / _scale;
+    _pinMouseOffsetX = parseFloat(marker.style.left || 0) - cursorInWrap_X;
+    _pinMouseOffsetY = parseFloat(marker.style.top || 0) - cursorInWrap_Y;
+  }
 
   // Selector tool: start drag after small movement threshold (not instant)
   if (Markup.getTool() === 'select') {
@@ -979,9 +1002,9 @@ document.addEventListener('mousemove', function(e) {
   var wrap = document.getElementById('dv-img-wrap');
   if (!wrap) return;
   var wRect = wrap.getBoundingClientRect();
-  // Convert screen coords to wrap's internal coordinate space (divide by scale)
-  var px = (e.clientX - wRect.left) / _scale;
-  var py = (e.clientY - wRect.top) / _scale;
+  // Apply stored offset so pin doesn't jump on first move
+  var px = (e.clientX - wRect.left) / _scale + _pinMouseOffsetX;
+  var py = (e.clientY - wRect.top) / _scale + _pinMouseOffsetY;
   _pinMouseDragMarker.style.left = px + 'px';
   _pinMouseDragMarker.style.top = py + 'px';
 });
@@ -1002,15 +1025,15 @@ document.addEventListener('mouseup', function(e) {
   if (area) area.classList.remove('pin-drag-mode');
   if (_pinMouseDragMarker) _pinMouseDragMarker.classList.remove('dragging');
 
-  // Calculate final position
+  // Calculate final position (include offset for accurate placement)
   var img = document.getElementById('dv-image');
   var wrap = document.getElementById('dv-img-wrap');
   if (img && wrap && img.naturalWidth) {
     var wRect = wrap.getBoundingClientRect();
-    var px = (e.clientX - wRect.left) / _scale;
-    var py = (e.clientY - wRect.top) / _scale;
-    var pinX = Math.max(0, Math.min(1, px / img.naturalWidth));
-    var pinY = Math.max(0, Math.min(1, py / img.naturalHeight));
+    var finalLeft = (e.clientX - wRect.left) / _scale + _pinMouseOffsetX;
+    var finalTop = (e.clientY - wRect.top) / _scale + _pinMouseOffsetY;
+    var pinX = Math.max(0, Math.min(1, finalLeft / img.naturalWidth));
+    var pinY = Math.max(0, Math.min(1, finalTop / img.naturalHeight));
     var f = Model.findDeficiency(_pinMouseDragDeficId);
     if (f) {
       f.defic.pinX = pinX;
