@@ -120,7 +120,7 @@ export function showPrompt(title, label, defaultVal) {
     okBtn.addEventListener('click', function() {
       var val = inp.value.trim();
       _removeOverlay(overlay);
-      resolve(val || null);
+      resolve(val); // empty string = OK with no text, null = cancel only
     });
 
     var cancelBtn = document.createElement('button');

@@ -720,14 +720,14 @@ document.addEventListener('click', function(e) {
         opts += '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>';
       }
     });
-    // Build custom overlay
-    var h2 = '<div id="reassign-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';
-    h2 += '<div style="background:white;border-radius:12px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:280px;max-width:380px;">';
+    // Build custom overlay (theme-aware)
+    var h2 = '<div id="reassign-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';
+    h2 += '<div style="background:var(--bg,white);border-radius:12px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:280px;max-width:380px;color:var(--fg,#1B2438);">';
     h2 += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Move #' + f.defic.num + ' to:</div>';
-    h2 += '<select id="reassign-sel" style="width:100%;padding:8px;border:1.5px solid #DDE1E7;border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;margin-bottom:12px;">' + opts + '</select>';
-    h2 += '<div style="display:flex;gap:8px;">';
-    h2 += '<button id="reassign-ok" style="flex:1;padding:8px;background:#F59E0B;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Move</button>';
-    h2 += '<button id="reassign-cancel" style="padding:8px 16px;background:#f5f5f5;color:#4A5568;border:1px solid #DDE1E7;border-radius:6px;font-size:14px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
+    h2 += '<select id="reassign-sel" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;margin-bottom:12px;background:var(--bg,white);color:var(--fg);">' + opts + '</select>';
+    h2 += '<div style="display:flex;gap:8px;justify-content:flex-end;">';
+    h2 += '<button id="reassign-cancel" style="padding:8px 16px;background:var(--bg,white);color:var(--fg);border:1.5px solid var(--border);border-radius:6px;font-size:14px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
+    h2 += '<button id="reassign-ok" style="padding:8px 20px;background:#9C2742;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Move</button>';
     h2 += '</div></div></div>';
     var d2 = document.createElement('div'); d2.innerHTML = h2;
     var ov2 = d2.firstChild; document.body.appendChild(ov2);
@@ -837,7 +837,59 @@ document.addEventListener('change', function(e) {
 
   if (action === 'priority') {
     var deficId = e.target.getAttribute('data-defic-id');
-    Model.updateDeficPriority(deficId, e.target.value);
+    var newPri = e.target.value;
+    Model.updateDeficPriority(deficId, newPri);
+    var f = Model.findDeficiency(deficId);
+    if (f) {
+      var hasCtr = !!(f.contractor);
+      // Priority "general" + has contractor → auto-move to Site General
+      if (newPri === 'general' && hasCtr) {
+        Model.reassignDeficiency(deficId, null);
+        _activeDlcTab = 'general';
+        document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
+          t.classList.toggle('active', t.getAttribute('data-dlc') === 'general');
+        });
+        initDeficiencies.render();
+        toast('#' + f.defic.num + ' moved to Site General');
+        return;
+      }
+      // Priority "high"/"low" + no contractor → prompt to assign contractor
+      if (newPri !== 'general' && !hasCtr) {
+        var proj = Model.getProject();
+        var ctrs = proj.contractors || [];
+        if (ctrs.length) {
+          // Show quick reassign modal
+          var opts = '';
+          ctrs.forEach(function(c) { opts += '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>'; });
+          var h2 = '<div id="reassign-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';
+          h2 += '<div style="background:var(--bg,white);border-radius:12px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:280px;max-width:380px;color:var(--fg,#1B2438);">';
+          h2 += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Assign #' + f.defic.num + ' to contractor:</div>';
+          h2 += '<select id="reassign-sel" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;margin-bottom:12px;background:var(--bg,white);color:var(--fg);">' + opts + '</select>';
+          h2 += '<div style="display:flex;gap:8px;justify-content:flex-end;">';
+          h2 += '<button id="reassign-cancel" style="padding:8px 16px;background:var(--bg,white);color:var(--fg);border:1.5px solid var(--border);border-radius:6px;font-size:14px;cursor:pointer;font-family:Calibri,sans-serif;">Keep in General</button>';
+          h2 += '<button id="reassign-ok" style="padding:8px 20px;background:#9C2742;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Assign</button>';
+          h2 += '</div></div></div>';
+          var d2 = document.createElement('div'); d2.innerHTML = h2;
+          var ov2 = d2.firstChild; document.body.appendChild(ov2);
+          ov2.querySelector('#reassign-ok').addEventListener('click', function() {
+            var newCtrId = ov2.querySelector('#reassign-sel').value || null;
+            if (newCtrId) {
+              Model.reassignDeficiency(deficId, newCtrId);
+              _activeDlcTab = 'active';
+              document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
+                t.classList.toggle('active', t.getAttribute('data-dlc') === 'active');
+              });
+            }
+            ov2.remove();
+            initDeficiencies.render();
+            toast('#' + f.defic.num + ' assigned');
+          });
+          ov2.querySelector('#reassign-cancel').addEventListener('click', function() { ov2.remove(); initDeficiencies.render(); });
+          return;
+        }
+      }
+    }
+    initDeficiencies.render();
   }
 });
 
