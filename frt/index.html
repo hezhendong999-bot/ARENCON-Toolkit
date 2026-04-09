@@ -150,7 +150,7 @@ function ensurePdfJs(cb){
     <div class="nav-tab active" data-tab="info">Project Info</div>
     <div class="nav-tab" data-tab="drawings">Drawings</div>
     <div class="nav-tab" data-tab="deficiencies">Deficiencies</div>
-    <div class="nav-tab" data-tab="pins">All Deficiencies</div>
+    <div class="nav-tab" data-tab="pins">Summary</div>
     <div class="nav-tab" data-tab="photos">Photos</div>
   </div>
 </div>
@@ -262,22 +262,22 @@ function ensurePdfJs(cb){
     <!-- DEFICIENCIES PANEL -->
     <div class="panel" id="panel-deficiencies">
       <!-- Deficiency Log summary table -->
-      <div class="card" style="margin-top:14px;" id="defic-log-card">
+      <div class="card" style="margin-top:0;border-radius:0 0 0 0;" id="defic-log-card">
         <div class="card-header">📋 Deficiency Log</div>
-        <div class="card-body" id="defic-log-container"></div>
+        <div class="card-body" id="defic-log-container" style="padding:10px 14px;"></div>
       </div>
       <!-- Deficiencies Identified section -->
-      <div class="card" style="margin-top:14px;">
+      <div class="card" style="margin-top:0;border-radius:0;">
         <div class="card-header">⚠ Deficiencies Identified</div>
-        <div class="card-body">
-          <div id="contractors-on-site"></div>
+        <div class="card-body" style="padding:10px 0 0 0;">
+          <div id="contractors-on-site" style="padding:0 14px;"></div>
           <div class="defic-lifecycle-tabs" id="defic-lifecycle-tabs" style="display:none;">
             <div class="dlc-tab active" data-dlc="active">Active</div>
             <div class="dlc-tab" data-dlc="general">Site General</div>
             <div class="dlc-tab" data-dlc="closed">Closed</div>
           </div>
           <!-- Deficiency toolbar -->
-          <div id="defic-toolbar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:0 2px;">
+          <div id="defic-toolbar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:0 14px;">
             <button class="btn btn-outline btn-sm" id="defic-filters-btn">⚙ Filters</button>
             <input type="text" id="defic-search" placeholder="🔍 Search deficiencies..." style="flex:1;min-width:140px;max-width:280px;padding:7px 12px;border:1.5px solid var(--border);border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));background:var(--smoke);color:var(--fg);">
             <select id="defic-filter-sel" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));background:var(--smoke);color:var(--fg);">
@@ -299,7 +299,7 @@ function ensurePdfJs(cb){
     <div class="panel" id="panel-pins">
       <div class="card">
         <div class="card-header" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <span>📌 All Deficiencies</span>
+          <span>📊 Summary</span>
           <div style="display:flex;border:1.5px solid rgba(255,255,255,.3);border-radius:6px;overflow:hidden;">
             <button id="tasks-view-table" style="border:none;background:rgba(255,255,255,.2);color:white;padding:4px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:700;">Table</button>
             <button id="tasks-view-board" style="border:none;background:transparent;color:rgba(255,255,255,.6);padding:4px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));">Board</button>
