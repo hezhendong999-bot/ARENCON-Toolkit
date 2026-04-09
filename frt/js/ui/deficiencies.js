@@ -396,7 +396,7 @@ function _renderContractorsOnSite(proj) {
   var el = document.getElementById('contractors-on-site');
   if (!el) return;
   var ctrs = proj.contractors || [];
-  var h = '<div style="padding:12px;background:var(--smoke);border:1px solid var(--border);border-radius:8px;margin-bottom:16px;">';
+  var h = '<div style="padding:12px 0;margin-bottom:8px;">';
   h += '<div style="font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel);margin-bottom:8px;">Contractors on Site</div>';
   h += '<div class="contractor-chips" style="display:flex;flex-wrap:wrap;gap:8px;min-height:28px;margin-bottom:10px;">';
   ctrs.forEach(function(c) {
