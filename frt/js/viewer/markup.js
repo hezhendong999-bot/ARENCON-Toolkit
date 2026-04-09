@@ -396,7 +396,7 @@ function _drawGroupedSelection(ctx) {
   ctx.strokeRect(bx, by, bw, bh);
   ctx.setLineDash([]);
   // Corner resize handles
-  var hs = 7;
+  var hs = 8;
   ctx.fillStyle = 'white';
   ctx.strokeStyle = '#2196F3';
   ctx.lineWidth = 1.5;
@@ -404,6 +404,27 @@ function _drawGroupedSelection(ctx) {
     ctx.fillRect(p[0] - hs / 2, p[1] - hs / 2, hs, hs);
     ctx.strokeRect(p[0] - hs / 2, p[1] - hs / 2, hs, hs);
   });
+  // Rotation handle (circle above top-center, Microsoft-style)
+  var rcx = bx + bw / 2, rcy = by - 24;
+  ctx.beginPath();
+  ctx.moveTo(bx + bw / 2, by);
+  ctx.lineTo(rcx, rcy + 7);
+  ctx.strokeStyle = '#2196F3';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(rcx, rcy, 7, 0, Math.PI * 2);
+  ctx.fillStyle = 'white';
+  ctx.fill();
+  ctx.strokeStyle = '#2196F3';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  // Rotation arrow icon inside circle
+  ctx.beginPath();
+  ctx.arc(rcx, rcy, 4, -0.3, Math.PI * 1.4);
+  ctx.strokeStyle = '#2196F3';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
   // Delete button (red X) — top-right outside box
   var dx = bx + bw + 4, dy = by - 14;
   ctx.fillStyle = '#E53E3E';
@@ -416,6 +437,28 @@ function _drawGroupedSelection(ctx) {
   ctx.textBaseline = 'middle';
   ctx.fillText('\u2715', dx + 8, dy + 8);
   ctx.restore();
+}
+
+// Returns corner index (0=TL,1=TR,2=BL,3=BR) or -1
+function _hitResizeHandle(pos) {
+  var b = _getGroupBounds();
+  if (!b) return -1;
+  var pad = 6;
+  var bx = b.x1 - pad, by = b.y1 - pad, bw = b.x2 - b.x1 + pad * 2, bh = b.y2 - b.y1 + pad * 2;
+  var corners = [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]];
+  for (var i = 0; i < corners.length; i++) {
+    if (Math.abs(pos.x - corners[i][0]) <= 8 && Math.abs(pos.y - corners[i][1]) <= 8) return i;
+  }
+  return -1;
+}
+
+function _hitRotateHandle(pos) {
+  var b = _getGroupBounds();
+  if (!b) return false;
+  var pad = 6;
+  var rcx = (b.x1 + b.x2) / 2, rcy = b.y1 - pad - 24;
+  var dist = Math.sqrt((pos.x - rcx) * (pos.x - rcx) + (pos.y - rcy) * (pos.y - rcy));
+  return dist <= 12;
 }
 
 function _hitDeleteButton(pos) {
@@ -699,6 +742,42 @@ function _handleSelectDown(e) {
     return;
   }
 
+  // Check if clicking a resize corner handle
+  if (_selectedIds.length) {
+    var corner = _hitResizeHandle(pos);
+    if (corner >= 0) {
+      var gb = _getGroupBounds();
+      if (gb) {
+        // Anchor is the opposite corner
+        var anchors = [[gb.x2, gb.y2], [gb.x1, gb.y2], [gb.x2, gb.y1], [gb.x1, gb.y1]];
+        _dragState = {
+          type: 'resize', corner: corner,
+          anchorX: anchors[corner][0], anchorY: anchors[corner][1],
+          origBounds: { x1: gb.x1, y1: gb.y1, x2: gb.x2, y2: gb.y2 },
+          startX: pos.x, startY: pos.y,
+          origObjects: JSON.parse(JSON.stringify(_selectedIds.map(function(id) { return _findObj(id); }).filter(Boolean)))
+        };
+        return;
+      }
+    }
+
+    // Check if clicking rotation handle
+    if (_hitRotateHandle(pos)) {
+      var gb2 = _getGroupBounds();
+      if (gb2) {
+        var cx = (gb2.x1 + gb2.x2) / 2;
+        var cy = (gb2.y1 + gb2.y2) / 2;
+        _dragState = {
+          type: 'rotate',
+          centerX: cx, centerY: cy,
+          startAngle: Math.atan2(pos.y - cy, pos.x - cx),
+          origObjects: JSON.parse(JSON.stringify(_selectedIds.map(function(id) { return _findObj(id); }).filter(Boolean)))
+        };
+        return;
+      }
+    }
+  }
+
   var hit = _hitTestObjects(pos);
   if (hit) {
     // Clicked an object — select it for move (including text)
@@ -819,24 +898,72 @@ function _handleSelectMove(e) {
     _dragState.startY = pos.y;
     _renderAll();
   }
+
+  if (_dragState.type === 'resize') {
+    var ob = _dragState.origBounds;
+    var ax = _dragState.anchorX, ay = _dragState.anchorY;
+    var ow = ob.x2 - ob.x1, oh = ob.y2 - ob.y1;
+    if (ow < 1 || oh < 1) return;
+    var sx = Math.abs(pos.x - ax) / ow;
+    var sy = Math.abs(pos.y - ay) / oh;
+    var s = Math.max(0.1, (sx + sy) / 2);
+    _dragState.origObjects.forEach(function(orig) {
+      var obj = _findObj(orig.id);
+      if (!obj) return;
+      if (orig.points) {
+        obj.points = orig.points.map(function(p) {
+          return { x: ax + (p.x - ax) * s, y: ay + (p.y - ay) * s };
+        });
+      }
+      if (orig.x1 != null) {
+        obj.x1 = ax + (orig.x1 - ax) * s;
+        obj.y1 = ay + (orig.y1 - ay) * s;
+        if (orig.x2 != null) {
+          obj.x2 = ax + (orig.x2 - ax) * s;
+          obj.y2 = ay + (orig.y2 - ay) * s;
+        }
+      }
+      if (orig.size) obj.size = Math.max(1, Math.round(orig.size * s));
+      if (orig.fontSize) obj.fontSize = Math.max(8, Math.round(orig.fontSize * s));
+    });
+    _renderAll();
+  }
+
+  if (_dragState.type === 'rotate') {
+    var cx = _dragState.centerX, cy = _dragState.centerY;
+    var curAngle = Math.atan2(pos.y - cy, pos.x - cx);
+    var dAngle = curAngle - _dragState.startAngle;
+    var cosA = Math.cos(dAngle), sinA = Math.sin(dAngle);
+    _dragState.origObjects.forEach(function(orig) {
+      var obj = _findObj(orig.id);
+      if (!obj) return;
+      function rot(px, py) { return { x: cx + (px - cx) * cosA - (py - cy) * sinA, y: cy + (px - cx) * sinA + (py - cy) * cosA }; }
+      if (orig.points) {
+        obj.points = orig.points.map(function(p) { return rot(p.x, p.y); });
+      }
+      if (orig.x1 != null) {
+        var r1 = rot(orig.x1, orig.y1);
+        obj.x1 = r1.x; obj.y1 = r1.y;
+        if (orig.x2 != null) { var r2 = rot(orig.x2, orig.y2); obj.x2 = r2.x; obj.y2 = r2.y; }
+      }
+    });
+    _renderAll();
+  }
 }
 
 function _handleSelectUp() {
   if (!_dragState) return;
 
   if (_dragState.type === 'rubberband' && _rubberBand) {
-    // Find all objects intersecting the rubber-band rectangle
     var rx1 = Math.min(_rubberBand.x1, _rubberBand.x2);
     var ry1 = Math.min(_rubberBand.y1, _rubberBand.y2);
     var rx2 = Math.max(_rubberBand.x1, _rubberBand.x2);
     var ry2 = Math.max(_rubberBand.y1, _rubberBand.y2);
-    // Only count as rubber-band if dragged at least 4px
     if (Math.abs(rx2 - rx1) > 4 || Math.abs(ry2 - ry1) > 4) {
       var hits = [];
       _objects.forEach(function(obj) {
         var b = _getBounds(obj);
         if (!b) return;
-        // Intersection test: object bounds overlap rubber-band
         if (b.x2 >= rx1 && b.x1 <= rx2 && b.y2 >= ry1 && b.y1 <= ry2) {
           hits.push(obj.id);
         }
@@ -848,6 +975,10 @@ function _handleSelectUp() {
   }
 
   if (_dragState.type === 'move' && _dragState.moved) {
+    _pushHistory();
+    _markDirty();
+  }
+  if (_dragState.type === 'resize' || _dragState.type === 'rotate') {
     _pushHistory();
     _markDirty();
   }

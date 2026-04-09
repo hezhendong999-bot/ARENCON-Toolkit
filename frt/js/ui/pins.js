@@ -5,6 +5,7 @@
  */
 
 import { Model } from '../data/model.js';
+import { buildDeficCard } from './deficiencies.js';
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function deficDesc(d) {
@@ -158,13 +159,6 @@ document.addEventListener('click', function(e) {
 
   // Jump button
   var jump = e.target.closest && e.target.closest('[data-action="jump-defic"]');
-  // Also handle row click (but not on buttons/inputs)
-  if (!jump) {
-    var row = e.target.closest && e.target.closest('#pins-container tr[data-defic-id]');
-    if (row && !e.target.closest('button') && !e.target.closest('select') && !e.target.closest('input')) {
-      jump = row;
-    }
-  }
   if (jump) {
     var deficId = jump.getAttribute('data-defic-id');
     if (deficId) {
@@ -178,6 +172,38 @@ document.addEventListener('click', function(e) {
           setTimeout(function() { card.style.outline = ''; }, 2000);
         }
       }, 100);
+    }
+    return;
+  }
+
+  // Row click → inline expand (not on buttons/inputs/jump)
+  var row = e.target.closest && e.target.closest('#pins-container tr[data-defic-id]');
+  if (row && !e.target.closest('button') && !e.target.closest('select') && !e.target.closest('input')) {
+    var deficId = row.getAttribute('data-defic-id');
+    var existingExpand = row.nextElementSibling;
+    // Collapse any other open expand
+    var allExpands = document.querySelectorAll('#pins-container .tt-expand-row');
+    allExpands.forEach(function(ex) { ex.remove(); });
+    // Toggle: if the same row was already expanded, just collapse (already removed above)
+    if (existingExpand && existingExpand.classList.contains('tt-expand-row') && existingExpand.getAttribute('data-expand-id') === deficId) {
+      row.classList.remove('tt-row-active');
+      return;
+    }
+    // Remove active state from all rows
+    document.querySelectorAll('#pins-container tr.tt-row-active').forEach(function(r) { r.classList.remove('tt-row-active'); });
+    // Build expand row
+    var f = Model.findDeficiency(deficId);
+    if (f) {
+      var expandTr = document.createElement('tr');
+      expandTr.className = 'tt-expand-row';
+      expandTr.setAttribute('data-expand-id', deficId);
+      var td = document.createElement('td');
+      td.setAttribute('colspan', '7');
+      td.style.cssText = 'padding:0;border-bottom:2px solid #9C2742;';
+      td.innerHTML = '<div class="tt-expand-content" style="padding:12px 16px;background:var(--smoke);border-top:1px solid var(--border);">' + buildDeficCard(f.defic, f.contractor ? f.contractor.id : null) + '</div>';
+      expandTr.appendChild(td);
+      row.parentNode.insertBefore(expandTr, row.nextSibling);
+      row.classList.add('tt-row-active');
     }
     return;
   }

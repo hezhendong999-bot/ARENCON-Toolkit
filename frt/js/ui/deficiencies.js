@@ -173,7 +173,7 @@ function _amRenderThumbs() {
 }
 
 // ── Deficiency Card (interactive) ────────────────────────
-function buildDeficCard(d, ctrId) {
+export function buildDeficCard(d, ctrId) {
   var obs = d.observations || [];
   var isOpen = deficIsOpen(d);
   var isClosed = deficIsClosed(d);
