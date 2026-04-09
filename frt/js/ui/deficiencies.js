@@ -437,8 +437,9 @@ export var initDeficiencies = {
     var activeCount = 0, generalCount = 0, closedCount = 0;
     allDefics.forEach(function(d) {
       if (deficIsClosed(d.defic)) closedCount++;
-      else if (!d.contractorId) generalCount++;
-      else activeCount++;
+      else if (deficIsOpen(d.defic) && !d.contractorId) generalCount++;
+      else if (deficIsOpen(d.defic) && d.contractorId) activeCount++;
+      // Items with unrecognized status are not counted in any tab
     });
 
     if (_activeDlcTab === 'active') {
