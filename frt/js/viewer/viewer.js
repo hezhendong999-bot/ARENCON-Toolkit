@@ -565,12 +565,17 @@ document.getElementById('dv-canvas-area').addEventListener('touchend', function(
   if (Markup.getTool() === 'pin') { _pinToolDrop(touch.clientX, touch.clientY); return; }
 });
 
-// Pin marker click — open pin editor
+// Pin marker click — open pin editor (only in pan mode, no tool active)
+var _pinDragEndTime = 0;
 document.addEventListener('click', function(e) {
   var marker = e.target.closest && e.target.closest('.pin-marker[data-defic-id]');
   if (!marker) return;
   if (_pinModeDeficId) return;
   if (_pinDragging) return;
+  // Suppress click immediately after drag end
+  if (Date.now() - _pinDragEndTime < 300) return;
+  // Block pin editor when any markup/selector tool is active
+  if (Markup.getTool()) return;
   var deficId = marker.getAttribute('data-defic-id');
   _openPinEditor(deficId);
 });
@@ -909,6 +914,101 @@ document.addEventListener('touchend', function(e) {
   _pinDragging = false;
   _pinDragDeficId = null;
   _pinDragMarker = null;
+  _pinDragEndTime = Date.now();
+  _renderPins();
+});
+
+// ── Pin Drag-to-Move (PC mouse — long click or selector mode) ──
+var _pinMouseLongPress = null;
+var _pinMouseDragging = false;
+var _pinMouseDragDeficId = null;
+var _pinMouseDragMarker = null;
+var _pinMouseStartX = 0;
+var _pinMouseStartY = 0;
+
+document.addEventListener('mousedown', function(e) {
+  if (e.button !== 0) return;
+  var marker = e.target.closest && e.target.closest('.pin-marker[data-defic-id]');
+  if (!marker || _pinModeDeficId) return;
+  var overlay = document.getElementById('drawing-viewer-overlay');
+  if (!overlay || !overlay.classList.contains('open')) return;
+  var deficId = marker.getAttribute('data-defic-id');
+  _pinMouseStartX = e.clientX;
+  _pinMouseStartY = e.clientY;
+
+  // Selector tool: instant drag on mousedown (no long-press needed)
+  if (Markup.getTool() === 'select') {
+    _pinMouseDragging = true;
+    _pinMouseDragDeficId = deficId;
+    _pinMouseDragMarker = marker;
+    marker.classList.add('dragging');
+    var area = document.getElementById('dv-canvas-area');
+    if (area) area.classList.add('pin-drag-mode');
+    e.preventDefault();
+    return;
+  }
+
+  // Non-selector: long-press (400ms hold)
+  _pinMouseLongPress = setTimeout(function() {
+    _pinMouseDragging = true;
+    _pinMouseDragDeficId = deficId;
+    _pinMouseDragMarker = marker;
+    marker.classList.add('dragging');
+    var area = document.getElementById('dv-canvas-area');
+    if (area) area.classList.add('pin-drag-mode');
+  }, 400);
+});
+
+document.addEventListener('mousemove', function(e) {
+  if (_pinMouseLongPress && !_pinMouseDragging) {
+    // Cancel long-press if mouse moves > 5px
+    if (Math.abs(e.clientX - _pinMouseStartX) > 5 || Math.abs(e.clientY - _pinMouseStartY) > 5) {
+      clearTimeout(_pinMouseLongPress);
+      _pinMouseLongPress = null;
+    }
+  }
+  if (!_pinMouseDragging || !_pinMouseDragMarker) return;
+  e.preventDefault();
+  var wrap = document.getElementById('dv-img-wrap');
+  if (!wrap) return;
+  var wRect = wrap.getBoundingClientRect();
+  var px = e.clientX - wRect.left;
+  var py = e.clientY - wRect.top;
+  _pinMouseDragMarker.style.left = px + 'px';
+  _pinMouseDragMarker.style.top = py + 'px';
+});
+
+document.addEventListener('mouseup', function(e) {
+  if (_pinMouseLongPress) { clearTimeout(_pinMouseLongPress); _pinMouseLongPress = null; }
+  if (!_pinMouseDragging || !_pinMouseDragDeficId) return;
+
+  var area = document.getElementById('dv-canvas-area');
+  if (area) area.classList.remove('pin-drag-mode');
+  if (_pinMouseDragMarker) _pinMouseDragMarker.classList.remove('dragging');
+
+  // Calculate final position
+  var img = document.getElementById('dv-image');
+  var wrap = document.getElementById('dv-img-wrap');
+  if (img && wrap && img.naturalWidth) {
+    var wRect = wrap.getBoundingClientRect();
+    var px = (e.clientX - wRect.left) / _scale;
+    var py = (e.clientY - wRect.top) / _scale;
+    var pinX = Math.max(0, Math.min(1, px / img.naturalWidth));
+    var pinY = Math.max(0, Math.min(1, py / img.naturalHeight));
+    var f = Model.findDeficiency(_pinMouseDragDeficId);
+    if (f) {
+      f.defic.pinX = pinX;
+      f.defic.pinY = pinY;
+      Model._notify('deficiency', { action: 'pin-move', deficId: _pinMouseDragDeficId });
+      Model.saveNow();
+      console.log('[Viewer] Pin moved (mouse) to', pinX.toFixed(3), pinY.toFixed(3));
+    }
+  }
+
+  _pinMouseDragging = false;
+  _pinMouseDragDeficId = null;
+  _pinMouseDragMarker = null;
+  _pinDragEndTime = Date.now();
   _renderPins();
 });
 

@@ -27,6 +27,168 @@ function deficIsClosed(d) { return d.status === 'closed' || d.status === 'Addres
 
 var _activeDlcTab = 'active';
 
+// ── Activity Modal (v1-style) ────────────────────────────
+var _activityModalPhotos = [];
+
+function _showActivityModal(deficId, label) {
+  var f = Model.findDeficiency(deficId);
+  if (!f) return;
+  var d = f.defic;
+  var isCtr = (label || '').indexOf('Contractor') >= 0;
+  var titleColor = isCtr ? '#E67E22' : '#1565C0';
+  var titleText = isCtr ? 'Contractor Response' : 'ARENCON Comment';
+  titleText += ' \u2014 #' + (d.num || '?');
+  var isDark = document.body.classList.contains('dark-mode');
+  var bg = isDark ? '#1e2533' : 'white';
+  var fg = isDark ? '#d0d8f0' : '#1C2333';
+  var smoke = isDark ? '#151a24' : '#F7F8FA';
+  var border = isDark ? '#2a3040' : '#DDE1E7';
+  _activityModalPhotos = [];
+
+  var ov = document.createElement('div');
+  ov.id = 'activity-modal-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+
+  var obs = d.observations || [];
+  var hasMulti = obs.length > 1;
+
+  var h = '<div style="background:' + bg + ';border-radius:14px;max-width:480px;width:92%;max-height:85vh;overflow-y:auto;padding:0;box-shadow:0 12px 48px rgba(0,0,0,.35);">';
+  // Header
+  h += '<div style="padding:18px 22px 12px;border-bottom:1px solid ' + border + ';">';
+  h += '<div style="font-size:17px;font-weight:700;color:' + titleColor + ';">' + titleText + '</div>';
+  h += '</div>';
+  // Body
+  h += '<div style="padding:16px 22px;">';
+  // Observation ref dropdown (if multiple)
+  if (hasMulti) {
+    h += '<label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:' + (isDark ? '#8a94b0' : '#4A5568') + ';margin-bottom:3px;">Re: Observation</label>';
+    h += '<select id="am-obs-ref" style="width:100%;padding:8px 10px;border:1.5px solid ' + border + ';border-radius:7px;font-family:Calibri,sans-serif;font-size:14px;margin-bottom:12px;background:' + smoke + ';color:' + fg + ';">';
+    h += '<option value="">All Observations</option>';
+    obs.forEach(function(o, i) {
+      var lbl = String.fromCharCode(65 + i) + ') ' + ((o.text || '').substring(0, 50) || 'Observation ' + (i + 1));
+      h += '<option value="' + String.fromCharCode(65 + i) + '">' + esc(lbl) + '</option>';
+    });
+    h += '</select>';
+  }
+  // Date
+  h += '<label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:' + (isDark ? '#8a94b0' : '#4A5568') + ';margin-bottom:3px;">Date</label>';
+  h += '<input type="date" id="am-date" value="' + new Date().toISOString().split('T')[0] + '" style="width:100%;padding:8px 10px;border:1.5px solid ' + border + ';border-radius:7px;font-family:Calibri,sans-serif;font-size:14px;margin-bottom:12px;box-sizing:border-box;background:' + smoke + ';color:' + fg + ';">';
+  // Comment textarea
+  h += '<label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:' + (isDark ? '#8a94b0' : '#4A5568') + ';margin-bottom:3px;">Comment</label>';
+  h += '<textarea id="am-text" rows="4" placeholder="Enter response or comment..." style="width:100%;padding:10px 12px;border:1.5px solid ' + border + ';border-radius:7px;font-family:Calibri,sans-serif;font-size:14px;resize:vertical;box-sizing:border-box;background:' + smoke + ';color:' + fg + ';margin-bottom:12px;"></textarea>';
+  // Photo zone
+  h += '<label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:' + (isDark ? '#8a94b0' : '#4A5568') + ';margin-bottom:3px;">Photos</label>';
+  h += '<div id="am-photo-thumbs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;min-height:4px;"></div>';
+  h += '<div id="am-photo-zone" class="upload-box" style="padding:12px;text-align:center;margin-bottom:16px;">';
+  h += '<span style="font-size:13px;color:' + (isDark ? '#8a94b0' : '#6B7280') + ';display:block;margin-bottom:8px;">Drag & drop photos here</span>';
+  h += '<div style="display:flex;gap:8px;justify-content:center;">';
+  h += '<button id="am-upload-btn" style="border:none;background:#37474F;color:white;border-radius:6px;padding:6px 14px;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;cursor:pointer;">\uD83D\uDCCE Upload</button>';
+  h += '<button id="am-camera-btn" style="border:none;background:#37474F;color:white;border-radius:6px;padding:6px 14px;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;cursor:pointer;">\uD83D\uDCF7 Camera</button>';
+  h += '</div></div>';
+  h += '</div>';
+  // Footer buttons
+  h += '<div style="padding:12px 22px 18px;border-top:1px solid ' + border + ';display:flex;gap:10px;">';
+  h += '<button id="am-save" style="flex:1;padding:10px;border-radius:8px;font-family:Calibri,sans-serif;font-size:15px;font-weight:700;cursor:pointer;background:' + titleColor + ';color:white;border:none;">Save</button>';
+  h += '<button id="am-cancel" style="flex:1;padding:10px;border-radius:8px;font-family:Calibri,sans-serif;font-size:15px;font-weight:600;cursor:pointer;background:transparent;color:#607D8B;border:1.5px solid #607D8B;">Cancel</button>';
+  h += '</div></div>';
+
+  ov.innerHTML = h;
+  document.body.appendChild(ov);
+
+  // Wire events
+  var zone = ov.querySelector('#am-photo-zone');
+  zone.addEventListener('dragover', function(ev) { ev.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', function() { zone.classList.remove('drag-over'); });
+  zone.addEventListener('drop', function(ev) {
+    ev.preventDefault(); zone.classList.remove('drag-over');
+    if (ev.dataTransfer && ev.dataTransfer.files) {
+      for (var i = 0; i < ev.dataTransfer.files.length; i++) {
+        if (ev.dataTransfer.files[i].type.startsWith('image/')) _amAddPhoto(ev.dataTransfer.files[i]);
+      }
+    }
+  });
+
+  function _amFileInput(capture) {
+    var inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+    if (capture) inp.capture = 'environment';
+    inp.onchange = function() {
+      if (inp.files) for (var i = 0; i < inp.files.length; i++) _amAddPhoto(inp.files[i]);
+    };
+    inp.click();
+  }
+
+  ov.querySelector('#am-upload-btn').addEventListener('click', function() { _amFileInput(false); });
+  ov.querySelector('#am-camera-btn').addEventListener('click', function() { _amFileInput(true); });
+
+  ov.querySelector('#am-cancel').addEventListener('click', function() { _activityModalPhotos = []; ov.remove(); });
+  ov.addEventListener('click', function(ev) { if (ev.target === ov) { _activityModalPhotos = []; ov.remove(); } });
+
+  ov.querySelector('#am-save').addEventListener('click', function() {
+    var text = (ov.querySelector('#am-text').value || '').trim();
+    var date = ov.querySelector('#am-date').value || new Date().toISOString().split('T')[0];
+    var obsRefEl = ov.querySelector('#am-obs-ref');
+    var obsRef = obsRefEl ? obsRefEl.value || null : null;
+    if (!text && !_activityModalPhotos.length) { toast('Enter a comment or add photos'); return; }
+
+    var entry = Model.addActivityEntry(deficId, label, text || '\u2014', obsRef);
+    if (entry) {
+      entry.date = date;
+      // Attach photos to the activity entry
+      if (_activityModalPhotos.length) {
+        entry.photos = _activityModalPhotos.map(function(p) { return { id: p.id, dataUrl: p.dataUrl, filename: p.filename }; });
+      }
+      Model.saveNow();
+    }
+    _activityModalPhotos = [];
+    ov.remove();
+    initDeficiencies.render();
+    toast('Activity note added');
+  });
+
+  setTimeout(function() { var ta = ov.querySelector('#am-text'); if (ta) ta.focus(); }, 100);
+}
+
+function _amAddPhoto(file) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      var maxW = 1200, w = img.width, h2 = img.height;
+      if (w > maxW) { h2 = Math.round(h2 * maxW / w); w = maxW; }
+      var cv = document.createElement('canvas'); cv.width = w; cv.height = h2;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h2);
+      var dataUrl = cv.toDataURL('image/jpeg', 0.8);
+      var photo = { id: 'aph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4), dataUrl: dataUrl, filename: file.name || 'photo.jpg' };
+      _activityModalPhotos.push(photo);
+      _amRenderThumbs();
+      cv.width = 1; cv.height = 1;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function _amRenderThumbs() {
+  var container = document.getElementById('am-photo-thumbs');
+  if (!container) return;
+  var html = '';
+  _activityModalPhotos.forEach(function(p, i) {
+    html += '<div style="position:relative;width:56px;height:56px;border-radius:6px;overflow:hidden;border:1px solid var(--border,#DDE1E7);">';
+    html += '<img src="' + p.dataUrl + '" style="width:100%;height:100%;object-fit:cover;">';
+    html += '<button data-am-remove="' + i + '" style="position:absolute;top:1px;right:1px;background:rgba(0,0,0,.65);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;text-align:center;cursor:pointer;padding:0;">\u2715</button>';
+    html += '</div>';
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('[data-am-remove]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var idx = parseInt(btn.getAttribute('data-am-remove'));
+      _activityModalPhotos.splice(idx, 1);
+      _amRenderThumbs();
+    });
+  });
+}
+
 // ── Deficiency Card (interactive) ────────────────────────
 function buildDeficCard(d, ctrId) {
   var obs = d.observations || [];
@@ -162,15 +324,6 @@ function buildDeficCard(d, ctrId) {
   }
   h += '</div></div>';
   h += '</div>';
-
-  // Inline activity input (hidden by default, shown by + Response / + Comment)
-  h += '<div class="defic-activity-input" data-defic-id="' + esc(d.id) + '" style="display:none;margin-top:6px;">';
-  h += '<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">';
-  h += '<span class="defic-activity-label" style="font-size:calc(11px + var(--ts));font-weight:600;color:var(--silver);"></span>';
-  h += '<input type="text" data-action="activity-text-inp" data-defic-id="' + esc(d.id) + '" placeholder="Add note..." style="flex:1;min-width:100px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;background:var(--smoke);color:var(--fg);">';
-  h += '<button data-action="add-activity" data-defic-id="' + esc(d.id) + '" style="border:none;background:#1565C0;color:white;border-radius:4px;padding:4px 10px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">Add</button>';
-  h += '<button data-action="cancel-activity" data-defic-id="' + esc(d.id) + '" style="border:none;background:none;color:var(--silver);cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 4px;">\u2715</button>';
-  h += '</div></div>';
 
   // Noted date
   if (d.notedDate || d.date) {
@@ -646,39 +799,7 @@ document.addEventListener('click', function(e) {
   if (action === 'show-add-activity') {
     var deficId = el.getAttribute('data-defic-id');
     var label = el.getAttribute('data-label') || 'ARENCON';
-    var card = el.closest('.defic-item');
-    if (!card) return;
-    var inputWrap = card.querySelector('.defic-activity-input[data-defic-id="' + deficId + '"]');
-    if (inputWrap) {
-      inputWrap.style.display = 'block';
-      var lbl = inputWrap.querySelector('.defic-activity-label');
-      if (lbl) lbl.textContent = label + ':';
-      inputWrap.setAttribute('data-current-label', label);
-      var inp = inputWrap.querySelector('[data-action="activity-text-inp"]');
-      if (inp) { inp.value = ''; inp.focus(); }
-    }
-  }
-
-  if (action === 'cancel-activity') {
-    var card = el.closest('.defic-item');
-    if (card) {
-      var inputWrap = card.querySelector('.defic-activity-input');
-      if (inputWrap) inputWrap.style.display = 'none';
-    }
-  }
-
-  if (action === 'add-activity') {
-    var card = el.closest('.defic-item');
-    if (!card) return;
-    var deficId = el.getAttribute('data-defic-id');
-    var inputWrap = card.querySelector('.defic-activity-input[data-defic-id="' + deficId + '"]');
-    var label = inputWrap ? inputWrap.getAttribute('data-current-label') || 'ARENCON' : 'ARENCON';
-    var textInp = card.querySelector('[data-action="activity-text-inp"]');
-    var text = textInp ? textInp.value.trim() : '';
-    if (!text) { toast('Enter activity note text'); return; }
-    Model.addActivityEntry(deficId, label, text);
-    initDeficiencies.render();
-    toast('Activity note added');
+    _showActivityModal(deficId, label);
   }
 
   if (action === 'close-defic') {
