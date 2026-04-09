@@ -32,7 +32,7 @@ function _getDrawingName(drawingId) {
   for (var i = 0; i < drawings.length; i++) {
     if (drawings[i].id === drawingId) {
       var n = drawings[i].name || '';
-      return n.length > 20 ? n.substring(0, 20) + '\u2026' : n;
+      return n;
     }
   }
   return '';

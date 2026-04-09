@@ -589,14 +589,25 @@ export var Model = {
 
   renumberDeficiencies: function() {
     if (!_project) return 0;
-    var all = this.getAllDeficiencies(_project);
-    all.forEach(function(item, idx) {
-      item.defic.num = idx + 1;
+    // Contractor deficiencies first (sorted by current num), then general
+    var ctrDefics = [];
+    (_project.contractors || []).forEach(function(c) {
+      (c.deficiencies || []).forEach(function(d) {
+        ctrDefics.push(d);
+      });
     });
+    ctrDefics.sort(function(a, b) { return (a.num || 0) - (b.num || 0); });
+    var genDefics = (_project.generalDeficiencies || []).slice();
+    genDefics.sort(function(a, b) { return (a.num || 0) - (b.num || 0); });
+    var ordered = ctrDefics.concat(genDefics);
+    ordered.forEach(function(d, idx) {
+      d.num = idx + 1;
+    });
+    _project.nextDeficNum = ordered.length + 1;
     _dirty = true;
     _queueSave();
     this._notify('project', _project);
-    return all.length;
+    return ordered.length;
   },
 
   addDrawing: function(dwg) {
