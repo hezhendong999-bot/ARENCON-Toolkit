@@ -500,6 +500,13 @@ export var Model = {
     var defic = f.defic;
     // Remove from current location
     f.arr.splice(f.idx, 1);
+    // Dedup guard: also remove from ALL other locations (prevents duplicates)
+    (_project.contractors || []).forEach(function(c) {
+      if (c.deficiencies) c.deficiencies = c.deficiencies.filter(function(d) { return d.id !== deficId; });
+    });
+    if (_project.generalDeficiencies) {
+      _project.generalDeficiencies = _project.generalDeficiencies.filter(function(d) { return d.id !== deficId; });
+    }
     // Add to new contractor (or general if null)
     if (newCtrId) {
       var ctr = _project.contractors.find(function(c) { return c.id === newCtrId; });
