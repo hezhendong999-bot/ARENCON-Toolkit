@@ -237,40 +237,57 @@ document.addEventListener('click', function(e) {
     initViewer.next();
   }
 
-  // Click title to rename drawing
+  // Double-click title to rename drawing (modal)
   if (e.target.id === 'dv-title' || (e.target.closest && e.target.closest('#dv-title'))) {
-    var titleEl = document.getElementById('dv-title');
-    if (!titleEl || titleEl.querySelector('input')) return; // already editing
-    var drawings = _getDrawingsList();
-    if (_currentDrawingIdx < 0 || _currentDrawingIdx >= drawings.length) return;
-    var d = drawings[_currentDrawingIdx];
-    var oldName = d.name || '';
-    var inp = document.createElement('input');
-    inp.type = 'text';
-    inp.value = oldName;
-    inp.style.cssText = 'background:rgba(255,255,255,.15);border:1.5px solid #2196F3;border-radius:4px;color:white;font-family:Calibri,sans-serif;font-size:inherit;padding:2px 8px;width:280px;max-width:60vw;outline:none;';
-    titleEl.textContent = '';
-    titleEl.appendChild(inp);
-    inp.focus();
-    inp.select();
-    var committed = false;
-    function _commitRename() {
-      if (committed) return;
-      committed = true;
-      var newName = inp.value.trim();
-      if (newName && newName !== oldName) {
-        d.name = newName;
-        Model.saveNow();
-      }
-      titleEl.textContent = d.name || 'Drawing ' + (_currentDrawingIdx + 1);
-    }
-    inp.addEventListener('blur', function() { setTimeout(_commitRename, 100); });
-    inp.addEventListener('keydown', function(ev) {
-      if (ev.key === 'Enter') { ev.preventDefault(); _commitRename(); }
-      if (ev.key === 'Escape') { committed = true; titleEl.textContent = oldName || 'Drawing ' + (_currentDrawingIdx + 1); }
-      ev.stopPropagation();
-    });
+    // Handled by dblclick listener below
   }
+});
+
+// Drawing title double-click → rename modal
+document.addEventListener('dblclick', function(e) {
+  var titleEl = e.target.id === 'dv-title' ? e.target : (e.target.closest && e.target.closest('#dv-title'));
+  if (!titleEl) return;
+  var overlay = document.getElementById('drawing-viewer-overlay');
+  if (!overlay || !overlay.classList.contains('open')) return;
+  var drawings = _getDrawingsList();
+  if (_currentDrawingIdx < 0 || _currentDrawingIdx >= drawings.length) return;
+  var d = drawings[_currentDrawingIdx];
+  var oldName = d.name || '';
+
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9800;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  var h = '<div style="background:var(--bg,white);border-radius:12px;padding:24px;width:90%;max-width:480px;box-shadow:0 8px 32px rgba(0,0,0,.3);color:var(--fg,#1B2438);">';
+  h += '<div style="font-weight:700;font-size:calc(16px + var(--ts));margin-bottom:16px;">Rename Drawing</div>';
+  h += '<label style="display:block;font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel,#4A5568);margin-bottom:3px;">Original Name</label>';
+  h += '<div style="padding:8px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:calc(13px + var(--ts));background:var(--smoke,#F7F8FA);color:var(--silver,#6B7280);margin-bottom:12px;word-break:break-all;">' + (oldName || '(untitled)') + '</div>';
+  h += '<label style="display:block;font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel,#4A5568);margin-bottom:3px;">New Name</label>';
+  h += '<input type="text" id="dv-rename-input" value="' + oldName.replace(/"/g, '&quot;') + '" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(14px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;margin-bottom:16px;outline:none;">';
+  h += '<div style="display:flex;gap:8px;justify-content:flex-end;">';
+  h += '<button id="dv-rename-cancel" style="padding:8px 20px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg,white);color:var(--fg);cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">Close</button>';
+  h += '<button id="dv-rename-ok" style="padding:8px 20px;border:none;border-radius:6px;background:#9C2742;color:white;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:700;">Confirm</button>';
+  h += '</div></div>';
+  ov.innerHTML = h;
+  document.body.appendChild(ov);
+
+  var inp = ov.querySelector('#dv-rename-input');
+  setTimeout(function() { inp.focus(); inp.select(); }, 50);
+
+  function _doRename() {
+    var newName = inp.value.trim();
+    if (newName && newName !== oldName) {
+      d.name = newName;
+      Model.saveNow();
+      titleEl.textContent = newName;
+    }
+    ov.remove();
+  }
+  ov.querySelector('#dv-rename-ok').addEventListener('click', _doRename);
+  ov.querySelector('#dv-rename-cancel').addEventListener('click', function() { ov.remove(); });
+  inp.addEventListener('keydown', function(ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); _doRename(); }
+    if (ev.key === 'Escape') ov.remove();
+    ev.stopPropagation();
+  });
 });
 
 // Pan: mouse drag

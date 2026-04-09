@@ -262,12 +262,12 @@ function ensurePdfJs(cb){
     <!-- DEFICIENCIES PANEL -->
     <div class="panel" id="panel-deficiencies">
       <!-- Deficiency Log summary table -->
-      <div class="card" style="margin:0;border-radius:0;" id="defic-log-card">
+      <div class="card" style="margin-bottom:4px;" id="defic-log-card">
         <div class="card-header">📋 Deficiency Log</div>
-        <div class="card-body" id="defic-log-container" style="padding:10px 14px;"></div>
+        <div class="card-body" id="defic-log-container" style="padding:0;"></div>
       </div>
       <!-- Deficiencies Identified section -->
-      <div class="card" style="margin:0;border-radius:0;border-top:none;">
+      <div class="card" style="margin-bottom:4px;">
         <div class="card-header">⚠ Deficiencies Identified</div>
         <div class="card-body" style="padding:10px 0 0 0;">
           <div id="contractors-on-site" style="padding:0 14px;"></div>
@@ -348,7 +348,7 @@ function ensurePdfJs(cb){
     <button id="dv-close" class="dv-close-btn" title="Close viewer">← Close</button>
     <button class="dv-nav-btn" id="dv-prev" title="Previous drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">◀</button>
     <button class="dv-nav-btn" id="dv-next" title="Next drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">▶</button>
-    <span class="dv-title" id="dv-title" title="Click to rename" style="cursor:text;"></span>
+    <span class="dv-title" id="dv-title" title="Double-click to rename"></span>
     <!-- Layers -->
     <div style="position:relative;display:inline-block;">
       <button id="dv-layers-btn" title="Layers">≡ Layers</button>
