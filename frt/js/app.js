@@ -598,6 +598,8 @@ function _updateHeaderForProject() {
   // Show AI usage button for all users (everyone tracks their own project costs)
   var aiUsageBtn = document.getElementById('btn-ai-usage');
   if (aiUsageBtn) aiUsageBtn.style.display = '';
+  var aiUsageMore = document.getElementById('btn-ai-usage-more');
+  if (aiUsageMore) aiUsageMore.style.display = '';
 
   // Show mobile AI buttons
   var mar = document.getElementById('mobile-ai-rewrite');
@@ -850,6 +852,8 @@ function wireEvents() {
   if (aiUsageBtn) aiUsageBtn.addEventListener('click', function() { AIUsage.open(); });
   var mobileAiU = document.getElementById('mobile-ai-usage');
   if (mobileAiU) mobileAiU.addEventListener('click', function() { closeMobileMenu(); AIUsage.open(); });
+  var aiUsageMore = document.getElementById('btn-ai-usage-more');
+  if (aiUsageMore) aiUsageMore.addEventListener('click', function() { var m=document.getElementById('more-menu'); if(m)m.classList.remove('open'); AIUsage.open(); });
   // Close AI mode menu on outside click
   document.addEventListener('click', function(e) {
     if (!e.target.closest || !e.target.closest('#btn-ai-wrap')) {

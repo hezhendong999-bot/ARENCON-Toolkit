@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=82">
+<link rel="stylesheet" href="css/frt.css?v=83">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -91,6 +91,7 @@ function ensurePdfJs(cb){
       <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
         <button class="hdr-btn" style="background:#455A64;" title="More options">⚙️ More ▾</button>
         <div class="hdr-repair-menu" id="more-menu">
+          <button id="btn-ai-usage-more" style="display:none;">📊 AI Usage <span>View AI token usage &amp; costs</span></button>
           <button id="btn-export">💾 Download JSON <span>Save project data to file</span></button>
           <button id="btn-load-more">📂 Load Project <span>Open a JSON project file</span></button>
           <div style="height:1px;background:#eee;margin:2px 0;"></div>
@@ -353,7 +354,7 @@ function ensurePdfJs(cb){
     <div style="position:relative;display:inline-block;">
       <button id="dv-layers-btn" title="Layers">≡ Layers</button>
       <div id="dv-layers-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:#2a2d35;border:1px solid #3a3e48;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:180px;z-index:9500;padding:10px 14px;font-family:Calibri,sans-serif;">
-        <div style="font-size:calc(11px + var(--ts));color:#8a94b0;font-weight:700;margin-bottom:8px;">SHOW</div>
+        <div style="font-size:calc(11px + var(--ts));color:var(--steel);font-weight:700;margin-bottom:8px;">SHOW</div>
         <label class="dv-layer-row"><input type="checkbox" id="layer-all" checked> All layers</label>
         <label class="dv-layer-row"><input type="checkbox" id="layer-tasks" checked> <span style="color:#C0392B;">📌</span> Tasks</label>
         <label class="dv-layer-row"><input type="checkbox" id="layer-markups" checked> <span style="color:#2196F3;">✏️</span> Markups</label>
@@ -480,13 +481,13 @@ function ensurePdfJs(cb){
       <div class="tool-stepper-wrap" data-tip="Size (stroke width / text size)">
         <span style="font-size:8px;color:#888;letter-spacing:.5px;">SIZE</span>
         <button class="tool-step-btn" data-ctx="size-up">+</button>
-        <span id="mk-size-val" style="font-size:11px;color:#ccc;min-width:22px;text-align:center;">3</span>
+        <span id="mk-size-val" style="font-size:11px;color:var(--steel);min-width:22px;text-align:center;">3</span>
         <button class="tool-step-btn" data-ctx="size-down">−</button>
       </div>
       <div class="tool-stepper-wrap" data-tip="Opacity">
         <span style="font-size:8px;color:#888;letter-spacing:.5px;">OPAC</span>
         <button class="tool-step-btn" data-ctx="opacity-up">+</button>
-        <span id="mk-opacity-val" style="font-size:11px;color:#ccc;min-width:22px;text-align:center;">100</span>
+        <span id="mk-opacity-val" style="font-size:11px;color:var(--steel);min-width:22px;text-align:center;">100</span>
         <button class="tool-step-btn" data-ctx="opacity-down">−</button>
       </div>
       <div class="tool-sep"></div>
@@ -518,8 +519,8 @@ function ensurePdfJs(cb){
         <span>📌 Tasks</span>
         <div style="display:flex;gap:6px;align-items:center;">
           <button id="dv-tasks-filter" class="dv-tasks-filter-btn" title="Filter">Pinned</button>
-          <span id="dv-tasks-count" style="font-size:calc(11px + var(--ts));color:#8a94b0;">0</span>
-          <button id="dv-tasks-fold-btn" style="background:none;border:none;color:white;cursor:pointer;font-size:16px;" title="Collapse">▼</button>
+          <span id="dv-tasks-count" style="font-size:calc(11px + var(--ts));color:var(--silver);">0</span>
+          <button id="dv-tasks-fold-btn" style="background:none;border:none;color:inherit;cursor:pointer;font-size:16px;" title="Collapse">▼</button>
         </div>
       </div>
       <div class="dv-tasks-list" id="dv-tasks-list"></div>
@@ -530,11 +531,11 @@ function ensurePdfJs(cb){
   <div id="dv-heights-panel" class="dv-heights-panel" style="display:none;">
     <div class="dv-heights-header">
       <span>📐 Field Heights / Dimensions</span>
-      <button id="dv-heights-close" style="background:none;border:none;color:white;cursor:pointer;font-size:18px;">✕</button>
+      <button id="dv-heights-close" style="background:none;border:none;color:inherit;cursor:pointer;font-size:18px;">✕</button>
     </div>
     <div class="dv-heights-copy">
-      <div style="font-size:calc(11px + var(--ts));color:#8a94b0;font-weight:700;margin-bottom:6px;">COPY FROM DRAWING</div>
-      <select id="dv-heights-copy-select" style="width:100%;padding:8px;border-radius:6px;background:#2a2d35;color:white;border:1px solid #3a3e48;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));">
+      <div style="font-size:calc(11px + var(--ts));color:var(--steel);font-weight:700;margin-bottom:6px;">COPY FROM DRAWING</div>
+      <select id="dv-heights-copy-select" class="pe-select" style="width:100%;">
         <option value="">— Select a drawing to copy from —</option>
       </select>
     </div>
@@ -593,7 +594,7 @@ function ensurePdfJs(cb){
           </div>
           <textarea id="pe-obs-text" class="pe-textarea" placeholder="Describe the deficiency..."></textarea>
           <div class="pe-photo-zone">
-            <div style="color:#8a94b0;font-size:calc(12px + var(--ts));margin-bottom:6px;">Drop photos or</div>
+            <div style="color:var(--steel);font-size:calc(12px + var(--ts));margin-bottom:6px;">Drop photos or</div>
             <button class="pe-photo-btn" id="pe-upload-btn">Upload</button>
             <button class="pe-photo-btn pe-camera-btn" id="pe-camera-btn">Camera</button>
             <button class="pe-photo-btn" id="pe-gallery-btn" style="border-style:dashed;">+ Gallery</button>
