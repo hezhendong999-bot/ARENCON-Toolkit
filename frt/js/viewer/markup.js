@@ -685,6 +685,15 @@ function _handleTextPlace(e) {
 
 function _handlePolylineClick(e) {
   var pos = _getPos(e);
+  // Click near first point → finish polyline (close loop)
+  if (_polyPoints.length >= 2) {
+    var dx = pos.x - _polyPoints[0].x, dy = pos.y - _polyPoints[0].y;
+    if (Math.sqrt(dx * dx + dy * dy) < 15) {
+      _polyPoints.push({ x: _polyPoints[0].x, y: _polyPoints[0].y }); // Close to exact first point
+      _finishPolyline();
+      return;
+    }
+  }
   _polyPoints.push(pos);
 
   var ov = _ensureOverlay();

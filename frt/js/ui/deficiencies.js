@@ -226,13 +226,15 @@ export function buildDeficCard(d, ctrId) {
       // Observation header row
       if (hasMulti) {
         h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
-        h += '<span style="font-size:calc(11px + var(--ts));font-weight:700;color:' + (o.addressed ? '#1A7A4A' : 'var(--ink)') + ';">' + lbl + 'Observation</span>';
+        h += '<span style="font-size:calc(11px + var(--ts));font-weight:700;color:' + (o.addressed ? '#1A7A4A' : 'var(--ink)') + ';">' + lbl + 'Observation' + _aiDot + '</span>';
         h += '<div style="display:flex;gap:4px;align-items:center;">';
         h += '<button data-action="toggle-addressed" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:' + (o.addressed ? '#1A7A4A' : '#CBD5E0') + ';color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">' + (o.addressed ? '\u2611 Addressed' : '\u2610 Open') + '</button>';
+        if (obs.length > 1) h += '<button data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#2196F3;color:white;border-radius:4px;padding:2px 6px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Spin off as new deficiency">\u21B1</button>';
         if (obs.length > 1) h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#E53E3E;color:white;border-radius:4px;padding:2px 6px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Remove observation">\u2715</button>';
         h += '</div></div>';
       }
       // Textarea
+      var _aiDot = o.aiReviewed ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-left:6px;vertical-align:middle;" title="AI reviewed"></span>' : '';
       h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" ';
       h += 'style="width:100%;min-height:56px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);"';
       h += ' placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
@@ -639,6 +641,31 @@ document.addEventListener('click', function(e) {
     });
   }
 
+  if (action === 'spinoff-obs') {
+    var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
+    var f = Model.findDeficiency(deficId);
+    if (!f) return;
+    var obs = f.defic.observations || [];
+    if (!obs[obsIdx]) return;
+    var srcObs = obs[obsIdx];
+    // Create new deficiency in same contractor
+    var ctrId = f.contractor ? f.contractor.id : null;
+    var newDefic = Model.addDeficiency(ctrId);
+    if (newDefic) {
+      // Copy observation text and photos
+      if (newDefic.observations && newDefic.observations[0]) {
+        newDefic.observations[0].text = srcObs.text || '';
+        newDefic.observations[0].photos = JSON.parse(JSON.stringify(srcObs.photos || []));
+      }
+      // Remove from source
+      Model.removeObservation(deficId, obsIdx);
+      Model.saveNow();
+      initDeficiencies.render();
+      toast('Spun off as #' + newDefic.num);
+    }
+  }
+
   if (action === 'toggle-addressed') {
     var deficId = el.getAttribute('data-defic-id');
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
@@ -944,6 +971,11 @@ document.addEventListener('input', function(e) {
     var deficId = e.target.getAttribute('data-defic-id');
     var obsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
     var text = e.target.value;
+    // Clear AI review indicator on manual edit
+    var _ef = Model.findDeficiency(deficId);
+    if (_ef && _ef.defic.observations && _ef.defic.observations[obsIdx]) {
+      _ef.defic.observations[obsIdx].aiReviewed = false;
+    }
     if (_obsDebounce[deficId]) clearTimeout(_obsDebounce[deficId]);
     _obsDebounce[deficId] = setTimeout(function() {
       Model.updateObservation(deficId, obsIdx, text);

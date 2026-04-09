@@ -295,13 +295,13 @@ function _writeBack(path, newText) {
   if (!deficArr || !deficArr[di]) return;
   var d = deficArr[di];
   if (type === 'obs') {
-    if (d.observations && d.observations[idx]) d.observations[idx].text = newText;
+    if (d.observations && d.observations[idx]) { d.observations[idx].text = newText; d.observations[idx].aiReviewed = true; }
     if (d.entries && d.entries[idx]) { d.entries[idx].text = newText; d.entries[idx].description = newText; }
     if (idx === 0) d.description = newText;
   } else if (type === 'act') {
-    if (d.activity && d.activity[idx]) d.activity[idx].text = newText;
+    if (d.activity && d.activity[idx]) { d.activity[idx].text = newText; d.activity[idx].aiReviewed = true; }
   } else if (type === 'cn') {
-    d.closedNote = newText;
+    d.closedNote = newText; d.closedNoteAiReviewed = true;
   }
 }
 
