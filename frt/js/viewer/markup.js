@@ -737,6 +737,44 @@ function _finishPolyline() {
   _renderAll();
 }
 
+function _drawPolylinePreview(e) {
+  var pos = _getPos(e);
+  var ov = _ensureOverlay();
+  if (!ov) return;
+  ov.style.display = 'block';
+  ov.style.opacity = '1';
+  var ctx = ov.getContext('2d');
+  var d = ov._dpr || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, ov.width, ov.height);
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  ctx.strokeStyle = _color;
+  ctx.lineWidth = _lineWidth;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.globalAlpha = _opacity;
+  // Draw placed segments
+  ctx.beginPath();
+  ctx.moveTo(_polyPoints[0].x, _polyPoints[0].y);
+  for (var i = 1; i < _polyPoints.length; i++) ctx.lineTo(_polyPoints[i].x, _polyPoints[i].y);
+  // Rubber-band to cursor
+  ctx.lineTo(pos.x, pos.y);
+  ctx.stroke();
+  // Close indicator: circle on first point when cursor is near
+  if (_polyPoints.length >= 2) {
+    var dx = pos.x - _polyPoints[0].x, dy = pos.y - _polyPoints[0].y;
+    if (Math.sqrt(dx * dx + dy * dy) < 15) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(_polyPoints[0].x, _polyPoints[0].y, 8, 0, Math.PI * 2);
+      ctx.fillStyle = _color;
+      ctx.globalAlpha = 0.3;
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
 // ── Select Tool ─────────────────────────────────────────
 
 var _dragState = null;
@@ -1520,6 +1558,11 @@ function _wireEvents() {
   mc.addEventListener('mousemove', function(e) {
     _updateEraserCursor(e);
     if (_tool === 'select') { _handleSelectMove(e); return; }
+    // Polyline rubber-band preview
+    if (_tool === 'polyline' && _polyPoints.length >= 1 && !_isDrawing) {
+      _drawPolylinePreview(e);
+      return;
+    }
     _moveDraw(e);
   });
   mc.addEventListener('mouseup', function(e) {
@@ -1545,6 +1588,10 @@ function _wireEvents() {
     if (!_tool || _tool === 'pin') return;
     e.preventDefault();
     if (_tool === 'select') { _handleSelectMove(e); return; }
+    if (_tool === 'polyline' && _polyPoints.length >= 1 && !_isDrawing) {
+      _drawPolylinePreview(e);
+      return;
+    }
     _moveDraw(e);
   }, { passive: false });
 
