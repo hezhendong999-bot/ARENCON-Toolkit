@@ -85,7 +85,7 @@ function ensurePdfJs(cb){
           <button id="ai-mode-quickfix">🔤 Quick Fix <span>Typos &amp; grammar only (Haiku)</span></button>
         </div>
       </div>
-      <button class="hdr-btn" id="btn-ai-usage" style="display:none;background:#455A64;" title="AI Usage Tracking">📊</button>
+      <button class="hdr-btn" id="btn-ai-usage" style="display:none;background:#455A64;" title="AI Usage Tracking">📊 AI Usage</button>
       <button class="hdr-btn" id="btn-issue" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
       <!-- ⚙️ More dropdown -->
       <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
@@ -262,12 +262,12 @@ function ensurePdfJs(cb){
     <!-- DEFICIENCIES PANEL -->
     <div class="panel" id="panel-deficiencies">
       <!-- Deficiency Log summary table -->
-      <div class="card" style="margin-top:0;border-radius:0 0 0 0;" id="defic-log-card">
+      <div class="card" style="margin:0;border-radius:0;" id="defic-log-card">
         <div class="card-header">📋 Deficiency Log</div>
         <div class="card-body" id="defic-log-container" style="padding:10px 14px;"></div>
       </div>
       <!-- Deficiencies Identified section -->
-      <div class="card" style="margin-top:0;border-radius:0;">
+      <div class="card" style="margin:0;border-radius:0;border-top:none;">
         <div class="card-header">⚠ Deficiencies Identified</div>
         <div class="card-body" style="padding:10px 0 0 0;">
           <div id="contractors-on-site" style="padding:0 14px;"></div>
@@ -299,7 +299,7 @@ function ensurePdfJs(cb){
     <div class="panel" id="panel-pins">
       <div class="card">
         <div class="card-header" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <span>📊 Summary</span>
+          <span>📑 Summary</span>
           <div style="display:flex;border:1.5px solid rgba(255,255,255,.3);border-radius:6px;overflow:hidden;">
             <button id="tasks-view-table" style="border:none;background:rgba(255,255,255,.2);color:white;padding:4px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:700;">Table</button>
             <button id="tasks-view-board" style="border:none;background:transparent;color:rgba(255,255,255,.6);padding:4px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));">Board</button>
