@@ -1733,3 +1733,4 @@ body.dark-mode .ai-mode-menu{background:#1e2533;border-color:#3a3e48;}
 .ai-usage-loading{padding:24px;text-align:center;color:var(--steel);}
 body.dark-mode .ai-usage-modal{background:var(--bg);}
 body.dark-mode .ai-usage-filters button{background:#37474F;}
+@media(min-width:1201px){#btn-ai-usage-more{display:none!important;}}
