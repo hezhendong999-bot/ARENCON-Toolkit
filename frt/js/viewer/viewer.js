@@ -25,7 +25,14 @@ function _ensureTiledInit() {
       for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
       return null;
     },
-    getPdfBuf: function(id) { return IDB.get('pdfBufs', id).catch(function() { return null; }); },
+    getPdfBuf: function(id) {
+      // Resolve drawing → pdfBufKey → pdfBufs store
+      var list = _getDrawingsList();
+      var d = null;
+      for (var i = 0; i < list.length; i++) if (list[i].id === id) { d = list[i]; break; }
+      var key = (d && d.pdfBufKey) ? d.pdfBufKey : id;
+      return IDB.get('pdfBufs', key).catch(function() { return null; });
+    },
     savePdfBuf: function(id, buf) { return IDB.put('pdfBufs', { id: id, buf: buf }).catch(function() {}); },
     showLoading: function(msg) { console.log('[TiledPdf] ' + msg); },
     hideLoading: function() {},
@@ -224,7 +231,7 @@ function _showDrawing(idx) {
     var wrapPdf = document.getElementById('dv-img-wrap');
     if (wrapPdf) wrapPdf.style.transform = 'translate3d(0,0,0) scale(1)';
     var _doOpen = function() {
-      TiledPdf.open(d.id, 1).then(function() {
+      TiledPdf.open(d.id, d.pdfPage || 1).then(function() {
         if (TiledPdf.isActive()) Markup.init(d.id);
       });
     };
