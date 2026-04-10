@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=84">
+<link rel="stylesheet" href="css/frt.css?v=85">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -365,12 +365,12 @@ function ensurePdfJs(cb){
     <!-- More menu -->
     <div style="position:relative;display:inline-block;">
       <button id="dv-more-btn" title="More options">⋯</button>
-      <div id="dv-more-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:#2a2d35;border:1px solid #3a3e48;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:220px;z-index:9500;padding:6px 0;font-family:Calibri,sans-serif;">
+      <div id="dv-more-menu" class="dv-more-menu" style="display:none;">
         <button data-dv-action="download" class="dv-menu-item">⬇️ Download Drawing</button>
         <button data-dv-action="heights" class="dv-menu-item">📐 Heights / Dimensions</button>
-        <div style="height:1px;background:#3a3e48;margin:4px 0;"></div>
-        <button data-dv-action="delete-all-markup" class="dv-menu-item" style="color:#ff8a8a;">✏️ Delete All Markup</button>
-        <button data-dv-action="delete-all-pins" class="dv-menu-item" style="color:#ff8a8a;">📌 Delete All Pins</button>
+        <div class="dv-more-sep"></div>
+        <button data-dv-action="delete-all-markup" class="dv-menu-item dv-menu-danger">✏️ Delete All Markup</button>
+        <button data-dv-action="delete-all-pins" class="dv-menu-item dv-menu-danger">📌 Delete All Pins</button>
       </div>
     </div>
     <button id="dv-dark-toggle" title="Toggle Dark Mode" style="font-size:calc(14px + var(--ts));">☀️</button>
