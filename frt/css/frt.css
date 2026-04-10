@@ -1734,3 +1734,44 @@ body.dark-mode .ai-mode-menu{background:#1e2533;border-color:#3a3e48;}
 body.dark-mode .ai-usage-modal{background:var(--bg);}
 body.dark-mode .ai-usage-filters button{background:#37474F;}
 @media(min-width:1201px){#btn-ai-usage-more{display:none!important;}}
+
+/* ── S70: Photo gallery v2 cards ───────────────────── */
+.ph-card .ph-hover-btn {
+  position: absolute;
+  background: rgba(0,0,0,.7);
+  color: #fff;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 12px;
+  line-height: 24px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition: opacity .15s, background .15s;
+  z-index: 3;
+}
+.ph-card:hover .ph-hover-btn { opacity: 1; }
+.ph-hover-btn:hover { background: #9C2742; }
+.ph-hover-btn.ph-del { top: 4px; right: 4px; }
+.ph-hover-btn.ph-dl { bottom: 4px; right: 4px; }
+.ph-card-defic .ph-hover-btn.ph-dl { bottom: 4px; right: 4px; }
+.ph-pin-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: #9C2742;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.4);
+  z-index: 2;
+}
+@media (pointer: coarse) {
+  .ph-card .ph-hover-btn { opacity: 0.85; }
+  .ph-hover-btn { width: 30px; height: 30px; line-height: 30px; font-size: 14px; }
+}

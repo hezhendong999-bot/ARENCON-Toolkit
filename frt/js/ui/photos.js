@@ -55,38 +55,82 @@ export var initPhotos = {
     html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Deficiency Photos</div></div>';
     html += '</div>';
 
-    // Site photos section
-    if (sitePhotos.length) {
-      html += '<div style="font-weight:700;font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:8px;">Site Photos</div>';
-      html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">';
-      sitePhotos.forEach(function(p, i) {
-        var imgSrc = p.thumb || p.r2Url || p.dataUrl || '';
-        html += '<div style="position:relative;width:120px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--smoke);">';
-        if (imgSrc) {
-          html += '<img data-action="open-site-lightbox" data-photo-idx="' + i + '" src="' + esc(imgSrc) + '" loading="lazy" style="width:120px;height:100px;object-fit:cover;display:block;cursor:pointer;" onerror="this.style.display=\'none\'">';
-        } else {
-          html += '<div style="width:120px;height:100px;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:24px;">\uD83D\uDCF7</div>';
-        }
-        html += '<button data-action="delete-site-photo" data-photo-idx="' + i + '" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:12px;line-height:22px;text-align:center;cursor:pointer;padding:0;" title="Remove photo">\u2715</button>';
-        html += '<div style="padding:3px 6px;font-size:calc(10px + var(--ts));color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(p.caption || p.filename || 'Photo ' + (i + 1)) + '</div>';
-        html += '</div>';
-      });
-      html += '</div>';
+    // ── Date grouping helper ──
+    function dayKey(p) {
+      var d = p.addedDate || p.date || p.timestamp || '';
+      if (!d) return 'No date';
+      try { var dt = new Date(d); if (isNaN(dt.getTime())) return 'No date';
+        return dt.toLocaleDateString('en-CA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+      } catch(e) { return 'No date'; }
+    }
+    function r2Dot(ph) {
+      var st = ph.r2Url ? 'ok' : 'pending';
+      var color = st === 'ok' ? '#1A7A4A' : '#FFA726';
+      return '<div title="R2: ' + st + '" style="position:absolute;bottom:4px;left:4px;width:8px;height:8px;border-radius:50%;background:' + color + ';box-shadow:0 0 0 1.5px rgba(255,255,255,.8);"></div>';
+    }
+    function siteCard(p, i) {
+      var imgSrc = p.thumb || p.r2Url || p.dataUrl || '';
+      var h = '<div class="ph-card ph-card-site" style="position:relative;width:120px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--smoke);user-select:none;">';
+      if (imgSrc) {
+        h += '<img data-action="open-site-lightbox" data-photo-idx="' + i + '" src="' + esc(imgSrc) + '" loading="lazy" style="width:120px;height:100px;object-fit:cover;display:block;cursor:pointer;" onerror="this.style.display=\'none\'">';
+      } else {
+        h += '<div style="width:120px;height:100px;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:24px;">\uD83D\uDCF7</div>';
+      }
+      h += '<button class="ph-hover-btn ph-del" data-action="delete-site-photo" data-photo-idx="' + i + '" title="Delete">\u2715</button>';
+      h += '<button class="ph-hover-btn ph-dl" data-action="download-site-photo" data-photo-idx="' + i + '" title="Download">\u2B07</button>';
+      h += r2Dot(p);
+      h += '<div style="padding:3px 6px;font-size:calc(10px + var(--ts));color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(p.caption || 'Site Photo') + '</div>';
+      h += '</div>';
+      return h;
+    }
+    function deficCard(dp) {
+      var ph = dp.photo;
+      var imgSrc = ph.r2Url || ph.dataUrl || '';
+      if (!imgSrc) return '';
+      var h = '<div class="ph-card ph-card-defic" data-action="open-defic-lightbox" data-defic-id="' + esc(dp.deficId) + '" data-obs-idx="' + dp.obsIdx + '" data-photo-idx="' + dp.photoIdx + '" style="position:relative;width:120px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--smoke);cursor:pointer;user-select:none;">';
+      h += '<img src="' + esc(imgSrc) + '" loading="lazy" style="width:120px;height:100px;object-fit:cover;display:block;">';
+      h += '<div class="ph-pin-badge" title="Pin #' + dp.deficNum + '">#' + dp.deficNum + '</div>';
+      h += '<button class="ph-hover-btn ph-dl" data-action="download-defic-photo" data-defic-id="' + esc(dp.deficId) + '" data-obs-idx="' + dp.obsIdx + '" data-photo-idx="' + dp.photoIdx + '" title="Download">\u2B07</button>';
+      h += r2Dot(ph);
+      h += '<div style="padding:3px 6px;font-size:calc(10px + var(--ts));color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(dp.contractorName) + '</div>';
+      h += '</div>';
+      return h;
     }
 
-    // Deficiency photos section
-    if (deficPhotos.length) {
-      html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">';
-      deficPhotos.forEach(function(dp) {
-        var ph = dp.photo;
-        var imgSrc = ph.r2Url || ph.dataUrl || '';
-        if (!imgSrc) return;
-        html += '<div data-action="open-defic-lightbox" data-defic-id="' + esc(dp.deficId) + '" data-obs-idx="' + dp.obsIdx + '" data-photo-idx="' + dp.photoIdx + '" style="position:relative;width:120px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--smoke);cursor:pointer;">';
-        html += '<img src="' + esc(imgSrc) + '" loading="lazy" style="width:120px;height:100px;object-fit:cover;display:block;">';
-        html += '<div style="padding:3px 6px;font-size:calc(10px + var(--ts));color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">#' + dp.deficNum + ' \u2022 ' + esc(dp.contractorName) + '</div>';
+    // Group site photos by date
+    var siteGroups = {};
+    var siteOrder = [];
+    sitePhotos.forEach(function(p, i) {
+      var k = dayKey(p);
+      if (!siteGroups[k]) { siteGroups[k] = []; siteOrder.push(k); }
+      siteGroups[k].push({ photo: p, idx: i });
+    });
+    if (sitePhotos.length) {
+      html += '<div style="font-weight:700;font-size:calc(13px + var(--ts));color:var(--steel);margin:18px 0 8px;">Site Photos</div>';
+      siteOrder.forEach(function(k) {
+        html += '<div style="font-size:calc(12px + var(--ts));color:var(--silver);font-weight:600;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">' + esc(k) + ' \u00B7 ' + siteGroups[k].length + '</div>';
+        html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">';
+        siteGroups[k].forEach(function(item) { html += siteCard(item.photo, item.idx); });
         html += '</div>';
       });
-      html += '</div>';
+    }
+
+    // Group defic photos by date
+    var defGroups = {};
+    var defOrder = [];
+    deficPhotos.forEach(function(dp) {
+      var k = dayKey(dp.photo);
+      if (!defGroups[k]) { defGroups[k] = []; defOrder.push(k); }
+      defGroups[k].push(dp);
+    });
+    if (deficPhotos.length) {
+      html += '<div style="font-weight:700;font-size:calc(13px + var(--ts));color:var(--steel);margin:18px 0 8px;">Deficiency Photos</div>';
+      defOrder.forEach(function(k) {
+        html += '<div style="font-size:calc(12px + var(--ts));color:var(--silver);font-weight:600;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">' + esc(k) + ' \u00B7 ' + defGroups[k].length + '</div>';
+        html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">';
+        defGroups[k].forEach(function(dp) { html += deficCard(dp); });
+        html += '</div>';
+      });
     }
 
     if (!totalCount) {
@@ -110,7 +154,7 @@ document.addEventListener('click', function(e) {
       var fullPhotos = (proj.photos || []).map(function(p) {
         return { r2Url: p.r2Url, dataUrl: p.dataUrl, caption: p.caption || p.filename || '', filename: p.filename };
       });
-      window._frtLightbox.open(fullPhotos, idx);
+      window._frtLightbox.open(fullPhotos, idx, { contextLabel:'Site Photo' });
     }
     return;
   }
@@ -125,12 +169,36 @@ document.addEventListener('click', function(e) {
     if (f && f.defic.observations && f.defic.observations[obsIdx]) {
       var photos = f.defic.observations[obsIdx].photos || [];
       if (photos.length && window._frtLightbox) {
-        window._frtLightbox.open(photos, photoIdx);
+        window._frtLightbox.open(photos, photoIdx, { contextLabel:'Pin #' + (f.defic.num || '?') });
       }
     }
     return;
   }
 
+  // Download site photo
+  var dlS = e.target.closest && e.target.closest('[data-action="download-site-photo"]');
+  if (dlS) {
+    e.stopPropagation();
+    var idx = parseInt(dlS.getAttribute('data-photo-idx') || '0');
+    var proj = Model.getProject();
+    var p = proj && proj.photos && proj.photos[idx];
+    if (p) _downloadPhoto(p, 'site_photo_' + (idx+1));
+    return;
+  }
+  // Download defic photo
+  var dlD = e.target.closest && e.target.closest('[data-action="download-defic-photo"]');
+  if (dlD) {
+    e.stopPropagation();
+    var did = dlD.getAttribute('data-defic-id');
+    var oi = parseInt(dlD.getAttribute('data-obs-idx') || '0');
+    var pi = parseInt(dlD.getAttribute('data-photo-idx') || '0');
+    var f = Model.findDeficiency(did);
+    if (f && f.defic.observations && f.defic.observations[oi]) {
+      var ph = (f.defic.observations[oi].photos || [])[pi];
+      if (ph) _downloadPhoto(ph, 'defic_' + (f.defic.num || 'x') + '_' + (pi+1));
+    }
+    return;
+  }
   // Delete site photo
   var del = e.target.closest && e.target.closest('[data-action="delete-site-photo"]');
   if (del) {
@@ -146,6 +214,20 @@ document.addEventListener('click', function(e) {
 });
 
 // ── Site Photo Upload ───────────────────────────────────
+function _downloadPhoto(ph, fallbackName) {
+  var src = ph.r2Url || ph.dataUrl || '';
+  if (!src) { toast('No image source'); return; }
+  var fname = ph.filename || (fallbackName + '.jpg');
+  if (!/\.(jpe?g|png|webp|gif)$/i.test(fname)) fname += '.jpg';
+  fetch(src).then(function(r){return r.blob();}).then(function(blob){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a'); a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    toast('Downloaded ' + fname);
+  }).catch(function(){ window.open(src, '_blank'); });
+}
+
 function _compressSitePhoto(file, cb) {
   var reader = new FileReader();
   reader.onload = function(e) {
