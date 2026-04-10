@@ -1587,6 +1587,8 @@ body.dark-mode #tasks-search,body.dark-mode #tasks-filter-status,body.dark-mode 
 
 /* ═══ HEADER BUTTON AUTO-SIZING ═══ */
 #dark-toggle,#mobile-menu-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;padding:0;font-size:calc(16px + var(--ts));border-radius:6px;border:none;background:rgba(255,255,255,.15);color:white;cursor:pointer;}
+#mobile-menu-btn{display:none;}
+@media(max-width:1024px){#mobile-menu-btn{display:inline-flex!important;}}
 #dark-toggle:hover,#mobile-menu-btn:hover{background:rgba(255,255,255,.25);}
 @media(max-width:1200px){.hdr-btn{padding:0 10px;font-size:calc(11px + var(--ts));}#btn-ai-usage{display:none!important;}}
 @media(max-width:900px){.hdr-btn{padding:0 8px;font-size:calc(11px + var(--ts));}.hdr-btn span{display:none;}}
