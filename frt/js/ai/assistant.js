@@ -323,6 +323,97 @@ function _getToken() {
   return localStorage.getItem('sb-access-token') || null;
 }
 
+// ── Field Selector Modal ────────────────────────────────
+function _showFieldSelector(fields, mode) {
+  return new Promise(function(resolve) {
+    var existing = document.getElementById('ai-fs-overlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'ai-fs-overlay';
+    overlay.className = 'ai-fs-overlay';
+
+    var modeLabel = mode === 'quickfix' ? 'Quick Fix (Haiku)' : 'Full Rewrite (Sonnet)';
+
+    // Group fields by deficiency for nicer display
+    var html = '<div class="ai-fs-modal">';
+    html += '<div class="ai-fs-header"><h3>\u2728 AI Review \u2014 Select Fields</h3>';
+    html += '<button class="ai-fs-x" title="Cancel">\u2715</button></div>';
+    html += '<div class="ai-fs-subhdr"><span class="ai-fs-mode">' + _esc(modeLabel) + '</span>';
+    html += '<button class="ai-fs-toggle" data-state="all">Deselect All</button></div>';
+    html += '<div class="ai-fs-body">';
+    fields.forEach(function(f, i) {
+      var text = f.text || '';
+      var preview = text.length > 140 ? text.substring(0, 140) + '\u2026' : text;
+      html += '<label class="ai-fs-row">';
+      html += '<input type="checkbox" class="ai-fs-check" data-idx="' + i + '" checked>';
+      html += '<div class="ai-fs-info">';
+      html += '<div class="ai-fs-label">' + _esc(f.label) + '</div>';
+      html += '<div class="ai-fs-preview">' + _esc(preview) + '</div>';
+      html += '</div></label>';
+    });
+    html += '</div>';
+    html += '<div class="ai-fs-footer"><span class="ai-fs-count">' + fields.length + ' of ' + fields.length + ' selected</span>';
+    html += '<div class="ai-fs-btns"><button class="ai-fs-cancel">Cancel</button>';
+    html += '<button class="ai-fs-confirm">Review \u2192</button></div></div>';
+    html += '</div>';
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(function() { overlay.classList.add('open'); });
+
+    function updateCount() {
+      var checks = overlay.querySelectorAll('.ai-fs-check');
+      var cnt = 0;
+      for (var i = 0; i < checks.length; i++) if (checks[i].checked) cnt++;
+      var span = overlay.querySelector('.ai-fs-count');
+      if (span) span.textContent = cnt + ' of ' + fields.length + ' selected';
+      var btn = overlay.querySelector('.ai-fs-confirm');
+      if (btn) {
+        btn.disabled = cnt === 0;
+        btn.textContent = 'Review ' + cnt + ' \u2192';
+      }
+      var toggle = overlay.querySelector('.ai-fs-toggle');
+      if (toggle) {
+        var allOn = cnt === fields.length;
+        toggle.textContent = allOn ? 'Deselect All' : 'Select All';
+        toggle.dataset.state = allOn ? 'all' : 'none';
+      }
+    }
+
+    overlay.addEventListener('change', function(e) {
+      if (e.target.classList && e.target.classList.contains('ai-fs-check')) updateCount();
+    });
+
+    overlay.querySelector('.ai-fs-toggle').addEventListener('click', function() {
+      var checks = overlay.querySelectorAll('.ai-fs-check');
+      var allOn = true;
+      for (var i = 0; i < checks.length; i++) if (!checks[i].checked) { allOn = false; break; }
+      for (var j = 0; j < checks.length; j++) checks[j].checked = !allOn;
+      updateCount();
+    });
+
+    function cleanup(result) {
+      overlay.classList.remove('open');
+      setTimeout(function() { overlay.remove(); resolve(result); }, 150);
+    }
+
+    overlay.querySelector('.ai-fs-x').addEventListener('click', function() { cleanup(null); });
+    overlay.querySelector('.ai-fs-cancel').addEventListener('click', function() { cleanup(null); });
+    overlay.querySelector('.ai-fs-confirm').addEventListener('click', function() {
+      var selected = [];
+      var checks = overlay.querySelectorAll('.ai-fs-check');
+      for (var i = 0; i < checks.length; i++) {
+        if (checks[i].checked) {
+          var idx = parseInt(checks[i].getAttribute('data-idx'), 10);
+          selected.push(fields[idx]);
+        }
+      }
+      cleanup(selected.length > 0 ? selected : null);
+    });
+    updateCount();
+  });
+}
+
 // ── Main Entry Point ────────────────────────────────────
 function reviewAll(mode) {
   if (_busy) return;
@@ -330,9 +421,21 @@ function reviewAll(mode) {
   if (!Model.getProject()) { toast('\u26A0 Open a project first'); return; }
   var token = _getToken();
   if (!token) { toast('\u26A0 AI Review requires cloud login'); return; }
-  var fields = _collectFields();
-  if (fields.length === 0) { toast('\u2714 No text fields to review'); return; }
+  var allFields = _collectFields();
+  if (allFields.length === 0) { toast('\u2714 No text fields to review'); return; }
 
+  // Show field selector for >1 field; single field auto-proceeds
+  if (allFields.length === 1) {
+    _doReview(allFields, mode, token);
+    return;
+  }
+  _showFieldSelector(allFields, mode).then(function(selected) {
+    if (!selected || selected.length === 0) return; // cancelled
+    _doReview(selected, mode, token);
+  });
+}
+
+function _doReview(fields, mode, token) {
   _busy = true;
   _updateBtn(true, mode);
   _openPanel();
