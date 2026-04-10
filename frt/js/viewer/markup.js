@@ -20,6 +20,7 @@
 import { Model } from '../data/model.js';
 import { IDB } from '../data/idb.js';
 import { showConfirm } from '../shared/dialogs.js';
+import { TiledPdf } from './tiledPdf.js';
 
 // ── State ───────────────────────────────────────────────
 var _drawingId = null;
@@ -513,6 +514,7 @@ function _startDraw(e) {
   if (_tool === 'polyline') { _handlePolylineClick(e); return; }
 
   _isDrawing = true;
+  if (TiledPdf.isActive()) TiledPdf.pause();
   _penPoints = [];
   var pos = _getPos(e);
   _startX = pos.x;
@@ -591,6 +593,7 @@ function _moveDraw(e) {
 function _endDraw(e) {
   if (!_isDrawing) return;
   _isDrawing = false;
+  if (TiledPdf.isActive()) { TiledPdf.resume(); TiledPdf.scheduleRender(); }
 
   var ov = _getOverlay();
   if (ov) {
