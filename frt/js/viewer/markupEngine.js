@@ -32,6 +32,7 @@
     },
 
     detach: function(){
+      if (this._textInput && this._textInput.parentNode) { try{ this._textInput.parentNode.removeChild(this._textInput); }catch(_){} this._textInput=null; }
       if (this._syncBound) { window.removeEventListener('resize', this._syncBound); this._syncBound = null; }
       if (this.canvas && this.canvas.parentNode) this.canvas.parentNode.removeChild(this.canvas);
       this.canvas = null; this.ctx = null; this.host = null; this.img = null;
@@ -71,6 +72,7 @@
       function down(ev){
         ev.preventDefault();
         var p = pt(ev);
+        if (self.tool === 'text'){ self._textPrompt(p); return; }
         if (self.tool === 'eraser'){ self._eraseAt(p); self._drawing = true; return; }
         self._drawing = true;
         self._curr = { tool:self.tool, color:self.color, size:self.size, pts:[p, {x:p.x,y:p.y}] };
@@ -117,14 +119,48 @@
     },
 
     _eraseAt: function(p){
-      // Hit-test strokes by bounding test (cheap): remove any stroke whose any point within size+8 of p
-      var r = (this.size||3) + 8;
+      var r = (this.size||3) + 10;
+      var r2 = r*r;
+      function distToSeg(px,py, ax,ay, bx,by){
+        var dx=bx-ax, dy=by-ay;
+        var len2 = dx*dx + dy*dy;
+        if (len2 === 0){ var ex=px-ax,ey=py-ay; return ex*ex+ey*ey; }
+        var t = ((px-ax)*dx + (py-ay)*dy) / len2;
+        t = Math.max(0, Math.min(1, t));
+        var qx = ax + t*dx, qy = ay + t*dy;
+        var fx = px-qx, fy = py-qy;
+        return fx*fx + fy*fy;
+      }
       var hit = -1;
       for (var i=this.strokes.length-1; i>=0; i--){
         var s = this.strokes[i];
-        for (var j=0; j<s.pts.length; j++){
-          var dx = s.pts[j].x - p.x, dy = s.pts[j].y - p.y;
-          if (dx*dx + dy*dy <= r*r){ hit = i; break; }
+        var tool = s.tool;
+        if (tool === 'pen' || tool === 'highlight'){
+          for (var j=0; j<s.pts.length-1; j++){
+            if (distToSeg(p.x,p.y, s.pts[j].x,s.pts[j].y, s.pts[j+1].x,s.pts[j+1].y) <= r2){ hit=i; break; }
+          }
+        } else if (tool === 'line' || tool === 'arrow'){
+          if (distToSeg(p.x,p.y, s.pts[0].x,s.pts[0].y, s.pts[1].x,s.pts[1].y) <= r2) hit=i;
+        } else if (tool === 'rect'){
+          var x1=Math.min(s.pts[0].x,s.pts[1].x), y1=Math.min(s.pts[0].y,s.pts[1].y);
+          var x2=Math.max(s.pts[0].x,s.pts[1].x), y2=Math.max(s.pts[0].y,s.pts[1].y);
+          // Test all 4 edges
+          if (distToSeg(p.x,p.y,x1,y1,x2,y1)<=r2 || distToSeg(p.x,p.y,x2,y1,x2,y2)<=r2 ||
+              distToSeg(p.x,p.y,x2,y2,x1,y2)<=r2 || distToSeg(p.x,p.y,x1,y2,x1,y1)<=r2) hit=i;
+        } else if (tool === 'circle'){
+          var cx=(s.pts[0].x+s.pts[1].x)/2, cy=(s.pts[0].y+s.pts[1].y)/2;
+          var rx=Math.abs(s.pts[1].x-s.pts[0].x)/2, ry=Math.abs(s.pts[1].y-s.pts[0].y)/2;
+          if (rx>0 && ry>0){
+            // Distance from point to ellipse perimeter (approximation): scale into unit circle space
+            var nx=(p.x-cx)/rx, ny=(p.y-cy)/ry;
+            var d = Math.abs(Math.sqrt(nx*nx+ny*ny) - 1) * Math.min(rx,ry);
+            if (d <= r) hit=i;
+          }
+        } else if (tool === 'text'){
+          var tp=s.pts[0];
+          var fontPx=(s.size||3)*4;
+          var w=(s.text||'').length*fontPx*0.55; // rough char width estimate
+          if (p.x >= tp.x-4 && p.x <= tp.x+w+4 && p.y >= tp.y-fontPx-2 && p.y <= tp.y+4) hit=i;
         }
         if (hit >= 0) break;
       }
@@ -168,6 +204,54 @@
         ctx.stroke();
       }
     },
+
+    // Inline text input overlay — commits on Enter/blur, cancels on Escape
+    _textPrompt: function(p){
+      var self = this;
+      if (self._textInput) { try { self._textInput.parentNode.removeChild(self._textInput); } catch(_){} self._textInput=null; }
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.placeholder = 'Type, Enter to commit';
+      var fontPx = (self.size||3) * 4;
+      inp.style.cssText = 'position:absolute;left:'+p.x+'px;top:'+(p.y - fontPx)+'px;'+
+        'background:rgba(255,255,255,.95);color:'+self.color+';border:2px dashed '+self.color+';'+
+        'border-radius:3px;padding:2px 6px;font:600 '+fontPx+'px Calibri,sans-serif;'+
+        'min-width:120px;outline:none;z-index:6;pointer-events:auto;';
+      self.canvas.parentNode.appendChild(inp);
+      self._textInput = inp;
+      setTimeout(function(){ inp.focus(); }, 0);
+      function cleanup(){
+        if (inp.parentNode) inp.parentNode.removeChild(inp);
+        if (self._textInput === inp) self._textInput = null;
+      }
+      function commit(){
+        var v = inp.value.trim();
+        if (v){
+          self.strokes.push({ tool:'text', pts:[{x:p.x,y:p.y}], text:v, color:self.color, size:self.size });
+          self.redoStack = [];
+          if (self._onDirty) self._onDirty();
+          self._render();
+        }
+        cleanup();
+      }
+      inp.addEventListener('keydown', function(e){
+        if (e.key === 'Enter'){ e.preventDefault(); commit(); }
+        else if (e.key === 'Escape'){ e.preventDefault(); cleanup(); }
+        e.stopPropagation();
+      });
+      inp.addEventListener('blur', commit);
+    },
+
+    _drawText: function(ctx, s, sx, sy){
+      sx = sx || 1; sy = sy || 1;
+      var p = s.pts[0]; if (!p) return;
+      var fontPx = (s.size||3) * 4 * ((sx+sy)/2);
+      ctx.font = '600 ' + fontPx + 'px Calibri, sans-serif';
+      ctx.fillStyle = s.color;
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(s.text || '', p.x*sx, p.y*sy);
+    },
+
 
     _strokePath: function(ctx, s){
       if (s.pts.length < 2) return;
@@ -218,6 +302,11 @@
         if (sh.tool==='line'||sh.tool==='rect'||sh.tool==='circle'||sh.tool==='arrow') this._drawShape(ctx, sh);
       }
       if (this._curr && (this._curr.tool==='line'||this._curr.tool==='rect'||this._curr.tool==='circle'||this._curr.tool==='arrow')) this._drawShape(ctx, this._curr);
+      // Pass 4: text labels on top of everything
+      for (var n=0;n<this.strokes.length;n++){
+        var tx = this.strokes[n];
+        if (tx.tool==='text') this._drawText(ctx, tx);
+      }
     },
 
     isDirty: function(){ return this.strokes.length > 0; },
@@ -281,6 +370,10 @@
           // Shapes on top
           self.strokes.filter(function(s){return s.tool==='line'||s.tool==='rect'||s.tool==='circle'||s.tool==='arrow';}).forEach(function(s){
             self._drawShape(oc, s, sx, sy);
+          });
+          // Text labels on top
+          self.strokes.filter(function(s){return s.tool==='text';}).forEach(function(s){
+            self._drawText(oc, s, sx, sy);
           });
           out.toBlob(function(b){ b ? resolve(b) : reject(new Error('toBlob failed')); }, 'image/jpeg', 0.92);
         } catch(e){ reject(e); }
