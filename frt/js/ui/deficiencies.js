@@ -245,8 +245,9 @@ export function buildDeficCard(d, ctrId) {
         obsPhotos.forEach(function(ph, phi) {
           var src = ph.r2Url || ph.dataUrl || '';
           if (src) {
-            h += '<div style="position:relative;width:60px;height:60px;border-radius:4px;overflow:hidden;border:1px solid var(--border);">';
+            h += '<div class="obs-photo-wrap" style="position:relative;width:60px;height:60px;border-radius:4px;overflow:hidden;border:1px solid var(--border);">';
             h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" src="' + esc(src) + '" style="width:100%;height:100%;object-fit:cover;cursor:pointer;" loading="lazy">';
+            h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
             h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" style="position:absolute;top:1px;right:1px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;text-align:center;cursor:pointer;padding:0;" title="Remove photo">\u2715</button>';
             h += '</div>';
           }
@@ -259,6 +260,9 @@ export function buildDeficCard(d, ctrId) {
       h += ' ondragleave="this.classList.remove(\'drag-over\')">';
       h += '<button class="pz-upload" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCCE Upload</button>';
       h += '<button class="pz-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#37474F;color:white;border-radius:5px;padding:4px 10px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;">\uD83D\uDCF7 Camera</button>';
+      if (obsPhotos.length) {
+        h += '<button data-action="ai-suggest-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="pz-ai-suggest" title="AI Suggest description from all photos">\u2728 AI Suggest</button>';
+      }
       h += '</div>';
       h += '</div>';
     });
@@ -801,6 +805,39 @@ document.addEventListener('click', function(e) {
         Model.removeObservationPhoto(deficId, obsIdx, photoIdx);
         initDeficiencies.render();
         toast('Photo removed');
+      }
+    });
+  }
+
+  if (action === 'ai-suggest-photo' || action === 'ai-suggest-obs') {
+    var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
+    var f = Model.findDeficiency(deficId);
+    if (!f || !f.defic.observations || !f.defic.observations[obsIdx]) {
+      toast('\u26A0 Observation not found');
+      return;
+    }
+    var obs = f.defic.observations[obsIdx];
+    var photos = obs.photos || [];
+    if (!photos.length) { toast('\u26A0 No photos on this observation'); return; }
+    var selectedPhotos = photos;
+    if (action === 'ai-suggest-photo') {
+      var photoIdx = parseInt(el.getAttribute('data-photo-idx') || '0');
+      if (photos[photoIdx]) selectedPhotos = [photos[photoIdx]];
+    }
+    if (!window.AIAssist || !window.AIAssist.suggestFromPhotos) {
+      toast('\u26A0 AI Assistant not loaded');
+      return;
+    }
+    window.AIAssist.suggestFromPhotos({
+      photos: selectedPhotos,
+      existingText: obs.text || '',
+      onAccept: function(text) {
+        obs.text = text;
+        obs.aiReviewed = true;
+        Model.saveNow();
+        initDeficiencies.render();
+        toast('\u2728 AI suggestion applied');
       }
     });
   }

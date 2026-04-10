@@ -80,6 +80,28 @@ Respond with ONLY valid JSON — no markdown, no backticks:
   }
 ]`;
 
+const PROMPT_PHOTO_SUGGEST = `You are a senior fire protection engineer at ARENCON Inc. in Ontario, Canada. An inspector has taken photo(s) at a site and wants a suggested deficiency description for a Field Review Report.
+
+Analyze the photo(s) and suggest a concise, professional deficiency description using proper fire protection terminology (NFPA 13, 25, 72, OBC, ULC standards).
+
+RULES:
+- Be specific about what you can see in the photo — component, location, condition
+- Use proper terminology: "sprinkler deflector", "fire damper", "escutcheon plate", "FAP device", etc.
+- 1-3 professional sentences, suitable for a formal report sent to clients/AHJs
+- If the photo clearly shows a code violation, reference the relevant NFPA/OBC section
+- If existing observation text is provided, use it as context but improve/extend it
+- Do NOT invent findings not visible in the photo
+- Do NOT guess measurements — if distances aren't clearly visible, don't specify them
+- If the photo is unclear or doesn't show a deficiency, respond: "Unable to identify a clear deficiency from this photo. Please add additional context or retake the photo."
+
+Respond with ONLY valid JSON — no markdown, no backticks:
+{
+  "suggestion": "The professional deficiency description text.",
+  "confidence": "high|medium|low",
+  "notes": "Brief reasoning or caveats"
+}`;
+
+
 const MODELS = {
   rewrite: { id: 'claude-sonnet-4-20250514', inputRate: 0.000003, outputRate: 0.000015 },
   quickfix: { id: 'claude-haiku-4-5-20251001', inputRate: 0.00000025, outputRate: 0.00000125 }
@@ -134,8 +156,114 @@ export default {
 
       // 2. Parse request body
       const body = await request.json();
-      const { fields, context, mode } = body;
+      const { fields, context, mode, photos, existingText } = body;
 
+      // Branch: photo suggest mode
+      if (mode === 'photo_suggest') {
+        if (!photos || !Array.isArray(photos) || photos.length === 0) {
+          return jsonResponse({ error: 'No photos provided' }, 400, headers);
+        }
+        if (photos.length > 4) {
+          return jsonResponse({ error: 'Too many photos (max 4 per request)' }, 400, headers);
+        }
+
+        // Build vision content blocks
+        const contentBlocks = [];
+        for (const ph of photos) {
+          if (!ph.data || !ph.media_type) {
+            return jsonResponse({ error: 'Each photo must have {data, media_type}' }, 400, headers);
+          }
+          contentBlocks.push({
+            type: 'image',
+            source: { type: 'base64', media_type: ph.media_type, data: ph.data }
+          });
+        }
+        let promptText = 'Please analyze the photo(s) above and suggest a deficiency description.';
+        if (existingText && existingText.trim()) {
+          promptText += '\n\nExisting observation text (please improve/extend, do not just repeat):\n' + existingText.trim();
+        }
+        contentBlocks.push({ type: 'text', text: promptText });
+
+        const visionModel = MODELS.rewrite; // Sonnet supports vision
+        const visionRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: visionModel.id,
+            max_tokens: 1024,
+            system: PROMPT_PHOTO_SUGGEST,
+            messages: [{ role: 'user', content: contentBlocks }]
+          })
+        });
+
+        if (!visionRes.ok) {
+          const errText = await visionRes.text();
+          console.error('Anthropic vision error:', visionRes.status, errText);
+          return jsonResponse({ error: 'AI vision service error', detail: visionRes.status }, 502, headers);
+        }
+
+        const visionData = await visionRes.json();
+        const visionText = visionData.content.filter(c => c.type === 'text').map(c => c.text).join('');
+        let parsed;
+        try {
+          const cleaned = visionText.replace(/```json|```/g, '').trim();
+          parsed = JSON.parse(cleaned);
+        } catch (e) {
+          console.error('Failed to parse vision response:', visionText);
+          return jsonResponse({ error: 'AI returned invalid format', raw: visionText }, 500, headers);
+        }
+
+        const vUsage = visionData.usage || {};
+        const vInputTokens = vUsage.input_tokens || 0;
+        const vOutputTokens = vUsage.output_tokens || 0;
+        const vCostUsd = (vInputTokens * visionModel.inputRate) + (vOutputTokens * visionModel.outputRate);
+
+        // Log usage
+        if (env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY) {
+          const vLogPayload = {
+            user_id: userId,
+            user_email: userEmail,
+            tool: context?.tool || 'unknown',
+            project_number: context?.projectNumber || null,
+            project_name: context?.projectName || null,
+            action: 'photo_suggest',
+            model: visionModel.id,
+            input_tokens: vInputTokens,
+            output_tokens: vOutputTokens,
+            cost_usd: vCostUsd,
+            field_count: photos.length,
+            accepted_count: null
+          };
+          const vLogPromise = fetch(`${env.SUPABASE_URL}/rest/v1/ai_usage_log`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': env.SUPABASE_SERVICE_KEY,
+              'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify(vLogPayload)
+          }).catch(err => console.error('Usage log failed:', err));
+          ctx.waitUntil(vLogPromise);
+        }
+
+        return jsonResponse({
+          suggestion: parsed.suggestion || '',
+          confidence: parsed.confidence || 'medium',
+          notes: parsed.notes || '',
+          usage: {
+            input_tokens: vInputTokens,
+            output_tokens: vOutputTokens,
+            cost_usd: Math.round(vCostUsd * 1000000) / 1000000
+          }
+        }, 200, headers);
+      }
+
+      // Text review mode (existing)
       if (!fields || !Array.isArray(fields) || fields.length === 0) {
         return jsonResponse({ error: 'No fields provided' }, 400, headers);
       }

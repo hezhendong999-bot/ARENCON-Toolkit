@@ -488,6 +488,165 @@ function _doReview(fields, mode, token) {
   });
 }
 
+// ── Photo → Base64 Helper ───────────────────────────────
+function _photoToBase64(photo) {
+  return new Promise(function(resolve, reject) {
+    if (photo.dataUrl && photo.dataUrl.indexOf('data:') === 0) {
+      // Parse data URL: data:image/jpeg;base64,...
+      var comma = photo.dataUrl.indexOf(',');
+      var header = photo.dataUrl.substring(5, comma); // "image/jpeg;base64"
+      var mediaType = header.split(';')[0];
+      var data = photo.dataUrl.substring(comma + 1);
+      resolve({ data: data, media_type: mediaType });
+      return;
+    }
+    if (photo.r2Url) {
+      fetch(photo.r2Url).then(function(res) {
+        if (!res.ok) throw new Error('Failed to fetch photo: ' + res.status);
+        return res.blob();
+      }).then(function(blob) {
+        var reader = new FileReader();
+        reader.onload = function() {
+          var result = reader.result;
+          var comma = result.indexOf(',');
+          var header = result.substring(5, comma);
+          var mediaType = header.split(';')[0];
+          var data = result.substring(comma + 1);
+          resolve({ data: data, media_type: mediaType });
+        };
+        reader.onerror = function() { reject(new Error('FileReader failed')); };
+        reader.readAsDataURL(blob);
+      }).catch(reject);
+      return;
+    }
+    reject(new Error('Photo has no dataUrl or r2Url'));
+  });
+}
+
+// ── Photo Suggestion Modal ──────────────────────────────
+function _showPhotoSuggestModal(state) {
+  return new Promise(function(resolve) {
+    var existing = document.getElementById('ai-ps-overlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'ai-ps-overlay';
+    overlay.className = 'ai-fs-overlay';
+
+    var html = '<div class="ai-fs-modal ai-ps-modal">';
+    html += '<div class="ai-fs-header"><h3>\u2728 AI Photo Suggestion</h3>';
+    html += '<button class="ai-ps-x" title="Close">\u2715</button></div>';
+    html += '<div class="ai-ps-body" id="ai-ps-body">';
+    html += '<div class="ai-panel-loading"><div class="ai-spinner"></div><br>Analyzing photo' + (state.photoCount > 1 ? 's' : '') + ' with Claude Sonnet\u2026</div>';
+    html += '</div>';
+    html += '<div class="ai-fs-footer ai-ps-footer" id="ai-ps-footer" style="display:none;">';
+    html += '<span class="ai-ps-meta" id="ai-ps-meta"></span>';
+    html += '<div class="ai-fs-btns">';
+    html += '<button class="ai-fs-cancel" id="ai-ps-dismiss">Dismiss</button>';
+    html += '<button class="ai-fs-confirm" id="ai-ps-accept">Accept \u2192</button>';
+    html += '</div></div>';
+    html += '</div>';
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(function() { overlay.classList.add('open'); });
+
+    function cleanup(result) {
+      overlay.classList.remove('open');
+      setTimeout(function() { overlay.remove(); resolve(result); }, 150);
+    }
+
+    overlay.querySelector('.ai-ps-x').addEventListener('click', function() { cleanup(null); });
+
+    // Expose update function on state object
+    state.showResult = function(data) {
+      var body = document.getElementById('ai-ps-body');
+      var footer = document.getElementById('ai-ps-footer');
+      var meta = document.getElementById('ai-ps-meta');
+      if (!body) return;
+      var confBadge = '';
+      var confColor = data.confidence === 'high' ? '#1A7A4A' : (data.confidence === 'low' ? '#C0392B' : '#E67E22');
+      confBadge = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;background:' + confColor + ';color:white;font-size:calc(10px + var(--ts));font-weight:700;text-transform:uppercase;margin-left:8px;">' + _esc(data.confidence || 'medium') + ' confidence</span>';
+      var notes = data.notes ? '<div class="ai-ps-notes">' + _esc(data.notes) + '</div>' : '';
+      body.innerHTML = '<div class="ai-ps-suggestion-wrap">'
+        + '<div class="ai-ps-label">SUGGESTED DESCRIPTION' + confBadge + '</div>'
+        + '<textarea class="ai-ps-text" id="ai-ps-text">' + _esc(data.suggestion || '') + '</textarea>'
+        + notes
+        + '</div>';
+      if (footer) footer.style.display = 'flex';
+      if (meta && data.usage) {
+        meta.textContent = 'Cost: $' + (data.usage.cost_usd || 0).toFixed(4);
+      }
+      var acceptBtn = document.getElementById('ai-ps-accept');
+      if (acceptBtn) acceptBtn.addEventListener('click', function() {
+        var ta = document.getElementById('ai-ps-text');
+        cleanup({ accept: true, text: ta ? ta.value : (data.suggestion || '') });
+      });
+      var dismissBtn = document.getElementById('ai-ps-dismiss');
+      if (dismissBtn) dismissBtn.addEventListener('click', function() { cleanup(null); });
+    };
+
+    state.showError = function(msg) {
+      var body = document.getElementById('ai-ps-body');
+      if (!body) return;
+      body.innerHTML = '<div class="ai-panel-loading" style="color:#C62828;">\u26A0 ' + _esc(msg || 'Photo analysis failed') + '<br><br><button id="ai-ps-err-close" class="ai-fs-cancel">Close</button></div>';
+      var btn = document.getElementById('ai-ps-err-close');
+      if (btn) btn.addEventListener('click', function() { cleanup(null); });
+    };
+  });
+}
+
+// ── AI Suggest from Photos ──────────────────────────────
+function suggestFromPhotos(opts) {
+  // opts: { photos: [...], existingText: '...', onAccept: function(text) }
+  if (!opts || !opts.photos || !opts.photos.length) {
+    toast('\u26A0 No photos to analyze');
+    return;
+  }
+  var token = _getToken();
+  if (!token) { toast('\u26A0 AI Suggest requires cloud login'); return; }
+  if (opts.photos.length > 4) {
+    toast('\u26A0 Max 4 photos per suggestion');
+    return;
+  }
+
+  var state = { photoCount: opts.photos.length };
+  var modalPromise = _showPhotoSuggestModal(state);
+
+  // Convert all photos to base64 in parallel
+  Promise.all(opts.photos.map(_photoToBase64)).then(function(photoData) {
+    var p = Model.getProject();
+    var context = {
+      tool: 'frt',
+      projectNumber: (p && p.info && p.info.projectNumber) || '',
+      projectName: (p && p.info && p.info.projectName) || ''
+    };
+    return fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({
+        mode: 'photo_suggest',
+        photos: photoData,
+        existingText: opts.existingText || '',
+        context: context
+      })
+    });
+  }).then(function(res) {
+    if (!res.ok) return res.json().then(function(e) { throw new Error(e.error || 'API error ' + res.status); });
+    return res.json();
+  }).then(function(data) {
+    if (state.showResult) state.showResult(data);
+  }).catch(function(err) {
+    console.error('[AIAssist] Photo suggest error:', err);
+    if (state.showError) state.showError(err.message || 'Failed to analyze photos');
+  });
+
+  modalPromise.then(function(result) {
+    if (result && result.accept && opts.onAccept) {
+      opts.onAccept(result.text);
+    }
+  });
+}
+
 // ── Dropdown Menu ───────────────────────────────────────
 function _toggleMenu() {
   var m = document.getElementById('ai-mode-menu');
@@ -501,6 +660,7 @@ function _closeMenu() {
 // ── Public API ──────────────────────────────────────────
 export var AIAssist = {
   reviewAll: reviewAll,
+  suggestFromPhotos: suggestFromPhotos,
   _toggleMenu: _toggleMenu,
   _closeMenu: _closeMenu
 };
