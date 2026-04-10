@@ -24,7 +24,7 @@
  */
 
 const DB_NAME = 'ARENCON_FRT_V2';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 const STORES = [
   'projects',
@@ -33,6 +33,7 @@ const STORES = [
   'observations',
   'drawings',
   'drawingBlobs',
+  'pdfBufs',
   'markupObjects',
   'photos',
   'photoBlobs',
