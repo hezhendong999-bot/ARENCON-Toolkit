@@ -134,6 +134,10 @@ function _buildMarkupBar(overlay){
   }
   var bPen=tb('mk-pen','Pen','Pen tool');
   var bHi =tb('mk-hi','Highlight','Highlighter');
+  var bLn =tb('mk-line','Line','Line');
+  var bRc =tb('mk-rect','Rect','Rectangle');
+  var bCi =tb('mk-circ','Oval','Ellipse');
+  var bAr =tb('mk-arr','Arrow','Arrow');
   var bEr =tb('mk-er','Eraser','Eraser');
   var sep0=document.createElement('div'); sep0.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
   var bUn =tb('mk-undo','\u21B6','Undo (Ctrl+Z)');
@@ -158,14 +162,14 @@ function _buildMarkupBar(overlay){
   var bCl =tb('mk-clear','Clear','Clear all edits');
   var bRv =tb('mk-revert','Revert','Discard edits');
   var bX  =tb('mk-cancel','\u2715','Exit markup'); bX.style.background='#9C2742';
-  var arr = [bPen,bHi,bEr,sep0,bUn,bRd,sep1];
+  var arr = [bPen,bHi,bLn,bRc,bCi,bAr,bEr,sep0,bUn,bRd,sep1];
   swatches.forEach(function(s){arr.push(s);});
   arr.push(sizeWrap, sep2, bSv,bCl,bRv,bX);
   arr.forEach(function(e){bar.appendChild(e);});
   overlay.appendChild(bar);
   _markupBar = bar;
   function setActive(btn){
-    [bPen,bHi,bEr].forEach(function(b){b.style.background='rgba(255,255,255,.12)';});
+    [bPen,bHi,bLn,bRc,bCi,bAr,bEr].forEach(function(b){b.style.background='rgba(255,255,255,.12)';});
     btn.style.background='#9C2742';
   }
   function setSwatch(col){
@@ -173,6 +177,10 @@ function _buildMarkupBar(overlay){
   }
   bPen.addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('pen');setActive(bPen);});
   bHi .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('highlight');setActive(bHi);});
+  bLn .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('line');setActive(bLn);});
+  bRc .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('rect');setActive(bRc);});
+  bCi .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('circle');setActive(bCi);});
+  bAr .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('arrow');setActive(bAr);});
   bEr .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('eraser');setActive(bEr);});
   bUn .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.undo();});
   bRd .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.redo();});

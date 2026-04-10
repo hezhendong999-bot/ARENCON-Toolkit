@@ -67,12 +67,14 @@
         var y = (ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top;
         return { x: x, y: y };
       }
+      function isShape(t){ return t==='arrow'||t==='rect'||t==='circle'||t==='line'; }
       function down(ev){
         ev.preventDefault();
         var p = pt(ev);
         if (self.tool === 'eraser'){ self._eraseAt(p); self._drawing = true; return; }
         self._drawing = true;
-        self._curr = { tool:self.tool, color:self.color, size:self.size, pts:[p] };
+        self._curr = { tool:self.tool, color:self.color, size:self.size, pts:[p, {x:p.x,y:p.y}] };
+        if (!isShape(self.tool)) self._curr.pts = [p]; // freehand uses growing array
         self.redoStack = [];
       }
       function move(ev){
@@ -81,6 +83,11 @@
         var p = pt(ev);
         if (self.tool === 'eraser'){ self._eraseAt(p); return; }
         if (!self._curr) return;
+        if (isShape(self._curr.tool)){
+          self._curr.pts[1] = p; // rubber-band
+          self._render();
+          return;
+        }
         var last = self._curr.pts[self._curr.pts.length-1];
         if (Math.abs(p.x-last.x) + Math.abs(p.y-last.y) < 1) return;
         self._curr.pts.push(p);
@@ -89,9 +96,15 @@
       function up(){
         if (!self._drawing) return;
         self._drawing = false;
-        if (self._curr && self._curr.pts.length > 1){
-          self.strokes.push(self._curr);
-          if (self._onDirty) self._onDirty();
+        if (self._curr){
+          var ok = false;
+          if (isShape(self._curr.tool)){
+            var a=self._curr.pts[0], b=self._curr.pts[1];
+            ok = (Math.abs(a.x-b.x) + Math.abs(a.y-b.y)) > 4; // ignore taps
+          } else {
+            ok = self._curr.pts.length > 1;
+          }
+          if (ok){ self.strokes.push(self._curr); if (self._onDirty) self._onDirty(); }
         }
         self._curr = null;
         self._render();
@@ -119,6 +132,40 @@
         this.redoStack.push(this.strokes.splice(hit,1)[0]);
         if (this._onDirty) this._onDirty();
         this._render();
+      }
+    },
+
+    // Generic shape renderer used by both _render (screen) and saveBlob (natural res).
+    // sx/sy let saveBlob scale logical coords -> natural pixels.
+    _drawShape: function(ctx, s, sx, sy){
+      sx = sx || 1; sy = sy || 1;
+      var a = s.pts[0], b = s.pts[1]; if (!a || !b) return;
+      var x1=a.x*sx, y1=a.y*sy, x2=b.x*sx, y2=b.y*sy;
+      ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.strokeStyle = s.color; ctx.lineWidth = s.size * ((sx+sy)/2);
+      ctx.beginPath();
+      if (s.tool==='line'){
+        ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      } else if (s.tool==='rect'){
+        ctx.strokeRect(Math.min(x1,x2), Math.min(y1,y2), Math.abs(x2-x1), Math.abs(y2-y1));
+      } else if (s.tool==='circle'){
+        var cx=(x1+x2)/2, cy=(y1+y2)/2;
+        var rx=Math.abs(x2-x1)/2, ry=Math.abs(y2-y1)/2;
+        // ellipse via canvas API; fall back to circle if not supported
+        if (ctx.ellipse){ ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2); }
+        else { ctx.arc(cx,cy,Math.max(rx,ry),0,Math.PI*2); }
+        ctx.stroke();
+      } else if (s.tool==='arrow'){
+        ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+        // Arrowhead
+        var ang = Math.atan2(y2-y1, x2-x1);
+        var head = Math.max(10, s.size*4) * ((sx+sy)/2);
+        ctx.beginPath();
+        ctx.moveTo(x2,y2);
+        ctx.lineTo(x2 - head*Math.cos(ang - Math.PI/6), y2 - head*Math.sin(ang - Math.PI/6));
+        ctx.moveTo(x2,y2);
+        ctx.lineTo(x2 - head*Math.cos(ang + Math.PI/6), y2 - head*Math.sin(ang + Math.PI/6));
+        ctx.stroke();
       }
     },
 
@@ -165,6 +212,12 @@
         if (st.tool==='pen') this._strokePath(ctx, st);
       }
       if (this._curr && this._curr.tool==='pen') this._strokePath(ctx, this._curr);
+      // Pass 3: shapes (line, rect, circle, arrow) on top of everything
+      for (var m=0;m<this.strokes.length;m++){
+        var sh = this.strokes[m];
+        if (sh.tool==='line'||sh.tool==='rect'||sh.tool==='circle'||sh.tool==='arrow') this._drawShape(ctx, sh);
+      }
+      if (this._curr && (this._curr.tool==='line'||this._curr.tool==='rect'||this._curr.tool==='circle'||this._curr.tool==='arrow')) this._drawShape(ctx, this._curr);
     },
 
     isDirty: function(){ return this.strokes.length > 0; },
@@ -224,6 +277,10 @@
             oc.beginPath(); oc.moveTo(s.pts[0].x*sx, s.pts[0].y*sy);
             for (var j=1;j<s.pts.length;j++) oc.lineTo(s.pts[j].x*sx, s.pts[j].y*sy);
             oc.stroke();
+          });
+          // Shapes on top
+          self.strokes.filter(function(s){return s.tool==='line'||s.tool==='rect'||s.tool==='circle'||s.tool==='arrow';}).forEach(function(s){
+            self._drawShape(oc, s, sx, sy);
           });
           out.toBlob(function(b){ b ? resolve(b) : reject(new Error('toBlob failed')); }, 'image/jpeg', 0.92);
         } catch(e){ reject(e); }
