@@ -62,11 +62,19 @@ function _getOverlay() { return document.getElementById('markup-overlay'); }
 
 function _allocateCanvas() {
   var mc = _getCanvas();
-  var img = document.getElementById('dv-image');
-  if (!mc || !img || !img.naturalWidth) return;
+  if (!mc) return;
 
-  var drawW = img.naturalWidth;
-  var drawH = img.naturalHeight;
+  var drawW = 0, drawH = 0;
+  if (TiledPdf.isActive()) {
+    var dims = TiledPdf.getDimensions();
+    if (dims) { drawW = dims.drawW; drawH = dims.drawH; }
+  }
+  if (!drawW || !drawH) {
+    var img = document.getElementById('dv-image');
+    if (!img || !img.naturalWidth) return;
+    drawW = img.naturalWidth;
+    drawH = img.naturalHeight;
+  }
 
   var ua = navigator.userAgent;
   var isIPhone = /iPhone|iPod/.test(ua);
