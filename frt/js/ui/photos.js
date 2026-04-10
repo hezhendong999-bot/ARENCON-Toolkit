@@ -8,6 +8,7 @@ import { Model } from '../data/model.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm } from '../shared/dialogs.js';
 import { R2 } from '../data/r2.js';
+import { IDB } from '../data/idb.js';
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
@@ -303,4 +304,33 @@ if (fileInput) fileInput.addEventListener('change', function(e) {
 if (cameraInput) cameraInput.addEventListener('change', function(e) {
   if (e.target.files) _handleSitePhotoFiles(e.target.files);
   e.target.value = '';
+});
+
+// Session 71: R2 wiring for markup engine save events
+document.addEventListener('frt-markup-saved', function(e) {
+  var d = e.detail; if (!d || !d.blob || !d.photo) return;
+  var photo = d.photo;
+  var proj = Model.getProject(); if (!proj) return;
+  var pid = proj.id || proj.projectId; if (!pid) return;
+  // Persist annotated blob to IDB under photo id (mirrors R2.uploadPhoto pattern)
+  try { IDB.put('photoBlobs', { id: photo.id, dataBlob: d.blob }).catch(function(){}); } catch(_){}
+  var filename = 'marked_' + (photo.id || Date.now()) + '.jpg';
+  R2.upload(pid, 'marked', d.blob, filename).then(function(result) {
+    if (result) {
+      photo.r2Key = result.r2Key;
+      photo.r2Url = result.r2Url;
+      photo.r2Status = 'synced';
+      photo._annotated = true;
+    } else {
+      photo.r2Status = 'pending';
+    }
+    Model.saveNow();
+    initPhotos.render();
+  }).catch(function(err) {
+    console.warn('[Markup] R2 upload failed, queueing:', err);
+    photo.r2Status = 'pending';
+    R2.queueUpload(photo.id, pid, 'marked', d.blob, filename);
+    Model.saveNow();
+    initPhotos.render();
+  });
 });

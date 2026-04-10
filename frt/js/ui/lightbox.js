@@ -135,26 +135,62 @@ function _buildMarkupBar(overlay){
   var bPen=tb('mk-pen','Pen','Pen tool');
   var bHi =tb('mk-hi','Highlight','Highlighter');
   var bEr =tb('mk-er','Eraser','Eraser');
-  var sep =document.createElement('div'); sep.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
+  var sep0=document.createElement('div'); sep0.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
+  var bUn =tb('mk-undo','\u21B6','Undo (Ctrl+Z)');
+  var bRd =tb('mk-redo','\u21B7','Redo (Ctrl+Y)');
+  var sep1=document.createElement('div'); sep1.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
+  // Color swatches
+  var colors = ['#FF0000','#FFEB3B','#1A7A4A','#1976D2','#000000','#FFFFFF'];
+  var swatches = colors.map(function(col){
+    var s = document.createElement('button');
+    s.className = 'mk-swatch'; s.dataset.col = col;
+    s.style.cssText = 'width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:'+col+';cursor:pointer;padding:0;';
+    return s;
+  });
+  // Size slider
+  var sizeWrap = document.createElement('div'); sizeWrap.style.cssText='display:flex;align-items:center;gap:6px;padding:0 8px;';
+  var sizeLbl = document.createElement('span'); sizeLbl.textContent='Size'; sizeLbl.style.cssText='color:#fff;font:600 12px Calibri,sans-serif;';
+  var sizeSld = document.createElement('input'); sizeSld.type='range'; sizeSld.min='1'; sizeSld.max='20'; sizeSld.value='3';
+  sizeSld.style.cssText='width:80px;accent-color:#9C2742;';
+  sizeWrap.appendChild(sizeLbl); sizeWrap.appendChild(sizeSld);
+  var sep2=document.createElement('div'); sep2.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
   var bSv =tb('mk-save','Save','Save annotated copy'); bSv.style.background='#1A7A4A';
   var bCl =tb('mk-clear','Clear','Clear all edits');
   var bRv =tb('mk-revert','Revert','Discard edits');
   var bX  =tb('mk-cancel','\u2715','Exit markup'); bX.style.background='#9C2742';
-  [bPen,bHi,bEr,sep,bSv,bCl,bRv,bX].forEach(function(e){bar.appendChild(e);});
+  var arr = [bPen,bHi,bEr,sep0,bUn,bRd,sep1];
+  swatches.forEach(function(s){arr.push(s);});
+  arr.push(sizeWrap, sep2, bSv,bCl,bRv,bX);
+  arr.forEach(function(e){bar.appendChild(e);});
   overlay.appendChild(bar);
   _markupBar = bar;
   function setActive(btn){
     [bPen,bHi,bEr].forEach(function(b){b.style.background='rgba(255,255,255,.12)';});
     btn.style.background='#9C2742';
   }
+  function setSwatch(col){
+    swatches.forEach(function(s){ s.style.borderColor = (s.dataset.col===col)?'#fff':'rgba(255,255,255,.4)'; s.style.boxShadow = (s.dataset.col===col)?'0 0 0 2px #9C2742':'none';});
+  }
   bPen.addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('pen');setActive(bPen);});
   bHi .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('highlight');setActive(bHi);});
   bEr .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('eraser');setActive(bEr);});
+  bUn .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.undo();});
+  bRd .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.redo();});
+  swatches.forEach(function(s){
+    s.addEventListener('click',function(){
+      if (window.MarkupEngine) window.MarkupEngine.setColor(s.dataset.col);
+      setSwatch(s.dataset.col);
+    });
+  });
+  sizeSld.addEventListener('input',function(){
+    if (window.MarkupEngine) window.MarkupEngine.setSize(parseInt(sizeSld.value,10));
+  });
   bCl .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.clear();});
   bRv .addEventListener('click',_revertMarkup);
   bSv .addEventListener('click',_saveMarkup);
   bX  .addEventListener('click',_toggleMarkup);
   bPen.click();
+  setSwatch('#FF0000');
 }
 
 function _toggleMarkup(){
@@ -321,7 +357,11 @@ document.addEventListener('click', function(e) {
 // Keyboard
 document.addEventListener('keydown', function(e) {
   if (!_isOpen) return;
-  if (e.key === 'Escape') { _close(); e.preventDefault(); }
+  if (e.key === 'Escape') { if (_markupActive) { _toggleMarkup(); } else { _close(); } e.preventDefault(); return; }
+  if (_markupActive && (e.ctrlKey || e.metaKey)) {
+    if (e.key === 'z' || e.key === 'Z') { window.MarkupEngine && window.MarkupEngine.undo(); e.preventDefault(); return; }
+    if (e.key === 'y' || e.key === 'Y') { window.MarkupEngine && window.MarkupEngine.redo(); e.preventDefault(); return; }
+  }
   if (e.key === 'ArrowLeft') { _prev(); e.preventDefault(); }
   if (e.key === 'ArrowRight') { _next(); e.preventDefault(); }
   if (e.key === '+' || e.key === '=') { _scale = Math.min(8, _scale * 1.2); _applyTransform(); }

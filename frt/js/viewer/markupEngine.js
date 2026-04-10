@@ -169,6 +169,19 @@
 
     isDirty: function(){ return this.strokes.length > 0; },
 
+    undo: function(){
+      if (!this.strokes.length) return;
+      this.redoStack.push(this.strokes.pop());
+      this._render();
+      if (this._onDirty) this._onDirty();
+    },
+    redo: function(){
+      if (!this.redoStack.length) return;
+      this.strokes.push(this.redoStack.pop());
+      this._render();
+      if (this._onDirty) this._onDirty();
+    },
+
     clear: function(){
       this.strokes = []; this.redoStack = []; this._render();
       if (this._onDirty) this._onDirty();
