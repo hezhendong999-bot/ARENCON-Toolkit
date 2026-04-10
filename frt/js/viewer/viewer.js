@@ -10,7 +10,77 @@
 import { Model } from '../data/model.js';
 import { IDB } from '../data/idb.js';
 import { Markup } from './markup.js';
+import { TiledPdf } from './tiledPdf.js';
 import { showConfirm } from '../shared/dialogs.js';
+
+// ── TiledPdf init (one-shot, lazy) ───────────────────────
+var _tiledInited = false;
+function _ensureTiledInit() {
+  if (_tiledInited) return;
+  _tiledInited = true;
+  TiledPdf.init({
+    getViewState: function() { return { scale: _scale, panX: _panX, panY: _panY }; },
+    getDrawing: function(id) {
+      var list = _getDrawingsList();
+      for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+      return null;
+    },
+    getPdfBuf: function(id) { return IDB.get('pdfBufs', id).catch(function() { return null; }); },
+    savePdfBuf: function(id, buf) { return IDB.put('pdfBufs', { id: id, buf: buf }).catch(function() {}); },
+    showLoading: function(msg) { console.log('[TiledPdf] ' + msg); },
+    hideLoading: function() {},
+    toast: function(msg) { console.warn('[TiledPdf] ' + msg); },
+    onFallbackImage: function(d, id) {
+      // PDF path failed — fall back to raster image load
+      var img = document.getElementById('dv-image');
+      if (!img) return;
+      var url = d.r2Url || d.dataUrl || d.thumb;
+      if (url) _loadImgFallback(url, d, 'pdf-fallback');
+    },
+    onReady: function(dims) {
+      // Size wrapper to match drawing dims, then fit
+      var wrap = document.getElementById('dv-img-wrap');
+      if (wrap) { wrap.style.width = dims.drawW + 'px'; wrap.style.height = dims.drawH + 'px'; }
+      _calcFitScaleFromDims(dims.drawW, dims.drawH);
+      _scale = _fitScale; _panX = 0; _panY = 0;
+      _applyTransform();
+      _renderPins();
+      TiledPdf.scheduleRender();
+    }
+  });
+}
+
+function _calcFitScaleFromDims(w, h) {
+  var area = document.getElementById('dv-canvas-area');
+  if (!area || !w || !h) { _fitScale = 1; return; }
+  var sx = area.clientWidth / w, sy = area.clientHeight / h;
+  _fitScale = Math.min(sx, sy);
+  if (_fitScale > 1) _fitScale = 1;
+}
+
+function _isPdfDrawing(d) {
+  if (!d) return false;
+  if (d.pdfTiled === true) return true;
+  if (d.mimeType === 'application/pdf') return true;
+  var u = d.r2Url || d.dataUrl || '';
+  return /\.pdf($|\?)/i.test(u);
+}
+
+function _loadImgFallback(url, d, label) {
+  var img = document.getElementById('dv-image');
+  if (!img) return;
+  img.style.visibility = 'hidden';
+  img.onload = function() {
+    _calcFitScale();
+    _scale = _fitScale; _panX = 0; _panY = 0;
+    _applyTransform();
+    _renderPins();
+    img.style.visibility = 'visible';
+    Markup.init(d.id);
+  };
+  img.src = url;
+  img.style.display = 'block';
+}
 
 var _currentDrawingIdx = -1;
 var _drawings = [];
@@ -32,17 +102,26 @@ function _applyTransform() {
   if (wrap) {
     wrap.style.transform = 'translate3d(' + _panX + 'px,' + _panY + 'px,0) scale(' + _scale + ')';
   }
+  if (TiledPdf.isActive()) TiledPdf.scheduleRender();
 }
 
 function _clampPan() {
   var img = document.getElementById('dv-image');
   var area = document.getElementById('dv-canvas-area');
-  if (!img || !area || !img.naturalWidth) return;
+  if (!area) return;
+  var natW = 0, natH = 0;
+  if (TiledPdf.isActive()) {
+    var dims = TiledPdf.getDimensions();
+    if (dims) { natW = dims.drawW; natH = dims.drawH; }
+  } else if (img && img.naturalWidth) {
+    natW = img.naturalWidth; natH = img.naturalHeight;
+  }
+  if (!natW || !natH) return;
 
   var aw = area.clientWidth;
   var ah = area.clientHeight;
-  var sw = img.naturalWidth * _scale;
-  var sh = img.naturalHeight * _scale;
+  var sw = natW * _scale;
+  var sh = natH * _scale;
 
   if (sw <= aw) {
     // Image fits horizontally — center it
@@ -105,7 +184,12 @@ window.addEventListener('resize', function() {
   if (!overlay || !overlay.classList.contains('open')) return;
   clearTimeout(_resizeTimer);
   _resizeTimer = setTimeout(function() {
-    _calcFitScale();
+    if (TiledPdf.isActive()) {
+      var dims = TiledPdf.getDimensions();
+      if (dims) _calcFitScaleFromDims(dims.drawW, dims.drawH);
+    } else {
+      _calcFitScale();
+    }
     _scale = _fitScale;
     _panX = 0;
     _panY = 0;
@@ -126,6 +210,24 @@ function _showDrawing(idx) {
   var title = document.getElementById('dv-title');
 
   if (!overlay || !img) return;
+
+  // Always close any prior tiled session before switching drawings
+  if (TiledPdf.isActive()) TiledPdf.close();
+
+  // PDF branch — tiled renderer
+  if (_isPdfDrawing(d)) {
+    _ensureTiledInit();
+    if (title) title.textContent = d.name || 'Drawing ' + (idx + 1);
+    overlay.classList.add('open');
+    document.body.classList.add('dv-open');
+    _fitScale = 1; _scale = 1; _panX = 0; _panY = 0;
+    var wrapPdf = document.getElementById('dv-img-wrap');
+    if (wrapPdf) wrapPdf.style.transform = 'translate3d(0,0,0) scale(1)';
+    TiledPdf.open(d.id, 1).then(function() {
+      if (TiledPdf.isActive()) Markup.init(d.id);
+    });
+    return;
+  }
 
   var src = d.thumb || d.r2Url || d.dataUrl || '';
 
@@ -201,6 +303,7 @@ export var initViewer = {
   },
 
   close: function() {
+    if (TiledPdf.isActive()) TiledPdf.close();
     Markup.destroy();
     var overlay = document.getElementById('drawing-viewer-overlay');
     if (overlay) overlay.classList.remove('open');
@@ -210,6 +313,7 @@ export var initViewer = {
 
   next: function() {
     if (_currentDrawingIdx < _drawings.length - 1) {
+      if (TiledPdf.isActive()) TiledPdf.close();
       Markup.destroy();
       _showDrawing(_currentDrawingIdx + 1);
     }
@@ -217,6 +321,7 @@ export var initViewer = {
 
   prev: function() {
     if (_currentDrawingIdx > 0) {
+      if (TiledPdf.isActive()) TiledPdf.close();
       Markup.destroy();
       _showDrawing(_currentDrawingIdx - 1);
     }
