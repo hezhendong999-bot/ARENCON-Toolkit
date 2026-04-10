@@ -89,6 +89,27 @@ function _isPdfDrawing(d) {
   return /\.pdf($|\?)/i.test(u);
 }
 
+// Diagnostic — paste in console: window._tplDiag()
+window._tplDiag = function() {
+  var dims = TiledPdf.getDimensions();
+  var list = _getDrawingsList();
+  var pdfDwgs = list.filter(function(x) { return x.pdfTiled; });
+  console.log('=== TiledPdf Diagnostic ===');
+  console.log('Active:', TiledPdf.isActive());
+  console.log('Dimensions:', dims);
+  console.log('pdfjsLib loaded:', typeof pdfjsLib !== 'undefined');
+  console.log('ensurePdfJs available:', typeof window.ensurePdfJs === 'function');
+  console.log('Total drawings:', list.length, '— Tiled PDF drawings:', pdfDwgs.length);
+  if (pdfDwgs.length) {
+    var s = pdfDwgs[0];
+    console.log('Sample:', { id: s.id, name: s.name, pdfPage: s.pdfPage, pdfBufKey: s.pdfBufKey });
+    IDB.get('pdfBufs', s.pdfBufKey).then(function(rec) {
+      console.log('pdfBufs lookup:', rec && rec.buf ? ('FOUND, ' + Math.round(rec.buf.byteLength/1024) + 'KB') : 'NOT FOUND');
+    }).catch(function(e) { console.log('pdfBufs error:', e.message); });
+  }
+  return 'OK';
+};
+
 function _loadImgFallback(url, d, label) {
   var img = document.getElementById('dv-image');
   if (!img) return;
