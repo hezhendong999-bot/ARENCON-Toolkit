@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=91">
+<link rel="stylesheet" href="css/frt.css?v=92">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -349,7 +349,7 @@ function ensurePdfJs(cb){
     <button id="dv-close" class="dv-close-btn" title="Close viewer">← Close</button>
     <button class="dv-nav-btn" id="dv-prev" title="Previous drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">◀</button>
     <button class="dv-nav-btn" id="dv-next" title="Next drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">▶</button>
-    <span class="dv-title" id="dv-title"></span><button id="dv-rename-btn" title="Rename drawing" style="background:none;border:none;cursor:pointer;padding:2px 4px;font-size:calc(14px + var(--ts));line-height:1;flex-shrink:0;margin-right:auto;">✏️</button>
+    <div class="dv-title-wrap"><span class="dv-title" id="dv-title"></span><button id="dv-rename-btn" title="Rename drawing" class="dv-rename-btn">✏️</button></div>
     <!-- Layers -->
     <div style="position:relative;display:inline-block;">
       <button id="dv-layers-btn" title="Layers">≡ Layers</button>
