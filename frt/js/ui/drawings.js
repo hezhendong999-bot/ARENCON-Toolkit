@@ -497,7 +497,12 @@ function _handlePDFUpload(file) {
         clearTimeout(pdfTimeout);
         var bn = file.name.replace(/\.pdf$/i, '');
         var total = pdf.numPages;
-        _runPdfPages(pdf, bn, bn, total, pdfBufCopy);
+        // Phase 5: persist source PDF buffer for tiled renderer
+        var pdfBufKey = 'pdfbuf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+        IDB.put('pdfBufs', { id: pdfBufKey, buf: pdfBufCopy }).catch(function(err) {
+          console.warn('[Drawings] pdfBufs save failed:', err);
+        });
+        _runPdfPages(pdf, bn, bn, total, pdfBufCopy, pdfBufKey);
       }).catch(function(err) {
         clearTimeout(pdfTimeout);
         _hideDwgLoading();
@@ -509,7 +514,7 @@ function _handlePDFUpload(file) {
 }
 
 // ── SACRED CODE: recursive go(pg) pattern — DO NOT REWRITE ──
-function _runPdfPages(pdf, bn, folder, total, arrayBuf) {
+function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey) {
   var done = 0;
   function go(pg) {
     pdf.getPage(pg).then(function(page) {
@@ -540,7 +545,7 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf) {
               id: 'dwg_' + Date.now() + '_pg' + pg + '_' + Math.random().toString(36).substr(2, 4),
               name: pageName, dataUrl: null, thumb: thumbDu,
               width: hcW, height: hcH,
-              pdfTiled: false, pdfPage: pg,
+              pdfTiled: true, pdfPage: pg, pdfBufKey: pdfBufKey,
               isOriginal: false, folder: folder,
               r2Key: '', r2Status: '', r2Url: ''
             };
