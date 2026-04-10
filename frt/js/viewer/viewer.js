@@ -223,9 +223,16 @@ function _showDrawing(idx) {
     _fitScale = 1; _scale = 1; _panX = 0; _panY = 0;
     var wrapPdf = document.getElementById('dv-img-wrap');
     if (wrapPdf) wrapPdf.style.transform = 'translate3d(0,0,0) scale(1)';
-    TiledPdf.open(d.id, 1).then(function() {
-      if (TiledPdf.isActive()) Markup.init(d.id);
-    });
+    var _doOpen = function() {
+      TiledPdf.open(d.id, 1).then(function() {
+        if (TiledPdf.isActive()) Markup.init(d.id);
+      });
+    };
+    if (typeof window.ensurePdfJs === 'function') {
+      window.ensurePdfJs(_doOpen);
+    } else {
+      _doOpen();
+    }
     return;
   }
 
