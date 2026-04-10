@@ -550,12 +550,15 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey) {
               r2Key: '', r2Status: '', r2Url: ''
             };
             Model.addDrawing(newDwg);
-            // Store pre-rendered JPEG in IDB drawingBlobs
-            IDB.put('drawingBlobs', {
-              id: newDwg.id, dataBlob: imgBlob,
-              name: newDwg.name, width: hcW, height: hcH,
-              folder: folder, pdfPage: pg
-            }).catch(function(err) { console.error('[Drawings] IDB save error:', err); });
+            // Tiled PDFs use pdfBufs (shared per upload) — skip per-page hi-res JPEG cache
+            // Legacy non-tiled path still writes to drawingBlobs for fallback
+            if (!newDwg.pdfTiled) {
+              IDB.put('drawingBlobs', {
+                id: newDwg.id, dataBlob: imgBlob,
+                name: newDwg.name, width: hcW, height: hcH,
+                folder: folder, pdfPage: pg
+              }).catch(function(err) { console.error('[Drawings] IDB save error:', err); });
+            }
             // R2 upload in Hub mode (fire-and-forget)
             var pid = new URLSearchParams(window.location.search).get('project');
             if (pid && imgBlob) {
