@@ -54,22 +54,37 @@ export const IDB = {
 
     return new Promise(function(resolve, reject) {
       var request = indexedDB.open(DB_NAME, DB_VERSION);
+      var _settled = false;
+      var _blockedTimer = null;
 
       request.onupgradeneeded = function(e) {
         var db = e.target.result;
-        console.log('[IDB] Upgrade needed — creating stores');
+        console.log('[IDB] Upgrade needed — creating stores (v' + e.oldVersion + ' → v' + e.newVersion + ')');
         STORES.forEach(function(storeName) {
           if (!db.objectStoreNames.contains(storeName)) {
             db.createObjectStore(storeName, { keyPath: 'id' });
             console.log('[IDB] Created store:', storeName);
           }
         });
+        // Force-close on version change from other tabs so they don't block future upgrades
+        db.onversionchange = function() {
+          console.warn('[IDB] Version change requested — closing connection');
+          db.close();
+          _db = null;
+        };
       };
 
       request.onsuccess = function(e) {
+        if (_settled) { try { e.target.result.close(); } catch (_) {} return; }
+        _settled = true;
+        if (_blockedTimer) clearTimeout(_blockedTimer);
         _db = e.target.result;
 
-        // Handle connection loss
+        _db.onversionchange = function() {
+          console.warn('[IDB] Another tab requested upgrade — closing');
+          _db.close();
+          _db = null;
+        };
         _db.onclose = function() {
           console.warn('[IDB] Connection closed unexpectedly');
           _db = null;
@@ -81,12 +96,23 @@ export const IDB = {
       };
 
       request.onerror = function(e) {
+        if (_settled) return;
+        _settled = true;
+        if (_blockedTimer) clearTimeout(_blockedTimer);
         console.error('[IDB] Open failed:', e.target.error);
         reject(e.target.error);
       };
 
       request.onblocked = function() {
-        console.warn('[IDB] Open blocked — close other tabs');
+        console.warn('[IDB] Open blocked — another tab holds an older version. Waiting 3s then failing open.');
+        // Don't hang the app. Fail open after 3s so the UI can render;
+        // the user will see a banner to close other tabs.
+        _blockedTimer = setTimeout(function() {
+          if (_settled) return;
+          _settled = true;
+          console.error('[IDB] Still blocked after 3s — rejecting init so app can render degraded');
+          reject(new Error('IDB blocked — close other ARENCON tabs and refresh'));
+        }, 3000);
       };
     });
   },
