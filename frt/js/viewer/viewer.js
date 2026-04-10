@@ -11,6 +11,7 @@ import { Model } from '../data/model.js';
 import { IDB } from '../data/idb.js';
 import { Markup } from './markup.js';
 import { TiledPdf } from './tiledPdf.js';
+import { toast } from '../shared/toast.js';
 import { showConfirm } from '../shared/dialogs.js';
 
 // ── TiledPdf init (one-shot, lazy) ───────────────────────
@@ -34,9 +35,24 @@ function _ensureTiledInit() {
       return IDB.get('pdfBufs', key).catch(function() { return null; });
     },
     savePdfBuf: function(id, buf) { return IDB.put('pdfBufs', { id: id, buf: buf }).catch(function() {}); },
-    showLoading: function(msg) { console.log('[TiledPdf] ' + msg); },
-    hideLoading: function() {},
-    toast: function(msg) { console.warn('[TiledPdf] ' + msg); },
+    showLoading: function(msg) {
+      var ov = document.getElementById('tiled-pdf-loading');
+      if (!ov) {
+        ov = document.createElement('div');
+        ov.id = 'tiled-pdf-loading';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:9700;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;color:white;font-size:15px;';
+        ov.innerHTML = '<div style="background:#1B2438;padding:18px 28px;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.4);display:flex;align-items:center;gap:14px;"><div style="width:22px;height:22px;border:3px solid rgba(255,255,255,.25);border-top-color:#9C2742;border-radius:50%;animation:tplSpin 0.9s linear infinite;"></div><span id="tpl-msg"></span></div><style>@keyframes tplSpin{to{transform:rotate(360deg)}}</style>';
+        document.body.appendChild(ov);
+      }
+      var m = ov.querySelector('#tpl-msg');
+      if (m) m.textContent = msg || 'Loading…';
+      ov.style.display = 'flex';
+    },
+    hideLoading: function() {
+      var ov = document.getElementById('tiled-pdf-loading');
+      if (ov) ov.style.display = 'none';
+    },
+    toast: function(msg) { try { toast(msg); } catch(e) { console.warn('[TiledPdf] ' + msg); } },
     onFallbackImage: function(d, id) {
       // PDF path failed — fall back to raster image load
       var img = document.getElementById('dv-image');
