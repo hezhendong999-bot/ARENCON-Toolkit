@@ -1938,3 +1938,21 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     height:44px;
   }
 }
+
+/* === Session 75 Push 1 — offscreen legacy chrome (mobile only) ===
+   Goal: Hide legacy viewer chrome WITHOUT display:none so the markup
+   engine still measures #dv-img-wrap at non-zero size on viewer-open.
+   Elements remain in layout tree, clickable via JS .click() proxies. */
+@media (max-width: 768px){
+  .drawing-viewer-overlay #dv-sidebar-tools,
+  .drawing-viewer-overlay #dv-mobile-context,
+  .drawing-viewer-overlay .dv-tasks-panel{
+    position:absolute !important;
+    left:-9999px !important;
+    top:0 !important;
+    width:60px !important;
+    height:600px !important;
+    visibility:hidden !important;
+    pointer-events:none !important;
+  }
+}
