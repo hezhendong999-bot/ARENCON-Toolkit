@@ -94,7 +94,7 @@ export var initPins = {
     }
 
     // Filter bar (matches v1)
-    var h = '<div style="padding:10px 14px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+    var h = '<div class="pins-filter-bar" style="padding:10px 14px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
     h += '<input id="tasks-search" type="text" placeholder="Search..." value="' + esc(f.search) + '" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));width:160px;background:var(--bg);color:var(--fg);">';
     h += '<select id="tasks-filter-status" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg);color:var(--fg);">';
     h += '<option value="all"' + (f.status === 'all' ? ' selected' : '') + '>All Status</option>';
@@ -130,7 +130,7 @@ export var initPins = {
 
       h += '<tr data-defic-id="' + esc(dd.id) + '" style="border-bottom:1px solid var(--border);">';
       h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">#' + (dd.num || '?') + '</td>';
-      h += '<td style="padding:8px 10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(11px + var(--ts));color:var(--steel);">' + esc(dwgName || '\u2014') + '</td>';
+      h += '<td style="padding:8px 10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(13px + var(--ts));color:var(--steel);">' + esc(dwgName || '\u2014') + '</td>';
       h += '<td style="padding:8px 10px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(trunc || '(no description)') + '</td>';
       h += '<td style="padding:8px 10px;">' + esc(d.contractorName) + '</td>';
       h += '<td style="padding:8px 10px;"><span class="tt-status ' + statusCls + '">' + statusText + '</span></td>';
