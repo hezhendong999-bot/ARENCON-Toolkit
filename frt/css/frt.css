@@ -2554,3 +2554,30 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   background:rgba(156,39,66,.85) !important;
   color:#fff !important;
 }
+
+/* === Session 76 Push 10 — Strip sidebar tool hatches + rename pencil === */
+.drawing-viewer-overlay #dv-sidebar-tools .tool-btn,
+.drawing-viewer-overlay .dv-sidebar-tools .tool-btn{
+  background:transparent !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+}
+.drawing-viewer-overlay #dv-sidebar-tools .tool-btn:hover,
+.drawing-viewer-overlay .dv-sidebar-tools .tool-btn:hover{
+  background:rgba(255,255,255,.1) !important;
+  border-color:transparent !important;
+}
+.drawing-viewer-overlay #dv-sidebar-tools .tool-btn.active,
+.drawing-viewer-overlay .dv-sidebar-tools .tool-btn.active{
+  background:#9C2742 !important;
+  border-color:#9C2742 !important;
+  color:#fff !important;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-rename-btn{
+  background:transparent !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-rename-btn:hover{
+  background:rgba(255,255,255,.1) !important;
+}
