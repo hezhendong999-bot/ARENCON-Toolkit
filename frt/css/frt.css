@@ -1818,3 +1818,100 @@ body.dark-mode .dv-pill button:hover{background:rgba(255,255,255,.12);}
 .dv-pill.dv-zoom{left:12px;bottom:12px;}
 .dv-pill.dv-pgnav{right:12px;bottom:12px;}
 @media(pointer:coarse){.dv-pill button{width:44px;height:44px;}}
+
+/* ─────────────────────────────────────────────────────────
+   Session 73 Push A — Dark slate drawing-viewer header
+   ───────────────────────────────────────────────────────── */
+.dv-toolbar.dv-toolbar-v2{
+  background:#1B2438;
+  color:#fff;
+  padding:10px 12px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-shrink:0;
+  border-bottom:1px solid #0F172A;
+}
+body.dark-mode .dv-toolbar.dv-toolbar-v2{
+  background:#0F172A;
+  border-bottom-color:#000;
+}
+.dv-toolbar-v2 .dv-header-spacer{flex:1;}
+.dv-toolbar-v2 .dv-header-btn{
+  background:#2a3448;
+  color:#fff;
+  border:1px solid transparent;
+  border-radius:6px;
+  padding:0;
+  width:40px;
+  height:40px;
+  min-width:40px;
+  font-size:15px;
+  line-height:1;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  transition:background .15s, border-color .15s;
+  font-family:Calibri,sans-serif;
+}
+.dv-toolbar-v2 .dv-header-btn.dv-header-btn-text{
+  width:auto;
+  min-width:auto;
+  padding:0 12px;
+  font-size:13px;
+  font-weight:500;
+}
+.dv-toolbar-v2 .dv-header-btn:hover{
+  background:#36425c;
+  border-color:#9C2742;
+}
+.dv-toolbar-v2 .dv-header-btn:active{background:#1f2738;}
+body.dark-mode .dv-toolbar-v2 .dv-header-btn{background:#1E293B;}
+body.dark-mode .dv-toolbar-v2 .dv-header-btn:hover{background:#2a3448;border-color:#9C2742;}
+@media(pointer:coarse){
+  .dv-toolbar-v2 .dv-header-btn{min-width:44px;width:44px;height:44px;}
+  .dv-toolbar-v2 .dv-header-btn.dv-header-btn-text{width:auto;min-width:44px;padding:0 14px;height:44px;}
+}
+.dv-legacy-hidden{display:none !important;}
+.dv-actions-menu{
+  position:absolute;
+  top:calc(100% + 6px);
+  right:0;
+  min-width:220px;
+  background:#fff;
+  color:#1C2333;
+  border:1px solid #d0d5dd;
+  border-radius:8px;
+  box-shadow:0 8px 24px rgba(15,23,42,.18);
+  padding:6px 0;
+  z-index:2000;
+}
+body.dark-mode .dv-actions-menu{
+  background:#1E293B;
+  color:#fff;
+  border-color:#000;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);
+}
+.dv-actions-menu .dv-menu-section-label{
+  font-size:10px;
+  font-weight:700;
+  color:#888;
+  letter-spacing:.5px;
+  padding:4px 14px 2px;
+}
+body.dark-mode .dv-actions-menu .dv-menu-section-label{color:#9aa4b2;}
+.dv-actions-menu .dv-layer-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 14px;
+  font-size:13px;
+  cursor:pointer;
+}
+.dv-actions-menu .dv-layer-row:hover{background:rgba(156,39,66,.08);}
+body.dark-mode .dv-actions-menu .dv-layer-row:hover{background:rgba(156,39,66,.25);}
+@media(pointer:coarse){
+  .dv-actions-menu .dv-menu-item,
+  .dv-actions-menu .dv-layer-row{min-height:44px;}
+}

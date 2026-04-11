@@ -345,35 +345,40 @@ function ensurePdfJs(cb){
 
 <!-- ═══ DRAWING VIEWER OVERLAY ═══ -->
 <div class="drawing-viewer-overlay" id="drawing-viewer-overlay">
-  <div class="dv-toolbar" id="dv-toolbar">
-    <button id="dv-close" class="dv-close-btn" title="Close viewer">← Close</button>
-    <button class="dv-nav-btn" id="dv-prev" title="Previous drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">◀</button>
-    <button class="dv-nav-btn" id="dv-next" title="Next drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">▶</button>
-    <div class="dv-title-wrap"><span class="dv-title" id="dv-title"></span><button id="dv-rename-btn" title="Rename drawing" class="dv-rename-btn">✏️</button></div>
-    <!-- Layers -->
+  <div class="dv-toolbar dv-toolbar-v2" id="dv-toolbar">
+    <!-- NEW DARK SLATE HEADER (Session 73 Push A) -->
+    <button id="dv-close" class="dv-header-btn dv-header-btn-text" title="Close viewer">← Close</button>
+    <div class="dv-header-spacer"></div>
+    <button id="dv-undo-top" class="dv-header-btn" title="Undo (Ctrl+Z)" aria-label="Undo">↩</button>
+    <button id="dv-redo-top" class="dv-header-btn" title="Redo (Ctrl+Y)" aria-label="Redo">↪</button>
     <div style="position:relative;display:inline-block;">
-      <button id="dv-layers-btn" title="Layers">≡ Layers</button>
-      <div id="dv-layers-menu" class="dv-more-menu" style="display:none;min-width:180px;padding:10px 14px;">
-        <div style="font-size:calc(11px + var(--ts));color:var(--steel);font-weight:700;margin-bottom:8px;">SHOW</div>
+      <button id="dv-actions-btn" class="dv-header-btn dv-header-btn-text" title="Actions">Actions ▾</button>
+      <div id="dv-actions-menu" class="dv-more-menu dv-actions-menu" style="display:none;">
+        <button data-dv-action="download" class="dv-menu-item">⬇️ Download Drawing</button>
+        <button data-dv-action="heights" class="dv-menu-item">📐 Heights / Dimensions</button>
+        <div class="dv-more-sep"></div>
+        <div class="dv-menu-section-label">LAYERS</div>
         <label class="dv-layer-row"><input type="checkbox" id="layer-all" checked> All layers</label>
         <label class="dv-layer-row"><input type="checkbox" id="layer-tasks" checked> <span style="color:#C0392B;">📌</span> Tasks</label>
         <label class="dv-layer-row"><input type="checkbox" id="layer-markups" checked> <span style="color:#2196F3;">✏️</span> Markups</label>
-      </div>
-    </div>
-    <!-- Tasks -->
-    <button id="dv-tasks-btn" class="dv-tasks-toggle" title="Show/hide tasks panel">📌 Tasks</button>
-    <!-- More menu -->
-    <div style="position:relative;display:inline-block;">
-      <button id="dv-more-btn" title="More options">⋯</button>
-      <div id="dv-more-menu" class="dv-more-menu" style="display:none;">
-        <button data-dv-action="download" class="dv-menu-item">⬇️ Download Drawing</button>
-        <button data-dv-action="heights" class="dv-menu-item">📐 Heights / Dimensions</button>
         <div class="dv-more-sep"></div>
         <button data-dv-action="delete-all-markup" class="dv-menu-item dv-menu-danger">✏️ Delete All Markup</button>
         <button data-dv-action="delete-all-pins" class="dv-menu-item dv-menu-danger">📌 Delete All Pins</button>
       </div>
     </div>
-    <button id="dv-dark-toggle" title="Toggle Dark Mode" style="font-size:calc(14px + var(--ts));">☀️</button>
+    <button id="dv-dark-toggle" class="dv-header-btn" title="Toggle Dark Mode">🌙</button>
+
+    <!-- LEGACY CONTROLS: hidden in Push A, relocated in later pushes. Kept in DOM so existing handlers stay wired. -->
+    <div class="dv-legacy-hidden" aria-hidden="true">
+      <button class="dv-nav-btn" id="dv-prev" title="Previous drawing">◀</button>
+      <button class="dv-nav-btn" id="dv-next" title="Next drawing">▶</button>
+      <div class="dv-title-wrap"><span class="dv-title" id="dv-title"></span><button id="dv-rename-btn" title="Rename drawing" class="dv-rename-btn">✏️</button></div>
+      <button id="dv-layers-btn" title="Layers">≡ Layers</button>
+      <div id="dv-layers-menu" class="dv-more-menu" style="display:none;"></div>
+      <button id="dv-tasks-btn" class="dv-tasks-toggle" title="Show/hide tasks panel">📌 Tasks</button>
+      <button id="dv-more-btn" title="More options">⋯</button>
+      <div id="dv-more-menu" class="dv-more-menu" style="display:none;"></div>
+    </div>
   </div>
   <!-- MOBILE CONTEXT BAR -->
   <div id="dv-mobile-context" class="dv-mobile-context">
@@ -642,6 +647,44 @@ function ensurePdfJs(cb){
 <!-- ═══ MODULE ENTRY POINT ═══ -->
 <script src="js/viewer/markupEngine.js?v=4"></script>
 <script type="module" src="js/app.js"></script>
+<script>
+// Session 73 Push A — wire new dark slate header buttons
+(function(){
+  function proxyClick(srcId, tgtId){
+    var s=document.getElementById(srcId), t=document.getElementById(tgtId);
+    if(!s||!t) return;
+    s.addEventListener('click', function(e){ e.preventDefault(); t.click(); });
+  }
+  function init(){
+    proxyClick('dv-undo-top','mk-undo');
+    proxyClick('dv-redo-top','mk-redo');
+    // Actions dropdown toggle
+    var ab=document.getElementById('dv-actions-btn'), am=document.getElementById('dv-actions-menu');
+    if(ab&&am){
+      ab.addEventListener('click', function(e){
+        e.stopPropagation();
+        am.style.display = (am.style.display==='block') ? 'none' : 'block';
+      });
+      document.addEventListener('click', function(e){
+        if(am.style.display==='block' && !am.contains(e.target) && e.target!==ab) am.style.display='none';
+      });
+    }
+    // Mirror layer checkbox state into Actions menu (Push A keeps single source of truth via existing IDs)
+    // Sync new dv-undo-top/dv-redo-top opacity with markup undo state
+    var obs=new MutationObserver(function(){
+      var u=document.getElementById('mk-undo'), r=document.getElementById('mk-redo');
+      var ut=document.getElementById('dv-undo-top'), rt=document.getElementById('dv-redo-top');
+      if(u&&ut) ut.style.opacity=u.style.opacity||'1';
+      if(r&&rt) rt.style.opacity=r.style.opacity||'1';
+    });
+    var mu=document.getElementById('mk-undo'), mr=document.getElementById('mk-redo');
+    if(mu) obs.observe(mu,{attributes:true,attributeFilter:['style']});
+    if(mr) obs.observe(mr,{attributes:true,attributeFilter:['style']});
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
+  else init();
+})();
+</script>
 
 </body>
 </html>
