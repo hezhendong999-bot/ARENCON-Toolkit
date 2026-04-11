@@ -823,6 +823,11 @@ body.dark-mode #btn-reports-parent{background:#141a3a!important;color:#7898d0!im
 body.dark-mode #btn-reports-parent:hover{background:#1c2450!important;}
 body.dark-mode #btn-more-wrap > button{background:#3a4858!important;color:#c0d0e0!important;border:1px solid #506070!important;}
 body.dark-mode #btn-more-wrap > button:hover{background:#46556a!important;}
+/* S77: muted dark mode for utility chips after More — same ID-targeted approach */
+body.dark-mode #btn-qr,body.dark-mode #btn-text-size,body.dark-mode #dark-toggle{background:#3a4858!important;color:#c0d0e0!important;border:1px solid #506070!important;}
+body.dark-mode #btn-qr:hover,body.dark-mode #btn-text-size:hover,body.dark-mode #dark-toggle:hover{background:#46556a!important;border-color:#5a6a82!important;}
+body.dark-mode #btn-signout{background:#2a1530!important;color:#c898d8!important;border:1px solid #4a2550!important;}
+body.dark-mode #btn-signout:hover{background:#3a1f40!important;}
 body.dark-mode button[style*="background:white"],body.dark-mode button[style*="background:#fff"]{background:#1a1d24!important;color:#b0b8d0!important;border-color:#2a3040!important;}
 body.dark-mode [style*="background:#f8f9fa"],[class*="dark-mode"] [style*="background:#f8f8f6"]{background:#282b34!important;}
 body.dark-mode [style*="background:#eee"]{background:#1e2028!important;}
