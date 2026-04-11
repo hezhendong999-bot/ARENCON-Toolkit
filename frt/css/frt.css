@@ -848,9 +848,12 @@ body.dark-mode .contractor-chip{background:#1e2230;border-color:#2a3040;color:#b
 body.dark-mode .defic-group{border-color:#2a2e38;}
 body.dark-mode .defic-group-header{background:#14171e;color:#d8dce8;}
 body.dark-mode .hdr-btn{opacity:1;box-shadow:0 1px 4px rgba(0,0,0,.4);}body.dark-mode .hdr-btn:hover{opacity:1;filter:brightness(1.2);}
-/* S77: #btn-pdf and #btn-issue dark mode colors removed — they live inside Reports dropdown now and should match AI Review submenu styling (transparent, default text) */
-.ai-mode-menu #btn-pdf,.ai-mode-menu #btn-issue{background:transparent!important;color:var(--fg)!important;border:none!important;}
-body.dark-mode .ai-mode-menu #btn-pdf,body.dark-mode .ai-mode-menu #btn-issue{background:transparent!important;color:#d0d8f0!important;border:none!important;}
+/* S77: #btn-pdf and #btn-issue live inside Reports dropdown — force-match AI Review submenu styling */
+.ai-mode-menu #btn-pdf,.ai-mode-menu #btn-issue{background:transparent!important;color:var(--fg)!important;border:none!important;display:block!important;width:100%!important;padding:10px 14px!important;text-align:left!important;font-family:Calibri,sans-serif!important;font-size:calc(13px + var(--ts))!important;font-weight:400!important;height:auto!important;min-height:0!important;line-height:1.3!important;}
+.ai-mode-menu #btn-pdf span,.ai-mode-menu #btn-issue span{display:block!important;font-size:calc(11px + var(--ts))!important;color:var(--silver)!important;margin-top:2px!important;font-weight:400!important;}
+.ai-mode-menu #btn-pdf:hover,.ai-mode-menu #btn-issue:hover{background:var(--smoke)!important;}
+body.dark-mode .ai-mode-menu #btn-pdf,body.dark-mode .ai-mode-menu #btn-issue{color:#d0d8f0!important;}
+body.dark-mode .ai-mode-menu #btn-pdf span,body.dark-mode .ai-mode-menu #btn-issue span{color:#8a94b0!important;}
 body.dark-mode .ai-mode-menu #btn-pdf:hover,body.dark-mode .ai-mode-menu #btn-issue:hover{background:#283044!important;}
 .ai-mode-menu.show{display:block;}
 body.dark-mode #btn-signout{background:rgba(123,31,162,.3)!important;color:#b080d0!important;border:1px solid rgba(123,31,162,.35)!important;}
