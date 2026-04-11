@@ -2426,3 +2426,36 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     letter-spacing:0.5px;
   }
 }
+
+/* === Session 75 Push 7 — Close to left sidebar top + bigger size steppers === */
+@media (min-width: 769px){
+  /* Hide Close from top toolbar */
+  .drawing-viewer-overlay .dv-toolbar #dv-close{display:none !important;}
+  /* Move Close into the top of #dv-sidebar-tools via JS — CSS just styles it */
+  .drawing-viewer-overlay #dv-sidebar-tools #dv-close{
+    display:flex !important;
+    align-items:center;justify-content:center;gap:6px;
+    width:calc(100% - 8px);
+    margin:6px 4px 10px;
+    padding:8px 6px;
+    background:#2a3448 !important;
+    color:#fff !important;
+    border:1px solid #3a4660 !important;
+    border-radius:6px;
+    font-family:Calibri,sans-serif;font-size:13px;font-weight:500;
+    cursor:pointer;
+  }
+  .drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{background:#9C2742 !important;}
+  /* Bigger size/opacity steppers in sidebar */
+  .drawing-viewer-overlay #dv-sidebar-tools button.mk-size-btn,
+  .drawing-viewer-overlay #dv-sidebar-tools button.mk-opacity-btn,
+  .drawing-viewer-overlay #dv-sidebar-tools .mk-size-controls button,
+  .drawing-viewer-overlay #dv-sidebar-tools .mk-opacity-controls button,
+  .drawing-viewer-overlay #dv-sidebar-tools [class*="size"] button,
+  .drawing-viewer-overlay #dv-sidebar-tools [class*="opacity"] button{
+    min-width:32px !important;
+    min-height:28px !important;
+    font-size:14px !important;
+    padding:4px 8px !important;
+  }
+}

@@ -790,6 +790,14 @@ function ensurePdfJs(cb){
     var tlEl=document.getElementById('dv-tasks-list');
     if(tlEl)new MutationObserver(syncTaskList).observe(tlEl,{childList:true,subtree:true,characterData:true});
     syncTaskList();
+    /* Push 7: relocate #dv-close into top of #dv-sidebar-tools on desktop */
+    if(window.matchMedia('(min-width: 769px)').matches){
+      var closeBtn=document.getElementById('dv-close');
+      var sidebar=document.getElementById('dv-sidebar-tools');
+      if(closeBtn&&sidebar&&closeBtn.parentElement!==sidebar){
+        sidebar.insertBefore(closeBtn,sidebar.firstChild);
+      }
+    }
   }
     /* Mirror title text into name pill + tasks count */
     function syncBB(){
