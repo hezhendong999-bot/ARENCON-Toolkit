@@ -512,11 +512,19 @@ body.dark-mode .dv-task-item{color:#ccc;}body.dark-mode .dv-task-item:hover{back
 .defic-more-popup{display:none;position:absolute;right:0;bottom:100%;background:var(--bg,white);border:1.5px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:100;min-width:140px;padding:4px 0;}
 .defic-more-popup.open{display:block;}
 .defic-more-popup button{display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));color:var(--fg);}.defic-more-popup button:hover{background:var(--smoke);}
-body.dark-mode .defic-act-btn.act-close{color:#80c8a0;border-color:rgba(80,180,120,.35);}
-body.dark-mode .defic-act-btn.act-reopen{color:#FFB74D;border-color:rgba(255,183,77,.35);}
-body.dark-mode .defic-act-btn.act-remove{color:#ff8a8a;border-color:rgba(255,100,100,.3);background:rgba(192,57,43,.08);}
-body.dark-mode .defic-act-btn.act-response{color:#FFB74D;border-color:rgba(255,183,77,.3);}
-body.dark-mode .defic-act-btn.act-comment{color:#90c0f0;border-color:rgba(144,192,240,.3);}
+/* S77: Deficiency action buttons - muted filled chips for dark mode */
+body.dark-mode .defic-act-btn{background:#2a3448!important;border:1px solid rgba(255,255,255,.08)!important;color:#c0d0e0!important;padding:6px 12px!important;border-radius:6px!important;opacity:1!important;}
+body.dark-mode .defic-act-btn:hover{background:#36425a!important;border-color:rgba(255,255,255,.18)!important;}
+body.dark-mode .defic-act-btn.act-close{background:#1a2e22!important;color:#80c8a0!important;}
+body.dark-mode .defic-act-btn.act-close:hover{background:#22402e!important;}
+body.dark-mode .defic-act-btn.act-reopen{background:#2e2418!important;color:#e0b878!important;}
+body.dark-mode .defic-act-btn.act-reopen:hover{background:#3e3220!important;}
+body.dark-mode .defic-act-btn.act-remove{background:#2e1a1a!important;color:#e08080!important;}
+body.dark-mode .defic-act-btn.act-remove:hover{background:#402222!important;}
+body.dark-mode .defic-act-btn.act-response{background:#2a2438!important;color:#b890d8!important;}
+body.dark-mode .defic-act-btn.act-response:hover{background:#382e4a!important;}
+body.dark-mode .defic-act-btn.act-comment{background:#1a2438!important;color:#80a8d8!important;}
+body.dark-mode .defic-act-btn.act-comment:hover{background:#22304a!important;}
 body.dark-mode .defic-more-popup{background:#1e2533;border-color:#3a3e48;}
 body.dark-mode .defic-more-popup button{color:#d0d8f0;}body.dark-mode .defic-more-popup button:hover{background:#2a2e3a;}
 .pin-unassigned-badge{display:inline-flex;align-items:center;gap:5px;font-size:calc(11px + var(--ts));font-weight:700;color:#92400E;background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:5px;padding:3px 8px;margin-top:4px;cursor:default;}
