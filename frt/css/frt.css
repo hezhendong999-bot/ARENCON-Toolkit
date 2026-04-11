@@ -1733,7 +1733,7 @@ body.dark-mode .ai-diff-del{background:rgba(192,57,43,.2);color:#e8a0a0;}
 .ai-mode-menu.open{display:block;}
 .ai-mode-menu button{display:block;width:100%;padding:10px 14px;border:none;background:none;text-align:left;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));cursor:pointer;color:var(--fg);}
 .ai-mode-menu button:hover{background:var(--smoke);}
-.ai-mode-menu button span{display:block;font-size:calc(10px + var(--ts));color:var(--silver);margin-top:2px;}
+.ai-mode-menu button span{display:block;font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;}
 body.dark-mode .ai-mode-menu{background:#1e2533;border-color:#3a3e48;}
 
 /* AI Usage Dashboard */
