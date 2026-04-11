@@ -2503,3 +2503,28 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   }
   .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-name{color:#fff !important;}
 }
+
+/* === Session 75 Push 9 — REVERT Push 6.1 desktop title/bottombar changes === */
+@media (min-width: 769px){
+  /* Bring title-wrap back to top toolbar */
+  .drawing-viewer-overlay .dv-toolbar .dv-title-wrap{
+    display:flex !important;
+    flex:1;align-items:center;justify-content:center;gap:4px;
+    min-width:0;padding:0 8px;
+  }
+  .drawing-viewer-overlay .dv-toolbar #dv-title{
+    color:#fff;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-family:Calibri,sans-serif;font-weight:600;
+  }
+  .drawing-viewer-overlay .dv-toolbar #dv-rename-btn{
+    background:#2a3448 !important;color:#fff !important;
+    border:1px solid #3a4660 !important;border-radius:6px !important;
+    padding:4px 8px !important;cursor:pointer;
+  }
+  .drawing-viewer-overlay .dv-toolbar #dv-rename-btn:hover{background:#9C2742 !important;}
+  /* Hide the new bottom bar entirely on desktop */
+  .drawing-viewer-overlay #dv-bottombar-v75{
+    display:none !important;
+  }
+}
