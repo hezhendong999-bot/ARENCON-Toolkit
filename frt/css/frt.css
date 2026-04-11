@@ -2291,3 +2291,42 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
 .drawing-viewer-overlay .dv-heights-panel select{
   background:#2a3448 !important;color:#fff !important;border:1px solid #3a4660 !important;
 }
+
+/* === Session 75 Push 6 — left-align more-menu items + zoom controls verify === */
+.drawing-viewer-overlay .dv-more-menu .dv-menu-item,
+.drawing-viewer-overlay #dv-more-menu .dv-menu-item{
+  text-align:left !important;
+  justify-content:flex-start !important;
+  width:100% !important;
+  display:flex !important;
+  align-items:center !important;
+  gap:8px !important;
+  padding:10px 14px !important;
+}
+/* Push 6: zoom controls — anchor to canvas area top-right (not viewport) */
+.drawing-viewer-overlay #dv-canvas-area{position:relative;}
+.drawing-viewer-overlay .zoom-controls,
+.drawing-viewer-overlay #zoom-controls{
+  position:absolute !important;
+  top:14px !important;
+  right:14px !important;
+  left:auto !important;
+  bottom:auto !important;
+  display:flex !important;
+  flex-direction:column !important;
+  gap:6px !important;
+  z-index:20;
+}
+.drawing-viewer-overlay .zoom-controls button,
+.drawing-viewer-overlay #zoom-controls button{
+  width:36px;height:36px;border-radius:6px;
+  background:#2a3448;color:#fff;border:1px solid #3a4660;
+  font-size:14px;cursor:pointer;padding:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.drawing-viewer-overlay .zoom-controls button:hover,
+.drawing-viewer-overlay #zoom-controls button:hover{background:#9C2742;}
+@media(pointer:coarse){
+  .drawing-viewer-overlay .zoom-controls button,
+  .drawing-viewer-overlay #zoom-controls button{width:44px;height:44px;}
+}
