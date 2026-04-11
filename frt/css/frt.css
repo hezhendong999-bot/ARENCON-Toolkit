@@ -2370,3 +2370,59 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     right:14px !important;
   }
 }
+
+/* === Session 75 Push 6.2 — close button align + bigger size/opac steppers === */
+@media (min-width: 769px){
+  /* Align close button column with left sidebar width */
+  .drawing-viewer-overlay .dv-toolbar{padding-left:0 !important;}
+  .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
+    width:60px !important;
+    min-width:60px !important;
+    margin:0 8px 0 12px !important;
+    padding:6px 0 !important;
+    text-align:center !important;
+    background:#2a3448 !important;
+    border:1px solid #3a4660 !important;
+    border-radius:6px !important;
+    color:#fff !important;
+    font-family:Calibri,sans-serif !important;
+    font-size:13px !important;
+    font-weight:500 !important;
+  }
+  .drawing-viewer-overlay .dv-toolbar .dv-close-btn:hover{
+    background:#9C2742 !important;
+    border-color:#9C2742 !important;
+  }
+  /* Bigger size/opacity steppers in left sidebar */
+  .drawing-viewer-overlay #dv-sidebar-tools #ctx-size-group button,
+  .drawing-viewer-overlay #dv-sidebar-tools #ctx-opacity-group button,
+  .drawing-viewer-overlay #dv-sidebar-tools .ctx-step,
+  .drawing-viewer-overlay #dv-sidebar-tools button[data-ctx-step]{
+    width:32px !important;
+    height:28px !important;
+    font-size:14px !important;
+    background:#2a3448 !important;
+    color:#fff !important;
+    border:1px solid #3a4660 !important;
+    border-radius:5px !important;
+    margin:2px 0 !important;
+    cursor:pointer !important;
+  }
+  .drawing-viewer-overlay #dv-sidebar-tools #ctx-size-val,
+  .drawing-viewer-overlay #dv-sidebar-tools #ctx-opacity-val,
+  .drawing-viewer-overlay #dv-sidebar-tools #mk-size-val,
+  .drawing-viewer-overlay #dv-sidebar-tools #mk-opacity-val{
+    color:#fff !important;
+    font-size:14px !important;
+    font-weight:600 !important;
+    text-align:center;
+    display:block;
+    padding:3px 0;
+  }
+  .drawing-viewer-overlay #dv-sidebar-tools .mk-section-label,
+  .drawing-viewer-overlay #dv-sidebar-tools [class*="label"]{
+    font-size:11px !important;
+    color:#888 !important;
+    letter-spacing:0.5px;
+  }
+}
