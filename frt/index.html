@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=101">
+<link rel="stylesheet" href="css/frt.css?v=102">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -373,6 +373,10 @@ function ensurePdfJs(cb){
         <button data-dv-action="delete-all-pins" class="dv-menu-item dv-menu-danger">📌 Delete All Pins</button>
       </div>
     </div>
+    <span id="dv-spacer-v75"></span>
+    <button id="dv-undo-v75" title="Undo">↩</button>
+    <button id="dv-redo-v75" title="Redo">↪</button>
+    <button id="dv-actions-v75" title="Actions">Actions ▾</button>
     <button id="dv-dark-toggle" title="Toggle Dark Mode" style="font-size:calc(14px + var(--ts));">☀️</button>
   </div>
   <!-- MOBILE CONTEXT BAR -->
@@ -643,5 +647,23 @@ function ensurePdfJs(cb){
 <script src="js/viewer/markupEngine.js?v=4"></script>
 <script type="module" src="js/app.js"></script>
 
+<script>
+/* Session 75 Push 2 — proxy wiring for new toolbar buttons */
+(function(){
+  function wire(){
+    var u=document.getElementById('dv-undo-v75');
+    var r=document.getElementById('dv-redo-v75');
+    var a=document.getElementById('dv-actions-v75');
+    if(!u||!r||!a) return setTimeout(wire,300);
+    if(u.dataset.wired) return;
+    u.dataset.wired=r.dataset.wired=a.dataset.wired='1';
+    u.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('mk-undo');if(t)t.click();});
+    r.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('mk-redo');if(t)t.click();});
+    a.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var t=document.getElementById('dv-more-btn');if(t)t.click();});
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',wire);
+  else wire();
+})();
+</script>
 </body>
 </html>

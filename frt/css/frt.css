@@ -1956,3 +1956,47 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     pointer-events:none !important;
   }
 }
+
+/* === Session 75 Push 2 — trim legacy top toolbar (mobile only) ===
+   Hide legacy toolbar items via visibility:hidden + offscreen.
+   They remain in DOM and JS-clickable for proxy buttons. */
+@media (max-width: 768px){
+  .drawing-viewer-overlay #dv-prev,
+  .drawing-viewer-overlay #dv-next,
+  .drawing-viewer-overlay .dv-title-wrap,
+  .drawing-viewer-overlay #dv-tasks-btn,
+  .drawing-viewer-overlay .dv-toolbar > div:has(> #dv-layers-btn),
+  .drawing-viewer-overlay .dv-toolbar > div:has(> #dv-more-btn){
+    position:absolute !important;
+    left:-9999px !important;
+    top:0 !important;
+    visibility:hidden !important;
+    width:1px !important;
+    height:1px !important;
+    margin:0 !important;
+    padding:0 !important;
+  }
+  /* New Push 2 toolbar buttons */
+  .drawing-viewer-overlay .dv-toolbar #dv-undo-v75,
+  .drawing-viewer-overlay .dv-toolbar #dv-redo-v75,
+  .drawing-viewer-overlay .dv-toolbar #dv-actions-v75{
+    background:#2a3448;
+    color:#fff;
+    border:1px solid #3a4660;
+    border-radius:6px;
+    padding:8px 12px;
+    font-family:Calibri,sans-serif;
+    font-size:calc(14px + var(--ts));
+    cursor:pointer;
+    min-width:44px;
+    min-height:34px;
+  }
+  .drawing-viewer-overlay .dv-toolbar #dv-undo-v75:hover,
+  .drawing-viewer-overlay .dv-toolbar #dv-redo-v75:hover,
+  .drawing-viewer-overlay .dv-toolbar #dv-actions-v75:hover{
+    background:#9C2742;
+  }
+  .drawing-viewer-overlay .dv-toolbar #dv-spacer-v75{
+    flex:1;
+  }
+}
