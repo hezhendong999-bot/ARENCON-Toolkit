@@ -430,8 +430,8 @@ body.dark-mode .pin-editor-footer{border-top-color:#3a3e48;}
 .pe-save-btn{padding:8px 24px;border:none;background:#9C2742;color:white;border-radius:6px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));}
 .pe-delete-btn{padding:8px 16px;border:none;background:#FDEDEC;color:#C0392B;border-radius:6px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));}
 body.dark-mode .pe-delete-btn{background:#2a2d35;color:#ff8a8a;}
-.pe-cancel-btn{padding:8px 16px;border:none;background:var(--smoke);color:#607D8B;border-radius:6px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));}
-body.dark-mode .pe-cancel-btn{background:#2a2d35;color:#ccc;}/* Mobile: single column */
+.pe-cancel-btn{padding:8px 16px;border:1.5px solid #C0392B;background:transparent;color:#C0392B;border-radius:6px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));}
+body.dark-mode .pe-cancel-btn{background:transparent;color:#e08080;border-color:#e08080;}/* Mobile: single column */
 @media(max-width:768px){
   .pin-editor-modal{max-width:100%;border-radius:0;max-height:100vh;}
   .pin-editor-overlay{padding:0;}

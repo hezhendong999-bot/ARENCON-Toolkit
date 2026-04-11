@@ -41,7 +41,7 @@ export function showConfirm(title, message) {
     var overlay = _createOverlay();
     var modal = _createModal(title, message, [
       { label: 'Yes', color: '#1A7A4A', action: function() { _removeOverlay(overlay); resolve(true); } },
-      { label: 'Cancel', color: '#607D8B', outline: true, action: function() { _removeOverlay(overlay); resolve(false); } }
+      { label: 'Cancel', color: '#C0392B', outline: true, action: function() { _removeOverlay(overlay); resolve(false); } }
     ]);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
@@ -125,7 +125,7 @@ export function showPrompt(title, label, defaultVal) {
 
     var cancelBtn = document.createElement('button');
     cancelBtn.textContent = 'Cancel';
-    cancelBtn.style.cssText = 'flex:1;padding:10px;border-radius:8px;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;cursor:pointer;background:transparent;color:#607D8B;border:1.5px solid #607D8B;';
+    cancelBtn.style.cssText = 'flex:1;padding:10px;border-radius:8px;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;cursor:pointer;background:transparent;color:#C0392B;border:1.5px solid #C0392B;';
     cancelBtn.addEventListener('click', function() {
       _removeOverlay(overlay);
       resolve(null);
