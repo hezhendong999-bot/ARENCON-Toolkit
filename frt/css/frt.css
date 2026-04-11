@@ -891,7 +891,7 @@ body.dark-mode .view-pill-btn.active{background:#2a3448!important;color:#e2e8f0!
   /* S77: Summary table -> 2-line card layout on mobile (Option A with fixed pill columns) */
   #tasks-table thead{display:none;}
   #tasks-table,#tasks-table tbody,#tasks-table tr{display:block!important;width:100%!important;}
-  #tasks-table tr{padding:10px 12px!important;border-bottom:1px solid var(--border)!important;display:grid!important;grid-template-columns:auto 1fr 70px 70px!important;grid-template-rows:auto auto!important;gap:6px 8px!important;align-items:center!important;}
+  #tasks-table tr{padding:10px 12px!important;border-bottom:1px solid var(--border)!important;display:grid!important;grid-template-columns:auto 1fr 80px 64px!important;grid-template-rows:auto auto!important;gap:6px 8px!important;align-items:center!important;}
   #tasks-table td{display:block!important;padding:0!important;border:none!important;max-width:none!important;overflow:visible!important;text-overflow:clip!important;white-space:normal!important;}
   #tasks-table td:nth-child(1){grid-column:1;grid-row:1;font-weight:700;color:#9C2742;font-size:calc(13px + var(--ts))!important;}
   #tasks-table td:nth-child(2){grid-column:2;grid-row:1;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:calc(11px + var(--ts))!important;color:var(--silver)!important;}
