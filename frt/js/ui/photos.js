@@ -290,13 +290,43 @@ function _handleSitePhotoFiles(files) {
 window._handleSitePhotoDrop = _handleSitePhotoFiles;
 
 // Wire upload buttons
-var uploadBtn = document.getElementById('site-photo-upload-btn');
-var cameraBtn = document.getElementById('site-photo-camera-btn');
+// Photo Gallery toolbar — delegated wiring (S78 fix: top-level getElementById ran before DOM existed)
+document.addEventListener('click', function(e) {
+  var t = e.target.closest && e.target.closest('button');
+  if (!t || !t.id) return;
+  if (t.id === 'site-photo-upload-btn') {
+    var fi = document.getElementById('site-photo-input');
+    if (fi) fi.click();
+  } else if (t.id === 'site-photo-camera-btn') {
+    var ci = document.getElementById('site-photo-camera');
+    if (ci) ci.click();
+  } else if (t.id === 'photo-actions-btn') {
+    var proj = Model.getProject();
+    var sitePhotos = (proj.sitePhotos || []).length;
+    var defPhotos = 0;
+    (proj.deficiencies || []).forEach(function(d) { (d.observations || []).forEach(function(o) { defPhotos += (o.photos || []).length; }); });
+    var total = sitePhotos + defPhotos;
+    if (total === 0) { toast('No photos to act on'); return; }
+    showConfirm('Photo Actions', 'Total: ' + total + ' photos (' + sitePhotos + ' site, ' + defPhotos + ' deficiency).\n\nBulk actions menu coming in next update. For now, manage photos individually via card menus.').then(function(){});
+  } else if (t.id === 'photo-filters-btn') {
+    showPrompt('Filter Photos', 'Show: (1) All  (2) Site only  (3) Deficiency only', '1').then(function(v) {
+      if (v === null) return;
+      var mode = (v || '1').trim();
+      var cards = document.querySelectorAll('#panel-photos .photo-card, #panel-photos [data-photo-type]');
+      cards.forEach(function(c) {
+        var type = c.getAttribute('data-photo-type') || '';
+        if (mode === '2') c.style.display = (type === 'site') ? '' : 'none';
+        else if (mode === '3') c.style.display = (type === 'deficiency') ? '' : 'none';
+        else c.style.display = '';
+      });
+      toast(mode === '2' ? 'Site photos only' : mode === '3' ? 'Deficiency photos only' : 'Showing all');
+    });
+  }
+});
+
+// Legacy file/camera input change handlers (kept top-level — inputs exist at module load via index.html)
 var fileInput = document.getElementById('site-photo-input');
 var cameraInput = document.getElementById('site-photo-camera');
-
-if (uploadBtn) uploadBtn.addEventListener('click', function() { fileInput.click(); });
-if (cameraBtn) cameraBtn.addEventListener('click', function() { cameraInput.click(); });
 if (fileInput) fileInput.addEventListener('change', function(e) {
   if (e.target.files) _handleSitePhotoFiles(e.target.files);
   e.target.value = '';
