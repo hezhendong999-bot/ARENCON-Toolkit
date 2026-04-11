@@ -897,8 +897,10 @@ body.dark-mode .view-pill-btn.active{background:#2a3448!important;color:#e2e8f0!
   #tasks-table td:nth-child(2){grid-column:2;grid-row:1;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:calc(11px + var(--ts))!important;color:var(--silver)!important;}
   #tasks-table td:nth-child(5){grid-column:3;grid-row:1;}
   #tasks-table td:nth-child(6){grid-column:4;grid-row:1;}
-  #tasks-table td:nth-child(3){grid-column:1 / -1;grid-row:2;font-size:calc(13px + var(--ts))!important;line-height:1.4;word-break:break-word;}
-  #tasks-table td:nth-child(4),#tasks-table td:nth-child(7){display:none!important;}
+  #tasks-table td:nth-child(3){grid-column:1 / 4;grid-row:2;font-size:calc(13px + var(--ts))!important;line-height:1.4;word-break:break-word;}
+  #tasks-table td:nth-child(4){display:none!important;}
+  #tasks-table td:nth-child(7){grid-column:4;grid-row:2;justify-self:end;align-self:center;}
+  #tasks-table .tt-jump{padding:5px 10px!important;font-size:calc(11px + var(--ts))!important;}
   #tasks-table .tt-status,#tasks-table .tt-priority{display:block!important;width:100%!important;text-align:center!important;font-size:calc(10px + var(--ts))!important;padding:3px 0!important;box-sizing:border-box;}
 }
 .ai-mode-menu.show{display:block;}
