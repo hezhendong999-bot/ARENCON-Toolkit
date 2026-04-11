@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=137">
+<link rel="stylesheet" href="css/frt.css?v=138">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -101,10 +101,13 @@ function ensurePdfJs(cb){
           <button id="btn-load-more">📂 Load Project <span>Open a JSON project file</span></button>
           <div style="height:1px;background:#eee;margin:2px 0;"></div>
           <div id="more-repair-section" style="display:none;">
+            <button type="button" id="btn-repair-toggle" class="more-repair-toggle">🔧 Repair <span class="more-repair-caret">▸</span></button>
+            <div id="more-repair-items" class="more-repair-collapsed">
             <button>☁️ Re-upload All <span>Push all drawings &amp; photos to R2</span></button>
             <button>📄 Fix Blurry <span>Re-upload PDFs at full resolution</span></button>
             <button class="admin-only">🧹 R2 Cleanup <span>Delete orphaned cloud files</span></button>
             <button class="admin-only">🔗 Repair R2 Links <span>Fix photo/drawing filename mismatches</span></button>
+            </div>
             <div style="height:1px;background:#eee;margin:2px 0;"></div>
           </div>
           <button>🗑️ Reset Current Tab <span>Clear this tab's data</span></button>
@@ -174,6 +177,19 @@ function ensurePdfJs(cb){
     setTimeout(sync,300);
     setTimeout(sync,1500);
   }
+  // S77: Repair submenu toggle inside More menu
+  document.addEventListener('click',function(e){
+    var t=e.target.closest('#btn-repair-toggle');
+    if(!t)return;
+    e.stopPropagation();
+    e.preventDefault();
+    var items=document.getElementById('more-repair-items');
+    var caret=t.querySelector('.more-repair-caret');
+    if(!items)return;
+    var open=items.classList.toggle('more-repair-open');
+    items.classList.toggle('more-repair-collapsed',!open);
+    if(caret)caret.textContent=open?'▾':'▸';
+  });
 })();
 </script>
 
