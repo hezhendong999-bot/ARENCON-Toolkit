@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=126">
+<link rel="stylesheet" href="css/frt.css?v=127">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -68,16 +68,15 @@ function ensurePdfJs(cb){
     <div class="header-actions">
       <span class="header-save-ts" id="header-save-ts"></span>
       <div class="sync-indicator" id="sync-indicator"><span class="sync-dot no-folder"></span><span id="sync-label">No folder</span></div>
-      <div class="inspector-chip" id="inspector-chip" title="Change inspector"><span class="ic-icon">👤</span><span class="ic-name" id="inspector-chip-name">Set Name</span></div>
       <div id="storage-display" class="storage-bar" title="Browser storage usage" style="cursor:help;">
         <div class="storage-bar-track"><div class="storage-bar-fill" style="width:0%"></div></div>
         <span class="storage-label" style="font-size:9px;color:rgba(255,255,255,.45);white-space:nowrap;">IDB</span>
       </div>
+      <div class="inspector-chip" id="inspector-chip" title="Change inspector"><span class="ic-icon">👤</span><span class="ic-name" id="inspector-chip-name">Set Name</span></div>
       <!-- Dashboard buttons -->
       <button class="hdr-btn hdr-load" id="btn-load" title="Load JSON">📂 Load</button>
       <button class="hdr-btn hdr-export-all" id="btn-export-all" title="Export All Projects">📦 Export All</button>
       <!-- Project buttons (hidden on dashboard, shown in project) -->
-      <button class="hdr-btn" id="btn-pdf" style="display:none;background:#1A237E;" title="Export PDF Report">📄 Reports</button>
       <div style="position:relative;display:inline-block;" id="btn-ai-wrap" style="display:none;">
         <button class="hdr-btn hdr-ai" id="btn-ai-review" style="display:none;background:#7B2D8E;" title="AI Review">✨ AI Review ▾</button>
         <div class="ai-mode-menu" id="ai-mode-menu">
@@ -85,8 +84,9 @@ function ensurePdfJs(cb){
           <button id="ai-mode-quickfix">🔤 Quick Fix <span>Typos &amp; grammar only (Haiku)</span></button>
         </div>
       </div>
+      <button class="hdr-btn" id="btn-pdf" style="display:none;background:#1A237E;" title="Export PDF Report">📄 Reports</button>
       <button class="hdr-btn" id="btn-ai-usage" style="display:none;background:#455A64;" title="AI Usage Tracking">📊 AI Usage</button>
-      <button class="hdr-btn" id="btn-issue" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
+      <button class="hdr-btn" id="btn-issue" style="display:none !important;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
       <!-- ⚙️ More dropdown -->
       <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
         <button class="hdr-btn" style="background:#455A64;" title="More options">⚙️ More ▾</button>
@@ -107,8 +107,8 @@ function ensurePdfJs(cb){
         </div>
       </div>
       <button class="hdr-btn" id="btn-qr" style="display:none;background:rgba(255,255,255,.15);" title="QR Code for this tool">📱</button>
-      <button id="dark-toggle" title="Toggle Dark Mode">☀️</button>
       <button class="hdr-btn text-size-toggle" id="btn-text-size" title="Text size: Small / Medium / Large">M</button>
+      <button id="dark-toggle" title="Toggle Dark Mode">☀️</button>
       <button class="hdr-btn" id="btn-signout" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
       <button id="mobile-menu-btn">☰</button>
     </div>
