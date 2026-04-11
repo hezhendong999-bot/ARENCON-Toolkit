@@ -2247,3 +2247,47 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     background:#2a3448 !important;color:#fff !important;border:1px solid #3a4660 !important;
   }
 }
+
+/* === Session 75 Push 5.2 — navy submenus/popovers in viewer === */
+.drawing-viewer-overlay .dv-more-menu,
+.drawing-viewer-overlay .tool-submenu,
+.drawing-viewer-overlay .color-submenu,
+.drawing-viewer-overlay #dv-layers-menu,
+.drawing-viewer-overlay #dv-more-menu,
+.drawing-viewer-overlay .dv-heights-panel{
+  background:#1B2438 !important;
+  color:#fff !important;
+  border:1px solid #2a3448 !important;
+  box-shadow:0 4px 12px rgba(0,0,0,.4) !important;
+}
+.drawing-viewer-overlay .dv-more-menu .dv-menu-item,
+.drawing-viewer-overlay #dv-more-menu .dv-menu-item{
+  background:transparent !important;color:#fff !important;border:none !important;
+}
+.drawing-viewer-overlay .dv-more-menu .dv-menu-item:hover,
+.drawing-viewer-overlay #dv-more-menu .dv-menu-item:hover{
+  background:#2a3448 !important;
+}
+.drawing-viewer-overlay .dv-more-menu .dv-menu-danger{color:#ff7a7a !important;}
+.drawing-viewer-overlay .dv-more-menu .dv-menu-danger:hover{background:#5a2030 !important;}
+.drawing-viewer-overlay .dv-more-sep{border-top:1px solid #2a3448 !important;}
+.drawing-viewer-overlay .tool-submenu button,
+.drawing-viewer-overlay .color-submenu button,
+.drawing-viewer-overlay #dv-layers-menu button{
+  background:#2a3448 !important;color:#fff !important;border:1px solid #3a4660 !important;
+}
+.drawing-viewer-overlay .tool-submenu button:hover,
+.drawing-viewer-overlay .color-submenu button:hover,
+.drawing-viewer-overlay #dv-layers-menu button:hover{
+  background:#3a4660 !important;
+}
+.drawing-viewer-overlay .tool-submenu button.active,
+.drawing-viewer-overlay #dv-layers-menu button.active{
+  background:#9C2742 !important;border-color:#9C2742 !important;
+}
+.drawing-viewer-overlay #dv-layers-menu label,
+.drawing-viewer-overlay #dv-layers-menu .dv-layer-row{color:#fff !important;}
+.drawing-viewer-overlay .dv-heights-panel input,
+.drawing-viewer-overlay .dv-heights-panel select{
+  background:#2a3448 !important;color:#fff !important;border:1px solid #3a4660 !important;
+}
