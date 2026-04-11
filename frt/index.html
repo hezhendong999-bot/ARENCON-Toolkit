@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=103">
+<link rel="stylesheet" href="css/frt.css?v=104">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -502,19 +502,19 @@ function ensurePdfJs(cb){
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
       </button>
     </div>
-    <!-- Session 75 Push 3: white tool row + light gray style strip -->
+    <!-- Session 75 Push 3.1: tool row + style strip (mockup-exact) -->
     <div id="dv-toolrow-v75">
-      <button class="dv-tr-btn" data-mk-target="mk-pin" title="Pin">📍</button>
-      <button class="dv-tr-btn" data-mk-target="mk-select" title="Select">▸</button>
-      <button class="dv-tr-btn" data-mk-target="mk-pen-btn" title="Pen">✎</button>
-      <button class="dv-tr-btn" data-mk-target="mk-shapes-btn" title="Rectangle">▢</button>
-      <button class="dv-tr-btn" data-mk-target="mk-text" title="Text">T</button>
-      <button class="dv-tr-btn" data-mk-target="mk-eraser" title="Eraser">⌫</button>
+      <button class="dv-tr-btn dv-tr-pin" data-mk-target="mk-pin" title="Pin"><svg width="14" height="18" viewBox="0 0 28 36"><path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.3 21.7 0 14 0z" fill="currentColor"/><circle cx="14" cy="13" r="5" fill="#fff"/></svg></button>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-select" title="Select">▸</button>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-pen-btn" title="Pen">✎</button>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-shapes-btn" title="Rectangle">▢</button>
+      <button class="dv-tr-btn dv-tr-sq dv-tr-serif" data-mk-target="mk-text" title="Text">T</button>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-eraser" title="Eraser">⌫</button>
     </div>
     <div id="dv-stylestrip-v75">
       <button id="dv-ss-color-v75" class="dv-ss-swatch" title="Color"></button>
-      <span class="dv-ss-group"><button class="dv-ss-step" data-ss="size" data-d="-1">−</button><span id="dv-ss-size-v75" class="dv-ss-val">4</span><button class="dv-ss-step" data-ss="size" data-d="1">+</button></span>
-      <span class="dv-ss-group"><button class="dv-ss-step" data-ss="opacity" data-d="-1">−</button><span id="dv-ss-op-v75" class="dv-ss-val">100</span><button class="dv-ss-step" data-ss="opacity" data-d="1">+</button></span>
+      <span class="dv-ss-group"><span class="dv-ss-lbl">W</span><button class="dv-ss-step" data-ss="size" data-d="-1">−</button><span id="dv-ss-size-v75" class="dv-ss-val">3</span><button class="dv-ss-step" data-ss="size" data-d="1">+</button></span>
+      <span class="dv-ss-group"><span class="dv-ss-lbl">α</span><button class="dv-ss-step" data-ss="opacity" data-d="-1">−</button><span id="dv-ss-op-v75" class="dv-ss-val">100</span><button class="dv-ss-step" data-ss="opacity" data-d="1">+</button></span>
     </div>
     <!-- DRAWING CANVAS -->
     <div class="dv-canvas-area" id="dv-canvas-area">
