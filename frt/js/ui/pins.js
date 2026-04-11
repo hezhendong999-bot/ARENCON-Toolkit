@@ -120,7 +120,6 @@ export var initPins = {
     filtered.forEach(function(d) {
       var dd = d.defic;
       var desc = deficDesc(dd);
-      var trunc = desc.length > 40 ? desc.substring(0, 40) + '\u2026' : desc;
       var isClosed = dd.status === 'closed' || dd.status === 'Addressed & Closed';
       var isIAR = dd.iar;
       var statusText = isIAR ? 'IAR' : (isClosed ? 'Closed' : 'Outstanding');
@@ -130,8 +129,8 @@ export var initPins = {
 
       h += '<tr data-defic-id="' + esc(dd.id) + '" style="border-bottom:1px solid var(--border);">';
       h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">#' + (dd.num || '?') + '</td>';
-      h += '<td style="padding:8px 10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(11px + var(--ts));color:var(--steel);">' + esc(dwgName || '\u2014') + '</td>';
-      h += '<td style="padding:8px 10px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(14px + var(--ts));font-weight:600;">' + esc(trunc || '(no description)') + '</td>';
+      h += '<td style="padding:8px 10px;color:var(--steel);word-break:break-word;">' + esc(dwgName || '\u2014') + '</td>';
+      h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(desc || '(no description)') + '</td>';
       h += '<td style="padding:8px 10px;">' + esc(d.contractorName) + '</td>';
       h += '<td style="padding:8px 10px;"><span class="tt-status ' + statusCls + '">' + statusText + '</span></td>';
       h += '<td style="padding:8px 10px;"><span class="tt-priority ' + priCls + '">' + esc((dd.priority || 'general').charAt(0).toUpperCase() + (dd.priority || 'general').slice(1)) + '</span></td>';
