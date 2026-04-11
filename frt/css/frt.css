@@ -913,6 +913,13 @@ body.dark-mode .view-pill-btn.active{background:#2a3448!important;color:#e2e8f0!
 .mobile-menu .mm-divider{height:1px;background:rgba(255,255,255,.08);margin:8px 0;}
 .mobile-menu .mm-group-header{justify-content:space-between!important;}
 .mobile-menu .mm-group-header .mm-caret{margin-left:auto;color:var(--silver);font-size:13px;font-weight:400;}
+/* S77: parent group header colors match PC dark mode */
+.mobile-menu #mm-ai-header{background:#2a1530!important;color:#c898d8!important;border-color:rgba(200,152,216,.2)!important;}
+.mobile-menu #mm-ai-header:hover,.mobile-menu #mm-ai-header:active{background:#3a1f40!important;}
+.mobile-menu #mm-reports-header{background:#141a3a!important;color:#7898d0!important;border-color:rgba(120,152,208,.2)!important;}
+.mobile-menu #mm-reports-header:hover,.mobile-menu #mm-reports-header:active{background:#1c2450!important;}
+.mobile-menu .mm-group-header[data-mm-group="more"]{background:#3a4858!important;color:#c0d0e0!important;border-color:rgba(192,208,224,.15)!important;}
+.mobile-menu .mm-group-header[data-mm-group="more"]:hover,.mobile-menu .mm-group-header[data-mm-group="more"]:active{background:#46556a!important;}
 .mobile-menu .mm-group-body{margin:2px 0 6px;padding-left:6px;border-left:2px solid rgba(255,255,255,.08);}
 .mobile-menu .mm-sub{font-size:13px!important;padding:8px 12px!important;}
 .mobile-menu .mm-icon-row{display:flex;gap:6px;margin:6px 0;}
