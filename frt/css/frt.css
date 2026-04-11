@@ -229,7 +229,7 @@ body.dark-mode .dv-nav-group{background:rgba(0,0,0,.25);}
 body.dark-mode .dv-nav-group .dv-nav-btn{color:white;}
 .dv-nav-group .dv-nav-btn:hover{background:rgba(0,0,0,.08);}
 body.dark-mode .dv-nav-group .dv-nav-btn:hover{background:rgba(255,255,255,.2);}
-.dv-toolbar button{background:#e8ebf0;border:none;color:#1C2333;padding:5px 9px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;transition:background .15s;min-width:32px;}.dv-toolbar button:hover{background:#d8dce4;}.dv-toolbar button.active{background:var(--arencon);color:white;}
+.dv-toolbar button{background:#e8ebf0;border:1px solid transparent;color:#1C2333;padding:0 10px;border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;transition:background .15s,border-color .15s;min-width:44px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:5px;}.dv-toolbar button:hover{border-color:var(--arencon);}.dv-toolbar button:hover{background:#d8dce4;}.dv-toolbar button.active{background:var(--arencon);color:white;}
 body.dark-mode .dv-toolbar button{background:rgba(255,255,255,.12);color:white;}body.dark-mode .dv-toolbar button:hover{background:rgba(255,255,255,.25);}
 .dv-main{display:flex;flex:1;overflow:hidden;position:relative;}
 .dv-canvas-area{flex:1;overflow:hidden;position:relative;cursor:grab;touch-action:none;}.dv-canvas-area.panning{cursor:grabbing;}
@@ -1431,8 +1431,8 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   .drawing-card{width:calc(50% - 6px)!important;}
   .pin-modal{max-width:95vw!important;margin:10px!important;}
   /* --- Drawing viewer toolbar wraps */
-  .dv-toolbar{flex-wrap:wrap;gap:4px;padding:6px 8px;}
-  .dv-toolbar button{padding:6px 10px;font-size:calc(12px + var(--ts));min-height:38px;}
+  .dv-toolbar{flex-wrap:wrap;gap:5px;padding:7px 8px;}
+  .dv-toolbar button{padding:0 10px;font-size:calc(12px + var(--ts));min-height:44px;min-width:44px;}
 
   .dv-nav-group .dv-nav-btn{padding:8px 16px!important;font-size:18px!important;min-width:44px;min-height:44px;}
   /* Hide text labels on toolbar buttons — icon only */
@@ -1785,4 +1785,11 @@ body.dark-mode .ai-usage-filters button{background:#37474F;}
 @media (pointer: coarse) {
   .ph-card .ph-hover-btn { opacity: 0.85; }
   .ph-hover-btn { width: 30px; height: 30px; line-height: 30px; font-size: 14px; }
+}
+
+
+/* Session 72 — Drawing viewer touch target enforcement (all coarse pointers) */
+@media(pointer:coarse){
+  .dv-toolbar button{min-width:44px!important;min-height:44px!important;padding:0 12px!important;}
+  .dv-toolbar{gap:6px!important;padding:8px 10px!important;}
 }
