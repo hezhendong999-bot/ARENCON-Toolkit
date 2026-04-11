@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=138">
+<link rel="stylesheet" href="css/frt.css?v=139">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -177,11 +177,12 @@ function ensurePdfJs(cb){
     setTimeout(sync,300);
     setTimeout(sync,1500);
   }
-  // S77: Repair submenu toggle inside More menu
+  // S77: Repair submenu toggle inside More menu — capture phase to beat More's click-to-close
   document.addEventListener('click',function(e){
-    var t=e.target.closest('#btn-repair-toggle');
+    var t=e.target.closest&&e.target.closest('#btn-repair-toggle');
     if(!t)return;
     e.stopPropagation();
+    e.stopImmediatePropagation();
     e.preventDefault();
     var items=document.getElementById('more-repair-items');
     var caret=t.querySelector('.more-repair-caret');
@@ -189,7 +190,7 @@ function ensurePdfJs(cb){
     var open=items.classList.toggle('more-repair-open');
     items.classList.toggle('more-repair-collapsed',!open);
     if(caret)caret.textContent=open?'▾':'▸';
-  });
+  },true);
 })();
 </script>
 
