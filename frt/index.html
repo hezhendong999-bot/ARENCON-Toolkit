@@ -84,9 +84,14 @@ function ensurePdfJs(cb){
           <button id="ai-mode-quickfix">🔤 Quick Fix <span>Typos &amp; grammar only (Haiku)</span></button>
         </div>
       </div>
-      <button class="hdr-btn" id="btn-pdf" style="display:none;background:#1A237E;" title="Export PDF Report">📄 Reports</button>
+      <div style="position:relative;display:inline-block;" id="btn-reports-wrap">
+        <button class="hdr-btn" id="btn-reports-parent" style="display:none;background:#1A237E;" title="Reports">📄 Reports ▾</button>
+        <div class="ai-mode-menu" id="reports-mode-menu">
+          <button id="btn-pdf" style="background:transparent;color:inherit;">📄 Export PDF <span>Generate Field Review Report</span></button>
+          <button id="btn-issue" style="background:transparent;color:inherit;">📋 Issue <span>Bump revision (A01 → A02)</span></button>
+        </div>
+      </div>
       <button class="hdr-btn" id="btn-ai-usage" style="display:none;background:#455A64;" title="AI Usage Tracking">📊 AI Usage</button>
-      <button class="hdr-btn" id="btn-issue" style="display:none !important;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
       <!-- ⚙️ More dropdown -->
       <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
         <button class="hdr-btn" style="background:#455A64;" title="More options">⚙️ More ▾</button>
@@ -113,6 +118,33 @@ function ensurePdfJs(cb){
       <button id="mobile-menu-btn">☰</button>
     </div>
   </div>
+<script>
+(function(){
+  document.addEventListener('click',function(e){
+    var menu=document.getElementById('reports-mode-menu');
+    var parent=document.getElementById('btn-reports-parent');
+    if(!menu||!parent)return;
+    if(e.target===parent||parent.contains(e.target)){
+      e.stopPropagation();
+      menu.classList.toggle('show');
+    }else if(!menu.contains(e.target)){
+      menu.classList.remove('show');
+    }
+  });
+  var pdf=document.getElementById('btn-pdf');
+  var parent=document.getElementById('btn-reports-parent');
+  if(pdf&&parent){
+    var sync=function(){
+      var shown=pdf.style.display!=='none'&&pdf.style.display!=='';
+      if(pdf.style.display==='')shown=true;
+      parent.style.display=shown?'inline-flex':'none';
+    };
+    new MutationObserver(sync).observe(pdf,{attributes:true,attributeFilter:['style']});
+    setTimeout(sync,300);
+    setTimeout(sync,1500);
+  }
+})();
+</script>
 
   <!-- ═══ PROJECT BAR ═══ -->
   <div class="project-bar" id="project-bar">
