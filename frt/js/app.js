@@ -931,38 +931,20 @@ function boot() {
   var t0 = performance.now();
 
   // 1. Restore preferences (sync — before first paint)
-  try { restoreDarkMode(); } catch(e) { console.error('[BOOT FAIL] restoreDarkMode:', e); }
-  try { restoreTextSize(); } catch(e) { console.error('[BOOT FAIL] restoreTextSize:', e); }
-  console.log('[BOOT] ✓ prefs restored');
+  restoreDarkMode();
+  restoreTextSize();
 
   // 2. Load logo (async)
-  try { loadLogo(); } catch(e) { console.error('[BOOT FAIL] loadLogo:', e); }
-  console.log('[BOOT] ✓ loadLogo called');
+  loadLogo();
 
   // 3. Detect Hub mode
-  var mode;
-  try { mode = detectHubMode(); } catch(e) { console.error('[BOOT FAIL] detectHubMode:', e); }
-  console.log('[BOOT] ✓ detectHubMode done, mode =', mode);
+  var mode = detectHubMode();
 
   // 4. Wire all event listeners
-  try {
-    wireEvents();
-    console.log('[BOOT] ✓ wireEvents done');
-  } catch(e) {
-    console.error('[BOOT FAIL] wireEvents:', e, e && e.stack);
-  }
+  wireEvents();
 
   // 5. Initialize IDB then load project
-  console.log('[BOOT] → calling IDB.init()');
-  var _idbP;
-  try {
-    _idbP = IDB.init();
-    console.log('[BOOT] ✓ IDB.init() returned promise:', _idbP);
-  } catch(e) {
-    console.error('[BOOT FAIL] IDB.init() threw synchronously:', e, e && e.stack);
-    _idbP = Promise.reject(e);
-  }
-  _idbP.then(function() {
+  IDB.init().then(function() {
     console.log('[FRT v2] IDB ready');
 
     if (_hubMode && _projectId) {
