@@ -1127,9 +1127,10 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 /* ═══ SYNC STATUS in header ═══ */
 .sync-indicator{font-size:calc(10px + var(--ts));color:rgba(255,255,255,.45);white-space:nowrap;display:flex;align-items:center;gap:4px;}
 .sync-indicator .sync-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
-#cloud-dot{box-shadow:0 0 0 0 rgba(52,211,153,.6);animation:cloudPulse 2.2s ease-out infinite;}
-@keyframes cloudPulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.6);}100%{box-shadow:0 0 0 9px rgba(52,211,153,0);}}
-@media (prefers-reduced-motion:reduce){#cloud-dot{animation:none;box-shadow:none;}}
+#cloud-status{overflow:visible !important;}
+#cloud-dot{position:relative;z-index:1;box-shadow:0 0 0 0 rgba(52,211,153,.7) !important;animation:cloudPulse 2s ease-out infinite !important;}
+@keyframes cloudPulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.75);}70%{box-shadow:0 0 0 11px rgba(52,211,153,0);}100%{box-shadow:0 0 0 11px rgba(52,211,153,0);}}
+@media (prefers-reduced-motion:reduce){#cloud-dot{animation:none !important;box-shadow:none !important;}}
 .sync-dot.synced{background:#4CAF50;}
 .sync-dot.dirty{background:#FF9800;}
 .sync-dot.no-folder{background:#666;}
