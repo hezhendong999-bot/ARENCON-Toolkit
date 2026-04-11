@@ -2687,3 +2687,17 @@ body.dark-mode #reports-mode-menu button span{color:#94A3B8;}
 body.dark-mode #reports-mode-menu button:hover{background:#2a3448;}
 /* DRAFT chip non-clickable - visual only */
 .project-bar .pb-badge{pointer-events:none !important;cursor:default !important;}
+
+/* === Session 76 Push 18 — Drawing viewer back button align with FRT main (14px from left edge) === */
+.drawing-viewer-overlay .dv-toolbar{
+  padding-left:14px !important;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-close{
+  margin-left:0 !important;
+  padding-left:0 !important;
+  padding-right:12px !important;
+}
+@media(pointer:coarse){
+  .drawing-viewer-overlay .dv-toolbar{padding-left:14px !important;}
+  .drawing-viewer-overlay .dv-toolbar #dv-close{padding-left:0 !important;padding-right:14px !important;margin-left:0 !important;}
+}
