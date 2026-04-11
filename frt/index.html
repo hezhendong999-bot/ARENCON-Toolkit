@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=155">
+<link rel="stylesheet" href="css/frt.css?v=156">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -177,29 +177,30 @@ function ensurePdfJs(cb){
     setTimeout(sync,300);
     setTimeout(sync,1500);
   }
-  // S77: mirror mobile-pdf-btn visibility to mobile-issue-btn + Reports group header
-  var mPdf=document.getElementById('mobile-pdf-btn');
-  var mIssue=document.getElementById('mobile-issue-btn');
-  var mRH=document.getElementById('mm-reports-header');
-  if(mPdf){
-    var mSync=function(){
-      var shown=mPdf.style.display!=='none';
-      if(mIssue)mIssue.style.display=shown?'flex':'none';
-      if(mRH)mRH.style.display=shown?'flex':'none';
-    };
-    new MutationObserver(mSync).observe(mPdf,{attributes:true,attributeFilter:['style']});
-    setTimeout(mSync,300);
-    setTimeout(mSync,1500);
+  // S77: mirror desktop button visibility to mobile group headers (poll computed display)
+  function mmSync(){
+    var pdf=document.getElementById('btn-pdf');
+    var mPdf=document.getElementById('mobile-pdf-btn');
+    var mIssue=document.getElementById('mobile-issue-btn');
+    var mRH=document.getElementById('mm-reports-header');
+    var ai=document.getElementById('btn-ai-review');
+    var mAH=document.getElementById('mm-ai-header');
+    var mAR=document.getElementById('mobile-ai-rewrite');
+    var mAQ=document.getElementById('mobile-ai-quickfix');
+    var mAU=document.getElementById('mobile-ai-usage');
+    var pdfShown=pdf&&getComputedStyle(pdf).display!=='none';
+    var aiShown=ai&&getComputedStyle(ai).display!=='none';
+    if(mPdf)mPdf.style.display=pdfShown?'flex':'none';
+    if(mIssue)mIssue.style.display=pdfShown?'flex':'none';
+    if(mRH)mRH.style.display=pdfShown?'flex':'none';
+    if(mAH)mAH.style.display=aiShown?'flex':'none';
+    if(mAR)mAR.style.display=aiShown?'flex':'none';
+    if(mAQ)mAQ.style.display=aiShown?'flex':'none';
+    if(mAU)mAU.style.display=aiShown?'flex':'none';
   }
-  // Mirror AI buttons visibility to AI group header
-  var mAR=document.getElementById('mobile-ai-rewrite');
-  var mAH=document.getElementById('mm-ai-header');
-  if(mAR&&mAH){
-    var aSync=function(){mAH.style.display=mAR.style.display!=='none'?'flex':'none';};
-    new MutationObserver(aSync).observe(mAR,{attributes:true,attributeFilter:['style']});
-    setTimeout(aSync,300);
-    setTimeout(aSync,1500);
-  }
+  setInterval(mmSync,800);
+  setTimeout(mmSync,300);
+  setTimeout(mmSync,1200);
   // Group header toggle (AI / Reports / More)
   document.addEventListener('click',function(e){
     var hdr=e.target.closest&&e.target.closest('.mm-group-header');
