@@ -50,20 +50,10 @@ export const IDB = {
    * Safe to call multiple times — returns existing connection if open.
    */
   async init() {
-    console.log('[IDB] init() called. _db=', _db);
-    if (_db) { console.log('[IDB] reusing existing _db'); return _db; }
+    if (_db) return _db;
 
     return new Promise(function(resolve, reject) {
-      console.log('[IDB] inside Promise — calling indexedDB.open(', DB_NAME, ',', DB_VERSION, ')');
-      var request;
-      try {
-        request = indexedDB.open(DB_NAME, DB_VERSION);
-        console.log('[IDB] open() returned request object:', request);
-      } catch(openErr) {
-        console.error('[IDB] indexedDB.open() THREW:', openErr);
-        reject(openErr);
-        return;
-      }
+      var request = indexedDB.open(DB_NAME, DB_VERSION);
       var _settled = false;
       var _blockedTimer = null;
 
