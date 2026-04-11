@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=118">
+<link rel="stylesheet" href="css/frt.css?v=119">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -49,7 +49,7 @@ function ensurePdfJs(cb){
 <div class="app-header">
   <div class="header-top">
     <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;overflow:hidden;">
-      <button class="back-btn" id="back-btn" style="display:none;flex-shrink:0;">←</button>
+      <button class="back-btn" id="back-btn" style="display:none;flex-shrink:0;">← Back</button>
       <a href="../index.html" class="logo-area" id="logo-link" title="Back to Toolkit" style="flex-shrink:0;">
         <img id="logo-img" src="" alt="ARENCON Inc." class="header-logo">
       </a>
@@ -346,7 +346,7 @@ function ensurePdfJs(cb){
 <!-- ═══ DRAWING VIEWER OVERLAY ═══ -->
 <div class="drawing-viewer-overlay" id="drawing-viewer-overlay">
   <div class="dv-toolbar" id="dv-toolbar">
-    <button id="dv-close" class="dv-close-btn" title="Close viewer">← Close</button>
+    <button id="dv-close" class="dv-close-btn" title="Back">← Back</button>
     <button class="dv-nav-btn" id="dv-prev" title="Previous drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">◀</button>
     <button class="dv-nav-btn" id="dv-next" title="Next drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">▶</button>
     <div class="dv-title-wrap"><span class="dv-title" id="dv-title"></span><button id="dv-rename-btn" title="Rename drawing" class="dv-rename-btn">✏️</button></div>
