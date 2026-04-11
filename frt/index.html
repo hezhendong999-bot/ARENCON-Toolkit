@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=156">
+<link rel="stylesheet" href="css/frt.css?v=157">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -201,7 +201,7 @@ function ensurePdfJs(cb){
   setInterval(mmSync,800);
   setTimeout(mmSync,300);
   setTimeout(mmSync,1200);
-  // Group header toggle (AI / Reports / More)
+  // Group header toggle (AI / Reports / More) — capture phase to beat .mobile-menu stopPropagation
   document.addEventListener('click',function(e){
     var hdr=e.target.closest&&e.target.closest('.mm-group-header');
     if(!hdr)return;
@@ -213,7 +213,7 @@ function ensurePdfJs(cb){
     var open=body.style.display==='block';
     body.style.display=open?'none':'block';
     if(caret)caret.textContent=open?'▸':'▾';
-  });
+  },true);
   // S77: Repair submenu toggle inside More menu — capture phase to beat More's click-to-close
   document.addEventListener('click',function(e){
     var t=e.target.closest&&e.target.closest('#btn-repair-toggle');
