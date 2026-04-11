@@ -2645,3 +2645,30 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   color:#E2E8F0 !important;
 }
 .drawing-viewer-overlay .dv-tasks-panel .task-item:hover{background:rgba(255,255,255,.05) !important;}
+
+/* === Session 76 Push 14 — Unify utility chips in FRT header === */
+/* Secondary action buttons get a consistent slate chip with border */
+.app-header #btn-ai-usage,
+.app-header #btn-more-wrap > button,
+.app-header #btn-qr,
+.app-header #dark-toggle,
+.app-header #btn-text-size{
+  background:#455A64 !important;
+  border:1px solid rgba(255,255,255,.18) !important;
+  color:#fff !important;
+  border-radius:6px !important;
+  padding:6px 12px !important;
+  font-family:Calibri,sans-serif !important;
+  font-weight:600 !important;
+  min-height:34px !important;
+  cursor:pointer;
+  transition:background .15s,border-color .15s;
+}
+.app-header #btn-ai-usage:hover,
+.app-header #btn-more-wrap > button:hover,
+.app-header #btn-qr:hover,
+.app-header #dark-toggle:hover,
+.app-header #btn-text-size:hover{
+  background:#546E7A !important;
+  border-color:rgba(255,255,255,.32) !important;
+}
