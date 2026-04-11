@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=113">
+<link rel="stylesheet" href="css/frt.css?v=114">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -791,7 +791,8 @@ function ensurePdfJs(cb){
     if(tlEl)new MutationObserver(syncTaskList).observe(tlEl,{childList:true,subtree:true,characterData:true});
     syncTaskList();
     /* Push 7: relocate #dv-close into top of #dv-sidebar-tools on desktop */
-    if(window.matchMedia('(min-width: 769px)').matches){
+    /* DISABLED in Push 8 — Mark wants Close to stay in top toolbar */
+    if(false&&window.matchMedia('(min-width: 769px)').matches){
       var closeBtn=document.getElementById('dv-close');
       var sidebar=document.getElementById('dv-sidebar-tools');
       if(closeBtn&&sidebar&&closeBtn.parentElement!==sidebar){

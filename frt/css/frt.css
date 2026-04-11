@@ -2459,3 +2459,47 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     padding:4px 8px !important;
   }
 }
+
+/* === Session 75 Push 8 — REVERT Push 7 close move + mobile chrome navy === */
+/* Revert Push 7: bring #dv-close back to top toolbar */
+@media (min-width: 769px){
+  .drawing-viewer-overlay .dv-toolbar #dv-close{
+    display:flex !important;
+    background:#2a3448 !important;color:#fff !important;
+    border:1px solid #3a4660 !important;border-radius:6px !important;
+    padding:6px 12px !important;margin:0 !important;width:auto !important;
+  }
+  .drawing-viewer-overlay .dv-toolbar #dv-close:hover{background:#9C2742 !important;}
+  /* Undo any sidebar Close styling from Push 7 */
+  .drawing-viewer-overlay #dv-sidebar-tools #dv-close{
+    display:none !important;
+  }
+}
+/* Mobile: tool row + style strip navy backgrounds */
+@media (max-width: 768px){
+  .drawing-viewer-overlay #dv-toolrow-v75{
+    background:#1B2438 !important;
+    border-bottom:1px solid #2a3448 !important;
+  }
+  .drawing-viewer-overlay #dv-stylestrip-v75{
+    background:#1B2438 !important;
+    border-bottom:1px solid #2a3448 !important;
+    color:#fff !important;
+  }
+  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-lbl{color:#c8ccd4 !important;}
+  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-step{
+    background:#2a3448 !important;color:#fff !important;
+    border:1px solid #3a4660 !important;
+  }
+  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-step:hover{background:#3a4660 !important;}
+  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-val{color:#fff !important;}
+  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-group{border-left-color:#3a4660 !important;}
+  .drawing-viewer-overlay #dv-bottombar-v75{
+    background:#1B2438 !important;
+    border-top:1px solid #2a3448 !important;
+  }
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-namepill{
+    background:#2a3448 !important;border-color:#3a4660 !important;color:#fff !important;
+  }
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-name{color:#fff !important;}
+}
