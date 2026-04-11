@@ -954,7 +954,15 @@ function boot() {
 
   // 5. Initialize IDB then load project
   console.log('[BOOT] → calling IDB.init()');
-  IDB.init().then(function() {
+  var _idbP;
+  try {
+    _idbP = IDB.init();
+    console.log('[BOOT] ✓ IDB.init() returned promise:', _idbP);
+  } catch(e) {
+    console.error('[BOOT FAIL] IDB.init() threw synchronously:', e, e && e.stack);
+    _idbP = Promise.reject(e);
+  }
+  _idbP.then(function() {
     console.log('[FRT v2] IDB ready');
 
     if (_hubMode && _projectId) {
