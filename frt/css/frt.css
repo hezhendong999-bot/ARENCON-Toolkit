@@ -2211,3 +2211,39 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
 @media (min-width: 769px){
   .drawing-viewer-overlay #dv-tasks-sheet-v75{display:none !important;}
 }
+
+/* === Session 75 Push 5.1 — left sidebar tools navy in day mode === */
+@media (min-width: 769px){
+  .drawing-viewer-overlay #dv-sidebar-tools{
+    background:#1B2438 !important;
+    border-right:1px solid #2a3448;
+  }
+  .drawing-viewer-overlay #dv-sidebar-tools button,
+  .drawing-viewer-overlay #dv-sidebar-tools .mk-btn,
+  .drawing-viewer-overlay #dv-sidebar-tools [data-mk-tool]{
+    background:#2a3448 !important;
+    color:#fff !important;
+    border:1px solid #3a4660 !important;
+  }
+  .drawing-viewer-overlay #dv-sidebar-tools button svg,
+  .drawing-viewer-overlay #dv-sidebar-tools .mk-btn svg{color:#fff;}
+  .drawing-viewer-overlay #dv-sidebar-tools button:hover,
+  .drawing-viewer-overlay #dv-sidebar-tools .mk-btn:hover{background:#3a4660 !important;}
+  .drawing-viewer-overlay #dv-sidebar-tools button.active,
+  .drawing-viewer-overlay #dv-sidebar-tools .mk-btn.active,
+  .drawing-viewer-overlay #dv-sidebar-tools [data-mk-tool].active{
+    background:#9C2742 !important;
+    border-color:#9C2742 !important;
+  }
+  .drawing-viewer-overlay #dv-sidebar-tools .mk-section-label,
+  .drawing-viewer-overlay #dv-sidebar-tools label,
+  .drawing-viewer-overlay #dv-sidebar-tools span{color:#c8ccd4;}
+  /* mobile context bar (W/α strip) too if visible on desktop */
+  .drawing-viewer-overlay #dv-mobile-context{
+    background:#1B2438 !important;
+    color:#fff;
+  }
+  .drawing-viewer-overlay #dv-mobile-context button{
+    background:#2a3448 !important;color:#fff !important;border:1px solid #3a4660 !important;
+  }
+}
