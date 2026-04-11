@@ -931,19 +931,29 @@ function boot() {
   var t0 = performance.now();
 
   // 1. Restore preferences (sync — before first paint)
-  restoreDarkMode();
-  restoreTextSize();
+  try { restoreDarkMode(); } catch(e) { console.error('[BOOT FAIL] restoreDarkMode:', e); }
+  try { restoreTextSize(); } catch(e) { console.error('[BOOT FAIL] restoreTextSize:', e); }
+  console.log('[BOOT] ✓ prefs restored');
 
   // 2. Load logo (async)
-  loadLogo();
+  try { loadLogo(); } catch(e) { console.error('[BOOT FAIL] loadLogo:', e); }
+  console.log('[BOOT] ✓ loadLogo called');
 
   // 3. Detect Hub mode
-  var mode = detectHubMode();
+  var mode;
+  try { mode = detectHubMode(); } catch(e) { console.error('[BOOT FAIL] detectHubMode:', e); }
+  console.log('[BOOT] ✓ detectHubMode done, mode =', mode);
 
   // 4. Wire all event listeners
-  wireEvents();
+  try {
+    wireEvents();
+    console.log('[BOOT] ✓ wireEvents done');
+  } catch(e) {
+    console.error('[BOOT FAIL] wireEvents:', e, e && e.stack);
+  }
 
   // 5. Initialize IDB then load project
+  console.log('[BOOT] → calling IDB.init()');
   IDB.init().then(function() {
     console.log('[FRT v2] IDB ready');
 
