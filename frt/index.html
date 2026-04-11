@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=154">
+<link rel="stylesheet" href="css/frt.css?v=155">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -177,20 +177,42 @@ function ensurePdfJs(cb){
     setTimeout(sync,300);
     setTimeout(sync,1500);
   }
-  // S77: mirror mobile-pdf-btn visibility to mobile-issue-btn + Reports section label
+  // S77: mirror mobile-pdf-btn visibility to mobile-issue-btn + Reports group header
   var mPdf=document.getElementById('mobile-pdf-btn');
   var mIssue=document.getElementById('mobile-issue-btn');
-  var mLbl=document.getElementById('mm-label-reports');
-  if(mPdf&&(mIssue||mLbl)){
+  var mRH=document.getElementById('mm-reports-header');
+  if(mPdf){
     var mSync=function(){
       var shown=mPdf.style.display!=='none';
       if(mIssue)mIssue.style.display=shown?'flex':'none';
-      if(mLbl)mLbl.style.display=shown?'block':'none';
+      if(mRH)mRH.style.display=shown?'flex':'none';
     };
     new MutationObserver(mSync).observe(mPdf,{attributes:true,attributeFilter:['style']});
     setTimeout(mSync,300);
     setTimeout(mSync,1500);
   }
+  // Mirror AI buttons visibility to AI group header
+  var mAR=document.getElementById('mobile-ai-rewrite');
+  var mAH=document.getElementById('mm-ai-header');
+  if(mAR&&mAH){
+    var aSync=function(){mAH.style.display=mAR.style.display!=='none'?'flex':'none';};
+    new MutationObserver(aSync).observe(mAR,{attributes:true,attributeFilter:['style']});
+    setTimeout(aSync,300);
+    setTimeout(aSync,1500);
+  }
+  // Group header toggle (AI / Reports / More)
+  document.addEventListener('click',function(e){
+    var hdr=e.target.closest&&e.target.closest('.mm-group-header');
+    if(!hdr)return;
+    e.stopPropagation();
+    var grp=hdr.getAttribute('data-mm-group');
+    var body=document.getElementById('mm-'+grp+'-body');
+    var caret=hdr.querySelector('.mm-caret');
+    if(!body)return;
+    var open=body.style.display==='block';
+    body.style.display=open?'none':'block';
+    if(caret)caret.textContent=open?'▸':'▾';
+  });
   // S77: Repair submenu toggle inside More menu — capture phase to beat More's click-to-close
   document.addEventListener('click',function(e){
     var t=e.target.closest&&e.target.closest('#btn-repair-toggle');
@@ -266,35 +288,46 @@ function ensurePdfJs(cb){
       <h3 style="font-size:16px;margin:0;">Menu</h3>
       <button id="mobile-menu-close" style="background:none;border:none;font-size:20px;color:var(--silver);cursor:pointer;padding:4px;">✕</button>
     </div>
-    <div class="mm-section-label">AI Review</div>
-    <button class="btn mm-btn mm-ai" id="mobile-ai-rewrite" style="display:none;">✨ Full Rewrite</button>
-    <button class="btn mm-btn mm-ai" id="mobile-ai-quickfix" style="display:none;">🔤 Quick Fix</button>
-    <button class="btn mm-btn mm-ai" id="mobile-ai-usage" style="display:none;">📊 AI Usage</button>
-    <div class="mm-section-label" id="mm-label-reports" style="display:none;">Reports</div>
-    <button class="btn mm-btn mm-reports" id="mobile-pdf-btn" style="display:none;">📄 Export PDF</button>
-    <button class="btn mm-btn mm-reports" id="mobile-issue-btn" style="display:none;" onclick="var b=document.getElementById('btn-issue');if(b)b.click();">📋 Issue</button>
-    <div class="mm-section-label">Project</div>
-    <button class="btn mm-btn" id="mobile-export-btn">💾 Download JSON</button>
-    <button class="btn mm-btn" id="mobile-load-btn">📂 Load Project</button>
-    <button class="btn mm-btn" id="mobile-export-all" style="display:none;">📦 Export All</button>
-    <div id="mobile-repair-section" style="display:none;">
-      <button class="btn mm-btn" id="mobile-repair-toggle" style="font-size:12px;">🔧 Repair Tools ▾</button>
-      <div id="mobile-repair-tools" style="display:none;padding-left:8px;">
-        <button class="btn mm-btn">☁️ Re-upload All</button>
-        <button class="btn mm-btn">📄 Fix Blurry</button>
-        <button class="btn mm-btn admin-only">🧹 R2 Cleanup</button>
-        <button class="btn mm-btn admin-only">🔗 Repair R2 Links</button>
-      </div>
+    <!-- AI Review group (collapsible) -->
+    <button class="btn mm-btn mm-group-header" id="mm-ai-header" style="display:none;" data-mm-group="ai">✨ AI Review <span class="mm-caret">▸</span></button>
+    <div class="mm-group-body" id="mm-ai-body" style="display:none;">
+      <button class="btn mm-btn mm-sub" id="mobile-ai-rewrite" style="display:none;">✨ Full Rewrite</button>
+      <button class="btn mm-btn mm-sub" id="mobile-ai-quickfix" style="display:none;">🔤 Quick Fix</button>
+      <button class="btn mm-btn mm-sub" id="mobile-ai-usage" style="display:none;">📊 AI Usage</button>
     </div>
-    <div class="mm-section-label">Reset</div>
-    <button class="btn mm-btn" id="mobile-reset-tab-btn" onclick="var ms=document.querySelectorAll('#more-menu > button');for(var i=0;i<ms.length;i++){if(ms[i].textContent.indexOf('Reset Current')>=0){ms[i].click();break;}}">🗑️ Reset Current Tab</button>
-    <button class="btn mm-btn mm-danger" id="mobile-reset-btn">⚠️ Reset Project</button>
-    <button class="btn mm-btn" id="mobile-clear-all" style="display:none;color:#C62828;">🗑️ Clear All Data</button>
-    <div class="mm-section-label">Settings</div>
-    <button class="btn mm-btn" id="mobile-qr-btn" style="display:none;">📱 QR Code</button>
-    <button class="btn mm-btn" id="mobile-text-size-btn" style="font-size:12px;">Text: Medium</button>
-    <button class="btn mm-btn" id="mobile-dark-btn" onclick="var d=document.getElementById('dark-toggle');if(d)d.click();">☀️ Dark Mode</button>
+    <!-- Reports group (collapsible) -->
+    <button class="btn mm-btn mm-group-header" id="mm-reports-header" style="display:none;" data-mm-group="reports">📄 Reports <span class="mm-caret">▸</span></button>
+    <div class="mm-group-body" id="mm-reports-body" style="display:none;">
+      <button class="btn mm-btn mm-sub" id="mobile-pdf-btn" style="display:none;">📄 Export PDF</button>
+      <button class="btn mm-btn mm-sub" id="mobile-issue-btn" style="display:none;" onclick="var b=document.getElementById('btn-issue');if(b)b.click();">📋 Issue</button>
+    </div>
+    <!-- More group (collapsible) -->
+    <button class="btn mm-btn mm-group-header" data-mm-group="more">⚙️ More <span class="mm-caret">▸</span></button>
+    <div class="mm-group-body" id="mm-more-body" style="display:none;">
+      <button class="btn mm-btn mm-sub" id="mobile-export-btn">💾 Download JSON</button>
+      <button class="btn mm-btn mm-sub" id="mobile-load-btn">📂 Load Project</button>
+      <button class="btn mm-btn mm-sub" id="mobile-export-all" style="display:none;">📦 Export All</button>
+      <div id="mobile-repair-section" style="display:none;">
+        <button class="btn mm-btn mm-sub" id="mobile-repair-toggle" style="font-size:12px;">🔧 Repair Tools ▾</button>
+        <div id="mobile-repair-tools" style="display:none;padding-left:8px;">
+          <button class="btn mm-btn mm-sub">☁️ Re-upload All</button>
+          <button class="btn mm-btn mm-sub">📄 Fix Blurry</button>
+          <button class="btn mm-btn mm-sub admin-only">🧹 R2 Cleanup</button>
+          <button class="btn mm-btn mm-sub admin-only">🔗 Repair R2 Links</button>
+        </div>
+      </div>
+      <div class="mm-divider"></div>
+      <button class="btn mm-btn mm-sub" id="mobile-reset-tab-btn" onclick="var ms=document.querySelectorAll('#more-menu > button');for(var i=0;i<ms.length;i++){if(ms[i].textContent.indexOf('Reset Current')>=0){ms[i].click();break;}}">🗑️ Reset Current Tab</button>
+      <button class="btn mm-btn mm-sub mm-danger" id="mobile-reset-btn">⚠️ Reset Project</button>
+      <button class="btn mm-btn mm-sub" id="mobile-clear-all" style="display:none;color:#C62828;">🗑️ Clear All Data</button>
+    </div>
     <button class="btn mm-btn mm-signout" id="mobile-signout-btn" style="display:none;">🔓 Sign Out</button>
+    <!-- 3-icon utility row -->
+    <div class="mm-icon-row">
+      <button class="btn mm-icon-btn" id="mobile-qr-btn" style="display:none;" title="QR Code">📱</button>
+      <button class="btn mm-icon-btn" id="mobile-text-size-btn" title="Text Size">M</button>
+      <button class="btn mm-icon-btn" id="mobile-dark-btn" onclick="var d=document.getElementById('dark-toggle');if(d)d.click();" title="Dark Mode">☀️</button>
+    </div>
     <div class="mm-divider"></div>
     <!-- Storage at the very bottom -->
     <div id="mobile-storage-info" style="padding:4px 10px;font-size:11px;color:var(--silver);font-family:Calibri,sans-serif;">
