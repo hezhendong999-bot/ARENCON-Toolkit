@@ -903,6 +903,14 @@ body.dark-mode .view-pill-btn.active{background:#2a3448!important;color:#e2e8f0!
   #tasks-table .tt-jump{padding:5px 10px!important;font-size:calc(11px + var(--ts))!important;}
   #tasks-table .tt-status,#tasks-table .tt-priority{display:block!important;width:100%!important;text-align:center!important;font-size:calc(10px + var(--ts))!important;padding:3px 0!important;box-sizing:border-box;}
 }
+/* S77: Mobile menu uniform navy chips */
+.mobile-menu .mm-btn{background:#2a3448!important;color:#e2e8f0!important;border:1px solid rgba(255,255,255,.08)!important;width:100%;text-align:left;padding:10px 14px!important;border-radius:7px!important;font-family:Calibri,sans-serif!important;font-size:14px!important;font-weight:600!important;margin:3px 0;display:flex;align-items:center;gap:8px;cursor:pointer;}
+.mobile-menu .mm-btn:hover,.mobile-menu .mm-btn:active{background:#36425a!important;}
+.mobile-menu .mm-btn.mm-danger{background:#2e1a1a!important;color:#e08080!important;border-color:rgba(224,128,128,.2)!important;}
+.mobile-menu .mm-btn.mm-danger:hover{background:#402222!important;}
+.mobile-menu .mm-btn.mm-signout{background:#2a1530!important;color:#c898d8!important;border-color:rgba(200,152,216,.2)!important;}
+.mobile-menu .mm-btn.mm-signout:hover{background:#3a1f40!important;}
+.mobile-menu .mm-divider{height:1px;background:rgba(255,255,255,.08);margin:8px 0;}
 .ai-mode-menu.show{display:block;}
 body.dark-mode #btn-signout{background:rgba(123,31,162,.3)!important;color:#b080d0!important;border:1px solid rgba(123,31,162,.35)!important;}
 body.dark-mode .hdr-export,body.dark-mode .hdr-export-all{background:rgba(123,31,162,.3)!important;color:#b080d0!important;border:1px solid rgba(123,31,162,.35)!important;}

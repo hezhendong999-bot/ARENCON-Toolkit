@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=152">
+<link rel="stylesheet" href="css/frt.css?v=153">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -252,34 +252,45 @@ function ensurePdfJs(cb){
       <h3 style="font-size:16px;margin:0;">Menu</h3>
       <button id="mobile-menu-close" style="background:none;border:none;font-size:20px;color:var(--silver);cursor:pointer;padding:4px;">✕</button>
     </div>
-    <button class="btn" id="mobile-pdf-btn" style="display:none;">📄 Reports</button>
-    <button class="btn" id="mobile-ai-rewrite" style="display:none;">✨ Full Rewrite</button>
-    <button class="btn" id="mobile-ai-quickfix" style="display:none;">🔤 Quick Fix</button>
-    <button class="btn" id="mobile-ai-usage" style="display:none;">📊 AI Usage</button>
-    <button class="btn" id="mobile-export-btn">💾 Export Project</button>
-    <button class="btn" id="mobile-load-btn">📂 Load Project</button>
-    <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
-    <button class="btn" id="mobile-export-all" style="display:none;">📦 Export All</button>
-    <button class="btn" id="mobile-reset-btn" style="color:#C62828;">⚠️ Reset Project</button>
-    <button class="btn" id="mobile-clear-all" style="color:#C62828;display:none;">🗑️ Clear All Data</button>
+    <!-- AI group (matches PC AI Review dropdown) -->
+    <button class="btn mm-btn mm-ai" id="mobile-ai-rewrite" style="display:none;">✨ Full Rewrite</button>
+    <button class="btn mm-btn mm-ai" id="mobile-ai-quickfix" style="display:none;">🔤 Quick Fix</button>
+    <button class="btn mm-btn mm-ai" id="mobile-ai-usage" style="display:none;">📊 AI Usage</button>
+    <div class="mm-divider"></div>
+    <!-- Reports group (matches PC Reports dropdown) -->
+    <button class="btn mm-btn mm-reports" id="mobile-pdf-btn" style="display:none;">📄 Export PDF</button>
+    <button class="btn mm-btn mm-reports" id="mobile-issue-btn" style="display:none;" onclick="var b=document.getElementById('btn-issue');if(b)b.click();">📋 Issue</button>
+    <div class="mm-divider"></div>
+    <!-- More group (matches PC More dropdown) -->
+    <button class="btn mm-btn" id="mobile-export-btn">💾 Download JSON</button>
+    <button class="btn mm-btn" id="mobile-load-btn">📂 Load Project</button>
+    <button class="btn mm-btn" id="mobile-export-all" style="display:none;">📦 Export All</button>
     <div id="mobile-repair-section" style="display:none;">
-      <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
-      <button class="btn" id="mobile-repair-toggle" style="color:var(--silver);font-size:12px;">🔧 Repair Tools ▾</button>
+      <button class="btn mm-btn" id="mobile-repair-toggle" style="font-size:12px;">🔧 Repair Tools ▾</button>
       <div id="mobile-repair-tools" style="display:none;padding-left:8px;">
-        <button class="btn">☁️ Re-upload All</button>
-        <button class="btn">📄 Fix Blurry</button>
-        <button class="btn admin-only">🧹 R2 Cleanup</button>
-        <button class="btn admin-only">🔗 Repair R2 Links</button>
+        <button class="btn mm-btn">☁️ Re-upload All</button>
+        <button class="btn mm-btn">📄 Fix Blurry</button>
+        <button class="btn mm-btn admin-only">🧹 R2 Cleanup</button>
+        <button class="btn mm-btn admin-only">🔗 Repair R2 Links</button>
       </div>
     </div>
-    <button class="btn" id="mobile-signout-btn" style="display:none;color:#7B1FA2;font-weight:700;">🔓 Sign Out</button>
-    <button class="btn" id="mobile-qr-btn" style="display:none;">📱 QR Code</button>
-    <div style="height:1px;background:rgba(255,255,255,.1);margin:4px 0;"></div>
+    <div class="mm-divider"></div>
+    <!-- Destructive actions -->
+    <button class="btn mm-btn" id="mobile-reset-tab-btn" onclick="var ms=document.querySelectorAll('#more-menu > button');for(var i=0;i<ms.length;i++){if(ms[i].textContent.indexOf('Reset Current')>=0){ms[i].click();break;}}">🗑️ Reset Current Tab</button>
+    <button class="btn mm-btn mm-danger" id="mobile-reset-btn">⚠️ Reset Project</button>
+    <button class="btn mm-btn" id="mobile-clear-all" style="display:none;color:#C62828;">🗑️ Clear All Data</button>
+    <div class="mm-divider"></div>
+    <!-- Utility -->
+    <button class="btn mm-btn" id="mobile-qr-btn" style="display:none;">📱 QR Code</button>
+    <button class="btn mm-btn" id="mobile-text-size-btn" style="font-size:12px;">Text: Medium</button>
+    <button class="btn mm-btn" id="mobile-dark-btn" onclick="var d=document.getElementById('dark-toggle');if(d)d.click();">☀️ Dark Mode</button>
+    <button class="btn mm-btn mm-signout" id="mobile-signout-btn" style="display:none;">🔓 Sign Out</button>
+    <div class="mm-divider"></div>
+    <!-- Storage at the very bottom -->
     <div id="mobile-storage-info" style="padding:4px 10px;font-size:11px;color:var(--silver);font-family:Calibri,sans-serif;">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span>💾</span><span id="mobile-storage-text">Calculating...</span></div>
       <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="mobile-storage-bar" style="height:100%;background:#1A7A4A;width:0%;border-radius:2px;transition:width .3s;"></div></div>
     </div>
-    <button class="btn" id="mobile-text-size-btn" style="font-size:12px;">Text: Medium</button>
   </div>
 </div>
 
