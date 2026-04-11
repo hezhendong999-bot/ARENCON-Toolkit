@@ -2539,3 +2539,18 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
 #cloud-dot,#pb-cloud-dot{position:relative;z-index:1;box-shadow:0 0 0 0 rgba(52,211,153,.5);animation:cloudPulse 2s ease-out infinite;}
 @keyframes cloudPulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.5);}70%{box-shadow:0 0 0 7px rgba(52,211,153,0);}100%{box-shadow:0 0 0 7px rgba(52,211,153,0);}}
 @media (prefers-reduced-motion:reduce){#cloud-dot,#pb-cloud-dot{animation:none;box-shadow:none;}}
+
+/* === Session 76 Push 9 — Strip toolbar button hatches (back button keeps its chip) === */
+.drawing-viewer-overlay .dv-toolbar button:not(#dv-close):not(#dv-rename-btn){
+  background:transparent !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+}
+.drawing-viewer-overlay .dv-toolbar button:not(#dv-close):not(#dv-rename-btn):hover{
+  background:rgba(255,255,255,.1) !important;
+  border-color:transparent !important;
+}
+.drawing-viewer-overlay .dv-toolbar button:not(#dv-close):not(#dv-rename-btn).active{
+  background:rgba(156,39,66,.85) !important;
+  color:#fff !important;
+}
