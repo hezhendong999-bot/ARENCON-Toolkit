@@ -1818,3 +1818,123 @@ body.dark-mode .dv-pill button:hover{background:rgba(255,255,255,.12);}
 .dv-pill.dv-zoom{left:12px;bottom:12px;}
 .dv-pill.dv-pgnav{right:12px;bottom:12px;}
 @media(pointer:coarse){.dv-pill button{width:44px;height:44px;}}
+
+/* ─────────────────────────────────────────────────────────
+   Session 74 — CSS-only restyle of drawing viewer chrome
+   No DOM changes. Overrides existing rules via specificity.
+   ───────────────────────────────────────────────────────── */
+
+/* === TOP TOOLBAR: dark slate === */
+.drawing-viewer-overlay .dv-toolbar{
+  background:#1B2438 !important;
+  box-shadow:0 1px 0 #0F172A;
+  padding:8px 12px;
+  gap:8px;
+}
+body.dark-mode .drawing-viewer-overlay .dv-toolbar{background:#0F172A !important;}
+
+/* Title text white */
+.drawing-viewer-overlay .dv-toolbar .dv-title{color:#fff;}
+.drawing-viewer-overlay .dv-toolbar .dv-title-wrap{color:#fff;}
+
+/* Close button — dark slate pill */
+.drawing-viewer-overlay .dv-toolbar .dv-close-btn{
+  background:#2a3448 !important;
+  color:#fff !important;
+  border-radius:6px;
+  padding:0 14px;
+  min-height:40px;
+  font-weight:500;
+}
+.drawing-viewer-overlay .dv-toolbar .dv-close-btn:hover{
+  background:#36425c !important;
+}
+
+/* All other toolbar buttons — dark slate squares with burgundy hover border */
+.drawing-viewer-overlay .dv-toolbar button{
+  background:#2a3448;
+  color:#fff;
+  border:1px solid transparent;
+  border-radius:6px;
+  min-height:40px;
+  min-width:40px;
+  font-weight:500;
+}
+.drawing-viewer-overlay .dv-toolbar button:hover{
+  background:#36425c;
+  border-color:#9C2742;
+}
+.drawing-viewer-overlay .dv-toolbar button.active{
+  background:#9C2742;
+  color:#fff;
+}
+.drawing-viewer-overlay .dv-toolbar .dv-tasks-toggle.active{
+  background:#9C2742 !important;
+  color:#fff !important;
+}
+
+/* Rename pencil inside title-wrap stays subtle */
+.drawing-viewer-overlay .dv-toolbar .dv-rename-btn{
+  background:transparent !important;
+  border:none !important;
+  color:#fff;
+  min-width:auto;
+  padding:4px 6px;
+}
+.drawing-viewer-overlay .dv-toolbar .dv-rename-btn:hover{
+  background:rgba(255,255,255,.1) !important;
+  border-color:transparent !important;
+}
+
+/* Toolbar separators — lighter on dark bg */
+.drawing-viewer-overlay .dv-toolbar .dv-sep{background:#3a4458;}
+
+/* === ZOOM CONTROLS: dark slate squares, top-right of canvas === */
+.drawing-viewer-overlay .zoom-controls{
+  top:14px;
+  bottom:auto;
+  right:14px;
+  gap:6px;
+}
+.drawing-viewer-overlay .zoom-controls button{
+  width:40px;
+  height:40px;
+  border-radius:6px;
+  background:#2a3448;
+  backdrop-filter:none;
+  box-shadow:0 2px 6px rgba(15,23,42,.35);
+  font-size:16px;
+}
+.drawing-viewer-overlay .zoom-controls button:hover{
+  background:#36425c;
+}
+body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;}
+
+/* === SIDEBAR TOOL BUTTONS: tighten visual, keep layout === */
+.drawing-viewer-overlay #dv-sidebar-tools .tool-btn{
+  border-radius:6px;
+}
+.drawing-viewer-overlay #dv-sidebar-tools .tool-btn.active,
+.drawing-viewer-overlay #dv-sidebar-tools .tool-btn[data-mk-tool].active{
+  background:#9C2742;
+  color:#fff;
+  border-color:#9C2742;
+}
+
+/* === Dropdown menus on dark toolbar — keep light bg, but anchor offset === */
+.drawing-viewer-overlay .dv-toolbar .dv-more-menu{
+  margin-top:6px;
+}
+
+/* === Touch target enforcement (hard rule) === */
+@media(pointer:coarse){
+  .drawing-viewer-overlay .dv-toolbar button,
+  .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
+    min-width:44px;
+    min-height:44px;
+  }
+  .drawing-viewer-overlay .zoom-controls button{
+    width:44px;
+    height:44px;
+  }
+}
