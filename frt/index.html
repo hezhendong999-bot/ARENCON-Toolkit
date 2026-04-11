@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=107">
+<link rel="stylesheet" href="css/frt.css?v=108">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -579,6 +579,13 @@ function ensurePdfJs(cb){
         <span id="dv-bb-tasks-count" class="dv-bb-tasks-count">0</span>
       </button>
     </div>
+    <!-- Session 75 Push 5: Tasks bottom sheet -->
+    <div id="dv-tasks-sheet-v75">
+      <div id="dv-tsv75-handle"></div>
+      <div id="dv-tsv75-header"><span id="dv-tsv75-title">📌 Tasks (0)</span><button id="dv-tsv75-collapse">▼ collapse</button></div>
+      <div id="dv-tsv75-list"></div>
+      <button id="dv-tsv75-new">+ New Task</button>
+    </div>
 </div>
 
 <!-- ═══ PHOTO LIGHTBOX OVERLAY ═══ -->
@@ -748,7 +755,42 @@ function ensurePdfJs(cb){
     if(bbPrev&&!bbPrev.dataset.wired){bbPrev.dataset.wired='1';bbPrev.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-prev');if(t)t.click();});}
     if(bbNext&&!bbNext.dataset.wired){bbNext.dataset.wired='1';bbNext.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-next');if(t)t.click();});}
     if(bbRename&&!bbRename.dataset.wired){bbRename.dataset.wired='1';bbRename.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-rename-btn');if(t)t.click();});}
-    if(bbTasks&&!bbTasks.dataset.wired){bbTasks.dataset.wired='1';bbTasks.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-tasks-btn');if(t)t.click();});}
+    if(bbTasks&&!bbTasks.dataset.wired){bbTasks.dataset.wired='1';bbTasks.addEventListener('click',function(e){e.preventDefault();var sh=document.getElementById('dv-tasks-sheet-v75');if(sh)sh.classList.toggle('open');});}
+    /* Push 5: tasks sheet collapse + handle + new task proxy */
+    var tsCol=document.getElementById('dv-tsv75-collapse');
+    var tsHandle=document.getElementById('dv-tsv75-handle');
+    var tsNew=document.getElementById('dv-tsv75-new');
+    function closeSheet(){var sh=document.getElementById('dv-tasks-sheet-v75');if(sh)sh.classList.remove('open');}
+    if(tsCol&&!tsCol.dataset.wired){tsCol.dataset.wired='1';tsCol.addEventListener('click',function(e){e.preventDefault();closeSheet();});}
+    if(tsHandle&&!tsHandle.dataset.wired){tsHandle.dataset.wired='1';tsHandle.addEventListener('click',function(e){e.preventDefault();closeSheet();});}
+    if(tsNew&&!tsNew.dataset.wired){tsNew.dataset.wired='1';tsNew.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-new-task');if(t)t.click();});}
+    /* Mirror legacy task list into sheet */
+    function syncTaskList(){
+      var src=document.getElementById('dv-tasks-list');
+      var dst=document.getElementById('dv-tsv75-list');
+      var ttl=document.getElementById('dv-tsv75-title');
+      if(!src||!dst)return;
+      dst.innerHTML='';
+      var items=src.children;
+      for(var i=0;i<items.length;i++){
+        var el=items[i];
+        var card=document.createElement('div');
+        card.className='dv-tsv75-card';
+        var txt=el.textContent.trim();
+        var cls=el.className||'';
+        if(/closed|done|complete/i.test(cls+' '+txt))card.classList.add('ok');
+        else if(/warn|medium|orange/i.test(cls))card.classList.add('warn');
+        var t=document.createElement('div');t.className='dv-tsv75-card-title';t.textContent=txt.split('\n')[0].slice(0,80);
+        card.appendChild(t);
+        card.addEventListener('click',function(legEl){return function(){legEl.click();};}(el));
+        dst.appendChild(card);
+      }
+      if(ttl){var c=document.getElementById('dv-bb-tasks-count');ttl.textContent='📌 Tasks ('+((c&&c.textContent)||items.length||0)+')';}
+    }
+    var tlEl=document.getElementById('dv-tasks-list');
+    if(tlEl)new MutationObserver(syncTaskList).observe(tlEl,{childList:true,subtree:true,characterData:true});
+    syncTaskList();
+  }
     /* Mirror title text into name pill + tasks count */
     function syncBB(){
       var title=document.getElementById('dv-title');
