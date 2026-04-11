@@ -872,14 +872,14 @@ body.dark-mode .view-pill{border-color:rgba(255,255,255,.18);background:rgba(0,0
 body.dark-mode .view-pill-btn{color:#94a3b8!important;}
 body.dark-mode .view-pill-btn:hover{background:rgba(255,255,255,.05)!important;color:#c0d0e0!important;}
 body.dark-mode .view-pill-btn.active{background:#2a3448!important;color:#e2e8f0!important;}
-/* S77: Summary filter bar — compact 2-row mobile layout */
+/* S77: Summary filter bar — single-row mobile layout (search + 3 filters + count all on one line) */
 @media(max-width:700px){
-  .pins-filter-bar{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important;padding:8px 10px!important;align-items:center!important;}
-  .pins-filter-bar #tasks-search{grid-column:1 / -1;width:100%!important;}
+  .pins-filter-bar{display:flex!important;flex-wrap:nowrap!important;gap:5px!important;padding:8px 10px!important;align-items:center!important;overflow-x:auto;}
+  .pins-filter-bar #tasks-search{flex:0 0 90px!important;min-width:0!important;width:auto!important;padding:5px 7px!important;font-size:calc(12px + var(--ts))!important;}
   .pins-filter-bar #tasks-filter-status,
-  .pins-filter-bar #tasks-filter-priority{padding:6px 8px!important;font-size:calc(12px + var(--ts))!important;}
-  .pins-filter-bar #tasks-filter-contractor{grid-column:1 / -1;padding:6px 8px!important;font-size:calc(12px + var(--ts))!important;}
-  .pins-filter-bar > span{grid-column:1 / -1;text-align:right;}
+  .pins-filter-bar #tasks-filter-priority,
+  .pins-filter-bar #tasks-filter-contractor{flex:1 1 0!important;min-width:0!important;padding:5px 4px!important;font-size:calc(11px + var(--ts))!important;}
+  .pins-filter-bar > span{flex:0 0 auto;font-size:calc(10px + var(--ts))!important;white-space:nowrap;}
 }
 .ai-mode-menu.show{display:block;}
 body.dark-mode #btn-signout{background:rgba(123,31,162,.3)!important;color:#b080d0!important;border:1px solid rgba(123,31,162,.35)!important;}
@@ -1485,7 +1485,9 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   #dv-layers-btn svg{font-size:initial;}
   #btn-tasks-toggle{font-size:calc(11px + var(--ts))!important;padding:5px 8px!important;}
   /* All Deficiencies tab header */
-  #panel-pins .card-header{flex-direction:column;align-items:stretch!important;gap:6px;}
+  #panel-pins .card-header{flex-direction:row!important;align-items:center!important;gap:8px;flex-wrap:nowrap!important;}
+  #panel-pins .card-header > span{flex:1;min-width:0;}
+  #panel-pins .view-pill{flex-shrink:0;}
 }
 
 /* ═══════════════════════════════════════════════════

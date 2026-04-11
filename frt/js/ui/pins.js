@@ -112,7 +112,7 @@ export var initPins = {
 
     // Table
     h += '<div style="overflow-x:auto;">';
-    h += '<table id="tasks-table" style="width:100%;border-collapse:collapse;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;">';
+    h += '<table id="tasks-table" style="width:100%;border-collapse:collapse;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;">';
     h += '<thead><tr style="background:var(--smoke);border-bottom:2px solid var(--border);">';
     h += th('num', '#') + th('drawing', 'Drawing') + th('description', 'Description') + th('contractor', 'Contractor') + th('status', 'Status') + th('priority', 'Priority') + '<th class="tt-th"></th>';
     h += '</tr></thead><tbody>';
@@ -130,7 +130,7 @@ export var initPins = {
 
       h += '<tr data-defic-id="' + esc(dd.id) + '" style="border-bottom:1px solid var(--border);">';
       h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">#' + (dd.num || '?') + '</td>';
-      h += '<td style="padding:8px 10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(13px + var(--ts));color:var(--steel);">' + esc(dwgName || '\u2014') + '</td>';
+      h += '<td style="padding:8px 10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(14px + var(--ts));color:var(--steel);">' + esc(dwgName || '\u2014') + '</td>';
       h += '<td style="padding:8px 10px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(trunc || '(no description)') + '</td>';
       h += '<td style="padding:8px 10px;">' + esc(d.contractorName) + '</td>';
       h += '<td style="padding:8px 10px;"><span class="tt-status ' + statusCls + '">' + statusText + '</span></td>';
