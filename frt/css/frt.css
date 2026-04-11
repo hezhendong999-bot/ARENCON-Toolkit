@@ -862,6 +862,16 @@ body.dark-mode .ai-mode-menu #btn-pdf:hover,body.dark-mode .ai-mode-menu #btn-is
 .more-repair-toggle .more-repair-caret{margin-left:auto;font-size:calc(11px + var(--ts));color:var(--silver);font-weight:400;}
 body.dark-mode .more-repair-toggle .more-repair-caret{color:#8a94b0;}
 #more-repair-items button{padding-left:28px!important;}
+/* S77 Push B(c): Table/Board view pill (lives in burgundy card-header) */
+.view-pill{display:inline-flex;border:1px solid rgba(255,255,255,.35);border-radius:7px;overflow:hidden;background:rgba(0,0,0,.12);}
+.view-pill-btn{border:none!important;background:transparent!important;color:rgba(255,255,255,.7)!important;padding:5px 14px!important;cursor:pointer;font-family:Calibri,sans-serif!important;font-size:calc(12px + var(--ts))!important;font-weight:600!important;transition:background .15s,color .15s;}
+.view-pill-btn:hover{background:rgba(255,255,255,.1)!important;color:#fff!important;}
+.view-pill-btn.active{background:#fff!important;color:#9C2742!important;font-weight:700!important;}
+/* Dark mode — muted */
+body.dark-mode .view-pill{border-color:rgba(255,255,255,.18);background:rgba(0,0,0,.25);}
+body.dark-mode .view-pill-btn{color:#94a3b8!important;}
+body.dark-mode .view-pill-btn:hover{background:rgba(255,255,255,.05)!important;color:#c0d0e0!important;}
+body.dark-mode .view-pill-btn.active{background:#2a3448!important;color:#e2e8f0!important;}
 .ai-mode-menu.show{display:block;}
 body.dark-mode #btn-signout{background:rgba(123,31,162,.3)!important;color:#b080d0!important;border:1px solid rgba(123,31,162,.35)!important;}
 body.dark-mode .hdr-export,body.dark-mode .hdr-export-all{background:rgba(123,31,162,.3)!important;color:#b080d0!important;border:1px solid rgba(123,31,162,.35)!important;}

@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=139">
+<link rel="stylesheet" href="css/frt.css?v=140">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -190,6 +190,15 @@ function ensurePdfJs(cb){
     var open=items.classList.toggle('more-repair-open');
     items.classList.toggle('more-repair-collapsed',!open);
     if(caret)caret.textContent=open?'▾':'▸';
+  },true);
+  // S77: view-pill active state manager (Table/Board) — overrides inline style writes via CSS !important
+  document.addEventListener('click',function(e){
+    var btn=e.target.closest&&e.target.closest('.view-pill-btn');
+    if(!btn)return;
+    var pill=btn.closest('.view-pill');
+    if(!pill)return;
+    pill.querySelectorAll('.view-pill-btn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
   },true);
 })();
 </script>
@@ -381,9 +390,9 @@ function ensurePdfJs(cb){
       <div class="card">
         <div class="card-header" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
           <span>📑 Summary</span>
-          <div style="display:flex;border:1.5px solid rgba(255,255,255,.3);border-radius:6px;overflow:hidden;">
-            <button id="tasks-view-table" style="border:none;background:rgba(255,255,255,.2);color:white;padding:4px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:700;">Table</button>
-            <button id="tasks-view-board" style="border:none;background:transparent;color:rgba(255,255,255,.6);padding:4px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));">Board</button>
+          <div class="view-pill" role="tablist">
+            <button id="tasks-view-table" class="view-pill-btn active" type="button">Table</button>
+            <button id="tasks-view-board" class="view-pill-btn" type="button">Board</button>
           </div>
         </div>
         <div class="card-body" style="padding:0;" id="pins-container"></div>
