@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=99">
+<link rel="stylesheet" href="css/frt.css?v=100">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -380,6 +380,46 @@ function ensurePdfJs(cb){
       <div id="dv-more-menu" class="dv-more-menu" style="display:none;"></div>
     </div>
   </div>
+  <!-- NEW VIEWER SHELL (Session 73) -->
+  <div class="dv-toolrow-v2" id="dv-toolrow-v2">
+    <button class="dv-tr-btn dv-tr-pin" data-proxy-tool="pin" title="Pin"><svg width="14" height="18" viewBox="0 0 28 36"><path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.3 21.7 0 14 0z" fill="currentColor"/><circle cx="14" cy="13" r="5" fill="#fff"/></svg></button>
+    <button class="dv-tr-btn" data-proxy-tool="select" title="Select">▸</button>
+    <button class="dv-tr-btn" data-proxy-tool="pen" title="Pen">✎</button>
+    <button class="dv-tr-btn" data-proxy-tool="rect" title="Rectangle">▢</button>
+    <button class="dv-tr-btn" data-proxy-tool="text" title="Text" style="font-family:serif;">T</button>
+    <button class="dv-tr-btn" data-proxy-tool="eraser" title="Eraser">⌫</button>
+  </div>
+  <div class="dv-stylestrip-v2" id="dv-stylestrip-v2">
+    <div class="dv-ss-color" id="dv-ss-color" title="Current color"></div>
+    <div class="dv-ss-group">
+      <span class="dv-ss-lbl">W</span>
+      <button class="dv-ss-step" id="dv-ss-w-down">−</button>
+      <span class="dv-ss-val" id="dv-ss-w-val">3</span>
+      <button class="dv-ss-step" id="dv-ss-w-up">+</button>
+    </div>
+    <div class="dv-ss-group">
+      <span class="dv-ss-lbl">α</span>
+      <button class="dv-ss-step" id="dv-ss-a-down">−</button>
+      <span class="dv-ss-val" id="dv-ss-a-val">100</span>
+      <button class="dv-ss-step" id="dv-ss-a-up">+</button>
+    </div>
+  </div>
+  <div class="dv-zoomstack-v2" id="dv-zoomstack-v2">
+    <button class="dv-zs-btn" id="dv-zs-in" title="Zoom in">+</button>
+    <button class="dv-zs-btn" id="dv-zs-out" title="Zoom out">−</button>
+    <button class="dv-zs-btn" id="dv-zs-fit" title="Fit">⛶</button>
+  </div>
+  <div class="dv-bottombar-v2" id="dv-bottombar-v2">
+    <button class="dv-bb-nav" id="dv-bb-prev" title="Previous">◀</button>
+    <button class="dv-bb-nav" id="dv-bb-next" title="Next">▶</button>
+    <div class="dv-bb-namepill" id="dv-bb-namepill">
+      <span class="dv-bb-name" id="dv-bb-name">—</span>
+      <button class="dv-bb-rename" id="dv-bb-rename" title="Rename">✎</button>
+    </div>
+    <button class="dv-bb-tasks" id="dv-bb-tasks" title="Toggle tasks">
+      <span>📌</span><span>Tasks</span><span class="dv-bb-tasks-count" id="dv-bb-tasks-count">0</span>
+    </button>
+  </div>
   <!-- MOBILE CONTEXT BAR -->
   <div id="dv-mobile-context" class="dv-mobile-context">
     <div class="ctx-group" id="ctx-color-group">
@@ -680,6 +720,97 @@ function ensurePdfJs(cb){
     var mu=document.getElementById('mk-undo'), mr=document.getElementById('mk-redo');
     if(mu) obs.observe(mu,{attributes:true,attributeFilter:['style']});
     if(mr) obs.observe(mr,{attributes:true,attributeFilter:['style']});
+
+    // ── Tool row proxies (Session 73) ──
+    document.querySelectorAll('#dv-toolrow-v2 [data-proxy-tool]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        var t=btn.getAttribute('data-proxy-tool');
+        var tgt=document.getElementById('mk-'+t) || document.querySelector('[data-mk-tool="'+t+'"]');
+        if(tgt) tgt.click();
+      });
+    });
+    // Active tool indicator: watch for .active on legacy tool buttons
+    function syncActive(){
+      document.querySelectorAll('#dv-toolrow-v2 [data-proxy-tool]').forEach(function(btn){
+        var t=btn.getAttribute('data-proxy-tool');
+        var src=document.getElementById('mk-'+t) || document.querySelector('[data-mk-tool="'+t+'"]');
+        if(src && src.classList.contains('active')) btn.classList.add('active');
+        else btn.classList.remove('active');
+      });
+    }
+    var activeObs=new MutationObserver(syncActive);
+    document.querySelectorAll('[data-mk-tool]').forEach(function(el){
+      activeObs.observe(el,{attributes:true,attributeFilter:['class']});
+    });
+    setInterval(syncActive,500); // failsafe
+
+    // ── Title pill sync (legacy #dv-title → new #dv-bb-name) ──
+    var legacyTitle=document.getElementById('dv-title');
+    var newName=document.getElementById('dv-bb-name');
+    if(legacyTitle&&newName){
+      var titleObs=new MutationObserver(function(){ newName.textContent = legacyTitle.textContent || '—'; });
+      titleObs.observe(legacyTitle,{childList:true,characterData:true,subtree:true});
+      newName.textContent = legacyTitle.textContent || '—';
+    }
+    // Rename pill click → legacy rename
+    var bbRename=document.getElementById('dv-bb-rename'), legacyRename=document.getElementById('dv-rename-btn');
+    if(bbRename&&legacyRename) bbRename.addEventListener('click',function(e){e.preventDefault();legacyRename.click();});
+
+    // ── Page nav proxies ──
+    var bbPrev=document.getElementById('dv-bb-prev'), bbNext=document.getElementById('dv-bb-next');
+    var lPrev=document.getElementById('dv-prev'), lNext=document.getElementById('dv-next');
+    if(bbPrev&&lPrev) bbPrev.addEventListener('click',function(e){e.preventDefault();lPrev.click();});
+    if(bbNext&&lNext) bbNext.addEventListener('click',function(e){e.preventDefault();lNext.click();});
+
+    // ── Tasks pill ──
+    var bbTasks=document.getElementById('dv-bb-tasks'), legacyTasks=document.getElementById('dv-tasks-btn');
+    if(bbTasks&&legacyTasks) bbTasks.addEventListener('click',function(e){e.preventDefault();legacyTasks.click();});
+    var legacyCount=document.querySelector('#dv-tasks-count, [data-tasks-count]');
+    var newCount=document.getElementById('dv-bb-tasks-count');
+    if(legacyCount&&newCount){
+      var countObs=new MutationObserver(function(){ newCount.textContent = (legacyCount.textContent||'0').trim(); });
+      countObs.observe(legacyCount,{childList:true,characterData:true,subtree:true});
+      newCount.textContent = (legacyCount.textContent||'0').trim();
+    }
+
+    // ── Zoom stack proxies (best-effort: dispatch to existing zoom controls if they exist) ──
+    function proxyZoom(id, sel){
+      var b=document.getElementById(id);
+      if(!b) return;
+      b.addEventListener('click',function(e){
+        e.preventDefault();
+        var t=document.querySelector(sel);
+        if(t) t.click();
+      });
+    }
+    proxyZoom('dv-zs-in','[data-dv-zoom="in"], #dv-zoom-in, #mk-zoom-in');
+    proxyZoom('dv-zs-out','[data-dv-zoom="out"], #dv-zoom-out, #mk-zoom-out');
+    proxyZoom('dv-zs-fit','[data-dv-zoom="fit"], #dv-zoom-fit, #mk-zoom-fit, #dv-fit');
+
+    // ── Style strip steppers (proxy to existing width/alpha controls) ──
+    function findStroke(){return document.querySelector('#mk-stroke-width, [data-mk-width], input[type="range"][name="stroke-width"]');}
+    function findAlpha(){return document.querySelector('#mk-alpha, [data-mk-alpha], input[type="range"][name="alpha"]');}
+    function step(inputSel, valElId, delta, min, max){
+      var inp=inputSel(); var lbl=document.getElementById(valElId);
+      if(!inp){ if(lbl){var v=parseInt(lbl.textContent,10)||0; v=Math.max(min,Math.min(max,v+delta)); lbl.textContent=v;} return; }
+      var v=parseFloat(inp.value)||0; v=Math.max(min,Math.min(max,v+delta));
+      inp.value=v; inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true}));
+      if(lbl) lbl.textContent=Math.round(v);
+    }
+    var b;
+    if((b=document.getElementById('dv-ss-w-down'))) b.addEventListener('click',function(){step(findStroke,'dv-ss-w-val',-1,1,30);});
+    if((b=document.getElementById('dv-ss-w-up')))   b.addEventListener('click',function(){step(findStroke,'dv-ss-w-val', 1,1,30);});
+    if((b=document.getElementById('dv-ss-a-down'))) b.addEventListener('click',function(){step(findAlpha, 'dv-ss-a-val',-10,10,100);});
+    if((b=document.getElementById('dv-ss-a-up')))   b.addEventListener('click',function(){step(findAlpha, 'dv-ss-a-val', 10,10,100);});
+
+    // Color swatch reflects current selected color from legacy palette
+    function syncColor(){
+      var sel=document.querySelector('.dv-color-dot.active, .dv-color-dot.selected');
+      var dot=document.getElementById('dv-ss-color');
+      if(sel&&dot){var bg=sel.style.background||sel.style.backgroundColor; if(bg) dot.style.background=bg;}
+    }
+    syncColor(); setInterval(syncColor,600);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
   else init();
