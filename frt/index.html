@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=127">
+<link rel="stylesheet" href="css/frt.css?v=132">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -82,6 +82,8 @@ function ensurePdfJs(cb){
         <div class="ai-mode-menu" id="ai-mode-menu">
           <button id="ai-mode-rewrite">✨ Full Rewrite <span>Professional report language (Sonnet)</span></button>
           <button id="ai-mode-quickfix">🔤 Quick Fix <span>Typos &amp; grammar only (Haiku)</span></button>
+          <div style="height:1px;background:#eee;margin:2px 0;"></div>
+          <button id="btn-ai-usage">📊 Usage &amp; Costs <span>View AI token usage &amp; costs</span></button>
         </div>
       </div>
       <div style="position:relative;display:inline-block;" id="btn-reports-wrap">
@@ -91,12 +93,10 @@ function ensurePdfJs(cb){
           <button id="btn-issue" style="background:transparent;color:inherit;">📋 Issue <span>Bump revision (A01 → A02)</span></button>
         </div>
       </div>
-      <button class="hdr-btn" id="btn-ai-usage" style="display:none;background:#455A64;" title="AI Usage Tracking">📊 AI Usage</button>
       <!-- ⚙️ More dropdown -->
       <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
         <button class="hdr-btn" style="background:#455A64;" title="More options">⚙️ More ▾</button>
         <div class="hdr-repair-menu" id="more-menu">
-          <button id="btn-ai-usage-more" style="display:none;">📊 AI Usage <span>View AI token usage &amp; costs</span></button>
           <button id="btn-export">💾 Download JSON <span>Save project data to file</span></button>
           <button id="btn-load-more">📂 Load Project <span>Open a JSON project file</span></button>
           <div style="height:1px;background:#eee;margin:2px 0;"></div>
