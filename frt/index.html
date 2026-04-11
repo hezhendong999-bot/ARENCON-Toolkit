@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=104">
+<link rel="stylesheet" href="css/frt.css?v=105">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -674,6 +674,13 @@ function ensurePdfJs(cb){
     u.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('mk-undo');if(t)t.click();});
     r.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('mk-redo');if(t)t.click();});
     a.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var t=document.getElementById('dv-more-btn');if(t)t.click();});
+    /* Push 3.2: copy legacy button innerHTML into new tool row buttons */
+    document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn').forEach(function(b){
+      var leg=document.getElementById(b.dataset.mkTarget);
+      if(leg&&leg.innerHTML.trim()){
+        b.innerHTML=leg.innerHTML;
+      }
+    });
     /* Push 3: tool row proxies */
     document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn').forEach(function(b){
       if(b.dataset.wired)return;b.dataset.wired='1';

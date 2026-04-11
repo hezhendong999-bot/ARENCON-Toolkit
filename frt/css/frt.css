@@ -2001,62 +2001,57 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   }
 }
 
-/* === Session 75 Push 3.1 — tool row + style strip (mockup-exact) === */
+/* === Session 75 Push 3.2 — layout-only restyle, legacy icons preserved === */
 @media (max-width: 768px){
   .drawing-viewer-overlay #dv-toolrow-v75{
-    display:flex;align-items:center;gap:6px;
-    background:#fff;padding:6px 10px;
+    display:flex;align-items:center;justify-content:space-around;gap:6px;
+    background:#fff;padding:8px 12px;
     border-bottom:1px solid #e0e3e8;flex-shrink:0;
   }
   .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn{
-    width:30px;height:30px;
-    background:#fff;color:#1B2438;
-    border:1px solid #d6d9e0;border-radius:6px;
-    font-family:Calibri,sans-serif;font-size:14px;line-height:1;
-    cursor:pointer;display:flex;align-items:center;justify-content:center;
-    padding:0;
+    width:40px;height:40px;
+    background:transparent;color:#1B2438;
+    border:1px solid #d6d9e0;border-radius:8px;
+    cursor:pointer;padding:0;
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+  }
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn svg,
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn img{
+    width:20px;height:20px;display:block;pointer-events:none;
   }
   .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-pin{
     background:#2a3448;color:#fff;border:none;border-radius:50%;
   }
-  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-serif{font-family:Georgia,serif;font-style:italic;}
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-pin svg{color:#fff;}
   .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn.active{
     background:#9C2742;color:#fff;border-color:#9C2742;
   }
-  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-pin.active{background:#9C2742;}
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn.active svg{color:#fff;}
   .drawing-viewer-overlay #dv-stylestrip-v75{
-    display:flex;align-items:center;gap:8px;
-    background:#eef0f3;padding:6px 10px;
+    display:flex;align-items:center;gap:10px;
+    background:#eef0f3;padding:8px 12px;
     border-bottom:1px solid #e0e3e8;flex-shrink:0;
-    font-family:Calibri,sans-serif;font-size:12px;color:#1B2438;
+    font-family:Calibri,sans-serif;font-size:13px;color:#1B2438;
   }
   .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-swatch{
-    width:22px;height:22px;border-radius:50%;
+    width:26px;height:26px;border-radius:50%;
     background:#C0392B;border:2px solid #fff;
-    box-shadow:0 0 0 1px #c8ccd4;cursor:pointer;padding:0;
+    box-shadow:0 0 0 1px #c8ccd4;cursor:pointer;padding:0;flex-shrink:0;
   }
   .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-group{
-    display:inline-flex;align-items:center;gap:4px;
+    display:inline-flex;align-items:center;gap:5px;
     padding-left:10px;border-left:1px solid #d6d9e0;
   }
-  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-lbl{
-    color:#888;font-weight:500;margin-right:2px;
-  }
+  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-lbl{color:#888;font-weight:500;margin-right:3px;}
   .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-step{
-    width:22px;height:22px;border-radius:4px;
+    width:26px;height:26px;border-radius:5px;
     background:#fff;border:1px solid #d6d9e0;color:#1B2438;
-    font-family:Calibri,sans-serif;font-size:12px;line-height:1;
+    font-family:Calibri,sans-serif;font-size:13px;line-height:1;
     cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;
   }
   .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-step:hover{background:#f5f6f8;}
   .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-val{
-    min-width:18px;text-align:center;font-weight:500;
-  }
-  /* Touch targets — keep visual size, expand hit area via padding-free 44px tap zone */
-  @media(pointer:coarse){
-    .drawing-viewer-overlay #dv-toolrow-v75{padding:10px 10px;gap:8px;}
-    .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn{width:36px;height:36px;}
-    .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-step{width:28px;height:28px;}
-    .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-swatch{width:26px;height:26px;}
+    min-width:22px;text-align:center;font-weight:600;
   }
 }
