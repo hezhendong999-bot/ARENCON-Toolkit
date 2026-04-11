@@ -127,7 +127,7 @@ export var initPins = {
       var priCls = dd.priority || 'general';
       var dwgName = _getDrawingName(dd.drawingId);
 
-      h += '<tr data-defic-id="' + esc(dd.id) + '" style="border-bottom:1px solid var(--border);">';
+      h += '<tr data-defic-id="' + esc(dd.id) + '" data-action="jump-defic" style="border-bottom:1px solid var(--border);cursor:pointer;">';
       h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">#' + (dd.num || '?') + '</td>';
       h += '<td style="padding:8px 10px;color:var(--steel);word-break:break-word;">' + esc(dwgName || '\u2014') + '</td>';
       h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(desc || '(no description)') + '</td>';
