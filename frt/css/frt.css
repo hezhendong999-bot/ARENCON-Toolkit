@@ -816,6 +816,13 @@ body.dark-mode button[style*="background:#B7791F"]{background:#2a2008!important;
 body.dark-mode button[style*="background:#E67E22"]{background:#2a1c08!important;color:#c09040!important;}
 body.dark-mode button[style*="background:#C0392B"]{background:#2c0e0e!important;color:#d88888!important;}
 body.dark-mode button[style*="background:#C62828"]{background:#2c0e0e!important;color:#d88888!important;}
+/* S77: muted dark mode for AI Review / Reports / More — ID-targeted because JS rewrites inline style and breaks attribute selectors */
+body.dark-mode #btn-ai-review{background:#2a1530!important;color:#c898d8!important;border:1px solid #4a2550!important;}
+body.dark-mode #btn-ai-review:hover{background:#3a1f40!important;}
+body.dark-mode #btn-reports-parent{background:#141a3a!important;color:#7898d0!important;border:1px solid #2a3458!important;}
+body.dark-mode #btn-reports-parent:hover{background:#1c2450!important;}
+body.dark-mode #btn-more-wrap > button{background:#3a4858!important;color:#c0d0e0!important;border:1px solid #506070!important;}
+body.dark-mode #btn-more-wrap > button:hover{background:#46556a!important;}
 body.dark-mode button[style*="background:white"],body.dark-mode button[style*="background:#fff"]{background:#1a1d24!important;color:#b0b8d0!important;border-color:#2a3040!important;}
 body.dark-mode [style*="background:#f8f9fa"],[class*="dark-mode"] [style*="background:#f8f8f6"]{background:#282b34!important;}
 body.dark-mode [style*="background:#eee"]{background:#1e2028!important;}
