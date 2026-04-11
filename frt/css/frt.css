@@ -843,8 +843,11 @@ body.dark-mode .contractor-chip{background:#1e2230;border-color:#2a3040;color:#b
 body.dark-mode .defic-group{border-color:#2a2e38;}
 body.dark-mode .defic-group-header{background:#14171e;color:#d8dce8;}
 body.dark-mode .hdr-btn{opacity:1;box-shadow:0 1px 4px rgba(0,0,0,.4);}body.dark-mode .hdr-btn:hover{opacity:1;filter:brightness(1.2);}
-body.dark-mode #btn-pdf{background:rgba(26,35,126,.35)!important;color:#90a0d0!important;border:1px solid rgba(26,35,126,.4)!important;}
-body.dark-mode #btn-issue{background:rgba(26,122,74,.3)!important;color:#60c090!important;border:1px solid rgba(26,122,74,.35)!important;}
+/* S77: #btn-pdf and #btn-issue dark mode colors removed — they live inside Reports dropdown now and should match AI Review submenu styling (transparent, default text) */
+.ai-mode-menu #btn-pdf,.ai-mode-menu #btn-issue{background:transparent!important;color:var(--fg)!important;border:none!important;}
+body.dark-mode .ai-mode-menu #btn-pdf,body.dark-mode .ai-mode-menu #btn-issue{background:transparent!important;color:#d0d8f0!important;border:none!important;}
+body.dark-mode .ai-mode-menu #btn-pdf:hover,body.dark-mode .ai-mode-menu #btn-issue:hover{background:#283044!important;}
+.ai-mode-menu.show{display:block;}
 body.dark-mode #btn-signout{background:rgba(123,31,162,.3)!important;color:#b080d0!important;border:1px solid rgba(123,31,162,.35)!important;}
 body.dark-mode .hdr-export,body.dark-mode .hdr-export-all{background:rgba(123,31,162,.3)!important;color:#b080d0!important;border:1px solid rgba(123,31,162,.35)!important;}
 body.dark-mode .contractor-chip button:hover{color:#e06050;}

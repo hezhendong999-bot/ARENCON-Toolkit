@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=133">
+<link rel="stylesheet" href="css/frt.css?v=134">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -120,6 +120,36 @@ function ensurePdfJs(cb){
   </div>
 <script>
 (function(){
+  // S77: Unified header dropdown manager — mutual exclusion across AI Review / Reports / More
+  var TRIGGERS=['btn-ai-review','btn-reports-parent'];
+  var MENUS=['ai-mode-menu','reports-mode-menu','more-menu'];
+  function closeAllExcept(keepId){
+    MENUS.forEach(function(id){
+      if(id===keepId)return;
+      var m=document.getElementById(id);
+      if(m){m.classList.remove('open');m.classList.remove('show');}
+    });
+  }
+  // Capture-phase: close others BEFORE the menu's own toggle handler runs
+  document.addEventListener('click',function(e){
+    var t=e.target;
+    // AI Review trigger
+    var aiBtn=document.getElementById('btn-ai-review');
+    if(aiBtn&&(t===aiBtn||aiBtn.contains(t))){closeAllExcept('ai-mode-menu');return;}
+    // Reports trigger
+    var rBtn=document.getElementById('btn-reports-parent');
+    if(rBtn&&(t===rBtn||rBtn.contains(t))){closeAllExcept('reports-mode-menu');return;}
+    // More trigger (button inside #btn-more-wrap)
+    var mWrap=document.getElementById('btn-more-wrap');
+    if(mWrap&&mWrap.contains(t)){
+      var mMenu=document.getElementById('more-menu');
+      if(mMenu&&!mMenu.contains(t)){closeAllExcept('more-menu');return;}
+    }
+    // Click outside any menu — close all
+    var insideAny=MENUS.some(function(id){var m=document.getElementById(id);return m&&m.contains(t);});
+    if(!insideAny)closeAllExcept(null);
+  },true);
+  // Reports toggle (preserved from prior session — its show class)
   document.addEventListener('click',function(e){
     var menu=document.getElementById('reports-mode-menu');
     var parent=document.getElementById('btn-reports-parent');
@@ -127,8 +157,9 @@ function ensurePdfJs(cb){
     if(e.target===parent||parent.contains(e.target)){
       e.stopPropagation();
       menu.classList.toggle('show');
+      menu.classList.toggle('open');
     }else if(!menu.contains(e.target)){
-      menu.classList.remove('show');
+      menu.classList.remove('show');menu.classList.remove('open');
     }
   });
   var pdf=document.getElementById('btn-pdf');
