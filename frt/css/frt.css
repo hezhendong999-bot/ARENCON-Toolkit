@@ -2581,3 +2581,42 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
 .drawing-viewer-overlay .dv-toolbar #dv-rename-btn:hover{
   background:rgba(255,255,255,.1) !important;
 }
+
+/* === Session 76 Push 11 — Strip back button hatch globally + mobile v75 chrome cleanup === */
+/* Strip the back button chip everywhere - make it match other toolbar icons */
+.drawing-viewer-overlay .dv-toolbar #dv-close,
+.drawing-viewer-overlay #dv-sidebar-tools #dv-close{
+  background:transparent !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+  color:#fff !important;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-close:hover,
+.drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{
+  background:rgba(255,255,255,.1) !important;
+  border-color:transparent !important;
+}
+/* Mobile v75 chrome — strip hatches from tool row + style strip buttons */
+#dv-toolrow-v75 button,
+#dv-stylestrip-v75 button:not(.mk-step-mobile){
+  background:transparent !important;
+  border:1px solid transparent !important;
+  box-shadow:none !important;
+}
+#dv-toolrow-v75 button:hover,
+#dv-stylestrip-v75 button:not(.mk-step-mobile):hover{
+  background:rgba(255,255,255,.1) !important;
+}
+#dv-toolrow-v75 button.active,
+#dv-toolrow-v75 button[aria-pressed="true"]{
+  background:#9C2742 !important;
+  color:#fff !important;
+}
+/* Mobile: tighten gap and show more tools */
+@media (max-width:768px){
+  .drawing-viewer-overlay .dv-sidebar-tools .tool-btn{display:flex !important;}
+  .drawing-viewer-overlay #tool-color-group{display:flex !important;}
+  .drawing-viewer-overlay #dv-sidebar-tools .tool-btn[onclick*="markupUndo"],
+  .drawing-viewer-overlay #dv-sidebar-tools .tool-btn[onclick*="markupRedo"]{display:flex !important;}
+  #dv-toolrow-v75{gap:2px !important;}
+}
