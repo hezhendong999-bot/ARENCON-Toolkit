@@ -2107,3 +2107,32 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     .drawing-viewer-overlay #dv-bb-namepill{padding:10px 14px;}
   }
 }
+
+/* === Session 75 Push 4.1 — desktop hide v75 + navy tool buttons === */
+/* On desktop (>768px) hide all new v75 chrome — legacy desktop UI stays */
+@media (min-width: 769px){
+  .drawing-viewer-overlay #dv-toolrow-v75,
+  .drawing-viewer-overlay #dv-stylestrip-v75,
+  .drawing-viewer-overlay #dv-bottombar-v75,
+  .drawing-viewer-overlay #dv-undo-v75,
+  .drawing-viewer-overlay #dv-redo-v75,
+  .drawing-viewer-overlay #dv-actions-v75,
+  .drawing-viewer-overlay #dv-spacer-v75{
+    display:none !important;
+  }
+}
+/* Mobile: navy tool buttons (override Push 3.2 transparent white) */
+@media (max-width: 768px){
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn{
+    background:#2a3448 !important;
+    color:#fff !important;
+    border:none !important;
+  }
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn svg{color:#fff;}
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn:hover{background:#3a4660 !important;}
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn.active{
+    background:#9C2742 !important;
+    color:#fff !important;
+  }
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn.active:hover{background:#9C2742 !important;}
+}
