@@ -142,17 +142,28 @@ button.btn-outline.btn-sm[onclick*="showDeficTemplates"]:hover{background:rgba(1
 .mobile-menu #mobile-pdf-btn{background:#E8EAF6;border-color:#9FA8DA;color:#1A237E;}
 .mobile-menu #mobile-ai-rewrite{background:#F3E5F5;border-color:#CE93D8;color:#6A1B9A;}
 .mobile-menu #mobile-ai-quickfix{background:#E0F2F1;border-color:#80CBC4;color:#00695C;}
-.mobile-menu #mobile-ai-usage{background:#ECEFF1;border-color:#B0BEC5;color:#37474F;}
+.mobile-menu #mobile-ai-usage{background:#E3F2FD;border-color:#90CAF9;color:#0D47A1;}
 .mobile-menu #mobile-export-btn,.mobile-menu #mobile-export-all{background:#E8F5E9;border-color:#A5D6A7;color:#1A7A4A;}
 .mobile-menu #mobile-load-btn{background:#FFF8E1;border-color:#FFE082;color:#7A5D00;}
+.mobile-menu #mobile-reset-btn{background:#FFEBEE!important;border-color:#EF9A9A!important;color:#B71C1C!important;font-weight:600;}
+.mobile-menu #mobile-clear-all{background:#FFEBEE!important;border-color:#EF9A9A!important;color:#B71C1C!important;font-weight:600;}
+.mobile-menu #mobile-repair-toggle{background:#FFF3E0!important;border-color:#FFCC80!important;color:#E65100!important;font-size:13px!important;}
+.mobile-menu #mobile-repair-tools .btn{background:#FFF8E1;border-color:#FFE082;color:#7A5D00;}
+.mobile-menu #mobile-signout-btn{background:#F3E5F5!important;border-color:#CE93D8!important;color:#6A1B9A!important;}
+.mobile-menu #mobile-text-size-btn{background:#ECEFF1;border-color:#B0BEC5;color:#37474F;font-size:12px!important;}
 .mobile-menu #mobile-qr-btn{background:#F5F5F5;border-color:#B0BEC5;color:#37474F;}
 body.dark-mode .mobile-menu .btn{background:#1e2533;color:#d0d8f0;border-color:#2a3040;}
 body.dark-mode .mobile-menu #mobile-pdf-btn{background:#1a1f3a;border-color:#3a3e68;color:#a0b0f0;}
 body.dark-mode .mobile-menu #mobile-ai-rewrite{background:#2a1a3a;border-color:#4a2a5a;color:#e0a0f0;}
 body.dark-mode .mobile-menu #mobile-ai-quickfix{background:#0a2a28;border-color:#1a4a48;color:#80d8d0;}
-body.dark-mode .mobile-menu #mobile-ai-usage{background:#1a2028;border-color:#3a4048;color:#a0b0c0;}
+body.dark-mode .mobile-menu #mobile-ai-usage{background:#0a1830;border-color:#1a3860;color:#90CAF9;}
 body.dark-mode .mobile-menu #mobile-export-btn,body.dark-mode .mobile-menu #mobile-export-all{background:#0a2818;border-color:#1a4830;color:#80d8a0;}
 body.dark-mode .mobile-menu #mobile-load-btn{background:#2a2010;border-color:#4a3820;color:#f0d080;}
+body.dark-mode .mobile-menu #mobile-reset-btn,body.dark-mode .mobile-menu #mobile-clear-all{background:#2a0a0a!important;border-color:#5a1a1a!important;color:#ff8a8a!important;}
+body.dark-mode .mobile-menu #mobile-repair-toggle{background:#2a1808!important;border-color:#4a2810!important;color:#ffb060!important;}
+body.dark-mode .mobile-menu #mobile-repair-tools .btn{background:#2a2010;border-color:#4a3820;color:#f0d080;}
+body.dark-mode .mobile-menu #mobile-signout-btn{background:#2a1a3a!important;border-color:#4a2a5a!important;color:#e0a0f0!important;}
+body.dark-mode .mobile-menu #mobile-text-size-btn{background:#1a2028;border-color:#3a4048;color:#a0b0c0;}
 body.dark-mode .mobile-menu #mobile-qr-btn{background:#1a1d24;border-color:#2a3040;color:#a0b0c0;}
 /* Pin status select */
 .pin-status-sel{width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:calc(12px + var(--ts));font-weight:700;cursor:pointer;}
@@ -177,7 +188,7 @@ body.dark-mode .mobile-menu #mobile-qr-btn{background:#1a1d24;border-color:#2a30
 .dl-layer-check{display:flex;align-items:center;gap:6px;font-size:calc(12px + var(--ts));color:#1C2333;padding:6px 10px;border:1.5px solid #DDE1E7;border-radius:6px;cursor:pointer;user-select:none;background:white;transition:all .15s;}
 .dl-layer-check:hover{background:#F7F8FA;border-color:#9C2742;}
 .dl-layer-check input{margin:0;accent-color:#9C2742;}
-@media(max-width:700px){.proj-grid{grid-template-columns:1fr!important;}.proj-grid [style*="grid-column:span 2"]{grid-column:span 1!important;}}
+@media(max-width:700px){.proj-grid{grid-template-columns:1fr!important;}.proj-grid [style*="grid-column:span 2"],.proj-grid [style*="grid-column:span 3"]{grid-column:span 1!important;}}
 .field-group{display:flex;flex-direction:column;}
 .field-group label{display:block;font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--silver);margin-bottom:4px;}
 .field-group input,.field-group select,.field-group textarea{width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(13.5px + var(--ts));color:var(--slate);background:var(--smoke);transition:border .15s;-webkit-appearance:none;}
