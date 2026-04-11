@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=105">
+<link rel="stylesheet" href="css/frt.css?v=106">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -563,6 +563,22 @@ function ensurePdfJs(cb){
       <button id="dv-heights-save" class="dv-heights-save-btn">💾 Save</button>
     </div>
   </div>
+    <!-- Session 75 Push 4: bottom bar (page nav + name pill + Tasks pill) -->
+    <div id="dv-bottombar-v75">
+      <div class="dv-bb-nav">
+        <button id="dv-bb-prev" title="Previous drawing">◀</button>
+        <button id="dv-bb-next" title="Next drawing">▶</button>
+      </div>
+      <div id="dv-bb-namepill" class="dv-bb-namepill">
+        <span id="dv-bb-name" class="dv-bb-name"></span>
+        <button id="dv-bb-rename" class="dv-bb-rename" title="Rename">✎</button>
+      </div>
+      <button id="dv-bb-tasks" class="dv-bb-tasks" title="Tasks">
+        <span class="dv-bb-tasks-icon">📌</span>
+        <span>Tasks</span>
+        <span id="dv-bb-tasks-count" class="dv-bb-tasks-count">0</span>
+      </button>
+    </div>
 </div>
 
 <!-- ═══ PHOTO LIGHTBOX OVERLAY ═══ -->
@@ -724,6 +740,29 @@ function ensurePdfJs(cb){
     });
     var sc=document.getElementById('dv-ss-color-v75');
     if(sc&&!sc.dataset.wired){sc.dataset.wired='1';sc.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('mk-color-btn')||document.getElementById('mk-color-swatch');if(t)t.click();});}
+    /* Push 4: bottom bar proxies + mirrors */
+    var bbPrev=document.getElementById('dv-bb-prev');
+    var bbNext=document.getElementById('dv-bb-next');
+    var bbRename=document.getElementById('dv-bb-rename');
+    var bbTasks=document.getElementById('dv-bb-tasks');
+    if(bbPrev&&!bbPrev.dataset.wired){bbPrev.dataset.wired='1';bbPrev.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-prev');if(t)t.click();});}
+    if(bbNext&&!bbNext.dataset.wired){bbNext.dataset.wired='1';bbNext.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-next');if(t)t.click();});}
+    if(bbRename&&!bbRename.dataset.wired){bbRename.dataset.wired='1';bbRename.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-rename-btn');if(t)t.click();});}
+    if(bbTasks&&!bbTasks.dataset.wired){bbTasks.dataset.wired='1';bbTasks.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-tasks-btn');if(t)t.click();});}
+    /* Mirror title text into name pill + tasks count */
+    function syncBB(){
+      var title=document.getElementById('dv-title');
+      var nm=document.getElementById('dv-bb-name');
+      if(title&&nm)nm.textContent=title.textContent||'';
+      var tc=document.getElementById('dv-tasks-count');
+      var bbc=document.getElementById('dv-bb-tasks-count');
+      if(tc&&bbc)bbc.textContent=(tc.textContent||'0').replace(/[^\d]/g,'')||'0';
+    }
+    var titleEl=document.getElementById('dv-title');
+    if(titleEl)new MutationObserver(syncBB).observe(titleEl,{childList:true,characterData:true,subtree:true});
+    var tcEl=document.getElementById('dv-tasks-count');
+    if(tcEl)new MutationObserver(syncBB).observe(tcEl,{childList:true,characterData:true,subtree:true});
+    syncBB();
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',wire);
   else wire();

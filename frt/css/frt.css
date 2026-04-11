@@ -2055,3 +2055,55 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     min-width:22px;text-align:center;font-weight:600;
   }
 }
+
+/* === Session 75 Push 4 — bottom bar (mobile only) === */
+@media (max-width: 768px){
+  .drawing-viewer-overlay #dv-bottombar-v75{
+    display:flex;align-items:center;gap:8px;
+    background:#fff;padding:8px 10px;
+    border-top:1px solid #d6d9e0;
+    flex-shrink:0;font-family:Calibri,sans-serif;
+  }
+  body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75{background:#2a2d35;border-top-color:#3a3d45;}
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav{display:flex;gap:4px;flex-shrink:0;}
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button{
+    width:36px;height:36px;border-radius:6px;
+    background:#2a3448;color:#fff;border:none;
+    font-size:14px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;padding:0;
+  }
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:hover{background:#9C2742;}
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:disabled{opacity:.4;cursor:not-allowed;}
+  .drawing-viewer-overlay #dv-bb-namepill{
+    flex:1;min-width:0;
+    background:#f5f6f8;border:1px solid #d6d9e0;border-radius:18px;
+    padding:7px 14px;display:flex;align-items:center;justify-content:center;gap:6px;
+    font-size:12px;color:#1B2438;
+  }
+  body.dark-mode .drawing-viewer-overlay #dv-bb-namepill{background:#1f222a;border-color:#3a3d45;color:#e8eaed;}
+  .drawing-viewer-overlay #dv-bb-name{
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
+  }
+  .drawing-viewer-overlay #dv-bb-rename{
+    background:none;border:none;color:#888;cursor:pointer;
+    font-size:12px;padding:0 2px;line-height:1;
+  }
+  .drawing-viewer-overlay #dv-bb-tasks{
+    background:#9C2742;color:#fff;border:none;
+    border-radius:18px;padding:7px 12px;
+    display:flex;align-items:center;gap:5px;
+    font-family:Calibri,sans-serif;font-size:12px;font-weight:500;
+    cursor:pointer;flex-shrink:0;
+  }
+  .drawing-viewer-overlay #dv-bb-tasks:hover{background:#7d1f35;}
+  .drawing-viewer-overlay #dv-bb-tasks-count{
+    background:#fff;color:#9C2742;
+    border-radius:10px;padding:0 6px;
+    font-size:11px;font-weight:600;min-width:18px;text-align:center;
+  }
+  @media(pointer:coarse){
+    .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button{width:44px;height:44px;}
+    .drawing-viewer-overlay #dv-bb-tasks{padding:10px 14px;font-size:13px;}
+    .drawing-viewer-overlay #dv-bb-namepill{padding:10px 14px;}
+  }
+}
