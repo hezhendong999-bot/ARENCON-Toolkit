@@ -2330,3 +2330,43 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   .drawing-viewer-overlay .zoom-controls button,
   .drawing-viewer-overlay #zoom-controls button{width:44px;height:44px;}
 }
+
+/* === Session 75 Push 6.1 — desktop: title to bottom, zoom to bottom-right === */
+@media (min-width: 769px){
+  /* Hide title from top toolbar on desktop */
+  .drawing-viewer-overlay .dv-toolbar .dv-title-wrap{
+    display:none !important;
+  }
+  /* Show bottom bar on desktop, but only the name pill (hide nav + tasks pill — they exist in top toolbar) */
+  .drawing-viewer-overlay #dv-bottombar-v75{
+    display:flex !important;
+    background:#1B2438 !important;
+    border-top:1px solid #2a3448 !important;
+    padding:8px 12px !important;
+    align-items:center;justify-content:center;gap:8px;
+    flex-shrink:0;font-family:Calibri,sans-serif;
+  }
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav,
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-tasks{
+    display:none !important;
+  }
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-namepill{
+    background:#2a3448 !important;
+    border:1px solid #3a4660 !important;
+    color:#fff !important;
+    max-width:600px;
+    padding:8px 18px !important;
+  }
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-name{color:#fff !important;}
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-rename{
+    color:#c8ccd4 !important;background:none;border:none;cursor:pointer;
+  }
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-rename:hover{color:#fff !important;}
+  /* Move zoom controls to BOTTOM-right of canvas area */
+  .drawing-viewer-overlay .zoom-controls,
+  .drawing-viewer-overlay #zoom-controls{
+    top:auto !important;
+    bottom:14px !important;
+    right:14px !important;
+  }
+}
