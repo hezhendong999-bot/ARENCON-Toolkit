@@ -1,15 +1,27 @@
-// FRT v2 — WebGL Markup Renderer (Phase 5: GPU render backend for markup.js)
-// Called FROM markup.js to render committed markup objects. Not a standalone
-// engine — markup.js retains all tool logic, events, undo/redo, persistence.
+// FRT v2 — WebGL Markup Renderer (Phase 5 integration)
+// ════════════════════════════════════════════════════════════════════════════
+// Pure stateless Pixi.js v7 renderer consumed by frt/js/viewer/markup.js.
+// markup.js owns all state (objects, undo/redo, hit testing, input, toolbar).
+// This module only paints a given object array onto a pre-sized WebGL canvas
+// that sits as a sibling underneath markup.js's Canvas 2D overlay.
 //
-// Exposes: window.WebGLMarkupRenderer = { init, resize, render, destroy, isSupported, hasEraser }
+// Contract (called by markup.js):
+//   window.WebGLMarkupRenderer = {
+//     isSupported(): boolean,
+//     init(canvas, {w,h,dpr}): Promise<true>,
+//     resize(w, h),
+//     hasEraser(objects): boolean,
+//     render(objects, {dpr, hlAlpha}),
+//     destroy()
+//   };
 //
 // Rules honored:
-//   - DPR-aware logical coordinates (matches markup.js _dpr convention)
-//   - lineTo only for pen/highlight (quadraticCurveTo allowed for cloud, matching 2D)
-//   - No OffscreenCanvas (iOS Safari)
-//   - Highlight: offscreen composite via RenderTexture (no opacity stacking)
-//   - Eraser: not supported in WebGL path — caller falls back to 2D if any present
+//   - DPR-aware via Pixi resolution (coords in logical CSS px on the stage)
+//   - lineTo only for pen/highlight/polyline (no quadraticCurveTo)
+//   - Cloud uses quadraticCurveTo (shape, not stroke — explicitly permitted)
+//   - No OffscreenCanvas (iOS Safari compatibility)
+//   - No opacity stacking (highlight via per-opacity-group RenderTexture composite)
+//   - Eraser bypassed entirely (markup.js falls back to 2D when any eraser present)
 //
 (function(){
   'use strict';
@@ -24,7 +36,7 @@
       var s = document.createElement('script');
       s.src = PIXI_URL;
       s.async = true;
-      s.onload = function(){ resolve(window.PIXI); };
+      s.onload  = function(){ resolve(window.PIXI); };
       s.onerror = function(){ _pixiLoading = null; reject(new Error('Pixi.js failed to load from cdnjs')); };
       document.head.appendChild(s);
     });
@@ -32,290 +44,343 @@
   }
 
   function hexToInt(hex){
-    if (typeof hex !== 'string') return 0xC0392B;
+    if (hex == null) return 0xC0392B;
+    if (typeof hex !== 'string') return hex | 0;
     if (hex.charAt(0) === '#') hex = hex.slice(1);
     if (hex.length === 3) hex = hex.split('').map(function(c){return c+c;}).join('');
     var n = parseInt(hex, 16);
     return isNaN(n) ? 0xC0392B : n;
   }
 
+  // ─── Module state ───────────────────────────────────────────────────────
+  var _app = null;
+  var _stage = null;
+  var _dpr = 1;
+  var _canvasW = 0;   // device px
+  var _canvasH = 0;   // device px
+  var _supported = null;
+
   function isSupported(){
+    if (_supported !== null) return _supported;
     try {
       var c = document.createElement('canvas');
       var gl = c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl');
-      return !!gl;
-    } catch(_){ return false; }
+      _supported = !!gl;
+    } catch(_){ _supported = false; }
+    return _supported;
   }
 
-  var WebGLMarkupRenderer = {
-    canvas: null,
-    app: null,
-    stage: null,
-    _ready: false,
-    _lastW: 0, _lastH: 0,
-
-    version: '5.2',
-    isSupported: isSupported,
-
-    // init(canvas, {w, h, dpr}) → Promise<void>
-    init: function(canvas, opts){
-      var self = this;
-      this.canvas = canvas;
-      var w = Math.max(1, (opts && opts.w) || 1);
-      var h = Math.max(1, (opts && opts.h) || 1);
-      this._lastW = w; this._lastH = h;
-
-      return loadPixi().then(function(PIXI){
-        self.app = new PIXI.Application({
-          view: canvas,
-          width: w, height: h,
-          backgroundAlpha: 0,
-          antialias: true,
-          resolution: 1,       // markup.js already bakes DPR into canvas.width
-          autoDensity: false,
-          powerPreference: 'high-performance'
-        });
-        self.stage = self.app.stage;
-        self._ready = true;
-        return true;
-      });
-    },
-
-    resize: function(w, h){
-      if (!this.app || !this.app.renderer) return;
-      w = Math.max(1, w|0); h = Math.max(1, h|0);
-      if (w === this._lastW && h === this._lastH) return;
-      this._lastW = w; this._lastH = h;
-      try { this.app.renderer.resize(w, h); } catch(_){}
-    },
-
-    // Rebuild stage from objects array. Called by markup.js _renderAll when in WebGL mode.
-    // opts: { dpr: number, hlAlpha: number (default 0.3) }
-    render: function(objects, opts){
-      if (!this._ready || !this.stage) return;
-      var PIXI = window.PIXI;
-      var dpr = (opts && opts.dpr) || 1;
-      var hlAlpha = (opts && opts.hlAlpha != null) ? opts.hlAlpha : 0.3;
-
-      this.stage.removeChildren();
-
-      // Root: scale by DPR so logical coords render into physical pixel buffer
-      // (mirrors ctx.setTransform(dpr,0,0,dpr,0,0) in the 2D path)
-      var root = new PIXI.Container();
-      root.scale.set(dpr, dpr);
-      this.stage.addChild(root);
-
-      var highlights = [];
-      var others = [];
-      for (var i = 0; i < objects.length; i++){
-        var o = objects[i];
-        if (o.type === 'highlight') highlights.push(o);
-        else others.push(o);
-      }
-
-      // Non-highlight: direct add (pen, shapes, text, polyline)
-      for (var j = 0; j < others.length; j++){
-        var node = this._makeObjectNode(others[j]);
-        if (node) root.addChild(node);
-      }
-
-      // Highlight: offscreen composite per opacity group (no alpha stacking)
-      if (highlights.length){
-        var opGroups = {};
-        for (var h = 0; h < highlights.length; h++){
-          var hobj = highlights[h];
-          var op = hobj.opacity != null ? hobj.opacity : 1;
-          var key = Math.round(op * 100);
-          if (!opGroups[key]) opGroups[key] = { opacity: op, objs: [] };
-          opGroups[key].objs.push(hobj);
-        }
-        var keys = Object.keys(opGroups);
-        for (var gi = 0; gi < keys.length; gi++){
-          var grp = opGroups[keys[gi]];
-          var container = new PIXI.Container();
-          container.scale.set(dpr, dpr);
-          for (var gj = 0; gj < grp.objs.length; gj++){
-            var hg = new PIXI.Graphics();
-            this._drawHighlight(hg, grp.objs[gj]);
-            container.addChild(hg);
-          }
-          var tex = PIXI.RenderTexture.create({
-            width: this._lastW, height: this._lastH, resolution: 1
-          });
-          this.app.renderer.render(container, { renderTexture: tex, clear: true });
-          var sprite = new PIXI.Sprite(tex);
-          sprite.alpha = hlAlpha * grp.opacity;
-          this.stage.addChild(sprite);  // already at physical res — added to stage, not root
-          container.destroy({ children: true });
-        }
-      }
-    },
-
-    _drawHighlight: function(g, obj){
-      if (!obj.points || obj.points.length < 2) return;
-      g.lineStyle({
-        width: (obj.size || 2) * 4,
-        color: hexToInt(obj.color || '#F1C40F'),
-        alpha: 1, cap: 'round', join: 'round'
-      });
-      g.moveTo(obj.points[0].x, obj.points[0].y);
-      for (var i = 1; i < obj.points.length; i++){
-        g.lineTo(obj.points[i].x, obj.points[i].y);
-      }
-    },
-
-    _makeObjectNode: function(obj){
-      var PIXI = window.PIXI;
-      var t = obj.type;
-      var color = hexToInt(obj.color || '#C0392B');
-      var size = obj.size || 2;
-      var alpha = obj.opacity != null ? obj.opacity : 1;
-
-      // Pen / polyline — freehand strokes
-      if (t === 'pen' || t === 'polyline'){
-        if (!obj.points || obj.points.length < 2) return null;
-        var pg = new PIXI.Graphics();
-        pg.alpha = alpha;
-        pg.lineStyle({ width: size, color: color, alpha: 1, cap: 'round', join: 'round' });
-        pg.moveTo(obj.points[0].x, obj.points[0].y);
-        for (var i = 1; i < obj.points.length; i++){
-          pg.lineTo(obj.points[i].x, obj.points[i].y);
-        }
-        return pg;
-      }
-
-      // Eraser — unsupported in WebGL path
-      if (t === 'eraser') return null;
-
-      // Text
-      if (t === 'text'){
-        var fs = obj.fontSize || 20;
-        var style = new PIXI.TextStyle({
-          fontFamily: 'Calibri, sans-serif',
-          fontSize: fs,
-          fontWeight: obj.bold ? '700' : '400',
-          fill: color
-        });
-        var tx = new PIXI.Text(obj.text || '', style);
-        tx.alpha = alpha;
-        // 2D draws with baseline at y1 (so text extends UP). Pixi anchors top-left.
-        tx.x = obj.x1;
-        tx.y = (obj.y1 || 0) - fs;
-        if (obj.rotation){
-          tx.pivot.set(0, fs / 2);
-          tx.position.set(obj.x1, (obj.y1 || 0) - fs / 2);
-          tx.rotation = obj.rotation;
-        }
-        return tx;
-      }
-
-      // Shapes
-      var x1 = obj.x1, y1 = obj.y1, x2 = obj.x2, y2 = obj.y2;
-      if (x1 == null || y1 == null || x2 == null || y2 == null) return null;
-
-      var sg = new PIXI.Graphics();
-      sg.alpha = alpha;
-
-      if (t === 'rect'){
-        sg.lineStyle({ width: size, color: color, alpha: 1, cap: 'round', join: 'round' });
-        sg.drawRect(Math.min(x1,x2), Math.min(y1,y2), Math.abs(x2-x1), Math.abs(y2-y1));
-      }
-      else if (t === 'fillrect'){
-        sg.beginFill(color, 1);
-        sg.drawRect(Math.min(x1,x2), Math.min(y1,y2), Math.abs(x2-x1), Math.abs(y2-y1));
-        sg.endFill();
-      }
-      else if (t === 'circle'){
-        var rx = Math.abs(x2-x1)/2, ry = Math.abs(y2-y1)/2;
-        sg.lineStyle({ width: size, color: color, alpha: 1, cap: 'round', join: 'round' });
-        sg.drawEllipse((x1+x2)/2, (y1+y2)/2, rx, ry);
-      }
-      else if (t === 'fillcircle'){
-        var rx2 = Math.abs(x2-x1)/2, ry2 = Math.abs(y2-y1)/2;
-        sg.beginFill(color, 1);
-        sg.drawEllipse((x1+x2)/2, (y1+y2)/2, rx2, ry2);
-        sg.endFill();
-      }
-      else if (t === 'line'){
-        sg.lineStyle({ width: size, color: color, alpha: 1, cap: 'round', join: 'round' });
-        sg.moveTo(x1, y1); sg.lineTo(x2, y2);
-      }
-      else if (t === 'arrow'){
-        sg.lineStyle({ width: size, color: color, alpha: 1, cap: 'round', join: 'round' });
-        sg.moveTo(x1, y1); sg.lineTo(x2, y2);
-        var a = Math.atan2(y2 - y1, x2 - x1), hl = 15 + size * 2;
-        sg.moveTo(x2, y2);
-        sg.lineTo(x2 - hl * Math.cos(a - Math.PI/6), y2 - hl * Math.sin(a - Math.PI/6));
-        sg.moveTo(x2, y2);
-        sg.lineTo(x2 - hl * Math.cos(a + Math.PI/6), y2 - hl * Math.sin(a + Math.PI/6));
-      }
-      else if (t === 'triangle'){
-        sg.lineStyle({ width: size, color: color, alpha: 1, cap: 'round', join: 'round' });
-        var mx = x1 + (x2-x1)/2;
-        sg.moveTo(mx, y1); sg.lineTo(x2, y2); sg.lineTo(x1, y2); sg.lineTo(mx, y1);
-      }
-      else if (t === 'filltriangle'){
-        sg.beginFill(color, 1);
-        var mx2 = x1 + (x2-x1)/2;
-        sg.moveTo(mx2, y1); sg.lineTo(x2, y2); sg.lineTo(x1, y2); sg.lineTo(mx2, y1);
-        sg.endFill();
-      }
-      else if (t === 'cloud'){
-        this._drawCloud(sg, x1, y1, x2, y2, size, color);
-      }
-      else {
-        return null;
-      }
-
-      // Rotation around shape center — matches 2D translate/rotate/translate
-      if (obj.rotation){
-        var cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
-        sg.pivot.set(cx, cy);
-        sg.position.set(cx, cy);
-        sg.rotation = obj.rotation;
-      }
-
-      return sg;
-    },
-
-    _drawCloud: function(g, x1, y1, x2, y2, size, color){
-      var w = x2 - x1, h = y2 - y1;
-      var cx = x1 + w/2, cy = y1 + h/2;
-      var rx = Math.abs(w)/2, ry = Math.abs(h)/2;
-      if (rx < 5 || ry < 5) return;
-      g.lineStyle({ width: size, color: color, alpha: 1, cap: 'round', join: 'round' });
-      var bumps = Math.max(8, Math.floor((rx + ry) / 10));
-      for (var i = 0; i < bumps; i++){
-        var a1 = i * 2 * Math.PI / bumps;
-        var a2 = (i + 1) * 2 * Math.PI / bumps;
-        var ma = (a1 + a2) / 2;
-        var px1 = cx + rx * Math.cos(a1), py1 = cy + ry * Math.sin(a1);
-        var px2 = cx + rx * Math.cos(a2), py2 = cy + ry * Math.sin(a2);
-        var cpx = cx + (rx + 12) * Math.cos(ma), cpy = cy + (ry + 12) * Math.sin(ma);
-        if (i === 0) g.moveTo(px1, py1);
-        g.quadraticCurveTo(cpx, cpy, px2, py2);
-      }
-    },
-
-    // True if any eraser strokes present — caller falls back to 2D render
-    hasEraser: function(objects){
-      if (!objects) return false;
-      for (var i = 0; i < objects.length; i++){
-        if (objects[i].type === 'eraser') return true;
-      }
-      return false;
-    },
-
-    destroy: function(){
-      if (this.app){
-        try { this.app.destroy(false, { children: true, texture: true, baseTexture: true }); } catch(_){}
-      }
-      this.app = null;
-      this.stage = null;
-      this.canvas = null;
-      this._ready = false;
+  function hasEraser(objects){
+    if (!objects) return false;
+    for (var i = 0; i < objects.length; i++){
+      if (objects[i] && objects[i].type === 'eraser') return true;
     }
-  };
+    return false;
+  }
 
-  window.WebGLMarkupRenderer = WebGLMarkupRenderer;
+  function init(canvas, opts){
+    opts = opts || {};
+    return loadPixi().then(function(PIXI){
+      _dpr = opts.dpr || 1;
+      _canvasW = opts.w || canvas.width;
+      _canvasH = opts.h || canvas.height;
+      var logicalW = Math.max(1, _canvasW / _dpr);
+      var logicalH = Math.max(1, _canvasH / _dpr);
+
+      if (_app){ try { _app.destroy(false); } catch(_){} _app = null; _stage = null; }
+
+      _app = new PIXI.Application({
+        view: canvas,
+        width: logicalW,
+        height: logicalH,
+        resolution: _dpr,
+        autoDensity: false,        // markup.js controls canvas sizing directly
+        backgroundAlpha: 0,
+        antialias: true,
+        autoStart: false,          // render only when markup.js calls render()
+        powerPreference: 'high-performance'
+      });
+      _stage = _app.stage;
+      return true;
+    });
+  }
+
+  function resize(w, h){
+    if (!_app) return;
+    _canvasW = w; _canvasH = h;
+    var logicalW = Math.max(1, w / _dpr);
+    var logicalH = Math.max(1, h / _dpr);
+    try { _app.renderer.resize(logicalW, logicalH); } catch(_){}
+  }
+
+  function destroy(){
+    if (_app){
+      try { _app.destroy(false, { children: true, texture: true, baseTexture: true }); } catch(_){}
+      _app = null; _stage = null;
+    }
+    _canvasW = 0; _canvasH = 0;
+  }
+
+  // ─── Stage wipe (with RenderTexture cleanup) ────────────────────────────
+  function _wipeStage(){
+    if (!_stage) return;
+    while (_stage.children.length){
+      var ch = _stage.children[0];
+      _stage.removeChild(ch);
+      if (ch._rtToDestroy){
+        try { ch._rtToDestroy.destroy(true); } catch(_){}
+      }
+      try { if (ch.destroy) ch.destroy({ children: true, texture: false, baseTexture: false }); } catch(_){}
+    }
+  }
+
+  // ─── Main render ────────────────────────────────────────────────────────
+  function render(objects, opts){
+    if (!_app || !_stage) return;
+    var PIXI = window.PIXI;
+    if (!PIXI) return;
+    opts = opts || {};
+    var hlAlpha = opts.hlAlpha != null ? opts.hlAlpha : 0.3;
+
+    _wipeStage();
+
+    if (!objects || !objects.length){
+      _app.renderer.render(_stage);
+      return;
+    }
+
+    // Partition like Canvas 2D pipeline in markup.js _renderAll
+    var highlights = [];
+    for (var i = 0; i < objects.length; i++){
+      var o = objects[i];
+      if (!o || !o.type) continue;
+      if (o.type === 'eraser') continue;    // markup.js bypasses WebGL when any eraser present
+      if (o.type === 'highlight'){ highlights.push(o); continue; }
+      var d = _buildObject(PIXI, o);
+      if (d) _stage.addChild(d);
+    }
+
+    if (highlights.length){
+      _drawHighlights(PIXI, highlights, hlAlpha);
+    }
+
+    _app.renderer.render(_stage);
+  }
+
+  // ─── Per-object builders ────────────────────────────────────────────────
+
+  function _buildObject(PIXI, obj){
+    var t = obj.type;
+    if (t === 'pen' || t === 'polyline') return _buildStroke(PIXI, obj);
+    if (t === 'text')                    return _buildText(PIXI, obj);
+    return _buildShape(PIXI, obj);
+  }
+
+  function _buildStroke(PIXI, obj){
+    if (!obj.points || obj.points.length < 2) return null;
+    var g = new PIXI.Graphics();
+    g.lineStyle({
+      width: obj.size || 2,
+      color: hexToInt(obj.color || '#C0392B'),
+      alpha: obj.opacity != null ? obj.opacity : 1,
+      cap: 'round',
+      join: 'round'
+    });
+    g.moveTo(obj.points[0].x, obj.points[0].y);
+    for (var i = 1; i < obj.points.length; i++){
+      g.lineTo(obj.points[i].x, obj.points[i].y);   // lineTo only — hard rule
+    }
+    return g;
+  }
+
+  function _buildShape(PIXI, obj){
+    var t = obj.type;
+    var x1 = obj.x1, y1 = obj.y1, x2 = obj.x2, y2 = obj.y2;
+    if (x1 == null || y1 == null || x2 == null || y2 == null) return null;
+
+    var g = new PIXI.Graphics();
+    var col = hexToInt(obj.color || '#C0392B');
+    var alpha = obj.opacity != null ? obj.opacity : 1;
+    var size = obj.size || 2;
+    var line = { width: size, color: col, alpha: alpha, cap: 'round', join: 'round' };
+
+    if (t === 'rect'){
+      g.lineStyle(line);
+      g.drawRect(x1, y1, x2 - x1, y2 - y1);
+    }
+    else if (t === 'fillrect'){
+      g.beginFill(col, alpha);
+      g.drawRect(x1, y1, x2 - x1, y2 - y1);
+      g.endFill();
+    }
+    else if (t === 'circle'){
+      var rx = Math.abs(x2 - x1) / 2, ry = Math.abs(y2 - y1) / 2;
+      g.lineStyle(line);
+      g.drawEllipse(x1 + (x2 - x1) / 2, y1 + (y2 - y1) / 2, rx, ry);
+    }
+    else if (t === 'fillcircle'){
+      var rxf = Math.abs(x2 - x1) / 2, ryf = Math.abs(y2 - y1) / 2;
+      g.beginFill(col, alpha);
+      g.drawEllipse(x1 + (x2 - x1) / 2, y1 + (y2 - y1) / 2, rxf, ryf);
+      g.endFill();
+    }
+    else if (t === 'line'){
+      g.lineStyle(line);
+      g.moveTo(x1, y1); g.lineTo(x2, y2);
+    }
+    else if (t === 'arrow'){
+      g.lineStyle(line);
+      g.moveTo(x1, y1); g.lineTo(x2, y2);
+      var a = Math.atan2(y2 - y1, x2 - x1), hl = 15 + size * 2;
+      g.moveTo(x2, y2);
+      g.lineTo(x2 - hl * Math.cos(a - Math.PI / 6), y2 - hl * Math.sin(a - Math.PI / 6));
+      g.moveTo(x2, y2);
+      g.lineTo(x2 - hl * Math.cos(a + Math.PI / 6), y2 - hl * Math.sin(a + Math.PI / 6));
+    }
+    else if (t === 'triangle'){
+      g.lineStyle(line);
+      g.moveTo(x1 + (x2 - x1) / 2, y1);
+      g.lineTo(x2, y2);
+      g.lineTo(x1, y2);
+      g.closePath();
+    }
+    else if (t === 'filltriangle'){
+      g.beginFill(col, alpha);
+      g.moveTo(x1 + (x2 - x1) / 2, y1);
+      g.lineTo(x2, y2);
+      g.lineTo(x1, y2);
+      g.closePath();
+      g.endFill();
+    }
+    else if (t === 'cloud'){
+      _buildCloud(g, line, x1, y1, x2, y2);
+    }
+    else {
+      g.destroy();
+      return null;
+    }
+
+    if (obj.rotation){
+      _applyRotation(g, (x1 + x2) / 2, (y1 + y2) / 2, obj.rotation);
+    }
+    return g;
+  }
+
+  function _buildCloud(g, line, x1, y1, x2, y2){
+    var w = x2 - x1, h = y2 - y1;
+    var cx = x1 + w / 2, cy = y1 + h / 2;
+    var rx = Math.abs(w) / 2, ry = Math.abs(h) / 2;
+    if (rx < 5 || ry < 5) return;
+    g.lineStyle(line);
+    var bumps = Math.max(8, Math.floor((rx + ry) / 10));
+    for (var i = 0; i < bumps; i++){
+      var a  = i * 2 * Math.PI / bumps;
+      var na = (i + 1) * 2 * Math.PI / bumps;
+      var ma = (a + na) / 2;
+      var px1 = cx + rx * Math.cos(a),  py1 = cy + ry * Math.sin(a);
+      var px2 = cx + rx * Math.cos(na), py2 = cy + ry * Math.sin(na);
+      var cpx = cx + (rx + 12) * Math.cos(ma), cpy = cy + (ry + 12) * Math.sin(ma);
+      if (i === 0) g.moveTo(px1, py1);
+      g.quadraticCurveTo(cpx, cpy, px2, py2);
+    }
+  }
+
+  function _buildText(PIXI, obj){
+    if (obj.text == null || obj.text === '') return null;
+    var fs = obj.fontSize || 20;
+    var style = new PIXI.TextStyle({
+      fontFamily: 'Calibri, sans-serif',
+      fontSize: fs,
+      fontWeight: obj.bold ? '700' : '400',
+      fill: obj.color || '#C0392B',
+      padding: 2
+    });
+    var t = new PIXI.Text(obj.text, style);
+    t.resolution = Math.max(1, _dpr);      // sharp text at device pixel density
+    t.alpha = obj.opacity != null ? obj.opacity : 1;
+    // Canvas 2D uses fillText with alphabetic baseline at y1.
+    // Pixi Text anchors top-left; approx baseline ≈ top + fontSize * 0.8.
+    t.x = obj.x1;
+    t.y = obj.y1 - fs * 0.8;
+    if (obj.rotation){
+      // markup.js _drawObject rotates text around (x1, y1 - fontSize/2)
+      var rcx = obj.x1, rcy = obj.y1 - fs / 2;
+      _applyRotation(t, rcx, rcy, obj.rotation);
+    }
+    return t;
+  }
+
+  // Rotate a DisplayObject around world-space point (cx, cy)
+  function _applyRotation(d, cx, cy, rad){
+    d.position.set(cx, cy);
+    d.pivot.set(cx, cy);
+    d.rotation = rad;
+  }
+
+  // ─── Highlight compositing (non-stacking, per opacity group) ────────────
+  function _drawHighlights(PIXI, highlights, hlAlpha){
+    // Group by rounded opacity key — same as markup.js Canvas 2D path
+    var opGroups = {};
+    for (var i = 0; i < highlights.length; i++){
+      var o = highlights[i];
+      var op = o.opacity != null ? o.opacity : 1;
+      var key = String(Math.round(op * 100));
+      if (!opGroups[key]) opGroups[key] = { opacity: op, objs: [] };
+      opGroups[key].objs.push(o);
+    }
+
+    var logicalW = Math.max(1, _canvasW / _dpr);
+    var logicalH = Math.max(1, _canvasH / _dpr);
+    var keys = Object.keys(opGroups);
+
+    for (var k = 0; k < keys.length; k++){
+      var grp = opGroups[keys[k]];
+
+      // Container with all strokes at full alpha
+      var container = new PIXI.Container();
+      for (var j = 0; j < grp.objs.length; j++){
+        var obj = grp.objs[j];
+        if (!obj.points || obj.points.length < 2) continue;
+        var g = new PIXI.Graphics();
+        g.lineStyle({
+          width: (obj.size || 2) * 4,
+          color: hexToInt(obj.color || '#F1C40F'),
+          alpha: 1,
+          cap: 'round',
+          join: 'round'
+        });
+        g.moveTo(obj.points[0].x, obj.points[0].y);
+        for (var p = 1; p < obj.points.length; p++){
+          g.lineTo(obj.points[p].x, obj.points[p].y);  // lineTo only
+        }
+        container.addChild(g);
+      }
+
+      // Render to RenderTexture at full alpha
+      var rt = PIXI.RenderTexture.create({
+        width: logicalW,
+        height: logicalH,
+        resolution: _dpr
+      });
+      _app.renderer.render(container, { renderTexture: rt, clear: true });
+      try { container.destroy({ children: true }); } catch(_){}
+
+      // Composite as a Sprite at (hlAlpha × groupOpacity) — matches Canvas 2D
+      var spr = new PIXI.Sprite(rt);
+      spr.alpha = hlAlpha * grp.opacity;
+      spr._rtToDestroy = rt;    // cleanup on next _wipeStage()
+      _stage.addChild(spr);
+    }
+  }
+
+  // ─── Public API ─────────────────────────────────────────────────────────
+  window.WebGLMarkupRenderer = {
+    isSupported: isSupported,
+    init:        init,
+    resize:      resize,
+    hasEraser:   hasEraser,
+    render:      render,
+    destroy:     destroy,
+    version:     '5.1'
+  };
 })();
