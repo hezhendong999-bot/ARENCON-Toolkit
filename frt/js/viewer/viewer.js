@@ -14,22 +14,17 @@ import { TiledPdf } from './tiledPdf.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm } from '../shared/dialogs.js';
 
-// ── WebGL pins (Phase 5 polish) ──────────────────────────
-// S81: DEFAULT OFF. Two Pixi WebGL contexts (markup + pins) collide — pins
-// render as solid black (INVALID_OPERATION: useProgram/bindTexture "object does
-// not belong to this context" in console). Opt-in only via ?webgl-pins=1 until
-// pinsGL.js is rewritten as Canvas 2D (Option B) or shares the markup renderer.
-//   ?webgl-pins=1 → opt-in WebGL pins
-//   ?webgl-pins=0 → force HTML (same as default)
+// ── WebGL pins (Phase 5 polish → S81 Option B: now Canvas 2D) ────────────
+// Name kept for API compatibility; pinsGL.js is Canvas 2D as of v2.0.
+//   ?webgl-pins=0 → force HTML fallback (legacy path)
+//   default       → Canvas 2D pins (fixed screen size, no GL context)
 var _useGLPins = (function(){
   try {
     if (window.location && window.location.search){
-      if (window.location.search.indexOf('webgl-pins=1') >= 0) {
-        // Opt-in only if WebGL supported
-        return !!(window.PinsGL && window.PinsGL.isSupported && window.PinsGL.isSupported());
-      }
+      if (window.location.search.indexOf('webgl-pins=0') >= 0) return false;
     }
-    return false; // S81: default OFF due to Pixi dual-context GL collision
+    if (localStorage.getItem('ARENCON_NoWebGLPins') === '1') return false;
+    return !!(window.PinsGL && window.PinsGL.isSupported && window.PinsGL.isSupported());
   } catch(_){ return false; }
 })();
 var _glPinsReady = false;

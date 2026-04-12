@@ -255,8 +255,16 @@ function _renderAll() {
   // Delegate committed-object render to Pixi when available and no eraser strokes.
   // Eraser uses destination-out composite which isn't supported in the WebGL path,
   // so we fall back to full 2D when any eraser is present.
+  // S81: comment was stale — now actually enforced. When any object has an
+  // eraserMask, render via 2D path where destination-out reliably cuts pixels.
+  var _hasEraserMasks = false;
+  for (var _mi = 0; _mi < _objects.length; _mi++){
+    if (_objects[_mi] && _objects[_mi].eraserMask && _objects[_mi].eraserMask.length){
+      _hasEraserMasks = true; break;
+    }
+  }
   var useWebGLNow = _useWebGL && _webglReady && _webglCanvas &&
-    window.WebGLMarkupRenderer;
+    window.WebGLMarkupRenderer && !_hasEraserMasks;
 
   if (useWebGLNow){
     try {
@@ -679,9 +687,22 @@ function _applyEraser(eraserPts, lineWidth) {
       var frags = _splitStrokeByEraser(obj, eraserPts, eraserR2);
       for (var j = 0; j < frags.length; j++) next.push(frags[j]);
     }
-    else if (obj.type === 'highlight' || obj.type === 'polyline') {
-      // Mask: carve the eraser's exact path from the thick stroke
-      if (_strokeHitByEraser(obj, eraserPts, eraserR2)) {
+    else if (obj.type === 'highlight') {
+      // Highlight renders at (size||2)*4 wide. Spine hit-test must be inflated
+      // by the visible half-width, otherwise eraser passing through the visible
+      // blob edge doesn't register (S81 bug — eraser ignored on highlighter).
+      var hlHalfW = ((obj.size || 2) * 4) / 2;
+      var hlR = eraserR + hlHalfW;
+      if (_strokeHitByEraser(obj, eraserPts, hlR * hlR)) {
+        _pushMask(obj, eraserPts, lineWidth);
+      }
+      next.push(obj);
+    }
+    else if (obj.type === 'polyline') {
+      // Polyline renders at obj.size (thinner than highlight) — inflate by half-width too
+      var plHalfW = ((obj.size || 2)) / 2;
+      var plR = eraserR + plHalfW;
+      if (_strokeHitByEraser(obj, eraserPts, plR * plR)) {
         _pushMask(obj, eraserPts, lineWidth);
       }
       next.push(obj);
