@@ -2792,3 +2792,57 @@ body.dark-mode #reports-mode-menu button:hover{background:#2a3448;}
   .drawing-viewer-overlay .dv-toolbar{padding-left:14px !important;}
   .drawing-viewer-overlay .dv-toolbar #dv-close{padding-left:0 !important;padding-right:14px !important;margin-left:0 !important;}
 }
+
+/* ── S78: v1-style compact dropdown popups for toolbar Filters/Actions ── */
+#dwg-actions-pop, #dwg-filter-pop, #photo-actions-pop, #photo-filter-pop, #defic-filters-pop {
+  min-width: 180px !important;
+  max-width: 220px !important;
+  width: auto !important;
+  padding: 4px 0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35) !important;
+}
+#dwg-actions-pop button, #dwg-filter-pop button, #photo-actions-pop button, #photo-filter-pop button, #defic-filters-pop button {
+  display: block !important;
+  width: 100% !important;
+  text-align: left !important;
+  padding: 7px 14px !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  font-family: Calibri, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 1.3 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+}
+#dwg-actions-pop button:hover, #dwg-filter-pop button:hover, #photo-actions-pop button:hover, #photo-filter-pop button:hover, #defic-filters-pop button:hover {
+  background: rgba(156, 39, 66, 0.12) !important;
+}
+#dwg-actions-pop .separator, #dwg-filter-pop .separator, #photo-actions-pop .separator, #photo-filter-pop .separator, #defic-filters-pop .separator {
+  height: 1px !important;
+  background: var(--border) !important;
+  margin: 4px 0 !important;
+}
+body.dark-mode #dwg-actions-pop, body.dark-mode #dwg-filter-pop, body.dark-mode #photo-actions-pop, body.dark-mode #photo-filter-pop, body.dark-mode #defic-filters-pop {
+  background: #2a3040 !important;
+  border: 1.5px solid #4a5570 !important;
+}
+body.dark-mode #dwg-actions-pop button, body.dark-mode #dwg-filter-pop button, body.dark-mode #photo-actions-pop button, body.dark-mode #photo-filter-pop button, body.dark-mode #defic-filters-pop button {
+  color: #d0d8f0 !important;
+  background: transparent !important;
+}
+body.dark-mode #dwg-actions-pop button:hover, body.dark-mode #dwg-filter-pop button:hover, body.dark-mode #photo-actions-pop button:hover, body.dark-mode #photo-filter-pop button:hover, body.dark-mode #defic-filters-pop button:hover {
+  background: rgba(156, 39, 66, 0.25) !important;
+}
+#dwg-actions-pop button.danger, #photo-actions-pop button.danger {
+  color: #C0392B !important;
+}
+body.dark-mode #dwg-actions-pop button.danger, body.dark-mode #photo-actions-pop button.danger {
+  color: #e88a7a !important;
+}
