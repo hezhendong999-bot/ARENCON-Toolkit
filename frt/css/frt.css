@@ -2173,6 +2173,14 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   }
   .drawing-viewer-overlay .tool-submenu.open *,
   .drawing-viewer-overlay .color-submenu.open *{visibility:visible !important;}
+  /* S79 fix 2: sidebar parent has visibility:hidden — force it visible ONLY while an open submenu exists inside it (CSS :has) */
+  .drawing-viewer-overlay .dv-sidebar-tools:has(.tool-submenu.open),
+  .drawing-viewer-overlay .dv-sidebar-tools:has(.color-submenu.open){visibility:visible !important;}
+  .drawing-viewer-overlay .dv-sidebar-tools:has(.tool-submenu.open) .tool-group,
+  .drawing-viewer-overlay .dv-sidebar-tools:has(.color-submenu.open) .tool-group{visibility:visible !important;}
+  /* S79 fix 3: the duplicate bottom bar (drawing title + rename + nav + tasks) is now redundant —
+     top bar has all of that. Hide it on mobile. */
+  .drawing-viewer-overlay #dv-bottombar-v75{display:none !important;}
   .drawing-viewer-overlay .tool-submenu .sub-tool-btn,
   .drawing-viewer-overlay .color-submenu .dv-color-dot{
     width:44px !important; height:44px !important;
