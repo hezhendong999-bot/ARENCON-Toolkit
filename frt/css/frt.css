@@ -2795,6 +2795,9 @@ body.dark-mode #reports-mode-menu button:hover{background:#2a3448;}
 
 /* ── S78: v1-exact compact dropdown popups for toolbar Filters/Actions ── */
 #dwg-actions-pop, #dwg-filter-pop, #photo-actions-pop, #photo-filter-pop, #defic-filters-pop {
+  position: fixed !important;
+  bottom: auto !important;
+  right: auto !important;
   min-width: 160px !important;
   max-width: 200px !important;
   width: auto !important;
