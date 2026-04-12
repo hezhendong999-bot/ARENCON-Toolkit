@@ -2136,7 +2136,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   /* Back button + nav arrows slightly bigger too */
   /* S79: make viewer Back button IDENTICAL to main FRT .back-btn (position + size + font).
      Properties mirror .back-btn (CSS line 175) and its pointer:coarse override. */
-  .drawing-viewer-overlay .dv-toolbar{padding-left:10px !important;}
+  .drawing-viewer-overlay .dv-toolbar{padding-left:12px !important;}
   .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
     background:transparent !important;
     border:1px solid transparent !important;

@@ -183,7 +183,7 @@ export var initDrawings = {
       html += '<div class="dwg-folder-hdr" data-action="toggle-folder" data-folder="' + esc(fn) + '" style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--smoke);cursor:pointer;user-select:none;">';
       html += '<input type="checkbox" class="folder-checkbox" data-folder-name="' + esc(fn) + '" title="Select all in folder">';
       html += '<span style="font-size:12px;width:14px;">' + (isFolded ? '\u25B6' : '\u25BC') + '</span>';
-      html += '\uD83D\uDCC1 <strong style="font-size:calc(14px + var(--ts));color:var(--steel);">' + esc(fn) + '</strong>';
+      html += '\uD83D\uDCC1 <strong style="font-size:calc(13px + var(--ts));color:var(--steel);">' + esc(fn) + '</strong>';
       html += ' <span style="font-weight:400;color:var(--silver);font-size:calc(12px + var(--ts));">(' + items.length + ' plans)</span>';
       html += '<button data-action="rename-folder" data-folder="' + esc(fn) + '" style="border:none;background:none;cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 4px;color:var(--silver);margin-left:auto;" title="Rename folder">\u270F\uFE0F</button>';
       html += '</div>';
