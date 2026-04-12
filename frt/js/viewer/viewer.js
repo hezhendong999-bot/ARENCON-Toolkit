@@ -137,6 +137,11 @@ function _setCanvasCursor(cur){
   if (!host) return;
   if (cur) host.style.cursor = cur;
   else host.style.removeProperty('cursor');
+  // S81 Bug #4: mirror cursor intent as data attribute so CSS can override child
+  // elements (#markup-canvas, #markup-webgl-canvas) that have their own cursor:
+  // rules and pointer-events:auto. Inline style on parent doesn't reach children.
+  if (cur === 'pointer') host.setAttribute('data-pin-hover', '1');
+  else host.removeAttribute('data-pin-hover');
 }
 
 function _updatePinHover(clientX, clientY){
@@ -1491,12 +1496,26 @@ document.addEventListener('mousedown', function(e) {
   // HTML path: grab DOM marker reference for CSS styling
   var marker = _useGLPins ? null : document.querySelector('.pin-marker[data-defic-id="' + deficId + '"]');
 
+  // S81 Bug #3: pin hit detected — always block markup.js from starting a stroke
+  // (regardless of active tool). Capture phase + stopPropagation stops the
+  // bubble-phase listener on #markup-canvas from firing.
+  e.preventDefault();
+  e.stopPropagation();
+
   // Selector tool: start drag after small movement threshold (not instant)
   if (Markup.getTool() === 'select') {
     _pinMouseDragDeficId = deficId;
     _pinMouseDragMarker = marker;
-    e.preventDefault();
-    e.stopPropagation();     // block markup.js rubberband from starting on this pin
+    return;
+  }
+
+  // Any other markup tool (pen/rect/arrow/text/eraser/highlight/polyline):
+  // treat pin hit like select — 4px drag threshold, click-without-drag opens editor.
+  // (Previously this only worked in pan mode via long-press and fell through to
+  // markup.js which began drawing. S81 Bug #3.)
+  if (Markup.getTool() && Markup.getTool() !== 'pan') {
+    _pinMouseDragDeficId = deficId;
+    _pinMouseDragMarker = marker;
     return;
   }
 
@@ -1595,6 +1614,8 @@ document.addEventListener('mouseup', function(e) {
   _pinMouseDragDeficId = null;
   _pinMouseDragMarker = null;
   _pinDragEndTime = Date.now();
+  _lastActiveId = null;   // S81 Bug #2: clear active state so pin re-renders in idle color (touchend parity)
+  _hideTooltip();         // S81 Bug #2: hide tooltip after drag release (touchend parity)
   _renderPins();
 });
 

@@ -285,6 +285,9 @@
     for (var i = 0; i < _pins.length; i++){
       var pin = _pins[i];
       if (pin.pinX == null || pin.pinY == null) continue;
+      // S81 Bug #1 guard: skip pins with non-finite (NaN/Infinity) coords —
+      // those project to (0,0) and render as a black shadow ghost at top-left.
+      if (!isFinite(pin.pinX) || !isFinite(pin.pinY)) continue;
 
       var sx = imgRect.left + pin.pinX * imgRect.width;
       var sy = imgRect.top  + pin.pinY * imgRect.height;
