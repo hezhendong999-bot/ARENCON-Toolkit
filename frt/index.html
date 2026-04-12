@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=177">
+<link rel="stylesheet" href="css/frt.css?v=178">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -864,7 +864,13 @@ function ensurePdfJs(cb){
       }
     });
     /* Push 3: tool row proxies — S79 fix: stopPropagation so the close-on-outside
-       handler in viewer.js doesn't fire after opening the submenu. */
+       handler in viewer.js doesn't fire after opening the submenu.
+       Also repositions the submenu to appear near the clicked mobile button. */
+    var _mkTargetToSub={
+      'mk-pen-btn':'pen-submenu',
+      'mk-shapes-btn':'shapes-submenu',
+      'mk-color-btn':'color-submenu'
+    };
     document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn').forEach(function(b){
       if(b.dataset.wired)return;b.dataset.wired='1';
       b.addEventListener('click',function(e){
@@ -872,11 +878,38 @@ function ensurePdfJs(cb){
         e.stopPropagation();
         var t=document.getElementById(b.dataset.mkTarget);
         if(t)t.click();
+        // Reposition submenu near the clicked mobile button (not bottom sheet, not off-screen PC position)
+        var subId=_mkTargetToSub[b.dataset.mkTarget];
+        if(subId){
+          setTimeout(function(){
+            var sub=document.getElementById(subId);
+            if(!sub)return;
+            // Only reposition if open
+            if(!sub.classList.contains('open'))return;
+            var rect=b.getBoundingClientRect();
+            var vw=window.innerWidth;
+            // Measure submenu to center it on the button when possible
+            var subW=sub.offsetWidth||260;
+            var left=Math.max(8, Math.min(vw-subW-8, rect.left+(rect.width-subW)/2));
+            // Place ABOVE the button (toolrow is near top of viewport, submenu would go off-screen below)
+            // But if there's not enough room above, place below.
+            var top;
+            if(rect.top > 180){
+              top=rect.top-(sub.offsetHeight||60)-8;
+            } else {
+              top=rect.bottom+8;
+            }
+            sub.style.setProperty('position','fixed','important');
+            sub.style.setProperty('top',top+'px','important');
+            sub.style.setProperty('left',left+'px','important');
+            sub.style.setProperty('right','auto','important');
+            sub.style.setProperty('bottom','auto','important');
+            sub.style.setProperty('width','auto','important');
+            sub.style.setProperty('max-width',(vw-16)+'px','important');
+          },0);
+        }
       });
-      /* Also handle touchend to suppress the synthesized click-propagation on touch devices */
-      b.addEventListener('touchend',function(e){
-        e.stopPropagation();
-      });
+      b.addEventListener('touchend',function(e){e.stopPropagation();});
     });
     /* Push 3: active-state mirror via MutationObserver on legacy tool buttons */
     var legacyMap={'mk-pin':0,'mk-select':0,'mk-pen-btn':0,'mk-shapes-btn':0,'mk-text':0,'mk-eraser':0};
