@@ -1300,19 +1300,19 @@ function _toggleDeficSelectMode() {
     if (!bar) {
       bar = document.createElement('div');
       bar.id = 'defic-bulk-action-bar';
-      bar.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;background:rgba(156,39,66,0.08);border:1.5px solid var(--arencon,#9C2742);border-radius:8px;margin:8px 0;';
+      bar.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 14px;background:var(--smoke,rgba(156,39,66,0.04));border:1px solid rgba(156,39,66,0.35);border-radius:8px;margin:8px 14px;';
       bar.innerHTML =
-        '<span id="defic-bulk-count" style="font-weight:700;color:var(--arencon,#9C2742);font-size:13px;">0 selected</span>'
-        + '<button class="btn btn-sm" data-defic-bulk="close" style="background:#1A7A4A;color:white;border:none;">\u2713 Close Selected</button>'
-        + '<button class="btn btn-sm" data-defic-bulk="reopen" style="background:#C0392B;color:white;border:none;">\u25CF Reopen Selected</button>'
-        + '<button class="btn btn-sm" data-defic-bulk="iar-on" style="background:#FF69B4;color:white;border:none;">\u26A1 Set IAR</button>'
-        + '<button class="btn btn-sm" data-defic-bulk="iar-off" style="background:#888;color:white;border:none;">Clear IAR</button>'
+        '<span id="defic-bulk-count" style="font-weight:700;color:var(--arencon,#9C2742);font-size:12px;padding:0 4px;">0 selected</span>'
+        + '<button class="btn btn-sm" data-defic-bulk="close" style="background:#1A7A4A;color:white;border:none;padding:4px 10px;font-size:12px;">\u2713 Close Selected</button>'
+        + '<button class="btn btn-sm" data-defic-bulk="reopen" style="background:#C0392B;color:white;border:none;padding:4px 10px;font-size:12px;">\u25CF Reopen Selected</button>'
+        + '<button class="btn btn-sm" data-defic-bulk="iar-on" style="background:#FF69B4;color:white;border:none;padding:4px 10px;font-size:12px;">\u26A1 Set IAR</button>'
+        + '<button class="btn btn-sm" data-defic-bulk="iar-off" style="background:#888;color:white;border:none;padding:4px 10px;font-size:12px;">Clear IAR</button>'
         + '<div style="flex:1;"></div>'
-        + '<button class="btn btn-sm" data-defic-bulk="delete" style="background:#C0392B;color:white;border:none;">\uD83D\uDDD1 Delete Selected</button>'
+        + '<button class="btn btn-sm" data-defic-bulk="delete" style="background:#C0392B;color:white;border:none;padding:4px 10px;font-size:12px;">\uD83D\uDDD1 Delete Selected</button>'
         + '<div style="flex:1;"></div>'
-        + '<button class="btn btn-outline btn-sm" data-defic-bulk="all">Select All</button>'
-        + '<button class="btn btn-outline btn-sm" data-defic-bulk="none">Deselect All</button>'
-        + '<button class="btn btn-outline btn-sm" data-defic-bulk="cancel">\u2715 Cancel</button>';
+        + '<button class="btn btn-outline btn-sm" data-defic-bulk="all" style="padding:4px 10px;font-size:12px;">Select All</button>'
+        + '<button class="btn btn-outline btn-sm" data-defic-bulk="none" style="padding:4px 10px;font-size:12px;">Deselect All</button>'
+        + '<button class="btn btn-outline btn-sm" data-defic-bulk="cancel" style="padding:4px 10px;font-size:12px;">\u2715 Cancel</button>';
     }
     var toolbar = document.getElementById('defic-toolbar');
     var container = document.getElementById('deficiencies-container');
