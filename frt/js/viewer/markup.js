@@ -880,6 +880,7 @@ var _dragState = null;
 
 function _hitTestObjects(pos) {
   for (var i = _objects.length - 1; i >= 0; i--) {
+    if (_objects[i].type === 'eraser') continue;  // eraser strokes are not selectable
     var b = _getBounds(_objects[i]);
     if (b && pos.x >= b.x1 - 6 && pos.x <= b.x2 + 6 && pos.y >= b.y1 - 6 && pos.y <= b.y2 + 6) {
       return _objects[i];
@@ -1129,6 +1130,7 @@ function _handleSelectUp() {
     if (Math.abs(rx2 - rx1) > 4 || Math.abs(ry2 - ry1) > 4) {
       var hits = [];
       _objects.forEach(function(obj) {
+        if (obj.type === 'eraser') return;  // eraser strokes are not selectable
         var b = _getBounds(obj);
         if (!b) return;
         if (b.x2 >= rx1 && b.x1 <= rx2 && b.y2 >= ry1 && b.y1 <= ry2) {
