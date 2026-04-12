@@ -666,7 +666,13 @@ function _pushToCloud() {
   });
 }
 
+// S81: persist last status so the diagnostic popup can display it
+var _lastCloudStatus = 'synced';
+var _lastCloudText   = 'Saved to cloud';
+
 function _setCloudStatus(status, text) {
+  _lastCloudStatus = status;
+  _lastCloudText   = text || '';
   var dot = document.getElementById('cloud-dot');
   var label = document.getElementById('cloud-status-text');
   var wrap = document.getElementById('cloud-status');
@@ -675,8 +681,90 @@ function _setCloudStatus(status, text) {
   if (dot) {
     var colors = { synced: '#34D399', saving: '#FBBF24', pending: '#F59E0B', error: '#EF4444', offline: '#9CA3AF' };
     dot.style.background = colors[status] || '#9CA3AF';
+    // Mirror color on the project-bar mini dot (different element)
+    var pbDot = document.getElementById('pb-cloud-dot');
+    if (pbDot) pbDot.style.background = colors[status] || '#9CA3AF';
   }
 }
+
+// S81 mobile-friendly diagnostic — tapping the cloud dot opens a large popup
+// showing everything that matters for "why isn't this working?" triage.
+// Replaces the impossible-to-read header text on small phones.
+function _showCloudDiagnostic() {
+  var lines = [];
+  // Mode + project
+  var params = new URLSearchParams(window.location.search);
+  var pidParam = params.get('project');
+  lines.push('MODE: ' + (_hubMode ? 'Hub (cloud)' : 'Standalone (local only)'));
+  lines.push('URL ?project= : ' + (pidParam ? pidParam.slice(0, 8) + '…' : '(missing)'));
+  lines.push('');
+  // Auth
+  var user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+  var token = null;
+  try { token = localStorage.getItem('sb-access-token'); } catch(_){}
+  lines.push('AUTH:');
+  lines.push('  Signed in: ' + (user ? 'YES (' + (user.email || '?') + ')' : 'NO'));
+  lines.push('  Token in localStorage: ' + (token ? 'present (len=' + token.length + ')' : 'MISSING'));
+  lines.push('');
+  // Cloud status
+  lines.push('CLOUD STATUS:');
+  lines.push('  ' + _lastCloudStatus + ' — ' + _lastCloudText);
+  lines.push('  Online: ' + (navigator.onLine ? 'YES' : 'NO'));
+  try {
+    if (typeof SyncEngine !== 'undefined' && SyncEngine.instanceId) {
+      lines.push('  Instance ID: ' + String(SyncEngine.instanceId).slice(0, 8) + '…');
+    } else {
+      lines.push('  Instance ID: (none loaded)');
+    }
+  } catch(_){}
+  lines.push('');
+  // Project content
+  var proj = (typeof Model !== 'undefined' && Model.getProject) ? Model.getProject() : null;
+  lines.push('PROJECT DATA:');
+  if (proj) {
+    var nDrawings = (proj.drawings || []).length;
+    var nDefics = 0;
+    try {
+      if (typeof Model.getAllDeficiencies === 'function') nDefics = Model.getAllDeficiencies().length;
+    } catch(_){}
+    lines.push('  Name: ' + (proj.projectName || proj.name || '(unnamed)'));
+    lines.push('  Project #: ' + (proj.projectNumber || '-'));
+    lines.push('  Drawings: ' + nDrawings);
+    lines.push('  Deficiencies: ' + nDefics);
+  } else {
+    lines.push('  (no project loaded)');
+  }
+  lines.push('');
+  // Service worker + build
+  lines.push('APP VERSION:');
+  lines.push('  SW cache: see console');
+  lines.push('  User agent: ' + (navigator.userAgent || '').slice(0, 60));
+
+  // Render as a fixed overlay (not alert() because Chrome Android may truncate it)
+  var prior = document.getElementById('cloud-diag-overlay');
+  if (prior) prior.parentNode.removeChild(prior);
+  var ov = document.createElement('div');
+  ov.id = 'cloud-diag-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:12px;';
+  var panel = document.createElement('div');
+  panel.style.cssText = 'background:#fff;color:#1C2333;max-width:520px;width:100%;max-height:80vh;overflow:auto;border-radius:12px;padding:16px 18px;font-family:Calibri,sans-serif;font-size:14px;box-shadow:0 12px 40px rgba(0,0,0,.4);';
+  var closeHtml = '<button id="cloud-diag-close" style="position:sticky;top:0;float:right;background:#9C2742;color:white;border:none;border-radius:6px;padding:6px 14px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;">Close</button>';
+  var hdr = '<div style="font-size:16px;font-weight:700;color:#9C2742;margin-bottom:10px;">FRT Diagnostic</div>';
+  var body = '<pre style="white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,Menlo,monospace;font-size:12px;margin:0;">' + lines.join('\n').replace(/[<>&]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];}) + '</pre>';
+  var signInBtn = '';
+  if (_hubMode && !user){
+    signInBtn = '<div style="margin-top:14px;"><button id="cloud-diag-signin" style="background:#1A7A4A;color:white;border:none;border-radius:6px;padding:10px 18px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;width:100%;">Not signed in — Open Hub to sign in</button></div>';
+  }
+  panel.innerHTML = closeHtml + hdr + body + signInBtn;
+  ov.appendChild(panel);
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(e){ if (e.target === ov) ov.parentNode.removeChild(ov); });
+  panel.querySelector('#cloud-diag-close').addEventListener('click', function(){ ov.parentNode.removeChild(ov); });
+  var signIn = panel.querySelector('#cloud-diag-signin');
+  if (signIn) signIn.addEventListener('click', function(){ window.location.href = '../ARENCON_Project_Hub.html'; });
+}
+// Expose globally for inline onclick / console poking
+window._showCloudDiagnostic = _showCloudDiagnostic;
 
 // ── Sign Out ─────────────────────────────────────────────
 function _signOut() {
