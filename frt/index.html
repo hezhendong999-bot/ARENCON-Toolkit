@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=171">
+<link rel="stylesheet" href="css/frt.css?v=172">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -663,6 +663,12 @@ function ensurePdfJs(cb){
       <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-shapes-btn" title="Rectangle">▢</button>
       <button class="dv-tr-btn dv-tr-sq dv-tr-serif" data-mk-target="mk-text" title="Text">T</button>
       <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-eraser" title="Eraser">⌫</button>
+      <!-- S79: color swatch + undo + redo (PC-parity) — proxied via data-mk-target -->
+      <span class="dv-tr-sep" aria-hidden="true"></span>
+      <button class="dv-tr-btn dv-tr-color" data-mk-target="mk-color-btn" title="Color"><span class="dv-tr-color-dot" id="dv-tr-color-dot"></span></button>
+      <span class="dv-tr-sep" aria-hidden="true"></span>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-undo" title="Undo">↶</button>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-redo" title="Redo">↷</button>
     </div>
     <div id="dv-stylestrip-v75">
       <button id="dv-ss-color-v75" class="dv-ss-swatch" title="Color"></button>
@@ -900,6 +906,18 @@ function ensurePdfJs(cb){
     });
     var sc=document.getElementById('dv-ss-color-v75');
     if(sc&&!sc.dataset.wired){sc.dataset.wired='1';sc.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('mk-color-btn')||document.getElementById('mk-color-swatch');if(t)t.click();});}
+    /* S79: sync mobile toolrow color dot with PC mk-color-swatch */
+    (function syncMobileColor(){
+      var mob=document.getElementById('dv-tr-color-dot');
+      var pc=document.getElementById('mk-color-swatch');
+      if(!mob||!pc)return;
+      function pull(){var bg=pc.style.background||pc.style.backgroundColor;if(bg)mob.style.background=bg;}
+      pull();
+      try{new MutationObserver(pull).observe(pc,{attributes:true,attributeFilter:['style']});}catch(e){}
+      /* Also sync the stylestrip swatch if present */
+      var ss=document.getElementById('dv-ss-color-v75');
+      if(ss){function pull2(){var bg=pc.style.background||pc.style.backgroundColor;if(bg)ss.style.background=bg;}pull2();try{new MutationObserver(pull2).observe(pc,{attributes:true,attributeFilter:['style']});}catch(e){}}
+    })();
     /* Push 4: bottom bar proxies + mirrors */
     var bbPrev=document.getElementById('dv-bb-prev');
     var bbNext=document.getElementById('dv-bb-next');

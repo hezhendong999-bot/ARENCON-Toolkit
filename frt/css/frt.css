@@ -2095,48 +2095,48 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   }
 }
 
-/* === Session 75 Push 2 — trim legacy top toolbar (mobile only) ===
-   Hide legacy toolbar items via visibility:hidden + offscreen.
-   They remain in DOM and JS-clickable for proxy buttons. */
+/* === Session 79 — Mobile top bar matches PC (Back | ◀ ▶ | title | Layers · Tasks · ⋯ · 🌙) ===
+   S75 Push 2 hid PC items on mobile; S79 reverses that so mobile uses the SAME top bar as PC.
+   The legacy #dv-undo-v75/#dv-redo-v75/#dv-actions-v75 buttons are kept in the DOM (proxy
+   wire() at line ~843 still polls for them) but hidden — real undo/redo now live in the
+   mobile tool row, and Actions ▾ is replaced by PC's Layers/Tasks/⋯ menu. */
 @media (max-width: 768px){
-  .drawing-viewer-overlay #dv-prev,
-  .drawing-viewer-overlay #dv-next,
-  .drawing-viewer-overlay .dv-title-wrap,
-  .drawing-viewer-overlay #dv-tasks-btn,
-  .drawing-viewer-overlay .dv-toolbar > div:has(> #dv-layers-btn),
-  .drawing-viewer-overlay .dv-toolbar > div:has(> #dv-more-btn){
-    position:absolute !important;
-    left:-9999px !important;
-    top:0 !important;
-    visibility:hidden !important;
-    width:1px !important;
-    height:1px !important;
-    margin:0 !important;
-    padding:0 !important;
+  /* Hide the orphaned v75 mobile-only top bar buttons (DOM kept for proxy wire() compat) */
+  .drawing-viewer-overlay #dv-undo-v75,
+  .drawing-viewer-overlay #dv-redo-v75,
+  .drawing-viewer-overlay #dv-actions-v75,
+  .drawing-viewer-overlay #dv-spacer-v75{
+    display:none !important;
   }
-  /* New Push 2 toolbar buttons */
-  .drawing-viewer-overlay .dv-toolbar #dv-undo-v75,
-  .drawing-viewer-overlay .dv-toolbar #dv-redo-v75,
-  .drawing-viewer-overlay .dv-toolbar #dv-actions-v75{
-    background:#2a3448;
-    color:#fff;
-    border:1px solid #3a4660;
-    border-radius:6px;
-    padding:8px 12px;
-    font-family:Calibri,sans-serif;
-    font-size:calc(14px + var(--ts));
-    cursor:pointer;
-    min-width:44px;
-    min-height:34px;
+  /* Mobile title: shrink so Layers/Tasks/More/Dark fit on one row */
+  .drawing-viewer-overlay .dv-toolbar .dv-title{
+    font-size:calc(11px + var(--ts)) !important;
+    max-width:30vw;
   }
-  .drawing-viewer-overlay .dv-toolbar #dv-undo-v75:hover,
-  .drawing-viewer-overlay .dv-toolbar #dv-redo-v75:hover,
-  .drawing-viewer-overlay .dv-toolbar #dv-actions-v75:hover{
-    background:#9C2742;
+  .drawing-viewer-overlay .dv-toolbar .dv-title-wrap{padding:0 4px !important;gap:2px !important;}
+  .drawing-viewer-overlay .dv-toolbar #dv-rename-btn{font-size:14px !important;padding:0 4px !important;}
+  /* Tighter nav arrows */
+  .drawing-viewer-overlay .dv-toolbar #dv-prev,
+  .drawing-viewer-overlay .dv-toolbar #dv-next{padding:0 6px !important;min-width:36px !important;font-size:15px !important;}
+  /* Layers / Tasks / More / Dark — trim labels on mobile (keep icons) */
+  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
+  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
+  .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
+  .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
+    padding:0 6px !important;min-width:36px !important;min-height:38px !important;
+    font-size:calc(11px + var(--ts)) !important;
   }
-  .drawing-viewer-overlay .dv-toolbar #dv-spacer-v75{
-    flex:1;
-  }
+  /* Hide the "Tasks" word — keep 📌 */
+  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn{font-size:0 !important;}
+  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn::before{content:"\1F4CC";font-size:16px;}
+  /* Hide the "Layers" word — keep ≡ */
+  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn{font-size:0 !important;padding:0 8px !important;}
+  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn::before{content:"\2261";font-size:18px;font-weight:700;}
+  /* Close button tighter */
+  .drawing-viewer-overlay .dv-toolbar .dv-close-btn{padding:4px 6px !important;font-size:calc(12px + var(--ts)) !important;}
+  /* Keep top bar on one row on most phones */
+  .drawing-viewer-overlay .dv-toolbar{flex-wrap:nowrap !important;overflow-x:auto !important;-webkit-overflow-scrolling:touch;}
+  .drawing-viewer-overlay .dv-toolbar::-webkit-scrollbar{display:none;}
 }
 
 /* === Session 75 Push 3.2 — layout-only restyle, legacy icons preserved === */
@@ -2288,6 +2288,21 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   body.dark-mode .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-pin{color:#999 !important;}
   .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-pin svg{color:currentColor !important;}
   .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-pin.active{background:#9C2742 !important;color:#fff !important;}
+  /* S79: vertical separator between tool groups + color swatch button */
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-sep{
+    display:inline-block;width:1px;align-self:stretch;background:#d1d5db;margin:4px 2px;flex-shrink:0;
+  }
+  body.dark-mode .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-sep{background:rgba(255,255,255,.15);}
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-color{
+    padding:0 !important;display:inline-flex !important;align-items:center;justify-content:center;
+  }
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-color .dv-tr-color-dot{
+    display:block;width:22px;height:22px;border-radius:50%;background:#C0392B;
+    border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15);
+  }
+  body.dark-mode .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-color .dv-tr-color-dot{
+    border-color:#2a2d35;box-shadow:0 0 0 1px rgba(255,255,255,.2);
+  }
 }
 
 /* === Session 75 Push 5a — toolbar navy in day mode (match header) === */
