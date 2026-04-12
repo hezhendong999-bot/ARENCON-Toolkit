@@ -1474,6 +1474,7 @@ var _pinMouseDragDeficId = null;
 var _pinMouseDragMarker = null;
 var _pinMouseStartX = 0;
 var _pinMouseStartY = 0;
+var _pinMouseStartTime = 0;  // S81: mousedown timestamp — drag activates only after ≥150ms hold
 var _pinMouseOffsetX = 0; // Offset from cursor to marker left (prevents jump)
 var _pinMouseOffsetY = 0;
 
@@ -1486,6 +1487,7 @@ document.addEventListener('mousedown', function(e) {
   if (!deficId) return;
   _pinMouseStartX = e.clientX;
   _pinMouseStartY = e.clientY;
+  _pinMouseStartTime = Date.now();
 
   // Pre-calculate offset in drawing-space (logical pixels)
   var wrap = document.getElementById('dv-img-wrap');
@@ -1549,9 +1551,12 @@ document.addEventListener('mousemove', function(e) {
       _pinMouseLongPress = null;
     }
   }
-  // Selector mode: activate drag after 4px threshold
+  // Selector / non-pan tool mode: activate drag after BOTH a 150ms hold AND 4px
+  // movement. Hold-delay minimizes accidental drags on quick clicks (S81 request).
   if (!_pinMouseDragging && _pinMouseDragDeficId) {
-    if (Math.abs(e.clientX - _pinMouseStartX) > 4 || Math.abs(e.clientY - _pinMouseStartY) > 4) {
+    var heldFor = Date.now() - _pinMouseStartTime;
+    var moved = Math.abs(e.clientX - _pinMouseStartX) > 4 || Math.abs(e.clientY - _pinMouseStartY) > 4;
+    if (heldFor >= 150 && moved) {
       _pinMouseDragging = true;
       if (_pinMouseDragMarker) _pinMouseDragMarker.classList.add('dragging');
       var area = document.getElementById('dv-canvas-area');

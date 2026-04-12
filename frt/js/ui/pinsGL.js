@@ -78,20 +78,20 @@
     ctx.closePath();
   }
 
-  // V1 filter strings (identical to viewer.js HTML pin render):
-  //   outstanding: drop-shadow(0 0 3px fill) drop-shadow(0 2px 5px rgba(0,0,0,.6))
-  //   other:       drop-shadow(0 2px 4px rgba(0,0,0,.45))
+  // V1 filter strings (toned down slightly per S81 feedback — less heavy shadow):
+  //   outstanding: drop-shadow(0 0 2px fill) drop-shadow(0 1px 3px rgba(0,0,0,.4))
+  //   other:       drop-shadow(0 1px 3px rgba(0,0,0,.35))
   // Hover/active multiply blur radius so interaction feedback is visible.
   function _buildFilterString(fillHex, outstanding, state){
     var mul = state === 'active' ? 1.5 : state === 'hover' ? 1.25 : 1.0;
     if (outstanding){
-      var glowR   = (3 * mul).toFixed(2);
-      var shadowR = (5 * mul).toFixed(2);
+      var glowR   = (2 * mul).toFixed(2);
+      var shadowR = (3 * mul).toFixed(2);
       return 'drop-shadow(0 0 ' + glowR + 'px ' + fillHex + ') ' +
-             'drop-shadow(0 2px ' + shadowR + 'px rgba(0,0,0,0.6))';
+             'drop-shadow(0 1px ' + shadowR + 'px rgba(0,0,0,0.4))';
     }
-    var r = (4 * mul).toFixed(2);
-    return 'drop-shadow(0 2px ' + r + 'px rgba(0,0,0,0.45))';
+    var r = (3 * mul).toFixed(2);
+    return 'drop-shadow(0 1px ' + r + 'px rgba(0,0,0,0.35))';
   }
 
   // Feature-detect ctx.filter once — Safari 9.1+, universally present on modern iPad
@@ -123,17 +123,19 @@
       ctx.filter = 'none';  // subsequent draws (circle, number) render sharp on top
     }
 
-    // Layer 1: inner white circle at (16, 14), r=9, α=0.95
+    // Layer 1: inner white circle at (16, 14), r=11, α=0.95
+    // (Enlarged S81 from r=9 so numbers can render bigger without fattening the teardrop.)
     ctx.fillStyle = '#FFFFFF';
     ctx.globalAlpha = 0.95;
     ctx.beginPath();
-    ctx.arc(16, 14, 9, 0, Math.PI * 2);
+    ctx.arc(16, 14, 11, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
 
     // Layer 2: priority-colored number, centered at (16, 14)
+    // Font sizes bumped to take advantage of larger inner circle.
     var numStr = String(pin.num);
-    var fs = numStr.length <= 2 ? 14 : numStr.length === 3 ? 11 : 9;
+    var fs = numStr.length <= 2 ? 17 : numStr.length === 3 ? 13 : 11;
     ctx.fillStyle = fillHex;
     ctx.font = '900 ' + fs + 'px Calibri, Arial, sans-serif';
     ctx.textAlign = 'center';
