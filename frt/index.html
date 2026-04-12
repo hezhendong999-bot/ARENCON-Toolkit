@@ -373,13 +373,17 @@ function ensurePdfJs(cb){
         <div class="card-header">📐 Drawings</div>
         <div class="card-body">
           <div class="dwg-header-bar">
-            <button class="btn btn-outline btn-sm" id="btn-new-folder">+ New Folder</button>
-            <button class="btn btn-outline btn-sm" id="btn-dwg-select-all" title="Select all drawings">☑ Select All</button>
-            <button class="btn btn-outline btn-sm" id="btn-dwg-actions">Actions ▾</button>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+              <button class="btn btn-outline btn-sm" id="btn-new-folder">+ New Folder</button>
+              <button class="btn btn-outline btn-sm" id="btn-dwg-select-all" title="Select all drawings">☑ Select All</button>
+              <button class="btn btn-outline btn-sm" id="btn-dwg-actions">Actions ▾</button>
+            </div>
             <div style="flex:1;min-width:8px;"></div>
-            <button class="btn btn-outline btn-sm" id="btn-dwg-filters">⚙ Filters</button>
-            <button class="btn btn-outline btn-sm" id="btn-dwg-purge" title="Remove superseded drawings">🗑 Purge Old</button>
-            <button class="btn btn-outline btn-sm" id="btn-dwg-compact" title="Compact card view">☷ Compact</button>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+              <button class="btn btn-outline btn-sm" id="btn-dwg-filters">⚙ Filters</button>
+              <button class="btn btn-outline btn-sm" id="btn-dwg-purge" title="Remove superseded drawings">🗑 Purge Old</button>
+              <button class="btn btn-outline btn-sm" id="btn-dwg-compact" title="Compact card view">☷ Compact</button>
+            </div>
           </div>
           <!-- Upload zone -->
           <div class="upload-box" id="dwg-upload-zone"
