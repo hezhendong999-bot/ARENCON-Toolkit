@@ -2123,16 +2123,15 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
-    padding:0 8px !important;min-width:42px !important;min-height:38px !important;
-    font-size:calc(15px + var(--ts)) !important;
+    padding:0 8px !important;min-width:40px !important;min-height:38px !important;
+    font-size:calc(11px + var(--ts)) !important;
     white-space:nowrap !important;
   }
-  /* S79 v5: boost icon rendering size for Tasks & Layers (set via JS textContent) */
+  /* JS sets textContent to icon-only on mobile (see inline script setMobileTopbarIcons). */
   .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn{
     max-width:50px !important;
     overflow:hidden !important;
-    font-size:calc(18px + var(--ts)) !important;
   }
   /* S79: Tasks button on mobile should NOT show .active burgundy fill (match PC look) */
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn.active{
@@ -3008,15 +3007,15 @@ body.dark-mode #dwg-actions-pop button.danger, body.dark-mode #photo-actions-pop
 
 /* ═══ Session 79 v5 final — mobile polish ═══ */
 @media (max-width: 900px){
-  /* Zoom controls — horizontal, fixed to bottom of viewport just above bottom bar */
+  /* Zoom controls — horizontal, fixed to TOP of viewport inside canvas area (below top bar + toolrow + stylestrip) */
   .drawing-viewer-overlay .zoom-controls,
   .drawing-viewer-overlay #zoom-controls{
     position:fixed !important;
     flex-direction:row !important;
-    bottom:70px !important;
-    right:50% !important;
-    transform:translateX(50%) !important;
-    top:auto !important; left:auto !important;
+    top:170px !important;
+    left:50% !important;
+    transform:translateX(-50%) !important;
+    right:auto !important; bottom:auto !important;
     gap:8px !important;
     z-index:100 !important;
   }
