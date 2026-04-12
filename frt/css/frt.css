@@ -1149,6 +1149,7 @@ body.dark-mode .dv-tasks-header{border-bottom-color:#3a3e48;color:#ddd;}
 .drawing-card .version-badge{position:absolute;top:6px;left:40px;background:#7B1FA2;color:white;font-size:9px;font-weight:600;padding:2px 5px;border-radius:8px;}
 .drawing-card.add-card{border-style:dashed;border-color:var(--silver);cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:140px;}
 .drawing-card.add-card:hover{border-color:var(--red);background:rgba(156,39,66,.03);}
+.drawing-card.add-card.drag-over{border-color:#1A7A4A!important;background:rgba(26,122,74,.08)!important;box-shadow:0 0 0 3px rgba(26,122,74,.2)!important;}
 .add-card-inner{color:var(--silver);font-size:calc(13px + var(--ts));font-weight:600;}
 /* Header bar */
 .dwg-header-bar,.toolbar-cluster-bar{display:flex;align-items:center;gap:8px;padding:10px 0;flex-wrap:wrap;}

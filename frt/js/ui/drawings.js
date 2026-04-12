@@ -189,6 +189,19 @@ export var initDrawings = {
       html += '</div>';
       html += '<div class="dwg-folder-body dwg-card-row" style="padding:8px;display:flex;flex-wrap:wrap;' + (isFolded ? 'display:none;' : '') + '">';
       items.forEach(function(d) { html += buildDrawingCard(d, allDefics); });
+      // S81 Option 3: "+ Drop plans here" reserve card as last tile. Click
+      // opens file picker scoped to this folder; drop routes files to this
+      // folder via handleDrawingFilesIntoFolder.
+      var escFn = esc(fn).replace(/'/g, "\\'");
+      html += '<div class="drawing-card add-card" ' +
+        'data-add-folder="' + esc(fn) + '" ' +
+        'onclick="if(window._uploadToFolder)window._uploadToFolder(\'' + escFn + '\')" ' +
+        'ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ' +
+        'ondragleave="this.classList.remove(\'drag-over\')" ' +
+        'ondrop="event.preventDefault();this.classList.remove(\'drag-over\');if(window._handleDrawingFilesIntoFolder)window._handleDrawingFilesIntoFolder(event.dataTransfer.files,\'' + escFn + '\')">' +
+        '<div class="add-card-inner">+ Drop plans here<br>' +
+        '<span style="font-size:calc(10px + var(--ts));color:var(--silver);font-weight:400;">added to <em>' + esc(fn) + '</em></span></div>' +
+        '</div>';
       html += '</div></div>';
     });
 
@@ -623,7 +636,29 @@ function handleDrawingFiles(files) {
   });
 }
 
-function _handleImageUpload(f) {
+// S81 Option 3: folder-scoped drop/pick — matches V1 handleDrawingFilesIntoFolder.
+// Files dropped on a folder's "+ Drop plans here" reserve card arrive here.
+function handleDrawingFilesIntoFolder(files, folder) {
+  if (!folder) { handleDrawingFiles(files); return; }
+  Array.from(files).forEach(function(f) {
+    if (f.type === 'application/pdf') _handlePDFUpload(f, folder);
+    else if (f.type.startsWith('image/')) _handleImageUpload(f, folder);
+  });
+}
+
+// Open the native file picker scoped to a specific folder (click on reserve card).
+function uploadToFolder(folder) {
+  var inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'image/*,.pdf';
+  inp.multiple = true;
+  inp.onchange = function() {
+    if (inp.files && inp.files.length) handleDrawingFilesIntoFolder(inp.files, folder);
+  };
+  inp.click();
+}
+
+function _handleImageUpload(f, folder) {
   _showDwgLoading('Processing ' + f.name + '...');
   var reader = new FileReader();
   reader.onload = function(e) {
@@ -636,7 +671,7 @@ function _handleImageUpload(f) {
         dataUrl: null,
         thumb: thumb,
         width: 0, height: 0,
-        isOriginal: true, folder: '',
+        isOriginal: true, folder: folder || '',
         r2Key: '', r2Status: '', r2Url: ''
       };
       Model.addDrawing(newDwg);
@@ -659,7 +694,7 @@ function _handleImageUpload(f) {
   reader.readAsDataURL(f);
 }
 
-function _handlePDFUpload(file) {
+function _handlePDFUpload(file, folderOverride) {
   if (typeof ensurePdfJs === 'undefined') {
     toast('PDF support not available');
     return;
@@ -683,12 +718,17 @@ function _handlePDFUpload(file) {
         clearTimeout(pdfTimeout);
         var bn = file.name.replace(/\.pdf$/i, '');
         var total = pdf.numPages;
+        // S81: if caller passed a folder (drop-on-folder card), use that verbatim.
+        // Otherwise use V1 default: folder named after the PDF filename.
+        var targetFolder = (typeof folderOverride === 'string' && folderOverride)
+          ? folderOverride
+          : bn;
         // Phase 5: persist source PDF buffer for tiled renderer
         var pdfBufKey = 'pdfbuf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
         IDB.put('pdfBufs', { id: pdfBufKey, buf: pdfBufCopy }).catch(function(err) {
           console.warn('[Drawings] pdfBufs save failed:', err);
         });
-        _runPdfPages(pdf, bn, bn, total, pdfBufCopy, pdfBufKey);
+        _runPdfPages(pdf, bn, targetFolder, total, pdfBufCopy, pdfBufKey);
       }).catch(function(err) {
         clearTimeout(pdfTimeout);
         _hideDwgLoading();
@@ -778,6 +818,9 @@ if (dwgFileInput) {
 
 // Expose drag-drop handler for HTML ondrop
 window._handleDrawingDrop = handleDrawingFiles;
+// S81 Option 3: folder-scoped versions for per-folder reserve cards
+window._handleDrawingFilesIntoFolder = handleDrawingFilesIntoFolder;
+window._uploadToFolder = uploadToFolder;
 
 // ── Compact Mode Toggle ─────────────────────────────────
 var _compactMode = false;
