@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=164">
+<link rel="stylesheet" href="css/frt.css?v=165">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -373,16 +373,12 @@ function ensurePdfJs(cb){
         <div class="card-header">📐 Drawings</div>
         <div class="card-body">
           <div class="dwg-header-bar">
-            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
-              <button class="btn btn-outline btn-sm" id="btn-new-folder">+ New Folder</button>
-              <button class="btn btn-outline btn-sm" id="btn-dwg-select-all" title="Select all drawings">☑ Select All</button>
-              <button class="btn btn-outline btn-sm" id="btn-dwg-actions">Actions ▾</button>
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-left:auto;">
-              <button class="btn btn-outline btn-sm" id="btn-dwg-filters">⚙ Filters</button>
-              <button class="btn btn-outline btn-sm" id="btn-dwg-purge" title="Remove superseded drawings">🗑 Purge Old</button>
-              <button class="btn btn-outline btn-sm" id="btn-dwg-compact" title="Compact card view">☷ Compact</button>
-            </div>
+            <button class="btn btn-outline btn-sm" id="btn-new-folder">+ New Folder</button>
+            <button class="btn btn-outline btn-sm" id="btn-dwg-select-all" title="Select all drawings">☑ Select All</button>
+            <button class="btn btn-outline btn-sm" id="btn-dwg-actions">Actions ▾</button>
+            <button class="btn btn-outline btn-sm" id="btn-dwg-filters" style="margin-left:auto;">⚙ Filters</button>
+            <button class="btn btn-outline btn-sm" id="btn-dwg-purge" title="Remove superseded drawings">🗑 Purge Old</button>
+            <button class="btn btn-outline btn-sm" id="btn-dwg-compact" title="Compact card view">☷ Compact</button>
           </div>
           <!-- Upload zone -->
           <div class="upload-box" id="dwg-upload-zone"

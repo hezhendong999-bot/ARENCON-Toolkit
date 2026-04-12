@@ -1485,9 +1485,10 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   .dwg-folder-body{gap:8px;padding:8px 10px;}
   .drawing-card{width:calc(50% - 4px)!important;min-width:0!important;}
   .drawing-card img{height:100px!important;}
-  /* Drawing toolbar buttons — smaller */
-  .dwg-header-bar{gap:4px!important;}
-  .dwg-header-bar .btn{font-size:calc(10px + var(--ts))!important;padding:3px 6px!important;}
+  /* Drawing toolbar buttons — single row on mobile, tiny text icons for fit */
+  .dwg-header-bar{gap:3px!important;flex-wrap:nowrap!important;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .dwg-header-bar::-webkit-scrollbar{display:none;}
+  .dwg-header-bar .btn{font-size:10px!important;padding:4px 6px!important;white-space:nowrap!important;flex-shrink:0!important;}
   /* Deficiency controls — wrap better */
   .defic-controls{gap:6px;}
   .defic-controls>div{min-width:0;}
