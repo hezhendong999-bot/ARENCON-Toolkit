@@ -1129,6 +1129,8 @@ body.dark-mode .dv-tasks-header{border-bottom-color:#3a3e48;color:#ddd;}
 .add-card-inner{color:var(--silver);font-size:calc(13px + var(--ts));font-weight:600;}
 /* Header bar */
 .dwg-header-bar{display:flex;align-items:center;gap:8px;padding:10px 0;flex-wrap:wrap;}
+.dwg-header-bar .dwg-btn-cluster{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.dwg-header-bar .dwg-btn-cluster-right{margin-left:auto;justify-content:flex-end;}
 .dwg-actions-dd,.dwg-filter-dd,.photo-actions-dd,.photo-filter-dd{position:relative;}
 .dwg-actions-menu,.dwg-filter-menu,.photo-actions-menu,.photo-filter-menu{display:none;position:absolute;top:100%;left:0;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:100;min-width:180px;padding:4px 0;margin-top:4px;}
 .dwg-actions-menu.open,.dwg-filter-menu.open,.photo-actions-menu.open,.photo-filter-menu.open{display:block;}
