@@ -14,6 +14,51 @@ import { TiledPdf } from './tiledPdf.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm } from '../shared/dialogs.js';
 
+// ── WebGL pins (Phase 5 polish) ──────────────────────────
+// Fixed screen-size pins rendered on GPU. Feature-flagged:
+//   ?webgl-pins=0 → HTML fallback; default ON if WebGL supported
+var _useGLPins = (function(){
+  try {
+    if (window.location && window.location.search){
+      if (window.location.search.indexOf('webgl-pins=0') >= 0) return false;
+      if (window.location.search.indexOf('webgl-pins=1') >= 0) return true;
+    }
+    if (localStorage.getItem('ARENCON_NoWebGLPins') === '1') return false;
+    return !!(window.PinsGL && window.PinsGL.isSupported && window.PinsGL.isSupported());
+  } catch(_){ return false; }
+})();
+var _glPinsReady = false;
+var _glPinsInitPromise = null;
+function _ensureGLPinsInit(){
+  if (!_useGLPins) return Promise.resolve(false);
+  if (_glPinsReady) return Promise.resolve(true);
+  if (_glPinsInitPromise) return _glPinsInitPromise;
+  var host = document.getElementById('dv-canvas-area');
+  if (!host || !window.PinsGL){ _useGLPins = false; return Promise.resolve(false); }
+  _glPinsInitPromise = window.PinsGL.init(host, { w: host.clientWidth, h: host.clientHeight })
+    .then(function(){
+      _glPinsReady = true; _glPinsInitPromise = null;
+      console.log('[Viewer] WebGL pins ready (Pixi.js v' + ((window.PIXI && window.PIXI.VERSION) || '?') + ')');
+      _renderPins();
+      return true;
+    })
+    .catch(function(err){
+      console.warn('[Viewer] WebGL pins init failed, falling back to HTML:', err);
+      _useGLPins = false; _glPinsInitPromise = null; return false;
+    });
+  return _glPinsInitPromise;
+}
+
+// Uniform pin hit-test: returns deficId at screen coords, null if none.
+// HTML path uses DOM closest(); WebGL path uses PinsGL.hitTest().
+function _resolvePinAt(clientX, clientY, evTarget){
+  if (_useGLPins && _glPinsReady && window.PinsGL){
+    return window.PinsGL.hitTest(clientX, clientY);
+  }
+  var marker = evTarget && evTarget.closest && evTarget.closest('.pin-marker[data-defic-id]');
+  return marker ? marker.getAttribute('data-defic-id') : null;
+}
+
 // ── TiledPdf init (one-shot, lazy) ───────────────────────
 var _tiledInited = false;
 function _ensureTiledInit() {
@@ -147,6 +192,9 @@ function _applyTransform() {
     wrap.style.transform = 'translate3d(' + _panX + 'px,' + _panY + 'px,0) scale(' + _scale + ')';
   }
   if (TiledPdf.isActive()) TiledPdf.scheduleRender();
+  // GL pins live outside dv-img-wrap and must be re-rendered on every transform.
+  // HTML pins are children of dv-img-wrap, so they auto-transform; cheap early-out.
+  if (_useGLPins && _glPinsReady) _renderPins();
 }
 
 function _clampPan() {
@@ -631,17 +679,77 @@ var _pinModeDeficId = null;
 function _renderPins() {
   // Don't rebuild during active drag (would destroy marker reference)
   if (_pinDragging || _pinMouseDragging) return;
-  var layer = document.getElementById('dv-pins-layer');
-  if (!layer) return;
+
   var drawings = _getDrawingsList();
-  if (_currentDrawingIdx < 0 || _currentDrawingIdx >= drawings.length) { layer.innerHTML = ''; return; }
+  var htmlLayer = document.getElementById('dv-pins-layer');
+
+  if (_currentDrawingIdx < 0 || _currentDrawingIdx >= drawings.length) {
+    if (htmlLayer) htmlLayer.innerHTML = '';
+    if (_useGLPins && _glPinsReady && window.PinsGL) window.PinsGL.render([], {});
+    return;
+  }
   var drawingId = drawings[_currentDrawingIdx].id;
   var img = document.getElementById('dv-image');
-  if (!img || !img.naturalWidth) { layer.innerHTML = ''; return; }
+  if (!img || !img.naturalWidth) {
+    if (htmlLayer) htmlLayer.innerHTML = '';
+    if (_useGLPins && _glPinsReady && window.PinsGL) window.PinsGL.render([], {});
+    return;
+  }
   var iw = img.naturalWidth;
   var ih = img.naturalHeight;
   var allDefics = Model.getAllDeficiencies();
   var pins = allDefics.filter(function(d) { return d.defic.drawingId === drawingId && d.defic.pinX != null; });
+
+  // ── WebGL path ───────────────────────────────────────────
+  if (_useGLPins && window.PinsGL){
+    if (!_glPinsReady){ _ensureGLPinsInit(); return; }
+    // Hide HTML layer content (keep DOM for accessibility mirror)
+    if (htmlLayer) htmlLayer.innerHTML = '';
+
+    // Compute image rect relative to the GL canvas host (dv-canvas-area)
+    var host = document.getElementById('dv-canvas-area');
+    var imgRect = img.getBoundingClientRect();
+    var hostRect = host ? host.getBoundingClientRect() : { left:0, top:0 };
+    var relRect = {
+      left:   imgRect.left - hostRect.left,
+      top:    imgRect.top  - hostRect.top,
+      width:  imgRect.width,
+      height: imgRect.height
+    };
+    if (host) window.PinsGL.resize(host.clientWidth, host.clientHeight);
+
+    var glPins = pins.map(function(d){
+      return {
+        deficId: d.defic.id,
+        num:     d.defic.num,
+        pinX:    d.defic.pinX,
+        pinY:    d.defic.pinY,
+        priority:d.defic.priority || 'high',
+        isClosed:d.defic.status === 'closed' || d.defic.status === 'Addressed & Closed',
+        isIAR:   !!d.defic.iar
+      };
+    });
+    window.PinsGL.render(glPins, {
+      scale: _scale, panX: _panX, panY: _panY,
+      imgRect: relRect, naturalW: iw, naturalH: ih
+    });
+
+    // Accessibility mirror — visually-hidden pin list for screen readers
+    if (htmlLayer){
+      var mirrorHtml = '';
+      for (var mi = 0; mi < pins.length; mi++){
+        var md = pins[mi].defic;
+        mirrorHtml += '<div role="button" aria-label="Pin ' + md.num + '" ' +
+          'style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);' +
+          'left:' + (md.pinX * 100) + '%;top:' + (md.pinY * 100) + '%;"></div>';
+      }
+      htmlLayer.innerHTML = mirrorHtml;
+    }
+    return;
+  }
+
+  // ── HTML path (original) ─────────────────────────────────
+  if (!htmlLayer) return;
   // Pin size scales proportionally with drawing resolution
   // Target: pin width = ~1% of drawing width (consistent visual size)
   var pw = Math.round(Math.max(iw, ih) * 0.01);
@@ -668,7 +776,7 @@ function _renderPins() {
     html += '<text x="16" y="14.5" text-anchor="middle" dominant-baseline="central" font-size="' + numFs + '" font-weight="900" font-family="Calibri,Arial,sans-serif" fill="' + fill + '">' + d.defic.num + '</text>';
     html += '</svg></div>';
   });
-  layer.innerHTML = html;
+  htmlLayer.innerHTML = html;
 }
 
 // ── Pin Placement Mode ──────────────────────────────────
@@ -775,15 +883,14 @@ document.getElementById('dv-canvas-area').addEventListener('touchend', function(
 // Pin marker click — open pin editor (only in pan mode, no tool active)
 var _pinDragEndTime = 0;
 document.addEventListener('click', function(e) {
-  var marker = e.target.closest && e.target.closest('.pin-marker[data-defic-id]');
-  if (!marker) return;
+  var deficId = _resolvePinAt(e.clientX, e.clientY, e.target);
+  if (!deficId) return;
   if (_pinModeDeficId) return;
   if (_pinDragging) return;
   // Suppress click immediately after drag end
   if (Date.now() - _pinDragEndTime < 300) return;
   // Block pin editor when any markup/selector tool is active
   if (Markup.getTool()) return;
-  var deficId = marker.getAttribute('data-defic-id');
   _openPinEditor(deficId);
 });
 
@@ -1054,28 +1161,40 @@ var _pinTouchStartX = 0;
 var _pinTouchStartY = 0;
 
 document.addEventListener('touchstart', function(e) {
-  var marker = e.target.closest && e.target.closest('.pin-marker[data-defic-id]');
-  if (!marker || _pinModeDeficId) return;
-  var deficId = marker.getAttribute('data-defic-id');
   var touch = e.touches[0];
-  if (touch) {
-    _pinTouchStartX = touch.clientX;
-    _pinTouchStartY = touch.clientY;
-    // Pre-calculate offset
-    var wrap = document.getElementById('dv-img-wrap');
-    if (wrap) {
-      var wRect = wrap.getBoundingClientRect();
-      var cx = (touch.clientX - wRect.left) / _scale;
-      var cy = (touch.clientY - wRect.top) / _scale;
-      _pinTouchOffsetX = parseFloat(marker.style.left || 0) - cx;
-      _pinTouchOffsetY = parseFloat(marker.style.top || 0) - cy;
+  if (!touch || _pinModeDeficId) return;
+  var deficId = _resolvePinAt(touch.clientX, touch.clientY, e.target);
+  if (!deficId) return;
+  _pinTouchStartX = touch.clientX;
+  _pinTouchStartY = touch.clientY;
+  // Pre-calculate offset so pin doesn't jump on first drag frame.
+  // Offset is in DRAWING-SPACE (logical pixels), computed from current pin position.
+  var wrap = document.getElementById('dv-img-wrap');
+  var img = document.getElementById('dv-image');
+  if (wrap && img && img.naturalWidth){
+    var wRect = wrap.getBoundingClientRect();
+    var cx = (touch.clientX - wRect.left) / _scale;
+    var cy = (touch.clientY - wRect.top) / _scale;
+    var f0 = Model.findDeficiency(deficId);
+    if (f0 && f0.defic.pinX != null){
+      var curX = f0.defic.pinX * img.naturalWidth;
+      var curY = f0.defic.pinY * img.naturalHeight;
+      _pinTouchOffsetX = curX - cx;
+      _pinTouchOffsetY = curY - cy;
+    } else {
+      _pinTouchOffsetX = 0; _pinTouchOffsetY = 0;
     }
   }
   _pinLongPressTimer = setTimeout(function() {
     _pinDragging = true;
     _pinDragDeficId = deficId;
-    _pinDragMarker = marker;
-    marker.classList.add('dragging');
+    // HTML path: grab DOM marker reference for CSS styling during drag
+    if (!_useGLPins){
+      _pinDragMarker = document.querySelector('.pin-marker[data-defic-id="' + deficId + '"]');
+      if (_pinDragMarker) _pinDragMarker.classList.add('dragging');
+    } else {
+      _pinDragMarker = null;
+    }
     var area = document.getElementById('dv-canvas-area');
     if (area) area.classList.add('pin-drag-mode');
     console.log('[Viewer] Pin drag started:', deficId);
@@ -1087,17 +1206,31 @@ document.addEventListener('touchmove', function(e) {
     clearTimeout(_pinLongPressTimer);
     _pinLongPressTimer = null;
   }
-  if (!_pinDragging || !_pinDragMarker) return;
+  if (!_pinDragging || !_pinDragDeficId) return;
   e.preventDefault();
   var touch = e.touches[0];
   if (!touch) return;
   var wrap = document.getElementById('dv-img-wrap');
-  if (!wrap) return;
+  var img = document.getElementById('dv-image');
+  if (!wrap || !img || !img.naturalWidth) return;
   var wRect = wrap.getBoundingClientRect();
   var px = (touch.clientX - wRect.left) / _scale + _pinTouchOffsetX;
   var py = (touch.clientY - wRect.top) / _scale + _pinTouchOffsetY;
-  _pinDragMarker.style.left = px + 'px';
-  _pinDragMarker.style.top = py + 'px';
+  if (_useGLPins){
+    var f = Model.findDeficiency(_pinDragDeficId);
+    if (f){
+      f.defic.pinX = Math.max(0, Math.min(1, px / img.naturalWidth));
+      f.defic.pinY = Math.max(0, Math.min(1, py / img.naturalHeight));
+      // Temporarily clear drag flag so _renderPins() doesn't early-out
+      var wasDragging = _pinDragging;
+      _pinDragging = false;
+      _renderPins();
+      _pinDragging = wasDragging;
+    }
+  } else if (_pinDragMarker) {
+    _pinDragMarker.style.left = px + 'px';
+    _pinDragMarker.style.top = py + 'px';
+  }
 }, { passive: false });
 
 document.addEventListener('touchend', function(e) {
@@ -1148,39 +1281,48 @@ var _pinMouseOffsetY = 0;
 
 document.addEventListener('mousedown', function(e) {
   if (e.button !== 0) return;
-  var marker = e.target.closest && e.target.closest('.pin-marker[data-defic-id]');
-  if (!marker || _pinModeDeficId) return;
+  if (_pinModeDeficId) return;
   var overlay = document.getElementById('drawing-viewer-overlay');
   if (!overlay || !overlay.classList.contains('open')) return;
-  var deficId = marker.getAttribute('data-defic-id');
+  var deficId = _resolvePinAt(e.clientX, e.clientY, e.target);
+  if (!deficId) return;
   _pinMouseStartX = e.clientX;
   _pinMouseStartY = e.clientY;
 
-  // Pre-calculate offset between cursor and marker's current position
+  // Pre-calculate offset in drawing-space (logical pixels)
   var wrap = document.getElementById('dv-img-wrap');
-  if (wrap) {
+  var img = document.getElementById('dv-image');
+  if (wrap && img && img.naturalWidth) {
     var wRect = wrap.getBoundingClientRect();
     var cursorInWrap_X = (e.clientX - wRect.left) / _scale;
     var cursorInWrap_Y = (e.clientY - wRect.top) / _scale;
-    _pinMouseOffsetX = parseFloat(marker.style.left || 0) - cursorInWrap_X;
-    _pinMouseOffsetY = parseFloat(marker.style.top || 0) - cursorInWrap_Y;
+    var f0 = Model.findDeficiency(deficId);
+    if (f0 && f0.defic.pinX != null){
+      var curX = f0.defic.pinX * img.naturalWidth;
+      var curY = f0.defic.pinY * img.naturalHeight;
+      _pinMouseOffsetX = curX - cursorInWrap_X;
+      _pinMouseOffsetY = curY - cursorInWrap_Y;
+    } else {
+      _pinMouseOffsetX = 0; _pinMouseOffsetY = 0;
+    }
   }
+
+  // HTML path: grab DOM marker reference for CSS styling
+  var marker = _useGLPins ? null : document.querySelector('.pin-marker[data-defic-id="' + deficId + '"]');
 
   // Selector tool: start drag after small movement threshold (not instant)
   if (Markup.getTool() === 'select') {
     _pinMouseDragDeficId = deficId;
     _pinMouseDragMarker = marker;
-    e.preventDefault();
-    e.stopPropagation();
     return;
   }
 
-  // Non-selector: long-press (400ms hold)
+  // Pan mode: long-press (400ms hold) to start drag
   _pinMouseLongPress = setTimeout(function() {
     _pinMouseDragging = true;
     _pinMouseDragDeficId = deficId;
     _pinMouseDragMarker = marker;
-    marker.classList.add('dragging');
+    if (marker) marker.classList.add('dragging');
     var area = document.getElementById('dv-canvas-area');
     if (area) area.classList.add('pin-drag-mode');
   }, 400);
@@ -1193,31 +1335,43 @@ document.addEventListener('mousemove', function(e) {
       _pinMouseLongPress = null;
     }
   }
-  // For selector mode: activate dragging after 4px threshold
-  if (!_pinMouseDragging && _pinMouseDragDeficId && _pinMouseDragMarker) {
+  // Selector mode: activate drag after 4px threshold
+  if (!_pinMouseDragging && _pinMouseDragDeficId) {
     if (Math.abs(e.clientX - _pinMouseStartX) > 4 || Math.abs(e.clientY - _pinMouseStartY) > 4) {
       _pinMouseDragging = true;
-      _pinMouseDragMarker.classList.add('dragging');
+      if (_pinMouseDragMarker) _pinMouseDragMarker.classList.add('dragging');
       var area = document.getElementById('dv-canvas-area');
       if (area) area.classList.add('pin-drag-mode');
     }
   }
-  if (!_pinMouseDragging || !_pinMouseDragMarker) return;
+  if (!_pinMouseDragging || !_pinMouseDragDeficId) return;
   e.preventDefault();
   var wrap = document.getElementById('dv-img-wrap');
-  if (!wrap) return;
+  var img = document.getElementById('dv-image');
+  if (!wrap || !img || !img.naturalWidth) return;
   var wRect = wrap.getBoundingClientRect();
-  // Apply stored offset so pin doesn't jump on first move
   var px = (e.clientX - wRect.left) / _scale + _pinMouseOffsetX;
   var py = (e.clientY - wRect.top) / _scale + _pinMouseOffsetY;
-  _pinMouseDragMarker.style.left = px + 'px';
-  _pinMouseDragMarker.style.top = py + 'px';
+  if (_useGLPins){
+    var f = Model.findDeficiency(_pinMouseDragDeficId);
+    if (f){
+      f.defic.pinX = Math.max(0, Math.min(1, px / img.naturalWidth));
+      f.defic.pinY = Math.max(0, Math.min(1, py / img.naturalHeight));
+      var wasDragging = _pinMouseDragging;
+      _pinMouseDragging = false;
+      _renderPins();
+      _pinMouseDragging = wasDragging;
+    }
+  } else if (_pinMouseDragMarker){
+    _pinMouseDragMarker.style.left = px + 'px';
+    _pinMouseDragMarker.style.top = py + 'px';
+  }
 });
 
 document.addEventListener('mouseup', function(e) {
   if (_pinMouseLongPress) { clearTimeout(_pinMouseLongPress); _pinMouseLongPress = null; }
 
-  // If selector mode started but drag never activated (no movement), just select pin visually
+  // Selector mode: if drag never activated (no movement), clear and return
   if (_pinMouseDragDeficId && !_pinMouseDragging) {
     _pinMouseDragDeficId = null;
     _pinMouseDragMarker = null;
@@ -1230,7 +1384,7 @@ document.addEventListener('mouseup', function(e) {
   if (area) area.classList.remove('pin-drag-mode');
   if (_pinMouseDragMarker) _pinMouseDragMarker.classList.remove('dragging');
 
-  // Calculate final position (include offset for accurate placement)
+  // Final position calculation
   var img = document.getElementById('dv-image');
   var wrap = document.getElementById('dv-img-wrap');
   if (img && wrap && img.naturalWidth) {
