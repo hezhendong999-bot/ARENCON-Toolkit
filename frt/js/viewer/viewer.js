@@ -59,6 +59,118 @@ function _resolvePinAt(clientX, clientY, evTarget){
   return marker ? marker.getAttribute('data-defic-id') : null;
 }
 
+// ── Pin hover: cursor (finger) + tooltip (deficiency # + observations) ──
+var _pinTooltipEl = null;
+var _pinHoverLastIds = '';
+
+function _ensureTooltipEl(){
+  if (_pinTooltipEl) return _pinTooltipEl;
+  var el = document.createElement('div');
+  el.id = 'dv-pin-tooltip';
+  el.style.cssText =
+    'position:fixed;z-index:9999;pointer-events:none;' +
+    'background:rgba(15,23,42,.95);color:#e8eef8;' +
+    'border:1px solid rgba(255,255,255,.15);' +
+    'border-radius:6px;padding:8px 10px;' +
+    'font:600 12px/1.45 Calibri,sans-serif;' +
+    'max-width:340px;min-width:180px;' +
+    'box-shadow:0 6px 24px rgba(0,0,0,.5);' +
+    'display:none;white-space:normal;';
+  document.body.appendChild(el);
+  _pinTooltipEl = el;
+  return el;
+}
+
+function _escHtml(s){
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function _buildTooltipHTML(deficIds){
+  var rows = [];
+  for (var i = 0; i < deficIds.length; i++){
+    var f = Model.findDeficiency(deficIds[i]);
+    if (!f) continue;
+    var d = f.defic;
+    var num = d.num;
+    var obs = d.observations || [];
+    if (!obs.length){
+      var desc = d.description || '(no description)';
+      rows.push(
+        '<div style="margin:2px 0;"><span style="color:#ef4444;font-weight:700">#' + num + '</span> ' +
+        _escHtml(desc) + '</div>'
+      );
+    } else {
+      for (var j = 0; j < obs.length; j++){
+        var t = (obs[j] && obs[j].text) ? obs[j].text : '(empty observation)';
+        rows.push(
+          '<div style="margin:2px 0;"><span style="color:#ef4444;font-weight:700">#' + num + '.' + (j + 1) + '</span> ' +
+          _escHtml(t) + '</div>'
+        );
+      }
+    }
+  }
+  return rows.join('');
+}
+
+function _hideTooltip(){
+  if (_pinTooltipEl) _pinTooltipEl.style.display = 'none';
+  _pinHoverLastIds = '';
+}
+
+function _positionTooltip(clientX, clientY){
+  if (!_pinTooltipEl) return;
+  var tw = _pinTooltipEl.offsetWidth;
+  var th = _pinTooltipEl.offsetHeight;
+  var pad = 14;
+  var x = clientX + pad;
+  var y = clientY + pad;
+  if (x + tw > window.innerWidth - 8) x = clientX - tw - pad;
+  if (y + th > window.innerHeight - 8) y = clientY - th - pad;
+  if (x < 4) x = 4;
+  if (y < 4) y = 4;
+  _pinTooltipEl.style.left = x + 'px';
+  _pinTooltipEl.style.top  = y + 'px';
+}
+
+function _setCanvasCursor(cur){
+  var host = document.getElementById('dv-canvas-area');
+  if (!host) return;
+  if (cur) host.style.cursor = cur;
+  else host.style.removeProperty('cursor');
+}
+
+function _updatePinHover(clientX, clientY){
+  if (!_useGLPins || !_glPinsReady || !window.PinsGL) return;
+  if (_pinDragging || _pinMouseDragging || _pinModeDeficId){
+    _hideTooltip();
+    _setCanvasCursor('');
+    return;
+  }
+  var ids = window.PinsGL.hitTestAll(clientX, clientY);
+  if (!ids.length){
+    _hideTooltip();
+    _setCanvasCursor('');
+    return;
+  }
+  var toolActive = Markup && Markup.getTool && Markup.getTool();
+  _setCanvasCursor(toolActive ? '' : 'pointer');
+  var key = ids.join(',');
+  if (key !== _pinHoverLastIds){
+    _pinHoverLastIds = key;
+    var el = _ensureTooltipEl();
+    el.innerHTML = _buildTooltipHTML(ids);
+    el.style.display = 'block';
+  }
+  _positionTooltip(clientX, clientY);
+}
+
+document.addEventListener('mousemove', function(e){
+  if (_pinDragging || _pinMouseDragging) return;
+  _updatePinHover(e.clientX, e.clientY);
+});
+document.addEventListener('mouseleave', _hideTooltip);
+window.addEventListener('scroll', _hideTooltip, true);
+
 // ── TiledPdf init (one-shot, lazy) ───────────────────────
 var _tiledInited = false;
 function _ensureTiledInit() {
@@ -718,6 +830,19 @@ function _renderPins() {
     };
     if (host) window.PinsGL.resize(host.clientWidth, host.clientHeight);
 
+    // Pin size shrink when zoomed out: 0.7× at fit-to-screen, lerp to 1.0× at 1×,
+    // stays 1.0× when zoomed in. Keeps zoomed-in feel unchanged.
+    var pinScale = 1;
+    var fitS = (typeof _fitScale === 'number' && _fitScale > 0) ? _fitScale : 1;
+    if (_scale >= 1) {
+      pinScale = 1;
+    } else if (_scale <= fitS) {
+      pinScale = 0.7;
+    } else {
+      var t = (_scale - fitS) / (1 - fitS);
+      pinScale = 0.7 + 0.3 * t;
+    }
+
     var glPins = pins.map(function(d){
       return {
         deficId: d.defic.id,
@@ -731,6 +856,7 @@ function _renderPins() {
     });
     window.PinsGL.render(glPins, {
       scale: _scale, panX: _panX, panY: _panY,
+      pinScale: pinScale,
       imgRect: relRect, naturalW: iw, naturalH: ih
     });
 
@@ -866,9 +992,17 @@ function _pinToolDrop(clientX, clientY) {
 document.getElementById('dv-canvas-area').addEventListener('click', function(e) {
   if (e.target.closest('.dv-toolbar') || e.target.closest('#dv-close') || e.target.closest('.dv-sidebar-tools') || e.target.closest('.zoom-controls') || e.target.closest('.dv-nav-controls')) return;
 
-  if (_pinModeDeficId) { _handlePinDrop(e); return; }
-  if (Markup.getTool() === 'pin') { _pinToolDrop(e.clientX, e.clientY); return; }
-});
+  if (_pinModeDeficId) {
+    e.stopImmediatePropagation();  // prevent editor-open click handler from also firing
+    _handlePinDrop(e);
+    return;
+  }
+  if (Markup.getTool() === 'pin') {
+    e.stopImmediatePropagation();
+    _pinToolDrop(e.clientX, e.clientY);
+    return;
+  }
+}, true);  // capture phase — runs BEFORE the document-level editor-open handler
 
 // Pin drop touch handler
 document.getElementById('dv-canvas-area').addEventListener('touchend', function(e) {
@@ -876,9 +1010,17 @@ document.getElementById('dv-canvas-area').addEventListener('touchend', function(
   var touch = e.changedTouches && e.changedTouches.length ? e.changedTouches[0] : null;
   if (!touch) return;
 
-  if (_pinModeDeficId) { _handlePinDrop({ clientX: touch.clientX, clientY: touch.clientY }); return; }
-  if (Markup.getTool() === 'pin') { _pinToolDrop(touch.clientX, touch.clientY); return; }
-});
+  if (_pinModeDeficId) {
+    e.stopImmediatePropagation();
+    _handlePinDrop({ clientX: touch.clientX, clientY: touch.clientY });
+    return;
+  }
+  if (Markup.getTool() === 'pin') {
+    e.stopImmediatePropagation();
+    _pinToolDrop(touch.clientX, touch.clientY);
+    return;
+  }
+}, true);
 
 // Pin marker click — open pin editor (only in pan mode, no tool active)
 var _pinDragEndTime = 0;
@@ -1314,6 +1456,8 @@ document.addEventListener('mousedown', function(e) {
   if (Markup.getTool() === 'select') {
     _pinMouseDragDeficId = deficId;
     _pinMouseDragMarker = marker;
+    e.preventDefault();
+    e.stopPropagation();     // block markup.js rubberband from starting on this pin
     return;
   }
 

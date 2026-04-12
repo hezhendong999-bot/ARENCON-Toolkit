@@ -156,33 +156,60 @@
     try { _app.renderer.resize(Math.max(1,w|0), Math.max(1,h|0)); } catch(_){}
   }
 
+  // Draw outer teardrop with optional offset + scale factor around center (16, 21).
+  // Used by both the main body and the shadow layers.
+  function _drawTeardropOuterInto(g, dx, dy, factor){
+    var cx = 16, cy = 21;
+    function sx(x){ return cx + (x - cx) * factor + dx; }
+    function sy(y){ return cy + (y - cy) * factor + dy; }
+    g.moveTo(sx(16), sy(1));
+    g.bezierCurveTo(sx(8.3), sy(1), sx(2), sy(7.3), sx(2), sy(15));
+    g.bezierCurveTo(sx(2), sy(25.5), sx(16), sy(40), sx(16), sy(40));
+    g.bezierCurveTo(sx(16), sy(40), sx(30), sy(25.5), sx(30), sy(15));
+    g.bezierCurveTo(sx(30), sy(7.3), sx(23.7), sy(1), sx(16), sy(1));
+    g.closePath();
+  }
+
+  // Build a soft drop-shadow / glow using stacked translucent teardrops.
+  // Outstanding (open, non-IAR) items get a priority-colored halo on top of the dark shadow.
+  function _buildShadow(g, color, outstanding){
+    if (outstanding){
+      for (var i = 3; i >= 1; i--){
+        g.beginFill(color, 0.12);
+        _drawTeardropOuterInto(g, 0, 0, 1 + i * 0.05);
+        g.endFill();
+      }
+    }
+    for (var j = 3; j >= 1; j--){
+      g.beginFill(0x000000, 0.10);
+      _drawTeardropOuterInto(g, 0, 2, 1 + j * 0.04);
+      g.endFill();
+    }
+  }
+
   // ─── Build a pin Container at native 32×42 coordinate space ─────────────
   function _buildPin(PIXI, pin){
     var container = new PIXI.Container();
     container.sortableChildren = false;
 
-    // The teardrop artwork at native coordinates (32×42)
+    var isOutstanding = !pin.isClosed && !pin.isIAR;
+    var priColor = _priorityColor(pin);
+
+    // Layer 0: drop shadow / glow
+    var shadow = new PIXI.Graphics();
+    _buildShadow(shadow, priColor, isOutstanding);
+    container.addChild(shadow);
+
+    // Layer 1: main teardrop artwork
     var art = new PIXI.Graphics();
     _drawTeardropOuter(art);
-    _drawTeardropInner(art, _priorityColor(pin));
-
-    // Inner white circle (r=9 at 16,14) — opacity 0.95
+    _drawTeardropInner(art, priColor);
     art.beginFill(0xFFFFFF, 0.95);
     art.drawCircle(16, 14, 9);
     art.endFill();
-
-    // Drop shadow filter — priority-colored glow for outstanding, generic for closed
-    var isOutstanding = !pin.isClosed && !pin.isIAR;
-    if (PIXI.filters && PIXI.filters.DropShadowFilter){
-      // Pixi's filter package would go here; base v7 doesn't include it.
-      // We approximate with an under-sprite tinted and blurred.
-    }
-    // Simple approximation: add a slightly larger translucent dark teardrop behind for drop shadow
-    // Real glow would need a filter package not in core Pixi — acceptable match without it.
-
     container.addChild(art);
 
-    // Number text
+    // Layer 2: number text
     var numStr = String(pin.num);
     var numFs = numStr.length <= 2 ? 14 : numStr.length === 3 ? 11 : 9;
     var style = new PIXI.TextStyle({
@@ -192,7 +219,7 @@
       fill: _priorityHex(pin)
     });
     var text = new PIXI.Text(numStr, style);
-    text.resolution = Math.max(2, window.devicePixelRatio || 1) * 2; // sharp text at any zoom
+    text.resolution = Math.max(2, window.devicePixelRatio || 1) * 2;
     text.anchor.set(0.5, 0.5);
     text.position.set(16, 14);
     container.addChild(text);
@@ -224,6 +251,7 @@
 
     opts = opts || {};
     var scale  = opts.scale  || 1;
+    var pinScale = opts.pinScale != null ? opts.pinScale : 1;
     var imgRect = opts.imgRect || { left: 0, top: 0, width: 0, height: 0 };
     var imgW = opts.naturalW || 0;
     var imgH = opts.naturalH || 0;
@@ -232,9 +260,9 @@
       return;
     }
 
-    // Pin visual dimensions in CSS px — FIXED, independent of scale
-    var pw = _pinSize;
-    var ph = Math.round(_pinSize * 42 / 32);
+    // Pin visual dimensions — FIXED CSS px, modulated by caller-supplied pinScale
+    var pw = Math.round(_pinSize * pinScale);
+    var ph = Math.round(_pinSize * 42 / 32 * pinScale);
 
     for (var i = 0; i < _pins.length; i++){
       var pin = _pins[i];
@@ -286,6 +314,23 @@
     return null;
   }
 
+  // Hit test all: returns ARRAY of deficIds at this position (for tooltip with overlapping pins).
+  function hitTestAll(clientX, clientY){
+    var out = [];
+    if (!_canvas) return out;
+    var cr = _canvas.getBoundingClientRect();
+    var lx = clientX - cr.left;
+    var ly = clientY - cr.top;
+    var ids = Object.keys(_pinScreenPos);
+    for (var i = ids.length - 1; i >= 0; i--){
+      var p = _pinScreenPos[ids[i]];
+      if (lx >= p.x && lx <= p.x + p.w && ly >= p.y && ly <= p.y + p.h){
+        out.push(ids[i]);
+      }
+    }
+    return out;
+  }
+
   function getPinScreenRect(deficId){
     return _pinScreenPos[deficId] || null;
   }
@@ -309,8 +354,9 @@
     resize:           resize,
     render:           render,
     hitTest:          hitTest,
+    hitTestAll:       hitTestAll,
     getPinScreenRect: getPinScreenRect,
     destroy:          destroy,
-    version:          '1.0'
+    version:          '1.1'
   };
 })();
