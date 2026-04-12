@@ -2127,13 +2127,12 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     font-size:calc(11px + var(--ts)) !important;
     white-space:nowrap !important;
   }
-  /* Hide the word "Tasks" / "Layers" labels — the emoji/glyph is enough on mobile.
-     word-spacing:999px pushes the text word off-screen while keeping the leading glyph visible. */
+  /* Hide the word "Tasks" / "Layers" labels — text replaced via JS inline script.
+     (S79 rev: word-spacing hack didn't work inside inline-flex buttons.) */
   .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn{
-    word-spacing:999px !important;
+    max-width:50px !important;
     overflow:hidden !important;
-    max-width:46px !important;
   }
   /* S79: Tasks button on mobile should NOT show .active burgundy fill (match PC look) */
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn.active{
