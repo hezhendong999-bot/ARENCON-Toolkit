@@ -2123,15 +2123,16 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
-    padding:0 8px !important;min-width:40px !important;min-height:38px !important;
-    font-size:calc(11px + var(--ts)) !important;
+    padding:0 8px !important;min-width:42px !important;min-height:38px !important;
+    font-size:calc(15px + var(--ts)) !important;
     white-space:nowrap !important;
   }
-  /* Hide the word "Tasks" / "Layers" labels — text replaced via JS inline script. */
+  /* S79 v5: boost icon rendering size for Tasks & Layers (set via JS textContent) */
   .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn{
     max-width:50px !important;
     overflow:hidden !important;
+    font-size:calc(18px + var(--ts)) !important;
   }
   /* S79: Tasks button on mobile should NOT show .active burgundy fill (match PC look) */
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn.active{
@@ -2152,8 +2153,10 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     display:none !important;
   }
   .drawing-viewer-overlay .dv-toolbar{flex-wrap:nowrap !important;overflow:visible !important;}
-  /* Dark button pushes to far right */
-  .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{margin-left:auto !important;}
+  /* S79 v5: group Layers / Tasks / More / Dark together, all pushed to right.
+     Layers is inside a wrapper <div> — push the wrapper right. */
+  .drawing-viewer-overlay .dv-toolbar > div:has(> #dv-layers-btn){margin-left:auto !important;}
+  .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{margin-left:0 !important;}
 }
 
 /* S79 v4: restore bottom bar on mobile — it now holds title + rename
@@ -3001,4 +3004,41 @@ body.dark-mode #dwg-actions-pop button:hover, body.dark-mode #dwg-filter-pop but
 }
 body.dark-mode #dwg-actions-pop button.danger, body.dark-mode #photo-actions-pop button.danger {
   color: #e88a7a !important;
+}
+
+/* ═══ Session 79 v5 final — mobile polish ═══ */
+@media (max-width: 900px){
+  /* Zoom controls horizontal on mobile */
+  .drawing-viewer-overlay .zoom-controls{
+    flex-direction:row !important;
+    bottom:12px !important; right:10px !important;
+    gap:6px !important;
+  }
+  .drawing-viewer-overlay .zoom-controls button{
+    width:42px !important; height:42px !important; border-radius:10px !important;
+  }
+  /* Tasks bottom sheet — always dark (viewer is always dark-themed) */
+  .drawing-viewer-overlay #dv-tasks-sheet-v75{
+    background:#1B2438 !important;
+    color:#fff !important;
+    border-top:1px solid #2a3448 !important;
+  }
+  .drawing-viewer-overlay #dv-tsv75-handle{border-bottom-color:#2a3448 !important;}
+  .drawing-viewer-overlay #dv-tsv75-handle::before{background:#4a5a70 !important;}
+  .drawing-viewer-overlay #dv-tsv75-header{
+    border-bottom-color:#2a3448 !important;
+    color:#fff !important;
+  }
+  .drawing-viewer-overlay #dv-tsv75-collapse{color:#bbb !important;}
+  .drawing-viewer-overlay .dv-tsv75-card{
+    background:#2a3448 !important;
+    color:#fff !important;
+  }
+  .drawing-viewer-overlay .dv-tsv75-card-title{color:#fff !important;}
+  .drawing-viewer-overlay .dv-tsv75-card-meta{color:#a0a8b8 !important;}
+  /* Bottom bar rename pencil — orange emoji render */
+  .drawing-viewer-overlay #dv-bb-rename{
+    font-size:calc(15px + var(--ts)) !important;
+    padding:4px 8px !important;
+  }
 }
