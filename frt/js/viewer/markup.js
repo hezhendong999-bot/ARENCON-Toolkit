@@ -255,7 +255,7 @@ function _renderAll() {
   // Eraser uses destination-out composite which isn't supported in the WebGL path,
   // so we fall back to full 2D when any eraser is present.
   var useWebGLNow = _useWebGL && _webglReady && _webglCanvas &&
-    window.WebGLMarkupRenderer && !window.WebGLMarkupRenderer.hasEraser(_objects);
+    window.WebGLMarkupRenderer;
 
   if (useWebGLNow){
     try {

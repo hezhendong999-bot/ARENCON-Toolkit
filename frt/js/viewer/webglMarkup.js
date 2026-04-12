@@ -21,7 +21,7 @@
 //   - Cloud uses quadraticCurveTo (shape, not stroke — explicitly permitted)
 //   - No OffscreenCanvas (iOS Safari compatibility)
 //   - No opacity stacking (highlight via per-opacity-group RenderTexture composite)
-//   - Eraser bypassed entirely (markup.js falls back to 2D when any eraser present)
+//   - Eraser supported via BLEND_MODES.ERASE (destination-out on framebuffer) — v5.2
 //
 (function(){
   'use strict';
@@ -70,11 +70,10 @@
     return _supported;
   }
 
+  // Retained for backward compat with markup.js S80 integration.
+  // As of 5.2, WebGL handles eraser via BLEND_MODES.ERASE — this always returns false.
   function hasEraser(objects){
-    if (!objects) return false;
-    for (var i = 0; i < objects.length; i++){
-      if (objects[i] && objects[i].type === 'eraser') return true;
-    }
+    void objects; // intentionally ignored
     return false;
   }
 
@@ -149,14 +148,16 @@
       return;
     }
 
-    // Partition like Canvas 2D pipeline in markup.js _renderAll
+    // Iterate in insertion order. Non-highlight strokes (pen/shape/text/polyline/eraser)
+    // are added to the stage in sequence so eraser strokes cut through earlier pixels
+    // only — matches Canvas 2D behavior where destination-out affects prior draws.
+    // Highlights are collected separately and composited at the END (same as 2D path).
     var highlights = [];
     for (var i = 0; i < objects.length; i++){
       var o = objects[i];
       if (!o || !o.type) continue;
-      if (o.type === 'eraser') continue;    // markup.js bypasses WebGL when any eraser present
       if (o.type === 'highlight'){ highlights.push(o); continue; }
-      var d = _buildObject(PIXI, o);
+      var d = (o.type === 'eraser') ? _buildEraser(PIXI, o) : _buildObject(PIXI, o);
       if (d) _stage.addChild(d);
     }
 
@@ -189,6 +190,31 @@
     g.moveTo(obj.points[0].x, obj.points[0].y);
     for (var i = 1; i < obj.points.length; i++){
       g.lineTo(obj.points[i].x, obj.points[i].y);   // lineTo only — hard rule
+    }
+    return g;
+  }
+
+  // Eraser: same freehand stroke shape, but rendered with BLEND_MODES.ERASE
+  // which maps to destination-out (src*0 + dst*(1-srcAlpha)) — cuts pixels
+  // from whatever was drawn earlier in the child list on the main framebuffer.
+  // Width multiplier (×3) matches Canvas 2D: ctx.lineWidth = (obj.size||2)*3
+  function _buildEraser(PIXI, obj){
+    if (!obj.points || obj.points.length < 2) return null;
+    var g = new PIXI.Graphics();
+    g.lineStyle({
+      width: (obj.size || 2) * 3,
+      color: 0xFFFFFF,         // color irrelevant under ERASE blend (only src alpha matters)
+      alpha: 1,
+      cap: 'round',
+      join: 'round'
+    });
+    g.moveTo(obj.points[0].x, obj.points[0].y);
+    for (var i = 1; i < obj.points.length; i++){
+      g.lineTo(obj.points[i].x, obj.points[i].y);
+    }
+    // Pixi v7: ERASE blend mode produces destination-out on the framebuffer
+    if (PIXI.BLEND_MODES && PIXI.BLEND_MODES.ERASE != null){
+      g.blendMode = PIXI.BLEND_MODES.ERASE;
     }
     return g;
   }
@@ -381,6 +407,6 @@
     hasEraser:   hasEraser,
     render:      render,
     destroy:     destroy,
-    version:     '5.1'
+    version:     '5.2'
   };
 })();
