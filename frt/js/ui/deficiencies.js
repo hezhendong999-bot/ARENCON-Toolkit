@@ -1205,3 +1205,64 @@ document.addEventListener('click', function(e) {
     }
   }
 });
+
+// ── S78: Defic Filters + Select buttons (delegated) ─────────────
+document.addEventListener('click', function(e) {
+  var fb = e.target.closest && e.target.closest('#defic-filters-btn');
+  if (fb) {
+    // Toggle filter dropdown — quick filter by status
+    var existing = document.getElementById('defic-filters-pop');
+    if (existing) { existing.remove(); return; }
+    var pop = document.createElement('div');
+    pop.id = 'defic-filters-pop';
+    pop.className = 'card-context-menu';
+    pop.style.cssText = 'display:block;position:fixed;z-index:9000;';
+    pop.innerHTML =
+      '<button data-defic-filter="all">All</button>'
+      + '<button data-defic-filter="outstanding">Outstanding only</button>'
+      + '<button data-defic-filter="in-progress">In progress only</button>'
+      + '<button data-defic-filter="closed">Closed only</button>'
+      + '<div class="separator"></div>'
+      + '<button data-defic-filter="high">High priority only</button>'
+      + '<button data-defic-filter="iar">IAR only</button>';
+    document.body.appendChild(pop);
+    var r = fb.getBoundingClientRect();
+    pop.style.top = (r.bottom + 4) + 'px';
+    pop.style.left = Math.min(r.left, window.innerWidth - 220) + 'px';
+    setTimeout(function(){ document.addEventListener('click', function close(ev){
+      if (ev.target.closest && ev.target.closest('#defic-filters-pop')) {
+        var f = ev.target.closest('[data-defic-filter]');
+        if (f) {
+          var mode = f.getAttribute('data-defic-filter');
+          var cards = document.querySelectorAll('.deficiency-card, [data-deficiency-id]');
+          cards.forEach(function(c){
+            var st = (c.getAttribute('data-status')||'').toLowerCase();
+            var pr = (c.getAttribute('data-priority')||'').toLowerCase();
+            var iar = c.getAttribute('data-iar') === '1';
+            var show = mode === 'all'
+              || (mode === 'outstanding' && st === 'outstanding')
+              || (mode === 'in-progress' && (st === 'in-progress' || st === 'in progress'))
+              || (mode === 'closed' && st === 'closed')
+              || (mode === 'high' && pr === 'high')
+              || (mode === 'iar' && iar);
+            c.style.display = show ? '' : 'none';
+          });
+          toast('Filter: ' + mode);
+        }
+        pop.remove();
+      } else {
+        pop.remove();
+      }
+      document.removeEventListener('click', close);
+    }); }, 10);
+    return;
+  }
+  var sb = e.target.closest && e.target.closest('#defic-select-btn');
+  if (sb) {
+    document.body.classList.toggle('defic-select-mode');
+    var on = document.body.classList.contains('defic-select-mode');
+    sb.textContent = on ? '\u2713 Selecting' : '\u2610 Select';
+    toast(on ? 'Multi-select on \u2014 tap cards to select' : 'Selection mode off');
+    return;
+  }
+});
