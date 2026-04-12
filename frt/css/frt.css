@@ -2134,8 +2134,14 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     font-size:calc(16px + var(--ts)) !important;
   }
   /* Back button + nav arrows slightly bigger too */
+  /* S79: Back button horizontal position matches main FRT header back-btn exactly on mobile.
+     Main: .header-top padding:8-10px + .back-btn padding-left:0 -> text at x=10px from viewport.
+     Viewer: .dv-toolbar padding:7px 8px + .dv-close-btn padding-left:10px = 18px.
+     Normalize: toolbar padding-left 10px, close-btn padding-left 0. */
+  .drawing-viewer-overlay .dv-toolbar{padding-left:10px !important;}
   .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
-    padding:6px 10px !important; font-size:calc(13px + var(--ts)) !important;
+    padding:6px 10px 6px 0 !important; font-size:calc(13px + var(--ts)) !important;
+    margin-right:6px !important;
   }
   .drawing-viewer-overlay .dv-toolbar #dv-prev,
   .drawing-viewer-overlay .dv-toolbar #dv-next{
