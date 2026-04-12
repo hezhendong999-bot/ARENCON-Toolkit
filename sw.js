@@ -1,6 +1,6 @@
 // ARENCON Field Review Tool — Service Worker
 // Strategy: network-first for HTML/JS/CSS (always get latest), cache-first for CDN assets
-var CACHE_NAME = 'arencon-frt-v68';
+var CACHE_NAME = 'arencon-frt-v69';
 
 // Files to precache on install
 var APP_FILES = [
@@ -27,7 +27,6 @@ var APP_FILES = [
   'frt/js/viewer/markupEngine.js',
   'frt/js/viewer/webglMarkup.js',
   'frt/js/viewer/tiledPdf.js',
-  'frt/webgl-test.html',
   'frt/js/export/pdf.js',
   'frt/js/export/json.js',
   'frt/js/shared/auth.js',

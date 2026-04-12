@@ -43,6 +43,22 @@ var _opacity = 1;
 var _eventsWired = false;
 var _hlCanvas = null;
 
+// ── WebGL state (Phase 5) ───────────────────────────────
+var _webglCanvas = null;
+var _webglReady = false;
+var _webglInitPromise = null;
+var _useWebGL = (function(){
+  try {
+    if (typeof window === 'undefined') return false;
+    if (window.location && window.location.search){
+      if (window.location.search.indexOf('webgl=0') >= 0) return false;
+      if (window.location.search.indexOf('webgl=1') >= 0) return true;
+    }
+    if (localStorage.getItem('ARENCON_NoWebGL') === '1') return false;
+    return !!(window.WebGLMarkupRenderer && window.WebGLMarkupRenderer.isSupported && window.WebGLMarkupRenderer.isSupported());
+  } catch(_){ return false; }
+})();
+
 // ── Helpers ─────────────────────────────────────────────
 function _newId() {
   return 'mk_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5);
@@ -100,9 +116,50 @@ function _allocateCanvas() {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
+  // ── WebGL sibling canvas (Phase 5) ─────────────────────
+  // Stacks UNDERNEATH mc so selection/rubberband in 2D remains on top.
+  if (_useWebGL){
+    try {
+      if (!_webglCanvas){
+        _webglCanvas = document.createElement('canvas');
+        _webglCanvas.id = 'markup-webgl-canvas';
+        _webglCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
+        mc.parentNode.insertBefore(_webglCanvas, mc); // before mc = underneath in stacking order
+      }
+      _webglCanvas.width  = cw;
+      _webglCanvas.height = ch;
+      _webglCanvas.style.width  = drawW + 'px';
+      _webglCanvas.style.height = drawH + 'px';
+      if (!_webglReady && !_webglInitPromise){
+        _webglInitPromise = window.WebGLMarkupRenderer.init(_webglCanvas, { w: cw, h: ch, dpr: mkScale })
+          .then(function(){
+            _webglReady = true;
+            _webglInitPromise = null;
+            console.log('[Markup] WebGL renderer ready (Pixi.js v' + ((window.PIXI && window.PIXI.VERSION) || '?') + ')');
+            _renderAll(); // refresh once Pixi is live
+          })
+          .catch(function(err){
+            console.warn('[Markup] WebGL init failed, falling back to Canvas 2D:', err);
+            _useWebGL = false;
+            _webglInitPromise = null;
+            if (_webglCanvas && _webglCanvas.parentNode){
+              _webglCanvas.parentNode.removeChild(_webglCanvas);
+            }
+            _webglCanvas = null;
+          });
+      } else if (_webglReady){
+        try { window.WebGLMarkupRenderer.resize(cw, ch); } catch(_){}
+      }
+    } catch(err){
+      console.warn('[Markup] WebGL setup threw — disabling:', err);
+      _useWebGL = false;
+    }
+  }
+
   console.log('[Markup] Canvas: logical ' + drawW + '×' + drawH +
     ', buffer ' + cw + '×' + ch + ' (dpr=' + mkScale.toFixed(3) +
-    ', ' + Math.round(cw * ch / 1000000) + 'M px)');
+    ', ' + Math.round(cw * ch / 1000000) + 'M px)' +
+    (_useWebGL ? ' [WebGL' + (_webglReady ? ' ready' : ' initializing') + ']' : ' [2D]'));
 }
 
 function _ensureOverlay() {
@@ -193,68 +250,99 @@ function _renderAll() {
   ctx.clearRect(0, 0, mc.width, mc.height);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  var highlights = [];
-  var others = [];
-  _objects.forEach(function(obj) {
-    if (obj.type === 'highlight') highlights.push(obj);
-    else others.push(obj);
-  });
+  // ── WebGL path (Phase 5) ────────────────────────────────
+  // Delegate committed-object render to Pixi when available and no eraser strokes.
+  // Eraser uses destination-out composite which isn't supported in the WebGL path,
+  // so we fall back to full 2D when any eraser is present.
+  var useWebGLNow = _useWebGL && _webglReady && _webglCanvas &&
+    window.WebGLMarkupRenderer && !window.WebGLMarkupRenderer.hasEraser(_objects);
 
-  others.forEach(function(obj) { _drawObject(ctx, obj); });
-
-  // Highlight offscreen composite (non-stacking)
-  if (highlights.length > 0) {
-    if (!_hlCanvas) _hlCanvas = document.createElement('canvas');
-    _hlCanvas.width = mc.width;
-    _hlCanvas.height = mc.height;
-    var hx = _hlCanvas.getContext('2d');
-
-    var opGroups = {};
-    highlights.forEach(function(obj) {
-      var op = obj.opacity != null ? obj.opacity : 1;
-      var key = Math.round(op * 100);
-      if (!opGroups[key]) opGroups[key] = { opacity: op, objs: [] };
-      opGroups[key].objs.push(obj);
-    });
-
-    var opKeys = Object.keys(opGroups);
-    for (var gi = 0; gi < opKeys.length; gi++) {
-      var grp = opGroups[opKeys[gi]];
-      hx.clearRect(0, 0, _hlCanvas.width, _hlCanvas.height);
-      hx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      grp.objs.forEach(function(obj) {
-        if (!obj.points || obj.points.length < 2) return;
-        hx.strokeStyle = obj.color || '#F1C40F';
-        hx.lineWidth = (obj.size || 2) * 4;
-        hx.lineCap = 'round';
-        hx.lineJoin = 'round';
-        hx.globalAlpha = 1;
-        hx.globalCompositeOperation = 'source-over';
-        hx.beginPath();
-        hx.moveTo(obj.points[0].x, obj.points[0].y);
-        for (var i = 1; i < obj.points.length; i++) hx.lineTo(obj.points[i].x, obj.points[i].y);
-        hx.stroke();
-      });
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.globalAlpha = 0.3 * grp.opacity;
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.drawImage(_hlCanvas, 0, 0);
-      ctx.restore();
+  if (useWebGLNow){
+    try {
+      window.WebGLMarkupRenderer.render(_objects, { dpr: dpr, hlAlpha: 0.3 });
+    } catch(err){
+      console.warn('[Markup] WebGL render threw — disabling for this session:', err);
+      _useWebGL = false;
+      _webglReady = false;
+      useWebGLNow = false;
+      if (_webglCanvas && _webglCanvas.parentNode){
+        _webglCanvas.parentNode.removeChild(_webglCanvas);
+      }
+      _webglCanvas = null;
     }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    highlights.forEach(function(obj) {
-      // Selection handles drawn as group below
-    });
   }
 
-  // Draw grouped selection box around all selected items
+  if (!useWebGLNow){
+    // ── Canvas 2D path (original) ─────────────────────────
+    // Also clear the WebGL canvas if we have one but aren't using it this pass
+    // (e.g., eraser just got added — we don't want stale GPU-rendered strokes showing through)
+    if (_webglCanvas){
+      var wctx = _webglCanvas.getContext('webgl2') || _webglCanvas.getContext('webgl');
+      if (wctx){ try { wctx.clearColor(0,0,0,0); wctx.clear(wctx.COLOR_BUFFER_BIT); } catch(_){} }
+    }
+
+    var highlights = [];
+    var others = [];
+    _objects.forEach(function(obj) {
+      if (obj.type === 'highlight') highlights.push(obj);
+      else others.push(obj);
+    });
+
+    others.forEach(function(obj) { _drawObject(ctx, obj); });
+
+    // Highlight offscreen composite (non-stacking)
+    if (highlights.length > 0) {
+      if (!_hlCanvas) _hlCanvas = document.createElement('canvas');
+      _hlCanvas.width = mc.width;
+      _hlCanvas.height = mc.height;
+      var hx = _hlCanvas.getContext('2d');
+
+      var opGroups = {};
+      highlights.forEach(function(obj) {
+        var op = obj.opacity != null ? obj.opacity : 1;
+        var key = Math.round(op * 100);
+        if (!opGroups[key]) opGroups[key] = { opacity: op, objs: [] };
+        opGroups[key].objs.push(obj);
+      });
+
+      var opKeys = Object.keys(opGroups);
+      for (var gi = 0; gi < opKeys.length; gi++) {
+        var grp = opGroups[opKeys[gi]];
+        hx.clearRect(0, 0, _hlCanvas.width, _hlCanvas.height);
+        hx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        grp.objs.forEach(function(obj) {
+          if (!obj.points || obj.points.length < 2) return;
+          hx.strokeStyle = obj.color || '#F1C40F';
+          hx.lineWidth = (obj.size || 2) * 4;
+          hx.lineCap = 'round';
+          hx.lineJoin = 'round';
+          hx.globalAlpha = 1;
+          hx.globalCompositeOperation = 'source-over';
+          hx.beginPath();
+          hx.moveTo(obj.points[0].x, obj.points[0].y);
+          for (var i = 1; i < obj.points.length; i++) hx.lineTo(obj.points[i].x, obj.points[i].y);
+          hx.stroke();
+        });
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 0.3 * grp.opacity;
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.drawImage(_hlCanvas, 0, 0);
+        ctx.restore();
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      highlights.forEach(function(obj) {
+        // Selection handles drawn as group below
+      });
+    }
+  }
+
+  // Selection handles + rubber-band — ALWAYS rendered in 2D on top of WebGL
   if (_selectedIds.length) {
     _drawGroupedSelection(ctx);
   }
 
-  // Draw rubber-band selection rectangle if active
   if (_rubberBand) {
     ctx.save();
     ctx.setLineDash([4, 4]);
@@ -1803,6 +1891,17 @@ export var Markup = {
 
     var ov = _getOverlay();
     if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+
+    // Tear down WebGL renderer + canvas (Phase 5)
+    if (window.WebGLMarkupRenderer && _webglReady){
+      try { window.WebGLMarkupRenderer.destroy(); } catch(_){}
+    }
+    if (_webglCanvas && _webglCanvas.parentNode){
+      _webglCanvas.parentNode.removeChild(_webglCanvas);
+    }
+    _webglCanvas = null;
+    _webglReady = false;
+    _webglInitPromise = null;
 
     if (_eraserCursor) _eraserCursor.style.display = 'none';
 
