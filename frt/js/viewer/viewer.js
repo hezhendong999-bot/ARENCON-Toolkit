@@ -141,19 +141,28 @@ function _setCanvasCursor(cur){
 
 function _updatePinHover(clientX, clientY){
   if (!_useGLPins || !_glPinsReady || !window.PinsGL) return;
-  if (_pinDragging || _pinMouseDragging || _pinModeDeficId){
+  // Pin-drop mode: nothing clickable regarding existing pins
+  if (_pinModeDeficId){
     _hideTooltip();
     _setCanvasCursor('');
+    _setGLHover(null);
+    return;
+  }
+  // Don't update hover during an active drag (but DO keep tooltip following — handled in drag move)
+  if (_pinDragging || _pinMouseDragging){
     return;
   }
   var ids = window.PinsGL.hitTestAll(clientX, clientY);
   if (!ids.length){
     _hideTooltip();
     _setCanvasCursor('');
+    _setGLHover(null);
     return;
   }
-  var toolActive = Markup && Markup.getTool && Markup.getTool();
-  _setCanvasCursor(toolActive ? '' : 'pointer');
+  // Cursor pointer whenever hovering a pin (any tool mode except pin-drop which returned above)
+  _setCanvasCursor('pointer');
+  _setGLHover(ids[0]);
+  // Tooltip always shown on hover
   var key = ids.join(',');
   if (key !== _pinHoverLastIds){
     _pinHoverLastIds = key;
@@ -162,6 +171,28 @@ function _updatePinHover(clientX, clientY){
     el.style.display = 'block';
   }
   _positionTooltip(clientX, clientY);
+}
+
+// Re-render pins with a hover highlight on the given id (null = clear)
+var _lastHoveredId = null;
+var _lastActiveId = null;
+function _setGLHover(id){
+  if (id === _lastHoveredId) return;
+  _lastHoveredId = id;
+  _renderPinsWithState();
+}
+function _setGLActive(id){
+  if (id === _lastActiveId) return;
+  _lastActiveId = id;
+  _renderPinsWithState();
+}
+// Light wrapper: re-renders pins preserving current hover/active state
+function _renderPinsWithState(){
+  if (!_useGLPins || !_glPinsReady || !window.PinsGL) return;
+  var wasDragging = _pinDragging, wasMouseDragging = _pinMouseDragging;
+  _pinDragging = false; _pinMouseDragging = false;
+  _renderPins();
+  _pinDragging = wasDragging; _pinMouseDragging = wasMouseDragging;
 }
 
 document.addEventListener('mousemove', function(e){
@@ -857,6 +888,8 @@ function _renderPins() {
     window.PinsGL.render(glPins, {
       scale: _scale, panX: _panX, panY: _panY,
       pinScale: pinScale,
+      hoveredId: _lastHoveredId || null,
+      activeId:  _lastActiveId  || null,
       imgRect: relRect, naturalW: iw, naturalH: ih
     });
 
@@ -1022,17 +1055,17 @@ document.getElementById('dv-canvas-area').addEventListener('touchend', function(
   }
 }, true);
 
-// Pin marker click — open pin editor (only in pan mode, no tool active)
+// Pin marker click — open pin editor. Allowed in pan mode AND when any
+// markup tool is active. ONLY blocked when pin-drop mode is active.
 var _pinDragEndTime = 0;
 document.addEventListener('click', function(e) {
   var deficId = _resolvePinAt(e.clientX, e.clientY, e.target);
   if (!deficId) return;
-  if (_pinModeDeficId) return;
+  if (_pinModeDeficId) return;     // pin-drop mode: ignore existing pins entirely
   if (_pinDragging) return;
+  if (_pinMouseDragging) return;
   // Suppress click immediately after drag end
   if (Date.now() - _pinDragEndTime < 300) return;
-  // Block pin editor when any markup/selector tool is active
-  if (Markup.getTool()) return;
   _openPinEditor(deficId);
 });
 
@@ -1363,11 +1396,15 @@ document.addEventListener('touchmove', function(e) {
     if (f){
       f.defic.pinX = Math.max(0, Math.min(1, px / img.naturalWidth));
       f.defic.pinY = Math.max(0, Math.min(1, py / img.naturalHeight));
-      // Temporarily clear drag flag so _renderPins() doesn't early-out
+      _lastActiveId = _pinDragDeficId;
       var wasDragging = _pinDragging;
       _pinDragging = false;
       _renderPins();
       _pinDragging = wasDragging;
+      // Tooltip follows pin during drag
+      if (_pinTooltipEl && _pinTooltipEl.style.display !== 'none'){
+        _positionTooltip(touch.clientX, touch.clientY);
+      }
     }
   } else if (_pinDragMarker) {
     _pinDragMarker.style.left = px + 'px';
@@ -1408,6 +1445,8 @@ document.addEventListener('touchend', function(e) {
   _pinDragDeficId = null;
   _pinDragMarker = null;
   _pinDragEndTime = Date.now();
+  _lastActiveId = null;
+  _hideTooltip();
   _renderPins();
 });
 
@@ -1501,10 +1540,15 @@ document.addEventListener('mousemove', function(e) {
     if (f){
       f.defic.pinX = Math.max(0, Math.min(1, px / img.naturalWidth));
       f.defic.pinY = Math.max(0, Math.min(1, py / img.naturalHeight));
+      _lastActiveId = _pinMouseDragDeficId;
       var wasDragging = _pinMouseDragging;
       _pinMouseDragging = false;
       _renderPins();
       _pinMouseDragging = wasDragging;
+      // Tooltip follows pin during drag
+      if (_pinTooltipEl && _pinTooltipEl.style.display !== 'none'){
+        _positionTooltip(e.clientX, e.clientY);
+      }
     }
   } else if (_pinMouseDragMarker){
     _pinMouseDragMarker.style.left = px + 'px';

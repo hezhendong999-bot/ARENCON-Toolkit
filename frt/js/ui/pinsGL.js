@@ -172,41 +172,52 @@
 
   // Build a soft drop-shadow / glow using stacked translucent teardrops.
   // Outstanding (open, non-IAR) items get a priority-colored halo on top of the dark shadow.
-  function _buildShadow(g, color, outstanding){
+  // state=hover → stronger halo; state=active → even stronger + larger shadow
+  function _buildShadow(g, color, outstanding, state){
+    var haloMul = state === 'active' ? 2.5 : state === 'hover' ? 1.8 : 1.0;
+    var shadowMul = state === 'active' ? 1.6 : state === 'hover' ? 1.3 : 1.0;
     if (outstanding){
       for (var i = 3; i >= 1; i--){
-        g.beginFill(color, 0.12);
-        _drawTeardropOuterInto(g, 0, 0, 1 + i * 0.05);
+        g.beginFill(color, Math.min(0.35, 0.12 * haloMul));
+        _drawTeardropOuterInto(g, 0, 0, 1 + i * 0.05 * (state === 'active' ? 1.3 : state === 'hover' ? 1.15 : 1));
         g.endFill();
       }
     }
     for (var j = 3; j >= 1; j--){
-      g.beginFill(0x000000, 0.10);
-      _drawTeardropOuterInto(g, 0, 2, 1 + j * 0.04);
+      g.beginFill(0x000000, Math.min(0.22, 0.10 * shadowMul));
+      _drawTeardropOuterInto(g, 0, 2, 1 + j * 0.04 * (state === 'active' ? 1.3 : state === 'hover' ? 1.15 : 1));
       g.endFill();
     }
   }
 
   // ─── Build a pin Container at native 32×42 coordinate space ─────────────
-  function _buildPin(PIXI, pin){
+  // state: 'normal' | 'hover' | 'active'
+  function _buildPin(PIXI, pin, state){
     var container = new PIXI.Container();
     container.sortableChildren = false;
 
     var isOutstanding = !pin.isClosed && !pin.isIAR;
     var priColor = _priorityColor(pin);
 
-    // Layer 0: drop shadow / glow
+    // Layer 0: drop shadow / glow — intensified on hover/active
     var shadow = new PIXI.Graphics();
-    _buildShadow(shadow, priColor, isOutstanding);
+    _buildShadow(shadow, priColor, isOutstanding, state);
     container.addChild(shadow);
 
-    // Layer 1: main teardrop artwork
+    // Layer 1: solid colored teardrop (NO outer white border per V1 design)
     var art = new PIXI.Graphics();
-    _drawTeardropOuter(art);
-    _drawTeardropInner(art, priColor);
+    art.beginFill(priColor, 1);
+    _drawTeardropOuterInto(art, 0, 0, 1);
+    art.endFill();
+    // Inner white circle (r=9 at 16,14)
     art.beginFill(0xFFFFFF, 0.95);
     art.drawCircle(16, 14, 9);
     art.endFill();
+
+    // Hover/active brightness tint
+    if (state === 'hover') {
+      art.tint = 0xFFFFFF;  // Pixi-v7: no-op on Graphics with beginFill; keep for future Sprite swap
+    }
     container.addChild(art);
 
     // Layer 2: number text
@@ -223,6 +234,11 @@
     text.anchor.set(0.5, 0.5);
     text.position.set(16, 14);
     container.addChild(text);
+
+    // Hover: slight scale-up for feedback (like CSS :hover transform)
+    // Active: a little more
+    if (state === 'hover') container.scale.set(1.08, 1.08);
+    else if (state === 'active') container.scale.set(1.15, 1.15);
 
     return container;
   }
@@ -252,6 +268,8 @@
     opts = opts || {};
     var scale  = opts.scale  || 1;
     var pinScale = opts.pinScale != null ? opts.pinScale : 1;
+    var hoveredId = opts.hoveredId || null;
+    var activeId  = opts.activeId  || null;
     var imgRect = opts.imgRect || { left: 0, top: 0, width: 0, height: 0 };
     var imgW = opts.naturalW || 0;
     var imgH = opts.naturalH || 0;
@@ -268,28 +286,23 @@
       var pin = _pins[i];
       if (pin.pinX == null || pin.pinY == null) continue;
 
-      // Drawing-space (logical) position → screen-space (CSS px relative to host canvas)
-      // imgRect encodes the scaled+panned position of the image; pinX/Y are 0..1
       var sx = imgRect.left + pin.pinX * imgRect.width;
       var sy = imgRect.top  + pin.pinY * imgRect.height;
 
-      var node = _buildPin(PIXI, pin);
-      // Scale native 32-wide to target _pinSize, then anchor at bottom-center
+      var state = (pin.deficId === activeId) ? 'active' : (pin.deficId === hoveredId) ? 'hover' : 'normal';
+      var node = _buildPin(PIXI, pin, state);
       var nativeScale = pw / 32;
-      node.scale.set(nativeScale, nativeScale);
-      // Anchor bottom-center: in native coords, the tip of the teardrop is at (16, 40)
-      // Position so that (16*nativeScale, 40*nativeScale) in local space = (sx, sy) in stage space
+      node.scale.set(node.scale.x * nativeScale, node.scale.y * nativeScale);
       node.position.set(sx - 16 * nativeScale, sy - 40 * nativeScale);
       node.alpha = pin.isClosed ? 0.5 : 1;
 
       _stage.addChild(node);
 
-      // Record screen bbox for hit-testing (anchored bottom-center)
       _pinScreenPos[pin.deficId] = {
-        x: sx - pw / 2,      // left
-        y: sy - ph,          // top (pin tip at sy)
+        x: sx - pw / 2,
+        y: sy - ph,
         w: pw, h: ph,
-        sx: sx, sy: sy,      // tip position
+        sx: sx, sy: sy,
         pin: pin
       };
     }
@@ -357,6 +370,6 @@
     hitTestAll:       hitTestAll,
     getPinScreenRect: getPinScreenRect,
     destroy:          destroy,
-    version:          '1.1'
+    version:          '1.2'
   };
 })();
