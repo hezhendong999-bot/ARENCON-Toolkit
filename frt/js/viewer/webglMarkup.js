@@ -148,17 +148,22 @@
       return;
     }
 
-    // Iterate in insertion order. Non-highlight strokes (pen/shape/text/polyline/eraser)
-    // are added to the stage in sequence so eraser strokes cut through earlier pixels
-    // only — matches Canvas 2D behavior where destination-out affects prior draws.
-    // Highlights are collected separately and composited at the END (same as 2D path).
+    // Non-highlight objects (pen, shapes, text, polyline, eraser) must go through
+    // a RenderTexture for BLEND_MODES.ERASE to work correctly — Pixi's main
+    // framebuffer with premultiplied alpha doesn't honor ERASE reliably, but
+    // RenderTextures do (this is the same pattern used for highlights below).
+    // Iterate in insertion order so eraser strokes cut through earlier pixels only.
+    var nonHighlights = [];
     var highlights = [];
     for (var i = 0; i < objects.length; i++){
       var o = objects[i];
       if (!o || !o.type) continue;
       if (o.type === 'highlight'){ highlights.push(o); continue; }
-      var d = (o.type === 'eraser') ? _buildEraser(PIXI, o) : _buildObject(PIXI, o);
-      if (d) _stage.addChild(d);
+      nonHighlights.push(o);
+    }
+
+    if (nonHighlights.length){
+      _drawNonHighlights(PIXI, nonHighlights);
     }
 
     if (highlights.length){
@@ -343,6 +348,31 @@
     d.rotation = rad;
   }
 
+  // ─── Non-highlight compositing (via RenderTexture so ERASE blend works) ─
+  function _drawNonHighlights(PIXI, objects){
+    var logicalW = Math.max(1, _canvasW / _dpr);
+    var logicalH = Math.max(1, _canvasH / _dpr);
+
+    var container = new PIXI.Container();
+    for (var i = 0; i < objects.length; i++){
+      var o = objects[i];
+      var d = (o.type === 'eraser') ? _buildEraser(PIXI, o) : _buildObject(PIXI, o);
+      if (d) container.addChild(d);
+    }
+
+    var rt = PIXI.RenderTexture.create({
+      width: logicalW,
+      height: logicalH,
+      resolution: _dpr
+    });
+    _app.renderer.render(container, { renderTexture: rt, clear: true });
+    try { container.destroy({ children: true }); } catch(_){}
+
+    var spr = new PIXI.Sprite(rt);
+    spr._rtToDestroy = rt;    // cleanup on next _wipeStage()
+    _stage.addChild(spr);
+  }
+
   // ─── Highlight compositing (non-stacking, per opacity group) ────────────
   function _drawHighlights(PIXI, highlights, hlAlpha){
     // Group by rounded opacity key — same as markup.js Canvas 2D path
@@ -407,6 +437,6 @@
     hasEraser:   hasEraser,
     render:      render,
     destroy:     destroy,
-    version:     '5.2'
+    version:     '5.3'
   };
 })();
