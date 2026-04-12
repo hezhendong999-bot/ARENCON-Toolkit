@@ -19,6 +19,83 @@ function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 
 var _foldedFolders = {};
 
+// ── S79: Download-with-pins-baked-on (raster drawings only) ──
+// PDF-tiled drawings fall back to raw URL download (WebGL markup render deferred to Phase 5).
+function _deficIsOpen(d) { return (d.status || 'open') === 'open'; }
+function _addPinsToCanvas(ctx, dwg, canvas) {
+  var proj = Model.getProject(); if (!proj) return;
+  var ad = Model.getAllDeficiencies(proj);
+  var pins = ad.filter(function(r){ return r.defic.drawingId === dwg.id && r.defic.pinX != null; });
+  if (!pins.length) return;
+  var scale = canvas.width / 1200;
+  pins.forEach(function(r) {
+    var d = r.defic;
+    var px = d.pinX * canvas.width, py = d.pinY * canvas.height;
+    var fill = d.iar ? '#FF69B4' : (_deficIsOpen(d) ? '#C0392B' : '#1A7A4A');
+    var r0 = Math.max(3, 4 * scale), tipY = r0 * 2.2;
+    ctx.save(); ctx.translate(px, py - tipY);
+    ctx.beginPath(); ctx.arc(0, 0, r0, Math.PI, 0, false);
+    ctx.bezierCurveTo(r0, r0*0.8, r0*0.3, tipY, 0, tipY);
+    ctx.bezierCurveTo(-r0*0.3, tipY, -r0, r0*0.8, -r0, 0);
+    ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = 'white'; ctx.lineWidth = Math.max(1, 1.5*scale); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, r0*0.6, 0, Math.PI*2); ctx.fillStyle = 'white'; ctx.fill();
+    var fs = Math.max(6, r0 * 0.8);
+    ctx.fillStyle = fill; ctx.font = '800 ' + fs + 'px Calibri,Arial,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(d.num), 0, 0);
+    ctx.restore();
+  });
+}
+function _buildDownloadCanvas(dwg, incPins) {
+  return new Promise(function(resolve) {
+    if (dwg.pdfTiled) { resolve(null); return; }
+    var src = dwg.r2Url || dwg.dataUrl || dwg.thumb;
+    if (!src) { resolve(null); return; }
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function() {
+      var c = document.createElement('canvas');
+      c.width = img.naturalWidth || 1200;
+      c.height = img.naturalHeight || 900;
+      var ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      if (incPins) { try { _addPinsToCanvas(ctx, dwg, c); } catch(e) { console.warn('[dl] pin bake err', e); } }
+      resolve(c);
+    };
+    img.onerror = function() { resolve(null); };
+    img.src = src;
+  });
+}
+function _downloadDrawingWithPins(dwg) {
+  var safe = (dwg.name || 'drawing').replace(/[^a-zA-Z0-9._-]/g, '_');
+  if (dwg.pdfTiled) {
+    var src = dwg.r2Url || dwg.dataUrl;
+    if (!src) { toast('No data to download'); return; }
+    var a0 = document.createElement('a'); a0.href = src; a0.download = 'ARENCON_' + safe + '.pdf';
+    document.body.appendChild(a0); a0.click(); document.body.removeChild(a0);
+    toast('Downloaded (PDF — pins not baked)');
+    return;
+  }
+  _buildDownloadCanvas(dwg, true).then(function(canvas) {
+    if (!canvas) { toast('No image data to download'); return; }
+    try {
+      var data = canvas.toDataURL('image/png');
+      var a = document.createElement('a'); a.href = data; a.download = 'ARENCON_' + safe + '.png';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      toast('Downloaded ' + safe + '.png');
+    } catch(e) {
+      console.warn('[dl] toDataURL failed (CORS?)', e);
+      var src2 = dwg.r2Url || dwg.dataUrl;
+      if (src2) {
+        var a2 = document.createElement('a'); a2.href = src2; a2.download = 'ARENCON_' + safe + '.png';
+        document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+        toast('Downloaded (pins skipped — CORS)');
+      }
+    }
+  });
+}
+
 function countPins(drawingId, allDefics) {
   var n = 0;
   allDefics.forEach(function(d) { if (d.defic.drawingId === drawingId) n++; });
@@ -259,9 +336,7 @@ function _showDrawingContextMenu(drawingId, anchorEl) {
       };
       inp.click();
     } else if (act === 'download') {
-      var src = dwg.r2Url || dwg.dataUrl || dwg.thumb;
-      if (src) { var a = document.createElement('a'); a.href = src; a.download = (dwg.name || 'drawing') + '.png'; a.click(); toast('Downloading...'); }
-      else toast('No image data available');
+      _downloadDrawingWithPins(dwg);
     } else if (act === 'delete') {
       showConfirm('Delete Drawing', 'Delete "' + (dwg ? dwg.name : 'this drawing') + '"? Pins will be removed.').then(function(yes) {
         if (yes) { Model.removeDrawing(drawingId); initDrawings.render(); toast('Deleted'); }
@@ -403,13 +478,10 @@ document.addEventListener('click', function(e) {
           var list = a === 'dl-all' ? drawings : drawings.filter(function(d){ return _selectedDrawings.has(d.id); });
           if (!list.length) { toast('No drawings to download'); }
           else {
-            toast('Downloading ' + list.length + ' drawing' + (list.length>1?'s':'') + '...');
+            toast('Downloading ' + list.length + ' drawing' + (list.length>1?'s':'') + ' (baking pins)...');
             list.forEach(function(d, i){ setTimeout(function(){
-              var src = d.r2Url || d.dataUrl || d.thumb; if (!src) return;
-              var safe = (d.name || 'drawing').replace(/[^a-zA-Z0-9._-]/g,'_');
-              var anchor = document.createElement('a'); anchor.href = src; anchor.download = 'ARENCON_' + safe + '.png';
-              document.body.appendChild(anchor); anchor.click(); document.body.removeChild(anchor);
-            }, i * 600); });
+              _downloadDrawingWithPins(d);
+            }, i * 800); });
           }
         } else if (a === 'move') {
           if (!_selectedDrawings.size) { toast('No drawings selected'); }
