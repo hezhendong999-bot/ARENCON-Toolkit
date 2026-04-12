@@ -78,28 +78,30 @@
     ctx.closePath();
   }
 
-  // Draw drop-shadow/glow layers behind pin (if outstanding = open + non-IAR).
-  function _drawShadowLayers(ctx, fillHex, outstanding, state){
-    var haloMul   = state === 'active' ? 2.5 : state === 'hover' ? 1.8 : 1.0;
-    var shadowMul = state === 'active' ? 1.6 : state === 'hover' ? 1.3 : 1.0;
-    var growMul   = state === 'active' ? 1.3 : state === 'hover' ? 1.15 : 1.0;
-
+  // V1 filter strings (identical to viewer.js HTML pin render):
+  //   outstanding: drop-shadow(0 0 3px fill) drop-shadow(0 2px 5px rgba(0,0,0,.6))
+  //   other:       drop-shadow(0 2px 4px rgba(0,0,0,.45))
+  // Hover/active multiply blur radius so interaction feedback is visible.
+  function _buildFilterString(fillHex, outstanding, state){
+    var mul = state === 'active' ? 1.5 : state === 'hover' ? 1.25 : 1.0;
     if (outstanding){
-      for (var i = 3; i >= 1; i--){
-        ctx.fillStyle = fillHex;
-        ctx.globalAlpha = Math.min(0.35, 0.12 * haloMul);
-        _teardropPath(ctx, 0, 0, 1 + i * 0.05 * growMul);
-        ctx.fill();
-      }
+      var glowR   = (3 * mul).toFixed(2);
+      var shadowR = (5 * mul).toFixed(2);
+      return 'drop-shadow(0 0 ' + glowR + 'px ' + fillHex + ') ' +
+             'drop-shadow(0 2px ' + shadowR + 'px rgba(0,0,0,0.6))';
     }
-    for (var j = 3; j >= 1; j--){
-      ctx.fillStyle = '#000000';
-      ctx.globalAlpha = Math.min(0.22, 0.10 * shadowMul);
-      _teardropPath(ctx, 0, 2, 1 + j * 0.04 * growMul);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
+    var r = (4 * mul).toFixed(2);
+    return 'drop-shadow(0 2px ' + r + 'px rgba(0,0,0,0.45))';
   }
+
+  // Feature-detect ctx.filter once — Safari 9.1+, universally present on modern iPad
+  var _supportsFilter = (function(){
+    try {
+      var c = document.createElement('canvas');
+      var x = c.getContext('2d');
+      return typeof x.filter !== 'undefined';
+    } catch(_){ return false; }
+  })();
 
   // Draw one pin at native 32×42 coords, anchored at tip (16, 40).
   // Caller handles translate + scale to place at screen position.
@@ -107,13 +109,21 @@
     var isOutstanding = !pin.isClosed && !pin.isIAR;
     var fillHex = _priorityFillHex(pin);
 
-    _drawShadowLayers(ctx, fillHex, isOutstanding, state);
-
+    // Layer 0: teardrop silhouette with V1 filter (glow + drop shadow)
+    // The filter applies to the teardrop's alpha mask, producing a sharp pin
+    // with a softly-blurred halo/shadow behind it — no fuzzy edge on the pin.
+    if (_supportsFilter){
+      ctx.filter = _buildFilterString(fillHex, isOutstanding, state);
+    }
     ctx.fillStyle = fillHex;
     ctx.globalAlpha = 1;
     _teardropPath(ctx, 0, 0, 1);
     ctx.fill();
+    if (_supportsFilter){
+      ctx.filter = 'none';  // subsequent draws (circle, number) render sharp on top
+    }
 
+    // Layer 1: inner white circle at (16, 14), r=9, α=0.95
     ctx.fillStyle = '#FFFFFF';
     ctx.globalAlpha = 0.95;
     ctx.beginPath();
@@ -121,6 +131,7 @@
     ctx.fill();
     ctx.globalAlpha = 1;
 
+    // Layer 2: priority-colored number, centered at (16, 14)
     var numStr = String(pin.num);
     var fs = numStr.length <= 2 ? 14 : numStr.length === 3 ? 11 : 9;
     ctx.fillStyle = fillHex;
