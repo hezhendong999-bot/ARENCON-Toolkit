@@ -375,28 +375,112 @@ document.addEventListener('click', function(e) {
     else { cards.forEach(function(c) { _selectedDrawings.add(c.getAttribute('data-drawing-id')); }); toast(_selectedDrawings.size + ' drawings selected'); }
     _updateSelectionUI();
   } else if (t.id === 'btn-dwg-actions') {
-    var n = _selectedDrawings.size;
-    if (n === 0) { toast('Select drawings first (tap card to select)'); return; }
-    showConfirm('Delete ' + n + ' Drawing' + (n>1?'s':''), 'Delete the ' + n + ' selected drawing' + (n>1?'s':'') + '? Pins will be removed.').then(function(yes) {
-      if (!yes) return;
-      _selectedDrawings.forEach(function(id) { Model.removeDrawing(id); });
-      _selectedDrawings.clear();
-      initDrawings.render();
-      toast('Deleted ' + n + ' drawing' + (n>1?'s':''));
-    });
+    // S78: v1-style Actions dropdown menu
+    var existing = document.getElementById('dwg-actions-pop');
+    if (existing) { existing.remove(); return; }
+    var pop = document.createElement('div');
+    pop.id = 'dwg-actions-pop'; pop.className = 'card-context-menu';
+    pop.style.cssText = 'display:block;position:fixed;z-index:9000;';
+    pop.innerHTML =
+      '<button data-dwg-act="dl-all">\u2B07\uFE0F Download all drawings</button>'
+      + '<button data-dwg-act="dl-sel">\u2B07\uFE0F Download selected</button>'
+      + '<div class="separator"></div>'
+      + '<button data-dwg-act="move">\uD83D\uDCC1 Move to folder...</button>'
+      + '<button data-dwg-act="rename">Batch rename</button>'
+      + '<div class="separator"></div>'
+      + '<button data-dwg-act="del" class="danger">\uD83D\uDDD1\uFE0F Delete selected</button>';
+    document.body.appendChild(pop);
+    var rA = t.getBoundingClientRect();
+    pop.style.top = (rA.bottom + 4) + 'px';
+    pop.style.left = Math.min(rA.left, window.innerWidth - 240) + 'px';
+    setTimeout(function(){ document.addEventListener('click', function close(ev){
+      var act = ev.target.closest && ev.target.closest('[data-dwg-act]');
+      if (act) {
+        var a = act.getAttribute('data-dwg-act');
+        var drawings = Model.getDrawings();
+        if (a === 'dl-all' || a === 'dl-sel') {
+          var list = a === 'dl-all' ? drawings : drawings.filter(function(d){ return _selectedDrawings.has(d.id); });
+          if (!list.length) { toast('No drawings to download'); }
+          else {
+            toast('Downloading ' + list.length + ' drawing' + (list.length>1?'s':'') + '...');
+            list.forEach(function(d, i){ setTimeout(function(){
+              var src = d.r2Url || d.dataUrl || d.thumb; if (!src) return;
+              var safe = (d.name || 'drawing').replace(/[^a-zA-Z0-9._-]/g,'_');
+              var anchor = document.createElement('a'); anchor.href = src; anchor.download = 'ARENCON_' + safe + '.png';
+              document.body.appendChild(anchor); anchor.click(); document.body.removeChild(anchor);
+            }, i * 600); });
+          }
+        } else if (a === 'move') {
+          if (!_selectedDrawings.size) { toast('No drawings selected'); }
+          else {
+            var folders = []; drawings.forEach(function(d){ if (d.folder && folders.indexOf(d.folder)<0) folders.push(d.folder); });
+            showPrompt('Move ' + _selectedDrawings.size + ' to folder', 'Folder name (blank = unfiled). Existing: ' + (folders.join(', ') || 'none'), '').then(function(fn){
+              if (fn === null) return;
+              drawings.forEach(function(d){ if (_selectedDrawings.has(d.id)) d.folder = (fn||'').trim(); });
+              _selectedDrawings.clear(); Model.saveNow(); initDrawings.render(); toast('Moved');
+            });
+          }
+        } else if (a === 'rename') {
+          if (!_selectedDrawings.size) { toast('No drawings selected'); }
+          else {
+            showPrompt('Batch rename', 'Prefix (e.g. "FP"):', '').then(function(pre){
+              if (!pre) return;
+              var n = 1; drawings.forEach(function(d){ if (_selectedDrawings.has(d.id)) { d.name = pre + '-' + n; n++; } });
+              _selectedDrawings.clear(); Model.saveNow(); initDrawings.render(); toast('Renamed ' + (n-1));
+            });
+          }
+        } else if (a === 'del') {
+          var n2 = _selectedDrawings.size;
+          if (!n2) { toast('No drawings selected'); }
+          else {
+            showConfirm('Delete ' + n2 + ' Drawing' + (n2>1?'s':''), 'Pins on these drawings will be removed. Continue?').then(function(yes){
+              if (!yes) return;
+              _selectedDrawings.forEach(function(id){ Model.removeDrawing(id); });
+              _selectedDrawings.clear(); initDrawings.render(); toast('Deleted ' + n2);
+            });
+          }
+        }
+        pop.remove();
+      } else if (!ev.target.closest('#dwg-actions-pop')) {
+        pop.remove();
+      }
+      document.removeEventListener('click', close);
+    }); }, 10);
   } else if (t.id === 'btn-dwg-filters') {
-    var proj = Model.getProject();
-    var folders = []; (proj.drawings || []).forEach(function(d) { if (d.folder && folders.indexOf(d.folder) < 0) folders.push(d.folder); });
-    if (!folders.length) { toast('No folders defined yet'); return; }
-    showPrompt('Filter by Folder', 'Folder name (blank to clear):\nAvailable: ' + folders.join(', '), '').then(function(f) {
-      if (f === null) return;
-      var q = (f || '').trim().toLowerCase();
-      document.querySelectorAll('.drawing-card[data-drawing-id]').forEach(function(c) {
-        var fold = (c.getAttribute('data-folder') || '').toLowerCase();
-        c.style.display = (!q || fold === q) ? '' : 'none';
-      });
-      toast(q ? 'Filtered: ' + q : 'Filter cleared');
-    });
+    // S78: v1-style Filters dropdown — All folders / Has tasks / No tasks
+    var ex2 = document.getElementById('dwg-filter-pop');
+    if (ex2) { ex2.remove(); return; }
+    var pop2 = document.createElement('div');
+    pop2.id = 'dwg-filter-pop'; pop2.className = 'card-context-menu';
+    pop2.style.cssText = 'display:block;position:fixed;z-index:9000;';
+    pop2.innerHTML =
+      '<button data-dwg-filt="all">All folders</button>'
+      + '<button data-dwg-filt="pinned">Has tasks</button>'
+      + '<button data-dwg-filt="nopins">No tasks</button>';
+    document.body.appendChild(pop2);
+    var rF = t.getBoundingClientRect();
+    pop2.style.top = (rF.bottom + 4) + 'px';
+    pop2.style.left = Math.min(rF.left, window.innerWidth - 200) + 'px';
+    setTimeout(function(){ document.addEventListener('click', function close2(ev){
+      var f = ev.target.closest && ev.target.closest('[data-dwg-filt]');
+      if (f) {
+        var mode = f.getAttribute('data-dwg-filt');
+        var defs = Model.getDeficiencies ? Model.getDeficiencies() : [];
+        var pinned = {};
+        defs.forEach(function(d){ if (d.drawingId) pinned[d.drawingId] = true; (d.observations||[]).forEach(function(o){ if (o.drawingId) pinned[o.drawingId]=true; if (o.pinDrawingId) pinned[o.pinDrawingId]=true; }); });
+        document.querySelectorAll('.drawing-card[data-drawing-id]').forEach(function(c){
+          var id = c.getAttribute('data-drawing-id');
+          var has = !!pinned[id];
+          var show = mode === 'all' || (mode === 'pinned' && has) || (mode === 'nopins' && !has);
+          c.style.display = show ? '' : 'none';
+        });
+        toast('Filter: ' + (mode === 'all' ? 'All' : mode === 'pinned' ? 'Has tasks' : 'No tasks'));
+        pop2.remove();
+      } else if (!ev.target.closest('#dwg-filter-pop')) {
+        pop2.remove();
+      }
+      document.removeEventListener('click', close2);
+    }); }, 10);
   } else if (t.id === 'btn-dwg-purge') {
     var drawings = Model.getDrawings();
     var defs = Model.getDeficiencies ? Model.getDeficiencies() : [];

@@ -301,26 +301,86 @@ document.addEventListener('click', function(e) {
     var ci = document.getElementById('site-photo-camera');
     if (ci) ci.click();
   } else if (t.id === 'photo-actions-btn') {
-    var proj = Model.getProject();
-    var sitePhotos = (proj.sitePhotos || []).length;
-    var defPhotos = 0;
-    (proj.deficiencies || []).forEach(function(d) { (d.observations || []).forEach(function(o) { defPhotos += (o.photos || []).length; }); });
-    var total = sitePhotos + defPhotos;
-    if (total === 0) { toast('No photos to act on'); return; }
-    showConfirm('Photo Actions', 'Total: ' + total + ' photos (' + sitePhotos + ' site, ' + defPhotos + ' deficiency).\n\nBulk actions menu coming in next update. For now, manage photos individually via card menus.').then(function(){});
+    var ex = document.getElementById('photo-actions-pop');
+    if (ex) { ex.remove(); return; }
+    var pop = document.createElement('div');
+    pop.id = 'photo-actions-pop'; pop.className = 'card-context-menu';
+    pop.style.cssText = 'display:block;position:fixed;z-index:9000;';
+    pop.innerHTML =
+      '<button data-ph-act="sel-all">Select all</button>'
+      + '<button data-ph-act="desel-all">Deselect all</button>'
+      + '<div class="separator"></div>'
+      + '<button data-ph-act="export">Export selected</button>'
+      + '<button data-ph-act="reassign">\u2197 Reassign selected</button>'
+      + '<button data-ph-act="pin">\uD83D\uDCCC Assign to Pin</button>'
+      + '<div class="separator"></div>'
+      + '<button data-ph-act="delete" class="danger">\uD83D\uDDD1\uFE0F Delete selected</button>';
+    document.body.appendChild(pop);
+    var rA = t.getBoundingClientRect();
+    pop.style.top = (rA.bottom + 4) + 'px';
+    pop.style.left = Math.min(rA.left, window.innerWidth - 240) + 'px';
+    setTimeout(function(){ document.addEventListener('click', function close(ev){
+      var act = ev.target.closest && ev.target.closest('[data-ph-act]');
+      if (act) {
+        var a = act.getAttribute('data-ph-act');
+        if (a === 'sel-all') {
+          document.querySelectorAll('#panel-photos .photo-card, #panel-photos [data-photo-id]').forEach(function(c){ c.classList.add('selected'); var ck=c.querySelector('input[type=checkbox]'); if(ck)ck.checked=true; });
+          toast('All photos selected');
+        } else if (a === 'desel-all') {
+          document.querySelectorAll('#panel-photos .selected, #panel-photos [data-photo-id]').forEach(function(c){ c.classList.remove('selected'); var ck=c.querySelector('input[type=checkbox]'); if(ck)ck.checked=false; });
+          toast('Cleared selection');
+        } else if (a === 'export') {
+          var sel = document.querySelectorAll('#panel-photos .photo-card.selected, #panel-photos .selected[data-photo-id]');
+          if (!sel.length) { toast('No photos selected'); }
+          else {
+            toast('Exporting ' + sel.length + ' photo' + (sel.length>1?'s':'') + '...');
+            sel.forEach(function(c, i){ setTimeout(function(){
+              var img = c.querySelector('img'); if (!img || !img.src) return;
+              var a2 = document.createElement('a'); a2.href = img.src; a2.download = 'ARENCON_photo_' + (i+1) + '.jpg';
+              document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+            }, i * 400); });
+          }
+        } else if (a === 'reassign' || a === 'pin' || a === 'delete') {
+          // S78: stub — full v1 parity deferred to S79 (R2/IDB cleanup paths need careful port per S59 footgun)
+          toast((a === 'delete' ? 'Bulk delete' : a === 'pin' ? 'Assign to Pin' : 'Reassign') + ' \u2014 coming in next update (needs R2 cleanup port)');
+        }
+        pop.remove();
+      } else if (!ev.target.closest('#photo-actions-pop')) {
+        pop.remove();
+      }
+      document.removeEventListener('click', close);
+    }); }, 10);
   } else if (t.id === 'photo-filters-btn') {
-    showPrompt('Filter Photos', 'Show: (1) All  (2) Site only  (3) Deficiency only', '1').then(function(v) {
-      if (v === null) return;
-      var mode = (v || '1').trim();
-      var cards = document.querySelectorAll('#panel-photos .photo-card, #panel-photos [data-photo-type]');
-      cards.forEach(function(c) {
-        var type = c.getAttribute('data-photo-type') || '';
-        if (mode === '2') c.style.display = (type === 'site') ? '' : 'none';
-        else if (mode === '3') c.style.display = (type === 'deficiency') ? '' : 'none';
-        else c.style.display = '';
-      });
-      toast(mode === '2' ? 'Site photos only' : mode === '3' ? 'Deficiency photos only' : 'Showing all');
-    });
+    var ex2 = document.getElementById('photo-filter-pop');
+    if (ex2) { ex2.remove(); return; }
+    var pop2 = document.createElement('div');
+    pop2.id = 'photo-filter-pop'; pop2.className = 'card-context-menu';
+    pop2.style.cssText = 'display:block;position:fixed;z-index:9000;';
+    pop2.innerHTML =
+      '<button data-ph-filt="all">All photos</button>'
+      + '<button data-ph-filt="deficiency">Deficiency photos</button>'
+      + '<button data-ph-filt="general">General photos</button>'
+      + '<button data-ph-filt="site">Site photos</button>';
+    document.body.appendChild(pop2);
+    var rF = t.getBoundingClientRect();
+    pop2.style.top = (rF.bottom + 4) + 'px';
+    pop2.style.left = Math.min(rF.left - 100, window.innerWidth - 200) + 'px';
+    setTimeout(function(){ document.addEventListener('click', function close2(ev){
+      var f = ev.target.closest && ev.target.closest('[data-ph-filt]');
+      if (f) {
+        var mode = f.getAttribute('data-ph-filt');
+        document.querySelectorAll('#panel-photos .photo-card, #panel-photos [data-photo-type]').forEach(function(c){
+          var type = (c.getAttribute('data-photo-type') || '').toLowerCase();
+          var show = mode === 'all' || type === mode;
+          c.style.display = show ? '' : 'none';
+        });
+        toast('Showing: ' + mode);
+        pop2.remove();
+      } else if (!ev.target.closest('#photo-filter-pop')) {
+        pop2.remove();
+      }
+      document.removeEventListener('click', close2);
+    }); }, 10);
   }
 });
 
