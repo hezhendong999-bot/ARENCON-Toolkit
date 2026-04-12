@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=181">
+<link rel="stylesheet" href="css/frt.css?v=182">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -975,13 +975,14 @@ function ensurePdfJs(cb){
         }
       });
     })();
-    /* S79: on mobile, replace Tasks/Layers button text with icon-only. Preserves title attr. */
+    /* S79: on mobile, replace Tasks/Layers button text with icon-only. Preserves title attr.
+       Font-size is CSS-controlled (see frt.css rules). */
     (function setMobileTopbarIcons(){
       if(!window.matchMedia||!window.matchMedia('(max-width: 900px)').matches)return;
       var tb=document.getElementById('dv-tasks-btn');
       var lb=document.getElementById('dv-layers-btn');
-      if(tb && !tb.dataset.mobText){tb.dataset.mobText='1';tb.textContent='\uD83D\uDCCC';tb.style.fontSize='16px';}
-      if(lb && !lb.dataset.mobText){lb.dataset.mobText='1';lb.textContent='\u2261';lb.style.fontSize='20px';lb.style.fontWeight='700';}
+      if(tb && !tb.dataset.mobText){tb.dataset.mobText='1';tb.textContent='\uD83D\uDCCC';}
+      if(lb && !lb.dataset.mobText){lb.dataset.mobText='1';lb.textContent='\u2261';lb.style.fontWeight='700';}
     })();
     /* Push 4: bottom bar proxies + mirrors */
     var bbPrev=document.getElementById('dv-bb-prev');

@@ -2123,15 +2123,23 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
-    padding:0 8px !important;min-width:40px !important;min-height:38px !important;
-    font-size:calc(11px + var(--ts)) !important;
+    padding:0 10px !important;min-width:44px !important;min-height:40px !important;
+    font-size:calc(14px + var(--ts)) !important;
     white-space:nowrap !important;
   }
-  /* JS sets textContent to icon-only on mobile (see inline script setMobileTopbarIcons). */
+  /* JS sets textContent to icon-only on mobile (see inline script setMobileTopbarIcons).
+     No max-width crop needed since content is already short — bigger buttons get bigger emoji. */
   .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn{
-    max-width:50px !important;
-    overflow:hidden !important;
+    font-size:calc(16px + var(--ts)) !important;
+  }
+  /* Back button + nav arrows slightly bigger too */
+  .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
+    padding:6px 10px !important; font-size:calc(13px + var(--ts)) !important;
+  }
+  .drawing-viewer-overlay .dv-toolbar #dv-prev,
+  .drawing-viewer-overlay .dv-toolbar #dv-next{
+    padding:0 10px !important; min-width:40px !important; font-size:calc(16px + var(--ts)) !important;
   }
   /* S79: Tasks button on mobile should NOT show .active burgundy fill (match PC look) */
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn.active{
