@@ -289,6 +289,214 @@ function _handleSitePhotoFiles(files) {
 // Expose for drag-drop
 window._handleSitePhotoDrop = _handleSitePhotoFiles;
 
+// ── S79: Photo bulk-action helpers ──────────────────────
+function _collectSelected() {
+  // Returns [{type:'site', idx, card} | {type:'defic', deficId, obsIdx, photoIdx, card}]
+  var out = [];
+  document.querySelectorAll('#panel-photos .ph-card.selected').forEach(function(c) {
+    if (c.classList.contains('ph-card-site')) {
+      var img = c.querySelector('img[data-action="open-site-lightbox"]');
+      var idx = img ? parseInt(img.getAttribute('data-photo-idx') || '-1') : -1;
+      if (idx >= 0) out.push({ type:'site', idx: idx, card: c });
+    } else if (c.classList.contains('ph-card-defic')) {
+      var deficId = c.getAttribute('data-defic-id');
+      var obsIdx = parseInt(c.getAttribute('data-obs-idx') || '0');
+      var photoIdx = parseInt(c.getAttribute('data-photo-idx') || '0');
+      if (deficId) out.push({ type:'defic', deficId: deficId, obsIdx: obsIdx, photoIdx: photoIdx, card: c });
+    }
+  });
+  return out;
+}
+
+function _clearSelection() {
+  document.querySelectorAll('#panel-photos .ph-card.selected').forEach(function(c) {
+    c.classList.remove('selected');
+  });
+}
+
+function _toggleSelectMode(on) {
+  if (on === undefined) on = !document.body.classList.contains('photos-select-mode');
+  document.body.classList.toggle('photos-select-mode', on);
+  if (!on) _clearSelection();
+  var btn = document.getElementById('photo-actions-btn');
+  if (btn) btn.textContent = on ? 'Actions \u25BE \u2022 Select mode' : 'Actions \u25BE';
+  return on;
+}
+
+function _doBulkDelete() {
+  var sel = _collectSelected();
+  if (!sel.length) { toast('No photos selected'); return; }
+  var siteItems = sel.filter(function(s){ return s.type === 'site'; });
+  var deficItems = sel.filter(function(s){ return s.type === 'defic'; });
+  if (!siteItems.length) {
+    toast('Deficiency photos can only be removed from the pin editor');
+    return;
+  }
+  var msg = 'Delete ' + siteItems.length + ' site photo' + (siteItems.length!==1?'s':'') + '?';
+  if (deficItems.length) msg += '\n(' + deficItems.length + ' deficiency photo' + (deficItems.length!==1?'s':'') + ' will be skipped — remove from pin editor)';
+  showConfirm('Delete photos', msg).then(function(ok) {
+    if (!ok) return;
+    var proj = Model.getProject();
+    if (!proj) return;
+    // Collect r2Keys before splicing (indices shift after each remove)
+    var toDelete = siteItems.map(function(s){
+      var p = (proj.photos || [])[s.idx];
+      return { idx: s.idx, r2Key: (p && p.r2Key) || null, id: (p && p.id) || null };
+    });
+    // Sort descending so splicing doesn't shift earlier indices
+    toDelete.sort(function(a,b){ return b.idx - a.idx; });
+    toDelete.forEach(function(d){
+      Model.removeSitePhoto(d.idx);
+      if (d.r2Key) R2.del(d.r2Key).catch(function(){});
+      if (d.id) IDB.del('photoBlobs', d.id).catch(function(){});
+    });
+    _toggleSelectMode(false);
+    initPhotos.render();
+    toast(siteItems.length + ' photo' + (siteItems.length!==1?'s':'') + ' deleted' + (deficItems.length ? ' (' + deficItems.length + ' defic skipped)' : ''));
+  });
+}
+
+function _openReassignModal(presetPinOnly) {
+  var sel = _collectSelected();
+  if (!sel.length) { toast('No photos selected'); return; }
+  var proj = Model.getProject();
+  if (!proj) return;
+  var allDefics = Model.getAllDeficiencies(proj);
+
+  var opts = '<option value="">\u2014 Choose destination \u2014</option>';
+  if (!presetPinOnly) opts += '<option value="__site__">\uD83D\uDCF7 Photo Gallery (site)</option>';
+  opts += '<optgroup label="Pins">';
+  allDefics.forEach(function(r) {
+    var desc = ((r.defic.observations && r.defic.observations[0] && r.defic.observations[0].text) || r.defic.description || '(no description)');
+    if (desc.length > 40) desc = desc.substring(0,37) + '...';
+    var pr = r.defic.priority === 'general' ? ' [General]' : r.defic.priority === 'low' ? ' [Low]' : '';
+    opts += '<option value="' + r.defic.id + '">Pin #' + r.defic.num + pr + ' \u2014 ' + _phEsc(desc) + '</option>';
+  });
+  opts += '</optgroup>';
+
+  var overlay = document.createElement('div');
+  overlay.className = 'ph-reassign-overlay';
+  overlay.id = 'ph-reassign-overlay';
+  overlay.innerHTML =
+    '<div class="ph-reassign-card">'
+      + '<h3>' + (presetPinOnly ? 'Assign' : 'Reassign') + ' ' + sel.length + ' Photo' + (sel.length!==1?'s':'') + '</h3>'
+      + '<p style="font-size:calc(12px + var(--ts));color:var(--steel);margin:0 0 12px;">Move selected photos to a different pin' + (presetPinOnly ? '' : ' or to site photos') + '.</p>'
+      + '<select id="ph-reassign-dest">' + opts + '</select>'
+      + '<div class="btn-row">'
+        + '<button class="btn btn-outline btn-sm" data-ph-modal="cancel">Cancel</button>'
+        + '<button class="btn btn-primary btn-sm" data-ph-modal="confirm">Move</button>'
+      + '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(ev){
+    if (ev.target === overlay) overlay.remove();
+    var act = ev.target.closest && ev.target.closest('[data-ph-modal]');
+    if (!act) return;
+    if (act.getAttribute('data-ph-modal') === 'cancel') { overlay.remove(); return; }
+    var d = document.getElementById('ph-reassign-dest');
+    if (!d || !d.value) { toast('Select a destination'); return; }
+    _doReassign(d.value, sel);
+    overlay.remove();
+  });
+}
+
+function _doReassign(destVal, selItems) {
+  var proj = Model.getProject();
+  if (!proj) return;
+  var moved = 0;
+  var skipped = 0;
+
+  // Group defic selections to avoid index drift when removing from same obs
+  // Sort by descending photoIdx within each (deficId, obsIdx) so splice is safe
+  var deficBuckets = {};
+  selItems.forEach(function(s) {
+    if (s.type === 'defic') {
+      var k = s.deficId + '|' + s.obsIdx;
+      (deficBuckets[k] = deficBuckets[k] || []).push(s);
+    }
+  });
+  Object.keys(deficBuckets).forEach(function(k){
+    deficBuckets[k].sort(function(a,b){ return b.photoIdx - a.photoIdx; });
+  });
+
+  // Extract photo records (remove from source)
+  var extracted = [];
+  // Defic first (sorted per bucket)
+  Object.keys(deficBuckets).forEach(function(k) {
+    deficBuckets[k].forEach(function(s) {
+      var f = Model.findDeficiency(s.deficId);
+      if (!f) { skipped++; return; }
+      var obs = (f.defic.observations || [])[s.obsIdx];
+      if (!obs || !obs.photos || !obs.photos[s.photoIdx]) { skipped++; return; }
+      // Prevent no-op move into same pin
+      if (destVal === s.deficId) { skipped++; return; }
+      var rec = obs.photos.splice(s.photoIdx, 1)[0];
+      extracted.push({ rec: rec, fromType: 'defic' });
+    });
+  });
+  // Site (sort descending by idx so splicing doesn't shift)
+  var siteItems = selItems.filter(function(s){ return s.type === 'site'; })
+    .sort(function(a,b){ return b.idx - a.idx; });
+  siteItems.forEach(function(s) {
+    if (destVal === '__site__') { skipped++; return; } // no-op
+    var src = (proj.photos || [])[s.idx];
+    if (!src) { skipped++; return; }
+    var rec = proj.photos.splice(s.idx, 1)[0];
+    extracted.push({ rec: rec, fromType: 'site' });
+  });
+
+  // Place into destination
+  extracted.forEach(function(e) {
+    var rec = e.rec;
+    if (destVal === '__site__') {
+      if (!proj.photos) proj.photos = [];
+      // Ensure site-shape fields exist
+      if (!rec.id) rec.id = 'sp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+      if (!rec.caption) rec.caption = '';
+      if (!rec.addedDate) rec.addedDate = new Date().toISOString();
+      proj.photos.push(rec);
+      moved++;
+    } else {
+      var df = Model.findDeficiency(destVal);
+      if (!df) { skipped++; return; }
+      if (!df.defic.observations || !df.defic.observations.length) {
+        df.defic.observations = [{
+          id: 'obs_' + Date.now() + '_' + Math.random().toString(36).substr(2,4),
+          text: '', photos: [], addressed: false
+        }];
+      }
+      var obs0 = df.defic.observations[0];
+      if (!obs0.photos) obs0.photos = [];
+      // Ensure independent identity (S59 footgun guard) — photos keep own r2Key/r2Url;
+      // generate an id if missing so it's distinguishable in IDB/UI
+      if (!rec.id) rec.id = 'dph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+      obs0.photos.push(rec);
+      moved++;
+    }
+  });
+
+  Model.saveNow();
+  _toggleSelectMode(false);
+  initPhotos.render();
+  toast(moved + ' photo' + (moved!==1?'s':'') + ' moved' + (skipped ? ' (' + skipped + ' skipped)' : ''));
+}
+
+function _phEsc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Click delegation: toggle .selected on ph-card while in photos-select-mode.
+// Capture phase + return before lightbox handlers so click selects instead of opening.
+document.addEventListener('click', function(e) {
+  if (!document.body.classList.contains('photos-select-mode')) return;
+  var card = e.target.closest && e.target.closest('#panel-photos .ph-card');
+  if (!card) return;
+  // Ignore clicks on hover buttons (they're display:none in select mode but defensive)
+  if (e.target.closest('.ph-hover-btn')) return;
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+  card.classList.toggle('selected');
+}, true);
+
 // Wire upload buttons
 // Photo Gallery toolbar — delegated wiring (S78 fix: top-level getElementById ran before DOM existed)
 document.addEventListener('click', function(e) {
@@ -306,11 +514,14 @@ document.addEventListener('click', function(e) {
     var pop = document.createElement('div');
     pop.id = 'photo-actions-pop'; pop.className = 'card-context-menu';
     pop.style.cssText = 'display:block;position:fixed;z-index:9000;';
+    var selMode = document.body.classList.contains('photos-select-mode');
     pop.innerHTML =
-      '<button data-ph-act="sel-all">Select all</button>'
+      '<button data-ph-act="toggle-sel">' + (selMode ? '\u2715 Exit select mode' : '\u2610 Enter select mode') + '</button>'
+      + '<div class="separator"></div>'
+      + '<button data-ph-act="sel-all">Select all</button>'
       + '<button data-ph-act="desel-all">Deselect all</button>'
       + '<div class="separator"></div>'
-      + '<button data-ph-act="export">Export selected</button>'
+      + '<button data-ph-act="export">\u2B07 Export selected</button>'
       + '<button data-ph-act="reassign">\u2197 Reassign selected</button>'
       + '<button data-ph-act="pin">\uD83D\uDCCC Assign to Pin</button>'
       + '<div class="separator"></div>'
@@ -324,14 +535,18 @@ document.addEventListener('click', function(e) {
       var act = ev.target.closest && ev.target.closest('[data-ph-act]');
       if (act) {
         var a = act.getAttribute('data-ph-act');
-        if (a === 'sel-all') {
-          document.querySelectorAll('#panel-photos .photo-card, #panel-photos [data-photo-id]').forEach(function(c){ c.classList.add('selected'); var ck=c.querySelector('input[type=checkbox]'); if(ck)ck.checked=true; });
-          toast('All photos selected');
+        if (a === 'toggle-sel') {
+          _toggleSelectMode();
+        } else if (a === 'sel-all') {
+          if (!document.body.classList.contains('photos-select-mode')) _toggleSelectMode(true);
+          document.querySelectorAll('#panel-photos .ph-card').forEach(function(c){ c.classList.add('selected'); });
+          var n = document.querySelectorAll('#panel-photos .ph-card.selected').length;
+          toast(n + ' photo' + (n!==1?'s':'') + ' selected');
         } else if (a === 'desel-all') {
-          document.querySelectorAll('#panel-photos .selected, #panel-photos [data-photo-id]').forEach(function(c){ c.classList.remove('selected'); var ck=c.querySelector('input[type=checkbox]'); if(ck)ck.checked=false; });
+          _clearSelection();
           toast('Cleared selection');
         } else if (a === 'export') {
-          var sel = document.querySelectorAll('#panel-photos .photo-card.selected, #panel-photos .selected[data-photo-id]');
+          var sel = document.querySelectorAll('#panel-photos .ph-card.selected');
           if (!sel.length) { toast('No photos selected'); }
           else {
             toast('Exporting ' + sel.length + ' photo' + (sel.length>1?'s':'') + '...');
@@ -341,9 +556,12 @@ document.addEventListener('click', function(e) {
               document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
             }, i * 400); });
           }
-        } else if (a === 'reassign' || a === 'pin' || a === 'delete') {
-          // S78: stub — full v1 parity deferred to S79 (R2/IDB cleanup paths need careful port per S59 footgun)
-          toast((a === 'delete' ? 'Bulk delete' : a === 'pin' ? 'Assign to Pin' : 'Reassign') + ' \u2014 coming in next update (needs R2 cleanup port)');
+        } else if (a === 'reassign') {
+          _openReassignModal(false);
+        } else if (a === 'pin') {
+          _openReassignModal(true);
+        } else if (a === 'delete') {
+          _doBulkDelete();
         }
         pop.remove();
       } else if (!ev.target.closest('#photo-actions-pop')) {

@@ -1883,6 +1883,48 @@ body.dark-mode .ai-usage-filters button{background:#37474F;}
   .ph-hover-btn { width: 30px; height: 30px; line-height: 30px; font-size: 14px; }
 }
 
+/* S79 — Photo select mode (bulk Actions: Reassign / Assign to Pin / Delete) */
+body.photos-select-mode #panel-photos .ph-card { cursor: pointer; }
+body.photos-select-mode #panel-photos .ph-card::before {
+  content: ""; position: absolute; top: 4px; left: 4px; width: 20px; height: 20px;
+  border-radius: 50%; background: rgba(255,255,255,.9); border: 2px solid #9C2742;
+  z-index: 4; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; color: transparent;
+}
+body.photos-select-mode #panel-photos .ph-card.selected::before {
+  background: #9C2742; color: #fff; content: "\2713";
+}
+body.photos-select-mode #panel-photos .ph-card.selected {
+  outline: 3px solid #9C2742; outline-offset: -1px;
+}
+body.photos-select-mode #panel-photos .ph-card .ph-hover-btn { display: none !important; }
+.photos-sel-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; background: rgba(156,39,66,.1); color: #9C2742;
+  border-radius: 6px; font-size: calc(12px + var(--ts)); font-weight: 700;
+  font-family: Calibri, sans-serif;
+}
+body.dark-mode .photos-sel-status { background: rgba(156,39,66,.25); color: #e8a8b8; }
+/* Reassign/destination modal */
+.ph-reassign-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  font-family: Calibri, sans-serif;
+}
+.ph-reassign-card {
+  background: var(--card); border-radius: 12px; padding: 20px;
+  width: 440px; max-width: 92vw; max-height: 88vh; overflow: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,.4); color: var(--fg);
+}
+.ph-reassign-card h3 { margin: 0 0 14px; font-size: calc(16px + var(--ts)); color: #9C2742; font-weight: 700; }
+.ph-reassign-card select {
+  width: 100%; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 6px;
+  font-family: Calibri, sans-serif; font-size: calc(13px + var(--ts));
+  background: var(--smoke); color: var(--fg); margin-bottom: 16px;
+}
+.ph-reassign-card .btn-row { display: flex; gap: 8px; justify-content: flex-end; }
+
 
 /* Session 72 — Drawing viewer touch target enforcement (all coarse pointers) */
 @media(pointer:coarse){
