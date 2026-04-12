@@ -1691,7 +1691,50 @@ function _wireEvents() {
   var _penTools = ['pen', 'highlight', 'line', 'arrow', 'polyline'];
   var _shapeTools = ['rect', 'fillrect', 'circle', 'fillcircle', 'triangle', 'cloud'];
 
-  // Sidebar tool clicks (delegated)
+  // S81 fix: on mobile, sub-tool buttons in the pen/shapes submenus could
+  // "close and click-through to the canvas" — the synthesized click event
+  // sometimes landed on the underlying canvas because the submenu was torn
+  // down before click fired. Handle submenu selection on touchstart directly
+  // (runs BEFORE any click-synthesis delay) and preventDefault to block the
+  // synthesized click entirely. Also stopPropagation on the submenu container
+  // so pointer events don't bubble to document-level close-on-outside logic.
+  function _activateToolFromSubBtn(btn){
+    if (!btn) return;
+    var tool = btn.getAttribute('data-mk-tool');
+    // Close submenus & update main-button icon same way the click handler does
+    var penSub = document.getElementById('pen-submenu');
+    if (penSub && penSub.contains(btn)) {
+      _lastPenTool = tool;
+      var penMain = document.getElementById('mk-pen-btn');
+      if (penMain) penMain.innerHTML = btn.innerHTML + '<span class="tool-group-arrow">\u25B8</span>';
+      penSub.classList.remove('open');
+    }
+    var shapesSub = document.getElementById('shapes-submenu');
+    if (shapesSub && shapesSub.contains(btn)) {
+      _lastShapeTool = tool;
+      var shMain = document.getElementById('mk-shapes-btn');
+      if (shMain) shMain.innerHTML = btn.innerHTML + '<span class="tool-group-arrow">\u25B8</span>';
+      shapesSub.classList.remove('open');
+    }
+    if (tool === _tool) _setActiveTool(null); else _setActiveTool(tool);
+  }
+  // Wire touchstart on each submenu — fires before the buggy click chain.
+  ['pen-submenu','shapes-submenu'].forEach(function(subId){
+    var sub = document.getElementById(subId);
+    if (!sub) return;
+    // Block bubbling so the outside-close handler on document can't race us
+    sub.addEventListener('touchstart', function(e){ e.stopPropagation(); }, { passive: true });
+    // Touch activation: find the closest sub-tool-btn and fire it immediately
+    sub.addEventListener('touchend', function(e){
+      var btn = e.target && e.target.closest && e.target.closest('.tool-btn[data-mk-tool]');
+      if (!btn) return;
+      e.preventDefault();    // suppress synthesized click
+      e.stopPropagation();
+      _activateToolFromSubBtn(btn);
+    });
+  });
+
+  // Sidebar tool clicks (delegated — still the mouse / desktop path)
   document.addEventListener('click', function(e) {
     // Tool button in sidebar
     var btn = e.target.closest && e.target.closest('#dv-sidebar-tools .tool-btn[data-mk-tool]');
@@ -1978,7 +2021,12 @@ function _wireEvents() {
 
   // Canvas touch events
   mc.addEventListener('touchstart', function(e) {
-    if (e.touches.length > 1) return;
+    // S81: if a 2nd finger lands during drawing, abort the current stroke so
+    // pinch-zoom doesn't leave a stray scribble on the drawing.
+    if (e.touches.length > 1) {
+      if (_isDrawing) _endDraw({});
+      return;
+    }
     if (!_tool || _tool === 'pin') return;
     e.preventDefault();
     if (_tool === 'select') { _handleSelectDown(e); return; }
@@ -1986,7 +2034,12 @@ function _wireEvents() {
   }, { passive: false });
 
   mc.addEventListener('touchmove', function(e) {
-    if (e.touches.length > 1) return;
+    // S81: multi-touch = pinch — abort draw and let the two-finger pan/zoom
+    // handler in viewer.js take over.
+    if (e.touches.length > 1) {
+      if (_isDrawing) _endDraw({});
+      return;
+    }
     if (!_tool || _tool === 'pin') return;
     e.preventDefault();
     if (_tool === 'select') { _handleSelectMove(e); return; }

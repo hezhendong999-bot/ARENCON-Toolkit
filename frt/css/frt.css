@@ -3148,3 +3148,9 @@ body.dark-mode #dwg-actions-pop button.danger, body.dark-mode #photo-actions-pop
 @media (max-width:900px){
   .dwg-folder-header{font-size:calc(12px + var(--ts)) !important;font-weight:500 !important;}
 }
+
+/* S81 final — zoom-controls moved to bottombar. Block all overrides from earlier
+   rules by placing this at end of file with high-specificity selector + !important.
+   Applies at all viewports (desktop too — user saw dup buttons on PC preview). */
+html body .drawing-viewer-overlay .zoom-controls,
+html body .drawing-viewer-overlay #zoom-controls{display:none !important;}
