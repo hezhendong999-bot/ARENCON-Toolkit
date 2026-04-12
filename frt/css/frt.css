@@ -2164,8 +2164,6 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   /* Dropdown menus: ensure they surface above canvas/sidebar on mobile */
   .drawing-viewer-overlay #dv-layers-menu,
   .drawing-viewer-overlay #dv-more-menu{z-index:9600 !important;}
-  /* Close button tighter */
-  .drawing-viewer-overlay .dv-toolbar .dv-close-btn{padding:4px 6px !important;font-size:calc(12px + var(--ts)) !important;}
   /* S79 v4: mobile top bar = Back | nav | Layers | Tasks | More | Dark.
      Only TITLE + RENAME move to bottom bar to give header more room. Nav arrows stay on top. */
   .drawing-viewer-overlay .dv-toolbar .dv-title-wrap{
