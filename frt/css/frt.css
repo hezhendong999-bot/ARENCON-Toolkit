@@ -687,8 +687,7 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
   .header-nav-arrows{display:none!important;}
   /* Cloud status: keep dot, hide text */
   #cloud-status-text{display:none!important;}
-  #cloud-status{gap:0!important;padding:6px!important;min-width:36px;min-height:36px;justify-content:center;}
-  #cloud-dot{width:14px!important;height:14px!important;}
+  #cloud-status{gap:0!important;padding:0!important;}
   .app-title{display:none!important;}
   .section-nav .nav-tab{padding:10px 14px;font-size:calc(13px + var(--ts));}
   .proj-grid{grid-template-columns:1fr;}

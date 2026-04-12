@@ -110,11 +110,49 @@ function toggleDarkMode() {
 
 function updateDarkToggleIcon() {
   var isDark = document.body.classList.contains('dark-mode');
-  var icon = isDark ? '\uD83C\uDF19' : '\u2600\uFE0F';
+  // S81: Samsung One UI-inspired sun/moon SVGs so all platforms match.
+  // Sun: orange gradient core + 8 tapered rays; Moon: warm-white crescent.
+  var sunSVG =
+    '<svg viewBox="0 0 24 24" width="20" height="20" aria-label="Light mode" style="vertical-align:middle;">' +
+      '<defs>' +
+        '<radialGradient id="sunCore" cx="50%" cy="50%" r="50%">' +
+          '<stop offset="0%" stop-color="#FFD54F"/>' +
+          '<stop offset="70%" stop-color="#FFC107"/>' +
+          '<stop offset="100%" stop-color="#FB8C00"/>' +
+        '</radialGradient>' +
+      '</defs>' +
+      '<g fill="#FFB300">' +
+        // 8 rays around the sun (N, NE, E, SE, S, SW, W, NW)
+        '<rect x="11" y="1"  width="2" height="4.5" rx="1"/>' +
+        '<rect x="11" y="18.5" width="2" height="4.5" rx="1"/>' +
+        '<rect x="1"  y="11" width="4.5" height="2" rx="1"/>' +
+        '<rect x="18.5" y="11" width="4.5" height="2" rx="1"/>' +
+        '<rect x="4.3" y="3.6" width="2" height="4.5" rx="1" transform="rotate(-45 5.3 5.85)"/>' +
+        '<rect x="17.7" y="15.9" width="2" height="4.5" rx="1" transform="rotate(-45 18.7 18.15)"/>' +
+        '<rect x="4.3" y="15.9" width="2" height="4.5" rx="1" transform="rotate(45 5.3 18.15)"/>' +
+        '<rect x="17.7" y="3.6" width="2" height="4.5" rx="1" transform="rotate(45 18.7 5.85)"/>' +
+      '</g>' +
+      '<circle cx="12" cy="12" r="5.2" fill="url(#sunCore)"/>' +
+      '<circle cx="12" cy="12" r="5.2" fill="none" stroke="#FB8C00" stroke-width="0.4" opacity="0.4"/>' +
+    '</svg>';
+  var moonSVG =
+    '<svg viewBox="0 0 24 24" width="20" height="20" aria-label="Dark mode" style="vertical-align:middle;">' +
+      '<defs>' +
+        '<radialGradient id="moonBody" cx="40%" cy="40%" r="80%">' +
+          '<stop offset="0%" stop-color="#FFF7C4"/>' +
+          '<stop offset="70%" stop-color="#FFE082"/>' +
+          '<stop offset="100%" stop-color="#FFB300"/>' +
+        '</radialGradient>' +
+      '</defs>' +
+      '<path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z" fill="url(#moonBody)" stroke="#FB8C00" stroke-width="0.4"/>' +
+    '</svg>';
+  var icon = isDark ? moonSVG : sunSVG;
   var dt = document.getElementById('dark-toggle');
-  if (dt) dt.textContent = icon;
+  if (dt) dt.innerHTML = icon;
   var dvdt = document.getElementById('dv-dark-toggle');
-  if (dvdt) dvdt.textContent = icon;
+  if (dvdt) dvdt.innerHTML = icon;
+  var mdt = document.getElementById('mobile-dark-btn');
+  if (mdt) mdt.innerHTML = icon;
 }
 
 function restoreDarkMode() {
@@ -629,11 +667,19 @@ function _updateHeaderForProject() {
 var _cloudSyncTimer = null;
 var _cloudSyncInterval = 30000; // 30 seconds
 
-function _startCloudSync() {
+function _startCloudSync(didLoad) {
   if (_cloudSyncTimer) clearInterval(_cloudSyncTimer);
 
-  // Update cloud status indicator
-  _setCloudStatus('synced', 'Loaded from cloud');
+  // S81: reflect actual boot state — don't lie about cloud load if auth failed.
+  // Caller passes whether a cloud pull actually succeeded.
+  var user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+  if (didLoad && user){
+    _setCloudStatus('synced', 'Loaded from cloud');
+  } else if (!user){
+    _setCloudStatus('error', 'Not signed in — tap for details');
+  } else {
+    _setCloudStatus('pending', 'No cloud data for this project yet');
+  }
 
   // Listen for local saves → push to cloud
   Model.onChange('saved', function() {
@@ -653,6 +699,12 @@ function _startCloudSync() {
 
 function _pushToCloud() {
   if (!_hubMode || !_projectId) return;
+  // S81: don't claim to push if auth is missing — shows "Not signed in" instead
+  var user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+  if (!user){
+    _setCloudStatus('error', 'Not signed in — tap for details');
+    return;
+  }
   _setCloudStatus('saving', 'Syncing...');
   SyncEngine.push(_projectId).then(function(row) {
     if (row) {
@@ -1065,6 +1117,7 @@ function boot() {
           Model.newProject();
           console.log('[FRT v2] Created new project for Hub');
         }
+        window._frtCloudLoaded = !!data;  // S81: used by _startCloudSync to set honest status
       });
     } else {
       // Standalone: load from IDB
@@ -1090,7 +1143,7 @@ function boot() {
 
     // In Hub mode: start cloud sync heartbeat + process pending R2 uploads
     if (_hubMode && _projectId) {
-      _startCloudSync();
+      _startCloudSync(!!window._frtCloudLoaded);
       R2.processPendingUploads(_projectId);
     }
 
