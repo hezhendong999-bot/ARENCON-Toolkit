@@ -2135,14 +2135,61 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     overflow:hidden !important;
     max-width:46px !important;
   }
+  /* S79: Tasks button on mobile should NOT show .active burgundy fill (match PC look) */
+  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn.active{
+    background:rgba(255,255,255,.12) !important;
+    color:#fff !important;
+  }
+  body.dark-mode .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn.active{
+    background:rgba(255,255,255,.2) !important;
+  }
   /* Dropdown menus: ensure they surface above canvas/sidebar on mobile */
   .drawing-viewer-overlay #dv-layers-menu,
-  .drawing-viewer-overlay #dv-more-menu{z-index:9500 !important;}
+  .drawing-viewer-overlay #dv-more-menu{z-index:9600 !important;}
   /* Close button tighter */
   .drawing-viewer-overlay .dv-toolbar .dv-close-btn{padding:4px 6px !important;font-size:calc(12px + var(--ts)) !important;}
-  /* Keep top bar on one row on most phones */
-  .drawing-viewer-overlay .dv-toolbar{flex-wrap:nowrap !important;overflow-x:auto !important;-webkit-overflow-scrolling:touch;}
-  .drawing-viewer-overlay .dv-toolbar::-webkit-scrollbar{display:none;}
+  /* S79 fix: do NOT use overflow-x:auto — forces overflow-y and clips dropdowns.
+     Use flex-wrap so bar can wrap to 2 rows on tight screens; all buttons stay reachable. */
+  .drawing-viewer-overlay .dv-toolbar{flex-wrap:wrap !important;overflow:visible !important;}
+}
+
+/* S79 fix: pen-submenu / shapes-submenu / color-submenu anchored by PC sidebar geometry;
+   on mobile the sidebar is flattened so JS-computed positions point off-screen.
+   Pin them as full-width bottom sheets above the mobile tool row. */
+@media (max-width: 900px){
+  .drawing-viewer-overlay .tool-submenu.open,
+  .drawing-viewer-overlay .color-submenu.open{
+    position:fixed !important;
+    left:10px !important; right:10px !important;
+    top:auto !important; bottom:16px !important;
+    width:auto !important; min-width:0 !important; max-width:none !important;
+    flex-direction:row !important; flex-wrap:wrap !important;
+    justify-content:center !important; gap:8px !important;
+    padding:10px !important;
+    z-index:9700 !important;
+    border-radius:12px !important;
+    box-shadow:0 8px 32px rgba(0,0,0,.5) !important;
+  }
+  .drawing-viewer-overlay .tool-submenu .sub-tool-btn,
+  .drawing-viewer-overlay .color-submenu .dv-color-dot{
+    width:44px !important; height:44px !important;
+  }
+  /* #dv-more-menu uses inline style="display:none/block" — not the .open pattern.
+     Pin it the same way so it escapes top-bar wrapping and lands below the ⋯ button. */
+  .drawing-viewer-overlay #dv-more-menu[style*="block"]{
+    position:fixed !important;
+    right:10px !important; left:auto !important;
+    top:64px !important;
+    min-width:200px !important;
+    z-index:9700 !important;
+  }
+  .drawing-viewer-overlay #dv-layers-menu[style*="block"]{
+    position:fixed !important;
+    left:10px !important; right:auto !important;
+    top:64px !important;
+    min-width:200px !important;
+    z-index:9700 !important;
+  }
 }
 
 /* === Session 75 Push 3.2 — layout-only restyle, legacy icons preserved === */
