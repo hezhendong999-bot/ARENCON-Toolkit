@@ -2160,6 +2160,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   .drawing-viewer-overlay .tool-submenu.open,
   .drawing-viewer-overlay .color-submenu.open{
     position:fixed !important;
+    visibility:visible !important;
     left:10px !important; right:10px !important;
     top:auto !important; bottom:16px !important;
     width:auto !important; min-width:0 !important; max-width:none !important;
@@ -2170,6 +2171,8 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     border-radius:12px !important;
     box-shadow:0 8px 32px rgba(0,0,0,.5) !important;
   }
+  .drawing-viewer-overlay .tool-submenu.open *,
+  .drawing-viewer-overlay .color-submenu.open *{visibility:visible !important;}
   .drawing-viewer-overlay .tool-submenu .sub-tool-btn,
   .drawing-viewer-overlay .color-submenu .dv-color-dot{
     width:44px !important; height:44px !important;
