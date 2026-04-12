@@ -42,6 +42,7 @@ var _opacity = 1;
 
 var _eventsWired = false;
 var _hlCanvas = null;
+var _objCanvas = null;  // reusable per-object offscreen buffer for mask application
 
 // ── WebGL state (Phase 5) ───────────────────────────────
 var _webglCanvas = null;
@@ -308,20 +309,48 @@ function _renderAll() {
       var opKeys = Object.keys(opGroups);
       for (var gi = 0; gi < opKeys.length; gi++) {
         var grp = opGroups[opKeys[gi]];
+        hx.setTransform(1, 0, 0, 1, 0, 0);
         hx.clearRect(0, 0, _hlCanvas.width, _hlCanvas.height);
-        hx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // Per-highlight: draw into _objCanvas (isolated), apply its mask, then drawImage into _hlCanvas
+        var off2 = _ensureObjCanvas(mc);
+        var oc2 = off2.getContext('2d');
         grp.objs.forEach(function(obj) {
           if (!obj.points || obj.points.length < 2) return;
-          hx.strokeStyle = obj.color || '#F1C40F';
-          hx.lineWidth = (obj.size || 2) * 4;
-          hx.lineCap = 'round';
-          hx.lineJoin = 'round';
+          // Clear and set up _objCanvas at dpr transform
+          oc2.setTransform(1, 0, 0, 1, 0, 0);
+          oc2.clearRect(0, 0, off2.width, off2.height);
+          oc2.setTransform(dpr, 0, 0, dpr, 0, 0);
+          oc2.strokeStyle = obj.color || '#F1C40F';
+          oc2.lineWidth = (obj.size || 2) * 4;
+          oc2.lineCap = 'round';
+          oc2.lineJoin = 'round';
+          oc2.globalAlpha = 1;
+          oc2.globalCompositeOperation = 'source-over';
+          oc2.beginPath();
+          oc2.moveTo(obj.points[0].x, obj.points[0].y);
+          for (var i = 1; i < obj.points.length; i++) oc2.lineTo(obj.points[i].x, obj.points[i].y);
+          oc2.stroke();
+          // Apply this highlight's own mask (cuts only this highlight's pixels)
+          if (obj.eraserMask && obj.eraserMask.length) {
+            oc2.save();
+            oc2.globalCompositeOperation = 'destination-out';
+            oc2.lineCap = 'round'; oc2.lineJoin = 'round';
+            for (var mi = 0; mi < obj.eraserMask.length; mi++) {
+              var m = obj.eraserMask[mi];
+              if (!m.points || m.points.length < 2) continue;
+              oc2.lineWidth = (m.size || 2) * 3;
+              oc2.beginPath();
+              oc2.moveTo(m.points[0].x, m.points[0].y);
+              for (var mj = 1; mj < m.points.length; mj++) oc2.lineTo(m.points[mj].x, m.points[mj].y);
+              oc2.stroke();
+            }
+            oc2.restore();
+          }
+          // Accumulate masked highlight onto group canvas at full alpha
+          hx.setTransform(1, 0, 0, 1, 0, 0);
           hx.globalAlpha = 1;
           hx.globalCompositeOperation = 'source-over';
-          hx.beginPath();
-          hx.moveTo(obj.points[0].x, obj.points[0].y);
-          for (var i = 1; i < obj.points.length; i++) hx.lineTo(obj.points[i].x, obj.points[i].y);
-          hx.stroke();
+          hx.drawImage(off2, 0, 0);
         });
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -360,6 +389,60 @@ function _renderAll() {
 }
 
 function _drawObject(ctx, obj) {
+  // Masked objects render into a reusable per-object offscreen buffer so the
+  // destination-out eraser mask only cuts from THIS object's pixels, not from
+  // underlying objects already on the main canvas.
+  if (obj.eraserMask && obj.eraserMask.length && obj.type !== 'highlight') {
+    _drawObjectMasked(ctx, obj);
+    return;
+  }
+  _drawObjectRaw(ctx, obj);
+}
+
+// Ensure _objCanvas matches the main canvas buffer size
+function _ensureObjCanvas(mc) {
+  if (!_objCanvas) _objCanvas = document.createElement('canvas');
+  if (_objCanvas.width !== mc.width || _objCanvas.height !== mc.height) {
+    _objCanvas.width = mc.width;
+    _objCanvas.height = mc.height;
+  }
+  return _objCanvas;
+}
+
+function _drawObjectMasked(ctx, obj) {
+  var mc = _getCanvas(); if (!mc) { _drawObjectRaw(ctx, obj); return; }
+  var dpr = mc._dpr || 1;
+  var off = _ensureObjCanvas(mc);
+  var oc = off.getContext('2d');
+  // Clear offscreen fully at device-px res, then install logical-px transform
+  oc.setTransform(1, 0, 0, 1, 0, 0);
+  oc.clearRect(0, 0, off.width, off.height);
+  oc.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Draw object into offscreen (same path as raw draw)
+  _drawObjectRaw(oc, obj);
+  // Apply each mask path with destination-out — cuts ONLY within offscreen pixels
+  oc.save();
+  oc.globalCompositeOperation = 'destination-out';
+  oc.lineCap = 'round'; oc.lineJoin = 'round';
+  oc.globalAlpha = 1;
+  for (var i = 0; i < obj.eraserMask.length; i++) {
+    var m = obj.eraserMask[i];
+    if (!m.points || m.points.length < 2) continue;
+    oc.lineWidth = (m.size || 2) * 3;
+    oc.beginPath();
+    oc.moveTo(m.points[0].x, m.points[0].y);
+    for (var j = 1; j < m.points.length; j++) oc.lineTo(m.points[j].x, m.points[j].y);
+    oc.stroke();
+  }
+  oc.restore();
+  // Composite masked result onto main canvas (in device-px, then restore logical transform)
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(off, 0, 0);
+  ctx.restore();
+}
+
+function _drawObjectRaw(ctx, obj) {
   ctx.save();
   ctx.globalAlpha = obj.opacity || 1;
   ctx.strokeStyle = obj.color || '#C0392B';
@@ -565,7 +648,21 @@ function _shapeHitByEraser(obj, eraserPts, eraserR2) {
   return false;
 }
 
+// Append a raw eraser path to the object's eraserMask. Path points are stored in
+// world coords (same space as obj points/x1/y1/x2/y2), so move/resize translate
+// them along with the rest of the geometry.
+function _pushMask(obj, eraserPts, lineWidth) {
+  if (!obj.eraserMask) obj.eraserMask = [];
+  // Deep-copy the path so later mutations to the original don't alias
+  var copy = new Array(eraserPts.length);
+  for (var i = 0; i < eraserPts.length; i++) copy[i] = { x: eraserPts[i].x, y: eraserPts[i].y };
+  obj.eraserMask.push({ points: copy, size: lineWidth });
+}
+
 // Apply an eraser path to _objects destructively. Called from _endDraw at eraser commit.
+// - pen: split into fragments (thin stroke, clean visual gap from vertex removal)
+// - polyline / highlight / shapes / text: append mask path; render time applies destination-out
+//   so the eraser's EXACT path is carved from the object's pixels, regardless of stroke width
 function _applyEraser(eraserPts, lineWidth) {
   if (!eraserPts || eraserPts.length < 2) return;
   // Eraser hit radius matches the visual line in 2D: (size||2)*3 / 2
@@ -577,29 +674,57 @@ function _applyEraser(eraserPts, lineWidth) {
     var obj = _objects[i];
     if (!obj || !obj.type) continue;
 
-    if (obj.type === 'pen' || obj.type === 'highlight' || obj.type === 'polyline') {
-      // Split into fragments — empty array means entire stroke erased
+    if (obj.type === 'pen') {
+      // Fragment split — thin strokes get clean separation
       var frags = _splitStrokeByEraser(obj, eraserPts, eraserR2);
       for (var j = 0; j < frags.length; j++) next.push(frags[j]);
     }
+    else if (obj.type === 'highlight' || obj.type === 'polyline') {
+      // Mask: carve the eraser's exact path from the thick stroke
+      if (_strokeHitByEraser(obj, eraserPts, eraserR2)) {
+        _pushMask(obj, eraserPts, lineWidth);
+      }
+      next.push(obj);
+    }
     else if (obj.type === 'text') {
-      if (!_shapeHitByEraser(obj, eraserPts, eraserR2)) next.push(obj);
-      // else: deleted
+      // Mask: carve the eraser's exact path from the text glyphs
+      if (_shapeHitByEraser(obj, eraserPts, eraserR2)) {
+        _pushMask(obj, eraserPts, lineWidth);
+      }
+      next.push(obj);
     }
     else {
-      // Shapes: rect/fillrect/circle/fillcircle/line/arrow/triangle/filltriangle/cloud
-      if (!_shapeHitByEraser(obj, eraserPts, eraserR2)) next.push(obj);
-      // else: deleted
+      // All shapes (rect/fillrect/circle/fillcircle/line/arrow/triangle/filltriangle/cloud)
+      // Mask: carve the eraser's exact path
+      if (_shapeHitByEraser(obj, eraserPts, eraserR2)) {
+        _pushMask(obj, eraserPts, lineWidth);
+      }
+      next.push(obj);
     }
   }
 
   _objects = next;
-  // Drop selection of anything that no longer exists
+  // Drop selection of anything that no longer exists (only possible via pen full-erase)
   if (_selectedIds.length) {
     var alive = {};
     for (var k = 0; k < _objects.length; k++) alive[_objects[k].id] = true;
     _selectedIds = _selectedIds.filter(function(id) { return alive[id]; });
   }
+}
+
+// Did the eraser touch any point along a freehand stroke polyline?
+function _strokeHitByEraser(obj, eraserPts, eraserR2) {
+  var pts = obj.points;
+  if (!pts || pts.length < 1) return false;
+  for (var i = 0; i < pts.length; i++) {
+    if (_pointHitByEraser(pts[i].x, pts[i].y, eraserPts, eraserR2)) return true;
+  }
+  // Also sample segment midpoints — catches eraser crossing between sparse vertices
+  for (var j = 0; j < pts.length - 1; j++) {
+    var mx = (pts[j].x + pts[j + 1].x) / 2, my = (pts[j].y + pts[j + 1].y) / 2;
+    if (_pointHitByEraser(mx, my, eraserPts, eraserR2)) return true;
+  }
+  return false;
 }
 
 // ── Rubber-band state ───────────────────────────────────
@@ -1186,6 +1311,12 @@ function _handleSelectMove(e) {
         obj.points.forEach(function(p) { p.x += dx; p.y += dy; });
       }
       if (obj.x1 != null) { obj.x1 += dx; obj.y1 += dy; obj.x2 += dx; obj.y2 += dy; }
+      // Eraser masks travel with the object (holes stay in the same spot on the shape)
+      if (obj.eraserMask && obj.eraserMask.length) {
+        obj.eraserMask.forEach(function(m) {
+          m.points.forEach(function(p) { p.x += dx; p.y += dy; });
+        });
+      }
     });
 
     _dragState.startX = pos.x;
@@ -1219,6 +1350,17 @@ function _handleSelectMove(e) {
       }
       if (orig.size) obj.size = Math.max(1, Math.round(orig.size * s));
       if (orig.fontSize) obj.fontSize = Math.max(8, Math.round(orig.fontSize * s));
+      // Scale eraser masks along with the object
+      if (orig.eraserMask && orig.eraserMask.length) {
+        obj.eraserMask = orig.eraserMask.map(function(m) {
+          return {
+            points: m.points.map(function(p) {
+              return { x: ax + (p.x - ax) * s, y: ay + (p.y - ay) * s };
+            }),
+            size: Math.max(1, m.size * s)
+          };
+        });
+      }
     });
     _renderAll();
   }
@@ -1246,6 +1388,12 @@ function _handleSelectMove(e) {
         obj.x1 = newC.x - hw; obj.y1 = newC.y - hh;
         obj.x2 = newC.x + hw; obj.y2 = newC.y + hh;
         obj.rotation = (orig.rotation || 0) + dAngle;
+      }
+      // Rotate eraser masks around the same pivot (holes follow the object's spin)
+      if (orig.eraserMask && orig.eraserMask.length) {
+        obj.eraserMask = orig.eraserMask.map(function(m) {
+          return { points: m.points.map(function(p) { return rot(p.x, p.y); }), size: m.size };
+        });
       }
     });
     _renderAll();

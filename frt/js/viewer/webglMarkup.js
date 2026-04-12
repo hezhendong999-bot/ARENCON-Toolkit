@@ -348,16 +348,70 @@
     d.rotation = rad;
   }
 
+  // Build a Graphics containing only this object's eraser-mask paths, at ERASE blend.
+  // Caller places it AFTER the object's own Graphics so destination-out cuts only
+  // the preceding object's pixels (on the per-object RenderTexture, not main stage).
+  function _buildMaskGraphics(PIXI, obj){
+    if (!obj.eraserMask || !obj.eraserMask.length) return null;
+    var g = new PIXI.Graphics();
+    for (var i = 0; i < obj.eraserMask.length; i++){
+      var m = obj.eraserMask[i];
+      if (!m.points || m.points.length < 2) continue;
+      g.lineStyle({
+        width: (m.size || 2) * 3,
+        color: 0xFFFFFF,
+        alpha: 1,
+        cap: 'round',
+        join: 'round'
+      });
+      g.moveTo(m.points[0].x, m.points[0].y);
+      for (var j = 1; j < m.points.length; j++){
+        g.lineTo(m.points[j].x, m.points[j].y);
+      }
+    }
+    if (PIXI.BLEND_MODES && PIXI.BLEND_MODES.ERASE != null){
+      g.blendMode = PIXI.BLEND_MODES.ERASE;
+    }
+    return g;
+  }
+
+  // Render one object (+ its mask if any) into its own RenderTexture so the mask
+  // only cuts that object's pixels. Returns a Sprite wrapping the RenderTexture,
+  // with _rtToDestroy set for cleanup. Returns null for empty / unrenderable objects.
+  function _rasterizeMaskedObject(PIXI, obj){
+    var node = (obj.type === 'eraser') ? _buildEraser(PIXI, obj) : _buildObject(PIXI, obj);
+    if (!node) return null;
+    // No mask → skip isolation; return node directly (cheaper path)
+    if (!obj.eraserMask || !obj.eraserMask.length) return node;
+
+    var logicalW = Math.max(1, _canvasW / _dpr);
+    var logicalH = Math.max(1, _canvasH / _dpr);
+    var c = new PIXI.Container();
+    c.addChild(node);
+    var mask = _buildMaskGraphics(PIXI, obj);
+    if (mask) c.addChild(mask);
+    var rt = PIXI.RenderTexture.create({ width: logicalW, height: logicalH, resolution: _dpr });
+    _app.renderer.render(c, { renderTexture: rt, clear: true });
+    try { c.destroy({ children: true }); } catch(_){}
+    var spr = new PIXI.Sprite(rt);
+    spr._rtToDestroy = rt;
+    return spr;
+  }
+
   // ─── Non-highlight compositing (via RenderTexture so ERASE blend works) ─
   function _drawNonHighlights(PIXI, objects){
     var logicalW = Math.max(1, _canvasW / _dpr);
     var logicalH = Math.max(1, _canvasH / _dpr);
 
     var container = new PIXI.Container();
+    var spritesToTrack = [];
     for (var i = 0; i < objects.length; i++){
       var o = objects[i];
-      var d = (o.type === 'eraser') ? _buildEraser(PIXI, o) : _buildObject(PIXI, o);
-      if (d) container.addChild(d);
+      var d = _rasterizeMaskedObject(PIXI, o);
+      if (d){
+        container.addChild(d);
+        if (d._rtToDestroy) spritesToTrack.push(d);
+      }
     }
 
     var rt = PIXI.RenderTexture.create({
@@ -366,6 +420,10 @@
       resolution: _dpr
     });
     _app.renderer.render(container, { renderTexture: rt, clear: true });
+    // Destroy per-object RTs that were consumed in this composite
+    for (var s = 0; s < spritesToTrack.length; s++){
+      try { spritesToTrack[s]._rtToDestroy.destroy(true); } catch(_){}
+    }
     try { container.destroy({ children: true }); } catch(_){}
 
     var spr = new PIXI.Sprite(rt);
@@ -392,8 +450,10 @@
     for (var k = 0; k < keys.length; k++){
       var grp = opGroups[keys[k]];
 
-      // Container with all strokes at full alpha
+      // Container of per-highlight sprites (each highlight is isolated so its
+      // eraser mask cuts only that highlight's pixels, not other highlights in the same group)
       var container = new PIXI.Container();
+      var perHLRTs = [];
       for (var j = 0; j < grp.objs.length; j++){
         var obj = grp.objs[j];
         if (!obj.points || obj.points.length < 2) continue;
@@ -409,10 +469,25 @@
         for (var p = 1; p < obj.points.length; p++){
           g.lineTo(obj.points[p].x, obj.points[p].y);  // lineTo only
         }
-        container.addChild(g);
+
+        if (obj.eraserMask && obj.eraserMask.length){
+          // Per-highlight RT with mask applied via ERASE blend
+          var subC = new PIXI.Container();
+          subC.addChild(g);
+          var maskG = _buildMaskGraphics(PIXI, obj);
+          if (maskG) subC.addChild(maskG);
+          var subRT = PIXI.RenderTexture.create({ width: logicalW, height: logicalH, resolution: _dpr });
+          _app.renderer.render(subC, { renderTexture: subRT, clear: true });
+          try { subC.destroy({ children: true }); } catch(_){}
+          var subSpr = new PIXI.Sprite(subRT);
+          container.addChild(subSpr);
+          perHLRTs.push(subRT);
+        } else {
+          container.addChild(g);
+        }
       }
 
-      // Render to RenderTexture at full alpha
+      // Render the accumulated highlights (sprites + plain Graphics) to the group RenderTexture at full alpha
       var rt = PIXI.RenderTexture.create({
         width: logicalW,
         height: logicalH,
@@ -420,6 +495,10 @@
       });
       _app.renderer.render(container, { renderTexture: rt, clear: true });
       try { container.destroy({ children: true }); } catch(_){}
+      // Destroy per-highlight RTs now that they've been baked into the group RT
+      for (var r = 0; r < perHLRTs.length; r++){
+        try { perHLRTs[r].destroy(true); } catch(_){}
+      }
 
       // Composite as a Sprite at (hlAlpha × groupOpacity) — matches Canvas 2D
       var spr = new PIXI.Sprite(rt);
@@ -437,6 +516,6 @@
     hasEraser:   hasEraser,
     render:      render,
     destroy:     destroy,
-    version:     '5.3'
+    version:     '5.4'
   };
 })();
