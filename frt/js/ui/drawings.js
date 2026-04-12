@@ -391,6 +391,7 @@ document.addEventListener('click', function(e) {
       + '<button data-dwg-act="del" class="danger">\uD83D\uDDD1\uFE0F Delete selected</button>';
     document.body.appendChild(pop);
     var rA = t.getBoundingClientRect();
+    pop.style.cssText += ';position:fixed!important;bottom:auto!important;right:auto!important;height:auto!important;max-height:none!important;';
     pop.style.top = (rA.bottom + 4) + 'px';
     pop.style.left = Math.min(rA.left, window.innerWidth - 240) + 'px';
     setTimeout(function(){ document.addEventListener('click', function close(ev){
@@ -459,6 +460,7 @@ document.addEventListener('click', function(e) {
       + '<button data-dwg-filt="nopins">No tasks</button>';
     document.body.appendChild(pop2);
     var rF = t.getBoundingClientRect();
+    pop2.style.cssText += ';position:fixed!important;bottom:auto!important;right:auto!important;height:auto!important;max-height:none!important;';
     pop2.style.top = (rF.bottom + 4) + 'px';
     pop2.style.left = Math.min(rF.left, window.innerWidth - 200) + 'px';
     setTimeout(function(){ document.addEventListener('click', function close2(ev){

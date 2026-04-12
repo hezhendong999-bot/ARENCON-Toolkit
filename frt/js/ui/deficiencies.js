@@ -1227,6 +1227,7 @@ document.addEventListener('click', function(e) {
       + '<button data-defic-filter="iar">IAR only</button>';
     document.body.appendChild(pop);
     var r = fb.getBoundingClientRect();
+    pop.style.cssText += ';position:fixed!important;bottom:auto!important;right:auto!important;height:auto!important;max-height:none!important;';
     pop.style.top = (r.bottom + 4) + 'px';
     pop.style.left = Math.min(r.left, window.innerWidth - 220) + 'px';
     setTimeout(function(){ document.addEventListener('click', function close(ev){
