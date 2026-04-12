@@ -2144,7 +2144,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     padding:0 12px 0 0 !important;
     border-radius:6px !important;
     font-family:Calibri,sans-serif !important;
-    font-size:14px !important;
+    font-size:15px !important;
     font-weight:600 !important;
     min-height:40px !important;
     margin-right:4px !important;
@@ -2954,8 +2954,8 @@ body.dark-mode #reports-mode-menu button:hover{background:#2a3448;}
   padding-right:12px !important;
 }
 @media(pointer:coarse){
-  .drawing-viewer-overlay .dv-toolbar{padding-left:14px !important;}
-  .drawing-viewer-overlay .dv-toolbar #dv-close{padding-left:0 !important;padding-right:14px !important;margin-left:0 !important;}
+  .drawing-viewer-overlay .dv-toolbar{padding-left:12px !important;}
+  .drawing-viewer-overlay .dv-toolbar #dv-close{padding-left:0 !important;padding-right:12px !important;margin-left:0 !important;}
 }
 
 /* ── S78: v1-exact compact dropdown popups for toolbar Filters/Actions ── */
@@ -3092,8 +3092,8 @@ body.dark-mode #dwg-actions-pop button.danger, body.dark-mode #photo-actions-pop
   }
 }
 
-/* S79: bump main FRT back button to 14px (match viewer back button) */
-.back-btn{font-size:14px !important;}
+/* S79: bump main FRT back button to 15px (match viewer back button) */
+.back-btn{font-size:15px !important;}
 
 /* S79: shrink folder header title to match "Drag and drop" text size on mobile */
 @media (max-width:900px){
