@@ -2144,7 +2144,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     padding:0 12px 0 0 !important;
     border-radius:6px !important;
     font-family:Calibri,sans-serif !important;
-    font-size:13px !important;
+    font-size:14px !important;
     font-weight:600 !important;
     min-height:40px !important;
     margin-right:4px !important;
@@ -3090,4 +3090,12 @@ body.dark-mode #dwg-actions-pop button.danger, body.dark-mode #photo-actions-pop
     min-height:44px !important;
     padding:0 14px 0 0 !important;
   }
+}
+
+/* S79: bump main FRT back button to 14px (match viewer back button) */
+.back-btn{font-size:14px !important;}
+
+/* S79: shrink folder header title to match "Drag and drop" text size on mobile */
+@media (max-width:900px){
+  .dwg-folder-header{font-size:calc(12px + var(--ts)) !important;font-weight:500 !important;}
 }
