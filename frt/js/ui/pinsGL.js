@@ -51,7 +51,16 @@
   var _cssW   = 0;
   var _cssH   = 0;
 
-  var _pinSize = 32;          // CSS px wide (height = 42/32 × this)
+  var _pinSize = 32;          // CSS px wide (height = 42/32 × this). Reduced on
+                              // coarse-pointer devices below.
+  // S81: shrink on touch devices where the viewport is tight and pins overlap.
+  (function(){
+    try {
+      if (window.matchMedia && window.matchMedia('(pointer:coarse)').matches){
+        _pinSize = 24;
+      }
+    } catch(_){}
+  })();
   var _pins = [];             // last rendered pin list (for hit testing)
   var _pinScreenPos = {};     // deficId -> {x,y,w,h,sx,sy,pin} in canvas-local CSS px
 

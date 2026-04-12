@@ -1108,8 +1108,13 @@ function boot() {
           var instanceId = params.get('instance');
           return SyncEngine.pull(_projectId, instanceId);
         } else {
-          console.warn('[FRT v2] No auth session — trying IDB');
-          return Model.loadLastProject().then(function(ok) { return ok ? Model.getProject() : null; });
+          // S81: don't silently create an empty project — Mark spent 10 min
+          // figuring out why the Samsung showed nothing. Route to Hub login so
+          // they can re-auth and come back.
+          console.warn('[FRT v2] No auth session — redirecting to Hub login');
+          var returnUrl = encodeURIComponent(window.location.href);
+          window.location.href = '../ARENCON_Project_Hub.html?returnTo=' + returnUrl;
+          return null;
         }
       }).then(function(data) {
         if (!data && !Model.getProject()) {
@@ -1117,7 +1122,7 @@ function boot() {
           Model.newProject();
           console.log('[FRT v2] Created new project for Hub');
         }
-        window._frtCloudLoaded = !!data;  // S81: used by _startCloudSync to set honest status
+        window._frtCloudLoaded = !!data;
       });
     } else {
       // Standalone: load from IDB

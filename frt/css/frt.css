@@ -291,9 +291,7 @@ body.dark-mode .dv-mobile-context{background:#2a2d35;border-top-color:#3a3e48;}
 .ctx-btn{width:28px;height:26px;border-radius:5px;border:none;background:rgba(255,255,255,.1);color:white;font-size:calc(14px + var(--ts));font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
 .ctx-btn:active{background:rgba(255,255,255,.25);}
 .ctx-color-swatch{width:24px;height:24px;border-radius:50%;border:2px solid #fff;cursor:pointer;}
-/* ZOOM CONTROLS */
-.zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px;z-index:10;}
-.zoom-controls button{width:30px;height:30px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:calc(16px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);touch-action:manipulation;-webkit-tap-highlight-color:transparent;}.zoom-controls button:hover{background:rgba(42,45,53,.95);}
+/* ZOOM CONTROLS — S81: moved into bottombar; canonical rules further below */
 /* NAV CONTROLS — bottom-left */
 .dv-nav-controls{position:absolute;bottom:12px;left:12px;display:flex;gap:3px;z-index:10;}
 .dv-nav-controls .dv-nav-btn{width:36px;height:36px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:calc(14px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);touch-action:manipulation;-webkit-tap-highlight-color:transparent;}.dv-nav-controls .dv-nav-btn:hover{background:rgba(42,45,53,.95);}
@@ -311,7 +309,6 @@ body.dark-mode .dv-more-sep{background:#3a3e48;}
   .dv-sidebar-tools .tool-btn{width:42px;height:42px;}
   .tool-submenu .sub-tool-btn{width:40px!important;height:40px!important;}
   .ctx-btn{width:34px;height:32px;}
-  .zoom-controls{bottom:12px!important;right:10px;z-index:501!important;}.zoom-controls button{width:48px;height:48px;font-size:22px;border-radius:12px;background:rgba(42,45,53,.9);}
 }
 @media(max-width:900px){
   .dv-sidebar-tools{width:44px;padding:4px 0;}
@@ -461,10 +458,29 @@ body.dark-mode .dv-task-item{color:#ccc;}body.dark-mode .dv-task-item:hover{back
 
 /* Nav arrows for drawing viewer */
 
-/* Zoom controls */
-.zoom-controls{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px;z-index:10;}
-.zoom-controls button{width:30px;height:30px;border-radius:7px;background:rgba(42,45,53,.75);border:none;color:white;font-size:calc(16px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);touch-action:manipulation;-webkit-tap-highlight-color:transparent;}.zoom-controls button:hover{background:rgba(42,45,53,.95);}
-@media(max-width:900px){.zoom-controls{bottom:12px!important;right:10px;z-index:501!important;}.zoom-controls button{width:48px;height:48px;font-size:22px;border-radius:12px;background:rgba(42,45,53,.9);}}
+/* Zoom controls — S81: moved into #dv-bottombar-v75. Hide floating layer
+   using high-specificity selectors since later rules target .drawing-viewer-overlay descendants. */
+.zoom-controls,
+.drawing-viewer-overlay .zoom-controls,
+.drawing-viewer-overlay #zoom-controls{display:none!important;}
+
+/* S81: bottombar zoom group */
+.dv-bb-zoom{display:flex;gap:4px;flex-shrink:0;}
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button{
+  width:36px;height:36px;border-radius:8px;
+  background:#3a3d45;color:white;border:none;
+  font-size:18px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-family:Calibri,sans-serif;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hover{background:#9C2742;}
+body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button{background:#2a2d35;}
+body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hover{background:#9C2742;}
+@media(max-width:900px){
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button{width:40px;height:40px;font-size:20px;}
+}
 
 /* Pin side panel */
 .pin-panel{position:fixed;top:0;right:0;width:420px;height:100%;background:white;z-index:2500;box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;overflow:hidden;}.pin-panel.open{transform:translateX(0);}

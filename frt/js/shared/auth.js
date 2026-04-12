@@ -12,6 +12,7 @@ var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 var _user = null;
 var _role = null;
+var _autoRefreshTimer = null;
 
 function _getHeaders() {
   var h = {
@@ -50,6 +51,8 @@ export var Auth = {
   /**
    * Restore session — reads tokens from localStorage, refreshes if needed.
    * Returns user object or null.
+   * S81: on restore, also schedule periodic auto-refresh so Mark doesn't have
+   * to sign in again every hour.
    */
   restoreSession: function() {
     var token = localStorage.getItem('sb-access-token');
@@ -64,11 +67,35 @@ export var Auth = {
     }).then(function(user) {
       _user = user;
       console.log('[Auth] Session restored:', user.email);
+      self._scheduleAutoRefresh();
       return self._loadRole(user.id).then(function() { return user; });
     }).catch(function(err) {
       console.log('[Auth] Token expired, attempting refresh...');
-      return self._refreshToken();
+      return self._refreshToken().then(function(u){
+        if (u) self._scheduleAutoRefresh();
+        return u;
+      });
     });
+  },
+
+  /**
+   * S81: keep the user signed in for as long as the refresh token is valid.
+   * Access tokens are 1h default; refresh every 50 min. On failure, stop the
+   * timer so we don't spam dead requests.
+   */
+  _scheduleAutoRefresh: function(){
+    if (_autoRefreshTimer) clearInterval(_autoRefreshTimer);
+    var self = this;
+    _autoRefreshTimer = setInterval(function(){
+      console.log('[Auth] Periodic token refresh');
+      self._refreshToken().then(function(u){
+        if (!u){
+          console.warn('[Auth] Auto-refresh failed — stopping timer');
+          clearInterval(_autoRefreshTimer);
+          _autoRefreshTimer = null;
+        }
+      });
+    }, 50 * 60 * 1000); // 50 minutes
   },
 
   /**
