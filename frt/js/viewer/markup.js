@@ -474,6 +474,134 @@ function _drawCloudObj(ctx, x1, y1, x2, y2) {
   ctx.stroke();
 }
 
+// ── Destructive Eraser ──────────────────────────────────
+// Eraser commits modify _objects in place — splitting pen/highlight/polyline
+// strokes into fragments, deleting shapes/text that the eraser path intersects.
+// The eraser stroke itself is never persisted; one undo entry reverses the whole op.
+
+// Shortest distance² from point (px,py) to segment (ax,ay)-(bx,by)
+function _distSqPtSeg(px, py, ax, ay, bx, by) {
+  var dx = bx - ax, dy = by - ay;
+  var len2 = dx * dx + dy * dy;
+  if (len2 < 1e-6) { var ex = px - ax, ey = py - ay; return ex * ex + ey * ey; }
+  var t = ((px - ax) * dx + (py - ay) * dy) / len2;
+  if (t < 0) t = 0; else if (t > 1) t = 1;
+  var qx = ax + t * dx, qy = ay + t * dy;
+  var fx = px - qx, fy = py - qy;
+  return fx * fx + fy * fy;
+}
+
+// True if point (px,py) is within eraserR of any point on the eraserPts polyline
+function _pointHitByEraser(px, py, eraserPts, eraserR2) {
+  // Segment-based test — catches points near the eraser PATH, not just its vertices
+  if (eraserPts.length === 1) {
+    var ex = px - eraserPts[0].x, ey = py - eraserPts[0].y;
+    return (ex * ex + ey * ey) <= eraserR2;
+  }
+  for (var i = 0; i < eraserPts.length - 1; i++) {
+    var a = eraserPts[i], b = eraserPts[i + 1];
+    if (_distSqPtSeg(px, py, a.x, a.y, b.x, b.y) <= eraserR2) return true;
+  }
+  return false;
+}
+
+// True if segment (sx1,sy1)-(sx2,sy2) comes within eraserR of any eraser segment
+function _segHitByEraser(sx1, sy1, sx2, sy2, eraserPts, eraserR2) {
+  // Sample midpoint + endpoints — good enough for reasonable stroke densities;
+  // callers already test per-vertex, this just catches long segments crossing the eraser.
+  if (_pointHitByEraser(sx1, sy1, eraserPts, eraserR2)) return true;
+  if (_pointHitByEraser(sx2, sy2, eraserPts, eraserR2)) return true;
+  if (_pointHitByEraser((sx1 + sx2) / 2, (sy1 + sy2) / 2, eraserPts, eraserR2)) return true;
+  return false;
+}
+
+// Split a freehand stroke (pen/highlight/polyline) into fragments, dropping runs of erased points
+function _splitStrokeByEraser(obj, eraserPts, eraserR2) {
+  var pts = obj.points;
+  if (!pts || pts.length < 2) return [obj];
+  // Flag each point as erased or kept
+  var kept = new Array(pts.length);
+  for (var i = 0; i < pts.length; i++) {
+    kept[i] = !_pointHitByEraser(pts[i].x, pts[i].y, eraserPts, eraserR2);
+  }
+  // Walk: collect contiguous runs of kept points (≥2 points each) into fragments
+  var fragments = [];
+  var run = [];
+  for (var j = 0; j < pts.length; j++) {
+    if (kept[j]) {
+      run.push(pts[j]);
+    } else {
+      if (run.length >= 2) fragments.push(run);
+      run = [];
+    }
+  }
+  if (run.length >= 2) fragments.push(run);
+
+  if (fragments.length === 0) return [];        // entire stroke erased
+  return fragments.map(function(frag, idx) {
+    return {
+      id: idx === 0 ? obj.id : _newId(),         // first fragment keeps the original id
+      type: obj.type,
+      points: frag,
+      color: obj.color,
+      size: obj.size,
+      opacity: obj.opacity
+    };
+  });
+}
+
+// Check if shape/text bounds overlap the eraser path (using obj's _getBounds)
+function _shapeHitByEraser(obj, eraserPts, eraserR2) {
+  var b = _getBounds(obj);
+  if (!b) return false;
+  // Inflate the shape bbox by eraser radius so near-misses don't clip
+  var r = Math.sqrt(eraserR2);
+  var ix1 = b.x1 - r, iy1 = b.y1 - r, ix2 = b.x2 + r, iy2 = b.y2 + r;
+  // Hit if any eraser vertex falls inside the inflated bbox
+  for (var i = 0; i < eraserPts.length; i++) {
+    var p = eraserPts[i];
+    if (p.x >= ix1 && p.x <= ix2 && p.y >= iy1 && p.y <= iy2) return true;
+  }
+  return false;
+}
+
+// Apply an eraser path to _objects destructively. Called from _endDraw at eraser commit.
+function _applyEraser(eraserPts, lineWidth) {
+  if (!eraserPts || eraserPts.length < 2) return;
+  // Eraser hit radius matches the visual line in 2D: (size||2)*3 / 2
+  var eraserR = ((lineWidth || 2) * 3) / 2;
+  var eraserR2 = eraserR * eraserR;
+
+  var next = [];
+  for (var i = 0; i < _objects.length; i++) {
+    var obj = _objects[i];
+    if (!obj || !obj.type) continue;
+
+    if (obj.type === 'pen' || obj.type === 'highlight' || obj.type === 'polyline') {
+      // Split into fragments — empty array means entire stroke erased
+      var frags = _splitStrokeByEraser(obj, eraserPts, eraserR2);
+      for (var j = 0; j < frags.length; j++) next.push(frags[j]);
+    }
+    else if (obj.type === 'text') {
+      if (!_shapeHitByEraser(obj, eraserPts, eraserR2)) next.push(obj);
+      // else: deleted
+    }
+    else {
+      // Shapes: rect/fillrect/circle/fillcircle/line/arrow/triangle/filltriangle/cloud
+      if (!_shapeHitByEraser(obj, eraserPts, eraserR2)) next.push(obj);
+      // else: deleted
+    }
+  }
+
+  _objects = next;
+  // Drop selection of anything that no longer exists
+  if (_selectedIds.length) {
+    var alive = {};
+    for (var k = 0; k < _objects.length; k++) alive[_objects[k].id] = true;
+    _selectedIds = _selectedIds.filter(function(id) { return alive[id]; });
+  }
+}
+
 // ── Rubber-band state ───────────────────────────────────
 var _rubberBand = null; // {x1,y1,x2,y2} during drag-select
 
@@ -700,7 +828,13 @@ function _endDraw(e) {
   }
 
   var type = _tool;
-  if (type === 'pen' || type === 'highlight' || type === 'eraser') {
+  if (type === 'eraser') {
+    // Destructive eraser: split/remove underlying strokes permanently.
+    // Eraser itself is NEVER added to _objects — it's a one-shot editing operation.
+    if (_penPoints.length > 1) {
+      _applyEraser(_penPoints.slice(), _lineWidth);
+    }
+  } else if (type === 'pen' || type === 'highlight') {
     if (_penPoints.length > 1) {
       _objects.push({
         id: _newId(), type: type, points: _penPoints.slice(),
@@ -880,7 +1014,6 @@ var _dragState = null;
 
 function _hitTestObjects(pos) {
   for (var i = _objects.length - 1; i >= 0; i--) {
-    if (_objects[i].type === 'eraser') continue;  // eraser strokes are not selectable
     var b = _getBounds(_objects[i]);
     if (b && pos.x >= b.x1 - 6 && pos.x <= b.x2 + 6 && pos.y >= b.y1 - 6 && pos.y <= b.y2 + 6) {
       return _objects[i];
@@ -1130,7 +1263,6 @@ function _handleSelectUp() {
     if (Math.abs(rx2 - rx1) > 4 || Math.abs(ry2 - ry1) > 4) {
       var hits = [];
       _objects.forEach(function(obj) {
-        if (obj.type === 'eraser') return;  // eraser strokes are not selectable
         var b = _getBounds(obj);
         if (!b) return;
         if (b.x2 >= rx1 && b.x1 <= rx2 && b.y2 >= ry1 && b.y1 <= ry2) {
