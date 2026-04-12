@@ -194,6 +194,11 @@ function _createModal(title, message, buttons) {
       var baseStyle = 'flex:1;padding:10px;border-radius:8px;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;cursor:pointer;';
       if (b.outline) {
         btn.style.cssText = baseStyle + 'background:transparent;color:' + b.color + ';border:1.5px solid ' + b.color + ';';
+      } else if (isDark) {
+        // S78: muted dark-mode fill matching S77 chip aesthetic — dark tinted bg, lighter colored text + subtle border
+        var tint = b.color === '#1A7A4A' ? '#15302a' : (b.color === '#C0392B' ? '#3a1a1a' : '#1f2530');
+        var textCol = b.color === '#1A7A4A' ? '#5fbf8f' : (b.color === '#C0392B' ? '#e88a7a' : '#a8b4d0');
+        btn.style.cssText = baseStyle + 'background:' + tint + ';color:' + textCol + ';border:1.5px solid ' + textCol + '40;';
       } else {
         btn.style.cssText = baseStyle + 'background:' + b.color + ';color:white;border:none;';
       }
