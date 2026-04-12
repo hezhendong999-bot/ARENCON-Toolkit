@@ -2118,20 +2118,26 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   /* Tighter nav arrows */
   .drawing-viewer-overlay .dv-toolbar #dv-prev,
   .drawing-viewer-overlay .dv-toolbar #dv-next{padding:0 6px !important;min-width:36px !important;font-size:15px !important;}
-  /* Layers / Tasks / More / Dark — trim labels on mobile (keep icons) */
+  /* Layers / Tasks / More / Dark — trim on mobile (keep emoji+icon glyphs) */
   .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
-    padding:0 6px !important;min-width:36px !important;min-height:38px !important;
+    padding:0 8px !important;min-width:40px !important;min-height:38px !important;
     font-size:calc(11px + var(--ts)) !important;
+    white-space:nowrap !important;
   }
-  /* Hide the "Tasks" word — keep 📌 */
-  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn{font-size:0 !important;}
-  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn::before{content:"\1F4CC";font-size:16px;}
-  /* Hide the "Layers" word — keep ≡ */
-  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn{font-size:0 !important;padding:0 8px !important;}
-  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn::before{content:"\2261";font-size:18px;font-weight:700;}
+  /* Hide the word "Tasks" / "Layers" labels — the emoji/glyph is enough on mobile.
+     word-spacing:999px pushes the text word off-screen while keeping the leading glyph visible. */
+  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
+  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn{
+    word-spacing:999px !important;
+    overflow:hidden !important;
+    max-width:46px !important;
+  }
+  /* Dropdown menus: ensure they surface above canvas/sidebar on mobile */
+  .drawing-viewer-overlay #dv-layers-menu,
+  .drawing-viewer-overlay #dv-more-menu{z-index:9500 !important;}
   /* Close button tighter */
   .drawing-viewer-overlay .dv-toolbar .dv-close-btn{padding:4px 6px !important;font-size:calc(12px + var(--ts)) !important;}
   /* Keep top bar on one row on most phones */

@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=172">
+<link rel="stylesheet" href="css/frt.css?v=173">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -917,6 +917,24 @@ function ensurePdfJs(cb){
       /* Also sync the stylestrip swatch if present */
       var ss=document.getElementById('dv-ss-color-v75');
       if(ss){function pull2(){var bg=pc.style.background||pc.style.backgroundColor;if(bg)ss.style.background=bg;}pull2();try{new MutationObserver(pull2).observe(pc,{attributes:true,attributeFilter:['style']});}catch(e){}}
+    })();
+    /* S79: on mobile, re-route the PC top-bar Tasks button to toggle the mobile tasks sheet
+       instead of the PC panel (which is display:none on mobile). Uses capture phase so the
+       original PC handler still fires (keeps .active state mirror) but we ALSO open the sheet. */
+    (function wireMobileTasks(){
+      var tb=document.getElementById('dv-tasks-btn');
+      if(!tb||tb.dataset.mobWired)return;
+      tb.dataset.mobWired='1';
+      tb.addEventListener('click',function(){
+        if(window.matchMedia && window.matchMedia('(max-width: 900px)').matches){
+          var sh=document.getElementById('dv-tasks-sheet-v75');
+          if(sh){
+            sh.classList.toggle('open');
+            // Keep .active class synced to sheet visibility (visual feedback)
+            tb.classList.toggle('active', sh.classList.contains('open'));
+          }
+        }
+      });
     })();
     /* Push 4: bottom bar proxies + mirrors */
     var bbPrev=document.getElementById('dv-bb-prev');
