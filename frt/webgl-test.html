@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>FRT WebGL Markup — Test Harness (Phase 5a)</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;font-family:Calibri,sans-serif;background:#1B2438;color:#e8eef8;overflow:hidden;}
+  .wrap{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+  header{background:linear-gradient(135deg,#1B2438,#243048);padding:10px 14px;border-bottom:2px solid #9C2742;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  header h1{margin:0;font-size:16px;font-weight:600;letter-spacing:.3px;}
+  header .badge{background:#9C2742;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
+  .toolbar{background:#243048;padding:8px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid rgba(255,255,255,.08);}
+  .toolbar button,.toolbar label{background:#334155;color:#e8eef8;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:6px 12px;font:600 13px Calibri,sans-serif;cursor:pointer;min-height:36px;display:inline-flex;align-items:center;gap:6px;}
+  .toolbar button:active{background:#9C2742;}
+  .toolbar button.primary{background:#9C2742;border-color:#9C2742;}
+  .toolbar .sep{width:1px;height:24px;background:rgba(255,255,255,.15);margin:0 4px;}
+  .toolbar input[type="color"]{width:36px;height:36px;padding:2px;border:1px solid rgba(255,255,255,.12);border-radius:6px;background:#334155;cursor:pointer;}
+  .toolbar input[type="range"]{width:110px;}
+  .toolbar .val{min-width:28px;text-align:right;font-variant-numeric:tabular-nums;font-size:12px;opacity:.8;}
+  .stage{flex:1;position:relative;overflow:hidden;background:#0F172A;}
+  .stage-inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;}
+  .host{position:relative;background:#fff;box-shadow:0 12px 40px rgba(0,0,0,.5);max-width:100%;max-height:100%;}
+  .host img{display:block;max-width:100%;max-height:calc(100vh - 180px);max-height:calc(100dvh - 180px);user-select:none;-webkit-user-select:none;-webkit-user-drag:none;pointer-events:none;}
+  .info{position:absolute;right:10px;bottom:10px;background:rgba(15,23,42,.92);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:10px 12px;font:12px/1.4 Consolas,Menlo,monospace;min-width:220px;max-width:min(90vw,360px);pointer-events:auto;}
+  .info h3{margin:0 0 6px 0;font:600 12px Calibri,sans-serif;color:#9C2742;letter-spacing:.4px;text-transform:uppercase;}
+  .info .row{display:flex;justify-content:space-between;gap:8px;margin:2px 0;}
+  .info .row span:first-child{color:rgba(255,255,255,.55);}
+  .info .row span:last-child{color:#e8eef8;text-align:right;word-break:break-word;}
+  .info .ok{color:#10b981 !important;} .info .bad{color:#ef4444 !important;}
+  .status{position:absolute;left:10px;bottom:10px;background:rgba(15,23,42,.92);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;font:12px Consolas,Menlo,monospace;}
+  .hint{opacity:.55;font-size:11px;margin-left:auto;}
+  @media (max-width:600px){
+    header h1{font-size:14px;}
+    .toolbar{padding:6px 8px;gap:6px;}
+    .toolbar input[type="range"]{width:80px;}
+    .info{font-size:11px;padding:8px 10px;min-width:unset;max-width:70vw;}
+    .status{font-size:11px;}
+    .hint{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>FRT WebGL Markup <span class="badge">Phase 5a — Test Harness</span></h1>
+    <span class="hint">Draw with finger or mouse. No cloud sync — this is a local demo.</span>
+  </header>
+  <div class="toolbar">
+    <input type="file" id="img-pick" accept="image/*" style="display:none">
+    <button id="btn-load">📁 Load image</button>
+    <span class="sep"></span>
+    <label>Color <input type="color" id="color" value="#FF0000"></label>
+    <label>Size <input type="range" id="size" min="1" max="20" value="3"><span class="val" id="size-val">3</span></label>
+    <span class="sep"></span>
+    <button id="btn-undo">↶ Undo</button>
+    <button id="btn-redo">↷ Redo</button>
+    <button id="btn-clear">✕ Clear</button>
+    <span class="sep"></span>
+    <button id="btn-save" class="primary">💾 Save PNG</button>
+  </div>
+  <div class="stage">
+    <div class="stage-inner">
+      <div class="host" id="host">
+        <img id="img" alt="Demo image">
+      </div>
+    </div>
+    <div class="status" id="status">Initializing…</div>
+    <div class="info" id="info">
+      <h3>WebGL Info</h3>
+      <div id="info-rows"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Default demo image (embedded data URI — simple graph paper background) -->
+<canvas id="gen" width="1200" height="800" style="display:none"></canvas>
+
+<script src="js/viewer/webglMarkup.js?v=1"></script>
+<script>
+(function(){
+  'use strict';
+
+  // --- Generate graph-paper placeholder image ---
+  function genPlaceholder(){
+    var c = document.getElementById('gen');
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#fdfdfd';
+    ctx.fillRect(0,0,c.width,c.height);
+    ctx.strokeStyle = '#d6e4f2'; ctx.lineWidth = 1;
+    for (var x=0; x<=c.width; x+=20){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,c.height); ctx.stroke(); }
+    for (var y=0; y<=c.height; y+=20){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(c.width,y); ctx.stroke(); }
+    ctx.strokeStyle = '#9ab7d4'; ctx.lineWidth = 1;
+    for (var x2=0; x2<=c.width; x2+=100){ ctx.beginPath(); ctx.moveTo(x2,0); ctx.lineTo(x2,c.height); ctx.stroke(); }
+    for (var y2=0; y2<=c.height; y2+=100){ ctx.beginPath(); ctx.moveTo(0,y2); ctx.lineTo(c.width,y2); ctx.stroke(); }
+    ctx.fillStyle = '#1B2438';
+    ctx.font = '600 28px Calibri, sans-serif';
+    ctx.fillText('FRT WebGL Markup — draw here to test', 40, 60);
+    ctx.font = '400 16px Calibri, sans-serif';
+    ctx.fillStyle = '#64748b';
+    ctx.fillText('Phase 5a scaffold · Pixi.js v7 · Pen tool only', 40, 88);
+    return c.toDataURL('image/png');
+  }
+
+  var img = document.getElementById('img');
+  var host = document.getElementById('host');
+  var status = document.getElementById('status');
+  var infoRows = document.getElementById('info-rows');
+
+  // --- Fill WebGL info panel ---
+  function renderInfo(){
+    var info = window.WebGLMarkupEngine.getGlInfo();
+    var supported = window.WebGLMarkupEngine.isSupported();
+    var rows = [];
+    rows.push(['Supported', supported ? '✓ Yes' : '✗ No', supported ? 'ok':'bad']);
+    if (info){
+      rows.push(['WebGL2', info.webgl2 ? '✓' : '—']);
+      rows.push(['Vendor', info.vendor || '—']);
+      rows.push(['Renderer', (info.renderer || '—').slice(0,60)]);
+      rows.push(['Max Tex', info.maxTexture + 'px']);
+    }
+    rows.push(['DPR', String(window.devicePixelRatio || 1)]);
+    rows.push(['Engine', 'webglMarkup ' + window.WebGLMarkupEngine.version]);
+    infoRows.innerHTML = rows.map(function(r){
+      var cls = r[2] ? ' class="'+r[2]+'"' : '';
+      return '<div class="row"><span>'+r[0]+'</span><span'+cls+'>'+r[1]+'</span></div>';
+    }).join('');
+  }
+  renderInfo();
+
+  // --- Attach engine once image is loaded ---
+  var dirty = false;
+  function onDirty(){ dirty = true; updateStatus(); }
+  function updateStatus(){
+    var n = window.WebGLMarkupEngine.strokes.length;
+    var ready = window.WebGLMarkupEngine._ready;
+    status.textContent = (ready ? '● Ready' : '◌ Loading Pixi…') + ' · ' + n + ' stroke' + (n===1?'':'s') + (dirty ? ' · unsaved' : '');
+  }
+
+  img.addEventListener('load', function(){
+    // Re-attach on each new image
+    window.WebGLMarkupEngine.attach(host, img, null, onDirty);
+    // Poll for ready state (Pixi loads async)
+    var tries = 0;
+    var iv = setInterval(function(){
+      tries++;
+      updateStatus();
+      if (window.WebGLMarkupEngine._ready || tries > 100){ clearInterval(iv); }
+    }, 100);
+  });
+
+  img.src = genPlaceholder();
+
+  // --- Toolbar wiring ---
+  document.getElementById('btn-load').addEventListener('click', function(){
+    document.getElementById('img-pick').click();
+  });
+  document.getElementById('img-pick').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var fr = new FileReader();
+    fr.onload = function(){ img.src = fr.result; };
+    fr.readAsDataURL(f);
+  });
+  document.getElementById('color').addEventListener('input', function(e){
+    window.WebGLMarkupEngine.setColor(e.target.value);
+  });
+  var sizeEl = document.getElementById('size');
+  var sizeVal = document.getElementById('size-val');
+  sizeEl.addEventListener('input', function(e){
+    var v = parseInt(e.target.value, 10);
+    sizeVal.textContent = v;
+    window.WebGLMarkupEngine.setSize(v);
+  });
+  document.getElementById('btn-undo').addEventListener('click', function(){
+    window.WebGLMarkupEngine.undo(); updateStatus();
+  });
+  document.getElementById('btn-redo').addEventListener('click', function(){
+    window.WebGLMarkupEngine.redo(); updateStatus();
+  });
+  document.getElementById('btn-clear').addEventListener('click', function(){
+    if (!window.WebGLMarkupEngine.strokes.length) return;
+    window.WebGLMarkupEngine.clear(); dirty = false; updateStatus();
+  });
+  document.getElementById('btn-save').addEventListener('click', function(){
+    window.WebGLMarkupEngine.saveBlob().then(function(blob){
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'frt-webgl-test-' + Date.now() + '.jpg';
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+      dirty = false; updateStatus();
+    }).catch(function(err){
+      alert('Save failed: ' + err.message);
+    });
+  });
+
+  // Prevent pinch-zoom page on iOS while drawing
+  document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
+  document.addEventListener('touchmove', function(e){
+    if (e.target && e.target.id === 'webgl-markup-canvas') e.preventDefault();
+  }, {passive:false});
+})();
+</script>
+</body>
+</html>
