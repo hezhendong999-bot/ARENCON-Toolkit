@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=168">
+<link rel="stylesheet" href="css/frt.css?v=169">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -425,18 +425,21 @@ function ensurePdfJs(cb){
             <div class="dlc-tab" data-dlc="closed">Closed</div>
           </div>
           <!-- Deficiency toolbar -->
-          <div id="defic-toolbar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:0 14px;">
-            <button class="btn btn-outline btn-sm" id="defic-filters-btn">⚙ Filters</button>
-            <input type="text" id="defic-search" placeholder="🔍 Search deficiencies..." style="flex:1;min-width:140px;max-width:280px;padding:7px 12px;border:1.5px solid var(--border);border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));background:var(--smoke);color:var(--fg);">
-            <select id="defic-filter-sel" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));background:var(--smoke);color:var(--fg);">
-              <option value="all">All</option>
-              <option value="outstanding">Outstanding</option>
-              <option value="iar">IAR</option>
-            </select>
-            <div style="flex:1;"></div>
-            <button class="btn btn-outline btn-sm" id="defic-renumber-btn" title="Renumber deficiencies sequentially (1, 2, 3...)">#↕ Renumber</button>
-            <button class="btn btn-outline btn-sm" id="defic-select-btn" title="Select multiple deficiencies">☐ Select</button>
-            <button class="btn btn-outline btn-sm" id="defic-fold-all-btn" title="Fold/Unfold all">▼ Fold All</button>
+          <div id="defic-toolbar" class="toolbar-cluster-bar" style="margin-bottom:10px;padding:0 14px;">
+            <div class="tb-cluster tb-cluster-left">
+              <button class="btn btn-outline btn-sm" id="defic-filters-btn">⚙ Filters</button>
+              <input type="text" id="defic-search" placeholder="🔍 Search deficiencies..." style="min-width:140px;max-width:240px;padding:7px 12px;border:1.5px solid var(--border);border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));background:var(--smoke);color:var(--fg);">
+              <select id="defic-filter-sel" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));background:var(--smoke);color:var(--fg);">
+                <option value="all">All</option>
+                <option value="outstanding">Outstanding</option>
+                <option value="iar">IAR</option>
+              </select>
+            </div>
+            <div class="tb-cluster tb-cluster-right">
+              <button class="btn btn-outline btn-sm" id="defic-renumber-btn" title="Renumber deficiencies sequentially (1, 2, 3...)">#↕ Renumber</button>
+              <button class="btn btn-outline btn-sm" id="defic-select-btn" title="Select multiple deficiencies">☐ Select</button>
+              <button class="btn btn-outline btn-sm" id="defic-fold-all-btn" title="Fold/Unfold all">▼ Fold All</button>
+            </div>
           </div>
           <div id="deficiencies-container"></div>
         </div>
@@ -462,10 +465,13 @@ function ensurePdfJs(cb){
       <div class="card">
         <div class="card-header">📷 Photo Gallery</div>
         <div class="card-body">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-            <button class="btn btn-outline btn-sm" id="photo-actions-btn">Actions ▾</button>
-            <div style="flex:1;"></div>
-            <button class="btn btn-outline btn-sm" id="photo-filters-btn">⚙ Filters</button>
+          <div class="toolbar-cluster-bar" style="margin-bottom:12px;">
+            <div class="tb-cluster tb-cluster-left">
+              <button class="btn btn-outline btn-sm" id="photo-actions-btn">Actions ▾</button>
+            </div>
+            <div class="tb-cluster tb-cluster-right">
+              <button class="btn btn-outline btn-sm" id="photo-filters-btn">⚙ Filters</button>
+            </div>
           </div>
           <div class="photo-zone" id="site-photo-upload"
                ondragover="event.preventDefault();this.classList.add('drag-over')"

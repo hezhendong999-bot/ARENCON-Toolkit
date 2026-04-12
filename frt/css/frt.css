@@ -1128,9 +1128,9 @@ body.dark-mode .dv-tasks-header{border-bottom-color:#3a3e48;color:#ddd;}
 .drawing-card.add-card:hover{border-color:var(--red);background:rgba(156,39,66,.03);}
 .add-card-inner{color:var(--silver);font-size:calc(13px + var(--ts));font-weight:600;}
 /* Header bar */
-.dwg-header-bar{display:flex;align-items:center;gap:8px;padding:10px 0;flex-wrap:wrap;}
-.dwg-header-bar .dwg-btn-cluster{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.dwg-header-bar .dwg-btn-cluster-right{margin-left:auto;justify-content:flex-end;}
+.dwg-header-bar,.toolbar-cluster-bar{display:flex;align-items:center;gap:8px;padding:10px 0;flex-wrap:wrap;}
+.dwg-header-bar .dwg-btn-cluster,.toolbar-cluster-bar .tb-cluster{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.dwg-header-bar .dwg-btn-cluster-right,.toolbar-cluster-bar .tb-cluster-right{margin-left:auto;justify-content:flex-end;}
 .dwg-actions-dd,.dwg-filter-dd,.photo-actions-dd,.photo-filter-dd{position:relative;}
 .dwg-actions-menu,.dwg-filter-menu,.photo-actions-menu,.photo-filter-menu{display:none;position:absolute;top:100%;left:0;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:100;min-width:180px;padding:4px 0;margin-top:4px;}
 .dwg-actions-menu.open,.dwg-filter-menu.open,.photo-actions-menu.open,.photo-filter-menu.open{display:block;}
@@ -1487,12 +1487,12 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   .dwg-folder-body{gap:8px;padding:8px 10px;}
   .drawing-card{width:calc(50% - 4px)!important;min-width:0!important;}
   .drawing-card img{height:100px!important;}
-  /* Drawing toolbar buttons — two clusters wrap internally on mobile */
-  .dwg-header-bar{gap:6px!important;flex-wrap:nowrap!important;align-items:flex-start!important;}
-  .dwg-header-bar .dwg-btn-cluster{display:flex!important;flex-wrap:wrap!important;gap:6px!important;}
-  .dwg-header-bar .dwg-btn-cluster-left{justify-content:flex-start!important;}
-  .dwg-header-bar .dwg-btn-cluster-right{justify-content:flex-end!important;margin-left:auto!important;}
-  .dwg-header-bar .btn{font-size:11px!important;padding:5px 8px!important;white-space:nowrap!important;}
+  /* Drawing / Photos / Defic toolbars — two clusters wrap internally on mobile */
+  .dwg-header-bar,.toolbar-cluster-bar{gap:6px!important;flex-wrap:nowrap!important;align-items:flex-start!important;}
+  .dwg-header-bar .dwg-btn-cluster,.toolbar-cluster-bar .tb-cluster{display:flex!important;flex-wrap:wrap!important;gap:6px!important;}
+  .dwg-header-bar .dwg-btn-cluster-left,.toolbar-cluster-bar .tb-cluster-left{justify-content:flex-start!important;}
+  .dwg-header-bar .dwg-btn-cluster-right,.toolbar-cluster-bar .tb-cluster-right{justify-content:flex-end!important;margin-left:auto!important;}
+  .dwg-header-bar .btn,.toolbar-cluster-bar .btn{font-size:11px!important;padding:5px 8px!important;white-space:nowrap!important;}
   /* Deficiency controls — wrap better */
   .defic-controls{gap:6px;}
   .defic-controls>div{min-width:0;}
