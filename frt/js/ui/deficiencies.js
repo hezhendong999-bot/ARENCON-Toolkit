@@ -1259,10 +1259,144 @@ document.addEventListener('click', function(e) {
   }
   var sb = e.target.closest && e.target.closest('#defic-select-btn');
   if (sb) {
-    document.body.classList.toggle('defic-select-mode');
-    var on = document.body.classList.contains('defic-select-mode');
-    sb.textContent = on ? '\u2713 Selecting' : '\u2610 Select';
-    toast(on ? 'Multi-select on \u2014 tap cards to select' : 'Selection mode off');
+    _toggleDeficSelectMode();
+    return;
+  }
+  // Action bar handlers (delegated)
+  var act = e.target.closest && e.target.closest('[data-defic-bulk]');
+  if (act) {
+    var op = act.getAttribute('data-defic-bulk');
+    _runDeficBulk(op);
     return;
   }
 });
+
+// ── S78: Defic Select Mode (v1-style bulk action bar) ───────────
+var _deficSelectMode = false;
+
+function _getSelectedDeficIds() {
+  var ids = [];
+  document.querySelectorAll('.bulk-defic-checkbox:checked').forEach(function(cb) {
+    var id = cb.getAttribute('data-defic-id');
+    if (id) ids.push(id);
+  });
+  return ids;
+}
+
+function _updateDeficBulkCount() {
+  var cnt = _getSelectedDeficIds().length;
+  var el = document.getElementById('defic-bulk-count');
+  if (el) el.textContent = cnt + ' selected';
+}
+
+function _toggleDeficSelectMode() {
+  _deficSelectMode = !_deficSelectMode;
+  document.body.classList.toggle('defic-select-mode', _deficSelectMode);
+  var btn = document.getElementById('defic-select-btn');
+  if (btn) btn.textContent = _deficSelectMode ? '\u2713 Selecting' : '\u2610 Select';
+  var bar = document.getElementById('defic-bulk-action-bar');
+  if (_deficSelectMode) {
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'defic-bulk-action-bar';
+      bar.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;background:rgba(156,39,66,0.08);border:1.5px solid var(--arencon,#9C2742);border-radius:8px;margin:8px 0;';
+      bar.innerHTML =
+        '<span id="defic-bulk-count" style="font-weight:700;color:var(--arencon,#9C2742);font-size:13px;">0 selected</span>'
+        + '<button class="btn btn-sm" data-defic-bulk="close" style="background:#1A7A4A;color:white;border:none;">\u2713 Close Selected</button>'
+        + '<button class="btn btn-sm" data-defic-bulk="reopen" style="background:#C0392B;color:white;border:none;">\u25CF Reopen Selected</button>'
+        + '<button class="btn btn-sm" data-defic-bulk="iar-on" style="background:#FF69B4;color:white;border:none;">\u26A1 Set IAR</button>'
+        + '<button class="btn btn-sm" data-defic-bulk="iar-off" style="background:#888;color:white;border:none;">Clear IAR</button>'
+        + '<div style="flex:1;"></div>'
+        + '<button class="btn btn-sm" data-defic-bulk="delete" style="background:#C0392B;color:white;border:none;">\uD83D\uDDD1 Delete Selected</button>'
+        + '<div style="flex:1;"></div>'
+        + '<button class="btn btn-outline btn-sm" data-defic-bulk="all">Select All</button>'
+        + '<button class="btn btn-outline btn-sm" data-defic-bulk="none">Deselect All</button>'
+        + '<button class="btn btn-outline btn-sm" data-defic-bulk="cancel">\u2715 Cancel</button>';
+    }
+    var anchor = document.getElementById('defic-filters-btn');
+    var host = anchor ? anchor.closest('.panel, [id*="panel"]') || document.querySelector('#panel-deficiencies') : document.querySelector('#panel-deficiencies');
+    if (host && bar.parentNode !== host) host.insertBefore(bar, host.firstChild.nextSibling || host.firstChild);
+    bar.style.display = 'flex';
+    // Inject checkboxes onto each card
+    document.querySelectorAll('[data-deficiency-id]').forEach(function(card) {
+      var id = card.getAttribute('data-deficiency-id');
+      if (card.querySelector('.bulk-defic-checkbox')) return;
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'bulk-defic-checkbox';
+      cb.setAttribute('data-defic-id', id);
+      cb.style.cssText = 'margin-right:8px;width:18px;height:18px;cursor:pointer;vertical-align:middle;';
+      cb.addEventListener('change', _updateDeficBulkCount);
+      card.insertBefore(cb, card.firstChild);
+    });
+    _updateDeficBulkCount();
+  } else {
+    if (bar) bar.style.display = 'none';
+    document.querySelectorAll('.bulk-defic-checkbox').forEach(function(cb) { cb.remove(); });
+  }
+}
+
+function _runDeficBulk(op) {
+  if (op === 'cancel') { _toggleDeficSelectMode(); return; }
+  if (op === 'all') {
+    document.querySelectorAll('.bulk-defic-checkbox').forEach(function(cb) { cb.checked = true; });
+    _updateDeficBulkCount();
+    return;
+  }
+  if (op === 'none') {
+    document.querySelectorAll('.bulk-defic-checkbox').forEach(function(cb) { cb.checked = false; });
+    _updateDeficBulkCount();
+    return;
+  }
+  var ids = _getSelectedDeficIds();
+  if (!ids.length) { toast('No deficiencies selected'); return; }
+  var proj = Model.getProject();
+  var inst = (proj && proj.currentFrtInstance) || 1;
+  if (op === 'close' || op === 'reopen') {
+    var isClose = op === 'close';
+    showConfirm((isClose ? 'Close ' : 'Reopen ') + ids.length + ' deficienc' + (ids.length>1?'ies':'y') + '?', '').then(function(yes) {
+      if (!yes) return;
+      ids.forEach(function(id) {
+        var f = Model.findDeficiency(id);
+        if (!f) return;
+        if (isClose) {
+          f.defic.status = 'closed';
+          f.defic.iar = false;
+          f.defic.closedOnInstance = inst;
+          f.defic.closedDate = new Date().toISOString().split('T')[0];
+          if (f.defic.observations) f.defic.observations.forEach(function(o) { o.addressed = true; });
+        } else {
+          f.defic.status = 'open';
+          f.defic.closedOnInstance = null;
+          f.defic.closedDate = null;
+          f.defic.closedNote = '';
+          if (f.defic.observations) f.defic.observations.forEach(function(o) { o.addressed = false; });
+        }
+      });
+      Model.saveNow();
+      initDeficiencies.render();
+      if (window._frtRenderTasks) window._frtRenderTasks();
+      toast((isClose ? 'Closed ' : 'Reopened ') + ids.length);
+      setTimeout(function() { document.querySelectorAll('.bulk-defic-checkbox').forEach(function(cb) { cb.checked = false; }); _updateDeficBulkCount(); }, 50);
+    });
+  } else if (op === 'iar-on' || op === 'iar-off') {
+    var on = op === 'iar-on';
+    ids.forEach(function(id) { var f = Model.findDeficiency(id); if (f) f.defic.iar = on; });
+    Model.saveNow();
+    initDeficiencies.render();
+    if (window._frtRenderTasks) window._frtRenderTasks();
+    toast((on ? 'Set' : 'Cleared') + ' IAR on ' + ids.length);
+    setTimeout(function() { document.querySelectorAll('.bulk-defic-checkbox').forEach(function(cb) { cb.checked = false; }); _updateDeficBulkCount(); }, 50);
+  } else if (op === 'delete') {
+    showConfirm('Delete ' + ids.length + ' Deficienc' + (ids.length>1?'ies':'y'), 'This cannot be undone.').then(function(yes) {
+      if (!yes) return;
+      ids.forEach(function(id) { Model.removeDeficiency(id); });
+      if (Model.renumberDeficiencies) Model.renumberDeficiencies();
+      Model.saveNow();
+      initDeficiencies.render();
+      if (window._frtRenderTasks) window._frtRenderTasks();
+      toast('Deleted ' + ids.length);
+      _toggleDeficSelectMode();
+    });
+  }
+}
