@@ -1313,9 +1313,11 @@ function _toggleDeficSelectMode() {
         + '<button class="btn btn-outline btn-sm" data-defic-bulk="none">Deselect All</button>'
         + '<button class="btn btn-outline btn-sm" data-defic-bulk="cancel">\u2715 Cancel</button>';
     }
-    var anchor = document.getElementById('defic-filters-btn');
-    var host = anchor ? anchor.closest('.panel, [id*="panel"]') || document.querySelector('#panel-deficiencies') : document.querySelector('#panel-deficiencies');
-    if (host && bar.parentNode !== host) host.insertBefore(bar, host.firstChild.nextSibling || host.firstChild);
+    var toolbar = document.getElementById('defic-toolbar');
+    var container = document.getElementById('deficiencies-container');
+    if (toolbar && toolbar.parentNode && bar.parentNode !== toolbar.parentNode) {
+      toolbar.parentNode.insertBefore(bar, container || toolbar.nextSibling);
+    }
     bar.style.display = 'flex';
     // Inject checkboxes onto each card
     document.querySelectorAll('[data-deficiency-id]').forEach(function(card) {
