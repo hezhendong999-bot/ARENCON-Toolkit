@@ -15,16 +15,21 @@ import { toast } from '../shared/toast.js';
 import { showConfirm } from '../shared/dialogs.js';
 
 // ── WebGL pins (Phase 5 polish) ──────────────────────────
-// Fixed screen-size pins rendered on GPU. Feature-flagged:
-//   ?webgl-pins=0 → HTML fallback; default ON if WebGL supported
+// S81: DEFAULT OFF. Two Pixi WebGL contexts (markup + pins) collide — pins
+// render as solid black (INVALID_OPERATION: useProgram/bindTexture "object does
+// not belong to this context" in console). Opt-in only via ?webgl-pins=1 until
+// pinsGL.js is rewritten as Canvas 2D (Option B) or shares the markup renderer.
+//   ?webgl-pins=1 → opt-in WebGL pins
+//   ?webgl-pins=0 → force HTML (same as default)
 var _useGLPins = (function(){
   try {
     if (window.location && window.location.search){
-      if (window.location.search.indexOf('webgl-pins=0') >= 0) return false;
-      if (window.location.search.indexOf('webgl-pins=1') >= 0) return true;
+      if (window.location.search.indexOf('webgl-pins=1') >= 0) {
+        // Opt-in only if WebGL supported
+        return !!(window.PinsGL && window.PinsGL.isSupported && window.PinsGL.isSupported());
+      }
     }
-    if (localStorage.getItem('ARENCON_NoWebGLPins') === '1') return false;
-    return !!(window.PinsGL && window.PinsGL.isSupported && window.PinsGL.isSupported());
+    return false; // S81: default OFF due to Pixi dual-context GL collision
   } catch(_){ return false; }
 })();
 var _glPinsReady = false;
@@ -50,13 +55,25 @@ function _ensureGLPinsInit(){
 }
 
 // Uniform pin hit-test: returns deficId at screen coords, null if none.
-// HTML path uses DOM closest(); WebGL path uses PinsGL.hitTest().
+// HTML path uses bbox hit-test against rendered .pin-marker elements so pins
+// remain clickable even when #markup-canvas has pointer-events:auto (any
+// markup tool active). Earlier DOM-closest fallback failed in that state.
 function _resolvePinAt(clientX, clientY, evTarget){
   if (_useGLPins && _glPinsReady && window.PinsGL){
     return window.PinsGL.hitTest(clientX, clientY);
   }
-  var marker = evTarget && evTarget.closest && evTarget.closest('.pin-marker[data-defic-id]');
-  return marker ? marker.getAttribute('data-defic-id') : null;
+  // Fast path: direct DOM hit
+  var direct = evTarget && evTarget.closest && evTarget.closest('.pin-marker[data-defic-id]');
+  if (direct) return direct.getAttribute('data-defic-id');
+  // Fallback: bbox hit-test across all pin-marker elements (covers markup-overlay case)
+  var markers = document.querySelectorAll('.pin-marker[data-defic-id]');
+  for (var i = 0; i < markers.length; i++){
+    var r = markers[i].getBoundingClientRect();
+    if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom){
+      return markers[i].getAttribute('data-defic-id');
+    }
+  }
+  return null;
 }
 
 // ── Pin hover: cursor (finger) + tooltip (deficiency # + observations) ──
