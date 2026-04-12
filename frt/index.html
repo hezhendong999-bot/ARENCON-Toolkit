@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=193">
+<link rel="stylesheet" href="css/frt.css?v=194">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -500,6 +500,11 @@ function ensurePdfJs(cb){
 <div class="drawing-viewer-overlay" id="drawing-viewer-overlay">
   <div class="dv-toolbar" id="dv-toolbar">
     <button id="dv-close" class="dv-close-btn" title="Back">← Back</button>
+    <!-- S81: cloud status in viewer header too (mirrors main app header) -->
+    <span id="dv-cloud-status" class="dv-cloud-status" title="Tap for cloud diagnostic" onclick="if(window._showCloudDiagnostic)window._showCloudDiagnostic()">
+      <span id="dv-cloud-dot" class="dv-cloud-dot" style="background:#34D399;"></span>
+      <span id="dv-cloud-text" class="dv-cloud-text">Saved to cloud</span>
+    </span>
     <button class="dv-nav-btn" id="dv-prev" title="Previous drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">◀</button>
     <button class="dv-nav-btn" id="dv-next" title="Next drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">▶</button>
     <div class="dv-title-wrap"><span class="dv-title" id="dv-title"></span><button id="dv-rename-btn" title="Rename drawing" class="dv-rename-btn">✏️</button></div>
@@ -514,7 +519,7 @@ function ensurePdfJs(cb){
       </div>
     </div>
     <!-- Tasks -->
-    <button id="dv-tasks-btn" class="dv-tasks-toggle" title="Show/hide tasks panel">📌 Tasks</button>
+    <button id="dv-tasks-btn" class="dv-tasks-toggle" title="Show/hide tasks panel">📌</button>
     <!-- More menu -->
     <div style="position:relative;display:inline-block;">
       <button id="dv-more-btn" title="More options">⋯</button>
@@ -724,14 +729,15 @@ function ensurePdfJs(cb){
   </div>
     <!-- Session 75 Push 4: bottom bar (page nav + name pill + Tasks pill) -->
     <div id="dv-bottombar-v75">
+      <!-- S81: zoom group at bottom-left, + before - -->
+      <div class="dv-bb-zoom" title="Zoom controls">
+        <button data-zoom="in" title="Zoom in">+</button>
+        <button data-zoom="out" title="Zoom out">−</button>
+        <button data-zoom="fit" title="Fit to screen">⊡</button>
+      </div>
       <div class="dv-bb-nav">
         <button id="dv-bb-prev" title="Previous drawing">◀</button>
         <button id="dv-bb-next" title="Next drawing">▶</button>
-      </div>
-      <div class="dv-bb-zoom" title="Zoom controls">
-        <button data-zoom="out" title="Zoom out">−</button>
-        <button data-zoom="in" title="Zoom in">+</button>
-        <button data-zoom="fit" title="Fit to screen">⊡</button>
       </div>
       <div id="dv-bb-namepill" class="dv-bb-namepill">
         <span id="dv-bb-name" class="dv-bb-name"></span>
@@ -739,7 +745,6 @@ function ensurePdfJs(cb){
       </div>
       <button id="dv-bb-tasks" class="dv-bb-tasks" title="Tasks">
         <span class="dv-bb-tasks-icon">📌</span>
-        <span>Tasks</span>
         <span id="dv-bb-tasks-count" class="dv-bb-tasks-count">0</span>
       </button>
     </div>

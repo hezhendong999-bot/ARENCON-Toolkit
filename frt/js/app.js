@@ -730,13 +730,17 @@ function _setCloudStatus(status, text) {
   var wrap = document.getElementById('cloud-status');
   if (wrap) wrap.style.display = 'flex';
   if (label) label.textContent = text || '';
-  if (dot) {
-    var colors = { synced: '#34D399', saving: '#FBBF24', pending: '#F59E0B', error: '#EF4444', offline: '#9CA3AF' };
-    dot.style.background = colors[status] || '#9CA3AF';
-    // Mirror color on the project-bar mini dot (different element)
-    var pbDot = document.getElementById('pb-cloud-dot');
-    if (pbDot) pbDot.style.background = colors[status] || '#9CA3AF';
-  }
+  var colors = { synced: '#34D399', saving: '#FBBF24', pending: '#F59E0B', error: '#EF4444', offline: '#9CA3AF' };
+  var color = colors[status] || '#9CA3AF';
+  if (dot) dot.style.background = color;
+  // Mirror on the project-bar mini dot
+  var pbDot = document.getElementById('pb-cloud-dot');
+  if (pbDot) pbDot.style.background = color;
+  // S81: mirror on the drawing-viewer header dot
+  var dvDot = document.getElementById('dv-cloud-dot');
+  if (dvDot) dvDot.style.background = color;
+  var dvText = document.getElementById('dv-cloud-text');
+  if (dvText) dvText.textContent = text || '';
 }
 
 // S81 mobile-friendly diagnostic — tapping the cloud dot opens a large popup

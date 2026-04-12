@@ -466,6 +466,30 @@ body.dark-mode .dv-task-item{color:#ccc;}body.dark-mode .dv-task-item:hover{back
 
 /* S81: bottombar zoom group */
 .dv-bb-zoom{display:flex;gap:4px;flex-shrink:0;}
+
+/* S81: cloud status in drawing viewer header — between Back and prev/next */
+.dv-cloud-status{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 10px;border-radius:6px;
+  font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));
+  color:#1C2333;cursor:pointer;touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  flex-shrink:0;
+}
+.dv-cloud-status:hover{background:rgba(0,0,0,0.05);}
+body.dark-mode .dv-cloud-status{color:#e8eaed;}
+body.dark-mode .dv-cloud-status:hover{background:rgba(255,255,255,0.08);}
+.dv-cloud-dot{
+  width:9px;height:9px;border-radius:50%;
+  background:#34D399;display:inline-block;flex-shrink:0;
+  transition:background .4s;
+}
+.dv-cloud-text{white-space:nowrap;}
+@media(max-width:900px){
+  /* Hide the text on mobile; keep the dot tappable */
+  .dv-cloud-text{display:none;}
+  .dv-cloud-status{padding:4px 8px;}
+}
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button{
   width:36px;height:36px;border-radius:8px;
   background:#3a3d45;color:white;border:none;
