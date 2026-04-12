@@ -3008,14 +3008,38 @@ body.dark-mode #dwg-actions-pop button.danger, body.dark-mode #photo-actions-pop
 
 /* ═══ Session 79 v5 final — mobile polish ═══ */
 @media (max-width: 900px){
-  /* Zoom controls horizontal on mobile */
-  .drawing-viewer-overlay .zoom-controls{
+  /* Zoom controls — horizontal, fixed to bottom of viewport just above bottom bar */
+  .drawing-viewer-overlay .zoom-controls,
+  .drawing-viewer-overlay #zoom-controls{
+    position:fixed !important;
     flex-direction:row !important;
-    bottom:12px !important; right:10px !important;
-    gap:6px !important;
+    bottom:70px !important;
+    right:50% !important;
+    transform:translateX(50%) !important;
+    top:auto !important; left:auto !important;
+    gap:8px !important;
+    z-index:100 !important;
   }
-  .drawing-viewer-overlay .zoom-controls button{
-    width:42px !important; height:42px !important; border-radius:10px !important;
+  .drawing-viewer-overlay .zoom-controls button,
+  .drawing-viewer-overlay #zoom-controls button{
+    width:40px !important; height:40px !important; border-radius:10px !important;
+  }
+  /* Color swatches / sub-tool buttons — match parent button size (~22-24px) */
+  .drawing-viewer-overlay .color-submenu .dv-color-dot{
+    width:24px !important; height:24px !important;
+    min-width:24px !important; min-height:24px !important;
+    flex:0 0 24px !important;
+  }
+  .drawing-viewer-overlay .color-submenu #mk-custom-color{
+    width:24px !important; height:24px !important;
+  }
+  .drawing-viewer-overlay .tool-submenu .sub-tool-btn{
+    width:32px !important; height:32px !important;
+    min-width:32px !important; min-height:32px !important;
+  }
+  .drawing-viewer-overlay .color-submenu{
+    gap:6px !important;
+    padding:8px 10px !important;
   }
   /* Tasks bottom sheet — always dark (viewer is always dark-themed) */
   .drawing-viewer-overlay #dv-tasks-sheet-v75{
