@@ -90,8 +90,13 @@
   // V1 filter strings (toned down slightly per S81 feedback — less heavy shadow):
   //   outstanding: drop-shadow(0 0 2px fill) drop-shadow(0 1px 3px rgba(0,0,0,.4))
   //   other:       drop-shadow(0 1px 3px rgba(0,0,0,.35))
+  //   ready (S81 match V1 press-and-hold): blue glow 8px indicating ready-to-drag
   // Hover/active multiply blur radius so interaction feedback is visible.
   function _buildFilterString(fillHex, outstanding, state){
+    if (state === 'ready'){
+      // V1-exact: 'drop-shadow(0 0 8px #2196F3)' — blue glow signals "you can drag now"
+      return 'drop-shadow(0 0 8px #2196F3) drop-shadow(0 1px 3px rgba(0,0,0,0.4))';
+    }
     var mul = state === 'active' ? 1.5 : state === 'hover' ? 1.25 : 1.0;
     if (outstanding){
       var glowR   = (2 * mul).toFixed(2);
@@ -210,6 +215,7 @@
     var pinScale = opts.pinScale != null ? opts.pinScale : 1;
     var hoveredId = opts.hoveredId || null;
     var activeId  = opts.activeId  || null;
+    var readyId   = opts.readyId   || null;   // S81: V1-match press-and-hold glow
     var imgRect = opts.imgRect || { left: 0, top: 0, width: 0, height: 0 };
     var imgW = opts.naturalW || 0;
     var imgH = opts.naturalH || 0;
@@ -219,7 +225,7 @@
     var ph = Math.round(_pinSize * 42 / 32 * pinScale);
     var nativeScale = pw / 32;
 
-    // Build render order: normal → hover → active so active draws on top
+    // Build render order: normal → hover → ready → active so active draws on top
     var order = [];
     for (var i = 0; i < _pins.length; i++){
       var pin = _pins[i];
@@ -227,6 +233,7 @@
       // Guard against non-finite coords that would project to (0,0)
       if (!isFinite(pin.pinX) || !isFinite(pin.pinY)) continue;
       var state = (pin.deficId === activeId) ? 'active'
+                : (pin.deficId === readyId)  ? 'ready'
                 : (pin.deficId === hoveredId) ? 'hover'
                 : 'normal';
       var sx = imgRect.left + pin.pinX * imgRect.width;
@@ -241,7 +248,7 @@
       };
       order.push({ pin: pin, state: state, sx: sx, sy: sy });
     }
-    var rank = { normal: 0, hover: 1, active: 2 };
+    var rank = { normal: 0, hover: 1, ready: 2, active: 3 };
     order.sort(function(a, b){ return rank[a.state] - rank[b.state]; });
 
     _ctx.setTransform(_dpr, 0, 0, _dpr, 0, 0);

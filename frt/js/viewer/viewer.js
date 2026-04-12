@@ -193,6 +193,7 @@ function _updatePinHover(clientX, clientY){
 // Re-render pins with a hover highlight on the given id (null = clear)
 var _lastHoveredId = null;
 var _lastActiveId = null;
+var _lastReadyId  = null;   // S81: V1 press-and-hold "ready to drag" state
 function _setGLHover(id){
   if (id === _lastHoveredId) return;
   _lastHoveredId = id;
@@ -907,6 +908,7 @@ function _renderPins() {
       pinScale: pinScale,
       hoveredId: _lastHoveredId || null,
       activeId:  _lastActiveId  || null,
+      readyId:   _lastReadyId   || null,   // S81: V1 press-and-hold blue glow
       imgRect: relRect, naturalW: iw, naturalH: ih
     });
 
@@ -1377,30 +1379,44 @@ document.addEventListener('touchstart', function(e) {
       _pinTouchOffsetX = 0; _pinTouchOffsetY = 0;
     }
   }
+  // S81: V1 500ms press-and-hold — after hold, enter "ready" (blue glow). Any
+  // movement after ready = drag. Release before 500ms with no movement = tap
+  // opens editor. Movement >5px before timer fires = cancel (fall back to pan).
+  _pinDragDeficId = deficId;
   _pinLongPressTimer = setTimeout(function() {
-    _pinDragging = true;
-    _pinDragDeficId = deficId;
-    // HTML path: grab DOM marker reference for CSS styling during drag
-    if (!_useGLPins){
-      _pinDragMarker = document.querySelector('.pin-marker[data-defic-id="' + deficId + '"]');
-      if (_pinDragMarker) _pinDragMarker.classList.add('dragging');
-    } else {
-      _pinDragMarker = null;
-    }
-    var area = document.getElementById('dv-canvas-area');
-    if (area) area.classList.add('pin-drag-mode');
-    console.log('[Viewer] Pin drag started:', deficId);
-  }, 400);
+    _lastReadyId = deficId;
+    _renderPinsWithState();   // show blue glow
+    _pinLongPressTimer = null;
+  }, 500);
 }, { passive: true });
 
 document.addEventListener('touchmove', function(e) {
-  if (_pinLongPressTimer && !_pinDragging) {
-    clearTimeout(_pinLongPressTimer);
-    _pinLongPressTimer = null;
+  var touch = e.touches[0];
+  // Cancel hold if finger moves >5px before 500ms
+  if (_pinLongPressTimer && !_pinDragging && !_lastReadyId && touch) {
+    if (Math.abs(touch.clientX - _pinTouchStartX) > 5 || Math.abs(touch.clientY - _pinTouchStartY) > 5) {
+      clearTimeout(_pinLongPressTimer);
+      _pinLongPressTimer = null;
+      _pinDragDeficId = null;
+    }
+  }
+  // Transition ready → active drag on any movement
+  if (!_pinDragging && _lastReadyId && _pinDragDeficId && touch) {
+    var moved = Math.abs(touch.clientX - _pinTouchStartX) > 2 || Math.abs(touch.clientY - _pinTouchStartY) > 2;
+    if (moved) {
+      _pinDragging = true;
+      _lastActiveId = _lastReadyId;
+      _lastReadyId = null;
+      if (!_useGLPins){
+        _pinDragMarker = document.querySelector('.pin-marker[data-defic-id="' + _pinDragDeficId + '"]');
+        if (_pinDragMarker) _pinDragMarker.classList.add('dragging');
+      }
+      var area = document.getElementById('dv-canvas-area');
+      if (area) area.classList.add('pin-drag-mode');
+    }
   }
   if (!_pinDragging || !_pinDragDeficId) return;
   e.preventDefault();
-  var touch = e.touches[0];
   if (!touch) return;
   var wrap = document.getElementById('dv-img-wrap');
   var img = document.getElementById('dv-image');
@@ -1431,7 +1447,13 @@ document.addEventListener('touchmove', function(e) {
 
 document.addEventListener('touchend', function(e) {
   if (_pinLongPressTimer) { clearTimeout(_pinLongPressTimer); _pinLongPressTimer = null; }
-  if (!_pinDragging || !_pinDragDeficId) return;
+  // Clear ready state if pin was held but not dragged
+  if (_lastReadyId) { _lastReadyId = null; _renderPinsWithState(); }
+  if (!_pinDragging || !_pinDragDeficId) {
+    // Not dragging — release as tap. Clear candidate.
+    _pinDragDeficId = null;
+    return;
+  }
 
   var area = document.getElementById('dv-canvas-area');
   if (area) area.classList.remove('pin-drag-mode');
@@ -1516,48 +1538,41 @@ document.addEventListener('mousedown', function(e) {
   e.preventDefault();
   e.stopPropagation();
 
-  // Selector tool: start drag after small movement threshold (not instant)
-  if (Markup.getTool() === 'select') {
-    _pinMouseDragDeficId = deficId;
-    _pinMouseDragMarker = marker;
-    return;
-  }
+  // Remember candidate pin; tool activation is deferred until 500ms hold fires.
+  _pinMouseDragDeficId = deficId;
+  _pinMouseDragMarker = marker;
 
-  // Any other markup tool (pen/rect/arrow/text/eraser/highlight/polyline):
-  // treat pin hit like select — 4px drag threshold, click-without-drag opens editor.
-  // (Previously this only worked in pan mode via long-press and fell through to
-  // markup.js which began drawing. S81 Bug #3.)
-  if (Markup.getTool() && Markup.getTool() !== 'pan') {
-    _pinMouseDragDeficId = deficId;
-    _pinMouseDragMarker = marker;
-    return;
-  }
-
-  // Pan mode: long-press (400ms hold) to start drag
+  // S81: V1-match press-and-hold. Works for ALL active tools. After 500ms the
+  // pin goes into "ready" state (blue glow) indicating dragging is armed.
+  // Actual dragging starts on subsequent pointer movement. Click released
+  // before 500ms = open pin editor (no movement at all). Any movement >5px
+  // before the timer fires cancels — falls back to canvas tool behavior.
   _pinMouseLongPress = setTimeout(function() {
-    _pinMouseDragging = true;
-    _pinMouseDragDeficId = deficId;
-    _pinMouseDragMarker = marker;
-    if (marker) marker.classList.add('dragging');
-    var area = document.getElementById('dv-canvas-area');
-    if (area) area.classList.add('pin-drag-mode');
-  }, 400);
+    _lastReadyId = deficId;
+    // Re-render pins with the "ready" state to show blue glow
+    _renderPinsWithState();
+    _pinMouseLongPress = null;
+  }, 500);
 }, true); // Use capture phase
 
 document.addEventListener('mousemove', function(e) {
-  if (_pinMouseLongPress && !_pinMouseDragging) {
+  // Cancel the press-and-hold timer if the mouse moves before 500ms elapsed
+  if (_pinMouseLongPress && !_pinMouseDragging && !_lastReadyId) {
     if (Math.abs(e.clientX - _pinMouseStartX) > 5 || Math.abs(e.clientY - _pinMouseStartY) > 5) {
       clearTimeout(_pinMouseLongPress);
       _pinMouseLongPress = null;
+      _pinMouseDragDeficId = null;
+      _pinMouseDragMarker = null;
     }
   }
-  // Selector / non-pan tool mode: activate drag after BOTH a 150ms hold AND 4px
-  // movement. Hold-delay minimizes accidental drags on quick clicks (S81 request).
-  if (!_pinMouseDragging && _pinMouseDragDeficId) {
-    var heldFor = Date.now() - _pinMouseStartTime;
-    var moved = Math.abs(e.clientX - _pinMouseStartX) > 4 || Math.abs(e.clientY - _pinMouseStartY) > 4;
-    if (heldFor >= 150 && moved) {
+  // Once the pin is in "ready" state (500ms hold completed), any further
+  // movement begins actual drag. Transition ready → active.
+  if (!_pinMouseDragging && _lastReadyId && _pinMouseDragDeficId) {
+    var moved = Math.abs(e.clientX - _pinMouseStartX) > 2 || Math.abs(e.clientY - _pinMouseStartY) > 2;
+    if (moved) {
       _pinMouseDragging = true;
+      _lastActiveId = _lastReadyId;
+      _lastReadyId = null;
       if (_pinMouseDragMarker) _pinMouseDragMarker.classList.add('dragging');
       var area = document.getElementById('dv-canvas-area');
       if (area) area.classList.add('pin-drag-mode');
@@ -1595,7 +1610,18 @@ document.addEventListener('mousemove', function(e) {
 document.addEventListener('mouseup', function(e) {
   if (_pinMouseLongPress) { clearTimeout(_pinMouseLongPress); _pinMouseLongPress = null; }
 
-  // Selector mode: if drag never activated (no movement), clear and return
+  // S81: if pin entered "ready" (blue glow) but never transitioned to drag,
+  // clear the ready state and re-render so it returns to idle.
+  var hadReady = !!_lastReadyId;
+  if (hadReady) {
+    _lastReadyId = null;
+    _renderPinsWithState();
+  }
+
+  // Selector mode: if drag never activated (no movement), clear and return.
+  // Treat as a click — open pin editor only if no drag AND no ready transition
+  // (i.e. user did NOT do a long press). Long-press without movement = just
+  // cancels the armed drag.
   if (_pinMouseDragDeficId && !_pinMouseDragging) {
     _pinMouseDragDeficId = null;
     _pinMouseDragMarker = null;
