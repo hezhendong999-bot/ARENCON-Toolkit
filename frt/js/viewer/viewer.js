@@ -397,11 +397,12 @@ function _resetView() {
   _scale = _fitScale;
   _panX = 0;
   _panY = 0;
-  _clampPan(); // Centers the image
-  var wrap = document.getElementById('dv-img-wrap');
-  if (wrap) {
-    wrap.style.transform = 'translate3d(' + _panX + 'px,' + _panY + 'px,0) scale(' + _scale + ')';
-  }
+  // S82: route through _applyTransform — it does _clampPan + transform +
+  // TiledPdf.scheduleRender + _renderPins (pin re-position on zoom change).
+  // Previously this just set wrap.style.transform inline, leaving GL pins
+  // anchored to stale imgRect. Bug surfaced when bottombar fit button
+  // became easier to tap on mobile.
+  _applyTransform();
 }
 
 // Zoom controls (used by markup.js zoom buttons)
