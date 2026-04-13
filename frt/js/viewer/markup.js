@@ -1718,6 +1718,10 @@ function _wireEvents() {
     }
     if (tool === _tool) _setActiveTool(null); else _setActiveTool(tool);
   }
+  // S82: Module-level flag — touchend on sub-tool btn sets this to true;
+  // the document-level click delegation below checks and clears it, skipping
+  // the synthesized click that would otherwise toggle the tool back off.
+  var _skipNextClick = false;
   // Wire touchstart on each submenu — fires before the buggy click chain.
   ['pen-submenu','shapes-submenu'].forEach(function(subId){
     var sub = document.getElementById(subId);
@@ -1728,14 +1732,31 @@ function _wireEvents() {
     sub.addEventListener('touchend', function(e){
       var btn = e.target && e.target.closest && e.target.closest('.tool-btn[data-mk-tool]');
       if (!btn) return;
-      e.preventDefault();    // suppress synthesized click
+      e.preventDefault();    // suppress synthesized click (belt)
       e.stopPropagation();
+      _skipNextClick = true; // suspenders — document click delegation will skip
+      // Clear the flag shortly in case the synthesized click never fires
+      // (some browsers suppress it when preventDefault ran), so we don't
+      // eat a legitimate mouse click immediately after.
+      setTimeout(function(){ _skipNextClick = false; }, 400);
       _activateToolFromSubBtn(btn);
     });
   });
 
   // Sidebar tool clicks (delegated — still the mouse / desktop path)
   document.addEventListener('click', function(e) {
+    // S82: if touchend on a sub-tool btn just fired, skip the synthesized click
+    // that would otherwise re-enter this handler and toggle the tool back off.
+    if (_skipNextClick) {
+      var stb = e.target && e.target.closest && e.target.closest('#dv-sidebar-tools .tool-btn[data-mk-tool]');
+      if (stb) {
+        _skipNextClick = false;
+        e.stopPropagation();
+        e.preventDefault();
+        return;
+      }
+      _skipNextClick = false;
+    }
     // Tool button in sidebar
     var btn = e.target.closest && e.target.closest('#dv-sidebar-tools .tool-btn[data-mk-tool]');
     if (btn) {
