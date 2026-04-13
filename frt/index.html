@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=204">
+<link rel="stylesheet" href="css/frt.css?v=205">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -499,7 +499,7 @@ function ensurePdfJs(cb){
 <!-- ═══ DRAWING VIEWER OVERLAY ═══ -->
 <div class="drawing-viewer-overlay" id="drawing-viewer-overlay">
   <div class="dv-toolbar" id="dv-toolbar">
-    <button id="dv-close" class="dv-close-btn" title="Back"><span class="dv-back-arrow">←</span> Back</button>
+    <button id="dv-close" class="back-btn dv-close-btn" title="Back">← Back</button>
     <!-- S81: cloud status in viewer header too (mirrors main app header) -->
     <span id="dv-cloud-status" class="dv-cloud-status" title="Tap for cloud diagnostic" onclick="if(window._showCloudDiagnostic)window._showCloudDiagnostic()">
       <span id="dv-cloud-dot" class="dv-cloud-dot" style="background:#34D399;"></span>

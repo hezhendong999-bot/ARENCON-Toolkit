@@ -3332,17 +3332,8 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
 
 /* ═══════════════════════════════════════════════════════════════════
    S82 — Misc polish
-   - Back button: arrow vertically centered with "Back" text
    - Fit button: identical size/styling to prev/next in bottombar
    ═══════════════════════════════════════════════════════════════════ */
-.drawing-viewer-overlay .dv-toolbar #dv-close.dv-close-btn{
-  display:inline-flex !important;align-items:center !important;gap:4px !important;
-  line-height:1 !important;
-}
-.drawing-viewer-overlay .dv-toolbar #dv-close .dv-back-arrow{
-  display:inline-flex;align-items:center;justify-content:center;
-  font-size:inherit;line-height:1;
-}
 /* Bottombar fit button: fully inherit prev/next sizing (override earlier rule) */
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit{
   width:36px !important;height:36px !important;
@@ -3381,14 +3372,10 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   S82 — Drawing viewer header: Back/Layers typography (all viewports)
-   - Back: 15px / 600 (matches main FRT .back-btn)
-   - Layers: 15px / 400 (un-bold), icon stays 600 so glyph reads clearly
-   - Overrides earlier rule at ~line 2180 that bumped Layers to 16px on mobile
+   S82 — Drawing viewer header: Back uses .back-btn class to inherit
+   identical styling from main FRT (font-size 15px, weight 600, etc).
+   Layers matched to same size with regular weight.
    ═══════════════════════════════════════════════════════════════════ */
-.drawing-viewer-overlay .dv-toolbar .dv-close-btn{
-  font-size:15px !important;font-weight:600 !important;
-}
 .drawing-viewer-overlay .dv-toolbar #dv-layers-btn{
   font-size:15px !important;font-weight:400 !important;
 }
