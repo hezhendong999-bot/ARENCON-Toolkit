@@ -3352,31 +3352,29 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   S82 — Bottombar nav buttons: red flash on tap only, never sticks
-   - Default state: navy slate
-   - :active (held finger / mouse-down): red — gives tap feedback
-   - :hover red ONLY on real-mouse devices (hover:hover)
-   - :focus on touch devices: navy (don't keep highlighting after blur)
+   S82 — Bottombar nav buttons: no hover state at all
+   These buttons (.dv-bb-nav .dv-bb-fit) only display on mobile (line 2657
+   sets them display:none on PC). On touch, hover never matches naturally —
+   but DevTools mobile-emulation lies about that. Since there's NO PC use
+   case for these buttons, we drop hover-red entirely. :active still flashes
+   red on press for tap feedback.
    ═══════════════════════════════════════════════════════════════════ */
-/* Strip any existing :hover red from base rules — base = navy always */
+/* Default and hover: navy slate, always */
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:hover,
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit,
-.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button{
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:hover,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hover{
   background:#2a3448 !important;
 }
-/* Real-mouse hover (most recent input was a mouse): red */
-body:not(.input-touch) .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:hover,
-body:not(.input-touch) .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:hover,
-body:not(.input-touch) .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hover{
-  background:#9C2742 !important;
-}
-/* Press feedback (any device): red while finger/mouse is down */
+/* :active (held finger / mouse-down): red — flash feedback only */
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:active,
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:active,
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:active{
   background:#9C2742 !important;
 }
-/* Belt-and-suspenders: focus alone (not :focus-visible) on touch should NOT colour */
+/* Belt-and-suspenders: focus alone (not :focus-visible) should NOT colour */
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:focus:not(:focus-visible),
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:focus:not(:focus-visible),
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:focus:not(:focus-visible){
