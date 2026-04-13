@@ -355,7 +355,7 @@ function _loadImgFallback(url, d, label) {
   var isTouch = false;
   try { isTouch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches; } catch(_){}
   if (!isTouch){ _finish(url); return; }
-  var budget = 12 * 1000 * 1000;
+  var budget = 8 * 1000 * 1000; // S83b2: 8MP — zoom headroom
   var probe = new Image();
   probe.crossOrigin = 'anonymous';
   probe.onload = function(){
@@ -458,8 +458,15 @@ function _resetView() {
 }
 
 // Zoom controls (used by markup.js zoom buttons)
+// S83b2: iPad Safari's render buffer allocation at zoom-in is the second
+// memory pressure point (first is initial decode, handled by downscaler).
+// Cap touch-device max zoom to 4× so a zoomed 8MP image stays under ~128MB.
+var _IS_TOUCH = false;
+try { _IS_TOUCH = window.matchMedia && window.matchMedia('(pointer:coarse)').matches; } catch(_){}
+var _MAX_ZOOM = _IS_TOUCH ? 4 : 8;
+
 window._frtZoomIn = function() {
-  _scale = Math.min(8, _scale * 1.3);
+  _scale = Math.min(_MAX_ZOOM, _scale * 1.3);
   _applyTransform();
 };
 window._frtZoomOut = function() {
@@ -550,9 +557,10 @@ function _showDrawing(idx) {
   // canvas to a safe pixel budget BEFORE assigning to dv-image.
   var _isTouchDevice = false;
   try { _isTouchDevice = window.matchMedia && window.matchMedia('(pointer:coarse)').matches; } catch(_){}
-  // Budget: 12 MP decoded (≈48 MB RGBA). Well under iPad's per-tab ceiling
-  // while preserving enough resolution to zoom 2–3× without pixellation.
-  var _IPAD_PX_BUDGET = 12 * 1000 * 1000;
+  // Budget: 8 MP decoded (≈32 MB RGBA). Lower than 12 MP because CSS zoom
+  // asks Safari to allocate a larger render buffer at zoom-in, so we need
+  // headroom for 3–4× zoom before the render buffer itself blows the ceiling.
+  var _IPAD_PX_BUDGET = 8 * 1000 * 1000;
 
   function _downscaleForTouch(url, onDone, onFail){
     var probe = new Image();
@@ -806,7 +814,7 @@ document.addEventListener('wheel', function(e) {
   var imgY = (my - _panY) / _scale;
 
   var delta = e.deltaY > 0 ? 0.9 : 1.1;
-  var newScale = Math.max(_fitScale, Math.min(8, _scale * delta));
+  var newScale = Math.max(_fitScale, Math.min(_MAX_ZOOM, _scale * delta));
 
   // At fit scale, reset pan
   if (newScale <= _fitScale) {
@@ -831,7 +839,7 @@ document.addEventListener('keydown', function(e) {
 
   if (e.key === 'ArrowLeft') { initViewer.prev(); e.preventDefault(); }
   if (e.key === 'ArrowRight') { initViewer.next(); e.preventDefault(); }
-  if (e.key === '+' || e.key === '=') { _scale = Math.min(8, _scale * 1.2); _applyTransform(); }
+  if (e.key === '+' || e.key === '=') { _scale = Math.min(_MAX_ZOOM, _scale * 1.2); _applyTransform(); }
   if (e.key === '-') { _scale = Math.max(_fitScale, _scale / 1.2); if (_scale <= _fitScale) { _panX = 0; _panY = 0; } _applyTransform(); }
   if (e.key === '0') { _resetView(); }
 });
@@ -884,7 +892,7 @@ document.addEventListener('touchstart', function(e) {
         var my = e.touches[0].clientY - rect.top;
         var imgX = (mx - _panX) / _scale;
         var imgY = (my - _panY) / _scale;
-        _scale = Math.min(8, _fitScale * 3);
+        _scale = Math.min(_MAX_ZOOM, _fitScale * 3);
         _panX = mx - imgX * _scale;
         _panY = my - imgY * _scale;
         _applyTransform();
@@ -909,7 +917,7 @@ document.addEventListener('touchmove', function(e) {
     if (_touchStartDist === 0) return;
 
     var ratio = dist / _touchStartDist;
-    var newScale = Math.max(_fitScale, Math.min(8, _touchStartScale * ratio));
+    var newScale = Math.max(_fitScale, Math.min(_MAX_ZOOM, _touchStartScale * ratio));
 
     // Zoom centered on pinch midpoint
     var imgX = (_touchStartMidX - _touchStartPanX) / _touchStartScale;
