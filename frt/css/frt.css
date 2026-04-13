@@ -3329,3 +3329,33 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
 @media (max-width: 768px){
   .drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-txt{display:none !important;}
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   S82 — Misc polish
+   - Back button: arrow vertically centered with "Back" text
+   - Fit button: identical size/styling to prev/next in bottombar
+   ═══════════════════════════════════════════════════════════════════ */
+.drawing-viewer-overlay .dv-toolbar #dv-close.dv-close-btn{
+  display:inline-flex !important;align-items:center !important;gap:4px !important;
+  line-height:1 !important;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-close .dv-back-arrow{
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:1.25em;line-height:1;position:relative;top:-1px;
+}
+/* Bottombar fit button: fully inherit prev/next sizing (override earlier rule) */
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit{
+  width:36px !important;height:36px !important;
+  border-radius:6px !important;
+  background:#2a3448 !important;color:#fff !important;border:none !important;
+  font-size:14px !important;line-height:1 !important;padding:0 !important;
+  display:flex !important;align-items:center !important;justify-content:center !important;
+  cursor:pointer;flex-shrink:0;
+}
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:hover{background:#9C2742 !important;}
+@media(pointer:coarse){
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit,
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button{
+    min-width:44px !important;min-height:44px !important;
+  }
+}
