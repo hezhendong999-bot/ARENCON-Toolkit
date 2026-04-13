@@ -3165,10 +3165,9 @@ html body .drawing-viewer-overlay #zoom-controls{display:none !important;}
    Active only for phones (coarse pointer) in landscape, max-height 600px.
    ═══════════════════════════════════════════════════════════════════ */
 @media (orientation:landscape) and (pointer:coarse) and (max-height:600px){
-  /* Hide the horizontal mobile bars */
+  /* Hide the horizontal mobile bars (bottombar stays — holds prev/next/fit + title) */
   .drawing-viewer-overlay #dv-toolrow-v75,
   .drawing-viewer-overlay #dv-stylestrip-v75,
-  .drawing-viewer-overlay #dv-bottombar-v75,
   .drawing-viewer-overlay #dv-mobile-context{
     display:none !important;
   }
@@ -3244,3 +3243,89 @@ html body .drawing-viewer-overlay #zoom-controls{display:none !important;}
   .dv-cloud-status .dv-cloud-text{display:none !important;}
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   S82 — Floating nav controls + bottombar rework
+   - PC (pointer:fine): floating zoom BR, floating prev/next BL of canvas
+   - Mobile (pointer:coarse): hide zoom +/- in bottombar, show prev/next + fit
+   - Header prev/next hidden everywhere (they've moved)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Hide header prev/next — moved to floating (PC) / bottombar (mobile) */
+.drawing-viewer-overlay .dv-toolbar #dv-prev,
+.drawing-viewer-overlay .dv-toolbar #dv-next{display:none !important;}
+
+/* Floating nav-controls base style (same visual as zoom-controls) */
+.drawing-viewer-overlay .dv-nav-controls{
+  position:absolute !important;
+  bottom:14px !important;left:14px !important;
+  top:auto !important;right:auto !important;
+  display:flex !important;flex-direction:row !important;gap:6px !important;
+  z-index:20;
+}
+.drawing-viewer-overlay .dv-nav-controls button{
+  width:36px;height:36px;border-radius:6px;
+  background:#2a3448;color:#fff;border:1px solid #3a4660;
+  font-size:14px;cursor:pointer;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 6px rgba(15,23,42,.35);
+}
+.drawing-viewer-overlay .dv-nav-controls button:hover{background:#9C2742;}
+body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293B;}
+@media(pointer:coarse){
+  .drawing-viewer-overlay .dv-nav-controls button{width:44px;height:44px;}
+}
+
+/* PC (pointer:fine) — restore zoom-controls at BOTTOM-right (override the
+   S81 EOF kill-switch + the top-right positioning) */
+@media (pointer:fine){
+  html body .drawing-viewer-overlay .zoom-controls,
+  html body .drawing-viewer-overlay #zoom-controls{
+    display:flex !important;
+    position:absolute !important;
+    bottom:14px !important;right:14px !important;
+    top:auto !important;left:auto !important;
+    flex-direction:row !important;gap:6px !important;
+    z-index:20 !important;
+  }
+  html body .drawing-viewer-overlay .dv-nav-controls{display:flex !important;}
+}
+
+/* Mobile (pointer:coarse) — hide floating controls, use bottombar */
+@media (pointer:coarse){
+  .drawing-viewer-overlay .dv-nav-controls{display:none !important;}
+  /* Zoom-controls stays hidden via EOF kill-switch */
+  /* Bottombar: hide old zoom group, show nav group (prev/next/fit) */
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom{display:none !important;}
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav{
+    display:flex !important;gap:4px !important;flex-shrink:0;
+  }
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-fit{
+    width:36px;height:36px;border-radius:6px;
+    background:#2a3448;color:#fff;border:none;
+    font-size:15px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;padding:0;
+  }
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-fit:hover{background:#9C2742;}
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   S82 — Layers button: match Back button typography; hide text on mobile portrait
+   ═══════════════════════════════════════════════════════════════════ */
+.drawing-viewer-overlay .dv-toolbar #dv-layers-btn{
+  font-family:Calibri,sans-serif !important;
+  font-size:calc(13px + var(--ts)) !important;
+  font-weight:600 !important;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-icon{
+  font-weight:700;display:inline-block;
+}
+/* Portrait mobile: hide the " Layers" text, icon only */
+@media (max-width: 900px) and (orientation:portrait){
+  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-txt{display:none !important;}
+}
+/* Tablet/phone ≤768px of any orientation: same — icon only.
+   (Chrome DevTools device toolbar also hits this, even if window is wider.) */
+@media (max-width: 768px){
+  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-txt{display:none !important;}
+}
