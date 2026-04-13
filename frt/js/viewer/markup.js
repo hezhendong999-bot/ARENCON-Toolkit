@@ -1722,15 +1722,36 @@ function _wireEvents() {
   // the document-level click delegation below checks and clears it, skipping
   // the synthesized click that would otherwise toggle the tool back off.
   var _skipNextClick = false;
+  // Debug panel (enable with ?dbg=1) — writes last 6 event lines to screen
+  (function(){
+    try {
+      if (new URLSearchParams(location.search).get('dbg') !== '1') return;
+      var p = document.createElement('div');
+      p.id = '_mkDbgPanel';
+      p.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;background:rgba(0,0,0,0.85);color:#0f0;font:10px/1.3 monospace;padding:6px 8px;border-radius:6px;max-width:260px;pointer-events:none;white-space:pre-wrap;';
+      document.body.appendChild(p);
+      var lines = [];
+      window._mkDbg = function(msg){
+        lines.push(new Date().toISOString().slice(14,22) + ' ' + msg);
+        if (lines.length > 8) lines.shift();
+        p.textContent = lines.join('\n');
+      };
+      window._mkDbg('dbg panel ready');
+    } catch(e) {}
+  })();
   // Wire touchstart on each submenu — fires before the buggy click chain.
   ['pen-submenu','shapes-submenu'].forEach(function(subId){
     var sub = document.getElementById(subId);
-    if (!sub) return;
+    if (!sub) { if (window._mkDbg) window._mkDbg('MISSING '+subId); return; }
     // Block bubbling so the outside-close handler on document can't race us
-    sub.addEventListener('touchstart', function(e){ e.stopPropagation(); }, { passive: true });
+    sub.addEventListener('touchstart', function(e){
+      if (window._mkDbg) window._mkDbg('touchstart '+subId);
+      e.stopPropagation();
+    }, { passive: true });
     // Touch activation: find the closest sub-tool-btn and fire it immediately
     sub.addEventListener('touchend', function(e){
       var btn = e.target && e.target.closest && e.target.closest('.tool-btn[data-mk-tool]');
+      if (window._mkDbg) window._mkDbg('touchend '+subId+' btn='+(btn?btn.getAttribute('data-mk-tool'):'null'));
       if (!btn) return;
       e.preventDefault();    // suppress synthesized click (belt)
       e.stopPropagation();
@@ -1745,17 +1766,17 @@ function _wireEvents() {
 
   // Sidebar tool clicks (delegated — still the mouse / desktop path)
   document.addEventListener('click', function(e) {
-    // S82: if touchend on a sub-tool btn just fired, skip the synthesized click
-    // that would otherwise re-enter this handler and toggle the tool back off.
+    var _dbgBtn = e.target && e.target.closest && e.target.closest('#dv-sidebar-tools .tool-btn[data-mk-tool]');
+    if (window._mkDbg && _dbgBtn) window._mkDbg('click tool='+_dbgBtn.getAttribute('data-mk-tool')+' skip='+_skipNextClick);
+    // S82: if touchend on a sub-tool btn just fired, UNCONDITIONALLY skip the
+    // very next click. Samsung-synthesized click target can differ from touch
+    // target so we don't filter by closest() — just eat one click.
     if (_skipNextClick) {
-      var stb = e.target && e.target.closest && e.target.closest('#dv-sidebar-tools .tool-btn[data-mk-tool]');
-      if (stb) {
-        _skipNextClick = false;
-        e.stopPropagation();
-        e.preventDefault();
-        return;
-      }
       _skipNextClick = false;
+      if (window._mkDbg) window._mkDbg('CLICK SKIPPED');
+      e.stopPropagation();
+      e.preventDefault();
+      return;
     }
     // Tool button in sidebar
     var btn = e.target.closest && e.target.closest('#dv-sidebar-tools .tool-btn[data-mk-tool]');
