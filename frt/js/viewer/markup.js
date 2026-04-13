@@ -64,6 +64,12 @@ console.log('[markup.js] module loaded version=' + _MK_VERSION);
         var t = e.target;
         window._mkDbg('TS @ ' + desc(t));
       }, { capture: true, passive: true });
+      document.addEventListener('touchend', function(e){
+        window._mkDbg('TE @ ' + desc(e.target));
+      }, { capture: true, passive: true });
+      document.addEventListener('click', function(e){
+        window._mkDbg('CL @ ' + desc(e.target));
+      }, true);
       // Visual outline on any open submenu — so we see where it really is
       setInterval(function(){
         ['pen-submenu','shapes-submenu','color-submenu'].forEach(function(id){
