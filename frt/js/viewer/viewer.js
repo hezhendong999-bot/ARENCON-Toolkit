@@ -338,16 +338,50 @@ function _loadImgFallback(url, d, label) {
   var img = document.getElementById('dv-image');
   if (!img) return;
   img.style.visibility = 'hidden';
-  img.onload = function() {
-    _calcFitScale();
-    _scale = _fitScale; _panX = 0; _panY = 0;
-    _applyTransform();
-    _renderPins();
-    img.style.visibility = 'visible';
-    Markup.init(d.id);
+  function _finish(finalUrl){
+    img.onload = function() {
+      _calcFitScale();
+      _scale = _fitScale; _panX = 0; _panY = 0;
+      _applyTransform();
+      _renderPins();
+      img.style.visibility = 'visible';
+      Markup.init(d.id);
+    };
+    img.src = finalUrl;
+    img.style.display = 'block';
+  }
+  // S83b: iPad/iPhone can't hold giant rasters as a single <img>.
+  // Downscale if pixel count > budget.
+  var isTouch = false;
+  try { isTouch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches; } catch(_){}
+  if (!isTouch){ _finish(url); return; }
+  var budget = 12 * 1000 * 1000;
+  var probe = new Image();
+  probe.crossOrigin = 'anonymous';
+  probe.onload = function(){
+    var w = probe.naturalWidth, h = probe.naturalHeight;
+    if (w * h <= budget){ _finish(url); return; }
+    var ratio = Math.sqrt(budget / (w * h));
+    var tw = Math.max(1, Math.floor(w * ratio));
+    var th = Math.max(1, Math.floor(h * ratio));
+    var c = document.createElement('canvas');
+    c.width = tw; c.height = th;
+    try {
+      c.getContext('2d').drawImage(probe, 0, 0, tw, th);
+      c.toBlob(function(blob){
+        if (!blob){ c.width=1; c.height=1; _finish(url); return; }
+        var objUrl = URL.createObjectURL(blob);
+        c.width=1; c.height=1;
+        console.log('[Viewer] iPad fallback downscale ' + w + '×' + h + ' → ' + tw + '×' + th);
+        _finish(objUrl);
+      }, 'image/jpeg', 0.85);
+    } catch(e){
+      c.width=1; c.height=1;
+      _finish(url);
+    }
   };
-  img.src = url;
-  img.style.display = 'block';
+  probe.onerror = function(){ _finish(url); };
+  probe.src = url;
 }
 
 var _currentDrawingIdx = -1;
@@ -510,24 +544,80 @@ function _showDrawing(idx) {
 
   var src = d.thumb || d.r2Url || d.dataUrl || '';
 
+  // S83b: iPad/iPhone Safari cannot hold a decoded single-<img> of an 8192×
+  // something JPEG — the decoded bitmap exceeds per-tab memory and crashes.
+  // Detect coarse-pointer devices and downscale large rasters through a
+  // canvas to a safe pixel budget BEFORE assigning to dv-image.
+  var _isTouchDevice = false;
+  try { _isTouchDevice = window.matchMedia && window.matchMedia('(pointer:coarse)').matches; } catch(_){}
+  // Budget: 12 MP decoded (≈48 MB RGBA). Well under iPad's per-tab ceiling
+  // while preserving enough resolution to zoom 2–3× without pixellation.
+  var _IPAD_PX_BUDGET = 12 * 1000 * 1000;
+
+  function _downscaleForTouch(url, onDone, onFail){
+    var probe = new Image();
+    probe.crossOrigin = 'anonymous';
+    probe.onload = function(){
+      var w = probe.naturalWidth, h = probe.naturalHeight;
+      var px = w * h;
+      if (!_isTouchDevice || px <= _IPAD_PX_BUDGET){
+        onDone(url, w, h, false); // pass-through
+        return;
+      }
+      var ratio = Math.sqrt(_IPAD_PX_BUDGET / px);
+      var tw = Math.max(1, Math.floor(w * ratio));
+      var th = Math.max(1, Math.floor(h * ratio));
+      var c = document.createElement('canvas');
+      c.width = tw; c.height = th;
+      try {
+        c.getContext('2d').drawImage(probe, 0, 0, tw, th);
+        c.toBlob(function(blob){
+          if (!blob){ c.width=1; c.height=1; onFail && onFail('toBlob null'); return; }
+          var objUrl = URL.createObjectURL(blob);
+          c.width=1; c.height=1;
+          console.log('[Viewer] iPad downscale ' + w + '×' + h + ' → ' + tw + '×' + th + ' (' + Math.round(blob.size/1024) + 'KB)');
+          onDone(objUrl, tw, th, true);
+        }, 'image/jpeg', 0.85);
+      } catch (e){
+        c.width=1; c.height=1;
+        console.warn('[Viewer] Downscale failed, falling back to original:', e.message);
+        onDone(url, w, h, false);
+      }
+    };
+    probe.onerror = function(){ onFail && onFail('probe error'); };
+    probe.src = url;
+  }
+
   function _loadImg(url, label) {
     // Binary hide — visibility:hidden prevents any paint of old image
     img.style.visibility = 'hidden';
-    img.onload = function() {
-      console.log('[Viewer] Image loaded (' + (label || 'unknown') + '): ' + img.naturalWidth + '×' + img.naturalHeight);
-      _calcFitScale();
-      _scale = _fitScale;
-      _panX = 0;
-      _panY = 0;
-      _applyTransform();
-      _renderPins();
-      // Show after transform applied
-      img.style.visibility = 'visible';
-      // Initialize markup engine after image loads
-      Markup.init(d.id);
-    };
-    img.src = url;
-    img.style.display = 'block';
+    function _assignAndFinish(finalUrl){
+      img.onload = function() {
+        console.log('[Viewer] Image loaded (' + (label || 'unknown') + '): ' + img.naturalWidth + '×' + img.naturalHeight);
+        _calcFitScale();
+        _scale = _fitScale;
+        _panX = 0;
+        _panY = 0;
+        _applyTransform();
+        _renderPins();
+        // Show after transform applied
+        img.style.visibility = 'visible';
+        // Initialize markup engine after image loads
+        Markup.init(d.id);
+      };
+      img.src = finalUrl;
+      img.style.display = 'block';
+    }
+    // For legacy raster drawings on iPad, downscale before handing to <img>.
+    // For non-PDF drawings only — PDFs go through TiledPdf (which has its own budget).
+    if (_isTouchDevice && !_isPdfDrawing(d)){
+      _downscaleForTouch(url, function(finalUrl){ _assignAndFinish(finalUrl); }, function(err){
+        console.warn('[Viewer] Downscale probe failed (' + err + ') — using original URL');
+        _assignAndFinish(url);
+      });
+    } else {
+      _assignAndFinish(url);
+    }
   }
 
   if (d.r2Url) {
