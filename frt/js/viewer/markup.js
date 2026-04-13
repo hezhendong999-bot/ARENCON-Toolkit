@@ -1723,44 +1723,54 @@ function _wireEvents() {
   // the synthesized click that would otherwise toggle the tool back off.
   var _skipNextClick = false;
   var _subBtnHandledAt = 0; // timestamp of most recent sub-tool activation via pointerup
-  // Debug panel (enable with ?dbg=1) — writes last 8 event lines to screen
+  // Debug panel — UNCONDITIONALLY ON for diagnostic push S82-3
   (function(){
     try {
-      if (new URLSearchParams(location.search).get('dbg') !== '1') return;
       var p = document.createElement('div');
       p.id = '_mkDbgPanel';
-      p.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;background:rgba(0,0,0,0.85);color:#0f0;font:10px/1.3 monospace;padding:6px 8px;border-radius:6px;max-width:260px;pointer-events:none;white-space:pre-wrap;';
+      p.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;background:rgba(0,0,0,0.85);color:#0f0;font:10px/1.3 monospace;padding:6px 8px;border-radius:6px;max-width:280px;pointer-events:none;white-space:pre-wrap;';
       document.body.appendChild(p);
       var lines = [];
       window._mkDbg = function(msg){
         lines.push(new Date().toISOString().slice(14,22) + ' ' + msg);
-        if (lines.length > 8) lines.shift();
+        if (lines.length > 10) lines.shift();
         p.textContent = lines.join('\n');
       };
-      window._mkDbg('dbg panel ready');
+      window._mkDbg('dbg S82-3 ready');
     } catch(e) {}
   })();
-  // S82 fix v2: Direct pointerup handler on EACH sub-tool button.
-  // - Pointer events unify mouse+touch, no click synthesis timing issue.
-  // - Sets _skipNextClick flag so the stray synthesized click gets eaten.
-  // - Deduplicates via _subBtnHandledAt so a follow-up click can't re-enter.
+  // S82 fix v3: Log EVERY pointer/touch/click event on submenu + sub-tool btns
+  // so we can see exactly what Samsung is dispatching.
   ['pen-submenu','shapes-submenu'].forEach(function(subId){
     var sub = document.getElementById(subId);
     if (!sub) { if (window._mkDbg) window._mkDbg('MISSING '+subId); return; }
-    // Stop bubbling so outside-close delegation doesn't race
-    sub.addEventListener('touchstart', function(e){ e.stopPropagation(); }, { passive: true });
-    sub.addEventListener('pointerdown', function(e){ e.stopPropagation(); });
+    sub.addEventListener('touchstart', function(e){
+      if (window._mkDbg) window._mkDbg('touchstart '+subId+' tgt='+(e.target.tagName||'?'));
+      e.stopPropagation();
+    }, { passive: true });
+    sub.addEventListener('pointerdown', function(e){
+      if (window._mkDbg) window._mkDbg('pointerdown '+subId+' type='+e.pointerType);
+      e.stopPropagation();
+    });
     // Wire each sub-tool button individually
     var btns = sub.querySelectorAll('.tool-btn[data-mk-tool]');
+    if (window._mkDbg) window._mkDbg(subId+': '+btns.length+' sub-btns wired');
     btns.forEach(function(btn){
       btn.addEventListener('pointerup', function(e){
-        if (window._mkDbg) window._mkDbg('pointerup '+btn.getAttribute('data-mk-tool')+' type='+e.pointerType);
+        if (window._mkDbg) window._mkDbg('PU '+btn.getAttribute('data-mk-tool')+' t='+e.pointerType);
         e.preventDefault();
         e.stopPropagation();
         _skipNextClick = true;
         _subBtnHandledAt = Date.now();
         setTimeout(function(){ _skipNextClick = false; }, 600);
         _activateToolFromSubBtn(btn);
+        if (window._mkDbg) window._mkDbg('  _tool='+_tool);
+      });
+      btn.addEventListener('pointercancel', function(e){
+        if (window._mkDbg) window._mkDbg('pointercancel '+btn.getAttribute('data-mk-tool'));
+      });
+      btn.addEventListener('touchend', function(e){
+        if (window._mkDbg) window._mkDbg('touchend-btn '+btn.getAttribute('data-mk-tool'));
       });
     });
   });
