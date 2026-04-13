@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=209">
+<link rel="stylesheet" href="css/frt.css?v=210">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -999,21 +999,27 @@ function ensurePdfJs(cb){
       if(tb && !tb.dataset.mobText){tb.dataset.mobText='1';tb.textContent='\uD83D\uDCCC';}
     })();
     /* Push 4: bottom bar proxies + mirrors */
-    /* S82: blur() after every tap so :focus/:hover doesn't stick red on Samsung */
+    /* S82: blur() after every tap so :focus/:hover doesn't stick.
+       Adds .tap-flash class for 150ms so tap feedback is reliably visible
+       even on quick taps where :active wouldn't be long enough to see. */
     function _bbTap(srcId, targetIdOrFn){
       var b=document.getElementById(srcId); if(!b||b.dataset.wired)return;
       b.dataset.wired='1';
       b.addEventListener('click',function(e){
         e.preventDefault();
+        b.classList.add('tap-flash');
+        setTimeout(function(){ b.classList.remove('tap-flash'); }, 150);
         if(typeof targetIdOrFn==='function'){targetIdOrFn();}
-        else{var t=document.getElementById(targetIdOrFn);if(t)t.click();}
-        // Clear focus immediately so the button reverts to default colour
+        else if(targetIdOrFn){var t=document.getElementById(targetIdOrFn);if(t)t.click();}
         try{ b.blur(); }catch(_){}
       });
     }
     _bbTap('dv-bb-prev','dv-prev');
     _bbTap('dv-bb-next','dv-next');
-    _bbTap('dv-bb-fit',function(){var z=document.querySelector('#zoom-controls [data-zoom="fit"]');if(z)z.click();});
+    /* S82: bb-fit has data-zoom="fit" — markup.js delegation already handles
+       the actual zoom. Pass null target so we ONLY do the flash + blur, not
+       a second proxy click (which was double-firing zoom and breaking pins). */
+    _bbTap('dv-bb-fit', null);
     _bbTap('dv-nav-prev','dv-prev');
     _bbTap('dv-nav-next','dv-next');
     _bbTap('dv-bb-rename','dv-rename-btn');

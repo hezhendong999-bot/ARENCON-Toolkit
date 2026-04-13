@@ -3371,7 +3371,11 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
 /* :active (held finger / mouse-down): red — flash feedback only */
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:active,
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:active,
-.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:active{
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:active,
+/* JS-driven 150ms flash class — guarantees visible feedback on quick taps */
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button.tap-flash,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit.tap-flash,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button.tap-flash{
   background:#9C2742 !important;
 }
 /* Belt-and-suspenders: focus alone (not :focus-visible) should NOT colour */
