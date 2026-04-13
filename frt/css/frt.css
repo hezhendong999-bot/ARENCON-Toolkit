@@ -2240,6 +2240,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   .drawing-viewer-overlay .tool-submenu.open,
   .drawing-viewer-overlay .color-submenu.open{
     visibility:visible !important;
+    pointer-events:auto !important;  /* S82 FIX: parent sidebar has pointer-events:none on mobile (hidden off-screen); sub buttons need this to receive taps */
     z-index:9700 !important;
     border-radius:10px !important;
     box-shadow:0 8px 24px rgba(0,0,0,.5) !important;
@@ -2250,7 +2251,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     /* position/top/left are JS-managed via setAttribute('style'). */
   }
   .drawing-viewer-overlay .tool-submenu.open *,
-  .drawing-viewer-overlay .color-submenu.open *{visibility:visible !important;}
+  .drawing-viewer-overlay .color-submenu.open *{visibility:visible !important;pointer-events:auto !important;}
   .drawing-viewer-overlay .dv-sidebar-tools:has(.tool-submenu.open),
   .drawing-viewer-overlay .dv-sidebar-tools:has(.color-submenu.open){visibility:visible !important;}
   .drawing-viewer-overlay .dv-sidebar-tools:has(.tool-submenu.open) .tool-group,

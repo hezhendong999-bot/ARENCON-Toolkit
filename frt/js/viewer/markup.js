@@ -22,71 +22,8 @@ import { IDB } from '../data/idb.js';
 import { showConfirm } from '../shared/dialogs.js';
 import { TiledPdf } from './tiledPdf.js';
 
-// ── S82-4 DIAGNOSTIC: immediate visible debug panel + version banner ──
-// This runs at MODULE LOAD, so if you see the panel/banner, this file is live.
-var _MK_VERSION = 'S82-5';
-console.log('[markup.js] module loaded version=' + _MK_VERSION);
-(function(){
-  function mount(){
-    if (document.getElementById('_mkDbgPanel')) return;
-    try {
-      // Version banner (top-left, over everything)
-      var v = document.createElement('div');
-      v.id = '_mkVerBanner';
-      v.textContent = 'markup.js ' + _MK_VERSION;
-      v.style.cssText = 'position:fixed;top:2px;left:2px;z-index:99999;background:#C0392B;color:#fff;font:11px/1 monospace;padding:3px 6px;border-radius:4px;pointer-events:none;';
-      document.body.appendChild(v);
-      // Debug panel (bottom-right)
-      var p = document.createElement('div');
-      p.id = '_mkDbgPanel';
-      p.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;background:rgba(0,0,0,0.85);color:#0f0;font:10px/1.3 monospace;padding:6px 8px;border-radius:6px;max-width:280px;pointer-events:none;white-space:pre-wrap;';
-      document.body.appendChild(p);
-      var lines = [];
-      window._mkDbg = function(msg){
-        lines.push(new Date().toISOString().slice(14,22) + ' ' + msg);
-        if (lines.length > 12) lines.shift();
-        p.textContent = lines.join('\n');
-      };
-      window._mkDbg(_MK_VERSION + ' mounted');
-      // ── CAPTURE-PHASE loggers on document ──
-      // Logs EVERY pointerdown/touchstart anywhere — tells us what was hit.
-      function desc(el){
-        if (!el) return 'null';
-        var id = el.id ? '#'+el.id : '';
-        var cls = (typeof el.className==='string' && el.className) ? '.'+el.className.split(' ').slice(0,2).join('.') : '';
-        var tag = el.tagName ? el.tagName.toLowerCase() : '?';
-        return tag+id+cls;
-      }
-      document.addEventListener('pointerdown', function(e){
-        window._mkDbg('PD ' + e.pointerType + ' @ ' + desc(e.target));
-      }, true);
-      document.addEventListener('touchstart', function(e){
-        var t = e.target;
-        window._mkDbg('TS @ ' + desc(t));
-      }, { capture: true, passive: true });
-      document.addEventListener('touchend', function(e){
-        window._mkDbg('TE @ ' + desc(e.target));
-      }, { capture: true, passive: true });
-      document.addEventListener('click', function(e){
-        window._mkDbg('CL @ ' + desc(e.target));
-      }, true);
-      // Visual outline on any open submenu — so we see where it really is
-      setInterval(function(){
-        ['pen-submenu','shapes-submenu','color-submenu'].forEach(function(id){
-          var el = document.getElementById(id);
-          if (!el) return;
-          if (el.classList.contains('open')) {
-            el.style.outline = '3px solid magenta';
-          } else {
-            el.style.outline = '';
-          }
-        });
-      }, 300);
-    } catch(e) { console.error('[markup.js] dbg mount failed', e); }
-  }
-  if (document.body) mount();
-  else document.addEventListener('DOMContentLoaded', mount);
-})();
+// S82 diagnostic removed — bug was CSS pointer-events:none on mobile sidebar
+// parent leaking to open submenus. Fixed in frt.css ~line 2242.
 
 // ── State ───────────────────────────────────────────────
 var _drawingId = null;
