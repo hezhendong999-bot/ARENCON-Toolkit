@@ -1432,3 +1432,32 @@ window._frt = {
   version: '2.0.0-alpha',
   phase: '1-A'
 };
+
+// S83: Expose periodic-pull trigger for pull-to-refresh gesture in drawing viewer.
+// Callers receive a Promise that resolves to { checked, remoteNewer, pulled } so
+// UI indicators can show the right state.
+window._frtCheckRemote = function(){
+  return new Promise(function(resolve){
+    if (!_hubMode || !_projectId) { resolve({ checked:false, remoteNewer:false, pulled:false, reason:'not-hub' }); return; }
+    var user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+    if (!user) { resolve({ checked:false, remoteNewer:false, pulled:false, reason:'no-user' }); return; }
+    if (typeof SyncEngine === 'undefined' || !SyncEngine.getRemoteUpdatedAt) {
+      resolve({ checked:false, remoteNewer:false, pulled:false, reason:'no-sync' }); return;
+    }
+    SyncEngine.getRemoteUpdatedAt(_projectId, SyncEngine.instanceId).then(function(remoteTs){
+      if (!remoteTs) { resolve({ checked:true, remoteNewer:false, pulled:false }); return; }
+      if (!_lastPulledUpdatedAt){ _lastPulledUpdatedAt = remoteTs; resolve({ checked:true, remoteNewer:false, pulled:false }); return; }
+      if (remoteTs <= _lastPulledUpdatedAt) { resolve({ checked:true, remoteNewer:false, pulled:false }); return; }
+      var hasLocal = (typeof Model !== 'undefined' && Model.hasUnsavedChanges) ? Model.hasUnsavedChanges() : false;
+      if (!hasLocal){
+        SyncEngine.pull(_projectId, SyncEngine.instanceId).then(function(data){
+          if (data){ _lastPulledUpdatedAt = remoteTs; _setCloudStatus('synced', 'Refreshed from cloud'); }
+          resolve({ checked:true, remoteNewer:true, pulled:!!data });
+        });
+      } else {
+        _showRemoteUpdateBanner(remoteTs);
+        resolve({ checked:true, remoteNewer:true, pulled:false, dirtyLocal:true });
+      }
+    }).catch(function(){ resolve({ checked:false, remoteNewer:false, pulled:false, reason:'error' }); });
+  });
+};

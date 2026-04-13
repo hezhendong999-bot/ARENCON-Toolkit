@@ -9,6 +9,7 @@
 
 import { Model } from '../data/model.js';
 import { IDB } from '../data/idb.js';
+import { R2 } from '../data/r2.js';
 import { Markup } from './markup.js';
 import { TiledPdf } from './tiledPdf.js';
 import { toast } from '../shared/toast.js';
@@ -241,6 +242,23 @@ function _ensureTiledInit() {
       return IDB.get('pdfBufs', key).catch(function() { return null; });
     },
     savePdfBuf: function(id, buf) { return IDB.put('pdfBufs', { id: id, buf: buf }).catch(function() {}); },
+    // S83: lazy migration — legacy drawings have pdfBufKey in IDB but no R2 url.
+    // Upload once when the user opens them, patch drawing.pdfBufR2Url, let sync push.
+    lazyUploadPdfBuf: function(drawing, arrayBuf){
+      if (!drawing || !drawing.pdfBufKey || !arrayBuf) return;
+      var pid = new URLSearchParams(window.location.search).get('project');
+      if (!pid || typeof R2 === 'undefined' || !R2.uploadPdfBuf) return;
+      // Clone buffer so caller's reference to it isn't consumed by fetch
+      var copy;
+      try { copy = arrayBuf.slice ? arrayBuf.slice(0) : arrayBuf; } catch(e){ return; }
+      R2.uploadPdfBuf(pid, drawing.pdfBufKey, copy).then(function(r){
+        if (r && r.r2Url){
+          drawing.pdfBufR2Url = r.r2Url;
+          console.log('[TiledPdf] Lazy-migrated PDF buffer to R2:', drawing.id);
+          if (typeof Model !== 'undefined' && Model.saveNow) Model.saveNow();
+        }
+      }).catch(function(err){ console.warn('[TiledPdf] lazy migrate failed:', err && err.message); });
+    },
     showLoading: function(msg) {
       var ov = document.getElementById('tiled-pdf-loading');
       if (!ov) {
@@ -834,6 +852,137 @@ document.addEventListener('touchend', function(e) {
     _singleTouchY = e.touches[0].clientY;
   }
 });
+
+// ── S83: Pull-to-refresh gesture ────────────────────────
+// Only active on drawing viewer when zoomed to fit. Pulling finger down
+// > 80px from near the top of the canvas triggers a remote check.
+// Short pulls still act as regular pan. Hub mode only.
+var _ptr = {
+  tracking: false,
+  startY: 0,
+  startX: 0,
+  indicator: null,
+  triggered: false,
+  threshold: 80,
+  maxPull: 140,      // visual cap
+  topZone: 60        // pull must start within this many px of canvas top
+};
+
+function _ptrGetIndicator(){
+  if (_ptr.indicator && document.body.contains(_ptr.indicator)) return _ptr.indicator;
+  var el = document.createElement('div');
+  el.id = 'frt-ptr-indicator';
+  el.style.cssText =
+    'position:fixed;top:0;left:50%;transform:translate(-50%,-60px);' +
+    'z-index:99998;background:#1B2438;color:#fff;border:1px solid #9C2742;' +
+    'border-radius:0 0 12px 12px;padding:10px 18px;' +
+    'font:14px Calibri,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.4);' +
+    'display:flex;align-items:center;gap:10px;' +
+    'transition:transform .2s ease;pointer-events:none;';
+  el.innerHTML =
+    '<div id="frt-ptr-spinner" style="width:18px;height:18px;border:3px solid rgba(255,255,255,.25);border-top-color:#9C2742;border-radius:50%;"></div>' +
+    '<span id="frt-ptr-text">Pull to refresh…</span>' +
+    '<style>@keyframes frtPtrSpin{to{transform:rotate(360deg)}}</style>';
+  document.body.appendChild(el);
+  _ptr.indicator = el;
+  return el;
+}
+
+function _ptrSetVisible(pulled, pastThreshold){
+  var el = _ptrGetIndicator();
+  if (pulled <= 0){ el.style.transform = 'translate(-50%,-60px)'; return; }
+  var shown = Math.min(pulled, _ptr.maxPull);
+  // Indicator is 60px tall; slide it from -60 to (shown-60)
+  var ty = Math.min(shown - 60, 10);
+  el.style.transform = 'translate(-50%,' + ty + 'px)';
+  var txt = el.querySelector('#frt-ptr-text');
+  var spin = el.querySelector('#frt-ptr-spinner');
+  if (txt) txt.textContent = pastThreshold ? 'Release to check for updates' : 'Pull to refresh…';
+  if (spin) spin.style.animation = '';
+}
+
+function _ptrShowChecking(){
+  var el = _ptrGetIndicator();
+  el.style.transform = 'translate(-50%,10px)';
+  var txt = el.querySelector('#frt-ptr-text');
+  var spin = el.querySelector('#frt-ptr-spinner');
+  if (txt) txt.textContent = 'Checking for updates…';
+  if (spin) spin.style.animation = 'frtPtrSpin 0.9s linear infinite';
+}
+
+function _ptrShowResult(msg){
+  var el = _ptrGetIndicator();
+  el.style.transform = 'translate(-50%,10px)';
+  var txt = el.querySelector('#frt-ptr-text');
+  var spin = el.querySelector('#frt-ptr-spinner');
+  if (txt) txt.textContent = msg;
+  if (spin) spin.style.animation = '';
+  setTimeout(function(){ el.style.transform = 'translate(-50%,-60px)'; }, 1400);
+}
+
+function _ptrShouldActivate(e){
+  // Only on drawing viewer when at fit zoom, Hub mode, not panning, not markup
+  var overlay = document.getElementById('drawing-viewer-overlay');
+  if (!overlay || !overlay.classList.contains('open')) return false;
+  if (typeof window._frtCheckRemote !== 'function') return false;
+  if (_scale > _fitScale * 1.02) return false; // zoomed in — let pan own this
+  if (Markup.isActive()) return false;
+  if (_pinModeDeficId) return false;
+  if (Markup.getTool() === 'pin') return false;
+  var area = document.getElementById('dv-canvas-area');
+  if (!area) return false;
+  var rect = area.getBoundingClientRect();
+  // Start must be near the top of the canvas
+  if (e.touches[0].clientY - rect.top > _ptr.topZone) return false;
+  return true;
+}
+
+document.addEventListener('touchstart', function(e){
+  if (e.touches.length !== 1) { _ptr.tracking = false; return; }
+  if (!_ptrShouldActivate(e)) { _ptr.tracking = false; return; }
+  _ptr.tracking = true;
+  _ptr.triggered = false;
+  _ptr.startY = e.touches[0].clientY;
+  _ptr.startX = e.touches[0].clientX;
+}, { passive: true });
+
+document.addEventListener('touchmove', function(e){
+  if (!_ptr.tracking || e.touches.length !== 1) return;
+  var dy = e.touches[0].clientY - _ptr.startY;
+  var dx = Math.abs(e.touches[0].clientX - _ptr.startX);
+  // Must be dominantly downward
+  if (dy < 0 || dx > dy) { _ptr.tracking = false; _ptrSetVisible(0,false); return; }
+  if (dy > 8){
+    _ptrSetVisible(dy, dy >= _ptr.threshold);
+  }
+}, { passive: true });
+
+document.addEventListener('touchend', function(e){
+  if (!_ptr.tracking) return;
+  var wasTracking = _ptr.tracking;
+  _ptr.tracking = false;
+  if (!wasTracking || _ptr.triggered) return;
+  // Use last-known touchend Y if available via changedTouches
+  var endY = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientY : _ptr.startY;
+  var dy = endY - _ptr.startY;
+  if (dy < _ptr.threshold){ _ptrSetVisible(0,false); return; }
+  _ptr.triggered = true;
+  _ptrShowChecking();
+  window._frtCheckRemote().then(function(r){
+    if (!r || r.checked === false){
+      var reason = (r && r.reason) ? r.reason : 'error';
+      var msg;
+      if (reason === 'not-hub') msg = 'Standalone mode — no cloud';
+      else if (reason === 'no-user') msg = 'Not signed in';
+      else msg = 'Could not reach cloud';
+      _ptrShowResult(msg);
+      return;
+    }
+    if (r.remoteNewer && r.pulled) _ptrShowResult('✓ Updated from cloud');
+    else if (r.remoteNewer && r.dirtyLocal) _ptrShowResult('Updates available — see banner');
+    else _ptrShowResult('✓ Up to date');
+  }).catch(function(){ _ptrShowResult('Could not reach cloud'); });
+}, { passive: true });
 
 // ── Pin Rendering ───────────────────────────────────────
 var _pinModeDeficId = null;

@@ -25,8 +25,10 @@ function _getToken() {
   return u ? u.access_token : null;
 }
 
-function _toBlob(data) {
+function _toBlob(data, mime) {
   if (data instanceof Blob) return Promise.resolve(data);
+  if (data instanceof ArrayBuffer) return Promise.resolve(new Blob([data], { type: mime || 'application/octet-stream' }));
+  if (data && data.buffer instanceof ArrayBuffer) return Promise.resolve(new Blob([data], { type: mime || 'application/octet-stream' }));
   if (typeof data === 'string' && data.startsWith('data:')) {
     return fetch(data).then(function(r) { return r.blob(); });
   }
@@ -37,19 +39,21 @@ export var R2 = {
 
   WORKER_URL: R2_WORKER,
 
-  /** Upload blob/dataUrl to R2. Returns {r2Key, r2Url} or null. */
-  upload: function(projectId, type, data, filename) {
+  /** Upload blob/dataUrl/ArrayBuffer to R2. Returns {r2Key, r2Url} or null.
+   *  S83: accepts optional mimeHint (for ArrayBuffer → PDF uploads). */
+  upload: function(projectId, type, data, filename, mimeHint) {
     if (!filename) filename = R2.generateFilename('jpg');
     var r2Key = 'photos/' + projectId + '/frt/' + type + '/' + filename;
     var r2Url = R2_WORKER + '/' + r2Key;
     var token = _getToken();
 
-    return _toBlob(data).then(function(blob) {
+    return _toBlob(data, mimeHint).then(function(blob) {
       if (!blob) { console.warn('[R2] No blob to upload'); return null; }
+      var ct = blob.type || mimeHint || 'image/jpeg';
       return fetch(r2Url, {
         method: 'PUT',
         headers: {
-          'Content-Type': blob.type || 'image/jpeg',
+          'Content-Type': ct,
           'Authorization': 'Bearer ' + (token || '')
         },
         body: blob
@@ -134,6 +138,20 @@ export var R2 = {
       if (result) { drawing.r2Key = result.r2Key; drawing.r2Url = result.r2Url; }
       return drawing;
     });
+  },
+
+  /**
+   * S83: Upload the original PDF buffer to R2 so iPad/other-device viewers can
+   * fetch the small vectorised source instead of falling back to a 4× rendered
+   * JPEG (which crashes iPad Safari's ~400 MB per-tab budget).
+   *
+   * Key format: photos/{pid}/frt/pdfbufs/{pdfBufKey}.pdf
+   * Returns {r2Key, r2Url} or null.
+   */
+  uploadPdfBuf: function(projectId, pdfBufKey, arrayBuf) {
+    if (!projectId || !pdfBufKey || !arrayBuf) return Promise.resolve(null);
+    var filename = pdfBufKey + '.pdf';
+    return R2.upload(projectId, 'pdfbufs', arrayBuf, filename, 'application/pdf');
   },
 
   /** Queue upload for offline (saves to IDB pendingUploads). */

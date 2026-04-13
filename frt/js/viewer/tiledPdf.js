@@ -238,8 +238,29 @@ async function open(drawingId, pageNum) {
   state._rendering = {}; state._queue = []; state._paused = false;
   state.pdfDoc = null; state.page = null;
 
-  // 1. Get PDF buffer — local IDB first, R2 fallback
+  // 1. Get PDF buffer — local IDB first, R2 pdfBufR2Url second, legacy r2Url (image) last
   var rec = await cfg.getPdfBuf(drawingId).catch(function() { return null; });
+  if (!rec || !rec.buf) {
+    var d = cfg.getDrawing(drawingId);
+    // S83: prefer pdfBufR2Url (source PDF) over r2Url (rendered JPEG).
+    // Rendered-JPEG fallback exceeds iPad Safari's ~400 MB per-tab budget and crashes.
+    var pdfBufUrl = d && d.pdfBufR2Url ? d.pdfBufR2Url : '';
+    if (pdfBufUrl){
+      _dbg('no IDB pdfData, fetching source PDF from R2: ' + pdfBufUrl.substring(0, 80));
+      if (cfg.showLoading) cfg.showLoading('Downloading drawing from cloud…');
+      try {
+        var resP = await fetch(pdfBufUrl);
+        if (!resP.ok) throw new Error('HTTP ' + resP.status);
+        var bufP = await resP.arrayBuffer();
+        // Cache locally so subsequent opens are fast
+        await cfg.savePdfBuf(drawingId, bufP).catch(function() {});
+        rec = { buf: bufP };
+      } catch (fetchErrP) {
+        _dbg('pdfBufR2Url fetch failed: ' + fetchErrP.message + ' — trying legacy r2Url');
+        // Fall through to legacy r2Url branch below
+      }
+    }
+  }
   if (!rec || !rec.buf) {
     var d = cfg.getDrawing(drawingId);
     if (d && d.r2Url) {
@@ -278,6 +299,15 @@ async function open(drawingId, pageNum) {
       return;
     }
   }
+
+  // S83: Lazy migration — if this drawing has pdfBuf in IDB but no pdfBufR2Url,
+  // upload now and patch the drawing metadata. Fire-and-forget; never block open.
+  (function(){
+    var d = cfg.getDrawing(drawingId);
+    if (!d || d.pdfBufR2Url || !d.pdfBufKey) return;
+    if (!cfg.lazyUploadPdfBuf) return;
+    try { cfg.lazyUploadPdfBuf(d, rec.buf); } catch (e) { /* noop */ }
+  })();
 
   // 2. Load with pdf.js
   if (typeof pdfjsLib === 'undefined') {

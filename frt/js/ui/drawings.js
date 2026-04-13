@@ -728,7 +728,26 @@ function _handlePDFUpload(file, folderOverride) {
         IDB.put('pdfBufs', { id: pdfBufKey, buf: pdfBufCopy }).catch(function(err) {
           console.warn('[Drawings] pdfBufs save failed:', err);
         });
-        _runPdfPages(pdf, bn, targetFolder, total, pdfBufCopy, pdfBufKey);
+        // S83: ALSO upload the PDF buffer to R2 in Hub mode so other devices
+        // (iPad, other inspectors) can stream the source instead of relying on
+        // the rendered JPEG. Fire-and-forget — local IDB path still works without it.
+        var pid = new URLSearchParams(window.location.search).get('project');
+        var pdfBufR2UrlPromise = Promise.resolve('');
+        if (pid && typeof R2 !== 'undefined' && R2.uploadPdfBuf){
+          pdfBufR2UrlPromise = R2.uploadPdfBuf(pid, pdfBufKey, pdfBufCopy.slice(0)).then(function(r){
+            if (r && r.r2Url){
+              console.log('[Drawings] PDF buffer uploaded to R2:', r.r2Url);
+              return r.r2Url;
+            }
+            return '';
+          }).catch(function(err){
+            console.warn('[Drawings] PDF buffer R2 upload failed:', err && err.message);
+            return '';
+          });
+        }
+        pdfBufR2UrlPromise.then(function(pdfBufR2Url){
+          _runPdfPages(pdf, bn, targetFolder, total, pdfBufCopy, pdfBufKey, pdfBufR2Url);
+        });
       }).catch(function(err) {
         clearTimeout(pdfTimeout);
         _hideDwgLoading();
@@ -740,7 +759,7 @@ function _handlePDFUpload(file, folderOverride) {
 }
 
 // ── SACRED CODE: recursive go(pg) pattern — DO NOT REWRITE ──
-function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey) {
+function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey, pdfBufR2Url) {
   var done = 0;
   function go(pg) {
     pdf.getPage(pg).then(function(page) {
@@ -772,6 +791,7 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey) {
               name: pageName, dataUrl: null, thumb: thumbDu,
               width: hcW, height: hcH,
               pdfTiled: true, pdfPage: pg, pdfBufKey: pdfBufKey,
+              pdfBufR2Url: pdfBufR2Url || '',
               isOriginal: false, folder: folder,
               r2Key: '', r2Status: '', r2Url: ''
             };
