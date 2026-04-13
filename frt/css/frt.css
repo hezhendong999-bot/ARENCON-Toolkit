@@ -3379,3 +3379,24 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
     background:#9C2742 !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   S82 — PC drawing viewer header: Back/Layers typography
+   - Back text size matches main FRT .back-btn (15px on PC, see line 3146)
+   - Layers matches same size, weight 400 (un-bold), icon stays prominent
+   Active on pointer:fine only — mobile/tablet keeps existing sizing.
+   ═══════════════════════════════════════════════════════════════════ */
+@media (pointer:fine){
+  .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
+    font-size:15px !important;font-weight:600 !important;
+  }
+  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn{
+    font-size:15px !important;font-weight:400 !important;
+  }
+  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-icon{
+    font-weight:600 !important;
+  }
+  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-txt{
+    font-weight:400 !important;
+  }
+}
