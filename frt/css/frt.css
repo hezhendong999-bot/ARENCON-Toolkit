@@ -2183,9 +2183,9 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   }
   /* Back button + nav arrows slightly bigger too */
   /* S79: make viewer Back button IDENTICAL to main FRT .back-btn (position + size + font).
-     Properties mirror .back-btn (CSS line 175) and its pointer:coarse override.
-     Toolbar padding matches .header-top (10px 12px) so header HEIGHT is identical. */
-  .drawing-viewer-overlay .dv-toolbar{padding:10px 12px !important;}
+  .drawing-viewer-overlay .dv-toolbar{padding:10px 12px !important;padding-right:max(16px, env(safe-area-inset-right, 0px)) !important;}
+  /* S82: on curved-edge Samsung devices the Edge Panel handle clips the rightmost
+     toolbar button (moon/dark toggle). max() above ensures ≥16px clearance. */
   .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
     background:transparent !important;
     border:1px solid transparent !important;
@@ -3004,7 +3004,7 @@ body.dark-mode #reports-mode-menu button:hover{background:#2a3448;}
   padding-right:12px !important;
 }
 @media(pointer:coarse){
-  .drawing-viewer-overlay .dv-toolbar{padding:10px 12px !important;}
+  .drawing-viewer-overlay .dv-toolbar{padding:10px 12px !important;padding-right:max(16px, env(safe-area-inset-right, 0px)) !important;}
   .drawing-viewer-overlay .dv-toolbar #dv-close{padding-left:0 !important;padding-right:12px !important;margin-left:0 !important;}
 }
 
