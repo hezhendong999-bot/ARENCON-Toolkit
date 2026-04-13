@@ -24,7 +24,7 @@ import { TiledPdf } from './tiledPdf.js';
 
 // ── S82-4 DIAGNOSTIC: immediate visible debug panel + version banner ──
 // This runs at MODULE LOAD, so if you see the panel/banner, this file is live.
-var _MK_VERSION = 'S82-4';
+var _MK_VERSION = 'S82-5';
 console.log('[markup.js] module loaded version=' + _MK_VERSION);
 (function(){
   function mount(){
@@ -44,10 +44,38 @@ console.log('[markup.js] module loaded version=' + _MK_VERSION);
       var lines = [];
       window._mkDbg = function(msg){
         lines.push(new Date().toISOString().slice(14,22) + ' ' + msg);
-        if (lines.length > 10) lines.shift();
+        if (lines.length > 12) lines.shift();
         p.textContent = lines.join('\n');
       };
       window._mkDbg(_MK_VERSION + ' mounted');
+      // ── CAPTURE-PHASE loggers on document ──
+      // Logs EVERY pointerdown/touchstart anywhere — tells us what was hit.
+      function desc(el){
+        if (!el) return 'null';
+        var id = el.id ? '#'+el.id : '';
+        var cls = (typeof el.className==='string' && el.className) ? '.'+el.className.split(' ').slice(0,2).join('.') : '';
+        var tag = el.tagName ? el.tagName.toLowerCase() : '?';
+        return tag+id+cls;
+      }
+      document.addEventListener('pointerdown', function(e){
+        window._mkDbg('PD ' + e.pointerType + ' @ ' + desc(e.target));
+      }, true);
+      document.addEventListener('touchstart', function(e){
+        var t = e.target;
+        window._mkDbg('TS @ ' + desc(t));
+      }, { capture: true, passive: true });
+      // Visual outline on any open submenu — so we see where it really is
+      setInterval(function(){
+        ['pen-submenu','shapes-submenu','color-submenu'].forEach(function(id){
+          var el = document.getElementById(id);
+          if (!el) return;
+          if (el.classList.contains('open')) {
+            el.style.outline = '3px solid magenta';
+          } else {
+            el.style.outline = '';
+          }
+        });
+      }, 300);
     } catch(e) { console.error('[markup.js] dbg mount failed', e); }
   }
   if (document.body) mount();
