@@ -1042,7 +1042,21 @@ function _renderPins() {
       pinScale = 0.7 + 0.3 * t;
     }
 
+    // S83: Build inspector color lookup for this project.
+    // Colors live in proj.ui.inspectorColors[userId] = '#xxx' (cached by Project Hub).
+    // Master toggle: proj.ui.showInspectorRings (default off for solo, on when >1 inspector).
+    var _proj = Model.getProject() || {};
+    var _ui = _proj.ui || {};
+    var _inspectorColors = _ui.inspectorColors || {};
+    var _showRings = !!_ui.showInspectorRings;
+    // Per-device hidden list (populated from IDB state store during boot by app.js);
+    // viewer consults a shared global if set. Default: none hidden.
+    var _hiddenInspectors = (window._frtHiddenInspectors && window._frtHiddenInspectors.slice) ? window._frtHiddenInspectors : [];
+
     var glPins = pins.map(function(d){
+      var cb = d.defic.createdBy || null;
+      var ic = cb ? (_inspectorColors[cb] || null) : null;
+      var hidden = cb && _hiddenInspectors.indexOf(cb) !== -1;
       return {
         deficId: d.defic.id,
         num:     d.defic.num,
@@ -1050,7 +1064,9 @@ function _renderPins() {
         pinY:    d.defic.pinY,
         priority:d.defic.priority || 'high',
         isClosed:d.defic.status === 'closed' || d.defic.status === 'Addressed & Closed',
-        isIAR:   !!d.defic.iar
+        isIAR:   !!d.defic.iar,
+        inspectorColor: ic,                    // S83
+        _showRing: _showRings && !hidden && !!ic  // S83
       };
     });
     window.PinsGL.render(glPins, {

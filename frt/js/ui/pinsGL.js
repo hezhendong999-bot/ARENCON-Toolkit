@@ -129,12 +129,30 @@
     if (_supportsFilter){
       ctx.filter = _buildFilterString(fillHex, isOutstanding, state);
     }
-    ctx.fillStyle = fillHex;
-    ctx.globalAlpha = 1;
-    _teardropPath(ctx, 0, 0, 1);
-    ctx.fill();
-    if (_supportsFilter){
-      ctx.filter = 'none';  // subsequent draws (circle, number) render sharp on top
+
+    // S83: Inspector ring — outer teardrop in inspector color, inner teardrop
+    // in priority color. Only rendered when a) pin has inspectorColor set
+    // and b) global showInspectorRings is enabled.
+    // Inspector color is resolved by viewer.js and passed in as pin.inspectorColor.
+    var hasRing = !!(pin.inspectorColor && pin._showRing);
+    if (hasRing){
+      // Outer teardrop at full size in inspector color
+      ctx.fillStyle = pin.inspectorColor;
+      ctx.globalAlpha = 1;
+      _teardropPath(ctx, 0, 0, 1);
+      ctx.fill();
+      // Inner teardrop at 0.88 scale in priority color — ring thickness ~3px at 32×42
+      // Reset filter so inner doesn't double-shadow
+      if (_supportsFilter) ctx.filter = 'none';
+      ctx.fillStyle = fillHex;
+      _teardropPath(ctx, 0, 0, 0.88);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = fillHex;
+      ctx.globalAlpha = 1;
+      _teardropPath(ctx, 0, 0, 1);
+      ctx.fill();
+      if (_supportsFilter) ctx.filter = 'none';
     }
 
     // Layer 1: inner white circle at (16, 14), r=11, α=0.95

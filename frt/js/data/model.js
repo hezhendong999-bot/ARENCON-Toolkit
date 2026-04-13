@@ -16,6 +16,11 @@ var _undoStack = [];
 var _listeners = {};
 var _autoSaveInterval = null;
 
+// S83: Inspector attribution state.
+// app.js boot captures Auth.getUser() and pushes id here via Model.setCurrentUser(id).
+// Every new entity is stamped with this id as createdBy. Never mutated after creation.
+var _currentUserId = null;
+
 var SAVE_DEBOUNCE_MS = 800;
 var AUTO_SAVE_MS = 15000;
 
@@ -230,13 +235,15 @@ export var Model = {
       date: today,
       notedDate: today,
       notedOnInstance: inst,
+      createdBy: _currentUserId || null,   // S83: inspector attribution
       observations: [{
         id: 'obs_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
         text: '',
         photos: [],
         notedOnInstance: inst,
         notedDate: today,
-        addressed: false
+        addressed: false,
+        createdBy: _currentUserId || null   // S83
       }],
       photos: [],
       activity: []
@@ -313,7 +320,8 @@ export var Model = {
       photos: [],
       notedOnInstance: inst,
       notedDate: today,
-      addressed: false
+      addressed: false,
+      createdBy: _currentUserId || null  // S83
     };
     if (!f.defic.observations) f.defic.observations = [];
     f.defic.observations.push(obs);
@@ -379,7 +387,8 @@ export var Model = {
       id: 'ph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
       dataUrl: photoData,
       filename: 'photo_' + Date.now() + '.jpg',
-      addedDate: new Date().toISOString().split('T')[0]
+      addedDate: new Date().toISOString().split('T')[0],
+      createdBy: _currentUserId || null   // S83
     };
     obs[obsIdx].photos.push(photo);
     _dirty = true;
@@ -613,12 +622,21 @@ export var Model = {
   addDrawing: function(dwg) {
     if (!_project) return null;
     if (!_project.drawings) _project.drawings = [];
+    // S83: stamp inspector attribution when not already set
+    if (!dwg.createdBy) dwg.createdBy = _currentUserId || null;
     _project.drawings.push(dwg);
     _dirty = true;
     _queueSave();
     this._notify('drawing', { action: 'add', drawing: dwg });
     return dwg;
   },
+
+  // S83: Inspector attribution — app.js calls this on boot and whenever auth changes.
+  // Passing null explicitly clears attribution (e.g., on sign-out).
+  setCurrentUser: function(userId) {
+    _currentUserId = userId || null;
+  },
+  getCurrentUser: function() { return _currentUserId; },
 
   getSitePhotos: function() { return _project ? (_project.photos || []) : []; },
   hasUnsavedChanges: function() { return _dirty; },

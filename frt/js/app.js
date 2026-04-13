@@ -1145,6 +1145,8 @@ function boot() {
       return Auth.restoreSession().then(function(user) {
         if (user) {
           console.log('[FRT v2] Authenticated as:', user.email);
+          // S83: push user id into Model so newly-created entities get createdBy
+          if (Model.setCurrentUser) Model.setCurrentUser(user.id);
           // Set inspector from authenticated user
           var emailPrefix = (user.email || '').split('@')[0].toUpperCase();
           if (emailPrefix) {
