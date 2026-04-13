@@ -22,6 +22,38 @@ import { IDB } from '../data/idb.js';
 import { showConfirm } from '../shared/dialogs.js';
 import { TiledPdf } from './tiledPdf.js';
 
+// ── S82-4 DIAGNOSTIC: immediate visible debug panel + version banner ──
+// This runs at MODULE LOAD, so if you see the panel/banner, this file is live.
+var _MK_VERSION = 'S82-4';
+console.log('[markup.js] module loaded version=' + _MK_VERSION);
+(function(){
+  function mount(){
+    if (document.getElementById('_mkDbgPanel')) return;
+    try {
+      // Version banner (top-left, over everything)
+      var v = document.createElement('div');
+      v.id = '_mkVerBanner';
+      v.textContent = 'markup.js ' + _MK_VERSION;
+      v.style.cssText = 'position:fixed;top:2px;left:2px;z-index:99999;background:#C0392B;color:#fff;font:11px/1 monospace;padding:3px 6px;border-radius:4px;pointer-events:none;';
+      document.body.appendChild(v);
+      // Debug panel (bottom-right)
+      var p = document.createElement('div');
+      p.id = '_mkDbgPanel';
+      p.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;background:rgba(0,0,0,0.85);color:#0f0;font:10px/1.3 monospace;padding:6px 8px;border-radius:6px;max-width:280px;pointer-events:none;white-space:pre-wrap;';
+      document.body.appendChild(p);
+      var lines = [];
+      window._mkDbg = function(msg){
+        lines.push(new Date().toISOString().slice(14,22) + ' ' + msg);
+        if (lines.length > 10) lines.shift();
+        p.textContent = lines.join('\n');
+      };
+      window._mkDbg(_MK_VERSION + ' mounted');
+    } catch(e) { console.error('[markup.js] dbg mount failed', e); }
+  }
+  if (document.body) mount();
+  else document.addEventListener('DOMContentLoaded', mount);
+})();
+
 // ── State ───────────────────────────────────────────────
 var _drawingId = null;
 var _objects = [];
@@ -1723,22 +1755,7 @@ function _wireEvents() {
   // the synthesized click that would otherwise toggle the tool back off.
   var _skipNextClick = false;
   var _subBtnHandledAt = 0; // timestamp of most recent sub-tool activation via pointerup
-  // Debug panel — UNCONDITIONALLY ON for diagnostic push S82-3
-  (function(){
-    try {
-      var p = document.createElement('div');
-      p.id = '_mkDbgPanel';
-      p.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;background:rgba(0,0,0,0.85);color:#0f0;font:10px/1.3 monospace;padding:6px 8px;border-radius:6px;max-width:280px;pointer-events:none;white-space:pre-wrap;';
-      document.body.appendChild(p);
-      var lines = [];
-      window._mkDbg = function(msg){
-        lines.push(new Date().toISOString().slice(14,22) + ' ' + msg);
-        if (lines.length > 10) lines.shift();
-        p.textContent = lines.join('\n');
-      };
-      window._mkDbg('dbg S82-3 ready');
-    } catch(e) {}
-  })();
+  // Debug panel already mounted at module-top (see _MK_VERSION banner)
   // S82 fix v3: Log EVERY pointer/touch/click event on submenu + sub-tool btns
   // so we can see exactly what Samsung is dispatching.
   ['pen-submenu','shapes-submenu'].forEach(function(subId){
