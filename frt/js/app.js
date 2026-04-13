@@ -633,7 +633,12 @@ function _updateHeaderForProject() {
 
 // ── Cloud Sync (Hub Mode) ────────────────────────────────
 var _cloudSyncTimer = null;
-var _cloudSyncInterval = 30000; // 30 seconds
+var _cloudSyncInterval = 15000; // S82: 15s heartbeat (was 30s) for cross-device freshness
+
+// S82: Periodic pull — detects other inspectors' changes
+var _cloudPullTimer = null;
+var _cloudPullInterval = 30000; // 30s — lightweight updated_at check
+var _lastPulledUpdatedAt = null; // ISO timestamp; updated on every successful pull
 
 function _startCloudSync(didLoad) {
   if (_cloudSyncTimer) clearInterval(_cloudSyncTimer);
@@ -643,6 +648,12 @@ function _startCloudSync(didLoad) {
   var user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
   if (didLoad && user){
     _setCloudStatus('synced', 'Loaded from cloud');
+    // Initialize periodic-pull baseline so the first poll doesn't false-positive
+    if (typeof SyncEngine !== 'undefined' && SyncEngine.getRemoteUpdatedAt && _projectId){
+      SyncEngine.getRemoteUpdatedAt(_projectId, SyncEngine.instanceId).then(function(ts){
+        if (ts) _lastPulledUpdatedAt = ts;
+      });
+    }
   } else if (!user){
     _setCloudStatus('error', 'Not signed in — tap for details');
   } else {
@@ -660,9 +671,77 @@ function _startCloudSync(didLoad) {
     }, 5000); // Wait 5s after last local save before pushing
   });
 
-  // Also do periodic sync
+  // Also do periodic sync (push)
   _cloudSyncTimer = setInterval(_pushToCloud, _cloudSyncInterval);
-  console.log('[FRT v2] Cloud sync started (every ' + _cloudSyncInterval / 1000 + 's)');
+  console.log('[FRT v2] Cloud sync started (push every ' + _cloudSyncInterval / 1000 + 's)');
+
+  // S82: Start periodic pull for cross-inspector visibility
+  _startCloudPull();
+}
+
+// ─── S82: Periodic pull + context-aware banner ──────────────────
+function _startCloudPull(){
+  if (_cloudPullTimer) clearInterval(_cloudPullTimer);
+  if (!_hubMode || !_projectId) return;
+  _cloudPullTimer = setInterval(_checkRemoteForChanges, _cloudPullInterval);
+  console.log('[FRT v2] Cloud pull started (poll every ' + _cloudPullInterval / 1000 + 's)');
+}
+
+function _checkRemoteForChanges(){
+  if (!_hubMode || !_projectId) return;
+  var user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+  if (!user) return;
+  if (typeof SyncEngine === 'undefined' || !SyncEngine.getRemoteUpdatedAt) return;
+  SyncEngine.getRemoteUpdatedAt(_projectId, SyncEngine.instanceId).then(function(remoteTs){
+    if (!remoteTs) return;
+    if (!_lastPulledUpdatedAt){ _lastPulledUpdatedAt = remoteTs; return; }
+    if (remoteTs <= _lastPulledUpdatedAt) return; // nothing new
+    // Remote has newer data than our last pull
+    var hasLocal = (typeof Model !== 'undefined' && Model.hasUnsavedChanges) ? Model.hasUnsavedChanges() : false;
+    if (!hasLocal){
+      // Silent pull — no risk of losing local edits
+      console.log('[FRT v2] Remote newer (' + remoteTs + ') and no local changes — silent pull');
+      SyncEngine.pull(_projectId, SyncEngine.instanceId).then(function(data){
+        if (data) {
+          _lastPulledUpdatedAt = remoteTs;
+          _setCloudStatus('synced', 'Refreshed from cloud');
+        }
+      });
+    } else {
+      // Local dirty — show banner, let user decide
+      _showRemoteUpdateBanner(remoteTs);
+    }
+  });
+}
+
+function _showRemoteUpdateBanner(remoteTs){
+  // Don't stack banners
+  if (document.getElementById('frt-remote-update-banner')) return;
+  var b = document.createElement('div');
+  b.id = 'frt-remote-update-banner';
+  b.style.cssText =
+    'position:fixed;top:60px;left:50%;transform:translateX(-50%);' +
+    'z-index:99999;background:#1B2438;color:#fff;border:1px solid #9C2742;' +
+    'border-radius:8px;padding:10px 14px;font:14px Calibri,sans-serif;' +
+    'box-shadow:0 4px 16px rgba(0,0,0,.4);display:flex;align-items:center;gap:12px;' +
+    'max-width:90vw;';
+  b.innerHTML =
+    '<span>☁️ Another inspector saved changes. You have unsaved edits.</span>' +
+    '<button id="frt-banner-pull" style="background:#9C2742;color:#fff;border:none;border-radius:6px;padding:6px 12px;font:600 13px Calibri,sans-serif;cursor:pointer;">Pull now</button>' +
+    '<button id="frt-banner-dismiss" style="background:transparent;color:#c8ccd4;border:1px solid #3a4660;border-radius:6px;padding:6px 10px;font:13px Calibri,sans-serif;cursor:pointer;">Dismiss</button>';
+  document.body.appendChild(b);
+  document.getElementById('frt-banner-pull').addEventListener('click', function(){
+    if (confirm('Pulling will overwrite your unsaved local changes. Continue?')){
+      SyncEngine.pull(_projectId, SyncEngine.instanceId).then(function(data){
+        if (data) { _lastPulledUpdatedAt = remoteTs; _setCloudStatus('synced', 'Refreshed from cloud'); }
+        b.remove();
+      });
+    }
+  });
+  document.getElementById('frt-banner-dismiss').addEventListener('click', function(){
+    _lastPulledUpdatedAt = remoteTs; // suppress for this remote version
+    b.remove();
+  });
 }
 
 function _pushToCloud() {
@@ -677,6 +756,8 @@ function _pushToCloud() {
   SyncEngine.push(_projectId).then(function(row) {
     if (row) {
       _setCloudStatus('synced', 'Saved to cloud');
+      // S82: update periodic-pull baseline so banner doesn't fire for our own push
+      if (row.updated_at) _lastPulledUpdatedAt = row.updated_at;
     } else {
       _setCloudStatus('pending', 'Saved locally');
     }

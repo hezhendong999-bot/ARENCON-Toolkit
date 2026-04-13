@@ -67,6 +67,27 @@ export var SyncEngine = {
   },
 
   /**
+   * S82: Lightweight check for remote updated_at. Used by periodic-pull system
+   * to detect when another inspector pushed changes. Returns ISO timestamp or null.
+   * Cheap query (~150 bytes) — safe to run every 30s.
+   */
+  getRemoteUpdatedAt: function(projectId, instanceId) {
+    var path;
+    if (instanceId) {
+      path = '/rest/v1/tool_data?select=updated_at&id=eq.' + instanceId;
+    } else {
+      path = '/rest/v1/tool_data?select=updated_at&project_id=eq.' + projectId + '&tool_key=eq.' + _toolKey + '&order=updated_at.desc&limit=1';
+    }
+    return Auth.request(path).then(function(rows) {
+      if (!rows || !rows.length) return null;
+      return rows[0].updated_at || null;
+    }).catch(function(err) {
+      console.warn('[Sync] getRemoteUpdatedAt failed:', err.message);
+      return null;
+    });
+  },
+
+  /**
    * Push current project state to Supabase.
    * If offline, marks as pending and pushes on reconnect.
    */
