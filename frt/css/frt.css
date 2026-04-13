@@ -2775,7 +2775,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     border:1px solid #3a4660 !important;border-radius:6px !important;
     padding:0 12px !important;margin:0 0 0 6px !important;width:auto !important;
     min-height:40px !important;min-width:auto !important;
-    font-family:Calibri,sans-serif !important;font-size:13px !important;font-weight:600 !important;
+    font-family:Calibri,sans-serif !important;font-size:15px !important;font-weight:600 !important;
   }
   .drawing-viewer-overlay .dv-toolbar #dv-close:hover{background:#9C2742 !important;border-color:#9C2742 !important;}
   @media (pointer:coarse){
