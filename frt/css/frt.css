@@ -3352,23 +3352,37 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   S82 — Fix mobile :hover stick on bottombar nav buttons
-   Touch devices synthesize hover on tap with no corresponding mouseleave,
-   so the red hover colour persists. Guard all bottombar nav hovers behind
-   @media(hover:hover) so only real mice apply them.
+   S82 — Bottombar nav buttons: red flash on tap only, never sticks
+   - Default state: navy slate
+   - :active (held finger / mouse-down): red — gives tap feedback
+   - :hover red ONLY on real-mouse devices (hover:hover)
+   - :focus on touch devices: navy (don't keep highlighting after blur)
    ═══════════════════════════════════════════════════════════════════ */
-@media (hover:none){
+/* Strip any existing :hover red from base rules — base = navy always */
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button{
+  background:#2a3448 !important;
+}
+/* Real-mouse hover: red */
+@media (hover:hover) and (pointer:fine){
   .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:hover,
   .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:hover,
   .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hover{
-    background:#2a3448 !important;
-  }
-  /* Keep :active (press) flash so user still gets tap feedback */
-  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:active,
-  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:active,
-  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:active{
     background:#9C2742 !important;
   }
+}
+/* Press feedback (any device): red while finger/mouse is down */
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:active,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:active,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:active{
+  background:#9C2742 !important;
+}
+/* Belt-and-suspenders: focus alone (not :focus-visible) on touch should NOT colour */
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:focus:not(:focus-visible),
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:focus:not(:focus-visible),
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:focus:not(:focus-visible){
+  background:#2a3448 !important;outline:none !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════

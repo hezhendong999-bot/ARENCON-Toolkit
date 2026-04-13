@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=206">
+<link rel="stylesheet" href="css/frt.css?v=207">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -999,21 +999,26 @@ function ensurePdfJs(cb){
       if(tb && !tb.dataset.mobText){tb.dataset.mobText='1';tb.textContent='\uD83D\uDCCC';}
     })();
     /* Push 4: bottom bar proxies + mirrors */
-    var bbPrev=document.getElementById('dv-bb-prev');
-    var bbNext=document.getElementById('dv-bb-next');
-    var bbRename=document.getElementById('dv-bb-rename');
+    /* S82: blur() after every tap so :focus/:hover doesn't stick red on Samsung */
+    function _bbTap(srcId, targetIdOrFn){
+      var b=document.getElementById(srcId); if(!b||b.dataset.wired)return;
+      b.dataset.wired='1';
+      b.addEventListener('click',function(e){
+        e.preventDefault();
+        if(typeof targetIdOrFn==='function'){targetIdOrFn();}
+        else{var t=document.getElementById(targetIdOrFn);if(t)t.click();}
+        // Clear focus immediately so the button reverts to default colour
+        try{ b.blur(); }catch(_){}
+      });
+    }
+    _bbTap('dv-bb-prev','dv-prev');
+    _bbTap('dv-bb-next','dv-next');
+    _bbTap('dv-bb-fit',function(){var z=document.querySelector('#zoom-controls [data-zoom="fit"]');if(z)z.click();});
+    _bbTap('dv-nav-prev','dv-prev');
+    _bbTap('dv-nav-next','dv-next');
+    _bbTap('dv-bb-rename','dv-rename-btn');
     var bbTasks=document.getElementById('dv-bb-tasks');
-    if(bbPrev&&!bbPrev.dataset.wired){bbPrev.dataset.wired='1';bbPrev.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-prev');if(t)t.click();});}
-    if(bbNext&&!bbNext.dataset.wired){bbNext.dataset.wired='1';bbNext.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-next');if(t)t.click();});}
-    /* S82: bb-fit + floating PC nav-prev/nav-next proxies */
-    var bbFit=document.getElementById('dv-bb-fit');
-    if(bbFit&&!bbFit.dataset.wired){bbFit.dataset.wired='1';bbFit.addEventListener('click',function(e){e.preventDefault();var z=document.querySelector('#zoom-controls [data-zoom="fit"]');if(z)z.click();});}
-    var navPrev=document.getElementById('dv-nav-prev');
-    var navNext=document.getElementById('dv-nav-next');
-    if(navPrev&&!navPrev.dataset.wired){navPrev.dataset.wired='1';navPrev.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-prev');if(t)t.click();});}
-    if(navNext&&!navNext.dataset.wired){navNext.dataset.wired='1';navNext.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-next');if(t)t.click();});}
-    if(bbRename&&!bbRename.dataset.wired){bbRename.dataset.wired='1';bbRename.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-rename-btn');if(t)t.click();});}
-    if(bbTasks&&!bbTasks.dataset.wired){bbTasks.dataset.wired='1';bbTasks.addEventListener('click',function(e){e.preventDefault();var sh=document.getElementById('dv-tasks-sheet-v75');if(sh)sh.classList.toggle('open');});}
+    if(bbTasks&&!bbTasks.dataset.wired){bbTasks.dataset.wired='1';bbTasks.addEventListener('click',function(e){e.preventDefault();var sh=document.getElementById('dv-tasks-sheet-v75');if(sh)sh.classList.toggle('open');try{bbTasks.blur();}catch(_){}});}
     /* Push 5: tasks sheet collapse + handle + new task proxy */
     var tsCol=document.getElementById('dv-tsv75-collapse');
     var tsHandle=document.getElementById('dv-tsv75-handle');
