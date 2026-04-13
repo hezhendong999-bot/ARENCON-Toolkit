@@ -3364,13 +3364,11 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button{
   background:#2a3448 !important;
 }
-/* Real-mouse hover: red */
-@media (hover:hover) and (pointer:fine){
-  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:hover,
-  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:hover,
-  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hover{
-    background:#9C2742 !important;
-  }
+/* Real-mouse hover (most recent input was a mouse): red */
+body:not(.input-touch) .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:hover,
+body:not(.input-touch) .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:hover,
+body:not(.input-touch) .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hover{
+  background:#9C2742 !important;
 }
 /* Press feedback (any device): red while finger/mouse is down */
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:active,

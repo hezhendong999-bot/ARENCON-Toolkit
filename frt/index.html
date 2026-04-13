@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=207">
+<link rel="stylesheet" href="css/frt.css?v=208">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -1079,6 +1079,20 @@ function ensurePdfJs(cb){
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',wire);
   else wire();
+
+  /* S82: Input-type tracker — toggles body class based on most recent input.
+     CSS uses body:not(.input-touch) ... :hover for hover red, so touch never
+     triggers hover red even on hybrid devices or sticky-hover Android browsers. */
+  (function(){
+    function setTouch(){ document.body.classList.add('input-touch'); }
+    function setMouse(){ document.body.classList.remove('input-touch'); }
+    document.addEventListener('touchstart', setTouch, {passive:true, capture:true});
+    document.addEventListener('pointerdown', function(e){
+      if(e.pointerType==='touch' || e.pointerType==='pen') setTouch();
+      else setMouse();
+    }, {passive:true, capture:true});
+    document.addEventListener('mousemove', setMouse, {passive:true, capture:true});
+  })();
 })();
 </script>
 </body>
