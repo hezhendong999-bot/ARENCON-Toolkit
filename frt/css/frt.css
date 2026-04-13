@@ -3157,15 +3157,63 @@ html body .drawing-viewer-overlay .zoom-controls,
 html body .drawing-viewer-overlay #zoom-controls{display:none !important;}
 
 /* ═══════════════════════════════════════════════════════════════════
-   S82 — Mobile landscape layout (phone orientation:landscape, short screens)
-   Problem: on ~360×780 portrait screens rotated to landscape (~780×360),
-   top header + toolrow + stylestrip + bottombar eat ~270px of 360px height,
-   leaving <90px for the drawing. Squeeze every chrome band to reclaim space
-   without removing functionality.
-   Active only for phones (coarse pointer) in landscape, max-height 520px.
+   S82 — Mobile landscape layout (phone orientation:landscape)
+   Goal: mirror the PC layout — vertical sidebar toolbar on the LEFT,
+   horizontal top row / style strip / bottombar HIDDEN. Drawing area
+   fills the remaining space. This reclaims the ~150px eaten by stacked
+   horizontal bars in the previous mobile landscape.
+   Active only for phones (coarse pointer) in landscape, max-height 600px.
    ═══════════════════════════════════════════════════════════════════ */
-@media (orientation:landscape) and (pointer:coarse) and (max-height:520px){
-  /* Top header: slim padding, smaller font */
+@media (orientation:landscape) and (pointer:coarse) and (max-height:600px){
+  /* Hide the horizontal mobile bars */
+  .drawing-viewer-overlay #dv-toolrow-v75,
+  .drawing-viewer-overlay #dv-stylestrip-v75,
+  .drawing-viewer-overlay #dv-bottombar-v75,
+  .drawing-viewer-overlay #dv-mobile-context{
+    display:none !important;
+  }
+  /* Restore PC row layout so sidebar sits on the left of the canvas */
+  .drawing-viewer-overlay .dv-main{
+    flex-direction:row !important;
+    flex:1 !important;min-height:0 !important;
+  }
+  /* Restore the left sidebar (undoes mobile off-screen stash) */
+  .drawing-viewer-overlay #dv-sidebar-tools{
+    position:relative !important;
+    left:auto !important;top:auto !important;
+    width:48px !important;height:auto !important;
+    max-height:none !important;
+    visibility:visible !important;pointer-events:auto !important;
+    display:flex !important;flex-direction:column !important;
+    align-items:center !important;justify-content:flex-start !important;
+    gap:2px !important;padding:6px 0 !important;
+    background:#f0f1f4 !important;
+    border-right:1px solid #dde1e7 !important;border-bottom:none !important;
+    border-top:none !important;
+    flex-shrink:0 !important;
+    overflow-y:auto !important;overflow-x:hidden !important;
+    z-index:20 !important;order:0 !important;
+  }
+  body.dark-mode .drawing-viewer-overlay #dv-sidebar-tools{
+    background:#1a1c24 !important;border-right-color:#2a2d35 !important;
+  }
+  .drawing-viewer-overlay #dv-sidebar-tools .tool-btn{
+    width:38px !important;height:38px !important;
+  }
+  /* Size / Opacity steppers show vertically on PC — make them visible here too */
+  .drawing-viewer-overlay #dv-sidebar-tools .tool-stepper-wrap{
+    display:flex !important;flex-direction:column !important;
+    width:auto !important;padding:2px 0 !important;gap:2px !important;
+  }
+  .drawing-viewer-overlay #dv-sidebar-tools .tool-sep{display:block !important;}
+  .drawing-viewer-overlay #dv-sidebar-tools #tool-color-group{display:flex !important;}
+  .drawing-viewer-overlay #dv-sidebar-tools #mk-undo,
+  .drawing-viewer-overlay #dv-sidebar-tools #mk-redo{display:flex !important;}
+  /* Canvas area: no top/bottom margin — fills between header and viewport bottom */
+  .drawing-viewer-overlay .dv-canvas-area{
+    order:1 !important;flex:1 !important;min-height:0 !important;
+  }
+  /* Top header: keep it slim since we've lost vertical space */
   .drawing-viewer-overlay .dv-toolbar{
     padding:4px 12px !important;
     padding-right:max(12px, env(safe-area-inset-right, 0px)) !important;
@@ -3175,58 +3223,24 @@ html body .drawing-viewer-overlay #zoom-controls{display:none !important;}
     min-height:32px !important;font-size:13px !important;
     padding:0 8px 0 0 !important;
   }
-  .drawing-viewer-overlay .dv-toolbar #dv-prev,
-  .drawing-viewer-overlay .dv-toolbar #dv-next{
-    min-width:32px !important;padding:0 6px !important;font-size:14px !important;
+  .drawing-viewer-overlay .dv-toolbar button{
+    min-height:32px !important;min-width:36px !important;
+    padding:0 8px !important;font-size:calc(12px + var(--ts)) !important;
   }
-  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
-  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
-  .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
-  .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
-    padding:0 6px !important;min-width:36px !important;min-height:32px !important;
-    font-size:calc(13px + var(--ts)) !important;
-  }
-  /* Tool row: smaller buttons, tighter padding */
-  .drawing-viewer-overlay #dv-toolrow-v75{
-    padding:4px 8px !important;gap:4px !important;
-  }
-  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn{
-    width:32px !important;height:32px !important;
-  }
-  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn svg,
-  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn img{
-    width:16px !important;height:16px !important;
-  }
-  /* Style strip (SIZE/OPAC): slim padding, smaller controls */
-  .drawing-viewer-overlay #dv-stylestrip-v75{
-    padding:3px 8px !important;gap:6px !important;font-size:11px !important;
-  }
-  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-swatch{
-    width:22px !important;height:22px !important;
-  }
-  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-step{
-    width:22px !important;height:22px !important;font-size:12px !important;
-  }
-  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-group{
-    padding-left:6px !important;gap:3px !important;
-  }
-  /* Bottom bar: slim height, hide filename text, keep pill+zoom icons */
-  .drawing-viewer-overlay #dv-bottombar-v75{
-    padding:3px 8px !important;gap:6px !important;
-  }
-  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button{
-    width:32px !important;height:32px !important;font-size:15px !important;
-  }
-  .drawing-viewer-overlay #dv-bb-namepill{
-    padding:4px 10px !important;font-size:11px !important;
-    max-width:40vw;overflow:hidden;
-  }
-  .drawing-viewer-overlay #dv-bb-name{
-    font-size:11px !important;max-width:35vw !important;
-  }
-  /* Submenu icons — smaller on landscape so they fit */
-  .drawing-viewer-overlay .tool-submenu.open .sub-tool-btn,
-  .drawing-viewer-overlay .color-submenu.open .dv-color-dot{
-    width:34px !important;height:34px !important;
+  /* Tasks panel: if visible, dock right like PC — not bottom-overlay */
+  .drawing-viewer-overlay .dv-tasks-panel{
+    width:220px !important;max-height:none !important;
+    order:2 !important;
+    border-left:1px solid #dde1e7 !important;border-top:none !important;
   }
 }
+
+/* S82 — cloud-dot wrap: when status text is hidden, hug the dot to Back.
+   Applies on mobile (max-width 900px already has .dv-cloud-text:none) and
+   when JS clears #dv-cloud-text content on desktop. */
+@media (max-width: 900px){
+  .drawing-viewer-overlay .dv-toolbar{gap:4px !important;}
+  .dv-cloud-status{padding:0 2px !important;gap:0 !important;}
+  .dv-cloud-status .dv-cloud-text{display:none !important;}
+}
+
