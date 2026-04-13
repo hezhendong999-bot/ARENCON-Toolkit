@@ -3359,3 +3359,23 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
     min-width:44px !important;min-height:44px !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   S82 — Fix mobile :hover stick on bottombar nav buttons
+   Touch devices synthesize hover on tap with no corresponding mouseleave,
+   so the red hover colour persists. Guard all bottombar nav hovers behind
+   @media(hover:hover) so only real mice apply them.
+   ═══════════════════════════════════════════════════════════════════ */
+@media (hover:none){
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:hover,
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:hover,
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hover{
+    background:#2a3448 !important;
+  }
+  /* Keep :active (press) flash so user still gets tap feedback */
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:active,
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit:active,
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:active{
+    background:#9C2742 !important;
+  }
+}
