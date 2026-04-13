@@ -3341,7 +3341,7 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
 }
 .drawing-viewer-overlay .dv-toolbar #dv-close .dv-back-arrow{
   display:inline-flex;align-items:center;justify-content:center;
-  font-size:1.25em;line-height:1;position:relative;top:-1px;
+  font-size:inherit;line-height:1;
 }
 /* Bottombar fit button: fully inherit prev/next sizing (override earlier rule) */
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav #dv-bb-fit{
@@ -3381,22 +3381,20 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   S82 — PC drawing viewer header: Back/Layers typography
-   - Back text size matches main FRT .back-btn (15px on PC, see line 3146)
-   - Layers matches same size, weight 400 (un-bold), icon stays prominent
-   Active on pointer:fine only — mobile/tablet keeps existing sizing.
+   S82 — Drawing viewer header: Back/Layers typography (all viewports)
+   - Back: 15px / 600 (matches main FRT .back-btn)
+   - Layers: 15px / 400 (un-bold), icon stays 600 so glyph reads clearly
+   - Overrides earlier rule at ~line 2180 that bumped Layers to 16px on mobile
    ═══════════════════════════════════════════════════════════════════ */
-@media (pointer:fine){
-  .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
-    font-size:15px !important;font-weight:600 !important;
-  }
-  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn{
-    font-size:15px !important;font-weight:400 !important;
-  }
-  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-icon{
-    font-weight:600 !important;
-  }
-  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-txt{
-    font-weight:400 !important;
-  }
+.drawing-viewer-overlay .dv-toolbar .dv-close-btn{
+  font-size:15px !important;font-weight:600 !important;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-layers-btn{
+  font-size:15px !important;font-weight:400 !important;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-icon{
+  font-weight:600 !important;font-size:15px !important;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-txt{
+  font-weight:400 !important;font-size:15px !important;
 }
