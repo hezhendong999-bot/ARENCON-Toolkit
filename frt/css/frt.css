@@ -1036,7 +1036,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
   .main-wrap{padding:12px 10px 50px;max-width:100vw;overflow-x:hidden;}
   .proj-grid{grid-template-columns:1fr!important;}
   .dwg-header-bar{flex-wrap:wrap;gap:6px;}
-  .dwg-header-bar .btn{font-size:calc(11px + var(--ts));padding:4px 8px;}
+  .dwg-header-bar .btn{font-size:calc(13px + var(--ts));padding:8px 11px;font-weight:600;}
 }
 
 @media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}
@@ -1540,7 +1540,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   .dwg-header-bar .dwg-btn-cluster,.toolbar-cluster-bar .tb-cluster{display:flex!important;flex-wrap:wrap!important;gap:6px!important;}
   .dwg-header-bar .dwg-btn-cluster-left,.toolbar-cluster-bar .tb-cluster-left{justify-content:flex-start!important;}
   .dwg-header-bar .dwg-btn-cluster-right,.toolbar-cluster-bar .tb-cluster-right{justify-content:flex-end!important;margin-left:auto!important;}
-  .dwg-header-bar .btn,.toolbar-cluster-bar .btn{font-size:11px!important;padding:5px 8px!important;white-space:nowrap!important;}
+  .dwg-header-bar .btn,.toolbar-cluster-bar .btn{font-size:13px!important;padding:8px 11px!important;white-space:nowrap!important;min-height:36px!important;font-weight:600!important;}
   /* Deficiency controls — wrap better */
   .defic-controls{gap:6px;}
   .defic-controls>div{min-width:0;}
