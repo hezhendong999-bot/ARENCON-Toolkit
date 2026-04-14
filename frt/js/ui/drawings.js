@@ -629,6 +629,76 @@ function _getUniqueName(baseName) {
   return baseName + ' (' + i + ')';
 }
 
+// ─── V1 Drawing-conflict logic (ported verbatim S83) ────────────────
+// Local escape helper (avoids cross-module import; matches v1's escHtml).
+function _escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function _dwgConflictsInFolder(names, folder, p){
+  var existing = (p.drawings || [])
+    .filter(function(d){ return (d.folder || '') === folder; })
+    .map(function(d){ return d.name; });
+  return names.filter(function(n){ return existing.indexOf(n) !== -1; });
+}
+
+function _suggestFolderName(baseName, p){
+  var folders = {};
+  (p.drawings || []).forEach(function(d){ if (d.folder) folders[d.folder] = true; });
+  var candidates = [baseName + ' (Inspector 2)', baseName + ' (Set B)', baseName + ' (Copy)'];
+  ['B','C','D','E','F'].forEach(function(s){ candidates.push(baseName + ' \u2014 Set ' + s); });
+  for (var i = 0; i < candidates.length; i++){
+    if (!folders[candidates[i]]) return candidates[i];
+  }
+  var n = 2;
+  while (folders[baseName + ' (' + n + ')']) n++;
+  return baseName + ' (' + n + ')';
+}
+
+function _showDrawingConflictModal(conflictNames, suggestedFolder, onProceed, onCancel){
+  var ex = document.getElementById('_dwg-conflict-overlay');
+  if (ex) ex.remove();
+  var ov = document.createElement('div');
+  ov.id = '_dwg-conflict-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(28,35,51,.88);z-index:19500;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px);';
+  var listHtml = conflictNames.slice(0, 8).map(function(n){
+    return '<div style="padding:3px 0;color:#f0a030;font-size:calc(12px + var(--ts));">\u26A0 ' + _escHtml(n) + '</div>';
+  }).join('');
+  if (conflictNames.length > 8){
+    listHtml += '<div style="color:#8892a8;font-size:calc(11px + var(--ts));">\u2026and ' + (conflictNames.length - 8) + ' more</div>';
+  }
+  ov.innerHTML =
+    '<div style="background:#1e2028;border:1px solid #3a3e48;border-radius:14px;padding:28px 26px;max-width:420px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.6);font-family:Calibri,sans-serif;">' +
+      '<div style="font-size:calc(16px + var(--ts));font-weight:700;color:#dde2f0;margin-bottom:6px;">\u26A0\uFE0F Drawing Name Conflict</div>' +
+      '<div style="font-size:calc(13px + var(--ts));color:#8892a8;margin-bottom:14px;">The following names already exist. New drawings will be saved into a separate folder to keep each set independent:</div>' +
+      '<div style="background:#141720;border-radius:8px;padding:10px 14px;margin-bottom:16px;max-height:140px;overflow-y:auto;">' + listHtml + '</div>' +
+      '<div style="font-size:calc(12px + var(--ts));color:#8892a8;margin-bottom:6px;">New folder name:</div>' +
+      '<input id="_dwgc-folder-inp" type="text" value="' + _escHtml(suggestedFolder) + '" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #4a5570;border-radius:8px;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;background:#12151e;color:#dde2f0;margin-bottom:6px;">' +
+      '<div id="_dwgc-err" style="font-size:calc(11px + var(--ts));color:#C62828;min-height:16px;margin-bottom:12px;"></div>' +
+      '<div style="display:flex;gap:10px;">' +
+        '<button id="_dwgc-cancel" style="flex:1;padding:10px;background:none;color:#8892a8;border:1.5px solid #3a3e48;border-radius:8px;font-size:calc(13px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;">Cancel upload</button>' +
+        '<button id="_dwgc-ok" style="flex:2;padding:11px;background:#9C2742;color:white;border:none;border-radius:8px;font-size:calc(14px + var(--ts));font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Save to New Folder</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+  var inp = document.getElementById('_dwgc-folder-inp');
+  var errEl = document.getElementById('_dwgc-err');
+  setTimeout(function(){ inp.focus(); inp.select(); }, 60);
+  function doOk(){
+    var val = inp.value.trim();
+    if (!val){ errEl.textContent = 'Folder name cannot be empty.'; return; }
+    var p = Model.getProject();
+    var exists = (p.drawings || []).some(function(d){ return (d.folder || '') === val; });
+    if (exists){ errEl.textContent = 'That folder already exists \u2014 choose a different name.'; return; }
+    ov.remove();
+    onProceed(val);
+  }
+  inp.addEventListener('keydown', function(e){
+    if (e.key === 'Enter'){ e.preventDefault(); doOk(); }
+    if (e.key === 'Escape'){ ov.remove(); if (onCancel) onCancel(); }
+  });
+  document.getElementById('_dwgc-ok').onclick = doOk;
+  document.getElementById('_dwgc-cancel').onclick = function(){ ov.remove(); if (onCancel) onCancel(); };
+}
+
 function handleDrawingFiles(files) {
   Array.from(files).forEach(function(f) {
     if (f.type === 'application/pdf') _handlePDFUpload(f);
@@ -664,32 +734,57 @@ function _handleImageUpload(f, folder) {
   reader.onload = function(e) {
     var baseName = f.name.replace(/\.[^.]+$/, '');
     var dataUrl = e.target.result;
-    _genThumb(dataUrl, function(thumb) {
-      var newDwg = {
-        id: 'dwg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-        name: _getUniqueName(baseName),
-        dataUrl: null,
-        thumb: thumb,
-        width: 0, height: 0,
-        isOriginal: true, folder: folder || '',
-        r2Key: '', r2Status: '', r2Url: ''
-      };
-      Model.addDrawing(newDwg);
-      // Save full-res blob to IDB drawingBlobs store (not on project object)
-      fetch(dataUrl).then(function(r) { return r.blob(); }).then(function(blob) {
-        IDB.put('drawingBlobs', { id: newDwg.id, dataBlob: blob }).catch(function(err) {
-          console.warn('[Drawings] IDB blob save error:', err);
+    var p = Model.getProject();
+    var targetFolder = folder || '';
+    // S83: V1 conflict logic for single-image uploads.
+    // Skip when folder explicitly passed (drag-on-folder bypasses the modal).
+    var conflicts = (typeof folder === 'string' && folder)
+      ? []
+      : _dwgConflictsInFolder([baseName], targetFolder, p);
+
+    function _proceed(chosenFolder){
+      _genThumb(dataUrl, function(thumb) {
+        // After conflict resolution we save with the ORIGINAL baseName under chosenFolder
+        // (the new folder gives the file a unique scope; no (2) suffix needed).
+        var nameToUse = chosenFolder === targetFolder
+          ? _getUniqueName(baseName)   // same folder, fall back to suffix
+          : baseName;                  // new folder, raw name OK
+        var newDwg = {
+          id: 'dwg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          name: nameToUse,
+          dataUrl: null,
+          thumb: thumb,
+          width: 0, height: 0,
+          isOriginal: true, folder: chosenFolder,
+          r2Key: '', r2Status: '', r2Url: ''
+        };
+        Model.addDrawing(newDwg);
+        fetch(dataUrl).then(function(r){ return r.blob(); }).then(function(blob){
+          IDB.put('drawingBlobs', { id: newDwg.id, dataBlob: blob }).catch(function(err){
+            console.warn('[Drawings] IDB blob save error:', err);
+          });
+          var pid = new URLSearchParams(window.location.search).get('project');
+          if (pid){
+            R2.uploadDrawing(pid, newDwg, blob).then(function(){ Model.saveNow(); });
+          }
         });
-        // R2 upload in Hub mode (fire-and-forget)
-        var pid = new URLSearchParams(window.location.search).get('project');
-        if (pid) {
-          R2.uploadDrawing(pid, newDwg, blob).then(function() { Model.saveNow(); });
-        }
+        _hideDwgLoading();
+        initDrawings.render();
+        toast('Drawing added: ' + newDwg.name);
       });
+    }
+
+    if (conflicts.length > 0){
       _hideDwgLoading();
-      initDrawings.render();
-      toast('Drawing added: ' + newDwg.name);
-    });
+      _showDrawingConflictModal(
+        conflicts,
+        _suggestFolderName(baseName, p),
+        function(newFolder){ _proceed(newFolder); },
+        function(){ _hideDwgLoading(); }
+      );
+      return;
+    }
+    _proceed(targetFolder);
   };
   reader.readAsDataURL(f);
 }
@@ -719,48 +814,67 @@ function _handlePDFUpload(file, folderOverride) {
         clearTimeout(pdfTimeout);
         var bn = file.name.replace(/\.pdf$/i, '');
         var total = pdf.numPages;
-        var targetFolder = (typeof folderOverride === 'string' && folderOverride)
+        // S81: caller-supplied folder wins. Otherwise default = filename stem (V1 behavior).
+        var folderHint = (typeof folderOverride === 'string' && folderOverride)
           ? folderOverride
           : bn;
-        // Phase 5: persist source PDF buffer for tiled renderer
-        var pdfBufKey = 'pdfbuf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-        IDB.put('pdfBufs', { id: pdfBufKey, buf: pdfBufCopy }).catch(function(err) {
-          console.warn('[Drawings] pdfBufs save failed:', err);
-        });
 
-        // S83b3: DO NOT block page rendering on R2 upload. The R2 upload runs
-        // in parallel; when it finishes, it patches pdfBufR2Url onto every
-        // drawing record that used this pdfBufKey and triggers a save.
-        // Rendering starts IMMEDIATELY with pdfBufR2Url='' — the lazy-migration
-        // path in TiledPdf.open handles legacy-less records on first cross-device open.
-        var pid = new URLSearchParams(window.location.search).get('project');
-        if (pid && typeof R2 !== 'undefined' && R2.uploadPdfBuf){
-          R2.uploadPdfBuf(pid, pdfBufKey, pdfBufCopy.slice(0)).then(function(r){
-            if (r && r.r2Url){
-              console.log('[Drawings] PDF buffer uploaded to R2 (background):', r.r2Url);
-              try {
-                var proj = Model.getProject();
-                var dwgs = (proj && proj.drawings) || [];
-                var patched = 0;
-                dwgs.forEach(function(d){
-                  if (d.pdfBufKey === pdfBufKey && !d.pdfBufR2Url){
-                    d.pdfBufR2Url = r.r2Url;
-                    patched++;
-                  }
-                });
-                if (patched && Model.saveNow){
-                  console.log('[Drawings] Patched pdfBufR2Url onto ' + patched + ' drawings');
-                  Model.saveNow();
-                }
-              } catch(patchErr){ console.warn('[Drawings] patch failed:', patchErr); }
-            }
-          }).catch(function(err){
-            console.warn('[Drawings] PDF buffer R2 upload failed:', err && err.message);
+        // S83: V1 conflict logic — if any drawings already live under this folder,
+        // pop the conflict modal so the inspector reviews + accepts a new folder name
+        // (instead of silently auto-renaming with (2), (3) suffixes).
+        // Only triggers when caller did NOT pass an explicit folderOverride —
+        // drag-on-folder uploads bypass the modal (folder choice is already explicit).
+        var p = Model.getProject();
+        var existingInFolder = (p.drawings || []).filter(function(d){ return (d.folder || '') === folderHint; });
+        var skipConflictCheck = (typeof folderOverride === 'string' && folderOverride);
+
+        function _proceed(targetFolder){
+          // Phase 5: persist source PDF buffer for tiled renderer
+          var pdfBufKey = 'pdfbuf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+          IDB.put('pdfBufs', { id: pdfBufKey, buf: pdfBufCopy }).catch(function(err){
+            console.warn('[Drawings] pdfBufs save failed:', err);
           });
+          // S83b3: R2 upload runs in parallel; patches pdfBufR2Url after the fact.
+          var pid = new URLSearchParams(window.location.search).get('project');
+          if (pid && typeof R2 !== 'undefined' && R2.uploadPdfBuf){
+            R2.uploadPdfBuf(pid, pdfBufKey, pdfBufCopy.slice(0)).then(function(r){
+              if (r && r.r2Url){
+                console.log('[Drawings] PDF buffer uploaded to R2 (background):', r.r2Url);
+                try {
+                  var proj2 = Model.getProject();
+                  var dwgs2 = (proj2 && proj2.drawings) || [];
+                  var patched = 0;
+                  dwgs2.forEach(function(d){
+                    if (d.pdfBufKey === pdfBufKey && !d.pdfBufR2Url){
+                      d.pdfBufR2Url = r.r2Url; patched++;
+                    }
+                  });
+                  if (patched && Model.saveNow){
+                    console.log('[Drawings] Patched pdfBufR2Url onto ' + patched + ' drawings');
+                    Model.saveNow();
+                  }
+                } catch(patchErr){ console.warn('[Drawings] patch failed:', patchErr); }
+              }
+            }).catch(function(err){
+              console.warn('[Drawings] PDF buffer R2 upload failed:', err && err.message);
+            });
+          }
+          _showDwgLoading('Processing PDF: 0/' + total + '\u2026');
+          _runPdfPages(pdf, bn, targetFolder, total, pdfBufCopy, pdfBufKey, '');
         }
 
-        // Start rendering immediately with empty pdfBufR2Url — patched later.
-        _runPdfPages(pdf, bn, targetFolder, total, pdfBufCopy, pdfBufKey, '');
+        if (!skipConflictCheck && existingInFolder.length > 0){
+          _hideDwgLoading();
+          var conflictNames = existingInFolder.map(function(d){ return d.name; });
+          _showDrawingConflictModal(
+            conflictNames,
+            _suggestFolderName(folderHint, p),
+            function(chosenFolder){ _proceed(chosenFolder); },
+            function(){ _hideDwgLoading(); }
+          );
+          return;
+        }
+        _proceed(folderHint);
       }).catch(function(err) {
         clearTimeout(pdfTimeout);
         _hideDwgLoading();
