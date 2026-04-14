@@ -147,11 +147,145 @@ export var R2 = {
    *
    * Key format: photos/{pid}/frt/pdfbufs/{pdfBufKey}.pdf
    * Returns {r2Key, r2Url} or null.
+   *
+   * S83b5: Files >90 MB use multipart automatically (single-PUT can't exceed
+   * Cloudflare's 100 MB request body cap).
    */
   uploadPdfBuf: function(projectId, pdfBufKey, arrayBuf) {
     if (!projectId || !pdfBufKey || !arrayBuf) return Promise.resolve(null);
     var filename = pdfBufKey + '.pdf';
+    var size = arrayBuf.byteLength || (arrayBuf.size || 0);
+    var SINGLE_PUT_LIMIT = 90 * 1024 * 1024; // 90 MB safe ceiling
+    if (size > SINGLE_PUT_LIMIT){
+      console.log('[R2] PDF buffer ' + Math.round(size/1024/1024) + 'MB > 90MB \u2014 using multipart upload');
+      return R2.uploadMultipart(projectId, 'pdfbufs', arrayBuf, filename, 'application/pdf');
+    }
     return R2.upload(projectId, 'pdfbufs', arrayBuf, filename, 'application/pdf');
+  },
+
+  /**
+   * S83b5: Multipart upload for files larger than the worker's single-request
+   * body limit (~100 MB on Cloudflare). Splits the buffer into 5 MB parts,
+   * uploads each via PUT, then completes the multipart upload.
+   *
+   * Returns { r2Key, r2Url } on success, null on failure.
+   *
+   * Uploads two parts in parallel by default (gentle on slow uplinks).
+   */
+  uploadMultipart: function(projectId, type, data, filename, mimeHint, opts){
+    opts = opts || {};
+    var partSize = opts.partSize || (5 * 1024 * 1024); // 5 MB per part
+    var concurrency = opts.concurrency || 2;
+    var contentType = mimeHint || 'application/octet-stream';
+    var token = _getToken();
+    if (!token) { console.warn('[R2] Multipart: no auth token'); return Promise.resolve(null); }
+    if (!filename) filename = R2.generateFilename('bin');
+    var pathSuffix = projectId + '/frt/' + type + '/' + filename;
+    var r2Key = 'photos/' + pathSuffix;
+    var r2Url = R2_WORKER + '/' + r2Key;
+
+    return _toBlob(data, mimeHint).then(function(blob){
+      if (!blob) { console.warn('[R2] Multipart: nothing to upload'); return null; }
+      var totalSize = blob.size;
+      var totalParts = Math.ceil(totalSize / partSize);
+      console.log('[R2] Multipart init: ' + filename + '  ' + Math.round(totalSize/1024/1024) + 'MB in ' + totalParts + ' parts');
+
+      // 1. Init
+      return fetch(R2_WORKER + '/multipart/init/' + pathSuffix, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'X-Upload-Content-Type': contentType
+        }
+      }).then(function(r){
+        if (!r.ok) throw new Error('init HTTP ' + r.status);
+        return r.json();
+      }).then(function(init){
+        var uploadId = init.uploadId;
+        if (!uploadId) throw new Error('init returned no uploadId');
+        console.log('[R2] Multipart uploadId:', uploadId);
+
+        // 2. Build parts list
+        var parts = [];
+        for (var i = 0; i < totalParts; i++){
+          parts.push({
+            partNumber: i + 1,
+            offset: i * partSize,
+            length: Math.min(partSize, totalSize - i * partSize)
+          });
+        }
+        var completed = []; // {partNumber, etag}
+        var nextIdx = 0;
+        var doneCount = 0;
+        var failed = false;
+        var failErr = null;
+
+        function _uploadOne(p){
+          var slice = blob.slice(p.offset, p.offset + p.length);
+          var url = R2_WORKER + '/multipart/part/' + pathSuffix +
+                    '?uploadId=' + encodeURIComponent(uploadId) +
+                    '&partNumber=' + p.partNumber;
+          return fetch(url, {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: slice
+          }).then(function(r){
+            if (!r.ok) return r.text().then(function(t){ throw new Error('part ' + p.partNumber + ' HTTP ' + r.status + ': ' + t); });
+            return r.json();
+          }).then(function(j){
+            completed.push({ partNumber: j.partNumber, etag: j.etag });
+            doneCount++;
+            console.log('[R2] Part ' + j.partNumber + '/' + totalParts + ' done');
+            if (opts.onProgress) opts.onProgress(doneCount, totalParts);
+          });
+        }
+
+        // 3. Run with bounded concurrency
+        function _runWorker(){
+          if (failed) return Promise.resolve();
+          if (nextIdx >= parts.length) return Promise.resolve();
+          var p = parts[nextIdx++];
+          return _uploadOne(p).then(_runWorker).catch(function(e){
+            failed = true; failErr = e;
+          });
+        }
+        var workers = [];
+        for (var w = 0; w < Math.min(concurrency, parts.length); w++){
+          workers.push(_runWorker());
+        }
+        return Promise.all(workers).then(function(){
+          if (failed){
+            // Try to abort the multipart so R2 cleans up
+            return fetch(R2_WORKER + '/multipart/abort/' + pathSuffix +
+                         '?uploadId=' + encodeURIComponent(uploadId), {
+              method: 'DELETE',
+              headers: { 'Authorization': 'Bearer ' + token }
+            }).catch(function(){}).then(function(){
+              throw failErr || new Error('multipart upload failed');
+            });
+          }
+
+          // 4. Complete (parts must be sorted by partNumber)
+          completed.sort(function(a, b){ return a.partNumber - b.partNumber; });
+          return fetch(R2_WORKER + '/multipart/complete/' + pathSuffix +
+                       '?uploadId=' + encodeURIComponent(uploadId), {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify(completed)
+          }).then(function(r){
+            if (!r.ok) return r.text().then(function(t){ throw new Error('complete HTTP ' + r.status + ': ' + t); });
+            return r.json();
+          });
+        });
+      });
+    }).then(function(result){
+      if (!result) return null;
+      console.log('[R2] Multipart complete: ' + r2Key);
+      return { r2Key: r2Key, r2Url: r2Url };
+    }).catch(function(err){
+      console.warn('[R2] Multipart upload error:', err && err.message);
+      return null;
+    });
   },
 
   /** Queue upload for offline (saves to IDB pendingUploads). */

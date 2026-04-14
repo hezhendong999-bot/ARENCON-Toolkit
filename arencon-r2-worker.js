@@ -189,6 +189,64 @@ export default {
       }
     }
 
+    // ── MULTIPART UPLOAD: for files >100MB (worker single-PUT body limit) ──
+    // Init  : POST   /multipart/init/{slug}/{tool}/{type}/{fname}    → {uploadId}
+    // Part  : PUT    /multipart/part/{slug}/{tool}/{type}/{fname}?uploadId=X&partNumber=N → {etag}
+    // Done  : POST   /multipart/complete/{slug}/{tool}/{type}/{fname}?uploadId=X
+    //         body = [{ partNumber: 1, etag: "..." }, ...]
+    // Abort : DELETE /multipart/abort/{slug}/{tool}/{type}/{fname}?uploadId=X
+    if (rawPath.startsWith('/multipart/')) {
+      const auth = await validateAuth(request, env);
+      if (!auth.ok) {
+        return jsonResponse({ error: 'Unauthorized', reason: auth.reason }, 401, origin);
+      }
+      // Strip /multipart/{action}/ → leaves /photos-style path
+      const segs = rawPath.split('/');
+      // segs = ['', 'multipart', '{action}', '{slug}', '{tool}', '{type}', ...{fname segments}]
+      const action = segs[2];
+      if (segs.length < 7) return jsonResponse({ error: 'Bad multipart path' }, 400, origin);
+      // Reconstitute as /photos/{slug}/{tool}/{type}/{fname...} so urlPathToR2Key works
+      const photosPath = '/photos/' + segs.slice(3).join('/');
+      const r2Key = urlPathToR2Key(photosPath);
+      const uploadId = url.searchParams.get('uploadId') || '';
+
+      try {
+        if (action === 'init' && request.method === 'POST') {
+          const contentType = request.headers.get('X-Upload-Content-Type') || 'application/octet-stream';
+          const mp = await env.BUCKET.createMultipartUpload(r2Key, {
+            httpMetadata: { contentType }
+          });
+          return jsonResponse({ uploadId: mp.uploadId, key: r2Key }, 200, origin);
+        }
+        if (action === 'part' && request.method === 'PUT') {
+          if (!uploadId) return jsonResponse({ error: 'Missing uploadId' }, 400, origin);
+          const partNumber = parseInt(url.searchParams.get('partNumber') || '0', 10);
+          if (!partNumber) return jsonResponse({ error: 'Missing partNumber' }, 400, origin);
+          const mp = env.BUCKET.resumeMultipartUpload(r2Key, uploadId);
+          const body = await request.arrayBuffer();
+          const part = await mp.uploadPart(partNumber, body);
+          return jsonResponse({ partNumber: part.partNumber, etag: part.etag }, 200, origin);
+        }
+        if (action === 'complete' && request.method === 'POST') {
+          if (!uploadId) return jsonResponse({ error: 'Missing uploadId' }, 400, origin);
+          const parts = await request.json();
+          if (!Array.isArray(parts) || !parts.length) return jsonResponse({ error: 'Bad parts list' }, 400, origin);
+          const mp = env.BUCKET.resumeMultipartUpload(r2Key, uploadId);
+          const obj = await mp.complete(parts);
+          return jsonResponse({ success: true, key: r2Key, etag: obj.httpEtag, size: obj.size }, 200, origin);
+        }
+        if (action === 'abort' && request.method === 'DELETE') {
+          if (!uploadId) return jsonResponse({ error: 'Missing uploadId' }, 400, origin);
+          const mp = env.BUCKET.resumeMultipartUpload(r2Key, uploadId);
+          await mp.abort();
+          return jsonResponse({ success: true, aborted: r2Key }, 200, origin);
+        }
+        return jsonResponse({ error: 'Bad multipart method/action' }, 400, origin);
+      } catch (e) {
+        return jsonResponse({ error: 'Multipart failed: ' + e.message }, 500, origin);
+      }
+    }
+
     // ── PHOTOS: /photos/{slug}/{tool}/{type}/{filename} ──
     if (rawPath.startsWith('/photos/')) {
       const r2Key = urlPathToR2Key(rawPath);
