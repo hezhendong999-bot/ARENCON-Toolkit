@@ -940,7 +940,14 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey, pdfBufR2Url) 
               id: 'dwg_' + Date.now() + '_pg' + pg + '_' + Math.random().toString(36).substr(2, 4),
               name: pageName, dataUrl: null, thumb: thumbDu,
               width: hcW, height: hcH,
-              pdfTiled: true, pdfPage: pg, pdfBufKey: pdfBufKey,
+              // S83b11: MATCH V1. v2 was setting pdfTiled:true which routed the
+              // drawing through the tiled renderer at open time — slow, tile-
+              // flicker, iPad crashes. v1 renders the whole page as ONE JPEG at
+              // upload time, stores in drawingBlobs IDB, opens as a single <img>
+              // in 100ms. No tile reassembly at open. This is why v1 was fast.
+              // The tiled renderer stays available for truly-huge PDFs if
+              // needed in future, but not the default upload path.
+              pdfTiled: false, pdfPage: pg, pdfBufKey: pdfBufKey,
               pdfBufR2Url: resolvedR2Url,
               isOriginal: false, folder: folder,
               r2Key: '', r2Status: '', r2Url: ''
