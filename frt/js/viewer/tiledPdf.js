@@ -126,8 +126,16 @@ function _renderVisible() {
   var maxTx = Math.ceil(drawW / tileS);
   var maxTy = Math.ceil(drawH / tileS);
 
-  // Render quality: match current zoom so tiles stay crisp
-  var renderScale = Math.min(state.maxRenderScale, Math.max(1.0, scale) * state.baseScale);
+  // Render quality: match current zoom so tiles stay crisp.
+  // S83b8: REMOVED the Math.max(1.0, scale) floor. At fit-zoom of an 8192×5461
+  // PDF on a 430px viewport (scale ≈ 0.05), the floor was forcing every tile
+  // to render at 1.5× — yielding ~768×768 rasters per tile when only ~25×17
+  // were actually displayed. pdf.js took multiple seconds per tile and the
+  // renderer queued ALL 176 tiles (since at fit zoom, every tile IS visible).
+  // Now: renderScale matches the on-screen pixel density. minimum 0.5 (still
+  // crisper than display size on low-DPI viewports). qKey quantization keeps
+  // tiles cached across small zoom adjustments.
+  var renderScale = Math.min(state.maxRenderScale, Math.max(0.5, scale * state.baseScale));
   var qKey = Math.round(renderScale * 4); // quantise to 0.25 steps
 
   state._queue = [];
