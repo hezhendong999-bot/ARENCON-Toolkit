@@ -39,18 +39,39 @@ function jsonResponse(data, status, origin) {
   });
 }
 
+// S83: Hardcoded anon key as fallback when SUPABASE_SERVICE_KEY env secret is missing/rotated.
+// This key is safe to embed — same anon key the frontend uses. /auth/v1/user only needs ANY
+// valid apikey paired with the user's JWT. Service role gives no extra power for this call.
+const SUPABASE_ANON_KEY_FALLBACK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+const SUPABASE_URL_FALLBACK = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+
 async function validateAuth(request, env) {
   const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
-  const jwt = authHeader.replace('Bearer ', '');
-  try {
-    const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
-      headers: { 'Authorization': `Bearer ${jwt}`, 'apikey': env.SUPABASE_SERVICE_KEY }
-    });
-    return res.ok;
-  } catch (e) {
-    return false;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { ok: false, reason: 'no-auth-header' };
   }
+  const jwt = authHeader.replace('Bearer ', '');
+  // Anon key alone is not a real user — reject so it doesn't grant write access.
+  if (jwt === SUPABASE_ANON_KEY_FALLBACK || jwt === env.SUPABASE_ANON_KEY) {
+    return { ok: false, reason: 'anon-key-not-user' };
+  }
+  const supaUrl = env.SUPABASE_URL || SUPABASE_URL_FALLBACK;
+  // Try service key first (preferred), then anon fallback (works for /auth/v1/user).
+  const apikeys = [env.SUPABASE_SERVICE_KEY, env.SUPABASE_ANON_KEY, SUPABASE_ANON_KEY_FALLBACK].filter(Boolean);
+  for (let i = 0; i < apikeys.length; i++){
+    try {
+      const res = await fetch(`${supaUrl}/auth/v1/user`, {
+        headers: { 'Authorization': `Bearer ${jwt}`, 'apikey': apikeys[i] }
+      });
+      if (res.ok) return { ok: true };
+      // 401 from Supabase = bad user token. Don't try other apikeys.
+      if (res.status === 401) return { ok: false, reason: 'supabase-rejected-jwt-' + res.status };
+      // 403 / 5xx = apikey problem. Try next apikey.
+    } catch (e) {
+      // Network err — try next
+    }
+  }
+  return { ok: false, reason: 'all-apikeys-failed' };
 }
 
 /**
@@ -191,8 +212,9 @@ export default {
 
       // PUT — upload (authenticated)
       if (request.method === 'PUT') {
-        if (!(await validateAuth(request, env))) {
-          return jsonResponse({ error: 'Unauthorized' }, 401, origin);
+        const auth = await validateAuth(request, env);
+        if (!auth.ok) {
+          return jsonResponse({ error: 'Unauthorized', reason: auth.reason }, 401, origin);
         }
         try {
           const contentType = request.headers.get('Content-Type') || 'image/jpeg';
@@ -208,8 +230,9 @@ export default {
 
       // DELETE — remove (authenticated)
       if (request.method === 'DELETE') {
-        if (!(await validateAuth(request, env))) {
-          return jsonResponse({ error: 'Unauthorized' }, 401, origin);
+        const auth = await validateAuth(request, env);
+        if (!auth.ok) {
+          return jsonResponse({ error: 'Unauthorized', reason: auth.reason }, 401, origin);
         }
         try {
           await env.BUCKET.delete(r2Key);
