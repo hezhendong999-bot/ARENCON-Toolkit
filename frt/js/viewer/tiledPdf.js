@@ -39,10 +39,14 @@ var state = {
   tileSize: 512,
   tiles: {},          // key 'tx_ty' → {canvas, quality}
   tileCount: 0,
-  // S83b7: bumped from 24 → 60. v1 used 24 because v1 PDFs were smaller; modern
-  // 8192×5461 PDFs need more cache headroom for visible region + scroll buffer.
-  // 60 tiles × 512×512 RGBA decoded ≈ 60 MB — safe on iPad's per-tab budget.
-  maxTiles: 60,
+  // S83b9: bumped to 180. At fit zoom, every tile IS on-screen (just small),
+  // so the visible-region calc correctly queues all 176 tiles for an 8192×5461
+  // PDF. With cap at 60, the LRU was evicting visible tiles mid-render —
+  // causing "first columns disappear as new ones load". At fit zoom each tile
+  // renders at ~256×256 (baseScale clamped to 0.5), so 180 tiles ≈ 47 MB total.
+  // Safe on iPad budget. When user zooms in to 2×+, most tiles leave the
+  // visible region and get naturally evicted by the LRU.
+  maxTiles: 180,
   tileOrder: [],      // LRU
   renderTimer: null,
   baseScale: 1.5,
