@@ -840,19 +840,29 @@ function _handlePDFUpload(file, folderOverride) {
             R2.uploadPdfBuf(pid, pdfBufKey, pdfBufCopy.slice(0)).then(function(r){
               if (r && r.r2Url){
                 console.log('[Drawings] PDF buffer uploaded to R2 (background):', r.r2Url);
+                _pdfBufR2UrlCache[pdfBufKey] = r.r2Url; // S83b6: future pages stamp from here
                 try {
-                  var proj2 = Model.getProject();
-                  var dwgs2 = (proj2 && proj2.drawings) || [];
-                  var patched = 0;
-                  dwgs2.forEach(function(d){
-                    if (d.pdfBufKey === pdfBufKey && !d.pdfBufR2Url){
-                      d.pdfBufR2Url = r.r2Url; patched++;
+                  // S83b6: keep sweeping until all drawings with this pdfBufKey have the URL.
+                  // Race-safe: pages still rendering will read from _pdfBufR2UrlCache at creation.
+                  function sweep(){
+                    var proj2 = Model.getProject();
+                    var dwgs2 = (proj2 && proj2.drawings) || [];
+                    var patched = 0;
+                    dwgs2.forEach(function(d){
+                      if (d.pdfBufKey === pdfBufKey && !d.pdfBufR2Url){
+                        d.pdfBufR2Url = r.r2Url; patched++;
+                      }
+                    });
+                    if (patched && Model.saveNow){
+                      console.log('[Drawings] Patched pdfBufR2Url onto ' + patched + ' drawings');
+                      Model.saveNow();
                     }
-                  });
-                  if (patched && Model.saveNow){
-                    console.log('[Drawings] Patched pdfBufR2Url onto ' + patched + ' drawings');
-                    Model.saveNow();
                   }
+                  sweep();
+                  // Re-sweep at 5s, 15s, 30s in case more pages finish rendering after upload completed
+                  setTimeout(sweep, 5000);
+                  setTimeout(sweep, 15000);
+                  setTimeout(sweep, 30000);
                 } catch(patchErr){ console.warn('[Drawings] patch failed:', patchErr); }
               }
             }).catch(function(err){
@@ -885,6 +895,12 @@ function _handlePDFUpload(file, folderOverride) {
   });
 }
 
+// S83b6: Map from pdfBufKey → resolved R2 URL once multipart upload finishes.
+// Used by _runPdfPages so pages created AFTER the upload completes get the URL
+// stamped at creation time (no patch needed). Pages created BEFORE upload
+// completes still benefit from the post-hoc patch sweep below.
+var _pdfBufR2UrlCache = {};
+
 // ── SACRED CODE: recursive go(pg) pattern — DO NOT REWRITE ──
 function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey, pdfBufR2Url) {
   var done = 0;
@@ -913,12 +929,14 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey, pdfBufR2Url) 
           try {
             var pageName = total > 1 ? bn + ' - Page ' + pg : bn;
             pageName = _getUniqueName(pageName);
+            // S83b6: read cached R2 URL — if multipart finished before this page, use it now
+            var resolvedR2Url = pdfBufR2Url || _pdfBufR2UrlCache[pdfBufKey] || '';
             var newDwg = {
               id: 'dwg_' + Date.now() + '_pg' + pg + '_' + Math.random().toString(36).substr(2, 4),
               name: pageName, dataUrl: null, thumb: thumbDu,
               width: hcW, height: hcH,
               pdfTiled: true, pdfPage: pg, pdfBufKey: pdfBufKey,
-              pdfBufR2Url: pdfBufR2Url || '',
+              pdfBufR2Url: resolvedR2Url,
               isOriginal: false, folder: folder,
               r2Key: '', r2Status: '', r2Url: ''
             };
