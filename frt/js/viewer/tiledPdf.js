@@ -39,14 +39,7 @@ var state = {
   tileSize: 512,
   tiles: {},          // key 'tx_ty' → {canvas, quality}
   tileCount: 0,
-  // S83b9: bumped to 180. At fit zoom, every tile IS on-screen (just small),
-  // so the visible-region calc correctly queues all 176 tiles for an 8192×5461
-  // PDF. With cap at 60, the LRU was evicting visible tiles mid-render —
-  // causing "first columns disappear as new ones load". At fit zoom each tile
-  // renders at ~256×256 (baseScale clamped to 0.5), so 180 tiles ≈ 47 MB total.
-  // Safe on iPad budget. When user zooms in to 2×+, most tiles leave the
-  // visible region and get naturally evicted by the LRU.
-  maxTiles: 180,
+  maxTiles: 24,
   tileOrder: [],      // LRU
   renderTimer: null,
   baseScale: 1.5,
@@ -130,16 +123,8 @@ function _renderVisible() {
   var maxTx = Math.ceil(drawW / tileS);
   var maxTy = Math.ceil(drawH / tileS);
 
-  // Render quality: match current zoom so tiles stay crisp.
-  // S83b8: REMOVED the Math.max(1.0, scale) floor. At fit-zoom of an 8192×5461
-  // PDF on a 430px viewport (scale ≈ 0.05), the floor was forcing every tile
-  // to render at 1.5× — yielding ~768×768 rasters per tile when only ~25×17
-  // were actually displayed. pdf.js took multiple seconds per tile and the
-  // renderer queued ALL 176 tiles (since at fit zoom, every tile IS visible).
-  // Now: renderScale matches the on-screen pixel density. minimum 0.5 (still
-  // crisper than display size on low-DPI viewports). qKey quantization keeps
-  // tiles cached across small zoom adjustments.
-  var renderScale = Math.min(state.maxRenderScale, Math.max(0.5, scale * state.baseScale));
+  // Render quality: match current zoom so tiles stay crisp
+  var renderScale = Math.min(state.maxRenderScale, Math.max(1.0, scale) * state.baseScale);
   var qKey = Math.round(renderScale * 4); // quantise to 0.25 steps
 
   state._queue = [];
@@ -148,15 +133,7 @@ function _renderVisible() {
     for (var ty = tyMin; ty <= Math.min(tyMax, maxTy - 1); ty++) {
       var key = _tileKey(tx, ty);
       var existing = state.tiles[key];
-      // S83b7: quality-hysteresis. Previously we re-rendered any time qKey
-      // changed by even 1 step. On mobile DevTools at 88% zoom, the scale
-      // wobbles by tiny amounts each frame causing qKey to flip between
-      // adjacent values → infinite re-render chasing tail (Mark's
-      // "tiles auto-load and disappear without scrolling" report).
-      // Now: re-render only if quality differs by >= 2 steps (0.5 scale units).
-      // Tiles slightly under-quality are kept; tiles slightly over-quality
-      // are kept. Visible difference at < 0.5 zoom step is imperceptible.
-      if (existing && Math.abs(existing.quality - qKey) <= 1) {
+      if (existing && existing.quality === qKey) {
         // Touch LRU
         var idx = state.tileOrder.indexOf(key);
         if (idx >= 0) state.tileOrder.splice(idx, 1);
