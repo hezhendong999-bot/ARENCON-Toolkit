@@ -908,12 +908,12 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey, pdfBufR2Url) 
     pdf.getPage(pg).then(function(page) {
       var pv = page.view;
       var pw = pv[2], ph = pv[3];
-      // S83b10: MATCH V1. v2 had this at 8192 (ChatGPT "improvement") which
-      // doubled drawing dimensions to 8192×5461 — forcing the tile renderer
-      // into a 16×11=176 tile grid at fit zoom. v1's 4096 cap yields 4240×2828
-      // drawings with 8×6=48 tiles — 3.7× less work. The render loop, LRU
-      // cache, and all constants were tuned for v1's dimensions.
-      var hiScale = Math.min(4.0, 4096 / pw, 4096 / ph);
+      // S83b12: 6144px cap. 4096 was too blurry for engineering drawings;
+      // 8192 risks iPhone memory ceiling. 6144 gives 100 MB decoded per page
+      // (~300 MB headroom on iPhone's ~400 MB budget), text is readable at
+      // 1.5x zoom. One page in memory at a time. Final interim-answer until
+      // server-side tile-pyramid rendering is implemented (see handoff §Future).
+      var hiScale = Math.min(4.0, 6144 / pw, 6144 / ph);
       var hiVp = page.getViewport({ scale: hiScale });
       var hc = document.createElement('canvas');
       var hcW = Math.round(hiVp.width), hcH = Math.round(hiVp.height);

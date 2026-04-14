@@ -527,6 +527,14 @@ function _showDrawing(idx) {
   // Always close any prior tiled session before switching drawings
   if (TiledPdf.isActive()) TiledPdf.close();
 
+  // S83b12: explicit unload of previous image bitmap. At 6144px, each decoded
+  // page is ~100 MB in memory. If the browser keeps the old bitmap alive
+  // briefly while the new one loads, peak memory could double. Setting src=''
+  // forces immediate release. Safe on all browsers.
+  if (img.src && img.src !== 'about:blank') {
+    try { img.src = ''; } catch(e) {}
+  }
+
   // PDF branch — tiled renderer
   if (_isPdfDrawing(d)) {
     _ensureTiledInit();
