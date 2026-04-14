@@ -27,7 +27,7 @@ function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': allowed ? origin : '*',
     'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Upload-Content-Type',
     'Access-Control-Max-Age': '86400'
   };
 }
