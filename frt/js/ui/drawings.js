@@ -714,12 +714,11 @@ function _handlePDFUpload(file, folderOverride) {
         _hideDwgLoading();
         toast('PDF is taking too long (>2 min)');
       }, 120000);
+      _showDwgLoading('Parsing PDF structure...');
       pdfjsLib.getDocument({ data: ta }).promise.then(function(pdf) {
         clearTimeout(pdfTimeout);
         var bn = file.name.replace(/\.pdf$/i, '');
         var total = pdf.numPages;
-        // S81: if caller passed a folder (drop-on-folder card), use that verbatim.
-        // Otherwise use V1 default: folder named after the PDF filename.
         var targetFolder = (typeof folderOverride === 'string' && folderOverride)
           ? folderOverride
           : bn;
@@ -728,26 +727,40 @@ function _handlePDFUpload(file, folderOverride) {
         IDB.put('pdfBufs', { id: pdfBufKey, buf: pdfBufCopy }).catch(function(err) {
           console.warn('[Drawings] pdfBufs save failed:', err);
         });
-        // S83: ALSO upload the PDF buffer to R2 in Hub mode so other devices
-        // (iPad, other inspectors) can stream the source instead of relying on
-        // the rendered JPEG. Fire-and-forget — local IDB path still works without it.
+
+        // S83b3: DO NOT block page rendering on R2 upload. The R2 upload runs
+        // in parallel; when it finishes, it patches pdfBufR2Url onto every
+        // drawing record that used this pdfBufKey and triggers a save.
+        // Rendering starts IMMEDIATELY with pdfBufR2Url='' — the lazy-migration
+        // path in TiledPdf.open handles legacy-less records on first cross-device open.
         var pid = new URLSearchParams(window.location.search).get('project');
-        var pdfBufR2UrlPromise = Promise.resolve('');
         if (pid && typeof R2 !== 'undefined' && R2.uploadPdfBuf){
-          pdfBufR2UrlPromise = R2.uploadPdfBuf(pid, pdfBufKey, pdfBufCopy.slice(0)).then(function(r){
+          R2.uploadPdfBuf(pid, pdfBufKey, pdfBufCopy.slice(0)).then(function(r){
             if (r && r.r2Url){
-              console.log('[Drawings] PDF buffer uploaded to R2:', r.r2Url);
-              return r.r2Url;
+              console.log('[Drawings] PDF buffer uploaded to R2 (background):', r.r2Url);
+              try {
+                var proj = Model.getProject();
+                var dwgs = (proj && proj.drawings) || [];
+                var patched = 0;
+                dwgs.forEach(function(d){
+                  if (d.pdfBufKey === pdfBufKey && !d.pdfBufR2Url){
+                    d.pdfBufR2Url = r.r2Url;
+                    patched++;
+                  }
+                });
+                if (patched && Model.saveNow){
+                  console.log('[Drawings] Patched pdfBufR2Url onto ' + patched + ' drawings');
+                  Model.saveNow();
+                }
+              } catch(patchErr){ console.warn('[Drawings] patch failed:', patchErr); }
             }
-            return '';
           }).catch(function(err){
             console.warn('[Drawings] PDF buffer R2 upload failed:', err && err.message);
-            return '';
           });
         }
-        pdfBufR2UrlPromise.then(function(pdfBufR2Url){
-          _runPdfPages(pdf, bn, targetFolder, total, pdfBufCopy, pdfBufKey, pdfBufR2Url);
-        });
+
+        // Start rendering immediately with empty pdfBufR2Url — patched later.
+        _runPdfPages(pdf, bn, targetFolder, total, pdfBufCopy, pdfBufKey, '');
       }).catch(function(err) {
         clearTimeout(pdfTimeout);
         _hideDwgLoading();
@@ -811,7 +824,11 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey, pdfBufR2Url) 
               R2.uploadDrawing(pid, newDwg, imgBlob).then(function() { Model.saveNow(); });
             }
             done++;
-            _showDwgLoading('Processing PDF: ' + done + '/' + total + '...');
+            _showDwgLoading('Page ' + done + ' of ' + total + ' ready — continuing...');
+            // S83b3: rebuild the drawings list after each page so the user SEES
+            // pages appearing one-by-one as they finish, not all at once at the end.
+            // Only render once per page at the end of the IDB/R2 kick-off.
+            try { initDrawings.render(); } catch(_){}
             if (pg < total) { go(pg + 1); }
             else { initDrawings.render(); _hideDwgLoading(); toast(total + ' pages added from ' + bn); }
           } catch (encErr) {
