@@ -938,11 +938,10 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey, pdfBufR2Url) 
               R2.uploadDrawing(pid, newDwg, imgBlob).then(function() { Model.saveNow(); });
             }
             done++;
-            _showDwgLoading('Page ' + done + ' of ' + total + ' ready — continuing...');
-            // S83b3: rebuild the drawings list after each page so the user SEES
-            // pages appearing one-by-one as they finish, not all at once at the end.
-            // Only render once per page at the end of the IDB/R2 kick-off.
-            try { initDrawings.render(); } catch(_){}
+            _showDwgLoading('Page ' + done + ' of ' + total + ' ready \u2014 continuing...');
+            // S83b4: do NOT re-render the gallery on every page — that re-tiles
+            // every thumbnail image on the main thread and locks the UI.
+            // Only render once at the end. Progress text alone is enough feedback.
             if (pg < total) { go(pg + 1); }
             else { initDrawings.render(); _hideDwgLoading(); toast(total + ' pages added from ' + bn); }
           } catch (encErr) {
