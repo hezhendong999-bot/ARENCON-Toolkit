@@ -247,6 +247,27 @@ export default {
       }
     }
 
+    // ── TILES: /{pid}/tiles/{drawingId}/... (unauthenticated, immutable cache) ──
+    // Served directly by R2 key = URL path minus leading slash.
+    // Written by Azure Function arencon-pdf-render via S3 API.
+    if (request.method === 'GET' && /^\/[^/]+\/tiles\//.test(rawPath)) {
+      const r2Key = decodeURIComponent(rawPath.slice(1));
+      try {
+        const object = await env.BUCKET.get(r2Key);
+        if (!object) {
+          return new Response('Not Found', { status: 404, headers: cors });
+        }
+        const headers = new Headers(cors);
+        const isManifest = r2Key.endsWith('.json');
+        headers.set('Content-Type', isManifest ? 'application/json' : (object.httpMetadata?.contentType || 'image/jpeg'));
+        headers.set('Cache-Control', isManifest ? 'public, max-age=60' : 'public, max-age=31536000, immutable');
+        if (object.httpEtag) headers.set('ETag', object.httpEtag);
+        return new Response(object.body, { status: 200, headers });
+      } catch (e) {
+        return jsonResponse({ error: 'Tile get failed: ' + e.message }, 500, origin);
+      }
+    }
+
     // ── PHOTOS: /photos/{slug}/{tool}/{type}/{filename} ──
     if (rawPath.startsWith('/photos/')) {
       const r2Key = urlPathToR2Key(rawPath);
