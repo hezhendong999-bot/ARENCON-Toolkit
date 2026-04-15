@@ -26,7 +26,7 @@ function corsHeaders(origin) {
   const allowed = ALLOWED_ORIGINS.some(o => origin && origin.startsWith(o));
   return {
     'Access-Control-Allow-Origin': allowed ? origin : '*',
-    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Upload-Content-Type',
     'Access-Control-Max-Age': '86400'
   };
@@ -137,7 +137,7 @@ function listPathToR2Prefix(rawPath) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
     const cors = corsHeaders(origin);
@@ -245,6 +245,51 @@ export default {
       } catch (e) {
         return jsonResponse({ error: 'Multipart failed: ' + e.message }, 500, origin);
       }
+    }
+
+    // ── RENDER: POST /render → proxy to Azure Function (key held server-side) ──
+    // Body: { pid, drawingId, r2Key }  — r2Key is the actual R2 bucket key
+    // Auth: Supabase JWT (same Bearer token as /photos PUT)
+    // Returns 202 Accepted immediately. Function may take 5+ minutes — outbound
+    // fetch is kept alive via ctx.waitUntil so Worker doesn't abort it.
+    if (request.method === 'POST' && rawPath === '/render') {
+      const auth = await validateAuth(request, env);
+      if (!auth.ok) {
+        return jsonResponse({ error: 'Unauthorized', reason: auth.reason }, 401, origin);
+      }
+      const funcKey = env.AZURE_FUNC_KEY;
+      const funcUrl = env.AZURE_FUNC_URL || 'https://arencon-pdf-render.azurewebsites.net/api/render';
+      if (!funcKey) {
+        return jsonResponse({ error: 'AZURE_FUNC_KEY secret not configured on Worker' }, 500, origin);
+      }
+      let body;
+      try {
+        body = await request.text();
+        // Light validation — ensure it parses as JSON with required fields
+        const parsed = JSON.parse(body);
+        if (!parsed || !parsed.pid || !parsed.drawingId || !parsed.r2Key) {
+          return jsonResponse({ error: 'Body must include pid, drawingId, r2Key' }, 400, origin);
+        }
+      } catch (e) {
+        return jsonResponse({ error: 'Invalid JSON body: ' + e.message }, 400, origin);
+      }
+      // Dispatch — keep alive after Worker returns. We don't process the
+      // response (Function returns 504 on >230s anyway). FRT polls the
+      // manifest URL to detect completion.
+      const renderFetch = fetch(funcUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-functions-key': funcKey
+        },
+        body: body
+      }).then(r => {
+        console.log('[render] Function status', r.status);
+      }).catch(e => {
+        console.warn('[render] forward error:', e && e.message);
+      });
+      if (ctx && ctx.waitUntil) ctx.waitUntil(renderFetch);
+      return jsonResponse({ success: true, accepted: true }, 202, origin);
     }
 
     // ── TILES: /{pid}/tiles/{drawingId}/... (unauthenticated, immutable cache) ──

@@ -19,6 +19,179 @@ function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 
 var _foldedFolders = {};
 
+// ─── S86: Server-side tile rendering manager ──────────────────────────────
+// One render job per PDF upload (keyed by pdfBufKey). All N page-drawings
+// sharing that pdfBufKey share a single tile manifest.
+//
+// State machine per drawing:
+//   none       — image-only or legacy drawing, no tiles
+//   processing — render job fired, polling for manifest
+//   ready      — manifest.json present in R2, tiles available
+//   failed     — render timed out (10 min) or fire failed
+//
+// Polling state is in-memory (_tilePolls). On project reload, render() calls
+// _resumeTilePolling() to re-attach pollers to drawings with status ===
+// 'processing'. A failed render can be retried via the badge click.
+// ──────────────────────────────────────────────────────────────────────────
+var _tilePolls = {};                     // { pdfBufKey: intervalId }
+var _TILE_POLL_MS    = 7000;             // 7s — between 5/10s targets
+var _TILE_TIMEOUT_MS = 10 * 60 * 1000;   // 10 min hard ceiling
+
+function _tileSbToken() {
+  return localStorage.getItem('sb-access-token') || '';
+}
+function _tileManifestUrl(pid, pdfBufKey) {
+  return R2.WORKER_URL + '/' + pid + '/tiles/' + pdfBufKey + '/manifest.json';
+}
+// PDF buffer R2 bucket key — actual R2 layout (slug/photos swap from URL form).
+function _tilePdfBucketKey(pid, pdfBufKey) {
+  return pid + '/photos/frt/pdfbufs/' + pdfBufKey + '.pdf';
+}
+
+// Fire the render POST to Worker /render. Worker forwards to Azure Function
+// with x-functions-key (held in Worker secret AZURE_FUNC_KEY). Fire-and-
+// forget — Worker returns 202 immediately, we don't await Function.
+function _fireTileRender(pid, pdfBufKey, r2BucketKey) {
+  return fetch(R2.WORKER_URL + '/render', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + _tileSbToken()
+    },
+    body: JSON.stringify({ pid: pid, drawingId: pdfBufKey, r2Key: r2BucketKey })
+  }).then(function(resp) {
+    if (resp.status === 202 || resp.ok) {
+      console.log('[Tiles] Render forwarded:', pdfBufKey);
+      return true;
+    }
+    console.warn('[Tiles] Worker /render returned', resp.status);
+    return false;
+  }).catch(function(err) {
+    console.warn('[Tiles] Render POST error:', err && err.message);
+    return false;
+  });
+}
+
+// Start polling for the manifest. Polling stops on success, timeout, or
+// explicit _stopTilePolling call. No-op if already polling this pdfBufKey.
+function _startTilePolling(pid, pdfBufKey, startedAt) {
+  if (_tilePolls[pdfBufKey]) return;
+  var manifestUrl = _tileManifestUrl(pid, pdfBufKey);
+  var t0 = startedAt || Date.now();
+  console.log('[Tiles] Polling:', manifestUrl);
+
+  var check = function() {
+    // Cache-bust via query param so Worker's max-age=60 on manifest doesn't
+    // cache a 404 for us during the polling window.
+    fetch(manifestUrl + '?t=' + Date.now()).then(function(resp) {
+      if (resp.ok) {
+        _stopTilePolling(pdfBufKey);
+        _markTileStatus(pdfBufKey, 'ready');
+        console.log('[Tiles] Ready:', pdfBufKey);
+        return;
+      }
+      // 404 (still rendering) — check timeout
+      if (Date.now() - t0 > _TILE_TIMEOUT_MS) {
+        _stopTilePolling(pdfBufKey);
+        _markTileStatus(pdfBufKey, 'failed');
+        console.warn('[Tiles] Timeout (10 min):', pdfBufKey);
+      }
+    }).catch(function(err) {
+      // Network error — keep polling, only timeout on actual 404 loop
+      console.log('[Tiles] Poll fetch error (will retry):', err && err.message);
+    });
+  };
+
+  // Kick immediately, then on interval. Immediate check handles resume-
+  // after-page-refresh case where manifest may already exist.
+  check();
+  _tilePolls[pdfBufKey] = setInterval(check, _TILE_POLL_MS);
+}
+
+function _stopTilePolling(pdfBufKey) {
+  if (_tilePolls[pdfBufKey]) {
+    clearInterval(_tilePolls[pdfBufKey]);
+    delete _tilePolls[pdfBufKey];
+  }
+}
+
+// Apply tileStatus to all drawings with matching pdfBufKey. Saves model and
+// updates visible badges in-place (no full gallery re-render).
+function _markTileStatus(pdfBufKey, status) {
+  var proj = Model.getProject();
+  if (!proj || !proj.drawings) return;
+  var changed = 0;
+  proj.drawings.forEach(function(d) {
+    if (d.pdfBufKey === pdfBufKey && d.tileStatus !== status) {
+      d.tileStatus = status;
+      changed++;
+    }
+  });
+  if (changed) {
+    Model.saveNow();
+    _refreshTileBadges(pdfBufKey, status);
+  }
+}
+
+function _refreshTileBadges(pdfBufKey, status) {
+  var proj = Model.getProject(); if (!proj) return;
+  (proj.drawings || []).forEach(function(d) {
+    if (d.pdfBufKey !== pdfBufKey) return;
+    var card = document.querySelector('.drawing-card[data-drawing-id="' + d.id + '"] .card-thumb');
+    if (!card) return;
+    var existing = card.querySelector('.tile-badge');
+    if (existing) existing.remove();
+    var html = _buildTileBadgeHtml(status, d.pdfBufKey);
+    if (html) card.insertAdjacentHTML('beforeend', html);
+  });
+}
+
+function _buildTileBadgeHtml(status, pdfBufKey) {
+  if (status === 'processing') {
+    return '<div class="tile-badge tile-processing"><span class="tile-spinner"></span>Processing</div>';
+  }
+  if (status === 'failed') {
+    return '<div class="tile-badge tile-failed" data-action="retry-tile" data-pdf-buf-key="' +
+           esc(pdfBufKey || '') + '" title="Tile render failed \u2014 click to retry">\u26A0 Retry</div>';
+  }
+  return '';  // 'ready' or 'none' → no badge
+}
+
+// On project load (called from initDrawings.render), find any drawings with
+// status='processing' and resume polling for each unique pdfBufKey. Uses the
+// drawing's tileProcessStartedAt as t0 so timeout math survives page reloads.
+function _resumeTilePolling() {
+  var proj = Model.getProject(); if (!proj) return;
+  var pid = new URLSearchParams(window.location.search).get('project');
+  if (!pid) return;
+  var seen = {};
+  (proj.drawings || []).forEach(function(d) {
+    if (d.tileStatus !== 'processing' || !d.pdfBufKey) return;
+    if (seen[d.pdfBufKey] || _tilePolls[d.pdfBufKey]) return;
+    seen[d.pdfBufKey] = true;
+    _startTilePolling(pid, d.pdfBufKey, d.tileProcessStartedAt || Date.now());
+  });
+}
+
+// Retry handler — re-fires render POST and restarts polling fresh.
+function _retryTileRender(pdfBufKey) {
+  var pid = new URLSearchParams(window.location.search).get('project');
+  if (!pid) { toast('Hub mode required'); return; }
+  var proj = Model.getProject(); if (!proj) return;
+  var matches = (proj.drawings || []).filter(function(d) { return d.pdfBufKey === pdfBufKey; });
+  if (!matches.length) { toast('Drawing not found'); return; }
+  // Reset start time on every match so timeout begins anew
+  var now = Date.now();
+  matches.forEach(function(d) { d.tileProcessStartedAt = now; });
+  _stopTilePolling(pdfBufKey);
+  _markTileStatus(pdfBufKey, 'processing');
+  _fireTileRender(pid, pdfBufKey, _tilePdfBucketKey(pid, pdfBufKey));
+  _startTilePolling(pid, pdfBufKey, now);
+  toast('Retrying tile render\u2026');
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+
 // ── S79: Download-with-pins-baked-on (raster drawings only) ──
 // PDF-tiled drawings fall back to raw URL download (WebGL markup render deferred to Phase 5).
 function _deficIsOpen(d) { return (d.status || 'open') === 'open'; }
@@ -115,6 +288,9 @@ function buildDrawingCard(d, allDefics) {
     h += '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:32px;background:var(--smoke);">\uD83D\uDCC4</div>';
   }
   if (pins > 0) h += '<div class="pin-badge">' + pins + '</div>';
+  // S86: tile processing/failed badge (bottom-right corner of thumb)
+  var tileBadge = _buildTileBadgeHtml(d.tileStatus, d.pdfBufKey);
+  if (tileBadge) h += tileBadge;
   h += '</div>';
 
   // Card footer with select check + name + menu
@@ -207,6 +383,10 @@ export var initDrawings = {
 
     container.innerHTML = html;
     console.log('[Drawings] Rendered', drawings.length, 'drawings in', folderNames.length + 1, 'groups');
+
+    // S86: re-attach pollers for any drawings still in 'processing' state
+    // (e.g. after a page reload while tile render is in flight).
+    _resumeTilePolling();
 
     // Lazy-generate thumbnails for drawings missing them (cloud-synced from v1)
     var needThumb = drawings.filter(function(d) { return !d.thumb && d.r2Url; });
@@ -362,6 +542,16 @@ function _showDrawingContextMenu(drawingId, anchorEl) {
 
 // ── Click Handler ───────────────────────────────────────
 document.addEventListener('click', function(e) {
+  // 0) S86: Retry tile render (MUST be before open-viewer — badge sits inside card-thumb)
+  var retryBtn = e.target.closest && e.target.closest('[data-action="retry-tile"]');
+  if (retryBtn) {
+    e.stopPropagation();
+    e.preventDefault();
+    var pdfBufKey = retryBtn.getAttribute('data-pdf-buf-key');
+    if (pdfBufKey) _retryTileRender(pdfBufKey);
+    return;
+  }
+
   // 1) Rename folder (MUST be before toggle-folder)
   var renameBtn = e.target.closest && e.target.closest('[data-action="rename-folder"]');
   if (renameBtn) {
@@ -864,9 +1054,22 @@ function _handlePDFUpload(file, folderOverride) {
                   setTimeout(sweep, 15000);
                   setTimeout(sweep, 30000);
                 } catch(patchErr){ console.warn('[Drawings] patch failed:', patchErr); }
+                // S86: Fire server-side tile render job. ONE job per PDF
+                // upload — all page-drawings sharing pdfBufKey share the
+                // resulting manifest. Fire-and-forget; polling handles done.
+                try {
+                  var bucketKey = _tilePdfBucketKey(pid, pdfBufKey);
+                  _fireTileRender(pid, pdfBufKey, bucketKey);
+                  _startTilePolling(pid, pdfBufKey, Date.now());
+                } catch(tileErr){
+                  console.warn('[Tiles] Fire/poll setup failed:', tileErr);
+                }
               }
             }).catch(function(err){
               console.warn('[Drawings] PDF buffer R2 upload failed:', err && err.message);
+              // S86: R2 upload died — mark all matching drawings as failed
+              // so the retry badge appears (give _runPdfPages 30s to add them)
+              setTimeout(function(){ _markTileStatus(pdfBufKey, 'failed'); }, 30000);
             });
           }
           _showDwgLoading('Processing PDF: 0/' + total + '\u2026');
@@ -936,6 +1139,8 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey, pdfBufR2Url) 
             pageName = _getUniqueName(pageName);
             // S83b6: read cached R2 URL — if multipart finished before this page, use it now
             var resolvedR2Url = pdfBufR2Url || _pdfBufR2UrlCache[pdfBufKey] || '';
+            // S86: tile pyramid metadata (Hub mode only — standalone has no Function)
+            var _pidForTile = new URLSearchParams(window.location.search).get('project');
             var newDwg = {
               id: 'dwg_' + Date.now() + '_pg' + pg + '_' + Math.random().toString(36).substr(2, 4),
               name: pageName, dataUrl: null, thumb: thumbDu,
@@ -949,6 +1154,11 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey, pdfBufR2Url) 
               // needed in future, but not the default upload path.
               pdfTiled: false, pdfPage: pg, pdfBufKey: pdfBufKey,
               pdfBufR2Url: resolvedR2Url,
+              // S86: server-side tile pyramid (rendered by Azure Function)
+              tileManifestUrl: _pidForTile ? _tileManifestUrl(_pidForTile, pdfBufKey) : '',
+              tileServer: _pidForTile ? R2.WORKER_URL : '',
+              tileStatus: _pidForTile ? 'processing' : 'none',
+              tileProcessStartedAt: _pidForTile ? Date.now() : 0,
               isOriginal: false, folder: folder,
               r2Key: '', r2Status: '', r2Url: ''
             };
