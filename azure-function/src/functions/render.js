@@ -1,60 +1,55 @@
 // ARENCON PDF Tile Render Function
-// Session 85 — Azure Functions Node.js v4 programming model
+// Session 88 — pdfium swap + L5 (24576px) + WebP lossless at L3/L4
+// Session 85 origin — Azure Functions Node.js v4 programming model
 //
 // POST /api/render
 // Headers: x-functions-key: <function key>
 // Body: { pid, drawingId, r2Key }
 //
-// Downloads PDF from R2, renders each page at multiple zoom levels,
-// slices into 512x512 JPEG tiles, uploads tiles + manifest back to R2.
+// Downloads PDF from R2, renders each page at 6 zoom levels using @hyzyla/pdfium
+// (Chrome's PDF renderer, WebAssembly build — dramatically sharper text than pdfjs-dist),
+// slices into 512x512 WebP tiles, uploads tiles + manifest back to R2.
+//
+// Manifest schema unchanged from S87 (FRT viewer reads per-page levels[] array
+// dynamically — extra level per page is transparent to client).
 
 const { app } = require('@azure/functions');
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
-const { createCanvas } = require('@napi-rs/canvas');
+const { PDFiumLibrary } = require('@hyzyla/pdfium');
 const sharp = require('sharp');
 
 // ---- Constants ------------------------------------------------------------
 
 const TILE_SIZE = 512;
-const JPEG_QUALITY = 95;          // S88: bumped from 82 — engineering line work needs high quality
-const THUMB_QUALITY = 70;
+const THUMB_QUALITY = 75;         // L0 thumbnail only
+const STD_QUALITY = 92;           // Lossy levels: L1, L2, L5
 const MAX_PARALLEL_UPLOADS = 12;
-const BUCKET = 'arencon-files';   // R2 bucket name (matches Worker BUCKET binding)
+const BUCKET = 'arencon-files';
 
-// Level widths in pixels (page rendered at this width, height proportional).
-// L0 = thumbnail, L4 = max zoom (~12k px wide engineering drawing).
-const LEVEL_WIDTHS = [256, 1024, 2560, 6144, 12288];
+// Level target size (longest page dimension, in pixels).
+// Scale per level = target / max(nativeW, nativeH) in points.
+// L5 (24576px) = ~683 DPI native on a 36" sheet — matches/exceeds Fieldwire's clarity floor.
+const LEVEL_WIDTHS = [256, 1024, 2560, 6144, 12288, 24576];
 
-// ---- Lazy-loaded PDF.js (legacy build, Node-friendly) ---------------------
+// Levels using lossless WebP encoding (pixel-perfect engineering line work).
+// L3 (6144px) and L4 (12288px) are the "sweet spot" zoom tiers where the user
+// actually reads text — lossless eliminates any encoder-introduced edge artifacts.
+// L0/L1/L2 stay lossy (thumbs, far-zoom, imperceptible). L5 stays lossy q=92
+// because lossless at 24576px would quadruple storage for marginal gain.
+const LOSSLESS_LEVELS = new Set([3, 4]);
 
-let pdfjsLib = null;
-async function getPdfjs() {
-  if (pdfjsLib) return pdfjsLib;
-  pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  // In Node, pdfjs uses a "fake worker" (main-thread) but still dynamically
-  // imports the worker module — workerSrc MUST point at the real file path.
-  const _wPath = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
-  pdfjsLib.GlobalWorkerOptions.workerSrc = require('url').pathToFileURL(_wPath).href;
-  return pdfjsLib;
-}
+// Per-level bitmap memory budget. Scaled by longest-dim avoids portrait OOM,
+// but a square page at L5 can still hit ~2.4GB. Skip the level if we'd exceed
+// the WASM-heap-friendly threshold; viewer gracefully falls back to next-lowest.
+const MAX_LEVEL_BYTES = 2_000_000_000;   // 2 GB
 
-// ---- Canvas factory for PDF.js (uses @napi-rs/canvas) ---------------------
+// ---- Lazy-loaded pdfium (WASM, zero native deps) --------------------------
 
-class NodeCanvasFactory {
-  create(width, height) {
-    const canvas = createCanvas(Math.ceil(width), Math.ceil(height));
-    return { canvas, context: canvas.getContext('2d') };
-  }
-  reset(canvasAndContext, width, height) {
-    canvasAndContext.canvas.width = Math.ceil(width);
-    canvasAndContext.canvas.height = Math.ceil(height);
-  }
-  destroy(canvasAndContext) {
-    canvasAndContext.canvas.width = 0;
-    canvasAndContext.canvas.height = 0;
-    canvasAndContext.canvas = null;
-    canvasAndContext.context = null;
-  }
+let pdfiumLibrary = null;
+async function getPdfium() {
+  if (pdfiumLibrary) return pdfiumLibrary;
+  pdfiumLibrary = await PDFiumLibrary.init();
+  return pdfiumLibrary;
 }
 
 // ---- R2 / S3 client (built once per warm instance) ------------------------
@@ -72,18 +67,16 @@ function getS3() {
     region: 'auto',
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
     credentials: { accessKeyId, secretAccessKey },
-    // R2 prefers path-style; SDK v3 default is virtual-hosted, override:
     forcePathStyle: false,
   });
   return s3Client;
 }
 
-// ---- R2 helpers -----------------------------------------------------------
+// ---- R2 helpers (unchanged from S87) --------------------------------------
 
 async function downloadPdf(r2Key, log) {
   log(`R2 GET ${r2Key}`);
   const resp = await getS3().send(new GetObjectCommand({ Bucket: BUCKET, Key: r2Key }));
-  // Stream to buffer
   const chunks = [];
   for await (const chunk of resp.Body) chunks.push(chunk);
   const buf = Buffer.concat(chunks);
@@ -107,7 +100,7 @@ async function putManifest(key, manifest) {
     Key: key,
     Body: JSON.stringify(manifest),
     ContentType: 'application/json',
-    CacheControl: 'public, max-age=60',     // short — viewer may refresh
+    CacheControl: 'public, max-age=60',
   }));
 }
 
@@ -126,7 +119,7 @@ async function uploadAll(tasks, log) {
         errors.push({ idx, err: err.message });
       }
       done++;
-      if (done % 50 === 0 || done === total) log(`  uploaded ${done}/${total}`);
+      if (done % 50 === 0 || done === total) log(`    uploaded ${done}/${total}`);
     }
   }
   const workers = Array.from({ length: Math.min(MAX_PARALLEL_UPLOADS, tasks.length) }, worker);
@@ -136,102 +129,169 @@ async function uploadAll(tasks, log) {
   }
 }
 
-// ---- Per-page render + tile -----------------------------------------------
+// ---- Custom pdfium render callback: BGRA -> RGBA, return raw bitmap -------
+//
+// pdfium defaults to BGRA colorspace. Sharp encodes RGB channel order to
+// JPEG/WebP/PNG, so passing BGRA raw → sharp.webp() would swap red and blue
+// in the output (visible on colored annotations; invisible on black line work).
+// We do the swap once here before handing to sharp. In-place on the returned
+// Uint8Array — pdfium passes us the fresh copy, it's ours to mutate.
+//
+// Perf: ~100M ops/sec on V8, so ~4s for a 400MP L5 bitmap. Acceptable against
+// multi-second render + encode time.
+
+function bgraToRgbaRender({ data }) {
+  const len = data.length;
+  for (let i = 0; i < len; i += 4) {
+    const b = data[i];
+    data[i] = data[i + 2];   // R = old B
+    data[i + 2] = b;         // B = old R
+    // G (i+1) and A (i+3) unchanged
+  }
+  return Promise.resolve(data);
+}
+
+// ---- Per-page render + tile (pdfium-based, per-level upload) --------------
 
 async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
-  const page = await pdfDoc.getPage(pageNumber);
-  const baseViewport = page.getViewport({ scale: 1.0 });
-  const aspectRatio = baseViewport.height / baseViewport.width;
-  log(`Page ${pageNumber}: native ${Math.round(baseViewport.width)}x${Math.round(baseViewport.height)}`);
-
+  // Native size is discovered on the L0 iteration via getOriginalSize() (no
+  // render needed — it's a metadata call on the loaded page). Subsequent levels
+  // re-load the page since render auto-closes.
   const pageInfo = {
     pageNumber,
-    nativeWidth: baseViewport.width,
-    nativeHeight: baseViewport.height,
+    nativeWidth: 0,
+    nativeHeight: 0,
     levels: [],
   };
-
-  const canvasFactory = new NodeCanvasFactory();
-  const uploadTasks = [];
+  let nativeW = 0;
+  let nativeH = 0;
+  let longestDim = 0;
 
   for (let levelIdx = 0; levelIdx < LEVEL_WIDTHS.length; levelIdx++) {
-    const targetWidth = LEVEL_WIDTHS[levelIdx];
-    const targetHeight = Math.round(targetWidth * aspectRatio);
-    const scale = targetWidth / baseViewport.width;
-    const viewport = page.getViewport({ scale });
-    const w = Math.ceil(viewport.width);
-    const h = Math.ceil(viewport.height);
+    // Load fresh page — render auto-closes at the end of the call
+    const page = pdfDoc.getPage(pageNumber - 1);
 
-    log(`  L${levelIdx}: rendering ${w}x${h}`);
+    // First iteration: capture native dimensions (this is a cheap metadata call
+    // on the already-loaded page; page stays loaded for the render below)
+    if (levelIdx === 0) {
+      const sz = page.getOriginalSize();
+      nativeW = sz.originalWidth;
+      nativeH = sz.originalHeight;
+      longestDim = Math.max(nativeW, nativeH);
+      pageInfo.nativeWidth = nativeW;
+      pageInfo.nativeHeight = nativeH;
+      log(`Page ${pageNumber}: native ${nativeW}x${nativeH} pt (${(nativeW / 72).toFixed(1)}\" x ${(nativeH / 72).toFixed(1)}\")`);
+    }
 
-    // Render PDF page to canvas at this scale
-    const cc = canvasFactory.create(w, h);
-    // White background — PDF pages are transparent by default
-    cc.context.fillStyle = '#FFFFFF';
-    cc.context.fillRect(0, 0, w, h);
-    await page.render({ canvasContext: cc.context, viewport, canvasFactory }).promise;
+    const target = LEVEL_WIDTHS[levelIdx];
+    // Scale so the LONGEST dimension hits the target. This keeps portrait pages
+    // from producing 3GB buffers at L5 while still reaching high DPI on landscape.
+    const scale = target / longestDim;
+    const w = Math.round(nativeW * scale);
+    const h = Math.round(nativeH * scale);
 
-    // Get raw RGBA buffer from canvas → feed sharp
-    const rgba = cc.canvas.data();   // @napi-rs/canvas method, returns Buffer
-    const sharpBase = sharp(rgba, {
-      raw: { width: w, height: h, channels: 4 },
-    });
+    // Memory budget gate — skip L5 (or any level) that would exceed safe bitmap size.
+    // Note: we've already loaded the page for this iteration; flush it with a tiny
+    // render so pdfium closes it (otherwise the loaded page leaks until doc.destroy).
+    const expectedBytes = w * h * 4;
+    if (expectedBytes > MAX_LEVEL_BYTES) {
+      log(`  L${levelIdx}: SKIP ${w}x${h} (${(expectedBytes / 1e9).toFixed(2)} GB exceeds ${(MAX_LEVEL_BYTES / 1e9).toFixed(1)} GB budget)`);
+      try { await page.render({ scale: 0.05, render: ({ data }) => Promise.resolve(data) }); } catch {}
+      continue;
+    }
 
-    // Tile the level into TILE_SIZE x TILE_SIZE JPEG tiles
-    const cols = Math.ceil(w / TILE_SIZE);
-    const rows = Math.ceil(h / TILE_SIZE);
-    const quality = levelIdx === 0 ? THUMB_QUALITY : JPEG_QUALITY;
+    log(`  L${levelIdx}: render ${w}x${h} @ scale ${scale.toFixed(3)} (${(expectedBytes / 1e6).toFixed(0)} MB bitmap)`);
 
-    log(`  L${levelIdx}: slicing into ${cols}x${rows} tiles`);
+    // Render at this level's scale (page auto-closes)
+    let renderResult = null;
+    try {
+      renderResult = await page.render({
+        scale,
+        render: bgraToRgbaRender,
+      });
+    } catch (err) {
+      // WASM OOM or pdfium internal error — log and skip this level
+      log(`  L${levelIdx}: RENDER FAILED — ${err.message}; skipping this level`);
+      continue;
+    }
 
-    // Pre-pad to multiple of TILE_SIZE so all tiles are the full size
+    const rgba = renderResult.data;
+    const actualW = renderResult.width;
+    const actualH = renderResult.height;
+
+    // Tile the level into TILE_SIZE x TILE_SIZE WebP tiles
+    const cols = Math.ceil(actualW / TILE_SIZE);
+    const rows = Math.ceil(actualH / TILE_SIZE);
     const padW = cols * TILE_SIZE;
     const padH = rows * TILE_SIZE;
-    const padded = await sharpBase
-      .extend({
-        right: padW - w,
-        bottom: padH - h,
-        background: { r: 255, g: 255, b: 255, alpha: 1 },
-      })
-      .raw()
-      .toBuffer();
+    const useLossless = LOSSLESS_LEVELS.has(levelIdx);
+    const qTag = useLossless ? 'lossless' : (levelIdx === 0 ? `q=${THUMB_QUALITY}` : `q=${STD_QUALITY}`);
+    log(`  L${levelIdx}: ${cols}x${rows} tiles [${qTag}]`);
 
+    // Pre-pad to multiple of TILE_SIZE so every tile is the full TILE_SIZE.
+    // Sharp does this efficiently — streaming to .raw().toBuffer() once.
+    let padded;
+    try {
+      padded = await sharp(rgba, { raw: { width: actualW, height: actualH, channels: 4 } })
+        .extend({
+          right: padW - actualW,
+          bottom: padH - actualH,
+          background: { r: 255, g: 255, b: 255, alpha: 1 },
+        })
+        .raw()
+        .toBuffer();
+    } catch (err) {
+      log(`  L${levelIdx}: PAD FAILED — ${err.message}; skipping this level`);
+      // Let GC reclaim rgba on next iter
+      renderResult = null;
+      continue;
+    }
+
+    // Free raw bitmap now that padded copy exists
+    renderResult = null;
+
+    // Build upload task list for THIS level only (keeps `padded` closure scope
+    // tight — buffer becomes GC-eligible as soon as the level's uploads finish).
+    const uploadTasks = [];
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const left = x * TILE_SIZE;
         const top = y * TILE_SIZE;
-        // Defer extraction + encoding into the upload task itself so
-        // memory peaks per-tile, not whole-grid.
         const tileKey = `${pid}/tiles/${drawingId}/page-${pageNumber}/level-${levelIdx}/${x}-${y}.webp`;
         uploadTasks.push(async () => {
-          const tileBuf = await sharp(padded, { raw: { width: padW, height: padH, channels: 4 } })
-            .extract({ left, top, width: TILE_SIZE, height: TILE_SIZE })
-            .webp({ quality: levelIdx === 0 ? 75 : 92, effort: 4, alphaQuality: 100 })
-            .toBuffer();
+          const sharpInst = sharp(padded, { raw: { width: padW, height: padH, channels: 4 } })
+            .extract({ left, top, width: TILE_SIZE, height: TILE_SIZE });
+          let tileBuf;
+          if (useLossless) {
+            tileBuf = await sharpInst.webp({ lossless: true, effort: 4 }).toBuffer();
+          } else {
+            const q = levelIdx === 0 ? THUMB_QUALITY : STD_QUALITY;
+            tileBuf = await sharpInst.webp({ quality: q, effort: 4, alphaQuality: 100 }).toBuffer();
+          }
           await putTile(tileKey, tileBuf, 'image/webp');
         });
       }
     }
+
+    // CRITICAL: upload THIS level's tiles before moving to the next level.
+    // S87 behavior accumulated all levels' tasks then uploaded at end — with L5
+    // that would hold ALL padded buffers (up to ~4 GB total) in memory at once.
+    // Per-level uploads cap peak memory at ~one level's padded buffer.
+    await uploadAll(uploadTasks, log);
+
+    // Free padded buffer before next level's render allocates
+    padded = null;
+    if (global.gc) global.gc();
 
     pageInfo.levels.push({
       level: levelIdx,
       tileSize: TILE_SIZE,
       cols,
       rows,
-      width: w,
-      height: h,
+      width: actualW,
+      height: actualH,
     });
-
-    // Free canvas before next level
-    canvasFactory.destroy(cc);
   }
-
-  // Cleanup PDF.js page resources
-  page.cleanup();
-
-  // Upload all tiles for this page
-  log(`Page ${pageNumber}: uploading ${uploadTasks.length} tiles`);
-  await uploadAll(uploadTasks, log);
 
   return pageInfo;
 }
@@ -256,27 +316,21 @@ app.http('render', {
     if (!pid || !drawingId || !r2Key) {
       return { status: 400, jsonBody: { error: 'Missing pid, drawingId, or r2Key' } };
     }
-    // Basic sanity — block path traversal in keys
     if (/\.\./.test(pid) || /\.\./.test(drawingId) || /\.\./.test(r2Key)) {
       return { status: 400, jsonBody: { error: 'Invalid characters in identifiers' } };
     }
 
     log(`=== render start pid=${pid} drawingId=${drawingId} r2Key=${r2Key} ===`);
+    log(`Renderer: pdfium (WASM) | Levels: ${LEVEL_WIDTHS.join(',')} | Lossless: L${[...LOSSLESS_LEVELS].join(',L')}`);
 
+    let pdfDoc = null;
     try {
       const pdfBuf = await downloadPdf(r2Key, log);
 
-      const pdfjs = await getPdfjs();
-      const loadingTask = pdfjs.getDocument({
-        data: new Uint8Array(pdfBuf),
-        canvasFactory: new NodeCanvasFactory(),
-        // Disable system font + range requests in serverless context
-        useSystemFonts: false,
-        disableFontFace: true,
-        isEvalSupported: false,
-      });
-      const pdfDoc = await loadingTask.promise;
-      log(`PDF loaded — ${pdfDoc.numPages} page(s)`);
+      const library = await getPdfium();
+      pdfDoc = await library.loadDocument(pdfBuf);
+      const pageCount = pdfDoc.getPageCount();
+      log(`PDF loaded — ${pageCount} page(s)`);
 
       const manifest = {
         version: 1,
@@ -284,21 +338,21 @@ app.http('render', {
         pid,
         tileSize: TILE_SIZE,
         renderedAt: new Date().toISOString(),
-        pageCount: pdfDoc.numPages,
+        pageCount,
         pages: [],
       };
 
       let totalTiles = 0;
-      for (let p = 1; p <= pdfDoc.numPages; p++) {
+      for (let p = 1; p <= pageCount; p++) {
         const pageInfo = await renderPage(pdfDoc, p, pid, drawingId, log);
         manifest.pages.push(pageInfo);
         totalTiles += pageInfo.levels.reduce((s, l) => s + l.cols * l.rows, 0);
-        // Hint GC between pages
+        // Hint GC between pages — pdfium WASM heap and Node JS heap both benefit
         if (global.gc) global.gc();
       }
 
-      await pdfDoc.cleanup();
-      await pdfDoc.destroy();
+      pdfDoc.destroy();
+      pdfDoc = null;
 
       const manifestKey = `${pid}/tiles/${drawingId}/manifest.json`;
       await putManifest(manifestKey, manifest);
@@ -313,14 +367,18 @@ app.http('render', {
           success: true,
           pid,
           drawingId,
-          pageCount: pdfDoc.numPages,
+          pageCount,
           totalTiles,
           manifestKey,
           durationMs,
+          renderer: 'pdfium',
+          levels: LEVEL_WIDTHS.length,
         },
       };
     } catch (err) {
       context.error(`render failed: ${err.stack || err.message}`);
+      // Best-effort cleanup on error path
+      try { if (pdfDoc) pdfDoc.destroy(); } catch {}
       return {
         status: 500,
         jsonBody: { error: err.message, type: err.name || 'RenderError' },
@@ -339,7 +397,10 @@ app.http('health', {
     jsonBody: {
       ok: true,
       service: 'arencon-pdf-render',
-      version: '1.0.0',
+      version: '2.0.0',
+      renderer: 'pdfium',
+      levels: LEVEL_WIDTHS.length,
+      losslessLevels: [...LOSSLESS_LEVELS],
       time: new Date().toISOString(),
     },
   }),
