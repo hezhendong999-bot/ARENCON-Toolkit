@@ -55,13 +55,19 @@ function _tileUrl(level, col, row) {
 // value when zoomed past 1x where JPEG gets upscaled. At >1x, jump straight
 // to L4 (12288px) for maximum crispness. Skip L3 entirely — it's the same
 // resolution as JPEG. Returns -1 when JPEG alone is sufficient.
+// Always load tiles at every zoom level. JPEG backdrop has client-side
+// pdf.js rendering gaps (missing text, clipped notes) that the server-
+// rendered tiles don't. L3 (6144px) at normal zoom fixes these gaps
+// without visual change (same resolution, JPEG shows through until tile
+// loads). L4 (12288px) kicks in at zoom > 1x for extra crispness.
 function _pickLevel(viewScale) {
   if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return -1;
-  // Below ~0.95x zoom: JPEG is perfect, no tiles needed
-  if (viewScale < 0.95) return -1;
   var levels = _pageInfo.levels;
-  // Jump to highest level (L4 = 12288px) for maximum zoom crispness.
-  // L3 (6144px) = same as JPEG, pointless to tile-load.
+  var minLevel = Math.min(3, levels.length - 1);
+  var targetW = _drawW * viewScale;
+  for (var i = minLevel; i < levels.length; i++) {
+    if (levels[i].width >= targetW) return i;
+  }
   return levels.length - 1;
 }
 
