@@ -51,12 +51,16 @@ function _tileUrl(level, col, row) {
     '/level-' + level + '/' + col + '-' + row + '.jpg';
 }
 
-// Pick smallest level whose width >= drawW * screenZoom
+// Pick smallest level whose width >= drawW * screenZoom.
+// Minimum display level = 2 (2560px, 20 tiles) — L0/L1 are too blurry
+// compared to the old 6144px single-JPEG path. L0 is used only as the
+// background-image instant preview.
 function _pickLevel(viewScale) {
   if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return 0;
   var targetW = _drawW * viewScale;
   var levels = _pageInfo.levels;
-  for (var i = 0; i < levels.length; i++) {
+  var minLevel = Math.min(2, levels.length - 1);  // at least L2
+  for (var i = minLevel; i < levels.length; i++) {
     if (levels[i].width >= targetW) return i;
   }
   return levels.length - 1;
@@ -86,19 +90,24 @@ function _fetchTile(levelIdx, col, row, lvl, layer) {
 
   var tileCssW = _drawW / lvl.cols;
   var tileCssH = _drawH / lvl.rows;
-  var isLastCol = (col === lvl.cols - 1);
-  var isLastRow = (row === lvl.rows - 1);
-  var cssW = isLastCol ? (_drawW - col * tileCssW) : tileCssW;
-  var cssH = isLastRow ? (_drawH - row * tileCssH) : tileCssH;
-  var cssL = col * tileCssW;
-  var cssT = row * tileCssH;
+  // Integer positions — floor for left/top, ceil for size + 1px overlap to seal sub-pixel gaps
+  var cssL = Math.floor(col * tileCssW);
+  var cssT = Math.floor(row * tileCssH);
+  var cssR = Math.ceil((col + 1) * tileCssW) + 1;  // 1px overlap
+  var cssB = Math.ceil((row + 1) * tileCssH) + 1;
+  // Clamp to draw bounds
+  if (cssR > _drawW + 1) cssR = _drawW + 1;
+  if (cssB > _drawH + 1) cssB = _drawH + 1;
+  var cssW = cssR - cssL;
+  var cssH = cssB - cssT;
 
   var img = new Image();
   img.crossOrigin = 'anonymous';
   img.decoding = 'async';
   img.style.cssText =
     'position:absolute;left:' + cssL + 'px;top:' + cssT + 'px;' +
-    'width:' + cssW + 'px;height:' + cssH + 'px;image-rendering:auto;';
+    'width:' + cssW + 'px;height:' + cssH + 'px;image-rendering:auto;' +
+    'z-index:' + (levelIdx + 1) + ';pointer-events:none;';
 
   var drawingIdAtRequest = _drawingId;
   img.onload = function() {
@@ -205,20 +214,20 @@ function _openServerTiles(d, drawingId, pageNum) {
 
       var layer = document.createElement('div');
       layer.id = 'dv-tiles-layer';
+      // S87 fix: L0 thumbnail as background-image for instant blur preview
+      // while higher-level tiles load. Covers the entire draw area.
+      var l0url = _tileUrl(0, 0, 0);
       layer.style.cssText =
         'position:absolute;top:0;left:0;width:' + _drawW + 'px;height:' + _drawH +
-        'px;background:white;overflow:hidden;';
+        'px;overflow:hidden;' +
+        (l0url ? 'background:url(' + l0url + ') no-repeat top left/100% 100%;' : 'background:white;');
       if (wrap) wrap.insertBefore(layer, wrap.firstChild);
 
       _active = true;
       if (_cfg.hideLoading) _cfg.hideLoading();
       if (_cfg.onReady) _cfg.onReady({ drawW: _drawW, drawH: _drawH });
 
-      // L0 thumbnail first (1 tile = instant blur)
-      if (_pageInfo.levels && _pageInfo.levels.length > 0) {
-        _fetchTile(0, 0, 0, _pageInfo.levels[0], layer);
-      }
-
+      // L0 is already the background-image. Jump straight to target level.
       _renderVisible();
 
       // Mobile second-pass
