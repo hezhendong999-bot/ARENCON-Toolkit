@@ -88,16 +88,22 @@ function _fetchTile(levelIdx, col, row, lvl, layer) {
   var url = _tileUrl(levelIdx, col, row);
   if (!url) { delete _loading[key]; return; }
 
-  var tileCssW = _drawW / lvl.cols;
-  var tileCssH = _drawH / lvl.rows;
-  // Integer positions — floor for left/top, ceil for size + 1px overlap to seal sub-pixel gaps
-  var cssL = Math.floor(col * tileCssW);
-  var cssT = Math.floor(row * tileCssH);
-  var cssR = Math.ceil((col + 1) * tileCssW) + 1;  // 1px overlap
-  var cssB = Math.ceil((row + 1) * tileCssH) + 1;
-  // Clamp to draw bounds
-  if (cssR > _drawW + 1) cssR = _drawW + 1;
-  if (cssB > _drawH + 1) cssB = _drawH + 1;
+  // Map tile from level-pixel space to draw-pixel space.
+  // Each tile covers TILE_SIZE × TILE_SIZE level-pixels (edges may be smaller).
+  // Scale uniformly by drawW/levelW and drawH/levelH.
+  var scaleX = _drawW / lvl.width;
+  var scaleY = _drawH / lvl.height;
+  var tileX = col * _TILE_SIZE;
+  var tileY = row * _TILE_SIZE;
+  var tileW = Math.min(_TILE_SIZE, lvl.width - tileX);
+  var tileH = Math.min(_TILE_SIZE, lvl.height - tileY);
+  if (tileW <= 0 || tileH <= 0) { delete _loading[key]; return; }
+
+  var cssL = Math.round(tileX * scaleX);
+  var cssT = Math.round(tileY * scaleY);
+  // Compute right/bottom edge from next tile boundary to avoid rounding gaps
+  var cssR = Math.round((tileX + tileW) * scaleX) + 1;  // +1 overlap
+  var cssB = Math.round((tileY + tileH) * scaleY) + 1;
   var cssW = cssR - cssL;
   var cssH = cssB - cssT;
 
@@ -144,17 +150,25 @@ function _renderVisible() {
   var lvl = _pageInfo.levels[levelIdx];
   if (!lvl) return;
 
+  // Visible draw-space region
   var visX0 = Math.max(0, -panX / scale);
   var visY0 = Math.max(0, -panY / scale);
   var visX1 = Math.min(_drawW, (areaW - panX) / scale);
   var visY1 = Math.min(_drawH, (areaH - panY) / scale);
 
-  var tileCssW = _drawW / lvl.cols;
-  var tileCssH = _drawH / lvl.rows;
-  var colMin = Math.max(0, Math.floor(visX0 / tileCssW));
-  var colMax = Math.min(lvl.cols - 1, Math.floor(visX1 / tileCssW));
-  var rowMin = Math.max(0, Math.floor(visY0 / tileCssH));
-  var rowMax = Math.min(lvl.rows - 1, Math.floor(visY1 / tileCssH));
+  // Convert visible draw region to level-pixel coordinates
+  var d2lX = lvl.width / _drawW;
+  var d2lY = lvl.height / _drawH;
+  var lvlX0 = visX0 * d2lX;
+  var lvlY0 = visY0 * d2lY;
+  var lvlX1 = visX1 * d2lX;
+  var lvlY1 = visY1 * d2lY;
+
+  // Tile grid range (1-tile margin for smooth panning)
+  var colMin = Math.max(0, Math.floor(lvlX0 / _TILE_SIZE) - 1);
+  var colMax = Math.min(lvl.cols - 1, Math.ceil(lvlX1 / _TILE_SIZE));
+  var rowMin = Math.max(0, Math.floor(lvlY0 / _TILE_SIZE) - 1);
+  var rowMax = Math.min(lvl.rows - 1, Math.ceil(lvlY1 / _TILE_SIZE));
 
   for (var col = colMin; col <= colMax; col++) {
     for (var row = rowMin; row <= rowMax; row++) {
