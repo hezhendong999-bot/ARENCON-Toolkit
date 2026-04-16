@@ -16,7 +16,7 @@ const sharp = require('sharp');
 // ---- Constants ------------------------------------------------------------
 
 const TILE_SIZE = 512;
-const JPEG_QUALITY = 82;          // sweet spot for engineering drawings
+const JPEG_QUALITY = 95;          // S88: bumped from 82 — engineering line work needs high quality
 const THUMB_QUALITY = 70;
 const MAX_PARALLEL_UPLOADS = 12;
 const BUCKET = 'arencon-files';   // R2 bucket name (matches Worker BUCKET binding)
