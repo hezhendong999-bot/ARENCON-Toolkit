@@ -304,7 +304,7 @@ export default {
         }
         const headers = new Headers(cors);
         const isManifest = r2Key.endsWith('.json');
-        headers.set('Content-Type', isManifest ? 'application/json' : (object.httpMetadata?.contentType || 'image/jpeg'));
+        headers.set('Content-Type', isManifest ? 'application/json' : (object.httpMetadata?.contentType || (r2Key.endsWith('.webp') ? 'image/webp' : 'image/jpeg')));
         headers.set('Cache-Control', isManifest ? 'public, max-age=60' : 'public, max-age=31536000, immutable');
         if (object.httpEtag) headers.set('ETag', object.httpEtag);
         return new Response(object.body, { status: 200, headers });

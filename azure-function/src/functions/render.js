@@ -202,13 +202,13 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
         const top = y * TILE_SIZE;
         // Defer extraction + encoding into the upload task itself so
         // memory peaks per-tile, not whole-grid.
-        const tileKey = `${pid}/tiles/${drawingId}/page-${pageNumber}/level-${levelIdx}/${x}-${y}.jpg`;
+        const tileKey = `${pid}/tiles/${drawingId}/page-${pageNumber}/level-${levelIdx}/${x}-${y}.webp`;
         uploadTasks.push(async () => {
           const tileBuf = await sharp(padded, { raw: { width: padW, height: padH, channels: 4 } })
             .extract({ left, top, width: TILE_SIZE, height: TILE_SIZE })
-            .jpeg({ quality, mozjpeg: true })
+            .webp({ quality: levelIdx === 0 ? 75 : 92, effort: 4, alphaQuality: 100 })
             .toBuffer();
-          await putTile(tileKey, tileBuf, 'image/jpeg');
+          await putTile(tileKey, tileBuf, 'image/webp');
         });
       }
     }

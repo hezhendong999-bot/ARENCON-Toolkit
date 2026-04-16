@@ -48,7 +48,7 @@ function _tileUrl(level, col, row) {
   if (!d || !d.tileServer || !_manifest) return '';
   return d.tileServer + '/' + _manifest.pid + '/tiles/' +
     _manifest.drawingId + '/page-' + _pageInfo.pageNumber +
-    '/level-' + level + '/' + col + '-' + row + '.jpg';
+    '/level-' + level + '/' + col + '-' + row + '.webp';
 }
 
 // Level selection: JPEG backdrop is 6144px (matches drawW). Tiles only add
