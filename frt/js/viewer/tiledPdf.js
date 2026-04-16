@@ -51,21 +51,17 @@ function _tileUrl(level, col, row) {
     '/level-' + level + '/' + col + '-' + row + '.jpg';
 }
 
-// Pick smallest level whose width >= drawW * screenZoom.
-// Minimum display level = 3 (6144px) — this EXACTLY matches the drawing
-// record's drawW, so tiles map 1:1 into draw space with zero CSS stretching.
-// L2 (2560px) caused visible compression artifacts when CSS-scaled to 6144px.
-// L4 (12288px) only loads when zoomed past 1.5× for extra crispness.
-// L0 stays as background-image for instant preview while L3 loads.
+// Level selection: JPEG backdrop is 6144px (matches drawW). Tiles only add
+// value when zoomed past 1x where JPEG gets upscaled. At >1x, jump straight
+// to L4 (12288px) for maximum crispness. Skip L3 entirely — it's the same
+// resolution as JPEG. Returns -1 when JPEG alone is sufficient.
 function _pickLevel(viewScale) {
-  if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return 0;
+  if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return -1;
+  // Below ~0.95x zoom: JPEG is perfect, no tiles needed
+  if (viewScale < 0.95) return -1;
   var levels = _pageInfo.levels;
-  // Preferred level = 3 (matches drawW). Only go to L4 at deep zoom.
-  var minLevel = Math.min(3, levels.length - 1);
-  var targetW = _drawW * Math.max(viewScale, 0.5);
-  for (var i = minLevel; i < levels.length; i++) {
-    if (levels[i].width >= targetW) return i;
-  }
+  // Jump to highest level (L4 = 12288px) for maximum zoom crispness.
+  // L3 (6144px) = same as JPEG, pointless to tile-load.
   return levels.length - 1;
 }
 
@@ -150,6 +146,7 @@ function _renderVisible() {
   var areaH = area.clientHeight;
 
   var levelIdx = _pickLevel(scale);
+  if (levelIdx < 0) return;  // JPEG backdrop is sufficient at this zoom
   var lvl = _pageInfo.levels[levelIdx];
   if (!lvl) return;
 
