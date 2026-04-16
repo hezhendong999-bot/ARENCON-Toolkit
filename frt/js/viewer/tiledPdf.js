@@ -52,14 +52,17 @@ function _tileUrl(level, col, row) {
 }
 
 // Pick smallest level whose width >= drawW * screenZoom.
-// Minimum display level = 2 (2560px, 20 tiles) — L0/L1 are too blurry
-// compared to the old 6144px single-JPEG path. L0 is used only as the
-// background-image instant preview.
+// Minimum display level = 3 (6144px) — this EXACTLY matches the drawing
+// record's drawW, so tiles map 1:1 into draw space with zero CSS stretching.
+// L2 (2560px) caused visible compression artifacts when CSS-scaled to 6144px.
+// L4 (12288px) only loads when zoomed past 1.5× for extra crispness.
+// L0 stays as background-image for instant preview while L3 loads.
 function _pickLevel(viewScale) {
   if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return 0;
-  var targetW = _drawW * viewScale;
   var levels = _pageInfo.levels;
-  var minLevel = Math.min(2, levels.length - 1);  // at least L2
+  // Preferred level = 3 (matches drawW). Only go to L4 at deep zoom.
+  var minLevel = Math.min(3, levels.length - 1);
+  var targetW = _drawW * Math.max(viewScale, 0.5);
   for (var i = minLevel; i < levels.length; i++) {
     if (levels[i].width >= targetW) return i;
   }
