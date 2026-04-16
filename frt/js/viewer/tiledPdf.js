@@ -28,7 +28,7 @@ var _tiles = {};
 var _loading = {};
 var _tileOrder = [];
 var _tileCount = 0;
-var _MAX_TILES = 60;
+var _MAX_TILES = 250;  // L3=96 + L4 viewport worst case + headroom
 var _TILE_SIZE = 512;
 
 function _dbg(msg) { if (window._FRT_DEBUG) console.log('[TiledPdf] ' + msg); }
