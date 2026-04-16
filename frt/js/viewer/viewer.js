@@ -535,6 +535,22 @@ function _showDrawing(idx) {
     try { img.src = ''; } catch(e) {}
   }
 
+  // S87: Server-rendered tile branch — tiles are pre-rendered JPEGs in R2,
+  // no pdf.js needed. Takes priority over the legacy client-side PDF path.
+  if (d.tileStatus === 'ready' && d.tileManifestUrl) {
+    _ensureTiledInit();
+    if (title) title.textContent = d.name || 'Drawing ' + (idx + 1);
+    overlay.classList.add('open');
+    document.body.classList.add('dv-open');
+    _fitScale = 1; _scale = 1; _panX = 0; _panY = 0;
+    var wrapTile = document.getElementById('dv-img-wrap');
+    if (wrapTile) wrapTile.style.transform = 'translate3d(0,0,0) scale(1)';
+    TiledPdf.open(d.id, d.pdfPage || 1).then(function() {
+      if (TiledPdf.isActive()) Markup.init(d.id);
+    });
+    return;
+  }
+
   // PDF branch — tiled renderer
   if (_isPdfDrawing(d)) {
     _ensureTiledInit();
