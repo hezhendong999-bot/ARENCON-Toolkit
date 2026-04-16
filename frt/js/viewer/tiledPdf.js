@@ -116,7 +116,7 @@ function _fetchTile(levelIdx, col, row, lvl, layer) {
   img.style.cssText =
     'position:absolute;left:' + cssL + 'px;top:' + cssT + 'px;' +
     'width:' + cssW + 'px;height:' + cssH + 'px;image-rendering:auto;' +
-    'z-index:' + (levelIdx + 1) + ';pointer-events:none;';
+    'pointer-events:none;';
 
   var drawingIdAtRequest = _drawingId;
   img.onload = function() {
@@ -222,8 +222,18 @@ function _openServerTiles(d, drawingId, pageNum) {
       _drawH = d.height || _nativeH;
       _baseScale = _drawW / _nativeW;
 
+      // S87 fix #4: Keep dv-image as instant backdrop while tiles load.
+      // The old JPEG (from upload-time render) covers the full drawing at
+      // 6144px. Tiles load ON TOP with higher z-index. No white gaps ever.
       var img = document.getElementById('dv-image');
-      if (img) { img.src = ''; img.style.display = 'none'; }
+      if (img) {
+        var jpegSrc = d.r2Url || d.dataUrl || d.thumb || '';
+        if (jpegSrc) {
+          img.crossOrigin = 'anonymous';
+          img.style.display = 'block';
+          if (img.src !== jpegSrc) img.src = jpegSrc;
+        }
+      }
 
       var wrap = document.getElementById('dv-img-wrap');
       var oldLayer = document.getElementById('dv-tiles-layer');
@@ -231,14 +241,15 @@ function _openServerTiles(d, drawingId, pageNum) {
 
       var layer = document.createElement('div');
       layer.id = 'dv-tiles-layer';
-      // S87 fix: L0 thumbnail as background-image for instant blur preview
-      // while higher-level tiles load. Covers the entire draw area.
-      var l0url = _tileUrl(0, 0, 0);
+      // Transparent background — JPEG shows through gaps while tiles load.
+      // No z-index — DOM order handles layering: dv-image < tiles < markup-canvas.
       layer.style.cssText =
         'position:absolute;top:0;left:0;width:' + _drawW + 'px;height:' + _drawH +
-        'px;overflow:hidden;' +
-        (l0url ? 'background:url(' + l0url + ') no-repeat top left/100% 100%;' : 'background:white;');
-      if (wrap) wrap.insertBefore(layer, wrap.firstChild);
+        'px;overflow:hidden;';
+      // Insert between dv-image and markup-canvas (DOM order = paint order for positioned elements)
+      var mc = document.getElementById('markup-canvas');
+      if (wrap && mc) wrap.insertBefore(layer, mc);
+      else if (wrap) wrap.appendChild(layer);
 
       _active = true;
       if (_cfg.hideLoading) _cfg.hideLoading();
