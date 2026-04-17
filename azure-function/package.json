@@ -1,6 +1,6 @@
 {
   "name": "arencon-pdf-render",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "ARENCON Azure Function: renders engineering PDFs into R2 tile pyramids (pdfium-powered)",
   "main": "src/{index.js,functions/*.js}",
   "scripts": {

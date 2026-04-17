@@ -22,26 +22,28 @@ const sharp = require('sharp');
 
 const TILE_SIZE = 512;
 const THUMB_QUALITY = 75;         // L0 thumbnail only
-const STD_QUALITY = 92;           // Lossy levels: L1, L2, L5
+const STD_QUALITY = 92;           // Lossy levels: L1, L2
 const MAX_PARALLEL_UPLOADS = 12;
 const BUCKET = 'arencon-files';
 
 // Level target size (longest page dimension, in pixels).
 // Scale per level = target / max(nativeW, nativeH) in points.
-// L5 (24576px) = ~683 DPI native on a 36" sheet — matches/exceeds Fieldwire's clarity floor.
-const LEVEL_WIDTHS = [256, 1024, 2560, 6144, 12288, 24576];
+// L4 (12288px) = ~341 DPI native on a 36" sheet — crisp engineering text.
+// L5 (24576px) removed: pdfium's WASM heap is hard-capped at 2 GB; a 24576×16384
+// bitmap = 1.6 GB leaves no headroom for pdfium's internal state, causing
+// "Cannot enlarge memory" + OOM kill (exit code 137) after 3 pages.
+const LEVEL_WIDTHS = [256, 1024, 2560, 6144, 12288];
 
 // Levels using lossless WebP encoding (pixel-perfect engineering line work).
-// L3 (6144px) and L4 (12288px) are the "sweet spot" zoom tiers where the user
-// actually reads text — lossless eliminates any encoder-introduced edge artifacts.
-// L0/L1/L2 stay lossy (thumbs, far-zoom, imperceptible). L5 stays lossy q=92
-// because lossless at 24576px would quadruple storage for marginal gain.
+// L3 (6144px) and L4 (12288px) are the zoom tiers where users read text —
+// lossless eliminates any encoder-introduced edge artifacts.
+// L0/L1/L2 stay lossy (thumbs, far-zoom, imperceptible).
 const LOSSLESS_LEVELS = new Set([3, 4]);
 
-// Per-level bitmap memory budget. Scaled by longest-dim avoids portrait OOM,
-// but a square page at L5 can still hit ~2.4GB. Skip the level if we'd exceed
-// the WASM-heap-friendly threshold; viewer gracefully falls back to next-lowest.
-const MAX_LEVEL_BYTES = 2_000_000_000;   // 2 GB
+// Per-level bitmap memory budget. pdfium WASM heap = 2 GB hard cap.
+// Budget set lower to leave headroom for pdfium's internal rendering state
+// (font caches, path buffers, transparency groups).
+const MAX_LEVEL_BYTES = 1_500_000_000;   // 1.5 GB
 
 // ---- Lazy-loaded pdfium (WASM, zero native deps) --------------------------
 
@@ -343,10 +345,17 @@ app.http('render', {
       };
 
       let totalTiles = 0;
+      const manifestKey = `${pid}/tiles/${drawingId}/manifest.json`;
       for (let p = 1; p <= pageCount; p++) {
         const pageInfo = await renderPage(pdfDoc, p, pid, drawingId, log);
         manifest.pages.push(pageInfo);
         totalTiles += pageInfo.levels.reduce((s, l) => s + l.cols * l.rows, 0);
+
+        // Progressive manifest: write after each page so partial results survive
+        // OOM kills. Viewer can load pages 1–N even if process dies on page N+1.
+        await putManifest(manifestKey, manifest);
+        log(`Manifest updated: ${p}/${pageCount} pages, ${totalTiles} tiles so far`);
+
         // Hint GC between pages — pdfium WASM heap and Node JS heap both benefit
         if (global.gc) global.gc();
       }
@@ -354,9 +363,7 @@ app.http('render', {
       pdfDoc.destroy();
       pdfDoc = null;
 
-      const manifestKey = `${pid}/tiles/${drawingId}/manifest.json`;
-      await putManifest(manifestKey, manifest);
-      log(`Manifest written: ${manifestKey}`);
+      log(`Final manifest written: ${manifestKey}`);
 
       const durationMs = Date.now() - t0;
       log(`=== render done in ${(durationMs / 1000).toFixed(1)}s — ${totalTiles} tiles ===`);
@@ -397,7 +404,7 @@ app.http('health', {
     jsonBody: {
       ok: true,
       service: 'arencon-pdf-render',
-      version: '2.0.0',
+      version: '2.1.0',
       renderer: 'pdfium',
       levels: LEVEL_WIDTHS.length,
       losslessLevels: [...LOSSLESS_LEVELS],
