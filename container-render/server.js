@@ -292,6 +292,7 @@ async function renderPage(pdfPath, pageNumber, nativeW, nativeH, pid, drawingId,
 
     // Free padded buffer
     padded = null;
+    if (global.gc) global.gc();
 
     pageInfo.levels.push({
       level: levelIdx,
@@ -335,6 +336,10 @@ async function handleRender(req, res) {
     await fsWriteFile(pdfPath, pdfBuf);
     log(`PDF saved to ${pdfPath} (${(pdfBuf.length / 1024 / 1024).toFixed(1)} MB)`);
 
+    // Free the in-memory PDF buffer — we read from disk from here
+    // (128MB PDFs shouldn't linger while rendering burns 400MB+ per level)
+    // pdfBuf is const so we can't null it, but leaving scope handles it.
+
     // Get page count and dimensions
     const pageCount = await getPdfPageCount(pdfPath, log);
     const pageSizes = await getPdfPageSizes(pdfPath, pageCount, log);
@@ -363,6 +368,9 @@ async function handleRender(req, res) {
       // Progressive manifest: write after each page
       await putManifest(manifestKey, manifest);
       log(`Manifest updated: ${p}/${pageCount} pages, ${totalTiles} tiles so far`);
+
+      // GC between pages — prevent memory fragmentation from accumulating
+      if (global.gc) { global.gc(); log(`  GC after page ${p}`); }
     }
 
     log(`Final manifest written: ${manifestKey}`);

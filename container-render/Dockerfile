@@ -55,4 +55,4 @@ RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser
 RUN chown -R appuser:appuser /app
 USER appuser
 
-CMD ["node", "server.js"]
+CMD ["node", "--expose-gc", "--max-old-space-size=6144", "server.js"]
