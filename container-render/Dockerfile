@@ -10,13 +10,24 @@
 
 FROM node:22-slim
 
-# Install poppler-utils + fonts in a single layer
+# Install poppler-utils + comprehensive font library.
+# Engineering PDFs reference many Windows fonts (Arial, Arial Narrow, Times,
+# Courier, Calibri, Helvetica). Without metric-compatible substitutes,
+# pdftocairo garbles text via bad fontconfig fallbacks.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       poppler-utils \
+      fontconfig \
       fonts-liberation \
       fonts-dejavu-core \
-      fontconfig \
+      fonts-urw-base35 \
+      fonts-freefont-ttf \
+      fonts-croscore \
+      fonts-crosextra-carlito \
+      fonts-crosextra-caladea \
+      wget cabextract \
+    && echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections \
+    && apt-get install -y ttf-mscorefonts-installer \
     && fc-cache -f \
     && rm -rf /var/lib/apt/lists/*
 
