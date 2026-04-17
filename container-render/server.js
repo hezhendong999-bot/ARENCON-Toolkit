@@ -169,27 +169,27 @@ async function getPdfPageSizes(pdfPath, pageCount, log) {
   return sizes;
 }
 
-// ---- Render a single page at a single level using pdftocairo ---------------
+// ---- Render a single page at a single level using mutool draw (MuPDF) ------
+// MuPDF handles AutoCAD/AutoSPRINK font encodings (Type3, CID, SHX-derived)
+// far better than poppler. It has built-in fallback fonts for CJK and standard
+// glyph sets, and uses FreeType for native font hinting.
 
-async function renderPageAtLevel(pdfPath, pageNum, targetWidth, tmpDir) {
-  const outPrefix = path.join(tmpDir, `p${pageNum}_w${targetWidth}`);
-  // pdftocairo -png -scale-to <W> scales the LONGEST dimension to W pixels.
-  // This matches our existing LEVEL_WIDTHS semantics exactly.
-  await execFileAsync('pdftocairo', [
-    '-png',
-    '-scale-to', String(targetWidth),
-    '-f', String(pageNum),
-    '-l', String(pageNum),
-    '-singlefile',
-    '-antialias', 'best',
+async function renderPageAtLevel(pdfPath, pageNum, dpi, tmpDir) {
+  const outPath = path.join(tmpDir, `p${pageNum}_d${Math.round(dpi)}.png`);
+  // Use -r (DPI) for precise control. DPI is pre-calculated so that the
+  // longest page dimension hits the target pixel width from LEVEL_WIDTHS.
+  await execFileAsync('mutool', [
+    'draw',
+    '-o', outPath,
+    '-F', 'png',
+    '-r', String(Math.round(dpi)),
     pdfPath,
-    outPrefix,
+    String(pageNum),
   ], {
-    // pdftocairo can use substantial memory for large renders; allow up to 5 min
     timeout: 300_000,
     maxBuffer: 10 * 1024 * 1024,
   });
-  return outPrefix + '.png';
+  return outPath;
 }
 
 // ---- Per-page render + tile ------------------------------------------------
@@ -212,11 +212,12 @@ async function renderPage(pdfPath, pageNumber, nativeW, nativeH, pid, drawingId,
     const estW = Math.round(nativeW * scale);
     const estH = Math.round(nativeH * scale);
 
-    log(`  L${levelIdx}: rendering ${estW}x${estH} via pdftocairo -scale-to ${target}`);
+    log(`  L${levelIdx}: rendering ${estW}x${estH} via mutool @ ${Math.round(target * 72 / longestDim)} DPI`);
 
     let pngPath;
     try {
-      pngPath = await renderPageAtLevel(pdfPath, pageNumber, target, tmpDir);
+      const dpi = target * 72 / longestDim;
+      pngPath = await renderPageAtLevel(pdfPath, pageNumber, dpi, tmpDir);
     } catch (err) {
       log(`  L${levelIdx}: RENDER FAILED — ${err.message}; skipping`);
       continue;
@@ -323,7 +324,7 @@ async function handleRender(req, res) {
   }
 
   log(`=== render start pid=${pid} drawingId=${drawingId} r2Key=${r2Key} ===`);
-  log(`Renderer: pdftocairo (native poppler) | Levels: ${LEVEL_WIDTHS.join(',')} | Lossless: L${[...LOSSLESS_LEVELS].join(',L')}`);
+  log(`Renderer: mutool (MuPDF) | Levels: ${LEVEL_WIDTHS.join(',')} | Lossless: L${[...LOSSLESS_LEVELS].join(',L')}`);
 
   // Create temp directory for this render job
   const tmpDir = path.join(os.tmpdir(), `render_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
@@ -350,7 +351,7 @@ async function handleRender(req, res) {
       pid,
       tileSize: TILE_SIZE,
       renderedAt: new Date().toISOString(),
-      renderer: 'pdftocairo',
+      renderer: 'mutool',
       pageCount,
       pages: [],
     };
@@ -385,7 +386,7 @@ async function handleRender(req, res) {
       totalTiles,
       manifestKey,
       durationMs,
-      renderer: 'pdftocairo',
+      renderer: 'mutool',
       levels: LEVEL_WIDTHS.length,
     });
   } catch (err) {
@@ -431,8 +432,8 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     service: 'arencon-pdf-render',
-    version: '3.0.0',
-    renderer: 'pdftocairo',
+    version: '3.1.0',
+    renderer: 'mutool',
     levels: LEVEL_WIDTHS.length,
     losslessLevels: [...LOSSLESS_LEVELS],
     time: new Date().toISOString(),
@@ -445,5 +446,5 @@ app.use((_req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`arencon-pdf-render v3.0.0 (pdftocairo) listening on :${PORT}`);
+  console.log(`arencon-pdf-render v3.1.0 (mutool) listening on :${PORT}`);
 });
