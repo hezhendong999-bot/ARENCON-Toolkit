@@ -1,0 +1,47 @@
+# ARENCON PDF Tile Renderer — Native Poppler
+# Session 89 — replaces WASM pdfium with native pdftocairo for font-hinted text
+#
+# Base: Node.js 22 slim (Debian Bookworm)
+# Added: poppler-utils (pdftocairo, pdfinfo), Liberation + DejaVu fonts
+#
+# Why Liberation fonts: engineering PDFs often reference Arial, Times New Roman,
+# Courier New. Liberation fonts are metric-compatible substitutes. Without them,
+# pdftocairo falls back to generic sans-serif → text reflows and overlaps.
+
+FROM node:22-slim
+
+# Install poppler-utils + fonts in a single layer
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      poppler-utils \
+      fonts-liberation \
+      fonts-dejavu-core \
+      fontconfig \
+    && fc-cache -f \
+    && rm -rf /var/lib/apt/lists/*
+
+# Verify pdftocairo is available
+RUN pdftocairo -v 2>&1 | head -1
+
+WORKDIR /app
+
+# Install deps first (Docker layer cache)
+COPY package.json ./
+RUN npm install --omit=dev
+
+# Copy server code
+COPY server.js ./
+
+# Verify JS syntax
+RUN node --check server.js
+
+# Container Apps sets PORT env var; default to 8080
+ENV PORT=8080
+EXPOSE 8080
+
+# Non-root for security
+RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser
+RUN chown -R appuser:appuser /app
+USER appuser
+
+CMD ["node", "server.js"]
