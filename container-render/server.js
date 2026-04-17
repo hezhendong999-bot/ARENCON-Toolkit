@@ -248,6 +248,7 @@ async function renderPage(pdfPath, pageNumber, nativeW, nativeH, pid, drawingId,
     let padded;
     try {
       padded = await sharp(pngPath)
+        .ensureAlpha()
         .extend({
           right: padW - actualW,
           bottom: padH - actualH,
