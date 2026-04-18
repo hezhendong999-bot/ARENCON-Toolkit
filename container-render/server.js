@@ -37,6 +37,7 @@ const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/clien
 const sharp = require('sharp');
 
 const fsWriteFile = promisify(fs.writeFile);
+const fsReadFile = promisify(fs.readFile);
 const fsUnlink = promisify(fs.unlink);
 const fsMkdir = promisify(fs.mkdir);
 const fsRm = promisify(fs.rm);
@@ -228,9 +229,16 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
     // Pad the raw bitmap to a multiple of TILE_SIZE so every tile is the
     // full 512x512. Stream through sharp once for the pad, then slice
     // individual tiles from the in-memory padded buffer.
+    //
+    // IMPORTANT: sharp only honors the `raw:` option when the input is a
+    // Buffer. Passing a file PATH makes sharp try to auto-detect the
+    // image format (PNG/JPEG/WebP) from the file's magic bytes — which
+    // fails for raw RGBA with "Input file contains unsupported image
+    // format". Always read the raw file into a Buffer first.
     let padded;
     try {
-      padded = await sharp(rawPath, {
+      const rawBuf = await fsReadFile(rawPath);
+      padded = await sharp(rawBuf, {
         raw: { width: actualW, height: actualH, channels: 4 },
       })
         .extend({
