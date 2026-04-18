@@ -2,39 +2,24 @@
 """
 ARENCON PDF renderer — native pdfium via pypdfium2.
 
-pypdfium2 bundles the native libpdfium.so built by Google for Chromium.
-Unlike the WASM build, this has full FreeType with bytecode hinting and
-native text antialiasing — the two things WASM pdfium cannot provide.
-
-Why Python for the render step:
-  - @hyzyla/pdfium (Node) is WASM-only and was the S88 baseline.
-  - No maintained Node wrapper for native pdfium exists (node-pdfium et al
-    are all abandoned circa 2015-2020). pypdfium2 is the only actively
-    maintained, production-ready native pdfium binding. Calling it from
-    Node via a short-lived subprocess is cleaner than writing a custom
-    N-API addon against bblanchon binaries.
+Uses `bitmap.to_pil()` + `.tobytes()` — the well-documented idiomatic
+pypdfium2 path for extracting raw pixels from a rendered page. Requires
+Pillow (PIL).
 
 Commands
 --------
   info <pdf_path>
-    Prints JSON to stdout: {"pages":[{"page":1,"widthPt":W,"heightPt":H},...]}
+    → stdout: {"pages":[{"page":1,"widthPt":W,"heightPt":H},...]}
 
   render <pdf_path> <page_num> <scale> <output_raw_path>
-    Renders one page at the given scale to packed RGBA raw bytes.
-    Writes bytes to output_raw_path (exactly 4*W*H bytes, no stride).
-    Prints "<W> <H>" to stdout for the caller to pick up.
-
-Env vars
---------
-  None required. libpdfium.so travels with the pypdfium2 wheel.
+    Writes exactly w*h*4 bytes of packed RGBA to output_raw_path.
+    → stdout: "<W> <H>"
 """
 import json
 import sys
+import traceback
 
 import pypdfium2 as pdfium
-
-
-# ---- commands ---------------------------------------------------------------
 
 
 def cmd_info(pdf_path):
@@ -44,7 +29,7 @@ def cmd_info(pdf_path):
         for i in range(len(pdf)):
             page = pdf[i]
             try:
-                w_pt, h_pt = page.get_size()  # in PDF points (1/72 inch)
+                w_pt, h_pt = page.get_size()
                 pages.append({"page": i + 1, "widthPt": w_pt, "heightPt": h_pt})
             finally:
                 page.close()
@@ -59,11 +44,11 @@ def cmd_render(pdf_path, page_num, scale, out_path):
     try:
         page = pdf[page_num - 1]
         try:
-            # rev_byteorder=True → output in RGBA byte order (not native BGRA).
-            # prefer_bgrx=False → full 4-channel RGBA, not 3-channel BGR + X pad.
-            # draw_annots=True → render PDF annotations/markups.
-            # Default smoothing flags (antialiasing on) — full native FreeType
-            # hinting is already enabled at the libpdfium compile level.
+            # rev_byteorder=True  → RGBA byte order (vs native BGRA)
+            # prefer_bgrx=False   → full 4-channel RGBA, not 3-channel BGR + pad
+            # draw_annots=True    → render any embedded PDF annotations
+            # Native FreeType bytecode hinting + native text AA are already
+            # baked into libpdfium.so at compile time (unlike the WASM build).
             bitmap = page.render(
                 scale=scale,
                 rev_byteorder=True,
@@ -71,28 +56,35 @@ def cmd_render(pdf_path, page_num, scale, out_path):
                 draw_annots=True,
             )
             try:
-                w = bitmap.width
-                h = bitmap.height
-                stride = bitmap.stride
+                # to_pil() is pypdfium2's documented bridge to Pillow.
+                # Returns a PIL.Image in the appropriate mode given the
+                # render flags above ("RGBA" here).
+                pil_image = bitmap.to_pil()
+                w, h = pil_image.size
+                mode = pil_image.mode
 
-                # Sanity-check byte order. pypdfium2 exposes this for debug.
-                mode = getattr(bitmap, "mode", "?")
-                sys.stderr.write(f"render p{page_num} scale={scale:.4f} "
-                                 f"{w}x{h} mode={mode} stride={stride}\n")
+                # Defensive: ensure RGBA. If pypdfium2 ever returns RGB for
+                # some doc we force the 4-channel layout sharp expects.
+                if mode != "RGBA":
+                    pil_image = pil_image.convert("RGBA")
+                    mode = "RGBA"
 
-                # Write packed RGBA, no stride padding. pypdfium2 usually
-                # emits contiguous rows (stride == 4*w), but if a platform
-                # ever pads rows we slice row-by-row to keep the output
-                # sharp-friendly (sharp expects exactly w*h*4 bytes).
-                row_bytes = w * 4
-                mv = memoryview(bitmap.buffer)
+                sys.stderr.write(
+                    f"render p{page_num} scale={scale:.4f} {w}x{h} mode={mode}\n"
+                )
+
+                # tobytes() returns packed bytes in the image's mode order.
+                # RGBA = 4 bytes/pixel, no row padding — exactly what sharp
+                # wants from its `{raw:{width,height,channels:4}}` input.
+                raw_bytes = pil_image.tobytes()
+                expected = w * h * 4
+                if len(raw_bytes) != expected:
+                    raise RuntimeError(
+                        f"raw byte size mismatch: got {len(raw_bytes)}, "
+                        f"expected {expected}"
+                    )
                 with open(out_path, "wb") as f:
-                    if stride == row_bytes:
-                        f.write(bytes(mv))
-                    else:
-                        for y in range(h):
-                            s = y * stride
-                            f.write(bytes(mv[s:s + row_bytes]))
+                    f.write(raw_bytes)
             finally:
                 bitmap.close()
         finally:
@@ -102,9 +94,6 @@ def cmd_render(pdf_path, page_num, scale, out_path):
 
     sys.stdout.write(f"{w} {h}")
     sys.stdout.flush()
-
-
-# ---- main -------------------------------------------------------------------
 
 
 def main():
@@ -137,7 +126,9 @@ def main():
             sys.stderr.write(f"Unknown command: {cmd}\n")
             sys.exit(2)
     except Exception as e:
+        # Full traceback to stderr so Node's runPython() surfaces it in logs.
         sys.stderr.write(f"render.py error: {type(e).__name__}: {e}\n")
+        traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
 

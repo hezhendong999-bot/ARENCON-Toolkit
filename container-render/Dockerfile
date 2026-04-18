@@ -17,8 +17,10 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # pypdfium2 5.6.0 bundles pdfium 147.0.7713 (as of this build date).
+# Pillow provides the .to_pil() bridge used by render.py to extract
+# packed RGBA bytes from the rendered pdfium bitmap.
 # --break-system-packages is required on Debian bookworm (PEP 668).
-RUN pip3 install --no-cache-dir --break-system-packages pypdfium2==5.6.0
+RUN pip3 install --no-cache-dir --break-system-packages pypdfium2==5.6.0 Pillow==10.4.0
 
 # Smoke-test native pdfium load at build time. The `import pypdfium2`
 # statement triggers the ctypes load of the bundled libpdfium.so
