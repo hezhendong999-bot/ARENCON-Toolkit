@@ -20,6 +20,7 @@ import sys
 import traceback
 
 import pypdfium2 as pdfium
+from PIL import Image
 
 
 def cmd_info(pdf_path):
@@ -44,6 +45,32 @@ def cmd_render(pdf_path, page_num, scale, out_path):
     try:
         page = pdf[page_num - 1]
         try:
+            # Supersampling: render at 2x the requested scale, then downscale
+            # via Lanczos. Produces noticeably sharper vector strokes than
+            # native pdfium AGG antialiasing, because we're averaging 4 pixels
+            # per output pixel instead of 1. Critical for engineering PDFs
+            # like AutoSPRINK that draw text as vector strokes (no font
+            # glyphs → LCD subpixel rendering does nothing → only path left
+            # to sharpen pipe dimensions, etc.).
+            #
+            # Memory guard: at L4 target=12288, 2x would produce a ~25k×16k
+            # bitmap (1.6 GB per page). Container has 8 GB, sequential
+            # rendering, so this fits — but tight. If native size * 2 would
+            # exceed ~1.5 GB bitmap, fall back to 1.5x supersampling. Still
+            # sharper than native, safe headroom.
+            w_pt, h_pt = page.get_size()
+            max_safe_bytes = 1_500_000_000  # 1.5 GB
+            for ss_factor in (2.0, 1.5, 1.0):
+                ss_scale = scale * ss_factor
+                ss_w = int(round(w_pt * ss_scale))
+                ss_h = int(round(h_pt * ss_scale))
+                if ss_w * ss_h * 4 <= max_safe_bytes:
+                    break
+            sys.stderr.write(
+                f"ss_factor={ss_factor} (render {ss_w}x{ss_h}, "
+                f"{ss_w*ss_h*4/1e6:.0f} MB)\n"
+            )
+
             # rev_byteorder=True  → RGBA byte order (vs native BGRA)
             # prefer_bgrx=True    → force opaque 4-byte BGRx bitmap regardless
             #                      of page transparency. REQUIRED for LCD.
@@ -58,7 +85,7 @@ def cmd_render(pdf_path, page_num, scale, out_path):
             # Native FreeType bytecode hinting + native text AA are already
             # baked into libpdfium.so at compile time (unlike the WASM build).
             bitmap = page.render(
-                scale=scale,
+                scale=ss_scale,
                 rev_byteorder=True,
                 prefer_bgrx=True,
                 draw_annots=True,
@@ -88,6 +115,22 @@ def cmd_render(pdf_path, page_num, scale, out_path):
                 # render flags above ("RGBX" here with prefer_bgrx=True
                 # + rev_byteorder).
                 pil_image = bitmap.to_pil()
+
+                # Supersample downscale: if we rendered bigger than the
+                # requested target, downscale via Lanczos. Final dimensions
+                # must match what native scale would have produced so
+                # server.js sharp tile math stays correct.
+                if ss_factor > 1.0:
+                    target_w = int(round(w_pt * scale))
+                    target_h = int(round(h_pt * scale))
+                    sys.stderr.write(
+                        f"downscaling {pil_image.size} → ({target_w}, {target_h}) "
+                        f"via Lanczos\n"
+                    )
+                    pil_image = pil_image.resize(
+                        (target_w, target_h), Image.LANCZOS
+                    )
+
                 w, h = pil_image.size
                 mode = pil_image.mode
 
