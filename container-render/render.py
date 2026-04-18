@@ -95,30 +95,6 @@ def cmd_render(pdf_path, page_num, scale, out_path):
                 # + rev_byteorder).
                 pil_image = bitmap.to_pil()
 
-                # ---- Gamma darkening ----
-                # Apply gamma 1.5 to push midtones darker. Produces
-                # heavier/darker text that more closely matches Fieldwire's
-                # visual weight. Tradeoff: pipe colors (blue/orange/green)
-                # and highlights (pink/cyan) are also darkened moderately —
-                # this is accepted by design per user direction. Formula:
-                # output = (input/255) ^ gamma * 255. Gamma > 1 darkens
-                # midtones while keeping pure black and pure white fixed.
-                #
-                # PIL's ImageOps doesn't have a gamma helper that accepts
-                # arbitrary gamma on RGBX, so we build a 256-entry LUT and
-                # apply it via Image.point() — fast in C and handles each
-                # channel independently. The X channel in RGBX is ignored
-                # because sharp treats channels:4 as RGBA order.
-                GAMMA = 1.5
-                lut = [min(255, int(round(((i / 255.0) ** GAMMA) * 255))) for i in range(256)]
-                # Image.point on multi-channel image applies LUT to each
-                # channel. We pass the same LUT for each channel. For RGBX
-                # we pass it 4 times (X channel getting gamma'd is harmless —
-                # sharp ignores it).
-                channels = len(pil_image.getbands())  # 3 for RGB, 4 for RGBX/RGBA
-                pil_image = pil_image.point(lut * channels)
-                sys.stderr.write(f"gamma {GAMMA} applied via {channels}-channel LUT\n")
-
                 w, h = pil_image.size
                 mode = pil_image.mode
 
