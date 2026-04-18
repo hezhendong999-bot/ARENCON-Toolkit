@@ -100,7 +100,13 @@ function _allocateCanvas() {
   var isIPhone = /iPhone|iPod/.test(ua);
   var isAndroidTablet = /Android/.test(ua) && (!/Mobile/.test(ua) || /SM-T|SM-X|Tablet/.test(ua));
   var isTablet = /iPad/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) || isAndroidTablet;
-  var maxPixels = isIPhone ? 16000000 : (isAndroidTablet ? 10000000 : (isTablet ? 16000000 : 25000000));
+  // S91: iPhone budget 16M -> 4M. Safari on iPhone caps tab memory at
+  // ~250MB; 16M px × 4 bytes = 64MB just for the 2D canvas, plus another
+  // 64MB for the WebGL sibling below, plus ~100MB for the 6144px JPEG
+  // backdrop = instant OOM on drawing-open. 4M px keeps the markup canvas
+  // under 16MB while staying sharp at any reasonable zoom on a 390-430px
+  // iPhone viewport.
+  var maxPixels = isIPhone ? 4000000 : (isAndroidTablet ? 10000000 : (isTablet ? 16000000 : 25000000));
   var totalPixels = drawW * drawH;
   var mkScale = 1;
   if (totalPixels > maxPixels) mkScale = Math.sqrt(maxPixels / totalPixels);
@@ -122,7 +128,11 @@ function _allocateCanvas() {
 
   // ── WebGL sibling canvas (Phase 5) ─────────────────────
   // Stacks UNDERNEATH mc so selection/rubberband in 2D remains on top.
-  if (_useWebGL){
+  // S91: skip on iPhone — another full canvas at the same size would
+  // double our bitmap budget past Safari's iPhone tab ceiling. Canvas 2D
+  // rendering path below handles the same visual output without the
+  // second allocation. Identical output, half the memory.
+  if (_useWebGL && !isIPhone){
     try {
       if (!_webglCanvas){
         _webglCanvas = document.createElement('canvas');
