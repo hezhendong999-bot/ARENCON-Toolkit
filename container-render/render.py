@@ -45,34 +45,58 @@ def cmd_render(pdf_path, page_num, scale, out_path):
         page = pdf[page_num - 1]
         try:
             # rev_byteorder=True  → RGBA byte order (vs native BGRA)
-            # prefer_bgrx=False   → full 4-channel RGBA, not 3-channel BGR + pad
-            # draw_annots=True    → render any embedded PDF annotations
-            # optimize_mode="lcd" → FPDF_LCD_TEXT: subpixel text rendering.
-            #                      Without this, small text uses grayscale
-            #                      antialiasing only. With it, pdfium uses
-            #                      RGB subpixel positioning (same technique
-            #                      Chromium uses) for sharper small glyphs.
-            #                      Does NOT affect bitmap size or memory.
+            # prefer_bgrx=True    → force opaque 4-byte BGRx bitmap regardless
+            #                      of page transparency. REQUIRED for LCD.
+            #                      pdfium's FPDF_LCD_TEXT path only engages
+            #                      on opaque bitmaps — if pypdfium2 auto-picks
+            #                      BGRA (which it does for any page with
+            #                      transparency, e.g. highlights/overlays in
+            #                      engineering PDFs), LCD is silently ignored.
+            # draw_annots=True    → render embedded PDF annotations
+            # optimize_mode="lcd" → FPDF_LCD_TEXT: subpixel text rendering
+            #                      (sharper small glyphs, same bitmap size).
             # Native FreeType bytecode hinting + native text AA are already
             # baked into libpdfium.so at compile time (unlike the WASM build).
             bitmap = page.render(
                 scale=scale,
                 rev_byteorder=True,
-                prefer_bgrx=False,
+                prefer_bgrx=True,
                 draw_annots=True,
                 optimize_mode="lcd",
             )
             try:
+                # Log the raw pdfium format actually chosen — critical for
+                # verifying LCD is engaging. BGR / BGRx = LCD can work,
+                # BGRA = LCD silently ignored. mode after rev_byteorder:
+                # RGB / RGBX / RGBA respectively.
+                try:
+                    from pypdfium2 import raw as _raw
+                    bm_format = bitmap.format
+                    fmt_name = {
+                        _raw.FPDFBitmap_Gray: "Gray",
+                        _raw.FPDFBitmap_BGR: "BGR",
+                        _raw.FPDFBitmap_BGRx: "BGRx",
+                        _raw.FPDFBitmap_BGRA: "BGRA",
+                    }.get(bm_format, f"unknown({bm_format})")
+                    sys.stderr.write(f"bitmap pdfium format: {fmt_name} "
+                                     f"{'(LCD OK)' if fmt_name in ('BGR','BGRx') else '(LCD IGNORED!)'}\n")
+                except Exception as _e:
+                    sys.stderr.write(f"format probe failed: {_e}\n")
+
                 # to_pil() is pypdfium2's documented bridge to Pillow.
                 # Returns a PIL.Image in the appropriate mode given the
-                # render flags above ("RGBA" here).
+                # render flags above ("RGBX" here with prefer_bgrx=True
+                # + rev_byteorder).
                 pil_image = bitmap.to_pil()
                 w, h = pil_image.size
                 mode = pil_image.mode
 
-                # Defensive: ensure RGBA. If pypdfium2 ever returns RGB for
-                # some doc we force the 4-channel layout sharp expects.
-                if mode != "RGBA":
+                # Accept RGBA OR RGBX — both are 4 channels, 4 bytes/pixel,
+                # exactly what sharp's raw:{channels:4} consumes. RGBX is
+                # what prefer_bgrx=True + rev_byteorder=True produces (the
+                # X byte is unused padding, safe to pass through). We only
+                # force a conversion if we somehow get an unexpected mode.
+                if mode not in ("RGBA", "RGBX"):
                     pil_image = pil_image.convert("RGBA")
                     mode = "RGBA"
 
