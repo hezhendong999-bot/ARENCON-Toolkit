@@ -228,9 +228,24 @@ function _openServerTiles(d, drawingId, pageNum) {
       // S87 fix #4: Keep dv-image as instant backdrop while tiles load.
       // The old JPEG (from upload-time render) covers the full drawing at
       // 6144px. Tiles load ON TOP with higher z-index. No white gaps ever.
+      //
+      // S91: on iPhone, prefer the tiny `thumb` over the 6144px R2 JPEG for
+      // the backdrop. Decoded 6144px ≈ 100MB of RGBA; on iPhone Safari's
+      // ~250MB tab ceiling that steals the headroom tiles need at deep zoom.
+      // The thumb is typically ~600-900px (under 3MB decoded). Tiles fill in
+      // sharpness on top within a second or two, same as before — only the
+      // instant-fallback layer gets smaller. URL flag ?iphone-backdrop=full
+      // forces the desktop/iPad 6144px path for A/B testing.
       var img = document.getElementById('dv-image');
       if (img) {
-        var jpegSrc = d.r2Url || d.dataUrl || d.thumb || '';
+        var _isIPhone = /iPhone|iPod/.test(navigator.userAgent);
+        var _forceFullBackdrop = /[?&]iphone-backdrop=full\b/.test(window.location.search);
+        var jpegSrc;
+        if (_isIPhone && !_forceFullBackdrop) {
+          jpegSrc = d.thumb || d.r2Url || d.dataUrl || '';
+        } else {
+          jpegSrc = d.r2Url || d.dataUrl || d.thumb || '';
+        }
         if (jpegSrc) {
           img.crossOrigin = 'anonymous';
           img.style.display = 'block';
