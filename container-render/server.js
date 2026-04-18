@@ -1,5 +1,6 @@
-// ARENCON PDF Tile Render — Container Edition v5.0.0
+// ARENCON PDF Tile Render — Container Edition v5.1.0
 // Session 90 — Native pdfium via pypdfium2 Python subprocess.
+// Session 91 — KEDA heartbeat so min-replicas=0 is safe for long renders.
 //
 // POST /api/render
 // Headers: x-functions-key: <api key>
@@ -294,6 +295,58 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
   return pageInfo;
 }
 
+// ---- KEDA heartbeat ----------------------------------------------------------
+//
+// Azure Container Apps' default HTTP scaler counts *ingress* traffic only. A
+// long-running render (5+ min of Python subprocess work with no inbound HTTP
+// activity) triggers the scaler's cooldown → replica is killed mid-render.
+//
+// Fix: while any render is active, fire a low-cost self-request to our public
+// FQDN's /api/health every 30s. That request round-trips through Azure's
+// ingress, so KEDA counts it and resets the cooldown timer. When no renders
+// are active, the heartbeat stops and the replica scales to zero normally.
+//
+// SELF_URL resolution order:
+//   1. env SELF_URL (explicit override)
+//   2. CONTAINER_APP_NAME + CONTAINER_APP_ENV_DNS_SUFFIX (auto-injected by ACA)
+//   3. Hardcoded fallback for this deployment
+//
+// Heartbeat interval (30s) is < cooldownPeriod (300s) with a 10x safety margin.
+
+const HEARTBEAT_INTERVAL_MS = 30000;
+const SELF_URL = process.env.SELF_URL
+  || (process.env.CONTAINER_APP_NAME && process.env.CONTAINER_APP_ENV_DNS_SUFFIX
+      ? `https://${process.env.CONTAINER_APP_NAME}.${process.env.CONTAINER_APP_ENV_DNS_SUFFIX}`
+      : 'https://arencon-pdf-render-v3.ashybay-ebab3ebf.canadacentral.azurecontainerapps.io');
+
+let activeRenders = 0;
+let heartbeatTimer = null;
+
+function startHeartbeat() {
+  activeRenders++;
+  if (heartbeatTimer) return;
+  console.log(`[HEARTBEAT] start — self=${SELF_URL} interval=${HEARTBEAT_INTERVAL_MS}ms`);
+  heartbeatTimer = setInterval(async () => {
+    try {
+      const r = await fetch(`${SELF_URL}/api/health`, {
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!r.ok) console.warn(`[HEARTBEAT] self-ping ${r.status}`);
+    } catch (err) {
+      console.warn(`[HEARTBEAT] self-ping failed: ${err.message}`);
+    }
+  }, HEARTBEAT_INTERVAL_MS);
+}
+
+function stopHeartbeat() {
+  activeRenders = Math.max(0, activeRenders - 1);
+  if (activeRenders === 0 && heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+    console.log('[HEARTBEAT] stop — no active renders');
+  }
+}
+
 // ---- Main render handler ------------------------------------------------------
 
 async function handleRender(req, res) {
@@ -316,6 +369,7 @@ async function handleRender(req, res) {
   await fsMkdir(tmpDir, { recursive: true });
   const pdfPath = path.join(tmpDir, 'input.pdf');
 
+  startHeartbeat();
   try {
     const pdfBuf = await downloadPdf(r2Key, log);
     await fsWriteFile(pdfPath, pdfBuf);
@@ -369,6 +423,7 @@ async function handleRender(req, res) {
     console.error(`render failed: ${err.stack || err.message}`);
     res.status(500).json({ error: err.message, type: err.name || 'RenderError' });
   } finally {
+    stopHeartbeat();
     try { await fsRm(tmpDir, { recursive: true, force: true }); } catch {}
   }
 }
@@ -391,10 +446,12 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     service: 'arencon-pdf-render',
-    version: '5.0.0',
+    version: '5.1.0',
     renderer: 'native-pdfium-pypdfium2',
     levels: LEVEL_WIDTHS.length,
     losslessLevels: [...LOSSLESS_LEVELS],
+    activeRenders,
+    heartbeat: heartbeatTimer ? 'active' : 'idle',
     time: new Date().toISOString(),
   });
 });
@@ -402,5 +459,5 @@ app.get('/api/health', (_req, res) => {
 app.use((_req, res) => { res.status(404).json({ error: 'Not found' }); });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`arencon-pdf-render v5.0.0 (native-pdfium-pypdfium2) listening on :${PORT}`);
+  console.log(`arencon-pdf-render v5.1.0 (native-pdfium-pypdfium2) listening on :${PORT}`);
 });
