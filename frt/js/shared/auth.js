@@ -13,6 +13,19 @@ var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 var _user = null;
 var _role = null;
 var _autoRefreshTimer = null;
+var _refreshPromise = null;  // S91: dedup concurrent refresh calls
+
+// S91: parse the exp claim from a JWT so we know when it actually expires.
+// Returns ms-since-epoch, or null if unparseable.
+function _parseJwtExp(token) {
+  if (!token || typeof token !== 'string') return null;
+  try {
+    var parts = token.split('.');
+    if (parts.length !== 3) return null;
+    var payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload && payload.exp ? payload.exp * 1000 : null;
+  } catch (e) { return null; }
+}
 
 function _getHeaders() {
   var h = {
@@ -31,14 +44,28 @@ export var Auth = {
 
   /**
    * Make an authenticated request to Supabase REST API.
+   * S91: on 401 (except auth endpoints), transparently refresh the JWT and
+   * retry once so callers never see auth failures from stale tokens.
    */
-  request: function(path, opts) {
+  request: function(path, opts, _isRetry) {
     opts = opts || {};
+    var self = this;
     return fetch(SUPABASE_URL + path, {
       method: opts.method || 'GET',
       headers: Object.assign({}, _getHeaders(), opts.headers || {}),
       body: opts.body ? JSON.stringify(opts.body) : undefined
     }).then(function(res) {
+      // Reactive refresh: only non-auth endpoints, only once per call.
+      if (res.status === 401 && !_isRetry && path.indexOf('/auth/v1/') !== 0) {
+        console.log('[Auth] 401 on ' + path + ' — refreshing token + retrying');
+        return self._refreshTokenShared().then(function(user) {
+          if (!user) throw new Error('Unauthorized (refresh failed)');
+          var retryOpts = Object.assign({}, opts);
+          retryOpts.headers = Object.assign({}, opts.headers || {});
+          delete retryOpts.headers.Authorization;  // let _getHeaders() inject fresh token
+          return self.request(path, retryOpts, true);
+        });
+      }
       if (!res.ok) {
         return res.json().catch(function() { return { message: res.statusText }; }).then(function(err) {
           throw new Error(err.message || err.msg || res.statusText);
@@ -71,31 +98,52 @@ export var Auth = {
       return self._loadRole(user.id).then(function() { return user; });
     }).catch(function(err) {
       console.log('[Auth] Token expired, attempting refresh...');
-      return self._refreshToken().then(function(u){
-        if (u) self._scheduleAutoRefresh();
-        return u;
-      });
+      return self._refreshTokenShared();
     });
   },
 
   /**
-   * S81: keep the user signed in for as long as the refresh token is valid.
-   * Access tokens are 1h default; refresh every 50 min. On failure, stop the
-   * timer so we don't spam dead requests.
+   * S91: schedule a one-shot refresh for 60s before the actual JWT expiry.
+   * Cascades: on success, re-calls itself to schedule the next refresh.
+   * Replaces S81's fixed 50-min setInterval which missed refreshes when the
+   * tab was backgrounded or JS was throttled.
    */
   _scheduleAutoRefresh: function(){
-    if (_autoRefreshTimer) clearInterval(_autoRefreshTimer);
+    if (_autoRefreshTimer) { clearTimeout(_autoRefreshTimer); _autoRefreshTimer = null; }
     var self = this;
-    _autoRefreshTimer = setInterval(function(){
-      console.log('[Auth] Periodic token refresh');
-      self._refreshToken().then(function(u){
-        if (!u){
-          console.warn('[Auth] Auto-refresh failed — stopping timer');
-          clearInterval(_autoRefreshTimer);
-          _autoRefreshTimer = null;
-        }
+    var token = localStorage.getItem('sb-access-token');
+    var expMs = _parseJwtExp(token);
+    if (!expMs) {
+      // Can't parse exp — fall back to fixed 50-min schedule.
+      console.log('[Auth] No exp in JWT, using 50min fallback schedule');
+      _autoRefreshTimer = setTimeout(function(){
+        self._refreshTokenShared().then(function(u){ if (u) self._scheduleAutoRefresh(); });
+      }, 50 * 60 * 1000);
+      return;
+    }
+    var delay = Math.max(0, (expMs - 60000) - Date.now());
+    console.log('[Auth] Next refresh in ' + Math.round(delay/1000) + 's (token exp ' + new Date(expMs).toLocaleTimeString() + ')');
+    _autoRefreshTimer = setTimeout(function(){
+      self._refreshTokenShared().then(function(u){
+        if (u) self._scheduleAutoRefresh();
+        else console.warn('[Auth] Auto-refresh failed — will retry reactively on next 401');
       });
-    }, 50 * 60 * 1000); // 50 minutes
+    }, delay);
+  },
+
+  /**
+   * S91: deduplicate concurrent refresh calls. Multiple in-flight requests
+   * hitting 401 at once all share a single refresh promise, so we don't
+   * fire N refresh calls and race-condition the localStorage write.
+   */
+  _refreshTokenShared: function(){
+    if (_refreshPromise) return _refreshPromise;
+    var self = this;
+    _refreshPromise = this._refreshToken().then(function(user){
+      if (user) self._scheduleAutoRefresh();
+      return user;
+    }).finally(function(){ _refreshPromise = null; });
+    return _refreshPromise;
   },
 
   /**
@@ -156,9 +204,29 @@ export var Auth = {
   signOut: function() {
     _user = null;
     _role = null;
+    if (_autoRefreshTimer) { clearTimeout(_autoRefreshTimer); _autoRefreshTimer = null; }
+    _refreshPromise = null;
     localStorage.removeItem('sb-access-token');
     localStorage.removeItem('sb-refresh-token');
     console.log('[Auth] Signed out');
     return Promise.resolve();
   }
 };
+
+// S91: when the tab returns from background, browsers may have throttled
+// or suspended the scheduled refresh timer entirely. If the token is near
+// or past expiry on visibility restore, refresh it proactively before the
+// user triggers a request and eats a 401.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState !== 'visible') return;
+    var token = localStorage.getItem('sb-access-token');
+    var expMs = _parseJwtExp(token);
+    if (!expMs) return;
+    var remaining = expMs - Date.now();
+    if (remaining < 120000) { // < 2 min
+      console.log('[Auth] Tab visible with token near/past expiry (' + Math.round(remaining/1000) + 's left) — refreshing');
+      Auth._refreshTokenShared();
+    }
+  });
+}
