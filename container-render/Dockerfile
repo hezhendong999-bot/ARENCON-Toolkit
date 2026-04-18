@@ -20,13 +20,12 @@ RUN apt-get update && \
 # --break-system-packages is required on Debian bookworm (PEP 668).
 RUN pip3 install --no-cache-dir --break-system-packages pypdfium2==5.6.0
 
-# Smoke-test native pdfium load at build time. Importing pypdfium2
-# triggers the ctypes load of the bundled libpdfium.so — if that binary
-# is ABI-incompatible with this base image we crash here, not at first
-# request. Also prints the pdfium version for the CI log.
-RUN python3 -c "import pypdfium2 as p, pypdfium2_raw as r; \
-  print('pypdfium2:', p.__version__); \
-  print('pdfium at:', r.__file__)"
+# Smoke-test native pdfium load at build time. The `import pypdfium2`
+# statement triggers the ctypes load of the bundled libpdfium.so
+# (via pypdfium2_raw.__init__). If that binary is ABI-incompatible
+# with node:22-slim we crash here, not at first request. The import
+# succeeding IS the validation — we don't need any attribute access.
+RUN python3 -c "import pypdfium2, pypdfium2_raw; print('pdfium native lib loaded from:', pypdfium2_raw.__file__)"
 
 WORKDIR /app
 
