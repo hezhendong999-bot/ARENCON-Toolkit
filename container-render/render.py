@@ -45,32 +45,11 @@ def cmd_render(pdf_path, page_num, scale, out_path):
     try:
         page = pdf[page_num - 1]
         try:
-            # Supersampling: render at 2x the requested scale, then downscale
-            # via Lanczos. Produces noticeably sharper vector strokes than
-            # native pdfium AGG antialiasing, because we're averaging 4 pixels
-            # per output pixel instead of 1. Critical for engineering PDFs
-            # like AutoSPRINK that draw text as vector strokes (no font
-            # glyphs → LCD subpixel rendering does nothing → only path left
-            # to sharpen pipe dimensions, etc.).
+            # Render directly at requested scale (no supersampling).
+            # Earlier supersampling experiment (2x render + Lanczos downscale)
+            # produced byte-different but visually indistinguishable output
+            # vs native — not worth the extra memory + compute. Reverted.
             #
-            # Memory guard: at L4 target=12288, 2x would produce a ~25k×16k
-            # bitmap (1.6 GB per page). Container has 8 GB, sequential
-            # rendering, so this fits — but tight. If native size * 2 would
-            # exceed ~1.5 GB bitmap, fall back to 1.5x supersampling. Still
-            # sharper than native, safe headroom.
-            w_pt, h_pt = page.get_size()
-            max_safe_bytes = 1_500_000_000  # 1.5 GB
-            for ss_factor in (2.0, 1.5, 1.0):
-                ss_scale = scale * ss_factor
-                ss_w = int(round(w_pt * ss_scale))
-                ss_h = int(round(h_pt * ss_scale))
-                if ss_w * ss_h * 4 <= max_safe_bytes:
-                    break
-            sys.stderr.write(
-                f"ss_factor={ss_factor} (render {ss_w}x{ss_h}, "
-                f"{ss_w*ss_h*4/1e6:.0f} MB)\n"
-            )
-
             # rev_byteorder=True  → RGBA byte order (vs native BGRA)
             # prefer_bgrx=True    → force opaque 4-byte BGRx bitmap regardless
             #                      of page transparency. REQUIRED for LCD.
@@ -85,7 +64,7 @@ def cmd_render(pdf_path, page_num, scale, out_path):
             # Native FreeType bytecode hinting + native text AA are already
             # baked into libpdfium.so at compile time (unlike the WASM build).
             bitmap = page.render(
-                scale=ss_scale,
+                scale=scale,
                 rev_byteorder=True,
                 prefer_bgrx=True,
                 draw_annots=True,
@@ -116,20 +95,29 @@ def cmd_render(pdf_path, page_num, scale, out_path):
                 # + rev_byteorder).
                 pil_image = bitmap.to_pil()
 
-                # Supersample downscale: if we rendered bigger than the
-                # requested target, downscale via Lanczos. Final dimensions
-                # must match what native scale would have produced so
-                # server.js sharp tile math stays correct.
-                if ss_factor > 1.0:
-                    target_w = int(round(w_pt * scale))
-                    target_h = int(round(h_pt * scale))
-                    sys.stderr.write(
-                        f"downscaling {pil_image.size} → ({target_w}, {target_h}) "
-                        f"via Lanczos\n"
-                    )
-                    pil_image = pil_image.resize(
-                        (target_w, target_h), Image.LANCZOS
-                    )
+                # ---- Gamma darkening ----
+                # Apply gamma 1.5 to push midtones darker. Produces
+                # heavier/darker text that more closely matches Fieldwire's
+                # visual weight. Tradeoff: pipe colors (blue/orange/green)
+                # and highlights (pink/cyan) are also darkened moderately —
+                # this is accepted by design per user direction. Formula:
+                # output = (input/255) ^ gamma * 255. Gamma > 1 darkens
+                # midtones while keeping pure black and pure white fixed.
+                #
+                # PIL's ImageOps doesn't have a gamma helper that accepts
+                # arbitrary gamma on RGBX, so we build a 256-entry LUT and
+                # apply it via Image.point() — fast in C and handles each
+                # channel independently. The X channel in RGBX is ignored
+                # because sharp treats channels:4 as RGBA order.
+                GAMMA = 1.5
+                lut = [min(255, int(round(((i / 255.0) ** GAMMA) * 255))) for i in range(256)]
+                # Image.point on multi-channel image applies LUT to each
+                # channel. We pass the same LUT for each channel. For RGBX
+                # we pass it 4 times (X channel getting gamma'd is harmless —
+                # sharp ignores it).
+                channels = len(pil_image.getbands())  # 3 for RGB, 4 for RGBX/RGBA
+                pil_image = pil_image.point(lut * channels)
+                sys.stderr.write(f"gamma {GAMMA} applied via {channels}-channel LUT\n")
 
                 w, h = pil_image.size
                 mode = pil_image.mode
