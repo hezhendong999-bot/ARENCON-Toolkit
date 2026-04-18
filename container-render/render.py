@@ -47,6 +47,12 @@ def cmd_render(pdf_path, page_num, scale, out_path):
             # rev_byteorder=True  → RGBA byte order (vs native BGRA)
             # prefer_bgrx=False   → full 4-channel RGBA, not 3-channel BGR + pad
             # draw_annots=True    → render any embedded PDF annotations
+            # optimize_mode="lcd" → FPDF_LCD_TEXT: subpixel text rendering.
+            #                      Without this, small text uses grayscale
+            #                      antialiasing only. With it, pdfium uses
+            #                      RGB subpixel positioning (same technique
+            #                      Chromium uses) for sharper small glyphs.
+            #                      Does NOT affect bitmap size or memory.
             # Native FreeType bytecode hinting + native text AA are already
             # baked into libpdfium.so at compile time (unlike the WASM build).
             bitmap = page.render(
@@ -54,6 +60,7 @@ def cmd_render(pdf_path, page_num, scale, out_path):
                 rev_byteorder=True,
                 prefer_bgrx=False,
                 draw_annots=True,
+                optimize_mode="lcd",
             )
             try:
                 # to_pil() is pypdfium2's documented bridge to Pillow.
