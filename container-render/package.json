@@ -1,7 +1,7 @@
 {
   "name": "arencon-pdf-render-container",
-  "version": "4.0.0",
-  "description": "ARENCON Container: renders engineering PDFs into R2 tile pyramids (Chrome headless pdfium)",
+  "version": "5.0.0",
+  "description": "ARENCON Container: renders engineering PDFs into R2 tile pyramids (native pdfium via pypdfium2)",
   "main": "server.js",
   "scripts": {
     "start": "node --expose-gc --max-old-space-size=6144 server.js",
@@ -10,7 +10,6 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.668.0",
     "express": "^4.21.0",
-    "puppeteer-core": "^24.0.0",
     "sharp": "^0.33.5"
   },
   "engines": {
