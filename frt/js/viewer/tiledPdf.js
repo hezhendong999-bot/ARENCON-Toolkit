@@ -28,7 +28,14 @@ var _tiles = {};
 var _loading = {};
 var _tileOrder = [];
 var _tileCount = 0;
-var _MAX_TILES = 250;  // L3=96 + L4 viewport worst case + headroom
+
+// S91: iPad Safari OOMs on L4 (12288px) tile flood during field use. Cap
+// memory on iOS devices: fewer cached tiles + skip L4 entirely (see
+// _pickLevel). iPadOS now identifies as MacIntel in UA, so we additionally
+// detect touch points to distinguish from real Macs.
+var _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+var _MAX_TILES = _isIOS ? 100 : 250;  // L3=96 + L4 viewport worst case + headroom (desktop)
 var _TILE_SIZE = 512;
 
 function _dbg(msg) { if (window._FRT_DEBUG) console.log('[TiledPdf] ' + msg); }
@@ -64,11 +71,14 @@ function _pickLevel(viewScale) {
   if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return -1;
   var levels = _pageInfo.levels;
   var minLevel = Math.min(3, levels.length - 1);
+  // S91: iOS cap at L3 (6144px). L4 (12288px) tile flood OOMs iPad Safari.
+  // JPEG backdrop + L3 tiles still provide crisp rendering to ~6x zoom.
+  var maxLevel = _isIOS ? Math.min(3, levels.length - 1) : (levels.length - 1);
   var targetW = _drawW * viewScale;
-  for (var i = minLevel; i < levels.length; i++) {
+  for (var i = minLevel; i <= maxLevel; i++) {
     if (levels[i].width >= targetW) return i;
   }
-  return levels.length - 1;
+  return maxLevel;
 }
 
 function _evictLRU(layer) {
@@ -334,6 +344,36 @@ function _close_internal() {
 }
 
 function close() { _close_internal(); }
+
+// S91: on iOS, evict all tiles when the tab goes to background.
+// iPad Safari aggressively discards backgrounded tabs under memory pressure;
+// shedding the decoded tile bitmaps before going hidden reduces the chance
+// Safari kills the tab. On return (bfcache restore), scheduleRender()
+// re-requests the visible tiles — fast, since R2 tiles are immutable-cached.
+if (_isIOS && typeof window !== 'undefined') {
+  window.addEventListener('pagehide', function() {
+    if (!_active || _tileCount === 0) return;
+    _dbg('pagehide (iOS) — evicting ' + _tileCount + ' tiles to reduce memory');
+    var layer = document.getElementById('dv-tiles-layer');
+    Object.keys(_tiles).forEach(function(k) {
+      var t = _tiles[k];
+      if (t && t.img) {
+        if (layer && t.img.parentNode === layer) layer.removeChild(t.img);
+        t.img.src = '';
+      }
+    });
+    _tiles = {};
+    _loading = {};
+    _tileOrder = [];
+    _tileCount = 0;
+  });
+  window.addEventListener('pageshow', function(e) {
+    if (e.persisted && _active) {
+      _dbg('pageshow (iOS, bfcache) — re-requesting visible tiles');
+      scheduleRender();
+    }
+  });
+}
 
 export var TiledPdf = {
   init: init,
