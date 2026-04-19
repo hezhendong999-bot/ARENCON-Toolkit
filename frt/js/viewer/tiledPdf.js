@@ -134,9 +134,14 @@ function getDimensions() {
 function _tileUrl(level, col, row) {
   var d = _cfg && _cfg.getDrawing ? _cfg.getDrawing(_drawingId) : null;
   if (!d || !d.tileServer || !_manifest) return '';
+  // S94: switched .webp → .jpg. Container writes both formats per tile;
+  // .webp at L3 and L4 is VP8L lossless, which intermittently fails to paint
+  // on Chrome mobile-emulation and some Safari builds (tiles appear black
+  // at L3 on page 1, color-shifted on page 2 L3). JPEG has no such
+  // path-dependence — decodes identically everywhere.
   return d.tileServer + '/' + _manifest.pid + '/tiles/' +
     _manifest.drawingId + '/page-' + _pageInfo.pageNumber +
-    '/level-' + level + '/' + col + '-' + row + '.webp';
+    '/level-' + level + '/' + col + '-' + row + '.jpg';
 }
 
 // ── Level picker ───────────────────────────────────────────────────────────
