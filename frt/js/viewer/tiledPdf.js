@@ -134,14 +134,17 @@ function getDimensions() {
 function _tileUrl(level, col, row) {
   var d = _cfg && _cfg.getDrawing ? _cfg.getDrawing(_drawingId) : null;
   if (!d || !d.tileServer || !_manifest) return '';
-  // S94: switched .webp → .jpg. Container writes both formats per tile;
-  // .webp at L3 and L4 is VP8L lossless, which intermittently fails to paint
-  // on Chrome mobile-emulation and some Safari builds (tiles appear black
-  // at L3 on page 1, color-shifted on page 2 L3). JPEG has no such
-  // path-dependence — decodes identically everywhere.
+  // S94 correction — reverted to .webp. Earlier in S94 we switched to .jpg
+  // to dodge what looked like a VP8L decode bug at L3/L4, but those "broken"
+  // jpgs turned out to be stale tiles from a pre-S90 render that nothing in
+  // the current pipeline overwrites. Current server.js writes *only* .webp;
+  // every fresh render (pdfium, poppler, font/LCD tweaks, everything) lands
+  // in .webp. Real iOS Safari decodes .webp VP8L fine — the black/color
+  // artifacts that motivated the original switch were Chrome DevTools iPad
+  // emulation being buggy, not a real-device issue.
   return d.tileServer + '/' + _manifest.pid + '/tiles/' +
     _manifest.drawingId + '/page-' + _pageInfo.pageNumber +
-    '/level-' + level + '/' + col + '-' + row + '.jpg';
+    '/level-' + level + '/' + col + '-' + row + '.webp';
 }
 
 // ── Level picker ───────────────────────────────────────────────────────────
