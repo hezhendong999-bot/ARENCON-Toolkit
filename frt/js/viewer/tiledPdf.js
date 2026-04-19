@@ -54,14 +54,6 @@ var _dbg_zoomCount = 0;
 var _dbg_lastEvents = [];
 var _dbg_el = null;
 
-// S92: fit-to-page scale. Computed in _renderVisible. Used by overlay to
-// display fit-relative zoom (fit=+0.00, zoom-in goes positive) and to gate
-// zoom-count/event emission — pinching past fit-to-page no longer bumps
-// counters or floods the event log with unchanged values.
-var _fitScale = 0;
-var _dbg_lastClampedScale = -1;
-var _dbg_lastLevelIdx = -99;
-
 function _dbgEvent(s) {
   if (!_DBG_ENABLED) return;
   _dbg_lastEvents.push(s);
@@ -85,21 +77,12 @@ function _dbgRender() {
   if (_dbg_decodingCount > _dbg_maxDecoding) _dbg_maxDecoding = _dbg_decodingCount;
   if (_tileCount > _dbg_maxTiles) _dbg_maxTiles = _tileCount;
   var view = _cfg && _cfg.getViewState ? _cfg.getViewState() : null;
-  var rawScale = (view && typeof view.scale === 'number') ? view.scale : 0;
-  // Fit-relative zoom: fit-to-page reads as +0.00, 2× fit reads as +1.00,
-  // etc. Pinch-gestures below fit-to-page are clamped to +0.00 so the
-  // number stops changing once the page is visually fit.
-  var fitRel = 0;
-  if (_fitScale > 0 && rawScale > 0) {
-    fitRel = (rawScale / _fitScale) - 1;
-    if (fitRel < 0) fitRel = 0;
-  }
-  var zoomStr = '+' + fitRel.toFixed(2);
+  var scale = view && view.scale ? view.scale.toFixed(2) : '?';
   _dbg_el.textContent =
     'tiles: ' + _tileCount + '/' + _MAX_TILES + ' peak:' + _dbg_maxTiles + '\n' +
     'loading: ' + _dbg_loadingCount + ' peak:' + _dbg_maxLoading + '\n' +
     'decoding: ' + _dbg_decodingCount + ' peak:' + _dbg_maxDecoding + '\n' +
-    'zoom: ' + zoomStr + ' (x' + _dbg_zoomCount + ')\n' +
+    'zoom: ' + scale + ' (x' + _dbg_zoomCount + ')\n' +
     _dbg_lastEvents.join('\n');
 }
 
@@ -145,34 +128,15 @@ function _tileUrl(level, col, row) {
 // render, so drop the floor and let the selector pick L0-L2 — only a
 // handful of tiles. Zoom >= 1x keeps the L3 floor for crispness parity
 // with the backdrop.
-//
-// S92 Part 2: iPhone zoom-bucketed level CEILING. Even with the v148 floor
-// removal the picker can still pick L2/L3 at extreme zoom-out on large
-// drawings, firing 25-96 parallel tile fetches that crash Safari. Cap the
-// chosen level based on the zoom bucket — at <0.3x the tiles are only
-// 3-4 display pixels wide anyway (wasted work). iPhone-only; iPad/desktop
-// unaffected. Pure subtractive: can only lower the chosen level.
 function _pickLevel(viewScale) {
   if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return -1;
   var levels = _pageInfo.levels;
   var minLevel = (viewScale >= 1) ? Math.min(3, levels.length - 1) : 0;
   var targetW = _drawW * viewScale;
-  var chosen = levels.length - 1;
   for (var i = minLevel; i < levels.length; i++) {
-    if (levels[i].width >= targetW) { chosen = i; break; }
+    if (levels[i].width >= targetW) return i;
   }
-  if (_isIPhone) {
-    var cap;
-    if (viewScale < 0.3) cap = 1;       // entire drawing visible territory
-    else if (viewScale < 0.7) cap = 2;  // partial zoom-out
-    else cap = chosen;                  // zoom-in territory (no cap)
-    if (cap > levels.length - 1) cap = levels.length - 1;
-    if (cap < chosen) {
-      _dbgEvent('cap L' + chosen + '\u2192L' + cap + '@' + viewScale.toFixed(2));
-      chosen = cap;
-    }
-  }
-  return chosen;
+  return levels.length - 1;
 }
 
 function _evictLRU(layer) {
@@ -271,29 +235,11 @@ function _renderVisible() {
   var areaW = area.clientWidth;
   var areaH = area.clientHeight;
 
-  // S92: fit-to-page scale. Clamp scale to it for diagnostic purposes —
-  // pinching past fit doesn't visually change anything, so overlay / events
-  // shouldn't report change either.
-  _fitScale = (_drawW > 0 && _drawH > 0 && areaW > 0 && areaH > 0)
-    ? Math.min(areaW / _drawW, areaH / _drawH) : 0;
-  var clampedScale = (_fitScale > 0 && scale < _fitScale) ? _fitScale : scale;
-
   var levelIdx = _pickLevel(scale);
   if (levelIdx < 0) return;  // JPEG backdrop is sufficient at this zoom
   var lvl = _pageInfo.levels[levelIdx];
   if (!lvl) return;
-
-  // Only bump zoom counter / emit L-event when the clamped scale or chosen
-  // level actually changed. Eliminates overlay spam while pinching below fit
-  // and while panning at constant zoom.
-  var scaleChanged = Math.abs(clampedScale - _dbg_lastClampedScale) > 0.001;
-  var levelChanged = levelIdx !== _dbg_lastLevelIdx;
-  if (scaleChanged) _dbg_zoomCount++;
-  if (scaleChanged || levelChanged) {
-    _dbgEvent('L' + levelIdx + '@' + clampedScale.toFixed(2));
-  }
-  _dbg_lastClampedScale = clampedScale;
-  _dbg_lastLevelIdx = levelIdx;
+  _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
 
   // Visible draw-space region
   var visX0 = Math.max(0, -panX / scale);
@@ -331,6 +277,7 @@ function _renderVisible() {
 
 function scheduleRender() {
   clearTimeout(_renderTimer);
+  _dbg_zoomCount++;
   _renderTimer = setTimeout(_renderVisible, 60);
 }
 
@@ -466,9 +413,6 @@ function _close_internal() {
   _loading = {};
   _tileOrder = [];
   _tileCount = 0;
-  _fitScale = 0;
-  _dbg_lastClampedScale = -1;
-  _dbg_lastLevelIdx = -99;
 
   if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
   var img = document.getElementById('dv-image');
