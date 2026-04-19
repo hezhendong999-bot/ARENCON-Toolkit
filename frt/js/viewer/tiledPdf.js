@@ -128,15 +128,34 @@ function _tileUrl(level, col, row) {
 // render, so drop the floor and let the selector pick L0-L2 — only a
 // handful of tiles. Zoom >= 1x keeps the L3 floor for crispness parity
 // with the backdrop.
+//
+// S92 Part 2: iPhone zoom-bucketed level CEILING. Even with the v148 floor
+// removal the picker can still pick L2/L3 at extreme zoom-out on large
+// drawings, firing 25-96 parallel tile fetches that crash Safari. Cap the
+// chosen level based on the zoom bucket — at <0.3x the tiles are only
+// 3-4 display pixels wide anyway (wasted work). iPhone-only; iPad/desktop
+// unaffected. Pure subtractive: can only lower the chosen level.
 function _pickLevel(viewScale) {
   if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return -1;
   var levels = _pageInfo.levels;
   var minLevel = (viewScale >= 1) ? Math.min(3, levels.length - 1) : 0;
   var targetW = _drawW * viewScale;
+  var chosen = levels.length - 1;
   for (var i = minLevel; i < levels.length; i++) {
-    if (levels[i].width >= targetW) return i;
+    if (levels[i].width >= targetW) { chosen = i; break; }
   }
-  return levels.length - 1;
+  if (_isIPhone) {
+    var cap;
+    if (viewScale < 0.3) cap = 1;       // entire drawing visible territory
+    else if (viewScale < 0.7) cap = 2;  // partial zoom-out
+    else cap = chosen;                  // zoom-in territory (no cap)
+    if (cap > levels.length - 1) cap = levels.length - 1;
+    if (cap < chosen) {
+      _dbgEvent('cap L' + chosen + '\u2192L' + cap + '@' + viewScale.toFixed(2));
+      chosen = cap;
+    }
+  }
+  return chosen;
 }
 
 function _evictLRU(layer) {
