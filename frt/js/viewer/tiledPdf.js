@@ -1,14 +1,26 @@
 // frt/js/viewer/tiledPdf.js
-// S87 rewrite for server-rendered tile pyramids from R2.
+// S92 CLEAN REWRITE
+// Server-rendered tile pyramid viewer. Small, predictable, no stuck states.
 //
-// API (unchanged from original):
+// Public API (unchanged — callers in viewer.js / markup.js depend on this):
 //   TiledPdf.init(config)
 //   TiledPdf.open(drawingId, pageNum)   -> Promise<void>
 //   TiledPdf.close()                     -> void
-//   TiledPdf.scheduleRender()            -> void  (call after pan/zoom)
-//   TiledPdf.pause() / .resume()         -> void  (markup.js pen handlers)
+//   TiledPdf.scheduleRender()            -> void
+//   TiledPdf.pause() / .resume()         -> void
 //   TiledPdf.isActive()                  -> bool
 //   TiledPdf.getDimensions()             -> {drawW, drawH, pageW, pageH, baseScale} | null
+//
+// Design:
+//   • Fetch queue with concurrency cap (4 in-flight max)
+//   • On scheduleRender: compute visible tiles for current level, enqueue
+//     missing ones; tiles from prior levels stay cached until LRU eviction
+//   • Level change cancels PENDING (not-yet-started) requests for old levels,
+//     but lets in-flight ones finish (to populate cache for possible return)
+//   • Render loop is idempotent — calling it N times with same view state
+//     does nothing extra
+//   • No "skip tiles" tricks — we always load whatever level the picker picks
+//   • Backdrop (dv-image) stays visible forever as a safety net
 
 var _cfg = null;
 var _active = false;
@@ -24,43 +36,35 @@ var _nativeW = 0;
 var _nativeH = 0;
 var _baseScale = 1;
 
+// Tile cache: key "level_col_row" -> { img, level }
 var _tiles = {};
-var _loading = {};
-var _tileOrder = [];
+// In-flight fetches: key -> true
+var _inflight = {};
+// Pending queue: [{ key, level, col, row, lvl }]
+var _pending = [];
+var _tileOrder = [];          // LRU order (oldest first)
 var _tileCount = 0;
 
-// S91: iPhone Safari caps tab memory at ~250MB. Each decoded WebP tile is
-// 512×512×4 = 1MB. With full 6144 backdrop (~100MB) + markup (~16MB) +
-// Safari overhead (~50MB) baseline is ~166MB, leaving only ~84MB for tiles.
-// 25-tile cap keeps tile memory under ~25MB; combined peak lands at ~190MB
-// with healthy headroom. Trade-off: aggressive pan re-fetches evicted tiles,
-// but R2 has immutable-year cache so re-fetches are instant from SW cache.
-// Desktop / iPad / Android keep 250 — plenty of memory there.
 var _isIPhone = /iPhone|iPod/.test(navigator.userAgent);
-var _MAX_TILES = _isIPhone ? 25 : 250;
+var _isMobile = /iPhone|iPod|iPad|Android/.test(navigator.userAgent);
+var _MAX_TILES = _isIPhone ? 40 : 250;
+var _MAX_CONCURRENT = _isIPhone ? 3 : 6;
 var _TILE_SIZE = 512;
 
-// S92 DEBUG OVERLAY (all mobile + ?dbg=1). Added wrap/area/fit diagnostics
-// to distinguish transform/clamp bugs (wrong on Android too) from memory
-// bugs (iPhone-only crash).
-var _isMobile = /iPhone|iPod|iPad|Android/.test(navigator.userAgent);
+// ── Debug overlay (mobile + ?dbg=1). Diagnostic only; no behavior side effects.
 var _DBG_ENABLED = _isMobile || /[?&]dbg=1\b/.test(typeof window !== 'undefined' ? (window.location.search || '') : '');
-var _dbg_loadingCount = 0;
-var _dbg_decodingCount = 0;
-var _dbg_maxDecoding = 0;
-var _dbg_maxLoading = 0;
-var _dbg_maxTiles = 0;
-var _dbg_zoomCount = 0;
-var _dbg_lastEvents = [];
 var _dbg_el = null;
+var _dbg_lastEvents = [];
+var _dbg_maxInflight = 0;
+var _dbg_maxTiles = 0;
+var _dbg_renderCount = 0;
 
 function _dbgEvent(s) {
   if (!_DBG_ENABLED) return;
   _dbg_lastEvents.push(s);
-  if (_dbg_lastEvents.length > 6) _dbg_lastEvents.shift();
+  if (_dbg_lastEvents.length > 5) _dbg_lastEvents.shift();
 }
-
-function _dbgRender() {
+function _dbgTick() {
   if (!_DBG_ENABLED) return;
   if (!_dbg_el) {
     if (typeof document === 'undefined' || !document.body) return;
@@ -73,8 +77,9 @@ function _dbgRender() {
       'max-width:80vw;white-space:pre;text-align:left;';
     document.body.appendChild(_dbg_el);
   }
-  if (_dbg_loadingCount > _dbg_maxLoading) _dbg_maxLoading = _dbg_loadingCount;
-  if (_dbg_decodingCount > _dbg_maxDecoding) _dbg_maxDecoding = _dbg_decodingCount;
+  var inflight = 0;
+  for (var k in _inflight) if (Object.prototype.hasOwnProperty.call(_inflight, k)) inflight++;
+  if (inflight > _dbg_maxInflight) _dbg_maxInflight = inflight;
   if (_tileCount > _dbg_maxTiles) _dbg_maxTiles = _tileCount;
 
   var view = _cfg && _cfg.getViewState ? _cfg.getViewState() : null;
@@ -83,71 +88,50 @@ function _dbgRender() {
   var wrap = document.getElementById('dv-img-wrap');
   var aw = area ? area.clientWidth : 0;
   var ah = area ? area.clientHeight : 0;
-  // Expected fit-to-page scale from ground-truth drawing dims + live area:
-  var fitExp = 0;
-  if (_drawW > 0 && _drawH > 0 && aw > 0 && ah > 0) {
-    fitExp = Math.min(aw / _drawW, ah / _drawH);
-    if (fitExp > 1) fitExp = 1;
-  }
-  // Actual rendered wrap size on screen (bounding rect includes transform):
   var wrapRect = wrap ? wrap.getBoundingClientRect() : null;
   var wrapW = wrapRect ? Math.round(wrapRect.width) : 0;
   var wrapH = wrapRect ? Math.round(wrapRect.height) : 0;
 
   _dbg_el.textContent =
     'tiles: ' + _tileCount + '/' + _MAX_TILES + ' peak:' + _dbg_maxTiles + '\n' +
-    'loading: ' + _dbg_loadingCount + ' peak:' + _dbg_maxLoading + '\n' +
-    'decoding: ' + _dbg_decodingCount + ' peak:' + _dbg_maxDecoding + '\n' +
-    'scale: ' + scale.toFixed(3) + ' fitExp: ' + fitExp.toFixed(3) + '\n' +
+    'inflight: ' + inflight + ' peak:' + _dbg_maxInflight + '\n' +
+    'pending: ' + _pending.length + '\n' +
+    'scale: ' + scale.toFixed(3) + '\n' +
     'draw: ' + _drawW + 'x' + _drawH + '\n' +
     'area: ' + aw + 'x' + ah + '\n' +
     'wrap: ' + wrapW + 'x' + wrapH + '\n' +
-    'zoom#' + _dbg_zoomCount + '\n' +
+    'render#' + _dbg_renderCount + '\n' +
     _dbg_lastEvents.join('\n');
 }
-
-// Fast low-cost tick so the overlay reflects transient spikes
 if (_DBG_ENABLED && typeof window !== 'undefined') {
-  setInterval(_dbgRender, 250);
+  setInterval(_dbgTick, 250);
 }
-// ──────────────────────────────────────────────────────────────────────────
 
-function _dbg(msg) { if (window._FRT_DEBUG) console.log('[TiledPdf] ' + msg); }
+function _dbg(msg) { if (typeof window !== 'undefined' && window._FRT_DEBUG) console.log('[TiledPdf] ' + msg); }
 
+// ── Public setters/getters ─────────────────────────────────────────────────
 function init(config) { _cfg = config || {}; }
 function isActive() { return _active; }
 function pause() { _paused = true; }
 function resume() { _paused = false; scheduleRender(); }
-
 function getDimensions() {
   if (!_active) return null;
   return { drawW: _drawW, drawH: _drawH, pageW: _nativeW, pageH: _nativeH, baseScale: _baseScale };
 }
 
+// ── Tile URL ───────────────────────────────────────────────────────────────
 function _tileUrl(level, col, row) {
-  var d = _cfg.getDrawing ? _cfg.getDrawing(_drawingId) : null;
+  var d = _cfg && _cfg.getDrawing ? _cfg.getDrawing(_drawingId) : null;
   if (!d || !d.tileServer || !_manifest) return '';
   return d.tileServer + '/' + _manifest.pid + '/tiles/' +
     _manifest.drawingId + '/page-' + _pageInfo.pageNumber +
     '/level-' + level + '/' + col + '-' + row + '.webp';
 }
 
-// Level selection: JPEG backdrop is 6144px (matches drawW). Tiles only add
-// value when zoomed past 1x where JPEG gets upscaled. At >1x, jump straight
-// to L4 (12288px) for maximum crispness. Skip L3 entirely — it's the same
-// resolution as JPEG. Returns -1 when JPEG alone is sufficient.
-// Always load tiles at every zoom level. JPEG backdrop has client-side
-// pdf.js rendering gaps (missing text, clipped notes) that the server-
-// rendered tiles don't. L3 (6144px) at normal zoom fixes these gaps
-// without visual change (same resolution, JPEG shows through until tile
-// loads). L4 (12288px) kicks in at zoom > 1x for extra crispness.
-//
-// S91: zoom-aware minimum. The L3 floor was crashing iPhone Safari at
-// zoom-out: entire drawing visible at 0.23x meant loading all 96 L3 tiles
-// at once. At zoom < 1x the backdrop alone is sharper than the screen can
-// render, so drop the floor and let the selector pick L0-L2 — only a
-// handful of tiles. Zoom >= 1x keeps the L3 floor for crispness parity
-// with the backdrop.
+// ── Level picker ───────────────────────────────────────────────────────────
+// Simple rule: pick lowest level whose pixel width >= target width (drawW *
+// viewScale). At zoom ≥ 1, floor at index 3 (matches backdrop resolution).
+// Always returns a valid index so tiles always load (no "missing content").
 function _pickLevel(viewScale) {
   if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return -1;
   var levels = _pageInfo.levels;
@@ -159,7 +143,26 @@ function _pickLevel(viewScale) {
   return levels.length - 1;
 }
 
-function _evictLRU(layer) {
+// ── Cache + queue ──────────────────────────────────────────────────────────
+function _tileKey(level, col, row) { return level + '_' + col + '_' + row; }
+
+function _inflightCount() {
+  var n = 0;
+  for (var k in _inflight) if (Object.prototype.hasOwnProperty.call(_inflight, k)) n++;
+  return n;
+}
+
+// Drop queued-but-not-started fetches whose level != keepLevel. Lets already-
+// started fetches finish (cheap — they'll populate cache).
+function _cancelPendingExceptLevel(keepLevel) {
+  var next = [];
+  for (var i = 0; i < _pending.length; i++) {
+    if (_pending[i].level === keepLevel) next.push(_pending[i]);
+  }
+  _pending = next;
+}
+
+function _evictExcess(layer) {
   while (_tileCount > _MAX_TILES && _tileOrder.length) {
     var oldest = _tileOrder.shift();
     var tile = _tiles[oldest];
@@ -168,35 +171,46 @@ function _evictLRU(layer) {
       tile.img.src = '';
     }
     delete _tiles[oldest];
-    delete _loading[oldest];
     _tileCount--;
   }
 }
 
-function _fetchTile(levelIdx, col, row, lvl, layer) {
-  var key = levelIdx + '_' + col + '_' + row;
-  if (_tiles[key] || _loading[key]) return;
-  _loading[key] = true;
-  _dbg_loadingCount++;
+function _touch(key) {
+  var i = _tileOrder.indexOf(key);
+  if (i >= 0) _tileOrder.splice(i, 1);
+  _tileOrder.push(key);
+}
 
-  var url = _tileUrl(levelIdx, col, row);
-  if (!url) { delete _loading[key]; _dbg_loadingCount--; return; }
+// Promote a single pending request into flight (if capacity).
+function _pumpQueue() {
+  var layer = document.getElementById('dv-tiles-layer');
+  while (_pending.length > 0 && _inflightCount() < _MAX_CONCURRENT) {
+    var req = _pending.shift();
+    // Re-verify: cached or already in-flight since queued?
+    if (_tiles[req.key] || _inflight[req.key]) continue;
+    _startFetch(req, layer);
+  }
+}
 
-  // Map tile from level-pixel space to draw-pixel space.
-  // Each tile covers TILE_SIZE × TILE_SIZE level-pixels (edges may be smaller).
-  // Scale uniformly by drawW/levelW and drawH/levelH.
+function _startFetch(req, layer) {
+  var key = req.key;
+  _inflight[key] = true;
+
+  var url = _tileUrl(req.level, req.col, req.row);
+  if (!url) { delete _inflight[key]; return; }
+
+  var lvl = req.lvl;
   var scaleX = _drawW / lvl.width;
   var scaleY = _drawH / lvl.height;
-  var tileX = col * _TILE_SIZE;
-  var tileY = row * _TILE_SIZE;
+  var tileX = req.col * _TILE_SIZE;
+  var tileY = req.row * _TILE_SIZE;
   var tileW = Math.min(_TILE_SIZE, lvl.width - tileX);
   var tileH = Math.min(_TILE_SIZE, lvl.height - tileY);
-  if (tileW <= 0 || tileH <= 0) { delete _loading[key]; _dbg_loadingCount--; return; }
+  if (tileW <= 0 || tileH <= 0) { delete _inflight[key]; _pumpQueue(); return; }
 
   var cssL = Math.round(tileX * scaleX);
   var cssT = Math.round(tileY * scaleY);
-  // Compute right/bottom edge from next tile boundary to avoid rounding gaps
-  var cssR = Math.round((tileX + tileW) * scaleX) + 1;  // +1 overlap
+  var cssR = Math.round((tileX + tileW) * scaleX) + 1;
   var cssB = Math.round((tileY + tileH) * scaleY) + 1;
   var cssW = cssR - cssL;
   var cssH = cssB - cssT;
@@ -211,38 +225,36 @@ function _fetchTile(levelIdx, col, row, lvl, layer) {
 
   var drawingIdAtRequest = _drawingId;
   img.onload = function() {
-    delete _loading[key];
-    _dbg_loadingCount--;
-    if (!_active || _drawingId !== drawingIdAtRequest) { img.src = ''; return; }
-    // Force-count the decode window: HTML Image decode() resolves when
-    // the bitmap is actually in RAM. That's the real memory spike moment.
-    _dbg_decodingCount++;
-    var doneDecode = function() {
-      _dbg_decodingCount--;
-      if (!_active || _drawingId !== drawingIdAtRequest) { img.src = ''; return; }
-      _tiles[key] = { img: img, level: levelIdx, col: col, row: row };
+    delete _inflight[key];
+    if (!_active || _drawingId !== drawingIdAtRequest) {
+      img.src = '';
+      _pumpQueue();
+      return;
+    }
+    var finish = function() {
+      if (!_active || _drawingId !== drawingIdAtRequest) { img.src = ''; _pumpQueue(); return; }
+      _tiles[key] = { img: img, level: req.level };
       _tileOrder.push(key);
       _tileCount++;
-      if (layer && layer.parentNode) layer.appendChild(img);
-      _evictLRU(layer);
+      var curLayer = document.getElementById('dv-tiles-layer');
+      if (curLayer && curLayer.parentNode) curLayer.appendChild(img);
+      _evictExcess(curLayer);
+      _pumpQueue();
     };
-    if (img.decode) {
-      img.decode().then(doneDecode).catch(doneDecode);
-    } else {
-      doneDecode();
-    }
+    if (img.decode) img.decode().then(finish, finish); else finish();
   };
   img.onerror = function() {
-    delete _loading[key];
-    _dbg_loadingCount--;
+    delete _inflight[key];
     _dbgEvent('err ' + key);
-    _dbg('Tile load failed: ' + key);
+    _pumpQueue();
   };
   img.src = url;
 }
 
+// ── Render loop ────────────────────────────────────────────────────────────
 function _renderVisible() {
   if (!_active || _paused || !_pageInfo) return;
+  _dbg_renderCount++;
 
   var area = document.getElementById('dv-canvas-area');
   var layer = document.getElementById('dv-tiles-layer');
@@ -256,18 +268,22 @@ function _renderVisible() {
   var areaH = area.clientHeight;
 
   var levelIdx = _pickLevel(scale);
-  if (levelIdx < 0) return;  // JPEG backdrop is sufficient at this zoom
+  if (levelIdx < 0) return;
   var lvl = _pageInfo.levels[levelIdx];
   if (!lvl) return;
   _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
 
-  // Visible draw-space region
+  // Drop queued requests from other levels — they're no longer relevant.
+  _cancelPendingExceptLevel(levelIdx);
+
+  // Visible draw-space rectangle, expanded by 1 tile worth of margin so pan
+  // has pre-fetched edges. Margin is in level pixels, converted to drawing
+  // pixels.
   var visX0 = Math.max(0, -panX / scale);
   var visY0 = Math.max(0, -panY / scale);
   var visX1 = Math.min(_drawW, (areaW - panX) / scale);
   var visY1 = Math.min(_drawH, (areaH - panY) / scale);
 
-  // Convert visible draw region to level-pixel coordinates
   var d2lX = lvl.width / _drawW;
   var d2lY = lvl.height / _drawH;
   var lvlX0 = visX0 * d2lX;
@@ -275,32 +291,36 @@ function _renderVisible() {
   var lvlX1 = visX1 * d2lX;
   var lvlY1 = visY1 * d2lY;
 
-  // Tile grid range (1-tile margin for smooth panning)
   var colMin = Math.max(0, Math.floor(lvlX0 / _TILE_SIZE) - 1);
   var colMax = Math.min(lvl.cols - 1, Math.ceil(lvlX1 / _TILE_SIZE));
   var rowMin = Math.max(0, Math.floor(lvlY0 / _TILE_SIZE) - 1);
   var rowMax = Math.min(lvl.rows - 1, Math.ceil(lvlY1 / _TILE_SIZE));
 
+  // First pass: enqueue missing, touch cached.
   for (var col = colMin; col <= colMax; col++) {
     for (var row = rowMin; row <= rowMax; row++) {
-      var key = levelIdx + '_' + col + '_' + row;
-      if (_tiles[key]) {
-        var idx = _tileOrder.indexOf(key);
-        if (idx >= 0) _tileOrder.splice(idx, 1);
-        _tileOrder.push(key);
-        continue;
+      var key = _tileKey(levelIdx, col, row);
+      if (_tiles[key]) { _touch(key); continue; }
+      if (_inflight[key]) continue;
+      // Already queued?
+      var queued = false;
+      for (var q = 0; q < _pending.length; q++) {
+        if (_pending[q].key === key) { queued = true; break; }
       }
-      _fetchTile(levelIdx, col, row, lvl, layer);
+      if (queued) continue;
+      _pending.push({ key: key, level: levelIdx, col: col, row: row, lvl: lvl });
     }
   }
+
+  _pumpQueue();
 }
 
 function scheduleRender() {
-  clearTimeout(_renderTimer);
-  _dbg_zoomCount++;
+  if (_renderTimer) clearTimeout(_renderTimer);
   _renderTimer = setTimeout(_renderVisible, 60);
 }
 
+// ── Open / close ───────────────────────────────────────────────────────────
 function _openServerTiles(d, drawingId, pageNum) {
   _drawingId = drawingId;
   _active = false;
@@ -331,9 +351,7 @@ function _openServerTiles(d, drawingId, pageNum) {
       _drawH = d.height || _nativeH;
       _baseScale = _drawW / _nativeW;
 
-      // S87 fix #4: Keep dv-image as instant backdrop while tiles load.
-      // The old JPEG (from upload-time render) covers the full drawing at
-      // 6144px. Tiles load ON TOP with higher z-index. No white gaps ever.
+      // Backdrop (dv-image) — ALWAYS visible. Safety net if tiles fail.
       var img = document.getElementById('dv-image');
       if (img) {
         var jpegSrc = d.r2Url || d.dataUrl || d.thumb || '';
@@ -350,12 +368,9 @@ function _openServerTiles(d, drawingId, pageNum) {
 
       var layer = document.createElement('div');
       layer.id = 'dv-tiles-layer';
-      // Transparent background — JPEG shows through gaps while tiles load.
-      // No z-index — DOM order handles layering: dv-image < tiles < markup-canvas.
       layer.style.cssText =
         'position:absolute;top:0;left:0;width:' + _drawW + 'px;height:' + _drawH +
         'px;overflow:hidden;';
-      // Insert between dv-image and markup-canvas (DOM order = paint order for positioned elements)
       var mc = document.getElementById('markup-canvas');
       if (wrap && mc) wrap.insertBefore(layer, mc);
       else if (wrap) wrap.appendChild(layer);
@@ -364,10 +379,9 @@ function _openServerTiles(d, drawingId, pageNum) {
       if (_cfg.hideLoading) _cfg.hideLoading();
       if (_cfg.onReady) _cfg.onReady({ drawW: _drawW, drawH: _drawH });
 
-      // L0 is already the background-image. Jump straight to target level.
       _renderVisible();
 
-      // Mobile second-pass
+      // Mobile second-pass (layout may not have settled on first render).
       if (window.innerWidth <= 700) {
         setTimeout(function() {
           if (_cfg.onReady) _cfg.onReady({ drawW: _drawW, drawH: _drawH });
@@ -375,7 +389,7 @@ function _openServerTiles(d, drawingId, pageNum) {
         }, 200);
       }
 
-      console.log('[TiledPdf] Server tiles opened: ' + _manifest.drawingId +
+      _dbg('Server tiles opened: ' + _manifest.drawingId +
         ' page ' + _pageInfo.pageNumber + ', ' + _pageInfo.levels.length + ' levels');
     })
     .catch(function(err) {
@@ -412,7 +426,6 @@ async function open(drawingId, pageNum) {
   if (d.tileStatus === 'ready' && d.tileManifestUrl) {
     return _openServerTiles(d, drawingId, pageNum);
   }
-
   _openLegacyFallback(d, drawingId);
 }
 
@@ -422,15 +435,17 @@ function _close_internal() {
   _manifest = null;
   _pageInfo = null;
   _drawingId = null;
-  clearTimeout(_renderTimer);
+  if (_renderTimer) { clearTimeout(_renderTimer); _renderTimer = null; }
 
   var layer = document.getElementById('dv-tiles-layer');
-  Object.keys(_tiles).forEach(function(k) {
+  for (var k in _tiles) {
+    if (!Object.prototype.hasOwnProperty.call(_tiles, k)) continue;
     var t = _tiles[k];
-    if (t && t.img) { t.img.src = ''; }
-  });
+    if (t && t.img) t.img.src = '';
+  }
   _tiles = {};
-  _loading = {};
+  _inflight = {};
+  _pending = [];
   _tileOrder = [];
   _tileCount = 0;
 
