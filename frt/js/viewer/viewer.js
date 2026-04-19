@@ -293,6 +293,23 @@ function _ensureTiledInit() {
       _applyTransform();
       _renderPins();
       TiledPdf.scheduleRender();
+      // S92: re-fit after layout settles. On mobile the canvas area's flex
+      // sizing often finishes after onReady fires (drawing-viewer overlay
+      // open animation, toolbar reflow, address-bar collapse), leaving
+      // _fitScale stored against stale area dims. Re-read settled layout,
+      // recompute, and snap to new fit only if user hasn't interacted.
+      setTimeout(function() {
+        if (!TiledPdf.isActive()) return;
+        var d2 = TiledPdf.getDimensions();
+        if (!d2) return;
+        var oldFit = _fitScale;
+        _calcFitScaleFromDims(d2.drawW, d2.drawH);
+        if (Math.abs(_scale - oldFit) < 0.0005 &&
+            Math.abs(_fitScale - oldFit) > 0.001) {
+          _scale = _fitScale; _panX = 0; _panY = 0;
+          _applyTransform();
+        }
+      }, 400);
     }
   });
 }
@@ -886,6 +903,18 @@ document.addEventListener('touchstart', function(e) {
   if (e.touches.length === 2) {
     // Pinch start
     e.preventDefault();
+    // S92: recompute _fitScale fresh from live area dims before capturing
+    // pinch state. Fixes "can't zoom out all the way" / "drawing looks too
+    // small at max zoom-out" on mobile — _fitScale captured at drawing open
+    // was against pre-layout-settled area dims, and the window.resize
+    // handler doesn't fire for CSS flex reflows, so the stale value
+    // persisted. Safe: recompute can only LOWER the clamp (more permissive).
+    if (TiledPdf.isActive()) {
+      var _d92 = TiledPdf.getDimensions();
+      if (_d92) _calcFitScaleFromDims(_d92.drawW, _d92.drawH);
+    } else {
+      _calcFitScale();
+    }
     var dx = e.touches[1].clientX - e.touches[0].clientX;
     var dy = e.touches[1].clientY - e.touches[0].clientY;
     _touchStartDist = Math.sqrt(dx * dx + dy * dy);
