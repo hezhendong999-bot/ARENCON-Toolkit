@@ -28,7 +28,16 @@ var _tiles = {};
 var _loading = {};
 var _tileOrder = [];
 var _tileCount = 0;
-var _MAX_TILES = 250;  // L3=96 + L4 viewport worst case + headroom
+
+// S91: iPhone Safari caps tab memory at ~250MB. Each decoded WebP tile is
+// 512×512×4 = 1MB. With full 6144 backdrop (~100MB) + markup (~16MB) +
+// Safari overhead (~50MB) baseline is ~166MB, leaving only ~84MB for tiles.
+// 25-tile cap keeps tile memory under ~25MB; combined peak lands at ~190MB
+// with healthy headroom. Trade-off: aggressive pan re-fetches evicted tiles,
+// but R2 has immutable-year cache so re-fetches are instant from SW cache.
+// Desktop / iPad / Android keep 250 — plenty of memory there.
+var _isIPhone = /iPhone|iPod/.test(navigator.userAgent);
+var _MAX_TILES = _isIPhone ? 25 : 250;
 var _TILE_SIZE = 512;
 
 function _dbg(msg) { if (window._FRT_DEBUG) console.log('[TiledPdf] ' + msg); }
@@ -228,24 +237,9 @@ function _openServerTiles(d, drawingId, pageNum) {
       // S87 fix #4: Keep dv-image as instant backdrop while tiles load.
       // The old JPEG (from upload-time render) covers the full drawing at
       // 6144px. Tiles load ON TOP with higher z-index. No white gaps ever.
-      //
-      // S91: on iPhone, prefer the tiny `thumb` over the 6144px R2 JPEG for
-      // the backdrop. Decoded 6144px ≈ 100MB of RGBA; on iPhone Safari's
-      // ~250MB tab ceiling that steals the headroom tiles need at deep zoom.
-      // The thumb is typically ~600-900px (under 3MB decoded). Tiles fill in
-      // sharpness on top within a second or two, same as before — only the
-      // instant-fallback layer gets smaller. URL flag ?iphone-backdrop=full
-      // forces the desktop/iPad 6144px path for A/B testing.
       var img = document.getElementById('dv-image');
       if (img) {
-        var _isIPhone = /iPhone|iPod/.test(navigator.userAgent);
-        var _forceFullBackdrop = /[?&]iphone-backdrop=full\b/.test(window.location.search);
-        var jpegSrc;
-        if (_isIPhone && !_forceFullBackdrop) {
-          jpegSrc = d.thumb || d.r2Url || d.dataUrl || '';
-        } else {
-          jpegSrc = d.r2Url || d.dataUrl || d.thumb || '';
-        }
+        var jpegSrc = d.r2Url || d.dataUrl || d.thumb || '';
         if (jpegSrc) {
           img.crossOrigin = 'anonymous';
           img.style.display = 'block';
