@@ -54,6 +54,14 @@ var _dbg_zoomCount = 0;
 var _dbg_lastEvents = [];
 var _dbg_el = null;
 
+// S92: fit-to-page scale. Computed in _renderVisible. Used by overlay to
+// display fit-relative zoom (fit=+0.00, zoom-in goes positive) and to gate
+// zoom-count/event emission — pinching past fit-to-page no longer bumps
+// counters or floods the event log with unchanged values.
+var _fitScale = 0;
+var _dbg_lastClampedScale = -1;
+var _dbg_lastLevelIdx = -99;
+
 function _dbgEvent(s) {
   if (!_DBG_ENABLED) return;
   _dbg_lastEvents.push(s);
@@ -77,12 +85,21 @@ function _dbgRender() {
   if (_dbg_decodingCount > _dbg_maxDecoding) _dbg_maxDecoding = _dbg_decodingCount;
   if (_tileCount > _dbg_maxTiles) _dbg_maxTiles = _tileCount;
   var view = _cfg && _cfg.getViewState ? _cfg.getViewState() : null;
-  var scale = view && view.scale ? view.scale.toFixed(2) : '?';
+  var rawScale = (view && typeof view.scale === 'number') ? view.scale : 0;
+  // Fit-relative zoom: fit-to-page reads as +0.00, 2× fit reads as +1.00,
+  // etc. Pinch-gestures below fit-to-page are clamped to +0.00 so the
+  // number stops changing once the page is visually fit.
+  var fitRel = 0;
+  if (_fitScale > 0 && rawScale > 0) {
+    fitRel = (rawScale / _fitScale) - 1;
+    if (fitRel < 0) fitRel = 0;
+  }
+  var zoomStr = '+' + fitRel.toFixed(2);
   _dbg_el.textContent =
     'tiles: ' + _tileCount + '/' + _MAX_TILES + ' peak:' + _dbg_maxTiles + '\n' +
     'loading: ' + _dbg_loadingCount + ' peak:' + _dbg_maxLoading + '\n' +
     'decoding: ' + _dbg_decodingCount + ' peak:' + _dbg_maxDecoding + '\n' +
-    'zoom: ' + scale + ' (x' + _dbg_zoomCount + ')\n' +
+    'zoom: ' + zoomStr + ' (x' + _dbg_zoomCount + ')\n' +
     _dbg_lastEvents.join('\n');
 }
 
@@ -254,11 +271,29 @@ function _renderVisible() {
   var areaW = area.clientWidth;
   var areaH = area.clientHeight;
 
+  // S92: fit-to-page scale. Clamp scale to it for diagnostic purposes —
+  // pinching past fit doesn't visually change anything, so overlay / events
+  // shouldn't report change either.
+  _fitScale = (_drawW > 0 && _drawH > 0 && areaW > 0 && areaH > 0)
+    ? Math.min(areaW / _drawW, areaH / _drawH) : 0;
+  var clampedScale = (_fitScale > 0 && scale < _fitScale) ? _fitScale : scale;
+
   var levelIdx = _pickLevel(scale);
   if (levelIdx < 0) return;  // JPEG backdrop is sufficient at this zoom
   var lvl = _pageInfo.levels[levelIdx];
   if (!lvl) return;
-  _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
+
+  // Only bump zoom counter / emit L-event when the clamped scale or chosen
+  // level actually changed. Eliminates overlay spam while pinching below fit
+  // and while panning at constant zoom.
+  var scaleChanged = Math.abs(clampedScale - _dbg_lastClampedScale) > 0.001;
+  var levelChanged = levelIdx !== _dbg_lastLevelIdx;
+  if (scaleChanged) _dbg_zoomCount++;
+  if (scaleChanged || levelChanged) {
+    _dbgEvent('L' + levelIdx + '@' + clampedScale.toFixed(2));
+  }
+  _dbg_lastClampedScale = clampedScale;
+  _dbg_lastLevelIdx = levelIdx;
 
   // Visible draw-space region
   var visX0 = Math.max(0, -panX / scale);
@@ -296,7 +331,6 @@ function _renderVisible() {
 
 function scheduleRender() {
   clearTimeout(_renderTimer);
-  _dbg_zoomCount++;
   _renderTimer = setTimeout(_renderVisible, 60);
 }
 
@@ -432,6 +466,9 @@ function _close_internal() {
   _loading = {};
   _tileOrder = [];
   _tileCount = 0;
+  _fitScale = 0;
+  _dbg_lastClampedScale = -1;
+  _dbg_lastLevelIdx = -99;
 
   if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
   var img = document.getElementById('dv-image');
