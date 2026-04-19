@@ -25,9 +25,10 @@ var _nativeH = 0;
 var _baseScale = 1;
 
 var _tiles = {};
-var _loading = {};
+var _loading = {};  // key -> Image  (stores img ref so we can abort via src='')
 var _tileOrder = [];
 var _tileCount = 0;
+var _lastLevelIdx = -1;  // S91: track active level to abort orphaned requests on zoom change
 
 // S91: iPhone Safari caps tab memory at ~250MB. Each decoded WebP tile is
 // 512×512×4 = 1MB. With full 6144 backdrop (~100MB) + markup (~16MB) +
@@ -122,19 +123,28 @@ function _tileUrl(level, col, row) {
 // without visual change (same resolution, JPEG shows through until tile
 // loads). L4 (12288px) kicks in at zoom > 1x for extra crispness.
 //
-// S91: zoom-aware minimum. The L3 floor was crashing iPhone Safari at
-// zoom-out: entire drawing visible at 0.23x meant loading all 96 L3 tiles
-// at once. At zoom < 1x the backdrop alone is sharper than the screen can
-// render, so drop the floor and let the selector pick L0-L2 — only a
-// handful of tiles. Zoom >= 1x keeps the L3 floor for crispness parity
-// with the backdrop.
-function _pickLevel(viewScale) {
+// S91 fix 2: pick level based on ACTUAL viewport CSS pixels — not drawing
+// coordinate space. Previous logic did targetW = drawW * viewScale, which
+// at zoom 0.33 on a 10000px-wide drawing gave targetW = 3300 and picked L3.
+// But the viewport is only ~400px on iPhone — we can't display more than
+// that in the first place. Using areaW * devicePixelRatio as the target
+// (i.e. "how many pixels can the screen actually show"), zoom 0.33x picks
+// L1 naturally. Zoom 1.91x at viewport slice picks L3. Zoom 4x+ picks L4.
+// Fully display-driven, no arbitrary floors. Fieldwire-style behavior.
+function _pickLevel(viewScale, viewportW) {
   if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return -1;
   var levels = _pageInfo.levels;
-  var minLevel = (viewScale >= 1) ? Math.min(3, levels.length - 1) : 0;
-  var targetW = _drawW * viewScale;
-  for (var i = minLevel; i < levels.length; i++) {
-    if (levels[i].width >= targetW) return i;
+  // Portion of the drawing visible on screen at this zoom, in draw-space px
+  var visibleDrawW = Math.min(_drawW, viewportW / viewScale);
+  // Target: pick a level where that visible chunk of drawing covers the
+  // viewport at native screen resolution. dpr accounts for retina.
+  var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+  var targetPx = viewportW * dpr;
+  // Level width / drawW = pixels per draw-unit. Multiplied by visibleDrawW
+  // gives pixels this level would render into the viewport at native scale.
+  for (var i = 0; i < levels.length; i++) {
+    var levelPxInViewport = (levels[i].width / _drawW) * visibleDrawW;
+    if (levelPxInViewport >= targetPx) return i;
   }
   return levels.length - 1;
 }
@@ -153,14 +163,31 @@ function _evictLRU(layer) {
   }
 }
 
+function _abortOtherLevels(keepLevelIdx) {
+  var aborted = 0;
+  Object.keys(_loading).forEach(function(key){
+    var level = parseInt(key.split('_')[0], 10);
+    if (level === keepLevelIdx) return;
+    var img = _loading[key];
+    if (img && typeof img === 'object') {
+      // Setting src='' halts in-flight fetch on Safari (and everywhere else)
+      img.onload = null;
+      img.onerror = null;
+      img.src = '';
+    }
+    delete _loading[key];
+    _dbg_loadingCount--;
+    aborted++;
+  });
+  if (aborted) _dbgEvent('abort ' + aborted + ' L!' + keepLevelIdx);
+}
+
 function _fetchTile(levelIdx, col, row, lvl, layer) {
   var key = levelIdx + '_' + col + '_' + row;
   if (_tiles[key] || _loading[key]) return;
-  _loading[key] = true;
-  _dbg_loadingCount++;
 
   var url = _tileUrl(levelIdx, col, row);
-  if (!url) { delete _loading[key]; _dbg_loadingCount--; return; }
+  if (!url) return;
 
   // Map tile from level-pixel space to draw-pixel space.
   // Each tile covers TILE_SIZE × TILE_SIZE level-pixels (edges may be smaller).
@@ -171,7 +198,7 @@ function _fetchTile(levelIdx, col, row, lvl, layer) {
   var tileY = row * _TILE_SIZE;
   var tileW = Math.min(_TILE_SIZE, lvl.width - tileX);
   var tileH = Math.min(_TILE_SIZE, lvl.height - tileY);
-  if (tileW <= 0 || tileH <= 0) { delete _loading[key]; _dbg_loadingCount--; return; }
+  if (tileW <= 0 || tileH <= 0) return;
 
   var cssL = Math.round(tileX * scaleX);
   var cssT = Math.round(tileY * scaleY);
@@ -189,8 +216,15 @@ function _fetchTile(levelIdx, col, row, lvl, layer) {
     'width:' + cssW + 'px;height:' + cssH + 'px;image-rendering:auto;' +
     'pointer-events:none;';
 
+  // S91: store img ref so _abortOtherLevels can cancel in-flight fetches
+  _loading[key] = img;
+  _dbg_loadingCount++;
+
   var drawingIdAtRequest = _drawingId;
   img.onload = function() {
+    // If already aborted, src was reset and onload was nulled out — we
+    // shouldn't get here, but belt-and-suspenders
+    if (!_loading[key]) return;
     delete _loading[key];
     _dbg_loadingCount--;
     if (!_active || _drawingId !== drawingIdAtRequest) { img.src = ''; return; }
@@ -213,6 +247,8 @@ function _fetchTile(levelIdx, col, row, lvl, layer) {
     }
   };
   img.onerror = function() {
+    // If already aborted, our cleanup already decremented. Skip.
+    if (!_loading[key]) return;
     delete _loading[key];
     _dbg_loadingCount--;
     _dbgEvent('err ' + key);
@@ -235,10 +271,20 @@ function _renderVisible() {
   var areaW = area.clientWidth;
   var areaH = area.clientHeight;
 
-  var levelIdx = _pickLevel(scale);
+  var levelIdx = _pickLevel(scale, areaW);
   if (levelIdx < 0) return;  // JPEG backdrop is sufficient at this zoom
   var lvl = _pageInfo.levels[levelIdx];
   if (!lvl) return;
+
+  // S91 fix: when level changes (zoom crossed a boundary), abort any
+  // in-flight requests for other levels. Without this, zooming in to L4
+  // then zooming back out piles the old L4 fetches on top of new L1 fetches
+  // and the request storm crashes iPhone Safari. Aborting orphaned loads
+  // keeps in-flight count bounded to the current level's visible tiles.
+  if (_lastLevelIdx !== levelIdx) {
+    _abortOtherLevels(levelIdx);
+    _lastLevelIdx = levelIdx;
+  }
   _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
 
   // Visible draw-space region
@@ -409,10 +455,22 @@ function _close_internal() {
     var t = _tiles[k];
     if (t && t.img) { t.img.src = ''; }
   });
+  // S91: also abort in-flight fetches (they have img refs now)
+  Object.keys(_loading).forEach(function(k) {
+    var img = _loading[k];
+    if (img && typeof img === 'object') {
+      img.onload = null;
+      img.onerror = null;
+      img.src = '';
+    }
+  });
   _tiles = {};
   _loading = {};
   _tileOrder = [];
   _tileCount = 0;
+  _lastLevelIdx = -1;
+  _dbg_loadingCount = 0;
+  _dbg_decodingCount = 0;
 
   if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
   var img = document.getElementById('dv-image');
