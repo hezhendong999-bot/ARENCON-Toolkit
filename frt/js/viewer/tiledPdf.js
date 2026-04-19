@@ -59,8 +59,11 @@ var _MAX_TILES = _isIPhone ? 80 : (_isIPad ? 180 : 250);
 var _MAX_CONCURRENT = _isIPhone ? 3 : (_isIPad ? 5 : 6);
 var _TILE_SIZE = 512;
 
-// ── Debug overlay (mobile + ?dbg=1). Diagnostic only; no behavior side effects.
-var _DBG_ENABLED = _isMobile || /[?&]dbg=1\b/.test(typeof window !== 'undefined' ? (window.location.search || '') : '');
+// ── Debug overlay — OFF by default. Enable with ?dbg=1 URL param only.
+// S93 fixes are stable in production, so the always-on mobile overlay is
+// retired. Keep the code path intact so it can still be invoked ad-hoc for
+// future bug reports without another deploy.
+var _DBG_ENABLED = /[?&]dbg=1\b/.test(typeof window !== 'undefined' ? (window.location.search || '') : '');
 var _dbg_el = null;
 var _dbg_lastEvents = [];
 var _dbg_maxInflight = 0;
