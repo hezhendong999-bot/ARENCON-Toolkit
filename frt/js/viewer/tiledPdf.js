@@ -153,19 +153,8 @@ function _pickLevel(viewScale) {
   var levels = _pageInfo.levels;
   var minLevel = (viewScale >= 1) ? Math.min(3, levels.length - 1) : 0;
   var targetW = _drawW * viewScale;
-  // S92: backdrop JPEG is frequently rendered at a HIGHER resolution than
-  // drawW (e.g. Caplink page 1 is 8192px but drawW=6144). So the backdrop
-  // is sharper than L3 tiles by default. Painting L3 tiles on top would
-  // make the drawing LOOK BLURRY — the exact complaint Mark reported.
-  // Skip tile load when tile level <= backdrop natural width; only load
-  // when the tile is genuinely sharper than what's already on screen.
-  var _bdImg = document.getElementById('dv-image');
-  var _bdW = (_bdImg && _bdImg.naturalWidth > 0) ? _bdImg.naturalWidth : _drawW;
   for (var i = minLevel; i < levels.length; i++) {
-    if (levels[i].width >= targetW) {
-      if (levels[i].width <= _bdW) return -1;
-      return i;
-    }
+    if (levels[i].width >= targetW) return i;
   }
   return levels.length - 1;
 }
