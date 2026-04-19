@@ -1118,8 +1118,13 @@ body.dark-mode .dv-tasks-header{border-bottom-color:#3a3e48;color:#ddd;}
 .dv-tasks-panel.collapsed .dv-tasks-list,.dv-tasks-panel.collapsed #dv-tasks-summary,.dv-tasks-panel.collapsed>div:not(.dv-tasks-header){display:none!important;}
 .dv-tasks-panel.collapsed{max-height:44px!important;overflow:hidden;}
 .dv-tasks-panel.collapsed #dv-tasks-fold-btn{transform:rotate(-90deg);}
-/* Mobile: additional layout tweaks for narrow screens */
-@media(max-width:800px){
+/* Mobile: additional layout tweaks for narrow screens.
+   S94: breakpoint widened 800 -> 900 to match the sidebar-flip-horizontal
+   breakpoint. Previously 801-900 was a dead zone where the sidebar went
+   horizontal-full-width but dv-main stayed row, causing the sidebar to
+   fight the canvas for space and collapsing the drawing to a tiny box.
+   iPad Air portrait (820) now correctly gets column layout. */
+@media(max-width:900px){
   .dv-sidebar-tools{width:100%!important;flex-direction:row!important;overflow-x:auto;overflow-y:hidden;padding:4px 6px;border-right:none;border-bottom:1px solid #dde1e7;order:0;flex-shrink:0;gap:3px;}
   body.dark-mode .dv-sidebar-tools{border-bottom-color:#2a2d35;}
   .dv-sidebar-tools .tool-btn{width:36px!important;height:36px!important;flex-shrink:0;}
@@ -2356,6 +2361,10 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
     background:#fff;padding:8px 10px;
     border-top:1px solid #d6d9e0;
     flex-shrink:0;font-family:Calibri,sans-serif;
+    /* S94: bottombar below canvas. canvas has order:1, so give bottombar
+       order:2. Sidebar at top has order:0 from its own rule. Final stack
+       top-to-bottom: sidebar -> canvas -> bottombar. */
+    order:2;
   }
   body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75{background:#2a2d35;border-top-color:#3a3d45;}
   .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav{display:flex;gap:4px;flex-shrink:0;}
@@ -2401,18 +2410,26 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   }
 }
 
-/* === Session 75 Push 4.1 — desktop hide v75 + navy tool buttons === */
-/* On desktop (>900px) hide all new v75 chrome — legacy desktop UI stays.
-   S94: widened from 769 to 901 so iPad portrait (820) is now in the
-   bottombar-visible range above, not the hide-on-desktop range. */
-@media (min-width: 901px){
+/* === Session 75 Push 4.1 — desktop hide v75 + navy tool buttons ===
+   S94: split into two breakpoints to fix iPad portrait (769-900) layout:
+   - v75 toolrow / stylestrip / inline undo-redo / actions hide at 769+
+     (main .dv-sidebar-tools is the source of tools in that range, no
+     duplicate toolbar)
+   - bottombar hides at 901+ only (so iPad portrait still has the nav
+     arrows, since top-bar prev/next and floating nav are both
+     display:none'd on touch devices) */
+@media (min-width: 769px){
   .drawing-viewer-overlay #dv-toolrow-v75,
   .drawing-viewer-overlay #dv-stylestrip-v75,
-  .drawing-viewer-overlay #dv-bottombar-v75,
   .drawing-viewer-overlay #dv-undo-v75,
   .drawing-viewer-overlay #dv-redo-v75,
   .drawing-viewer-overlay #dv-actions-v75,
   .drawing-viewer-overlay #dv-spacer-v75{
+    display:none !important;
+  }
+}
+@media (min-width: 901px){
+  .drawing-viewer-overlay #dv-bottombar-v75{
     display:none !important;
   }
 }
@@ -2656,8 +2673,11 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   .drawing-viewer-overlay #zoom-controls button{width:44px;height:44px;}
 }
 
-/* === Session 75 Push 6.1 — desktop: title to bottom, zoom to bottom-right === */
-@media (min-width: 769px){
+/* === Session 75 Push 6.1 — desktop: title to bottom, zoom to bottom-right ===
+   S94: breakpoint shifted 769 -> 901 so iPad portrait (820) is NOT
+   classified as "desktop" and its bottombar stays in the mobile layout
+   with prev/next nav visible. */
+@media (min-width: 901px){
   /* Hide title from top toolbar on desktop */
   .drawing-viewer-overlay .dv-toolbar .dv-title-wrap{
     display:none !important;
@@ -2834,8 +2854,11 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-name{color:#fff !important;}
 }
 
-/* === Session 75 Push 9 — REVERT Push 6.1 desktop title/bottombar changes === */
-@media (min-width: 769px){
+/* === Session 75 Push 9 — REVERT Push 6.1 desktop title/bottombar changes ===
+   S94: breakpoint shifted 769 -> 901 to match Push 6.1. This rule hides
+   the bottombar entirely at "desktop" — must match the Push 6.1 threshold
+   or we get a fighting-cascade at iPad portrait (820). */
+@media (min-width: 901px){
   /* Bring title-wrap back to top toolbar */
   .drawing-viewer-overlay .dv-toolbar .dv-title-wrap{
     display:flex !important;
