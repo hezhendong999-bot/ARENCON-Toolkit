@@ -215,13 +215,40 @@ function _startFetch(req, layer) {
   var cssW = cssR - cssL;
   var cssH = cssB - cssT;
 
+  // S93 FIX — edge-tile aspect ratio bug:
+  //   Tile images on R2 are always _TILE_SIZE x _TILE_SIZE (512x512), but for
+  //   edge tiles (last column when level.width % 512 != 0, or last row when
+  //   level.height % 512 != 0), only the top-left (tileW x tileH) region
+  //   contains actual drawing content. The remainder is white padding added
+  //   by the server's sharp.extend() call.
+  //
+  //   Previously we sized the <img> to (cssW x cssH) — which is the content-
+  //   only CSS extent — but the browser stretches the entire 512x512 source
+  //   into that box, so the padded white compresses the real content into a
+  //   fraction of the CSS area. This is what caused L1 row-1 and L2 row-3
+  //   to appear vertically compressed (reported by user, Session 93).
+  //
+  //   Fix: render the <img> at its full _TILE_SIZE-scaled dimensions (so
+  //   the content region lands exactly where it should geometrically), then
+  //   clip off the padded portion via overflow:hidden on the img itself.
+  //   For interior tiles (tileW===tileH===_TILE_SIZE) this collapses to the
+  //   previous behavior.
+  var fullCssW = Math.round(_TILE_SIZE * scaleX);
+  var fullCssH = Math.round(_TILE_SIZE * scaleY);
+
   var img = new Image();
   img.crossOrigin = 'anonymous';
   img.decoding = 'async';
+  // Position the img at the tile's true top-left; render the whole 512x512
+  // source at (fullCssW x fullCssH) so the (0..tileW, 0..tileH) content
+  // sub-rect lines up exactly with the (cssW x cssH) CSS box the viewer
+  // expects. clip-path restricts visible output to the content rect.
   img.style.cssText =
     'position:absolute;left:' + cssL + 'px;top:' + cssT + 'px;' +
-    'width:' + cssW + 'px;height:' + cssH + 'px;image-rendering:auto;' +
-    'pointer-events:none;';
+    'width:' + fullCssW + 'px;height:' + fullCssH + 'px;' +
+    'clip-path:inset(0 ' + (fullCssW - cssW) + 'px ' + (fullCssH - cssH) + 'px 0);' +
+    '-webkit-clip-path:inset(0 ' + (fullCssW - cssW) + 'px ' + (fullCssH - cssH) + 'px 0);' +
+    'image-rendering:auto;pointer-events:none;';
 
   var drawingIdAtRequest = _drawingId;
   img.onload = function() {
