@@ -40,6 +40,58 @@ var _isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 var _MAX_TILES = _isIPhone ? 25 : 250;
 var _TILE_SIZE = 512;
 
+// S91 DEBUG OVERLAY (iPhone only, remove when diagnosis complete) ─────────
+// Shows live state just above the bottom of the screen so we can see the
+// last numbers before an OOM-kill. Counts in-flight decodes separately from
+// cached tiles because transient decode spikes are invisible to _tileCount.
+var _DBG_ENABLED = _isIPhone || /[?&]dbg=1\b/.test(typeof window !== 'undefined' ? (window.location.search || '') : '');
+var _dbg_loadingCount = 0;
+var _dbg_decodingCount = 0;
+var _dbg_maxDecoding = 0;
+var _dbg_maxLoading = 0;
+var _dbg_maxTiles = 0;
+var _dbg_zoomCount = 0;
+var _dbg_lastEvents = [];
+var _dbg_el = null;
+
+function _dbgEvent(s) {
+  if (!_DBG_ENABLED) return;
+  _dbg_lastEvents.push(s);
+  if (_dbg_lastEvents.length > 6) _dbg_lastEvents.shift();
+}
+
+function _dbgRender() {
+  if (!_DBG_ENABLED) return;
+  if (!_dbg_el) {
+    if (typeof document === 'undefined' || !document.body) return;
+    _dbg_el = document.createElement('div');
+    _dbg_el.id = 'dbg-overlay';
+    _dbg_el.style.cssText =
+      'position:fixed;left:4px;bottom:4px;z-index:99999;' +
+      'background:rgba(0,0,0,0.85);color:#0f0;font:10px/1.2 monospace;' +
+      'padding:4px 6px;border-radius:4px;pointer-events:none;' +
+      'max-width:60vw;white-space:pre;text-align:left;';
+    document.body.appendChild(_dbg_el);
+  }
+  if (_dbg_loadingCount > _dbg_maxLoading) _dbg_maxLoading = _dbg_loadingCount;
+  if (_dbg_decodingCount > _dbg_maxDecoding) _dbg_maxDecoding = _dbg_decodingCount;
+  if (_tileCount > _dbg_maxTiles) _dbg_maxTiles = _tileCount;
+  var view = _cfg && _cfg.getViewState ? _cfg.getViewState() : null;
+  var scale = view && view.scale ? view.scale.toFixed(2) : '?';
+  _dbg_el.textContent =
+    'tiles: ' + _tileCount + '/' + _MAX_TILES + ' peak:' + _dbg_maxTiles + '\n' +
+    'loading: ' + _dbg_loadingCount + ' peak:' + _dbg_maxLoading + '\n' +
+    'decoding: ' + _dbg_decodingCount + ' peak:' + _dbg_maxDecoding + '\n' +
+    'zoom: ' + scale + ' (x' + _dbg_zoomCount + ')\n' +
+    _dbg_lastEvents.join('\n');
+}
+
+// Fast low-cost tick so the overlay reflects transient spikes
+if (_DBG_ENABLED && typeof window !== 'undefined') {
+  setInterval(_dbgRender, 250);
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 function _dbg(msg) { if (window._FRT_DEBUG) console.log('[TiledPdf] ' + msg); }
 
 function init(config) { _cfg = config || {}; }
@@ -76,37 +128,15 @@ function _tileUrl(level, col, row) {
 // render, so drop the floor and let the selector pick L0-L2 — only a
 // handful of tiles. Zoom >= 1x keeps the L3 floor for crispness parity
 // with the backdrop.
-// S92: iPhone crash + quality safety. The JPEG backdrop is rendered at
-// drawW resolution. Two independent skip conditions:
-//   (a) chosen level's width < drawW -> tile is BLURRIER than backdrop.
-//       Painting it over the backdrop visibly degrades quality. Skip.
-//   (b) visible tile count at chosen level > ~20 -> loading them all
-//       simultaneously OOM-crashes Safari. Skip. Backdrop carries instead.
-// Tiles only engage on iPhone when they actually sharpen the image AND
-// memory cost is bounded. iPad/desktop unaffected.
 function _pickLevel(viewScale) {
   if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return -1;
   var levels = _pageInfo.levels;
   var minLevel = (viewScale >= 1) ? Math.min(3, levels.length - 1) : 0;
   var targetW = _drawW * viewScale;
-  var chosen = levels.length - 1;
   for (var i = minLevel; i < levels.length; i++) {
-    if (levels[i].width >= targetW) { chosen = i; break; }
+    if (levels[i].width >= targetW) return i;
   }
-  if (_isIPhone) {
-    if (levels[chosen].width < _drawW) return -1;
-    var area = document.getElementById('dv-canvas-area');
-    if (area && area.clientWidth > 0) {
-      var vs = Math.max(0.001, viewScale);
-      var visDrawW = Math.min(_drawW, area.clientWidth / vs);
-      var visDrawH = Math.min(_drawH, area.clientHeight / vs);
-      var lvl = levels[chosen];
-      var tx = Math.ceil(visDrawW * lvl.width / _drawW / _TILE_SIZE) + 2;
-      var ty = Math.ceil(visDrawH * lvl.height / _drawH / _TILE_SIZE) + 2;
-      if (tx * ty > 20) return -1;
-    }
-  }
-  return chosen;
+  return levels.length - 1;
 }
 
 function _evictLRU(layer) {
@@ -127,9 +157,10 @@ function _fetchTile(levelIdx, col, row, lvl, layer) {
   var key = levelIdx + '_' + col + '_' + row;
   if (_tiles[key] || _loading[key]) return;
   _loading[key] = true;
+  _dbg_loadingCount++;
 
   var url = _tileUrl(levelIdx, col, row);
-  if (!url) { delete _loading[key]; return; }
+  if (!url) { delete _loading[key]; _dbg_loadingCount--; return; }
 
   // Map tile from level-pixel space to draw-pixel space.
   // Each tile covers TILE_SIZE × TILE_SIZE level-pixels (edges may be smaller).
@@ -140,7 +171,7 @@ function _fetchTile(levelIdx, col, row, lvl, layer) {
   var tileY = row * _TILE_SIZE;
   var tileW = Math.min(_TILE_SIZE, lvl.width - tileX);
   var tileH = Math.min(_TILE_SIZE, lvl.height - tileY);
-  if (tileW <= 0 || tileH <= 0) { delete _loading[key]; return; }
+  if (tileW <= 0 || tileH <= 0) { delete _loading[key]; _dbg_loadingCount--; return; }
 
   var cssL = Math.round(tileX * scaleX);
   var cssT = Math.round(tileY * scaleY);
@@ -161,10 +192,13 @@ function _fetchTile(levelIdx, col, row, lvl, layer) {
   var drawingIdAtRequest = _drawingId;
   img.onload = function() {
     delete _loading[key];
+    _dbg_loadingCount--;
     if (!_active || _drawingId !== drawingIdAtRequest) { img.src = ''; return; }
     // Force-count the decode window: HTML Image decode() resolves when
     // the bitmap is actually in RAM. That's the real memory spike moment.
+    _dbg_decodingCount++;
     var doneDecode = function() {
+      _dbg_decodingCount--;
       if (!_active || _drawingId !== drawingIdAtRequest) { img.src = ''; return; }
       _tiles[key] = { img: img, level: levelIdx, col: col, row: row };
       _tileOrder.push(key);
@@ -180,6 +214,8 @@ function _fetchTile(levelIdx, col, row, lvl, layer) {
   };
   img.onerror = function() {
     delete _loading[key];
+    _dbg_loadingCount--;
+    _dbgEvent('err ' + key);
     _dbg('Tile load failed: ' + key);
   };
   img.src = url;
@@ -203,6 +239,7 @@ function _renderVisible() {
   if (levelIdx < 0) return;  // JPEG backdrop is sufficient at this zoom
   var lvl = _pageInfo.levels[levelIdx];
   if (!lvl) return;
+  _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
 
   // Visible draw-space region
   var visX0 = Math.max(0, -panX / scale);
@@ -240,6 +277,7 @@ function _renderVisible() {
 
 function scheduleRender() {
   clearTimeout(_renderTimer);
+  _dbg_zoomCount++;
   _renderTimer = setTimeout(_renderVisible, 60);
 }
 
