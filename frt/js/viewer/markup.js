@@ -2284,12 +2284,6 @@ export var Markup = {
     _setActiveTool(null);
 
     console.log('[Markup] Initialized for drawing:', drawingId);
-    // S94 DIAG — remove after bug found. Prints the call chain so we can see
-    // what is re-invoking Markup.init (and therefore _showDrawing) after the
-    // user has already switched to a different page. Expected: two traces per
-    // user click — one via user handler, then another from something we want
-    // to identify.
-    console.trace('[Markup] init stack');
   },
 
   destroy: function() {

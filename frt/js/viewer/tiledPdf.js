@@ -256,6 +256,14 @@ function _startFetch(req, layer) {
   //   "clip everything" on pages 1 & 2 specifically, making L3 drawing
   //   appear completely black. Fixed here.
   var isEdgeTile = (tileW < _TILE_SIZE) || (tileH < _TILE_SIZE);
+  // S94 — tile fade-in polish. Tiles start at opacity 0 and the transition
+  // fades them to 1 on append. Kills the visible "pop-in" and grid-of-tiles
+  // shimmer that was previously visible when zooming or switching pages.
+  // 180ms ease-out matches Google Maps' tile transition timing; shorter
+  // feels abrupt, longer feels sluggish. Cache-hit tiles don't go through
+  // this code path (they're already in the DOM), so no perceived latency
+  // added on repeat views.
+  var fadeIn = 'opacity:0;transition:opacity 180ms ease-out;will-change:opacity;';
   var cssText;
   if (isEdgeTile) {
     var fullCssW = Math.round(_TILE_SIZE * scaleX);
@@ -269,14 +277,14 @@ function _startFetch(req, layer) {
       'width:' + fullCssW + 'px;height:' + fullCssH + 'px;' +
       'clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
       '-webkit-clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
-      'image-rendering:auto;pointer-events:none;';
+      'image-rendering:auto;pointer-events:none;' + fadeIn;
   } else {
     // Interior tile: image content fills the full 512x512 source exactly,
     // so simple sizing is both correct and clip-path-free.
     cssText =
       'position:absolute;left:' + cssL + 'px;top:' + cssT + 'px;' +
       'width:' + cssW + 'px;height:' + cssH + 'px;' +
-      'image-rendering:auto;pointer-events:none;';
+      'image-rendering:auto;pointer-events:none;' + fadeIn;
   }
   img.style.cssText = cssText;
 
@@ -294,7 +302,14 @@ function _startFetch(req, layer) {
       _tileOrder.push(key);
       _tileCount++;
       var curLayer = document.getElementById('dv-tiles-layer');
-      if (curLayer && curLayer.parentNode) curLayer.appendChild(img);
+      if (curLayer && curLayer.parentNode) {
+        curLayer.appendChild(img);
+        // S94 — trigger the fade-in. RAF ensures the browser commits the
+        // initial opacity:0 from cssText BEFORE we set opacity:1, so the
+        // transition actually animates. Without RAF, both styles land in
+        // the same frame and the transition gets skipped (straight pop-in).
+        requestAnimationFrame(function() { img.style.opacity = '1'; });
+      }
       _evictExcess(curLayer);
       _pumpQueue();
     };
