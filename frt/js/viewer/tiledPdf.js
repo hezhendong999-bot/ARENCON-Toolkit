@@ -46,9 +46,17 @@ var _tileOrder = [];          // LRU order (oldest first)
 var _tileCount = 0;
 
 var _isIPhone = /iPhone|iPod/.test(navigator.userAgent);
-var _isMobile = /iPhone|iPod|iPad|Android/.test(navigator.userAgent);
-var _MAX_TILES = _isIPhone ? 40 : 250;
-var _MAX_CONCURRENT = _isIPhone ? 3 : 6;
+var _isIPad   = /iPad/.test(navigator.userAgent)
+               || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+var _isMobile = _isIPhone || _isIPad || /Android/.test(navigator.userAgent);
+// S93 FIX: split iPhone / iPad budgets. Old value of 40 was too aggressive
+// for iPad (plenty of RAM, capable of 150+ tiles) and caused visible-tile
+// eviction churn on L3 (12x8 = 96 tiles; a viewport + margin frequently
+// needed >40 tiles resident) resulting in blank/black tiles where evicted
+// ones hadn't been refetched yet. iPhones keep a conservative cap to avoid
+// Safari canvas memory kill; iPad gets closer to desktop.
+var _MAX_TILES = _isIPhone ? 80 : (_isIPad ? 180 : 250);
+var _MAX_CONCURRENT = _isIPhone ? 3 : (_isIPad ? 5 : 6);
 var _TILE_SIZE = 512;
 
 // ── Debug overlay (mobile + ?dbg=1). Diagnostic only; no behavior side effects.
