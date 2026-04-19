@@ -154,7 +154,15 @@ function _pickLevel(viewScale) {
   var minLevel = (viewScale >= 1) ? Math.min(3, levels.length - 1) : 0;
   var targetW = _drawW * viewScale;
   for (var i = minLevel; i < levels.length; i++) {
-    if (levels[i].width >= targetW) return i;
+    if (levels[i].width >= targetW) {
+      // S92: skip tile level when its resolution is below the backdrop
+      // JPEG (rendered at drawW). Painting lower-res tiles on top of a
+      // higher-res backdrop is what Mark saw as "blurry at zoom-out" on
+      // Android. Also avoids tile-storm OOM on iPhone at the same zooms.
+      // Backdrop carries the view until tiles would actually sharpen.
+      if (levels[i].width < _drawW) return -1;
+      return i;
+    }
   }
   return levels.length - 1;
 }
