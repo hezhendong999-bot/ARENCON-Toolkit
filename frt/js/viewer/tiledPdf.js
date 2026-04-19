@@ -276,6 +276,30 @@ function _renderVisible() {
   // Drop queued requests from other levels — they're no longer relevant.
   _cancelPendingExceptLevel(levelIdx);
 
+  // S92 FIX: purge tiles from ALL other levels from cache + DOM. Without
+  // this, tiles from every level the user has visited accumulate stacked
+  // on top of each other. Lower-level tiles painting over higher-level
+  // ones caused the "wrong colors at zoom-out" bug — the drawing you see
+  // is the top of a multi-level sandwich, not a clean level. Keep only
+  // the active level; re-fetch on zoom back is cheap (immutable CDN cache).
+  var keysToDrop = [];
+  for (var tk in _tiles) {
+    if (!Object.prototype.hasOwnProperty.call(_tiles, tk)) continue;
+    if (_tiles[tk].level !== levelIdx) keysToDrop.push(tk);
+  }
+  for (var ki = 0; ki < keysToDrop.length; ki++) {
+    var dk = keysToDrop[ki];
+    var dt = _tiles[dk];
+    if (dt && dt.img) {
+      if (dt.img.parentNode === layer) layer.removeChild(dt.img);
+      dt.img.src = '';
+    }
+    delete _tiles[dk];
+    _tileCount--;
+    var oi = _tileOrder.indexOf(dk);
+    if (oi >= 0) _tileOrder.splice(oi, 1);
+  }
+
   // Visible draw-space rectangle, expanded by 1 tile worth of margin so pan
   // has pre-fetched edges. Margin is in level pixels, converted to drawing
   // pixels.
