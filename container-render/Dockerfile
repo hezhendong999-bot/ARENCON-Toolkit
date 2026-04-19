@@ -3,18 +3,31 @@
 # FreeType bytecode hinting and native text antialiasing. This is the
 # same binary that ships inside Chrome/Chromium's PDF viewer.
 #
-# No Chromium, no poppler, no mutool, no custom font packages. pypdfium2
-# handles AutoCAD/SHX font encodings correctly because it IS pdfium.
+# S94 — fontconfig + fallback fonts added. node:22-slim ships with no
+# fonts and no fontconfig. When a PDF references a font it didn't fully
+# embed (common for engineering PDFs emitted by AutoSPRINK/AutoCAD,
+# which only embed glyph subsets per stroke call), pdfium asks
+# fontconfig for a fallback. Without fontconfig + basic font packages,
+# pdfium silently skips those text runs — visible as lines of a
+# paragraph disappearing at certain scales. liberation is metric-
+# compatible with Arial/Helvetica/Times/Courier (the usual PDF
+# defaults); dejavu-core is a broad Unicode fallback.
 
 FROM node:22-slim
 
-# Python 3 + pip. libpdfium.so travels with the pypdfium2 wheel (manylinux).
+# Python 3 + pip + font stack.
+# libpdfium.so travels with the pypdfium2 wheel (manylinux).
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       python3 \
       python3-pip \
       ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+      fontconfig \
+      fonts-dejavu-core \
+      fonts-liberation \
+      fonts-liberation2 \
+    && rm -rf /var/lib/apt/lists/* && \
+    fc-cache -f
 
 # pypdfium2 5.6.0 bundles pdfium 147.0.7713 (as of this build date).
 # Pillow provides the .to_pil() bridge used by render.py to extract
