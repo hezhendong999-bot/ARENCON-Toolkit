@@ -227,7 +227,7 @@ function _ensureTiledInit() {
   if (_tiledInited) return;
   _tiledInited = true;
   TiledPdf.init({
-    getViewState: function() { return { scale: _scale, panX: _panX, panY: _panY }; },
+    getViewState: function() { return { scale: _scale, panX: _panX, panY: _panY, fitScale: _fitScale }; },
     getDrawing: function(id) {
       var list = _getDrawingsList();
       for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
