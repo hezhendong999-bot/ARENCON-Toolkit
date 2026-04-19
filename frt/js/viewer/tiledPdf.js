@@ -226,40 +226,51 @@ function _startFetch(req, layer) {
   var cssW = cssR - cssL;
   var cssH = cssB - cssT;
 
-  // S93 FIX — edge-tile aspect ratio bug:
+  var img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.decoding = 'async';
+
+  // S93 FIX v2 (Session 93 part 4) — edge-tile aspect ratio bug:
   //   Tile images on R2 are always _TILE_SIZE x _TILE_SIZE (512x512), but for
   //   edge tiles (last column when level.width % 512 != 0, or last row when
   //   level.height % 512 != 0), only the top-left (tileW x tileH) region
   //   contains actual drawing content. The remainder is white padding added
   //   by the server's sharp.extend() call.
   //
-  //   Previously we sized the <img> to (cssW x cssH) — which is the content-
-  //   only CSS extent — but the browser stretches the entire 512x512 source
-  //   into that box, so the padded white compresses the real content into a
-  //   fraction of the CSS area. This is what caused L1 row-1 and L2 row-3
-  //   to appear vertically compressed (reported by user, Session 93).
+  //   Fix: for EDGE tiles only, render the <img> at full _TILE_SIZE-scaled
+  //   dimensions and use clip-path:inset() to mask off the padded portion.
+  //   For interior tiles (tileW===tileH===_TILE_SIZE), use the simple
+  //   cssW x cssH sizing that worked before S93.
   //
-  //   Fix: render the <img> at its full _TILE_SIZE-scaled dimensions (so
-  //   the content region lands exactly where it should geometrically), then
-  //   clip off the padded portion via overflow:hidden on the img itself.
-  //   For interior tiles (tileW===tileH===_TILE_SIZE) this collapses to the
-  //   previous behavior.
-  var fullCssW = Math.round(_TILE_SIZE * scaleX);
-  var fullCssH = Math.round(_TILE_SIZE * scaleY);
-
-  var img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.decoding = 'async';
-  // Position the img at the tile's true top-left; render the whole 512x512
-  // source at (fullCssW x fullCssH) so the (0..tileW, 0..tileH) content
-  // sub-rect lines up exactly with the (cssW x cssH) CSS box the viewer
-  // expects. clip-path restricts visible output to the content rect.
-  img.style.cssText =
-    'position:absolute;left:' + cssL + 'px;top:' + cssT + 'px;' +
-    'width:' + fullCssW + 'px;height:' + fullCssH + 'px;' +
-    'clip-path:inset(0 ' + (fullCssW - cssW) + 'px ' + (fullCssH - cssH) + 'px 0);' +
-    '-webkit-clip-path:inset(0 ' + (fullCssW - cssW) + 'px ' + (fullCssH - cssH) + 'px 0);' +
-    'image-rendering:auto;pointer-events:none;';
+  //   S93 part 1 (commit df5b19ae) applied clip-path unconditionally, which
+  //   produced NEGATIVE inset values for interior tiles at L3 (where cssR
+  //   has a +1 pad for gap-free abutment). Safari/Chrome treated that as
+  //   "clip everything" on pages 1 & 2 specifically, making L3 drawing
+  //   appear completely black. Fixed here.
+  var isEdgeTile = (tileW < _TILE_SIZE) || (tileH < _TILE_SIZE);
+  var cssText;
+  if (isEdgeTile) {
+    var fullCssW = Math.round(_TILE_SIZE * scaleX);
+    var fullCssH = Math.round(_TILE_SIZE * scaleY);
+    // Clamp at 0 so rounding never produces a negative inset (which some
+    // browsers treat as full-hide rather than "no clip").
+    var clipR = Math.max(0, fullCssW - cssW);
+    var clipB = Math.max(0, fullCssH - cssH);
+    cssText =
+      'position:absolute;left:' + cssL + 'px;top:' + cssT + 'px;' +
+      'width:' + fullCssW + 'px;height:' + fullCssH + 'px;' +
+      'clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
+      '-webkit-clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
+      'image-rendering:auto;pointer-events:none;';
+  } else {
+    // Interior tile: image content fills the full 512x512 source exactly,
+    // so simple sizing is both correct and clip-path-free.
+    cssText =
+      'position:absolute;left:' + cssL + 'px;top:' + cssT + 'px;' +
+      'width:' + cssW + 'px;height:' + cssH + 'px;' +
+      'image-rendering:auto;pointer-events:none;';
+  }
+  img.style.cssText = cssText;
 
   var drawingIdAtRequest = _drawingId;
   img.onload = function() {
