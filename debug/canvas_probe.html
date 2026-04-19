@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>ARENCON — Canvas Cap Probe</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Calibri, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f5f5f5; color: #222; }
+  header { background: #9C2742; color: #fff; padding: 14px 16px; }
+  h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
+  .sub { font-size: 12px; opacity: 0.92; }
+  main { padding: 12px 16px 24px; }
+  .card { background: #fff; border-radius: 6px; padding: 12px; margin-bottom: 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+  .card h2 { margin: 0 0 8px; font-size: 14px; color: #9C2742; }
+  button { background: #9C2742; color: #fff; border: 0; padding: 10px 16px; font: 600 14px Calibri, sans-serif; border-radius: 4px; cursor: pointer; margin: 3px; }
+  button:disabled { background: #bbb; cursor: default; }
+  button.secondary { background: #455A64; }
+  button.danger { background: #777; }
+  .row { display: flex; flex-wrap: wrap; gap: 4px; }
+  #log { font-family: 'SF Mono', Menlo, monospace; font-size: 12px; }
+  .entry { padding: 5px 8px; border-bottom: 1px solid #eee; }
+  .entry:last-child { border-bottom: 0; }
+  .passed { color: #1A7A4A; }
+  .silent { color: #c42626; background: #fff3f3; }
+  .threw { color: #c42626; background: #fff3f3; }
+  .attempting { color: #d87b00; font-weight: 600; background: #fff8ed; }
+  .killed { background: #ffe5e5; color: #8a1a1a; padding: 10px; border-radius: 4px; margin-bottom: 10px; font-weight: 600; font-size: 13px; border-left: 4px solid #c42626; }
+  .meta-line { margin: 2px 0; word-break: break-all; }
+  .meta-line strong { color: #555; display: inline-block; min-width: 70px; }
+  code { background: #eee; padding: 1px 4px; border-radius: 2px; font-size: 12px; }
+  .hint { color: #666; font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Canvas Backing-Store Probe</h1>
+  <div class="sub">Finds the canvas size at which this browser's renderer dies.</div>
+</header>
+<main>
+  <div class="card">
+    <h2>Device</h2>
+    <div class="meta-line"><strong>UA:</strong> <span id="ua"></span></div>
+    <div class="meta-line"><strong>Viewport:</strong> <span id="vp"></span></div>
+    <div class="meta-line"><strong>DPR:</strong> <span id="dpr"></span></div>
+    <div class="meta-line"><strong>Memory hint:</strong> <span id="mem"></span></div>
+    <div id="prior-crash"></div>
+  </div>
+
+  <div class="card">
+    <h2>Run</h2>
+    <div class="row">
+      <button id="auto">Run full test</button>
+      <button id="step" class="secondary">Step one size</button>
+      <button id="clear" class="danger">Clear log</button>
+    </div>
+    <div class="hint">Auto runs through all sizes with a 300 ms pause between. Each size is recorded to localStorage <em>before</em> it's attempted, so a crash leaves a clear breadcrumb.</div>
+  </div>
+
+  <div class="card">
+    <h2>Results</h2>
+    <div id="log"></div>
+  </div>
+</main>
+
+<script>
+(function(){
+  'use strict';
+
+  var LOG_KEY = 'arencon_canvas_probe_log';
+
+  // Sizes tested, in ascending pixel area. Key landmarks:
+  //   - 4096² = WebKit canvas cap suspect (16.7 M px)
+  //   - 6144 × 4096 = exact FRT backdrop drawable dimensions (25.2 M px)
+  //   - 12288 × 8192 = max FRT tile-pyramid level (100 M px)
+  var sizes = [
+    [1024, 1024],
+    [2048, 2048],
+    [3072, 3072],
+    [4000, 4000],
+    [4096, 4096],
+    [4097, 4097],
+    [5120, 3200],
+    [6144, 4096],
+    [8192, 4096],
+    [8192, 8192],
+    [12288, 8192],
+    [16384, 16384]
+  ];
+
+  var $ = function(id) { return document.getElementById(id); };
+  var logEl = $('log');
+
+  // Fill device metadata
+  $('ua').textContent = navigator.userAgent;
+  $('vp').textContent = window.innerWidth + ' × ' + window.innerHeight + ' CSS px';
+  $('dpr').textContent = window.devicePixelRatio;
+  var mem = 'not exposed (WebKit)';
+  if (navigator.deviceMemory) mem = navigator.deviceMemory + ' GB (approximate)';
+  if (performance && performance.memory && performance.memory.jsHeapSizeLimit) {
+    mem += ' · JS heap limit: ' + Math.round(performance.memory.jsHeapSizeLimit / 1048576) + ' MB';
+  }
+  $('mem').textContent = mem;
+
+  function getEntries() {
+    try { return JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); }
+    catch (e) { return []; }
+  }
+
+  function saveEntries(arr) {
+    try { localStorage.setItem(LOG_KEY, JSON.stringify(arr)); } catch (e) {}
+  }
+
+  function mpx(w, h) { return (w * h / 1e6).toFixed(1); }
+
+  function renderLog() {
+    var entries = getEntries();
+    if (!entries.length) {
+      logEl.innerHTML = '<div style="color:#999;padding:8px">No runs yet. Tap <em>Run full test</em> to start.</div>';
+      return;
+    }
+
+    var warn = '';
+    var last = entries[entries.length - 1];
+    if (last && last.status === 'attempting') {
+      warn = '<div class="killed">⚠ CRASH DETECTED<br>' +
+             'The probe was attempting <strong>' + last.w + ' × ' + last.h +
+             '</strong> (' + mpx(last.w, last.h) + ' M px) when the tab died.<br>' +
+             'This is the killer size on this device.</div>';
+    }
+
+    var html = warn + entries.map(function(e) {
+      var line = e.w + ' × ' + e.h + ' (' + mpx(e.w, e.h) + ' M px) — ';
+      if (e.status === 'passed')     line += '✓ passed';
+      if (e.status === 'silent')     line += '✗ silent fail (pixel readback wrong)';
+      if (e.status === 'threw')      line += '✗ threw: ' + (e.error || 'unknown');
+      if (e.status === 'attempting') line += '… attempting';
+      if (e.ms != null) line += '  [' + e.ms + ' ms]';
+      return '<div class="entry ' + e.status + '">' + line + '</div>';
+    }).join('');
+
+    logEl.innerHTML = html;
+  }
+
+  function tryOne(idx) {
+    var w = sizes[idx][0], h = sizes[idx][1];
+    var entries = getEntries();
+    var rec = { idx: idx, w: w, h: h, status: 'attempting', started_at: Date.now() };
+    entries.push(rec);
+    saveEntries(entries); // synchronous — survives renderer kill
+    renderLog();
+
+    var t0 = performance.now();
+
+    try {
+      var c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      var ctx = c.getContext('2d');
+      if (!ctx) throw new Error('getContext returned null');
+
+      // Force real backing-store allocation via corner writes
+      ctx.fillStyle = 'rgb(200,50,50)';
+      ctx.fillRect(0, 0, 4, 4);
+      ctx.fillRect(w - 4, h - 4, 4, 4);
+
+      // Pixel readback — WebKit sometimes silently returns transparent
+      var tl = ctx.getImageData(0, 0, 1, 1).data;
+      var br = ctx.getImageData(w - 1, h - 1, 1, 1).data;
+      var ok = tl[0] > 150 && br[0] > 150;
+
+      rec.status = ok ? 'passed' : 'silent';
+      rec.tl = [tl[0], tl[1], tl[2], tl[3]];
+      rec.br = [br[0], br[1], br[2], br[3]];
+      rec.ms = Math.round(performance.now() - t0);
+
+      // Release canvas reference for GC
+      c.width = 0; c.height = 0; c = null; ctx = null;
+    } catch (e) {
+      rec.status = 'threw';
+      rec.error = (e && e.message) ? e.message : String(e);
+      rec.ms = Math.round(performance.now() - t0);
+    }
+
+    saveEntries(entries);
+    renderLog();
+  }
+
+  // Show prior crash warning on load (before user clicks anything)
+  (function() {
+    var entries = getEntries();
+    var last = entries[entries.length - 1];
+    if (last && last.status === 'attempting') {
+      $('prior-crash').innerHTML =
+        '<div style="margin-top:8px;padding:8px;background:#ffe5e5;border-radius:4px;color:#8a1a1a;font-weight:600">' +
+        'Previous run was killed at <strong>' + last.w + ' × ' + last.h + '</strong> (' +
+        mpx(last.w, last.h) + ' M px).</div>';
+    }
+    renderLog();
+  })();
+
+  $('auto').onclick = function() {
+    saveEntries([]);
+    renderLog();
+    var i = 0;
+    function next() {
+      if (i >= sizes.length) return;
+      tryOne(i);
+      i++;
+      setTimeout(next, 300);
+    }
+    next();
+  };
+
+  $('step').onclick = function() {
+    var entries = getEntries();
+    var nextIdx = 0;
+    entries.forEach(function(e) { if (e.idx >= nextIdx) nextIdx = e.idx + 1; });
+    if (nextIdx >= sizes.length) { alert('All sizes tested.'); return; }
+    tryOne(nextIdx);
+  };
+
+  $('clear').onclick = function() {
+    saveEntries([]);
+    renderLog();
+  };
+})();
+</script>
+</body>
+</html>
