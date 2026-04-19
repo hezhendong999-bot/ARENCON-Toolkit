@@ -40,11 +40,11 @@ var _isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 var _MAX_TILES = _isIPhone ? 25 : 250;
 var _TILE_SIZE = 512;
 
-// S91 DEBUG OVERLAY (iPhone only, remove when diagnosis complete) ─────────
-// Shows live state just above the bottom of the screen so we can see the
-// last numbers before an OOM-kill. Counts in-flight decodes separately from
-// cached tiles because transient decode spikes are invisible to _tileCount.
-var _DBG_ENABLED = _isIPhone || /[?&]dbg=1\b/.test(typeof window !== 'undefined' ? (window.location.search || '') : '');
+// S92 DEBUG OVERLAY (all mobile + ?dbg=1). Added wrap/area/fit diagnostics
+// to distinguish transform/clamp bugs (wrong on Android too) from memory
+// bugs (iPhone-only crash).
+var _isMobile = /iPhone|iPod|iPad|Android/.test(navigator.userAgent);
+var _DBG_ENABLED = _isMobile || /[?&]dbg=1\b/.test(typeof window !== 'undefined' ? (window.location.search || '') : '');
 var _dbg_loadingCount = 0;
 var _dbg_decodingCount = 0;
 var _dbg_maxDecoding = 0;
@@ -70,19 +70,39 @@ function _dbgRender() {
       'position:fixed;left:4px;bottom:4px;z-index:99999;' +
       'background:rgba(0,0,0,0.85);color:#0f0;font:10px/1.2 monospace;' +
       'padding:4px 6px;border-radius:4px;pointer-events:none;' +
-      'max-width:60vw;white-space:pre;text-align:left;';
+      'max-width:80vw;white-space:pre;text-align:left;';
     document.body.appendChild(_dbg_el);
   }
   if (_dbg_loadingCount > _dbg_maxLoading) _dbg_maxLoading = _dbg_loadingCount;
   if (_dbg_decodingCount > _dbg_maxDecoding) _dbg_maxDecoding = _dbg_decodingCount;
   if (_tileCount > _dbg_maxTiles) _dbg_maxTiles = _tileCount;
+
   var view = _cfg && _cfg.getViewState ? _cfg.getViewState() : null;
-  var scale = view && view.scale ? view.scale.toFixed(2) : '?';
+  var scale = (view && typeof view.scale === 'number') ? view.scale : 0;
+  var area = document.getElementById('dv-canvas-area');
+  var wrap = document.getElementById('dv-img-wrap');
+  var aw = area ? area.clientWidth : 0;
+  var ah = area ? area.clientHeight : 0;
+  // Expected fit-to-page scale from ground-truth drawing dims + live area:
+  var fitExp = 0;
+  if (_drawW > 0 && _drawH > 0 && aw > 0 && ah > 0) {
+    fitExp = Math.min(aw / _drawW, ah / _drawH);
+    if (fitExp > 1) fitExp = 1;
+  }
+  // Actual rendered wrap size on screen (bounding rect includes transform):
+  var wrapRect = wrap ? wrap.getBoundingClientRect() : null;
+  var wrapW = wrapRect ? Math.round(wrapRect.width) : 0;
+  var wrapH = wrapRect ? Math.round(wrapRect.height) : 0;
+
   _dbg_el.textContent =
     'tiles: ' + _tileCount + '/' + _MAX_TILES + ' peak:' + _dbg_maxTiles + '\n' +
     'loading: ' + _dbg_loadingCount + ' peak:' + _dbg_maxLoading + '\n' +
     'decoding: ' + _dbg_decodingCount + ' peak:' + _dbg_maxDecoding + '\n' +
-    'zoom: ' + scale + ' (x' + _dbg_zoomCount + ')\n' +
+    'scale: ' + scale.toFixed(3) + ' fitExp: ' + fitExp.toFixed(3) + '\n' +
+    'draw: ' + _drawW + 'x' + _drawH + '\n' +
+    'area: ' + aw + 'x' + ah + '\n' +
+    'wrap: ' + wrapW + 'x' + wrapH + '\n' +
+    'zoom#' + _dbg_zoomCount + '\n' +
     _dbg_lastEvents.join('\n');
 }
 
