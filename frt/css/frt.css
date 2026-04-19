@@ -2238,11 +2238,11 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
 }
 
 /* S79 v4: restore bottom bar on mobile — it now holds title + rename
-   (moved OFF top bar to give header breathing room). Hide its prev/next and Tasks button
-   since top bar already has those. */
+   (moved OFF top bar to give header breathing room). Hide Tasks button
+   since top bar already has that; prev/next stay — top bar's ones are
+   hidden globally at line ~3267. */
 @media (max-width: 900px){
   .drawing-viewer-overlay #dv-bottombar-v75{display:flex !important;}
-  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav{display:none !important;}
   .drawing-viewer-overlay #dv-bb-tasks{display:none !important;}
 }
 
@@ -2344,8 +2344,13 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   }
 }
 
-/* === Session 75 Push 4 — bottom bar (mobile only) === */
-@media (max-width: 768px){
+/* === Session 75 Push 4 — bottom bar (mobile + iPad portrait) ===
+   S94: widened breakpoint from 768px to 900px. At 769–900 (iPad Air
+   portrait = 820px) the floating nav-controls are hidden by the
+   pointer:coarse rule below, and the top-bar prev/next are hidden
+   globally, so the bottombar is the ONLY surface that can show prev/next.
+   Previously this range was a dead zone with no visible nav. */
+@media (max-width: 900px){
   .drawing-viewer-overlay #dv-bottombar-v75{
     display:flex;align-items:center;gap:8px;
     background:#fff;padding:8px 10px;
@@ -2397,8 +2402,10 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
 }
 
 /* === Session 75 Push 4.1 — desktop hide v75 + navy tool buttons === */
-/* On desktop (>768px) hide all new v75 chrome — legacy desktop UI stays */
-@media (min-width: 769px){
+/* On desktop (>900px) hide all new v75 chrome — legacy desktop UI stays.
+   S94: widened from 769 to 901 so iPad portrait (820) is now in the
+   bottombar-visible range above, not the hide-on-desktop range. */
+@media (min-width: 901px){
   .drawing-viewer-overlay #dv-toolrow-v75,
   .drawing-viewer-overlay #dv-stylestrip-v75,
   .drawing-viewer-overlay #dv-bottombar-v75,
