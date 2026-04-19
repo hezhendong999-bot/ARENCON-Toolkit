@@ -363,8 +363,20 @@ function _renderVisible() {
     var dk = keysToDrop[ki];
     var dt = _tiles[dk];
     if (dt && dt.img) {
-      if (dt.img.parentNode === layer) layer.removeChild(dt.img);
-      dt.img.src = '';
+      // S94 — fade OUT before remove. The 180ms opacity transition (already
+      // baked into the img's inline style at creation time) runs in parallel
+      // with the new-level tiles fading IN, producing a smooth crossfade at
+      // level boundaries instead of the harsh "pop to backdrop" gap that
+      // looked like tiles were shifting. 220ms removal delay > 180ms fade
+      // gives the transition a full tick of headroom to complete before
+      // the img is yanked.
+      (function(el) {
+        el.style.opacity = '0';
+        setTimeout(function() {
+          if (el.parentNode) el.parentNode.removeChild(el);
+          el.src = '';
+        }, 220);
+      })(dt.img);
     }
     delete _tiles[dk];
     _tileCount--;
