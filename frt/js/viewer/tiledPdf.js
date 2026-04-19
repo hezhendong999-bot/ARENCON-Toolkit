@@ -76,15 +76,37 @@ function _tileUrl(level, col, row) {
 // render, so drop the floor and let the selector pick L0-L2 — only a
 // handful of tiles. Zoom >= 1x keeps the L3 floor for crispness parity
 // with the backdrop.
+// S92: iPhone crash + quality safety. The JPEG backdrop is rendered at
+// drawW resolution. Two independent skip conditions:
+//   (a) chosen level's width < drawW -> tile is BLURRIER than backdrop.
+//       Painting it over the backdrop visibly degrades quality. Skip.
+//   (b) visible tile count at chosen level > ~20 -> loading them all
+//       simultaneously OOM-crashes Safari. Skip. Backdrop carries instead.
+// Tiles only engage on iPhone when they actually sharpen the image AND
+// memory cost is bounded. iPad/desktop unaffected.
 function _pickLevel(viewScale) {
   if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return -1;
   var levels = _pageInfo.levels;
   var minLevel = (viewScale >= 1) ? Math.min(3, levels.length - 1) : 0;
   var targetW = _drawW * viewScale;
+  var chosen = levels.length - 1;
   for (var i = minLevel; i < levels.length; i++) {
-    if (levels[i].width >= targetW) return i;
+    if (levels[i].width >= targetW) { chosen = i; break; }
   }
-  return levels.length - 1;
+  if (_isIPhone) {
+    if (levels[chosen].width < _drawW) return -1;
+    var area = document.getElementById('dv-canvas-area');
+    if (area && area.clientWidth > 0) {
+      var vs = Math.max(0.001, viewScale);
+      var visDrawW = Math.min(_drawW, area.clientWidth / vs);
+      var visDrawH = Math.min(_drawH, area.clientHeight / vs);
+      var lvl = levels[chosen];
+      var tx = Math.ceil(visDrawW * lvl.width / _drawW / _TILE_SIZE) + 2;
+      var ty = Math.ceil(visDrawH * lvl.height / _drawH / _TILE_SIZE) + 2;
+      if (tx * ty > 20) return -1;
+    }
+  }
+  return chosen;
 }
 
 function _evictLRU(layer) {
