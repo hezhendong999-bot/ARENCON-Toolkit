@@ -121,10 +121,17 @@ function _tileUrl(level, col, row) {
 // rendered tiles don't. L3 (6144px) at normal zoom fixes these gaps
 // without visual change (same resolution, JPEG shows through until tile
 // loads). L4 (12288px) kicks in at zoom > 1x for extra crispness.
+//
+// S91: zoom-aware minimum. The L3 floor was crashing iPhone Safari at
+// zoom-out: entire drawing visible at 0.23x meant loading all 96 L3 tiles
+// at once. At zoom < 1x the backdrop alone is sharper than the screen can
+// render, so drop the floor and let the selector pick L0-L2 — only a
+// handful of tiles. Zoom >= 1x keeps the L3 floor for crispness parity
+// with the backdrop.
 function _pickLevel(viewScale) {
   if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return -1;
   var levels = _pageInfo.levels;
-  var minLevel = Math.min(3, levels.length - 1);
+  var minLevel = (viewScale >= 1) ? Math.min(3, levels.length - 1) : 0;
   var targetW = _drawW * viewScale;
   for (var i = minLevel; i < levels.length; i++) {
     if (levels[i].width >= targetW) return i;
