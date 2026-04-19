@@ -1,27 +1,34 @@
-# ARENCON PDF Tile Renderer — Native pdfium Edition
-# Session 90 — pypdfium2 bundles Google's native libpdfium.so with full
-# FreeType bytecode hinting and native text antialiasing. This is the
-# same binary that ships inside Chrome/Chromium's PDF viewer.
+# ARENCON PDF Tile Renderer — Poppler Edition (Session 94)
 #
-# S94 — fontconfig + fallback fonts added. node:22-slim ships with no
-# fonts and no fontconfig. When a PDF references a font it didn't fully
-# embed (common for engineering PDFs emitted by AutoSPRINK/AutoCAD,
-# which only embed glyph subsets per stroke call), pdfium asks
-# fontconfig for a fallback. Without fontconfig + basic font packages,
-# pdfium silently skips those text runs — visible as lines of a
-# paragraph disappearing at certain scales. liberation is metric-
-# compatible with Arial/Helvetica/Times/Courier (the usual PDF
-# defaults); dejavu-core is a broad Unicode fallback.
+# Replaces pypdfium2 after pdfium in node:22-slim was observed silently
+# dropping lines of paragraph text on AutoSPRINK-emitted engineering PDFs.
+# Session 94 verified that:
+#   - Same pypdfium2 5.6.0 wheel + pdfium 147.0.7713 bundled binary
+#   - Same render.py kwargs (LCD on/off tested, both affected)
+#   - Fontconfig + liberation + dejavu fonts installed (tested both with
+#     and without — no effect)
+# ...still dropped text lines inside the container, while producing full
+# correct output on an Ubuntu host with the exact same wheel. The root
+# cause was never pinned down to a single env variable or system library,
+# so rather than continue debugging pdfium-in-node:22-slim we switched
+# to poppler, which has handled this class of PDF reliably for 20+ years.
+#
+# The render.py / server.js I/O contract is unchanged:
+#   render.py info <pdf>                        → JSON page sizes
+#   render.py render <pdf> <page> <scale> <out> → raw RGBA bytes + "W H"
 
 FROM node:22-slim
 
-# Python 3 + pip + font stack.
-# libpdfium.so travels with the pypdfium2 wheel (manylinux).
+# poppler-utils provides pdftoppm (renderer) and pdfinfo (page size probe).
+# fontconfig + liberation + dejavu give pdftoppm a fallback font stack
+# for PDFs that reference fonts by name without embedding them.
+# Pillow bridges PNG output → raw RGBA bytes for sharp downstream.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       python3 \
       python3-pip \
       ca-certificates \
+      poppler-utils \
       fontconfig \
       fonts-dejavu-core \
       fonts-liberation \
@@ -29,18 +36,14 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/* && \
     fc-cache -f
 
-# pypdfium2 5.6.0 bundles pdfium 147.0.7713 (as of this build date).
-# Pillow provides the .to_pil() bridge used by render.py to extract
-# packed RGBA bytes from the rendered pdfium bitmap.
-# --break-system-packages is required on Debian bookworm (PEP 668).
-RUN pip3 install --no-cache-dir --break-system-packages pypdfium2==5.6.0 Pillow==10.4.0
+# --break-system-packages required on bookworm (PEP 668). Pillow only —
+# pypdfium2 is gone.
+RUN pip3 install --no-cache-dir --break-system-packages Pillow==10.4.0
 
-# Smoke-test native pdfium load at build time. The `import pypdfium2`
-# statement triggers the ctypes load of the bundled libpdfium.so
-# (via pypdfium2_raw.__init__). If that binary is ABI-incompatible
-# with node:22-slim we crash here, not at first request. The import
-# succeeding IS the validation — we don't need any attribute access.
-RUN python3 -c "import pypdfium2, pypdfium2_raw; print('pdfium native lib loaded from:', pypdfium2_raw.__file__)"
+# Build-time smoke test: pdftoppm, pdfinfo, and Pillow all usable.
+RUN pdftoppm -v 2>&1 | head -1 && \
+    pdfinfo -v 2>&1 | head -1 && \
+    python3 -c "from PIL import Image; print('Pillow', Image.__version__)"
 
 WORKDIR /app
 
@@ -54,7 +57,7 @@ RUN python3 -c "import ast; ast.parse(open('render.py').read()); print('render.p
 ENV PORT=8080
 EXPOSE 8080
 
-# Run as non-root. /home/appuser is needed for any stray cache files.
+# Non-root. /home/appuser exists for any stray cache files.
 RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser appuser
 RUN chown -R appuser:appuser /app
 USER appuser

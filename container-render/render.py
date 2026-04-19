@@ -1,137 +1,167 @@
 #!/usr/bin/env python3
 """
-ARENCON PDF renderer — native pdfium via pypdfium2.
+ARENCON PDF renderer — poppler edition (Session 94).
 
-Uses `bitmap.to_pil()` + `.tobytes()` — the well-documented idiomatic
-pypdfium2 path for extracting raw pixels from a rendered page. Requires
-Pillow (PIL).
+Replaces the pypdfium2 + native libpdfium.so pipeline because pdfium
+silently drops lines of paragraph text on engineering PDFs emitted by
+AutoSPRINK. Poppler (pdftoppm / pdfinfo) has been handling this class
+of PDF reliably for 20+ years and was verified on the problem PDF to
+render every text line correctly at all five pyramid scales.
 
-Commands
---------
+Commands (unchanged contract — server.js calls these identically)
+-----------------------------------------------------------------
   info <pdf_path>
     → stdout: {"pages":[{"page":1,"widthPt":W,"heightPt":H},...]}
 
   render <pdf_path> <page_num> <scale> <output_raw_path>
     Writes exactly w*h*4 bytes of packed RGBA to output_raw_path.
     → stdout: "<W> <H>"
+
+Pipeline
+--------
+  pdfinfo → per-page size in points
+  pdftoppm -png -scale-to-x W -scale-to-y H → PNG at exact pixel dims
+  PIL.Image.open().convert('RGBA').tobytes() → raw RGBA bytes for sharp
 """
 import json
+import os
+import subprocess
 import sys
+import tempfile
 import traceback
 
-import pypdfium2 as pdfium
 from PIL import Image
 
 
-def cmd_info(pdf_path):
-    pdf = pdfium.PdfDocument(pdf_path)
+# -------- helpers ------------------------------------------------------------
+
+
+def _parse_pdfinfo_sizes(output):
+    """pdfinfo -f N -l M output includes one 'Page N size: W x H pts' line
+    per page. Return list of (page, widthPt, heightPt)."""
     pages = []
-    try:
-        for i in range(len(pdf)):
-            page = pdf[i]
+    for line in output.splitlines():
+        # "Page 1 size: 2592 x 1728 pts (letter)"
+        if line.startswith("Page ") and " size:" in line:
             try:
-                w_pt, h_pt = page.get_size()
-                pages.append({"page": i + 1, "widthPt": w_pt, "heightPt": h_pt})
-            finally:
-                page.close()
-    finally:
-        pdf.close()
+                rest = line.split("size:", 1)[1].strip()
+                # "2592 x 1728 pts (letter)" → want first and third tokens
+                parts = rest.split()
+                w_pt = float(parts[0])
+                h_pt = float(parts[2])
+                pnum = int(line.split()[1])
+                pages.append((pnum, w_pt, h_pt))
+            except (ValueError, IndexError):
+                pass
+    return pages
+
+
+def _pdfinfo_all_pages(pdf_path):
+    """Get every page's size. Runs pdfinfo once covering all pages."""
+    # -l 99999 is the stock way to say 'up to last page'.
+    result = subprocess.run(
+        ["pdfinfo", "-f", "1", "-l", "99999", pdf_path],
+        capture_output=True, text=True, check=True,
+    )
+    return _parse_pdfinfo_sizes(result.stdout)
+
+
+def _pdfinfo_page(pdf_path, page_num):
+    """Get a single page's size (points). Returns (w_pt, h_pt)."""
+    result = subprocess.run(
+        ["pdfinfo", "-f", str(page_num), "-l", str(page_num), pdf_path],
+        capture_output=True, text=True, check=True,
+    )
+    pages = _parse_pdfinfo_sizes(result.stdout)
+    for p, w, h in pages:
+        if p == page_num:
+            return w, h
+    # Fallback: pdfinfo without per-page range prints just 'Page size:'
+    for line in result.stdout.splitlines():
+        if line.startswith("Page size:"):
+            parts = line.split()
+            return float(parts[2]), float(parts[4])
+    raise RuntimeError(
+        f"pdfinfo did not return a size for page {page_num}:\n"
+        f"{result.stdout[:400]}"
+    )
+
+
+# -------- commands -----------------------------------------------------------
+
+
+def cmd_info(pdf_path):
+    raw_pages = _pdfinfo_all_pages(pdf_path)
+    pages = [{"page": p, "widthPt": w, "heightPt": h} for (p, w, h) in raw_pages]
     sys.stdout.write(json.dumps({"pages": pages}))
     sys.stdout.flush()
 
 
 def cmd_render(pdf_path, page_num, scale, out_path):
-    pdf = pdfium.PdfDocument(pdf_path)
-    try:
-        page = pdf[page_num - 1]
-        try:
-            # Render directly at requested scale (no supersampling).
-            # Earlier supersampling experiment (2x render + Lanczos downscale)
-            # produced byte-different but visually indistinguishable output
-            # vs native — not worth the extra memory + compute. Reverted.
-            #
-            # rev_byteorder=True  → RGBA byte order (vs native BGRA)
-            # prefer_bgrx=True    → force opaque 4-byte BGRx bitmap regardless
-            #                      of page transparency. REQUIRED for LCD.
-            #                      pdfium's FPDF_LCD_TEXT path only engages
-            #                      on opaque bitmaps — if pypdfium2 auto-picks
-            #                      BGRA (which it does for any page with
-            #                      transparency, e.g. highlights/overlays in
-            #                      engineering PDFs), LCD is silently ignored.
-            # draw_annots=True    → render embedded PDF annotations
-            # optimize_mode="lcd" → FPDF_LCD_TEXT: subpixel text rendering
-            #                      (sharper small glyphs, same bitmap size).
-            # Native FreeType bytecode hinting + native text AA are already
-            # baked into libpdfium.so at compile time (unlike the WASM build).
-            bitmap = page.render(
-                scale=scale,
-                rev_byteorder=True,
-                prefer_bgrx=True,
-                draw_annots=True,
-                optimize_mode="lcd",
+    w_pt, h_pt = _pdfinfo_page(pdf_path, page_num)
+    target_w = int(round(w_pt * scale))
+    target_h = int(round(h_pt * scale))
+    sys.stderr.write(
+        f"render p{page_num} {w_pt}x{h_pt}pt * {scale:.4f} "
+        f"→ target {target_w}x{target_h}px\n"
+    )
+
+    # pdftoppm writes a PNG to <prefix>.png. -singlefile means the prefix IS the
+    # path (no -NN suffix). -scale-to-x AND -scale-to-y together force exact
+    # output dimensions (tested against poppler 22.12 on debian bookworm).
+    # Fallback if pdftoppm's "aspect-ratio cap" kicks in: we verify dims after
+    # and log a warning — server.js accepts whatever (actualW, actualH) we
+    # report back on stdout.
+    with tempfile.TemporaryDirectory(prefix="render_") as tmpdir:
+        prefix = os.path.join(tmpdir, "out")
+        cmd = [
+            "pdftoppm",
+            "-f", str(page_num),
+            "-l", str(page_num),
+            "-singlefile",
+            "-scale-to-x", str(target_w),
+            "-scale-to-y", str(target_h),
+            "-aa", "yes",          # text antialiasing on
+            "-aaVector", "yes",    # vector antialiasing on
+            "-png",                # lossless intermediate; sharp re-encodes downstream
+            pdf_path,
+            prefix,
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"pdftoppm failed (exit {proc.returncode}):\n"
+                f"stderr: {proc.stderr[:500]}"
             )
-            try:
-                # Log the raw pdfium format actually chosen — critical for
-                # verifying LCD is engaging. BGR / BGRx = LCD can work,
-                # BGRA = LCD silently ignored. mode after rev_byteorder:
-                # RGB / RGBX / RGBA respectively.
-                try:
-                    from pypdfium2 import raw as _raw
-                    bm_format = bitmap.format
-                    fmt_name = {
-                        _raw.FPDFBitmap_Gray: "Gray",
-                        _raw.FPDFBitmap_BGR: "BGR",
-                        _raw.FPDFBitmap_BGRx: "BGRx",
-                        _raw.FPDFBitmap_BGRA: "BGRA",
-                    }.get(bm_format, f"unknown({bm_format})")
-                    sys.stderr.write(f"bitmap pdfium format: {fmt_name} "
-                                     f"{'(LCD OK)' if fmt_name in ('BGR','BGRx') else '(LCD IGNORED!)'}\n")
-                except Exception as _e:
-                    sys.stderr.write(f"format probe failed: {_e}\n")
 
-                # to_pil() is pypdfium2's documented bridge to Pillow.
-                # Returns a PIL.Image in the appropriate mode given the
-                # render flags above ("RGBX" here with prefer_bgrx=True
-                # + rev_byteorder).
-                pil_image = bitmap.to_pil()
+        png_path = prefix + ".png"
+        if not os.path.exists(png_path):
+            raise RuntimeError(
+                f"pdftoppm produced no output at {png_path}. Dir: "
+                f"{os.listdir(tmpdir)}"
+            )
 
-                w, h = pil_image.size
-                mode = pil_image.mode
+        img = Image.open(png_path).convert("RGBA")
+        w, h = img.size
+        if (w, h) != (target_w, target_h):
+            sys.stderr.write(
+                f"WARN: requested {target_w}x{target_h}, got {w}x{h}\n"
+            )
 
-                # Accept RGBA OR RGBX — both are 4 channels, 4 bytes/pixel,
-                # exactly what sharp's raw:{channels:4} consumes. RGBX is
-                # what prefer_bgrx=True + rev_byteorder=True produces (the
-                # X byte is unused padding, safe to pass through). We only
-                # force a conversion if we somehow get an unexpected mode.
-                if mode not in ("RGBA", "RGBX"):
-                    pil_image = pil_image.convert("RGBA")
-                    mode = "RGBA"
-
-                sys.stderr.write(
-                    f"render p{page_num} scale={scale:.4f} {w}x{h} mode={mode}\n"
-                )
-
-                # tobytes() returns packed bytes in the image's mode order.
-                # RGBA = 4 bytes/pixel, no row padding — exactly what sharp
-                # wants from its `{raw:{width,height,channels:4}}` input.
-                raw_bytes = pil_image.tobytes()
-                expected = w * h * 4
-                if len(raw_bytes) != expected:
-                    raise RuntimeError(
-                        f"raw byte size mismatch: got {len(raw_bytes)}, "
-                        f"expected {expected}"
-                    )
-                with open(out_path, "wb") as f:
-                    f.write(raw_bytes)
-            finally:
-                bitmap.close()
-        finally:
-            page.close()
-    finally:
-        pdf.close()
+        raw_bytes = img.tobytes()
+        expected = w * h * 4
+        if len(raw_bytes) != expected:
+            raise RuntimeError(
+                f"raw byte size mismatch: got {len(raw_bytes)}, expected {expected}"
+            )
+        with open(out_path, "wb") as f:
+            f.write(raw_bytes)
 
     sys.stdout.write(f"{w} {h}")
     sys.stdout.flush()
+
+
+# -------- entrypoint ---------------------------------------------------------
 
 
 def main():
@@ -164,7 +194,6 @@ def main():
             sys.stderr.write(f"Unknown command: {cmd}\n")
             sys.exit(2)
     except Exception as e:
-        # Full traceback to stderr so Node's runPython() surfaces it in logs.
         sys.stderr.write(f"render.py error: {type(e).__name__}: {e}\n")
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
