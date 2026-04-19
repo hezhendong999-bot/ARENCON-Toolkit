@@ -2146,7 +2146,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
    Goal: Hide legacy viewer chrome WITHOUT display:none so the markup
    engine still measures #dv-img-wrap at non-zero size on viewer-open.
    Elements remain in layout tree, clickable via JS .click() proxies. */
-@media (max-width: 768px){
+@media (max-width: 900px){
   .drawing-viewer-overlay #dv-sidebar-tools,
   .drawing-viewer-overlay #dv-mobile-context,
   .drawing-viewer-overlay .dv-tasks-panel{
@@ -2165,7 +2165,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
    The legacy #dv-undo-v75/#dv-redo-v75/#dv-actions-v75 buttons are kept in the DOM (proxy
    wire() at line ~843 still polls for them) but hidden — real undo/redo now live in the
    mobile tool row, and Actions ▾ is replaced by PC's Layers/Tasks/⋯ menu. */
-@media (max-width: 768px){
+@media (max-width: 900px){
   /* Hide the orphaned v75 mobile-only top bar buttons (DOM kept for proxy wire() compat) */
   .drawing-viewer-overlay #dv-undo-v75,
   .drawing-viewer-overlay #dv-redo-v75,
@@ -2295,7 +2295,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
 }
 
 /* === Session 75 Push 3.2 — layout-only restyle, legacy icons preserved === */
-@media (max-width: 768px){
+@media (max-width: 900px){
   .drawing-viewer-overlay #dv-toolrow-v75{
     display:flex;align-items:center;justify-content:space-around;gap:6px;
     background:#fff;padding:8px 12px;
@@ -2418,7 +2418,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
    - bottombar hides at 901+ only (so iPad portrait still has the nav
      arrows, since top-bar prev/next and floating nav are both
      display:none'd on touch devices) */
-@media (min-width: 769px){
+@media (min-width: 901px){
   .drawing-viewer-overlay #dv-toolrow-v75,
   .drawing-viewer-overlay #dv-stylestrip-v75,
   .drawing-viewer-overlay #dv-undo-v75,
@@ -2434,7 +2434,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   }
 }
 /* S78: mobile tool buttons match PC transparent ghost style (was navy-filled hatches) */
-@media (max-width: 768px){
+@media (max-width: 900px){
   .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn{
     background:transparent !important;
     color:#607D8B !important;
@@ -2508,7 +2508,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
 .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:hover{background:#9C2742;}
 
 /* === Session 75 Push 5 — Tasks bottom sheet (mobile only) === */
-@media (max-width: 768px){
+@media (max-width: 900px){
   .drawing-viewer-overlay #dv-tasks-sheet-v75{
     position:absolute;left:0;right:0;bottom:0;z-index:50;
     background:#fff;border-top:1px solid #d6d9e0;
@@ -2550,12 +2550,12 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   }
   .drawing-viewer-overlay #dv-tsv75-new:hover{background:#7d1f35;}
 }
-@media (min-width: 769px){
+@media (min-width: 901px){
   .drawing-viewer-overlay #dv-tasks-sheet-v75{display:none !important;}
 }
 
 /* === Session 75 Push 5.1 — left sidebar tools navy in day mode === */
-@media (min-width: 769px){
+@media (min-width: 901px){
   .drawing-viewer-overlay #dv-sidebar-tools{
     background:#1B2438 !important;
     border-right:1px solid #2a3448;
@@ -2717,7 +2717,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
 }
 
 /* === Session 75 Push 6.2 — close button align + bigger size/opac steppers === */
-@media (min-width: 769px){
+@media (min-width: 901px){
   /* Align close button column with left sidebar width */
   .drawing-viewer-overlay .dv-toolbar{padding-left:0 !important;}
   .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
@@ -2773,7 +2773,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
 }
 
 /* === Session 75 Push 7 — Close to left sidebar top + bigger size steppers === */
-@media (min-width: 769px){
+@media (min-width: 901px){
   /* Hide Close from top toolbar */
   .drawing-viewer-overlay .dv-toolbar #dv-close{display:none !important;}
   /* Move Close into the top of #dv-sidebar-tools via JS — CSS just styles it */
@@ -2807,7 +2807,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
 
 /* === Session 75 Push 8 — REVERT Push 7 close move + mobile chrome navy === */
 /* Revert Push 7: bring #dv-close back to top toolbar */
-@media (min-width: 769px){
+@media (min-width: 901px){
   .drawing-viewer-overlay .dv-toolbar #dv-close{
     display:inline-flex !important;align-items:center;justify-content:center;
     background:#2a3448 !important;color:#fff !important;
@@ -2826,7 +2826,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   }
 }
 /* Mobile: tool row + style strip navy backgrounds */
-@media (max-width: 768px){
+@media (max-width: 900px){
   .drawing-viewer-overlay #dv-toolrow-v75{
     background:#1B2438 !important;
     border-bottom:1px solid #2a3448 !important;
@@ -2961,7 +2961,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   color:#fff !important;
 }
 /* Mobile: tighten gap and show more tools */
-@media (max-width:768px){
+@media (max-width: 900px){
   .drawing-viewer-overlay .dv-sidebar-tools .tool-btn{display:flex !important;}
   .drawing-viewer-overlay #tool-color-group{display:flex !important;}
   .drawing-viewer-overlay #dv-sidebar-tools .tool-btn[onclick*="markupUndo"],
@@ -3368,7 +3368,7 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
 }
 /* Tablet/phone ≤768px of any orientation: same — icon only.
    (Chrome DevTools device toolbar also hits this, even if window is wider.) */
-@media (max-width: 768px){
+@media (max-width: 900px){
   .drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-txt{display:none !important;}
 }
 
