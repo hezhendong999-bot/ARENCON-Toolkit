@@ -79,7 +79,6 @@ function _dbgRender() {
 
   var view = _cfg && _cfg.getViewState ? _cfg.getViewState() : null;
   var scale = (view && typeof view.scale === 'number') ? view.scale : 0;
-  var fitStored = (view && typeof view.fitScale === 'number') ? view.fitScale : 0;
   var area = document.getElementById('dv-canvas-area');
   var wrap = document.getElementById('dv-img-wrap');
   var aw = area ? area.clientWidth : 0;
@@ -99,9 +98,7 @@ function _dbgRender() {
     'tiles: ' + _tileCount + '/' + _MAX_TILES + ' peak:' + _dbg_maxTiles + '\n' +
     'loading: ' + _dbg_loadingCount + ' peak:' + _dbg_maxLoading + '\n' +
     'decoding: ' + _dbg_decodingCount + ' peak:' + _dbg_maxDecoding + '\n' +
-    'scale: ' + scale.toFixed(3) + '\n' +
-    'fit:   ' + fitStored.toFixed(3) + ' (stored)\n' +
-    'fitExp:' + fitExp.toFixed(3) + ' (now)\n' +
+    'scale: ' + scale.toFixed(3) + ' fitExp: ' + fitExp.toFixed(3) + '\n' +
     'draw: ' + _drawW + 'x' + _drawH + '\n' +
     'area: ' + aw + 'x' + ah + '\n' +
     'wrap: ' + wrapW + 'x' + wrapH + '\n' +
