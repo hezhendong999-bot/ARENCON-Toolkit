@@ -100,12 +100,13 @@
     // 4) Pre-fetch fresh index.html so it goes straight into the new SW cache
     var s4 = step('Pre-fetching fresh FRT index…');
     try {
-      var r = await fetch('../frt/index.html?_cb=' + Date.now(), { cache: 'reload' });
+      var r = await fetch(location.origin + '/ARENCON-Toolkit/frt/index.html?_cb=' + Date.now(), { cache: 'reload' });
       var text = await r.text();
       var hasLoader = text.indexOf('debug/instrument.js') >= 0;
       mark(s4, hasLoader ? 'done' : 'fail');
       s4.innerHTML = '<span class="mark">' + (hasLoader ? '✓' : '✗') + '</span>' +
-                     'Fetched fresh index.html (' + text.length + ' bytes) — loader present: <code>' + hasLoader + '</code>';
+                     'Fetched fresh index.html (' + text.length + ' bytes) — loader present: <code>' + hasLoader + '</code>' +
+                     (hasLoader ? '' : '<br><span class="hint">If false: old SW is still controlling this page. That\'s fine — it\'ll be gone the moment you navigate away. The localStorage flag (step 3) will activate instrumentation on your next FRT load regardless.</span>');
     } catch(e) {
       mark(s4, 'fail');
       s4.innerHTML = '<span class="mark">✗</span>Fetch failed: ' + e.message;
@@ -114,7 +115,7 @@
     // 5) Pre-fetch instrument.js
     var s5 = step('Pre-fetching instrument.js…');
     try {
-      var r2 = await fetch('./instrument.js?_cb=' + Date.now(), { cache: 'reload' });
+      var r2 = await fetch(location.origin + '/ARENCON-Toolkit/frt/debug/instrument.js?_cb=' + Date.now(), { cache: 'reload' });
       var t2 = await r2.text();
       mark(s5, r2.ok ? 'done' : 'fail');
       s5.innerHTML = '<span class="mark">' + (r2.ok ? '✓' : '✗') + '</span>' +
@@ -132,18 +133,36 @@
 
   function goToFrt(withDbg){
     var raw = (document.getElementById('projUrl').value || '').trim();
-    var base = '../frt/';
+    var FRT_BASE = location.origin + '/ARENCON-Toolkit/frt/';
     var url;
+
     if (raw){
-      // Use user-supplied URL, add/strip dbg=1 as requested
-      url = raw;
-      url = url.replace(/[?&]dbg=1\b/g, '');
-      if (withDbg) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'dbg=1';
+      // Full URL: use as-is
+      if (/^https?:\/\//.test(raw)){
+        url = raw;
+      }
+      // Starts with ? — treat as query string only
+      else if (raw.charAt(0) === '?'){
+        url = FRT_BASE + raw;
+      }
+      // Contains ? but no scheme — strip any path prefix, keep the query
+      else if (raw.indexOf('?') >= 0){
+        url = FRT_BASE + raw.substring(raw.indexOf('?'));
+      }
+      // Looks like a bare UUID or path segment
+      else {
+        url = FRT_BASE + '?project=' + encodeURIComponent(raw);
+      }
     } else {
-      url = base + (withDbg ? '?dbg=1' : '');
+      url = FRT_BASE;
     }
-    // Cache-bust to force Chrome HTTP-cache bypass
+
+    // Strip any existing dbg=1, then re-add if requested
+    url = url.replace(/([?&])dbg=1(&|$)/g, function(_, pre, post){ return post === '&' ? pre : ''; });
+    url = url.replace(/\?$/, '');
+    if (withDbg) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'dbg=1';
     url += (url.indexOf('?') >= 0 ? '&' : '?') + '_cb=' + Date.now();
+
     location.href = url;
   }
 
