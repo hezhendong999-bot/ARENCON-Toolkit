@@ -127,16 +127,14 @@
   }
 
   function logEvent(type, data){
-    var evt = { t: Date.now(), type: type };
+    var evt = { t: Date.now(), pt: Math.round(performance.now()), type: type };
     if (data) for (var k in data) if (data.hasOwnProperty(k)) evt[k] = data[k];
     events.push(evt);
     if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
-    // Don't flush on every event — heartbeat flushes. Too many writes
-    // otherwise. But DO flush on fatal-sounding events.
-    if (type === 'error' || type === 'pagehide' || type === 'unhandled_rejection'
-        || type === 'freeze' || type === 'canvas_create' || type === 'resource_error') {
-      flushEvents();
-    }
+    // S95 v3: flush on EVERY event. localStorage writes are synchronous, cheap,
+    // and the previous "flush only on fatal" policy meant we lost events when
+    // the crash happened between heartbeats. Better to over-flush.
+    flushEvents();
   }
 
   // ── State readers ───────────────────────────────────────────────────────
@@ -229,7 +227,7 @@
     renderOverlay(s);
   }
 
-  setInterval(heartbeat, 1500);
+  setInterval(heartbeat, 300);
 
   // ── MutationObserver on tiles layer ─────────────────────────────────────
   function installTileObserver(){
@@ -278,6 +276,51 @@
       line: e.lineno||0, col: e.colno||0
     });
   }, true);
+
+  // ── Resource timing (network fetches) — big spikes in memory are
+  //    typically caused by large image decodes kicked off by fetches ──────
+  try {
+    var perfObs = new PerformanceObserver(function(list){
+      var entries = list.getEntries();
+      for (var i = 0; i < entries.length; i++){
+        var e = entries[i];
+        // Only log non-tiny resources to avoid spam
+        var size = e.transferSize || e.encodedBodySize || 0;
+        if (size > 5000 || /\.(jpg|jpeg|png|webp)(\?|$)/i.test(e.name)){
+          logEvent('resource', {
+            name: e.name.length > 80 ? e.name.slice(-80) : e.name,
+            type: e.initiatorType || '',
+            size: size,
+            dur: Math.round(e.duration || 0),
+            enc: e.encodedBodySize || 0,
+            dec: e.decodedBodySize || 0
+          });
+        }
+      }
+    });
+    perfObs.observe({ entryTypes: ['resource'] });
+    logEvent('perf_observer_on');
+  } catch(e){ logEvent('perf_observer_fail', { msg: String(e) }); }
+
+  // ── Backdrop-image attribute observer — catches src changes, load, size ─
+  function installBackdropObserver(){
+    var img = document.getElementById('dv-image');
+    if (!img){ setTimeout(installBackdropObserver, 500); return; }
+    var last = { src: '', w: 0, h: 0 };
+    // Poll dv-image state (MutationObserver doesn't cover naturalWidth)
+    setInterval(function(){
+      var src = (img.src||'').slice(0, 60);
+      var w = img.naturalWidth || 0, h = img.naturalHeight || 0;
+      if (src !== last.src || w !== last.w || h !== last.h){
+        logEvent('backdrop_state', {
+          src: src, nw: w, nh: h, mpx: ((w*h)/1e6).toFixed(2),
+          complete: img.complete
+        });
+        last.src = src; last.w = w; last.h = h;
+      }
+    }, 200);
+  }
+  installBackdropObserver();
 
   window.addEventListener('unhandledrejection', function(e){
     var r = e && e.reason;
