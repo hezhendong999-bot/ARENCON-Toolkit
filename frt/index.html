@@ -39,6 +39,15 @@ function ensurePdfJs(cb){
   document.head.appendChild(s);
 }
 </script>
+<script>
+// S95: crash instrumentation (activates with ?dbg=1 URL param). Zero cost otherwise.
+if(/[?&]dbg=1\b/.test(location.search)){
+  var __dbgS=document.createElement('script');
+  __dbgS.src='debug/instrument.js?v=1';
+  __dbgS.async=false;
+  document.head.appendChild(__dbgS);
+}
+</script>
 </head>
 <body>
 
