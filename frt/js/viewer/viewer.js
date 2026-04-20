@@ -355,7 +355,12 @@ function _loadImgFallback(url, d, label) {
   var isTouch = false;
   try { isTouch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches; } catch(_){}
   if (!isTouch){ _finish(url); return; }
-  var budget = 8 * 1000 * 1000; // S83b2: 8MP — zoom headroom
+  var budget = 4 * 1000 * 1000; // S95: 8M->4M. At 8M the downscaler's drawImage
+  // peak memory (25MP source probe + 8M target canvas) crossed the iPad iOS 16
+  // budget and silently threw, falling back to the original 25M-pixel URL —
+  // which then loaded the full 100MB decoded bitmap into dv-image. Halving to
+  // 4M keeps the peak at ~116MB instead of ~132MB and lets the downscale
+  // actually complete. Post-fix backdrop sits at ~16MB decoded.
   var probe = new Image();
   probe.crossOrigin = 'anonymous';
   probe.onload = function(){
@@ -584,7 +589,7 @@ function _showDrawing(idx) {
   // Budget: 8 MP decoded (≈32 MB RGBA). Lower than 12 MP because CSS zoom
   // asks Safari to allocate a larger render buffer at zoom-in, so we need
   // headroom for 3–4× zoom before the render buffer itself blows the ceiling.
-  var _IPAD_PX_BUDGET = 8 * 1000 * 1000;
+  var _IPAD_PX_BUDGET = 4 * 1000 * 1000;  // S95: halved from 8M — see comment at line ~358
 
   function _downscaleForTouch(url, onDone, onFail){
     var probe = new Image();
