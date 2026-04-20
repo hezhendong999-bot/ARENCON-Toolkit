@@ -359,24 +359,39 @@ function _renderVisible() {
     if (!Object.prototype.hasOwnProperty.call(_tiles, tk)) continue;
     if (_tiles[tk].level !== levelIdx) keysToDrop.push(tk);
   }
+  // S95: on iOS, skip the S94 fade-out. During rapid zoom, the 220ms delay
+  // keeps old-level tile <img>s alive in the DOM (and WebKit's image decode
+  // cache) while new-level tiles are already loading, resulting in up to
+  // 95+ decoded tile bitmaps stacked momentarily. Repeated zoom cycles
+  // build up pressure until the page process is Jetsam-killed. Log-confirmed
+  // on iPad iOS 16.3 with zoom sequences of 3-6 transitions in <1s.
+  // Desktop/Android keep the smooth crossfade.
+  var _iosNoFade = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                   (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
   for (var ki = 0; ki < keysToDrop.length; ki++) {
     var dk = keysToDrop[ki];
     var dt = _tiles[dk];
     if (dt && dt.img) {
-      // S94 — fade OUT before remove. The 180ms opacity transition (already
-      // baked into the img's inline style at creation time) runs in parallel
-      // with the new-level tiles fading IN, producing a smooth crossfade at
-      // level boundaries instead of the harsh "pop to backdrop" gap that
-      // looked like tiles were shifting. 220ms removal delay > 180ms fade
-      // gives the transition a full tick of headroom to complete before
-      // the img is yanked.
-      (function(el) {
-        el.style.opacity = '0';
-        setTimeout(function() {
-          if (el.parentNode) el.parentNode.removeChild(el);
-          el.src = '';
-        }, 220);
-      })(dt.img);
+      if (_iosNoFade) {
+        // Immediate removal — visual snap, no memory lingering
+        if (dt.img.parentNode) dt.img.parentNode.removeChild(dt.img);
+        dt.img.src = '';
+      } else {
+        // S94 — fade OUT before remove. The 180ms opacity transition (already
+        // baked into the img's inline style at creation time) runs in parallel
+        // with the new-level tiles fading IN, producing a smooth crossfade at
+        // level boundaries instead of the harsh "pop to backdrop" gap that
+        // looked like tiles were shifting. 220ms removal delay > 180ms fade
+        // gives the transition a full tick of headroom to complete before
+        // the img is yanked.
+        (function(el) {
+          el.style.opacity = '0';
+          setTimeout(function() {
+            if (el.parentNode) el.parentNode.removeChild(el);
+            el.src = '';
+          }, 220);
+        })(dt.img);
+      }
     }
     delete _tiles[dk];
     _tileCount--;
