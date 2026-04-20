@@ -90,6 +90,7 @@
 
   // ── Prior crash detection (BEFORE we start writing) ─────────────────────
   var priorCrash = null;
+  var priorEvents = [];
   try {
     var hb = localStorage.getItem(K_HEARTBEAT);
     var clean = localStorage.getItem(K_CLEAN);
@@ -98,6 +99,14 @@
       // Crash if last heartbeat's session != clean marker's session
       if (!clean || JSON.parse(clean || '{}').session !== hbObj.session) {
         priorCrash = hbObj;
+        // Preserve the events from the crashed session BEFORE they get
+        // overwritten by the first heartbeat of this new session. This was
+        // the instrumentation bug that cost us the timeline for S95 repros
+        // through v182 — we saw the final-state heartbeat but never the
+        // event sequence that led up to it.
+        try {
+          priorEvents = JSON.parse(localStorage.getItem(K_EVENTS) || '[]');
+        } catch(e){}
       }
     }
   } catch(e){}
@@ -440,6 +449,7 @@
       boot_count: BOOT_COUNT,
       device: DEVICE,
       prior_crash: priorCrash,
+      prior_events: priorEvents,
       last_heartbeat: hb,
       clean_exit: clean,
       events: evts
