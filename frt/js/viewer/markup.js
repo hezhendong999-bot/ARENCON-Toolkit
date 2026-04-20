@@ -106,7 +106,15 @@ function _allocateCanvas() {
   // backdrop = instant OOM on drawing-open. 4M px keeps the markup canvas
   // under 16MB while staying sharp at any reasonable zoom on a 390-430px
   // iPhone viewport.
-  var maxPixels = isIPhone ? 4000000 : (isAndroidTablet ? 10000000 : (isTablet ? 16000000 : 25000000));
+  //
+  // S95: iPad budget 16M -> 8M. The S91 iPhone fix was never extended to
+  // iPad. On iPad iOS 16, WebKit cumulative canvas pool is fatal when the
+  // two markup canvases (2D + WebGL sibling below) each hit the 16M budget
+  // (32M combined) — log-confirmed crash at exactly 32.0 Mpx cumulative
+  // on iPad Air iOS 16.3.1. Halving to 8M per canvas puts combined at
+  // 16M which matches iPhone's single-canvas-survived budget. Android
+  // tablets (10M) and desktop (25M) unaffected — they don't hit the pool.
+  var maxPixels = isIPhone ? 4000000 : (isAndroidTablet ? 10000000 : (isTablet ? 8000000 : 25000000));
   var totalPixels = drawW * drawH;
   var mkScale = 1;
   if (totalPixels > maxPixels) mkScale = Math.sqrt(maxPixels / totalPixels);
