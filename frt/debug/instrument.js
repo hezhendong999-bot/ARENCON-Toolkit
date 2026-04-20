@@ -38,12 +38,21 @@
   'use strict';
 
   // ── Gate ────────────────────────────────────────────────────────────────
-  // Activates via any of: ?dbg=1 in search, #dbg=1 in hash, or window flag
-  // (the flag path lets a bookmarklet trigger it without reloading the page)
+  // Activates via any of:
+  //   ?dbg=1 in search, #dbg=1 in hash, window.__frtForceDebug flag,
+  //   sessionStorage flag (set by reset.html), or localStorage flag with
+  //   30-min expiry (also set by reset.html — persists across full reloads)
   var gateSearch = /[?&]dbg=1\b/.test(location.search);
   var gateHash   = /(?:^|[?&#])dbg=1\b/.test(location.hash || '');
   var gateFlag   = !!window.__frtForceDebug;
-  if (!gateSearch && !gateHash && !gateFlag) return;
+  var gateSess   = false;
+  var gateLocal  = false;
+  try { gateSess  = sessionStorage.getItem('arencon_force_dbg') === '1'; } catch(e){}
+  try {
+    var exp = parseInt(localStorage.getItem('arencon_force_dbg_until') || '0', 10);
+    gateLocal = exp > Date.now();
+  } catch(e){}
+  if (!gateSearch && !gateHash && !gateFlag && !gateSess && !gateLocal) return;
 
   // ── Keys ────────────────────────────────────────────────────────────────
   var K_HEARTBEAT   = 'arencon_frt_dbg_heartbeat_v1';
@@ -325,7 +334,7 @@
     heartbeat();
   });
 
-  // ── Visible overlay (top-left to not overlap tiledPdf's bottom-left) ────
+  // ── Visible overlay (top-right, made deliberately obvious) ──────────────
   var panel = null;
   function ensurePanel(){
     if (panel) return panel;
@@ -333,20 +342,21 @@
     panel = document.createElement('div');
     panel.id = 'frt-dbg-panel';
     panel.style.cssText =
-      'position:fixed;top:4px;right:4px;z-index:100000;' +
-      'background:rgba(20,30,48,0.92);color:#fff;' +
-      'font:10px/1.25 ui-monospace,Menlo,monospace;' +
-      'padding:6px 8px;border-radius:6px;border:1px solid #9C2742;' +
-      'max-width:230px;pointer-events:auto;white-space:pre;' +
-      'box-shadow:0 4px 12px rgba(0,0,0,0.4);';
+      'position:fixed;top:10px;right:10px;z-index:100000;' +
+      'background:#9C2742;color:#fff;' +
+      'font:600 14px/1.35 ui-monospace,Menlo,monospace;' +
+      'padding:10px 12px 8px;border-radius:8px;' +
+      'border:3px solid #ffd34d;' +
+      'min-width:240px;max-width:320px;pointer-events:auto;white-space:pre;' +
+      'box-shadow:0 6px 20px rgba(0,0,0,0.5);';
     document.body.appendChild(panel);
 
     var btnRow = document.createElement('div');
-    btnRow.style.cssText = 'margin-top:4px;display:flex;gap:3px;flex-wrap:wrap;';
+    btnRow.style.cssText = 'margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;';
     btnRow.innerHTML =
-      '<button id="fdbg-copy" style="flex:1;background:#9C2742;color:#fff;border:0;padding:4px;font:600 10px Calibri;border-radius:3px;">Copy log</button>' +
-      '<button id="fdbg-clear" style="background:#455A64;color:#fff;border:0;padding:4px 6px;font:600 10px Calibri;border-radius:3px;">Clear</button>' +
-      '<button id="fdbg-hide" style="background:#777;color:#fff;border:0;padding:4px 6px;font:600 10px Calibri;border-radius:3px;">Hide</button>';
+      '<button id="fdbg-copy" style="flex:1;min-width:80px;background:#1A7A4A;color:#fff;border:0;padding:8px;font:700 13px Calibri;border-radius:4px;">Copy log</button>' +
+      '<button id="fdbg-clear" style="background:#455A64;color:#fff;border:0;padding:8px 10px;font:700 13px Calibri;border-radius:4px;">Clear</button>' +
+      '<button id="fdbg-hide" style="background:#777;color:#fff;border:0;padding:8px 10px;font:700 13px Calibri;border-radius:4px;">Hide</button>';
     panel.appendChild(btnRow);
 
     document.getElementById('fdbg-copy').onclick = copyFullLog;

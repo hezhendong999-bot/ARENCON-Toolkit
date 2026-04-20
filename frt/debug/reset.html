@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ARENCON — FRT Debug Reset</title>
+<style>
+  body { font-family: Calibri, sans-serif; margin: 0; padding: 0; background: #1B2438; color: #fff; min-height: 100vh; display: flex; flex-direction: column; }
+  header { background: #9C2742; padding: 14px 18px; }
+  h1 { margin: 0; font-size: 18px; }
+  main { padding: 18px; max-width: 640px; }
+  .step { padding: 10px 12px; background: rgba(255,255,255,0.06); border-left: 3px solid #ffd34d; margin-bottom: 8px; border-radius: 4px; font-size: 14px; line-height: 1.5; }
+  .step.done { border-left-color: #1A7A4A; }
+  .step.fail { border-left-color: #c42626; }
+  .step .mark { display: inline-block; width: 22px; }
+  label { display: block; font-size: 13px; margin: 14px 0 6px; color: #ffd34d; font-weight: 600; }
+  input { width: 100%; padding: 10px 12px; font: 14px Calibri; border: 2px solid #455A64; border-radius: 4px; background: #0f1622; color: #fff; box-sizing: border-box; }
+  button { background: #1A7A4A; color: #fff; border: 0; padding: 12px 20px; font: 700 15px Calibri; border-radius: 4px; margin: 14px 6px 0 0; cursor: pointer; }
+  button.secondary { background: #455A64; }
+  button:disabled { opacity: 0.5; }
+  code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 2px; font-family: ui-monospace, monospace; font-size: 12px; }
+  .hint { color: #aab; font-size: 12px; margin-top: 6px; line-height: 1.45; }
+</style>
+</head>
+<body>
+<header><h1>FRT Debug Reset</h1></header>
+<main>
+  <div id="log"></div>
+
+  <div id="after-reset" style="display:none">
+    <label for="projUrl">Paste the URL you normally use to open FRT (with your real project UUID):</label>
+    <input id="projUrl" placeholder="https://hezhendong999-bot.github.io/ARENCON-Toolkit/frt/?project=...">
+    <div class="hint">The debug flag will be added automatically. You can also leave this blank and just navigate to FRT normally — debug mode is now activated for any FRT tab for the next 30 minutes.</div>
+    <button id="go">Open FRT with debug on</button>
+    <button id="goPlain" class="secondary">Open FRT normally</button>
+  </div>
+</main>
+
+<script>
+(function(){
+  var logEl = document.getElementById('log');
+  function step(text, cls){
+    var el = document.createElement('div');
+    el.className = 'step' + (cls ? ' ' + cls : '');
+    el.innerHTML = '<span class="mark">' + (cls === 'done' ? '✓' : cls === 'fail' ? '✗' : '…') + '</span>' + text;
+    logEl.appendChild(el);
+    return el;
+  }
+  function mark(el, cls){
+    el.className = 'step ' + cls;
+    el.querySelector('.mark').textContent = cls === 'done' ? '✓' : '✗';
+  }
+
+  // Flag in sessionStorage — persists across same-tab navigation
+  // but not forever. Instrument.js will pick this up.
+  try { sessionStorage.setItem('arencon_force_dbg', '1'); } catch(e){}
+  // Also set a longer-lived localStorage flag with expiry
+  try { localStorage.setItem('arencon_force_dbg_until', String(Date.now() + 30*60*1000)); } catch(e){}
+
+  async function run(){
+    // 1) Unregister service workers
+    var s1 = step('Unregistering service workers…');
+    try {
+      if ('serviceWorker' in navigator){
+        var regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(function(r){ return r.unregister(); }));
+        mark(s1, 'done');
+        s1.innerHTML = '<span class="mark">✓</span>Unregistered ' + regs.length + ' service worker(s)';
+      } else {
+        mark(s1, 'done');
+        s1.innerHTML = '<span class="mark">✓</span>No service worker API (unusual but OK)';
+      }
+    } catch(e) {
+      mark(s1, 'fail');
+      s1.innerHTML = '<span class="mark">✗</span>SW unregister failed: ' + e.message;
+    }
+
+    // 2) Delete all caches
+    var s2 = step('Clearing caches…');
+    try {
+      if ('caches' in window){
+        var keys = await caches.keys();
+        await Promise.all(keys.map(function(k){ return caches.delete(k); }));
+        mark(s2, 'done');
+        s2.innerHTML = '<span class="mark">✓</span>Cleared ' + keys.length + ' cache bucket(s): ' + keys.join(', ');
+      } else {
+        mark(s2, 'done');
+        s2.innerHTML = '<span class="mark">✓</span>No caches API';
+      }
+    } catch(e) {
+      mark(s2, 'fail');
+      s2.innerHTML = '<span class="mark">✗</span>Cache clear failed: ' + e.message;
+    }
+
+    // 3) Set debug flag
+    var s3 = step('Setting debug flag…');
+    mark(s3, 'done');
+    s3.innerHTML = '<span class="mark">✓</span>Debug flag set — active for 30 minutes';
+
+    // 4) Pre-fetch fresh index.html so it goes straight into the new SW cache
+    var s4 = step('Pre-fetching fresh FRT index…');
+    try {
+      var r = await fetch('../frt/index.html?_cb=' + Date.now(), { cache: 'reload' });
+      var text = await r.text();
+      var hasLoader = text.indexOf('debug/instrument.js') >= 0;
+      mark(s4, hasLoader ? 'done' : 'fail');
+      s4.innerHTML = '<span class="mark">' + (hasLoader ? '✓' : '✗') + '</span>' +
+                     'Fetched fresh index.html (' + text.length + ' bytes) — loader present: <code>' + hasLoader + '</code>';
+    } catch(e) {
+      mark(s4, 'fail');
+      s4.innerHTML = '<span class="mark">✗</span>Fetch failed: ' + e.message;
+    }
+
+    // 5) Pre-fetch instrument.js
+    var s5 = step('Pre-fetching instrument.js…');
+    try {
+      var r2 = await fetch('./instrument.js?_cb=' + Date.now(), { cache: 'reload' });
+      var t2 = await r2.text();
+      mark(s5, r2.ok ? 'done' : 'fail');
+      s5.innerHTML = '<span class="mark">' + (r2.ok ? '✓' : '✗') + '</span>' +
+                     'Fetched instrument.js (' + t2.length + ' bytes, HTTP ' + r2.status + ')';
+    } catch(e) {
+      mark(s5, 'fail');
+      s5.innerHTML = '<span class="mark">✗</span>Fetch failed: ' + e.message;
+    }
+
+    step('✓ All done. Open FRT below.', 'done');
+    document.getElementById('after-reset').style.display = 'block';
+  }
+
+  run();
+
+  function goToFrt(withDbg){
+    var raw = (document.getElementById('projUrl').value || '').trim();
+    var base = '../frt/';
+    var url;
+    if (raw){
+      // Use user-supplied URL, add/strip dbg=1 as requested
+      url = raw;
+      url = url.replace(/[?&]dbg=1\b/g, '');
+      if (withDbg) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'dbg=1';
+    } else {
+      url = base + (withDbg ? '?dbg=1' : '');
+    }
+    // Cache-bust to force Chrome HTTP-cache bypass
+    url += (url.indexOf('?') >= 0 ? '&' : '?') + '_cb=' + Date.now();
+    location.href = url;
+  }
+
+  document.getElementById('go').onclick      = function(){ goToFrt(true);  };
+  document.getElementById('goPlain').onclick = function(){ goToFrt(false); };
+})();
+</script>
+</body>
+</html>
