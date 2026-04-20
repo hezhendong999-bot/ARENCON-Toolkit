@@ -460,13 +460,32 @@ function _openServerTiles(d, drawingId, pageNum) {
       _baseScale = _drawW / _nativeW;
 
       // Backdrop (dv-image) — ALWAYS visible. Safety net if tiles fail.
+      // S95: on touch devices (iPad/iPhone), loading the full-resolution source
+      // URL here (e.g. 6144×4096 PNG) decodes to ~100 MB bitmap — which, on top
+      // of the markup canvases and tile images, crosses the iOS WebKit
+      // per-page memory ceiling and triggers a Jetsam process kill. Skip the
+      // backdrop assignment entirely on touch — if tiles fail to load the user
+      // sees a blank viewer with the "loading tile" chrome still in place.
+      // Pin coordinate math has been updated (see viewer.js _getDrawingNatural*)
+      // to source dimensions from TiledPdf.getDimensions() instead of
+      // dv-image.naturalWidth, so skipping the backdrop is coordinate-safe.
       var img = document.getElementById('dv-image');
       if (img) {
-        var jpegSrc = d.r2Url || d.dataUrl || d.thumb || '';
-        if (jpegSrc) {
-          img.crossOrigin = 'anonymous';
-          img.style.display = 'block';
-          if (img.src !== jpegSrc) img.src = jpegSrc;
+        var _isTouch = false;
+        try { _isTouch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches; } catch(_){}
+        if (_isTouch){
+          // Blank the backdrop — releases any prior-drawing bitmap
+          if (img.src && img.src !== 'about:blank'){
+            try { img.src = ''; } catch(_){}
+          }
+        } else {
+          // Desktop: preserve original safety-net behavior
+          var jpegSrc = d.r2Url || d.dataUrl || d.thumb || '';
+          if (jpegSrc) {
+            img.crossOrigin = 'anonymous';
+            img.style.display = 'block';
+            if (img.src !== jpegSrc) img.src = jpegSrc;
+          }
         }
       }
 

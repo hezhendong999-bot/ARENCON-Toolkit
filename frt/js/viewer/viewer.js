@@ -334,6 +334,30 @@ window._tplDiag = function() {
   return 'OK';
 };
 
+// ── S95: drawing dimension helpers ──────────────────────────────────────
+// Why: pin placement, hit-testing and coordinate math historically read
+// dv-image.naturalWidth / .naturalHeight. In tile-mode drawings the
+// backdrop <img> is now either skipped or thumbnailed on touch devices
+// (to prevent the 100MB decoded-bitmap kill-the-renderer path), so its
+// natural dimensions no longer reflect the TRUE drawing dimensions.
+// Source the true dims from TiledPdf when active, fall back to img
+// naturalWidth/Height otherwise. Preserves identical behavior on
+// image-mode drawings and on desktop.
+function _getDrawingNaturalW(imgEl){
+  if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive()){
+    var d = TiledPdf.getDimensions && TiledPdf.getDimensions();
+    if (d && d.drawW) return d.drawW;
+  }
+  return (imgEl && imgEl.naturalWidth) || 0;
+}
+function _getDrawingNaturalH(imgEl){
+  if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive()){
+    var d = TiledPdf.getDimensions && TiledPdf.getDimensions();
+    if (d && d.drawH) return d.drawH;
+  }
+  return (imgEl && imgEl.naturalHeight) || 0;
+}
+
 function _loadImgFallback(url, d, label) {
   var img = document.getElementById('dv-image');
   if (!img) return;
@@ -423,8 +447,8 @@ function _clampPan() {
   if (TiledPdf.isActive()) {
     var dims = TiledPdf.getDimensions();
     if (dims) { natW = dims.drawW; natH = dims.drawH; }
-  } else if (img && img.naturalWidth) {
-    natW = img.naturalWidth; natH = img.naturalHeight;
+  } else if (img && _getDrawingNaturalW(img)) {
+    natW = _getDrawingNaturalW(img); natH = _getDrawingNaturalH(img);
   }
   if (!natW || !natH) return;
 
@@ -486,11 +510,11 @@ window._frtZoomFit = function() {
 function _calcFitScale() {
   var img = document.getElementById('dv-image');
   var area = document.getElementById('dv-canvas-area');
-  if (!img || !area || !img.naturalWidth) { _fitScale = 1; return; }
+  if (!img || !area || !_getDrawingNaturalW(img)) { _fitScale = 1; return; }
   var aw = area.clientWidth;
   var ah = area.clientHeight;
-  var iw = img.naturalWidth;
-  var ih = img.naturalHeight;
+  var iw = _getDrawingNaturalW(img);
+  var ih = _getDrawingNaturalH(img);
   _fitScale = Math.min(aw / iw, ah / ih);
   if (_fitScale > 1) _fitScale = 1; // Don't upscale small images
 }
@@ -630,7 +654,7 @@ function _showDrawing(idx) {
     img.style.visibility = 'hidden';
     function _assignAndFinish(finalUrl){
       img.onload = function() {
-        console.log('[Viewer] Image loaded (' + (label || 'unknown') + '): ' + img.naturalWidth + '×' + img.naturalHeight);
+        console.log('[Viewer] Image loaded (' + (label || 'unknown') + '): ' + _getDrawingNaturalW(img) + '×' + _getDrawingNaturalH(img));
         _calcFitScale();
         _scale = _fitScale;
         _panX = 0;
@@ -1128,13 +1152,13 @@ function _renderPins() {
   }
   var drawingId = drawings[_currentDrawingIdx].id;
   var img = document.getElementById('dv-image');
-  if (!img || !img.naturalWidth) {
+  if (!img || !_getDrawingNaturalW(img)) {
     if (htmlLayer) htmlLayer.innerHTML = '';
     if (_useGLPins && _glPinsReady && window.PinsGL) window.PinsGL.render([], {});
     return;
   }
-  var iw = img.naturalWidth;
-  var ih = img.naturalHeight;
+  var iw = _getDrawingNaturalW(img);
+  var ih = _getDrawingNaturalH(img);
   var allDefics = Model.getAllDeficiencies();
   var pins = allDefics.filter(function(d) { return d.defic.drawingId === drawingId && d.defic.pinX != null; });
 
@@ -1264,14 +1288,14 @@ function _handlePinDrop(e) {
   if (!_pinModeDeficId) return;
   var img = document.getElementById('dv-image');
   var wrap = document.getElementById('dv-img-wrap');
-  if (!img || !wrap || !img.naturalWidth) return;
+  if (!img || !wrap || !_getDrawingNaturalW(img)) return;
 
   // Get click position relative to the image
   var rect = wrap.getBoundingClientRect();
   var clickX = (e.clientX - rect.left) / _scale;
   var clickY = (e.clientY - rect.top) / _scale;
-  var pinX = Math.max(0, Math.min(1, clickX / img.naturalWidth));
-  var pinY = Math.max(0, Math.min(1, clickY / img.naturalHeight));
+  var pinX = Math.max(0, Math.min(1, clickX / _getDrawingNaturalW(img)));
+  var pinY = Math.max(0, Math.min(1, clickY / _getDrawingNaturalH(img)));
 
   // Save pin to deficiency
   var drawings = _getDrawingsList();
@@ -1308,13 +1332,13 @@ function _pinToolDrop(clientX, clientY) {
 
   var img = document.getElementById('dv-image');
   var wrap = document.getElementById('dv-img-wrap');
-  if (!img || !wrap || !img.naturalWidth) return;
+  if (!img || !wrap || !_getDrawingNaturalW(img)) return;
 
   var rect = wrap.getBoundingClientRect();
   var clickX = (clientX - rect.left) / _scale;
   var clickY = (clientY - rect.top) / _scale;
-  var pinX = Math.max(0, Math.min(1, clickX / img.naturalWidth));
-  var pinY = Math.max(0, Math.min(1, clickY / img.naturalHeight));
+  var pinX = Math.max(0, Math.min(1, clickX / _getDrawingNaturalW(img)));
+  var pinY = Math.max(0, Math.min(1, clickY / _getDrawingNaturalH(img)));
 
   var drawings = _getDrawingsList();
   var drawingId = drawings[_currentDrawingIdx] ? drawings[_currentDrawingIdx].id : null;
@@ -1658,14 +1682,14 @@ document.addEventListener('touchstart', function(e) {
   // Offset is in DRAWING-SPACE (logical pixels), computed from current pin position.
   var wrap = document.getElementById('dv-img-wrap');
   var img = document.getElementById('dv-image');
-  if (wrap && img && img.naturalWidth){
+  if (wrap && img && _getDrawingNaturalW(img)){
     var wRect = wrap.getBoundingClientRect();
     var cx = (touch.clientX - wRect.left) / _scale;
     var cy = (touch.clientY - wRect.top) / _scale;
     var f0 = Model.findDeficiency(deficId);
     if (f0 && f0.defic.pinX != null){
-      var curX = f0.defic.pinX * img.naturalWidth;
-      var curY = f0.defic.pinY * img.naturalHeight;
+      var curX = f0.defic.pinX * _getDrawingNaturalW(img);
+      var curY = f0.defic.pinY * _getDrawingNaturalH(img);
       _pinTouchOffsetX = curX - cx;
       _pinTouchOffsetY = curY - cy;
     } else {
@@ -1713,15 +1737,15 @@ document.addEventListener('touchmove', function(e) {
   if (!touch) return;
   var wrap = document.getElementById('dv-img-wrap');
   var img = document.getElementById('dv-image');
-  if (!wrap || !img || !img.naturalWidth) return;
+  if (!wrap || !img || !_getDrawingNaturalW(img)) return;
   var wRect = wrap.getBoundingClientRect();
   var px = (touch.clientX - wRect.left) / _scale + _pinTouchOffsetX;
   var py = (touch.clientY - wRect.top) / _scale + _pinTouchOffsetY;
   if (_useGLPins){
     var f = Model.findDeficiency(_pinDragDeficId);
     if (f){
-      f.defic.pinX = Math.max(0, Math.min(1, px / img.naturalWidth));
-      f.defic.pinY = Math.max(0, Math.min(1, py / img.naturalHeight));
+      f.defic.pinX = Math.max(0, Math.min(1, px / _getDrawingNaturalW(img)));
+      f.defic.pinY = Math.max(0, Math.min(1, py / _getDrawingNaturalH(img)));
       _lastActiveId = _pinDragDeficId;
       var wasDragging = _pinDragging;
       _pinDragging = false;
@@ -1756,12 +1780,12 @@ document.addEventListener('touchend', function(e) {
   if (touch) {
     var img = document.getElementById('dv-image');
     var wrap = document.getElementById('dv-img-wrap');
-    if (img && wrap && img.naturalWidth) {
+    if (img && wrap && _getDrawingNaturalW(img)) {
       var wRect = wrap.getBoundingClientRect();
       var finalLeft = (touch.clientX - wRect.left) / _scale + _pinTouchOffsetX;
       var finalTop = (touch.clientY - wRect.top) / _scale + _pinTouchOffsetY;
-      var pinX = Math.max(0, Math.min(1, finalLeft / img.naturalWidth));
-      var pinY = Math.max(0, Math.min(1, finalTop / img.naturalHeight));
+      var pinX = Math.max(0, Math.min(1, finalLeft / _getDrawingNaturalW(img)));
+      var pinY = Math.max(0, Math.min(1, finalTop / _getDrawingNaturalH(img)));
       var f = Model.findDeficiency(_pinDragDeficId);
       if (f) {
         f.defic.pinX = pinX;
@@ -1807,14 +1831,14 @@ document.addEventListener('mousedown', function(e) {
   // Pre-calculate offset in drawing-space (logical pixels)
   var wrap = document.getElementById('dv-img-wrap');
   var img = document.getElementById('dv-image');
-  if (wrap && img && img.naturalWidth) {
+  if (wrap && img && _getDrawingNaturalW(img)) {
     var wRect = wrap.getBoundingClientRect();
     var cursorInWrap_X = (e.clientX - wRect.left) / _scale;
     var cursorInWrap_Y = (e.clientY - wRect.top) / _scale;
     var f0 = Model.findDeficiency(deficId);
     if (f0 && f0.defic.pinX != null){
-      var curX = f0.defic.pinX * img.naturalWidth;
-      var curY = f0.defic.pinY * img.naturalHeight;
+      var curX = f0.defic.pinX * _getDrawingNaturalW(img);
+      var curY = f0.defic.pinY * _getDrawingNaturalH(img);
       _pinMouseOffsetX = curX - cursorInWrap_X;
       _pinMouseOffsetY = curY - cursorInWrap_Y;
     } else {
@@ -1875,15 +1899,15 @@ document.addEventListener('mousemove', function(e) {
   e.preventDefault();
   var wrap = document.getElementById('dv-img-wrap');
   var img = document.getElementById('dv-image');
-  if (!wrap || !img || !img.naturalWidth) return;
+  if (!wrap || !img || !_getDrawingNaturalW(img)) return;
   var wRect = wrap.getBoundingClientRect();
   var px = (e.clientX - wRect.left) / _scale + _pinMouseOffsetX;
   var py = (e.clientY - wRect.top) / _scale + _pinMouseOffsetY;
   if (_useGLPins){
     var f = Model.findDeficiency(_pinMouseDragDeficId);
     if (f){
-      f.defic.pinX = Math.max(0, Math.min(1, px / img.naturalWidth));
-      f.defic.pinY = Math.max(0, Math.min(1, py / img.naturalHeight));
+      f.defic.pinX = Math.max(0, Math.min(1, px / _getDrawingNaturalW(img)));
+      f.defic.pinY = Math.max(0, Math.min(1, py / _getDrawingNaturalH(img)));
       _lastActiveId = _pinMouseDragDeficId;
       var wasDragging = _pinMouseDragging;
       _pinMouseDragging = false;
@@ -1930,12 +1954,12 @@ document.addEventListener('mouseup', function(e) {
   // Final position calculation
   var img = document.getElementById('dv-image');
   var wrap = document.getElementById('dv-img-wrap');
-  if (img && wrap && img.naturalWidth) {
+  if (img && wrap && _getDrawingNaturalW(img)) {
     var wRect = wrap.getBoundingClientRect();
     var finalLeft = (e.clientX - wRect.left) / _scale + _pinMouseOffsetX;
     var finalTop = (e.clientY - wRect.top) / _scale + _pinMouseOffsetY;
-    var pinX = Math.max(0, Math.min(1, finalLeft / img.naturalWidth));
-    var pinY = Math.max(0, Math.min(1, finalTop / img.naturalHeight));
+    var pinX = Math.max(0, Math.min(1, finalLeft / _getDrawingNaturalW(img)));
+    var pinY = Math.max(0, Math.min(1, finalTop / _getDrawingNaturalH(img)));
     var f = Model.findDeficiency(_pinMouseDragDeficId);
     if (f) {
       f.defic.pinX = pinX;
