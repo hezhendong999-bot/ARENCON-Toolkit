@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FRT Debug Diagnostic</title>
+<style>
+  body { font-family: Calibri, sans-serif; margin: 0; background: #1B2438; color: #fff; }
+  header { background: #9C2742; padding: 12px 16px; font-weight: 600; font-size: 16px; }
+  main { padding: 14px 16px 40px; max-width: 720px; }
+  .row { background: rgba(255,255,255,0.06); padding: 10px 12px; border-radius: 4px; margin-bottom: 6px; font-size: 13px; line-height: 1.5; border-left: 3px solid #ffd34d; }
+  .row.ok   { border-left-color: #1A7A4A; }
+  .row.bad  { border-left-color: #c42626; }
+  .row.warn { border-left-color: #d87b00; }
+  .row strong { color: #ffd34d; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: #b8d; word-break: break-all; display: block; margin-top: 3px; padding: 4px 6px; background: rgba(0,0,0,0.3); border-radius: 2px; }
+  button { background: #1A7A4A; color: #fff; border: 0; padding: 10px 16px; font: 700 14px Calibri; border-radius: 4px; margin: 4px 4px 0 0; cursor: pointer; }
+  button.secondary { background: #455A64; }
+  button.danger { background: #9C2742; }
+  h2 { font-size: 14px; color: #ffd34d; margin: 16px 0 8px; }
+</style>
+</head>
+<body>
+<header>🔍 FRT Debug Diagnostic — state inspection</header>
+<main>
+  <h2>Browser state</h2>
+  <div id="state"></div>
+
+  <h2>Network state</h2>
+  <div id="net"></div>
+
+  <h2>Actions</h2>
+  <button id="setFlag">Set 24-hour debug flag</button>
+  <button id="clearFlag" class="secondary">Clear debug flag</button>
+  <button id="unregSw" class="danger">Unregister SW + clear caches</button>
+  <button id="testLoad" class="secondary">Test-load instrument.js inline</button>
+  <button id="gotoFrt">Go to FRT now</button>
+
+  <h2>Test load result</h2>
+  <div id="load-result"><em style="color:#888">Click "Test-load" to force-inject instrument.js into this page</em></div>
+</main>
+
+<script>
+(function(){
+  function row(parent, cls, label, value){
+    var el = document.createElement('div');
+    el.className = 'row ' + cls;
+    el.innerHTML = '<strong>' + label + '</strong>' + (value !== undefined ? '<span class="v">' + value + '</span>' : '');
+    parent.appendChild(el);
+    return el;
+  }
+  var stateEl = document.getElementById('state');
+  var netEl   = document.getElementById('net');
+
+  // --- Browser state ---
+  var ua = navigator.userAgent;
+  row(stateEl, 'ok', 'User agent', ua);
+  row(stateEl, 'ok', 'Origin', location.origin);
+  row(stateEl, 'ok', 'Current page', location.pathname + location.search);
+
+  // localStorage flag
+  var expStr = null;
+  try { expStr = localStorage.getItem('arencon_force_dbg_until'); } catch(e){}
+  if (expStr) {
+    var exp = parseInt(expStr, 10);
+    var mins = Math.round((exp - Date.now()) / 60000);
+    if (exp > Date.now()) {
+      row(stateEl, 'ok', 'localStorage flag (arencon_force_dbg_until)',
+          'VALID — expires in ' + mins + ' minutes (' + new Date(exp).toLocaleString() + ')');
+    } else {
+      row(stateEl, 'bad', 'localStorage flag',
+          'EXPIRED — was set to ' + new Date(exp).toLocaleString() + ', now past');
+    }
+  } else {
+    row(stateEl, 'bad', 'localStorage flag', 'NOT SET — instrumentation will not activate');
+  }
+
+  // sessionStorage flag
+  var sess = null;
+  try { sess = sessionStorage.getItem('arencon_force_dbg'); } catch(e){}
+  row(stateEl, sess === '1' ? 'ok' : 'warn',
+      'sessionStorage flag (arencon_force_dbg)',
+      sess === '1' ? 'SET to "1"' : 'not set (normal — session flags clear on tab close)');
+
+  // SW registration
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      if (!regs.length) {
+        row(stateEl, 'ok', 'Service workers', 'NONE registered — clean');
+      } else {
+        regs.forEach(function(r, i){
+          var active = r.active ? (r.active.scriptURL + ' (state: ' + r.active.state + ')') : 'no active worker';
+          var waiting = r.waiting ? ' [waiting: ' + r.waiting.scriptURL + ']' : '';
+          row(stateEl, 'warn', 'Service worker #' + i,
+              'scope: ' + r.scope + '<br>active: ' + active + waiting);
+        });
+      }
+    });
+  } else {
+    row(stateEl, 'warn', 'Service workers', 'API not available');
+  }
+
+  // Cache buckets
+  if ('caches' in window) {
+    caches.keys().then(function(keys){
+      row(stateEl, keys.length ? 'warn' : 'ok', 'Cache buckets',
+          keys.length ? keys.join(', ') : 'empty (no caches)');
+    });
+  }
+
+  // --- Network state: try fetching index.html directly with cache bypass ---
+  row(netEl, 'warn', 'Fetching fresh FRT index.html', '(pending...)');
+  fetch(location.origin + '/ARENCON-Toolkit/frt/index.html?_cb=' + Date.now(),
+        { cache: 'no-store', headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } })
+    .then(function(r){ return r.text().then(function(t){ return { t: t, s: r.status }; }); })
+    .then(function(x){
+      var hasLoader      = x.t.indexOf('debug/instrument.js') >= 0;
+      var hasLocalStorage = x.t.indexOf('arencon_force_dbg_until') >= 0;
+      netEl.innerHTML = '';
+      row(netEl, 'ok', 'HTTP status', String(x.s));
+      row(netEl, 'ok', 'Size', x.t.length + ' bytes');
+      row(netEl, hasLoader ? 'ok' : 'bad',
+          'Contains "debug/instrument.js" reference?', String(hasLoader));
+      row(netEl, hasLocalStorage ? 'ok' : 'bad',
+          'Contains "arencon_force_dbg_until" check?', String(hasLocalStorage) +
+          (hasLocalStorage ? ' — NEW loader' : ' — OLD loader (pre-fix)'));
+      // Show the relevant snippet
+      var m = /<script[^>]*>[\s\S]*?debug\/instrument\.js[\s\S]*?<\/script>/.exec(x.t);
+      if (m) {
+        row(netEl, 'ok', 'Loader block found in HTML',
+            m[0].replace(/</g, '&lt;').substring(0, 800));
+      } else {
+        row(netEl, 'bad', 'No instrument loader script found in HTML',
+            'This means the cached copy is pre-fix OR fetch returned stale content');
+      }
+    })
+    .catch(function(e){
+      netEl.innerHTML = '';
+      row(netEl, 'bad', 'Fetch failed', e.message);
+    });
+
+  // --- Actions ---
+  document.getElementById('setFlag').onclick = function(){
+    var until = Date.now() + 24 * 60 * 60 * 1000;
+    try { localStorage.setItem('arencon_force_dbg_until', String(until)); } catch(e){}
+    try { sessionStorage.setItem('arencon_force_dbg', '1'); } catch(e){}
+    alert('Flag set — valid 24 hours. Reload page to confirm.');
+  };
+
+  document.getElementById('clearFlag').onclick = function(){
+    try { localStorage.removeItem('arencon_force_dbg_until'); } catch(e){}
+    try { sessionStorage.removeItem('arencon_force_dbg'); } catch(e){}
+    alert('Flag cleared. Reload page to confirm.');
+  };
+
+  document.getElementById('unregSw').onclick = async function(){
+    if ('serviceWorker' in navigator) {
+      var regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(function(r){ return r.unregister(); }));
+    }
+    if ('caches' in window) {
+      var keys = await caches.keys();
+      await Promise.all(keys.map(function(k){ return caches.delete(k); }));
+    }
+    alert('Done. Reload this diagnostic page to see new state.');
+  };
+
+  document.getElementById('testLoad').onclick = function(){
+    var out = document.getElementById('load-result');
+    out.innerHTML = '<em style="color:#888">Loading...</em>';
+    window.__frtForceDebug = true;
+    var s = document.createElement('script');
+    s.src = location.origin + '/ARENCON-Toolkit/frt/debug/instrument.js?_cb=' + Date.now();
+    s.onload = function(){
+      setTimeout(function(){
+        var panel = document.getElementById('frt-dbg-panel');
+        if (panel) {
+          out.innerHTML = '<div class="row ok"><strong>✓ SUCCESS</strong>' +
+                          '<span class="v">instrument.js loaded. Panel created (id=frt-dbg-panel). Check top-right of this page — you should see the red FRT-DBG panel RIGHT NOW.</span></div>';
+        } else {
+          out.innerHTML = '<div class="row bad"><strong>✗ Script loaded but panel missing</strong>' +
+                          '<span class="v">The script ran but did not create the panel. Possible: gate check still rejecting, or panel creation failed silently.</span></div>';
+        }
+      }, 500);
+    };
+    s.onerror = function(){
+      out.innerHTML = '<div class="row bad"><strong>✗ Failed to load instrument.js</strong>' +
+                      '<span class="v">Check your network or see if the URL returns a 200 OK when opened directly.</span></div>';
+    };
+    document.head.appendChild(s);
+  };
+
+  document.getElementById('gotoFrt').onclick = function(){
+    location.href = location.origin + '/ARENCON-Toolkit/frt/?_cb=' + Date.now();
+  };
+})();
+</script>
+</body>
+</html>
