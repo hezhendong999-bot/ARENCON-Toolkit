@@ -38,7 +38,12 @@
   'use strict';
 
   // ── Gate ────────────────────────────────────────────────────────────────
-  if (!/[?&]dbg=1\b/.test(location.search)) return;
+  // Activates via any of: ?dbg=1 in search, #dbg=1 in hash, or window flag
+  // (the flag path lets a bookmarklet trigger it without reloading the page)
+  var gateSearch = /[?&]dbg=1\b/.test(location.search);
+  var gateHash   = /(?:^|[?&#])dbg=1\b/.test(location.hash || '');
+  var gateFlag   = !!window.__frtForceDebug;
+  if (!gateSearch && !gateHash && !gateFlag) return;
 
   // ── Keys ────────────────────────────────────────────────────────────────
   var K_HEARTBEAT   = 'arencon_frt_dbg_heartbeat_v1';
