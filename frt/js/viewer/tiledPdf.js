@@ -103,8 +103,33 @@ function _dbgTick() {
   var wrapW = wrapRect ? Math.round(wrapRect.width) : 0;
   var wrapH = wrapRect ? Math.round(wrapRect.height) : 0;
 
+  // S97 DIAG: markup canvas sizes (Mpx rounded to 1 decimal)
+  var mc = document.getElementById('markup-canvas');
+  var wc = document.getElementById('markup-webgl-canvas');
+  var mkMpx = (mc && mc.width && mc.height) ? Math.round((mc.width * mc.height) / 100000) / 10 : 0;
+  var glMpx = (wc && wc.width && wc.height) ? Math.round((wc.width * wc.height) / 100000) / 10 : 0;
+
+  // S97 DIAG: per-level tile distribution — tells us which zoom level is hoarding tiles
+  var byLevel = {};
+  for (var tk in _tiles) {
+    if (!Object.prototype.hasOwnProperty.call(_tiles, tk)) continue;
+    var lv = _tiles[tk].level;
+    byLevel[lv] = (byLevel[lv] || 0) + 1;
+  }
+  var lvKeys = Object.keys(byLevel).sort();
+  var lvStr = '';
+  for (var li = 0; li < lvKeys.length; li++) {
+    lvStr += (li ? ' ' : '') + 'L' + lvKeys[li] + ':' + byLevel[lvKeys[li]];
+  }
+
+  // S97 DIAG: approx MB — each 512x512 decoded tile ~1MB, each canvas px * 4 bytes
+  var approxMB = Math.round(_tileCount + mkMpx * 4 + glMpx * 4);
+
   _dbg_el.textContent =
     'tiles: ' + _tileCount + '/' + _MAX_TILES + ' peak:' + _dbg_maxTiles + '\n' +
+    (lvStr ? 'by lvl: ' + lvStr + '\n' : '') +
+    'mk: ' + mkMpx + 'M  gl: ' + glMpx + 'M\n' +
+    'approx: ~' + approxMB + ' MB\n' +
     'inflight: ' + inflight + ' peak:' + _dbg_maxInflight + '\n' +
     'pending: ' + _pending.length + '\n' +
     'scale: ' + scale.toFixed(3) + '\n' +
@@ -113,9 +138,97 @@ function _dbgTick() {
     'wrap: ' + wrapW + 'x' + wrapH + '\n' +
     'render#' + _dbg_renderCount + '\n' +
     _dbg_lastEvents.join('\n');
+
+  // S97 DIAG: ring buffer write for post-crash forensics. Survives Safari
+  // Jetsam tab-reload (localStorage persists). On next load, _dbgBootReport
+  // reads it and shows a burgundy banner with the last 10 pre-crash states.
+  try {
+    var ring = [];
+    try { ring = JSON.parse(localStorage.getItem('_frtS97DbgRing') || '[]'); } catch (_e1) { ring = []; }
+    ring.push({
+      t: Date.now(),
+      tiles: _tileCount, cap: _MAX_TILES, peak: _dbg_maxTiles,
+      byLevel: lvStr, mk: mkMpx, gl: glMpx, approxMB: approxMB,
+      inflight: inflight, pending: _pending.length,
+      scale: +scale.toFixed(3),
+      draw: _drawW + 'x' + _drawH, area: aw + 'x' + ah,
+      render: _dbg_renderCount,
+      events: _dbg_lastEvents.slice(-3)
+    });
+    while (ring.length > 40) ring.shift();
+    localStorage.setItem('_frtS97DbgRing', JSON.stringify(ring));
+  } catch (_e2) { /* quota / private mode — swallow */ }
 }
 if (_DBG_ENABLED && typeof window !== 'undefined') {
   setInterval(_dbgTick, 250);
+}
+
+// S97 DIAG: post-crash forensics banner. If the ring buffer was written in
+// the last 120s (suggesting the previous load ended in a tab-reload, not a
+// clean close) show a burgundy banner with peak-memory summary + last 10
+// snapshots. Tap to dismiss + clear buffer.
+if (_DBG_ENABLED && typeof window !== 'undefined' && typeof document !== 'undefined') {
+  var _dbgBootReport = function () {
+    try {
+      var ring = [];
+      try { ring = JSON.parse(localStorage.getItem('_frtS97DbgRing') || '[]'); } catch (_e) { return; }
+      if (!ring.length) return;
+      var last = ring[ring.length - 1];
+      if (!last || !last.t) return;
+      var age = Date.now() - last.t;
+      if (age > 120000) return; // >2min — probably a clean close, not a crash
+
+      // Peak across ring
+      var peak = ring[0];
+      for (var i = 1; i < ring.length; i++) {
+        if ((ring[i].approxMB || 0) > (peak.approxMB || 0)) peak = ring[i];
+      }
+      var recent = ring.slice(-10);
+      var lines = [];
+      for (var j = recent.length - 1; j >= 0; j--) {
+        var s = recent[j];
+        var d = new Date(s.t);
+        var pad = function(n){ return n < 10 ? '0' + n : '' + n; };
+        var ts = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+        var rel = Math.round((Date.now() - s.t) / 1000);
+        lines.push('-' + rel + 's  ' + ts +
+          ' | tiles:' + s.tiles + '/' + s.cap +
+          (s.byLevel ? ' (' + s.byLevel + ')' : '') +
+          '  mk:' + s.mk + 'M  gl:' + s.gl + 'M' +
+          '  ~' + s.approxMB + 'MB' +
+          '  inf:' + s.inflight + '  pnd:' + s.pending +
+          '  s:' + s.scale);
+      }
+
+      var banner = document.createElement('div');
+      banner.id = 's97-crash-report';
+      banner.style.cssText =
+        'position:fixed;top:0;left:0;right:0;z-index:999999;' +
+        'background:#9C2742;color:#fff;font:11px/1.4 Menlo,monospace;' +
+        'padding:10px 14px;max-height:60vh;overflow:auto;white-space:pre;' +
+        'box-shadow:0 2px 12px rgba(0,0,0,0.5);';
+      var title = document.createElement('div');
+      title.style.cssText = 'font:600 13px/1.3 Calibri,sans-serif;margin-bottom:6px;';
+      title.textContent = 'S97 DIAG  —  pre-crash peak: tiles ' +
+        peak.tiles + '/' + peak.cap +
+        (peak.byLevel ? ' (' + peak.byLevel + ')' : '') +
+        ', ~' + peak.approxMB + ' MB    |    tap banner to dismiss + clear';
+      banner.appendChild(title);
+      var body = document.createElement('div');
+      body.textContent = lines.join('\n');
+      banner.appendChild(body);
+      banner.addEventListener('click', function () {
+        if (banner.parentNode) banner.parentNode.removeChild(banner);
+        try { localStorage.removeItem('_frtS97DbgRing'); } catch (_) { /* noop */ }
+      });
+      if (document.body) document.body.appendChild(banner);
+    } catch (_err) { /* swallow */ }
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(_dbgBootReport, 600); });
+  } else {
+    setTimeout(_dbgBootReport, 600);
+  }
 }
 
 function _dbg(msg) { if (typeof window !== 'undefined' && window._FRT_DEBUG) console.log('[TiledPdf] ' + msg); }
