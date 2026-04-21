@@ -10,6 +10,7 @@ import { Model } from './data/model.js';
 import { IDB } from './data/idb.js';
 import { SyncEngine } from './data/sync.js';
 import { R2 } from './data/r2.js';
+import { TileCache } from './data/tileCache.js';
 import { Auth } from './shared/auth.js';
 import { toast } from './shared/toast.js';
 import { showDialog, showConfirm, showAlert, showPrompt } from './shared/dialogs.js';
@@ -654,6 +655,12 @@ function _startCloudSync(didLoad) {
         if (ts) _lastPulledUpdatedAt = ts;
       });
     }
+    // S96 Fix #3: silent L0-L2 auto-prefetch for THIS project only.
+    // Pulls overview + readable-zoom tiers (~30-60 MB for typical 10-drawing
+    // project) so drawings work offline at field-readable zoom without any
+    // user action. Deep zoom (L3/L4) requires the explicit Hub
+    // "Download for Offline" button.
+    setTimeout(_autoPrefetchTiles, 800);
   } else if (!user){
     _setCloudStatus('error', 'Not signed in — tap for details');
   } else {
@@ -685,6 +692,65 @@ function _startCloudPull(){
   if (!_hubMode || !_projectId) return;
   _cloudPullTimer = setInterval(_checkRemoteForChanges, _cloudPullInterval);
   console.log('[FRT v2] Cloud pull started (poll every ' + _cloudPullInterval / 1000 + 's)');
+}
+
+// ─── S96 Fix #3: Tile auto-prefetch (L0-L2 only, current project only) ──
+var _tilePrefetchAbort = null;
+var _tilePrefetchActive = false;
+function _autoPrefetchTiles() {
+  if (!_hubMode || !_projectId || _tilePrefetchActive) return;
+  var proj = (typeof Model !== 'undefined' && Model.getProject) ? Model.getProject() : null;
+  if (!proj || !proj.drawings || !proj.drawings.length) return;
+  // Only drawings that have been server-rendered (have manifestUrl/tileServer
+  // set, or are recognizably tile-mode). We skip image-only drawings — those
+  // already have full offline support via the existing R2 prefetch path.
+  var tiled = proj.drawings.filter(function(d) {
+    return d && d.id && (d.manifestUrl || d.tileServer || d.pdfTiled || d.serverRendered);
+  });
+  if (!tiled.length) return;
+
+  _tilePrefetchActive = true;
+  _tilePrefetchAbort = { aborted: false };
+  _setTilePrefetchBadge('Caching offline tiles… 0/' + tiled.length);
+  TileCache.autoPrefetchProject(_projectId, tiled, function(p) {
+    var pct = p.total > 0 ? Math.round(p.done * 100 / p.total) : 0;
+    _setTilePrefetchBadge('Caching ' + p.drawingIndex + '/' + p.drawingCount + ' (' + pct + '%)');
+  }, _tilePrefetchAbort).then(function(res) {
+    _tilePrefetchActive = false;
+    _tilePrefetchAbort = null;
+    if (res && res.aborted) {
+      _setTilePrefetchBadge('');
+    } else {
+      _setTilePrefetchBadge('✓ Offline ready', 3500);
+    }
+  }).catch(function() {
+    _tilePrefetchActive = false;
+    _tilePrefetchAbort = null;
+    _setTilePrefetchBadge('');
+  });
+}
+
+// Subtle bottom-right indicator. Does not block UI.
+function _setTilePrefetchBadge(msg, fadeAfterMs) {
+  var b = document.getElementById('tile-prefetch-badge');
+  if (!msg) {
+    if (b && b.parentNode) b.parentNode.removeChild(b);
+    return;
+  }
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'tile-prefetch-badge';
+    b.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9000;background:rgba(28,36,52,.92);color:#cdd5e8;font:12px/1.3 Calibri,sans-serif;padding:6px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.3);pointer-events:none;transition:opacity .4s ease-out;';
+    document.body.appendChild(b);
+  }
+  b.style.opacity = '1';
+  b.textContent = msg;
+  if (fadeAfterMs) setTimeout(function() {
+    if (b && b.parentNode) {
+      b.style.opacity = '0';
+      setTimeout(function() { if (b && b.parentNode) b.parentNode.removeChild(b); }, 600);
+    }
+  }, fadeAfterMs);
 }
 
 function _checkRemoteForChanges(){

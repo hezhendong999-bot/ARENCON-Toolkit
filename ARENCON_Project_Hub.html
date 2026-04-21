@@ -1923,10 +1923,15 @@ function _renderProjectCard(p, myId) {
 
   // Export button
   var exportBtnHtml = '<button class="project-card-export" onclick="event.stopPropagation();exportSingleProject(\'' + esc(p.id) + '\')" title="Export JSON">📥</button>';
+  // S96 Fix #3: Download for Offline button — bulk-fetches all tile pyramids
+  // for this project's drawings into the SW Cache. Stays foregrounded on iOS
+  // (the user is told to keep the app open while it runs).
+  var offlineBtnHtml = '<button class="project-card-offline" onclick="event.stopPropagation();downloadProjectOffline(\'' + esc(p.id) + '\')" title="Download for offline (full deep-zoom)" style="position:absolute;top:8px;right:36px;background:none;border:none;font-size:calc(13px + var(--ts));cursor:pointer;color:var(--silver);padding:2px;line-height:1;">📡</button>';
 
   return '<div class="project-card" onclick="' + cardClick + '">'
     + bulkCheckHtml
     + exportBtnHtml
+    + offlineBtnHtml
     + '<div class="project-card-top"><span class="project-card-number">' + num + '</span><span class="project-card-name">' + name + '</span>'
     + '<button class="project-card-pin' + pinClass + '" onclick="event.stopPropagation();togglePin(\'' + esc(p.id) + '\')" title="' + (isPinned ? 'Unpin' : 'Pin for everyone') + '">' + pinIcon + '</button>'
     + '<button class="project-card-star' + starClass + '" onclick="event.stopPropagation();toggleStar(\'' + esc(p.id) + '\')" title="' + (isStarred ? 'Unstar' : 'Star') + '">' + starIcon + '</button>'
@@ -3321,6 +3326,165 @@ async function exportAllProjects() {
   renderProjects();
   toast(active.length + ' project(s) exported', 'success');
 }
+
+/* ═══ S96 Fix #3: Download for Offline (per-project deep-zoom tile cache) ═══
+   Bulk-fetches every tile pyramid level (L0..LMax) for every drawing in this
+   project. The service worker (sw.js) intercepts each fetch and stores the
+   tile in the long-lived 'arencon-frt-tiles-v1' Cache API store. After this
+   completes, the drawings render fully offline including deep zoom. */
+var WORKER_TILE_BASE = 'https://arencon-r2-worker.hezhendong999.workers.dev';
+var _offlineDownloadAbort = null;
+
+async function downloadProjectOffline(projectId) {
+  if (_offlineDownloadAbort) {
+    if (!confirm('Another offline download is in progress. Cancel it and start a new one?')) return;
+    _offlineDownloadAbort.aborted = true;
+    _offlineDownloadAbort = null;
+  }
+  var proj = _projects.find(function(p) { return p.id === projectId; });
+  if (!proj) { toast('Project not found', 'error'); return; }
+
+  // Pull tool_data so we know which drawings exist and have manifests
+  var toolData = await _fetchProjectToolData(projectId);
+  var drawings = [];
+  if (toolData && toolData.frt && toolData.frt.drawings) {
+    drawings = toolData.frt.drawings.filter(function(d) {
+      return d && d.id && (d.manifestUrl || d.tileServer || d.pdfTiled || d.serverRendered);
+    });
+  }
+  if (!drawings.length) {
+    toast('No tiled drawings to download for this project', 'info');
+    return;
+  }
+
+  // Confirmation with rough size estimate (≈30-100 MB/drawing for full pyramid)
+  var estLow = Math.round(drawings.length * 30);
+  var estHigh = Math.round(drawings.length * 100);
+  if (!confirm('Download ' + drawings.length + ' drawing(s) for offline use?\n\n'
+    + 'Estimated size: ' + estLow + '–' + estHigh + ' MB.\n'
+    + 'Use Wi-Fi if possible.\n'
+    + 'Keep this app open until done — iOS stops downloads when backgrounded.')) return;
+
+  _offlineDownloadAbort = { aborted: false };
+  _showOfflineDownloadModal(proj, drawings.length);
+
+  var totalDrawings = drawings.length;
+  var doneDrawings = 0;
+  var totalTiles = 0, doneTiles = 0, failTiles = 0;
+
+  for (var di = 0; di < drawings.length; di++) {
+    if (_offlineDownloadAbort && _offlineDownloadAbort.aborted) break;
+    var d = drawings[di];
+    _updateOfflineDownloadModal({ phase: 'manifest', drawing: di + 1, drawingTotal: totalDrawings, name: d.name || d.id });
+
+    var manifest = null;
+    try {
+      var mUrl = WORKER_TILE_BASE + '/' + encodeURIComponent(projectId) + '/tiles/' + encodeURIComponent(d.id) + '/manifest.json';
+      var mResp = await fetch(mUrl, { cache: 'reload' });
+      if (mResp && mResp.ok) manifest = await mResp.json();
+    } catch (err) { /* skip drawing on manifest failure */ }
+    if (!manifest || !manifest.pages) { doneDrawings++; continue; }
+
+    // Enumerate every tile across every level
+    var urls = [];
+    for (var pi = 0; pi < manifest.pages.length; pi++) {
+      var pg = manifest.pages[pi];
+      var pn = pg.pageNumber || (pi + 1);
+      for (var li = 0; li < pg.levels.length; li++) {
+        var lv = pg.levels[li];
+        for (var y = 0; y < lv.rows; y++) {
+          for (var x = 0; x < lv.cols; x++) {
+            urls.push(WORKER_TILE_BASE + '/' + encodeURIComponent(projectId)
+              + '/tiles/' + encodeURIComponent(d.id) + '/page-' + pn
+              + '/level-' + lv.level + '/' + x + '-' + y + '.webp');
+          }
+        }
+      }
+    }
+    totalTiles += urls.length;
+
+    // Fetch with bounded concurrency. SW handles caching automatically.
+    var concurrency = 6;
+    var idx = 0;
+    await new Promise(function(resolve) {
+      var inflight = 0, finished = 0;
+      function next() {
+        if (_offlineDownloadAbort && _offlineDownloadAbort.aborted) {
+          if (inflight === 0) resolve(); return;
+        }
+        while (inflight < concurrency && idx < urls.length) {
+          var u = urls[idx++];
+          inflight++;
+          fetch(u).then(function(r) {
+            if (r && (r.ok || r.status === 504)) doneTiles++; else failTiles++;
+          }).catch(function() { failTiles++; }).then(function() {
+            inflight--; finished++;
+            _updateOfflineDownloadModal({
+              phase: 'tiles', drawing: di + 1, drawingTotal: totalDrawings,
+              name: d.name || d.id, tilesDone: doneTiles, tilesTotal: totalTiles,
+              tilesFailed: failTiles
+            });
+            if (finished >= urls.length) resolve(); else next();
+          });
+        }
+      }
+      if (urls.length === 0) resolve(); else next();
+    });
+
+    doneDrawings++;
+  }
+
+  _hideOfflineDownloadModal();
+  if (_offlineDownloadAbort && _offlineDownloadAbort.aborted) {
+    toast('Download cancelled — partial cache kept', 'info');
+  } else {
+    toast('✓ Cached ' + doneTiles + ' tiles across ' + doneDrawings + ' drawing(s) for offline use', 'success');
+  }
+  _offlineDownloadAbort = null;
+}
+
+function _showOfflineDownloadModal(proj, drawingCount) {
+  var m = document.createElement('div');
+  m.id = 'offline-dl-modal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  m.innerHTML = '<div style="background:var(--card,#fff);border-radius:12px;padding:22px 26px;box-shadow:0 12px 40px rgba(0,0,0,.4);min-width:340px;max-width:480px;color:var(--fg,#222)">'
+    + '<div style="font-size:16px;font-weight:700;margin-bottom:4px">📡 Caching project for offline</div>'
+    + '<div style="font-size:13px;color:var(--silver,#888);margin-bottom:14px">' + esc(proj.project_name || proj.project_number || 'Project') + '</div>'
+    + '<div id="offline-dl-status" style="font-size:13px;margin-bottom:8px;line-height:1.45">Preparing…</div>'
+    + '<div style="height:8px;background:rgba(0,0,0,.08);border-radius:4px;overflow:hidden;margin-bottom:14px"><div id="offline-dl-bar" style="height:100%;background:var(--arencon,#9C2742);width:0%;transition:width .25s"></div></div>'
+    + '<div style="font-size:11px;color:var(--silver,#888);margin-bottom:16px;line-height:1.45">⚠ Keep this app open. iOS stops downloads when backgrounded.</div>'
+    + '<div style="display:flex;justify-content:flex-end;gap:8px">'
+    + '<button id="offline-dl-cancel" style="padding:6px 16px;border-radius:6px;border:1px solid var(--border,#ccc);background:transparent;color:var(--fg,#222);font-family:Calibri,sans-serif;font-weight:600;cursor:pointer">Cancel</button>'
+    + '<button id="offline-dl-bg" style="padding:6px 16px;border-radius:6px;border:1px solid var(--arencon,#9C2742);background:var(--arencon,#9C2742);color:#fff;font-family:Calibri,sans-serif;font-weight:600;cursor:pointer">Run in background</button>'
+    + '</div></div>';
+  document.body.appendChild(m);
+  document.getElementById('offline-dl-cancel').onclick = function() {
+    if (_offlineDownloadAbort) _offlineDownloadAbort.aborted = true;
+    _hideOfflineDownloadModal();
+  };
+  document.getElementById('offline-dl-bg').onclick = function() {
+    // Hide modal but keep download running. Toast will fire when complete.
+    _hideOfflineDownloadModal();
+    toast('Download running in background — keep app open', 'info');
+  };
+}
+function _updateOfflineDownloadModal(state) {
+  var st = document.getElementById('offline-dl-status');
+  var bar = document.getElementById('offline-dl-bar');
+  if (!st || !bar) return;
+  if (state.phase === 'manifest') {
+    st.textContent = 'Drawing ' + state.drawing + '/' + state.drawingTotal + ': fetching manifest — ' + (state.name || '');
+  } else {
+    var pct = state.tilesTotal > 0 ? Math.round(state.tilesDone * 100 / state.tilesTotal) : 0;
+    st.textContent = 'Drawing ' + state.drawing + '/' + state.drawingTotal + ' — ' + state.tilesDone + '/' + state.tilesTotal + ' tiles (' + pct + '%)' + (state.tilesFailed ? ' · ' + state.tilesFailed + ' failed' : '');
+    bar.style.width = pct + '%';
+  }
+}
+function _hideOfflineDownloadModal() {
+  var m = document.getElementById('offline-dl-modal');
+  if (m && m.parentNode) m.parentNode.removeChild(m);
+}
+window.downloadProjectOffline = downloadProjectOffline;
 
 /* ═══ Dark Mode ═══ */
 function toggleDark() {
