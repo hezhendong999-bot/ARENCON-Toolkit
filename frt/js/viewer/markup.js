@@ -47,6 +47,18 @@ var _eventsWired = false;
 var _hlCanvas = null;
 var _objCanvas = null;  // reusable per-object offscreen buffer for mask application
 
+// ── S96 Fix #1: Viewport-sized markup canvas ────────────
+// Canvas buffer is sized to the viewport (dv-canvas-area), NOT the drawing.
+// We apply the viewer's (scale, panX, panY) as a render transform before
+// drawing objects stored in drawing-space coords. Memory drops from ~32 MB
+// per canvas (drawing-sized) to ~12 MB (viewport × DPR).
+var _viewScale = 1;
+var _viewPanX = 0;
+var _viewPanY = 0;
+var _drawingNatW = 0;   // natural drawing width  (drawing-space, used for _getPos)
+var _drawingNatH = 0;   // natural drawing height (drawing-space)
+var _resizeHandler = null;  // window resize listener cleanup
+
 // ── WebGL state (Phase 5) ───────────────────────────────
 var _webglCanvas = null;
 var _webglReady = false;
@@ -80,80 +92,87 @@ function _getOverlay() { return document.getElementById('markup-overlay'); }
 
 // ── Canvas Allocation ───────────────────────────────────
 
+// S96 Fix #1: Sizes the markup canvas to the VIEWPORT (dv-canvas-area),
+// not to the drawing. The canvas lives as a direct child of dv-canvas-area
+// (a sibling of dv-img-wrap, not inside it), so it does NOT CSS-scale with
+// the wrap's transform. Zoom/pan is applied inside _renderAll via
+// ctx.setTransform. Memory: viewport (~1080×690 on iPad) × DPR 2 = ~3 Mpx
+// ≈ 12 MB per canvas. Previously drawing-sized at 8 Mpx ≈ 32 MB.
+
 function _allocateCanvas() {
   var mc = _getCanvas();
   if (!mc) return;
 
-  var drawW = 0, drawH = 0;
+  // Discover the actual natural drawing dimensions so _getPos() can map
+  // screen→drawing-space and so pin/object coords stay in drawing-space.
+  _drawingNatW = 0; _drawingNatH = 0;
   if (TiledPdf.isActive()) {
     var dims = TiledPdf.getDimensions();
-    if (dims) { drawW = dims.drawW; drawH = dims.drawH; }
+    if (dims) { _drawingNatW = dims.drawW; _drawingNatH = dims.drawH; }
   }
-  if (!drawW || !drawH) {
+  if (!_drawingNatW || !_drawingNatH) {
     var img = document.getElementById('dv-image');
-    if (!img || !img.naturalWidth) return;
-    drawW = img.naturalWidth;
-    drawH = img.naturalHeight;
+    if (img && img.naturalWidth) {
+      _drawingNatW = img.naturalWidth;
+      _drawingNatH = img.naturalHeight;
+    }
+  }
+  if (!_drawingNatW || !_drawingNatH) { _drawingNatW = 1; _drawingNatH = 1; }
+
+  // Viewport host = dv-canvas-area (fixed visible area on screen)
+  var host = document.getElementById('dv-canvas-area');
+  if (!host) return;
+
+  // If the canvas is still a child of dv-img-wrap (pre-S96 DOM), relocate
+  // it to dv-canvas-area so it no longer CSS-transforms with the wrap.
+  if (mc.parentNode && mc.parentNode.id !== 'dv-canvas-area') {
+    host.appendChild(mc);
   }
 
-  var ua = navigator.userAgent;
-  var isIPhone = /iPhone|iPod/.test(ua);
-  var isAndroidTablet = /Android/.test(ua) && (!/Mobile/.test(ua) || /SM-T|SM-X|Tablet/.test(ua));
-  var isTablet = /iPad/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) || isAndroidTablet;
-  // S91: iPhone budget 16M -> 4M. Safari on iPhone caps tab memory at
-  // ~250MB; 16M px × 4 bytes = 64MB just for the 2D canvas, plus another
-  // 64MB for the WebGL sibling below, plus ~100MB for the 6144px JPEG
-  // backdrop = instant OOM on drawing-open. 4M px keeps the markup canvas
-  // under 16MB while staying sharp at any reasonable zoom on a 390-430px
-  // iPhone viewport.
-  //
-  // S95: iPad budget 16M -> 8M. The S91 iPhone fix was never extended to
-  // iPad. On iPad iOS 16, WebKit cumulative canvas pool is fatal when the
-  // two markup canvases (2D + WebGL sibling below) each hit the 16M budget
-  // (32M combined) — log-confirmed crash at exactly 32.0 Mpx cumulative
-  // on iPad Air iOS 16.3.1. Halving to 8M per canvas puts combined at
-  // 16M which matches iPhone's single-canvas-survived budget. Android
-  // tablets (10M) and desktop (25M) unaffected — they don't hit the pool.
-  var maxPixels = isIPhone ? 4000000 : (isAndroidTablet ? 10000000 : (isTablet ? 8000000 : 25000000));
-  var totalPixels = drawW * drawH;
-  var mkScale = 1;
-  if (totalPixels > maxPixels) mkScale = Math.sqrt(maxPixels / totalPixels);
+  // Viewport dimensions in CSS pixels
+  var vw = Math.max(1, host.clientWidth);
+  var vh = Math.max(1, host.clientHeight);
+  var dpr = window.devicePixelRatio || 1;
 
-  var cw = Math.round(drawW * mkScale);
-  var ch = Math.round(drawH * mkScale);
+  // Cap DPR at 2 on very-high-DPI devices to keep memory bounded.
+  // iPhone DPR=3 → 2 still looks crisp because strokes are screen-scale.
+  if (dpr > 2) dpr = 2;
 
-  mc.width = cw;
-  mc.height = ch;
-  mc.style.width = drawW + 'px';
-  mc.style.height = drawH + 'px';
-  mc._dpr = mkScale;
-  mc._logicalW = drawW;
-  mc._logicalH = drawH;
+  // Canvas absolute-positioned over the viewport host.
+  mc.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;touch-action:none;';
+  mc.width  = Math.round(vw * dpr);
+  mc.height = Math.round(vh * dpr);
+  mc._dpr = dpr;
+  mc._viewW = vw;
+  mc._viewH = vh;
+  mc._logicalW = _drawingNatW;   // legacy compat — drawing-space width
+  mc._logicalH = _drawingNatH;   // legacy compat — drawing-space height
 
   var ctx = mc.getContext('2d');
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
   // ── WebGL sibling canvas (Phase 5) ─────────────────────
-  // Stacks UNDERNEATH mc so selection/rubberband in 2D remains on top.
-  // S91: skip on iPhone — another full canvas at the same size would
-  // double our bitmap budget past Safari's iPhone tab ceiling. Canvas 2D
-  // rendering path below handles the same visual output without the
-  // second allocation. Identical output, half the memory.
+  // Sibling in dv-canvas-area. Stacks UNDERNEATH mc so selection/rubberband
+  // in 2D remains on top. Skipped on iPhone to save a second allocation.
+  var ua = navigator.userAgent;
+  var isIPhone = /iPhone|iPod/.test(ua);
   if (_useWebGL && !isIPhone){
     try {
       if (!_webglCanvas){
         _webglCanvas = document.createElement('canvas');
         _webglCanvas.id = 'markup-webgl-canvas';
-        _webglCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
-        mc.parentNode.insertBefore(_webglCanvas, mc); // before mc = underneath in stacking order
+        _webglCanvas.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;';
+        // Insert before mc in the same parent → underneath in stacking order
+        mc.parentNode.insertBefore(_webglCanvas, mc);
+      } else if (_webglCanvas.parentNode !== mc.parentNode) {
+        // Relocate if it drifted to dv-img-wrap from a pre-S96 session
+        mc.parentNode.insertBefore(_webglCanvas, mc);
       }
-      _webglCanvas.width  = cw;
-      _webglCanvas.height = ch;
-      _webglCanvas.style.width  = drawW + 'px';
-      _webglCanvas.style.height = drawH + 'px';
+      _webglCanvas.width  = mc.width;
+      _webglCanvas.height = mc.height;
       if (!_webglReady && !_webglInitPromise){
-        _webglInitPromise = window.WebGLMarkupRenderer.init(_webglCanvas, { w: cw, h: ch, dpr: mkScale })
+        _webglInitPromise = window.WebGLMarkupRenderer.init(_webglCanvas, { w: mc.width, h: mc.height, dpr: dpr })
           .then(function(){
             _webglReady = true;
             _webglInitPromise = null;
@@ -170,7 +189,7 @@ function _allocateCanvas() {
             _webglCanvas = null;
           });
       } else if (_webglReady){
-        try { window.WebGLMarkupRenderer.resize(cw, ch); } catch(_){}
+        try { window.WebGLMarkupRenderer.resize(mc.width, mc.height); } catch(_){}
       }
     } catch(err){
       console.warn('[Markup] WebGL setup threw — disabling:', err);
@@ -178,10 +197,30 @@ function _allocateCanvas() {
     }
   }
 
-  console.log('[Markup] Canvas: logical ' + drawW + '×' + drawH +
-    ', buffer ' + cw + '×' + ch + ' (dpr=' + mkScale.toFixed(3) +
-    ', ' + Math.round(cw * ch / 1000000) + 'M px)' +
-    (_useWebGL ? ' [WebGL' + (_webglReady ? ' ready' : ' initializing') + ']' : ' [2D]'));
+  // Wire a resize handler so viewport rotation / window resize reallocates.
+  if (!_resizeHandler) {
+    _resizeHandler = function() { _onViewportResize(); };
+    window.addEventListener('resize', _resizeHandler);
+    window.addEventListener('orientationchange', _resizeHandler);
+  }
+
+  console.log('[Markup] Canvas: viewport ' + vw + '×' + vh +
+    ', buffer ' + mc.width + '×' + mc.height + ' (dpr=' + dpr +
+    ', ' + (mc.width * mc.height / 1000000).toFixed(2) + 'M px)' +
+    (_useWebGL ? ' [WebGL' + (_webglReady ? ' ready' : ' initializing') + ']' : ' [2D]') +
+    ', drawing ' + _drawingNatW + '×' + _drawingNatH);
+}
+
+// S96 Fix #1: Debounced viewport resize handler.
+var _resizeDebounce = null;
+function _onViewportResize() {
+  if (_resizeDebounce) clearTimeout(_resizeDebounce);
+  _resizeDebounce = setTimeout(function() {
+    _resizeDebounce = null;
+    if (!_drawingId) return;
+    _allocateCanvas();      // reallocate buffer to new viewport size
+    _renderAll();            // repaint markup
+  }, 150);
 }
 
 function _ensureOverlay() {
@@ -191,37 +230,53 @@ function _ensureOverlay() {
   if (!ov) {
     ov = document.createElement('canvas');
     ov.id = 'markup-overlay';
-    ov.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;display:none;';
+    ov.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;display:none;';
+    // S96 Fix #1: parent is the same viewport host as markup-canvas
+    mc.parentNode.insertBefore(ov, mc.nextSibling);
+  } else if (ov.parentNode !== mc.parentNode) {
+    // Relocate if drifted from a pre-S96 layout
     mc.parentNode.insertBefore(ov, mc.nextSibling);
   }
-  var lw = mc._logicalW || mc.width;
-  var lh = mc._logicalH || mc.height;
-  ov.style.width = lw + 'px';
-  ov.style.height = lh + 'px';
-  var ovMax = 3000000;
-  var ovPx = lw * lh;
-  var ovScale = ovPx > ovMax ? Math.sqrt(ovMax / ovPx) : 1;
-  ov.width = Math.round(lw * ovScale);
-  ov.height = Math.round(lh * ovScale);
-  ov._dpr = ovScale;
-  ov._logicalW = lw;
-  ov._logicalH = lh;
+  // S96 Fix #1: overlay is viewport × DPR, matching the main canvas buffer
+  var dpr = mc._dpr || 1;
+  var vw = mc._viewW || (mc.width / dpr);
+  var vh = mc._viewH || (mc.height / dpr);
+  ov.width = Math.max(1, Math.round(vw * dpr));
+  ov.height = Math.max(1, Math.round(vh * dpr));
+  ov._dpr = dpr;
+  ov._viewW = vw;
+  ov._viewH = vh;
+  ov._logicalW = _drawingNatW;
+  ov._logicalH = _drawingNatH;
   return ov;
 }
 
 // ── Coordinate Transform ────────────────────────────────
 
+// S96 Fix #1: Canvas is now viewport-sized and does NOT CSS-scale with the
+// wrap. Input screen coords must be reverse-transformed through the viewer's
+// current (scale, panX, panY) to get drawing-space coords. Those are what
+// markup objects (pen points, shape endpoints, pin positions) are stored in.
 function _getPos(e) {
   var mc = _getCanvas();
   if (!mc) return { x: 0, y: 0 };
   var r = mc.getBoundingClientRect();
-  var lw = mc._logicalW || mc.width;
-  var lh = mc._logicalH || mc.height;
-  var sx = lw / r.width;
-  var sy = lh / r.height;
-  if (e.touches && e.touches.length) return { x: (e.touches[0].clientX - r.left) * sx, y: (e.touches[0].clientY - r.top) * sy };
-  if (e.changedTouches && e.changedTouches.length) return { x: (e.changedTouches[0].clientX - r.left) * sx, y: (e.changedTouches[0].clientY - r.top) * sy };
-  return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
+  var cx, cy;
+  if (e.touches && e.touches.length) {
+    cx = e.touches[0].clientX; cy = e.touches[0].clientY;
+  } else if (e.changedTouches && e.changedTouches.length) {
+    cx = e.changedTouches[0].clientX; cy = e.changedTouches[0].clientY;
+  } else {
+    cx = e.clientX; cy = e.clientY;
+  }
+  var viewX = cx - r.left;    // viewport-space (same as dv-canvas-area origin)
+  var viewY = cy - r.top;
+  // Inverse of the render transform: drawX = (viewX - panX) / scale
+  var s = _viewScale || 1;
+  return {
+    x: (viewX - _viewPanX) / s,
+    y: (viewY - _viewPanY) / s
+  };
 }
 
 // ── Undo / Redo ─────────────────────────────────────────
@@ -268,9 +323,19 @@ function _renderAll() {
   var ctx = mc.getContext('2d');
   var dpr = mc._dpr || 1;
 
+  // S96 Fix #1: Canvas buffer is viewport × DPR. We apply the viewer's
+  // (scale, panX, panY) as a render transform so objects — stored in
+  // drawing-space coords — project into the correct screen pixels.
+  //   buffer_px = panX*DPR + drawX * scale*DPR
+  //   buffer_px = panY*DPR + drawY * scale*DPR
+  var s = _viewScale || 1;
+  var renderTx = s * dpr;
+  var renderPanX = _viewPanX * dpr;
+  var renderPanY = _viewPanY * dpr;
+
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, mc.width, mc.height);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(renderTx, 0, 0, renderTx, renderPanX, renderPanY);
 
   // ── WebGL path (Phase 5) ────────────────────────────────
   // Delegate committed-object render to Pixi when available and no eraser strokes.
@@ -289,7 +354,11 @@ function _renderAll() {
 
   if (useWebGLNow){
     try {
-      window.WebGLMarkupRenderer.render(_objects, { dpr: dpr, hlAlpha: 0.3 });
+      // S96 Fix #1: pass viewer transform so Pixi's stage applies scale+pan
+      window.WebGLMarkupRenderer.render(_objects, {
+        dpr: dpr, hlAlpha: 0.3,
+        scale: s, panX: _viewPanX, panY: _viewPanY
+      });
     } catch(err){
       console.warn('[Markup] WebGL render threw — disabling for this session:', err);
       _useWebGL = false;
@@ -345,10 +414,12 @@ function _renderAll() {
         var oc2 = off2.getContext('2d');
         grp.objs.forEach(function(obj) {
           if (!obj.points || obj.points.length < 2) return;
-          // Clear and set up _objCanvas at dpr transform
+          // S96 Fix #1: off2 matches mc.width/mc.height (viewport × DPR).
+          // Apply the full view transform so drawing-space points project
+          // to the correct buffer pixels.
           oc2.setTransform(1, 0, 0, 1, 0, 0);
           oc2.clearRect(0, 0, off2.width, off2.height);
-          oc2.setTransform(dpr, 0, 0, dpr, 0, 0);
+          oc2.setTransform(renderTx, 0, 0, renderTx, renderPanX, renderPanY);
           oc2.strokeStyle = obj.color || '#F1C40F';
           oc2.lineWidth = (obj.size || 2) * 4;
           oc2.lineCap = 'round';
@@ -388,7 +459,8 @@ function _renderAll() {
         ctx.drawImage(_hlCanvas, 0, 0);
         ctx.restore();
       }
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // S96 Fix #1: restore the full view transform for any subsequent draws
+      ctx.setTransform(renderTx, 0, 0, renderTx, renderPanX, renderPanY);
 
       highlights.forEach(function(obj) {
         // Selection handles drawn as group below
@@ -441,12 +513,17 @@ function _ensureObjCanvas(mc) {
 function _drawObjectMasked(ctx, obj) {
   var mc = _getCanvas(); if (!mc) { _drawObjectRaw(ctx, obj); return; }
   var dpr = mc._dpr || 1;
+  // S96 Fix #1: offscreen buffer matches viewport × DPR, same as mc.
+  // Use the full view transform so drawing-space coords map to the right pixels.
+  var s = _viewScale || 1;
+  var renderTx = s * dpr;
+  var renderPanX = _viewPanX * dpr;
+  var renderPanY = _viewPanY * dpr;
   var off = _ensureObjCanvas(mc);
   var oc = off.getContext('2d');
-  // Clear offscreen fully at device-px res, then install logical-px transform
   oc.setTransform(1, 0, 0, 1, 0, 0);
   oc.clearRect(0, 0, off.width, off.height);
-  oc.setTransform(dpr, 0, 0, dpr, 0, 0);
+  oc.setTransform(renderTx, 0, 0, renderTx, renderPanX, renderPanY);
   // Draw object into offscreen (same path as raw draw)
   _drawObjectRaw(oc, obj);
   // Apply each mask path with destination-out — cuts ONLY within offscreen pixels
@@ -464,7 +541,7 @@ function _drawObjectMasked(ctx, obj) {
     oc.stroke();
   }
   oc.restore();
-  // Composite masked result onto main canvas (in device-px, then restore logical transform)
+  // Composite masked result onto main canvas at identity, then restore view transform
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(off, 0, 0);
@@ -931,6 +1008,11 @@ function _moveDraw(e) {
   if (!ov) return;
   var ctx = ov.getContext('2d');
   var d = ov._dpr || 1;
+  // S96 Fix #1: overlay is viewport × DPR. Apply full view transform.
+  var s = _viewScale || 1;
+  var renderTx = s * d;
+  var renderPanX = _viewPanX * d;
+  var renderPanY = _viewPanY * d;
 
   if (_tool === 'pen' || _tool === 'highlight' || _tool === 'eraser') {
     _penPoints.push(pos);
@@ -939,7 +1021,7 @@ function _moveDraw(e) {
     if (_tool === 'highlight') {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, ov.width, ov.height);
-      ctx.setTransform(d, 0, 0, d, 0, 0);
+      ctx.setTransform(renderTx, 0, 0, renderTx, renderPanX, renderPanY);
       ctx.strokeStyle = _color;
       ctx.lineWidth = _lineWidth * 4;
       ctx.globalAlpha = 1;
@@ -952,7 +1034,7 @@ function _moveDraw(e) {
     } else {
       var n = _penPoints.length;
       var p0 = _penPoints[n - 2], p1 = _penPoints[n - 1];
-      ctx.setTransform(d, 0, 0, d, 0, 0);
+      ctx.setTransform(renderTx, 0, 0, renderTx, renderPanX, renderPanY);
       ctx.save();
       ctx.strokeStyle = _tool === 'eraser' ? '#8a94b0' : _color;
       ctx.lineWidth = _tool === 'eraser' ? _lineWidth * 3 : _lineWidth;
@@ -968,7 +1050,7 @@ function _moveDraw(e) {
   } else {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, ov.width, ov.height);
-    ctx.setTransform(d, 0, 0, d, 0, 0);
+    ctx.setTransform(renderTx, 0, 0, renderTx, renderPanX, renderPanY);
     ctx.save();
     ctx.globalAlpha = _opacity;
     ctx.strokeStyle = _color;
@@ -1102,9 +1184,12 @@ function _handlePolylineClick(e) {
     ov.style.opacity = '1';
     var ctx = ov.getContext('2d');
     var d = ov._dpr || 1;
+    // S96 Fix #1: overlay is viewport × DPR, objects in drawing-space
+    var s = _viewScale || 1;
+    var rTx = s * d, rPx = _viewPanX * d, rPy = _viewPanY * d;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, ov.width, ov.height);
-    ctx.setTransform(d, 0, 0, d, 0, 0);
+    ctx.setTransform(rTx, 0, 0, rTx, rPx, rPy);
     ctx.strokeStyle = _color;
     ctx.lineWidth = _lineWidth;
     ctx.lineCap = 'round';
@@ -1145,9 +1230,12 @@ function _drawPolylinePreview(e) {
   ov.style.opacity = '1';
   var ctx = ov.getContext('2d');
   var d = ov._dpr || 1;
+  // S96 Fix #1: overlay is viewport × DPR
+  var s = _viewScale || 1;
+  var rTx = s * d, rPx = _viewPanX * d, rPy = _viewPanY * d;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, ov.width, ov.height);
-  ctx.setTransform(d, 0, 0, d, 0, 0);
+  ctx.setTransform(rTx, 0, 0, rTx, rPx, rPy);
   ctx.strokeStyle = _color;
   ctx.lineWidth = _lineWidth;
   ctx.lineCap = 'round';
@@ -2284,6 +2372,18 @@ export var Markup = {
     _isDrawing = false;
     _dirty = false;
 
+    // S96 Fix #1: seed view transform from the viewer if it's already exposing state
+    try {
+      if (window.Viewer && typeof window.Viewer.getViewState === 'function') {
+        var vs = window.Viewer.getViewState();
+        if (vs) {
+          _viewScale = vs.scale || 1;
+          _viewPanX  = vs.panX  || 0;
+          _viewPanY  = vs.panY  || 0;
+        }
+      }
+    } catch(_){ /* non-fatal */ }
+
     _allocateCanvas();
     _buildToolbar();
     _wireEvents();
@@ -2305,6 +2405,19 @@ export var Markup = {
     _rubberBand = null;
     _isDrawing = false;
     _tool = null;
+
+    // S96 Fix #1: reset view transform and clean up viewport resize handler
+    _viewScale = 1;
+    _viewPanX = 0;
+    _viewPanY = 0;
+    _drawingNatW = 0;
+    _drawingNatH = 0;
+    if (_resizeHandler) {
+      window.removeEventListener('resize', _resizeHandler);
+      window.removeEventListener('orientationchange', _resizeHandler);
+      _resizeHandler = null;
+    }
+    if (_resizeDebounce) { clearTimeout(_resizeDebounce); _resizeDebounce = null; }
 
     var mc = _getCanvas();
     if (mc) {
@@ -2346,7 +2459,63 @@ export var Markup = {
   setTool: function(tool) { _setActiveTool(tool); },
   getTool: function() { return _tool; },
   renderAll: function() { _renderAll(); },
-  isActive: function() { return _tool && _tool !== 'pin'; }
+  isActive: function() { return _tool && _tool !== 'pin'; },
+
+  // S96 Fix #1: Viewer calls this on every _applyTransform() so markup
+  // re-renders at the new zoom/pan. Canvas buffer is viewport-sized; all
+  // projection happens inside _renderAll via ctx.setTransform. If the user
+  // is mid-stroke (isDrawing), clear the overlay and redraw the in-progress
+  // stroke from the stored drawing-space points at the new transform.
+  onTransform: function(scale, panX, panY) {
+    if (!_drawingId) return;
+    _viewScale = (scale != null && isFinite(scale)) ? scale : 1;
+    _viewPanX  = (panX  != null && isFinite(panX))  ? panX  : 0;
+    _viewPanY  = (panY  != null && isFinite(panY))  ? panY  : 0;
+    _renderAll();
+    // Re-render any in-progress stroke into the overlay under the new transform
+    if (_isDrawing) {
+      var ov = _getOverlay();
+      if (ov) {
+        var ctx = ov.getContext('2d');
+        var d = ov._dpr || 1;
+        var rTx = _viewScale * d, rPx = _viewPanX * d, rPy = _viewPanY * d;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, ov.width, ov.height);
+        if ((_tool === 'pen' || _tool === 'highlight' || _tool === 'eraser') && _penPoints.length >= 2) {
+          ctx.setTransform(rTx, 0, 0, rTx, rPx, rPy);
+          ctx.save();
+          if (_tool === 'highlight') {
+            ctx.strokeStyle = _color;
+            ctx.lineWidth = _lineWidth * 4;
+            ctx.globalAlpha = 1;
+          } else {
+            ctx.strokeStyle = _tool === 'eraser' ? '#8a94b0' : _color;
+            ctx.lineWidth = _tool === 'eraser' ? _lineWidth * 3 : _lineWidth;
+            if (_tool === 'pen') ctx.globalAlpha = _opacity;
+          }
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.beginPath();
+          ctx.moveTo(_penPoints[0].x, _penPoints[0].y);
+          for (var i = 1; i < _penPoints.length; i++) ctx.lineTo(_penPoints[i].x, _penPoints[i].y);
+          ctx.stroke();
+          ctx.restore();
+        } else if (_tool && _tool !== 'pen' && _tool !== 'highlight' && _tool !== 'eraser' && _tool !== 'polyline' && _tool !== 'select' && _tool !== 'text') {
+          // Shape tool preview
+          ctx.setTransform(rTx, 0, 0, rTx, rPx, rPy);
+          ctx.save();
+          ctx.globalAlpha = _opacity;
+          ctx.strokeStyle = _color;
+          ctx.fillStyle = _color;
+          ctx.lineWidth = _lineWidth;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          _drawShapeObj(ctx, _tool, _startX, _startY, _endX, _endY);
+          ctx.restore();
+        }
+      }
+    }
+  }
 };
 
 export var initMarkup = Markup;
