@@ -1,172 +1,170 @@
-# PROJECT KNOWLEDGE — DELTA for Session 96
+# PROJECT KNOWLEDGE — DELTA for Session 96 (FINAL, post-reverts)
 
 **Purpose:** Append/merge into `ARENCON_Project_Knowledge.md`.
 
-**Status:** S96 closed the iPad iOS crash via three architectural fixes (markup canvas viewport-sized, tile working-set shrink, offline tile cache) plus debug-instrumentation cleanup. v2 memory profile dropped from ~176 MB to ~106 MB on iPad. Offline support shipped for the first time in v2.
+**Status:** S96 shipped two of four planned fixes. The two that didn't land (markup viewport canvas, tile cache shrink) will be redone properly in S97. What did land was the offline tile cache — a genuine, first-time-in-v2 capability.
 
 ---
 
 ## REPLACE — top-of-file date
 
 ```
-Last updated: 2026-04-20 (Session 96 — Markup canvas viewport-sized, offline tile cache, tile working-set shrink, debug cleanup)
+Last updated: 2026-04-20 (Session 96 — offline tile cache shipped; markup viewport canvas + tile shrink reverted, deferred to S97)
 ```
 
 ---
 
 ## REPLACE — Current state section
 
-- **FRT v2 rewrite — ~85% complete** (architectural memory + offline gaps closed; iPad stability now expected)
-- **Phase 4 (tile-based viewer): ~98%.** Online + offline both work; manifest-tile-render pipeline solid
-- Current cache state: `frt.css ?v=217`, SW `arencon-frt-v185`, tile cache `arencon-frt-tiles-v1` (separate, long-lived)
-- IDB: `ARENCON_FRT_V2`, version 2, 12 stores (unchanged in S96 — tiles use Cache API, not IDB)
+- **FRT v2 rewrite — ~82% complete** (iPad memory crash still open — scheduled for S97)
+- **Phase 4 (tile-based viewer): ~92%.** Rendering pipeline stable; offline support now shipped
+- Current cache state: `frt.css ?v=219`, SW `arencon-frt-v187`, tile cache `arencon-frt-tiles-v1` (separate, long-lived)
+- IDB: `ARENCON_FRT_V2`, version 2, 12 stores (unchanged in S96 — tiles use SW Cache API, not IDB)
 - Tile extension: `.webp` only
 
 ---
 
 ## APPEND — after S94 section
 
-### Session 96 — Architectural fix trio: markup viewport canvas, offline tile cache, tile working-set shrink
+### Session 96 — Offline tile cache shipped; two architectural fixes reverted
 
-S96 confronted the architectural mismatch S91-S95 had been patching incrementally. v2 was bolting the tile pyramid on top of v1's "everything sized to the drawing" assumptions, getting tile-architecture complexity with almost none of the memory benefit. S96 fixed all four problems in three commits.
+**What landed:**
 
-#### Fix #1 — Markup canvas viewport-sized (commit `11eb89937f85`)
+#### Fix #3 — Offline tile cache (commit `d67a56ca304b`, LIVE)
 
-**Before:** markup-canvas + markup-webgl-canvas both sized to drawing dimensions (capped at 4M iPhone / 8M iPad / 25M desktop pixels). Lived inside `dv-img-wrap` and CSS-scaled with the wrap's transform. ~32 MB per canvas × 2 canvases = ~64 MB always allocated on iPad regardless of actual zoom level.
+**Before S96:** SW explicitly bypassed all `workers.dev` URLs. Tile-mode drawings had ZERO offline support. v1 regression that went unnoticed because field testing was on Wi-Fi.
 
-**After:** both canvases sized to `dv-canvas-area.clientWidth × clientHeight × DPR` (capped at DPR 2). Moved OUT of `dv-img-wrap` into `dv-canvas-area` (siblings of the wrap, not children). They no longer CSS-scale with zoom. The viewer transform is applied INSIDE `_renderAll` via `ctx.setTransform(scale*DPR, 0, 0, scale*DPR, panX*DPR, panY*DPR)`. Memory: ~12 MB per canvas on iPad (1080×690 viewport × DPR 2 ≈ 3 Mpx). Total saving: ~40-50 MB.
+**After:** SW intercepts `*/tiles/*` URLs from the Cloudflare R2 worker. Two strategies:
+- **Manifest** (`*/tiles/*/manifest.json`): network-first, cache fallback. Fresh manifest wins.
+- **Tile images** (`*/tiles/*/page-N/level-X/Y-Z.webp`): cache-first, network fallback. Once cached, always served from cache. Offline + uncached returns 1×1 transparent PNG sentinel with header `X-Offline-Sentinel: 1` and status 504.
 
-**Public API addition:** `Markup.onTransform(scale, panX, panY)` — viewer calls this from `_applyTransform()` on every zoom/pan change so markup re-renders into the viewport-sized buffer. Mid-stroke transform changes also re-render the in-progress overlay stroke from stored drawing-space points.
+Cache name: `arencon-frt-tiles-v1` — SEPARATE from app cache. **Survives `CACHE_NAME` bumps.** Only purged via explicit user action or full site-data wipe.
 
-**Key invariants preserved:**
-- All markup objects still stored in drawing-space coords
-- Highlighter offscreen composite still uses 0.3 alpha (no opacity stacking)
-- Eraser destination-out mask path still works (offscreen buffer matches viewport × DPR now)
-- `markupEngine.js` (sacred file for photo lightbox) unchanged
+**SW postMessage protocol** (page-side → SW):
+- `{ type: 'TILE_CACHE_PURGE_PROJECT', pid }` → deletes all cached tiles for a project
+- `{ type: 'TILE_CACHE_CLEAR' }` → wipes entire tile cache
+- `{ type: 'TILE_CACHE_STATS', pid }` → returns cached tile count
 
-#### Fix #3 — Offline tile cache via SW Cache API (commit `d67a56ca304b`)
+**Helper module:** `frt/js/data/tileCache.js` exports:
+- `prefetchDrawingLevels(pid, drawingId, levels, onProgress, abortSignal)`
+- `autoPrefetchProject(pid, drawings, onProgress, abortSignal)` — levels `[0,1,2]` (overview + readable zoom)
+- `downloadProjectAllTiles(pid, drawings, onProgress, abortSignal)` — every level
+- `getProjectCacheStats(pid)`, `purgeProjectCache(pid)`
 
-**Before:** SW explicitly bypassed all `workers.dev` URLs (line 91-96 of pre-S96 sw.js). Tile-mode drawings had ZERO offline support — drive to a no-signal site = blank drawings. v1 regression that was missed because field testing was on Wi-Fi.
+**Auto-prefetch UX (FRT):** triggered 800 ms after `_startCloudSync(didLoad=true)`. Silent, background, subtle bottom-right badge shows progress. Clears after ~3.5 s on completion.
 
-**After:** SW intercepts `*/tiles/*` URLs from the Cloudflare R2 worker. Two strategies by URL pattern:
-- **Manifest** (`*/tiles/*/manifest.json`): network-first, cache fallback. Fresh manifest wins so freshly rendered drawings pick up the latest pyramid.
-- **Tile images** (`*/tiles/*/page-N/level-X/Y-Z.webp`): cache-first, network fallback. Once cached, always served from cache. If offline + uncached, returns a 1×1 transparent PNG sentinel with header `X-Offline-Sentinel: 1` and status 504 so img tags don't show broken-image icons.
+**Manual full-download UX (Hub):** 📡 button on every project card → `downloadProjectOffline(projectId)`. Confirmation dialog with size estimate, iOS keep-app-open warning. Non-blocking progress modal with "Run in background" and "Cancel". Uses `TileCache` + Cache API via fetch.
 
-Cache name: `arencon-frt-tiles-v1` — SEPARATE from the app cache. **Survives `CACHE_NAME` bumps.** Only purged via explicit user action (Hub purge button) or full site-data wipe.
+Concurrency 6. iOS Safari background limitation (no Background Fetch API) acknowledged in code + UI.
 
-**SW postMessage protocol** (page-side calls these):
-- `{ type: 'TILE_CACHE_PURGE_PROJECT', pid }` → deletes all cached tiles for one project, replies `{ type: 'TILE_CACHE_PURGED', count }`
-- `{ type: 'TILE_CACHE_CLEAR' }` → wipes entire tile cache, replies `{ type: 'TILE_CACHE_CLEARED' }`
-- `{ type: 'TILE_CACHE_STATS', pid }` → counts cached tiles for one project, replies `{ type: 'TILE_CACHE_STATS', count }`
+#### Fix #4 — Debug instrumentation removal (commit `9805d1ca84be`, LIVE)
 
-**Page-side helper module:** new file `frt/js/data/tileCache.js` exports:
-- `prefetchDrawingLevels(pid, drawingId, levels, onProgress, abortSignal)` — fetches tiles at specified levels (e.g. `[0,1,2]`) via the SW which auto-caches them
-- `autoPrefetchProject(pid, drawings, onProgress, abortSignal)` — sequential per drawing, parallel within drawing, levels `[0,1,2]` (overview + readable zoom)
-- `downloadProjectAllTiles(pid, drawings, onProgress, abortSignal)` — every level (full deep-zoom)
-- `getProjectCacheStats(pid)` — postMessage to SW for cached count
-- `purgeProjectCache(pid)` — postMessage to SW for project purge
+Deleted: `frt/debug/instrument.js`, `frt/debug/diag.html`, `frt/debug/reset.html`. Removed `?dbg=1` loader from `frt/index.html`. Removed debug entry from SW precache.
 
-**Auto-prefetch UX (FRT side):** triggered 800ms after `_startCloudSync(didLoad=true)` succeeds. Silent, runs in background, subtle bottom-right badge `tile-prefetch-badge` shows progress. Cleared after ~3.5s on completion (`✓ Offline ready`). Only fires for THIS project (Mark's explicit S96 requirement: no cross-project prefetch).
+---
 
-**Manual full-download UX (Hub side):** new 📡 button on every project card → `downloadProjectOffline(projectId)`. Confirmation dialog with size estimate (30-100 MB/drawing × N drawings) and iOS keep-app-open warning. Non-blocking progress modal with bar, "Run in background" (just hides modal — JS still runs in foreground), and "Cancel" (keeps partial cache, no data loss).
+**What was reverted:**
 
-**Concurrency:** 6 parallel fetches per drawing. Browsers throttle beyond ~6 anyway. Network absorbs other app traffic concurrently.
+#### Fix #1 — Markup viewport canvas (commit `11eb89937f85` reverted by `d7becf13ca7a`)
 
-**iOS limitation acknowledged in code + UX:** Background Fetch API is not supported in WebKit. When user backgrounds Safari mid-download, JS stops within ~30 sec. Hub modal warns explicitly. Real fix would be Capacitor native shell.
+**Attempted:** viewport-sized markup canvas + JS render transform, replacing drawing-sized buffer + CSS-scaled-with-wrap positioning.
 
-#### Fix #2 — Tile cache shrink to visible+margin (commit `9805d1ca84be`)
+**Failure mode on iPad:**
+- Drawings appeared blurry (still investigating — could be DOM disturbance, CSS layering, or SW-related)
+- Pen strokes drew correctly during finger-down (overlay canvas path worked) but did not persist on release (commit-to-main-canvas path broken)
 
-**Before:** `_MAX_TILES = _isIPad ? 180 : 250`. Tiles accumulated across pan/zoom. Field-observed peak: 48-55 tiles ≈ 50 MB.
+**Suspected root causes (to confirm with diagnostic snippet in S97):**
+1. Canvas allocated at 0×0 because `dv-canvas-area.clientWidth` was 0 at `Markup.init()` time — drawing-viewer-overlay was being shown but layout had not completed
+2. `_viewScale` stayed at init-default `1` because `window.Viewer.getViewState()` seed was unreachable — viewer.js exports via ES module, not window global
 
-**After:** `_MAX_TILES = _isIPad ? 30 : 80` (iPhone unchanged at 80). Plus immediate working-set evict pass at end of every `_renderVisible()`: any tile in `_tiles` whose level === current AND key not in `[colMin..colMax] × [rowMin..rowMax]` (already extended by 1-tile margin) is evicted immediately, image src cleared, DOM node removed. LRU stays as backstop.
+**Lesson:** staged rollout required. Commit A should ship DOM move + viewport sizing ONLY, keeping pre-S96 render math via a CSS counter-transform. Commit B should migrate the render transform to JS. Shipping both at once hid where the bug lived.
 
-**Memory savings:** ~30 MB on iPad.
+#### Fix #2 — Tile cache shrink (commit `9805d1ca84be` reverted by `4f3ca35bff0d`)
 
-**Trade-off:** zoom-out-then-zoom-back-in re-fetches tiles from R2 (~100-200ms each, CDN-cached). Pan within a zoom level unaffected. **SAFE only because Fix #3 ships first** — without offline cache, evicted tiles + airplane mode = blank screen. The two fixes are interdependent.
+**Attempted:** `_MAX_TILES` dropped from 180 to 30 on iPad, plus aggressive "evict everything outside visible+1-margin" pass at end of every `_renderVisible()`.
 
-#### Fix #4 — Remove S95 debug instrumentation (commit `9805d1ca84be`)
+**Failure mode:** markup input felt laggy. Eviction pass fired on every render (i.e., every `_applyTransform` frame during continuous pan/zoom). Tile churn pinned main thread, delayed pen input processing.
 
-Deleted: `frt/debug/instrument.js`, `frt/debug/diag.html`, `frt/debug/reset.html`. Removed the `?dbg=1` loader script from `frt/index.html`. Removed `frt/debug/instrument.js` from SW precache list. (`canvas_probe.html` mentioned in S96 handoff didn't actually exist in repo.)
-
-To re-enable for future debugging: restore from git history (commits before `9805d1ca84be`).
+**Lesson:** eviction must be **idle-debounced**, not frame-driven. Interaction should never trigger eviction. Only fire when user has been idle for 500 ms.
 
 ---
 
 ## APPEND — Critical rules earned in S96
 
-### Markup canvas DOM placement (S96 invariant)
+### Tile cache name must NOT be in CACHE_NAME deletion sweep (S96 invariant — STILL LIVE)
 
-`#markup-canvas` and `#markup-webgl-canvas` MUST be direct children of `#dv-canvas-area`, NEVER children of `#dv-img-wrap`. The whole point of S96 Fix #1 is that they don't CSS-scale with the wrap. `_allocateCanvas()` includes a self-healing relocation step (if a canvas drifted into `dv-img-wrap` from a pre-S96 session, it's moved out) — DO NOT remove this relocation; it's the safety net for cached old DOM.
-
-### Tile cache name must NOT be in CACHE_NAME deletion sweep (S96 invariant)
-
-`sw.js` `activate` handler must preserve BOTH `CACHE_NAME` AND `TILE_CACHE`:
+`sw.js` `activate` handler preserves BOTH `CACHE_NAME` AND `TILE_CACHE`:
 ```js
 names.filter(function(n) { return n !== CACHE_NAME && n !== TILE_CACHE; })
 ```
-If `TILE_CACHE` is ever removed from this filter, every SW activation wipes the offline tile cache. Many MB lost, force re-prefetch on next project open. The tile cache is INTENTIONALLY decoupled from app-version cache so SW bumps don't invalidate downloaded tile pyramids.
+If `TILE_CACHE` is ever removed from this filter, every SW activation wipes downloaded tiles. The tile cache is INTENTIONALLY decoupled from app-version cache so SW bumps don't invalidate downloaded tile pyramids.
 
 ### Auto-prefetch is per-project only (Mark's explicit S96 constraint)
 
-Auto-prefetch (L0+L1+L2) only ever runs for the actively-opened project — never Hub-wide, never across projects. Triggered in `_startCloudSync(didLoad=true)` of `frt/js/app.js`. If a future enhancement adds a Hub-side "auto-cache all my pinned projects" feature, that MUST be Wi-Fi-gated and explicit-opt-in. Cellular data cost on tile pyramids is real (300 MB - 1 GB per project).
-
-### Markup canvas resize handler must clean up on destroy
-
-`Markup.destroy()` must:
-- Remove `_resizeHandler` from window resize + orientationchange events
-- Clear `_resizeDebounce` timer
-- Reset `_viewScale`, `_viewPanX`, `_viewPanY`, `_drawingNatW`, `_drawingNatH`
-
-Failure to clean up = leaking listeners across drawing-open/close cycles, eventually firing dozens of resize handlers per actual resize.
+Auto-prefetch (L0+L1+L2) only ever runs for the actively-opened project. Triggered in `_startCloudSync(didLoad=true)` of `frt/js/app.js`. Any future Hub-side "auto-cache all my pinned projects" feature MUST be Wi-Fi-gated and explicit-opt-in. Cellular data cost on tile pyramids is real (300 MB - 1 GB per project).
 
 ### Sentinel response detection
 
-`TileCache.isOfflineSentinelResponse(resp)` checks for `X-Offline-Sentinel: 1` header. Use this instead of checking image dimensions or content. The SW guarantees the header on offline-tile responses.
+`TileCache.isOfflineSentinelResponse(resp)` checks for `X-Offline-Sentinel: 1` header. SW guarantees the header on offline-tile fallback responses.
 
-### `_isIPad` tile cap is now 30 (was 180)
+### Deferred for S97 — Fix #1 v2 pattern (staged rollout mandatory)
 
-If iPad pan/zoom feels janky (visible tile re-fetch beyond ~150ms per tile), the working set extension can be increased from `+1` margin to `+2` in `_renderVisible()` at `colMin/colMax/rowMin/rowMax` lines. Or restore `_MAX_TILES` to `60` as a safety backstop. Both are tunables, not structural.
+When re-attempting viewport-sized markup canvas:
+1. **Commit A:** DOM move + viewport × DPR buffer sizing + CSS counter-transform to preserve visual behavior. Verify on iPad.
+2. **Commit B:** JS `ctx.setTransform(scale*DPR, 0, 0, scale*DPR, panX*DPR, panY*DPR)` render transform. Remove CSS counter-transform. Verify on iPad.
+
+Do not ship as one atomic commit again.
+
+### Deferred for S97 — Fix #2 v2 pattern (idle-debounced eviction mandatory)
+
+When re-attempting tile cache shrink:
+- `_MAX_TILES` moderate (iPad: 80), not aggressive (30)
+- Working-set shrink runs in a `setTimeout(..., 500)` that resets on every `scheduleRender`
+- Active interaction never triggers eviction
+- Keep existing LRU + other-level eviction as backstops
 
 ---
 
 ## REPLACE — Sacred files (do NOT touch in S97+)
 
-Same as S86+ list, with these additions/changes:
-
-- `frt/js/viewer/markup.js` — S96 viewport-canvas architecture is settled. Do not revert to drawing-sized canvas allocation. The view-transform pattern (`ctx.setTransform(scale*DPR, 0, 0, scale*DPR, panX*DPR, panY*DPR)`) is invariant.
-- `frt/js/data/tileCache.js` — public API is settled. New helpers may be added but existing exports must keep their signatures (referenced by app.js, Hub HTML, and possibly future modules).
-- `sw.js` tile interception path — settled. The `isTileRequest()` predicate and the manifest-network-first / tiles-cache-first split is the contract.
-- `tiledPdf.js` working-set evict pass at end of `_renderVisible()` — settled. Do not remove without first restoring `_MAX_TILES` to a higher value AND verifying offline mode still works without it.
+- `frt/js/data/tileCache.js` — public API is settled. New helpers may be added but existing exports must keep signatures.
+- `sw.js` tile interception path — settled. The `isTileRequest()` predicate and manifest-network-first / tiles-cache-first split is the contract.
+- `frt/js/viewer/markup.js` — S96 Fix #1 reverted. Back to pre-S96 drawing-sized canvas. S97 will redo this in staged form (see deferred pattern above).
+- `frt/js/viewer/tiledPdf.js` — S96 Fix #2 reverted. `_MAX_TILES = 180` on iPad restored. S97 will redo with debounced pattern.
 
 Original sacred list still applies:
 - `viewer.js` core (above `_showDrawing`)
-- `markupEngine.js` (photo lightbox markup — separate system)
-- `webglMarkup.js` Pixi setup core (the `render()` opts contract was extended in S96 to include `scale, panX, panY` — that addition is invariant)
-- The `go(pg)` recursive PDF upload pattern in `drawings.js`
-- Azure Function code (works, don't break)
-- Worker tile route (works, don't refactor)
+- `markupEngine.js` (photo lightbox — separate system)
+- `webglMarkup.js` Pixi setup core
+- `go(pg)` recursive PDF upload pattern in `drawings.js`
+- Azure Function code
+- Worker tile route
 
 ---
 
 ## REPLACE — STILL OPEN
 
-1. **Pin migration from S83** — 14 pins on legacy drawings still pending. Straightforward DB script. Suggested for S97.
-2. **Offline tile sentinel UX overlay** — when SW returns the 1×1 PNG sentinel, the viewer currently shows a transparent gap with no label. Polish task: small "Zoom limited — connect for deep detail" banner once per drawing per session.
-3. **Background Fetch API** for Android TWA — would let manual downloads continue when app is backgrounded on Android. iOS still requires Capacitor.
-4. **Hub-side "Cache stats per project" indicator** — surface the count of cached tiles and approximate MB so users know which projects are offline-ready.
-5. **Native iOS app via Capacitor** — only path to true background downloads on iOS. Capital expense decision pending principal approval.
-6. **AI Writing Assistant integration** — scoped, not started.
-7. **Training Center / LMS** — scoped, not started.
-8. **M365 migration** — parallel cutover plan, not started.
+1. **iPad memory crash** — still happens on long sessions with large drawings. Fix #1 v2 in S97 is the resolution.
+2. **Pin migration from S83** — 14 pins on legacy drawings.
+3. **Offline tile sentinel UX overlay** — polish for Fix #3.
+4. **Background Fetch API for Android TWA** — would let manual Hub downloads continue when backgrounded on Android.
+5. **Hub-side "Cache stats per project" indicator.**
+6. **Native iOS app via Capacitor.**
+7. **AI Writing Assistant integration.**
+8. **Training Center / LMS.**
+9. **M365 migration.**
 
 ---
 
-## S96 COMMIT LOG
+## S96 COMMIT LOG (final, including reverts)
 
-| Commit | Description | Files | Net lines |
-|---|---|---|---|
-| `11eb89937f85` | FIX #1: Markup canvas viewport-sized | markup.js, viewer.js, webglMarkup.js, frt/index.html, sw.js | ~280 |
-| `d67a56ca304b` | FIX #3: Offline tile cache | sw.js, tileCache.js (NEW), app.js, ARENCON_Project_Hub.html | ~330 |
-| `9805d1ca84be` | FIX #2 + #4: Tile shrink + debug cleanup | tiledPdf.js, frt/index.html, sw.js, DELETE frt/debug/* | ~50 changed, 3 deleted |
+| Commit | Title | Net state |
+|---|---|---|
+| `11eb89937f85` | FIX #1: Markup canvas viewport-sized | REVERTED |
+| `d67a56ca304b` | FIX #3: Offline tile cache | LIVE |
+| `9805d1ca84be` | FIX #2 + #4: Tile shrink + debug cleanup | #4 LIVE, #2 REVERTED |
+| `1fc3b2070456` | Original handoff + project knowledge delta | SUPERSEDED |
+| `d7becf13ca7a` | REVERT FIX #1 | LIVE |
+| `4f3ca35bff0d` | REVERT FIX #2 | LIVE |
 
-Production state at S96 close: commit `9805d1ca84be`, CSS `?v=217`, SW `arencon-frt-v185`, TILE_CACHE `arencon-frt-tiles-v1`.
+Production at S96 close: commit `4f3ca35bff0d`, CSS `?v=219`, SW `arencon-frt-v187`, TILE_CACHE `arencon-frt-tiles-v1`.

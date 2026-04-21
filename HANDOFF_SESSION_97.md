@@ -1,127 +1,180 @@
 # HANDOFF — SESSION 97
 
-**Session 96 end state:** Production at three sequential commits:
+**Session 96 final state:** Two of four fixes landed live. Two were reverted after iPad regressions.
 
-| Commit | Title |
-|---|---|
-| `11eb89937f85` | Session 96 FIX #1: Markup canvas viewport-sized (saves ~40MB on iPad) |
-| `d67a56ca304b` | Session 96 FIX #3: Offline tile cache (SW Cache API + auto L0-L2 + Hub Download for Offline) |
-| `9805d1ca84be` | Session 96 FIX #2 + #4: Tile cache shrink to visible+margin (saves ~30MB) + remove S95 debug instrumentation |
-
-CSS `?v=217`, SW `arencon-frt-v185`, separate tile cache `arencon-frt-tiles-v1` (long-lived).
-
-S96 SHIPPED ALL FOUR FIXES. The architectural surgery the handoff called for is complete. Total memory savings on iPad: ~70 MB (~176 MB → ~106 MB). Offline support is real for the first time in v2 (auto L0-L2 silent prefetch + manual full-pyramid Download for Offline button on Hub).
-
----
-
-## CRITICAL VERIFICATION — DO THIS BEFORE S97 WORK
-
-Mark must verify on iPad in this order. Anything failing = revert that specific commit (each fix is its own atomic commit).
-
-### Fix #1 verification (markup viewport canvas — highest risk surface)
-
-Open any drawing on iPad iOS 16+. Test each:
-
-1. **Pen tool** — draw a stroke at fit zoom. Pinch-zoom in 2-3 levels. Stroke must stay anchored to the same drawing-space position. Pan around. No ghost trails.
-2. **Highlight tool** — draw 2-3 overlapping yellow highlights. Verify they composite at uniform 0.3 opacity (not stacking darker). Zoom in/out — opacity must stay uniform.
-3. **Shapes** — rectangle, circle, arrow, triangle, cloud. Each at different zoom levels. Rotation handles work? Selected shape transforms correctly?
-4. **Text** — place a text annotation. Zoom in — text must scale with zoom (it lives at drawing-space coords). Edit existing text — input box should appear at the click position.
-5. **Eraser** — erase part of a pen stroke and part of a highlight. Both should use the offscreen-composite mask path correctly.
-6. **Select + drag** — select a shape, drag it to new position. Position must remain consistent after zoom/pan.
-7. **Polyline** — draw a multi-point polyline. Click near first point to close. Preview line during placement should track cursor at any zoom.
-8. **Pin tap** — drop a pin on the drawing. Tap an existing pin. Both must work whether a markup tool is active or not.
-9. **Two-finger pinch mid-stroke** — start drawing a pen stroke, then pinch-zoom while drawing. Stroke should re-render at the new zoom (this was an explicit code path; verify it doesn't crash or freeze).
-10. **Memory check** — open the same large drawing 3-5 times in a row, draw markup each time, close. iPad should NOT crash or reload Safari. (Old behavior: crash around the 3rd-5th open.)
-
-If anything fails: `git revert 11eb89937f85` and report what broke.
-
-### Fix #2 verification (tile cache shrink)
-
-1. Open a tiled drawing. Pan around aggressively. Tiles should keep streaming smoothly. **Brief flash when tiles re-fetch is acceptable** (eviction trade-off, ~100-200ms per tile from R2/CDN).
-2. Zoom in deep, then zoom back out. Some tiles will re-fetch (they were evicted). Should not result in blank/black gaps lasting more than ~1 second.
-
-### Fix #3 verification (offline tile cache)
-
-**Online auto-prefetch:**
-1. Open a project on Wi-Fi. Within 1-3 seconds you should see a small bottom-right indicator: *"Caching offline tiles… 1/N"* counting up.
-2. After it completes, indicator shows *"✓ Offline ready"* then fades.
-
-**Hub manual full download:**
-1. On Hub, find a project. There should be a 📡 icon next to the 📥 export icon on each project card.
-2. Tap 📡. Confirmation modal asks if you want to download — confirm.
-3. Progress modal shows "Drawing 1/N — XXX/YYY tiles (XX%)" with a progress bar.
-4. Try the "Run in background" button — modal closes, download continues, toast appears when done.
-5. Try the Cancel button — partial cache is kept (no data loss).
-
-**Offline test:**
-1. After auto-prefetch (or manual download), turn iPad to Airplane mode.
-2. Open the same project. Drawings should render at fit-to-screen and at moderate zoom (L0/L1/L2 for auto; all levels for manually-downloaded).
-3. Try to deep-zoom into a sprinkler symbol on an auto-only drawing — at L3/L4 zoom, you'll see a tiny placeholder (transparent 1px PNG sentinel from SW). This is the graceful "need signal at this zoom" fallback.
-
-### Fix #4 verification (debug cleanup)
-
-1. Open `https://hezhendong999-bot.github.io/ARENCON-Toolkit/frt/?dbg=1` — should NOT load the debug instrumentation. Console should be clean (no `[INSTR]` log lines).
-2. The `/frt/debug/` folder should not be browsable (404 on GitHub Pages for any of those paths).
-
----
-
-## S96 COMMIT LOG (audit trail)
-
-| # | Commit | Files | Lines |
+| Change | S96 ship | Current state | Reason |
 |---|---|---|---|
-| 1 | `11eb89937f85` | markup.js, viewer.js, webglMarkup.js, frt/index.html, sw.js | ~280 changed |
-| 2 | `d67a56ca304b` | sw.js, frt/js/data/tileCache.js (NEW), frt/js/app.js, ARENCON_Project_Hub.html | ~330 added |
-| 3 | `9805d1ca84be` | tiledPdf.js, frt/index.html, sw.js (+ DELETED frt/debug/{diag.html,instrument.js,reset.html}) | ~50 changed, 3 files deleted |
+| Fix #1 — Markup canvas viewport-sized | `11eb89937f85` | **REVERTED** (`d7becf13ca7a`) | Drawings appeared blurry; pen strokes drawn mid-stroke but didn't persist on release. Timing-related root cause — needs iPad diagnostic to confirm before re-attempt. |
+| Fix #2 — Tile cache shrink | `9805d1ca84be` | **REVERTED** (`4f3ca35bff0d`) | Aggressive per-frame eviction churned tiles, pinned main thread, made pen input feel laggy. Wrong design (frame-driven instead of idle-debounced). |
+| Fix #3 — Offline tile cache | `d67a56ca304b` | **LIVE** | Working. SW tile intercept + silent L0-L2 auto-prefetch on project open + per-project 📡 Hub button for full deep-zoom download. |
+| Fix #4 — Debug instrumentation removed | `9805d1ca84be` | **LIVE** | Clean. `/frt/debug/*` files deleted, SW precache entry removed. |
+
+Current production state: commit `4f3ca35bff0d`, CSS `?v=219`, SW `arencon-frt-v187`, TILE_CACHE `arencon-frt-tiles-v1`.
+
+**The iPad crash is NOT fixed.** Memory is back to pre-S96 (~176 MB peak on large drawings). Long sessions will still trigger Safari tab kill. That was supposed to be Fix #1's job — it didn't land properly.
 
 ---
 
-## KNOWN CAVEATS & THINGS TO WATCH
+## CRITICAL — DO THIS FIRST IN S97
 
-### iOS background download limit
-Hub "Download for Offline" requires the app to stay foregrounded. If user backgrounds Safari mid-download, JS execution stops within ~30 seconds. The "Run in background" button is misleading on iOS — it just hides the modal but doesn't actually run the download in OS-level background. The progress modal text warns about this explicitly. **Future work:** integrate Background Fetch API for Android TWA only (iOS has no equivalent without Capacitor native shell).
+**Before touching any code**, paste this diagnostic snippet into iPad Safari's console with a drawing open and send me the output. I use it to confirm which root-cause hypothesis for Fix #1's failure is correct, so v2 addresses the right problem:
 
-### Tile re-fetch latency on aggressive zoom-back
-Fix #2 evicts tiles outside the visible+1-margin rect immediately. If user zooms in, then back out within a second, tiles will re-fetch from R2 (cached at Cloudflare CDN edge, so ~100-200ms each). Pan within a single zoom level is unaffected. If this proves too aggressive, restore the bigger _MAX_TILES (e.g. iPad: 30 → 60) — this is a tunable, not a structural choice.
+```js
+(function(){
+  var mc = document.getElementById('markup-canvas');
+  var wrap = document.getElementById('dv-img-wrap');
+  var area = document.getElementById('dv-canvas-area');
+  var img = document.getElementById('dv-image');
+  var overlay = document.getElementById('drawing-viewer-overlay');
+  var report = {
+    overlay_visible: overlay ? getComputedStyle(overlay).display : null,
+    overlay_open_class: overlay ? overlay.classList.contains('open') : null,
+    area_present: !!area,
+    area_w: area ? area.clientWidth : null,
+    area_h: area ? area.clientHeight : null,
+    wrap_transform: wrap ? getComputedStyle(wrap).transform : null,
+    wrap_inline_transform: wrap ? wrap.style.transform : null,
+    mc_present: !!mc,
+    mc_parent_id: mc ? mc.parentNode.id : null,
+    mc_buffer_wh: mc ? [mc.width, mc.height] : null,
+    mc_css_wh: mc ? [mc.offsetWidth, mc.offsetHeight] : null,
+    mc_dpr_attr: mc ? mc._dpr : null,
+    img_natural: img ? [img.naturalWidth, img.naturalHeight] : null,
+    img_displayed: img ? [img.offsetWidth, img.offsetHeight] : null,
+    devicePixelRatio: window.devicePixelRatio,
+    viewer_on_window: (window.Viewer && typeof window.Viewer.getViewState === 'function') ? 'yes' : 'no'
+  };
+  console.log(JSON.stringify(report, null, 2));
+  return report;
+})()
+```
 
-### Auto-prefetch silently skips drawings without a manifest
-The L0-L2 auto-prefetch only runs for drawings flagged as tile-mode (`d.manifestUrl || d.tileServer || d.pdfTiled || d.serverRendered`). Image-only drawings (legacy single-JPEG) already have full offline support via the existing IDB blob path — no change needed for those.
-
-### Sentinel response for missing offline tiles
-SW returns a 1×1 transparent PNG (status 504, header `X-Offline-Sentinel: 1`) when a tile is requested offline and not in cache. The browser displays nothing visible at that tile location (transparent gap). The viewer doesn't currently render a "need signal" overlay — the gap itself is the indicator. **Future polish:** intercept image onerror/onload and show a small message banner once per session per drawing.
-
-### CSS `?v=217` and SW `v185` cache stickiness
-Standard mobile-emulation caveat applies. If iPad shows old behavior after deploy, check `application → service workers → update on reload` then full reload. If `css_loaded_v` reads anything other than `217` in the diagnostic, force `clear site data`.
+What this confirms:
+- `area_w: 0` → canvas allocated at 0×0 because layout hadn't completed (likely root cause → fix with ResizeObserver)
+- `viewer_on_window: "no"` → `window.Viewer` unreachable from ES module context (likely secondary cause → fix with direct module import)
+- `wrap_transform` → confirms the scale/pan the viewer is applying
+- `mc_parent_id` and `mc_dpr_attr` → confirms fresh code is running, not a stuck cache
 
 ---
 
-## STILL OPEN / PARKED
+## Fix #1 v2 — Correct Plan
 
-1. **Pin migration from S83** (14 pins on legacy drawings) — still pending. Can be tackled in S97 or later.
-2. **Native iOS app via Capacitor** — only thing that solves the iOS background-download limit. Requires Mac (~$300-700) + Apple Dev ($99/yr). Wait for principal approval after S96 stability is proven in field use.
-3. **AI Writing Assistant** integration — scoped, not started.
-4. **ARENCON Training Center / LMS** — scoped, not started.
-5. **M365 migration** — parallel cutover plan, not yet started.
-6. **iPad/iPhone "need signal at this zoom" overlay** — small UX polish for offline gaps (see caveats above).
+Architecture unchanged from what we agreed on: markup canvas at viewport × DPR, outside `dv-img-wrap`, viewer transform applied in render code.
+
+What must change from v1:
+
+### Canvas sizing (handle late layout)
+
+- **ResizeObserver** on `dv-canvas-area` — primary trigger for allocation/reallocation
+- When `Markup.init()` runs and viewport is 0×0, allocate a placeholder (e.g. 100×100), then reallocate correctly on first ResizeObserver callback
+- Keep `orientationchange` as secondary trigger
+
+### View state (seed correctly)
+
+- Do **not** use `window.Viewer` — it's an ES module, not attached to window
+- Add a named export `getViewState` on `viewer.js` OR access via already-imported `Viewer` object from the existing import
+- Seed `_viewScale`/`_viewPanX`/`_viewPanY` in `_allocateCanvas()` AFTER canvas is real, BEFORE first `_renderAll()`
+- `Markup.onTransform()` callback from `viewer._applyTransform()` — that path was correct in v1
+
+### Staged rollout (ship in TWO separate commits with iPad verification between them)
+
+**Commit A — DOM move + sizing only. Behavior preserved via CSS counter-transform.**
+- Move `markup-canvas` out of `dv-img-wrap` into `dv-canvas-area`
+- Size buffer to viewport × DPR with ResizeObserver
+- Keep `_renderAll` at the ORIGINAL `setTransform(dpr, 0, 0, dpr, 0, 0)` math
+- Apply CSS counter-transform so canvas visually stays overlaid on the wrap: `markup-canvas { transform: translate3d(panX, panY, 0) scale(scale) }`, updated via `Markup.onTransform()` callback
+- **Expected result:** identical visual behavior to pre-S96, just with the canvas in a different DOM position and a viewport-sized buffer. If anything breaks here, it's the DOM/sizing path, isolated.
+
+**Commit B — Switch to JS render transform. Remove CSS counter-transform.**
+- Only after Commit A verified on iPad
+- `_renderAll`: `setTransform(scale*DPR, 0, 0, scale*DPR, panX*DPR, panY*DPR)`, draw objects at drawing-space coords
+- `_getPos`: reverse-map via current scale+pan
+- Overlay draws (`_moveDraw`, polyline preview): same transform
+- `_drawObjectMasked` offscreen buffer: same transform
+- WebGL renderer: apply stage scale/pan (from v1's webglMarkup edit)
+- **Expected result:** visually identical to Commit A but with JS transform path. Memory savings finally kick in.
+
+The insight from v1's failure: **ship behavior-preserving changes first, then migrate the render math.** v1 did both at once, which hid where the bug actually lived.
 
 ---
 
-## SUGGESTED S97 SCOPE (in priority order)
+## Fix #2 v2 — Plan (after Fix #1 v2 lands)
 
-1. **Verify all S96 fixes on iPad in real field-like use** (1 hour). If any fail, revert just that commit and re-investigate in isolation.
-2. **Pin migration from S83** (1-2 turns). 14 pins on legacy drawings need to migrate to the new pin storage shape. Should be straightforward DB script.
-3. **Polish: offline tile sentinel overlay** (1 turn). Detect SW sentinel response in the tile viewer and render a subtle "Zoom limited — connect for deep detail" banner.
-4. Anything else from the parked list, in any order.
+Idle-debounced eviction. Never fires during active pan/zoom.
+
+Sketch in `tiledPdf.js`:
+
+```js
+var _MAX_TILES = _isIPhone ? 80 : (_isIPad ? 80 : 150);  // moderate, not aggressive
+var _idleEvictTimer = null;
+
+function _scheduleIdleEvict(levelIdx, colMin, colMax, rowMin, rowMax, lvl) {
+  if (_idleEvictTimer) clearTimeout(_idleEvictTimer);
+  _idleEvictTimer = setTimeout(function(){
+    _idleEvictTimer = null;
+    var margin = 2;
+    var workingKeys = {};
+    for (var c = Math.max(0, colMin - margin); c <= Math.min(lvl.cols - 1, colMax + margin); c++) {
+      for (var r = Math.max(0, rowMin - margin); r <= Math.min(lvl.rows - 1, rowMax + margin); r++) {
+        workingKeys[_tileKey(levelIdx, c, r)] = true;
+      }
+    }
+    // Evict out-of-working-set tiles at this level only
+    // ... (same eviction mechanics as v1 Fix #2, just inside the debounced closure)
+  }, 500);
+}
+```
+
+Called at end of `_renderVisible()`. Every new `_renderVisible` resets the timer. During continuous interaction the eviction never fires. When the user stops, 500ms later it runs once.
+
+Memory savings: ~25-30 MB on iPad. Zero interaction-time lag.
 
 ---
 
-## SESSION 96 META
+## Suggested S97 execution order
 
-**Sessions consumed in scope alignment Q&A:** ~8 turns. Worth it — caught two design errors before any code was written:
-- Auto-download was previously discussed as fully-automatic-everything; tile-era reality (100-200× larger payload) needs the hybrid auto-L0/L1/L2 + manual deep-zoom design, gated per-project to avoid surprise cellular data costs.
-- Initial Approach B for Fix #1 (aggressive cap on drawing-sized canvas) would have made markup strokes blurry at high zoom — rejected by Mark, correctly. Approach A (viewport-sized canvas) was the right architectural choice.
+1. **Run the diagnostic snippet on iPad** (2 min). Paste output back.
+2. Design Fix #1 v2 Commit A based on actual data.
+3. **Build + push Fix #1 v2 Commit A** (DOM move + sizing + CSS counter-transform). Verify drawings sharp + pen persists on iPad. ~30 min real-use test.
+4. **Build + push Fix #1 v2 Commit B** (JS render transform). Verify no regression.
+5. **Build + push Fix #2 v2** (debounced eviction). Verify memory down + no lag.
+6. Close S97 with updated docs.
 
-**Lesson for future sessions:** when the handoff calls for "architectural" changes, confirm the user-visible behavior before touching code. A wrong implementation that compiles is more expensive to undo than 5 turns of clarification.
+Less Q&A this time; more build-verify loops. Budget: 1-2 sessions depending on diagnostic findings.
 
-**No Style Guide changes this session.** S94 delta still stands at v119. Next bump expected when AI Writing Assistant or Training Center introduces shared cross-tool patterns.
+---
 
-**No Project Knowledge breaking changes this session.** A delta document `PROJECT_KNOWLEDGE_DELTA_S96.md` will append to `ARENCON_Project_Knowledge.md` documenting the new tile cache architecture (cache name, postMessage protocol, prefetch tiers).
+## What went wrong in S96 (post-mortem)
+
+1. **Too much scope in one session.** Four fixes shipped without iPad verification between them. When regressions surfaced, it was unclear which commit to revert.
+2. **Missing iPad test in dev loop.** Validation was `node --check` only (syntax). No behavioral test. For architectural viewer/markup changes, insufficient.
+3. **Small-looking code change was architecturally deep.** Fix #1 touched DOM + render transform + coordinate system + WebGL update in one commit. Safer version is the staged A/B above.
+4. **No diagnostic-first approach.** Wrote the fix from handoff theory. When it failed I had nothing to debug with. Diagnostic snippet goes first next time.
+
+**What worked:** Fix #3 (offline tile cache) shipped clean, no regressions, real user value. GitHub tree-API atomic commits made both reverts a 5-minute operation. Fix #4 cleanup is trivially correct.
+
+---
+
+## Still open / parked
+
+1. Pin migration from S83 — 14 pins on legacy drawings. Independent of all above; doable any session.
+2. AI Writing Assistant integration
+3. Training Center / LMS
+4. M365 migration
+5. Native iOS app via Capacitor (capital expense)
+6. Offline tile sentinel UX overlay (polish for Fix #3)
+
+---
+
+## S96 final commit log
+
+| Commit | Status | Description |
+|---|---|---|
+| `11eb89937f85` | REVERTED | Fix #1 first attempt |
+| `d67a56ca304b` | LIVE | Fix #3 offline tile cache |
+| `9805d1ca84be` | PARTIAL | Fix #4 kept, Fix #2 reverted |
+| `1fc3b2070456` | SUPERSEDED | Original handoff (pre-revert) |
+| `d7becf13ca7a` | LIVE | Revert Fix #1 |
+| `4f3ca35bff0d` | LIVE | Revert Fix #2 |
+
+S97 opens against `4f3ca35bff0d`.
