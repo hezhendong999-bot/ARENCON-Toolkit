@@ -55,7 +55,13 @@ var _isMobile = _isIPhone || _isIPad || /Android/.test(navigator.userAgent);
 // needed >40 tiles resident) resulting in blank/black tiles where evicted
 // ones hadn't been refetched yet. iPhones keep a conservative cap to avoid
 // Safari canvas memory kill; iPad gets closer to desktop.
-var _MAX_TILES = _isIPhone ? 80 : (_isIPad ? 180 : 250);
+// S96 Fix #2: aggressive shrink to current visible-set + 1-tile margin.
+// Cap is now a backstop only — the working-set evict pass below removes
+// everything outside the current viewport box at end of every _renderVisible.
+// Tiles re-fetch from R2 in ~100-200ms (CDN-cached) when the user zooms back.
+// SAFE only because Fix #3 ships the offline tile cache; without it,
+// evicted tiles + airplane mode = blank screen.
+var _MAX_TILES = _isIPhone ? 80 : (_isIPad ? 30 : 80);
 var _MAX_CONCURRENT = _isIPhone ? 3 : (_isIPad ? 5 : 6);
 var _TILE_SIZE = 512;
 
@@ -433,6 +439,36 @@ function _renderVisible() {
       if (queued) continue;
       _pending.push({ key: key, level: levelIdx, col: col, row: row, lvl: lvl });
     }
+  }
+
+  // S96 Fix #2: evict everything outside the working set at the current level.
+  // Working set = visible cols/rows extended by 1 tile in each direction (already
+  // reflected in colMin/colMax/rowMin/rowMax above which already include -1/+1
+  // margin from lines 417-420). Tiles for OTHER levels are evicted by the
+  // existing keysToDrop pass earlier in this function.
+  var workingKeys = {};
+  for (var wc = colMin; wc <= colMax; wc++) {
+    for (var wr = rowMin; wr <= rowMax; wr++) {
+      workingKeys[_tileKey(levelIdx, wc, wr)] = true;
+    }
+  }
+  var dropOuter = [];
+  for (var tk in _tiles) {
+    if (!_tiles.hasOwnProperty(tk)) continue;
+    if (_tiles[tk].level !== levelIdx) continue; // other-level eviction handled above
+    if (workingKeys[tk]) continue;
+    dropOuter.push(tk);
+  }
+  for (var di = 0; di < dropOuter.length; di++) {
+    var dkey = dropOuter[di];
+    var dtile = _tiles[dkey];
+    if (dtile && dtile.img) { try { dtile.img.src = ''; } catch(_){} }
+    delete _tiles[dkey];
+    var ix = _tileOrder.indexOf(dkey);
+    if (ix >= 0) _tileOrder.splice(ix, 1);
+    _tileCount--;
+    var node = document.getElementById(dkey);
+    if (node && node.parentNode) node.parentNode.removeChild(node);
   }
 
   _pumpQueue();

@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=216">
+<link rel="stylesheet" href="css/frt.css?v=217">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -39,27 +39,11 @@ function ensurePdfJs(cb){
   document.head.appendChild(s);
 }
 </script>
-<script>
-// S95: crash instrumentation (activates with ?dbg=1 URL param, #dbg=1 hash,
-// sessionStorage flag, or a 30-min localStorage flag set by debug/reset.html).
-// Zero cost otherwise.
-(function(){
-  var on = /[?&]dbg=1\b/.test(location.search) || /(?:^|[?&#])dbg=1\b/.test(location.hash||'');
-  if (!on) { try { on = sessionStorage.getItem('arencon_force_dbg') === '1'; } catch(e){} }
-  if (!on) {
-    try {
-      var exp = parseInt(localStorage.getItem('arencon_force_dbg_until') || '0', 10);
-      on = exp > Date.now();
-    } catch(e){}
-  }
-  if (on) {
-    var s = document.createElement('script');
-    s.src = 'debug/instrument.js?v=2';
-    s.async = false;
-    document.head.appendChild(s);
-  }
-})();
-</script>
+<!-- S95 crash instrumentation removed in S96 Fix #4. The architectural fixes
+     (viewport-sized markup canvas, offline tile cache, tile working-set shrink)
+     resolved the iPad crash root cause; runtime instrumentation no longer
+     needed. To re-enable for future debugging, restore the `dbg=1` loader
+     block + the /frt/debug/ folder from git history. -->
 </head>
 <body>
 
