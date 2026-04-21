@@ -141,18 +141,6 @@
     opts = opts || {};
     var hlAlpha = opts.hlAlpha != null ? opts.hlAlpha : 0.3;
 
-    // S96 Fix #1: canvas is now viewport-sized. Apply viewer's (scale, panX, panY)
-    // to the Pixi stage so drawing-space object coords project to screen pixels.
-    // Previously the canvas was drawing-sized and the wrap's CSS transform did
-    // the scaling externally — so stage stayed at identity. That's no longer true.
-    var vs = (opts.scale != null && isFinite(opts.scale)) ? opts.scale : 1;
-    var vpx = (opts.panX != null && isFinite(opts.panX)) ? opts.panX : 0;
-    var vpy = (opts.panY != null && isFinite(opts.panY)) ? opts.panY : 0;
-    try {
-      _stage.scale.set(vs, vs);
-      _stage.position.set(vpx, vpy);
-    } catch(_){}
-
     _wipeStage();
 
     if (!objects || !objects.length){

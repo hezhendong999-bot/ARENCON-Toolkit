@@ -437,10 +437,6 @@ function _applyTransform() {
   // GL pins live outside dv-img-wrap and must be re-rendered on every transform.
   // HTML pins are children of dv-img-wrap, so they auto-transform; cheap early-out.
   if (_useGLPins && _glPinsReady) _renderPins();
-  // S96 Fix #1: markup canvas is now viewport-sized and sits OUTSIDE the wrap.
-  // It needs to re-render on every transform so scale-independent markup tracks
-  // the drawing-space coords of its stored objects.
-  try { if (Markup && typeof Markup.onTransform === 'function') Markup.onTransform(_scale, _panX, _panY); } catch(_){}
 }
 
 function _clampPan() {
