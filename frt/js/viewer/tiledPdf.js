@@ -118,17 +118,116 @@ if (typeof window !== 'undefined') {
       return ring;
     } catch (e) { console.error('[S97 DIAG] peek failed:', e); return null; }
   };
+
+  // S97: lifecycle event peek + clear. Dumps the _frtS97LifeRing buffer
+  // (recorded at every open/close/level-change/purge) to console AND copies
+  // it to the clipboard as a formatted plain-text block, same way the crash
+  // banner Copy Log button works.
+  window._frtLifePeek = function () {
+    try {
+      var ring = JSON.parse(localStorage.getItem('_frtS97LifeRing') || '[]');
+      if (!ring.length) { console.log('[S97 LIFE] ring empty'); return ring; }
+      var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+      var t0 = ring[0].t;
+      var lines = ['=== ARENCON FRT — S97 LIFE events (' + ring.length + ') ==='];
+      lines.push('Captured: ' + new Date().toISOString());
+      lines.push('UA: ' + navigator.userAgent);
+      lines.push('Viewport: ' + window.innerWidth + 'x' + window.innerHeight);
+      lines.push('');
+      lines.push('  rel_ms   event                     dwg                              pg  tiles  dom  pageMix                  extra');
+      lines.push('  ' + '-'.repeat(140));
+      ring.forEach(function (r) {
+        var rel = String(r.t - t0).padStart(7, ' ');
+        var tag = (r.tag || '').padEnd(25, ' ');
+        var dwg = String(r.drawingId || '-').substring(0, 32).padEnd(32, ' ');
+        var pg = String(r.pageNumber == null ? '-' : r.pageNumber).padStart(3, ' ');
+        var tiles = String(r.tileCount).padStart(5, ' ');
+        var dom = String(r.domChildren).padStart(4, ' ');
+        var mix = JSON.stringify(r.domPageMix || {}).padEnd(24, ' ');
+        var extra = r.extra ? JSON.stringify(r.extra) : '';
+        lines.push('  ' + rel + '  ' + tag + ' ' + dwg + ' ' + pg + ' ' + tiles + ' ' + dom + ' ' + mix + '  ' + extra);
+      });
+      var out = lines.join('\n');
+      console.log(out);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(out).then(function () {
+          console.log('%c[S97 LIFE] copied to clipboard — paste in chat', 'color:#1A7A4A;font-weight:bold');
+        }, function () {
+          console.warn('[S97 LIFE] clipboard write failed — select the printed block and Ctrl+C');
+        });
+      }
+      return ring;
+    } catch (e) { console.error('[S97 LIFE] peek failed:', e); return null; }
+  };
+
+  window._frtLifeClear = function () {
+    try {
+      localStorage.removeItem('_frtS97LifeRing');
+      console.log('[S97 LIFE] ring cleared');
+    } catch (e) { console.error('[S97 LIFE] clear failed:', e); }
+  };
 }
 var _dbg_el = null;
 var _dbg_lastEvents = [];
 var _dbg_maxInflight = 0;
 var _dbg_maxTiles = 0;
 var _dbg_renderCount = 0;
+var _dbg_lastLevel = null;
 
 function _dbgEvent(s) {
   if (!_DBG_ENABLED) return;
   _dbg_lastEvents.push(s);
   if (_dbg_lastEvents.length > 5) _dbg_lastEvents.shift();
+}
+
+// S97 DIAG: lifecycle event logger. Records every page-switch, open, close,
+// level-change, and DOM purge with a timestamp + DOM snapshot. Writes a
+// separate ring buffer so fast back-to-back events aren't lost (unlike the
+// periodic _dbgTick which only samples every 250ms). Buffer persists across
+// crashes via localStorage, same as the main diag.
+function _dbgLife(tag, extra) {
+  if (!_DBG_ENABLED) return;
+  try {
+    var layer = document.getElementById('dv-tiles-layer');
+    var wrap = document.getElementById('dv-img-wrap');
+    var childCount = layer ? layer.children.length : 0;
+    // Count tiles per page-N actually in the DOM right now
+    var pageMix = {};
+    if (layer) {
+      var kids = layer.children;
+      for (var i = 0; i < kids.length; i++) {
+        var m = (kids[i].src || '').match(/\/page-(\d+)\//);
+        if (m) pageMix[m[1]] = (pageMix[m[1]] || 0) + 1;
+      }
+    }
+    var rec = {
+      t: Date.now(),
+      tag: tag,
+      drawingId: _drawingId,
+      pageNumber: _pageInfo ? _pageInfo.pageNumber : null,
+      tileCount: _tileCount,
+      domChildren: childCount,
+      domPageMix: pageMix,
+      wrapTransform: wrap ? (wrap.style.transform || '(none)') : '(no-wrap)',
+      extra: extra || null
+    };
+    // Append to dedicated life-event ring (separate from tick ring)
+    var ring = [];
+    try { ring = JSON.parse(localStorage.getItem('_frtS97LifeRing') || '[]'); } catch (_) { ring = []; }
+    ring.push(rec);
+    while (ring.length > 80) ring.shift();
+    try { localStorage.setItem('_frtS97LifeRing', JSON.stringify(ring)); } catch (_) {}
+    // Also to console for live monitoring
+    console.log('%c[LIFE]%c ' + tag +
+      '  t=' + Date.now() +
+      '  dwg=' + (_drawingId || '-') +
+      '  pg=' + (rec.pageNumber || '-') +
+      '  tiles=' + _tileCount +
+      '  dom=' + childCount +
+      '  mix=' + JSON.stringify(pageMix) +
+      (extra ? '  ' + JSON.stringify(extra) : ''),
+      'color:#9C2742;font-weight:bold', 'color:inherit');
+  } catch (_err) { /* swallow */ }
 }
 function _dbgTick() {
   if (!_DBG_ENABLED) return;
@@ -645,6 +744,12 @@ function _renderVisible() {
   if (!lvl) return;
   _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
 
+  // S97 DIAG: detect level changes vs same-level pans
+  if (_dbg_lastLevel !== levelIdx) {
+    _dbgLife('level-change', { from: _dbg_lastLevel, to: levelIdx, scale: +scale.toFixed(3) });
+    _dbg_lastLevel = levelIdx;
+  }
+
   // Drop queued requests from other levels — they're no longer relevant.
   _cancelPendingExceptLevel(levelIdx);
 
@@ -668,6 +773,9 @@ function _renderVisible() {
   // Desktop/Android keep the smooth crossfade.
   var _iosNoFade = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
                    (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  if (keysToDrop.length) {
+    _dbgLife('purge:other-levels', { count: keysToDrop.length, keepLevel: levelIdx, iosNoFade: _iosNoFade });
+  }
   for (var ki = 0; ki < keysToDrop.length; ki++) {
     var dk = keysToDrop[ki];
     var dt = _tiles[dk];
@@ -821,6 +929,7 @@ function _openServerTiles(d, drawingId, pageNum) {
       if (_cfg.hideLoading) _cfg.hideLoading();
       if (_cfg.onReady) _cfg.onReady({ drawW: _drawW, drawH: _drawH });
 
+      _dbgLife('open:manifest-applied', { page: pn, drawW: _drawW, drawH: _drawH });
       _renderVisible();
 
       // Mobile second-pass (layout may not have settled on first render).
@@ -859,6 +968,7 @@ function _openLegacyFallback(d, drawingId) {
 
 async function open(drawingId, pageNum) {
   if (!_cfg) throw new Error('TiledPdf.init() must be called first');
+  _dbgLife('open:request', { requestedDrawing: drawingId, requestedPage: pageNum });
   _close_internal();
   _drawingId = drawingId;
 
@@ -872,10 +982,12 @@ async function open(drawingId, pageNum) {
 }
 
 function _close_internal() {
+  _dbgLife('close:begin', { prior_tileCount: _tileCount });
   _active = false;
   _paused = false;
   _manifest = null;
   _pageInfo = null;
+  var prevDrawing = _drawingId;
   _drawingId = null;
   if (_renderTimer) { clearTimeout(_renderTimer); _renderTimer = null; }
 
@@ -894,6 +1006,7 @@ function _close_internal() {
   if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
   var img = document.getElementById('dv-image');
   if (img) img.style.display = 'block';
+  _dbgLife('close:end', { prevDrawing: prevDrawing });
 }
 
 function close() { _close_internal(); }
