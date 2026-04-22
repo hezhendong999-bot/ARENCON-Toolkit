@@ -313,6 +313,92 @@ if (typeof window !== 'undefined') {
       }
     }).catch(function (e) { console.warn('[Tiles] Fetch error:', e && e.message); });
   };
+
+  // S97 RECOVERY HELPER — for legacy drawings that lost their pdfBufKey field.
+  // Lists R2 pdfbufs/, picks the newest PDF, back-stamps every PDF-page
+  // drawing (id pattern includes _pg<N>_) with the recovered pdfBufKey +
+  // tileManifestUrl + tileStatus='processing', saves the model, then fires
+  // Azure render and starts polling for the manifest. One-shot recovery for
+  // drawings uploaded before S86 added pdfBufKey to the schema, OR drawings
+  // where a sync stripped the field.
+  window._frtRecoverTiles = function () {
+    var pid = new URLSearchParams(window.location.search).get('project');
+    if (!pid) { console.warn('[Recover] Hub mode required (no ?project= in URL)'); return; }
+    var proj = Model.getProject();
+    if (!proj || !proj.drawings || !proj.drawings.length) {
+      console.warn('[Recover] No drawings in project'); return;
+    }
+    var listUrl = R2.WORKER_URL + '/list/' + pid + '/frt/pdfbufs/';
+    console.log('[Recover] Listing PDFs in R2:', listUrl);
+    fetch(listUrl).then(function (r) {
+      if (!r.ok) throw new Error('List HTTP ' + r.status);
+      return r.json();
+    }).then(function (data) {
+      if (!data.files || !data.files.length) {
+        console.warn('[Recover] No PDFs found in R2 pdfbufs/. Cannot recover automatically.');
+        console.warn('[Recover] Re-upload the original PDF to the Drawings tab instead.');
+        return;
+      }
+      // Sort by uploaded desc, pick newest
+      var sorted = data.files.slice().sort(function (a, b) {
+        return (b.uploaded || '').localeCompare(a.uploaded || '');
+      });
+      console.log('[Recover] Found', sorted.length, 'PDF(s) in R2:');
+      sorted.forEach(function (f, i) {
+        console.log('  ' + (i === 0 ? '\u2192' : ' ') + ' ' + f.key.split('/').pop() +
+          '  (' + Math.round((f.size || 0) / 1024 / 1024) + ' MB, ' + f.uploaded + ')');
+      });
+      var newest = sorted[0];
+      // pdfBufKey = filename without .pdf extension
+      var fname = newest.key.split('/').pop();
+      var pdfBufKey = fname.replace(/\.pdf$/i, '');
+      console.log('[Recover] Using newest PDF. Recovered pdfBufKey:', pdfBufKey);
+
+      // Back-stamp every PDF-page drawing (id pattern: dwg_<ts>_pg<N>_<rand>)
+      var manifestUrl = _tileManifestUrl(pid, pdfBufKey);
+      var bucketKey = _tilePdfBucketKey(pid, pdfBufKey);
+      var bucketUrl = R2.WORKER_URL + '/' + bucketKey;
+      var stamped = 0, skipped = 0;
+      var now = Date.now();
+      proj.drawings.forEach(function (d) {
+        if (!/_pg\d+_/.test(d.id)) { skipped++; return; }
+        d.pdfBufKey = pdfBufKey;
+        d.pdfBufR2Url = bucketUrl;
+        d.tileManifestUrl = manifestUrl;
+        d.tileServer = R2.WORKER_URL;
+        d.tileStatus = 'processing';
+        d.tileProcessStartedAt = now;
+        stamped++;
+      });
+      console.log('[Recover] Back-stamped ' + stamped + ' drawing(s).' +
+        (skipped ? ' Skipped ' + skipped + ' non-PDF drawing(s).' : ''));
+
+      if (!stamped) {
+        console.warn('[Recover] No PDF-page drawings found (none match pattern _pg<N>_). Aborting.');
+        return;
+      }
+
+      // Save model locally + push to cloud, then fire Azure render
+      Model.saveNow().then(function () {
+        console.log('[Recover] Model saved locally. Firing Azure render now\u2026');
+        return _fireTileRender(pid, pdfBufKey, bucketKey);
+      }).then(function (ok) {
+        if (ok === false) {
+          console.warn('[Recover] Render POST failed. Drawings are stamped but Azure didn\'t accept the job.');
+          console.warn('[Recover] Retry with: _frtRenderOnePdf("' + pdfBufKey + '")');
+          return;
+        }
+        _startTilePolling(pid, pdfBufKey, now);
+        console.log('[Recover] DONE \u2014 polling for manifest every 7s. Expected ~3min for a 128 MB PDF.');
+        console.log('[Recover] When you see "[Tiles] Ready: ' + pdfBufKey + '", reopen the drawing on iPad to get the tile pyramid.');
+        console.log('[Recover] Track progress with: _frtCheckManifest("' + pdfBufKey + '")');
+      }).catch(function (err) {
+        console.error('[Recover] Failed during save or render fire:', err && err.message);
+      });
+    }).catch(function (err) {
+      console.error('[Recover] List request failed:', err && err.message);
+    });
+  };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
