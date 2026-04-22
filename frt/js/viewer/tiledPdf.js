@@ -72,7 +72,11 @@ var _TILE_SIZE = 512;
 function _readDbgFlag() {
   try {
     if (typeof window === 'undefined') return false;
-    if (/[?&]dbg=1\b/.test(window.location.search || '')) return true;
+    if (/[?&]dbg=1\b/.test(window.location.search || '')) {
+      // Persist URL activation so dbg survives Hub re-launches and home-screen taps.
+      try { localStorage.setItem('_frtDbg', '1'); } catch (_e) {}
+      return true;
+    }
     if (typeof localStorage !== 'undefined' && localStorage.getItem('_frtDbg') === '1') return true;
   } catch (_) { /* private mode etc. — fall through */ }
   return false;
