@@ -191,6 +191,131 @@ function _retryTileRender(pdfBufKey) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// S97 console helpers — manual control over Azure tile rendering.
+//
+// Use case: drawings uploaded standalone (or where Azure auto-render failed
+// silently) need their tile pyramids built. These globals let the user
+// inspect drawing state and trigger renders without touching the UI.
+//
+//   _frtTilesInspect()            — print all drawings with tile-render state
+//   _frtRenderAllMissingTiles()   — fire Azure render for every PDF lacking a manifest
+//   _frtRenderOnePdf(pdfBufKey)   — re-render a specific PDF (by pdfBufKey)
+//   _frtCheckManifest(pdfBufKey)  — direct GET on the manifest URL (bypasses cache)
+// ──────────────────────────────────────────────────────────────────────────
+if (typeof window !== 'undefined') {
+  window._frtTilesInspect = function () {
+    var proj = Model.getProject();
+    if (!proj) { console.warn('[Tiles] No project loaded'); return null; }
+    var pid = new URLSearchParams(window.location.search).get('project');
+    var byKey = {};
+    (proj.drawings || []).forEach(function (d) {
+      if (!d.pdfBufKey) {
+        byKey['__nonpdf__' + d.id] = byKey['__nonpdf__' + d.id] || { pdfBufKey: '(non-PDF)', drawings: [], tileStatus: '-', tileManifestUrl: '' };
+        byKey['__nonpdf__' + d.id].drawings.push(d.name);
+        return;
+      }
+      var key = d.pdfBufKey;
+      if (!byKey[key]) {
+        byKey[key] = {
+          pdfBufKey: key, pages: 0, drawings: [],
+          tileStatus: d.tileStatus || '(unset)',
+          tileManifestUrl: d.tileManifestUrl || '(unset)'
+        };
+      }
+      byKey[key].pages++;
+      byKey[key].drawings.push(d.pdfPage ? ('pg' + d.pdfPage + ': ' + d.name) : d.name);
+    });
+    var rows = Object.keys(byKey).map(function (k) { return byKey[k]; });
+    console.log('[Tiles] Project pid:', pid);
+    console.log('[Tiles] Unique pdfBufKeys:', rows.length);
+    console.table(rows.map(function (r) {
+      return {
+        pdfBufKey: (r.pdfBufKey || '').substring(0, 30) + ((r.pdfBufKey || '').length > 30 ? '\u2026' : ''),
+        pages: r.pages || 0,
+        tileStatus: r.tileStatus,
+        hasManifestUrl: r.tileManifestUrl && r.tileManifestUrl !== '(unset)' ? 'yes' : 'NO'
+      };
+    }));
+    return rows;
+  };
+
+  window._frtRenderOnePdf = function (pdfBufKey) {
+    var pid = new URLSearchParams(window.location.search).get('project');
+    if (!pid) { console.warn('[Tiles] Hub mode required (no project param in URL)'); return; }
+    if (!pdfBufKey) { console.warn('[Tiles] Usage: _frtRenderOnePdf("<pdfBufKey>")'); return; }
+    var proj = Model.getProject();
+    if (!proj) { console.warn('[Tiles] No project loaded'); return; }
+    var matches = (proj.drawings || []).filter(function (d) { return d.pdfBufKey === pdfBufKey; });
+    if (!matches.length) { console.warn('[Tiles] No drawings found with pdfBufKey:', pdfBufKey); return; }
+    // Backfill manifest URL on every page sharing this pdfBufKey
+    var manifestUrl = _tileManifestUrl(pid, pdfBufKey);
+    var now = Date.now();
+    matches.forEach(function (d) {
+      d.tileManifestUrl = manifestUrl;
+      d.tileServer = R2.WORKER_URL;
+      d.tileProcessStartedAt = now;
+    });
+    _stopTilePolling(pdfBufKey);
+    _markTileStatus(pdfBufKey, 'processing');
+    var bucketKey = _tilePdfBucketKey(pid, pdfBufKey);
+    console.log('[Tiles] Firing render for', pdfBufKey, '(', matches.length, 'pages, R2 key:', bucketKey, ')');
+    _fireTileRender(pid, pdfBufKey, bucketKey).then(function (ok) {
+      if (ok) {
+        console.log('[Tiles] Render queued at Worker. Polling for manifest every 7s, 10min ceiling.');
+        _startTilePolling(pid, pdfBufKey, now);
+      } else {
+        console.warn('[Tiles] Render POST failed \u2014 status will become "failed" via timeout, OR retry now via badge.');
+      }
+    });
+    return manifestUrl;
+  };
+
+  window._frtRenderAllMissingTiles = function () {
+    var pid = new URLSearchParams(window.location.search).get('project');
+    if (!pid) { console.warn('[Tiles] Hub mode required'); return; }
+    var proj = Model.getProject();
+    if (!proj) { console.warn('[Tiles] No project loaded'); return; }
+    var seen = {};
+    var toRender = [];
+    (proj.drawings || []).forEach(function (d) {
+      if (!d.pdfBufKey) return;
+      if (d.tileStatus === 'ready') return;            // already rendered
+      if (d.tileStatus === 'processing') return;       // already in flight
+      if (seen[d.pdfBufKey]) return;                   // dedupe by pdfBufKey
+      seen[d.pdfBufKey] = true;
+      toRender.push(d.pdfBufKey);
+    });
+    if (!toRender.length) {
+      console.log('[Tiles] Nothing to render \u2014 all PDFs are either ready or already processing.');
+      console.log('[Tiles] If you want to FORCE re-render of a "ready" PDF, use _frtRenderOnePdf("<pdfBufKey>") directly.');
+      return [];
+    }
+    console.log('[Tiles] Will fire render for', toRender.length, 'PDF(s):');
+    toRender.forEach(function (k) { console.log('  \u2022', k); });
+    toRender.forEach(function (k) { window._frtRenderOnePdf(k); });
+    return toRender;
+  };
+
+  window._frtCheckManifest = function (pdfBufKey) {
+    var pid = new URLSearchParams(window.location.search).get('project');
+    if (!pid || !pdfBufKey) { console.warn('[Tiles] Usage: _frtCheckManifest("<pdfBufKey>")'); return; }
+    var url = _tileManifestUrl(pid, pdfBufKey) + '?t=' + Date.now();
+    console.log('[Tiles] GET', url);
+    fetch(url).then(function (r) {
+      console.log('[Tiles] HTTP', r.status, r.statusText);
+      if (r.ok) return r.json();
+      return null;
+    }).then(function (m) {
+      if (m) {
+        console.log('[Tiles] Manifest:', m);
+        if (m.pages) console.log('[Tiles]', m.pages.length, 'pages, levels:',
+          (m.pages[0] && m.pages[0].levels || []).map(function (l) { return 'L' + l.level + '(' + l.cols + 'x' + l.rows + ')'; }).join(' '));
+      }
+    }).catch(function (e) { console.warn('[Tiles] Fetch error:', e && e.message); });
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 
 // ── S79: Download-with-pins-baked-on (raster drawings only) ──
 // PDF-tiled drawings fall back to raw URL download (WebGL markup render deferred to Phase 5).
