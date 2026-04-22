@@ -63,7 +63,58 @@ var _TILE_SIZE = 512;
 // S93 fixes are stable in production, so the always-on mobile overlay is
 // retired. Keep the code path intact so it can still be invoked ad-hoc for
 // future bug reports without another deploy.
-var _DBG_ENABLED = /[?&]dbg=1\b/.test(typeof window !== 'undefined' ? (window.location.search || '') : '');
+// S97 DIAG (revised): enable via ANY of three methods —
+//   1) URL has ?dbg=1 or &dbg=1 (works in plain Safari tab)
+//   2) localStorage._frtDbg === '1' (persists across reloads, survives crash,
+//      survives PWA / home-screen launch where URL params get stripped)
+//   3) Console helpers exposed below: _frtDbgOn() flips on + reloads,
+//      _frtDbgOff() flips off + reloads, _frtDbgPeek() dumps ring buffer.
+function _readDbgFlag() {
+  try {
+    if (typeof window === 'undefined') return false;
+    if (/[?&]dbg=1\b/.test(window.location.search || '')) return true;
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('_frtDbg') === '1') return true;
+  } catch (_) { /* private mode etc. — fall through */ }
+  return false;
+}
+var _DBG_ENABLED = _readDbgFlag();
+
+// Console helpers — installed UNCONDITIONALLY (cheap, no overhead until called).
+// This is the escape hatch for when ?dbg=1 doesn't survive the launch URL.
+if (typeof window !== 'undefined') {
+  window._frtDbgOn = function () {
+    try { localStorage.setItem('_frtDbg', '1'); } catch (_) {}
+    console.log('[S97 DIAG] enabled — reloading…');
+    setTimeout(function () { window.location.reload(); }, 200);
+  };
+  window._frtDbgOff = function () {
+    try {
+      localStorage.removeItem('_frtDbg');
+      localStorage.removeItem('_frtS97DbgRing');
+    } catch (_) {}
+    console.log('[S97 DIAG] disabled + ring buffer cleared — reloading…');
+    setTimeout(function () { window.location.reload(); }, 200);
+  };
+  window._frtDbgPeek = function () {
+    try {
+      var ring = JSON.parse(localStorage.getItem('_frtS97DbgRing') || '[]');
+      if (!ring.length) { console.log('[S97 DIAG] ring buffer is empty'); return ring; }
+      console.log('[S97 DIAG] ring buffer (' + ring.length + ' entries, oldest first):');
+      console.table(ring.map(function (s) {
+        var d = new Date(s.t);
+        var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+        return {
+          time: pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()),
+          tiles: s.tiles + '/' + s.cap,
+          byLevel: s.byLevel || '-',
+          mk_Mpx: s.mk, gl_Mpx: s.gl, approx_MB: s.approxMB,
+          inflight: s.inflight, pending: s.pending, scale: s.scale
+        };
+      }));
+      return ring;
+    } catch (e) { console.error('[S97 DIAG] peek failed:', e); return null; }
+  };
+}
 var _dbg_el = null;
 var _dbg_lastEvents = [];
 var _dbg_maxInflight = 0;
