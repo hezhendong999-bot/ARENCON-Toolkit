@@ -1,6 +1,6 @@
 // ARENCON Field Review Tool — Service Worker
 // Strategy: network-first for HTML/JS/CSS (always get latest), cache-first for CDN assets
-var CACHE_NAME = 'arencon-frt-v196';
+var CACHE_NAME = 'arencon-frt-v197';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -48,7 +48,8 @@ var APP_FILES = [
   'frt/js/shared/dialogs.js',
   'frt/js/shared/toast.js',
   'frt/js/ai/assistant.js',
-  'frt/js/ai/usage.js'
+  'frt/js/ai/usage.js',
+  'frt/js/diag/recorder.js'
 ];
 
 // CDN assets to precache (pdf.js etc)
