@@ -809,14 +809,20 @@ function _startFetch(req, layer) {
       'width:' + fullCssW + 'px;height:' + fullCssH + 'px;' +
       'clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
       '-webkit-clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
-      'image-rendering:auto;pointer-events:none;' + fadeIn;
+      // S98j EXPERIMENT: image-rendering:crisp-edges (was: auto). Tells the
+      // browser to preserve sharpness through GPU scaling rather than apply
+      // bilinear smoothing — should fix L4 blur at high zooms. Trade-off:
+      // text and antialiased edges may look "harder" / slightly pixelated.
+      // If user dislikes the result, swap back to auto.
+      'image-rendering:crisp-edges;pointer-events:none;' + fadeIn;
   } else {
     // Interior tile: image content fills the full 512x512 source exactly,
     // so simple sizing is both correct and clip-path-free.
     cssText =
       'position:absolute;left:' + cssL + 'px;top:' + cssT + 'px;' +
       'width:' + cssW + 'px;height:' + cssH + 'px;' +
-      'image-rendering:auto;pointer-events:none;' + fadeIn;
+      // S98j EXPERIMENT: see edge-tile branch above for rationale.
+      'image-rendering:crisp-edges;pointer-events:none;' + fadeIn;
   }
   img.style.cssText = cssText;
 
