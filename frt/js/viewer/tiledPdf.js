@@ -769,7 +769,23 @@ function _startFetch(req, layer) {
   // feels abrupt, longer feels sluggish. Cache-hit tiles don't go through
   // this code path (they're already in the DOM), so no perceived latency
   // added on repeat views.
-  var fadeIn = 'opacity:0;transition:opacity 180ms ease-out;will-change:opacity;';
+  //
+  // S98f — EXCEPT during a level transition (L2->L3, L3->L4, etc). Old-level
+  // tiles are still visible underneath (kept for 800ms via _levelPurgeTimer).
+  // New tiles fading 0->1 on top of old tiles causes the browser to composite
+  // them as L_old * (1-a) + L_new * a. Because L_old and L_new are separately
+  // rendered by Azure at different resolutions, pixel-level antialiasing
+  // differs slightly at text/line edges — and during the fade, those
+  // differences "wave" across the drawing as tiles arrive at staggered times.
+  // Mark reported this as pages "waving / some sort of rendering" on L3->L4.
+  // Fix: pop new tiles in at opacity 1 when there's existing covering content;
+  // the L_new tile instantly covers the L_old tile beneath it (both fully
+  // opaque, no blending artifacts). The S94 anti-pop-in benefit is preserved
+  // for initial drawing open (no _levelPurgeTimer set) and pan-within-level.
+  var _inLevelTransition = !!_levelPurgeTimer;
+  var fadeIn = _inLevelTransition
+    ? 'opacity:1;'
+    : 'opacity:0;transition:opacity 180ms ease-out;will-change:opacity;';
   var cssText;
   if (isEdgeTile) {
     var fullCssW = Math.round(_TILE_SIZE * scaleX);
@@ -814,7 +830,12 @@ function _startFetch(req, layer) {
         // initial opacity:0 from cssText BEFORE we set opacity:1, so the
         // transition actually animates. Without RAF, both styles land in
         // the same frame and the transition gets skipped (straight pop-in).
-        requestAnimationFrame(function() { img.style.opacity = '1'; });
+        //
+        // S98f — skip this RAF ramp if we're in a level transition (tile was
+        // created at opacity:1 already, no animation to trigger).
+        if (!_inLevelTransition) {
+          requestAnimationFrame(function() { img.style.opacity = '1'; });
+        }
       }
       _evictExcess(curLayer);
       _pumpQueue();
