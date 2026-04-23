@@ -1074,18 +1074,31 @@ function _openServerTiles(d, drawingId, pageNum) {
       var oldLayer = document.getElementById('dv-tiles-layer');
       if (oldLayer && oldLayer.parentNode) oldLayer.parentNode.removeChild(oldLayer);
 
+      // S98g: white background belongs on dv-img-wrap, NOT dv-tiles-layer.
+      //
+      // v204 put the white fill on dv-tiles-layer to mask the tile-grid
+      // artifact (dark canvas bleeding through tile-edge antialiasing). That
+      // worked visually but had a subtle compositor side-effect: in Chrome,
+      // adding a solid background to a sized/positioned/overflow-hidden div
+      // inside a transformed parent can promote it to its own compositor
+      // layer. When that happens, tiles paint into tile-layer's bitmap at
+      // their CSS box size (e.g. L4 interior tile at 257×257 drawing coords),
+      // and the bitmap is then GPU-scaled by wrap's transform — at L4 zoom
+      // (wrap scale ≈ 2) that's a 257→514 upscale of a 2× downsampled bitmap.
+      // Double-loss = visible blur. Mark reported L4 clarity regression.
+      //
+      // Putting the background on wrap itself avoids the extra layer: wrap
+      // is already a compositor layer (will-change:transform in CSS), so
+      // adding background-color doesn't change its status. Tile-layer stays
+      // transparent and tiles paint directly into wrap's compositor at its
+      // transform-scaled rasterization size — crisp 1:1 at L4 zoom.
+      if (wrap) wrap.style.background = '#ffffff';
+
       var layer = document.createElement('div');
       layer.id = 'dv-tiles-layer';
-      // S98d: solid white background on the tile layer. Without this, any
-      // edge antialiasing/transparency in the WebP tiles lets the dark canvas
-      // area bleed through at tile boundaries — producing the visible "tile
-      // grid" on fit-zoom that Mark reported. White matches the drawing paper
-      // color so even if a tile hasn't finished loading, the gap reads as
-      // paper, not a grid line. Previously this was masked by the dv-image
-      // backdrop; v201 removed that backdrop, exposing the layer.
       layer.style.cssText =
         'position:absolute;top:0;left:0;width:' + _drawW + 'px;height:' + _drawH +
-        'px;overflow:hidden;background:#ffffff;';
+        'px;overflow:hidden;';
       var mc = document.getElementById('markup-canvas');
       if (wrap && mc) wrap.insertBefore(layer, mc);
       else if (wrap) wrap.appendChild(layer);
@@ -1178,6 +1191,10 @@ function _close_internal() {
   _tileCount = 0;
 
   if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
+  // S98g: clear wrap's white background set by _openServerTiles, so a
+  // legacy drawing opened after this one paints against a neutral wrap.
+  var wrapEl = document.getElementById('dv-img-wrap');
+  if (wrapEl) wrapEl.style.background = '';
   var img = document.getElementById('dv-image');
   if (img) {
     // S98: the S97 fix (setting img.src='') was architecturally insufficient.
