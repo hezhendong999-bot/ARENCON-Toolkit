@@ -937,7 +937,12 @@ function _renderVisible() {
         var oi = _tileOrder.indexOf(dk);
         if (oi >= 0) _tileOrder.splice(oi, 1);
       }
-    }, 500);
+      // S98e: 800ms (was 500ms). First-time L3→L4 and L4→L3 cold-cache loads
+      // sometimes didn't finish in 500ms — producing a brief flash as old
+      // tiles purged before new-level tiles were fully opaque. 800ms gives
+      // cold-fetch transitions enough headroom on typical networks while still
+      // feeling responsive.
+    }, 800);
   }
 
   // Visible draw-space rectangle, expanded by 1 tile worth of margin so pan

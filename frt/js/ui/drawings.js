@@ -611,44 +611,80 @@ export var initDrawings = {
 function _lazyGenThumbs(list, idx) {
   if (idx >= list.length) return;
   var d = list[idx];
-  // S98d: prefer the Azure-rendered L0 tile as thumb source for tile drawings.
-  // It's a purpose-built 256x171 WebP thumbnail that always exists in R2, and
-  // is independent of d.r2Url (which may be missing for some drawings). Falls
-  // back to r2Url for legacy non-tile drawings.
-  var src = '';
-  if (d.tileManifestUrl) {
-    src = d.tileManifestUrl.replace(/manifest\.json(\?.*)?$/,
-      'page-' + (d.pdfPage || 1) + '/level-0/0-0.webp');
-  } else if (d.r2Url) {
-    src = d.r2Url;
-  } else {
-    // No source — skip this drawing, continue the queue
-    setTimeout(function() { _lazyGenThumbs(list, idx + 1); }, 0);
-    return;
+
+  function _next(delay) {
+    setTimeout(function() { _lazyGenThumbs(list, idx + 1); }, delay || 100);
   }
-  var img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.onload = function() {
+
+  // Shared: given a loaded img and source-crop rect, produce thumb + update card
+  function _finishThumb(img, sx, sy, sW, sH) {
     var maxW = 200;
-    var scale = Math.min(1, maxW / img.width);
-    var tw = Math.round(img.width * scale);
-    var th = Math.round(img.height * scale);
-    var c = document.createElement('canvas'); c.width = tw; c.height = th;
-    c.getContext('2d').drawImage(img, 0, 0, tw, th);
+    var scale = Math.min(1, maxW / sW);
+    var tw = Math.max(1, Math.round(sW * scale));
+    var th = Math.max(1, Math.round(sH * scale));
+    var c = document.createElement('canvas');
+    c.width = tw; c.height = th;
+    c.getContext('2d').drawImage(img, sx, sy, sW, sH, 0, 0, tw, th);
     d.thumb = c.toDataURL('image/jpeg', 0.7);
     c.width = 1; c.height = 1;
-    // Update the card image in-place without full re-render
     var card = document.querySelector('.drawing-card[data-drawing-id="' + d.id + '"] .card-thumb');
     if (card) {
       var pinBadge = card.querySelector('.pin-badge');
       var pinHTML = pinBadge ? pinBadge.outerHTML : '';
       card.innerHTML = '<img src="' + d.thumb + '" alt="' + (d.name || '') + '" decoding="async">' + pinHTML;
     }
-    // Continue to next after short delay
-    setTimeout(function() { _lazyGenThumbs(list, idx + 1); }, 200);
-  };
-  img.onerror = function() { setTimeout(function() { _lazyGenThumbs(list, idx + 1); }, 100); };
-  img.src = src;
+    _next(200);
+  }
+
+  // Fallback path: load r2Url and use full image (legacy non-tile drawings)
+  function _tryR2() {
+    if (!d.r2Url) { _next(); return; }
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function() { _finishThumb(img, 0, 0, img.width, img.height); };
+    img.onerror = function() { _next(); };
+    img.src = d.r2Url;
+  }
+
+  // S98d-v2: for tile drawings, the L0 tile is always stored as a padded
+  // 512x512 WebP. The actual page thumbnail content is in the top-left
+  // corner at manifest.levels[0].width x levels[0].height (e.g. 256x171
+  // for 3:2 landscape). The rest is white sharp.extend() padding. We must
+  // fetch the manifest to know the real content dims, then pass them as
+  // the drawImage source rect to crop away the padding. Without this
+  // cropping, thumbs drew the whole 512x512 tile and the real content
+  // became a tiny strip in the top-left — the exact bug Mark saw in v203.
+  if (d.tileManifestUrl) {
+    fetch(d.tileManifestUrl)
+      .then(function(r) { if (!r.ok) throw new Error('manifest ' + r.status); return r.json(); })
+      .then(function(m) {
+        var wantPage = d.pdfPage || 1;
+        var page = null;
+        for (var i = 0; i < (m.pages || []).length; i++) {
+          if (m.pages[i].pageNumber === wantPage) { page = m.pages[i]; break; }
+        }
+        if (!page || !page.levels || !page.levels[0]) throw new Error('no L0');
+        var l0 = page.levels[0];
+        var contentW = l0.width, contentH = l0.height;
+        var tileUrl = d.tileManifestUrl.replace(/manifest\.json(\?.*)?$/,
+          'page-' + wantPage + '/level-0/0-0.webp');
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function() {
+          // Clamp source rect to image bounds (defensive — if content dims
+          // somehow exceed the 512x512 tile, drawImage would throw).
+          var sW = Math.min(contentW, img.width);
+          var sH = Math.min(contentH, img.height);
+          _finishThumb(img, 0, 0, sW, sH);
+        };
+        img.onerror = function() { _tryR2(); };
+        img.src = tileUrl;
+      })
+      .catch(function() { _tryR2(); });
+    return;
+  }
+
+  _tryR2();
 }
 
 Model.onChange('project', function() { initDrawings.render(); });
