@@ -997,51 +997,33 @@ function _openServerTiles(d, drawingId, pageNum) {
       _drawH = d.height || _nativeH;
       _baseScale = _drawW / _nativeW;
 
-      // Backdrop (dv-image) — ALWAYS visible. Safety net if tiles fail.
-      // S95: on touch devices (iPad/iPhone), loading the full-resolution source
-      // URL here (e.g. 6144×4096 PNG) decodes to ~100 MB bitmap — which, on top
-      // of the markup canvases and tile images, crosses the iOS WebKit
-      // per-page memory ceiling and triggers a Jetsam process kill. Skip the
-      // backdrop assignment entirely on touch — if tiles fail to load the user
-      // sees a blank viewer with the "loading tile" chrome still in place.
-      // Pin coordinate math has been updated (see viewer.js _getDrawingNatural*)
-      // to source dimensions from TiledPdf.getDimensions() instead of
-      // dv-image.naturalWidth, so skipping the backdrop is coordinate-safe.
+      // Backdrop (dv-image) — DISABLED for tile drawings on all platforms.
+      //
+      // S95: touch skipped the backdrop to avoid iOS Jetsam memory kills from
+      // the 100 MB decoded bitmap of a 6144×4096 legacy jpeg.
+      //
+      // S98b: desktop must also skip the backdrop — for a different reason.
+      // The r2Url jpeg is the legacy full-res render from the pre-tile era.
+      // For multi-page PDFs its natural dimensions are LARGER than the per-
+      // page wrap (often 2× the page width), so at fit scale (~0.208) the
+      // img renders ~2500×1700 while wrap is only 1278×851. dv-img-wrap has
+      // no overflow:hidden, so the right half of the img spills past wrap
+      // into the rest of the canvas area — showing content from an adjacent
+      // page as a permanent "ghost" on the right of every page. My S98
+      // visibility-toggle fix hid this during the load gap but then restored
+      // it, so the ghost came back as soon as the new jpeg loaded. The right
+      // architecture is to not load the backdrop at all for tile drawings.
+      //
+      // If tiles fail to load, _openServerTiles's .catch calls onFallbackImage
+      // → _loadImgFallback, which handles its own legacy-img display flow
+      // (viewer.js line ~361). Pin coordinate math uses TiledPdf.getDimensions
+      // not dv-image.naturalWidth, so removing the backdrop is coordinate-safe.
       var img = document.getElementById('dv-image');
       if (img) {
-        var _isTouch = false;
-        try { _isTouch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches; } catch(_){}
-        if (_isTouch){
-          // Blank the backdrop — releases any prior-drawing bitmap
-          if (img.src && img.src !== 'about:blank'){
-            try { img.src = ''; } catch(_){}
-          }
-          // S98: backdrop not used on touch — tiles only. Leave hidden so the
-          // wrap transform-to-scale(1) during _showDrawing can't paint a stale
-          // bitmap at the wrong scale.
-          img.style.visibility = 'hidden';
-        } else {
-          // Desktop: preserve original safety-net behavior
-          var jpegSrc = d.r2Url || d.dataUrl || d.thumb || '';
-          if (jpegSrc) {
-            img.crossOrigin = 'anonymous';
-            img.style.display = 'block';
-            if (img.src !== jpegSrc) {
-              // S98: hide until the new backdrop finishes loading. Without
-              // this, the prior-drawing pixels stay visible during the load
-              // gap + get flash-zoomed by the wrap scale(1) snap.
-              img.onload = function(){ img.style.visibility = 'visible'; img.onload = null; img.onerror = null; };
-              img.onerror = function(){ img.style.visibility = 'visible'; img.onload = null; img.onerror = null; };
-              img.src = jpegSrc;
-            } else {
-              // Same src as before — onload won't fire. Show immediately.
-              img.style.visibility = 'visible';
-            }
-          } else {
-            // No jpeg available — nothing to show, keep hidden (tiles will cover).
-            img.style.visibility = 'hidden';
-          }
+        if (img.src && img.src !== 'about:blank') {
+          try { img.src = ''; } catch(_){}
         }
+        img.style.visibility = 'hidden';
       }
 
       var wrap = document.getElementById('dv-img-wrap');
