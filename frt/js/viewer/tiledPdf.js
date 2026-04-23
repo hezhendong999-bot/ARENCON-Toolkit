@@ -809,20 +809,22 @@ function _startFetch(req, layer) {
       'width:' + fullCssW + 'px;height:' + fullCssH + 'px;' +
       'clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
       '-webkit-clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
-      // S98j EXPERIMENT: image-rendering:crisp-edges (was: auto). Tells the
-      // browser to preserve sharpness through GPU scaling rather than apply
-      // bilinear smoothing — should fix L4 blur at high zooms. Trade-off:
-      // text and antialiased edges may look "harder" / slightly pixelated.
-      // If user dislikes the result, swap back to auto.
-      'image-rendering:crisp-edges;pointer-events:none;' + fadeIn;
+      // S98k: REVERT v98j (crisp-edges was wrong direction). crisp-edges
+      // forces nearest-neighbor/discrete sampling, which is correct for
+      // pixel-art and small icons but destroys detail when downscaling
+      // continuous-tone images like architectural drawings. The L4 blur
+      // Mark reported in v209 was actually crisp-edges throwing away pixel
+      // info during the GPU downscale step. S97 used 'auto' (bilinear/
+      // bicubic) which preserves continuous-tone detail. Restore that.
+      'image-rendering:auto;pointer-events:none;' + fadeIn;
   } else {
     // Interior tile: image content fills the full 512x512 source exactly,
     // so simple sizing is both correct and clip-path-free.
     cssText =
       'position:absolute;left:' + cssL + 'px;top:' + cssT + 'px;' +
       'width:' + cssW + 'px;height:' + cssH + 'px;' +
-      // S98j EXPERIMENT: see edge-tile branch above for rationale.
-      'image-rendering:crisp-edges;pointer-events:none;' + fadeIn;
+      // S98k: REVERT v98j (see edge-tile branch above).
+      'image-rendering:auto;pointer-events:none;' + fadeIn;
   }
   img.style.cssText = cssText;
 
