@@ -168,6 +168,7 @@ if (typeof window !== 'undefined') {
   };
 }
 var _dbg_el = null;
+var _dbg_text_el = null;
 var _dbg_lastEvents = [];
 var _dbg_maxInflight = 0;
 var _dbg_maxTiles = 0;
@@ -238,9 +239,112 @@ function _dbgTick() {
     _dbg_el.style.cssText =
       'position:fixed;left:4px;bottom:4px;z-index:99999;' +
       'background:rgba(0,0,0,0.85);color:#0f0;font:10px/1.2 monospace;' +
-      'padding:4px 6px;border-radius:4px;pointer-events:none;' +
+      'padding:4px 6px;border-radius:4px;pointer-events:auto;' +
       'max-width:80vw;white-space:pre;text-align:left;';
     document.body.appendChild(_dbg_el);
+
+    // S97: Copy button at the top of the green overlay. Clicking gathers BOTH
+    // the periodic tick ring AND the lifecycle ring, formats them, and copies
+    // to clipboard. Replaces the workaround of needing to call _frtLifePeek()
+    // from console — which doesn't exist on iPad without DevTools.
+    var copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.textContent = '\u2398 Copy log';
+    copyBtn.style.cssText =
+      'display:block;width:100%;margin:0 0 4px 0;background:#1A7A4A;color:#fff;' +
+      'border:0;border-radius:3px;padding:4px 6px;font:600 10px/1.2 monospace;' +
+      'cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;';
+    copyBtn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      ev.preventDefault();
+      var lines = ['=== ARENCON FRT — S97 OVERLAY snapshot ==='];
+      lines.push('Captured: ' + new Date().toISOString());
+      lines.push('UA: ' + navigator.userAgent);
+      lines.push('Viewport: ' + window.innerWidth + 'x' + window.innerHeight + '  DPR: ' + (window.devicePixelRatio || 1));
+      lines.push('');
+      lines.push('--- CURRENT LIVE STATE ---');
+      lines.push((_dbg_text_el && _dbg_text_el.textContent) || '(no live state)');
+      lines.push('');
+      // Lifecycle ring
+      try {
+        var life = JSON.parse(localStorage.getItem('_frtS97LifeRing') || '[]');
+        if (life.length) {
+          lines.push('--- LIFECYCLE EVENTS (' + life.length + ') ---');
+          var t0 = life[0].t;
+          life.forEach(function (r) {
+            var rel = String(r.t - t0).padStart(7, ' ');
+            var tag = (r.tag || '').padEnd(25, ' ');
+            var dwg = String(r.drawingId || '-').substring(0, 32).padEnd(32, ' ');
+            var pg = String(r.pageNumber == null ? '-' : r.pageNumber).padStart(3, ' ');
+            var tiles = String(r.tileCount).padStart(5, ' ');
+            var dom = String(r.domChildren).padStart(4, ' ');
+            var mix = JSON.stringify(r.domPageMix || {}).padEnd(20, ' ');
+            var extra = r.extra ? JSON.stringify(r.extra) : '';
+            lines.push('  +' + rel + 'ms ' + tag + ' ' + dwg + ' pg' + pg + ' ' + tiles + ' dom' + dom + ' ' + mix + '  ' + extra);
+          });
+        } else {
+          lines.push('--- LIFECYCLE EVENTS: ring empty ---');
+        }
+      } catch (e) { lines.push('--- LIFECYCLE EVENTS: read failed (' + e.message + ') ---'); }
+      lines.push('');
+      // Tick ring (periodic samples)
+      try {
+        var ticks = JSON.parse(localStorage.getItem('_frtS97DbgRing') || '[]');
+        if (ticks.length) {
+          lines.push('--- PERIODIC SAMPLES (' + ticks.length + ', last 20) ---');
+          var t1 = ticks[0].t;
+          ticks.slice(-20).forEach(function (s) {
+            var rel = String(s.t - t1).padStart(7, ' ');
+            lines.push('  +' + rel + 'ms tiles ' + s.tiles + '/' + s.cap +
+              ' (' + (s.byLevel || '-') + ') mk:' + s.mk + 'M gl:' + s.gl + 'M ~' + s.approxMB + 'MB s:' + s.scale);
+          });
+        }
+      } catch (_) {}
+      var out = lines.join('\n');
+      console.log(out);
+      var done = function (ok) {
+        copyBtn.textContent = ok ? '\u2713 Copied' : '\u2715 Failed';
+        copyBtn.style.background = ok ? '#4caf50' : '#666';
+        setTimeout(function () {
+          copyBtn.textContent = '\u2398 Copy log';
+          copyBtn.style.background = '#1A7A4A';
+        }, 1500);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(out).then(function () { done(true); }, function () {
+          // Textarea fallback
+          try {
+            var ta = document.createElement('textarea');
+            ta.value = out;
+            ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+            document.body.appendChild(ta);
+            ta.focus(); ta.select();
+            var ok = false;
+            try { ok = document.execCommand('copy'); } catch (_) {}
+            document.body.removeChild(ta);
+            done(ok);
+          } catch (_e) { done(false); }
+        });
+      } else {
+        try {
+          var ta2 = document.createElement('textarea');
+          ta2.value = out;
+          ta2.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+          document.body.appendChild(ta2);
+          ta2.focus(); ta2.select();
+          var ok2 = document.execCommand('copy');
+          document.body.removeChild(ta2);
+          done(ok2);
+        } catch (_e) { done(false); }
+      }
+    });
+    _dbg_el.appendChild(copyBtn);
+
+    // The text area below the button — separate element so we can update it
+    // without rebuilding the button each tick.
+    _dbg_text_el = document.createElement('div');
+    _dbg_text_el.style.cssText = 'pointer-events:none;';
+    _dbg_el.appendChild(_dbg_text_el);
   }
   var inflight = 0;
   for (var k in _inflight) if (Object.prototype.hasOwnProperty.call(_inflight, k)) inflight++;
@@ -279,7 +383,7 @@ function _dbgTick() {
   // S97 DIAG: approx MB — each 512x512 decoded tile ~1MB, each canvas px * 4 bytes
   var approxMB = Math.round(_tileCount + mkMpx * 4 + glMpx * 4);
 
-  _dbg_el.textContent =
+  _dbg_text_el.textContent =
     'tiles: ' + _tileCount + '/' + _MAX_TILES + ' peak:' + _dbg_maxTiles + '\n' +
     (lvStr ? 'by lvl: ' + lvStr + '\n' : '') +
     'mk: ' + mkMpx + 'M  gl: ' + glMpx + 'M\n' +
