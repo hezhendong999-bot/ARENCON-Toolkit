@@ -662,8 +662,23 @@ function _pickLevel(viewScale) {
   var levels = _pageInfo.levels;
   var minLevel = (viewScale >= 1) ? Math.min(3, levels.length - 1) : 0;
   var targetW = _drawW * viewScale;
+  // S98h: upscale tolerance. Previously this picked the smallest level where
+  // width >= targetW — i.e. the next level up the moment targetW exceeded the
+  // current level's width by even one pixel. That created a visual cliff at
+  // every level boundary: at viewScale=1.01, L3 (width 6144) was skipped in
+  // favor of L4 (width 12288), and each L4 tile rendered at visual 259 for
+  // a 512-pixel source — a 2x downsample = significant blur. L3 at that same
+  // zoom would've been ~native (visual 517 vs 512 source). Mark reported as
+  // "L4 worse than L3".
+  //
+  // Fix: tolerate up to 1.4x upscale on the current level before jumping to
+  // the next. A 1.4x upscale of a 512 source (visual ~717) has noticeable
+  // softening but far less than the old 2x-downscale alternative. At the
+  // new crossover (viewScale 1.4 for Caplink L3->L4), L4 tiles render at
+  // visual 358 — a 1.43x downsample. Close to even, cleaner than before.
+  var TOLERANCE = 1.4;
   for (var i = minLevel; i < levels.length; i++) {
-    if (levels[i].width >= targetW) return i;
+    if (levels[i].width * TOLERANCE >= targetW) return i;
   }
   return levels.length - 1;
 }
