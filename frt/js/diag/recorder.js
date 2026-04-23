@@ -1,45 +1,36 @@
 // frt/js/diag/recorder.js
-// S97 — Session recorder for diagnosing viewer bugs.
+// S97 — SLIM session recorder (v2). Text only, no screenshots.
 //
-// Captures EVERYTHING that happens during a recording session:
-//   - Every console.log / warn / error (patched at module load)
-//   - Every mutation of #dv-tiles-layer (tile append/remove/opacity changes)
-//   - Every <img src=> assignment on #dv-image and tile <img>s
-//   - Every transform change on #dv-img-wrap (rAF-sampled, 60 Hz max)
-//   - Every scale/zoom change reported by TiledPdf.getViewState()
-//   - Every DOMContentLoaded / resize / visibilitychange / orientationchange
-//   - Every Pixi.js init / destroy event (via console hooks)
-//   - Every Markup.init / destroy event
-//   - Every existing _dbgLife event (piggy-backs on _frtS97LifeRing)
-//   - Periodic memory snapshots every 500ms (tile count, canvas sizes, MB)
-//   - html2canvas thumbnails at every "milestone" event (page open, level
-//     change, zoom end) — captured async at ~400px wide, base64 stored
+// Previous version exported 1-10 MB of JSON including base64 PNG thumbnails,
+// which exceeded what the user could paste into chat in one go. This version:
+//
+//   - NO screenshots / NO html2canvas (saves ~45 KB dependency + all base64)
+//   - Aggregates tile DOM mutations into counters, not per-tile events
+//   - Deduplicates identical consecutive events
+//   - Caps total text output at ~60 KB (fits comfortably in a chat message)
+//   - Emits a plain-text report, not JSON, for copy-paste readability
+//
+// What still gets captured:
+//   - Every console.log / warn / error with truncated arguments
+//   - Lifecycle events mirrored from _dbgLife ring (open/close/level/purge)
+//   - Pointer gestures aggregated: touch sessions summarized as one event each
+//   - Window events (resize, visibility, orientationchange)
+//   - Periodic 500ms sampler: tile DOM count, per-level tile mix, canvas sizes,
+//     JS heap if available — only emits when something changed since last tick
+//   - Transform changes on dv-img-wrap (rAF-sampled, dedup on identical value)
+//   - MutationObserver summaries: aggregated counts per 500ms bucket, not
+//     individual tile add/remove events
 //
 // Usage:
-//   1. User opens FRT with ?dbg=1 (or _frtDbg='1' in localStorage)
-//   2. Green panel has "⚫ Record" button — click to start a session
-//   3. User reproduces bug
-//   4. Click "⏹ Stop" — recording finalizes
-//   5. Click "📋 Export" — single JSON blob copied to clipboard with
-//      everything including base64 thumbnail images
-//
-// Output format (v1):
-//   {
-//     sessionId: "rec_1776914...",
-//     startedAt: 1776914...,
-//     stoppedAt: 1776914...,
-//     ua: "...",
-//     viewport: {w, h, dpr},
-//     events: [ { t, type, ...payload }, ... ],
-//     thumbs: { <event_idx>: "data:image/png;base64,..." },
-//     lifecycleRing: [ ... ], // snapshot of _frtS97LifeRing at stop
-//     periodicRing: [ ... ],  // snapshot of _frtS97DbgRing at stop
-//   }
+//   1. Visit with ?dbg=1 (or call _frtDbgOn())
+//   2. Floating dark panel appears bottom-right. Click ⚫ Record
+//   3. Reproduce the bug
+//   4. Click ⏹ Stop, then 📋 Copy
+//   5. Paste text into chat
 
 (function () {
   'use strict';
 
-  // Gate: only activate if dbg flag is set (URL or localStorage)
   var _enabled = false;
   try {
     _enabled = /[?&]dbg=1\b/.test(window.location.search || '') ||
@@ -51,172 +42,185 @@
   var _recording = false;
   var _sessionId = null;
   var _startedAt = 0;
-  var _events = [];
-  var _thumbs = {};
+  var _events = [];             // aggregated event log
   var _rafHandle = null;
   var _periodicTimer = null;
   var _lastTransform = null;
   var _lastScale = null;
   var _mutObserver = null;
-  var _html2canvasLoaded = false;
-  var _html2canvasLoading = null;
-  var _thumbsPending = 0;
+  var _mutBucket = null;        // { add, remove, attr } aggregated per flush interval
+  var _lastPeriodicHash = '';   // dedup identical consecutive periodic samples
+  var _lastLifeSeen = 0;
 
-  // Saved originals for unpatching on stop
+  // Caps
+  var MAX_EVENTS = 3000;        // hard stop — beyond this we drop events
+  var MAX_REPORT_CHARS = 60000; // ~60 KB output ceiling
+  var MUT_FLUSH_MS = 500;       // aggregate mutations every 500ms
+
+  // Saved originals for unpatching
   var _origConsole = {};
-  var _origImgSrcDescriptor = null;
   var _consolePatched = false;
-
-  var MAX_EVENTS = 20000;         // hard cap to keep memory sane
-  var MAX_THUMB_INTERVAL_MS = 250; // minimum gap between thumbnails
-  var THUMB_WIDTH = 480;          // target thumbnail width in px
-  var _lastThumbAt = 0;
+  var _winListeners = [];
+  var _mutFlushTimer = null;
 
   // ── Helpers ──────────────────────────────────────────────────────────────
   function _now() { return Date.now(); }
   function _rel() { return _now() - _startedAt; }
 
   function _push(type, payload) {
-    if (!_recording || _events.length >= MAX_EVENTS) return -1;
-    var idx = _events.length;
+    if (!_recording || _events.length >= MAX_EVENTS) return;
+    // Dedup identical consecutive entries (same type + same payload JSON)
     var rec = { t: _rel(), type: type };
     if (payload != null) rec.d = payload;
+    var last = _events[_events.length - 1];
+    if (last && last.type === type) {
+      try {
+        if (JSON.stringify(last.d) === JSON.stringify(payload)) {
+          last._dup = (last._dup || 1) + 1;
+          last.tEnd = rec.t;
+          return;
+        }
+      } catch (_) {}
+    }
     _events.push(rec);
-    return idx;
   }
 
-  function _safeStringify(v) {
+  function _str(v, cap) {
+    cap = cap || 160;
     try {
       if (v == null) return String(v);
-      if (typeof v === 'string') return v.length > 500 ? v.substring(0, 500) + '…' : v;
+      if (typeof v === 'string') return v.length > cap ? v.substring(0, cap) + '…' : v;
       if (typeof v === 'number' || typeof v === 'boolean') return v;
-      if (v instanceof Error) return { err: v.message, stack: (v.stack || '').substring(0, 500) };
+      if (v instanceof Error) return 'ERR:' + (v.message || '?');
       if (v instanceof HTMLElement) {
-        return {
-          tag: v.tagName, id: v.id || null, cls: v.className || null,
-          src: (v.src || '').replace(/^.*\/tiles\//, '…/tiles/').substring(0, 200),
-          w: v.width || null, h: v.height || null,
-          opacity: v.style && v.style.opacity
-        };
+        return '<' + v.tagName +
+          (v.id ? '#' + v.id : '') +
+          (v.src ? ' src=' + shortUrl(v.src) : '') + '>';
       }
-      // Generic object — truncate via JSON roundtrip
       var s = JSON.stringify(v);
-      return s.length > 800 ? JSON.parse(s.substring(0, 795) + '"}') : v;
-    } catch (_) { return String(v); }
+      return s.length > cap ? s.substring(0, cap) + '…' : s;
+    } catch (_) { return '?'; }
   }
 
-  // ── Console hooks ────────────────────────────────────────────────────────
+  function shortUrl(u) {
+    if (!u) return '';
+    // Strip long prefixes, keep the distinguishing suffix
+    var m = u.match(/\/tiles\/[^/]*\/(page-\d+\/level-\d+\/[^/?]+)/);
+    if (m) return '…' + m[1];
+    var n = u.match(/\/photos\/.*\/([^/?]+)$/);
+    if (n) return '…/' + n[1];
+    return u.length > 80 ? '…' + u.substring(u.length - 60) : u;
+  }
+
+  // ── Console patch ────────────────────────────────────────────────────────
   function _patchConsole() {
     if (_consolePatched) return;
-    ['log', 'warn', 'error', 'info', 'debug'].forEach(function (level) {
+    ['log', 'warn', 'error'].forEach(function (level) {
       _origConsole[level] = console[level];
       console[level] = function () {
         try {
-          var args = Array.prototype.slice.call(arguments).map(_safeStringify);
-          _push('console.' + level, args);
+          var parts = [];
+          var cap = arguments.length > 3 ? 3 : arguments.length;
+          for (var i = 0; i < cap; i++) parts.push(_str(arguments[i], 120));
+          _push('c.' + level[0], parts.join(' '));
         } catch (_) {}
         return _origConsole[level].apply(console, arguments);
       };
     });
     _consolePatched = true;
   }
-
   function _unpatchConsole() {
     if (!_consolePatched) return;
-    ['log', 'warn', 'error', 'info', 'debug'].forEach(function (level) {
+    ['log', 'warn', 'error'].forEach(function (level) {
       if (_origConsole[level]) console[level] = _origConsole[level];
     });
     _origConsole = {};
     _consolePatched = false;
   }
 
-  // ── MutationObserver on dv-tiles-layer and dv-image parent ───────────────
+  // ── MutationObserver with aggregation ────────────────────────────────────
+  function _newBucket() { return { add: 0, remove: 0, attr: 0, addSample: [], remSample: [] }; }
+
+  function _flushMutBucket() {
+    if (!_mutBucket) return;
+    var b = _mutBucket;
+    if (b.add || b.remove || b.attr) {
+      var payload = { a: b.add, r: b.remove, ch: b.attr };
+      if (b.addSample.length) payload.as = b.addSample.slice(0, 2);
+      if (b.remSample.length) payload.rs = b.remSample.slice(0, 2);
+      _push('dom', payload);
+    }
+    _mutBucket = _newBucket();
+  }
+
   function _startMutationObserver() {
     var area = document.getElementById('dv-canvas-area');
     if (!area) return;
+    _mutBucket = _newBucket();
     _mutObserver = new MutationObserver(function (mutations) {
+      if (!_recording) return;
       mutations.forEach(function (m) {
         if (m.type === 'childList') {
           for (var i = 0; i < m.addedNodes.length; i++) {
             var n = m.addedNodes[i];
             if (n.nodeType === 1) {
-              _push('dom:add', {
-                parent: m.target.id || m.target.tagName,
-                tag: n.tagName,
-                id: n.id || null,
-                src: n.src ? n.src.replace(/^.*\/tiles\//, '…/tiles/').substring(0, 120) : null,
-                w: n.width, h: n.height,
-                style: (n.style && n.style.cssText) ? n.style.cssText.substring(0, 200) : null
-              });
+              _mutBucket.add++;
+              if (_mutBucket.addSample.length < 2) {
+                _mutBucket.addSample.push(n.tagName + (n.src ? ' ' + shortUrl(n.src) : n.id ? '#' + n.id : ''));
+              }
             }
           }
           for (var j = 0; j < m.removedNodes.length; j++) {
             var r = m.removedNodes[j];
             if (r.nodeType === 1) {
-              _push('dom:remove', {
-                parent: m.target.id || m.target.tagName,
-                tag: r.tagName,
-                id: r.id || null,
-                src: r.src ? r.src.replace(/^.*\/tiles\//, '…/tiles/').substring(0, 120) : null
-              });
+              _mutBucket.remove++;
+              if (_mutBucket.remSample.length < 2) {
+                _mutBucket.remSample.push(r.tagName + (r.src ? ' ' + shortUrl(r.src) : r.id ? '#' + r.id : ''));
+              }
             }
           }
         } else if (m.type === 'attributes') {
-          var tgt = m.target;
-          var val = tgt.getAttribute(m.attributeName);
-          _push('dom:attr', {
-            tag: tgt.tagName,
-            id: tgt.id || null,
-            attr: m.attributeName,
-            oldValue: (m.oldValue || '').substring(0, 120),
-            newValue: (val || '').substring(0, 120)
-          });
+          _mutBucket.attr++;
         }
       });
     });
     _mutObserver.observe(area, {
       childList: true, subtree: true,
-      attributes: true, attributeOldValue: true,
-      attributeFilter: ['src', 'style', 'class', 'opacity', 'transform']
+      attributes: true,
+      attributeFilter: ['src', 'style', 'class']
     });
+    _mutFlushTimer = setInterval(_flushMutBucket, MUT_FLUSH_MS);
   }
-
   function _stopMutationObserver() {
+    if (_mutFlushTimer) { clearInterval(_mutFlushTimer); _mutFlushTimer = null; }
+    _flushMutBucket();
     if (_mutObserver) { _mutObserver.disconnect(); _mutObserver = null; }
+    _mutBucket = null;
   }
 
   // ── rAF sampler for transform + scale ────────────────────────────────────
   function _rafSample() {
     if (!_recording) return;
     _rafHandle = requestAnimationFrame(_rafSample);
-
     try {
       var wrap = document.getElementById('dv-img-wrap');
-      if (wrap) {
-        var t = wrap.style.transform || '';
-        if (t !== _lastTransform) {
-          _push('view:transform', { transform: t });
-          _lastTransform = t;
+      if (!wrap) return;
+      var t = wrap.style.transform || '';
+      if (t !== _lastTransform) {
+        var m = t.match(/scale\(([\d.]+)\)/);
+        var scale = m ? parseFloat(m[1]) : null;
+        // Only log transform on scale change or on large pan (not every pixel)
+        if (scale !== _lastScale) {
+          _push('view', { s: scale == null ? null : +scale.toFixed(3) });
+          _lastScale = scale;
         }
-      }
-      // Scale from TiledPdf state (exported on window if we're in dbg mode)
-      var tp = window._frt && window._frt.TiledPdf;
-      // Fallback: parse scale from the transform string
-      if (wrap) {
-        var m = (_lastTransform || '').match(/scale\(([\d.]+)\)/);
-        if (m) {
-          var s = parseFloat(m[1]);
-          if (s !== _lastScale) {
-            _push('view:scale', { scale: s });
-            _lastScale = s;
-          }
-        }
+        _lastTransform = t;
       }
     } catch (_) {}
   }
 
-  // ── Periodic memory snapshot ─────────────────────────────────────────────
-  function _snapshotMemory() {
+  // ── Periodic snapshot (dedup on hash) ────────────────────────────────────
+  function _snapshot() {
     if (!_recording) return;
     try {
       var layer = document.getElementById('dv-tiles-layer');
@@ -224,98 +228,35 @@
       var wc = document.getElementById('markup-webgl-canvas');
       var dvi = document.getElementById('dv-image');
       var kids = layer ? layer.children : [];
-      var pageMix = {};
+      var mix = {};
       for (var i = 0; i < kids.length; i++) {
         var src = kids[i].src || '';
-        var m = src.match(/\/page-(\d+)\//);
+        var pm = src.match(/\/page-(\d+)\//);
         var lm = src.match(/\/level-(\d+)\//);
-        var key = (m ? 'p' + m[1] : 'p?') + '_' + (lm ? 'L' + lm[1] : 'L?');
-        pageMix[key] = (pageMix[key] || 0) + 1;
+        var k = (pm ? 'p' + pm[1] : 'p?') + 'L' + (lm ? lm[1] : '?');
+        mix[k] = (mix[k] || 0) + 1;
       }
-      _push('mem:snap', {
-        tileDomCount: kids.length,
-        tilePageLevelMix: pageMix,
-        mc: mc ? { w: mc.width, h: mc.height } : null,
-        wc: wc ? { w: wc.width, h: wc.height } : null,
-        dvImage: dvi ? {
-          src: (dvi.src || '').substring(0, 200),
-          display: getComputedStyle(dvi).display,
-          opacity: getComputedStyle(dvi).opacity,
-          natural: { w: dvi.naturalWidth, h: dvi.naturalHeight }
-        } : null,
-        perf_memory: (performance && performance.memory) ? {
-          used: Math.round(performance.memory.usedJSHeapSize / 1048576),
-          total: Math.round(performance.memory.totalJSHeapSize / 1048576),
-          limit: Math.round(performance.memory.jsHeapSizeLimit / 1048576)
-        } : null
-      });
+      var snap = {
+        n: kids.length,
+        mix: mix,
+        mc: mc ? (mc.width + 'x' + mc.height) : '-',
+        wc: wc ? (wc.width + 'x' + wc.height) : '-',
+        bg: dvi ? (dvi.src ? 'set' : 'blank') : '-',
+        bgD: dvi ? getComputedStyle(dvi).display : '-'
+      };
+      if (performance && performance.memory) {
+        snap.heap = Math.round(performance.memory.usedJSHeapSize / 1048576);
+      }
+      var hash = JSON.stringify(snap);
+      if (hash !== _lastPeriodicHash) {
+        _push('snap', snap);
+        _lastPeriodicHash = hash;
+      }
     } catch (_) {}
   }
 
-  // ── html2canvas thumbnail ─────────────────────────────────────────────────
-  function _loadHtml2Canvas() {
-    if (_html2canvasLoaded) return Promise.resolve();
-    if (_html2canvasLoading) return _html2canvasLoading;
-    _html2canvasLoading = new Promise(function (resolve, reject) {
-      var s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-      s.onload = function () { _html2canvasLoaded = true; resolve(); };
-      s.onerror = function () { reject(new Error('html2canvas load failed')); };
-      document.head.appendChild(s);
-    });
-    return _html2canvasLoading;
-  }
-
-  function _captureThumb(eventIdx, tag) {
-    if (!_recording) return;
-    if (_now() - _lastThumbAt < MAX_THUMB_INTERVAL_MS) return;
-    if (_thumbsPending >= 3) return; // back-pressure
-    _lastThumbAt = _now();
-    _thumbsPending++;
-
-    _loadHtml2Canvas().then(function () {
-      if (!_recording) { _thumbsPending--; return; }
-      var target = document.getElementById('dv-canvas-area') || document.body;
-      // html2canvas options tuned for thumbnail, not fidelity
-      window.html2canvas(target, {
-        scale: Math.min(1, THUMB_WIDTH / target.clientWidth),
-        backgroundColor: '#000',
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-        imageTimeout: 800,
-        ignoreElements: function (el) {
-          // Skip the dbg overlay and anything marked as diag-hidden
-          return (el.id === 'dbg-overlay' ||
-                  el.id === 's97-crash-report' ||
-                  el.id === 's97-recorder-panel' ||
-                  el.classList.contains('diag-hidden'));
-        }
-      }).then(function (canvas) {
-        if (!_recording) { _thumbsPending--; return; }
-        try {
-          var dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-          _thumbs[eventIdx] = dataUrl;
-          _push('thumb:ok', { forEvent: eventIdx, tag: tag, sizeKB: Math.round(dataUrl.length / 1024) });
-        } catch (e) {
-          _push('thumb:err', { forEvent: eventIdx, err: e.message });
-        }
-        _thumbsPending--;
-      }).catch(function (e) {
-        _push('thumb:err', { forEvent: eventIdx, err: e.message });
-        _thumbsPending--;
-      });
-    }).catch(function (e) {
-      _push('thumb:loadErr', { err: e.message });
-      _thumbsPending--;
-    });
-  }
-
-  // ── Milestone detector (piggy-back on _dbgLife via localStorage ring) ────
-  // We can't hook into tiledPdf.js from outside, so we poll the life ring
-  // and mirror new events. Trigger thumbnails on significant ones.
-  var _lastLifeSeen = 0;
-  function _pollLifeRing() {
+  // ── Lifecycle ring mirror ────────────────────────────────────────────────
+  function _pollLife() {
     if (!_recording) return;
     try {
       var ring = JSON.parse(localStorage.getItem('_frtS97LifeRing') || '[]');
@@ -323,56 +264,56 @@
         var r = ring[i];
         if (r.t <= _lastLifeSeen) continue;
         _lastLifeSeen = r.t;
-        var idx = _push('life', r);
-        // Trigger a thumbnail for visual milestones only
-        if (r.tag === 'open:manifest-applied' ||
-            r.tag === 'level-change' ||
-            r.tag === 'close:end') {
-          _captureThumb(idx, r.tag);
-        }
+        var payload = {
+          tag: r.tag,
+          dwg: r.drawingId ? r.drawingId.substring(r.drawingId.length - 14) : '-',
+          pg: r.pageNumber
+        };
+        if (r.extra) payload.x = r.extra;
+        _push('life', payload);
       }
     } catch (_) {}
   }
 
-  // ── Window-level event hooks ─────────────────────────────────────────────
-  var _winListeners = [];
+  // ── Window events ────────────────────────────────────────────────────────
   function _hookWindowEvents() {
-    var evts = ['resize', 'orientationchange', 'visibilitychange', 'pagehide', 'pageshow', 'online', 'offline'];
-    evts.forEach(function (name) {
-      var fn = function (e) {
-        _push('win:' + name, {
+    ['resize', 'orientationchange', 'visibilitychange'].forEach(function (name) {
+      var fn = function () {
+        _push('win.' + name, {
           w: window.innerWidth, h: window.innerHeight,
-          dpr: window.devicePixelRatio,
           hidden: document.hidden
         });
       };
       window.addEventListener(name, fn, true);
-      _winListeners.push({ name: name, fn: fn });
+      _winListeners.push({ target: window, name: name, fn: fn });
     });
-    // Scroll/pointer gestures on canvas area
+    // Pointer gestures aggregated per session
     var area = document.getElementById('dv-canvas-area');
     if (area) {
-      var ptrEvts = ['touchstart', 'touchmove', 'touchend', 'pointerdown', 'pointerup', 'wheel', 'gesturestart', 'gesturechange', 'gestureend'];
-      ptrEvts.forEach(function (name) {
-        var fn = function (e) {
-          var touches = e.touches ? e.touches.length : 0;
-          _push('ptr:' + name, {
-            touches: touches,
-            scale: e.scale || null,
-            rotation: e.rotation || null,
-            clientX: e.clientX || (e.touches && e.touches[0] && e.touches[0].clientX) || null,
-            clientY: e.clientY || (e.touches && e.touches[0] && e.touches[0].clientY) || null
-          });
-        };
-        area.addEventListener(name, fn, { passive: true, capture: true });
-        _winListeners.push({ name: name, fn: fn, target: area });
+      var gestureStart = null;
+      var gestureFn = function (e) {
+        if (e.type === 'gesturestart' || e.type === 'touchstart') {
+          gestureStart = { t: _rel(), touches: (e.touches && e.touches.length) || 1 };
+        } else if (e.type === 'gestureend' || e.type === 'touchend') {
+          if (gestureStart) {
+            _push('gesture', {
+              touches: gestureStart.touches,
+              dur: _rel() - gestureStart.t,
+              scale: e.scale != null ? +e.scale.toFixed(2) : null
+            });
+            gestureStart = null;
+          }
+        }
+      };
+      ['gesturestart', 'gestureend', 'touchstart', 'touchend'].forEach(function (name) {
+        area.addEventListener(name, gestureFn, { passive: true, capture: true });
+        _winListeners.push({ target: area, name: name, fn: gestureFn });
       });
     }
   }
-
   function _unhookWindowEvents() {
     _winListeners.forEach(function (l) {
-      (l.target || window).removeEventListener(l.name, l.fn, true);
+      try { l.target.removeEventListener(l.name, l.fn, true); } catch (_) {}
     });
     _winListeners = [];
   }
@@ -381,29 +322,21 @@
   function start() {
     if (_recording) return;
     _recording = true;
-    _sessionId = 'rec_' + _now() + '_' + Math.random().toString(36).slice(2, 6);
+    _sessionId = 'r' + (_now() % 100000).toString(36);
     _startedAt = _now();
     _events = [];
-    _thumbs = {};
     _lastTransform = null;
     _lastScale = null;
     _lastLifeSeen = 0;
-    _lastThumbAt = 0;
-    _thumbsPending = 0;
+    _lastPeriodicHash = '';
 
-    _push('session:start', {
-      sessionId: _sessionId,
-      ua: navigator.userAgent,
-      viewport: { w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio }
+    _push('start', {
+      ua: _str(navigator.userAgent, 120),
+      w: window.innerWidth, h: window.innerHeight,
+      dpr: window.devicePixelRatio,
+      url: shortUrl(window.location.href)
     });
-
-    // Initial full memory snapshot
-    _snapshotMemory();
-
-    // Capture one thumbnail immediately so we have a baseline
-    _loadHtml2Canvas().then(function () {
-      if (_recording) _captureThumb(_events.length - 1, 'baseline');
-    });
+    _snapshot();
 
     _patchConsole();
     _startMutationObserver();
@@ -411,101 +344,91 @@
 
     _rafHandle = requestAnimationFrame(_rafSample);
     _periodicTimer = setInterval(function () {
-      _snapshotMemory();
-      _pollLifeRing();
+      _snapshot();
+      _pollLife();
     }, 500);
 
     console.log('%c[REC] START ' + _sessionId, 'color:#fff;background:#c00;padding:2px 6px');
-    _updatePanelState();
+    _updatePanel();
   }
 
   function stop() {
     if (!_recording) return;
-
-    _push('session:stop', {
-      eventCount: _events.length,
-      thumbCount: Object.keys(_thumbs).length,
-      thumbsPending: _thumbsPending
-    });
-
+    _push('stop', { n: _events.length });
     _recording = false;
-
     if (_rafHandle) { cancelAnimationFrame(_rafHandle); _rafHandle = null; }
     if (_periodicTimer) { clearInterval(_periodicTimer); _periodicTimer = null; }
     _stopMutationObserver();
     _unhookWindowEvents();
     _unpatchConsole();
-
-    console.log('%c[REC] STOP  ' + _sessionId + '  events=' + _events.length + '  thumbs=' + Object.keys(_thumbs).length, 'color:#fff;background:#060;padding:2px 6px');
-    _updatePanelState();
+    console.log('%c[REC] STOP ' + _sessionId + ' events=' + _events.length,
+      'color:#fff;background:#060;padding:2px 6px');
+    _updatePanel();
   }
 
-  function buildExport() {
-    return {
-      sessionId: _sessionId,
-      startedAt: _startedAt,
-      stoppedAt: _now(),
-      durationMs: _now() - _startedAt,
-      ua: navigator.userAgent,
-      viewport: {
-        w: window.innerWidth,
-        h: window.innerHeight,
-        dpr: window.devicePixelRatio
-      },
-      url: window.location.href,
-      eventCount: _events.length,
-      thumbCount: Object.keys(_thumbs).length,
-      events: _events,
-      thumbs: _thumbs,
-      lifecycleRing: (function () {
-        try { return JSON.parse(localStorage.getItem('_frtS97LifeRing') || '[]'); }
-        catch (_) { return null; }
-      })(),
-      periodicRing: (function () {
-        try { return JSON.parse(localStorage.getItem('_frtS97DbgRing') || '[]'); }
-        catch (_) { return null; }
-      })()
-    };
+  // ── Report builder (plain text, not JSON) ────────────────────────────────
+  function _buildReport() {
+    var lines = [];
+    lines.push('=== ARENCON FRT S97 recording ' + _sessionId + ' ===');
+    lines.push('UA: ' + (navigator.userAgent || '').substring(0, 120));
+    lines.push('Viewport: ' + window.innerWidth + 'x' + window.innerHeight + ' DPR:' + window.devicePixelRatio);
+    lines.push('Duration: ' + Math.round((_now() - _startedAt) / 1000) + 's, ' + _events.length + ' events');
+    lines.push('');
+
+    // One event per line, compact format
+    for (var i = 0; i < _events.length; i++) {
+      var e = _events[i];
+      var time = e.t < 10000 ? ('+' + e.t + 'ms') : ('+' + (e.t / 1000).toFixed(1) + 's');
+      var pad = (time + '        ').substring(0, 8);
+      var tag = (e.type + '        ').substring(0, 8);
+      var body = '';
+      if (e.d != null) {
+        if (typeof e.d === 'string') body = e.d;
+        else {
+          try { body = JSON.stringify(e.d); } catch (_) { body = '?'; }
+        }
+      }
+      var dup = e._dup ? ' x' + e._dup : '';
+      var line = pad + ' ' + tag + ' ' + body + dup;
+      // Per-line truncation to ensure a runaway event can't explode the report
+      if (line.length > 240) line = line.substring(0, 237) + '…';
+      lines.push(line);
+      // Stop before we blow the cap
+      if (lines.join('\n').length > MAX_REPORT_CHARS - 200) {
+        lines.push('… [' + (_events.length - i - 1) + ' more events truncated to fit ' + MAX_REPORT_CHARS + ' char cap]');
+        break;
+      }
+    }
+    return lines.join('\n');
   }
 
-  function exportToClipboard() {
-    var data = buildExport();
-    // Compact JSON — one line, no indentation (smaller)
-    var json = JSON.stringify(data);
-    var ok = function (result) {
-      console.log('%c[REC] EXPORT  ' + Math.round(json.length / 1024) + ' KB  ' +
-        data.events.length + ' events  ' + data.thumbCount + ' thumbs  ' +
-        (result ? 'copied ✓' : 'copy failed'),
-        'color:#fff;background:#c5a000;padding:2px 6px');
-      _updatePanelState(result ? 'Exported ✓' : 'Copy failed');
+  function copyToClipboard() {
+    var text = _buildReport();
+    console.log(text);
+    var done = function (ok) {
+      _setStatus(ok ? ('Copied ✓ ' + Math.round(text.length / 1024) + 'KB') : 'Copy failed');
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(json).then(function () { ok(true); }, function () {
-        // Fallback to textarea
-        try {
-          var ta = document.createElement('textarea');
-          ta.value = json;
-          ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
-          document.body.appendChild(ta);
-          ta.focus(); ta.select();
-          var done = false;
-          try { done = document.execCommand('copy'); } catch (_) {}
-          document.body.removeChild(ta);
-          ok(done);
-        } catch (_) { ok(false); }
+      navigator.clipboard.writeText(text).then(function () { done(true); }, function () {
+        _fallbackCopy(text, done);
       });
     } else {
-      try {
-        var ta2 = document.createElement('textarea');
-        ta2.value = json;
-        ta2.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
-        document.body.appendChild(ta2);
-        ta2.focus(); ta2.select();
-        var done2 = document.execCommand('copy');
-        document.body.removeChild(ta2);
-        ok(done2);
-      } catch (_) { ok(false); }
+      _fallbackCopy(text, done);
     }
+  }
+
+  function _fallbackCopy(text, done) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (_) {}
+      document.body.removeChild(ta);
+      done(ok);
+    } catch (_) { done(false); }
   }
 
   // ── UI panel ─────────────────────────────────────────────────────────────
@@ -516,49 +439,33 @@
     if (_panel) return;
     _panel = document.createElement('div');
     _panel.id = 's97-recorder-panel';
-    _panel.className = 'diag-hidden'; // exclude from html2canvas captures
+    _panel.className = 'diag-hidden';
     _panel.style.cssText =
       'position:fixed;right:8px;bottom:8px;z-index:99998;' +
       'background:rgba(30,30,30,0.95);color:#fff;font:11px/1.3 -apple-system,system-ui,sans-serif;' +
       'padding:8px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.5);' +
-      'display:flex;flex-direction:column;gap:6px;min-width:160px;' +
+      'display:flex;flex-direction:column;gap:6px;min-width:150px;' +
       '-webkit-tap-highlight-color:transparent;';
 
     var title = document.createElement('div');
-    title.textContent = 'S97 Recorder';
+    title.textContent = 'S97 Recorder (slim)';
     title.style.cssText = 'font-weight:700;font-size:10px;opacity:0.7;letter-spacing:0.5px;';
     _panel.appendChild(title);
 
     var btnRow = document.createElement('div');
     btnRow.style.cssText = 'display:flex;gap:4px;';
 
-    var btnStart = document.createElement('button');
-    btnStart.type = 'button';
-    btnStart.id = 's97-rec-start';
-    btnStart.textContent = '\u26AB Record';
-    btnStart.style.cssText = _btnStyle('#c0392b');
-    btnStart.addEventListener('click', function (e) { e.stopPropagation(); start(); });
+    var btnStart = _mkBtn('s97-rec-start', '\u26AB Record', '#c0392b', function () { start(); });
     btnRow.appendChild(btnStart);
-
-    var btnStop = document.createElement('button');
-    btnStop.type = 'button';
-    btnStop.id = 's97-rec-stop';
-    btnStop.textContent = '\u23F9 Stop';
-    btnStop.style.cssText = _btnStyle('#555');
+    var btnStop = _mkBtn('s97-rec-stop', '\u23F9 Stop', '#555', function () { stop(); });
     btnStop.disabled = true;
-    btnStop.addEventListener('click', function (e) { e.stopPropagation(); stop(); });
     btnRow.appendChild(btnStop);
-
     _panel.appendChild(btnRow);
 
-    var btnExport = document.createElement('button');
-    btnExport.type = 'button';
-    btnExport.id = 's97-rec-export';
-    btnExport.textContent = '\uD83D\uDCCB Export to clipboard';
-    btnExport.style.cssText = _btnStyle('#2c7cb0') + 'width:100%;';
-    btnExport.disabled = true;
-    btnExport.addEventListener('click', function (e) { e.stopPropagation(); exportToClipboard(); });
-    _panel.appendChild(btnExport);
+    var btnCopy = _mkBtn('s97-rec-copy', '\uD83D\uDCCB Copy', '#2c7cb0', function () { copyToClipboard(); });
+    btnCopy.style.width = '100%';
+    btnCopy.disabled = true;
+    _panel.appendChild(btnCopy);
 
     _statusEl = document.createElement('div');
     _statusEl.id = 's97-rec-status';
@@ -568,78 +475,58 @@
 
     document.body.appendChild(_panel);
 
-    // Update status every 250ms while recording
     setInterval(function () {
       if (_recording && _statusEl) {
-        _statusEl.textContent =
-          'REC \u2022 ' + Math.round((_now() - _startedAt) / 1000) + 's  ' +
-          _events.length + ' events  ' +
-          Object.keys(_thumbs).length + ' thumbs' +
-          (_thumbsPending ? ' (' + _thumbsPending + ' pending)' : '');
+        _statusEl.textContent = 'REC ' + Math.round((_now() - _startedAt) / 1000) + 's  ' +
+          _events.length + '/' + MAX_EVENTS + ' events';
       }
     }, 250);
   }
 
-  function _btnStyle(bg) {
-    return 'background:' + bg + ';color:#fff;border:0;border-radius:4px;' +
+  function _mkBtn(id, label, bg, onclick) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.id = id; b.textContent = label;
+    b.style.cssText = 'background:' + bg + ';color:#fff;border:0;border-radius:4px;' +
       'padding:6px 10px;font:600 11px/1 -apple-system,system-ui,sans-serif;' +
-      'cursor:pointer;flex:1;' +
-      '-webkit-tap-highlight-color:transparent;touch-action:manipulation;';
+      'cursor:pointer;flex:1;-webkit-tap-highlight-color:transparent;touch-action:manipulation;';
+    b.addEventListener('click', function (e) { e.stopPropagation(); onclick(); });
+    return b;
   }
 
-  function _updatePanelState(overrideMsg) {
-    if (!_panel) return;
-    var btnStart = document.getElementById('s97-rec-start');
-    var btnStop = document.getElementById('s97-rec-stop');
-    var btnExport = document.getElementById('s97-rec-export');
-    if (btnStart) {
-      btnStart.disabled = _recording;
-      btnStart.style.opacity = _recording ? '0.5' : '1';
-    }
-    if (btnStop) {
-      btnStop.disabled = !_recording;
-      btnStop.style.opacity = _recording ? '1' : '0.5';
-      btnStop.style.background = _recording ? '#c0392b' : '#555';
-    }
-    if (btnExport) {
-      btnExport.disabled = _recording || _events.length === 0;
-      btnExport.style.opacity = btnExport.disabled ? '0.5' : '1';
-    }
+  function _updatePanel() {
+    var start_ = document.getElementById('s97-rec-start');
+    var stop_ = document.getElementById('s97-rec-stop');
+    var copy_ = document.getElementById('s97-rec-copy');
+    if (start_) { start_.disabled = _recording; start_.style.opacity = _recording ? '0.5' : '1'; }
+    if (stop_) { stop_.disabled = !_recording; stop_.style.opacity = _recording ? '1' : '0.5'; }
+    if (copy_) { copy_.disabled = _recording || _events.length === 0; copy_.style.opacity = copy_.disabled ? '0.5' : '1'; }
     if (_statusEl) {
-      if (overrideMsg) {
-        _statusEl.textContent = overrideMsg;
-      } else if (_recording) {
-        _statusEl.textContent = 'REC \u2022 starting...';
-      } else if (_events.length > 0) {
-        _statusEl.textContent = 'Stopped \u2022 ' +
-          _events.length + ' events, ' +
-          Object.keys(_thumbs).length + ' thumbs';
-      } else {
-        _statusEl.textContent = 'Idle';
-      }
+      if (_recording) _statusEl.textContent = 'REC starting...';
+      else if (_events.length > 0) _statusEl.textContent = 'Stopped \u2022 ' + _events.length + ' events';
+      else _statusEl.textContent = 'Idle';
     }
   }
 
-  // Expose on window for console debugging + explicit helpers
+  function _setStatus(msg) {
+    if (_statusEl) {
+      _statusEl.textContent = msg;
+      setTimeout(_updatePanel, 2000);
+    }
+  }
+
   window._frtRec = {
-    start: start,
-    stop: stop,
-    exportToClipboard: exportToClipboard,
+    start: start, stop: stop, copy: copyToClipboard,
     isRecording: function () { return _recording; },
-    getEvents: function () { return _events; },
-    getThumbs: function () { return _thumbs; }
+    getEvents: function () { return _events; }
   };
 
-  // Auto-create panel when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _createPanel);
   } else {
     _createPanel();
   }
 
-  console.log('%c[REC] Recorder module loaded — ' +
-    'click "⚫ Record" in bottom-right panel, reproduce bug, click "⏹ Stop", ' +
-    'click "📋 Export to clipboard"',
+  console.log('%c[REC] Slim recorder loaded — panel bottom-right. Cap: ' +
+    MAX_EVENTS + ' events, ' + (MAX_REPORT_CHARS / 1024) + ' KB text output.',
     'color:#fff;background:#333;padding:2px 6px');
-
 })();
