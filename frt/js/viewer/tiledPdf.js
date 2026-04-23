@@ -26,6 +26,9 @@ var _cfg = null;
 var _active = false;
 var _paused = false;
 var _renderTimer = null;
+// S98c: delayed purge timer for old-level tiles on level change. See
+// the level-change handler in _renderVisible for the rationale.
+var _levelPurgeTimer = null;
 
 var _drawingId = null;
 var _manifest = null;
@@ -860,7 +863,8 @@ function _renderVisible() {
   _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
 
   // S97 DIAG: detect level changes vs same-level pans
-  if (_dbg_lastLevel !== levelIdx) {
+  var _levelChanged = (_dbg_lastLevel !== levelIdx);
+  if (_levelChanged) {
     _dbgLife('level-change', { from: _dbg_lastLevel, to: levelIdx, scale: +scale.toFixed(3) });
     _dbg_lastLevel = levelIdx;
   }
@@ -868,58 +872,72 @@ function _renderVisible() {
   // Drop queued requests from other levels — they're no longer relevant.
   _cancelPendingExceptLevel(levelIdx);
 
-  // S92 FIX: purge tiles from ALL other levels from cache + DOM. Without
-  // this, tiles from every level the user has visited accumulate stacked
-  // on top of each other. Lower-level tiles painting over higher-level
-  // ones caused the "wrong colors at zoom-out" bug — the drawing you see
-  // is the top of a multi-level sandwich, not a clean level. Keep only
-  // the active level; re-fetch on zoom back is cheap (immutable CDN cache).
-  var keysToDrop = [];
-  for (var tk in _tiles) {
-    if (!Object.prototype.hasOwnProperty.call(_tiles, tk)) continue;
-    if (_tiles[tk].level !== levelIdx) keysToDrop.push(tk);
-  }
-  // S95: on iOS, skip the S94 fade-out. During rapid zoom, the 220ms delay
-  // keeps old-level tile <img>s alive in the DOM (and WebKit's image decode
-  // cache) while new-level tiles are already loading, resulting in up to
-  // 95+ decoded tile bitmaps stacked momentarily. Repeated zoom cycles
-  // build up pressure until the page process is Jetsam-killed. Log-confirmed
-  // on iPad iOS 16.3 with zoom sequences of 3-6 transitions in <1s.
-  // Desktop/Android keep the smooth crossfade.
-  var _iosNoFade = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                   (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-  if (keysToDrop.length) {
-    _dbgLife('purge:other-levels', { count: keysToDrop.length, keepLevel: levelIdx, iosNoFade: _iosNoFade });
-  }
-  for (var ki = 0; ki < keysToDrop.length; ki++) {
-    var dk = keysToDrop[ki];
-    var dt = _tiles[dk];
-    if (dt && dt.img) {
-      if (_iosNoFade) {
-        // Immediate removal — visual snap, no memory lingering
-        if (dt.img.parentNode) dt.img.parentNode.removeChild(dt.img);
-        dt.img.src = '';
-      } else {
-        // S94 — fade OUT before remove. The 180ms opacity transition (already
-        // baked into the img's inline style at creation time) runs in parallel
-        // with the new-level tiles fading IN, producing a smooth crossfade at
-        // level boundaries instead of the harsh "pop to backdrop" gap that
-        // looked like tiles were shifting. 220ms removal delay > 180ms fade
-        // gives the transition a full tick of headroom to complete before
-        // the img is yanked.
-        (function(el) {
-          el.style.opacity = '0';
-          setTimeout(function() {
-            if (el.parentNode) el.parentNode.removeChild(el);
-            el.src = '';
-          }, 220);
-        })(dt.img);
+  // S98c: DELAYED purge of old-level tiles. Previously the purge ran
+  // synchronously on every _renderVisible pass and faded out old-level tiles
+  // immediately (180ms → remove at 220ms). But new-level tiles take longer
+  // than that to fetch over the network, so between "old faded out" and "new
+  // loaded" there was a visible gap. Pre-v201 this gap was masked by the
+  // dv-image backdrop; now that the backdrop is gone, the gap is the "flash"
+  // reported by Mark on L2→L3 and L3→L4 transitions.
+  //
+  // New approach: on level change, do NOT purge immediately. Let old-level
+  // tiles stay fully opaque. New-level tiles are added to the DOM on top
+  // (DOM order = z-order) as they load — with the existing 180ms fade-in
+  // opacity transition on each new tile. After 500ms, the scheduled purge
+  // removes the old level — by which point new-level tiles have covered the
+  // drawing, so no visible flash. If the user zooms again during the 500ms
+  // window, the timer is reset; purge fires only after zoom settles.
+  //
+  // S92's original reason for purging (tile z-order stacking across levels
+  // causing visual artifacts) is preserved — purge still runs, just delayed.
+  // Memory is bounded by _MAX_TILES via _evictExcess LRU (250 tiles cap);
+  // 20 L2 + 96 L3 + 384 L4 in the worst case = 500 tiles, so eviction may
+  // trigger during rapid all-level zooms, but that's fine — oldest tiles
+  // go first.
+  if (_levelChanged) {
+    var _iosNoFade = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                     (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+    if (_levelPurgeTimer) clearTimeout(_levelPurgeTimer);
+    _levelPurgeTimer = setTimeout(function() {
+      _levelPurgeTimer = null;
+      if (!_active) return;
+      // Re-evaluate current level — user may have zoomed again between
+      // scheduling and firing (the reset-on-reschedule pattern above usually
+      // prevents this, but guard anyway).
+      var keepLevel = _dbg_lastLevel;
+      var keysToDrop = [];
+      for (var tk in _tiles) {
+        if (!Object.prototype.hasOwnProperty.call(_tiles, tk)) continue;
+        if (_tiles[tk].level !== keepLevel) keysToDrop.push(tk);
       }
-    }
-    delete _tiles[dk];
-    _tileCount--;
-    var oi = _tileOrder.indexOf(dk);
-    if (oi >= 0) _tileOrder.splice(oi, 1);
+      if (!keysToDrop.length) return;
+      _dbgLife('purge:other-levels', { count: keysToDrop.length, keepLevel: keepLevel, iosNoFade: _iosNoFade, delayed: true });
+      for (var ki = 0; ki < keysToDrop.length; ki++) {
+        var dk = keysToDrop[ki];
+        var dt = _tiles[dk];
+        if (dt && dt.img) {
+          if (_iosNoFade) {
+            if (dt.img.parentNode) dt.img.parentNode.removeChild(dt.img);
+            dt.img.src = '';
+          } else {
+            // Old tiles are already covered by new level at this point;
+            // a short fade-out still helps if new level hasn't fully
+            // populated for some tile positions.
+            (function(el) {
+              el.style.opacity = '0';
+              setTimeout(function() {
+                if (el.parentNode) el.parentNode.removeChild(el);
+                el.src = '';
+              }, 220);
+            })(dt.img);
+          }
+        }
+        delete _tiles[dk];
+        _tileCount--;
+        var oi = _tileOrder.indexOf(dk);
+        if (oi >= 0) _tileOrder.splice(oi, 1);
+      }
+    }, 500);
   }
 
   // Visible draw-space rectangle, expanded by 1 tile worth of margin so pan
@@ -1110,6 +1128,9 @@ function _close_internal() {
   var prevDrawing = _drawingId;
   _drawingId = null;
   if (_renderTimer) { clearTimeout(_renderTimer); _renderTimer = null; }
+  // S98c: clear pending level-change purge so it can't fire in a new drawing
+  if (_levelPurgeTimer) { clearTimeout(_levelPurgeTimer); _levelPurgeTimer = null; }
+  _dbg_lastLevel = null; // fresh level-detection in next drawing
 
   var layer = document.getElementById('dv-tiles-layer');
   for (var k in _tiles) {
