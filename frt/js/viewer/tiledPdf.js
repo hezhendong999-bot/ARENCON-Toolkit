@@ -1016,13 +1016,30 @@ function _openServerTiles(d, drawingId, pageNum) {
           if (img.src && img.src !== 'about:blank'){
             try { img.src = ''; } catch(_){}
           }
+          // S98: backdrop not used on touch — tiles only. Leave hidden so the
+          // wrap transform-to-scale(1) during _showDrawing can't paint a stale
+          // bitmap at the wrong scale.
+          img.style.visibility = 'hidden';
         } else {
           // Desktop: preserve original safety-net behavior
           var jpegSrc = d.r2Url || d.dataUrl || d.thumb || '';
           if (jpegSrc) {
             img.crossOrigin = 'anonymous';
             img.style.display = 'block';
-            if (img.src !== jpegSrc) img.src = jpegSrc;
+            if (img.src !== jpegSrc) {
+              // S98: hide until the new backdrop finishes loading. Without
+              // this, the prior-drawing pixels stay visible during the load
+              // gap + get flash-zoomed by the wrap scale(1) snap.
+              img.onload = function(){ img.style.visibility = 'visible'; img.onload = null; img.onerror = null; };
+              img.onerror = function(){ img.style.visibility = 'visible'; img.onload = null; img.onerror = null; };
+              img.src = jpegSrc;
+            } else {
+              // Same src as before — onload won't fire. Show immediately.
+              img.style.visibility = 'visible';
+            }
+          } else {
+            // No jpeg available — nothing to show, keep hidden (tiles will cover).
+            img.style.visibility = 'hidden';
           }
         }
       }
@@ -1061,6 +1078,12 @@ function _openServerTiles(d, drawingId, pageNum) {
     .catch(function(err) {
       console.error('[TiledPdf] Server tile open failed:', err);
       if (_cfg.hideLoading) _cfg.hideLoading();
+      // S98: ensure dv-image visibility recovers on error. _close_internal hid
+      // it; if the new drawing's open fails before we restored visibility, the
+      // viewport stays blank. _loadImgFallback (the legacy path) handles its
+      // own visibility, so it's only ambiguous when onFallbackImage isn't set.
+      var _errImg = document.getElementById('dv-image');
+      if (_errImg && !_cfg.onFallbackImage) _errImg.style.visibility = 'visible';
       if (_cfg.onFallbackImage) {
         d.pdfTiled = false;
         _cfg.onFallbackImage(d, drawingId);
@@ -1121,17 +1144,22 @@ function _close_internal() {
   if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
   var img = document.getElementById('dv-image');
   if (img) {
-    // S97: blank the backdrop immediately on close. Without this, the previous
-    // drawing's JPEG stays painted (via its src) until the next open:manifest-
-    // applied reassigns src, producing a visible ~1.5s "ghost" of the prior
-    // page during the switch. Affects Chrome desktop + Chrome DevTools mobile
-    // emulation (where matchMedia('(pointer:coarse)') returns false and the
-    // desktop backdrop-assignment branch of _openServerTiles runs). Real iPad
-    // already blanked this via the touch branch, so this is a no-op there.
+    // S98: the S97 fix (setting img.src='') was architecturally insufficient.
+    // Browsers do NOT clear the rendered bitmap when src goes to ''. The
+    // element keeps displaying the last-loaded pixels until a new image
+    // completes loading. Result: the prior drawing stayed visible during
+    // the manifest-fetch gap, AND when _showDrawing snapped wrap.transform
+    // to scale(1) those stale pixels rendered ~5x larger — looking to the
+    // user like "the drawing flashed" or "zooming jumped me to another page".
+    //
+    // Fix: hide via visibility (instant) and blank src (releases decoded
+    // memory). _openServerTiles restores visibility on the new image's
+    // onload, matching the pattern _loadImgFallback already uses for the
+    // legacy-image path (viewer.js line ~364).
+    img.style.visibility = 'hidden';
     if (img.src && img.src !== 'about:blank') {
       try { img.src = ''; } catch (_) { /* noop */ }
     }
-    img.style.display = 'block';
   }
   _dbgLife('close:end', { prevDrawing: prevDrawing });
 }
