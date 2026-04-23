@@ -1050,9 +1050,16 @@ function _openServerTiles(d, drawingId, pageNum) {
 
       var layer = document.createElement('div');
       layer.id = 'dv-tiles-layer';
+      // S98d: solid white background on the tile layer. Without this, any
+      // edge antialiasing/transparency in the WebP tiles lets the dark canvas
+      // area bleed through at tile boundaries — producing the visible "tile
+      // grid" on fit-zoom that Mark reported. White matches the drawing paper
+      // color so even if a tile hasn't finished loading, the gap reads as
+      // paper, not a grid line. Previously this was masked by the dv-image
+      // backdrop; v201 removed that backdrop, exposing the layer.
       layer.style.cssText =
         'position:absolute;top:0;left:0;width:' + _drawW + 'px;height:' + _drawH +
-        'px;overflow:hidden;';
+        'px;overflow:hidden;background:#ffffff;';
       var mc = document.getElementById('markup-canvas');
       if (wrap && mc) wrap.insertBefore(layer, mc);
       else if (wrap) wrap.appendChild(layer);

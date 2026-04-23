@@ -600,7 +600,10 @@ export var initDrawings = {
     _resumeTilePolling();
 
     // Lazy-generate thumbnails for drawings missing them (cloud-synced from v1)
-    var needThumb = drawings.filter(function(d) { return !d.thumb && d.r2Url; });
+    // S98d: include tile drawings — for these, the Azure-rendered L0 tile
+    // serves as the thumb source. Fixes Page 1 of Caplink (and any other
+    // drawing where r2Url was never populated or got lost).
+    var needThumb = drawings.filter(function(d) { return !d.thumb && (d.tileManifestUrl || d.r2Url); });
     if (needThumb.length) _lazyGenThumbs(needThumb, 0);
   }
 };
@@ -608,6 +611,21 @@ export var initDrawings = {
 function _lazyGenThumbs(list, idx) {
   if (idx >= list.length) return;
   var d = list[idx];
+  // S98d: prefer the Azure-rendered L0 tile as thumb source for tile drawings.
+  // It's a purpose-built 256x171 WebP thumbnail that always exists in R2, and
+  // is independent of d.r2Url (which may be missing for some drawings). Falls
+  // back to r2Url for legacy non-tile drawings.
+  var src = '';
+  if (d.tileManifestUrl) {
+    src = d.tileManifestUrl.replace(/manifest\.json(\?.*)?$/,
+      'page-' + (d.pdfPage || 1) + '/level-0/0-0.webp');
+  } else if (d.r2Url) {
+    src = d.r2Url;
+  } else {
+    // No source — skip this drawing, continue the queue
+    setTimeout(function() { _lazyGenThumbs(list, idx + 1); }, 0);
+    return;
+  }
   var img = new Image();
   img.crossOrigin = 'anonymous';
   img.onload = function() {
@@ -630,7 +648,7 @@ function _lazyGenThumbs(list, idx) {
     setTimeout(function() { _lazyGenThumbs(list, idx + 1); }, 200);
   };
   img.onerror = function() { setTimeout(function() { _lazyGenThumbs(list, idx + 1); }, 100); };
-  img.src = d.r2Url;
+  img.src = src;
 }
 
 Model.onChange('project', function() { initDrawings.render(); });
