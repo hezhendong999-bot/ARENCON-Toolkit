@@ -128,17 +128,30 @@ export function prefetchDrawingLevels(pid, drawingId, levels, onProgress, abortS
 // Prefetch L0+L1+L2 for ALL drawings in a project.
 // Sequential per drawing so progress is meaningful; parallel within drawing.
 // onProgress receives { drawingIndex, drawingCount, drawingId, done, fail, total }.
+//
+// S98 FIX: tile URLs are keyed by pdfBufKey, not drawing.id. Multiple drawings
+// commonly share one pdfBufKey (e.g. 9 pages of one PDF → 9 drawings, 1 pdfBuf).
+// Pre-S98 this passed d.id, which 404'd the manifest for every drawing. Also
+// dedup pdfBufKeys so we only prefetch the underlying pyramid once.
 export function autoPrefetchProject(pid, drawings, onProgress, abortSignal) {
   var levels = [0, 1, 2]; // S96 hybrid plan: readable zoom only
-  var i = 0, totalDrawings = drawings.length;
+  var seen = {};
+  var units = [];
+  for (var j = 0; j < drawings.length; j++) {
+    var dd = drawings[j];
+    if (!dd || !dd.pdfBufKey) continue; // legacy / non-tile drawings skipped
+    if (seen[dd.pdfBufKey]) continue;
+    seen[dd.pdfBufKey] = 1;
+    units.push({ pdfBufKey: dd.pdfBufKey, sampleName: dd.name || dd.pdfBufKey });
+  }
+  var i = 0, totalUnits = units.length;
   function step() {
     if (abortSignal && abortSignal.aborted) return Promise.resolve({ aborted: true });
-    if (i >= totalDrawings) return Promise.resolve({ done: true, count: totalDrawings });
-    var d = drawings[i++];
-    if (!d || !d.id) return step();
-    return prefetchDrawingLevels(pid, d.id, levels, function(p) {
+    if (i >= totalUnits) return Promise.resolve({ done: true, count: totalUnits });
+    var u = units[i++];
+    return prefetchDrawingLevels(pid, u.pdfBufKey, levels, function(p) {
       if (onProgress) try {
-        onProgress({ drawingIndex: i, drawingCount: totalDrawings, drawingId: d.id, name: d.name, done: p.done, fail: p.fail, total: p.total });
+        onProgress({ drawingIndex: i, drawingCount: totalUnits, drawingId: u.pdfBufKey, name: u.sampleName, done: p.done, fail: p.fail, total: p.total });
       } catch(_){}
     }, abortSignal).then(step);
   }
@@ -147,16 +160,25 @@ export function autoPrefetchProject(pid, drawings, onProgress, abortSignal) {
 
 // Full download — every level of every drawing in a project. Used by Hub
 // "Download for Offline" button. Caller must keep the app foreground on iOS.
+// S98 FIX: same pdfBufKey + dedup change as autoPrefetchProject above.
 export function downloadProjectAllTiles(pid, drawings, onProgress, abortSignal) {
-  var i = 0, totalDrawings = drawings.length;
+  var seen = {};
+  var units = [];
+  for (var j = 0; j < drawings.length; j++) {
+    var dd = drawings[j];
+    if (!dd || !dd.pdfBufKey) continue;
+    if (seen[dd.pdfBufKey]) continue;
+    seen[dd.pdfBufKey] = 1;
+    units.push({ pdfBufKey: dd.pdfBufKey, sampleName: dd.name || dd.pdfBufKey });
+  }
+  var i = 0, totalUnits = units.length;
   function step() {
     if (abortSignal && abortSignal.aborted) return Promise.resolve({ aborted: true });
-    if (i >= totalDrawings) return Promise.resolve({ done: true, count: totalDrawings });
-    var d = drawings[i++];
-    if (!d || !d.id) return step();
-    return prefetchDrawingLevels(pid, d.id, null /* all levels */, function(p) {
+    if (i >= totalUnits) return Promise.resolve({ done: true, count: totalUnits });
+    var u = units[i++];
+    return prefetchDrawingLevels(pid, u.pdfBufKey, null /* all levels */, function(p) {
       if (onProgress) try {
-        onProgress({ drawingIndex: i, drawingCount: totalDrawings, drawingId: d.id, name: d.name, done: p.done, fail: p.fail, total: p.total });
+        onProgress({ drawingIndex: i, drawingCount: totalUnits, drawingId: u.pdfBufKey, name: u.sampleName, done: p.done, fail: p.fail, total: p.total });
       } catch(_){}
     }, abortSignal).then(step);
   }

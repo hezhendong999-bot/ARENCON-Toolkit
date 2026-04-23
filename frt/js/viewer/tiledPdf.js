@@ -820,7 +820,18 @@ function _startFetch(req, layer) {
   };
   img.onerror = function() {
     delete _inflight[key];
-    _dbgEvent('err ' + key);
+    // S98 — suppress "err" log for aborted loads. When a drawing change,
+    // level change, or close sets img.src='', onerror fires with no real
+    // failure — polluting the debug overlay with noise that looks like
+    // real 404s. We only log an err if:
+    //   - this drawing is still the active one (not mid-switch)
+    //   - the viewer is still active (not in _close_internal)
+    //   - the src wasn't manually cleared (aborted)
+    // Real network failures / 404s still get logged normally.
+    var aborted = !img.src || img.src === window.location.href;
+    if (_active && _drawingId === drawingIdAtRequest && !aborted) {
+      _dbgEvent('err ' + key);
+    }
     _pumpQueue();
   };
   img.src = url;
