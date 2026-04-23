@@ -1109,7 +1109,19 @@ function _close_internal() {
 
   if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
   var img = document.getElementById('dv-image');
-  if (img) img.style.display = 'block';
+  if (img) {
+    // S97: blank the backdrop immediately on close. Without this, the previous
+    // drawing's JPEG stays painted (via its src) until the next open:manifest-
+    // applied reassigns src, producing a visible ~1.5s "ghost" of the prior
+    // page during the switch. Affects Chrome desktop + Chrome DevTools mobile
+    // emulation (where matchMedia('(pointer:coarse)') returns false and the
+    // desktop backdrop-assignment branch of _openServerTiles runs). Real iPad
+    // already blanked this via the touch branch, so this is a no-op there.
+    if (img.src && img.src !== 'about:blank') {
+      try { img.src = ''; } catch (_) { /* noop */ }
+    }
+    img.style.display = 'block';
+  }
   _dbgLife('close:end', { prevDrawing: prevDrawing });
 }
 
