@@ -816,7 +816,10 @@ function _startFetch(req, layer) {
       // Mark reported in v209 was actually crisp-edges throwing away pixel
       // info during the GPU downscale step. S97 used 'auto' (bilinear/
       // bicubic) which preserves continuous-tone detail. Restore that.
-      'image-rendering:auto;pointer-events:none;' + fadeIn;
+      // S98l: background:#fff added per-tile (replaces v98g wrap bg, which
+      // perturbed Chrome's compositor rasterization heuristic and caused
+      // L4 sharpness to phase in/out across zoom cycles).
+      'background:#fff;image-rendering:auto;pointer-events:none;' + fadeIn;
   } else {
     // Interior tile: image content fills the full 512x512 source exactly,
     // so simple sizing is both correct and clip-path-free.
@@ -824,7 +827,8 @@ function _startFetch(req, layer) {
       'position:absolute;left:' + cssL + 'px;top:' + cssT + 'px;' +
       'width:' + cssW + 'px;height:' + cssH + 'px;' +
       // S98k: REVERT v98j (see edge-tile branch above).
-      'image-rendering:auto;pointer-events:none;' + fadeIn;
+      // S98l: see edge-tile branch.
+      'background:#fff;image-rendering:auto;pointer-events:none;' + fadeIn;
   }
   img.style.cssText = cssText;
 
@@ -1092,25 +1096,25 @@ function _openServerTiles(d, drawingId, pageNum) {
       var oldLayer = document.getElementById('dv-tiles-layer');
       if (oldLayer && oldLayer.parentNode) oldLayer.parentNode.removeChild(oldLayer);
 
-      // S98g: white background belongs on dv-img-wrap, NOT dv-tiles-layer.
+      // S98l: removed wrap.style.background (was set in v98g). v98g added it
+      // to mask edge-tile transparency bleed at fit zoom (the tile grid
+      // artifact). But Mark reports L4 sharpness now phases in/out as he
+      // zooms — first L4 view crisp, subsequent zoom cycles blurry. Theory:
+      // background-color on wrap perturbs Chrome's compositor-layer
+      // rasterization heuristic. wrap is promoted via will-change:transform,
+      // and Chrome rasterizes promoted layers at one CSS size and reuses
+      // the bitmap until something invalidates it. Adding paint content
+      // (background-color) changes when invalidations fire — sometimes wrap
+      // re-rasterizes at a smaller size during zoom cycles, and any tiles
+      // sitting in that bitmap get baked at the smaller resolution = blur.
+      // First-paint at native L4 size = crisp, subsequent cycles = blurry.
       //
-      // v204 put the white fill on dv-tiles-layer to mask the tile-grid
-      // artifact (dark canvas bleeding through tile-edge antialiasing). That
-      // worked visually but had a subtle compositor side-effect: in Chrome,
-      // adding a solid background to a sized/positioned/overflow-hidden div
-      // inside a transformed parent can promote it to its own compositor
-      // layer. When that happens, tiles paint into tile-layer's bitmap at
-      // their CSS box size (e.g. L4 interior tile at 257×257 drawing coords),
-      // and the bitmap is then GPU-scaled by wrap's transform — at L4 zoom
-      // (wrap scale ≈ 2) that's a 257→514 upscale of a 2× downsampled bitmap.
-      // Double-loss = visible blur. Mark reported L4 clarity regression.
-      //
-      // Putting the background on wrap itself avoids the extra layer: wrap
-      // is already a compositor layer (will-change:transform in CSS), so
-      // adding background-color doesn't change its status. Tile-layer stays
-      // transparent and tiles paint directly into wrap's compositor at its
-      // transform-scaled rasterization size — crisp 1:1 at L4 zoom.
-      if (wrap) wrap.style.background = '#ffffff';
+      // Solution: don't set background on wrap. Tile-grid masking moved to
+      // each individual tile <img> via fadeIn assembly below — tiles already
+      // are raster paint content, so adding bg there doesn't introduce new
+      // compositor properties.
+      // (Wrap bg cleanup in _close_internal is now a no-op for current
+      //  drawings but kept for safety in case any prior drawing left state.)
 
       var layer = document.createElement('div');
       layer.id = 'dv-tiles-layer';
