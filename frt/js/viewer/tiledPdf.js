@@ -85,6 +85,19 @@ var _TILE_SIZE = 512;
 //                 tiles visually overlap rather than butt edge-to-edge.
 //                 Rationale: current +1 is drawing-px (sub-pixel at fit
 //                 viewScale); level-px stays proportional.
+//                 NOTE (S99c): distorts CAD lines on promote. Toggle-only.
+//     l2l3thresh — S100: lower the L2→L3 transition scale by amount N%
+//                 (default 120 = 1.2×). Treats L2's apparent width as
+//                 smaller than it is, so L3 is picked at zooms where L2
+//                 would have won. Only L2 check touched — L1→L2 and
+//                 L3→L4 thresholds are identical to baseline. Cost:
+//                 slightly more L3 tiles resident at moderate zooms.
+//                 100 = disabled (control / baseline).
+//     blur      — S100: apply CSS filter: blur((N/10)px) to the tile
+//                 layer ONLY when the current picked level is L2.
+//                 Default N=5 → 0.5px. Softens JPEG edge-quantization
+//                 seams without content distortion or CAD line damage.
+//                 L4 safe: filter is cleared whenever levelIdx !== 2.
 //
 //   LEVEL-TRANSITION FLASH (L2→L3, L3→L4):
 //     fastfade  — shorten new-tile fade-in from 180ms → Nms AND old-tile
@@ -755,8 +768,21 @@ function _pickLevel(viewScale) {
   var levels = _pageInfo.levels;
   var minLevel = (viewScale >= 1) ? Math.min(3, levels.length - 1) : 0;
   var targetW = _drawW * viewScale;
+  // S100 candidate: `l2l3thresh` — lower the scale at which L3 takes over
+  // from L2 by treating L2's apparent width as smaller than its real
+  // `levels[2].width`. Only the L2 check is affected; L1→L2 and L3→L4
+  // thresholds remain at baseline. Amount is percent (default 120 →
+  // L2 treated as 1/1.2 ≈ 83% of its real width, firing L3 ~17% sooner).
+  // 100 = no boost (useful as a control toggle vs baseline).
+  var _s100L2Div = 1;
+  if (_S99_TEST && _S99_TEST.name === 'l2l3thresh') {
+    var _s100Amt = (_S99_TEST.amount != null) ? _S99_TEST.amount : 120;
+    if (_s100Amt > 0) _s100L2Div = _s100Amt / 100;
+  }
   for (var i = minLevel; i < levels.length; i++) {
-    if (levels[i].width >= targetW) return i;
+    var w = levels[i].width;
+    if (i === 2 && _s100L2Div !== 1) w = w / _s100L2Div;
+    if (w >= targetW) return i;
   }
   return levels.length - 1;
 }
@@ -979,6 +1005,25 @@ function _renderVisible() {
   var lvl = _pageInfo.levels[levelIdx];
   if (!lvl) return;
   _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
+
+  // S100 candidate: `blur` — soften L2 JPEG edge-quantization seams by
+  // applying a small CSS filter blur to the entire tile layer, but ONLY
+  // when the currently picked level is L2. At any other level the filter
+  // is cleared, so L3/L4 sharpness is never touched. N is tenths of a
+  // pixel (default 5 → 0.5px). Zero effect when _S99_TEST is null.
+  if (_S99_TEST && _S99_TEST.name === 'blur') {
+    var _s100BPx = (_S99_TEST.amount != null ? _S99_TEST.amount / 10 : 0.5);
+    if (levelIdx === 2 && _s100BPx > 0) {
+      var _s100F = 'blur(' + _s100BPx + 'px)';
+      if (layer.style.filter !== _s100F) {
+        layer.style.filter = _s100F;
+        layer.style.webkitFilter = _s100F;
+      }
+    } else if (layer.style.filter) {
+      layer.style.filter = '';
+      layer.style.webkitFilter = '';
+    }
+  }
 
   // S97 DIAG: detect level changes vs same-level pans
   if (_dbg_lastLevel !== levelIdx) {
