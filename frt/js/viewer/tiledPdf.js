@@ -45,6 +45,11 @@ var _pending = [];
 var _tileOrder = [];          // LRU order (oldest first)
 var _tileCount = 0;
 
+// S99 prefetch candidate — tracks which next-level tiles have already had
+// a warm-cache fetch issued this session. Persists across level changes so
+// we don't re-fetch the same URLs. Cleared on _close_internal.
+var _s99PrefetchIssued = {};
+
 var _isIPhone = /iPhone|iPod/.test(navigator.userAgent);
 var _isIPad   = /iPad/.test(navigator.userAgent)
                || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
@@ -66,19 +71,34 @@ var _TILE_SIZE = 512;
 // (S97 baseline rendering chain). No candidate code runs unless opted-in.
 //
 // Activation:   ?s99test=<name>        or   ?s99test=<name>-<amount>
-// Examples:     ?s99test=overlap       (default amount — 4 level-px)
+// Examples:     ?s99test=overlap       (default 4 level-px)
 //               ?s99test=overlap-8     (8 level-px overlap)
-//               ?s99test=overlap-16    (16 level-px overlap)
+//               ?s99test=fastfade      (default 50ms fade)
+//               ?s99test=delaysrc      (default 400ms hold)
+//               ?s99test=prefetch      (default 70% threshold)
 //               ?s99test=off  or  (no param)  → production behavior
 //
-// Candidates wired (as of S99 initial commit):
-//   overlap     — extend interior tile cssR/cssB by N level-px so adjacent
-//                 tiles visually overlap rather than butt edge-to-edge.
-//                 Targets: tile grid visible at fit zoom.
-//                 Rationale: current +1 is drawing-px (collapses to
-//                 sub-pixel at fit viewScale); level-px stays proportional.
+// Candidates wired:
 //
-// Further candidates will be added one-at-a-time per S99 workflow.
+//   TILE-GRID AT FIT ZOOM:
+//     overlap   — extend interior tile cssR/cssB by N level-px so adjacent
+//                 tiles visually overlap rather than butt edge-to-edge.
+//                 Rationale: current +1 is drawing-px (sub-pixel at fit
+//                 viewScale); level-px stays proportional.
+//
+//   LEVEL-TRANSITION FLASH (L2→L3, L3→L4):
+//     fastfade  — shorten new-tile fade-in from 180ms → Nms AND old-tile
+//                 setTimeout from 220ms → (N+20)ms. Default 50ms.
+//                 Rationale: flash may BE the fade-out animation, not a
+//                 true gap. L4 safe: touches opacity DURATION only.
+//     delaysrc  — skip fade-out entirely, hold old tiles at opacity 1 for
+//                 N ms then snap-remove. Default 400ms. Critical diff vs
+//                 S98c: opacity=1 HOLD (no animation extending 180ms fade).
+//     prefetch  — when viewScale within N% of next-level threshold,
+//                 pre-enqueue next-level visible tiles. Default 70%.
+//                 New-level tiles already cached when transition fires.
+//
+// One candidate active at a time — use URL to switch. Tested in isolation.
 function _readS99Test() {
   try {
     if (typeof window === 'undefined') return null;
@@ -862,7 +882,17 @@ function _startFetch(req, layer) {
   // feels abrupt, longer feels sluggish. Cache-hit tiles don't go through
   // this code path (they're already in the DOM), so no perceived latency
   // added on repeat views.
-  var fadeIn = 'opacity:0;transition:opacity 180ms ease-out;will-change:opacity;';
+  // S99 candidate: `fastfade` — shorten the 180ms fade-in transition on
+  // new tiles. Hypothesis: the "flash" at level boundaries may be the
+  // fade-out animation itself (tiles visibly dimming then snapping away)
+  // rather than a true tile-absent gap. Tighter duration → shorter visible
+  // animation window. L4 safe: only changes transition DURATION, no change
+  // to geometry, compositor properties, or which tiles load.
+  var _s99FadeMs = 180;
+  if (_S99_TEST && _S99_TEST.name === 'fastfade') {
+    _s99FadeMs = (_S99_TEST.amount != null) ? _S99_TEST.amount : 50;
+  }
+  var fadeIn = 'opacity:0;transition:opacity ' + _s99FadeMs + 'ms ease-out;will-change:opacity;';
   var cssText;
   if (isEdgeTile) {
     var fullCssW = Math.round(_TILE_SIZE * scaleX);
@@ -986,7 +1016,24 @@ function _renderVisible() {
     var dk = keysToDrop[ki];
     var dt = _tiles[dk];
     if (dt && dt.img) {
-      if (_iosNoFade) {
+      // S99 candidate: `delaysrc` — hold old-level tiles at opacity 1 (no
+      // animation) for N ms then snap-remove. Old pixels persist at full
+      // fidelity while new tiles load behind, masking the transient gap.
+      // Critical diff vs S98c: NO opacity transition during hold (S98c let
+      // the baked-in 180ms fade continue, which somehow broke L4). Here
+      // we explicitly set opacity to 1 first to override any in-flight
+      // transition, then snap-remove after the hold period.
+      if (_S99_TEST && _S99_TEST.name === 'delaysrc') {
+        var _holdMs = (_S99_TEST.amount != null) ? _S99_TEST.amount : 400;
+        (function(el) {
+          el.style.transition = 'none';
+          el.style.opacity = '1';
+          setTimeout(function() {
+            if (el.parentNode) el.parentNode.removeChild(el);
+            el.src = '';
+          }, _holdMs);
+        })(dt.img);
+      } else if (_iosNoFade) {
         // Immediate removal — visual snap, no memory lingering
         if (dt.img.parentNode) dt.img.parentNode.removeChild(dt.img);
         dt.img.src = '';
@@ -998,13 +1045,21 @@ function _renderVisible() {
         // looked like tiles were shifting. 220ms removal delay > 180ms fade
         // gives the transition a full tick of headroom to complete before
         // the img is yanked.
-        (function(el) {
+        //
+        // S99 candidate: `fastfade` — shorten both fade-in (done at tile
+        // creation) and this removal delay. Timeout = _s99FadeMs + 20 to
+        // preserve "fade-out completes before yank" invariant.
+        var _s99RemoveMs = 220;
+        if (_S99_TEST && _S99_TEST.name === 'fastfade') {
+          _s99RemoveMs = (_S99_TEST.amount != null ? _S99_TEST.amount : 50) + 20;
+        }
+        (function(el, ms) {
           el.style.opacity = '0';
           setTimeout(function() {
             if (el.parentNode) el.parentNode.removeChild(el);
             el.src = '';
-          }, 220);
-        })(dt.img);
+          }, ms);
+        })(dt.img, _s99RemoveMs);
       }
     }
     delete _tiles[dk];
@@ -1046,6 +1101,61 @@ function _renderVisible() {
       }
       if (queued) continue;
       _pending.push({ key: key, level: levelIdx, col: col, row: row, lvl: lvl });
+    }
+  }
+
+  // S99 candidate: `prefetch` — when current viewScale is within N% of the
+  // scale that would trigger the NEXT level, warm the browser HTTP cache
+  // with next-level visible tiles. On the actual level transition, the
+  // `new Image()` loads hit cache and render with zero network latency →
+  // no "loading new level" gap visible.
+  //
+  // Design note: we use fetch() to warm the SW/HTTP cache, NOT the _tiles
+  // map. Prefetched tiles never enter the _tiles structure, never get
+  // appended to the tile-layer DOM, and so are NOT affected by the
+  // other-level purge (which would otherwise destroy them instantly).
+  // Budget: up to 6 prefetches per render. Silent fail.
+  if (_S99_TEST && _S99_TEST.name === 'prefetch') {
+    var _pctThresh = (_S99_TEST.amount != null) ? _S99_TEST.amount : 70;
+    // Scale at which picker would advance to (levelIdx+1). Picker rule:
+    //   pick level i where levels[i].width >= _drawW * viewScale
+    // So the current level's ceiling (scale that just barely still picks L)
+    // is levels[L].width / _drawW. Beyond that, L+1 takes over.
+    var nextIdx = levelIdx + 1;
+    if (nextIdx < _pageInfo.levels.length) {
+      var ceilScale = lvl.width / _drawW;
+      var triggerScale = ceilScale * (_pctThresh / 100);
+      if (scale >= triggerScale) {
+        var nextLvl = _pageInfo.levels[nextIdx];
+        var nd2lX = nextLvl.width / _drawW;
+        var nd2lY = nextLvl.height / _drawH;
+        var nCol0 = Math.max(0, Math.floor((visX0 * nd2lX) / _TILE_SIZE));
+        var nCol1 = Math.min(nextLvl.cols - 1, Math.ceil((visX1 * nd2lX) / _TILE_SIZE));
+        var nRow0 = Math.max(0, Math.floor((visY0 * nd2lY) / _TILE_SIZE));
+        var nRow1 = Math.min(nextLvl.rows - 1, Math.ceil((visY1 * nd2lY) / _TILE_SIZE));
+        var budget = 6;
+        for (var nc = nCol0; nc <= nCol1 && budget > 0; nc++) {
+          for (var nr = nRow0; nr <= nRow1 && budget > 0; nr++) {
+            var nkey = _tileKey(nextIdx, nc, nr);
+            // Skip if already in our cache (racing a real load), in flight,
+            // or we've issued a prefetch for it already in this session.
+            if (_tiles[nkey] || _inflight[nkey]) continue;
+            if (!_s99PrefetchIssued[nkey]) {
+              var nurl = _tileUrl(nextIdx, nc, nr);
+              if (nurl) {
+                _s99PrefetchIssued[nkey] = true;
+                budget--;
+                try {
+                  // mode:cors + credentials:omit matches <img crossOrigin=anonymous>
+                  // so the browser cache key aligns with the eventual <img> request.
+                  fetch(nurl, { mode: 'cors', credentials: 'omit' })
+                    .catch(function(){ /* silent */ });
+                } catch (_e) { /* silent */ }
+              }
+            }
+          }
+        }
+      }
     }
   }
 
@@ -1194,6 +1304,10 @@ function _close_internal() {
   _pending = [];
   _tileOrder = [];
   _tileCount = 0;
+  // S99 prefetch candidate — reset per-drawing prefetch tracker. Without
+  // this, stale next-level URLs from a prior drawing persist and prevent
+  // re-issuing fetches on the next drawing's prefetch window.
+  _s99PrefetchIssued = {};
 
   if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
   var img = document.getElementById('dv-image');
