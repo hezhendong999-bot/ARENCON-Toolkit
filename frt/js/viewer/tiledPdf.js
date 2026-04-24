@@ -26,9 +26,6 @@ var _cfg = null;
 var _active = false;
 var _paused = false;
 var _renderTimer = null;
-// S98c: delayed purge timer for old-level tiles on level change. See
-// the level-change handler in _renderVisible for the rationale.
-var _levelPurgeTimer = null;
 
 var _drawingId = null;
 var _manifest = null;
@@ -662,16 +659,6 @@ function _pickLevel(viewScale) {
   var levels = _pageInfo.levels;
   var minLevel = (viewScale >= 1) ? Math.min(3, levels.length - 1) : 0;
   var targetW = _drawW * viewScale;
-  // S98i: reverted the S98h tolerance factor. That attempted to soften the
-  // L3->L4 cliff by picking the lower level past its native zoom, but it
-  // shifted ALL level boundaries upward — including L1->L2, which pushed
-  // the standard fit viewScale (~0.208 for a 6144-wide drawing in a 1278-
-  // wide viewport) out of L2's range and into L1's. L1 is a 1024x683 image
-  // for the whole drawing — far lower resolution than L2 (2560x1707). Users
-  // saw "everything blurry" because fit zoom was now using L1. The L3->L4
-  // cliff it was meant to address is a fundamental property of tile pyramids
-  // (every level boundary has a momentary 2x-down-from-native visual), and
-  // not worth the fit-zoom regression. Original behavior restored.
   for (var i = minLevel; i < levels.length; i++) {
     if (levels[i].width >= targetW) return i;
   }
@@ -779,23 +766,7 @@ function _startFetch(req, layer) {
   // feels abrupt, longer feels sluggish. Cache-hit tiles don't go through
   // this code path (they're already in the DOM), so no perceived latency
   // added on repeat views.
-  //
-  // S98f — EXCEPT during a level transition (L2->L3, L3->L4, etc). Old-level
-  // tiles are still visible underneath (kept for 800ms via _levelPurgeTimer).
-  // New tiles fading 0->1 on top of old tiles causes the browser to composite
-  // them as L_old * (1-a) + L_new * a. Because L_old and L_new are separately
-  // rendered by Azure at different resolutions, pixel-level antialiasing
-  // differs slightly at text/line edges — and during the fade, those
-  // differences "wave" across the drawing as tiles arrive at staggered times.
-  // Mark reported this as pages "waving / some sort of rendering" on L3->L4.
-  // Fix: pop new tiles in at opacity 1 when there's existing covering content;
-  // the L_new tile instantly covers the L_old tile beneath it (both fully
-  // opaque, no blending artifacts). The S94 anti-pop-in benefit is preserved
-  // for initial drawing open (no _levelPurgeTimer set) and pan-within-level.
-  var _inLevelTransition = !!_levelPurgeTimer;
-  var fadeIn = _inLevelTransition
-    ? 'opacity:1;'
-    : 'opacity:0;transition:opacity 180ms ease-out;will-change:opacity;';
+  var fadeIn = 'opacity:0;transition:opacity 180ms ease-out;will-change:opacity;';
   var cssText;
   if (isEdgeTile) {
     var fullCssW = Math.round(_TILE_SIZE * scaleX);
@@ -809,26 +780,14 @@ function _startFetch(req, layer) {
       'width:' + fullCssW + 'px;height:' + fullCssH + 'px;' +
       'clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
       '-webkit-clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
-      // S98k: REVERT v98j (crisp-edges was wrong direction). crisp-edges
-      // forces nearest-neighbor/discrete sampling, which is correct for
-      // pixel-art and small icons but destroys detail when downscaling
-      // continuous-tone images like architectural drawings. The L4 blur
-      // Mark reported in v209 was actually crisp-edges throwing away pixel
-      // info during the GPU downscale step. S97 used 'auto' (bilinear/
-      // bicubic) which preserves continuous-tone detail. Restore that.
-      // S98l: background:#fff added per-tile (replaces v98g wrap bg, which
-      // perturbed Chrome's compositor rasterization heuristic and caused
-      // L4 sharpness to phase in/out across zoom cycles).
-      'background:#fff;image-rendering:auto;pointer-events:none;' + fadeIn;
+      'image-rendering:auto;pointer-events:none;' + fadeIn;
   } else {
     // Interior tile: image content fills the full 512x512 source exactly,
     // so simple sizing is both correct and clip-path-free.
     cssText =
       'position:absolute;left:' + cssL + 'px;top:' + cssT + 'px;' +
       'width:' + cssW + 'px;height:' + cssH + 'px;' +
-      // S98k: REVERT v98j (see edge-tile branch above).
-      // S98l: see edge-tile branch.
-      'background:#fff;image-rendering:auto;pointer-events:none;' + fadeIn;
+      'image-rendering:auto;pointer-events:none;' + fadeIn;
   }
   img.style.cssText = cssText;
 
@@ -852,12 +811,7 @@ function _startFetch(req, layer) {
         // initial opacity:0 from cssText BEFORE we set opacity:1, so the
         // transition actually animates. Without RAF, both styles land in
         // the same frame and the transition gets skipped (straight pop-in).
-        //
-        // S98f — skip this RAF ramp if we're in a level transition (tile was
-        // created at opacity:1 already, no animation to trigger).
-        if (!_inLevelTransition) {
-          requestAnimationFrame(function() { img.style.opacity = '1'; });
-        }
+        requestAnimationFrame(function() { img.style.opacity = '1'; });
       }
       _evictExcess(curLayer);
       _pumpQueue();
@@ -866,14 +820,9 @@ function _startFetch(req, layer) {
   };
   img.onerror = function() {
     delete _inflight[key];
-    // S98 — suppress "err" log for aborted loads. When a drawing change,
-    // level change, or close sets img.src='', onerror fires with no real
-    // failure — polluting the debug overlay with noise that looks like
-    // real 404s. We only log an err if:
-    //   - this drawing is still the active one (not mid-switch)
-    //   - the viewer is still active (not in _close_internal)
-    //   - the src wasn't manually cleared (aborted)
-    // Real network failures / 404s still get logged normally.
+    // S98 — suppress "err" log for aborted loads (img.src='' during drawing
+    // switch / level change / close). Only log real failures where the
+    // drawing is still active.
     var aborted = !img.src || img.src === window.location.href;
     if (_active && _drawingId === drawingIdAtRequest && !aborted) {
       _dbgEvent('err ' + key);
@@ -906,8 +855,7 @@ function _renderVisible() {
   _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
 
   // S97 DIAG: detect level changes vs same-level pans
-  var _levelChanged = (_dbg_lastLevel !== levelIdx);
-  if (_levelChanged) {
+  if (_dbg_lastLevel !== levelIdx) {
     _dbgLife('level-change', { from: _dbg_lastLevel, to: levelIdx, scale: +scale.toFixed(3) });
     _dbg_lastLevel = levelIdx;
   }
@@ -915,78 +863,58 @@ function _renderVisible() {
   // Drop queued requests from other levels — they're no longer relevant.
   _cancelPendingExceptLevel(levelIdx);
 
-  // S98m: KEEP-BACKDROP purge. Mark reported L4 rendered crisp on first
-  // entry to L4 (right side of viewport) but went blurry after zoom cycles.
-  // Diagnosis: when delayed-purge was still holding L3 tiles during the
-  // 800ms window, Chrome had two layer sources (L3 covering + L4 on top).
-  // This forced Chrome to composite L4 tiles directly into final output at
-  // near-native visual size = crisp. Once the purge fired and only L4 tiles
-  // remained, wrap collapsed to a single-layer compositor; Chrome rasterized
-  // wrap at CSS size and GPU-scaled to visual, baking L4 tiles into a
-  // downsampled bitmap = blur.
-  //
-  // Keeping L3 as a permanent backdrop under L4 preserves the dual-layer
-  // path that made L4 crisp. Same logic for L2 as backdrop under L3.
-  //
-  // Implementation: purge ONLY tiles 2+ levels away from current. Keep
-  // currentLevel tiles AND (currentLevel - 1) tiles. Purge (currentLevel - 2)
-  // and below, and (currentLevel + 1) and above.
-  //
-  // Purge still runs delayed (800ms) so rapid zoom cycles through L2→L3→L4
-  // don't churn tiles. S92's original z-order concern is still addressed —
-  // we keep at most 2 consecutive levels, not an unbounded stack.
-  //
-  // Memory: L3 backdrop (96 tiles) + L4 foreground (~40 visible) ≈ 140
-  // tiles, well within _MAX_TILES=250 cap. Fit-zoom still uses L2 (20
-  // tiles) + L1 backdrop (4 tiles) = 24. No memory concern.
-  if (_levelChanged) {
-    var _iosNoFade = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                     (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-    if (_levelPurgeTimer) clearTimeout(_levelPurgeTimer);
-    _levelPurgeTimer = setTimeout(function() {
-      _levelPurgeTimer = null;
-      if (!_active) return;
-      // Re-evaluate current level — user may have zoomed again between
-      // scheduling and firing.
-      var keepLevel = _dbg_lastLevel;
-      var backdropLevel = keepLevel - 1; // kept as permanent backdrop for compositor path
-      var keysToDrop = [];
-      for (var tk in _tiles) {
-        if (!Object.prototype.hasOwnProperty.call(_tiles, tk)) continue;
-        var lv = _tiles[tk].level;
-        // Keep currentLevel and immediate-lower (backdrop). Drop everything else.
-        if (lv !== keepLevel && lv !== backdropLevel) keysToDrop.push(tk);
+  // S92 FIX: purge tiles from ALL other levels from cache + DOM. Without
+  // this, tiles from every level the user has visited accumulate stacked
+  // on top of each other. Lower-level tiles painting over higher-level
+  // ones caused the "wrong colors at zoom-out" bug — the drawing you see
+  // is the top of a multi-level sandwich, not a clean level. Keep only
+  // the active level; re-fetch on zoom back is cheap (immutable CDN cache).
+  var keysToDrop = [];
+  for (var tk in _tiles) {
+    if (!Object.prototype.hasOwnProperty.call(_tiles, tk)) continue;
+    if (_tiles[tk].level !== levelIdx) keysToDrop.push(tk);
+  }
+  // S95: on iOS, skip the S94 fade-out. During rapid zoom, the 220ms delay
+  // keeps old-level tile <img>s alive in the DOM (and WebKit's image decode
+  // cache) while new-level tiles are already loading, resulting in up to
+  // 95+ decoded tile bitmaps stacked momentarily. Repeated zoom cycles
+  // build up pressure until the page process is Jetsam-killed. Log-confirmed
+  // on iPad iOS 16.3 with zoom sequences of 3-6 transitions in <1s.
+  // Desktop/Android keep the smooth crossfade.
+  var _iosNoFade = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                   (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  if (keysToDrop.length) {
+    _dbgLife('purge:other-levels', { count: keysToDrop.length, keepLevel: levelIdx, iosNoFade: _iosNoFade });
+  }
+  for (var ki = 0; ki < keysToDrop.length; ki++) {
+    var dk = keysToDrop[ki];
+    var dt = _tiles[dk];
+    if (dt && dt.img) {
+      if (_iosNoFade) {
+        // Immediate removal — visual snap, no memory lingering
+        if (dt.img.parentNode) dt.img.parentNode.removeChild(dt.img);
+        dt.img.src = '';
+      } else {
+        // S94 — fade OUT before remove. The 180ms opacity transition (already
+        // baked into the img's inline style at creation time) runs in parallel
+        // with the new-level tiles fading IN, producing a smooth crossfade at
+        // level boundaries instead of the harsh "pop to backdrop" gap that
+        // looked like tiles were shifting. 220ms removal delay > 180ms fade
+        // gives the transition a full tick of headroom to complete before
+        // the img is yanked.
+        (function(el) {
+          el.style.opacity = '0';
+          setTimeout(function() {
+            if (el.parentNode) el.parentNode.removeChild(el);
+            el.src = '';
+          }, 220);
+        })(dt.img);
       }
-      if (!keysToDrop.length) return;
-      _dbgLife('purge:other-levels', { count: keysToDrop.length, keepLevel: keepLevel, backdropLevel: backdropLevel, iosNoFade: _iosNoFade, delayed: true });
-      for (var ki = 0; ki < keysToDrop.length; ki++) {
-        var dk = keysToDrop[ki];
-        var dt = _tiles[dk];
-        if (dt && dt.img) {
-          if (_iosNoFade) {
-            if (dt.img.parentNode) dt.img.parentNode.removeChild(dt.img);
-            dt.img.src = '';
-          } else {
-            (function(el) {
-              el.style.opacity = '0';
-              setTimeout(function() {
-                if (el.parentNode) el.parentNode.removeChild(el);
-                el.src = '';
-              }, 220);
-            })(dt.img);
-          }
-        }
-        delete _tiles[dk];
-        _tileCount--;
-        var oi = _tileOrder.indexOf(dk);
-        if (oi >= 0) _tileOrder.splice(oi, 1);
-      }
-      // S98e: 800ms (was 500ms). First-time L3→L4 and L4→L3 cold-cache loads
-      // sometimes didn't finish in 500ms — producing a brief flash as old
-      // tiles purged before new-level tiles were fully opaque. 800ms gives
-      // cold-fetch transitions enough headroom on typical networks while still
-      // feeling responsive.
-    }, 800);
+    }
+    delete _tiles[dk];
+    _tileCount--;
+    var oi = _tileOrder.indexOf(dk);
+    if (oi >= 0) _tileOrder.splice(oi, 1);
   }
 
   // Visible draw-space rectangle, expanded by 1 tile worth of margin so pan
@@ -1065,26 +993,13 @@ function _openServerTiles(d, drawingId, pageNum) {
       _baseScale = _drawW / _nativeW;
 
       // Backdrop (dv-image) — DISABLED for tile drawings on all platforms.
-      //
-      // S95: touch skipped the backdrop to avoid iOS Jetsam memory kills from
-      // the 100 MB decoded bitmap of a 6144×4096 legacy jpeg.
-      //
-      // S98b: desktop must also skip the backdrop — for a different reason.
-      // The r2Url jpeg is the legacy full-res render from the pre-tile era.
-      // For multi-page PDFs its natural dimensions are LARGER than the per-
-      // page wrap (often 2× the page width), so at fit scale (~0.208) the
-      // img renders ~2500×1700 while wrap is only 1278×851. dv-img-wrap has
-      // no overflow:hidden, so the right half of the img spills past wrap
-      // into the rest of the canvas area — showing content from an adjacent
-      // page as a permanent "ghost" on the right of every page. My S98
-      // visibility-toggle fix hid this during the load gap but then restored
-      // it, so the ghost came back as soon as the new jpeg loaded. The right
-      // architecture is to not load the backdrop at all for tile drawings.
-      //
-      // If tiles fail to load, _openServerTiles's .catch calls onFallbackImage
-      // → _loadImgFallback, which handles its own legacy-img display flow
-      // (viewer.js line ~361). Pin coordinate math uses TiledPdf.getDimensions
-      // not dv-image.naturalWidth, so removing the backdrop is coordinate-safe.
+      // S95: touch skipped to avoid iOS Jetsam kills from 100MB bitmap.
+      // S98b: desktop also skips. The r2Url jpeg for multi-page PDFs is
+      // often larger than one page's wrap; with no overflow:hidden it
+      // spilled past wrap and showed adjacent-page content as a permanent
+      // right-side ghost. Tiles alone cover the drawing; if tiles fail, the
+      // onFallbackImage catch path handles recovery. Pin math already uses
+      // TiledPdf.getDimensions(), not dv-image.naturalWidth.
       var img = document.getElementById('dv-image');
       if (img) {
         if (img.src && img.src !== 'about:blank') {
@@ -1096,26 +1011,6 @@ function _openServerTiles(d, drawingId, pageNum) {
       var wrap = document.getElementById('dv-img-wrap');
       var oldLayer = document.getElementById('dv-tiles-layer');
       if (oldLayer && oldLayer.parentNode) oldLayer.parentNode.removeChild(oldLayer);
-
-      // S98l: removed wrap.style.background (was set in v98g). v98g added it
-      // to mask edge-tile transparency bleed at fit zoom (the tile grid
-      // artifact). But Mark reports L4 sharpness now phases in/out as he
-      // zooms — first L4 view crisp, subsequent zoom cycles blurry. Theory:
-      // background-color on wrap perturbs Chrome's compositor-layer
-      // rasterization heuristic. wrap is promoted via will-change:transform,
-      // and Chrome rasterizes promoted layers at one CSS size and reuses
-      // the bitmap until something invalidates it. Adding paint content
-      // (background-color) changes when invalidations fire — sometimes wrap
-      // re-rasterizes at a smaller size during zoom cycles, and any tiles
-      // sitting in that bitmap get baked at the smaller resolution = blur.
-      // First-paint at native L4 size = crisp, subsequent cycles = blurry.
-      //
-      // Solution: don't set background on wrap. Tile-grid masking moved to
-      // each individual tile <img> via fadeIn assembly below — tiles already
-      // are raster paint content, so adding bg there doesn't introduce new
-      // compositor properties.
-      // (Wrap bg cleanup in _close_internal is now a no-op for current
-      //  drawings but kept for safety in case any prior drawing left state.)
 
       var layer = document.createElement('div');
       layer.id = 'dv-tiles-layer';
@@ -1147,12 +1042,6 @@ function _openServerTiles(d, drawingId, pageNum) {
     .catch(function(err) {
       console.error('[TiledPdf] Server tile open failed:', err);
       if (_cfg.hideLoading) _cfg.hideLoading();
-      // S98: ensure dv-image visibility recovers on error. _close_internal hid
-      // it; if the new drawing's open fails before we restored visibility, the
-      // viewport stays blank. _loadImgFallback (the legacy path) handles its
-      // own visibility, so it's only ambiguous when onFallbackImage isn't set.
-      var _errImg = document.getElementById('dv-image');
-      if (_errImg && !_cfg.onFallbackImage) _errImg.style.visibility = 'visible';
       if (_cfg.onFallbackImage) {
         d.pdfTiled = false;
         _cfg.onFallbackImage(d, drawingId);
@@ -1197,9 +1086,6 @@ function _close_internal() {
   var prevDrawing = _drawingId;
   _drawingId = null;
   if (_renderTimer) { clearTimeout(_renderTimer); _renderTimer = null; }
-  // S98c: clear pending level-change purge so it can't fire in a new drawing
-  if (_levelPurgeTimer) { clearTimeout(_levelPurgeTimer); _levelPurgeTimer = null; }
-  _dbg_lastLevel = null; // fresh level-detection in next drawing
 
   var layer = document.getElementById('dv-tiles-layer');
   for (var k in _tiles) {
@@ -1214,24 +1100,10 @@ function _close_internal() {
   _tileCount = 0;
 
   if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
-  // S98g: clear wrap's white background set by _openServerTiles, so a
-  // legacy drawing opened after this one paints against a neutral wrap.
-  var wrapEl = document.getElementById('dv-img-wrap');
-  if (wrapEl) wrapEl.style.background = '';
   var img = document.getElementById('dv-image');
   if (img) {
-    // S98: the S97 fix (setting img.src='') was architecturally insufficient.
-    // Browsers do NOT clear the rendered bitmap when src goes to ''. The
-    // element keeps displaying the last-loaded pixels until a new image
-    // completes loading. Result: the prior drawing stayed visible during
-    // the manifest-fetch gap, AND when _showDrawing snapped wrap.transform
-    // to scale(1) those stale pixels rendered ~5x larger — looking to the
-    // user like "the drawing flashed" or "zooming jumped me to another page".
-    //
-    // Fix: hide via visibility (instant) and blank src (releases decoded
-    // memory). _openServerTiles restores visibility on the new image's
-    // onload, matching the pattern _loadImgFallback already uses for the
-    // legacy-image path (viewer.js line ~364).
+    // S98b: hide backdrop instantly via visibility, blank src to release
+    // memory. Simpler and more reliable than S97's display-based approach.
     img.style.visibility = 'hidden';
     if (img.src && img.src !== 'about:blank') {
       try { img.src = ''; } catch (_) { /* noop */ }
