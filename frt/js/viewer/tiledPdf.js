@@ -64,43 +64,41 @@ var _MAX_TILES = _isIPhone ? 80 : (_isIPad ? 180 : 250);
 var _MAX_CONCURRENT = _isIPhone ? 3 : (_isIPad ? 5 : 6);
 var _TILE_SIZE = 512;
 
-// ── S99 RENDERING FIXES + DIAGNOSTIC TOGGLE ────────────────────────────────
+// ── S99 DIAGNOSTIC TOGGLE ──────────────────────────────────────────────────
 // Per S99 handoff rule: DO NOT push theory-based rendering fixes. Each
 // candidate gets wired behind a URL param so Mark can A/B test on-device
-// without redeploying. After S99 on-device testing, two candidates were
-// PROMOTED to defaults (they fixed real bugs without regressing L4):
+// without redeploying. Default (no param): identical to current production
+// (S97 baseline rendering chain). No candidate code runs unless opted-in.
 //
-//   1. TILE-GRID AT L2 ZOOM (universal default, all platforms)
-//      Interior tiles extended by 8 level-pixels on right/bottom edges
-//      so adjacent tiles overlap instead of butting edge-to-edge. Masks
-//      JPEG edge-antialiasing mismatches most visible at L2 (where tiles
-//      are stretched up). Uniform 8/512 = 1.56% stretch across all
-//      levels keeps L4 sharpness invariant. Last col/row skipped.
+// Activation:   ?s99test=<name>        or   ?s99test=<name>-<amount>
+// Examples:     ?s99test=overlap       (default 4 level-px)
+//               ?s99test=overlap-8     (8 level-px overlap)
+//               ?s99test=fastfade      (default 50ms fade)
+//               ?s99test=delaysrc      (default 400ms hold)
+//               ?s99test=prefetch      (default 70% threshold)
+//               ?s99test=off  or  (no param)  → production behavior
 //
-//   2. LEVEL-TRANSITION FLASH (non-iOS default; desktop + Android)
-//      Old-level tiles held at opacity=1 (no fade) for 400ms after level
-//      change, then snap-removed. Old pixels persist at full fidelity
-//      while new-level tiles load, masking the transient gap.
-//      iOS SKIPPED: iPad/iPhone continue to snap-remove (unchanged from
-//      S95). Trades flash-visible on iOS for not worsening the Jetsam
-//      crash. iOS stabilization is its own work stream.
+// Candidates wired:
 //
-// Escape hatch toggle (kept for future A/B tests):
+//   TILE-GRID AT FIT ZOOM:
+//     overlap   — extend interior tile cssR/cssB by N level-px so adjacent
+//                 tiles visually overlap rather than butt edge-to-edge.
+//                 Rationale: current +1 is drawing-px (sub-pixel at fit
+//                 viewScale); level-px stays proportional.
 //
-//   ?s99test=baseline    revert BOTH promoted fixes — compare against
-//                        pre-S99 rendering (overlap off + S94 fade-out
-//                        on non-iOS). iOS purge unaffected.
+//   LEVEL-TRANSITION FLASH (L2→L3, L3→L4):
+//     fastfade  — shorten new-tile fade-in from 180ms → Nms AND old-tile
+//                 setTimeout from 220ms → (N+20)ms. Default 50ms.
+//                 Rationale: flash may BE the fade-out animation, not a
+//                 true gap. L4 safe: touches opacity DURATION only.
+//     delaysrc  — skip fade-out entirely, hold old tiles at opacity 1 for
+//                 N ms then snap-remove. Default 400ms. Critical diff vs
+//                 S98c: opacity=1 HOLD (no animation extending 180ms fade).
+//     prefetch  — when viewScale within N% of next-level threshold,
+//                 pre-enqueue next-level visible tiles. Default 70%.
+//                 New-level tiles already cached when transition fires.
 //
-//   ?s99test=overlap-N   non-default overlap amount (diagnostic)
-//   ?s99test=delaysrc-N  non-default hold duration (e.g. -600)
-//   ?s99test=fastfade    force fast fade-out instead of delaysrc hold
-//   ?s99test=fastfade-N  fade-out duration in ms (default 50)
-//   ?s99test=prefetch    warm HTTP cache for next-level visible tiles
-//                        (diagnostic — not currently promoted)
-//   ?s99test=off or absent  production behavior (delaysrc + overlap)
-//
-// Small burgundy "S99 test: ..." badge bottom-right confirms any toggle
-// is active. console.log on module load also confirms.
+// One candidate active at a time — use URL to switch. Tested in isolation.
 function _readS99Test() {
   try {
     if (typeof window === 'undefined') return null;
@@ -831,41 +829,24 @@ function _startFetch(req, layer) {
   var cssL = Math.round(tileX * scaleX);
   var cssT = Math.round(tileY * scaleY);
 
-  // S99 DEFAULT — interior tile overlap (8 level-px).
-  //
-  // Adjacent tiles visually overlap rather than butt edge-to-edge. Masks
-  // edge-antialiasing halos + sub-pixel gaps that form the visible tile
-  // grid (most pronounced at L2 zoom where each tile is being stretched
-  // up, causing independently-JPEG-compressed tile edges to mismatch).
-  //
-  // Level-px (not drawing-px) because:
-  //   (a) stretch ratio is uniform across levels: overlap / 512,
+  // S99 candidate: `overlap` — extend interior tile right/bottom by N
+  // level-pixels so adjacent tiles visually overlap (not butt edge-to-edge),
+  // masking edge-antialiasing halos + sub-pixel gaps that form the visible
+  // tile grid at fit zoom. Level-px (not drawing-px) because:
+  //   (a) stretch ratio is then uniform across levels: overlap / 512,
   //       keeping L4 sharpness invariant;
   //   (b) scales naturally with viewScale — fit zoom picks low levels
-  //       where level-px map to many drawing-px, giving adequate
-  //       screen-px overlap even when drawing is scaled down.
+  //       where level-px are mapped to many drawing-px, giving adequate
+  //       screen-px overlap even when the drawing is scaled down.
   // Skipped on last col / last row (no seam to mask there) so edge-tile
-  // clip-path math stays identical to baseline.
-  //
-  // Tested outcome (S99): tile grid disappeared at L2 with overlap=8.
-  //
-  // Toggle overrides:
-  //   ?s99test=baseline   → _s99ExtR = _s99ExtB = 0 (pre-S99 behavior)
-  //   ?s99test=overlap-N  → _s99ExtR = _s99ExtB = N (retains diagnostic
-  //                         access to non-default values)
-  var _s99ExtR = 8, _s99ExtB = 8;
-  if (_S99_TEST && _S99_TEST.name === 'baseline') {
-    _s99ExtR = 0;
-    _s99ExtB = 0;
-  } else if (_S99_TEST && _S99_TEST.name === 'overlap') {
-    var _s99Amt = (_S99_TEST.amount != null) ? _S99_TEST.amount : 8;
-    _s99ExtR = _s99Amt;
-    _s99ExtB = _s99Amt;
+  // clip-path math stays identical to baseline. Zero effect when
+  // _S99_TEST is null (production default).
+  var _s99ExtR = 0, _s99ExtB = 0;
+  if (_S99_TEST && _S99_TEST.name === 'overlap') {
+    var _s99Amt = (_S99_TEST.amount != null) ? _S99_TEST.amount : 4;
+    if ((req.col + 1) < lvl.cols) _s99ExtR = _s99Amt;
+    if ((req.row + 1) < lvl.rows) _s99ExtB = _s99Amt;
   }
-  // Last col / last row: never overlap (there's nothing to overlap INTO,
-  // and edge-tile clip-path math must stay baseline for padded tiles).
-  if ((req.col + 1) >= lvl.cols) _s99ExtR = 0;
-  if ((req.row + 1) >= lvl.rows) _s99ExtB = 0;
 
   var cssR = Math.round((tileX + tileW + _s99ExtR) * scaleX) + 1;
   var cssB = Math.round((tileY + tileH + _s99ExtB) * scaleY) + 1;
@@ -1035,46 +1016,43 @@ function _renderVisible() {
     var dk = keysToDrop[ki];
     var dt = _tiles[dk];
     if (dt && dt.img) {
-      // S99 purge-branch decision tree:
-      //
-      //   iOS (iPad/iPhone/iPadOS)
-      //     → snap-remove. Unchanged from S95. Keeps tile-memory pressure
-      //       minimal on Jetsam-prone devices. iOS users still see the
-      //       level-transition flash; tradeoff is accepted while the iOS
-      //       crash stabilization work stream is separate from this bug.
-      //
-      //   Non-iOS DEFAULT (desktop, Android)
-      //     → opacity=1 hold 400ms then snap-remove ("delaysrc" behavior).
-      //       Old pixels persist at full fidelity while new-level tiles
-      //       load behind, masking the transient gap. This was the
-      //       S99-tested winner for the level-transition flash bug.
-      //       Critical detail vs the pre-S99 S94 fade-out path: NO
-      //       opacity transition runs during the hold — the baked-in
-      //       180ms fade-in transition (still on the img from creation)
-      //       would otherwise drive opacity down toward zero. We set
-      //       transition:none + opacity=1 first to lock the old pixels
-      //       visible, THEN schedule the hard removal.
-      //
-      //   ?s99test=baseline  → S94 original fade-out (220ms). Escape
-      //                        hatch to compare against pre-S99 behavior.
-      //   ?s99test=fastfade  → fast fade-out (default 50ms + 20ms timeout).
-      //                        Still available for A/B experiments.
-      if (_iosNoFade) {
-        // iOS: immediate removal — visual snap, no memory lingering
-        if (dt.img.parentNode) dt.img.parentNode.removeChild(dt.img);
-        dt.img.src = '';
-      } else if (_S99_TEST && _S99_TEST.name === 'baseline') {
-        // Pre-S99 S94 behavior — fade-out 220ms
+      // S99 candidate: `delaysrc` — hold old-level tiles at opacity 1 (no
+      // animation) for N ms then snap-remove. Old pixels persist at full
+      // fidelity while new tiles load behind, masking the transient gap.
+      // Critical diff vs S98c: NO opacity transition during hold (S98c let
+      // the baked-in 180ms fade continue, which somehow broke L4). Here
+      // we explicitly set opacity to 1 first to override any in-flight
+      // transition, then snap-remove after the hold period.
+      if (_S99_TEST && _S99_TEST.name === 'delaysrc') {
+        var _holdMs = (_S99_TEST.amount != null) ? _S99_TEST.amount : 400;
         (function(el) {
-          el.style.opacity = '0';
+          el.style.transition = 'none';
+          el.style.opacity = '1';
           setTimeout(function() {
             if (el.parentNode) el.parentNode.removeChild(el);
             el.src = '';
-          }, 220);
+          }, _holdMs);
         })(dt.img);
-      } else if (_S99_TEST && _S99_TEST.name === 'fastfade') {
-        // Diagnostic fast fade-out — tuned via ?s99test=fastfade-N
-        var _s99RemoveMs = (_S99_TEST.amount != null ? _S99_TEST.amount : 50) + 20;
+      } else if (_iosNoFade) {
+        // Immediate removal — visual snap, no memory lingering
+        if (dt.img.parentNode) dt.img.parentNode.removeChild(dt.img);
+        dt.img.src = '';
+      } else {
+        // S94 — fade OUT before remove. The 180ms opacity transition (already
+        // baked into the img's inline style at creation time) runs in parallel
+        // with the new-level tiles fading IN, producing a smooth crossfade at
+        // level boundaries instead of the harsh "pop to backdrop" gap that
+        // looked like tiles were shifting. 220ms removal delay > 180ms fade
+        // gives the transition a full tick of headroom to complete before
+        // the img is yanked.
+        //
+        // S99 candidate: `fastfade` — shorten both fade-in (done at tile
+        // creation) and this removal delay. Timeout = _s99FadeMs + 20 to
+        // preserve "fade-out completes before yank" invariant.
+        var _s99RemoveMs = 220;
+        if (_S99_TEST && _S99_TEST.name === 'fastfade') {
+          _s99RemoveMs = (_S99_TEST.amount != null ? _S99_TEST.amount : 50) + 20;
+        }
         (function(el, ms) {
           el.style.opacity = '0';
           setTimeout(function() {
@@ -1082,20 +1060,6 @@ function _renderVisible() {
             el.src = '';
           }, ms);
         })(dt.img, _s99RemoveMs);
-      } else {
-        // DEFAULT (non-iOS): delaysrc — opacity=1 hold, snap-remove
-        var _holdMs = 400;
-        if (_S99_TEST && _S99_TEST.name === 'delaysrc' && _S99_TEST.amount != null) {
-          _holdMs = _S99_TEST.amount;
-        }
-        (function(el, ms) {
-          el.style.transition = 'none';
-          el.style.opacity = '1';
-          setTimeout(function() {
-            if (el.parentNode) el.parentNode.removeChild(el);
-            el.src = '';
-          }, ms);
-        })(dt.img, _holdMs);
       }
     }
     delete _tiles[dk];
