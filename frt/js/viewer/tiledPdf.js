@@ -915,28 +915,30 @@ function _renderVisible() {
   // Drop queued requests from other levels — they're no longer relevant.
   _cancelPendingExceptLevel(levelIdx);
 
-  // S98c: DELAYED purge of old-level tiles. Previously the purge ran
-  // synchronously on every _renderVisible pass and faded out old-level tiles
-  // immediately (180ms → remove at 220ms). But new-level tiles take longer
-  // than that to fetch over the network, so between "old faded out" and "new
-  // loaded" there was a visible gap. Pre-v201 this gap was masked by the
-  // dv-image backdrop; now that the backdrop is gone, the gap is the "flash"
-  // reported by Mark on L2→L3 and L3→L4 transitions.
+  // S98m: KEEP-BACKDROP purge. Mark reported L4 rendered crisp on first
+  // entry to L4 (right side of viewport) but went blurry after zoom cycles.
+  // Diagnosis: when delayed-purge was still holding L3 tiles during the
+  // 800ms window, Chrome had two layer sources (L3 covering + L4 on top).
+  // This forced Chrome to composite L4 tiles directly into final output at
+  // near-native visual size = crisp. Once the purge fired and only L4 tiles
+  // remained, wrap collapsed to a single-layer compositor; Chrome rasterized
+  // wrap at CSS size and GPU-scaled to visual, baking L4 tiles into a
+  // downsampled bitmap = blur.
   //
-  // New approach: on level change, do NOT purge immediately. Let old-level
-  // tiles stay fully opaque. New-level tiles are added to the DOM on top
-  // (DOM order = z-order) as they load — with the existing 180ms fade-in
-  // opacity transition on each new tile. After 500ms, the scheduled purge
-  // removes the old level — by which point new-level tiles have covered the
-  // drawing, so no visible flash. If the user zooms again during the 500ms
-  // window, the timer is reset; purge fires only after zoom settles.
+  // Keeping L3 as a permanent backdrop under L4 preserves the dual-layer
+  // path that made L4 crisp. Same logic for L2 as backdrop under L3.
   //
-  // S92's original reason for purging (tile z-order stacking across levels
-  // causing visual artifacts) is preserved — purge still runs, just delayed.
-  // Memory is bounded by _MAX_TILES via _evictExcess LRU (250 tiles cap);
-  // 20 L2 + 96 L3 + 384 L4 in the worst case = 500 tiles, so eviction may
-  // trigger during rapid all-level zooms, but that's fine — oldest tiles
-  // go first.
+  // Implementation: purge ONLY tiles 2+ levels away from current. Keep
+  // currentLevel tiles AND (currentLevel - 1) tiles. Purge (currentLevel - 2)
+  // and below, and (currentLevel + 1) and above.
+  //
+  // Purge still runs delayed (800ms) so rapid zoom cycles through L2→L3→L4
+  // don't churn tiles. S92's original z-order concern is still addressed —
+  // we keep at most 2 consecutive levels, not an unbounded stack.
+  //
+  // Memory: L3 backdrop (96 tiles) + L4 foreground (~40 visible) ≈ 140
+  // tiles, well within _MAX_TILES=250 cap. Fit-zoom still uses L2 (20
+  // tiles) + L1 backdrop (4 tiles) = 24. No memory concern.
   if (_levelChanged) {
     var _iosNoFade = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
                      (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
@@ -945,16 +947,18 @@ function _renderVisible() {
       _levelPurgeTimer = null;
       if (!_active) return;
       // Re-evaluate current level — user may have zoomed again between
-      // scheduling and firing (the reset-on-reschedule pattern above usually
-      // prevents this, but guard anyway).
+      // scheduling and firing.
       var keepLevel = _dbg_lastLevel;
+      var backdropLevel = keepLevel - 1; // kept as permanent backdrop for compositor path
       var keysToDrop = [];
       for (var tk in _tiles) {
         if (!Object.prototype.hasOwnProperty.call(_tiles, tk)) continue;
-        if (_tiles[tk].level !== keepLevel) keysToDrop.push(tk);
+        var lv = _tiles[tk].level;
+        // Keep currentLevel and immediate-lower (backdrop). Drop everything else.
+        if (lv !== keepLevel && lv !== backdropLevel) keysToDrop.push(tk);
       }
       if (!keysToDrop.length) return;
-      _dbgLife('purge:other-levels', { count: keysToDrop.length, keepLevel: keepLevel, iosNoFade: _iosNoFade, delayed: true });
+      _dbgLife('purge:other-levels', { count: keysToDrop.length, keepLevel: keepLevel, backdropLevel: backdropLevel, iosNoFade: _iosNoFade, delayed: true });
       for (var ki = 0; ki < keysToDrop.length; ki++) {
         var dk = keysToDrop[ki];
         var dt = _tiles[dk];
@@ -963,9 +967,6 @@ function _renderVisible() {
             if (dt.img.parentNode) dt.img.parentNode.removeChild(dt.img);
             dt.img.src = '';
           } else {
-            // Old tiles are already covered by new level at this point;
-            // a short fade-out still helps if new level hasn't fully
-            // populated for some tile positions.
             (function(el) {
               el.style.opacity = '0';
               setTimeout(function() {
