@@ -59,6 +59,82 @@ var _MAX_TILES = _isIPhone ? 80 : (_isIPad ? 180 : 250);
 var _MAX_CONCURRENT = _isIPhone ? 3 : (_isIPad ? 5 : 6);
 var _TILE_SIZE = 512;
 
+// ── S99 DIAGNOSTIC TOGGLE ──────────────────────────────────────────────────
+// Per S99 handoff rule: DO NOT push theory-based rendering fixes. Each
+// candidate gets wired behind a URL param so Mark can A/B test on-device
+// without redeploying. Default (no param): identical to current production
+// (S97 baseline rendering chain). No candidate code runs unless opted-in.
+//
+// Activation:   ?s99test=<name>        or   ?s99test=<name>-<amount>
+// Examples:     ?s99test=overlap       (default amount — 4 level-px)
+//               ?s99test=overlap-8     (8 level-px overlap)
+//               ?s99test=overlap-16    (16 level-px overlap)
+//               ?s99test=off  or  (no param)  → production behavior
+//
+// Candidates wired (as of S99 initial commit):
+//   overlap     — extend interior tile cssR/cssB by N level-px so adjacent
+//                 tiles visually overlap rather than butt edge-to-edge.
+//                 Targets: tile grid visible at fit zoom.
+//                 Rationale: current +1 is drawing-px (collapses to
+//                 sub-pixel at fit viewScale); level-px stays proportional.
+//
+// Further candidates will be added one-at-a-time per S99 workflow.
+function _readS99Test() {
+  try {
+    if (typeof window === 'undefined') return null;
+    var m = /[?&]s99test=([^&#]+)/.exec(window.location.search || '');
+    if (!m) return null;
+    var raw = decodeURIComponent(m[1]).toLowerCase();
+    if (!raw || raw === 'off') return null;
+    var dash = raw.indexOf('-');
+    var name, amount;
+    if (dash > 0) {
+      name = raw.slice(0, dash);
+      var n = parseInt(raw.slice(dash + 1), 10);
+      amount = (!isNaN(n) && n >= 0 && n <= 1024) ? n : null;
+    } else {
+      name = raw;
+      amount = null;
+    }
+    return { name: name, amount: amount, raw: raw };
+  } catch (_e) { return null; }
+}
+var _S99_TEST = _readS99Test();
+if (_S99_TEST) {
+  try {
+    console.log('[TiledPdf] S99 test mode ACTIVE: ' + _S99_TEST.raw +
+      ' (name=' + _S99_TEST.name +
+      ', amount=' + (_S99_TEST.amount == null ? 'default' : _S99_TEST.amount) + ')');
+  } catch (_e) {}
+}
+
+// Show a small, unobtrusive bottom-right indicator when any S99 test is
+// active, so Mark visually confirms he's not on baseline. Appended once on
+// first _dbg-safe chance; removed never (lives with page).
+function _mountS99Banner() {
+  if (!_S99_TEST) return;
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('s99-test-banner')) return;
+  var body = document.body;
+  if (!body) { setTimeout(_mountS99Banner, 200); return; }
+  var el = document.createElement('div');
+  el.id = 's99-test-banner';
+  el.textContent = 'S99 test: ' + _S99_TEST.raw;
+  el.style.cssText =
+    'position:fixed;bottom:8px;right:8px;z-index:99999;' +
+    'background:#9C2742;color:#fff;padding:3px 8px;' +
+    'font:600 10px/1.2 Calibri,sans-serif;border-radius:3px;' +
+    'pointer-events:none;opacity:0.85;box-shadow:0 1px 3px rgba(0,0,0,0.3);';
+  body.appendChild(el);
+}
+if (_S99_TEST) {
+  if (typeof document !== 'undefined' && document.readyState !== 'loading') {
+    _mountS99Banner();
+  } else if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', _mountS99Banner);
+  }
+}
+
 // ── Debug overlay — OFF by default. Enable with ?dbg=1 URL param only.
 // S93 fixes are stable in production, so the always-on mobile overlay is
 // retired. Keep the code path intact so it can still be invoked ad-hoc for
@@ -732,8 +808,28 @@ function _startFetch(req, layer) {
 
   var cssL = Math.round(tileX * scaleX);
   var cssT = Math.round(tileY * scaleY);
-  var cssR = Math.round((tileX + tileW) * scaleX) + 1;
-  var cssB = Math.round((tileY + tileH) * scaleY) + 1;
+
+  // S99 candidate: `overlap` — extend interior tile right/bottom by N
+  // level-pixels so adjacent tiles visually overlap (not butt edge-to-edge),
+  // masking edge-antialiasing halos + sub-pixel gaps that form the visible
+  // tile grid at fit zoom. Level-px (not drawing-px) because:
+  //   (a) stretch ratio is then uniform across levels: overlap / 512,
+  //       keeping L4 sharpness invariant;
+  //   (b) scales naturally with viewScale — fit zoom picks low levels
+  //       where level-px are mapped to many drawing-px, giving adequate
+  //       screen-px overlap even when the drawing is scaled down.
+  // Skipped on last col / last row (no seam to mask there) so edge-tile
+  // clip-path math stays identical to baseline. Zero effect when
+  // _S99_TEST is null (production default).
+  var _s99ExtR = 0, _s99ExtB = 0;
+  if (_S99_TEST && _S99_TEST.name === 'overlap') {
+    var _s99Amt = (_S99_TEST.amount != null) ? _S99_TEST.amount : 4;
+    if ((req.col + 1) < lvl.cols) _s99ExtR = _s99Amt;
+    if ((req.row + 1) < lvl.rows) _s99ExtB = _s99Amt;
+  }
+
+  var cssR = Math.round((tileX + tileW + _s99ExtR) * scaleX) + 1;
+  var cssB = Math.round((tileY + tileH + _s99ExtB) * scaleY) + 1;
   var cssW = cssR - cssL;
   var cssH = cssB - cssT;
 
