@@ -1016,43 +1016,43 @@ function _renderVisible() {
     var dk = keysToDrop[ki];
     var dt = _tiles[dk];
     if (dt && dt.img) {
-      // S99 candidate: `delaysrc` — hold old-level tiles at opacity 1 (no
-      // animation) for N ms then snap-remove. Old pixels persist at full
-      // fidelity while new tiles load behind, masking the transient gap.
-      // Critical diff vs S98c: NO opacity transition during hold (S98c let
-      // the baked-in 180ms fade continue, which somehow broke L4). Here
-      // we explicitly set opacity to 1 first to override any in-flight
-      // transition, then snap-remove after the hold period.
-      if (_S99_TEST && _S99_TEST.name === 'delaysrc') {
-        var _holdMs = (_S99_TEST.amount != null) ? _S99_TEST.amount : 400;
+      // S99e purge-branch decision tree:
+      //
+      //   iOS (iPad/iPhone/iPadOS)
+      //     → snap-remove. Unchanged from S95. Keeps tile-memory pressure
+      //       minimal on Jetsam-prone devices. iOS users still see the
+      //       level-transition flash; separate work stream.
+      //
+      //   Non-iOS DEFAULT (desktop, Android)
+      //     → opacity=1 hold 400ms then snap-remove (delaysrc behavior).
+      //       Old pixels persist at full fidelity while new-level tiles
+      //       load behind, masking the transient gap. On-device tested
+      //       in S99: eliminates flash on zoom-IN. Zoom-OUT still has a
+      //       split-second gap in newly-exposed edge areas (inherent to
+      //       tile pyramid — new viewport area was never covered).
+      //       Critical detail: transition:none first to override the
+      //       baked-in 180ms fade, THEN opacity=1 to lock pixels visible.
+      //
+      //   Toggles:
+      //     ?s99test=baseline  → pre-S99 S94 fade-out (220ms).
+      //     ?s99test=fastfade  → fast fade-out (default 50ms+20ms).
+      //     ?s99test=delaysrc-N → override hold duration (default still 400).
+      if (_iosNoFade) {
+        // iOS: immediate removal — visual snap, no memory lingering
+        if (dt.img.parentNode) dt.img.parentNode.removeChild(dt.img);
+        dt.img.src = '';
+      } else if (_S99_TEST && _S99_TEST.name === 'baseline') {
+        // Pre-S99 S94 behavior — fade-out 220ms
         (function(el) {
-          el.style.transition = 'none';
-          el.style.opacity = '1';
+          el.style.opacity = '0';
           setTimeout(function() {
             if (el.parentNode) el.parentNode.removeChild(el);
             el.src = '';
-          }, _holdMs);
+          }, 220);
         })(dt.img);
-      } else if (_iosNoFade) {
-        // Immediate removal — visual snap, no memory lingering
-        if (dt.img.parentNode) dt.img.parentNode.removeChild(dt.img);
-        dt.img.src = '';
-      } else {
-        // S94 — fade OUT before remove. The 180ms opacity transition (already
-        // baked into the img's inline style at creation time) runs in parallel
-        // with the new-level tiles fading IN, producing a smooth crossfade at
-        // level boundaries instead of the harsh "pop to backdrop" gap that
-        // looked like tiles were shifting. 220ms removal delay > 180ms fade
-        // gives the transition a full tick of headroom to complete before
-        // the img is yanked.
-        //
-        // S99 candidate: `fastfade` — shorten both fade-in (done at tile
-        // creation) and this removal delay. Timeout = _s99FadeMs + 20 to
-        // preserve "fade-out completes before yank" invariant.
-        var _s99RemoveMs = 220;
-        if (_S99_TEST && _S99_TEST.name === 'fastfade') {
-          _s99RemoveMs = (_S99_TEST.amount != null ? _S99_TEST.amount : 50) + 20;
-        }
+      } else if (_S99_TEST && _S99_TEST.name === 'fastfade') {
+        // Diagnostic fast fade-out — tuned via ?s99test=fastfade-N
+        var _s99RemoveMs = (_S99_TEST.amount != null ? _S99_TEST.amount : 50) + 20;
         (function(el, ms) {
           el.style.opacity = '0';
           setTimeout(function() {
@@ -1060,6 +1060,20 @@ function _renderVisible() {
             el.src = '';
           }, ms);
         })(dt.img, _s99RemoveMs);
+      } else {
+        // DEFAULT (non-iOS): delaysrc — opacity=1 hold, snap-remove
+        var _holdMs = 400;
+        if (_S99_TEST && _S99_TEST.name === 'delaysrc' && _S99_TEST.amount != null) {
+          _holdMs = _S99_TEST.amount;
+        }
+        (function(el, ms) {
+          el.style.transition = 'none';
+          el.style.opacity = '1';
+          setTimeout(function() {
+            if (el.parentNode) el.parentNode.removeChild(el);
+            el.src = '';
+          }, ms);
+        })(dt.img, _holdMs);
       }
     }
     delete _tiles[dk];
