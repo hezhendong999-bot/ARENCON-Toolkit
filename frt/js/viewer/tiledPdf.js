@@ -993,18 +993,28 @@ function _renderVisible() {
   if (!lvl) return;
   _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
 
-  // S100 candidate: `l2crisp` — switch tile layer to nearest-neighbor sampling
-  // when the picked level is L2. Kills the L2-only seam caused by bilinear
-  // edge blending against the layer background. Zero effect on tile geometry,
-  // zero risk of content duplication. Cleared at L3/L4 so smooth scaling
-  // (the standard, expected render mode) returns immediately on zoom-in.
+  // S100 candidate: `l2crisp` — switch the wrap (which carries the
+  // viewport scale transform) to nearest-neighbor sampling when the picked
+  // level is L2. The seam at L2 is from bilinear interpolation at the layer
+  // scale step (~0.21× shrink of the 6144px layer to viewport), not from
+  // per-tile rendering. Applying pixelated to dv-img-wrap kills that
+  // sampling at the boundary. Cleared at L3/L4 so smooth scaling returns.
   if (_S99_TEST && _S99_TEST.name === 'l2crisp') {
-    if (levelIdx === 2) {
-      if (layer.style.imageRendering !== 'pixelated') {
-        layer.style.imageRendering = 'pixelated';
-        layer.style.webkitImageRendering = 'pixelated';
+    var _l2cWrap = document.getElementById('dv-img-wrap');
+    if (_l2cWrap) {
+      if (levelIdx === 2) {
+        if (_l2cWrap.style.imageRendering !== 'pixelated') {
+          _l2cWrap.style.imageRendering = 'pixelated';
+          _l2cWrap.style.webkitImageRendering = 'pixelated';
+        }
+      } else if (_l2cWrap.style.imageRendering) {
+        _l2cWrap.style.imageRendering = '';
+        _l2cWrap.style.webkitImageRendering = '';
       }
-    } else if (layer.style.imageRendering) {
+    }
+    // Also clear it from the tile layer if a previous version of this
+    // toggle put it there (sticky inline style from S100 v1).
+    if (layer.style.imageRendering) {
       layer.style.imageRendering = '';
       layer.style.webkitImageRendering = '';
     }
