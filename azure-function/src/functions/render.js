@@ -1,5 +1,4 @@
 // ARENCON PDF Tile Render Function
-// Session 103 — Option B: 1024px tiles at L2 only (seam reduction at fit zoom)
 // Session 88 — pdfium swap + L5 (24576px) + WebP lossless at L3/L4
 // Session 85 origin — Azure Functions Node.js v4 programming model
 //
@@ -22,18 +21,6 @@ const sharp = require('sharp');
 // ---- Constants ------------------------------------------------------------
 
 const TILE_SIZE = 512;
-
-// Session 103 / Option B — L2 uses 1024px tiles (vs 512 elsewhere) to cut tile
-// count from 5×4=20 → 3×2=6 at L2. The L2 fit-zoom seam scales with the
-// per-`<img>` count, so reducing it ~70% makes residual seams less likely to
-// fall in the visible viewport at any pan position. Other levels unchanged
-// (L0 unaffected, L3/L4 work as-is at 512px). Per-level tile size is written
-// into the manifest so the viewer can pick it up via lvl.tileSize.
-const L2_TILE_SIZE = 1024;
-function getTileSize(levelIdx) {
-  return levelIdx === 2 ? L2_TILE_SIZE : TILE_SIZE;
-}
-
 const THUMB_QUALITY = 75;         // L0 thumbnail only
 const STD_QUALITY = 92;           // Lossy levels: L1, L2
 const MAX_PARALLEL_UPLOADS = 12;
@@ -234,15 +221,14 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
     const actualW = renderResult.width;
     const actualH = renderResult.height;
 
-    // Tile the level into TILE_SIZE x TILE_SIZE WebP tiles (L2 uses larger tiles — see getTileSize)
-    const tileSize = getTileSize(levelIdx);
-    const cols = Math.ceil(actualW / tileSize);
-    const rows = Math.ceil(actualH / tileSize);
-    const padW = cols * tileSize;
-    const padH = rows * tileSize;
+    // Tile the level into TILE_SIZE x TILE_SIZE WebP tiles
+    const cols = Math.ceil(actualW / TILE_SIZE);
+    const rows = Math.ceil(actualH / TILE_SIZE);
+    const padW = cols * TILE_SIZE;
+    const padH = rows * TILE_SIZE;
     const useLossless = LOSSLESS_LEVELS.has(levelIdx);
     const qTag = useLossless ? 'lossless' : (levelIdx === 0 ? `q=${THUMB_QUALITY}` : `q=${STD_QUALITY}`);
-    log(`  L${levelIdx}: ${cols}x${rows} tiles @ ${tileSize}px [${qTag}]`);
+    log(`  L${levelIdx}: ${cols}x${rows} tiles [${qTag}]`);
 
     // Pre-pad to multiple of TILE_SIZE so every tile is the full TILE_SIZE.
     // Sharp does this efficiently — streaming to .raw().toBuffer() once.
@@ -271,12 +257,12 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
     const uploadTasks = [];
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
-        const left = x * tileSize;
-        const top = y * tileSize;
+        const left = x * TILE_SIZE;
+        const top = y * TILE_SIZE;
         const tileKey = `${pid}/tiles/${drawingId}/page-${pageNumber}/level-${levelIdx}/${x}-${y}.webp`;
         uploadTasks.push(async () => {
           const sharpInst = sharp(padded, { raw: { width: padW, height: padH, channels: 4 } })
-            .extract({ left, top, width: tileSize, height: tileSize });
+            .extract({ left, top, width: TILE_SIZE, height: TILE_SIZE });
           let tileBuf;
           if (useLossless) {
             tileBuf = await sharpInst.webp({ lossless: true, effort: 4 }).toBuffer();
@@ -301,7 +287,7 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
 
     pageInfo.levels.push({
       level: levelIdx,
-      tileSize: tileSize,
+      tileSize: TILE_SIZE,
       cols,
       rows,
       width: actualW,
@@ -418,12 +404,10 @@ app.http('health', {
     jsonBody: {
       ok: true,
       service: 'arencon-pdf-render',
-      version: '2.2.0',
+      version: '2.1.0',
       renderer: 'pdfium',
       levels: LEVEL_WIDTHS.length,
       losslessLevels: [...LOSSLESS_LEVELS],
-      tileSize: TILE_SIZE,
-      l2TileSize: L2_TILE_SIZE,
       time: new Date().toISOString(),
     },
   }),
