@@ -1,5 +1,6 @@
 // ARENCON PDF Tile Render Function
-// Session 102 — WebP lossless extended to L2 (eliminates fit-zoom grid seam)
+// Session 102 — REVERTED: L2 lossless attempt did not fix the L2 fit-zoom seam.
+//   Investigation logged inline at LOSSLESS_LEVELS. Back to S88 baseline.
 // Session 88 — pdfium swap + L5 (24576px) + WebP lossless at L3/L4
 // Session 85 origin — Azure Functions Node.js v4 programming model
 //
@@ -23,7 +24,7 @@ const sharp = require('sharp');
 
 const TILE_SIZE = 512;
 const THUMB_QUALITY = 75;         // L0 thumbnail only
-const STD_QUALITY = 92;           // Lossy levels: L1 only (was L1+L2 pre-S102)
+const STD_QUALITY = 92;           // Lossy levels: L1, L2
 const MAX_PARALLEL_UPLOADS = 12;
 const BUCKET = 'arencon-files';
 
@@ -36,18 +37,20 @@ const BUCKET = 'arencon-files';
 const LEVEL_WIDTHS = [256, 1024, 2560, 6144, 12288];
 
 // Levels using lossless WebP encoding (pixel-perfect engineering line work).
-// L3 (6144px) and L4 (12288px) are the zoom tiers where users read text.
-// L2 (2560px) added in S102: lossy WebP at L2 produces small (~7 unit/channel)
-// per-tile prediction-context shifts at tile boundaries, which the GPU's bilinear
-// upscale at fit-zoom (~2.4× source-to-display) amplifies into visible grey grid
-// seams. Lossless eliminates the prediction context entirely, making adjacent
-// tiles' edge pixels byte-equal to the source page render and to each other.
-// Cost: L2 tiles ~3× larger for CAD content (mostly white + lines compress well
-// in lossless WebP). Verified S102 via: Mode 2 single-<img> diagnostic shows the
-// seam survives merging two decoded WebP tiles into one PNG blob → the seam IS
-// in the source pixel content, not the render pipeline.
-// L0/L1 stay lossy (thumb + far-zoom; tiles too small on screen for seam to register).
-const LOSSLESS_LEVELS = new Set([2, 3, 4]);
+// L3 (6144px) and L4 (12288px) are the zoom tiers where users read text —
+// lossless eliminates any encoder-introduced edge artifacts.
+// L0/L1/L2 stay lossy (thumbs, far-zoom, imperceptible).
+//
+// S102 attempted L2 lossless to fix the L2 fit-zoom grid seam (see dead-end
+// #11 in the seam-investigation log). Hypothesis was that per-tile WebP
+// prediction-context shifts at boundaries (~7 unit/channel) were creating
+// the visible seam. Mode 2 single-<img> diagnostic proved seam IS in source
+// pixel content; lossless L2 was the proposed fix. After deploy + tile
+// pyramid regeneration on test drawing, seam was UNCHANGED at L2 fit zoom.
+// Encoding context was not the cause. The seam likely originates further
+// upstream (pdfium rendering producing faint per-tile gradients, or bilinear
+// sampling artifacts intrinsic to the slicing+display pipeline). Reverted.
+const LOSSLESS_LEVELS = new Set([3, 4]);
 
 // Per-level bitmap memory budget. pdfium WASM heap = 2 GB hard cap.
 // Budget set lower to leave headroom for pdfium's internal rendering state
