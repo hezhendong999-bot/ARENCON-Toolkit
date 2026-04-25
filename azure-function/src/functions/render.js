@@ -246,7 +246,15 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
     //   new_B = 1·R + 0·G + 0·B  ← was-R
     let padded;
     try {
-      padded = await sharp(rgba, { raw: { width: actualW, height: actualH, channels: 4 } })
+      // S104-fix: copy rgba out of WASM heap into stable Node memory immediately,
+      // before sharp's libvips potentially lazy-reads it. Tests S103 hypothesis #2
+      // — that sharp's internal read of the rgba Uint8Array may happen lazily,
+      // by which time the WASM heap state has shifted (concurrent renders, GC,
+      // pdfium internal passes), producing partially-stale bytes for some L4 tiles.
+      // Buffer.from() does one synchronous memcpy out of WASM into Node-managed
+      // heap, eliminating any read-timing window.
+      const rgbaCopy = Buffer.from(rgba);
+      padded = await sharp(rgbaCopy, { raw: { width: actualW, height: actualH, channels: 4 } })
         .recomb([[0, 0, 1], [0, 1, 0], [1, 0, 0]])
         .extend({
           right: padW - actualW,
@@ -417,8 +425,8 @@ app.http('health', {
     jsonBody: {
       ok: true,
       service: 'arencon-pdf-render',
-      version: '2.1.1',
-      bgraSwap: 'sharp.recomb',  // S103-fix marker — was 'in-callback' before
+      version: '2.1.2',
+      bgraSwap: 'sharp.recomb + clone',  // S104 — Buffer.from() materialize before recomb
       renderer: 'pdfium',
       levels: LEVEL_WIDTHS.length,
       losslessLevels: [...LOSSLESS_LEVELS],
