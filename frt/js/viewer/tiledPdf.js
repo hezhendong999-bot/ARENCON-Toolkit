@@ -208,6 +208,35 @@ if (_S101_TEST) {
   } catch (_e) {}
 }
 
+// S101 candidate: `canvas` — single-canvas POC. All tiles drawn into one
+// shared <canvas> element rather than being appended as independent <img>s.
+// Hypothesis: per-<img> bilinear edge-clamp halos (visible at L2 due to
+// the 2.4× upscale factor 512→1230 drawing-px) compose into the visible
+// L2 grid seam after the wrap's scale transform. drawImage onto a shared
+// surface should not exhibit per-element AA outlines, eliminating the seam.
+// Module-level state — only populated when ?s101test=canvas is active.
+var _s101Canvas = null;
+var _s101Ctx = null;
+function _s101CanvasMode() {
+  return !!(_S101_TEST && _S101_TEST.name === 'canvas');
+}
+function _s101DrawTile(tile) {
+  if (!_s101Ctx || !tile || !tile.img || !tile.geom) return;
+  var g = tile.geom;
+  try {
+    if (g.isEdgeTile) {
+      // Edge tiles have white sharp.extend() padding outside (tileW × tileH).
+      // Source-rectangle drawImage skips the padded region cleanly — same
+      // effect as the legacy clip-path:inset() on <img>.
+      _s101Ctx.drawImage(tile.img,
+        0, 0, g.tileW, g.tileH,
+        g.cssL, g.cssT, g.cssW, g.cssH);
+    } else {
+      _s101Ctx.drawImage(tile.img, g.cssL, g.cssT, g.cssW, g.cssH);
+    }
+  } catch (_e) { /* tile may have been freed or drawing closed mid-draw */ }
+}
+
 function _mountS101Banner() {
   if (!_S101_TEST) return;
   if (typeof document === 'undefined') return;
@@ -1017,6 +1046,30 @@ function _startFetch(req, layer) {
     }
     var finish = function() {
       if (!_active || _drawingId !== drawingIdAtRequest) { img.src = ''; _pumpQueue(); return; }
+      // S101 canvas POC branch — draw to shared canvas, skip DOM append.
+      // Tile geometry (cssL/cssT/cssW/cssH/isEdgeTile/tileW/tileH) is
+      // captured here from _startFetch closure scope and stored on the
+      // tile so we can redraw after canvas-clear (level transitions).
+      if (_s101CanvasMode() && _s101Ctx) {
+        _tiles[key] = {
+          img: img,
+          level: req.level,
+          canvasMode: true,
+          geom: {
+            isEdgeTile: isEdgeTile,
+            tileW: tileW, tileH: tileH,
+            cssL: cssL, cssT: cssT,
+            cssW: cssW, cssH: cssH
+          }
+        };
+        _tileOrder.push(key);
+        _tileCount++;
+        _s101DrawTile(_tiles[key]);
+        var curLayer1 = document.getElementById('dv-tiles-layer');
+        _evictExcess(curLayer1);
+        _pumpQueue();
+        return;
+      }
       _tiles[key] = { img: img, level: req.level };
       _tileOrder.push(key);
       _tileCount++;
@@ -1170,6 +1223,20 @@ function _renderVisible() {
     _tileCount--;
     var oi = _tileOrder.indexOf(dk);
     if (oi >= 0) _tileOrder.splice(oi, 1);
+  }
+
+  // S101 canvas POC — after a level-purge, clear the canvas and redraw
+  // every remaining tile from cache. Without this, evicted-level tiles
+  // would remain painted on the canvas (no DOM removal to fall back on),
+  // and at zoom-out the L4 content would remain visible underneath new
+  // L2/L3 tiles. clearRect + iterate-and-redraw is O(active-tiles) per
+  // level transition — cheap, ~20 tiles at fit zoom.
+  if (_s101CanvasMode() && _s101Ctx && keysToDrop.length) {
+    _s101Ctx.clearRect(0, 0, _s101Canvas.width, _s101Canvas.height);
+    for (var rk in _tiles) {
+      if (!Object.prototype.hasOwnProperty.call(_tiles, rk)) continue;
+      if (_tiles[rk].canvasMode) _s101DrawTile(_tiles[rk]);
+    }
   }
 
   // Visible draw-space rectangle, expanded by 1 tile worth of margin so pan
@@ -1331,6 +1398,23 @@ function _openServerTiles(d, drawingId, pageNum) {
       if (wrap && mc) wrap.insertBefore(layer, mc);
       else if (wrap) wrap.appendChild(layer);
 
+      // S101 canvas POC — create the shared canvas inside the layer. The
+      // wrap's transform: scale(viewScale) applies to the layer (and thus
+      // the canvas) the same way it applies to <img>s today, so positioning
+      // and zoom behavior is unchanged.
+      if (_s101CanvasMode()) {
+        _s101Canvas = document.createElement('canvas');
+        _s101Canvas.width = _drawW;
+        _s101Canvas.height = _drawH;
+        _s101Canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
+        layer.appendChild(_s101Canvas);
+        _s101Ctx = _s101Canvas.getContext('2d');
+        if (_s101Ctx) {
+          _s101Ctx.imageSmoothingEnabled = true;
+          _s101Ctx.imageSmoothingQuality = 'high';
+        }
+      }
+
       _active = true;
       if (_cfg.hideLoading) _cfg.hideLoading();
       if (_cfg.onReady) _cfg.onReady({ drawW: _drawW, drawH: _drawH });
@@ -1414,6 +1498,10 @@ function _close_internal() {
   _s99PrefetchIssued = {};
 
   if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
+  // S101 canvas POC — layer removal already detached the canvas. Just
+  // null our refs so a subsequent open creates a fresh context.
+  _s101Canvas = null;
+  _s101Ctx = null;
   var img = document.getElementById('dv-image');
   if (img) {
     // S98b: hide backdrop instantly via visibility, blank src to release
