@@ -1,6 +1,6 @@
 // ARENCON PDF Tile Render Function
-// Session 102 — REVERTED: L2 lossless attempt did not fix the L2 fit-zoom seam.
-//   Investigation logged inline at LOSSLESS_LEVELS. Back to S88 baseline.
+// Session 102 — Monolithic L0/L1/L2 (single padded-square tile per level)
+//   Eliminates per-<img> rasterization seams at fit-zoom. See MONOLITHIC_LEVELS.
 // Session 88 — pdfium swap + L5 (24576px) + WebP lossless at L3/L4
 // Session 85 origin — Azure Functions Node.js v4 programming model
 //
@@ -35,6 +35,22 @@ const BUCKET = 'arencon-files';
 // bitmap = 1.6 GB leaves no headroom for pdfium's internal state, causing
 // "Cannot enlarge memory" + OOM kill (exit code 137) after 3 pages.
 const LEVEL_WIDTHS = [256, 1024, 2560, 6144, 12288];
+
+// S102 — Monolithic levels: render as a single padded-square tile (cols=1, rows=1)
+// instead of slicing into 512×512 chunks. Eliminates per-<img> rasterization seams
+// at fit-zoom (the L2 grey-grid issue) by giving the viewer one image with no
+// internal element boundaries. Constrained to L0/L1/L2 because L3/L4 monolithic
+// would exceed iPad GPU texture limits (a 12288×12288 padded square is 600M px).
+//
+// Verified S102 via 3×3 merged-tile diagnostic: a single <img> spanning a 1536×1536
+// region had ZERO internal seams while the rest of the drawing (still tiled) did.
+// Mark visually confirmed.
+//
+// Storage impact: padded square at L2 (e.g., 2560×2560 covering 2560×1700 content)
+// adds ~50% area but the white pad compresses to near-zero in WebP. Net file size
+// is comparable to or smaller than the current 5×4 grid of 512×512 tiles, since
+// fewer headers and better global encoder context offset the pad.
+const MONOLITHIC_LEVELS = new Set([0, 1, 2]);
 
 // Levels using lossless WebP encoding (pixel-perfect engineering line work).
 // L3 (6144px) and L4 (12288px) are the zoom tiers where users read text —
@@ -233,16 +249,22 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
     const actualW = renderResult.width;
     const actualH = renderResult.height;
 
-    // Tile the level into TILE_SIZE x TILE_SIZE WebP tiles
-    const cols = Math.ceil(actualW / TILE_SIZE);
-    const rows = Math.ceil(actualH / TILE_SIZE);
-    const padW = cols * TILE_SIZE;
-    const padH = rows * TILE_SIZE;
+    // S102 — monolithic level handling: force 1×1 grid by using a tile size
+    // that covers the whole bitmap. Pads to a square, but white pad compresses
+    // near-free in WebP. Eliminates per-<img> seams at fit-zoom on the client.
+    const isMonolithic = MONOLITHIC_LEVELS.has(levelIdx);
+    const effTileSize = isMonolithic ? Math.max(actualW, actualH) : TILE_SIZE;
+
+    // Tile the level into effTileSize × effTileSize WebP tiles
+    const cols = Math.ceil(actualW / effTileSize);
+    const rows = Math.ceil(actualH / effTileSize);
+    const padW = cols * effTileSize;
+    const padH = rows * effTileSize;
     const useLossless = LOSSLESS_LEVELS.has(levelIdx);
     const qTag = useLossless ? 'lossless' : (levelIdx === 0 ? `q=${THUMB_QUALITY}` : `q=${STD_QUALITY}`);
-    log(`  L${levelIdx}: ${cols}x${rows} tiles [${qTag}]`);
+    log(`  L${levelIdx}: ${cols}x${rows} tiles @ ${effTileSize}px [${qTag}]${isMonolithic ? ' (monolithic)' : ''}`);
 
-    // Pre-pad to multiple of TILE_SIZE so every tile is the full TILE_SIZE.
+    // Pre-pad to multiple of effTileSize so every tile is the full size.
     // Sharp does this efficiently — streaming to .raw().toBuffer() once.
     let padded;
     try {
@@ -269,12 +291,12 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
     const uploadTasks = [];
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
-        const left = x * TILE_SIZE;
-        const top = y * TILE_SIZE;
+        const left = x * effTileSize;
+        const top = y * effTileSize;
         const tileKey = `${pid}/tiles/${drawingId}/page-${pageNumber}/level-${levelIdx}/${x}-${y}.webp`;
         uploadTasks.push(async () => {
           const sharpInst = sharp(padded, { raw: { width: padW, height: padH, channels: 4 } })
-            .extract({ left, top, width: TILE_SIZE, height: TILE_SIZE });
+            .extract({ left, top, width: effTileSize, height: effTileSize });
           let tileBuf;
           if (useLossless) {
             tileBuf = await sharpInst.webp({ lossless: true, effort: 4 }).toBuffer();
@@ -299,7 +321,7 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
 
     pageInfo.levels.push({
       level: levelIdx,
-      tileSize: TILE_SIZE,
+      tileSize: effTileSize,
       cols,
       rows,
       width: actualW,
