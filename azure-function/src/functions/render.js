@@ -57,15 +57,18 @@ const MONOLITHIC_LEVELS = new Set([0, 1, 2]);
 // lossless eliminates any encoder-introduced edge artifacts.
 // L0/L1/L2 stay lossy (thumbs, far-zoom, imperceptible).
 //
-// S102 attempted L2 lossless to fix the L2 fit-zoom grid seam (see dead-end
-// #11 in the seam-investigation log). Hypothesis was that per-tile WebP
-// prediction-context shifts at boundaries (~7 unit/channel) were creating
-// the visible seam. Mode 2 single-<img> diagnostic proved seam IS in source
-// pixel content; lossless L2 was the proposed fix. After deploy + tile
-// pyramid regeneration on test drawing, seam was UNCHANGED at L2 fit zoom.
-// Encoding context was not the cause. The seam likely originates further
-// upstream (pdfium rendering producing faint per-tile gradients, or bilinear
-// sampling artifacts intrinsic to the slicing+display pipeline). Reverted.
+// S102 narrative — the L2 fit-zoom grid seam fix:
+// 1. First attempt: extend lossless WebP encoding to L2 (S102a). Theory: per-tile
+//    encoder prediction context creates ~7 unit/channel shifts at boundaries,
+//    which the GPU's bilinear upscale at fit-zoom amplifies into the visible
+//    grey grid. Tested on real tiles → seam unchanged. Reverted (dead-end #11).
+// 2. Second attempt: monolithic L0/L1/L2 (this commit, S102b). Theory: per-<img>
+//    GPU rasterization at low levels creates sub-pixel AA artifacts at every
+//    tile boundary; eliminate boundaries by emitting one padded-square tile per
+//    level. Verified via 3×3 merged-tile diagnostic — Mark visually confirmed
+//    no seams inside merged region while seams persisted everywhere else still
+//    using individual <img> tiles. See MONOLITHIC_LEVELS above.
+// L0/L1 stay lossy (thumb + far-zoom; tile too small on screen for seam to register).
 const LOSSLESS_LEVELS = new Set([3, 4]);
 
 // Per-level bitmap memory budget. pdfium WASM heap = 2 GB hard cap.
