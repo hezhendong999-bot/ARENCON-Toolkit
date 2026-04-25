@@ -155,6 +155,83 @@ if (_S99_TEST) {
   }
 }
 
+// ── S101 DIAGNOSTIC TOGGLE ─────────────────────────────────────────────────
+// Plan A finding (per S101 git-history audit): the L2 grid seam has been in
+// production since S87 fix #1 (commit f1f67a1b, "Session 87 fix: tile gaps
+// + blur + instant preview"). That commit introduced a deliberate `+1` pad
+// on cssR/cssB to hide sub-pixel gaps that the original float-math (S87
+// initial, ac095c99) produced. Every subsequent commit kept the +1.
+//
+// The +1 means tile N OVERLAPS tile N+1 by exactly 1 CSS-pixel in the
+// drawing-px coordinate space. After the wrap's `transform: scale(viewScale)`
+// (e.g., 0.213 at fit zoom on a 6144-px-wide drawing), that 1-px overlap
+// becomes a sub-pixel region where two independently-rasterized <img>
+// elements with anti-aliased edges fight for the same screen-pixel
+// neighborhood. Hypothesis: this is the visible seam.
+//
+// Removing the +1 makes adjacent tiles butt edge-to-edge at integer
+// pixel boundaries: cssR_N === cssL_{N+1} === Math.round((N+1)*tileW*scaleX).
+// No double-draw region, no sub-pixel overlap, no AA halo conflict.
+//
+// Activation:   ?s101test=nooverlap   → set +1 pad to 0 on interior tiles.
+//               ?s101test=off  or  (no param)  → production behavior.
+//
+// Default OFF (production unchanged). Toggle is independent of ?s99test=
+// candidates — they can coexist. If proven safe in field testing, this
+// becomes the production default in a future session.
+function _readS101Test() {
+  try {
+    if (typeof window === 'undefined') return null;
+    var m = /[?&]s101test=([^&#]+)/.exec(window.location.search || '');
+    if (!m) return null;
+    var raw = decodeURIComponent(m[1]).toLowerCase();
+    if (!raw || raw === 'off') return null;
+    var dash = raw.indexOf('-');
+    var name, amount;
+    if (dash > 0) {
+      name = raw.slice(0, dash);
+      var n = parseInt(raw.slice(dash + 1), 10);
+      amount = (!isNaN(n) && n >= 0 && n <= 1024) ? n : null;
+    } else {
+      name = raw;
+      amount = null;
+    }
+    return { name: name, amount: amount, raw: raw };
+  } catch (_e) { return null; }
+}
+var _S101_TEST = _readS101Test();
+if (_S101_TEST) {
+  try {
+    console.log('[TiledPdf] S101 test mode ACTIVE: ' + _S101_TEST.raw +
+      ' (name=' + _S101_TEST.name +
+      ', amount=' + (_S101_TEST.amount == null ? 'default' : _S101_TEST.amount) + ')');
+  } catch (_e) {}
+}
+
+function _mountS101Banner() {
+  if (!_S101_TEST) return;
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('s101-test-banner')) return;
+  var body = document.body;
+  if (!body) { setTimeout(_mountS101Banner, 200); return; }
+  var el = document.createElement('div');
+  el.id = 's101-test-banner';
+  el.textContent = 'S101 test: ' + _S101_TEST.raw;
+  el.style.cssText =
+    'position:fixed;bottom:8px;left:8px;z-index:99999;' +
+    'background:#1B2438;color:#fff;padding:3px 8px;' +
+    'font:600 10px/1.2 Calibri,sans-serif;border-radius:3px;' +
+    'pointer-events:none;opacity:0.85;box-shadow:0 1px 3px rgba(0,0,0,0.3);';
+  body.appendChild(el);
+}
+if (_S101_TEST) {
+  if (typeof document !== 'undefined' && document.readyState !== 'loading') {
+    _mountS101Banner();
+  } else if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', _mountS101Banner);
+  }
+}
+
 // ── Debug overlay — OFF by default. Enable with ?dbg=1 URL param only.
 // S93 fixes are stable in production, so the always-on mobile overlay is
 // retired. Keep the code path intact so it can still be invoked ad-hoc for
@@ -850,6 +927,19 @@ function _startFetch(req, layer) {
 
   var cssR = Math.round((tileX + tileW + _s99ExtR) * scaleX) + 1;
   var cssB = Math.round((tileY + tileH + _s99ExtB) * scaleY) + 1;
+  // S101 candidate: `nooverlap` — drop the legacy +1 drawing-px pad that has
+  // been in tile geometry since S87 fix #1 (f1f67a1b). With both cssL and
+  // cssL_{N+1} already rounded to integer pixels via Math.round, the +1
+  // creates a deliberate 1-CSS-px OVERLAP between adjacent tiles (cssR_N =
+  // cssL_{N+1} + 1). After the wrap's scale transform, that overlap becomes
+  // a sub-pixel region where two anti-aliased <img> edges fight, producing
+  // the visible L2 grid seam. Setting pad to 0 makes tiles butt edge-to-edge
+  // at integer pixel boundaries: cssR_N === cssL_{N+1} exactly. Zero effect
+  // when _S101_TEST is null (production default unchanged).
+  if (_S101_TEST && _S101_TEST.name === 'nooverlap') {
+    cssR -= 1;
+    cssB -= 1;
+  }
   var cssW = cssR - cssL;
   var cssH = cssB - cssT;
 
