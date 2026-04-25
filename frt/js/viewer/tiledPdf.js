@@ -85,6 +85,19 @@ var _TILE_SIZE = 512;
 //                 tiles visually overlap rather than butt edge-to-edge.
 //                 Rationale: current +1 is drawing-px (sub-pixel at fit
 //                 viewScale); level-px stays proportional.
+//                 KILLED IN S100: causes visible content-doubling/squeeze
+//                 at tile boundaries when active. Use for measurement only.
+//     l2crisp   — S100 v2: apply CSS image-rendering: pixelated to the tile
+//                 layer ONLY when picked level is L2. At L2, browser upscales
+//                 each 512px source tile by 2.4× to drawing space; the
+//                 default bilinear sampling at the right edge column blends
+//                 with the transparent area beyond the img element (= white
+//                 layer bg), producing a faint white streak at every tile
+//                 boundary. Switching to nearest-neighbor sampling makes the
+//                 edge column repeat its OWN pixels, so the boundary blends
+//                 with content instead of with white. L3/L4 untouched
+//                 (cleared whenever levelIdx !== 2). Zero geometry change.
+//                 No overlap math, no doubling, no squeeze.
 //
 //   LEVEL-TRANSITION FLASH (L2→L3, L3→L4):
 //     fastfade  — shorten new-tile fade-in from 180ms → Nms AND old-tile
@@ -979,6 +992,23 @@ function _renderVisible() {
   var lvl = _pageInfo.levels[levelIdx];
   if (!lvl) return;
   _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
+
+  // S100 candidate: `l2crisp` — switch tile layer to nearest-neighbor sampling
+  // when the picked level is L2. Kills the L2-only seam caused by bilinear
+  // edge blending against the layer background. Zero effect on tile geometry,
+  // zero risk of content duplication. Cleared at L3/L4 so smooth scaling
+  // (the standard, expected render mode) returns immediately on zoom-in.
+  if (_S99_TEST && _S99_TEST.name === 'l2crisp') {
+    if (levelIdx === 2) {
+      if (layer.style.imageRendering !== 'pixelated') {
+        layer.style.imageRendering = 'pixelated';
+        layer.style.webkitImageRendering = 'pixelated';
+      }
+    } else if (layer.style.imageRendering) {
+      layer.style.imageRendering = '';
+      layer.style.webkitImageRendering = '';
+    }
+  }
 
   // S97 DIAG: detect level changes vs same-level pans
   if (_dbg_lastLevel !== levelIdx) {
