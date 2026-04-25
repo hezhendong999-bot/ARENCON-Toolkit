@@ -162,31 +162,35 @@ async function uploadAll(tasks, log) {
   }
 }
 
-// ---- pdfium render callback: pass-through (BGRA swap deferred) -----------
+// ---- Custom pdfium render callback: BGRA -> RGBA, return raw bitmap -------
 //
-// pdfium renders to BGRA, but at large bitmap sizes (L4 = 100 MB raw, L5 = 400 MB)
-// the render callback may fire multiple times with chunked/strip data. Doing the
-// in-place RGB swap inside the callback can produce double-swapped regions where
-// chunks overlap, manifesting as R↔B inversion on one side of the rendered image.
-// This was the root cause of the S102 L4 color-inversion bug.
+// pdfium defaults to BGRA colorspace. Sharp encodes RGB channel order to
+// JPEG/WebP/PNG, so passing BGRA raw → sharp.webp() would swap red and blue
+// in the output (visible on colored annotations; invisible on black line work).
+// We do the swap once here before handing to sharp. In-place on the returned
+// Uint8Array — pdfium passes us the fresh copy, it's ours to mutate.
 //
-// Fix (S102): the callback now only forwards the buffer; the BGRA→RGBA swap is
-// performed once on the fully-assembled rgba buffer below, after page.render()
-// resolves.
-function passthroughRender({ data }) {
-  return Promise.resolve(data);
-}
+// S102 attempted to defer this swap to the assembled buffer (post-render), on
+// the theory that pdfium chunks delivery at L4/L5 and double-swaps overlapping
+// strips. That deploy verified empirically: byte-level scan of L3 and L4 tiles
+// after the assembled-buffer swap showed BOTH levels were not swapped at all
+// (R/B inverted byte-wise). The in-callback path is what actually mutates the
+// memory pdfium hands to sharp; the post-render handle is not the same buffer.
+// Reverted to in-callback. The L4 spatial inversion observed earlier was likely
+// from stale partial-render tiles in R2, not double-swap chunking.
+//
+// Perf: ~100M ops/sec on V8, so ~4s for a 400MP L5 bitmap. Acceptable against
+// multi-second render + encode time.
 
-// Single-pass BGRA→RGBA swap on a complete buffer. Safe because the buffer is
-// final at this point — no concurrent writers, no chunked delivery to race.
-// Perf: ~100M ops/sec on V8, ~1s for L4 100MP, ~4s for L5 400MP.
-function swapBgraToRgbaInPlace(data) {
+function bgraToRgbaRender({ data }) {
   const len = data.length;
   for (let i = 0; i < len; i += 4) {
     const b = data[i];
-    data[i] = data[i + 2];
-    data[i + 2] = b;
+    data[i] = data[i + 2];   // R = old B
+    data[i + 2] = b;         // B = old R
+    // G (i+1) and A (i+3) unchanged
   }
+  return Promise.resolve(data);
 }
 
 // ---- Per-page render + tile (pdfium-based, per-level upload) --------------
@@ -245,7 +249,7 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
     try {
       renderResult = await page.render({
         scale,
-        render: passthroughRender,
+        render: bgraToRgbaRender,
       });
     } catch (err) {
       // WASM OOM or pdfium internal error — log and skip this level
@@ -256,10 +260,6 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
     const rgba = renderResult.data;
     const actualW = renderResult.width;
     const actualH = renderResult.height;
-
-    // S102 — single-pass BGRA→RGBA swap on the assembled buffer (see callback
-    // comment above for why the in-callback swap is unsafe at L4/L5).
-    swapBgraToRgbaInPlace(rgba);
 
     // S102 — monolithic level handling: force 1×1 grid by using a tile size
     // that covers the whole bitmap. Pads to a square, but white pad compresses
@@ -450,7 +450,7 @@ app.http('health', {
     jsonBody: {
       ok: true,
       service: 'arencon-pdf-render',
-      version: '2.1.0',
+      version: '2.1.1-s102',
       renderer: 'pdfium',
       levels: LEVEL_WIDTHS.length,
       losslessLevels: [...LOSSLESS_LEVELS],
