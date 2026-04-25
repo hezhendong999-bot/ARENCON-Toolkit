@@ -64,17 +64,6 @@ var _MAX_TILES = _isIPhone ? 80 : (_isIPad ? 180 : 250);
 var _MAX_CONCURRENT = _isIPhone ? 3 : (_isIPad ? 5 : 6);
 var _TILE_SIZE = 512;
 
-// S102 — Per-level tile size: read from manifest (lvl.tileSize) instead of
-// assuming the global constant. Renderer S102 outputs L0/L1/L2 as single
-// padded-square tiles (cols=1, rows=1, tileSize=max(actualW,actualH)) to
-// eliminate per-<img> rasterization seams at fit-zoom. The viewer's existing
-// edge-tile clip-path math works correctly for these padded squares — clips
-// the white pad off the bottom (or right, on portrait pages). Backward compat:
-// older manifests without lvl.tileSize fall back to _TILE_SIZE (512).
-function _lvlTileSize(lvl) {
-  return (lvl && lvl.tileSize) || _TILE_SIZE;
-}
-
 // ── S99 DIAGNOSTIC TOGGLE ──────────────────────────────────────────────────
 // Per S99 handoff rule: DO NOT push theory-based rendering fixes. Each
 // candidate gets wired behind a URL param so Mark can A/B test on-device
@@ -829,13 +818,12 @@ function _startFetch(req, layer) {
   if (!url) { delete _inflight[key]; return; }
 
   var lvl = req.lvl;
-  var lvlTS = _lvlTileSize(lvl);
   var scaleX = _drawW / lvl.width;
   var scaleY = _drawH / lvl.height;
-  var tileX = req.col * lvlTS;
-  var tileY = req.row * lvlTS;
-  var tileW = Math.min(lvlTS, lvl.width - tileX);
-  var tileH = Math.min(lvlTS, lvl.height - tileY);
+  var tileX = req.col * _TILE_SIZE;
+  var tileY = req.row * _TILE_SIZE;
+  var tileW = Math.min(_TILE_SIZE, lvl.width - tileX);
+  var tileH = Math.min(_TILE_SIZE, lvl.height - tileY);
   if (tileW <= 0 || tileH <= 0) { delete _inflight[key]; _pumpQueue(); return; }
 
   var cssL = Math.round(tileX * scaleX);
@@ -886,7 +874,7 @@ function _startFetch(req, layer) {
   //   has a +1 pad for gap-free abutment). Safari/Chrome treated that as
   //   "clip everything" on pages 1 & 2 specifically, making L3 drawing
   //   appear completely black. Fixed here.
-  var isEdgeTile = (tileW < lvlTS) || (tileH < lvlTS);
+  var isEdgeTile = (tileW < _TILE_SIZE) || (tileH < _TILE_SIZE);
   // S94 — tile fade-in polish. Tiles start at opacity 0 and the transition
   // fades them to 1 on append. Kills the visible "pop-in" and grid-of-tiles
   // shimmer that was previously visible when zooming or switching pages.
@@ -907,8 +895,8 @@ function _startFetch(req, layer) {
   var fadeIn = 'opacity:0;transition:opacity ' + _s99FadeMs + 'ms ease-out;will-change:opacity;';
   var cssText;
   if (isEdgeTile) {
-    var fullCssW = Math.round(lvlTS * scaleX);
-    var fullCssH = Math.round(lvlTS * scaleY);
+    var fullCssW = Math.round(_TILE_SIZE * scaleX);
+    var fullCssH = Math.round(_TILE_SIZE * scaleY);
     // Clamp at 0 so rounding never produces a negative inset (which some
     // browsers treat as full-hide rather than "no clip").
     var clipR = Math.max(0, fullCssW - cssW);
@@ -1109,11 +1097,10 @@ function _renderVisible() {
   var lvlX1 = visX1 * d2lX;
   var lvlY1 = visY1 * d2lY;
 
-  var lvlTS = _lvlTileSize(lvl);
-  var colMin = Math.max(0, Math.floor(lvlX0 / lvlTS) - 1);
-  var colMax = Math.min(lvl.cols - 1, Math.ceil(lvlX1 / lvlTS));
-  var rowMin = Math.max(0, Math.floor(lvlY0 / lvlTS) - 1);
-  var rowMax = Math.min(lvl.rows - 1, Math.ceil(lvlY1 / lvlTS));
+  var colMin = Math.max(0, Math.floor(lvlX0 / _TILE_SIZE) - 1);
+  var colMax = Math.min(lvl.cols - 1, Math.ceil(lvlX1 / _TILE_SIZE));
+  var rowMin = Math.max(0, Math.floor(lvlY0 / _TILE_SIZE) - 1);
+  var rowMax = Math.min(lvl.rows - 1, Math.ceil(lvlY1 / _TILE_SIZE));
 
   // First pass: enqueue missing, touch cached.
   for (var col = colMin; col <= colMax; col++) {
@@ -1154,13 +1141,12 @@ function _renderVisible() {
       var triggerScale = ceilScale * (_pctThresh / 100);
       if (scale >= triggerScale) {
         var nextLvl = _pageInfo.levels[nextIdx];
-        var nextLvlTS = _lvlTileSize(nextLvl);
         var nd2lX = nextLvl.width / _drawW;
         var nd2lY = nextLvl.height / _drawH;
-        var nCol0 = Math.max(0, Math.floor((visX0 * nd2lX) / nextLvlTS));
-        var nCol1 = Math.min(nextLvl.cols - 1, Math.ceil((visX1 * nd2lX) / nextLvlTS));
-        var nRow0 = Math.max(0, Math.floor((visY0 * nd2lY) / nextLvlTS));
-        var nRow1 = Math.min(nextLvl.rows - 1, Math.ceil((visY1 * nd2lY) / nextLvlTS));
+        var nCol0 = Math.max(0, Math.floor((visX0 * nd2lX) / _TILE_SIZE));
+        var nCol1 = Math.min(nextLvl.cols - 1, Math.ceil((visX1 * nd2lX) / _TILE_SIZE));
+        var nRow0 = Math.max(0, Math.floor((visY0 * nd2lY) / _TILE_SIZE));
+        var nRow1 = Math.min(nextLvl.rows - 1, Math.ceil((visY1 * nd2lY) / _TILE_SIZE));
         var budget = 6;
         for (var nc = nCol0; nc <= nCol1 && budget > 0; nc++) {
           for (var nr = nRow0; nr <= nRow1 && budget > 0; nr++) {
