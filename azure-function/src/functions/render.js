@@ -131,25 +131,29 @@ async function uploadAll(tasks, log) {
   }
 }
 
-// ---- Custom pdfium render callback: BGRA -> RGBA, return raw bitmap -------
+// ---- pdfium render callback: pass-through (channel swap moved to sharp) ----
 //
-// pdfium defaults to BGRA colorspace. Sharp encodes RGB channel order to
-// JPEG/WebP/PNG, so passing BGRA raw → sharp.webp() would swap red and blue
-// in the output (visible on colored annotations; invisible on black line work).
-// We do the swap once here before handing to sharp. In-place on the returned
-// Uint8Array — pdfium passes us the fresh copy, it's ours to mutate.
+// pdfium delivers BGRA. Sharp wants RGBA. Previously we swapped R↔B inside
+// this callback by mutating pdfium's Uint8Array in place. That worked at
+// L0–L3 but produced ~4% R↔B-inverted L4 tiles in non-deterministic regions.
 //
-// Perf: ~100M ops/sec on V8, so ~4s for a 400MP L5 bitmap. Acceptable against
-// multi-second render + encode time.
+// Root cause (S103 diagnosis): pdfium's WASM module delivers large bitmaps
+// (L4 = 12288×8192×4 ≈ 403 MB) in chunked buffer windows when the buffer
+// exceeds an internal threshold. Each chunk fires the render callback. Our
+// in-callback swap iterated `data` from offset 0 to data.length each time,
+// so chunks delivered first got swapped multiple times (net no-swap on even
+// iterations) while later chunks got swapped once. Result: scattered tiles
+// with the wrong channel order. Detected with L3-vs-L4 ground-truth scan:
+// 139 inverted L4 tiles across 9 pages (S99e baseline).
+//
+// Fix: do nothing in the callback. Let sharp pull the BGRA buffer once
+// pdfium has fully delivered all chunks, then sharp.recomb() does the swap
+// atomically on its own internal copy in libvips memory. Single deterministic
+// transform per level regardless of chunk count.
+//
+// See sharp pipeline below (`.recomb([[0,0,1],[0,1,0],[1,0,0]])`).
 
 function bgraToRgbaRender({ data }) {
-  const len = data.length;
-  for (let i = 0; i < len; i += 4) {
-    const b = data[i];
-    data[i] = data[i + 2];   // R = old B
-    data[i + 2] = b;         // B = old R
-    // G (i+1) and A (i+3) unchanged
-  }
   return Promise.resolve(data);
 }
 
@@ -232,9 +236,18 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
 
     // Pre-pad to multiple of TILE_SIZE so every tile is the full TILE_SIZE.
     // Sharp does this efficiently — streaming to .raw().toBuffer() once.
+    //
+    // .recomb([[0,0,1],[0,1,0],[1,0,0]]) — atomic R↔B swap (BGRA → RGBA) on
+    // sharp's own libvips buffer copy. Replaces the previous in-callback swap
+    // (see bgraToRgbaRender comment block). Alpha channel passes through
+    // unchanged because recomb only operates on RGB.
+    //   new_R = 0·R + 0·G + 1·B  ← was-B
+    //   new_G = 0·R + 1·G + 0·B  ← unchanged
+    //   new_B = 1·R + 0·G + 0·B  ← was-R
     let padded;
     try {
       padded = await sharp(rgba, { raw: { width: actualW, height: actualH, channels: 4 } })
+        .recomb([[0, 0, 1], [0, 1, 0], [1, 0, 0]])
         .extend({
           right: padW - actualW,
           bottom: padH - actualH,
@@ -404,7 +417,8 @@ app.http('health', {
     jsonBody: {
       ok: true,
       service: 'arencon-pdf-render',
-      version: '2.1.0',
+      version: '2.1.1',
+      bgraSwap: 'sharp.recomb',  // S103-fix marker — was 'in-callback' before
       renderer: 'pdfium',
       levels: LEVEL_WIDTHS.length,
       losslessLevels: [...LOSSLESS_LEVELS],
