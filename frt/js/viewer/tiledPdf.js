@@ -85,19 +85,6 @@ var _TILE_SIZE = 512;
 //                 tiles visually overlap rather than butt edge-to-edge.
 //                 Rationale: current +1 is drawing-px (sub-pixel at fit
 //                 viewScale); level-px stays proportional.
-//                 KILLED IN S100: causes visible content-doubling/squeeze
-//                 at tile boundaries when active. Use for measurement only.
-//     l2crisp   — S100 v2: apply CSS image-rendering: pixelated to the tile
-//                 layer ONLY when picked level is L2. At L2, browser upscales
-//                 each 512px source tile by 2.4× to drawing space; the
-//                 default bilinear sampling at the right edge column blends
-//                 with the transparent area beyond the img element (= white
-//                 layer bg), producing a faint white streak at every tile
-//                 boundary. Switching to nearest-neighbor sampling makes the
-//                 edge column repeat its OWN pixels, so the boundary blends
-//                 with content instead of with white. L3/L4 untouched
-//                 (cleared whenever levelIdx !== 2). Zero geometry change.
-//                 No overlap math, no doubling, no squeeze.
 //
 //   LEVEL-TRANSITION FLASH (L2→L3, L3→L4):
 //     fastfade  — shorten new-tile fade-in from 180ms → Nms AND old-tile
@@ -992,33 +979,6 @@ function _renderVisible() {
   var lvl = _pageInfo.levels[levelIdx];
   if (!lvl) return;
   _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
-
-  // S100 candidate: `l2crisp` — switch the wrap (which carries the
-  // viewport scale transform) to nearest-neighbor sampling when the picked
-  // level is L2. The seam at L2 is from bilinear interpolation at the layer
-  // scale step (~0.21× shrink of the 6144px layer to viewport), not from
-  // per-tile rendering. Applying pixelated to dv-img-wrap kills that
-  // sampling at the boundary. Cleared at L3/L4 so smooth scaling returns.
-  if (_S99_TEST && _S99_TEST.name === 'l2crisp') {
-    var _l2cWrap = document.getElementById('dv-img-wrap');
-    if (_l2cWrap) {
-      if (levelIdx === 2) {
-        if (_l2cWrap.style.imageRendering !== 'pixelated') {
-          _l2cWrap.style.imageRendering = 'pixelated';
-          _l2cWrap.style.webkitImageRendering = 'pixelated';
-        }
-      } else if (_l2cWrap.style.imageRendering) {
-        _l2cWrap.style.imageRendering = '';
-        _l2cWrap.style.webkitImageRendering = '';
-      }
-    }
-    // Also clear it from the tile layer if a previous version of this
-    // toggle put it there (sticky inline style from S100 v1).
-    if (layer.style.imageRendering) {
-      layer.style.imageRendering = '';
-      layer.style.webkitImageRendering = '';
-    }
-  }
 
   // S97 DIAG: detect level changes vs same-level pans
   if (_dbg_lastLevel !== levelIdx) {
