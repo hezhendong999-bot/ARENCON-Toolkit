@@ -178,27 +178,53 @@ function runMutool(args, log) {
 // ---- mutool: page metadata (sizes per page) ----------------------------------
 //
 // `mutool info -M <pdf>` lists Mediaboxes per page in points.
-// Output (typical):
+// Output (typical, fully explicit per-page MediaBoxes):
 //
 //   filename.pdf
 //   PDF-1.4
 //   Pages: 9
 //   Retrieving info from pages 1-9...
 //   Mediaboxes (9):
-//        1     (3, 0 R):    [ 0 0 2592 1728 ]
-//        2     (5, 0 R):    [ 0 0 2592 1728 ]
+//        1     (3 0 R):    [ 0 0 2592 1728 ]
+//        2     (5 0 R):    [ 0 0 2592 1728 ]
 //        ...
 //
-// We parse the `[ x0 y0 x1 y1 ]` bracket on each Mediaboxes line. Width =
-// x1 - x0, height = y1 - y0. Page numbers are 1-indexed.
+// Output (Adobe-style PDFs with INHERITED MediaBox — S109 fix):
+//
+//   PDF-1.6
+//   Pages: 9
+//   Retrieving info from pages 1-9...
+//   Mediaboxes (1):                            <-- only ONE box for ALL 9 pages
+//        1     (5 0 R):    [ 0 0 2592 1728 ]
+//
+// PDF spec allows /MediaBox to be inherited from the /Pages tree node, in
+// which case mutool reports it once instead of N times. Adobe PDF Library
+// (used for engineering drawings) generates these. The S107 implementation
+// looked only at Mediabox lines and saw 1 page when there were really 9 —
+// the renderer then produced tiles for page 1 only and viewer fell back to
+// stale content for pages 2..N.
+//
+// Authoritative source for page count is the "Pages: N" header line, which
+// mutool emits regardless of inheritance.
 
 async function mutoolPageInfo(pdfPath, log) {
   const { stdout } = await runMutool(['info', '-M', pdfPath], log);
-  const pages = [];
 
-  // Match lines like:  "    1     (3, 0 R):    [ 0 0 2592 1728 ]"
-  // Be tolerant of leading whitespace and varying spacing.
+  // 1) Authoritative page count from the "Pages: N" header line.
+  const pagesHeaderMatch = stdout.match(/^Pages:\s+(\d+)/m);
+  if (!pagesHeaderMatch) {
+    throw new Error(`mutool info: missing "Pages:" header. stdout head: ${stdout.slice(0, 400)}`);
+  }
+  const totalPages = parseInt(pagesHeaderMatch[1], 10);
+  if (totalPages < 1) {
+    throw new Error(`mutool info: invalid page count ${totalPages}`);
+  }
+
+  // 2) Parse explicit Mediabox lines. May be 1..N depending on inheritance.
+  // Match lines like:  "    1     (3 0 R):    [ 0 0 2592 1728 ]"
+  // Tolerant of leading whitespace, tabs, and varying spacing.
   const lineRe = /^\s*(\d+)\s+\([^)]*\):\s*\[\s*(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s*\]/;
+  const explicitBoxes = new Map(); // pageNum → { widthPt, heightPt }
 
   for (const line of stdout.split('\n')) {
     const m = lineRe.exec(line);
@@ -209,16 +235,32 @@ async function mutoolPageInfo(pdfPath, log) {
     const widthPt = Math.abs(x1 - x0);
     const heightPt = Math.abs(y1 - y0);
     if (widthPt > 0 && heightPt > 0) {
-      pages.push({ page: pageNum, widthPt, heightPt });
+      explicitBoxes.set(pageNum, { widthPt, heightPt });
     }
   }
 
-  if (pages.length === 0) {
+  if (explicitBoxes.size === 0) {
     throw new Error(`mutool info -M produced no parseable Mediaboxes. stdout head: ${stdout.slice(0, 400)}`);
   }
 
-  // Sort by page number (info output is usually ordered, but be defensive).
-  pages.sort((a, b) => a.page - b.page);
+  // 3) Build the per-page list. For pages without an explicit MediaBox,
+  // inherit from the lowest-numbered explicit box (typical PDF inheritance:
+  // child pages walk up the /Pages tree to the nearest ancestor with a
+  // /MediaBox). For Adobe-style single-root inheritance there's only one
+  // box and it applies to every page.
+  const sortedExplicit = [...explicitBoxes.entries()].sort((a, b) => a[0] - b[0]);
+  const fallbackBox = sortedExplicit[0][1];
+  const pages = [];
+  for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+    const box = explicitBoxes.get(pageNum) || fallbackBox;
+    pages.push({ page: pageNum, widthPt: box.widthPt, heightPt: box.heightPt });
+  }
+
+  if (explicitBoxes.size < totalPages) {
+    log(`mutool info: ${explicitBoxes.size} explicit MediaBox(es) for ${totalPages} pages — `
+      + `pages without explicit boxes inherit ${fallbackBox.widthPt}x${fallbackBox.heightPt} pt`);
+  }
+
   return pages;
 }
 
