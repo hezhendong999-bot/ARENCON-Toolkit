@@ -63,11 +63,13 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Deploy to Fly.io
+        # Run from container-render/ so the Docker build context contains
+        # Dockerfile + server.js + package.json + fly.toml. Without this,
+        # the build context is the repo root and `COPY server.js ./` fails.
+        working-directory: container-render
         run: |
           flyctl deploy \
             --app "${{ inputs.app_name }}" \
-            --config container-render/fly.toml \
-            --dockerfile container-render/Dockerfile \
             --remote-only \
             --strategy immediate \
             --wait-timeout 600
