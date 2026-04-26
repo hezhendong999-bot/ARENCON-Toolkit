@@ -195,6 +195,14 @@ function computeMeanRB(buffer, bufW, bufH, srcX, srcY, srcW, srcH, threshold) {
 // Returns true if the L4 tile bytes appear R↔B-swapped relative to its L3
 // parent region. Conservative: only flags when both regions have substantial
 // chromatic content AND signs oppose AND magnitudes exceed threshold.
+//
+// IMPORTANT: samples the FULL L3 parent tile (512×512), not the 256×256
+// quadrant matching the L4 tile. This matches the browser detector's logic
+// exactly. Sampling only the quadrant produces false negatives because the
+// quadrant often lacks enough chromatic pixels to pass the MIN_COUNT/MAGNITUDE
+// thresholds — even when the L4 tile is clearly inverted relative to the
+// surrounding content. (S106-fix: previous version sampled the quadrant and
+// missed all 46 inversions.)
 function isL4TileInverted(l4Raw, l4TileSize, x, y, l3Buffer, l3PadW, l3PadH, l3TileSize) {
   const CHROMA = 20;       // pixel-level: |R-B| > this counts as chromatic
   const MAGNITUDE = 20;    // tile-level: |mean(R-B)| > this required to flag
@@ -203,12 +211,11 @@ function isL4TileInverted(l4Raw, l4TileSize, x, y, l3Buffer, l3PadW, l3PadH, l3T
   const l4Stat = computeMeanRB(l4Raw, l4TileSize, l4TileSize, 0, 0, l4TileSize, l4TileSize, CHROMA);
   if (l4Stat.count < MIN_COUNT || Math.abs(l4Stat.mean) < MAGNITUDE) return false;
 
-  // L4 tile (x,y) covers L3 region: floor(x/2)*l3TileSize + (x%2)*(l3TileSize/2),
-  // floor(y/2)*l3TileSize + (y%2)*(l3TileSize/2), size l3TileSize/2 square.
-  const half = l3TileSize / 2;
-  const l3SrcX = Math.floor(x / 2) * l3TileSize + (x % 2) * half;
-  const l3SrcY = Math.floor(y / 2) * l3TileSize + (y % 2) * half;
-  const l3Stat = computeMeanRB(l3Buffer, l3PadW, l3PadH, l3SrcX, l3SrcY, half, half, CHROMA);
+  // L4 tile (x,y) → L3 parent tile (floor(x/2), floor(y/2)). Sample the full
+  // 512×512 L3 parent tile, not the 256×256 quadrant — matches detector logic.
+  const l3ParentX = Math.floor(x / 2) * l3TileSize;
+  const l3ParentY = Math.floor(y / 2) * l3TileSize;
+  const l3Stat = computeMeanRB(l3Buffer, l3PadW, l3PadH, l3ParentX, l3ParentY, l3TileSize, l3TileSize, CHROMA);
   if (l3Stat.count < MIN_COUNT || Math.abs(l3Stat.mean) < MAGNITUDE) return false;
 
   // Both have meaningful chromatic content. If signs oppose, L4 is inverted.
@@ -545,8 +552,8 @@ app.http('health', {
     jsonBody: {
       ok: true,
       service: 'arencon-pdf-render',
-      version: '2.2.0',
-      bgraSwap: 'sharp.recomb + L3-upscale guard',  // S106 — pdfium-WASM corruption fixed via L3 fallback at L4
+      version: '2.2.1',
+      bgraSwap: 'sharp.recomb + L3-upscale guard (full-parent sample)',  // S106 — fix: sample full L3 parent tile
       renderer: 'pdfium',
       levels: LEVEL_WIDTHS.length,
       losslessLevels: [...LOSSLESS_LEVELS],
