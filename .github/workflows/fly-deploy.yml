@@ -1,10 +1,7 @@
 name: Deploy mupdf renderer to Fly.io
 
-# Manual trigger only. Creates the Fly.io app if it doesn't exist, syncs
-# secrets from GitHub Secrets to Fly.io app secrets, then deploys.
-#
-# After A/B verification passes, run again with app_name=arencon-render to
-# deploy a production app alongside staging.
+# Manual trigger only. Creates the Fly.io app if it doesn't exist (idempotent),
+# syncs secrets from GitHub Secrets to Fly.io app secrets, then deploys.
 
 on:
   workflow_dispatch:
@@ -37,20 +34,25 @@ jobs:
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Create Fly.io app if it doesn't exist
+      - name: Create Fly.io app (idempotent — ignores "already taken")
+        # `flyctl apps create` returns non-zero if the app already exists.
+        # We swallow that specific error case and continue. Any other failure
+        # (e.g., auth) will surface in the next step (Sync secrets).
         run: |
-          if flyctl apps list --json | grep -q "\"Name\":\"${{ inputs.app_name }}\""; then
-            echo "App ${{ inputs.app_name }} already exists — skipping create."
+          if flyctl apps create "${{ inputs.app_name }}" --org personal 2>&1 | tee /tmp/create.log; then
+            echo "✅ App ${{ inputs.app_name }} created."
+          elif grep -q "already been taken\|already exists" /tmp/create.log; then
+            echo "ℹ️  App ${{ inputs.app_name }} already exists — continuing."
           else
-            echo "Creating Fly.io app ${{ inputs.app_name }}..."
-            flyctl apps create "${{ inputs.app_name }}" --org personal
+            echo "❌ App create failed for unexpected reason."
+            cat /tmp/create.log
+            exit 1
           fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Sync secrets to Fly.io app
-        # `--stage` saves secrets without triggering an immediate redeploy —
-        # they take effect on the next `flyctl deploy` below.
+        # `--stage` saves secrets without triggering an immediate redeploy.
         run: |
           flyctl secrets set --stage --app "${{ inputs.app_name }}" \
             API_KEY='${{ secrets.API_KEY }}' \
@@ -64,8 +66,7 @@ jobs:
 
       - name: Deploy to Fly.io
         # Run from container-render/ so the Docker build context contains
-        # Dockerfile + server.js + package.json + fly.toml. Without this,
-        # the build context is the repo root and `COPY server.js ./` fails.
+        # Dockerfile + server.js + package.json + fly.toml.
         working-directory: container-render
         run: |
           flyctl deploy \
