@@ -153,30 +153,66 @@ async function uploadAll(tasks, log) {
 //
 // See sharp pipeline below (`.recomb([[0,0,1],[0,1,0],[1,0,0]])`).
 
-// S105 diagnostic (Grok H3): swap moved back to in-callback, but the buffer here
-// is the .slice()-d copy from @hyzyla/pdfium's WASM heap (page.ts line 168 —
-// "creation of a copy is necessary to avoid memory corruption"). So this is NOT
-// the same as the S99e in-callback swap, which operated on the live WASM heap
-// during chunked delivery. This swap operates on stable Node memory after pdfium
-// is fully done writing.
-//
-// Purpose: distinguish whether the residual 39 inverted L4 tiles are caused by
-// sharp.recomb at large recomb sizes, or by pdfium-WASM emitting corrupted bytes
-// before the slice copy.
-//
-//   TOTAL = 0     → sharp.recomb was the cause. Keep this manual loop.
-//   TOTAL ≈ 39    → bytes were already corrupted by pdfium-WASM. H1(c) confirmed.
-//                   Need fork/patch of @hyzyla/pdfium to bypass REVERSE_BYTE_ORDER
-//                   flag at L4, OR architectural redesign.
+// S106 (post-S105 diagnostic): no-op callback. Sharp.recomb does the swap
+// downstream. S105 confirmed pdfium-WASM corrupts bytes for ~1% of L4 tiles
+// before the .slice() copy returns to us — a real internal bug at the
+// (REVERSE_BYTE_ORDER + ≥400 MB bitmap) intersection that no swap-location
+// change can fix. Bug A is now closed via L3-upscale fallback in the L4 tile
+// loop below: every L4 tile is verified against its L3 parent's R-B sign;
+// inverted tiles are replaced with upscaled L3 content (L3 is empirically
+// always clean — content-dependent corruption only manifests at L4 scale).
 function bgraToRgbaRender({ data }) {
-  const len = data.length;
-  for (let i = 0; i < len; i += 4) {
-    const b = data[i];
-    data[i] = data[i + 2];   // R = old B
-    data[i + 2] = b;         // B = old R
-    // G (i+1) and A (i+3) unchanged
-  }
   return Promise.resolve(data);
+}
+
+// ---- L3-vs-L4 inversion guard (S106) --------------------------------------
+//
+// Computes mean(R-B) over chromatic pixels in a raw RGBA buffer region.
+// Used to detect L4 tiles where pdfium-WASM emitted R↔B-swapped bytes —
+// such tiles have opposing-sign mean(R-B) compared to their L3 parent.
+//
+// Returns { mean, count } — count is the number of chromatic pixels considered.
+// A tile with count < 100 has too little color content to judge reliably.
+function computeMeanRB(buffer, bufW, bufH, srcX, srcY, srcW, srcH, threshold) {
+  let sum = 0;
+  let count = 0;
+  const xEnd = Math.min(srcX + srcW, bufW);
+  const yEnd = Math.min(srcY + srcH, bufH);
+  for (let y = srcY; y < yEnd; y++) {
+    const rowStart = y * bufW * 4;
+    for (let x = srcX; x < xEnd; x++) {
+      const i = rowStart + x * 4;
+      const diff = buffer[i] - buffer[i + 2];  // R - B
+      if (Math.abs(diff) > threshold) {
+        sum += diff;
+        count++;
+      }
+    }
+  }
+  return { mean: count ? sum / count : 0, count };
+}
+
+// Returns true if the L4 tile bytes appear R↔B-swapped relative to its L3
+// parent region. Conservative: only flags when both regions have substantial
+// chromatic content AND signs oppose AND magnitudes exceed threshold.
+function isL4TileInverted(l4Raw, l4TileSize, x, y, l3Buffer, l3PadW, l3PadH, l3TileSize) {
+  const CHROMA = 20;       // pixel-level: |R-B| > this counts as chromatic
+  const MAGNITUDE = 20;    // tile-level: |mean(R-B)| > this required to flag
+  const MIN_COUNT = 100;   // tile must have at least this many chromatic pixels
+
+  const l4Stat = computeMeanRB(l4Raw, l4TileSize, l4TileSize, 0, 0, l4TileSize, l4TileSize, CHROMA);
+  if (l4Stat.count < MIN_COUNT || Math.abs(l4Stat.mean) < MAGNITUDE) return false;
+
+  // L4 tile (x,y) covers L3 region: floor(x/2)*l3TileSize + (x%2)*(l3TileSize/2),
+  // floor(y/2)*l3TileSize + (y%2)*(l3TileSize/2), size l3TileSize/2 square.
+  const half = l3TileSize / 2;
+  const l3SrcX = Math.floor(x / 2) * l3TileSize + (x % 2) * half;
+  const l3SrcY = Math.floor(y / 2) * l3TileSize + (y % 2) * half;
+  const l3Stat = computeMeanRB(l3Buffer, l3PadW, l3PadH, l3SrcX, l3SrcY, half, half, CHROMA);
+  if (l3Stat.count < MIN_COUNT || Math.abs(l3Stat.mean) < MAGNITUDE) return false;
+
+  // Both have meaningful chromatic content. If signs oppose, L4 is inverted.
+  return Math.sign(l4Stat.mean) !== Math.sign(l3Stat.mean);
 }
 
 // ---- Per-page render + tile (pdfium-based, per-level upload) --------------
@@ -194,6 +230,12 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
   let nativeW = 0;
   let nativeH = 0;
   let longestDim = 0;
+
+  // S106: retain L3's padded buffer + dimensions through L4 processing so the
+  // L4 tile loop can substitute inverted L4 tiles with upscaled L3 content.
+  // Released after the level loop completes. Adds ~100 MB peak memory during
+  // L4 (server-side only — does not affect tiles delivered to clients).
+  let l3State = null;
 
   for (let levelIdx = 0; levelIdx < LEVEL_WIDTHS.length; levelIdx++) {
     // Load fresh page — render auto-closes at the end of the call
@@ -268,13 +310,12 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
     //   new_B = 1·R + 0·G + 0·B  ← was-R
     let padded;
     try {
-      // S105 diagnostic: NO sharp.recomb. Swap is now done in bgraToRgbaRender
-      // callback above (post-slice, on Node-stable memory). This isolates
-      // whether sharp.recomb was the source of the residual 39 inverted L4
-      // tiles. If TOTAL drops to 0 → sharp.recomb was buggy at large bitmaps.
-      // If TOTAL stays ~39 → pdfium-WASM corrupted bytes before slice; sharp
-      // is innocent.
+      // S106: sharp.recomb path restored. This is the best baseline (39
+      // residual inverted L4 tiles vs 46 with manual-on-slice swap from S105
+      // diagnostic). Residual is fixed by L3-upscale fallback in the L4 tile
+      // loop below — no further swap-location work to do.
       padded = await sharp(rgba, { raw: { width: actualW, height: actualH, channels: 4 } })
+        .recomb([[0, 0, 1], [0, 1, 0], [1, 0, 0]])
         .extend({
           right: padW - actualW,
           bottom: padH - actualH,
@@ -294,22 +335,65 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
 
     // Build upload task list for THIS level only (keeps `padded` closure scope
     // tight — buffer becomes GC-eligible as soon as the level's uploads finish).
+    //
+    // S106: For L4 specifically, each tile is verified against its L3 parent
+    // before WebP-encoding. If the L4 tile shows R/B-sign inversion (the
+    // pdfium-WASM corruption signature), it's replaced by an upscaled L3
+    // region. L0/L1/L2/L3 paths unchanged.
     const uploadTasks = [];
+    const stats = { l4Substituted: 0 };  // shared counter across parallel tasks
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const left = x * TILE_SIZE;
         const top = y * TILE_SIZE;
         const tileKey = `${pid}/tiles/${drawingId}/page-${pageNumber}/level-${levelIdx}/${x}-${y}.webp`;
         uploadTasks.push(async () => {
-          const sharpInst = sharp(padded, { raw: { width: padW, height: padH, channels: 4 } })
-            .extract({ left, top, width: TILE_SIZE, height: TILE_SIZE });
           let tileBuf;
-          if (useLossless) {
-            tileBuf = await sharpInst.webp({ lossless: true, effort: 4 }).toBuffer();
+
+          if (levelIdx === 4 && l3State) {
+            // S106 verification path: extract raw bytes, check vs L3 parent,
+            // substitute from L3 if inverted, then encode.
+            let tileRaw = await sharp(padded, { raw: { width: padW, height: padH, channels: 4 } })
+              .extract({ left, top, width: TILE_SIZE, height: TILE_SIZE })
+              .raw()
+              .toBuffer();
+
+            const inverted = isL4TileInverted(
+              tileRaw, TILE_SIZE, x, y,
+              l3State.buffer, l3State.padW, l3State.padH, TILE_SIZE
+            );
+
+            if (inverted) {
+              // Substitute: extract corresponding L3 region (256×256 source pixels)
+              // and upscale 2× to 512×512. L3 is empirically always clean.
+              const half = TILE_SIZE / 2;
+              const l3SrcLeft = Math.floor(x / 2) * TILE_SIZE + (x % 2) * half;
+              const l3SrcTop = Math.floor(y / 2) * TILE_SIZE + (y % 2) * half;
+              tileRaw = await sharp(l3State.buffer, { raw: { width: l3State.padW, height: l3State.padH, channels: 4 } })
+                .extract({ left: l3SrcLeft, top: l3SrcTop, width: half, height: half })
+                .resize(TILE_SIZE, TILE_SIZE, { kernel: 'lanczos3' })
+                .raw()
+                .toBuffer();
+              stats.l4Substituted++;
+            }
+
+            // Encode the (possibly substituted) raw bytes. L4 is always lossless.
+            tileBuf = await sharp(tileRaw, { raw: { width: TILE_SIZE, height: TILE_SIZE, channels: 4 } })
+              .webp({ lossless: true, effort: 4 })
+              .toBuffer();
+
           } else {
-            const q = levelIdx === 0 ? THUMB_QUALITY : STD_QUALITY;
-            tileBuf = await sharpInst.webp({ quality: q, effort: 4, alphaQuality: 100 }).toBuffer();
+            // L0/L1/L2/L3 path: chain extract → webp directly (no verification).
+            const sharpInst = sharp(padded, { raw: { width: padW, height: padH, channels: 4 } })
+              .extract({ left, top, width: TILE_SIZE, height: TILE_SIZE });
+            if (useLossless) {
+              tileBuf = await sharpInst.webp({ lossless: true, effort: 4 }).toBuffer();
+            } else {
+              const q = levelIdx === 0 ? THUMB_QUALITY : STD_QUALITY;
+              tileBuf = await sharpInst.webp({ quality: q, effort: 4, alphaQuality: 100 }).toBuffer();
+            }
           }
+
           await putTile(tileKey, tileBuf, 'image/webp');
         });
       }
@@ -321,7 +405,20 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
     // Per-level uploads cap peak memory at ~one level's padded buffer.
     await uploadAll(uploadTasks, log);
 
-    // Free padded buffer before next level's render allocates
+    if (levelIdx === 4 && stats.l4Substituted > 0) {
+      log(`  L4: ${stats.l4Substituted} tile(s) substituted from L3 (pdfium-WASM corruption guard)`);
+    }
+
+    // S106: At end of L3, retain padded buffer for L4's verification path.
+    // Released after L4 (or end of loop) to keep memory bounded.
+    if (levelIdx === 3) {
+      l3State = { buffer: padded, padW, padH };
+    }
+
+    // Free padded buffer before next level's render allocates.
+    // Note: when levelIdx === 3, `padded` local goes out of scope at next iter
+    // but `l3State.buffer` still holds the reference — so the buffer survives
+    // into L4. After L4 completes, `l3State = null` (post-loop) releases it.
     padded = null;
     if (global.gc) global.gc();
 
@@ -334,6 +431,10 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
       height: actualH,
     });
   }
+
+  // S106: release retained L3 buffer (held through L4 for verification).
+  l3State = null;
+  if (global.gc) global.gc();
 
   return pageInfo;
 }
@@ -444,8 +545,8 @@ app.http('health', {
     jsonBody: {
       ok: true,
       service: 'arencon-pdf-render',
-      version: '2.1.3-diag',
-      bgraSwap: 'manual-on-slice + no-recomb',  // S105 diagnostic — Grok H3 test
+      version: '2.2.0',
+      bgraSwap: 'sharp.recomb + L3-upscale guard',  // S106 — pdfium-WASM corruption fixed via L3 fallback at L4
       renderer: 'pdfium',
       levels: LEVEL_WIDTHS.length,
       losslessLevels: [...LOSSLESS_LEVELS],
