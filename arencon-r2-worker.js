@@ -292,10 +292,13 @@ export default {
       return jsonResponse({ success: true, accepted: true }, 202, origin);
     }
 
-    // ── TILES: /{pid}/tiles/{drawingId}/... (unauthenticated, immutable cache) ──
+    // ── TILES: /{pid}/{tilePrefix}/{drawingId}/... (unauthenticated, immutable cache) ──
     // Served directly by R2 key = URL path minus leading slash.
-    // Written by Azure Function arencon-pdf-render via S3 API.
-    if (request.method === 'GET' && /^\/[^/]+\/tiles\//.test(rawPath)) {
+    // Tile prefixes used:
+    //   /tiles/                   — production (current Azure Container App, future Fly.io prod)
+    //   /tiles-mupdf-staging/     — S107 mupdf rewrite staging app (parallel testing)
+    //   /tiles-*  (pattern)       — any future staging variant
+    if (request.method === 'GET' && /^\/[^/]+\/tiles(-[^/]+)?\//.test(rawPath)) {
       const r2Key = decodeURIComponent(rawPath.slice(1));
       try {
         const object = await env.BUCKET.get(r2Key);
