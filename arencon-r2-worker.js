@@ -149,11 +149,16 @@ export default {
     const rawPath = url.pathname;
 
     // ── DEBUG (temporary) ──
+    // Optional ?prefix=foo/bar/ filters by R2 key prefix.
+    // Optional ?limit=200 (default 20, max 1000).
     if (request.method === 'GET' && rawPath === '/debug') {
       try {
-        const listed = await env.BUCKET.list({ limit: 20 });
+        const prefix = url.searchParams.get('prefix') || undefined;
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '20', 10), 1000);
+        const listed = await env.BUCKET.list({ prefix, limit });
         return jsonResponse({
           status: 'ok',
+          prefix: prefix || '(none)',
           totalObjects: listed.objects.length,
           truncated: listed.truncated,
           keys: listed.objects.map(o => ({ key: o.key, size: o.size }))
