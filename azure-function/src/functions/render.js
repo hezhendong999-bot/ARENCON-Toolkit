@@ -153,7 +153,29 @@ async function uploadAll(tasks, log) {
 //
 // See sharp pipeline below (`.recomb([[0,0,1],[0,1,0],[1,0,0]])`).
 
+// S105 diagnostic (Grok H3): swap moved back to in-callback, but the buffer here
+// is the .slice()-d copy from @hyzyla/pdfium's WASM heap (page.ts line 168 —
+// "creation of a copy is necessary to avoid memory corruption"). So this is NOT
+// the same as the S99e in-callback swap, which operated on the live WASM heap
+// during chunked delivery. This swap operates on stable Node memory after pdfium
+// is fully done writing.
+//
+// Purpose: distinguish whether the residual 39 inverted L4 tiles are caused by
+// sharp.recomb at large recomb sizes, or by pdfium-WASM emitting corrupted bytes
+// before the slice copy.
+//
+//   TOTAL = 0     → sharp.recomb was the cause. Keep this manual loop.
+//   TOTAL ≈ 39    → bytes were already corrupted by pdfium-WASM. H1(c) confirmed.
+//                   Need fork/patch of @hyzyla/pdfium to bypass REVERSE_BYTE_ORDER
+//                   flag at L4, OR architectural redesign.
 function bgraToRgbaRender({ data }) {
+  const len = data.length;
+  for (let i = 0; i < len; i += 4) {
+    const b = data[i];
+    data[i] = data[i + 2];   // R = old B
+    data[i + 2] = b;         // B = old R
+    // G (i+1) and A (i+3) unchanged
+  }
   return Promise.resolve(data);
 }
 
@@ -246,16 +268,13 @@ async function renderPage(pdfDoc, pageNumber, pid, drawingId, log) {
     //   new_B = 1·R + 0·G + 0·B  ← was-R
     let padded;
     try {
-      // S104-fix: copy rgba out of WASM heap into stable Node memory immediately,
-      // before sharp's libvips potentially lazy-reads it. Tests S103 hypothesis #2
-      // — that sharp's internal read of the rgba Uint8Array may happen lazily,
-      // by which time the WASM heap state has shifted (concurrent renders, GC,
-      // pdfium internal passes), producing partially-stale bytes for some L4 tiles.
-      // Buffer.from() does one synchronous memcpy out of WASM into Node-managed
-      // heap, eliminating any read-timing window.
-      const rgbaCopy = Buffer.from(rgba);
-      padded = await sharp(rgbaCopy, { raw: { width: actualW, height: actualH, channels: 4 } })
-        .recomb([[0, 0, 1], [0, 1, 0], [1, 0, 0]])
+      // S105 diagnostic: NO sharp.recomb. Swap is now done in bgraToRgbaRender
+      // callback above (post-slice, on Node-stable memory). This isolates
+      // whether sharp.recomb was the source of the residual 39 inverted L4
+      // tiles. If TOTAL drops to 0 → sharp.recomb was buggy at large bitmaps.
+      // If TOTAL stays ~39 → pdfium-WASM corrupted bytes before slice; sharp
+      // is innocent.
+      padded = await sharp(rgba, { raw: { width: actualW, height: actualH, channels: 4 } })
         .extend({
           right: padW - actualW,
           bottom: padH - actualH,
@@ -425,8 +444,8 @@ app.http('health', {
     jsonBody: {
       ok: true,
       service: 'arencon-pdf-render',
-      version: '2.1.2',
-      bgraSwap: 'sharp.recomb + clone',  // S104 — Buffer.from() materialize before recomb
+      version: '2.1.3-diag',
+      bgraSwap: 'manual-on-slice + no-recomb',  // S105 diagnostic — Grok H3 test
       renderer: 'pdfium',
       levels: LEVEL_WIDTHS.length,
       losslessLevels: [...LOSSLESS_LEVELS],
