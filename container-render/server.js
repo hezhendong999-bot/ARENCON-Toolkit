@@ -180,6 +180,59 @@ async function pythonRender(pdfPath, pageNum, scale, outRawPath, log) {
   return { width: parseInt(m[1], 10), height: parseInt(m[2], 10) };
 }
 
+// ---- L3-vs-L4 inversion guard (S106) ------------------------------------------
+//
+// pdftoppm + PIL pipeline produces ~46 R↔B-swapped L4 tiles per 9-page test
+// drawing (~0.5% of L4 tiles, content-dependent — page 5 has 16, page 9 has 0).
+// Root cause is upstream of this Node code: either pdftoppm output corruption
+// at extreme scales, PIL's tobytes() at huge images, or memory pressure during
+// the Python subprocess. L0/L1/L2/L3 are 100% clean across all test runs.
+//
+// Fix: at L4 tile creation time, compute mean(R-B) over chromatic pixels in
+// each L4 tile, compare to its L3 parent tile. If signs oppose, replace the
+// L4 tile with an upscaled L3 region. L3 is empirically always correct.
+//
+// IMPORTANT: samples the FULL L3 parent tile (512×512), matching the
+// browser-side detector exactly. Sampling only the matching 256×256 quadrant
+// produces false negatives — the quadrant often lacks enough chromatic
+// content even when the L4 tile is clearly inverted relative to the parent.
+
+function computeMeanRB(buffer, bufW, bufH, srcX, srcY, srcW, srcH, threshold) {
+  let sum = 0;
+  let count = 0;
+  const xEnd = Math.min(srcX + srcW, bufW);
+  const yEnd = Math.min(srcY + srcH, bufH);
+  for (let y = srcY; y < yEnd; y++) {
+    const rowStart = y * bufW * 4;
+    for (let x = srcX; x < xEnd; x++) {
+      const i = rowStart + x * 4;
+      const diff = buffer[i] - buffer[i + 2];  // R - B
+      if (Math.abs(diff) > threshold) {
+        sum += diff;
+        count++;
+      }
+    }
+  }
+  return { mean: count ? sum / count : 0, count };
+}
+
+function isL4TileInverted(l4Raw, l4TileSize, x, y, l3Buffer, l3PadW, l3PadH, l3TileSize) {
+  const CHROMA = 20;       // pixel-level: |R-B| > this counts as chromatic
+  const MAGNITUDE = 20;    // tile-level: |mean(R-B)| > this required to flag
+  const MIN_COUNT = 100;   // tile must have at least this many chromatic pixels
+
+  const l4Stat = computeMeanRB(l4Raw, l4TileSize, l4TileSize, 0, 0, l4TileSize, l4TileSize, CHROMA);
+  if (l4Stat.count < MIN_COUNT || Math.abs(l4Stat.mean) < MAGNITUDE) return false;
+
+  // L4 tile (x,y) → L3 parent tile (floor(x/2), floor(y/2)). Sample full parent.
+  const l3ParentX = Math.floor(x / 2) * l3TileSize;
+  const l3ParentY = Math.floor(y / 2) * l3TileSize;
+  const l3Stat = computeMeanRB(l3Buffer, l3PadW, l3PadH, l3ParentX, l3ParentY, l3TileSize, l3TileSize, CHROMA);
+  if (l3Stat.count < MIN_COUNT || Math.abs(l3Stat.mean) < MAGNITUDE) return false;
+
+  return Math.sign(l4Stat.mean) !== Math.sign(l3Stat.mean);
+}
+
 // ---- Per-page render + tile ---------------------------------------------------
 
 async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawingId, tmpDir, log) {
@@ -193,6 +246,10 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
 
   log(`Page ${pageNumber}: native ${nativeWpt}x${nativeHpt} pt `
     + `(${(nativeWpt / 72).toFixed(1)}\" x ${(nativeHpt / 72).toFixed(1)}\")`);
+
+  // S106: retain L3 padded buffer through L4 processing for inversion guard.
+  // ~100 MB peak memory cost during L4. Released after the level loop.
+  let l3State = null;
 
   for (let levelIdx = 0; levelIdx < LEVEL_WIDTHS.length; levelIdx++) {
     const target = LEVEL_WIDTHS[levelIdx];
@@ -259,30 +316,86 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
     try { await fsUnlink(rawPath); } catch {}
 
     // Tile + upload in parallel (bounded concurrency).
+    //
+    // S106: For L4 specifically, each tile is verified against its L3 parent
+    // before WebP-encoding. If the L4 tile shows R/B-sign inversion (the
+    // pdftoppm/PIL corruption signature), it's replaced by an upscaled L3
+    // region. L0/L1/L2/L3 paths unchanged.
     const uploadTasks = [];
+    const stats = { l4Substituted: 0 };
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const left = x * TILE_SIZE;
         const top = y * TILE_SIZE;
         const tileKey = `${pid}/tiles/${drawingId}/page-${pageNumber}/level-${levelIdx}/${x}-${y}.webp`;
         uploadTasks.push(async () => {
-          const sharpInst = sharp(padded, {
-            raw: { width: padW, height: padH, channels: 4 },
-          }).extract({ left, top, width: TILE_SIZE, height: TILE_SIZE });
-
           let tileBuf;
-          if (useLossless) {
-            tileBuf = await sharpInst.webp({ lossless: true, effort: 4 }).toBuffer();
+
+          if (levelIdx === 4 && l3State) {
+            // S106 verification path: extract raw, verify, possibly substitute, then encode.
+            let tileRaw = await sharp(padded, {
+              raw: { width: padW, height: padH, channels: 4 },
+            })
+              .extract({ left, top, width: TILE_SIZE, height: TILE_SIZE })
+              .raw()
+              .toBuffer();
+
+            const inverted = isL4TileInverted(
+              tileRaw, TILE_SIZE, x, y,
+              l3State.buffer, l3State.padW, l3State.padH, TILE_SIZE
+            );
+
+            if (inverted) {
+              // Substitute: extract corresponding L3 region (256×256 source pixels)
+              // and upscale 2× to 512×512. L3 is empirically always clean.
+              const half = TILE_SIZE / 2;
+              const l3SrcLeft = Math.floor(x / 2) * TILE_SIZE + (x % 2) * half;
+              const l3SrcTop = Math.floor(y / 2) * TILE_SIZE + (y % 2) * half;
+              tileRaw = await sharp(l3State.buffer, {
+                raw: { width: l3State.padW, height: l3State.padH, channels: 4 },
+              })
+                .extract({ left: l3SrcLeft, top: l3SrcTop, width: half, height: half })
+                .resize(TILE_SIZE, TILE_SIZE, { kernel: 'lanczos3' })
+                .raw()
+                .toBuffer();
+              stats.l4Substituted++;
+            }
+
+            // L4 is always lossless.
+            tileBuf = await sharp(tileRaw, {
+              raw: { width: TILE_SIZE, height: TILE_SIZE, channels: 4 },
+            }).webp({ lossless: true, effort: 4 }).toBuffer();
+
           } else {
-            const q = levelIdx === 0 ? THUMB_QUALITY : STD_QUALITY;
-            tileBuf = await sharpInst.webp({ quality: q, effort: 4, alphaQuality: 100 }).toBuffer();
+            // L0/L1/L2/L3 path: chain extract → webp directly (no verification).
+            const sharpInst = sharp(padded, {
+              raw: { width: padW, height: padH, channels: 4 },
+            }).extract({ left, top, width: TILE_SIZE, height: TILE_SIZE });
+
+            if (useLossless) {
+              tileBuf = await sharpInst.webp({ lossless: true, effort: 4 }).toBuffer();
+            } else {
+              const q = levelIdx === 0 ? THUMB_QUALITY : STD_QUALITY;
+              tileBuf = await sharpInst.webp({ quality: q, effort: 4, alphaQuality: 100 }).toBuffer();
+            }
           }
+
           await putTile(tileKey, tileBuf, 'image/webp');
         });
       }
     }
 
     await uploadAll(uploadTasks, log);
+
+    if (levelIdx === 4 && stats.l4Substituted > 0) {
+      log(`  L4: ${stats.l4Substituted} tile(s) substituted from L3 (pdftoppm/PIL corruption guard)`);
+    }
+
+    // S106: At end of L3, retain padded buffer for L4's verification path.
+    if (levelIdx === 3) {
+      l3State = { buffer: padded, padW, padH };
+    }
+
     padded = null;
     if (global.gc) global.gc();
 
@@ -291,6 +404,10 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
       cols, rows, width: actualW, height: actualH,
     });
   }
+
+  // S106: release retained L3 buffer (held through L4 for verification).
+  l3State = null;
+  if (global.gc) global.gc();
 
   return pageInfo;
 }
@@ -385,7 +502,7 @@ async function handleRender(req, res) {
       pid,
       tileSize: TILE_SIZE,
       renderedAt: new Date().toISOString(),
-      renderer: 'native-pdfium-pypdfium2',
+      renderer: 'poppler-pdftoppm-s106',
       pageCount: pages.length,
       pages: [],
     };
@@ -416,7 +533,7 @@ async function handleRender(req, res) {
       totalTiles,
       manifestKey,
       durationMs,
-      renderer: 'native-pdfium-pypdfium2',
+      renderer: 'poppler-pdftoppm-s106',
       levels: LEVEL_WIDTHS.length,
     });
   } catch (err) {
@@ -446,8 +563,8 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     service: 'arencon-pdf-render',
-    version: '5.1.0',
-    renderer: 'native-pdfium-pypdfium2',
+    version: '5.2.0',
+    renderer: 'poppler-pdftoppm-s106',
     levels: LEVEL_WIDTHS.length,
     losslessLevels: [...LOSSLESS_LEVELS],
     activeRenders,
