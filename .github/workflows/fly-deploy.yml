@@ -1,0 +1,89 @@
+name: Deploy mupdf renderer to Fly.io
+
+# Manual trigger only. Creates the Fly.io app if it doesn't exist, syncs
+# secrets from GitHub Secrets to Fly.io app secrets, then deploys.
+#
+# After A/B verification passes, run again with app_name=arencon-render to
+# deploy a production app alongside staging.
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: "Fly.io app name to deploy to"
+        required: true
+        default: "arencon-render-staging"
+        type: choice
+        options:
+          - arencon-render-staging
+          - arencon-render
+      tile_prefix:
+        description: "R2 tile path prefix (separates staging tiles from prod)"
+        required: true
+        default: "tiles-mupdf-staging"
+        type: choice
+        options:
+          - tiles-mupdf-staging
+          - tiles
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.app_name }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Create Fly.io app if it doesn't exist
+        run: |
+          if flyctl apps list --json | grep -q "\"Name\":\"${{ inputs.app_name }}\""; then
+            echo "App ${{ inputs.app_name }} already exists — skipping create."
+          else
+            echo "Creating Fly.io app ${{ inputs.app_name }}..."
+            flyctl apps create "${{ inputs.app_name }}" --org personal
+          fi
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Sync secrets to Fly.io app
+        # `--stage` saves secrets without triggering an immediate redeploy —
+        # they take effect on the next `flyctl deploy` below.
+        run: |
+          flyctl secrets set --stage --app "${{ inputs.app_name }}" \
+            API_KEY='${{ secrets.API_KEY }}' \
+            R2_ACCOUNT_ID='${{ secrets.R2_ACCOUNT_ID }}' \
+            R2_ACCESS_KEY_ID='${{ secrets.R2_ACCESS_KEY_ID }}' \
+            R2_SECRET_ACCESS_KEY='${{ secrets.R2_SECRET_ACCESS_KEY }}' \
+            R2_TILE_PREFIX='${{ inputs.tile_prefix }}' \
+            SELF_URL="https://${{ inputs.app_name }}.fly.dev"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Deploy to Fly.io
+        run: |
+          flyctl deploy \
+            --app "${{ inputs.app_name }}" \
+            --config container-render/fly.toml \
+            --dockerfile container-render/Dockerfile \
+            --remote-only \
+            --strategy immediate \
+            --wait-timeout 600
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Verify deployment
+        run: |
+          echo "Waiting 15s for app to fully start..."
+          sleep 15
+          echo "Hitting /api/health on https://${{ inputs.app_name }}.fly.dev"
+          curl -sf "https://${{ inputs.app_name }}.fly.dev/api/health" | tee /tmp/health.json
+          echo ""
+          if grep -q '"renderer":"mupdf-mutool-s107"' /tmp/health.json; then
+            echo "✅ New mupdf renderer is live."
+          else
+            echo "⚠️  Health endpoint returned but renderer label is unexpected — check manually."
+            exit 1
+          fi
