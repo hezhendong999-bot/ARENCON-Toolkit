@@ -582,6 +582,34 @@ async function handleRender(req, res) {
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
+// ---- CORS ------------------------------------------------------------------
+//
+// The FRT viewer is hosted on https://hezhendong999-bot.github.io. Browsers
+// block cross-origin requests unless the server explicitly allows them via
+// Access-Control-Allow-Origin headers. We allow only the production GitHub
+// Pages origin and respond to OPTIONS preflight requests.
+//
+// If you ever serve the FRT viewer from a different origin (custom domain,
+// localhost dev), add it to ALLOWED_ORIGINS.
+const ALLOWED_ORIGINS = new Set([
+  'https://hezhendong999-bot.github.io',
+]);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-functions-key, x-api-key');
+    res.setHeader('Access-Control-Max-Age', '86400');
+  }
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
+
 function checkApiKey(req, res, next) {
   if (!API_KEY) return res.status(500).json({ error: 'API_KEY not configured' });
   const provided = req.headers['x-functions-key'] || req.headers['x-api-key'] || '';
