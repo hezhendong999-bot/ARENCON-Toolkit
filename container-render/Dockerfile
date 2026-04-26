@@ -51,6 +51,8 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 # --expose-gc lets server.js free padded tile buffers between levels.
-# max-old-space-size: 3500 MB cap on V8 heap leaves ~500 MB for sharp/mupdf
-# native buffers and Linux overhead on a 4 GB Fly machine.
-CMD ["node", "--expose-gc", "--max-old-space-size=3500", "server.js"]
+# max-old-space-size: dynamic per host. Set HEAP_MB env var to override.
+# Defaults to 6500 MB on 8 GB hosts (Azure Container Apps), leaves ~1.5 GB
+# for sharp/mupdf native buffers and Linux overhead. On 4 GB hosts (Fly
+# shared-cpu-2x@4GB) set HEAP_MB=3500 explicitly via Fly secrets.
+CMD ["sh", "-c", "exec node --expose-gc --max-old-space-size=${HEAP_MB:-6500} server.js"]

@@ -588,7 +588,14 @@ async function handleRender(req, res) {
       tileSize: TILE_SIZE,
       renderedAt: new Date().toISOString(),
       renderer: RENDERER_LABEL,
-      pageCount: pages.length,
+      // S109b: pageCount reflects ONLY pages with tiles actually written.
+      // Updated after each page below. If the process dies mid-render, the
+      // last successful manifest write reports the truthful count so the
+      // viewer doesn't request 404-ing tiles for un-rendered pages.
+      pageCount: 0,
+      // S109b: totalPagesExpected is informational — the page count mutool
+      // reported when the render started. Useful for "rendering 3/9..." UI.
+      totalPagesExpected: pages.length,
       pages: [],
     };
 
@@ -599,6 +606,7 @@ async function handleRender(req, res) {
       const { page: pnum, widthPt, heightPt } = pages[idx];
       const pageInfo = await renderPage(pdfPath, pnum, widthPt, heightPt, pid, drawingId, tmpDir, log);
       manifest.pages.push(pageInfo);
+      manifest.pageCount = manifest.pages.length;  // S109b: keep in sync
       totalTiles += pageInfo.levels.reduce((s, l) => s + l.cols * l.rows, 0);
 
       // Progressive manifest — write after every page. If the process dies
