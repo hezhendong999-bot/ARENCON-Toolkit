@@ -79,8 +79,14 @@ const BUCKET = 'arencon-files';
 // consistent DPI for each level.
 const LEVEL_WIDTHS = [256, 1024, 2560, 6144, 12288];
 
-// L3 + L4: WebP lossless (pixel-perfect for engineering text crispness).
-const LOSSLESS_LEVELS = new Set([3, 4]);
+// L2 + L3 + L4: WebP lossless (pixel-perfect for engineering text crispness).
+// S109f: added L2 to lossless. L2 used to be lossy WebP at quality 92, which
+// caused visible per-tile compression variance — the encoder applied stronger
+// compression to mostly-white tiles and weaker compression to content-heavy
+// tiles, leaving visible "fogginess" / brightness seams at tile boundaries.
+// L2 has only 20 tiles per page so the storage cost of going lossless is
+// negligible (~3MB per drawing, vs the 100+ MB pdfBuf).
+const LOSSLESS_LEVELS = new Set([2, 3, 4]);
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const API_KEY = process.env.API_KEY || '';
@@ -94,8 +100,8 @@ const TILE_PREFIX = process.env.R2_TILE_PREFIX || 'tiles';
 const MUTOOL_BIN = process.env.MUTOOL_BIN || 'mutool';
 
 // Build/version markers for /api/health and manifest.
-const SERVICE_VERSION = '6.2.0-s109e';
-const RENDERER_LABEL = 'mupdf-mutool-s109e';
+const SERVICE_VERSION = '6.2.1-s109f';
+const RENDERER_LABEL = 'mupdf-mutool-s109f';
 
 // ---- R2 / S3 client ----------------------------------------------------------
 
@@ -888,7 +894,7 @@ app.get('/api/health', (_req, res) => {
     activeRenders,
     heartbeat: heartbeatTimer ? 'active' : 'idle',
     // S109c: build markers — used to verify a deploy is live.
-    build: 's109e-rgb-render-flatten-on-white',
+    build: 's109f-l2-lossless-no-banding',
     selfUrlConfigured: !!SELF_URL,
     heapMb: process.env.HEAP_MB || 'default',
     time: new Date().toISOString(),
