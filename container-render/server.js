@@ -11,8 +11,8 @@
 //   No manual byte-level manipulation or channel reordering is ever allowed
 //   in the rendering pipeline.
 //
-//   Mupdf produces unambiguous PAM RGBA. Sharp consumes it directly as RGBA
-//   (raw: { channels: 4 }) and encodes WebP.
+//   Mupdf produces unambiguous PAM RGB. Sharp consumes it directly as RGB
+//   (raw: { channels: 3 }) and encodes WebP.
 //
 //   Prohibited: manual R↔B loops, .recomb for channel swaps, post-render
 //   BGRA/RGBA swaps, or any other byte-level reordering.
@@ -26,6 +26,12 @@
 //   layered fix attempts (S103 sharp.recomb, S104 Buffer.from, S106 L3-upscale
 //   guard) reduced the symptom but never fixed the cause. Switching to mupdf
 //   eliminates the cause: there is no swap step in the pipeline anywhere.
+//
+//   S109e amendment: switched from RGBA (-c rgba) to RGB (-c rgb). PDFs have
+//   no inherent page background — RGBA output yielded transparent black in
+//   un-drawn regions, which composited as DARK against the FRT viewer's
+//   canvas. RGB output flattens against white at render time, matching every
+//   normal PDF viewer's behaviour and eliminating the "grey background" bug.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -88,8 +94,8 @@ const TILE_PREFIX = process.env.R2_TILE_PREFIX || 'tiles';
 const MUTOOL_BIN = process.env.MUTOOL_BIN || 'mutool';
 
 // Build/version markers for /api/health and manifest.
-const SERVICE_VERSION = '6.1.1-s109d';
-const RENDERER_LABEL = 'mupdf-mutool-s109d';
+const SERVICE_VERSION = '6.2.0-s109e';
+const RENDERER_LABEL = 'mupdf-mutool-s109e';
 
 // ---- R2 / S3 client ----------------------------------------------------------
 
@@ -349,20 +355,23 @@ async function mutoolPageInfo(pdfPath, log) {
 
 // ---- PAM (Portable Arbitrary Map) parser -------------------------------------
 //
-// `mutool draw -F pam -c rgba` produces files of the form:
+// `mutool draw -F pam -c rgb` produces files of the form:
 //
 //   P7\n
 //   WIDTH <w>\n
 //   HEIGHT <h>\n
-//   DEPTH 4\n
+//   DEPTH 3\n
 //   MAXVAL 255\n
-//   TUPLTYPE RGB_ALPHA\n
+//   TUPLTYPE RGB\n
 //   ENDHDR\n
-//   <raw bytes — width * height * 4 bytes of RGBA>
+//   <raw bytes — width * height * 3 bytes of RGB>
 //
 // We read the file, scan for the `ENDHDR\n` marker, parse WIDTH / HEIGHT /
 // DEPTH / TUPLTYPE from the header lines, and return { width, height, data }
-// where `data` is a Buffer of exactly width*height*4 raw RGBA bytes.
+// where `data` is a Buffer of exactly width*height*3 raw RGB bytes.
+//
+// S109e: switched from RGBA (DEPTH=4) to RGB (DEPTH=3). See mutoolRender
+// docstring for rationale.
 
 const PAM_HEADER_MAX_BYTES = 256;  // PAM headers are tiny — 7 short lines.
 const ENDHDR = Buffer.from('ENDHDR\n', 'ascii');
@@ -399,18 +408,18 @@ async function readPamBitmap(pamPath) {
   }
 
   if (!width || !height) throw new Error(`PAM header missing WIDTH or HEIGHT`);
-  if (depth !== 4)       throw new Error(`PAM header DEPTH=${depth} (expected 4 for RGBA)`);
+  if (depth !== 3)       throw new Error(`PAM header DEPTH=${depth} (expected 3 for RGB)`);
   if (maxval !== 255)    throw new Error(`PAM header MAXVAL=${maxval} (expected 255)`);
-  // TUPLTYPE may be "RGB_ALPHA" (mupdf writes this for -c rgba). Don't
-  // hard-fail on the string — DEPTH=4 + MAXVAL=255 is the byte-level contract.
+  // TUPLTYPE may be "RGB" (mupdf writes this for -c rgb). Don't hard-fail on
+  // the string — DEPTH=3 + MAXVAL=255 is the byte-level contract.
 
-  const expected = width * height * 4;
+  const expected = width * height * 3;
   const actual = raw.length - dataStart;
   if (actual !== expected) {
-    throw new Error(`PAM byte count mismatch: header says ${width}x${height}x4=${expected}, got ${actual}`);
+    throw new Error(`PAM byte count mismatch: header says ${width}x${height}x3=${expected}, got ${actual}`);
   }
 
-  // Slice out the raw RGBA bytes. .slice() shares the underlying buffer, so
+  // Slice out the raw RGB bytes. .slice() shares the underlying buffer, so
   // this is O(1). We immediately hand it to sharp.
   const data = raw.slice(dataStart);
   return { width, height, data };
@@ -418,14 +427,22 @@ async function readPamBitmap(pamPath) {
 
 // ---- mutool: render a single page at a given DPI -----------------------------
 //
-// `mutool draw -F pam -c rgba -A 8 -r <dpi> -o <out> <pdf> <page>` renders
+// `mutool draw -F pam -c rgb -A 8 -r <dpi> -o <out> <pdf> <page>` renders
 // page <page> (1-indexed) at <dpi> dots-per-inch into a PAM file at <out>.
 //
-//   -F pam   format: PAM (raw RGBA after ASCII header)
-//   -c rgba  colorspace: RGBA, 4 channels, 8 bits each
+//   -F pam   format: PAM (raw RGB after ASCII header)
+//   -c rgb   colorspace: RGB, 3 channels, 8 bits each. NO ALPHA.
 //   -A 8     anti-aliasing level (0-8). 8 is mupdf's highest quality.
 //   -r N     resolution in DPI. Native PDF coords are at 72 DPI, so passing
 //            DPI = scale * 72 produces a bitmap of (widthPt * scale) px wide.
+//
+// S109e fix: switched from `-c rgba` to `-c rgb`. PDF pages do not have a
+// background color — they are transparent. With RGBA output, mupdf produced
+// transparent-black pixels in regions where the PDF didn't draw anything,
+// which composited as DARK against the FRT viewer's canvas background. With
+// RGB output, mupdf flattens against white internally — the page background
+// is a true opaque white in the bitmap, matching what users see in any normal
+// PDF viewer. Eliminates the "grey background" bug that affected every page.
 //
 // We pass DPI rather than -w / -h because:
 //   1. -w and -h together force a bounding-box fit which can subtly shift
@@ -439,7 +456,7 @@ async function mutoolRender(pdfPath, pageNum, scale, outPath, log) {
     [
       'draw',
       '-F', 'pam',
-      '-c', 'rgba',
+      '-c', 'rgb',
       '-A', '8',
       '-r', dpi.toFixed(4),
       '-o', outPath,
@@ -523,16 +540,17 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
     // Read PAM bitmap, pad to multiple of TILE_SIZE, hand to sharp.
     let padded;
     try {
-      const { data: rgba } = await readPamBitmap(pamPath);
-      // CRITICAL: NO byte manipulation. PAM is RGBA. Sharp consumes it as RGBA.
+      const { data: rgb } = await readPamBitmap(pamPath);
+      // CRITICAL: NO byte manipulation. PAM is RGB. Sharp consumes it as RGB.
       // No .recomb, no manual swap, no anything. Just pad and tile.
-      padded = await sharp(rgba, {
-        raw: { width: actualW, height: actualH, channels: 4 },
+      // S109e: changed from RGBA to RGB — see mutoolRender for rationale.
+      padded = await sharp(rgb, {
+        raw: { width: actualW, height: actualH, channels: 3 },
       })
         .extend({
           right: padW - actualW,
           bottom: padH - actualH,
-          background: { r: 255, g: 255, b: 255, alpha: 1 },
+          background: { r: 255, g: 255, b: 255 },
         })
         .raw()
         .toBuffer();
@@ -561,9 +579,12 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
 
     // Upload tasks closure factory. Used both for the initial pass and for
     // the verification repair pass.
+    // S109e: extract reads 3-channel RGB from `padded`. WebP encoder produces
+    // 3-channel WebP (no alpha) — slightly smaller files, no alpha-related
+    // compositing artifacts.
     const buildEncodeAndPut = (spec) => async () => {
       const sharpInst = sharp(padded, {
-        raw: { width: padW, height: padH, channels: 4 },
+        raw: { width: padW, height: padH, channels: 3 },
       }).extract({ left: spec.left, top: spec.top, width: TILE_SIZE, height: TILE_SIZE });
 
       let tileBuf;
@@ -571,7 +592,7 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
         tileBuf = await sharpInst.webp({ lossless: true, effort: 4 }).toBuffer();
       } else {
         const q = levelIdx === 0 ? THUMB_QUALITY : STD_QUALITY;
-        tileBuf = await sharpInst.webp({ quality: q, effort: 4, alphaQuality: 100 }).toBuffer();
+        tileBuf = await sharpInst.webp({ quality: q, effort: 4 }).toBuffer();
       }
       await putTile(spec.tileKey, tileBuf, 'image/webp');
     };
@@ -867,7 +888,7 @@ app.get('/api/health', (_req, res) => {
     activeRenders,
     heartbeat: heartbeatTimer ? 'active' : 'idle',
     // S109c: build markers — used to verify a deploy is live.
-    build: 's109d-revert-lossless-concurrency',
+    build: 's109e-rgb-render-flatten-on-white',
     selfUrlConfigured: !!SELF_URL,
     heapMb: process.env.HEAP_MB || 'default',
     time: new Date().toISOString(),
