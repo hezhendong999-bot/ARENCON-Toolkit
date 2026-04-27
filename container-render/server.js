@@ -35,7 +35,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { promisify } = require('util');
-const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand, PutObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const sharp = require('sharp');
 
 const fsWriteFile = promisify(fs.writeFile);
@@ -51,6 +51,16 @@ const TILE_SIZE = 512;
 const THUMB_QUALITY = 75;              // L0 (thumbnail) — lossy, small
 const STD_QUALITY = 92;                // L1/L2 — lossy, imperceptible at scale
 const MAX_PARALLEL_UPLOADS = 12;
+// S109c: lossless levels are CPU+memory-heavy. 12 parallel libvips lossless WebP
+// encodings on a 384MB padded buffer can cause GC stalls and silent UV/sharp
+// failures that surface as "PutObject succeeded but tile missing in R2".
+// Cap concurrency on lossless levels to a safer number.
+const MAX_PARALLEL_UPLOADS_LOSSLESS = 6;
+// S109c: PutObject retry config. R2 occasionally returns transient 5xx or
+// connection resets under heavy concurrent writes. Retry with exponential
+// backoff before giving up.
+const PUT_RETRY_ATTEMPTS = 3;
+const PUT_RETRY_BASE_MS = 250;
 const BUCKET = 'arencon-files';
 
 // Longest-dimension targets per level (pyramid). Page is scaled so the
@@ -73,8 +83,8 @@ const TILE_PREFIX = process.env.R2_TILE_PREFIX || 'tiles';
 const MUTOOL_BIN = process.env.MUTOOL_BIN || 'mutool';
 
 // Build/version markers for /api/health and manifest.
-const SERVICE_VERSION = '6.0.0';
-const RENDERER_LABEL = 'mupdf-mutool-s107';
+const SERVICE_VERSION = '6.1.0-s109c';
+const RENDERER_LABEL = 'mupdf-mutool-s109c';
 
 // ---- R2 / S3 client ----------------------------------------------------------
 
@@ -108,11 +118,71 @@ async function downloadPdf(r2Key, log) {
   return buf;
 }
 
+// ---- S109c: render trace store ----------------------------------------------
+//
+// Keeps detailed per-render diagnostic state in memory so we can introspect
+// what actually happened on the most recent render without grovelling through
+// Azure log streams. Exposed via GET /api/render-trace.
+//
+// Bounded — keeps the most recent N renders. State is rebuilt on container
+// restart (which is fine — we only care about the most recent run).
+
+const RENDER_TRACE_KEEP = 5;
+const renderTraces = new Map();          // drawingId → trace object
+const renderTraceOrder = [];             // insertion order (FIFO eviction)
+
+function newTrace(drawingId, pid, r2Key) {
+  const trace = {
+    drawingId,
+    pid,
+    r2Key,
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    status: 'running',                   // running | done | failed
+    fatalError: null,
+    pages: [],                           // [{ pageNumber, levels: [{ level, expected, putOk, putFailed, retries, verifyOk, verifyMissing, verifyRereuploaded }] }]
+    summary: null,                       // populated on completion
+  };
+  renderTraces.set(drawingId, trace);
+  renderTraceOrder.push(drawingId);
+  while (renderTraceOrder.length > RENDER_TRACE_KEEP) {
+    const evict = renderTraceOrder.shift();
+    renderTraces.delete(evict);
+  }
+  return trace;
+}
+
+// ---- R2 ops with retry + verification ---------------------------------------
+
 async function putTile(key, body, contentType) {
-  await getS3().send(new PutObjectCommand({
-    Bucket: BUCKET, Key: key, Body: body, ContentType: contentType,
-    CacheControl: 'public, max-age=31536000, immutable',
-  }));
+  let lastErr = null;
+  for (let attempt = 1; attempt <= PUT_RETRY_ATTEMPTS; attempt++) {
+    try {
+      await getS3().send(new PutObjectCommand({
+        Bucket: BUCKET, Key: key, Body: body, ContentType: contentType,
+        CacheControl: 'public, max-age=31536000, immutable',
+      }));
+      return { ok: true, attempts: attempt };
+    } catch (err) {
+      lastErr = err;
+      if (attempt < PUT_RETRY_ATTEMPTS) {
+        const delay = PUT_RETRY_BASE_MS * Math.pow(2, attempt - 1);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+  // All attempts failed — throw with details so uploadAll captures it.
+  throw new Error(`PutObject ${key} failed after ${PUT_RETRY_ATTEMPTS} attempts: ${lastErr.message}`);
+}
+
+async function headTile(key) {
+  try {
+    await getS3().send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
+    return true;
+  } catch (err) {
+    if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404) return false;
+    throw err;
+  }
 }
 
 async function putManifest(key, manifest) {
@@ -122,23 +192,31 @@ async function putManifest(key, manifest) {
   }));
 }
 
-async function uploadAll(tasks, log) {
+async function uploadAll(tasks, log, concurrency) {
   let i = 0, done = 0;
   const total = tasks.length;
   const errors = [];
+  const limit = concurrency || MAX_PARALLEL_UPLOADS;
   async function worker() {
     while (i < tasks.length) {
       const idx = i++;
-      try { await tasks[idx](); } catch (err) { errors.push({ idx, err: err.message }); }
+      try { await tasks[idx](); } catch (err) {
+        errors.push({ idx, err: err.message });
+        // S109c: log every error, not just the first. Silent failures across
+        // hundreds of tiles were invisible in the previous implementation.
+        log(`    ✗ tile ${idx} upload failed: ${err.message}`);
+      }
       done++;
       if (done % 50 === 0 || done === total) log(`    uploaded ${done}/${total}`);
     }
   }
-  const workers = Array.from({ length: Math.min(MAX_PARALLEL_UPLOADS, tasks.length) }, worker);
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, worker);
   await Promise.all(workers);
-  if (errors.length) {
-    throw new Error(`${errors.length} upload(s) failed. First: ${errors[0].err}`);
-  }
+  // S109c: return errors instead of throwing. Caller decides how to react —
+  // we want to keep going and record errors in the trace, not abort the whole
+  // render. Verification pass runs afterward and fixes anything that's still
+  // missing.
+  return { total, ok: total - errors.length, errors };
 }
 
 // ---- mutool subprocess bridge ------------------------------------------------
@@ -387,7 +465,7 @@ async function mutoolRender(pdfPath, pageNum, scale, outPath, log) {
 
 // ---- Per-page render + tile --------------------------------------------------
 
-async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawingId, tmpDir, log) {
+async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawingId, tmpDir, log, trace) {
   const longestDim = Math.max(nativeWpt, nativeHpt);
   const pageInfo = {
     pageNumber,
@@ -395,6 +473,9 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
     nativeHeight: nativeHpt,
     levels: [],
   };
+  // S109c: per-page trace bucket
+  const pageTrace = { pageNumber, levels: [] };
+  if (trace) trace.pages.push(pageTrace);
 
   log(`Page ${pageNumber}: native ${nativeWpt}x${nativeHpt} pt `
     + `(${(nativeWpt / 72).toFixed(1)}\" x ${(nativeHpt / 72).toFixed(1)}\")`);
@@ -420,6 +501,7 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
       actualH = res.height;
     } catch (err) {
       log(`  L${levelIdx}: RENDER FAILED — ${err.message}; skipping`);
+      pageTrace.levels.push({ level: levelIdx, fatalError: `render: ${err.message}` });
       try { await fsUnlink(pamPath); } catch {}
       continue;
     }
@@ -429,6 +511,7 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
     const rows = Math.ceil(actualH / TILE_SIZE);
     const padW = cols * TILE_SIZE;
     const padH = rows * TILE_SIZE;
+    const expectedTiles = cols * rows;
 
     log(`  L${levelIdx}: ${actualW}x${actualH} → ${cols}x${rows} tiles (${padW}x${padH} padded)`);
 
@@ -450,6 +533,7 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
         .toBuffer();
     } catch (err) {
       log(`  L${levelIdx}: PAD FAILED — ${err.message}; skipping`);
+      pageTrace.levels.push({ level: levelIdx, fatalError: `pad: ${err.message}` });
       try { await fsUnlink(pamPath); } catch {}
       continue;
     }
@@ -457,31 +541,90 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
     // Raw PAM on disk no longer needed — release disk pressure.
     try { await fsUnlink(pamPath); } catch {}
 
-    // Tile + upload (bounded concurrency).
-    const uploadTasks = [];
+    // S109c: build a (key, tilingFn) catalogue rather than just opaque tasks.
+    // We'll need to re-run individual tile encoding during verification repair
+    // if any tile is found missing in R2.
+    const tileSpecs = [];
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const left = x * TILE_SIZE;
         const top = y * TILE_SIZE;
         const tileKey = `${pid}/${TILE_PREFIX}/${drawingId}/page-${pageNumber}/level-${levelIdx}/${x}-${y}.webp`;
-        uploadTasks.push(async () => {
-          const sharpInst = sharp(padded, {
-            raw: { width: padW, height: padH, channels: 4 },
-          }).extract({ left, top, width: TILE_SIZE, height: TILE_SIZE });
-
-          let tileBuf;
-          if (useLossless) {
-            tileBuf = await sharpInst.webp({ lossless: true, effort: 4 }).toBuffer();
-          } else {
-            const q = levelIdx === 0 ? THUMB_QUALITY : STD_QUALITY;
-            tileBuf = await sharpInst.webp({ quality: q, effort: 4, alphaQuality: 100 }).toBuffer();
-          }
-          await putTile(tileKey, tileBuf, 'image/webp');
-        });
+        tileSpecs.push({ x, y, left, top, tileKey });
       }
     }
 
-    await uploadAll(uploadTasks, log);
+    // Upload tasks closure factory. Used both for the initial pass and for
+    // the verification repair pass.
+    const buildEncodeAndPut = (spec) => async () => {
+      const sharpInst = sharp(padded, {
+        raw: { width: padW, height: padH, channels: 4 },
+      }).extract({ left: spec.left, top: spec.top, width: TILE_SIZE, height: TILE_SIZE });
+
+      let tileBuf;
+      if (useLossless) {
+        tileBuf = await sharpInst.webp({ lossless: true, effort: 4 }).toBuffer();
+      } else {
+        const q = levelIdx === 0 ? THUMB_QUALITY : STD_QUALITY;
+        tileBuf = await sharpInst.webp({ quality: q, effort: 4, alphaQuality: 100 }).toBuffer();
+      }
+      await putTile(spec.tileKey, tileBuf, 'image/webp');
+    };
+
+    // ---- Upload pass --------------------------------------------------------
+    const uploadTasks = tileSpecs.map(spec => buildEncodeAndPut(spec));
+    const uploadConcurrency = useLossless ? MAX_PARALLEL_UPLOADS_LOSSLESS : MAX_PARALLEL_UPLOADS;
+    const uploadResult = await uploadAll(uploadTasks, log, uploadConcurrency);
+    log(`  L${levelIdx}: upload pass — ${uploadResult.ok}/${uploadResult.total} ok, ${uploadResult.errors.length} errors`);
+
+    // ---- Verification pass: HeadObject every tile ---------------------------
+    // S109c: even if uploadAll returned no errors, R2 has been observed to
+    // accept PutObject 200 OK without persistence under heavy concurrent
+    // load. Verify every tile actually exists, and re-upload anything that
+    // doesn't.
+    const missingSpecs = [];
+    let verifyChecked = 0;
+    {
+      const verifyTasks = tileSpecs.map(spec => async () => {
+        const exists = await headTile(spec.tileKey);
+        if (!exists) missingSpecs.push(spec);
+      });
+      // HeadObject is light — keep concurrency at 24 across all levels.
+      await uploadAll(verifyTasks, log, 24);
+      verifyChecked = tileSpecs.length;
+    }
+
+    let repairedCount = 0;
+    let stillMissingCount = 0;
+    if (missingSpecs.length > 0) {
+      log(`  L${levelIdx}: verify pass — ${missingSpecs.length}/${expectedTiles} tiles missing in R2; repairing`);
+      const repairTasks = missingSpecs.map(spec => buildEncodeAndPut(spec));
+      const repairResult = await uploadAll(repairTasks, log, uploadConcurrency);
+      // Re-verify the repair attempts.
+      const stillMissing = [];
+      const recheckTasks = missingSpecs.map(spec => async () => {
+        const exists = await headTile(spec.tileKey);
+        if (!exists) stillMissing.push(spec);
+      });
+      await uploadAll(recheckTasks, log, 24);
+      repairedCount = missingSpecs.length - stillMissing.length;
+      stillMissingCount = stillMissing.length;
+      log(`  L${levelIdx}: repair — ${repairedCount}/${missingSpecs.length} recovered, ${stillMissingCount} still missing`);
+    } else {
+      log(`  L${levelIdx}: verify pass — all ${expectedTiles} tiles present in R2 ✓`);
+    }
+
+    pageTrace.levels.push({
+      level: levelIdx,
+      cols, rows, expected: expectedTiles,
+      uploadOk: uploadResult.ok,
+      uploadErrors: uploadResult.errors.length,
+      uploadFirstErrors: uploadResult.errors.slice(0, 5),
+      verifyChecked,
+      verifyMissingAfterUpload: missingSpecs.length,
+      repaired: repairedCount,
+      stillMissing: stillMissingCount,
+    });
 
     padded = null;
     if (global.gc) global.gc();
@@ -566,6 +709,9 @@ async function handleRender(req, res) {
   // render runs asynchronously in the background.
   res.json({ success: true, accepted: true, pid, drawingId, renderer: RENDERER_LABEL });
 
+  // S109c: per-render trace, exposed via /api/render-trace.
+  const trace = newTrace(drawingId, pid, r2Key);
+
   const tmpDir = path.join(os.tmpdir(), `render_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
 
   startHeartbeat();
@@ -604,7 +750,7 @@ async function handleRender(req, res) {
 
     for (let idx = 0; idx < pages.length; idx++) {
       const { page: pnum, widthPt, heightPt } = pages[idx];
-      const pageInfo = await renderPage(pdfPath, pnum, widthPt, heightPt, pid, drawingId, tmpDir, log);
+      const pageInfo = await renderPage(pdfPath, pnum, widthPt, heightPt, pid, drawingId, tmpDir, log, trace);
       manifest.pages.push(pageInfo);
       manifest.pageCount = manifest.pages.length;  // S109b: keep in sync
       totalTiles += pageInfo.levels.reduce((s, l) => s + l.cols * l.rows, 0);
@@ -618,13 +764,48 @@ async function handleRender(req, res) {
 
     const durationMs = Date.now() - t0;
     log(`=== render done in ${(durationMs / 1000).toFixed(1)}s — ${totalTiles} tiles ===`);
+    // S109c: summarize the trace.
+    trace.status = 'done';
+    trace.finishedAt = new Date().toISOString();
+    trace.summary = summarizeTrace(trace);
+    log(`Trace summary: ${JSON.stringify(trace.summary)}`);
 
   } catch (err) {
     console.error(`render failed: ${err.stack || err.message}`);
+    trace.status = 'failed';
+    trace.fatalError = err.message;
+    trace.finishedAt = new Date().toISOString();
+    trace.summary = summarizeTrace(trace);
   } finally {
     stopHeartbeat();
     try { await fsRm(tmpDir, { recursive: true, force: true }); } catch {}
   }
+}
+
+// S109c: roll up trace details into a quick-glance summary.
+function summarizeTrace(trace) {
+  let totalExpected = 0, totalUploadOk = 0, totalUploadErrors = 0;
+  let totalMissingAfterUpload = 0, totalRepaired = 0, totalStillMissing = 0;
+  for (const p of trace.pages) {
+    for (const l of p.levels) {
+      if (l.fatalError) continue;
+      totalExpected += l.expected || 0;
+      totalUploadOk += l.uploadOk || 0;
+      totalUploadErrors += l.uploadErrors || 0;
+      totalMissingAfterUpload += l.verifyMissingAfterUpload || 0;
+      totalRepaired += l.repaired || 0;
+      totalStillMissing += l.stillMissing || 0;
+    }
+  }
+  return {
+    pages: trace.pages.length,
+    totalTilesExpected: totalExpected,
+    uploadPassOk: totalUploadOk,
+    uploadPassErrors: totalUploadErrors,
+    missingAfterUpload: totalMissingAfterUpload,
+    repairedByVerify: totalRepaired,
+    stillMissingAfterRepair: totalStillMissing,
+  };
 }
 
 // ---- Express app ------------------------------------------------------------
@@ -680,8 +861,45 @@ app.get('/api/health', (_req, res) => {
     tilePrefix: TILE_PREFIX,
     activeRenders,
     heartbeat: heartbeatTimer ? 'active' : 'idle',
+    // S109c: build markers — used to verify a deploy is live.
+    build: 's109c-verify-and-repair',
+    selfUrlConfigured: !!SELF_URL,
+    heapMb: process.env.HEAP_MB || 'default',
     time: new Date().toISOString(),
   });
+});
+
+// S109c: render trace introspection. Returns the in-memory trace for the
+// most recent N renders so we can see exactly what each pass did — what
+// tiles were attempted, uploaded, missing, repaired.
+//   GET /api/render-trace                   — list all known drawingIds
+//   GET /api/render-trace?drawingId=X       — full trace for a specific render
+//   GET /api/render-trace?latest=1          — full trace for the most recent render
+app.get('/api/render-trace', (req, res) => {
+  const { drawingId, latest } = req.query;
+  if (latest) {
+    if (renderTraceOrder.length === 0) return res.json({ error: 'no traces yet' });
+    const last = renderTraceOrder[renderTraceOrder.length - 1];
+    return res.json(renderTraces.get(last));
+  }
+  if (drawingId) {
+    const t = renderTraces.get(drawingId);
+    if (!t) return res.status(404).json({ error: 'no trace for drawingId', drawingId });
+    return res.json(t);
+  }
+  // No params — list summaries.
+  const list = renderTraceOrder.map(id => {
+    const t = renderTraces.get(id);
+    return {
+      drawingId: id,
+      pid: t.pid,
+      startedAt: t.startedAt,
+      finishedAt: t.finishedAt,
+      status: t.status,
+      summary: t.summary,
+    };
+  });
+  res.json({ count: list.length, traces: list });
 });
 
 app.use((_req, res) => { res.status(404).json({ error: 'Not found' }); });
