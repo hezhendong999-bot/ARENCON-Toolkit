@@ -100,8 +100,8 @@ const TILE_PREFIX = process.env.R2_TILE_PREFIX || 'tiles';
 const MUTOOL_BIN = process.env.MUTOOL_BIN || 'mutool';
 
 // Build/version markers for /api/health and manifest.
-const SERVICE_VERSION = '6.2.1-s109f';
-const RENDERER_LABEL = 'mupdf-mutool-s109f';
+const SERVICE_VERSION = '6.3.0-s109g';
+const RENDERER_LABEL = 'mupdf-mutool-s109g';
 
 // ---- R2 / S3 client ----------------------------------------------------------
 
@@ -492,6 +492,38 @@ async function mutoolRender(pdfPath, pageNum, scale, outPath, log) {
 }
 
 // ---- Per-page render + tile --------------------------------------------------
+//
+// S109g: master-render-and-downsample pipeline.
+//
+// Previously each level called mutoolRender independently at that level's DPI.
+// Two consequences:
+//   1. At low DPI (L2 = 71 dpi), small text and fine vector lines were rendered
+//      directly at low resolution by mupdf. Letterforms at 5–8 pixel height
+//      lose detail no matter how good the AA. Visible as Bug C — some content
+//      tiles look noticeably blurrier than others on the same level.
+//   2. mupdf's edge anti-aliasing across the rendered area is not stable
+//      between independent renders at different DPIs. Adjacent tiles in
+//      lossless WebP encoded slightly different brightness for the same
+//      vector geometry. Visible as Bug B — content-to-content seams at L2
+//      and now L3.
+//
+// New pipeline:
+//   1. Render the page ONCE at the highest level's DPI (L4, 341 dpi). This
+//      gives mupdf the budget it needs to render all detail crisply.
+//   2. For every level (including L4 itself), produce the level's bitmap by
+//      Lanczos3 downsampling from the master. The master is a single buffer
+//      with no internal tile boundaries, so downsampling is consistent across
+//      what will become tile boundaries.
+//   3. Pad to TILE_SIZE multiples and slice tiles as before. Encode WebP
+//      (lossless for L2/L3/L4, lossy for L0/L1).
+//
+// Memory peak: master = 12288 × 8192 × 3 ≈ 300 MB held throughout the page.
+// Resize ops add transient ~80 MB for L3, ~13 MB for L2. Easily within the
+// 6.5 GB heap on Azure 8 GB hosts.
+//
+// Time: one mutool invocation per page instead of five — net faster despite
+// the resize work, because mupdf rendering dominates and we're doing it once
+// at maximum scale instead of five times.
 
 async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawingId, tmpDir, log, trace) {
   const longestDim = Math.max(nativeWpt, nativeHpt);
@@ -508,71 +540,95 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
   log(`Page ${pageNumber}: native ${nativeWpt}x${nativeHpt} pt `
     + `(${(nativeWpt / 72).toFixed(1)}\" x ${(nativeHpt / 72).toFixed(1)}\")`);
 
+  // S109g: master render at the highest level's DPI.
+  const HIGHEST_LEVEL = LEVEL_WIDTHS.length - 1;
+  const masterTarget = LEVEL_WIDTHS[HIGHEST_LEVEL];
+  const masterScale = masterTarget / longestDim;
+  log(`  Master render: scale=${masterScale.toFixed(4)} (target ${masterTarget}px on longest dim, ${(masterScale * 72).toFixed(0)} dpi)`);
+
+  const masterPamPath = path.join(tmpDir, `p${pageNumber}_master.pam`);
+  let masterW, masterH;
+  try {
+    const res = await mutoolRender(pdfPath, pageNumber, masterScale, masterPamPath, log);
+    masterW = res.width;
+    masterH = res.height;
+    log(`  Master render: ${masterW}×${masterH} px`);
+  } catch (err) {
+    log(`  MASTER RENDER FAILED — ${err.message}; skipping page`);
+    pageTrace.levels.push({ level: -1, fatalError: `master render: ${err.message}` });
+    try { await fsUnlink(masterPamPath); } catch {}
+    return pageInfo;
+  }
+
+  let masterRgb;
+  try {
+    const { data } = await readPamBitmap(masterPamPath);
+    masterRgb = data;
+  } catch (err) {
+    log(`  MASTER READ FAILED — ${err.message}; skipping page`);
+    pageTrace.levels.push({ level: -1, fatalError: `master read: ${err.message}` });
+    try { await fsUnlink(masterPamPath); } catch {}
+    return pageInfo;
+  }
+  try { await fsUnlink(masterPamPath); } catch {}
+
+  // For each level, derive from master via resize (or use master directly for the highest level).
   for (let levelIdx = 0; levelIdx < LEVEL_WIDTHS.length; levelIdx++) {
     const target = LEVEL_WIDTHS[levelIdx];
-    // Scale so the LONGEST dimension hits the target. Portrait and landscape
-    // both land at consistent DPI for each level.
-    const scale = target / longestDim;
-    const estW = Math.round(nativeWpt * scale);
-    const estH = Math.round(nativeHpt * scale);
+    const targetScale = target / longestDim;
+    // Compute level dims by scaling master, not by scaling native — keeps
+    // pixel-dimension ratios consistent with the master we actually have.
+    const levelW = (levelIdx === HIGHEST_LEVEL) ? masterW : Math.round(masterW * (target / masterTarget));
+    const levelH = (levelIdx === HIGHEST_LEVEL) ? masterH : Math.round(masterH * (target / masterTarget));
     const useLossless = LOSSLESS_LEVELS.has(levelIdx);
-    const qTag = useLossless ? 'lossless'
-      : (levelIdx === 0 ? `q=${THUMB_QUALITY}` : `q=${STD_QUALITY}`);
+    const qTag = useLossless ? 'lossless' : (levelIdx === 0 ? `q=${THUMB_QUALITY}` : `q=${STD_QUALITY}`);
 
-    log(`  L${levelIdx}: render ~${estW}x${estH} via mupdf [${qTag}]`);
+    log(`  L${levelIdx}: ${levelW}×${levelH} via ${levelIdx === HIGHEST_LEVEL ? 'master' : 'lanczos3 downsample'} [${qTag}]`);
 
-    const pamPath = path.join(tmpDir, `p${pageNumber}_l${levelIdx}.pam`);
-    let actualW, actualH;
-    try {
-      const res = await mutoolRender(pdfPath, pageNumber, scale, pamPath, log);
-      actualW = res.width;
-      actualH = res.height;
-    } catch (err) {
-      log(`  L${levelIdx}: RENDER FAILED — ${err.message}; skipping`);
-      pageTrace.levels.push({ level: levelIdx, fatalError: `render: ${err.message}` });
-      try { await fsUnlink(pamPath); } catch {}
-      continue;
-    }
-
-    // Tile grid for this level.
-    const cols = Math.ceil(actualW / TILE_SIZE);
-    const rows = Math.ceil(actualH / TILE_SIZE);
+    // Tile grid.
+    const cols = Math.ceil(levelW / TILE_SIZE);
+    const rows = Math.ceil(levelH / TILE_SIZE);
     const padW = cols * TILE_SIZE;
     const padH = rows * TILE_SIZE;
     const expectedTiles = cols * rows;
+    log(`  L${levelIdx}: ${cols}×${rows} tiles (${padW}×${padH} padded)`);
 
-    log(`  L${levelIdx}: ${actualW}x${actualH} → ${cols}x${rows} tiles (${padW}x${padH} padded)`);
-
-    // Read PAM bitmap, pad to multiple of TILE_SIZE, hand to sharp.
+    // Build the padded buffer for this level.
     let padded;
     try {
-      const { data: rgb } = await readPamBitmap(pamPath);
-      // CRITICAL: NO byte manipulation. PAM is RGB. Sharp consumes it as RGB.
-      // No .recomb, no manual swap, no anything. Just pad and tile.
-      // S109e: changed from RGBA to RGB — see mutoolRender for rationale.
-      padded = await sharp(rgb, {
-        raw: { width: actualW, height: actualH, channels: 3 },
+      // For the highest level, use master directly. For lower levels, resize
+      // from master with Lanczos3, then pad. Both end with a raw RGB buffer
+      // sized padW × padH.
+      let levelRgb;
+      if (levelIdx === HIGHEST_LEVEL) {
+        levelRgb = masterRgb;
+      } else {
+        levelRgb = await sharp(masterRgb, {
+          raw: { width: masterW, height: masterH, channels: 3 },
+        })
+          .resize(levelW, levelH, { kernel: 'lanczos3', fit: 'fill' })
+          .raw()
+          .toBuffer();
+      }
+      padded = await sharp(levelRgb, {
+        raw: { width: levelW, height: levelH, channels: 3 },
       })
         .extend({
-          right: padW - actualW,
-          bottom: padH - actualH,
+          right: padW - levelW,
+          bottom: padH - levelH,
           background: { r: 255, g: 255, b: 255 },
         })
         .raw()
         .toBuffer();
+      // Drop the resized buffer (master stays alive for next iteration).
+      if (levelIdx !== HIGHEST_LEVEL) levelRgb = null;
     } catch (err) {
-      log(`  L${levelIdx}: PAD FAILED — ${err.message}; skipping`);
-      pageTrace.levels.push({ level: levelIdx, fatalError: `pad: ${err.message}` });
-      try { await fsUnlink(pamPath); } catch {}
+      log(`  L${levelIdx}: RESIZE/PAD FAILED — ${err.message}; skipping`);
+      pageTrace.levels.push({ level: levelIdx, fatalError: `resize/pad: ${err.message}` });
       continue;
     }
 
-    // Raw PAM on disk no longer needed — release disk pressure.
-    try { await fsUnlink(pamPath); } catch {}
-
-    // S109c: build a (key, tilingFn) catalogue rather than just opaque tasks.
-    // We'll need to re-run individual tile encoding during verification repair
-    // if any tile is found missing in R2.
+    // Build tile specs.
     const tileSpecs = [];
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
@@ -583,11 +639,7 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
       }
     }
 
-    // Upload tasks closure factory. Used both for the initial pass and for
-    // the verification repair pass.
-    // S109e: extract reads 3-channel RGB from `padded`. WebP encoder produces
-    // 3-channel WebP (no alpha) — slightly smaller files, no alpha-related
-    // compositing artifacts.
+    // Encode + upload factory.
     const buildEncodeAndPut = (spec) => async () => {
       const sharpInst = sharp(padded, {
         raw: { width: padW, height: padH, channels: 3 },
@@ -610,10 +662,6 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
     log(`  L${levelIdx}: upload pass — ${uploadResult.ok}/${uploadResult.total} ok, ${uploadResult.errors.length} errors`);
 
     // ---- Verification pass: HeadObject every tile ---------------------------
-    // S109c: even if uploadAll returned no errors, R2 has been observed to
-    // accept PutObject 200 OK without persistence under heavy concurrent
-    // load. Verify every tile actually exists, and re-upload anything that
-    // doesn't.
     const missingSpecs = [];
     let verifyChecked = 0;
     {
@@ -621,7 +669,6 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
         const exists = await headTile(spec.tileKey);
         if (!exists) missingSpecs.push(spec);
       });
-      // HeadObject is light — keep concurrency at 24 across all levels.
       await uploadAll(verifyTasks, log, 24);
       verifyChecked = tileSpecs.length;
     }
@@ -631,8 +678,7 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
     if (missingSpecs.length > 0) {
       log(`  L${levelIdx}: verify pass — ${missingSpecs.length}/${expectedTiles} tiles missing in R2; repairing`);
       const repairTasks = missingSpecs.map(spec => buildEncodeAndPut(spec));
-      const repairResult = await uploadAll(repairTasks, log, uploadConcurrency);
-      // Re-verify the repair attempts.
+      await uploadAll(repairTasks, log, uploadConcurrency);
       const stillMissing = [];
       const recheckTasks = missingSpecs.map(spec => async () => {
         const exists = await headTile(spec.tileKey);
@@ -658,6 +704,7 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
       stillMissing: stillMissingCount,
     });
 
+    // Free the padded buffer (master remains for next level).
     padded = null;
     if (global.gc) global.gc();
 
@@ -665,9 +712,13 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
       level: levelIdx,
       tileSize: TILE_SIZE,
       cols, rows,
-      width: actualW, height: actualH,
+      width: levelW, height: levelH,
     });
   }
+
+  // Free the master after all levels complete.
+  masterRgb = null;
+  if (global.gc) global.gc();
 
   return pageInfo;
 }
@@ -894,7 +945,7 @@ app.get('/api/health', (_req, res) => {
     activeRenders,
     heartbeat: heartbeatTimer ? 'active' : 'idle',
     // S109c: build markers — used to verify a deploy is live.
-    build: 's109f-l2-lossless-no-banding',
+    build: 's109g-master-render-then-downsample',
     selfUrlConfigured: !!SELF_URL,
     heapMb: process.env.HEAP_MB || 'default',
     time: new Date().toISOString(),
