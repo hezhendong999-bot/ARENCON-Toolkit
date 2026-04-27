@@ -55,7 +55,12 @@ const MAX_PARALLEL_UPLOADS = 12;
 // encodings on a 384MB padded buffer can cause GC stalls and silent UV/sharp
 // failures that surface as "PutObject succeeded but tile missing in R2".
 // Cap concurrency on lossless levels to a safer number.
-const MAX_PARALLEL_UPLOADS_LOSSLESS = 6;
+// S109d revert: dropping concurrency to 6 introduced visible inter-tile
+// brightness seams in lossless WebP output. Reverting to 12 — the original
+// pre-S109c behavior — until we can isolate why. The retry + verify + repair
+// pipeline (kept) is what made renders complete; the concurrency cap was
+// not the actual fix.
+const MAX_PARALLEL_UPLOADS_LOSSLESS = 12;
 // S109c: PutObject retry config. R2 occasionally returns transient 5xx or
 // connection resets under heavy concurrent writes. Retry with exponential
 // backoff before giving up.
@@ -83,8 +88,8 @@ const TILE_PREFIX = process.env.R2_TILE_PREFIX || 'tiles';
 const MUTOOL_BIN = process.env.MUTOOL_BIN || 'mutool';
 
 // Build/version markers for /api/health and manifest.
-const SERVICE_VERSION = '6.1.0-s109c';
-const RENDERER_LABEL = 'mupdf-mutool-s109c';
+const SERVICE_VERSION = '6.1.1-s109d';
+const RENDERER_LABEL = 'mupdf-mutool-s109d';
 
 // ---- R2 / S3 client ----------------------------------------------------------
 
@@ -862,7 +867,7 @@ app.get('/api/health', (_req, res) => {
     activeRenders,
     heartbeat: heartbeatTimer ? 'active' : 'idle',
     // S109c: build markers — used to verify a deploy is live.
-    build: 's109c-verify-and-repair',
+    build: 's109d-revert-lossless-concurrency',
     selfUrlConfigured: !!SELF_URL,
     heapMb: process.env.HEAP_MB || 'default',
     time: new Date().toISOString(),
