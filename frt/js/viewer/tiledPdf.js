@@ -917,7 +917,7 @@ function _startFetch(req, layer) {
       'width:' + fullCssW + 'px;height:' + fullCssH + 'px;' +
       'clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
       '-webkit-clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
-      'z-index:' + levelIdx + ';' +
+      'z-index:' + req.level + ';' +
       'image-rendering:auto;pointer-events:none;' + fadeIn;
   } else {
     // Interior tile: image content fills the full 512x512 source exactly,
@@ -930,7 +930,7 @@ function _startFetch(req, layer) {
     cssText =
       'position:absolute;left:' + cssL + 'px;top:' + cssT + 'px;' +
       'width:' + cssW + 'px;height:' + cssH + 'px;' +
-      'z-index:' + levelIdx + ';' +
+      'z-index:' + req.level + ';' +
       'image-rendering:auto;pointer-events:none;' + fadeIn;
   }
   img.style.cssText = cssText;
