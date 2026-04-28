@@ -100,8 +100,8 @@ const TILE_PREFIX = process.env.R2_TILE_PREFIX || 'tiles';
 const MUTOOL_BIN = process.env.MUTOOL_BIN || 'mutool';
 
 // Build/version markers for /api/health and manifest.
-const SERVICE_VERSION = '6.4.0-s110a';
-const RENDERER_LABEL = 'mupdf-mutool-s110a';
+const SERVICE_VERSION = '6.4.1-s110b';
+const RENDERER_LABEL = 'mupdf-mutool-s110b';
 
 // ---- R2 / S3 client ----------------------------------------------------------
 
@@ -603,51 +603,28 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
       if (levelIdx === HIGHEST_LEVEL) {
         levelRgb = masterRgb;
       } else {
-        // S110a Bug B fix: pad master + oversize + extract.
+        // S110b: REVERT of S110a pad-and-extract.
         //
-        // Empirically verified S110: PIL Lanczos on the same L4 master
-        // produces clean output (mean dLum 9.5 at the L2 y=2/y=3 boundary
-        // of the Caplink test page); sharp/libvips lanczos3 produces mean
-        // dLum 200 at the same boundary. Same algorithm in principle, same
-        // input, completely different output. Bug is in sharp/libvips, not
-        // in lanczos generally — switching kernels (cubic / mitchell / box)
-        // does not fix it. Best current theory: libvips processes large
-        // images in horizontal strips internally, and produces brightness
-        // artifacts at strip boundaries (multiples of ~128 px in output).
-        // Output dims and tile cuts at multiples of 512 align with these,
-        // exposing the artifacts as a visible grid at every tile edge —
-        // the Bug B that has dogged S107 → S109g.
+        // S110a tried to fix Bug B by padding the master, oversizing the
+        // resize output, and extracting the inner region — theory was that
+        // libvips strip-aligned artifacts would shift off the tile-cut grid.
         //
-        // Fix: pad the master proportionally with white (matches the
-        // engineering-drawing backdrop), resize the padded master to
-        // slightly larger than target, then extract the target region at
-        // a small non-multiple-of-128 offset. Strip-aligned artifacts are
-        // shifted off the tile-cut grid. No content is lost because the
-        // padding extends past the original master content.
-        const PAD_OUT = 32; // output-pixel pad per side (NOT a multiple of 128)
-        const padMasterW = Math.round(masterW * PAD_OUT / levelW);
-        const padMasterH = Math.round(masterH * PAD_OUT / levelH);
-        const paddedMaster = await sharp(masterRgb, {
+        // Empirical result S110: did NOT fix Bug B. Mean dLum at the
+        // y=2/y=3 boundary went from 190 (s109g) to 205 (s110a) — slightly
+        // worse, not better. The true root cause is something different:
+        // the renderer's L2 row 1535 contains a near-solid-black row
+        // (mean lum=22) while the L4 master at the corresponding region
+        // is uniformly white (~235) and PIL Lanczos on the same L4
+        // produces clean output (~239). Same input, completely different
+        // output across the resize step. Genuine sharp/libvips bug or
+        // pipeline interaction not yet localized.
+        //
+        // Revert to the simple S109g approach pending fresh investigation
+        // next session. At least we won't make it worse.
+        levelRgb = await sharp(masterRgb, {
           raw: { width: masterW, height: masterH, channels: 3 },
         })
-          .extend({
-            top: padMasterH, bottom: padMasterH,
-            left: padMasterW, right: padMasterW,
-            background: { r: 255, g: 255, b: 255 },
-          })
-          .raw()
-          .toBuffer();
-        levelRgb = await sharp(paddedMaster, {
-          raw: {
-            width: masterW + padMasterW * 2,
-            height: masterH + padMasterH * 2,
-            channels: 3,
-          },
-        })
-          .resize(levelW + PAD_OUT * 2, levelH + PAD_OUT * 2, {
-            kernel: 'lanczos3', fit: 'fill',
-          })
-          .extract({ left: PAD_OUT, top: PAD_OUT, width: levelW, height: levelH })
+          .resize(levelW, levelH, { kernel: 'lanczos3', fit: 'fill' })
           .raw()
           .toBuffer();
       }
@@ -986,7 +963,7 @@ app.get('/api/health', (_req, res) => {
     activeRenders,
     heartbeat: heartbeatTimer ? 'active' : 'idle',
     // S109c: build markers — used to verify a deploy is live.
-    build: 's110a-pad-master-oversize-extract',
+    build: 's110b-revert-to-simple-lanczos',
     selfUrlConfigured: !!SELF_URL,
     heapMb: process.env.HEAP_MB || 'default',
     time: new Date().toISOString(),
