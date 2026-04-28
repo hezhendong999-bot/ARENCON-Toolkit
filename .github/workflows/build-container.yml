@@ -1,6 +1,19 @@
 name: Build PDF Render Container
 
+# Auto-builds and pushes a new Docker image to GHCR whenever any file in
+# container-render/ changes on main. Combined with the Azure Container App's
+# "continuous deployment from registry" setting, this gives a fully automatic
+# pipeline: push to GitHub -> image built -> Azure pulls -> new revision.
+#
+# Manual trigger (workflow_dispatch) is preserved as a fallback for forcing
+# a rebuild without code changes.
+
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'container-render/**'
+      - '.github/workflows/build-container.yml'
   workflow_dispatch:
 
 env:
@@ -34,3 +47,14 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v3
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Summary
+        run: |
+          echo "Built and pushed:" >> $GITHUB_STEP_SUMMARY
+          echo "  - ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "  - ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v3" >> $GITHUB_STEP_SUMMARY
+          echo "  - ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "If Azure Container App registry continuous deployment is enabled," >> $GITHUB_STEP_SUMMARY
+          echo "Azure auto-pulls within 60 seconds." >> $GITHUB_STEP_SUMMARY
