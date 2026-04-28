@@ -88,6 +88,34 @@
 
       if (_app){ try { _app.destroy(false); } catch(_){} _app = null; _stage = null; }
 
+      // S111: Detect WebGL MAX_TEXTURE_SIZE BEFORE creating the Pixi app.
+      // If the canvas pixel dimensions exceed MAX, we have to lower _dpr
+      // (the pixel-density resolution) so internal textures fit within
+      // the GL limit. Otherwise libgl silently clips render targets and
+      // freehand pen strokes get cut at the right/bottom of the drawing
+      // (visible only when zoomed out far enough to see the clipped area
+      //  — typically at L2 fit zoom on large drawings). This was the
+      // markup clipping bug deferred from S110.
+      try {
+        var probeC = document.createElement('canvas');
+        var probeGl = probeC.getContext('webgl2') || probeC.getContext('webgl') || probeC.getContext('experimental-webgl');
+        if (probeGl){
+          var maxTex = probeGl.getParameter(probeGl.MAX_TEXTURE_SIZE) || 4096;
+          var biggest = Math.max(_canvasW, _canvasH);
+          console.log('[WebGLMarkup] MAX_TEXTURE_SIZE=' + maxTex + ', canvas device-px=' + _canvasW + 'x' + _canvasH + ' (logical ' + logicalW + 'x' + logicalH + ', dpr=' + _dpr + ')');
+          if (biggest > maxTex){
+            // Need to clamp. Reduce _dpr so canvas device-px ≤ maxTex.
+            var oldDpr = _dpr;
+            _dpr = _dpr * (maxTex / biggest) * 0.95; // 5% headroom
+            _canvasW = Math.floor(logicalW * _dpr);
+            _canvasH = Math.floor(logicalH * _dpr);
+            console.warn('[WebGLMarkup] canvas exceeded MAX_TEXTURE_SIZE — reducing dpr ' + oldDpr.toFixed(3) + ' -> ' + _dpr.toFixed(3) + ' (canvas device-px now ' + _canvasW + 'x' + _canvasH + ')');
+          }
+        }
+      } catch(probeErr){
+        console.warn('[WebGLMarkup] MAX_TEXTURE_SIZE probe failed:', probeErr);
+      }
+
       _app = new PIXI.Application({
         view: canvas,
         width: logicalW,
@@ -403,6 +431,42 @@
     var logicalW = Math.max(1, _canvasW / _dpr);
     var logicalH = Math.max(1, _canvasH / _dpr);
 
+    // S111: Fast path — when NO object has an eraser mask, we don't need
+    // the outer RenderTexture at all. The original code unconditionally
+    // baked all non-highlights into one giant RT (logicalW × logicalH at
+    // resolution _dpr). For an L4-master drawing 12288×8192 at dpr=0.5,
+    // that's a 6144×4096 GL texture — within most desktop limits but at
+    // or above WebGL MAX_TEXTURE_SIZE on smaller devices (commonly 4096).
+    // When the texture exceeds MAX, libgl silently clips, which appears
+    // to the user as freehand pen strokes being CUT at the bottom/right
+    // of the drawing — visible only when zoomed out far enough to see
+    // the clipped region (i.e., L2 fit zoom). This is the markup-clipping
+    // bug Mark reported as deferred from S110.
+    //
+    // Bypassing the RT for the no-mask case both (a) avoids the texture
+    // size limit entirely and (b) saves a full-RT clear+render+sprite
+    // every frame. The masked-object path (per-object isolated RTs sized
+    // logicalW × logicalH) still uses RTs because BLEND_MODES.ERASE
+    // requires destination-out, which only works on RTs.
+    var hasAnyMask = false;
+    for (var hi = 0; hi < objects.length; hi++){
+      if (objects[hi] && objects[hi].eraserMask && objects[hi].eraserMask.length){
+        hasAnyMask = true; break;
+      }
+    }
+
+    if (!hasAnyMask){
+      // Fast path: build Graphics for each object and add directly to stage.
+      // No outer RenderTexture, no texture-size limit hit.
+      for (var fi = 0; fi < objects.length; fi++){
+        var fo = objects[fi];
+        var fnode = (fo.type === 'eraser') ? _buildEraser(PIXI, fo) : _buildObject(PIXI, fo);
+        if (fnode) _stage.addChild(fnode);
+      }
+      return;
+    }
+
+    // Slow path — at least one mask present. Need RT for ERASE compositing.
     var container = new PIXI.Container();
     var spritesToTrack = [];
     for (var i = 0; i < objects.length; i++){

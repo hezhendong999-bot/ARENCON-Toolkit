@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ARENCON Tile Boundary Diagnostic</title>
+<style>
+  body {
+    margin: 0;
+    padding: 16px 20px;
+    background: #1B2330;
+    color: #E5E9EF;
+    font-family: Calibri, sans-serif;
+    line-height: 1.4;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid #2C4770;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+  h1 {
+    margin: 0;
+    color: #FFF;
+    font-size: 20px;
+    font-weight: 600;
+  }
+  h1 .ver {
+    font-size: 12px;
+    color: #9C2742;
+    margin-left: 12px;
+  }
+  .controls {
+    background: #233047;
+    padding: 14px 16px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px 14px;
+  }
+  .controls label {
+    display: block;
+    font-size: 12px;
+    color: #9AA5B5;
+    margin-bottom: 3px;
+  }
+  .controls input, .controls select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    background: #1B2330;
+    color: #FFF;
+    border: 1px solid #45526E;
+    border-radius: 4px;
+    font-family: Calibri, sans-serif;
+    font-size: 13px;
+  }
+  .actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  button {
+    padding: 8px 14px;
+    background: #2C4770;
+    color: #FFF;
+    border: none;
+    border-radius: 4px;
+    font: 600 13px Calibri, sans-serif;
+    cursor: pointer;
+  }
+  button.primary {
+    background: #1A7A4A;
+  }
+  button:hover {
+    filter: brightness(1.15);
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  #status {
+    font-size: 13px;
+    color: #9AA5B5;
+    margin-bottom: 12px;
+    min-height: 18px;
+  }
+  #status.err { color: #E27D80; }
+  #status.ok  { color: #6FD195; }
+  .stage {
+    background: #FFF;
+    border: 1px solid #45526E;
+    border-radius: 4px;
+    overflow: auto;
+    max-height: 75vh;
+    margin-bottom: 14px;
+  }
+  #stageInner {
+    position: relative;
+    line-height: 0;
+  }
+  #stageInner img {
+    display: block;
+    image-rendering: pixelated;
+  }
+  .seam-marker {
+    position: absolute;
+    background: rgba(220, 50, 50, 0.7);
+    pointer-events: none;
+    z-index: 10;
+  }
+  .seam-marker.h { left: 0; right: 0; height: 2px; }
+  .seam-marker.v { top: 0; bottom: 0; width: 2px; }
+  #lumChart {
+    background: #233047;
+    padding: 12px;
+    border-radius: 6px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11px;
+    white-space: pre;
+    overflow-x: auto;
+    color: #C5CDD9;
+  }
+  .legend {
+    font-size: 12px;
+    color: #9AA5B5;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>ARENCON Tile Boundary Diagnostic <span class="ver">s111a</span></h1>
+  </header>
+
+  <div class="controls">
+    <div>
+      <label>Project ID (UUID)</label>
+      <input id="pid" value="6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb">
+    </div>
+    <div>
+      <label>PDF Buffer Key</label>
+      <input id="key" value="pdfbuf_1777264056546_0wi9hp">
+    </div>
+    <div>
+      <label>Page #</label>
+      <input id="page" type="number" min="1" value="2">
+    </div>
+    <div>
+      <label>Zoom Level (0-4)</label>
+      <select id="level">
+        <option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option>
+      </select>
+    </div>
+    <div>
+      <label>Tile X (col)</label>
+      <input id="x" type="number" min="0" value="0">
+    </div>
+    <div>
+      <label>Tile Y (row)</label>
+      <input id="y" type="number" min="0" value="2">
+    </div>
+    <div>
+      <label>Mode</label>
+      <select id="mode">
+        <option value="boundary">Boundary (X,Y) + (X,Y+1) below</option>
+        <option value="cross">Cross (X,Y) + 3 neighbours</option>
+        <option value="strip">Horizontal strip (full row at Y)</option>
+        <option value="strip-v">Vertical strip (full col at X)</option>
+        <option value="full">Full grid (all tiles at level)</option>
+      </select>
+    </div>
+    <div>
+      <label>R2 Worker URL</label>
+      <input id="worker" value="https://arencon-r2-worker.hezhendong999.workers.dev">
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="loadBtn">Load tiles</button>
+    <button id="checkBtn">Run boundary scan</button>
+    <button id="copyBtn">Copy report</button>
+    <button id="exportBtn">Download composite as PNG</button>
+  </div>
+
+  <div id="status">Ready.</div>
+
+  <div class="stage">
+    <div id="stageInner"></div>
+  </div>
+
+  <div id="lumChart"></div>
+  <div class="legend">Lum 0=black, 255=white. dLum=jump across boundary. Jump &gt; 100 ⇒ likely seam.</div>
+
+<script>
+(function(){
+  var $ = function(id){return document.getElementById(id);};
+  var stageInner = $('stageInner');
+  var status = $('status');
+
+  function setStatus(msg, cls){
+    status.textContent = msg;
+    status.className = cls || '';
+  }
+
+  function tileUrl(pid, key, page, level, x, y){
+    var w = $('worker').value.replace(/\/$/, '');
+    return w + '/' + pid + '/tiles/' + key + '/page-' + page + '/level-' + level + '/' + x + '-' + y + '.webp';
+  }
+
+  function manifestUrl(pid, key){
+    var w = $('worker').value.replace(/\/$/, '');
+    return w + '/' + pid + '/tiles/' + key + '/manifest.json';
+  }
+
+  function loadImg(url){
+    return new Promise(function(res, rej){
+      var i = new Image();
+      i.crossOrigin = 'anonymous';
+      i.onload = function(){ res(i); };
+      i.onerror = function(){ rej(new Error('Load failed: ' + url)); };
+      i.src = url;
+    });
+  }
+
+  function imgToCanvas(img){
+    var c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    c.getContext('2d').drawImage(img, 0, 0);
+    return c;
+  }
+
+  function rowLum(c, y){
+    var ctx = c.getContext('2d');
+    var data = ctx.getImageData(0, y, c.width, 1).data;
+    var sum = 0;
+    for (var i = 0; i < c.width; i++){
+      var o = i*4;
+      sum += 0.299*data[o] + 0.587*data[o+1] + 0.114*data[o+2];
+    }
+    return sum / c.width;
+  }
+
+  function colLum(c, x){
+    var ctx = c.getContext('2d');
+    var data = ctx.getImageData(x, 0, 1, c.height).data;
+    var sum = 0;
+    for (var i = 0; i < c.height; i++){
+      var o = i*4;
+      sum += 0.299*data[o] + 0.587*data[o+1] + 0.114*data[o+2];
+    }
+    return sum / c.height;
+  }
+
+  var loadedTiles = {}; // key 'x_y' -> canvas
+  var currentMeta = null;
+
+  function clearStage(){
+    stageInner.innerHTML = '';
+    loadedTiles = {};
+  }
+
+  async function loadGrid(coords){
+    clearStage();
+    var pid = $('pid').value.trim();
+    var key = $('key').value.trim();
+    var page = parseInt($('page').value, 10);
+    var level = parseInt($('level').value, 10);
+
+    if (!pid || !key){ setStatus('PID and KEY required.', 'err'); return; }
+
+    setStatus('Loading ' + coords.length + ' tiles…');
+
+    var minX = Math.min.apply(null, coords.map(function(c){return c.x;}));
+    var minY = Math.min.apply(null, coords.map(function(c){return c.y;}));
+    var maxX = Math.max.apply(null, coords.map(function(c){return c.x;}));
+    var maxY = Math.max.apply(null, coords.map(function(c){return c.y;}));
+
+    var TILE = 512;
+    stageInner.style.width = (maxX - minX + 1) * TILE + 'px';
+    stageInner.style.height = (maxY - minY + 1) * TILE + 'px';
+
+    var failures = 0;
+    await Promise.all(coords.map(async function(c){
+      try {
+        var img = await loadImg(tileUrl(pid, key, page, level, c.x, c.y));
+        var canvas = imgToCanvas(img);
+        loadedTiles[c.x + '_' + c.y] = canvas;
+        var imgEl = document.createElement('img');
+        imgEl.src = canvas.toDataURL();
+        imgEl.style.position = 'absolute';
+        imgEl.style.left = ((c.x - minX) * TILE) + 'px';
+        imgEl.style.top  = ((c.y - minY) * TILE) + 'px';
+        imgEl.title = 'tile ' + c.x + ',' + c.y + ' (' + canvas.width + '×' + canvas.height + ')';
+        stageInner.appendChild(imgEl);
+      } catch (err){
+        failures++;
+        console.warn(err);
+      }
+    }));
+
+    // Mark internal boundaries with red lines
+    for (var i = 0; i < coords.length; i++){
+      var c = coords[i];
+      var below = coords.find(function(cc){ return cc.x === c.x && cc.y === c.y + 1; });
+      var right = coords.find(function(cc){ return cc.x === c.x + 1 && cc.y === c.y; });
+      if (below){
+        var hm = document.createElement('div');
+        hm.className = 'seam-marker h';
+        hm.style.top  = ((c.y - minY) * TILE + TILE - 1) + 'px';
+        hm.style.left = ((c.x - minX) * TILE) + 'px';
+        hm.style.right = 'auto';
+        hm.style.width = TILE + 'px';
+        stageInner.appendChild(hm);
+      }
+      if (right){
+        var vm = document.createElement('div');
+        vm.className = 'seam-marker v';
+        vm.style.left = ((c.x - minX) * TILE + TILE - 1) + 'px';
+        vm.style.top  = ((c.y - minY) * TILE) + 'px';
+        vm.style.bottom = 'auto';
+        vm.style.height = TILE + 'px';
+        stageInner.appendChild(vm);
+      }
+    }
+
+    currentMeta = { pid: pid, key: key, page: page, level: level, coords: coords, minX: minX, minY: minY };
+    setStatus('Loaded ' + (coords.length - failures) + '/' + coords.length + ' tiles. Red lines mark internal tile-cut boundaries.', failures ? 'err' : 'ok');
+  }
+
+  $('loadBtn').addEventListener('click', async function(){
+    var x = parseInt($('x').value, 10);
+    var y = parseInt($('y').value, 10);
+    var mode = $('mode').value;
+
+    var coords = [];
+    if (mode === 'boundary'){
+      coords = [{x:x, y:y}, {x:x, y:y+1}];
+    } else if (mode === 'cross'){
+      coords = [{x:x,y:y}];
+      if (x > 0) coords.push({x:x-1, y:y});
+      coords.push({x:x+1, y:y});
+      if (y > 0) coords.push({x:x, y:y-1});
+      coords.push({x:x, y:y+1});
+    } else if (mode === 'strip'){
+      // load entire row Y
+      try {
+        var m = await fetch(manifestUrl($('pid').value, $('key').value)).then(function(r){return r.json();});
+        var page = parseInt($('page').value, 10);
+        var lvl = parseInt($('level').value, 10);
+        var pageInfo = m.pages.find(function(p){return p.pageNumber === page;});
+        var lvlInfo = pageInfo && pageInfo.levels[lvl];
+        var cols = lvlInfo ? lvlInfo.cols : 5;
+        for (var ix = 0; ix < cols; ix++) coords.push({x: ix, y: y});
+      } catch(_) { coords = [{x:x,y:y}]; }
+    } else if (mode === 'strip-v'){
+      try {
+        var m = await fetch(manifestUrl($('pid').value, $('key').value)).then(function(r){return r.json();});
+        var page = parseInt($('page').value, 10);
+        var lvl = parseInt($('level').value, 10);
+        var pageInfo = m.pages.find(function(p){return p.pageNumber === page;});
+        var lvlInfo = pageInfo && pageInfo.levels[lvl];
+        var rows = lvlInfo ? lvlInfo.rows : 4;
+        for (var iy = 0; iy < rows; iy++) coords.push({x: x, y: iy});
+      } catch(_) { coords = [{x:x,y:y}]; }
+    } else if (mode === 'full'){
+      try {
+        var m = await fetch(manifestUrl($('pid').value, $('key').value)).then(function(r){return r.json();});
+        var page = parseInt($('page').value, 10);
+        var lvl = parseInt($('level').value, 10);
+        var pageInfo = m.pages.find(function(p){return p.pageNumber === page;});
+        var lvlInfo = pageInfo && pageInfo.levels[lvl];
+        var cols = lvlInfo ? lvlInfo.cols : 5;
+        var rows = lvlInfo ? lvlInfo.rows : 4;
+        for (var iy = 0; iy < rows; iy++)
+          for (var ix = 0; ix < cols; ix++) coords.push({x:ix, y:iy});
+      } catch(_) { coords = [{x:x,y:y}]; }
+    }
+
+    await loadGrid(coords);
+  });
+
+  $('checkBtn').addEventListener('click', function(){
+    if (!currentMeta){ setStatus('Load tiles first.', 'err'); return; }
+    var lines = [];
+    lines.push('=== Tile boundary scan ===');
+    lines.push('PID: ' + currentMeta.pid);
+    lines.push('KEY: ' + currentMeta.key);
+    lines.push('Page: ' + currentMeta.page + '   Level: ' + currentMeta.level);
+    lines.push('');
+
+    var coords = currentMeta.coords;
+    coords.forEach(function(c){
+      var here = loadedTiles[c.x + '_' + c.y];
+      if (!here) return;
+      // Check below
+      var below = loadedTiles[c.x + '_' + (c.y+1)];
+      if (below){
+        var lastL = rowLum(here, here.height - 1);
+        var firstL = rowLum(below, 0);
+        var jump = Math.abs(lastL - firstL);
+        var flag = jump > 100 ? '  *** SEAM ***' : (jump > 30 ? '  ! moderate' : '  OK');
+        lines.push('  H boundary (' + c.x + ',' + c.y + ')↓(' + c.x + ',' + (c.y+1) + '): last=' + lastL.toFixed(1) + '  first=' + firstL.toFixed(1) + '  jump=' + jump.toFixed(1) + flag);
+      }
+      // Check right
+      var right = loadedTiles[(c.x+1) + '_' + c.y];
+      if (right){
+        var lastC = colLum(here, here.width - 1);
+        var firstC = colLum(right, 0);
+        var vjump = Math.abs(lastC - firstC);
+        var flag2 = vjump > 100 ? '  *** SEAM ***' : (vjump > 30 ? '  ! moderate' : '  OK');
+        lines.push('  V boundary (' + c.x + ',' + c.y + ')→(' + (c.x+1) + ',' + c.y + '): last=' + lastC.toFixed(1) + '  first=' + firstC.toFixed(1) + '  jump=' + vjump.toFixed(1) + flag2);
+      }
+    });
+
+    $('lumChart').textContent = lines.join('\n');
+    setStatus('Boundary scan complete.', 'ok');
+  });
+
+  $('copyBtn').addEventListener('click', async function(){
+    var text = $('lumChart').textContent || 'No report yet — run a boundary scan first.';
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus('Report copied to clipboard.', 'ok');
+    } catch(err){
+      setStatus('Copy failed: ' + err.message, 'err');
+    }
+  });
+
+  $('exportBtn').addEventListener('click', function(){
+    if (!currentMeta){ setStatus('Load tiles first.', 'err'); return; }
+    var coords = currentMeta.coords;
+    var TILE = 512;
+    var minX = currentMeta.minX, minY = currentMeta.minY;
+    var maxX = Math.max.apply(null, coords.map(function(c){return c.x;}));
+    var maxY = Math.max.apply(null, coords.map(function(c){return c.y;}));
+    var W = (maxX - minX + 1) * TILE;
+    var H = (maxY - minY + 1) * TILE;
+    var c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#FFF'; ctx.fillRect(0,0,W,H);
+    coords.forEach(function(co){
+      var src = loadedTiles[co.x + '_' + co.y];
+      if (src) ctx.drawImage(src, (co.x - minX) * TILE, (co.y - minY) * TILE);
+    });
+    c.toBlob(function(blob){
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'composite_L' + currentMeta.level + '_p' + currentMeta.page + '.png';
+      a.click();
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    });
+  });
+
+  // Auto-load on first show
+  setStatus('Press "Load tiles" to fetch (default loads tile (0,2) and (0,3) at L2 page 2 to show Bug B).');
+})();
+</script>
+</body>
+</html>

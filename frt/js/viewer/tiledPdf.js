@@ -60,7 +60,18 @@ var _isMobile = _isIPhone || _isIPad || /Android/.test(navigator.userAgent);
 // needed >40 tiles resident) resulting in blank/black tiles where evicted
 // ones hadn't been refetched yet. iPhones keep a conservative cap to avoid
 // Safari canvas memory kill; iPad gets closer to desktop.
-var _MAX_TILES = _isIPhone ? 80 : (_isIPad ? 180 : 250);
+// S111: bumped cache cap from 250 → 800 on desktop (180 → 360 on iPad,
+// 80 → 160 on iPhone). Larger cache means old-level tiles aren't evicted
+// the moment new-level tiles arrive on zoom-in, so the brief gap between
+// "old tile fades out" and "new tile finishes loading" no longer shows
+// the white background. The L4 flash on zoom-in (S110 deferred bug) is
+// caused by exactly this gap on slow first-fetches. Raising the cap
+// preserves L3 tiles in memory after the zoom-in even though they're not
+// actively rendered, so a quick zoom-out re-shows them instantly.
+// Memory cost: at ~80kB per WebP tile + decode overhead, 800 tiles is
+// roughly 200MB. Within desktop budgets, but if memory issues appear in
+// the field this is the lever to pull.
+var _MAX_TILES = _isIPhone ? 160 : (_isIPad ? 360 : 800);
 var _MAX_CONCURRENT = _isIPhone ? 3 : (_isIPad ? 5 : 6);
 var _TILE_SIZE = 512;
 
@@ -1062,7 +1073,16 @@ function _renderVisible() {
         })(dt.img, _s99RemoveMs);
       } else {
         // DEFAULT (non-iOS): delaysrc — opacity=1 hold, snap-remove
-        var _holdMs = 400;
+        // S111: bumped from 400ms to 1500ms. The 400ms hold was tuned for
+        // typical L3→L4 zooms where new tiles arrive in 100-300ms. On
+        // slower networks (field tablet on cellular, or first L4 fetches
+        // for a not-yet-CDN-warmed drawing), new-level tiles can take
+        // 800-1200ms. The old 400ms cutoff dropped L3 well before L4
+        // arrived, exposing white background — the "L4 flash" Mark
+        // reported. 1500ms covers the long tail of slow-network fetches
+        // without imposing a perceptible delay (tiles below the new
+        // tiles aren't visually noticed once new tiles paint over them).
+        var _holdMs = 1500;
         if (_S99_TEST && _S99_TEST.name === 'delaysrc' && _S99_TEST.amount != null) {
           _holdMs = _S99_TEST.amount;
         }
@@ -1337,6 +1357,227 @@ function _close_internal() {
 }
 
 function close() { _close_internal(); }
+
+// ─── S111: Render-progress + Anomaly floating panels ──────────────────────
+//
+// Two compact bottom-right floating panels for diagnostic feedback during
+// drawing tile loads:
+//
+//   ┌─────────────────────────────┐
+//   │ Tiles 47/96 [▓▓▓▓▓░░░░] 49% │   render-progress
+//   │ inflight 6 · pending 43     │
+//   │ ETA ~12s                    │
+//   └─────────────────────────────┘
+//   ┌─────────────────────────────┐
+//   │ Anomalies: B 0  C 0  Δ 0    │   anomaly counter
+//   │ (latest: —)            [📋] │
+//   └─────────────────────────────┘
+//
+// Render-progress polls _tileCount / _pending.length / inflight every 500ms
+// while a tile load is in flight. Auto-hides 5 seconds after the last
+// inflight resolves. ETA computed from rolling tile-completion rate.
+//
+// Anomaly panel listens to _frtAnomaly events (dispatched by the boundary
+// detector elsewhere in the v2 code) and shows a live count per bug class
+// plus a one-line description of the latest event. Copy-button puts a
+// shareable text report on clipboard for paste into a session handoff.
+//
+// Both panels use only CSS + DOM — no rendering dependency. They survive
+// drawing close/open cycles (re-attached in _ensurePanels).
+//
+var _progPanel = null, _progBar = null, _progText = null, _progSub = null, _progEta = null;
+var _anomPanel = null, _anomCounts = null, _anomLatest = null, _anomCopyBtn = null;
+var _progPollTimer = null, _progFinishTimer = null;
+var _progStarted = 0, _progStartTiles = 0;
+var _anomBuckets = { A: 0, B: 0, C: 0, EDGE_BAD: 0, LAG: 0 };
+var _anomLatestText = '';
+
+function _ensurePanels(){
+  if (!_progPanel){
+    _progPanel = document.createElement('div');
+    _progPanel.id = 'arencon-frt-progress';
+    _progPanel.style.cssText =
+      'position:fixed;right:12px;bottom:60px;z-index:99980;' +
+      'background:rgba(27,35,48,.93);color:#E5E9EF;' +
+      'padding:8px 12px;border-radius:6px;border:1px solid #2C4770;' +
+      'font:600 12px/1.45 Calibri,sans-serif;min-width:200px;' +
+      'box-shadow:0 4px 14px rgba(0,0,0,.28);' +
+      'transition:opacity .25s ease;opacity:0;pointer-events:none;';
+    var line1 = document.createElement('div');
+    line1.style.cssText = 'display:flex;align-items:center;gap:8px;';
+    _progText = document.createElement('span');
+    _progText.style.cssText = 'flex:1;white-space:nowrap;';
+    _progText.textContent = 'Tiles 0/0';
+    var barWrap = document.createElement('div');
+    barWrap.style.cssText = 'flex:1;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;';
+    _progBar = document.createElement('div');
+    _progBar.style.cssText = 'height:100%;width:0%;background:#1A7A4A;transition:width .3s ease;';
+    barWrap.appendChild(_progBar);
+    line1.appendChild(_progText);
+    line1.appendChild(barWrap);
+
+    _progSub = document.createElement('div');
+    _progSub.style.cssText = 'color:#9AA5B5;font-weight:400;font-size:11px;margin-top:3px;';
+    _progSub.textContent = '';
+
+    _progEta = document.createElement('div');
+    _progEta.style.cssText = 'color:#9AA5B5;font-weight:400;font-size:11px;margin-top:1px;';
+    _progEta.textContent = '';
+
+    _progPanel.appendChild(line1);
+    _progPanel.appendChild(_progSub);
+    _progPanel.appendChild(_progEta);
+    document.body.appendChild(_progPanel);
+  }
+
+  if (!_anomPanel){
+    _anomPanel = document.createElement('div');
+    _anomPanel.id = 'arencon-frt-anomaly';
+    _anomPanel.style.cssText =
+      'position:fixed;right:12px;bottom:14px;z-index:99980;' +
+      'background:rgba(27,35,48,.93);color:#E5E9EF;' +
+      'padding:7px 11px;border-radius:6px;border:1px solid #2C4770;' +
+      'font:600 11px/1.45 Calibri,sans-serif;max-width:320px;' +
+      'box-shadow:0 4px 14px rgba(0,0,0,.28);';
+    _anomCounts = document.createElement('div');
+    _anomCounts.style.cssText = 'white-space:nowrap;';
+    _anomCounts.textContent = 'Anomalies: A 0 · B 0 · C 0 · Δ 0';
+
+    var bottomRow = document.createElement('div');
+    bottomRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:3px;color:#9AA5B5;font-weight:400;font-size:10px;';
+    _anomLatest = document.createElement('span');
+    _anomLatest.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    _anomLatest.textContent = '(none)';
+    _anomCopyBtn = document.createElement('button');
+    _anomCopyBtn.textContent = '📋';
+    _anomCopyBtn.title = 'Copy anomaly report';
+    _anomCopyBtn.style.cssText = 'background:#2C4770;color:#FFF;border:none;border-radius:3px;padding:2px 6px;cursor:pointer;font-size:11px;';
+    _anomCopyBtn.addEventListener('click', _copyAnomalyReport);
+    bottomRow.appendChild(_anomLatest);
+    bottomRow.appendChild(_anomCopyBtn);
+
+    _anomPanel.appendChild(_anomCounts);
+    _anomPanel.appendChild(bottomRow);
+    document.body.appendChild(_anomPanel);
+
+    // Hook the global anomaly bus
+    window.addEventListener('frt-anomaly', _onAnomalyEvent);
+    // Expose a manual entry point so other modules can push without an event
+    window._frtPushAnomaly = function(bucket, msg){
+      _onAnomalyEvent({ detail: { bucket: bucket, msg: msg } });
+    };
+  }
+}
+
+function _showProgressPanel(){
+  if (!_progPanel) _ensurePanels();
+  _progPanel.style.opacity = '1';
+  if (_progFinishTimer){ clearTimeout(_progFinishTimer); _progFinishTimer = null; }
+}
+
+function _hideProgressPanel(){
+  if (!_progPanel) return;
+  _progPanel.style.opacity = '0';
+}
+
+function _updateProgress(){
+  if (!_progPanel) return;
+  var loaded = _tileCount;
+  var pending = _pending.length;
+  var inflight = _inflightCount();
+  var total = loaded + pending + inflight;
+  if (total === 0){
+    _progBar.style.width = '0%';
+    _progText.textContent = 'Tiles 0/0';
+    _progSub.textContent = '';
+    _progEta.textContent = '';
+    return;
+  }
+  var pct = Math.round(loaded / total * 100);
+  _progBar.style.width = pct + '%';
+  _progText.textContent = 'Tiles ' + loaded + '/' + total + '  ' + pct + '%';
+  _progSub.textContent = 'inflight ' + inflight + ' · pending ' + pending;
+
+  // ETA from rolling rate
+  if (_progStarted && _progStartTiles != null){
+    var dt = (Date.now() - _progStarted) / 1000;
+    var done = loaded - _progStartTiles;
+    if (dt > 1 && done > 0){
+      var rate = done / dt; // tiles/sec
+      var remaining = pending + inflight;
+      var eta = remaining > 0 ? Math.round(remaining / rate) : 0;
+      _progEta.textContent = eta > 0 ? ('ETA ~' + eta + 's') : 'finishing…';
+    } else {
+      _progEta.textContent = '';
+    }
+  }
+}
+
+function _maybeStartProgressPoll(){
+  if (_progPollTimer) return;
+  _ensurePanels();
+  _showProgressPanel();
+  _progStarted = Date.now();
+  _progStartTiles = _tileCount;
+  _progPollTimer = setInterval(function(){
+    _updateProgress();
+    var pending = _pending.length;
+    var inflight = _inflightCount();
+    if (pending === 0 && inflight === 0){
+      // Schedule hide 5 seconds after stable
+      if (!_progFinishTimer){
+        _progFinishTimer = setTimeout(function(){
+          _hideProgressPanel();
+          if (_progPollTimer){ clearInterval(_progPollTimer); _progPollTimer = null; }
+          _progStarted = 0;
+          _progFinishTimer = null;
+        }, 5000);
+      }
+    } else if (_progFinishTimer){
+      clearTimeout(_progFinishTimer); _progFinishTimer = null;
+    }
+  }, 500);
+}
+
+function _onAnomalyEvent(ev){
+  var d = ev && ev.detail;
+  if (!d) return;
+  var b = String(d.bucket || '').toUpperCase();
+  if (b === 'A' || b === 'B' || b === 'C' || b === 'EDGE_BAD' || b === 'LAG') _anomBuckets[b]++;
+  _anomLatestText = (d.msg || '').slice(0, 200);
+  if (_anomLatest) _anomLatest.textContent = b + ': ' + _anomLatestText.slice(0, 80);
+  if (_anomCounts){
+    _anomCounts.textContent = 'Anomalies: A ' + _anomBuckets.A + ' · B ' + _anomBuckets.B + ' · C ' + _anomBuckets.C + ' · Δ ' + (_anomBuckets.EDGE_BAD + _anomBuckets.LAG);
+  }
+}
+
+function _copyAnomalyReport(){
+  var lines = [];
+  lines.push('=== ARENCON FRT anomaly report ===');
+  lines.push('Build: s111a (mitchell + L2 height shift)');
+  lines.push('When: ' + new Date().toISOString());
+  lines.push('PID: ' + (_drawingId || '-'));
+  lines.push('Drawing: ' + (_drawingId || '-'));
+  lines.push('Counts: A=' + _anomBuckets.A + ', B=' + _anomBuckets.B + ', C=' + _anomBuckets.C + ', EDGE_BAD=' + _anomBuckets.EDGE_BAD + ', LAG=' + _anomBuckets.LAG);
+  lines.push('Latest: ' + _anomLatestText);
+  lines.push('Tiles: ' + _tileCount + '/' + _MAX_TILES);
+  var report = lines.join('\n');
+  navigator.clipboard.writeText(report).then(function(){
+    if (_anomLatest){ var prev = _anomLatest.textContent; _anomLatest.textContent = '✓ copied'; setTimeout(function(){ _anomLatest.textContent = prev; }, 1500); }
+  }).catch(function(){
+    if (_anomLatest){ _anomLatest.textContent = 'copy failed — open console'; console.log(report); }
+  });
+}
+
+// Hook into the existing fetch+evict path so the panel auto-shows whenever
+// a tile fetch starts. This is a wrapper monkey-patch on _startFetch and
+// _evictExcess so we don't have to thread a callback through every existing
+// code path.
+var _origStartFetch = _startFetch;
+_startFetch = function(req, layer){
+  _maybeStartProgressPoll();
+  return _origStartFetch(req, layer);
+};
 
 export var TiledPdf = {
   init: init,
