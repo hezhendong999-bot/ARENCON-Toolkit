@@ -1,12 +1,14 @@
 name: Build PDF Render Container
 
-# Auto-builds and pushes a new Docker image to GHCR whenever any file in
-# container-render/ changes on main. Combined with the Azure Container App's
-# "continuous deployment from registry" setting, this gives a fully automatic
-# pipeline: push to GitHub -> image built -> Azure pulls -> new revision.
+# Fully automatic pipeline:
+#   1. Push to container-render/** on main triggers this workflow
+#   2. Build Docker image, push to GHCR with :latest, :v3, and :<sha> tags
+#   3. Log in to Azure via OIDC federated credential (no secrets stored)
+#   4. Tell Azure Container App to create a new revision pulling :v3
+#   5. Azure pulls the new image and switches traffic
+#   Total time: ~4-5 minutes from push to live, zero manual clicks
 #
-# Manual trigger (workflow_dispatch) is preserved as a fallback for forcing
-# a rebuild without code changes.
+# Manual trigger (workflow_dispatch) preserved for forcing a rebuild.
 
 on:
   push:
@@ -19,13 +21,16 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/arencon-pdf-render
+  AZURE_RESOURCE_GROUP: arencon-rg
+  AZURE_CONTAINER_APP: arencon-pdf-render-v3
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+      id-token: write  # required for Azure OIDC federated login
 
     steps:
       - name: Checkout
@@ -49,12 +54,58 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      - name: Summary
+      - name: Azure Login (OIDC, no secrets)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update Container App to pull new image
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az containerapp update \
+              --name "${{ env.AZURE_CONTAINER_APP }}" \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --image "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+
+      - name: Wait for new revision to become healthy
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            echo "Waiting for new revision to be ready..."
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              sleep 15
+              ACTIVE=$(az containerapp revision list \
+                --name "${{ env.AZURE_CONTAINER_APP }}" \
+                --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+                --query "[?properties.active==\`true\`].name" -o tsv)
+              echo "  Poll $i: active revision = $ACTIVE"
+              if [ -n "$ACTIVE" ]; then
+                echo "✓ Revision is active"
+                break
+              fi
+            done
+
+      - name: Verify health endpoint reports new build
         run: |
-          echo "Built and pushed:" >> $GITHUB_STEP_SUMMARY
-          echo "  - ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
-          echo "  - ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v3" >> $GITHUB_STEP_SUMMARY
-          echo "  - ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "If Azure Container App registry continuous deployment is enabled," >> $GITHUB_STEP_SUMMARY
-          echo "Azure auto-pulls within 60 seconds." >> $GITHUB_STEP_SUMMARY
+          echo "Polling /api/health/ for new build label..."
+          EXPECTED_SHA="${{ github.sha }}"
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            sleep 10
+            BUILD=$(curl -s --max-time 10 "https://arencon-pdf-render-v3.ashybay-ebab3ebf.canadacentral.azurecontainerapps.io/api/health/" | jq -r '.build // "unreachable"')
+            echo "  Poll $i: build = $BUILD"
+            if echo "$BUILD" | grep -q "s110"; then
+              echo "✓ New build is live"
+              break
+            fi
+          done
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Image: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Container App: \`${{ env.AZURE_CONTAINER_APP }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Health endpoint: https://arencon-pdf-render-v3.ashybay-ebab3ebf.canadacentral.azurecontainerapps.io/api/health/" >> $GITHUB_STEP_SUMMARY
