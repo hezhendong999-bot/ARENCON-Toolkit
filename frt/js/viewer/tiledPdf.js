@@ -917,13 +917,20 @@ function _startFetch(req, layer) {
       'width:' + fullCssW + 'px;height:' + fullCssH + 'px;' +
       'clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
       '-webkit-clip-path:inset(0 ' + clipR + 'px ' + clipB + 'px 0);' +
+      'z-index:' + levelIdx + ';' +
       'image-rendering:auto;pointer-events:none;' + fadeIn;
   } else {
     // Interior tile: image content fills the full 512x512 source exactly,
     // so simple sizing is both correct and clip-path-free.
+    // S111b: z-index by level (higher level = on top). With this, tiles
+    // from previously-active levels can stay in DOM without painting over
+    // the active level — fixes both the S92 wrong-colors-at-zoomout bug
+    // AND the flash on zoom transitions, because old-level tiles remain
+    // visible UNDER the active level.
     cssText =
       'position:absolute;left:' + cssL + 'px;top:' + cssT + 'px;' +
       'width:' + cssW + 'px;height:' + cssH + 'px;' +
+      'z-index:' + levelIdx + ';' +
       'image-rendering:auto;pointer-events:none;' + fadeIn;
   }
   img.style.cssText = cssText;
@@ -1006,101 +1013,38 @@ function _renderVisible() {
   // ones caused the "wrong colors at zoom-out" bug — the drawing you see
   // is the top of a multi-level sandwich, not a clean level. Keep only
   // the active level; re-fetch on zoom back is cheap (immutable CDN cache).
-  var keysToDrop = [];
-  for (var tk in _tiles) {
-    if (!Object.prototype.hasOwnProperty.call(_tiles, tk)) continue;
-    if (_tiles[tk].level !== levelIdx) keysToDrop.push(tk);
+  // S111b: REMOVED the eager purge:other-levels logic that was here.
+  //
+  // Why removed: that purge eagerly deleted ALL tiles from levels other
+  // than the active one on every level change, regardless of cache fill.
+  // Combined with the 1500ms delaysrc hold (S111), it tried to mask flash
+  // by holding old tiles visible briefly, then deleting them. Mark still
+  // saw flash on L3↔L4 transitions in field testing.
+  //
+  // The original reason for this purge (S92 comment): "Lower-level tiles
+  // painting over higher-level ones caused the wrong-colors-at-zoom-out
+  // bug." That root cause is now solved differently: each tile now has
+  // z-index:levelIdx, so higher levels always paint on top of lower
+  // levels regardless of DOM order. No multi-level stacking issue.
+  //
+  // With purge removed:
+  //   - Old-level tiles stay in cache (LRU bounded by _MAX_TILES = 800)
+  //   - On zoom-back, old tiles are instantly visible from cache (no flash)
+  //   - On zoom-out expansion, new-level tiles paint over old-level tiles
+  //     in the previously-visible area while filling newly-exposed edges
+  //   - LRU eviction kicks in only when cache overflows (>800 tiles)
+  //
+  // Memory: ~800 tiles × ~80kB compressed + decode overhead ≈ 200MB max.
+  // Within budget for desktop and Tab S7 (Mark's primary device).
+  //
+  // The previous decision tree (iOS snap-remove, fastfade, delaysrc) is
+  // entirely bypassed. Nothing in this branch any more — just continue
+  // to the visible-rect computation below.
+  if (false) {
+    // No-op block kept so any inline `_S99_TEST.name === 'baseline'/...`
+    // toggles in URL params don't blow up; they'll just have no effect.
   }
-  // S95: on iOS, skip the S94 fade-out. During rapid zoom, the 220ms delay
-  // keeps old-level tile <img>s alive in the DOM (and WebKit's image decode
-  // cache) while new-level tiles are already loading, resulting in up to
-  // 95+ decoded tile bitmaps stacked momentarily. Repeated zoom cycles
-  // build up pressure until the page process is Jetsam-killed. Log-confirmed
-  // on iPad iOS 16.3 with zoom sequences of 3-6 transitions in <1s.
-  // Desktop/Android keep the smooth crossfade.
-  var _iosNoFade = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                   (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-  if (keysToDrop.length) {
-    _dbgLife('purge:other-levels', { count: keysToDrop.length, keepLevel: levelIdx, iosNoFade: _iosNoFade });
-  }
-  for (var ki = 0; ki < keysToDrop.length; ki++) {
-    var dk = keysToDrop[ki];
-    var dt = _tiles[dk];
-    if (dt && dt.img) {
-      // S99e purge-branch decision tree:
-      //
-      //   iOS (iPad/iPhone/iPadOS)
-      //     → snap-remove. Unchanged from S95. Keeps tile-memory pressure
-      //       minimal on Jetsam-prone devices. iOS users still see the
-      //       level-transition flash; separate work stream.
-      //
-      //   Non-iOS DEFAULT (desktop, Android)
-      //     → opacity=1 hold 400ms then snap-remove (delaysrc behavior).
-      //       Old pixels persist at full fidelity while new-level tiles
-      //       load behind, masking the transient gap. On-device tested
-      //       in S99: eliminates flash on zoom-IN. Zoom-OUT still has a
-      //       split-second gap in newly-exposed edge areas (inherent to
-      //       tile pyramid — new viewport area was never covered).
-      //       Critical detail: transition:none first to override the
-      //       baked-in 180ms fade, THEN opacity=1 to lock pixels visible.
-      //
-      //   Toggles:
-      //     ?s99test=baseline  → pre-S99 S94 fade-out (220ms).
-      //     ?s99test=fastfade  → fast fade-out (default 50ms+20ms).
-      //     ?s99test=delaysrc-N → override hold duration (default still 400).
-      if (_iosNoFade) {
-        // iOS: immediate removal — visual snap, no memory lingering
-        if (dt.img.parentNode) dt.img.parentNode.removeChild(dt.img);
-        dt.img.src = '';
-      } else if (_S99_TEST && _S99_TEST.name === 'baseline') {
-        // Pre-S99 S94 behavior — fade-out 220ms
-        (function(el) {
-          el.style.opacity = '0';
-          setTimeout(function() {
-            if (el.parentNode) el.parentNode.removeChild(el);
-            el.src = '';
-          }, 220);
-        })(dt.img);
-      } else if (_S99_TEST && _S99_TEST.name === 'fastfade') {
-        // Diagnostic fast fade-out — tuned via ?s99test=fastfade-N
-        var _s99RemoveMs = (_S99_TEST.amount != null ? _S99_TEST.amount : 50) + 20;
-        (function(el, ms) {
-          el.style.opacity = '0';
-          setTimeout(function() {
-            if (el.parentNode) el.parentNode.removeChild(el);
-            el.src = '';
-          }, ms);
-        })(dt.img, _s99RemoveMs);
-      } else {
-        // DEFAULT (non-iOS): delaysrc — opacity=1 hold, snap-remove
-        // S111: bumped from 400ms to 1500ms. The 400ms hold was tuned for
-        // typical L3→L4 zooms where new tiles arrive in 100-300ms. On
-        // slower networks (field tablet on cellular, or first L4 fetches
-        // for a not-yet-CDN-warmed drawing), new-level tiles can take
-        // 800-1200ms. The old 400ms cutoff dropped L3 well before L4
-        // arrived, exposing white background — the "L4 flash" Mark
-        // reported. 1500ms covers the long tail of slow-network fetches
-        // without imposing a perceptible delay (tiles below the new
-        // tiles aren't visually noticed once new tiles paint over them).
-        var _holdMs = 1500;
-        if (_S99_TEST && _S99_TEST.name === 'delaysrc' && _S99_TEST.amount != null) {
-          _holdMs = _S99_TEST.amount;
-        }
-        (function(el, ms) {
-          el.style.transition = 'none';
-          el.style.opacity = '1';
-          setTimeout(function() {
-            if (el.parentNode) el.parentNode.removeChild(el);
-            el.src = '';
-          }, ms);
-        })(dt.img, _holdMs);
-      }
-    }
-    delete _tiles[dk];
-    _tileCount--;
-    var oi = _tileOrder.indexOf(dk);
-    if (oi >= 0) _tileOrder.splice(oi, 1);
-  }
+
 
   // Visible draw-space rectangle, expanded by 1 tile worth of margin so pan
   // has pre-fetched edges. Margin is in level pixels, converted to drawing

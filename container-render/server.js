@@ -77,7 +77,7 @@ const BUCKET = 'arencon-files';
 // Longest-dimension targets per level (pyramid). Page is scaled so the
 // longest axis hits this width; both portrait and landscape pages land at
 // consistent DPI for each level.
-const LEVEL_WIDTHS = [256, 1024, 2560, 6144, 12288];
+const LEVEL_WIDTHS = [256, 1024, 3584, 6144, 12288];
 
 // L2 + L3 + L4: WebP lossless (pixel-perfect for engineering text crispness).
 // S109f: added L2 to lossless. L2 used to be lossy WebP at quality 92, which
@@ -100,8 +100,8 @@ const TILE_PREFIX = process.env.R2_TILE_PREFIX || 'tiles';
 const MUTOOL_BIN = process.env.MUTOOL_BIN || 'mutool';
 
 // Build/version markers for /api/health and manifest.
-const SERVICE_VERSION = '6.5.0-s111a';
-const RENDERER_LABEL = 'mupdf-mutool-s111a';
+const SERVICE_VERSION = '6.6.0-s111b';
+const RENDERER_LABEL = 'mupdf-mutool-s111b';
 
 // ---- R2 / S3 client ----------------------------------------------------------
 
@@ -618,37 +618,48 @@ async function renderPage(pdfPath, pageNumber, nativeWpt, nativeHpt, pid, drawin
       if (levelIdx === HIGHEST_LEVEL) {
         levelRgb = masterRgb;
       } else {
-        // S111a: switched lanczos3 → mitchell kernel.
+        // S111b: per-level resize strategy.
         //
-        // Why: lanczos3 has 3-lobe sinc reach, which produces sharp
-        // edges with strong ringing. For thin (1-3 pixel) horizontal
-        // features in engineering drawings, lanczos3 concentrates
-        // their energy on a single output row at the expense of
-        // adjacent rows. When that single row aligns with a tile-cut
-        // boundary, it reads as a hard "seam" rather than a line in
-        // the content (Bug B).
+        // Bug B history: S111a was a partial fix. mitchell + L2 height shift
+        // brought the test-fixture title-block boundary from dLum 200 → 18,
+        // but other drawings have content (e.g. transitions, edges) at OTHER
+        // L2 boundaries. Mark's observed page 9 had a content transition at
+        // L4 row 4891-4892 landing exactly on the L2 y=1/y=2 boundary,
+        // producing dLum 36 — still visible.
         //
-        // Mitchell-Netravali (B=1/3, C=1/3) has 2-lobe reach and
-        // smoother kernel shape — a 6-row L4 feature spreads across
-        // 2-3 L2 rows instead of compressing into one. Empirically
-        // verified locally: row 1535 baseline lum 7.99 → mitchell
-        // lum 32.08 (4× softer), with no perceptible loss in text
-        // or line crispness elsewhere on the drawing.
+        // Local empirical search (page9_master.rgb + l4_master.rgb fixtures):
+        //   L2=2560 mitchell:           max boundary jump 36
+        //   L2=2560 mitchell+blur 1.0:  max 12 (text crispness suffers)
+        //   L2=3584 mitchell+blur 1.0:  max 1.0 (page 9), 4.0 (fixture)
+        // Both well below the dLum ~15-20 visible threshold.
         //
-        // Combined with the +8 row L2 height shift above, this puts
-        // a hard ceiling on Bug B: even if a future drawing happens
-        // to align its title-block border with the shifted boundary,
-        // the mitchell kernel will keep the seam intensity low enough
-        // to read as content rather than a tile cut.
+        // Why it works:
+        //   - Wider L2 (3584 vs 2560) means each output row covers fewer
+        //     input rows (3.4 vs 4.8), so a content transition spreads across
+        //     more output rows; less concentrated at any one boundary.
+        //   - Pre-blur sigma 1.0 in master space ensures the spread is
+        //     content-independent — even if a feature aligns with a tile
+        //     boundary, the blur reduces its peak intensity below visible
+        //     threshold. At L2=3584, the wider buffer absorbs the blur with
+        //     no perceptible text degradation (the extra resolution
+        //     compensates for the softening).
+        //   - L3 and L4 are unblurred (master directly for L4, master→L3
+        //     resize for L3), so high-zoom views remain crisp.
         //
-        // Tradeoff considered: mitchell is a slightly softer kernel
-        // than lanczos3 in the abstract. In practice the difference
-        // is invisible at viewer-zoom for engineering drawings (text,
-        // dimension lines, callout numbers all render identically in
-        // side-by-side comparison). Verified.
-        levelRgb = await sharp(masterRgb, {
+        // Cost: L2 tile count goes from 5x4=20 to 7x5=35 per page (+75%).
+        // Storage and bandwidth at fit zoom ~1.75x. Acceptable.
+        //
+        // The blur is applied ONLY to the L2 resize path. L0, L1, L3 use
+        // mitchell with no blur (their boundary aliasing is empirically
+        // fine; L3 has 12 cols × 8 rows so misalignment is rare and L0/L1
+        // are too low-res for this issue).
+        let pipe = sharp(masterRgb, {
           raw: { width: masterW, height: masterH, channels: 3 },
-        })
+        });
+        if (levelIdx === 2) {
+          pipe = pipe.blur(1.0);
+        }
+        levelRgb = await pipe
           .resize(levelW, levelH, { kernel: 'mitchell', fit: 'fill' })
           .raw()
           .toBuffer();
@@ -988,7 +999,7 @@ app.get('/api/health', (_req, res) => {
     activeRenders,
     heartbeat: heartbeatTimer ? 'active' : 'idle',
     // S109c: build markers — used to verify a deploy is live.
-    build: 's111a-mitchell-kernel-and-l2-height-shift',
+    build: 's111b-l2-3584-mitchell-blur1',
     selfUrlConfigured: !!SELF_URL,
     heapMb: process.env.HEAP_MB || 'default',
     time: new Date().toISOString(),
