@@ -861,6 +861,31 @@ function _startFetch(req, layer) {
 
   var cssR = Math.round((tileX + tileW + _s99ExtR) * scaleX) + 1;
   var cssB = Math.round((tileY + tileH + _s99ExtB) * scaleY) + 1;
+
+  // S111c candidate: `snap` — eliminate the sub-pixel gap that produces the
+  // visible tile-grid at fit zoom by computing each tile's left edge as the
+  // exact same pixel as the previous tile's right edge.
+  //
+  // Why the existing `+1` cssR doesn't fully fix this: each tile rounds its
+  // left and right edges independently, so on a 0.213x scale, tile (n)'s
+  // right and tile (n+1)'s left can land on different sub-pixel positions.
+  // Browser's bilinear interpolation at fractional scale shows the gap as
+  // a 1-pixel grey grid line at every boundary.
+  //
+  // Fix: compute boundary positions globally. Tile (n+1).cssL =
+  // Math.round((col+1) * TILE_SIZE * scaleX) — same formula tile (n) would
+  // use for its right edge if we computed it that way. Both tiles agree on
+  // the exact pixel where they meet. No gap. No overlap. No grid.
+  if (_S99_TEST && _S99_TEST.name === 'snap') {
+    cssR = Math.round((req.col + 1) * _TILE_SIZE * scaleX);
+    cssB = Math.round((req.row + 1) * _TILE_SIZE * scaleY);
+    // Clamp at level edge so last-row/last-col don't extend past the drawing.
+    var maxR = Math.round(lvl.width * scaleX);
+    var maxB = Math.round(lvl.height * scaleY);
+    if (cssR > maxR) cssR = maxR;
+    if (cssB > maxB) cssB = maxB;
+  }
+
   var cssW = cssR - cssL;
   var cssH = cssB - cssT;
 
