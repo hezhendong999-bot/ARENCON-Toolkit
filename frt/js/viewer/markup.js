@@ -126,6 +126,13 @@ function _allocateCanvas() {
   mc.height = ch;
   mc.style.width = drawW + 'px';
   mc.style.height = drawH + 'px';
+  // S112: markup-canvas has no z-index in frt.css → defaults to auto (z:0).
+  // The 2D-path renders strokes here whenever any eraser mask exists on a
+  // non-pen object. Without explicit z, the level canvases (z:0..4) bury it,
+  // so the entire object set vanishes the moment a single eraser stroke
+  // hits a shape/text/highlight/polyline. Set z:5 to match the lifted
+  // markup-webgl-canvas and markup-overlay, so the 2D path is visible too.
+  mc.style.zIndex = '5';
   mc._dpr = mkScale;
   mc._logicalW = drawW;
   mc._logicalH = drawH;
