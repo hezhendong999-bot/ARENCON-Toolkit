@@ -145,7 +145,7 @@ function _allocateCanvas() {
       if (!_webglCanvas){
         _webglCanvas = document.createElement('canvas');
         _webglCanvas.id = 'markup-webgl-canvas';
-        _webglCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
+        _webglCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:5;';
         mc.parentNode.insertBefore(_webglCanvas, mc); // before mc = underneath in stacking order
       }
       _webglCanvas.width  = cw;
@@ -191,7 +191,7 @@ function _ensureOverlay() {
   if (!ov) {
     ov = document.createElement('canvas');
     ov.id = 'markup-overlay';
-    ov.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;display:none;';
+    ov.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;display:none;z-index:5;';
     mc.parentNode.insertBefore(ov, mc.nextSibling);
   }
   var lw = mc._logicalW || mc.width;
@@ -2350,3 +2350,4 @@ export var Markup = {
 };
 
 export var initMarkup = Markup;
+
