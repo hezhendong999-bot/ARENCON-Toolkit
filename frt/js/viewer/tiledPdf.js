@@ -109,7 +109,7 @@ var _TILE_SIZE = 512;
 //                 pre-enqueue next-level visible tiles. Default 70%.
 //                 New-level tiles already cached when transition fires.
 //
-//   TILE-GRID SEAM AT FRACTIONAL ZOOM (S112 candidate):
+//   TILE-GRID SEAM AT FRACTIONAL ZOOM (S112):
 //     canvas    — replace per-tile <img> elements with one <canvas> per
 //                 active level. Tile data is drawn via ctx.drawImage at
 //                 native level coordinates; the browser does ONE
@@ -121,7 +121,16 @@ var _TILE_SIZE = 512;
 //                 pixel-correctness. Memory cost: ~36 MB at L2 backing,
 //                 ~100 MB at L3, ~400 MB at L4 (each only allocated when
 //                 first tile lands and freed when LRU empties the level).
-//                 Architectural fix; see S112 handoff for context.
+//                 PROMOTED TO DEFAULT in Push 1 for desktop and Android.
+//                 Explicitly DISABLED on iOS (iPad/iPhone) — the L4 canvas
+//                 alone exceeds the iOS Safari Jetsam ceiling. Use
+//                 ?s99test=img to opt out on a non-iOS device.
+//
+//   ESCAPE HATCH (S112 Push 1):
+//     img       — force the legacy per-tile <img> compositor regardless
+//                 of platform default. Use this if a specific drawing
+//                 shows a canvas-mode regression we missed in verification.
+//                 Bookmarkable: append &s99test=img to any FRT URL.
 //
 // One candidate active at a time — use URL to switch. Tested in isolation.
 function _readS99Test() {
@@ -153,11 +162,38 @@ if (_S99_TEST) {
   } catch (_e) {}
 }
 
-// S112: canvas-compositor mode flag. When opted in via ?s99test=canvas, all
-// tile insertion routes through _startFetchCanvas (one <canvas> per level
-// with tiles drawn via ctx.drawImage). When false (default), original
-// per-tile <img> path runs unchanged.
-var _S99_CANVAS = !!(_S99_TEST && _S99_TEST.name === 'canvas');
+// S112 Push 1: canvas-compositor mode is now the DEFAULT on desktop and
+// Android, and force-OFF on iOS (Jetsam guard — a level canvas at L4 is
+// ~400 MB backing buffer, well past iOS Safari's tab budget).
+//
+// URL toggle interactions:
+//   ?s99test=canvas   → force canvas ON (overrides iOS gate; for diagnostic
+//                        testing of the crash on iPad)
+//   ?s99test=img      → force canvas OFF (explicit escape hatch — field staff
+//                        can append this to their URL if a drawing has any
+//                        canvas-mode regression we missed in verification)
+//   ?s99test=baseline → force canvas OFF (pre-existing alias; same effect)
+//   ?s99test=overlap  → force canvas OFF (overlap toggle only meaningful
+//                        in the <img> path it modifies)
+//   ?s99test=snap     → force canvas OFF (same)
+//   ?s99test=fastfade → force canvas OFF (same)
+//   ?s99test=delaysrc → force canvas OFF (same)
+//   ?s99test=prefetch → force canvas OFF (same)
+//   no toggle, iOS    → canvas OFF (gate)
+//   no toggle, other  → canvas ON
+var _S99_CANVAS;
+if (_S99_TEST) {
+  // Explicit toggle: only `canvas` opts in. Any other toggle (including
+  // the diagnostic ones that modify the <img> path) implies img mode so
+  // the toggle can do what it was designed for.
+  _S99_CANVAS = (_S99_TEST.name === 'canvas');
+} else {
+  // Default: canvas mode everywhere except iOS. The _isIPad detection
+  // above covers iPadOS 13+ which spoofs Mac in user-agent (it adds the
+  // `navigator.maxTouchPoints > 1` check). A real Mac with no touch
+  // support evaluates _isIPad === false and gets canvas mode.
+  _S99_CANVAS = !(_isIPhone || _isIPad);
+}
 
 // S112: level -> { canvas, ctx, lvl, tilesPainted }. Populated lazily in
 // canvas mode by _getOrCreateLevelCanvas. Empty in img mode.
@@ -1738,4 +1774,5 @@ export var TiledPdf = {
   isActive: isActive,
   getDimensions: getDimensions
 };
+
 
