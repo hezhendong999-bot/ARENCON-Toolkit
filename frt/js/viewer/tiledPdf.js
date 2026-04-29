@@ -132,19 +132,17 @@ var _TILE_SIZE = 512;
 //                 shows a canvas-mode regression we missed in verification.
 //                 Bookmarkable: append &s99test=img to any FRT URL.
 //
-//   iOS JETSAM PROTECTION (S112 Push 2 — opt-in, default OFF):
-//     ios-fix   — on iPad/iPhone only, restores the eager same-level
-//                 purge in tiledPdf.js (drops non-current-level tiles
-//                 on every level change) AND drops the markup canvas
-//                 pool from 8M → 6M pixels (in markup.js). Combined,
-//                 these keep iOS Safari's tab memory under the Jetsam
-//                 ceiling (~16-32 Mpx depending on device class) so
-//                 the 2nd drawing-open doesn't tip the tab over.
-//                 Tradeoff: zoom-back rebuilds tiles from cache (a brief
-//                 blink). Verify on a real iPad before promoting to
-//                 default. Always-on companions (no toggle needed):
-//                 ?iosres=NNNN URL param to override markup pixel pool;
-//                 sessionStorage Jetsam-kill telemetry on next page load.
+//   iOS JETSAM DEFENSES (S112 Push 2 — toggle-gated, default OFF):
+//     ios-purge — restore the S95-era eager purge of non-active-level
+//                 tiles at every level change. iOS only (gate enforced
+//                 inline). Drops cumulative tile pool ~200 MB → ~30-50 MB
+//                 at level boundaries. Brings back brief level-transition
+//                 flash on iOS (acceptable tradeoff). Promotes to default
+//                 iOS behavior in a future push after iPad verification.
+//
+//                 Companion knob: ?iosres=N in markup.js shrinks markup
+//                 canvas pixel budget from 4-8 Mpx to N Mpx for further
+//                 in-field degradation if needed.
 //
 // One candidate active at a time — use URL to switch. Tested in isolation.
 function _readS99Test() {
@@ -212,6 +210,55 @@ if (_S99_TEST) {
 // S112: level -> { canvas, ctx, lvl, tilesPainted }. Populated lazily in
 // canvas mode by _getOrCreateLevelCanvas. Empty in img mode.
 var _levelCanvases = {};
+
+// S112 Push 2: ?s99test=ios-purge toggle. When ON and on iOS, restore the
+// S95-era eager purge of tiles from non-active levels at every level
+// change. Reduces cumulative tile pool growth that contributes to the
+// iOS Safari Jetsam ceiling. Default OFF — same behavior as today.
+// iOS only because purge brings back the brief level-transition flash
+// that desktop/Android no longer need to suffer (S111b removed it for
+// them).
+var _S99_IOS_PURGE = !!(_S99_TEST && _S99_TEST.name === 'ios-purge');
+
+// S112 Push 2: passive Jetsam-reload detection. iOS only. Reads the
+// _frtS97LifeRing buffer (persists in localStorage across page reloads).
+// If the previous tab's most-recent lifecycle event was <30 s ago AND
+// wasn't a graceful close:end, the tab probably got Jetsam-killed and
+// the user reopened. Pushes a synthetic 'jetsam-reload-suspected' event
+// so it shows up in _frtLifePeek() output for forensics. Read-only
+// telemetry; no behavior change. Runs once on module load.
+(function _detectJetsamReload(){
+  if (!(_isIPhone || _isIPad)) return;
+  if (typeof localStorage === 'undefined') return;
+  try {
+    var raw = localStorage.getItem('_frtS97LifeRing');
+    if (!raw) return;
+    var ring = JSON.parse(raw);
+    if (!ring || !ring.length) return;
+    var last = ring[ring.length - 1];
+    if (!last || !last.t) return;
+    var ageSec = (Date.now() - last.t) / 1000;
+    if (ageSec >= 0 && ageSec < 30 && last.tag !== 'close:end' && last.tag !== 'jetsam-reload-suspected') {
+      console.warn('[TiledPdf] iOS Jetsam-reload SUSPECTED — previous event "' +
+        last.tag + '" was ' + ageSec.toFixed(1) + 's ago without a graceful close. ' +
+        'Tab may have been killed. Run _frtLifePeek() for forensics.');
+      ring.push({
+        t: Date.now(),
+        tag: 'jetsam-reload-suspected',
+        drawingId: null,
+        extra: {
+          priorTag: last.tag,
+          priorAgeSec: +ageSec.toFixed(1),
+          priorTime: last.t,
+          ua: (navigator.userAgent || '').slice(0, 120)
+        }
+      });
+      // Cap ring at 50 entries (matching existing _dbgLife trim threshold)
+      while (ring.length > 50) ring.shift();
+      localStorage.setItem('_frtS97LifeRing', JSON.stringify(ring));
+    }
+  } catch (_e) { /* localStorage parse error etc — silent */ }
+})();
 
 // Show a small, unobtrusive bottom-right indicator when any S99 test is
 // active, so Mark visually confirms he's not on baseline. Appended once on
@@ -1248,8 +1295,7 @@ function _renderVisible() {
   _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
 
   // S97 DIAG: detect level changes vs same-level pans
-  var _levelJustChanged = (_dbg_lastLevel !== levelIdx);
-  if (_levelJustChanged) {
+  if (_dbg_lastLevel !== levelIdx) {
     _dbgLife('level-change', { from: _dbg_lastLevel, to: levelIdx, scale: +scale.toFixed(3) });
     _dbg_lastLevel = levelIdx;
   }
@@ -1257,50 +1303,84 @@ function _renderVisible() {
   // Drop queued requests from other levels — they're no longer relevant.
   _cancelPendingExceptLevel(levelIdx);
 
-  // S112 Push 2: iOS-only eager purge, gated by ?s99test=ios-fix.
-  // Restores S92-era behavior of dropping all non-current-level tiles
-  // the moment level changes. iOS Safari's Jetsam ceiling (16-32 Mpx
-  // total decoded canvas/bitmap pool depending on device class) cannot
-  // accommodate the multi-level tile residency that desktop and Android
-  // run safely with. Tradeoff: zoom-back rebuilds tiles from the
-  // immutable CDN/SW cache (a brief blink, but no Jetsam crash).
+  // S92 FIX: purge tiles from ALL other levels from cache + DOM. Without
+  // this, tiles from every level the user has visited accumulate stacked
+  // on top of each other. Lower-level tiles painting over higher-level
+  // ones caused the "wrong colors at zoom-out" bug — the drawing you see
+  // is the top of a multi-level sandwich, not a clean level. Keep only
+  // the active level; re-fetch on zoom back is cheap (immutable CDN cache).
+  // S111b: REMOVED the eager purge:other-levels logic that was here.
   //
-  // Only fires on actual level transitions, only for iOS, only when the
-  // toggle is opted in. Default behavior (toggle absent) is unchanged
-  // from the current production state — iOS users continue to crash on
-  // 2nd drawing-open until this is verified and promoted.
-  if (_levelJustChanged && (_isIPhone || _isIPad) && _S99_TEST && _S99_TEST.name === 'ios-fix') {
-    var _purgeKeys = [];
-    for (var _pk in _tiles) {
-      if (!Object.prototype.hasOwnProperty.call(_tiles, _pk)) continue;
-      if (_tiles[_pk].level !== levelIdx) _purgeKeys.push(_pk);
-    }
-    if (_purgeKeys.length) {
-      var _pLayer = document.getElementById('dv-tiles-layer');
-      for (var _pi = 0; _pi < _purgeKeys.length; _pi++) {
-        var _pkey = _purgeKeys[_pi];
-        var _ptile = _tiles[_pkey];
-        if (_ptile && _ptile.img) {
-          if (_pLayer && _ptile.img.parentNode === _pLayer) _pLayer.removeChild(_ptile.img);
-          _ptile.img.src = '';
-        }
-        delete _tiles[_pkey];
-        var _po = _tileOrder.indexOf(_pkey);
-        if (_po >= 0) _tileOrder.splice(_po, 1);
-        _tileCount--;
-      }
-      _dbgEvent('ios-purge ' + _purgeKeys.length);
-    }
-  }
-
-  // S92 FIX (HISTORICAL): originally purged all non-current-level tiles
-  // here. S111b removed it because desktop/Android benefit from keeping
-  // old-level tiles in cache for instant zoom-back. The iOS-specific
-  // purge above (toggle-gated) restores the old behavior just for devices
-  // that need it.
+  // Why removed: that purge eagerly deleted ALL tiles from levels other
+  // than the active one on every level change, regardless of cache fill.
+  // Combined with the 1500ms delaysrc hold (S111), it tried to mask flash
+  // by holding old tiles visible briefly, then deleting them. Mark still
+  // saw flash on L3↔L4 transitions in field testing.
+  //
+  // The original reason for this purge (S92 comment): "Lower-level tiles
+  // painting over higher-level ones caused the wrong-colors-at-zoom-out
+  // bug." That root cause is now solved differently: each tile now has
+  // z-index:levelIdx, so higher levels always paint on top of lower
+  // levels regardless of DOM order. No multi-level stacking issue.
+  //
+  // With purge removed:
+  //   - Old-level tiles stay in cache (LRU bounded by _MAX_TILES = 800)
+  //   - On zoom-back, old tiles are instantly visible from cache (no flash)
+  //   - On zoom-out expansion, new-level tiles paint over old-level tiles
+  //     in the previously-visible area while filling newly-exposed edges
+  //   - LRU eviction kicks in only when cache overflows (>800 tiles)
+  //
+  // Memory: ~800 tiles × ~80kB compressed + decode overhead ≈ 200MB max.
+  // Within budget for desktop and Tab S7 (Mark's primary device).
+  //
+  // The previous decision tree (iOS snap-remove, fastfade, delaysrc) is
+  // entirely bypassed. Nothing in this branch any more — just continue
+  // to the visible-rect computation below.
   if (false) {
     // No-op block kept so any inline `_S99_TEST.name === 'baseline'/...`
     // toggles in URL params don't blow up; they'll just have no effect.
+  }
+
+  // S112 Push 2: opt-in iOS eager purge. When ?s99test=ios-purge is
+  // active AND we're on iOS, drop all tiles from levels other than the
+  // currently-active level. This restores S95-era behavior on iOS only —
+  // a defense against cumulative tile pool growth that, combined with the
+  // 50 Mpx markup canvas baseline, lands iPad/iPhone tabs over the
+  // Safari Jetsam ceiling on second drawing-open.
+  //
+  // Tradeoffs:
+  //   • Memory: drops ~200 MB peak tile pool to ~30-50 MB at level boundary
+  //   • Visual: brings back brief level-transition flash on iOS (acceptable,
+  //     iOS already had it pre-S111b — non-iOS keeps S111b's flash-free)
+  //   • Doesn't touch markup canvas — that's a separate piece of the iOS
+  //     plan (?iosres=N override in markup.js)
+  //
+  // Default OFF. Mark verifies on real iPad before promotion to iOS-default.
+  if (_S99_IOS_PURGE && (_isIPhone || _isIPad)) {
+    var keysToPurge = [];
+    for (var pk in _tiles) {
+      if (!Object.prototype.hasOwnProperty.call(_tiles, pk)) continue;
+      if (_tiles[pk].level !== levelIdx) keysToPurge.push(pk);
+    }
+    for (var pi = 0; pi < keysToPurge.length; pi++) {
+      var purgeKey = keysToPurge[pi];
+      var purgeTile = _tiles[purgeKey];
+      if (purgeTile) {
+        if (_S99_CANVAS) {
+          _evictTileFromCanvas(purgeTile);
+        } else if (purgeTile.img) {
+          if (layer && purgeTile.img.parentNode === layer) layer.removeChild(purgeTile.img);
+          purgeTile.img.src = '';
+        }
+      }
+      delete _tiles[purgeKey];
+      var lruIdx = _tileOrder.indexOf(purgeKey);
+      if (lruIdx >= 0) _tileOrder.splice(lruIdx, 1);
+      _tileCount--;
+    }
+    if (keysToPurge.length) {
+      _dbgLife('ios-purge', { dropped: keysToPurge.length, kept: _tileCount, level: levelIdx });
+    }
   }
 
 
@@ -1408,23 +1488,6 @@ function _openServerTiles(d, drawingId, pageNum) {
   _drawingId = drawingId;
   _active = false;
 
-  // S112 Push 2: Jetsam-kill detection. If a previous drawing-open
-  // didn't run to completion (sessionStorage flag still present), the
-  // tab was likely killed by iOS Safari's Jetsam reaper. Surface this
-  // to the console for field telemetry. Always-on, low-cost: just
-  // sessionStorage read/write. Safe on every platform.
-  try {
-    var _prevOpen = sessionStorage.getItem('_frtJetsamOpen');
-    if (_prevOpen) {
-      console.warn('[Jetsam] Previous drawing-open did not complete — likely tab kill. Prior context:', _prevOpen);
-      try { _dbgLife('jetsam-recovered', { prior: JSON.parse(_prevOpen) }); } catch(_) {}
-    }
-    sessionStorage.setItem('_frtJetsamOpen', JSON.stringify({
-      drawingId: drawingId, page: pageNum, t: Date.now(),
-      ua: navigator.userAgent.slice(0, 80)
-    }));
-  } catch(_) {}
-
   if (_cfg.showLoading) _cfg.showLoading('Loading drawing tiles\u2026');
 
   return fetch(d.tileManifestUrl + '?t=' + Date.now())
@@ -1483,11 +1546,6 @@ function _openServerTiles(d, drawingId, pageNum) {
       _active = true;
       if (_cfg.hideLoading) _cfg.hideLoading();
       if (_cfg.onReady) _cfg.onReady({ drawW: _drawW, drawH: _drawH });
-
-      // S112 Push 2: drawing-open succeeded — clear the Jetsam-detection
-      // flag. If we don't reach this line (tab killed mid-load), the flag
-      // persists and the next session-start will detect it as a kill.
-      try { sessionStorage.removeItem('_frtJetsamOpen'); } catch(_) {}
 
       _dbgLife('open:manifest-applied', { page: pn, drawW: _drawW, drawH: _drawH });
       _renderVisible();

@@ -63,37 +63,6 @@ var _useWebGL = (function(){
   } catch(_){ return false; }
 })();
 
-// S112 Push 2: ?iosres=NNNN URL param overrides the markup-canvas pixel pool.
-// Always-on (independent of any other toggle). Useful for emergency
-// degradation in the field — Mark can append &iosres=4000000 to a URL on a
-// crashing iPad to force the markup pool to 4 Mpx without a code push.
-// Range: 100,000 .. 50,000,000. Out-of-range values ignored. Returns null
-// when not present.
-var _IOS_RES_OVERRIDE = (function(){
-  try {
-    if (typeof window === 'undefined') return null;
-    var m = /[?&]iosres=(\d+)/.exec(window.location.search || '');
-    if (!m) return null;
-    var n = parseInt(m[1], 10);
-    if (isNaN(n) || n < 100000 || n > 50000000) return null;
-    console.log('[Markup] ?iosres= override active:', n, 'pixels');
-    return n;
-  } catch(_) { return null; }
-})();
-
-// S112 Push 2: ?s99test=ios-fix toggle parser. Independent of tiledPdf.js's
-// S99 framework — markup.js just checks the URL directly. When opted in,
-// drops the iPad markup pool from 8M → 6M (iPhone stays at 4M). Default
-// behavior (toggle absent) is unchanged from current production.
-var _S112_IOS_FIX = (function(){
-  try {
-    if (typeof window === 'undefined') return false;
-    var m = /[?&]s99test=([^&#]+)/.exec(window.location.search || '');
-    if (!m) return false;
-    return decodeURIComponent(m[1]).toLowerCase() === 'ios-fix';
-  } catch(_) { return false; }
-})();
-
 // ── Helpers ─────────────────────────────────────────────
 function _newId() {
   return 'mk_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5);
@@ -145,20 +114,31 @@ function _allocateCanvas() {
   // on iPad Air iOS 16.3.1. Halving to 8M per canvas puts combined at
   // 16M which matches iPhone's single-canvas-survived budget. Android
   // tablets (10M) and desktop (25M) unaffected — they don't hit the pool.
-  // S91/S95 historical defaults (current production, unchanged when toggles off):
-  //   iPhone: 4M  |  Android tablet: 10M  |  iPad/iPad-spoofed Mac: 8M  |  desktop: 25M
-  // S112 Push 2: when ?s99test=ios-fix toggle is on, drop iPad pool to 6M for
-  // Jetsam headroom. iPhone stays 4M (already conservative). ?iosres=NNNN
-  // overrides everything when present (emergency degradation, any platform).
-  var maxPixels;
-  if (_IOS_RES_OVERRIDE != null && (isIPhone || isTablet)) {
-    maxPixels = _IOS_RES_OVERRIDE;
-  } else if (_S112_IOS_FIX && isTablet && !isAndroidTablet) {
-    // iPad (real or Mac-with-touch i.e. iPadOS 13+ spoofing): 6 Mpx
-    maxPixels = 6000000;
-  } else {
-    maxPixels = isIPhone ? 4000000 : (isAndroidTablet ? 10000000 : (isTablet ? 8000000 : 25000000));
+  var maxPixels = isIPhone ? 4000000 : (isAndroidTablet ? 10000000 : (isTablet ? 8000000 : 25000000));
+
+  // S112 Push 2: ?iosres=N URL param override for iOS markup canvas budget.
+  // N is in millions of pixels (e.g., ?iosres=6 = 6,000,000 px budget).
+  // Field-deployable degradation control — if a specific iPad model still
+  // hits Jetsam at the default 4-8 Mpx, the user appends ?iosres=4 (or
+  // lower) to their URL and the canvas allocates smaller. Browser memory
+  // pressure drops; pen-stroke crispness drops slightly at high zoom.
+  // iOS only (iPhone or iPad). Default: no override, existing budget.
+  // Range guard: 1-50 Mpx (rejects nonsense values silently).
+  if (isIPhone || isTablet) {
+    try {
+      var iosResMatch = /[?&]iosres=(\d+)/.exec(window.location.search || '');
+      if (iosResMatch) {
+        var override = parseInt(iosResMatch[1], 10);
+        if (!isNaN(override) && override >= 1 && override <= 50) {
+          var prevBudget = maxPixels;
+          maxPixels = override * 1000000;
+          console.log('[Markup] ?iosres=' + override + ' override applied: budget ' +
+            (prevBudget / 1000000).toFixed(1) + 'M → ' + override + 'M px');
+        }
+      }
+    } catch(_) { /* malformed URL — silent */ }
   }
+
   var totalPixels = drawW * drawH;
   var mkScale = 1;
   if (totalPixels > maxPixels) mkScale = Math.sqrt(maxPixels / totalPixels);
