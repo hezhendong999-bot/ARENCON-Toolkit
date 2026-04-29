@@ -109,6 +109,20 @@ var _TILE_SIZE = 512;
 //                 pre-enqueue next-level visible tiles. Default 70%.
 //                 New-level tiles already cached when transition fires.
 //
+//   TILE-GRID SEAM AT FRACTIONAL ZOOM (S112 candidate):
+//     canvas    — replace per-tile <img> elements with one <canvas> per
+//                 active level. Tile data is drawn via ctx.drawImage at
+//                 native level coordinates; the browser does ONE
+//                 fractional CSS scale of the whole canvas, so there is
+//                 no per-tile sub-pixel rounding and no inter-tile
+//                 compositing gap. Eliminates the grey-grid artifact at
+//                 L2/L3 fit zoom that overlap/snap couldn't fix from the
+//                 <img> side. Trades per-tile fade-in animation for
+//                 pixel-correctness. Memory cost: ~36 MB at L2 backing,
+//                 ~100 MB at L3, ~400 MB at L4 (each only allocated when
+//                 first tile lands and freed when LRU empties the level).
+//                 Architectural fix; see S112 handoff for context.
+//
 // One candidate active at a time — use URL to switch. Tested in isolation.
 function _readS99Test() {
   try {
@@ -138,6 +152,16 @@ if (_S99_TEST) {
       ', amount=' + (_S99_TEST.amount == null ? 'default' : _S99_TEST.amount) + ')');
   } catch (_e) {}
 }
+
+// S112: canvas-compositor mode flag. When opted in via ?s99test=canvas, all
+// tile insertion routes through _startFetchCanvas (one <canvas> per level
+// with tiles drawn via ctx.drawImage). When false (default), original
+// per-tile <img> path runs unchanged.
+var _S99_CANVAS = !!(_S99_TEST && _S99_TEST.name === 'canvas');
+
+// S112: level -> { canvas, ctx, lvl, tilesPainted }. Populated lazily in
+// canvas mode by _getOrCreateLevelCanvas. Empty in img mode.
+var _levelCanvases = {};
 
 // Show a small, unobtrusive bottom-right indicator when any S99 test is
 // active, so Mark visually confirms he's not on baseline. Appended once on
@@ -795,13 +819,88 @@ function _evictExcess(layer) {
   while (_tileCount > _MAX_TILES && _tileOrder.length) {
     var oldest = _tileOrder.shift();
     var tile = _tiles[oldest];
-    if (tile && tile.img) {
-      if (layer && tile.img.parentNode === layer) layer.removeChild(tile.img);
-      tile.img.src = '';
+    if (tile) {
+      if (_S99_CANVAS) {
+        _evictTileFromCanvas(tile);
+      } else if (tile.img) {
+        if (layer && tile.img.parentNode === layer) layer.removeChild(tile.img);
+        tile.img.src = '';
+      }
     }
     delete _tiles[oldest];
     _tileCount--;
   }
+}
+
+// S112 canvas mode helpers ────────────────────────────────────────────────
+//
+// Architecture: one <canvas id="dv-tiles-canvas-LN"> per active level.
+// Backing buffer sized to native level pixels (e.g. 3584×2560 for L2 on
+// the test fixture). CSS sized to _drawW × _drawH so it overlays the
+// drawing area exactly. Tiles draw at native level coordinates with
+// ctx.drawImage — the browser does ONE fractional CSS scale of the whole
+// canvas, so no per-tile sub-pixel gaps form. Eliminates the L2/L3 grid
+// seam at fit zoom that no <img>-side fix could solve.
+//
+// LRU eviction clears the tile's rect on the level canvas. When all
+// painted tiles for a level are gone, the canvas is removed from the DOM
+// and its backing buffer is released (set width=0, height=0).
+
+function _getOrCreateLevelCanvas(level, lvl) {
+  var entry = _levelCanvases[level];
+  if (entry) return entry;
+  var layer = document.getElementById('dv-tiles-layer');
+  if (!layer) return null;
+  var c = document.createElement('canvas');
+  c.width = lvl.width;
+  c.height = lvl.height;
+  c.id = 'dv-tiles-canvas-L' + level;
+  // CSS-scale the WHOLE canvas to drawing space. One fractional scale,
+  // applied to a single DOM element — no per-tile rounding, no seams.
+  c.style.cssText =
+    'position:absolute;left:0;top:0;' +
+    'width:' + _drawW + 'px;height:' + _drawH + 'px;' +
+    'z-index:' + level + ';' +
+    'pointer-events:none;image-rendering:auto;';
+  var ctx;
+  try {
+    ctx = c.getContext('2d', { alpha: true, willReadFrequently: false });
+  } catch (_e) {
+    ctx = c.getContext('2d');
+  }
+  if (!ctx) return null;
+  layer.appendChild(c);
+  entry = { canvas: c, ctx: ctx, lvl: lvl, tilesPainted: 0 };
+  _levelCanvases[level] = entry;
+  return entry;
+}
+
+function _evictTileFromCanvas(tile) {
+  var entry = _levelCanvases[tile.level];
+  if (!entry) return;
+  var tx = tile.col * _TILE_SIZE;
+  var ty = tile.row * _TILE_SIZE;
+  // Clear only the actual content region. Edge tiles have tileW/tileH < 512.
+  entry.ctx.clearRect(tx, ty, tile.tileW, tile.tileH);
+  entry.tilesPainted--;
+  if (entry.tilesPainted <= 0) {
+    if (entry.canvas.parentNode) entry.canvas.parentNode.removeChild(entry.canvas);
+    // Force backing-buffer release. Setting w/h to 0 is the canonical idiom.
+    try { entry.canvas.width = 0; entry.canvas.height = 0; } catch(_) {}
+    delete _levelCanvases[tile.level];
+  }
+}
+
+function _disposeAllLevelCanvases() {
+  for (var lk in _levelCanvases) {
+    if (!Object.prototype.hasOwnProperty.call(_levelCanvases, lk)) continue;
+    var le = _levelCanvases[lk];
+    if (le && le.canvas) {
+      if (le.canvas.parentNode) le.canvas.parentNode.removeChild(le.canvas);
+      try { le.canvas.width = 0; le.canvas.height = 0; } catch(_) {}
+    }
+  }
+  _levelCanvases = {};
 }
 
 function _touch(key) {
@@ -821,7 +920,82 @@ function _pumpQueue() {
   }
 }
 
+// S112 canvas-mode tile loader. Loads the WebP, decodes it, draws it onto
+// the level canvas at native level coordinates, then releases the source
+// image bitmap. The tile's "DOM presence" is the painted region on the
+// level canvas — no per-tile <img> in the DOM, so no per-tile sub-pixel
+// rounding, so no seams at fractional CSS scale.
+function _startFetchCanvas(req, layer) {
+  var key = req.key;
+  _inflight[key] = true;
+
+  var url = _tileUrl(req.level, req.col, req.row);
+  if (!url) { delete _inflight[key]; return; }
+
+  var lvl = req.lvl;
+  var tileX = req.col * _TILE_SIZE;
+  var tileY = req.row * _TILE_SIZE;
+  var tileW = Math.min(_TILE_SIZE, lvl.width - tileX);
+  var tileH = Math.min(_TILE_SIZE, lvl.height - tileY);
+  if (tileW <= 0 || tileH <= 0) { delete _inflight[key]; _pumpQueue(); return; }
+
+  var img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.decoding = 'async';
+
+  var drawingIdAtRequest = _drawingId;
+  img.onload = function() {
+    delete _inflight[key];
+    if (!_active || _drawingId !== drawingIdAtRequest) {
+      img.src = '';
+      _pumpQueue();
+      return;
+    }
+    var finish = function() {
+      if (!_active || _drawingId !== drawingIdAtRequest) {
+        img.src = ''; _pumpQueue(); return;
+      }
+      var entry = _getOrCreateLevelCanvas(req.level, lvl);
+      if (!entry) { img.src = ''; _pumpQueue(); return; }
+      // Source rect (0,0,tileW,tileH) clips the white-padded region of
+      // edge tiles produced by sharp.extend() — same reason the <img> path
+      // uses clip-path:inset() for edge tiles. Dest rect places it at the
+      // tile's slot in the level canvas at native level pixels.
+      try {
+        entry.ctx.drawImage(img, 0, 0, tileW, tileH, tileX, tileY, tileW, tileH);
+      } catch (_e) {
+        // drawImage can throw on broken/blank decode; treat as load failure.
+        img.src = ''; _pumpQueue(); return;
+      }
+      entry.tilesPainted++;
+      _tiles[key] = {
+        level: req.level, col: req.col, row: req.row,
+        tileW: tileW, tileH: tileH
+      };
+      _tileOrder.push(key);
+      _tileCount++;
+      // Release the source bitmap immediately — tile data lives in the
+      // canvas now. Saves the per-tile decoded-bitmap memory the <img>
+      // path keeps alive for as long as the element is in DOM.
+      img.src = '';
+      _evictExcess(layer);
+      _pumpQueue();
+    };
+    if (img.decode) img.decode().then(finish, finish); else finish();
+  };
+  img.onerror = function() {
+    delete _inflight[key];
+    var aborted = !img.src || img.src === window.location.href;
+    if (_active && _drawingId === drawingIdAtRequest && !aborted) {
+      _dbgEvent('err ' + key);
+    }
+    _pumpQueue();
+  };
+  img.src = url;
+}
+
 function _startFetch(req, layer) {
+  if (_S99_CANVAS) return _startFetchCanvas(req, layer);
   var key = req.key;
   _inflight[key] = true;
 
@@ -1312,6 +1486,12 @@ function _close_internal() {
   // re-issuing fetches on the next drawing's prefetch window.
   _s99PrefetchIssued = {};
 
+  // S112 canvas mode — explicitly free level-canvas backing buffers. Just
+  // removing the parent layer would let GC eventually collect them, but
+  // canvas backing stores are not always counted against the JS heap, so
+  // we force release by zeroing width/height before drop.
+  _disposeAllLevelCanvases();
+
   if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
   var img = document.getElementById('dv-image');
   if (img) {
@@ -1558,3 +1738,4 @@ export var TiledPdf = {
   isActive: isActive,
   getDimensions: getDimensions
 };
+
