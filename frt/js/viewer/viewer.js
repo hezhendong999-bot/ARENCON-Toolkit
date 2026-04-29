@@ -1170,7 +1170,20 @@ function _renderPins() {
 
     // Compute image rect relative to the GL canvas host (dv-canvas-area)
     var host = document.getElementById('dv-canvas-area');
-    var imgRect = img.getBoundingClientRect();
+    // S112: in tile mode, dv-image is display:none (CSS rule
+    // `#dv-image[src=""]{display:none!important}` strikes once tiledPdf.js
+    // blanks the backdrop). getBoundingClientRect on display:none returns
+    // 0×0, which makes PinsGL.render early-return on `!imgRect.width` and
+    // no pins paint. Use dv-img-wrap instead — it's sized to drawW × drawH
+    // and carries the user's pan/zoom transform, so its bounding rect is
+    // the correct on-screen drawing area in either tile or img mode.
+    var rectSrc;
+    if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive()) {
+      rectSrc = document.getElementById('dv-img-wrap') || img;
+    } else {
+      rectSrc = img;
+    }
+    var imgRect = rectSrc.getBoundingClientRect();
     var hostRect = host ? host.getBoundingClientRect() : { left:0, top:0 };
     var relRect = {
       left:   imgRect.left - hostRect.left,
@@ -2247,3 +2260,4 @@ function _saveHeights() {
   if (panel) panel.style.display = 'none';
   console.log('[Viewer] Heights saved:', heights.length, 'rows');
 }
+
