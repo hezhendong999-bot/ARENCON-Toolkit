@@ -610,6 +610,15 @@ body.dark-mode .aiu-mark-btn:hover{background:#059669;color:#fff}
   <button class="hdr-btn desktop-only" onclick="openHubQR()" title="Show QR Code">📱</button>
   <button class="hdr-btn text-size-toggle desktop-only" id="btn-text-size" onclick="cycleTextSize()" title="Text size: Small / Medium">M</button>
   <button class="hdr-btn desktop-only" id="btn-logout" style="display:none" onclick="doLogout()">🚪 Logout</button>
+  <!-- S112 Push 2: iOS-only diagnostic button. Hidden on non-iOS via JS on
+       page load. One-tap copy of _frtS97LifeRing localStorage to clipboard.
+       Critical capability: localStorage SURVIVES tab crashes, Jetsam-kills,
+       and home-screen reopens. After an iOS FRT crash, user lands back at
+       Hub Project Info tab — they tap this button and the buffer (which
+       was last written by tiledPdf.js _dbgLife() before the crash) gets
+       copied to clipboard. They paste into Notes/email/Slack and send to
+       Mark for diagnosis. -->
+  <button class="hdr-btn" id="btn-ios-diag" style="display:none;background:#9C2742;color:#fff;font-weight:700;border:0;padding:6px 10px;border-radius:6px;cursor:pointer;" onclick="copyiOSDiag()" title="Copy iOS diagnostic log to clipboard">📋 iOS Diag</button>
   <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
 </div>
 
@@ -1364,8 +1373,154 @@ document.addEventListener('DOMContentLoaded', async () => {
   _sb = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   setupConnDot();
   setupKeyboardShortcuts();
+  setupiOSDiag();
   await tryRestoreSession();
 });
+
+// ── iOS diagnostic button (S112 Push 2) ──
+//
+// On iOS Safari, FRT can crash on second drawing-open (Jetsam memory kill)
+// or auto-close back to Hub on first drawing-open. The crash itself is
+// silent — no error dialog, just a tab reset. But every drawing-open and
+// level-change writes a record to localStorage._frtS97LifeRing via the
+// _dbgLife() function in tiledPdf.js. localStorage survives tab crashes,
+// Jetsam-kills, and even home-screen kills. So after the crash, when the
+// user lands back at the Hub, the buffer is RIGHT THERE and we just need
+// a one-tap way to extract it.
+//
+// This button is iOS-only (hidden on desktop/Android via the device check
+// below). User flow:
+//   1. Open FRT bookmark on iPhone → tap drawing → reset/crash
+//   2. Land back at Hub (or reopen Hub from home screen)
+//   3. Tap "📋 iOS Diag" button in header
+//   4. Confirmation alert tells user the count of LIFE events copied
+//   5. Open Notes/Mail/Slack, long-press to paste, send to Mark
+//
+// Mark reads the JSON, sees exactly which step in the open sequence
+// failed, and can target the fix instead of guessing.
+function setupiOSDiag() {
+  try {
+    var ua = (navigator.userAgent || '');
+    var isIPhone = /iPhone|iPod/.test(ua);
+    var isIPad = /iPad/.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 1);
+    if (isIPhone || isIPad) {
+      var btn = document.getElementById('btn-ios-diag');
+      if (btn) btn.style.display = 'inline-block';
+    }
+  } catch (_) { /* feature detect failed — leave hidden */ }
+}
+
+// One-tap LIFE buffer copy. Always tries clipboard API first; falls back
+// to a textarea select+execCommand for older iOS Safari (<13.4). If the
+// buffer is empty (debug logging never enabled), tells the user how to
+// enable it. The result alert shows the count so the user knows the copy
+// actually contained data.
+async function copyiOSDiag() {
+  try {
+    var raw = '';
+    try { raw = localStorage.getItem('_frtS97LifeRing') || ''; } catch (_) {}
+
+    if (!raw || raw === '[]' || raw === '') {
+      // No data yet. Two reasons: (a) debug logging never enabled, or
+      // (b) debug logging IS enabled but FRT was never opened on this
+      // device since enable. Offer to enable directly via localStorage —
+      // FRT's _readDbgFlag() checks localStorage._frtDbg === '1' on every
+      // module load, so setting it here means the next FRT open will
+      // start logging. No URL fiddling needed.
+      var alreadyEnabled = false;
+      try { alreadyEnabled = localStorage.getItem('_frtDbg') === '1'; } catch (_) {}
+
+      if (alreadyEnabled) {
+        alert('Debug logging is ON, but no events recorded yet.\n\n' +
+          'Open a drawing in FRT to generate diagnostic events,\n' +
+          'then come back here and tap this button again.');
+        return;
+      }
+
+      var enable = confirm('No diagnostic events recorded yet.\n\n' +
+        'Debug logging is currently OFF.\n\n' +
+        'Tap OK to enable it now. After enabling:\n' +
+        '1. Open a drawing in FRT (let it crash if it crashes)\n' +
+        '2. Come back here\n' +
+        '3. Tap "iOS Diag" button again to copy the log\n\n' +
+        'Tap Cancel to do nothing.');
+      if (enable) {
+        try {
+          localStorage.setItem('_frtDbg', '1');
+          alert('✓ Debug logging enabled.\n\n' +
+            'Now open a drawing in FRT to generate the log.');
+        } catch (e) {
+          alert('Could not enable debug logging: ' + (e && e.message ? e.message : 'storage error') +
+            '\n\nTry adding &dbg=1 to your FRT URL manually.');
+        }
+      }
+      return;
+    }
+
+    // Build a structured payload that includes UA + screen info so Mark
+    // can correlate with device class. Wrapped in an envelope so the
+    // ring-buffer JSON sits at .ring for easy parsing on the receiving end.
+    var payload;
+    try {
+      var ring = JSON.parse(raw);
+      payload = {
+        capturedAt: new Date().toISOString(),
+        ua: (navigator.userAgent || '').slice(0, 200),
+        screen: {
+          w: screen.width || 0,
+          h: screen.height || 0,
+          dpr: window.devicePixelRatio || 1
+        },
+        viewport: {
+          w: window.innerWidth || 0,
+          h: window.innerHeight || 0
+        },
+        ringLength: Array.isArray(ring) ? ring.length : 0,
+        ring: ring
+      };
+    } catch (_e) {
+      // Buffer is corrupted JSON — copy raw string anyway so Mark can see it
+      payload = { capturedAt: new Date().toISOString(), rawCorrupted: raw.slice(0, 5000) };
+    }
+
+    var text = JSON.stringify(payload, null, 2);
+
+    // Path 1: modern clipboard API. iOS Safari 13.4+ supports this when
+    // triggered by a user gesture (which a button click is).
+    var copied = false;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      } catch (_e) { /* fall through to fallback */ }
+    }
+
+    // Path 2: fallback for older Safari. Create a textarea, select, copy.
+    if (!copied) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      try { copied = document.execCommand('copy'); } catch (_e) { copied = false; }
+      document.body.removeChild(ta);
+    }
+
+    if (copied) {
+      var n = (payload.ringLength != null) ? payload.ringLength : '?';
+      alert('✓ Copied ' + n + ' diagnostic events to clipboard.\n\n' +
+        'Now: open Notes, Mail, or Slack → long-press to paste → send to Mark.');
+    } else {
+      // Last resort — show the text in a prompt the user can copy manually
+      var preview = text.length > 500 ? text.slice(0, 500) + '\n\n…(truncated, ' + text.length + ' chars total)' : text;
+      prompt('Copy failed. Long-press the text below and copy manually:', preview);
+    }
+  } catch (err) {
+    alert('Diagnostic copy failed: ' + (err && err.message ? err.message : 'unknown error'));
+  }
+}
 
 // ── Connection dot ──
 function setupConnDot() {
@@ -5386,4 +5541,5 @@ function _pgEscHtml(s) {
 </script>
 </body>
 </html>
+
 
