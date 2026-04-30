@@ -68,13 +68,22 @@ var _useWebGL = (function(){
       // pure-Canvas2D markup path. Toggle is opt-in until verified on iPad.
       // Non-iOS devices ignore this toggle (Pixi stays available on
       // desktop/Android tablet for performance).
-      if (/[?&]s99test=no-pixi(\b|&|$)/.test(window.location.search)) {
+      //
+      // S112 Push 4: ALSO accept ?nopixi=1 as a separate URL parameter,
+      // so it can STACK with ?s99test=ios-purge. The s99test param only
+      // takes one value, so if a user wants both Pixi-disable AND tile
+      // purge active, they need two separate params. Format:
+      //   ?s99test=ios-purge&nopixi=1&iosres=4
+      // Either path activates the same _useWebGL=false code path on iOS.
+      var noPixiActive = /[?&]s99test=no-pixi(\b|&|$)/.test(window.location.search) ||
+                         /[?&]nopixi=1(\b|&|$)/.test(window.location.search);
+      if (noPixiActive) {
         var ua = (navigator.userAgent || '');
         var isIPhone = /iPhone|iPod/.test(ua);
         var isIPad = /iPad/.test(ua) ||
           (/Mac/.test(ua) && navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
         if (isIPhone || isIPad) {
-          try { console.log('[Markup] ?s99test=no-pixi active on iOS — Pixi WebGL disabled, falling back to Canvas2D'); } catch(_){}
+          try { console.log('[Markup] no-pixi active on iOS — Pixi WebGL disabled, falling back to Canvas2D'); } catch(_){}
           return false;
         }
       }
@@ -2402,6 +2411,7 @@ export var Markup = {
 };
 
 export var initMarkup = Markup;
+
 
 
 
