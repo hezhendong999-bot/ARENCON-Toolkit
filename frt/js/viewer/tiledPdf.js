@@ -152,12 +152,22 @@ function _readS99Test() {
     if (!m) return null;
     var raw = decodeURIComponent(m[1]).toLowerCase();
     if (!raw || raw === 'off') return null;
-    var dash = raw.indexOf('-');
+    // S112 Push 2 fix: dash-parser was greedy — `ios-purge` got parsed as
+    // name='ios', amount=NaN (rejected), instead of name='ios-purge'. Only
+    // treat the dash as an amount-separator when what follows is purely
+    // numeric. Names with dashes (ios-purge, no-pixi, etc.) are passed
+    // through intact. Numeric-suffix toggles (overlap-8, fastfade-50)
+    // still parse as expected because their suffixes ARE pure digits.
     var name, amount;
-    if (dash > 0) {
-      name = raw.slice(0, dash);
-      var n = parseInt(raw.slice(dash + 1), 10);
-      amount = (!isNaN(n) && n >= 0 && n <= 1024) ? n : null;
+    var lastDash = raw.lastIndexOf('-');
+    if (lastDash > 0 && /^\d+$/.test(raw.slice(lastDash + 1))) {
+      name = raw.slice(0, lastDash);
+      amount = parseInt(raw.slice(lastDash + 1), 10);
+      if (isNaN(amount) || amount < 0 || amount > 1024) {
+        // Treat malformed amount as no-amount; keep full name
+        name = raw;
+        amount = null;
+      }
     } else {
       name = raw;
       amount = null;
@@ -219,6 +229,9 @@ var _levelCanvases = {};
 // that desktop/Android no longer need to suffer (S111b removed it for
 // them).
 var _S99_IOS_PURGE = !!(_S99_TEST && _S99_TEST.name === 'ios-purge');
+if (_S99_IOS_PURGE) {
+  try { console.log('[TiledPdf] iOS purge ACTIVE (will fire on iOS only at every level-change)'); } catch(_) {}
+}
 
 // S112 Push 2: passive Jetsam-reload detection. iOS only. Reads the
 // _frtS97LifeRing buffer (persists in localStorage across page reloads).
@@ -238,7 +251,10 @@ var _S99_IOS_PURGE = !!(_S99_TEST && _S99_TEST.name === 'ios-purge');
     var last = ring[ring.length - 1];
     if (!last || !last.t) return;
     var ageSec = (Date.now() - last.t) / 1000;
-    if (ageSec >= 0 && ageSec < 30 && last.tag !== 'close:end' && last.tag !== 'jetsam-reload-suspected') {
+    if (ageSec >= 0 && ageSec < 30 &&
+        last.tag !== 'close:end' &&
+        last.tag !== 'tab-leaving' &&
+        last.tag !== 'jetsam-reload-suspected') {
       console.warn('[TiledPdf] iOS Jetsam-reload SUSPECTED — previous event "' +
         last.tag + '" was ' + ageSec.toFixed(1) + 's ago without a graceful close. ' +
         'Tab may have been killed. Run _frtLifePeek() for forensics.');
