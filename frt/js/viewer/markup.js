@@ -57,6 +57,27 @@ var _useWebGL = (function(){
     if (window.location && window.location.search){
       if (window.location.search.indexOf('webgl=0') >= 0) return false;
       if (window.location.search.indexOf('webgl=1') >= 0) return true;
+
+      // S112 Push 3: ?s99test=no-pixi — disable Pixi WebGL markup on iOS.
+      // Empirical evidence (S112 LIFE buffer captures, iPad iPadOS 16.3.1
+      // Chrome iOS 136): with ios-purge active and tile pool held at 0,
+      // tab still Jetsam-dies 3-4s after first level-change at fit zoom
+      // with iosres=4 active. Markup canvas allocation at drawing-open
+      // time is the dominant memory consumer. Disabling Pixi removes the
+      // second canvas (~8 Mpx on iPad) and forces fallback to the existing
+      // pure-Canvas2D markup path. Toggle is opt-in until verified on iPad.
+      // Non-iOS devices ignore this toggle (Pixi stays available on
+      // desktop/Android tablet for performance).
+      if (/[?&]s99test=no-pixi(\b|&|$)/.test(window.location.search)) {
+        var ua = (navigator.userAgent || '');
+        var isIPhone = /iPhone|iPod/.test(ua);
+        var isIPad = /iPad/.test(ua) ||
+          (/Mac/.test(ua) && navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
+        if (isIPhone || isIPad) {
+          try { console.log('[Markup] ?s99test=no-pixi active on iOS — Pixi WebGL disabled, falling back to Canvas2D'); } catch(_){}
+          return false;
+        }
+      }
     }
     if (localStorage.getItem('ARENCON_NoWebGL') === '1') return false;
     return !!(window.WebGLMarkupRenderer && window.WebGLMarkupRenderer.isSupported && window.WebGLMarkupRenderer.isSupported());
@@ -2381,5 +2402,6 @@ export var Markup = {
 };
 
 export var initMarkup = Markup;
+
 
 
