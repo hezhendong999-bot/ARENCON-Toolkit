@@ -50,29 +50,14 @@ var _tileCount = 0;
 // we don't re-fetch the same URLs. Cleared on _close_internal.
 var _s99PrefetchIssued = {};
 
-var _isIPhone = /iPhone|iPod/.test(navigator.userAgent);
-var _isIPad   = /iPad/.test(navigator.userAgent)
-               || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-var _isMobile = _isIPhone || _isIPad || /Android/.test(navigator.userAgent);
-// S93 FIX: split iPhone / iPad budgets. Old value of 40 was too aggressive
-// for iPad (plenty of RAM, capable of 150+ tiles) and caused visible-tile
-// eviction churn on L3 (12x8 = 96 tiles; a viewport + margin frequently
-// needed >40 tiles resident) resulting in blank/black tiles where evicted
-// ones hadn't been refetched yet. iPhones keep a conservative cap to avoid
-// Safari canvas memory kill; iPad gets closer to desktop.
-// S111: bumped cache cap from 250 → 800 on desktop (180 → 360 on iPad,
-// 80 → 160 on iPhone). Larger cache means old-level tiles aren't evicted
-// the moment new-level tiles arrive on zoom-in, so the brief gap between
-// "old tile fades out" and "new tile finishes loading" no longer shows
-// the white background. The L4 flash on zoom-in (S110 deferred bug) is
-// caused by exactly this gap on slow first-fetches. Raising the cap
-// preserves L3 tiles in memory after the zoom-in even though they're not
-// actively rendered, so a quick zoom-out re-shows them instantly.
-// Memory cost: at ~80kB per WebP tile + decode overhead, 800 tiles is
-// roughly 200MB. Within desktop budgets, but if memory issues appear in
-// the field this is the lever to pull.
-var _MAX_TILES = _isIPhone ? 160 : (_isIPad ? 360 : 800);
-var _MAX_CONCURRENT = _isIPhone ? 3 : (_isIPad ? 5 : 6);
+// S113 Push 2: iOS detection vars retired alongside iOS support. Tile pool
+// is now sized for the production target — desktop and Android tablets.
+// At ~80 kB per WebP tile + decode overhead, 800 tiles ≈ 200 MB, well
+// within budget on both platforms. Larger cache keeps old-level tiles
+// resident so a fast zoom-in/out doesn't expose white background while
+// new tiles fetch (the L4 flash on zoom-in symptom).
+var _MAX_TILES = 800;
+var _MAX_CONCURRENT = 6;
 var _TILE_SIZE = 512;
 
 // ── S99 DIAGNOSTIC TOGGLE ──────────────────────────────────────────────────

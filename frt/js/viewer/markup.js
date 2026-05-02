@@ -97,15 +97,18 @@ function _allocateCanvas() {
   }
 
   var ua = navigator.userAgent;
-  var isAndroidTablet = /Android/.test(ua) && (!/Mobile/.test(ua) || /SM-T|SM-X|Tablet/.test(ua));
-  // S113 cleanup (iOS abandoned): markup canvas budget per device class.
-  //   • Android tablet — 10 Mpx (Push 2 will raise to 25 Mpx for crisper
-  //     drawings; held here to match S112 behavior for the iOS-removal
-  //     verification stop)
-  //   • Desktop / Android phone (no Android-tablet match) — 25 Mpx
+  // S113 Push 2 — final cleanup. Markup canvas budget by device class:
+  //   • Android phone (handheld form factor): 10 Mpx
+  //   • Everything else (Android tablet, desktop): 25 Mpx for crisp pen
+  //     strokes at every zoom level
+  // Phone detection: UA contains both "Android" and "Mobile" tokens, AND
+  // does NOT carry any of the common Samsung tablet model prefixes.
+  // (Android tablets typically omit the "Mobile" token; the SM-T / SM-X /
+  // "Tablet" allowlist guards against UA outliers that include "Mobile".)
   // The `isIPhone` / `isIPad` / `isTablet` branches and the `?iosres=N`
   // parser were removed in Push 1 along with the rest of iOS support.
-  var maxPixels = isAndroidTablet ? 10000000 : 25000000;
+  var isAndroidPhone = /Android/.test(ua) && /Mobile/.test(ua) && !/SM-T|SM-X|Tablet/.test(ua);
+  var maxPixels = isAndroidPhone ? 10000000 : 25000000;
 
   var totalPixels = drawW * drawH;
   var mkScale = 1;
