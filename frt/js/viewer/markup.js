@@ -226,6 +226,42 @@ function _getPos(e) {
   return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
 }
 
+// ── Scale-adjusted line width (S113 Push 9) ─────────────
+// At fit zoom, the viewer applies CSS `transform: scale(0.2..0.3)` to the
+// canvas wrap. A 3-canvas-pixel pen stroke becomes < 1 CSS pixel wide and
+// the browser anti-aliases it into invisible grey haze. Fix: when the
+// effective scale is below 1, fatten the stroke in canvas-pixel space so
+// it survives the downsample at a minimum visible width on screen.
+//
+// Effective scale is derived from the canvas's own getBoundingClientRect
+// (CSS px on screen) divided by its logical width (drawing px). No
+// dependency on viewer.js, no event hooks, no risk of stale values.
+//
+// Cached per render frame in _scaleCache (cleared by _renderAll). Avoids
+// hundreds of synchronous layout reads when there are many objects.
+var _scaleCache = null;
+function _getEffectiveScale() {
+  if (_scaleCache != null) return _scaleCache;
+  var mc = _getCanvas();
+  if (!mc || !mc._logicalW) return 1;
+  var r = mc.getBoundingClientRect();
+  if (!r.width || !mc._logicalW) return 1;
+  _scaleCache = r.width / mc._logicalW;
+  return _scaleCache;
+}
+function _clearScaleCache() { _scaleCache = null; }
+
+// Returns max(rawSize, 1.5/effectiveScale) when effectiveScale < 1.
+// At scale 1+ returns rawSize unchanged. Target floor is 1.5 CSS px wide
+// after the wrap's downsample so strokes are clearly visible without
+// looking aggressively chunky.
+function _scaleAdjustedLineWidth(rawSize) {
+  var s = _getEffectiveScale();
+  if (s >= 1 || s <= 0) return rawSize;
+  var floor = 1.5 / s;
+  return rawSize > floor ? rawSize : floor;
+}
+
 // ── Undo / Redo ─────────────────────────────────────────
 
 function _pushHistory() {
@@ -267,6 +303,7 @@ function _updateUndoButtons() {
 function _renderAll() {
   var mc = _getCanvas();
   if (!mc) return;
+  _clearScaleCache();
   var ctx = mc.getContext('2d');
   var dpr = mc._dpr || 1;
 
@@ -478,7 +515,12 @@ function _drawObjectRaw(ctx, obj) {
   ctx.globalAlpha = obj.opacity || 1;
   ctx.strokeStyle = obj.color || '#C0392B';
   ctx.fillStyle = obj.color || '#C0392B';
-  ctx.lineWidth = obj.size || 2;
+  // S113 Push 9: clamp to a minimum on-screen-visible width when the
+  // viewer is zoomed out below 1:1 (fit-zoom blur fix). At scale ≥ 1
+  // returns obj.size unchanged. Pen, polyline, and shape strokes are
+  // affected; eraser overrides this further down to (size||2)*3, text
+  // uses fillText so lineWidth is irrelevant, highlight short-circuits.
+  ctx.lineWidth = _scaleAdjustedLineWidth(obj.size || 2);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.globalCompositeOperation = 'source-over';
@@ -1094,7 +1136,11 @@ function _moveDraw(e) {
       ctx.setTransform(d, 0, 0, d, 0, 0);
       ctx.save();
       ctx.strokeStyle = _tool === 'eraser' ? '#8a94b0' : _color;
-      ctx.lineWidth = _tool === 'eraser' ? _lineWidth * 3 : _lineWidth;
+      // S113 Push 9: clamp pen preview to scale-adjusted minimum so the
+      // visible width while drawing matches the rendered width after
+      // commit. Eraser is unaffected (it uses _lineWidth*3 already).
+      _clearScaleCache();
+      ctx.lineWidth = _tool === 'eraser' ? _lineWidth * 3 : _scaleAdjustedLineWidth(_lineWidth);
       if (_tool === 'pen') ctx.globalAlpha = _opacity;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
@@ -1112,7 +1158,9 @@ function _moveDraw(e) {
     ctx.globalAlpha = _opacity;
     ctx.strokeStyle = _color;
     ctx.fillStyle = _color;
-    ctx.lineWidth = _lineWidth;
+    // S113 Push 9: shape preview clamp — match commit-render path width.
+    _clearScaleCache();
+    ctx.lineWidth = _scaleAdjustedLineWidth(_lineWidth);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     _drawShapeObj(ctx, _tool, _startX, _startY, pos.x, pos.y);
@@ -1245,7 +1293,8 @@ function _handlePolylineClick(e) {
     ctx.clearRect(0, 0, ov.width, ov.height);
     ctx.setTransform(d, 0, 0, d, 0, 0);
     ctx.strokeStyle = _color;
-    ctx.lineWidth = _lineWidth;
+    _clearScaleCache();
+    ctx.lineWidth = _scaleAdjustedLineWidth(_lineWidth);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.globalAlpha = _opacity;
@@ -1288,7 +1337,8 @@ function _drawPolylinePreview(e) {
   ctx.clearRect(0, 0, ov.width, ov.height);
   ctx.setTransform(d, 0, 0, d, 0, 0);
   ctx.strokeStyle = _color;
-  ctx.lineWidth = _lineWidth;
+  _clearScaleCache();
+  ctx.lineWidth = _scaleAdjustedLineWidth(_lineWidth);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.globalAlpha = _opacity;
