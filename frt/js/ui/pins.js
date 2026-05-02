@@ -71,6 +71,27 @@ function _pkbCard(d, p) {
     if (dwg) dwgName = dwg.name || dwg.filename || '';
   }
   var obsCountHtml = multiObs ? '<span style="font-size:9px;color:var(--silver);margin-left:4px;">' + entries.length + ' obs.</span>' : '';
+
+  // S113 Push 18: photo thumbnail (matches v1). Pull from defic.photos +
+  // any nested entry photos. v2 photo objects: { r2Url, dataUrl, ... };
+  // pick the first with a usable src. Display as 44×44 thumbnail on
+  // right side of card (CSS is .pkc-thumb).
+  var photos = defic.photos || [];
+  if (defic.entries) {
+    defic.entries.forEach(function(en) {
+      if (en.photos && en.photos.length) photos = photos.concat(en.photos);
+    });
+  }
+  var firstSrc = '';
+  for (var pi = 0; pi < photos.length; pi++) {
+    var ph = photos[pi];
+    var s = (ph && (ph.r2Url || ph.dataUrl)) || '';
+    if (s && s.length > 20) { firstSrc = s; break; }
+  }
+  var thumbHtml = firstSrc
+    ? '<img class="pkc-thumb" src="' + esc(firstSrc) + '" alt="evidence" loading="lazy" onerror="this.style.display=\'none\'">'
+    : '';
+
   return '<div class="pin-kanban-card" draggable="true" data-defic-id="' + defic.id + '" data-action="pkb-card">'
     + '<div class="pkc-num" style="background:' + fill + '">' + (defic.num || '?') + '</div>'
     + '<div class="pkc-body">'
@@ -80,6 +101,7 @@ function _pkbCard(d, p) {
     + (dwgName ? '<span class="pkc-drawing" title="' + esc(dwgName) + '">\uD83D\uDCD0 ' + esc(dwgName) + '</span>' : '')
     + '</div>'
     + '</div>'
+    + thumbHtml
     + '</div>';
 }
 

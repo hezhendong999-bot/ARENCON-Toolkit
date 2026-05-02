@@ -196,8 +196,11 @@ export function buildDeficCard(d, ctrId) {
     h += '<option value="' + p + '"' + (d.priority === p ? ' selected' : '') + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
   });
   h += '</select>';
-  // IAR toggle
-  h += '<button data-action="toggle-iar" data-defic-id="' + esc(d.id) + '" style="border:none;background:' + (d.iar ? '#E91E8C' : '#CBD5E0') + ';color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">' + (d.iar ? '\u26A1 IAR' : 'IAR') + '</button>';
+  // IAR toggle — inactive: subtle outline (was low-contrast grey-on-white). Active: pink fill.
+  var iarStyle = d.iar
+    ? 'border:none;background:#E91E8C;color:white;'
+    : 'background:transparent;color:#9AA5B5;border:1.5px solid rgba(154,165,181,.4);';
+  h += '<button data-action="toggle-iar" data-defic-id="' + esc(d.id) + '" style="' + iarStyle + 'border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">' + (d.iar ? '\u26A1 IAR' : 'IAR') + '</button>';
   if (d.drawingId) {
     var _dwgs = Model.getDrawings();
     var _dwgName = '';
