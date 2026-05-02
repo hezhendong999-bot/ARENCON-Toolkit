@@ -1828,13 +1828,34 @@ body.dark-mode .ai-fs-footer{border-top-color:#2a3040;}
 .ai-fs-count{font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;}
 body.dark-mode .ai-fs-count{color:#8090b0;}
 .ai-fs-btns{display:flex;gap:8px;}
-.ai-fs-cancel{background:white;border:1.5px solid var(--border);color:var(--steel);padding:8px 18px;border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;}
-.ai-fs-cancel:hover{border-color:#C0392B;color:#C0392B;}
-body.dark-mode .ai-fs-cancel{background:#2a2d35;color:#d4d8e8;border-color:#3a3e48;}
-.ai-fs-confirm{background:#9C2742;border:none;color:white;padding:8px 22px;border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:700;cursor:pointer;}
-.ai-fs-confirm:hover{background:#7d1f35;}
-.ai-fs-confirm:disabled{background:#ccc;cursor:not-allowed;}
-body.dark-mode .ai-fs-confirm:disabled{background:#3a3e48;color:#666;}
+/* S113 Push 20: AI modal buttons inherit muted-cancel / muted-ok styling.
+   Replaces older inline white/red and burgundy fill. */
+.ai-fs-cancel{
+  background:rgba(192,57,43,.04);border:1.5px solid rgba(192,57,43,.25);
+  color:#C0392B;padding:8px 18px;border-radius:7px;
+  font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));
+  font-weight:600;cursor:pointer;
+  transition:background .15s,border-color .15s;
+}
+.ai-fs-cancel:hover{background:rgba(192,57,43,.10);border-color:#C0392B;}
+body.dark-mode .ai-fs-cancel{
+  background:#2e1a1a;color:#e08080;border-color:rgba(224,128,128,.25);
+}
+body.dark-mode .ai-fs-cancel:hover{background:#402222;border-color:#e08080;}
+.ai-fs-confirm{
+  background:rgba(26,122,74,.06);border:1.5px solid rgba(26,122,74,.35);
+  color:#1A7A4A;padding:8px 22px;border-radius:7px;
+  font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));
+  font-weight:700;cursor:pointer;
+  transition:background .15s,border-color .15s,opacity .15s;
+}
+.ai-fs-confirm:hover{background:rgba(26,122,74,.14);border-color:#1A7A4A;}
+.ai-fs-confirm:disabled{background:transparent;border-color:rgba(0,0,0,.1);color:#aaa;cursor:not-allowed;opacity:.5;}
+body.dark-mode .ai-fs-confirm{
+  background:#1a2e22;color:#80c8a0;border-color:rgba(128,200,160,.25);
+}
+body.dark-mode .ai-fs-confirm:hover{background:#22402e;border-color:#80c8a0;}
+body.dark-mode .ai-fs-confirm:disabled{background:#2a2d35;color:#666;border-color:#3a3e48;}
 @media(max-width:600px){
   .ai-fs-overlay{padding:0;align-items:flex-end;}
   .ai-fs-modal{max-width:100%;max-height:90vh;border-radius:16px 16px 0 0;}
@@ -3845,3 +3866,41 @@ body.dark-mode .tt-jump:hover{
 #tasks-table td:nth-child(3){white-space:normal;}  /* Description wraps */
 #tasks-table td:nth-child(2){white-space:normal;}  /* Drawing also wraps */
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   S113 Push 20 — Two more muted button variants for the Report Status
+   modal. The bright orange #E67E22 fill on "Revise Issued Report" and
+   the bright slate #6B7280 on "Revert to Draft" looked saturated next
+   to the muted Issue Report green. These match the muted family.
+   ═══════════════════════════════════════════════════════════════════ */
+.btn-muted-warn,
+.btn-muted-neutral {
+  padding:8px 18px;
+  border-radius:6px;
+  font-family:Calibri,sans-serif;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  transition:background .15s, border-color .15s, opacity .15s;
+}
+.btn-muted-warn {
+  background:rgba(230,126,34,.06);
+  color:#B05A12;
+  border:1.5px solid rgba(230,126,34,.35);
+}
+.btn-muted-warn:hover { background:rgba(230,126,34,.14); border-color:#E67E22; }
+body.dark-mode .btn-muted-warn {
+  background:#3a2510; color:#f0a878; border-color:rgba(240,168,120,.25);
+}
+body.dark-mode .btn-muted-warn:hover { background:#4a3318; border-color:#f0a878; }
+
+.btn-muted-neutral {
+  background:rgba(74,85,104,.06);
+  color:#4A5568;
+  border:1.5px solid rgba(74,85,104,.35);
+}
+.btn-muted-neutral:hover { background:rgba(74,85,104,.14); border-color:#4A5568; }
+body.dark-mode .btn-muted-neutral {
+  background:#1f2530; color:#a8b4c8; border-color:rgba(168,180,200,.25);
+}
+body.dark-mode .btn-muted-neutral:hover { background:#2a323e; border-color:#a8b4c8; }

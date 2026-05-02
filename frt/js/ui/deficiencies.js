@@ -87,8 +87,8 @@ function _showActivityModal(deficId, label) {
   h += '</div></div>';
   // Footer buttons (v1 style: right-aligned, Cancel + Add Entry)
   h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">';
-  h += '<button id="am-cancel" class="btn-muted-cancel">Cancel</button>';
   h += '<button id="am-save" class="btn-muted-ok">Add Entry</button>';
+  h += '<button id="am-cancel" class="btn-muted-cancel">Cancel</button>';
   h += '</div></div>';
 
   ov.innerHTML = h;
@@ -780,8 +780,8 @@ document.addEventListener('click', function(e) {
     h2 += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Move #' + f.defic.num + ' to:</div>';
     h2 += '<select id="reassign-sel" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;margin-bottom:12px;background:var(--bg,white);color:var(--fg);">' + opts + '</select>';
     h2 += '<div style="display:flex;gap:8px;justify-content:flex-end;">';
-    h2 += '<button id="reassign-cancel" class="btn-muted-cancel">Cancel</button>';
     h2 += '<button id="reassign-ok" class="btn-muted-ok">Move</button>';
+    h2 += '<button id="reassign-cancel" class="btn-muted-cancel">Cancel</button>';
     h2 += '</div></div></div>';
     var d2 = document.createElement('div'); d2.innerHTML = h2;
     var ov2 = d2.firstChild; document.body.appendChild(ov2);
@@ -981,8 +981,8 @@ document.addEventListener('change', function(e) {
           h2 += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Assign #' + dnum + ' to contractor:</div>';
           h2 += '<select id="reassign-sel" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;margin-bottom:12px;background:var(--bg,white);color:var(--fg);">' + opts + '</select>';
           h2 += '<div style="display:flex;gap:8px;justify-content:flex-end;">';
-          h2 += '<button id="reassign-cancel" class="btn-muted-cancel">Cancel</button>';
           h2 += '<button id="reassign-ok" class="btn-muted-ok">Assign</button>';
+          h2 += '<button id="reassign-cancel" class="btn-muted-cancel">Cancel</button>';
           h2 += '</div></div></div>';
           var d2 = document.createElement('div'); d2.innerHTML = h2;
           var ov2 = d2.firstChild; document.body.appendChild(ov2);

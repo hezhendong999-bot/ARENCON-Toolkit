@@ -461,6 +461,17 @@ export var Model = {
     var f = this.findDeficiency(deficId);
     if (!f) return;
     f.defic.iar = !f.defic.iar;
+    // S113 Push 20: IAR is mutually exclusive with low/general priority
+    // (matches v1 behavior). When activating IAR, force priority='high'
+    // and propagate to all entries so the pin renders red and the row
+    // sorts correctly. Toggling OFF leaves priority alone — user might
+    // have already set low/general manually for a non-IAR item.
+    if (f.defic.iar) {
+      f.defic.priority = 'high';
+      if (f.defic.entries && f.defic.entries.length) {
+        f.defic.entries.forEach(function(en) { en.priority = 'high'; });
+      }
+    }
     _dirty = true;
     _queueSave();
     this._notify('deficiency', { action: 'iar', deficId: deficId, iar: f.defic.iar });

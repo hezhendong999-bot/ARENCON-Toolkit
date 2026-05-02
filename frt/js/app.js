@@ -529,7 +529,7 @@ function _showLeaveDialog(destUrl) {
   h += '</div>';
   h += '<div style="display:flex;flex-direction:column;gap:8px;">';
   h += '<button id="leave-save" class="btn-muted-ok" style="width:100%;">Save & Leave</button>';
-  h += '<button id="leave-nosave" style="width:100%;padding:11px;background:#f9f9f9;color:#2C3E50;border:1.5px solid #CBD5E0;border-radius:8px;font-size:calc(13px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;">Leave without saving</button>';
+  h += '<button id="leave-nosave" class="btn-muted-neutral" style="width:100%;">Leave without saving</button>';
   h += '<button id="leave-cancel" class="btn-muted-cancel" style="width:100%;">Cancel \u2014 go back</button>';
   h += '</div></div></div>';
 
@@ -1159,8 +1159,8 @@ function _openPDFPicker() {
 
   // Buttons
   h += '<div style="display:flex;gap:8px;justify-content:flex-end;">';
-  h += '<button id="pdf-cancel" class="btn-muted-cancel">Cancel</button>';
   h += '<button id="pdf-go" class="btn-muted-ok">\uD83D\uDCC4 Generate PDF</button>';
+  h += '<button id="pdf-cancel" class="btn-muted-cancel">Cancel</button>';
   h += '</div></div></div>';
 
   var div = document.createElement('div');
@@ -1382,14 +1382,14 @@ function _issueReport() {
   // Option 2: Revise (only if issued B## without A suffix)
   if (parsed.issued && !parsed.hasSuffix) {
     var reviseTarget = rev + 'A01';
-    html += '<button data-issue-action="revise" data-rev="' + reviseTarget + '" style="width:100%;padding:12px 16px;border:none;border-radius:8px;background:#E67E22;color:white;font-weight:700;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-bottom:10px;text-align:left;">';
+    html += '<button data-issue-action="revise" data-rev="' + reviseTarget + '" class="btn-muted-warn" style="width:100%;font-size:calc(14px + var(--ts));margin-bottom:10px;text-align:left;padding:12px 16px;">';
     html += '\u270F\uFE0F Revise Issued Report<span style="float:right;font-weight:400;opacity:.85;">' + rev + ' \u2192 <b>' + reviseTarget + '</b></span></button>';
   }
 
   // Option 3: Revert to draft (only if B-series)
   if (parsed.issued) {
     var draftTarget = _calcRevertDraft(proj);
-    html += '<button data-issue-action="revert" data-rev="' + draftTarget + '" style="width:100%;padding:12px 16px;border:none;border-radius:8px;background:' + bdr + ';color:' + fg + ';font-weight:700;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-bottom:10px;text-align:left;border:1.5px solid ' + bdr + ';">';
+    html += '<button data-issue-action="revert" data-rev="' + draftTarget + '" class="btn-muted-neutral" style="width:100%;font-size:calc(14px + var(--ts));margin-bottom:10px;text-align:left;padding:12px 16px;">';
     html += '\u21A9\uFE0F Revert to Draft<span style="float:right;font-weight:400;opacity:.85;">' + rev + ' \u2192 <b>' + draftTarget + '</b></span></button>';
   }
 

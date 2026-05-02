@@ -354,8 +354,8 @@ function _showFieldSelector(fields, mode) {
     });
     html += '</div>';
     html += '<div class="ai-fs-footer"><span class="ai-fs-count">' + fields.length + ' of ' + fields.length + ' selected</span>';
-    html += '<div class="ai-fs-btns"><button class="ai-fs-cancel">Cancel</button>';
-    html += '<button class="ai-fs-confirm">Review \u2192</button></div></div>';
+    html += '<div class="ai-fs-btns"><button class="ai-fs-confirm">Review \u2192</button>';
+    html += '<button class="ai-fs-cancel">Cancel</button></div></div>';
     html += '</div>';
     overlay.innerHTML = html;
     document.body.appendChild(overlay);
@@ -542,8 +542,8 @@ function _showPhotoSuggestModal(state) {
     html += '<div class="ai-fs-footer ai-ps-footer" id="ai-ps-footer" style="display:none;">';
     html += '<span class="ai-ps-meta" id="ai-ps-meta"></span>';
     html += '<div class="ai-fs-btns">';
-    html += '<button class="ai-fs-cancel" id="ai-ps-dismiss">Dismiss</button>';
     html += '<button class="ai-fs-confirm" id="ai-ps-accept">Accept \u2192</button>';
+    html += '<button class="ai-fs-cancel" id="ai-ps-dismiss">Dismiss</button>';
     html += '</div></div>';
     html += '</div>';
     overlay.innerHTML = html;
