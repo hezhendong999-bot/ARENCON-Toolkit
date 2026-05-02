@@ -264,7 +264,7 @@ body.dark-mode .dv-sidebar-tools .tool-btn:hover{background:#2d3040;color:#ddd;}
 body.dark-mode .dv-sidebar-tools .tool-sep{background:#3a3e48;}
 .dv-sidebar-tools .tool-group{position:relative;}
 .dv-sidebar-tools .tool-group-btn{position:relative;}
-.dv-sidebar-tools .tool-group-arrow{position:absolute;right:2px;bottom:2px;font-size:7px;color:#777;line-height:1;}
+.dv-sidebar-tools .tool-group-arrow{position:absolute;right:2px;bottom:2px;font-size:9px;color:#777;line-height:1;}
 .tool-submenu{display:none;position:fixed;left:56px;background:#f0f1f4;border:1px solid #dde1e7;border-radius:8px;padding:6px;z-index:9500;flex-direction:row;flex-wrap:wrap;gap:3px;width:auto;min-width:120px;box-shadow:2px 2px 12px rgba(0,0,0,.15);}
 body.dark-mode .tool-submenu{background:#1a1c24;border-color:#3a3e48;box-shadow:2px 2px 12px rgba(0,0,0,.5);}
 .tool-submenu.open{display:flex;}
@@ -1410,7 +1410,7 @@ body.dark-mode .resp-consultant{background:#001a33;border-color:#003366;}
 /* ── Toolbar group / submenu ── */
 .tool-group{position:relative;display:flex;flex-direction:column;align-items:center;}
 .tool-group-btn{position:relative;}
-.tool-group-arrow{position:absolute;right:2px;bottom:2px;font-size:7px;color:#666;line-height:1;}
+.tool-group-arrow{position:absolute;right:2px;bottom:2px;font-size:9px;color:#666;line-height:1;}
 /* ── Sliders ── */
 .tool-slider-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;width:100%;}
 .tool-slider{-webkit-appearance:none;appearance:none;writing-mode:vertical-lr;direction:rtl;width:4px;height:50px;background:#3a3e48;border-radius:2px;outline:none;cursor:pointer;}
@@ -3549,11 +3549,14 @@ body.dark-mode .drawing-viewer-overlay #dv-bb-rename:hover{color:#fff;}
   .drawing-viewer-overlay #dv-bb-namepill{padding:10px 14px;}
 }
 
-/* 4. Floating nav-controls retired — bottombar carries it on all screens.
-   High specificity needed to override the existing @media(pointer:fine)
-   rule that uses `html body .drawing-viewer-overlay .dv-nav-controls`. */
+/* 4. Floating nav-controls AND zoom-controls retired — bottombar carries
+   both jobs on every screen size now. High specificity needed to
+   override the existing @media(pointer:fine) rules that use
+   `html body .drawing-viewer-overlay ...` selectors. */
 html body .drawing-viewer-overlay .dv-nav-controls,
-html body .drawing-viewer-overlay #dv-nav-controls{display:none !important;}
+html body .drawing-viewer-overlay #dv-nav-controls,
+html body .drawing-viewer-overlay .zoom-controls,
+html body .drawing-viewer-overlay #zoom-controls{display:none !important;}
 
 /* 5. Bottombar tasks pill: redundant — top toolbar has the 📌 button.
    Was hidden only on mobile previously; now hidden everywhere since the
@@ -3563,18 +3566,23 @@ html body .drawing-viewer-overlay #dv-nav-controls{display:none !important;}
 
 /* ═══════════════════════════════════════════════════════════════════
    S113 Push 7 — Debug panel toggle
-   Both diagnostic panels (`#dbg-overlay` from tiledPdf.js LIFE buffer,
-   `#s97-recorder-panel` from recorder.js) are debug-only: they only
-   spawn when ?dbg=1 OR localStorage._frtDbg='1'. But when debug is
-   active, they're always visible — covering the corners of the canvas.
-   These rules hide them by default and surface them via the floating
-   #diag-toggle button (added in frt/index.html). When `body.diag-show`
-   is present they re-appear.
+   All four diagnostic panels (`#dbg-overlay` from tiledPdf.js LIFE
+   buffer, `#s97-recorder-panel` from recorder.js, `#arencon-frt-progress`
+   tile-progress, `#arencon-frt-anomaly` anomaly counter) are debug-only:
+   they only spawn when ?dbg=1 OR localStorage._frtDbg='1'. But when
+   debug is active, they're always visible — covering the corners of the
+   canvas. These rules hide them by default and surface them via the
+   floating #diag-toggle button (added in frt/index.html). When
+   `body.diag-show` is present they re-appear.
    ═══════════════════════════════════════════════════════════════════ */
 #dbg-overlay,
-#s97-recorder-panel{display:none !important;}
+#s97-recorder-panel,
+#arencon-frt-progress,
+#arencon-frt-anomaly{display:none !important;}
 body.diag-show #dbg-overlay{display:block !important;}
 body.diag-show #s97-recorder-panel{display:flex !important;}
+body.diag-show #arencon-frt-progress,
+body.diag-show #arencon-frt-anomaly{display:block !important;}
 
 #diag-toggle{
   position:fixed;right:8px;top:8px;
