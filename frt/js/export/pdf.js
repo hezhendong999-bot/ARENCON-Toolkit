@@ -504,7 +504,8 @@ if(isField&&p.drawings&&p.drawings.length){
     aH+='<img class="app-dwg" id="app-dwg-'+dw.id+'" src="" alt="'+esc(dw.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
     aH+='<table class="app-pin-table"><thead><tr><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
     dPins.forEach(function(r){var d=r.d;var sc=_deficIsOpen(d)?'#C0392B':'#1A7A4A';
-      aH+='<tr><td><strong style="color:#9C2742;">#'+d.num+'</strong>'+(d.iar?'<span class="iar">IAR</span>':'')+'</td><td>'+esc(_deficDesc(d)||'\u2014')+'</td><td style="color:'+sc+';font-weight:700;">'+(_deficIsOpen(d)?'Outstanding':'Closed')+'</td><td>'+esc(r.ctr)+'</td></tr>';
+      var iarTag=d.iar?'<div style="margin-top:3px;"><span class="iar" style="margin-left:0;">IAR</span></div>':'';
+      aH+='<tr><td><strong style="color:#9C2742;">#'+d.num+'</strong>'+iarTag+'</td><td>'+esc(_deficDesc(d)||'\u2014')+'</td><td style="color:'+sc+';font-weight:700;">'+(_deficIsOpen(d)?'Outstanding':'Closed')+'</td><td>'+esc(r.ctr)+'</td></tr>';
     });
     aH+='</tbody></table></div></div>';
     pages.push({html:aH,pageNum:curPageNum,isAppendix:true});curPageNum++;
