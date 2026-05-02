@@ -172,7 +172,7 @@ function _allocateCanvas() {
             _webglCanvas = null;
           });
       } else if (_webglReady){
-        try { window.WebGLMarkupRenderer.resize(cw, ch); } catch(_){}
+        try { window.WebGLMarkupRenderer.resize(cw, ch, mkScale); } catch(_){}
       }
     } catch(err){
       console.warn('[Markup] WebGL setup threw — disabling:', err);
@@ -253,7 +253,7 @@ function _resizeMarkupForScale(targetScale) {
     _webglCanvas.width = newW;
     _webglCanvas.height = newH;
     if (_webglReady && window.WebGLMarkupRenderer && window.WebGLMarkupRenderer.resize) {
-      try { window.WebGLMarkupRenderer.resize(newW, newH); } catch(_e) {}
+      try { window.WebGLMarkupRenderer.resize(newW, newH, effective); } catch(_e) {}
     }
   }
 

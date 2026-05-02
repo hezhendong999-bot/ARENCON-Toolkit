@@ -132,9 +132,19 @@
     });
   }
 
-  function resize(w, h){
+  function resize(w, h, dpr){
     if (!_app) return;
     _canvasW = w; _canvasH = h;
+    // S113 Push 14: caller may pass a NEW _dpr (Markup.setRenderScale does
+    // this on viewer-zoom changes). Without it we'd compute logical coord
+    // space using the STALE _dpr from init() — which made objects appear
+    // at the wrong on-canvas position after the very first resize. The
+    // logical (drawing-coordinate) dimensions must stay constant across
+    // resizes; only canvas device pixels and resolution change.
+    if (typeof dpr === 'number' && dpr > 0) {
+      _dpr = dpr;
+      try { if (_app.renderer && _app.renderer.resolution !== undefined) _app.renderer.resolution = dpr; } catch(_){}
+    }
     var logicalW = Math.max(1, w / _dpr);
     var logicalH = Math.max(1, h / _dpr);
     try { _app.renderer.resize(logicalW, logicalH); } catch(_){}
