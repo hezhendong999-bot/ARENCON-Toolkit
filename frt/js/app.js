@@ -423,8 +423,8 @@ function _showInspectorModal() {
     });
   }
   h += '<div style="display:flex;gap:8px;margin-top:12px;">';
-  h += '<button id="insp-ok" style="flex:1;padding:8px;background:#1A7A4A;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Apply</button>';
-  h += '<button id="insp-cancel" style="padding:8px 16px;background:' + _cancelBg + ';color:' + _cancelFg + ';border:1px solid ' + _bdr + ';border-radius:6px;font-size:14px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
+  h += '<button id="insp-ok" class="btn-muted-ok">Apply</button>';
+  h += '<button id="insp-cancel" class="btn-muted-cancel">Cancel</button>';
   h += '</div></div></div>';
 
   var div = document.createElement('div');
@@ -528,9 +528,9 @@ function _showLeaveDialog(destUrl) {
   h += '<div style="font-size:14px;color:#718096;">You have unsaved changes.</div>';
   h += '</div>';
   h += '<div style="display:flex;flex-direction:column;gap:8px;">';
-  h += '<button id="leave-save" style="width:100%;padding:11px;background:#1A7A4A;color:white;border:none;border-radius:8px;font-size:calc(13px + var(--ts));font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Save & Leave</button>';
+  h += '<button id="leave-save" class="btn-muted-ok" style="width:100%;">Save & Leave</button>';
   h += '<button id="leave-nosave" style="width:100%;padding:11px;background:#f9f9f9;color:#2C3E50;border:1.5px solid #CBD5E0;border-radius:8px;font-size:calc(13px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;">Leave without saving</button>';
-  h += '<button id="leave-cancel" style="width:100%;padding:11px;background:white;color:#9C2742;border:1.5px solid #9C2742;border-radius:8px;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;">Cancel \u2014 go back</button>';
+  h += '<button id="leave-cancel" class="btn-muted-cancel" style="width:100%;">Cancel \u2014 go back</button>';
   h += '</div></div></div>';
 
   var div = document.createElement('div');
@@ -919,12 +919,12 @@ function _showCloudDiagnostic() {
   ov.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:12px;';
   var panel = document.createElement('div');
   panel.style.cssText = 'background:#fff;color:#1C2333;max-width:520px;width:100%;max-height:80vh;overflow:auto;border-radius:12px;padding:16px 18px;font-family:Calibri,sans-serif;font-size:14px;box-shadow:0 12px 40px rgba(0,0,0,.4);';
-  var closeHtml = '<button id="cloud-diag-close" style="position:sticky;top:0;float:right;background:#9C2742;color:white;border:none;border-radius:6px;padding:6px 14px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;">Close</button>';
+  var closeHtml = '<button id="cloud-diag-close" class="btn-muted-cancel" style="position:sticky;top:0;float:right;">Close</button>';
   var hdr = '<div style="font-size:16px;font-weight:700;color:#9C2742;margin-bottom:10px;">FRT Diagnostic</div>';
   var body = '<pre style="white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,Menlo,monospace;font-size:12px;margin:0;">' + lines.join('\n').replace(/[<>&]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];}) + '</pre>';
   var signInBtn = '';
   if (_hubMode && !user){
-    signInBtn = '<div style="margin-top:14px;"><button id="cloud-diag-signin" style="background:#1A7A4A;color:white;border:none;border-radius:6px;padding:10px 18px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;width:100%;">Not signed in — Open Hub to sign in</button></div>';
+    signInBtn = '<div style="margin-top:14px;"><button id="cloud-diag-signin" class="btn-muted-ok" style="width:100%;">Not signed in — Open Hub to sign in</button></div>';
   }
   panel.innerHTML = closeHtml + hdr + body + signInBtn;
   ov.appendChild(panel);
@@ -1159,8 +1159,8 @@ function _openPDFPicker() {
 
   // Buttons
   h += '<div style="display:flex;gap:8px;justify-content:flex-end;">';
-  h += '<button id="pdf-cancel" style="padding:8px 20px;background:var(--bg,white);color:var(--fg);border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
-  h += '<button id="pdf-go" style="padding:8px 24px;background:#1A237E;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">\uD83D\uDCC4 Generate PDF</button>';
+  h += '<button id="pdf-cancel" class="btn-muted-cancel">Cancel</button>';
+  h += '<button id="pdf-go" class="btn-muted-ok">\uD83D\uDCC4 Generate PDF</button>';
   h += '</div></div></div>';
 
   var div = document.createElement('div');
@@ -1376,7 +1376,7 @@ function _issueReport() {
 
   // Option 1: Issue
   var issueTarget = _calcIssueRevision(parsed);
-  html += '<button data-issue-action="issue" data-rev="' + issueTarget + '" style="width:100%;padding:12px 16px;border:none;border-radius:8px;background:#1A7A4A;color:white;font-weight:700;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-bottom:10px;text-align:left;">';
+  html += '<button data-issue-action="issue" data-rev="' + issueTarget + '" class="btn-muted-ok" style="width:100%;margin-bottom:10px;text-align:left;padding:12px 16px;font-size:calc(14px + var(--ts));">';
   html += '\uD83D\uDCCB Issue Report<span style="float:right;font-weight:400;opacity:.85;">' + rev + ' \u2192 <b>' + issueTarget + '</b></span></button>';
 
   // Option 2: Revise (only if issued B## without A suffix)
@@ -1394,7 +1394,7 @@ function _issueReport() {
   }
 
   // Cancel
-  html += '<button data-issue-action="cancel" style="width:100%;padding:10px 16px;border:1.5px solid ' + fg2 + ';border-radius:8px;background:none;color:' + fg2 + ';font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;margin-top:4px;">Cancel</button>';
+  html += '<button data-issue-action="cancel" class="btn-muted-cancel" style="width:100%;margin-top:4px;">Cancel</button>';
   html += '</div>';
   modal.innerHTML = html;
 

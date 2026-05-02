@@ -23,7 +23,7 @@ export function showAlert(title, message) {
   return new Promise(function(resolve) {
     var overlay = _createOverlay();
     var modal = _createModal(title, message, [
-      { label: 'OK', color: '#9C2742', action: function() { _removeOverlay(overlay); resolve(); } }
+      { label: 'OK', color: '#1A7A4A', action: function() { _removeOverlay(overlay); resolve(); } }
     ]);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
@@ -41,7 +41,7 @@ export function showConfirm(title, message) {
     var overlay = _createOverlay();
     var modal = _createModal(title, message, [
       { label: 'Yes', color: '#1A7A4A', action: function() { _removeOverlay(overlay); resolve(true); } },
-      { label: 'Cancel', color: '#C0392B', outline: true, action: function() { _removeOverlay(overlay); resolve(false); } }
+      { label: 'Cancel', color: '#C0392B', action: function() { _removeOverlay(overlay); resolve(false); } }
     ]);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
@@ -116,7 +116,8 @@ export function showPrompt(title, label, defaultVal) {
 
     var okBtn = document.createElement('button');
     okBtn.textContent = 'OK';
-    okBtn.style.cssText = 'flex:1;padding:10px;border-radius:8px;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;cursor:pointer;background:#1A7A4A;color:white;border:none;';
+    okBtn.className = 'btn-muted-ok';
+    okBtn.style.cssText = 'flex:1;';
     okBtn.addEventListener('click', function() {
       var val = inp.value.trim();
       _removeOverlay(overlay);
@@ -125,7 +126,8 @@ export function showPrompt(title, label, defaultVal) {
 
     var cancelBtn = document.createElement('button');
     cancelBtn.textContent = 'Cancel';
-    cancelBtn.style.cssText = 'flex:1;padding:10px;border-radius:8px;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;cursor:pointer;background:transparent;color:#C0392B;border:1.5px solid #C0392B;';
+    cancelBtn.className = 'btn-muted-cancel';
+    cancelBtn.style.cssText = 'flex:1;';
     cancelBtn.addEventListener('click', function() {
       _removeOverlay(overlay);
       resolve(null);
@@ -191,16 +193,29 @@ function _createModal(title, message, buttons) {
     buttons.forEach(function(b) {
       var btn = document.createElement('button');
       btn.textContent = b.label;
-      var baseStyle = 'flex:1;padding:10px;border-radius:8px;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;cursor:pointer;';
-      if (b.outline) {
-        btn.style.cssText = baseStyle + 'background:transparent;color:' + b.color + ';border:1.5px solid ' + b.color + ';';
-      } else if (isDark) {
-        // S78: muted dark-mode fill matching S77 chip aesthetic — dark tinted bg, lighter colored text + subtle border
-        var tint = b.color === '#1A7A4A' ? '#15302a' : (b.color === '#C0392B' ? '#3a1a1a' : '#1f2530');
-        var textCol = b.color === '#1A7A4A' ? '#5fbf8f' : (b.color === '#C0392B' ? '#e88a7a' : '#a8b4d0');
-        btn.style.cssText = baseStyle + 'background:' + tint + ';color:' + textCol + ';border:1.5px solid ' + textCol + '40;';
+      // S113 Push 17: detect Yes/OK/Confirm by green color, Cancel/No by
+      // red color, and apply the .btn-muted-ok / .btn-muted-cancel CSS
+      // classes from frt.css. Both dark and light modes are handled
+      // entirely by the CSS class — no inline color logic needed here.
+      // Buttons with other colors (e.g., burgundy for showAlert OK) fall
+      // through to the prior dark/light branches below.
+      if (b.color === '#1A7A4A') {
+        btn.className = 'btn-muted-ok';
+        btn.style.cssText = 'flex:1;';
+      } else if (b.color === '#C0392B') {
+        btn.className = 'btn-muted-cancel';
+        btn.style.cssText = 'flex:1;';
       } else {
-        btn.style.cssText = baseStyle + 'background:' + b.color + ';color:white;border:none;';
+        var baseStyle = 'flex:1;padding:10px;border-radius:8px;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;cursor:pointer;';
+        if (b.outline) {
+          btn.style.cssText = baseStyle + 'background:transparent;color:' + b.color + ';border:1.5px solid ' + b.color + ';';
+        } else if (isDark) {
+          var tint = b.color === '#1A7A4A' ? '#15302a' : (b.color === '#C0392B' ? '#3a1a1a' : '#1f2530');
+          var textCol = b.color === '#1A7A4A' ? '#5fbf8f' : (b.color === '#C0392B' ? '#e88a7a' : '#a8b4d0');
+          btn.style.cssText = baseStyle + 'background:' + tint + ';color:' + textCol + ';border:1.5px solid ' + textCol + '40;';
+        } else {
+          btn.style.cssText = baseStyle + 'background:' + b.color + ';color:white;border:none;';
+        }
       }
       btn.addEventListener('click', b.action);
       btnRow.appendChild(btn);

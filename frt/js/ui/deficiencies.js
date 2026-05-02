@@ -75,8 +75,8 @@ function _showActivityModal(deficId, label) {
   h += '</div></div>';
   // Footer buttons (v1 style: right-aligned, Cancel + Add Entry)
   h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">';
-  h += '<button id="am-cancel" style="padding:8px 20px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg,white);color:var(--fg);cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));">Cancel</button>';
-  h += '<button id="am-save" style="padding:8px 20px;border:none;border-radius:6px;background:#9C2742;color:white;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:700;">Add Entry</button>';
+  h += '<button id="am-cancel" class="btn-muted-cancel">Cancel</button>';
+  h += '<button id="am-save" class="btn-muted-ok">Add Entry</button>';
   h += '</div></div>';
 
   ov.innerHTML = h;
@@ -202,7 +202,7 @@ export function buildDeficCard(d, ctrId) {
     var _dwgs = Model.getDrawings();
     var _dwgName = '';
     for (var _di = 0; _di < _dwgs.length; _di++) { if (_dwgs[_di].id === d.drawingId) { _dwgName = _dwgs[_di].name || 'Drawing'; break; } }
-    h += '<button data-action="view-pin" data-defic-id="' + esc(d.id) + '" style="border:none;background:#2196F3;color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(_dwgName) + '">\uD83D\uDCCC ' + esc(_dwgName) + '</button>';
+    h += '<button data-action="view-pin" data-defic-id="' + esc(d.id) + '" class="defic-dwg-pill" title="' + esc(_dwgName) + '">\uD83D\uDCCC ' + esc(_dwgName) + '</button>';
   } else {
     h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
   }
@@ -757,8 +757,8 @@ document.addEventListener('click', function(e) {
     h2 += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Move #' + f.defic.num + ' to:</div>';
     h2 += '<select id="reassign-sel" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;margin-bottom:12px;background:var(--bg,white);color:var(--fg);">' + opts + '</select>';
     h2 += '<div style="display:flex;gap:8px;justify-content:flex-end;">';
-    h2 += '<button id="reassign-cancel" style="padding:8px 16px;background:var(--bg,white);color:var(--fg);border:1.5px solid var(--border);border-radius:6px;font-size:14px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
-    h2 += '<button id="reassign-ok" style="padding:8px 20px;background:#9C2742;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Move</button>';
+    h2 += '<button id="reassign-cancel" class="btn-muted-cancel">Cancel</button>';
+    h2 += '<button id="reassign-ok" class="btn-muted-ok">Move</button>';
     h2 += '</div></div></div>';
     var d2 = document.createElement('div'); d2.innerHTML = h2;
     var ov2 = d2.firstChild; document.body.appendChild(ov2);
@@ -958,8 +958,8 @@ document.addEventListener('change', function(e) {
           h2 += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Assign #' + dnum + ' to contractor:</div>';
           h2 += '<select id="reassign-sel" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;margin-bottom:12px;background:var(--bg,white);color:var(--fg);">' + opts + '</select>';
           h2 += '<div style="display:flex;gap:8px;justify-content:flex-end;">';
-          h2 += '<button id="reassign-cancel" style="padding:8px 16px;background:var(--bg,white);color:var(--fg);border:1.5px solid var(--border);border-radius:6px;font-size:14px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel</button>';
-          h2 += '<button id="reassign-ok" style="padding:8px 20px;background:#9C2742;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Assign</button>';
+          h2 += '<button id="reassign-cancel" class="btn-muted-cancel">Cancel</button>';
+          h2 += '<button id="reassign-ok" class="btn-muted-ok">Assign</button>';
           h2 += '</div></div></div>';
           var d2 = document.createElement('div'); d2.innerHTML = h2;
           var ov2 = d2.firstChild; document.body.appendChild(ov2);

@@ -3639,3 +3639,71 @@ body.dark-mode .pin-kanban-card .pkc-drawing{color:#707a90;}
 body.dark-mode .pins-kanban-col{background:#1e2028;border-color:#33373f;}
 body.dark-mode .pins-kanban-col-header .col-count{background:rgba(255,255,255,.1);color:#c0c8e0;}
 @media(max-width:700px){.pins-kanban-board{flex-direction:column;}.pins-kanban-col{min-height:80px;}}
+
+/* ═══════════════════════════════════════════════════════════════════
+   S113 Push 17 — Muted modal button styles + drawing pill dark mode
+   Mark wants ALL OK/Cancel buttons to match the muted action-button
+   aesthetic (.defic-act-btn.act-close, .defic-act-btn.act-remove —
+   muted filled chips). The .btn-muted-ok / .btn-muted-cancel classes
+   defined here replace every inline OK/Cancel/Confirm/Apply/Cancel
+   style across modals.
+   ═══════════════════════════════════════════════════════════════════ */
+.btn-muted-ok,
+.btn-muted-cancel {
+  padding:8px 18px;
+  border-radius:6px;
+  font-family:Calibri,sans-serif;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  transition:background .15s, border-color .15s, opacity .15s;
+}
+.btn-muted-ok {
+  background:rgba(26,122,74,.06);
+  color:#1A7A4A;
+  border:1.5px solid rgba(26,122,74,.35);
+}
+.btn-muted-ok:hover { background:rgba(26,122,74,.14); border-color:#1A7A4A; }
+.btn-muted-cancel {
+  background:rgba(192,57,43,.04);
+  color:#C0392B;
+  border:1.5px solid rgba(192,57,43,.25);
+}
+.btn-muted-cancel:hover { background:rgba(192,57,43,.10); border-color:#C0392B; }
+body.dark-mode .btn-muted-ok {
+  background:#1a2e22; color:#80c8a0; border-color:rgba(128,200,160,.25);
+}
+body.dark-mode .btn-muted-ok:hover { background:#22402e; border-color:#80c8a0; }
+body.dark-mode .btn-muted-cancel {
+  background:#2e1a1a; color:#e08080; border-color:rgba(224,128,128,.25);
+}
+body.dark-mode .btn-muted-cancel:hover { background:#402222; border-color:#e08080; }
+
+/* Drawing-name pill on deficiency cards — bright #2196F3 in light mode
+   (unchanged), muted blue in dark mode so it doesn't burn the eyes. */
+.defic-dwg-pill {
+  border:none;
+  background:#2196F3;
+  color:white;
+  border-radius:4px;
+  padding:2px 8px;
+  font-size:calc(10px + var(--ts));
+  font-family:Calibri,sans-serif;
+  font-weight:600;
+  cursor:pointer;
+  max-width:260px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.defic-dwg-pill:hover { background:#1976D2; }
+body.dark-mode .defic-dwg-pill {
+  background:#1a2438 !important;
+  color:#80a8d8 !important;
+  border:1px solid rgba(128,168,216,.25) !important;
+}
+body.dark-mode .defic-dwg-pill:hover {
+  background:#22304a !important;
+  border-color:rgba(128,168,216,.5) !important;
+}
+
