@@ -3473,12 +3473,33 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
   margin:0 !important;
   overflow:hidden !important;
 }
-/* The toolbar's flex-distribution previously expected dv-title-wrap to
-   absorb middle space. Push the right-side group to the right. */
-.drawing-viewer-overlay .dv-toolbar > div:last-child{margin-left:auto !important;}
+/* Push the right cluster (Layers, Tasks, More, Spacer, Undo, Redo,
+   Actions, Dark) to the right side of the toolbar. The S79 v5 rule
+   already does this @media (max-width:900px); promoted unconditional
+   so desktop also gets the right-aligned cluster now that the title
+   widget is hidden and no longer absorbs middle space. */
+.drawing-viewer-overlay .dv-toolbar > div:has(#dv-layers-btn){margin-left:auto !important;}
+.drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{margin-left:0 !important;}
 
-/* 2. Bottombar visible on every screen size. */
-.drawing-viewer-overlay #dv-bottombar-v75{display:flex !important;}
+/* 2. Bottombar visible on every screen size, with the same layout
+   primitives that previously only applied @media max-width:900. */
+.drawing-viewer-overlay #dv-bottombar-v75{
+  display:flex !important;
+  align-items:center;gap:8px;
+  background:#fff;padding:8px 10px;
+  border-top:1px solid #d6d9e0;
+  flex-shrink:0;font-family:Calibri,sans-serif;
+  order:2;
+}
+body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75{
+  background:#2a2d35;border-top-color:#3a3d45;
+}
+/* Override the @media(pointer:coarse) zoom-hide rule from line ~3344 —
+   we keep zoom controls visible on every device now that they're on the
+   right side of the title, where they don't conflict with prev/next. */
+html body .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom{
+  display:flex !important;gap:4px;flex-shrink:0;
+}
 
 /* 3. Standardized name pill — these used to live inside @media max-width:900.
    Promoted out so all screens render at the same size and same shape. */
@@ -3528,6 +3549,46 @@ body.dark-mode .drawing-viewer-overlay #dv-bb-rename:hover{color:#fff;}
   .drawing-viewer-overlay #dv-bb-namepill{padding:10px 14px;}
 }
 
-/* 4. Floating nav-controls retired — bottombar carries it on all screens. */
-.drawing-viewer-overlay .dv-nav-controls{display:none !important;}
+/* 4. Floating nav-controls retired — bottombar carries it on all screens.
+   High specificity needed to override the existing @media(pointer:fine)
+   rule that uses `html body .drawing-viewer-overlay .dv-nav-controls`. */
+html body .drawing-viewer-overlay .dv-nav-controls,
+html body .drawing-viewer-overlay #dv-nav-controls{display:none !important;}
+
+/* 5. Bottombar tasks pill: redundant — top toolbar has the 📌 button.
+   Was hidden only on mobile previously; now hidden everywhere since the
+   bottombar appears on all screen sizes. */
+.drawing-viewer-overlay #dv-bb-tasks{display:none !important;}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   S113 Push 7 — Debug panel toggle
+   Both diagnostic panels (`#dbg-overlay` from tiledPdf.js LIFE buffer,
+   `#s97-recorder-panel` from recorder.js) are debug-only: they only
+   spawn when ?dbg=1 OR localStorage._frtDbg='1'. But when debug is
+   active, they're always visible — covering the corners of the canvas.
+   These rules hide them by default and surface them via the floating
+   #diag-toggle button (added in frt/index.html). When `body.diag-show`
+   is present they re-appear.
+   ═══════════════════════════════════════════════════════════════════ */
+#dbg-overlay,
+#s97-recorder-panel{display:none !important;}
+body.diag-show #dbg-overlay{display:block !important;}
+body.diag-show #s97-recorder-panel{display:flex !important;}
+
+#diag-toggle{
+  position:fixed;right:8px;top:8px;
+  z-index:2147483647;
+  width:26px;height:26px;border-radius:50%;
+  background:rgba(0,0,0,.4);color:#fff;
+  border:1px solid rgba(255,255,255,.25);
+  font-size:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  padding:0;line-height:1;
+  opacity:0.35;transition:opacity .15s, background .15s;
+  -webkit-tap-highlight-color:transparent;
+  font-family:Calibri,sans-serif;
+}
+#diag-toggle:hover{opacity:1;}
+body.diag-show #diag-toggle{opacity:1;background:#1A7A4A;border-color:#1A7A4A;}
 

@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=220">
+<link rel="stylesheet" href="css/frt.css?v=221">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -736,22 +736,25 @@ function ensurePdfJs(cb){
       <button id="dv-heights-save" class="dv-heights-save-btn">💾 Save</button>
     </div>
   </div>
-    <!-- Session 75 Push 4: bottom bar (page nav + name pill + Tasks pill) -->
+    <!-- Session 75 Push 4: bottom bar (page nav + name pill + Tasks pill)
+         S113: layout finalized as nav | namepill | zoom | tasks.
+         - Prev/next stays on the left
+         - Title in the center (already)
+         - Zoom +/-/fit moved to the RIGHT of title (was leftmost)
+         - Redundant fit button (formerly inside .dv-bb-nav) removed -->
     <div id="dv-bottombar-v75">
-      <!-- S81: zoom group at bottom-left, + before - -->
-      <div class="dv-bb-zoom" title="Zoom controls">
-        <button data-zoom="in" title="Zoom in">+</button>
-        <button data-zoom="out" title="Zoom out">−</button>
-        <button data-zoom="fit" title="Fit to screen">⊡</button>
-      </div>
       <div class="dv-bb-nav">
         <button id="dv-bb-prev" title="Previous drawing">◀</button>
         <button id="dv-bb-next" title="Next drawing">▶</button>
-        <button id="dv-bb-fit" data-zoom="fit" title="Fit to screen">⊡</button>
       </div>
       <div id="dv-bb-namepill" class="dv-bb-namepill">
         <span id="dv-bb-name" class="dv-bb-name"></span>
         <button id="dv-bb-rename" class="dv-bb-rename" title="Rename">✏️</button>
+      </div>
+      <div class="dv-bb-zoom" title="Zoom controls">
+        <button data-zoom="in" title="Zoom in">+</button>
+        <button data-zoom="out" title="Zoom out">−</button>
+        <button data-zoom="fit" title="Fit to screen">⊡</button>
       </div>
       <button id="dv-bb-tasks" class="dv-bb-tasks" title="Tasks">
         <span class="dv-bb-tasks-icon">📌</span>
@@ -1109,6 +1112,31 @@ function ensurePdfJs(cb){
     }, {passive:true, capture:true});
     document.addEventListener('mousemove', setMouse, {passive:true, capture:true});
   })();
+})();
+</script>
+
+<!-- S113 Push 7 — Floating debug-panel toggle. Only renders when debug
+     mode is on (?dbg=1 or localStorage._frtDbg='1'). Top-right corner,
+     small + faded. Click toggles `body.diag-show` which the CSS uses to
+     show/hide the LIFE green panel and S97 recorder panel together. -->
+<button type="button" id="diag-toggle" title="Toggle debug panels" style="display:none;">🔍</button>
+<script>
+(function(){
+  var dbgOn = false;
+  try {
+    dbgOn = /[?&]dbg=1\b/.test(window.location.search || '') ||
+            (window.localStorage && localStorage.getItem('_frtDbg') === '1');
+  } catch(_e) { /* private mode etc */ }
+  var btn = document.getElementById('diag-toggle');
+  if (!btn) return;
+  if (!dbgOn) {
+    // Debug mode off — neither the toggle nor the panels exist. Leave hidden.
+    return;
+  }
+  btn.style.display = 'flex';
+  btn.addEventListener('click', function(){
+    document.body.classList.toggle('diag-show');
+  });
 })();
 </script>
 </body>
