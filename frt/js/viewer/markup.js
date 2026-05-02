@@ -498,9 +498,15 @@ function _drawObjectRaw(ctx, obj) {
     return;
   }
   else if (t === 'text') {
-    // Apply rotation if present
+    // Apply rotation if present. Pivot is the text's VISUAL CENTER
+    // (anchor + half-estimated-width, half-fontSize above baseline) so
+    // rotation appears to spin the text in place. The previous pivot of
+    // (x1, y1-fs/2) was the left-center, which made text swing around
+    // its left edge instead.
     if (obj.rotation) {
-      var tcx = obj.x1, tcy = obj.y1 - (obj.fontSize || 20) / 2;
+      var fs_t = obj.fontSize || 20;
+      var estW_t = (obj.text || '').length * fs_t * 0.55;
+      var tcx = obj.x1 + estW_t / 2, tcy = obj.y1 - fs_t / 2;
       ctx.translate(tcx, tcy);
       ctx.rotate(obj.rotation);
       ctx.translate(-tcx, -tcy);
@@ -603,6 +609,32 @@ function _distSqPtSeg(px, py, ax, ay, bx, by) {
   var qx = ax + t * dx, qy = ay + t * dy;
   var fx = px - qx, fy = py - qy;
   return fx * fx + fy * fy;
+}
+
+// Min distance² between segments (a→b) and (c→d). Returns 0 if they cross.
+// Used by _strokeHitByEraser for highlighter / polyline so a fast eraser
+// stroke whose sparse vertices land between sparse highlight vertices
+// still registers when the segments visually pass close enough.
+function _segDistSq(a, b, c, d) {
+  var dx1 = b.x - a.x, dy1 = b.y - a.y;
+  var dx2 = d.x - c.x, dy2 = d.y - c.y;
+  var det = dx1 * dy2 - dy1 * dx2;
+  if (Math.abs(det) > 1e-9) {
+    var nx = a.x - c.x, ny = a.y - c.y;
+    var t = (nx * dy2 - ny * dx2) / -det;
+    var u = (nx * dy1 - ny * dx1) / -det;
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) return 0;
+  }
+  // No intersection — min of four endpoint-to-other-segment distances
+  var d1 = _distSqPtSeg(a.x, a.y, c.x, c.y, d.x, d.y);
+  var d2 = _distSqPtSeg(b.x, b.y, c.x, c.y, d.x, d.y);
+  var d3 = _distSqPtSeg(c.x, c.y, a.x, a.y, b.x, b.y);
+  var d4 = _distSqPtSeg(d.x, d.y, a.x, a.y, b.x, b.y);
+  var m = d1;
+  if (d2 < m) m = d2;
+  if (d3 < m) m = d3;
+  if (d4 < m) m = d4;
+  return m;
 }
 
 // True if any portion of segment p1→p2 lies inside the axis-aligned bbox
@@ -795,17 +827,31 @@ function _applyEraser(eraserPts, lineWidth) {
   }
 }
 
-// Did the eraser touch any point along a freehand stroke polyline?
+// Did the eraser come within eraserR of any part of the stroke polyline?
+// Tests segment-pair minimum distance — robust against sparse vertices on
+// either side. Falls back to vertex-only test for degenerate single-point
+// strokes.
 function _strokeHitByEraser(obj, eraserPts, eraserR2) {
   var pts = obj.points;
   if (!pts || pts.length < 1) return false;
-  for (var i = 0; i < pts.length; i++) {
-    if (_pointHitByEraser(pts[i].x, pts[i].y, eraserPts, eraserR2)) return true;
+  // Single-point stroke: only point-to-segment / point-to-point checks
+  if (pts.length === 1) {
+    return _pointHitByEraser(pts[0].x, pts[0].y, eraserPts, eraserR2);
   }
-  // Also sample segment midpoints — catches eraser crossing between sparse vertices
-  for (var j = 0; j < pts.length - 1; j++) {
-    var mx = (pts[j].x + pts[j + 1].x) / 2, my = (pts[j].y + pts[j + 1].y) / 2;
-    if (_pointHitByEraser(mx, my, eraserPts, eraserR2)) return true;
+  if (eraserPts.length === 1) {
+    // Single-point eraser: check distance to each stroke segment
+    var ex = eraserPts[0].x, ey = eraserPts[0].y;
+    for (var k = 0; k < pts.length - 1; k++) {
+      if (_distSqPtSeg(ex, ey, pts[k].x, pts[k].y, pts[k+1].x, pts[k+1].y) <= eraserR2) return true;
+    }
+    return false;
+  }
+  // Pair-segment minimum-distance — both polylines have ≥2 points
+  for (var i = 0; i < pts.length - 1; i++) {
+    var sa = pts[i], sb = pts[i + 1];
+    for (var j = 0; j < eraserPts.length - 1; j++) {
+      if (_segDistSq(sa, sb, eraserPts[j], eraserPts[j + 1]) <= eraserR2) return true;
+    }
   }
   return false;
 }
@@ -923,7 +969,30 @@ function _getBounds(obj) {
     var fs = obj.fontSize || 20;
     var txtLen = (obj.text || '').length;
     var estW = txtLen * fs * 0.55; // Approximate text width
-    return { x1: obj.x1, y1: obj.y1 - fs, x2: obj.x1 + estW, y2: obj.y1 + 4 };
+    var bx1t = obj.x1, by1t = obj.y1 - fs;
+    var bx2t = obj.x1 + estW, by2t = obj.y1 + 4;
+    var rotT = obj.rotation || 0;
+    if (rotT) {
+      // Rotation pivot must match the render path: visual center
+      // (x1 + estW/2, y1 - fs/2). Bounds = AABB of the four rotated
+      // corners. Without this, selection box / hit-test reference the
+      // un-rotated rectangle even though the visible text has spun.
+      var ctx_ = obj.x1 + estW / 2, cty_ = obj.y1 - fs / 2;
+      var ct = Math.cos(rotT), st = Math.sin(rotT);
+      var cornersT = [[bx1t, by1t], [bx2t, by1t], [bx2t, by2t], [bx1t, by2t]];
+      var rxMinT = Infinity, ryMinT = Infinity, rxMaxT = -Infinity, ryMaxT = -Infinity;
+      for (var ti = 0; ti < 4; ti++) {
+        var ddxT = cornersT[ti][0] - ctx_, ddyT = cornersT[ti][1] - cty_;
+        var rxT = ctx_ + ddxT * ct - ddyT * st;
+        var ryT = cty_ + ddxT * st + ddyT * ct;
+        if (rxT < rxMinT) rxMinT = rxT;
+        if (ryT < ryMinT) ryMinT = ryT;
+        if (rxT > rxMaxT) rxMaxT = rxT;
+        if (ryT > ryMaxT) ryMaxT = ryT;
+      }
+      return { x1: rxMinT, y1: ryMinT, x2: rxMaxT, y2: ryMaxT };
+    }
+    return { x1: bx1t, y1: by1t, x2: bx2t, y2: by2t };
   }
   if (obj.points && obj.points.length) {
     // Point-based objects (pen/highlight/polyline): rotation already
@@ -1489,6 +1558,20 @@ function _handleSelectMove(e) {
       if (orig.points) {
         // Point-based objects: rotate actual coordinates (pen, highlight, polyline, eraser)
         obj.points = orig.points.map(function(p) { return rot(p.x, p.y); });
+      } else if (orig.type === 'text') {
+        // Text: visual center is (x1 + estW/2, y1 - fs/2). Rotate that
+        // point around the group pivot to get the new visual center,
+        // derive the new anchor from it, accumulate obj.rotation. Do NOT
+        // write x2/y2 — text doesn't carry them, and the previous shape
+        // branch was corrupting text data by treating undefined x2/y2 as 0.
+        var fs_r = orig.fontSize || 20;
+        var estW_r = (orig.text || '').length * fs_r * 0.55;
+        var origCxT = orig.x1 + estW_r / 2;
+        var origCyT = orig.y1 - fs_r / 2;
+        var newCT = rot(origCxT, origCyT);
+        obj.x1 = newCT.x - estW_r / 2;
+        obj.y1 = newCT.y + fs_r / 2;
+        obj.rotation = (orig.rotation || 0) + dAngle;
       } else if (orig.x1 != null) {
         // Shape objects: store rotation angle, keep coordinates unchanged
         // Rotate center position around the group center
