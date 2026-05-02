@@ -1380,6 +1380,25 @@ function _handleSelectDown(e) {
 
   var hit = _hitTestObjects(pos);
   if (hit) {
+    // S113: Ctrl/Cmd+click toggles membership in the multi-selection.
+    // Desktop convention — Ctrl on Windows/Linux, Cmd on macOS. No drag
+    // is started on toggle; the user picks all the objects they want
+    // first, then drags any one of them (without modifier) to move the
+    // group.
+    var multiKey = !!(e && (e.ctrlKey || e.metaKey));
+    if (multiKey) {
+      var existingIdx = _selectedIds.indexOf(hit.id);
+      if (existingIdx !== -1) {
+        // Already in selection — remove it
+        _selectedIds.splice(existingIdx, 1);
+      } else {
+        // Add to selection
+        _selectedIds.push(hit.id);
+      }
+      _dragState = null;
+      _renderAll();
+      return;
+    }
     // Clicked an object — select it for move (including text)
     if (_selectedIds.indexOf(hit.id) !== -1) {
       // Already selected — start dragging the group

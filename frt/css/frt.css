@@ -2882,11 +2882,14 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:#1E293B;
   }
 }
 
-/* === Session 76 — Cloud sync dot pulse (subtle variant) === */
+/* === Session 76 — Cloud sync dot pulse (subtle variant) ===
+   S113: extended to .dv-cloud-dot (drawing-viewer header) so it matches
+   the FRT main-header dot. */
 #cloud-status{overflow:visible !important;}
-#cloud-dot,#pb-cloud-dot{position:relative;z-index:1;box-shadow:0 0 0 0 rgba(52,211,153,.5);animation:cloudPulse 2s ease-out infinite;}
+.dv-cloud-status{overflow:visible;}
+#cloud-dot,#pb-cloud-dot,.dv-cloud-dot{position:relative;z-index:1;box-shadow:0 0 0 0 rgba(52,211,153,.5);animation:cloudPulse 2s ease-out infinite;}
 @keyframes cloudPulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.5);}70%{box-shadow:0 0 0 7px rgba(52,211,153,0);}100%{box-shadow:0 0 0 7px rgba(52,211,153,0);}}
-@media (prefers-reduced-motion:reduce){#cloud-dot,#pb-cloud-dot{animation:none;box-shadow:none;}}
+@media (prefers-reduced-motion:reduce){#cloud-dot,#pb-cloud-dot,.dv-cloud-dot{animation:none;box-shadow:none;}}
 
 /* === Session 76 Push 9 — Strip toolbar button hatches (back button keeps its chip) === */
 .drawing-viewer-overlay .dv-toolbar button:not(#dv-close):not(#dv-rename-btn){
@@ -3441,3 +3444,90 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:#1E293
 .drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-txt{
   font-weight:400 !important;font-size:15px !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   S113 — Drawing viewer chrome consistency (Mark feedback May 2026)
+   ─────────────────────────────────────────────────────────────────
+   1. Title always at the bottom (in #dv-bb-namepill), not in the top
+      toolbar. The top .dv-title-wrap becomes invisible but stays in DOM
+      so the existing MutationObserver in frt/index.html keeps mirroring
+      title changes into #dv-bb-name.
+   2. Bottombar shows on every screen size (was @media max-width:900 only).
+      That gives prev/next + fit + name pill across desktop, tablet,
+      phone, every orientation.
+   3. Bottombar text size standardized at calc(13px + var(--ts)) — was
+      flat 12px-or-13px at different breakpoints, looked smaller on
+      desktop than on phone.
+   4. Floating .dv-nav-controls (PC-only prev/next at canvas BL) is
+      retired in favor of the unified bottombar approach. Hidden
+      everywhere; the bottombar carries its job now.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 1. Hide the top-toolbar title widget. Keep it in DOM (no display:none
+   on the wrap so JS that reads/writes #dv-title doesn't break). */
+.drawing-viewer-overlay .dv-toolbar .dv-title-wrap{
+  visibility:hidden !important;
+  width:0 !important;
+  flex:0 0 0 !important;
+  padding:0 !important;
+  margin:0 !important;
+  overflow:hidden !important;
+}
+/* The toolbar's flex-distribution previously expected dv-title-wrap to
+   absorb middle space. Push the right-side group to the right. */
+.drawing-viewer-overlay .dv-toolbar > div:last-child{margin-left:auto !important;}
+
+/* 2. Bottombar visible on every screen size. */
+.drawing-viewer-overlay #dv-bottombar-v75{display:flex !important;}
+
+/* 3. Standardized name pill — these used to live inside @media max-width:900.
+   Promoted out so all screens render at the same size and same shape. */
+.drawing-viewer-overlay #dv-bb-namepill{
+  flex:1;min-width:0;
+  background:#f5f6f8;border:1px solid #d6d9e0;border-radius:18px;
+  padding:7px 14px;display:flex;align-items:center;justify-content:center;gap:6px;
+  font-family:Calibri,sans-serif;
+  font-size:calc(13px + var(--ts));
+  color:#1B2438;
+}
+body.dark-mode .drawing-viewer-overlay #dv-bb-namepill{
+  background:#1f222a;border-color:#3a3d45;color:#e8eaed;
+}
+.drawing-viewer-overlay #dv-bb-name{
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
+  font-size:inherit;
+}
+.drawing-viewer-overlay #dv-bb-rename{
+  background:none;border:none;color:#888;cursor:pointer;
+  font-size:calc(13px + var(--ts));padding:0 2px;line-height:1;
+}
+.drawing-viewer-overlay #dv-bb-rename:hover{color:#1C2333;}
+body.dark-mode .drawing-viewer-overlay #dv-bb-rename:hover{color:#fff;}
+
+/* Unified prev/next/fit button styling so they look the same on every
+   screen size (was different at <900 vs ≥900). */
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav{
+  display:flex !important;gap:4px !important;flex-shrink:0;
+}
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button,
+.drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-fit{
+  width:36px;height:36px;border-radius:6px;
+  background:#2a3448;color:#fff;border:1px solid #3a4660;
+  font-size:14px;cursor:pointer;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 6px rgba(15,23,42,.35);
+}
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:hover,
+.drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-fit:hover{background:#9C2742;}
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:disabled{
+  opacity:.4;cursor:not-allowed;
+}
+@media(pointer:coarse){
+  .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button,
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-fit{width:44px;height:44px;}
+  .drawing-viewer-overlay #dv-bb-namepill{padding:10px 14px;}
+}
+
+/* 4. Floating nav-controls retired — bottombar carries it on all screens. */
+.drawing-viewer-overlay .dv-nav-controls{display:none !important;}
+
