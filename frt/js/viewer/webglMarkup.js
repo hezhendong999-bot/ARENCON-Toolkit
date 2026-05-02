@@ -162,12 +162,24 @@
   }
 
   // ─── Main render ────────────────────────────────────────────────────────
+  // S113 Push 10: per-render effective scale (display size / drawing size).
+  // Set by markup.js's render-caller. All stroke widths get divided by it
+  // so on-screen widths are constant across zoom levels — same behavior
+  // as the Canvas 2D path (markup.js _scaleAdjustedLineWidth).
+  var _renderScale = 1;
+  function _adj(w){
+    if (_renderScale > 0 && _renderScale !== 1) return w / _renderScale;
+    return w;
+  }
+
   function render(objects, opts){
     if (!_app || !_stage) return;
     var PIXI = window.PIXI;
     if (!PIXI) return;
     opts = opts || {};
     var hlAlpha = opts.hlAlpha != null ? opts.hlAlpha : 0.3;
+    _renderScale = (typeof opts.effectiveScale === 'number' && opts.effectiveScale > 0)
+      ? opts.effectiveScale : 1;
 
     _wipeStage();
 
@@ -214,7 +226,7 @@
     if (!obj.points || obj.points.length < 2) return null;
     var g = new PIXI.Graphics();
     g.lineStyle({
-      width: obj.size || 2,
+      width: _adj(obj.size || 2),
       color: hexToInt(obj.color || '#C0392B'),
       alpha: obj.opacity != null ? obj.opacity : 1,
       cap: 'round',
@@ -235,7 +247,7 @@
     if (!obj.points || obj.points.length < 2) return null;
     var g = new PIXI.Graphics();
     g.lineStyle({
-      width: (obj.size || 2) * 3,
+      width: _adj((obj.size || 2) * 3),
       color: 0xFFFFFF,         // color irrelevant under ERASE blend (only src alpha matters)
       alpha: 1,
       cap: 'round',
@@ -261,7 +273,7 @@
     var col = hexToInt(obj.color || '#C0392B');
     var alpha = obj.opacity != null ? obj.opacity : 1;
     var size = obj.size || 2;
-    var line = { width: size, color: col, alpha: alpha, cap: 'round', join: 'round' };
+    var line = { width: _adj(size), color: col, alpha: alpha, cap: 'round', join: 'round' };
 
     if (t === 'rect'){
       g.lineStyle(line);
@@ -386,7 +398,7 @@
       var m = obj.eraserMask[i];
       if (!m.points || m.points.length < 2) continue;
       g.lineStyle({
-        width: (m.size || 2) * 3,
+        width: _adj((m.size || 2) * 3),
         color: 0xFFFFFF,
         alpha: 1,
         cap: 'round',
@@ -523,7 +535,7 @@
         if (!obj.points || obj.points.length < 2) continue;
         var g = new PIXI.Graphics();
         g.lineStyle({
-          width: (obj.size || 2) * 4,
+          width: _adj((obj.size || 2) * 4),
           color: hexToInt(obj.color || '#F1C40F'),
           alpha: 1,
           cap: 'round',

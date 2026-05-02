@@ -226,19 +226,23 @@ function _getPos(e) {
   return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
 }
 
-// ── Scale-adjusted line width (S113 Push 9) ─────────────
-// At fit zoom, the viewer applies CSS `transform: scale(0.2..0.3)` to the
-// canvas wrap. A 3-canvas-pixel pen stroke becomes < 1 CSS pixel wide and
-// the browser anti-aliases it into invisible grey haze. Fix: when the
-// effective scale is below 1, fatten the stroke in canvas-pixel space so
-// it survives the downsample at a minimum visible width on screen.
+// ── Scale-adjusted line width (S113 Push 9, refined Push 10) ───
+// At fit zoom, the viewer applies CSS `transform: scale()` to the canvas
+// wrap. Without compensation, a stroke drawn at `obj.size` canvas pixels
+// becomes `obj.size * scale` CSS pixels on screen — at fit-zoom (~0.22×
+// on a 6144×viewport setup) that's ~0.7 CSS px and the browser's bilinear
+// downsample turns it into invisible grey. Push 9 over-corrected with a
+// 1.5-CSS-px floor that made strokes appear visibly thicker than 1:1
+// zoom; Mark explicitly asked for "match at all zoom levels".
 //
-// Effective scale is derived from the canvas's own getBoundingClientRect
-// (CSS px on screen) divided by its logical width (drawing px). No
-// dependency on viewer.js, no event hooks, no risk of stale values.
+// Push 10 formula: `lineWidth = rawSize / scale`. This makes the
+// on-screen rendered width = `rawSize × scale × (1/scale)` = `rawSize`
+// CSS pixels. Same width on screen at every zoom level — true constant.
 //
-// Cached per render frame in _scaleCache (cleared by _renderAll). Avoids
-// hundreds of synchronous layout reads when there are many objects.
+// Effective scale derived from the canvas's getBoundingClientRect /
+// _logicalW. Cached per render frame in _scaleCache (cleared at top of
+// _renderAll) so multi-object renders only do one synchronous layout
+// read.
 var _scaleCache = null;
 function _getEffectiveScale() {
   if (_scaleCache != null) return _scaleCache;
@@ -251,15 +255,14 @@ function _getEffectiveScale() {
 }
 function _clearScaleCache() { _scaleCache = null; }
 
-// Returns max(rawSize, 1.5/effectiveScale) when effectiveScale < 1.
-// At scale 1+ returns rawSize unchanged. Target floor is 1.5 CSS px wide
-// after the wrap's downsample so strokes are clearly visible without
-// looking aggressively chunky.
+// `rawSize / scale` — produces constant on-screen line width across every
+// zoom level. At scale 1, returns rawSize unchanged. At scale 0.5,
+// returns 2×rawSize. At scale 2, returns rawSize/2. Degenerate scales
+// (≤ 0) return rawSize as a safety fallback.
 function _scaleAdjustedLineWidth(rawSize) {
   var s = _getEffectiveScale();
-  if (s >= 1 || s <= 0) return rawSize;
-  var floor = 1.5 / s;
-  return rawSize > floor ? rawSize : floor;
+  if (s <= 0) return rawSize;
+  return rawSize / s;
 }
 
 // ── Undo / Redo ─────────────────────────────────────────
@@ -328,7 +331,11 @@ function _renderAll() {
 
   if (useWebGLNow){
     try {
-      window.WebGLMarkupRenderer.render(_objects, { dpr: dpr, hlAlpha: 0.3 });
+      window.WebGLMarkupRenderer.render(_objects, {
+        dpr: dpr,
+        hlAlpha: 0.3,
+        effectiveScale: _getEffectiveScale()
+      });
     } catch(err){
       console.warn('[Markup] WebGL render threw — disabling for this session:', err);
       _useWebGL = false;
@@ -389,7 +396,7 @@ function _renderAll() {
           oc2.clearRect(0, 0, off2.width, off2.height);
           oc2.setTransform(dpr, 0, 0, dpr, 0, 0);
           oc2.strokeStyle = obj.color || '#F1C40F';
-          oc2.lineWidth = (obj.size || 2) * 4;
+          oc2.lineWidth = _scaleAdjustedLineWidth((obj.size || 2) * 4);
           oc2.lineCap = 'round';
           oc2.lineJoin = 'round';
           oc2.globalAlpha = 1;
@@ -406,7 +413,7 @@ function _renderAll() {
             for (var mi = 0; mi < obj.eraserMask.length; mi++) {
               var m = obj.eraserMask[mi];
               if (!m.points || m.points.length < 2) continue;
-              oc2.lineWidth = (m.size || 2) * 3;
+              oc2.lineWidth = _scaleAdjustedLineWidth((m.size || 2) * 3);
               oc2.beginPath();
               oc2.moveTo(m.points[0].x, m.points[0].y);
               for (var mj = 1; mj < m.points.length; mj++) oc2.lineTo(m.points[mj].x, m.points[mj].y);
@@ -496,7 +503,7 @@ function _drawObjectMasked(ctx, obj) {
   for (var i = 0; i < obj.eraserMask.length; i++) {
     var m = obj.eraserMask[i];
     if (!m.points || m.points.length < 2) continue;
-    oc.lineWidth = (m.size || 2) * 3;
+    oc.lineWidth = _scaleAdjustedLineWidth((m.size || 2) * 3);
     oc.beginPath();
     oc.moveTo(m.points[0].x, m.points[0].y);
     for (var j = 1; j < m.points.length; j++) oc.lineTo(m.points[j].x, m.points[j].y);
@@ -559,7 +566,7 @@ function _drawObjectRaw(ctx, obj) {
   else if (t === 'eraser') {
     if (!obj.points || obj.points.length < 2) { ctx.restore(); return; }
     ctx.globalCompositeOperation = 'destination-out';
-    ctx.lineWidth = (obj.size || 2) * 3;
+    ctx.lineWidth = _scaleAdjustedLineWidth((obj.size || 2) * 3);
     ctx.beginPath();
     ctx.moveTo(obj.points[0].x, obj.points[0].y);
     for (var e2 = 1; e2 < obj.points.length; e2++) ctx.lineTo(obj.points[e2].x, obj.points[e2].y);
@@ -809,8 +816,14 @@ function _pushMask(obj, eraserPts, lineWidth) {
 //   so the eraser's EXACT path is carved from the object's pixels, regardless of stroke width
 function _applyEraser(eraserPts, lineWidth) {
   if (!eraserPts || eraserPts.length < 2) return;
-  // Eraser hit radius matches the visual line in 2D: (size||2)*3 / 2
-  var eraserR = ((lineWidth || 2) * 3) / 2;
+  // S113 Push 10: hit radius must match the eraser's VISUAL width at the
+  // user's current zoom. Visual width = (lineWidth*3) / scale (constant
+  // on-screen). So radius is half of that scaled value. Otherwise at fit
+  // zoom the user would see a 9-CSS-px eraser preview but the hit test
+  // would only fire within ~1 CSS px of the pointer path — feels broken.
+  _clearScaleCache();
+  var visibleEraserWidth = _scaleAdjustedLineWidth((lineWidth || 2) * 3);
+  var eraserR = visibleEraserWidth / 2;
   var eraserR2 = eraserR * eraserR;
 
   var next = [];
@@ -1122,7 +1135,8 @@ function _moveDraw(e) {
       ctx.clearRect(0, 0, ov.width, ov.height);
       ctx.setTransform(d, 0, 0, d, 0, 0);
       ctx.strokeStyle = _color;
-      ctx.lineWidth = _lineWidth * 4;
+      _clearScaleCache();
+      ctx.lineWidth = _scaleAdjustedLineWidth(_lineWidth * 4);
       ctx.globalAlpha = 1;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
@@ -1136,11 +1150,14 @@ function _moveDraw(e) {
       ctx.setTransform(d, 0, 0, d, 0, 0);
       ctx.save();
       ctx.strokeStyle = _tool === 'eraser' ? '#8a94b0' : _color;
-      // S113 Push 9: clamp pen preview to scale-adjusted minimum so the
-      // visible width while drawing matches the rendered width after
-      // commit. Eraser is unaffected (it uses _lineWidth*3 already).
+      // S113 Push 10: scale ALL stroke widths so on-screen size is constant
+      // across zoom levels. Eraser uses *3, pen uses raw size — both
+      // funneled through _scaleAdjustedLineWidth so eraser preview
+      // matches its commit-render width on screen.
       _clearScaleCache();
-      ctx.lineWidth = _tool === 'eraser' ? _lineWidth * 3 : _scaleAdjustedLineWidth(_lineWidth);
+      ctx.lineWidth = _tool === 'eraser'
+        ? _scaleAdjustedLineWidth(_lineWidth * 3)
+        : _scaleAdjustedLineWidth(_lineWidth);
       if (_tool === 'pen') ctx.globalAlpha = _opacity;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
