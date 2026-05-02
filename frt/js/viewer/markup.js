@@ -605,6 +605,37 @@ function _distSqPtSeg(px, py, ax, ay, bx, by) {
   return fx * fx + fy * fy;
 }
 
+// True if any portion of segment p1→p2 lies inside the axis-aligned bbox
+// (x1,y1)-(x2,y2). Liang–Barsky line clipping. Used by shape eraser
+// hit-test so a fast stroke whose sparse vertices all land outside a
+// small shape still registers as a hit when the segment crosses through.
+function _segmentIntersectsBbox(p1, p2, bx1, by1, bx2, by2) {
+  var dx = p2.x - p1.x, dy = p2.y - p1.y;
+  var t0 = 0, t1 = 1;
+  // For each of 4 edges: parametric edge-clip
+  // Returns false if the segment can be trivially rejected
+  function clip(p, q) {
+    if (p === 0) {
+      if (q < 0) return false; // parallel and outside
+      return true;
+    }
+    var r = q / p;
+    if (p < 0) {
+      if (r > t1) return false;
+      if (r > t0) t0 = r;
+    } else {
+      if (r < t0) return false;
+      if (r < t1) t1 = r;
+    }
+    return true;
+  }
+  if (!clip(-dx, p1.x - bx1)) return false;
+  if (!clip( dx, bx2 - p1.x)) return false;
+  if (!clip(-dy, p1.y - by1)) return false;
+  if (!clip( dy, by2 - p1.y)) return false;
+  return true;
+}
+
 // True if point (px,py) is within eraserR of any point on the eraserPts polyline
 function _pointHitByEraser(px, py, eraserPts, eraserR2) {
   // Segment-based test — catches points near the eraser PATH, not just its vertices
@@ -671,10 +702,18 @@ function _shapeHitByEraser(obj, eraserPts, eraserR2) {
   // Inflate the shape bbox by eraser radius so near-misses don't clip
   var r = Math.sqrt(eraserR2);
   var ix1 = b.x1 - r, iy1 = b.y1 - r, ix2 = b.x2 + r, iy2 = b.y2 + r;
-  // Hit if any eraser vertex falls inside the inflated bbox
+  // (a) Vertex inside inflated bbox
   for (var i = 0; i < eraserPts.length; i++) {
     var p = eraserPts[i];
     if (p.x >= ix1 && p.x <= ix2 && p.y >= iy1 && p.y <= iy2) return true;
+  }
+  // (b) Segment crosses inflated bbox — catches fast eraser strokes whose
+  // sparse pointer-sampled vertices all happen to land outside a small
+  // shape's bbox even though the path clearly swept through it. Single-
+  // vertex eraser strokes (eraserPts.length === 1) skip this loop and
+  // rely on (a) alone, which is correct.
+  for (var j = 0; j < eraserPts.length - 1; j++) {
+    if (_segmentIntersectsBbox(eraserPts[j], eraserPts[j + 1], ix1, iy1, ix2, iy2)) return true;
   }
   return false;
 }
@@ -887,12 +926,41 @@ function _getBounds(obj) {
     return { x1: obj.x1, y1: obj.y1 - fs, x2: obj.x1 + estW, y2: obj.y1 + 4 };
   }
   if (obj.points && obj.points.length) {
+    // Point-based objects (pen/highlight/polyline): rotation already
+    // baked into the points by the rotate drag handler, so the AABB of
+    // points IS the visual AABB.
     var xs = obj.points.map(function(p) { return p.x; });
     var ys = obj.points.map(function(p) { return p.y; });
     return { x1: Math.min.apply(null, xs), y1: Math.min.apply(null, ys), x2: Math.max.apply(null, xs), y2: Math.max.apply(null, ys) };
   }
   if (obj.x1 != null && obj.x2 != null) {
-    return { x1: Math.min(obj.x1, obj.x2), y1: Math.min(obj.y1, obj.y2), x2: Math.max(obj.x1, obj.x2), y2: Math.max(obj.y1, obj.y2) };
+    var bx1 = Math.min(obj.x1, obj.x2), by1 = Math.min(obj.y1, obj.y2);
+    var bx2 = Math.max(obj.x1, obj.x2), by2 = Math.max(obj.y1, obj.y2);
+    var rot = obj.rotation || 0;
+    if (rot) {
+      // S114-deferred fix: shape stores un-rotated x1..y2 + rotation angle.
+      // Render path applies ctx.rotate around bbox center, so the on-screen
+      // shape lives at the AABB of the four rotated corners. Bounds must
+      // reflect that — otherwise the selection box, rotation pivot, and
+      // eraser hit-test all reference the wrong rectangle.
+      var cx = (bx1 + bx2) / 2, cy = (by1 + by2) / 2;
+      var c = Math.cos(rot), s = Math.sin(rot);
+      var corners = [
+        [bx1, by1], [bx2, by1], [bx2, by2], [bx1, by2]
+      ];
+      var rxMin = Infinity, ryMin = Infinity, rxMax = -Infinity, ryMax = -Infinity;
+      for (var i = 0; i < 4; i++) {
+        var ddx = corners[i][0] - cx, ddy = corners[i][1] - cy;
+        var rx = cx + ddx * c - ddy * s;
+        var ry = cy + ddx * s + ddy * c;
+        if (rx < rxMin) rxMin = rx;
+        if (ry < ryMin) ryMin = ry;
+        if (rx > rxMax) rxMax = rx;
+        if (ry > ryMax) ryMax = ry;
+      }
+      return { x1: rxMin, y1: ryMin, x2: rxMax, y2: ryMax };
+    }
+    return { x1: bx1, y1: by1, x2: bx2, y2: by2 };
   }
   return null;
 }
