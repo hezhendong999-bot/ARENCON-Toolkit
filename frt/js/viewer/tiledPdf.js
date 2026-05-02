@@ -122,9 +122,7 @@ var _TILE_SIZE = 512;
 //                 ~100 MB at L3, ~400 MB at L4 (each only allocated when
 //                 first tile lands and freed when LRU empties the level).
 //                 PROMOTED TO DEFAULT in Push 1 for desktop and Android.
-//                 Explicitly DISABLED on iOS (iPad/iPhone) — the L4 canvas
-//                 alone exceeds the iOS Safari Jetsam ceiling. Use
-//                 ?s99test=img to opt out on a non-iOS device.
+//                 Used as the default for desktop and Android.
 //
 //   ESCAPE HATCH (S112 Push 1):
 //     img       — force the legacy per-tile <img> compositor regardless
@@ -132,17 +130,8 @@ var _TILE_SIZE = 512;
 //                 shows a canvas-mode regression we missed in verification.
 //                 Bookmarkable: append &s99test=img to any FRT URL.
 //
-//   iOS JETSAM DEFENSES (S112 Push 2 — toggle-gated, default OFF):
-//     ios-purge — restore the S95-era eager purge of non-active-level
-//                 tiles at every level change. iOS only (gate enforced
-//                 inline). Drops cumulative tile pool ~200 MB → ~30-50 MB
-//                 at level boundaries. Brings back brief level-transition
-//                 flash on iOS (acceptable tradeoff). Promotes to default
-//                 iOS behavior in a future push after iPad verification.
-//
-//                 Companion knob: ?iosres=N in markup.js shrinks markup
-//                 canvas pixel budget from 4-8 Mpx to N Mpx for further
-//                 in-field degradation if needed.
+// (S113 cleanup: ios-purge / iosres / no-pixi / nopixi toggles removed
+//  along with all iOS support — see HANDOFF_SESSION_113.md.)
 //
 // One candidate active at a time — use URL to switch. Tested in isolation.
 function _readS99Test() {
@@ -152,12 +141,11 @@ function _readS99Test() {
     if (!m) return null;
     var raw = decodeURIComponent(m[1]).toLowerCase();
     if (!raw || raw === 'off') return null;
-    // S112 Push 2 fix: dash-parser was greedy — `ios-purge` got parsed as
-    // name='ios', amount=NaN (rejected), instead of name='ios-purge'. Only
-    // treat the dash as an amount-separator when what follows is purely
-    // numeric. Names with dashes (ios-purge, no-pixi, etc.) are passed
-    // through intact. Numeric-suffix toggles (overlap-8, fastfade-50)
-    // still parse as expected because their suffixes ARE pure digits.
+    // Dash-parser: treat the dash as an amount-separator only when what
+    // follows is purely numeric. Numeric-suffix toggles (overlap-8,
+    // fastfade-50) still parse as expected because their suffixes ARE
+    // pure digits. Hyphenated names that ever existed (now removed in
+    // S113) used to be passed through intact thanks to this guard.
     var name, amount;
     var lastDash = raw.lastIndexOf('-');
     if (lastDash > 0 && /^\d+$/.test(raw.slice(lastDash + 1))) {
@@ -184,97 +172,28 @@ if (_S99_TEST) {
   } catch (_e) {}
 }
 
-// S112 Push 1: canvas-compositor mode is now the DEFAULT on desktop and
-// Android, and force-OFF on iOS (Jetsam guard — a level canvas at L4 is
-// ~400 MB backing buffer, well past iOS Safari's tab budget).
+// Canvas-compositor mode is the unconditional DEFAULT (S113 cleanup —
+// iOS removed; the Jetsam gate that kept canvas off on iPad/iPhone is no
+// longer needed). One opt-out: `?s99test=img` forces the legacy per-tile
+// <img> compositor for any drawing where a canvas-mode regression is
+// suspected.
 //
 // URL toggle interactions:
-//   ?s99test=canvas   → force canvas ON (overrides iOS gate; for diagnostic
-//                        testing of the crash on iPad)
-//   ?s99test=img      → force canvas OFF (explicit escape hatch — field staff
-//                        can append this to their URL if a drawing has any
-//                        canvas-mode regression we missed in verification)
-//   ?s99test=baseline → force canvas OFF (pre-existing alias; same effect)
-//   ?s99test=overlap  → force canvas OFF (overlap toggle only meaningful
-//                        in the <img> path it modifies)
-//   ?s99test=snap     → force canvas OFF (same)
-//   ?s99test=fastfade → force canvas OFF (same)
-//   ?s99test=delaysrc → force canvas OFF (same)
-//   ?s99test=prefetch → force canvas OFF (same)
-//   no toggle, iOS    → canvas OFF (gate)
-//   no toggle, other  → canvas ON
+//   ?s99test=img      → force canvas OFF (explicit escape hatch)
+//   no toggle         → canvas ON
 var _S99_CANVAS;
 if (_S99_TEST) {
-  // Explicit toggle: only `canvas` opts in. Any other toggle (including
-  // the diagnostic ones that modify the <img> path) implies img mode so
-  // the toggle can do what it was designed for.
-  _S99_CANVAS = (_S99_TEST.name === 'canvas');
+  // Explicit toggle: only `img` is a recognized opt-out. Anything else
+  // (any unknown s99test value) is treated as opt-out so a stale URL
+  // never silently changes rendering mode.
+  _S99_CANVAS = (_S99_TEST.name !== 'img');
 } else {
-  // Default: canvas mode everywhere except iOS. The _isIPad detection
-  // above covers iPadOS 13+ which spoofs Mac in user-agent (it adds the
-  // `navigator.maxTouchPoints > 1` check). A real Mac with no touch
-  // support evaluates _isIPad === false and gets canvas mode.
-  _S99_CANVAS = !(_isIPhone || _isIPad);
+  _S99_CANVAS = true;
 }
 
 // S112: level -> { canvas, ctx, lvl, tilesPainted }. Populated lazily in
 // canvas mode by _getOrCreateLevelCanvas. Empty in img mode.
 var _levelCanvases = {};
-
-// S112 Push 2: ?s99test=ios-purge toggle. When ON and on iOS, restore the
-// S95-era eager purge of tiles from non-active levels at every level
-// change. Reduces cumulative tile pool growth that contributes to the
-// iOS Safari Jetsam ceiling. Default OFF — same behavior as today.
-// iOS only because purge brings back the brief level-transition flash
-// that desktop/Android no longer need to suffer (S111b removed it for
-// them).
-var _S99_IOS_PURGE = !!(_S99_TEST && _S99_TEST.name === 'ios-purge');
-if (_S99_IOS_PURGE) {
-  try { console.log('[TiledPdf] iOS purge ACTIVE (will fire on iOS only at every level-change)'); } catch(_) {}
-}
-
-// S112 Push 2: passive Jetsam-reload detection. iOS only. Reads the
-// _frtS97LifeRing buffer (persists in localStorage across page reloads).
-// If the previous tab's most-recent lifecycle event was <30 s ago AND
-// wasn't a graceful close:end, the tab probably got Jetsam-killed and
-// the user reopened. Pushes a synthetic 'jetsam-reload-suspected' event
-// so it shows up in _frtLifePeek() output for forensics. Read-only
-// telemetry; no behavior change. Runs once on module load.
-(function _detectJetsamReload(){
-  if (!(_isIPhone || _isIPad)) return;
-  if (typeof localStorage === 'undefined') return;
-  try {
-    var raw = localStorage.getItem('_frtS97LifeRing');
-    if (!raw) return;
-    var ring = JSON.parse(raw);
-    if (!ring || !ring.length) return;
-    var last = ring[ring.length - 1];
-    if (!last || !last.t) return;
-    var ageSec = (Date.now() - last.t) / 1000;
-    if (ageSec >= 0 && ageSec < 30 &&
-        last.tag !== 'close:end' &&
-        last.tag !== 'tab-leaving' &&
-        last.tag !== 'jetsam-reload-suspected') {
-      console.warn('[TiledPdf] iOS Jetsam-reload SUSPECTED — previous event "' +
-        last.tag + '" was ' + ageSec.toFixed(1) + 's ago without a graceful close. ' +
-        'Tab may have been killed. Run _frtLifePeek() for forensics.');
-      ring.push({
-        t: Date.now(),
-        tag: 'jetsam-reload-suspected',
-        drawingId: null,
-        extra: {
-          priorTag: last.tag,
-          priorAgeSec: +ageSec.toFixed(1),
-          priorTime: last.t,
-          ua: (navigator.userAgent || '').slice(0, 120)
-        }
-      });
-      // Cap ring at 50 entries (matching existing _dbgLife trim threshold)
-      while (ring.length > 50) ring.shift();
-      localStorage.setItem('_frtS97LifeRing', JSON.stringify(ring));
-    }
-  } catch (_e) { /* localStorage parse error etc — silent */ }
-})();
 
 // Show a small, unobtrusive bottom-right indicator when any S99 test is
 // active, so Mark visually confirms he's not on baseline. Appended once on
@@ -1355,48 +1274,6 @@ function _renderVisible() {
   if (false) {
     // No-op block kept so any inline `_S99_TEST.name === 'baseline'/...`
     // toggles in URL params don't blow up; they'll just have no effect.
-  }
-
-  // S112 Push 2: opt-in iOS eager purge. When ?s99test=ios-purge is
-  // active AND we're on iOS, drop all tiles from levels other than the
-  // currently-active level. This restores S95-era behavior on iOS only —
-  // a defense against cumulative tile pool growth that, combined with the
-  // 50 Mpx markup canvas baseline, lands iPad/iPhone tabs over the
-  // Safari Jetsam ceiling on second drawing-open.
-  //
-  // Tradeoffs:
-  //   • Memory: drops ~200 MB peak tile pool to ~30-50 MB at level boundary
-  //   • Visual: brings back brief level-transition flash on iOS (acceptable,
-  //     iOS already had it pre-S111b — non-iOS keeps S111b's flash-free)
-  //   • Doesn't touch markup canvas — that's a separate piece of the iOS
-  //     plan (?iosres=N override in markup.js)
-  //
-  // Default OFF. Mark verifies on real iPad before promotion to iOS-default.
-  if (_S99_IOS_PURGE && (_isIPhone || _isIPad)) {
-    var keysToPurge = [];
-    for (var pk in _tiles) {
-      if (!Object.prototype.hasOwnProperty.call(_tiles, pk)) continue;
-      if (_tiles[pk].level !== levelIdx) keysToPurge.push(pk);
-    }
-    for (var pi = 0; pi < keysToPurge.length; pi++) {
-      var purgeKey = keysToPurge[pi];
-      var purgeTile = _tiles[purgeKey];
-      if (purgeTile) {
-        if (_S99_CANVAS) {
-          _evictTileFromCanvas(purgeTile);
-        } else if (purgeTile.img) {
-          if (layer && purgeTile.img.parentNode === layer) layer.removeChild(purgeTile.img);
-          purgeTile.img.src = '';
-        }
-      }
-      delete _tiles[purgeKey];
-      var lruIdx = _tileOrder.indexOf(purgeKey);
-      if (lruIdx >= 0) _tileOrder.splice(lruIdx, 1);
-      _tileCount--;
-    }
-    if (keysToPurge.length) {
-      _dbgLife('ios-purge', { dropped: keysToPurge.length, kept: _tileCount, level: levelIdx });
-    }
   }
 
 

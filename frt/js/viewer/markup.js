@@ -57,36 +57,6 @@ var _useWebGL = (function(){
     if (window.location && window.location.search){
       if (window.location.search.indexOf('webgl=0') >= 0) return false;
       if (window.location.search.indexOf('webgl=1') >= 0) return true;
-
-      // S112 Push 3: ?s99test=no-pixi — disable Pixi WebGL markup on iOS.
-      // Empirical evidence (S112 LIFE buffer captures, iPad iPadOS 16.3.1
-      // Chrome iOS 136): with ios-purge active and tile pool held at 0,
-      // tab still Jetsam-dies 3-4s after first level-change at fit zoom
-      // with iosres=4 active. Markup canvas allocation at drawing-open
-      // time is the dominant memory consumer. Disabling Pixi removes the
-      // second canvas (~8 Mpx on iPad) and forces fallback to the existing
-      // pure-Canvas2D markup path. Toggle is opt-in until verified on iPad.
-      // Non-iOS devices ignore this toggle (Pixi stays available on
-      // desktop/Android tablet for performance).
-      //
-      // S112 Push 4: ALSO accept ?nopixi=1 as a separate URL parameter,
-      // so it can STACK with ?s99test=ios-purge. The s99test param only
-      // takes one value, so if a user wants both Pixi-disable AND tile
-      // purge active, they need two separate params. Format:
-      //   ?s99test=ios-purge&nopixi=1&iosres=4
-      // Either path activates the same _useWebGL=false code path on iOS.
-      var noPixiActive = /[?&]s99test=no-pixi(\b|&|$)/.test(window.location.search) ||
-                         /[?&]nopixi=1(\b|&|$)/.test(window.location.search);
-      if (noPixiActive) {
-        var ua = (navigator.userAgent || '');
-        var isIPhone = /iPhone|iPod/.test(ua);
-        var isIPad = /iPad/.test(ua) ||
-          (/Mac/.test(ua) && navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
-        if (isIPhone || isIPad) {
-          try { console.log('[Markup] no-pixi active on iOS — Pixi WebGL disabled, falling back to Canvas2D'); } catch(_){}
-          return false;
-        }
-      }
     }
     if (localStorage.getItem('ARENCON_NoWebGL') === '1') return false;
     return !!(window.WebGLMarkupRenderer && window.WebGLMarkupRenderer.isSupported && window.WebGLMarkupRenderer.isSupported());
@@ -127,47 +97,15 @@ function _allocateCanvas() {
   }
 
   var ua = navigator.userAgent;
-  var isIPhone = /iPhone|iPod/.test(ua);
   var isAndroidTablet = /Android/.test(ua) && (!/Mobile/.test(ua) || /SM-T|SM-X|Tablet/.test(ua));
-  var isTablet = /iPad/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) || isAndroidTablet;
-  // S91: iPhone budget 16M -> 4M. Safari on iPhone caps tab memory at
-  // ~250MB; 16M px × 4 bytes = 64MB just for the 2D canvas, plus another
-  // 64MB for the WebGL sibling below, plus ~100MB for the 6144px JPEG
-  // backdrop = instant OOM on drawing-open. 4M px keeps the markup canvas
-  // under 16MB while staying sharp at any reasonable zoom on a 390-430px
-  // iPhone viewport.
-  //
-  // S95: iPad budget 16M -> 8M. The S91 iPhone fix was never extended to
-  // iPad. On iPad iOS 16, WebKit cumulative canvas pool is fatal when the
-  // two markup canvases (2D + WebGL sibling below) each hit the 16M budget
-  // (32M combined) — log-confirmed crash at exactly 32.0 Mpx cumulative
-  // on iPad Air iOS 16.3.1. Halving to 8M per canvas puts combined at
-  // 16M which matches iPhone's single-canvas-survived budget. Android
-  // tablets (10M) and desktop (25M) unaffected — they don't hit the pool.
-  var maxPixels = isIPhone ? 4000000 : (isAndroidTablet ? 10000000 : (isTablet ? 8000000 : 25000000));
-
-  // S112 Push 2: ?iosres=N URL param override for iOS markup canvas budget.
-  // N is in millions of pixels (e.g., ?iosres=6 = 6,000,000 px budget).
-  // Field-deployable degradation control — if a specific iPad model still
-  // hits Jetsam at the default 4-8 Mpx, the user appends ?iosres=4 (or
-  // lower) to their URL and the canvas allocates smaller. Browser memory
-  // pressure drops; pen-stroke crispness drops slightly at high zoom.
-  // iOS only (iPhone or iPad). Default: no override, existing budget.
-  // Range guard: 1-50 Mpx (rejects nonsense values silently).
-  if (isIPhone || isTablet) {
-    try {
-      var iosResMatch = /[?&]iosres=(\d+)/.exec(window.location.search || '');
-      if (iosResMatch) {
-        var override = parseInt(iosResMatch[1], 10);
-        if (!isNaN(override) && override >= 1 && override <= 50) {
-          var prevBudget = maxPixels;
-          maxPixels = override * 1000000;
-          console.log('[Markup] ?iosres=' + override + ' override applied: budget ' +
-            (prevBudget / 1000000).toFixed(1) + 'M → ' + override + 'M px');
-        }
-      }
-    } catch(_) { /* malformed URL — silent */ }
-  }
+  // S113 cleanup (iOS abandoned): markup canvas budget per device class.
+  //   • Android tablet — 10 Mpx (Push 2 will raise to 25 Mpx for crisper
+  //     drawings; held here to match S112 behavior for the iOS-removal
+  //     verification stop)
+  //   • Desktop / Android phone (no Android-tablet match) — 25 Mpx
+  // The `isIPhone` / `isIPad` / `isTablet` branches and the `?iosres=N`
+  // parser were removed in Push 1 along with the rest of iOS support.
+  var maxPixels = isAndroidTablet ? 10000000 : 25000000;
 
   var totalPixels = drawW * drawH;
   var mkScale = 1;
@@ -197,11 +135,11 @@ function _allocateCanvas() {
 
   // ── WebGL sibling canvas (Phase 5) ─────────────────────
   // Stacks UNDERNEATH mc so selection/rubberband in 2D remains on top.
-  // S91: skip on iPhone — another full canvas at the same size would
-  // double our bitmap budget past Safari's iPhone tab ceiling. Canvas 2D
-  // rendering path below handles the same visual output without the
-  // second allocation. Identical output, half the memory.
-  if (_useWebGL && !isIPhone){
+  // S113: pre-existing `!isIPhone` guard removed alongside iOS support.
+  // Pixi WebGL is now available on every platform that passes the
+  // `_useWebGL` feature check (with `?webgl=0` / `localStorage.ARENCON_NoWebGL`
+  // as the explicit opt-out for any field staff who need to disable it).
+  if (_useWebGL){
     try {
       if (!_webglCanvas){
         _webglCanvas = document.createElement('canvas');
