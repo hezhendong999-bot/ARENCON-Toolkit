@@ -38,9 +38,110 @@ function _getDrawingName(drawingId) {
   return '';
 }
 
+// ── Board (kanban) view (S113 Push 16, ported from v1) ──────────
+var _viewMode = 'table';
+var _dragId = null;
+
+function _pkbCard(d, p) {
+  var defic = d.defic;
+  var pr = defic.priority || 'high';
+  var fill = defic.iar ? '#FF69B4' : (pr === 'general' ? '#1A7A4A' : (pr === 'low' ? '#E67E22' : '#C0392B'));
+  var entries = (defic.entries && defic.entries.length) ? defic.entries : [{ description: defic.description || '', priority: defic.priority || 'high' }];
+  var multiObs = entries.length > 1;
+  var descHtml = '';
+  if (multiObs) {
+    entries.forEach(function(en, ei) {
+      var ePr = en.priority || 'high';
+      var ePrCol = ePr === 'general' ? '#1A7A4A' : (ePr === 'low' ? '#E67E22' : '#C0392B');
+      var eLbl = String.fromCharCode(65 + ei);
+      var eDesc = esc(en.description || 'No description');
+      descHtml += '<div style="font-size:calc(11px + var(--ts));margin-bottom:3px;"><span style="color:' + ePrCol + ';font-weight:700;font-size:calc(10px + var(--ts));">' + eLbl + '</span> ' + eDesc + '</div>';
+    });
+  } else {
+    descHtml = esc(entries[0].description || deficDesc(defic) || 'No description');
+  }
+  var isClosed = defic.status === 'closed' || defic.status === 'Addressed & Closed';
+  var badgeCls = 'outstanding';
+  var badgeTxt = 'Outstanding';
+  if (defic.iar) { badgeCls = 'iar'; badgeTxt = '\u26A1 IAR'; }
+  else if (isClosed) { badgeCls = 'closed'; badgeTxt = 'Closed'; }
+  var dwgName = '';
+  if (defic.drawingId && p.drawings) {
+    var dwg = p.drawings.find(function(x) { return x.id === defic.drawingId; });
+    if (dwg) dwgName = dwg.name || dwg.filename || '';
+  }
+  var obsCountHtml = multiObs ? '<span style="font-size:9px;color:var(--silver);margin-left:4px;">' + entries.length + ' obs.</span>' : '';
+  return '<div class="pin-kanban-card" draggable="true" data-defic-id="' + defic.id + '" data-action="pkb-card">'
+    + '<div class="pkc-num" style="background:' + fill + '">' + (defic.num || '?') + '</div>'
+    + '<div class="pkc-body">'
+    + '<div class="pkc-desc">' + descHtml + obsCountHtml + '</div>'
+    + '<div class="pkc-meta">'
+    + '<span class="pkc-badge ' + badgeCls + '">' + badgeTxt + '</span>'
+    + (dwgName ? '<span class="pkc-drawing" title="' + esc(dwgName) + '">\uD83D\uDCD0 ' + esc(dwgName) + '</span>' : '')
+    + '</div>'
+    + '</div>'
+    + '</div>';
+}
+
+function _renderBoard() {
+  var proj = Model.getProject();
+  if (!proj) return;
+  var all = Model.getAllDeficiencies(proj);
+  var unpinnedCount = all.filter(function(d) { return d.defic.pinX == null; }).length;
+  var notice = document.getElementById('pins-unpinned-notice');
+  if (notice) notice.textContent = unpinnedCount > 0 ? (unpinnedCount + ' unpinned deficienc' + (unpinnedCount === 1 ? 'y' : 'ies')) : '';
+  var cols = { high: [], low: [], general: [] };
+  all.forEach(function(d) {
+    var pr = d.defic.priority || 'high';
+    if (!cols[pr]) cols[pr] = [];
+    cols[pr].push(d);
+  });
+  ['high', 'low', 'general'].forEach(function(pr) {
+    var el = document.getElementById('pkb-col-' + pr);
+    var countEl = document.getElementById('pkb-count-' + pr);
+    if (countEl) countEl.textContent = cols[pr].length;
+    if (!el) return;
+    el.innerHTML = cols[pr].map(function(d) { return _pkbCard(d, proj); }).join('');
+    el.ondragover = function(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; el.classList.add('drag-over'); };
+    el.ondragleave = function(e) { if (!el.contains(e.relatedTarget)) el.classList.remove('drag-over'); };
+    el.ondrop = function(e) {
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      var did = e.dataTransfer.getData('text/plain');
+      if (!did || !_dragId) return;
+      var newPr = el.getAttribute('data-priority');
+      _changePriority(did, newPr);
+    };
+  });
+}
+
+function _changePriority(deficId, newPriority) {
+  var f = Model.findDeficiency(deficId);
+  if (!f) return;
+  if (f.defic.priority === newPriority) return;
+  f.defic.priority = newPriority;
+  if (f.defic.entries) f.defic.entries.forEach(function(en) { en.priority = newPriority; });
+  Model.save();
+  _renderBoard();
+}
+
+function _setView(mode) {
+  _viewMode = mode;
+  var tv = document.getElementById('tasks-table-view');
+  var bv = document.getElementById('tasks-board-view');
+  var btnT = document.getElementById('tasks-view-table');
+  var btnB = document.getElementById('tasks-view-board');
+  if (tv) tv.style.display = mode === 'table' ? '' : 'none';
+  if (bv) bv.style.display = mode === 'board' ? '' : 'none';
+  if (btnT) btnT.classList.toggle('active', mode === 'table');
+  if (btnB) btnB.classList.toggle('active', mode === 'board');
+  if (mode === 'table') initPins.render();
+  else _renderBoard();
+}
+
 export var initPins = {
   render: function() {
-    var container = document.getElementById('pins-container');
+    var container = document.getElementById('tasks-table-view');
     if (!container) return;
     var proj = Model.getProject();
     if (!proj) { container.innerHTML = ''; return; }
@@ -142,13 +243,53 @@ export var initPins = {
   }
 };
 
-Model.onChange('project', function() { initPins.render(); });
+Model.onChange('project', function() { if (_viewMode === 'board') _renderBoard(); else initPins.render(); });
+
+// View toggle (Table / Board)
+document.addEventListener('click', function(e) {
+  if (e.target.id === 'tasks-view-table') { _setView('table'); return; }
+  if (e.target.id === 'tasks-view-board') { _setView('board'); return; }
+  // Kanban card click → jump-to-defic in deficiencies tab
+  var card = e.target.closest && e.target.closest('[data-action="pkb-card"]');
+  if (card && _viewMode === 'board' && !e.target.closest('.pkc-thumb')) {
+    var deficId = card.getAttribute('data-defic-id');
+    if (deficId) {
+      document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === 'deficiencies'); });
+      document.querySelectorAll('.panel').forEach(function(p) { p.classList.toggle('active', p.id === 'panel-deficiencies'); });
+      setTimeout(function() {
+        var dc = document.querySelector('.defic-item[data-defic-id="' + deficId + '"]');
+        if (dc) {
+          dc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          dc.style.outline = '2px solid #9C2742';
+          setTimeout(function() { dc.style.outline = ''; }, 2000);
+        }
+      }, 100);
+    }
+  }
+});
+// Kanban card drag-start / drag-end
+document.addEventListener('dragstart', function(e) {
+  var card = e.target.closest && e.target.closest('.pin-kanban-card');
+  if (!card) return;
+  var deficId = card.getAttribute('data-defic-id');
+  if (!deficId) return;
+  _dragId = deficId;
+  e.dataTransfer.setData('text/plain', deficId);
+  e.dataTransfer.effectAllowed = 'move';
+  card.classList.add('dragging');
+});
+document.addEventListener('dragend', function(e) {
+  var card = e.target.closest && e.target.closest('.pin-kanban-card');
+  if (card) card.classList.remove('dragging');
+  _dragId = null;
+  document.querySelectorAll('.pins-kanban-col-body').forEach(function(c) { c.classList.remove('drag-over'); });
+});
 
 // Sort, filter, and jump handlers
 document.addEventListener('click', function(e) {
   // Sort header
   var th = e.target.closest && e.target.closest('.tt-th[data-sort]');
-  if (th && th.closest('#pins-container')) {
+  if (th && th.closest('#tasks-table-view')) {
     var field = th.getAttribute('data-sort');
     if (_sortField === field) _sortDir = _sortDir === 'asc' ? 'desc' : 'asc';
     else { _sortField = field; _sortDir = 'asc'; }
@@ -176,12 +317,12 @@ document.addEventListener('click', function(e) {
   }
 
   // Row click → inline expand (not on buttons/inputs/jump)
-  var row = e.target.closest && e.target.closest('#pins-container tr[data-defic-id]');
+  var row = e.target.closest && e.target.closest('#tasks-table-view tr[data-defic-id]');
   if (row && !e.target.closest('button') && !e.target.closest('select') && !e.target.closest('input')) {
     var deficId = row.getAttribute('data-defic-id');
     var existingExpand = row.nextElementSibling;
     // Collapse any other open expand
-    var allExpands = document.querySelectorAll('#pins-container .tt-expand-row');
+    var allExpands = document.querySelectorAll('#tasks-table-view .tt-expand-row');
     allExpands.forEach(function(ex) { ex.remove(); });
     // Toggle: if the same row was already expanded, just collapse (already removed above)
     if (existingExpand && existingExpand.classList.contains('tt-expand-row') && existingExpand.getAttribute('data-expand-id') === deficId) {
@@ -189,7 +330,7 @@ document.addEventListener('click', function(e) {
       return;
     }
     // Remove active state from all rows
-    document.querySelectorAll('#pins-container tr.tt-row-active').forEach(function(r) { r.classList.remove('tt-row-active'); });
+    document.querySelectorAll('#tasks-table-view tr.tt-row-active').forEach(function(r) { r.classList.remove('tt-row-active'); });
     // Build expand row
     var f = Model.findDeficiency(deficId);
     if (f) {

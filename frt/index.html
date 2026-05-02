@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=222">
+<link rel="stylesheet" href="css/frt.css?v=223">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -462,7 +462,32 @@ function ensurePdfJs(cb){
             <button id="tasks-view-board" class="view-pill-btn" type="button">Board</button>
           </div>
         </div>
-        <div class="card-body" style="padding:0;" id="pins-container"></div>
+        <div class="card-body" style="padding:0;">
+          <!-- Table view (default) -->
+          <div id="tasks-table-view"></div>
+          <!-- Board view (kanban) -->
+          <div id="tasks-board-view" style="display:none;padding:16px;">
+            <div class="pins-kanban-wrap">
+              <div class="pins-kanban-header">
+                <div id="pins-unpinned-notice" class="unpinned-notice" style="font-size:calc(12px + var(--ts));color:var(--silver);font-style:italic;margin-bottom:8px;"></div>
+              </div>
+              <div class="pins-kanban-board" id="pins-kanban-board">
+                <div class="pins-kanban-col" data-priority="high">
+                  <div class="pins-kanban-col-header">High <span class="col-count" id="pkb-count-high">0</span></div>
+                  <div class="pins-kanban-col-body" id="pkb-col-high" data-priority="high"></div>
+                </div>
+                <div class="pins-kanban-col" data-priority="low">
+                  <div class="pins-kanban-col-header">Low <span class="col-count" id="pkb-count-low">0</span></div>
+                  <div class="pins-kanban-col-body" id="pkb-col-low" data-priority="low"></div>
+                </div>
+                <div class="pins-kanban-col" data-priority="general">
+                  <div class="pins-kanban-col-header">General <span class="col-count" id="pkb-count-general">0</span></div>
+                  <div class="pins-kanban-col-body" id="pkb-col-general" data-priority="general"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
