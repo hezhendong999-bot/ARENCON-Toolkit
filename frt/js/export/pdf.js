@@ -31,7 +31,10 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback){
     var canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,sx,sy,cropW,cropH,0,0,outW,outH);
     var pinCX=(px-sx)*outScale;var pinCY=(py-sy)*outScale;
-    var pinW=Math.max(28,outW*0.05);
+    // S113 Push 15: minimap pin bumped from outW*0.05 (40px on 800-wide
+    // crop) → outW*0.07 (56px). Better visibility in the small thumbnail
+    // displayed in deficiency cards. Floor stays at 28 for tiny crops.
+    var pinW=Math.max(28,outW*0.07);
     _drawTeardropPin(ctx,pinCX,pinCY,pinW,pinData);
     callback(canvas.toDataURL('image/jpeg',0.92));
   };
@@ -139,7 +142,12 @@ function _drawTeardropPin(ctx,anchorX,anchorY,pinW,d){
   // Layer 4: number text inside white circle, color = pin color
   ctx.globalAlpha=alpha;
   var numStr=String(d.num||'?');
-  var fs=Math.round(s*(numStr.length<=2?14:numStr.length===3?11:9));
+  // S113 Push 15: bumped font sizes ~20% (14→17, 11→13, 9→11) so the
+  // number reads clearly against the white circle at print + on-screen
+  // PDF view sizes. Viewer uses font-size:14 in viewBox units; canvas
+  // fillText with Calibri renders glyphs visibly smaller than SVG <text>
+  // at the same numeric font-size, so a small bump compensates.
+  var fs=Math.round(s*(numStr.length<=2?17:numStr.length===3?13:11));
   ctx.fillStyle=fill;
   ctx.font='900 '+fs+'px Calibri,Arial,sans-serif';
   ctx.textAlign='center';
