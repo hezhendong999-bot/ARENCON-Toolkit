@@ -5,7 +5,7 @@
  */
 
 import { Model } from '../data/model.js';
-import { buildDeficCard } from './deficiencies.js';
+import { buildDeficCard, ctrColorClass } from './deficiencies.js';
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function deficDesc(d) {
@@ -252,9 +252,9 @@ export var initPins = {
 
       h += '<tr data-defic-id="' + esc(dd.id) + '" data-action="jump-defic" style="border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;">';
       h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">#' + (dd.num || '?') + '</td>';
-      h += '<td style="padding:8px 10px;color:var(--steel);word-break:break-word;">' + esc(dwgName || '\u2014') + '</td>';
+      h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(dwgName || '\u2014') + '</td>';
       h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(desc || '(no description)') + '</td>';
-      h += '<td style="padding:8px 10px;">' + esc(d.contractorName) + '</td>';
+      h += '<td style="padding:8px 10px;"><span class="ctr-tag ' + ctrColorClass(d.contractorName) + '">' + esc(d.contractorName) + '</span></td>';
       h += '<td style="padding:8px 10px;"><span class="tt-status ' + statusCls + '">' + statusText + '</span></td>';
       h += '<td style="padding:8px 10px;"><span class="tt-priority ' + priCls + '">' + esc((dd.priority || 'general').charAt(0).toUpperCase() + (dd.priority || 'general').slice(1)) + '</span></td>';
       h += '<td style="padding:8px 10px;"><button class="tt-jump" data-action="jump-defic" data-defic-id="' + esc(dd.id) + '">Jump</button></td>';

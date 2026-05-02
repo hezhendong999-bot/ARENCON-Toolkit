@@ -23,6 +23,18 @@ function deficDesc(d) {
   return d.description || '';
 }
 function deficIsOpen(d) { return d.status === 'open' || d.status === 'Outstanding'; }
+
+// S113 Push 19: deterministic contractor color hash. Each unique contractor
+// name maps to one of 8 .ctr-c<N> palette slots in frt.css. "Site General"
+// always lands on slot 3 (green). Exported so other UI modules (pins.js
+// table, kanban) can stay visually consistent.
+export function ctrColorClass(name) {
+  if (!name) return 'ctr-c3';
+  if (name === 'Site General') return 'ctr-c3';
+  var h = 0;
+  for (var i = 0; i < name.length; i++) h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  return 'ctr-c' + (Math.abs(h) % 8);
+}
 function deficIsClosed(d) { return d.status === 'closed' || d.status === 'Addressed & Closed'; }
 
 var _activeDlcTab = 'active';
@@ -333,10 +345,17 @@ function buildGroup(ctrId, name, items, totalCount) {
   if (totalCount && totalCount > items.length) countLabel += ' / ' + totalCount + ' total';
   var isFolded = _foldedGroups[ctrId || '__general__'];
   var arrow = isFolded ? '\u25B6' : '\u25BC';
+  // S113 Push 19: pull the contractor's color from the same palette used
+  // for chips + table cells. The group header keeps its navy background;
+  // the color shows as a 4-px left accent + a tinted name label.
+  var ctrCls = ctrColorClass(name);
+  // Map the class to its palette text color (light mode hex) for inline use.
+  var palLight = { 'ctr-c0':'#C0392B','ctr-c1':'#E67E22','ctr-c2':'#B7950B','ctr-c3':'#1A7A4A','ctr-c4':'#1565C0','ctr-c5':'#7E22CE','ctr-c6':'#E91E8C','ctr-c7':'#00838F' };
+  var accentCol = palLight[ctrCls] || '#9C2742';
 
   var h = '<div class="defic-group" data-ctr-id="' + esc(ctrId || '__general__') + '">';
-  h += '<div class="defic-group-header" data-action="toggle-fold" data-ctr-id="' + esc(ctrId || '__general__') + '" style="background:#1C2333;color:white;padding:10px 16px;cursor:pointer;user-select:none;">';
-  h += '<span style="display:flex;align-items:center;gap:8px;"><span class="ctr-fold-arrow" style="font-size:12px;width:14px;display:inline-block;">' + arrow + '</span> \uD83D\uDC77 ' + esc(name) + '</span>';
+  h += '<div class="defic-group-header" data-action="toggle-fold" data-ctr-id="' + esc(ctrId || '__general__') + '" style="background:#1C2333;color:white;padding:10px 16px;cursor:pointer;user-select:none;border-left:4px solid ' + accentCol + ';">';
+  h += '<span style="display:flex;align-items:center;gap:8px;"><span class="ctr-fold-arrow" style="font-size:12px;width:14px;display:inline-block;">' + arrow + '</span> \uD83D\uDC77 <span style="color:' + accentCol + ';font-weight:700;">' + esc(name) + '</span></span>';
   h += '<span style="font-size:calc(12px + var(--ts));opacity:.7;">' + countLabel + '</span>';
   h += '</div>';
 
@@ -408,7 +427,8 @@ function _renderContractorsOnSite(proj) {
   h += '<div style="font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel);margin-bottom:8px;">Contractors on Site</div>';
   h += '<div class="contractor-chips" style="display:flex;flex-wrap:wrap;gap:8px;min-height:28px;margin-bottom:10px;">';
   ctrs.forEach(function(c) {
-    h += '<div class="contractor-chip"><span>' + esc(c.name) + '</span>';
+    var colorCls = ctrColorClass(c.name);
+    h += '<div class="contractor-chip ctr-tagged ctr-tag ' + colorCls + '"><span>' + esc(c.name) + '</span>';
     h += '<button data-action="edit-contractor" data-ctr-id="' + esc(c.id) + '" title="Rename" style="background:none;border:none;cursor:pointer;font-size:calc(11px + var(--ts));padding:0 2px;opacity:.7;color:inherit;">\u270F</button>';
     h += '<button data-action="remove-contractor" data-ctr-id="' + esc(c.id) + '" title="Remove">\u2715</button>';
     h += '</div>';

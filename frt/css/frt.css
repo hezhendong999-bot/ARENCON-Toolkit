@@ -3707,3 +3707,141 @@ body.dark-mode .defic-dwg-pill:hover {
   border-color:rgba(128,168,216,.5) !important;
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   S113 Push 19 — Contractor color hatches + table polish
+   Each contractor gets a deterministic color from an 8-color palette
+   based on a hash of its name. Bright in light mode, muted in dark.
+   Applied to: contractor chips on the deficiencies tab, group headers
+   of each contractor's defic block, contractor cells in the All
+   Deficiencies (pins) table, and contractor name on kanban cards.
+   ═══════════════════════════════════════════════════════════════════ */
+.ctr-tag{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:3px 10px;border-radius:12px;
+  font-size:calc(11px + var(--ts));font-weight:700;
+  font-family:Calibri,sans-serif;
+  white-space:nowrap;
+  border:1.5px solid transparent;
+}
+/* Light mode: bright fills */
+.ctr-tag.ctr-c0{background:#FDEDEC;color:#C0392B;border-color:rgba(192,57,43,.3);}
+.ctr-tag.ctr-c1{background:#FEF5E7;color:#E67E22;border-color:rgba(230,126,34,.3);}
+.ctr-tag.ctr-c2{background:#FEF9E7;color:#B7950B;border-color:rgba(183,149,11,.3);}
+.ctr-tag.ctr-c3{background:#EAFAF1;color:#1A7A4A;border-color:rgba(26,122,74,.3);}
+.ctr-tag.ctr-c4{background:#EBF4FF;color:#1565C0;border-color:rgba(21,101,192,.3);}
+.ctr-tag.ctr-c5{background:#F4ECF7;color:#7E22CE;border-color:rgba(126,34,206,.3);}
+.ctr-tag.ctr-c6{background:#FCE4EC;color:#E91E8C;border-color:rgba(233,30,140,.3);}
+.ctr-tag.ctr-c7{background:#E0F7FA;color:#00838F;border-color:rgba(0,131,143,.3);}
+/* Dark mode: muted variants matching .defic-act-btn family */
+body.dark-mode .ctr-tag.ctr-c0{background:#3a1515;color:#f08080;border-color:rgba(240,128,128,.25);}
+body.dark-mode .ctr-tag.ctr-c1{background:#3a2510;color:#f0a878;border-color:rgba(240,168,120,.25);}
+body.dark-mode .ctr-tag.ctr-c2{background:#322a10;color:#e8c878;border-color:rgba(232,200,120,.25);}
+body.dark-mode .ctr-tag.ctr-c3{background:#0d2a1a;color:#80c8a0;border-color:rgba(128,200,160,.25);}
+body.dark-mode .ctr-tag.ctr-c4{background:#0a1f3a;color:#88b8e8;border-color:rgba(136,184,232,.25);}
+body.dark-mode .ctr-tag.ctr-c5{background:#28163a;color:#c898e8;border-color:rgba(200,152,232,.25);}
+body.dark-mode .ctr-tag.ctr-c6{background:#3a1828;color:#f098c0;border-color:rgba(240,152,192,.25);}
+body.dark-mode .ctr-tag.ctr-c7{background:#0a282a;color:#80d0d8;border-color:rgba(128,208,216,.25);}
+
+/* Contractor group header bar — gets the contractor's color as a left
+   border accent + tinted background. Default (no contractor color) is
+   the original navy. */
+.defic-group-header[data-ctr-color]{
+  border-left:4px solid currentColor;
+}
+
+/* Variant: contractor chip on Contractors-on-Site uses the same palette */
+.contractor-chip.ctr-tagged{
+  border-width:1.5px;
+}
+
+/* ═══════ View-pill (Table / Board toggle) — muted aesthetic ═══════ */
+/* Override the older grey-on-dark pill styling with a muted-burgundy
+   pattern that matches the .btn-muted-* family. */
+.view-pill{
+  display:inline-flex;
+  border:1.5px solid rgba(156,39,66,.25)!important;
+  border-radius:7px!important;
+  overflow:hidden!important;
+  background:transparent!important;
+  padding:0!important;
+}
+.view-pill-btn{
+  border:none!important;
+  background:transparent!important;
+  color:rgba(156,39,66,.7)!important;
+  padding:6px 16px!important;
+  cursor:pointer;
+  font-family:Calibri,sans-serif!important;
+  font-size:calc(12px + var(--ts))!important;
+  font-weight:600!important;
+  transition:background .15s, color .15s!important;
+}
+.view-pill-btn:hover{
+  background:rgba(156,39,66,.08)!important;
+  color:#9C2742!important;
+}
+.view-pill-btn.active{
+  background:rgba(156,39,66,.15)!important;
+  color:#9C2742!important;
+  font-weight:700!important;
+}
+body.dark-mode .view-pill{
+  border-color:rgba(232,138,122,.25)!important;
+  background:transparent!important;
+}
+body.dark-mode .view-pill-btn{color:rgba(232,138,122,.6)!important;}
+body.dark-mode .view-pill-btn:hover{background:rgba(232,138,122,.1)!important;color:#e88a7a!important;}
+body.dark-mode .view-pill-btn.active{background:rgba(232,138,122,.18)!important;color:#e88a7a!important;}
+
+/* ═══════ Jump button — muted aesthetic ═══════ */
+/* Override the burgundy outline with a subtle muted-info style. The
+   button is essentially a navigation hint, not a primary action. */
+.tt-jump{
+  background:rgba(21,101,192,.06)!important;
+  border:1.5px solid rgba(21,101,192,.25)!important;
+  color:#1565C0!important;
+  font-weight:600!important;
+  padding:3px 12px!important;
+  border-radius:5px!important;
+  font-family:Calibri,sans-serif!important;
+  font-size:calc(11px + var(--ts))!important;
+  cursor:pointer;
+  transition:background .15s, border-color .15s!important;
+}
+.tt-jump:hover{
+  background:rgba(21,101,192,.14)!important;
+  border-color:#1565C0!important;
+}
+body.dark-mode .tt-jump{
+  background:#0a1f3a!important;
+  color:#88b8e8!important;
+  border-color:rgba(136,184,232,.25)!important;
+}
+body.dark-mode .tt-jump:hover{
+  background:#152a4a!important;
+  border-color:#88b8e8!important;
+}
+
+/* ═══════ All-Deficiencies table responsive layout ═══════ */
+/* Force minimum widths on narrow columns; let Description take the
+   remaining space; provide horizontal scroll fallback at very narrow
+   viewports. */
+#tasks-table{
+  table-layout:fixed;
+  width:100%;
+}
+#tasks-table th, #tasks-table td{
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+#tasks-table th:nth-child(1), #tasks-table td:nth-child(1){width:48px;}                /* # */
+#tasks-table th:nth-child(2), #tasks-table td:nth-child(2){width:18%;min-width:120px;} /* Drawing */
+#tasks-table th:nth-child(3), #tasks-table td:nth-child(3){width:auto;}                /* Description (flex) */
+#tasks-table th:nth-child(4), #tasks-table td:nth-child(4){width:120px;}               /* Contractor */
+#tasks-table th:nth-child(5), #tasks-table td:nth-child(5){width:96px;}                /* Status */
+#tasks-table th:nth-child(6), #tasks-table td:nth-child(6){width:96px;}                /* Priority */
+#tasks-table th:nth-child(7), #tasks-table td:nth-child(7){width:72px;text-align:right;} /* Jump */
+#tasks-table td:nth-child(3){white-space:normal;}  /* Description wraps */
+#tasks-table td:nth-child(2){white-space:normal;}  /* Drawing also wraps */
+
