@@ -437,6 +437,12 @@ function _applyTransform() {
   // GL pins live outside dv-img-wrap and must be re-rendered on every transform.
   // HTML pins are children of dv-img-wrap, so they auto-transform; cheap early-out.
   if (_useGLPins && _glPinsReady) _renderPins();
+  // S113 Push 13: notify Markup of the new viewer scale so it can resize
+  // its canvas to displayed-pixel resolution. Markup filters pan-only
+  // events internally (no-op if scale unchanged) so this is cheap.
+  if (typeof Markup !== 'undefined' && Markup.setRenderScale) {
+    try { Markup.setRenderScale(_scale); } catch(_e) {}
+  }
 }
 
 function _clampPan() {

@@ -186,6 +186,80 @@ function _allocateCanvas() {
     (_useWebGL ? ' [WebGL' + (_webglReady ? ' ready' : ' initializing') + ']' : ' [2D]'));
 }
 
+// ── S113 Push 13 — viewer-zoom-aware canvas resolution ────────────────────
+// The wrap parent applies `transform: scale(viewer_scale)` to display the
+// canvas at the user's current zoom. With canvas internal pixels = drawing
+// pixels (e.g. 6144×4096), fit-zoom (viewer_scale ≈ 0.222) means the
+// browser downsamples ~4.5× via bilinear, washing out thin lines and
+// producing the "broken pen lines" + "invisible selection box" that Mark
+// reported.
+//
+// Fix: resize canvas internal dimensions to match displayed pixels on
+// every zoom change, capped at the device memory budget. Coordinates and
+// stored object data are unchanged — only the rendering substrate
+// resolution adapts.
+//
+//   • At fit (s=0.222): canvas internal ≈ 1366×909  (1.2 Mpx, low memory)
+//   • At native (s=1):   canvas internal = drawing pixels (≈25 Mpx, budget cap)
+//   • At zoom-in (s>1):  canvas internal stays capped at drawing pixels
+//                        (browser still upscales for >1× zoom — same as today)
+//
+// `mc.style.width` and `_logicalW` stay at drawing dims so the wrap
+// transform math, _getPos coordinate translation, and pin position math
+// are all unaffected.
+//
+// Called from viewer.js _applyTransform on every scale change. Pan-only
+// changes are filtered by the no-op early-return.
+var _lastRenderScale = -1;  // sentinel: forces first call to apply
+function _resizeMarkupForScale(targetScale) {
+  var mc = _getCanvas();
+  if (!mc || !mc._logicalW) return;       // not yet allocated
+  if (!(targetScale > 0)) return;          // degenerate
+
+  var drawW = mc._logicalW;
+  var drawH = mc._logicalH || mc._logicalW;
+
+  // Budget cap (same as _allocateCanvas)
+  var ua = navigator.userAgent;
+  var isAndroidPhone = /Android/.test(ua) && /Mobile/.test(ua) && !/SM-T|SM-X|Tablet/.test(ua);
+  var maxPixels = isAndroidPhone ? 10000000 : 25000000;
+  var budgetScale = Math.sqrt(maxPixels / (drawW * drawH));
+  if (budgetScale > 1) budgetScale = 1;
+
+  // Effective render scale: capped at budget (above) and at a sensible
+  // floor (below) so very low zooms don't produce a sub-100px canvas.
+  var effective = targetScale;
+  if (effective > budgetScale) effective = budgetScale;
+  if (effective < 0.08) effective = 0.08;
+
+  // No-op: same scale within 1% (filters pan-only events + wheel-zoom jitter)
+  if (Math.abs(effective - _lastRenderScale) / effective < 0.01) return;
+
+  var newW = Math.max(1, Math.round(drawW * effective));
+  var newH = Math.max(1, Math.round(drawH * effective));
+
+  // Resize main canvas (wipes content; caller must re-render)
+  mc.width = newW;
+  mc.height = newH;
+  mc._dpr = effective;
+  // mc.style.width/height/_logicalW/_logicalH UNCHANGED — preserve coord space
+
+  var ctx = mc.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  // Resize WebGL sibling canvas (Pixi)
+  if (_webglCanvas) {
+    _webglCanvas.width = newW;
+    _webglCanvas.height = newH;
+    if (_webglReady && window.WebGLMarkupRenderer && window.WebGLMarkupRenderer.resize) {
+      try { window.WebGLMarkupRenderer.resize(newW, newH); } catch(_e) {}
+    }
+  }
+
+  _lastRenderScale = effective;
+}
+
 function _ensureOverlay() {
   var mc = _getCanvas();
   if (!mc) return null;
@@ -224,6 +298,28 @@ function _getPos(e) {
   if (e.touches && e.touches.length) return { x: (e.touches[0].clientX - r.left) * sx, y: (e.touches[0].clientY - r.top) * sy };
   if (e.changedTouches && e.changedTouches.length) return { x: (e.changedTouches[0].clientX - r.left) * sx, y: (e.changedTouches[0].clientY - r.top) * sy };
   return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
+}
+
+// ── UI overlay scale (S113 Push 12) ─────────────────────
+// Returns the multiplier that converts a "visual CSS pixel" intent into
+// canvas-pixel space at the current viewer zoom. A line drawn with
+// lineWidth `1.5 * _uiScale()` will appear 1.5 CSS px wide on screen
+// regardless of zoom level. Used ONLY for selection box, resize handles,
+// rotation handle, delete button, rubber-band — i.e. UI affordances that
+// must stay visible at fit-zoom. NEVER applied to pen / shape / highlight
+// strokes (Mark explicitly asked not to artificially fatten user content).
+//
+// Capped at 1.0 minimum so zooming PAST 1:1 doesn't shrink UI below its
+// intended canvas size.
+function _uiScale() {
+  var mc = _getCanvas();
+  if (!mc || !mc._logicalW) return 1;
+  var r = mc.getBoundingClientRect();
+  if (!r.width) return 1;
+  var s = r.width / mc._logicalW;
+  if (s >= 1) return 1;       // at zoom-in, render UI at native size
+  if (s <= 0) return 1;
+  return 1 / s;
 }
 
 // ── Undo / Redo ─────────────────────────────────────────
@@ -405,10 +501,11 @@ function _renderAll() {
 
   if (_rubberBand) {
     ctx.save();
-    ctx.setLineDash([4, 4]);
+    var rbS = _uiScale();
+    ctx.setLineDash([4 * rbS, 4 * rbS]);
     ctx.strokeStyle = '#2196F3';
     ctx.fillStyle = 'rgba(33,150,243,.08)';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 * rbS;
     var rx = Math.min(_rubberBand.x1, _rubberBand.x2);
     var ry = Math.min(_rubberBand.y1, _rubberBand.y2);
     var rw = Math.abs(_rubberBand.x2 - _rubberBand.x1);
@@ -2460,6 +2557,7 @@ export var Markup = {
     _tool = null;
     _isDrawing = false;
     _dirty = false;
+    _lastRenderScale = -1;  // force first setRenderScale call to apply
 
     _allocateCanvas();
     _buildToolbar();
@@ -2523,6 +2621,18 @@ export var Markup = {
   setTool: function(tool) { _setActiveTool(tool); },
   getTool: function() { return _tool; },
   renderAll: function() { _renderAll(); },
+  // S113 Push 13: viewer-zoom-aware render resolution. Called from viewer.js
+  // _applyTransform on every zoom change. Resizes canvas internal pixels
+  // to match displayed pixels (capped at memory budget), then re-renders.
+  // No-op if scale unchanged. Synchronous — fast enough not to need debounce
+  // for normal zoom interactions (wheel-zoom + pinch-zoom).
+  setRenderScale: function(s) {
+    var prevScale = _lastRenderScale;
+    _resizeMarkupForScale(s);
+    // Only re-render if resize actually changed dimensions (early-return
+    // inside _resizeMarkupForScale leaves _lastRenderScale untouched).
+    if (_lastRenderScale !== prevScale) _renderAll();
+  },
   isActive: function() { return _tool && _tool !== 'pin'; }
 };
 
