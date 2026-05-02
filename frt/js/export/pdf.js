@@ -31,13 +31,8 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback){
     var canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,sx,sy,cropW,cropH,0,0,outW,outH);
     var pinCX=(px-sx)*outScale;var pinCY=(py-sy)*outScale;
-    var r=Math.max(14,outW*0.025);
-    ctx.beginPath();ctx.arc(pinCX,pinCY,r,0,2*Math.PI);
-    ctx.fillStyle=_deficIsClosed(pinData)?'#1A7A4A':'#C0392B';
-    ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.stroke();
-    ctx.fillStyle='#fff';ctx.font='bold '+Math.round(r*1.1)+'px Calibri';
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(String(pinData.num||'?'),pinCX,pinCY);
+    var pinW=Math.max(28,outW*0.05);
+    _drawTeardropPin(ctx,pinCX,pinCY,pinW,pinData);
     callback(canvas.toDataURL('image/jpeg',0.92));
   };
   img.src=dwgDataUrl;
@@ -50,20 +45,108 @@ function _renderDrawingWithPins(dwgDataUrl,pins,callback){
     var w=Math.round(img.width*scale);var h=Math.round(img.height*scale);
     var canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
-    var r=Math.max(14,w*0.014);
+    var pinW=Math.max(28,w*0.028);
     pins.forEach(function(rr){
       var d=rr.d;if(d.pinX==null)return;
       var px=d.pinX*w;var py=d.pinY*h;
-      ctx.beginPath();ctx.arc(px,py,r,0,2*Math.PI);
-      ctx.fillStyle=_deficIsClosed(d)?'#1A7A4A':'#C0392B';
-      ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
-      ctx.fillStyle='#fff';ctx.font='bold '+Math.round(r*1.1)+'px Calibri';
-      ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(String(d.num||'?'),px,py);
+      _drawTeardropPin(ctx,px,py,pinW,d);
     });
     callback(canvas.toDataURL('image/jpeg',0.92));
   };
   img.src=dwgDataUrl;
+}
+
+// S113 Push 12: teardrop pin matches the viewer's SVG path EXACTLY.
+// Source of truth — viewer.js (HTML pin path): viewBox 32×42, anchor at
+// (16, 40) which is the marker tip.
+//   <path d="M16 1 C8.3 1, 2 7.3, 2 15 c0 10.5 14 25 14 25 s14-14.5 14-25 C30 7.3 23.7 1 16 1 z"/>
+//   <circle cx=16 cy=14 r=9 fill=white/>
+//   <text x=16 y=14.5/>
+// Color logic also matches viewer.js _renderPins: iar→pink, low→orange,
+// general→green, high (default)→red, closed→0.5 alpha overlay.
+function _drawTeardropPin(ctx,anchorX,anchorY,pinW,d){
+  var s=pinW/32;  // SVG width is 32; scale factor = pinW / 32
+  // Anchor point in SVG is (16, 40). Map to (anchorX, anchorY).
+  function P(svgX,svgY){return{x:anchorX+(svgX-16)*s,y:anchorY+(svgY-40)*s};}
+
+  // Color resolution — match viewer
+  var pr=d.priority||'high';
+  var fill=d.iar?'#E91E8C':(pr==='general'?'#1A7A4A':(pr==='low'?'#E67E22':'#C0392B'));
+  var isClosed=_deficIsClosed(d);
+  var alpha=isClosed?0.5:1;
+
+  ctx.save();
+  ctx.globalAlpha=alpha;
+
+  // Outer pin path (white outline, matches viewer's outer path "M16 1 …")
+  function buildOuterPath(){
+    ctx.beginPath();
+    var p0=P(16,1);ctx.moveTo(p0.x,p0.y);
+    // C 8.3 1, 2 7.3, 2 15
+    var c1a=P(8.3,1),c2a=P(2,7.3),e1=P(2,15);
+    ctx.bezierCurveTo(c1a.x,c1a.y,c2a.x,c2a.y,e1.x,e1.y);
+    // c 0 10.5 14 25 14 25 (relative; from (2,15) to (16,40))
+    var c1b=P(2,25.5),c2b=P(16,40),e2=P(16,40);
+    ctx.bezierCurveTo(c1b.x,c1b.y,c2b.x,c2b.y,e2.x,e2.y);
+    // s 14 -14.5 14 -25 (smooth; from (16,40) to (30,15))
+    // cp1 = reflection of previous cp2 over current point = (16,40)
+    // cp2 = (30, 25.5), end = (30, 15)
+    var c1c=P(16,40),c2c=P(30,25.5),e3=P(30,15);
+    ctx.bezierCurveTo(c1c.x,c1c.y,c2c.x,c2c.y,e3.x,e3.y);
+    // C 30 7.3, 23.7 1, 16 1
+    var c1d=P(30,7.3),c2d=P(23.7,1),e4=P(16,1);
+    ctx.bezierCurveTo(c1d.x,c1d.y,c2d.x,c2d.y,e4.x,e4.y);
+    ctx.closePath();
+  }
+
+  // Layer 1: white outer halo (drop-shadow approximation)
+  buildOuterPath();
+  ctx.fillStyle='#fff';
+  ctx.fill();
+  // White stroke gives the pin its halo against any background
+  ctx.lineWidth=Math.max(1,s*2);
+  ctx.strokeStyle='#fff';
+  ctx.stroke();
+
+  // Layer 2: colored fill (slightly inset, matches viewer's inner path)
+  // Inner path uses (4,15)/(28,15) shoulders instead of (2,15)/(30,15)
+  // and goes to (16,37) instead of (16,40). Approximation: re-fill at
+  // 92% scale around the same anchor — visually identical at print sizes.
+  ctx.beginPath();
+  var sInner=s*0.93;
+  function PI(svgX,svgY){return{x:anchorX+(svgX-16)*sInner,y:anchorY+(svgY-40)*sInner+s*1};}
+  var ip0=PI(16,1);ctx.moveTo(ip0.x,ip0.y);
+  var ic1a=PI(8.3,1),ic2a=PI(2,7.3),ie1=PI(2,15);
+  ctx.bezierCurveTo(ic1a.x,ic1a.y,ic2a.x,ic2a.y,ie1.x,ie1.y);
+  var ic1b=PI(2,25.5),ic2b=PI(16,40),ie2=PI(16,40);
+  ctx.bezierCurveTo(ic1b.x,ic1b.y,ic2b.x,ic2b.y,ie2.x,ie2.y);
+  var ic1c=PI(16,40),ic2c=PI(30,25.5),ie3=PI(30,15);
+  ctx.bezierCurveTo(ic1c.x,ic1c.y,ic2c.x,ic2c.y,ie3.x,ie3.y);
+  var ic1d=PI(30,7.3),ic2d=PI(23.7,1),ie4=PI(16,1);
+  ctx.bezierCurveTo(ic1d.x,ic1d.y,ic2d.x,ic2d.y,ie4.x,ie4.y);
+  ctx.closePath();
+  ctx.fillStyle=fill;
+  ctx.fill();
+
+  // Layer 3: white inner circle at SVG (16, 14) radius 9
+  var cInner=P(16,14);
+  ctx.beginPath();
+  ctx.arc(cInner.x,cInner.y,9*s,0,Math.PI*2);
+  ctx.fillStyle='#fff';
+  ctx.globalAlpha=alpha*0.95;
+  ctx.fill();
+
+  // Layer 4: number text inside white circle, color = pin color
+  ctx.globalAlpha=alpha;
+  var numStr=String(d.num||'?');
+  var fs=Math.round(s*(numStr.length<=2?14:numStr.length===3?11:9));
+  ctx.fillStyle=fill;
+  ctx.font='900 '+fs+'px Calibri,Arial,sans-serif';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillText(numStr,cInner.x,cInner.y);
+
+  ctx.restore();
 }
 
 function _prefetchR2PhotosForPDF(p,progressCb){
