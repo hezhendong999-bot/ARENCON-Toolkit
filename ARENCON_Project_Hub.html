@@ -544,51 +544,6 @@ body.text-l{--ts:4px;}
 /* Text size toggle button */
 .text-size-toggle{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:calc(13px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;transition:all .15s;min-height:32px;display:inline-flex;align-items:center;gap:4px;}
 .text-size-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
-/* ═══ AI Usage Panel ═══ */
-.ai-usage-panel{display:none;padding:24px}
-.aiu-period-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
-.aiu-period-bar button{padding:6px 14px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;transition:all .15s}
-.aiu-period-bar button:hover{border-color:var(--arencon);color:var(--arencon)}
-.aiu-period-bar button.active{background:var(--arencon);color:#fff;border-color:var(--arencon)}
-.aiu-period-label{font-size:calc(15px + var(--ts));font-weight:700;color:var(--fg);min-width:180px;text-align:center}
-.aiu-filter-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
-.aiu-filter-row select,.aiu-filter-row input{padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg);color:var(--fg)}
-.aiu-summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
-.aiu-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;text-align:center}
-.aiu-card-val{font-size:calc(22px + var(--ts));font-weight:700;color:var(--arencon)}
-.aiu-card-label{font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
-.aiu-table{width:100%;border-collapse:collapse}
-.aiu-table th{text-align:left;padding:10px 12px;border-bottom:2px solid var(--border);font-size:calc(11px + var(--ts));font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.6px}
-.aiu-table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:calc(13px + var(--ts));color:var(--fg);vertical-align:middle}
-.aiu-table tr:hover td{background:var(--arencon-glow)}
-.aiu-table .cost-cell{font-weight:700;font-variant-numeric:tabular-nums}
-.aiu-invoiced-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:12px;font-size:calc(11px + var(--ts));font-weight:600}
-.aiu-invoiced-badge.done{background:#D1FAE5;color:#065F46}
-.aiu-invoiced-badge.pending{background:#FEF3C7;color:#92400E}
-body.dark-mode .aiu-invoiced-badge.done{background:#064E3B;color:#6EE7B7}
-body.dark-mode .aiu-invoiced-badge.pending{background:#78350F;color:#FCD34D}
-.aiu-mark-btn{padding:4px 12px;border:1.5px solid #059669;border-radius:6px;background:transparent;color:#059669;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;transition:all .15s}
-.aiu-mark-btn:hover{background:#059669;color:#fff}
-.aiu-mark-btn.done{border-color:var(--border);color:var(--silver);cursor:default;opacity:.6}
-.aiu-mark-btn.done:hover{background:transparent;color:var(--silver)}
-.aiu-actions-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
-.aiu-actions-bar button{padding:7px 16px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;border:1.5px solid var(--border);transition:all .15s}
-.aiu-export-btn{background:var(--bg);color:var(--fg)}
-.aiu-export-btn:hover{border-color:var(--arencon);color:var(--arencon)}
-.aiu-markall-btn{background:#059669;color:#fff;border-color:#059669}
-.aiu-markall-btn:hover{background:#047857}
-@media(max-width:700px){
-  .aiu-period-bar{flex-direction:column;align-items:stretch}
-  .aiu-period-label{text-align:left;min-width:auto}
-  .aiu-summary-cards{grid-template-columns:1fr 1fr}
-  .aiu-table{font-size:calc(12px + var(--ts))}
-  .aiu-table th,.aiu-table td{padding:8px 6px}
-}
-body.dark-mode .ai-usage-panel .admin-section{background:var(--card);border-color:var(--border)}
-body.dark-mode .ai-usage-panel .admin-section-header{background:linear-gradient(135deg,#1E293B,#334155)}
-body.dark-mode .aiu-card{background:var(--card);border-color:var(--border)}
-body.dark-mode .aiu-mark-btn{border-color:#34D399;color:#34D399}
-body.dark-mode .aiu-mark-btn:hover{background:#059669;color:#fff}
 </style>
 </head>
 <body>
@@ -603,7 +558,6 @@ body.dark-mode .aiu-mark-btn:hover{background:#059669;color:#fff}
     <span class="user-role" id="hdr-user-role"></span>
   </div>
   <button class="hdr-btn desktop-only" id="btn-admin" style="display:none" onclick="showAdmin()">👤 Admin</button>
-  <button class="hdr-btn desktop-only" id="btn-aiusage" style="display:none" onclick="showAIUsage()">📊 AI Usage</button>
   <button class="hdr-btn desktop-only" id="btn-profile" style="display:none" onclick="openProfileModal()">⚙️ Profile</button>
   <button class="hdr-btn desktop-only" id="btn-tools" onclick="window.location.href='index.html'" title="All Tools">🧰 Tools</button>
   <button class="hdr-btn desktop-only" id="btn-dark" onclick="toggleDark()">☀️</button>
@@ -624,7 +578,6 @@ body.dark-mode .aiu-mark-btn:hover{background:#059669;color:#fff}
     </div>
     <div class="mobile-menu-divider" id="mob-div-user" style="display:none"></div>
     <button class="mobile-menu-item" id="mob-admin" style="display:none" onclick="showAdmin();closeMobileMenu()">👤 Admin Panel</button>
-    <button class="mobile-menu-item" id="mob-aiusage" style="display:none" onclick="showAIUsage();closeMobileMenu()">📊 AI Usage</button>
     <button class="mobile-menu-item" id="mob-profile" style="display:none" onclick="openProfileModal();closeMobileMenu()">⚙️ Profile</button>
     <button class="mobile-menu-item" onclick="window.location.href='index.html'">🧰 All Tools</button>
     <button class="mobile-menu-item" onclick="toggleDark();closeMobileMenu()"><span id="mob-dark-label">☀️ Dark Mode</span></button>
@@ -818,69 +771,6 @@ body.dark-mode .aiu-mark-btn:hover{background:#059669;color:#fff}
           No users found
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- ═══ AI USAGE PANEL ═══ -->
-  <div class="ai-usage-panel" id="ai-usage-panel">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-      <button class="dash-btn secondary" onclick="showDashboard()">← Back to Dashboard</button>
-      <h2 style="font-size:20px;font-weight:700;color:var(--fg)">📊 AI Usage & Invoicing</h2>
-    </div>
-
-    <!-- Period Navigation -->
-    <div class="aiu-period-bar">
-      <button onclick="AIUsage.prevPeriod()">◀ Prev</button>
-      <div class="aiu-period-label" id="aiu-period-label">—</div>
-      <button onclick="AIUsage.nextPeriod()">Next ▶</button>
-      <div style="flex:1"></div>
-      <label style="font-size:calc(12px + var(--ts));color:var(--silver)">Billing Day:
-        <input type="number" id="aiu-billing-day" min="1" max="28" value="20" style="width:52px;padding:4px 6px;border:1.5px solid var(--border);border-radius:4px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg);color:var(--fg)" onchange="AIUsage.saveBillingDay(this.value)">
-      </label>
-    </div>
-
-    <!-- Filters -->
-    <div class="aiu-filter-row">
-      <label style="font-size:calc(12px + var(--ts));color:var(--silver)">PM:
-        <select id="aiu-pm-filter" onchange="AIUsage.refresh()" style="min-width:160px">
-          <option value="all">All PMs</option>
-          <option value="mine">My Projects</option>
-        </select>
-      </label>
-    </div>
-
-    <!-- Summary Cards -->
-    <div class="aiu-summary-cards" id="aiu-summary-cards"></div>
-
-    <!-- Main Table -->
-    <div class="admin-section">
-      <div class="admin-section-header">Usage by Project</div>
-      <div class="admin-section-body" style="padding:0;overflow-x:auto">
-        <table class="aiu-table">
-          <thead>
-            <tr>
-              <th>Project #</th>
-              <th>Project Name</th>
-              <th>PM</th>
-              <th>Tool</th>
-              <th>Reviews</th>
-              <th>Cost (USD)</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="aiu-table-body"></tbody>
-        </table>
-        <div id="aiu-empty" style="text-align:center;padding:30px;color:var(--silver);display:none">
-          No AI usage found for this period
-        </div>
-      </div>
-    </div>
-
-    <!-- Actions -->
-    <div class="aiu-actions-bar">
-      <button class="aiu-actions-bar aiu-markall-btn" onclick="AIUsage.markAll()">✓ Mark All as Invoiced</button>
-      <button class="aiu-actions-bar aiu-export-btn" onclick="AIUsage.exportCSV()">📥 Export CSV</button>
     </div>
   </div>
 
@@ -1313,10 +1203,6 @@ function createSupabaseClient(url, key) {
         select(cols) { _select = cols || '*'; return builder; },
         eq(col, val) { _filters.push(`${col}=eq.${val}`); return builder; },
         neq(col, val) { _filters.push(`${col}=neq.${val}`); return builder; },
-        gte(col, val) { _filters.push(`${col}=gte.${encodeURIComponent(val)}`); return builder; },
-        lte(col, val) { _filters.push(`${col}=lte.${encodeURIComponent(val)}`); return builder; },
-        lt(col, val) { _filters.push(`${col}=lt.${encodeURIComponent(val)}`); return builder; },
-        inFilter(col, vals) { _filters.push(`${col}=in.(${vals.map(v => encodeURIComponent(v)).join(',')})`); return builder; },
         ilike(col, val) { _filters.push(`${col}=ilike.${encodeURIComponent(val)}`); return builder; },
         order(col, opts = {}) { _order = col + (opts.ascending === false ? '.desc' : '.asc'); return builder; },
         single() { _single = true; return builder; },
@@ -1651,11 +1537,6 @@ function showApp() {
   document.getElementById('btn-admin').style.display = isAdmin ? '' : 'none';
   document.getElementById('mob-admin').style.display = isAdmin ? '' : 'none';
 
-  // Show AI Usage button for admin + inspector (PMs are inspectors)
-  const canSeeUsage = _profile && (_profile.role === 'super_admin' || _profile.role === 'admin' || _profile.role === 'inspector');
-  document.getElementById('btn-aiusage').style.display = canSeeUsage ? '' : 'none';
-  document.getElementById('mob-aiusage').style.display = canSeeUsage ? '' : 'none';
-
   // Show profile and bulk buttons for all logged-in users
   document.getElementById('btn-profile').style.display = '';
   document.getElementById('mob-profile').style.display = '';
@@ -1691,7 +1572,6 @@ window.addEventListener('popstate', function(e) {
       _detailProjectId = state.id;
       document.getElementById('dash-view').style.display = 'none';
       document.getElementById('admin-panel').style.display = 'none';
-      document.getElementById('ai-usage-panel').style.display = 'none';
       document.getElementById('project-detail').style.display = 'block';
     }
   }
@@ -1707,11 +1587,10 @@ function roleClass(role) {
   return map[role] || 'role-viewer';
 }
 
-/* ═══ Dashboard / Admin / AI Usage toggle ═══ */
+/* ═══ Dashboard / Admin toggle ═══ */
 function showDashboard() {
   document.getElementById('dash-view').style.display = 'block';
   document.getElementById('admin-panel').style.display = 'none';
-  document.getElementById('ai-usage-panel').style.display = 'none';
   document.getElementById('project-detail').style.display = 'none';
   _detailProjectId = null;
   // Restore persisted sort preference
@@ -1725,19 +1604,9 @@ function showDashboard() {
 function showAdmin() {
   document.getElementById('dash-view').style.display = 'none';
   document.getElementById('admin-panel').style.display = 'block';
-  document.getElementById('ai-usage-panel').style.display = 'none';
   document.getElementById('project-detail').style.display = 'none';
   _detailProjectId = null;
   loadAdminUsers();
-}
-
-function showAIUsage() {
-  document.getElementById('dash-view').style.display = 'none';
-  document.getElementById('admin-panel').style.display = 'none';
-  document.getElementById('ai-usage-panel').style.display = 'block';
-  document.getElementById('project-detail').style.display = 'none';
-  _detailProjectId = null;
-  AIUsage.init();
 }
 
 /* ═══ Load Projects ═══ */
@@ -1923,15 +1792,10 @@ function _renderProjectCard(p, myId) {
 
   // Export button
   var exportBtnHtml = '<button class="project-card-export" onclick="event.stopPropagation();exportSingleProject(\'' + esc(p.id) + '\')" title="Export JSON">📥</button>';
-  // S96 Fix #3: Download for Offline button — bulk-fetches all tile pyramids
-  // for this project's drawings into the SW Cache. Stays foregrounded on iOS
-  // (the user is told to keep the app open while it runs).
-  var offlineBtnHtml = '<button class="project-card-offline" onclick="event.stopPropagation();downloadProjectOffline(\'' + esc(p.id) + '\')" title="Download for offline (full deep-zoom)" style="position:absolute;top:8px;right:36px;background:none;border:none;font-size:calc(13px + var(--ts));cursor:pointer;color:var(--silver);padding:2px;line-height:1;">📡</button>';
 
   return '<div class="project-card" onclick="' + cardClick + '">'
     + bulkCheckHtml
     + exportBtnHtml
-    + offlineBtnHtml
     + '<div class="project-card-top"><span class="project-card-number">' + num + '</span><span class="project-card-name">' + name + '</span>'
     + '<button class="project-card-pin' + pinClass + '" onclick="event.stopPropagation();togglePin(\'' + esc(p.id) + '\')" title="' + (isPinned ? 'Unpin' : 'Pin for everyone') + '">' + pinIcon + '</button>'
     + '<button class="project-card-star' + starClass + '" onclick="event.stopPropagation();toggleStar(\'' + esc(p.id) + '\')" title="' + (isStarred ? 'Unstar' : 'Star') + '">' + starIcon + '</button>'
@@ -1989,7 +1853,7 @@ function toggleDeleted() {
 
 /* ═══ AVAILABLE TOOLS REGISTRY ═══ */
 const AVAILABLE_TOOLS = {
-  frt:      { name: 'Field Review Report',             icon: '📋', short: 'FRT', color: '#9C2742', svg: '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke="white" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', file: 'ARENCON_Field_Review_Tool.html' },
+  frt:      { name: 'Field Review Report',             icon: '📋', short: 'FRT', color: '#9C2742', svg: '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke="white" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', file: 'frt/index.html' },
   diesel:   { name: 'Diesel Fire Pump Commissioning',  icon: '🔥', short: 'DFP', color: '#E65100', svg: '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 5.86 13.95 4c-1.73.46-2.96 1.76-3.6 3.32-.3.7-.44 1.5-.4 2.24.04.76.24 1.5.66 2.14.37.56.84 1.04 1.36 1.42-.16.36-.36.72-.64 1-.28.27-.64.43-1 .5.78.54 1.7.8 2.6.7.94-.1 1.82-.56 2.44-1.3.67-.8.94-1.86.76-2.88-.08-.4-.24-.78-.47-1.13zM12.5 17.5c-.28.23-.62.37-1 .38-.4 0-.76-.17-1.04-.44-.28-.27-.44-.64-.44-1.04 0-.46.18-.84.46-1.12.52-.52 1.15-.82 1.56-1.34.47.66.48 1.58.16 2.3-.1.2-.2.38-.36.54l.1.1c.44-.3.76-.74.96-1.24.24-.58.28-1.24.08-1.86-.1-.3-.24-.56-.42-.8-.3.66-.8 1.16-1.36 1.54-.36.24-.72.42-1 .72-.32.3-.5.7-.5 1.14 0 .66.34 1.28.88 1.62.34.22.74.34 1.16.34.6 0 1.14-.26 1.52-.68.1-.1.18-.22.24-.34z" fill="white"/></svg>', file: 'ARENCON_Diesel_Fire_Pump_Commissioning.html' },
   electric: { name: 'Electric Fire Pump Acceptance',    icon: '⚡', short: 'EFP', color: '#1565C0', svg: '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M13 3v6h5l-7 11v-6H6l7-11z" fill="white"/></svg>', file: 'ARENCON_Electric_Fire_Pump_Commissioning.html' },
   ist:      { name: 'Integrated Systems Testing',       icon: '🔗', short: 'IST', color: '#C62828', svg: '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M3.5 18.5l6-6 4 4L22 8" stroke="white" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 8h6v6" stroke="white" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', file: 'ARENCON_IST_S1001.html' },
@@ -2017,10 +1881,9 @@ function openProject(projectId) {
   // Push history state so browser back returns to dashboard
   try { history.pushState({view:'project',id:projectId}, '', window.location.pathname); } catch(e){}
 
-  // Hide dashboard + admin + AI usage, show detail
+  // Hide dashboard + admin, show detail
   document.getElementById('dash-view').style.display = 'none';
   document.getElementById('admin-panel').style.display = 'none';
-  document.getElementById('ai-usage-panel').style.display = 'none';
   var detail = document.getElementById('project-detail');
   detail.style.display = 'block';
 
@@ -3327,165 +3190,6 @@ async function exportAllProjects() {
   toast(active.length + ' project(s) exported', 'success');
 }
 
-/* ═══ S96 Fix #3: Download for Offline (per-project deep-zoom tile cache) ═══
-   Bulk-fetches every tile pyramid level (L0..LMax) for every drawing in this
-   project. The service worker (sw.js) intercepts each fetch and stores the
-   tile in the long-lived 'arencon-frt-tiles-v1' Cache API store. After this
-   completes, the drawings render fully offline including deep zoom. */
-var WORKER_TILE_BASE = 'https://arencon-r2-worker.hezhendong999.workers.dev';
-var _offlineDownloadAbort = null;
-
-async function downloadProjectOffline(projectId) {
-  if (_offlineDownloadAbort) {
-    if (!confirm('Another offline download is in progress. Cancel it and start a new one?')) return;
-    _offlineDownloadAbort.aborted = true;
-    _offlineDownloadAbort = null;
-  }
-  var proj = _projects.find(function(p) { return p.id === projectId; });
-  if (!proj) { toast('Project not found', 'error'); return; }
-
-  // Pull tool_data so we know which drawings exist and have manifests
-  var toolData = await _fetchProjectToolData(projectId);
-  var drawings = [];
-  if (toolData && toolData.frt && toolData.frt.drawings) {
-    drawings = toolData.frt.drawings.filter(function(d) {
-      return d && d.id && (d.manifestUrl || d.tileServer || d.pdfTiled || d.serverRendered);
-    });
-  }
-  if (!drawings.length) {
-    toast('No tiled drawings to download for this project', 'info');
-    return;
-  }
-
-  // Confirmation with rough size estimate (≈30-100 MB/drawing for full pyramid)
-  var estLow = Math.round(drawings.length * 30);
-  var estHigh = Math.round(drawings.length * 100);
-  if (!confirm('Download ' + drawings.length + ' drawing(s) for offline use?\n\n'
-    + 'Estimated size: ' + estLow + '–' + estHigh + ' MB.\n'
-    + 'Use Wi-Fi if possible.\n'
-    + 'Keep this app open until done — iOS stops downloads when backgrounded.')) return;
-
-  _offlineDownloadAbort = { aborted: false };
-  _showOfflineDownloadModal(proj, drawings.length);
-
-  var totalDrawings = drawings.length;
-  var doneDrawings = 0;
-  var totalTiles = 0, doneTiles = 0, failTiles = 0;
-
-  for (var di = 0; di < drawings.length; di++) {
-    if (_offlineDownloadAbort && _offlineDownloadAbort.aborted) break;
-    var d = drawings[di];
-    _updateOfflineDownloadModal({ phase: 'manifest', drawing: di + 1, drawingTotal: totalDrawings, name: d.name || d.id });
-
-    var manifest = null;
-    try {
-      var mUrl = WORKER_TILE_BASE + '/' + encodeURIComponent(projectId) + '/tiles/' + encodeURIComponent(d.id) + '/manifest.json';
-      var mResp = await fetch(mUrl, { cache: 'reload' });
-      if (mResp && mResp.ok) manifest = await mResp.json();
-    } catch (err) { /* skip drawing on manifest failure */ }
-    if (!manifest || !manifest.pages) { doneDrawings++; continue; }
-
-    // Enumerate every tile across every level
-    var urls = [];
-    for (var pi = 0; pi < manifest.pages.length; pi++) {
-      var pg = manifest.pages[pi];
-      var pn = pg.pageNumber || (pi + 1);
-      for (var li = 0; li < pg.levels.length; li++) {
-        var lv = pg.levels[li];
-        for (var y = 0; y < lv.rows; y++) {
-          for (var x = 0; x < lv.cols; x++) {
-            urls.push(WORKER_TILE_BASE + '/' + encodeURIComponent(projectId)
-              + '/tiles/' + encodeURIComponent(d.id) + '/page-' + pn
-              + '/level-' + lv.level + '/' + x + '-' + y + '.webp');
-          }
-        }
-      }
-    }
-    totalTiles += urls.length;
-
-    // Fetch with bounded concurrency. SW handles caching automatically.
-    var concurrency = 6;
-    var idx = 0;
-    await new Promise(function(resolve) {
-      var inflight = 0, finished = 0;
-      function next() {
-        if (_offlineDownloadAbort && _offlineDownloadAbort.aborted) {
-          if (inflight === 0) resolve(); return;
-        }
-        while (inflight < concurrency && idx < urls.length) {
-          var u = urls[idx++];
-          inflight++;
-          fetch(u).then(function(r) {
-            if (r && (r.ok || r.status === 504)) doneTiles++; else failTiles++;
-          }).catch(function() { failTiles++; }).then(function() {
-            inflight--; finished++;
-            _updateOfflineDownloadModal({
-              phase: 'tiles', drawing: di + 1, drawingTotal: totalDrawings,
-              name: d.name || d.id, tilesDone: doneTiles, tilesTotal: totalTiles,
-              tilesFailed: failTiles
-            });
-            if (finished >= urls.length) resolve(); else next();
-          });
-        }
-      }
-      if (urls.length === 0) resolve(); else next();
-    });
-
-    doneDrawings++;
-  }
-
-  _hideOfflineDownloadModal();
-  if (_offlineDownloadAbort && _offlineDownloadAbort.aborted) {
-    toast('Download cancelled — partial cache kept', 'info');
-  } else {
-    toast('✓ Cached ' + doneTiles + ' tiles across ' + doneDrawings + ' drawing(s) for offline use', 'success');
-  }
-  _offlineDownloadAbort = null;
-}
-
-function _showOfflineDownloadModal(proj, drawingCount) {
-  var m = document.createElement('div');
-  m.id = 'offline-dl-modal';
-  m.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
-  m.innerHTML = '<div style="background:var(--card,#fff);border-radius:12px;padding:22px 26px;box-shadow:0 12px 40px rgba(0,0,0,.4);min-width:340px;max-width:480px;color:var(--fg,#222)">'
-    + '<div style="font-size:16px;font-weight:700;margin-bottom:4px">📡 Caching project for offline</div>'
-    + '<div style="font-size:13px;color:var(--silver,#888);margin-bottom:14px">' + esc(proj.project_name || proj.project_number || 'Project') + '</div>'
-    + '<div id="offline-dl-status" style="font-size:13px;margin-bottom:8px;line-height:1.45">Preparing…</div>'
-    + '<div style="height:8px;background:rgba(0,0,0,.08);border-radius:4px;overflow:hidden;margin-bottom:14px"><div id="offline-dl-bar" style="height:100%;background:var(--arencon,#9C2742);width:0%;transition:width .25s"></div></div>'
-    + '<div style="font-size:11px;color:var(--silver,#888);margin-bottom:16px;line-height:1.45">⚠ Keep this app open. iOS stops downloads when backgrounded.</div>'
-    + '<div style="display:flex;justify-content:flex-end;gap:8px">'
-    + '<button id="offline-dl-cancel" style="padding:6px 16px;border-radius:6px;border:1px solid var(--border,#ccc);background:transparent;color:var(--fg,#222);font-family:Calibri,sans-serif;font-weight:600;cursor:pointer">Cancel</button>'
-    + '<button id="offline-dl-bg" style="padding:6px 16px;border-radius:6px;border:1px solid var(--arencon,#9C2742);background:var(--arencon,#9C2742);color:#fff;font-family:Calibri,sans-serif;font-weight:600;cursor:pointer">Run in background</button>'
-    + '</div></div>';
-  document.body.appendChild(m);
-  document.getElementById('offline-dl-cancel').onclick = function() {
-    if (_offlineDownloadAbort) _offlineDownloadAbort.aborted = true;
-    _hideOfflineDownloadModal();
-  };
-  document.getElementById('offline-dl-bg').onclick = function() {
-    // Hide modal but keep download running. Toast will fire when complete.
-    _hideOfflineDownloadModal();
-    toast('Download running in background — keep app open', 'info');
-  };
-}
-function _updateOfflineDownloadModal(state) {
-  var st = document.getElementById('offline-dl-status');
-  var bar = document.getElementById('offline-dl-bar');
-  if (!st || !bar) return;
-  if (state.phase === 'manifest') {
-    st.textContent = 'Drawing ' + state.drawing + '/' + state.drawingTotal + ': fetching manifest — ' + (state.name || '');
-  } else {
-    var pct = state.tilesTotal > 0 ? Math.round(state.tilesDone * 100 / state.tilesTotal) : 0;
-    st.textContent = 'Drawing ' + state.drawing + '/' + state.drawingTotal + ' — ' + state.tilesDone + '/' + state.tilesTotal + ' tiles (' + pct + '%)' + (state.tilesFailed ? ' · ' + state.tilesFailed + ' failed' : '');
-    bar.style.width = pct + '%';
-  }
-}
-function _hideOfflineDownloadModal() {
-  var m = document.getElementById('offline-dl-modal');
-  if (m && m.parentNode) m.parentNode.removeChild(m);
-}
-window.downloadProjectOffline = downloadProjectOffline;
-
 /* ═══ Dark Mode ═══ */
 function toggleDark() {
   _darkMode = !_darkMode;
@@ -3587,405 +3291,6 @@ setInterval(async () => {
     }
   }
 }, 1800000); // 30 min
-
-
-// ═══ AI USAGE & INVOICING MODULE ═══
-var AIUsage = (function() {
-  'use strict';
-
-  var _billingDay = 20;
-  var _currentPeriodStart = null;
-  var _currentPeriodEnd = null;
-  var _usageData = [];
-  var _invoiceMarks = {};
-  var _initialized = false;
-
-  // ── Period calculation ──
-  function calcPeriod(refDate, billingDay) {
-    var d = refDate || new Date();
-    var y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
-    var start, end;
-    if (day >= billingDay) {
-      start = new Date(y, m, billingDay);
-      end = new Date(y, m + 1, billingDay - 1);
-    } else {
-      start = new Date(y, m - 1, billingDay);
-      end = new Date(y, m, billingDay - 1);
-    }
-    return { start: start, end: end };
-  }
-
-  function fmtDate(d) {
-    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  }
-
-  function fmtPeriodLabel(s, e) {
-    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return months[s.getMonth()] + ' ' + s.getDate() + ', ' + s.getFullYear() +
-           '  →  ' + months[e.getMonth()] + ' ' + e.getDate() + ', ' + e.getFullYear();
-  }
-
-  function fmtCost(n) { return '$' + (n || 0).toFixed(4); }
-
-  // ── Init ──
-  async function init() {
-    await loadBillingDay();
-    // Populate PM filter dropdown from _userMap
-    populatePMFilter();
-    // Set current period to today's cycle
-    var period = calcPeriod(new Date(), _billingDay);
-    _currentPeriodStart = period.start;
-    _currentPeriodEnd = period.end;
-    await refresh();
-  }
-
-  function populatePMFilter() {
-    var sel = document.getElementById('aiu-pm-filter');
-    if (!sel) return;
-    var isAdmin = _profile && (_profile.role === 'super_admin' || _profile.role === 'admin');
-    var entries = Object.entries(_userMap).sort(function(a,b){ return a[1].localeCompare(b[1]); });
-    sel.innerHTML = '';
-    if (isAdmin) {
-      sel.innerHTML += '<option value="all">All PMs</option>';
-    }
-    sel.innerHTML += '<option value="mine"' + (!isAdmin ? ' selected' : '') + '>My Projects</option>';
-    if (isAdmin) {
-      entries.forEach(function(e) {
-        sel.innerHTML += '<option value="' + e[0] + '">' + e[1] + '</option>';
-      });
-    }
-  }
-
-  // ── Load billing day from Supabase app_settings ──
-  async function loadBillingDay() {
-    try {
-      var rows = await _sb.from('app_settings').eq('key', 'billing_cycle_day').select('*').execute();
-      if (rows && rows.length > 0 && rows[0].value) {
-        _billingDay = parseInt(rows[0].value, 10) || 20;
-      }
-    } catch(e) {
-      console.warn('Could not load billing day:', e);
-    }
-    var inp = document.getElementById('aiu-billing-day');
-    if (inp) inp.value = _billingDay;
-  }
-
-  async function saveBillingDay(val) {
-    var day = parseInt(val, 10);
-    if (!day || day < 1 || day > 28) return;
-    _billingDay = day;
-    try {
-      // Upsert — try update first, then insert
-      var existing = await _sb.from('app_settings').eq('key', 'billing_cycle_day').select('*').execute();
-      if (existing && existing.length > 0) {
-        await _sb.from('app_settings').eq('key', 'billing_cycle_day').update({ value: String(day) });
-      } else {
-        await _sb.from('app_settings').insert({ key: 'billing_cycle_day', value: String(day) });
-      }
-      toast('Billing day saved: ' + day, 'success');
-    } catch(e) {
-      console.error('Failed to save billing day:', e);
-      toast('Failed to save billing day', 'error');
-    }
-    // Recalculate current period
-    var period = calcPeriod(new Date(), _billingDay);
-    _currentPeriodStart = period.start;
-    _currentPeriodEnd = period.end;
-    await refresh();
-  }
-
-  // ── Period navigation ──
-  function prevPeriod() {
-    var d = new Date(_currentPeriodStart);
-    d.setDate(d.getDate() - 1); // go back 1 day into previous cycle
-    var period = calcPeriod(d, _billingDay);
-    _currentPeriodStart = period.start;
-    _currentPeriodEnd = period.end;
-    refresh();
-  }
-
-  function nextPeriod() {
-    var d = new Date(_currentPeriodEnd);
-    d.setDate(d.getDate() + 1); // go forward 1 day into next cycle
-    var period = calcPeriod(d, _billingDay);
-    _currentPeriodStart = period.start;
-    _currentPeriodEnd = period.end;
-    refresh();
-  }
-
-  // ── Fetch data ──
-  async function refresh() {
-    if (!_currentPeriodStart || !_currentPeriodEnd) return;
-
-    // Update period label
-    document.getElementById('aiu-period-label').textContent = fmtPeriodLabel(_currentPeriodStart, _currentPeriodEnd);
-
-    var startISO = _currentPeriodStart.toISOString();
-    var endDate = new Date(_currentPeriodEnd);
-    endDate.setHours(23, 59, 59, 999);
-    var endISO = endDate.toISOString();
-
-    try {
-      // Fetch usage logs for period
-      _usageData = await _sb.from('ai_usage_log')
-        .select('*')
-        .gte('created_at', startISO)
-        .lte('created_at', endISO)
-        .order('created_at', { ascending: false })
-        .execute() || [];
-
-      // Fetch invoice marks for period
-      var marks = await _sb.from('ai_invoice_marks')
-        .select('*')
-        .gte('period_start', fmtDate(_currentPeriodStart))
-        .lte('period_start', fmtDate(_currentPeriodStart))
-        .execute() || [];
-
-      _invoiceMarks = {};
-      marks.forEach(function(m) {
-        _invoiceMarks[m.project_number] = m;
-      });
-    } catch(e) {
-      console.error('Failed to fetch AI usage:', e);
-      _usageData = [];
-      _invoiceMarks = {};
-    }
-
-    render();
-  }
-
-  // ── Group and render ──
-  function render() {
-    var pmFilter = document.getElementById('aiu-pm-filter').value;
-    var myId = _profile ? _profile.id : null;
-
-    // Build project → PM map from _projects
-    var projPMMap = {};
-    _projects.forEach(function(p) {
-      if (p.project_number) projPMMap[p.project_number] = p.project_manager || null;
-    });
-
-    // Group usage by project_number
-    var grouped = {};
-    _usageData.forEach(function(row) {
-      var pn = row.project_number || 'Unallocated';
-      if (!grouped[pn]) {
-        grouped[pn] = {
-          project_number: pn,
-          project_name: row.project_name || '—',
-          pm: projPMMap[pn] || null,
-          tools: {},
-          reviews: 0,
-          fields: 0,
-          cost: 0,
-          rows: []
-        };
-      }
-      var g = grouped[pn];
-      g.reviews++;
-      g.fields += (row.field_count || 0);
-      g.cost += parseFloat(row.cost_usd || 0);
-      g.rows.push(row);
-      var t = row.tool || '—';
-      if (!g.tools[t]) g.tools[t] = 0;
-      g.tools[t]++;
-    });
-
-    // Apply PM filter
-    var filtered = Object.values(grouped);
-    if (pmFilter === 'mine') {
-      filtered = filtered.filter(function(g) { return g.pm === myId; });
-    } else if (pmFilter !== 'all') {
-      filtered = filtered.filter(function(g) { return g.pm === pmFilter; });
-    }
-
-    // Sort by project number
-    filtered.sort(function(a,b) { return (a.project_number || '').localeCompare(b.project_number || ''); });
-
-    // Summary cards
-    var totalCost = 0, totalReviews = 0, invoicedCount = 0, pendingCount = 0;
-    filtered.forEach(function(g) {
-      totalCost += g.cost;
-      totalReviews += g.reviews;
-      if (_invoiceMarks[g.project_number]) invoicedCount++;
-      else pendingCount++;
-    });
-
-    document.getElementById('aiu-summary-cards').innerHTML =
-      '<div class="aiu-card"><div class="aiu-card-val">' + fmtCost(totalCost) + '</div><div class="aiu-card-label">Total Cost</div></div>' +
-      '<div class="aiu-card"><div class="aiu-card-val">' + totalReviews + '</div><div class="aiu-card-label">Reviews</div></div>' +
-      '<div class="aiu-card"><div class="aiu-card-val" style="color:#059669">' + invoicedCount + '</div><div class="aiu-card-label">Invoiced</div></div>' +
-      '<div class="aiu-card"><div class="aiu-card-val" style="color:#D97706">' + pendingCount + '</div><div class="aiu-card-label">Pending</div></div>';
-
-    // Table
-    var tbody = document.getElementById('aiu-table-body');
-    var empty = document.getElementById('aiu-empty');
-
-    if (filtered.length === 0) {
-      tbody.innerHTML = '';
-      empty.style.display = 'block';
-      return;
-    }
-    empty.style.display = 'none';
-
-    var html = '';
-    filtered.forEach(function(g) {
-      var pmName = g.pm ? (_userMap[g.pm] || '—') : '—';
-      var toolList = Object.keys(g.tools).join(', ');
-      var isMarked = !!_invoiceMarks[g.project_number];
-      var mark = _invoiceMarks[g.project_number];
-      var statusBadge = isMarked
-        ? '<span class="aiu-invoiced-badge done">✓ Invoiced</span>'
-        : '<span class="aiu-invoiced-badge pending">⏳ Pending</span>';
-      var statusDetail = '';
-      if (isMarked && mark) {
-        var markedBy = mark.marked_by_email ? mark.marked_by_email.split('@')[0] : '—';
-        var markedAt = mark.marked_at ? new Date(mark.marked_at).toLocaleDateString() : '';
-        statusDetail = '<div style="font-size:10px;color:var(--silver);margin-top:2px">' + markedBy + ' · ' + markedAt + '</div>';
-      }
-      var actionBtn = isMarked
-        ? '<button class="aiu-mark-btn done" disabled>✓ Done</button>'
-        : '<button class="aiu-mark-btn" onclick="AIUsage.markProject(\'' + g.project_number.replace(/'/g,"\\'") + '\')">Mark Invoiced</button>';
-
-      html += '<tr>'
-        + '<td style="font-weight:700">' + (g.project_number || '—') + '</td>'
-        + '<td>' + (g.project_name || '—') + '</td>'
-        + '<td>' + pmName + '</td>'
-        + '<td>' + toolList + '</td>'
-        + '<td style="text-align:center">' + g.reviews + '</td>'
-        + '<td class="cost-cell">' + fmtCost(g.cost) + '</td>'
-        + '<td>' + statusBadge + statusDetail + '</td>'
-        + '<td>' + actionBtn + '</td>'
-        + '</tr>';
-    });
-
-    tbody.innerHTML = html;
-  }
-
-  // ── Mark project as invoiced ──
-  async function markProject(projectNumber) {
-    if (!_currentPeriodStart || !_profile) return;
-    try {
-      await _sb.from('ai_invoice_marks').insert({
-        project_number: projectNumber,
-        period_start: fmtDate(_currentPeriodStart),
-        period_end: fmtDate(_currentPeriodEnd),
-        marked_by: _profile.id,
-        marked_by_email: _profile.email || ''
-      });
-      toast(projectNumber + ' marked as invoiced', 'success');
-      await refresh();
-    } catch(e) {
-      console.error('Failed to mark invoiced:', e);
-      toast('Failed to mark as invoiced: ' + (e.message || e), 'error');
-    }
-  }
-
-  // ── Mark all as invoiced ──
-  async function markAll() {
-    if (!_currentPeriodStart || !_profile) return;
-    var pmFilter = document.getElementById('aiu-pm-filter').value;
-    var myId = _profile ? _profile.id : null;
-
-    // Build project → PM map
-    var projPMMap = {};
-    _projects.forEach(function(p) {
-      if (p.project_number) projPMMap[p.project_number] = p.project_manager || null;
-    });
-
-    // Collect unmarked project numbers from current view
-    var grouped = {};
-    _usageData.forEach(function(row) {
-      var pn = row.project_number || 'Unallocated';
-      grouped[pn] = { pm: projPMMap[pn] || null };
-    });
-
-    var unmarked = Object.keys(grouped).filter(function(pn) {
-      if (_invoiceMarks[pn]) return false;
-      var g = grouped[pn];
-      if (pmFilter === 'mine') return g.pm === myId;
-      if (pmFilter !== 'all') return g.pm === pmFilter;
-      return true;
-    });
-
-    if (unmarked.length === 0) {
-      toast('All projects already invoiced', 'info');
-      return;
-    }
-
-    if (!confirm('Mark ' + unmarked.length + ' project(s) as invoiced for this period?')) return;
-
-    var success = 0;
-    for (var i = 0; i < unmarked.length; i++) {
-      try {
-        await _sb.from('ai_invoice_marks').insert({
-          project_number: unmarked[i],
-          period_start: fmtDate(_currentPeriodStart),
-          period_end: fmtDate(_currentPeriodEnd),
-          marked_by: _profile.id,
-          marked_by_email: _profile.email || ''
-        });
-        success++;
-      } catch(e) {
-        console.warn('Failed to mark ' + unmarked[i] + ':', e);
-      }
-    }
-
-    toast(success + ' project(s) marked as invoiced', 'success');
-    await refresh();
-  }
-
-  // ── Export CSV ──
-  function exportCSV() {
-    if (!_usageData || _usageData.length === 0) {
-      toast('No data to export', 'info');
-      return;
-    }
-
-    var pmFilter = document.getElementById('aiu-pm-filter').value;
-    var myId = _profile ? _profile.id : null;
-    var projPMMap = {};
-    _projects.forEach(function(p) {
-      if (p.project_number) projPMMap[p.project_number] = p.project_manager || null;
-    });
-
-    var rows = _usageData.filter(function(row) {
-      var pm = projPMMap[row.project_number] || null;
-      if (pmFilter === 'mine') return pm === myId;
-      if (pmFilter !== 'all') return pm === pmFilter;
-      return true;
-    });
-
-    var csv = 'Date,Project #,Project Name,PM,Tool,Model,Fields,Cost (USD),Invoiced\n';
-    rows.forEach(function(r) {
-      var pm = projPMMap[r.project_number] || null;
-      var pmName = pm ? (_userMap[pm] || '—') : '—';
-      var invoiced = _invoiceMarks[r.project_number] ? 'Yes' : 'No';
-      var dt = r.created_at ? new Date(r.created_at).toLocaleDateString() : '—';
-      csv += '"' + dt + '","' + (r.project_number || '') + '","' + (r.project_name || '').replace(/"/g,'""') + '","' + pmName.replace(/"/g,'""') + '","' + (r.tool || '') + '","' + (r.model || '') + '",' + (r.field_count || 0) + ',' + (r.cost_usd || 0) + ',' + invoiced + '\n';
-    });
-
-    var periodStr = fmtDate(_currentPeriodStart) + '_to_' + fmtDate(_currentPeriodEnd);
-    var blob = new Blob([csv], { type: 'text/csv' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'ARENCON_AI_Usage_' + periodStr + '.csv';
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast('CSV exported', 'success');
-  }
-
-  return {
-    init: init,
-    refresh: refresh,
-    prevPeriod: prevPeriod,
-    nextPeriod: nextPeriod,
-    saveBillingDay: saveBillingDay,
-    markProject: markProject,
-    markAll: markAll,
-    exportCSV: exportCSV
-  };
-})();
 
 
 // ═══ R2 STORAGE STATUS PANEL ═══
@@ -5386,5 +4691,4 @@ function _pgEscHtml(s) {
 </script>
 </body>
 </html>
-
 
