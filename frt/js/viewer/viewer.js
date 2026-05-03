@@ -1144,6 +1144,72 @@ document.addEventListener('touchend', function(e){
 // ── Pin Rendering ───────────────────────────────────────
 var _pinModeDeficId = null;
 
+// S116 Push 2: pin highlight system. Used when navigating to a pin from
+// "Go to drawing" or other jump-to-pin paths so the inspector can spot the
+// target among other pins on the drawing.
+//
+// GL path: hijacks the existing `activeId` slot (which already renders pins
+// at 1.15× scale) and pulses it on/off via setInterval, calling _renderPins
+// to repaint each beat. After ~3 seconds (~5 beats) it clears.
+//
+// HTML fallback path: adds an inline glow + scale animation directly on the
+// .pin-marker DOM element by id.
+var _highlightDeficId = null;
+var _highlightPulseTimer = null;
+var _highlightPulseClearTimer = null;
+function _highlightPin(deficId) {
+  if (!deficId) return;
+  // Cancel any in-flight highlight first.
+  if (_highlightPulseTimer) { clearInterval(_highlightPulseTimer); _highlightPulseTimer = null; }
+  if (_highlightPulseClearTimer) { clearTimeout(_highlightPulseClearTimer); _highlightPulseClearTimer = null; }
+  _highlightDeficId = deficId;
+
+  // GL path: each beat toggles activeId between deficId and null so the pin
+  // visually pumps. Five beats over ~3 seconds.
+  var beat = 0;
+  var totalBeats = 6;
+  var beatMs = 500;
+  _highlightPulseTimer = setInterval(function() {
+    beat++;
+    // Even beats: highlight on; odd beats: off (creates pulse).
+    _highlightDeficId = (beat % 2 === 0) ? deficId : null;
+    _renderPins();
+    if (beat >= totalBeats) {
+      clearInterval(_highlightPulseTimer);
+      _highlightPulseTimer = null;
+      _highlightDeficId = null;
+      _renderPins();
+    }
+  }, beatMs);
+  // First paint immediately (without waiting for first interval tick).
+  _renderPins();
+
+  // HTML path: also apply an inline animated style to the marker for
+  // browsers that fall back to the HTML pin layer (?webgl-pins=0). Selector
+  // is the [data-defic-id] inside #dv-pins-layer.
+  var htmlMarker = document.querySelector('#dv-pins-layer .pin-marker[data-defic-id="' + deficId + '"]');
+  if (htmlMarker) {
+    htmlMarker.style.transition = 'transform 0.25s ease, filter 0.25s ease';
+    htmlMarker.style.zIndex = '50';
+    var pulses = 0;
+    var pulseTimer = setInterval(function() {
+      pulses++;
+      var on = pulses % 2 === 1;
+      htmlMarker.style.transform = (on
+        ? 'translate(-50%, -100%) scale(1.4)'
+        : 'translate(-50%, -100%) scale(1.0)');
+      htmlMarker.style.filter = on ? 'drop-shadow(0 0 12px gold) drop-shadow(0 0 4px gold)' : '';
+      if (pulses >= totalBeats) {
+        clearInterval(pulseTimer);
+        htmlMarker.style.transform = 'translate(-50%, -100%)';
+        htmlMarker.style.filter = '';
+        htmlMarker.style.zIndex = '';
+        htmlMarker.style.transition = '';
+      }
+    }, beatMs);
+  }
+}
+
 function _renderPins() {
   // Don't rebuild during active drag (would destroy marker reference)
   if (_pinDragging || _pinMouseDragging) return;
@@ -1243,7 +1309,10 @@ function _renderPins() {
       scale: _scale, panX: _panX, panY: _panY,
       pinScale: pinScale,
       hoveredId: _lastHoveredId || null,
-      activeId:  _lastActiveId  || null,
+      // S116 Push 2: when _highlightDeficId is set (during a Go-to-drawing
+      // pulse), it takes precedence over the user's current click-active pin
+      // so the highlight is visible even if another pin happens to be active.
+      activeId:  _highlightDeficId || _lastActiveId || null,
       readyId:   _lastReadyId   || null,   // S81: V1 press-and-hold blue glow
       imgRect: relRect, naturalW: iw, naturalH: ih
     });
@@ -1337,6 +1406,13 @@ function _handlePinDrop(e) {
   if (area) area.classList.remove('pin-mode');
   var btn = document.getElementById('dv-pin-btn');
   if (btn) { btn.style.background = 'rgba(255,255,255,.12)'; btn.textContent = '\uD83D\uDCCC Pin'; }
+  // S116 Push 2: critical — reset Markup.setTool from 'pin' back to 'select'.
+  // Without this, Markup.getTool() === 'pin' would persist after the place
+  // completes, and the next stray tap (panning, toolbar miss, anywhere) hits
+  // the `Markup.getTool() === 'pin'` branch in the canvas click handler and
+  // creates a brand-new deficiency at that location — visible as a duplicate
+  // pin the user never asked for.
+  if (typeof Markup !== 'undefined' && Markup.setTool) Markup.setTool('select');
   _renderPins();
 }
 
@@ -1374,6 +1450,13 @@ function _pinToolDrop(clientX, clientY) {
     console.log('[Viewer] Pin tool: created deficiency #' + newDefic.num + ' at', pinX.toFixed(3), pinY.toFixed(3));
     _openPinEditor(newDefic.id);
   }
+  // S116 Push 2: disarm the pin tool after one creation. Otherwise a second
+  // tap (e.g., dismissing the editor by tapping outside, or panning) would
+  // immediately create another deficiency. v1 behaviour was the same —
+  // pin tool fires once, then deactivates.
+  if (typeof Markup !== 'undefined' && Markup.setTool) Markup.setTool('select');
+  var pinBtn = document.getElementById('dv-pin-btn');
+  if (pinBtn) { pinBtn.style.background = 'rgba(255,255,255,.12)'; pinBtn.textContent = '\uD83D\uDCCC Pin'; }
 }
 
 // Pin drop click handler
@@ -1673,6 +1756,25 @@ function _peRenderObsContent(d, idx) {
     // photo to the model; we just provide the visual feedback here.
     zone.ondragover = function(ev) { ev.preventDefault(); zone.classList.add('drag-over'); };
     zone.ondragleave = function() { zone.classList.remove('drag-over'); };
+  }
+
+  // S116 Push 2: "Split to new pin" — extract the active observation into
+  // its own brand-new pin at the same coords. Visible only when the source
+  // has 2+ observations (single-obs pins can't be split — there'd be nothing
+  // left). Re-injected on every render via #pe-split-row id so re-renders
+  // don't stack copies.
+  var content2 = document.getElementById('pe-obs-content');
+  var oldSplitRow = document.getElementById('pe-split-row');
+  if (oldSplitRow && oldSplitRow.parentNode) oldSplitRow.parentNode.removeChild(oldSplitRow);
+  var obsArrLenSplit = (d.observations && d.observations.length) ? d.observations.length : 0;
+  if (content2 && obsArrLenSplit > 1) {
+    var splitRow = document.createElement('div');
+    splitRow.id = 'pe-split-row';
+    splitRow.style.cssText = 'margin-top:8px;text-align:right;';
+    splitRow.innerHTML = '<button id="pe-split-obs" title="Move this observation to its own new pin (at the same location)" '
+      + 'style="background:none;border:1px dashed rgba(124,58,107,.55);color:#7C3A6B;border-radius:6px;padding:4px 10px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));cursor:pointer;">'
+      + '\u2702 Split to new pin</button>';
+    content2.appendChild(splitRow);
   }
 }
 
@@ -1990,17 +2092,46 @@ document.addEventListener('click', function(e) {
   if (e.target.closest && e.target.closest('#pe-cancel')) { _closePinEditor(); return; }
   if (e.target.closest && e.target.closest('#pe-save')) { _savePinEditor(); return; }
 
-  // S116 Push 1: "Go to drawing" — close pin editor, switch to drawings tab,
-  // load the deficiency's drawing, and focus the pin. Lets the user jump from
-  // any pin editor invocation (Summary tab, Tasks panel, defic 📌 button) to
-  // the actual drawing context for spatial verification.
+  // S116 Push 2: "Go to drawing" — navigate-only. Switches to the drawings
+  // tab, loads the deficiency's drawing if not already current, and pulses
+  // the target pin so it's identifiable among others. Critically, it does
+  // NOT call _frtStartPinPlace — that pathway puts the viewer into place-pin
+  // mode, where the next tap MOVES the pin, and (until Push 2's tool-reset
+  // fix) any tap after that creates a phantom new pin. We just navigate.
   if (e.target.closest && e.target.closest('#pe-goto-dwg')) {
     if (!_peDeficId) return;
     var fGo = Model.findDeficiency(_peDeficId);
-    if (!fGo) return;
+    if (!fGo || !fGo.defic.drawingId) {
+      toast('This pin is not placed on a drawing yet');
+      return;
+    }
     var goId = _peDeficId;
+    var goDwgId = fGo.defic.drawingId;
     _closePinEditor();
-    if (window._frtStartPinPlace) window._frtStartPinPlace(goId);
+
+    // Make sure the drawings nav-tab is active (in case user jumped from
+    // Summary or Deficiencies tab into the editor).
+    document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === 'drawings'); });
+    document.querySelectorAll('.panel').forEach(function(p) { p.classList.toggle('active', p.id === 'panel-drawings'); });
+
+    // Open the drawing viewer overlay if it isn't already, then switch to
+    // the right drawing if necessary.
+    var drawings = _getDrawingsList();
+    var targetIdx = -1;
+    for (var gi = 0; gi < drawings.length; gi++) {
+      if (drawings[gi].id === goDwgId) { targetIdx = gi; break; }
+    }
+    if (targetIdx < 0) { toast('Drawing for this pin not found'); return; }
+
+    var overlay = document.getElementById('drawing-viewer-overlay');
+    var alreadyOpen = overlay && overlay.classList.contains('open');
+    if (!alreadyOpen || _currentDrawingIdx !== targetIdx) {
+      _showDrawing(targetIdx);
+      // Highlight after the drawing has had time to lay out + render its pins.
+      setTimeout(function() { _highlightPin(goId); }, 600);
+    } else {
+      _highlightPin(goId);
+    }
     return;
   }
 
@@ -2103,6 +2234,39 @@ document.addEventListener('click', function(e) {
     _peObsIdx = parseInt(obsTab.getAttribute('data-pe-obs'), 10);
     _peRenderObsTabs(f5.defic);
     _peRenderObsContent(f5.defic, _peObsIdx);
+    return;
+  }
+
+  // S116 Push 2: split observation → new pin. Confirms first (destructive
+  // edit on the source). Server-side: Model.splitObservationToPin handles
+  // the heavy lifting (carries drawingId/pinX/pinY/priority/contractor).
+  // After split, close current editor and re-open on the NEW pin so the
+  // user lands directly on what they just created.
+  if (e.target.closest && e.target.closest('#pe-split-obs')) {
+    if (!_peDeficId) return;
+    var fSp = Model.findDeficiency(_peDeficId);
+    if (!fSp) return;
+    var srcD = fSp.defic;
+    var srcObs = srcD.observations || [];
+    if (srcObs.length <= 1) { toast('Need at least 2 observations to split'); return; }
+    if (_peObsIdx < 0 || _peObsIdx >= srcObs.length) return;
+    var obsLetter = String.fromCharCode(65 + _peObsIdx);
+    showConfirm(
+      'Split observation ' + obsLetter,
+      'Move observation ' + obsLetter + ' off pin #' + srcD.num + ' into its own new pin? It will be placed at the same location — drag it afterwards to separate them.'
+    ).then(function(yes) {
+      if (!yes) return;
+      var newDef = Model.splitObservationToPin(_peDeficId, _peObsIdx);
+      if (!newDef) { toast('Could not split observation'); return; }
+      Model.saveNow();
+      _renderPins();
+      // Notify defic tab + tasks panel.
+      if (window._frtRenderTasks) window._frtRenderTasks();
+      _closePinEditor();
+      // Reopen on the new pin so the user lands on what they just made.
+      setTimeout(function() { _openPinEditor(newDef.id); }, 50);
+      toast('\u2702 Split into pin #' + newDef.num);
+    });
     return;
   }
 

@@ -459,6 +459,55 @@ export var Model = {
     this._notify('observation', { action: 'remove', deficId: deficId, obsIdx: obsIdx });
   },
 
+  // S116 Push 2: split one observation off a multi-obs deficiency into its
+  // own brand-new pin. New pin inherits drawingId + pinX/pinY + priority +
+  // notedDate from the source. Contractor: per-obs override (obs.contractorId)
+  // wins, otherwise the source pin's contractor. The user typically drags
+  // the new pin somewhere visible afterwards since it starts overlapping the
+  // source. Returns the new defic on success, or null if invalid input
+  // (single-obs pins can't be split — there'd be nothing left).
+  splitObservationToPin: function(sourceDeficId, obsIdx) {
+    var f = this.findDeficiency(sourceDeficId);
+    if (!f) return null;
+    var src = f.defic;
+    var srcObs = src.observations || [];
+    if (srcObs.length <= 1) return null; // need at least 2 obs to split
+    if (obsIdx < 0 || obsIdx >= srcObs.length) return null;
+
+    // The obs being extracted. Deep-copy so subsequent edits don't bleed
+    // back into the source.
+    var extracted = JSON.parse(JSON.stringify(srcObs[obsIdx]));
+
+    // Determine target contractor — per-obs override beats pin contractor.
+    var targetCtrId = extracted.contractorId || (f.contractor ? f.contractor.id : null);
+
+    // Create the new deficiency under that contractor (or Site General).
+    var newDefic = this.addDeficiency(targetCtrId);
+    if (!newDefic) return null;
+
+    // Carry over geometry + state. New defic's notedDate matches source so
+    // it groups with the same visit in the gallery / day view.
+    newDefic.drawingId = src.drawingId || null;
+    newDefic.pinX = src.pinX != null ? src.pinX : null;
+    newDefic.pinY = src.pinY != null ? src.pinY : null;
+    newDefic.priority = extracted.priority || src.priority || 'high';
+    if (src.notedDate) newDefic.notedDate = src.notedDate;
+    if (src.date) newDefic.date = src.date;
+    // Per-obs override is now redundant on the moved obs (it IS the pin).
+    delete extracted.contractorId;
+    newDefic.observations = [extracted];
+    // Status defaults to 'open' (addDeficiency sets that).
+
+    // Remove the obs from the source.
+    srcObs.splice(obsIdx, 1);
+
+    _dirty = true;
+    _queueSave();
+    this._notify('deficiency', { action: 'split', sourceId: sourceDeficId, newId: newDefic.id });
+    this._notify('observation', { action: 'remove', deficId: sourceDeficId, obsIdx: obsIdx });
+    return newDefic;
+  },
+
   toggleObsAddressed: function(deficId, obsIdx) {
     var f = this.findDeficiency(deficId);
     if (!f) return;
