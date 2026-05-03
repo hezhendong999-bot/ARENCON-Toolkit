@@ -466,7 +466,9 @@ function buildGroup(ctrId, name, items, totalCount) {
   // the color shows as a 4-px left accent + a tinted name label.
   var ctrCls = ctrColorClass(name);
   // Map the class to its palette text color (light mode hex) for inline use.
-  var palLight = { 'ctr-c0':'#C0392B','ctr-c1':'#E67E22','ctr-c2':'#B7950B','ctr-c3':'#1A7A4A','ctr-c4':'#1565C0','ctr-c5':'#7E22CE','ctr-c6':'#E91E8C','ctr-c7':'#00838F' };
+  // S114 P1.9: muted contractor palette (per Mark's permanent rule — no bright saturated tones).
+  // Hue preserved per slot but saturation/lightness toned down to harmonize with the rest of the UI.
+  var palLight = { 'ctr-c0':'#A85959','ctr-c1':'#B07F5A','ctr-c2':'#A09354','ctr-c3':'#5F8068','ctr-c4':'#5078A0','ctr-c5':'#7A5BA0','ctr-c6':'#A85B8A','ctr-c7':'#4F8088' };
   var accentCol = palLight[ctrCls] || '#9C2742';
 
   var h = '<div class="defic-group" data-ctr-id="' + esc(ctrId || '__general__') + '">';
@@ -1212,6 +1214,20 @@ document.addEventListener('input', function(e) {
     var _ef = Model.findDeficiency(deficId);
     if (_ef && _ef.defic.observations && _ef.defic.observations[obsIdx]) {
       _ef.defic.observations[obsIdx].aiReviewed = false;
+    }
+    // S114 P1.9: auto-bullet — typing "<digits> " at start of a line auto-converts to "<digits>. ".
+    // Cheap detection: cursor just after a space, the line up to cursor matches /^(\d+) $/.
+    // Replace the trailing space with ". " via execCommand so Ctrl+Z reverts.
+    var ta = e.target;
+    var pos = ta.selectionStart;
+    if (pos >= 2 && text.charAt(pos - 1) === ' ') {
+      var lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+      var line = text.substring(lineStart, pos);
+      if (/^\d+ $/.test(line)) {
+        ta.setSelectionRange(pos - 1, pos);
+        document.execCommand('insertText', false, '. ');
+        text = ta.value; // re-read so the debounced save below uses the new value
+      }
     }
     if (_obsDebounce[deficId]) clearTimeout(_obsDebounce[deficId]);
     _obsDebounce[deficId] = setTimeout(function() {

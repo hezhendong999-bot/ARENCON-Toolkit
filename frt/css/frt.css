@@ -2002,42 +2002,42 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .obs-comment-col{display:flex;flex-direction:column;min-width:0;}
 .obs-text-input{width:100%;min-height:140px;flex:1;border:1.5px solid var(--border);border-radius:6px;padding:10px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);color:var(--ink);}
 body.dark-mode .obs-text-input{background:#1f232c;color:white;border-color:#3a3e48;}
-/* P1.8: photos column matches the textarea's box (same bg, same border radius). */
-.obs-photos-col{min-width:0;border:1.5px solid var(--border);border-radius:6px;padding:8px;background:var(--smoke);overflow:auto;}
-body.dark-mode .obs-photos-col{background:#1f232c;border-color:#3a3e48;}
+/* P1.9: photos column has NO distinctive background or border — photos float on parent panel.
+   Removes the "hatch" effect that read as an inset card. */
+.obs-photos-col{min-width:0;padding:0;overflow:auto;}
 .obs-photos-grid{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start;}
 .obs-photos-empty{color:var(--silver);font-size:calc(11px + var(--ts));font-style:italic;padding:14px;width:100%;text-align:center;}
 .obs-photo-wrap{position:relative;width:100px;height:100px;border-radius:5px;overflow:hidden;border:1px solid var(--border);flex-shrink:0;background:#000;}
 .obs-photo-wrap img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block;}
-.obs-photo-del{position:absolute;top:3px;right:3px;background:rgba(192,57,43,.92);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;text-align:center;cursor:pointer;padding:0;z-index:3;display:none;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.4);}
-.obs-photo-del:hover{background:#C0392B;}
+.obs-photo-del{position:absolute;top:3px;right:3px;background:rgba(168,89,89,.92);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;text-align:center;cursor:pointer;padding:0;z-index:3;display:none;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.obs-photo-del:hover{background:#8C4A4A;}
 .obs-photo-wrap:hover .obs-photo-del{display:flex;}
 @media(pointer:coarse){.obs-photo-del{display:flex;opacity:.85;}}
-.photo-ai-btn{position:absolute;bottom:3px;right:3px;background:rgba(156,39,66,.92);color:white;border:none;border-radius:50%;width:24px;height:24px;font-size:13px;cursor:pointer;padding:0;z-index:3;display:none;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.4);}
-.photo-ai-btn:hover{background:#9C2742;}
+.photo-ai-btn{position:absolute;bottom:3px;right:3px;background:rgba(123,45,142,.92);color:white;border:none;border-radius:50%;width:24px;height:24px;font-size:13px;cursor:pointer;padding:0;z-index:3;display:none;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.photo-ai-btn:hover{background:#5E2370;}
 .obs-photo-wrap:hover .photo-ai-btn{display:flex;}
 @media(pointer:coarse){.photo-ai-btn{display:flex;opacity:.85;}}
 .obs-drop-col{display:flex;min-width:0;}
-.obs-drop-zone{flex:1;border:2px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:14px;min-height:120px;text-align:center;transition:border-color .15s,background .15s;}
+.obs-drop-zone{flex:1;border:2px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:14px 10px;min-height:120px;text-align:center;transition:border-color .15s,background .15s;}
 .obs-drop-col.drag-over .obs-drop-zone{border-color:#9C2742;background:rgba(156,39,66,.08);}
 body.dark-mode .obs-drop-zone{border-color:#3a3e48;}
 body.dark-mode .obs-drop-col.drag-over .obs-drop-zone{background:rgba(156,39,66,.18);}
 .obs-drop-msg{font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;line-height:1.3;}
 .obs-drop-msg-sub{font-size:calc(10px + var(--ts));color:var(--silver);font-weight:400;}
-.obs-drop-btns{display:flex;flex-direction:column;gap:6px;width:100%;align-items:center;}
-.obs-drop-btn{padding:7px 14px;border-radius:5px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;border:none;color:white;min-width:130px;transition:filter .15s,background .15s;}
+/* P1.9: 3 drop buttons in ONE row (was column). Compact width, muted colors. */
+.obs-drop-btns{display:flex;flex-direction:row;gap:5px;justify-content:center;flex-wrap:wrap;}
+.obs-drop-btn{padding:6px 10px;border-radius:5px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;border:none;color:white;transition:filter .15s;}
 .obs-drop-btn:hover{filter:brightness(1.10);}
-/* P1.8: distinct color per drop button. Upload=blue (steel-blue),
-   Camera=green, +Gallery=burgundy. All white text, all flat. */
-.obs-drop-btn.is-upload{background:#3F6E9C;}
-.obs-drop-btn.is-camera{background:#1A7A4A;}
-.obs-drop-btn.is-gallery{background:#9C2742;}
+/* Muted palette per Mark's color rule */
+.obs-drop-btn.is-upload{background:#5A6E80;}   /* muted slate-blue */
+.obs-drop-btn.is-camera{background:#5C7A65;}   /* muted sage */
+.obs-drop-btn.is-gallery{background:#7D3F4F;}  /* muted burgundy */
 body.dark-mode .obs-drop-btn{color:white;}
 
-/* S114 P1.8 — per-pin AI Review button (sits in pin header, after drawing chip) */
-.defic-ai-btn{border:1.5px solid #9C2742;background:rgba(156,39,66,.10);color:#9C2742;border-radius:4px;padding:2px 10px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:700;cursor:pointer;transition:all .15s;}
-.defic-ai-btn:hover{background:#9C2742;color:white;}
-body.dark-mode .defic-ai-btn{background:rgba(156,39,66,.20);}
+/* S114 P1.9 — per-pin AI Review button. Matches the page-header AI Review color (#7B2D8E). */
+.defic-ai-btn{border:1.5px solid #7B2D8E;background:#7B2D8E;color:white;border-radius:4px;padding:2px 10px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:700;cursor:pointer;transition:all .15s;}
+.defic-ai-btn:hover{background:#5E2370;border-color:#5E2370;}
+body.dark-mode .defic-ai-btn{background:#7B2D8E;color:white;}
 
 /* AI Review popup menu (3 modes) */
 .ai-review-pop{background:var(--bg);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);min-width:280px;padding:4px;}
