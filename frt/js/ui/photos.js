@@ -20,6 +20,10 @@ function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 var _filterMode = 'all';
 var _selectedUids = new Set();
 var _filterPanelOpen = false;
+// S114 P1.3: anchor for shift-click range select. Stores the last toggled UID
+// in render order, so a shift-click can compute a range from anchor → target.
+var _lastSelectedUid = null;
+var _renderOrderUids = []; // refreshed every render() in display order
 
 // Photo UID — stable across re-renders so selection survives.
 //   site:<idx>                         for site photos
@@ -130,8 +134,9 @@ export var initPhotos = {
     var filtered = records.filter(function(r) {
       if (_filterMode === 'all') return true;
       if (_filterMode === 'site') return r.type === 'site';
-      if (_filterMode === 'deficiency') return r.type === 'defic' && !r.isGeneralPriority;
-      if (_filterMode === 'general') return r.type === 'defic' && r.isGeneralPriority;
+      // S114 P1.3 rename: deficiency→findings, general→notes (label-only; semantics unchanged)
+      if (_filterMode === 'findings') return r.type === 'defic' && !r.isGeneralPriority;
+      if (_filterMode === 'notes') return r.type === 'defic' && r.isGeneralPriority;
       return true;
     });
 
@@ -167,15 +172,15 @@ export var initPhotos = {
     // Toolbar
     var nSel = _selectedUids.size;
     var filterLabel = _filterMode === 'all' ? 'All photos'
-      : _filterMode === 'site' ? 'Site photos'
-      : _filterMode === 'deficiency' ? 'Deficiency photos'
-      : 'General photos';
+      : _filterMode === 'site' ? 'Site only'
+      : _filterMode === 'findings' ? 'Findings'
+      : 'Notes';
     html += '<div class="ph-toolbar">';
     html += '<div class="ph-toolbar-left">';
     html += '<div class="ph-stat"><div class="ph-stat-num">' + totalAll + '</div><div class="ph-stat-lbl">Total</div></div>';
     html += '<div class="ph-stat"><div class="ph-stat-num">' + totalSite + '</div><div class="ph-stat-lbl">Site</div></div>';
-    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalDefic + '</div><div class="ph-stat-lbl">Deficiency</div></div>';
-    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalGeneral + '</div><div class="ph-stat-lbl">General</div></div>';
+    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalDefic + '</div><div class="ph-stat-lbl">Findings</div></div>';
+    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalGeneral + '</div><div class="ph-stat-lbl">Notes</div></div>';
     html += '</div>';
     html += '<div class="ph-toolbar-right">';
     if (nSel > 0) {
@@ -187,13 +192,14 @@ export var initPhotos = {
     html += '<button class="ph-btn ph-filter-btn" data-action="ph-toggle-filter">\u2699 ' + esc(filterLabel) + '</button>';
     if (_filterPanelOpen) {
       html += '<div class="ph-filter-menu">';
-      ['all','site','deficiency','general'].forEach(function(mode) {
-        var lbl = mode === 'all' ? 'All photos'
-          : mode === 'site' ? 'Site photos'
-          : mode === 'deficiency' ? 'Deficiency photos'
-          : 'General photos';
-        var cls = mode === _filterMode ? 'active' : '';
-        html += '<button class="' + cls + '" data-action="ph-set-filter" data-mode="' + mode + '">' + lbl + '</button>';
+      [
+        ['all', 'All photos'],
+        ['site', 'Site only'],
+        ['findings', 'Findings'],
+        ['notes', 'Notes']
+      ].forEach(function(pair) {
+        var cls = pair[0] === _filterMode ? 'active' : '';
+        html += '<button class="' + cls + '" data-action="ph-set-filter" data-mode="' + pair[0] + '">' + pair[1] + '</button>';
       });
       html += '</div>';
     }
@@ -211,6 +217,7 @@ export var initPhotos = {
     }
 
     // Date groups
+    _renderOrderUids = []; // rebuild for shift-click range computation
     orderedKeys.forEach(function(k) {
       var g = groups[k];
       // Are all in this group selected?
@@ -224,15 +231,13 @@ export var initPhotos = {
       html += '</div>';
       html += '<div class="ph-grid">';
       g.items.forEach(function(r) {
+        _renderOrderUids.push(r.uid);
         var sel = _selectedUids.has(r.uid);
-        // For site cards we still expose the data-action="open-site-lightbox" attrs the existing lightbox handler reads
         var clickAction = r.type === 'site'
           ? 'data-action="open-site-lightbox" data-photo-idx="' + r.siteIdx + '"'
           : 'data-action="open-defic-lightbox" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '"';
-        var deleteAction = r.type === 'site'
-          ? 'data-action="delete-site-photo" data-photo-idx="' + r.siteIdx + '"'
-          : 'data-action="ph-delete-defic" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '"';
         html += '<div class="ph-card' + (sel ? ' selected' : '') + '" data-uid="' + esc(r.uid) + '">';
+        // S114 P1.3: checkbox is hover-only when unselected, always shown when selected
         html += '<input type="checkbox" class="ph-check"' + (sel ? ' checked' : '') + ' data-action="ph-toggle-photo" data-uid="' + esc(r.uid) + '">';
         html += '<span class="ph-badge ' + r.badgeClass + '">' + esc(r.badgeText) + '</span>';
         if (r.src) {
@@ -241,9 +246,19 @@ export var initPhotos = {
           html += '<div class="ph-noimg">\uD83D\uDCF7</div>';
         }
         html += _cloudIcon(r.ph);
-        html += '<button class="ph-del-btn" ' + deleteAction + ' title="Delete photo">'
-          + '<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 7h12v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7zm3-3h6l1 2H8l1-2zM4 6h16v1H4V6z"/></svg>'
+        // S114 P1.3: hover-revealed download button (all photos)
+        var dlAction = r.type === 'site'
+          ? 'data-action="ph-download-site" data-photo-idx="' + r.siteIdx + '"'
+          : 'data-action="ph-download-defic" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '"';
+        html += '<button class="ph-dl-btn" ' + dlAction + ' title="Download photo">'
+          + '<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
           + '</button>';
+        // S114 P1.3: trash button is SITE PHOTOS ONLY. Pin photos must be deleted via pin editor.
+        if (r.type === 'site') {
+          html += '<button class="ph-del-btn" data-action="delete-site-photo" data-photo-idx="' + r.siteIdx + '" title="Delete site photo">'
+            + '<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 7h12v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7zm3-3h6l1 2H8l1-2zM4 6h16v1H4V6z"/></svg>'
+            + '</button>';
+        }
         html += '</div>';
       });
       html += '</div>';
@@ -333,31 +348,61 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // S114 — delete a single deficiency photo
-  var dDel = e.target.closest && e.target.closest('[data-action="ph-delete-defic"]');
-  if (dDel) {
-    e.stopPropagation();
-    var deficId2 = dDel.getAttribute('data-defic-id');
-    var oi2 = parseInt(dDel.getAttribute('data-obs-idx') || '0');
-    var pi2 = parseInt(dDel.getAttribute('data-photo-idx') || '0');
-    showConfirm('Remove Photo', 'Remove this deficiency photo?').then(function(yes) {
-      if (!yes) return;
-      Model.removeObservationPhoto(deficId2, oi2, pi2);
-      _selectedUids.clear();
-      initPhotos.render();
-      toast('Photo removed');
-    });
-    return;
-  }
-
-  // S114 — toggle single photo selection
+  // S114 — toggle single photo selection (with shift-click range support)
   var sel = e.target.closest && e.target.closest('[data-action="ph-toggle-photo"]');
   if (sel) {
     e.stopPropagation();
     var uid = sel.getAttribute('data-uid');
+
+    // Shift-click range: select every photo from _lastSelectedUid → uid in render order.
+    // Mode of the range matches the new state of the click target (select if checking, deselect if unchecking).
+    if (e.shiftKey && _lastSelectedUid && _lastSelectedUid !== uid && _renderOrderUids.length) {
+      var anchor = _renderOrderUids.indexOf(_lastSelectedUid);
+      var target = _renderOrderUids.indexOf(uid);
+      if (anchor >= 0 && target >= 0) {
+        var lo = Math.min(anchor, target), hi = Math.max(anchor, target);
+        // Direction of toggle = whatever the target is becoming
+        var becomingSelected = !_selectedUids.has(uid);
+        for (var ri = lo; ri <= hi; ri++) {
+          if (becomingSelected) _selectedUids.add(_renderOrderUids[ri]);
+          else _selectedUids.delete(_renderOrderUids[ri]);
+        }
+        _lastSelectedUid = uid;
+        initPhotos.render();
+        return;
+      }
+    }
+
+    // Plain click: toggle just this one
     if (_selectedUids.has(uid)) _selectedUids.delete(uid);
     else _selectedUids.add(uid);
+    _lastSelectedUid = uid;
     initPhotos.render();
+    return;
+  }
+
+  // S114 P1.3 — download a site photo
+  var dlS = e.target.closest && e.target.closest('[data-action="ph-download-site"]');
+  if (dlS) {
+    e.stopPropagation();
+    var idxS = parseInt(dlS.getAttribute('data-photo-idx') || '0');
+    var pjS = Model.getProject();
+    var pS = pjS && pjS.photos && pjS.photos[idxS];
+    if (pS) _downloadPhoto(pS, 'site_photo_' + (idxS + 1));
+    return;
+  }
+  // S114 P1.3 — download a deficiency photo
+  var dlD = e.target.closest && e.target.closest('[data-action="ph-download-defic"]');
+  if (dlD) {
+    e.stopPropagation();
+    var did = dlD.getAttribute('data-defic-id');
+    var oi = parseInt(dlD.getAttribute('data-obs-idx') || '0');
+    var pi = parseInt(dlD.getAttribute('data-photo-idx') || '0');
+    var fD = Model.findDeficiency(did);
+    if (fD && fD.defic.observations && fD.defic.observations[oi]) {
+      var phD = (fD.defic.observations[oi].photos || [])[pi];
+      if (phD) _downloadPhoto(phD, 'pin_' + (fD.defic.num || 'x') + '_' + (pi + 1));
+    }
     return;
   }
 
@@ -399,50 +444,41 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // S114 — bulk delete selected
+  // S114 — bulk delete selected (SITE PHOTOS ONLY per P1.3 — pin photos must be deleted via pin editor)
   var bd = e.target.closest && e.target.closest('[data-action="ph-delete-selected"]');
   if (bd) {
     e.stopPropagation();
-    var n = _selectedUids.size;
-    if (!n) return;
-    showConfirm('Delete ' + n + ' photo' + (n === 1 ? '' : 's') + '?',
-                'This cannot be undone.').then(function(yes) {
-      if (!yes) return;
-      // Sort site deletions by descending index so splices don't shift each other
-      var siteIdxs = [];
-      var deficOps = [];
-      _selectedUids.forEach(function(uid) {
-        if (uid.indexOf('site:') === 0) {
-          siteIdxs.push(parseInt(uid.slice(5)));
-        } else if (uid.indexOf('defic:') === 0) {
-          // defic:<deficId>:<obsIdx>:<phIdx>  (deficId may itself contain ':' if it's a UUID — split from right)
-          var parts = uid.split(':');
-          var phIdx = parseInt(parts[parts.length - 1]);
-          var oIdx = parseInt(parts[parts.length - 2]);
-          var deficId3 = parts.slice(1, parts.length - 2).join(':');
-          deficOps.push({ deficId: deficId3, obsIdx: oIdx, photoIdx: phIdx });
-        }
-      });
-      // Delete defic photos: group by defic+obs and sort photo indices descending
-      var deficKey = {};
-      deficOps.forEach(function(op) {
-        var k = op.deficId + '::' + op.obsIdx;
-        if (!deficKey[k]) deficKey[k] = [];
-        deficKey[k].push(op);
-      });
-      Object.keys(deficKey).forEach(function(k) {
-        deficKey[k].sort(function(a, b) { return b.photoIdx - a.photoIdx; });
-        deficKey[k].forEach(function(op) {
-          Model.removeObservationPhoto(op.deficId, op.obsIdx, op.photoIdx);
-        });
-      });
-      // Delete site photos descending
-      siteIdxs.sort(function(a, b) { return b - a; });
-      siteIdxs.forEach(function(i) { Model.removeSitePhoto(i); });
+    if (!_selectedUids.size) return;
 
+    // Partition: count site vs pin in current selection
+    var siteIdxs = [];
+    var pinCount = 0;
+    _selectedUids.forEach(function(uid) {
+      if (uid.indexOf('site:') === 0) siteIdxs.push(parseInt(uid.slice(5)));
+      else if (uid.indexOf('defic:') === 0) pinCount++;
+    });
+
+    if (!siteIdxs.length) {
+      // Selection is entirely pin photos — disallow
+      toast('Pin photos can only be deleted from the pin editor (open the pin to delete its photos)');
+      return;
+    }
+
+    var msg = 'Delete ' + siteIdxs.length + ' site photo' + (siteIdxs.length === 1 ? '' : 's') + '?';
+    if (pinCount > 0) {
+      msg += '\n\n(' + pinCount + ' pin photo' + (pinCount === 1 ? '' : 's')
+        + ' in your selection will be skipped — pin photos can only be deleted from the pin editor.)';
+    }
+    msg += '\n\nThis cannot be undone.';
+    showConfirm('Delete site photos?', msg).then(function(yes) {
+      if (!yes) return;
+      siteIdxs.sort(function(a, b) { return b - a; }); // descending so splices don't shift
+      siteIdxs.forEach(function(i) { Model.removeSitePhoto(i); });
       _selectedUids.clear();
+      _lastSelectedUid = null;
       initPhotos.render();
-      toast(n + ' photo' + (n === 1 ? '' : 's') + ' removed');
+      var done = siteIdxs.length + ' site photo' + (siteIdxs.length === 1 ? '' : 's') + ' removed';
+      toast(pinCount ? done + ' (' + pinCount + ' pin photo' + (pinCount === 1 ? '' : 's') + ' skipped)' : done);
     });
     return;
   }

@@ -1968,21 +1968,28 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-card.selected{outline:3px solid var(--arencon);outline-offset:-1px;}
 .ph-card img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in;}
 .ph-card .ph-noimg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;background:#1c1c20;}
-/* Selection checkbox (top-left, always visible) */
-.ph-check{position:absolute;top:6px;left:6px;width:18px;height:18px;cursor:pointer;z-index:3;accent-color:var(--arencon);background:white;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+/* Selection checkbox — hover-only when unselected, always shown when selected.
+   Touch devices (no hover) fall back to always-shown for usability. */
+.ph-check{position:absolute;top:6px;left:6px;width:18px;height:18px;cursor:pointer;z-index:3;accent-color:var(--arencon);background:white;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.4);display:none;}
+.ph-card:hover .ph-check{display:block;}
+.ph-card.selected .ph-check{display:block;}
+@media(pointer:coarse){.ph-check{display:block;}}
 /* Badge (top-right, always visible) */
 .ph-badge{position:absolute;top:6px;right:6px;padding:3px 9px;color:white;border-radius:11px;font-size:11px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.2px;box-shadow:0 1px 4px rgba(0,0,0,.45);z-index:2;line-height:1.3;}
 .ph-badge-pin{background:#C0392B;}
 .ph-badge-pin-gen{background:#1A7A4A;}
 .ph-badge-site{background:#C0392B;}
-/* Cloud sync icon (bottom-right) */
+/* Cloud sync icon (bottom-right, always visible) */
 .ph-cloud{position:absolute;bottom:5px;right:6px;z-index:2;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
 .ph-cloud svg{display:block;}
-/* Delete button (bottom-left, hover-revealed; touch-always) */
-.ph-del-btn{position:absolute;bottom:5px;left:6px;width:24px;height:24px;border:none;border-radius:50%;background:rgba(192,57,43,.92);cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+/* Hover action buttons (download + delete) — bottom-left cluster */
+.ph-dl-btn,.ph-del-btn{position:absolute;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.ph-dl-btn{bottom:5px;left:6px;background:rgba(44,71,112,.92);}
+.ph-dl-btn:hover{background:#2C4770;transform:scale(1.08);}
+.ph-del-btn{bottom:5px;left:36px;background:rgba(192,57,43,.92);}
 .ph-del-btn:hover{background:#C0392B;transform:scale(1.08);}
-.ph-card:hover .ph-del-btn{display:flex;}
-@media(pointer:coarse){.ph-del-btn{display:flex;opacity:.85;}}
+.ph-card:hover .ph-dl-btn,.ph-card:hover .ph-del-btn{display:flex;}
+@media(pointer:coarse){.ph-dl-btn,.ph-del-btn{display:flex;opacity:.85;}}
 /* Empty state */
 .ph-empty{color:var(--silver);font-size:calc(13px + var(--ts));text-align:center;padding:32px 16px;}
 
