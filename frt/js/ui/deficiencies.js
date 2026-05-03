@@ -253,32 +253,34 @@ export function buildDeficCard(d, ctrId) {
       h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" ';
       h += 'style="width:100%;min-height:56px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);"';
       h += ' placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
-      // Observation photos
+      // S114 P1.5: photos + upload tile share one flex row. Photos are 90×90; the
+      // upload tile is 184×90 (2 photos wide, 1 photo tall) and lives at the end of
+      // the row so it's a visible drop target. Tile wraps to next row when needed.
       var obsPhotos = o.photos || [];
-      if (obsPhotos.length) {
-        h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;">';
-        obsPhotos.forEach(function(ph, phi) {
-          var src = ph.r2Url || ph.dataUrl || '';
-          if (src) {
-            h += '<div class="obs-photo-wrap" style="position:relative;width:60px;height:60px;border-radius:4px;overflow:hidden;border:1px solid var(--border);">';
-            h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" src="' + esc(src) + '" style="width:100%;height:100%;object-fit:cover;cursor:pointer;" loading="lazy">';
-            h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
-            h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" style="position:absolute;top:1px;right:1px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;text-align:center;cursor:pointer;padding:0;" title="Remove photo">\u2715</button>';
-            h += '</div>';
-          }
-        });
-        h += '</div>';
-      }
-      // Photo zone per observation
-      h += '<div class="photo-zone-compact" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
+      h += '<div class="obs-photo-row" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
       h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
       h += ' ondragleave="this.classList.remove(\'drag-over\')">';
-      h += '<button class="pz-upload" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCCE Upload</button>';
-      h += '<button class="pz-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#37474F;color:white;border-radius:5px;padding:4px 10px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;">\uD83D\uDCF7 Camera</button>';
+      obsPhotos.forEach(function(ph, phi) {
+        var src = ph.r2Url || ph.dataUrl || '';
+        if (!src) return;
+        h += '<div class="obs-photo-wrap">';
+        h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" src="' + esc(src) + '" loading="lazy">';
+        h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
+        h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" class="obs-photo-del" title="Remove photo">\u2715</button>';
+        h += '</div>';
+      });
+      // Upload tile inline at end of row
+      h += '<div class="obs-upload-tile">';
+      h += '<div class="obs-upload-tile-msg">Drop photos<br>or</div>';
+      h += '<div class="obs-upload-tile-btns">';
+      h += '<button class="obs-upload-tile-btn" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCCE Upload</button>';
+      h += '<button class="obs-upload-tile-btn is-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCF7 Camera</button>';
       if (obsPhotos.length) {
-        h += '<button data-action="ai-suggest-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="pz-ai-suggest" title="AI Suggest description from all photos">\u2728 AI Suggest</button>';
+        h += '<button class="obs-upload-tile-btn is-ai" data-action="ai-suggest-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="AI Suggest description from all photos">\u2728 AI</button>';
       }
       h += '</div>';
+      h += '</div>';
+      h += '</div>'; // end obs-photo-row
       h += '</div>';
     });
     // Add observation button

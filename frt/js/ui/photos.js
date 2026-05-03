@@ -108,6 +108,7 @@ export var initPhotos = {
         ph: p,
         src: p.thumb || p.r2Url || p.dataUrl || '',
         badgeText: 'Site',
+        // P1.5: green "Site" badge (matches v1; not red)
         badgeClass: 'ph-badge-site',
         dateKey: dk.key, dateLabel: dk.label,
         sortGroup: [0, i] // site photos come first within a date
@@ -116,11 +117,11 @@ export var initPhotos = {
     allDefics.forEach(function(d) {
       var defic = d.defic;
       var isGeneral = defic.priority === 'general';
-      // S114 P1.4: priority class drives the colored frame on the card itself.
-      // 'high' = red (deficiency), 'low' = orange, 'general' = green (Site General-style
-      // informational pin, not a deficiency).
-      var priorityClass = isGeneral ? 'priority-general'
-        : (defic.priority === 'low' ? 'priority-low' : 'priority-high');
+      // S114 P1.5: badge color signals priority (per Mark — frames don't, badges do).
+      // high=red, low=orange, general=green. Same as v1 priority palette.
+      var badgeCls = 'ph-badge-pin-high';
+      if (isGeneral) badgeCls = 'ph-badge-pin-gen';
+      else if (defic.priority === 'low') badgeCls = 'ph-badge-pin-low';
       (defic.observations || []).forEach(function(o, oi) {
         (o.photos || []).forEach(function(ph, phi) {
           var dk = _dayKey(ph, defic);
@@ -129,14 +130,12 @@ export var initPhotos = {
             deficId: defic.id,
             deficNum: defic.num,
             isGeneralPriority: isGeneral,
-            priorityClass: priorityClass,
             obsIdx: oi,
             photoIdx: phi,
             ph: ph,
             src: ph.r2Url || ph.dataUrl || '',
             badgeText: 'Pin ' + defic.num,
-            // P1.4: badge stays red for ALL pin photos. Priority signal moves to card frame.
-            badgeClass: 'ph-badge-pin',
+            badgeClass: badgeCls,
             dateKey: dk.key, dateLabel: dk.label,
             sortGroup: [1, defic.num, oi, phi]
           });
@@ -261,7 +260,6 @@ export var initPhotos = {
           : 'data-action="open-defic-lightbox" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '"';
         var cardCls = 'ph-card';
         if (sel) cardCls += ' selected';
-        if (r.priorityClass) cardCls += ' ' + r.priorityClass;
         html += '<div class="' + cardCls + '" data-uid="' + esc(r.uid) + '">';
         // S114 P1.3: checkbox is hover-only when unselected, always shown when selected
         html += '<input type="checkbox" class="ph-check"' + (sel ? ' checked' : '') + ' data-action="ph-toggle-photo" data-uid="' + esc(r.uid) + '">';

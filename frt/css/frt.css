@@ -1964,31 +1964,27 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-date-count{color:var(--silver);font-size:calc(11px + var(--ts));font-weight:500;}
 /* Photo grid */
 .ph-grid{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:6px;}
-.ph-card{position:relative;width:140px;height:120px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:#000;user-select:none;cursor:default;contain:layout style paint;}
+/* P1.5: 120x100 (down from 140x120) so 10 fit per row in a normal viewport */
+.ph-card{position:relative;width:120px;height:100px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:#000;user-select:none;cursor:default;contain:layout style paint;}
 .ph-card.selected{outline:3px solid var(--arencon);outline-offset:-1px;}
 .ph-card img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in;}
 .ph-card .ph-noimg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;background:#1c1c20;}
-/* S114 P1.4: priority-color frames on pin photo cards. Inset shadow so it doesn't
-   affect layout. Site photos have no priority class, so they stay un-framed. */
-.ph-card.priority-high{box-shadow:inset 0 0 0 3px #C0392B;}
-.ph-card.priority-low{box-shadow:inset 0 0 0 3px #E67E22;}
-.ph-card.priority-general{box-shadow:inset 0 0 0 3px #1A7A4A;}
-/* Selected state stays visible alongside priority frame via the outer outline. */
 /* Selection checkbox — hover-only when unselected, always shown when selected.
    Touch devices (no hover) fall back to always-shown for usability. */
 .ph-check{position:absolute;top:6px;left:6px;width:18px;height:18px;cursor:pointer;z-index:3;accent-color:var(--arencon);background:white;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.4);display:none;}
 .ph-card:hover .ph-check{display:block;}
 .ph-card.selected .ph-check{display:block;}
 @media(pointer:coarse){.ph-check{display:block;}}
-/* Badge (top-right, always visible) — P1.4: always red for pin and site photos */
+/* P1.5: badge color = priority. Pin (high)=red, Pin (low)=orange, Pin (general)=green. Site=green. */
 .ph-badge{position:absolute;top:6px;right:6px;padding:3px 9px;color:white;border-radius:11px;font-size:11px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.2px;box-shadow:0 1px 4px rgba(0,0,0,.45);z-index:2;line-height:1.3;background:#C0392B;}
-.ph-badge-pin{background:#C0392B;}
-.ph-badge-site{background:#C0392B;}
+.ph-badge-pin-high{background:#C0392B;}
+.ph-badge-pin-low{background:#E67E22;}
+.ph-badge-pin-gen{background:#1A7A4A;}
+.ph-badge-site{background:#1A7A4A;}
 /* Cloud sync icon (bottom-right, always visible) */
 .ph-cloud{position:absolute;bottom:5px;right:6px;z-index:2;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
 .ph-cloud svg{display:block;}
-/* Hover action buttons (download + delete) — bottom-left cluster.
-   P1.4: removed transform:scale on hover to prevent layer-promotion flicker. */
+/* Hover action buttons (download + delete) — bottom-left cluster. */
 .ph-dl-btn,.ph-del-btn{position:absolute;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);}
 .ph-dl-btn{bottom:5px;left:6px;background:rgba(44,71,112,.92);}
 .ph-dl-btn:hover{background:#2C4770;}
@@ -1996,6 +1992,33 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-del-btn:hover{background:#C0392B;}
 .ph-card:hover .ph-dl-btn,.ph-card:hover .ph-del-btn{display:flex;}
 @media(pointer:coarse){.ph-dl-btn,.ph-del-btn{display:flex;opacity:.85;}}
+
+/* P1.5: deficiency-tab inline photos — bumped from 60→90px so they're useful at a glance.
+   Delete X is hover-only. AI ✨ button is hover-only too. */
+.obs-photo-row{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;align-items:flex-start;}
+.obs-photo-wrap{position:relative;width:90px;height:90px;border-radius:5px;overflow:hidden;border:1px solid var(--border);flex-shrink:0;background:#000;}
+.obs-photo-wrap img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block;}
+.obs-photo-del{position:absolute;top:3px;right:3px;background:rgba(192,57,43,.92);color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:1;text-align:center;cursor:pointer;padding:0;z-index:3;display:none;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.obs-photo-del:hover{background:#C0392B;}
+.obs-photo-wrap:hover .obs-photo-del{display:flex;}
+@media(pointer:coarse){.obs-photo-del{display:flex;opacity:.85;}}
+.photo-ai-btn{position:absolute;bottom:3px;right:3px;background:rgba(156,39,66,.92);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;padding:0;z-index:3;display:none;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.photo-ai-btn:hover{background:#9C2742;}
+.obs-photo-wrap:hover .photo-ai-btn{display:flex;}
+@media(pointer:coarse){.photo-ai-btn{display:flex;opacity:.85;}}
+
+/* P1.5: upload tile sits inline in the photo flex row. Same height as photos,
+   2x wide so it's an inviting drop target. Wraps to next row when no space. */
+.obs-upload-tile{width:184px;height:90px;border:2px dashed var(--border);border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:transparent;flex-shrink:0;transition:border-color .15s,background .15s;}
+.obs-upload-tile.drag-over{border-color:var(--arencon);background:var(--arencon-light);}
+.obs-upload-tile-msg{font-size:calc(10px + var(--ts));color:var(--silver);text-align:center;line-height:1.2;}
+.obs-upload-tile-btns{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;}
+.obs-upload-tile-btn{padding:3px 8px;border-radius:4px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--smoke);color:var(--steel);}
+.obs-upload-tile-btn:hover{border-color:var(--arencon);color:var(--arencon);}
+.obs-upload-tile-btn.is-camera{background:#1A7A4A;border-color:#1A7A4A;color:white;}
+.obs-upload-tile-btn.is-camera:hover{background:#16613B;color:white;}
+.obs-upload-tile-btn.is-ai{background:rgba(156,39,66,.12);border-color:#9C2742;color:#9C2742;}
+body.dark-mode .obs-upload-tile-btn{background:#2a2d35;color:#ddd;border-color:#3a3e48;}
 /* Empty state */
 .ph-empty{color:var(--silver);font-size:calc(13px + var(--ts));text-align:center;padding:32px 16px;}
 
