@@ -1536,7 +1536,9 @@ function _peRenderObsContent(d, idx) {
       strip.style.display = 'flex';
       var html = '';
       photos.forEach(function(ph, pi) {
-        var src = ph.r2Url || ph.dataUrl || '';
+        // S115 P10: prefer ph.thumb (set by markup save) over r2Url for
+        // instant feedback. Same logic as defic tab.
+        var src = ph.thumb || ph.r2Url || ph.dataUrl || '';
         if (!src) return;
         html += '<div class="pe-photo-thumb" data-pe-photo="' + pi + '" title="Photo ' + (pi + 1) + '">'
           + '<img src="' + src + '" alt="Photo ' + (pi + 1) + '" loading="lazy">'
@@ -2306,3 +2308,13 @@ function _saveHeights() {
   console.log('[Viewer] Heights saved:', heights.length, 'rows');
 }
 
+
+// S115 P10: Re-render the pin editor's photo strip when photos change
+// (markup save/revert mutates r2Key/r2Url/thumb on the underlying records).
+// Without this hook, the pin editor stays stale until closed + reopened.
+Model.onChange('photo', function(){
+  if (!_peDeficId) return; // editor not open
+  var f = Model.findDeficiency(_peDeficId);
+  if (!f) return;
+  _peRenderObsContent(f.defic, _peObsIdx);
+});
