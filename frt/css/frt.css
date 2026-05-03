@@ -3904,3 +3904,81 @@ body.dark-mode .btn-muted-neutral {
   background:#1f2530; color:#a8b4c8; border-color:rgba(168,180,200,.25);
 }
 body.dark-mode .btn-muted-neutral:hover { background:#2a323e; border-color:#a8b4c8; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   S113 Push 24 — Polish: status/priority borders, kill table ellipsis
+   dots, redesign view-pill toggle.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* (a) Subtle semi-opaque borders on .tt-status / .tt-priority chips —
+   matches the look of the .ctr-tag contractor chips Mark liked. */
+.tt-status, .tt-priority { border:1.5px solid transparent; }
+.tt-status.outstanding   { border-color:rgba(192,57,43,.30); }
+.tt-status.closed        { border-color:rgba(26,122,74,.30); }
+.tt-status.iar           { border-color:rgba(255,105,180,.35); }
+.tt-priority.high        { border-color:rgba(192,57,43,.30); }
+.tt-priority.low         { border-color:rgba(230,126,34,.30); }
+.tt-priority.general     { border-color:rgba(26,122,74,.30); }
+body.dark-mode .tt-status.outstanding{ border-color:rgba(240,112,112,.25); }
+body.dark-mode .tt-status.closed     { border-color:rgba(80,200,120,.25); }
+body.dark-mode .tt-status.iar        { border-color:rgba(255,105,180,.35); }
+body.dark-mode .tt-priority.high     { border-color:rgba(240,112,112,.25); }
+body.dark-mode .tt-priority.low      { border-color:rgba(240,160,48,.25); }
+body.dark-mode .tt-priority.general  { border-color:rgba(80,200,120,.25); }
+
+/* (b) Kill the spurious ellipsis "dots" in the All-Deficiencies table.
+   Push 19 added text-overflow:ellipsis to all cells; the badge cells
+   were tight enough that the browser drew the ellipsis character even
+   though the inline-block badge content didn't actually overflow. The
+   visible artifact looked like one or two stray dots after Outstanding
+   and Jump. Status/Priority/Jump cells now use overflow:visible. */
+#tasks-table td:nth-child(5),
+#tasks-table td:nth-child(6),
+#tasks-table td:nth-child(7),
+#tasks-table th:nth-child(5),
+#tasks-table th:nth-child(6),
+#tasks-table th:nth-child(7) {
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+/* (c) View-pill (Table/Board) — redesigned. Mark called the burgundy-
+   theme pill ugly. New design: unified pill container with subtle
+   border, active button gets clean solid burgundy with white text
+   (the brand color, used confidently as the active state). Inactive
+   sits flat with low-emphasis text. */
+.view-pill {
+  display:inline-flex !important;
+  border:1px solid rgba(0,0,0,.12) !important;
+  border-radius:8px !important;
+  overflow:hidden !important;
+  background:rgba(0,0,0,.02) !important;
+  padding:0 !important;
+}
+.view-pill-btn {
+  border:none !important;
+  background:transparent !important;
+  color:#4A5568 !important;
+  padding:6px 18px !important;
+  cursor:pointer;
+  font-family:Calibri,sans-serif !important;
+  font-size:calc(12px + var(--ts)) !important;
+  font-weight:600 !important;
+  transition:background .15s, color .15s !important;
+}
+.view-pill-btn:hover { background:rgba(156,39,66,.06) !important; color:#9C2742 !important; }
+.view-pill-btn.active {
+  background:#9C2742 !important;
+  color:#fff !important;
+  font-weight:700 !important;
+}
+body.dark-mode .view-pill {
+  border-color:rgba(255,255,255,.1) !important;
+  background:rgba(255,255,255,.03) !important;
+}
+body.dark-mode .view-pill-btn { color:#a8b4c8 !important; }
+body.dark-mode .view-pill-btn:hover { background:rgba(232,138,122,.10) !important; color:#e88a7a !important; }
+body.dark-mode .view-pill-btn.active {
+  background:#9C2742 !important;
+  color:#fff !important;
+}

@@ -618,14 +618,19 @@ function _lazyGenThumbs(list, idx) {
 
   // Shared: given a loaded img and source-crop rect, produce thumb + update card
   function _finishThumb(img, sx, sy, sW, sH) {
-    var maxW = 200;
+    // S113 Push 24: bumped from 200 → 400 max width and quality 0.7 → 0.85.
+    // Card thumb display height is 135px and grid card width is typically
+    // 250-320 CSS px. A 200-px-wide JPEG at 0.7 quality looked visibly
+    // blurry. 400 / 0.85 quadruples the pixel data with marginal IDB cost
+    // and renders crisp at every card size up to 600 px wide.
+    var maxW = 400;
     var scale = Math.min(1, maxW / sW);
     var tw = Math.max(1, Math.round(sW * scale));
     var th = Math.max(1, Math.round(sH * scale));
     var c = document.createElement('canvas');
     c.width = tw; c.height = th;
     c.getContext('2d').drawImage(img, sx, sy, sW, sH, 0, 0, tw, th);
-    d.thumb = c.toDataURL('image/jpeg', 0.7);
+    d.thumb = c.toDataURL('image/jpeg', 0.85);
     c.width = 1; c.height = 1;
     var card = document.querySelector('.drawing-card[data-drawing-id="' + d.id + '"] .card-thumb');
     if (card) {

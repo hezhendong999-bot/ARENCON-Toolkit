@@ -986,12 +986,12 @@ function _drawGroupedSelection(ctx) {
   // Dashed border
   ctx.setLineDash([5, 4]);
   ctx.strokeStyle = '#2196F3';
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 2;
   ctx.globalAlpha = 1;
   ctx.strokeRect(bx, by, bw, bh);
   ctx.setLineDash([]);
   // Corner resize handles
-  var hs = 8;
+  var hs = 11;
   ctx.fillStyle = 'white';
   ctx.strokeStyle = '#2196F3';
   ctx.lineWidth = 1.5;
@@ -1003,12 +1003,12 @@ function _drawGroupedSelection(ctx) {
   var rcx = bx + bw / 2, rcy = by - 24;
   ctx.beginPath();
   ctx.moveTo(bx + bw / 2, by);
-  ctx.lineTo(rcx, rcy + 7);
+  ctx.lineTo(rcx, rcy + 9);
   ctx.strokeStyle = '#2196F3';
   ctx.lineWidth = 1;
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(rcx, rcy, 7, 0, Math.PI * 2);
+  ctx.arc(rcx, rcy, 9, 0, Math.PI * 2);
   ctx.fillStyle = 'white';
   ctx.fill();
   ctx.strokeStyle = '#2196F3';
@@ -1016,7 +1016,7 @@ function _drawGroupedSelection(ctx) {
   ctx.stroke();
   // Rotation arrow icon inside circle
   ctx.beginPath();
-  ctx.arc(rcx, rcy, 4, -0.3, Math.PI * 1.4);
+  ctx.arc(rcx, rcy, 5, -0.3, Math.PI * 1.4);
   ctx.strokeStyle = '#2196F3';
   ctx.lineWidth = 1.2;
   ctx.stroke();
@@ -1042,7 +1042,7 @@ function _hitResizeHandle(pos) {
   var bx = b.x1 - pad, by = b.y1 - pad, bw = b.x2 - b.x1 + pad * 2, bh = b.y2 - b.y1 + pad * 2;
   var corners = [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]];
   for (var i = 0; i < corners.length; i++) {
-    if (Math.abs(pos.x - corners[i][0]) <= 8 && Math.abs(pos.y - corners[i][1]) <= 8) return i;
+    if (Math.abs(pos.x - corners[i][0]) <= 11 && Math.abs(pos.y - corners[i][1]) <= 11) return i;
   }
   return -1;
 }
@@ -1053,7 +1053,7 @@ function _hitRotateHandle(pos) {
   var pad = 6;
   var rcx = (b.x1 + b.x2) / 2, rcy = b.y1 - pad - 24;
   var dist = Math.sqrt((pos.x - rcx) * (pos.x - rcx) + (pos.y - rcy) * (pos.y - rcy));
-  return dist <= 12;
+  return dist <= 14;
 }
 
 function _hitDeleteButton(pos) {

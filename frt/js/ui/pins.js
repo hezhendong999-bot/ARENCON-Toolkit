@@ -255,7 +255,18 @@ export var initPins = {
       h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(dwgName || '\u2014') + '</td>';
       h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(desc || '(no description)') + '</td>';
       h += '<td style="padding:8px 10px;"><span class="ctr-tag ' + ctrColorClass(d.contractorName) + '">' + esc(d.contractorName) + '</span></td>';
-      h += '<td style="padding:8px 10px;"><span class="tt-status ' + statusCls + '">' + statusText + '</span></td>';
+      // S113 Push 24: stack Outstanding/Closed and IAR vertically. IAR is
+      // additive — when active, it appears as a second row below the main
+      // status, not in place of it. Matches Mark's request from the same
+      // session: "Move IAR to be below outstanding, as part of the status".
+      var statusBaseTxt = isClosed ? 'Closed' : 'Outstanding';
+      var statusBaseCls = isClosed ? 'closed' : 'outstanding';
+      h += '<td style="padding:8px 10px;">';
+      h += '<span class="tt-status ' + statusBaseCls + '">' + statusBaseTxt + '</span>';
+      if (isIAR) {
+        h += '<div style="margin-top:3px;"><span class="tt-status iar">\u26A1 IAR</span></div>';
+      }
+      h += '</td>';
       h += '<td style="padding:8px 10px;"><span class="tt-priority ' + priCls + '">' + esc((dd.priority || 'general').charAt(0).toUpperCase() + (dd.priority || 'general').slice(1)) + '</span></td>';
       h += '<td style="padding:8px 10px;"><button class="tt-jump" data-action="jump-defic" data-defic-id="' + esc(dd.id) + '">Jump</button></td>';
       h += '</tr>';
