@@ -566,7 +566,18 @@ export var initDrawings = {
     folderNames.forEach(function(fn) {
       var items = folders[fn];
       var isFolded = _foldedFolders[fn];
-      html += '<div class="dwg-folder-group" data-folder="' + esc(fn) + '" style="margin-bottom:16px;border:1px solid var(--border);border-radius:10px;overflow:hidden;">';
+      // S115: Make the entire folder group a drop target. Previously only the
+      // small "+ Drop plans here" reserve card caught drops; drops onto folder
+      // header/body whitespace/existing cards fell through to the browser
+      // (which would either open the file or do nothing). Now any drop within
+      // the folder routes files to THIS folder. Master drop-zone at top is
+      // the only thing that creates new folders.
+      var escFn = esc(fn).replace(/'/g, "\\'");
+      html += '<div class="dwg-folder-group" data-folder="' + esc(fn) + '" ' +
+        'ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ' +
+        'ondragleave="if(event.target===this)this.classList.remove(\'drag-over\')" ' +
+        'ondrop="event.preventDefault();this.classList.remove(\'drag-over\');if(window._handleDrawingFilesIntoFolder)window._handleDrawingFilesIntoFolder(event.dataTransfer.files,\'' + escFn + '\')" ' +
+        'style="margin-bottom:16px;border:1px solid var(--border);border-radius:10px;overflow:hidden;">';
       html += '<div class="dwg-folder-hdr" data-action="toggle-folder" data-folder="' + esc(fn) + '" style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--smoke);cursor:pointer;user-select:none;">';
       html += '<input type="checkbox" class="folder-checkbox" data-folder-name="' + esc(fn) + '" title="Select all in folder">';
       html += '<span style="font-size:12px;width:14px;">' + (isFolded ? '\u25B6' : '\u25BC') + '</span>';
@@ -577,15 +588,11 @@ export var initDrawings = {
       html += '<div class="dwg-folder-body dwg-card-row" style="padding:8px;display:flex;flex-wrap:wrap;' + (isFolded ? 'display:none;' : '') + '">';
       items.forEach(function(d) { html += buildDrawingCard(d, allDefics); });
       // S81 Option 3: "+ Drop plans here" reserve card as last tile. Click
-      // opens file picker scoped to this folder; drop routes files to this
-      // folder via handleDrawingFilesIntoFolder.
-      var escFn = esc(fn).replace(/'/g, "\\'");
+      // opens file picker scoped to this folder. Drop also still works on
+      // this card directly (parent folder-group catches it either way).
       html += '<div class="drawing-card add-card" ' +
         'data-add-folder="' + esc(fn) + '" ' +
-        'onclick="if(window._uploadToFolder)window._uploadToFolder(\'' + escFn + '\')" ' +
-        'ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ' +
-        'ondragleave="this.classList.remove(\'drag-over\')" ' +
-        'ondrop="event.preventDefault();this.classList.remove(\'drag-over\');if(window._handleDrawingFilesIntoFolder)window._handleDrawingFilesIntoFolder(event.dataTransfer.files,\'' + escFn + '\')">' +
+        'onclick="if(window._uploadToFolder)window._uploadToFolder(\'' + escFn + '\')">' +
         '<div class="add-card-inner">+ Drop plans here<br>' +
         '<span style="font-size:calc(10px + var(--ts));color:var(--silver);font-weight:400;">added to <em>' + esc(fn) + '</em></span></div>' +
         '</div>';

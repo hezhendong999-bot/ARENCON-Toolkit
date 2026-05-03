@@ -747,6 +747,78 @@ export var Model = {
   getSitePhotos: function() { return _project ? (_project.photos || []) : []; },
   hasUnsavedChanges: function() { return _dirty; },
 
+  // ── S115: Photo enumeration + lookup helpers (for markup propagation) ──
+  // Walks every place a photo record can live: gallery, contractor deficiencies
+  // (top-level + per-observation), and general deficiencies (top-level + per-
+  // observation). Returns {photo, location} entries; location describes where
+  // the photo lives so callers can update / persist correctly.
+  getAllPhotoRecords: function() {
+    if (!_project) return [];
+    var out = [];
+    (_project.photos || []).forEach(function(ph){
+      out.push({ photo: ph, location: { type: 'site' } });
+    });
+    function _walk(arr, ctrId) {
+      (arr || []).forEach(function(d) {
+        (d.photos || []).forEach(function(ph) {
+          out.push({ photo: ph, location: { type: 'defic-top', deficId: d.id, contractorId: ctrId } });
+        });
+        (d.observations || []).forEach(function(obs) {
+          (obs.photos || []).forEach(function(ph) {
+            out.push({ photo: ph, location: { type: 'defic-obs', deficId: d.id, contractorId: ctrId, obsId: obs.id } });
+          });
+        });
+      });
+    }
+    (_project.contractors || []).forEach(function(c) { _walk(c.deficiencies, c.id); });
+    _walk(_project.generalDeficiencies, null);
+    return out;
+  },
+
+  // S115: All photo records (across every location) that share an R2 key.
+  // Used by markup propagation: marking up one copy updates all copies.
+  // Empty/missing r2Key returns []. Falls back to comparing photo.id when
+  // both records have an id and no r2Key (defensive — shouldn't happen
+  // in normal flow but keeps revert safe for offline-created photos).
+  findPhotosByR2Key: function(r2Key) {
+    if (!r2Key) return [];
+    var all = this.getAllPhotoRecords();
+    return all.filter(function(rec) { return rec.photo && rec.photo.r2Key === r2Key; });
+  },
+  findPhotosById: function(id) {
+    if (!id) return [];
+    var all = this.getAllPhotoRecords();
+    return all.filter(function(rec) { return rec.photo && rec.photo.id === id; });
+  },
+
+  // S115: Add a backup photo record to the gallery (for markup originals).
+  // Marks dirty + queues save. Returns the photo (now in the gallery array).
+  addSitePhoto: function(ph) {
+    if (!_project || !ph) return null;
+    if (!_project.photos) _project.photos = [];
+    _project.photos.push(ph);
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'add-site', photo: ph });
+    return ph;
+  },
+
+  // S115: Remove a gallery photo by id (used to remove the backup record on revert).
+  // Marks dirty + queues save. Returns true if removed.
+  removeSitePhotoById: function(id) {
+    if (!_project || !_project.photos || !id) return false;
+    for (var i = 0; i < _project.photos.length; i++) {
+      if (_project.photos[i] && _project.photos[i].id === id) {
+        _project.photos.splice(i, 1);
+        _dirty = true;
+        _queueSave();
+        this._notify('photo', { action: 'remove-site', id: id });
+        return true;
+      }
+    }
+    return false;
+  },
+
   saveNow: function() {
     if (_saveTimer) clearTimeout(_saveTimer);
     return _saveToIDB();

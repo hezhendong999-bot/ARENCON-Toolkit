@@ -941,31 +941,211 @@ if (cameraInput) cameraInput.addEventListener('change', function(e) {
   e.target.value = '';
 });
 
-// Session 71: R2 wiring for markup engine save events
+// ────────────────────────────────────────────────────────────────────────
+// S115: R2 wiring for markup save events (port of v1's _origBackupId flow).
+//
+// Flow on save:
+//   1. Get the canonical "current marked-up" photo record + every other photo
+//      record that shares its r2Key (cross-context propagation).
+//   2. If this is the FIRST save (no _origBackupId on any sibling), capture
+//      the pre-markup R2 location into a NEW gallery record (caption suffixed
+//      with " (original)"). The original R2 file is NOT re-uploaded — the
+//      backup record just references it.
+//   3. Upload the marked blob to R2 under marked/marked_<id>.jpg.
+//   4. Update r2Key/r2Url to point at the marked file on the active record
+//      AND every sibling sharing the old r2Key. Stamp _annotated + _origBackupId.
+//   5. Persist + render.
+//
+// Flow on subsequent saves (markup edited again):
+//   _origBackupId already set on the active record. Re-upload marked blob
+//   (overwrites the existing marked R2 file at the same key). No new backup.
+// ────────────────────────────────────────────────────────────────────────
 document.addEventListener('frt-markup-saved', function(e) {
   var d = e.detail; if (!d || !d.blob || !d.photo) return;
   var photo = d.photo;
   var proj = Model.getProject(); if (!proj) return;
   var pid = proj.id || proj.projectId; if (!pid) return;
-  // Persist annotated blob to IDB under photo id (mirrors R2.uploadPhoto pattern)
+
+  // Pre-markup state — captured BEFORE we mutate photo.r2Key/r2Url.
+  // This is what the "(original)" backup record will reference.
+  var preKey = photo.r2Key || '';
+  var preUrl = photo.r2Url || '';
+
+  // All photo records sharing the pre-markup r2Key (defic, obs, gallery, pin).
+  // If preKey is empty (offline-created photo), fall back to id-match so the
+  // active record still gets updated correctly.
+  var siblings = preKey
+    ? Model.findPhotosByR2Key(preKey)
+    : Model.findPhotosById(photo.id);
+
+  // Also include the photo object the lightbox handed us, in case it isn't
+  // the same object instance as any record in the project graph (defensive).
+  var sawActive = siblings.some(function(s){ return s.photo === photo; });
+  if (!sawActive) siblings.push({ photo: photo, location: { type: 'unknown' } });
+
+  // Is this the FIRST markup? If any sibling already has _origBackupId, no.
+  var firstMarkup = !siblings.some(function(s){ return s.photo && s.photo._origBackupId; });
+  var existingBackupId = null;
+  if (!firstMarkup) {
+    siblings.some(function(s){
+      if (s.photo && s.photo._origBackupId) { existingBackupId = s.photo._origBackupId; return true; }
+      return false;
+    });
+  }
+
+  // Persist annotated blob to IDB (mirrors R2.uploadPhoto pattern).
   try { IDB.put('photoBlobs', { id: photo.id, dataBlob: d.blob }).catch(function(){}); } catch(_){}
+
+  // Always reuse the SAME marked filename across re-saves so the R2 key
+  // stays stable. Filename derives from the active photo id.
   var filename = 'marked_' + (photo.id || Date.now()) + '.jpg';
+
   R2.upload(pid, 'marked', d.blob, filename).then(function(result) {
-    if (result) {
-      photo.r2Key = result.r2Key;
-      photo.r2Url = result.r2Url;
-      photo.r2Status = 'synced';
-      photo._annotated = true;
-    } else {
-      photo.r2Status = 'pending';
+    var newKey = result ? result.r2Key : null;
+    var newUrl = result ? result.r2Url : null;
+    var newStatus = result ? 'synced' : 'pending';
+
+    // ── Create the "(original)" backup record on FIRST markup ──
+    // The backup is a new gallery entry pointing at the PRE-MARKUP r2Key.
+    // It is NOT a re-upload — same R2 file, new logical record.
+    var backupId = existingBackupId;
+    if (firstMarkup && preKey) {
+      var origCaption = photo.caption ? (photo.caption + ' (original)') : 'Original';
+      var backup = {
+        id: 'sph_orig_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        filename: photo.filename || ('photo_orig.jpg'),
+        dataUrl: null,
+        thumb: photo.thumb || '',
+        caption: origCaption,
+        addedDate: new Date().toISOString().split('T')[0],
+        r2Key: preKey,
+        r2Url: preUrl,
+        r2Status: 'synced',
+        _isOrigBackup: true
+      };
+      Model.addSitePhoto(backup);
+      backupId = backup.id;
     }
+
+    // ── Propagate marked R2 location + flags to every sibling ──
+    // Caller's photo object reference: lightbox keeps using it for in-memory
+    // viewing, so update r2Key/r2Url/_annotated/_origBackupId there too.
+    siblings.forEach(function(s){
+      var sp = s.photo; if (!sp) return;
+      if (newKey) { sp.r2Key = newKey; sp.r2Url = newUrl; }
+      sp.r2Status = newStatus;
+      sp._annotated = true;
+      if (backupId) sp._origBackupId = backupId;
+      // Strip stale dataUrl on siblings — image will be re-fetched from new
+      // r2Url on next render. Keep it on the active 'photo' object since
+      // lightbox is already showing the fresh blob URL for instant feedback.
+      if (sp !== photo) { delete sp.dataUrl; }
+    });
+
+    if (!result) {
+      // Upload failed — queue for retry. Sibling propagation already happened
+      // (records still point at preKey since newKey is null). Photo will
+      // remain in 'pending' state until queue drains.
+      console.warn('[Markup] R2 upload failed, queueing');
+      try { R2.queueUpload(photo.id, pid, 'marked', d.blob, filename); } catch(_){}
+    }
+
     Model.saveNow();
-    initPhotos.render();
+    if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
   }).catch(function(err) {
-    console.warn('[Markup] R2 upload failed, queueing:', err);
+    console.warn('[Markup] R2 upload error, queueing:', err && err.message);
     photo.r2Status = 'pending';
-    R2.queueUpload(photo.id, pid, 'marked', d.blob, filename);
+    photo._annotated = true;
+    try { R2.queueUpload(photo.id, pid, 'marked', d.blob, filename); } catch(_){}
     Model.saveNow();
-    initPhotos.render();
+    if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
   });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// S115: Markup REVERT handler (counterpart to frt-markup-saved).
+//
+// Fired by lightbox._revertMarkup when the user confirms revert. Detail:
+//   { photo: <active record>, index: <lightbox idx> }
+//
+// Flow:
+//   1. Find the active photo's _origBackupId. If none, nothing to do
+//      (wasn't actually persisted as a markup yet).
+//   2. Resolve the backup record from the gallery and capture its r2Key
+//      (= the original, pre-markup R2 file).
+//   3. Identify the "marked" R2 file (the current r2Key on the active
+//      record before restoration).
+//   4. Restore r2Key/r2Url back to the original on the active record AND
+//      every sibling sharing the marked r2Key.
+//   5. Remove the backup record from the gallery.
+//   6. Delete the marked R2 file (background; orphan-safe if it fails).
+//   7. Clear _annotated, _origBackupId, dataUrl on all siblings.
+// ────────────────────────────────────────────────────────────────────────
+document.addEventListener('frt-markup-reverted', function(e) {
+  var d = e.detail; if (!d || !d.photo) return;
+  var photo = d.photo;
+  var proj = Model.getProject(); if (!proj) return;
+
+  if (!photo._origBackupId) {
+    // No persisted backup — just clear in-memory annotated flag.
+    delete photo._annotated;
+    if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+    return;
+  }
+
+  // Find backup in the gallery.
+  var backup = (proj.photos || []).find(function(p){ return p && p.id === photo._origBackupId; });
+  if (!backup) {
+    console.warn('[Markup] Revert: backup record not found, clearing flags only');
+    delete photo._origBackupId;
+    delete photo._annotated;
+    Model.saveNow();
+    if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+    return;
+  }
+
+  var origKey = backup.r2Key || '';
+  var origUrl = backup.r2Url || '';
+  var markedKey = photo.r2Key || '';
+
+  // Find ALL siblings currently pointing at the marked R2 file.
+  // Some siblings may have been added after first markup; pick them up too.
+  var siblings = markedKey
+    ? Model.findPhotosByR2Key(markedKey)
+    : [];
+  // Plus the active photo if not in the project graph (defensive).
+  if (!siblings.some(function(s){ return s.photo === photo; })) {
+    siblings.push({ photo: photo, location: { type: 'unknown' } });
+  }
+  // Also pick up any sibling tagged with this _origBackupId (covers cases
+  // where a copy was made AFTER markup — its r2Key already points at marked).
+  Model.getAllPhotoRecords().forEach(function(rec){
+    if (rec.photo && rec.photo._origBackupId === backup.id) {
+      if (!siblings.some(function(s){ return s.photo === rec.photo; })) siblings.push(rec);
+    }
+  });
+
+  // Restore on every sibling.
+  siblings.forEach(function(s){
+    var sp = s.photo; if (!sp) return;
+    sp.r2Key = origKey;
+    sp.r2Url = origUrl;
+    sp.r2Status = 'synced';
+    delete sp._annotated;
+    delete sp._origBackupId;
+    delete sp.dataUrl;
+  });
+
+  // Remove backup record from gallery.
+  Model.removeSitePhotoById(backup.id);
+
+  // Delete marked R2 file (background; ignore errors).
+  if (markedKey && markedKey !== origKey && R2 && R2.del) {
+    try { R2.del(markedKey).catch(function(){}); } catch(_){}
+  }
+  // Drop stale IDB blob too.
+  try { IDB.delete('photoBlobs', photo.id).catch(function(){}); } catch(_){}
+
+  Model.saveNow();
+  if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
 });

@@ -134,7 +134,11 @@ function _showGalleryPicker(deficId, obsIdx) {
         if (!src) return;
         // Copy reference: keep R2 metadata, generate a NEW photo id so it's
         // distinguishable from the site copy. R2 has one file; two records point at it.
-        liveObs.photos.push({
+        // S115: Also copy _origBackupId and _annotated so picked copies of an
+        // already-marked-up photo stay linked to the same backup record. This
+        // is what lets a later revert in this defic propagate back to the
+        // gallery copy and the original site photo.
+        var newPh = {
           id: 'ph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
           r2Key: src.r2Key || '',
           r2Url: src.r2Url || '',
@@ -143,7 +147,10 @@ function _showGalleryPicker(deficId, obsIdx) {
           filename: src.filename || ('site_pick_' + (idx + 1) + '.jpg'),
           addedDate: new Date().toISOString().split('T')[0],
           fromSiteIdx: idx  // breadcrumb
-        });
+        };
+        if (src._origBackupId) newPh._origBackupId = src._origBackupId;
+        if (src._annotated)    newPh._annotated    = true;
+        liveObs.photos.push(newPh);
         addedCount++;
       });
       Model.saveNow();

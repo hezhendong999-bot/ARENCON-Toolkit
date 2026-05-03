@@ -240,12 +240,40 @@ function _saveMarkup(){
 function _revertMarkup(){
   if (!window.MarkupEngine) return;
   var p = _photos[_idx]; if (!p) return;
-  window.MarkupEngine.clear();
-  if (p._origBlob){
-    p.dataUrl = (typeof p._origBlob === 'string') ? p._origBlob : URL.createObjectURL(p._origBlob);
-    p._annotated = false;
-    var img = document.getElementById('lb-image');
-    if (img) img.src = p.dataUrl;
+  // S115: only confirm + persist if there's actually a saved markup to revert.
+  // (If user just dropped a stroke that hasn't been saved, MarkupEngine.clear
+  // is enough — no persisted state to undo.)
+  var hasSaved = !!p._origBackupId;
+  if (!hasSaved && !window.MarkupEngine.isDirty()) return;
+  var doRevert = function(){
+    window.MarkupEngine.clear();
+    if (hasSaved) {
+      // Dispatch revert event — photos.js handler does R2 cleanup,
+      // backup-record removal, sibling restoration, and persistence.
+      try { document.dispatchEvent(new CustomEvent('frt-markup-reverted',{detail:{photo:p,index:_idx}})); } catch(e){}
+      // Reset the lightbox image to the restored original. r2Url has just
+      // been mutated by the handler; for instant feedback use r2Url first,
+      // fallback to in-memory _origBlob, fallback to the (now stale) dataUrl.
+      var img = document.getElementById('lb-image');
+      if (img) {
+        var src = p.r2Url || p._origBlob || p.dataUrl || '';
+        if (typeof src !== 'string' && src) src = URL.createObjectURL(src);
+        img.src = src;
+      }
+      delete p._annotated;
+    } else if (p._origBlob) {
+      // No persisted markup — just restore the in-memory original.
+      p.dataUrl = (typeof p._origBlob === 'string') ? p._origBlob : URL.createObjectURL(p._origBlob);
+      delete p._annotated;
+      var img2 = document.getElementById('lb-image');
+      if (img2) img2.src = p.dataUrl;
+    }
+  };
+  if (hasSaved) {
+    // Confirm only when revert will hit cloud + remove records.
+    if (window.confirm('Revert this photo to the original? All markup will be removed and the (original) backup will also be deleted.')) doRevert();
+  } else {
+    doRevert();
   }
 }
 
