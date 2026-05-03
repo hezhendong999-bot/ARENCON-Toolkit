@@ -1681,6 +1681,23 @@ document.addEventListener('click', function(e) {
     return;
   }
 
+  // S115: pin editor photo thumb click → open lightbox.
+  // Pass the LIVE obs.photos array (real records) so markup save/revert
+  // propagation works correctly.
+  var peThumb = e.target.closest && e.target.closest('[data-pe-photo]');
+  if (peThumb) {
+    if (!_peDeficId) return;
+    var fT = Model.findDeficiency(_peDeficId);
+    if (!fT || !fT.defic.observations) return;
+    var oT = fT.defic.observations[_peObsIdx];
+    if (!oT || !oT.photos || !oT.photos.length) return;
+    var photoIdx = parseInt(peThumb.getAttribute('data-pe-photo'), 10) || 0;
+    if (window._frtLightbox && window._frtLightbox.open) {
+      window._frtLightbox.open(oT.photos, photoIdx, { contextLabel: 'Pin #' + (fT.defic.num || '?') });
+    }
+    return;
+  }
+
   // Add obs tab
   if (e.target.closest && e.target.closest('[data-pe-obs-add]')) {
     var f6 = Model.findDeficiency(_peDeficId);

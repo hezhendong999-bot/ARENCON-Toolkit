@@ -100,7 +100,12 @@ function _buildToolbar() {
   var dl = mk('lb-download', '\u2B07', 'Download');
   var rot = mk('lb-rotate', '\u21BB', 'Rotate 90\u00B0');
   var mkb = mk('lb-markup', '\u270E', 'Markup');
-  right.appendChild(mkb); right.appendChild(dl); right.appendChild(rot);
+  // S115: Revert markup button — only visible when current photo has a saved
+  // markup (_origBackupId set). Lets the user revert without re-entering
+  // markup mode (where the in-toolbar Revert lives).
+  var revBtn = mk('lb-revert-toplevel', '\u21B6', 'Revert markup to original');
+  revBtn.style.display = 'none';
+  right.appendChild(mkb); right.appendChild(revBtn); right.appendChild(dl); right.appendChild(rot);
   var existingClose = document.getElementById('lb-close');
   if (existingClose && existingClose.parentNode) {
     existingClose.parentNode.removeChild(existingClose);
@@ -115,9 +120,28 @@ function _buildToolbar() {
     _calcFitScale(); _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();
   });
   mkb.addEventListener('click', _toggleMarkup);
+  // S115: top-bar revert routes through the same _revertMarkup path as the
+  // in-toolbar one. Visibility is controlled by _updateRevertBtn() (called
+  // on every photo change).
+  revBtn.addEventListener('click', _revertMarkup);
   _buildMarkupBar(overlay);
   _toolbarBuilt = true;
 }
+
+// S115: show/hide the top-bar Revert button based on current photo state.
+function _updateRevertBtn() {
+  var btn = document.getElementById('lb-revert-toplevel');
+  if (!btn) return;
+  var p = _photos[_idx];
+  btn.style.display = (p && p._origBackupId) ? '' : 'none';
+}
+
+// S115: refresh top-bar Revert button visibility after markup save/revert.
+// As of S115 P3, the photos.js handler mutates _origBackupId synchronously
+// inside the event dispatch, so by the time control returns here the flag
+// is already set on the active photo. No deferred timing needed.
+document.addEventListener('frt-markup-saved', function(){ _updateRevertBtn(); });
+document.addEventListener('frt-markup-reverted', function(){ _updateRevertBtn(); });
 
 var _markupActive = false;
 var _markupBar = null;
@@ -349,6 +373,9 @@ function _showPhoto(idx) {
   var next = _el('lb-next');
   if (prev) prev.style.display = _photos.length > 1 ? '' : 'none';
   if (next) next.style.display = _photos.length > 1 ? '' : 'none';
+
+  // S115: update top-bar Revert button visibility based on current photo.
+  _updateRevertBtn();
 }
 
 function _open(photos, startIdx, opts) {
