@@ -2215,3 +2215,127 @@ These are noted but not scheduled. Build only when explicitly requested:
 
 `HANDOFF_SESSION_114.md` (the next-session pickup) carries Phase A specifically. Phase 2 of the Strategic Roadmap (`user_profiles`, role enum, soft-delete columns, daily backup Worker) is its own track, scheduled per `ARENCON_Strategic_Roadmap.md`. Don't conflate with Phase A.
 
+
+---
+
+# Session 114 Closeout — Phase A complete (May 3, 2026)
+
+S114 shipped 14 commits: 10 incremental UI/UX/AI pushes (1.1–1.10) plus the four primary-scope items (Hub flip, last-sync indicator, Escape rule, text-markup fix) and this docs commit. v1 retired to `legacy/`. v2 is the default for FRT.
+
+## Final commit chain
+
+| Push | Commit | Scope |
+|---|---|---|
+| 1   | a89ffcfa | Migration: sitePhotos→photos, entries→observations, drop responses[]; sig strip on push |
+| 1.1 | ae25a6ca | Pin editor empty-modal fix; promote `d.description` defensively |
+| 1.2 | 94d3d6bf | Photo gallery v3: selection, badges, cloud icons, date groups, filters |
+| 1.3 | f638a605 | Hover-only controls; shift-click range select; restrict bulk delete to site photos |
+| 1.4 | f5432654 | crossOrigin fix on lightbox; render debounce; (later-reverted) priority frames |
+| 1.5 | b9348c03 | 3-column obs row; 100×100 photos; bigger upload tile |
+| 1.6 | 5ff0d289 | AI scratchpad (multi-photo accumulation, 3 merge actions, native Ctrl+Z) |
+| 1.7 | 23fa9b48 | Fixed 3-column layout (no auto-wrap) |
+| 1.8 | 53e30a1a | AI Review consolidated to pin header; +Gallery picker; recolored drop buttons |
+| 1.9 | 9a21b9ee | Muted color palette enforced; auto-bullet; redundant All dropdown removed |
+| 1.10| 377e5a7e | Darker drawing chip; sequential contractor colors |
+| 2   | 158f77e9 | Hub flip-to-v2 default; v1 archived to `legacy/ARENCON_Field_Review_Tool_v1.html` |
+| 3   | 5c079424 | "Last sync: X ago" indicator with muted color-coded freshness |
+| 4   | f62a7fe6 | Global Escape modal handler; text-markup two-step |
+
+## V1→V2 schema migration (audited safe in S114)
+
+Migration runs in `model.js setProject()` every time a project loads, idempotent:
+
+1. `proj.sitePhotos` → `proj.photos` (rename; legacy site-photo array key)
+2. For each deficiency:
+   - If `entries[]` exists and `observations[]` is empty: build `observations[]` from entries (preserving photos and `_addressed`)
+   - If both exist: observations is canonical, drop entries (audit confirmed they were pure mirrors)
+   - Drop `responses[]` (all 15 in audit were empty placeholders)
+   - Drop legacy `description` scalar after promoting it to `observations[0].text` if obs was empty
+
+Audited against 3 real projects (Sprucewood, Sun Pharma, Caplink) — verified no per-entry `contractorId`, no `description`/`obs.text` divergence. Photo IDs are the same across `d.photos` / `entries[i].photos` / `observations[i].photos` (v1 dual-writes them as references, not duplicate photos on R2). Provably zero data loss.
+
+Sun Pharma's 10 entries-only deficiencies (where observations[] was missing) had 38 photos total — all preserved through migration.
+
+`sync.js push()` now also strips `signatures.sigInspectorData` / `sigWitnessData` (large base64) before sending to Supabase.
+
+## Color palette rule — PERMANENT
+
+**Muted colors only across all ARENCON tools.** Never bright saturated tones. Recorded to memory (#30). Mark has corrected this multiple times — the rule applies project-wide, day mode and dark mode equally.
+
+| Element | Old | New (muted) |
+|---|---|---|
+| Drop button: Upload | `#3F6E9C` | `#5A6E80` slate-blue |
+| Drop button: Camera | `#1A7A4A` | `#5C7A65` sage |
+| Drop button: + Gallery | `#9C2742` | `#7D3F4F` muted burgundy |
+| Drawing chip pill | `#2196F3` (bright blue) | `#2C4770` muted dark blue |
+| Per-photo delete X | `#C0392B` | `#A85959` |
+| Photo AI sparkle bg | `#9C2742` | `#7B2D8E` (matches header AI Review) |
+| Pin AI Review button | n/a | `#7B2D8E` purple (matches header) |
+| Last-sync freshness | green/amber/red | `#5F8068`/`#B07F5A`/`#A85959` |
+| Contractor palette (8 slots) | bright | desaturated, see ctrColorClass |
+
+Burgundy `#9C2742` reserved for primary CTAs only (Save, key actions). Status/badge/button accent colors elsewhere stay muted.
+
+## AI Scratchpad architecture (P1.6 + P1.8)
+
+Per-observation persistent panel below the 3-column row. Multi-photo accumulation: each photo's analysis appends with a separator. Whole-obs button does synthesis (replaces, capped at 4 photos per Worker call). Three merge actions use `document.execCommand('insertText')` so native Ctrl+Z reverts.
+
+**Per-pin AI Review menu** in pin header (P1.8) — three modes pipe into the obs 0 scratchpad:
+- Full review (photos + text) — uses `mode='photo_suggest'`
+- Full review (text only) — uses `mode='rewrite'`
+- Quick review (grammar/flow) — uses `mode='quickfix'`
+
+State key: `<deficId>:<obsIdx>`. Survives DOM re-renders via `repopulateAllScratchpads` hook.
+
+## 3-column observation layout (P1.5+, finalized in P1.9)
+
+Each observation in deficiency tab uses a fixed 3-column grid (stacks to 1 column at <900px):
+
+1. **Comment** (1fr) — textarea (min 140px tall)
+2. **Photos** (1.5fr) — 100×100 thumbnail grid, hover-revealed delete + AI sparkle, no distinctive bg/border (transparent — photos float on parent)
+3. **Drop zone** (1fr) — fixed dashed border, NEVER shrinks/wraps; Upload + Camera + +Gallery buttons in single row, muted colors
+
+`obs-meta-row` (Shorten/Undo buttons) was removed — AI Review menu replaces them. Native Ctrl+Z still works for AI inserts.
+
+## Hub now defaults to v2
+
+`AVAILABLE_TOOLS.frt.file = 'frt/index.html'` — clicking the Field Review Report card on a project tile opens v2. v1 file moved to `legacy/ARENCON_Field_Review_Tool_v1.html` and unlinked from Hub. Available for reference if needed.
+
+## Last-sync indicator
+
+Replaces v1's 30-day backup banner. Sits next to cloud dot in v2 header. Stamp `_lastSyncedAt = Date.now()` on every `_setCloudStatus('synced', ...)`. `setInterval(_updateLastSyncIndicator, 30000)` re-renders relative time. Color-coded: muted green <1min, muted amber 1-5min, muted red >5min.
+
+## Escape key behavior
+
+Global capture-phase handler in `app.js` closes popup modals in priority order: gallery picker → activity modal → pin editor → AI field-selector → legacy photo-suggest → inspector picker → QR → leave dialog → AI Review popover. **Drawing viewer is never closed by Escape.** When no modal is open, `markup.js`'s existing Escape handler runs (cancel stroke / clear polyline / deselect / deactivate tool — but never close viewer).
+
+## Text-markup two-step
+
+Click → caret + input field. Click elsewhere → blurs the existing input (commit via blur listener), does NOT create a new text box. Next fresh click creates the new box. Eliminates the "ghost text box" double-action.
+
+## Auto-bullet in observation textarea
+
+Type `1 ` (digit + space) at start of line → auto-converts to `1. ` via `execCommand('insertText')`. Works for any digit count (`10 ` → `10. `). Ctrl+Z reverts. Pattern check: `/^\d+ $/` on the current line up to caret.
+
+## TODO: Site photo markup original-preservation flow
+
+**Per Mark, Push 1.10** — not implemented yet, recorded here for next session that touches site-photo markup:
+
+When user marks up a site photo: keep the original untouched as a hidden backup AND save the markup as a SEPARATE marked-up photo. When user clears all markups (revert), the duplicated marked-up photo gets auto-deleted, leaving only the original. **Reference v1's `_origBackupId` field** on photo records and the revert flow. Mark explicitly said "go review V1 and copy exactly the feature." Required before site-photo markup is considered complete in v2.
+
+## Light-mode color overhaul — DEFERRED
+
+Mark flagged in P1.9: "I think you should redesign the colour style overall in day mode, as they look really odd." Not addressed in S114. Scope: page header bar, modal action buttons, status badges, dialogs, project info chips. Needs a coordinated CSS pass. Suggest scoping as the first thing in S115 OR a dedicated cleanup session.
+
+## Updated session priority queue (post-S114)
+
+| Session | Scope |
+|---|---|
+| **S115** | Light-mode color overhaul + presence heartbeat + `_autoDedup` + `openProjectQuickEdit` + port v1 pin editor modal additions to v2 |
+| **S116** | Productivity batch: `_buildDeficDescSuggestions`, ZIP bulk photo download, voice-to-text basic (🎤 button), site-photo markup original-preservation |
+| **S117** | Voice + AI Quick Fix integration (cleanup pipeline); Worker-side `mode='shorten'` if not already added |
+| **S118-S119** | Drawing revision tracking |
+| **S120-S122** | AI chatbot in Hub (cross-project agent + summary reports + charts) |
+| **S123+** | Symbol stamps; offline-first UX clarity polish |
+| **Backlog** | Contractor portal, photo tags, NFPA Link if URL pattern exists |
+
