@@ -993,6 +993,21 @@ document.addEventListener('frt-markup-saved', function(e) {
   var newKey = 'photos/' + pid + '/frt/marked/' + filename;
   var newUrl = (R2 && R2.WORKER_URL ? R2.WORKER_URL : 'https://arencon-r2-worker.hezhendong999.workers.dev') + '/' + newKey;
 
+  // ── Capture the original photo's date BEFORE we mutate anything ──
+  // Per Mark's rule: the (original) backup keeps the ORIGINAL date so it
+  // stays grouped with the rest of that day's photos. The active marked-up
+  // photo gets TODAY's date — unless the original was already added today,
+  // in which case it stays with today (no date change).
+  var origAddedDate = photo.addedDate || photo.date || '';
+  // Try to parse from id if no addedDate (legacy photos)
+  if (!origAddedDate && photo.id) {
+    var idMatch = String(photo.id).match(/[a-z]+_(\d{13})/);
+    if (idMatch) {
+      try { origAddedDate = new Date(parseInt(idMatch[1])).toISOString().split('T')[0]; } catch(_){}
+    }
+  }
+  var todayStr = new Date().toISOString().split('T')[0];
+
   // ── Create the "(original)" backup gallery record (FIRST markup only) ──
   var backupId = existingBackupId;
   if (firstMarkup && preKey) {
@@ -1003,10 +1018,12 @@ document.addEventListener('frt-markup-saved', function(e) {
       dataUrl: null,
       thumb: photo.thumb || '',
       caption: origCaption,
-      addedDate: new Date().toISOString().split('T')[0],
+      // S115 fix: backup keeps the ORIGINAL photo's date, not today's date.
+      // Falls back to today only if we genuinely have no date for the original.
+      addedDate: origAddedDate || todayStr,
       r2Key: preKey,
       r2Url: preUrl,
-      r2Status: 'synced',
+      r2Status: 'uploaded', // S115 fix: gallery checks for 'uploaded', not 'synced'
       _isOrigBackup: true
     };
     Model.addSitePhoto(backup);
@@ -1015,14 +1032,51 @@ document.addEventListener('frt-markup-saved', function(e) {
     console.warn('[Markup] First markup but no preKey — backup record skipped (offline-created photo?)');
   }
 
+  // ── Generate a fresh thumb of the marked blob so siblings have a quick
+  // preview (instead of either a stale pre-markup thumb or a long R2 wait). ──
+  var markedThumbDataUrl = null;
+  try {
+    var fr = new FileReader();
+    fr.onload = function(ev) {
+      var imgEl = new Image();
+      imgEl.onload = function() {
+        try {
+          var tw = 200, th = 200;
+          var sc = Math.min(tw / imgEl.naturalWidth, th / imgEl.naturalHeight, 1);
+          var canv = document.createElement('canvas');
+          canv.width = Math.max(1, Math.round(imgEl.naturalWidth * sc));
+          canv.height = Math.max(1, Math.round(imgEl.naturalHeight * sc));
+          canv.getContext('2d').drawImage(imgEl, 0, 0, canv.width, canv.height);
+          markedThumbDataUrl = canv.toDataURL('image/jpeg', 0.7);
+          // Stamp the thumb on every sibling so the gallery renders instantly.
+          var live = Model.findPhotosByR2Key(newKey);
+          live.forEach(function(rec){ if (rec.photo) rec.photo.thumb = markedThumbDataUrl; });
+          if (photo.r2Key === newKey) photo.thumb = markedThumbDataUrl;
+          Model.saveNow();
+          if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+        } catch(_){}
+      };
+      imgEl.src = ev.target.result;
+    };
+    fr.readAsDataURL(d.blob);
+  } catch(_) { /* thumb gen is best-effort */ }
+
   // ── Propagate marked R2 location + flags to every sibling SYNCHRONOUSLY ──
   siblings.forEach(function(s){
     var sp = s.photo; if (!sp) return;
     sp.r2Key = newKey;
     sp.r2Url = newUrl;
-    sp.r2Status = 'pending'; // upgraded to 'synced' after upload completes
+    sp.r2Status = 'uploading'; // upgraded to 'uploaded' after upload completes
     sp._annotated = true;
     if (backupId) sp._origBackupId = backupId;
+    // S115 fix: also bump the date on the marked-up photo to TODAY (unless
+    // it was already today). The (original) backup retains the prior date.
+    if (sp.addedDate !== todayStr) sp.addedDate = todayStr;
+    // S115 fix: clear the stale pre-markup thumb on every sibling so the
+    // gallery uses r2Url (or the newly-generated thumb above) instead of
+    // showing the OLD original image. The active 'photo' object's blob
+    // URL in dataUrl is the immediate-feedback source for the lightbox.
+    delete sp.thumb;
     // Strip stale dataUrl on siblings — image will be re-fetched from new
     // r2Url on next render. Keep it on the active 'photo' object since
     // lightbox is already showing the fresh blob URL for instant feedback.
@@ -1038,11 +1092,12 @@ document.addEventListener('frt-markup-saved', function(e) {
   R2.upload(pid, 'marked', d.blob, filename).then(function(result) {
     if (result) {
       // Confirm sync status on every sibling that's still pointing at this key.
+      // S115 fix: status value must be 'uploaded' (gallery's badge check).
       var live = Model.findPhotosByR2Key(newKey);
-      live.forEach(function(rec){ if (rec.photo) rec.photo.r2Status = 'synced'; });
-      // If lightbox photo isn't in graph (defensive case), still update it.
-      if (photo.r2Key === newKey) photo.r2Status = 'synced';
+      live.forEach(function(rec){ if (rec.photo) rec.photo.r2Status = 'uploaded'; });
+      if (photo.r2Key === newKey) photo.r2Status = 'uploaded';
       Model.saveNow();
+      if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
     } else {
       console.warn('[Markup] R2 upload failed — queueing for retry');
       try { R2.queueUpload(photo.id, pid, 'marked', d.blob, filename); } catch(_){}
@@ -1076,9 +1131,11 @@ document.addEventListener('frt-markup-reverted', function(e) {
   var d = e.detail; if (!d || !d.photo) return;
   var photo = d.photo;
   var proj = Model.getProject(); if (!proj) return;
+  console.log('[Markup] revert handler entered — photo.id=', photo.id, '_origBackupId=', photo._origBackupId);
 
   if (!photo._origBackupId) {
     // No persisted backup — just clear in-memory annotated flag.
+    console.log('[Markup] revert: no _origBackupId — nothing persisted to revert');
     delete photo._annotated;
     if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
     return;
@@ -1087,41 +1144,43 @@ document.addEventListener('frt-markup-reverted', function(e) {
   // Find backup in the gallery.
   var backup = (proj.photos || []).find(function(p){ return p && p.id === photo._origBackupId; });
   if (!backup) {
-    console.warn('[Markup] Revert: backup record not found, clearing flags only');
+    console.warn('[Markup] Revert: backup record not found in gallery — clearing flags only');
     delete photo._origBackupId;
     delete photo._annotated;
     Model.saveNow();
     if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
     return;
   }
+  console.log('[Markup] revert: backup found — origKey=', backup.r2Key);
 
   var origKey = backup.r2Key || '';
   var origUrl = backup.r2Url || '';
+  var origThumb = backup.thumb || '';
   var markedKey = photo.r2Key || '';
 
   // Find ALL siblings currently pointing at the marked R2 file.
-  // Some siblings may have been added after first markup; pick them up too.
   var siblings = markedKey
     ? Model.findPhotosByR2Key(markedKey)
     : [];
-  // Plus the active photo if not in the project graph (defensive).
   if (!siblings.some(function(s){ return s.photo === photo; })) {
     siblings.push({ photo: photo, location: { type: 'unknown' } });
   }
-  // Also pick up any sibling tagged with this _origBackupId (covers cases
-  // where a copy was made AFTER markup — its r2Key already points at marked).
+  // Also pick up any sibling tagged with this _origBackupId.
   Model.getAllPhotoRecords().forEach(function(rec){
     if (rec.photo && rec.photo._origBackupId === backup.id) {
       if (!siblings.some(function(s){ return s.photo === rec.photo; })) siblings.push(rec);
     }
   });
+  console.log('[Markup] revert: restoring', siblings.length, 'sibling(s) to original');
 
   // Restore on every sibling.
   siblings.forEach(function(s){
     var sp = s.photo; if (!sp) return;
     sp.r2Key = origKey;
     sp.r2Url = origUrl;
-    sp.r2Status = 'synced';
+    sp.r2Status = 'uploaded'; // S115 fix: gallery checks 'uploaded'
+    if (origThumb) sp.thumb = origThumb;
+    else delete sp.thumb;
     delete sp._annotated;
     delete sp._origBackupId;
     delete sp.dataUrl;

@@ -100,12 +100,7 @@ function _buildToolbar() {
   var dl = mk('lb-download', '\u2B07', 'Download');
   var rot = mk('lb-rotate', '\u21BB', 'Rotate 90\u00B0');
   var mkb = mk('lb-markup', '\u270E', 'Markup');
-  // S115: Revert markup button — only visible when current photo has a saved
-  // markup (_origBackupId set). Lets the user revert without re-entering
-  // markup mode (where the in-toolbar Revert lives).
-  var revBtn = mk('lb-revert-toplevel', '\u21B6', 'Revert markup to original');
-  revBtn.style.display = 'none';
-  right.appendChild(mkb); right.appendChild(revBtn); right.appendChild(dl); right.appendChild(rot);
+  right.appendChild(mkb); right.appendChild(dl); right.appendChild(rot);
   var existingClose = document.getElementById('lb-close');
   if (existingClose && existingClose.parentNode) {
     existingClose.parentNode.removeChild(existingClose);
@@ -120,28 +115,9 @@ function _buildToolbar() {
     _calcFitScale(); _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();
   });
   mkb.addEventListener('click', _toggleMarkup);
-  // S115: top-bar revert routes through the same _revertMarkup path as the
-  // in-toolbar one. Visibility is controlled by _updateRevertBtn() (called
-  // on every photo change).
-  revBtn.addEventListener('click', _revertMarkup);
   _buildMarkupBar(overlay);
   _toolbarBuilt = true;
 }
-
-// S115: show/hide the top-bar Revert button based on current photo state.
-function _updateRevertBtn() {
-  var btn = document.getElementById('lb-revert-toplevel');
-  if (!btn) return;
-  var p = _photos[_idx];
-  btn.style.display = (p && p._origBackupId) ? '' : 'none';
-}
-
-// S115: refresh top-bar Revert button visibility after markup save/revert.
-// As of S115 P3, the photos.js handler mutates _origBackupId synchronously
-// inside the event dispatch, so by the time control returns here the flag
-// is already set on the active photo. No deferred timing needed.
-document.addEventListener('frt-markup-saved', function(){ _updateRevertBtn(); });
-document.addEventListener('frt-markup-reverted', function(){ _updateRevertBtn(); });
 
 var _markupActive = false;
 var _markupBar = null;
@@ -268,23 +244,39 @@ function _revertMarkup(){
   // (If user just dropped a stroke that hasn't been saved, MarkupEngine.clear
   // is enough — no persisted state to undo.)
   var hasSaved = !!p._origBackupId;
-  if (!hasSaved && !window.MarkupEngine.isDirty()) return;
+  console.log('[Markup] _revertMarkup called — hasSaved=', hasSaved, 'origBackupId=', p._origBackupId, 'r2Key=', p.r2Key);
+  if (!hasSaved && !window.MarkupEngine.isDirty()) { console.log('[Markup] revert: nothing to do'); return; }
   var doRevert = function(){
     window.MarkupEngine.clear();
     if (hasSaved) {
       // Dispatch revert event — photos.js handler does R2 cleanup,
       // backup-record removal, sibling restoration, and persistence.
-      try { document.dispatchEvent(new CustomEvent('frt-markup-reverted',{detail:{photo:p,index:_idx}})); } catch(e){}
-      // Reset the lightbox image to the restored original. r2Url has just
-      // been mutated by the handler; for instant feedback use r2Url first,
-      // fallback to in-memory _origBlob, fallback to the (now stale) dataUrl.
+      console.log('[Markup] dispatching frt-markup-reverted for photo id=', p.id);
+      try { document.dispatchEvent(new CustomEvent('frt-markup-reverted',{detail:{photo:p,index:_idx}})); } catch(e){ console.warn('[Markup] dispatch error:', e); }
+      console.log('[Markup] after dispatch — p.r2Key=', p.r2Key, 'p.r2Url=', p.r2Url, 'p._origBackupId=', p._origBackupId);
+      // Force image reload from the restored r2Url. Add cache-bust in case
+      // the browser cached anything under the old marked URL.
       var img = document.getElementById('lb-image');
       if (img) {
-        var src = p.r2Url || p._origBlob || p.dataUrl || '';
+        var src = p.r2Url || p._origBlob || '';
         if (typeof src !== 'string' && src) src = URL.createObjectURL(src);
-        img.src = src;
+        if (src) {
+          // Cache-bust to force browser refetch — guarantees the marked
+          // image (if same URL was reused, e.g. via service worker) is
+          // dropped and the original is fetched fresh.
+          var bust = (src.indexOf('?') >= 0 ? '&' : '?') + 'rv=' + Date.now();
+          img.src = src + bust;
+          console.log('[Markup] revert: img.src set to', src + bust);
+        } else {
+          console.warn('[Markup] revert: no src to set on img — p.r2Url and _origBlob both missing');
+        }
       }
       delete p._annotated;
+      // If we're currently in markup mode, exit it so the user sees the
+      // restored original cleanly.
+      if (_markupActive) {
+        try { _toggleMarkup(); } catch(_){}
+      }
     } else if (p._origBlob) {
       // No persisted markup — just restore the in-memory original.
       p.dataUrl = (typeof p._origBlob === 'string') ? p._origBlob : URL.createObjectURL(p._origBlob);
@@ -320,7 +312,34 @@ function _clampPan() {
 function _applyTransform() {
   _clampPan();
   var wrap = _el('lb-img-wrap');
-  if (wrap) wrap.style.transform = 'translate3d(' + _panX + 'px,' + _panY + 'px,0) scale(' + _scale + ') rotate(' + _currentRotation() + 'deg)';
+  if (!wrap) return;
+  // S115 fix: rotate around photo CENTER while keeping CSS transform-origin
+  // at 0,0 (which pan/zoom math depends on). Trick: after rotating around
+  // 0,0, the image's bounding box shifts off-screen. We add a rotation-
+  // dependent offset to translate the rotated bbox back into the visible
+  // area so its top-left aligns with (panX, panY) — same coords pan/zoom
+  // already compute. End result: photo appears to rotate around its center.
+  var img = _el('lb-image');
+  var rot = _currentRotation();
+  var offX = 0, offY = 0;
+  if (img && img.naturalWidth) {
+    var nw = img.naturalWidth;
+    var nh = img.naturalHeight;
+    // After rotate(θ) around (0,0) with scale s applied AFTER rotate, the
+    // visible bbox of the scaled+rotated image relative to the wrapper origin:
+    //   0°  → (0, 0)            no offset
+    //   90° → (-nh*s, 0)        push X by +nh*s
+    //   180°→ (-nw*s, -nh*s)    push X by +nw*s, Y by +nh*s
+    //   270°→ (0, -nw*s)        push Y by +nw*s
+    if (rot === 90)  { offX = nh * _scale; }
+    else if (rot === 180) { offX = nw * _scale; offY = nh * _scale; }
+    else if (rot === 270) { offY = nw * _scale; }
+  }
+  // Order matters — rotate FIRST, then scale, all wrapped in a translate.
+  // CSS applies transforms right-to-left so the inner (scale) hits first,
+  // then rotate pivots the scaled image around (0,0), then translate moves
+  // it into place.
+  wrap.style.transform = 'translate3d(' + (_panX + offX) + 'px,' + (_panY + offY) + 'px,0) rotate(' + rot + 'deg) scale(' + _scale + ')';
   _updateZoomIndicator();
 }
 
@@ -373,9 +392,6 @@ function _showPhoto(idx) {
   var next = _el('lb-next');
   if (prev) prev.style.display = _photos.length > 1 ? '' : 'none';
   if (next) next.style.display = _photos.length > 1 ? '' : 'none';
-
-  // S115: update top-bar Revert button visibility based on current photo.
-  _updateRevertBtn();
 }
 
 function _open(photos, startIdx, opts) {
