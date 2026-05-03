@@ -2348,3 +2348,159 @@ Mark flagged in P1.9: "I think you should redesign the colour style overall in d
 | **S123+** | Symbol stamps; offline-first UX clarity polish |
 | **Backlog** | Contractor portal, photo tags, NFPA Link if URL pattern exists |
 
+
+---
+
+# Session 115 closeout
+
+S115 shipped 13 commits on `main` (`81282b19` through `2bf8acbe`). The session pivoted from the originally-planned light-mode overhaul into a deep rebuild of the photo markup pipeline + v1 photo-data recovery against a real corrupted project. Light-mode overhaul, presence heartbeat, and pin editor v1 port-over are all carried forward to S116.
+
+## What got built (high level)
+
+| Area | Outcome |
+|---|---|
+| Drawing dedup | `_autoDedup` ported from v1; runs in `setProject()`. Folder-scoped (folder \| name) so two photos with the same name in different folders are NOT treated as duplicates (v2 has folders, v1 didn't) |
+| Folder drop UX | Entire `.dwg-folder-group` is now a drop target. Drops on folder header / body whitespace / existing tiles all route to that folder. Master `#dwg-upload-zone` at top is the only thing that creates new folders |
+| Photo markup pipeline | Full v1-style propagation: mark a photo once, applies everywhere (gallery + every defic copy + pin references) sharing the same R2 key. Backup record created on first markup, removed on revert. CASE-based handler with explicit branches |
+| Markup revert | Bulletproofed against multiple corrupted-state scenarios; aborts with visible alert if backup r2Key itself contains `/marked/` (indicates earlier-session corruption) instead of silently no-oping or deleting the only remaining image copy |
+| Defic + pin-editor refresh | Both render their photo thumbnails using the same fallback chain as the gallery (`thumb \|\| dataUrl \|\| r2Url`). Both subscribe to `Model.onChange('photo')` for instant re-render on markup save/revert |
+| `_dayKey` priority order | Matches v1: defic photos prefer parent defic `notedDate` over id timestamp. Photos uploaded weeks after a field visit still appear under the visit date |
+| Hub Edit | New ✏️ button on each project tile opens existing Edit Project modal directly. Skips the project detail-page round-trip. Hover-reveal on desktop, always-visible on touch |
+| Photo rotate | Lightbox rotation now pivots around photo center via translation-offset trick (was: rotated around top-left CSS origin, swung the photo off-screen) |
+
+## Photo markup architecture (PERMANENT — read carefully before touching)
+
+### CASE branching in `frt-markup-saved` handler (`photos.js`)
+
+The save handler has 4 explicit cases. Every code path must be assigned to one of these:
+
+| Case | Trigger | Action |
+|---|---|---|
+| **CASE 1** | `existingBackupId` is set on the photo (re-save of already-marked photo) | Skip backup creation. Re-upload marked blob (same deterministic key). Stamp siblings (no-op for fields already correct) |
+| **CASE 2** | First markup, `preKey` is set AND not pointing at `/marked/` | Create gallery backup record pointing at preKey/preUrl. Stamp every sibling sharing preKey with new marked r2Key |
+| **CASE 3** | First markup, no `preKey` (or preKey is corrupted `/marked/` path) BUT `_origBlob` is available | Upload `_origBlob` to R2 ourselves (`photos/{pid}/frt/original/orig_{photoId}.jpg`), then create backup pointing at the freshly-uploaded original, then stamp siblings |
+| **CASE 4** | First markup, no preKey, no `_origBlob` | Warn loudly. Stamp `_annotated=true` but pass `null` backupId. Markup persists; revert won't work for this record. Should be vanishingly rare in practice |
+
+`preKeyIsMarked` detection (the photo's r2Key already contains `/marked/`) is treated as if preKey were empty — falls through to CASE 3 or CASE 4. This is the corrupted-state recovery path; without it, a previously-corrupted photo would create a backup pointing at a marked file (same key as the active photo), and a subsequent revert would delete the only remaining image copy.
+
+### Cross-context propagation
+
+Photos sharing the same r2Key are siblings. `Model.findPhotosByR2Key(r2Key)` walks every location:
+- `proj.photos[]` (gallery + backup records)
+- `contractor.deficiencies[].photos[]`
+- `contractor.deficiencies[].observations[].photos[]`
+- `contractor.deficiencies[].entries[].photos[]` (legacy)
+- `generalDeficiencies[].*.photos[]` (same shape)
+
+`_stampSiblings(backupId)` mutates every sibling identically: new r2Key, new r2Url, `r2Status='uploading'`, `_annotated=true`, `_origBackupId=backupId`, today's `addedDate`. Plus shares the lightbox blob URL across all siblings as `dataUrl` for instant visual feedback.
+
+### Photo render fallback chain (PERMANENT RULE)
+
+Every photo render surface (gallery, defic tab, pin editor) MUST use this priority:
+
+```js
+var src = ph.thumb || ph.dataUrl || ph.r2Url || '';
+```
+
+- `ph.thumb` — small data URI cached on the record. Survives reload. Fastest render. Set by `_addSitePhoto` on initial upload OR by markup save handler's async thumb-gen (~100-500ms after save).
+- `ph.dataUrl` — may be a `blob:` URL set during a markup session. Document-scoped (any `<img>` on the page can use it). Provides instant feedback before R2 upload completes. Stripped from IDB persistence by `_stripBlobUrls`.
+- `ph.r2Url` — R2-hosted file. Works after upload completes. May 404 mid-upload.
+
+If the order ever gets reordered: marked photos will appear broken until R2 upload finishes. Don't reorder.
+
+### Notification model
+
+`Model._notify('photo')` must fire after EVERY mutation that affects render. S115 P11 added these calls:
+- After `_stampSiblings` — covers initial backup creation and sibling propagation
+- After async thumb generation completes — covers `ph.thumb` getting set
+- After R2 upload of marked blob completes — covers `r2Status` flipping to `'uploaded'`
+
+Both `deficiencies.js` and `viewer.js` (pin editor section) subscribe to `Model.onChange('photo')` and re-render. The `photos.js` gallery uses RAF-coalesced `_scheduleRender`.
+
+### r2Status values (PERMANENT)
+
+Gallery's cloud-icon check is `r2Status === 'uploaded' || (r2Url && !r2Status)`. **Use `'uploaded'` everywhere, never `'synced'`.** Earlier S115 commits used `'synced'` and broke the green-cloud icon for hours of testing time.
+
+Other valid values: `'uploading'` (in flight, yellow icon), `'failed'` (red icon), `'pending'` (queued for retry).
+
+### Date logic
+
+The `(original)` backup record gets the **original photo's** `addedDate` (preserved). The marked-up photo gets **today's** `addedDate` — unless the photo was already added today (in which case no change).
+
+Revert restores `addedDate` from the backup record onto every sibling. Without this, reverted photos show under today's date in the gallery instead of their original date.
+
+### Permanent debugging command
+
+```bash
+# Hit /api/health to know what renderer is actually serving requests, no code edits before this
+curl https://arencon-render-staging.fly.dev/api/health
+
+# Verify JS module syntax (CRITICAL — plain `node --check` lies)
+node --input-type=module --check < path/to/module.js
+```
+
+## Validation rule (NEW PERMANENT — S115 P6 lesson)
+
+`node --check file.js` reports OK on syntactically broken ES modules because it parses them in CommonJS mode and the import statements at the top fail first, masking later syntax errors.
+
+**Always validate ES modules with stdin + module mode:**
+
+```bash
+node --input-type=module --check < path/to/module.js
+```
+
+S115 P5 shipped a syntax error to production (escaped-apostrophe in a `console.warn` literal broke the entire `photos.js` module parse → blank FRT page on load). Plain `node --check` had reported OK. P6 was the hotfix.
+
+This rule is added to memory. Never use plain `node --check` on `.js` files in this project again.
+
+## Photo markup recovery scripts (S115 artifacts)
+
+Real-data-corruption recovery from earlier buggy S115 commits. Mark applied all of these against project 1490.04 successfully. Kept as templates for any future similar issue:
+
+| Script | Purpose |
+|---|---|
+| `arencon_photo_recovery.js` | Restores `r2Key/r2Url` on photos whose r2Key got overwritten to `/marked/` paths during early buggy markup saves. Uses v1 JSON export as authoritative source (id → r2Key mapping) |
+| `arencon_date_recovery.js` (v1) | Clears `addedDate` on photos whose value matches today but id timestamp says otherwise |
+| `arencon_date_recovery_v2.js` | Broader: clears `addedDate` whenever it doesn't match the photo id timestamp |
+| `inspect_pin1.js` | Diagnostic — dumps full state of a photo by id |
+| `clear_pin1_date.js` | Surgical — clears `addedDate` on a specific photo id |
+
+All run in browser console via `window.__arenconRecovery.commit()` / `cancel()` pattern. Plan-then-confirm — print full plan first, require explicit commit() call.
+
+## What was deferred to S116
+
+Originally-planned S115 items that didn't ship:
+- **Light-mode color overhaul** — Mark redirected on turn 2. 123 hits in `frt.css` already inventoried during P1 investigation. Still owed.
+- **Presence heartbeat** — `project_presence` table + 30s ping + header indicator. Still owed.
+- **Pin editor v1 port-over** — activity log inline + linked findings + photo carousel. Still owed.
+
+S114 deferral that's still open:
+- **Worker `mode='shorten'`** — Cloudflare Worker patch. Mark deploys manually.
+
+## Process lessons from S115
+
+1. **Plain `node --check` lies for ES modules.** Always use `node --input-type=module --check < file.js`. P6 hotfix taught this the hard way.
+2. **Console output is faster than guessing.** Once Mark started pasting `[Markup save]`/`[Markup revert]` console output, every remaining bug became diagnosable in one pass instead of three. Add diagnostic logging early; remove only after stable.
+3. **Real corrupted data is unforgiving.** Mark's project 1490.04 had legacy v1 photos plus accumulated S115-buggy state. Recovery required: (a) the v1 JSON export, (b) live R2 listing to confirm originals still existed, (c) targeted scripts to walk every photo location. Lesson: always preserve JSON exports before destructive code changes.
+4. **Self-reinforcing corruption is the worst kind.** A photo that ended up with `r2Key='/marked/...'` AND `_origBackupId=null` would re-corrupt every time it was marked up. Detection in BOTH save AND revert paths needed; just one wasn't enough.
+5. **Escape-apostrophe in `str_replace`-generated literals** — passing `won\\'t` through Python's `str_replace` ended up as `won\\'t` (literal double-backslash + escaped apostrophe) in the JS file, which is a syntax error. Just write "will not" or use `&apos;` if HTML, or use a different quote style. Don't escape escapes through tools that escape.
+
+## Stable commits this session
+
+| Push | Commit | Description |
+|---|---|---|
+| 1 | `81282b19` | `_autoDedup` ported to v2 |
+| 2 | `937f238c` | Photo markup original-preservation + folder drop-target fix |
+| 3 | `3b910722` | Gallery markup persistence + lightbox top-bar Revert + pin editor lightbox click |
+| 4 | `b214980f` | r2Status='uploaded', backup keeps original date, fresh thumb gen, rotate-around-center |
+| 5 | `a3bf167f` | Defic markup CASE 3 (upload `_origBlob` first) |
+| 6 | `fbdba1bc` | HOTFIX: escaped-apostrophe syntax error |
+| 7 | `4400e9fa` | Simplify save/revert with explicit CASE 1/2/3/4 branching |
+| 8 | `425f297d` | Detect corrupted-state `/marked/` in preKey + revert backup |
+| 9 | `feb48fe7` | Defic tab re-renders on `'photo'` notify; revert restores addedDate |
+| 10 | `746f69ee` | Defic + pin-editor thumbs prefer `ph.thumb`; pin editor re-renders on photo notify |
+| 11 | `552c41dc` | Instant marked-thumb feedback via shared blob URL; strip blob: URLs from IDB save |
+| 12 | `c929935d` | `_dayKey` priority matches v1 (parent defic notedDate before id timestamp) |
+| 13 | `2bf8acbe` | Hub Edit project button on dashboard tile |
+
+End of S115 — proceed to S116.
