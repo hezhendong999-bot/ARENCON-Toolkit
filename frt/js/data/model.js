@@ -181,6 +181,11 @@ export var Model = {
         }
         delete d.entries;
         delete d.responses;
+        // Promote legacy d.description into observations[0].text if obs has empty
+        // text and description had content (defensive for future legacy data).
+        if (d.description && d.observations && d.observations.length && !d.observations[0].text) {
+          d.observations[0].text = d.description;
+        }
         delete d.description;
       });
     }

@@ -1513,7 +1513,7 @@ function _peRenderObsTabs(d) {
 
 function _peRenderObsContent(d, idx) {
   var obs = d.observations || [];
-  if (!obs.length) obs = [{ text: '', addressed: false }];
+  if (!obs.length) obs = [{ text: '', addressed: false, photos: [] }];
   var o = obs[idx] || obs[0];
 
   var prBtns = document.querySelectorAll('.pe-pri-btn');
@@ -1523,6 +1523,28 @@ function _peRenderObsContent(d, idx) {
 
   var textarea = document.getElementById('pe-obs-text');
   if (textarea) textarea.value = o.text || '';
+
+  // S114: render existing observation photos as a thumbnail strip.
+  // Previously the modal showed only upload buttons; existing photos were invisible.
+  var strip = document.getElementById('pe-obs-photos');
+  if (strip) {
+    var photos = o.photos || [];
+    if (!photos.length) {
+      strip.innerHTML = '';
+      strip.style.display = 'none';
+    } else {
+      strip.style.display = 'flex';
+      var html = '';
+      photos.forEach(function(ph, pi) {
+        var src = ph.r2Url || ph.dataUrl || '';
+        if (!src) return;
+        html += '<div class="pe-photo-thumb" data-pe-photo="' + pi + '" title="Photo ' + (pi + 1) + '">'
+          + '<img src="' + src + '" alt="Photo ' + (pi + 1) + '" loading="lazy">'
+          + '</div>';
+      });
+      strip.innerHTML = html;
+    }
+  }
 }
 
 function _closePinEditor() {
