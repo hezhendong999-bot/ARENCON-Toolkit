@@ -1658,3 +1658,11 @@ function _runDeficBulk(op) {
     });
   }
 }
+
+// S116 Push 1: expose photo helpers for the pin editor (viewer.js).
+// Same pipeline as deficiencies tab so photo records, R2 upload, and Model
+// notifications all behave identically regardless of where the upload was
+// initiated. Pin editor wires its Upload/Camera/+Gallery buttons + drop zone
+// to these.
+window._frtPhotoAdd = _compressAndAdd;
+window._frtGalleryPick = _showGalleryPicker;

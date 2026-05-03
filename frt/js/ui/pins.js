@@ -5,7 +5,7 @@
  */
 
 import { Model } from '../data/model.js';
-import { buildDeficCard, ctrColorClass } from './deficiencies.js';
+import { ctrColorClass } from './deficiencies.js';
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function deficDesc(d) {
@@ -250,7 +250,7 @@ export var initPins = {
       var priCls = dd.priority || 'general';
       var dwgName = _getDrawingName(dd.drawingId);
 
-      h += '<tr data-defic-id="' + esc(dd.id) + '" data-action="jump-defic" style="border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;">';
+      h += '<tr data-defic-id="' + esc(dd.id) + '" data-action="open-pin-editor" style="border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;">';
       h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">#' + (dd.num || '?') + '</td>';
       h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(dwgName || '\u2014') + '</td>';
       h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(desc || '(no description)') + '</td>';
@@ -282,21 +282,14 @@ Model.onChange('project', function() { if (_viewMode === 'board') _renderBoard()
 document.addEventListener('click', function(e) {
   if (e.target.id === 'tasks-view-table') { _setView('table'); return; }
   if (e.target.id === 'tasks-view-board') { _setView('board'); return; }
-  // Kanban card click → jump-to-defic in deficiencies tab
+  // S116 Push 1: Kanban card click → open pin editor (v1 parity).
+  // Previously jumped to deficiencies tab and scrolled — but that bypassed
+  // the editor where most edits actually happen.
   var card = e.target.closest && e.target.closest('[data-action="pkb-card"]');
   if (card && _viewMode === 'board' && !e.target.closest('.pkc-thumb')) {
     var deficId = card.getAttribute('data-defic-id');
-    if (deficId) {
-      document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === 'deficiencies'); });
-      document.querySelectorAll('.panel').forEach(function(p) { p.classList.toggle('active', p.id === 'panel-deficiencies'); });
-      setTimeout(function() {
-        var dc = document.querySelector('.defic-item[data-defic-id="' + deficId + '"]');
-        if (dc) {
-          dc.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          dc.style.outline = '2px solid #9C2742';
-          setTimeout(function() { dc.style.outline = ''; }, 2000);
-        }
-      }, 100);
+    if (deficId && window._frtOpenPinEditor) {
+      window._frtOpenPinEditor(deficId);
     }
   }
 });
@@ -349,34 +342,17 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // Row click → inline expand (not on buttons/inputs/jump)
-  var row = e.target.closest && e.target.closest('#tasks-table-view tr[data-defic-id]');
-  if (row && !e.target.closest('button') && !e.target.closest('select') && !e.target.closest('input')) {
-    var deficId = row.getAttribute('data-defic-id');
-    var existingExpand = row.nextElementSibling;
-    // Collapse any other open expand
-    var allExpands = document.querySelectorAll('#tasks-table-view .tt-expand-row');
-    allExpands.forEach(function(ex) { ex.remove(); });
-    // Toggle: if the same row was already expanded, just collapse (already removed above)
-    if (existingExpand && existingExpand.classList.contains('tt-expand-row') && existingExpand.getAttribute('data-expand-id') === deficId) {
-      row.classList.remove('tt-row-active');
-      return;
-    }
-    // Remove active state from all rows
-    document.querySelectorAll('#tasks-table-view tr.tt-row-active').forEach(function(r) { r.classList.remove('tt-row-active'); });
-    // Build expand row
-    var f = Model.findDeficiency(deficId);
-    if (f) {
-      var expandTr = document.createElement('tr');
-      expandTr.className = 'tt-expand-row';
-      expandTr.setAttribute('data-expand-id', deficId);
-      var td = document.createElement('td');
-      td.setAttribute('colspan', '7');
-      td.style.cssText = 'padding:0;border-bottom:2px solid #9C2742;';
-      td.innerHTML = '<div class="tt-expand-content" style="padding:12px 16px;background:var(--smoke);border-top:1px solid var(--border);">' + buildDeficCard(f.defic, f.contractor ? f.contractor.id : null) + '</div>';
-      expandTr.appendChild(td);
-      row.parentNode.insertBefore(expandTr, row.nextSibling);
-      row.classList.add('tt-row-active');
+  // S116 Push 1: Row click → open pin editor (v1 parity).
+  // Replaces the previous inline-expand-with-buildDeficCard behavior, which
+  // was effectively dead since the row also carried data-action="jump-defic"
+  // that fired first. The row now carries data-action="open-pin-editor".
+  // The dedicated "Jump" button still has data-action="jump-defic" so explicit
+  // jumps to the deficiencies tab continue to work from the button only.
+  var openRow = e.target.closest && e.target.closest('[data-action="open-pin-editor"]');
+  if (openRow && !e.target.closest('button') && !e.target.closest('select') && !e.target.closest('input')) {
+    var deficId = openRow.getAttribute('data-defic-id');
+    if (deficId && window._frtOpenPinEditor) {
+      window._frtOpenPinEditor(deficId);
     }
     return;
   }

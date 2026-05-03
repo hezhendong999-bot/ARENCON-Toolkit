@@ -1454,46 +1454,103 @@ function _openPinEditor(deficId) {
   var dateIn = document.getElementById('pe-date');
   if (dateIn) dateIn.value = d.date || new Date().toISOString().split('T')[0];
 
-  // Status
+  // S116 Push 1 (H): Status — when every observation is priority=general,
+  // there's no notion of "open vs closed" because the entry isn't a defect,
+  // it's a note. Show a disabled "— Not a deficiency —" option in that case.
+  // The check uses the per-observation priority if present (forward-compat
+  // with item C, deferred to its own session) and falls back to pin-level
+  // priority otherwise. Also disables IAR which has no meaning for notes.
+  var obsArrForStatus = (d.observations && d.observations.length) ? d.observations : [{}];
+  var allGeneral = obsArrForStatus.every(function(o) {
+    var pri = o && o.priority ? o.priority : (d.priority || 'high');
+    return pri === 'general';
+  });
   var statusSel = document.getElementById('pe-status');
-  if (statusSel) statusSel.value = (d.status === 'closed' || d.status === 'Addressed & Closed') ? 'closed' : 'open';
+  if (statusSel) {
+    if (allGeneral) {
+      statusSel.innerHTML = '<option value="na" selected>\u2014 Not a deficiency \u2014</option>';
+      statusSel.disabled = true;
+      statusSel.style.opacity = '0.5';
+      statusSel.style.cursor = 'not-allowed';
+    } else {
+      statusSel.innerHTML = '<option value="open">\u25CF Outstanding</option><option value="closed">\u2714 Addressed & Closed</option>';
+      statusSel.value = (d.status === 'closed' || d.status === 'Addressed & Closed') ? 'closed' : 'open';
+      statusSel.disabled = false;
+      statusSel.style.opacity = '';
+      statusSel.style.cursor = '';
+    }
+  }
 
   // IAR
   var iarBtn = document.getElementById('pe-iar');
-  if (iarBtn) iarBtn.classList.toggle('active', !!d.iar);
+  if (iarBtn) {
+    iarBtn.classList.toggle('active', !!d.iar);
+    iarBtn.disabled = allGeneral;
+    iarBtn.style.opacity = allGeneral ? '0.4' : '';
+    iarBtn.style.cursor = allGeneral ? 'not-allowed' : '';
+  }
+
+  // S116 Push 1 (B): description autocomplete via <datalist>. Builds a
+  // de-duplicated list of all existing observation texts across the project
+  // so common phrases ("Sprinkler escutcheon missing — replace") can be
+  // re-used by typing the first few letters. Native browser feature; works
+  // on all targeted devices.
+  var allDescs = [];
+  var projForDl = Model.getProject();
+  if (projForDl) {
+    Model.getAllDeficiencies().forEach(function(rec) {
+      var def = rec.defic;
+      (def.observations || []).forEach(function(ob) { if (ob && ob.text && ob.text.trim()) allDescs.push(ob.text.trim()); });
+      (def.entries || []).forEach(function(en) { if (en && en.description && en.description.trim()) allDescs.push(en.description.trim()); });
+      if (def.description && def.description.trim()) allDescs.push(def.description.trim());
+    });
+  }
+  // De-dupe while preserving insertion order; cap at 200 to keep DOM small.
+  var seenDl = {}, uniqDescs = [];
+  for (var di = 0; di < allDescs.length && uniqDescs.length < 200; di++) {
+    var s = allDescs[di];
+    if (!seenDl[s]) { seenDl[s] = 1; uniqDescs.push(s); }
+  }
+  var oldDl = document.getElementById('pe-desc-suggestions');
+  if (oldDl && oldDl.parentNode) oldDl.parentNode.removeChild(oldDl);
+  if (uniqDescs.length) {
+    var dl = document.createElement('datalist');
+    dl.id = 'pe-desc-suggestions';
+    var dlHtml = '';
+    uniqDescs.forEach(function(s) {
+      dlHtml += '<option value="' + String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"></option>';
+    });
+    dl.innerHTML = dlHtml;
+    document.body.appendChild(dl);
+  }
+  var ta = document.getElementById('pe-obs-text');
+  if (ta) ta.setAttribute('list', 'pe-desc-suggestions');
 
   // Observations tabs
   _peRenderObsTabs(d);
   _peRenderObsContent(d, 0);
 
-  // Move-to dropdown
+  // Move-to dropdown (desktop + mobile share the same options)
+  var drawingsForMove = _getDrawingsList();
+  var currentDwgId = (_currentDrawingIdx >= 0 && drawingsForMove[_currentDrawingIdx]) ? drawingsForMove[_currentDrawingIdx].id : null;
+  var moveOpts = '<option value="' + (currentDwgId || '') + '">\u2014 Current drawing \u2014</option>';
+  drawingsForMove.forEach(function(dw) {
+    if (dw.id !== currentDwgId) moveOpts += '<option value="' + dw.id + '">' + (dw.name || 'Drawing') + '</option>';
+  });
   var moveSel = document.getElementById('pe-move-to');
-  if (moveSel) {
-    var drawings = _getDrawingsList();
-    var currentDwgId = (_currentDrawingIdx >= 0 && drawings[_currentDrawingIdx]) ? drawings[_currentDrawingIdx].id : null;
-    var opts2 = '<option value="' + (currentDwgId || '') + '">\u2014 Current drawing \u2014</option>';
-    drawings.forEach(function(dw) {
-      if (dw.id !== currentDwgId) opts2 += '<option value="' + dw.id + '">' + (dw.name || 'Drawing') + '</option>';
-    });
-    moveSel.innerHTML = opts2;
-  }
+  if (moveSel) moveSel.innerHTML = moveOpts;
+  var moveSelMobile = document.getElementById('pe-move-to-mobile');
+  if (moveSelMobile) moveSelMobile.innerHTML = moveOpts;
 
-  // Location thumbnail
-  var thumb = document.getElementById('pe-location-thumb');
-  if (thumb) {
-    var dvImg = document.getElementById('dv-image');
-    if (dvImg && dvImg.src && dvImg.src !== '') {
-      var pinHtml = '';
-      if (d.pinX != null && d.pinY != null) {
-        pinHtml = '<div style="position:absolute;left:' + (d.pinX * 100) + '%;top:' + (d.pinY * 100) + '%;transform:translate(-50%,-100%);z-index:2;">' +
-          '<svg width="24" height="32" viewBox="0 0 32 42"><path d="M16 3C9.4 3 4 8.4 4 15c0 9.5 12 22 12 22s12-12.5 12-22C28 8.4 22.6 3 16 3z" fill="#C0392B"/><circle cx="16" cy="14" r="6" fill="white" opacity="0.9"/></svg>' +
-          '</div>';
-      }
-      thumb.innerHTML = '<img src="' + dvImg.src + '" crossOrigin="anonymous" alt="" style="width:100%;height:100%;object-fit:contain;display:block;">' + pinHtml;
-    } else {
-      thumb.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:13px;">No drawing loaded</div>';
-    }
-  }
+  // S116 Push 1 (G): canvas-based mini-map matching v1.
+  // Renders the FULL drawing image (regardless of current viewer zoom) with
+  // a priority-coloured teardrop pin marker (number inside, IAR pink) drawn
+  // on top. Reads d.drawingId so cross-drawing pins (opened from Tasks panel
+  // or Summary tab) show the correct drawing, not the currently-loaded one.
+  // Image source priority: dwg.dataUrl → dwg.r2Url → L0 tile (256px) for
+  // tile-mode-only PDF drawings. See _renderPinMiniMap below.
+  _renderPinMiniMap(d, 'pe-location-thumb');
+  _renderPinMiniMap(d, 'pe-location-thumb-mobile');
 
   overlay.style.display = 'flex';
 }
@@ -1524,8 +1581,43 @@ function _peRenderObsContent(d, idx) {
   var textarea = document.getElementById('pe-obs-text');
   if (textarea) textarea.value = o.text || '';
 
+  // S116 Push 1 (A): per-observation contractor override.
+  // Visible only when the pin has more than one observation. Each obs can
+  // optionally be assigned to a different contractor — useful when one pin
+  // covers two trades (e.g. sprinkler obs + alarm obs on the same fixture).
+  // Stored as o.contractorId. Empty/undefined = "use pin contractor".
+  // The row is injected at the top of the obs content (above PRIORITY/TYPE)
+  // every render; cleaned up via id so re-renders don't stack copies.
+  var content = document.getElementById('pe-obs-content');
+  var oldOcr = document.getElementById('pe-obs-ctr-row');
+  if (oldOcr && oldOcr.parentNode) oldOcr.parentNode.removeChild(oldOcr);
+  var obsArrLen = (d.observations && d.observations.length) ? d.observations.length : 0;
+  if (content && obsArrLen > 1) {
+    var projForOcr = Model.getProject();
+    var entryCtrId = o.contractorId || '';
+    var hasOverride = !!entryCtrId;
+    var ocrOpts = '<option value="">\u2014 Same as pin \u2014</option>';
+    (projForOcr && projForOcr.contractors ? projForOcr.contractors : []).forEach(function(cc) {
+      ocrOpts += '<option value="' + cc.id + '"' + (cc.id === entryCtrId ? ' selected' : '') + '>'
+        + String(cc.name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</option>';
+    });
+    var ocrRow = document.createElement('div');
+    ocrRow.id = 'pe-obs-ctr-row';
+    ocrRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:5px 8px;background:rgba(176,127,90,.10);border-radius:6px;border:1px solid rgba(176,127,90,.30);';
+    ocrRow.innerHTML =
+      '<span style="font-size:calc(10px + var(--ts));font-weight:700;color:#7E5A3F;white-space:nowrap;flex-shrink:0;">\uD83D\uDCCB Obs. Contractor</span>'
+      + '<select id="pe-obs-ctr" style="flex:1;min-width:0;padding:3px 6px;border:1px solid rgba(176,127,90,.40);border-radius:5px;font-family:inherit;font-size:calc(12px + var(--ts));background:white;">'
+      + ocrOpts + '</select>'
+      + (hasOverride ? '<button id="pe-obs-ctr-reset" style="font-size:calc(10px + var(--ts));color:#888;background:none;border:none;cursor:pointer;padding:2px 4px;white-space:nowrap;flex-shrink:0;">\u2715 Reset</button>' : '');
+    // Insert as the first child of pe-obs-content so it appears above the
+    // PRIORITY/TYPE section.
+    if (content.firstChild) content.insertBefore(ocrRow, content.firstChild);
+    else content.appendChild(ocrRow);
+  }
+
   // S114: render existing observation photos as a thumbnail strip.
   // Previously the modal showed only upload buttons; existing photos were invisible.
+  // S116 Push 1 (E): each thumb now has a corner ✕ remove button.
   var strip = document.getElementById('pe-obs-photos');
   if (strip) {
     var photos = o.photos || [];
@@ -1540,12 +1632,47 @@ function _peRenderObsContent(d, idx) {
         // uploaded r2Url) → r2Url. Same logic as defic tab.
         var src = ph.thumb || ph.dataUrl || ph.r2Url || '';
         if (!src) return;
-        html += '<div class="pe-photo-thumb" data-pe-photo="' + pi + '" title="Photo ' + (pi + 1) + '">'
+        html += '<div class="pe-photo-thumb" data-pe-photo="' + pi + '" title="Photo ' + (pi + 1) + '" style="position:relative;">'
           + '<img src="' + src + '" alt="Photo ' + (pi + 1) + '" loading="lazy">'
+          + '<button data-pe-photo-remove="' + pi + '" title="Remove photo" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:white;border:none;border-radius:50%;width:20px;height:20px;min-width:20px;min-height:20px;padding:0;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">\u2715</button>'
           + '</div>';
       });
       strip.innerHTML = html;
     }
+  }
+
+  // S116 Push 1 (E): wire the .pe-photo-zone (Upload / Camera / + Gallery
+  // buttons + drop target) to the active deficiency + obs index. Re-using
+  // the deficiencies-tab data-action handlers means photo records, R2
+  // upload, and Model notifications all behave identically regardless of
+  // where the upload was initiated.
+  var zone = document.querySelector('.pe-photo-zone');
+  if (zone) {
+    zone.setAttribute('data-action', 'photo-drop');
+    zone.setAttribute('data-defic-id', _peDeficId || '');
+    zone.setAttribute('data-obs-idx', String(idx));
+    var upBtn = document.getElementById('pe-upload-btn');
+    if (upBtn) {
+      upBtn.setAttribute('data-action', 'photo-upload');
+      upBtn.setAttribute('data-defic-id', _peDeficId || '');
+      upBtn.setAttribute('data-obs-idx', String(idx));
+    }
+    var camBtn = document.getElementById('pe-camera-btn');
+    if (camBtn) {
+      camBtn.setAttribute('data-action', 'photo-camera');
+      camBtn.setAttribute('data-defic-id', _peDeficId || '');
+      camBtn.setAttribute('data-obs-idx', String(idx));
+    }
+    var galBtn = document.getElementById('pe-gallery-btn');
+    if (galBtn) {
+      galBtn.setAttribute('data-action', 'photo-gallery-pick');
+      galBtn.setAttribute('data-defic-id', _peDeficId || '');
+      galBtn.setAttribute('data-obs-idx', String(idx));
+    }
+    // Local dragover styling — the deficiencies.js drop handler adds the
+    // photo to the model; we just provide the visual feedback here.
+    zone.ondragover = function(ev) { ev.preventDefault(); zone.classList.add('drag-over'); };
+    zone.ondragleave = function() { zone.classList.remove('drag-over'); };
   }
 }
 
@@ -1554,6 +1681,106 @@ function _closePinEditor() {
   if (overlay) overlay.style.display = 'none';
   _peDeficId = null;
 }
+
+// S116 Push 1 (G): canvas-based pin mini-map. Matches v1's renderPinMiniMap
+// behaviour. Loads the drawing's source image (dataUrl → r2Url → L0 tile
+// fallback for tile-mode-only PDFs) into a fit-to-width canvas, draws a
+// priority-coloured teardrop with the pin number inside.
+function _renderPinMiniMap(d, thumbId) {
+  var thumb = document.getElementById(thumbId);
+  if (!thumb) return;
+  if (!d.drawingId) {
+    thumb.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:13px;">Pin not placed on a drawing</div>';
+    return;
+  }
+  var p = Model.getProject();
+  if (!p) return;
+  var dwg = (p.drawings || []).find(function(x) { return x.id === d.drawingId; });
+  if (!dwg) {
+    thumb.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:13px;">Drawing not found</div>';
+    return;
+  }
+
+  // Build image source candidates. Tile-mode-only drawings carry no
+  // dataUrl/r2Url for the original — use the L0 (256px) tile as a thumbnail.
+  // L0 is one tile per drawing, exactly one HTTP request.
+  var candidates = [];
+  if (dwg.dataUrl) candidates.push(dwg.dataUrl);
+  if (dwg.r2Url) candidates.push(dwg.r2Url);
+  // L0 tile fallback (covers tile-only drawings and serves as last-resort)
+  var pid = (new URLSearchParams(window.location.search)).get('project');
+  if (pid && d.drawingId) {
+    candidates.push('https://arencon-r2-worker.hezhendong999.workers.dev/' + encodeURIComponent(pid) + '/tiles/' + encodeURIComponent(d.drawingId) + '/L0/0_0.webp');
+  }
+
+  // Try each candidate in order; first one that loads wins.
+  thumb.innerHTML = '<canvas style="width:100%;border-radius:8px;background:#f5f5f5;display:block;"></canvas>';
+  var canvas = thumb.querySelector('canvas');
+  if (!canvas) return;
+
+  function tryLoad(idx) {
+    if (idx >= candidates.length) {
+      thumb.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:13px;">Drawing image unavailable</div>';
+      return;
+    }
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function() { _drawPinMiniMap(canvas, img, d); };
+    img.onerror = function() { tryLoad(idx + 1); };
+    img.src = candidates[idx];
+  }
+  tryLoad(0);
+}
+
+function _drawPinMiniMap(canvas, img, d) {
+  if (!canvas || !img || !img.width || !img.height) return;
+  var aspect = img.height / img.width;
+  var dpr = Math.min(window.devicePixelRatio || 1, 3);
+  var displayW = canvas.parentElement ? canvas.parentElement.clientWidth : 360;
+  if (!displayW || displayW < 20) displayW = 360;
+  var displayH = Math.round(displayW * aspect);
+  canvas.width = Math.round(displayW * dpr);
+  canvas.height = Math.round(displayH * dpr);
+  canvas.style.width = displayW + 'px';
+  canvas.style.height = displayH + 'px';
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, displayW, displayH);
+  ctx.drawImage(img, 0, 0, displayW, displayH);
+
+  if (d.pinX != null && d.pinY != null) {
+    var px = d.pinX * displayW, py = d.pinY * displayH;
+    var fill = d.iar
+      ? '#FF69B4'
+      : (d.priority === 'general' ? '#1A7A4A' : (d.priority === 'low' ? '#E67E22' : '#C0392B'));
+    var r0 = 6;
+    ctx.save();
+    ctx.translate(px, py - r0 * 2.2);
+    ctx.beginPath();
+    ctx.arc(0, 0, r0, Math.PI, 0, false);
+    ctx.bezierCurveTo(r0, r0 * 0.8, r0 * 0.3, r0 * 2.2, 0, r0 * 2.2);
+    ctx.bezierCurveTo(-r0 * 0.3, r0 * 2.2, -r0, r0 * 0.8, -r0, 0);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, r0 * 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    ctx.fillStyle = fill;
+    ctx.font = 'bold ' + Math.round(r0 * 1.1) + 'px Calibri,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(d.num != null ? d.num : '?'), 0, 0);
+    ctx.restore();
+  }
+}
+
+// S116 Push 1: expose pin editor opener for Summary tab + other modules
+window._frtOpenPinEditor = function(deficId) { _openPinEditor(deficId); };
 
 function _savePinEditor() {
   if (!_peDeficId) return;
@@ -1598,8 +1825,11 @@ function _savePinEditor() {
   var dateIn = document.getElementById('pe-date');
   if (dateIn) d.date = dateIn.value;
 
+  // S116 Push 1: status. Ignore the synthetic 'na' value used when all obs
+  // are priority=general — the dropdown is disabled in that case so the
+  // value can't change, but be defensive against stale state.
   var statusSel = document.getElementById('pe-status');
-  if (statusSel) d.status = statusSel.value;
+  if (statusSel && statusSel.value && statusSel.value !== 'na') d.status = statusSel.value;
 
   // Save current observation text
   var textarea = document.getElementById('pe-obs-text');
@@ -1608,10 +1838,25 @@ function _savePinEditor() {
     if (d.observations[_peObsIdx]) d.observations[_peObsIdx].text = textarea.value;
   }
 
-  // Move to different drawing
+  // S116 Push 1 (A): per-observation contractor override. Empty value
+  // means "use pin contractor" — store as undefined to keep the JSON clean.
+  var obsCtrSel = document.getElementById('pe-obs-ctr');
+  if (obsCtrSel && d.observations && d.observations[_peObsIdx]) {
+    var v = obsCtrSel.value || '';
+    if (v) d.observations[_peObsIdx].contractorId = v;
+    else delete d.observations[_peObsIdx].contractorId;
+  }
+
+  // Move to different drawing — accept either desktop or mobile select.
+  // Mobile and desktop are mutually exclusive via CSS @media; only one is
+  // visible at any time but both elements exist in the DOM.
   var moveSel = document.getElementById('pe-move-to');
-  if (moveSel && moveSel.value && moveSel.value !== d.drawingId) {
-    d.drawingId = moveSel.value;
+  var moveSelMobile = document.getElementById('pe-move-to-mobile');
+  var newDwgId = '';
+  if (moveSel && moveSel.value) newDwgId = moveSel.value;
+  if (!newDwgId && moveSelMobile && moveSelMobile.value) newDwgId = moveSelMobile.value;
+  if (newDwgId && newDwgId !== d.drawingId) {
+    d.drawingId = newDwgId;
     // Keep pinX/pinY — just changes which drawing the pin is on
   }
 
@@ -1622,11 +1867,142 @@ function _savePinEditor() {
   _closePinEditor();
 }
 
+// S116 Push 1 (F): debounced auto-save. Mirrors the field-reading half of
+// _savePinEditor without the close + the noisy console log. Called from
+// input/change listeners on every pin editor field — the user no longer
+// has to remember to click Save. A 250ms debounce keeps R2 enqueue-on-save
+// traffic sane during fast typing.
+var _pinAutoSaveTimer = null;
+function _pinAutoSave() {
+  if (_pinAutoSaveTimer) clearTimeout(_pinAutoSaveTimer);
+  _pinAutoSaveTimer = setTimeout(function() {
+    _pinAutoSaveTimer = null;
+    if (!_peDeficId) return;
+    var f = Model.findDeficiency(_peDeficId);
+    if (!f) return;
+    var d = f.defic;
+
+    // Contractor assignment (same logic as _savePinEditor, minus close).
+    var cSel = document.getElementById('pe-contractor');
+    if (cSel != null) {
+      var proj = Model.getProject();
+      var newCtrId = cSel.value || null;
+      var oldCtrId = f.contractor ? f.contractor.id : null;
+      if (newCtrId !== oldCtrId) {
+        if (oldCtrId) {
+          var oldCtr = (proj.contractors || []).find(function(c) { return c.id === oldCtrId; });
+          if (oldCtr && oldCtr.deficiencies) {
+            oldCtr.deficiencies = oldCtr.deficiencies.filter(function(x) { return x.id !== _peDeficId; });
+          }
+        } else if (proj.generalDeficiencies) {
+          proj.generalDeficiencies = proj.generalDeficiencies.filter(function(x) { return x.id !== _peDeficId; });
+        }
+        if (newCtrId) {
+          var newCtr = (proj.contractors || []).find(function(c) { return c.id === newCtrId; });
+          if (newCtr) {
+            if (!newCtr.deficiencies) newCtr.deficiencies = [];
+            newCtr.deficiencies.push(d);
+          }
+        } else {
+          if (!proj.generalDeficiencies) proj.generalDeficiencies = [];
+          proj.generalDeficiencies.push(d);
+        }
+      }
+    }
+
+    var dateIn = document.getElementById('pe-date');
+    if (dateIn) d.date = dateIn.value;
+
+    var statusSel = document.getElementById('pe-status');
+    if (statusSel && statusSel.value && statusSel.value !== 'na') d.status = statusSel.value;
+
+    var textarea = document.getElementById('pe-obs-text');
+    if (textarea) {
+      if (!d.observations || !d.observations.length) d.observations = [{ text: '', addressed: false }];
+      if (d.observations[_peObsIdx]) d.observations[_peObsIdx].text = textarea.value;
+    }
+
+    var obsCtrSel = document.getElementById('pe-obs-ctr');
+    if (obsCtrSel && d.observations && d.observations[_peObsIdx]) {
+      var v = obsCtrSel.value || '';
+      if (v) d.observations[_peObsIdx].contractorId = v;
+      else delete d.observations[_peObsIdx].contractorId;
+    }
+
+    var moveSelDesk = document.getElementById('pe-move-to');
+    var moveSelMob = document.getElementById('pe-move-to-mobile');
+    var newDwgId = '';
+    if (moveSelDesk && moveSelDesk.value) newDwgId = moveSelDesk.value;
+    if (!newDwgId && moveSelMob && moveSelMob.value) newDwgId = moveSelMob.value;
+    if (newDwgId && newDwgId !== d.drawingId) d.drawingId = newDwgId;
+
+    Model.saveNow();
+    _renderPins();
+    if (_tasksVisible) _renderTasks();
+  }, 250);
+}
+
+// S116 Push 1 (E): refresh pin editor obs strip when photos change in the
+// model (e.g. user drops a photo on the photo zone — the data-action handler
+// in deficiencies.js adds the photo, fires Model._notify('photo'), and then
+// we re-render the strip here so the new thumb appears immediately).
+Model.onChange('photo', function() {
+  if (!_peDeficId) return;
+  var f = Model.findDeficiency(_peDeficId);
+  if (!f) return;
+  // Re-render the active obs only — that's where the photo strip lives.
+  _peRenderObsContent(f.defic, _peObsIdx);
+});
+
+// S116 Push 1 (F): wire input/change listeners to drive _pinAutoSave().
+// Scoped to known pin-editor fields by id; never fires for unrelated inputs.
+document.addEventListener('input', function(e) {
+  var t = e.target;
+  if (!t || !_peDeficId) return;
+  if (t.id === 'pe-obs-text' || t.id === 'pe-date') _pinAutoSave();
+});
+document.addEventListener('change', function(e) {
+  var t = e.target;
+  if (!t || !_peDeficId) return;
+  if (t.id === 'pe-contractor' || t.id === 'pe-date' || t.id === 'pe-status'
+      || t.id === 'pe-obs-ctr' || t.id === 'pe-move-to' || t.id === 'pe-move-to-mobile') {
+    _pinAutoSave();
+    // Per-obs contractor change: re-render content so the ✕ Reset button
+    // appears/disappears in sync with the override state.
+    if (t.id === 'pe-obs-ctr') {
+      var f0 = Model.findDeficiency(_peDeficId);
+      if (f0) {
+        // Save text first (debounced auto-save will also pick it up but
+        // re-render below would otherwise overwrite the live textarea).
+        var ta0 = document.getElementById('pe-obs-text');
+        if (ta0 && f0.defic.observations && f0.defic.observations[_peObsIdx]) {
+          f0.defic.observations[_peObsIdx].text = ta0.value;
+        }
+        _peRenderObsContent(f0.defic, _peObsIdx);
+      }
+    }
+  }
+});
+
 // Pin editor event handlers
 document.addEventListener('click', function(e) {
   if (e.target.closest && e.target.closest('#pe-close')) { _closePinEditor(); return; }
   if (e.target.closest && e.target.closest('#pe-cancel')) { _closePinEditor(); return; }
   if (e.target.closest && e.target.closest('#pe-save')) { _savePinEditor(); return; }
+
+  // S116 Push 1: "Go to drawing" — close pin editor, switch to drawings tab,
+  // load the deficiency's drawing, and focus the pin. Lets the user jump from
+  // any pin editor invocation (Summary tab, Tasks panel, defic 📌 button) to
+  // the actual drawing context for spatial verification.
+  if (e.target.closest && e.target.closest('#pe-goto-dwg')) {
+    if (!_peDeficId) return;
+    var fGo = Model.findDeficiency(_peDeficId);
+    if (!fGo) return;
+    var goId = _peDeficId;
+    _closePinEditor();
+    if (window._frtStartPinPlace) window._frtStartPinPlace(goId);
+    return;
+  }
 
   if (e.target.closest && e.target.closest('#pe-delete')) {
     var delId = _peDeficId;
@@ -1651,9 +2027,19 @@ document.addEventListener('click', function(e) {
 
   // IAR toggle
   if (e.target.closest && e.target.closest('#pe-iar')) {
+    var iarEl = e.target.closest('#pe-iar');
+    if (iarEl.disabled) return; // S116: disabled when all obs are general
     var f3 = Model.findDeficiency(_peDeficId);
-    if (f3) { f3.defic.iar = !f3.defic.iar; }
-    e.target.closest('#pe-iar').classList.toggle('active');
+    if (f3) {
+      f3.defic.iar = !f3.defic.iar;
+      iarEl.classList.toggle('active', !!f3.defic.iar);
+      // Mini-map marker colour depends on IAR (pink) → re-render both.
+      _renderPinMiniMap(f3.defic, 'pe-location-thumb');
+      _renderPinMiniMap(f3.defic, 'pe-location-thumb-mobile');
+      Model.saveNow();
+      _renderPins();
+      if (_tasksVisible) _renderTasks();
+    }
     return;
   }
 
@@ -1664,6 +2050,43 @@ document.addEventListener('click', function(e) {
     var f4 = Model.findDeficiency(_peDeficId);
     if (f4) f4.defic.priority = pri;
     document.querySelectorAll('.pe-pri-btn').forEach(function(b) { b.classList.toggle('active', b.getAttribute('data-pe-pri') === pri); });
+    if (f4) {
+      // S116 Push 1: priority change must refresh:
+      //   - title label (High/Low/General)
+      //   - status select state (H — "Not a deficiency" only when general)
+      //   - mini-map marker colour
+      //   - pin marker on the actual drawing
+      var prL = pri === 'general' ? 'General' : pri === 'low' ? 'Low Priority' : 'High Priority';
+      var titleEl = document.getElementById('pe-title');
+      if (titleEl) titleEl.textContent = 'Pin #' + f4.defic.num + ' \u2014 ' + prL;
+      var allGen = pri === 'general';
+      var sSel = document.getElementById('pe-status');
+      if (sSel) {
+        if (allGen) {
+          sSel.innerHTML = '<option value="na" selected>\u2014 Not a deficiency \u2014</option>';
+          sSel.disabled = true;
+          sSel.style.opacity = '0.5';
+          sSel.style.cursor = 'not-allowed';
+        } else {
+          sSel.innerHTML = '<option value="open">\u25CF Outstanding</option><option value="closed">\u2714 Addressed & Closed</option>';
+          sSel.value = (f4.defic.status === 'closed' || f4.defic.status === 'Addressed & Closed') ? 'closed' : 'open';
+          sSel.disabled = false;
+          sSel.style.opacity = '';
+          sSel.style.cursor = '';
+        }
+      }
+      var iarBtnRf = document.getElementById('pe-iar');
+      if (iarBtnRf) {
+        iarBtnRf.disabled = allGen;
+        iarBtnRf.style.opacity = allGen ? '0.4' : '';
+        iarBtnRf.style.cursor = allGen ? 'not-allowed' : '';
+      }
+      _renderPinMiniMap(f4.defic, 'pe-location-thumb');
+      _renderPinMiniMap(f4.defic, 'pe-location-thumb-mobile');
+      Model.saveNow();
+      _renderPins();
+      if (_tasksVisible) _renderTasks();
+    }
     return;
   }
 
@@ -1680,6 +2103,37 @@ document.addEventListener('click', function(e) {
     _peObsIdx = parseInt(obsTab.getAttribute('data-pe-obs'), 10);
     _peRenderObsTabs(f5.defic);
     _peRenderObsContent(f5.defic, _peObsIdx);
+    return;
+  }
+
+  // S116 Push 1 (A): per-obs contractor ✕ Reset button. Clears the override
+  // and re-renders so the Reset button itself disappears.
+  if (e.target.closest && e.target.closest('#pe-obs-ctr-reset')) {
+    var fR = Model.findDeficiency(_peDeficId);
+    if (!fR || !fR.defic.observations || !fR.defic.observations[_peObsIdx]) return;
+    delete fR.defic.observations[_peObsIdx].contractorId;
+    Model.saveNow();
+    _peRenderObsContent(fR.defic, _peObsIdx);
+    return;
+  }
+
+  // S116 Push 1 (E): photo ✕ remove button. Must run BEFORE the photo-thumb
+  // click handler below, since the button lives inside .pe-photo-thumb and
+  // would otherwise bubble up and open the lightbox.
+  var peRm = e.target.closest && e.target.closest('[data-pe-photo-remove]');
+  if (peRm) {
+    if (!_peDeficId) return;
+    var fRm = Model.findDeficiency(_peDeficId);
+    if (!fRm) return;
+    var rmIdx = parseInt(peRm.getAttribute('data-pe-photo-remove'), 10);
+    if (isNaN(rmIdx)) return;
+    showConfirm('Remove Photo', 'Remove this photo from the observation?').then(function(yes) {
+      if (!yes) return;
+      Model.removeObservationPhoto(_peDeficId, _peObsIdx, rmIdx);
+      Model.saveNow();
+      var f2 = Model.findDeficiency(_peDeficId);
+      if (f2) _peRenderObsContent(f2.defic, _peObsIdx);
+    });
     return;
   }
 
@@ -2041,15 +2495,31 @@ document.addEventListener('mouseup', function(e) {
 
 // Expose for deficiency cards
 window._frtStartPinPlace = function(deficId) {
-  // Open current drawing in viewer if not already open
+  // S116 Push 1: load the drawing the deficiency's pin lives on.
+  // Previously hardcoded _showDrawing(0) which always opened drawing index 0
+  // (page 1) regardless of where the pin actually was.
+  var f = Model.findDeficiency(deficId);
+  var targetDwgId = f && f.defic ? f.defic.drawingId : null;
+  var drawings = _getDrawingsList();
+  var targetIdx = -1;
+  if (targetDwgId && drawings.length) {
+    for (var di = 0; di < drawings.length; di++) {
+      if (drawings[di].id === targetDwgId) { targetIdx = di; break; }
+    }
+  }
+  // Fall back to drawing 0 only if pin has no drawingId (place-pin flow)
+  if (targetIdx < 0 && drawings.length) targetIdx = 0;
+
   var overlay = document.getElementById('drawing-viewer-overlay');
   if (!overlay || !overlay.classList.contains('open')) {
-    // Open first drawing
-    var drawings = _getDrawingsList();
-    if (drawings.length) {
-      _showDrawing(0);
+    if (targetIdx >= 0) {
+      _showDrawing(targetIdx);
       setTimeout(function() { _startPinPlace(deficId); }, 500);
     }
+  } else if (_currentDrawingIdx !== targetIdx && targetIdx >= 0) {
+    // Viewer already open but on the wrong drawing — switch first
+    _showDrawing(targetIdx);
+    setTimeout(function() { _startPinPlace(deficId); }, 500);
   } else {
     _startPinPlace(deficId);
   }
