@@ -250,16 +250,21 @@ export function buildDeficCard(d, ctrId) {
       }
       // Textarea
       var _aiDot = o.aiReviewed ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-left:6px;vertical-align:middle;" title="AI reviewed"></span>' : '';
-      h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" ';
-      h += 'style="width:100%;min-height:56px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);"';
-      h += ' placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
-      // S114 P1.5: photos + upload tile share one flex row. Photos are 90×90; the
-      // upload tile is 184×90 (2 photos wide, 1 photo tall) and lives at the end of
-      // the row so it's a visible drop target. Tile wraps to next row when needed.
+      // S114 P1.7: 3-column layout (comment | photos | drop zone) on desktop;
+      // stacks vertically on mobile (<900px) via the .obs-layout grid CSS.
       var obsPhotos = o.photos || [];
-      h += '<div class="obs-photo-row" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
-      h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
-      h += ' ondragleave="this.classList.remove(\'drag-over\')">';
+      h += '<div class="obs-layout">';
+      // ── Column 1: comment textarea + meta buttons (Shorten / Undo) ──
+      h += '<div class="obs-comment-col">';
+      h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="obs-text-input" placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
+      h += '<div class="obs-meta-row">';
+      h += '<button class="obs-meta-btn" data-action="shorten-user-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Shorten this text without losing meaning">\u2702\uFE0F Shorten my text</button>';
+      h += '<button class="obs-meta-btn" data-action="undo-user-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Undo last change (Ctrl+Z)">\u21B6 Undo</button>';
+      h += '</div>';
+      h += '</div>';
+      // ── Column 2: photo thumbnails grid (100×100 — matches v1) ──
+      h += '<div class="obs-photos-col">';
+      h += '<div class="obs-photos-grid">';
       obsPhotos.forEach(function(ph, phi) {
         var src = ph.r2Url || ph.dataUrl || '';
         if (!src) return;
@@ -269,26 +274,29 @@ export function buildDeficCard(d, ctrId) {
         h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" class="obs-photo-del" title="Remove photo">\u2715</button>';
         h += '</div>';
       });
-      // Upload tile inline at end of row
-      h += '<div class="obs-upload-tile">';
-      h += '<div class="obs-upload-tile-msg">Drop photos<br>or</div>';
-      h += '<div class="obs-upload-tile-btns">';
-      h += '<button class="obs-upload-tile-btn" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCCE Upload</button>';
-      h += '<button class="obs-upload-tile-btn is-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCF7 Camera</button>';
-      if (obsPhotos.length) {
-        h += '<button class="obs-upload-tile-btn is-ai" data-action="ai-suggest-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="AI Suggest description from all photos">\u2728 AI</button>';
+      if (!obsPhotos.length) {
+        h += '<div class="obs-photos-empty">No photos yet.</div>';
       }
       h += '</div>';
       h += '</div>';
-      h += '</div>'; // end obs-photo-row
-      // S114 P1.6: per-observation AI scratchpad placeholder. Hidden by default;
-      // populated by AIAssist._spRender when the user clicks ✨ on a photo or the AI button.
-      h += '<div class="ai-scratchpad" data-sp-defic="' + esc(d.id) + '" data-sp-obs="' + oi + '" style="display:none;"></div>';
-      // Obs meta-row: Shorten my text (operates on the user's textarea) + Undo (Ctrl+Z helper).
-      h += '<div class="obs-meta-row">';
-      h += '<button class="obs-meta-btn" data-action="shorten-user-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Shorten this text without losing meaning">\u2702\uFE0F Shorten my text</button>';
-      h += '<button class="obs-meta-btn" data-action="undo-user-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Undo last change (Ctrl+Z)">\u21B6 Undo</button>';
+      // ── Column 3: dedicated drop zone (fixed-position, large drop target) ──
+      h += '<div class="obs-drop-col" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
+      h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
+      h += ' ondragleave="this.classList.remove(\'drag-over\')">';
+      h += '<div class="obs-drop-zone">';
+      h += '<div class="obs-drop-msg">Drop photos here<br><span class="obs-drop-msg-sub">or use buttons below</span></div>';
+      h += '<div class="obs-drop-btns">';
+      h += '<button class="obs-drop-btn" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCCE Upload</button>';
+      h += '<button class="obs-drop-btn is-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCF7 Camera</button>';
+      if (obsPhotos.length) {
+        h += '<button class="obs-drop-btn is-ai" data-action="ai-suggest-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="AI Suggest description from all photos">\u2728 AI</button>';
+      }
       h += '</div>';
+      h += '</div>';
+      h += '</div>';
+      h += '</div>'; // end obs-layout
+      // S114 P1.6: per-observation AI scratchpad (full width, below the 3-column row)
+      h += '<div class="ai-scratchpad" data-sp-defic="' + esc(d.id) + '" data-sp-obs="' + oi + '" style="display:none;"></div>';
       h += '</div>';
     });
     // Add observation button
