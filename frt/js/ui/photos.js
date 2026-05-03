@@ -970,6 +970,12 @@ document.addEventListener('frt-markup-saved', function(e) {
   // ── Pre-markup state ──
   var preKey = photo.r2Key || '';
   var preUrl = photo.r2Url || '';
+  // _origBlob is captured by lightbox._saveMarkup — it's the photo's
+  // original dataUrl (before flatten). Used as a fallback when the
+  // original was never uploaded to R2 (defic photos marked up before
+  // the background original upload finished).
+  var origBlobSrc = photo._origBlob || null;
+  console.log('[Markup] save handler — photo.id=', photo.id, 'preKey=', preKey, 'has _origBlob=', !!origBlobSrc);
 
   // ── Find every photo record sharing the pre-markup r2Key ──
   var siblings = preKey
@@ -991,7 +997,8 @@ document.addEventListener('frt-markup-saved', function(e) {
   // ── Compute deterministic marked R2 key (same across re-saves) ──
   var filename = 'marked_' + (photo.id || Date.now()) + '.jpg';
   var newKey = 'photos/' + pid + '/frt/marked/' + filename;
-  var newUrl = (R2 && R2.WORKER_URL ? R2.WORKER_URL : 'https://arencon-r2-worker.hezhendong999.workers.dev') + '/' + newKey;
+  var workerUrl = (R2 && R2.WORKER_URL) ? R2.WORKER_URL : 'https://arencon-r2-worker.hezhendong999.workers.dev';
+  var newUrl = workerUrl + '/' + newKey;
 
   // ── Capture the original photo's date BEFORE we mutate anything ──
   // Per Mark's rule: the (original) backup keeps the ORIGINAL date so it
@@ -999,7 +1006,6 @@ document.addEventListener('frt-markup-saved', function(e) {
   // photo gets TODAY's date — unless the original was already added today,
   // in which case it stays with today (no date change).
   var origAddedDate = photo.addedDate || photo.date || '';
-  // Try to parse from id if no addedDate (legacy photos)
   if (!origAddedDate && photo.id) {
     var idMatch = String(photo.id).match(/[a-z]+_(\d{13})/);
     if (idMatch) {
@@ -1008,9 +1014,10 @@ document.addEventListener('frt-markup-saved', function(e) {
   }
   var todayStr = new Date().toISOString().split('T')[0];
 
-  // ── Create the "(original)" backup gallery record (FIRST markup only) ──
-  var backupId = existingBackupId;
-  if (firstMarkup && preKey) {
+  // ── Helper: create the (original) backup gallery record ──
+  // Called either synchronously (when preKey is known) or after we upload
+  // the original from _origBlob (when preKey was empty).
+  function _createBackup(backupKey, backupUrl) {
     var origCaption = photo.caption ? (photo.caption + ' (original)') : 'Original';
     var backup = {
       id: 'sph_orig_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
@@ -1018,23 +1025,37 @@ document.addEventListener('frt-markup-saved', function(e) {
       dataUrl: null,
       thumb: photo.thumb || '',
       caption: origCaption,
-      // S115 fix: backup keeps the ORIGINAL photo's date, not today's date.
-      // Falls back to today only if we genuinely have no date for the original.
       addedDate: origAddedDate || todayStr,
-      r2Key: preKey,
-      r2Url: preUrl,
-      r2Status: 'uploaded', // S115 fix: gallery checks for 'uploaded', not 'synced'
+      r2Key: backupKey,
+      r2Url: backupUrl,
+      r2Status: 'uploaded',
       _isOrigBackup: true
     };
     Model.addSitePhoto(backup);
-    backupId = backup.id;
-  } else if (firstMarkup && !preKey) {
-    console.warn('[Markup] First markup but no preKey — backup record skipped (offline-created photo?)');
+    return backup.id;
   }
 
-  // ── Generate a fresh thumb of the marked blob so siblings have a quick
-  // preview (instead of either a stale pre-markup thumb or a long R2 wait). ──
-  var markedThumbDataUrl = null;
+  // ── Helper: stamp marked R2 location + flags on every sibling ──
+  // Called once we have a backupId (either synchronously or after async
+  // original upload). Mutates siblings in place + persists + renders.
+  function _stampSiblings(backupId) {
+    siblings.forEach(function(s){
+      var sp = s.photo; if (!sp) return;
+      sp.r2Key = newKey;
+      sp.r2Url = newUrl;
+      sp.r2Status = 'uploading';
+      sp._annotated = true;
+      if (backupId) sp._origBackupId = backupId;
+      if (sp.addedDate !== todayStr) sp.addedDate = todayStr;
+      delete sp.thumb;
+      if (sp !== photo) { delete sp.dataUrl; }
+    });
+    try { IDB.put('photoBlobs', { id: photo.id, dataBlob: d.blob }).catch(function(){}); } catch(_){}
+    Model.saveNow();
+    if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+  }
+
+  // ── Generate fresh thumb of the marked blob (best-effort, async) ──
   try {
     var fr = new FileReader();
     fr.onload = function(ev) {
@@ -1047,8 +1068,7 @@ document.addEventListener('frt-markup-saved', function(e) {
           canv.width = Math.max(1, Math.round(imgEl.naturalWidth * sc));
           canv.height = Math.max(1, Math.round(imgEl.naturalHeight * sc));
           canv.getContext('2d').drawImage(imgEl, 0, 0, canv.width, canv.height);
-          markedThumbDataUrl = canv.toDataURL('image/jpeg', 0.7);
-          // Stamp the thumb on every sibling so the gallery renders instantly.
+          var markedThumbDataUrl = canv.toDataURL('image/jpeg', 0.7);
           var live = Model.findPhotosByR2Key(newKey);
           live.forEach(function(rec){ if (rec.photo) rec.photo.thumb = markedThumbDataUrl; });
           if (photo.r2Key === newKey) photo.thumb = markedThumbDataUrl;
@@ -1061,50 +1081,85 @@ document.addEventListener('frt-markup-saved', function(e) {
     fr.readAsDataURL(d.blob);
   } catch(_) { /* thumb gen is best-effort */ }
 
-  // ── Propagate marked R2 location + flags to every sibling SYNCHRONOUSLY ──
-  siblings.forEach(function(s){
-    var sp = s.photo; if (!sp) return;
-    sp.r2Key = newKey;
-    sp.r2Url = newUrl;
-    sp.r2Status = 'uploading'; // upgraded to 'uploaded' after upload completes
-    sp._annotated = true;
-    if (backupId) sp._origBackupId = backupId;
-    // S115 fix: also bump the date on the marked-up photo to TODAY (unless
-    // it was already today). The (original) backup retains the prior date.
-    if (sp.addedDate !== todayStr) sp.addedDate = todayStr;
-    // S115 fix: clear the stale pre-markup thumb on every sibling so the
-    // gallery uses r2Url (or the newly-generated thumb above) instead of
-    // showing the OLD original image. The active 'photo' object's blob
-    // URL in dataUrl is the immediate-feedback source for the lightbox.
-    delete sp.thumb;
-    // Strip stale dataUrl on siblings — image will be re-fetched from new
-    // r2Url on next render. Keep it on the active 'photo' object since
-    // lightbox is already showing the fresh blob URL for instant feedback.
-    if (sp !== photo) { delete sp.dataUrl; }
-  });
-
-  // ── Persist + render immediately for instant UI feedback ──
-  try { IDB.put('photoBlobs', { id: photo.id, dataBlob: d.blob }).catch(function(){}); } catch(_){}
-  Model.saveNow();
-  if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
-
-  // ── Background: upload marked blob to R2 ──
+  // ── Upload marked blob to R2 (background — fire and queue on failure) ──
   R2.upload(pid, 'marked', d.blob, filename).then(function(result) {
     if (result) {
-      // Confirm sync status on every sibling that's still pointing at this key.
-      // S115 fix: status value must be 'uploaded' (gallery's badge check).
       var live = Model.findPhotosByR2Key(newKey);
       live.forEach(function(rec){ if (rec.photo) rec.photo.r2Status = 'uploaded'; });
       if (photo.r2Key === newKey) photo.r2Status = 'uploaded';
       Model.saveNow();
       if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
     } else {
-      console.warn('[Markup] R2 upload failed — queueing for retry');
+      console.warn('[Markup] R2 upload of marked blob failed — queueing');
       try { R2.queueUpload(photo.id, pid, 'marked', d.blob, filename); } catch(_){}
     }
   }).catch(function(err) {
-    console.warn('[Markup] R2 upload error, queueing:', err && err.message);
+    console.warn('[Markup] R2 upload of marked blob error, queueing:', err && err.message);
     try { R2.queueUpload(photo.id, pid, 'marked', d.blob, filename); } catch(_){}
+  });
+
+  // ── Backup creation: depends on whether we have preKey ──
+  var backupId = existingBackupId;
+
+  if (!firstMarkup) {
+    // Re-save of an already-marked photo: backup exists, just stamp siblings.
+    console.log('[Markup] re-save (existing backup), backupId=', backupId);
+    _stampSiblings(backupId);
+    return;
+  }
+
+  if (preKey) {
+    // Original is already in R2 — backup record points at it directly.
+    console.log('[Markup] first markup with preKey — creating backup synchronously');
+    backupId = _createBackup(preKey, preUrl);
+    _stampSiblings(backupId);
+    return;
+  }
+
+  // No preKey: original was never uploaded (or upload didn't return in time).
+  // Upload _origBlob to R2 ourselves, then create backup pointing at it.
+  if (!origBlobSrc) {
+    console.warn('[Markup] First markup, no preKey AND no _origBlob — cannot create backup. Markup state will be flagged but Revert won\\'t work.');
+    _stampSiblings(null); // no backupId — markup persists but unrevertable
+    return;
+  }
+
+  console.log('[Markup] first markup, no preKey — uploading original from _origBlob first');
+  var origFilename = 'orig_' + (photo.id || Date.now()) + '.jpg';
+  var origKey = 'photos/' + pid + '/frt/original/' + origFilename;
+  var origUrl = workerUrl + '/' + origKey;
+
+  // Convert _origBlob (data URI or Blob) → Blob, then upload.
+  function _toBlob(src) {
+    if (src instanceof Blob) return Promise.resolve(src);
+    if (typeof src === 'string' && src.indexOf('data:') === 0) return fetch(src).then(function(r){ return r.blob(); });
+    return Promise.resolve(null);
+  }
+  _toBlob(origBlobSrc).then(function(origBlob) {
+    if (!origBlob) {
+      console.warn('[Markup] Could not convert _origBlob to Blob — falling back to no-backup');
+      _stampSiblings(null);
+      return;
+    }
+    return R2.upload(pid, 'original', origBlob, origFilename).then(function(uploadResult) {
+      // Create backup record EVEN IF upload failed — backup carries r2Key/r2Url
+      // pointing at the intended location. If upload retries fix it later,
+      // the URL becomes valid retroactively. Without a backup record, Revert
+      // is impossible; with one, the flow can recover even on flaky network.
+      var actualKey = (uploadResult && uploadResult.r2Key) || origKey;
+      var actualUrl = (uploadResult && uploadResult.r2Url) || origUrl;
+      console.log('[Markup] original uploaded:', actualKey, 'success=', !!uploadResult);
+      var backupId2 = _createBackup(actualKey, actualUrl);
+      _stampSiblings(backupId2);
+      // Queue a retry if the upload didn't actually succeed.
+      if (!uploadResult) {
+        try { R2.queueUpload('orig_' + photo.id, pid, 'original', origBlob, origFilename); } catch(_){}
+      }
+    });
+  }).catch(function(err) {
+    console.warn('[Markup] original upload error:', err && err.message, '— creating backup with intended URL anyway');
+    var backupId2 = _createBackup(origKey, origUrl);
+    _stampSiblings(backupId2);
   });
 });
 
