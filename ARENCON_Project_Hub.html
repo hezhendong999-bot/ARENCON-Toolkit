@@ -3575,23 +3575,51 @@ function _pgExtractPhotos(row) {
       if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || ''));
     });
     // Deficiency photos (contractors + general)
+    // S116 Push 6: read v2 schema (d.observations[].photos[]) FIRST, then fall
+    // back to legacy d.entries[].photos[] for pre-v2 projects. Previously this
+    // function only looked at d.entries — silently missing every photo on
+    // every v2-era pin, so the gallery showed only site photos + the legacy
+    // d.photos mirror. Real-world impact: Mark saw 17 photos in Hub vs 29 in
+    // FRT for the 1490.04 project.
     function _extractDefics(defics) {
       (defics || []).forEach(function(d) {
         var pinLabel = 'Pin ' + (d.num || '?');
-        var numEn = (d.entries && d.entries.length) || 0;
+        // v2 path: observations
+        var obsArr = d.observations || [];
+        var numObs = obsArr.length;
+        // v1 fallback: entries (legacy)
+        var entryArr = d.entries || [];
+        var numEn = entryArr.length;
         var seenIds = {};
-        (d.entries || []).forEach(function(en, ei) {
+
+        obsArr.forEach(function(ob, oi) {
+          (ob.photos || []).forEach(function(ph) {
+            var src = _pgResolveR2Src(ph, projectId);
+            if (!src) return;
+            var pid = (typeof ph === 'object' && ph.id) ? ph.id : src;
+            if (seenIds[pid]) return;
+            seenIds[pid] = true;
+            var obsLabel = numObs > 1 ? ', Obs ' + String.fromCharCode(65 + oi) : '';
+            photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, ob.date || d.date || ''));
+          });
+        });
+
+        // Legacy entries[] — only enumerate if observations didn't already
+        // cover the same content (de-duped by id/src above anyway)
+        entryArr.forEach(function(en, ei) {
           (en.photos || []).forEach(function(ph) {
             var src = _pgResolveR2Src(ph, projectId);
             if (!src) return;
             var pid = (typeof ph === 'object' && ph.id) ? ph.id : src;
             if (seenIds[pid]) return;
             seenIds[pid] = true;
-            var obsLabel = numEn > 1 ? ', Obs ' + String.fromCharCode(65 + ei) : '';
-            photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
+            var entLabel = numEn > 1 ? ', Obs ' + String.fromCharCode(65 + ei) : '';
+            photos.push(_makeRec(src, 'deficiency', pinLabel + entLabel, d.date || ''));
           });
         });
-        // d.photos is a mirror of entries — only use if entries didn't have photos
+
+        // d.photos is a top-level legacy mirror — only use if neither
+        // observations nor entries already had photos for this pin
         (d.photos || []).forEach(function(ph) {
           var src = _pgResolveR2Src(ph, projectId);
           if (!src) return;
@@ -3600,6 +3628,7 @@ function _pgExtractPhotos(row) {
           seenIds[pid] = true;
           photos.push(_makeRec(src, 'deficiency', pinLabel, d.date || ''));
         });
+
         (d.responses || []).forEach(function(resp) {
           (resp.photos || []).forEach(function(ph) {
             var src = _pgResolveR2Src(ph, projectId);

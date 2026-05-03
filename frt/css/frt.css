@@ -369,21 +369,30 @@ body.dark-mode .dv-layer-row{color:white;}
 
 /* ═══ PIN EDITOR MODAL ═══ */
 .pin-editor-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:8000;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:20px;}
-.pin-editor-modal{width:100%;max-width:960px;max-height:calc(100vh - 40px);background:white;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,.2);display:flex;flex-direction:column;overflow:hidden;font-family:Calibri,sans-serif;color:#1C2333;}
+.pin-editor-modal{width:100%;max-width:1100px;max-height:calc(100vh - 40px);background:white;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,.2);display:flex;flex-direction:column;overflow:hidden;font-family:Calibri,sans-serif;color:#1C2333;}
 body.dark-mode .pin-editor-modal{background:#1e2533;box-shadow:0 16px 48px rgba(0,0,0,.6);color:white;}
 .pin-editor-header{padding:12px 18px;background:#9C2742;font-size:calc(15px + var(--ts));font-weight:700;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;color:white;}
 .pe-close-btn{background:none;border:none;color:white;font-size:22px;cursor:pointer;padding:0 4px;}
 /* Split layout */
 .pe-split{display:flex;flex:1;min-height:0;overflow:hidden;}
-.pe-fields{flex:1;min-width:0;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:10px;}
-.pe-drawing-panel{width:380px;flex-shrink:0;padding:14px;display:flex;flex-direction:column;border-left:1px solid #dde1e7;background:var(--smoke);}
+/* S116 Push 6: slim the left fields panel and grow the drawing panel so
+   the LOCATION ON DRAWING preview fills the editor instead of leaving a
+   tall empty band below MOVE TO. Was: fields flex:1 + drawing 380px.
+   Now: fields max-width 540px + drawing flex:1, mini-map flex:1 inside. */
+.pe-fields{flex:0 1 540px;min-width:0;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:10px;}
+.pe-drawing-panel{flex:1;min-width:380px;flex-shrink:0;padding:14px;display:flex;flex-direction:column;border-left:1px solid #dde1e7;background:var(--smoke);}
 body.dark-mode .pe-drawing-panel{border-left-color:#3a3e48;background:#1a1c24;}
 .pe-mobile-drawing{display:none;}
-/* Compact header row */
-.pe-compact-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+/* Compact header row.
+   S116 Push 6: align-items flex-start (was flex-end) so the CONTRACTOR
+   field can grow downward (Push 5 inline CRUD row) without misaligning
+   DATE and STATUS. IAR keeps a small top margin so it visually sits at
+   label level instead of at the input top. */
+.pe-compact-row{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;}
 .pe-f-ctr{flex:2;min-width:120px;}
 .pe-f-date{flex:1.3;min-width:140px;}
 .pe-f-status{flex:1.5;min-width:110px;}
+.pe-compact-row .pe-iar-btn{margin-top:18px;}
 /* Common field styles */
 .pe-row{display:flex;gap:10px;align-items:flex-end;}
 .pe-field{display:flex;flex-direction:column;gap:3px;}
@@ -4121,3 +4130,249 @@ body.dark-mode .view-pill-btn.active {
   background:#9C2742 !important;
   color:#fff !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S116 PUSH 6 — Light-mode redesign (desaturated jewel-tone palette)
+   ═══════════════════════════════════════════════════════════════════════
+   Mark loved the Upload/Camera/+Gallery button styling (slate-blue / muted-
+   forest / muted-burgundy) and asked for that aesthetic across light mode
+   instead of the scattered bright-saturated solid fills. This block lives
+   at the end of frt.css as a deliberate overlay — it overrides the worst
+   light-mode offenders without touching the original rules, so a rollback
+   is just deleting this block.
+   
+   Palette (light-mode jewel tones, ~60-70% saturation):
+     --lm-burgundy:    #7D3F4F   (replaces solid #9C2742 in non-CTA spots)
+     --lm-forest:      #5C7A65   (replaces solid #1A7A4A in non-status spots)
+     --lm-amber:       #B07F5A   (replaces solid #E67E22 in non-status spots)
+     --lm-slate:       #5A6E80   (cool neutral accent)
+     --lm-purple:      #7B5A8F   (replaces #6A1B9A)
+     --lm-blue:        #4A6580   (replaces #1565C0 in non-status spots)
+     --lm-red-soft:    #A85959   (replaces #C0392B in non-status spots)
+   
+   What stays bright:
+     - Pin markers (red/orange/green/IAR pink) — field readability
+     - Priority pills (.pe-pri-high.active etc.) — status indicators
+     - IAR-active button — status indicator
+     - Outstanding/Closed status pills — status indicators
+     - Brand burgundy on PRIMARY CTAs (Save button) — brand recognition
+   
+   What gets muted in light mode:
+     - Solid action buttons (Camera/Upload/+Gallery already done by class)
+     - Secondary navigation (View pill, Site/Defic filters)
+     - Defic group/contractor headers
+     - Selection rings, drag-over hover states
+     - Number badges (Pin1/Pin2 chips on photos)
+   ═══════════════════════════════════════════════════════════════════════ */
+:root{
+  --lm-burgundy: #7D3F4F;
+  --lm-burgundy-bg: rgba(125, 63, 79, 0.10);
+  --lm-burgundy-bd: rgba(125, 63, 79, 0.30);
+  --lm-forest:   #5C7A65;
+  --lm-forest-bg:rgba(92, 122, 101, 0.12);
+  --lm-amber:    #B07F5A;
+  --lm-amber-bg: rgba(176, 127, 90, 0.12);
+  --lm-slate:    #5A6E80;
+  --lm-slate-bg: rgba(90, 110, 128, 0.10);
+  --lm-purple:   #7B5A8F;
+  --lm-blue:     #4A6580;
+  --lm-red-soft: #A85959;
+  --lm-surface:  #FAFBFC;     /* off-white surface, slightly warmer than pure white */
+  --lm-surface-2:#F2F4F7;     /* card/section surface */
+  --lm-border:   #DDE1E7;
+  --lm-text:     #2C3E50;
+  --lm-text-muted:#6B7B8C;
+}
+
+/* ── Surface tone-down. Pure white surfaces fight the muted button family;
+      a light off-white reads as "calmed" to match. ── */
+body:not(.dark-mode) {
+  background: var(--lm-surface) !important;
+}
+
+/* ── Header tabs: soften from sharp navy to slate. Brand burgundy still
+      marks the active tab. ── */
+body:not(.dark-mode) .nav-tab {
+  color: var(--lm-text-muted) !important;
+}
+body:not(.dark-mode) .nav-tab.active {
+  color: var(--lm-burgundy) !important;
+  border-bottom-color: var(--lm-burgundy) !important;
+}
+
+/* ── Defic group header: replace navy with slate; add the muted contractor
+      tint on the left border. ── */
+body:not(.dark-mode) .defic-group-header {
+  background: var(--lm-slate-bg) !important;
+  color: var(--lm-text) !important;
+  border-bottom: 1px solid var(--lm-border);
+}
+body:not(.dark-mode) .defic-group-header:hover {
+  background: rgba(90, 110, 128, 0.16) !important;
+}
+body:not(.dark-mode) .defic-group {
+  border-color: var(--lm-border) !important;
+  background: white;
+}
+
+/* ── Contractor tags (the .ctr-c0..c7 family): keep the colored letter on
+      a calmer background, reducing the bright-pastel-postcard effect. ── */
+body:not(.dark-mode) .ctr-tag.ctr-c0 { background: rgba(168, 89, 89, 0.10); color: var(--lm-red-soft); border-color: rgba(168, 89, 89, 0.28); }
+body:not(.dark-mode) .ctr-tag.ctr-c1 { background: rgba(176, 127, 90, 0.10); color: var(--lm-amber);   border-color: rgba(176, 127, 90, 0.28); }
+body:not(.dark-mode) .ctr-tag.ctr-c2 { background: rgba(155, 130, 60, 0.10); color: #8E7325;            border-color: rgba(155, 130, 60, 0.28); }
+body:not(.dark-mode) .ctr-tag.ctr-c3 { background: rgba(92, 122, 101, 0.10); color: var(--lm-forest);  border-color: rgba(92, 122, 101, 0.28); }
+body:not(.dark-mode) .ctr-tag.ctr-c4 { background: rgba(74, 101, 128, 0.10); color: var(--lm-blue);    border-color: rgba(74, 101, 128, 0.28); }
+body:not(.dark-mode) .ctr-tag.ctr-c5 { background: rgba(123, 90, 143, 0.10); color: var(--lm-purple);  border-color: rgba(123, 90, 143, 0.28); }
+body:not(.dark-mode) .ctr-tag.ctr-c6 { background: rgba(157, 81, 130, 0.10); color: #8B4970;            border-color: rgba(157, 81, 130, 0.28); }
+body:not(.dark-mode) .ctr-tag.ctr-c7 { background: rgba(80, 116, 124, 0.10); color: #45656D;            border-color: rgba(80, 116, 124, 0.28); }
+
+/* ── Defic photo zone (Drop photos / Upload / Camera / + Gallery). The
+      buttons themselves are styled inline; we just calm the dashed
+      container border. ── */
+body:not(.dark-mode) .pe-photo-zone {
+  border-color: rgba(90, 110, 128, 0.30) !important;
+  background: rgba(90, 110, 128, 0.04);
+}
+body:not(.dark-mode) .pe-photo-zone:hover,
+body:not(.dark-mode) .pe-photo-zone.drag-over {
+  border-color: var(--lm-slate) !important;
+  background: rgba(90, 110, 128, 0.08) !important;
+}
+
+/* ── Apply the muted-jewel-tone palette to the pin editor's photo zone
+      buttons in BOTH modes (these were already mostly OK but we refine
+      to match the dark-mode aesthetic Mark approves of). ── */
+.pe-photo-btn:not(.pe-camera-btn):not(.pe-cancel-btn) {
+  background: var(--lm-slate) !important;
+  color: white !important;
+  border-color: var(--lm-slate) !important;
+}
+.pe-photo-btn.pe-camera-btn {
+  background: var(--lm-forest) !important;
+  border-color: var(--lm-forest) !important;
+  color: white !important;
+}
+#pe-gallery-btn {
+  background: var(--lm-burgundy) !important;
+  border-color: var(--lm-burgundy) !important;
+  color: white !important;
+  border-style: solid !important;
+}
+.pe-photo-btn:not(.pe-cancel-btn):hover {
+  filter: brightness(1.10);
+}
+
+/* ── Defic card pin pills (📌 drawing-name + 📍 reposition + ✕ remove): keep
+      the action affordance visible but stop them from screaming. ── */
+body:not(.dark-mode) .defic-dwg-pill {
+  background: var(--lm-slate-bg) !important;
+  color: var(--lm-slate) !important;
+  border: 1px solid rgba(90, 110, 128, 0.32) !important;
+}
+
+/* ── AI Review chip: was a bright purple gradient; calm to muted purple. ── */
+body:not(.dark-mode) [data-action="ai-review-defic"],
+body:not(.dark-mode) .ai-review-chip {
+  background: rgba(123, 90, 143, 0.10) !important;
+  color: var(--lm-purple) !important;
+  border: 1px solid rgba(123, 90, 143, 0.30) !important;
+}
+
+/* ── Filters / "Active (2)" / "Site General (9)" / "Closed" tabs: muted
+      slate underline, burgundy when active. ── */
+body:not(.dark-mode) .defic-tab,
+body:not(.dark-mode) .defic-filter-tab {
+  color: var(--lm-text-muted) !important;
+}
+body:not(.dark-mode) .defic-tab.active,
+body:not(.dark-mode) .defic-filter-tab.active {
+  color: var(--lm-burgundy) !important;
+  border-bottom-color: var(--lm-burgundy) !important;
+}
+
+/* ── Photo gallery filter pills (All / Site / Deficiency) ── */
+body:not(.dark-mode) .pg-filter {
+  background: transparent !important;
+  color: var(--lm-text-muted) !important;
+  border: 1px solid var(--lm-border) !important;
+}
+body:not(.dark-mode) .pg-filter.active {
+  background: var(--lm-burgundy) !important;
+  color: white !important;
+  border-color: var(--lm-burgundy) !important;
+}
+
+/* ── Pin badges on photo thumbs (Site green / Pin1 burgundy): reduce
+      saturation so they don't dominate the gallery grid. ── */
+body:not(.dark-mode) .photo-badge.badge-site,
+body:not(.dark-mode) .photo-pin-badge.badge-site {
+  background: var(--lm-forest) !important;
+  color: white !important;
+}
+body:not(.dark-mode) .photo-badge.badge-pin,
+body:not(.dark-mode) .photo-pin-badge {
+  background: var(--lm-burgundy) !important;
+  color: white !important;
+}
+
+/* ── Number circles (1, 2, 3 next to each defic): muted burgundy ring with
+      subtle inner. Used to be solid bright. ── */
+body:not(.dark-mode) .defic-num-circle,
+body:not(.dark-mode) .defic-num {
+  background: var(--lm-burgundy-bg) !important;
+  color: var(--lm-burgundy) !important;
+  border: 1.5px solid var(--lm-burgundy-bd) !important;
+}
+
+/* ── Cancel/secondary buttons: ghost slate so they read as "no" without
+      shouting red. Brand burgundy stays for primary CTA only. ── */
+body:not(.dark-mode) .pe-cancel-btn {
+  background: transparent !important;
+  color: var(--lm-text-muted) !important;
+  border-color: var(--lm-border) !important;
+}
+body:not(.dark-mode) .pe-cancel-btn:hover {
+  background: var(--lm-slate-bg) !important;
+  border-color: var(--lm-slate) !important;
+  color: var(--lm-slate) !important;
+}
+
+/* ── Delete button: muted red ring that turns brand red on hover. Calmer
+      at rest, decisive on action. ── */
+body:not(.dark-mode) .pe-delete-btn {
+  background: transparent !important;
+  color: var(--lm-red-soft) !important;
+  border: 1.5px solid rgba(168, 89, 89, 0.4) !important;
+}
+body:not(.dark-mode) .pe-delete-btn:hover {
+  background: rgba(168, 89, 89, 0.12) !important;
+  color: #8C3A3A !important;
+  border-color: var(--lm-red-soft) !important;
+}
+
+/* ── Save button: keeps brand burgundy. The CTA needs to read as "the
+      action you came here for". ── */
+body:not(.dark-mode) .pe-save-btn {
+  background: #9C2742 !important;
+  color: white !important;
+}
+body:not(.dark-mode) .pe-save-btn:hover {
+  filter: brightness(1.06);
+}
+
+/* ── Drawing tab kanban / table view-pill: already styled, reinforce. ── */
+
+/* ── Confirm/info modals: soften from sharp white over white-ish to a
+      warmer card surface. ── */
+body:not(.dark-mode) .confirm-modal,
+body:not(.dark-mode) .info-modal {
+  background: var(--lm-surface) !important;
+  border: 1px solid var(--lm-border) !important;
+}
+
+/* ── Section header pencil-icon tweaks for legibility on the warmer surface. ── */
+body:not(.dark-mode) .section-toggle-icon {
+  color: var(--lm-text-muted) !important;
+}
+
+/* End S116 Push 6 light-mode block ─────────────────────────────────── */
