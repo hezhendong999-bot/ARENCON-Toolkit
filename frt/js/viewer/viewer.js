@@ -2092,12 +2092,10 @@ document.addEventListener('click', function(e) {
   if (e.target.closest && e.target.closest('#pe-cancel')) { _closePinEditor(); return; }
   if (e.target.closest && e.target.closest('#pe-save')) { _savePinEditor(); return; }
 
-  // S116 Push 2: "Go to drawing" — navigate-only. Switches to the drawings
-  // tab, loads the deficiency's drawing if not already current, and pulses
-  // the target pin so it's identifiable among others. Critically, it does
-  // NOT call _frtStartPinPlace — that pathway puts the viewer into place-pin
-  // mode, where the next tap MOVES the pin, and (until Push 2's tool-reset
-  // fix) any tap after that creates a phantom new pin. We just navigate.
+  // S116 Push 2/3: "Go to drawing" — navigate-only (uses _frtNavigateToPin
+  // which handles tab switch, drawing load, and pulse highlight). Critically
+  // does NOT enter place-pin mode — tapping the drawing afterwards opens the
+  // editor for whichever pin was tapped, doesn't move it.
   if (e.target.closest && e.target.closest('#pe-goto-dwg')) {
     if (!_peDeficId) return;
     var fGo = Model.findDeficiency(_peDeficId);
@@ -2106,32 +2104,8 @@ document.addEventListener('click', function(e) {
       return;
     }
     var goId = _peDeficId;
-    var goDwgId = fGo.defic.drawingId;
     _closePinEditor();
-
-    // Make sure the drawings nav-tab is active (in case user jumped from
-    // Summary or Deficiencies tab into the editor).
-    document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === 'drawings'); });
-    document.querySelectorAll('.panel').forEach(function(p) { p.classList.toggle('active', p.id === 'panel-drawings'); });
-
-    // Open the drawing viewer overlay if it isn't already, then switch to
-    // the right drawing if necessary.
-    var drawings = _getDrawingsList();
-    var targetIdx = -1;
-    for (var gi = 0; gi < drawings.length; gi++) {
-      if (drawings[gi].id === goDwgId) { targetIdx = gi; break; }
-    }
-    if (targetIdx < 0) { toast('Drawing for this pin not found'); return; }
-
-    var overlay = document.getElementById('drawing-viewer-overlay');
-    var alreadyOpen = overlay && overlay.classList.contains('open');
-    if (!alreadyOpen || _currentDrawingIdx !== targetIdx) {
-      _showDrawing(targetIdx);
-      // Highlight after the drawing has had time to lay out + render its pins.
-      setTimeout(function() { _highlightPin(goId); }, 600);
-    } else {
-      _highlightPin(goId);
-    }
+    if (window._frtNavigateToPin) window._frtNavigateToPin(goId);
     return;
   }
 
@@ -2687,6 +2661,45 @@ window._frtStartPinPlace = function(deficId) {
   } else {
     _startPinPlace(deficId);
   }
+};
+
+// S116 Push 3: navigate to a pin without entering place-pin mode.
+// Used by both the pin-editor "Go to drawing" button (viewer.js) and the
+// deficiency 📌 drawing-name pill (deficiencies.js view-pin action).
+//
+// Behaviour: switch nav tab + drawing viewer to the pin's drawing, pulse the
+// target pin so it's identifiable. Tapping the drawing afterwards opens the
+// editor for whichever pin was tapped — does NOT move the pin (which was
+// the bug source for the duplicate-pin issue Mark hit in S116 P1).
+//
+// Returns true if navigation kicked off, false if the pin has no drawingId
+// (caller can decide whether to toast "not placed yet" etc).
+window._frtNavigateToPin = function(deficId) {
+  var f = Model.findDeficiency(deficId);
+  if (!f || !f.defic.drawingId) return false;
+  var targetDwgId = f.defic.drawingId;
+
+  // Make sure the drawings nav-tab is active.
+  document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === 'drawings'); });
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.toggle('active', p.id === 'panel-drawings'); });
+
+  var drawings = _getDrawingsList();
+  var targetIdx = -1;
+  for (var di = 0; di < drawings.length; di++) {
+    if (drawings[di].id === targetDwgId) { targetIdx = di; break; }
+  }
+  if (targetIdx < 0) return false;
+
+  var overlay = document.getElementById('drawing-viewer-overlay');
+  var alreadyOpen = overlay && overlay.classList.contains('open');
+  if (!alreadyOpen || _currentDrawingIdx !== targetIdx) {
+    _showDrawing(targetIdx);
+    // Highlight after layout + pin render settles.
+    setTimeout(function() { _highlightPin(deficId); }, 600);
+  } else {
+    _highlightPin(deficId);
+  }
+  return true;
 };
 
 // ── Tasks Panel ─────────────────────────────────────────

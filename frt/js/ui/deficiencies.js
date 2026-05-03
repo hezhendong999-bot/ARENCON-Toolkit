@@ -848,11 +848,30 @@ document.addEventListener('click', function(e) {
     initDeficiencies.render();
   }
 
-  if (action === 'place-pin' || action === 'view-pin') {
+  // S116 Push 3: split view-pin from place-pin.
+  // - place-pin = pin doesn't have coords yet, user needs to tap to place.
+  //   Still routes through _frtStartPinPlace which enters place-pin mode.
+  // - view-pin = pin already exists, user wants to see it on the drawing.
+  //   Now routes through _frtNavigateToPin which navigates + pulses the
+  //   target pin, but does NOT enter place-pin mode. Tapping the drawing
+  //   afterwards opens the editor like normal — does NOT move the pin.
+  //   This eliminates the "I just wanted to look at it but accidentally
+  //   moved it" failure mode that was the source of the duplicate-pin bug.
+  if (action === 'view-pin') {
+    var deficId = el.getAttribute('data-defic-id');
+    if (window._frtNavigateToPin) {
+      var ok = window._frtNavigateToPin(deficId);
+      if (!ok) toast('This pin is not placed on a drawing yet');
+    } else {
+      toast('Open the Drawings tab first');
+    }
+  }
+
+  if (action === 'place-pin') {
     var deficId = el.getAttribute('data-defic-id');
     if (window._frtStartPinPlace) {
       window._frtStartPinPlace(deficId);
-      if (action === 'place-pin') toast('Tap on the drawing to place pin');
+      toast('Tap on the drawing to place pin');
     } else {
       toast('Open the Drawings tab first');
     }
