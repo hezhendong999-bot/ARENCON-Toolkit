@@ -12,6 +12,62 @@ import { IDB } from '../data/idb.js';
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+// ── S114 Push 1.2: gallery state ──
+// Filter mode mirrors v1: 'all' | 'site' | 'deficiency' | 'general'
+//   site       = top-level proj.photos
+//   deficiency = defic photos where defic.priority is not 'general'
+//   general    = defic photos where defic.priority is 'general'
+var _filterMode = 'all';
+var _selectedUids = new Set();
+var _filterPanelOpen = false;
+
+// Photo UID — stable across re-renders so selection survives.
+//   site:<idx>                         for site photos
+//   defic:<deficId>:<obsIdx>:<phIdx>   for observation photos
+function _photoUid(rec) {
+  if (rec.type === 'site') return 'site:' + rec.siteIdx;
+  return 'defic:' + rec.deficId + ':' + rec.obsIdx + ':' + rec.photoIdx;
+}
+
+// Cloud-status icon. r2Status === 'uploaded' is the explicit win;
+// having r2Url alone implies success too. dataUrl-only = local cache.
+function _cloudIcon(ph) {
+  var status, color, glyph = '';
+  if (ph.r2Status === 'uploaded' || (ph.r2Url && !ph.r2Status)) {
+    status = 'Uploaded'; color = '#1A7A4A';
+    glyph = '<path d="M8 12.5l2.5 2.5L16 9.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>';
+  } else if (ph.r2Status === 'failed') {
+    status = 'Upload failed'; color = '#C0392B';
+    glyph = '<path d="M9 9l6 6M15 9l-6 6" stroke="white" stroke-width="2.2" stroke-linecap="round"/>';
+  } else if (ph.r2Status === 'uploading' || ph.r2Status === 'pending') {
+    status = 'Uploading\u2026'; color = '#FFA726';
+  } else {
+    status = 'Local only'; color = '#94A3B8';
+  }
+  return '<span class="ph-cloud" title="' + status + '">'
+    + '<svg width="18" height="14" viewBox="0 0 24 18" fill="' + color + '">'
+    + '<path d="M19 16H6a4.5 4.5 0 010-9 5.5 5.5 0 0110.5-1A4.5 4.5 0 0119 16z"/>' + glyph
+    + '</svg></span>';
+}
+
+function _dayKey(ph, parentDefic) {
+  // Try addedDate, then parse photo ID timestamp, then fall back to defic notedDate
+  var d = ph.addedDate || ph.date;
+  if (!d && ph.id) {
+    var m = String(ph.id).match(/[a-z]+_(\d{13})/);
+    if (m) d = new Date(parseInt(m[1])).toISOString().split('T')[0];
+  }
+  if (!d && parentDefic) d = parentDefic.notedDate || parentDefic.date;
+  if (!d) return { key: 'no-date', label: 'No date' };
+  try {
+    var dt = new Date(d);
+    if (isNaN(dt.getTime())) return { key: 'no-date', label: 'No date' };
+    var key = dt.toISOString().split('T')[0];
+    var label = dt.toLocaleDateString('en-CA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+    return { key: key, label: label };
+  } catch(e) { return { key: 'no-date', label: 'No date' }; }
+}
+
 export var initPhotos = {
   render: function() {
     var container = document.getElementById('photos-container');
@@ -22,123 +78,183 @@ export var initPhotos = {
     var sitePhotos = proj.photos || [];
     var allDefics = Model.getAllDeficiencies(proj);
 
-    // Collect all deficiency photos with source info
-    var deficPhotos = [];
+    // ── Build flat list of photo records (one per photo) ──
+    var records = [];
+    sitePhotos.forEach(function(p, i) {
+      var dk = _dayKey(p, null);
+      records.push({
+        type: 'site',
+        siteIdx: i,
+        ph: p,
+        src: p.thumb || p.r2Url || p.dataUrl || '',
+        badgeText: 'Site',
+        badgeClass: 'ph-badge-site',
+        dateKey: dk.key, dateLabel: dk.label,
+        sortGroup: [0, i] // site photos come first within a date
+      });
+    });
     allDefics.forEach(function(d) {
-      (d.defic.observations || []).forEach(function(o, oi) {
+      var defic = d.defic;
+      var isGeneral = defic.priority === 'general';
+      (defic.observations || []).forEach(function(o, oi) {
         (o.photos || []).forEach(function(ph, phi) {
-          deficPhotos.push({
-            photo: ph,
-            deficNum: d.defic.num,
-            deficId: d.defic.id,
+          var dk = _dayKey(ph, defic);
+          records.push({
+            type: 'defic',
+            deficId: defic.id,
+            deficNum: defic.num,
+            isGeneralPriority: isGeneral,
             obsIdx: oi,
             photoIdx: phi,
-            contractorName: d.contractorName
+            ph: ph,
+            src: ph.r2Url || ph.dataUrl || '',
+            badgeText: 'Pin ' + defic.num,
+            badgeClass: isGeneral ? 'ph-badge-pin ph-badge-pin-gen' : 'ph-badge-pin',
+            dateKey: dk.key, dateLabel: dk.label,
+            sortGroup: [1, defic.num, oi, phi]
           });
         });
       });
     });
 
-    var totalCount = sitePhotos.length + deficPhotos.length;
+    // Stamp UIDs
+    records.forEach(function(r) { r.uid = _photoUid(r); });
 
+    // ── Stats: pre-filter totals (for the header counters) ──
+    var totalAll = records.length;
+    var totalSite = records.filter(function(r) { return r.type === 'site'; }).length;
+    var totalDefic = records.filter(function(r) { return r.type === 'defic' && !r.isGeneralPriority; }).length;
+    var totalGeneral = records.filter(function(r) { return r.type === 'defic' && r.isGeneralPriority; }).length;
+
+    // ── Apply filter ──
+    var filtered = records.filter(function(r) {
+      if (_filterMode === 'all') return true;
+      if (_filterMode === 'site') return r.type === 'site';
+      if (_filterMode === 'deficiency') return r.type === 'defic' && !r.isGeneralPriority;
+      if (_filterMode === 'general') return r.type === 'defic' && r.isGeneralPriority;
+      return true;
+    });
+
+    // ── Group by date (descending), sort within group ──
+    var groups = {};
+    var orderedKeys = [];
+    filtered.forEach(function(r) {
+      if (!groups[r.dateKey]) {
+        groups[r.dateKey] = { label: r.dateLabel, items: [] };
+        orderedKeys.push(r.dateKey);
+      }
+      groups[r.dateKey].items.push(r);
+    });
+    // Sort dates descending (newest first); 'no-date' last
+    orderedKeys.sort(function(a, b) {
+      if (a === 'no-date') return 1;
+      if (b === 'no-date') return -1;
+      return b.localeCompare(a);
+    });
+    Object.keys(groups).forEach(function(k) {
+      groups[k].items.sort(function(a, b) {
+        for (var i = 0; i < Math.max(a.sortGroup.length, b.sortGroup.length); i++) {
+          var av = a.sortGroup[i] || 0, bv = b.sortGroup[i] || 0;
+          if (av !== bv) return av - bv;
+        }
+        return 0;
+      });
+    });
+
+    // ── Build HTML ──
     var html = '';
 
-    // Summary stats
-    html += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin:20px 0 16px;">';
-    html += '<div style="background:var(--smoke);border:1px solid var(--border);border-radius:8px;padding:12px 18px;flex:1;min-width:100px;">';
-    html += '<div style="font-size:24px;font-weight:700;color:var(--fg);">' + totalCount + '</div>';
-    html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Total Photos</div></div>';
-    html += '<div style="background:var(--smoke);border:1px solid var(--border);border-radius:8px;padding:12px 18px;flex:1;min-width:100px;">';
-    html += '<div style="font-size:24px;font-weight:700;color:var(--fg);">' + sitePhotos.length + '</div>';
-    html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Site Photos</div></div>';
-    html += '<div style="background:var(--smoke);border:1px solid var(--border);border-radius:8px;padding:12px 18px;flex:1;min-width:100px;">';
-    html += '<div style="font-size:24px;font-weight:700;color:var(--fg);">' + deficPhotos.length + '</div>';
-    html += '<div style="font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;">Deficiency Photos</div></div>';
+    // Toolbar
+    var nSel = _selectedUids.size;
+    var filterLabel = _filterMode === 'all' ? 'All photos'
+      : _filterMode === 'site' ? 'Site photos'
+      : _filterMode === 'deficiency' ? 'Deficiency photos'
+      : 'General photos';
+    html += '<div class="ph-toolbar">';
+    html += '<div class="ph-toolbar-left">';
+    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalAll + '</div><div class="ph-stat-lbl">Total</div></div>';
+    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalSite + '</div><div class="ph-stat-lbl">Site</div></div>';
+    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalDefic + '</div><div class="ph-stat-lbl">Deficiency</div></div>';
+    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalGeneral + '</div><div class="ph-stat-lbl">General</div></div>';
+    html += '</div>';
+    html += '<div class="ph-toolbar-right">';
+    if (nSel > 0) {
+      html += '<span class="ph-sel-count">' + nSel + ' selected</span>';
+      html += '<button class="ph-btn ph-btn-danger" data-action="ph-delete-selected">Delete ' + nSel + '</button>';
+      html += '<button class="ph-btn" data-action="ph-clear-selection">Clear</button>';
+    }
+    html += '<div class="ph-filter-wrap">';
+    html += '<button class="ph-btn ph-filter-btn" data-action="ph-toggle-filter">\u2699 ' + esc(filterLabel) + '</button>';
+    if (_filterPanelOpen) {
+      html += '<div class="ph-filter-menu">';
+      ['all','site','deficiency','general'].forEach(function(mode) {
+        var lbl = mode === 'all' ? 'All photos'
+          : mode === 'site' ? 'Site photos'
+          : mode === 'deficiency' ? 'Deficiency photos'
+          : 'General photos';
+        var cls = mode === _filterMode ? 'active' : '';
+        html += '<button class="' + cls + '" data-action="ph-set-filter" data-mode="' + mode + '">' + lbl + '</button>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+    html += '</div>';
     html += '</div>';
 
-    // ── Date grouping helper ──
-    function dayKey(p) {
-      var d = p.addedDate || p.date || p.timestamp || '';
-      if (!d) return 'No date';
-      try { var dt = new Date(d); if (isNaN(dt.getTime())) return 'No date';
-        return dt.toLocaleDateString('en-CA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-      } catch(e) { return 'No date'; }
-    }
-    function r2Dot(ph) {
-      var st = ph.r2Url ? 'ok' : 'pending';
-      var color = st === 'ok' ? '#1A7A4A' : '#FFA726';
-      return '<div title="R2: ' + st + '" style="position:absolute;bottom:4px;left:4px;width:8px;height:8px;border-radius:50%;background:' + color + ';box-shadow:0 0 0 1.5px rgba(255,255,255,.8);"></div>';
-    }
-    function siteCard(p, i) {
-      var imgSrc = p.thumb || p.r2Url || p.dataUrl || '';
-      var h = '<div class="ph-card ph-card-site" style="position:relative;width:120px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--smoke);user-select:none;">';
-      if (imgSrc) {
-        h += '<img data-action="open-site-lightbox" data-photo-idx="' + i + '" src="' + esc(imgSrc) + '" loading="lazy" style="width:120px;height:100px;object-fit:cover;display:block;cursor:pointer;" onerror="this.style.display=\'none\'">';
-      } else {
-        h += '<div style="width:120px;height:100px;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:24px;">\uD83D\uDCF7</div>';
-      }
-      h += '<button class="ph-hover-btn ph-del" data-action="delete-site-photo" data-photo-idx="' + i + '" title="Delete">\u2715</button>';
-      h += '<button class="ph-hover-btn ph-dl" data-action="download-site-photo" data-photo-idx="' + i + '" title="Download">\u2B07</button>';
-      h += r2Dot(p);
-      h += '<div style="padding:3px 6px;font-size:calc(10px + var(--ts));color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(p.caption || 'Site Photo') + '</div>';
-      h += '</div>';
-      return h;
-    }
-    function deficCard(dp) {
-      var ph = dp.photo;
-      var imgSrc = ph.r2Url || ph.dataUrl || '';
-      if (!imgSrc) return '';
-      var h = '<div class="ph-card ph-card-defic" data-action="open-defic-lightbox" data-defic-id="' + esc(dp.deficId) + '" data-obs-idx="' + dp.obsIdx + '" data-photo-idx="' + dp.photoIdx + '" style="position:relative;width:120px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--smoke);cursor:pointer;user-select:none;">';
-      h += '<img src="' + esc(imgSrc) + '" loading="lazy" style="width:120px;height:100px;object-fit:cover;display:block;">';
-      h += '<div class="ph-pin-badge" title="Pin #' + dp.deficNum + '">#' + dp.deficNum + '</div>';
-      h += '<button class="ph-hover-btn ph-dl" data-action="download-defic-photo" data-defic-id="' + esc(dp.deficId) + '" data-obs-idx="' + dp.obsIdx + '" data-photo-idx="' + dp.photoIdx + '" title="Download">\u2B07</button>';
-      h += r2Dot(ph);
-      h += '<div style="padding:3px 6px;font-size:calc(10px + var(--ts));color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(dp.contractorName) + '</div>';
-      h += '</div>';
-      return h;
+    // Empty state
+    if (!filtered.length) {
+      var msg = totalAll === 0 ? 'No photos yet. Upload site photos or add photos to deficiencies.'
+        : 'No photos match the current filter.';
+      html += '<p class="ph-empty">' + msg + '</p>';
+      container.innerHTML = html;
+      return;
     }
 
-    // Group site photos by date
-    var siteGroups = {};
-    var siteOrder = [];
-    sitePhotos.forEach(function(p, i) {
-      var k = dayKey(p);
-      if (!siteGroups[k]) { siteGroups[k] = []; siteOrder.push(k); }
-      siteGroups[k].push({ photo: p, idx: i });
-    });
-    if (sitePhotos.length) {
-      html += '<div style="font-weight:700;font-size:calc(13px + var(--ts));color:var(--steel);margin:18px 0 8px;">Site Photos</div>';
-      siteOrder.forEach(function(k) {
-        html += '<div style="font-size:calc(12px + var(--ts));color:var(--silver);font-weight:600;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">' + esc(k) + ' \u00B7 ' + siteGroups[k].length + '</div>';
-        html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">';
-        siteGroups[k].forEach(function(item) { html += siteCard(item.photo, item.idx); });
+    // Date groups
+    orderedKeys.forEach(function(k) {
+      var g = groups[k];
+      // Are all in this group selected?
+      var allSel = g.items.every(function(it) { return _selectedUids.has(it.uid); });
+      var someSel = !allSel && g.items.some(function(it) { return _selectedUids.has(it.uid); });
+      html += '<div class="ph-date-header">';
+      html += '<input type="checkbox" class="ph-date-check"' + (allSel ? ' checked' : '') + (someSel ? ' data-indet="1"' : '')
+        + ' data-action="ph-toggle-date" data-date-key="' + esc(k) + '">';
+      html += '<span class="ph-date-label">' + esc(g.label) + '</span>';
+      html += '<span class="ph-date-count">\u00B7 ' + g.items.length + ' photo' + (g.items.length === 1 ? '' : 's') + '</span>';
+      html += '</div>';
+      html += '<div class="ph-grid">';
+      g.items.forEach(function(r) {
+        var sel = _selectedUids.has(r.uid);
+        // For site cards we still expose the data-action="open-site-lightbox" attrs the existing lightbox handler reads
+        var clickAction = r.type === 'site'
+          ? 'data-action="open-site-lightbox" data-photo-idx="' + r.siteIdx + '"'
+          : 'data-action="open-defic-lightbox" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '"';
+        var deleteAction = r.type === 'site'
+          ? 'data-action="delete-site-photo" data-photo-idx="' + r.siteIdx + '"'
+          : 'data-action="ph-delete-defic" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '"';
+        html += '<div class="ph-card' + (sel ? ' selected' : '') + '" data-uid="' + esc(r.uid) + '">';
+        html += '<input type="checkbox" class="ph-check"' + (sel ? ' checked' : '') + ' data-action="ph-toggle-photo" data-uid="' + esc(r.uid) + '">';
+        html += '<span class="ph-badge ' + r.badgeClass + '">' + esc(r.badgeText) + '</span>';
+        if (r.src) {
+          html += '<img ' + clickAction + ' src="' + esc(r.src) + '" loading="lazy" onerror="this.style.display=\'none\'">';
+        } else {
+          html += '<div class="ph-noimg">\uD83D\uDCF7</div>';
+        }
+        html += _cloudIcon(r.ph);
+        html += '<button class="ph-del-btn" ' + deleteAction + ' title="Delete photo">'
+          + '<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 7h12v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7zm3-3h6l1 2H8l1-2zM4 6h16v1H4V6z"/></svg>'
+          + '</button>';
         html += '</div>';
       });
-    }
-
-    // Group defic photos by date
-    var defGroups = {};
-    var defOrder = [];
-    deficPhotos.forEach(function(dp) {
-      var k = dayKey(dp.photo);
-      if (!defGroups[k]) { defGroups[k] = []; defOrder.push(k); }
-      defGroups[k].push(dp);
+      html += '</div>';
     });
-    if (deficPhotos.length) {
-      html += '<div style="font-weight:700;font-size:calc(13px + var(--ts));color:var(--steel);margin:18px 0 8px;">Deficiency Photos</div>';
-      defOrder.forEach(function(k) {
-        html += '<div style="font-size:calc(12px + var(--ts));color:var(--silver);font-weight:600;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">' + esc(k) + ' \u00B7 ' + defGroups[k].length + '</div>';
-        html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">';
-        defGroups[k].forEach(function(dp) { html += deficCard(dp); });
-        html += '</div>';
-      });
-    }
-
-    if (!totalCount) {
-      html += '<p style="color:var(--silver);font-size:calc(13px + var(--ts));text-align:center;padding:16px;">No photos yet. Upload site photos or add photos to deficiencies.</p>';
-    }
 
     container.innerHTML = html;
+
+    // Apply indeterminate state on date checkboxes (can only be set via JS prop)
+    container.querySelectorAll('.ph-date-check[data-indet="1"]').forEach(function(cb) {
+      cb.indeterminate = true;
+    });
   }
 };
 
@@ -203,15 +319,160 @@ document.addEventListener('click', function(e) {
   // Delete site photo
   var del = e.target.closest && e.target.closest('[data-action="delete-site-photo"]');
   if (del) {
+    e.stopPropagation();
     var idx = parseInt(del.getAttribute('data-photo-idx') || '0');
     showConfirm('Remove Photo', 'Remove this site photo?').then(function(yes) {
       if (yes) {
         Model.removeSitePhoto(idx);
+        // Site indices shift after removal — clear selection to be safe
+        _selectedUids.clear();
         initPhotos.render();
         toast('Site photo removed');
       }
     });
+    return;
   }
+
+  // S114 — delete a single deficiency photo
+  var dDel = e.target.closest && e.target.closest('[data-action="ph-delete-defic"]');
+  if (dDel) {
+    e.stopPropagation();
+    var deficId2 = dDel.getAttribute('data-defic-id');
+    var oi2 = parseInt(dDel.getAttribute('data-obs-idx') || '0');
+    var pi2 = parseInt(dDel.getAttribute('data-photo-idx') || '0');
+    showConfirm('Remove Photo', 'Remove this deficiency photo?').then(function(yes) {
+      if (!yes) return;
+      Model.removeObservationPhoto(deficId2, oi2, pi2);
+      _selectedUids.clear();
+      initPhotos.render();
+      toast('Photo removed');
+    });
+    return;
+  }
+
+  // S114 — toggle single photo selection
+  var sel = e.target.closest && e.target.closest('[data-action="ph-toggle-photo"]');
+  if (sel) {
+    e.stopPropagation();
+    var uid = sel.getAttribute('data-uid');
+    if (_selectedUids.has(uid)) _selectedUids.delete(uid);
+    else _selectedUids.add(uid);
+    initPhotos.render();
+    return;
+  }
+
+  // S114 — toggle all photos in a date group
+  var dToggle = e.target.closest && e.target.closest('[data-action="ph-toggle-date"]');
+  if (dToggle) {
+    e.stopPropagation();
+    var dateKey = dToggle.getAttribute('data-date-key');
+    // Re-derive UIDs in this date group from current model state
+    var proj = Model.getProject();
+    if (!proj) return;
+    var groupUids = [];
+    (proj.photos || []).forEach(function(p, i) {
+      var dk = _dayKey(p, null);
+      if (dk.key === dateKey) groupUids.push('site:' + i);
+    });
+    Model.getAllDeficiencies(proj).forEach(function(d) {
+      var defic = d.defic;
+      (defic.observations || []).forEach(function(o, oi) {
+        (o.photos || []).forEach(function(ph, phi) {
+          var dk = _dayKey(ph, defic);
+          if (dk.key === dateKey) groupUids.push('defic:' + defic.id + ':' + oi + ':' + phi);
+        });
+      });
+    });
+    var allSel = groupUids.every(function(u) { return _selectedUids.has(u); });
+    if (allSel) groupUids.forEach(function(u) { _selectedUids.delete(u); });
+    else groupUids.forEach(function(u) { _selectedUids.add(u); });
+    initPhotos.render();
+    return;
+  }
+
+  // S114 — clear selection
+  var clr = e.target.closest && e.target.closest('[data-action="ph-clear-selection"]');
+  if (clr) {
+    e.stopPropagation();
+    _selectedUids.clear();
+    initPhotos.render();
+    return;
+  }
+
+  // S114 — bulk delete selected
+  var bd = e.target.closest && e.target.closest('[data-action="ph-delete-selected"]');
+  if (bd) {
+    e.stopPropagation();
+    var n = _selectedUids.size;
+    if (!n) return;
+    showConfirm('Delete ' + n + ' photo' + (n === 1 ? '' : 's') + '?',
+                'This cannot be undone.').then(function(yes) {
+      if (!yes) return;
+      // Sort site deletions by descending index so splices don't shift each other
+      var siteIdxs = [];
+      var deficOps = [];
+      _selectedUids.forEach(function(uid) {
+        if (uid.indexOf('site:') === 0) {
+          siteIdxs.push(parseInt(uid.slice(5)));
+        } else if (uid.indexOf('defic:') === 0) {
+          // defic:<deficId>:<obsIdx>:<phIdx>  (deficId may itself contain ':' if it's a UUID — split from right)
+          var parts = uid.split(':');
+          var phIdx = parseInt(parts[parts.length - 1]);
+          var oIdx = parseInt(parts[parts.length - 2]);
+          var deficId3 = parts.slice(1, parts.length - 2).join(':');
+          deficOps.push({ deficId: deficId3, obsIdx: oIdx, photoIdx: phIdx });
+        }
+      });
+      // Delete defic photos: group by defic+obs and sort photo indices descending
+      var deficKey = {};
+      deficOps.forEach(function(op) {
+        var k = op.deficId + '::' + op.obsIdx;
+        if (!deficKey[k]) deficKey[k] = [];
+        deficKey[k].push(op);
+      });
+      Object.keys(deficKey).forEach(function(k) {
+        deficKey[k].sort(function(a, b) { return b.photoIdx - a.photoIdx; });
+        deficKey[k].forEach(function(op) {
+          Model.removeObservationPhoto(op.deficId, op.obsIdx, op.photoIdx);
+        });
+      });
+      // Delete site photos descending
+      siteIdxs.sort(function(a, b) { return b - a; });
+      siteIdxs.forEach(function(i) { Model.removeSitePhoto(i); });
+
+      _selectedUids.clear();
+      initPhotos.render();
+      toast(n + ' photo' + (n === 1 ? '' : 's') + ' removed');
+    });
+    return;
+  }
+
+  // S114 — toggle filter panel
+  var ft = e.target.closest && e.target.closest('[data-action="ph-toggle-filter"]');
+  if (ft) {
+    e.stopPropagation();
+    _filterPanelOpen = !_filterPanelOpen;
+    initPhotos.render();
+    return;
+  }
+
+  // S114 — set filter mode
+  var fs = e.target.closest && e.target.closest('[data-action="ph-set-filter"]');
+  if (fs) {
+    e.stopPropagation();
+    _filterMode = fs.getAttribute('data-mode') || 'all';
+    _filterPanelOpen = false;
+    initPhotos.render();
+    return;
+  }
+});
+
+// S114 — close filter panel on outside click
+document.addEventListener('click', function(e) {
+  if (!_filterPanelOpen) return;
+  if (e.target.closest && e.target.closest('.ph-filter-wrap')) return;
+  _filterPanelOpen = false;
+  initPhotos.render();
 });
 
 // ── Site Photo Upload ───────────────────────────────────
