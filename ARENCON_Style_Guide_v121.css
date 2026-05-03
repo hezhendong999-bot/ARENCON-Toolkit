@@ -2998,3 +2998,38 @@ body.dark-mode .ai-scratchpad{ background:rgba(156,39,66,.10); }
    legacy/ARENCON_Field_Review_Tool_v1.html — preserved for reference,
    unlinked from Hub. */
 
+
+/* §S114-16 — Cloud status visibility (PERMANENT RULE)
+   ─────────────────────────────────────────────────────────────────── */
+/*
+   The cloud status dot AND the last-sync timing text MUST be visible at
+   EVERY screen width — desktop, tablet, phone. Mark's permanent rule.
+
+   Reason: these are the inspector's live signal that data is actually
+   syncing. Hiding them on small screens is unacceptable — an inspector
+   working on a phone needs to know the same thing a desktop user does:
+   "is my work being saved RIGHT NOW?".
+
+   What MAY hide on narrow screens (acceptable):
+     - The verbose "Saved to cloud" label (#cloud-status-text)
+     - The Field Review Tool title (.app-title)
+     - Inspector chip, IDB capacity, save-ts
+     - Any of the right-cluster buttons EXCEPT cloud-status
+
+   What MAY NEVER hide:
+     - #cloud-dot                — green/amber/grey/red sync state
+     - #last-sync-text           — "last sync: 5m ago" with color-coded
+                                   freshness
+
+   If header runs out of horizontal space, move OTHER things into the
+   hamburger menu first — including the day/night toggle if needed.
+   The cloud status is the LAST thing to lose visibility.
+
+   Implementation: in @media(max-width:1024px), explicitly whitelist
+   #cloud-status alongside #dark-toggle and #mobile-menu-btn:
+
+     .header-actions > * { display: none !important; }
+     .header-actions > #cloud-status   { display: flex       !important; }
+     .header-actions > #dark-toggle    { display: inline-flex !important; }
+     .header-actions > #mobile-menu-btn { display: inline-flex !important; }
+*/

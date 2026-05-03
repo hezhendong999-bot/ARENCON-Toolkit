@@ -2242,6 +2242,7 @@ S114 shipped 14 commits: 10 incremental UI/UX/AI pushes (1.1–1.10) plus the fo
 | 4   | f62a7fe6 | Global Escape modal handler; text-markup two-step |
 | 5   | 561281f0 | (interim closeout — superseded by P6 closeout) |
 | 6   | 08778929 | Header reshuffle — title left-anchored; status/undo/redo moved to right cluster so the title can no longer shift |
+| 7   | 353195ca | Restored cloud-status visibility at all widths — `header-actions > *` blanket-hide whitelist now includes `#cloud-status` so dot + last-sync stay visible on tablet + phone |
 
 ## V1→V2 schema migration (audited safe in S114)
 
@@ -2319,9 +2320,15 @@ Click → caret + input field. Click elsewhere → blurs the existing input (com
 
 Type `1 ` (digit + space) at start of line → auto-converts to `1. ` via `execCommand('insertText')`. Works for any digit count (`10 ` → `10. `). Ctrl+Z reverts. Pattern check: `/^\d+ $/` on the current line up to caret.
 
+## Cloud status visibility — PERMANENT RULE (P7)
+
+The cloud status dot and last-sync timing text MUST be visible at every screen width — desktop, tablet, phone. Mark's permanent rule. Inspectors need the live signal that data is actually syncing. The verbose "Saved to cloud" label MAY hide on narrow screens, the title MAY hide, the IDB indicator MAY hide, but `#cloud-dot` and `#last-sync-text` are the LAST things to lose visibility. If header runs out of room, move OTHER things into the hamburger menu first — including the day/night toggle if needed.
+
+Implementation: in `@media(max-width:1024px)`, whitelist `#cloud-status` alongside `#dark-toggle` and `#mobile-menu-btn` against the `header-actions > *` blanket-hide. Verbose text inside (`#cloud-status-text`) still hides at narrow widths via the existing rule.
+
 ## TODO: Site photo markup original-preservation flow
 
-**Per Mark, Push 1.10** — not implemented yet, recorded here for next session that touches site-photo markup:
+Recorded for next session that touches site-photo markup:
 
 When user marks up a site photo: keep the original untouched as a hidden backup AND save the markup as a SEPARATE marked-up photo. When user clears all markups (revert), the duplicated marked-up photo gets auto-deleted, leaving only the original. **Reference v1's `_origBackupId` field** on photo records and the revert flow. Mark explicitly said "go review V1 and copy exactly the feature." Required before site-photo markup is considered complete in v2.
 
