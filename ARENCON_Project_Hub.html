@@ -478,6 +478,14 @@ body.dark-mode .project-card-check{background:rgba(30,41,59,.9)}
 .project-card-export{position:absolute;bottom:12px;right:12px;background:none;border:none;font-size:calc(14px + var(--ts));cursor:pointer;color:var(--silver);opacity:0;transition:all .2s;padding:4px;line-height:1;z-index:2}
 .project-card:hover .project-card-export{opacity:1}
 .project-card-export:hover{color:#1D4ED8}
+/* S115 P13: Edit button on project card — sits left of the export icon. */
+.project-card-edit{position:absolute;bottom:12px;right:42px;background:none;border:none;font-size:calc(14px + var(--ts));cursor:pointer;color:var(--silver);opacity:0;transition:all .2s;padding:4px;line-height:1;z-index:2}
+.project-card:hover .project-card-edit{opacity:1}
+.project-card-edit:hover{color:var(--arencon)}
+/* Touch devices: keep both visible (no hover state). */
+@media (pointer:coarse){
+  .project-card-export, .project-card-edit{opacity:1}
+}
 .backup-status{font-size:calc(10px + var(--ts));padding:0 18px 8px;color:var(--silver);font-weight:500}
 .backup-status.not-backed{color:var(--warn)}
 /* ═══ PROJECT PHOTO GALLERY ═══ */
@@ -1793,9 +1801,20 @@ function _renderProjectCard(p, myId) {
   // Export button
   var exportBtnHtml = '<button class="project-card-export" onclick="event.stopPropagation();exportSingleProject(\'' + esc(p.id) + '\')" title="Export JSON">📥</button>';
 
+  // S115 P13: Edit button — opens the existing Edit Project modal directly
+  // from the dashboard tile (no need to navigate into the project first).
+  // Hidden for viewers (matches openEditProjectModal's role gate). Hover-
+  // reveal style matches the Export button. Includes @media(pointer:coarse)
+  // override in CSS so it's always visible on touch devices.
+  var canEdit = !(_profile && _profile.role === 'viewer');
+  var editBtnHtml = canEdit
+    ? '<button class="project-card-edit" onclick="event.stopPropagation();openEditProjectModal(\'' + esc(p.id) + '\')" title="Edit project info">✏️</button>'
+    : '';
+
   return '<div class="project-card" onclick="' + cardClick + '">'
     + bulkCheckHtml
     + exportBtnHtml
+    + editBtnHtml
     + '<div class="project-card-top"><span class="project-card-number">' + num + '</span><span class="project-card-name">' + name + '</span>'
     + '<button class="project-card-pin' + pinClass + '" onclick="event.stopPropagation();togglePin(\'' + esc(p.id) + '\')" title="' + (isPinned ? 'Unpin' : 'Pin for everyone') + '">' + pinIcon + '</button>'
     + '<button class="project-card-star' + starClass + '" onclick="event.stopPropagation();toggleStar(\'' + esc(p.id) + '\')" title="' + (isStarred ? 'Unstar' : 'Star') + '">' + starIcon + '</button>'
@@ -1867,6 +1886,10 @@ function toolName(key) {
 }
 
 var _detailProjectId = null;
+// S115 P13: tracks which project the Edit modal is currently editing.
+// Allows the Edit modal to be opened from the dashboard tile (without
+// first navigating into the project detail view).
+var _editingProjectId = null;
 
 /* ═══ Open Project — Detail View ═══ */
 function openProject(projectId) {
@@ -2246,14 +2269,22 @@ function _renderDetailInfo(proj) {
 }
 
 /* ═══ Edit Project Modal ═══ */
-function openEditProjectModal() {
-  if (!_detailProjectId) return;
-  var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
+// S115 P13: optional projectId arg so the dashboard tile can open this
+// modal directly without first navigating into the project detail view.
+// When called without an arg, falls back to _detailProjectId (legacy
+// detail-page behavior).
+function openEditProjectModal(projectId) {
+  var pid = projectId || _detailProjectId;
+  if (!pid) return;
+  var proj = _projects.find(function(p) { return p.id === pid; });
   if (!proj) return;
   if (_profile && _profile.role === 'viewer') {
     toast('Viewers cannot edit projects', 'error');
     return;
   }
+  // Stash the project we're editing so saveEditProject can find it even
+  // when the user isn't on the detail page.
+  _editingProjectId = pid;
   document.getElementById('ep-number').value = proj.project_number || '';
   document.getElementById('ep-name').value = proj.project_name || '';
   document.getElementById('ep-client').value = proj.client || '';
@@ -2267,11 +2298,15 @@ function openEditProjectModal() {
 
 function closeEditProjectModal() {
   document.getElementById('edit-project-modal').classList.remove('show');
+  _editingProjectId = null;
 }
 
 async function saveEditProject() {
-  if (!_detailProjectId) return;
-  var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
+  // S115 P13: prefer _editingProjectId (set by openEditProjectModal) over
+  // _detailProjectId so saving works from the dashboard tile too.
+  var pid = _editingProjectId || _detailProjectId;
+  if (!pid) return;
+  var proj = _projects.find(function(p) { return p.id === pid; });
   if (!proj) return;
   var num = document.getElementById('ep-number').value.trim();
   var name = document.getElementById('ep-name').value.trim();
@@ -2301,8 +2336,13 @@ async function saveEditProject() {
     // Update local
     Object.assign(proj, updates);
     closeEditProjectModal();
-    // Refresh detail view
-    openProject(proj.id);
+    // S115 P13: if the user was on the detail page, refresh it.
+    // Otherwise (dashboard tile flow), just re-render the tile grid.
+    if (_detailProjectId === pid) {
+      openProject(proj.id);
+    } else {
+      renderProjects();
+    }
     toast('Project updated', 'success');
   } catch (e) {
     toast('Failed to save: ' + e.message, 'error');
