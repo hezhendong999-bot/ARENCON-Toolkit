@@ -722,15 +722,20 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
 
 /* Mobile — hamburger ALWAYS visible; hides other btns ≤1024px */
 @media(max-width:1024px){
-  /* Hide header action buttons — keep dark toggle + hamburger */
+  /* Hide header action buttons — keep dark toggle + hamburger + cloud status */
   .header-actions>*{display:none!important;}
   .header-actions>#dark-toggle{display:inline-flex!important;}
   .header-actions>#mobile-menu-btn{display:inline-flex!important;}
+  /* S114 P7: cloud-status NEVER hides at any screen width — Mark's permanent rule.
+     Status dot + last-sync timing are the most important live signals to inspectors;
+     they confirm "is the data actually saved/syncing right now?". Verbose
+     "Saved to cloud" status-text inside is hidden separately below for compactness. */
+  .header-actions>#cloud-status{display:flex!important;}
   /* Hide left-side badges — project bar handles these now */
   #r2-upload-badge{display:none!important;}
   #issue-status-badge{display:none!important;}
   .header-nav-arrows{display:none!important;}
-  /* Cloud status: keep dot, hide text */
+  /* Cloud status: keep dot + last-sync timing, hide verbose label */
   #cloud-status-text{display:none!important;}
   #cloud-status{gap:0!important;padding:0!important;}
   .app-title{display:none!important;}
