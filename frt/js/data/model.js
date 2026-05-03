@@ -142,6 +142,29 @@ function _saveToIDB() {
   });
 }
 
+// ── S115: Drawing auto-dedup (ported from v1) ────────────────
+// v1 logic: keep first occurrence, drop later duplicates by name.
+// v2 enhancement: folder-scoped (folder|name) so the same name in
+// different folders is NOT treated as a duplicate. Returns the
+// number of drawings that were removed. Idempotent and safe to
+// call repeatedly. Pure function — does not save or notify.
+function _autoDedup(proj) {
+  if (!proj || !proj.drawings || proj.drawings.length < 2) return 0;
+  var seen = {}, keep = [];
+  proj.drawings.forEach(function(d) {
+    var folderKey = (d.folder || '').trim().toLowerCase();
+    var nameKey   = (d.name   || '').trim().toLowerCase();
+    var key = folderKey + '|' + nameKey;
+    if (!seen[key]) {
+      seen[key] = true;
+      keep.push(d);
+    }
+  });
+  var removed = proj.drawings.length - keep.length;
+  if (removed > 0) proj.drawings = keep;
+  return removed;
+}
+
 // ── Public API ───────────────────────────────────────────
 export var Model = {
 
@@ -205,6 +228,18 @@ export var Model = {
     if (!proj.nextDeficNum) proj.nextDeficNum = 1;
     if (!proj.status) proj.status = 'draft';
     if (!proj.id) proj.id = 'proj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+
+    // ── S115: drawing auto-dedup (port from v1) ──
+    // Defensive cleanup for projects loaded from IDB / cloud / pull where the
+    // drawings array contains duplicates. v1 ran this in 3 cloud-merge spots;
+    // v2's setProject is the single funnel for every load path so one call
+    // here covers all of them. Folder-scoped to respect v2's folder model
+    // (two drawings with the same name in different folders are NOT duplicates).
+    var _dedupRemoved = _autoDedup(proj);
+    if (_dedupRemoved > 0) {
+      console.log('[Model] AutoDedup: removed ' + _dedupRemoved + ' duplicate drawing(s) (' + proj.drawings.length + ' remaining)');
+    }
+
     _project = proj;
     _dirty = false;
     console.log('[Model] Project loaded:', buildSmartFilename(proj),
@@ -212,6 +247,8 @@ export var Model = {
       '| drawings:', proj.drawings.length,
       '| deficiencies:', this.getAllDeficiencies(proj).length);
     this._notify('project', proj);
+    // If dedup actually removed something, mark dirty so it gets persisted on next save.
+    if (_dedupRemoved > 0) { _dirty = true; _queueSave(); }
   },
 
   newProject: function(overrides) {
@@ -683,6 +720,21 @@ export var Model = {
     _queueSave();
     this._notify('drawing', { action: 'add', drawing: dwg });
     return dwg;
+  },
+
+  // S115: Public auto-dedup. Re-runs the folder-scoped name dedup
+  // and persists+notifies if anything was removed. Returns the
+  // number of duplicates removed. Safe to call any time.
+  autoDedup: function() {
+    if (!_project) return 0;
+    var removed = _autoDedup(_project);
+    if (removed > 0) {
+      _dirty = true;
+      _queueSave();
+      this._notify('drawing', { action: 'dedup', removed: removed });
+      console.log('[Model] AutoDedup: removed ' + removed + ' duplicate drawing(s)');
+    }
+    return removed;
   },
 
   // S83: Inspector attribution — app.js calls this on boot and whenever auth changes.
