@@ -2008,3 +2008,210 @@ Phase B (data migration) deferred to S115+.
 
 7. **iOS removal taught: don't be afraid to delete code permanently.** S113 deleted ~705 lines of iOS-specific code that had been accumulated across many earlier sessions. The codebase got measurably cleaner. Don't preserve dead code "just in case" — version control is the just-in-case.
 
+
+---
+
+# Session 113 Closeout — Strategic decisions + roadmap (May 2, 2026 final notes)
+
+These decisions came out of the end-of-S113 v1↔v2 audit conversation with Mark. Captured here to survive into S114 context.
+
+## NEW UX rules (must implement, S114 or S115)
+
+### Escape key behavior
+
+- **Escape closes popup modals** — pin editor modal, Issue/Revise/Revert modal, AI Review modal, Add Activity modal, Reassign modals, Inspector picker, etc.
+- **Escape NEVER closes the drawing viewer.** The drawing viewer is treated as a navigation tab, not a popup. Only clicking the back button closes it.
+- **Escape in drawing viewer cancels active markup state:**
+  - Clears the active markup tool (returns to pan/select mode)
+  - Deselects any selected markup objects
+  - **Does NOT delete the selected markups** — only deselects
+- Existing rule preserved: Escape cancels copy mode if active
+
+### Text markup workflow
+
+Current bug: clicking once to drop text, typing, then clicking elsewhere both confirms the text AND immediately starts a new text box. Should be a two-step flow:
+
+- Click → place caret, enter text-input mode
+- Type → text appears
+- Click elsewhere → **confirms text only**, returns to text-tool-active-but-no-active-input state
+- Click again → start a new text box
+
+Single click confirms; user must click a second time to drop another text. Prevents accidental "ghost text boxes" when clicking around to inspect a finding.
+
+## Decisions on v1 features (post-audit)
+
+### KEEP / port to v2
+
+- **`_autoDedup`** — content-hash-based dedup of drawings on import. Critical for v1→v2 migration safety.
+- **`openProjectQuickEdit`** — right-click (or long-press) project tile in Hub → small popup to edit name/number/client/address inline. ~80 lines.
+- **`openPinEditor` modal** — port from v1. Click pin on drawing viewer → full pin editor modal opens on top of drawing → all fields editable in-place → save closes modal, drawing stays. v2 currently does NOT have this (clicks go nowhere or jump to deficiency tab depending on context). Mark explicitly prefers v1's "stay in drawing context" UX.
+- **`_buildDeficDescSuggestions`** — autocomplete dropdown of past observation/entry descriptions. ~30 lines + datalist injection.
+- **ZIP bulk photo download** — JSZip-based, lazy-loaded from CDN. Photo gallery "Export selected" → single ZIP file.
+
+### REPLACE with better alternative
+
+- **`softLock` → presence heartbeat indicator.** Don't port the 20-min lockout overlay. Instead: every 30s send a "user X active on project Y" ping to a new `project_presence` table. Header shows "👤 Mark · 👤 Leslie editing now" when more than one user has heartbeated in last 60s. No lockout. No overlay. Modern collaborative-editing pattern.
+- **`_checkBackupReminder` → "Last cloud sync: X ago" indicator.** Small text near the cloud dot, color-coded freshness (green <1min, amber 1-5min, red >5min). Replaces the anachronistic 30-day-old "back up your data" banner. Cloud is the backup now.
+
+### SKIP permanently (don't port)
+
+- **`showDeficTemplates`** — NFPA template picker library. Replaced by descSuggestions (item above) + AI Quick Fix.
+- **`showWipeConfirmation`** — type-to-confirm WIPE modal. Standard `showConfirm` is sufficient now that cloud is the backup.
+
+## Deletion + restore model (Phase 2 — already in roadmap)
+
+Mark's question: "Don't let staff permanently delete (in case fired/vindictive), but don't pile up either."
+
+**Solution: soft-delete with admin-only restore + 90-day auto-purge + daily R2 backup.**
+
+### Schema (Phase 2)
+
+`projects` table gets `deleted_at TIMESTAMPTZ NULL`. Reads default-filter `WHERE deleted_at IS NULL`. Deletion sets `deleted_at = NOW()` instead of `DELETE`.
+
+### Two-tier permission
+
+- **Staff** — soft-delete their projects. Project moves to "Trash" view (hidden by default). Staff cannot see the Trash.
+- **Admin** (Mark, Leslie, Shaun) — see Trash. Two ops: Restore (sets `deleted_at = NULL`) or Permanently Delete (real `DELETE` + R2 cleanup).
+
+### Vindictive-deletion protection (3 layers)
+
+1. **90-day auto-purge** — cron Worker permanently deletes rows where `deleted_at < NOW() - 90 days`. Staff can't accelerate; admin can purge early.
+2. **Audit trail** — `deletion_log` table: `user_id`, `project_id`, `deleted_at`, optional `reason`. Admin sees who deleted what when, last 12 months.
+3. **Daily R2 backup Worker** — Cloudflare cron pulls every project as JSON to `arencon-files/backups/YYYY-MM-DD/`. Even after permanent delete + R2 cleanup, previous day's backup snapshot exists. Recoverable from R2 for ~30-90 days.
+
+### Result
+
+- Click Delete → 90 days in Trash → gone forever (auto-purged) — handles "piling up"
+- Vindictive deletion before quitting → admin sees Trash → one-click Restore — handles "fired/vindictive"
+- Hard delete via API somehow → daily R2 backup still has it — last-resort safety net
+
+This is exactly what Phase 2 of the Strategic Roadmap is designed for. Already documented in `ARENCON_Strategic_Roadmap.md`. Doesn't need a separate session — it's on the docket as part of `user_profiles` + role enum + soft-delete columns work.
+
+## AI chatbot in Hub — extended scope
+
+Approved by Mark with extensions. Sessions S118-S122. Below is the agreed scope:
+
+### Capabilities
+
+**A. Pattern recognition / cross-project search:**
+- "Find all deficiencies mentioning sprinkler deflector below light fixture"
+- "Have we seen this issue before at any other building?"
+- "Which projects have similar fire alarm issues to Caplink?"
+
+**B. Time-based queries:**
+- "Show me all outstanding deficiencies older than 60 days"
+- "Which projects haven't had a field review in the past 3 months?"
+- "How many deficiencies were closed last week?"
+
+**C. Contractor accountability:**
+- "How many open IAR items does Vipond have across all projects?"
+- "Which contractor closes deficiencies fastest on average?"
+- "Show me Site General deficiencies open >30 days"
+
+**D. Quick navigation:**
+- "Open Caplink page 5"
+- "Show me deficiency #14 on Sprucewood"
+- "Find Field Review Report #3 for Sprucewood project"
+- Auto-suggests as user types project names / numbers
+
+**E. Report generation shortcuts:**
+- "Generate a draft executive summary for Caplink B01"
+- "What's the current status breakdown for all active projects?"
+- "Email Leslie a list of projects pending review"
+
+**F. NEW per Mark — Summary reports with charts:**
+- "List the top 5 contractors with the most deficiencies, make a bar chart"
+- "Pie chart of open vs closed deficiencies by project status"
+- "Histogram of deficiency closure time across last 6 months"
+- "Stacked bar: priority breakdown per contractor"
+
+Charts rendered inline in chat using **Chart.js** (Cloudflare CDN, lazy-loaded like JSZip). Agent generates data + chart spec; frontend renders. Optional "Download as PNG/PDF" on each chart.
+
+### Architecture
+
+Reuse existing `arencon-ai-worker.hezhendong999.workers.dev`. New chat endpoint takes:
+
+```js
+{
+  query: "find all sprinkler deflector findings",
+  context: {
+    user_role: "admin",
+    accessible_project_ids: [...]  // RLS-filtered list
+  }
+}
+```
+
+Worker:
+1. Fetches relevant project rows from Supabase (filtered by `accessible_project_ids`)
+2. Compresses into structured context
+3. Sends prompt with tool-use schema: agent can call `get_project(id)`, `search_deficiencies(query, filters)`, `get_drawing(id)`, `generate_link(type, id)`, `generate_chart(type, data)`
+4. Returns formatted response with embedded markdown links + chart specs
+
+Cost logged to `ai_usage_log` like every other AI call.
+
+### Phasing
+
+Built **after Phase A + Phase 2 (RLS + roles)** because the agent needs role-aware filtering to be safe.
+
+- **S118** — Backend: Worker route + Claude tool-use schema for project / deficiency / drawing queries
+- **S119** — Frontend: Chat UI panel in Hub + deep-link generator + voice-input integration
+- **S120** — Iterate on prompt engineering: which queries work, which need refinement
+- **S121** — Add advanced capabilities (time-based, accountability, summary reports + charts)
+- **S122** — Polish + edge cases
+
+## Voice-to-text + AI cleanup pipeline
+
+Approved. Two-stage:
+
+### Stage 1 — Speech-to-text (S116)
+
+Free, browser-native via `webkitSpeechRecognition`. ~30 lines. 🎤 button on description fields → speak → raw transcript appears.
+
+### Stage 2 — AI cleanup via Quick Fix (S117)
+
+Pipe raw transcript through existing AI Quick Fix path (Haiku, cheap). Adds:
+- Punctuation
+- Number normalization ("forty-five feet four inches" → `45'-4"`)
+- Engineering vocabulary correction ("sprinkle effector" → "sprinkler deflector")
+- NFPA/OBC reference formatting ("OBC three point two point five" → "OBC 3.2.5")
+- Sentence structure (fragments → coherent prose)
+
+Side-by-side UI: raw on left, cleaned on right, accept/edit/use-raw buttons.
+
+Cost: ~$0.0003 per finding × 1000 findings/month = **$0.30/month**. Negligible. Time savings 3-5x faster description entry.
+
+The chatbot input field also becomes voice-input, providing a unified natural-language entry point.
+
+## Backlog / nice-to-have / future
+
+These are noted but not scheduled. Build only when explicitly requested:
+
+- **Photo tags** (per-photo "before/after/evidence/context" labels). Mostly relevant for multi-visit commissioning projects.
+- **Contractor portal** — separate Hub-style entry, contractor sees their deficiencies, marks addressed, uploads evidence. Phase 5+ scope. Real value for contractor accountability but complex (auth + RLS + role).
+- **NFPA Link integration** — investigate if NFPA Link has a public URL pattern. If yes, ~10 lines for "🔗 Look up" button next to deficiency descriptions. If no, dropped permanently.
+
+### Don't build (decided against)
+
+- **Sub-deficiencies / parent-child structure** — observations cover this. Adding tree structure complicates data model without proportional value.
+- **`showDeficTemplates`** (NFPA template library) — descSuggestions + AI Quick Fix replace this.
+- **`_checkBackupReminder`** — replaced by Last-sync indicator.
+- **`showWipeConfirmation`** type-to-confirm — standard confirm sufficient now that cloud is backup.
+- **Pin editor modal-jump-to-deficiency** UX — Mark explicitly prefers in-context modal. v2's tab-jump is wrong direction.
+
+## Updated session priority queue
+
+| Session | Scope |
+|---|---|
+| **S114** (LOCKED) | Phase A — Hub dual launcher + cloud sync verification + "Last sync: X ago" indicator + escape key rule + text markup workflow fix |
+| **S115** | Multi-user safety + UX wins: presence heartbeat, `_autoDedup`, `openProjectQuickEdit`, port v1 pin editor modal to v2 |
+| **S116** | Productivity batch: `_buildDeficDescSuggestions`, ZIP bulk photo download, voice-to-text basic (🎤 button) |
+| **S117** | Voice + AI Quick Fix integration (cleanup pipeline) |
+| **S118-S119** | Drawing revision tracking |
+| **S120-S122** | AI chatbot in Hub (cross-project agent + summary reports + charts) |
+| **S123+** | Symbol stamps, offline-first UX clarity polish |
+| **Backlog** | Contractor portal, photo tags, NFPA Link if URL pattern exists |
+
+## Phase 2 (RLS + soft-delete) is already documented separately
+
+`HANDOFF_SESSION_114.md` (the next-session pickup) carries Phase A specifically. Phase 2 of the Strategic Roadmap (`user_profiles`, role enum, soft-delete columns, daily backup Worker) is its own track, scheduled per `ARENCON_Strategic_Roadmap.md`. Don't conflate with Phase A.
+
