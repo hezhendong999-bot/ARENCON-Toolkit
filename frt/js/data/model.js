@@ -332,6 +332,43 @@ export var Model = {
     }
   },
 
+  // S116 Push 5: rename a contractor in place. Pins reference contractors by
+  // id (not by name), so the rename takes effect everywhere automatically —
+  // defic cards, summary tab, PDF export grouping, etc. all re-render with
+  // the new name on the next render cycle. Name is trimmed; empty names
+  // are rejected (returns false).
+  renameContractor: function(ctrId, newName) {
+    if (!_project) return false;
+    var trimmed = (newName || '').trim();
+    if (!trimmed) return false;
+    var ctr = (_project.contractors || []).find(function(c) { return c.id === ctrId; });
+    if (!ctr) return false;
+    if (ctr.name === trimmed) return true; // no-op, treat as success
+    ctr.name = trimmed;
+    _dirty = true;
+    _queueSave();
+    this._notify('contractor', { action: 'rename', id: ctrId, name: trimmed });
+    return true;
+  },
+
+  // S116 Push 5: delete a contractor AND reassign its deficiencies to
+  // Site General (instead of orphaning them, which is what removeContractor
+  // by itself would do). Returns the count of deficiencies reassigned.
+  deleteContractorAndReassign: function(ctrId) {
+    if (!_project) return 0;
+    var idx = _project.contractors.findIndex(function(c) { return c.id === ctrId; });
+    if (idx < 0) return 0;
+    var ctr = _project.contractors[idx];
+    var moved = (ctr.deficiencies || []).slice(); // shallow copy
+    if (!_project.generalDeficiencies) _project.generalDeficiencies = [];
+    moved.forEach(function(d) { _project.generalDeficiencies.push(d); });
+    _project.contractors.splice(idx, 1);
+    _dirty = true;
+    _queueSave();
+    this._notify('contractor', { action: 'remove', id: ctrId, reassigned: moved.length });
+    return moved.length;
+  },
+
   // ── Deficiency Mutations ─────────────────────────────
   addDeficiency: function(ctrId) {
     if (!_project) return null;

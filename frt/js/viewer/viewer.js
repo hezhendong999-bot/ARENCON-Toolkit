@@ -1525,13 +1525,20 @@ function _openPinEditor(deficId) {
   document.getElementById('pe-title').textContent = 'Pin #' + d.num + ' \u2014 ' + prLabel;
 
   // Contractor dropdown
+  // S116 Push 5: extended with "+ New Contractor…" option at the bottom
+  // and edit/delete buttons in a sibling row below. See _peRenderCtrCrudRow.
   var cSel = document.getElementById('pe-contractor');
+  var curCtrId = f.contractor ? f.contractor.id : '';
   if (cSel) {
     var proj = Model.getProject();
-    var opts = '<option value=""' + (!f.contractor ? ' selected' : '') + '>Site General</option>';
-    (proj.contractors || []).forEach(function(c) { opts += '<option value="' + c.id + '"' + (f.contractor && f.contractor.id === c.id ? ' selected' : '') + '>' + c.name + '</option>'; });
+    var opts = '<option value=""' + (!curCtrId ? ' selected' : '') + '>Site General</option>';
+    (proj.contractors || []).forEach(function(c) {
+      opts += '<option value="' + c.id + '"' + (curCtrId === c.id ? ' selected' : '') + '>' + String(c.name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</option>';
+    });
+    opts += '<option value="__new__">+ New Contractor\u2026</option>';
     cSel.innerHTML = opts;
   }
+  _peRenderCtrCrudRow(curCtrId);
 
   // Date
   var dateIn = document.getElementById('pe-date');
@@ -1636,6 +1643,69 @@ function _openPinEditor(deficId) {
   _renderPinMiniMap(d, 'pe-location-thumb-mobile');
 
   overlay.style.display = 'flex';
+}
+
+// S116 Push 5: contractor edit/delete + new-contractor inline input,
+// rendered directly under the CONTRACTOR dropdown in the pin editor.
+//
+// Three states managed here:
+//   - 'idle' (default)  — show ✏️ Edit / 🗑️ Delete buttons when a real
+//                         contractor is selected; hide them for Site General.
+//   - 'new'             — show inline name input + ✓/✕ buttons. Picked from
+//                         the "+ New Contractor…" dropdown option.
+//   - 'edit'            — show inline name input pre-filled with the current
+//                         name + ✓/✕. Picked from clicking ✏️ Edit.
+//
+// The "previous selection" is tracked so picking "+ New Contractor…" then
+// cancelling restores the dropdown to whatever was selected before.
+var _ctrCrudMode = 'idle';
+var _ctrCrudPrevSel = '';
+function _peRenderCtrCrudRow(curCtrId) {
+  var cSel = document.getElementById('pe-contractor');
+  var ctrField = cSel ? cSel.parentElement : null;
+  if (!ctrField) return;
+  // Re-injection pattern: clean up the previous row by id so re-renders
+  // don't stack copies. The action row may live in a different parent
+  // (cSel.parentElement vs cSel.parentElement.parentElement) depending on
+  // future layout shifts — search globally to be safe.
+  var oldRow = document.getElementById('pe-ctr-crud-row');
+  if (oldRow && oldRow.parentNode) oldRow.parentNode.removeChild(oldRow);
+
+  var hasCtr = !!curCtrId && curCtrId !== '__new__';
+  var actionsDisplay = (_ctrCrudMode === 'idle' && hasCtr) ? 'flex' : 'none';
+  var inputDisplay   = (_ctrCrudMode === 'new' || _ctrCrudMode === 'edit') ? 'flex' : 'none';
+  var inputPrefill   = '';
+  if (_ctrCrudMode === 'edit' && hasCtr) {
+    var p = Model.getProject();
+    var c = (p && p.contractors ? p.contractors : []).find(function(cc){ return cc.id === curCtrId; });
+    if (c) inputPrefill = String(c.name || '').replace(/"/g, '&quot;');
+  }
+
+  // Style refs match the muted action-button palette used elsewhere in the
+  // pin editor. Edit = slate-blue tint, Delete = red tint, ✓ confirm = green
+  // tint. All inline so the row works regardless of CSS load order.
+  var crudRow = document.createElement('div');
+  crudRow.id = 'pe-ctr-crud-row';
+  crudRow.style.cssText = 'margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
+  crudRow.innerHTML = ''
+    + '<div id="pe-ctr-actions" style="display:' + actionsDisplay + ';gap:6px;">'
+      + '<button id="pe-ctr-edit" type="button" title="Rename this contractor" style="background:transparent;border:1px solid #5A6E80;color:#5A6E80;border-radius:5px;padding:2px 8px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));cursor:pointer;">\u270F\uFE0F Edit</button>'
+      + '<button id="pe-ctr-del" type="button" title="Delete this contractor" style="background:transparent;border:1px solid #A85959;color:#A85959;border-radius:5px;padding:2px 8px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));cursor:pointer;">\uD83D\uDDD1\uFE0F Delete</button>'
+    + '</div>'
+    + '<div id="pe-ctr-input-row" style="display:' + inputDisplay + ';align-items:center;gap:4px;flex:1;min-width:160px;">'
+      + '<input type="text" id="pe-ctr-input" placeholder="Contractor name\u2026" value="' + inputPrefill + '" style="flex:1;min-width:0;padding:4px 8px;border:1.5px solid var(--border);border-radius:5px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));">'
+      + '<button id="pe-ctr-confirm" type="button" title="Confirm" style="background:#5C7A65;color:white;border:none;border-radius:5px;width:28px;height:28px;padding:0;font-family:Calibri,sans-serif;font-size:14px;cursor:pointer;flex-shrink:0;">\u2713</button>'
+      + '<button id="pe-ctr-cancel" type="button" title="Cancel" style="background:transparent;border:1px solid var(--border);color:var(--silver);border-radius:5px;width:28px;height:28px;padding:0;font-family:Calibri,sans-serif;font-size:14px;cursor:pointer;flex-shrink:0;">\u2715</button>'
+    + '</div>';
+  ctrField.appendChild(crudRow);
+
+  // Auto-focus the input when shown so the user can type immediately.
+  if (inputDisplay === 'flex') {
+    var inp = document.getElementById('pe-ctr-input');
+    if (inp) {
+      setTimeout(function(){ inp.focus(); inp.select(); }, 30);
+    }
+  }
 }
 
 function _peRenderObsTabs(d) {
@@ -1892,7 +1962,11 @@ function _savePinEditor() {
 
   // Read fields — contractor assignment
   var cSel = document.getElementById('pe-contractor');
-  if (cSel != null) {
+  // S116 Push 5: skip contractor reassignment when value is the synthetic
+  // "__new__" sentinel (user picked "+ New Contractor…" but hasn't confirmed
+  // the new name yet). Otherwise the defic would be yanked from its current
+  // bucket without being re-added anywhere.
+  if (cSel != null && cSel.value !== '__new__') {
     var proj = Model.getProject();
     var newCtrId = cSel.value || null; // empty string = Site General = null
     var oldCtrId = f.contractor ? f.contractor.id : null;
@@ -1985,8 +2059,10 @@ function _pinAutoSave() {
     var d = f.defic;
 
     // Contractor assignment (same logic as _savePinEditor, minus close).
+    // S116 Push 5: skip when value is the "__new__" sentinel — user hasn't
+    // confirmed the new name yet; reassigning would orphan the defic.
     var cSel = document.getElementById('pe-contractor');
-    if (cSel != null) {
+    if (cSel != null && cSel.value !== '__new__') {
       var proj = Model.getProject();
       var newCtrId = cSel.value || null;
       var oldCtrId = f.contractor ? f.contractor.id : null;
@@ -2063,12 +2139,50 @@ document.addEventListener('input', function(e) {
   if (!t || !_peDeficId) return;
   if (t.id === 'pe-obs-text' || t.id === 'pe-date') _pinAutoSave();
 });
+
+// S116 Push 5: Enter-to-confirm on the contractor name input. Lets users
+// add/rename a contractor without reaching for the ✓ button.
+document.addEventListener('keydown', function(e) {
+  if (!_peDeficId) return;
+  if (e.target && e.target.id === 'pe-ctr-input' && e.key === 'Enter') {
+    e.preventDefault();
+    var btn = document.getElementById('pe-ctr-confirm');
+    if (btn) btn.click();
+  } else if (e.target && e.target.id === 'pe-ctr-input' && e.key === 'Escape') {
+    e.preventDefault();
+    var btnCx = document.getElementById('pe-ctr-cancel');
+    if (btnCx) btnCx.click();
+  }
+});
 document.addEventListener('change', function(e) {
   var t = e.target;
   if (!t || !_peDeficId) return;
+
+  // S116 Push 5: "+ New Contractor…" picked from the dropdown.
+  // Don't auto-save on this synthetic value — it's not a real contractor id;
+  // the auto-save logic would yank the defic out of its current bucket and
+  // try to push it under a non-existent contractor. Instead enter 'new' mode
+  // which exposes the inline input + ✓/✕ buttons; on confirm we add the
+  // contractor and re-render. On cancel we revert the dropdown.
+  if (t.id === 'pe-contractor' && t.value === '__new__') {
+    _ctrCrudPrevSel = ''; // restore to whatever was previously saved
+    var fNc = Model.findDeficiency(_peDeficId);
+    if (fNc && fNc.contractor) _ctrCrudPrevSel = fNc.contractor.id;
+    _ctrCrudMode = 'new';
+    _peRenderCtrCrudRow('__new__');
+    return;
+  }
+
   if (t.id === 'pe-contractor' || t.id === 'pe-date' || t.id === 'pe-status'
       || t.id === 'pe-obs-ctr' || t.id === 'pe-move-to' || t.id === 'pe-move-to-mobile') {
     _pinAutoSave();
+    // S116 Push 5: real contractor change — refresh the CRUD row so the
+    // edit/delete buttons reflect the new selection (visible only for real
+    // contractors, hidden for Site General).
+    if (t.id === 'pe-contractor') {
+      _ctrCrudMode = 'idle';
+      _peRenderCtrCrudRow(t.value || '');
+    }
     // Per-obs contractor change: re-render content so the ✕ Reset button
     // appears/disappears in sync with the override state.
     if (t.id === 'pe-obs-ctr') {
@@ -2091,6 +2205,114 @@ document.addEventListener('click', function(e) {
   if (e.target.closest && e.target.closest('#pe-close')) { _closePinEditor(); return; }
   if (e.target.closest && e.target.closest('#pe-cancel')) { _closePinEditor(); return; }
   if (e.target.closest && e.target.closest('#pe-save')) { _savePinEditor(); return; }
+
+  // S116 Push 5: contractor CRUD inside pin editor (Edit / Delete / new+confirm).
+  // Edit → swap to inline input pre-filled with current name.
+  if (e.target.closest && e.target.closest('#pe-ctr-edit')) {
+    if (!_peDeficId) return;
+    var fE = Model.findDeficiency(_peDeficId);
+    if (!fE || !fE.contractor) return;
+    _ctrCrudMode = 'edit';
+    _peRenderCtrCrudRow(fE.contractor.id);
+    return;
+  }
+  // Delete → confirm + reassign deficiencies to Site General + remove.
+  if (e.target.closest && e.target.closest('#pe-ctr-del')) {
+    if (!_peDeficId) return;
+    var fD = Model.findDeficiency(_peDeficId);
+    if (!fD || !fD.contractor) return;
+    var ctrIdDel = fD.contractor.id;
+    var ctrNameDel = fD.contractor.name || 'this contractor';
+    var deficCount = (fD.contractor.deficiencies || []).length;
+    var msg = deficCount > 1
+      ? 'Delete "' + ctrNameDel + '"? Its ' + deficCount + ' deficiencies will be moved to Site General.'
+      : (deficCount === 1
+        ? 'Delete "' + ctrNameDel + '"? Its 1 deficiency will be moved to Site General.'
+        : 'Delete "' + ctrNameDel + '"?');
+    showConfirm('Delete contractor', msg).then(function(yes) {
+      if (!yes) return;
+      var moved = Model.deleteContractorAndReassign(ctrIdDel);
+      Model.saveNow();
+      // After delete this defic now lives in generalDeficiencies. Re-open
+      // the editor to refresh dropdown + state, then nudge defic tab + tasks.
+      var stillId = _peDeficId;
+      _closePinEditor();
+      setTimeout(function() {
+        _openPinEditor(stillId);
+        if (window._frtRenderTasks) window._frtRenderTasks();
+      }, 50);
+      toast(moved > 0 ? '\u2713 Deleted, moved ' + moved + ' deficiencies to Site General' : '\u2713 Contractor deleted');
+    });
+    return;
+  }
+  // Confirm new contractor or rename existing
+  if (e.target.closest && e.target.closest('#pe-ctr-confirm')) {
+    if (!_peDeficId) return;
+    var inp = document.getElementById('pe-ctr-input');
+    if (!inp) return;
+    var nameVal = (inp.value || '').trim();
+    if (!nameVal) { toast('\u26A0 Name cannot be empty'); inp.focus(); return; }
+    var p5 = Model.getProject();
+    if (_ctrCrudMode === 'new') {
+      // Duplicate-name guard (case-insensitive). Match → auto-select instead
+      // of creating a duplicate, which would confuse downstream PDF grouping.
+      var nameLower = nameVal.toLowerCase();
+      var existing = (p5 && p5.contractors ? p5.contractors : []).find(function(c){ return (c.name || '').trim().toLowerCase() === nameLower; });
+      var newCtrId;
+      if (existing) {
+        newCtrId = existing.id;
+        toast('Already exists \u2014 selected "' + existing.name + '"');
+      } else {
+        var newCtr = Model.addContractor(nameVal);
+        if (!newCtr) { toast('\u26A0 Could not add contractor'); return; }
+        newCtrId = newCtr.id;
+      }
+      // Reassign this defic to the new (or matched) contractor.
+      var fSel = Model.findDeficiency(_peDeficId);
+      if (fSel) {
+        var oldCtr = fSel.contractor;
+        if (oldCtr && oldCtr.deficiencies) {
+          oldCtr.deficiencies = oldCtr.deficiencies.filter(function(x){ return x.id !== _peDeficId; });
+        } else if (!oldCtr && p5.generalDeficiencies) {
+          p5.generalDeficiencies = p5.generalDeficiencies.filter(function(x){ return x.id !== _peDeficId; });
+        }
+        var targetCtr = (p5.contractors || []).find(function(c){ return c.id === newCtrId; });
+        if (targetCtr) {
+          if (!targetCtr.deficiencies) targetCtr.deficiencies = [];
+          targetCtr.deficiencies.push(fSel.defic);
+        }
+      }
+      Model.saveNow();
+      _ctrCrudMode = 'idle';
+      var stillIdNew = _peDeficId;
+      _closePinEditor();
+      setTimeout(function() { _openPinEditor(stillIdNew); }, 30);
+      if (!existing) toast('\u2713 Added "' + nameVal + '"');
+    } else if (_ctrCrudMode === 'edit') {
+      var fEd = Model.findDeficiency(_peDeficId);
+      if (!fEd || !fEd.contractor) return;
+      var ok = Model.renameContractor(fEd.contractor.id, nameVal);
+      if (!ok) { toast('\u26A0 Could not rename'); return; }
+      Model.saveNow();
+      _ctrCrudMode = 'idle';
+      var stillIdRn = _peDeficId;
+      _closePinEditor();
+      setTimeout(function() { _openPinEditor(stillIdRn); }, 30);
+      toast('\u2713 Renamed to "' + nameVal + '"');
+    }
+    return;
+  }
+  // Cancel new/rename — revert dropdown to previous selection
+  if (e.target.closest && e.target.closest('#pe-ctr-cancel')) {
+    if (!_peDeficId) return;
+    var fCx = Model.findDeficiency(_peDeficId);
+    var prevCurId = fCx && fCx.contractor ? fCx.contractor.id : '';
+    var cSelCx = document.getElementById('pe-contractor');
+    if (cSelCx) cSelCx.value = prevCurId;
+    _ctrCrudMode = 'idle';
+    _peRenderCtrCrudRow(prevCurId);
+    return;
+  }
 
   // S116 Push 2/3: "Go to drawing" — navigate-only (uses _frtNavigateToPin
   // which handles tab switch, drawing load, and pulse highlight). Critically
