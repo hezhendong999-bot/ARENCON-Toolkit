@@ -972,9 +972,22 @@ document.addEventListener('frt-markup-saved', function(e) {
   var origBlobSrc = photo._origBlob || null;
   var existingBackupId = photo._origBackupId || null;
 
+  // S115 P8: detect corrupted state — preKey points at the /marked/ folder.
+  // This means the photo was previously marked up but its _origBackupId got
+  // cleared (e.g. by a bad earlier revert that restored to a marked-path
+  // backup). Treat as if preKey were empty so we fall to CASE 3 (upload
+  // _origBlob) or CASE 4 (no backup).
+  var preKeyIsMarked = preKey && preKey.indexOf('/marked/') >= 0;
+  if (preKeyIsMarked) {
+    console.warn('[Markup save] preKey points at /marked/ folder — treating as no preKey (corrupted state recovery):', preKey);
+    preKey = '';
+    preUrl = '';
+  }
+
   console.log('[Markup save] start', {
     photoId: photo.id,
     preKey: preKey,
+    preKeyWasMarked: preKeyIsMarked,
     hasOrigBlob: !!origBlobSrc,
     existingBackupId: existingBackupId,
     isReSave: !!existingBackupId
@@ -1190,6 +1203,37 @@ document.addEventListener('frt-markup-reverted', function(e) {
   var origUrl = backup.r2Url || '';
   var origThumb = backup.thumb || '';
   var markedKey = photo.r2Key || '';
+
+  // S115 P8: Corrupted-state detection. If the backup's r2Key is itself a
+  // /marked/ path, the backup was created in a buggy state where the photo's
+  // r2Key was already pointing at a marked file. Restoring would just put
+  // the photo back at the same marked path (no actual change). Worse, we'd
+  // delete the marked file (the only remaining copy of the image) leaving
+  // the photo pointing at a 404. Abort and tell the user what's going on.
+  if (origKey.indexOf('/marked/') >= 0) {
+    console.error('[Markup revert] CORRUPTED BACKUP: backup r2Key is itself /marked/ — original is lost. Aborting revert to avoid deleting the marked file.');
+    alert('Cannot revert this photo — the original backup record is corrupted (points at a marked file, not an original). The original image was lost in an earlier session. The current marked-up version will be kept as-is. To clear the corruption, re-take this photo.\n\nKey: ' + origKey);
+    // Clear corruption flags so subsequent markups don't try to use this bad backup.
+    delete photo._origBackupId;
+    delete photo._annotated;
+    // Remove the bad backup record from the gallery so it stops appearing as a duplicate.
+    Model.removeSitePhotoById(backup.id);
+    Model.saveNow();
+    if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+    return;
+  }
+  // S115 P8: Sanity check — if photo and backup share the same r2Key, restoring
+  // is a no-op AND would delete the only copy of the image. Bail.
+  if (markedKey && markedKey === origKey) {
+    console.error('[Markup revert] CORRUPTED STATE: photo and backup share r2Key — refusing to revert');
+    alert('Cannot revert this photo — the photo and its backup point at the same R2 file (a corrupted state from an earlier session). To clear the corruption, re-take this photo.');
+    delete photo._origBackupId;
+    delete photo._annotated;
+    Model.removeSitePhotoById(backup.id);
+    Model.saveNow();
+    if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+    return;
+  }
 
   var siblings = markedKey ? Model.findPhotosByR2Key(markedKey) : [];
   // Filter out the backup itself (defensive — it shouldn't share the marked key, but just in case)
