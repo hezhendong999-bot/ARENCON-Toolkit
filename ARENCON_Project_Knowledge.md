@@ -2240,6 +2240,8 @@ S114 shipped 14 commits: 10 incremental UI/UX/AI pushes (1.1–1.10) plus the fo
 | 2   | 158f77e9 | Hub flip-to-v2 default; v1 archived to `legacy/ARENCON_Field_Review_Tool_v1.html` |
 | 3   | 5c079424 | "Last sync: X ago" indicator with muted color-coded freshness |
 | 4   | f62a7fe6 | Global Escape modal handler; text-markup two-step |
+| 5   | 561281f0 | (interim closeout — superseded by P6 closeout) |
+| 6   | 08778929 | Header reshuffle — title left-anchored; status/undo/redo moved to right cluster so the title can no longer shift |
 
 ## V1→V2 schema migration (audited safe in S114)
 
