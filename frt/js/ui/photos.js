@@ -1248,6 +1248,11 @@ document.addEventListener('frt-markup-reverted', function(e) {
   });
   console.log('[Markup revert] restoring', siblings.length, 'sibling(s) to original');
 
+  // S115 P9: also restore the original addedDate from the backup. Save bumped
+  // sibling addedDate to today; revert must roll it back so reverted photos
+  // don't appear under today's date in the gallery.
+  var origAddedDate = backup.addedDate || '';
+
   siblings.forEach(function(s){
     var sp = s.photo; if (!sp) return;
     sp.r2Key = origKey;
@@ -1255,6 +1260,7 @@ document.addEventListener('frt-markup-reverted', function(e) {
     sp.r2Status = 'uploaded';
     if (origThumb) sp.thumb = origThumb;
     else delete sp.thumb;
+    if (origAddedDate) sp.addedDate = origAddedDate;
     delete sp._annotated;
     delete sp._origBackupId;
     delete sp.dataUrl;

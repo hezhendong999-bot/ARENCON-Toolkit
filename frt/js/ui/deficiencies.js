@@ -1277,6 +1277,10 @@ document.addEventListener('input', function(e) {
 
 // Re-render when project loads
 Model.onChange('project', function() { initDeficiencies.render(); });
+// S115 P9: also re-render when photos change (e.g., markup save/revert mutates
+// r2Key/r2Url on defic photos — without this hook the defic tab keeps showing
+// the old image because the DOM never refreshes).
+Model.onChange('photo', function() { initDeficiencies.render(); });
 
 // ── Photo Upload Handling ────────────────────────────────
 var _photoTargetDeficId = null;
