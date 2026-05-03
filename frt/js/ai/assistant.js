@@ -661,9 +661,312 @@ function _closeMenu() {
 export var AIAssist = {
   reviewAll: reviewAll,
   suggestFromPhotos: suggestFromPhotos,
+  // S114 P1.6 — inline scratchpad ↓
+  openScratchpadFromPhoto: openScratchpadFromPhoto,
+  openScratchpadFromAllPhotos: openScratchpadFromAllPhotos,
+  shortenScratchpad: shortenScratchpad,
+  shortenUserText: shortenUserText,
+  mergeScratchpad: mergeScratchpad,
+  discardScratchpad: discardScratchpad,
+  scratchpadHasContent: function(deficId, obsIdx) { return _spHasContent(deficId, obsIdx); },
+  scratchpadGet: function(deficId, obsIdx) { return _spState[_spKey(deficId, obsIdx)] || null; },
+  scratchpadEdit: function(deficId, obsIdx, newText) {
+    var s = _spState[_spKey(deficId, obsIdx)];
+    if (s) s.text = newText;
+  },
+  repopulateAllScratchpads: function() {
+    Object.keys(_spState).forEach(function(k) {
+      var lastColon = k.lastIndexOf(':');
+      if (lastColon < 0) return;
+      var did = k.substring(0, lastColon);
+      var oIdx = parseInt(k.substring(lastColon + 1));
+      _spRender(did, oIdx);
+    });
+  },
   _toggleMenu: _toggleMenu,
   _closeMenu: _closeMenu
 };
+
+// ── S114 P1.6 — Inline AI Scratchpad ────────────────────
+// Per-observation persistent scratchpad. Multi-photo accumulation, three merge
+// actions (Insert/Append/Replace via execCommand for native Ctrl+Z), Shorten
+// (twice — for AI text in scratchpad, and for user text in textarea).
+// State key format: "<deficId>:<obsIdx>" (deficId can contain ':' from UUID,
+// so we split from the right when parsing).
+var _spState = {};
+
+function _spKey(deficId, obsIdx) { return deficId + ':' + obsIdx; }
+function _spGet(deficId, obsIdx) {
+  var k = _spKey(deficId, obsIdx);
+  if (!_spState[k]) _spState[k] = {
+    text: '', photoIds: [], loading: false, error: null,
+    costTotal: 0, confidence: null, photoCount: 0
+  };
+  return _spState[k];
+}
+function _spClear(deficId, obsIdx) { delete _spState[_spKey(deficId, obsIdx)]; }
+function _spHasContent(deficId, obsIdx) {
+  var s = _spState[_spKey(deficId, obsIdx)];
+  return !!(s && (s.text || s.loading || s.error));
+}
+
+function _ctx() {
+  var p = Model.getProject();
+  return {
+    tool: 'frt',
+    projectNumber: (p && p.info && p.info.projectNumber) || '',
+    projectName: (p && p.info && p.info.projectName) || ''
+  };
+}
+
+// Find or create the scratchpad container inside the matching observation block.
+function _spContainer(deficId, obsIdx) {
+  var sel = '.ai-scratchpad[data-sp-defic="' + deficId + '"][data-sp-obs="' + obsIdx + '"]';
+  return document.querySelector(sel);
+}
+
+function _spRender(deficId, obsIdx) {
+  var el = _spContainer(deficId, obsIdx);
+  if (!el) return; // not visible (other tab, collapsed, etc.)
+  var s = _spState[_spKey(deficId, obsIdx)];
+  if (!s) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'block';
+
+  var meta = '';
+  if (s.photoCount > 0) meta = 'from ' + s.photoCount + ' photo' + (s.photoCount === 1 ? '' : 's');
+  if (s.confidence) {
+    var cColor = s.confidence === 'high' ? '#1A7A4A' : (s.confidence === 'low' ? '#C0392B' : '#E67E22');
+    meta += '<span class="ai-sp-conf" style="background:' + cColor + ';">' + _esc(s.confidence) + '</span>';
+  }
+  if (s.costTotal > 0) meta += '<span class="ai-sp-cost">$' + s.costTotal.toFixed(4) + '</span>';
+
+  var html = '<div class="ai-sp-header">'
+    + '<span class="ai-sp-title">\u2728 AI scratchpad <span class="ai-sp-meta">' + meta + '</span></span>'
+    + '<button class="ai-sp-x" data-action="ai-sp-discard" data-defic-id="' + _esc(deficId) + '" data-obs-idx="' + obsIdx + '" title="Discard">\u2715</button>'
+    + '</div>';
+
+  if (s.loading) {
+    html += '<div class="ai-sp-loading"><div class="ai-spinner"></div> Analyzing\u2026</div>';
+  } else if (s.error) {
+    html += '<div class="ai-sp-error">\u26A0 ' + _esc(s.error) + '</div>';
+    html += '<div class="ai-sp-footer"><button class="ai-sp-btn" data-action="ai-sp-discard" data-defic-id="' + _esc(deficId) + '" data-obs-idx="' + obsIdx + '">Close</button></div>';
+  } else if (s.text) {
+    html += '<textarea class="ai-sp-text" data-action="ai-sp-edit" data-defic-id="' + _esc(deficId) + '" data-obs-idx="' + obsIdx + '" placeholder="AI suggestion will appear here\u2026">' + _esc(s.text) + '</textarea>';
+    html += '<div class="ai-sp-footer">';
+    html += '<button class="ai-sp-btn ai-sp-primary" data-action="ai-sp-insert" data-defic-id="' + _esc(deficId) + '" data-obs-idx="' + obsIdx + '" title="Insert at cursor (or replace selection) in your description">\u2328\uFE0F Insert at cursor</button>';
+    html += '<button class="ai-sp-btn" data-action="ai-sp-append" data-defic-id="' + _esc(deficId) + '" data-obs-idx="' + obsIdx + '" title="Append after your existing description">\u2935\uFE0F Append below</button>';
+    html += '<button class="ai-sp-btn" data-action="ai-sp-replace" data-defic-id="' + _esc(deficId) + '" data-obs-idx="' + obsIdx + '" title="Replace your description entirely (Ctrl+Z to undo)">\u21C4 Replace all</button>';
+    html += '<span class="ai-sp-sep"></span>';
+    html += '<button class="ai-sp-btn ai-sp-secondary" data-action="ai-sp-shorten" data-defic-id="' + _esc(deficId) + '" data-obs-idx="' + obsIdx + '" title="Shorten this AI text without losing meaning">\u2702\uFE0F Shorten</button>';
+    html += '</div>';
+  } else {
+    html += '<div class="ai-sp-loading">Open by clicking \u2728 on a photo.</div>';
+  }
+  el.innerHTML = html;
+}
+
+// Send a single photo to the worker. If scratchpad already has text, append the
+// AI's response with a separator. If not, scratchpad starts fresh.
+function openScratchpadFromPhoto(deficId, obsIdx, photoIdx) {
+  var f = Model.findDeficiency(deficId);
+  if (!f) { toast('\u26A0 Deficiency not found'); return; }
+  var obs = f.defic.observations && f.defic.observations[obsIdx];
+  if (!obs || !obs.photos || !obs.photos[photoIdx]) { toast('\u26A0 Photo not found'); return; }
+  var photo = obs.photos[photoIdx];
+  var s = _spGet(deficId, obsIdx);
+  if (s.loading) { toast('\u26A0 Already analyzing\u2026'); return; }
+  // Prevent double-counting the same photo in accumulation
+  if (s.photoIds.indexOf(photo.id) >= 0) {
+    toast('\u26A0 Photo ' + (photoIdx + 1) + ' already in scratchpad');
+    return;
+  }
+  var token = _getToken();
+  if (!token) { toast('\u26A0 AI requires cloud login'); return; }
+
+  s.loading = true; s.error = null;
+  _spRender(deficId, obsIdx);
+
+  _photoToBase64(photo).then(function(pd) {
+    return fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ mode: 'photo_suggest', photos: [pd], existingText: '', context: _ctx() })
+    });
+  }).then(function(r) {
+    if (!r.ok) return r.json().then(function(e) { throw new Error(e.error || 'API error ' + r.status); });
+    return r.json();
+  }).then(function(data) {
+    s.loading = false;
+    var newText = data.suggestion || '';
+    if (s.text) {
+      s.text = s.text + '\n\n\u2014 Photo ' + (photoIdx + 1) + ' \u2014\n' + newText;
+    } else {
+      s.text = newText;
+    }
+    s.photoIds.push(photo.id);
+    s.photoCount = s.photoIds.length;
+    if (data.usage && typeof data.usage.cost_usd === 'number') s.costTotal += data.usage.cost_usd;
+    s.confidence = data.confidence || s.confidence;
+    _spRender(deficId, obsIdx);
+  }).catch(function(err) {
+    s.loading = false;
+    s.error = err.message || 'Failed to analyze photo';
+    _spRender(deficId, obsIdx);
+  });
+}
+
+// Synthesis: replace scratchpad with one coherent description from up to 4 photos
+// (Worker's per-call limit). Photos beyond 4 get a toast notice.
+function openScratchpadFromAllPhotos(deficId, obsIdx) {
+  var f = Model.findDeficiency(deficId);
+  if (!f) { toast('\u26A0 Deficiency not found'); return; }
+  var obs = f.defic.observations && f.defic.observations[obsIdx];
+  if (!obs || !obs.photos || !obs.photos.length) { toast('\u26A0 No photos on this observation'); return; }
+  var photos = obs.photos.slice(0, 4);
+  var skipped = obs.photos.length - photos.length;
+  var s = _spGet(deficId, obsIdx);
+  if (s.loading) { toast('\u26A0 Already analyzing\u2026'); return; }
+  var token = _getToken();
+  if (!token) { toast('\u26A0 AI requires cloud login'); return; }
+
+  s.loading = true; s.error = null;
+  _spRender(deficId, obsIdx);
+
+  Promise.all(photos.map(_photoToBase64)).then(function(pds) {
+    return fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ mode: 'photo_suggest', photos: pds, existingText: '', context: _ctx() })
+    });
+  }).then(function(r) {
+    if (!r.ok) return r.json().then(function(e) { throw new Error(e.error || 'API error ' + r.status); });
+    return r.json();
+  }).then(function(data) {
+    s.loading = false;
+    s.text = data.suggestion || '';
+    s.photoIds = photos.map(function(p) { return p.id; });
+    s.photoCount = s.photoIds.length;
+    if (data.usage && typeof data.usage.cost_usd === 'number') s.costTotal += data.usage.cost_usd;
+    s.confidence = data.confidence || null;
+    _spRender(deficId, obsIdx);
+    if (skipped > 0) toast('\u26A0 Used first 4 of ' + obs.photos.length + ' photos (' + skipped + ' over Worker limit)');
+  }).catch(function(err) {
+    s.loading = false;
+    s.error = err.message || 'Failed to analyze photos';
+    _spRender(deficId, obsIdx);
+  });
+}
+
+// Shorten the scratchpad text in-place. Sends current scratchpad content to
+// Worker with mode='shorten' and replaces scratchpad.
+function shortenScratchpad(deficId, obsIdx) {
+  var s = _spState[_spKey(deficId, obsIdx)];
+  if (!s || !s.text || s.loading) return;
+  var token = _getToken();
+  if (!token) { toast('\u26A0 AI requires cloud login'); return; }
+  var origText = s.text;
+  s.loading = true;
+  _spRender(deficId, obsIdx);
+  fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify({
+      fields: [{ path: 'scratchpad', name: 'AI Scratchpad', value: origText }],
+      mode: 'shorten',
+      context: _ctx()
+    })
+  }).then(function(r) {
+    if (!r.ok) return r.json().then(function(e) { throw new Error(e.error || 'API error ' + r.status); });
+    return r.json();
+  }).then(function(data) {
+    s.loading = false;
+    var sug = data.suggestions && data.suggestions[0];
+    var shortText = sug ? (sug.improved || sug.suggestion || '') : '';
+    if (shortText) s.text = shortText;
+    if (data.usage && typeof data.usage.cost_usd === 'number') s.costTotal += data.usage.cost_usd;
+    _spRender(deficId, obsIdx);
+  }).catch(function(err) {
+    s.loading = false;
+    s.error = err.message || 'Shorten failed';
+    _spRender(deficId, obsIdx);
+  });
+}
+
+// Shorten the user's description text in the textarea (or just the selection).
+// Uses execCommand('insertText') so Ctrl+Z reverts.
+function shortenUserText(deficId, obsIdx) {
+  var ta = document.querySelector('textarea[data-action="obs-text"][data-defic-id="' + deficId + '"][data-obs-idx="' + obsIdx + '"]');
+  if (!ta) { toast('\u26A0 Textarea not found'); return; }
+  var hasSelection = ta.selectionStart !== ta.selectionEnd;
+  var startSel = ta.selectionStart, endSel = ta.selectionEnd;
+  var fullText = ta.value;
+  var textToShorten = hasSelection ? fullText.substring(startSel, endSel) : fullText;
+  if (!textToShorten.trim()) { toast('\u26A0 Nothing to shorten'); return; }
+  var token = _getToken();
+  if (!token) { toast('\u26A0 AI requires cloud login'); return; }
+
+  toast('\u2702\uFE0F Shortening\u2026');
+  fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify({
+      fields: [{ path: 'usertext', name: 'Description', value: textToShorten }],
+      mode: 'shorten',
+      context: _ctx()
+    })
+  }).then(function(r) {
+    if (!r.ok) return r.json().then(function(e) { throw new Error(e.error || 'API error ' + r.status); });
+    return r.json();
+  }).then(function(data) {
+    var sug = data.suggestions && data.suggestions[0];
+    var shortText = sug ? (sug.improved || sug.suggestion || '') : '';
+    if (!shortText) { toast('\u26A0 No suggestion returned'); return; }
+    ta.focus();
+    if (hasSelection) ta.setSelectionRange(startSel, endSel);
+    else ta.setSelectionRange(0, ta.value.length);
+    document.execCommand('insertText', false, shortText);
+    // Trigger input event so Model.updateObservation runs and saves
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    toast('\u2714 Shortened (Ctrl+Z to undo)');
+  }).catch(function(err) {
+    toast('\u26A0 Shorten failed: ' + (err.message || ''));
+  });
+}
+
+// Merge scratchpad text into the user's textarea via execCommand so native Ctrl+Z works.
+// mode: 'insert' = at caret (replaces current selection if any)
+//       'append' = at end of textarea, two-newline gap
+//       'replace' = entire textarea replaced
+function mergeScratchpad(deficId, obsIdx, mode) {
+  var s = _spState[_spKey(deficId, obsIdx)];
+  if (!s || !s.text) { toast('\u26A0 Nothing in scratchpad to merge'); return; }
+  var ta = document.querySelector('textarea[data-action="obs-text"][data-defic-id="' + deficId + '"][data-obs-idx="' + obsIdx + '"]');
+  if (!ta) { toast('\u26A0 Textarea not found'); return; }
+
+  ta.focus();
+  if (mode === 'insert') {
+    // Replaces current selection (or inserts at caret if no selection)
+    document.execCommand('insertText', false, s.text);
+  } else if (mode === 'append') {
+    var endPos = ta.value.length;
+    ta.setSelectionRange(endPos, endPos);
+    var prefix = (ta.value && !/\n\n$/.test(ta.value)) ? '\n\n' : '';
+    document.execCommand('insertText', false, prefix + s.text);
+  } else if (mode === 'replace') {
+    ta.setSelectionRange(0, ta.value.length);
+    document.execCommand('insertText', false, s.text);
+  }
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+  var label = mode === 'insert' ? 'Inserted at cursor'
+    : mode === 'append' ? 'Appended below'
+    : 'Replaced description';
+  toast('\u2714 ' + label + ' (Ctrl+Z to undo)');
+}
+
+function discardScratchpad(deficId, obsIdx) {
+  _spClear(deficId, obsIdx);
+  _spRender(deficId, obsIdx);
+}
 
 // Global access for onclick in HTML
 window.AIAssist = AIAssist;

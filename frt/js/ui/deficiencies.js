@@ -281,6 +281,14 @@ export function buildDeficCard(d, ctrId) {
       h += '</div>';
       h += '</div>';
       h += '</div>'; // end obs-photo-row
+      // S114 P1.6: per-observation AI scratchpad placeholder. Hidden by default;
+      // populated by AIAssist._spRender when the user clicks ✨ on a photo or the AI button.
+      h += '<div class="ai-scratchpad" data-sp-defic="' + esc(d.id) + '" data-sp-obs="' + oi + '" style="display:none;"></div>';
+      // Obs meta-row: Shorten my text (operates on the user's textarea) + Undo (Ctrl+Z helper).
+      h += '<div class="obs-meta-row">';
+      h += '<button class="obs-meta-btn" data-action="shorten-user-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Shorten this text without losing meaning">\u2702\uFE0F Shorten my text</button>';
+      h += '<button class="obs-meta-btn" data-action="undo-user-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Undo last change (Ctrl+Z)">\u21B6 Undo</button>';
+      h += '</div>';
       h += '</div>';
     });
     // Add observation button
@@ -481,6 +489,10 @@ export var initDeficiencies = {
     }
 
     _updateDlcCounts(activeCount, generalCount, closedCount);
+    // S114 P1.6: re-render any open AI scratchpads now that the DOM is fresh
+    if (window.AIAssist && window.AIAssist.repopulateAllScratchpads) {
+      window.AIAssist.repopulateAllScratchpads();
+    }
   }
 };
 
@@ -834,37 +846,66 @@ document.addEventListener('click', function(e) {
     });
   }
 
-  if (action === 'ai-suggest-photo' || action === 'ai-suggest-obs') {
+  if (action === 'ai-suggest-photo') {
     var deficId = el.getAttribute('data-defic-id');
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
-    var f = Model.findDeficiency(deficId);
-    if (!f || !f.defic.observations || !f.defic.observations[obsIdx]) {
-      toast('\u26A0 Observation not found');
-      return;
+    var photoIdx = parseInt(el.getAttribute('data-photo-idx') || '0');
+    if (!window.AIAssist || !window.AIAssist.openScratchpadFromPhoto) {
+      toast('\u26A0 AI Assistant not loaded'); return;
     }
-    var obs = f.defic.observations[obsIdx];
-    var photos = obs.photos || [];
-    if (!photos.length) { toast('\u26A0 No photos on this observation'); return; }
-    var selectedPhotos = photos;
-    if (action === 'ai-suggest-photo') {
-      var photoIdx = parseInt(el.getAttribute('data-photo-idx') || '0');
-      if (photos[photoIdx]) selectedPhotos = [photos[photoIdx]];
+    window.AIAssist.openScratchpadFromPhoto(deficId, obsIdx, photoIdx);
+  }
+  if (action === 'ai-suggest-obs') {
+    var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
+    if (!window.AIAssist || !window.AIAssist.openScratchpadFromAllPhotos) {
+      toast('\u26A0 AI Assistant not loaded'); return;
     }
-    if (!window.AIAssist || !window.AIAssist.suggestFromPhotos) {
-      toast('\u26A0 AI Assistant not loaded');
-      return;
+    window.AIAssist.openScratchpadFromAllPhotos(deficId, obsIdx);
+  }
+  // S114 P1.6 — scratchpad merge actions
+  if (action === 'ai-sp-insert' || action === 'ai-sp-append' || action === 'ai-sp-replace') {
+    var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
+    var mode = action === 'ai-sp-insert' ? 'insert'
+             : action === 'ai-sp-append' ? 'append' : 'replace';
+    if (window.AIAssist && window.AIAssist.mergeScratchpad) {
+      window.AIAssist.mergeScratchpad(deficId, obsIdx, mode);
     }
-    window.AIAssist.suggestFromPhotos({
-      photos: selectedPhotos,
-      existingText: obs.text || '',
-      onAccept: function(text) {
-        obs.text = text;
-        obs.aiReviewed = true;
-        Model.saveNow();
-        initDeficiencies.render();
-        toast('\u2728 AI suggestion applied');
-      }
-    });
+  }
+  if (action === 'ai-sp-discard') {
+    var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
+    if (window.AIAssist && window.AIAssist.discardScratchpad) {
+      window.AIAssist.discardScratchpad(deficId, obsIdx);
+    }
+  }
+  if (action === 'ai-sp-shorten') {
+    var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
+    if (window.AIAssist && window.AIAssist.shortenScratchpad) {
+      window.AIAssist.shortenScratchpad(deficId, obsIdx);
+    }
+  }
+  // S114 P1.6 — Shorten user's textarea text (selection or whole field)
+  if (action === 'shorten-user-text') {
+    var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
+    if (window.AIAssist && window.AIAssist.shortenUserText) {
+      window.AIAssist.shortenUserText(deficId, obsIdx);
+    }
+  }
+  // S114 P1.6 — Undo helper for tablets without Ctrl key.
+  // Native browser undo on the textarea pops the last execCommand entry.
+  if (action === 'undo-user-text') {
+    var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
+    var ta = document.querySelector('textarea[data-action="obs-text"][data-defic-id="' + deficId + '"][data-obs-idx="' + obsIdx + '"]');
+    if (ta) {
+      ta.focus();
+      try { document.execCommand('undo'); } catch(_) {}
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   }
 
   if (action === 'show-add-activity') {
@@ -1052,6 +1093,15 @@ document.addEventListener('input', function(e) {
     _noteDebounce[key] = setTimeout(function() {
       Model.updateClosedNote(deficId, text);
     }, 500);
+  }
+
+  // S114 P1.6 — user editing the AI scratchpad textarea
+  if (action === 'ai-sp-edit') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    var obsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
+    if (window.AIAssist && window.AIAssist.scratchpadEdit) {
+      window.AIAssist.scratchpadEdit(deficId, obsIdx, e.target.value);
+    }
   }
 });
 
