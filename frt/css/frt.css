@@ -3835,11 +3835,10 @@ body.dark-mode .btn-muted-cancel {
 }
 body.dark-mode .btn-muted-cancel:hover { background:#402222; border-color:#e08080; }
 
-/* Drawing-name pill on deficiency cards — bright #2196F3 in light mode
-   (unchanged), muted blue in dark mode so it doesn't burn the eyes. */
+/* P1.10: drawing-name pill — darker, muted blue per Mark feedback (was bright #2196F3). */
 .defic-dwg-pill {
   border:none;
-  background:#2196F3;
+  background:#2C4770;
   color:white;
   border-radius:4px;
   padding:2px 8px;
@@ -3852,7 +3851,7 @@ body.dark-mode .btn-muted-cancel:hover { background:#402222; border-color:#e0808
   text-overflow:ellipsis;
   white-space:nowrap;
 }
-.defic-dwg-pill:hover { background:#1976D2; }
+.defic-dwg-pill:hover { background:#1F3556; }
 body.dark-mode .defic-dwg-pill {
   background:#1a2438 !important;
   color:#80a8d8 !important;

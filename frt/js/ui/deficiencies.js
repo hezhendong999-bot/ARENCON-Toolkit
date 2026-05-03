@@ -24,16 +24,29 @@ function deficDesc(d) {
 }
 function deficIsOpen(d) { return d.status === 'open' || d.status === 'Outstanding'; }
 
-// S113 Push 19: deterministic contractor color hash. Each unique contractor
-// name maps to one of 8 .ctr-c<N> palette slots in frt.css. "Site General"
-// always lands on slot 3 (green). Exported so other UI modules (pins.js
-// table, kanban) can stay visually consistent.
+// S114 P1.10: contractor color = SEQUENTIAL assignment based on order in proj.contractors[].
+// Skips slot 3 (reserved for "Site General") so a regular contractor never collides with it.
+// Hash-based assignment is gone — that allowed two unrelated contractors to land on the
+// same slot. Now slot N maps to the Nth non-general contractor in array order.
+// (After 7 unique contractors the palette wraps; rare in practice.)
 export function ctrColorClass(name) {
   if (!name) return 'ctr-c3';
   if (name === 'Site General') return 'ctr-c3';
-  var h = 0;
-  for (var i = 0; i < name.length; i++) h = ((h << 5) - h + name.charCodeAt(i)) | 0;
-  return 'ctr-c' + (Math.abs(h) % 8);
+  var proj = Model.getProject();
+  if (!proj || !Array.isArray(proj.contractors)) return 'ctr-c0';
+  var nonGeneralIdx = 0;
+  for (var i = 0; i < proj.contractors.length; i++) {
+    var c = proj.contractors[i];
+    if (!c || c.name === 'Site General') continue;
+    if (c.name === name) {
+      // Skip slot 3 so we never collide with Site General
+      var slot = nonGeneralIdx;
+      if (slot >= 3) slot += 1;
+      return 'ctr-c' + (slot % 8);
+    }
+    nonGeneralIdx++;
+  }
+  return 'ctr-c0';
 }
 function deficIsClosed(d) { return d.status === 'closed' || d.status === 'Addressed & Closed'; }
 
