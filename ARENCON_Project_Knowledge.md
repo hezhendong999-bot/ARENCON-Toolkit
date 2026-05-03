@@ -1781,56 +1781,94 @@ iPad/iPhone still snap-remove old tiles (S95 behavior), so level transitions sti
 
 ---
 
-# Session 112 + 113 (April 30 – May 2, 2026) — iOS abandonment + aggressive cleanup
+# Sessions 112 + 113 (April 30 – May 2, 2026) — iOS abandonment, FRT v2 polish, architectural fixes
 
-S112 closed the iOS investigation that had been open since the iPad Jetsam-crash work stream began. Empirical testing on iPad 9th-gen across iPadOS 16.3.1 and iPadOS 18.7.8 in Chrome iOS 136 confirmed the toolkit cannot run on WKWebView regardless of which combination of memory-throttling toggles is active. Tab Jetsam-dies on first drawing-open at fit zoom with **zero** tiles loaded after ~4 seconds of idle. The crash is at the WebKit memory ceiling at drawing-open allocation time and cannot be solved in JavaScript.
+These two sessions together delivered the largest single-stretch of work on FRT v2 to date. S112 closed the iOS investigation that had been open for many sessions. S113 ran 24 pushes covering markup engine bug fixes, viewer architecture, modal styling consistency, contractor color palette, board view, PDF polish, Fly.io removal, and UX consistency rules.
 
-S113 stripped all iOS-specific code from the toolkit, restored Android tablets to production-grade quality, and updated documentation. iOS is now a closed chapter — if the business ever requires iOS, the only viable answer is a native Swift/SwiftUI rewrite (3-6 months dedicated work).
-
-## Platform support
+## Platform support — final state
 
 **Supported:** Desktop (any modern browser), Android tablets, Android phones.
-**Not supported:** iOS (iPhone, iPad — any iOS version, any browser, any wrapper).
+**Not supported:** iOS — any version, any browser, any wrapper.
 
-### Why wrappers won't fix iOS
+**Why iOS was abandoned (S112).** Empirical testing on iPad 9th-gen across iPadOS 16.3.1 and 18.7.8 in Chrome iOS 136 confirmed the toolkit cannot run on WKWebView regardless of memory-throttling toggles. Tab Jetsam-dies on first drawing-open at fit zoom with zero tiles loaded after ~4 seconds of idle. The crash happens at WebKit memory-ceiling at drawing-open allocation time and cannot be solved in JavaScript. Capacitor / Cordova / React Native WebView all use WKWebView — same engine, same Jetsam ceiling. **Do not promise a wrapper as a path to iOS support.** Native Swift/SwiftUI rewrite is the only viable iOS path — 3-6 months dedicated work.
 
-Capacitor / Cordova / React Native WebView all use WKWebView. Same engine, same Jetsam ceiling. Maybe ~10-20% more headroom — not enough to make the difference. Do not promise a wrapper as a path to iOS support.
+**S113 cleanup (Push 1+2).** Removed: `_isIPhone`/`_isIPad`/`_isMobile` detection vars; `_S99_IOS_PURGE` flag and ios-purge block; `_detectJetsamReload` IIFE; `?s99test=ios-purge`; `?nopixi=1` / `?s99test=no-pixi`; `?iosres=N`; iPhone/iPad branches in `_allocateCanvas` (`maxPixels`); `!isIPhone` guard on the WebGL sibling canvas; the 257-line iOS DIAGNOSTIC BOOTSTRAP script in `frt/index.html`; the `📋 iOS Diag` button + `setupiOSDiag()`/`copyiOSDiag()` in Hub. Tile pool simplified: `_MAX_TILES = 800`, `_MAX_CONCURRENT = 6`. Markup canvas budget: Android phone 10 Mpx, everything else 25 Mpx.
 
-### iOS abandonment rationale (S112)
+## URL toggles — post-S113 final state
 
-Tested:
-- `?s99test=ios-purge` (eager tile purge at level changes) — confirmed firing, did not prevent crash
-- `?nopixi=1` (disable Pixi WebGL second canvas) — confirmed active, did not prevent crash
-- `?iosres=4` (markup canvas 4 Mpx instead of 8 Mpx) — confirmed active, did not prevent crash
-- All three combined — did not prevent crash
-- iPadOS 18 update — did not move the needle
+| Toggle | Purpose |
+|---|---|
+| `?dbg=1` | Enable LIFE buffer logging (also persists to `localStorage._frtDbg`) |
+| `?s99test=img` | Force legacy `<img>` tile compositor (escape hatch if a drawing has a canvas-mode regression) |
+| `?webgl=0` / `?webgl=1` | Disable / force-enable Pixi WebGL markup |
+| `localStorage.ARENCON_NoWebGL='1'` | Persistent equivalent of `?webgl=0` |
 
-LIFE buffer logs captured tab dying at `tileCount: 0` with all three toggles active, fit zoom, no user interaction. Initial drawing-open allocation alone exceeds the Safari tab budget on iPad.
+All other toggles removed in S113. The `?s99test=` parser framework is preserved for future render-chain experiments — only `img` is a recognized value as of S113.
 
-## Canvas-per-level tile compositor (RESOLVED — Bug B)
+## Markup engine — fixes shipped in S113
 
-S112 Push 1 promoted the `?s99test=canvas` candidate to the unconditional default for all platforms, then S113 dropped the iOS gate entirely. One `<canvas>` per active level, tiles drawn via `ctx.drawImage` at native level coordinates, browser does ONE fractional CSS scale of the whole canvas. No per-tile sub-pixel rounding, no inter-tile compositing gap. The L2/L3 fit-zoom seam (Bug B, 14+ dead-ends in earlier sessions) is gone.
+S113 Pushes 4-5 fixed three pre-existing markup bugs that had been deferred:
 
-Memory footprint per active level (backing buffer):
-- L2: ~36 MB
-- L3: ~100 MB
-- L4: ~400 MB
+1. **`_getBounds()` rotation-aware for shapes + text.** Previously returned the AABB of stored coords, ignoring `obj.rotation`. Render path applied `ctx.rotate(obj.rotation)` but bounds didn't, so selection box, group center for rotation pivot, eraser hit-test, click hit-test, and resize anchor all referenced the wrong rectangle. Fix: returns AABB of the four rotated corners. Identity for `rotation == 0`.
+2. **`_segmentIntersectsBbox()` Liang–Barsky helper added.** `_shapeHitByEraser` now does both vertex-inside-bbox AND segment-vs-bbox intersection, catching fast eraser strokes whose sparse pointer-sampled vertices all land outside a small shape's bbox even though the path swept through it.
+3. **`_segDistSq()` segment-segment distance helper added.** `_strokeHitByEraser` now does pair-segment minimum-distance check, robust against sparse vertices on either side. Fixes highlighter / polyline eraser missing fast strokes.
 
-LRU eviction frees the level canvas when its tile count drops to 0.
+**Text rotation pivot fix (Push 5):**
+- Render path: pivot moved from `(x1, y1-fs/2)` (left-baseline-center) to `(x1+estW/2, y1-fs/2)` (visual center). Text now spins in place instead of swinging around its left edge.
+- Rotate-drag handler: dedicated text branch added BEFORE the shape branch. Previously text fell into shape branch which dereferenced `obj.x2/y2` (text doesn't have them), corrupting `origCx`. New branch rotates the text's visual center around the group pivot, derives new `(x1, y1)` anchor from new center, accumulates `obj.rotation`. Never writes `x2/y2`.
+- `_getBounds` text branch made rotation-aware around the same visual center.
 
-Escape hatch retained: `?s99test=img` forces the legacy per-tile `<img>` compositor. This is the only s99test value still recognized in production code as of S113. All other diagnostic toggles (`baseline`, `overlap`, `fastfade`, `delaysrc`, `prefetch`, `snap`, `canvas`, `ios-purge`, `no-pixi`) were removed from the parser logic but the framework itself stays so future render-chain experiments can reuse it.
+**Ctrl/Cmd+click multi-select.** `_handleSelectDown` checks `e.ctrlKey || e.metaKey` — toggles object membership in `_selectedIds` (add if not present, remove if present). No drag starts on toggle. Click without modifier behaves exactly as before.
 
-## Markup canvas stacking (S112 hotfix discovery)
+**Selection box L4 click-target bigger (Push 24):** corner squares 8→11, rotation handle 7→9, line widths 1.5→2. Hit-test radii bumped to match (`_hitResizeHandle` 8→11, `_hitRotateHandle` 12→14).
 
-`#markup-canvas`, `#markup-overlay`, and `#markup-webgl-canvas` MUST all carry explicit `z-index: 5`. Default `z-index: auto` evaluates to z:0, where the canvas-per-level tile canvases (z:1 through z:4) bury them.
+## Markup canvas viewer-zoom-aware resolution (S113 architectural fix — Pushes 13-14)
 
-This was a silent pre-existing bug on tile drawings — markup strokes and eraser action would render to a hidden canvas. Surfaced only when canvas mode became default. Fixed in S112 hotfixes 1 & 2 and is permanent.
+The original architectural problem: at fit-zoom on a typical drawing (~0.22× viewer scale), the markup canvas's full drawing-pixel resolution gets bilinear-downsampled by the browser's CSS transform, washing out thin lines and producing "broken pen lines" + invisible selection box.
 
-## WebGL pin renderer dependency (S112b)
+**Fix:** `Markup.setRenderScale(s)` exported method on the Markup module. Called from `viewer.js _applyTransform` on every zoom change. Resizes canvas internal pixels to displayed pixels, capped at memory budget.
 
-The WebGL pin renderer reads `getBoundingClientRect()` from the drawing element to position pins. On tile drawings, `dv-image` has empty `src` and gets `display:none` via the CSS rule `#dv-image:not([src]),#dv-image[src=""]{display:none!important}`. A `display:none` element returns 0×0 from `getBoundingClientRect()`, which causes `PinsGL.render()` to early-return on `!imgRect.width`.
+**Critical invariants preserved:**
+- `mc.style.width = drawW + 'px'` — unchanged. Wrap transform math intact.
+- `mc._logicalW = drawW` — unchanged. `_getPos()` coordinate translation intact, eraser hit-tests intact, pin coords intact.
+- `mc._dpr` now equals effective render scale. Existing render path's `ctx.setTransform(dpr, ..., dpr, ...)` correctly maps drawing coords → canvas pixels at the new resolution. **Zero changes to render logic** beyond canvas resize.
+- 1% scale-change tolerance filters pan-only `_applyTransform` calls (no spurious re-renders during pan).
 
-Fix lives in `viewer.js` (~line 1173): when `TiledPdf.isActive()`, use `dv-img-wrap`'s rect instead of `dv-image`'s. `dv-img-wrap` is sized to `drawW × drawH` and carries the user's pan/zoom transform.
+**WebGL renderer (`webglMarkup.js`) `resize(w, h, dpr)`** — accepts new `dpr` explicitly. Critical fix in Push 14: without passing the new dpr, Pixi computed its logical (drawing-coordinate) dimensions from the stale `_dpr` captured at init time, causing markup to drift to bottom-right of the canvas at fit-zoom.
+
+```js
+// webglMarkup.js resize() — Pixi dpr update is REQUIRED
+if (typeof dpr === 'number' && dpr > 0) {
+  _dpr = dpr;
+  if (_app.renderer && _app.renderer.resolution !== undefined) {
+    _app.renderer.resolution = dpr;
+  }
+}
+var logicalW = Math.max(1, w / _dpr);  // logicalW must stay constant at drawing px
+```
+
+**Memory profile (drawing 6144 × 4096):**
+- Fit zoom (s=0.222): canvas internal 1364×909 = **1.2 Mpx** (was 25.0 Mpx)
+- Half zoom (s=0.5): canvas internal 3072×2048 = 6.3 Mpx
+- Native (s=1.0): canvas internal 6124×4082 = 25.0 Mpx (budget cap)
+- Zoom-in (s>1.0): canvas stays at 25.0 Mpx (browser upscales — same as before)
+- Extreme zoom out (<0.08): floors at 0.08 to avoid degenerate sub-100px canvas
+
+## Tile renderer — final state
+
+**Single source of truth: Azure Container App `arencon-pdf-render-v3`** running mupdf via `mutool draw` (post-S107). Source in `container-render/`. Build pipeline `.github/workflows/build-container.yml` deploys on push to `container-render/**`. ~4-5 minutes from commit to live.
+
+**Fly.io fully removed in S113 Push 21-22.** Deleted: `container-render/fly.toml`, `container-render/diag_s94.py`, `.github/workflows/fly-deploy.yml`. The Fly.io app `arencon-render-staging.fly.dev` is orphaned in Mark's Fly.io account — no GitHub connection. Mark to delete manually via Fly dashboard.
+
+**S113 Push 21 was an over-deletion.** Push 21 deleted the entire `container-render/` directory thinking it was Fly.io-only. It wasn't — `Dockerfile`, `server.js`, `package.json`, `render.py` are the AZURE container source. Push 22 restored them. Lesson: when removing infrastructure, audit the build pipeline to confirm what each file feeds before deleting.
+
+**CORS on Azure must be manually re-added after every deploy** — `https://hezhendong999-bot.github.io`.
+
+## Pin renderer architecture
+
+**Viewer pins:** SVG teardrop, viewBox 32×42, anchor at (16, 40) (marker tip). Outer white halo path + colored inner path + white inner circle r=9 at (16, 14) + bold text centered. Color logic: `iar→#E91E8C`, `general→#1A7A4A`, `low→#E67E22`, `high (default)→#C0392B`, `closed→0.5 alpha overlay`.
+
+**WebGL pin renderer dependency (S112b — sacred, do NOT touch):** reads `getBoundingClientRect()` from the drawing element to position pins. On tile drawings, `dv-image` has empty `src` and gets `display:none` via CSS, returning 0×0 from `getBoundingClientRect()`, which causes `PinsGL.render()` to early-return on `!imgRect.width`. Fix in `viewer.js` (~line 1173): when `TiledPdf.isActive()`, use `dv-img-wrap`'s rect instead.
 
 ```js
 var rectSrc;
@@ -1842,106 +1880,131 @@ if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive())
 var imgRect = rectSrc.getBoundingClientRect();
 ```
 
-This is a real bug fix unrelated to iOS — keep it forever.
+**PDF report pin (Push 12):** matches viewer SVG path EXACTLY. New helper `_drawTeardropPin(ctx, anchorX, anchorY, pinW, d)` traces both viewer paths via canvas `bezierCurveTo` (no `quadraticCurveTo` — adheres to project rule). Same color logic as viewer. Sizing: minimap 7% of crop width (Push 15), full-drawing overlay 2.8% of image width. Number font sizes scale by `s = pinW/32` and bumped 20% in Push 15 to compensate for canvas `fillText` rendering glyphs visibly smaller than SVG `<text>`. Push 23: appendix table IAR badge wraps below `#N` aligned-left (margin-left:0 override) instead of inline-right.
 
-## URL toggles (post-S113 final state)
+## Modal styling consistency rules (post-S113)
 
-After S113 cleanup, the only supported URL toggles are:
+**Mandatory: use the muted-button family classes from frt.css. No inline button styling in modals.**
 
-| Toggle | Purpose |
+| Class | Use for | Color |
+|---|---|---|
+| `.btn-muted-ok` | Yes / OK / Apply / Save / Add / Generate / Confirm | green |
+| `.btn-muted-cancel` | Cancel / No / Dismiss / Close / Back | red |
+| `.btn-muted-warn` | Revise / warning-tone alternative actions | orange |
+| `.btn-muted-neutral` | Revert / Leave-without-saving / benign-tertiary | slate |
+
+**Cancel button always on the right.** In any flex-row pair, primary action goes left, Cancel goes right. Sites verified in S113: Activity modal, Reassign Drawing, Reassign Contractor, Export PDF, AI Review field-select, AI Photo-spec, Inspector, showConfirm Yes/Cancel, showPrompt OK/Cancel.
+
+**Light + dark mode both required.** Every new button class must define dark-mode variant. Test by toggling dark mode; nothing should look bright/saturated in dark mode.
+
+**`showConfirm` Cancel uses fill (not outline).** Push 17 dropped the `outline:true` flag from showConfirm's Cancel — it now uses the muted-cancel filled style for visual consistency with Yes.
+
+**`_createModal` color-detection logic.** When a button has `color: '#1A7A4A'` → `.btn-muted-ok`, `color: '#C0392B'` → `.btn-muted-cancel`. Other colors fall through to the older dark/light tint logic. To get muted styling, just pass the right color hex; no need to import the class manually.
+
+## Contractor color palette
+
+**`ctrColorClass(name)` exported from `deficiencies.js`** — deterministic 8-slot hash. "Site General" pinned to `ctr-c3` (green) regardless of hash. Used in:
+- "Contractors on Site" chips (Deficiencies tab)
+- Contractor group headers (4-px left-border accent + tinted name)
+- All-Deficiencies table contractor cell (wrapped in `.ctr-tag` chip)
+- Kanban cards (color of the # badge)
+
+**Slots:**
+
+| Slot | Light bg / text | Dark bg / text |
+|---|---|---|
+| `ctr-c0` (red) | `#FDEDEC` / `#C0392B` | `#3a1515` / `#f08080` |
+| `ctr-c1` (orange) | `#FEF5E7` / `#E67E22` | `#3a2510` / `#f0a878` |
+| `ctr-c2` (yellow) | `#FEF9E7` / `#B7950B` | `#322a10` / `#e8c878` |
+| `ctr-c3` (green — Site General default) | `#EAFAF1` / `#1A7A4A` | `#0d2a1a` / `#80c8a0` |
+| `ctr-c4` (blue) | `#EBF4FF` / `#1565C0` | `#0a1f3a` / `#88b8e8` |
+| `ctr-c5` (purple) | `#F4ECF7` / `#7E22CE` | `#28163a` / `#c898e8` |
+| `ctr-c6` (pink) | `#FCE4EC` / `#E91E8C` | `#3a1828` / `#f098c0` |
+| `ctr-c7` (teal) | `#E0F7FA` / `#00838F` | `#0a282a` / `#80d0d8` |
+
+If a contractor's hash collision lands on an unreadable combo, override by hard-coding in `ctrColorClass()`.
+
+## IAR rules
+
+- **IAR cannot coexist with low/general priority.** When activating IAR, `Model.toggleIAR` forces `priority='high'` and propagates to all `entries[i].priority`. Toggling IAR off leaves priority unchanged. Matches v1 behavior.
+- **Activated IAR badge: pink `#E91E8C` fill** with `⚡ IAR` label.
+- **Inactive IAR badge: subtle outline** — `background:transparent; color:#9AA5B5; border:1.5px solid rgba(154,165,181,.4)`. Push 18 fix.
+- **In All-Deficiencies table:** IAR appears as a SECOND row below `Outstanding`/`Closed`, not in place of it. Status column shows the lifecycle state always; IAR is additive (Push 24).
+- **In PDF report appendix table:** IAR wraps below `#N` in the Pin column with `margin-left:0` override so it aligns with the `#` symbol (Push 23).
+
+## Diagnostic panels gated behind `?dbg=1` + 🔍 toggle
+
+`#dbg-overlay` (LIFE buffer green panel), `#s97-recorder-panel`, `#arencon-frt-progress` (tile-progress), `#arencon-frt-anomaly` (anomaly counter) are all hidden by default. Surfaced via the floating 🔍 button (`#diag-toggle`) at top-right which toggles `body.diag-show`.
+
+The toggle button itself only renders when debug mode is on (`?dbg=1` URL param OR `localStorage._frtDbg='1'`). To remove panels entirely from view: `_frtDbgOff()` in console.
+
+**S97 DIAG burgundy banner permanently deleted in Push 9.** Won't reappear. The `_frtS97DbgRing` localStorage write inside `_dbgTick` was also removed; remaining reads (`_frtDbgOff` cleanup, `_frtDbgPeek` console helper) read the never-written key, get `'[]'`, produce empty output. Harmless.
+
+## Drawing viewer chrome (S113 Pushes 6-7)
+
+- **Cloud dot in viewer header** gets `cloudPulse` animation matching the FRT main-header dot (Push 6).
+- **Drawing title always at the bottom** (`#dv-bb-namepill` in bottombar). Top-toolbar `.dv-title-wrap` hidden via `visibility:hidden` (kept in DOM so MutationObserver mirrors title text into bottom name pill).
+- **Bottombar visible on every screen size** (was `@media max-width:900` only). Layout: prev/next on left, name pill in center, zoom controls on right.
+- **`#dv-bb-tasks` (bottombar pin button) hidden globally** — top toolbar already has `📌`.
+- **Floating `.dv-nav-controls` retired** — bottombar carries that role uniformly.
+- **Title text size standardized** at `calc(13px + var(--ts))` across all screens.
+
+## v1 vs v2 feature parity (post-S113)
+
+| Area | Status |
 |---|---|
-| `?dbg=1` | Enable LIFE buffer logging (also persists to `localStorage._frtDbg`) |
-| `?s99test=img` | Force legacy `<img>` tile compositor (escape hatch if a drawing has a canvas-mode regression) |
-| `?webgl=0` | Disable Pixi WebGL markup |
-| `?webgl=1` | Force-enable Pixi WebGL markup |
-| `localStorage.ARENCON_NoWebGL='1'` | Persistent equivalent of `?webgl=0` |
+| Project Info, Drawings, Deficiencies tabs | ✅ Parity |
+| Summary tab (table + board) | ✅ Parity (Push 16, 18) |
+| Photos tab + lightbox | ✅ Parity |
+| Pin placement + WebGL renderer | ✅ Parity, **better** (Pixi) |
+| Markup engine | ✅ Parity, **better** (rotation-aware bounds, segment-based eraser, viewer-zoom-aware canvas) |
+| PDF report export | ✅ Parity (teardrop pin matches viewer) |
+| JSON export/import | ✅ Parity |
+| Issue/revision lifecycle (DRAFT→ISSUED→REVISION) | ✅ Parity (Mark confirmed working) |
+| Smart filename with revision | ✅ Parity |
+| AI features (Rewrite, Quick Fix, Review) | ✅ Parity |
+| Cloud sync (Hub mode) | ⚠️ Infrastructure exists, NOT YET CONNECTED to Hub. Phase A target. |
+| Tile rendering | ✅ Parity, **better** (Azure mupdf, no Fly.io duplicate) |
+| Mobile responsive + dark mode | ✅ Parity |
 
-Removed in S113: `?s99test=ios-purge`, `?s99test=no-pixi`, `?nopixi=1`, `?iosres=N`, `?s99test=canvas`, `?s99test=baseline`, `?s99test=fastfade`, `?s99test=delaysrc`, `?s99test=prefetch`, `?s99test=overlap-N`, `?s99test=snap`. The dash-parser logic that recognized hyphenated names is preserved (it's still useful for any numeric-suffix toggle a future session might add — `?s99test=foo-8` parses correctly), but no hyphenated toggle currently exists.
+## Phase A target (next session — S114)
 
-## Tile pool sizing (post-S113)
+**Hub dual launcher.** Add "Launch in v2 (beta)" button next to the existing Launch button on each project tile in `ARENCON_Project_Hub.html`. v2 button URL: `frt/index.html?project=<uuid>&pn=...&pname=...&client=...&addr=...&sfn=...#proj_<id>`. Verify schema/auth handoff. Mark to test side-by-side with v1.
 
-Single value, no platform branches:
+Phase B (data migration) deferred to S115+.
 
-```js
-var _MAX_TILES = 800;        // ~200 MB peak at ~80 kB/WebP + decode overhead
-var _MAX_CONCURRENT = 6;     // simultaneous tile fetches
-```
+## Sacred — do NOT touch (carry forward + S113 additions)
 
-Within budget on desktop and Android tablets. The pre-S113 ternary that capped iPad at 360 and iPhone at 160 was retired alongside iOS support.
-
-## Markup canvas pixel budget (post-S113)
-
-Two-level structure:
-
-```js
-var isAndroidPhone = /Android/.test(ua) && /Mobile/.test(ua) && !/SM-T|SM-X|Tablet/.test(ua);
-var maxPixels = isAndroidPhone ? 10000000 : 25000000;
-```
-
-- **Desktop / Android tablet:** 25 Mpx — full production grade, sharp pen strokes at every zoom level
-- **Android phone:** 10 Mpx — sized down for handheld viewport
-
-Phone detection: UA must contain both `Android` AND `Mobile` tokens AND NOT carry common Samsung tablet model prefixes (`SM-T`, `SM-X`, or literal `Tablet`).
-
-The pre-S113 four-way split (iPhone 4M / iPad 8M / Android tablet 10M / desktop 25M) is gone. Android tablets specifically went from 10M → 25M in S113 Push 2 and should now feel as crisp as desktop.
-
-## What `_dbgLife()` ring buffer is for now
-
-Pre-S113, the LIFE buffer (`localStorage._frtS97LifeRing`) was the primary forensic tool for iPad Jetsam-crash investigation. With iOS gone, the buffer is no longer used for crash diagnosis. **Keep it anyway** — it's general-purpose lifecycle telemetry and the right tool for any future render-chain investigation. The `?dbg=1` URL param still enables it. The Hub's `📋 iOS Diag` button + `setupiOSDiag()` / `copyiOSDiag()` consumers were removed; the buffer itself stays.
-
-## Removed in S113 Push 1
-
-- `_S99_IOS_PURGE` flag and the entire ios-purge block in `_renderVisible` (`tiledPdf.js`)
-- `_detectJetsamReload` IIFE (`tiledPdf.js`) — the synthetic `jetsam-reload-suspected` event no longer gets pushed into the LIFE ring
-- iOS gate on `_S99_CANVAS` (canvas mode now unconditional default)
-- `?s99test=no-pixi` and `?nopixi=1` parsing in markup `_useWebGL` IIFE
-- iPhone/iPad/iosres branches in markup `_allocateCanvas`
-- `!isIPhone` guard on the WebGL sibling canvas allocation in `_allocateCanvas`
-- The 257-line S112 Push 2c iOS DIAGNOSTIC BOOTSTRAP `<script>` block in `frt/index.html`
-- The `<button id="btn-ios-diag-frt">` in `frt/index.html` header
-- The `<button id="btn-ios-diag">` in `ARENCON_Project_Hub.html` header
-- `setupiOSDiag()` and `copyiOSDiag()` function definitions and the `setupiOSDiag()` call in Hub's `DOMContentLoaded` handler
-- All iOS-specific commentary in surrounding doc-blocks
-
-## Removed in S113 Push 2
-
-- `_isIPhone`, `_isIPad`, `_isMobile` UA-detection vars in `tiledPdf.js`
-- `_MAX_TILES = _isIPhone ? 160 : (_isIPad ? 360 : 800)` ternary → `_MAX_TILES = 800`
-- `_MAX_CONCURRENT = _isIPhone ? 3 : (_isIPad ? 5 : 6)` ternary → `_MAX_CONCURRENT = 6`
-- `isAndroidTablet` UA-detection var in `markup.js` → replaced with `isAndroidPhone`
-- `maxPixels = isAndroidTablet ? 10000000 : 25000000` → `maxPixels = isAndroidPhone ? 10000000 : 25000000` (Android tablets now get 25M)
-
-## Service worker cache versions
-
-- `arencon-frt-v245` — pre-S113 (commit `84f23d80`)
-- `arencon-frt-v246` — Push 1 (iOS removal, commit `7805a1f9`)
-- `arencon-frt-v247` — Push 2 (Android quality restoration, commit `37e72d48`)
-
-## Sacred (do NOT touch)
-
-Carried forward from earlier sessions, plus S112/S113 additions:
-- `?s99test=` toggle parser framework — retained as permanent A/B infrastructure
+- `?s99test=img` escape hatch — only retained s99test value
+- `_dbgLife()` LIFE ring buffer + `?dbg=1`
+- `?s99test=` toggle parser framework — permanent A/B infrastructure
 - Recursive `go(pg)` PDF upload pattern in `drawings.js`
 - `_createDeficPhotoFromSource()` R2 upload pattern
 - WebGL pin renderer's `dv-img-wrap` rect lookup in `viewer.js` (S112b fix)
 - z-index:5 on `#markup-canvas`, `#markup-overlay`, `#markup-webgl-canvas`
-- Canvas-per-level compositor as unconditional default (S112 + S113)
-- LIFE ring buffer (`_dbgLife`, `_frtS97LifeRing`) — general-purpose telemetry
-- `?dbg=1` URL param + `localStorage._frtDbg` persistence
-- `?s99test=img` escape hatch — only retained s99test value
+- Canvas-per-level tile compositor as unconditional default (S112+S113)
+- Markup canvas viewer-zoom-aware resolution (`Markup.setRenderScale`) — S113 architectural commit
+- WebGL `resize(w, h, dpr)` signature — dpr param is REQUIRED when caller has changed scale
+- Muted button family classes (`.btn-muted-ok` / `-cancel` / `-warn` / `-neutral`)
+- Cancel-on-right convention in flex pairs
+- `ctrColorClass()` deterministic palette
+- IAR auto-promotes to high priority on activation
+- "Site General" pinned to `ctr-c3` color slot
+- Diagnostic panels behind `?dbg=1` + 🔍 toggle
 
-## Deferred bugs (open for S114+)
+## Process lessons from S113
 
-- Markup eraser hit-test miss on text/shapes — pre-existing, lower priority than RLS roadmap
-- Selection rotation pivot incorrect — pre-existing
-- Selection box doesn't follow rotated objects — pre-existing
-- Hub→FRT v2 link not wired (Mark uses bookmarks as workaround)
-- Edge-tile 404 errors at L3 on `dwg_1776631552442_pg2_yy4m` — pre-S99 finding, R2 vs Worker path translation issue
-- L2 tile grid (5 candidate fixes filed in S99 — likely superseded by canvas-per-level compositor; verify on first opportunity)
+1. **Mark's iteration cycle is fast.** 24 pushes in one session. Each push needs to be self-contained and validated. Brace counts + node --check must run before every push, no exceptions. Multi-file commits via GitHub API blob+tree+commit pattern is the right primitive.
 
-## Strategic context (carry forward)
+2. **Don't trust over-broad cleanup verbs.** "Remove mupdf/fly.io entirely" sounded like delete the whole `container-render/` directory. Reality: that directory contained BOTH Fly.io AND Azure source. Audit the build pipeline before deleting infrastructure. If unsure, ask.
 
-All current infrastructure (Supabase, Cloudflare, GitHub, Azure, Anthropic API, GitHub PAT) is on Mark's PERSONAL accounts for demo purposes. ARENCON ownership transfer is a future event — see `ARENCON_Strategic_Roadmap.md` for the phased plan. Several earlier-recommended migrations (GitHub Pages → Cloudflare Pages, Supabase Free → Pro, M365 SSO) are deliberately deferred to ownership transfer day to avoid migrating things twice.
+3. **Architectural fixes can't be tweaked in.** Pen blur at fit-zoom looked like a tweakable line-width problem. Two attempts (Pushes 9 + 10) both got rejected — first made strokes too thick, second broke eraser. The actual fix (Pushes 13-14) was architectural: make the canvas resolution adaptive. Stop pattern-matching to "tweak a constant" when the problem is at the wrong layer.
 
-Phase 2 of the roadmap (S114-115) builds the foundation for security on the existing Free-tier Supabase: `user_profiles` table with role enum, soft-delete columns, weekly DIY backup Worker. Phase 3 (S116-118) writes RLS policies on a development branch. Phase 4 (~S119) flips RLS live in production, paid for by the Supabase Pro upgrade (the trigger event for the Pro tier).
+4. **Confirm mental model before coding when user says "match v1".** v1 had several behaviors v2 hadn't ported — Issue/revision modal, board view, IAR auto-promote. Each looks like a small thing in isolation; together they're substantial. Read v1 source first; don't assume parity.
+
+5. **Cancel-on-right is a UX rule, not a preference.** Mark explicitly said "fix throughout" — apply it without exceptions across every modal. Do a full audit when applying a UX rule, not piecemeal.
+
+6. **Before-and-after tests are gold.** When introducing helpers like `_segmentIntersectsBbox` or `_segDistSq`, write 5-10 logical unit tests covering edge cases (parallel, perpendicular, overlapping, zero-length, far apart). Catches algorithm bugs cheaply.
+
+7. **iOS removal taught: don't be afraid to delete code permanently.** S113 deleted ~705 lines of iOS-specific code that had been accumulated across many earlier sessions. The codebase got measurably cleaner. Don't preserve dead code "just in case" — version control is the just-in-case.
 
