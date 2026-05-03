@@ -1350,6 +1350,47 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+// S114 Push 4: Global Escape handler — closes popup modals in priority order.
+// Runs at CAPTURE phase so it fires BEFORE markup.js's drawing-viewer Escape.
+// If no modal is open, does nothing → markup.js handles drawing-viewer state.
+// Drawing viewer itself is treated as a navigation tab and is NEVER closed by Escape.
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+
+  // Priority order: most-recently-opened first
+  var modalIds = [
+    'gp-overlay',              // gallery picker (P1.8)
+    'activity-modal-overlay',  // Add Activity / Contractor Response / ARENCON Comment
+    'pin-editor-overlay',      // pin editor
+    'ai-fs-overlay',           // AI full-screen field selector
+    'ai-ps-overlay',           // legacy AI photo-suggest modal
+    'insp-overlay',            // inspector picker
+    'qr-overlay',              // QR code overlay
+    'leave-overlay'            // 3-button leave dialog
+  ];
+  for (var i = 0; i < modalIds.length; i++) {
+    var el = document.getElementById(modalIds[i]);
+    if (!el) continue;
+    var visible = el.offsetParent !== null && el.style.display !== 'none';
+    if (!visible) continue;
+    // Pin editor uses display:none toggle; everything else gets removed from DOM
+    if (modalIds[i] === 'pin-editor-overlay') el.style.display = 'none';
+    else if (el.parentNode) el.parentNode.removeChild(el);
+    e.stopPropagation();
+    e.preventDefault();
+    return;
+  }
+  // Also handle the AI Review popover (anchored, not modal)
+  var aiPop = document.getElementById('ai-review-pop');
+  if (aiPop && aiPop.parentNode) {
+    aiPop.parentNode.removeChild(aiPop);
+    e.stopPropagation();
+    return;
+  }
+  // No modal open → fall through. markup.js's handler will see this Escape if
+  // the drawing viewer is open and clear active-tool / selection (without closing the viewer).
+}, true);  // capture phase
+
 // ═══════════════════════════════════════════════════════
 //  ISSUE SYSTEM — DRAFT → ISSUED → REVISION
 // ═══════════════════════════════════════════════════════

@@ -1271,9 +1271,14 @@ function _handleTextPlace(e) {
   if (!mc) { console.warn('[Markup] Text: no canvas'); return; }
   console.log('[Markup] Text tool placed at', pos.x.toFixed(0), pos.y.toFixed(0));
 
-  // Remove any previous text input
-  var prev = document.querySelectorAll('.mk-text-input-live');
-  prev.forEach(function(el) { if (el.parentNode) el.parentNode.removeChild(el); });
+  // S114 Push 4: two-step text flow — if a text input is already active, this
+  // click just COMMITS it (via blur). The next click creates a new text box.
+  // Prevents the "click confirms + immediately opens new ghost text box" bug.
+  var existing = document.querySelector('.mk-text-input-live');
+  if (existing) {
+    existing.blur(); // triggers the blur listener's commit path
+    return;
+  }
 
   // Get screen position of click
   var screenX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 200);
