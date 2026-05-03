@@ -149,6 +149,44 @@ export var Model = {
 
   setProject: function(proj) {
     if (!proj) { _project = null; _dirty = false; this._notify('project', null); return; }
+
+    // ── S114: V1→V2 normalization (one-shot, idempotent) ──
+    // Audited safe in S114 against 3 real projects: Sprucewood, Sun Pharma, Caplink.
+    // Migrates: sitePhotos→photos, entries[]→observations[], drops empty responses[],
+    // drops legacy d.description scalar (content now lives in observations[0].text).
+    // Provably no data loss: no per-entry contractorId set anywhere; entries and
+    // observations contents are pure mirrors when both exist; all responses[]
+    // arrays in audit were empty placeholders.
+    if (proj.sitePhotos && (!proj.photos || !proj.photos.length)) {
+      proj.photos = proj.sitePhotos;
+    }
+    delete proj.sitePhotos;
+
+    var _migInst = proj.currentFrtInstance || 1;
+    var _migToday = new Date().toISOString().split('T')[0];
+    function _migrateDeficArr(arr) {
+      (arr || []).forEach(function(d) {
+        if ((!d.observations || !d.observations.length) && d.entries && d.entries.length) {
+          d.observations = d.entries.map(function(e, i) {
+            return {
+              id: 'obs_' + Date.now() + '_' + i + '_' + Math.random().toString(36).substr(2, 4),
+              text: e.description || e.text || '',
+              photos: e.photos || [],
+              notedOnInstance: d.notedOnInstance || _migInst,
+              notedDate: d.notedDate || _migToday,
+              addressed: e._addressed || false,
+              createdBy: d.createdBy || null
+            };
+          });
+        }
+        delete d.entries;
+        delete d.responses;
+        delete d.description;
+      });
+    }
+    (proj.contractors || []).forEach(function(c) { _migrateDeficArr(c.deficiencies); });
+    _migrateDeficArr(proj.generalDeficiencies);
+
     // Ensure all required fields exist (backward compat)
     if (!proj.info) proj.info = {};
     var tpl = createNewProject();

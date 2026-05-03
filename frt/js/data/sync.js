@@ -115,6 +115,11 @@ export var SyncEngine = {
       delete d.markupObjects; delete d.markupData;
     });
     (data.photos || []).forEach(function(p) { delete p.dataUrl; delete p.dataBlob; });
+    // S114: Strip captured signature data URIs — base64 PNGs that bloat the payload.
+    if (data.signatures) {
+      delete data.signatures.sigInspectorData;
+      delete data.signatures.sigWitnessData;
+    }
     // Strip observation photo dataUrls (they're large base64 strings)
     (data.contractors || []).forEach(function(c) {
       (c.deficiencies || []).forEach(function(d) {
