@@ -71,13 +71,20 @@ function _cloudIcon(ph) {
 }
 
 function _dayKey(ph, parentDefic) {
-  // Try addedDate, then parse photo ID timestamp, then fall back to defic notedDate
+  // S115 P12: priority order (matches v1):
+  //   1. ph.addedDate || ph.date  (explicit per-photo date)
+  //   2. parentDefic.notedDate || parentDefic.date  (defic photos inherit
+  //      from their parent — a photo attached to a March 17 defic stays on
+  //      March 17 even if the photo was technically uploaded on a later
+  //      day, which matches how field inspectors think about evidence)
+  //   3. id timestamp  (last resort — only fires for orphan photos with no
+  //      addedDate and no parent context, e.g. site photos in proj.photos)
   var d = ph.addedDate || ph.date;
+  if (!d && parentDefic) d = parentDefic.notedDate || parentDefic.date;
   if (!d && ph.id) {
     var m = String(ph.id).match(/[a-z]+_(\d{13})/);
     if (m) d = new Date(parseInt(m[1])).toISOString().split('T')[0];
   }
-  if (!d && parentDefic) d = parentDefic.notedDate || parentDefic.date;
   if (!d) return { key: 'no-date', label: 'No date' };
   try {
     var dt = new Date(d);
