@@ -59,22 +59,25 @@ function ensurePdfJs(cb){
       <a href="../index.html" class="logo-area" id="logo-link" title="Back to Toolkit" style="flex-shrink:0;">
         <img id="logo-img" src="" alt="ARENCON Inc." class="header-logo">
       </a>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Field Review Tool</span>
+      <span id="header-filename" style="display:none;"></span>
+    </div>
+    <div class="header-actions">
+      <!-- S114 P6: moved here from the left group so the title can no longer shift
+           when status text changes width. Status reads as quiet right-side state. -->
       <span id="cloud-status" style="display:none;align-items:center;gap:5px;font-size:calc(11px + var(--ts));color:rgba(255,255,255,.7);flex-shrink:0;cursor:pointer;touch-action:manipulation;" onclick="if(window._showCloudDiagnostic)window._showCloudDiagnostic()" title="Tap for cloud diagnostic">
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;"></span>
         <span id="cloud-status-text">Saved to cloud</span>
         <span id="last-sync-text" style="display:none;font-size:calc(10px + var(--ts));margin-left:6px;opacity:.85;"></span>
       </span>
       <span id="r2-upload-badge" style="display:none;font-size:calc(10px + var(--ts));font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.3px;flex-shrink:0;white-space:nowrap;"></span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Field Review Tool</span>
+      <span class="header-save-ts" id="header-save-ts"></span>
+      <div class="sync-indicator" id="sync-indicator"><span class="sync-dot no-folder"></span><span id="sync-label">No folder</span></div>
+      <!-- S114 P6: undo/redo relocated to sit just left of the IDB indicator per Mark -->
       <span class="header-nav-arrows" id="header-nav-arrows" style="flex-shrink:0;">
         <button class="hdr-sm" id="btn-undo" title="Undo (Ctrl+Z)" style="opacity:0.4;">↩</button>
         <button class="hdr-sm" id="btn-redo" title="Redo (Ctrl+Y)" style="opacity:0.4;">↪</button>
       </span>
-      <span id="header-filename" style="display:none;"></span>
-    </div>
-    <div class="header-actions">
-      <span class="header-save-ts" id="header-save-ts"></span>
-      <div class="sync-indicator" id="sync-indicator"><span class="sync-dot no-folder"></span><span id="sync-label">No folder</span></div>
       <div id="storage-display" class="storage-bar" title="Browser storage usage" style="cursor:help;">
         <div class="storage-bar-track"><div class="storage-bar-fill" style="width:0%"></div></div>
         <span class="storage-label" style="font-size:9px;color:rgba(255,255,255,.45);white-space:nowrap;">IDB</span>
