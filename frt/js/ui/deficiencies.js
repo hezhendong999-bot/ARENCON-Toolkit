@@ -386,13 +386,13 @@ export function buildDeficCard(d, ctrId) {
       h += '<div class="obs-photos-col">';
       h += '<div class="obs-photos-grid">';
       obsPhotos.forEach(function(ph, phi) {
-        // S115 P10: prefer ph.thumb over ph.r2Url for instant feedback after
-        // markup save. Markup save handler async-stamps ph.thumb with a
-        // fresh data URI of the marked image; using thumb first means the
-        // defic tab can show the marked image *before* the marked R2 file
-        // is actually uploaded (which takes 1-2 seconds). Fallback chain:
-        // thumb (data URI) → r2Url (R2-hosted) → dataUrl (legacy in-memory).
-        var src = ph.thumb || ph.r2Url || ph.dataUrl || '';
+        // S115 P11: fallback chain — thumb (cached data URI) → dataUrl
+        // (in-memory blob URL, e.g. lightbox-shared marked image) → r2Url
+        // (R2-hosted; may 404 mid-upload). dataUrl beats r2Url so a freshly
+        // marked photo shows the marked image instantly even before the
+        // marked R2 file finishes uploading. Once async thumb-gen runs and
+        // notifies, thumb takes over and dataUrl is no longer needed.
+        var src = ph.thumb || ph.dataUrl || ph.r2Url || '';
         if (!src) return;
         h += '<div class="obs-photo-wrap">';
         h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" src="' + esc(src) + '" loading="lazy">';

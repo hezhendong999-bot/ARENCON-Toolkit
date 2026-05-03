@@ -1039,6 +1039,14 @@ document.addEventListener('frt-markup-saved', function(e) {
       siblings.push({ photo: photo, location: { type: 'unknown' } });
     }
     console.log('[Markup save] stamping', siblings.length, 'sibling(s)', { backupId: backupId });
+    // S115 P11: For instant visual feedback in defic tab + pin editor, share
+    // the lightbox's blob URL of the marked image across every sibling. Blob
+    // URLs are document-scoped — any <img src=...> in the page can use them.
+    // This means the marked thumbnail shows immediately after save, before
+    // the marked R2 file is uploaded (which takes 1-2 seconds).
+    var markedBlobUrl = (photo.dataUrl && typeof photo.dataUrl === 'string' && photo.dataUrl.indexOf('blob:') === 0)
+      ? photo.dataUrl
+      : null;
     siblings.forEach(function(s){
       var sp = s.photo; if (!sp) return;
       sp.r2Key = newKey;
@@ -1047,12 +1055,21 @@ document.addEventListener('frt-markup-saved', function(e) {
       sp._annotated = true;
       if (backupId) sp._origBackupId = backupId;
       if (sp.addedDate !== todayStr) sp.addedDate = todayStr;
-      delete sp.thumb;
-      if (sp !== photo) { delete sp.dataUrl; }
+      // S115 P11: keep stale thumb until async thumb-gen replaces it. Briefly
+      // showing the original thumb is better than a 404 from the marked R2
+      // path that doesn't exist yet. Once thumb-gen completes the thumb
+      // becomes the marked image (handled below).
+      // (Earlier code used: delete sp.thumb)
+      // Share marked blob URL so defic/pin renders pick it up immediately.
+      if (markedBlobUrl) sp.dataUrl = markedBlobUrl;
     });
     try { IDB.put('photoBlobs', { id: photo.id, dataBlob: d.blob }).catch(function(){}); } catch(_){}
     Model.saveNow();
     if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+    // S115 P11: notify so defic tab + pin editor re-render with the new
+    // r2Key/r2Url + shared blob URL. Photos showing the OLD thumb get the
+    // freshly-shared blob URL (which fronts the marked image instantly).
+    Model._notify && Model._notify('photo', { action: 'markup-stamped', photoId: photo.id });
   }
 
   // ── Generate fresh thumb of marked blob (best-effort, async) ──
@@ -1074,6 +1091,10 @@ document.addEventListener('frt-markup-saved', function(e) {
           if (photo.r2Key === newKey) photo.thumb = markedThumbDataUrl;
           Model.saveNow();
           if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+          // S115 P11: notify so defic tab + pin editor re-render their thumbs.
+          // (Without this, the thumbs stay on the OLD r2Url until next render is
+          // triggered some other way — e.g. user switches tabs.)
+          Model._notify && Model._notify('photo', { action: 'markup-thumb-ready', photoId: photo.id });
         } catch(_){}
       };
       imgEl.src = ev.target.result;
@@ -1089,6 +1110,8 @@ document.addEventListener('frt-markup-saved', function(e) {
       if (photo.r2Key === newKey) photo.r2Status = 'uploaded';
       Model.saveNow();
       if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+      // S115 P11: notify on upload-complete too so cloud-status indicators refresh.
+      Model._notify && Model._notify('photo', { action: 'markup-uploaded', photoId: photo.id });
       console.log('[Markup save] marked blob uploaded successfully');
     } else {
       console.warn('[Markup save] marked blob upload returned null — queueing for retry');

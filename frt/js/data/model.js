@@ -132,7 +132,12 @@ function _queueSave() {
 function _saveToIDB() {
   if (!_project) return Promise.resolve();
   _project.modified = new Date().toISOString();
-  return IDB.put('projects', _project).then(function(ok) {
+  // S115 P11: strip blob: URLs from dataUrl before persisting. Blob URLs are
+  // session-scoped — on page reload they become invalid. If we leave them
+  // in IDB, render code that checks dataUrl first will get a 404. The
+  // in-memory project keeps the blob URLs (we deep-clone for IDB).
+  var snapshot = _stripBlobUrls(_project);
+  return IDB.put('projects', snapshot).then(function(ok) {
     if (ok) {
       _dirty = false;
       Model._notify('saved', { id: _project.id });
@@ -140,6 +145,37 @@ function _saveToIDB() {
       console.warn('[Model] IDB save failed');
     }
   });
+}
+
+// S115 P11: deep-clone a project + remove blob: URLs from any photo dataUrl.
+// Cheap because blob URLs are short strings; we don't strip image bytes.
+function _stripBlobUrls(proj) {
+  if (!proj) return proj;
+  var copy;
+  try { copy = JSON.parse(JSON.stringify(proj)); }
+  catch(e) { return proj; } // fallback: persist as-is rather than lose data
+  function _scrub(arr) {
+    (arr || []).forEach(function(p) {
+      if (p && typeof p.dataUrl === 'string' && p.dataUrl.indexOf('blob:') === 0) {
+        delete p.dataUrl;
+      }
+    });
+  }
+  _scrub(copy.photos);
+  _scrub(copy.sitePhotos);
+  (copy.contractors || []).forEach(function(c) {
+    (c.deficiencies || []).forEach(function(d) {
+      _scrub(d.photos);
+      (d.observations || []).forEach(function(o) { _scrub(o.photos); });
+      (d.entries || []).forEach(function(e) { _scrub(e.photos); });
+    });
+  });
+  (copy.generalDeficiencies || []).forEach(function(d) {
+    _scrub(d.photos);
+    (d.observations || []).forEach(function(o) { _scrub(o.photos); });
+    (d.entries || []).forEach(function(e) { _scrub(e.photos); });
+  });
+  return copy;
 }
 
 // ── S115: Drawing auto-dedup (ported from v1) ────────────────

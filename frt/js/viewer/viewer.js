@@ -1536,9 +1536,9 @@ function _peRenderObsContent(d, idx) {
       strip.style.display = 'flex';
       var html = '';
       photos.forEach(function(ph, pi) {
-        // S115 P10: prefer ph.thumb (set by markup save) over r2Url for
-        // instant feedback. Same logic as defic tab.
-        var src = ph.thumb || ph.r2Url || ph.dataUrl || '';
+        // S115 P11: fallback — thumb → dataUrl (blob URL beats not-yet-
+        // uploaded r2Url) → r2Url. Same logic as defic tab.
+        var src = ph.thumb || ph.dataUrl || ph.r2Url || '';
         if (!src) return;
         html += '<div class="pe-photo-thumb" data-pe-photo="' + pi + '" title="Photo ' + (pi + 1) + '">'
           + '<img src="' + src + '" alt="Photo ' + (pi + 1) + '" loading="lazy">'
