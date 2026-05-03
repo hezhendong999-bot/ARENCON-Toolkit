@@ -1993,19 +1993,20 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-card:hover .ph-dl-btn,.ph-card:hover .ph-del-btn{display:flex;}
 @media(pointer:coarse){.ph-dl-btn,.ph-del-btn{display:flex;opacity:.85;}}
 
-/* S114 P1.7 — 3-column observation layout: comment | photos | drop zone.
-   Stacks vertically on mobile (<900px). Drop zone is the FULL height of the row,
-   making it a large fixed-position drop target on both PC and tablet. */
-.obs-layout{display:grid;grid-template-columns:1.2fr 1fr 0.9fr;gap:10px;margin:8px 0 4px;align-items:stretch;}
+/* S114 P1.8 — 3-column observation layout: comment | photos | drop zone.
+   Photo column wider (1.5fr) so multiple photos are visible at once.
+   Background of photo column matches textarea so the three columns read as
+   visually consistent panels. Drop zone keeps its dashed-border affordance. */
+.obs-layout{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:10px;margin:8px 0 4px;align-items:stretch;}
 @media(max-width:900px){.obs-layout{grid-template-columns:1fr;}}
-.obs-comment-col{display:flex;flex-direction:column;gap:6px;min-width:0;}
-.obs-text-input{width:100%;min-height:118px;flex:1;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);color:var(--ink);}
+.obs-comment-col{display:flex;flex-direction:column;min-width:0;}
+.obs-text-input{width:100%;min-height:140px;flex:1;border:1.5px solid var(--border);border-radius:6px;padding:10px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);color:var(--ink);}
 body.dark-mode .obs-text-input{background:#1f232c;color:white;border-color:#3a3e48;}
-.obs-photos-col{min-width:0;border:1px solid var(--border);border-radius:6px;padding:6px;background:rgba(0,0,0,.02);overflow:auto;}
-body.dark-mode .obs-photos-col{background:rgba(0,0,0,.20);border-color:#3a3e48;}
-.obs-photos-grid{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;}
-.obs-photos-empty{color:var(--silver);font-size:calc(11px + var(--ts));font-style:italic;padding:8px;width:100%;text-align:center;}
-/* P1.7: photo size bumped 90→100 to match v1's deficiency-tab thumbnails */
+/* P1.8: photos column matches the textarea's box (same bg, same border radius). */
+.obs-photos-col{min-width:0;border:1.5px solid var(--border);border-radius:6px;padding:8px;background:var(--smoke);overflow:auto;}
+body.dark-mode .obs-photos-col{background:#1f232c;border-color:#3a3e48;}
+.obs-photos-grid{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start;}
+.obs-photos-empty{color:var(--silver);font-size:calc(11px + var(--ts));font-style:italic;padding:14px;width:100%;text-align:center;}
 .obs-photo-wrap{position:relative;width:100px;height:100px;border-radius:5px;overflow:hidden;border:1px solid var(--border);flex-shrink:0;background:#000;}
 .obs-photo-wrap img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block;}
 .obs-photo-del{position:absolute;top:3px;right:3px;background:rgba(192,57,43,.92);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;text-align:center;cursor:pointer;padding:0;z-index:3;display:none;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.4);}
@@ -2016,8 +2017,6 @@ body.dark-mode .obs-photos-col{background:rgba(0,0,0,.20);border-color:#3a3e48;}
 .photo-ai-btn:hover{background:#9C2742;}
 .obs-photo-wrap:hover .photo-ai-btn{display:flex;}
 @media(pointer:coarse){.photo-ai-btn{display:flex;opacity:.85;}}
-/* P1.7: drop column is a FIXED 3rd column. Drop zone fills its full height —
-   no auto-shrink, no wrap, always visible. Easy drag target on PC and tablet. */
 .obs-drop-col{display:flex;min-width:0;}
 .obs-drop-zone{flex:1;border:2px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:14px;min-height:120px;text-align:center;transition:border-color .15s,background .15s;}
 .obs-drop-col.drag-over .obs-drop-zone{border-color:#9C2742;background:rgba(156,39,66,.08);}
@@ -2025,21 +2024,55 @@ body.dark-mode .obs-drop-zone{border-color:#3a3e48;}
 body.dark-mode .obs-drop-col.drag-over .obs-drop-zone{background:rgba(156,39,66,.18);}
 .obs-drop-msg{font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;line-height:1.3;}
 .obs-drop-msg-sub{font-size:calc(10px + var(--ts));color:var(--silver);font-weight:400;}
-.obs-drop-btns{display:flex;flex-direction:column;gap:5px;width:100%;align-items:center;}
-.obs-drop-btn{padding:6px 16px;border-radius:5px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--smoke);color:var(--steel);min-width:120px;}
-.obs-drop-btn:hover{border-color:var(--arencon);color:var(--arencon);}
-.obs-drop-btn.is-camera{background:#1A7A4A;border-color:#1A7A4A;color:white;}
-.obs-drop-btn.is-camera:hover{background:#16613B;color:white;}
-.obs-drop-btn.is-ai{background:rgba(156,39,66,.12);border-color:#9C2742;color:#9C2742;}
-.obs-drop-btn.is-ai:hover{background:#9C2742;color:white;}
-body.dark-mode .obs-drop-btn{background:#2a2d35;color:#ddd;border-color:#3a3e48;}
+.obs-drop-btns{display:flex;flex-direction:column;gap:6px;width:100%;align-items:center;}
+.obs-drop-btn{padding:7px 14px;border-radius:5px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;border:none;color:white;min-width:130px;transition:filter .15s,background .15s;}
+.obs-drop-btn:hover{filter:brightness(1.10);}
+/* P1.8: distinct color per drop button. Upload=blue (steel-blue),
+   Camera=green, +Gallery=burgundy. All white text, all flat. */
+.obs-drop-btn.is-upload{background:#3F6E9C;}
+.obs-drop-btn.is-camera{background:#1A7A4A;}
+.obs-drop-btn.is-gallery{background:#9C2742;}
+body.dark-mode .obs-drop-btn{color:white;}
 
-/* S114 P1.6 — obs meta-row (Shorten/Undo on user textarea) */
-.obs-meta-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 4px;}
-.obs-meta-btn{padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--steel);font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;transition:all .15s;}
-.obs-meta-btn:hover{border-color:var(--arencon);color:var(--arencon);background:var(--arencon-light);}
-body.dark-mode .obs-meta-btn{color:#bbb;border-color:#3a3e48;}
-body.dark-mode .obs-meta-btn:hover{border-color:var(--arencon);color:var(--arencon);background:rgba(156,39,66,.15);}
+/* S114 P1.8 — per-pin AI Review button (sits in pin header, after drawing chip) */
+.defic-ai-btn{border:1.5px solid #9C2742;background:rgba(156,39,66,.10);color:#9C2742;border-radius:4px;padding:2px 10px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:700;cursor:pointer;transition:all .15s;}
+.defic-ai-btn:hover{background:#9C2742;color:white;}
+body.dark-mode .defic-ai-btn{background:rgba(156,39,66,.20);}
+
+/* AI Review popup menu (3 modes) */
+.ai-review-pop{background:var(--bg);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);min-width:280px;padding:4px;}
+body.dark-mode .ai-review-pop{background:#1f232c;border-color:#3a3e48;}
+.ai-rv-opt{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 12px;border:none;background:transparent;color:var(--fg);font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:500;cursor:pointer;border-radius:5px;text-align:left;}
+.ai-rv-opt:not(:disabled):hover{background:var(--smoke);color:#9C2742;}
+body.dark-mode .ai-rv-opt:not(:disabled):hover{background:#2a2d35;}
+.ai-rv-opt:disabled{opacity:.55;cursor:not-allowed;}
+.ai-rv-disabled{font-size:calc(9px + var(--ts));color:var(--silver);font-style:italic;margin-left:8px;}
+
+/* S114 P1.8 — Gallery picker modal */
+.gp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;display:flex;align-items:center;justify-content:center;padding:14px;}
+.gp-modal{background:var(--bg);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.4);width:100%;max-width:880px;max-height:90vh;display:flex;flex-direction:column;border:1px solid var(--border);}
+body.dark-mode .gp-modal{background:#1f232c;border-color:#3a3e48;}
+.gp-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);}
+.gp-header h3{margin:0;font-size:calc(15px + var(--ts));color:var(--fg);font-weight:700;}
+.gp-x{background:transparent;border:none;color:var(--steel);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px;}
+.gp-x:hover{background:rgba(192,57,43,.15);color:#C0392B;}
+.gp-body{padding:14px 18px;overflow-y:auto;flex:1;}
+.gp-help{color:var(--steel);font-size:calc(12px + var(--ts));margin:0 0 12px;}
+.gp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;}
+.gp-thumb{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;border:2px solid transparent;cursor:pointer;background:#000;}
+.gp-thumb:hover{border-color:#9C2742;}
+.gp-thumb.taken{cursor:not-allowed;opacity:.5;}
+.gp-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.gp-check{position:absolute;top:6px;left:6px;width:20px;height:20px;cursor:pointer;z-index:2;accent-color:#9C2742;background:white;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.gp-thumb:has(.gp-check:checked){border-color:#9C2742;}
+.gp-taken-tag{position:absolute;bottom:4px;left:4px;right:4px;background:rgba(0,0,0,.75);color:white;font-size:9px;text-align:center;padding:2px 4px;border-radius:3px;font-weight:600;}
+.gp-footer{display:flex;align-items:center;gap:10px;padding:12px 18px;border-top:1px solid var(--border);}
+.gp-count{flex:1;color:var(--steel);font-size:calc(12px + var(--ts));font-weight:600;}
+.gp-cancel{padding:8px 16px;border:1.5px solid var(--border);background:transparent;color:var(--steel);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;}
+.gp-cancel:hover{border-color:var(--arencon);color:var(--arencon);}
+.gp-attach{padding:8px 22px;border:none;background:#9C2742;color:white;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:700;cursor:pointer;}
+.gp-attach:hover:not(:disabled){background:#7d1f35;}
+.gp-attach:disabled{opacity:.5;cursor:not-allowed;}
 
 /* S114 P1.6 — AI scratchpad (inline per observation) */
 .ai-scratchpad{margin:8px 0;border:1.5px solid #9C2742;border-radius:8px;background:rgba(156,39,66,.04);overflow:hidden;}

@@ -39,6 +39,108 @@ function deficIsClosed(d) { return d.status === 'closed' || d.status === 'Addres
 
 var _activeDlcTab = 'active';
 
+// S114 P1.8: Gallery picker — modal lets user select project site photos to attach
+// to a deficiency observation. Selected photos are appended to obs.photos with
+// their existing R2 metadata preserved (no re-upload, no duplication on R2).
+function _showGalleryPicker(deficId, obsIdx) {
+  var proj = Model.getProject();
+  if (!proj) return;
+  var sitePhotos = proj.photos || [];
+  if (!sitePhotos.length) {
+    toast('\u26A0 No site photos in this project. Upload site photos via the Photos tab first.');
+    return;
+  }
+  var f = Model.findDeficiency(deficId);
+  if (!f) { toast('\u26A0 Deficiency not found'); return; }
+  var obs = f.defic.observations && f.defic.observations[obsIdx];
+  if (!obs) { toast('\u26A0 Observation not found'); return; }
+  // Build set of photo IDs already attached so we can mark them as already-used
+  var attachedIds = {};
+  (obs.photos || []).forEach(function(ph) { if (ph && ph.id) attachedIds[ph.id] = true; });
+
+  var existing = document.getElementById('gp-overlay');
+  if (existing) existing.remove();
+  var ov = document.createElement('div');
+  ov.id = 'gp-overlay';
+  ov.className = 'gp-overlay';
+
+  var html = '<div class="gp-modal">';
+  html += '<div class="gp-header">';
+  html += '<h3>\uD83D\uDDBC\uFE0F Pick from Site Photos</h3>';
+  html += '<button class="gp-x" data-gp-x>\u2715</button>';
+  html += '</div>';
+  html += '<div class="gp-body">';
+  html += '<p class="gp-help">Select site photos to attach to this pin. Photos stay in the site gallery as well.</p>';
+  html += '<div class="gp-grid">';
+  sitePhotos.forEach(function(p, i) {
+    var src = p.thumb || p.r2Url || p.dataUrl || '';
+    var taken = !!attachedIds[p.id];
+    html += '<label class="gp-thumb' + (taken ? ' taken' : '') + '" data-gp-idx="' + i + '">';
+    html += '<input type="checkbox" class="gp-check" data-gp-idx="' + i + '"' + (taken ? ' disabled' : '') + '>';
+    if (src) html += '<img src="' + esc(src) + '" loading="lazy">';
+    if (taken) html += '<span class="gp-taken-tag">already attached</span>';
+    html += '</label>';
+  });
+  html += '</div>';
+  html += '</div>';
+  html += '<div class="gp-footer">';
+  html += '<span class="gp-count" id="gp-count">0 selected</span>';
+  html += '<button class="gp-cancel" data-gp-x>Cancel</button>';
+  html += '<button class="gp-attach" id="gp-attach" disabled>Attach 0</button>';
+  html += '</div>';
+  html += '</div>';
+  ov.innerHTML = html;
+  document.body.appendChild(ov);
+
+  function close() { ov.remove(); }
+  function updateCount() {
+    var checked = ov.querySelectorAll('.gp-check:checked');
+    var n = checked.length;
+    var c = document.getElementById('gp-count'); if (c) c.textContent = n + ' selected';
+    var a = document.getElementById('gp-attach');
+    if (a) { a.disabled = n === 0; a.textContent = 'Attach ' + n; }
+  }
+
+  ov.addEventListener('click', function(e) {
+    if (e.target.matches('[data-gp-x]') || e.target === ov) { close(); return; }
+    if (e.target.matches('.gp-check')) { updateCount(); return; }
+    if (e.target.id === 'gp-attach') {
+      var checks = ov.querySelectorAll('.gp-check:checked');
+      if (!checks.length) return;
+      // Re-fetch obs so we attach to live model
+      var f2 = Model.findDeficiency(deficId);
+      if (!f2 || !f2.defic.observations || !f2.defic.observations[obsIdx]) {
+        toast('\u26A0 Observation no longer exists'); close(); return;
+      }
+      var liveObs = f2.defic.observations[obsIdx];
+      if (!liveObs.photos) liveObs.photos = [];
+      var addedCount = 0;
+      checks.forEach(function(cb) {
+        var idx = parseInt(cb.getAttribute('data-gp-idx'));
+        var src = sitePhotos[idx];
+        if (!src) return;
+        // Copy reference: keep R2 metadata, generate a NEW photo id so it's
+        // distinguishable from the site copy. R2 has one file; two records point at it.
+        liveObs.photos.push({
+          id: 'ph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          r2Key: src.r2Key || '',
+          r2Url: src.r2Url || '',
+          r2Status: src.r2Status || 'uploaded',
+          dataUrl: null,
+          filename: src.filename || ('site_pick_' + (idx + 1) + '.jpg'),
+          addedDate: new Date().toISOString().split('T')[0],
+          fromSiteIdx: idx  // breadcrumb
+        });
+        addedCount++;
+      });
+      Model.saveNow();
+      initDeficiencies.render();
+      toast('\u2714 Attached ' + addedCount + ' photo' + (addedCount === 1 ? '' : 's'));
+      close();
+    }
+  });
+}
+
 // ── Activity Modal (v1-style) ────────────────────────────
 var _activityModalPhotos = [];
 
@@ -221,6 +323,8 @@ export function buildDeficCard(d, ctrId) {
   } else {
     h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
   }
+  // S114 P1.8: AI Review button per pin. Opens a 3-option menu.
+  h += '<button data-action="ai-review-menu" data-defic-id="' + esc(d.id) + '" class="defic-ai-btn" title="AI Review">\u2728 AI Review</button>';
   h += '</div>';
 
   // Closed note (only when status is closed)
@@ -254,13 +358,9 @@ export function buildDeficCard(d, ctrId) {
       // stacks vertically on mobile (<900px) via the .obs-layout grid CSS.
       var obsPhotos = o.photos || [];
       h += '<div class="obs-layout">';
-      // ── Column 1: comment textarea + meta buttons (Shorten / Undo) ──
+      // ── Column 1: comment textarea (no Shorten/Undo — AI Review handles that) ──
       h += '<div class="obs-comment-col">';
       h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="obs-text-input" placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
-      h += '<div class="obs-meta-row">';
-      h += '<button class="obs-meta-btn" data-action="shorten-user-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Shorten this text without losing meaning">\u2702\uFE0F Shorten my text</button>';
-      h += '<button class="obs-meta-btn" data-action="undo-user-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Undo last change (Ctrl+Z)">\u21B6 Undo</button>';
-      h += '</div>';
       h += '</div>';
       // ── Column 2: photo thumbnails grid (100×100 — matches v1) ──
       h += '<div class="obs-photos-col">';
@@ -279,18 +379,16 @@ export function buildDeficCard(d, ctrId) {
       }
       h += '</div>';
       h += '</div>';
-      // ── Column 3: dedicated drop zone (fixed-position, large drop target) ──
+      // ── Column 3: drop zone — Upload, Camera, +Gallery (no AI; AI lives in pin header now) ──
       h += '<div class="obs-drop-col" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
       h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
       h += ' ondragleave="this.classList.remove(\'drag-over\')">';
       h += '<div class="obs-drop-zone">';
       h += '<div class="obs-drop-msg">Drop photos here<br><span class="obs-drop-msg-sub">or use buttons below</span></div>';
       h += '<div class="obs-drop-btns">';
-      h += '<button class="obs-drop-btn" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCCE Upload</button>';
+      h += '<button class="obs-drop-btn is-upload" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCCE Upload</button>';
       h += '<button class="obs-drop-btn is-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCF7 Camera</button>';
-      if (obsPhotos.length) {
-        h += '<button class="obs-drop-btn is-ai" data-action="ai-suggest-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="AI Suggest description from all photos">\u2728 AI</button>';
-      }
+      h += '<button class="obs-drop-btn is-gallery" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F + Gallery</button>';
       h += '</div>';
       h += '</div>';
       h += '</div>';
@@ -863,13 +961,59 @@ document.addEventListener('click', function(e) {
     }
     window.AIAssist.openScratchpadFromPhoto(deficId, obsIdx, photoIdx);
   }
-  if (action === 'ai-suggest-obs') {
+
+  // S114 P1.8 — Per-pin AI Review menu (3 modes). Click opens floating menu;
+  // option click triggers the appropriate mode and populates the scratchpad of obs 0.
+  if (action === 'ai-review-menu') {
+    e.stopPropagation();
+    var deficId = el.getAttribute('data-defic-id');
+    // Toggle: if a menu is already open for this pin, close it
+    var existing = document.getElementById('ai-review-pop');
+    if (existing) { existing.remove(); if (existing.getAttribute('data-defic-id') === deficId) return; }
+    var f = Model.findDeficiency(deficId);
+    if (!f) return;
+    var hasPhotos = !!(f.defic.observations && f.defic.observations[0] && (f.defic.observations[0].photos || []).length);
+    var hasText = !!(f.defic.observations && f.defic.observations[0] && (f.defic.observations[0].text || '').trim());
+    var pop = document.createElement('div');
+    pop.id = 'ai-review-pop';
+    pop.className = 'ai-review-pop';
+    pop.setAttribute('data-defic-id', deficId);
+    var btn1 = '<button class="ai-rv-opt" data-action="ai-review-pin-photos" data-defic-id="' + esc(deficId) + '"' + (hasPhotos ? '' : ' disabled') + '>\uD83D\uDCF7 Full review (photos + text)' + (hasPhotos ? '' : '<span class="ai-rv-disabled">no photos</span>') + '</button>';
+    var btn2 = '<button class="ai-rv-opt" data-action="ai-review-pin-text" data-defic-id="' + esc(deficId) + '"' + (hasText ? '' : ' disabled') + '>\uD83D\uDCDD Full review (text only)' + (hasText ? '' : '<span class="ai-rv-disabled">no text</span>') + '</button>';
+    var btn3 = '<button class="ai-rv-opt" data-action="ai-review-pin-quick" data-defic-id="' + esc(deficId) + '"' + (hasText ? '' : ' disabled') + '>\u26A1 Quick review (grammar / flow)' + (hasText ? '' : '<span class="ai-rv-disabled">no text</span>') + '</button>';
+    pop.innerHTML = btn1 + btn2 + btn3;
+    document.body.appendChild(pop);
+    var r = el.getBoundingClientRect();
+    pop.style.position = 'fixed';
+    pop.style.top = (r.bottom + 4) + 'px';
+    pop.style.left = Math.min(r.left, window.innerWidth - 320) + 'px';
+    pop.style.zIndex = '9000';
+    setTimeout(function() {
+      document.addEventListener('click', function close(ev) {
+        if (ev.target.closest && ev.target.closest('#ai-review-pop')) return;
+        var p = document.getElementById('ai-review-pop');
+        if (p) p.remove();
+        document.removeEventListener('click', close);
+      });
+    }, 10);
+    return;
+  }
+  if (action === 'ai-review-pin-photos' || action === 'ai-review-pin-text' || action === 'ai-review-pin-quick') {
+    var deficId = el.getAttribute('data-defic-id');
+    var pop = document.getElementById('ai-review-pop'); if (pop) pop.remove();
+    if (!window.AIAssist || !window.AIAssist.aiReviewPin) { toast('\u26A0 AI Assistant not loaded'); return; }
+    var aiMode = action === 'ai-review-pin-photos' ? 'photos'
+               : action === 'ai-review-pin-text' ? 'rewrite' : 'quickfix';
+    window.AIAssist.aiReviewPin(deficId, aiMode);
+    return;
+  }
+
+  // S114 P1.8 — Pick photos from the project site gallery to attach to this observation
+  if (action === 'photo-gallery-pick') {
     var deficId = el.getAttribute('data-defic-id');
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
-    if (!window.AIAssist || !window.AIAssist.openScratchpadFromAllPhotos) {
-      toast('\u26A0 AI Assistant not loaded'); return;
-    }
-    window.AIAssist.openScratchpadFromAllPhotos(deficId, obsIdx);
+    _showGalleryPicker(deficId, obsIdx);
+    return;
   }
   // S114 P1.6 — scratchpad merge actions
   if (action === 'ai-sp-insert' || action === 'ai-sp-append' || action === 'ai-sp-replace') {
@@ -895,26 +1039,8 @@ document.addEventListener('click', function(e) {
       window.AIAssist.shortenScratchpad(deficId, obsIdx);
     }
   }
-  // S114 P1.6 — Shorten user's textarea text (selection or whole field)
-  if (action === 'shorten-user-text') {
-    var deficId = el.getAttribute('data-defic-id');
-    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
-    if (window.AIAssist && window.AIAssist.shortenUserText) {
-      window.AIAssist.shortenUserText(deficId, obsIdx);
-    }
-  }
-  // S114 P1.6 — Undo helper for tablets without Ctrl key.
-  // Native browser undo on the textarea pops the last execCommand entry.
-  if (action === 'undo-user-text') {
-    var deficId = el.getAttribute('data-defic-id');
-    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
-    var ta = document.querySelector('textarea[data-action="obs-text"][data-defic-id="' + deficId + '"][data-obs-idx="' + obsIdx + '"]');
-    if (ta) {
-      ta.focus();
-      try { document.execCommand('undo'); } catch(_) {}
-      ta.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-  }
+  // Note: shorten-user-text + undo-user-text were removed in P1.8;
+  // AI Review menu (in pin header) covers those cases now.
 
   if (action === 'show-add-activity') {
     var deficId = el.getAttribute('data-defic-id');

@@ -664,6 +664,7 @@ export var AIAssist = {
   // S114 P1.6 — inline scratchpad ↓
   openScratchpadFromPhoto: openScratchpadFromPhoto,
   openScratchpadFromAllPhotos: openScratchpadFromAllPhotos,
+  aiReviewPin: aiReviewPin,
   shortenScratchpad: shortenScratchpad,
   shortenUserText: shortenUserText,
   mergeScratchpad: mergeScratchpad,
@@ -733,7 +734,8 @@ function _spRender(deficId, obsIdx) {
   el.style.display = 'block';
 
   var meta = '';
-  if (s.photoCount > 0) meta = 'from ' + s.photoCount + ' photo' + (s.photoCount === 1 ? '' : 's');
+  if (s.metaLabel) meta = _esc(s.metaLabel);
+  else if (s.photoCount > 0) meta = 'from ' + s.photoCount + ' photo' + (s.photoCount === 1 ? '' : 's');
   if (s.confidence) {
     var cColor = s.confidence === 'high' ? '#1A7A4A' : (s.confidence === 'low' ? '#C0392B' : '#E67E22');
     meta += '<span class="ai-sp-conf" style="background:' + cColor + ';">' + _esc(s.confidence) + '</span>';
@@ -966,6 +968,65 @@ function mergeScratchpad(deficId, obsIdx, mode) {
 function discardScratchpad(deficId, obsIdx) {
   _spClear(deficId, obsIdx);
   _spRender(deficId, obsIdx);
+}
+
+// S114 P1.8: per-pin AI Review entry point. mode = 'photos' | 'rewrite' | 'quickfix'.
+// 'photos' delegates to openScratchpadFromAllPhotos. Text modes call the existing
+// fields-based review endpoint and pipe the result into obs 0's scratchpad.
+function aiReviewPin(deficId, mode) {
+  var f = Model.findDeficiency(deficId);
+  if (!f) { toast('\u26A0 Pin not found'); return; }
+  var obsIdx = 0; // primary observation
+  var obs = f.defic.observations && f.defic.observations[obsIdx];
+  if (!obs) { toast('\u26A0 No observation on this pin'); return; }
+
+  if (mode === 'photos') {
+    if (!(obs.photos || []).length) {
+      toast('\u26A0 No photos on this pin \u2014 use Text only or Quick review');
+      return;
+    }
+    openScratchpadFromAllPhotos(deficId, obsIdx);
+    return;
+  }
+
+  // Text-only modes
+  var origText = (obs.text || '').trim();
+  if (!origText) { toast('\u26A0 No text to review'); return; }
+  var s = _spGet(deficId, obsIdx);
+  if (s.loading) { toast('\u26A0 Already analyzing\u2026'); return; }
+  var token = _getToken();
+  if (!token) { toast('\u26A0 AI requires cloud login'); return; }
+
+  s.loading = true; s.error = null;
+  s.metaLabel = mode === 'rewrite' ? 'full text review' : 'quick review';
+  _spRender(deficId, obsIdx);
+
+  fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify({
+      fields: [{ path: 'observation', name: 'Observation', value: origText }],
+      mode: mode,
+      context: _ctx()
+    })
+  }).then(function(r) {
+    if (!r.ok) return r.json().then(function(e) { throw new Error(e.error || 'API error ' + r.status); });
+    return r.json();
+  }).then(function(data) {
+    s.loading = false;
+    var sug = data.suggestions && data.suggestions[0];
+    var newText = sug ? (sug.improved || sug.suggestion || '') : '';
+    if (!newText) { s.error = 'AI returned no suggestion'; _spRender(deficId, obsIdx); return; }
+    s.text = newText;
+    s.photoIds = []; s.photoCount = 0;
+    if (data.usage && typeof data.usage.cost_usd === 'number') s.costTotal += data.usage.cost_usd;
+    s.confidence = sug && sug.confidence ? sug.confidence : null;
+    _spRender(deficId, obsIdx);
+  }).catch(function(err) {
+    s.loading = false;
+    s.error = err.message || 'Review failed';
+    _spRender(deficId, obsIdx);
+  });
 }
 
 // Global access for onclick in HTML
