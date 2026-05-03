@@ -1119,7 +1119,7 @@ document.addEventListener('frt-markup-saved', function(e) {
   // No preKey: original was never uploaded (or upload didn't return in time).
   // Upload _origBlob to R2 ourselves, then create backup pointing at it.
   if (!origBlobSrc) {
-    console.warn('[Markup] First markup, no preKey AND no _origBlob — cannot create backup. Markup state will be flagged but Revert won\\'t work.');
+    console.warn('[Markup] First markup, no preKey AND no _origBlob — cannot create backup. Markup state will be flagged but Revert will not work.');
     _stampSiblings(null); // no backupId — markup persists but unrevertable
     return;
   }
