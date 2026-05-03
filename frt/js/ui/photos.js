@@ -25,6 +25,22 @@ var _filterPanelOpen = false;
 var _lastSelectedUid = null;
 var _renderOrderUids = []; // refreshed every render() in display order
 
+// S114 P1.4: render debounce. Cloud pull every 30s fires a 'project' notify,
+// which would otherwise rebuild the entire gallery DOM on every poll, causing
+// visible flashes during scroll. RAF-coalesce + skip if panel not visible.
+var _renderRafId = 0;
+function _scheduleRender() {
+  if (_renderRafId) return;
+  _renderRafId = requestAnimationFrame(function() {
+    _renderRafId = 0;
+    var panel = document.getElementById('panel-photos');
+    // offsetParent is null when an ancestor is display:none — cheap visibility test
+    if (panel && panel.offsetParent !== null) {
+      initPhotos.render();
+    }
+  });
+}
+
 // Photo UID — stable across re-renders so selection survives.
 //   site:<idx>                         for site photos
 //   defic:<deficId>:<obsIdx>:<phIdx>   for observation photos
@@ -100,6 +116,11 @@ export var initPhotos = {
     allDefics.forEach(function(d) {
       var defic = d.defic;
       var isGeneral = defic.priority === 'general';
+      // S114 P1.4: priority class drives the colored frame on the card itself.
+      // 'high' = red (deficiency), 'low' = orange, 'general' = green (Site General-style
+      // informational pin, not a deficiency).
+      var priorityClass = isGeneral ? 'priority-general'
+        : (defic.priority === 'low' ? 'priority-low' : 'priority-high');
       (defic.observations || []).forEach(function(o, oi) {
         (o.photos || []).forEach(function(ph, phi) {
           var dk = _dayKey(ph, defic);
@@ -108,12 +129,14 @@ export var initPhotos = {
             deficId: defic.id,
             deficNum: defic.num,
             isGeneralPriority: isGeneral,
+            priorityClass: priorityClass,
             obsIdx: oi,
             photoIdx: phi,
             ph: ph,
             src: ph.r2Url || ph.dataUrl || '',
             badgeText: 'Pin ' + defic.num,
-            badgeClass: isGeneral ? 'ph-badge-pin ph-badge-pin-gen' : 'ph-badge-pin',
+            // P1.4: badge stays red for ALL pin photos. Priority signal moves to card frame.
+            badgeClass: 'ph-badge-pin',
             dateKey: dk.key, dateLabel: dk.label,
             sortGroup: [1, defic.num, oi, phi]
           });
@@ -236,7 +259,10 @@ export var initPhotos = {
         var clickAction = r.type === 'site'
           ? 'data-action="open-site-lightbox" data-photo-idx="' + r.siteIdx + '"'
           : 'data-action="open-defic-lightbox" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '"';
-        html += '<div class="ph-card' + (sel ? ' selected' : '') + '" data-uid="' + esc(r.uid) + '">';
+        var cardCls = 'ph-card';
+        if (sel) cardCls += ' selected';
+        if (r.priorityClass) cardCls += ' ' + r.priorityClass;
+        html += '<div class="' + cardCls + '" data-uid="' + esc(r.uid) + '">';
         // S114 P1.3: checkbox is hover-only when unselected, always shown when selected
         html += '<input type="checkbox" class="ph-check"' + (sel ? ' checked' : '') + ' data-action="ph-toggle-photo" data-uid="' + esc(r.uid) + '">';
         html += '<span class="ph-badge ' + r.badgeClass + '">' + esc(r.badgeText) + '</span>';
@@ -273,7 +299,11 @@ export var initPhotos = {
   }
 };
 
-Model.onChange('project', function() { initPhotos.render(); });
+Model.onChange('project', _scheduleRender);
+// S114 P1.4: also catch photo/deficiency mutations so the gallery stays fresh
+// without needing a full project re-load. Also debounced.
+Model.onChange('photo', _scheduleRender);
+Model.onChange('deficiency', _scheduleRender);
 
 // Click handlers
 document.addEventListener('click', function(e) {

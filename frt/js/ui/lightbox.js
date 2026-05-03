@@ -305,6 +305,12 @@ function _showPhoto(idx) {
     _panX = 0; _panY = 0;
     _applyTransform();
   };
+  // S114 P1.4: set crossOrigin BEFORE src so the R2 image loads via CORS and the
+  // canvas isn't tainted when MarkupEngine.saveBlob() draws it into a canvas
+  // and calls toBlob(). R2 worker sends Access-Control-Allow-Origin matching
+  // the GitHub Pages origin; verified via curl.
+  // Setting crossOrigin on dataUrl/blob URLs is a harmless no-op.
+  img.crossOrigin = 'anonymous';
   img.src = src;
 
   if (info) info.textContent = _buildCaption(p);
