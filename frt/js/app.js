@@ -836,10 +836,43 @@ function _pushToCloud() {
 // S81: persist last status so the diagnostic popup can display it
 var _lastCloudStatus = 'synced';
 var _lastCloudText   = 'Saved to cloud';
+// S114 P3: timestamp of last successful cloud round-trip. Drives the "Last sync: X ago"
+// indicator next to the cloud dot. Updated every time _setCloudStatus is called with 'synced'.
+var _lastSyncedAt = 0;
+
+function _formatTimeAgo(ms) {
+  var sec = Math.floor(ms / 1000);
+  if (sec < 5) return 'just now';
+  if (sec < 60) return sec + 's ago';
+  var min = Math.floor(sec / 60);
+  if (min < 60) return min + 'm ago';
+  var hr = Math.floor(min / 60);
+  if (hr < 24) return hr + 'h ago';
+  var day = Math.floor(hr / 24);
+  return day + 'd ago';
+}
+
+function _updateLastSyncIndicator() {
+  var el = document.getElementById('last-sync-text');
+  if (!el) return;
+  if (!_lastSyncedAt) { el.textContent = ''; el.style.display = 'none'; return; }
+  el.style.display = '';
+  var diff = Date.now() - _lastSyncedAt;
+  el.textContent = '\u00B7 last sync: ' + _formatTimeAgo(diff);
+  // Color-coded freshness — muted palette per Mark's color rule
+  var color = diff < 60000 ? '#5F8068'    // muted green: <1 min
+            : diff < 300000 ? '#B07F5A'   // muted amber: 1-5 min
+            : '#A85959';                   // muted red:   >5 min
+  el.style.color = color;
+}
+
+// Update the "X ago" text every 30s
+setInterval(_updateLastSyncIndicator, 30000);
 
 function _setCloudStatus(status, text) {
   _lastCloudStatus = status;
   _lastCloudText   = text || '';
+  if (status === 'synced') _lastSyncedAt = Date.now();
   var dot = document.getElementById('cloud-dot');
   var label = document.getElementById('cloud-status-text');
   var wrap = document.getElementById('cloud-status');
@@ -856,6 +889,8 @@ function _setCloudStatus(status, text) {
   if (dvDot) dvDot.style.background = color;
   var dvText = document.getElementById('dv-cloud-text');
   if (dvText) dvText.textContent = text || '';
+  // Refresh "X ago" immediately when status changes
+  _updateLastSyncIndicator();
 }
 
 // S81 mobile-friendly diagnostic — tapping the cloud dot opens a large popup
