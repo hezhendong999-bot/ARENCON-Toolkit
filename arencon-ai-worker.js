@@ -80,6 +80,37 @@ Respond with ONLY valid JSON — no markdown, no backticks:
   }
 ]`;
 
+// S116 Push 4: shorten mode for the AI scratchpad's "✂ Shorten" button
+// (existed in the client since S114 P1.6 but the worker never recognized
+// the mode, so the button returned 400 errors). Used to compress AI-rewritten
+// text by 30-50% without losing facts/measurements/code references.
+//
+// Returns SAME JSON shape as PROMPT_REWRITE so the client can consume it
+// uniformly (data.suggestions[0].improved). Uses Haiku because it's a
+// pure compression task — Sonnet's reasoning depth is unnecessary cost.
+const PROMPT_SHORTEN = `You are an editor for fire protection inspection reports at ARENCON Inc.
+
+Your job is to SHORTEN text by 30-50% while preserving every fact, measurement, code reference, and finding.
+
+RULES:
+- Compress by removing redundancy, padding phrases, and unnecessary qualifiers
+- Preserve EVERY measurement, code reference (NFPA, OBC, ULC), date, contractor name, room/location identifier
+- Preserve the technical meaning and severity of every finding
+- Keep professional fire protection terminology
+- Use passive professional tone consistent with the original
+- Do NOT add commentary, explanations, or new findings
+- Do NOT change measurements, numbers, or technical references
+- If the text is already concise (under ~30 words and no obvious padding), return it unchanged with changes = "already concise"
+
+Respond with ONLY valid JSON — no markdown, no backticks:
+[
+  {
+    "id": "field_id",
+    "improved": "The shortened text, preserving all facts and references.",
+    "changes": "Brief note or 'already concise'"
+  }
+]`;
+
 const PROMPT_PHOTO_SUGGEST = `You are a senior fire protection engineer at ARENCON Inc. in Ontario, Canada. An inspector has taken photo(s) at a site and wants a suggested deficiency description for a Field Review Report.
 
 Analyze the photo(s) and suggest a concise, professional deficiency description using proper fire protection terminology (NFPA 13, 25, 72, OBC, ULC standards).
@@ -273,16 +304,29 @@ export default {
         return jsonResponse({ error: 'Too many fields (max 50)' }, 400, headers);
       }
 
-      // Select model and prompt based on mode
-      const reviewMode = (mode === 'quickfix') ? 'quickfix' : 'rewrite';
-      const modelConfig = MODELS[reviewMode];
-      const systemPrompt = reviewMode === 'quickfix' ? PROMPT_QUICKFIX : PROMPT_REWRITE;
+      // Select model and prompt based on mode.
+      // S116 Push 4: 'shorten' mode added — uses Haiku (cheap compression
+      // task) and the dedicated PROMPT_SHORTEN. Falls back to 'rewrite'
+      // (Sonnet) for any unrecognized mode, preserving original behaviour.
+      var reviewMode;
+      if (mode === 'quickfix') reviewMode = 'quickfix';
+      else if (mode === 'shorten') reviewMode = 'shorten';
+      else reviewMode = 'rewrite';
+      const modelConfig = (reviewMode === 'rewrite') ? MODELS.rewrite : MODELS.quickfix;
+      const systemPrompt = reviewMode === 'quickfix' ? PROMPT_QUICKFIX
+                         : reviewMode === 'shorten'  ? PROMPT_SHORTEN
+                         : PROMPT_REWRITE;
 
-      // 3. Build user message for Claude
+      // 3. Build user message for Claude.
+      // S116 Push 4: client may send `value` (newer fields shape from the
+      // shorten + scratchpad flows) or `text` (legacy rewrite/quickfix
+      // shape). Read both so 'shorten' requests don't arrive with empty
+      // text strings — root cause of why the Shorten button never worked
+      // even after the worker recognized the mode.
       const fieldData = fields.map(f => ({
-        id: f.id,
-        label: f.label || '',
-        text: f.text || ''
+        id: f.id || f.path || '',
+        label: f.label || f.name || '',
+        text: f.text || f.value || ''
       }));
 
       const userMessage = JSON.stringify(fieldData);
