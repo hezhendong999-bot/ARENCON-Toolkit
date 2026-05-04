@@ -1908,13 +1908,45 @@ function _drawPinMiniMap(canvas, img, d) {
   if (!canvas || !img || !img.width || !img.height) return;
   var aspect = img.height / img.width;
   var dpr = Math.min(window.devicePixelRatio || 1, 3);
-  var displayW = canvas.parentElement ? canvas.parentElement.clientWidth : 360;
-  if (!displayW || displayW < 20) displayW = 360;
-  var displayH = Math.round(displayW * aspect);
+
+  // S116 Push 11: fit to BOTH container width AND height (object-fit:contain
+  // semantics) so the canvas fills the flex panel without leaving a tall
+  // empty band at the bottom. Previously this only fit to width, so a
+  // wide-aspect drawing (e.g. landscape architectural plan) rendered short
+  // inside a tall container, leaving white space below. Drawing aspect ratio
+  // is preserved — we just shrink whichever dimension would overflow.
+  var parent = canvas.parentElement;
+  var containerW = parent ? parent.clientWidth : 360;
+  var containerH = parent ? parent.clientHeight : 0;
+  if (!containerW || containerW < 20) containerW = 360;
+  // Account for canvas display block padding/border on parent if any.
+  var displayW, displayH;
+  if (containerH && containerH > 20) {
+    // Both dimensions known — pick whichever side is more constrained.
+    var fitByWidth = { w: containerW, h: containerW * aspect };
+    var fitByHeight = { w: containerH / aspect, h: containerH };
+    if (fitByWidth.h <= containerH) {
+      // Width-limited: full width, height follows aspect.
+      displayW = fitByWidth.w; displayH = fitByWidth.h;
+    } else {
+      // Height-limited: full height, width follows aspect.
+      displayW = fitByHeight.w; displayH = fitByHeight.h;
+    }
+  } else {
+    // Fallback (mobile thumb with no fixed height): width-fit.
+    displayW = containerW;
+    displayH = displayW * aspect;
+  }
+  displayW = Math.round(displayW);
+  displayH = Math.round(displayH);
+
   canvas.width = Math.round(displayW * dpr);
   canvas.height = Math.round(displayH * dpr);
   canvas.style.width = displayW + 'px';
   canvas.style.height = displayH + 'px';
+  // Center the canvas within the container if it's smaller in one direction.
+  canvas.style.display = 'block';
+  canvas.style.margin = 'auto';
   var ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, displayW, displayH);

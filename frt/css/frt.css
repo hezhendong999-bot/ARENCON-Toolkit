@@ -390,6 +390,20 @@ body.dark-mode .pe-drawing-panel{border-left-color:#3a3e48;background:#1a1c24;}
    CONTRACTOR's height and break alignment. IAR baselines with the input
    row naturally; no margin/spacer hack needed. */
 .pe-compact-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+/* S116 Push 11: explicit height match for compact-row form controls.
+   Native <select> elements get ~4px extra browser chrome for the dropdown
+   chevron that <button> doesn't. Result: IAR button looked ~4px shorter
+   than DATE/STATUS dropdowns even with identical padding. Force a single
+   line-height + box-sizing across all three so they measure identically.
+   Each control natural height ≈ 7px+lineHeight(12px*1.4=17px)+7px+2px(border)
+   = 33px — set min-height:34px to be safe across browsers. */
+.pe-compact-row .pe-select,
+.pe-compact-row .pe-input,
+.pe-compact-row .pe-iar-btn{
+  min-height:34px;
+  line-height:18px;
+  box-sizing:border-box;
+}
 .pe-f-ctr{flex:2;min-width:120px;position:relative;}
 .pe-f-date{flex:1.3;min-width:140px;}
 .pe-f-status{flex:1.5;min-width:110px;}
