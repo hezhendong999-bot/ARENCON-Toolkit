@@ -2331,21 +2331,53 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  if (e.target.closest && e.target.closest('#pe-delete')) {
-    var delId = _peDeficId;
-    console.log('[Viewer] Delete pin clicked — deficId:', delId);
-    showConfirm('Delete Pin', 'Remove this pin from the drawing?').then(function(yes) {
+  // S116 Push 9: "Remove pin only" — preserves the old "Delete Pin" semantics
+  // of unpinning without deleting the deficiency. Companion to the now-
+  // destructive Delete button so users have both: unpin (defic stays) and
+  // full delete (defic gone).
+  if (e.target.closest && e.target.closest('#pe-unpin')) {
+    var unpinId = _peDeficId;
+    showConfirm('Remove Pin from Drawing', 'Remove this pin from the drawing? The deficiency stays in the project.').then(function(yes) {
       if (!yes) return;
-      var f2 = Model.findDeficiency(delId);
-      console.log('[Viewer] Delete pin — found:', !!f2);
-      if (f2) {
-        f2.defic.drawingId = null;
-        f2.defic.pinX = null;
-        f2.defic.pinY = null;
+      var fU = Model.findDeficiency(unpinId);
+      if (fU) {
+        fU.defic.drawingId = null;
+        fU.defic.pinX = null;
+        fU.defic.pinY = null;
         Model.saveNow();
         _renderPins();
         if (_tasksVisible) _renderTasks();
-        console.log('[Viewer] Pin deleted for deficiency', delId);
+        if (window._frtRenderDefic) window._frtRenderDefic();
+      }
+      _closePinEditor();
+    });
+    return;
+  }
+
+  if (e.target.closest && e.target.closest('#pe-delete')) {
+    var delId = _peDeficId;
+    console.log('[Viewer] Delete pin clicked — deficId:', delId);
+    // S116 Push 9: button labeled "Delete Pin" in the editor footer was
+    // only nulling drawingId/pinX/pinY (unpinning, not deleting). Mark
+    // hit this from the Summary tab — clicked Delete Pin expecting the
+    // entry to be removed and instead the deficiency stayed in the
+    // project, just unpinned. The "Remove" button on the defic card
+    // already does full delete; keep that semantics consistent. Confirm
+    // copy is now explicit about what happens.
+    showConfirm('Delete Deficiency', 'Permanently delete this deficiency and its pin? This cannot be undone.').then(function(yes) {
+      if (!yes) return;
+      var f2 = Model.findDeficiency(delId);
+      console.log('[Viewer] Delete defic — found:', !!f2);
+      if (f2) {
+        Model.removeDeficiency(delId);
+        if (Model.renumberDeficiencies) Model.renumberDeficiencies();
+        Model.saveNow();
+        _renderPins();
+        if (_tasksVisible) _renderTasks();
+        // Notify defic tab to re-render
+        if (window._frtRenderDefic) window._frtRenderDefic();
+        if (window._frtRenderTasks) window._frtRenderTasks();
+        console.log('[Viewer] Deficiency deleted', delId);
       }
       _closePinEditor();
     });

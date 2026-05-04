@@ -1685,3 +1685,8 @@ function _runDeficBulk(op) {
 // to these.
 window._frtPhotoAdd = _compressAndAdd;
 window._frtGalleryPick = _showGalleryPicker;
+
+// S116 Push 9: cross-module re-render hook used by viewer.js Delete/
+// Remove-pin handlers so the Deficiencies tab refreshes when the pin
+// editor mutates the project from outside the defic tab.
+window._frtRenderDefic = function() { initDeficiencies.render(); };

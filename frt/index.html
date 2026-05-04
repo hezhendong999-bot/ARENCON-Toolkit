@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=230">
+<link rel="stylesheet" href="css/frt.css?v=231">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -863,7 +863,8 @@ function ensurePdfJs(cb){
     <div class="pin-editor-footer">
       <button id="pe-save" class="pe-save-btn">Save</button>
       <button id="pe-goto-dwg" class="pe-photo-btn" title="Switch to the drawing this pin lives on" style="margin-left:6px;">📌 Go to drawing</button>
-      <button id="pe-delete" class="pe-delete-btn">Delete Pin</button>
+      <button id="pe-unpin" class="pe-photo-btn" title="Remove from drawing without deleting the deficiency" style="margin-left:6px;">📍 Remove pin only</button>
+      <button id="pe-delete" class="pe-delete-btn" title="Permanently delete this deficiency">Delete</button>
       <button id="pe-cancel" class="pe-cancel-btn">Cancel</button>
     </div>
   </div>
