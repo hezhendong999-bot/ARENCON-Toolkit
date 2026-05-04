@@ -782,11 +782,14 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
 /* Context menu */
 .card-context-menu{display:none;position:absolute;right:4px;bottom:36px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:200;min-width:140px;max-width:200px;overflow:hidden;font-family:Calibri,sans-serif;}
 .card-context-menu.open{display:block;}
-.card-context-menu button{display:block;width:100%;text-align:left;padding:7px 12px;border:none;background:var(--bg);cursor:pointer;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;color:var(--fg);transition:background .1s;white-space:nowrap;}
+/* S116 Push 7: tighter menu density. Was 7px 12px / 12px font; now 4px 10px /
+   11px font. Saves ~30% vertical space — Mark called the menu "long" in
+   field testing on tablet (7 items + 2 separators stacked vertically). */
+.card-context-menu button{display:block;width:100%;text-align:left;padding:4px 10px;border:none;background:var(--bg);cursor:pointer;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;color:var(--fg);transition:background .1s;white-space:nowrap;line-height:1.35;}
 .card-context-menu button:hover{background:var(--smoke);}
 .card-context-menu button.danger{color:var(--no);}
 .card-context-menu button.danger:hover{background:#FADBD8;}
-.card-context-menu .separator{height:1px;background:var(--border);margin:2px 0;}
+.card-context-menu .separator{height:1px;background:var(--border);margin:1px 0;}
 /* ── GLOBAL DROPDOWN / CONTEXT MENU HOVER ── */
 /* Applies to all dynamically built menus (dash context, drawing 3-dot, etc.) */
 #dash-context-menu button{display:block;width:100%;text-align:left;padding:9px 14px;background:var(--surface);border:none;cursor:pointer;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;color:var(--text);transition:background .12s;}
