@@ -901,7 +901,22 @@ function _setCloudStatus(status, text) {
   var label = document.getElementById('cloud-status-text');
   var wrap = document.getElementById('cloud-status');
   if (wrap) wrap.style.display = 'flex';
-  if (label) label.textContent = text || '';
+  // S116 Push 16: don't blank the text when status updates with empty text —
+  // Mark image 1 showed "(dot)  · last sync: just now" with no "Saved to cloud"
+  // between them, creating a weird gap. The label slot was rendered as empty
+  // string rather than fallback text. Now: empty text falls back to a status-
+  // appropriate default.
+  var dvText = document.getElementById('dv-cloud-text');
+  var safeText = text || (
+    status === 'synced'  ? 'Saved to cloud' :
+    status === 'saving'  ? 'Saving…'        :
+    status === 'pending' ? 'Pending sync'   :
+    status === 'offline' ? 'Offline'        :
+    status === 'error'   ? 'Sync error'     :
+    'Saved to cloud'
+  );
+  if (label) label.textContent = safeText;
+  if (dvText) dvText.textContent = safeText;
   var colors = { synced: '#34D399', saving: '#FBBF24', pending: '#F59E0B', error: '#EF4444', offline: '#9CA3AF' };
   var color = colors[status] || '#9CA3AF';
   if (dot) dot.style.background = color;
@@ -911,8 +926,6 @@ function _setCloudStatus(status, text) {
   // S81: mirror on the drawing-viewer header dot
   var dvDot = document.getElementById('dv-cloud-dot');
   if (dvDot) dvDot.style.background = color;
-  var dvText = document.getElementById('dv-cloud-text');
-  if (dvText) dvText.textContent = text || '';
   // Refresh "X ago" immediately when status changes
   _updateLastSyncIndicator();
 }

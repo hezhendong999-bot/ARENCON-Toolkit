@@ -1250,10 +1250,17 @@ body.dark-mode .dv-tasks-header{border-bottom-color:#3a3e48;color:#ddd;}
 .drawing-card .card-menu-btn{background:none;border:none;color:var(--silver);cursor:pointer;font-size:calc(14px + var(--ts));padding:0 4px;opacity:0;transition:opacity .15s;}
 .drawing-card:hover .card-menu-btn{opacity:1;}
 .drawing-card .card-context-menu{display:none;position:fixed;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:9000;min-width:180px;padding:4px 0;}
-.drawing-card .card-context-menu button{display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;color:var(--steel);}
+/* S116 Push 16: tighten the drawing-card menu to match the generic
+   card-context-menu density (P7). Mark: "long dropdown menu issue is back
+   again — old drawing menu is fine but the new drawing menu is long again.
+   You need to make it consistent." Root cause: this .drawing-card-specific
+   rule had higher specificity than the generic P7 fix and used the original
+   8px 14px / 12px / 1.5 line-height. Now matches P7: 4px 10px / 11px /
+   1.35 line-height. Separator margin tightened too. */
+.drawing-card .card-context-menu button{display:block;width:100%;text-align:left;padding:4px 10px;border:none;background:none;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;color:var(--steel);line-height:1.35;}
 .drawing-card .card-context-menu button:hover{background:var(--smoke);}
 .drawing-card .card-context-menu button.danger{color:var(--red);}
-.drawing-card .card-context-menu .separator{height:1px;background:var(--border);margin:4px 0;}
+.drawing-card .card-context-menu .separator{height:1px;background:var(--border);margin:1px 0;}
 .drawing-card .select-check{position:absolute;top:6px;left:6px;width:20px;height:20px;border:2px solid white;border-radius:4px;background:rgba(0,0,0,.3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:calc(12px + var(--ts));color:white;opacity:0;transition:opacity .15s;z-index:3;}
 .drawing-card:hover .select-check{opacity:1;}
 .drawing-card .select-check.checked{opacity:1;background:#2196F3;border-color:#2196F3;}
