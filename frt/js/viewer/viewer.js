@@ -3121,15 +3121,27 @@ document.addEventListener('change', function(e) {
     if (lt) lt.checked = checked;
     if (lm) lm.checked = checked;
   }
+  // S116 Push 15: hide ALL pin/markup layers — not just the HTML fallbacks.
+  // Pre-P15 only toggled #dv-pins-layer + #markup-canvas, but actual rendering
+  // happens on #dv-pins-gl (PinsGL canvas) and #markup-webgl-canvas (Pixi/WebGL).
+  // Mark reported "I turn on turn off the tasks or markups and nothing happens".
+  // Now toggling either checkbox hides/shows both the HTML and GL/WebGL canvases
+  // for that layer.
   if (e.target.id === 'layer-tasks' || e.target.id === 'layer-all') {
     var show = document.getElementById('layer-tasks');
+    var on = !!(show && show.checked);
     var pinsLayer = document.getElementById('dv-pins-layer');
-    if (pinsLayer) pinsLayer.style.display = (show && show.checked) ? '' : 'none';
+    if (pinsLayer) pinsLayer.style.display = on ? '' : 'none';
+    var pinsGL = document.getElementById('dv-pins-gl');
+    if (pinsGL) pinsGL.style.display = on ? '' : 'none';
   }
   if (e.target.id === 'layer-markups' || e.target.id === 'layer-all') {
     var show2 = document.getElementById('layer-markups');
+    var on2 = !!(show2 && show2.checked);
     var mc = document.getElementById('markup-canvas');
-    if (mc) mc.style.display = (show2 && show2.checked) ? '' : 'none';
+    if (mc) mc.style.display = on2 ? '' : 'none';
+    var mwgl = document.getElementById('markup-webgl-canvas');
+    if (mwgl) mwgl.style.display = on2 ? '' : 'none';
   }
 });
 

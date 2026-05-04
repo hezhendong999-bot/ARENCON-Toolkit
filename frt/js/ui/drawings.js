@@ -1048,6 +1048,33 @@ document.addEventListener('click', function(e) {
       initDrawings.render();
       toast('Purged ' + orphans.length + ' drawing' + (orphans.length>1?'s':''));
     });
+  } else if (t.id === 'btn-dwg-build-tiles') {
+    // S116 Push 15: surface-level access to _frtRecoverTiles for legacy
+    // projects that lost their tile pyramid. Re-fires Azure render for the
+    // newest PDF in R2 + polls for the manifest. Used for project 1490.04
+    // which was rendering through the static-image fallback. Hub mode only —
+    // standalone has no R2 backing.
+    var pid = new URLSearchParams(window.location.search).get('project');
+    if (!pid) {
+      toast('\u26A0 Build Tiles works in Hub mode only (open project from the Hub)');
+      return;
+    }
+    if (!window._frtRecoverTiles) {
+      toast('\u26A0 Tile recovery helper not available');
+      return;
+    }
+    showConfirm('Build Tile Pyramid',
+      'Re-fire Azure render for the newest PDF in this project\'s R2 storage? Existing pins, deficiencies, and markups are NOT affected. Tile pyramid build typically takes 2-3 minutes for a 100MB PDF — open the browser console to watch progress.'
+    ).then(function(yes) {
+      if (!yes) return;
+      try {
+        window._frtRecoverTiles();
+        toast('\uD83D\uDD27 Tile build started — watch console for progress (~3 min)');
+      } catch (err) {
+        toast('\u26A0 Build failed: ' + (err && err.message ? err.message : 'unknown error'));
+        console.error('[Build Tiles]', err);
+      }
+    });
   }
 });
 
