@@ -544,11 +544,15 @@ body.dark-mode .dv-task-item{color:#ccc;}body.dark-mode .dv-task-item:hover{back
   display:inline-flex;align-items:center;gap:6px;
   padding:4px 10px;border-radius:6px;
   font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));
-  color:#1C2333;cursor:pointer;touch-action:manipulation;
+  /* S116 Push 17: light text in BOTH modes — drawing viewer toolbar is
+     always a dark navy gradient. Mark image 1: with color:#1C2333 the
+     "Saved to cloud" text was rendering dark-on-dark (invisible) in
+     light mode. Now matches the dark-mode treatment. */
+  color:rgba(255,255,255,.85);cursor:pointer;touch-action:manipulation;
   -webkit-tap-highlight-color:transparent;
   flex-shrink:0;
 }
-.dv-cloud-status:hover{background:rgba(0,0,0,0.05);}
+.dv-cloud-status:hover{background:rgba(255,255,255,0.10);}
 body.dark-mode .dv-cloud-status{color:#e8eaed;}
 body.dark-mode .dv-cloud-status:hover{background:rgba(255,255,255,0.08);}
 .dv-cloud-dot{
