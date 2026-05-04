@@ -395,6 +395,16 @@ function _updateInspectorChip() {
 }
 
 function _showInspectorModal() {
+  // S116 Push 8: in Hub mode the inspector identity is auto-derived from the
+  // authenticated user's profiles.full_name. Editing it here would create
+  // local drift between what the chip displays and what the user actually
+  // is in Supabase. Bail out silently if the chip is locked.
+  var chip = document.getElementById('inspector-chip');
+  if (chip && chip.classList.contains('inspector-chip-locked')) {
+    var current = getInspectorName();
+    toast('Inspector is set from your account: ' + (current || 'unknown') + ' \u2014 sign out to change it', 'info');
+    return;
+  }
   var current = getInspectorName();
   var histRaw = localStorage.getItem(LS_INSPECTOR_HISTORY) || '[]';
   var history = [];
@@ -1248,12 +1258,41 @@ function boot() {
           console.log('[FRT v2] Authenticated as:', user.email);
           // S83: push user id into Model so newly-created entities get createdBy
           if (Model.setCurrentUser) Model.setCurrentUser(user.id);
-          // Set inspector from authenticated user
-          var emailPrefix = (user.email || '').split('@')[0].toUpperCase();
-          if (emailPrefix) {
-            localStorage.setItem(LS_INSPECTOR, emailPrefix);
+          // S116 Push 8: pull full_name from profiles table — Mark reported
+          // the inspector chip showed "MHE" (stale localStorage) instead of
+          // his real name, because the FRT was reading email.split('@')[0]
+          // even when an authenticated profile existed. Now: profiles.full_name
+          // wins, then user_metadata.full_name, then email prefix as last
+          // resort. Lock the chip in Hub mode so the user can't edit a name
+          // that's auto-derived from their account.
+          Auth.request('/rest/v1/profiles?id=eq.' + user.id + '&select=full_name').then(function(rows) {
+            var fullName = (rows && rows[0] && rows[0].full_name) ? String(rows[0].full_name).trim() : '';
+            if (!fullName) {
+              var meta = user.user_metadata || {};
+              fullName = (meta.full_name || '').trim();
+            }
+            if (!fullName) {
+              fullName = (user.email || '').split('@')[0].toUpperCase();
+            }
+            localStorage.setItem(LS_INSPECTOR, fullName);
             _updateInspectorChip();
-          }
+            // Lock chip in Hub mode — inspector identity is the authenticated
+            // user's real name. Free-form editing in standalone mode still
+            // works (no project URL param = no auth path).
+            var chip = document.getElementById('inspector-chip');
+            if (chip) {
+              chip.classList.add('inspector-chip-locked');
+              chip.title = 'Inspector: ' + fullName + ' (signed in)';
+            }
+          }).catch(function(e){
+            console.warn('[FRT v2] Could not load profiles.full_name:', e);
+            // Fallback: email prefix
+            var emailPrefix = (user.email || '').split('@')[0];
+            if (emailPrefix) {
+              localStorage.setItem(LS_INSPECTOR, emailPrefix);
+              _updateInspectorChip();
+            }
+          });
           // Show sign-out button
           var soBtn = document.getElementById('btn-signout');
           if (soBtn) soBtn.style.display = '';

@@ -539,7 +539,13 @@ body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hove
 .ctr-fold-arrow{font-size:calc(14px + var(--ts));width:16px;display:inline-block;text-align:center;transition:transform .15s;}
 .defic-group-empty{padding:12px 16px;color:#999;font-size:calc(13px + var(--ts));font-style:italic;}
 .defic-item{border-top:1px solid var(--border);padding:14px 16px;}
-.defic-item:nth-child(even){background:rgba(0,0,0,.07);}
+/* S116 Push 8: removed the rgba(0,0,0,.07) alternating background. Mark
+   reported "buttons barely visible under grey" — the alt-row band washed
+   out the .defic-act-btn family which has transparent backgrounds. The
+   border-top alone is enough visual separation between defics; readability
+   beats stripe pattern. Dark mode rule below stays since dark mode uses
+   higher-contrast solid bg. */
+.defic-item:nth-child(even){background:transparent;}
 .defic-item-row{display:flex;gap:10px;align-items:flex-start;}
 .defic-num-circle{min-width:28px;width:28px;height:28px;border-radius:50%;background:#C0392B;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:calc(12px + var(--ts));flex-shrink:0;}
 .defic-item-content{flex:1;min-width:0;}
@@ -4193,15 +4199,11 @@ body:not(.dark-mode) {
   background: var(--lm-surface) !important;
 }
 
-/* ── Header tabs: soften from sharp navy to slate. Brand burgundy still
-      marks the active tab. ── */
-body:not(.dark-mode) .nav-tab {
-  color: var(--lm-text-muted) !important;
-}
-body:not(.dark-mode) .nav-tab.active {
-  color: var(--lm-burgundy) !important;
-  border-bottom-color: var(--lm-burgundy) !important;
-}
+/* ── Header tabs: P6 override REMOVED in P8. Mark wants the original
+      white text on navy section-nav (line 177). The light-mode jewel-tone
+      pass should NOT muddy the header tabs — it's a high-contrast brand
+      element. Original .nav-tab CSS handles color:var(--silver) and
+      .nav-tab.active { color:white; border-bottom:#var(--red); }. ── */
 
 /* ── Defic group header: replace navy with slate; add the muted contractor
       tint on the left border. ── */
@@ -4379,3 +4381,121 @@ body:not(.dark-mode) .section-toggle-icon {
 }
 
 /* End S116 Push 6 light-mode block ─────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S116 PUSH 8 — Light-mode polish v2
+   - IAR row alignment fix
+   - Plain action buttons readable on any background
+   - Removed alt-row grey
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* IAR row alignment.
+   The .pe-compact-row uses align-items:flex-start (P6) so the inline
+   contractor CRUD row (Edit/Delete buttons under CONTRACTOR) doesn't
+   misalign DATE and STATUS. But the IAR button has no label above it,
+   so its top edge sits at the label level instead of the input level.
+   Fix: give IAR a transparent matching-height block above the button
+   that occupies the label's slot. The pseudo-element approach keeps
+   the JS untouched. */
+.pe-compact-row .pe-iar-btn{
+  margin-top:0 !important;
+  position:relative;
+  align-self:flex-start;
+}
+.pe-compact-row .pe-iar-btn::before{
+  content:"";
+  display:block;
+  height:calc(13px + var(--ts));
+  /* matches .pe-label height: font 10px+ts + line-height + bottom gap */
+  margin-bottom:3px;
+}
+
+/* Plain action buttons (.defic-act-btn) — readable on white AND on any
+   alt-row tint (alt now removed, but defensive). Mark reported the bright
+   border-color + transparent-fill pattern washed out. New treatment:
+   subtle muted-tint background fill with the same accent color as the
+   border, so the button reads as a "chip" instead of "ghost outline". */
+body:not(.dark-mode) .defic-act-btn{
+  background:rgba(90,110,128,.06) !important;
+  border-color:rgba(90,110,128,.30) !important;
+  color:var(--lm-slate) !important;
+  opacity:1;
+}
+body:not(.dark-mode) .defic-act-btn:hover{
+  background:rgba(90,110,128,.13) !important;
+  border-color:var(--lm-slate) !important;
+}
+body:not(.dark-mode) .defic-act-btn.act-close{
+  background:rgba(92,122,101,.10) !important;
+  border-color:rgba(92,122,101,.35) !important;
+  color:var(--lm-forest) !important;
+}
+body:not(.dark-mode) .defic-act-btn.act-close:hover{
+  background:rgba(92,122,101,.18) !important;
+  border-color:var(--lm-forest) !important;
+}
+body:not(.dark-mode) .defic-act-btn.act-reopen{
+  background:rgba(176,127,90,.10) !important;
+  border-color:rgba(176,127,90,.35) !important;
+  color:var(--lm-amber) !important;
+}
+body:not(.dark-mode) .defic-act-btn.act-reopen:hover{
+  background:rgba(176,127,90,.18) !important;
+  border-color:var(--lm-amber) !important;
+}
+body:not(.dark-mode) .defic-act-btn.act-remove{
+  background:rgba(168,89,89,.08) !important;
+  border-color:rgba(168,89,89,.30) !important;
+  color:var(--lm-red-soft) !important;
+}
+body:not(.dark-mode) .defic-act-btn.act-remove:hover{
+  background:rgba(168,89,89,.16) !important;
+  border-color:var(--lm-red-soft) !important;
+}
+body:not(.dark-mode) .defic-act-btn.act-response{
+  background:rgba(176,127,90,.08) !important;
+  border-color:rgba(176,127,90,.30) !important;
+  color:var(--lm-amber) !important;
+}
+body:not(.dark-mode) .defic-act-btn.act-response:hover{
+  background:rgba(176,127,90,.16) !important;
+  border-color:var(--lm-amber) !important;
+}
+body:not(.dark-mode) .defic-act-btn.act-comment{
+  background:rgba(74,101,128,.08) !important;
+  border-color:rgba(74,101,128,.30) !important;
+  color:var(--lm-blue) !important;
+}
+body:not(.dark-mode) .defic-act-btn.act-comment:hover{
+  background:rgba(74,101,128,.16) !important;
+  border-color:var(--lm-blue) !important;
+}
+
+/* + Add Observation dashed-ghost button — was muted into invisibility on
+   the alt-row band. Now: dashed slate border, slate text. */
+body:not(.dark-mode) [data-action="add-obs"]{
+  border-color:rgba(90,110,128,.40) !important;
+  color:var(--lm-slate) !important;
+  background:transparent !important;
+}
+body:not(.dark-mode) [data-action="add-obs"]:hover{
+  background:rgba(90,110,128,.08) !important;
+}
+
+/* + Add Deficiency button (similar dashed-ghost) */
+body:not(.dark-mode) .add-defic-btn,
+body:not(.dark-mode) [data-action="add-defic"]{
+  border-color:rgba(125,63,79,.40) !important;
+  color:var(--lm-burgundy) !important;
+  background:transparent !important;
+}
+body:not(.dark-mode) .add-defic-btn:hover,
+body:not(.dark-mode) [data-action="add-defic"]:hover{
+  background:rgba(125,63,79,.08) !important;
+}
+
+/* End S116 Push 8 ──────────────────────────────────────────────────── */
+
+/* S116 Push 8 — locked inspector chip cursor (Hub mode) */
+.inspector-chip.inspector-chip-locked{cursor:default;opacity:.95;}
+.inspector-chip.inspector-chip-locked:hover{filter:none;}
