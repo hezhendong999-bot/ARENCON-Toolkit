@@ -3002,28 +3002,11 @@ function _toggleTasks() {
   var btn = document.getElementById('dv-tasks-btn');
   if (btn) btn.classList.toggle('active', _tasksVisible);
   if (_tasksVisible) _renderTasks();
-  // S116 Push 13: recompute fit-scale + re-render pins after toggle.
-  // The panel takes 300px from the canvas-area flex container via
-  // flex-shrink:0, so the visible canvas width changes — but window.resize
-  // doesn't fire (the window itself didn't change). Without this, pins
-  // stayed positioned for the OLD canvas width while the image rescaled
-  // via object-fit, causing visible left-shift of all pins on the
-  // drawing the moment the tasks panel opens. The setTimeout gives the
-  // CSS transition time to complete before measuring.
-  setTimeout(function() {
-    if (TiledPdf.isActive()) {
-      var dims = TiledPdf.getDimensions();
-      if (dims) _calcFitScaleFromDims(dims.drawW, dims.drawH);
-    } else {
-      _calcFitScale();
-    }
-    _scale = _fitScale;
-    _panX = 0;
-    _panY = 0;
-    _applyTransform();
-    _renderPins();
-    if (typeof Markup !== 'undefined' && Markup.resize) Markup.resize();
-  }, 50);
+  // S116 Push 14: NO recompute needed. The panel is now an overlay
+  // (position:absolute) on top of the canvas-area, so opening/closing it
+  // doesn't change the canvas dimensions. Pins stay positioned correctly
+  // without any re-fit. P13's recompute was a workaround for the
+  // flex-shrink-based panel that's now obsolete.
 }
 
 function _renderTasks() {
@@ -3100,29 +3083,12 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // New Task button — create deficiency + start pin placement
-  if (e.target.closest && e.target.closest('#dv-new-task')) {
-    var proj = Model.getProject();
-    if (!proj) return;
-    // Find or create "Site General" contractor
-    var siteGen = null;
-    if (proj.contractors) {
-      siteGen = proj.contractors.find(function(c) { return c.name === 'Site General'; });
-    }
-    if (!siteGen) {
-      siteGen = Model.addContractor('Site General');
-    }
-    // Create new deficiency
-    var newDefic = Model.addDeficiency(siteGen.id);
-    if (newDefic) {
-      console.log('[Viewer] New task created — deficiency #' + newDefic.num);
-      _startPinPlace(newDefic.id);
-      // Show feedback
-      var area = document.getElementById('dv-canvas-area');
-      if (area) area.classList.add('pin-mode');
-    }
-    return;
-  }
+  // S116 Push 14: removed dv-new-task button + handler. Mark: "doesn't work,
+  // and I don't think it's useful at all. remove it. All tasks shall be
+  // added from the drawings or deficiency tab page." The button was hooked
+  // up to create a Site General defic + enter place-pin mode, but Mark
+  // reported it didn't work in field testing. The toolbar Pin button +
+  // Deficiencies tab + Pin from defic card already cover the same intent.
 
   // Tasks fold
   if (e.target.closest && e.target.closest('#dv-tasks-fold-btn')) {

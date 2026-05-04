@@ -864,16 +864,30 @@ function _formatTimeAgo(ms) {
 
 function _updateLastSyncIndicator() {
   var el = document.getElementById('last-sync-text');
-  if (!el) return;
-  if (!_lastSyncedAt) { el.textContent = ''; el.style.display = 'none'; return; }
-  el.style.display = '';
+  // S116 Push 14: also mirror onto the drawing-viewer header.
+  var dvEl = document.getElementById('dv-last-sync-text');
+  if (!el && !dvEl) return;
+  if (!_lastSyncedAt) {
+    if (el) { el.textContent = ''; el.style.display = 'none'; }
+    if (dvEl) { dvEl.textContent = ''; dvEl.style.display = 'none'; }
+    return;
+  }
   var diff = Date.now() - _lastSyncedAt;
-  el.textContent = '\u00B7 last sync: ' + _formatTimeAgo(diff);
+  var label = '\u00B7 last sync: ' + _formatTimeAgo(diff);
   // Color-coded freshness — muted palette per Mark's color rule
   var color = diff < 60000 ? '#5F8068'    // muted green: <1 min
             : diff < 300000 ? '#B07F5A'   // muted amber: 1-5 min
             : '#A85959';                   // muted red:   >5 min
-  el.style.color = color;
+  if (el) {
+    el.style.display = '';
+    el.textContent = label;
+    el.style.color = color;
+  }
+  if (dvEl) {
+    dvEl.style.display = '';
+    dvEl.textContent = label;
+    dvEl.style.color = color;
+  }
 }
 
 // Update the "X ago" text every 30s

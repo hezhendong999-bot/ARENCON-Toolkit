@@ -4745,3 +4745,79 @@ body.dark-mode .tt-status.iar{
 }
 
 /* End S116 Push 13 ─────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S116 PUSH 14 — Tasks panel as overlay, light-mode text, sync mirror
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Tasks panel: take it out of the flex flow entirely so opening it doesn't
+   resize the canvas (pins stay rock-solid). Mark P13 attempt with re-fit
+   on toggle still showed pins jump for a split second before settling.
+   Overlay approach (position:absolute) eliminates the resize altogether.
+   Higher specificity required because the original .dv-tasks-panel rules
+   at line 324 + 518 set width/flex-shrink. !important keeps these wins. */
+.drawing-viewer-overlay.open .dv-tasks-panel{
+  position:absolute !important;
+  top:0 !important;
+  right:0 !important;
+  bottom:0 !important;
+  width:320px !important;
+  height:auto !important;
+  flex-shrink:0;
+  z-index:20;
+  box-shadow:-4px 0 16px rgba(0,0,0,.18);
+}
+body.dark-mode .drawing-viewer-overlay.open .dv-tasks-panel{
+  box-shadow:-4px 0 16px rgba(0,0,0,.45);
+}
+
+/* Tasks panel text — Mark image 5: "texts in task panel in day mode should
+   be white, not dark texts in day mode, can't read them." Header has solid
+   dark navy background but inherited dark text → invisible. Force white-ish
+   text for all panel content in light mode (dark mode already has light
+   text via inherited dark-mode rules). The overlay sits on a dark slate
+   gradient, white text reads cleanly. */
+body:not(.dark-mode) .dv-tasks-panel{
+  background:linear-gradient(180deg, #2C3548 0%, #232A3A 100%) !important;
+  color:#e2e8f0;
+  border-left-color:rgba(255,255,255,.10) !important;
+}
+body:not(.dark-mode) .dv-tasks-panel,
+body:not(.dark-mode) .dv-tasks-panel *{
+  color:#e2e8f0;
+}
+body:not(.dark-mode) .dv-tasks-panel .dv-tasks-header{
+  background:rgba(0,0,0,.20);
+  color:#fff;
+  border-bottom:1px solid rgba(255,255,255,.10);
+}
+body:not(.dark-mode) .dv-tasks-panel .dv-tasks-list{
+  color:#cdd5e3;
+}
+body:not(.dark-mode) .dv-tasks-panel .dv-task-item{
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.10);
+  color:#e2e8f0;
+}
+body:not(.dark-mode) .dv-tasks-panel .dv-task-item:hover{
+  background:rgba(255,255,255,.12);
+}
+body:not(.dark-mode) .dv-tasks-panel .dv-task-empty{
+  color:#9ba6b8;
+}
+body:not(.dark-mode) .dv-tasks-panel .dv-tasks-filter-btn{
+  background:rgba(255,255,255,.10);
+  color:#e2e8f0;
+  border:1px solid rgba(255,255,255,.20);
+}
+
+/* Drawing-viewer last-sync indicator — mirrors the main app header.
+   Mark: "I want the same sync text in the drawing viewer (last synced
+   time etc.)." Renders inline next to the existing dv-cloud-text chip. */
+.dv-cloud-status #dv-last-sync-text{
+  font-size:calc(10px + var(--ts));
+  margin-left:6px;
+  opacity:.85;
+}
+
+/* End S116 Push 14 ─────────────────────────────────────────────────── */

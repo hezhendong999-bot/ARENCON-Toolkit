@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=235">
+<link rel="stylesheet" href="css/frt.css?v=236">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -526,6 +526,8 @@ function ensurePdfJs(cb){
     <span id="dv-cloud-status" class="dv-cloud-status" title="Tap for cloud diagnostic" onclick="if(window._showCloudDiagnostic)window._showCloudDiagnostic()">
       <span id="dv-cloud-dot" class="dv-cloud-dot" style="background:#34D399;"></span>
       <span id="dv-cloud-text" class="dv-cloud-text">Saved to cloud</span>
+      <!-- S116 Push 14: mirror of #last-sync-text from main header. -->
+      <span id="dv-last-sync-text" style="display:none;"></span>
     </span>
     <button class="dv-nav-btn" id="dv-prev" title="Previous drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">◀</button>
     <button class="dv-nav-btn" id="dv-next" title="Next drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">▶</button>
@@ -731,7 +733,6 @@ function ensurePdfJs(cb){
         </div>
       </div>
       <div class="dv-tasks-list" id="dv-tasks-list"></div>
-      <button id="dv-new-task" class="dv-new-task-btn">+ New Task</button>
     </div>
   </div>
   <!-- HEIGHTS PANEL (overlay) -->
