@@ -263,11 +263,20 @@ export var initPins = {
       var statusBaseCls = isClosed ? 'closed' : 'outstanding';
       h += '<td style="padding:8px 10px;">';
       h += '<span class="tt-status ' + statusBaseCls + '">' + statusBaseTxt + '</span>';
+      h += '</td>';
+      // S116 Push 10: IAR overrides priority. Mark: "I want IAR toggle also
+      // shows in the summary, part of the priority item (so show IAR or high
+      // or low or general. IAR overwrites all priority." When iar=true, the
+      // priority cell shows "⚡ IAR" pink instead of the underlying priority.
+      // The pin still has its own priority for color-coded markers etc.; this
+      // is purely a Summary-tab display rule.
+      h += '<td style="padding:8px 10px;">';
       if (isIAR) {
-        h += '<div style="margin-top:3px;"><span class="tt-status iar">\u26A1 IAR</span></div>';
+        h += '<span class="tt-priority iar">\u26A1 IAR</span>';
+      } else {
+        h += '<span class="tt-priority ' + priCls + '">' + esc((dd.priority || 'general').charAt(0).toUpperCase() + (dd.priority || 'general').slice(1)) + '</span>';
       }
       h += '</td>';
-      h += '<td style="padding:8px 10px;"><span class="tt-priority ' + priCls + '">' + esc((dd.priority || 'general').charAt(0).toUpperCase() + (dd.priority || 'general').slice(1)) + '</span></td>';
       h += '<td style="padding:8px 10px;"><button class="tt-jump" data-action="jump-defic" data-defic-id="' + esc(dd.id) + '">Jump</button></td>';
       h += '</tr>';
     });

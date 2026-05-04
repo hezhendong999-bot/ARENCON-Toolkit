@@ -4562,3 +4562,102 @@ body.dark-mode .btn-muted-cancel:hover{
   border-color:#e08080 !important;
 }
 /* End S116 Push 9 ──────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S116 PUSH 10 — View-pill on burgundy + pin editor footer color rotation
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* View-pill (Table | Board) sitting on the Summary card-header (burgundy
+   #9C2742). Mark image 1: burgundy outline on burgundy bg = invisible.
+   Override here with white text on transparent for inactive, white-fill
+   with burgundy text for active (alternation Mark suggested). Card-header
+   selector is more specific than the generic .view-pill rules. */
+.card-header .view-pill,
+#panel-pins .card-header .view-pill{
+  border:1.5px solid rgba(255,255,255,.50) !important;
+  background:rgba(255,255,255,.08) !important;
+}
+.card-header .view-pill-btn,
+#panel-pins .card-header .view-pill-btn{
+  color:rgba(255,255,255,.85) !important;
+  background:transparent !important;
+}
+.card-header .view-pill-btn:hover,
+#panel-pins .card-header .view-pill-btn:hover{
+  background:rgba(255,255,255,.18) !important;
+  color:#fff !important;
+}
+.card-header .view-pill-btn.active,
+#panel-pins .card-header .view-pill-btn.active{
+  background:#fff !important;
+  color:#9C2742 !important;
+  font-weight:700 !important;
+}
+/* Dark-mode card-header is darker, but the same rules read fine since the
+   underlying header still has high contrast against white-fill active. */
+
+/* Pin editor footer — distinct color per button (Mark P10: "no repeated
+   color"). Footer left-to-right: Save (burgundy) | Go to drawing (slate)
+   | Remove pin only (amber) | Delete (red) | Cancel (ghost). The
+   .pe-photo-btn class is shared between footer + photo zone, so target
+   by id to avoid changing the photo zone palette. */
+#pe-goto-dwg{
+  background:rgba(74,101,128,.10) !important;
+  border:1.5px solid rgba(74,101,128,.40) !important;
+  color:#4A6580 !important;
+}
+#pe-goto-dwg:hover{
+  background:rgba(74,101,128,.20) !important;
+  border-color:#4A6580 !important;
+}
+body.dark-mode #pe-goto-dwg{
+  background:rgba(136,184,232,.12) !important;
+  border-color:rgba(136,184,232,.40) !important;
+  color:#88b8e8 !important;
+}
+body.dark-mode #pe-goto-dwg:hover{
+  background:rgba(136,184,232,.22) !important;
+  border-color:#88b8e8 !important;
+}
+#pe-unpin{
+  background:rgba(176,127,90,.10) !important;
+  border:1.5px solid rgba(176,127,90,.40) !important;
+  color:#B07F5A !important;
+}
+#pe-unpin:hover{
+  background:rgba(176,127,90,.20) !important;
+  border-color:#B07F5A !important;
+}
+body.dark-mode #pe-unpin{
+  background:rgba(240,168,120,.12) !important;
+  border-color:rgba(240,168,120,.40) !important;
+  color:#f0a878 !important;
+}
+body.dark-mode #pe-unpin:hover{
+  background:rgba(240,168,120,.22) !important;
+  border-color:#f0a878 !important;
+}
+
+/* Pin editor photo zone — three distinct colors so no two share. Pull
+   icons in from defic card (📎 / 📷 / 🖼️) — Mark "I want the same symbols
+   for the three buttons (match other same buttons)". This block extends
+   the P6 base treatment by giving Upload its own slate-blue tone (was
+   identical to Go-to-drawing). New mapping:
+     #pe-upload-btn  → muted purple #7B5A8F (was slate, now distinct)
+     #pe-camera-btn  → muted forest #5C7A65 (unchanged)
+     #pe-gallery-btn → muted burgundy #7D3F4F (unchanged)
+   The footer's Go-to-drawing (slate) now no longer shares Upload's color. */
+#pe-upload-btn{
+  background:#7B5A8F !important;
+  border-color:#7B5A8F !important;
+  color:white !important;
+}
+#pe-upload-btn:hover{
+  filter:brightness(1.10);
+}
+body.dark-mode #pe-upload-btn{
+  background:#7B5A8F !important;
+  border-color:#7B5A8F !important;
+}
+
+/* End S116 Push 10 ─────────────────────────────────────────────────── */
