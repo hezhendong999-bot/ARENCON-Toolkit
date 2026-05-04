@@ -1909,31 +1909,34 @@ function _drawPinMiniMap(canvas, img, d) {
   var aspect = img.height / img.width;
   var dpr = Math.min(window.devicePixelRatio || 1, 3);
 
-  // S116 Push 11: fit to BOTH container width AND height (object-fit:contain
-  // semantics) so the canvas fills the flex panel without leaving a tall
-  // empty band at the bottom. Previously this only fit to width, so a
-  // wide-aspect drawing (e.g. landscape architectural plan) rendered short
-  // inside a tall container, leaving white space below. Drawing aspect ratio
-  // is preserved — we just shrink whichever dimension would overflow.
+  // S116 Push 12: fit to BOTH dimensions, picking the size that maximizes
+  // canvas area while staying inside both bounds. P11 only invoked the
+  // height-fit branch when width-fit OVERFLOWED — but the common case is
+  // wide-aspect drawings (~2.5:1) where width-fit's height is SHORTER than
+  // the container. P12 always uses min(byWidth, byHeight) so the canvas
+  // grows to fill the panel as much as possible. The .pe-location-big
+  // flex-center wrapper handles the case where canvas is smaller than the
+  // container in either direction. Fallback to width-fit only when height
+  // is unknown (mobile thumb panel without flex stretching).
   var parent = canvas.parentElement;
   var containerW = parent ? parent.clientWidth : 360;
   var containerH = parent ? parent.clientHeight : 0;
   if (!containerW || containerW < 20) containerW = 360;
-  // Account for canvas display block padding/border on parent if any.
+
   var displayW, displayH;
   if (containerH && containerH > 20) {
-    // Both dimensions known — pick whichever side is more constrained.
-    var fitByWidth = { w: containerW, h: containerW * aspect };
-    var fitByHeight = { w: containerH / aspect, h: containerH };
-    if (fitByWidth.h <= containerH) {
-      // Width-limited: full width, height follows aspect.
-      displayW = fitByWidth.w; displayH = fitByWidth.h;
+    // Compute size by fitting either dimension fully, pick the larger one
+    // that doesn't overflow the other dimension.
+    var fitW_w = containerW, fitW_h = containerW * aspect;
+    var fitH_h = containerH, fitH_w = containerH / aspect;
+    if (fitW_h <= containerH) {
+      // Width-fit is fully inside container — use it (drawing fills width).
+      displayW = fitW_w; displayH = fitW_h;
     } else {
-      // Height-limited: full height, width follows aspect.
-      displayW = fitByHeight.w; displayH = fitByHeight.h;
+      // Width-fit overflows height — use height-fit (drawing fills height).
+      displayW = fitH_w; displayH = fitH_h;
     }
   } else {
-    // Fallback (mobile thumb with no fixed height): width-fit.
     displayW = containerW;
     displayH = displayW * aspect;
   }
@@ -1944,9 +1947,8 @@ function _drawPinMiniMap(canvas, img, d) {
   canvas.height = Math.round(displayH * dpr);
   canvas.style.width = displayW + 'px';
   canvas.style.height = displayH + 'px';
-  // Center the canvas within the container if it's smaller in one direction.
   canvas.style.display = 'block';
-  canvas.style.margin = 'auto';
+  // Margins handled by flex-center on .pe-location-big now (P12).
   var ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, displayW, displayH);

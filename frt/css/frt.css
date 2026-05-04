@@ -390,19 +390,34 @@ body.dark-mode .pe-drawing-panel{border-left-color:#3a3e48;background:#1a1c24;}
    CONTRACTOR's height and break alignment. IAR baselines with the input
    row naturally; no margin/spacer hack needed. */
 .pe-compact-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
-/* S116 Push 11: explicit height match for compact-row form controls.
-   Native <select> elements get ~4px extra browser chrome for the dropdown
-   chevron that <button> doesn't. Result: IAR button looked ~4px shorter
-   than DATE/STATUS dropdowns even with identical padding. Force a single
-   line-height + box-sizing across all three so they measure identically.
-   Each control natural height ≈ 7px+lineHeight(12px*1.4=17px)+7px+2px(border)
-   = 33px — set min-height:34px to be safe across browsers. */
+/* S116 Push 12: hard-pin EXACT height + remove native select appearance.
+   P11 set min-height:34px, but native <select> elements can render TALLER
+   than the floor due to dropdown chevron chrome (varies by OS/browser —
+   Chrome on Windows ~36-38px). Result: IAR button at exactly 34px sat
+   below the dropdowns. Solution: appearance:none on selects removes the
+   native chrome, then height (not min-height) pins all three controls
+   to a single value. The chevron is restored visually via background
+   gradient on the select. */
 .pe-compact-row .pe-select,
 .pe-compact-row .pe-input,
 .pe-compact-row .pe-iar-btn{
-  min-height:34px;
+  height:34px;
   line-height:18px;
   box-sizing:border-box;
+  vertical-align:middle;
+}
+.pe-compact-row .pe-select{
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  appearance:none;
+  /* Custom chevron — small SVG triangle, positioned right-center. */
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M0 0l5 6 5-6z' fill='%2386929e'/></svg>");
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+  padding-right:26px;
+}
+body.dark-mode .pe-compact-row .pe-select{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M0 0l5 6 5-6z' fill='%23a0a8b8'/></svg>");
 }
 .pe-f-ctr{flex:2;min-width:120px;position:relative;}
 .pe-f-date{flex:1.3;min-width:140px;}
@@ -459,9 +474,21 @@ body.dark-mode .pe-photo-thumb{border-color:#3a3e48;}
 .pe-photo-btn{padding:6px 18px;border-radius:6px;border:1px solid #dde1e7;background:var(--smoke);color:#4A5568;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));margin:3px;}.pe-camera-btn{background:#1A7A4A;border-color:#1A7A4A;color:white;}
 body.dark-mode .pe-photo-btn:not(.pe-camera-btn){background:#2a2d35;color:white;border-color:#3a3e48;}
 /* Big drawing panel */
-.pe-location-big{flex:1;min-height:280px;background:var(--smoke);border:1px solid #dde1e7;border-radius:8px;overflow:hidden;position:relative;}
+/* S116 Push 12: flex centering on the location panel.
+   Mark images 1+2 across two pushes: the canvas was correctly fit to the
+   panel width, but for wide-aspect drawings (typical architectural plans
+   are ~2.5:1) the resulting canvas was much shorter than the panel itself
+   when the LEFT fields panel ran tall (multi-photo obs). Result: the
+   drawing was pinned to the top of its panel with a tall empty band below.
+   P11's "fit to height when width-fit overflows" only handled tall-aspect
+   drawings (rare); wide-aspect drawings never trigger that branch.
+   Fix: center the canvas vertically AND horizontally in the panel via
+   flex justify-content+align-items. The canvas keeps its natural fit-by-
+   width sizing; empty space (if any) is split evenly above and below. */
+.pe-location-big{flex:1;min-height:280px;background:var(--smoke);border:1px solid #dde1e7;border-radius:8px;overflow:hidden;position:relative;display:flex;justify-content:center;align-items:center;}
 body.dark-mode .pe-location-big{background:#2a2d35;border-color:#3a3e48;}
-.pe-location-big img{width:100%;height:100%;object-fit:contain;}
+.pe-location-big img{max-width:100%;max-height:100%;object-fit:contain;}
+.pe-location-big canvas{max-width:100%;max-height:100%;}
 /* Small drawing (mobile fallback) */
 .pe-location-thumb{width:100%;height:160px;background:var(--smoke);border:1px solid #dde1e7;border-radius:8px;overflow:hidden;position:relative;}
 body.dark-mode .pe-location-thumb{background:#2a2d35;border-color:#3a3e48;}
