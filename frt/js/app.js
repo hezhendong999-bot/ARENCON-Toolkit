@@ -1568,7 +1568,7 @@ function _doIssue(newRev) {
   proj.info.revision = newRev;
   proj.info.dateOfIssue = new Date().toISOString().substring(0, 10);
   proj.status = 'issued';
-  Model.save();
+  Model.saveNow();
   _updateHeaderForProject();
   // Update revision field if visible
   var revEl = document.querySelector('[data-field="revision"]');
@@ -1586,7 +1586,7 @@ function _doRevise(newRev) {
   if (!proj.info) proj.info = {};
   proj.info.revision = newRev;
   proj.status = 'draft';
-  Model.save();
+  Model.saveNow();
   _updateHeaderForProject();
   var revEl = document.querySelector('[data-field="revision"]');
   if (revEl) revEl.value = newRev;
@@ -1600,7 +1600,7 @@ function _doRevertDraft(newRev) {
   if (!proj.info) proj.info = {};
   proj.info.revision = newRev;
   proj.status = 'draft';
-  Model.save();
+  Model.saveNow();
   _updateHeaderForProject();
   var revEl = document.querySelector('[data-field="revision"]');
   if (revEl) revEl.value = newRev;

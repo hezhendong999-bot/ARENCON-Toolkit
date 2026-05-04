@@ -4832,3 +4832,51 @@ body:not(.dark-mode) .dv-tasks-panel .dv-tasks-filter-btn{
 }
 
 /* End S116 Push 14 ─────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S116 PUSH 18 — Main header cloud-status block (matches drawing viewer)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Mark P18: "I noticed that you grouped the green dot and saved to cloud
+   and last sync into a block so that I can hover (in drawing viewer). I
+   want you to do the same for the FRT main page as well to match it."
+   The drawing viewer uses .dv-cloud-status with display:inline-flex,
+   padding, border-radius, hover background. The main header #cloud-status
+   has the same structural elements but no styling — just plain inline
+   text with a dot. This block makes the two visually identical. */
+#cloud-status{
+  display:inline-flex !important;
+  align-items:center;
+  gap:6px !important;
+  padding:4px 10px;
+  border-radius:6px;
+  font-family:Calibri,sans-serif;
+  font-size:calc(11px + var(--ts));
+  color:rgba(255,255,255,.85) !important;
+  cursor:pointer;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  flex-shrink:0;
+  transition:background .15s;
+}
+#cloud-status:hover{
+  background:rgba(255,255,255,0.10);
+}
+#cloud-status #last-sync-text{
+  margin-left:6px !important;
+  font-size:calc(10px + var(--ts)) !important;
+}
+#cloud-status #cloud-dot{
+  width:9px;
+  height:9px;
+}
+
+/* Hide text on mobile (mirrors .dv-cloud-text mobile rule) but keep the
+   dot tappable. */
+@media(max-width:900px){
+  #cloud-status #cloud-status-text,
+  #cloud-status #last-sync-text{display:none !important;}
+  #cloud-status{padding:4px 8px !important;}
+}
+
+/* End S116 Push 18 ─────────────────────────────────────────────────── */
