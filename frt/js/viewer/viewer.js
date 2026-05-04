@@ -3002,6 +3002,28 @@ function _toggleTasks() {
   var btn = document.getElementById('dv-tasks-btn');
   if (btn) btn.classList.toggle('active', _tasksVisible);
   if (_tasksVisible) _renderTasks();
+  // S116 Push 13: recompute fit-scale + re-render pins after toggle.
+  // The panel takes 300px from the canvas-area flex container via
+  // flex-shrink:0, so the visible canvas width changes — but window.resize
+  // doesn't fire (the window itself didn't change). Without this, pins
+  // stayed positioned for the OLD canvas width while the image rescaled
+  // via object-fit, causing visible left-shift of all pins on the
+  // drawing the moment the tasks panel opens. The setTimeout gives the
+  // CSS transition time to complete before measuring.
+  setTimeout(function() {
+    if (TiledPdf.isActive()) {
+      var dims = TiledPdf.getDimensions();
+      if (dims) _calcFitScaleFromDims(dims.drawW, dims.drawH);
+    } else {
+      _calcFitScale();
+    }
+    _scale = _fitScale;
+    _panX = 0;
+    _panY = 0;
+    _applyTransform();
+    _renderPins();
+    if (typeof Markup !== 'undefined' && Markup.resize) Markup.resize();
+  }, 50);
 }
 
 function _renderTasks() {

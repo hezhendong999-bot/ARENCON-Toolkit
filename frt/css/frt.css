@@ -4702,3 +4702,46 @@ body.dark-mode #pe-upload-btn{
 }
 
 /* End S116 Push 10 ─────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S116 PUSH 13 — Summary IAR muted-pink + hatch + jewel-tone style guide note
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* IAR chip style for Summary table (.tt-priority.iar didn't exist; the chip
+   was rendering as the bright #E91E63 default). Mark image 4: "change the IAR
+   pink to be not too bright like this. Match two colours and style to be
+   consistent." Muted dusty rose (#C9627F) + diagonal hatch matches the
+   desaturated jewel-tone family Mark uses for everything else. Same treatment
+   on .tt-status.iar so both surfaces are visually identical. */
+.tt-priority.iar,
+.tt-status.iar{
+  background-color:rgba(201,98,127,.18);
+  background-image:repeating-linear-gradient(
+    -45deg,
+    transparent 0px,
+    transparent 6px,
+    rgba(201,98,127,.30) 6px,
+    rgba(201,98,127,.30) 8px
+  );
+  color:#9C4862;
+  border:1px solid rgba(201,98,127,.45);
+  font-weight:700;
+  padding:2px 8px;
+  border-radius:4px;
+  font-size:calc(11px + var(--ts));
+}
+body.dark-mode .tt-priority.iar,
+body.dark-mode .tt-status.iar{
+  background-color:rgba(232,144,176,.10);
+  background-image:repeating-linear-gradient(
+    -45deg,
+    transparent 0px,
+    transparent 6px,
+    rgba(232,144,176,.20) 6px,
+    rgba(232,144,176,.20) 8px
+  );
+  color:#e890b0;
+  border-color:rgba(232,144,176,.32);
+}
+
+/* End S116 Push 13 ─────────────────────────────────────────────────── */

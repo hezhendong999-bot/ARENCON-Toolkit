@@ -259,9 +259,12 @@ export var initPins = {
       // additive — when active, it appears as a second row below the main
       // status, not in place of it. Matches Mark's request from the same
       // session: "Move IAR to be below outstanding, as part of the status".
+      // S116 Push 13: increased horizontal padding 10px -> 18px on Status
+      // and Priority cells so the chips have breathing room (Mark image 3:
+      // "Outstanding" was bumping right against "High").
       var statusBaseTxt = isClosed ? 'Closed' : 'Outstanding';
       var statusBaseCls = isClosed ? 'closed' : 'outstanding';
-      h += '<td style="padding:8px 10px;">';
+      h += '<td style="padding:8px 18px 8px 12px;">';
       h += '<span class="tt-status ' + statusBaseCls + '">' + statusBaseTxt + '</span>';
       h += '</td>';
       // S116 Push 10: IAR overrides priority. Mark: "I want IAR toggle also
@@ -270,7 +273,7 @@ export var initPins = {
       // priority cell shows "⚡ IAR" pink instead of the underlying priority.
       // The pin still has its own priority for color-coded markers etc.; this
       // is purely a Summary-tab display rule.
-      h += '<td style="padding:8px 10px;">';
+      h += '<td style="padding:8px 12px 8px 18px;">';
       if (isIAR) {
         h += '<span class="tt-priority iar">\u26A1 IAR</span>';
       } else {
