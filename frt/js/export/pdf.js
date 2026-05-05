@@ -21,8 +21,11 @@ function _deficDesc(d){
 function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback){
   var img=new Image();
   img.onload=function(){
-    // Crop region centered on pin — show ~25% of drawing around pin
-    var cropFrac=0.25;
+    // S118 design lock: tighter crop (0.25→0.22) and bigger pin teardrop. Mark's
+    // "20% smaller than the v11 mockup, still legible" target = ~24px display
+    // size on the 160px-wide dc-mini box. Canvas-to-display ratio is 5×, so
+    // canvas pinW≈120 hits the target (was Math.max(28, outW*0.07)=56).
+    var cropFrac=0.22;
     var cropW=Math.max(img.width*cropFrac,400);var cropH=Math.max(img.height*cropFrac,300);
     var px=(pinData.pinX||0.5)*img.width;var py=(pinData.pinY||0.5)*img.height;
     cropW=Math.min(cropW,img.width);cropH=Math.min(cropH,img.height);
@@ -32,10 +35,9 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback){
     var canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,sx,sy,cropW,cropH,0,0,outW,outH);
     var pinCX=(px-sx)*outScale;var pinCY=(py-sy)*outScale;
-    // S113 Push 15: minimap pin bumped from outW*0.05 (40px on 800-wide
-    // crop) → outW*0.07 (56px). Better visibility in the small thumbnail
-    // displayed in deficiency cards. Floor stays at 28 for tiny crops.
-    var pinW=Math.max(28,outW*0.07);
+    // S118: bumped from outW*0.07 (56px on 800-wide crop, ~11px display) to
+    // outW*0.15 (120px on 800-wide crop, ~24px display). Floor 60 for tiny crops.
+    var pinW=Math.max(60,outW*0.15);
     _drawTeardropPin(ctx,pinCX,pinCY,pinW,pinData);
     callback(canvas.toDataURL('image/jpeg',0.92));
   };
@@ -208,19 +210,42 @@ function _buildCSS(fontB64){
   c+='.ph-compact{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #000;padding-bottom:4px;margin-bottom:12px;}';
   c+='.ph-compact-left{font-size:11pt;color:#000;line-height:1;}';
   c+='.ph-compact-right{font-size:11pt;color:#000;line-height:1;text-align:right;}';
-  // S117-C: contractor section header keeps the brand burgundy bar but
-  // gains a 5px left-border accent that matches the in-app group header
-  // color for that contractor. Inline style supplies the per-contractor
-  // hex; the rule below sets up box geometry + the default accent.
-  c+='.ch{background:#9C2742;color:white;padding:6px 14px 6px 12px;font-weight:700;font-size:11pt;border-radius:6px 6px 0 0;margin-top:14px;margin-bottom:0;letter-spacing:.3px;border-left:5px solid #9C2742;}';
-  c+='.dc{border:1px solid #DDE1E7;border-top:none;padding:10px;margin-bottom:0;background:white;}';
+  // S118 design lock: contractor section header — plain burgundy banner,
+  // count pill on right, (cont.) handled in pagination. Drops S117-C
+  // left-border accent per Mark's "no contractor color stripe" decision.
+  c+='.ch{background:#9C2742;color:white;padding:7px 14px;font-weight:700;font-size:11pt;border-radius:6px 6px 0 0;margin-top:14px;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
+  c+='.ch-pill{background:rgba(0,0,0,0.18);color:white;font-weight:700;font-size:9.5pt;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0;}';
+  c+='.ch-cont{font-weight:400;font-size:9.5pt;opacity:0.78;letter-spacing:0;margin-left:8px;font-style:italic;}';
+  c+='.dc{border:1px solid #DDE1E7;border-top:none;padding:10px 12px;margin-bottom:0;background:white;}';
   c+='.dc:last-child{border-radius:0 0 6px 6px;margin-bottom:10px;}';
   c+='.dc-inner{display:flex;gap:12px;align-items:flex-start;}';
   c+='.dc-mini{flex-shrink:0;width:160px;max-height:160px;object-fit:contain;border-radius:6px;border:1px solid #DDE1E7;display:block;align-self:flex-start;}';
   c+='.dc-content{flex:1;min-width:0;}';
+  // S118: card header — item# burgundy + merged status pill (color encodes priority)
+  c+='.dc-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;}';
+  c+='.dc-itemnum{color:#9C2742;font-size:14pt;font-weight:700;line-height:1;}';
+  c+='.dc-desc{font-size:11pt;line-height:1.4;}';
+  c+='.dc-footer{font-size:9pt;color:#607D8B;margin-top:6px;}';
+  // S118 status pills — color encodes priority (red=Outstanding High, orange=Outstanding Low, green=Closed, pink=IAR)
+  c+='.pill-h{display:inline-block;background:#FCEAEA;color:#C0392B;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
+  c+='.pill-l{display:inline-block;background:#FDF1E4;color:#B07F5A;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
+  c+='.pill-c{display:inline-block;background:#E8F5EE;color:#1A7A4A;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
+  c+='.pill-iar{display:inline-block;background:#FCE4EC;color:#E91E8C;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
+  // Legacy IAR badge + .so/.sc kept — used by summary tables / appendix / older code paths
   c+='.iar{display:inline-block;background:#FF69B4;color:white;padding:1px 7px;border-radius:10px;font-size:9pt;font-weight:700;margin-left:4px;}';
   c+='.so{color:#C0392B;font-weight:700;font-size:11pt;}.sc{color:#1A7A4A;font-weight:700;font-size:11pt;}';
-  c+='.dp{width:160px;height:160px;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;}';
+  // S118: 3-up photo grid (was 2-up flow with 160×160 tiles)
+  c+='.dp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:6px 0;}';
+  c+='.dp{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;display:block;}';
+  // S118: follow-up section (replaces "General Activity") — compact rows, no bg colors
+  c+='.fu-grp{font-size:9.5pt;font-weight:700;color:#4A5568;letter-spacing:0.4px;text-transform:uppercase;margin:10px 0 4px;display:flex;justify-content:space-between;border-bottom:0.5px solid #DDE1E7;padding-bottom:3px;}';
+  c+='.fu-row{padding:3px 0;line-height:1.4;}';
+  c+='.fu-row + .fu-row{border-top:0.5px dotted #E5E7EB;}';
+  c+='.fu-meta{font-size:9.5pt;display:flex;gap:10px;align-items:baseline;}';
+  c+='.fu-author-ctr{color:#B07F5A;font-weight:700;}';
+  c+='.fu-author-arc{color:#5078A0;font-weight:700;}';
+  c+='.fu-date{color:#6B7B8C;font-size:9pt;}';
+  c+='.fu-body{font-size:10.5pt;color:#1C2333;margin-top:1px;}';
   c+='.st{width:100%;border-collapse:collapse;font-size:11pt;margin-top:0;}';
   c+='.st th{background:#9C2742;color:white;padding:6px 10px;text-align:left;font-size:11pt;font-weight:700;}';
   c+='.st td{padding:6px 10px;border-bottom:1px solid #DDE1E7;font-size:11pt;}';
@@ -248,14 +273,26 @@ function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,s
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
 var reportDefs=[];var rn=1;
 var _ctrFilterId=ctrFilter||'__all__';var _ctrFilterName='';
+// S118: flatten observations — each obs becomes its own report item.
+// Multi-obs pins render as multiple cards sharing the pin number (visible
+// in the minimap teardrop). Pin editor still shows multi-obs UI; this
+// flattening only applies to PDF rendering (Summary/Deficiency tabs in
+// future S118 sessions). Legacy defics with no observations array fall
+// through as a single-card item with obsIdx:0.
+function _pushItems(d,ctrName){
+  if(d.priority==='general')return;
+  var obs=d.observations&&d.observations.length?d.observations:null;
+  if(obs){obs.forEach(function(o,oi){reportDefs.push({d:d,obs:o,obsIdx:oi,ctr:ctrName,rn:rn++});});}
+  else{reportDefs.push({d:d,obs:null,obsIdx:0,ctr:ctrName,rn:rn++});}
+}
 (p.contractors||[]).forEach(function(c){
   if(_ctrFilterId!=='__all__'&&_ctrFilterId!=='__general__'&&c.id!==_ctrFilterId)return;
   if(_ctrFilterId==='__general__')return;
   if(c.id===_ctrFilterId)_ctrFilterName=c.name;
-  (c.deficiencies||[]).forEach(function(d){if(d.priority==='general')return;reportDefs.push({d:d,ctr:c.name,rn:rn++});});
+  (c.deficiencies||[]).forEach(function(d){_pushItems(d,c.name);});
 });
 if(_ctrFilterId==='__all__'||_ctrFilterId==='__general__'){
-  (p.generalDeficiencies||[]).forEach(function(d){if(d.priority==='general')return;reportDefs.push({d:d,ctr:'Site General',rn:rn++});});
+  (p.generalDeficiencies||[]).forEach(function(d){_pushItems(d,'Site General');});
 }
 if(_ctrFilterId==='__general__')_ctrFilterName='Site General';
 
@@ -265,6 +302,8 @@ var mainBodyDefs=reportDefs.filter(function(r){
   if(_deficIsClosed(r.d)&&(r.d.closedOnInstance||1)===_curInst)return true;
   return false;
 });
+// S118: renumber items sequentially after filter so r.rn is 1,2,3... with no gaps
+mainBodyDefs.forEach(function(r,i){r.rn=i+1;});
 var closedSummaryDefs=reportDefs.filter(function(r){return _deficIsClosed(r.d);});
 var css=_buildCSS(fontB64);
 var _rptNum=p.currentFrtInstance||1;
@@ -341,73 +380,82 @@ function _pdfActLine(a){
 }
 
 function _buildDefCard(r){
-  var d=r.d;var hasDwg=isField&&d.drawingId&&d.pinX!=null;var isClosed=_deficIsClosed(d);
-  var _nI=d.notedOnInstance||1;var _nD=d.notedDate||d.date||'';
-  var obs=d.observations&&d.observations.length?d.observations:null;
+  // S118: each r is now a single observation item (flattened). r.obs is the
+  // observation object (or null for legacy single-obs deficiencies).
+  // r.obsIdx is the observation index within the parent pin (used for unique
+  // minimap element IDs and pin-level vs obs-tied activity routing).
+  var d=r.d;
+  var hasDwg=isField&&d.drawingId&&d.pinX!=null;
   var entries=d.entries&&d.entries.length?d.entries:null;
-  var actArr=d.activity&&d.activity.length?d.activity:null;
-  var sortedAct=actArr?actArr.slice().filter(function(a){return !a.autoGenerated;}).sort(function(a,b){return(b.date||'').localeCompare(a.date||'');}):[];
-
-  var h='<div class="dc"><div class="dc-inner">';
-  if(hasDwg)h+='<img class="dc-mini" id="mm-'+d.id+'" src="" alt="drawing">';
-  h+='<div class="dc-content">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><div><strong style="color:#9C2742;font-size:13pt;">#'+d.num+'</strong>';
-  if(d.iar)h+='<span class="iar">IAR</span>';
-  h+='</div><span class="'+(isClosed?'sc':'so')+'">'+(isClosed?'Closed':'Outstanding')+'</span></div>';
-  if(_nI!==_curInst){h+='<div class="dc-split" style="font-size:9.5pt;color:#4A5568;margin-bottom:4px;">Noted: FRT #'+_nI+(_nD?' \u2014 '+_nD:'')+(r.ctr?' \u2014 '+esc(r.ctr):'')+'</div>';}
-  else{h+='<div class="dc-split" style="font-size:9.5pt;color:#4A5568;margin-bottom:4px;">'+(_nD||'')+(r.ctr?' \u2014 '+esc(r.ctr):'')+'</div>';}
-  if(isClosed){var ci=d.closedOnInstance||_curInst;var cd=d.closedDate||'';var cn=d.closedNote||'Addressed';
-    if(ci!==_curInst){h+='<div class="dc-split" style="font-size:9.5pt;color:#1A7A4A;margin-bottom:6px;font-weight:600;">Closed: FRT #'+ci+(cd?' \u2014 '+cd:'')+' \u2014 '+esc(cn)+'</div>';}
-    else{h+='<div class="dc-split" style="font-size:9.5pt;color:#1A7A4A;margin-bottom:6px;font-weight:600;">Closed'+(cd?' \u2014 '+cd:'')+' \u2014 '+esc(cn)+'</div>';}}
-
-  var obsIds=obs?obs.map(function(o){return o.id;}):[];
-  var pdfObs=[];
-  if(obs){obs.forEach(function(o,oi){
-    var t=(entries&&entries[oi])?entries[oi].description||'':o.text||'';
-    var ph=(entries&&entries[oi])?entries[oi].photos||[]:o.photos||[];
-    pdfObs.push({text:t,photos:ph,addressed:o.addressed,notedOnInstance:o.notedOnInstance,oi:oi,id:o.id});
-  });}else if(entries){entries.forEach(function(en,ei){pdfObs.push({text:en.description||'',photos:en.photos||[],addressed:false,notedOnInstance:_nI,oi:ei,id:null});});}
-  var hasMulti=pdfObs.length>1;
-  if(pdfObs.length){
-    pdfObs.forEach(function(po){
-      var eLbl=hasMulti?String.fromCharCode(65+po.oi)+') ':'';
-      var frtTag=(po.notedOnInstance&&po.notedOnInstance!==_nI)?' (FRT #'+po.notedOnInstance+')':'';
-      var obsActs=po.id?sortedAct.filter(function(a){return a.obsRef===po.id;}):[];
-      if(po.addressed){
-        h+='<div class="dc-split" style="margin-bottom:6px;padding:6px 8px;border:1px solid #1A7A4A;border-left:3px solid #1A7A4A;border-radius:0 4px 4px 0;background:rgba(26,122,74,.03);">';
-        h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;"><span style="font-size:10pt;font-weight:700;color:#1A7A4A;">\u2611 '+eLbl+'Observation'+frtTag+'</span><span style="font-size:9pt;color:#1A7A4A;font-weight:600;">Addressed</span></div>';
-        h+='<div style="font-size:11pt;color:#4A5568;margin-bottom:3px;">'+esc(po.text||'\u2014')+'</div>';
-      }else{
-        var bdr=isClosed?'#1A7A4A':'#9C2742';var bg=isClosed?'rgba(26,122,74,.03)':'transparent';
-        h+='<div class="dc-split" style="margin-bottom:6px;padding:6px 8px;border:1px solid '+(isClosed?'#1A7A4A':'#DDE1E7')+';border-left:3px solid '+bdr+';border-radius:0 4px 4px 0;background:'+bg+';">';
-        if(hasMulti)h+='<div style="font-size:10pt;font-weight:700;color:'+bdr+';margin-bottom:2px;">'+eLbl+'Observation'+frtTag+'</div>';
-        h+='<div style="font-size:11pt;margin-bottom:4px;"><strong>Description:</strong> '+esc(po.text||'\u2014')+'</div>';
-      }
-      if(po.photos&&po.photos.length){h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">';po.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});h+='</div>';}
-      if(obsActs.length){h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #DDE1E7;">';obsActs.forEach(function(a){h+=_pdfActLine(a);});h+='</div>';}
-      h+='</div>';
-    });
+  var po;
+  if(r.obs){
+    var t=(entries&&entries[r.obsIdx])?entries[r.obsIdx].description||'':r.obs.text||'';
+    var ph=(entries&&entries[r.obsIdx])?entries[r.obsIdx].photos||[]:r.obs.photos||[];
+    po={text:t,photos:ph,addressed:!!r.obs.addressed,notedOnInstance:r.obs.notedOnInstance||(d.notedOnInstance||1),id:r.obs.id||null};
   }else{
-    h+='<div class="dc-split" style="margin-bottom:6px;"><strong>Description:</strong> '+esc(d.description||'')+'</div>';
-    if((d.photos||[]).length){h+='<div class="dc-split" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">';(d.photos||[]).forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});h+='</div>';}
+    po={text:d.description||'',photos:d.photos||[],addressed:false,notedOnInstance:d.notedOnInstance||1,id:null};
   }
-  if(hasDwg){var dObj=(p.drawings||[]).find(function(x){return x.id===d.drawingId;});if(dObj)h+='<div style="font-size:9pt;color:#607D8B;margin-bottom:4px;">\uD83D\uDCD0 '+esc(dObj.name)+'</div>';}
-  var gActs=sortedAct.filter(function(a){return !a.obsRef||obsIds.indexOf(a.obsRef)<0;});
-  if(gActs.length){h+='<div class="dc-split" style="margin-top:4px;padding-top:4px;border-top:1px solid #DDE1E7;"><div style="font-size:9pt;font-weight:700;color:#4A5568;margin-bottom:2px;">General Activity:</div>';gActs.forEach(function(a){h+=_pdfActLine(a);});h+='</div>';}
-  h+='</div></div></div>';return h;
+  // Status: per-obs addressed flag wins, else pin-level
+  var pinClosed=_deficIsClosed(d);
+  var thisClosed=po.addressed||pinClosed;
+  // Merged status pill — color encodes priority for outstanding, green for closed, pink for IAR
+  var pr=d.priority||'high';
+  var pillCls,pillTxt;
+  if(thisClosed){pillCls='pill-c';pillTxt='Closed';}
+  else if(d.iar){pillCls='pill-iar';pillTxt='IAR';}
+  else if(pr==='low'){pillCls='pill-l';pillTxt='Outstanding';}
+  else{pillCls='pill-h';pillTxt='Outstanding';}
+  // Activity: obs-tied for this obs, plus pin-level (no obsRef) on first-obs only
+  var actArr=d.activity&&d.activity.length?d.activity.slice().filter(function(a){return !a.autoGenerated;}).sort(function(a,b){return(b.date||'').localeCompare(a.date||'');}):[];
+  var fuActs;
+  if(po.id){
+    fuActs=actArr.filter(function(a){return a.obsRef===po.id;});
+    if(r.obsIdx===0){fuActs=fuActs.concat(actArr.filter(function(a){return !a.obsRef;}));}
+  }else{fuActs=actArr;}
+  // Build card HTML
+  var h='<div class="dc"><div class="dc-inner">';
+  if(hasDwg)h+='<img class="dc-mini" id="mm-'+d.id+'-'+r.obsIdx+'" src="" alt="drawing">';
+  h+='<div class="dc-content">';
+  h+='<div class="dc-hdr"><span class="dc-itemnum">#'+r.rn+'</span><span class="'+pillCls+'">'+esc(pillTxt)+'</span></div>';
+  if(po.notedOnInstance!==_curInst){h+='<div style="font-size:9pt;color:#6B7B8C;margin-bottom:4px;">Noted in FRT #'+po.notedOnInstance+'</div>';}
+  h+='<div class="dc-desc">'+esc(po.text||'\u2014')+'</div>';
+  if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});h+='</div>';}
+  if(fuActs.length){
+    h+='<div class="fu-grp"><span>Follow-up</span><span style="font-weight:500;color:#6B7B8C;">FRT #'+_curInst+'</span></div>';
+    fuActs.forEach(function(a){
+      var isCtr=(a.label||'').indexOf('Contractor')>=0;
+      var authorCls=isCtr?'fu-author-ctr':'fu-author-arc';
+      var authorTxt=isCtr?'Contractor':'ARENCON';
+      var dateStr=a.date||'';
+      var instTag=a.instance&&a.instance!==_curInst?' \u00b7 FRT #'+a.instance:'';
+      var txt=(a.text||'\u2014').replace(/<[^>]*>/g,'');
+      h+='<div class="fu-row"><div class="fu-meta"><span class="'+authorCls+'">'+authorTxt+'</span><span class="fu-date">'+esc(dateStr)+instTag+'</span></div><div class="fu-body">'+esc(txt)+'</div></div>';
+    });
+  }
+  // Footer line — drawing name + noted/closed date (Pin # carried by minimap teardrop)
+  var footerParts=[];
+  if(hasDwg){var dObj=(p.drawings||[]).find(function(x){return x.id===d.drawingId;});if(dObj)footerParts.push('\uD83D\uDCD0 '+esc(dObj.name));}
+  var _nD=d.notedDate||d.date||'';
+  if(_nD&&po.notedOnInstance===_curInst)footerParts.push('Noted '+_nD);
+  if(thisClosed){var ci=d.closedOnInstance||_curInst;var cd=d.closedDate||'';
+    if(ci===_curInst&&cd)footerParts.push('Closed '+cd);
+    else if(ci!==_curInst)footerParts.push('Closed in FRT #'+ci);}
+  if(footerParts.length)h+='<div class="dc-footer">'+footerParts.join(' \u00b7 ')+'</div>';
+  h+='</div></div></div>';
+  return h;
 }
 
 // Build content blocks
 var ctrG2={};mainBodyDefs.forEach(function(r){if(!ctrG2[r.ctr])ctrG2[r.ctr]=[];ctrG2[r.ctr].push(r);});
 var contentBlocks=[];
 if(mainBodyDefs.length){Object.keys(ctrG2).forEach(function(ctr){
-  // S117-C: tint the contractor section header's left-border accent with
-  // the same color the in-app deficiencies tab uses for this contractor's
-  // group header. Helper sourced from deficiencies.js — single source of
-  // truth so on-screen and printed colors match exactly.
-  var _ctrCol=getContractorColor(ctr);
-  var _ctrAccent=_ctrCol&&_ctrCol.accent?_ctrCol.accent:'#9C2742';
-  contentBlocks.push({type:'ctrHeader',html:'<div class="ch" style="border-left-color:'+_ctrAccent+';">'+esc(ctr)+'</div>',ctr:ctr});
+  // S118: plain burgundy banner (no contractor color stripe — S117-C accent dropped per Mark's design lock).
+  // The count pill on the right is the total items in this section. The (cont.) variant is stored on
+  // the block so pagination can reuse it when this section spans pages.
+  var _ctrCount=ctrG2[ctr].length;
+  var _ctrHtml='<div class="ch"><span>'+esc(ctr)+'</span><span class="ch-pill">'+_ctrCount+'</span></div>';
+  var _ctrHtmlCont='<div class="ch"><span>'+esc(ctr)+' <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+_ctrCount+'</span></div>';
+  contentBlocks.push({type:'ctrHeader',html:_ctrHtml,htmlCont:_ctrHtmlCont,ctr:ctr});
   ctrG2[ctr].forEach(function(r){contentBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:ctr});});
 });}
 
@@ -450,7 +498,8 @@ var _aCtrHtml='';
 contentBlocks.forEach(function(block){
   var blockH=_measure(block.html);var avail=PAGE_H-curUsed;
   if(block.type==='ctrHeader'){
-    _aCtrHtml=block.html.replace('</div>','')+' \u2014 continued</div>';
+    // S118: use the pre-built (cont.) variant from the block — replaces the old "— continued" string concat
+    _aCtrHtml=block.htmlCont||block.html;
     if(avail<blockH+200){_finalizePage();_startPage();}
     curPageHtml+=block.html;curUsed+=_measure(block.html);return;
   }
@@ -556,7 +605,7 @@ if(isField){
         _renderDrawingWithPins(info.dataUrl,info.pins,function(du){
           try{var ae=w.document.getElementById('app-dwg-'+id);if(ae)ae.src=du;}catch(x){}
           var pd=0;var tp=info.pins.length;if(!tp){qi++;setTimeout(next,50);return;}
-          info.pins.forEach(function(r){try{var el=w.document.getElementById('mm-'+r.d.id);
+          info.pins.forEach(function(r){try{var el=w.document.getElementById('mm-'+r.d.id+'-'+r.obsIdx);
             if(el){_renderDrawingWithSinglePin(info.dataUrl,r.d,function(su){try{el.src=su;}catch(x){}pd++;if(pd>=tp){qi++;setTimeout(next,50);}});}
             else{pd++;if(pd>=tp){qi++;setTimeout(next,50);}}}catch(x){pd++;if(pd>=tp){qi++;setTimeout(next,50);}}});
         });
