@@ -407,7 +407,7 @@ if(mainBodyDefs.length){Object.keys(ctrG2).forEach(function(ctr){
   // truth so on-screen and printed colors match exactly.
   var _ctrCol=getContractorColor(ctr);
   var _ctrAccent=_ctrCol&&_ctrCol.accent?_ctrCol.accent:'#9C2742';
-  contentBlocks.push({type:'ctrHeader',html:'<div class="ch" style="border-left-color:'+_ctrAccent+';">'+esc(ctr)+' ('+ctrG2[ctr].length+')</div>',ctr:ctr});
+  contentBlocks.push({type:'ctrHeader',html:'<div class="ch" style="border-left-color:'+_ctrAccent+';">'+esc(ctr)+'</div>',ctr:ctr});
   ctrG2[ctr].forEach(function(r){contentBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:ctr});});
 });}
 

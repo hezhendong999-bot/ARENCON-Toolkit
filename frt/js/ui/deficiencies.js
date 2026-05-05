@@ -1339,6 +1339,17 @@ Model.onChange('project', function() { initDeficiencies.render(); });
 // the old image because the DOM never refreshes).
 Model.onChange('photo', function() { initDeficiencies.render(); });
 
+// S117 hotfix: same as pins.js — pin editor mutates priority/IAR/status
+// in-place and only fires 'saved' notify. Without this the Deficiency
+// tab cards show stale priority badges and IAR chips until project reload.
+var _deficSavedDebounce = null;
+Model.onChange('saved', function() {
+  if (_deficSavedDebounce) clearTimeout(_deficSavedDebounce);
+  _deficSavedDebounce = setTimeout(function() {
+    initDeficiencies.render();
+  }, 300);
+});
+
 // ── Photo Upload Handling ────────────────────────────────
 var _photoTargetDeficId = null;
 var _photoTargetObsIdx = 0;

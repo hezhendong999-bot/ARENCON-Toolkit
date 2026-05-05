@@ -290,6 +290,20 @@ export var initPins = {
 
 Model.onChange('project', function() { if (_viewMode === 'board') _renderBoard(); else initPins.render(); });
 
+// S117 hotfix: pin editor mutates `defic.priority`, `defic.iar`, etc.
+// in-place and calls Model.saveNow() — which fires 'saved' but not
+// 'project'. Without this listener the Summary table shows stale
+// priority / IAR / status until the user navigates away and back.
+// Debounced so rapid typing in the pin editor doesn't re-render every
+// keystroke.
+var _summaryDebounce = null;
+Model.onChange('saved', function() {
+  if (_summaryDebounce) clearTimeout(_summaryDebounce);
+  _summaryDebounce = setTimeout(function() {
+    if (_viewMode === 'board') _renderBoard(); else initPins.render();
+  }, 300);
+});
+
 // View toggle (Table / Board)
 document.addEventListener('click', function(e) {
   if (e.target.id === 'tasks-view-table') { _setView('table'); return; }
