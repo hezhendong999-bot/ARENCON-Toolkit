@@ -494,8 +494,21 @@ body.dark-mode .pe-location-big{background:#2a2d35;border-color:#3a3e48;}
 body.dark-mode .pe-location-thumb{background:#2a2d35;border-color:#3a3e48;}
 .pe-location-thumb img{width:100%;height:100%;object-fit:contain;}
 /* Footer */
-.pin-editor-footer{padding:12px 18px;border-top:1px solid #dde1e7;display:flex;gap:10px;flex-shrink:0;}
+/* S119: pin-editor-footer auto-wraps on narrow screens so the 5 action
+   buttons don't get clipped on phones (Mark report: Save/Go to drawing/
+   Remove pin only/Delete were cutoff on Samsung S-series). flex-wrap lets
+   the row reflow into two lines naturally; row-gap controls vertical
+   spacing once it does. On wide screens the row is short enough to fit
+   on one line and stays on one line — no stretching.
+   align-items:center keeps the wrapped second row visually balanced when
+   one button (e.g. Save) is taller than the others. */
+.pin-editor-footer{padding:12px 18px;border-top:1px solid #dde1e7;display:flex;gap:10px;row-gap:8px;flex-wrap:wrap;align-items:center;flex-shrink:0;}
 body.dark-mode .pin-editor-footer{border-top-color:#3a3e48;}
+/* Inline margin-left:6px from index.html on #pe-goto-dwg / #pe-unpin
+   competes with flex gap on borderline widths, pushing a button onto its
+   own row prematurely. Zero them so flex gap is the sole spacing control. */
+.pin-editor-footer #pe-goto-dwg,
+.pin-editor-footer #pe-unpin{margin-left:0 !important;}
 .pe-save-btn{padding:8px 24px;border:none;background:#9C2742;color:white;border-radius:6px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));}
 .pe-delete-btn{padding:8px 16px;border:none;background:#FDEDEC;color:#C0392B;border-radius:6px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));}
 body.dark-mode .pe-delete-btn{background:#2a2d35;color:#ff8a8a;}
