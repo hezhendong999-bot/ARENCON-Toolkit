@@ -44,23 +44,27 @@ var _dragId = null;
 
 function _pkbCard(d, p) {
   var defic = d.defic;
-  var pr = defic.priority || 'high';
+  // S119: effective priority/status (max across obs / all-addressed → closed)
+  var pr = Model.getEffectivePriority(defic);
   var fill = defic.iar ? '#FF69B4' : (pr === 'general' ? '#1A7A4A' : (pr === 'low' ? '#E67E22' : '#C0392B'));
-  var entries = (defic.entries && defic.entries.length) ? defic.entries : [{ description: defic.description || '', priority: defic.priority || 'high' }];
+  // Prefer observations[] (current) over legacy entries[] (S114 migrated away)
+  var obsList = (defic.observations && defic.observations.length) ? defic.observations : null;
+  var entries = obsList || ((defic.entries && defic.entries.length) ? defic.entries : [{ description: defic.description || '', priority: defic.priority || 'high' }]);
   var multiObs = entries.length > 1;
   var descHtml = '';
   if (multiObs) {
     entries.forEach(function(en, ei) {
-      var ePr = en.priority || 'high';
+      // S119: each obs's priority drives its label color (independent)
+      var ePr = en.priority || defic.priority || 'high';
       var ePrCol = ePr === 'general' ? '#1A7A4A' : (ePr === 'low' ? '#E67E22' : '#C0392B');
       var eLbl = String.fromCharCode(65 + ei);
-      var eDesc = esc(en.description || 'No description');
+      var eDesc = esc(en.description || en.text || 'No description');
       descHtml += '<div style="font-size:calc(11px + var(--ts));margin-bottom:3px;"><span style="color:' + ePrCol + ';font-weight:700;font-size:calc(10px + var(--ts));">' + eLbl + '</span> ' + eDesc + '</div>';
     });
   } else {
-    descHtml = esc(entries[0].description || deficDesc(defic) || 'No description');
+    descHtml = esc(entries[0].description || entries[0].text || deficDesc(defic) || 'No description');
   }
-  var isClosed = defic.status === 'closed' || defic.status === 'Addressed & Closed';
+  var isClosed = Model.getEffectiveStatus(defic) === 'closed';
   var badgeCls = 'outstanding';
   var badgeTxt = 'Outstanding';
   if (defic.iar) { badgeCls = 'iar'; badgeTxt = '\u26A1 IAR'; }
@@ -114,7 +118,8 @@ function _renderBoard() {
   if (notice) notice.textContent = unpinnedCount > 0 ? (unpinnedCount + ' unpinned deficienc' + (unpinnedCount === 1 ? 'y' : 'ies')) : '';
   var cols = { high: [], low: [], general: [] };
   all.forEach(function(d) {
-    var pr = d.defic.priority || 'high';
+    // S119: pin lives in the column matching its effective priority
+    var pr = Model.getEffectivePriority(d.defic);
     if (!cols[pr]) cols[pr] = [];
     cols[pr].push(d);
   });
@@ -185,11 +190,13 @@ export var initPins = {
     // Filter
     var filtered = all.filter(function(d) {
       var dd = d.defic;
-      var isClosed = dd.status === 'closed' || dd.status === 'Addressed & Closed';
+      // S119: effective priority/status (max across obs / all-addressed)
+      var effPri = Model.getEffectivePriority(dd);
+      var isClosed = Model.getEffectiveStatus(dd) === 'closed';
       if (f.status === 'Outstanding' && (isClosed || dd.iar)) return false;
       if (f.status === 'Closed' && !isClosed) return false;
       if (f.status === 'IAR' && !dd.iar) return false;
-      if (f.priority !== 'all' && (dd.priority || 'general') !== f.priority) return false;
+      if (f.priority !== 'all' && effPri !== f.priority) return false;
       if (f.contractor !== 'all' && (d.contractorName || 'Site General') !== f.contractor) return false;
       if (f.search) {
         var text = ((dd.num || '') + ' ' + deficDesc(dd) + ' ' + (d.contractorName || '')).toLowerCase();
@@ -202,8 +209,8 @@ export var initPins = {
     filtered.sort(function(a, b) {
       var av, bv;
       if (_sortField === 'num') { av = a.defic.num || 0; bv = b.defic.num || 0; }
-      else if (_sortField === 'status') { av = a.defic.status || ''; bv = b.defic.status || ''; }
-      else if (_sortField === 'priority') { av = a.defic.priority || ''; bv = b.defic.priority || ''; }
+      else if (_sortField === 'status') { av = Model.getEffectiveStatus(a.defic); bv = Model.getEffectiveStatus(b.defic); }
+      else if (_sortField === 'priority') { av = Model.getEffectivePriority(a.defic); bv = Model.getEffectivePriority(b.defic); }
       else if (_sortField === 'contractor') { av = a.contractorName || ''; bv = b.contractorName || ''; }
       else if (_sortField === 'drawing') { av = _getDrawingName(a.defic.drawingId); bv = _getDrawingName(b.defic.drawingId); }
       else { av = deficDesc(a.defic); bv = deficDesc(b.defic); }
@@ -243,11 +250,13 @@ export var initPins = {
     filtered.forEach(function(d) {
       var dd = d.defic;
       var desc = deficDesc(dd);
-      var isClosed = dd.status === 'closed' || dd.status === 'Addressed & Closed';
+      // S119: effective status/priority
+      var isClosed = Model.getEffectiveStatus(dd) === 'closed';
+      var effPri = Model.getEffectivePriority(dd);
       var isIAR = dd.iar;
       var statusText = isIAR ? 'IAR' : (isClosed ? 'Closed' : 'Outstanding');
       var statusCls = isIAR ? 'iar' : (isClosed ? 'closed' : 'outstanding');
-      var priCls = dd.priority || 'general';
+      var priCls = effPri;
       var dwgName = _getDrawingName(dd.drawingId);
 
       h += '<tr data-defic-id="' + esc(dd.id) + '" data-action="open-pin-editor" style="border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;">';
@@ -277,7 +286,7 @@ export var initPins = {
       if (isIAR) {
         h += '<span class="tt-priority iar">\u26A1 IAR</span>';
       } else {
-        h += '<span class="tt-priority ' + priCls + '">' + esc((dd.priority || 'general').charAt(0).toUpperCase() + (dd.priority || 'general').slice(1)) + '</span>';
+        h += '<span class="tt-priority ' + priCls + '">' + esc(effPri.charAt(0).toUpperCase() + effPri.slice(1)) + '</span>';
       }
       h += '</td>';
       h += '<td style="padding:8px 10px;"><button class="tt-jump" data-action="jump-defic" data-defic-id="' + esc(dd.id) + '">Jump</button></td>';

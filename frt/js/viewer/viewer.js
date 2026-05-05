@@ -1294,13 +1294,16 @@ function _renderPins() {
       var cb = d.defic.createdBy || null;
       var ic = cb ? (_inspectorColors[cb] || null) : null;
       var hidden = cb && _hiddenInspectors.indexOf(cb) !== -1;
+      // S119: effective priority + status (max across obs / all-addressed)
+      var effPri = Model.getEffectivePriority(d.defic);
+      var effStatus = Model.getEffectiveStatus(d.defic);
       return {
         deficId: d.defic.id,
         num:     d.defic.num,
         pinX:    d.defic.pinX,
         pinY:    d.defic.pinY,
-        priority:d.defic.priority || 'high',
-        isClosed:d.defic.status === 'closed' || d.defic.status === 'Addressed & Closed',
+        priority:effPri,
+        isClosed:effStatus === 'closed',
         isIAR:   !!d.defic.iar,
         inspectorColor: ic,                    // S83
         _showRing: _showRings && !hidden && !!ic  // S83
@@ -1344,8 +1347,9 @@ function _renderPins() {
   pins.forEach(function(d) {
     var px = d.defic.pinX * iw;
     var py = d.defic.pinY * ih;
-    var pr = d.defic.priority || 'high';
-    var isClosed = d.defic.status === 'closed' || d.defic.status === 'Addressed & Closed';
+    // S119: effective priority + status (max across obs / all-addressed)
+    var pr = Model.getEffectivePriority(d.defic);
+    var isClosed = Model.getEffectiveStatus(d.defic) === 'closed';
     var fill = d.defic.iar ? '#E91E8C' : (pr === 'general' ? '#1A7A4A' : pr === 'low' ? '#E67E22' : '#C0392B');
     var isOutstanding = !isClosed && !d.defic.iar;
     var shadow = isOutstanding ? 'drop-shadow(0 0 3px ' + fill + ') drop-shadow(0 2px 5px rgba(0,0,0,.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,.45))';
@@ -1521,8 +1525,9 @@ function _openPinEditor(deficId) {
   var overlay = document.getElementById('pin-editor-overlay');
   if (!overlay) return;
 
-  // Title
-  var prLabel = d.priority === 'general' ? 'General' : d.priority === 'low' ? 'Low Priority' : 'High Priority';
+  // Title — S119: title shows effective priority (max across obs)
+  var effTitlePri = Model.getEffectivePriority(d);
+  var prLabel = effTitlePri === 'general' ? 'General' : effTitlePri === 'low' ? 'Low Priority' : 'High Priority';
   document.getElementById('pe-title').textContent = 'Pin #' + d.num + ' \u2014 ' + prLabel;
 
   // Contractor dropdown
@@ -1545,41 +1550,11 @@ function _openPinEditor(deficId) {
   var dateIn = document.getElementById('pe-date');
   if (dateIn) dateIn.value = d.date || new Date().toISOString().split('T')[0];
 
-  // S116 Push 1 (H): Status — when every observation is priority=general,
-  // there's no notion of "open vs closed" because the entry isn't a defect,
-  // it's a note. Show a disabled "— Not a deficiency —" option in that case.
-  // The check uses the per-observation priority if present (forward-compat
-  // with item C, deferred to its own session) and falls back to pin-level
-  // priority otherwise. Also disables IAR which has no meaning for notes.
-  var obsArrForStatus = (d.observations && d.observations.length) ? d.observations : [{}];
-  var allGeneral = obsArrForStatus.every(function(o) {
-    var pri = o && o.priority ? o.priority : (d.priority || 'high');
-    return pri === 'general';
-  });
-  var statusSel = document.getElementById('pe-status');
-  if (statusSel) {
-    if (allGeneral) {
-      statusSel.innerHTML = '<option value="na" selected>\u2014 Not a deficiency \u2014</option>';
-      statusSel.disabled = true;
-      statusSel.style.opacity = '0.5';
-      statusSel.style.cursor = 'not-allowed';
-    } else {
-      statusSel.innerHTML = '<option value="open">\u25CF Outstanding</option><option value="closed">\u2714 Addressed & Closed</option>';
-      statusSel.value = (d.status === 'closed' || d.status === 'Addressed & Closed') ? 'closed' : 'open';
-      statusSel.disabled = false;
-      statusSel.style.opacity = '';
-      statusSel.style.cursor = '';
-    }
-  }
-
-  // IAR
-  var iarBtn = document.getElementById('pe-iar');
-  if (iarBtn) {
-    iarBtn.classList.toggle('active', !!d.iar);
-    iarBtn.disabled = allGeneral;
-    iarBtn.style.opacity = allGeneral ? '0.4' : '';
-    iarBtn.style.cursor = allGeneral ? 'not-allowed' : '';
-  }
+  // S119: STATUS dropdown + IAR enable-state are now per-active-observation
+  // (rendered inside _peRenderObsContent). The pin-level "all obs general"
+  // semantics (which used to disable status across the whole pin) became
+  // "this obs is general" — narrower scope, same UX intent.
+  // IAR remains a pin-level concept (one IAR flag per pin).
 
   // S116 Push 1 (B): description autocomplete via <datalist>. Builds a
   // de-duplicated list of all existing observation texts across the project
@@ -1727,10 +1702,40 @@ function _peRenderObsContent(d, idx) {
   if (!obs.length) obs = [{ text: '', addressed: false, photos: [] }];
   var o = obs[idx] || obs[0];
 
+  // S119: priority buttons reflect the ACTIVE observation's priority
+  // (was pin-level d.priority pre-S119). Pin-level priority remains as a
+  // last-bulk-set snapshot but is not the source of truth here.
+  var obsPri = o.priority || d.priority || 'high';
   var prBtns = document.querySelectorAll('.pe-pri-btn');
   prBtns.forEach(function(btn) {
-    btn.classList.toggle('active', btn.getAttribute('data-pe-pri') === (d.priority || 'high'));
+    btn.classList.toggle('active', btn.getAttribute('data-pe-pri') === obsPri);
   });
+
+  // S119: STATUS dropdown reflects the ACTIVE observation's addressed flag.
+  // "Not a deficiency" applies when THIS obs is general (was: when every obs
+  // was general). IAR stays pin-level but is disabled when this obs is general.
+  var statusSel = document.getElementById('pe-status');
+  if (statusSel) {
+    if (obsPri === 'general') {
+      statusSel.innerHTML = '<option value="na" selected>\u2014 Not a deficiency \u2014</option>';
+      statusSel.disabled = true;
+      statusSel.style.opacity = '0.5';
+      statusSel.style.cursor = 'not-allowed';
+    } else {
+      statusSel.innerHTML = '<option value="open">\u25CF Outstanding</option><option value="closed">\u2714 Addressed & Closed</option>';
+      statusSel.value = o.addressed ? 'closed' : 'open';
+      statusSel.disabled = false;
+      statusSel.style.opacity = '';
+      statusSel.style.cursor = '';
+    }
+  }
+  var iarBtn = document.getElementById('pe-iar');
+  if (iarBtn) {
+    iarBtn.classList.toggle('active', !!d.iar);
+    iarBtn.disabled = obsPri === 'general';
+    iarBtn.style.opacity = obsPri === 'general' ? '0.4' : '';
+    iarBtn.style.cursor = obsPri === 'general' ? 'not-allowed' : '';
+  }
 
   var textarea = document.getElementById('pe-obs-text');
   if (textarea) textarea.value = o.text || '';
@@ -1982,9 +1987,11 @@ function _drawPinMiniMap(canvas, img, d) {
 
   if (d.pinX != null && d.pinY != null) {
     var px = d.pinX * displayW, py = d.pinY * displayH;
+    // S119: effective priority (pin-as-a-whole color)
+    var effPri = Model.getEffectivePriority(d);
     var fill = d.iar
       ? '#FF69B4'
-      : (d.priority === 'general' ? '#1A7A4A' : (d.priority === 'low' ? '#E67E22' : '#C0392B'));
+      : (effPri === 'general' ? '#1A7A4A' : (effPri === 'low' ? '#E67E22' : '#C0392B'));
     var r0 = 6;
     ctx.save();
     ctx.translate(px, py - r0 * 2.2);
@@ -2061,11 +2068,19 @@ function _savePinEditor() {
   var dateIn = document.getElementById('pe-date');
   if (dateIn) d.date = dateIn.value;
 
-  // S116 Push 1: status. Ignore the synthetic 'na' value used when all obs
-  // are priority=general — the dropdown is disabled in that case so the
-  // value can't change, but be defensive against stale state.
+  // S119: status writes to ACTIVE OBSERVATION's addressed flag, not pin-level
+  // d.status. Model.toggleObsAddressed mirrors d.status to effective status
+  // and tracks per-obs addressedDate / addressedOnInstance for PDF filtering.
+  // Skip the synthetic 'na' value used when active obs is general (the
+  // dropdown is disabled in that case but be defensive against stale state).
   var statusSel = document.getElementById('pe-status');
-  if (statusSel && statusSel.value && statusSel.value !== 'na') d.status = statusSel.value;
+  if (statusSel && statusSel.value && statusSel.value !== 'na') {
+    var liveObs2 = (d.observations && d.observations[_peObsIdx]) ? d.observations[_peObsIdx] : null;
+    var wantClosed = statusSel.value === 'closed';
+    if (liveObs2 && !!liveObs2.addressed !== wantClosed) {
+      Model.toggleObsAddressed(_peDeficId, _peObsIdx);
+    }
+  }
 
   // Save current observation text
   var textarea = document.getElementById('pe-obs-text');
@@ -2151,8 +2166,15 @@ function _pinAutoSave() {
     var dateIn = document.getElementById('pe-date');
     if (dateIn) d.date = dateIn.value;
 
+    // S119: per-obs addressed write (mirrors _savePinEditor)
     var statusSel = document.getElementById('pe-status');
-    if (statusSel && statusSel.value && statusSel.value !== 'na') d.status = statusSel.value;
+    if (statusSel && statusSel.value && statusSel.value !== 'na') {
+      var liveObsAS = (d.observations && d.observations[_peObsIdx]) ? d.observations[_peObsIdx] : null;
+      var wantClosedAS = statusSel.value === 'closed';
+      if (liveObsAS && !!liveObsAS.addressed !== wantClosedAS) {
+        Model.toggleObsAddressed(_peDeficId, _peObsIdx);
+      }
+    }
 
     var textarea = document.getElementById('pe-obs-text');
     if (textarea) {
@@ -2462,33 +2484,42 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // Priority buttons
+  // Priority buttons — S119: per-active-observation, not pin-level
   var priBtn = e.target.closest && e.target.closest('[data-pe-pri]');
   if (priBtn) {
     var pri = priBtn.getAttribute('data-pe-pri');
     var f4 = Model.findDeficiency(_peDeficId);
-    if (f4) f4.defic.priority = pri;
+    if (f4) {
+      // Write to active obs only. Pin-level d.priority kept as last-set
+      // snapshot for legacy fallback (Model.getEffectivePriority handles it).
+      if (!f4.defic.observations || !f4.defic.observations.length) {
+        f4.defic.observations = [{ id: 'obs_' + Date.now(), text: '', photos: [], addressed: false }];
+      }
+      f4.defic.observations[_peObsIdx] = f4.defic.observations[_peObsIdx] || { text: '', photos: [], addressed: false };
+      f4.defic.observations[_peObsIdx].priority = pri;
+    }
     document.querySelectorAll('.pe-pri-btn').forEach(function(b) { b.classList.toggle('active', b.getAttribute('data-pe-pri') === pri); });
     if (f4) {
-      // S116 Push 1: priority change must refresh:
-      //   - title label (High/Low/General)
-      //   - status select state (H — "Not a deficiency" only when general)
-      //   - mini-map marker colour
-      //   - pin marker on the actual drawing
-      var prL = pri === 'general' ? 'General' : pri === 'low' ? 'Low Priority' : 'High Priority';
+      // Title reflects EFFECTIVE pin priority (max across obs). The pin marker
+      // and minimap also use effective priority.
+      var effPri = Model.getEffectivePriority(f4.defic);
+      var prL = effPri === 'general' ? 'General' : effPri === 'low' ? 'Low Priority' : 'High Priority';
       var titleEl = document.getElementById('pe-title');
       if (titleEl) titleEl.textContent = 'Pin #' + f4.defic.num + ' \u2014 ' + prL;
-      var allGen = pri === 'general';
+
+      // Status dropdown + IAR enable-state derive from THIS obs's priority.
+      // "Not a deficiency" only when active obs is general (not when whole pin is).
       var sSel = document.getElementById('pe-status');
       if (sSel) {
-        if (allGen) {
+        if (pri === 'general') {
           sSel.innerHTML = '<option value="na" selected>\u2014 Not a deficiency \u2014</option>';
           sSel.disabled = true;
           sSel.style.opacity = '0.5';
           sSel.style.cursor = 'not-allowed';
         } else {
           sSel.innerHTML = '<option value="open">\u25CF Outstanding</option><option value="closed">\u2714 Addressed & Closed</option>';
-          sSel.value = (f4.defic.status === 'closed' || f4.defic.status === 'Addressed & Closed') ? 'closed' : 'open';
+          var liveObs = f4.defic.observations[_peObsIdx];
+          sSel.value = (liveObs && liveObs.addressed) ? 'closed' : 'open';
           sSel.disabled = false;
           sSel.style.opacity = '';
           sSel.style.cursor = '';
@@ -2496,9 +2527,9 @@ document.addEventListener('click', function(e) {
       }
       var iarBtnRf = document.getElementById('pe-iar');
       if (iarBtnRf) {
-        iarBtnRf.disabled = allGen;
-        iarBtnRf.style.opacity = allGen ? '0.4' : '';
-        iarBtnRf.style.cursor = allGen ? 'not-allowed' : '';
+        iarBtnRf.disabled = pri === 'general';
+        iarBtnRf.style.opacity = pri === 'general' ? '0.4' : '';
+        iarBtnRf.style.cursor = pri === 'general' ? 'not-allowed' : '';
       }
       _renderPinMiniMap(f4.defic, 'pe-location-thumb');
       _renderPinMiniMap(f4.defic, 'pe-location-thumb-mobile');
@@ -3055,8 +3086,10 @@ function _renderTasks() {
     var def = d.defic;
     var desc = (def.observations && def.observations.length && def.observations[0].text) ? def.observations[0].text : '';
     if (desc.length > 60) desc = desc.substring(0, 60) + '\u2026';
-    var isClosed = def.status === 'closed' || def.status === 'Addressed & Closed';
-    var fill = def.iar ? '#E91E8C' : (def.priority === 'general' ? '#1A7A4A' : def.priority === 'low' ? '#E67E22' : '#C0392B');
+    // S119: effective priority + status
+    var effPri = Model.getEffectivePriority(def);
+    var isClosed = Model.getEffectiveStatus(def) === 'closed';
+    var fill = def.iar ? '#E91E8C' : (effPri === 'general' ? '#1A7A4A' : effPri === 'low' ? '#E67E22' : '#C0392B');
     if (isClosed) fill = '#1A7A4A';
     var isPinned = def.drawingId && def.pinX != null;
     html += '<div class="dv-task-item" data-task-defic-id="' + def.id + '">';

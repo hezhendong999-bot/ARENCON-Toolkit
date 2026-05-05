@@ -246,6 +246,21 @@ export var Model = {
           d.observations[0].text = d.description;
         }
         delete d.description;
+        // ── S119: per-observation priority + addressed metadata backfill ──
+        // Idempotent. Each obs gets its own priority (defaults to pin-level
+        // priority if missing) so the pin editor's priority buttons can mutate
+        // a single observation independently. Pin-level d.priority is kept as
+        // a "last bulk-set" snapshot but is no longer the source of truth for
+        // rendering — getEffectivePriority(d) reads from obs.
+        // Also backfills addressedOnInstance/addressedDate so previously
+        // closed observations get correctly filtered against currentFrtInstance.
+        (d.observations || []).forEach(function(o) {
+          if (o.priority === undefined) o.priority = d.priority || 'high';
+          if (o.addressed && o.addressedOnInstance === undefined) {
+            o.addressedOnInstance = d.closedOnInstance || _migInst;
+            o.addressedDate = d.closedDate || _migToday;
+          }
+        });
       });
     }
     (proj.contractors || []).forEach(function(c) { _migrateDeficArr(c.deficiencies); });
@@ -396,6 +411,7 @@ export var Model = {
         notedOnInstance: inst,
         notedDate: today,
         addressed: false,
+        priority: 'high',                    // S119: per-obs priority
         createdBy: _currentUserId || null   // S83
       }],
       photos: [],
@@ -449,6 +465,26 @@ export var Model = {
       f.defic.closedOnInstance = null;
     }
 
+    // S119: pin-level status change is a "bulk" action — propagate to every
+    // observation. Keeps per-obs addressed flags in sync with the pin-level
+    // intent, and writes per-obs addressedDate / addressedOnInstance so the
+    // PDF filter and per-obs UI both see the closure consistently.
+    var nowClosed = newStatus === 'closed' || newStatus === 'Addressed & Closed';
+    var inst = (_project && _project.currentFrtInstance) || 1;
+    var today = new Date().toISOString().split('T')[0];
+    if (f.defic.observations && f.defic.observations.length) {
+      f.defic.observations.forEach(function(o) {
+        o.addressed = nowClosed;
+        if (nowClosed) {
+          if (!o.addressedDate) o.addressedDate = today;
+          if (!o.addressedOnInstance) o.addressedOnInstance = inst;
+        } else {
+          o.addressedDate = null;
+          o.addressedOnInstance = null;
+        }
+      });
+    }
+
     _dirty = true;
     _queueSave();
     this._notify('deficiency', { action: 'status', deficId: deficId, status: newStatus });
@@ -467,6 +503,9 @@ export var Model = {
     if (!f) return null;
     var inst = (_project && _project.currentFrtInstance) || 1;
     var today = new Date().toISOString().split('T')[0];
+    // S119: new obs inherits priority from existing obs (effective) or pin level.
+    // Falls back to 'high' so a new obs on a fresh pin stays the strongest signal.
+    var inheritPri = this.getEffectivePriority(f.defic) || f.defic.priority || 'high';
     var obs = {
       id: 'obs_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
       text: '',
@@ -474,6 +513,7 @@ export var Model = {
       notedOnInstance: inst,
       notedDate: today,
       addressed: false,
+      priority: inheritPri,                // S119: per-obs priority
       createdBy: _currentUserId || null  // S83
     };
     if (!f.defic.observations) f.defic.observations = [];
@@ -550,10 +590,86 @@ export var Model = {
     if (!f) return;
     var obs = f.defic.observations || [];
     if (!obs[obsIdx]) return;
+    var inst = (_project && _project.currentFrtInstance) || 1;
+    var today = new Date().toISOString().split('T')[0];
     obs[obsIdx].addressed = !obs[obsIdx].addressed;
+    // S119: track per-obs closure metadata so the PDF filter can hide obs that
+    // were addressed in earlier FRT instances (mirrors pin-level closedDate /
+    // closedOnInstance pattern). Clear on reopen.
+    if (obs[obsIdx].addressed) {
+      obs[obsIdx].addressedDate = today;
+      obs[obsIdx].addressedOnInstance = inst;
+    } else {
+      obs[obsIdx].addressedDate = null;
+      obs[obsIdx].addressedOnInstance = null;
+    }
+    // S119: keep pin-level d.status mirrored to effective status so legacy
+    // readers (UI badges, summary tabs that haven't migrated yet) stay coherent.
+    var eff = this.getEffectiveStatus(f.defic);
+    if (eff === 'closed' && f.defic.status !== 'closed' && f.defic.status !== 'Addressed & Closed') {
+      f.defic.status = 'closed';
+      f.defic.closedDate = today;
+      f.defic.closedOnInstance = inst;
+    } else if (eff === 'open' && (f.defic.status === 'closed' || f.defic.status === 'Addressed & Closed')) {
+      f.defic.status = 'open';
+      f.defic.closedDate = null;
+      f.defic.closedOnInstance = null;
+    }
     _dirty = true;
     _queueSave();
     this._notify('observation', { action: 'addressed', deficId: deficId, obsIdx: obsIdx });
+  },
+
+  // S119: per-observation priority mutation. Pin-level d.priority is left
+  // alone (kept as a "last bulk-set" snapshot for legacy compatibility);
+  // renderers use getEffectivePriority(d) to derive the pin-level color.
+  updateObsPriority: function(deficId, obsIdx, priority) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return;
+    var obs = f.defic.observations || [];
+    if (!obs[obsIdx]) return;
+    obs[obsIdx].priority = priority;
+    _dirty = true;
+    _queueSave();
+    this._notify('observation', { action: 'priority', deficId: deficId, obsIdx: obsIdx, priority: priority });
+  },
+
+  // S119: effective pin priority — highest priority across all observations.
+  // Order: high > low > general. Falls back to pin-level d.priority for
+  // legacy/empty-obs cases. Used by pin marker color, deficiency tab business
+  // logic (priority-driven contractor reassignment), and the PDF minimap
+  // teardrop color (all of which describe the pin as a whole, not one obs).
+  getEffectivePriority: function(d) {
+    if (!d) return 'high';
+    var obs = (d.observations && d.observations.length) ? d.observations : null;
+    if (!obs) return d.priority || 'high';
+    var hasHigh = false, hasLow = false, hasGen = false;
+    for (var i = 0; i < obs.length; i++) {
+      var p = obs[i].priority || d.priority || 'high';
+      if (p === 'high') hasHigh = true;
+      else if (p === 'low') hasLow = true;
+      else if (p === 'general') hasGen = true;
+    }
+    if (hasHigh) return 'high';
+    if (hasLow) return 'low';
+    if (hasGen) return 'general';
+    return d.priority || 'high';
+  },
+
+  // S119: effective pin status — 'closed' iff every observation is addressed.
+  // Falls back to pin-level d.status for legacy/empty-obs cases. The PDF filter
+  // and tab badges use this so a pin with mixed addressed/open obs still
+  // renders as Outstanding and shows on the report.
+  getEffectiveStatus: function(d) {
+    if (!d) return 'open';
+    var obs = (d.observations && d.observations.length) ? d.observations : null;
+    if (!obs) {
+      return (d.status === 'closed' || d.status === 'Addressed & Closed') ? 'closed' : 'open';
+    }
+    for (var i = 0; i < obs.length; i++) {
+      if (!obs[i].addressed) return 'open';
+    }
+    return 'closed';
   },
 
   addActivityEntry: function(deficId, label, text, obsRef) {

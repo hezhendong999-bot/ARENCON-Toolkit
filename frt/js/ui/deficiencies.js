@@ -22,7 +22,12 @@ function deficDesc(d) {
   if (d.entries && d.entries.length && d.entries[0].description) return d.entries[0].description;
   return d.description || '';
 }
-function deficIsOpen(d) { return d.status === 'open' || d.status === 'Outstanding'; }
+function deficIsOpen(d) {
+  // S119: effective status (open if ANY obs is unaddressed). Falls back to
+  // pin-level d.status when no observations array exists. Model helper
+  // handles both cases.
+  return Model.getEffectiveStatus(d) === 'open';
+}
 
 // S114 P1.10: contractor color = SEQUENTIAL assignment based on order in proj.contractors[].
 // Skips slot 3 (reserved for "Site General") so a regular contractor never collides with it.
@@ -80,7 +85,10 @@ export function getContractorColor(name) {
   return { cls: cls, accent: pal.accent, surface: pal.surface, text: pal.text };
 }
 
-function deficIsClosed(d) { return d.status === 'closed' || d.status === 'Addressed & Closed'; }
+function deficIsClosed(d) {
+  // S119: effective status (closed iff ALL obs are addressed). See note above.
+  return Model.getEffectiveStatus(d) === 'closed';
+}
 
 var _activeDlcTab = 'active';
 
@@ -341,27 +349,33 @@ function _amRenderThumbs() {
 // ── Deficiency Card (interactive) ────────────────────────
 export function buildDeficCard(d, ctrId) {
   var obs = d.observations || [];
-  var isOpen = deficIsOpen(d);
-  var isClosed = deficIsClosed(d);
+  // S119: status + priority shown in the card header reflect EFFECTIVE values
+  // (max priority across obs / all-addressed → closed). Per-obs priority lives
+  // on each observation row below; per-obs addressed lives on the toggle there.
+  var effStatus = Model.getEffectiveStatus(d);
+  var effPri = Model.getEffectivePriority(d);
+  var isOpen = effStatus === 'open';
+  var isClosed = effStatus === 'closed';
   var circleColor = isClosed ? '#1A7A4A' : '#C0392B';
 
-  var h = '<div class="defic-item" data-defic-id="' + esc(d.id) + '" data-status="' + esc(d.status || 'open') + '">';
+  var h = '<div class="defic-item" data-defic-id="' + esc(d.id) + '" data-status="' + esc(effStatus) + '">';
   h += '<div class="defic-item-row">';
   h += '<div class="defic-num-circle" style="background:' + circleColor + ';">' + (d.num || '?') + '</div>';
   h += '<div class="defic-item-content">';
 
-  // Status + priority row
+  // Status row — S119: status select is a "bulk" control (writes to all obs).
+  // Per-obs priority dropdown moved from this row down into each observation.
+  // Effective priority shown as a read-only badge so scanning by priority
+  // still works at the card-level glance.
   h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">';
   h += '<select class="pin-status-sel" data-action="status" data-defic-id="' + esc(d.id) + '" style="width:auto;padding:3px 8px;font-size:calc(11px + var(--ts));">';
   h += '<option value="open"' + (isOpen ? ' selected' : '') + '>Outstanding</option>';
   h += '<option value="closed"' + (isClosed ? ' selected' : '') + '>Addressed &amp; Closed</option>';
   h += '</select>';
-  h += '<select data-action="priority" data-defic-id="' + esc(d.id) + '" style="padding:3px 8px;border:1.5px solid var(--border);border-radius:4px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;background:var(--smoke);">';
-  var pris = ['general', 'high', 'low'];
-  pris.forEach(function(p) {
-    h += '<option value="' + p + '"' + (d.priority === p ? ' selected' : '') + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
-  });
-  h += '</select>';
+  // Effective priority badge (read-only). Color matches pin marker palette.
+  var effPriColor = effPri === 'general' ? '#1A7A4A' : effPri === 'low' ? '#E67E22' : '#C0392B';
+  var effPriLabel = effPri.charAt(0).toUpperCase() + effPri.slice(1);
+  h += '<span title="Effective priority (max across observations)" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:700;color:white;background:' + effPriColor + ';">' + esc(effPriLabel) + '</span>';
   // IAR toggle — inactive: subtle outline (was low-contrast grey-on-white). Active: pink fill.
   var iarStyle = d.iar
     ? 'border:none;background:#E91E8C;color:white;'
@@ -394,16 +408,34 @@ export function buildDeficCard(d, ctrId) {
       var lbl = hasMulti ? String.fromCharCode(65 + oi) + ') ' : '';
       var addrCls = o.addressed ? 'border-left:3px solid #1A7A4A;background:rgba(26,122,74,.05);' : '';
       h += '<div style="margin-bottom:8px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;' + addrCls + '">';
-      // Observation header row
+      // S119: per-observation priority dropdown — small select, top-right of
+      // the obs box. Always shown (single + multi) so each obs can carry its
+      // own priority. Effective pin priority shown on the pin-level header
+      // above is derived as max across these.
+      var obsPriVal = o.priority || d.priority || 'high';
+      var obsPriSelHtml = '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Observation priority" style="padding:2px 6px;border:1.5px solid var(--border);border-radius:4px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;background:var(--smoke);">';
+      ['general', 'high', 'low'].forEach(function(p) {
+        obsPriSelHtml += '<option value="' + p + '"' + (obsPriVal === p ? ' selected' : '') + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
+      });
+      obsPriSelHtml += '</select>';
+      // Observation header row — always present (need a place for the priority
+      // dropdown). Multi-obs additionally shows the obs label + addressed +
+      // spinoff/remove buttons.
+      var _aiDotHdr = o.aiReviewed ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-left:6px;vertical-align:middle;" title="AI reviewed"></span>' : '';
+      h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:6px;">';
       if (hasMulti) {
-        h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
-        h += '<span style="font-size:calc(11px + var(--ts));font-weight:700;color:' + (o.addressed ? '#1A7A4A' : 'var(--ink)') + ';">' + lbl + 'Observation' + _aiDot + '</span>';
-        h += '<div style="display:flex;gap:4px;align-items:center;">';
+        h += '<span style="font-size:calc(11px + var(--ts));font-weight:700;color:' + (o.addressed ? '#1A7A4A' : 'var(--ink)') + ';">' + lbl + 'Observation' + _aiDotHdr + '</span>';
+      } else {
+        h += '<span></span>';
+      }
+      h += '<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">';
+      h += obsPriSelHtml;
+      if (hasMulti) {
         h += '<button data-action="toggle-addressed" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:' + (o.addressed ? '#1A7A4A' : '#CBD5E0') + ';color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">' + (o.addressed ? '\u2611 Addressed' : '\u2610 Open') + '</button>';
         if (obs.length > 1) h += '<button data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#2196F3;color:white;border-radius:4px;padding:2px 6px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Spin off as new deficiency">\u21B1</button>';
         if (obs.length > 1) h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#E53E3E;color:white;border-radius:4px;padding:2px 6px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Remove observation">\u2715</button>';
-        h += '</div></div>';
       }
+      h += '</div></div>';
       // Textarea
       var _aiDot = o.aiReviewed ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-left:6px;vertical-align:middle;" title="AI reviewed"></span>' : '';
       // S114 P1.7: 3-column layout (comment | photos | drop zone) on desktop;
@@ -877,7 +909,10 @@ document.addEventListener('click', function(e) {
     var deficId = el.getAttribute('data-defic-id');
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
     Model.toggleObsAddressed(deficId, obsIdx);
+    // S119: re-render so the pin-level header (effective status, circle color)
+    // reflects the new aggregate state if this toggle flipped all-addressed.
     initDeficiencies.render();
+    if (window._frtRenderTasks) window._frtRenderTasks();
   }
 
   // S116 Push 3: split view-pin from place-pin.
@@ -1201,19 +1236,56 @@ document.addEventListener('change', function(e) {
     initDeficiencies.render();
   }
 
-  if (action === 'priority') {
+  if (action === 'priority' || action === 'obs-priority') {
     (function() {
       var did = e.target.getAttribute('data-defic-id');
       var newPri = e.target.value;
       var f = Model.findDeficiency(did);
       if (!f) return;
-      var oldPri = f.defic.priority || 'general';
+      // S119: capture effective priority BEFORE the change so we can detect
+      // boundary crossings (general ↔ non-general) for reassignment business
+      // logic. The legacy 'priority' action still exists for any code path
+      // that hasn't migrated; it's treated as a bulk write to all obs.
+      var oldEffective = Model.getEffectivePriority(f.defic) || 'high';
       var hasCtr = !!(f.contractor);
       var dnum = f.defic.num || '?';
 
-      // Priority "general" + has contractor → move to Site General immediately
-      if (newPri === 'general' && hasCtr) {
-        Model.updateDeficPriority(did, newPri);
+      // Apply the change to the right scope.
+      function _applyChange() {
+        if (action === 'obs-priority') {
+          var oi = parseInt(e.target.getAttribute('data-obs-idx') || '0', 10);
+          Model.updateObsPriority(did, oi, newPri);
+        } else {
+          // Legacy bulk write — keeps old call sites working
+          Model.updateDeficPriority(did, newPri);
+          if (f.defic.observations) {
+            f.defic.observations.forEach(function(o) { o.priority = newPri; });
+          }
+        }
+      }
+
+      // Compute what the effective priority WILL be after this change.
+      var newEffective;
+      if (action === 'obs-priority') {
+        var oi2 = parseInt(e.target.getAttribute('data-obs-idx') || '0', 10);
+        var hasHigh = false, hasLow = false, hasGen = false;
+        var obsArr = f.defic.observations || [];
+        for (var i = 0; i < obsArr.length; i++) {
+          var p = (i === oi2) ? newPri : (obsArr[i].priority || f.defic.priority || 'high');
+          if (p === 'high') hasHigh = true;
+          else if (p === 'low') hasLow = true;
+          else if (p === 'general') hasGen = true;
+        }
+        newEffective = hasHigh ? 'high' : (hasLow ? 'low' : (hasGen ? 'general' : 'high'));
+      } else {
+        newEffective = newPri;
+      }
+
+      // Effective priority went non-general → general AND has contractor →
+      // move pin to Site General (matches v1 behavior for the "this entire
+      // pin is now informational only" case).
+      if (newEffective === 'general' && oldEffective !== 'general' && hasCtr) {
+        _applyChange();
         Model.reassignDeficiency(did, null);
         Model.saveNow();
         _activeDlcTab = 'general';
@@ -1225,8 +1297,9 @@ document.addEventListener('change', function(e) {
         return;
       }
 
-      // Priority "high"/"low" + no contractor → prompt to assign
-      if (newPri !== 'general' && !hasCtr) {
+      // Effective priority went general → non-general AND no contractor →
+      // prompt for assignment.
+      if (newEffective !== 'general' && oldEffective === 'general' && !hasCtr) {
         var proj = Model.getProject();
         var ctrs = proj.contractors || [];
         if (ctrs.length) {
@@ -1245,8 +1318,7 @@ document.addEventListener('change', function(e) {
           ov2.querySelector('#reassign-ok').addEventListener('click', function() {
             var newCtrId = ov2.querySelector('#reassign-sel').value || null;
             if (newCtrId) {
-              // Change priority AND reassign together
-              Model.updateDeficPriority(did, newPri);
+              _applyChange();
               Model.reassignDeficiency(did, newCtrId);
               Model.saveNow();
               _activeDlcTab = 'active';
@@ -1262,8 +1334,10 @@ document.addEventListener('change', function(e) {
             }
           });
           ov2.querySelector('#reassign-cancel').addEventListener('click', function() {
-            // Revert the select dropdown to old priority
-            e.target.value = oldPri;
+            // Revert dropdown without committing the change
+            e.target.value = (action === 'obs-priority')
+              ? ((f.defic.observations[parseInt(e.target.getAttribute('data-obs-idx') || '0', 10)] || {}).priority || f.defic.priority || 'high')
+              : (f.defic.priority || 'general');
             ov2.remove();
           });
           // DON'T change priority yet — wait for user to confirm
@@ -1272,7 +1346,7 @@ document.addEventListener('change', function(e) {
       }
 
       // Simple priority change (no tab move needed)
-      Model.updateDeficPriority(did, newPri);
+      _applyChange();
       initDeficiencies.render();
     })();
   }
@@ -1684,13 +1758,27 @@ function _runDeficBulk(op) {
           f.defic.iar = false;
           f.defic.closedOnInstance = inst;
           f.defic.closedDate = new Date().toISOString().split('T')[0];
-          if (f.defic.observations) f.defic.observations.forEach(function(o) { o.addressed = true; });
+          // S119: per-obs addressed metadata so per-obs PDF filter sees them
+          // as closed-in-current-instance (matches pin-level closedDate).
+          if (f.defic.observations) {
+            f.defic.observations.forEach(function(o) {
+              o.addressed = true;
+              o.addressedDate = f.defic.closedDate;
+              o.addressedOnInstance = inst;
+            });
+          }
         } else {
           f.defic.status = 'open';
           f.defic.closedOnInstance = null;
           f.defic.closedDate = null;
           f.defic.closedNote = '';
-          if (f.defic.observations) f.defic.observations.forEach(function(o) { o.addressed = false; });
+          if (f.defic.observations) {
+            f.defic.observations.forEach(function(o) {
+              o.addressed = false;
+              o.addressedDate = null;
+              o.addressedOnInstance = null;
+            });
+          }
         }
       });
       Model.saveNow();

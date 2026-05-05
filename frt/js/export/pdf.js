@@ -279,11 +279,21 @@ var _ctrFilterId=ctrFilter||'__all__';var _ctrFilterName='';
 // flattening only applies to PDF rendering (Summary/Deficiency tabs in
 // future S118 sessions). Legacy defics with no observations array fall
 // through as a single-card item with obsIdx:0.
+// S119: per-obs priority filter — skip individual general-priority obs
+// rather than dropping the whole pin. A pin with mixed priorities now
+// emits cards only for its non-general obs.
 function _pushItems(d,ctrName){
-  if(d.priority==='general')return;
   var obs=d.observations&&d.observations.length?d.observations:null;
-  if(obs){obs.forEach(function(o,oi){reportDefs.push({d:d,obs:o,obsIdx:oi,ctr:ctrName,rn:rn++});});}
-  else{reportDefs.push({d:d,obs:null,obsIdx:0,ctr:ctrName,rn:rn++});}
+  if(obs){
+    obs.forEach(function(o,oi){
+      var pri=(o&&o.priority)||d.priority||'high';
+      if(pri==='general')return;
+      reportDefs.push({d:d,obs:o,obsIdx:oi,ctr:ctrName,rn:rn++});
+    });
+  }else{
+    if((d.priority||'high')==='general')return;
+    reportDefs.push({d:d,obs:null,obsIdx:0,ctr:ctrName,rn:rn++});
+  }
 }
 (p.contractors||[]).forEach(function(c){
   if(_ctrFilterId!=='__all__'&&_ctrFilterId!=='__general__'&&c.id!==_ctrFilterId)return;
@@ -297,14 +307,34 @@ if(_ctrFilterId==='__all__'||_ctrFilterId==='__general__'){
 if(_ctrFilterId==='__general__')_ctrFilterName='Site General';
 
 var _curInst=p.currentFrtInstance||1;
+// S119: per-observation status filter. An obs is included if:
+//   - it's not addressed (still outstanding), OR
+//   - it was addressed in the current FRT instance (so the report shows
+//     "newly closed this round").
+// Falls back to pin-level d.status / d.closedOnInstance for legacy obs that
+// lack the per-obs addressed metadata. This replaces the pre-S119 filter
+// that operated only on r.d.status, which would either include or exclude
+// every obs of a given pin together regardless of per-obs state.
 var mainBodyDefs=reportDefs.filter(function(r){
+  var obs=r.obs;
+  if(obs&&obs.addressed!==undefined){
+    if(!obs.addressed)return true;
+    var inst=obs.addressedOnInstance||r.d.closedOnInstance||1;
+    return inst===_curInst;
+  }
+  // Legacy fallback (pre-S119 obs without addressed metadata)
   if(_deficIsOpen(r.d))return true;
   if(_deficIsClosed(r.d)&&(r.d.closedOnInstance||1)===_curInst)return true;
   return false;
 });
 // S118: renumber items sequentially after filter so r.rn is 1,2,3... with no gaps
 mainBodyDefs.forEach(function(r,i){r.rn=i+1;});
-var closedSummaryDefs=reportDefs.filter(function(r){return _deficIsClosed(r.d);});
+// S119: closed-summary appendix — items addressed in any instance (per-obs aware)
+var closedSummaryDefs=reportDefs.filter(function(r){
+  var obs=r.obs;
+  if(obs&&obs.addressed!==undefined)return !!obs.addressed;
+  return _deficIsClosed(r.d);
+});
 var css=_buildCSS(fontB64);
 var _rptNum=p.currentFrtInstance||1;
 var _rptRev=(p.info&&p.info.revision)||'A01';
@@ -344,19 +374,30 @@ var summaryHtml='';
 if(reportDefs.length){
   var ctrG={};reportDefs.forEach(function(r){if(!ctrG[r.ctr])ctrG[r.ctr]=[];ctrG[r.ctr].push(r);});
   summaryHtml+='<div style="border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;overflow:hidden;"><table class="st"><thead><tr><th>Deficiency Summary</th><th style="text-align:center;">Total</th><th style="text-align:center;">New This Report</th><th style="text-align:center;">IAR</th><th style="text-align:center;">Outstanding</th><th style="text-align:center;">Closed</th></tr></thead><tbody>';
+  // S119: per-obs aware Outstanding/Closed counts. Each r in reportDefs is one
+  // observation (post-flatten); count by the obs's own addressed flag with
+  // pin-level fallback for legacy obs.
+  function _rowOpen(r){
+    if(r.obs&&r.obs.addressed!==undefined)return !r.obs.addressed;
+    return _deficIsOpen(r.d);
+  }
+  function _rowClosed(r){
+    if(r.obs&&r.obs.addressed!==undefined)return !!r.obs.addressed;
+    return _deficIsClosed(r.d);
+  }
   Object.keys(ctrG).forEach(function(ctr){
     var gc=ctrG[ctr];
     summaryHtml+='<tr><td><strong>'+esc(ctr)+'</strong></td><td style="text-align:center;">'+gc.length+'</td>';
     summaryHtml+='<td style="text-align:center;color:#1565C0;font-weight:700;">'+gc.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
     summaryHtml+='<td style="text-align:center;color:#FF69B4;font-weight:700;">'+gc.filter(function(r){return r.d.iar;}).length+'</td>';
-    summaryHtml+='<td style="text-align:center;color:#C0392B;font-weight:700;">'+gc.filter(function(r){return _deficIsOpen(r.d);}).length+'</td>';
-    summaryHtml+='<td style="text-align:center;color:#1A7A4A;font-weight:700;">'+gc.filter(function(r){return _deficIsClosed(r.d);}).length+'</td></tr>';
+    summaryHtml+='<td style="text-align:center;color:#C0392B;font-weight:700;">'+gc.filter(_rowOpen).length+'</td>';
+    summaryHtml+='<td style="text-align:center;color:#1A7A4A;font-weight:700;">'+gc.filter(_rowClosed).length+'</td></tr>';
   });
   summaryHtml+='<tr style="border-top:2px solid #9C2742;font-weight:700;"><td>Total</td><td style="text-align:center;">'+reportDefs.length+'</td>';
   summaryHtml+='<td style="text-align:center;color:#1565C0;">'+reportDefs.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
   summaryHtml+='<td style="text-align:center;color:#FF69B4;">'+reportDefs.filter(function(r){return r.d.iar;}).length+'</td>';
-  summaryHtml+='<td style="text-align:center;color:#C0392B;">'+reportDefs.filter(function(r){return _deficIsOpen(r.d);}).length+'</td>';
-  summaryHtml+='<td style="text-align:center;color:#1A7A4A;">'+reportDefs.filter(function(r){return _deficIsClosed(r.d);}).length+'</td></tr>';
+  summaryHtml+='<td style="text-align:center;color:#C0392B;">'+reportDefs.filter(_rowOpen).length+'</td>';
+  summaryHtml+='<td style="text-align:center;color:#1A7A4A;">'+reportDefs.filter(_rowClosed).length+'</td></tr>';
   summaryHtml+='</tbody></table></div>';
 }
 
@@ -398,8 +439,12 @@ function _buildDefCard(r){
   // Status: per-obs addressed flag wins, else pin-level
   var pinClosed=_deficIsClosed(d);
   var thisClosed=po.addressed||pinClosed;
-  // Merged status pill — color encodes priority for outstanding, green for closed, pink for IAR
-  var pr=d.priority||'high';
+  // S119: pill color encodes the OBSERVATION's priority (was pin-level d.priority).
+  // Each card represents one observation, so the priority signal should match
+  // that observation's priority, not the aggregate pin priority. The minimap
+  // teardrop, in contrast, still uses effective pin priority because it represents
+  // the physical pin on the drawing.
+  var pr=(r.obs&&r.obs.priority)||d.priority||'high';
   var pillCls,pillTxt;
   if(thisClosed){pillCls='pill-c';pillTxt='Closed';}
   else if(d.iar){pillCls='pill-iar';pillTxt='IAR';}
