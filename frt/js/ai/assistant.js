@@ -701,14 +701,15 @@ function _spGet(deficId, obsIdx) {
   var k = _spKey(deficId, obsIdx);
   if (!_spState[k]) _spState[k] = {
     text: '', photoIds: [], loading: false, error: null,
-    costTotal: 0, confidence: null, photoCount: 0
+    costTotal: 0, confidence: null, photoCount: 0,
+    noOp: false, noOpReason: ''
   };
   return _spState[k];
 }
 function _spClear(deficId, obsIdx) { delete _spState[_spKey(deficId, obsIdx)]; }
 function _spHasContent(deficId, obsIdx) {
   var s = _spState[_spKey(deficId, obsIdx)];
-  return !!(s && (s.text || s.loading || s.error));
+  return !!(s && (s.text || s.loading || s.error || s.noOp));
 }
 
 function _ctx() {
@@ -751,6 +752,15 @@ function _spRender(deficId, obsIdx) {
     html += '<div class="ai-sp-loading"><div class="ai-spinner"></div> Analyzing\u2026</div>';
   } else if (s.error) {
     html += '<div class="ai-sp-error">\u26A0 ' + _esc(s.error) + '</div>';
+    html += '<div class="ai-sp-footer"><button class="ai-sp-btn" data-action="ai-sp-discard" data-defic-id="' + _esc(deficId) + '" data-obs-idx="' + obsIdx + '">Close</button></div>';
+  } else if (s.noOp) {
+    // S117 hotfix: AI reviewed the text and confirmed no changes needed.
+    // This is a SUCCESS state — surface it positively (not as the empty
+    // placeholder, which reads like "did nothing").
+    html += '<div class="ai-sp-noop" style="padding:14px 12px;color:#1A7A4A;font-weight:600;display:flex;align-items:center;gap:8px;">\u2714 Text already looks professional \u2014 no changes needed</div>';
+    if (s.noOpReason && s.noOpReason !== 'No changes needed' && s.noOpReason.toLowerCase().indexOf('no change') < 0) {
+      html += '<div style="padding:0 12px 10px;color:#6B7B8C;font-size:calc(11px + var(--ts));">' + _esc(s.noOpReason) + '</div>';
+    }
     html += '<div class="ai-sp-footer"><button class="ai-sp-btn" data-action="ai-sp-discard" data-defic-id="' + _esc(deficId) + '" data-obs-idx="' + obsIdx + '">Close</button></div>';
   } else if (s.text) {
     html += '<textarea class="ai-sp-text" data-action="ai-sp-edit" data-defic-id="' + _esc(deficId) + '" data-obs-idx="' + obsIdx + '" placeholder="AI suggestion will appear here\u2026">' + _esc(s.text) + '</textarea>';
@@ -845,7 +855,13 @@ function openScratchpadFromAllPhotos(deficId, obsIdx) {
     return r.json();
   }).then(function(data) {
     s.loading = false;
+    try { console.log('[AIAssist] photo_suggest response:', JSON.stringify(data).slice(0, 800)); } catch(_){}
     s.text = data.suggestion || '';
+    if (!s.text) {
+      s.error = 'AI returned no description for these photos. Check console for details.';
+      _spRender(deficId, obsIdx);
+      return;
+    }
     s.photoIds = photos.map(function(p) { return p.id; });
     s.photoCount = s.photoIds.length;
     if (data.usage && typeof data.usage.cost_usd === 'number') s.costTotal += data.usage.cost_usd;
@@ -854,6 +870,7 @@ function openScratchpadFromAllPhotos(deficId, obsIdx) {
     if (skipped > 0) toast('\u26A0 Used first 4 of ' + obs.photos.length + ' photos (' + skipped + ' over Worker limit)');
   }).catch(function(err) {
     s.loading = false;
+    try { console.error('[AIAssist] photo_suggest failed:', err); } catch(_){}
     s.error = err.message || 'Failed to analyze photos';
     _spRender(deficId, obsIdx);
   });
@@ -882,13 +899,21 @@ function shortenScratchpad(deficId, obsIdx) {
     return r.json();
   }).then(function(data) {
     s.loading = false;
+    try { console.log('[AIAssist] shortenScratchpad response:', JSON.stringify(data).slice(0, 800)); } catch(_){}
     var sug = data.suggestions && data.suggestions[0];
     var shortText = sug ? (sug.improved || sug.suggestion || '') : '';
-    if (shortText) s.text = shortText;
+    if (shortText && shortText !== origText) {
+      s.text = shortText;
+    } else {
+      // Worker said no change / returned same text — keep original, surface
+      // a transient toast so user knows the call succeeded.
+      toast('\u2714 Already concise \u2014 no shortening needed');
+    }
     if (data.usage && typeof data.usage.cost_usd === 'number') s.costTotal += data.usage.cost_usd;
     _spRender(deficId, obsIdx);
   }).catch(function(err) {
     s.loading = false;
+    try { console.error('[AIAssist] shortenScratchpad failed:', err); } catch(_){}
     s.error = err.message || 'Shorten failed';
     _spRender(deficId, obsIdx);
   });
@@ -920,9 +945,18 @@ function shortenUserText(deficId, obsIdx) {
     if (!r.ok) return r.json().then(function(e) { throw new Error(e.error || 'API error ' + r.status); });
     return r.json();
   }).then(function(data) {
+    try { console.log('[AIAssist] shortenUserText response:', JSON.stringify(data).slice(0, 800)); } catch(_){}
     var sug = data.suggestions && data.suggestions[0];
     var shortText = sug ? (sug.improved || sug.suggestion || '') : '';
-    if (!shortText) { toast('\u26A0 No suggestion returned'); return; }
+    var changesNote = sug ? String(sug.changes || '').toLowerCase() : '';
+    if (!shortText || shortText === textToShorten) {
+      if (changesNote.indexOf('no change') >= 0 || changesNote.indexOf('already') >= 0) {
+        toast('\u2714 Already concise \u2014 no shortening needed');
+      } else {
+        toast('\u26A0 No suggestion returned \u2014 see console');
+      }
+      return;
+    }
     ta.focus();
     if (hasSelection) ta.setSelectionRange(startSel, endSel);
     else ta.setSelectionRange(0, ta.value.length);
@@ -931,6 +965,7 @@ function shortenUserText(deficId, obsIdx) {
     ta.dispatchEvent(new Event('input', { bubbles: true }));
     toast('\u2714 Shortened (Ctrl+Z to undo)');
   }).catch(function(err) {
+    try { console.error('[AIAssist] shortenUserText failed:', err); } catch(_){}
     toast('\u26A0 Shorten failed: ' + (err.message || ''));
   });
 }
@@ -1014,16 +1049,47 @@ function aiReviewPin(deficId, mode) {
     return r.json();
   }).then(function(data) {
     s.loading = false;
+    // S117 hotfix: log full response so any future "no suggestion" cases
+    // can be diagnosed by reading the browser console instead of guessing.
+    try { console.log('[AIAssist] aiReviewPin response:', mode, JSON.stringify(data).slice(0, 800)); } catch(_){}
     var sug = data.suggestions && data.suggestions[0];
     var newText = sug ? (sug.improved || sug.suggestion || '') : '';
-    if (!newText) { s.error = 'AI returned no suggestion'; _spRender(deficId, obsIdx); return; }
+    var changesNote = sug ? String(sug.changes || '').toLowerCase() : '';
+    var aiSaidNoChanges = changesNote.indexOf('no change') >= 0
+                       || changesNote.indexOf('unchanged') >= 0
+                       || changesNote.indexOf('no edit') >= 0
+                       || changesNote.indexOf('already') >= 0;
+
+    if (!newText && aiSaidNoChanges) {
+      // S117 hotfix: AI confirmed the text is already polished. Show this
+      // as a positive state (not an error). User keeps their original text;
+      // we surface a small "✔ no changes needed" message in the scratchpad
+      // so they know the review actually ran.
+      s.text = '';
+      s.noOp = true;
+      s.noOpReason = sug.changes || 'No changes needed';
+      if (data.usage && typeof data.usage.cost_usd === 'number') s.costTotal += data.usage.cost_usd;
+      _spRender(deficId, obsIdx);
+      return;
+    }
+
+    if (!newText) {
+      // Genuine empty response — fall back to original text so user can
+      // see SOMETHING actionable and surface a diagnostic message.
+      s.error = 'AI returned an empty response. Check console for details.';
+      _spRender(deficId, obsIdx);
+      return;
+    }
+
     s.text = newText;
+    s.noOp = false;
     s.photoIds = []; s.photoCount = 0;
     if (data.usage && typeof data.usage.cost_usd === 'number') s.costTotal += data.usage.cost_usd;
     s.confidence = sug && sug.confidence ? sug.confidence : null;
     _spRender(deficId, obsIdx);
   }).catch(function(err) {
     s.loading = false;
+    try { console.error('[AIAssist] aiReviewPin failed:', err); } catch(_){}
     s.error = err.message || 'Review failed';
     _spRender(deficId, obsIdx);
   });

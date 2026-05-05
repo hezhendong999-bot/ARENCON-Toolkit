@@ -43,14 +43,14 @@ EXAMPLES:
 - "contractor says will be done next week" → "Contractor has indicated that the work is expected to be completed within the following week."
 - "missing escutcheon plate rm 204" → "Escutcheon plate is missing at Room 204."
 
-If the text is ALREADY professional and well-written, return it unchanged with changes = "no changes needed".
+If the text is ALREADY professional and well-written, return the SAME text unchanged in the "improved" field, with changes = "no changes needed". The "improved" field is MANDATORY for every entry — never omit it.
 
 Respond with ONLY valid JSON — no markdown, no backticks:
 [
   {
     "id": "field_id",
-    "improved": "The professionally rewritten text.",
-    "changes": "Brief description of what was improved"
+    "improved": "The professionally rewritten text (or the ORIGINAL TEXT VERBATIM if no changes needed — never empty).",
+    "changes": "Brief description of what was improved, or 'no changes needed'"
   }
 ]`;
 
@@ -69,13 +69,13 @@ RULES:
 - Do NOT change measurements, numbers, or abbreviations
 - Do NOT expand abbreviations
 - Do NOT add code references
-- If the text has no typos or grammar issues, return it UNCHANGED
+- If the text has no typos or grammar issues, return it UNCHANGED in the "improved" field. The "improved" field is MANDATORY for every entry — never omit it, even when no changes are made.
 
 Respond with ONLY valid JSON — no markdown, no backticks:
 [
   {
     "id": "field_id",
-    "improved": "Text with only typos fixed.",
+    "improved": "Text with only typos fixed (or the ORIGINAL TEXT VERBATIM if nothing to fix — never empty).",
     "changes": "Brief note or 'no changes needed'"
   }
 ]`;
@@ -100,13 +100,13 @@ RULES:
 - Use passive professional tone consistent with the original
 - Do NOT add commentary, explanations, or new findings
 - Do NOT change measurements, numbers, or technical references
-- If the text is already concise (under ~30 words and no obvious padding), return it unchanged with changes = "already concise"
+- If the text is already concise (under ~30 words and no obvious padding), return the ORIGINAL TEXT VERBATIM in the "improved" field with changes = "already concise". The "improved" field is MANDATORY — never omit it.
 
 Respond with ONLY valid JSON — no markdown, no backticks:
 [
   {
     "id": "field_id",
-    "improved": "The shortened text, preserving all facts and references.",
+    "improved": "The shortened text, preserving all facts and references (or ORIGINAL TEXT VERBATIM if already concise — never empty).",
     "changes": "Brief note or 'already concise'"
   }
 ]`;
