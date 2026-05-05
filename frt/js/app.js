@@ -11,6 +11,7 @@ import { IDB } from './data/idb.js';
 import { SyncEngine } from './data/sync.js';
 import { R2 } from './data/r2.js';
 import { TileCache } from './data/tileCache.js';
+import { Presence } from './data/presence.js';
 import { Auth } from './shared/auth.js';
 import { toast } from './shared/toast.js';
 import { showDialog, showConfirm, showAlert, showPrompt } from './shared/dialogs.js';
@@ -893,6 +894,35 @@ function _updateLastSyncIndicator() {
 // Update the "X ago" text every 30s
 setInterval(_updateLastSyncIndicator, 30000);
 
+// ─── S117-A: Presence chip rendering ────────────────────────────────────
+// Shows "👥 N here" pill in main header when other users are active in this
+// project. Click → modal listing names. Hidden when nobody else is here.
+function _renderPresenceChip(others) {
+  var chip = document.getElementById('presence-chip');
+  if (!chip) return;
+  var n = (others || []).length;
+  if (!n) {
+    chip.style.display = 'none';
+    return;
+  }
+  chip.style.display = 'inline-flex';
+  var label = document.getElementById('presence-chip-text');
+  if (label) label.textContent = n + ' other' + (n === 1 ? '' : 's') + ' here';
+  // Build tooltip + click-modal content from names
+  var names = others.map(function(o){
+    var nm = (o.full_name || '').trim();
+    if (!nm) nm = (o.user_id || '').slice(0, 8);
+    return nm;
+  });
+  chip.title = 'Also here: ' + names.join(', ');
+  chip.onclick = function() {
+    if (typeof showAlert === 'function') {
+      showAlert('Currently in this project:\n\n• ' + names.join('\n• '));
+    }
+  };
+}
+window._renderPresenceChip = _renderPresenceChip;
+
 function _setCloudStatus(status, text) {
   _lastCloudStatus = status;
   _lastCloudText   = text || '';
@@ -1013,6 +1043,7 @@ window._showCloudDiagnostic = _showCloudDiagnostic;
 function _signOut() {
   showConfirm('Sign Out', 'Sign out of your ARENCON account?').then(function(yes) {
     if (yes) {
+      try { Presence.stop(); } catch(_){} // S117-A
       Auth.signOut().then(function() {
         toast('Signed out');
         window.location.href = '../ARENCON_Project_Hub.html';
@@ -1311,6 +1342,11 @@ function boot() {
               chip.classList.add('inspector-chip-locked');
               chip.title = 'Inspector: ' + fullName + ' (signed in)';
             }
+            // S117-A: kick off presence heartbeat. Self-disables silently if
+            // the project_presence table doesn't exist yet (i.e. before Mark
+            // deploys supabase/project_presence.sql).
+            try { Presence.start(_projectId, user, fullName); } catch(_){}
+            try { Presence.onChange(_renderPresenceChip); } catch(_){}
           }).catch(function(e){
             console.warn('[FRT v2] Could not load profiles.full_name:', e);
             // Fallback: email prefix
@@ -1319,6 +1355,9 @@ function boot() {
               localStorage.setItem(LS_INSPECTOR, emailPrefix);
               _updateInspectorChip();
             }
+            // S117-A: still try to start presence with the fallback name
+            try { Presence.start(_projectId, user, emailPrefix || ''); } catch(_){}
+            try { Presence.onChange(_renderPresenceChip); } catch(_){}
           });
           // Show sign-out button
           var soBtn = document.getElementById('btn-signout');

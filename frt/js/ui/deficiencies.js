@@ -48,6 +48,38 @@ export function ctrColorClass(name) {
   }
   return 'ctr-c0';
 }
+
+// S117-C: SINGLE SOURCE OF TRUTH for the muted contractor palette.
+// Both the in-app group header (deficiencies tab) and the PDF report's
+// contractor section header consume this helper. Pre-S117 the PDF computed
+// its own palette by hashing names independently, so on-screen blue could
+// land on PDF green for the same contractor. Now both call this and stay
+// in lockstep.
+//
+// Saturation/lightness toned down to harmonize with the rest of the UI;
+// hue preserved per slot (S114 P1.9 muted palette).
+//
+// Returns { cls, accent, surface, text } — caller picks what it needs.
+//   cls     — CSS class (`ctr-c0` … `ctr-c7`) for chip styling
+//   accent  — solid color for left-border accent + tinted name label
+//   surface — tinted bg for chip / tag (light mode)
+//   text    — readable on `surface` (light mode)
+var _CTR_PALETTE = {
+  'ctr-c0': { accent: '#A85959', surface: '#FDEDEC', text: '#C0392B' }, // red
+  'ctr-c1': { accent: '#B07F5A', surface: '#FEF5E7', text: '#E67E22' }, // orange
+  'ctr-c2': { accent: '#A09354', surface: '#FEF9E7', text: '#B7950B' }, // yellow
+  'ctr-c3': { accent: '#5F8068', surface: '#EAFAF1', text: '#1A7A4A' }, // green / Site General
+  'ctr-c4': { accent: '#5078A0', surface: '#EBF4FF', text: '#1565C0' }, // blue
+  'ctr-c5': { accent: '#7A5BA0', surface: '#F4ECF7', text: '#7E22CE' }, // purple
+  'ctr-c6': { accent: '#A85B8A', surface: '#FCE4EC', text: '#E91E8C' }, // pink
+  'ctr-c7': { accent: '#4F8088', surface: '#E0F7FA', text: '#00838F' }  // teal
+};
+export function getContractorColor(name) {
+  var cls = ctrColorClass(name);
+  var pal = _CTR_PALETTE[cls] || _CTR_PALETTE['ctr-c0'];
+  return { cls: cls, accent: pal.accent, surface: pal.surface, text: pal.text };
+}
+
 function deficIsClosed(d) { return d.status === 'closed' || d.status === 'Addressed & Closed'; }
 
 var _activeDlcTab = 'active';
@@ -490,12 +522,12 @@ function buildGroup(ctrId, name, items, totalCount) {
   // S113 Push 19: pull the contractor's color from the same palette used
   // for chips + table cells. The group header keeps its navy background;
   // the color shows as a 4-px left accent + a tinted name label.
-  var ctrCls = ctrColorClass(name);
-  // Map the class to its palette text color (light mode hex) for inline use.
-  // S114 P1.9: muted contractor palette (per Mark's permanent rule — no bright saturated tones).
-  // Hue preserved per slot but saturation/lightness toned down to harmonize with the rest of the UI.
-  var palLight = { 'ctr-c0':'#A85959','ctr-c1':'#B07F5A','ctr-c2':'#A09354','ctr-c3':'#5F8068','ctr-c4':'#5078A0','ctr-c5':'#7A5BA0','ctr-c6':'#A85B8A','ctr-c7':'#4F8088' };
-  var accentCol = palLight[ctrCls] || '#9C2742';
+  // S117-C: now sourced from getContractorColor() — same helper the PDF
+  // export uses for its contractor section headers, so on-screen and
+  // printed colors match exactly.
+  var ctrCol = getContractorColor(name);
+  var ctrCls = ctrCol.cls;
+  var accentCol = ctrCol.accent;
 
   var h = '<div class="defic-group" data-ctr-id="' + esc(ctrId || '__general__') + '">';
   h += '<div class="defic-group-header" data-action="toggle-fold" data-ctr-id="' + esc(ctrId || '__general__') + '" style="background:#1C2333;color:white;padding:10px 16px;cursor:pointer;user-select:none;border-left:4px solid ' + accentCol + ';">';

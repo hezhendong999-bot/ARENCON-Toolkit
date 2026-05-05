@@ -4880,3 +4880,25 @@ body:not(.dark-mode) .dv-tasks-panel .dv-tasks-filter-btn{
 }
 
 /* End S116 Push 18 ─────────────────────────────────────────────────── */
+
+/* ────────────────────────────────────────────────────────────────────
+   S117-A — Presence chip (header)
+   Hub mode only; appears when other users are also in the project.
+   Layout matches #cloud-status (chip pattern) — purple tint per the
+   jewel-tone palette (--lm-purple #7B5A8F).
+─────────────────────────────────────────────────────────────────────── */
+#presence-chip{
+  transition:background .15s, border-color .15s;
+}
+#presence-chip:hover{
+  background:rgba(122,91,160,.34) !important;
+  border-color:rgba(122,91,160,.65) !important;
+}
+@media(max-width:900px){
+  #presence-chip #presence-chip-text{display:none !important;}
+  #presence-chip{padding:4px 8px !important;}
+}
+@media(pointer:coarse){
+  #presence-chip{background:rgba(122,91,160,.30) !important;}
+}
+/* End S117-A ──────────────────────────────────────────────────────── */

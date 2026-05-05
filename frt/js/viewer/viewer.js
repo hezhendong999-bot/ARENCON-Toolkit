@@ -10,6 +10,7 @@
 import { Model } from '../data/model.js';
 import { IDB } from '../data/idb.js';
 import { R2 } from '../data/r2.js';
+import { ThumbCache } from '../data/thumbCache.js';
 import { Markup } from './markup.js';
 import { TiledPdf } from './tiledPdf.js';
 import { toast } from '../shared/toast.js';
@@ -1876,12 +1877,19 @@ function _renderPinMiniMap(d, thumbId) {
   // Build image source candidates. Tile-mode-only drawings carry no
   // dataUrl/r2Url for the original — use the L0 (256px) tile as a thumbnail.
   // L0 is one tile per drawing, exactly one HTTP request.
+  //
+  // S117-B: when the L0 path is hit, ThumbCache memoizes both in-memory and
+  // in IDB so subsequent pin-editor opens for the same drawing skip the
+  // network round-trip entirely. Cache is keyed by drawingId; invalidated
+  // by the drawing-swap/replace handlers.
   var candidates = [];
   if (dwg.dataUrl) candidates.push(dwg.dataUrl);
   if (dwg.r2Url) candidates.push(dwg.r2Url);
-  // L0 tile fallback (covers tile-only drawings and serves as last-resort)
   var pid = (new URLSearchParams(window.location.search)).get('project');
-  if (pid && d.drawingId) {
+  var hasL0 = !!(pid && d.drawingId);
+  // L0 raw URL is still pushed as a hard fallback in case ThumbCache fails
+  // (IDB unavailable, network drop after cache miss, etc.).
+  if (hasL0) {
     candidates.push('https://arencon-r2-worker.hezhendong999.workers.dev/' + encodeURIComponent(pid) + '/tiles/' + encodeURIComponent(d.drawingId) + '/L0/0_0.webp');
   }
 
@@ -1901,6 +1909,24 @@ function _renderPinMiniMap(d, thumbId) {
     img.onerror = function() { tryLoad(idx + 1); };
     img.src = candidates[idx];
   }
+
+  // S117-B: if the only viable source is the L0 tile, consult ThumbCache
+  // first. On hit, we skip straight to drawing without a network fetch.
+  // On miss, ThumbCache fetches once, caches, then we draw.
+  if (!dwg.dataUrl && !dwg.r2Url && hasL0) {
+    ThumbCache.getL0Thumb(pid, d.drawingId).then(function(durl) {
+      if (durl) {
+        var img = new Image();
+        img.onload = function() { _drawPinMiniMap(canvas, img, d); };
+        img.onerror = function() { tryLoad(0); }; // cached blob unreadable → raw URL
+        img.src = durl;
+      } else {
+        tryLoad(0);
+      }
+    });
+    return;
+  }
+
   tryLoad(0);
 }
 

@@ -7,6 +7,7 @@ import { Model } from '../data/model.js';
 import { IDB } from '../data/idb.js';
 import { showAlert } from '../shared/dialogs.js';
 import { toast } from '../shared/toast.js';
+import { getContractorColor } from '../ui/deficiencies.js';
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function _deficIsOpen(d){return d.status==='open'||d.status==='Outstanding';}
@@ -207,7 +208,11 @@ function _buildCSS(fontB64){
   c+='.ph-compact{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #000;padding-bottom:4px;margin-bottom:12px;}';
   c+='.ph-compact-left{font-size:11pt;color:#000;line-height:1;}';
   c+='.ph-compact-right{font-size:11pt;color:#000;line-height:1;text-align:right;}';
-  c+='.ch{background:#9C2742;color:white;padding:6px 14px;font-weight:700;font-size:11pt;border-radius:6px 6px 0 0;margin-top:14px;margin-bottom:0;letter-spacing:.3px;}';
+  // S117-C: contractor section header keeps the brand burgundy bar but
+  // gains a 5px left-border accent that matches the in-app group header
+  // color for that contractor. Inline style supplies the per-contractor
+  // hex; the rule below sets up box geometry + the default accent.
+  c+='.ch{background:#9C2742;color:white;padding:6px 14px 6px 12px;font-weight:700;font-size:11pt;border-radius:6px 6px 0 0;margin-top:14px;margin-bottom:0;letter-spacing:.3px;border-left:5px solid #9C2742;}';
   c+='.dc{border:1px solid #DDE1E7;border-top:none;padding:10px;margin-bottom:0;background:white;}';
   c+='.dc:last-child{border-radius:0 0 6px 6px;margin-bottom:10px;}';
   c+='.dc-inner{display:flex;gap:12px;align-items:flex-start;}';
@@ -396,7 +401,13 @@ function _buildDefCard(r){
 var ctrG2={};mainBodyDefs.forEach(function(r){if(!ctrG2[r.ctr])ctrG2[r.ctr]=[];ctrG2[r.ctr].push(r);});
 var contentBlocks=[];
 if(mainBodyDefs.length){Object.keys(ctrG2).forEach(function(ctr){
-  contentBlocks.push({type:'ctrHeader',html:'<div class="ch">'+esc(ctr)+' ('+ctrG2[ctr].length+')</div>',ctr:ctr});
+  // S117-C: tint the contractor section header's left-border accent with
+  // the same color the in-app deficiencies tab uses for this contractor's
+  // group header. Helper sourced from deficiencies.js — single source of
+  // truth so on-screen and printed colors match exactly.
+  var _ctrCol=getContractorColor(ctr);
+  var _ctrAccent=_ctrCol&&_ctrCol.accent?_ctrCol.accent:'#9C2742';
+  contentBlocks.push({type:'ctrHeader',html:'<div class="ch" style="border-left-color:'+_ctrAccent+';">'+esc(ctr)+' ('+ctrG2[ctr].length+')</div>',ctr:ctr});
   ctrG2[ctr].forEach(function(r){contentBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:ctr});});
 });}
 
