@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=248">
+<link rel="stylesheet" href="css/frt.css?v=249">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -906,6 +906,11 @@ function ensurePdfJs(cb){
 <!-- S97 — Session recorder. Self-gates on ?dbg=1 or localStorage._frtDbg='1'.
      Zero overhead when flag is off. Loads async so it doesn't block app boot. -->
 <script src="js/diag/recorder.js?v=2" async></script>
+
+<!-- S120 P9 — Photo-pool integrity checker. Always-on (cheap, debounced).
+     Runs after Model events and on project load; reports stale references,
+     orphans, broken photos, and cascade failures. ?dbg=1 shows a badge. -->
+<script src="js/diag/integrity.js?v=1" async></script>
 
 <script>
 /* Session 75 Push 2 — proxy wiring for new toolbar buttons */

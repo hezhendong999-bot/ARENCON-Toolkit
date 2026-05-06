@@ -1717,6 +1717,7 @@ window._frt = {
   R2: R2,
   Auth: Auth,
   toast: toast,
+  initViewer: initViewer,
   switchTab: switchTab,
   toggleDarkMode: toggleDarkMode,
   version: '2.0.0-alpha',

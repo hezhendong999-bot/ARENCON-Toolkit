@@ -3748,6 +3748,29 @@ function _pgExtractPhotos(row) {
     });
   }
 
+  // S120 P9: gallery extraction diag — logs per-tool counts, breaks down FRT
+  // by category so V1 corner-badge rendering is verifiable. Cheap; runs only
+  // when _pgDiag is on. Toggle via localStorage._pgDiag = '1'.
+  try {
+    var diagOn = false;
+    try { diagOn = (typeof localStorage !== 'undefined' && localStorage.getItem('_pgDiag') === '1'); } catch (_) {}
+    if (diagOn) {
+      var byCategory = {};
+      photos.forEach(function (p) { var k = p.category || '?'; byCategory[k] = (byCategory[k] || 0) + 1; });
+      console.log('[PG-Diag] _pgExtractPhotos tool=' + (toolKey || '?') + ' total=' + photos.length, byCategory);
+      if (toolKey === 'frt') {
+        // Per-pin per-obs breakdown for V1 verification
+        var perPin = {};
+        photos.forEach(function (p) {
+          if (p.category !== 'deficiency') return;
+          var k = p.caption || '?';
+          perPin[k] = (perPin[k] || 0) + 1;
+        });
+        console.log('[PG-Diag] FRT (pin · obs) breakdown:', perPin);
+      }
+    }
+  } catch (_) {}
+
   return photos;
 }
 
