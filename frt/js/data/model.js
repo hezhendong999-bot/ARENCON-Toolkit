@@ -261,6 +261,73 @@ export var Model = {
             o.addressedDate = d.closedDate || _migToday;
           }
         });
+        // ── S120: photo pool migration (one-shot, idempotent) ──
+        // Bulk-migrate legacy obs.photos[] into defic.photos[] pool, preserve
+        // per-obs visibility via obs.photoSelection. Markup state attached to
+        // a photo record (markedR2Key/markupOverlay) becomes an entry in
+        // obs.photoMarkups[poolPhotoId] = { markedR2Key, markupOverlay }.
+        //
+        // Idempotence: a defic is considered already-migrated if it has
+        // _photoPoolMigrated === true. Set on first run; subsequent loads
+        // (cloud pull, re-open, etc.) skip the work.
+        //
+        // Backward compat: legacy obs.photos[] arrays are NOT deleted. They
+        // remain as a silent backup so the data is recoverable if anything
+        // ever proves wrong with the new model. NEW uploads go ONLY to the
+        // pool; legacy obs.photos[] arrays are frozen at migration time.
+        if (!d._photoPoolMigrated) {
+          if (!Array.isArray(d.photos)) d.photos = [];
+          // Index existing pool entries so re-runs and partial migrations
+          // don't create duplicates. Prefer r2Key (canonical source identity)
+          // then fall back to legacy id.
+          var _poolByR2 = {};
+          var _poolById = {};
+          (d.photos || []).forEach(function(p) {
+            if (p && p.r2Key) _poolByR2[p.r2Key] = p;
+            if (p && p.id) _poolById[p.id] = p;
+          });
+          (d.observations || []).forEach(function(o) {
+            if (!o || !o.photos || !o.photos.length) return;
+            if (Array.isArray(o.photoSelection)) return; // obs already migrated
+            if (!o.photoMarkups) o.photoMarkups = {};
+            var _sel = [];
+            o.photos.forEach(function(ph) {
+              if (!ph) return;
+              var _existing = (ph.r2Key && _poolByR2[ph.r2Key])
+                           || (ph.id && _poolById[ph.id])
+                           || null;
+              if (!_existing) {
+                // Pool entry is the source-of-truth source photo; markup state
+                // is intentionally NOT stored here (it lives per-obs).
+                var _poolEntry = {
+                  id: ph.id || ('ph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)),
+                  r2Key: ph.r2Key || null,
+                  sourceR2Key: ph.sourceR2Key || ph.r2Key || null,
+                  dataUrl: ph.dataUrl || null,
+                  thumb: ph.thumb || null,
+                  filename: ph.filename || null,
+                  addedDate: ph.addedDate || _migToday,
+                  createdBy: ph.createdBy || null
+                };
+                d.photos.push(_poolEntry);
+                if (_poolEntry.r2Key) _poolByR2[_poolEntry.r2Key] = _poolEntry;
+                _poolById[_poolEntry.id] = _poolEntry;
+                _existing = _poolEntry;
+              }
+              _sel.push(_existing.id);
+              // Transfer markup state to obs.photoMarkups (keyed by pool id)
+              if (ph.markedR2Key || ph.markupOverlay) {
+                o.photoMarkups[_existing.id] = {
+                  markedR2Key: ph.markedR2Key || null,
+                  markupOverlay: ph.markupOverlay || null
+                };
+              }
+            });
+            o.photoSelection = _sel;
+            // o.photos[] is intentionally left intact as silent backup.
+          });
+          d._photoPoolMigrated = true;
+        }
       });
     }
     (proj.contractors || []).forEach(function(c) { _migrateDeficArr(c.deficiencies); });
@@ -672,6 +739,69 @@ export var Model = {
     return 'closed';
   },
 
+  // ── S120: photo pool read helpers ──
+  // Pool model: defic.photos[] = source pool; obs.photoSelection = null
+  // (default = all pool) OR array of pool photo IDs (custom subset);
+  // obs.photoMarkups[poolPhotoId] = per-(obs, photo) markup state.
+
+  // Returns the effective photo list for a given obs, drawn from the
+  // defic-level pool. Soft-deleted photos (deleted: true) are filtered
+  // out everywhere. Legacy fallback: if pool is empty AND obs.photos has
+  // entries (never-migrated edge case), returns obs.photos[].
+  getEffectivePhotos: function(defic, obsIdx) {
+    if (!defic) return [];
+    var obs = (defic.observations || [])[obsIdx];
+    if (!obs) return [];
+    var pool = (defic.photos || []).filter(function(p) { return p && !p.deleted; });
+    // Legacy fallback: never-migrated, has obs.photos but no pool
+    if (!pool.length && obs.photos && obs.photos.length) {
+      return obs.photos.slice();
+    }
+    if (obs.photoSelection === null || obs.photoSelection === undefined) {
+      return pool; // default = all pool photos
+    }
+    if (!Array.isArray(obs.photoSelection)) return pool;
+    var idSet = {};
+    obs.photoSelection.forEach(function(id) { idSet[id] = true; });
+    // Preserve pool ordering (stable display) while filtering
+    return pool.filter(function(p) { return idSet[p.id]; });
+  },
+
+  // Returns the markup state for an (obs, pool photo) pair, or null.
+  // { markedR2Key, markupOverlay } when present.
+  getObsPhotoMarkup: function(defic, obsIdx, photoId) {
+    if (!defic) return null;
+    var obs = (defic.observations || [])[obsIdx];
+    if (!obs || !obs.photoMarkups) return null;
+    return obs.photoMarkups[photoId] || null;
+  },
+
+  // True iff the obs has explicitly narrowed its selection (vs. default = all).
+  // Used for the "• custom" tab indicator and the orphan-warning logic.
+  isObsPhotoSelectionCustom: function(defic, obsIdx) {
+    if (!defic) return false;
+    var obs = (defic.observations || [])[obsIdx];
+    if (!obs) return false;
+    return Array.isArray(obs.photoSelection);
+  },
+
+  // Returns the set of obs indices that reference a given pool photo via
+  // their photoSelection (default-state obs are included implicitly because
+  // they show all pool photos). Used by the selection-mode dot rendering
+  // and by the orphan-warning detector.
+  getObsIndicesUsingPoolPhoto: function(defic, photoId) {
+    var out = [];
+    if (!defic) return out;
+    (defic.observations || []).forEach(function(o, i) {
+      if (!Array.isArray(o.photoSelection)) {
+        out.push(i); // default-state obs uses every pool photo
+      } else if (o.photoSelection.indexOf(photoId) !== -1) {
+        out.push(i);
+      }
+    });
+    return out;
+  },
+
   addActivityEntry: function(deficId, label, text, obsRef) {
     var f = this.findDeficiency(deficId);
     if (!f) return null;
@@ -727,6 +857,109 @@ export var Model = {
     _queueSave();
     this._notify('photo', { action: 'remove', deficId: deficId, photo: removed });
     return removed;
+  },
+
+  // ── S120: photo pool mutation helpers ──
+
+  // Add a photo to the defic-level pool. Auto-shows in every default-state
+  // obs (because default = all pool). Custom-state obs (photoSelection is
+  // a defined array) do NOT auto-add — caller must explicitly assign via
+  // setObsPhotoSelection or addObsPhotoToSelection. Returns the new entry.
+  addPoolPhoto: function(deficId, photoData, opts) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return null;
+    if (!Array.isArray(f.defic.photos)) f.defic.photos = [];
+    opts = opts || {};
+    var photo = {
+      id: 'ph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      r2Key: opts.r2Key || null,
+      sourceR2Key: opts.sourceR2Key || opts.r2Key || null,
+      dataUrl: typeof photoData === 'string' ? photoData : (photoData && photoData.dataUrl) || null,
+      thumb: opts.thumb || null,
+      filename: opts.filename || ('photo_' + Date.now() + '.jpg'),
+      addedDate: new Date().toISOString().split('T')[0],
+      createdBy: _currentUserId || null
+    };
+    f.defic.photos.push(photo);
+    f.defic._photoPoolMigrated = true; // mark migrated since we now have pool entries
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'add-pool', deficId: deficId, photo: photo });
+    return photo;
+  },
+
+  // Soft-delete a pool photo. Sets deleted:true on the pool entry (R2
+  // objects are intentionally NOT touched per Q2 — they remain forever
+  // as a recovery layer against accidental or malicious deletion).
+  // Cascade-removes the photoId from every obs.photoSelection AND from
+  // every obs.photoMarkups map. Idempotent: re-deleting is a no-op.
+  removePoolPhoto: function(deficId, photoId) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return false;
+    var pool = f.defic.photos || [];
+    var photo = pool.find(function(p) { return p && p.id === photoId; });
+    if (!photo) return false;
+    if (photo.deleted) return false;
+    photo.deleted = true;
+    photo.deletedDate = new Date().toISOString();
+    (f.defic.observations || []).forEach(function(o) {
+      if (Array.isArray(o.photoSelection)) {
+        o.photoSelection = o.photoSelection.filter(function(id) { return id !== photoId; });
+      }
+      if (o.photoMarkups && o.photoMarkups[photoId]) {
+        delete o.photoMarkups[photoId];
+      }
+    });
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'remove-pool', deficId: deficId, photoId: photoId });
+    return true;
+  },
+
+  // Set per-obs photo selection. null = reset to default (all pool photos
+  // visible to this obs). Array = custom subset of pool photo IDs. IDs
+  // that aren't in the live pool (or are tombstoned) are filtered out.
+  setObsPhotoSelection: function(deficId, obsIdx, photoIds) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return false;
+    var obs = (f.defic.observations || [])[obsIdx];
+    if (!obs) return false;
+    if (photoIds === null || photoIds === undefined) {
+      obs.photoSelection = null;
+    } else if (Array.isArray(photoIds)) {
+      var poolIds = {};
+      (f.defic.photos || []).forEach(function(p) {
+        if (p && !p.deleted) poolIds[p.id] = true;
+      });
+      obs.photoSelection = photoIds.filter(function(id) { return poolIds[id]; });
+    } else {
+      return false;
+    }
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'selection', deficId: deficId, obsIdx: obsIdx });
+    return true;
+  },
+
+  // Set markup state for an (obs, pool photo) pair. null = clear.
+  setObsPhotoMarkup: function(deficId, obsIdx, photoId, markup) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return false;
+    var obs = (f.defic.observations || [])[obsIdx];
+    if (!obs) return false;
+    if (!obs.photoMarkups) obs.photoMarkups = {};
+    if (markup === null || markup === undefined) {
+      delete obs.photoMarkups[photoId];
+    } else {
+      obs.photoMarkups[photoId] = {
+        markedR2Key: markup.markedR2Key || null,
+        markupOverlay: markup.markupOverlay || null
+      };
+    }
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'markup', deficId: deficId, obsIdx: obsIdx, photoId: photoId });
+    return true;
   },
 
   removeDeficiency: function(deficId) {
