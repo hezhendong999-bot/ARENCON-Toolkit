@@ -1525,6 +1525,10 @@ var _peObsIdx = 0;
 //  - Photos with zero references in pending state get an orphan warning
 var _peSelectionMode = false;
 var _peSelectionPending = null; // Set of pool photo IDs the inspector has currently checked
+// S120 Push 10: in selection mode, optionally include soft-deleted photos
+// in the grid so they can be restored. Tied to selection-mode lifecycle —
+// resets to false on enter/exit.
+var _peShowDeletedMode = false;
 // 7 distinct jewel-tone colors cycle (>=8 obs is virtually never seen)
 var _PE_OBS_COLORS = ['#7B5A8F', '#5C7A65', '#B07F5A', '#5A6E80', '#4A6580', '#7D3F4F', '#A85959'];
 function _peObsColor(i) { return _PE_OBS_COLORS[(i || 0) % _PE_OBS_COLORS.length]; }
@@ -1866,13 +1870,14 @@ function _closePinEditor() {
   _peDeficId = null;
   _peSelectionMode = false;
   _peSelectionPending = null;
+  _peShowDeletedMode = false;
 }
 
 // ── S120 Push 4: pin editor photo zone — pool-aware + selection mode ──
 
 function _peRenderPhotoZone(d, idx) {
   // Clean any prior injected header/footer/note so re-renders don't stack
-  ['pe-photos-header', 'pe-photos-footer', 'pe-photos-orphan-note'].forEach(function(id) {
+  ['pe-photos-header', 'pe-photos-footer', 'pe-photos-orphan-note', 'pe-photos-deleted'].forEach(function(id) {
     var n = document.getElementById(id);
     if (n && n.parentNode) n.parentNode.removeChild(n);
   });
@@ -1939,6 +1944,9 @@ function _peRenderPhotoZone(d, idx) {
 
 function _peRenderPhotoZoneSelectionMode(d, idx, strip) {
   var pool = (d.photos || []).filter(function(p) { return p && !p.deleted; });
+  // S120 Push 10: when Show Deleted is on, surface soft-deleted entries in
+  // a separate section below the live grid for restoration.
+  var deletedPool = (d.photos || []).filter(function(p) { return p && p.deleted; });
   if (!_peSelectionPending || !(_peSelectionPending instanceof Set)) {
     var obs = (d.observations || [])[idx];
     var initial;
@@ -1960,11 +1968,29 @@ function _peRenderPhotoZoneSelectionMode(d, idx, strip) {
   header.style.cssText = 'display:flex;align-items:center;gap:12px;background:#F2F4F7;border:1px solid #DDE1E7;border-radius:8px;padding:8px 12px;margin:6px 0;flex-wrap:wrap;';
   var obsLetter = _peObsLetter(idx);
   var obsColor = _peObsColor(idx);
+  // Show-deleted toggle button — only renders when there's at least 1
+  // soft-deleted entry to recover. Pressed/active state uses purple
+  // (matches the • custom indicator's color from §31).
+  var showDelHtml = '';
+  if (deletedPool.length > 0) {
+    var pressed = _peShowDeletedMode;
+    showDelHtml = '<button data-pe-action="toggle-show-deleted" '
+      + 'aria-pressed="' + (pressed ? 'true' : 'false') + '" '
+      + 'style="background:' + (pressed ? '#7B5A8F' : 'transparent') + ';'
+      + 'border:1.5px solid ' + (pressed ? '#7B5A8F' : 'rgba(122,90,143,.4)') + ';'
+      + 'color:' + (pressed ? 'white' : '#7B5A8F') + ';'
+      + 'border-radius:6px;padding:4px 10px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:500;cursor:pointer;" '
+      + 'title="Show soft-deleted photos so they can be restored">'
+      + (pressed ? '\u2713 ' : '') + 'Show deleted (' + deletedPool.length + ')'
+      + '</button>';
+  }
   header.innerHTML =
     '<input type="checkbox" id="pe-sel-master" data-pe-action="toggle-master"' + (allChecked ? ' checked' : '') + ' style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">'
     + '<span style="font-size:calc(12px + var(--ts));color:#2C3E50;font-weight:500;">' + pickCt + ' of ' + totalCt + ' selected</span>'
     + '<span style="font-size:calc(11px + var(--ts));color:#6B7B8C;">for </span>'
     + '<span style="font-size:calc(11px + var(--ts));font-weight:500;color:white;background:' + obsColor + ';padding:2px 8px;border-radius:10px;">Obs ' + obsLetter + '</span>'
+    + '<span style="flex:1;"></span>'
+    + showDelHtml
     + (someChecked ? '<script>var m=document.getElementById("pe-sel-master");if(m)m.indeterminate=true;<\/script>' : '');
   strip.parentNode.insertBefore(header, strip);
 
@@ -2010,6 +2036,49 @@ function _peRenderPhotoZoneSelectionMode(d, idx, strip) {
     }
   }
 
+  // ── S120 Push 10: deleted-photos section (Show deleted toggle) ──
+  // Sits between the live grid and the footer. Each thumb is grayed out
+  // with a Restore button. Restore brings the photo back to the pool;
+  // default-state obs see it again automatically. Custom-state obs need
+  // manual re-add via the regular checkboxes.
+  if (_peShowDeletedMode && deletedPool.length > 0) {
+    var delSection = document.createElement('div');
+    delSection.id = 'pe-photos-deleted';
+    delSection.className = 'pe-sel-deleted-section';
+    delSection.style.cssText = 'margin-top:10px;padding-top:10px;border-top:1px dashed rgba(122,90,143,.4);';
+    var label = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:calc(11px + var(--ts));color:#7B5A8F;font-weight:500;">'
+      + '\uD83D\uDDD1 Recently deleted (' + deletedPool.length + ')'
+      + '<span style="flex:1;"></span>'
+      + '<span style="font-size:calc(10px + var(--ts));color:#6B7B8C;font-weight:400;">Click \u21BA to restore</span>'
+      + '</div>';
+    var grid = '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    deletedPool.forEach(function(ph) {
+      if (!ph) return;
+      var src = ph.thumb || ph.dataUrl || ph.r2Url || '';
+      // Date string for tooltip
+      var deletedAt = '';
+      if (ph.deletedDate) {
+        try { deletedAt = new Date(ph.deletedDate).toLocaleString(); } catch (_) { deletedAt = ph.deletedDate; }
+      }
+      grid += '<div class="pe-photo-thumb pe-sel-deleted" data-pe-photo-id="' + ph.id + '" '
+        + 'title="' + (deletedAt ? 'Deleted ' + deletedAt + '. Click \u21BA to restore.' : 'Click \u21BA to restore.') + '">'
+        + (src ? '<img src="' + src + '" alt="Deleted photo" loading="lazy">' : '<div style="width:100%;height:100%;background:#3a3e48;"></div>')
+        + '<button data-pe-action="restore-photo" data-pe-photo-id="' + ph.id + '" '
+        +   'class="pe-sel-restore-btn" title="Restore this photo to the pool">\u21BA</button>'
+        + '</div>';
+    });
+    grid += '</div>';
+    delSection.innerHTML = label + grid;
+    // Insert before footer (which we add immediately after this block)
+    strip.parentNode.insertBefore(delSection, strip.nextSibling);
+    // If there's an orphan note, the deleted section is now BEFORE it
+    // (because nextSibling is computed against `strip`). Move it after.
+    var noteEl = document.getElementById('pe-photos-orphan-note');
+    if (noteEl && noteEl.nextSibling !== delSection) {
+      delSection.parentNode.insertBefore(delSection, noteEl.nextSibling);
+    }
+  }
+
   // ── Footer ──
   var footer = document.createElement('div');
   footer.id = 'pe-photos-footer';
@@ -2041,6 +2110,7 @@ function _peEnterSelectionMode() {
   if (!_peDeficId) return;
   _peSelectionMode = true;
   _peSelectionPending = null;
+  _peShowDeletedMode = false;
   var f = Model.findDeficiency(_peDeficId);
   if (f) _peRenderObsContent(f.defic, _peObsIdx);
 }
@@ -2048,6 +2118,7 @@ function _peEnterSelectionMode() {
 function _peExitSelectionMode() {
   _peSelectionMode = false;
   _peSelectionPending = null;
+  _peShowDeletedMode = false;
   if (!_peDeficId) return;
   var f = Model.findDeficiency(_peDeficId);
   if (f) _peRenderObsContent(f.defic, _peObsIdx);
@@ -2916,6 +2987,32 @@ document.addEventListener('click', function(e) {
       else _peSelectionPending.add(pid);
       var fT0 = Model.findDeficiency(_peDeficId);
       if (fT0) _peRenderObsContent(fT0.defic, _peObsIdx);
+      return;
+    }
+    // S120 Push 10: show/hide soft-deleted photos in selection mode
+    if (act === 'toggle-show-deleted') {
+      _peShowDeletedMode = !_peShowDeletedMode;
+      var fSd = Model.findDeficiency(_peDeficId);
+      if (fSd) _peRenderObsContent(fSd.defic, _peObsIdx);
+      return;
+    }
+    // S120 Push 10: restore a soft-deleted photo to the pool
+    if (act === 'restore-photo') {
+      e.stopPropagation();
+      var rPid = peAct.getAttribute('data-pe-photo-id');
+      if (!rPid) return;
+      var restored = Model.restorePoolPhoto(_peDeficId, rPid);
+      if (restored) {
+        Model.saveNow();
+        if (typeof toast === 'function') toast('Photo restored to pool', 'success');
+        // After restore: if pending selection was empty for this photo,
+        // adding it back to the live pool means it should appear unchecked
+        // (custom-state) or auto-checked (default-state). The pending set
+        // governs only the active obs — leave it alone; the user can tick
+        // it explicitly. Re-render to refresh the grid.
+        var fR = Model.findDeficiency(_peDeficId);
+        if (fR) _peRenderObsContent(fR.defic, _peObsIdx);
+      }
       return;
     }
   }

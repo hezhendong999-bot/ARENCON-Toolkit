@@ -945,6 +945,30 @@ export var Model = {
     return true;
   },
 
+  // S120 Push 10: restore a soft-deleted pool photo. Counterpart to
+  // removePoolPhoto — clears the deleted/deletedDate flags so the photo
+  // becomes visible again. Does NOT re-add the photo to any obs's
+  // photoSelection (that would over-reach: the inspector explicitly
+  // selected which obs see what; restoring should bring the photo back
+  // visible to default-state obs only). The inspector can then add it
+  // to specific obs's selections via Manage photos if desired.
+  // Idempotent: restoring a not-deleted photo is a no-op returning false.
+  // Returns the restored photo record or false.
+  restorePoolPhoto: function(deficId, photoId) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return false;
+    var pool = f.defic.photos || [];
+    var photo = pool.find(function(p) { return p && p.id === photoId; });
+    if (!photo) return false;
+    if (!photo.deleted) return false;
+    delete photo.deleted;
+    delete photo.deletedDate;
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'restore-pool', deficId: deficId, photoId: photoId });
+    return photo;
+  },
+
   // Set per-obs photo selection. null = reset to default (all pool photos
   // visible to this obs). Array = custom subset of pool photo IDs. IDs
   // that aren't in the live pool (or are tombstoned) are filtered out.
