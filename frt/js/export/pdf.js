@@ -168,13 +168,6 @@ function _prefetchR2PhotosForPDF(p,progressCb){
       (d.photos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
       if(d.observations){d.observations.forEach(function(o){
         (o.photos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
-        // S120: per-(obs,photo) marked variants stored in o.photoMarkups[poolId]
-        if(o.photoMarkups&&typeof o.photoMarkups==='object'){
-          Object.keys(o.photoMarkups).forEach(function(k){
-            var mk=o.photoMarkups[k];
-            if(mk&&mk.markedR2Key)urls.push(mk.markedR2Key);
-          });
-        }
       });}
       if(d.entries){d.entries.forEach(function(e){
         (e.photos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
@@ -475,24 +468,15 @@ function _buildDefCard(r){
   var po;
   if(r.obs){
     var t=(entries&&entries[r.obsIdx])?entries[r.obsIdx].description||'':r.obs.text||'';
-    // S120 Push 1: read this obs's effective photo list from the pool model
-    // (defic.photos[] filtered by obs.photoSelection, with soft-deletes
-    // excluded). Apply per-(obs,photo) markup overlays so the marked variant
-    // appears in this obs's PDF card even when a sibling obs uses the same
-    // source unmarked. v1 entries[] path keeps its legacy shape.
+    // S120: photos come from defic.photos[] pool filtered by the obs's
+    // photoSelection (default = all pool, custom = explicit subset). The
+    // PDF report card therefore shows only what the inspector intends to
+    // attribute to this specific observation.
     var ph;
-    if(entries&&entries[r.obsIdx]){
-      ph=entries[r.obsIdx].photos||[];
-    }else if(typeof Model!=='undefined'&&Model.getEffectivePhotos){
-      var _eff=Model.getEffectivePhotos(d,r.obsIdx)||[];
-      ph=_eff.map(function(p){
-        var mk=Model.getObsPhotoMarkup?Model.getObsPhotoMarkup(d,r.obsIdx,p.id):null;
-        if(!mk||!mk.markedR2Key)return p;
-        // Wrap with overlay so _pdfPhotoSrc picks the marked variant
-        return Object.assign({},p,{r2Url:mk.markedR2Key,markedR2Key:mk.markedR2Key});
-      });
+    if(typeof Model!=='undefined'&&Model.getEffectivePhotos){
+      ph=Model.getEffectivePhotos(d,r.obsIdx);
     }else{
-      ph=r.obs.photos||[];
+      ph=(entries&&entries[r.obsIdx])?entries[r.obsIdx].photos||[]:r.obs.photos||[];
     }
     po={text:t,photos:ph,addressed:!!r.obs.addressed,notedOnInstance:r.obs.notedOnInstance||(d.notedOnInstance||1),id:r.obs.id||null};
   }else{

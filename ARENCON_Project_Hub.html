@@ -3588,32 +3588,81 @@ function _pgExtractPhotos(row) {
       var src = _pgResolveR2Src(ph, projectId);
       if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || ''));
     });
-    // Deficiency photos (contractors + general)
+    // ── S120: V1 corner-badge model ──
+    // Each photo appears ONCE PER (obs that uses it). If a pool photo X
+    // is referenced by Obs A and Obs B, two thumbnails render — one
+    // captioned "Pin 5 · Obs A", the other "Pin 5 · Obs B". Default-state
+    // obs implicitly include every pool photo (matches the pin-editor
+    // semantics). Inspectors who narrowed an obs see only that subset.
     function _extractDefics(defics) {
       (defics || []).forEach(function(d) {
         var pinLabel = 'Pin ' + (d.num || '?');
-        var numEn = (d.entries && d.entries.length) || 0;
-        var seenIds = {};
-        (d.entries || []).forEach(function(en, ei) {
-          (en.photos || []).forEach(function(ph) {
-            var src = _pgResolveR2Src(ph, projectId);
-            if (!src) return;
-            var pid = (typeof ph === 'object' && ph.id) ? ph.id : src;
-            if (seenIds[pid]) return;
-            seenIds[pid] = true;
-            var obsLabel = numEn > 1 ? ', Obs ' + String.fromCharCode(65 + ei) : '';
-            photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
+        var observations = d.observations || [];
+        var numObs = observations.length;
+        var emittedAtLeastOne = false;
+        // V2 path with observations array
+        if (numObs > 0) {
+          var pool = (d.photos || []).filter(function(p) { return p && !p.deleted; });
+          if (pool.length) {
+            // Pool model — emit one entry per (obs, pool photo) the obs references
+            observations.forEach(function(o, oi) {
+              var includes;
+              if (Array.isArray(o.photoSelection)) {
+                var seL = o.photoSelection;
+                includes = function(id) { return seL.indexOf(id) !== -1; };
+              } else {
+                includes = function() { return true; }; // default = all pool
+              }
+              pool.forEach(function(ph) {
+                if (!includes(ph.id)) return;
+                var src = _pgResolveR2Src(ph, projectId);
+                if (!src) return;
+                var obsLabel = numObs > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + oi) : '';
+                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
+                emittedAtLeastOne = true;
+              });
+            });
+          } else {
+            // Legacy v2 (never migrated to pool): photos in obs.photos[]
+            observations.forEach(function(o, oi) {
+              (o.photos || []).forEach(function(ph) {
+                var src = _pgResolveR2Src(ph, projectId);
+                if (!src) return;
+                var obsLabel = numObs > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + oi) : '';
+                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
+                emittedAtLeastOne = true;
+              });
+            });
+          }
+        }
+        // V1 path with entries array (rare — most v1 data has been
+        // migrated to observations long ago, but kept for completeness)
+        if (!emittedAtLeastOne) {
+          var seenIds = {};
+          var numEn = (d.entries && d.entries.length) || 0;
+          (d.entries || []).forEach(function(en, ei) {
+            (en.photos || []).forEach(function(ph) {
+              var src = _pgResolveR2Src(ph, projectId);
+              if (!src) return;
+              var pid = (typeof ph === 'object' && ph.id) ? ph.id : src;
+              if (seenIds[pid]) return;
+              seenIds[pid] = true;
+              var obsLabel = numEn > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + ei) : '';
+              photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
+              emittedAtLeastOne = true;
+            });
           });
-        });
-        // d.photos is a mirror of entries — only use if entries didn't have photos
-        (d.photos || []).forEach(function(ph) {
-          var src = _pgResolveR2Src(ph, projectId);
-          if (!src) return;
-          var pid = (typeof ph === 'object' && ph.id) ? ph.id : src;
-          if (seenIds[pid]) return;
-          seenIds[pid] = true;
-          photos.push(_makeRec(src, 'deficiency', pinLabel, d.date || ''));
-        });
+          // Last-resort pin-level mirror for ancient v1 data with no entries
+          if (!emittedAtLeastOne) {
+            (d.photos || []).forEach(function(ph) {
+              if (ph && ph.deleted) return; // skip soft-deleted
+              var src = _pgResolveR2Src(ph, projectId);
+              if (!src) return;
+              photos.push(_makeRec(src, 'deficiency', pinLabel, d.date || ''));
+            });
+          }
+        }
+        // Responses (v1 schema) — preserved verbatim
         (d.responses || []).forEach(function(resp) {
           (resp.photos || []).forEach(function(ph) {
             var src = _pgResolveR2Src(ph, projectId);
