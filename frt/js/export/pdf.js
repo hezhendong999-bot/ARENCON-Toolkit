@@ -300,22 +300,36 @@ function _itemIsOpen(r){
 // a different contractor than its parent pin renders under the right
 // section. Falls back to the pin's parent ctrName when the override is
 // absent or points to an unknown id.
+// S119 Push F: cross-contractor suffix. When a single pin's obs span more
+// than one effective contractor, every obs of that pin gets a letter
+// suffix on its display label (#4-A, #4-B, ...). Cross-references between
+// the per-section cards and the appendix table stay unambiguous: the
+// reader can find #4-A as a Vipond card and #4-B as a Site General card,
+// both pointing to the same physical pin teardrop on the drawing image.
+// When all obs share one contractor, no suffix — labels stay as plain #N.
 function _pushItems(d,ctrName){
   var obs=d.observations&&d.observations.length?d.observations:null;
   if(obs){
+    // Pre-compute each obs's effective contractor so we can detect cross-
+    // contractor pins (and reuse the lookup for the per-item r.ctr below).
+    var obsEffCtrs=obs.map(function(o){
+      if(o&&o.contractorId){
+        var fc=(p.contractors||[]).find(function(c){return c.id===o.contractorId;});
+        if(fc)return fc.name;
+      }
+      return ctrName;
+    });
+    var distinctCtrs=obsEffCtrs.filter(function(v,i,a){return a.indexOf(v)===i;});
+    var needsSuffix=distinctCtrs.length>1;
     obs.forEach(function(o,oi){
       var pri=(o&&o.priority)||d.priority||'high';
       if(pri==='general')return;
-      var effCtr=ctrName;
-      if(o.contractorId){
-        var foundCtr=(p.contractors||[]).find(function(c){return c.id===o.contractorId;});
-        if(foundCtr)effCtr=foundCtr.name;
-      }
-      reportDefs.push({d:d,obs:o,obsIdx:oi,ctr:effCtr,rn:rn++});
+      var label=needsSuffix?(d.num+'-'+String.fromCharCode(65+oi)):String(d.num||'?');
+      reportDefs.push({d:d,obs:o,obsIdx:oi,ctr:obsEffCtrs[oi],rn:rn++,numLabel:label});
     });
   }else{
     if((d.priority||'high')==='general')return;
-    reportDefs.push({d:d,obs:null,obsIdx:0,ctr:ctrName,rn:rn++});
+    reportDefs.push({d:d,obs:null,obsIdx:0,ctr:ctrName,rn:rn++,numLabel:String(d.num||'?')});
   }
 }
 (p.contractors||[]).forEach(function(c){
@@ -484,7 +498,7 @@ function _buildDefCard(r){
   var h='<div class="dc"><div class="dc-inner">';
   if(hasDwg)h+='<img class="dc-mini" id="mm-'+d.id+'-'+r.obsIdx+'" src="" alt="drawing">';
   h+='<div class="dc-content">';
-  h+='<div class="dc-hdr"><span class="dc-itemnum">#'+r.rn+'</span><span class="'+pillCls+'">'+esc(pillTxt)+'</span></div>';
+  h+='<div class="dc-hdr"><span class="dc-itemnum">#'+(r.numLabel||r.rn)+'</span><span class="'+pillCls+'">'+esc(pillTxt)+'</span></div>';
   if(po.notedOnInstance!==_curInst){h+='<div style="font-size:9pt;color:#6B7B8C;margin-bottom:4px;">Noted in FRT #'+po.notedOnInstance+'</div>';}
   h+='<div class="dc-desc">'+esc(po.text||'\u2014')+'</div>';
   if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});h+='</div>';}
@@ -619,7 +633,7 @@ if(showClosedSummary&&closedSummaryDefs.length){
       // which returns obs[0].text — duplicating the same description across
       // every row of a multi-obs pin.
       var desc=_itemDesc(r);var td=desc.length>80?desc.substring(0,80)+'\u2026':desc;
-      cH2+='<tr style="background:'+(ri%2===0?'#fff':'#fafafa')+';"><td style="padding:5px 10px;font-weight:700;color:#9C2742;">#'+r.d.num+'</td><td style="padding:5px 10px;">'+esc(td)+'</td><td style="padding:5px 10px;">'+esc(r.ctr)+'</td><td style="padding:5px 10px;">FRT #'+(r.d.notedOnInstance||1)+'</td><td style="padding:5px 10px;color:#1A7A4A;font-weight:600;">'+esc(r.d.closedNote||'Addressed')+'</td></tr>';
+      cH2+='<tr style="background:'+(ri%2===0?'#fff':'#fafafa')+';"><td style="padding:5px 10px;font-weight:700;color:#9C2742;">#'+(r.numLabel||r.d.num)+'</td><td style="padding:5px 10px;">'+esc(td)+'</td><td style="padding:5px 10px;">'+esc(r.ctr)+'</td><td style="padding:5px 10px;">FRT #'+(r.d.notedOnInstance||1)+'</td><td style="padding:5px 10px;color:#1A7A4A;font-weight:600;">'+esc(r.d.closedNote||'Addressed')+'</td></tr>';
     });
   });
   cH2+='</tbody></table></div>';
@@ -643,9 +657,16 @@ if(isField&&p.drawings&&p.drawings.length){
       // when one obs was closed and one was open with a different contractor).
       // r.ctr is already per-obs (baked in by _pushItems).
       var rowOpen=_itemIsOpen(r);
-      var sc=rowOpen?'#C0392B':'#1A7A4A';
-      var iarTag=d.iar?'<div style="margin-top:3px;"><span class="iar" style="margin-left:0;">IAR</span></div>':'';
-      aH+='<tr><td><strong style="color:#9C2742;">#'+d.num+'</strong>'+iarTag+'</td><td>'+esc(_itemDesc(r)||'\u2014')+'</td><td style="color:'+sc+';font-weight:700;">'+(rowOpen?'Outstanding':'Closed')+'</td><td>'+esc(r.ctr)+'</td></tr>';
+      // S119 hotfix #2: IAR overrides the Outstanding/Closed status text
+      // (Mark request — match the first item's IAR badge style instead of
+      // showing "Outstanding" in the status column for IAR rows).
+      var statusTxt,statusCol;
+      if(d.iar){statusTxt='IAR';statusCol='#E91E8C';}
+      else if(rowOpen){statusTxt='Outstanding';statusCol='#C0392B';}
+      else{statusTxt='Closed';statusCol='#1A7A4A';}
+      // The IAR badge under the pin# is now redundant when the status column
+      // already says IAR — drop it.
+      aH+='<tr><td><strong style="color:#9C2742;">#'+(r.numLabel||d.num)+'</strong></td><td>'+esc(_itemDesc(r)||'\u2014')+'</td><td style="color:'+statusCol+';font-weight:700;">'+statusTxt+'</td><td>'+esc(r.ctr)+'</td></tr>';
     });
     aH+='</tbody></table></div></div>';
     pages.push({html:aH,pageNum:curPageNum,isAppendix:true});curPageNum++;
