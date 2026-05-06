@@ -991,6 +991,42 @@ export var Model = {
     return true;
   },
 
+  // S120 Push 4: per-obs narrow — what a default-view ✕ should do. Removes
+  // the photo from THIS obs only. The photo stays in the pool and remains
+  // visible to any other obs that references it (or to default-state obs
+  // if those exist). Three branches:
+  //   1) Pool photo, obs is custom-state → remove ID from photoSelection
+  //   2) Pool photo, obs is default-state → narrow obs to "all pool except this"
+  //   3) Legacy photo (never-migrated obs.photos[]) → splice that array
+  // To delete a photo from the pool entirely (cascading across all obs),
+  // use removePoolPhoto. This helper deliberately never touches the pool.
+  removePhotoFromObs: function(deficId, obsIdx, photoId) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return false;
+    var d = f.defic;
+    var obs = (d.observations || [])[obsIdx];
+    if (!obs) return false;
+    var poolPhoto = (d.photos || []).find(function(p) { return p && !p.deleted && p.id === photoId; });
+    if (poolPhoto) {
+      if (Array.isArray(obs.photoSelection)) {
+        obs.photoSelection = obs.photoSelection.filter(function(id) { return id !== photoId; });
+      } else {
+        // Default-state → narrow to "all pool except this one"
+        var others = (d.photos || []).filter(function(p) { return p && !p.deleted && p.id !== photoId; });
+        obs.photoSelection = others.map(function(p) { return p.id; });
+      }
+      _dirty = true;
+      _queueSave();
+      this._notify('photo', { action: 'unselect', deficId: deficId, obsIdx: obsIdx, photoId: photoId });
+      return true;
+    }
+    if (obs.photos && obs.photos.length) {
+      var legacyIdx = obs.photos.findIndex(function(p) { return p && p.id === photoId; });
+      if (legacyIdx >= 0) return !!this.removeObservationPhoto(deficId, obsIdx, legacyIdx);
+    }
+    return false;
+  },
+
   removeDeficiency: function(deficId) {
     var f = this.findDeficiency(deficId);
     if (!f) return false;

@@ -1516,11 +1516,28 @@ document.addEventListener('click', function(e) {
 var _peDeficId = null;
 var _peObsIdx = 0;
 
+// ── S120 Push 4: photo pool selection mode (pin editor) ─────────
+// Activated by the "Manage photos" button. While active:
+//  - Photo grid renders checkboxes (toggle pending selection)
+//  - Header shows master checkbox (none/some/all) + "[N] of [M]" count
+//  - Footer shows Cancel / Delete-from-pool / Save-as-Obs-X
+//  - Photos carry colored letter-dots for OTHER obs that include them
+//  - Photos with zero references in pending state get an orphan warning
+var _peSelectionMode = false;
+var _peSelectionPending = null; // Set of pool photo IDs the inspector has currently checked
+// 7 distinct jewel-tone colors cycle (>=8 obs is virtually never seen)
+var _PE_OBS_COLORS = ['#7B5A8F', '#5C7A65', '#B07F5A', '#5A6E80', '#4A6580', '#7D3F4F', '#A85959'];
+function _peObsColor(i) { return _PE_OBS_COLORS[(i || 0) % _PE_OBS_COLORS.length]; }
+function _peObsLetter(i) { return String.fromCharCode(65 + ((i || 0) % 26)); }
+
 function _openPinEditor(deficId) {
   var f = Model.findDeficiency(deficId);
   if (!f) return;
   _peDeficId = deficId;
   _peObsIdx = 0;
+  // Always start out of selection mode when opening a pin
+  _peSelectionMode = false;
+  _peSelectionPending = null;
   var d = f.defic;
   var overlay = document.getElementById('pin-editor-overlay');
   if (!overlay) return;
@@ -1691,7 +1708,13 @@ function _peRenderObsTabs(d) {
   if (!obs.length) obs = [{ text: '', addressed: false }];
   var html = '';
   obs.forEach(function(o, i) {
-    html += '<button class="pe-obs-tab' + (i === _peObsIdx ? ' active' : '') + '" data-pe-obs="' + i + '">Obs. #' + (i + 1) + '</button>';
+    // S120 Push 4: "• custom" marker when the obs has a non-default
+    // photoSelection (Array, not null). Inspector reads "this obs has
+    // been narrowed" at a glance.
+    var custMark = (Array.isArray(o.photoSelection))
+      ? ' <span style="color:#7B5A8F;font-weight:500;" title="Custom photo selection">\u2022 custom</span>'
+      : '';
+    html += '<button class="pe-obs-tab' + (i === _peObsIdx ? ' active' : '') + '" data-pe-obs="' + i + '">Obs. #' + (i + 1) + custMark + '</button>';
   });
   html += '<button class="pe-obs-tab-add" data-pe-obs-add>+</button>';
   tabs.innerHTML = html;
@@ -1774,38 +1797,14 @@ function _peRenderObsContent(d, idx) {
     else content.appendChild(ocrRow);
   }
 
-  // S114: render existing observation photos as a thumbnail strip.
-  // Previously the modal showed only upload buttons; existing photos were invisible.
-  // S116 Push 1 (E): each thumb now has a corner ✕ remove button.
-  // S120 Push 1: read via Model.getEffectivePhotos so we draw from the pool
-  // model (defic.photos + obs.photoSelection). Falls back to obs.photos for
-  // never-migrated edge cases. Per-thumb data-pe-photo index is into the
-  // EFFECTIVE list; deletion translates that back to the pool entry inside
-  // Model.removeObservationPhoto.
-  var strip = document.getElementById('pe-obs-photos');
-  if (strip) {
-    var photos = (Model.getEffectivePhotos ? Model.getEffectivePhotos(d, idx) : (o.photos || []));
-    if (!photos.length) {
-      strip.innerHTML = '';
-      strip.style.display = 'none';
-    } else {
-      strip.style.display = 'flex';
-      var html = '';
-      photos.forEach(function(ph, pi) {
-        // S115 P11: fallback — thumb → dataUrl (blob URL beats not-yet-
-        // uploaded r2Url) → r2Url. Same logic as defic tab.
-        // S120: per-(obs, photo) markup overlay if present
-        var mk = (Model.getObsPhotoMarkup ? Model.getObsPhotoMarkup(d, idx, ph.id) : null);
-        var src = (mk && mk.markedR2Key) ? mk.markedR2Key : (ph.thumb || ph.dataUrl || ph.r2Url || '');
-        if (!src) return;
-        html += '<div class="pe-photo-thumb" data-pe-photo="' + pi + '" title="Photo ' + (pi + 1) + '" style="position:relative;">'
-          + '<img src="' + src + '" alt="Photo ' + (pi + 1) + '" loading="lazy">'
-          + '<button data-pe-photo-remove="' + pi + '" title="Remove photo" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:white;border:none;border-radius:50%;width:20px;height:20px;min-width:20px;min-height:20px;padding:0;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">\u2715</button>'
-          + '</div>';
-      });
-      strip.innerHTML = html;
-    }
-  }
+  // S120 Push 4: photo zone uses pool model. Default mode: thumbs +
+  // per-thumb ✕ (per-obs narrow via Model.removePhotoFromObs) + Manage
+  // photos button + (when obs is custom) Reset to default. Selection
+  // mode: master checkbox header, checkbox-overlaid thumbs with dots
+  // for OTHER obs that include each photo, orphan warnings, footer with
+  // Cancel / Delete N from pool / Save as Obs X. The Push 1 markup
+  // overlay logic (Model.getObsPhotoMarkup) is preserved in default mode.
+  _peRenderPhotoZone(d, idx);
 
   // S116 Push 1 (E): wire the .pe-photo-zone (Upload / Camera / + Gallery
   // buttons + drop target) to the active deficiency + obs index. Re-using
@@ -1865,6 +1864,235 @@ function _closePinEditor() {
   var overlay = document.getElementById('pin-editor-overlay');
   if (overlay) overlay.style.display = 'none';
   _peDeficId = null;
+  _peSelectionMode = false;
+  _peSelectionPending = null;
+}
+
+// ── S120 Push 4: pin editor photo zone — pool-aware + selection mode ──
+
+function _peRenderPhotoZone(d, idx) {
+  // Clean any prior injected header/footer/note so re-renders don't stack
+  ['pe-photos-header', 'pe-photos-footer', 'pe-photos-orphan-note'].forEach(function(id) {
+    var n = document.getElementById(id);
+    if (n && n.parentNode) n.parentNode.removeChild(n);
+  });
+
+  var strip = document.getElementById('pe-obs-photos');
+  if (!strip) return;
+  var obs = (d.observations || [])[idx];
+  if (!obs) { strip.innerHTML = ''; strip.style.display = 'none'; return; }
+
+  if (_peSelectionMode) {
+    _peRenderPhotoZoneSelectionMode(d, idx, strip);
+    return;
+  }
+
+  // ── Default mode ──
+  // Photos render with the Push 1 markup-overlay logic preserved. Per-thumb
+  // ✕ stays but its CLICK handler now routes to per-obs narrow (handled in
+  // the click delegation below). Header below the strip carries Manage +
+  // (when obs is custom) Reset to default.
+  var photos = (Model.getEffectivePhotos ? Model.getEffectivePhotos(d, idx) : (obs.photos || []));
+  if (!photos.length) {
+    strip.innerHTML = '';
+    strip.style.display = 'none';
+  } else {
+    strip.style.display = 'flex';
+    var html = '';
+    photos.forEach(function(ph, pi) {
+      if (!ph) return;
+      var mk = (Model.getObsPhotoMarkup ? Model.getObsPhotoMarkup(d, idx, ph.id) : null);
+      var src = (mk && mk.markedR2Key) ? mk.markedR2Key : (ph.thumb || ph.dataUrl || ph.r2Url || '');
+      if (!src) return;
+      // data-pe-photo-id is the canonical pool ID — used by the new ✕ flow
+      // (per-obs narrow). data-pe-photo (legacy index) still present for
+      // the lightbox click handler that opens the effective list at index.
+      html += '<div class="pe-photo-thumb" data-pe-photo-id="' + (ph.id || '') + '" data-pe-photo="' + pi + '" title="Photo ' + (pi + 1) + '" style="position:relative;">'
+        + '<img src="' + src + '" alt="Photo ' + (pi + 1) + '" loading="lazy">'
+        + '<button data-pe-photo-remove="' + pi + '" data-pe-photo-id="' + (ph.id || '') + '" title="Remove from this observation" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:white;border:none;border-radius:50%;width:20px;height:20px;min-width:20px;min-height:20px;padding:0;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">\u2715</button>'
+        + '</div>';
+    });
+    strip.innerHTML = html;
+  }
+
+  // Header above the strip — count + Manage + (optional) Reset to default
+  var isCustom = !!(Model.isObsPhotoSelectionCustom && Model.isObsPhotoSelectionCustom(d, idx));
+  var header = document.createElement('div');
+  header.id = 'pe-photos-header';
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 2px;flex-wrap:wrap;';
+  var leftHtml = '<span style="font-size:calc(11px + var(--ts));color:#6B7B8C;">'
+    + (photos.length ? photos.length + ' photo' + (photos.length === 1 ? '' : 's') : 'No photos')
+    + (isCustom ? ' <span style="color:#7B5A8F;font-weight:500;" title="This observation has a custom photo selection">\u2022 custom</span>' : '')
+    + '</span>';
+  var rightHtml = '';
+  if (isCustom) {
+    rightHtml += '<button data-pe-action="reset-photo-selection" '
+      + 'style="background:none;border:1px solid rgba(122,90,143,.4);color:#7B5A8F;border-radius:6px;padding:3px 10px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));cursor:pointer;" '
+      + 'title="Show all pool photos for this observation again">Reset to default</button>';
+  }
+  rightHtml += '<button data-pe-action="enter-selection-mode" '
+    + 'style="background:#5A6E80;border:none;color:white;border-radius:6px;padding:4px 12px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:500;cursor:pointer;" '
+    + 'title="Pick which photos appear for this observation, or delete photos from the pool">Manage photos</button>';
+  header.innerHTML = leftHtml + '<div style="display:flex;gap:6px;align-items:center;">' + rightHtml + '</div>';
+  strip.parentNode.insertBefore(header, strip);
+}
+
+function _peRenderPhotoZoneSelectionMode(d, idx, strip) {
+  var pool = (d.photos || []).filter(function(p) { return p && !p.deleted; });
+  if (!_peSelectionPending || !(_peSelectionPending instanceof Set)) {
+    var obs = (d.observations || [])[idx];
+    var initial;
+    if (obs && Array.isArray(obs.photoSelection)) initial = obs.photoSelection.slice();
+    else initial = pool.map(function(p) { return p.id; });
+    _peSelectionPending = new Set(initial);
+  }
+
+  var totalCt = pool.length;
+  var pickCt = 0;
+  pool.forEach(function(p) { if (_peSelectionPending.has(p.id)) pickCt++; });
+  var allChecked = totalCt > 0 && pickCt === totalCt;
+  var someChecked = pickCt > 0 && pickCt < totalCt;
+
+  // ── Header ──
+  var header = document.createElement('div');
+  header.id = 'pe-photos-header';
+  header.className = 'pe-sel-header';
+  header.style.cssText = 'display:flex;align-items:center;gap:12px;background:#F2F4F7;border:1px solid #DDE1E7;border-radius:8px;padding:8px 12px;margin:6px 0;flex-wrap:wrap;';
+  var obsLetter = _peObsLetter(idx);
+  var obsColor = _peObsColor(idx);
+  header.innerHTML =
+    '<input type="checkbox" id="pe-sel-master" data-pe-action="toggle-master"' + (allChecked ? ' checked' : '') + ' style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">'
+    + '<span style="font-size:calc(12px + var(--ts));color:#2C3E50;font-weight:500;">' + pickCt + ' of ' + totalCt + ' selected</span>'
+    + '<span style="font-size:calc(11px + var(--ts));color:#6B7B8C;">for </span>'
+    + '<span style="font-size:calc(11px + var(--ts));font-weight:500;color:white;background:' + obsColor + ';padding:2px 8px;border-radius:10px;">Obs ' + obsLetter + '</span>'
+    + (someChecked ? '<script>var m=document.getElementById("pe-sel-master");if(m)m.indeterminate=true;<\/script>' : '');
+  strip.parentNode.insertBefore(header, strip);
+
+  // ── Photo grid ──
+  if (!pool.length) {
+    strip.innerHTML = '<div style="padding:12px;color:#888;font-size:calc(12px + var(--ts));text-align:center;width:100%;">No photos in this pin\u2019s pool yet. Upload photos first, then return to manage.</div>';
+    strip.style.display = 'flex';
+  } else {
+    strip.style.display = 'flex';
+    var html = '';
+    var orphanCount = 0;
+    pool.forEach(function(ph) {
+      if (!ph) return;
+      var src = ph.thumb || ph.dataUrl || ph.r2Url || '';
+      if (!src) return;
+      var checked = _peSelectionPending.has(ph.id);
+      var otherIdxs = (Model.getObsIndicesUsingPoolPhoto
+        ? Model.getObsIndicesUsingPoolPhoto(d, ph.id)
+        : []
+      ).filter(function(i) { return i !== idx; });
+      var dotsHtml = '';
+      otherIdxs.forEach(function(i) {
+        dotsHtml += '<span class="pe-sel-dot" style="background:' + _peObsColor(i) + ';" title="Used by Obs ' + _peObsLetter(i) + '">' + _peObsLetter(i) + '</span>';
+      });
+      var isOrphan = !checked && otherIdxs.length === 0;
+      if (isOrphan) orphanCount++;
+      html += '<div class="pe-photo-thumb pe-sel-thumb' + (checked ? ' is-checked' : '') + (isOrphan ? ' is-orphan' : '') + '" '
+        + 'data-pe-action="toggle-photo" data-pe-photo-id="' + ph.id + '">'
+        + '<img src="' + src + '" alt="Photo" loading="lazy">'
+        + '<span class="pe-sel-cb' + (checked ? ' is-checked' : '') + '" aria-hidden="true">' + (checked ? '\u2713' : '') + '</span>'
+        + (isOrphan ? '<span class="pe-sel-orphan" title="No observation references this photo. Saving will leave it visible to no one.">\u26A0</span>' : '')
+        + (dotsHtml ? '<div class="pe-sel-dots">' + dotsHtml + '</div>' : '')
+        + '</div>';
+    });
+    strip.innerHTML = html;
+
+    if (orphanCount > 0) {
+      var note = document.createElement('div');
+      note.id = 'pe-photos-orphan-note';
+      note.style.cssText = 'background:rgba(168,89,89,.10);border:1px solid rgba(168,89,89,.35);color:#8A3939;border-radius:6px;padding:6px 10px;margin-top:6px;font-size:calc(11px + var(--ts));';
+      note.innerHTML = '\u26A0 ' + orphanCount + ' photo' + (orphanCount === 1 ? '' : 's') + ' will be referenced by no observation if you save now. They\u2019ll stay in the pool but won\u2019t appear in any report.';
+      strip.parentNode.insertBefore(note, strip.nextSibling);
+    }
+  }
+
+  // ── Footer ──
+  var footer = document.createElement('div');
+  footer.id = 'pe-photos-footer';
+  footer.className = 'pe-sel-footer';
+  footer.style.cssText = 'display:flex;align-items:center;gap:8px;margin:8px 0 4px;flex-wrap:wrap;';
+  var saveColor = '#5C7A65';
+  var deleteColor = '#A85959';
+  var cancelColor = '#6B7B8C';
+  footer.innerHTML =
+    '<button data-pe-action="cancel-selection" '
+    +   'style="background:none;border:1px solid ' + cancelColor + ';color:' + cancelColor + ';border-radius:6px;padding:6px 14px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));cursor:pointer;">Cancel</button>'
+    + '<span style="flex:1;"></span>'
+    + (pickCt > 0
+        ? '<button data-pe-action="delete-selected-from-pool" '
+            + 'style="background:none;border:1px solid ' + deleteColor + ';color:' + deleteColor + ';border-radius:6px;padding:6px 14px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:500;cursor:pointer;">'
+            + '\uD83D\uDDD1 Delete ' + pickCt + ' from pool</button>'
+        : '')
+    + '<button data-pe-action="save-selection" '
+    +   'style="background:' + saveColor + ';border:none;color:white;border-radius:6px;padding:6px 16px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:500;cursor:pointer;">'
+    +   'Save as Obs ' + obsLetter + ' selection</button>';
+  // Place after the orphan note if present, else right after the strip
+  var noteRef = document.getElementById('pe-photos-orphan-note');
+  var insertAfter = noteRef || strip;
+  if (insertAfter.nextSibling) insertAfter.parentNode.insertBefore(footer, insertAfter.nextSibling);
+  else insertAfter.parentNode.appendChild(footer);
+}
+
+function _peEnterSelectionMode() {
+  if (!_peDeficId) return;
+  _peSelectionMode = true;
+  _peSelectionPending = null;
+  var f = Model.findDeficiency(_peDeficId);
+  if (f) _peRenderObsContent(f.defic, _peObsIdx);
+}
+
+function _peExitSelectionMode() {
+  _peSelectionMode = false;
+  _peSelectionPending = null;
+  if (!_peDeficId) return;
+  var f = Model.findDeficiency(_peDeficId);
+  if (f) _peRenderObsContent(f.defic, _peObsIdx);
+}
+
+function _peSaveSelection() {
+  if (!_peDeficId || !_peSelectionPending) { _peExitSelectionMode(); return; }
+  var f = Model.findDeficiency(_peDeficId);
+  if (!f) { _peExitSelectionMode(); return; }
+  var pool = (f.defic.photos || []).filter(function(p) { return p && !p.deleted; });
+  var picked = pool.filter(function(p) { return _peSelectionPending.has(p.id); }).map(function(p) { return p.id; });
+  var savedAsDefault = (picked.length === pool.length);
+  Model.setObsPhotoSelection(_peDeficId, _peObsIdx, savedAsDefault ? null : picked);
+  Model.saveNow();
+  if (typeof toast === 'function') {
+    toast(savedAsDefault
+      ? 'Saved (default \u2014 all pool photos)'
+      : 'Saved Obs ' + _peObsLetter(_peObsIdx) + ' selection (' + picked.length + ' photo' + (picked.length === 1 ? '' : 's') + ')',
+      'success');
+  }
+  _peExitSelectionMode();
+}
+
+function _peDeleteSelectedFromPool() {
+  if (!_peDeficId || !_peSelectionPending) return;
+  var f = Model.findDeficiency(_peDeficId);
+  if (!f) return;
+  var pool = (f.defic.photos || []).filter(function(p) { return p && !p.deleted; });
+  var ids = pool.filter(function(p) { return _peSelectionPending.has(p.id); }).map(function(p) { return p.id; });
+  if (!ids.length) return;
+  var n = ids.length;
+  var msg = 'This will remove ' + n + ' photo' + (n === 1 ? '' : 's') + ' from this pin\u2019s pool, including from every observation that uses ' + (n === 1 ? 'it' : 'them') + '. The original ' + (n === 1 ? 'image is' : 'images are') + ' kept in storage and can be recovered from the R2 console if needed.';
+  var doDelete = function() {
+    ids.forEach(function(id) { Model.removePoolPhoto(_peDeficId, id); });
+    Model.saveNow();
+    if (typeof toast === 'function') toast('Deleted ' + n + ' photo' + (n === 1 ? '' : 's') + ' from pool', 'success');
+    _peExitSelectionMode();
+  };
+  if (n >= 5 && typeof showTypeToConfirm === 'function') {
+    showTypeToConfirm('Delete ' + n + ' photos from pool', msg).then(function(yes) { if (yes) doDelete(); });
+  } else if (typeof showConfirm === 'function') {
+    showConfirm('Delete ' + n + ' photo' + (n === 1 ? '' : 's') + ' from pool', msg).then(function(yes) { if (yes) doDelete(); });
+  } else {
+    if (window.confirm(msg)) doDelete();
+  }
 }
 
 // S116 Push 1 (G): canvas-based pin mini-map. Matches v1's renderPinMiniMap
@@ -2619,19 +2847,67 @@ document.addEventListener('click', function(e) {
     return;
   }
 
+  // ── S120 Push 4: pin editor photo selection-mode click handlers ──
+  // Routed by [data-pe-action]. Fires BEFORE the legacy ✕/thumb handlers so
+  // selection-mode thumbs don't bleed into the lightbox path.
+  var peAct = e.target.closest && e.target.closest('[data-pe-action]');
+  if (peAct && _peDeficId) {
+    var act = peAct.getAttribute('data-pe-action');
+    if (act === 'enter-selection-mode') { _peEnterSelectionMode(); return; }
+    if (act === 'reset-photo-selection') {
+      Model.setObsPhotoSelection(_peDeficId, _peObsIdx, null);
+      Model.saveNow();
+      var fRs = Model.findDeficiency(_peDeficId);
+      if (fRs) _peRenderObsContent(fRs.defic, _peObsIdx);
+      return;
+    }
+    if (act === 'cancel-selection') { _peExitSelectionMode(); return; }
+    if (act === 'save-selection') { _peSaveSelection(); return; }
+    if (act === 'delete-selected-from-pool') { _peDeleteSelectedFromPool(); return; }
+    if (act === 'toggle-master') {
+      if (!_peSelectionPending) _peSelectionPending = new Set();
+      var fM = Model.findDeficiency(_peDeficId);
+      if (!fM) return;
+      var poolM = (fM.defic.photos || []).filter(function(p) { return p && !p.deleted; });
+      var allCheckedNow = poolM.length > 0 && poolM.every(function(p) { return _peSelectionPending.has(p.id); });
+      _peSelectionPending = allCheckedNow ? new Set() : new Set(poolM.map(function(p) { return p.id; }));
+      _peRenderObsContent(fM.defic, _peObsIdx);
+      return;
+    }
+    if (act === 'toggle-photo') {
+      var pid = peAct.getAttribute('data-pe-photo-id');
+      if (!pid || !_peSelectionPending) return;
+      if (_peSelectionPending.has(pid)) _peSelectionPending.delete(pid);
+      else _peSelectionPending.add(pid);
+      var fT0 = Model.findDeficiency(_peDeficId);
+      if (fT0) _peRenderObsContent(fT0.defic, _peObsIdx);
+      return;
+    }
+  }
+
   // S116 Push 1 (E): photo ✕ remove button. Must run BEFORE the photo-thumb
   // click handler below, since the button lives inside .pe-photo-thumb and
   // would otherwise bubble up and open the lightbox.
+  // S120 Push 4: ✕ now performs a per-obs narrow via Model.removePhotoFromObs.
+  // The photo stays in the pool — other obs that reference it still see it.
+  // To delete from the pool entirely, use Manage > Delete from pool.
   var peRm = e.target.closest && e.target.closest('[data-pe-photo-remove]');
   if (peRm) {
     if (!_peDeficId) return;
     var fRm = Model.findDeficiency(_peDeficId);
     if (!fRm) return;
+    var rmId = peRm.getAttribute('data-pe-photo-id') || '';
     var rmIdx = parseInt(peRm.getAttribute('data-pe-photo-remove'), 10);
-    if (isNaN(rmIdx)) return;
-    showConfirm('Remove Photo', 'Remove this photo from the observation?').then(function(yes) {
+    showConfirm('Remove from this observation', 'Remove this photo from this observation only? It will stay in the pin\u2019s pool and any other observations that include it will keep showing it.').then(function(yes) {
       if (!yes) return;
-      Model.removeObservationPhoto(_peDeficId, _peObsIdx, rmIdx);
+      var ok = false;
+      if (rmId && Model.removePhotoFromObs) {
+        ok = Model.removePhotoFromObs(_peDeficId, _peObsIdx, rmId);
+      }
+      if (!ok && !isNaN(rmIdx)) {
+        // Legacy fallback (no pool id)
+        Model.removeObservationPhoto(_peDeficId, _peObsIdx, rmIdx);
+      }
       Model.saveNow();
       var f2 = Model.findDeficiency(_peDeficId);
       if (f2) _peRenderObsContent(f2.defic, _peObsIdx);
@@ -2640,18 +2916,24 @@ document.addEventListener('click', function(e) {
   }
 
   // S115: pin editor photo thumb click → open lightbox.
-  // Pass the LIVE obs.photos array (real records) so markup save/revert
-  // propagation works correctly.
+  // S120: lightbox uses the effective (pool-driven) photo list. In
+  // selection mode this handler is bypassed by the [data-pe-action="toggle-photo"]
+  // handler above.
   var peThumb = e.target.closest && e.target.closest('[data-pe-photo]');
   if (peThumb) {
     if (!_peDeficId) return;
+    if (_peSelectionMode) return;
     var fT = Model.findDeficiency(_peDeficId);
     if (!fT || !fT.defic.observations) return;
     var oT = fT.defic.observations[_peObsIdx];
-    if (!oT || !oT.photos || !oT.photos.length) return;
+    if (!oT) return;
+    var lbPhotos = (Model.getEffectivePhotos
+      ? Model.getEffectivePhotos(fT.defic, _peObsIdx)
+      : (oT.photos || []));
+    if (!lbPhotos.length) return;
     var photoIdx = parseInt(peThumb.getAttribute('data-pe-photo'), 10) || 0;
     if (window._frtLightbox && window._frtLightbox.open) {
-      window._frtLightbox.open(oT.photos, photoIdx, { contextLabel: 'Pin #' + (fT.defic.num || '?') });
+      window._frtLightbox.open(lbPhotos, photoIdx, { contextLabel: 'Pin #' + (fT.defic.num || '?') });
     }
     return;
   }

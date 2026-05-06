@@ -372,10 +372,26 @@ export function buildDeficCard(d, ctrId) {
   h += '<option value="open"' + (isOpen ? ' selected' : '') + '>Outstanding</option>';
   h += '<option value="closed"' + (isClosed ? ' selected' : '') + '>Addressed &amp; Closed</option>';
   h += '</select>';
-  // Effective priority badge (read-only). Color matches pin marker palette.
+  // S120 Push 4: priority control inline next to status. Single-obs pins
+  // get an EDITABLE dropdown here (the per-obs dropdown was floating alone
+  // on the right of the obs box and looked disconnected). Multi-obs pins
+  // keep the read-only effective-priority badge — each obs has its own
+  // editable dropdown inside its row, so a pin-level editor would be
+  // ambiguous about which obs it writes to.
+  var _multi = ((d.observations || []).length > 1);
   var effPriColor = effPri === 'general' ? '#1A7A4A' : effPri === 'low' ? '#E67E22' : '#C0392B';
   var effPriLabel = effPri.charAt(0).toUpperCase() + effPri.slice(1);
-  h += '<span title="Effective priority (max across observations)" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:700;color:white;background:' + effPriColor + ';">' + esc(effPriLabel) + '</span>';
+  if (_multi) {
+    h += '<span title="Effective priority (max across observations)" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:700;color:white;background:' + effPriColor + ';">' + esc(effPriLabel) + '</span>';
+  } else {
+    var pinPriVal = ((d.observations && d.observations[0] && d.observations[0].priority) || d.priority || 'high');
+    h += '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="0" title="Priority" class="pin-pri-sel" style="width:auto;padding:3px 8px;border:1.5px solid var(--border);border-radius:4px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;background:var(--smoke);color:' + effPriColor + ';">';
+    ['high', 'low', 'general'].forEach(function(p) {
+      pinPriVal = pinPriVal || 'high';
+      h += '<option value="' + p + '"' + (pinPriVal === p ? ' selected' : '') + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
+    });
+    h += '</select>';
+  }
   // IAR toggle — inactive: subtle outline (was low-contrast grey-on-white). Active: pink fill.
   var iarStyle = d.iar
     ? 'border:none;background:#E91E8C;color:white;'
@@ -409,33 +425,33 @@ export function buildDeficCard(d, ctrId) {
       var addrCls = o.addressed ? 'border-left:3px solid #1A7A4A;background:rgba(26,122,74,.05);' : '';
       h += '<div style="margin-bottom:8px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;' + addrCls + '">';
       // S119: per-observation priority dropdown — small select, top-right of
-      // the obs box. Always shown (single + multi) so each obs can carry its
-      // own priority. Effective pin priority shown on the pin-level header
-      // above is derived as max across these.
+      // the obs box. Multi-obs only — single-obs shows the priority dropdown
+      // in the pin-level header instead (see _multi branch above) so the
+      // dropdown isn't floating alone on the right of an otherwise-empty row.
       var obsPriVal = o.priority || d.priority || 'high';
-      var obsPriSelHtml = '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Observation priority" style="padding:2px 6px;border:1.5px solid var(--border);border-radius:4px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;background:var(--smoke);">';
-      ['general', 'high', 'low'].forEach(function(p) {
-        obsPriSelHtml += '<option value="' + p + '"' + (obsPriVal === p ? ' selected' : '') + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
-      });
-      obsPriSelHtml += '</select>';
-      // Observation header row — always present (need a place for the priority
-      // dropdown). Multi-obs additionally shows the obs label + addressed +
-      // spinoff/remove buttons.
+      var obsPriSelHtml = '';
+      if (hasMulti) {
+        obsPriSelHtml = '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Observation priority" style="padding:2px 6px;border:1.5px solid var(--border);border-radius:4px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;background:var(--smoke);">';
+        ['general', 'high', 'low'].forEach(function(p) {
+          obsPriSelHtml += '<option value="' + p + '"' + (obsPriVal === p ? ' selected' : '') + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
+        });
+        obsPriSelHtml += '</select>';
+      }
+      // S120 Push 4: obs header row only renders for multi-obs. Single-obs
+      // pins skip it entirely — priority moved to pin header, no other
+      // obs-level chrome (label, addressed toggle, spinoff, remove) applies
+      // when there's just one observation.
       var _aiDotHdr = o.aiReviewed ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-left:6px;vertical-align:middle;" title="AI reviewed"></span>' : '';
-      h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:6px;">';
       if (hasMulti) {
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:6px;">';
         h += '<span style="font-size:calc(11px + var(--ts));font-weight:700;color:' + (o.addressed ? '#1A7A4A' : 'var(--ink)') + ';">' + lbl + 'Observation' + _aiDotHdr + '</span>';
-      } else {
-        h += '<span></span>';
-      }
-      h += '<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">';
-      h += obsPriSelHtml;
-      if (hasMulti) {
+        h += '<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">';
+        h += obsPriSelHtml;
         h += '<button data-action="toggle-addressed" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:' + (o.addressed ? '#1A7A4A' : '#CBD5E0') + ';color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">' + (o.addressed ? '\u2611 Addressed' : '\u2610 Open') + '</button>';
-        if (obs.length > 1) h += '<button data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#2196F3;color:white;border-radius:4px;padding:2px 6px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Spin off as new deficiency">\u21B1</button>';
-        if (obs.length > 1) h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#E53E3E;color:white;border-radius:4px;padding:2px 6px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Remove observation">\u2715</button>';
+        h += '<button data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#2196F3;color:white;border-radius:4px;padding:2px 6px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Spin off as new pin (asks for confirmation)">\u21B1</button>';
+        h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#E53E3E;color:white;border-radius:4px;padding:2px 6px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Remove observation">\u2715</button>';
+        h += '</div></div>';
       }
-      h += '</div></div>';
       // Textarea
       var _aiDot = o.aiReviewed ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-left:6px;vertical-align:middle;" title="AI reviewed"></span>' : '';
       // S114 P1.7: 3-column layout (comment | photos | drop zone) on desktop;
@@ -466,10 +482,11 @@ export function buildDeficCard(d, ctrId) {
         var mk = (Model.getObsPhotoMarkup ? Model.getObsPhotoMarkup(d, oi, ph.id) : null);
         var src = (mk && mk.markedR2Key) ? mk.markedR2Key : (ph.thumb || ph.dataUrl || ph.r2Url || '');
         if (!src) return;
+        var pid = ph.id || '';
         h += '<div class="obs-photo-wrap">';
-        h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" src="' + esc(src) + '" loading="lazy">';
-        h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
-        h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" class="obs-photo-del" title="Remove photo">\u2715</button>';
+        h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" src="' + esc(src) + '" loading="lazy">';
+        h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
+        h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-del" title="Remove from this observation">\u2715</button>';
         h += '</div>';
       });
       if (!obsPhotos.length) {
@@ -895,22 +912,37 @@ document.addEventListener('click', function(e) {
     if (!f) return;
     var obs = f.defic.observations || [];
     if (!obs[obsIdx]) return;
+    // S120 Push 4: confirm before splitting. The icon (↱) is small and lives
+    // next to the toggle-addressed and remove buttons — accidental clicks
+    // were silently moving observations to brand-new pins, with no toast
+    // breadcrumb pointing back to where the obs went. Now we confirm.
     var srcObs = obs[obsIdx];
-    // Create new deficiency in same contractor
-    var ctrId = f.contractor ? f.contractor.id : null;
-    var newDefic = Model.addDeficiency(ctrId);
-    if (newDefic) {
+    var ctrName = f.contractor ? (f.contractor.name || 'this contractor') : 'Site General';
+    var obsLetter = String.fromCharCode(65 + obsIdx);
+    var preview = (srcObs.text || '').trim();
+    if (preview.length > 80) preview = preview.slice(0, 80) + '\u2026';
+    var msg = 'Move observation ' + obsLetter + ' (' + (preview || 'no text') + ') out of #' + (f.defic.num || '?') + ' and into a brand-new pin in ' + ctrName + '? The new pin will share the same drawing location. The observation will be REMOVED from #' + (f.defic.num || '?') + '.';
+    showConfirm('Spin off as new pin', msg).then(function(yes) {
+      if (!yes) return;
+      var ctrId = f.contractor ? f.contractor.id : null;
+      var newDefic = Model.addDeficiency(ctrId);
+      if (!newDefic) return;
       // Copy observation text and photos
       if (newDefic.observations && newDefic.observations[0]) {
         newDefic.observations[0].text = srcObs.text || '';
         newDefic.observations[0].photos = JSON.parse(JSON.stringify(srcObs.photos || []));
       }
-      // Remove from source
+      // Inherit drawing pin location so the inspector finds it on the same drawing
+      if (f.defic.drawingId) {
+        newDefic.drawingId = f.defic.drawingId;
+        if (typeof f.defic.pinX === 'number') newDefic.pinX = f.defic.pinX;
+        if (typeof f.defic.pinY === 'number') newDefic.pinY = f.defic.pinY;
+      }
       Model.removeObservation(deficId, obsIdx);
       Model.saveNow();
       initDeficiencies.render();
       toast('Spun off as #' + newDefic.num);
-    }
+    });
   }
 
   if (action === 'toggle-addressed') {
@@ -1074,12 +1106,22 @@ document.addEventListener('click', function(e) {
     var deficId = el.getAttribute('data-defic-id');
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
     var photoIdx = parseInt(el.getAttribute('data-photo-idx') || '0');
-    showConfirm('Remove Photo', 'Remove this photo?').then(function(yes) {
-      if (yes) {
-        Model.removeObservationPhoto(deficId, obsIdx, photoIdx);
-        initDeficiencies.render();
-        toast('Photo removed');
+    var photoId = el.getAttribute('data-photo-id') || '';
+    // S120 Push 4: per-obs narrow via Model.removePhotoFromObs. The photo
+    // stays in the pool — any other obs that references it keeps showing
+    // it. To delete from the pool entirely, the inspector enters Manage
+    // photos in the pin editor and uses Delete from pool.
+    showConfirm('Remove from this observation', 'Remove this photo from this observation only? It will stay in the pin\u2019s pool and any other observations that include it will keep showing it.').then(function(yes) {
+      if (!yes) return;
+      var ok = false;
+      if (photoId && Model.removePhotoFromObs) {
+        ok = Model.removePhotoFromObs(deficId, obsIdx, photoId);
       }
+      if (!ok) {
+        Model.removeObservationPhoto(deficId, obsIdx, photoIdx);
+      }
+      initDeficiencies.render();
+      toast('Photo removed from observation');
     });
   }
 
@@ -1301,16 +1343,31 @@ document.addEventListener('change', function(e) {
       // Effective priority went non-general → general AND has contractor →
       // move pin to Site General (matches v1 behavior for the "this entire
       // pin is now informational only" case).
+      // S120 Push 4: previously this happened silently with just a toast,
+      // which produced "where did my pin go" failure modes — the pin
+      // vanished from the contractor section without warning. Now confirm
+      // first; on cancel, revert the dropdown.
       if (newEffective === 'general' && oldEffective !== 'general' && hasCtr) {
-        _applyChange();
-        Model.reassignDeficiency(did, null);
-        Model.saveNow();
-        _activeDlcTab = 'general';
-        document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
-          t.classList.toggle('active', t.getAttribute('data-dlc') === 'general');
+        var ctrName = f.contractor.name || 'this contractor';
+        var moveMsg = 'Setting this pin\u2019s priority to General will MOVE pin #' + dnum + ' out of "' + ctrName + '" and into Site General. The pin will no longer appear under any contractor. Continue?';
+        showConfirm('Move pin to Site General?', moveMsg).then(function(yes) {
+          if (!yes) {
+            // Revert the dropdown — apply nothing
+            e.target.value = (action === 'obs-priority')
+              ? ((f.defic.observations[parseInt(e.target.getAttribute('data-obs-idx') || '0', 10)] || {}).priority || f.defic.priority || 'high')
+              : (f.defic.priority || 'high');
+            return;
+          }
+          _applyChange();
+          Model.reassignDeficiency(did, null);
+          Model.saveNow();
+          _activeDlcTab = 'general';
+          document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
+            t.classList.toggle('active', t.getAttribute('data-dlc') === 'general');
+          });
+          initDeficiencies.render();
+          toast('#' + dnum + ' moved to Site General');
         });
-        initDeficiencies.render();
-        toast('#' + dnum + ' moved to Site General');
         return;
       }
 
