@@ -223,7 +223,7 @@ function _buildCSS(fontB64){
   c+='.dc-content{flex:1;min-width:0;}';
   // S118: card header — item# burgundy + merged status pill (color encodes priority)
   c+='.dc-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;}';
-  c+='.dc-itemnum{color:#9C2742;font-size:14pt;font-weight:700;line-height:1;}';
+  c+='.dc-itemnum{color:#9C2742;font-size:11pt;font-weight:700;line-height:1;}';
   c+='.dc-desc{font-size:11pt;line-height:1.4;}';
   c+='.dc-footer{font-size:9pt;color:#607D8B;margin-top:6px;}';
   // S118 status pills — color encodes priority (red=Outstanding High, orange=Outstanding Low, green=Closed, pink=IAR)
@@ -611,7 +611,14 @@ contentBlocks.forEach(function(block){
   }
 });
 if(!isFinalComm&&mainBodyDefs.length){
-  var nH='<div style="margin-top:16px;padding:10px 0 0;font-size:11pt;color:#333;">Note: Further deficiencies may be noted in future field reports following final commissioning.</div>';
+  // S119 Push G: avoid orphaning the closing note onto a new page when the
+  // previous page has just a bit of headroom. The note is one line of 11pt
+  // text, so heavy top/bottom chrome (was margin-top:16px + padding:10px 0)
+  // forced new-page splits whenever the previous page had <42px free.
+  // Tighten to a minimal margin-top:6px (still visually separated from the
+  // last card, but ~20px lighter). If even this compact form doesn't fit on
+  // the current page, then spill — but that's rare now.
+  var nH='<div style="margin-top:6px;font-size:11pt;color:#333;">Note: Further deficiencies may be noted in future field reports following final commissioning.</div>';
   if(curUsed+_measure(nH)>PAGE_H){_finalizePage();_startPage();}
   curPageHtml+=nH;curUsed+=_measure(nH);
 }
