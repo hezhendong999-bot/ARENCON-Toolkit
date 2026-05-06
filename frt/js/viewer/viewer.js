@@ -2267,6 +2267,11 @@ document.addEventListener('change', function(e) {
     }
     // Per-obs contractor change: re-render content so the ✕ Reset button
     // appears/disappears in sync with the override state.
+    // S119 Bug 3 fix: previously the re-render read o.contractorId before
+    // _pinAutoSave's 250ms debounce had a chance to write it, so the rebuilt
+    // dropdown reverted to the old value and the user's selection appeared
+    // to do nothing. Write contractorId synchronously here, then re-render.
+    // The debounced auto-save still runs and confirms the same write.
     if (t.id === 'pe-obs-ctr') {
       var f0 = Model.findDeficiency(_peDeficId);
       if (f0) {
@@ -2275,6 +2280,13 @@ document.addEventListener('change', function(e) {
         var ta0 = document.getElementById('pe-obs-text');
         if (ta0 && f0.defic.observations && f0.defic.observations[_peObsIdx]) {
           f0.defic.observations[_peObsIdx].text = ta0.value;
+        }
+        // Sync write of the contractorId override so the re-render reads
+        // the new value, not the stale one. Empty string clears the override.
+        if (f0.defic.observations && f0.defic.observations[_peObsIdx]) {
+          var newCtrId = t.value || '';
+          if (newCtrId) f0.defic.observations[_peObsIdx].contractorId = newCtrId;
+          else delete f0.defic.observations[_peObsIdx].contractorId;
         }
         _peRenderObsContent(f0.defic, _peObsIdx);
       }
