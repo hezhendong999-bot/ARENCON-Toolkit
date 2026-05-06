@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>ARENCON Field Review Tool — Redirecting</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;font-family:Calibri,Segoe UI,sans-serif;background:#1a1a1a;color:#eee;display:flex;align-items:center;justify-content:center;text-align:center}
+  .wrap{max-width:520px;padding:24px}
+  h1{margin:0 0 8px;font-size:18px;font-weight:500;color:#9C2742}
+  p{margin:6px 0;font-size:14px;line-height:1.5;color:#bbb}
+  a{color:#E5A0AE;text-decoration:none;font-weight:500}
+</style>
+<script>
+  (function(){
+    var target = 'frt/index.html' + (location.search || '') + (location.hash || '');
+    location.replace(target);
+  })();
+</script>
+</head>
+<body>
+<div class="wrap">
+<h1>ARENCON Field Review Tool</h1>
+<p>The FRT has moved. Redirecting you to the new location…</p>
+<p>If your browser does not redirect, <a id="manualLink" href="frt/index.html">click here</a>.</p>
+<script>
+  var el = document.getElementById('manualLink');
+  if (el) el.href = 'frt/index.html' + (location.search || '') + (location.hash || '');
+</script>
+</div>
+</body>
+</html>
