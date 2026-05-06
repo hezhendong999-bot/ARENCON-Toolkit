@@ -440,14 +440,12 @@ export function buildDeficCard(d, ctrId) {
       var _aiDot = o.aiReviewed ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-left:6px;vertical-align:middle;" title="AI reviewed"></span>' : '';
       // S114 P1.7: 3-column layout (comment | photos | drop zone) on desktop;
       // stacks vertically on mobile (<900px) via the .obs-layout grid CSS.
-      // S120: photos come from the pool via Model.getEffectivePhotos.
-      // data-photo-id replaces data-photo-idx for stable identity across
-      // pool reorders. Per-photo ✕ now performs a per-obs narrow (via
-      // Model.removePhotoFromObs) — the photo stays in the pool so other
-      // obs that reference it are unaffected.
-      var obsPhotos = (typeof Model !== 'undefined' && Model.getEffectivePhotos)
-        ? Model.getEffectivePhotos(d, oi)
-        : (o.photos || []);
+      // S120 Push 1: read effective photos from the pool model. Soft-deleted
+      // pool entries are filtered upstream; per-(obs, photo) markup overlays
+      // are surfaced via Model.getObsPhotoMarkup so the marked variant shows
+      // in the card for THIS obs even if a sibling obs sees the same source
+      // unmarked.
+      var obsPhotos = (Model.getEffectivePhotos ? Model.getEffectivePhotos(d, oi) : (o.photos || []));
       h += '<div class="obs-layout">';
       // ── Column 1: comment textarea (no Shorten/Undo — AI Review handles that) ──
       h += '<div class="obs-comment-col">';
@@ -463,13 +461,15 @@ export function buildDeficCard(d, ctrId) {
         // marked photo shows the marked image instantly even before the
         // marked R2 file finishes uploading. Once async thumb-gen runs and
         // notifies, thumb takes over and dataUrl is no longer needed.
-        var src = ph.thumb || ph.dataUrl || ph.r2Url || '';
+        // S120: per-(obs, photo) marked overlay wins over the source thumb
+        // for THIS obs's view (other obs may show the same source unmarked).
+        var mk = (Model.getObsPhotoMarkup ? Model.getObsPhotoMarkup(d, oi, ph.id) : null);
+        var src = (mk && mk.markedR2Key) ? mk.markedR2Key : (ph.thumb || ph.dataUrl || ph.r2Url || '');
         if (!src) return;
-        var pid = ph.id || '';
         h += '<div class="obs-photo-wrap">';
-        h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" src="' + esc(src) + '" loading="lazy">';
-        h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
-        h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-del" title="Remove from this observation">\u2715</button>';
+        h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" src="' + esc(src) + '" loading="lazy">';
+        h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
+        h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" class="obs-photo-del" title="Remove photo">\u2715</button>';
         h += '</div>';
       });
       if (!obsPhotos.length) {
@@ -1074,23 +1074,12 @@ document.addEventListener('click', function(e) {
     var deficId = el.getAttribute('data-defic-id');
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
     var photoIdx = parseInt(el.getAttribute('data-photo-idx') || '0');
-    var photoId = el.getAttribute('data-photo-id') || '';
-    // S120: per-obs narrow via removePhotoFromObs. The photo stays in the
-    // defic pool and remains visible to any OTHER obs that references it.
-    // To delete the photo from the pool entirely, the inspector enters
-    // "Manage photos" in the pin editor and uses Delete from pool.
-    showConfirm('Remove from this observation', 'Remove this photo from this observation only? It will stay in the pin\u2019s pool and any other observations that include it will keep showing it.').then(function(yes) {
-      if (!yes) return;
-      var ok = false;
-      if (photoId && Model.removePhotoFromObs) {
-        ok = Model.removePhotoFromObs(deficId, obsIdx, photoId);
-      }
-      if (!ok) {
-        // Legacy fallback (no pool id, or photo not in pool)
+    showConfirm('Remove Photo', 'Remove this photo?').then(function(yes) {
+      if (yes) {
         Model.removeObservationPhoto(deficId, obsIdx, photoIdx);
+        initDeficiencies.render();
+        toast('Photo removed');
       }
-      initDeficiencies.render();
-      toast('Photo removed from observation');
     });
   }
 
@@ -1496,27 +1485,7 @@ function _compressAndAdd(file, deficId, obsIdx) {
       var ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, w, h);
       var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      // S120: uploads land in the defic-level pool. If the upload-target
-      // obs has a CUSTOM photoSelection (the inspector previously narrowed
-      // it), append the new photo's id to that obs's selection so the
-      // upload action is "felt" — without this, an inspector who narrowed
-      // an obs and then uploads from its photo zone would not see the
-      // photo. Default-state obs auto-include the new photo via
-      // getEffectivePhotos returning the full live pool. Other custom-
-      // state obs are NOT touched, preserving any earlier narrowing.
-      var photo = Model.addPoolPhoto
-        ? Model.addPoolPhoto(deficId, dataUrl)
-        : Model.addObservationPhoto(deficId, obsIdx, dataUrl);
-      if (photo && Model.addPoolPhoto) {
-        var _f = Model.findDeficiency(deficId);
-        if (_f && _f.defic.observations) {
-          var _o = _f.defic.observations[obsIdx];
-          if (_o && Array.isArray(_o.photoSelection) && _o.photoSelection.indexOf(photo.id) === -1) {
-            _o.photoSelection.push(photo.id);
-            Model.saveNow();
-          }
-        }
-      }
+      var photo = Model.addObservationPhoto(deficId, obsIdx, dataUrl);
       initDeficiencies.render();
       toast('Photo added');
       // R2 upload in Hub mode (fire-and-forget)

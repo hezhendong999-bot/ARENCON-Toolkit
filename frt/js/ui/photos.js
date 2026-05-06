@@ -129,9 +129,19 @@ export var initPhotos = {
       var badgeCls = 'ph-badge-pin-high';
       if (isGeneral) badgeCls = 'ph-badge-pin-gen';
       else if (defic.priority === 'low') badgeCls = 'ph-badge-pin-low';
+      // S120 Push 1: pool-aware enumeration — for each obs, walk the
+      // EFFECTIVE photo list (pool ∩ obs.photoSelection, with markup overlays).
+      // A photo shared by Obs A + Obs B emits two records, each tagged with
+      // the parent obs (matches V1 corner-badge pattern Mark requested).
+      // Legacy fallback inside getEffectivePhotos handles never-migrated edge cases.
+      var multiObs = (defic.observations || []).length > 1;
       (defic.observations || []).forEach(function(o, oi) {
-        (o.photos || []).forEach(function(ph, phi) {
+        var effective = (typeof Model !== 'undefined' && Model.getEffectivePhotos)
+          ? Model.getEffectivePhotos(defic, oi) : (o.photos || []);
+        effective.forEach(function(ph, phi) {
+          var mk = (Model.getObsPhotoMarkup) ? Model.getObsPhotoMarkup(defic, oi, ph.id) : null;
           var dk = _dayKey(ph, defic);
+          var obsLetter = multiObs ? ' \u00b7 Obs ' + String.fromCharCode(65 + oi) : '';
           records.push({
             type: 'defic',
             deficId: defic.id,
@@ -140,8 +150,8 @@ export var initPhotos = {
             obsIdx: oi,
             photoIdx: phi,
             ph: ph,
-            src: ph.r2Url || ph.dataUrl || '',
-            badgeText: 'Pin ' + defic.num,
+            src: (mk && mk.markedR2Key) || ph.r2Url || ph.dataUrl || '',
+            badgeText: 'Pin ' + defic.num + obsLetter,
             badgeClass: badgeCls,
             dateKey: dk.key, dateLabel: dk.label,
             sortGroup: [1, defic.num, oi, phi]
@@ -458,7 +468,10 @@ document.addEventListener('click', function(e) {
     Model.getAllDeficiencies(proj).forEach(function(d) {
       var defic = d.defic;
       (defic.observations || []).forEach(function(o, oi) {
-        (o.photos || []).forEach(function(ph, phi) {
+        // S120: must mirror the render-time enumeration (pool-aware) so the
+        // UIDs the toggle generates match the UIDs the render emitted.
+        var eff = (Model.getEffectivePhotos) ? Model.getEffectivePhotos(defic, oi) : (o.photos || []);
+        eff.forEach(function(ph, phi) {
           var dk = _dayKey(ph, defic);
           if (dk.key === dateKey) groupUids.push('defic:' + defic.id + ':' + oi + ':' + phi);
         });

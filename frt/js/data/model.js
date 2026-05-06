@@ -826,33 +826,62 @@ export var Model = {
   },
 
   addObservationPhoto: function(deficId, obsIdx, photoData) {
+    // S120: Route legacy "add to obs.photos" uploads into the pool model so
+    // post-migration uploads aren't orphaned. Behavior:
+    //  - Adds to defic.photos[] pool (single source of truth)
+    //  - Default-state obs (photoSelection null) auto-shows it (default = all pool)
+    //  - Custom-state obs (photoSelection array) gets the new id appended so
+    //    the photo is visible in THIS obs but not silently leaking into other
+    //    custom obs (matches the locked S120 design).
+    // Existing callers (deficiencies.js, viewer.js, photos.js) keep working
+    // without changes.
     var f = this.findDeficiency(deficId);
-    if (!f) return;
-    var obs = f.defic.observations || [];
-    if (!obs[obsIdx]) return;
-    if (!obs[obsIdx].photos) obs[obsIdx].photos = [];
-    var photo = {
-      id: 'ph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      dataUrl: photoData,
-      filename: 'photo_' + Date.now() + '.jpg',
-      addedDate: new Date().toISOString().split('T')[0],
-      createdBy: _currentUserId || null   // S83
-    };
-    obs[obsIdx].photos.push(photo);
-    _dirty = true;
-    _queueSave();
-    this._notify('photo', { action: 'add', deficId: deficId, photo: photo });
+    if (!f) return null;
+    var obs = (f.defic.observations || [])[obsIdx];
+    if (!obs) return null;
+    var photo = this.addPoolPhoto(deficId, photoData);
+    if (!photo) return null;
+    if (Array.isArray(obs.photoSelection)) {
+      obs.photoSelection.push(photo.id);
+    }
+    // Notify under the legacy "add" event so the existing UI listeners (which
+    // don't know about "add-pool" yet) keep firing renders. addPoolPhoto
+    // already fired "add-pool" — this is a second notification on the legacy
+    // channel for back-compat. Cheap; renderers de-dupe via element identity.
+    this._notify('photo', { action: 'add', deficId: deficId, photo: photo, obsIdx: obsIdx });
     return photo;
   },
 
   removeObservationPhoto: function(deficId, obsIdx, photoIdx) {
+    // S120: photoIdx is now an index into the EFFECTIVE photo list for this
+    // obs (what the UI shows). Resolve to the underlying pool entry and
+    // soft-delete via removePoolPhoto so the cascade (selection + markup)
+    // runs correctly. Falls back to the legacy obs.photos[] splice for
+    // never-migrated edge cases (pool empty, obs.photos populated).
     var f = this.findDeficiency(deficId);
     if (!f) return null;
-    var obs = f.defic.observations || [];
-    if (!obs[obsIdx]) return null;
-    var photos = obs[obsIdx].photos || [];
-    if (photoIdx < 0 || photoIdx >= photos.length) return null;
-    var removed = photos.splice(photoIdx, 1)[0];
+    var obs = (f.defic.observations || [])[obsIdx];
+    if (!obs) return null;
+    var effective = this.getEffectivePhotos(f.defic, obsIdx);
+    var target = effective[photoIdx];
+    if (!target) return null;
+    // Pool path: target has an id that exists in defic.photos
+    var poolHit = (f.defic.photos || []).some(function(p) { return p && p.id === target.id; });
+    if (poolHit) {
+      // For custom-state obs, also remove from this obs's selection so the
+      // UI immediately stops showing it (default-state obs see it removed
+      // through the pool tombstone alone).
+      if (Array.isArray(obs.photoSelection)) {
+        obs.photoSelection = obs.photoSelection.filter(function(id) { return id !== target.id; });
+      }
+      this.removePoolPhoto(deficId, target.id);
+      return target;
+    }
+    // Legacy fallback: never-migrated obs.photos
+    var photos = obs.photos || [];
+    var legacyIdx = photos.indexOf(target);
+    if (legacyIdx === -1) return null;
+    var removed = photos.splice(legacyIdx, 1)[0];
     _dirty = true;
     _queueSave();
     this._notify('photo', { action: 'remove', deficId: deficId, photo: removed });
@@ -960,45 +989,6 @@ export var Model = {
     _queueSave();
     this._notify('photo', { action: 'markup', deficId: deficId, obsIdx: obsIdx, photoId: photoId });
     return true;
-  },
-
-  // Unified "remove photo from this obs only" — the action a per-photo ✕
-  // button performs in default view. Behavior:
-  //  - If the photo is in the defic pool AND the obs has a custom selection,
-  //    remove the ID from that obs's photoSelection (other obs unaffected).
-  //  - If the photo is in the pool AND the obs is default-state, narrow the
-  //    obs by setting photoSelection to "all current pool except this one"
-  //    (other obs stay default; if they were already custom, unchanged).
-  //  - If the photo is in legacy obs.photos[] (pre-migration), splice it.
-  // Never deletes from the pool entirely. Use removePoolPhoto for that.
-  removePhotoFromObs: function(deficId, obsIdx, photoId) {
-    var f = this.findDeficiency(deficId);
-    if (!f) return false;
-    var d = f.defic;
-    var obs = (d.observations || [])[obsIdx];
-    if (!obs) return false;
-    var poolPhoto = (d.photos || []).find(function(p) { return p && !p.deleted && p.id === photoId; });
-    if (poolPhoto) {
-      if (Array.isArray(obs.photoSelection)) {
-        obs.photoSelection = obs.photoSelection.filter(function(id) { return id !== photoId; });
-      } else {
-        // Default-state obs → narrow to "all pool except this one"
-        var others = (d.photos || []).filter(function(p) { return p && !p.deleted && p.id !== photoId; });
-        obs.photoSelection = others.map(function(p) { return p.id; });
-      }
-      _dirty = true;
-      _queueSave();
-      this._notify('photo', { action: 'unselect', deficId: deficId, obsIdx: obsIdx, photoId: photoId });
-      return true;
-    }
-    // Legacy fallback (never-migrated)
-    if (obs.photos && obs.photos.length) {
-      var legacyIdx = obs.photos.findIndex(function(p) { return p && p.id === photoId; });
-      if (legacyIdx >= 0) {
-        return !!this.removeObservationPhoto(deficId, obsIdx, legacyIdx);
-      }
-    }
-    return false;
   },
 
   removeDeficiency: function(deficId) {
