@@ -478,14 +478,6 @@ body.dark-mode .project-card-check{background:rgba(30,41,59,.9)}
 .project-card-export{position:absolute;bottom:12px;right:12px;background:none;border:none;font-size:calc(14px + var(--ts));cursor:pointer;color:var(--silver);opacity:0;transition:all .2s;padding:4px;line-height:1;z-index:2}
 .project-card:hover .project-card-export{opacity:1}
 .project-card-export:hover{color:#1D4ED8}
-/* S115 P13: Edit button on project card — sits left of the export icon. */
-.project-card-edit{position:absolute;bottom:12px;right:42px;background:none;border:none;font-size:calc(14px + var(--ts));cursor:pointer;color:var(--silver);opacity:0;transition:all .2s;padding:4px;line-height:1;z-index:2}
-.project-card:hover .project-card-edit{opacity:1}
-.project-card-edit:hover{color:var(--arencon)}
-/* Touch devices: keep both visible (no hover state). */
-@media (pointer:coarse){
-  .project-card-export, .project-card-edit{opacity:1}
-}
 .backup-status{font-size:calc(10px + var(--ts));padding:0 18px 8px;color:var(--silver);font-weight:500}
 .backup-status.not-backed{color:var(--warn)}
 /* ═══ PROJECT PHOTO GALLERY ═══ */
@@ -1801,20 +1793,9 @@ function _renderProjectCard(p, myId) {
   // Export button
   var exportBtnHtml = '<button class="project-card-export" onclick="event.stopPropagation();exportSingleProject(\'' + esc(p.id) + '\')" title="Export JSON">📥</button>';
 
-  // S115 P13: Edit button — opens the existing Edit Project modal directly
-  // from the dashboard tile (no need to navigate into the project first).
-  // Hidden for viewers (matches openEditProjectModal's role gate). Hover-
-  // reveal style matches the Export button. Includes @media(pointer:coarse)
-  // override in CSS so it's always visible on touch devices.
-  var canEdit = !(_profile && _profile.role === 'viewer');
-  var editBtnHtml = canEdit
-    ? '<button class="project-card-edit" onclick="event.stopPropagation();openEditProjectModal(\'' + esc(p.id) + '\')" title="Edit project info">✏️</button>'
-    : '';
-
   return '<div class="project-card" onclick="' + cardClick + '">'
     + bulkCheckHtml
     + exportBtnHtml
-    + editBtnHtml
     + '<div class="project-card-top"><span class="project-card-number">' + num + '</span><span class="project-card-name">' + name + '</span>'
     + '<button class="project-card-pin' + pinClass + '" onclick="event.stopPropagation();togglePin(\'' + esc(p.id) + '\')" title="' + (isPinned ? 'Unpin' : 'Pin for everyone') + '">' + pinIcon + '</button>'
     + '<button class="project-card-star' + starClass + '" onclick="event.stopPropagation();toggleStar(\'' + esc(p.id) + '\')" title="' + (isStarred ? 'Unstar' : 'Star') + '">' + starIcon + '</button>'
@@ -1872,7 +1853,7 @@ function toggleDeleted() {
 
 /* ═══ AVAILABLE TOOLS REGISTRY ═══ */
 const AVAILABLE_TOOLS = {
-  frt:      { name: 'Field Review Report',             icon: '📋', short: 'FRT', color: '#9C2742', svg: '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke="white" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', file: 'frt/index.html' },
+  frt:      { name: 'Field Review Report',             icon: '📋', short: 'FRT', color: '#9C2742', svg: '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke="white" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', file: 'ARENCON_Field_Review_Tool.html' },
   diesel:   { name: 'Diesel Fire Pump Commissioning',  icon: '🔥', short: 'DFP', color: '#E65100', svg: '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 5.86 13.95 4c-1.73.46-2.96 1.76-3.6 3.32-.3.7-.44 1.5-.4 2.24.04.76.24 1.5.66 2.14.37.56.84 1.04 1.36 1.42-.16.36-.36.72-.64 1-.28.27-.64.43-1 .5.78.54 1.7.8 2.6.7.94-.1 1.82-.56 2.44-1.3.67-.8.94-1.86.76-2.88-.08-.4-.24-.78-.47-1.13zM12.5 17.5c-.28.23-.62.37-1 .38-.4 0-.76-.17-1.04-.44-.28-.27-.44-.64-.44-1.04 0-.46.18-.84.46-1.12.52-.52 1.15-.82 1.56-1.34.47.66.48 1.58.16 2.3-.1.2-.2.38-.36.54l.1.1c.44-.3.76-.74.96-1.24.24-.58.28-1.24.08-1.86-.1-.3-.24-.56-.42-.8-.3.66-.8 1.16-1.36 1.54-.36.24-.72.42-1 .72-.32.3-.5.7-.5 1.14 0 .66.34 1.28.88 1.62.34.22.74.34 1.16.34.6 0 1.14-.26 1.52-.68.1-.1.18-.22.24-.34z" fill="white"/></svg>', file: 'ARENCON_Diesel_Fire_Pump_Commissioning.html' },
   electric: { name: 'Electric Fire Pump Acceptance',    icon: '⚡', short: 'EFP', color: '#1565C0', svg: '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M13 3v6h5l-7 11v-6H6l7-11z" fill="white"/></svg>', file: 'ARENCON_Electric_Fire_Pump_Commissioning.html' },
   ist:      { name: 'Integrated Systems Testing',       icon: '🔗', short: 'IST', color: '#C62828', svg: '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M3.5 18.5l6-6 4 4L22 8" stroke="white" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 8h6v6" stroke="white" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', file: 'ARENCON_IST_S1001.html' },
@@ -1886,10 +1867,6 @@ function toolName(key) {
 }
 
 var _detailProjectId = null;
-// S115 P13: tracks which project the Edit modal is currently editing.
-// Allows the Edit modal to be opened from the dashboard tile (without
-// first navigating into the project detail view).
-var _editingProjectId = null;
 
 /* ═══ Open Project — Detail View ═══ */
 function openProject(projectId) {
@@ -2269,22 +2246,14 @@ function _renderDetailInfo(proj) {
 }
 
 /* ═══ Edit Project Modal ═══ */
-// S115 P13: optional projectId arg so the dashboard tile can open this
-// modal directly without first navigating into the project detail view.
-// When called without an arg, falls back to _detailProjectId (legacy
-// detail-page behavior).
-function openEditProjectModal(projectId) {
-  var pid = projectId || _detailProjectId;
-  if (!pid) return;
-  var proj = _projects.find(function(p) { return p.id === pid; });
+function openEditProjectModal() {
+  if (!_detailProjectId) return;
+  var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
   if (!proj) return;
   if (_profile && _profile.role === 'viewer') {
     toast('Viewers cannot edit projects', 'error');
     return;
   }
-  // Stash the project we're editing so saveEditProject can find it even
-  // when the user isn't on the detail page.
-  _editingProjectId = pid;
   document.getElementById('ep-number').value = proj.project_number || '';
   document.getElementById('ep-name').value = proj.project_name || '';
   document.getElementById('ep-client').value = proj.client || '';
@@ -2298,15 +2267,11 @@ function openEditProjectModal(projectId) {
 
 function closeEditProjectModal() {
   document.getElementById('edit-project-modal').classList.remove('show');
-  _editingProjectId = null;
 }
 
 async function saveEditProject() {
-  // S115 P13: prefer _editingProjectId (set by openEditProjectModal) over
-  // _detailProjectId so saving works from the dashboard tile too.
-  var pid = _editingProjectId || _detailProjectId;
-  if (!pid) return;
-  var proj = _projects.find(function(p) { return p.id === pid; });
+  if (!_detailProjectId) return;
+  var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
   if (!proj) return;
   var num = document.getElementById('ep-number').value.trim();
   var name = document.getElementById('ep-name').value.trim();
@@ -2336,13 +2301,8 @@ async function saveEditProject() {
     // Update local
     Object.assign(proj, updates);
     closeEditProjectModal();
-    // S115 P13: if the user was on the detail page, refresh it.
-    // Otherwise (dashboard tile flow), just re-render the tile grid.
-    if (_detailProjectId === pid) {
-      openProject(proj.id);
-    } else {
-      renderProjects();
-    }
+    // Refresh detail view
+    openProject(proj.id);
     toast('Project updated', 'success');
   } catch (e) {
     toast('Failed to save: ' + e.message, 'error');
@@ -2439,33 +2399,87 @@ async function restoreProject(projectId) {
 }
 
 /* ═══ Permanent Purge (from trash only) ═══ */
+// S119 Push H: stale browser confirm() replaced with a custom type-to-
+// confirm modal — purging permanently destroys the project, cannot be
+// recovered, so a single mistap shouldn't be enough. Mirrors the
+// existing 'Move to Trash' modal at line 889 but built on the fly so
+// it can serve both single-project and bulk-purge code paths.
+function _typeToConfirmPurge(title, message, onConfirm) {
+  var existing = document.getElementById('purge-confirm-modal');
+  if (existing) existing.remove();
+  var ov = document.createElement('div');
+  ov.id = 'purge-confirm-modal';
+  ov.className = 'modal-overlay show';
+  ov.innerHTML = '<div class="modal-card">'
+    + '<h3 style="color:#DC2626;">\uD83D\uDDD1\uFE0F ' + title + '</h3>'
+    + '<p style="font-size:calc(13px + var(--ts));color:var(--steel);margin:8px 0 4px;">' + message + '</p>'
+    + '<p style="font-size:calc(13px + var(--ts));margin:8px 0;">Type <strong style="color:#DC2626">DELETE</strong> to confirm:</p>'
+    + '<input type="text" class="delete-confirm-input" id="purge-confirm-input" placeholder="Type DELETE here" autocomplete="off">'
+    + '<div id="purge-error" style="display:none;font-size:calc(12px + var(--ts));color:#DC2626;font-weight:600;margin:4px 0;"></div>'
+    + '<div class="modal-actions">'
+    + '<button class="dash-btn secondary" id="purge-cancel-btn">Cancel</button>'
+    + '<button class="dash-btn" id="purge-ok-btn" style="background:linear-gradient(135deg,#DC2626,#B91C1C);color:white;">Permanently Delete</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  var inp = ov.querySelector('#purge-confirm-input');
+  var err = ov.querySelector('#purge-error');
+  function close() { ov.remove(); }
+  ov.querySelector('#purge-cancel-btn').onclick = close;
+  ov.querySelector('#purge-ok-btn').onclick = function() {
+    if (inp.value.trim().toUpperCase() !== 'DELETE') {
+      err.textContent = 'Please type DELETE to confirm.';
+      err.style.display = 'block';
+      return;
+    }
+    close();
+    onConfirm();
+  };
+  inp.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') ov.querySelector('#purge-ok-btn').click();
+    if (e.key === 'Escape') close();
+  });
+  setTimeout(function() { inp.focus(); }, 50);
+}
+
 async function purgeProject(projectId) {
   var proj = _projects.find(function(p){ return p.id === projectId; });
   if (!proj) return;
-  if (!confirm('PERMANENTLY delete "' + (proj.project_number || '') + '"? This cannot be undone.')) return;
-  try {
-    await _sb.from('projects').eq('id', proj.id).delete();
-    _projects = _projects.filter(function(p){ return p.id !== projectId; });
-    toast('Project permanently deleted', 'success');
-    renderProjects();
-  } catch(e) {
-    toast('Purge failed: ' + e.message, 'error');
-  }
+  _typeToConfirmPurge(
+    'Permanently Delete Project',
+    'This will PERMANENTLY delete "' + (proj.project_number || '') + '" — drawings, deficiencies, photos, all FRT data. This cannot be undone or restored from trash.',
+    async function() {
+      try {
+        await _sb.from('projects').eq('id', proj.id).delete();
+        _projects = _projects.filter(function(p){ return p.id !== projectId; });
+        toast('Project permanently deleted', 'success');
+        renderProjects();
+      } catch(e) {
+        toast('Purge failed: ' + e.message, 'error');
+      }
+    }
+  );
 }
 
 async function bulkPurge() {
   if (_bulkSelected.length === 0) { toast('No projects selected', 'error'); return; }
-  if (!confirm('PERMANENTLY DELETE ' + _bulkSelected.length + ' project(s)? This cannot be undone.')) return;
-  var count = 0;
-  for (var i = 0; i < _bulkSelected.length; i++) {
-    try {
-      await _sb.from('projects').eq('id', _bulkSelected[i]).delete();
-      _projects = _projects.filter(function(x) { return x.id !== _bulkSelected[i]; });
-      count++;
-    } catch (e) { /* skip */ }
-  }
-  toast(count + ' project(s) permanently deleted', 'success');
-  clearBulkSelection(); renderProjects();
+  var n = _bulkSelected.length;
+  _typeToConfirmPurge(
+    'Permanently Delete ' + n + ' Project' + (n>1?'s':''),
+    'This will PERMANENTLY delete ' + n + ' project' + (n>1?'s':'') + ' — drawings, deficiencies, photos, all FRT data. This cannot be undone or restored from trash.',
+    async function() {
+      var count = 0;
+      for (var i = 0; i < _bulkSelected.length; i++) {
+        try {
+          await _sb.from('projects').eq('id', _bulkSelected[i]).delete();
+          _projects = _projects.filter(function(x) { return x.id !== _bulkSelected[i]; });
+          count++;
+        } catch (e) { /* skip */ }
+      }
+      toast(count + ' project(s) permanently deleted', 'success');
+      clearBulkSelection();
+      renderProjects();
+    }
+  );
 }
 
 async function bulkRestore() {
@@ -3568,84 +3582,30 @@ function _pgExtractPhotos(row) {
 
   // ── FRT ──
   if (toolKey === 'frt') {
-    // Site photos.
-    // S116 Push 10: read v2 schema (data.photos) FIRST, then fall back to
-    // legacy v1 (data.sitePhotos). Mark hit this exact same migration class
-    // of bug as the deficiency photos in P6 — model.js:219 migrates
-    // sitePhotos → photos at project root, so v2-era projects no longer
-    // have data.sitePhotos. Result: site count visible in Cloud Storage
-    // (12 files) but Site filter showed "No photos found for this project".
-    // Dedup across both arrays in case a mid-migration project has both.
-    var seenSiteIds = {};
-    var siteArr = (data.photos && data.photos.length) ? data.photos : (data.sitePhotos || []);
-    siteArr.forEach(function(ph) {
+    // Site photos
+    (data.sitePhotos || []).forEach(function(ph) {
       if (!ph) return;
       var src = _pgResolveR2Src(ph, projectId);
-      if (!src) return;
-      var pid = (typeof ph === 'object' && ph.id) ? ph.id : src;
-      if (seenSiteIds[pid]) return;
-      seenSiteIds[pid] = true;
-      photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || ''));
+      if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || ''));
     });
-    // If both arrays exist (mid-migration), enumerate the legacy one too;
-    // dedup keeps duplicates out.
-    if (data.photos && data.photos.length && data.sitePhotos && data.sitePhotos.length) {
-      data.sitePhotos.forEach(function(ph) {
-        if (!ph) return;
-        var src = _pgResolveR2Src(ph, projectId);
-        if (!src) return;
-        var pid = (typeof ph === 'object' && ph.id) ? ph.id : src;
-        if (seenSiteIds[pid]) return;
-        seenSiteIds[pid] = true;
-        photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || ''));
-      });
-    }
     // Deficiency photos (contractors + general)
-    // S116 Push 6: read v2 schema (d.observations[].photos[]) FIRST, then fall
-    // back to legacy d.entries[].photos[] for pre-v2 projects. Previously this
-    // function only looked at d.entries — silently missing every photo on
-    // every v2-era pin, so the gallery showed only site photos + the legacy
-    // d.photos mirror. Real-world impact: Mark saw 17 photos in Hub vs 29 in
-    // FRT for the 1490.04 project.
     function _extractDefics(defics) {
       (defics || []).forEach(function(d) {
         var pinLabel = 'Pin ' + (d.num || '?');
-        // v2 path: observations
-        var obsArr = d.observations || [];
-        var numObs = obsArr.length;
-        // v1 fallback: entries (legacy)
-        var entryArr = d.entries || [];
-        var numEn = entryArr.length;
+        var numEn = (d.entries && d.entries.length) || 0;
         var seenIds = {};
-
-        obsArr.forEach(function(ob, oi) {
-          (ob.photos || []).forEach(function(ph) {
-            var src = _pgResolveR2Src(ph, projectId);
-            if (!src) return;
-            var pid = (typeof ph === 'object' && ph.id) ? ph.id : src;
-            if (seenIds[pid]) return;
-            seenIds[pid] = true;
-            var obsLabel = numObs > 1 ? ', Obs ' + String.fromCharCode(65 + oi) : '';
-            photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, ob.date || d.date || ''));
-          });
-        });
-
-        // Legacy entries[] — only enumerate if observations didn't already
-        // cover the same content (de-duped by id/src above anyway)
-        entryArr.forEach(function(en, ei) {
+        (d.entries || []).forEach(function(en, ei) {
           (en.photos || []).forEach(function(ph) {
             var src = _pgResolveR2Src(ph, projectId);
             if (!src) return;
             var pid = (typeof ph === 'object' && ph.id) ? ph.id : src;
             if (seenIds[pid]) return;
             seenIds[pid] = true;
-            var entLabel = numEn > 1 ? ', Obs ' + String.fromCharCode(65 + ei) : '';
-            photos.push(_makeRec(src, 'deficiency', pinLabel + entLabel, d.date || ''));
+            var obsLabel = numEn > 1 ? ', Obs ' + String.fromCharCode(65 + ei) : '';
+            photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
           });
         });
-
-        // d.photos is a top-level legacy mirror — only use if neither
-        // observations nor entries already had photos for this pin
+        // d.photos is a mirror of entries — only use if entries didn't have photos
         (d.photos || []).forEach(function(ph) {
           var src = _pgResolveR2Src(ph, projectId);
           if (!src) return;
@@ -3654,7 +3614,6 @@ function _pgExtractPhotos(row) {
           seenIds[pid] = true;
           photos.push(_makeRec(src, 'deficiency', pinLabel, d.date || ''));
         });
-
         (d.responses || []).forEach(function(resp) {
           (resp.photos || []).forEach(function(ph) {
             var src = _pgResolveR2Src(ph, projectId);

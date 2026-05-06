@@ -14,7 +14,7 @@ import { TileCache } from './data/tileCache.js';
 import { Presence } from './data/presence.js';
 import { Auth } from './shared/auth.js';
 import { toast } from './shared/toast.js';
-import { showDialog, showConfirm, showAlert, showPrompt } from './shared/dialogs.js';
+import { showDialog, showConfirm, showAlert, showPrompt, showTypeToConfirm } from './shared/dialogs.js';
 import { initProjectInfo } from './ui/projectInfo.js';
 import { initDeficiencies } from './ui/deficiencies.js';
 import { initDrawings } from './ui/drawings.js';
@@ -249,8 +249,15 @@ function wireLoadExport() {
 }
 
 // ── Reset Helpers ───────────────────────────────────────
+// S119 Push H: type-to-confirm for high-risk resets. Both _resetProject
+// and _resetCurrentTab nuke significant data (whole project / entire tab
+// category). A simple confirm dialog isn't enough friction to prevent
+// accidental loss. User must type DELETE before the OK button enables.
 function _resetProject() {
-  showConfirm('Reset Project', 'This will delete ALL project data. Are you sure?').then(function(yes) {
+  showTypeToConfirm(
+    'Reset entire project',
+    'This will permanently delete ALL project data — drawings, deficiencies, photos, and everything else. This cannot be undone.'
+  ).then(function(yes) {
     if (yes) {
       Model.newProject();
       _updateHeaderForProject();
@@ -263,7 +270,13 @@ function _resetProject() {
 function _resetCurrentTab() {
   var activeTab = document.querySelector('.nav-tab.active');
   var tab = activeTab ? activeTab.dataset.tab : 'info';
-  showConfirm('Reset Tab', 'Clear all data from the "' + tab + '" tab?').then(function(yes) {
+  // Match the destructive scope to a clear message per tab.
+  var msg;
+  if (tab === 'drawings') msg = 'This will permanently delete every drawing in this project.';
+  else if (tab === 'photos') msg = 'This will permanently delete every photo in this project.';
+  else if (tab === 'deficiencies') msg = 'This will permanently delete every contractor and every deficiency in this project.';
+  else msg = 'This will clear all data from the "' + tab + '" tab.';
+  showTypeToConfirm('Reset ' + tab + ' tab', msg + ' This cannot be undone.').then(function(yes) {
     if (yes) {
       var proj = Model.getProject();
       if (!proj) return;

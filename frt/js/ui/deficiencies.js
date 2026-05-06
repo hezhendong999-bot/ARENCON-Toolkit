@@ -947,18 +947,27 @@ document.addEventListener('click', function(e) {
   if (action === 'remove-pin') {
     var deficId = el.getAttribute('data-defic-id');
     if (!deficId) { var btn3 = el.closest('[data-defic-id]'); if (btn3) deficId = btn3.getAttribute('data-defic-id'); }
-    if (deficId) {
+    if (!deficId) return;
+    var fRp = Model.findDeficiency(deficId);
+    if (!fRp) return;
+    var rpNum = fRp.defic.num || '?';
+    // S119 Push H: Mark misclicked the floating Remove Pin button last
+    // session and the pin disappeared with no confirmation. The same button
+    // exists on the deficiency card. Match the pin-editor's #pe-unpin
+    // confirmation copy (deficiency stays in project, only the drawing
+    // location is removed).
+    showConfirm('Remove Pin from Drawing', 'Remove pin #' + rpNum + ' from the drawing? The deficiency stays in the project.').then(function(yes) {
+      if (!yes) return;
       var f = Model.findDeficiency(deficId);
-      if (f) {
-        f.defic.drawingId = null;
-        f.defic.pinX = null;
-        f.defic.pinY = null;
-        Model._notify('deficiency', { action: 'pin-remove', deficId: deficId });
-        Model.saveNow();
-        initDeficiencies.render();
-        toast('Pin removed');
-      }
-    }
+      if (!f) return;
+      f.defic.drawingId = null;
+      f.defic.pinX = null;
+      f.defic.pinY = null;
+      Model._notify('deficiency', { action: 'pin-remove', deficId: deficId });
+      Model.saveNow();
+      initDeficiencies.render();
+      toast('Pin removed');
+    });
   }
 
   if (action === 'open-lightbox') {
