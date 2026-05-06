@@ -466,6 +466,19 @@ body.dark-mode .pe-photo-zone{border-color:#3a3e48;}
 .pe-photo-thumb{width:64px;height:64px;border-radius:6px;overflow:hidden;position:relative;background:#000;border:1px solid #dde1e7;flex-shrink:0;cursor:pointer;}
 .pe-photo-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
 body.dark-mode .pe-photo-thumb{border-color:#3a3e48;}
+/* ── S120: pin editor photo selection mode ── */
+.pe-sel-thumb{width:84px;height:84px;border:2px solid #DDE1E7;transition:border-color .15s ease,box-shadow .15s ease;}
+.pe-sel-thumb.is-checked{border-color:#5C7A65;box-shadow:0 0 0 1px #5C7A65 inset;}
+.pe-sel-thumb.is-orphan{border-color:#A85959;box-shadow:0 0 0 1px #A85959 inset;}
+.pe-sel-thumb.is-orphan.is-checked{border-color:#5C7A65;box-shadow:0 0 0 1px #5C7A65 inset;}
+.pe-sel-cb{position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:4px;background:rgba(255,255,255,.92);border:1.5px solid #6B7B8C;color:#5C7A65;font-size:14px;font-weight:bold;line-height:18px;text-align:center;pointer-events:none;}
+.pe-sel-cb.is-checked{background:#5C7A65;color:white;border-color:#5C7A65;}
+.pe-sel-orphan{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:#A85959;color:white;font-size:13px;line-height:20px;text-align:center;pointer-events:none;font-weight:bold;}
+.pe-sel-dots{position:absolute;bottom:3px;left:3px;display:flex;gap:2px;pointer-events:none;}
+.pe-sel-dot{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;color:white;font-size:9px;font-weight:bold;line-height:1;border:1.5px solid white;}
+body.dark-mode .pe-sel-thumb{border-color:#3a3e48;}
+body.dark-mode .pe-sel-cb{background:rgba(40,40,46,.92);border-color:#9aa3b1;color:#7eaf8c;}
+body.dark-mode .pe-sel-cb.is-checked{background:#5C7A65;color:white;border-color:#5C7A65;}
 .pe-photo-btn{padding:6px 18px;border-radius:6px;border:1px solid #dde1e7;background:var(--smoke);color:#4A5568;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));margin:3px;}.pe-camera-btn{background:#1A7A4A;border-color:#1A7A4A;color:white;}
 body.dark-mode .pe-photo-btn:not(.pe-camera-btn){background:#2a2d35;color:white;border-color:#3a3e48;}
 /* Big drawing panel */

@@ -962,6 +962,45 @@ export var Model = {
     return true;
   },
 
+  // Unified "remove photo from this obs only" — the action a per-photo ✕
+  // button performs in default view. Behavior:
+  //  - If the photo is in the defic pool AND the obs has a custom selection,
+  //    remove the ID from that obs's photoSelection (other obs unaffected).
+  //  - If the photo is in the pool AND the obs is default-state, narrow the
+  //    obs by setting photoSelection to "all current pool except this one"
+  //    (other obs stay default; if they were already custom, unchanged).
+  //  - If the photo is in legacy obs.photos[] (pre-migration), splice it.
+  // Never deletes from the pool entirely. Use removePoolPhoto for that.
+  removePhotoFromObs: function(deficId, obsIdx, photoId) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return false;
+    var d = f.defic;
+    var obs = (d.observations || [])[obsIdx];
+    if (!obs) return false;
+    var poolPhoto = (d.photos || []).find(function(p) { return p && !p.deleted && p.id === photoId; });
+    if (poolPhoto) {
+      if (Array.isArray(obs.photoSelection)) {
+        obs.photoSelection = obs.photoSelection.filter(function(id) { return id !== photoId; });
+      } else {
+        // Default-state obs → narrow to "all pool except this one"
+        var others = (d.photos || []).filter(function(p) { return p && !p.deleted && p.id !== photoId; });
+        obs.photoSelection = others.map(function(p) { return p.id; });
+      }
+      _dirty = true;
+      _queueSave();
+      this._notify('photo', { action: 'unselect', deficId: deficId, obsIdx: obsIdx, photoId: photoId });
+      return true;
+    }
+    // Legacy fallback (never-migrated)
+    if (obs.photos && obs.photos.length) {
+      var legacyIdx = obs.photos.findIndex(function(p) { return p && p.id === photoId; });
+      if (legacyIdx >= 0) {
+        return !!this.removeObservationPhoto(deficId, obsIdx, legacyIdx);
+      }
+    }
+    return false;
+  },
+
   removeDeficiency: function(deficId) {
     var f = this.findDeficiency(deficId);
     if (!f) return false;
