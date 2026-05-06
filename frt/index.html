@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=244">
+<link rel="stylesheet" href="css/frt.css?v=245">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -335,7 +335,6 @@ function ensurePdfJs(cb){
       <div class="mm-divider"></div>
       <button class="btn mm-btn mm-sub" id="mobile-reset-tab-btn" onclick="var ms=document.querySelectorAll('#more-menu > button');for(var i=0;i<ms.length;i++){if(ms[i].textContent.indexOf('Reset Current')>=0){ms[i].click();break;}}">🗑️ Reset Current Tab</button>
       <button class="btn mm-btn mm-sub mm-danger" id="mobile-reset-btn">⚠️ Reset Project</button>
-      <button class="btn mm-btn mm-sub" id="mobile-clear-all" style="display:none;color:#C62828;">🗑️ Clear All Data</button>
     </div>
     <button class="btn mm-btn mm-signout" id="mobile-signout-btn" style="display:none;">🔓 Sign Out</button>
     <!-- 3-icon utility row -->
@@ -561,9 +560,6 @@ function ensurePdfJs(cb){
       <div id="dv-more-menu" class="dv-more-menu" style="display:none;">
         <button data-dv-action="download" class="dv-menu-item">⬇️ Download Drawing</button>
         <button data-dv-action="heights" class="dv-menu-item">📐 Heights / Dimensions</button>
-        <div class="dv-more-sep"></div>
-        <button data-dv-action="delete-all-markup" class="dv-menu-item dv-menu-danger">✏️ Delete All Markup</button>
-        <button data-dv-action="delete-all-pins" class="dv-menu-item dv-menu-danger">📌 Delete All Pins</button>
       </div>
     </div>
     <span id="dv-spacer-v75"></span>
