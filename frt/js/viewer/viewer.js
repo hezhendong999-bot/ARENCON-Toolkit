@@ -2053,6 +2053,13 @@ function _peExitSelectionMode() {
   if (f) _peRenderObsContent(f.defic, _peObsIdx);
 }
 
+// S120 Push 7: expose to window so the global Esc handler in app.js can
+// detect selection mode and exit it without closing the pin editor.
+if (typeof window !== 'undefined') {
+  window._peSelectionModeIsActive = function() { return _peSelectionMode === true; };
+  window._peExitSelectionMode = _peExitSelectionMode;
+}
+
 function _peSaveSelection() {
   if (!_peDeficId || !_peSelectionPending) { _peExitSelectionMode(); return; }
   var f = Model.findDeficiency(_peDeficId);
@@ -2641,6 +2648,34 @@ document.addEventListener('click', function(e) {
     _ctrCrudMode = 'idle';
     _peRenderCtrCrudRow(prevCurId);
     return;
+  }
+
+  // S120 Push 5: pin editor footer "More ▾" dropdown. Toggle on the trigger;
+  // any click outside the wrapper closes it. Menu items (#pe-goto-dwg /
+  // #pe-unpin) are handled by their existing closest() handlers below; we
+  // just make sure the menu closes after a click lands on an item.
+  if (e.target.closest && e.target.closest('#pe-more-btn')) {
+    var moreBtn = document.getElementById('pe-more-btn');
+    var moreMenu = document.getElementById('pe-more-menu');
+    if (moreBtn && moreMenu) {
+      var open = moreMenu.style.display !== 'none';
+      moreMenu.style.display = open ? 'none' : 'block';
+      moreBtn.setAttribute('aria-expanded', open ? 'false' : 'true');
+    }
+    return;
+  }
+  // Click landed inside the menu (item) → let the existing handler run, then
+  // close. Click landed elsewhere AND menu is open → close.
+  var _moreMenuEl = document.getElementById('pe-more-menu');
+  if (_moreMenuEl && _moreMenuEl.style.display !== 'none') {
+    var insideMenu = e.target.closest && e.target.closest('#pe-more-menu');
+    var insideBtn = e.target.closest && e.target.closest('#pe-more-btn');
+    if (!insideBtn) {
+      // Clicked outside the trigger — close. If clicked on a menu item, close
+      // AFTER yielding so the item's handler runs first.
+      if (insideMenu) setTimeout(function() { _moreMenuEl.style.display = 'none'; var b = document.getElementById('pe-more-btn'); if (b) b.setAttribute('aria-expanded', 'false'); }, 0);
+      else { _moreMenuEl.style.display = 'none'; var b2 = document.getElementById('pe-more-btn'); if (b2) b2.setAttribute('aria-expanded', 'false'); }
+    }
   }
 
   // S116 Push 2/3: "Go to drawing" — navigate-only (uses _frtNavigateToPin

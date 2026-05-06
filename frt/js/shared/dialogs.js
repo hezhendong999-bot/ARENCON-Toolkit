@@ -49,6 +49,40 @@ export function showConfirm(title, message) {
 }
 
 /**
+ * S120 Push 6: confirm closing an IAR pin and auto-deactivating IAR.
+ * Three close paths in the codebase used to silently set iar=false (or, worse,
+ * leave it true producing inconsistent state). This helper centralizes the
+ * prompt so they all behave the same way.
+ *
+ * Resolution semantics:
+ *   - null → pin is NOT IAR (caller should proceed without showing a prompt)
+ *   - true → pin is IAR, user confirmed close + deactivate IAR
+ *   - false → pin is IAR, user cancelled
+ *
+ * The caller is responsible for setting iar=false after a true result.
+ *
+ * @param {object} defic — the deficiency record (must have .iar and .num)
+ * @returns {Promise<boolean|null>}
+ */
+export function confirmIARDeactivate(defic) {
+  if (!defic || !defic.iar) return Promise.resolve(null);
+  return new Promise(function(resolve) {
+    var overlay = _createOverlay();
+    var num = defic.num != null ? defic.num : '?';
+    var modal = _createModal(
+      'Close pin and deactivate IAR?',
+      'Pin #' + num + ' is currently marked as IAR (Immediate Action Required). Closing this pin will automatically deactivate the IAR flag — closed deficiencies cannot remain IAR. Continue?',
+      [
+        { label: 'Close & deactivate IAR', color: '#1A7A4A', action: function() { _removeOverlay(overlay); resolve(true); } },
+        { label: 'Cancel', color: '#C0392B', action: function() { _removeOverlay(overlay); resolve(false); } }
+      ]
+    );
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+  });
+}
+
+/**
  * Show a flexible dialog with custom buttons.
  * @param {object} config - { title, message, buttons: [{ label, color, outline, action }] }
  */

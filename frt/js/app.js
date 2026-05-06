@@ -1475,6 +1475,34 @@ document.addEventListener('keydown', function(e) {
 document.addEventListener('keydown', function(e) {
   if (e.key !== 'Escape') return;
 
+  // S120 Push 7: layered Esc behavior — inner-state checks fire FIRST, so a
+  // pin-editor selection mode or open More-menu intercepts Esc without
+  // closing the pin editor itself. The drawing viewer is never closed by
+  // Esc (S114 design). Order matters: most-specific first.
+
+  // (1) Pin editor: open "More ▾" menu → close menu only
+  var moreMenu = document.getElementById('pe-more-menu');
+  if (moreMenu && moreMenu.style.display !== 'none' && moreMenu.offsetParent !== null) {
+    moreMenu.style.display = 'none';
+    var moreBtn = document.getElementById('pe-more-btn');
+    if (moreBtn) moreBtn.setAttribute('aria-expanded', 'false');
+    e.stopPropagation();
+    e.preventDefault();
+    return;
+  }
+
+  // (2) Pin editor: photo selection mode → exit selection only (don't close
+  //     the pin editor). Trigger the cancel pseudo-button so the existing
+  //     _peExitSelectionMode logic runs and re-renders the photo zone.
+  if (typeof window._peSelectionModeIsActive === 'function' && window._peSelectionModeIsActive()) {
+    if (typeof window._peExitSelectionMode === 'function') {
+      window._peExitSelectionMode();
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
+  }
+
   // Priority order: most-recently-opened first
   var modalIds = [
     'gp-overlay',              // gallery picker (P1.8)

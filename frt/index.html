@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=247">
+<link rel="stylesheet" href="css/frt.css?v=248">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -870,8 +870,16 @@ function ensurePdfJs(cb){
     </div>
     <div class="pin-editor-footer">
       <button id="pe-save" class="pe-save-btn">Save</button>
-      <button id="pe-goto-dwg" class="pe-photo-btn" title="Switch to the drawing this pin lives on" style="margin-left:6px;">📌 Go to drawing</button>
-      <button id="pe-unpin" class="pe-photo-btn" title="Remove from drawing without deleting the deficiency" style="margin-left:6px;">📍 Remove pin only</button>
+      <!-- S120 Push 5: secondary actions consolidated under More ▾ to reduce
+           footer crowding. Goto-drawing and Remove-pin-only stay accessible
+           but no longer compete visually with Save/Delete. -->
+      <div id="pe-more-wrap" style="position:relative;display:inline-block;margin-left:6px;">
+        <button id="pe-more-btn" class="pe-photo-btn" type="button" aria-haspopup="true" aria-expanded="false" title="More actions">More \u25BE</button>
+        <div id="pe-more-menu" role="menu" style="display:none;position:absolute;bottom:calc(100% + 4px);left:0;background:var(--bg,white);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);min-width:220px;z-index:30;overflow:hidden;font-family:Calibri,sans-serif;">
+          <button id="pe-goto-dwg" type="button" role="menuitem" style="display:block;width:100%;text-align:left;padding:10px 14px;background:none;border:none;color:var(--fg,#1B2438);font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Switch to the drawing this pin lives on">\uD83D\uDCCC Go to drawing</button>
+          <button id="pe-unpin" type="button" role="menuitem" style="display:block;width:100%;text-align:left;padding:10px 14px;background:none;border:none;border-top:1px solid var(--border);color:var(--fg,#1B2438);font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Remove from drawing without deleting the deficiency">\uD83D\uDCCD Remove pin only</button>
+        </div>
+      </div>
       <button id="pe-delete" class="pe-delete-btn" title="Permanently delete this deficiency">Delete</button>
       <button id="pe-cancel" class="pe-cancel-btn">Cancel</button>
     </div>

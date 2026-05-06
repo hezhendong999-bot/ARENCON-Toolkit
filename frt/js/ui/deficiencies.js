@@ -12,7 +12,7 @@
 
 import { Model } from '../data/model.js';
 import { toast } from '../shared/toast.js';
-import { showConfirm, showPrompt } from '../shared/dialogs.js';
+import { showConfirm, showPrompt, confirmIARDeactivate } from '../shared/dialogs.js';
 import { R2 } from '../data/r2.js';
 
 // ── Helpers ──────────────────────────────────────────────
@@ -948,11 +948,38 @@ document.addEventListener('click', function(e) {
   if (action === 'toggle-addressed') {
     var deficId = el.getAttribute('data-defic-id');
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
-    Model.toggleObsAddressed(deficId, obsIdx);
-    // S119: re-render so the pin-level header (effective status, circle color)
-    // reflects the new aggregate state if this toggle flipped all-addressed.
-    initDeficiencies.render();
-    if (window._frtRenderTasks) window._frtRenderTasks();
+    // S120 Push 6: if this flip will close the pin (last unaddressed obs
+    // becomes addressed) AND the pin is IAR, confirm IAR deactivation
+    // before flipping. Without this gate, ticking the last obs as
+    // addressed silently set iar=false via Model.updateDeficStatus's
+    // status mirror — surprising for IAR pins.
+    var _ta = Model.findDeficiency(deficId);
+    var _willClose = false;
+    if (_ta && _ta.defic && _ta.defic.iar && _ta.defic.observations) {
+      var unaddrCount = 0;
+      var thisIsAddressed = !!(_ta.defic.observations[obsIdx] || {}).addressed;
+      _ta.defic.observations.forEach(function(o, i) {
+        if (i === obsIdx) {
+          // After flip, this obs's addressed state inverts
+          if (thisIsAddressed) unaddrCount++; // flipping addressed→open
+        } else if (!o.addressed) unaddrCount++;
+      });
+      _willClose = !thisIsAddressed && unaddrCount === 0;
+    }
+    var _doToggle = function() {
+      Model.toggleObsAddressed(deficId, obsIdx);
+      initDeficiencies.render();
+      if (window._frtRenderTasks) window._frtRenderTasks();
+    };
+    if (_willClose) {
+      confirmIARDeactivate(_ta.defic).then(function(ok) {
+        if (ok === false) return;
+        if (_ta && _ta.defic) _ta.defic.iar = false;
+        _doToggle();
+      });
+    } else {
+      _doToggle();
+    }
   }
 
   // S116 Push 3: split view-pin from place-pin.
@@ -1225,18 +1252,31 @@ document.addEventListener('click', function(e) {
     var deficId = el.getAttribute('data-defic-id');
     var _cd = Model.findDeficiency(deficId);
     var _cnum = _cd ? _cd.defic.num || '?' : '?';
-    showPrompt('\u2714 Close Deficiency #' + _cnum, 'Closing note (optional):').then(function(note) {
-      if (note === null) return; // cancelled
-      Model.updateDeficStatus(deficId, 'closed');
-      if (note) Model.updateClosedNote(deficId, note);
-      // Auto-switch to Closed tab
-      _activeDlcTab = 'closed';
-      document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
-        t.classList.toggle('active', t.getAttribute('data-dlc') === 'closed');
+    // S120 Push 6: closing an IAR pin via "+ Close" — confirm IAR
+    // deactivation FIRST, then the closing-note prompt. If the IAR confirm
+    // is cancelled, abort the whole close flow (don't show the note prompt).
+    var _continueClose = function() {
+      showPrompt('\u2714 Close Deficiency #' + _cnum, 'Closing note (optional):').then(function(note) {
+        if (note === null) return; // cancelled at note prompt
+        if (_cd && _cd.defic && _cd.defic.iar) _cd.defic.iar = false;
+        Model.updateDeficStatus(deficId, 'closed');
+        if (note) Model.updateClosedNote(deficId, note);
+        _activeDlcTab = 'closed';
+        document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
+          t.classList.toggle('active', t.getAttribute('data-dlc') === 'closed');
+        });
+        initDeficiencies.render();
+        toast('Deficiency #' + _cnum + ' closed');
       });
-      initDeficiencies.render();
-      toast('Deficiency #' + _cnum + ' closed');
-    });
+    };
+    if (_cd && _cd.defic && _cd.defic.iar) {
+      confirmIARDeactivate(_cd.defic).then(function(ok) {
+        if (ok === false) return; // IAR cancel — abort
+        _continueClose();
+      });
+    } else {
+      _continueClose();
+    }
   }
 
   if (action === 'reopen-defic') {
@@ -1281,18 +1321,37 @@ document.addEventListener('change', function(e) {
     var deficId = e.target.getAttribute('data-defic-id');
     var newStatus = e.target.value;
     var _sf = Model.findDeficiency(deficId);
-    Model.updateDeficStatus(deficId, newStatus);
-    // Auto-switch to correct tab
-    if (newStatus === 'closed') {
-      _activeDlcTab = 'closed';
+    var _selEl = e.target;
+    // S120 Push 6: closing an IAR pin via the status dropdown — confirm
+    // first and auto-deactivate IAR. On cancel, revert the dropdown.
+    var _proceed = function() {
+      Model.updateDeficStatus(deficId, newStatus);
+      // Auto-switch to correct tab
+      if (newStatus === 'closed') {
+        _activeDlcTab = 'closed';
+      } else {
+        var hasCtr = _sf && _sf.contractor;
+        _activeDlcTab = hasCtr ? 'active' : 'general';
+      }
+      document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
+        t.classList.toggle('active', t.getAttribute('data-dlc') === _activeDlcTab);
+      });
+      initDeficiencies.render();
+    };
+    if (newStatus === 'closed' && _sf && _sf.defic && _sf.defic.iar) {
+      confirmIARDeactivate(_sf.defic).then(function(ok) {
+        if (ok === false) {
+          // Revert dropdown
+          _selEl.value = 'open';
+          return;
+        }
+        // ok === true (confirmed) or null (not IAR) — clear IAR + proceed
+        if (_sf && _sf.defic) _sf.defic.iar = false;
+        _proceed();
+      });
     } else {
-      var hasCtr = _sf && _sf.contractor;
-      _activeDlcTab = hasCtr ? 'active' : 'general';
+      _proceed();
     }
-    document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
-      t.classList.toggle('active', t.getAttribute('data-dlc') === _activeDlcTab);
-    });
-    initDeficiencies.render();
   }
 
   if (action === 'priority' || action === 'obs-priority') {
@@ -1847,7 +1906,20 @@ function _runDeficBulk(op) {
   var inst = (proj && proj.currentFrtInstance) || 1;
   if (op === 'close' || op === 'reopen') {
     var isClose = op === 'close';
-    showConfirm((isClose ? 'Close ' : 'Reopen ') + ids.length + ' deficienc' + (ids.length>1?'ies':'y') + '?', '').then(function(yes) {
+    // S120 Push 6: surface IAR-active pins in the confirm message so the
+    // inspector knows IAR will be auto-deactivated. Previously the bulk
+    // close path silently set iar=false with no acknowledgement.
+    var iarNums = isClose
+      ? ids.map(function(id) { var f = Model.findDeficiency(id); return (f && f.defic && f.defic.iar) ? ('#' + f.defic.num) : null; }).filter(Boolean)
+      : [];
+    var msg = '';
+    if (iarNums.length === 1) {
+      msg = iarNums[0] + ' is currently IAR. Closing will automatically deactivate IAR.';
+    } else if (iarNums.length > 1) {
+      var preview = iarNums.length > 4 ? (iarNums.slice(0, 4).join(', ') + ' \u2026 (+' + (iarNums.length - 4) + ' more)') : iarNums.join(', ');
+      msg = iarNums.length + ' selected pins are IAR (' + preview + '). Closing will automatically deactivate IAR on all of them.';
+    }
+    showConfirm((isClose ? 'Close ' : 'Reopen ') + ids.length + ' deficienc' + (ids.length>1?'ies':'y') + '?', msg).then(function(yes) {
       if (!yes) return;
       ids.forEach(function(id) {
         var f = Model.findDeficiency(id);
