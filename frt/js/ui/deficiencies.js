@@ -1411,15 +1411,40 @@ Model.onChange('project', function() { initDeficiencies.render(); });
 // S115 P9: also re-render when photos change (e.g., markup save/revert mutates
 // r2Key/r2Url on defic photos — without this hook the defic tab keeps showing
 // the old image because the DOM never refreshes).
-Model.onChange('photo', function() { initDeficiencies.render(); });
+// S119 Bug 1: same focus guard as the 'saved' listener below — don't yank
+// the textarea out from under a typing user just because a photo finished
+// uploading in some other card.
+Model.onChange('photo', function() {
+  var ae = document.activeElement;
+  if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT')) {
+    if (ae.closest('#tab-deficiencies, .defic-item, .defic-list')) return;
+  }
+  initDeficiencies.render();
+});
 
 // S117 hotfix: same as pins.js — pin editor mutates priority/IAR/status
 // in-place and only fires 'saved' notify. Without this the Deficiency
 // tab cards show stale priority badges and IAR chips until project reload.
+// S119 Bug 1 fix: skip the re-render when the user is actively typing in
+// an obs textarea (or any editable field inside the deficiency tab). The
+// 500ms obs-text debounce → updateObservation → _queueSave → 'saved' chain
+// otherwise destroys the textarea node mid-typing, kicking focus out.
+// The mutation is already applied to the Model and the textarea's value
+// already shows what the user typed, so a sync DOM rebuild adds nothing —
+// the next normal render (tab switch, pin change, etc.) catches up.
 var _deficSavedDebounce = null;
 Model.onChange('saved', function() {
   if (_deficSavedDebounce) clearTimeout(_deficSavedDebounce);
   _deficSavedDebounce = setTimeout(function() {
+    var ae = document.activeElement;
+    if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT')) {
+      // Bail if the focused field is inside the deficiency tab — re-rendering
+      // would destroy its node and kick focus out. Skipped renders are
+      // self-correcting: any subsequent action (status change, pin click,
+      // tab switch) goes through a different render path that catches up.
+      var inDefic = !!ae.closest('#tab-deficiencies, .defic-item, .defic-list');
+      if (inDefic) return;
+    }
     initDeficiencies.render();
   }, 300);
 });
