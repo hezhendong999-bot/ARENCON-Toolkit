@@ -273,6 +273,18 @@ function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,s
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
 var reportDefs=[];var rn=1;
 var _ctrFilterId=ctrFilter||'__all__';var _ctrFilterName='';
+// S119 hotfix: per-obs description (text) and status (addressed). Used by
+// the per-drawing appendix table and the closed-summary table — without
+// these helpers both tables show pin-level data identical for every obs row,
+// which means a 2-obs pin renders as two duplicated rows (Mark report).
+function _itemDesc(r){
+  if(r.obs&&r.obs.text)return r.obs.text;
+  return _deficDesc(r.d);
+}
+function _itemIsOpen(r){
+  if(r.obs&&r.obs.addressed!==undefined)return !r.obs.addressed;
+  return _deficIsOpen(r.d);
+}
 // S118: flatten observations — each obs becomes its own report item.
 // Multi-obs pins render as multiple cards sharing the pin number (visible
 // in the minimap teardrop). Pin editor still shows multi-obs UI; this
@@ -282,13 +294,24 @@ var _ctrFilterId=ctrFilter||'__all__';var _ctrFilterName='';
 // S119: per-obs priority filter — skip individual general-priority obs
 // rather than dropping the whole pin. A pin with mixed priorities now
 // emits cards only for its non-general obs.
+// S119 hotfix: per-obs contractor override. If obs.contractorId is set
+// and matches a real contractor in p.contractors, use that contractor's
+// name as the grouping key for this report item — so an obs assigned to
+// a different contractor than its parent pin renders under the right
+// section. Falls back to the pin's parent ctrName when the override is
+// absent or points to an unknown id.
 function _pushItems(d,ctrName){
   var obs=d.observations&&d.observations.length?d.observations:null;
   if(obs){
     obs.forEach(function(o,oi){
       var pri=(o&&o.priority)||d.priority||'high';
       if(pri==='general')return;
-      reportDefs.push({d:d,obs:o,obsIdx:oi,ctr:ctrName,rn:rn++});
+      var effCtr=ctrName;
+      if(o.contractorId){
+        var foundCtr=(p.contractors||[]).find(function(c){return c.id===o.contractorId;});
+        if(foundCtr)effCtr=foundCtr.name;
+      }
+      reportDefs.push({d:d,obs:o,obsIdx:oi,ctr:effCtr,rn:rn++});
     });
   }else{
     if((d.priority||'high')==='general')return;
@@ -591,7 +614,11 @@ if(showClosedSummary&&closedSummaryDefs.length){
     var items=csG[inst];var cd2=items[0].d.closedDate||'';
     cH2+='<tr><td colspan="5" style="padding:6px 10px;background:#e8e0e3;font-weight:700;font-size:9.5pt;border-top:1.5px solid #DDE1E7;color:#9C2742;">Closed in FRT #'+inst+(cd2?' \u2014 '+cd2:'')+' ('+items.length+' item'+(items.length!==1?'s':'')+')</td></tr>';
     items.forEach(function(r,ri){
-      var desc=_deficDesc(r.d);var td=desc.length>80?desc.substring(0,80)+'\u2026':desc;
+      // S119 hotfix: use per-obs text + per-obs contractor override (already
+      // baked into r.ctr by _pushItems). Pre-S119 this used _deficDesc(r.d)
+      // which returns obs[0].text — duplicating the same description across
+      // every row of a multi-obs pin.
+      var desc=_itemDesc(r);var td=desc.length>80?desc.substring(0,80)+'\u2026':desc;
       cH2+='<tr style="background:'+(ri%2===0?'#fff':'#fafafa')+';"><td style="padding:5px 10px;font-weight:700;color:#9C2742;">#'+r.d.num+'</td><td style="padding:5px 10px;">'+esc(td)+'</td><td style="padding:5px 10px;">'+esc(r.ctr)+'</td><td style="padding:5px 10px;">FRT #'+(r.d.notedOnInstance||1)+'</td><td style="padding:5px 10px;color:#1A7A4A;font-weight:600;">'+esc(r.d.closedNote||'Addressed')+'</td></tr>';
     });
   });
@@ -608,9 +635,17 @@ if(isField&&p.drawings&&p.drawings.length){
     aH+='<div class="app-dwg-title">'+esc(dw.name)+' \u2014 '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
     aH+='<img class="app-dwg" id="app-dwg-'+dw.id+'" src="" alt="'+esc(dw.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
     aH+='<table class="app-pin-table"><thead><tr><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
-    dPins.forEach(function(r){var d=r.d;var sc=_deficIsOpen(d)?'#C0392B':'#1A7A4A';
+    dPins.forEach(function(r){var d=r.d;
+      // S119 hotfix: per-obs status + description. Previously every row of
+      // a multi-obs pin pulled obs[0].text and the pin-level open-status,
+      // duplicating identical content (Mark report — appendix showed
+      // "Pipe penetration at middle wall / Outstanding / Vipond" twice
+      // when one obs was closed and one was open with a different contractor).
+      // r.ctr is already per-obs (baked in by _pushItems).
+      var rowOpen=_itemIsOpen(r);
+      var sc=rowOpen?'#C0392B':'#1A7A4A';
       var iarTag=d.iar?'<div style="margin-top:3px;"><span class="iar" style="margin-left:0;">IAR</span></div>':'';
-      aH+='<tr><td><strong style="color:#9C2742;">#'+d.num+'</strong>'+iarTag+'</td><td>'+esc(_deficDesc(d)||'\u2014')+'</td><td style="color:'+sc+';font-weight:700;">'+(_deficIsOpen(d)?'Outstanding':'Closed')+'</td><td>'+esc(r.ctr)+'</td></tr>';
+      aH+='<tr><td><strong style="color:#9C2742;">#'+d.num+'</strong>'+iarTag+'</td><td>'+esc(_itemDesc(r)||'\u2014')+'</td><td style="color:'+sc+';font-weight:700;">'+(rowOpen?'Outstanding':'Closed')+'</td><td>'+esc(r.ctr)+'</td></tr>';
     });
     aH+='</tbody></table></div></div>';
     pages.push({html:aH,pageNum:curPageNum,isAppendix:true});curPageNum++;
