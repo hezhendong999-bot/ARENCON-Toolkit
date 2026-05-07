@@ -445,17 +445,6 @@ function _compactHeader(pgNum){
   return '<div class="ph-compact"><div class="ph-compact-left">'+l1+'<br>'+l2+'<br>'+l3+'</div><div class="ph-compact-right">'+r1+'<br>&nbsp;<br>'+esc(date)+'</div></div>';
 }
 
-function _pdfActLine(a){
-  var isCtr=(a.label||'').indexOf('Contractor')>=0;var lC=isCtr?'#E67E22':'#1565C0';
-  var instTag=a.instance?' (FRT #'+a.instance+')':'';
-  var txt=(a.text||'\u2014').replace(/<[^>]*>/g,'');
-  var h='<div style="margin-bottom:3px;padding:3px 6px;background:'+(isCtr?'#FEF3E2':'#EBF4FF')+';border-radius:3px;font-size:9.5pt;">';
-  h+='<span style="color:'+lC+';font-weight:600;">'+esc(a.label||'Note')+instTag+'</span> <span style="color:#888;font-size:9pt;">'+(a.date||'')+'</span>';
-  h+='<div style="margin-top:1px;">'+esc(txt)+'</div>';
-  if(a.photos&&a.photos.length){h+='<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px;">';a.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'" style="max-height:60px;width:auto;">';});h+='</div>';}
-  h+='</div>';return h;
-}
-
 function _buildDefCard(r){
   // S118: each r is now a single observation item (flattened). r.obs is the
   // observation object (or null for legacy single-obs deficiencies).
