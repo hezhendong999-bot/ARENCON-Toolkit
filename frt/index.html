@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=252">
+<link rel="stylesheet" href="css/frt.css?v=253">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -911,6 +911,12 @@ function ensurePdfJs(cb){
      Runs after Model events and on project load; reports stale references,
      orphans, broken photos, and cascade failures. ?dbg=1 shows a badge. -->
 <script src="js/diag/integrity.js?v=1" async></script>
+
+<!-- S120 P18 — Drawing migration tool (console-driven).
+     Exposes window._drawingMigrate.{preview, plan, apply, undo}. Walks
+     drawings, pairs old-broken with new-tiled by (folder, name, page),
+     rewrites pin drawingId 1:1. Snapshot to localStorage for undo. -->
+<script src="js/diag/drawingMigrate.js?v=1" async></script>
 
 <script>
 /* Session 75 Push 2 — proxy wiring for new toolbar buttons */
