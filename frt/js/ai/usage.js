@@ -4,7 +4,6 @@
  * Filter by PM, project, date range. CSV + PDF export.
  */
 
-import { Auth } from '../shared/auth.js';
 import { toast } from '../shared/toast.js';
 
 var SB_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';

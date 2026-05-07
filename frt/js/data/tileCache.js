@@ -117,7 +117,7 @@ function _fetchAll(urls, concurrency, onProgress, abortSignal) {
 // Prefetch a specific set of levels for a single drawing.
 // Used by FRT auto-prefetch on project open (levels = [0,1,2]).
 // Returns Promise<{done, fail, total}>.
-export function prefetchDrawingLevels(pid, drawingId, levels, onProgress, abortSignal) {
+function prefetchDrawingLevels(pid, drawingId, levels, onProgress, abortSignal) {
   return fetchManifest(pid, drawingId).then(function(manifest) {
     if (!manifest) return { done: 0, fail: 0, total: 0, noManifest: true };
     var urls = enumerateTileUrls(pid, drawingId, manifest, levels);
@@ -133,7 +133,7 @@ export function prefetchDrawingLevels(pid, drawingId, levels, onProgress, abortS
 // commonly share one pdfBufKey (e.g. 9 pages of one PDF → 9 drawings, 1 pdfBuf).
 // Pre-S98 this passed d.id, which 404'd the manifest for every drawing. Also
 // dedup pdfBufKeys so we only prefetch the underlying pyramid once.
-export function autoPrefetchProject(pid, drawings, onProgress, abortSignal) {
+function autoPrefetchProject(pid, drawings, onProgress, abortSignal) {
   var levels = [0, 1, 2]; // S96 hybrid plan: readable zoom only
   var seen = {};
   var units = [];
@@ -161,7 +161,7 @@ export function autoPrefetchProject(pid, drawings, onProgress, abortSignal) {
 // Full download — every level of every drawing in a project. Used by Hub
 // "Download for Offline" button. Caller must keep the app foreground on iOS.
 // S98 FIX: same pdfBufKey + dedup change as autoPrefetchProject above.
-export function downloadProjectAllTiles(pid, drawings, onProgress, abortSignal) {
+function downloadProjectAllTiles(pid, drawings, onProgress, abortSignal) {
   var seen = {};
   var units = [];
   for (var j = 0; j < drawings.length; j++) {
@@ -186,7 +186,7 @@ export function downloadProjectAllTiles(pid, drawings, onProgress, abortSignal) 
 }
 
 // Ask the service worker how many tiles are cached for a project.
-export function getProjectCacheStats(pid) {
+function getProjectCacheStats(pid) {
   return new Promise(function(resolve) {
     if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
       resolve({ count: 0, swMissing: true }); return;
@@ -202,7 +202,7 @@ export function getProjectCacheStats(pid) {
 }
 
 // Purge cached tiles for a single project (used by Hub "Clear offline cache").
-export function purgeProjectCache(pid) {
+function purgeProjectCache(pid) {
   return new Promise(function(resolve) {
     if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
       resolve({ count: 0, swMissing: true }); return;
@@ -220,7 +220,7 @@ export function purgeProjectCache(pid) {
 // Convenience: detect if a sentinel offline-tile response came back (1x1 PNG).
 // Pass an HTMLImageElement onerror or a fetch Response. The SW marks these
 // with header 'X-Offline-Sentinel: 1'.
-export function isOfflineSentinelResponse(resp) {
+function isOfflineSentinelResponse(resp) {
   return !!(resp && resp.headers && resp.headers.get('X-Offline-Sentinel') === '1');
 }
 

@@ -7,7 +7,6 @@
  */
 
 import { Model } from '../data/model.js';
-import { toast } from '../shared/toast.js';
 
 var _wired = false;
 

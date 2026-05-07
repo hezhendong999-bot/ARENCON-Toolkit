@@ -7,7 +7,6 @@ import { Model } from '../data/model.js';
 import { IDB } from '../data/idb.js';
 import { showAlert } from '../shared/dialogs.js';
 import { toast } from '../shared/toast.js';
-import { getContractorColor } from '../ui/deficiencies.js';
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function _deficIsOpen(d){return d.status==='open'||d.status==='Outstanding';}

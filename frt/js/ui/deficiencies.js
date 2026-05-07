@@ -347,7 +347,7 @@ function _amRenderThumbs() {
 }
 
 // ── Deficiency Card (interactive) ────────────────────────
-export function buildDeficCard(d, ctrId) {
+function buildDeficCard(d, ctrId) {
   var obs = d.observations || [];
   // S119: status + priority shown in the card header reflect EFFECTIVE values
   // (max priority across obs / all-addressed → closed). Per-obs priority lives
