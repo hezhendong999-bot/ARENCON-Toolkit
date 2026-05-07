@@ -24,6 +24,18 @@ import { initViewer } from './viewer/viewer.js';
 import { initPDFExport } from './export/pdf.js';
 import { initJSONExport } from './export/json.js';
 import { AIAssist } from './ai/assistant.js';
+// ── Side-effect imports ──
+// These modules don't expose anything app.js calls directly, but their
+// loading has side effects we depend on:
+//   - lightbox.js: sets window._frtLightbox at module-eval time. Used by
+//     photos.js, deficiencies.js, viewer.js for thumb-click lightbox open.
+//   - markup.js: exports initMarkup which is also auto-attached to viewer.
+//     The viewer's drawing-overlay markup tools come from here.
+// Push 11 erroneously dropped these as "unused"; restored in Push 13. The
+// integrity scanner from Push 9 catches data issues but not module-load
+// side-effect dependencies — added a comment for the next reviewer.
+import './ui/lightbox.js';
+import './viewer/markup.js';
 import { AIUsage } from './ai/usage.js';
 
 // ── Constants ────────────────────────────────────────────
