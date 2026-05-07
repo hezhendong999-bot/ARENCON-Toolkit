@@ -467,6 +467,76 @@
     return rows;
   }
 
+  // ── Folder-based explicit pairing ──
+  // S120 P20: when the auto-detector can't tell old from new (e.g. both
+  // sides have tileStatus='ready' but one set is actually broken in R2),
+  // user passes the two folder names explicitly. Pairs by ascending pageNum.
+  // Falls back to ordered position if pageNum is missing on either side.
+  // Both folder names match by case-insensitive substring so user can pass
+  // a fragment instead of the exact name.
+  function pairFolders(oldFolderQuery, newFolderQuery) {
+    var Model = _getModel();
+    if (!Model) { console.warn('[Migrate] No Model'); return null; }
+    var proj = Model.getProject();
+    if (!proj) return null;
+    var live = (proj.drawings || []).filter(function (d) { return d && d.id && !d._migratedAwayTo; });
+    var qOld = (oldFolderQuery || '').trim().toLowerCase();
+    var qNew = (newFolderQuery || '').trim().toLowerCase();
+    if (!qOld || !qNew) {
+      console.warn('[Migrate] Usage: pairFolders("old folder fragment", "new folder fragment")');
+      return null;
+    }
+    var oldList = live.filter(function (d) {
+      return ((d.folder || '').toLowerCase().indexOf(qOld) >= 0);
+    });
+    var newList = live.filter(function (d) {
+      return ((d.folder || '').toLowerCase().indexOf(qNew) >= 0);
+    });
+    // Strict: a drawing matched by qOld must NOT also be matched by qNew
+    // (e.g. if qOld='ift b10' and qNew='ift b10 (inspector 2)', the latter
+    // contains the former). De-overlap by removing newList items from oldList.
+    var newIdSet = {};
+    newList.forEach(function (d) { newIdSet[d.id] = true; });
+    oldList = oldList.filter(function (d) { return !newIdSet[d.id]; });
+    if (!oldList.length) {
+      console.warn('[Migrate] No drawings matched old folder fragment "' + oldFolderQuery + '"');
+      return null;
+    }
+    if (!newList.length) {
+      console.warn('[Migrate] No drawings matched new folder fragment "' + newFolderQuery + '"');
+      return null;
+    }
+    console.log('[Migrate] Old folder: "' + oldList[0].folder + '" (' + oldList.length + ' drawings)');
+    console.log('[Migrate] New folder: "' + newList[0].folder + '" (' + newList.length + ' drawings)');
+    if (oldList.length !== newList.length) {
+      console.warn('[Migrate] Counts differ — pairing as many as fits.');
+    }
+    var sortByPage = function (a, b) {
+      var pa = a.pageNum != null ? a.pageNum : 0;
+      var pb = b.pageNum != null ? b.pageNum : 0;
+      if (pa !== pb) return pa - pb;
+      return _canonName(a.name || '').localeCompare(_canonName(b.name || ''));
+    };
+    var oldSorted = oldList.slice().sort(sortByPage);
+    var newSorted = newList.slice().sort(sortByPage);
+    var n = Math.min(oldSorted.length, newSorted.length);
+    var paired = 0;
+    for (var i = 0; i < n; i++) {
+      var oldD = oldSorted[i];
+      var newD = newSorted[i];
+      // Skip if already in manual pairs
+      var alreadyPaired = _manualPairs.some(function (mp) {
+        return mp.oldId === oldD.id || mp.newId === newD.id;
+      });
+      if (alreadyPaired) continue;
+      _manualPairs.push({ oldId: oldD.id, newId: newD.id });
+      paired++;
+    }
+    console.log('%c[Migrate] Queued ' + paired + ' pairs from folders.', 'color:#5C7A65;font-weight:bold;');
+    console.log('  Run _drawingMigrate.preview() to see them, then plan() and apply().');
+    return paired;
+  }
+
   // ── Public API ──
   // Always expose. Tool is opt-in via console invocation; loading the script
   // alone has no behavior effect.
@@ -478,13 +548,14 @@
       undo: undo,
       list: listDrawings,
       manualPair: manualPair,
+      pairFolders: pairFolders,
       clearManualPairs: clearManualPairs,
       _findPairs: _findPairs,
       _identityKey: _identityKey,
       _manualPairs: _manualPairs
     };
     if (typeof console !== 'undefined' && console.log) {
-      console.log('%c[_drawingMigrate v2] loaded. Run _drawingMigrate.preview() to start.', 'color:#7B5A8F;');
+      console.log('%c[_drawingMigrate v3] loaded. Run _drawingMigrate.preview() to start.', 'color:#7B5A8F;');
     }
   }
 })();
