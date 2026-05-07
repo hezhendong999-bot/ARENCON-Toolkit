@@ -831,12 +831,16 @@ function _showRemoteUpdateBanner(remoteTs){
     '<button id="frt-banner-dismiss" style="background:transparent;color:#c8ccd4;border:1px solid #3a4660;border-radius:6px;padding:6px 10px;font:13px Calibri,sans-serif;cursor:pointer;">Dismiss</button>';
   document.body.appendChild(b);
   document.getElementById('frt-banner-pull').addEventListener('click', function(){
-    if (confirm('Pulling will overwrite your unsaved local changes. Continue?')){
+    // S120 Push 14: switched from native confirm() to showConfirm modal.
+    // Native confirm() doesn't match the rest of the app's dialog style
+    // and the project standard is "no native confirm/alert/prompt".
+    showConfirm('Pull from cloud?', 'Pulling will overwrite your unsaved local changes. Continue?').then(function(yes) {
+      if (!yes) return;
       SyncEngine.pull(_projectId, SyncEngine.instanceId).then(function(data){
         if (data) { _lastPulledUpdatedAt = remoteTs; _setCloudStatus('synced', 'Refreshed from cloud'); }
         b.remove();
       });
-    }
+    });
   });
   document.getElementById('frt-banner-dismiss').addEventListener('click', function(){
     _lastPulledUpdatedAt = remoteTs; // suppress for this remote version

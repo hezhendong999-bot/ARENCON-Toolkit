@@ -11,6 +11,9 @@
  *   - Close button + Escape key
  */
 
+import { toast } from '../shared/toast.js';
+import { showConfirm } from '../shared/dialogs.js';
+
 var _photos = [];
 var _idx = 0;
 var _scale = 1;
@@ -204,7 +207,8 @@ function _buildMarkupBar(overlay){
 }
 
 function _toggleMarkup(){
-  if (!window.MarkupEngine){ alert('Markup engine not loaded'); return; }
+  // S120 Push 14: native alert → toast for transient infrastructure errors.
+  if (!window.MarkupEngine){ toast('Markup engine not loaded', 'error'); return; }
   var img = document.getElementById('lb-image');
   var canvas = document.getElementById('lb-canvas');
   if (!img || !canvas) return;
@@ -234,7 +238,7 @@ function _saveMarkup(){
     // R2 upload hook — defer to host app via custom event
     try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:blob,index:_idx}})); } catch(e){}
     _toggleMarkup();
-  }).catch(function(e){ alert('Save failed: '+e.message); });
+  }).catch(function(e){ toast('Save failed: '+e.message, 'error'); });
 }
 
 function _revertMarkup(){
@@ -286,8 +290,12 @@ function _revertMarkup(){
     }
   };
   if (hasSaved) {
-    // Confirm only when revert will hit cloud + remove records.
-    if (window.confirm('Revert this photo to the original? All markup will be removed and the (original) backup will also be deleted.')) doRevert();
+    // S120 Push 14: confirm only when revert will hit cloud + remove records.
+    // Switched from native confirm() to showConfirm — destructive action
+    // deserves the same modal style as the rest of the app.
+    showConfirm('Revert to original?', 'All markup will be removed and the (original) backup will also be deleted. This cannot be undone.').then(function(yes) {
+      if (yes) doRevert();
+    });
   } else {
     doRevert();
   }

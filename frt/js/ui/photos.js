@@ -6,7 +6,7 @@
 
 import { Model } from '../data/model.js';
 import { toast } from '../shared/toast.js';
-import { showConfirm } from '../shared/dialogs.js';
+import { showConfirm, showAlert } from '../shared/dialogs.js';
 import { R2 } from '../data/r2.js';
 import { IDB } from '../data/idb.js';
 
@@ -1255,7 +1255,8 @@ document.addEventListener('frt-markup-reverted', function(e) {
   // the photo pointing at a 404. Abort and tell the user what's going on.
   if (origKey.indexOf('/marked/') >= 0) {
     console.error('[Markup revert] CORRUPTED BACKUP: backup r2Key is itself /marked/ — original is lost. Aborting revert to avoid deleting the marked file.');
-    alert('Cannot revert this photo — the original backup record is corrupted (points at a marked file, not an original). The original image was lost in an earlier session. The current marked-up version will be kept as-is. To clear the corruption, re-take this photo.\n\nKey: ' + origKey);
+    // S120 Push 14: native alert → showAlert. Still informational + multi-line.
+    showAlert('Cannot revert this photo', 'The original backup record is corrupted (points at a marked file, not an original). The original image was lost in an earlier session. The current marked-up version will be kept as-is. To clear the corruption, re-take this photo.\n\nKey: ' + origKey);
     // Clear corruption flags so subsequent markups don't try to use this bad backup.
     delete photo._origBackupId;
     delete photo._annotated;
@@ -1269,7 +1270,8 @@ document.addEventListener('frt-markup-reverted', function(e) {
   // is a no-op AND would delete the only copy of the image. Bail.
   if (markedKey && markedKey === origKey) {
     console.error('[Markup revert] CORRUPTED STATE: photo and backup share r2Key — refusing to revert');
-    alert('Cannot revert this photo — the photo and its backup point at the same R2 file (a corrupted state from an earlier session). To clear the corruption, re-take this photo.');
+    // S120 Push 14: native alert → showAlert.
+    showAlert('Cannot revert this photo', 'The photo and its backup point at the same R2 file (a corrupted state from an earlier session). To clear the corruption, re-take this photo.');
     delete photo._origBackupId;
     delete photo._annotated;
     Model.removeSitePhotoById(backup.id);
