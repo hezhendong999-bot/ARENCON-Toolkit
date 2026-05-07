@@ -41,13 +41,23 @@
     return (typeof window !== 'undefined' && window._frt && window._frt.Model) || null;
   }
 
-  // ── Identity key for matching old → new ──
-  // Two drawings are "the same page" iff folder + displayName + pageNum match.
-  // displayName is canonicalized: case-insensitive, trimmed, internal whitespace
-  // collapsed. PDF source filename is the most stable identifier.
+  // ── Identity strategies, tried in order from most-specific to loosest ──
+  // S120 P19: previously only used (folder, name, page) which produced zero
+  // pairs when old/new lived in separate folders. Now we try four:
+  //   (1) Same pdfBufKey + same pageNum    — strongest: literally same source
+  //   (2) Same canonicalized name + same pageNum (folder ignored)
+  //   (3) Same canonicalized name (no page) — for single-page drawings
+  //   (4) Ordered pairing within each (oldFolder, newFolder) cluster — last
+  //       resort when names diverged but the count of old equals count of new
+  function _canonName(s) {
+    return (s || '').toString().trim().toLowerCase()
+      .replace(/\.pdf$/, '')
+      .replace(/\s+/g, ' ')
+      .replace(/[^a-z0-9 .\-_]/g, '');
+  }
   function _identityKey(d) {
     var folder = (d.folder || '').trim().toLowerCase();
-    var name = (d.name || d.displayName || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    var name = _canonName(d.name || d.displayName || '');
     var page = (typeof d.pageNum === 'number') ? d.pageNum : (parseInt(d.pageNum, 10) || 1);
     return folder + '||' + name + '||' + page;
   }
@@ -65,39 +75,140 @@
     return false;
   }
 
-  // ── Find pairs ──
-  // Walks all drawings, groups by identity key, splits each group into
-  // tiled vs non-tiled. Returns { matched: [{ old, new }], orphanOld: [], orphanNew: [] }.
+  // ── Find pairs (multi-strategy) ──
+  // Walks all drawings, tries strategies in order. Returns
+  // { matched: [{ old, new, strategy }], orphanOld: [], orphanNew: [] }.
   function _findPairs() {
     var Model = _getModel();
     if (!Model) return null;
     var proj = Model.getProject();
     if (!proj || !Array.isArray(proj.drawings)) return null;
-    var drawings = proj.drawings.filter(function (d) { return d && d.id && !d._migratedAwayTo; });
-    var groups = {};
-    drawings.forEach(function (d) {
-      var k = _identityKey(d);
-      if (!groups[k]) groups[k] = [];
-      groups[k].push(d);
-    });
+    var live = proj.drawings.filter(function (d) { return d && d.id && !d._migratedAwayTo; });
+    var oldDwgs = live.filter(function (d) { return !_isTiled(d); });
+    var newDwgs = live.filter(_isTiled);
+
     var matched = [];
-    var orphanOld = [];
-    var orphanNew = [];
-    Object.keys(groups).forEach(function (k) {
-      var g = groups[k];
-      var tiled = g.filter(_isTiled);
-      var legacy = g.filter(function (d) { return !_isTiled(d); });
-      if (tiled.length && legacy.length) {
-        // Pair every legacy with the FIRST tiled of the group. If multiple
-        // tiled exist (shouldn't happen but safe), they go to orphanNew.
-        legacy.forEach(function (oldD) { matched.push({ old: oldD, new: tiled[0] }); });
-        tiled.slice(1).forEach(function (extra) { orphanNew.push(extra); });
-      } else if (tiled.length === 0 && legacy.length) {
-        legacy.forEach(function (oldD) { orphanOld.push(oldD); });
-      } else {
-        // Only tiled — already-migrated state, no-op
+    var consumedOld = {};
+    var consumedNew = {};
+
+    // Strategy 0 — manual pairs (from manualPair() calls). These ALWAYS win.
+    _manualPairs.forEach(function (mp) {
+      var oldD = oldDwgs.find(function (d) { return d.id === mp.oldId; });
+      var newD = newDwgs.find(function (d) { return d.id === mp.newId; });
+      // Allow manual pairs to override the tiled-vs-old heuristic too
+      if (!oldD) oldD = live.find(function (d) { return d.id === mp.oldId; });
+      if (!newD) newD = live.find(function (d) { return d.id === mp.newId; });
+      if (oldD && newD && !consumedOld[oldD.id] && !consumedNew[newD.id]) {
+        matched.push({ old: oldD, new: newD, strategy: 'manual' });
+        consumedOld[oldD.id] = true;
+        consumedNew[newD.id] = true;
       }
     });
+
+    // Strategy 1 — same pdfBufKey + same pageNum
+    oldDwgs.forEach(function (oldD) {
+      if (consumedOld[oldD.id]) return;
+      if (!oldD.pdfBufKey) return;
+      var page = oldD.pageNum != null ? oldD.pageNum : 1;
+      var hit = newDwgs.find(function (nD) {
+        if (consumedNew[nD.id]) return false;
+        if (!nD.pdfBufKey) return false;
+        if (nD.pdfBufKey !== oldD.pdfBufKey) return false;
+        var nPage = nD.pageNum != null ? nD.pageNum : 1;
+        return nPage === page;
+      });
+      if (hit) {
+        matched.push({ old: oldD, new: hit, strategy: 'pdfBufKey+page' });
+        consumedOld[oldD.id] = true;
+        consumedNew[hit.id] = true;
+      }
+    });
+
+    // Strategy 2 — same canonical name + same pageNum (folder ignored)
+    oldDwgs.forEach(function (oldD) {
+      if (consumedOld[oldD.id]) return;
+      var name = _canonName(oldD.name || oldD.displayName || '');
+      if (!name) return;
+      var page = oldD.pageNum != null ? oldD.pageNum : 1;
+      var hit = newDwgs.find(function (nD) {
+        if (consumedNew[nD.id]) return false;
+        var nName = _canonName(nD.name || nD.displayName || '');
+        if (nName !== name) return false;
+        var nPage = nD.pageNum != null ? nD.pageNum : 1;
+        return nPage === page;
+      });
+      if (hit) {
+        matched.push({ old: oldD, new: hit, strategy: 'name+page' });
+        consumedOld[oldD.id] = true;
+        consumedNew[hit.id] = true;
+      }
+    });
+
+    // Strategy 3 — same canonical name only (for non-paginated drawings)
+    oldDwgs.forEach(function (oldD) {
+      if (consumedOld[oldD.id]) return;
+      var name = _canonName(oldD.name || oldD.displayName || '');
+      if (!name) return;
+      var hit = newDwgs.find(function (nD) {
+        if (consumedNew[nD.id]) return false;
+        return _canonName(nD.name || nD.displayName || '') === name;
+      });
+      if (hit) {
+        matched.push({ old: oldD, new: hit, strategy: 'name-only' });
+        consumedOld[oldD.id] = true;
+        consumedNew[hit.id] = true;
+      }
+    });
+
+    // Strategy 4 — ordered pairing within (oldFolder, newFolder) clusters
+    // when leftover counts are equal. Sort each side by pageNum then name.
+    var leftoverOld = oldDwgs.filter(function (d) { return !consumedOld[d.id]; });
+    var leftoverNew = newDwgs.filter(function (d) { return !consumedNew[d.id]; });
+    if (leftoverOld.length && leftoverNew.length) {
+      // Group by folder
+      var oldByFolder = {};
+      leftoverOld.forEach(function (d) {
+        var f = (d.folder || '').trim();
+        if (!oldByFolder[f]) oldByFolder[f] = [];
+        oldByFolder[f].push(d);
+      });
+      var newByFolder = {};
+      leftoverNew.forEach(function (d) {
+        var f = (d.folder || '').trim();
+        if (!newByFolder[f]) newByFolder[f] = [];
+        newByFolder[f].push(d);
+      });
+      var oldFolders = Object.keys(oldByFolder);
+      var newFolders = Object.keys(newByFolder);
+      // Try each old-folder × new-folder combination where counts match
+      oldFolders.forEach(function (oF) {
+        var oldList = oldByFolder[oF];
+        // Find a matching new-folder with same count
+        var nF = newFolders.find(function (f) {
+          return newByFolder[f].length === oldList.length &&
+            newByFolder[f].every(function (d) { return !consumedNew[d.id]; });
+        });
+        if (!nF) return;
+        var newList = newByFolder[nF];
+        var sortFn = function (a, b) {
+          var pa = a.pageNum != null ? a.pageNum : 0;
+          var pb = b.pageNum != null ? b.pageNum : 0;
+          if (pa !== pb) return pa - pb;
+          return _canonName(a.name || '').localeCompare(_canonName(b.name || ''));
+        };
+        oldList.slice().sort(sortFn).forEach(function (oldD, i) {
+          var newD = newList.slice().sort(sortFn)[i];
+          if (newD && !consumedNew[newD.id]) {
+            matched.push({ old: oldD, new: newD, strategy: 'ordered-by-folder' });
+            consumedOld[oldD.id] = true;
+            consumedNew[newD.id] = true;
+          }
+        });
+      });
+    }
+
+    var orphanOld = oldDwgs.filter(function (d) { return !consumedOld[d.id]; });
+    var orphanNew = newDwgs.filter(function (d) { return !consumedNew[d.id]; });
     return { matched: matched, orphanOld: orphanOld, orphanNew: orphanNew };
   }
 
@@ -128,11 +239,18 @@
     console.group('%c[Drawing Migration] Preview', 'color:#7B5A8F;font-weight:bold;');
     console.log('Matched pairs (old → new): ' + pairs.matched.length);
     if (pairs.matched.length) {
+      // Strategy breakdown so user can see HOW each pair was matched
+      var byStrat = {};
+      pairs.matched.forEach(function (p) { byStrat[p.strategy] = (byStrat[p.strategy] || 0) + 1; });
+      console.log('  by strategy:', byStrat);
       console.table(pairs.matched.map(function (p) {
         return {
-          name: p.old.name || p.old.displayName || '(unnamed)',
+          strategy: p.strategy,
+          oldName: p.old.name || p.old.displayName || '(unnamed)',
+          oldFolder: p.old.folder || '(root)',
+          newName: p.new.name || p.new.displayName || '(unnamed)',
+          newFolder: p.new.folder || '(root)',
           page: p.old.pageNum != null ? p.old.pageNum : '?',
-          folder: p.old.folder || '(root)',
           oldId: (p.old.id || '').slice(0, 8),
           newId: (p.new.id || '').slice(0, 8)
         };
@@ -143,13 +261,52 @@
       console.table(pairs.orphanOld.map(function (d) {
         return { name: d.name || d.displayName, page: d.pageNum, folder: d.folder, id: (d.id || '').slice(0, 8) };
       }));
-      console.warn('  → these drawings will NOT be migrated. Their pins stay where they are.');
+      console.warn('  → These will NOT be migrated. Use _drawingMigrate.manualPair(oldId, newId) to pair them by hand if needed.');
     }
     if (pairs.orphanNew.length) {
       console.warn('Orphan NEW drawings (no old to migrate from): ' + pairs.orphanNew.length);
+      console.table(pairs.orphanNew.map(function (d) {
+        return { name: d.name || d.displayName, page: d.pageNum, folder: d.folder, id: (d.id || '').slice(0, 8) };
+      }));
     }
     console.groupEnd();
     return pairs;
+  }
+
+  // ── Manual override ──
+  // For when the auto-matcher can't find a pair (different name AND order
+  // doesn't help). Caller passes the short id prefixes from preview().
+  // Stored in window._drawingMigrate._manualPairs and consulted by apply()
+  // alongside the auto-matched pairs.
+  var _manualPairs = []; // [{ oldId, newId }]
+  function manualPair(oldIdPrefix, newIdPrefix) {
+    var Model = _getModel();
+    if (!Model) return null;
+    var proj = Model.getProject();
+    var drawings = (proj && proj.drawings) || [];
+    function find(prefix) {
+      var match = drawings.filter(function (d) { return d.id && d.id.indexOf(prefix) === 0; });
+      if (match.length === 0) return null;
+      if (match.length > 1) {
+        console.warn('[Migrate] Prefix "' + prefix + '" matched ' + match.length + ' drawings — be more specific.');
+        return null;
+      }
+      return match[0];
+    }
+    var oldD = find(oldIdPrefix);
+    var newD = find(newIdPrefix);
+    if (!oldD) { console.warn('[Migrate] No drawing with id prefix "' + oldIdPrefix + '"'); return null; }
+    if (!newD) { console.warn('[Migrate] No drawing with id prefix "' + newIdPrefix + '"'); return null; }
+    _manualPairs.push({ oldId: oldD.id, newId: newD.id });
+    console.log('[Migrate] Manual pair queued:', oldD.name || '?', '→', newD.name || '?');
+    console.log('  (' + _manualPairs.length + ' manual pair(s) queued so far. Run preview() to see effect.)');
+    return { old: oldD, new: newD };
+  }
+  function clearManualPairs() {
+    var n = _manualPairs.length;
+    _manualPairs = [];
+    console.log('[Migrate] Cleared ' + n + ' manual pair(s).');
+    return n;
   }
 
   function plan() {
@@ -287,7 +444,30 @@
     return { restored: restored, unhidden: snap.pairs.length };
   }
 
-  // ── Bootstrap ──
+  // ── List drawings (helper for figuring out manual pairs) ──
+  function listDrawings() {
+    var Model = _getModel();
+    if (!Model) return null;
+    var proj = Model.getProject();
+    if (!proj) return null;
+    var rows = (proj.drawings || []).map(function (d) {
+      return {
+        id8: (d.id || '').slice(0, 8),
+        name: d.name || d.displayName || '(unnamed)',
+        folder: d.folder || '(root)',
+        page: d.pageNum != null ? d.pageNum : '?',
+        tiled: _isTiled(d) ? 'YES' : 'no',
+        migrated: d._migratedAwayTo ? 'gone' : '',
+        pdfBufKey: (d.pdfBufKey || '').slice(0, 12)
+      };
+    });
+    console.group('%c[Drawing Migration] All drawings', 'color:#5A6E80;font-weight:bold;');
+    console.table(rows);
+    console.groupEnd();
+    return rows;
+  }
+
+  // ── Public API ──
   // Always expose. Tool is opt-in via console invocation; loading the script
   // alone has no behavior effect.
   if (typeof window !== 'undefined') {
@@ -296,12 +476,15 @@
       plan: plan,
       apply: apply,
       undo: undo,
-      _findPairs: _findPairs,    // for advanced use
-      _identityKey: _identityKey
+      list: listDrawings,
+      manualPair: manualPair,
+      clearManualPairs: clearManualPairs,
+      _findPairs: _findPairs,
+      _identityKey: _identityKey,
+      _manualPairs: _manualPairs
     };
-    // Quiet log on first load so the user knows it's available
     if (typeof console !== 'undefined' && console.log) {
-      console.log('%c[_drawingMigrate] loaded. Run _drawingMigrate.preview() to start.', 'color:#7B5A8F;');
+      console.log('%c[_drawingMigrate v2] loaded. Run _drawingMigrate.preview() to start.', 'color:#7B5A8F;');
     }
   }
 })();
