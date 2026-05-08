@@ -4387,6 +4387,30 @@ function pgLbDownload() {
   if (ph) _pgFetchAndDownload(ph, (ph.tool + '_' + ph.caption + '.jpg').replace(/\s+/g, '_'));
 }
 
+// S120 Push 26 (S121 Esc audit): global Esc handler for Hub modals.
+// Mirrors the FRT pattern in app.js. Closes any visible .modal-overlay
+// when Escape is pressed. Skips if the lightbox is open (the lightbox
+// handler below has its own Esc semantics for zoom/pan reset). Skips if
+// focus is in an input/textarea where Esc may have form-cancel intent
+// (the input-level keydown listeners for purge confirm and login fields
+// already handle Esc on their own scope, so we let them).
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+  // Skip if photo-gallery lightbox is open — handler below covers it
+  var lb = document.getElementById('pg-lightbox');
+  if (lb && lb.classList.contains('open')) return;
+  // Skip if QR modal is open — handler below covers it
+  var qr = document.getElementById('qr-modal-overlay');
+  if (qr && qr.style.display === 'flex') return;
+  // Find the topmost visible .modal-overlay (last in DOM order = top of stack)
+  var modals = document.querySelectorAll('.modal-overlay.show');
+  if (!modals.length) return;
+  var top = modals[modals.length - 1];
+  top.classList.remove('show');
+  e.stopPropagation();
+  e.preventDefault();
+}, true);  // capture phase — beats any bubbling listeners
+
 // Keyboard nav for lightbox
 document.addEventListener('keydown', function(e) {
   var lb = document.getElementById('pg-lightbox');

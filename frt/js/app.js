@@ -1521,6 +1521,7 @@ document.addEventListener('keydown', function(e) {
   var modalIds = [
     'gp-overlay',              // gallery picker (P1.8)
     'activity-modal-overlay',  // Add Activity / Contractor Response / ARENCON Comment
+    'ph-reassign-overlay',     // S121: photo reassign confirm (photos.js)
     'pin-editor-overlay',      // pin editor
     'ai-fs-overlay',           // AI full-screen field selector
     'ai-ps-overlay',           // legacy AI photo-suggest modal
