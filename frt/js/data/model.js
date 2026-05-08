@@ -761,6 +761,92 @@ export var Model = {
     return 'closed';
   },
 
+  // ── S121 Phase C-1: tab flatten helper ──
+  // Mirrors the row shape produced by export/pdf.js _pushItems but WITHOUT
+  // the priority='general' filter and WITHOUT the addressed/instance filter.
+  // Tabs render everything; per-tab filter logic (in deficiencies.js /
+  // pins.js) applies its own predicate to the row stream.
+  //
+  // Returned row shape:
+  //   {
+  //     d:             defic ref,
+  //     obs:           observation ref or null (legacy defic w/o observations),
+  //     obsIdx:        0 for legacy, else index into d.observations,
+  //     ctr:           per-obs effective contractor NAME (after obs.contractorId
+  //                    override) — what the PDF groups by,
+  //     parentCtrId:   contractor id this defic lives under (null for general),
+  //     parentCtrName: parent contractor name ('Site General' for general),
+  //     numLabel:      d.num, with '-A'/'-B' suffix iff this pin's obs span
+  //                    more than one effective contractor (matches PDF labels)
+  //   }
+  //
+  // Cross-contractor suffix logic mirrors _pushItems: if a pin's obs span
+  // more than one effective contractor, every obs gets a letter suffix on
+  // its numLabel; same-contractor multi-obs pins keep plain #N labels.
+  // Legacy defics (no observations array) emit a single row with obs:null
+  // and a plain numLabel.
+  //
+  // Both `ctr` (per-obs) and `parentCtrName` (pin-level) are returned so
+  // C-2 callers can choose grouping behavior — pin-grouped rendering uses
+  // parentCtrName to keep cross-contractor pins visually unified, while
+  // PDF-strict rendering uses ctr.
+  flattenForTabs: function(p) {
+    if (!p) return [];
+    var rows = [];
+
+    function emitForDefic(d, parentCtrId, parentCtrName) {
+      var obs = (d.observations && d.observations.length) ? d.observations : null;
+      if (obs) {
+        // Pre-compute each obs's effective contractor (per-obs override
+        // takes precedence; falls back to parent contractor name).
+        var obsEffCtrs = obs.map(function(o) {
+          if (o && o.contractorId) {
+            var fc = (p.contractors || []).find(function(c) { return c.id === o.contractorId; });
+            if (fc) return fc.name;
+          }
+          return parentCtrName;
+        });
+        var distinctCtrs = obsEffCtrs.filter(function(v, i, a) { return a.indexOf(v) === i; });
+        var needsSuffix = distinctCtrs.length > 1;
+        obs.forEach(function(o, oi) {
+          var label = needsSuffix
+            ? (d.num + '-' + String.fromCharCode(65 + oi))
+            : String(d.num || '?');
+          rows.push({
+            d: d,
+            obs: o,
+            obsIdx: oi,
+            ctr: obsEffCtrs[oi],
+            parentCtrId: parentCtrId,
+            parentCtrName: parentCtrName,
+            numLabel: label
+          });
+        });
+      } else {
+        rows.push({
+          d: d,
+          obs: null,
+          obsIdx: 0,
+          ctr: parentCtrName,
+          parentCtrId: parentCtrId,
+          parentCtrName: parentCtrName,
+          numLabel: String(d.num || '?')
+        });
+      }
+    }
+
+    (p.contractors || []).forEach(function(c) {
+      (c.deficiencies || []).forEach(function(d) {
+        emitForDefic(d, c.id, c.name);
+      });
+    });
+    (p.generalDeficiencies || []).forEach(function(d) {
+      emitForDefic(d, null, 'Site General');
+    });
+
+    return rows;
+  },
+
   // ── S120: photo pool read helpers ──
   // Pool model: defic.photos[] = source pool; obs.photoSelection = null
   // (default = all pool) OR array of pool photo IDs (custom subset);
