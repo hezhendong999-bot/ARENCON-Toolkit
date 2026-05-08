@@ -194,6 +194,14 @@ function _showGalleryPicker(deficId, obsIdx) {
         addedCount++;
       });
       Model.saveNow();
+      // S120 Push 24: notify Model listeners so any open pin editor (and
+      // anything else subscribed to 'photo' events) re-renders. Push 23
+      // added the listener but this code path mutated obs.photos[]
+      // directly without notifying, so attaching a photo from "+ Gallery"
+      // didn't surface in the open editor until close+reopen.
+      if (typeof Model._notify === 'function') {
+        Model._notify('photo', { action: 'gallery-attach', deficId: deficId, obsIdx: obsIdx, count: addedCount });
+      }
       initDeficiencies.render();
       toast('\u2714 Attached ' + addedCount + ' photo' + (addedCount === 1 ? '' : 's'));
       close();
