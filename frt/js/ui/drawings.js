@@ -17,6 +17,33 @@ import { initViewer } from '../viewer/viewer.js';
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
+// S120 Push 25 (C4): drawing-deletion wrapper that frees R2 storage when
+// the dropped drawing was holding the last reference to a PDF buffer. Use
+// this instead of Model.removeDrawing() at every UI call site. Fire-and-
+// forget cleanup — failure is logged but not surfaced (orphan PDFs are
+// recoverable, deletion failures shouldn't block UX). Order matters: we
+// snapshot the drawings BEFORE calling removeDrawing so the sharing check
+// sees the live snapshot.
+function _removeDrawingWithCleanup(drawingId) {
+  var proj = Model.getProject();
+  if (!proj || !proj.drawings) {
+    Model.removeDrawing(drawingId);
+    return;
+  }
+  var dwg = proj.drawings.find(function(d) { return d && d.id === drawingId; });
+  // Snapshot the FULL drawings array — we pass it to deleteDrawingAssets
+  // which checks "any OTHER drawing references this pdfBufKey?". Doing the
+  // check post-removal would always pass since the target is gone.
+  var allDrawings = proj.drawings.slice();
+  Model.removeDrawing(drawingId);
+  if (dwg && dwg.pdfBufKey) {
+    R2.deleteDrawingAssets(proj.id, dwg, allDrawings).then(function(res) {
+      if (res.pdfBufDeleted) console.log('[R2 cleanup] Freed PDF buffer for deleted drawing.');
+      else if (res.sharedSkipped) console.log('[R2 cleanup] PDF buffer still shared; not deleted.');
+    });
+  }
+}
+
 var _foldedFolders = {};
 
 // ─── S86: Server-side tile rendering manager ──────────────────────────────
@@ -922,6 +949,20 @@ function _showDrawingContextMenu(drawingId, anchorEl) {
         if (inp.files[0]) {
           var reader = new FileReader();
           reader.onload = function() {
+            // S120 Push 25 (C4): exclusive-asset cleanup BEFORE we overwrite
+            // the dwg fields. We snapshot the old pdfBufKey via a clone so
+            // the post-replace key isn't seen by the sharing check. R2.del
+            // is fire-and-forget — failing to delete is tolerable (orphan
+            // PDF stays, no functional break).
+            var proj = Model.getProject();
+            var pid = proj && proj.id;
+            var oldDwg = { id: dwg.id, pdfBufKey: dwg.pdfBufKey };
+            if (pid && oldDwg.pdfBufKey) {
+              R2.deleteDrawingAssets(pid, oldDwg, proj.drawings).then(function(res) {
+                if (res.pdfBufDeleted) console.log('[R2 cleanup] Old PDF buffer freed on replace.');
+                else if (res.sharedSkipped) console.log('[R2 cleanup] Old PDF buffer still shared; not deleted.');
+              });
+            }
             dwg.dataUrl = reader.result;
             dwg.thumb = '';
             // Invalidate tile pyramid since image bytes changed
@@ -952,7 +993,7 @@ function _showDrawingContextMenu(drawingId, anchorEl) {
       _downloadDrawingWithPins(dwg);
     } else if (act === 'delete') {
       showConfirm('Delete Drawing', 'Delete "' + (dwg ? dwg.name : 'this drawing') + '"? Pins will be removed.').then(function(yes) {
-        if (yes) { Model.removeDrawing(drawingId); initDrawings.render(); toast('Deleted'); }
+        if (yes) { _removeDrawingWithCleanup(drawingId); initDrawings.render(); toast('Deleted'); }
       });
     }
   });
@@ -1131,7 +1172,7 @@ document.addEventListener('click', function(e) {
           else {
             showConfirm('Delete ' + n2 + ' Drawing' + (n2>1?'s':''), 'Pins on these drawings will be removed. Continue?').then(function(yes){
               if (!yes) return;
-              _selectedDrawings.forEach(function(id){ Model.removeDrawing(id); });
+              _selectedDrawings.forEach(function(id){ _removeDrawingWithCleanup(id); });
               _selectedDrawings.clear(); initDrawings.render(); toast('Deleted ' + n2);
             });
           }
@@ -1187,7 +1228,7 @@ document.addEventListener('click', function(e) {
     if (!orphans.length) { toast('No orphan drawings to purge'); return; }
     showConfirm('Purge Orphan Drawings', 'Delete ' + orphans.length + ' drawing' + (orphans.length>1?'s':'') + ' with no pins? This cannot be undone.').then(function(yes) {
       if (!yes) return;
-      orphans.forEach(function(d) { Model.removeDrawing(d.id); });
+      orphans.forEach(function(d) { _removeDrawingWithCleanup(d.id); });
       initDrawings.render();
       toast('Purged ' + orphans.length + ' drawing' + (orphans.length>1?'s':''));
     });

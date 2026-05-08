@@ -116,6 +116,54 @@ export var R2 = {
     });
   },
 
+  /**
+   * S120 Push 25 (C4): exclusive-asset cleanup for a drawing.
+   *
+   * Called when a drawing is deleted OR has its content replaced. Deletes
+   * the underlying PDF buffer in R2 IF AND ONLY IF no other live drawing
+   * in the project shares the same pdfBufKey. Multi-page PDFs commonly
+   * share a single pdfBufKey across N drawings (one per page), so we MUST
+   * check before deleting.
+   *
+   * Tiles cleanup is intentionally NOT handled here — the worker has no
+   * list-by-prefix endpoint at /tiles/, so we'd need to enumerate by
+   * walking known levels/columns/rows from the manifest. That's a follow-on
+   * change. PDFs are typically the larger storage cost (10-50MB each)
+   * compared to ~256x256 WebP tiles, so this covers ~80% of orphan storage.
+   *
+   * Inputs:
+   *   - projectId: needed for the R2 key path
+   *   - drawingBeingRemoved: the drawing record about to be removed/replaced
+   *   - allDrawings: the project's full drawings array (CALLER passes this
+   *     pre-removal so we can check sharing among LIVE drawings)
+   *
+   * Returns Promise<{ pdfBufDeleted: bool, sharedSkipped: bool }>.
+   */
+  deleteDrawingAssets: function(projectId, drawingBeingRemoved, allDrawings) {
+    if (!projectId || !drawingBeingRemoved) return Promise.resolve({ pdfBufDeleted: false, sharedSkipped: false });
+    var key = drawingBeingRemoved.pdfBufKey;
+    if (!key) return Promise.resolve({ pdfBufDeleted: false, sharedSkipped: false });
+    // Sharing check: any OTHER live drawing referencing the same pdfBufKey?
+    // _migratedAwayTo is the soft-deleted-by-migration flag — those don't count
+    // since they're tombstones the user will purge.
+    var others = (allDrawings || []).filter(function(d) {
+      return d
+        && d.id !== drawingBeingRemoved.id
+        && !d._migratedAwayTo
+        && d.pdfBufKey === key;
+    });
+    if (others.length > 0) {
+      console.log('[R2] PDF buffer ' + key + ' still shared by ' + others.length + ' other drawing(s); not deleting.');
+      return Promise.resolve({ pdfBufDeleted: false, sharedSkipped: true });
+    }
+    // Exclusive — safe to delete the PDF buffer. Worker key path is
+    // {pid}/photos/pdfbufs/{pdfBufKey}.pdf as per uploadPdfBuf.
+    var bufKey = projectId + '/photos/pdfbufs/' + key + '.pdf';
+    return R2.del(bufKey).then(function(ok) {
+      return { pdfBufDeleted: !!ok, sharedSkipped: false };
+    });
+  },
+
   /** Upload photo + save blob to IDB. Updates photo.r2Key/r2Url in place. */
   uploadPhoto: function(projectId, photo, type) {
     if (!photo || !photo.dataUrl) return Promise.resolve(null);

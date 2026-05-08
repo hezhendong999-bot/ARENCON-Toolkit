@@ -600,11 +600,24 @@
     }
     window._drawingMigrate._lastDeleteHiddenWarn = 0; // consume the confirm
     var deleted = 0;
+    var R2 = (window._frt && window._frt.R2) || null;
     hidden.forEach(function (d) {
       try {
         if (typeof Model.removeDrawing === 'function') {
+          // S120 Push 25 (C4): snapshot drawings BEFORE removal so the
+          // sharing check in deleteDrawingAssets sees a live picture.
+          // Fire-and-forget the R2 cleanup — failure is logged, doesn't
+          // block the local deletion.
+          var allDrawings = ((Model.getProject() || {}).drawings || []).slice();
+          var pid = (Model.getProject() || {}).id;
           Model.removeDrawing(d.id);
           deleted++;
+          if (R2 && typeof R2.deleteDrawingAssets === 'function' && pid && d.pdfBufKey) {
+            R2.deleteDrawingAssets(pid, d, allDrawings).then(function (res) {
+              if (res.pdfBufDeleted) console.log('[Migrate cleanup] Freed PDF buffer for ' + (d.name || d.id));
+              else if (res.sharedSkipped) console.log('[Migrate cleanup] PDF buffer of ' + (d.name || d.id) + ' still shared.');
+            });
+          }
         }
       } catch (e) {
         console.error('[Migrate] removeDrawing(' + d.id + ') failed:', e);
