@@ -486,20 +486,57 @@
       console.warn('[Migrate] Usage: pairFolders("old folder fragment", "new folder fragment")');
       return null;
     }
-    var oldList = live.filter(function (d) {
-      return ((d.folder || '').toLowerCase().indexOf(qOld) >= 0);
+    // S120 P21: classify EACH drawing as old / new / neither based on which
+    // fragment matches its folder. When both fragments match (because one is
+    // a substring of the folder name and the other is too — e.g. 'ift b10'
+    // and 'inspector 2' both appearing in 'IFT B10 (Inspector 2)'), the
+    // SPECIFIC rule wins:
+    //   - if exactly one fragment matches → assign to that side
+    //   - if both match → assign to whichever fragment is NOT a substring
+    //     of the other (i.e. the more discriminating fragment). 'inspector 2'
+    //     is unique to the inspector folder; 'ift b10' is in both folders;
+    //     so 'inspector 2' is the more discriminating identifier.
+    //   - if both fragments are equally non-discriminating, refuse and warn.
+    var oldList = [];
+    var newList = [];
+    var ambiguous = [];
+    var qOldIsSubsetOfNew = qNew.indexOf(qOld) >= 0 && qNew !== qOld;
+    var qNewIsSubsetOfOld = qOld.indexOf(qNew) >= 0 && qOld !== qNew;
+    live.forEach(function (d) {
+      var f = (d.folder || '').toLowerCase();
+      var matchOld = f.indexOf(qOld) >= 0;
+      var matchNew = f.indexOf(qNew) >= 0;
+      if (matchOld && matchNew) {
+        // Both queries hit this folder. Assign to the more discriminating side.
+        if (qOldIsSubsetOfNew && !qNewIsSubsetOfOld) {
+          // qOld is a generic prefix of qNew → qNew is more specific → NEW wins
+          newList.push(d);
+        } else if (qNewIsSubsetOfOld && !qOldIsSubsetOfNew) {
+          // qNew is a generic prefix of qOld → qOld is more specific → OLD wins
+          oldList.push(d);
+        } else {
+          // Neither contains the other; both match for unrelated reasons.
+          // Assign to whichever fragment is longer (more specific characters).
+          if (qOld.length > qNew.length) oldList.push(d);
+          else if (qNew.length > qOld.length) newList.push(d);
+          else ambiguous.push(d);
+        }
+      } else if (matchOld) {
+        oldList.push(d);
+      } else if (matchNew) {
+        newList.push(d);
+      }
+      // matchNeither → ignored (drawing in some unrelated folder)
     });
-    var newList = live.filter(function (d) {
-      return ((d.folder || '').toLowerCase().indexOf(qNew) >= 0);
-    });
-    // Strict: a drawing matched by qOld must NOT also be matched by qNew
-    // (e.g. if qOld='ift b10' and qNew='ift b10 (inspector 2)', the latter
-    // contains the former). De-overlap by removing newList items from oldList.
-    var newIdSet = {};
-    newList.forEach(function (d) { newIdSet[d.id] = true; });
-    oldList = oldList.filter(function (d) { return !newIdSet[d.id]; });
+    if (ambiguous.length) {
+      console.warn('[Migrate] ' + ambiguous.length + ' drawings match BOTH fragments equally — cannot disambiguate. Use distinctive fragments.');
+      console.table(ambiguous.map(function (d) {
+        return { id8: (d.id || '').slice(0, 8), name: d.name, folder: d.folder };
+      }));
+    }
     if (!oldList.length) {
       console.warn('[Migrate] No drawings matched old folder fragment "' + oldFolderQuery + '"');
+      console.warn('  Run _drawingMigrate.list() to see all folder names. Try a more specific fragment.');
       return null;
     }
     if (!newList.length) {
@@ -524,7 +561,6 @@
     for (var i = 0; i < n; i++) {
       var oldD = oldSorted[i];
       var newD = newSorted[i];
-      // Skip if already in manual pairs
       var alreadyPaired = _manualPairs.some(function (mp) {
         return mp.oldId === oldD.id || mp.newId === newD.id;
       });
@@ -540,6 +576,46 @@
   // ── Public API ──
   // Always expose. Tool is opt-in via console invocation; loading the script
   // alone has no behavior effect.
+  function deleteHidden() {
+    var Model = _getModel();
+    if (!Model) return null;
+    var proj = Model.getProject();
+    if (!proj || !Array.isArray(proj.drawings)) return null;
+    var hidden = proj.drawings.filter(function (d) { return d && d._migratedAwayTo; });
+    if (!hidden.length) {
+      console.log('[Migrate] No migrated-away drawings to delete.');
+      return 0;
+    }
+    console.warn('[Migrate] About to delete ' + hidden.length + ' migrated-away drawings:');
+    console.table(hidden.map(function (d) {
+      return { id8: (d.id || '').slice(0, 8), name: d.name, folder: d.folder, page: d.pageNum, migratedTo: (d._migratedAwayTo || '').slice(0, 8) };
+    }));
+    // Require explicit confirm via second invocation within 30s
+    var now = Date.now();
+    if (!window._drawingMigrate._lastDeleteHiddenWarn ||
+        (now - window._drawingMigrate._lastDeleteHiddenWarn) > 30000) {
+      window._drawingMigrate._lastDeleteHiddenWarn = now;
+      console.warn('%c[Migrate] Run _drawingMigrate.deleteHidden() AGAIN within 30 seconds to confirm deletion.', 'color:#A85959;font-weight:bold;');
+      return null;
+    }
+    window._drawingMigrate._lastDeleteHiddenWarn = 0; // consume the confirm
+    var deleted = 0;
+    hidden.forEach(function (d) {
+      try {
+        if (typeof Model.removeDrawing === 'function') {
+          Model.removeDrawing(d.id);
+          deleted++;
+        }
+      } catch (e) {
+        console.error('[Migrate] removeDrawing(' + d.id + ') failed:', e);
+      }
+    });
+    if (typeof Model.saveNow === 'function') Model.saveNow();
+    console.log('%c[Migrate] Deleted ' + deleted + ' drawings.', 'color:#5C7A65;font-weight:bold;');
+    console.log('  Reload the drawings tab to refresh the view.');
+    return deleted;
+  }
+
   if (typeof window !== 'undefined') {
     window._drawingMigrate = {
       preview: preview,
@@ -550,12 +626,14 @@
       manualPair: manualPair,
       pairFolders: pairFolders,
       clearManualPairs: clearManualPairs,
+      deleteHidden: deleteHidden,
       _findPairs: _findPairs,
       _identityKey: _identityKey,
-      _manualPairs: _manualPairs
+      _manualPairs: _manualPairs,
+      _lastDeleteHiddenWarn: 0
     };
     if (typeof console !== 'undefined' && console.log) {
-      console.log('%c[_drawingMigrate v3] loaded. Run _drawingMigrate.preview() to start.', 'color:#7B5A8F;');
+      console.log('%c[_drawingMigrate v4] loaded. Run _drawingMigrate.preview() to start.', 'color:#7B5A8F;');
     }
   }
 })();
