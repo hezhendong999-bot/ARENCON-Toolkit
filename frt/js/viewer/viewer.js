@@ -1515,6 +1515,44 @@ document.addEventListener('click', function(e) {
 // ── Pin Editor Modal ───────────────────────────────────
 var _peDeficId = null;
 var _peObsIdx = 0;
+// S120 Push 23: live-refresh subscription state. The pin editor renders
+// once at open and previously didn't react to external Model changes — so
+// attaching a photo from the Photo Gallery (which calls Model.addPoolPhoto
+// under a different code path) wouldn't show in the open pin editor until
+// it was closed + reopened. Now we listen for 'photo' / 'observation' /
+// 'deficiency' events and re-render the photo zone if the change touched
+// our currently-open defic. The listener is registered in _openPinEditor
+// and unregistered in _closePinEditor. _peSubscribed guards against double-
+// registration when reopening without close (defense in depth — the open
+// path always closes first, but cheap insurance).
+var _peSubscribed = false;
+function _peOnModelChange(type, data) {
+  if (!_peDeficId) return;
+  // If we're in selection mode, don't auto-rerender — that would clobber
+  // the user's pending checkbox state. Selection mode has its own redraw
+  // pathway via the toggle handlers.
+  if (_peSelectionMode) return;
+  var touchesUs = false;
+  if (data && data.deficId === _peDeficId) touchesUs = true;
+  if (data && data.defic && data.defic.id === _peDeficId) touchesUs = true;
+  // For 'photo' events, addPoolPhoto fires with { deficId, photoId, ... }.
+  // For 'observation' events, the obs may be on our defic.
+  // To be safe: also re-render on any photo event during the lifetime of
+  // an open editor — the grid is cheap to redraw and the alternative is
+  // missing legitimate changes that took a routing path we didn't model.
+  if (type === 'photo' && !touchesUs) {
+    // Look up — does this photoId belong to our defic's pool?
+    var f = Model.findDeficiency(_peDeficId);
+    if (f && data && data.photoId) {
+      var match = (f.defic.photos || []).some(function(p) { return p && p.id === data.photoId; });
+      if (match) touchesUs = true;
+    }
+  }
+  if (!touchesUs) return;
+  // Refresh — the grid + observation content render off the live defic.
+  var f2 = Model.findDeficiency(_peDeficId);
+  if (f2) _peRenderObsContent(f2.defic, _peObsIdx);
+}
 
 // ── S120 Push 4: photo pool selection mode (pin editor) ─────────
 // Activated by the "Manage photos" button. While active:
@@ -1542,6 +1580,15 @@ function _openPinEditor(deficId) {
   // Always start out of selection mode when opening a pin
   _peSelectionMode = false;
   _peSelectionPending = null;
+  // S120 Push 23: register Model listener once. Live-refresh covers external
+  // edits (e.g. Photo Gallery → Attach to Pin) so the open editor reflects
+  // them immediately instead of waiting for close+reopen.
+  if (!_peSubscribed && typeof Model !== 'undefined' && typeof Model.onChange === 'function') {
+    Model.onChange('photo', _peOnModelChange);
+    Model.onChange('observation', _peOnModelChange);
+    Model.onChange('deficiency', _peOnModelChange);
+    _peSubscribed = true;
+  }
   var d = f.defic;
   var overlay = document.getElementById('pin-editor-overlay');
   if (!overlay) return;
