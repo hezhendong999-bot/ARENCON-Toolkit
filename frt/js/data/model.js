@@ -24,10 +24,32 @@ var _currentUserId = null;
 var SAVE_DEBOUNCE_MS = 800;
 var AUTO_SAVE_MS = 15000;
 
+// S120 Push 22: collision-resistant ID generator.
+// PRIOR BUG: Date.now() + 4-char base36 random had a 1-in-4096 collision rate
+// when two IDs were minted in the same millisecond. duplicateDeficiency()
+// hit this collision in real production data, producing two pins with the
+// same id which made findDeficiency() return the wrong record on delete.
+// FIX: combine three sources of uniqueness:
+//   - Date.now() (millisecond clock)
+//   - _uidCounter (monotonic per-page-load — guarantees uniqueness within a
+//     single millisecond no matter how many IDs we mint)
+//   - 8-char base36 random (1-in-2.8-trillion collision rate, defense in depth
+//     against multi-tab and after-reload collisions)
+// Total length is ~25 chars after the prefix — slightly longer than before
+// but readable and grep-friendly. Format: prefix_<ms>_<counter>_<rand8>.
+var _uidCounter = 0;
+function _uid(prefix) {
+  _uidCounter = (_uidCounter + 1) & 0xFFFFFF;
+  var rand = Math.random().toString(36).slice(2, 10);
+  // pad rand to 8 chars in case Math.random produced a short value
+  while (rand.length < 8) rand = '0' + rand;
+  return prefix + '_' + Date.now() + '_' + _uidCounter.toString(36) + '_' + rand;
+}
+
 // ── Default Project Template ─────────────────────────────
 function createNewProject(overrides) {
   var now = new Date().toISOString();
-  var id = 'proj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+  var id = _uid('proj');
   var defaults = {
     id: id,
     info: {
@@ -228,7 +250,7 @@ export var Model = {
         if ((!d.observations || !d.observations.length) && d.entries && d.entries.length) {
           d.observations = d.entries.map(function(e, i) {
             return {
-              id: 'obs_' + Date.now() + '_' + i + '_' + Math.random().toString(36).substr(2, 4),
+              id: _uid('obs') + '_' + i,
               text: e.description || e.text || '',
               photos: e.photos || [],
               notedOnInstance: d.notedOnInstance || _migInst,
@@ -300,7 +322,7 @@ export var Model = {
                 // Pool entry is the source-of-truth source photo; markup state
                 // is intentionally NOT stored here (it lives per-obs).
                 var _poolEntry = {
-                  id: ph.id || ('ph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)),
+                  id: ph.id || (_uid('ph')),
                   r2Key: ph.r2Key || null,
                   sourceR2Key: ph.sourceR2Key || ph.r2Key || null,
                   dataUrl: ph.dataUrl || null,
@@ -345,7 +367,7 @@ export var Model = {
     if (!proj.photos) proj.photos = [];
     if (!proj.nextDeficNum) proj.nextDeficNum = 1;
     if (!proj.status) proj.status = 'draft';
-    if (!proj.id) proj.id = 'proj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    if (!proj.id) proj.id = _uid('proj');
 
     // ── S115: drawing auto-dedup (port from v1) ──
     // Defensive cleanup for projects loaded from IDB / cloud / pull where the
@@ -392,7 +414,7 @@ export var Model = {
   addContractor: function(name) {
     if (!_project) return null;
     var ctr = {
-      id: 'ctr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      id: _uid('ctr'),
       name: name || 'New Contractor',
       deficiencies: []
     };
@@ -460,7 +482,7 @@ export var Model = {
     _project.nextDeficNum = num + 1;
 
     var defic = {
-      id: 'def_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      id: _uid('def'),
       num: num,
       status: 'open',
       priority: 'general',
@@ -472,7 +494,7 @@ export var Model = {
       notedOnInstance: inst,
       createdBy: _currentUserId || null,   // S83: inspector attribution
       observations: [{
-        id: 'obs_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        id: _uid('obs'),
         text: '',
         photos: [],
         notedOnInstance: inst,
@@ -574,7 +596,7 @@ export var Model = {
     // Falls back to 'high' so a new obs on a fresh pin stays the strongest signal.
     var inheritPri = this.getEffectivePriority(f.defic) || f.defic.priority || 'high';
     var obs = {
-      id: 'obs_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      id: _uid('obs'),
       text: '',
       photos: [],
       notedOnInstance: inst,
@@ -808,7 +830,7 @@ export var Model = {
     var inst = (_project && _project.currentFrtInstance) || 1;
     var today = new Date().toISOString().split('T')[0];
     var entry = {
-      id: 'act_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      id: _uid('act'),
       date: today,
       label: label || 'ARENCON',
       text: text || '',
@@ -900,7 +922,7 @@ export var Model = {
     if (!Array.isArray(f.defic.photos)) f.defic.photos = [];
     opts = opts || {};
     var photo = {
-      id: 'ph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      id: _uid('ph'),
       r2Key: opts.r2Key || null,
       sourceR2Key: opts.sourceR2Key || opts.r2Key || null,
       dataUrl: typeof photoData === 'string' ? photoData : (photoData && photoData.dataUrl) || null,
@@ -1191,7 +1213,7 @@ export var Model = {
     _project.nextDeficNum = num + 1;
     var inst = (_project.currentFrtInstance) || 1;
     var newDefic = JSON.parse(JSON.stringify(src));
-    newDefic.id = 'def_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    newDefic.id = _uid('def');
     newDefic.num = num;
     newDefic.notedOnInstance = inst;
     newDefic.notedDate = new Date().toISOString().split('T')[0];
@@ -1205,6 +1227,18 @@ export var Model = {
     newDefic.activity = [];
     // Strip photo dataUrls from copy (they reference the same R2 files)
     (newDefic.observations || []).forEach(function(o) { o.photos = []; o.addressed = false; });
+    // S120 Push 22: re-id every observation after the JSON.stringify clone.
+    // PRIOR BUG: cloning preserved obs.id from the source, so the new pin's
+    // observations had identical ids to the source's. When combined with a
+    // collision in the outer defic.id (1-in-4096 same-ms) this produced two
+    // pins where deleting one removed the other (findDeficiency returns
+    // first-match). Mark hit this in production with pins #1 and #3 sharing
+    // both def_1775136016191_7mh3 AND obs_1775136016191_g71x. The new _uid()
+    // helper above prevents the outer collision; this loop prevents the
+    // inner one.
+    (newDefic.observations || []).forEach(function(o) {
+      if (o) o.id = _uid('obs');
+    });
     f.arr.push(newDefic);
     _dirty = true;
     _queueSave();
