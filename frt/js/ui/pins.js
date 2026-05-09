@@ -64,9 +64,9 @@ function _pkbObsCard(d, oi, o, p, multiObs) {
   var fill = defic.iar
     ? '#FF69B4'
     : (obsPri === 'general' ? '#1A7A4A' : (obsPri === 'low' ? '#E67E22' : '#C0392B'));
-  // Number label: #3-A, #3-B for multi-obs; plain #3 for single-obs.
+  // Number label: #3A, #3B for multi-obs (no dash, S122 Push 1); plain #3 for single-obs.
   var numLabel = multiObs
-    ? (defic.num + '-' + String.fromCharCode(65 + oi))
+    ? (defic.num + String.fromCharCode(65 + oi))
     : String(defic.num || '?');
   // S119 effective status — addressed obs greys out the card.
   var isAddressed = !!o.addressed;

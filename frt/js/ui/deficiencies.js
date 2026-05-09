@@ -652,25 +652,30 @@ function _buildPinGroupCard(d, ctrId) {
 
   var h = '<div class="defic-pin-group" data-defic-id="' + esc(d.id) + '" data-status="' + esc(effStatus) + '">';
 
-  // ─── pin strip (S121 Push 7: minimal — pin-level only chrome) ───
-  // The strip used to duplicate things shown per-obs (priority, status,
-  // IAR, AI Review). Mark feedback: each obs should look self-contained
-  // like its own pin. Strip now only carries pin-level concepts that
-  // can't reasonably move to each obs (drawing pill, +Add Obs, ⋯ menu
-  // S121 Push 8: minimal pin strip — only pin#, drawing pill, ⋯ menu.
-  // Everything else (status, priority, IAR, AI Review, +Add Obs) moved
-  // to per-obs controls row or to the add-obs row at the bottom.
-  h += '<div class="defic-pin-strip">';
-  h += '<div class="defic-num-circle" style="background:' + circleColor + ';">' + (d.num || '?') + '</div>';
-  if (d.drawingId) {
-    var _dwgs = Model.getDrawings();
-    var _dwgName = '';
-    for (var _di = 0; _di < _dwgs.length; _di++) { if (_dwgs[_di].id === d.drawingId) { _dwgName = _dwgs[_di].name || 'Drawing'; break; } }
-    h += '<button data-action="view-pin" data-defic-id="' + esc(d.id) + '" class="defic-dwg-pill" title="' + esc(_dwgName) + '">\uD83D\uDCCC ' + esc(_dwgName) + '</button>';
-  } else {
-    h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
+  // ─── pin strip (S122 Push 1: ONLY rendered for multi-obs pins) ───
+  // Single-obs pins skip the pin-strip entirely — the obs IS the pin,
+  // so the obs card carries the Pin # circle and drawing pill itself.
+  // This eliminates the redundant double-circle on single-obs pins
+  // (Mark feedback: "do not make two circles when there is only 1
+  // observation"). Multi-obs pins keep a minimal strip with Pin # circle
+  // + drawing pill on the same row. Pin # circle is status-based (red
+  // open / green closed) since per-obs pills carry priority info below.
+  // Edge case: 0-obs pin (legacy) → strip still renders so it's recoverable.
+  var multiObsPin = obs.length > 1;
+  var renderPinStrip = obs.length !== 1; // skip strip ONLY for single-obs
+  if (renderPinStrip) {
+    h += '<div class="defic-pin-strip">';
+    h += '<div class="pin-num-circle" style="background:' + circleColor + ';">' + (d.num || '?') + '</div>';
+    if (d.drawingId) {
+      var _dwgs = Model.getDrawings();
+      var _dwgName = '';
+      for (var _di = 0; _di < _dwgs.length; _di++) { if (_dwgs[_di].id === d.drawingId) { _dwgName = _dwgs[_di].name || 'Drawing'; break; } }
+      h += '<button data-action="view-pin" data-defic-id="' + esc(d.id) + '" class="defic-dwg-pill" title="' + esc(_dwgName) + '">\uD83D\uDCCC ' + esc(_dwgName) + '</button>';
+    } else {
+      h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
+    }
+    h += '</div>'; // /defic-pin-strip
   }
-  h += '</div>'; // /defic-pin-strip
 
   // ─── obs cards (S121 Push 8: label row + single controls row) ───
   // Layout per obs:
@@ -679,7 +684,8 @@ function _buildPinGroupCard(d, ctrId) {
   //          (Spinoff/Remove obs hidden when single-obs)
   //   Row 3: textarea | media zone (icon-only Upload/Camera/Gallery)
   obs.forEach(function(o, oi) {
-    var label = needsSuffix ? (d.num + '-' + String.fromCharCode(65 + oi)) : String(d.num || '?');
+    // S122 Push 1: label uses NO DASH (3A not 3-A). Single-obs uses just N.
+    var label = needsSuffix ? (d.num + String.fromCharCode(65 + oi)) : String(d.num || '?');
     var addrCls = o.addressed ? ' addressed' : '';
 
     h += '<div class="defic-obs-card' + addrCls + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
@@ -691,9 +697,29 @@ function _buildPinGroupCard(d, ctrId) {
     var obsAddressed = !!o.addressed;
     var multiObs = (obs.length > 1);
 
-    // Row 1 — label only (no priority pill here per Mark feedback)
+    // S122 Push 1: priority-keyed pill class. Same logic as kanban .pkc-num
+    // for visual consistency. Override order: addressed (green) > IAR (pink)
+    // > priority (red high / orange low / green general).
+    var pillCls = obsPriVal === 'general' ? 'general' : obsPriVal === 'low' ? 'low' : 'high';
+    if (d.iar) pillCls = 'iar';
+    if (o.addressed) pillCls = 'addressed';
+
+    // Row 1 — pill + label text. Single-obs gets drawing pill on right
+    // (since there's no pin-strip up top to carry it).
     h += '<div class="defic-obs-card-lbl-row">';
-    h += '<span class="defic-obs-card-lbl' + (o.addressed ? ' addressed' : '') + '">#' + esc(label) + ' \u00B7 Observation' + _aiDot + '</span>';
+    h += '<span class="obs-pill ' + pillCls + '">' + esc(label) + '</span>';
+    h += '<span class="obs-pill-text' + (o.addressed ? ' addressed' : '') + '">\u00B7 ' + (multiObs ? 'Observation' : 'Pin') + _aiDot + '</span>';
+    if (!multiObs) {
+      h += '<span class="lbl-row-spacer"></span>';
+      if (d.drawingId) {
+        var _dwgs2 = Model.getDrawings();
+        var _dwgName2 = '';
+        for (var _di2 = 0; _di2 < _dwgs2.length; _di2++) { if (_dwgs2[_di2].id === d.drawingId) { _dwgName2 = _dwgs2[_di2].name || 'Drawing'; break; } }
+        h += '<button data-action="view-pin" data-defic-id="' + esc(d.id) + '" class="defic-dwg-pill" title="' + esc(_dwgName2) + '">\uD83D\uDCCC ' + esc(_dwgName2) + '</button>';
+      } else {
+        h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
+      }
+    }
     h += '</div>';
 
     // Row 2 — controls. Order: Outstanding → Priority → IAR | AI Review → Spinoff → Remove obs

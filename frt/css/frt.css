@@ -4940,7 +4940,7 @@ body:not(.dark-mode) .dv-tasks-panel .dv-tasks-filter-btn{
 .defic-obs-card:last-of-type{border-bottom:none;}
 .defic-obs-card.addressed{border-left:3px solid #1A7A4A;background:rgba(26,122,74,.05);}
 
-.defic-obs-card-lbl-row{margin-bottom:6px;}
+.defic-obs-card-lbl-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
 .defic-obs-card-ctrls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
 .defic-obs-card-lbl{font-size:calc(12px + var(--ts));font-weight:700;color:var(--fg);}
 .defic-obs-card-lbl.addressed{color:#1A7A4A;}
@@ -5274,3 +5274,75 @@ body.dark-mode #btn-reports-parent:hover{ background:var(--btn-action-purple-hov
    now has more buttons so we want tighter gap. */
 .defic-obs-card-ctrls{ gap:5px; }
 /* End S121 Push 8 ─────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════
+   S122 Push 1 — Per-obs pill + pin-strip simplification
+   ═══════════════════════════════════════════════════════════════════
+   Single-obs pins now skip the pin-strip entirely (no redundant
+   double-circle). The obs card's label row carries the Pin # pill
+   AND the drawing pill on the same row.
+
+   Multi-obs pins keep a minimal pin-strip with the Pin # circle +
+   drawing pill on the same row (pin-num-circle, status-based color).
+   Each obs sub-card has its own per-obs pill (priority-keyed, no
+   dash: 3A not 3-A).
+
+   Visual consistency with kanban .pkc-num — same 28×28 round shape,
+   white text, priority-keyed background. .obs-pill is the unified
+   class for both single-obs Pin pills and multi-obs Observation pills.
+   ─────────────────────────────────────────────────────────────────── */
+
+/* Pin # circle (multi-obs strip only) — status-based, "like before" */
+.pin-num-circle{
+  min-width:30px;width:30px;height:30px;
+  border-radius:50%;
+  color:white;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:calc(13px + var(--ts));
+  flex-shrink:0;
+}
+
+/* Per-obs pill (and single-obs pin pill) — priority-keyed.
+   Slightly oblong (border-radius:12px, min-width:34px) to fit "3A"/"3B"
+   variant gracefully alongside single-digit "5". Mark explicit:
+   "I don't mind if you make the observation a little longer circle to fit". */
+.obs-pill{
+  min-width:34px;
+  height:24px;
+  padding:0 9px;
+  border-radius:12px;
+  color:white;
+  display:inline-flex;
+  align-items:center;justify-content:center;
+  font-weight:800;font-size:calc(12px + var(--ts));
+  flex-shrink:0;
+  letter-spacing:.3px;
+  font-family:Calibri,sans-serif;
+}
+.obs-pill.high     { background:#C0392B; }
+.obs-pill.low      { background:#E67E22; }
+.obs-pill.general  { background:#1A7A4A; }
+.obs-pill.iar      { background:#FF69B4; }
+.obs-pill.addressed{ background:#1A7A4A; }
+
+/* Label text next to the pill (· Observation / · Pin) */
+.obs-pill-text{
+  font-size:calc(13px + var(--ts));
+  font-weight:600;
+  color:var(--fg);
+}
+.obs-pill-text.addressed{ color:#1A7A4A; }
+.obs-pill-text .ai-rev-dot{
+  display:inline-block;width:8px;height:8px;border-radius:50%;
+  background:#1A7A4A;margin-left:6px;vertical-align:middle;
+}
+
+/* Spacer pushes the drawing pill to the right edge in single-obs label row */
+.lbl-row-spacer{ flex:1 1 auto; }
+
+/* Dark-mode tuning */
+body.dark-mode .obs-pill-text{ color:#d4d8e8; }
+body.dark-mode .obs-pill-text.addressed{ color:#7BC894; }
+body.dark-mode .pin-num-circle{ /* status colors carry on dark-mode bg fine */ }
+/* End S122 Push 1 ──────────────────────────────────────────────────── */
+
