@@ -125,7 +125,7 @@ function ensurePdfJs(cb){
             </div>
             <div style="height:1px;background:#eee;margin:2px 0;"></div>
           </div>
-          <button>🗑️ Reset Current Tab <span>Clear this tab's data</span></button>
+          <button id="btn-reset-current-tab">🗑️ Reset Current Tab <span>Clear this tab's data</span></button>
           <button style="color:#C62828;">⚠️ Reset Entire Project <span>Delete all project data</span></button>
         </div>
       </div>
@@ -333,7 +333,7 @@ function ensurePdfJs(cb){
         </div>
       </div>
       <div class="mm-divider"></div>
-      <button class="btn mm-btn mm-sub" id="mobile-reset-tab-btn" onclick="var ms=document.querySelectorAll('#more-menu > button');for(var i=0;i<ms.length;i++){if(ms[i].textContent.indexOf('Reset Current')>=0){ms[i].click();break;}}">🗑️ Reset Current Tab</button>
+      <button class="btn mm-btn mm-sub" id="mobile-reset-tab-btn" onclick="var b=document.getElementById('btn-reset-current-tab');if(b)b.click();">🗑️ Reset Current Tab</button>
       <button class="btn mm-btn mm-sub mm-danger" id="mobile-reset-btn">⚠️ Reset Project</button>
     </div>
     <button class="btn mm-btn mm-signout" id="mobile-signout-btn" style="display:none;">🔓 Sign Out</button>

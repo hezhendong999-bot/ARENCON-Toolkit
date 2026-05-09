@@ -66,6 +66,21 @@
       var c = document.createElement('canvas');
       var gl = c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl');
       _supported = !!gl;
+      // S122 Push 9 — stencil buffer probe. Pixi v7's mask/clip primitives use
+      // the stencil buffer; iOS Safari's WebGL contexts have historically
+      // shipped without one in older versions and on low-power modes. Emit a
+      // diagnostic warn so support can correlate with eraser/mask anomalies.
+      // Only warns when WebGL is itself supported (stencil missing on no-WebGL
+      // is meaningless). Doesn't disable the renderer — Pixi falls back via
+      // its own internal paths; this is purely informational.
+      if (_supported && gl && typeof gl.getContextAttributes === 'function') {
+        try {
+          var attrs = gl.getContextAttributes();
+          if (attrs && attrs.stencil === false) {
+            console.warn('[WebGLMarkup] WebGL context has no stencil buffer — eraser/mask features may render with reduced precision. Common on older iOS Safari and Low Power Mode.');
+          }
+        } catch(_){}
+      }
     } catch(_){ _supported = false; }
     return _supported;
   }

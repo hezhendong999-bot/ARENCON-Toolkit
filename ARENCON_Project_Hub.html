@@ -2953,15 +2953,23 @@ async function renameInstance(instanceId) {
 }
 
 async function deleteInstance(instanceId, title) {
-  if (!confirm('Delete report "' + (title || 'Untitled') + '"? This cannot be undone.')) return;
-  try {
-    await _sb.from('tool_data').eq('id', instanceId).delete();
-    toast('Report deleted', 'success');
-    if (_detailProjectId) {
-      var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
-      if (proj) _loadAndRenderInstances(proj);
+  // S122 Push 9 — promoted from raw confirm() to type-DELETE modal since the
+  // delete is irreversible. Reuses _typeToConfirmPurge introduced for project
+  // purge. User must type DELETE before the OK button enables.
+  _typeToConfirmPurge(
+    'Delete Report',
+    'This will permanently delete report "' + (title || 'Untitled') + '". This cannot be undone.',
+    async function() {
+      try {
+        await _sb.from('tool_data').eq('id', instanceId).delete();
+        toast('Report deleted', 'success');
+        if (_detailProjectId) {
+          var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
+          if (proj) _loadAndRenderInstances(proj);
+        }
+      } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
     }
-  } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
+  );
 }
 
 async function changeInstanceStatus(instanceId, newStatus) {
