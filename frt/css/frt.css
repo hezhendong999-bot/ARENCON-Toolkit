@@ -4957,8 +4957,20 @@ body:not(.dark-mode) .dv-tasks-panel .dv-tasks-filter-btn{
 .defic-obs-card-ctrls .addr-toggle{border:none;color:white;border-radius:4px;padding:4px 11px;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;}
 .defic-obs-card-ctrls .addr-toggle.open{background:#CBD5E0;color:#2C3E50;}
 .defic-obs-card-ctrls .addr-toggle.closed{background:#1A7A4A;}
-.defic-obs-card-ctrls .spinoff-obs-btn{border:none;background:#2196F3;color:white;border-radius:4px;padding:4px 10px;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;}
-.defic-obs-card-ctrls .remove-obs-btn{border:none;background:#E53E3E;color:white;border-radius:4px;padding:4px 10px;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;}
+/* S121 Push 4: muted spinoff (--lm-blue) + remove-obs (--lm-red-soft) per Mark — bright #2196F3/#E53E3E violated muted-palette rule */
+.defic-obs-card-ctrls .spinoff-obs-btn{border:none;background:#4A6580;color:white;border-radius:4px;padding:4px 10px;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;}
+.defic-obs-card-ctrls .remove-obs-btn{border:none;background:#A85959;color:white;border-radius:4px;padding:4px 10px;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;}
+
+/* S121 Push 4: 2-col layout with consolidated photos+drop media zone */
+.obs-layout-merged{display:grid;grid-template-columns:1fr 1.2fr;gap:10px;align-items:stretch;margin:8px 0 4px;}
+.obs-media-col{display:flex;min-width:0;}
+.obs-media-col.drag-over .obs-media-zone{border-color:#9C2742;background:rgba(156,39,66,.08);}
+.obs-media-zone{flex:1;border:2px dashed var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--smoke);min-height:140px;transition:border-color .15s,background .15s;}
+.obs-media-photos{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;}
+.obs-media-photos .obs-photo-wrap{width:80px;height:80px;}
+.obs-media-divider{height:1px;background:var(--border);margin:2px 0;}
+.obs-media-hint{font-size:calc(11px + var(--ts));color:var(--silver);text-align:center;font-weight:600;line-height:1.2;flex:1;display:flex;align-items:center;justify-content:center;min-height:24px;}
+.obs-media-btns{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;}
 
 .defic-pin-footer{padding:10px 14px;background:rgba(0,0,0,0.02);border-top:1.5px solid var(--border);}
 .defic-pin-footer .defic-actions{margin-top:0;padding-top:0;border-top:none;}

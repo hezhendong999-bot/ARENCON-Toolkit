@@ -689,7 +689,7 @@ function _buildPinGroupCard(d, ctrId) {
     h += '<div class="defic-obs-card-ctrls">';
     h += '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Observation priority" class="obs-pri-mini" style="background:' + obsPriColor + ';color:white;border-color:' + obsPriColor + ';font-weight:700;">';
     ['general', 'high', 'low'].forEach(function(pv) {
-      h += '<option value="' + pv + '"' + (obsPriVal === pv ? ' selected' : '') + '>' + pv.charAt(0).toUpperCase() + pv.slice(1) + '</option>';
+      h += '<option value="' + pv + '" style="background:white;color:#2C3E50;font-weight:600;"' + (obsPriVal === pv ? ' selected' : '') + '>' + pv.charAt(0).toUpperCase() + pv.slice(1) + '</option>';
     });
     h += '</select>';
     h += '<button data-action="toggle-addressed" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="addr-toggle ' + (o.addressed ? 'closed' : 'open') + '">' + (o.addressed ? '\u2611 Addressed' : '\u2610 Open') + '</button>';
@@ -697,39 +697,43 @@ function _buildPinGroupCard(d, ctrId) {
     h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="remove-obs-btn" title="Remove observation">\u2715 Remove obs</button>';
     h += '</div>';
 
-    // obs body — same 3-col layout as multi-obs path in buildDeficCard
-    h += '<div class="obs-layout">';
+    // S121 Push 4: obs body — 2-col layout (textarea | combined media zone).
+    // Photos thumbnails and drop zone merged into one container so empty
+    // pins don't show an awkward "No photos yet" gap, and the inspector
+    // can drag onto the same area whether photos already exist or not.
+    h += '<div class="obs-layout-merged">';
     h += '<div class="obs-text">';
     h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="obs-text-input" placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
     h += '</div>';
     var obsPhotos = (Model.getEffectivePhotos ? Model.getEffectivePhotos(d, oi) : (o.photos || []));
-    h += '<div class="obs-photos-col"><div class="obs-photos-grid">';
-    obsPhotos.forEach(function(ph, phi) {
-      var mk = (Model.getObsPhotoMarkup ? Model.getObsPhotoMarkup(d, oi, ph.id) : null);
-      var src = (mk && mk.markedR2Key) ? mk.markedR2Key : (ph.thumb || ph.dataUrl || ph.r2Url || '');
-      if (!src) return;
-      var pid = ph.id || '';
-      h += '<div class="obs-photo-wrap">';
-      h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" src="' + esc(src) + '" loading="lazy">';
-      h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
-      h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-del" title="Remove from this observation">\u2715</button>';
-      h += '</div>';
-    });
-    if (!obsPhotos.length) {
-      h += '<div class="obs-photos-empty">No photos yet.</div>';
-    }
-    h += '</div></div>';
-    h += '<div class="obs-drop-col" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
+    h += '<div class="obs-media-col" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
     h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
     h += ' ondragleave="this.classList.remove(\'drag-over\')">';
-    h += '<div class="obs-drop-zone">';
-    h += '<div class="obs-drop-msg">Drop photos here<br><span class="obs-drop-msg-sub">or use buttons below</span></div>';
-    h += '<div class="obs-drop-btns">';
+    h += '<div class="obs-media-zone">';
+    if (obsPhotos.length) {
+      h += '<div class="obs-media-photos">';
+      obsPhotos.forEach(function(ph, phi) {
+        var mk = (Model.getObsPhotoMarkup ? Model.getObsPhotoMarkup(d, oi, ph.id) : null);
+        var src = (mk && mk.markedR2Key) ? mk.markedR2Key : (ph.thumb || ph.dataUrl || ph.r2Url || '');
+        if (!src) return;
+        var pid = ph.id || '';
+        h += '<div class="obs-photo-wrap">';
+        h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" src="' + esc(src) + '" loading="lazy">';
+        h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
+        h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-del" title="Remove from this observation">\u2715</button>';
+        h += '</div>';
+      });
+      h += '</div>';
+      h += '<div class="obs-media-divider"></div>';
+    }
+    h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + '</div>';
+    h += '<div class="obs-media-btns">';
     h += '<button class="obs-drop-btn is-upload" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCCE Upload</button>';
     h += '<button class="obs-drop-btn is-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCF7 Camera</button>';
     h += '<button class="obs-drop-btn is-gallery" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F + Gallery</button>';
-    h += '</div></div></div>';
-    h += '</div>'; // /obs-layout
+    h += '</div>';
+    h += '</div></div>';
+    h += '</div>'; // /obs-layout-merged
 
     // AI scratchpad
     h += '<div class="ai-scratchpad" data-sp-defic="' + esc(d.id) + '" data-sp-obs="' + oi + '" style="display:none;"></div>';
@@ -1728,20 +1732,10 @@ document.addEventListener('input', function(e) {
     if (_ef && _ef.defic.observations && _ef.defic.observations[obsIdx]) {
       _ef.defic.observations[obsIdx].aiReviewed = false;
     }
-    // S114 P1.9: auto-bullet — typing "<digits> " at start of a line auto-converts to "<digits>. ".
-    // Cheap detection: cursor just after a space, the line up to cursor matches /^(\d+) $/.
-    // Replace the trailing space with ". " via execCommand so Ctrl+Z reverts.
-    var ta = e.target;
-    var pos = ta.selectionStart;
-    if (pos >= 2 && text.charAt(pos - 1) === ' ') {
-      var lineStart = text.lastIndexOf('\n', pos - 1) + 1;
-      var line = text.substring(lineStart, pos);
-      if (/^\d+ $/.test(line)) {
-        ta.setSelectionRange(pos - 1, pos);
-        document.execCommand('insertText', false, '. ');
-        text = ta.value; // re-read so the debounced save below uses the new value
-      }
-    }
+    // S121 Push 4: removed S114 P1.9 auto-bullet (typing "<digits> " at start
+    // of a line auto-converted to "<digits>. "). The execCommand('insertText')
+    // call caused a focus-flash bug — bullet appeared on focus loss instead
+    // of mid-typing. Per Mark, removed entirely rather than fixed.
     if (_obsDebounce[deficId]) clearTimeout(_obsDebounce[deficId]);
     _obsDebounce[deficId] = setTimeout(function() {
       Model.updateObservation(deficId, obsIdx, text);
