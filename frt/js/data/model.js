@@ -1369,16 +1369,26 @@ export var Model = {
 
   renumberDeficiencies: function() {
     if (!_project) return 0;
-    // Contractor deficiencies first (sorted by current num), then general
+    // S121 Push 13: renumber by ARRAY ORDER (= creation order = visual
+    // tab order) instead of by current num value. The previous sort by
+    // (a.num - b.num) was a no-op when nums were already sequential
+    // (1, 2, 3 → 1, 2, 3) — Mark hit Renumber and saw nothing change.
+    //
+    // Card display in deficiencies.js _renderActiveTab / _renderGeneralTab
+    // walks each contractor's `deficiencies` array in-order and emits
+    // cards in that sequence. Same for `generalDeficiencies`. Every add
+    // path does `.push()`, so array index reflects creation order.
+    // Renumbering by index ⇒ pin numbers match the order the inspector
+    // sees them on screen. Hitting Renumber after deletes/inserts now
+    // visibly compacts the sequence (e.g., delete pin #2, hit Renumber:
+    // pins #1 #3 #4 #5 → #1 #2 #3 #4).
     var ctrDefics = [];
     (_project.contractors || []).forEach(function(c) {
       (c.deficiencies || []).forEach(function(d) {
         ctrDefics.push(d);
       });
     });
-    ctrDefics.sort(function(a, b) { return (a.num || 0) - (b.num || 0); });
     var genDefics = (_project.generalDeficiencies || []).slice();
-    genDefics.sort(function(a, b) { return (a.num || 0) - (b.num || 0); });
     var ordered = ctrDefics.concat(genDefics);
     ordered.forEach(function(d, idx) {
       d.num = idx + 1;
