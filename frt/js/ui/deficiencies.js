@@ -357,6 +357,14 @@ function _amRenderThumbs() {
 // ── Deficiency Card (interactive) ────────────────────────
 function buildDeficCard(d, ctrId) {
   var obs = d.observations || [];
+  // S121 Phase C-2: pin-group rendering for multi-obs pins. Single-obs pins
+  // (length 0 or 1) continue rendering today's compact card path below
+  // unchanged. Multi-obs pins (length >= 2) route through _buildPinGroupCard
+  // which produces a strip + per-obs cards + pin-level footer structure.
+  // Click handlers all key off data-defic-id + data-obs-idx and don't change.
+  if (obs.length >= 2) {
+    return _buildPinGroupCard(d, ctrId);
+  }
   // S119: status + priority shown in the card header reflect EFFECTIVE values
   // (max priority across obs / all-addressed → closed). Per-obs priority lives
   // on each observation row below; per-obs addressed lives on the toggle there.
@@ -573,6 +581,205 @@ function buildDeficCard(d, ctrId) {
   }
 
   h += '</div></div></div>';
+  return h;
+}
+
+// ── S121 Phase C-2: pin-group renderer for multi-obs pins ──
+// Called by buildDeficCard when d.observations.length >= 2. Produces a
+// pin-group container with three regions:
+//   - Pin strip (top): pin-num circle, effective-priority badge, bulk
+//     status select, IAR, drawing pill, AI Review, + Add Obs, ⋯ menu
+//   - Obs cards (middle, one per observation): per-obs label with
+//     cross-contractor suffix when applicable, priority dropdown,
+//     addressed toggle, spinoff, remove-obs, then 3-col body
+//     (textarea | photos grid | drop zone) and AI scratchpad
+//   - Pin footer (bottom): closed-note (when effective-closed),
+//     activity log, action row (+ Response, + Comment, Close all /
+//     Reopen all, ✕ Remove pin), noted date
+//
+// All click handlers use the same data-action + data-defic-id +
+// data-obs-idx contract as the single-obs path. The DOM is different
+// but the event delegation in handleDeficClick treats both paths
+// identically.
+function _buildPinGroupCard(d, ctrId) {
+  var obs = d.observations || [];
+  var p = (typeof Model !== 'undefined' && Model.getProject) ? Model.getProject() : null;
+  var effStatus = Model.getEffectiveStatus(d);
+  var effPri = Model.getEffectivePriority(d);
+  var isOpen = effStatus === 'open';
+  var isClosed = effStatus === 'closed';
+  var circleColor = isClosed ? '#1A7A4A' : '#C0392B';
+
+  // Cross-contractor suffix detection (mirrors flattenForTabs / _pushItems).
+  // When a pin's obs span more than one effective contractor, every obs
+  // gets a letter suffix on its label (#4-A, #4-B, ...). Same-contractor
+  // multi-obs pins keep plain #N labels.
+  var parentCtrName;
+  if (!ctrId || ctrId === '__general__') {
+    parentCtrName = 'Site General';
+  } else {
+    var fc = (p && p.contractors || []).find(function(c) { return c.id === ctrId; });
+    parentCtrName = fc ? fc.name : '';
+  }
+  var obsEffCtrs = obs.map(function(o) {
+    if (o && o.contractorId && p) {
+      var c = (p.contractors || []).find(function(c) { return c.id === o.contractorId; });
+      if (c) return c.name;
+    }
+    return parentCtrName;
+  });
+  var distinctCtrs = obsEffCtrs.filter(function(v, i, a) { return a.indexOf(v) === i; });
+  var needsSuffix = distinctCtrs.length > 1;
+
+  var effPriColor = effPri === 'general' ? '#1A7A4A' : effPri === 'low' ? '#E67E22' : '#C0392B';
+  var effPriLabel = effPri.charAt(0).toUpperCase() + effPri.slice(1);
+
+  var h = '<div class="defic-pin-group" data-defic-id="' + esc(d.id) + '" data-status="' + esc(effStatus) + '">';
+
+  // ─── pin strip ───
+  h += '<div class="defic-pin-strip">';
+  h += '<div class="defic-num-circle" style="background:' + circleColor + ';">' + (d.num || '?') + '</div>';
+  h += '<span class="pri-eff-badge" title="Effective priority (max across observations)" style="background:' + effPriColor + ';">' + esc(effPriLabel) + '</span>';
+  h += '<select class="pin-status-sel" data-action="status" data-defic-id="' + esc(d.id) + '" style="width:auto;padding:3px 8px;font-size:calc(11px + var(--ts));">';
+  h += '<option value="open"' + (isOpen ? ' selected' : '') + '>Outstanding</option>';
+  h += '<option value="closed"' + (isClosed ? ' selected' : '') + '>Addressed &amp; Closed</option>';
+  h += '</select>';
+  var iarStyle = d.iar
+    ? 'border:none;background:#E91E8C;color:white;'
+    : 'background:transparent;color:#9AA5B5;border:1.5px solid rgba(154,165,181,.4);';
+  h += '<button data-action="toggle-iar" data-defic-id="' + esc(d.id) + '" style="' + iarStyle + 'border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">' + (d.iar ? '\u26A1 IAR' : 'IAR') + '</button>';
+  if (d.drawingId) {
+    var _dwgs = Model.getDrawings();
+    var _dwgName = '';
+    for (var _di = 0; _di < _dwgs.length; _di++) { if (_dwgs[_di].id === d.drawingId) { _dwgName = _dwgs[_di].name || 'Drawing'; break; } }
+    h += '<button data-action="view-pin" data-defic-id="' + esc(d.id) + '" class="defic-dwg-pill" title="' + esc(_dwgName) + '">\uD83D\uDCCC ' + esc(_dwgName) + '</button>';
+  } else {
+    h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
+  }
+  h += '<button data-action="ai-review-menu" data-defic-id="' + esc(d.id) + '" class="defic-ai-btn" title="AI Review">\u2728 AI Review</button>';
+  h += '<button data-action="add-obs" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 10px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">+ Add Obs</button>';
+  h += '</div>'; // /defic-pin-strip
+
+  // ─── obs cards ───
+  obs.forEach(function(o, oi) {
+    var label = needsSuffix ? (d.num + '-' + String.fromCharCode(65 + oi)) : String(d.num || '?');
+    var addrCls = o.addressed ? ' addressed' : '';
+
+    h += '<div class="defic-obs-card' + addrCls + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
+
+    // obs card header
+    var _aiDot = o.aiReviewed ? '<span class="ai-rev-dot" title="AI reviewed"></span>' : '';
+    h += '<div class="defic-obs-card-hdr">';
+    h += '<span class="defic-obs-card-lbl' + (o.addressed ? ' addressed' : '') + '">#' + esc(label) + ' \u00B7 Observation' + _aiDot + '</span>';
+    h += '<div class="defic-obs-card-actions">';
+    var obsPriVal = o.priority || d.priority || 'high';
+    h += '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Observation priority" class="obs-pri-mini">';
+    ['general', 'high', 'low'].forEach(function(pv) {
+      h += '<option value="' + pv + '"' + (obsPriVal === pv ? ' selected' : '') + '>' + pv.charAt(0).toUpperCase() + pv.slice(1) + '</option>';
+    });
+    h += '</select>';
+    h += '<button data-action="toggle-addressed" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="addr-toggle ' + (o.addressed ? 'closed' : 'open') + '">' + (o.addressed ? '\u2611 Addressed' : '\u2610 Open') + '</button>';
+    h += '<button data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="spinoff-obs-btn" title="Spin off as new pin (asks for confirmation)">\u21B1</button>';
+    h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="remove-obs-btn" title="Remove observation">\u2715</button>';
+    h += '</div></div>';
+
+    // obs body — same 3-col layout as multi-obs path in buildDeficCard
+    h += '<div class="obs-layout">';
+    h += '<div class="obs-text">';
+    h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="obs-text-input" placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
+    h += '</div>';
+    var obsPhotos = (Model.getEffectivePhotos ? Model.getEffectivePhotos(d, oi) : (o.photos || []));
+    h += '<div class="obs-photos-col"><div class="obs-photos-grid">';
+    obsPhotos.forEach(function(ph, phi) {
+      var mk = (Model.getObsPhotoMarkup ? Model.getObsPhotoMarkup(d, oi, ph.id) : null);
+      var src = (mk && mk.markedR2Key) ? mk.markedR2Key : (ph.thumb || ph.dataUrl || ph.r2Url || '');
+      if (!src) return;
+      var pid = ph.id || '';
+      h += '<div class="obs-photo-wrap">';
+      h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" src="' + esc(src) + '" loading="lazy">';
+      h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
+      h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-del" title="Remove from this observation">\u2715</button>';
+      h += '</div>';
+    });
+    if (!obsPhotos.length) {
+      h += '<div class="obs-photos-empty">No photos yet.</div>';
+    }
+    h += '</div></div>';
+    h += '<div class="obs-drop-col" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
+    h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
+    h += ' ondragleave="this.classList.remove(\'drag-over\')">';
+    h += '<div class="obs-drop-zone">';
+    h += '<div class="obs-drop-msg">Drop photos here<br><span class="obs-drop-msg-sub">or use buttons below</span></div>';
+    h += '<div class="obs-drop-btns">';
+    h += '<button class="obs-drop-btn is-upload" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCCE Upload</button>';
+    h += '<button class="obs-drop-btn is-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCF7 Camera</button>';
+    h += '<button class="obs-drop-btn is-gallery" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F + Gallery</button>';
+    h += '</div></div></div>';
+    h += '</div>'; // /obs-layout
+
+    // AI scratchpad
+    h += '<div class="ai-scratchpad" data-sp-defic="' + esc(d.id) + '" data-sp-obs="' + oi + '" style="display:none;"></div>';
+
+    h += '</div>'; // /defic-obs-card
+  });
+
+  // ─── pin footer ───
+  h += '<div class="defic-pin-footer">';
+
+  // closed note (only when effective-closed)
+  if (isClosed) {
+    h += '<div style="margin-bottom:8px;">';
+    h += '<div style="font-size:calc(10px + var(--ts));font-weight:700;color:#1A7A4A;margin-bottom:2px;">Closed Note</div>';
+    h += '<textarea data-action="closed-note" data-defic-id="' + esc(d.id) + '" style="width:100%;min-height:36px;border:1.5px solid rgba(26,122,74,.3);border-radius:6px;padding:6px 8px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:rgba(26,122,74,.03);" placeholder="Closing remarks...">' + esc(d.closedNote || '') + '</textarea>';
+    h += '</div>';
+  }
+
+  // activity log
+  var activity = d.activity || [];
+  if (activity.length) {
+    h += '<div style="margin-bottom:8px;padding-top:6px;border-top:1px dashed var(--border);">';
+    h += '<div style="font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);margin-bottom:4px;">Activity Log</div>';
+    activity.slice().sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); }).forEach(function(a) {
+      if (a.autoGenerated) return;
+      var isCtr = (a.label || '').indexOf('Contractor') >= 0;
+      var bgColor = isCtr ? '#FEF3E2' : '#EBF4FF';
+      var lColor = isCtr ? '#E67E22' : '#1565C0';
+      h += '<div style="margin-bottom:3px;padding:4px 6px;background:' + bgColor + ';border-radius:4px;font-size:calc(11px + var(--ts));">';
+      h += '<span style="color:' + lColor + ';font-weight:600;">' + esc(a.label || 'Note') + '</span> <span style="color:var(--silver);font-size:calc(10px + var(--ts));">' + esc(a.date || '') + '</span>';
+      h += '<div style="margin-top:2px;">' + esc(a.text || '\u2014') + '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  // footer action row (+ Response, + Comment, Close all/Reopen all, Remove pin, ⋯ menu)
+  h += '<div class="defic-actions">';
+  h += '<button class="defic-act-btn act-response" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="Contractor Response">+ Contractor Response</button>';
+  h += '<button class="defic-act-btn act-comment" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="ARENCON">+ ARENCON Comment</button>';
+  if (isOpen) {
+    h += '<button class="defic-act-btn act-close" data-action="close-defic" data-defic-id="' + esc(d.id) + '">\u2714 Close all</button>';
+  } else {
+    h += '<button class="defic-act-btn act-reopen" data-action="reopen-defic" data-defic-id="' + esc(d.id) + '">\u21A9 Reopen all</button>';
+  }
+  h += '<button class="defic-act-btn act-remove" data-action="delete-defic" data-defic-id="' + esc(d.id) + '">\u2715 Remove pin</button>';
+  h += '<div style="position:relative;">';
+  h += '<button class="defic-act-btn act-more" data-action="toggle-more" data-defic-id="' + esc(d.id) + '">\u22EF</button>';
+  h += '<div class="defic-more-popup" id="more-' + esc(d.id) + '">';
+  h += '<button data-action="dup-defic" data-defic-id="' + esc(d.id) + '">\u29C9 Duplicate</button>';
+  h += '<button data-action="reassign-defic" data-defic-id="' + esc(d.id) + '">\u21D7 Move to\u2026</button>';
+  if (d.drawingId) {
+    h += '<button data-action="remove-pin" data-defic-id="' + esc(d.id) + '">\uD83D\uDCCC Remove Pin Only</button>';
+  }
+  h += '</div></div>';
+  h += '</div>'; // /defic-actions
+
+  // noted date
+  if (d.notedDate || d.date) {
+    h += '<div class="defic-noted" style="margin-top:6px;font-size:calc(10px + var(--ts));color:var(--silver);">' + esc(d.notedDate || d.date) + '</div>';
+  }
+
+  h += '</div>'; // /defic-pin-footer
+  h += '</div>'; // /defic-pin-group
   return h;
 }
 
