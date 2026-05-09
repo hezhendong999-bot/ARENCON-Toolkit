@@ -921,6 +921,29 @@ function _buildPinGroupCard(d, ctrId) {
   // ─── pin footer ───
   h += '<div class="defic-pin-footer">';
 
+  // S122 Push 7 (Piece E) — pin mini-map. Small thumbnail of the pin's
+  // drawing with the pin marker overlaid at its normalized coordinates,
+  // giving spatial context without leaving the deficiency list. Click
+  // jumps to the viewer at this pin (same as the drawing pill above).
+  // Only renders when the pin has been placed (pinX/Y set) AND the
+  // drawing has a thumbnail (drawings.js lazily generates these).
+  if (d.drawingId && d.pinX != null && d.pinY != null) {
+    var _drawings = Model.getDrawings();
+    var _dwgT = null;
+    for (var _dt = 0; _dt < _drawings.length; _dt++) {
+      if (_drawings[_dt].id === d.drawingId) { _dwgT = _drawings[_dt]; break; }
+    }
+    if (_dwgT && _dwgT.thumb) {
+      var _xPct = (Math.max(0, Math.min(1, d.pinX)) * 100).toFixed(1);
+      var _yPct = (Math.max(0, Math.min(1, d.pinY)) * 100).toFixed(1);
+      var _miniColor = isClosed ? '#1A7A4A' : (effPri === 'general' ? '#1A7A4A' : effPri === 'low' ? '#E67E22' : '#C0392B');
+      h += '<div class="defic-pin-minimap" data-action="view-pin" data-defic-id="' + esc(d.id) + '" title="Jump to pin in drawing">';
+      h += '<img src="' + esc(_dwgT.thumb) + '" alt="" loading="lazy" decoding="async">';
+      h += '<div class="mini-pin-marker" style="left:' + _xPct + '%;top:' + _yPct + '%;background:' + _miniColor + ';"></div>';
+      h += '</div>';
+    }
+  }
+
   // closed note (only when effective-closed)
   if (isClosed) {
     h += '<div style="margin-bottom:8px;">';

@@ -5378,5 +5378,49 @@ body.dark-mode .obs-pill-text.addressed{ color:#7BC894; }
   border-radius:12px;
   font-size:calc(12px + var(--ts));
 }
-/* End S122 Push 1 ──────────────────────────────────────────────────── */
+/* S122 Push 7 (Piece E) — Pin mini-map. Small thumbnail of the pin's
+   drawing with a colored marker dot at the pin's normalized coordinates.
+   Lives at the top of the pin footer; clicking jumps to the viewer. */
+.defic-pin-minimap{
+  position:relative;
+  width:140px;
+  height:90px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  overflow:hidden;
+  cursor:pointer;
+  background:var(--smoke);
+  margin-bottom:8px;
+  flex-shrink:0;
+  transition:border-color .15s,box-shadow .15s;
+}
+.defic-pin-minimap:hover{
+  border-color:#9C2742;
+  box-shadow:0 1px 4px rgba(156,39,66,.20);
+}
+.defic-pin-minimap img{
+  width:100%;height:100%;
+  object-fit:contain;
+  display:block;
+  pointer-events:none;
+  background:white;
+}
+.defic-pin-minimap .mini-pin-marker{
+  position:absolute;
+  width:14px;
+  height:14px;
+  border-radius:50%;
+  border:2px solid white;
+  box-shadow:0 0 4px rgba(0,0,0,.4);
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+}
+body.dark-mode .defic-pin-minimap{
+  background:#1d2028;
+  border-color:#33373f;
+}
+body.dark-mode .defic-pin-minimap img{
+  background:#22252d;
+}
+/* End S122 Push 7 ──────────────────────────────────────────────────── */
 
