@@ -357,17 +357,16 @@ function _amRenderThumbs() {
 // ── Deficiency Card (interactive) ────────────────────────
 function buildDeficCard(d, ctrId) {
   var obs = d.observations || [];
-  // S121 Push 7: restored C-2 pin-group rendering for multi-obs (the
-  // strip-on-top approach was the right structure; only the strip
-  // itself needed redesign per Mark feedback). _buildPinGroupCard now
-  // emits a minimal strip (pin#, drawing pill, +Add Obs, ⋯ menu) and
-  // each obs sub-card carries the FULL single-obs-style header
-  // (status, priority, AI Review, spinoff, remove-obs) so each obs
-  // visually mirrors a self-contained pin. IAR moves into the ⋯ menu
-  // since it's a pin-level concept that doesn't need primary placement.
-  if (obs.length >= 2) {
-    return _buildPinGroupCard(d, ctrId);
-  }
+  // S121 Push 8: ALL pins (single-obs and multi-obs) now render through
+  // _buildPinGroupCard. Mark feedback: Active and Site General tabs
+  // looked different — single-obs used the old compact layout while
+  // multi-obs used pin-group. Now they're visually identical: minimal
+  // strip on top, one obs sub-card per observation, footer at bottom.
+  // Spinoff/Remove obs are conditionally hidden when there's only 1 obs.
+  return _buildPinGroupCard(d, ctrId);
+}
+function _legacyBuildDeficCard_unused(d, ctrId) {
+  var obs = d.observations || [];
   // S119: status + priority shown in the card header reflect EFFECTIVE values
   // (max priority across obs / all-addressed → closed). Per-obs priority lives
   // on each observation row below; per-obs addressed lives on the toggle there.
@@ -658,7 +657,9 @@ function _buildPinGroupCard(d, ctrId) {
   // IAR, AI Review). Mark feedback: each obs should look self-contained
   // like its own pin. Strip now only carries pin-level concepts that
   // can't reasonably move to each obs (drawing pill, +Add Obs, ⋯ menu
-  // with Duplicate/Move/Remove pin/Toggle IAR).
+  // S121 Push 8: minimal pin strip — only pin#, drawing pill, ⋯ menu.
+  // Everything else (status, priority, IAR, AI Review, +Add Obs) moved
+  // to per-obs controls row or to the add-obs row at the bottom.
   h += '<div class="defic-pin-strip">';
   h += '<div class="defic-num-circle" style="background:' + circleColor + ';">' + (d.num || '?') + '</div>';
   if (d.drawingId) {
@@ -669,61 +670,75 @@ function _buildPinGroupCard(d, ctrId) {
   } else {
     h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
   }
-  // IAR toggle visible on strip — pin-level concept, but compact (icon-only,
-  // smaller). Keeps it discoverable without competing with per-obs chrome.
-  // Active state shows pink fill; inactive is a subtle outline.
-  var iarStyle = d.iar
-    ? 'border:none;background:#E91E8C;color:white;'
-    : 'background:transparent;color:#9AA5B5;border:1.5px solid rgba(154,165,181,.4);';
-  h += '<button data-action="toggle-iar" data-defic-id="' + esc(d.id) + '" style="' + iarStyle + 'border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">' + (d.iar ? '\u26A1 IAR' : 'IAR') + '</button>';
-  h += '<button data-action="add-obs" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 10px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">+ Add Obs</button>';
   h += '</div>'; // /defic-pin-strip
 
-  // ─── obs cards (S121 Push 7: full single-obs-style header per obs) ───
+  // ─── obs cards (S121 Push 8: label row + single controls row) ───
+  // Layout per obs:
+  //   Row 1: #N(-A/B) · Observation                 (label only)
+  //   Row 2: [Outstanding] [Priority▾] [IAR] | [AI Review] [↱ Spinoff] [✕ Remove obs]
+  //          (Spinoff/Remove obs hidden when single-obs)
+  //   Row 3: textarea | media zone (icon-only Upload/Camera/Gallery)
   obs.forEach(function(o, oi) {
     var label = needsSuffix ? (d.num + '-' + String.fromCharCode(65 + oi)) : String(d.num || '?');
     var addrCls = o.addressed ? ' addressed' : '';
 
     h += '<div class="defic-obs-card' + addrCls + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
 
-    // Each obs gets a header row that mirrors the single-obs pin header:
-    // label · status select · priority dropdown · AI Review · spinoff · remove obs
     var _aiDot = o.aiReviewed ? '<span class="ai-rev-dot" title="AI reviewed"></span>' : '';
     var obsPriVal = o.priority || d.priority || 'high';
     var obsPriColor = obsPriVal === 'general' ? '#1A7A4A' : obsPriVal === 'low' ? '#E67E22' : '#C0392B';
+    var obsPriLabel = obsPriVal.charAt(0).toUpperCase() + obsPriVal.slice(1);
     var obsAddressed = !!o.addressed;
+    var multiObs = (obs.length > 1);
 
-    // Label row (above controls)
+    // Row 1 — label only (no priority pill here per Mark feedback)
     h += '<div class="defic-obs-card-lbl-row">';
     h += '<span class="defic-obs-card-lbl' + (o.addressed ? ' addressed' : '') + '">#' + esc(label) + ' \u00B7 Observation' + _aiDot + '</span>';
     h += '</div>';
 
-    // Controls row — mirrors single-obs pin's header row
+    // Row 2 — controls. Order: Outstanding → Priority → IAR | AI Review → Spinoff → Remove obs
     h += '<div class="defic-obs-card-ctrls">';
-    // Status select per-obs (matches single-obs pin's pin-status-sel).
-    // Inline bg color: red for Outstanding (open), green for Addressed & Closed.
-    var obsStatusColor = obsAddressed ? '#1A7A4A' : '#C0392B';
-    h += '<select data-action="obs-status" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="obs-status-sel" style="width:auto;padding:3px 8px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:700;background:' + obsStatusColor + ';color:white;border:1.5px solid ' + obsStatusColor + ';border-radius:4px;">';
-    h += '<option value="open" style="background:white;color:#2C3E50;font-weight:600;"' + (obsAddressed ? '' : ' selected') + '>Outstanding</option>';
-    h += '<option value="closed" style="background:white;color:#2C3E50;font-weight:600;"' + (obsAddressed ? ' selected' : '') + '>Addressed &amp; Closed</option>';
-    h += '</select>';
-    // Priority dropdown (with bright color bg matching pin pills)
-    h += '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Observation priority" class="obs-pri-mini" style="background:' + obsPriColor + ';color:white;border-color:' + obsPriColor + ';font-weight:700;">';
-    ['general', 'high', 'low'].forEach(function(pv) {
-      h += '<option value="' + pv + '" style="background:white;color:#2C3E50;font-weight:600;"' + (obsPriVal === pv ? ' selected' : '') + '>' + pv.charAt(0).toUpperCase() + pv.slice(1) + '</option>';
+
+    // Outstanding toggle button (NOT a select). Light grey when open,
+    // green when addressed. Single click flips state via toggle-addressed.
+    h += '<button data-action="toggle-addressed" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="out-toggle ' + (obsAddressed ? 'closed' : 'open') + '">' + (obsAddressed ? '\u2611 Addressed &amp; Closed' : '\u2610 Outstanding') + '</button>';
+
+    // Priority banner — colored pill that opens a native select on click.
+    // Uses a wrapper <select> hidden behind the visible pill so the native
+    // dropdown still works without us building a custom menu. The pill IS
+    // the select element, styled.
+    h += '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="pri-banner pri-' + obsPriVal + '" title="Observation priority">';
+    ['high', 'low', 'general'].forEach(function(pv) {
+      var lbl = pv.charAt(0).toUpperCase() + pv.slice(1);
+      h += '<option value="' + pv + '"' + (obsPriVal === pv ? ' selected' : '') + '>' + lbl + '</option>';
     });
     h += '</select>';
+
+    // IAR per-obs (toggles pin-level d.iar — data model unchanged).
+    // Same visual treatment as the old strip-level IAR: outline when
+    // off, pink fill when on. Each obs's button reflects pin state.
+    var iarStyle = d.iar
+      ? 'border:none;background:#E91E8C;color:white;'
+      : 'background:transparent;color:#9AA5B5;border:1.5px solid rgba(154,165,181,.4);';
+    h += '<button data-action="toggle-iar" data-defic-id="' + esc(d.id) + '" style="' + iarStyle + 'border-radius:4px;padding:4px 10px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">' + (d.iar ? '\u26A1 IAR' : 'IAR') + '</button>';
+
+    // Visual separator between state cluster (Outstanding/Priority/IAR)
+    // and action cluster (AI Review/Spinoff/Remove obs).
+    h += '<span class="ctrls-sep" aria-hidden="true"></span>';
+
     // AI Review per-obs
     h += '<button data-action="ai-review-menu" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="defic-ai-btn" title="AI Review">\u2728 AI Review</button>';
-    // Spinoff + Remove obs (per-obs actions)
-    h += '<button data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="spinoff-obs-btn" title="Spin off as new pin (asks for confirmation)">\u21B1 Spinoff</button>';
-    h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="remove-obs-btn" title="Remove observation">\u2715 Remove obs</button>';
-    h += '</div>';
 
-    // S121 Push 4: obs body — 2-col layout (textarea | combined media zone).
-    // Photos thumbnails and drop zone merged into one container so empty
-    // pins don't show an awkward "No photos yet" gap, and the inspector
-    // can drag onto the same area whether photos already exist or not.
+    // Spinoff + Remove obs — only show when multi-obs (otherwise no
+    // sibling to spinoff against, and "remove obs" is just delete-pin).
+    if (multiObs) {
+      h += '<button data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="spinoff-obs-btn" title="Spin off as new pin (asks for confirmation)">\u21B1 Spinoff</button>';
+      h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="remove-obs-btn" title="Remove observation">\u2715 Remove obs</button>';
+    }
+    h += '</div>'; // /defic-obs-card-ctrls
+
+    // Row 3 — body. textarea | media zone. Push 4 layout, but media buttons
+    // are now icon-only per Mark Push 8 feedback (Upload→📎, Camera→📷, Gallery→🖼️).
     h += '<div class="obs-layout-merged">';
     h += '<div class="obs-text">';
     h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="obs-text-input" placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
@@ -751,9 +766,11 @@ function _buildPinGroupCard(d, ctrId) {
     }
     h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + '</div>';
     h += '<div class="obs-media-btns">';
-    h += '<button class="obs-drop-btn is-upload" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCCE Upload</button>';
-    h += '<button class="obs-drop-btn is-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\uD83D\uDCF7 Camera</button>';
-    h += '<button class="obs-drop-btn is-gallery" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F + Gallery</button>';
+    // Push 8: icon-only photo buttons. Original dusty colors preserved
+    // via .is-upload/.is-camera/.is-gallery classes (set elsewhere in CSS).
+    h += '<button class="obs-drop-btn is-upload icon-only" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Upload from device">\uD83D\uDCCE</button>';
+    h += '<button class="obs-drop-btn is-camera icon-only" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Take photo with camera">\uD83D\uDCF7</button>';
+    h += '<button class="obs-drop-btn is-gallery icon-only" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F</button>';
     h += '</div>';
     h += '</div></div>';
     h += '</div>'; // /obs-layout-merged
@@ -763,6 +780,12 @@ function _buildPinGroupCard(d, ctrId) {
 
     h += '</div>'; // /defic-obs-card
   });
+
+  // S121 Push 8: + Add Observation row at bottom of last obs card,
+  // option 9 (filled olive-grey #7B7461) per Mark.
+  h += '<div class="defic-add-obs-row">';
+  h += '<button data-action="add-obs" data-defic-id="' + esc(d.id) + '" class="add-obs-btn-prominent">+ Add Observation</button>';
+  h += '</div>';
 
   // ─── pin footer ───
   h += '<div class="defic-pin-footer">';

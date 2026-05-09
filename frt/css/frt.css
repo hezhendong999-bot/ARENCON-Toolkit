@@ -5156,3 +5156,123 @@ body.dark-mode #btn-signout:hover {
   background: var(--btn-action-burgundy-hover) !important;
 }
 /* End S121 Push 7 ─────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════
+   S121 Push 8: full obs-card redesign + Reports header + add-obs row
+   ═══════════════════════════════════════════════════════════════════
+   ALL pins now route through _buildPinGroupCard (single + multi-obs
+   look identical). New per-obs layout:
+     Row 1: label only (#3-A · Observation)
+     Row 2: [Outstanding] [Priority▾] [IAR] | [AI Review] [Spinoff] [Remove]
+     Row 3: textarea | media zone (icon-only photo buttons)
+   + Add Observation moved to bottom of pin-group (option 9 olive-grey).
+   Outstanding goes back to a TOGGLE BUTTON (.out-toggle); not a select.
+   Priority is a colored .pri-banner select (looks like pill, opens native
+   dropdown on click).
+   ─────────────────────────────────────────────────────────────────── */
+
+/* Outstanding toggle button (replaces obs-status-toggle/select) */
+.out-toggle{
+  border:none;
+  border-radius:4px;
+  padding:5px 13px;
+  font-size:calc(11px + var(--ts));
+  font-weight:700;
+  cursor:pointer;
+  font-family:Calibri,sans-serif;
+  letter-spacing:.2px;
+  transition:background .15s;
+}
+.out-toggle.open  { background:var(--btn-status-open-bg); color:var(--btn-status-open-fg); }
+.out-toggle.closed{ background:var(--btn-status-green);   color:white; }
+.out-toggle:hover.closed{ background:var(--btn-status-green-hover); }
+
+/* Priority banner — styled <select> that looks like a colored pill */
+.pri-banner{
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  appearance:none;
+  border:none;
+  border-radius:4px;
+  padding:4px 22px 4px 11px;
+  font-size:calc(11px + var(--ts));
+  font-weight:700;
+  color:white;
+  font-family:Calibri,sans-serif;
+  cursor:pointer;
+  letter-spacing:.3px;
+  text-transform:uppercase;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='white' d='M2 4l3 3 3-3z'/></svg>");
+  background-repeat:no-repeat;
+  background-position:right 6px center;
+  background-size:8px;
+}
+.pri-banner.pri-high   { background-color:#C0392B; }
+.pri-banner.pri-low    { background-color:#E67E22; }
+.pri-banner.pri-general{ background-color:#1A7A4A; }
+.pri-banner option{ background:white; color:#2C3E50; font-weight:600; text-transform:none; }
+
+/* Visual separator in obs-ctrls row between state cluster and action cluster */
+.ctrls-sep{
+  display:inline-block;
+  width:1px;
+  height:18px;
+  background:var(--border);
+  margin:0 4px;
+  flex-shrink:0;
+}
+body.dark-mode .ctrls-sep{ background:rgba(255,255,255,.18); }
+
+/* Add Observation row at bottom of pin-group — option 9 (filled olive-grey) */
+.defic-add-obs-row{
+  padding:8px 14px;
+  border-top:1px dashed var(--border);
+  background:rgba(0,0,0,.02);
+  display:flex;
+  justify-content:center;
+}
+body.dark-mode .defic-add-obs-row{ background:rgba(255,255,255,.03); }
+.add-obs-btn-prominent{
+  background:#7B7461;
+  color:white;
+  border:none;
+  border-radius:6px;
+  padding:6px 16px;
+  font-size:calc(12px + var(--ts));
+  font-weight:600;
+  font-family:Calibri,sans-serif;
+  cursor:pointer;
+  transition:background .15s;
+}
+.add-obs-btn-prominent:hover{ background:#65604F; }
+body.dark-mode .add-obs-btn-prominent{ background:#5E5949; }
+body.dark-mode .add-obs-btn-prominent:hover{ background:#7B7461; }
+
+/* Icon-only photo buttons — Mark wants the icon labels removed but
+   ORIGINAL dusty colors restored (not Push 6 dark-mode softening). */
+.obs-drop-btn.icon-only{
+  padding:6px 10px;
+  font-size:16px;
+  line-height:1;
+  min-width:38px;
+}
+
+/* Reports header button — dusty palette to match AI Review treatment */
+#btn-reports-parent{
+  background:var(--btn-action-purple) !important;
+  color:white !important;
+  transition:background .15s;
+}
+#btn-reports-parent:hover{ background:var(--btn-action-purple-hover) !important; }
+body.dark-mode #btn-reports-parent{
+  background:var(--btn-action-purple) !important;
+  color:white !important;
+  border:none !important;
+}
+body.dark-mode #btn-reports-parent:hover{ background:var(--btn-action-purple-hover) !important; }
+
+/* Push 8: obs-card-ctrls row spacing tightened — was set in Push 6
+   for old (status-toggle/spinoff/remove-obs) classes; new layout
+   now has more buttons so we want tighter gap. */
+.defic-obs-card-ctrls{ gap:5px; }
+/* End S121 Push 8 ─────────────────────────────────────────────────── */

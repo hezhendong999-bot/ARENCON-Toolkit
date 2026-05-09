@@ -146,7 +146,17 @@ function _changePriority(deficId, newPriority) {
   var f = Model.findDeficiency(deficId);
   if (!f) return;
   if (f.defic.priority === newPriority) return;
+  // S121 Push 8: Summary board drag — propagate the new priority to every
+  // observation so getEffectivePriority returns the dropped value. Pre-Push 8
+  // only d.priority was updated, but the kanban computes the column from
+  // getEffectivePriority(d) = max across obs.priority, so cards with
+  // multi-obs were snapping back to their original column. Updating each
+  // obs.priority to the dropped value matches user intent ("move pin to Low"
+  // = "make this pin Low priority overall").
   f.defic.priority = newPriority;
+  if (f.defic.observations && f.defic.observations.length) {
+    f.defic.observations.forEach(function(o) { o.priority = newPriority; });
+  }
   if (f.defic.entries) f.defic.entries.forEach(function(en) { en.priority = newPriority; });
   Model.save();
   _renderBoard();
