@@ -4948,17 +4948,17 @@ body:not(.dark-mode) .dv-tasks-panel .dv-tasks-filter-btn{
 .defic-obs-card:last-of-type{border-bottom:none;}
 .defic-obs-card.addressed{border-left:3px solid #1A7A4A;background:rgba(26,122,74,.05);}
 
-.defic-obs-card-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;}
+.defic-obs-card-lbl-row{margin-bottom:6px;}
+.defic-obs-card-ctrls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
 .defic-obs-card-lbl{font-size:calc(12px + var(--ts));font-weight:700;color:var(--fg);}
 .defic-obs-card-lbl.addressed{color:#1A7A4A;}
 .defic-obs-card-lbl .ai-rev-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-left:6px;vertical-align:middle;}
-.defic-obs-card-actions{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
-.defic-obs-card-actions .obs-pri-mini{padding:3px 8px;border:1.5px solid var(--border);border-radius:4px;font-size:calc(10px + var(--ts));font-weight:600;background:var(--smoke);color:var(--fg);font-family:Calibri,sans-serif;}
-.defic-obs-card-actions .addr-toggle{border:none;color:white;border-radius:4px;padding:3px 9px;font-size:calc(10px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;}
-.defic-obs-card-actions .addr-toggle.open{background:#CBD5E0;color:#2C3E50;}
-.defic-obs-card-actions .addr-toggle.closed{background:#1A7A4A;}
-.defic-obs-card-actions .spinoff-obs-btn{border:none;background:#2196F3;color:white;border-radius:4px;padding:3px 7px;font-size:calc(10px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;}
-.defic-obs-card-actions .remove-obs-btn{border:none;background:#E53E3E;color:white;border-radius:4px;padding:3px 7px;font-size:calc(10px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;}
+.defic-obs-card-ctrls .obs-pri-mini{padding:3px 10px;border:1.5px solid var(--border);border-radius:4px;font-size:calc(11px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;}
+.defic-obs-card-ctrls .addr-toggle{border:none;color:white;border-radius:4px;padding:4px 11px;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;}
+.defic-obs-card-ctrls .addr-toggle.open{background:#CBD5E0;color:#2C3E50;}
+.defic-obs-card-ctrls .addr-toggle.closed{background:#1A7A4A;}
+.defic-obs-card-ctrls .spinoff-obs-btn{border:none;background:#2196F3;color:white;border-radius:4px;padding:4px 10px;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;}
+.defic-obs-card-ctrls .remove-obs-btn{border:none;background:#E53E3E;color:white;border-radius:4px;padding:4px 10px;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;}
 
 .defic-pin-footer{padding:10px 14px;background:rgba(0,0,0,0.02);border-top:1.5px solid var(--border);}
 .defic-pin-footer .defic-actions{margin-top:0;padding-top:0;border-top:none;}
@@ -4967,5 +4967,5 @@ body:not(.dark-mode) .dv-tasks-panel .dv-tasks-filter-btn{
 body.dark-mode .defic-pin-strip{background:rgba(255,255,255,0.04);}
 body.dark-mode .defic-obs-card.addressed{background:rgba(26,122,74,.10);border-left-color:#4a8a6a;}
 body.dark-mode .defic-pin-footer{background:rgba(0,0,0,0.20);}
-body.dark-mode .defic-obs-card-actions .addr-toggle.open{background:#3a4555;color:#c0d0e0;}
+body.dark-mode .defic-obs-card-ctrls .addr-toggle.open{background:#3a4555;color:#c0d0e0;}
 /* End S121 Phase C-2 ──────────────────────────────────────────── */

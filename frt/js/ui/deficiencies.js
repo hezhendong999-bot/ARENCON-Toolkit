@@ -629,7 +629,12 @@ function _buildPinGroupCard(d, ctrId) {
     return parentCtrName;
   });
   var distinctCtrs = obsEffCtrs.filter(function(v, i, a) { return a.indexOf(v) === i; });
-  var needsSuffix = distinctCtrs.length > 1;
+  // S121 Push 3: universal suffixing — every obs of a multi-obs pin gets
+  // a letter suffix (#3-A, #3-B), regardless of whether obs span multiple
+  // contractors. Same-contractor multi-obs pins were getting duplicate
+  // labels (#3 / #3) which Mark flagged as confusing. Cross-contractor
+  // pins still produce the same -A/-B labels they did before.
+  var needsSuffix = obs.length > 1;
 
   var effPriColor = effPri === 'general' ? '#1A7A4A' : effPri === 'low' ? '#E67E22' : '#C0392B';
   var effPriLabel = effPri.charAt(0).toUpperCase() + effPri.slice(1);
@@ -667,21 +672,30 @@ function _buildPinGroupCard(d, ctrId) {
 
     h += '<div class="defic-obs-card' + addrCls + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
 
-    // obs card header
+    // S121 Push 3: Option B layout — label on its own row, controls below
+    // as a flex row with full-text labels. Priority dropdown carries a
+    // colored background (high=#C0392B, low=#E67E22, general=#1A7A4A) so
+    // priority is scannable without reading text.
     var _aiDot = o.aiReviewed ? '<span class="ai-rev-dot" title="AI reviewed"></span>' : '';
-    h += '<div class="defic-obs-card-hdr">';
-    h += '<span class="defic-obs-card-lbl' + (o.addressed ? ' addressed' : '') + '">#' + esc(label) + ' \u00B7 Observation' + _aiDot + '</span>';
-    h += '<div class="defic-obs-card-actions">';
     var obsPriVal = o.priority || d.priority || 'high';
-    h += '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Observation priority" class="obs-pri-mini">';
+    var obsPriColor = obsPriVal === 'general' ? '#1A7A4A' : obsPriVal === 'low' ? '#E67E22' : '#C0392B';
+
+    // Row 1 — label
+    h += '<div class="defic-obs-card-lbl-row">';
+    h += '<span class="defic-obs-card-lbl' + (o.addressed ? ' addressed' : '') + '">#' + esc(label) + ' \u00B7 Observation' + _aiDot + '</span>';
+    h += '</div>';
+
+    // Row 2 — controls (priority, addressed, spinoff, remove obs)
+    h += '<div class="defic-obs-card-ctrls">';
+    h += '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Observation priority" class="obs-pri-mini" style="background:' + obsPriColor + ';color:white;border-color:' + obsPriColor + ';font-weight:700;">';
     ['general', 'high', 'low'].forEach(function(pv) {
       h += '<option value="' + pv + '"' + (obsPriVal === pv ? ' selected' : '') + '>' + pv.charAt(0).toUpperCase() + pv.slice(1) + '</option>';
     });
     h += '</select>';
     h += '<button data-action="toggle-addressed" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="addr-toggle ' + (o.addressed ? 'closed' : 'open') + '">' + (o.addressed ? '\u2611 Addressed' : '\u2610 Open') + '</button>';
-    h += '<button data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="spinoff-obs-btn" title="Spin off as new pin (asks for confirmation)">\u21B1</button>';
-    h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="remove-obs-btn" title="Remove observation">\u2715</button>';
-    h += '</div></div>';
+    h += '<button data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="spinoff-obs-btn" title="Spin off as new pin (asks for confirmation)">\u21B1 Spinoff</button>';
+    h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="remove-obs-btn" title="Remove observation">\u2715 Remove obs</button>';
+    h += '</div>';
 
     // obs body — same 3-col layout as multi-obs path in buildDeficCard
     h += '<div class="obs-layout">';

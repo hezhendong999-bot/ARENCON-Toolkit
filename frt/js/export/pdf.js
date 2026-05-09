@@ -319,7 +319,12 @@ function _pushItems(d,ctrName){
       return ctrName;
     });
     var distinctCtrs=obsEffCtrs.filter(function(v,i,a){return a.indexOf(v)===i;});
-    var needsSuffix=distinctCtrs.length>1;
+    // S121 Push 3: universal suffixing — every obs of a multi-obs pin
+    // gets a letter suffix (#3-A, #3-B), regardless of contractor span.
+    // Pre-S121 only cross-contractor pins got suffixes; same-contractor
+    // multi-obs emitted duplicate labels (#3 / #3) which Mark flagged
+    // as confusing. Cross-contractor still produces the same labels.
+    var needsSuffix=obs.length>1;
     obs.forEach(function(o,oi){
       var pri=(o&&o.priority)||d.priority||'high';
       if(pri==='general')return;
