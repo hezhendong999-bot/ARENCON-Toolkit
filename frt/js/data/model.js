@@ -933,6 +933,43 @@ export var Model = {
     return entry;
   },
 
+  // S122 Push 5 — update an existing activity entry's mutable fields
+  // (text/date/obsRef/photos). Returns the updated entry, or null if not found.
+  updateActivityEntry: function(deficId, actId, fields) {
+    var f = this.findDeficiency(deficId);
+    if (!f || !f.defic.activity) return null;
+    var idx = -1;
+    for (var i = 0; i < f.defic.activity.length; i++) {
+      if (f.defic.activity[i].id === actId) { idx = i; break; }
+    }
+    if (idx < 0) return null;
+    var entry = f.defic.activity[idx];
+    if (fields.hasOwnProperty('text'))    entry.text    = fields.text || '';
+    if (fields.hasOwnProperty('date'))    entry.date    = fields.date || entry.date;
+    if (fields.hasOwnProperty('obsRef'))  entry.obsRef  = fields.obsRef || null;
+    if (fields.hasOwnProperty('photos'))  entry.photos  = fields.photos || [];
+    _dirty = true;
+    _queueSave();
+    this._notify('activity', { action: 'update', deficId: deficId, entry: entry });
+    return entry;
+  },
+
+  // S122 Push 5 — remove an activity entry by id. Returns true if removed.
+  removeActivityEntry: function(deficId, actId) {
+    var f = this.findDeficiency(deficId);
+    if (!f || !f.defic.activity) return false;
+    var idx = -1;
+    for (var i = 0; i < f.defic.activity.length; i++) {
+      if (f.defic.activity[i].id === actId) { idx = i; break; }
+    }
+    if (idx < 0) return false;
+    f.defic.activity.splice(idx, 1);
+    _dirty = true;
+    _queueSave();
+    this._notify('activity', { action: 'remove', deficId: deficId, actId: actId });
+    return true;
+  },
+
   addObservationPhoto: function(deficId, obsIdx, photoData) {
     // S120: Route legacy "add to obs.photos" uploads into the pool model so
     // post-migration uploads aren't orphaned. Behavior:

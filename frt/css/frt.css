@@ -5340,6 +5340,28 @@ body.dark-mode #btn-reports-parent:hover{ background:var(--btn-action-purple-hov
 /* Spacer pushes the drawing pill to the right edge in single-obs label row */
 .lbl-row-spacer{ flex:1 1 auto; }
 
+/* S122 Push 4 — FRT instance chip (Piece C: linked findings).
+   Shown next to obs label when the obs was added in a different review
+   cycle than the parent pin. Subtle slate fill so it doesn't compete with
+   the pill or controls. */
+.frt-inst-chip{
+  font-size:calc(10px + var(--ts));
+  font-weight:600;
+  color:#5B7B95;
+  background:rgba(91,123,149,.10);
+  border:1px solid rgba(91,123,149,.25);
+  border-radius:4px;
+  padding:1px 6px;
+  letter-spacing:.2px;
+  font-family:Calibri,sans-serif;
+  white-space:nowrap;
+}
+body.dark-mode .frt-inst-chip{
+  color:#8FB0CA;
+  background:rgba(143,176,202,.10);
+  border-color:rgba(143,176,202,.30);
+}
+
 /* Dark-mode tuning */
 body.dark-mode .obs-pill-text{ color:#d4d8e8; }
 body.dark-mode .obs-pill-text.addressed{ color:#7BC894; }

@@ -212,14 +212,33 @@ function _showGalleryPicker(deficId, obsIdx) {
 // ── Activity Modal (v1-style) ────────────────────────────
 var _activityModalPhotos = [];
 
-function _showActivityModal(deficId, label) {
+function _showActivityModal(deficId, label, editActId) {
   var f = Model.findDeficiency(deficId);
   if (!f) return;
   var d = f.defic;
+  // S122 Push 5 — edit mode: when editActId is set, pre-fill values from
+  // the existing entry and UPDATE on save instead of inserting a new one.
+  var editEntry = null;
+  if (editActId && d.activity) {
+    for (var _ei = 0; _ei < d.activity.length; _ei++) {
+      if (d.activity[_ei].id === editActId) { editEntry = d.activity[_ei]; break; }
+    }
+    if (editEntry && !label) label = editEntry.label;
+  }
   var isCtr = (label || '').indexOf('Contractor') >= 0;
   var titleText = isCtr ? 'Contractor Response' : 'ARENCON Comment';
   titleText += ' \u2014 Pin #' + (d.num || '?');
-  _activityModalPhotos = [];
+  if (editEntry) titleText = 'Edit ' + titleText;
+  // Initialize photo picker state from existing entry's photos when editing.
+  _activityModalPhotos = editEntry && editEntry.photos
+    ? editEntry.photos.slice().map(function(p, i) {
+        return {
+          id: p.id || ('act-photo-' + Date.now() + '-' + i),
+          dataUrl: p.dataUrl || p.r2Url || p.thumb || '',
+          filename: p.filename || ''
+        };
+      })
+    : [];
 
   var ov = document.createElement('div');
   ov.id = 'activity-modal-overlay';
@@ -231,23 +250,27 @@ function _showActivityModal(deficId, label) {
   var h = '<div style="background:var(--bg,white);border-radius:12px;padding:24px;width:90%;max-width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3);color:var(--fg,#1B2438);">';
   // Title
   h += '<div style="font-weight:700;font-size:calc(16px + var(--ts));margin-bottom:16px;">' + titleText + '</div>';
-  // Observation ref dropdown (if multiple)
+  // Observation ref dropdown (if multiple) — prefill from edit entry
   if (hasMulti) {
+    var _editObsRef = editEntry && editEntry.obsRef ? editEntry.obsRef : '';
     h += '<div style="margin-bottom:12px;"><label class="defic-label" style="display:block;font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel,#4A5568);margin-bottom:3px;">Regarding</label>';
     h += '<select id="am-obs-ref" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;">';
-    h += '<option value="">All observations</option>';
+    h += '<option value=""' + (_editObsRef === '' ? ' selected' : '') + '>All observations</option>';
     obs.forEach(function(o, i) {
       var lbl = String.fromCharCode(65 + i) + ') ' + ((o.text || '').substring(0, 50) || 'Observation ' + (i + 1));
-      h += '<option value="' + String.fromCharCode(65 + i) + '">' + esc(lbl) + '</option>';
+      var v = String.fromCharCode(65 + i);
+      h += '<option value="' + v + '"' + (_editObsRef === v ? ' selected' : '') + '>' + esc(lbl) + '</option>';
     });
     h += '</select></div>';
   }
-  // Date
+  // Date — prefill from edit entry if present
+  var _dateInit = (editEntry && editEntry.date) ? editEntry.date : new Date().toISOString().split('T')[0];
   h += '<div style="margin-bottom:12px;"><label class="defic-label" style="display:block;font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel,#4A5568);margin-bottom:3px;">Date</label>';
-  h += '<input type="date" id="am-date" value="' + new Date().toISOString().split('T')[0] + '" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;"></div>';
-  // Comment
+  h += '<input type="date" id="am-date" value="' + _dateInit + '" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg,white);color:var(--fg);box-sizing:border-box;"></div>';
+  // Comment — prefill from edit entry if present
+  var _textInit = editEntry && editEntry.text ? esc(editEntry.text) : '';
   h += '<div style="margin-bottom:12px;"><label class="defic-label" style="display:block;font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel,#4A5568);margin-bottom:3px;">Comment</label>';
-  h += '<textarea id="am-text" rows="4" placeholder="Enter response or comment..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));resize:vertical;box-sizing:border-box;background:var(--bg,white);color:var(--fg);outline:none;line-height:1.5;"></textarea></div>';
+  h += '<textarea id="am-text" rows="4" placeholder="Enter response or comment..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));resize:vertical;box-sizing:border-box;background:var(--bg,white);color:var(--fg);outline:none;line-height:1.5;">' + _textInit + '</textarea></div>';
   // Photos
   h += '<div style="margin-bottom:12px;"><label class="defic-label" style="display:block;font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel,#4A5568);margin-bottom:3px;">Photos (optional)</label>';
   h += '<div id="am-photo-thumbs" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;"></div>';
@@ -257,7 +280,7 @@ function _showActivityModal(deficId, label) {
   h += '</div></div>';
   // Footer buttons (v1 style: right-aligned, Cancel + Add Entry)
   h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">';
-  h += '<button id="am-save" class="btn-muted-ok">Add Entry</button>';
+  h += '<button id="am-save" class="btn-muted-ok">' + (editEntry ? 'Save Changes' : 'Add Entry') + '</button>';
   h += '<button id="am-cancel" class="btn-muted-cancel">Cancel</button>';
   h += '</div></div>';
 
@@ -297,20 +320,36 @@ function _showActivityModal(deficId, label) {
     var obsRef = obsRefEl ? obsRefEl.value || null : null;
     if (!text && !_activityModalPhotos.length) { toast('Enter a comment or add photos'); return;  }
 
-    var entry = Model.addActivityEntry(deficId, label, text || '\u2014', obsRef);
-    if (entry) {
-      entry.date = date;
-      if (_activityModalPhotos.length) {
-        entry.photos = _activityModalPhotos.map(function(p) { return { id: p.id, dataUrl: p.dataUrl, filename: p.filename }; });
-      }
+    if (editEntry) {
+      // S122 Push 5 — update existing entry
+      var updatedPhotos = _activityModalPhotos.length
+        ? _activityModalPhotos.map(function(p) { return { id: p.id, dataUrl: p.dataUrl, filename: p.filename }; })
+        : [];
+      Model.updateActivityEntry(deficId, editEntry.id, {
+        text: text || '\u2014',
+        date: date,
+        obsRef: obsRef,
+        photos: updatedPhotos
+      });
       Model.saveNow();
+    } else {
+      var entry = Model.addActivityEntry(deficId, label, text || '\u2014', obsRef);
+      if (entry) {
+        entry.date = date;
+        if (_activityModalPhotos.length) {
+          entry.photos = _activityModalPhotos.map(function(p) { return { id: p.id, dataUrl: p.dataUrl, filename: p.filename }; });
+        }
+        Model.saveNow();
+      }
     }
     _activityModalPhotos = [];
     ov.remove();
     initDeficiencies.render();
-    toast('Activity entry added');
+    toast(editEntry ? 'Activity entry updated' : 'Activity entry added');
   });
 
+  // S122 Push 5 — when editing, render the existing photos as thumbs immediately.
+  if (editEntry && _activityModalPhotos.length) _amRenderThumbs();
   setTimeout(function() { var ed = ov.querySelector('#am-text'); if (ed) ed.focus(); }, 100);
 }
 
@@ -704,11 +743,21 @@ function _buildPinGroupCard(d, ctrId) {
     if (d.iar) pillCls = 'iar';
     if (o.addressed) pillCls = 'addressed';
 
+    // S122 Push 4 — FRT instance chip (Piece C). Linked findings: when an
+    // obs was added on a later review cycle than the parent pin's original
+    // instance, show "(FRT #N)" so users see which review introduced the obs.
+    var _pinInst = d.notedOnInstance || 1;
+    var _obsInst = o.notedOnInstance;
+    var _frtChip = (_obsInst && _obsInst !== _pinInst)
+      ? '<span class="frt-inst-chip" title="Added in FRT #' + _obsInst + '">FRT #' + _obsInst + '</span>'
+      : '';
+
     // Row 1 — pill + label text. Single-obs gets drawing pill on right
     // (since there's no pin-strip up top to carry it).
     h += '<div class="defic-obs-card-lbl-row">';
     h += '<span class="obs-pill ' + (multiObs ? '' : 'is-pin ') + pillCls + '">' + esc(label) + '</span>';
     h += '<span class="obs-pill-text' + (o.addressed ? ' addressed' : '') + '">\u00B7 ' + (multiObs ? 'Observation' : 'Pin') + _aiDot + '</span>';
+    if (_frtChip) h += _frtChip;
     if (!multiObs) {
       h += '<span class="lbl-row-spacer"></span>';
       if (d.drawingId) {
@@ -827,6 +876,9 @@ function _buildPinGroupCard(d, ctrId) {
   }
 
   // activity log
+  // S122 Push 5 — per-entry CRUD (edit/delete buttons) ported from v1.
+  // S122 Push 6 — render photos attached to each entry (already saved by
+  // _showActivityModal); click photo opens lightbox.
   var activity = d.activity || [];
   if (activity.length) {
     h += '<div style="margin-bottom:8px;padding-top:6px;border-top:1px dashed var(--border);">';
@@ -836,9 +888,29 @@ function _buildPinGroupCard(d, ctrId) {
       var isCtr = (a.label || '').indexOf('Contractor') >= 0;
       var bgColor = isCtr ? '#FEF3E2' : '#EBF4FF';
       var lColor = isCtr ? '#E67E22' : '#1565C0';
-      h += '<div style="margin-bottom:3px;padding:4px 6px;background:' + bgColor + ';border-radius:4px;font-size:calc(11px + var(--ts));">';
+      var actId = a.id || '';
+      h += '<div class="act-entry" style="margin-bottom:3px;padding:4px 6px;background:' + bgColor + ';border-radius:4px;font-size:calc(11px + var(--ts));display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">';
+      h += '<div style="flex:1;min-width:0;">';
       h += '<span style="color:' + lColor + ';font-weight:600;">' + esc(a.label || 'Note') + '</span> <span style="color:var(--silver);font-size:calc(10px + var(--ts));">' + esc(a.date || '') + '</span>';
       h += '<div style="margin-top:2px;">' + esc(a.text || '\u2014') + '</div>';
+      // Photos attached to this activity entry — small thumbnails, click to open lightbox.
+      if (a.photos && a.photos.length) {
+        h += '<div class="act-photos" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">';
+        a.photos.forEach(function(ph, pi) {
+          var psrc = ph.r2Url || ph.dataUrl || ph.thumb || '';
+          if (!psrc) return;
+          h += '<img class="act-photo-thumb" data-action="open-act-photo" data-defic-id="' + esc(d.id) + '" data-act-id="' + esc(actId) + '" data-photo-idx="' + pi + '" src="' + esc(psrc) + '" alt="" style="width:42px;height:42px;border-radius:4px;object-fit:cover;border:1px solid rgba(0,0,0,.10);cursor:zoom-in;">';
+        });
+        h += '</div>';
+      }
+      h += '</div>';
+      // Edit / Delete buttons (compact, only show if the entry has an id).
+      if (actId) {
+        h += '<div style="flex-shrink:0;display:flex;gap:2px;">';
+        h += '<button data-action="edit-activity" data-defic-id="' + esc(d.id) + '" data-act-id="' + esc(actId) + '" title="Edit" style="background:none;border:none;cursor:pointer;font-size:calc(11px + var(--ts));color:#1565C0;padding:2px 4px;line-height:1;">\u270F</button>';
+        h += '<button data-action="delete-activity" data-defic-id="' + esc(d.id) + '" data-act-id="' + esc(actId) + '" title="Delete" style="background:none;border:none;cursor:pointer;font-size:calc(11px + var(--ts));color:#C0392B;padding:2px 4px;line-height:1;">\u2715</button>';
+        h += '</div>';
+      }
       h += '</div>';
     });
     h += '</div>';
@@ -1560,6 +1632,45 @@ document.addEventListener('click', function(e) {
     var deficId = el.getAttribute('data-defic-id');
     var label = el.getAttribute('data-label') || 'ARENCON';
     _showActivityModal(deficId, label);
+  }
+
+  // S122 Push 5 — edit existing activity entry (reuses _showActivityModal in edit mode).
+  if (action === 'edit-activity') {
+    var deficId = el.getAttribute('data-defic-id');
+    var actId = el.getAttribute('data-act-id');
+    if (deficId && actId) _showActivityModal(deficId, '', actId);
+  }
+
+  // S122 Push 5 — delete activity entry with confirmation.
+  if (action === 'delete-activity') {
+    var deficId = el.getAttribute('data-defic-id');
+    var actId = el.getAttribute('data-act-id');
+    if (!deficId || !actId) return;
+    showConfirm('Delete activity entry?', 'This cannot be undone.').then(function(ok) {
+      if (!ok) return;
+      Model.removeActivityEntry(deficId, actId);
+      Model.saveNow();
+      initDeficiencies.render();
+      toast('Activity entry deleted');
+    });
+  }
+
+  // S122 Push 6 — click activity entry photo → open lightbox with all photos
+  // from this entry, starting at the clicked one.
+  if (action === 'open-act-photo') {
+    var deficId = el.getAttribute('data-defic-id');
+    var actId = el.getAttribute('data-act-id');
+    var pi = parseInt(el.getAttribute('data-photo-idx') || '0', 10);
+    var f = Model.findDeficiency(deficId);
+    if (!f || !f.defic.activity) return;
+    var actEntry = null;
+    for (var _ai = 0; _ai < f.defic.activity.length; _ai++) {
+      if (f.defic.activity[_ai].id === actId) { actEntry = f.defic.activity[_ai]; break; }
+    }
+    if (!actEntry || !actEntry.photos || !actEntry.photos.length) return;
+    if (window._frtLightbox && window._frtLightbox.open) {
+      window._frtLightbox.open(actEntry.photos, pi || 0);
+    }
   }
 
   if (action === 'close-defic') {
