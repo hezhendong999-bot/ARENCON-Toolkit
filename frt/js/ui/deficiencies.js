@@ -357,11 +357,17 @@ function _amRenderThumbs() {
 // ── Deficiency Card (interactive) ────────────────────────
 function buildDeficCard(d, ctrId) {
   var obs = d.observations || [];
-  // S121 Push 6: reverted C-2 early-return. The pin-group strip-on-top
-  // approach added visual weight without information density gain.
-  // Multi-obs and single-obs both now use the original path (single
-  // card with optional per-obs sub-rows for multi). _buildPinGroupCard
-  // is preserved below in case we want to revisit the strip approach.
+  // S121 Push 7: restored C-2 pin-group rendering for multi-obs (the
+  // strip-on-top approach was the right structure; only the strip
+  // itself needed redesign per Mark feedback). _buildPinGroupCard now
+  // emits a minimal strip (pin#, drawing pill, +Add Obs, ⋯ menu) and
+  // each obs sub-card carries the FULL single-obs-style header
+  // (status, priority, AI Review, spinoff, remove-obs) so each obs
+  // visually mirrors a self-contained pin. IAR moves into the ⋯ menu
+  // since it's a pin-level concept that doesn't need primary placement.
+  if (obs.length >= 2) {
+    return _buildPinGroupCard(d, ctrId);
+  }
   // S119: status + priority shown in the card header reflect EFFECTIVE values
   // (max priority across obs / all-addressed → closed). Per-obs priority lives
   // on each observation row below; per-obs addressed lives on the toggle there.
@@ -647,18 +653,14 @@ function _buildPinGroupCard(d, ctrId) {
 
   var h = '<div class="defic-pin-group" data-defic-id="' + esc(d.id) + '" data-status="' + esc(effStatus) + '">';
 
-  // ─── pin strip ───
+  // ─── pin strip (S121 Push 7: minimal — pin-level only chrome) ───
+  // The strip used to duplicate things shown per-obs (priority, status,
+  // IAR, AI Review). Mark feedback: each obs should look self-contained
+  // like its own pin. Strip now only carries pin-level concepts that
+  // can't reasonably move to each obs (drawing pill, +Add Obs, ⋯ menu
+  // with Duplicate/Move/Remove pin/Toggle IAR).
   h += '<div class="defic-pin-strip">';
   h += '<div class="defic-num-circle" style="background:' + circleColor + ';">' + (d.num || '?') + '</div>';
-  h += '<span class="pri-eff-badge" title="Effective priority (max across observations)" style="background:' + effPriColor + ';">' + esc(effPriLabel) + '</span>';
-  h += '<select class="pin-status-sel" data-action="status" data-defic-id="' + esc(d.id) + '" style="width:auto;padding:3px 8px;font-size:calc(11px + var(--ts));">';
-  h += '<option value="open"' + (isOpen ? ' selected' : '') + '>Outstanding</option>';
-  h += '<option value="closed"' + (isClosed ? ' selected' : '') + '>Addressed &amp; Closed</option>';
-  h += '</select>';
-  var iarStyle = d.iar
-    ? 'border:none;background:#E91E8C;color:white;'
-    : 'background:transparent;color:#9AA5B5;border:1.5px solid rgba(154,165,181,.4);';
-  h += '<button data-action="toggle-iar" data-defic-id="' + esc(d.id) + '" style="' + iarStyle + 'border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">' + (d.iar ? '\u26A1 IAR' : 'IAR') + '</button>';
   if (d.drawingId) {
     var _dwgs = Model.getDrawings();
     var _dwgName = '';
@@ -667,38 +669,53 @@ function _buildPinGroupCard(d, ctrId) {
   } else {
     h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
   }
-  h += '<button data-action="ai-review-menu" data-defic-id="' + esc(d.id) + '" class="defic-ai-btn" title="AI Review">\u2728 AI Review</button>';
+  // IAR toggle visible on strip — pin-level concept, but compact (icon-only,
+  // smaller). Keeps it discoverable without competing with per-obs chrome.
+  // Active state shows pink fill; inactive is a subtle outline.
+  var iarStyle = d.iar
+    ? 'border:none;background:#E91E8C;color:white;'
+    : 'background:transparent;color:#9AA5B5;border:1.5px solid rgba(154,165,181,.4);';
+  h += '<button data-action="toggle-iar" data-defic-id="' + esc(d.id) + '" style="' + iarStyle + 'border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">' + (d.iar ? '\u26A1 IAR' : 'IAR') + '</button>';
   h += '<button data-action="add-obs" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 10px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">+ Add Obs</button>';
   h += '</div>'; // /defic-pin-strip
 
-  // ─── obs cards ───
+  // ─── obs cards (S121 Push 7: full single-obs-style header per obs) ───
   obs.forEach(function(o, oi) {
     var label = needsSuffix ? (d.num + '-' + String.fromCharCode(65 + oi)) : String(d.num || '?');
     var addrCls = o.addressed ? ' addressed' : '';
 
     h += '<div class="defic-obs-card' + addrCls + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
 
-    // S121 Push 3: Option B layout — label on its own row, controls below
-    // as a flex row with full-text labels. Priority dropdown carries a
-    // colored background (high=#C0392B, low=#E67E22, general=#1A7A4A) so
-    // priority is scannable without reading text.
+    // Each obs gets a header row that mirrors the single-obs pin header:
+    // label · status select · priority dropdown · AI Review · spinoff · remove obs
     var _aiDot = o.aiReviewed ? '<span class="ai-rev-dot" title="AI reviewed"></span>' : '';
     var obsPriVal = o.priority || d.priority || 'high';
     var obsPriColor = obsPriVal === 'general' ? '#1A7A4A' : obsPriVal === 'low' ? '#E67E22' : '#C0392B';
+    var obsAddressed = !!o.addressed;
 
-    // Row 1 — label
+    // Label row (above controls)
     h += '<div class="defic-obs-card-lbl-row">';
     h += '<span class="defic-obs-card-lbl' + (o.addressed ? ' addressed' : '') + '">#' + esc(label) + ' \u00B7 Observation' + _aiDot + '</span>';
     h += '</div>';
 
-    // Row 2 — controls (priority, addressed, spinoff, remove obs)
+    // Controls row — mirrors single-obs pin's header row
     h += '<div class="defic-obs-card-ctrls">';
+    // Status select per-obs (matches single-obs pin's pin-status-sel).
+    // Inline bg color: red for Outstanding (open), green for Addressed & Closed.
+    var obsStatusColor = obsAddressed ? '#1A7A4A' : '#C0392B';
+    h += '<select data-action="obs-status" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="obs-status-sel" style="width:auto;padding:3px 8px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:700;background:' + obsStatusColor + ';color:white;border:1.5px solid ' + obsStatusColor + ';border-radius:4px;">';
+    h += '<option value="open" style="background:white;color:#2C3E50;font-weight:600;"' + (obsAddressed ? '' : ' selected') + '>Outstanding</option>';
+    h += '<option value="closed" style="background:white;color:#2C3E50;font-weight:600;"' + (obsAddressed ? ' selected' : '') + '>Addressed &amp; Closed</option>';
+    h += '</select>';
+    // Priority dropdown (with bright color bg matching pin pills)
     h += '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Observation priority" class="obs-pri-mini" style="background:' + obsPriColor + ';color:white;border-color:' + obsPriColor + ';font-weight:700;">';
     ['general', 'high', 'low'].forEach(function(pv) {
       h += '<option value="' + pv + '" style="background:white;color:#2C3E50;font-weight:600;"' + (obsPriVal === pv ? ' selected' : '') + '>' + pv.charAt(0).toUpperCase() + pv.slice(1) + '</option>';
     });
     h += '</select>';
-    h += '<button data-action="toggle-addressed" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="addr-toggle ' + (o.addressed ? 'closed' : 'open') + '">' + (o.addressed ? '\u2611 Addressed' : '\u2610 Open') + '</button>';
+    // AI Review per-obs
+    h += '<button data-action="ai-review-menu" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="defic-ai-btn" title="AI Review">\u2728 AI Review</button>';
+    // Spinoff + Remove obs (per-obs actions)
     h += '<button data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="spinoff-obs-btn" title="Spin off as new pin (asks for confirmation)">\u21B1 Spinoff</button>';
     h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="remove-obs-btn" title="Remove observation">\u2715 Remove obs</button>';
     h += '</div>';
@@ -1221,6 +1238,13 @@ document.addEventListener('click', function(e) {
     }
   }
 
+  // S121 Push 7: per-obs status select (multi-obs path). Reuses the same
+  // toggleObsAddressed model call as the toggle-addressed button — only
+  // fires when the new value actually differs from current addressed state.
+  // Triggered on 'change' (not click), so this handler is in the change
+  // dispatcher above, not the click dispatcher.
+  // The select value 'open' = addressed:false, 'closed' = addressed:true.
+
   // S116 Push 3: split view-pin from place-pin.
   // - place-pin = pin doesn't have coords yet, user needs to tap to place.
   //   Still routes through _frtStartPinPlace which enters place-pin mode.
@@ -1555,6 +1579,52 @@ document.addEventListener('click', function(e) {
 document.addEventListener('change', function(e) {
   var action = e.target.getAttribute && e.target.getAttribute('data-action');
   if (!action) return;
+
+  // S121 Push 7: per-obs status select (multi-obs path). Reuses
+  // toggleObsAddressed when the new state differs from the current. IAR
+  // confirmation flows through the same path as toggle-addressed.
+  if (action === 'obs-status') {
+    var deficId = e.target.getAttribute('data-defic-id');
+    var obsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0', 10);
+    var newStatus = e.target.value; // 'open' or 'closed'
+    var newAddressed = (newStatus === 'closed');
+    var _ssf = Model.findDeficiency(deficId);
+    if (!_ssf || !_ssf.defic || !_ssf.defic.observations) return;
+    var curAddressed = !!(_ssf.defic.observations[obsIdx] || {}).addressed;
+    if (curAddressed === newAddressed) return; // no-op
+    // IAR-deactivation gate: same logic as toggle-addressed. If toggling
+    // this obs to addressed will close the pin AND the pin is IAR, confirm.
+    var _willCloseObsStatus = false;
+    if (_ssf.defic.iar && newAddressed) {
+      var unaddrCount = 0;
+      _ssf.defic.observations.forEach(function(o, i) {
+        if (i === obsIdx) {
+          // this one is about to flip to addressed → contributes 0 unaddressed
+        } else if (!o.addressed) unaddrCount++;
+      });
+      _willCloseObsStatus = (unaddrCount === 0);
+    }
+    var _selEl2 = e.target;
+    var _doFlip = function() {
+      Model.toggleObsAddressed(deficId, obsIdx);
+      initDeficiencies.render();
+      if (window._frtRenderTasks) window._frtRenderTasks();
+    };
+    if (_willCloseObsStatus) {
+      confirmIARDeactivate(_ssf.defic).then(function(ok) {
+        if (ok === false) {
+          // revert dropdown
+          _selEl2.value = curAddressed ? 'closed' : 'open';
+          return;
+        }
+        if (_ssf && _ssf.defic) _ssf.defic.iar = false;
+        _doFlip();
+      });
+    } else {
+      _doFlip();
+    }
+    return;
+  }
 
   if (action === 'status') {
     var deficId = e.target.getAttribute('data-defic-id');

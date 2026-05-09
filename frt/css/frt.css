@@ -982,8 +982,6 @@ body.dark-mode button[style*="background:#E67E22"]{background:#2a1c08!important;
 body.dark-mode button[style*="background:#C0392B"]{background:#2c0e0e!important;color:#d88888!important;}
 body.dark-mode button[style*="background:#C62828"]{background:#2c0e0e!important;color:#d88888!important;}
 /* S77: muted dark mode for AI Review / Reports / More — ID-targeted because JS rewrites inline style and breaks attribute selectors */
-body.dark-mode #btn-ai-review{background:#2a1530!important;color:#c898d8!important;border:1px solid #4a2550!important;}
-body.dark-mode #btn-ai-review:hover{background:#3a1f40!important;}
 body.dark-mode #btn-reports-parent{background:#141a3a!important;color:#7898d0!important;border:1px solid #2a3458!important;}
 body.dark-mode #btn-reports-parent:hover{background:#1c2450!important;}
 body.dark-mode #btn-more-wrap > button{background:#3a4858!important;color:#c0d0e0!important;border:1px solid #506070!important;}
@@ -991,8 +989,6 @@ body.dark-mode #btn-more-wrap > button:hover{background:#46556a!important;}
 /* S77: muted dark mode for utility chips after More — same ID-targeted approach */
 body.dark-mode #btn-qr,body.dark-mode #btn-text-size,body.dark-mode #dark-toggle{background:#3a4858!important;color:#c0d0e0!important;border:1px solid #506070!important;}
 body.dark-mode #btn-qr:hover,body.dark-mode #btn-text-size:hover,body.dark-mode #dark-toggle:hover{background:#46556a!important;border-color:#5a6a82!important;}
-body.dark-mode #btn-signout{background:#2a1530!important;color:#c898d8!important;border:1px solid #4a2550!important;}
-body.dark-mode #btn-signout:hover{background:#3a1f40!important;}
 body.dark-mode button[style*="background:white"],body.dark-mode button[style*="background:#fff"]{background:#1a1d24!important;color:#b0b8d0!important;border-color:#2a3040!important;}
 body.dark-mode [style*="background:#f8f9fa"],[class*="dark-mode"] [style*="background:#f8f8f6"]{background:#282b34!important;}
 body.dark-mode [style*="background:#eee"]{background:#1e2028!important;}
@@ -1083,7 +1079,6 @@ body.dark-mode .view-pill-btn.active{background:#2a3448!important;color:#e2e8f0!
 .mobile-menu .mm-icon-row .mm-icon-btn{flex:1;background:#2a3448!important;color:#e2e8f0!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:7px!important;padding:12px 0!important;font-family:Calibri,sans-serif!important;font-size:18px!important;font-weight:600!important;cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:44px;}
 .mobile-menu .mm-icon-row .mm-icon-btn:hover{background:#36425a!important;}
 .ai-mode-menu.show{display:block;}
-body.dark-mode #btn-signout{background:rgba(123,31,162,.3)!important;color:#b080d0!important;border:1px solid rgba(123,31,162,.35)!important;}
 body.dark-mode .hdr-export,body.dark-mode .hdr-export-all{background:rgba(123,31,162,.3)!important;color:#b080d0!important;border:1px solid rgba(123,31,162,.35)!important;}
 body.dark-mode .contractor-chip button:hover{color:#e06050;}
 /* Dark mode — drawing cards */
@@ -5116,3 +5111,48 @@ body.dark-mode .obs-drop-btn.is-camera  { background: var(--btn-camera)  !import
 body.dark-mode .obs-drop-btn.is-gallery { background: var(--btn-gallery) !important; }
 
 /* End S121 Push 6 ─────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════
+   S121 Push 7: pin-group strip redesign + obs-status select coloring
+   ═══════════════════════════════════════════════════════════════════
+   Pin-group strip (multi-obs cards) now carries pin-level chrome only:
+   pin#, drawing pill, IAR (icon), +Add Obs, ⋯ menu. Per-obs status,
+   priority, AI Review moved INTO each obs sub-card so each obs
+   visually mirrors a self-contained single-obs pin.
+
+   The per-obs status select (.obs-status-sel) gets bright color bg
+   matching the pin-pill/obs-priority pattern: red when Outstanding,
+   green when Addressed & Closed. Same approach as obs-priority — JS
+   emits inline color; CSS keeps the option dropdown neutral.
+   ─────────────────────────────────────────────────────────────────── */
+
+/* Per-obs status select: tinted by current value. JS emits inline
+   background based on .value; we don't have a stable class to flip
+   so we use attribute selector matching the selected option's value.
+   For the closed state JS still wants white text + colored bg, so
+   the rules below apply explicit colors based on the current value. */
+.obs-status-sel { font-family: Calibri, sans-serif; }
+
+/* Defensive header button overrides — append explicit body.dark-mode
+   selectors for #btn-ai-review and #btn-signout. Push 6's selectors
+   without the body.dark-mode prefix were equal-specificity to the
+   S77 rules at line 985/994 and required CSS load order to win.
+   Push 7 deletes the S77 rules outright AND adds explicit dark-mode
+   overrides as belt-and-suspenders. */
+body.dark-mode #btn-ai-review {
+  background: var(--btn-action-purple) !important;
+  color: white !important;
+  border: none !important;
+}
+body.dark-mode #btn-ai-review:hover {
+  background: var(--btn-action-purple-hover) !important;
+}
+body.dark-mode #btn-signout {
+  background: var(--btn-action-burgundy) !important;
+  color: white !important;
+  border: none !important;
+}
+body.dark-mode #btn-signout:hover {
+  background: var(--btn-action-burgundy-hover) !important;
+}
+/* End S121 Push 7 ─────────────────────────────────────────────────── */
