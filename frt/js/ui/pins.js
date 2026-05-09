@@ -6,6 +6,7 @@
 
 import { Model } from '../data/model.js';
 import { ctrColorClass } from './deficiencies.js';
+import { confirmIARDeactivate } from '../shared/dialogs.js';
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function deficDesc(d) {
@@ -156,13 +157,33 @@ function _changePriority(deficId, newPriority) {
   // S121 Push 9: bug — pins.js called Model.save() which doesn't exist
   // (only Model.saveNow() does). The exception was thrown silently before
   // _renderBoard() so drag results never surfaced. Now uses saveNow().
-  f.defic.priority = newPriority;
-  if (f.defic.observations && f.defic.observations.length) {
-    f.defic.observations.forEach(function(o) { o.priority = newPriority; });
+  // S121 Push 10: when dragging an IAR pin to Low/General, prompt for
+  // confirmation (IAR = Immediate Action Required, only meaningful at
+  // High priority). User confirms → IAR clears + priority changes.
+  // User cancels → revert (no change).
+  var willDeactivateIAR = f.defic.iar && (newPriority === 'low' || newPriority === 'general');
+  var doApply = function() {
+    f.defic.priority = newPriority;
+    if (f.defic.observations && f.defic.observations.length) {
+      f.defic.observations.forEach(function(o) { o.priority = newPriority; });
+    }
+    if (f.defic.entries) f.defic.entries.forEach(function(en) { en.priority = newPriority; });
+    if (typeof Model.saveNow === 'function') Model.saveNow();
+    _renderBoard();
+  };
+  if (willDeactivateIAR) {
+    confirmIARDeactivate(f.defic).then(function(ok) {
+      if (ok === false) {
+        // User cancelled — re-render to snap card back into original column
+        _renderBoard();
+        return;
+      }
+      f.defic.iar = false;
+      doApply();
+    });
+    return;
   }
-  if (f.defic.entries) f.defic.entries.forEach(function(en) { en.priority = newPriority; });
-  if (typeof Model.saveNow === 'function') Model.saveNow();
-  _renderBoard();
+  doApply();
 }
 
 function _setView(mode) {

@@ -5229,11 +5229,11 @@ body.dark-mode .ctrls-sep{ background:rgba(255,255,255,.18); }
   border-top:1px dashed var(--border);
   background:rgba(0,0,0,.02);
   display:flex;
-  justify-content:center;
+  justify-content:flex-start;
 }
 body.dark-mode .defic-add-obs-row{ background:rgba(255,255,255,.03); }
 .add-obs-btn-prominent{
-  background:#7B7461 !important;
+  background:#5E5949 !important;
   color:white !important;
   border:none !important;
   border-radius:6px;
@@ -5245,7 +5245,7 @@ body.dark-mode .defic-add-obs-row{ background:rgba(255,255,255,.03); }
   transition:background .15s;
   box-shadow:0 1px 3px rgba(0,0,0,.10);
 }
-.add-obs-btn-prominent:hover{ background:#65604F !important; }
+.add-obs-btn-prominent:hover{ background:#4A463A !important; }
 body.dark-mode .add-obs-btn-prominent{ background:#5E5949 !important; }
 body.dark-mode .add-obs-btn-prominent:hover{ background:#7B7461 !important; }
 
