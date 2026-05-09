@@ -98,7 +98,7 @@ function _pkbObsCard(d, oi, o, p, multiObs) {
   // Composite drag id "deficId|obsIdx" so drop knows which obs to update.
   var dragId = defic.id + '|' + oi;
   return '<div class="pin-kanban-card" draggable="true" data-defic-id="' + defic.id + '" data-obs-idx="' + oi + '" data-drag-id="' + dragId + '" data-action="pkb-card">'
-    + '<div class="pkc-num" style="background:' + fill + '">' + esc(numLabel) + '</div>'
+    + '<div class="pkc-num' + (multiObs ? ' pkc-num-obs' : '') + '" style="background:' + fill + '">' + esc(numLabel) + '</div>'
     + '<div class="pkc-body">'
     + '<div class="pkc-desc">' + descHtml + '</div>'
     + '<div class="pkc-meta">'

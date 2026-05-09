@@ -5292,10 +5292,10 @@ body.dark-mode #btn-reports-parent:hover{ background:var(--btn-action-purple-hov
    class for both single-obs Pin pills and multi-obs Observation pills.
    ─────────────────────────────────────────────────────────────────── */
 
-/* Pin-strip top + single-obs + multi-obs obs pills ALL use .obs-pill
-   for shape consistency. Pin-strip uses status-based color via inline
-   style="background:…" which overrides the priority class.
-   Single-obs + per-obs use priority-keyed background via class modifier. */
+/* Per-obs pill — DEFAULT shape is OBLONG (used for "Observation" labels).
+   Add .is-pin modifier to make it ROUND (used for "Pin" labels — single-obs
+   cards and multi-obs pin-strip top). Mark explicit (S122 Push 3):
+   "Pin = circle. Observation = longer circle. Apply throughout." */
 .obs-pill{
   min-width:34px;
   height:24px;
@@ -5308,6 +5308,16 @@ body.dark-mode #btn-reports-parent:hover{ background:var(--btn-action-purple-hov
   flex-shrink:0;
   letter-spacing:.3px;
   font-family:Calibri,sans-serif;
+}
+/* .is-pin — round circle override. Used wherever the pill represents a
+   Pin (not an Observation). Single-obs label rows + multi-obs pin-strip top. */
+.obs-pill.is-pin{
+  width:30px;
+  min-width:30px;
+  height:30px;
+  padding:0;
+  border-radius:50%;
+  font-size:calc(13px + var(--ts));
 }
 .obs-pill.high     { background:#C0392B; }
 .obs-pill.low      { background:#E67E22; }
@@ -5333,5 +5343,18 @@ body.dark-mode #btn-reports-parent:hover{ background:var(--btn-action-purple-hov
 /* Dark-mode tuning */
 body.dark-mode .obs-pill-text{ color:#d4d8e8; }
 body.dark-mode .obs-pill-text.addressed{ color:#7BC894; }
+
+/* S122 Push 3: Kanban Summary board — multi-obs cards use OBLONG pill
+   (matches deficiency tab obs-pill shape). Single-obs cards stay round
+   (Pin shape). Cascades AFTER the .pkc-num round defaults at lines 1344
+   and 3893 to win on source order with equal specificity. */
+.pin-kanban-card .pkc-num.pkc-num-obs{
+  width:auto;
+  min-width:34px;
+  height:24px;
+  padding:0 9px;
+  border-radius:12px;
+  font-size:calc(12px + var(--ts));
+}
 /* End S122 Push 1 ──────────────────────────────────────────────────── */
 

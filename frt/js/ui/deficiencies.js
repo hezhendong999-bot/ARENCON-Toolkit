@@ -665,7 +665,7 @@ function _buildPinGroupCard(d, ctrId) {
   var renderPinStrip = obs.length !== 1; // skip strip ONLY for single-obs
   if (renderPinStrip) {
     h += '<div class="defic-pin-strip">';
-    h += '<span class="obs-pill" style="background:' + circleColor + ';">' + (d.num || '?') + '</span>';
+    h += '<span class="obs-pill is-pin" style="background:' + circleColor + ';">' + (d.num || '?') + '</span>';
     if (d.drawingId) {
       var _dwgs = Model.getDrawings();
       var _dwgName = '';
@@ -707,7 +707,7 @@ function _buildPinGroupCard(d, ctrId) {
     // Row 1 — pill + label text. Single-obs gets drawing pill on right
     // (since there's no pin-strip up top to carry it).
     h += '<div class="defic-obs-card-lbl-row">';
-    h += '<span class="obs-pill ' + pillCls + '">' + esc(label) + '</span>';
+    h += '<span class="obs-pill ' + (multiObs ? '' : 'is-pin ') + pillCls + '">' + esc(label) + '</span>';
     h += '<span class="obs-pill-text' + (o.addressed ? ' addressed' : '') + '">\u00B7 ' + (multiObs ? 'Observation' : 'Pin') + _aiDot + '</span>';
     if (!multiObs) {
       h += '<span class="lbl-row-spacer"></span>';
