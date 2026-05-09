@@ -4542,16 +4542,13 @@ body:not(.dark-mode) .defic-act-btn.act-comment:hover{
   border-color:var(--lm-blue) !important;
 }
 
-/* + Add Observation dashed-ghost button — was muted into invisibility on
-   the alt-row band. Now: dashed slate border, slate text. */
-body:not(.dark-mode) [data-action="add-obs"]{
-  border-color:rgba(90,110,128,.40) !important;
-  color:var(--lm-slate) !important;
-  background:transparent !important;
-}
-body:not(.dark-mode) [data-action="add-obs"]:hover{
-  background:rgba(90,110,128,.08) !important;
-}
+/* + Add Observation dashed-ghost button — REMOVED in S121 Push 11.
+   The old rule (S116) styled [data-action="add-obs"] as a transparent
+   dashed-outline ghost. Push 8 introduced the filled olive
+   .add-obs-btn-prominent design; the old rule still targeted the
+   data-action attribute and beat Push 10 on specificity, leaving the
+   button transparent in light mode while dark mode worked correctly.
+   Removed entirely; Push 8/10 styling now applies in both modes. */
 
 /* + Add Deficiency button (similar dashed-ghost) */
 body:not(.dark-mode) .add-defic-btn,
