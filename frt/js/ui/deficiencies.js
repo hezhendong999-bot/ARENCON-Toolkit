@@ -665,7 +665,7 @@ function _buildPinGroupCard(d, ctrId) {
   var renderPinStrip = obs.length !== 1; // skip strip ONLY for single-obs
   if (renderPinStrip) {
     h += '<div class="defic-pin-strip">';
-    h += '<div class="pin-num-circle" style="background:' + circleColor + ';">' + (d.num || '?') + '</div>';
+    h += '<span class="obs-pill" style="background:' + circleColor + ';">' + (d.num || '?') + '</span>';
     if (d.drawingId) {
       var _dwgs = Model.getDrawings();
       var _dwgName = '';

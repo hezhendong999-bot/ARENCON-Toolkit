@@ -5282,8 +5282,8 @@ body.dark-mode #btn-reports-parent:hover{ background:var(--btn-action-purple-hov
    double-circle). The obs card's label row carries the Pin # pill
    AND the drawing pill on the same row.
 
-   Multi-obs pins keep a minimal pin-strip with the Pin # circle +
-   drawing pill on the same row (pin-num-circle, status-based color).
+   Multi-obs pins keep a minimal pin-strip with the Pin # pill +
+   drawing pill on the same row (uses .obs-pill, status-based color).
    Each obs sub-card has its own per-obs pill (priority-keyed, no
    dash: 3A not 3-A).
 
@@ -5292,20 +5292,10 @@ body.dark-mode #btn-reports-parent:hover{ background:var(--btn-action-purple-hov
    class for both single-obs Pin pills and multi-obs Observation pills.
    ─────────────────────────────────────────────────────────────────── */
 
-/* Pin # circle (multi-obs strip only) — status-based, "like before" */
-.pin-num-circle{
-  min-width:30px;width:30px;height:30px;
-  border-radius:50%;
-  color:white;
-  display:flex;align-items:center;justify-content:center;
-  font-weight:800;font-size:calc(13px + var(--ts));
-  flex-shrink:0;
-}
-
-/* Per-obs pill (and single-obs pin pill) — priority-keyed.
-   Slightly oblong (border-radius:12px, min-width:34px) to fit "3A"/"3B"
-   variant gracefully alongside single-digit "5". Mark explicit:
-   "I don't mind if you make the observation a little longer circle to fit". */
+/* Pin-strip top + single-obs + multi-obs obs pills ALL use .obs-pill
+   for shape consistency. Pin-strip uses status-based color via inline
+   style="background:…" which overrides the priority class.
+   Single-obs + per-obs use priority-keyed background via class modifier. */
 .obs-pill{
   min-width:34px;
   height:24px;
@@ -5343,6 +5333,5 @@ body.dark-mode #btn-reports-parent:hover{ background:var(--btn-action-purple-hov
 /* Dark-mode tuning */
 body.dark-mode .obs-pill-text{ color:#d4d8e8; }
 body.dark-mode .obs-pill-text.addressed{ color:#7BC894; }
-body.dark-mode .pin-num-circle{ /* status colors carry on dark-mode bg fine */ }
 /* End S122 Push 1 ──────────────────────────────────────────────────── */
 
