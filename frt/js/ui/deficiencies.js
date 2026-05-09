@@ -357,14 +357,11 @@ function _amRenderThumbs() {
 // ── Deficiency Card (interactive) ────────────────────────
 function buildDeficCard(d, ctrId) {
   var obs = d.observations || [];
-  // S121 Phase C-2: pin-group rendering for multi-obs pins. Single-obs pins
-  // (length 0 or 1) continue rendering today's compact card path below
-  // unchanged. Multi-obs pins (length >= 2) route through _buildPinGroupCard
-  // which produces a strip + per-obs cards + pin-level footer structure.
-  // Click handlers all key off data-defic-id + data-obs-idx and don't change.
-  if (obs.length >= 2) {
-    return _buildPinGroupCard(d, ctrId);
-  }
+  // S121 Push 6: reverted C-2 early-return. The pin-group strip-on-top
+  // approach added visual weight without information density gain.
+  // Multi-obs and single-obs both now use the original path (single
+  // card with optional per-obs sub-rows for multi). _buildPinGroupCard
+  // is preserved below in case we want to revisit the strip approach.
   // S119: status + priority shown in the card header reflect EFFECTIVE values
   // (max priority across obs / all-addressed → closed). Per-obs priority lives
   // on each observation row below; per-obs addressed lives on the toggle there.
@@ -384,10 +381,19 @@ function buildDeficCard(d, ctrId) {
   // Effective priority shown as a read-only badge so scanning by priority
   // still works at the card-level glance.
   h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">';
-  h += '<select class="pin-status-sel" data-action="status" data-defic-id="' + esc(d.id) + '" style="width:auto;padding:3px 8px;font-size:calc(11px + var(--ts));">';
-  h += '<option value="open"' + (isOpen ? ' selected' : '') + '>Outstanding</option>';
-  h += '<option value="closed"' + (isClosed ? ' selected' : '') + '>Addressed &amp; Closed</option>';
-  h += '</select>';
+  // S121 Push 6: pin-level [Outstanding ▼] select only renders for single-obs.
+  // For multi-obs, each observation has its own [Outstanding]/[Addressed &
+  // Closed] button below — the pin-level bulk select duplicates that.
+  // Effective status for multi-obs is computed/shown via card-level cues
+  // (closed-note appears only when all obs addressed; circle color reflects
+  // effective status).
+  var _multiStatus = (obs.length > 1);
+  if (!_multiStatus) {
+    h += '<select class="pin-status-sel" data-action="status" data-defic-id="' + esc(d.id) + '" style="width:auto;padding:3px 8px;font-size:calc(11px + var(--ts));">';
+    h += '<option value="open"' + (isOpen ? ' selected' : '') + '>Outstanding</option>';
+    h += '<option value="closed"' + (isClosed ? ' selected' : '') + '>Addressed &amp; Closed</option>';
+    h += '</select>';
+  }
   // S120 Push 4: priority control inline next to status. Single-obs pins
   // get an EDITABLE dropdown here (the per-obs dropdown was floating alone
   // on the right of the obs box and looked disconnected). Multi-obs pins
@@ -463,9 +469,9 @@ function buildDeficCard(d, ctrId) {
         h += '<span style="font-size:calc(11px + var(--ts));font-weight:700;color:' + (o.addressed ? '#1A7A4A' : 'var(--ink)') + ';">' + lbl + 'Observation' + _aiDotHdr + '</span>';
         h += '<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">';
         h += obsPriSelHtml;
-        h += '<button data-action="toggle-addressed" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:' + (o.addressed ? '#1A7A4A' : '#CBD5E0') + ';color:white;border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">' + (o.addressed ? '\u2611 Addressed' : '\u2610 Open') + '</button>';
-        h += '<button data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#2196F3;color:white;border-radius:4px;padding:2px 6px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Spin off as new pin (asks for confirmation)">\u21B1</button>';
-        h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" style="border:none;background:#E53E3E;color:white;border-radius:4px;padding:2px 6px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Remove observation">\u2715</button>';
+        h += '<button data-action="toggle-addressed" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="obs-status-toggle ' + (o.addressed ? 'closed' : 'open') + '" style="border:none;color:white;border-radius:4px;padding:3px 10px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">' + (o.addressed ? '\u2611 Addressed &amp; Closed' : '\u2610 Outstanding') + '</button>';
+        h += '<button data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="obs-spinoff-btn" style="border:none;color:white;border-radius:4px;padding:2px 7px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Spin off as new pin (asks for confirmation)">\u21B1</button>';
+        h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="obs-remove-btn" style="border:none;color:white;border-radius:4px;padding:2px 7px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Remove observation">\u2715</button>';
         h += '</div></div>';
       }
       // Textarea
