@@ -5233,9 +5233,9 @@ body.dark-mode .ctrls-sep{ background:rgba(255,255,255,.18); }
 }
 body.dark-mode .defic-add-obs-row{ background:rgba(255,255,255,.03); }
 .add-obs-btn-prominent{
-  background:#7B7461;
-  color:white;
-  border:none;
+  background:#7B7461 !important;
+  color:white !important;
+  border:none !important;
   border-radius:6px;
   padding:6px 16px;
   font-size:calc(12px + var(--ts));
@@ -5243,10 +5243,11 @@ body.dark-mode .defic-add-obs-row{ background:rgba(255,255,255,.03); }
   font-family:Calibri,sans-serif;
   cursor:pointer;
   transition:background .15s;
+  box-shadow:0 1px 3px rgba(0,0,0,.10);
 }
-.add-obs-btn-prominent:hover{ background:#65604F; }
-body.dark-mode .add-obs-btn-prominent{ background:#5E5949; }
-body.dark-mode .add-obs-btn-prominent:hover{ background:#7B7461; }
+.add-obs-btn-prominent:hover{ background:#65604F !important; }
+body.dark-mode .add-obs-btn-prominent{ background:#5E5949 !important; }
+body.dark-mode .add-obs-btn-prominent:hover{ background:#7B7461 !important; }
 
 /* Icon-only photo buttons — Mark wants the icon labels removed but
    ORIGINAL dusty colors restored (not Push 6 dark-mode softening). */

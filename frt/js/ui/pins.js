@@ -153,12 +153,15 @@ function _changePriority(deficId, newPriority) {
   // multi-obs were snapping back to their original column. Updating each
   // obs.priority to the dropped value matches user intent ("move pin to Low"
   // = "make this pin Low priority overall").
+  // S121 Push 9: bug — pins.js called Model.save() which doesn't exist
+  // (only Model.saveNow() does). The exception was thrown silently before
+  // _renderBoard() so drag results never surfaced. Now uses saveNow().
   f.defic.priority = newPriority;
   if (f.defic.observations && f.defic.observations.length) {
     f.defic.observations.forEach(function(o) { o.priority = newPriority; });
   }
   if (f.defic.entries) f.defic.entries.forEach(function(en) { en.priority = newPriority; });
-  Model.save();
+  if (typeof Model.saveNow === 'function') Model.saveNow();
   _renderBoard();
 }
 

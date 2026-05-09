@@ -710,7 +710,9 @@ function _buildPinGroupCard(d, ctrId) {
     h += '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="pri-banner pri-' + obsPriVal + '" title="Observation priority">';
     ['high', 'low', 'general'].forEach(function(pv) {
       var lbl = pv.charAt(0).toUpperCase() + pv.slice(1);
-      h += '<option value="' + pv + '"' + (obsPriVal === pv ? ' selected' : '') + '>' + lbl + '</option>';
+      // Inline option style — Chrome ignores most CSS for <option>, but
+      // honors inline. Forces white bg + dark text in the dropdown list.
+      h += '<option value="' + pv + '" style="background:white;color:#2C3E50;font-weight:600;text-transform:none;"' + (obsPriVal === pv ? ' selected' : '') + '>' + lbl + '</option>';
     });
     h += '</select>';
 
