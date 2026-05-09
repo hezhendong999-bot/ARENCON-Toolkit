@@ -951,10 +951,20 @@ function _buildPinGroupCard(d, ctrId) {
     h += '</div>';
   }
 
-  // footer action row (+ Response, + Comment, Close all/Reopen all, Remove pin, ⋯ menu)
+  // S122 Push 6 (Piece D) — "View all photos" carousel button. Opens lightbox
+  // with ALL of the pin's photos (pin pool + activity entries) so you can
+  // swipe through them as one collection. Only render when there are 2+
+  // photos, since a single photo doesn't need a carousel entry point.
+  var _allPhotoCount = (d.photos || []).length;
+  (d.activity || []).forEach(function(a) { if (a.photos) _allPhotoCount += a.photos.length; });
+
+  // footer action row (+ Response, + Comment, View all photos, Close all/Reopen all, Remove pin, ⋯ menu)
   h += '<div class="defic-actions">';
   h += '<button class="defic-act-btn act-response" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="Contractor Response">+ Contractor Response</button>';
   h += '<button class="defic-act-btn act-comment" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="ARENCON">+ ARENCON Comment</button>';
+  if (_allPhotoCount >= 2) {
+    h += '<button class="defic-act-btn act-photos" data-action="view-all-photos" data-defic-id="' + esc(d.id) + '" title="View all photos in lightbox carousel">\uD83D\uDCF7 View all photos (' + _allPhotoCount + ')</button>';
+  }
   if (isOpen) {
     h += '<button class="defic-act-btn act-close" data-action="close-defic" data-defic-id="' + esc(d.id) + '">\u2714 Close all</button>';
   } else {
@@ -1456,6 +1466,23 @@ document.addEventListener('click', function(e) {
       initDeficiencies.render();
       toast('Pin removed');
     });
+  }
+
+  // S122 Push 6 (Piece D) — view all photos carousel. Collects pin pool
+  // (defic.photos[]) + activity entry photos into one array for the lightbox
+  // so users can swipe through everything in one session.
+  if (action === 'view-all-photos') {
+    var deficId = el.getAttribute('data-defic-id');
+    var f = Model.findDeficiency(deficId);
+    if (!f) return;
+    var dd = f.defic;
+    var allPhotos = (dd.photos || []).slice();
+    (dd.activity || []).forEach(function(a) {
+      if (a.photos) a.photos.forEach(function(ph) { allPhotos.push(ph); });
+    });
+    if (allPhotos.length && window._frtLightbox && window._frtLightbox.open) {
+      window._frtLightbox.open(allPhotos, 0);
+    }
   }
 
   if (action === 'open-lightbox') {
