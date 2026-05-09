@@ -40,67 +40,67 @@ function _getDrawingName(drawingId) {
 }
 
 // ── Board (kanban) view (S113 Push 16, ported from v1) ──────────
+// S121 Push 12: kanban now flattens to PER-OBSERVATION cards. Pin #3 with
+// 2 obs → 2 cards (#3-A and #3-B), each independently draggable to its
+// own column. Single-obs pins → single card (#1, #2). Universal letter
+// suffix (#3-A/-B) when multi-obs, plain (#N) when single — same logic
+// as the Deficiency tab's flatten path.
 var _viewMode = 'table';
-var _dragId = null;
+var _dragId = null;     // legacy, kept for reference
+var _dragObsId = null;  // S121 Push 12: composite ID "deficId|obsIdx" for drop targeting
 
-function _pkbCard(d, p) {
+// _pkbObsCard renders a single observation as a kanban card. Replaces
+// the old _pkbCard which rendered a whole pin.
+//   d: the wrapper { ctrId, defic } from Model.getAllDeficiencies
+//   oi: observation index within d.defic.observations
+//   o: the observation object
+//   p: project (for drawings lookup)
+//   multiObs: whether the parent pin has >1 obs (controls suffix labeling)
+function _pkbObsCard(d, oi, o, p, multiObs) {
   var defic = d.defic;
-  // S119: effective priority/status (max across obs / all-addressed → closed)
-  var pr = Model.getEffectivePriority(defic);
-  var fill = defic.iar ? '#FF69B4' : (pr === 'general' ? '#1A7A4A' : (pr === 'low' ? '#E67E22' : '#C0392B'));
-  // Prefer observations[] (current) over legacy entries[] (S114 migrated away)
-  var obsList = (defic.observations && defic.observations.length) ? defic.observations : null;
-  var entries = obsList || ((defic.entries && defic.entries.length) ? defic.entries : [{ description: defic.description || '', priority: defic.priority || 'high' }]);
-  var multiObs = entries.length > 1;
-  var descHtml = '';
-  if (multiObs) {
-    entries.forEach(function(en, ei) {
-      // S119: each obs's priority drives its label color (independent)
-      var ePr = en.priority || defic.priority || 'high';
-      var ePrCol = ePr === 'general' ? '#1A7A4A' : (ePr === 'low' ? '#E67E22' : '#C0392B');
-      var eLbl = String.fromCharCode(65 + ei);
-      var eDesc = esc(en.description || en.text || 'No description');
-      descHtml += '<div style="font-size:calc(11px + var(--ts));margin-bottom:3px;"><span style="color:' + ePrCol + ';font-weight:700;font-size:calc(10px + var(--ts));">' + eLbl + '</span> ' + eDesc + '</div>';
-    });
-  } else {
-    descHtml = esc(entries[0].description || entries[0].text || deficDesc(defic) || 'No description');
-  }
-  var isClosed = Model.getEffectiveStatus(defic) === 'closed';
+  // Per-obs priority drives card color/column. Falls back to pin priority
+  // for legacy obs that haven't been migrated.
+  var obsPri = o.priority || defic.priority || 'high';
+  var fill = defic.iar
+    ? '#FF69B4'
+    : (obsPri === 'general' ? '#1A7A4A' : (obsPri === 'low' ? '#E67E22' : '#C0392B'));
+  // Number label: #3-A, #3-B for multi-obs; plain #3 for single-obs.
+  var numLabel = multiObs
+    ? (defic.num + '-' + String.fromCharCode(65 + oi))
+    : String(defic.num || '?');
+  // S119 effective status — addressed obs greys out the card.
+  var isAddressed = !!o.addressed;
   var badgeCls = 'outstanding';
   var badgeTxt = 'Outstanding';
   if (defic.iar) { badgeCls = 'iar'; badgeTxt = '\u26A1 IAR'; }
-  else if (isClosed) { badgeCls = 'closed'; badgeTxt = 'Closed'; }
+  else if (isAddressed) { badgeCls = 'closed'; badgeTxt = 'Closed'; }
   var dwgName = '';
   if (defic.drawingId && p.drawings) {
     var dwg = p.drawings.find(function(x) { return x.id === defic.drawingId; });
     if (dwg) dwgName = dwg.name || dwg.filename || '';
   }
-  var obsCountHtml = multiObs ? '<span style="font-size:9px;color:var(--silver);margin-left:4px;">' + entries.length + ' obs.</span>' : '';
+  var descText = o.text || o.description || deficDesc(defic) || 'No description';
+  var descHtml = esc(descText);
 
-  // S113 Push 18: photo thumbnail (matches v1). Pull from defic.photos +
-  // any nested entry photos. v2 photo objects: { r2Url, dataUrl, ... };
-  // pick the first with a usable src. Display as 44×44 thumbnail on
-  // right side of card (CSS is .pkc-thumb).
-  var photos = defic.photos || [];
-  if (defic.entries) {
-    defic.entries.forEach(function(en) {
-      if (en.photos && en.photos.length) photos = photos.concat(en.photos);
-    });
-  }
+  // Photo thumbnail — per-obs photos first, fall back to pin-level.
+  var obsPhotos = o.photos || [];
+  var allPhotos = obsPhotos.concat(defic.photos || []);
   var firstSrc = '';
-  for (var pi = 0; pi < photos.length; pi++) {
-    var ph = photos[pi];
-    var s = (ph && (ph.r2Url || ph.dataUrl)) || '';
+  for (var pi = 0; pi < allPhotos.length; pi++) {
+    var ph = allPhotos[pi];
+    var s = (ph && (ph.r2Url || ph.dataUrl || ph.thumb)) || '';
     if (s && s.length > 20) { firstSrc = s; break; }
   }
   var thumbHtml = firstSrc
     ? '<img class="pkc-thumb" src="' + esc(firstSrc) + '" alt="evidence" loading="lazy" onerror="this.style.display=\'none\'">'
     : '';
 
-  return '<div class="pin-kanban-card" draggable="true" data-defic-id="' + defic.id + '" data-action="pkb-card">'
-    + '<div class="pkc-num" style="background:' + fill + '">' + (defic.num || '?') + '</div>'
+  // Composite drag id "deficId|obsIdx" so drop knows which obs to update.
+  var dragId = defic.id + '|' + oi;
+  return '<div class="pin-kanban-card" draggable="true" data-defic-id="' + defic.id + '" data-obs-idx="' + oi + '" data-drag-id="' + dragId + '" data-action="pkb-card">'
+    + '<div class="pkc-num" style="background:' + fill + '">' + esc(numLabel) + '</div>'
     + '<div class="pkc-body">'
-    + '<div class="pkc-desc">' + descHtml + obsCountHtml + '</div>'
+    + '<div class="pkc-desc">' + descHtml + '</div>'
     + '<div class="pkc-meta">'
     + '<span class="pkc-badge ' + badgeCls + '">' + badgeTxt + '</span>'
     + (dwgName ? '<span class="pkc-drawing" title="' + esc(dwgName) + '">\uD83D\uDCD0 ' + esc(dwgName) + '</span>' : '')
@@ -117,64 +117,102 @@ function _renderBoard() {
   var unpinnedCount = all.filter(function(d) { return d.defic.pinX == null; }).length;
   var notice = document.getElementById('pins-unpinned-notice');
   if (notice) notice.textContent = unpinnedCount > 0 ? (unpinnedCount + ' unpinned deficienc' + (unpinnedCount === 1 ? 'y' : 'ies')) : '';
+
+  // S121 Push 12: flatten pins × observations. Each obs becomes a row
+  // routed to its own priority column. Pins with no observations array
+  // (legacy) emit a single row using d.priority.
   var cols = { high: [], low: [], general: [] };
   all.forEach(function(d) {
-    // S119: pin lives in the column matching its effective priority
-    var pr = Model.getEffectivePriority(d.defic);
-    if (!cols[pr]) cols[pr] = [];
-    cols[pr].push(d);
+    var obs = (d.defic.observations && d.defic.observations.length) ? d.defic.observations : null;
+    var multi = obs && obs.length > 1;
+    if (obs) {
+      obs.forEach(function(o, oi) {
+        var pr = o.priority || d.defic.priority || 'high';
+        if (!cols[pr]) cols[pr] = [];
+        cols[pr].push({ d: d, oi: oi, o: o, multi: multi });
+      });
+    } else {
+      // Legacy: defic with no observations array → single row using pin priority.
+      var pr = d.defic.priority || 'high';
+      if (!cols[pr]) cols[pr] = [];
+      cols[pr].push({ d: d, oi: 0, o: { text: d.defic.description || '', priority: pr }, multi: false });
+    }
   });
   ['high', 'low', 'general'].forEach(function(pr) {
     var el = document.getElementById('pkb-col-' + pr);
     var countEl = document.getElementById('pkb-count-' + pr);
     if (countEl) countEl.textContent = cols[pr].length;
     if (!el) return;
-    el.innerHTML = cols[pr].map(function(d) { return _pkbCard(d, proj); }).join('');
+    el.innerHTML = cols[pr].map(function(row) {
+      return _pkbObsCard(row.d, row.oi, row.o, proj, row.multi);
+    }).join('');
     el.ondragover = function(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; el.classList.add('drag-over'); };
     el.ondragleave = function(e) { if (!el.contains(e.relatedTarget)) el.classList.remove('drag-over'); };
     el.ondrop = function(e) {
       e.preventDefault();
       el.classList.remove('drag-over');
-      var did = e.dataTransfer.getData('text/plain');
-      if (!did || !_dragId) return;
+      var dragId = e.dataTransfer.getData('text/plain');
+      if (!dragId || !_dragObsId) return;
+      var parts = dragId.split('|');
+      if (parts.length !== 2) return;
+      var did = parts[0];
+      var obsIdx = parseInt(parts[1], 10);
+      if (isNaN(obsIdx)) return;
       var newPr = el.getAttribute('data-priority');
-      _changePriority(did, newPr);
+      _changeObsPriority(did, obsIdx, newPr);
     };
   });
 }
 
-function _changePriority(deficId, newPriority) {
+// S121 Push 12: per-obs priority change (replaces pin-level _changePriority).
+// Updates ONLY the dragged observation's priority, not any sibling obs.
+// IAR confirm logic: IAR is pin-level, so dragging any obs to Low/General
+// while the pin is IAR-flagged still triggers the deactivate prompt.
+// Reasoning: IAR (Immediate Action Required) is meaningful only when the
+// pin's effective priority is High. After dropping one obs to Low, if the
+// new effective priority drops below High, IAR no longer applies. Easier
+// to just clear IAR whenever any obs is reduced below High on an IAR pin.
+function _changeObsPriority(deficId, obsIdx, newPriority) {
   var f = Model.findDeficiency(deficId);
-  if (!f) return;
-  if (f.defic.priority === newPriority) return;
-  // S121 Push 8: Summary board drag — propagate the new priority to every
-  // observation so getEffectivePriority returns the dropped value. Pre-Push 8
-  // only d.priority was updated, but the kanban computes the column from
-  // getEffectivePriority(d) = max across obs.priority, so cards with
-  // multi-obs were snapping back to their original column. Updating each
-  // obs.priority to the dropped value matches user intent ("move pin to Low"
-  // = "make this pin Low priority overall").
-  // S121 Push 9: bug — pins.js called Model.save() which doesn't exist
-  // (only Model.saveNow() does). The exception was thrown silently before
-  // _renderBoard() so drag results never surfaced. Now uses saveNow().
-  // S121 Push 10: when dragging an IAR pin to Low/General, prompt for
-  // confirmation (IAR = Immediate Action Required, only meaningful at
-  // High priority). User confirms → IAR clears + priority changes.
-  // User cancels → revert (no change).
+  if (!f || !f.defic) return;
+  var obs = f.defic.observations;
+  if (!obs || !obs[obsIdx]) {
+    // Legacy defic with no observations array — fall back to pin-level update
+    if (f.defic.priority === newPriority) return;
+    var willDeactivateIAR_legacy = f.defic.iar && (newPriority === 'low' || newPriority === 'general');
+    var doApplyLegacy = function() {
+      f.defic.priority = newPriority;
+      if (typeof Model.saveNow === 'function') Model.saveNow();
+      _renderBoard();
+    };
+    if (willDeactivateIAR_legacy) {
+      confirmIARDeactivate(f.defic).then(function(ok) {
+        if (ok === false) { _renderBoard(); return; }
+        f.defic.iar = false;
+        doApplyLegacy();
+      });
+      return;
+    }
+    doApplyLegacy();
+    return;
+  }
+  if (obs[obsIdx].priority === newPriority) return;
+  // IAR confirm — only if pin is IAR AND the dragged obs is being lowered
+  // to a non-High priority. (Dragging FROM Low to High doesn't deactivate.)
   var willDeactivateIAR = f.defic.iar && (newPriority === 'low' || newPriority === 'general');
   var doApply = function() {
-    f.defic.priority = newPriority;
-    if (f.defic.observations && f.defic.observations.length) {
-      f.defic.observations.forEach(function(o) { o.priority = newPriority; });
+    if (typeof Model.updateObsPriority === 'function') {
+      Model.updateObsPriority(deficId, obsIdx, newPriority);
+    } else {
+      obs[obsIdx].priority = newPriority;
+      if (typeof Model.saveNow === 'function') Model.saveNow();
     }
-    if (f.defic.entries) f.defic.entries.forEach(function(en) { en.priority = newPriority; });
-    if (typeof Model.saveNow === 'function') Model.saveNow();
     _renderBoard();
   };
   if (willDeactivateIAR) {
     confirmIARDeactivate(f.defic).then(function(ok) {
       if (ok === false) {
-        // User cancelled — re-render to snap card back into original column
+        // User cancelled — re-render so card snaps back to its original column
         _renderBoard();
         return;
       }
@@ -367,9 +405,14 @@ document.addEventListener('dragstart', function(e) {
   var card = e.target.closest && e.target.closest('.pin-kanban-card');
   if (!card) return;
   var deficId = card.getAttribute('data-defic-id');
+  var obsIdx = card.getAttribute('data-obs-idx') || '0';
   if (!deficId) return;
-  _dragId = deficId;
-  e.dataTransfer.setData('text/plain', deficId);
+  // S121 Push 12: composite drag id "deficId|obsIdx" so per-obs cards
+  // route their drop to the correct observation.
+  var dragId = deficId + '|' + obsIdx;
+  _dragId = deficId;       // legacy global, kept for any old callers
+  _dragObsId = dragId;     // new global used by Push 12 drop handler
+  e.dataTransfer.setData('text/plain', dragId);
   e.dataTransfer.effectAllowed = 'move';
   card.classList.add('dragging');
 });
@@ -377,6 +420,7 @@ document.addEventListener('dragend', function(e) {
   var card = e.target.closest && e.target.closest('.pin-kanban-card');
   if (card) card.classList.remove('dragging');
   _dragId = null;
+  _dragObsId = null;
   document.querySelectorAll('.pins-kanban-col-body').forEach(function(c) { c.classList.remove('drag-over'); });
 });
 
