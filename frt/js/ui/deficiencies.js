@@ -1387,24 +1387,37 @@ document.addEventListener('click', function(e) {
   }
 
   // S114 P1.8 — Per-pin AI Review menu (3 modes). Click opens floating menu;
-  // option click triggers the appropriate mode and populates the scratchpad of obs 0.
+  // option click triggers the appropriate mode and populates the scratchpad
+  // of the OBSERVATION that was clicked.
+  // S122 Push 10 — fixed: previously hardcoded obs 0, so on multi-obs pins
+  // the per-obs AI Review buttons all reviewed obs A regardless of which
+  // obs's button was clicked. Now respects data-obs-idx from the clicked
+  // button and propagates it through to the option handlers.
   if (action === 'ai-review-menu') {
     e.stopPropagation();
     var deficId = el.getAttribute('data-defic-id');
-    // Toggle: if a menu is already open for this pin, close it
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
+    // Toggle: if a menu is already open for this exact obs, close it
     var existing = document.getElementById('ai-review-pop');
-    if (existing) { existing.remove(); if (existing.getAttribute('data-defic-id') === deficId) return; }
+    if (existing) {
+      var sameDefic = existing.getAttribute('data-defic-id') === deficId;
+      var sameObs = parseInt(existing.getAttribute('data-obs-idx') || '0', 10) === obsIdx;
+      existing.remove();
+      if (sameDefic && sameObs) return;
+    }
     var f = Model.findDeficiency(deficId);
     if (!f) return;
-    var hasPhotos = !!(f.defic.observations && f.defic.observations[0] && (f.defic.observations[0].photos || []).length);
-    var hasText = !!(f.defic.observations && f.defic.observations[0] && (f.defic.observations[0].text || '').trim());
+    var _obsForMenu = f.defic.observations && f.defic.observations[obsIdx];
+    var hasPhotos = !!(_obsForMenu && (_obsForMenu.photos || []).length);
+    var hasText = !!(_obsForMenu && (_obsForMenu.text || '').trim());
     var pop = document.createElement('div');
     pop.id = 'ai-review-pop';
     pop.className = 'ai-review-pop';
     pop.setAttribute('data-defic-id', deficId);
-    var btn1 = '<button class="ai-rv-opt" data-action="ai-review-pin-photos" data-defic-id="' + esc(deficId) + '"' + (hasPhotos ? '' : ' disabled') + '>\uD83D\uDCF7 Full review (photos + text)' + (hasPhotos ? '' : '<span class="ai-rv-disabled">no photos</span>') + '</button>';
-    var btn2 = '<button class="ai-rv-opt" data-action="ai-review-pin-text" data-defic-id="' + esc(deficId) + '"' + (hasText ? '' : ' disabled') + '>\uD83D\uDCDD Full review (text only)' + (hasText ? '' : '<span class="ai-rv-disabled">no text</span>') + '</button>';
-    var btn3 = '<button class="ai-rv-opt" data-action="ai-review-pin-quick" data-defic-id="' + esc(deficId) + '"' + (hasText ? '' : ' disabled') + '>\u26A1 Quick review (grammar / flow)' + (hasText ? '' : '<span class="ai-rv-disabled">no text</span>') + '</button>';
+    pop.setAttribute('data-obs-idx', String(obsIdx));
+    var btn1 = '<button class="ai-rv-opt" data-action="ai-review-pin-photos" data-defic-id="' + esc(deficId) + '" data-obs-idx="' + obsIdx + '"' + (hasPhotos ? '' : ' disabled') + '>\uD83D\uDCF7 Full review (photos + text)' + (hasPhotos ? '' : '<span class="ai-rv-disabled">no photos</span>') + '</button>';
+    var btn2 = '<button class="ai-rv-opt" data-action="ai-review-pin-text" data-defic-id="' + esc(deficId) + '" data-obs-idx="' + obsIdx + '"' + (hasText ? '' : ' disabled') + '>\uD83D\uDCDD Full review (text only)' + (hasText ? '' : '<span class="ai-rv-disabled">no text</span>') + '</button>';
+    var btn3 = '<button class="ai-rv-opt" data-action="ai-review-pin-quick" data-defic-id="' + esc(deficId) + '" data-obs-idx="' + obsIdx + '"' + (hasText ? '' : ' disabled') + '>\u26A1 Quick review (grammar / flow)' + (hasText ? '' : '<span class="ai-rv-disabled">no text</span>') + '</button>';
     pop.innerHTML = btn1 + btn2 + btn3;
     document.body.appendChild(pop);
     var r = el.getBoundingClientRect();
@@ -1424,11 +1437,21 @@ document.addEventListener('click', function(e) {
   }
   if (action === 'ai-review-pin-photos' || action === 'ai-review-pin-text' || action === 'ai-review-pin-quick') {
     var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
     var pop = document.getElementById('ai-review-pop'); if (pop) pop.remove();
-    if (!window.AIAssist || !window.AIAssist.aiReviewPin) { toast('\u26A0 AI Assistant not loaded'); return; }
-    var aiMode = action === 'ai-review-pin-photos' ? 'photos'
-               : action === 'ai-review-pin-text' ? 'rewrite' : 'quickfix';
-    window.AIAssist.aiReviewPin(deficId, aiMode);
+    if (!window.AIAssist || !window.AIAssist.aiReviewObs) {
+      // S122 Push 10 — try aiReviewPin as fallback for old assistant.js
+      if (window.AIAssist && window.AIAssist.aiReviewPin) {
+        var aiMode = action === 'ai-review-pin-photos' ? 'photos'
+                   : action === 'ai-review-pin-text' ? 'rewrite' : 'quickfix';
+        window.AIAssist.aiReviewPin(deficId, aiMode);
+        return;
+      }
+      toast('\u26A0 AI Assistant not loaded'); return;
+    }
+    var aiMode2 = action === 'ai-review-pin-photos' ? 'photos'
+                : action === 'ai-review-pin-text' ? 'rewrite' : 'quickfix';
+    window.AIAssist.aiReviewObs(deficId, obsIdx, aiMode2);
     return;
   }
 

@@ -665,6 +665,7 @@ export var AIAssist = {
   openScratchpadFromPhoto: openScratchpadFromPhoto,
   openScratchpadFromAllPhotos: openScratchpadFromAllPhotos,
   aiReviewPin: aiReviewPin,
+  aiReviewObs: aiReviewObs, // S122 Push 10 — per-obs entry point (preferred)
   shortenScratchpad: shortenScratchpad,
   shortenUserText: shortenUserText,
   mergeScratchpad: mergeScratchpad,
@@ -1005,19 +1006,25 @@ function discardScratchpad(deficId, obsIdx) {
   _spRender(deficId, obsIdx);
 }
 
-// S114 P1.8: per-pin AI Review entry point. mode = 'photos' | 'rewrite' | 'quickfix'.
-// 'photos' delegates to openScratchpadFromAllPhotos. Text modes call the existing
-// fields-based review endpoint and pipe the result into obs 0's scratchpad.
-function aiReviewPin(deficId, mode) {
+// S114 P1.8: per-pin AI Review entry point.
+// S122 Push 10: refactored to per-OBSERVATION. The function now takes
+// obsIdx so multi-obs pins can have independent AI reviews per observation.
+// aiReviewPin(deficId, mode) is kept as a backcompat wrapper that routes
+// to obs 0 (preserves any external callers from before the refactor).
+//   mode = 'photos' | 'rewrite' | 'quickfix'
+//   'photos' delegates to openScratchpadFromAllPhotos for the chosen obs.
+//   Text modes call the existing fields-based review endpoint and pipe
+//   the result into the chosen obs's scratchpad.
+function aiReviewObs(deficId, obsIdx, mode) {
   var f = Model.findDeficiency(deficId);
   if (!f) { toast('\u26A0 Pin not found'); return; }
-  var obsIdx = 0; // primary observation
+  if (typeof obsIdx !== 'number' || obsIdx < 0) obsIdx = 0;
   var obs = f.defic.observations && f.defic.observations[obsIdx];
-  if (!obs) { toast('\u26A0 No observation on this pin'); return; }
+  if (!obs) { toast('\u26A0 No observation at index ' + obsIdx); return; }
 
   if (mode === 'photos') {
     if (!(obs.photos || []).length) {
-      toast('\u26A0 No photos on this pin \u2014 use Text only or Quick review');
+      toast('\u26A0 No photos on this observation \u2014 use Text only or Quick review');
       return;
     }
     openScratchpadFromAllPhotos(deficId, obsIdx);
@@ -1049,9 +1056,7 @@ function aiReviewPin(deficId, mode) {
     return r.json();
   }).then(function(data) {
     s.loading = false;
-    // S117 hotfix: log full response so any future "no suggestion" cases
-    // can be diagnosed by reading the browser console instead of guessing.
-    try { console.log('[AIAssist] aiReviewPin response:', mode, JSON.stringify(data).slice(0, 800)); } catch(_){}
+    try { console.log('[AIAssist] aiReviewObs response:', deficId, 'obs', obsIdx, mode, JSON.stringify(data).slice(0, 800)); } catch(_){}
     var sug = data.suggestions && data.suggestions[0];
     var newText = sug ? (sug.improved || sug.suggestion || '') : '';
     var changesNote = sug ? String(sug.changes || '').toLowerCase() : '';
@@ -1061,10 +1066,6 @@ function aiReviewPin(deficId, mode) {
                        || changesNote.indexOf('already') >= 0;
 
     if (!newText && aiSaidNoChanges) {
-      // S117 hotfix: AI confirmed the text is already polished. Show this
-      // as a positive state (not an error). User keeps their original text;
-      // we surface a small "✔ no changes needed" message in the scratchpad
-      // so they know the review actually ran.
       s.text = '';
       s.noOp = true;
       s.noOpReason = sug.changes || 'No changes needed';
@@ -1074,8 +1075,6 @@ function aiReviewPin(deficId, mode) {
     }
 
     if (!newText) {
-      // Genuine empty response — fall back to original text so user can
-      // see SOMETHING actionable and surface a diagnostic message.
       s.error = 'AI returned an empty response. Check console for details.';
       _spRender(deficId, obsIdx);
       return;
@@ -1089,10 +1088,16 @@ function aiReviewPin(deficId, mode) {
     _spRender(deficId, obsIdx);
   }).catch(function(err) {
     s.loading = false;
-    try { console.error('[AIAssist] aiReviewPin failed:', err); } catch(_){}
+    try { console.error('[AIAssist] aiReviewObs failed:', err); } catch(_){}
     s.error = err.message || 'Review failed';
     _spRender(deficId, obsIdx);
   });
+}
+
+// Backcompat wrapper — old callers that didn't pass obsIdx (pre-S122 Push 10)
+// route to obs 0. Same as the original behavior of the prior aiReviewPin.
+function aiReviewPin(deficId, mode) {
+  return aiReviewObs(deficId, 0, mode);
 }
 
 // Global access for onclick in HTML
