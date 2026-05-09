@@ -636,7 +636,6 @@ body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hove
    higher-contrast band (line ~915, untouched). */
 .defic-item:nth-child(even){background:rgba(180,150,100,.05);}
 .defic-item-row{display:flex;gap:10px;align-items:flex-start;}
-.defic-num-circle{min-width:28px;width:28px;height:28px;border-radius:50%;background:#C0392B;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:calc(12px + var(--ts));flex-shrink:0;}
 .defic-item-content{flex:1;min-width:0;}
 .defic-grid-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 @media(max-width:700px){.defic-grid-2col{grid-template-columns:1fr;}}
@@ -769,7 +768,6 @@ body.dark-mode .pin-reassign-btn:hover{background:#92400E;}
 .dup-defic-btn{padding:5px 8px;border:1.5px solid rgba(21,101,192,.25);border-radius:5px;background:rgba(21,101,192,.04);color:#1565C0;font-size:calc(11px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;font-weight:600;opacity:.75;}.dup-defic-btn:hover{background:#E3F0FD;border-color:#1565C0;opacity:1;}
 .bulk-checkbox{width:18px;height:18px;accent-color:#9C2742;cursor:pointer;flex-shrink:0;margin-top:4px;display:none;}
 body.bulk-select-mode .bulk-checkbox{display:block;}
-body.bulk-select-mode .defic-num-circle{display:none;}
 #bulk-select-toggle.active{background:var(--arencon);color:white;border-color:var(--arencon);}
 body.dark-mode #bulk-action-bar{background:#1a1d24;border-color:#9C2742;}
 .add-defic-btn-wrap{padding:10px 16px;border-top:1px solid #eee;}
@@ -1004,7 +1002,6 @@ body.dark-mode .project-card:hover{border-color:#9C2742;box-shadow:0 4px 16px rg
 /* Dark mode — deficiency items */
 body.dark-mode .defic-item{background:#1e2533;border-color:#2a3040;}
 body.dark-mode .defic-item:nth-child(even){background:#2a3348;}
-body.dark-mode .defic-num-circle{background:#9C2742;color:#fff;}
 body.dark-mode .contractor-chip{background:#1e2230;border-color:#2a3040;color:#b0b8d0;}
 body.dark-mode .defic-group{border-color:#2a2e38;}
 body.dark-mode .defic-group-header{background:#14171e;color:#d8dce8;}
@@ -1809,7 +1806,6 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   /* --- Drawing viewer layer toggles --- */
 
   /* --- Deficiency number circles — ensure tappable --- */
-  .defic-num-circle{min-width:34px;width:34px;height:34px;font-size:calc(13px + var(--ts));}
 
   /* --- Version badge / task badge — decorative, no change needed --- */
 }
@@ -4408,15 +4404,6 @@ body:not(.dark-mode) .photo-pin-badge {
   color: white !important;
 }
 
-/* ── Number circles (1, 2, 3 next to each defic): muted burgundy ring with
-      subtle inner. Used to be solid bright. ── */
-body:not(.dark-mode) .defic-num-circle,
-body:not(.dark-mode) .defic-num {
-  background: var(--lm-burgundy-bg) !important;
-  color: var(--lm-burgundy) !important;
-  border: 1.5px solid var(--lm-burgundy-bd) !important;
-}
-
 /* ── Cancel/secondary buttons: ghost slate so they read as "no" without
       shouting red. Brand burgundy stays for primary CTA only. ── */
 body:not(.dark-mode) .pe-cancel-btn {
@@ -4942,9 +4929,6 @@ body:not(.dark-mode) .dv-tasks-panel .dv-tasks-filter-btn{
 
 .defic-obs-card-lbl-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
 .defic-obs-card-ctrls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
-.defic-obs-card-lbl{font-size:calc(12px + var(--ts));font-weight:700;color:var(--fg);}
-.defic-obs-card-lbl.addressed{color:#1A7A4A;}
-.defic-obs-card-lbl .ai-rev-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-left:6px;vertical-align:middle;}
 .defic-obs-card-ctrls .obs-pri-mini{padding:3px 10px;border:1.5px solid var(--border);border-radius:4px;font-size:calc(11px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;}
 .defic-obs-card-ctrls .addr-toggle{border:none;color:white;border-radius:4px;padding:4px 11px;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;}
 .defic-obs-card-ctrls .addr-toggle.open{background:#CBD5E0;color:#2C3E50;}
