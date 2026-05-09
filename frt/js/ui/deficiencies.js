@@ -1785,6 +1785,10 @@ Model.onChange('photo', function() {
 // an obs textarea (or any editable field inside the deficiency tab). The
 // 500ms obs-text debounce → updateObservation → _queueSave → 'saved' chain
 // otherwise destroys the textarea node mid-typing, kicking focus out.
+// S121 Push 5: extended the guard to SELECT elements as well — the priority
+// dropdown was sometimes auto-closing because the `change` event from a
+// transient mouse-up triggered a 'saved' notify mid-interaction, destroying
+// the open <select> node before the user finished picking a value.
 // The mutation is already applied to the Model and the textarea's value
 // already shows what the user typed, so a sync DOM rebuild adds nothing —
 // the next normal render (tab switch, pin change, etc.) catches up.
@@ -1793,12 +1797,8 @@ Model.onChange('saved', function() {
   if (_deficSavedDebounce) clearTimeout(_deficSavedDebounce);
   _deficSavedDebounce = setTimeout(function() {
     var ae = document.activeElement;
-    if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT')) {
-      // Bail if the focused field is inside the deficiency tab — re-rendering
-      // would destroy its node and kick focus out. Skipped renders are
-      // self-correcting: any subsequent action (status change, pin click,
-      // tab switch) goes through a different render path that catches up.
-      var inDefic = !!ae.closest('#tab-deficiencies, .defic-item, .defic-list');
+    if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) {
+      var inDefic = !!ae.closest('#tab-deficiencies, .defic-item, .defic-list, .defic-pin-group');
       if (inDefic) return;
     }
     initDeficiencies.render();

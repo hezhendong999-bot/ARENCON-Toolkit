@@ -4981,3 +4981,145 @@ body.dark-mode .defic-obs-card.addressed{background:rgba(26,122,74,.10);border-l
 body.dark-mode .defic-pin-footer{background:rgba(0,0,0,0.20);}
 body.dark-mode .defic-obs-card-ctrls .addr-toggle.open{background:#3a4555;color:#c0d0e0;}
 /* End S121 Phase C-2 ──────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════
+   S121 Push 5: Button color system overhaul
+   ═══════════════════════════════════════════════════════════════════
+   Before this push, six different bright colors were scattered across
+   buttons (#2196F3 spinoff, #E53E3E remove, #7B2D8E AI Review, #7B1FA2
+   sign-out, #2C4A6B FRT pill, #1A7A4A close, etc). Mark flagged the
+   bright palette as inconsistent with the muted theme and several
+   collisions (sign-out vs AI Review same color; FRT pill invisible
+   in dark mode; spinoff same color as Upload).
+
+   New token family — all muted, all coordinated:
+     --btn-status-green   addressed/close/OK/yes
+     --btn-status-red     remove/cancel/delete (multi-obs only — activity
+                          log buttons stay their existing tone per Mark)
+     --btn-action-blue    spinoff (distinct from upload's slightly grayer
+                          slate)
+     --btn-action-purple  AI Review (card and header)
+     --btn-action-burgundy sign-out (distinct from AI Review)
+
+   Photo buttons (--btn-upload, --btn-camera, --btn-gallery) keep their
+   existing values; only their dark-mode tones get softened.
+
+   FRT instance pill gets a brighter token specifically for visibility
+   against the dark-mode header (was #2C4A6B navy → invisible).
+   ─────────────────────────────────────────────────────────────────── */
+:root {
+  --btn-status-green:   #4A8264;
+  --btn-status-green-hover: #3D6D54;
+  --btn-status-red:     #A85959;
+  --btn-status-red-hover: #8E4A4A;
+  --btn-action-blue:    #5B7B95;
+  --btn-action-blue-hover: #4A6580;
+  --btn-action-purple:  #7B5A8F;
+  --btn-action-purple-hover: #644A75;
+  --btn-action-burgundy: #9C4258;
+  --btn-action-burgundy-hover: #7D3F4F;
+  --btn-upload:  #5A6E80;
+  --btn-camera:  #5C7A65;
+  --btn-gallery: #7D3F4F;
+  --frt-num-pill: #B85370;
+}
+body.dark-mode {
+  --btn-status-green:   #5E9078;
+  --btn-status-green-hover: #4A7560;
+  --btn-status-red:     #B86E6E;
+  --btn-status-red-hover: #9C5959;
+  --btn-action-blue:    #6E8FAA;
+  --btn-action-blue-hover: #5B7B95;
+  --btn-action-purple:  #9070A8;
+  --btn-action-purple-hover: #7B5A8F;
+  --btn-action-burgundy: #B26579;
+  --btn-action-burgundy-hover: #94516B;
+  --btn-upload:  #6B8094;
+  --btn-camera:  #6E9078;
+  --btn-gallery: #9C5567;
+  --frt-num-pill: #C76985;
+}
+
+/* ── Multi-obs spinoff: action-blue (distinct from upload's slate) ── */
+.defic-obs-card-ctrls .spinoff-obs-btn {
+  background: var(--btn-action-blue) !important;
+  color: white !important;
+  transition: background .15s;
+}
+.defic-obs-card-ctrls .spinoff-obs-btn:hover {
+  background: var(--btn-action-blue-hover) !important;
+}
+
+/* ── Multi-obs remove-obs: status-red ── */
+.defic-obs-card-ctrls .remove-obs-btn {
+  background: var(--btn-status-red) !important;
+  color: white !important;
+  transition: background .15s;
+}
+.defic-obs-card-ctrls .remove-obs-btn:hover {
+  background: var(--btn-status-red-hover) !important;
+}
+
+/* ── Addressed toggle when closed: status-green ── */
+.defic-obs-card-ctrls .addr-toggle.closed {
+  background: var(--btn-status-green) !important;
+}
+
+/* ── AI Review (card and header — class .defic-ai-btn) ── */
+.defic-ai-btn {
+  background: var(--btn-action-purple) !important;
+  border-color: var(--btn-action-purple) !important;
+  color: white !important;
+  transition: background .15s, border-color .15s;
+}
+.defic-ai-btn:hover {
+  background: var(--btn-action-purple-hover) !important;
+  border-color: var(--btn-action-purple-hover) !important;
+}
+body.dark-mode .defic-ai-btn {
+  background: var(--btn-action-purple) !important;
+  border-color: var(--btn-action-purple) !important;
+}
+
+/* ── Sign-out button (#btn-signout, inline #7B1FA2) ── */
+#btn-signout {
+  background: var(--btn-action-burgundy) !important;
+  transition: background .15s;
+}
+#btn-signout:hover {
+  background: var(--btn-action-burgundy-hover) !important;
+}
+
+/* ── FRT instance pill (#pb-inst, inline #2C4A6B) — needs visibility
+      especially in dark mode header. ── */
+#pb-inst {
+  background: var(--frt-num-pill) !important;
+  color: white !important;
+}
+
+/* ── Photo upload/camera/gallery: dark-mode softening only.
+      Light mode keeps existing #5A6E80/#5C7A65/#7D3F4F. ── */
+body.dark-mode .obs-drop-btn.is-upload  { background: var(--btn-upload)  !important; }
+body.dark-mode .obs-drop-btn.is-camera  { background: var(--btn-camera)  !important; }
+body.dark-mode .obs-drop-btn.is-gallery { background: var(--btn-gallery) !important; }
+
+/* ── Priority dropdown dark-mode carry-over ──
+      The closed select carries inline background:#C0392B / #E67E22 / #1A7A4A.
+      The colors are bright in dark mode. Soften via attribute selectors that
+      target the inline value the JS emits, since JS controls the bg color
+      directly. We can't easily override inline styles without !important +
+      a more-specific match, so this CSS targets the dark-mode body and uses
+      attribute substring match on the style attribute. ── */
+body.dark-mode .obs-pri-mini[style*="C0392B"] {
+  background: #B05A53 !important;
+  border-color: #B05A53 !important;
+}
+body.dark-mode .obs-pri-mini[style*="E67E22"] {
+  background: #B57B4D !important;
+  border-color: #B57B4D !important;
+}
+body.dark-mode .obs-pri-mini[style*="1A7A4A"] {
+  background: #4A8264 !important;
+  border-color: #4A8264 !important;
+}
+/* End S121 Push 5 ─────────────────────────────────────────────────── */
