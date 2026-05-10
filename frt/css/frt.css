@@ -661,7 +661,7 @@ body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hove
 .defic-more-popup.open{display:block;}
 .defic-more-popup button{display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));color:var(--fg);}.defic-more-popup button:hover{background:var(--smoke);}
 /* S77: Deficiency action buttons - muted filled chips for dark mode */
-body.dark-mode .defic-act-btn{background:#2a3448!important;border:1px solid rgba(255,255,255,.08)!important;color:#c0d0e0!important;padding:6px 12px!important;border-radius:6px!important;opacity:1!important;}
+body.dark-mode .defic-act-btn{background:#2a3448!important;border:1px solid rgba(255,255,255,.08)!important;color:#c0d0e0!important;opacity:1!important;}
 body.dark-mode .defic-act-btn:hover{background:#36425a!important;border-color:rgba(255,255,255,.18)!important;}
 body.dark-mode .defic-act-btn.act-close{background:#1a2e22!important;color:#80c8a0!important;}
 body.dark-mode .defic-act-btn.act-close:hover{background:#22402e!important;}
@@ -1166,7 +1166,8 @@ body.dark-mode .dv-sidebar-tools{background:#1e2028!important;border-bottom-colo
 .dv-sidebar-tools #mk-copy-btn{display:none!important;}
 .dv-sidebar-tools .tool-btn[onclick="markupUndo()"]{display:none!important;}
 .dv-sidebar-tools .tool-btn[onclick="markupRedo()"]{display:none!important;}
-.dv-sidebar-tools .tool-btn{width:38px!important;height:38px!important;flex-shrink:0!important;border-radius:10px!important;}
+/* S123 P3: duplicate .tool-btn sizing rule REMOVED — now owned by S123 P3 block at end of file. */
+/* .dv-sidebar-tools .tool-btn{width:38px!important;height:38px!important;flex-shrink:0!important;border-radius:10px!important;} */
 .dv-sidebar-tools .tool-group .tool-submenu{/* JS handles positioning via toggleShapesMenu/toggleColorMenu */}
 .dv-sidebar-tools::-webkit-scrollbar{display:none!important;}
 /* Hide the secondary row wrapper if it was created by older JS */
@@ -1189,7 +1190,8 @@ body.dark-mode #dv-mobile-context .ctx-btn:active{background:rgba(255,255,255,.2
 #dv-mobile-context .ctx-color-swatch{width:26px;height:26px;border-radius:50%;border:2px solid #999;cursor:pointer;flex-shrink:0;}
 body.dark-mode #dv-mobile-context .ctx-color-swatch{border-color:#fff;}
 }
-.dv-sidebar-tools .tool-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#607D8B;border-radius:8px;cursor:pointer;transition:background .15s,color .15s;padding:0;}
+/* S123 P3: duplicate .tool-btn sizing block REMOVED — now owned by S123 P3 block at end of file. */
+/* .dv-sidebar-tools .tool-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#607D8B;border-radius:8px;cursor:pointer;transition:background .15s,color .15s;padding:0;} */
 .dv-sidebar-tools .tool-btn:hover{background:#dde1e7;color:#1C2333;}
 body.dark-mode .dv-sidebar-tools .tool-btn:hover{background:#2d3040;color:#ddd;}
 .dv-sidebar-tools .tool-btn.active{background:var(--arencon,#9C2742);color:white;}
@@ -5455,3 +5457,358 @@ body:not(.dark-mode) .obs-pill.general  { background:#1F7A4A !important; }
 body:not(.dark-mode) .obs-pill.iar      { background:#E459A8 !important; }
 body:not(.dark-mode) .obs-pill.addressed{ background:#1F7A4A !important; }
 /* End S123 Push 1 ──────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S123 PUSH 2 — Button color cleanup (semantic palette enforcement)
+   ═══════════════════════════════════════════════════════════════════════
+   Mark approved s123_combined_audit_v2.html on 2026-05-09 (S123).
+
+   The S116 P6 jewel-tone palette stays. This block enforces semantic
+   meaning per color and removes scattered random hues:
+
+     Burgundy #9C2742  → primary CTA only (Save / Submit)
+     Forest   #5C7A65  → affirmative completion (Close, addressed)
+     Amber    #B07F5A  → caution / state-reversion (Reopen, Unpin, Build Tiles, Renumber)
+     Red-soft #A85959  → destructive (Remove, Delete, Purge)
+     Slate    #5A6E80  → neutral utility (Cancel, Filters, Photo zone, Nav)
+     Blue     #4A6580  → communication / info (Comment, Response, View photos)
+     Purple   #7B5A8F  → AI-only RESERVE (AI Review, AI suggest)
+
+   10 reassignments + 2 toolbar tweaks. All overrides are scoped (id-based
+   or class-based) and additive. Rollback = delete this block.
+
+   Strategy: all colour rules live here, so future audits read top-to-bottom
+   without hunting through 5000 lines.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* (1) Header AI Review: random #7B2D8E → palette purple ─────────── */
+#btn-ai-review[style*="background"], #btn-ai-review{
+  background:#7B5A8F !important;
+  color:#fff !important;
+}
+#btn-ai-review:hover{filter:brightness(1.08);}
+
+/* (2) Header Reports: random #1A237E → palette blue ─────────────── */
+#btn-reports-parent[style*="background"], #btn-reports-parent{
+  background:#4A6580 !important;
+  color:#fff !important;
+}
+#btn-reports-parent:hover{filter:brightness(1.08);}
+
+/* (3) Header Sign Out: random #7B1FA2 → ghost (no longer pseudo-CTA) */
+#btn-signout[style*="background"], #btn-signout{
+  background:rgba(255,255,255,.14) !important;
+  color:#fff !important;
+  border:1px solid rgba(255,255,255,.20) !important;
+}
+#btn-signout:hover{background:rgba(255,255,255,.22) !important;}
+
+/* (4) Defic footer Response: amber → blue (sibling of Comment) ──── */
+body:not(.dark-mode) .defic-act-btn.act-response{
+  background:rgba(74,101,128,.08) !important;
+  border-color:rgba(74,101,128,.30) !important;
+  color:var(--lm-blue) !important;
+}
+body:not(.dark-mode) .defic-act-btn.act-response:hover{
+  background:rgba(74,101,128,.16) !important;
+  border-color:var(--lm-blue) !important;
+}
+body.dark-mode .defic-act-btn.act-response{
+  background:#1a2638 !important;
+  color:#88b8e8 !important;
+}
+body.dark-mode .defic-act-btn.act-response:hover{
+  background:#243652 !important;
+}
+
+/* (5) Defic footer "View all photos": purple → blue (frees purple for AI) */
+body:not(.dark-mode) .defic-act-btn.act-photos{
+  background:rgba(74,101,128,.08) !important;
+  border-color:rgba(74,101,128,.30) !important;
+  color:var(--lm-blue) !important;
+}
+body:not(.dark-mode) .defic-act-btn.act-photos:hover{
+  background:rgba(74,101,128,.16) !important;
+  border-color:var(--lm-blue) !important;
+}
+body.dark-mode .defic-act-btn.act-photos{
+  background:#1a2638 !important;
+  color:#88b8e8 !important;
+}
+
+/* (6) Pin Editor photo zone (Upload/Camera/Gallery) → all slate ── */
+#pe-upload-btn, #pe-camera-btn, #pe-gallery-btn{
+  background:var(--lm-slate) !important;
+  border:1.5px solid var(--lm-slate) !important;
+  color:#fff !important;
+  border-style:solid !important; /* override the inline dashed style on Gallery */
+}
+#pe-upload-btn:hover, #pe-camera-btn:hover, #pe-gallery-btn:hover{
+  filter:brightness(1.10);
+}
+body.dark-mode #pe-upload-btn,
+body.dark-mode #pe-camera-btn,
+body.dark-mode #pe-gallery-btn{
+  background:var(--lm-slate) !important;
+  border-color:var(--lm-slate) !important;
+}
+
+/* (7) Pin Editor "Go to drawing": blue → slate (it's nav, not comm) */
+#pe-goto-dwg{
+  background:rgba(90,110,128,.10) !important;
+  border:1.5px solid rgba(90,110,128,.40) !important;
+  color:var(--lm-slate) !important;
+}
+#pe-goto-dwg:hover{
+  background:rgba(90,110,128,.20) !important;
+  border-color:var(--lm-slate) !important;
+}
+body.dark-mode #pe-goto-dwg{
+  background:rgba(168,180,200,.12) !important;
+  border-color:rgba(168,180,200,.40) !important;
+  color:#a8b4c8 !important;
+}
+body.dark-mode #pe-goto-dwg:hover{
+  background:rgba(168,180,200,.22) !important;
+  border-color:#a8b4c8 !important;
+}
+
+/* (8) Drawings tab: Build Tiles → amber (heavy op caution) ─────── */
+#btn-dwg-build-tiles{
+  background:rgba(176,127,90,.10) !important;
+  border-color:rgba(176,127,90,.40) !important;
+  color:var(--lm-amber) !important;
+}
+#btn-dwg-build-tiles:hover{
+  background:rgba(176,127,90,.20) !important;
+  border-color:var(--lm-amber) !important;
+}
+body.dark-mode #btn-dwg-build-tiles{
+  background:#2a1f10 !important;
+  color:#e0b878 !important;
+  border-color:rgba(224,184,120,.30) !important;
+}
+
+/* (8b) Drawings tab: Purge Old → red-soft (destructive) ────────── */
+#btn-dwg-purge{
+  background:rgba(168,89,89,.08) !important;
+  border-color:rgba(168,89,89,.40) !important;
+  color:var(--lm-red-soft) !important;
+}
+#btn-dwg-purge:hover{
+  background:rgba(168,89,89,.18) !important;
+  border-color:var(--lm-red-soft) !important;
+}
+body.dark-mode #btn-dwg-purge{
+  background:#2a1818 !important;
+  color:#e08080 !important;
+  border-color:rgba(224,128,128,.30) !important;
+}
+
+/* (8c) Defic tab: Renumber → amber (rewrites all defic IDs) ─────── */
+#defic-renumber-btn{
+  background:rgba(176,127,90,.10) !important;
+  border-color:rgba(176,127,90,.40) !important;
+  color:var(--lm-amber) !important;
+}
+#defic-renumber-btn:hover{
+  background:rgba(176,127,90,.20) !important;
+  border-color:var(--lm-amber) !important;
+}
+body.dark-mode #defic-renumber-btn{
+  background:#2a1f10 !important;
+  color:#e0b878 !important;
+  border-color:rgba(224,184,120,.30) !important;
+}
+
+/* (9) Photo gallery active filter: burgundy → slate (filter ≠ CTA) */
+body:not(.dark-mode) .pg-filter.active{
+  background:var(--lm-slate) !important;
+  color:#fff !important;
+  border-color:var(--lm-slate) !important;
+}
+body.dark-mode .pg-filter.active{
+  background:#5A6E80 !important;
+  color:#fff !important;
+  border-color:#5A6E80 !important;
+}
+
+/* (10) Site photo Camera: forest → slate (photo class consistency) */
+#site-photo-camera-btn{
+  background:var(--lm-slate) !important;
+  border-color:var(--lm-slate) !important;
+  color:#fff !important;
+}
+#site-photo-camera-btn:hover{filter:brightness(1.08);}
+
+/* End S123 Push 2 ──────────────────────────────────────────────────── */
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S123 PUSH 3 — Button size system (3 tiers + icon)
+   ═══════════════════════════════════════════════════════════════════════
+   Mark approved s123_combined_audit_v2.html on 2026-05-09 (S123).
+
+   Size tiers (height = contract; width = grows with content):
+     md  = 34px  → header (.hdr-btn), viewer toolbar text buttons,
+                   modal CTAs, generic .btn (default)
+     pe  = 32px  → Pin Editor footer + photo zone (.pe-* family)
+     sm  = 28px  → chips: .btn-sm, .defic-act-btn, .pg-filter,
+                   filter pills, gallery actions
+    icon = 34×34 → square iconic: .tool-btn, .lb-close-btn, nav arrows
+
+   Touch override (single rule):
+     md → 38, pe → 36, sm → 32, icon → 44×44
+
+   Companion deletions (above this block):
+     - Dark-mode .defic-act-btn padding 6×12 / radius 6 → REMOVED so
+       light/dark match. (Was line 664.)
+     - Duplicate .tool-btn sizing rules at lines 1169 (38×38!important
+       border-radius:10) and 1192 (44×44) → COMMENTED OUT. The base
+       definition at line 257 (38×38) remains; this block overrides.
+
+   Rollback = delete this block + restore the 3 commented sections above.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root{
+  --btn-h-md:   34px;
+  --btn-h-pe:   32px;
+  --btn-h-sm:   28px;
+  --btn-h-icon: 34px;
+  --btn-pad-md: 0 14px;
+  --btn-pad-pe: 0 14px;
+  --btn-pad-sm: 0 10px;
+}
+
+/* ── Generic .btn (was 8px 16px implicit-height) ────────────────── */
+.btn{
+  height:var(--btn-h-md) !important;
+  padding:var(--btn-pad-md) !important;
+  font-size:calc(12.5px + var(--ts)) !important;
+  display:inline-flex !important;
+  align-items:center !important;
+}
+.btn svg{width:14px !important;height:14px !important;}
+
+/* ── .btn-sm (was 5px 11px) ────────────────────────────────────── */
+.btn-sm{
+  height:var(--btn-h-sm) !important;
+  padding:var(--btn-pad-sm) !important;
+  font-size:calc(11.5px + var(--ts)) !important;
+}
+
+/* ── .hdr-btn (was 0 12px / explicit height 34px) — already 34, but
+      align padding token. Override explicit height with our token so
+      it's source-of-truth from ONE place. ──────────────────────── */
+.hdr-btn{
+  height:var(--btn-h-md) !important;
+  padding:var(--btn-pad-md) !important;
+  font-size:calc(12.5px + var(--ts)) !important;
+}
+
+/* ── Drawing viewer toolbar buttons ────────────────────────────── */
+.dv-close-btn,
+.dv-nav-group .dv-nav-btn{
+  height:var(--btn-h-md) !important;
+  padding:0 12px !important;
+  font-size:calc(13px + var(--ts)) !important;
+}
+.dv-tasks-toggle,
+.dv-toolbar button:not(.tool-btn):not(.dv-tr-btn):not(.dv-ss-step){
+  min-height:var(--btn-h-md);
+}
+
+/* ── Pin Editor footer (Save / Delete / Cancel) and photo zone ─── */
+.pe-save-btn,
+.pe-delete-btn,
+.pe-cancel-btn,
+.pe-photo-btn{
+  height:var(--btn-h-pe) !important;
+  padding:var(--btn-pad-pe) !important;
+  font-size:calc(12px + var(--ts)) !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+/* Save no longer needs the wider 24px padding — burgundy fill alone
+   establishes CTA hierarchy (uniform width across footer trio). */
+
+/* ── Defic action chips: sm 28px, kill the dark-mode 6×12 mismatch
+      handled above by the surgical edit. ──────────────────────── */
+.defic-act-btn{
+  height:var(--btn-h-sm) !important;
+  padding:var(--btn-pad-sm) !important;
+  font-size:calc(11.5px + var(--ts)) !important;
+}
+/* .act-more keeps tighter horizontal padding (still sm height) */
+.defic-act-btn.act-more{
+  padding:0 8px !important;
+}
+
+/* ── Drawing-viewer sidebar tool buttons (was 38/44/etc.) ─────── */
+.dv-sidebar-tools .tool-btn,
+.drawing-viewer-overlay .dv-sidebar-tools .tool-btn{
+  width:var(--btn-h-icon) !important;
+  height:var(--btn-h-icon) !important;
+  min-width:var(--btn-h-icon) !important;
+  min-height:var(--btn-h-icon) !important;
+  border-radius:8px !important;
+  padding:0 !important;
+}
+
+/* ── Lightbox close ───────────────────────────────────────────── */
+.lb-close-btn{
+  height:var(--btn-h-icon);
+  width:var(--btn-h-icon);
+  min-height:var(--btn-h-icon);
+  min-width:var(--btn-h-icon);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* ── Btn-unlock + view-pill-btn + dv-tasks-filter-btn → sm 28px ─ */
+.btn-unlock{
+  height:var(--btn-h-sm) !important;
+  padding:var(--btn-pad-sm) !important;
+  font-size:calc(11.5px + var(--ts)) !important;
+}
+.view-pill-btn{
+  height:var(--btn-h-sm) !important;
+  padding:var(--btn-pad-sm) !important;
+  font-size:calc(11.5px + var(--ts)) !important;
+}
+.dv-tasks-filter-btn{
+  height:var(--btn-h-sm) !important;
+  padding:var(--btn-pad-sm) !important;
+  font-size:calc(11px + var(--ts)) !important;
+}
+
+/* ── Touch override: single rule for the whole app ─────────────── */
+@media (pointer:coarse){
+  :root{
+    --btn-h-md:   38px;
+    --btn-h-pe:   36px;
+    --btn-h-sm:   32px;
+    --btn-h-icon: 44px;
+  }
+  /* Force min-height for safety — some inline styles in JS may set
+     explicit heights elsewhere (e.g., btn-issue, dv-rename-btn). */
+  .btn,.hdr-btn,.dv-close-btn,.dv-nav-btn{min-height:38px;}
+  .pe-save-btn,.pe-delete-btn,.pe-cancel-btn,.pe-photo-btn{min-height:36px;}
+  .btn-sm,.defic-act-btn,.btn-unlock,.view-pill-btn,.dv-tasks-filter-btn{min-height:32px;}
+  .dv-sidebar-tools .tool-btn,.lb-close-btn{min-width:44px !important;min-height:44px !important;width:44px !important;height:44px !important;}
+}
+
+/* ── Override the legacy media-query .tool-btn rules at lines 304,
+      310, 1239, 1756 — they set 36/42/36/42 at various breakpoints
+      conflicting with the icon-tier system. Defensive override at
+      end-of-file specificity. ──────────────────────────────────── */
+@media (max-width:1280px){
+  .dv-sidebar-tools .tool-btn{width:var(--btn-h-icon) !important;height:var(--btn-h-icon) !important;}
+}
+@media (max-width:900px){
+  .dv-sidebar-tools .tool-btn{width:var(--btn-h-icon) !important;height:var(--btn-h-icon) !important;}
+}
+
+/* End S123 Push 3 ──────────────────────────────────────────────────── */
