@@ -6291,3 +6291,51 @@ body.dark-mode .ctr-tag.ctr-c7{
 }
 
 /* End S123 Push 5.2 ────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S123 PUSH 5.3 — Real fix for "Site Genel" cutoff
+   ═══════════════════════════════════════════════════════════════════════
+   P5.1 (white-space:nowrap on td) and P5.2 (min-width:140px on th + 
+   min-width:max-content on chip) BOTH FAILED to fix the cutoff.
+
+   Diagnosis: .ctr-tag has overflow:hidden in P5 base. table-layout:auto
+   treats overflow:hidden flex containers as "infinitely shrinkable"
+   because content can be hidden silently — so min-width hints on th
+   become soft suggestions, not hard floors. The column stays narrow,
+   the chip clips its own body content.
+
+   Fix: REMOVE overflow:hidden from .ctr-tag. Apply border-radius on
+   first-child (left rounded) and last-child (right rounded) so visual
+   rounded corners are preserved without overflow clipping. Now the
+   chip's intrinsic content width is the column's allocation floor —
+   table-layout:auto will respect it.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ctr-tag{
+  overflow: visible !important;
+}
+
+/* Round the OUTER edges via children, since overflow:hidden no longer
+   clips the children's bg at the parent's border-radius. Inner border
+   radius = outer (6px) - border (1.5px) ≈ 4.5px. */
+.ctr-tag > *:first-child{
+  border-top-left-radius: 4.5px;
+  border-bottom-left-radius: 4.5px;
+}
+.ctr-tag > *:last-child{
+  border-top-right-radius: 4.5px;
+  border-bottom-right-radius: 4.5px;
+}
+
+/* Larger version on .contractor-chip parent (deficiency tab assignment
+   chips are 30px tall, rounded 6px outer). Inner radius adjusted. */
+.contractor-chip.ctr-tag > *:first-child{
+  border-top-left-radius: 4.5px;
+  border-bottom-left-radius: 4.5px;
+}
+.contractor-chip.ctr-tag > *:last-child{
+  border-top-right-radius: 4.5px;
+  border-bottom-right-radius: 4.5px;
+}
+
+/* End S123 Push 5.3 ────────────────────────────────────────────────── */
