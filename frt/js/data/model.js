@@ -391,6 +391,45 @@ export var Model = {
     if (_dedupRemoved > 0) { _dirty = true; _queueSave(); }
   },
 
+  /**
+   * S123 P6A — Apply a merged project state (from sync conflict resolution).
+   *
+   * Used by SyncEngine after a 412 Precondition Failed → 3-way merge.
+   * Differs from setProject() in two ways:
+   *
+   *   1. Skips the V1→V2 normalization + auto-dedup pipeline — the
+   *      merge result is already in V2 shape (came from cloud which is
+   *      already normalized) so re-running migrations would be wasteful
+   *      and possibly destructive on transient merge artifacts.
+   *
+   *   2. Marks the project dirty + queues an immediate save — the
+   *      caller (sync.js push retry) needs the merged state pushed to
+   *      cloud as soon as possible to close the conflict window.
+   *
+   * Does NOT trigger a 'project' notify event with the same firing
+   * shape as initial load; uses a distinct 'merged' event so UI can
+   * choose to refresh selectively rather than a full re-render.
+   *
+   * Returns the merged project (the new _project state).
+   */
+  applyMerged: function(mergedProj) {
+    if (!mergedProj) return null;
+    _project = mergedProj;
+    _dirty = true;
+    console.log('[Model] applyMerged: replaced project state from merge result',
+                '| contractors:', (mergedProj.contractors || []).length,
+                '| drawings:', (mergedProj.drawings || []).length,
+                '| deficiencies:', this.getAllDeficiencies(mergedProj).length);
+    this._notify('merged', mergedProj);
+    // Also fire 'project' so existing listeners (which mostly re-render the
+    // whole UI) update too. This is intentional — merge results can change
+    // any part of the tree, so a full re-render is the safe default until
+    // we have finer-grained merge-aware re-render logic.
+    this._notify('project', mergedProj);
+    _queueSave();
+    return mergedProj;
+  },
+
   newProject: function(overrides) {
     var proj = createNewProject(overrides);
     this.setProject(proj);

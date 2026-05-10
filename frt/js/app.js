@@ -9,6 +9,7 @@
 import { Model } from './data/model.js';
 import { IDB } from './data/idb.js';
 import { SyncEngine } from './data/sync.js';
+import './data/merge.js'; // S123 P6A — registers window._frt_mergeDiag for diagnostic / Push B usage
 import { R2 } from './data/r2.js';
 import { TileCache } from './data/tileCache.js';
 import { Presence } from './data/presence.js';
