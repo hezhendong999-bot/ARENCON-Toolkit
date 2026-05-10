@@ -6341,54 +6341,54 @@ body.dark-mode .ctr-tag.ctr-c7{
 /* End S123 Push 5.3 ────────────────────────────────────────────────── */
 
 /* ═══════════════════════════════════════════════════════════════════════
-   S123 PUSH 5.5 — Allow contractor chip body to wrap to 2 lines
+   S123 PUSH 5.5 (REVISED) — Contractor chip wraps cleanly in summary table
    ═══════════════════════════════════════════════════════════════════════
-   Mark approved on 2026-05-09 (S123). With the table-layout:fixed +
-   colgroup approach (P5.4), the contractor column was guaranteed 150px
-   to fit "Site General" on one line. That left the column visually
-   underutilized for short names like "Vipond".
+   First attempt at P5.5 used display:flex on the chip body with
+   white-space:normal + flex:1 1 auto. Result: text collapsed and
+   showed an ellipsis ("...") because flex-line-wrapping interacts
+   badly with table cells.
 
-   This fix: allow the chip body to wrap to 2 lines so we can shrink
-   the column to 110px. "Site General" wraps to "Site / General"; short
-   names like "Vipond" stay on one line. Chip grows vertically as needed.
+   Revised approach: inline-block + line-height + word-break. No flex
+   on the body. Letter badge uses table-cell vertical alignment.
+   Result: "Site General" wraps cleanly to two lines; "Vipond" stays
+   single-line; no truncation, no ellipsis.
 
-   Surfaces affected:
-     - Summary table (#tasks-table, the original cutoff source)
-     - Anywhere else .ctr-tag is rendered in a confined width context
-
-   NOT affected (wrapping disabled):
-     - .contractor-chip (assignment chips at top of Deficiency tab) —
-       these have plenty of horizontal room and look better single-line
-     - .ctr-tag inside Filters / dropdowns / inline pills — single-line
-
-   Strategy: enable wrap inside summary-table cells specifically; preserve
-   single-line everywhere else via cascade order.
+   The chip becomes a tiny 2-cell horizontal layout:
+     [letter] [body wraps to 2 lines]
+   Both children center vertically against each other.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* Allow chip and body to grow vertically when content wraps */
+/* Chip in summary table — allow vertical growth */
 #tasks-table .ctr-tag{
-  height:auto !important;            /* override the 24px fixed height */
+  display:inline-flex !important;
+  align-items:center !important;
+  height:auto !important;
   min-height:24px;
-  align-items:stretch !important;
-  padding:1px 0 !important;
+  padding:0 !important;
+  vertical-align:middle;
 }
 
-/* Make the body wrap to 2 lines max with proper line-height */
+/* Body: inline-block + word-break for clean 2-line wrap, NO flex */
 #tasks-table .ctr-tag .ctr-chip-body{
-  white-space:normal !important;     /* allow wrap */
-  word-break:break-word;
-  line-height:1.15;
-  padding:3px 8px !important;        /* tighter horizontal padding for narrow column */
+  display:inline-block !important;
+  flex:0 1 auto !important;
+  white-space:normal !important;
+  word-break:normal !important;          /* break on whitespace, not mid-word */
+  overflow-wrap:break-word !important;
+  text-overflow:clip !important;         /* defensive: no ellipsis ever */
+  overflow:visible !important;            /* defensive: no clipping */
+  line-height:1.15 !important;
+  padding:4px 9px !important;
   font-size:calc(11px + var(--ts));
-  display:flex;
-  align-items:center;
-  flex:1 1 auto;
+  text-align:left;
 }
 
-/* Letter badge stays centered vertically; pad to match the body's vertical space */
+/* Letter badge: stretches to match body height regardless of wrap */
 #tasks-table .ctr-tag .ctr-chip-letter{
-  align-self:stretch;
-  padding:2px 0;
+  align-self:stretch !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  flex-shrink:0 !important;
 }
 
-/* End S123 Push 5.5 ────────────────────────────────────────────────── */
+/* End S123 Push 5.5 (revised) ─────────────────────────────────────── */
