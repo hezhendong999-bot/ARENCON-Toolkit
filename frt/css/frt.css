@@ -5408,3 +5408,50 @@ body.dark-mode .defic-pin-minimap img{
 }
 /* End S122 Push 7 ──────────────────────────────────────────────────── */
 
+/* ═══════════════════════════════════════════════════════════════════════
+   S123 PUSH 1 — Light-mode base surface tone shift (warm paper palette)
+   ═══════════════════════════════════════════════════════════════════════
+   Mark approved s123_lightmode_demo.html on 2026-05-09 (S123).
+
+   This block extends the S116 Push 6 jewel-tone overlay one layer deeper.
+   The BASE surface tokens (--bg, --smoke, --surface, --card, --border)
+   shift from cool grey-blue to warm off-white. The S116 jewel-tone
+   palette is preserved; the S116 --lm-surface/--lm-surface-2/--lm-border
+   tokens are re-aligned to match the new base. Status pills (.obs-pill)
+   get a slight desaturation in light mode only.
+
+   Pin markers on the actual canvas use inline-styled hex from def.js
+   palLight and are NOT affected — they stay full-saturation for field
+   readability across a room.
+
+   Strategy: token overrides scoped to body:not(.dark-mode). No edits to
+   existing rules elsewhere. Dark mode untouched. Rollback = delete this
+   block.
+   ═══════════════════════════════════════════════════════════════════════ */
+body:not(.dark-mode){
+  /* Base surfaces — warm off-white "paper" feel */
+  --bg:           #F5F2ED;
+  --smoke:        #F0EDE6;
+  --surface:      #FCFBF8;
+  --card:         #FCFBF8;
+  --border:       #D9D2C5;
+  /* Re-align the S116 jewel-tone surface/border tokens to match new base */
+  --lm-surface:   #FCFBF8;
+  --lm-surface-2: #F0EDE6;
+  --lm-border:    #D9D2C5;
+  --lm-text-muted:#6B7280;
+}
+
+/* Status pill desaturation — applies to .obs-pill backgrounds in light
+   mode only. Dark-mode rules at frt.css :root + body.dark-mode override
+   these via cascade order (dark-mode rules sit later in the file).
+   We need !important here because the original .obs-pill.* rules have
+   the same specificity as body:not(.dark-mode) .obs-pill.* would, but
+   our rules sit AFTER, so source order alone wins. !important kept as
+   defensive guard against any future rule with elevated specificity. */
+body:not(.dark-mode) .obs-pill.high     { background:#B0392B !important; }
+body:not(.dark-mode) .obs-pill.low      { background:#C97817 !important; }
+body:not(.dark-mode) .obs-pill.general  { background:#1F7A4A !important; }
+body:not(.dark-mode) .obs-pill.iar      { background:#E459A8 !important; }
+body:not(.dark-mode) .obs-pill.addressed{ background:#1F7A4A !important; }
+/* End S123 Push 1 ──────────────────────────────────────────────────── */
