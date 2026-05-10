@@ -497,6 +497,11 @@ function _buildPinGroupCard(d, ctrId) {
   if (renderPinStrip) {
     h += '<div class="defic-pin-strip">';
     h += '<span class="obs-pill is-pin" style="background:' + circleColor + ';">' + (d.num || '?') + '</span>';
+    // S123 P5.7: "· Pin" label after the number, matching the single-obs
+    // format on line ~551 where it shows "[N] · Pin". Multi-obs was just
+    // showing "[N]" + drawing pill — visually inconsistent. Now both
+    // single and multi-obs cards read "[N] · Pin" at the pin level.
+    h += '<span class="obs-pill-text">\u00B7 Pin</span>';
     if (d.drawingId) {
       var _dwgs = Model.getDrawings();
       var _dwgName = '';
