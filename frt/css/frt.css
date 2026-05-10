@@ -5812,3 +5812,269 @@ body.dark-mode .pg-filter.active{
 }
 
 /* End S123 Push 3 ──────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S123 PUSH 4 — Dark-mode parity for the semantic button framework
+   ═══════════════════════════════════════════════════════════════════════
+   Mark approved on 2026-05-09. P2 patched dark mode for some buttons
+   (act-response, act-photos, pe-goto-dwg, pe-photo-zone, build-tiles,
+   purge, renumber, pg-filter) but missed:
+
+   1. #btn-ai-review + #btn-signout — S121 P7 lines 5125/5133 use
+      `body.dark-mode #btn-ai-review` selector which has higher
+      specificity than P2's bare `#btn-ai-review`. P2 lost cascade
+      in dark mode. Fix: add explicit body.dark-mode overrides here
+      at later source position.
+
+   2. .defic-act-btn family (act-close/reopen/remove + base) — line 666-
+      671 dark-mode rules use bespoke hex backgrounds that don't follow
+      the new tonal-chip pattern of the light-mode framework. Refactor
+      to consistent rgba(color, alpha) tints matching the semantic
+      meaning: forest=close, amber=reopen, red-soft=remove.
+
+   3. Mobile menu buttons — lines 154-166 use random hex per button id
+      with no framework alignment. Align the same way the desktop
+      header is in light: PDF=blue (info), Export=forest (output OK),
+      Load=slate (utility), Reset=red-soft (destructive), Sign Out=
+      ghost.
+
+   4. .btn-primary dark mode — line 927 uses 35% alpha burgundy which
+      reads dim. Strengthen to 55% alpha + brighter text for proper
+      CTA emphasis on dark surfaces.
+
+   All additive. Light mode untouched (P2 already correct there).
+   Rollback = delete this block.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── (1a) #btn-ai-review dark mode — palette purple
+        Mirrors light-mode P2: solid purple fill, white text. The
+        body.dark-mode prefix beats S121 P7's selector specificity tie
+        through later source position. ────────────────────────────── */
+body.dark-mode #btn-ai-review{
+  background:#7B5A8F !important;
+  color:#fff !important;
+  border:1px solid #7B5A8F !important;
+}
+body.dark-mode #btn-ai-review:hover{
+  background:#644A75 !important;
+  border-color:#644A75 !important;
+}
+
+/* ── (1b) #btn-signout dark mode — ghost (no longer pseudo-CTA)
+        S121 P7 forced burgundy fill. Override here to match light-
+        mode P2: transparent + light border. ──────────────────────── */
+body.dark-mode #btn-signout{
+  background:rgba(255,255,255,.06) !important;
+  color:#d0d8f0 !important;
+  border:1px solid rgba(255,255,255,.20) !important;
+}
+body.dark-mode #btn-signout:hover{
+  background:rgba(255,255,255,.14) !important;
+  border-color:rgba(255,255,255,.32) !important;
+}
+
+/* ── (1c) #btn-reports-parent dark mode — palette blue
+        Line 983 currently uses #141a3a with #7898d0 text. The hex is
+        in the right hue family but the bg is so dark it reads as
+        "this button is disabled". Brighten to match the framework's
+        blue with proper contrast. ────────────────────────────────── */
+body.dark-mode #btn-reports-parent{
+  background:#1e3050 !important;
+  color:#a0c0e8 !important;
+  border:1px solid #4A6580 !important;
+}
+body.dark-mode #btn-reports-parent:hover{
+  background:#284060 !important;
+  border-color:#5a7590 !important;
+}
+
+/* ── (2) .defic-act-btn family — semantic dark-mode framework
+        Replaces the bespoke hex at lines 664-675 with consistent
+        tonal-chip pattern: rgba(brand, .15) bg, brand-light text,
+        rgba(brand, .35) border. Same semantic mapping as light mode.
+        Six action buttons; each chip reads its role at a glance. ── */
+body.dark-mode .defic-act-btn{
+  background:rgba(255,255,255,.06) !important;
+  color:#c0d0e0 !important;
+  border:1.5px solid rgba(255,255,255,.18) !important;
+  opacity:1 !important;
+}
+body.dark-mode .defic-act-btn:hover{
+  background:rgba(255,255,255,.12) !important;
+  border-color:rgba(255,255,255,.30) !important;
+}
+
+/* Affirmative completion — forest */
+body.dark-mode .defic-act-btn.act-close{
+  background:rgba(92,122,101,.18) !important;
+  color:#a0d8b0 !important;
+  border-color:rgba(92,122,101,.45) !important;
+}
+body.dark-mode .defic-act-btn.act-close:hover{
+  background:rgba(92,122,101,.30) !important;
+  border-color:#80c890 !important;
+}
+
+/* Caution / state-reversion — amber */
+body.dark-mode .defic-act-btn.act-reopen{
+  background:rgba(176,127,90,.18) !important;
+  color:#e8c498 !important;
+  border-color:rgba(176,127,90,.45) !important;
+}
+body.dark-mode .defic-act-btn.act-reopen:hover{
+  background:rgba(176,127,90,.30) !important;
+  border-color:#d8b078 !important;
+}
+
+/* Destructive — red-soft */
+body.dark-mode .defic-act-btn.act-remove{
+  background:rgba(168,89,89,.18) !important;
+  color:#f0a0a0 !important;
+  border-color:rgba(168,89,89,.45) !important;
+}
+body.dark-mode .defic-act-btn.act-remove:hover{
+  background:rgba(168,89,89,.30) !important;
+  border-color:#e08080 !important;
+}
+
+/* Communication / info — blue (response, comment, photos) ──────── */
+body.dark-mode .defic-act-btn.act-response,
+body.dark-mode .defic-act-btn.act-comment,
+body.dark-mode .defic-act-btn.act-photos{
+  background:rgba(74,101,128,.18) !important;
+  color:#90b8e0 !important;
+  border-color:rgba(74,101,128,.45) !important;
+}
+body.dark-mode .defic-act-btn.act-response:hover,
+body.dark-mode .defic-act-btn.act-comment:hover,
+body.dark-mode .defic-act-btn.act-photos:hover{
+  background:rgba(74,101,128,.30) !important;
+  border-color:#7098c0 !important;
+}
+
+/* AI Review chip on defic card (data-action="ai-review-defic") — purple
+   The .defic-ai-btn class is on the per-defic chip too. Keep purple
+   as the AI signal in both modes. */
+body.dark-mode .defic-ai-btn,
+body.dark-mode [data-action="ai-review-defic"],
+body.dark-mode .ai-review-chip{
+  background:rgba(123,90,143,.20) !important;
+  color:#c8a8e0 !important;
+  border:1px solid rgba(123,90,143,.45) !important;
+}
+body.dark-mode .defic-ai-btn:hover,
+body.dark-mode [data-action="ai-review-defic"]:hover,
+body.dark-mode .ai-review-chip:hover{
+  background:rgba(123,90,143,.32) !important;
+  border-color:#a888c0 !important;
+}
+
+/* ── (3) Mobile menu buttons — align to framework
+        Each id gets the semantic role its desktop counterpart has.
+        Mobile menu is touch-driven, so chips read as "tap targets" —
+        we keep them filled (background tint) rather than ghost.
+        
+        Mapping (mirrors header cleanup):
+          mobile-pdf-btn       → blue   (info / Reports family)
+          mobile-issue-btn     → blue   (info / Reports family)
+          mobile-export-btn    → forest (Download/Export = output OK)
+          mobile-export-all    → forest (same)
+          mobile-load-btn      → slate  (utility / file open)
+          mobile-reset-btn     → red-soft (destructive — already close)
+          mobile-reset-tab-btn → red-soft (destructive)
+          mobile-signout-btn   → ghost  (no longer pseudo-CTA)
+          mobile-ai-rewrite    → purple (AI)
+          mobile-ai-quickfix   → purple (AI)
+          mobile-ai-usage      → purple (AI)
+          mobile-text-size-btn → ghost  (utility)
+          mobile-qr-btn        → ghost  (utility)
+   ───────────────────────────────────────────────────────────────── */
+
+/* Reports / info — blue */
+body.dark-mode .mobile-menu #mobile-pdf-btn,
+body.dark-mode .mobile-menu #mobile-issue-btn{
+  background:rgba(74,101,128,.20) !important;
+  border-color:rgba(74,101,128,.45) !important;
+  color:#90b8e0 !important;
+}
+
+/* Affirmative output — forest */
+body.dark-mode .mobile-menu #mobile-export-btn,
+body.dark-mode .mobile-menu #mobile-export-all{
+  background:rgba(92,122,101,.20) !important;
+  border-color:rgba(92,122,101,.45) !important;
+  color:#a0d8b0 !important;
+}
+
+/* Utility — slate (NOT amber as the existing #f0d080 was) */
+body.dark-mode .mobile-menu #mobile-load-btn{
+  background:rgba(90,110,128,.20) !important;
+  border-color:rgba(90,110,128,.45) !important;
+  color:#b0c0d0 !important;
+}
+
+/* Destructive — red-soft */
+body.dark-mode .mobile-menu #mobile-reset-btn,
+body.dark-mode .mobile-menu #mobile-reset-tab-btn{
+  background:rgba(168,89,89,.20) !important;
+  border-color:rgba(168,89,89,.50) !important;
+  color:#f0a0a0 !important;
+}
+
+/* Sign Out — ghost (parity with desktop header) */
+body.dark-mode .mobile-menu #mobile-signout-btn{
+  background:rgba(255,255,255,.06) !important;
+  border-color:rgba(255,255,255,.20) !important;
+  color:#d0d8f0 !important;
+}
+
+/* AI sub-actions — palette purple (AI reserve) */
+body.dark-mode .mobile-menu #mobile-ai-rewrite,
+body.dark-mode .mobile-menu #mobile-ai-quickfix,
+body.dark-mode .mobile-menu #mobile-ai-usage{
+  background:rgba(123,90,143,.20) !important;
+  border-color:rgba(123,90,143,.45) !important;
+  color:#c8a8e0 !important;
+}
+
+/* Repair toggle — amber (heavy-op caution) */
+body.dark-mode .mobile-menu #mobile-repair-toggle{
+  background:rgba(176,127,90,.20) !important;
+  border-color:rgba(176,127,90,.45) !important;
+  color:#e8c498 !important;
+}
+body.dark-mode .mobile-menu #mobile-repair-tools .btn{
+  background:rgba(176,127,90,.16) !important;
+  border-color:rgba(176,127,90,.40) !important;
+  color:#e8c498 !important;
+}
+
+/* Utility chips — ghost */
+body.dark-mode .mobile-menu #mobile-text-size-btn,
+body.dark-mode .mobile-menu #mobile-qr-btn,
+body.dark-mode .mobile-menu #mobile-dark-btn{
+  background:rgba(255,255,255,.06) !important;
+  border-color:rgba(255,255,255,.20) !important;
+  color:#c0c8d8 !important;
+}
+
+/* ── (4) .btn-primary dark mode — strengthen burgundy CTA
+        Line 927 is rgba(156,39,66,.35) which reads dim. Lift to .55
+        alpha + brighter text. .btn-primary should still feel like
+        "the action you came for" against a dark surface. ─────────── */
+body.dark-mode .btn-primary{
+  background:rgba(156,39,66,.55) !important;
+  color:#fff !important;
+  border:1px solid rgba(156,39,66,.70) !important;
+}
+body.dark-mode .btn-primary:hover{
+  background:rgba(156,39,66,.75) !important;
+  border-color:rgba(156,39,66,.90) !important;
+}
+body.dark-mode .btn-primary.btn-sm{
+  background:rgba(156,39,66,.55) !important;
+  color:#fff !important;
+  border:1px solid rgba(156,39,66,.70) !important;
+}
+
+/* End S123 Push 4 ──────────────────────────────────────────────────── */
