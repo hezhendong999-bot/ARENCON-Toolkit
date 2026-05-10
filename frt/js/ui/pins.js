@@ -316,7 +316,12 @@ export var initPins = {
     h += '<div style="overflow-x:auto;">';
     h += '<table id="tasks-table" style="width:100%;border-collapse:collapse;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;">';
     h += '<thead><tr style="background:var(--smoke);border-bottom:2px solid var(--border);">';
-    h += th('num', '#') + th('drawing', 'Drawing') + th('description', 'Description') + th('contractor', 'Contractor') + th('status', 'Status') + th('priority', 'Priority') + '<th class="tt-th"></th>';
+    h += th('num', '#') + th('drawing', 'Drawing') + th('description', 'Description');
+    // S123 P5.2: explicit min-width on contractor th — table layout was
+    // squeezing the column despite white-space:nowrap on td. Forcing 140px
+    // gives the letter-badge + body chip its natural width for "Site General".
+    h += '<th class="tt-th" data-sort="contractor" style="min-width:140px;white-space:nowrap;">Contractor' + (_sortField === 'contractor' ? arrow : '') + '</th>';
+    h += th('status', 'Status') + th('priority', 'Priority') + '<th class="tt-th"></th>';
     h += '</tr></thead><tbody>';
 
     filtered.forEach(function(d) {

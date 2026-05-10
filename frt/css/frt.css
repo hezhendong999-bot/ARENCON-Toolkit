@@ -6255,3 +6255,39 @@ body.dark-mode .ctr-tag.ctr-c7{
 }
 
 /* End S123 Push 5 ──────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S123 PUSH 5.2 — Contractor chip body must never shrink
+   ═══════════════════════════════════════════════════════════════════════
+   P5 left .ctr-chip-body without flex-shrink:0, so when the table
+   column allocator squeezed the cell, the body would compress and
+   the chip's overflow:hidden would clip the text — "Site General"
+   showed as "Site Genel".
+
+   Combined with P5.2 JS fix (min-width:140px on contractor th), this
+   is belt-and-suspenders: the th forces the column wide, and these
+   CSS rules keep the chip content at its natural width regardless of
+   any future surface where the chip might be constrained.
+
+     - flex-shrink:0 — body never compresses inside the chip
+     - white-space:nowrap — text never wraps
+     - min-width:max-content on .ctr-tag — chip itself reports intrinsic
+       width to layout algorithms (helps tables and flex parents)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ctr-tag{
+  min-width: -webkit-max-content;
+  min-width: max-content;
+}
+
+.ctr-tag .ctr-chip-body{
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* Also harden the letter badge against any future flex-shrink override */
+.ctr-tag .ctr-chip-letter{
+  flex-shrink: 0 !important;
+}
+
+/* End S123 Push 5.2 ────────────────────────────────────────────────── */
