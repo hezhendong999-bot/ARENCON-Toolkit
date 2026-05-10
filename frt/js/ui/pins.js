@@ -336,11 +336,14 @@ export var initPins = {
       h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(dwgName || '\u2014') + '</td>';
       h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(desc || '(no description)') + '</td>';
       // S123 P5: letter-badge + outlined body shape (distinct from status pill)
+      // S123 P5.1: white-space:nowrap so the table reserves enough column width
+      // for the new chip (letter badge + body) instead of squeezing it.
+      // title= on body shows full name on hover for unusually long contractors.
       var _ctrName = d.contractorName || 'Unknown';
       var _firstLetter = ((_ctrName || '?').trim().charAt(0) || '?').toUpperCase();
-      h += '<td style="padding:8px 10px;"><span class="ctr-tag ' + ctrColorClass(d.contractorName) + '">' +
+      h += '<td style="padding:8px 10px;white-space:nowrap;"><span class="ctr-tag ' + ctrColorClass(d.contractorName) + '">' +
            '<span class="ctr-chip-letter">' + esc(_firstLetter) + '</span>' +
-           '<span class="ctr-chip-body">' + esc(_ctrName) + '</span>' +
+           '<span class="ctr-chip-body" title="' + esc(_ctrName) + '">' + esc(_ctrName) + '</span>' +
            '</span></td>';
       // S113 Push 24: stack Outstanding/Closed and IAR vertically. IAR is
       // additive — when active, it appears as a second row below the main
