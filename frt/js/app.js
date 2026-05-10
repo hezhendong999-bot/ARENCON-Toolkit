@@ -10,12 +10,13 @@ import { Model } from './data/model.js';
 import { IDB } from './data/idb.js';
 import { SyncEngine } from './data/sync.js';
 import './data/merge.js'; // S123 P6A — registers window._frt_mergeDiag for diagnostic / Push B usage
+import { applyResolutions as mergeApplyResolutions } from './data/merge.js';
 import { R2 } from './data/r2.js';
 import { TileCache } from './data/tileCache.js';
 import { Presence } from './data/presence.js';
 import { Auth } from './shared/auth.js';
 import { toast } from './shared/toast.js';
-import { showConfirm, showAlert, showPrompt, showTypeToConfirm } from './shared/dialogs.js';
+import { showConfirm, showAlert, showPrompt, showTypeToConfirm, showConflictModal } from './shared/dialogs.js';
 import { initProjectInfo } from './ui/projectInfo.js';
 import { initDeficiencies } from './ui/deficiencies.js';
 import { initDrawings } from './ui/drawings.js';
@@ -75,6 +76,39 @@ function detectHubMode() {
   }
   return { hubMode: _hubMode, projectId: _projectId };
 }
+
+// ── S123 Push 6B: SyncEngine conflict-handler wiring ──────────────────
+//
+// SyncEngine has two callback hooks (onConflict, onSilentMerge) that
+// are no-ops by default. We wire them here at module-load time so the
+// merge-engine pipeline in sync.js has something to call when a 412
+// hits.
+//
+// onConflict: 412 + merge produced true field-clashes → show modal,
+//             let user resolve, hand back merged + resolutions.
+//
+// onSilentMerge: 412 + merge produced ZERO conflicts → no modal,
+//             just a passive toast so the user knows a sync happened.
+
+SyncEngine.onConflict = function(conflicts, mergeResult) {
+  return showConflictModal(conflicts, mergeResult).then(function(userChoice) {
+    if (!userChoice) return null;  // user cancelled
+    // userChoice = { resolutions: [{path, chosen}, ...], merged: {...} }
+    // Apply each resolution to the base merged object to produce the final result.
+    var finalMerged = mergeApplyResolutions(mergeResult, userChoice.resolutions);
+    return { merged: finalMerged };
+  });
+};
+
+SyncEngine.onSilentMerge = function(mergeResult) {
+  // Passive notification — sync happened in the background, no decision
+  // required. Toast is the right channel; don't block the UI.
+  try {
+    toast('\u2713 Synced \u2014 merged changes from another inspector', 'info', 4000);
+  } catch (e) {
+    console.log('[Sync] Silent merge — ' + (mergeResult && mergeResult.conflicts ? mergeResult.conflicts.length : 0) + ' conflicts');
+  }
+};
 
 // ── Logo Loading ─────────────────────────────────────────
 function loadLogo() {

@@ -6507,3 +6507,52 @@ body.dark-mode .ctr-tag.ctr-c7{
 }
 
 /* End S123 Push 5.6 ────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S123 PUSH 6B — Sync conflict resolution modal
+   ═══════════════════════════════════════════════════════════════════════
+   Companion CSS for showConflictModal() in shared/dialogs.js. Most of the
+   modal is inline-styled (for theme adaptation), but a few rules need
+   selector specificity that inline can't provide:
+     - hover states on conflict-row buttons
+     - scrollbar styling on the list
+     - mobile responsive width
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.sync-conflict-modal {
+  /* Subtle entrance — fades in over the dim overlay */
+  animation: sync-conflict-modal-in 180ms ease-out both;
+}
+@keyframes sync-conflict-modal-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Conflict-row buttons get a subtle hover on top of inline tonal styles */
+.sync-conflict-row button:hover:not([disabled]) {
+  filter: brightness(1.10);
+}
+
+/* Scrollbar styling for the conflict list — matches the modal frame */
+.sync-conflict-modal *::-webkit-scrollbar { width: 8px; }
+.sync-conflict-modal *::-webkit-scrollbar-track { background: transparent; }
+.sync-conflict-modal *::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.18);
+  border-radius: 4px;
+}
+body.dark-mode .sync-conflict-modal *::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.18);
+}
+
+/* Mobile: stretch to nearly-full-width, allow inner scroll */
+@media (max-width: 768px) {
+  .sync-conflict-modal {
+    width: 96% !important;
+    max-width: none !important;
+  }
+  .sync-conflict-row > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;  /* stack mine/theirs vertically on phone */
+  }
+}
+
+/* End S123 Push 6B ─────────────────────────────────────────────────── */
