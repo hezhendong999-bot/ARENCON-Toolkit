@@ -335,7 +335,13 @@ export var initPins = {
       h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">#' + (dd.num || '?') + '</td>';
       h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(dwgName || '\u2014') + '</td>';
       h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(desc || '(no description)') + '</td>';
-      h += '<td style="padding:8px 10px;"><span class="ctr-tag ' + ctrColorClass(d.contractorName) + '">' + esc(d.contractorName) + '</span></td>';
+      // S123 P5: letter-badge + outlined body shape (distinct from status pill)
+      var _ctrName = d.contractorName || 'Unknown';
+      var _firstLetter = ((_ctrName || '?').trim().charAt(0) || '?').toUpperCase();
+      h += '<td style="padding:8px 10px;"><span class="ctr-tag ' + ctrColorClass(d.contractorName) + '">' +
+           '<span class="ctr-chip-letter">' + esc(_firstLetter) + '</span>' +
+           '<span class="ctr-chip-body">' + esc(_ctrName) + '</span>' +
+           '</span></td>';
       // S113 Push 24: stack Outstanding/Closed and IAR vertically. IAR is
       // additive — when active, it appears as a second row below the main
       // status, not in place of it. Matches Mark's request from the same

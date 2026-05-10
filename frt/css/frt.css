@@ -6078,3 +6078,180 @@ body.dark-mode .btn-primary.btn-sm{
 }
 
 /* End S123 Push 4 ──────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S123 PUSH 5 — Contractor palette refresh + new chip shape
+   ═══════════════════════════════════════════════════════════════════════
+   Mark approved s123_contractor_palette_demo.html on 2026-05-09 (S123).
+
+   Two changes:
+   (1) NEW PALETTE — every slot distinct from status reservation hues.
+       Old: red/orange/yellow/green/blue/purple/pink/teal (7 of 8 collided)
+       New: teal/olive/bronze/forest*/indigo/mulberry/coral/charcoal
+       (*forest kept in c3 because Site General is a special slot.)
+   (2) NEW SHAPE — contractor chip is now letter-badge + outlined body,
+       structurally different from solid-fill status pills. Even when a
+       contractor has a warm hue (coral c6), shape disambiguates it from
+       the Outstanding pill nearby.
+
+   JS sources of truth:
+     - frt/js/ui/deficiencies.js:_CTR_PALETTE — palette object (incl. dark
+       variants in surfDark/textDark)
+     - frt/js/ui/deficiencies.js:_renderContractorsOnSite — emits new
+       letter-badge + body markup
+     - frt/js/ui/pins.js: summary-table contractor cell — same markup
+
+   This CSS block:
+     - Reshapes .ctr-tag into a flex container holding .ctr-chip-letter
+       (saturated bg) + .ctr-chip-body (surface tint).
+     - Defines per-slot color tokens via CSS custom properties (one rule
+       per slot in light mode, one per slot in dark mode).
+     - Adjusts .contractor-chip parent container so action buttons sit
+       cleanly to the right of the letter+body pair.
+
+   Strategy: defines new --ctr-* custom properties on .ctr-tag.ctr-cN.
+   The OLD .ctr-tag rules at lines 3992-4008 + S116 P6 overrides at
+   4309-4316 still apply but their bg/color/border-color get overridden
+   here through later source position. Rollback = delete this block +
+   revert the JS palette object + render functions.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Base shape: flex container, hosts letter badge + name body ──── */
+.ctr-tag{
+  display:inline-flex !important;
+  align-items:stretch !important;
+  height:24px;
+  padding:0 !important;
+  border-radius:6px !important;
+  overflow:hidden;
+  border:1.5px solid var(--ctr-accent, #5A6E80) !important;
+  background:var(--ctr-surf, #F0EDE6) !important;
+  color:var(--ctr-text, #2C3138) !important;
+  font-size:calc(11.5px + var(--ts));
+  font-weight:600;
+  font-family:Calibri,sans-serif;
+  white-space:nowrap;
+  vertical-align:middle;
+}
+
+.ctr-tag .ctr-chip-letter{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:22px;
+  flex-shrink:0;
+  background:var(--ctr-accent, #5A6E80);
+  color:#fff;
+  font-weight:800;
+  font-size:calc(11.5px + var(--ts));
+  letter-spacing:.2px;
+}
+
+.ctr-tag .ctr-chip-body{
+  display:inline-flex;
+  align-items:center;
+  padding:0 9px;
+  font-weight:600;
+}
+
+/* ── Action buttons inside .contractor-chip (rename / remove) ───── */
+.contractor-chip.ctr-tag .ctr-chip-action{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:22px;
+  flex-shrink:0;
+  background:transparent;
+  border:none;
+  border-left:1px solid currentColor;
+  cursor:pointer;
+  color:inherit;
+  opacity:.55;
+  font-size:calc(11px + var(--ts));
+  font-family:Calibri,sans-serif;
+  padding:0;
+}
+.contractor-chip.ctr-tag .ctr-chip-action:hover{
+  opacity:1;
+  background:rgba(0,0,0,.05);
+}
+body.dark-mode .contractor-chip.ctr-tag .ctr-chip-action:hover{
+  background:rgba(255,255,255,.10);
+}
+
+/* ── Outer .contractor-chip parent overrides for new shape ─────── */
+.contractor-chip.ctr-tag{
+  height:30px !important;
+  font-size:calc(13px + var(--ts)) !important;
+}
+.contractor-chip.ctr-tag .ctr-chip-letter{
+  width:26px;
+  font-size:calc(13px + var(--ts));
+}
+.contractor-chip.ctr-tag .ctr-chip-body{
+  padding:0 12px;
+}
+.contractor-chip.ctr-tag .ctr-chip-action{
+  width:26px;
+  font-size:calc(12px + var(--ts));
+}
+
+/* ═══ Per-slot color tokens (light mode) ════════════════════════ */
+.ctr-tag.ctr-c0{ --ctr-accent:#3D8585; --ctr-surf:#E0F0F0; --ctr-text:#176987; }
+.ctr-tag.ctr-c1{ --ctr-accent:#7B8838; --ctr-surf:#F2F4E0; --ctr-text:#5A6829; }
+.ctr-tag.ctr-c2{ --ctr-accent:#9E6B40; --ctr-surf:#F5EBE0; --ctr-text:#7A4F2D; }
+.ctr-tag.ctr-c3{ --ctr-accent:#5F8068; --ctr-surf:#EAFAF1; --ctr-text:#1A7A4A; }
+.ctr-tag.ctr-c4{ --ctr-accent:#3D4D88; --ctr-surf:#E8ECF8; --ctr-text:#2E3F8C; }
+.ctr-tag.ctr-c5{ --ctr-accent:#7A3F65; --ctr-surf:#F2E0EA; --ctr-text:#5C2A4A; }
+.ctr-tag.ctr-c6{ --ctr-accent:#B85A45; --ctr-surf:#F8E6E0; --ctr-text:#8B3F2D; }
+.ctr-tag.ctr-c7{ --ctr-accent:#4A4F5A; --ctr-surf:#E8E9EC; --ctr-text:#2C3138; }
+
+/* ═══ Per-slot color tokens (dark mode) — accent stays, surface/text shift */
+body.dark-mode .ctr-tag.ctr-c0{ --ctr-surf:#102A2A; --ctr-text:#7AC4C4; }
+body.dark-mode .ctr-tag.ctr-c1{ --ctr-surf:#1F2410; --ctr-text:#B8C870; }
+body.dark-mode .ctr-tag.ctr-c2{ --ctr-surf:#2A1D10; --ctr-text:#D6A572; }
+body.dark-mode .ctr-tag.ctr-c3{ --ctr-surf:#0D2818; --ctr-text:#80C8A0; }
+body.dark-mode .ctr-tag.ctr-c4{ --ctr-surf:#15192C; --ctr-text:#8FA0E0; }
+body.dark-mode .ctr-tag.ctr-c5{ --ctr-surf:#2A1424; --ctr-text:#D0A0B8; }
+body.dark-mode .ctr-tag.ctr-c6{ --ctr-surf:#2C1810; --ctr-text:#E89A7E; }
+body.dark-mode .ctr-tag.ctr-c7{ --ctr-surf:#1A1C20; --ctr-text:#A8AEBE; }
+
+/* ── Override the original 3992-4008 + 4311-4316 hex rules. They use
+      direct background:#FDEDEC / color:#C0392B etc. which would still
+      win against our --ctr-* approach without explicit override. ── */
+body:not(.dark-mode) .ctr-tag.ctr-c0,
+body.dark-mode .ctr-tag.ctr-c0,
+body:not(.dark-mode) .ctr-tag.ctr-c1,
+body.dark-mode .ctr-tag.ctr-c1,
+body:not(.dark-mode) .ctr-tag.ctr-c2,
+body.dark-mode .ctr-tag.ctr-c2,
+body:not(.dark-mode) .ctr-tag.ctr-c3,
+body.dark-mode .ctr-tag.ctr-c3,
+body:not(.dark-mode) .ctr-tag.ctr-c4,
+body.dark-mode .ctr-tag.ctr-c4,
+body:not(.dark-mode) .ctr-tag.ctr-c5,
+body.dark-mode .ctr-tag.ctr-c5,
+body:not(.dark-mode) .ctr-tag.ctr-c6,
+body.dark-mode .ctr-tag.ctr-c6,
+body:not(.dark-mode) .ctr-tag.ctr-c7,
+body.dark-mode .ctr-tag.ctr-c7{
+  background:var(--ctr-surf) !important;
+  color:var(--ctr-text) !important;
+  border-color:var(--ctr-accent) !important;
+}
+
+/* ── Group header accent — uses inline `style="border-left:4px solid <accent>"`
+      from the JS getContractorColor() helper, so it picks up the new accents
+      automatically. The colored name inside also uses the new accent because
+      the JS reads from the same _CTR_PALETTE object. No CSS change needed. ── */
+
+/* ── Mobile: ensure touch height is preserved despite 24px base ── */
+@media (pointer:coarse){
+  .ctr-tag{height:28px;}
+  .ctr-tag .ctr-chip-letter{width:26px;}
+  .contractor-chip.ctr-tag{height:34px !important;}
+  .contractor-chip.ctr-tag .ctr-chip-letter{width:30px;}
+  .contractor-chip.ctr-tag .ctr-chip-action{width:30px;}
+}
+
+/* End S123 Push 5 ──────────────────────────────────────────────────── */

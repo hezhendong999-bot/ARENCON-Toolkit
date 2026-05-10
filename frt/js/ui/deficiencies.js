@@ -69,15 +69,21 @@ export function ctrColorClass(name) {
 //   accent  — solid color for left-border accent + tinted name label
 //   surface — tinted bg for chip / tag (light mode)
 //   text    — readable on `surface` (light mode)
+// S123 P5: New categorical palette — every slot distinct from the
+// status reservation (red/amber/forest/pink/purple/blue/burgundy/slate).
+// Slot c3 stays forest because Site General is a special semantic slot.
+// `surfDark` and `textDark` added for dark-mode support; the CSS reads
+// these via the .ctr-c* compound selector, but they're documented here
+// so the JS palette and CSS palette stay in lockstep.
 var _CTR_PALETTE = {
-  'ctr-c0': { accent: '#A85959', surface: '#FDEDEC', text: '#C0392B' }, // red
-  'ctr-c1': { accent: '#B07F5A', surface: '#FEF5E7', text: '#E67E22' }, // orange
-  'ctr-c2': { accent: '#A09354', surface: '#FEF9E7', text: '#B7950B' }, // yellow
-  'ctr-c3': { accent: '#5F8068', surface: '#EAFAF1', text: '#1A7A4A' }, // green / Site General
-  'ctr-c4': { accent: '#5078A0', surface: '#EBF4FF', text: '#1565C0' }, // blue
-  'ctr-c5': { accent: '#7A5BA0', surface: '#F4ECF7', text: '#7E22CE' }, // purple
-  'ctr-c6': { accent: '#A85B8A', surface: '#FCE4EC', text: '#E91E8C' }, // pink
-  'ctr-c7': { accent: '#4F8088', surface: '#E0F7FA', text: '#00838F' }  // teal
+  'ctr-c0': { accent: '#3D8585', surface: '#E0F0F0', text: '#176987', surfDark: '#102A2A', textDark: '#7AC4C4' }, // teal
+  'ctr-c1': { accent: '#7B8838', surface: '#F2F4E0', text: '#5A6829', surfDark: '#1F2410', textDark: '#B8C870' }, // olive
+  'ctr-c2': { accent: '#9E6B40', surface: '#F5EBE0', text: '#7A4F2D', surfDark: '#2A1D10', textDark: '#D6A572' }, // bronze
+  'ctr-c3': { accent: '#5F8068', surface: '#EAFAF1', text: '#1A7A4A', surfDark: '#0D2818', textDark: '#80C8A0' }, // forest / Site General (kept)
+  'ctr-c4': { accent: '#3D4D88', surface: '#E8ECF8', text: '#2E3F8C', surfDark: '#15192C', textDark: '#8FA0E0' }, // indigo
+  'ctr-c5': { accent: '#7A3F65', surface: '#F2E0EA', text: '#5C2A4A', surfDark: '#2A1424', textDark: '#D0A0B8' }, // mulberry
+  'ctr-c6': { accent: '#B85A45', surface: '#F8E6E0', text: '#8B3F2D', surfDark: '#2C1810', textDark: '#E89A7E' }, // coral
+  'ctr-c7': { accent: '#4A4F5A', surface: '#E8E9EC', text: '#2C3138', surfDark: '#1A1C20', textDark: '#A8AEBE' }  // charcoal
 };
 export function getContractorColor(name) {
   var cls = ctrColorClass(name);
@@ -861,9 +867,16 @@ function _renderContractorsOnSite(proj) {
   h += '<div class="contractor-chips" style="display:flex;flex-wrap:wrap;gap:8px;min-height:28px;margin-bottom:10px;">';
   ctrs.forEach(function(c) {
     var colorCls = ctrColorClass(c.name);
-    h += '<div class="contractor-chip ctr-tagged ctr-tag ' + colorCls + '"><span>' + esc(c.name) + '</span>';
-    h += '<button data-action="edit-contractor" data-ctr-id="' + esc(c.id) + '" title="Rename" style="background:none;border:none;cursor:pointer;font-size:calc(11px + var(--ts));padding:0 2px;opacity:.7;color:inherit;">\u270F</button>';
-    h += '<button data-action="remove-contractor" data-ctr-id="' + esc(c.id) + '" title="Remove">\u2715</button>';
+    // S123 P5: letter-badge + outlined body shape (visually distinct from
+    // status pills, which stay solid-fill rounded). The first character of
+    // the contractor name lives in .ctr-chip-letter (saturated bg); the
+    // name itself in .ctr-chip-body (surface tint).
+    var firstLetter = ((c.name || '?').trim().charAt(0) || '?').toUpperCase();
+    h += '<div class="contractor-chip ctr-tagged ctr-tag ' + colorCls + '">';
+    h += '<span class="ctr-chip-letter">' + esc(firstLetter) + '</span>';
+    h += '<span class="ctr-chip-body">' + esc(c.name) + '</span>';
+    h += '<button class="ctr-chip-action" data-action="edit-contractor" data-ctr-id="' + esc(c.id) + '" title="Rename">\u270F</button>';
+    h += '<button class="ctr-chip-action" data-action="remove-contractor" data-ctr-id="' + esc(c.id) + '" title="Remove">\u2715</button>';
     h += '</div>';
   });
   h += '</div>';
