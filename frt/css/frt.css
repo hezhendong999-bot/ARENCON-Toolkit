@@ -6339,3 +6339,56 @@ body.dark-mode .ctr-tag.ctr-c7{
 }
 
 /* End S123 Push 5.3 ────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S123 PUSH 5.5 — Allow contractor chip body to wrap to 2 lines
+   ═══════════════════════════════════════════════════════════════════════
+   Mark approved on 2026-05-09 (S123). With the table-layout:fixed +
+   colgroup approach (P5.4), the contractor column was guaranteed 150px
+   to fit "Site General" on one line. That left the column visually
+   underutilized for short names like "Vipond".
+
+   This fix: allow the chip body to wrap to 2 lines so we can shrink
+   the column to 110px. "Site General" wraps to "Site / General"; short
+   names like "Vipond" stay on one line. Chip grows vertically as needed.
+
+   Surfaces affected:
+     - Summary table (#tasks-table, the original cutoff source)
+     - Anywhere else .ctr-tag is rendered in a confined width context
+
+   NOT affected (wrapping disabled):
+     - .contractor-chip (assignment chips at top of Deficiency tab) —
+       these have plenty of horizontal room and look better single-line
+     - .ctr-tag inside Filters / dropdowns / inline pills — single-line
+
+   Strategy: enable wrap inside summary-table cells specifically; preserve
+   single-line everywhere else via cascade order.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Allow chip and body to grow vertically when content wraps */
+#tasks-table .ctr-tag{
+  height:auto !important;            /* override the 24px fixed height */
+  min-height:24px;
+  align-items:stretch !important;
+  padding:1px 0 !important;
+}
+
+/* Make the body wrap to 2 lines max with proper line-height */
+#tasks-table .ctr-tag .ctr-chip-body{
+  white-space:normal !important;     /* allow wrap */
+  word-break:break-word;
+  line-height:1.15;
+  padding:3px 8px !important;        /* tighter horizontal padding for narrow column */
+  font-size:calc(11px + var(--ts));
+  display:flex;
+  align-items:center;
+  flex:1 1 auto;
+}
+
+/* Letter badge stays centered vertically; pad to match the body's vertical space */
+#tasks-table .ctr-tag .ctr-chip-letter{
+  align-self:stretch;
+  padding:2px 0;
+}
+
+/* End S123 Push 5.5 ────────────────────────────────────────────────── */

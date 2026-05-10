@@ -324,7 +324,7 @@ export var initPins = {
     h += '<col style="width:48px;">';      // #
     h += '<col style="width:180px;">';     // Drawing
     h += '<col>';                          // Description (auto, takes remainder)
-    h += '<col style="width:150px;">';     // Contractor (the fix — 150px guaranteed)
+    h += '<col style="width:110px;">';     // Contractor (P5.5: shrunk from 150 — body wraps to 2 lines)
     h += '<col style="width:108px;">';     // Status
     h += '<col style="width:80px;">';      // Priority
     h += '<col style="width:74px;">';      // Jump
