@@ -867,13 +867,8 @@ function _renderContractorsOnSite(proj) {
   h += '<div class="contractor-chips" style="display:flex;flex-wrap:wrap;gap:8px;min-height:28px;margin-bottom:10px;">';
   ctrs.forEach(function(c) {
     var colorCls = ctrColorClass(c.name);
-    // S123 P5: letter-badge + outlined body shape (visually distinct from
-    // status pills, which stay solid-fill rounded). The first character of
-    // the contractor name lives in .ctr-chip-letter (saturated bg); the
-    // name itself in .ctr-chip-body (surface tint).
-    var firstLetter = ((c.name || '?').trim().charAt(0) || '?').toUpperCase();
+    // S123 P5.6: simple colored pill — letter-badge removed.
     h += '<div class="contractor-chip ctr-tagged ctr-tag ' + colorCls + '">';
-    h += '<span class="ctr-chip-letter">' + esc(firstLetter) + '</span>';
     h += '<span class="ctr-chip-body">' + esc(c.name) + '</span>';
     h += '<button class="ctr-chip-action" data-action="edit-contractor" data-ctr-id="' + esc(c.id) + '" title="Rename">\u270F</button>';
     h += '<button class="ctr-chip-action" data-action="remove-contractor" data-ctr-id="' + esc(c.id) + '" title="Remove">\u2715</button>';

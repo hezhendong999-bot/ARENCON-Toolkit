@@ -312,23 +312,10 @@ export var initPins = {
     h += '<span style="font-size:calc(12px + var(--ts));color:var(--silver);">' + filtered.length + ' deficiencie' + (filtered.length !== 1 ? 's' : '') + '</span>';
     h += '</div>';
 
-    // Table — S123 P5.4: table-layout:fixed + explicit column widths via
-    // colgroup. P5.1/5.2/5.3 all failed to fix the contractor column
-    // cutoff because table-layout:auto kept ignoring our min-width hints.
-    // Switching to table-layout:fixed makes column allocation deterministic:
-    // the column gets exactly the width we say, regardless of content
-    // overflow/flex/whitespace shenanigans on the chip inside.
+    // Table — S123 P5.6: revert to table-layout:auto since we removed the
+    // letter-badge from the chip. Simple pill + auto layout = no cutoff.
     h += '<div style="overflow-x:auto;">';
-    h += '<table id="tasks-table" style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;">';
-    h += '<colgroup>';
-    h += '<col style="width:48px;">';      // #
-    h += '<col style="width:180px;">';     // Drawing
-    h += '<col>';                          // Description (auto, takes remainder)
-    h += '<col style="width:110px;">';     // Contractor (P5.5: shrunk from 150 — body wraps to 2 lines)
-    h += '<col style="width:108px;">';     // Status
-    h += '<col style="width:80px;">';      // Priority
-    h += '<col style="width:74px;">';      // Jump
-    h += '</colgroup>';
+    h += '<table id="tasks-table" style="width:100%;border-collapse:collapse;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;">';
     h += '<thead><tr style="background:var(--smoke);border-bottom:2px solid var(--border);">';
     h += th('num', '#') + th('drawing', 'Drawing') + th('description', 'Description');
     h += th('contractor', 'Contractor');
@@ -351,16 +338,10 @@ export var initPins = {
       h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">#' + (dd.num || '?') + '</td>';
       h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(dwgName || '\u2014') + '</td>';
       h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(desc || '(no description)') + '</td>';
-      // S123 P5: letter-badge + outlined body shape (distinct from status pill)
-      // S123 P5.1: white-space:nowrap so the table reserves enough column width
-      // for the new chip (letter badge + body) instead of squeezing it.
-      // title= on body shows full name on hover for unusually long contractors.
+      // S123 P5.6: simple colored pill — letter-badge removed (made the chip
+      // too wide, caused cutoff issues). Pure name in colored chip.
       var _ctrName = d.contractorName || 'Unknown';
-      var _firstLetter = ((_ctrName || '?').trim().charAt(0) || '?').toUpperCase();
-      h += '<td style="padding:8px 10px;white-space:nowrap;"><span class="ctr-tag ' + ctrColorClass(d.contractorName) + '">' +
-           '<span class="ctr-chip-letter">' + esc(_firstLetter) + '</span>' +
-           '<span class="ctr-chip-body" title="' + esc(_ctrName) + '">' + esc(_ctrName) + '</span>' +
-           '</span></td>';
+      h += '<td style="padding:8px 10px;"><span class="ctr-tag ' + ctrColorClass(d.contractorName) + '" title="' + esc(_ctrName) + '">' + esc(_ctrName) + '</span></td>';
       // S113 Push 24: stack Outstanding/Closed and IAR vertically. IAR is
       // additive — when active, it appears as a second row below the main
       // status, not in place of it. Matches Mark's request from the same

@@ -6392,3 +6392,118 @@ body.dark-mode .ctr-tag.ctr-c7{
 }
 
 /* End S123 Push 5.5 (revised) ─────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S123 PUSH 5.6 — Restore simple colored pill (letter-badge removed)
+   ═══════════════════════════════════════════════════════════════════════
+   Mark feedback: the letter-badge made the chip too wide and triggered
+   cutoff/blur/ellipsis issues across P5.1 through P5.5. Removing the
+   badge entirely. The new categorical palette (P5 colors) is preserved
+   — that was the actual purpose of the original change.
+
+   This block REVERTS the chip-shape work in P5/P5.2/P5.3/P5.5 by
+   overriding via later source position. The .ctr-chip-letter class is
+   no longer rendered by JS (P5.6 edits in pins.js + deficiencies.js)
+   but defensive CSS hides it if any cached HTML still has it.
+
+   Result: contractor chips are simple text-in-colored-pill again.
+   The new categorical palette colors (teal/olive/bronze/forest/indigo/
+   mulberry/coral/charcoal) stay — they no longer collide with status
+   hues, which was the original goal.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Restore chip to simple inline-flex pill — overrides P5 base reshape */
+.ctr-tag{
+  display:inline-flex !important;
+  align-items:center !important;
+  height:24px !important;
+  padding:3px 10px !important;
+  border-radius:12px !important;          /* back to pill, not square-ish 6px */
+  overflow:visible !important;
+  border:1.5px solid var(--ctr-accent, #5A6E80) !important;
+  background:var(--ctr-surf, #F0EDE6) !important;
+  color:var(--ctr-text, #2C3138) !important;
+  font-size:calc(11px + var(--ts)) !important;
+  font-weight:700 !important;
+  font-family:Calibri,sans-serif;
+  white-space:nowrap !important;
+  vertical-align:middle;
+  line-height:1.15;
+  min-width:0 !important;                  /* defeat P5.2 max-content rule */
+}
+
+/* Hide the letter-badge defensively (cached/in-flight HTML may still
+   contain it). Removing instead of restyling so it never shows. */
+.ctr-tag .ctr-chip-letter{
+  display:none !important;
+}
+
+/* Body becomes a simple text span — no flex, no padding, just text */
+.ctr-tag .ctr-chip-body{
+  display:inline !important;
+  padding:0 !important;
+  margin:0 !important;
+  background:transparent !important;
+  color:inherit !important;
+  font-size:inherit !important;
+  font-weight:inherit !important;
+  line-height:inherit !important;
+  border:none !important;
+  flex-shrink:1 !important;
+  white-space:nowrap !important;
+  overflow:visible !important;
+  text-overflow:clip !important;
+}
+
+/* Override tasks-table-specific P5.5 rules with default behavior */
+#tasks-table .ctr-tag{
+  display:inline-flex !important;
+  align-items:center !important;
+  height:24px !important;
+  padding:3px 10px !important;
+  min-height:0 !important;
+  vertical-align:middle !important;
+}
+#tasks-table .ctr-tag .ctr-chip-body{
+  display:inline !important;
+  white-space:nowrap !important;
+  word-break:normal !important;
+  line-height:1.15 !important;
+  padding:0 !important;
+  font-size:inherit !important;
+  text-align:left;
+}
+#tasks-table .ctr-tag .ctr-chip-letter{
+  display:none !important;
+}
+
+/* Contractor assignment chip parent — restore taller pill, action btns visible */
+.contractor-chip.ctr-tag{
+  height:30px !important;
+  padding:3px 12px !important;
+  font-size:calc(13px + var(--ts)) !important;
+  border-radius:15px !important;
+  gap:6px !important;
+}
+.contractor-chip.ctr-tag .ctr-chip-body{
+  font-size:inherit !important;
+}
+.contractor-chip.ctr-tag .ctr-chip-action{
+  background:transparent !important;
+  border:none !important;
+  border-left:none !important;
+  cursor:pointer !important;
+  color:inherit !important;
+  opacity:.6 !important;
+  font-size:calc(11px + var(--ts)) !important;
+  font-family:Calibri,sans-serif;
+  padding:0 2px !important;
+  width:auto !important;
+  margin-left:2px;
+}
+.contractor-chip.ctr-tag .ctr-chip-action:hover{
+  opacity:1 !important;
+  background:transparent !important;
+}
+
+/* End S123 Push 5.6 ────────────────────────────────────────────────── */
