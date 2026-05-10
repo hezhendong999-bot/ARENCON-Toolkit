@@ -312,15 +312,26 @@ export var initPins = {
     h += '<span style="font-size:calc(12px + var(--ts));color:var(--silver);">' + filtered.length + ' deficiencie' + (filtered.length !== 1 ? 's' : '') + '</span>';
     h += '</div>';
 
-    // Table
+    // Table — S123 P5.4: table-layout:fixed + explicit column widths via
+    // colgroup. P5.1/5.2/5.3 all failed to fix the contractor column
+    // cutoff because table-layout:auto kept ignoring our min-width hints.
+    // Switching to table-layout:fixed makes column allocation deterministic:
+    // the column gets exactly the width we say, regardless of content
+    // overflow/flex/whitespace shenanigans on the chip inside.
     h += '<div style="overflow-x:auto;">';
-    h += '<table id="tasks-table" style="width:100%;border-collapse:collapse;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;">';
+    h += '<table id="tasks-table" style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;">';
+    h += '<colgroup>';
+    h += '<col style="width:48px;">';      // #
+    h += '<col style="width:180px;">';     // Drawing
+    h += '<col>';                          // Description (auto, takes remainder)
+    h += '<col style="width:150px;">';     // Contractor (the fix — 150px guaranteed)
+    h += '<col style="width:108px;">';     // Status
+    h += '<col style="width:80px;">';      // Priority
+    h += '<col style="width:74px;">';      // Jump
+    h += '</colgroup>';
     h += '<thead><tr style="background:var(--smoke);border-bottom:2px solid var(--border);">';
     h += th('num', '#') + th('drawing', 'Drawing') + th('description', 'Description');
-    // S123 P5.2: explicit min-width on contractor th — table layout was
-    // squeezing the column despite white-space:nowrap on td. Forcing 140px
-    // gives the letter-badge + body chip its natural width for "Site General".
-    h += '<th class="tt-th" data-sort="contractor" style="min-width:140px;white-space:nowrap;">Contractor' + (_sortField === 'contractor' ? arrow : '') + '</th>';
+    h += th('contractor', 'Contractor');
     h += th('status', 'Status') + th('priority', 'Priority') + '<th class="tt-th"></th>';
     h += '</tr></thead><tbody>';
 
