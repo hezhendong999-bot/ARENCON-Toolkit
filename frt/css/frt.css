@@ -6256,142 +6256,14 @@ body.dark-mode .ctr-tag.ctr-c7{
 
 /* End S123 Push 5 ──────────────────────────────────────────────────── */
 
-/* ═══════════════════════════════════════════════════════════════════════
-   S123 PUSH 5.2 — Contractor chip body must never shrink
-   ═══════════════════════════════════════════════════════════════════════
-   P5 left .ctr-chip-body without flex-shrink:0, so when the table
-   column allocator squeezed the cell, the body would compress and
-   the chip's overflow:hidden would clip the text — "Site General"
-   showed as "Site Genel".
 
-   Combined with P5.2 JS fix (min-width:140px on contractor th), this
-   is belt-and-suspenders: the th forces the column wide, and these
-   CSS rules keep the chip content at its natural width regardless of
-   any future surface where the chip might be constrained.
+/* ───────────────────────────────────────────────────────────────────────
+   S124 P1: S123 P5.2 / P5.3 / P5.5 blocks REMOVED (dead code cleanup).
+   Those blocks were neutralized by P5.6's revert to the simple pill;
+   they sat in the file as override-only ballast. P5.6 alone is sufficient.
+   See HANDOFF_SESSION_123.md "Known issues #1" for context.
+   ─────────────────────────────────────────────────────────────────── */
 
-     - flex-shrink:0 — body never compresses inside the chip
-     - white-space:nowrap — text never wraps
-     - min-width:max-content on .ctr-tag — chip itself reports intrinsic
-       width to layout algorithms (helps tables and flex parents)
-   ═══════════════════════════════════════════════════════════════════════ */
-
-.ctr-tag{
-  min-width: -webkit-max-content;
-  min-width: max-content;
-}
-
-.ctr-tag .ctr-chip-body{
-  flex-shrink: 0 !important;
-  white-space: nowrap !important;
-}
-
-/* Also harden the letter badge against any future flex-shrink override */
-.ctr-tag .ctr-chip-letter{
-  flex-shrink: 0 !important;
-}
-
-/* End S123 Push 5.2 ────────────────────────────────────────────────── */
-
-/* ═══════════════════════════════════════════════════════════════════════
-   S123 PUSH 5.3 — Real fix for "Site Genel" cutoff
-   ═══════════════════════════════════════════════════════════════════════
-   P5.1 (white-space:nowrap on td) and P5.2 (min-width:140px on th + 
-   min-width:max-content on chip) BOTH FAILED to fix the cutoff.
-
-   Diagnosis: .ctr-tag has overflow:hidden in P5 base. table-layout:auto
-   treats overflow:hidden flex containers as "infinitely shrinkable"
-   because content can be hidden silently — so min-width hints on th
-   become soft suggestions, not hard floors. The column stays narrow,
-   the chip clips its own body content.
-
-   Fix: REMOVE overflow:hidden from .ctr-tag. Apply border-radius on
-   first-child (left rounded) and last-child (right rounded) so visual
-   rounded corners are preserved without overflow clipping. Now the
-   chip's intrinsic content width is the column's allocation floor —
-   table-layout:auto will respect it.
-   ═══════════════════════════════════════════════════════════════════════ */
-
-.ctr-tag{
-  overflow: visible !important;
-}
-
-/* Round the OUTER edges via children, since overflow:hidden no longer
-   clips the children's bg at the parent's border-radius. Inner border
-   radius = outer (6px) - border (1.5px) ≈ 4.5px. */
-.ctr-tag > *:first-child{
-  border-top-left-radius: 4.5px;
-  border-bottom-left-radius: 4.5px;
-}
-.ctr-tag > *:last-child{
-  border-top-right-radius: 4.5px;
-  border-bottom-right-radius: 4.5px;
-}
-
-/* Larger version on .contractor-chip parent (deficiency tab assignment
-   chips are 30px tall, rounded 6px outer). Inner radius adjusted. */
-.contractor-chip.ctr-tag > *:first-child{
-  border-top-left-radius: 4.5px;
-  border-bottom-left-radius: 4.5px;
-}
-.contractor-chip.ctr-tag > *:last-child{
-  border-top-right-radius: 4.5px;
-  border-bottom-right-radius: 4.5px;
-}
-
-/* End S123 Push 5.3 ────────────────────────────────────────────────── */
-
-/* ═══════════════════════════════════════════════════════════════════════
-   S123 PUSH 5.5 (REVISED) — Contractor chip wraps cleanly in summary table
-   ═══════════════════════════════════════════════════════════════════════
-   First attempt at P5.5 used display:flex on the chip body with
-   white-space:normal + flex:1 1 auto. Result: text collapsed and
-   showed an ellipsis ("...") because flex-line-wrapping interacts
-   badly with table cells.
-
-   Revised approach: inline-block + line-height + word-break. No flex
-   on the body. Letter badge uses table-cell vertical alignment.
-   Result: "Site General" wraps cleanly to two lines; "Vipond" stays
-   single-line; no truncation, no ellipsis.
-
-   The chip becomes a tiny 2-cell horizontal layout:
-     [letter] [body wraps to 2 lines]
-   Both children center vertically against each other.
-   ═══════════════════════════════════════════════════════════════════════ */
-
-/* Chip in summary table — allow vertical growth */
-#tasks-table .ctr-tag{
-  display:inline-flex !important;
-  align-items:center !important;
-  height:auto !important;
-  min-height:24px;
-  padding:0 !important;
-  vertical-align:middle;
-}
-
-/* Body: inline-block + word-break for clean 2-line wrap, NO flex */
-#tasks-table .ctr-tag .ctr-chip-body{
-  display:inline-block !important;
-  flex:0 1 auto !important;
-  white-space:normal !important;
-  word-break:normal !important;          /* break on whitespace, not mid-word */
-  overflow-wrap:break-word !important;
-  text-overflow:clip !important;         /* defensive: no ellipsis ever */
-  overflow:visible !important;            /* defensive: no clipping */
-  line-height:1.15 !important;
-  padding:4px 9px !important;
-  font-size:calc(11px + var(--ts));
-  text-align:left;
-}
-
-/* Letter badge: stretches to match body height regardless of wrap */
-#tasks-table .ctr-tag .ctr-chip-letter{
-  align-self:stretch !important;
-  display:inline-flex !important;
-  align-items:center !important;
-  flex-shrink:0 !important;
-}
-
-/* End S123 Push 5.5 (revised) ─────────────────────────────────────── */
 
 /* ═══════════════════════════════════════════════════════════════════════
    S123 PUSH 5.6 — Restore simple colored pill (letter-badge removed)
