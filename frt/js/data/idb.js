@@ -24,7 +24,7 @@
  */
 
 const DB_NAME = 'ARENCON_FRT_V2';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const STORES = [
   'projects',
@@ -38,7 +38,11 @@ const STORES = [
   'photos',
   'photoBlobs',
   'activityLog',
-  'syncQueue'
+  'syncQueue',
+  // S124 A3 — persisted sync metadata for optimistic-concurrency tracking
+  // across page reloads. Records keyed by `<toolKey>:<projectId>:<instanceId>`
+  // hold {id, updatedAt, snapshot, savedAt}. See sync.js `_persistSyncMeta`.
+  'syncMeta'
 ];
 
 let _db = null;

@@ -16,6 +16,16 @@
  *         shows the modal and resolves to a merged-with-resolutions object,
  *         then retries the push.
  *   - Bounded retry: 3 attempts max. After that, returns null + warns.
+ *
+ * S124 A3 — sync hardening:
+ *   - _lastSeenUpdatedAt + _lastSeenSnapshot now persisted to IDB store
+ *     `syncMeta` after every pull AND push. Key shape:
+ *       `<toolKey>:<projectId>:<instanceId|_default>`
+ *   - On pull(): IDB record is restored BEFORE the network call. If the
+ *     network pull succeeds, the snapshot is overwritten with cloud data.
+ *     If the network pull fails (offline), the IDB-restored snapshot
+ *     remains in memory so the next push still sends a valid If-Match.
+ *   - Closes the S123 "first save after reload skips precondition" gap.
  */
 
 import { Auth } from '../shared/auth.js';
@@ -36,8 +46,58 @@ var _online = navigator.onLine;
 // Set after every successful pull AND every successful push. Used as the
 // If-Match header on the next push, and as the "common ancestor" snapshot
 // in 3-way merge when we hit 412.
+// S124 A3 — also persisted to IDB store `syncMeta` so reload between pull
+// and push doesn't lose the snapshot.
 var _lastSeenUpdatedAt = null;
 var _lastSeenSnapshot = null;
+
+/**
+ * S124 A3 — build the IDB key for a given project/instance.
+ * Records keyed by `<toolKey>:<projectId>:<instanceId|_default>`.
+ */
+function _syncMetaKey(projectId, instanceId) {
+  return _toolKey + ':' + projectId + ':' + (instanceId || '_default');
+}
+
+/**
+ * S124 A3 — write current _lastSeen* to IDB. Fire-and-forget; errors
+ * are warned but never block sync. Skips silently if IDB unavailable.
+ */
+function _persistSyncMeta(projectId, instanceId) {
+  if (!projectId) return Promise.resolve(false);
+  if (!_lastSeenUpdatedAt || !_lastSeenSnapshot) return Promise.resolve(false);
+  var key = _syncMetaKey(projectId, instanceId);
+  var record = {
+    id: key,
+    updatedAt: _lastSeenUpdatedAt,
+    snapshot: _lastSeenSnapshot,
+    savedAt: new Date().toISOString()
+  };
+  return IDB.put('syncMeta', record).catch(function(e) {
+    console.warn('[Sync] _persistSyncMeta failed (non-fatal):', e && e.message);
+    return false;
+  });
+}
+
+/**
+ * S124 A3 — read sync meta from IDB and restore _lastSeen* in memory.
+ * Returns true if a record was found and applied, false otherwise.
+ * Safe to call before the network is reachable.
+ */
+function _restoreSyncMeta(projectId, instanceId) {
+  if (!projectId) return Promise.resolve(false);
+  var key = _syncMetaKey(projectId, instanceId);
+  return IDB.get('syncMeta', key).then(function(rec) {
+    if (!rec || !rec.updatedAt || !rec.snapshot) return false;
+    _lastSeenUpdatedAt = rec.updatedAt;
+    _lastSeenSnapshot = rec.snapshot;
+    console.log('[Sync] Restored snapshot from IDB — updated:', rec.updatedAt, '(saved at', rec.savedAt + ')');
+    return true;
+  }).catch(function(e) {
+    console.warn('[Sync] _restoreSyncMeta failed (non-fatal):', e && e.message);
+    return false;
+  });
+}
 
 // Track online/offline
 window.addEventListener('online', function() {
@@ -116,6 +176,11 @@ export var SyncEngine = {
    * Pull project data from Supabase.
    * Reads from tool_data table (v1 format — single blob per project/tool/instance).
    * Records updated_at + a deep snapshot for later 3-way merge.
+   *
+   * S124 A3 — restores _lastSeen* from IDB BEFORE the network call so an
+   * offline open still has a usable snapshot for the next push attempt.
+   * If the network pull succeeds, the in-memory snapshot is overwritten
+   * with the fresh cloud data and persisted back to IDB.
    */
   pull: function(projectId, instanceId) {
     var path;
@@ -125,7 +190,11 @@ export var SyncEngine = {
       path = '/rest/v1/tool_data?select=*&project_id=eq.' + projectId + '&tool_key=eq.' + _toolKey + '&order=updated_at.desc&limit=1';
     }
 
-    return Auth.request(path).then(function(rows) {
+    // S124 A3 — try IDB restore first. Non-blocking on failure; the network
+    // pull below will overwrite anyway if it succeeds.
+    return _restoreSyncMeta(projectId, instanceId).then(function() {
+      return Auth.request(path);
+    }).then(function(rows) {
       if (!rows || !rows.length) {
         console.log('[Sync] No cloud data found for project:', projectId);
         return null;
@@ -142,6 +211,9 @@ export var SyncEngine = {
         // to Model.getProject() don't mutate this reference.
         _lastSeenSnapshot = JSON.parse(JSON.stringify(data));
         Model.setProject(data);
+        // S124 A3 — persist fresh snapshot to IDB (re-key in case instanceId
+        // was null on entry but resolved from the row).
+        _persistSyncMeta(projectId, _instanceId);
         console.log('[Sync] Loaded from cloud — instance:', _instanceId, 'updated:', _lastSeenUpdatedAt);
         return data;
       }
@@ -292,6 +364,8 @@ export var SyncEngine = {
         // S123 P6B — update snapshot to the just-pushed state so next
         // 412 has the correct ancestor.
         _lastSeenSnapshot = JSON.parse(JSON.stringify(data));
+        // S124 A3 — persist to IDB so the snapshot survives reloads.
+        _persistSyncMeta(projectId, _instanceId);
         _pendingSync = false;
         IDB.clear('syncQueue');
         console.log('[Sync] Pushed to cloud — instance:', _instanceId, 'updated:', _lastSeenUpdatedAt);
@@ -336,6 +410,9 @@ export var SyncEngine = {
       // next push uses this as the precondition.
       _lastSeenUpdatedAt = cloudUpdatedAt;
       _lastSeenSnapshot = JSON.parse(JSON.stringify(cloudData));
+      // S124 A3 — persist new ancestor so a reload mid-conflict doesn't
+      // lose the just-fetched cloud state.
+      _persistSyncMeta(projectId, _instanceId);
 
       if (mergeResult.conflicts.length === 0) {
         // Silent merge — apply + retry push
