@@ -34,7 +34,14 @@ import { IDB } from './idb.js';
 import { merge3 } from './merge.js';
 
 var SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
-var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMzAwODcsImV4cCI6MjA2MzYwNjA4N30.MOEcA_GeXX-Vk4iVidzZ23s_QkXkXOFXupY02tDtfJI';
+// S125 #1 — The anon key was rotated in early March 2026 but the copy here
+// was missed, causing every PATCH to return 401 "Invalid API key" while
+// pulls (which use Auth.request) worked fine. Cloud saves silently failed
+// for ~6 weeks. Durable fix: ALWAYS read the live anon key from the Auth
+// module — single source of truth. Never store a copy here again.
+function _anonKey() {
+  return (Auth && Auth.SUPABASE_ANON_KEY) ? Auth.SUPABASE_ANON_KEY : '';
+}
 
 var _instanceId = null;
 var _instanceNumber = 1;
@@ -121,7 +128,7 @@ function _rawFetch(path, opts, _isRetry) {
   opts = opts || {};
   var token = localStorage.getItem('sb-access-token');
   var headers = Object.assign({
-    'apikey': SUPABASE_ANON_KEY,
+    'apikey': _anonKey(),
     'Authorization': 'Bearer ' + token,
     'Content-Type': 'application/json'
   }, opts.headers || {});
