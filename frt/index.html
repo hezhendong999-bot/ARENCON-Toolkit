@@ -918,6 +918,12 @@ function ensurePdfJs(cb){
      rewrites pin drawingId 1:1. Snapshot to localStorage for undo. -->
 <script src="js/diag/drawingMigrate.js?v=4" async></script>
 
+<!-- S124 A4 — R2 orphan cleanup (console-driven).
+     Exposes window._r2cleanup.{scan, inventory, deleteOrphans, cancel}.
+     Walks R2 via the new /listall worker endpoint, classifies orphans
+     by category (photos, pdfbufs, tiles), 2-step confirm before delete. -->
+<script src="js/diag/r2cleanup.js?v=1" async></script>
+
 <script>
 /* Session 75 Push 2 — proxy wiring for new toolbar buttons */
 (function(){

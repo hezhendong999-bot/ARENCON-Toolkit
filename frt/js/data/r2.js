@@ -100,6 +100,36 @@ export var R2 = {
     });
   },
 
+  /**
+   * S124 A4 — list ALL R2 objects under {pid}/ prefix in one call.
+   * Covers photos, tiles, pdfbufs. Authenticated.
+   *
+   * Returns { count, totalBytes, truncated, objects: [{key,size,uploaded}] }
+   * Returns null on auth/network failure.
+   *
+   * Used by frt/js/diag/r2cleanup.js to scan a whole project for orphans.
+   */
+  listAll: function(projectId) {
+    var token = _getToken();
+    if (!token) {
+      console.warn('[R2] listAll: no auth token');
+      return Promise.resolve(null);
+    }
+    var url = R2_WORKER + '/listall/' + encodeURIComponent(projectId);
+    return fetch(url, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    }).then(function(resp) {
+      if (!resp.ok) {
+        console.warn('[R2] listAll failed:', resp.status, resp.statusText);
+        return null;
+      }
+      return resp.json();
+    }).catch(function(err) {
+      console.warn('[R2] listAll error:', err.message);
+      return null;
+    });
+  },
+
   /** Delete file from R2. Requires auth. Returns boolean. */
   del: function(r2Key) {
     var token = _getToken();

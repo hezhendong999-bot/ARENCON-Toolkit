@@ -194,6 +194,45 @@ export default {
       }
     }
 
+    // ── LIST ALL: GET /listall/{pid} ──
+    // S124 A4 — returns ALL R2 keys under {pid}/ prefix (photos + tiles +
+    // pdfbufs). Used by the orphan-cleanup diagnostic to enumerate every
+    // object owned by a project so it can be diffed against live state.
+    // Authenticated — reveals the full object inventory of a project.
+    if (request.method === 'GET' && rawPath.startsWith('/listall/')) {
+      const auth = await validateAuth(request, env);
+      if (!auth.ok) {
+        return jsonResponse({ error: 'Unauthorized', reason: auth.reason }, 401, origin);
+      }
+      const pid = decodeURIComponent(rawPath.substring(9)).replace(/\/$/, '');
+      if (!pid) return jsonResponse({ error: 'Missing project id' }, 400, origin);
+      const prefix = pid + '/';
+      try {
+        let allObjects = [];
+        let cursor = undefined;
+        let pages = 0;
+        do {
+          const listed = await env.BUCKET.list({ prefix, limit: 1000, cursor });
+          for (const o of listed.objects) {
+            allObjects.push({ key: o.key, size: o.size, uploaded: o.uploaded });
+          }
+          cursor = listed.truncated ? listed.cursor : null;
+          pages++;
+          if (pages >= 20) break; // hard cap: 20k objects
+        } while (cursor);
+        const totalBytes = allObjects.reduce(function(s, o) { return s + (o.size || 0); }, 0);
+        return jsonResponse({
+          pid: pid,
+          count: allObjects.length,
+          totalBytes: totalBytes,
+          truncated: !!cursor,
+          objects: allObjects
+        }, 200, origin);
+      } catch (e) {
+        return jsonResponse({ error: 'Listall failed: ' + e.message }, 500, origin);
+      }
+    }
+
     // ── MULTIPART UPLOAD: for files >100MB (worker single-PUT body limit) ──
     // Init  : POST   /multipart/init/{slug}/{tool}/{type}/{fname}    → {uploadId}
     // Part  : PUT    /multipart/part/{slug}/{tool}/{type}/{fname}?uploadId=X&partNumber=N → {etag}
