@@ -632,6 +632,15 @@ function _drawObjectRaw(ctx, obj) {
     for (var pl = 1; pl < obj.points.length; pl++) ctx.lineTo(obj.points[pl].x, obj.points[pl].y);
     ctx.stroke();
   }
+  // S124 A1 — Dimension tool. Delegates to window._dimTool.renderObject
+  // so the formatting/label logic lives in one place (dimensionTool.js).
+  else if (t === 'dimension') {
+    ctx.restore();
+    if (window._dimTool && typeof window._dimTool.renderObject === 'function') {
+      window._dimTool.renderObject(ctx, obj);
+    }
+    return;
+  }
   else {
     // Apply rotation for shapes if present
     if (obj.rotation) {
@@ -666,6 +675,10 @@ function _drawShapeObj(ctx, t, x1, y1, x2, y2) {
     ctx.stroke();
   }
   else if (t === 'line') { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+  // S124 A1 — live preview for dimension tool: just the line itself.
+  // Full rendering (arrows, ticks, label) happens after the user releases
+  // and the object is committed via _dimTool.renderObject.
+  else if (t === 'dimension') { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
   else if (t === 'triangle') {
     ctx.beginPath(); ctx.moveTo(x1 + (x2 - x1) / 2, y1); ctx.lineTo(x2, y2); ctx.lineTo(x1, y2); ctx.closePath(); ctx.stroke();
   }
@@ -1249,7 +1262,66 @@ function _endDraw(e) {
         color: _color, size: _lineWidth, opacity: _opacity
       });
     }
-  } else if (type && type !== 'polyline' && type !== 'select' && type !== 'text') {
+  }
+  // S124 A1 — Dimension. Two cases:
+  //   (a) drawing not yet calibrated → show calibration prompt, defer the
+  //       commit until the user enters a real-world distance. On OK, push
+  //       the first dimension object using the just-entered scale.
+  //   (b) drawing calibrated → compute rawValue + rawLabel from the
+  //       calibration scaleRatio, then commit as a regular dimension obj.
+  else if (type === 'dimension') {
+    var dim = window._dimTool;
+    var Viewer = (window._frt && window._frt.initViewer) || null;
+    var dr = Viewer && typeof Viewer.getCurrentDrawing === 'function'
+      ? Viewer.getCurrentDrawing() : null;
+    var x1d = _startX, y1d = _startY, x2d = _endX || _startX, y2d = _endY || _startY;
+    // Reject zero-length drag — accidental tap during scroll
+    var dxd = x2d - x1d, dyd = y2d - y1d;
+    if (Math.sqrt(dxd * dxd + dyd * dyd) < 4) {
+      // Treat as cancel; do nothing
+    } else if (!dim) {
+      console.warn('[Markup] dimension tool: _dimTool not loaded');
+    } else if (!dim.isCalibrated(dr)) {
+      // (a) Calibrate first, then commit the first dimension via callback
+      var capturedColor = _color, capturedSize = _lineWidth, capturedOpacity = _opacity;
+      var capturedTool = _tool;
+      dim.showCalibrationPrompt(dr, x1d, y1d, x2d, y2d, function (result) {
+        if (!result) return; // user cancelled — no object pushed
+        _objects.push({
+          id: _newId(), type: 'dimension',
+          x1: result.firstDim.x1, y1: result.firstDim.y1,
+          x2: result.firstDim.x2, y2: result.firstDim.y2,
+          color: capturedColor, size: capturedSize, opacity: capturedOpacity,
+          rawValue: result.firstDim.rawValue,
+          rawLabel: result.firstDim.rawLabel,
+          overrideLabel: null
+        });
+        _pushHistory();
+        _renderAll();
+        _markDirty();
+        // Persist the drawing's new calibration. The viewer's notify chain
+        // covers most fields, but calibration is a new field — explicit save.
+        try {
+          var M = (window._frt && window._frt.Model) || null;
+          if (M && typeof M.saveNow === 'function') M.saveNow();
+        } catch (e) { console.warn('[dim] saveNow failed:', e); }
+        // Tool stays active per Mark's preference — keep capturedTool in _tool
+        if (_tool !== capturedTool) { /* user switched tools mid-prompt */ }
+      });
+    } else {
+      // (b) Already calibrated — compute label and push
+      var lab = dim.computeLabel(x1d, y1d, x2d, y2d, dim.getCalibration(dr));
+      _objects.push({
+        id: _newId(), type: 'dimension',
+        x1: x1d, y1: y1d, x2: x2d, y2: y2d,
+        color: _color, size: _lineWidth, opacity: _opacity,
+        rawValue: lab ? lab.rawValue : 0,
+        rawLabel: lab ? lab.rawLabel : '',
+        overrideLabel: null
+      });
+    }
+  }
+  else if (type && type !== 'polyline' && type !== 'select' && type !== 'text') {
     _objects.push({
       id: _newId(), type: type,
       x1: _startX, y1: _startY, x2: _endX || _startX, y2: _endY || _startY,

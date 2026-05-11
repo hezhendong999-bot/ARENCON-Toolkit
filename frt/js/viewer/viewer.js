@@ -762,6 +762,14 @@ export var initViewer = {
       Markup.destroy();
       _showDrawing(_currentDrawingIdx - 1);
     }
+  },
+
+  // S124 A1 — expose current drawing so markup.js (dimension tool) can
+  // read/mutate drawing.calibration. Returns the live drawing reference
+  // from _drawings — mutations persist via Model.saveNow on next render.
+  getCurrentDrawing: function() {
+    if (_currentDrawingIdx < 0 || _currentDrawingIdx >= _drawings.length) return null;
+    return _drawings[_currentDrawingIdx];
   }
 };
 

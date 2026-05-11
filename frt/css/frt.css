@@ -6428,3 +6428,29 @@ body.dark-mode .sync-conflict-modal *::-webkit-scrollbar-thumb {
 }
 
 /* End S123 Push 6B ─────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S124 A1 — Dimension Tool
+   ═══════════════════════════════════════════════════════════════════════
+   Most of the dimension UI lives in JS (dimensionTool.js renders the
+   object on canvas; the calibration modal is built inline with the
+   styles it needs). This block just ensures the toolbar button gets
+   the same hover/active treatment as the other markup tools — the
+   #mk-dimension button uses the standard .tool-btn class so it inherits
+   automatically, but we add a defensive accent rule here for clarity.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+#mk-dimension.tool-btn.active {
+  background: var(--accent-burgundy, #9C2742);
+  color: #fff;
+}
+
+/* Dark mode — calibration modal stays light by design (architectural
+   drawings are read against light bg in the viewer) but the button
+   needs to match the dark toolbar */
+body.dark-mode #mk-dimension.tool-btn.active {
+  background: var(--accent-burgundy, #9C2742);
+  color: #fff;
+}
+
+/* End S124 A1 ──────────────────────────────────────────────────────── */
