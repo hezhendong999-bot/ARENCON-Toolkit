@@ -102,6 +102,47 @@
 
   // ── Math helpers ─────────────────────────────────────────────────────
 
+  /**
+   * S125 #4 — Parse a feet OR inches text input into a decimal number.
+   * Accepts:
+   *   "1.5"         → 1.5         (decimal)
+   *   "1 1/2"       → 1.5         (mixed with space)
+   *   "1-1/2"       → 1.5         (mixed with dash)
+   *   "1/2"         → 0.5         (pure fraction)
+   *   "1"           → 1           (integer)
+   *   "" or invalid → 0
+   * Strips trailing inch/foot marks (" ' in cm m mm) so casual entry works.
+   */
+  function _parseDimNumber(raw) {
+    if (raw == null) return 0;
+    var s = String(raw).trim();
+    if (!s) return 0;
+    // Strip unit markers — user might paste "12'-3 1/2\"" into the wrong field
+    s = s.replace(/["'\u2032\u2033]|in|ft|cm|mm|\bm\b/gi, '').trim();
+    if (!s) return 0;
+    // Pure decimal
+    if (/^-?\d+(\.\d+)?$/.test(s)) return parseFloat(s);
+    // Mixed number with space OR dash: "1 1/2" or "1-1/2"
+    var mixed = s.match(/^(-?\d+)[\s\-]+(\d+)\/(\d+)$/);
+    if (mixed) {
+      var sign = mixed[1].charAt(0) === '-' ? -1 : 1;
+      var whole = Math.abs(parseInt(mixed[1], 10));
+      var num = parseInt(mixed[2], 10);
+      var den = parseInt(mixed[3], 10);
+      if (den > 0) return sign * (whole + num / den);
+    }
+    // Pure fraction "1/2"
+    var frac = s.match(/^(-?\d+)\/(\d+)$/);
+    if (frac) {
+      var fNum = parseInt(frac[1], 10);
+      var fDen = parseInt(frac[2], 10);
+      if (fDen > 0) return fNum / fDen;
+    }
+    // Last-ditch decimal parse (handles things like "1.5 ")
+    var n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+  }
+
   function _pixelDist(x1, y1, x2, y2) {
     var dx = x2 - x1, dy = y2 - y1;
     return Math.sqrt(dx * dx + dy * dy);
@@ -157,33 +198,103 @@
 
     var modal = document.createElement('div');
     modal.className = 'dim-cal-modal';
+    // S125 #4 — Two-field input: feet (integer-ish) + inches (smart parser
+    // accepts decimal, fraction, mixed-with-space, mixed-with-dash).
+    // Metric users switch to a single decimal-meters field via the toggle.
     modal.innerHTML =
       '<h3 style="margin:0 0 10px;font-family:Calibri,sans-serif;color:#9C2742;">Calibrate this drawing</h3>' +
       '<p style="margin:0 0 14px;font-family:Calibri,sans-serif;font-size:14px;line-height:1.4;color:#333;">' +
-      'You\u2019ve marked two points. Enter the real-world distance between them so this drawing knows its scale.' +
-      ' All future dimensions on this drawing will use it.</p>' +
-      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">' +
-        '<input type="number" id="dim-cal-value" min="0" step="0.01" placeholder="Distance" ' +
-          'style="flex:1;padding:8px 10px;border:1px solid #B0A89C;border-radius:4px;font-family:Calibri,sans-serif;font-size:15px;">' +
-        '<select id="dim-cal-units" style="padding:8px 10px;border:1px solid #B0A89C;border-radius:4px;font-family:Calibri,sans-serif;font-size:15px;">' +
-          '<option value="ft">feet</option>' +
-          '<option value="m">meters</option>' +
-        '</select>' +
+      'You\u2019ve marked two points. Enter the real-world distance between them so this drawing knows its scale.</p>' +
+      // Units toggle
+      '<div style="display:flex;gap:6px;margin-bottom:14px;background:#EDE5D3;border-radius:6px;padding:3px;width:fit-content;">' +
+        '<button type="button" id="dim-cal-unit-ft" data-unit="ft" style="padding:6px 14px;border:none;background:#fff;color:#444;border-radius:4px;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Feet + inches</button>' +
+        '<button type="button" id="dim-cal-unit-m" data-unit="m" style="padding:6px 14px;border:none;background:transparent;color:#6a5a3a;border-radius:4px;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Meters</button>' +
       '</div>' +
+      // Imperial pair
+      '<div id="dim-cal-imperial" style="display:flex;gap:10px;align-items:flex-end;margin-bottom:6px;">' +
+        '<div style="flex:1;">' +
+          '<label style="display:block;margin-bottom:4px;font-family:Calibri,sans-serif;font-size:12px;color:#666;">Feet</label>' +
+          '<input type="text" id="dim-cal-ft" placeholder="0" inputmode="decimal" ' +
+            'style="width:100%;padding:8px 10px;border:1px solid #B0A89C;border-radius:4px;font-family:Calibri,sans-serif;font-size:15px;box-sizing:border-box;">' +
+        '</div>' +
+        '<div style="flex:1.4;">' +
+          '<label style="display:block;margin-bottom:4px;font-family:Calibri,sans-serif;font-size:12px;color:#666;">Inches <span style="color:#999;font-size:11px;">(1.5 or 1-1/2 or 1 1/2)</span></label>' +
+          '<input type="text" id="dim-cal-in" placeholder="0" inputmode="text" ' +
+            'style="width:100%;padding:8px 10px;border:1px solid #B0A89C;border-radius:4px;font-family:Calibri,sans-serif;font-size:15px;box-sizing:border-box;">' +
+        '</div>' +
+      '</div>' +
+      // Metric single
+      '<div id="dim-cal-metric" style="display:none;margin-bottom:6px;">' +
+        '<label style="display:block;margin-bottom:4px;font-family:Calibri,sans-serif;font-size:12px;color:#666;">Meters</label>' +
+        '<input type="text" id="dim-cal-m" placeholder="0" inputmode="decimal" ' +
+          'style="width:100%;padding:8px 10px;border:1px solid #B0A89C;border-radius:4px;font-family:Calibri,sans-serif;font-size:15px;box-sizing:border-box;">' +
+      '</div>' +
+      // Hint
+      '<p id="dim-cal-hint" style="margin:0 0 14px;font-family:Calibri,sans-serif;font-size:12px;color:#888;min-height:16px;"></p>' +
+      // Buttons
       '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
         '<button id="dim-cal-cancel" class="btn-muted-cancel" style="padding:8px 14px;">Cancel</button>' +
         '<button id="dim-cal-ok" class="btn-burgundy" style="padding:8px 14px;">Save calibration</button>' +
       '</div>';
-    modal.style.cssText = 'background:#FAF6EE;border-radius:8px;padding:22px 26px;min-width:360px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.4);';
+    modal.style.cssText = 'background:#FAF6EE;border-radius:8px;padding:22px 26px;min-width:380px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.4);';
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    var valueInput = modal.querySelector('#dim-cal-value');
-    var unitsSelect = modal.querySelector('#dim-cal-units');
+    var ftInput = modal.querySelector('#dim-cal-ft');
+    var inInput = modal.querySelector('#dim-cal-in');
+    var mInput  = modal.querySelector('#dim-cal-m');
+    var unitFtBtn = modal.querySelector('#dim-cal-unit-ft');
+    var unitMBtn  = modal.querySelector('#dim-cal-unit-m');
+    var imperialDiv = modal.querySelector('#dim-cal-imperial');
+    var metricDiv   = modal.querySelector('#dim-cal-metric');
+    var hint = modal.querySelector('#dim-cal-hint');
     var okBtn = modal.querySelector('#dim-cal-ok');
     var cancelBtn = modal.querySelector('#dim-cal-cancel');
+    var currentUnit = 'ft';
 
-    setTimeout(function () { valueInput.focus(); }, 80);
+    setTimeout(function () { ftInput.focus(); }, 80);
+
+    function _setUnit(u) {
+      currentUnit = u;
+      if (u === 'ft') {
+        imperialDiv.style.display = 'flex';
+        metricDiv.style.display = 'none';
+        unitFtBtn.style.background = '#fff';
+        unitFtBtn.style.color = '#444';
+        unitMBtn.style.background = 'transparent';
+        unitMBtn.style.color = '#6a5a3a';
+        setTimeout(function () { ftInput.focus(); }, 30);
+      } else {
+        imperialDiv.style.display = 'none';
+        metricDiv.style.display = 'block';
+        unitMBtn.style.background = '#fff';
+        unitMBtn.style.color = '#444';
+        unitFtBtn.style.background = 'transparent';
+        unitFtBtn.style.color = '#6a5a3a';
+        setTimeout(function () { mInput.focus(); }, 30);
+      }
+      _updateHint();
+    }
+    unitFtBtn.addEventListener('click', function () { _setUnit('ft'); });
+    unitMBtn.addEventListener('click', function () { _setUnit('m'); });
+
+    /** Live preview of what we parsed so the user can verify before saving */
+    function _updateHint() {
+      if (currentUnit === 'ft') {
+        var ft = _parseDimNumber(ftInput.value);
+        var inch = _parseDimNumber(inInput.value);
+        if (ft === 0 && inch === 0) { hint.textContent = ''; return; }
+        var totalFt = ft + inch / 12;
+        hint.textContent = '→ ' + formatLabel(totalFt, 'ft') + '  (' + totalFt.toFixed(4) + ' ft)';
+      } else {
+        var m = _parseDimNumber(mInput.value);
+        if (m === 0) { hint.textContent = ''; return; }
+        hint.textContent = '→ ' + formatLabel(m, 'm');
+      }
+    }
+    ftInput.addEventListener('input', _updateHint);
+    inInput.addEventListener('input', _updateHint);
+    mInput.addEventListener('input', _updateHint);
 
     function _close(result) {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -193,10 +304,18 @@
     cancelBtn.addEventListener('click', function () { _close(null); });
 
     okBtn.addEventListener('click', function () {
-      var realDist = parseFloat(valueInput.value);
+      var realDist;
+      if (currentUnit === 'ft') {
+        var ft = _parseDimNumber(ftInput.value);
+        var inch = _parseDimNumber(inInput.value);
+        realDist = ft + inch / 12;
+      } else {
+        realDist = _parseDimNumber(mInput.value);
+      }
       if (!(realDist > 0)) {
-        valueInput.style.borderColor = '#A85959';
-        valueInput.focus();
+        var target = currentUnit === 'ft' ? ftInput : mInput;
+        target.style.borderColor = '#A85959';
+        target.focus();
         return;
       }
       var px = _pixelDist(x1, y1, x2, y2);
@@ -209,16 +328,14 @@
         p1: { x: x1, y: y1 },
         p2: { x: x2, y: y2 },
         realDistance: realDist,
-        units: unitsSelect.value,
+        units: currentUnit,
         scaleRatio: realDist / px,
         createdAt: new Date().toISOString()
       };
-      // Mutate drawing in place
       if (drawing) drawing.calibration = calibration;
       _close({
         calibration: calibration,
         firstDim: {
-          // Caller fills in id/color/size/opacity from current tool state
           x1: x1, y1: y1, x2: x2, y2: y2,
           rawValue: realDist,
           rawLabel: formatLabel(realDist, calibration.units)
@@ -226,10 +343,13 @@
       });
     });
 
-    valueInput.addEventListener('keydown', function (e) {
+    function _handleKey(e) {
       if (e.key === 'Enter') { e.preventDefault(); okBtn.click(); }
       if (e.key === 'Escape') { e.preventDefault(); cancelBtn.click(); }
-    });
+    }
+    ftInput.addEventListener('keydown', _handleKey);
+    inInput.addEventListener('keydown', _handleKey);
+    mInput.addEventListener('keydown', _handleKey);
   }
 
   // ── Rendering ────────────────────────────────────────────────────────
@@ -334,7 +454,10 @@
       formatLabel: formatLabel,
       computeLabel: computeLabel,
       showCalibrationPrompt: showCalibrationPrompt,
-      renderObject: renderObject
+      renderObject: renderObject,
+      // S125 #4 — smart number parser (decimal / mixed-space / mixed-dash /
+      // pure fraction). Reusable in S126 for the inline label-edit UI.
+      parseDimNumber: _parseDimNumber
     };
   }
 })();

@@ -108,7 +108,13 @@ function _allocateCanvas() {
   // The `isIPhone` / `isIPad` / `isTablet` branches and the `?iosres=N`
   // parser were removed in Push 1 along with the rest of iOS support.
   var isAndroidPhone = /Android/.test(ua) && /Mobile/.test(ua) && !/SM-T|SM-X|Tablet/.test(ua);
-  var maxPixels = isAndroidPhone ? 10000000 : 25000000;
+  // S125 #2 — Markup clarity uplift. The 25 MP cap was the iPad memory
+  // budget; Android tablets, Surface, and PCs handle 4× that comfortably.
+  // Lifting the cap is the foundation for crisp markup at L3/L4 zoom —
+  // without it the zoom-aware resize below ALWAYS clamped to drawing
+  // pixels (e.g. 6144×4096 = 25 MP exactly), so zoom-in beyond native
+  // bilinear-upscaled = visible blur on every markup tool.
+  var maxPixels = isAndroidPhone ? 10000000 : 100000000;
 
   var totalPixels = drawW * drawH;
   var mkScale = 1;
@@ -116,6 +122,17 @@ function _allocateCanvas() {
 
   var cw = Math.round(drawW * mkScale);
   var ch = Math.round(drawH * mkScale);
+
+  // S125 #2 — Hard clamp to WebGL MAX_TEXTURE_SIZE. Same rationale as the
+  // clamp in _resizeMarkupForScale: byte budget can allow larger area than
+  // the GPU's per-dimension limit.
+  var MAX_TEX = 16384;
+  if (cw > MAX_TEX || ch > MAX_TEX) {
+    var clampS = Math.min(MAX_TEX / cw, MAX_TEX / ch);
+    cw = Math.max(1, Math.round(cw * clampS));
+    ch = Math.max(1, Math.round(ch * clampS));
+    mkScale = mkScale * clampS;
+  }
 
   mc.width = cw;
   mc.height = ch;
@@ -219,15 +236,19 @@ function _resizeMarkupForScale(targetScale) {
   var drawW = mc._logicalW;
   var drawH = mc._logicalH || mc._logicalW;
 
-  // Budget cap (same as _allocateCanvas)
+  // S125 #2 — Markup clarity uplift. Memory budget raised from 25 MP to
+  // 100 MP for tablet/PC. Also lift the effective-scale ceiling above 1.0
+  // so the canvas actually densifies when the user zooms in past native
+  // resolution — previously capped at 1.0, which is why L3/L4 zoom blurred.
   var ua = navigator.userAgent;
   var isAndroidPhone = /Android/.test(ua) && /Mobile/.test(ua) && !/SM-T|SM-X|Tablet/.test(ua);
-  var maxPixels = isAndroidPhone ? 10000000 : 25000000;
+  var maxPixels = isAndroidPhone ? 10000000 : 100000000;
   var budgetScale = Math.sqrt(maxPixels / (drawW * drawH));
-  if (budgetScale > 1) budgetScale = 1;
 
   // Effective render scale: capped at budget (above) and at a sensible
   // floor (below) so very low zooms don't produce a sub-100px canvas.
+  // No longer clamped at 1.0 — zoom-in beyond native now drives the canvas
+  // to budget so strokes stay crisp at L3/L4.
   var effective = targetScale;
   if (effective > budgetScale) effective = budgetScale;
   if (effective < 0.08) effective = 0.08;
@@ -237,6 +258,18 @@ function _resizeMarkupForScale(targetScale) {
 
   var newW = Math.max(1, Math.round(drawW * effective));
   var newH = Math.max(1, Math.round(drawH * effective));
+
+  // S125 #2 — Hard clamp to WebGL MAX_TEXTURE_SIZE (typically 16384). Even
+  // though the 100 MP byte budget allows larger area, the GPU rejects a
+  // texture if either dimension exceeds this limit. Clamp uniformly so
+  // aspect ratio is preserved.
+  var MAX_TEX = 16384;
+  if (newW > MAX_TEX || newH > MAX_TEX) {
+    var clampS = Math.min(MAX_TEX / newW, MAX_TEX / newH);
+    newW = Math.max(1, Math.round(newW * clampS));
+    newH = Math.max(1, Math.round(newH * clampS));
+    effective = effective * clampS;
+  }
 
   // Resize main canvas (wipes content; caller must re-render)
   mc.width = newW;
@@ -675,10 +708,24 @@ function _drawShapeObj(ctx, t, x1, y1, x2, y2) {
     ctx.stroke();
   }
   else if (t === 'line') { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
-  // S124 A1 — live preview for dimension tool: just the line itself.
-  // Full rendering (arrows, ticks, label) happens after the user releases
-  // and the object is committed via _dimTool.renderObject.
-  else if (t === 'dimension') { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+  // S124 A1 / S125 #3 — live preview for dimension tool: line + endpoint
+  // dots, drawn 1.5× heavier than the eventual committed line so the
+  // calibration drag stays clearly visible against busy drawings at any
+  // zoom level. Full rendering (arrows, ticks, label) happens after the
+  // user releases and the object is committed via _dimTool.renderObject.
+  else if (t === 'dimension') {
+    var origLW = ctx.lineWidth;
+    ctx.lineWidth = origLW * 1.5;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    // Endpoint dots — radius scales with line width so they're visible at any zoom
+    var dotR = Math.max(3, origLW * 1.5);
+    var prevFill = ctx.fillStyle;
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.beginPath(); ctx.arc(x1, y1, dotR, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x2, y2, dotR, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = prevFill;
+    ctx.lineWidth = origLW;
+  }
   else if (t === 'triangle') {
     ctx.beginPath(); ctx.moveTo(x1 + (x2 - x1) / 2, y1); ctx.lineTo(x2, y2); ctx.lineTo(x1, y2); ctx.closePath(); ctx.stroke();
   }
