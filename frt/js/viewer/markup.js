@@ -37,6 +37,13 @@ var _polyPoints = [];
 var _isDrawing = false;
 var _dirty = false;
 
+// S126 #5 — Click-to-draw state. When the user activates a shape tool and
+// makes the first click, _clickFirstPt holds {x, y}. The next click commits
+// the shape from _clickFirstPt to current cursor. Cleared on Esc, tool
+// switch, pinch-zoom, or commit. Cursor moves between clicks (mouse only)
+// update a live preview on the overlay canvas.
+var _clickFirstPt = null;
+
 var _tool = null;
 var _color = '#C0392B';
 var _lineWidth = 3;
@@ -77,6 +84,36 @@ function _findObj(id) {
 
 function _getCanvas() { return document.getElementById('markup-canvas'); }
 function _getOverlay() { return document.getElementById('markup-overlay'); }
+
+// S126 #5 — Tools that use the two-click pattern (replaces click-and-hold
+// drag). Stroke tools (pen / highlight / eraser) stay drag-based because the
+// stroke path itself is what gets recorded. Polyline already uses clicks.
+// Text places at the click point. Dimension is excluded from this list
+// because S126 #6 gives it its own three-click chain controller.
+function _isClickToDrawShape(t) {
+  return t === 'line' || t === 'arrow'
+      || t === 'rect' || t === 'fillrect'
+      || t === 'circle' || t === 'fillcircle'
+      || t === 'triangle' || t === 'cloud';
+}
+
+// S126 #5 — Tear down click-to-draw state and clear the overlay preview.
+// Called on Esc, tool-switch, pinch-zoom-start, and after a successful commit.
+function _cancelClickToDraw() {
+  if (!_clickFirstPt) return;
+  _clickFirstPt = null;
+  var ov = _getOverlay();
+  if (ov) {
+    ov.style.display = 'none';
+    var c = ov.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, ov.width, ov.height);
+  }
+  if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive()) {
+    TiledPdf.resume();
+    TiledPdf.scheduleRender();
+  }
+}
 
 // ── Canvas Allocation ───────────────────────────────────
 
@@ -1304,6 +1341,57 @@ function _startDraw(e) {
   if (_tool === 'text') { _handleTextPlace(e); return; }
   if (_tool === 'polyline') { _handlePolylineClick(e); return; }
 
+  // S126 #5 — Click-to-draw for shape tools. Two-click pattern replaces
+  // drag. First click locks point A and shows a zero-length preview dot;
+  // second click commits the shape from A to current cursor.
+  if (_isClickToDrawShape(_tool)) {
+    var posC = _getPos(e);
+    if (!_clickFirstPt) {
+      // First click — lock A, show dot preview
+      _clickFirstPt = posC;
+      _startX = posC.x; _startY = posC.y;
+      _endX = posC.x; _endY = posC.y;
+      if (TiledPdf.isActive()) TiledPdf.pause();
+      var ovC = _ensureOverlay();
+      if (ovC) {
+        ovC.style.display = 'block';
+        ovC.style.opacity = '1';
+        var cxC = ovC.getContext('2d');
+        var dC = ovC._dpr || 1;
+        cxC.setTransform(1, 0, 0, 1, 0, 0);
+        cxC.clearRect(0, 0, ovC.width, ovC.height);
+        cxC.setTransform(dC, 0, 0, dC, 0, 0);
+        cxC.save();
+        cxC.fillStyle = _color;
+        cxC.globalAlpha = _opacity;
+        cxC.beginPath();
+        cxC.arc(posC.x, posC.y, Math.max(2, _lineWidth / 2), 0, Math.PI * 2);
+        cxC.fill();
+        cxC.restore();
+      }
+      return;
+    }
+    // Second click — commit shape from A to current cursor
+    var ax = _clickFirstPt.x, ay = _clickFirstPt.y;
+    var bx = posC.x, by = posC.y;
+    // Reject zero-area shapes (accidental double-tap on same spot)
+    var ddx = bx - ax, ddy = by - ay;
+    if (Math.sqrt(ddx * ddx + ddy * ddy) < 3) {
+      _cancelClickToDraw();
+      return;
+    }
+    _objects.push({
+      id: _newId(), type: _tool,
+      x1: ax, y1: ay, x2: bx, y2: by,
+      color: _color, size: _lineWidth, opacity: _opacity
+    });
+    _pushHistory();
+    _cancelClickToDraw();
+    _renderAll();
+    _markDirty();
+    return;
+  }
+
   _isDrawing = true;
   if (TiledPdf.isActive()) TiledPdf.pause();
   _penPoints = [];
@@ -1322,6 +1410,35 @@ function _startDraw(e) {
 }
 
 function _moveDraw(e) {
+  // S126 #5 — Click-to-draw cursor tracking. When the user has placed point
+  // A but not yet committed point B, every cursor move (mouse) or finger
+  // move (touch, only while finger is down between taps — pure two-tap
+  // pattern has no preview between taps by design) updates the live preview.
+  // The preview path uses _drawShapeObj so what the user sees equals what
+  // gets committed.
+  if (_isClickToDrawShape(_tool) && _clickFirstPt) {
+    var posC = _getPos(e);
+    _endX = posC.x;
+    _endY = posC.y;
+    var ovC = _getOverlay();
+    if (!ovC) return;
+    var cxC = ovC.getContext('2d');
+    var dC = ovC._dpr || 1;
+    cxC.setTransform(1, 0, 0, 1, 0, 0);
+    cxC.clearRect(0, 0, ovC.width, ovC.height);
+    cxC.setTransform(dC, 0, 0, dC, 0, 0);
+    cxC.save();
+    cxC.globalAlpha = _opacity;
+    cxC.strokeStyle = _color;
+    cxC.fillStyle = _color;
+    cxC.lineWidth = _lineWidth;
+    cxC.lineCap = 'round';
+    cxC.lineJoin = 'round';
+    _drawShapeObj(cxC, _tool, _clickFirstPt.x, _clickFirstPt.y, posC.x, posC.y);
+    cxC.restore();
+    return;
+  }
+
   if (!_isDrawing) return;
   var pos = _getPos(e);
   _endX = pos.x;
@@ -1382,6 +1499,12 @@ function _moveDraw(e) {
 }
 
 function _endDraw(e) {
+  // S126 #5 — Click-to-draw shapes don't commit on mouseup/touchend; the
+  // commit happens on the SECOND mousedown/touchstart. Just bail. Pen,
+  // highlight, eraser, and (legacy) dimension still use drag and continue
+  // through the original path below.
+  if (_isClickToDrawShape(_tool)) return;
+
   if (!_isDrawing) return;
   _isDrawing = false;
   if (TiledPdf.isActive()) { TiledPdf.resume(); TiledPdf.scheduleRender(); }
@@ -2123,6 +2246,8 @@ function _setActiveTool(tool) {
   _selectedIds = [];
   _rubberBand = null;
   _isDrawing = false;
+  // S126 #5 — Switching tools cancels any in-progress click-to-draw shape
+  _cancelClickToDraw();
 
   // Update sidebar button states
   var sidebar = document.getElementById('dv-sidebar-tools');
@@ -2609,6 +2734,8 @@ function _wireEvents() {
     // pinch-zoom doesn't leave a stray scribble on the drawing.
     if (e.touches.length > 1) {
       if (_isDrawing) _endDraw({});
+      // S126 #5 — also cancel any in-progress click-to-draw shape
+      _cancelClickToDraw();
       return;
     }
     if (!_tool || _tool === 'pin') return;
@@ -2622,6 +2749,8 @@ function _wireEvents() {
     // handler in viewer.js take over.
     if (e.touches.length > 1) {
       if (_isDrawing) _endDraw({});
+      // S126 #5 — also cancel any in-progress click-to-draw shape
+      _cancelClickToDraw();
       return;
     }
     if (!_tool || _tool === 'pin') return;
@@ -2662,6 +2791,14 @@ function _wireEvents() {
     if (!overlay || !overlay.classList.contains('open')) return;
 
     if (e.key === 'Escape') {
+      // S126 #5 — Cancel click-to-draw mid-flow (between first and second
+      // click). Tool stays active so the next first-click starts fresh.
+      if (_clickFirstPt) {
+        _cancelClickToDraw();
+        _renderAll();
+        e.stopPropagation();
+        return;
+      }
       // If mid-stroke: cancel and discard
       if (_isDrawing) {
         _isDrawing = false;
