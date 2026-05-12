@@ -187,24 +187,54 @@ function _allocateCanvas() {
         _webglCanvas.addEventListener('webglcontextrestored', function() {
           console.log('[Markup] WebGL CONTEXT_RESTORED — reinitializing Pixi');
           if (!_useWebGL || !_webglCanvas) return;
-          // Re-init Pixi against the same canvas — current dimensions are
-          // already set on the canvas element from the prior resize call.
-          var cw2 = _webglCanvas.width, ch2 = _webglCanvas.height;
-          var dpr2 = (mc && mc._dpr) || 1;
-          if (window.WebGLMarkupRenderer && !_webglInitPromise) {
+          // S125 hotfix — Pixi.js v7.4.2 has a race where re-init immediately
+          // after webglcontextrestored throws "Invalid value of `0` passed to
+          // checkMaxIfStatementsInShader" because the GL context returns 0
+          // from MAX_FRAGMENT_UNIFORM_VECTORS before it's fully ready.
+          // 250 ms delay + one retry covers driver wakeup on Intel/AMD.
+          var attempts = 0;
+          var maxAttempts = 3;
+          function tryInit() {
+            attempts++;
+            if (!_useWebGL || !_webglCanvas) return;
+            var cw2 = _webglCanvas.width, ch2 = _webglCanvas.height;
+            var dpr2 = (mc && mc._dpr) || 1;
+            if (!window.WebGLMarkupRenderer || _webglInitPromise) return;
             _webglInitPromise = window.WebGLMarkupRenderer.init(_webglCanvas, { w: cw2, h: ch2, dpr: dpr2 })
               .then(function() {
                 _webglReady = true;
                 _webglInitPromise = null;
-                console.log('[Markup] WebGL recovered and ready');
+                console.log('[Markup] WebGL recovered and ready (attempt ' + attempts + ')');
                 _renderAll();
+                // Defensive: kick tiledPdf in case its tile DOM was disturbed
+                // by the same GPU reset that killed Pixi.
+                try {
+                  if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive()) {
+                    TiledPdf.scheduleRender();
+                  }
+                } catch(_) {}
               })
               .catch(function(err) {
-                console.warn('[Markup] WebGL re-init after restore failed, falling back to Canvas 2D:', err);
-                _useWebGL = false;
                 _webglInitPromise = null;
+                if (attempts < maxAttempts) {
+                  console.warn('[Markup] WebGL re-init attempt ' + attempts + ' failed, retrying in 500 ms:', err && err.message);
+                  setTimeout(tryInit, 500);
+                } else {
+                  console.warn('[Markup] WebGL re-init exhausted retries — falling back to Canvas 2D:', err);
+                  _useWebGL = false;
+                  // Force a final 2D re-render so user isn't stuck on a blank canvas
+                  try { _renderAll(); } catch(_) {}
+                  // Defensive: kick tiledPdf to redraw too. The GPU reset that
+                  // killed Pixi may have also disturbed the tile DOM elements.
+                  try {
+                    if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive()) {
+                      TiledPdf.scheduleRender();
+                    }
+                  } catch(_) {}
+                }
               });
           }
+          setTimeout(tryInit, 250);
         }, false);
       }
       _webglCanvas.width  = cw;
@@ -287,11 +317,17 @@ function _resizeMarkupForScale(targetScale) {
   var maxPixels = isAndroidPhone ? 10000000 : 50000000;
   var budgetScale = Math.sqrt(maxPixels / (drawW * drawH));
 
-  // Effective render scale: capped at budget (above) and at a sensible
-  // floor (below) so very low zooms don't produce a sub-100px canvas.
-  // No longer clamped at 1.0 — zoom-in beyond native now drives the canvas
-  // to budget so strokes stay crisp at L3/L4.
+  // S125 hotfix #2 — RESTORE THE 1.0 CLAMP. The S125 #2 attempt to densify
+  // canvas at zoom > 1 was the root cause of the CONTEXT_LOST events: at
+  // L4 zoom (~1.187) the canvas tried to allocate 35 MP on top of 78 L4
+  // tiles being decoded by tiledPdf, exhausting GPU memory. The original
+  // S113 design (cap at drawing pixels, let browser bilinear-upscale past
+  // 1.0) is the safe behavior. The "blurry markup" complaint from Mark's
+  // earlier session was actually the canvas being capped BELOW 1.0 by the
+  // 25 MP iPad budget — that's now fixed by the higher 50 MP budget,
+  // without needing to push past 1.0.
   var effective = targetScale;
+  if (effective > 1) effective = 1;            // never exceed native pixel density
   if (effective > budgetScale) effective = budgetScale;
   if (effective < 0.08) effective = 0.08;
 
