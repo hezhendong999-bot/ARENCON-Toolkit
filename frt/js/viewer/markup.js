@@ -44,6 +44,20 @@ var _dirty = false;
 // update a live preview on the overlay canvas.
 var _clickFirstPt = null;
 
+// S126 #6 — Dimension vertex-edit state. When user taps a committed
+// dimension while NOT in select tool, _dimVertexEditId holds the obj id;
+// next two endpoint-area positions become draggable handles. Drag start
+// sets _dimVertexDragHandle to 0 (A) or 1 (B); cleared on mouseup.
+var _dimVertexEditId = null;
+var _dimVertexDragHandle = null;
+
+// S126 #6 — Dimension calibrate mode. Activated by the Calibrate button on
+// the dimension sub-toolbar. While true, the next two clicks lay the
+// calibration points and open the showCalibrationPrompt modal. Once the
+// user saves, the entire dimension list is recalibrated.
+var _dimCalibrateMode = false;
+var _dimCalibrateP1 = null;
+
 var _tool = null;
 var _color = '#C0392B';
 var _lineWidth = 3;
@@ -113,6 +127,135 @@ function _cancelClickToDraw() {
     TiledPdf.resume();
     TiledPdf.scheduleRender();
   }
+}
+
+// S126 #6 — Resolve the currently-displayed drawing object. The viewer
+// owns the active-drawing pointer; we just dereference it.
+function _getCurrentDrawing() {
+  try {
+    var Viewer = (window._frt && window._frt.initViewer) || null;
+    if (Viewer && typeof Viewer.getCurrentDrawing === 'function') {
+      return Viewer.getCurrentDrawing();
+    }
+  } catch (e) {}
+  return null;
+}
+
+// S126 #6 — Tear down any in-progress dimension chain (preview overlay,
+// state machine, calibration mode). Called on tool switch, Esc, and
+// double-click.
+function _resetDimensionFlow() {
+  if (window._dimTool && window._dimTool.resetState) window._dimTool.resetState();
+  _dimCalibrateMode = false;
+  _dimCalibrateP1 = null;
+  _dimVertexEditId = null;
+  _dimVertexDragHandle = null;
+  var ov = _getOverlay();
+  if (ov) {
+    ov.style.display = 'none';
+    var c = ov.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, ov.width, ov.height);
+  }
+  if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive()) {
+    TiledPdf.resume();
+    TiledPdf.scheduleRender();
+  }
+}
+
+// S126 #6 — Render the dimension chain preview onto the overlay canvas.
+// Called from _moveDraw whenever the chain state is non-idle.
+function _renderDimensionPreview() {
+  var dim = window._dimTool;
+  if (!dim) return;
+  var ov = _ensureOverlay();
+  if (!ov) return;
+  ov.style.display = 'block';
+  ov.style.opacity = '1';
+  var ctx = ov.getContext('2d');
+  var d = ov._dpr || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, ov.width, ov.height);
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  dim.renderPreview(ctx, _color, _lineWidth, _opacity);
+}
+
+// S126 #6 — Always-edit on commit. Spawns an inline text input centered on
+// the dimension's label position so the user can type an override
+// immediately after committing the dimension. Enter or blur commits;
+// Escape discards the override entry without deleting the dimension.
+function _editDimensionLabel(obj) {
+  var mc = _getCanvas();
+  if (!mc || !obj) return;
+  var ax, ay, bx, by, offset;
+  if (obj.mx1 != null) {
+    ax = obj.mx1; ay = obj.my1; bx = obj.mx2; by = obj.my2; offset = obj.offset || 0;
+  } else {
+    ax = obj.x1; ay = obj.y1; bx = obj.x2; by = obj.y2; offset = 0;
+  }
+  var dx = bx - ax, dy = by - ay;
+  var len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1) return;
+  var ux = dx / len, uy = dy / len;
+  var px = -uy, py = ux;
+  var dax = ax + px * offset, day = ay + py * offset;
+  var dbx = bx + px * offset, dby = by + py * offset;
+  var midX = (dax + dbx) / 2, midY = (day + dby) / 2;
+  var labelOffsetD = 14;
+  var labelX = midX + px * labelOffsetD;
+  var labelY = midY + py * labelOffsetD;
+
+  var r = mc.getBoundingClientRect();
+  var lw = mc._logicalW || mc.width;
+  var lh = mc._logicalH || mc.height;
+  var screenX = r.left + (labelX / lw) * r.width;
+  var screenY = r.top + (labelY / lh) * r.height;
+
+  // Tear down any prior label input
+  var prev = document.querySelectorAll('.mk-dim-label-input');
+  for (var i = 0; i < prev.length; i++) {
+    if (prev[i].parentNode) prev[i].parentNode.removeChild(prev[i]);
+  }
+
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'mk-dim-label-input';
+  input.style.cssText = 'position:fixed;z-index:99999;font-family:Calibri,sans-serif;background:#fff;color:' + (obj.color || '#9C2742') + ';border:2px solid ' + (obj.color || '#9C2742') + ';border-radius:4px;padding:4px 8px;font-size:14px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.3);min-width:140px;text-align:center;outline:none;';
+  input.style.left = (screenX - 70) + 'px';
+  input.style.top = (screenY - 16) + 'px';
+  var raw = obj.rawLabel || '';
+  var rawDisplay = obj.isGuess && raw ? '~' + raw : raw;
+  input.value = obj.overrideLabel != null ? obj.overrideLabel : rawDisplay;
+  input.placeholder = rawDisplay || 'label';
+
+  document.body.appendChild(input);
+  setTimeout(function () { input.focus(); input.select(); }, 30);
+
+  var committed = false;
+  function _commit() {
+    if (committed) return;
+    committed = true;
+    if (input.parentNode) input.parentNode.removeChild(input);
+    var v = input.value.trim();
+    // Empty OR matches auto-label (with/without ~) → no override
+    if (!v || v === raw || v === rawDisplay) {
+      obj.overrideLabel = null;
+    } else {
+      obj.overrideLabel = v;
+    }
+    _pushHistory();
+    _renderAll();
+    _markDirty();
+  }
+  input.addEventListener('blur', function () { setTimeout(_commit, 100); });
+  input.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); _commit(); }
+    if (ev.key === 'Escape') {
+      if (input.parentNode) input.parentNode.removeChild(input);
+      committed = true;
+    }
+    ev.stopPropagation();
+  });
 }
 
 // ── Canvas Allocation ───────────────────────────────────
@@ -671,6 +814,18 @@ function _renderAll() {
     ctx.fillRect(rx, ry, rw, rh);
     ctx.strokeRect(rx, ry, rw, rh);
     ctx.restore();
+  }
+
+  // S126 #6 — Vertex handles overlay. Drawn last so they sit on top of all
+  // markup. Visible whenever the user has tapped a dimension while NOT in
+  // select tool. Click+drag on a handle moves that endpoint of the dim.
+  if (_dimVertexEditId != null && window._dimTool && window._dimTool.renderVertexHandles) {
+    var editDim = _findObj(_dimVertexEditId);
+    if (editDim && editDim.type === 'dimension') {
+      window._dimTool.renderVertexHandles(ctx, editDim);
+    } else {
+      _dimVertexEditId = null;
+    }
   }
 }
 
@@ -1341,6 +1496,160 @@ function _startDraw(e) {
   if (_tool === 'text') { _handleTextPlace(e); return; }
   if (_tool === 'polyline') { _handlePolylineClick(e); return; }
 
+  // S126 #6 — Dimension tool click flow. Routes through the dimensionTool
+  // state machine (handleClick). Three click roles:
+  //   1. Vertex handle drag (if user has tapped a dim to expose handles)
+  //   2. Calibration point lock (if user pressed the Calibrate button)
+  //   3. Normal chain click (idle → A → B → offset → commit)
+  if (_tool === 'dimension') {
+    var posD = _getPos(e);
+    var dim = window._dimTool;
+    if (!dim) return;
+
+    // (1) Vertex handle drag start. If handles are showing and click is
+    //     within tolerance of A or B, begin dragging that endpoint. Mouseup
+    //     will commit the new position.
+    if (_dimVertexEditId != null) {
+      var editObj = _findObj(_dimVertexEditId);
+      if (editObj) {
+        var hndl = dim.hitTestVertex(posD, editObj);
+        if (hndl != null) {
+          _dimVertexDragHandle = hndl;
+          _isDrawing = true;
+          if (TiledPdf.isActive()) TiledPdf.pause();
+          return;
+        }
+        // Click was NOT on a handle — dismiss vertex edit. Re-render to
+        // remove handles, then fall through so the click can also start
+        // the next normal action (e.g. a new chain or another hit).
+        _dimVertexEditId = null;
+        _renderAll();
+      } else {
+        _dimVertexEditId = null;
+      }
+    }
+
+    // (2) Calibration mode — two clicks collect the calibration points
+    if (_dimCalibrateMode) {
+      if (!_dimCalibrateP1) {
+        _dimCalibrateP1 = { x: posD.x, y: posD.y };
+        // Show a marker dot on the overlay so user sees their first click
+        var ovCal = _ensureOverlay();
+        if (ovCal) {
+          ovCal.style.display = 'block';
+          ovCal.style.opacity = '1';
+          var ctxCal = ovCal.getContext('2d');
+          var dCal = ovCal._dpr || 1;
+          ctxCal.setTransform(1, 0, 0, 1, 0, 0);
+          ctxCal.clearRect(0, 0, ovCal.width, ovCal.height);
+          ctxCal.setTransform(dCal, 0, 0, dCal, 0, 0);
+          ctxCal.save();
+          ctxCal.fillStyle = '#9C2742';
+          ctxCal.globalAlpha = 1;
+          ctxCal.beginPath();
+          ctxCal.arc(posD.x, posD.y, 5, 0, Math.PI * 2);
+          ctxCal.fill();
+          ctxCal.restore();
+        }
+        return;
+      }
+      // Second calibration click — open the prompt
+      var p1c = _dimCalibrateP1, p2c = { x: posD.x, y: posD.y };
+      _dimCalibrateP1 = null;
+      _dimCalibrateMode = false;
+      // Reset toolbar state on the Calibrate button
+      var calBtn = document.getElementById('dim-calibrate-btn');
+      if (calBtn) calBtn.classList.remove('active');
+      var addBtn = document.getElementById('dim-add-btn');
+      if (addBtn) addBtn.classList.add('active');
+      // Clear the overlay marker
+      var ovCal2 = _getOverlay();
+      if (ovCal2) {
+        ovCal2.style.display = 'none';
+        var cCal2 = ovCal2.getContext('2d');
+        cCal2.setTransform(1, 0, 0, 1, 0, 0);
+        cCal2.clearRect(0, 0, ovCal2.width, ovCal2.height);
+      }
+      var drCal = _getCurrentDrawing();
+      dim.showCalibrationPrompt(drCal, p1c.x, p1c.y, p2c.x, p2c.y, function (result) {
+        if (!result) return;
+        // Recalibration walker: refresh every existing dimension's
+        // rawValue/rawLabel + drop isGuess flag. Overridden dimensions
+        // keep their displayed override but their underlying raw values
+        // still update silently.
+        dim.recalibrateAll(_objects, result.calibration);
+        _pushHistory();
+        _renderAll();
+        _markDirty();
+        try {
+          var M = (window._frt && window._frt.Model) || null;
+          if (M && typeof M.saveNow === 'function') M.saveNow();
+        } catch (e2) { /* noop */ }
+      });
+      return;
+    }
+
+    // (3) Existing-dimension hit test (enter vertex edit mode). Only when
+    //     the chain is idle so we don't hijack a mid-chain click.
+    var st0 = dim.getState();
+    if (st0.state === 'idle') {
+      var dimHit = dim.hitTestDimension(posD, _objects);
+      if (dimHit) {
+        _dimVertexEditId = dimHit.id;
+        _renderAll();
+        return;
+      }
+    }
+
+    // (4) Normal chain click. Auto-apply guessed calibration if the
+    //     drawing has none yet — we never block on a calibration prompt
+    //     here. The user can refine via the Calibrate button at any time.
+    var drNow = _getCurrentDrawing();
+    if (drNow && !dim.isCalibrated(drNow)) {
+      var mc0 = _getCanvas();
+      var canvasW = mc0 ? (mc0._logicalW || mc0.width || 0) : 0;
+      if (canvasW > 0) {
+        dim.applyGuessedCalibration(drNow, canvasW);
+      }
+    }
+
+    if (TiledPdf.isActive()) TiledPdf.pause();
+    var res = dim.handleClick(posD, drNow);
+    if (res.action === 'lockedA' || res.action === 'lockedB') {
+      // Show / refresh the overlay preview
+      _renderDimensionPreview();
+      return;
+    }
+    if (res.committed) {
+      var newObj = res.obj;
+      newObj.id = _newId();
+      newObj.color = _color;
+      newObj.size = _lineWidth;
+      newObj.opacity = _opacity;
+      _objects.push(newObj);
+      _pushHistory();
+      _renderAll();
+      _markDirty();
+      // Always-edit on commit
+      _editDimensionLabel(newObj);
+      // Refresh preview for the next chain link, or tear down if chain ended
+      var stAfter = dim.getState();
+      if (stAfter.state === 'idle') {
+        var ovEnd = _getOverlay();
+        if (ovEnd) {
+          ovEnd.style.display = 'none';
+          var cEnd = ovEnd.getContext('2d');
+          cEnd.setTransform(1, 0, 0, 1, 0, 0);
+          cEnd.clearRect(0, 0, ovEnd.width, ovEnd.height);
+        }
+        if (TiledPdf.isActive()) { TiledPdf.resume(); TiledPdf.scheduleRender(); }
+      } else {
+        _renderDimensionPreview();
+      }
+    }
+    return;
+  }
+
   // S126 #5 — Click-to-draw for shape tools. Two-click pattern replaces
   // drag. First click locks point A and shows a zero-length preview dot;
   // second click commits the shape from A to current cursor.
@@ -1410,6 +1719,52 @@ function _startDraw(e) {
 }
 
 function _moveDraw(e) {
+  // S126 #6 — Dimension move handling. Two sub-cases:
+  //   (a) Vertex drag in progress → update endpoint of the dim being edited
+  //   (b) Chain in progress → update preview offset / live label
+  if (_tool === 'dimension') {
+    var posDM = _getPos(e);
+    var dim = window._dimTool;
+    if (!dim) return;
+    // (a) Vertex drag
+    if (_dimVertexEditId != null && _dimVertexDragHandle != null && _isDrawing) {
+      var dragObj = _findObj(_dimVertexEditId);
+      if (dragObj) {
+        if (_dimVertexDragHandle === 0) {
+          if (dragObj.mx1 != null) { dragObj.mx1 = posDM.x; dragObj.my1 = posDM.y; }
+          else { dragObj.x1 = posDM.x; dragObj.y1 = posDM.y; }
+        } else {
+          if (dragObj.mx1 != null) { dragObj.mx2 = posDM.x; dragObj.my2 = posDM.y; }
+          else { dragObj.x2 = posDM.x; dragObj.y2 = posDM.y; }
+        }
+        // Live label recompute (overrideLabel preserved per spec)
+        var drDM = _getCurrentDrawing();
+        var calDM = dim.getCalibration(drDM);
+        if (calDM) {
+          var aax = dragObj.mx1 != null ? dragObj.mx1 : dragObj.x1;
+          var aay = dragObj.mx1 != null ? dragObj.my1 : dragObj.y1;
+          var bbx = dragObj.mx1 != null ? dragObj.mx2 : dragObj.x2;
+          var bby = dragObj.mx1 != null ? dragObj.my2 : dragObj.y2;
+          var labDM = dim.computeLabel(aax, aay, bbx, bby, calDM);
+          if (labDM) {
+            dragObj.rawValue = labDM.rawValue;
+            dragObj.rawLabel = labDM.rawLabel;
+          }
+        }
+        _renderAll();
+      }
+      return;
+    }
+    // (b) Chain preview (awaitB or awaitOffset state)
+    var stDM = dim.getState();
+    if (stDM.state !== 'idle') {
+      dim.handleMove(posDM);
+      _renderDimensionPreview();
+      return;
+    }
+    return;
+  }
+
   // S126 #5 — Click-to-draw cursor tracking. When the user has placed point
   // A but not yet committed point B, every cursor move (mouse) or finger
   // move (touch, only while finger is down between taps — pure two-tap
@@ -1499,10 +1854,23 @@ function _moveDraw(e) {
 }
 
 function _endDraw(e) {
+  // S126 #6 — Dimension tool: only vertex drag commits on mouseup. The
+  // click-to-add flow lives entirely in _startDraw via handleClick.
+  if (_tool === 'dimension') {
+    if (_dimVertexDragHandle != null) {
+      _dimVertexDragHandle = null;
+      _isDrawing = false;
+      _pushHistory();
+      _markDirty();
+      if (TiledPdf.isActive()) { TiledPdf.resume(); TiledPdf.scheduleRender(); }
+    }
+    return;
+  }
+
   // S126 #5 — Click-to-draw shapes don't commit on mouseup/touchend; the
   // commit happens on the SECOND mousedown/touchstart. Just bail. Pen,
-  // highlight, eraser, and (legacy) dimension still use drag and continue
-  // through the original path below.
+  // highlight, and eraser still use drag and continue through the original
+  // path below.
   if (_isClickToDrawShape(_tool)) return;
 
   if (!_isDrawing) return;
@@ -1532,65 +1900,10 @@ function _endDraw(e) {
       });
     }
   }
-  // S124 A1 — Dimension. Two cases:
-  //   (a) drawing not yet calibrated → show calibration prompt, defer the
-  //       commit until the user enters a real-world distance. On OK, push
-  //       the first dimension object using the just-entered scale.
-  //   (b) drawing calibrated → compute rawValue + rawLabel from the
-  //       calibration scaleRatio, then commit as a regular dimension obj.
-  else if (type === 'dimension') {
-    var dim = window._dimTool;
-    var Viewer = (window._frt && window._frt.initViewer) || null;
-    var dr = Viewer && typeof Viewer.getCurrentDrawing === 'function'
-      ? Viewer.getCurrentDrawing() : null;
-    var x1d = _startX, y1d = _startY, x2d = _endX || _startX, y2d = _endY || _startY;
-    // Reject zero-length drag — accidental tap during scroll
-    var dxd = x2d - x1d, dyd = y2d - y1d;
-    if (Math.sqrt(dxd * dxd + dyd * dyd) < 4) {
-      // Treat as cancel; do nothing
-    } else if (!dim) {
-      console.warn('[Markup] dimension tool: _dimTool not loaded');
-    } else if (!dim.isCalibrated(dr)) {
-      // (a) Calibrate first, then commit the first dimension via callback
-      var capturedColor = _color, capturedSize = _lineWidth, capturedOpacity = _opacity;
-      var capturedTool = _tool;
-      dim.showCalibrationPrompt(dr, x1d, y1d, x2d, y2d, function (result) {
-        if (!result) return; // user cancelled — no object pushed
-        _objects.push({
-          id: _newId(), type: 'dimension',
-          x1: result.firstDim.x1, y1: result.firstDim.y1,
-          x2: result.firstDim.x2, y2: result.firstDim.y2,
-          color: capturedColor, size: capturedSize, opacity: capturedOpacity,
-          rawValue: result.firstDim.rawValue,
-          rawLabel: result.firstDim.rawLabel,
-          overrideLabel: null
-        });
-        _pushHistory();
-        _renderAll();
-        _markDirty();
-        // Persist the drawing's new calibration. The viewer's notify chain
-        // covers most fields, but calibration is a new field — explicit save.
-        try {
-          var M = (window._frt && window._frt.Model) || null;
-          if (M && typeof M.saveNow === 'function') M.saveNow();
-        } catch (e) { console.warn('[dim] saveNow failed:', e); }
-        // Tool stays active per Mark's preference — keep capturedTool in _tool
-        if (_tool !== capturedTool) { /* user switched tools mid-prompt */ }
-      });
-    } else {
-      // (b) Already calibrated — compute label and push
-      var lab = dim.computeLabel(x1d, y1d, x2d, y2d, dim.getCalibration(dr));
-      _objects.push({
-        id: _newId(), type: 'dimension',
-        x1: x1d, y1: y1d, x2: x2d, y2: y2d,
-        color: _color, size: _lineWidth, opacity: _opacity,
-        rawValue: lab ? lab.rawValue : 0,
-        rawLabel: lab ? lab.rawLabel : '',
-        overrideLabel: null
-      });
-    }
-  }
-  else if (type && type !== 'polyline' && type !== 'select' && type !== 'text') {
+  // S126 #6 — dimension commit/calibration NO longer drag-based. The new
+  // flow lives in _startDraw (handleClick state machine) so we don't push
+  // anything here for type === 'dimension'.
+  else if (type && type !== 'polyline' && type !== 'select' && type !== 'text' && type !== 'dimension') {
     _objects.push({
       id: _newId(), type: type,
       x1: _startX, y1: _startY, x2: _endX || _startX, y2: _endY || _startY,
@@ -2248,6 +2561,14 @@ function _setActiveTool(tool) {
   _isDrawing = false;
   // S126 #5 — Switching tools cancels any in-progress click-to-draw shape
   _cancelClickToDraw();
+  // S126 #6 — Switching tools cancels any in-progress dimension chain /
+  // calibrate mode / vertex edit. The sub-toolbar visibility is also
+  // bound to whether tool is 'dimension'.
+  if (tool !== 'dimension') {
+    _resetDimensionFlow();
+  }
+  var dimSub = document.getElementById('dim-sub-toolbar');
+  if (dimSub) dimSub.style.display = (tool === 'dimension') ? 'flex' : 'none';
 
   // Update sidebar button states
   var sidebar = document.getElementById('dv-sidebar-tools');
@@ -2511,6 +2832,72 @@ function _wireEvents() {
       return;
     }
 
+    // S126 #6 — Dimension sub-toolbar buttons (Calibrate / Add / mode pill).
+    // Lives on the floating panel that appears when dimension tool is active.
+    var dimCalBtn = e.target.closest && e.target.closest('#dim-calibrate-btn');
+    if (dimCalBtn) {
+      _dimCalibrateMode = true;
+      _dimCalibrateP1 = null;
+      // End any in-progress chain so calibrate clicks don't confuse the state machine
+      if (window._dimTool && window._dimTool.resetState) window._dimTool.resetState();
+      _dimVertexEditId = null;
+      _dimVertexDragHandle = null;
+      var ovCalClick = _getOverlay();
+      if (ovCalClick) {
+        ovCalClick.style.display = 'none';
+        var cCalClick = ovCalClick.getContext('2d');
+        cCalClick.setTransform(1, 0, 0, 1, 0, 0);
+        cCalClick.clearRect(0, 0, ovCalClick.width, ovCalClick.height);
+      }
+      dimCalBtn.classList.add('active');
+      var addBtnPair = document.getElementById('dim-add-btn');
+      if (addBtnPair) addBtnPair.classList.remove('active');
+      _renderAll();
+      e.stopPropagation();
+      return;
+    }
+    var dimAddBtn = e.target.closest && e.target.closest('#dim-add-btn');
+    if (dimAddBtn) {
+      _dimCalibrateMode = false;
+      _dimCalibrateP1 = null;
+      dimAddBtn.classList.add('active');
+      var calBtnPair = document.getElementById('dim-calibrate-btn');
+      if (calBtnPair) calBtnPair.classList.remove('active');
+      var ovAddClick = _getOverlay();
+      if (ovAddClick) {
+        ovAddClick.style.display = 'none';
+        var cAddClick = ovAddClick.getContext('2d');
+        cAddClick.setTransform(1, 0, 0, 1, 0, 0);
+        cAddClick.clearRect(0, 0, ovAddClick.width, ovAddClick.height);
+      }
+      e.stopPropagation();
+      return;
+    }
+    var dimModeBtn = e.target.closest && e.target.closest('[data-dim-mode]');
+    if (dimModeBtn) {
+      var mode = dimModeBtn.getAttribute('data-dim-mode');
+      if (window._dimTool && window._dimTool.setMode) window._dimTool.setMode(mode);
+      // Update active class on the three mode buttons
+      var pillContainer = dimModeBtn.parentNode;
+      if (pillContainer) {
+        var siblings = pillContainer.querySelectorAll('[data-dim-mode]');
+        for (var ms = 0; ms < siblings.length; ms++) {
+          siblings[ms].classList.toggle('active', siblings[ms] === dimModeBtn);
+        }
+      }
+      // Clear preview from any prior chain
+      var ovMode = _getOverlay();
+      if (ovMode) {
+        ovMode.style.display = 'none';
+        var cMode = ovMode.getContext('2d');
+        cMode.setTransform(1, 0, 0, 1, 0, 0);
+        cMode.clearRect(0, 0, ovMode.width, ovMode.height);
+      }
+      _renderAll();
+      e.stopPropagation();
+      return;
+    }
+
     // Color dot click
     var colorDot = e.target.closest && e.target.closest('[data-mk-color]');
     if (colorDot) {
@@ -2769,11 +3156,20 @@ function _wireEvents() {
     _endDraw(e);
   });
 
-  // Double-click: finishes polyline OR edits text object
+  // Double-click: finishes polyline OR edits text object OR ends dim chain
   mc.addEventListener('dblclick', function(e) {
     if (_tool === 'polyline' && _polyPoints.length >= 2) {
       _finishPolyline();
       return;
+    }
+    // S126 #6 — End any active dimension chain on dbl-click
+    if (_tool === 'dimension') {
+      var dimDbl = window._dimTool;
+      if (dimDbl && dimDbl.getState && dimDbl.getState().state !== 'idle') {
+        _resetDimensionFlow();
+        _renderAll();
+        return;
+      }
     }
     // Double-click on text object with selector → edit it
     if (_tool === 'select') {
@@ -2791,6 +3187,24 @@ function _wireEvents() {
     if (!overlay || !overlay.classList.contains('open')) return;
 
     if (e.key === 'Escape') {
+      // S126 #6 — Dimension tool: Esc dismisses vertex-edit handles, ends
+      // any chain in progress, and exits calibrate mode. Tool stays active.
+      if (_tool === 'dimension') {
+        var dimEsc = window._dimTool;
+        var hadState = (_dimVertexEditId != null) || _dimCalibrateMode ||
+                       (dimEsc && dimEsc.getState && dimEsc.getState().state !== 'idle');
+        if (hadState) {
+          _resetDimensionFlow();
+          // Restore the Add button as the active sub-toolbar action
+          var calEscBtn = document.getElementById('dim-calibrate-btn');
+          if (calEscBtn) calEscBtn.classList.remove('active');
+          var addEscBtn = document.getElementById('dim-add-btn');
+          if (addEscBtn) addEscBtn.classList.add('active');
+          _renderAll();
+          e.stopPropagation();
+          return;
+        }
+      }
       // S126 #5 — Cancel click-to-draw mid-flow (between first and second
       // click). Tool stays active so the next first-click starts fresh.
       if (_clickFirstPt) {

@@ -6454,3 +6454,144 @@ body.dark-mode #mk-dimension.tool-btn.active {
 }
 
 /* End S124 A1 ──────────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S126 #6 — Dimension Sub-toolbar
+   ═══════════════════════════════════════════════════════════════════════
+   Persistent floating panel that appears at the top-center of the canvas
+   area whenever the dimension tool is active. Three button groups:
+   1. Calibrate — enters two-click calibration flow
+   2. Add      — returns to normal click-to-draw chain flow
+   3. Mode pill — switches between Single / Continuous / Running chain
+                  modes (drives _dimTool.setMode internally)
+   The .active class is used on Calibrate vs Add (mutually exclusive
+   actions) and on the three mode-pill children. Calibri font and muted
+   burgundy/taupe palette match the rest of the FRT UI.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.dim-sub-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #C8C0B0;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  font-family: Calibri, sans-serif;
+  font-size: 13px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.dim-tb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #4A4035;
+  font-family: Calibri, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.dim-tb-btn:hover {
+  background: #F2EAD8;
+}
+
+.dim-tb-btn.active {
+  background: #9C2742;
+  color: #FFFFFF;
+  border-color: #9C2742;
+}
+
+.dim-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  background: #EDE5D3;
+  border-radius: 5px;
+  padding: 2px;
+  margin-left: 4px;
+}
+
+.dim-mode-btn {
+  background: transparent;
+  border: none;
+  color: #6A5A3A;
+  font-family: Calibri, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.dim-mode-btn:hover {
+  color: #3A2D18;
+}
+
+.dim-mode-btn.active {
+  background: #FFFFFF;
+  color: #4A4035;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* Dark mode — keep the panel readable on a dim canvas */
+body.dark-mode .dim-sub-toolbar {
+  background: rgba(46, 38, 32, 0.96);
+  border-color: #5A4D3E;
+  color: #E6DCC6;
+}
+
+body.dark-mode .dim-tb-btn {
+  color: #E6DCC6;
+}
+
+body.dark-mode .dim-tb-btn:hover {
+  background: #4A3F33;
+}
+
+body.dark-mode .dim-mode-pill {
+  background: #3A2F25;
+}
+
+body.dark-mode .dim-mode-btn {
+  color: #C7B89D;
+}
+
+body.dark-mode .dim-mode-btn.active {
+  background: #5C4E3E;
+  color: #FFFFFF;
+}
+
+/* Mobile: shrink padding so the bar doesn't crowd the canvas on
+   ~380 px viewports */
+@media (max-width: 600px) {
+  .dim-sub-toolbar {
+    top: 8px;
+    gap: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  .dim-tb-btn {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+  .dim-mode-btn {
+    padding: 4px 7px;
+    font-size: 11px;
+  }
+}
+
+/* End S126 #6 ─────────────────────────────────────────────────────── */

@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=294">
+<link rel="stylesheet" href="css/frt.css?v=295">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -721,6 +721,19 @@ function ensurePdfJs(cb){
         <canvas id="markup-canvas"></canvas>
         <div id="dv-pins-layer"></div>
       </div>
+      <!-- S126 #6 — Dimension sub-toolbar. Hidden by default; shown when
+           dimension tool is active. Calibrate triggers 2-click calibration
+           flow; Add returns to draw mode; chain pill switches between
+           Single / Continuous / Running modes. -->
+      <div id="dim-sub-toolbar" class="dim-sub-toolbar" style="display:none;">
+        <button id="dim-calibrate-btn" class="dim-tb-btn" data-tip="Click 2 points on a known distance">📏 Calibrate</button>
+        <button id="dim-add-btn" class="dim-tb-btn active" data-tip="Click to add dimensions">📐 Add</button>
+        <div class="dim-mode-pill">
+          <button class="dim-mode-btn active" data-dim-mode="single">Single</button>
+          <button class="dim-mode-btn" data-dim-mode="continuous">Continuous</button>
+          <button class="dim-mode-btn" data-dim-mode="running">Running</button>
+        </div>
+      </div>
       <!-- Inline text input for text tool -->
       <textarea id="mk-text-input" class="mk-text-input" style="display:none;" placeholder="Type here..."></textarea>
       <div class="dv-nav-controls" id="dv-nav-controls">
@@ -908,7 +921,7 @@ function ensurePdfJs(cb){
 <!-- S124 A1 — Dimension tool helpers. Exposes window._dimTool (formatLabel,
      showCalibrationPrompt, renderObject). Loaded as plain JS before app.js
      so it's ready by the time markup.js dispatches a 'dimension' object. -->
-<script src="js/viewer/dimensionTool.js?v=4"></script>
+<script src="js/viewer/dimensionTool.js?v=5"></script>
 <script type="module" src="js/app.js"></script>
 
 <!-- S97 — Session recorder. Self-gates on ?dbg=1 or localStorage._frtDbg='1'.
