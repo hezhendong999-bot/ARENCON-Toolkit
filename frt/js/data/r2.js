@@ -171,6 +171,14 @@ export var R2 = {
    */
   deleteDrawingAssets: function(projectId, drawingBeingRemoved, allDrawings) {
     if (!projectId || !drawingBeingRemoved) return Promise.resolve({ pdfBufDeleted: false, sharedSkipped: false });
+
+    // S126 Phase B — Markup binary is per-drawing (no sharing possible), so
+    // delete it unconditionally. Fire-and-forget — if delete fails the
+    // orphan-cleanup pass picks it up later.
+    if (drawingBeingRemoved.id) {
+      R2.deleteMarkup(projectId, drawingBeingRemoved.id).catch(function() {});
+    }
+
     var key = drawingBeingRemoved.pdfBufKey;
     if (!key) return Promise.resolve({ pdfBufDeleted: false, sharedSkipped: false });
     // Sharing check: any OTHER live drawing referencing the same pdfBufKey?
@@ -216,6 +224,83 @@ export var R2 = {
       if (result) { drawing.r2Key = result.r2Key; drawing.r2Url = result.r2Url; }
       return drawing;
     });
+  },
+
+  /**
+   * S126 Phase B — Per-drawing markup binary on R2.
+   *
+   * Key format: photos/{projectId}/frt/markup/{drawingId}.json
+   *
+   * The Worker is content-type agnostic — it's a thin auth-then-pass-through
+   * proxy to R2. We send application/json on PUT and GET it back the same way.
+   *
+   * Returns { r2Key, r2Url, count, bytes } on success, or null.
+   *
+   * Why per-drawing files (not one project-wide markup blob): write contention.
+   * Two inspectors editing two different drawings of the same project no longer
+   * collide on a shared object. The drawing-level granularity matches the
+   * existing photo per-file convention and keeps the worst-case clobber window
+   * to a single drawing's edit batch.
+   */
+  uploadMarkup: function(projectId, drawingId, objects) {
+    if (!projectId || !drawingId) return Promise.resolve(null);
+    var arr = Array.isArray(objects) ? objects : [];
+    var filename = drawingId + '.json';
+    var r2Key = 'photos/' + projectId + '/frt/markup/' + filename;
+    var r2Url = R2_WORKER + '/' + r2Key;
+    var token = _getToken();
+    var json = JSON.stringify(arr);
+    var bytes = json.length;
+    return fetch(r2Url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (token || '')
+      },
+      body: json
+    }).then(function(resp) {
+      if (resp.ok) {
+        console.log('[R2] Markup uploaded:', r2Key, '(' + arr.length + ' objects, ' + Math.round(bytes / 1024) + 'KB)');
+        return { r2Key: r2Key, r2Url: r2Url, count: arr.length, bytes: bytes };
+      }
+      console.warn('[R2] Markup upload failed:', resp.status, resp.statusText);
+      return null;
+    }).catch(function(err) {
+      console.warn('[R2] Markup upload error:', err.message);
+      return null;
+    });
+  },
+
+  /**
+   * S126 Phase B — Download markup JSON for a drawing. GET, no auth.
+   * Returns Array<MarkupObject> or null (network fail / 404 / parse error).
+   *
+   * 404 is a valid "no markup yet" outcome and returns null without warning —
+   * the caller treats null as "fall through to IDB / legacy field".
+   */
+  downloadMarkup: function(r2Url) {
+    if (!r2Url) return Promise.resolve(null);
+    return fetch(r2Url).then(function(resp) {
+      if (resp.status === 404) return null;
+      if (!resp.ok) {
+        console.warn('[R2] Markup download failed:', resp.status);
+        return null;
+      }
+      return resp.json();
+    }).then(function(arr) {
+      if (!Array.isArray(arr)) return null;
+      return arr;
+    }).catch(function(err) {
+      console.warn('[R2] Markup download error:', err.message);
+      return null;
+    });
+  },
+
+  /** S126 Phase B — Delete a drawing's markup binary. Auth required. */
+  deleteMarkup: function(projectId, drawingId) {
+    if (!projectId || !drawingId) return Promise.resolve(false);
+    var r2Key = 'photos/' + projectId + '/frt/markup/' + drawingId + '.json';
+    return R2.del(r2Key);
   },
 
   /**

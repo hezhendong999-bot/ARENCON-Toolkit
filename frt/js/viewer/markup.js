@@ -19,6 +19,7 @@
 
 import { Model } from '../data/model.js';
 import { IDB } from '../data/idb.js';
+import { R2 } from '../data/r2.js';
 import { showConfirm } from '../shared/dialogs.js';
 import { TiledPdf } from './tiledPdf.js';
 
@@ -2513,30 +2514,110 @@ function _markDirty() {
 }
 var _autosaveTimer = null;
 
+// S126 Phase B — guard against race between in-flight R2 download (load)
+// and concurrent save. If the load is still resolving when the user
+// commits the first stroke, an empty _objects[] snapshot would push to R2
+// and wipe what the download was about to populate. We block saves while
+// _markupLoadInflight is true.
+var _markupLoadInflight = false;
+// In-flight upload guard so rapid debounces don't race against each other
+// on the same R2 key. The Worker has no version semantics, so we serialize.
+var _markupUploadInflight = false;
+// If a save is requested while an upload is in flight, queue exactly one
+// follow-up. Multiple queued saves collapse to one — the latest _objects
+// snapshot is what ships next.
+var _markupSavePending = false;
+
+/**
+ * S126 Phase B — Persist current _objects[] to:
+ *   1. IDB markupObjects store (offline-safe, fast, durable across reloads)
+ *   2. R2 per-drawing JSON binary at photos/{pid}/frt/markup/{drawingId}.json
+ *      — durable cloud store, last-write-wins per drawing
+ *   3. Model: drawing.markupR2 reference object (NOT markupObjects array)
+ *      The cloud strip in sync.js removes drawing.markupObjects but keeps
+ *      markupR2.
+ *
+ * Race protection:
+ *   - Skip entirely while a load is in flight (would overwrite remote with stale local)
+ *   - Serialize uploads to the same R2 key; queue follow-ups, collapse to one
+ *
+ * Failure modes:
+ *   - IDB error: logged, save continues (R2 may still succeed)
+ *   - R2 error: drawing.markupR2 NOT updated; IDB save remains as offline
+ *     backup; next save retries.
+ */
 function _saveMarkup() {
   if (!_drawingId) return;
+  if (_markupLoadInflight) {
+    // Load racing in — let the debounce re-arm naturally after load resolves
+    return;
+  }
+  if (_markupUploadInflight) {
+    _markupSavePending = true;
+    return;
+  }
   var proj = Model.getProject();
   if (!proj) return;
+  var projectId = proj.id;
+  var drawingId = _drawingId;
+  var snapshot = JSON.parse(JSON.stringify(_objects));
 
-  // Save to drawings array in model
-  if (proj.drawings) {
-    for (var i = 0; i < proj.drawings.length; i++) {
-      if (proj.drawings[i].id === _drawingId) {
-        proj.drawings[i].markupObjects = _objects.length ? JSON.parse(JSON.stringify(_objects)) : null;
-        break;
-      }
-    }
-  }
-
-  // Save to IDB markupObjects store
-  var rec = { id: _drawingId, drawingId: _drawingId, objects: JSON.parse(JSON.stringify(_objects)) };
-  IDB.put('markupObjects', rec).then(function() {
-    console.log('[Markup] Saved ' + _objects.length + ' objects for drawing ' + _drawingId);
+  // (1) IDB always wins first — offline-safe durable cache
+  IDB.put('markupObjects', { id: drawingId, drawingId: drawingId, objects: snapshot }).then(function() {
+    console.log('[Markup] IDB saved ' + snapshot.length + ' objects for drawing ' + drawingId);
   }).catch(function(err) {
     console.warn('[Markup] IDB save error:', err);
   });
 
-  Model.saveNow();
+  // (2) R2 upload. On success, write drawing.markupR2 reference + Model.saveNow.
+  _markupUploadInflight = true;
+  R2.uploadMarkup(projectId, drawingId, snapshot).then(function(result) {
+    _markupUploadInflight = false;
+    if (result) {
+      // Find the drawing in the (possibly mutated since save started) live model
+      var live = Model.getProject();
+      if (live && live.drawings) {
+        for (var i = 0; i < live.drawings.length; i++) {
+          if (live.drawings[i].id === drawingId) {
+            // Strip legacy field; cloud strip in sync.js does this too, but
+            // keeping it off the local model avoids accidental re-population
+            // through a merge cycle.
+            delete live.drawings[i].markupObjects;
+            // Write the new reference. inspectorId optional; merge engine
+            // handles markupR2 as a field-by-field object.
+            var user = (typeof window !== 'undefined' && window.Auth && window.Auth.getUser)
+              ? window.Auth.getUser() : null;
+            live.drawings[i].markupR2 = {
+              r2Key: result.r2Key,
+              r2Url: result.r2Url,
+              count: result.count,
+              bytes: result.bytes,
+              updatedAt: new Date().toISOString(),
+              inspectorId: user ? user.id : null
+            };
+            break;
+          }
+        }
+      }
+      Model.saveNow();
+    } else {
+      console.warn('[Markup] R2 upload returned no result; markupR2 reference NOT updated. Next save retries.');
+    }
+    // If a save came in while we were uploading, run it now with the
+    // latest _objects[] state (not the snapshot we just shipped).
+    if (_markupSavePending) {
+      _markupSavePending = false;
+      _saveMarkup();
+    }
+  }).catch(function(err) {
+    _markupUploadInflight = false;
+    console.warn('[Markup] R2 upload error:', err && err.message || err);
+    if (_markupSavePending) {
+      _markupSavePending = false;
+      _saveMarkup();
+    }
+  });
+
   _dirty = false;
 }
 
@@ -2546,28 +2627,119 @@ function _loadMarkup(drawingId) {
   _redoStack = [];
   _selectedIds = [];
 
-  // Try model drawings array first (v1 compat)
+  // S126 Phase B — Resolution chain (in order):
+  //   1. drawing.markupR2 → fetch JSON from R2 (durable cloud source)
+  //   2. IDB markupObjects store (offline cache + pre-sync strokes)
+  //   3. Legacy drawing.markupObjects (back-compat → lazy-migrates to R2)
+  // Non-blocking — _renderAll runs immediately with whatever's resolved.
+  // _markupLoadInflight suppresses _saveMarkup during the R2 fetch so
+  // we don't race and overwrite remote.
+
   var proj = Model.getProject();
-  if (proj && proj.drawings) {
+  if (!proj) {
+    _renderAll();
+    _updateUndoButtons();
+    return;
+  }
+  var projectId = proj.id;
+  var drawing = null;
+  if (proj.drawings) {
     for (var i = 0; i < proj.drawings.length; i++) {
-      if (proj.drawings[i].id === drawingId && proj.drawings[i].markupObjects && proj.drawings[i].markupObjects.length) {
-        _objects = JSON.parse(JSON.stringify(proj.drawings[i].markupObjects));
-        console.log('[Markup] Loaded ' + _objects.length + ' objects from model');
+      if (proj.drawings[i].id === drawingId) { drawing = proj.drawings[i]; break; }
+    }
+  }
+  if (!drawing) {
+    _renderAll();
+    _updateUndoButtons();
+    return;
+  }
+
+  // Path 1 — R2 (preferred)
+  if (drawing.markupR2 && drawing.markupR2.r2Url) {
+    _markupLoadInflight = true;
+    R2.downloadMarkup(drawing.markupR2.r2Url).then(function(arr) {
+      _markupLoadInflight = false;
+      if (arr && arr.length) {
+        _objects = arr;
+        console.log('[Markup] Loaded ' + arr.length + ' objects from R2');
+        IDB.put('markupObjects', { id: drawingId, drawingId: drawingId, objects: arr }).catch(function() {});
         _renderAll();
         _updateUndoButtons();
         return;
       }
-    }
+      // R2 reference exists but fetch returned null/empty — fall through
+      _loadMarkupFromIDB(drawingId, drawing, projectId);
+    }).catch(function(err) {
+      _markupLoadInflight = false;
+      console.warn('[Markup] R2 load error, falling back:', err && err.message || err);
+      _loadMarkupFromIDB(drawingId, drawing, projectId);
+    });
+    return;
   }
 
-  // Fallback: IDB
+  // No R2 reference — try IDB then legacy
+  _loadMarkupFromIDB(drawingId, drawing, projectId);
+}
+
+/**
+ * S126 Phase B — fallback when R2 reference is absent or fetch failed.
+ * IDB first, then legacy drawing.markupObjects. Path 3 triggers lazy
+ * migration: upload to R2 and write the reference so the next load uses
+ * path 1.
+ */
+function _loadMarkupFromIDB(drawingId, drawing, projectId) {
   IDB.get('markupObjects', drawingId).then(function(rec) {
     if (rec && rec.objects && rec.objects.length) {
       _objects = rec.objects;
-      console.log('[Markup] Loaded ' + _objects.length + ' objects from IDB');
-    } else {
-      console.log('[Markup] No markup for drawing ' + drawingId);
+      console.log('[Markup] Loaded ' + rec.objects.length + ' objects from IDB');
+      _renderAll();
+      _updateUndoButtons();
+      return;
     }
+    // Path 3 — legacy field on the drawing
+    if (drawing && drawing.markupObjects && drawing.markupObjects.length) {
+      _objects = JSON.parse(JSON.stringify(drawing.markupObjects));
+      console.log('[Markup] Loaded ' + _objects.length + ' legacy objects — migrating to R2');
+      _renderAll();
+      _updateUndoButtons();
+      // Lazy migration — upload to R2 + write the reference
+      if (projectId && !_markupUploadInflight) {
+        _markupUploadInflight = true;
+        R2.uploadMarkup(projectId, drawingId, _objects).then(function(result) {
+          _markupUploadInflight = false;
+          if (result) {
+            var live = Model.getProject();
+            if (live && live.drawings) {
+              for (var i = 0; i < live.drawings.length; i++) {
+                if (live.drawings[i].id === drawingId) {
+                  delete live.drawings[i].markupObjects;
+                  var user = (typeof window !== 'undefined' && window.Auth && window.Auth.getUser)
+                    ? window.Auth.getUser() : null;
+                  live.drawings[i].markupR2 = {
+                    r2Key: result.r2Key,
+                    r2Url: result.r2Url,
+                    count: result.count,
+                    bytes: result.bytes,
+                    updatedAt: new Date().toISOString(),
+                    inspectorId: user ? user.id : null,
+                    _migratedFromLegacy: true
+                  };
+                  break;
+                }
+              }
+            }
+            IDB.put('markupObjects', { id: drawingId, drawingId: drawingId, objects: _objects }).catch(function() {});
+            Model.saveNow();
+            console.log('[Markup] Migrated drawing ' + drawingId + ' to R2 markupR2 reference');
+          }
+        }).catch(function(err) {
+          _markupUploadInflight = false;
+          console.warn('[Markup] Lazy migration upload failed:', err && err.message || err);
+        });
+      }
+      return;
+    }
+    console.log('[Markup] No markup for drawing ' + drawingId);
     _renderAll();
     _updateUndoButtons();
   }).catch(function(err) {
