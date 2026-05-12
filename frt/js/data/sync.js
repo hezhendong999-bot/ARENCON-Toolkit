@@ -291,11 +291,19 @@ export var SyncEngine = {
       return Promise.resolve(null);
     }
 
-    // Strip binary data before pushing (same as before)
+    // Strip binary data before pushing (same as before).
+    // S125 hotfix 6 — REMOVED: `delete d.markupObjects; delete d.markupData;`
+    // The strip was originally added (pre-S124) to keep the tool_data row
+    // small. The unintended effect: markups never made it to the cloud,
+    // so on reload `_loadMarkup` falls through the model check (markups
+    // not present), hits the IDB fallback, and if IDB is missing/stale
+    // (e.g. cleared during an old upgrade), strokes appear lost.
+    // Markups now ride along with the rest of the drawing object. If row
+    // size becomes an issue with heavy-markup projects, S126 will move
+    // markup objects to a per-drawing R2 binary like photos.
     var data = JSON.parse(JSON.stringify(proj));
     (data.drawings || []).forEach(function(d) {
       delete d.dataUrl; delete d.dataBlob; delete d.thumb; delete d._hasLocalBlob;
-      delete d.markupObjects; delete d.markupData;
     });
     (data.photos || []).forEach(function(p) { delete p.dataUrl; delete p.dataBlob; });
     if (data.signatures) {
