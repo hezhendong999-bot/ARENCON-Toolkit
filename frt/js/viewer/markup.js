@@ -2002,7 +2002,24 @@ function _updateEraserCursor(e) {
 
 // ── Dirty / Save ────────────────────────────────────────
 
-function _markDirty() { _dirty = true; }
+function _markDirty() {
+  _dirty = true;
+  // S125 hotfix 8 — Schedule a debounced auto-flush. Previously markups
+  // ONLY flushed to Model+IDB on Markup.destroy() (drawing close) or an
+  // explicit saveNow(). If the user hit Ctrl+Shift+R while a drawing was
+  // open, strokes never made it past _objects[] and were lost. With the
+  // S123 cloud-push every 15s, this also means strokes weren't reaching
+  // the cloud — making "hard refresh wipes my markups" possible even on
+  // the same device.
+  // 1.2 s debounce: fast enough to flush mid-session pauses, slow enough
+  // that rapid pen scribbles batch into one IDB write per pause.
+  if (_autosaveTimer) clearTimeout(_autosaveTimer);
+  _autosaveTimer = setTimeout(function() {
+    _autosaveTimer = null;
+    if (_dirty && _drawingId) _saveMarkup();
+  }, 1200);
+}
+var _autosaveTimer = null;
 
 function _saveMarkup() {
   if (!_drawingId) return;

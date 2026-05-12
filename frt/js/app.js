@@ -23,6 +23,7 @@ import { initDrawings } from './ui/drawings.js';
 import { initPhotos } from './ui/photos.js';
 import { initPins } from './ui/pins.js';
 import { initViewer } from './viewer/viewer.js';
+import { Markup } from './viewer/markup.js';
 import { initPDFExport } from './export/pdf.js';
 import { initJSONExport } from './export/json.js';
 import { AIAssist } from './ai/assistant.js';
@@ -625,6 +626,15 @@ function _showLeaveDialog(destUrl) {
   overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
 }
 function handleBeforeUnload(e) {
+  // S125 hotfix 8 — Flush in-progress markup to Model+IDB before unload
+  // EVEN IN HUB MODE. Hub mode deliberately skips the browser "unsaved
+  // changes?" popup (it would interrupt every navigation), but the
+  // markup module's _objects[] was previously only persisted on
+  // Markup.destroy(). A Ctrl+Shift+R while a drawing was open lost the
+  // strokes entirely.
+  try {
+    if (Markup && Markup.saveNow) Markup.saveNow();
+  } catch(_) {}
   var params = new URLSearchParams(window.location.search);
   if (params.get('project')) return;
   if (Model.hasUnsavedChanges()) { e.preventDefault(); e.returnValue = ''; }
@@ -1768,6 +1778,7 @@ window._frt = {
   Auth: Auth,
   toast: toast,
   initViewer: initViewer,
+  Markup: Markup,
   switchTab: switchTab,
   toggleDarkMode: toggleDarkMode,
   version: '2.0.0-alpha',
