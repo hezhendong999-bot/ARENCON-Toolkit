@@ -2727,15 +2727,26 @@ function _wireEvents() {
         tooltip.textContent = tip;
         tooltip.style.display = 'block';
         var r = btn.getBoundingClientRect();
-        // S125 hotfix 9 — Anchor tooltip BELOW the button, left-aligned to
-        // its left edge. Submenus pop out to the right at the button's
-        // vertical center, so the old "right+8, centered-y" anchor put
-        // tooltips directly on top of them ("Drawing tools" obscured the
-        // pen/highlight/line submenu, "Shapes" obscured the shape submenu).
-        // Bottom-anchored tooltips sit in the gap between adjacent buttons,
-        // never overlapping submenus or neighbor icons.
-        tooltip.style.left = (r.left + r.width + 8) + 'px';
-        tooltip.style.top = (r.bottom + 4) + 'px';
+        // S125 hotfix 10 — Two anchoring cases:
+        //   • Main toolbar buttons: tooltip below-right of the button so it
+        //     sits in the empty area below the button, never overlapping
+        //     the submenu (which pops out to the right at the button's
+        //     vertical center) and never overlapping the neighbor button
+        //     below (which sits directly under, not lower-right).
+        //   • Sub-tool buttons inside a .tool-submenu: tooltip below the
+        //     WHOLE submenu, centered under the hovered sub-button. The
+        //     previous anchor put tooltips overlapping adjacent sub-tools.
+        var submenu = btn.closest && btn.closest('.tool-submenu');
+        if (submenu) {
+          var sr = submenu.getBoundingClientRect();
+          // Centered under the hovered sub-button, 6 px below submenu bottom
+          var labelW = 70; // approx; pure-CSS centering by mid-anchor
+          tooltip.style.left = (r.left + r.width / 2 - labelW / 2) + 'px';
+          tooltip.style.top = (sr.bottom + 6) + 'px';
+        } else {
+          tooltip.style.left = (r.left + r.width + 8) + 'px';
+          tooltip.style.top = (r.bottom + 4) + 'px';
+        }
       }
     });
     sidebar.addEventListener('mouseout', function(e) {
