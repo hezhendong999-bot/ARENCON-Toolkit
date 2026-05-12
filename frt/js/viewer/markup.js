@@ -2727,8 +2727,15 @@ function _wireEvents() {
         tooltip.textContent = tip;
         tooltip.style.display = 'block';
         var r = btn.getBoundingClientRect();
-        tooltip.style.left = (r.right + 8) + 'px';
-        tooltip.style.top = (r.top + r.height / 2 - 12) + 'px';
+        // S125 hotfix 9 — Anchor tooltip BELOW the button, left-aligned to
+        // its left edge. Submenus pop out to the right at the button's
+        // vertical center, so the old "right+8, centered-y" anchor put
+        // tooltips directly on top of them ("Drawing tools" obscured the
+        // pen/highlight/line submenu, "Shapes" obscured the shape submenu).
+        // Bottom-anchored tooltips sit in the gap between adjacent buttons,
+        // never overlapping submenus or neighbor icons.
+        tooltip.style.left = (r.left + r.width + 8) + 'px';
+        tooltip.style.top = (r.bottom + 4) + 'px';
       }
     });
     sidebar.addEventListener('mouseout', function(e) {
