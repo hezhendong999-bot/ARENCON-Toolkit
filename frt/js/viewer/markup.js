@@ -2727,26 +2727,40 @@ function _wireEvents() {
         tooltip.textContent = tip;
         tooltip.style.display = 'block';
         var r = btn.getBoundingClientRect();
-        // S125 hotfix 10 — Two anchoring cases:
-        //   • Main toolbar buttons: tooltip below-right of the button so it
-        //     sits in the empty area below the button, never overlapping
-        //     the submenu (which pops out to the right at the button's
-        //     vertical center) and never overlapping the neighbor button
-        //     below (which sits directly under, not lower-right).
-        //   • Sub-tool buttons inside a .tool-submenu: tooltip below the
-        //     WHOLE submenu, centered under the hovered sub-button. The
-        //     previous anchor put tooltips overlapping adjacent sub-tools.
-        var submenu = btn.closest && btn.closest('.tool-submenu');
-        if (submenu) {
-          var sr = submenu.getBoundingClientRect();
-          // Centered under the hovered sub-button, 6 px below submenu bottom
-          var labelW = 70; // approx; pure-CSS centering by mid-anchor
-          tooltip.style.left = (r.left + r.width / 2 - labelW / 2) + 'px';
-          tooltip.style.top = (sr.bottom + 6) + 'px';
+        // S125 hotfix 11 — Universal placement.
+        // The toolbar has three button shapes that all need tooltips:
+        //   1. Main button with submenu (Drawing tools, Shapes, Color)
+        //   2. Main button alone (Pin, Select, Text, Dimension, Eraser)
+        //   3. Sub-tool button inside a submenu (Pen, Highlighter, etc.)
+        // For ALL three, the only collision-free zone is past the
+        // RIGHTMOST visible edge of the current row, vertically centered
+        // on the hovered element. Compute "rightmost edge" dynamically:
+        //   - If the button is inside a submenu → submenu.right
+        //   - Else if the button's sibling submenu is visible → that.right
+        //   - Else → button.right
+        var rightEdge = r.right;
+        var subInside = btn.closest && btn.closest('.tool-submenu');
+        if (subInside) {
+          rightEdge = subInside.getBoundingClientRect().right;
         } else {
-          tooltip.style.left = (r.left + r.width + 8) + 'px';
-          tooltip.style.top = (r.bottom + 4) + 'px';
+          // Main button — check if it owns a submenu that's open
+          var group = btn.closest && btn.closest('.tool-group');
+          if (group) {
+            var ownSub = group.querySelector('.tool-submenu');
+            if (ownSub) {
+              var subRect = ownSub.getBoundingClientRect();
+              // Only consider it visible if it has nonzero width AND extends
+              // beyond the button's right (which means it's popped open).
+              if (subRect.width > 0 && subRect.right > r.right + 4) {
+                rightEdge = subRect.right;
+              }
+            }
+          }
         }
+        // Tooltip height is small (~22 px). Center it on the hovered button.
+        var tipH = 22;
+        tooltip.style.left = (rightEdge + 8) + 'px';
+        tooltip.style.top = (r.top + r.height / 2 - tipH / 2) + 'px';
       }
     });
     sidebar.addEventListener('mouseout', function(e) {
