@@ -387,7 +387,15 @@ function _ensureOverlay() {
   var lh = mc._logicalH || mc.height;
   ov.style.width = lw + 'px';
   ov.style.height = lh + 'px';
-  var ovMax = 3000000;
+  // S125 hotfix 7 — The overlay canvas (used ONLY for live drag preview
+  // during pen / shape / dimension drawing) was capped at 3 MP — an
+  // iPad-era leftover. For a 6144×4096 logical canvas this meant ovScale
+  // ≈ 0.346 → overlay backing buffer 2126×1418, displayed at the full
+  // 6144×4096 CSS size = 3× browser upscale = the visible fuzz Mark saw
+  // ONLY while holding the mouse down. Bumped to 30 MP to match the main
+  // canvas budget; live preview now renders at the same fidelity as
+  // committed strokes.
+  var ovMax = 30000000;
   var ovPx = lw * lh;
   var ovScale = ovPx > ovMax ? Math.sqrt(ovMax / ovPx) : 1;
   ov.width = Math.round(lw * ovScale);
