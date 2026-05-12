@@ -433,20 +433,12 @@
       ctx.font = '600 ' + fontPx + 'px Calibri, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      // S125 hotfix — Label legibility halo.
-      // Original (buggy) version: ctx.lineWidth=3 + lineCap='round' (inherited
-      // from earlier save) drew a thick blurry white aura around every glyph,
-      // visible as soft-edge smear at any zoom past native. New version:
-      //   - lineCap explicitly set to 'butt' so strokes don't fan out
-      //   - lineJoin 'miter' so corners stay crisp
-      //   - lineWidth 1.5 (was 3) — just enough to read against dark bg
-      //   - opacity 0.65 (was 0.85) — lets the burgundy color dominate
-      // miterLimit kept default; glyph stroke joins are not sharp enough to
-      // trigger miter clipping at this width.
-      ctx.lineCap = 'butt';
-      ctx.lineJoin = 'miter';
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+      // White halo for legibility on dark backgrounds. Original 3px at 0.85
+      // alpha. (Previous "thin halo" hotfix was solving the wrong problem —
+      // the actual blur was the markup canvas being downsampled to ~965 px
+      // at zoom-out, fixed in markup.js _resizeMarkupForScale floor.)
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
       ctx.strokeText(label, 0, 0);
       ctx.fillStyle = obj.color || '#9C2742';
       ctx.fillText(label, 0, 0);

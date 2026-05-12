@@ -108,16 +108,13 @@ function _allocateCanvas() {
   // The `isIPhone` / `isIPad` / `isTablet` branches and the `?iosres=N`
   // parser were removed in Push 1 along with the rest of iOS support.
   var isAndroidPhone = /Android/.test(ua) && /Mobile/.test(ua) && !/SM-T|SM-X|Tablet/.test(ua);
-  // S125 #2 — Markup clarity uplift. The 25 MP cap was the iPad memory
-  // budget; Android tablets, Surface, and PCs handle more.
-  //
-  // S125 hotfix — 100 MP was too aggressive: GPU memory pressure combined
-  // with tiledPdf L3/L4 tile loading triggered WebGL CONTEXT_LOST events
-  // (drawing rendered as green smears, blank). Rolled back to 50 MP, which
-  // still gives 2× the resolution headroom over the old 25 MP cap for
-  // zoom-in sharpness while leaving GPU headroom for tile rendering.
-  // See HANDOFF_SESSION_125.md context-loss section.
-  var maxPixels = isAndroidPhone ? 10000000 : 50000000;
+  // S125 hotfix 4 — Budget moved to 30 MP. The previous 50 MP cap was
+  // safe for GPU but the effective<=1.0 clamp on top of it meant the
+  // canvas was still upscaled by the browser at any zoom > 1, producing
+  // visible blur. 30 MP allows budgetScale ≈ 1.095 on a 25 MP drawing,
+  // letting the 2D canvas modestly densify at L4 zoom without blowing
+  // GPU memory when combined with tiledPdf L4 tile decoding.
+  var maxPixels = isAndroidPhone ? 10000000 : 30000000;
 
   var totalPixels = drawW * drawH;
   var mkScale = 1;
@@ -306,30 +303,35 @@ function _resizeMarkupForScale(targetScale) {
   var drawW = mc._logicalW;
   var drawH = mc._logicalH || mc._logicalW;
 
-  // S125 #2 — Markup clarity uplift. Memory budget raised from 25 MP → 50 MP
-  // for tablet/PC (rolled back from a brief 100 MP attempt that caused WebGL
-  // CONTEXT_LOST under combined load with tiledPdf — see hotfix below). Also
-  // lift the effective-scale ceiling above 1.0 so the canvas actually
-  // densifies when the user zooms in past native resolution — previously
-  // capped at 1.0, which is why L3/L4 zoom blurred.
+  // S125 hotfix 4 — Budget moved to 30 MP. The previous 50 MP cap was
+  // GPU-safe but combined with the effective<=1.0 clamp on top of it
+  // meant the canvas was still upscaled at any zoom > 1, producing
+  // visible blur on thin strokes (dimensions, pens, shapes). 30 MP lets
+  // budgetScale reach ~1.095 on a 25 MP drawing — modest densification
+  // at L4 zoom without re-triggering GPU CONTEXT_LOST under tile load.
   var ua = navigator.userAgent;
   var isAndroidPhone = /Android/.test(ua) && /Mobile/.test(ua) && !/SM-T|SM-X|Tablet/.test(ua);
-  var maxPixels = isAndroidPhone ? 10000000 : 50000000;
+  var maxPixels = isAndroidPhone ? 10000000 : 30000000;
   var budgetScale = Math.sqrt(maxPixels / (drawW * drawH));
 
-  // S125 hotfix #2 — RESTORE THE 1.0 CLAMP. The S125 #2 attempt to densify
-  // canvas at zoom > 1 was the root cause of the CONTEXT_LOST events: at
-  // L4 zoom (~1.187) the canvas tried to allocate 35 MP on top of 78 L4
-  // tiles being decoded by tiledPdf, exhausting GPU memory. The original
-  // S113 design (cap at drawing pixels, let browser bilinear-upscale past
-  // 1.0) is the safe behavior. The "blurry markup" complaint from Mark's
-  // earlier session was actually the canvas being capped BELOW 1.0 by the
-  // 25 MP iPad budget — that's now fixed by the higher 50 MP budget,
-  // without needing to push past 1.0.
+  // Effective render scale: capped at budget. No separate <=1.0 clamp;
+  // budgetScale naturally limits this to ~1.095 on a typical 25 MP
+  // drawing.
+  //
+  // S125 hotfix 5 — RAISED FLOOR from 0.08 to 0.4. The real cause of
+  // "markup looks blurry compared to drawing tiles at zoom-out":
+  //   - Tile renderer keeps tile IMAGES at high res, browser does
+  //     bilinear-filter downscale on display = clean.
+  //   - Markup canvas was being RESIZED to 965×643 at fit-zoom (scale
+  //     0.157). Pen strokes that were drawn at 6144×4096 coords got
+  //     rasterized into a tiny 965-pixel canvas — a 3px stroke became
+  //     0.47 actual pixels = anti-aliased to translucent fuzz.
+  // Floor of 0.4 guarantees backing buffer ≥ 4 MP regardless of
+  // zoom-out, so thin strokes always have enough pixels to render
+  // crisply. Memory cost is negligible.
   var effective = targetScale;
-  if (effective > 1) effective = 1;            // never exceed native pixel density
   if (effective > budgetScale) effective = budgetScale;
-  if (effective < 0.08) effective = 0.08;
+  if (effective < 0.4) effective = 0.4;
 
   // No-op: same scale within 1% (filters pan-only events + wheel-zoom jitter)
   if (Math.abs(effective - _lastRenderScale) / effective < 0.01) return;
