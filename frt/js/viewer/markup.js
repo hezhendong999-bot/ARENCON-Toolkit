@@ -109,12 +109,15 @@ function _allocateCanvas() {
   // parser were removed in Push 1 along with the rest of iOS support.
   var isAndroidPhone = /Android/.test(ua) && /Mobile/.test(ua) && !/SM-T|SM-X|Tablet/.test(ua);
   // S125 #2 — Markup clarity uplift. The 25 MP cap was the iPad memory
-  // budget; Android tablets, Surface, and PCs handle 4× that comfortably.
-  // Lifting the cap is the foundation for crisp markup at L3/L4 zoom —
-  // without it the zoom-aware resize below ALWAYS clamped to drawing
-  // pixels (e.g. 6144×4096 = 25 MP exactly), so zoom-in beyond native
-  // bilinear-upscaled = visible blur on every markup tool.
-  var maxPixels = isAndroidPhone ? 10000000 : 100000000;
+  // budget; Android tablets, Surface, and PCs handle more.
+  //
+  // S125 hotfix — 100 MP was too aggressive: GPU memory pressure combined
+  // with tiledPdf L3/L4 tile loading triggered WebGL CONTEXT_LOST events
+  // (drawing rendered as green smears, blank). Rolled back to 50 MP, which
+  // still gives 2× the resolution headroom over the old 25 MP cap for
+  // zoom-in sharpness while leaving GPU headroom for tile rendering.
+  // See HANDOFF_SESSION_125.md context-loss section.
+  var maxPixels = isAndroidPhone ? 10000000 : 50000000;
 
   var totalPixels = drawW * drawH;
   var mkScale = 1;
@@ -166,6 +169,43 @@ function _allocateCanvas() {
         _webglCanvas.id = 'markup-webgl-canvas';
         _webglCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:5;';
         mc.parentNode.insertBefore(_webglCanvas, mc); // before mc = underneath in stacking order
+
+        // S125 hotfix — WebGL CONTEXT_LOST recovery. Without these handlers,
+        // a single context loss event (which the browser may trigger under
+        // GPU memory pressure, tab visibility change, driver hiccup, etc.)
+        // bricks the markup canvas until full page reload. The default
+        // browser behavior is "do nothing"; calling preventDefault on the
+        // lost event signals the runtime to attempt restoration when memory
+        // is available. The restored handler re-runs init so Pixi rebuilds
+        // its textures.
+        _webglCanvas.addEventListener('webglcontextlost', function(e) {
+          console.warn('[Markup] WebGL CONTEXT_LOST — attempting recovery on restore');
+          e.preventDefault();
+          _webglReady = false;
+          _webglInitPromise = null;
+        }, false);
+        _webglCanvas.addEventListener('webglcontextrestored', function() {
+          console.log('[Markup] WebGL CONTEXT_RESTORED — reinitializing Pixi');
+          if (!_useWebGL || !_webglCanvas) return;
+          // Re-init Pixi against the same canvas — current dimensions are
+          // already set on the canvas element from the prior resize call.
+          var cw2 = _webglCanvas.width, ch2 = _webglCanvas.height;
+          var dpr2 = (mc && mc._dpr) || 1;
+          if (window.WebGLMarkupRenderer && !_webglInitPromise) {
+            _webglInitPromise = window.WebGLMarkupRenderer.init(_webglCanvas, { w: cw2, h: ch2, dpr: dpr2 })
+              .then(function() {
+                _webglReady = true;
+                _webglInitPromise = null;
+                console.log('[Markup] WebGL recovered and ready');
+                _renderAll();
+              })
+              .catch(function(err) {
+                console.warn('[Markup] WebGL re-init after restore failed, falling back to Canvas 2D:', err);
+                _useWebGL = false;
+                _webglInitPromise = null;
+              });
+          }
+        }, false);
       }
       _webglCanvas.width  = cw;
       _webglCanvas.height = ch;
@@ -236,13 +276,15 @@ function _resizeMarkupForScale(targetScale) {
   var drawW = mc._logicalW;
   var drawH = mc._logicalH || mc._logicalW;
 
-  // S125 #2 — Markup clarity uplift. Memory budget raised from 25 MP to
-  // 100 MP for tablet/PC. Also lift the effective-scale ceiling above 1.0
-  // so the canvas actually densifies when the user zooms in past native
-  // resolution — previously capped at 1.0, which is why L3/L4 zoom blurred.
+  // S125 #2 — Markup clarity uplift. Memory budget raised from 25 MP → 50 MP
+  // for tablet/PC (rolled back from a brief 100 MP attempt that caused WebGL
+  // CONTEXT_LOST under combined load with tiledPdf — see hotfix below). Also
+  // lift the effective-scale ceiling above 1.0 so the canvas actually
+  // densifies when the user zooms in past native resolution — previously
+  // capped at 1.0, which is why L3/L4 zoom blurred.
   var ua = navigator.userAgent;
   var isAndroidPhone = /Android/.test(ua) && /Mobile/.test(ua) && !/SM-T|SM-X|Tablet/.test(ua);
-  var maxPixels = isAndroidPhone ? 10000000 : 100000000;
+  var maxPixels = isAndroidPhone ? 10000000 : 50000000;
   var budgetScale = Math.sqrt(maxPixels / (drawW * drawH));
 
   // Effective render scale: capped at budget (above) and at a sensible
@@ -708,23 +750,34 @@ function _drawShapeObj(ctx, t, x1, y1, x2, y2) {
     ctx.stroke();
   }
   else if (t === 'line') { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
-  // S124 A1 / S125 #3 — live preview for dimension tool: line + endpoint
-  // dots, drawn 1.5× heavier than the eventual committed line so the
-  // calibration drag stays clearly visible against busy drawings at any
-  // zoom level. Full rendering (arrows, ticks, label) happens after the
-  // user releases and the object is committed via _dimTool.renderObject.
+  // S124 A1 / S125 hotfix — live preview for dimension tool. Originally I
+  // beefed the preview with 1.5× line + filled endpoint dots, but the heavy
+  // dots looked like blur artifacts in screenshots and didn't represent the
+  // committed result. Now the preview delegates to _dimTool.renderObject so
+  // the user sees the EXACT geometry they're about to commit (line + arrows
+  // + ticks + label "?" placeholder when uncalibrated).
   else if (t === 'dimension') {
-    var origLW = ctx.lineWidth;
-    ctx.lineWidth = origLW * 1.5;
-    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-    // Endpoint dots — radius scales with line width so they're visible at any zoom
-    var dotR = Math.max(3, origLW * 1.5);
-    var prevFill = ctx.fillStyle;
-    ctx.fillStyle = ctx.strokeStyle;
-    ctx.beginPath(); ctx.arc(x1, y1, dotR, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x2, y2, dotR, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = prevFill;
-    ctx.lineWidth = origLW;
+    if (window._dimTool && typeof window._dimTool.renderObject === 'function') {
+      // Synthesize a minimal preview object — caller has already set
+      // ctx.strokeStyle/lineWidth/etc from the current tool state.
+      var prevObj = {
+        type: 'dimension',
+        x1: x1, y1: y1, x2: x2, y2: y2,
+        color: ctx.strokeStyle, size: ctx.lineWidth, opacity: ctx.globalAlpha,
+        rawLabel: '\u2026', // ellipsis placeholder until commit
+        overrideLabel: null
+      };
+      ctx.restore();
+      window._dimTool.renderObject(ctx, prevObj);
+      ctx.save();
+      // Restore the stroke/fill/lineWidth that _moveDraw expects
+      ctx.strokeStyle = prevObj.color;
+      ctx.fillStyle = prevObj.color;
+      ctx.lineWidth = prevObj.size;
+      ctx.globalAlpha = prevObj.opacity;
+    } else {
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
   }
   else if (t === 'triangle') {
     ctx.beginPath(); ctx.moveTo(x1 + (x2 - x1) / 2, y1); ctx.lineTo(x2, y2); ctx.lineTo(x1, y2); ctx.closePath(); ctx.stroke();
