@@ -6595,3 +6595,54 @@ body.dark-mode .dim-mode-btn.active {
 }
 
 /* End S126 #6 ─────────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S126 #7 — Text Decoration Toggles + Transparent Edit Chrome
+   ═══════════════════════════════════════════════════════════════════════
+   Mobile context bar gains a third group (#ctx-text-deco-group) with two
+   toggle buttons — Border and Hatch. Both fields default to false on new
+   text objects (transparent text is the S126 design intent). The .active
+   state uses burgundy to match other primary toggles.
+
+   The live text input chrome (.mk-text-input-live) is fully transparent
+   by default; only the .editing variant carries a dashed border + faint
+   inner glow. As soon as the user blurs, the input is removed from DOM
+   entirely so there's no transition between "editing" and "committed
+   on canvas" — the rendered text comes from _drawObjectRaw.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ctx-text-toggle {
+  font-family: Calibri, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 9px !important;
+  margin: 0 2px;
+}
+
+.ctx-text-toggle.active {
+  background: #9C2742 !important;
+  color: #FFFFFF !important;
+  border-color: #9C2742 !important;
+}
+
+body.dark-mode .ctx-text-toggle.active {
+  background: #9C2742 !important;
+  color: #FFFFFF !important;
+}
+
+/* Live text input — transparent baseline. Chrome only while .editing. */
+.mk-text-input-live {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.mk-text-input-live.editing {
+  /* Border + dashed accent applied inline (see markup.js _handleTextPlace /
+     _editTextObject) so each input picks up the user's current color.
+     This rule just enforces the transparent backdrop and adds a subtle
+     inset glow to mark the editing rect against busy drawings. */
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4),
+              0 2px 8px rgba(0, 0, 0, 0.18) !important;
+}
+
+/* End S126 #7 ─────────────────────────────────────────────────────── */

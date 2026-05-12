@@ -58,6 +58,13 @@ var _dimVertexDragHandle = null;
 var _dimCalibrateMode = false;
 var _dimCalibrateP1 = null;
 
+// S126 #7 — Text decoration defaults. New text boxes created via the text
+// tool pick up these flags; existing text boxes are toggled via the
+// context-bar buttons. Both default to false (the S126 design intent is
+// transparent text by default).
+var _textBorderDefault = false;
+var _textHatchDefault = false;
+
 var _tool = null;
 var _color = '#C0392B';
 var _lineWidth = 3;
@@ -927,6 +934,46 @@ function _drawObjectRaw(ctx, obj) {
       ctx.translate(-tcx, -tcy);
     }
     ctx.font = (obj.bold ? '700 ' : '400 ') + (obj.fontSize || 20) + 'px Calibri,sans-serif';
+    // S126 #7 — Optional border + hatch decoration. Both fields default
+    // to false (transparent text is the new default). Computed from the
+    // text's approximate bounding box (anchor x1, y1 is text baseline).
+    var fsTx = obj.fontSize || 20;
+    var estWTx = ctx.measureText(obj.text || '').width;
+    var padTx = 4;
+    var bxLeft = obj.x1 - padTx;
+    var bxTop = obj.y1 - fsTx - padTx + 2;
+    var bxW = estWTx + padTx * 2;
+    var bxH = fsTx + padTx * 2;
+    if (obj.hatch) {
+      // Fine 45° diagonal lines, 1 px stroke, 6 px spacing, 0.4 alpha of
+      // obj.color. Clipped to the text bbox so the hatch stays contained.
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(bxLeft, bxTop, bxW, bxH);
+      ctx.clip();
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.4 * (obj.opacity || 1);
+      ctx.strokeStyle = obj.color || '#C0392B';
+      var hatchSpacing = 6;
+      // Diagonals go from top-right toward bottom-left; cover the bbox
+      // by starting outside it and walking by spacing units.
+      var diag = bxW + bxH;
+      for (var hh = -bxH; hh <= bxW + bxH; hh += hatchSpacing) {
+        ctx.beginPath();
+        ctx.moveTo(bxLeft + hh, bxTop);
+        ctx.lineTo(bxLeft + hh - diag, bxTop + diag);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    if (obj.border) {
+      ctx.save();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = obj.color || '#C0392B';
+      ctx.globalAlpha = obj.opacity || 1;
+      ctx.strokeRect(bxLeft, bxTop, bxW, bxH);
+      ctx.restore();
+    }
     ctx.fillText(obj.text || '', obj.x1, obj.y1);
   }
   else if (t === 'eraser') {
@@ -1939,8 +1986,12 @@ function _handleTextPlace(e) {
   var screenY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 200);
 
   var input = document.createElement('textarea');
-  input.className = 'mk-text-input-live';
-  input.style.cssText = 'position:fixed;z-index:99999;display:block;background:rgba(30,37,51,.9);border:2px solid #2196F3;color:' + _color + ';font-family:Calibri,sans-serif;resize:both;outline:none;padding:6px 8px;min-width:120px;min-height:32px;overflow:hidden;border-radius:4px;box-shadow:0 4px 16px rgba(0,0,0,.5);';
+  input.className = 'mk-text-input-live editing';
+  // S126 #7 — Transparent default. Edit chrome (dashed border + faint
+  // backdrop) is applied via the .editing class so the user only sees it
+  // while focus is in the input; blur strips .editing and committed text
+  // renders bare on the markup canvas.
+  input.style.cssText = 'position:fixed;z-index:99999;display:block;background:transparent;color:' + _color + ';font-family:Calibri,sans-serif;resize:both;outline:none;padding:6px 8px;min-width:120px;min-height:32px;overflow:hidden;border:1px dashed ' + _color + ';border-radius:4px;';
   input.style.fontSize = _fontSize + 'px';
   input.style.left = screenX + 'px';
   input.style.top = screenY + 'px';
@@ -1965,7 +2016,8 @@ function _handleTextPlace(e) {
       _objects.push({
         id: _newId(), type: 'text', text: txt,
         x1: input._mkX, y1: input._mkY,
-        color: _color, fontSize: _fontSize, bold: false, opacity: _opacity
+        color: _color, fontSize: _fontSize, bold: false, opacity: _opacity,
+        border: _textBorderDefault, hatch: _textHatchDefault
       });
       _pushHistory();
       _renderAll();
@@ -2157,6 +2209,7 @@ function _handleSelectDown(e) {
         _selectedIds.push(hit.id);
       }
       _dragState = null;
+      _syncTextDecoButtons();
       _renderAll();
       return;
     }
@@ -2169,12 +2222,14 @@ function _handleSelectDown(e) {
       _selectedIds = [hit.id];
       _dragState = { type: 'move', startX: pos.x, startY: pos.y, moved: false };
     }
+    _syncTextDecoButtons();
     _renderAll();
   } else {
     // Clicked empty space — start rubber-band
     _selectedIds = [];
     _rubberBand = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y };
     _dragState = { type: 'rubberband' };
+    _syncTextDecoButtons();
     _renderAll();
   }
 }
@@ -2201,8 +2256,8 @@ function _editTextObject(obj, e) {
   _updateSizeLabels();
 
   var input = document.createElement('textarea');
-  input.className = 'mk-text-input-live';
-  input.style.cssText = 'position:fixed;z-index:99999;display:block;background:rgba(30,37,51,.9);border:2px solid #2196F3;color:' + _color + ';font-family:Calibri,sans-serif;resize:both;outline:none;padding:6px 8px;min-width:120px;min-height:32px;overflow:hidden;border-radius:4px;box-shadow:0 4px 16px rgba(0,0,0,.5);';
+  input.className = 'mk-text-input-live editing';
+  input.style.cssText = 'position:fixed;z-index:99999;display:block;background:transparent;color:' + _color + ';font-family:Calibri,sans-serif;resize:both;outline:none;padding:6px 8px;min-width:120px;min-height:32px;overflow:hidden;border:1px dashed ' + _color + ';border-radius:4px;';
   input.style.fontSize = _fontSize + 'px';
   input.style.left = screenX + 'px';
   input.style.top = screenY + 'px';
@@ -2395,6 +2450,7 @@ function _handleSelectUp() {
       _selectedIds = hits;
     }
     _rubberBand = null;
+    _syncTextDecoButtons();
     _renderAll();
   }
 
@@ -2550,6 +2606,41 @@ function _updateColorSwatch() {
   if (cd) cd.style.background = _color;
 }
 
+// S126 #7 — Sync the Border + Hatch toggle buttons' visibility and
+// .active classes. Pulls state from the active source:
+//   - Text tool active → show group; reflect _textBorderDefault / _textHatchDefault
+//   - Select tool with selected text obj(s) → show group; reflect any
+//     selected text's border / hatch (mixed selection treats as "off"
+//     so first click flips all to ON)
+//   - Otherwise → hide group, both inactive
+function _syncTextDecoButtons() {
+  var bBtn = document.querySelector('[data-ctx="text-border"]');
+  var hBtn = document.querySelector('[data-ctx="text-hatch"]');
+  var grp = document.getElementById('ctx-text-deco-group');
+  if (!bBtn || !hBtn) return;
+  var visible = false;
+  var bOn = false, hOn = false;
+  if (_tool === 'text') {
+    visible = true;
+    bOn = !!_textBorderDefault;
+    hOn = !!_textHatchDefault;
+  } else if (_tool === 'select' && _selectedIds.length) {
+    var textObjs = [];
+    for (var i = 0; i < _selectedIds.length; i++) {
+      var o = _findObj(_selectedIds[i]);
+      if (o && o.type === 'text') textObjs.push(o);
+    }
+    if (textObjs.length) {
+      visible = true;
+      bOn = textObjs.every(function (o) { return !!o.border; });
+      hOn = textObjs.every(function (o) { return !!o.hatch; });
+    }
+  }
+  if (grp) grp.style.display = visible ? '' : 'none';
+  bBtn.classList.toggle('active', bOn);
+  hBtn.classList.toggle('active', hOn);
+}
+
 function _setActiveTool(tool) {
   if (_tool === 'polyline' && _polyPoints.length >= 2 && tool !== 'polyline') {
     _finishPolyline();
@@ -2626,6 +2717,10 @@ function _setActiveTool(tool) {
   // Show/hide delete group
   var dg = document.getElementById('ctx-delete-group');
   if (dg) dg.style.display = (tool === 'select') ? '' : 'none';
+
+  // S126 #7 — Text deco group visibility + active state. Helper handles
+  // both since they share the same source-of-truth logic.
+  _syncTextDecoButtons();
 
   _updateSizeLabels();
   _updateColorSwatch();
@@ -2989,6 +3084,38 @@ function _wireEvents() {
           _renderAll();
           _markDirty();
         }
+        return;
+      }
+      // S126 #7 — Text decoration toggles. Two sources of truth:
+      //   - Text tool active: toggle the module default for the next new
+      //     text box. No selected objects to mutate.
+      //   - Select tool with text selected: flip the field on every
+      //     selected text obj. Mixed selection (some on, some off) flips
+      //     all to ON so a second click guarantees uniformity.
+      else if (action === 'text-border' || action === 'text-hatch') {
+        var field = (action === 'text-border') ? 'border' : 'hatch';
+        if (_tool === 'text') {
+          if (field === 'border') _textBorderDefault = !_textBorderDefault;
+          else _textHatchDefault = !_textHatchDefault;
+        } else if (_tool === 'select' && _selectedIds.length) {
+          var textTargets = [];
+          for (var ti = 0; ti < _selectedIds.length; ti++) {
+            var to = _findObj(_selectedIds[ti]);
+            if (to && to.type === 'text') textTargets.push(to);
+          }
+          if (textTargets.length) {
+            var allOn = textTargets.every(function (o) { return !!o[field]; });
+            var newVal = !allOn;
+            for (var ti2 = 0; ti2 < textTargets.length; ti2++) {
+              textTargets[ti2][field] = newVal;
+            }
+            _pushHistory();
+            _renderAll();
+            _markDirty();
+          }
+        }
+        _syncTextDecoButtons();
+        e.stopPropagation();
         return;
       }
       _updateSizeLabels();

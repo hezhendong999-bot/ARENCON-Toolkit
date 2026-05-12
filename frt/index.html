@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=295">
+<link rel="stylesheet" href="css/frt.css?v=296">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -590,6 +590,12 @@ function ensurePdfJs(cb){
       <button class="ctx-btn" data-ctx="textsize-down">−</button>
       <span class="ctx-val" id="ctx-text-val">20</span>
       <button class="ctx-btn" data-ctx="textsize-up">+</button>
+    </div>
+    <!-- S126 #7 — Text decoration toggles (border + hatch). Visible only
+         while text tool is active or a text object is selected. -->
+    <div class="ctx-group" id="ctx-text-deco-group" style="display:none;">
+      <button class="ctx-btn ctx-text-toggle" data-ctx="text-border" title="Border around text">▢ Border</button>
+      <button class="ctx-btn ctx-text-toggle" data-ctx="text-hatch" title="Hatch fill behind text">▦ Hatch</button>
     </div>
     <div class="ctx-group" style="border-right:none;">
       <button class="ctx-btn" data-ctx="undo" title="Undo">↩</button>
