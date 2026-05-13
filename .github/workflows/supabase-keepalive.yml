@@ -1,0 +1,41 @@
+name: Supabase Keep-Alive
+
+# Free-tier Supabase auto-pauses projects after 7 consecutive days of zero
+# activity. This workflow pings the public REST API every 6 days, resetting
+# the inactivity counter and keeping the project warm.
+#
+# Uses the anon key (safe for public clients — same one in frontend code).
+# Required repo secrets:
+#   SUPABASE_ANON_KEY — Supabase Project Settings → API Keys → anon public
+
+on:
+  schedule:
+    - cron: '0 8 */6 * *'  # 8am UTC every 6 days
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: https://xsemvinxsyphjiaqgywv.supabase.co
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -e
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::SUPABASE_ANON_KEY repo secret is not set."
+            exit 1
+          fi
+          # A simple SELECT against tool_data with limit=1. Counts as activity.
+          # We don't care about the response body, just that the request succeeded.
+          HTTP=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/tool_data?select=id&limit=1")
+          echo "HTTP response: $HTTP"
+          # 200 = success, 401 = anon key rejected, anything else = problem
+          if [ "$HTTP" != "200" ]; then
+            echo "::error::Unexpected response code $HTTP from Supabase."
+            exit 1
+          fi
+          echo "Keep-alive ping successful at $(date -u +'%Y-%m-%dT%H:%MZ')"
