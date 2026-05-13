@@ -1,0 +1,25 @@
+# Node dependencies (installed by `npm install` for the test suite).
+# The web app itself is static and does NOT depend on these — they're
+# only needed for running the P-9 test infrastructure.
+node_modules/
+
+# Vitest coverage output
+coverage/
+.vitest/
+
+# Editor / OS junk
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local env files (never commit secrets)
+.env
+.env.local
+.env.*.local
+
+# Build / temp
+*.log
+npm-debug.log*

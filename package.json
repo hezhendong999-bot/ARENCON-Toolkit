@@ -1,0 +1,18 @@
+{
+  "name": "arencon-toolkit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ARENCON Fire Protection Toolkit — test scaffolding only. The web app itself is static HTML/JS served by GitHub Pages and does NOT depend on this package.json.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:unit": "vitest run frt/tests/unit",
+    "test:contracts": "vitest run frt/tests/contracts",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.4",
+    "jsdom": "^25.0.1",
+    "fake-indexeddb": "^6.0.0"
+  }
+}
