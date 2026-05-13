@@ -251,22 +251,39 @@ export var R2 = {
     var token = _getToken();
     var json = JSON.stringify(arr);
     var bytes = json.length;
-    return fetch(r2Url, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + (token || '')
-      },
-      body: json
-    }).then(function(resp) {
+    // S127 Push B — 415 hardening. Try application/json first; on 415
+    // (Worker content-type allowlist), retry once with octet-stream so a
+    // narrow Worker policy never silently loses markup state.
+    function doPut(ct) {
+      return fetch(r2Url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': ct,
+          'Authorization': 'Bearer ' + (token || '')
+        },
+        body: json
+      });
+    }
+    return doPut('application/json').then(function(resp) {
       if (resp.ok) {
         console.log('[R2] Markup uploaded:', r2Key, '(' + arr.length + ' objects, ' + Math.round(bytes / 1024) + 'KB)');
         return { r2Key: r2Key, r2Url: r2Url, count: arr.length, bytes: bytes };
       }
-      console.warn('[R2] Markup upload failed:', resp.status, resp.statusText);
+      if (resp.status === 415) {
+        console.warn('[R2] Markup upload 415 on application/json — retrying with octet-stream:', r2Key);
+        return doPut('application/octet-stream').then(function(resp2) {
+          if (resp2.ok) {
+            console.log('[R2] Markup uploaded (octet fallback):', r2Key, '(' + arr.length + ' objects)');
+            return { r2Key: r2Key, r2Url: r2Url, count: arr.length, bytes: bytes };
+          }
+          console.error('[R2] Markup upload FAILED (both content-types):', r2Key, resp2.status, resp2.statusText);
+          return null;
+        });
+      }
+      console.error('[R2] Markup upload FAILED:', r2Key, resp.status, resp.statusText);
       return null;
     }).catch(function(err) {
-      console.warn('[R2] Markup upload error:', err.message);
+      console.error('[R2] Markup upload ERROR:', r2Key, err && err.message);
       return null;
     });
   },
