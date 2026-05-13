@@ -996,17 +996,19 @@ document.addEventListener('touchmove', function(e) {
     _applyTransform();
 
   } else if (e.touches.length === 1 && _scale > _fitScale) {
-    // S126 — Removed single-finger pan per S25 rule: "single-finger drag pans
-    // drawing off screen — should require two-finger pan like maps." Single
-    // touch is reserved for pin placement / markup tools. Two-finger touch
-    // (handled in the branch above) is the only pan/zoom gesture. Original
-    // single-finger pan kept commented for reference in case of regression:
-    //   _panX += e.touches[0].clientX - _singleTouchX;
-    //   _panY += e.touches[0].clientY - _singleTouchY;
-    //   _singleTouchX = e.touches[0].clientX;
-    //   _singleTouchY = e.touches[0].clientY;
-    //   _applyTransform();
-    return;
+    // S127 — Restored single-finger pan after Push 7 regression. Guards below
+    // mirror the touchstart guards (lines 942-946) so pan never fires while a
+    // markup tool or pin-placement mode is active. Edge-clamping is handled
+    // by _applyTransform() → _clampPan().
+    if (Markup.isActive()) return;
+    if (_pinModeDeficId) return;
+    if (Markup.getTool() === 'pin') return;
+    e.preventDefault();
+    _panX += e.touches[0].clientX - _singleTouchX;
+    _panY += e.touches[0].clientY - _singleTouchY;
+    _singleTouchX = e.touches[0].clientX;
+    _singleTouchY = e.touches[0].clientY;
+    _applyTransform();
   }
 }, { passive: false });
 
