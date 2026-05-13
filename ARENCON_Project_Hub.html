@@ -3208,7 +3208,10 @@ function _downloadJSON(data, filename) {
 async function _fetchProjectToolData(projectId) {
   try {
     var rows = await _sb.from('tool_data').eq('project_id', projectId).execute();
-    return (rows && rows.data) ? rows.data : [];
+    // S127 PUSH E — Bug fix: the _sb wrapper's execute() returns rows as a
+    // flat array (see line 2024 for usage pattern), not wrapped in {data:...}.
+    // Previously returned rows.data which was always undefined → empty exports.
+    return Array.isArray(rows) ? rows : [];
   } catch (e) { return []; }
 }
 
