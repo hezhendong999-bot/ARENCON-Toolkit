@@ -22,6 +22,7 @@ import { IDB } from '../data/idb.js';
 import { R2 } from '../data/r2.js';
 import { showConfirm } from '../shared/dialogs.js';
 import { TiledPdf } from './tiledPdf.js';
+import { Diag } from '../diag/memory.js';
 
 // S82 diagnostic removed — bug was CSS pointer-events:none on mobile sidebar
 // parent leaking to open submenus. Fixed in frt.css ~line 2242.
@@ -365,12 +366,17 @@ function _allocateCanvas() {
         // its textures.
         _webglCanvas.addEventListener('webglcontextlost', function(e) {
           console.warn('[Markup] WebGL CONTEXT_LOST — attempting recovery on restore');
+          // S126 Phase D — record for diagnostics. Counter survives the
+          // Markup.destroy() teardown so post-mortem analysis is possible.
+          try { Diag.memory.recordWebglLoss(); } catch(_) {}
           e.preventDefault();
           _webglReady = false;
           _webglInitPromise = null;
         }, false);
         _webglCanvas.addEventListener('webglcontextrestored', function() {
           console.log('[Markup] WebGL CONTEXT_RESTORED — reinitializing Pixi');
+          // S126 Phase D — record for diagnostics
+          try { Diag.memory.recordWebglRestore(); } catch(_) {}
           if (!_useWebGL || !_webglCanvas) return;
           // S125 hotfix — Pixi.js v7.4.2 has a race where re-init immediately
           // after webglcontextrestored throws "Invalid value of `0` passed to

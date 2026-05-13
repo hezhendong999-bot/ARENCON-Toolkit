@@ -58,6 +58,74 @@ var _online = navigator.onLine;
 var _lastSeenUpdatedAt = null;
 var _lastSeenSnapshot = null;
 
+// S126 Phase C — Sync atomicity: empty-array clobber guard.
+//
+// THE PROBLEM:
+//   A cloud row can arrive with `drawings: []`, `photos: []`, `contractors: []`
+//   even when the local model has populated arrays. Causes include:
+//   (a) A concurrent push from another instance that itself had empty arrays
+//       (e.g. brand-new instance for the same project)
+//   (b) A migration / cleanup pass that emptied an array but isn't yet
+//       reconciled with the local model
+//   (c) A merged result that legitimately ended up empty for those arrays
+//       (rare, but possible)
+//   Without a guard, pull() → Model.setProject(cloudData) wipes the local
+//   data even when the user has unsaved drawings/photos/contractors.
+//
+// THE GUARD:
+//   Before handing cloud data to Model.setProject or Model.applyMerged, walk
+//   four sensitive arrays (drawings, photos, contractors, sitePhotos — the
+//   legacy field still seen on pre-S114 projects). For each: if cloud has
+//   an empty array AND local has a non-empty array, splice the local array
+//   back into the incoming cloud data. Counter increments per guard fire so
+//   we can see in field deployment whether this is actually triggering.
+//
+// WHY NOT JUST FIX IT IN merge3:
+//   merge3 already protects against the case where both sides have data —
+//   it walks id-keyed arrays per-item. The clobber window we're closing is
+//   the direct pull path (no merge happens, cloud is taken whole) and the
+//   silent-merge path (where merge3 could legitimately produce an empty
+//   array if the cloud version did and base/local agreed on a delete that
+//   the local hasn't actually performed yet). The guard is defense-in-depth
+//   for cases the merge engine can't distinguish from intentional deletes.
+//
+// DIAGNOSTIC COUNTERS:
+//   Available as window._frt.diagnostics.sync.emptyArrayGuards after Phase D
+//   loads. Pre-Phase D: visible via SyncEngine.diag (defined at module
+//   bottom).
+var _emptyArrayGuardFires = 0;
+var _emptyArrayGuardLog = [];
+var _GUARDED_ARRAY_FIELDS = ['drawings', 'photos', 'contractors', 'sitePhotos'];
+
+function _guardEmptyArrays(cloudData, label) {
+  if (!cloudData || typeof cloudData !== 'object') return cloudData;
+  var localProj = Model.getProject();
+  if (!localProj) return cloudData;
+  var firedAny = false;
+  _GUARDED_ARRAY_FIELDS.forEach(function(field) {
+    var cloudArr = cloudData[field];
+    var localArr = localProj[field];
+    // Cloud has an EMPTY array AND local has a NON-EMPTY array → preserve local
+    if (Array.isArray(cloudArr) && cloudArr.length === 0 &&
+        Array.isArray(localArr) && localArr.length > 0) {
+      cloudData[field] = JSON.parse(JSON.stringify(localArr));
+      _emptyArrayGuardFires++;
+      firedAny = true;
+      var entry = {
+        at: new Date().toISOString(),
+        path: label + '.' + field,
+        rescued: localArr.length
+      };
+      _emptyArrayGuardLog.push(entry);
+      // Cap log at 50 entries to bound memory
+      if (_emptyArrayGuardLog.length > 50) _emptyArrayGuardLog.shift();
+      console.warn('[Sync C-guard] Cloud delivered empty ' + field +
+                   '; preserved local (' + localArr.length + ' items). Path: ' + label);
+    }
+  });
+  return cloudData;
+}
+
 /**
  * S124 A3 — build the IDB key for a given project/instance.
  * Records keyed by `<toolKey>:<projectId>:<instanceId|_default>`.
@@ -214,6 +282,11 @@ export var SyncEngine = {
 
       var data = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
       if (data) {
+        // S126 Phase C — empty-array clobber guard. Inspects cloud arrays
+        // vs local; if cloud is empty AND local has data, splice local back
+        // in before passing to setProject. Prevents cross-device pulls from
+        // wiping unsaved local drawings/photos/contractors.
+        data = _guardEmptyArrays(data, 'pull');
         // S123 P6B — snapshot for 3-way merge. Deep clone so later edits
         // to Model.getProject() don't mutate this reference.
         _lastSeenSnapshot = JSON.parse(JSON.stringify(data));
@@ -440,7 +513,13 @@ export var SyncEngine = {
       if (mergeResult.conflicts.length === 0) {
         // Silent merge — apply + retry push
         console.log('[Sync] Silent merge — no field conflicts. Auto-applying merged state.');
-        Model.applyMerged(mergeResult.merged);
+        // S126 Phase C — guard the merged result the same way as a direct
+        // pull. merge3 already protects per-item but can legitimately
+        // produce an empty array if cloud was empty AND local agrees on
+        // a delete we haven't yet committed; the guard ensures the local
+        // populated state wins in the rare ambiguous case.
+        var guardedMerged = _guardEmptyArrays(mergeResult.merged, 'silentMerge');
+        Model.applyMerged(guardedMerged);
         try { self.onSilentMerge(mergeResult); } catch (e) { console.warn('[Sync] onSilentMerge handler threw:', e); }
         return self.push(projectId, attempt + 1);
       }
@@ -498,7 +577,22 @@ export var SyncEngine = {
   },
 
   get isPending() { return _pendingSync; },
-  get isOnline() { return _online; }
+  get isOnline() { return _online; },
+
+  // S126 Phase C — empty-array clobber guard diagnostics. Counts every fire
+  // since module load; log holds the most recent 50 events. Read via
+  // SyncEngine.diag.emptyArrayGuards (count) and SyncEngine.diag.emptyArrayLog
+  // (recent fires). Phase D wires these into window._frt.diagnostics.sync.
+  get diag() {
+    return {
+      emptyArrayGuards: _emptyArrayGuardFires,
+      emptyArrayLog: _emptyArrayGuardLog.slice(),
+      lastSeenUpdatedAt: _lastSeenUpdatedAt,
+      instanceId: _instanceId,
+      pendingSync: _pendingSync,
+      online: _online
+    };
+  }
 };
 
 // S123 P6B — expose for diagnostic / dev console

@@ -26,6 +26,10 @@ import { initViewer } from './viewer/viewer.js';
 import { Markup } from './viewer/markup.js';
 import { initPDFExport } from './export/pdf.js';
 import { initJSONExport } from './export/json.js';
+// S126 Phase D — memory + sync diagnostics. Pure instrumentation; no
+// behavior change. Boot-time module load registers global window._frtDiag
+// and starts the 60-second probe.
+import { Diag } from './diag/memory.js';
 import { AIAssist } from './ai/assistant.js';
 // ── Side-effect imports ──
 // These modules don't expose anything app.js calls directly, but their
@@ -1781,9 +1785,19 @@ window._frt = {
   Markup: Markup,
   switchTab: switchTab,
   toggleDarkMode: toggleDarkMode,
+  // S126 Phase D — memory + sync diagnostics. Use:
+  //   window._frt.diagnostics.memory.report()  → printable snapshot
+  //   window._frt.diagnostics.memory.canvasMP() → live MP per canvas
+  //   window._frt.diagnostics.sync.emptyArrayGuards → C-guard fire count
+  //   window._frt.diagnostics.sync.emptyArrayLog → recent guard events
+  diagnostics: Diag,
   version: '2.0.0-alpha',
   phase: '1-A'
 };
+
+// S126 Phase D — Start the 60-second memory probe. Single one-line console
+// log per tick when a drawing is open; silent otherwise. Diagnostic only.
+try { Diag.memory.startProbe(60000); } catch(_) {}
 
 // S83: Expose periodic-pull trigger for pull-to-refresh gesture in drawing viewer.
 // Callers receive a Promise that resolves to { checked, remoteNewer, pulled } so
