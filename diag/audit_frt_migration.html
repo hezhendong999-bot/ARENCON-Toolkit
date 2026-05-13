@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARENCON — FRT Migration Audit</title>
+<style>
+  :root {
+    --burgundy: #9C2742;
+    --slate-bg: #F5F2EB;
+    --slate-fg: #2B2722;
+    --muted: #6A5A3A;
+    --taupe: #EDE5D3;
+    --border: #C8C0B0;
+    --ok: #5F8068;
+    --warn: #B07F5A;
+    --err: #A85959;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 24px;
+    font-family: Calibri, sans-serif;
+    background: var(--slate-bg);
+    color: var(--slate-fg);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 {
+    color: var(--burgundy);
+    border-bottom: 2px solid var(--burgundy);
+    padding-bottom: 8px;
+    margin: 0 0 8px;
+  }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+  button {
+    font-family: Calibri, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--burgundy);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    cursor: pointer;
+  }
+  button:hover { background: #7A1E33; }
+  button:disabled { background: #999; cursor: not-allowed; }
+  .panel {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-top: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .help {
+    background: var(--taupe);
+    border-left: 4px solid var(--muted);
+    padding: 14px 18px;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-top: 16px;
+  }
+  .help code {
+    background: #fff;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: Consolas, monospace;
+    font-size: 13px;
+  }
+  .login {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+  }
+  .login input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: Calibri, sans-serif;
+    font-size: 14px;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+  }
+  .small { font-size: 12px; color: var(--muted); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #E8E0D0;
+  }
+  th {
+    background: var(--taupe);
+    font-weight: 700;
+    color: var(--muted);
+  }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.big { font-weight: 700; color: var(--burgundy); }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .stat {
+    background: var(--taupe);
+    border-radius: 6px;
+    padding: 12px 14px;
+  }
+  .stat .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat .val { font-size: 28px; font-weight: 700; color: var(--burgundy); }
+  .stat .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  pre {
+    background: #1B2438;
+    color: #c8ccd4;
+    padding: 14px 18px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    margin-top: 8px;
+    line-height: 1.45;
+  }
+  .progress {
+    height: 8px;
+    background: #E8E0D0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+  .progress-bar {
+    height: 100%;
+    background: var(--burgundy);
+    transition: width 0.2s;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>ARENCON FRT Migration Audit</h1>
+<p class="sub">
+  Read-only inventory of existing <code>tool_data</code> rows with
+  <code>tool_key='frt'</code>. Tells you the scope of work Phase 7-B
+  will move into the normalized tables. No writes.
+</p>
+
+<div class="help">
+  <strong>Use this BEFORE deciding when to schedule Phase 7-B.</strong>
+  Numbers here tell you how long 7-B's data migration will take and
+  whether you need batching, retry handling, or progress UI. If you
+  have 30 small projects, 7-B is trivial. If you have 200 projects with
+  10,000 photos total, 7-B needs more care.
+</div>
+
+<div class="login" id="login">
+  <strong>Sign in to Supabase</strong>
+  <p class="small" style="margin:6px 0 12px;">
+    Uses existing <code>sb-access-token</code> from localStorage if
+    present. Audit reads only your own accessible projects (RLS-scoped).
+  </p>
+  <div id="loginForm">
+    <input type="email" id="email" placeholder="email@arencon.com">
+    <input type="password" id="password" placeholder="password">
+    <button onclick="doLogin()">Sign in</button>
+  </div>
+  <div id="loggedIn" style="display:none;">
+    <span class="small">Signed in. Token valid.</span>
+    <button onclick="runAudit()" id="runBtn">Run Audit</button>
+    <button onclick="signOut()" style="background:#888;margin-left:8px;">Sign out</button>
+  </div>
+</div>
+
+<div id="results"></div>
+
+</div>
+
+<script>
+var SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+
+function getToken() { return localStorage.getItem('sb-access-token'); }
+function setToken(t) { localStorage.setItem('sb-access-token', t); }
+function clearToken() { localStorage.removeItem('sb-access-token'); localStorage.removeItem('sb-refresh-token'); }
+
+function _authHeaders() {
+  var t = getToken();
+  return {
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': 'Bearer ' + (t || SUPABASE_ANON_KEY),
+    'Content-Type': 'application/json'
+  };
+}
+
+function doLogin() {
+  var email = document.getElementById('email').value.trim();
+  var pw = document.getElementById('password').value;
+  if (!email || !pw) { alert('Email + password required.'); return; }
+  fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, password: pw })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.access_token) {
+      setToken(d.access_token);
+      if (d.refresh_token) localStorage.setItem('sb-refresh-token', d.refresh_token);
+      showLoggedIn();
+    } else {
+      alert('Login failed: ' + (d.error_description || d.msg || 'unknown'));
+    }
+  }).catch(function(e) { alert('Login error: ' + e.message); });
+}
+
+function signOut() {
+  clearToken();
+  document.getElementById('loginForm').style.display = '';
+  document.getElementById('loggedIn').style.display = 'none';
+  document.getElementById('results').innerHTML = '';
+}
+
+function showLoggedIn() {
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('loggedIn').style.display = '';
+}
+
+window.addEventListener('DOMContentLoaded', function() {
+  if (getToken()) showLoggedIn();
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+// Audit
+// ═════════════════════════════════════════════════════════════════════════
+
+function runAudit() {
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('results').innerHTML =
+    '<div class="panel"><strong>Loading FRT rows…</strong>' +
+    '<div class="progress"><div class="progress-bar" id="prog" style="width:0%"></div></div>' +
+    '<div id="status" class="small"></div></div>';
+
+  // Pull all FRT rows accessible to this user
+  var url = SUPABASE_URL + "/rest/v1/tool_data?tool_key=eq.frt&select=id,project_id,instance_number,status,label,updated_at,data";
+  fetch(url, { headers: _authHeaders() })
+    .then(function(r) {
+      if (!r.ok) {
+        return r.json().then(function(e) { throw new Error('HTTP ' + r.status + ': ' + (e.message || e.msg || 'unknown')); });
+      }
+      return r.json();
+    })
+    .then(function(rows) {
+      document.getElementById('prog').style.width = '50%';
+      document.getElementById('status').textContent = 'Loaded ' + rows.length + ' rows. Analyzing…';
+      setTimeout(function() {
+        var report = analyze(rows);
+        renderReport(report);
+        document.getElementById('runBtn').disabled = false;
+      }, 100);
+    })
+    .catch(function(e) {
+      document.getElementById('results').innerHTML =
+        '<div class="panel" style="border-left:4px solid var(--err);"><strong>Audit failed:</strong> ' +
+        (e.message || e) + '</div>';
+      document.getElementById('runBtn').disabled = false;
+    });
+}
+
+function analyze(rows) {
+  var totals = {
+    rows: rows.length,
+    projects: new Set(),
+    drawings: 0,
+    photos: 0,
+    sitePhotos: 0,
+    deficPhotos: 0,
+    contractors: 0,
+    deficiencies: 0,
+    observations: 0,
+    activityEntries: 0,
+    bytes: 0,
+    markupInlineCount: 0,    // drawings still carrying markupObjects inline (pre-Phase B)
+    markupR2Count: 0,         // drawings with markupR2 reference (post-Phase B)
+    statusCounts: {}
+  };
+  var perRow = [];
+  rows.forEach(function(row) {
+    totals.projects.add(row.project_id);
+    var d = row.data;
+    if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { d = {}; } }
+    if (!d) d = {};
+    var dwCount = (d.drawings || []).length;
+    var phCount = (d.photos || []).length;
+    var ctCount = (d.contractors || []).length;
+    var deCount = 0;
+    var obsCount = 0;
+    var deficPh = 0;
+    (d.contractors || []).forEach(function(c) {
+      (c.deficiencies || []).forEach(function(de) {
+        deCount++;
+        (de.photos || []).forEach(function() { deficPh++; });
+        (de.observations || []).forEach(function(o) {
+          obsCount++;
+          (o.photos || []).forEach(function() { deficPh++; });
+        });
+      });
+    });
+    (d.generalDeficiencies || []).forEach(function(de) {
+      deCount++;
+      (de.observations || []).forEach(function(o) {
+        obsCount++;
+        (o.photos || []).forEach(function() { deficPh++; });
+      });
+      (de.photos || []).forEach(function() { deficPh++; });
+    });
+    var sitePh = phCount;  // site photos = top-level .photos[]
+    var actCount = (d.activityLog || []).length;
+    var bytes = JSON.stringify(d).length;
+    var markupInline = 0, markupR2 = 0;
+    (d.drawings || []).forEach(function(dw) {
+      if (dw.markupObjects && dw.markupObjects.length) markupInline++;
+      if (dw.markupR2 && dw.markupR2.r2Url) markupR2++;
+    });
+
+    totals.drawings += dwCount;
+    totals.photos += sitePh + deficPh;
+    totals.sitePhotos += sitePh;
+    totals.deficPhotos += deficPh;
+    totals.contractors += ctCount;
+    totals.deficiencies += deCount;
+    totals.observations += obsCount;
+    totals.activityEntries += actCount;
+    totals.bytes += bytes;
+    totals.markupInlineCount += markupInline;
+    totals.markupR2Count += markupR2;
+    totals.statusCounts[row.status || 'unknown'] = (totals.statusCounts[row.status || 'unknown'] || 0) + 1;
+
+    perRow.push({
+      rowId: row.id,
+      projectId: row.project_id,
+      instance: row.instance_number,
+      status: row.status || 'unknown',
+      label: row.label || ((d.projectName || d.projectInfo && d.projectInfo.projectName) || '(no name)'),
+      projectNumber: d.projectNumber || (d.projectInfo && d.projectInfo.projectNumber) || '',
+      drawings: dwCount,
+      photos: sitePh + deficPh,
+      contractors: ctCount,
+      deficiencies: deCount,
+      bytes: bytes,
+      markupInline: markupInline,
+      markupR2: markupR2,
+      updatedAt: row.updated_at
+    });
+  });
+  totals.projects = totals.projects.size;
+  totals.bytesAvg = totals.rows ? Math.round(totals.bytes / totals.rows) : 0;
+  // Sort perRow by bytes desc for "biggest projects"
+  perRow.sort(function(a, b) { return b.bytes - a.bytes; });
+  return { totals: totals, perRow: perRow };
+}
+
+function fmtBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+function renderReport(report) {
+  var t = report.totals;
+  var html = '<div class="panel">';
+  html += '<h2 style="margin:0 0 4px;color:var(--burgundy);">Audit Report</h2>';
+  html += '<div class="small">Generated ' + new Date().toLocaleString() + '</div>';
+
+  // Top-level stats
+  html += '<div class="stat-grid">';
+  html += statBox('FRT Rows',     t.rows,         t.projects + ' distinct projects');
+  html += statBox('Drawings',     t.drawings,     '');
+  html += statBox('Photos',       t.photos,       t.sitePhotos + ' site / ' + t.deficPhotos + ' defic');
+  html += statBox('Contractors',  t.contractors,  '');
+  html += statBox('Deficiencies', t.deficiencies, t.observations + ' observations');
+  html += statBox('Activity Log', t.activityEntries, 'all rows');
+  html += statBox('Total Bytes',  fmtBytes(t.bytes), 'avg ' + fmtBytes(t.bytesAvg) + '/row');
+  html += statBox('Markup Inline', t.markupInlineCount, 'drawings (pre-Phase B)');
+  html += statBox('Markup R2',     t.markupR2Count,     'drawings (post-Phase B)');
+  html += '</div>';
+
+  // Status breakdown
+  if (Object.keys(t.statusCounts).length) {
+    html += '<h3 style="margin:20px 0 6px;color:var(--muted);font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">Status Breakdown</h3>';
+    html += '<table><thead><tr><th>Status</th><th>Rows</th></tr></thead><tbody>';
+    Object.keys(t.statusCounts).sort().forEach(function(s) {
+      html += '<tr><td>' + s + '</td><td class="num">' + t.statusCounts[s] + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  // Top 10 biggest rows
+  html += '<h3 style="margin:24px 0 6px;color:var(--muted);font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">Top 10 Biggest Rows</h3>';
+  html += '<table><thead><tr>' +
+          '<th>Project #</th><th>Name</th><th>Inst</th><th>Status</th>' +
+          '<th class="num">Drawings</th><th class="num">Photos</th>' +
+          '<th class="num">Defics</th><th class="num">Bytes</th>' +
+          '<th class="num">Mkup Inline</th><th class="num">Mkup R2</th>' +
+          '</tr></thead><tbody>';
+  report.perRow.slice(0, 10).forEach(function(r) {
+    html += '<tr>' +
+            '<td>' + escapeHtml(r.projectNumber) + '</td>' +
+            '<td>' + escapeHtml(r.label) + '</td>' +
+            '<td class="num">' + r.instance + '</td>' +
+            '<td>' + r.status + '</td>' +
+            '<td class="num">' + r.drawings + '</td>' +
+            '<td class="num">' + r.photos + '</td>' +
+            '<td class="num">' + r.deficiencies + '</td>' +
+            '<td class="num big">' + fmtBytes(r.bytes) + '</td>' +
+            '<td class="num">' + r.markupInline + '</td>' +
+            '<td class="num">' + r.markupR2 + '</td>' +
+            '</tr>';
+  });
+  html += '</tbody></table>';
+
+  // Migration-readiness assessment
+  var assessment = assess(t);
+  html += '<h3 style="margin:24px 0 6px;color:var(--muted);font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">Phase 7-B Readiness Assessment</h3>';
+  html += '<pre>' + assessment + '</pre>';
+
+  html += '</div>';
+  document.getElementById('results').innerHTML = html;
+}
+
+function statBox(lbl, val, sub) {
+  return '<div class="stat"><div class="lbl">' + lbl + '</div>' +
+         '<div class="val">' + val + '</div>' +
+         (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div>';
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  });
+}
+
+function assess(t) {
+  var lines = [];
+  lines.push('Phase 7-B migration will create:');
+  lines.push('  • ' + t.rows + ' frt_projects rows');
+  lines.push('  • ' + t.drawings + ' frt_drawings rows');
+  lines.push('  • ' + t.photos + ' frt_photos rows');
+  lines.push('  • ' + t.contractors + ' frt_contractors rows');
+  lines.push('');
+  lines.push('Estimated runtime (at ~50 row-inserts/sec via PostgREST):');
+  var totalInserts = t.rows + t.drawings + t.photos + t.contractors + t.deficiencies;
+  var seconds = Math.ceil(totalInserts / 50);
+  lines.push('  • ' + totalInserts + ' total inserts → ~' + (seconds < 60 ? seconds + 's' : Math.ceil(seconds / 60) + ' min'));
+  lines.push('');
+  lines.push('Complexity classification:');
+  if (totalInserts < 500) {
+    lines.push('  TRIVIAL — single-pass migration with no batching needed.');
+  } else if (totalInserts < 5000) {
+    lines.push('  STANDARD — recommend batching (100 inserts/batch) with retry.');
+  } else {
+    lines.push('  LARGE — needs streaming migration with progress UI, retry, and');
+    lines.push('  resumability. Schedule as a dedicated session.');
+  }
+  lines.push('');
+  if (t.markupInlineCount > 0) {
+    lines.push('Markup migration concurrency:');
+    lines.push('  ' + t.markupInlineCount + ' drawings still carry inline markupObjects.');
+    lines.push('  These migrate to R2 via S126 Phase B lazy-load OR can be');
+    lines.push('  bulk-migrated as part of 7-B.');
+  } else {
+    lines.push('Markup state: all ' + t.markupR2Count + ' migrated to R2 (Phase B clean).');
+  }
+  return lines.join('\n');
+}
+</script>
+</body>
+</html>
