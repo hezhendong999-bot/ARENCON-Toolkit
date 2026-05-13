@@ -242,50 +242,136 @@ export var R2 = {
    * existing photo per-file convention and keeps the worst-case clobber window
    * to a single drawing's edit batch.
    */
+  /**
+   * S129 Item 2 (tight scope) — Union two markup-object arrays by `id`.
+   *
+   * CRDT-lite pattern: every stroke already has a unique `id` (mk_<base36>_<rand>
+   * — see markup.js _newId()), so concurrent additions on different drawings
+   * (or even the same drawing) merge cleanly without conflict.
+   *
+   * On id collision (same id in both arrays) local wins — the local copy is
+   * "fresher" because the user is actively editing.
+   *
+   * Order: cloud objects first (in cloud order), then local-only objects appended.
+   * This preserves cloud-side z-order for the other inspector's strokes while
+   * placing the current user's new strokes on top.
+   *
+   * KNOWN LIMITATION (tight scope, deferred): erase-while-concurrent. If
+   * Inspector A erases stroke S1 locally while Inspector B has S1, B's next
+   * save will resurrect S1 via this union. Fix is the medium-scope follow-up
+   * (deletedIds tombstones). See HANDOFF_SESSION_128.md S129 queue.
+   *
+   * Exported for unit testing.
+   */
+  _mergeMarkupObjects: function(cloudArr, localArr) {
+    var cloud = Array.isArray(cloudArr) ? cloudArr : [];
+    var local = Array.isArray(localArr) ? localArr : [];
+    var localById = {};
+    for (var i = 0; i < local.length; i++) {
+      if (local[i] && local[i].id) localById[local[i].id] = local[i];
+    }
+    var seen = {};
+    var result = [];
+    // 1) Walk cloud — for each cloud object, prefer local version if same id
+    //    exists (local wins on conflict); otherwise keep cloud version.
+    for (var j = 0; j < cloud.length; j++) {
+      var c = cloud[j];
+      if (!c || !c.id) continue;
+      if (seen[c.id]) continue;
+      seen[c.id] = true;
+      result.push(localById[c.id] || c);
+    }
+    // 2) Append local-only objects (id not present in cloud) in local order.
+    for (var k = 0; k < local.length; k++) {
+      var l = local[k];
+      if (!l || !l.id) continue;
+      if (seen[l.id]) continue;
+      seen[l.id] = true;
+      result.push(l);
+    }
+    return result;
+  },
+
+  /**
+   * S126 Phase B — Per-drawing markup binary on R2.
+   * S129 Item 2 (tight scope) — Read-merge-write semantics: GET current cloud
+   * state, union with local objects by id, PUT the merged result. Fixes
+   * the two-inspector concurrent-draw clobber bug where last-write wiped the
+   * first inspector's strokes.
+   */
   uploadMarkup: function(projectId, drawingId, objects) {
     if (!projectId || !drawingId) return Promise.resolve(null);
-    var arr = Array.isArray(objects) ? objects : [];
+    var self = this;
+    var localArr = Array.isArray(objects) ? objects : [];
     var filename = drawingId + '.json';
     var r2Key = 'photos/' + projectId + '/frt/markup/' + filename;
     var r2Url = R2_WORKER + '/' + r2Key;
     var token = _getToken();
-    var json = JSON.stringify(arr);
-    var bytes = json.length;
-    // S127 Push B — 415 hardening. Try application/json first; on 415
-    // (Worker content-type allowlist), retry once with octet-stream so a
-    // narrow Worker policy never silently loses markup state.
-    function doPut(ct) {
-      return fetch(r2Url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': ct,
-          'Authorization': 'Bearer ' + (token || '')
-        },
-        body: json
+
+    // S129 Item 2 — read current cloud state before writing so we can merge.
+    // If the cloud GET fails (network, 404 = no existing markup), we fall
+    // back to writing local-only (legacy behavior). Race window between
+    // GET and PUT remains: a concurrent write between our GET and PUT can
+    // still be lost. Mitigation (deferred): If-Match conditional PUT requires
+    // R2 Worker support. See HANDOFF_SESSION_128.md S129 known limitations.
+    function fetchCloudThenWrite() {
+      return fetch(r2Url).then(function(resp) {
+        if (resp.status === 404) return null;      // no existing markup
+        if (!resp.ok) return null;                  // treat other failures as "no merge"
+        return resp.json().catch(function() { return null; });
+      }).catch(function() { return null; }).then(function(cloudArr) {
+        // cloudArr is Array<MarkupObject> | null. Null = treat as empty.
+        var merged = self._mergeMarkupObjects(cloudArr, localArr);
+        var addedFromCloud = merged.length - localArr.length;
+        if (addedFromCloud > 0) {
+          console.log('[R2] Markup merge: ' + addedFromCloud + ' cloud object(s) preserved, ' +
+                      localArr.length + ' local object(s) — uploading ' + merged.length + ' total');
+        }
+        return doWrite(merged);
       });
     }
-    return doPut('application/json').then(function(resp) {
-      if (resp.ok) {
-        console.log('[R2] Markup uploaded:', r2Key, '(' + arr.length + ' objects, ' + Math.round(bytes / 1024) + 'KB)');
-        return { r2Key: r2Key, r2Url: r2Url, count: arr.length, bytes: bytes };
-      }
-      if (resp.status === 415) {
-        console.warn('[R2] Markup upload 415 on application/json — retrying with octet-stream:', r2Key);
-        return doPut('application/octet-stream').then(function(resp2) {
-          if (resp2.ok) {
-            console.log('[R2] Markup uploaded (octet fallback):', r2Key, '(' + arr.length + ' objects)');
-            return { r2Key: r2Key, r2Url: r2Url, count: arr.length, bytes: bytes };
-          }
-          console.error('[R2] Markup upload FAILED (both content-types):', r2Key, resp2.status, resp2.statusText);
-          return null;
+
+    function doWrite(arr) {
+      var json = JSON.stringify(arr);
+      var bytes = json.length;
+      // S127 Push B — 415 hardening. Try application/json first; on 415
+      // (Worker content-type allowlist), retry once with octet-stream so a
+      // narrow Worker policy never silently loses markup state.
+      function doPut(ct) {
+        return fetch(r2Url, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': ct,
+            'Authorization': 'Bearer ' + (token || '')
+          },
+          body: json
         });
       }
-      console.error('[R2] Markup upload FAILED:', r2Key, resp.status, resp.statusText);
-      return null;
-    }).catch(function(err) {
-      console.error('[R2] Markup upload ERROR:', r2Key, err && err.message);
-      return null;
-    });
+      return doPut('application/json').then(function(resp) {
+        if (resp.ok) {
+          console.log('[R2] Markup uploaded:', r2Key, '(' + arr.length + ' objects, ' + Math.round(bytes / 1024) + 'KB)');
+          return { r2Key: r2Key, r2Url: r2Url, count: arr.length, bytes: bytes };
+        }
+        if (resp.status === 415) {
+          console.warn('[R2] Markup upload 415 on application/json — retrying with octet-stream:', r2Key);
+          return doPut('application/octet-stream').then(function(resp2) {
+            if (resp2.ok) {
+              console.log('[R2] Markup uploaded (octet fallback):', r2Key, '(' + arr.length + ' objects)');
+              return { r2Key: r2Key, r2Url: r2Url, count: arr.length, bytes: bytes };
+            }
+            console.error('[R2] Markup upload FAILED (both content-types):', r2Key, resp2.status, resp2.statusText);
+            return null;
+          });
+        }
+        console.error('[R2] Markup upload FAILED:', r2Key, resp.status, resp.statusText);
+        return null;
+      }).catch(function(err) {
+        console.error('[R2] Markup upload ERROR:', r2Key, err && err.message);
+        return null;
+      });
+    }
+
+    return fetchCloudThenWrite();
   },
 
   /**
