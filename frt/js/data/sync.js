@@ -32,6 +32,7 @@ import { Auth } from '../shared/auth.js';
 import { Model } from './model.js';
 import { IDB } from './idb.js';
 import { merge3 } from './merge.js';
+import { SyncWorkerHost } from './syncWorkerHost.js';
 
 var SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
 // S125 #1 — The anon key was rotated in early March 2026 but the copy here
@@ -381,66 +382,49 @@ export var SyncEngine = {
     // S126 Phase B fixes both: the strip is back AND strokes persist
     // because the per-drawing markup binary is the durable store, not the
     // tool_data row.
-    var data = JSON.parse(JSON.stringify(proj));
-    (data.drawings || []).forEach(function(d) {
-      delete d.dataUrl; delete d.dataBlob; delete d.thumb; delete d._hasLocalBlob;
-      delete d.markupObjects; delete d.markupData;
-    });
-    (data.photos || []).forEach(function(p) { delete p.dataUrl; delete p.dataBlob; });
-    if (data.signatures) {
-      delete data.signatures.sigInspectorData;
-      delete data.signatures.sigWitnessData;
-    }
-    (data.contractors || []).forEach(function(c) {
-      (c.deficiencies || []).forEach(function(d) {
-        (d.observations || []).forEach(function(o) {
-          (o.photos || []).forEach(function(p) { delete p.dataUrl; delete p.dataBlob; });
-        });
-        (d.photos || []).forEach(function(p) { delete p.dataUrl; delete p.dataBlob; });
-      });
-    });
-    (data.generalDeficiencies || []).forEach(function(d) {
-      (d.observations || []).forEach(function(o) {
-        (o.photos || []).forEach(function(p) { delete p.dataUrl; delete p.dataBlob; });
-      });
-      (d.photos || []).forEach(function(p) { delete p.dataUrl; delete p.dataBlob; });
-    });
+    // S128 P-6 — moved the deep-clone + strip-binaries block into the
+    // sync worker (background thread). serializePush() returns the
+    // stripped data; falls back to inline on the main thread if Worker
+    // is unavailable. The whole push() flow is now anchored on this
+    // initial Promise rather than a sync prelude.
+    return SyncWorkerHost.serializePush(proj).then(function(serialized) {
+      var data = serialized.strippedData;
 
-    var user = Auth.getUser();
-    var payload = {
-      project_id: projectId,
-      tool_key: _toolKey,
-      instance_number: _instanceNumber,
-      data: data,
-      updated_by: user ? user.id : null,
-      updated_at: new Date().toISOString()
-    };
+      var user = Auth.getUser();
+      var payload = {
+        project_id: projectId,
+        tool_key: _toolKey,
+        instance_number: _instanceNumber,
+        data: data,
+        updated_by: user ? user.id : null,
+        updated_at: new Date().toISOString()
+      };
 
-    var method, path;
-    var customHeaders = { 'Prefer': 'return=representation' };
+      var method, path;
+      var customHeaders = { 'Prefer': 'return=representation' };
 
-    if (_instanceId) {
-      method = 'PATCH';
-      path = '/rest/v1/tool_data?id=eq.' + _instanceId;
-      // S123 P6B — only send If-Match on PATCH (POST is initial create)
-      // and only if we have a tracked updated_at (defensive: a hot reload
-      // after a manual cloud edit could leave us with no snapshot).
-      if (_lastSeenUpdatedAt) {
-        customHeaders['If-Match'] = '"' + _lastSeenUpdatedAt + '"';
+      if (_instanceId) {
+        method = 'PATCH';
+        path = '/rest/v1/tool_data?id=eq.' + _instanceId;
+        // S123 P6B — only send If-Match on PATCH (POST is initial create)
+        // and only if we have a tracked updated_at (defensive: a hot reload
+        // after a manual cloud edit could leave us with no snapshot).
+        if (_lastSeenUpdatedAt) {
+          customHeaders['If-Match'] = '"' + _lastSeenUpdatedAt + '"';
+        }
+      } else {
+        method = 'POST';
+        path = '/rest/v1/tool_data';
+        payload.created_by = user ? user.id : null;
+        payload.status = 'draft';
+        payload = [payload];
       }
-    } else {
-      method = 'POST';
-      path = '/rest/v1/tool_data';
-      payload.created_by = user ? user.id : null;
-      payload.status = 'draft';
-      payload = [payload];
-    }
 
-    return _rawFetch(path, {
-      method: method,
-      body: payload,
-      headers: customHeaders
-    }).then(function(res) {
+      return _rawFetch(path, {
+        method: method,
+        body: payload,
+        headers: customHeaders
+      }).then(function(res) {
       // S123 P6B — 412 Precondition Failed = optimistic-concurrency conflict
       if (res.status === 412) {
         console.warn('[Sync] 412 conflict on push — running 3-way merge (attempt ' + (_attempt + 1) + '/3)');
@@ -473,6 +457,7 @@ export var SyncEngine = {
       _pendingSync = true;
       return null;
     });
+    }); // close SyncWorkerHost.serializePush().then
   },
 
   /**
@@ -493,14 +478,11 @@ export var SyncEngine = {
       var cloudData = typeof cloudRow.data === 'string' ? JSON.parse(cloudRow.data) : cloudRow.data;
       var cloudUpdatedAt = cloudRow.updated_at;
 
-      // Run 3-way merge: base = _lastSeenSnapshot, mine = localProj, theirs = cloudData
-      var mergeResult;
-      try {
-        mergeResult = merge3(_lastSeenSnapshot, localProj, cloudData);
-      } catch (e) {
-        console.error('[Sync] merge3 threw — abandoning push:', e);
-        return null;
-      }
+      // S128 P-6 — merge3 runs in the sync worker (background thread).
+      // Falls back to inline on the main thread if Worker is unavailable.
+      // The catch below preserves the legacy "merge3 threw → abandon push"
+      // contract.
+      return SyncWorkerHost.merge3Worker(_lastSeenSnapshot, localProj, cloudData).then(function(mergeResult) {
 
       // Update the "last seen" to the new cloud state regardless — the
       // next push uses this as the precondition.
@@ -536,6 +518,12 @@ export var SyncEngine = {
         // returns the final merged state. Apply + retry.
         Model.applyMerged(resolution.merged);
         return self.push(projectId, attempt + 1);
+      });
+
+      }).catch(function(mergeErr) {
+        // Legacy contract: any merge3 failure → abandon push.
+        console.error('[Sync] merge3 threw — abandoning push:', mergeErr);
+        return null;
       });
     }).catch(function(err) {
       console.warn('[Sync] _handleConflict failed:', err.message);
