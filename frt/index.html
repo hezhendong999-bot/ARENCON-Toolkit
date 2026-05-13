@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=296">
+<link rel="stylesheet" href="css/frt.css?v=297">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -347,7 +347,7 @@ function ensurePdfJs(cb){
     <!-- Storage at the very bottom -->
     <div id="mobile-storage-info" style="padding:4px 10px;font-size:11px;color:var(--silver);font-family:Calibri,sans-serif;">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span>💾</span><span id="mobile-storage-text">Calculating...</span></div>
-      <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="mobile-storage-bar" style="height:100%;background:#1A7A4A;width:0%;border-radius:2px;transition:width .3s;"></div></div>
+      <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="mobile-storage-bar" style="height:100%;background:#5F8068;width:0%;border-radius:2px;transition:width .3s;"></div></div>
     </div>
   </div>
 </div>
@@ -514,12 +514,12 @@ function ensurePdfJs(cb){
               <div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;">Select multiple at once</div>
               <div style="margin-top:8px;display:flex;gap:8px;justify-content:center;">
                 <button class="btn btn-outline btn-sm" id="site-photo-upload-btn">📥 Import from Camera Roll</button>
-                <button class="pz-camera" id="site-photo-camera-btn" style="border:none;background:#1A7A4A;color:white;padding:6px 14px;border-radius:6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">📷 Camera</button>
+                <button class="pz-camera" id="site-photo-camera-btn" style="border:none;background:#5F8068;color:white;padding:6px 14px;border-radius:6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">📷 Camera</button>
               </div>
             </div>
           </div>
           <input type="file" id="site-photo-input" accept="image/*" multiple style="display:none">
-          <input type="file" id="site-photo-camera" accept="image/*" capture="environment" style="display:none">
+          <input type="file" id="site-photo-camera" accept="image/*" multiple capture="environment" style="display:none">
           <div id="photos-container"></div>
         </div>
       </div>
@@ -548,7 +548,7 @@ function ensurePdfJs(cb){
       <div id="dv-layers-menu" class="dv-more-menu" style="display:none;min-width:180px;padding:10px 14px;">
         <div style="font-size:calc(11px + var(--ts));color:var(--steel);font-weight:700;margin-bottom:8px;">SHOW</div>
         <label class="dv-layer-row"><input type="checkbox" id="layer-all" checked> All layers</label>
-        <label class="dv-layer-row"><input type="checkbox" id="layer-tasks" checked> <span style="color:#C0392B;">📌</span> Tasks</label>
+        <label class="dv-layer-row"><input type="checkbox" id="layer-tasks" checked> <span style="color:#A85959;">📌</span> Tasks</label>
         <label class="dv-layer-row"><input type="checkbox" id="layer-markups" checked> <span style="color:#2196F3;">✏️</span> Markups</label>
       </div>
     </div>
@@ -571,7 +571,7 @@ function ensurePdfJs(cb){
   <!-- MOBILE CONTEXT BAR -->
   <div id="dv-mobile-context" class="dv-mobile-context">
     <div class="ctx-group" id="ctx-color-group">
-      <div class="ctx-color-swatch" id="ctx-color-dot" style="background:#C0392B;"></div>
+      <div class="ctx-color-swatch" id="ctx-color-dot" style="background:#A85959;"></div>
     </div>
     <div class="ctx-group" id="ctx-size-group">
       <span class="ctx-label">W</span>
@@ -657,11 +657,11 @@ function ensurePdfJs(cb){
       <div class="tool-sep"></div>
       <div class="tool-group" id="tool-color-group">
         <button class="tool-btn tool-group-btn" id="mk-color-btn" data-tip="Color" style="padding:0;">
-          <div id="mk-color-swatch" style="width:20px;height:20px;border-radius:50%;background:#C0392B;border:2px solid #fff;"></div>
+          <div id="mk-color-swatch" style="width:20px;height:20px;border-radius:50%;background:#A85959;border:2px solid #fff;"></div>
         </button>
         <div class="tool-submenu color-submenu" id="color-submenu">
           <div class="color-row">
-            <div class="dv-color-dot" data-mk-color="#C0392B" style="background:#C0392B;" title="Red"></div>
+            <div class="dv-color-dot" data-mk-color="#A85959" style="background:#A85959;" title="Red"></div>
             <div class="dv-color-dot" data-mk-color="#E74C3C" style="background:#E74C3C;" title="Bright Red"></div>
             <div class="dv-color-dot" data-mk-color="#FF9800" style="background:#FF9800;" title="Orange"></div>
             <div class="dv-color-dot" data-mk-color="#F1C40F" style="background:#F1C40F;" title="Yellow"></div>

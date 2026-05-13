@@ -148,7 +148,7 @@ function _buildMarkupBar(overlay){
   var bRd =tb('mk-redo','\u21B7','Redo (Ctrl+Y)');
   var sep1=document.createElement('div'); sep1.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
   // Color swatches
-  var colors = ['#FF0000','#FFEB3B','#1A7A4A','#1976D2','#000000','#FFFFFF'];
+  var colors = ['#FF0000','#FFEB3B','#5F8068','#1976D2','#000000','#FFFFFF'];
   var swatches = colors.map(function(col){
     var s = document.createElement('button');
     s.className = 'mk-swatch'; s.dataset.col = col;
@@ -162,7 +162,7 @@ function _buildMarkupBar(overlay){
   sizeSld.style.cssText='width:80px;accent-color:#9C2742;';
   sizeWrap.appendChild(sizeLbl); sizeWrap.appendChild(sizeSld);
   var sep2=document.createElement('div'); sep2.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
-  var bSv =tb('mk-save','Save','Save annotated copy'); bSv.style.background='#1A7A4A';
+  var bSv =tb('mk-save','Save','Save annotated copy'); bSv.style.background='#5F8068';
   var bCl =tb('mk-clear','Clear','Clear all edits');
   var bRv =tb('mk-revert','Revert','Discard edits');
   var bX  =tb('mk-cancel','\u2715','Exit markup'); bX.style.background='#9C2742';

@@ -68,7 +68,7 @@ var _textBorderDefault = false;
 var _textHatchDefault = false;
 
 var _tool = null;
-var _color = '#C0392B';
+var _color = '#A85959';
 var _lineWidth = 3;
 var _fontSize = 20;
 var _opacity = 1;
@@ -900,8 +900,8 @@ function _drawObjectMasked(ctx, obj) {
 function _drawObjectRaw(ctx, obj) {
   ctx.save();
   ctx.globalAlpha = obj.opacity || 1;
-  ctx.strokeStyle = obj.color || '#C0392B';
-  ctx.fillStyle = obj.color || '#C0392B';
+  ctx.strokeStyle = obj.color || '#A85959';
+  ctx.fillStyle = obj.color || '#A85959';
   // S113 Push 9: clamp to a minimum on-screen-visible width when the
   // viewer is zoomed out below 1:1 (fit-zoom blur fix). At scale ≥ 1
   // returns obj.size unchanged. Pen, polyline, and shape strokes are
@@ -960,7 +960,7 @@ function _drawObjectRaw(ctx, obj) {
       ctx.clip();
       ctx.lineWidth = 1;
       ctx.globalAlpha = 0.4 * (obj.opacity || 1);
-      ctx.strokeStyle = obj.color || '#C0392B';
+      ctx.strokeStyle = obj.color || '#A85959';
       var hatchSpacing = 6;
       // Diagonals go from top-right toward bottom-left; cover the bbox
       // by starting outside it and walking by spacing units.
@@ -976,7 +976,7 @@ function _drawObjectRaw(ctx, obj) {
     if (obj.border) {
       ctx.save();
       ctx.lineWidth = 1;
-      ctx.strokeStyle = obj.color || '#C0392B';
+      ctx.strokeStyle = obj.color || '#A85959';
       ctx.globalAlpha = obj.opacity || 1;
       ctx.strokeRect(bxLeft, bxTop, bxW, bxH);
       ctx.restore();

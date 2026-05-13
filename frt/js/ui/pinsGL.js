@@ -67,9 +67,9 @@
   // ─── Priority color lookups (match HTML V1) ─────────────────────────────
   function _priorityFillHex(pin){
     if (pin.isIAR) return '#E91E8C';
-    if (pin.priority === 'general') return '#1A7A4A';
-    if (pin.priority === 'low')     return '#E67E22';
-    return '#C0392B'; // high
+    if (pin.priority === 'general') return '#5F8068';
+    if (pin.priority === 'low')     return '#B07F5A';
+    return '#A85959'; // high
   }
 
   // ─── Teardrop path in native 32×42 coord space (centered at 16, 21) ─────

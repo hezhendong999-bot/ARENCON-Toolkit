@@ -996,16 +996,17 @@ document.addEventListener('touchmove', function(e) {
     _applyTransform();
 
   } else if (e.touches.length === 1 && _scale > _fitScale) {
-    // Single finger pan (only when zoomed in, not when markup active or pin mode)
-    if (Markup.isActive()) return;
-    if (_pinModeDeficId) return;
-    if (Markup.getTool() === 'pin') return;
-    e.preventDefault();
-    _panX += e.touches[0].clientX - _singleTouchX;
-    _panY += e.touches[0].clientY - _singleTouchY;
-    _singleTouchX = e.touches[0].clientX;
-    _singleTouchY = e.touches[0].clientY;
-    _applyTransform();
+    // S126 — Removed single-finger pan per S25 rule: "single-finger drag pans
+    // drawing off screen — should require two-finger pan like maps." Single
+    // touch is reserved for pin placement / markup tools. Two-finger touch
+    // (handled in the branch above) is the only pan/zoom gesture. Original
+    // single-finger pan kept commented for reference in case of regression:
+    //   _panX += e.touches[0].clientX - _singleTouchX;
+    //   _panY += e.touches[0].clientY - _singleTouchY;
+    //   _singleTouchX = e.touches[0].clientX;
+    //   _singleTouchY = e.touches[0].clientY;
+    //   _applyTransform();
+    return;
   }
 }, { passive: false });
 
@@ -1358,7 +1359,7 @@ function _renderPins() {
     // S119: effective priority + status (max across obs / all-addressed)
     var pr = Model.getEffectivePriority(d.defic);
     var isClosed = Model.getEffectiveStatus(d.defic) === 'closed';
-    var fill = d.defic.iar ? '#E91E8C' : (pr === 'general' ? '#1A7A4A' : pr === 'low' ? '#E67E22' : '#C0392B');
+    var fill = d.defic.iar ? '#E91E8C' : (pr === 'general' ? '#5F8068' : pr === 'low' ? '#B07F5A' : '#A85959');
     var isOutstanding = !isClosed && !d.defic.iar;
     var shadow = isOutstanding ? 'drop-shadow(0 0 3px ' + fill + ') drop-shadow(0 2px 5px rgba(0,0,0,.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,.45))';
     var alpha = isClosed ? '0.5' : '1';
@@ -2359,7 +2360,7 @@ function _drawPinMiniMap(canvas, img, d) {
     var effPri = Model.getEffectivePriority(d);
     var fill = d.iar
       ? '#FF69B4'
-      : (effPri === 'general' ? '#1A7A4A' : (effPri === 'low' ? '#E67E22' : '#C0392B'));
+      : (effPri === 'general' ? '#5F8068' : (effPri === 'low' ? '#B07F5A' : '#A85959'));
     var r0 = 6;
     ctx.save();
     ctx.translate(px, py - r0 * 2.2);
@@ -3577,8 +3578,8 @@ function _renderTasks() {
     // S119: effective priority + status
     var effPri = Model.getEffectivePriority(def);
     var isClosed = Model.getEffectiveStatus(def) === 'closed';
-    var fill = def.iar ? '#E91E8C' : (effPri === 'general' ? '#1A7A4A' : effPri === 'low' ? '#E67E22' : '#C0392B');
-    if (isClosed) fill = '#1A7A4A';
+    var fill = def.iar ? '#E91E8C' : (effPri === 'general' ? '#5F8068' : effPri === 'low' ? '#B07F5A' : '#A85959');
+    if (isClosed) fill = '#5F8068';
     var isPinned = def.drawingId && def.pinX != null;
     html += '<div class="dv-task-item" data-task-defic-id="' + def.id + '">';
     html += '<div class="dv-task-dot" style="background:' + fill + ';">' + def.num + '</div>';

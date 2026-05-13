@@ -299,7 +299,7 @@ if (typeof window !== 'undefined') {
       console.log(out);
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(out).then(function () {
-          console.log('%c[S97 LIFE] copied to clipboard — paste in chat', 'color:#1A7A4A;font-weight:bold');
+          console.log('%c[S97 LIFE] copied to clipboard — paste in chat', 'color:#5F8068;font-weight:bold');
         }, function () {
           console.warn('[S97 LIFE] clipboard write failed — select the printed block and Ctrl+C');
         });
@@ -399,7 +399,7 @@ function _dbgTick() {
     copyBtn.type = 'button';
     copyBtn.textContent = '\u2398 Copy log';
     copyBtn.style.cssText =
-      'display:block;width:100%;margin:0 0 4px 0;background:#1A7A4A;color:#fff;' +
+      'display:block;width:100%;margin:0 0 4px 0;background:#5F8068;color:#fff;' +
       'border:0;border-radius:3px;padding:4px 6px;font:600 10px/1.2 monospace;' +
       'cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;';
     copyBtn.addEventListener('click', function (ev) {
@@ -455,7 +455,7 @@ function _dbgTick() {
         copyBtn.style.background = ok ? '#4caf50' : '#666';
         setTimeout(function () {
           copyBtn.textContent = '\u2398 Copy log';
-          copyBtn.style.background = '#1A7A4A';
+          copyBtn.style.background = '#5F8068';
         }, 1500);
       };
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1364,7 +1364,7 @@ function _ensurePanels(){
     var barWrap = document.createElement('div');
     barWrap.style.cssText = 'flex:1;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;';
     _progBar = document.createElement('div');
-    _progBar.style.cssText = 'height:100%;width:0%;background:#1A7A4A;transition:width .3s ease;';
+    _progBar.style.cssText = 'height:100%;width:0%;background:#5F8068;transition:width .3s ease;';
     barWrap.appendChild(_progBar);
     line1.appendChild(_progText);
     line1.appendChild(barWrap);

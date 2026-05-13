@@ -63,7 +63,7 @@ function _pkbObsCard(d, oi, o, p, multiObs) {
   var obsPri = o.priority || defic.priority || 'high';
   var fill = defic.iar
     ? '#FF69B4'
-    : (obsPri === 'general' ? '#1A7A4A' : (obsPri === 'low' ? '#E67E22' : '#C0392B'));
+    : (obsPri === 'general' ? '#5F8068' : (obsPri === 'low' ? '#B07F5A' : '#A85959'));
   // Number label: #3A, #3B for multi-obs (no dash, S122 Push 1); plain #3 for single-obs.
   var numLabel = multiObs
     ? (defic.num + String.fromCharCode(65 + oi))
