@@ -249,6 +249,38 @@ export var SyncEngine = {
   onSilentMerge: function(/* mergeResult */) { /* no-op */ },
 
   /**
+   * S129 Item 3 — Load the last-seen project snapshot from IDB for fast-path
+   * boot render. Returns the project data or null. Side-effect: also sets
+   * _lastSeenUpdatedAt and _lastSeenSnapshot so a subsequent push (before
+   * pull() resolves) still has its 3-way-merge base.
+   *
+   * This is the perceived-boot-time fix. The full pull() still runs after
+   * auth resolves and overwrites Model with fresh cloud data. The snapshot
+   * we return here is whatever was current at the last successful pull.
+   *
+   * Non-blocking on failure (returns null). Safe to call before IDB.init
+   * resolves — it'll just return null. Safe to call before auth — IDB has
+   * no auth requirement.
+   */
+  loadIDBSnapshot: function(projectId, instanceId) {
+    if (!projectId) return Promise.resolve(null);
+    var key = _syncMetaKey(projectId, instanceId);
+    return IDB.get('syncMeta', key).then(function(rec) {
+      if (!rec || !rec.snapshot) return null;
+      _lastSeenUpdatedAt = rec.updatedAt || null;
+      _lastSeenSnapshot = rec.snapshot;
+      // Also record instanceId so a fast-path push (before pull resolves)
+      // targets the right row. Best-effort — may be re-set by pull().
+      if (instanceId) _instanceId = instanceId;
+      console.log('[Sync] Loaded IDB snapshot for fast-path render — updated:', rec.updatedAt);
+      return rec.snapshot;
+    }).catch(function(e) {
+      console.warn('[Sync] loadIDBSnapshot failed (non-fatal):', e && e.message);
+      return null;
+    });
+  },
+
+  /**
    * Pull project data from Supabase.
    * Reads from tool_data table (v1 format — single blob per project/tool/instance).
    * Records updated_at + a deep snapshot for later 3-way merge.

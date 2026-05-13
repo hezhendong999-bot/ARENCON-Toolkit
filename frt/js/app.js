@@ -1381,85 +1381,127 @@ function boot() {
   // 4. Wire all event listeners
   wireEvents();
 
-  // 5. Initialize IDB then load project
-  IDB.init().then(function() {
+  // ── S129 boot perf ─────────────────────────────────────
+  // Item 2: parallelize IDB.init and Auth.restoreSession. Auth doesn't read
+  // IDB; the only thing that depends on IDB readiness is the fast-path
+  // snapshot load below, which serializes against idbReady explicitly.
+  //
+  // Item 3: fast-path render. As soon as IDB is ready, if we have a token
+  // and a local snapshot in IDB, render the UI BEFORE the cloud pull
+  // resolves. Cloud pull continues in the background and overwrites Model
+  // when it lands; we re-render the current tab so fresh data lands on
+  // screen without forcing the user back to 'info'.
+  //
+  // Trade-off: a token-present-but-invalid case will flash the UI briefly
+  // before the auth refresh fails and we redirect to Hub login. Acceptable
+  // — preemptive refresh (Item 1) catches near-expiry tokens, and the
+  // remaining failure modes are rare (revoked / wholly invalid tokens).
+  var hasToken = _hubMode && _projectId && !!localStorage.getItem('sb-access-token');
+  var idbReady = IDB.init();
+  var authReady = hasToken ? Auth.restoreSession() : Promise.resolve(null);
+
+  var _localRendered = false;
+
+  // Fast-path render: hangs off idbReady, runs in parallel with authReady.
+  var fastPathDone = idbReady.then(function() {
     console.log('[FRT v2] IDB ready');
+    if (!hasToken) return null;  // standalone or signed-out → no fast path
+    var instanceId = new URLSearchParams(window.location.search).get('instance');
+    return SyncEngine.loadIDBSnapshot(_projectId, instanceId).then(function(snap) {
+      if (snap) {
+        Model.setProject(snap);
+        showProjectView();
+        _updateHeaderForProject();
+        switchTab('info');
+        _localRendered = true;
+        var elapsedFast = (performance.now() - t0).toFixed(0);
+        console.log('[FRT v2] Boot complete (local) in ' + elapsedFast + 'ms — cloud pull in background');
+      }
+      return snap;
+    });
+  }).catch(function(e) {
+    // Fast-path failure is non-fatal — main path will still render after cloud pull.
+    console.warn('[FRT v2] Fast-path render skipped:', e && e.message);
+    return null;
+  });
+
+  // Main path: wait for IDB + Auth, then cloud pull (Hub) or local-load (standalone).
+  Promise.all([idbReady, authReady]).then(function(results) {
+    var user = results[1];
 
     if (_hubMode && _projectId) {
-      // Hub mode: authenticate, then pull from cloud
-      return Auth.restoreSession().then(function(user) {
-        if (user) {
-          console.log('[FRT v2] Authenticated as:', user.email);
-          // S83: push user id into Model so newly-created entities get createdBy
-          if (Model.setCurrentUser) Model.setCurrentUser(user.id);
-          // S116 Push 8: pull full_name from profiles table — Mark reported
-          // the inspector chip showed "MHE" (stale localStorage) instead of
-          // his real name, because the FRT was reading email.split('@')[0]
-          // even when an authenticated profile existed. Now: profiles.full_name
-          // wins, then user_metadata.full_name, then email prefix as last
-          // resort. Lock the chip in Hub mode so the user can't edit a name
-          // that's auto-derived from their account.
-          Auth.request('/rest/v1/profiles?id=eq.' + user.id + '&select=full_name').then(function(rows) {
-            var fullName = (rows && rows[0] && rows[0].full_name) ? String(rows[0].full_name).trim() : '';
-            if (!fullName) {
-              var meta = user.user_metadata || {};
-              fullName = (meta.full_name || '').trim();
-            }
-            if (!fullName) {
-              fullName = (user.email || '').split('@')[0].toUpperCase();
-            }
-            localStorage.setItem(LS_INSPECTOR, fullName);
-            _updateInspectorChip();
-            // Lock chip in Hub mode — inspector identity is the authenticated
-            // user's real name. Free-form editing in standalone mode still
-            // works (no project URL param = no auth path).
-            var chip = document.getElementById('inspector-chip');
-            if (chip) {
-              chip.classList.add('inspector-chip-locked');
-              chip.title = 'Inspector: ' + fullName + ' (signed in)';
-            }
-            // S117-A: kick off presence heartbeat. Self-disables silently if
-            // the project_presence table doesn't exist yet (i.e. before Mark
-            // deploys supabase/project_presence.sql).
-            try { Presence.start(_projectId, user, fullName); } catch(_){}
-            try { Presence.onChange(_renderPresenceChip); } catch(_){}
-          }).catch(function(e){
-            console.warn('[FRT v2] Could not load profiles.full_name:', e);
-            // Fallback: email prefix
-            var emailPrefix = (user.email || '').split('@')[0];
-            if (emailPrefix) {
-              localStorage.setItem(LS_INSPECTOR, emailPrefix);
-              _updateInspectorChip();
-            }
-            // S117-A: still try to start presence with the fallback name
-            try { Presence.start(_projectId, user, emailPrefix || ''); } catch(_){}
-            try { Presence.onChange(_renderPresenceChip); } catch(_){}
-          });
-          // Show sign-out button
-          var soBtn = document.getElementById('btn-signout');
-          if (soBtn) soBtn.style.display = '';
-          var mso = document.getElementById('mobile-signout-btn');
-          if (mso) mso.style.display = '';
-          // Read instance from URL
-          var params = new URLSearchParams(window.location.search);
-          var instanceId = params.get('instance');
-          return SyncEngine.pull(_projectId, instanceId);
+      // Hub mode
+      if (!user) {
+        // Either no token (already known) or token present but refresh failed.
+        // In both cases, redirect to Hub login.
+        if (hasToken) {
+          console.warn('[FRT v2] Auth session invalid — redirecting to Hub login');
         } else {
-          // S81: don't silently create an empty project — Mark spent 10 min
-          // figuring out why the Samsung showed nothing. Route to Hub login so
-          // they can re-auth and come back.
           console.warn('[FRT v2] No auth session — redirecting to Hub login');
-          var returnUrl = encodeURIComponent(window.location.href);
-          window.location.href = '../ARENCON_Project_Hub.html?returnTo=' + returnUrl;
-          return null;
         }
-      }).then(function(data) {
-        if (!data && !Model.getProject()) {
-          // No cloud data and no IDB — create empty project
-          Model.newProject();
-          console.log('[FRT v2] Created new project for Hub');
+        var returnUrl = encodeURIComponent(window.location.href);
+        window.location.href = '../ARENCON_Project_Hub.html?returnTo=' + returnUrl;
+        return null;
+      }
+
+      console.log('[FRT v2] Authenticated as:', user.email);
+      // S83: push user id into Model so newly-created entities get createdBy
+      if (Model.setCurrentUser) Model.setCurrentUser(user.id);
+      // S116 Push 8: pull full_name from profiles table — Mark reported
+      // the inspector chip showed "MHE" (stale localStorage) instead of
+      // his real name, because the FRT was reading email.split('@')[0]
+      // even when an authenticated profile existed. Now: profiles.full_name
+      // wins, then user_metadata.full_name, then email prefix as last
+      // resort. Lock the chip in Hub mode so the user can't edit a name
+      // that's auto-derived from their account.
+      Auth.request('/rest/v1/profiles?id=eq.' + user.id + '&select=full_name').then(function(rows) {
+        var fullName = (rows && rows[0] && rows[0].full_name) ? String(rows[0].full_name).trim() : '';
+        if (!fullName) {
+          var meta = user.user_metadata || {};
+          fullName = (meta.full_name || '').trim();
         }
-        window._frtCloudLoaded = !!data;
+        if (!fullName) {
+          fullName = (user.email || '').split('@')[0].toUpperCase();
+        }
+        localStorage.setItem(LS_INSPECTOR, fullName);
+        _updateInspectorChip();
+        // Lock chip in Hub mode — inspector identity is the authenticated
+        // user's real name. Free-form editing in standalone mode still
+        // works (no project URL param = no auth path).
+        var chip = document.getElementById('inspector-chip');
+        if (chip) {
+          chip.classList.add('inspector-chip-locked');
+          chip.title = 'Inspector: ' + fullName + ' (signed in)';
+        }
+        // S117-A: kick off presence heartbeat. Self-disables silently if
+        // the project_presence table doesn't exist yet (i.e. before Mark
+        // deploys supabase/project_presence.sql).
+        try { Presence.start(_projectId, user, fullName); } catch(_){}
+        try { Presence.onChange(_renderPresenceChip); } catch(_){}
+      }).catch(function(e){
+        console.warn('[FRT v2] Could not load profiles.full_name:', e);
+        // Fallback: email prefix
+        var emailPrefix = (user.email || '').split('@')[0];
+        if (emailPrefix) {
+          localStorage.setItem(LS_INSPECTOR, emailPrefix);
+          _updateInspectorChip();
+        }
+        // S117-A: still try to start presence with the fallback name
+        try { Presence.start(_projectId, user, emailPrefix || ''); } catch(_){}
+        try { Presence.onChange(_renderPresenceChip); } catch(_){}
+      });
+      // Show sign-out button
+      var soBtn = document.getElementById('btn-signout');
+      if (soBtn) soBtn.style.display = '';
+      var mso = document.getElementById('mobile-signout-btn');
+      if (mso) mso.style.display = '';
+      // Read instance from URL
+      var params = new URLSearchParams(window.location.search);
+      var instanceId = params.get('instance');
+      // S129: wait on fastPathDone so loadIDBSnapshot has set _lastSeen*
+      // before pull() starts (lets pull() do a proper 3-way merge if needed).
+      return fastPathDone.then(function() {
+        return SyncEngine.pull(_projectId, instanceId);
       });
     } else {
       // Standalone: load from IDB
@@ -1468,13 +1510,34 @@ function boot() {
           Model.newProject();
           console.log('[FRT v2] Created new empty project');
         }
+        return null;
       });
     }
-  }).then(function() {
-    // Show project view and render
-    showProjectView();
-    _updateHeaderForProject();
-    switchTab('info');
+  }).then(function(data) {
+    if (_hubMode && _projectId) {
+      if (!data && !Model.getProject()) {
+        // No cloud data AND no fast-path snapshot — create empty project
+        Model.newProject();
+        console.log('[FRT v2] Created new project for Hub');
+      }
+      window._frtCloudLoaded = !!data;
+    }
+
+    // S129 Item 3 — render gate. Two cases:
+    //   (a) Fast-path already rendered: re-call switchTab on the CURRENT
+    //       tab so cloud data lands on screen. _currentTab may have changed
+    //       if the user navigated during the cloud-pull window.
+    //   (b) Fast-path didn't render (standalone, no IDB snapshot, or fast-path
+    //       skipped due to no token): this is the first render.
+    if (_localRendered) {
+      // Refresh current tab content with cloud-pulled data. Header re-render
+      // is wired via Model.onChange('project') below.
+      switchTab(_currentTab);
+    } else {
+      showProjectView();
+      _updateHeaderForProject();
+      switchTab('info');
+    }
 
     // Rebuild missing R2 URLs (safety net for sync issues)
     var proj = Model.getProject();
@@ -1490,7 +1553,11 @@ function boot() {
     }
 
     var elapsed = (performance.now() - t0).toFixed(0);
-    console.log('[FRT v2] Boot complete in ' + elapsed + 'ms');
+    if (_localRendered) {
+      console.log('[FRT v2] Cloud sync complete in ' + elapsed + 'ms total');
+    } else {
+      console.log('[FRT v2] Boot complete in ' + elapsed + 'ms');
+    }
 
     // Update storage display
     _updateStorageDisplay();
@@ -1503,14 +1570,18 @@ function boot() {
 
   }).catch(function(err) {
     console.error('[FRT v2] Boot error:', err);
-    // Even if IDB fails, show the UI with a new project
-    Model.newProject();
-    showProjectView();
-    _updateHeaderForProject();
-    switchTab('info');
+    // Even if IDB/auth/pull fails, show the UI with a new project — unless
+    // the fast-path already rendered something, in which case leave it.
+    if (!_localRendered) {
+      Model.newProject();
+      showProjectView();
+      _updateHeaderForProject();
+      switchTab('info');
+    }
   });
 
-  // Update header whenever a new project is loaded (e.g., JSON import)
+  // Update header whenever a new project is loaded (e.g., JSON import,
+  // or cloud pull overwriting fast-path snapshot)
   Model.onChange('project', function() {
     _updateHeaderForProject();
   });

@@ -80,6 +80,13 @@ export var Auth = {
    * Returns user object or null.
    * S81: on restore, also schedule periodic auto-refresh so Mark doesn't have
    * to sign in again every hour.
+   * S129 Item 1: preemptive refresh on near-expiry tokens. Before this, an
+   * expired token on boot caused 3 sequential Supabase RTTs:
+   *   /auth/v1/user → 401 → /auth/v1/token refresh → /auth/v1/user retry
+   * ~3000ms on slow links. Now we parse the cached JWT's exp claim first;
+   * if <5 min remaining (or already past), go straight to refresh.
+   * Pattern lifted from the visibilitychange handler at bottom of this file,
+   * which has used this exact idiom in production since S91.
    */
   restoreSession: function() {
     var token = localStorage.getItem('sb-access-token');
@@ -89,6 +96,21 @@ export var Auth = {
     }
 
     var self = this;
+
+    // S129 Item 1: preemptive refresh window. exp is parsed once; if it
+    // can't be parsed (malformed JWT, no exp claim) we fall through to the
+    // legacy /auth/v1/user path which catches it via the 401 retry chain.
+    var expMs = _parseJwtExp(token);
+    if (expMs !== null) {
+      var remaining = expMs - Date.now();
+      if (remaining < 300000) {  // < 5 min
+        console.log('[Auth] Cached token near/past expiry (' + Math.round(remaining / 1000) + 's left) — preemptive refresh');
+        // _refreshTokenShared() coalesces concurrent callers, calls
+        // _scheduleAutoRefresh on success, and loads role internally.
+        return this._refreshTokenShared();
+      }
+    }
+
     return this.request('/auth/v1/user', {
       headers: { 'Authorization': 'Bearer ' + token }
     }).then(function(user) {
