@@ -577,652 +577,6 @@
     "updated_at": "2026-03-23T05:23:50.25187+00:00"
   },
   {
-    "id": "c6036627-3615-4dc0-bda2-bbf4c5d1c179",
-    "project_id": "7249121d-463e-416e-a3aa-643910f3f6a7",
-    "tool_key": "diesel",
-    "instance_number": 1,
-    "label": null,
-    "data": {
-      "proj": {
-        "pm-prv": "175",
-        "pm-rpm": "",
-        "pi-addr": "610 Sprucewood Ave., Windsor, ON",
-        "pi-date": "2026-03-22",
-        "so-cert": "PEO L.E.T.",
-        "so-date": "",
-        "so-name": "Mark He, L.E.T.",
-        "so-title": "Licensed Engineering Technologist",
-        "pi-client": "Iron Mountain Canada Corp.",
-        "pi-prepby": "MH",
-        "pi-projno": "15230.01",
-        "pm-prv-pld": "",
-        "pm-rpm-pld": "",
-        "so-company": "ARENCON Inc.",
-        "ws-res-psi": "48",
-        "dem-spr-psi": "60",
-        "pi-projname": "Building A Diesel Fire Pump",
-        "pi-revision": "A01",
-        "test-result": "",
-        "ws-res-flow": "1500",
-        "dem-spr-flow": "750",
-        "dem-hose-flow": "250",
-        "pi-contractor": "FireGuard Mechanical Ltd.",
-        "pm-rated-flow": "1000",
-        "ws-static-psi": "65",
-        "pld-ws-res-psi": "48",
-        "pm-pld-setting": "170",
-        "ws-static-flow": "0",
-        "pld-dem-spr-psi": "60",
-        "pld-ws-res-flow": "1500",
-        "pi-date-modified": "2026-05-04 18:41",
-        "pld-dem-spr-flow": "750",
-        "pld-dem-hose-flow": "250",
-        "pld-ws-static-psi": "65",
-        "pm-rated-flow-pld": "1000",
-        "pld-ws-static-flow": "0"
-      },
-      "batData": {
-        "b1": [
-          1,
-          1,
-          2,
-          4,
-          4,
-          50
-        ],
-        "b2": [
-          1,
-          1,
-          1,
-          1,
-          1,
-          1
-        ]
-      },
-      "clState": {
-        "s1_0": {
-          "photos": [],
-          "status": null,
-          "comment": "",
-          "timestamp": null,
-          "customText": ""
-        },
-        "s1_1": {
-          "photos": [],
-          "status": null,
-          "comment": "Photo taken for record. See evidence photos.",
-          "timestamp": null,
-          "customText": ""
-        },
-        "s1_2": {
-          "photos": [],
-          "status": "yes",
-          "comment": "sdasd",
-          "timestamp": "2026-03-22, 22:56:01",
-          "customText": ""
-        },
-        "s1_3": {
-          "photos": [],
-          "status": "na",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:01",
-          "customText": ""
-        },
-        "s1_4": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:01",
-          "customText": ""
-        },
-        "s1_5": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:01",
-          "customText": ""
-        },
-        "s1_6": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Photo taken for record. See evidence photos.",
-          "timestamp": "2026-03-22, 22:56:01",
-          "customText": ""
-        },
-        "s1_7": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:01",
-          "customText": ""
-        },
-        "s1_8": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:01",
-          "customText": ""
-        },
-        "s2_0": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:01",
-          "customText": ""
-        },
-        "s2_1": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:01",
-          "customText": ""
-        },
-        "s2_2": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_3": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Minor corrosion noted on fitting — monitor at next visit.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_4": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Contractor confirmed completion. Documentation provided.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_5": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Verified on site. Condition acceptable.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_6": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Contractor confirmed completion. Documentation provided.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_7": {
-          "photos": [],
-          "status": "no",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_8": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Slight vibration noted during operation. Within acceptable limits.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_9": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s3_0": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Contractor confirmed completion. Documentation provided.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s3_1": {
-          "photos": [],
-          "status": "na",
-          "comment": "Verified on site. Condition acceptable.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s3_2": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s3_3": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s3_4": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Access was restricted during test. Re-verify at follow-up.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s3_5": {
-          "photos": [],
-          "status": "na",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s3_6": {
-          "photos": [],
-          "status": "na",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s3_7": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Slight vibration noted during operation. Within acceptable limits.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s4_0": {
-          "photos": [],
-          "status": "no",
-          "comment": "Minor corrosion noted on fitting — monitor at next visit.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5_0": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5_1": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5_2": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Meets NFPA 20 requirements. No deficiencies.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5_3": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5_4": {
-          "photos": [],
-          "status": "no",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5_5": {
-          "photos": [],
-          "status": "no",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5_6": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5_7": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Minor corrosion noted on fitting — monitor at next visit.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5_8": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5_9": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_10": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Access was restricted during test. Re-verify at follow-up.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_11": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_12": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_13": {
-          "photos": [],
-          "status": "na",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_14": {
-          "photos": [],
-          "status": "no",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_15": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_16": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_17": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Meets NFPA 20 requirements. No deficiencies.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_18": {
-          "photos": [],
-          "status": "no",
-          "comment": "Photo taken for record. See evidence photos.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_19": {
-          "photos": [],
-          "status": "na",
-          "comment": "Meets NFPA 20 requirements. No deficiencies.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_20": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_21": {
-          "photos": [],
-          "status": "yes",
-          "comment": "Meets NFPA 20 requirements. No deficiencies.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s2_22": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5_10": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5_11": {
-          "photos": [],
-          "status": "no",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5_12": {
-          "photos": [],
-          "status": "no",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5m_0": {
-          "photos": [],
-          "status": "no",
-          "comment": "Photo taken for record. See evidence photos.",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5m_1": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s5m_2": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        },
-        "s4pld_0": {
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "timestamp": "2026-03-22, 22:56:02",
-          "customText": ""
-        }
-      },
-      "pldData": [
-        {
-          "pct": "0%",
-          "flow": 0,
-          "dis_w": "222",
-          "rpm_w": "190",
-          "suc_w": "25",
-          "dis_no": "222",
-          "rpm_no": "192",
-          "suc_no": "50",
-          "placard": "170",
-          "cutsheet": "170",
-          "defaultFlow": 0
-        },
-        {
-          "pct": "25%",
-          "flow": 250,
-          "dis_w": "186",
-          "rpm_w": "1320",
-          "suc_w": "21",
-          "dis_no": "",
-          "rpm_no": "",
-          "suc_no": "",
-          "placard": "163",
-          "cutsheet": "165",
-          "defaultFlow": 500
-        },
-        {
-          "pct": "50%",
-          "flow": 500,
-          "dis_w": "178",
-          "rpm_w": "1450",
-          "suc_w": "20",
-          "dis_no": "",
-          "rpm_no": "",
-          "suc_no": "",
-          "placard": "155",
-          "cutsheet": "158",
-          "defaultFlow": 1000
-        },
-        {
-          "pct": "75%",
-          "flow": 750,
-          "dis_w": "166",
-          "rpm_w": "1560",
-          "suc_w": "18",
-          "dis_no": "",
-          "rpm_no": "",
-          "suc_no": "",
-          "placard": "145",
-          "cutsheet": "148",
-          "defaultFlow": 1500
-        },
-        {
-          "pct": "100%",
-          "flow": 1000,
-          "dis_w": "148",
-          "rpm_w": "1670",
-          "suc_w": "14",
-          "dis_no": "151",
-          "rpm_no": "1650",
-          "suc_no": "16",
-          "placard": "132",
-          "cutsheet": "135",
-          "defaultFlow": 2000
-        },
-        {
-          "pct": "125%",
-          "flow": 1250,
-          "dis_w": "131",
-          "rpm_w": "1720",
-          "suc_w": "13",
-          "dis_no": "",
-          "rpm_no": "",
-          "suc_no": "",
-          "placard": "115",
-          "cutsheet": "118",
-          "defaultFlow": 2500
-        },
-        {
-          "pct": "150%",
-          "flow": 1500,
-          "dis_w": "101",
-          "rpm_w": "1760",
-          "suc_w": "7",
-          "dis_no": "104",
-          "rpm_no": "1760",
-          "suc_no": "9",
-          "placard": "92",
-          "cutsheet": "95",
-          "defaultFlow": 3000
-        }
-      ],
-      "stdData": [
-        {
-          "pct": "0%",
-          "rpm": "1760",
-          "flow": 0,
-          "label": "Churn",
-          "placard": "150",
-          "suction": "20",
-          "cutsheet": "150",
-          "discharge": "188"
-        },
-        {
-          "pct": "100%",
-          "rpm": "1760",
-          "flow": "1000",
-          "label": "Rated",
-          "placard": "122",
-          "suction": "15",
-          "cutsheet": "125",
-          "discharge": "140"
-        },
-        {
-          "pct": "150%",
-          "rpm": "1760",
-          "flow": "1500",
-          "label": "Overload",
-          "placard": "79",
-          "suction": "8",
-          "cutsheet": "81",
-          "discharge": "89"
-        }
-      ],
-      "testType": "std",
-      "contractors": [],
-      "customItems": {},
-      "deficiencies": {},
-      "deletedItems": {},
-      "equipChecked": [],
-      "formRevision": "R00",
-      "sketchEntries": [
-        {
-          "comment": "Pump room layout — diesel tank containment area showing unsealed concrete (Deficiency #1). Dike perimeter marked in red.",
-          "markupImg": null
-        },
-        {
-          "comment": "",
-          "markupImg": null
-        }
-      ],
-      "flowTestPhotos": [],
-      "pumpCurvePoints": [
-        {
-          "psi": "",
-          "flow": ""
-        }
-      ],
-      "witnessSignRows": [],
-      "formDateModified": "2026-05-04 18:41",
-      "flowTestPhotosPld": [],
-      "contractorSignRows": [
-        {
-          "date": "",
-          "name": "",
-          "type": "contractor",
-          "title": "",
-          "company": ""
-        }
-      ],
-      "pldPumpCurvePoints": [
-        {
-          "psi": "",
-          "flow": ""
-        }
-      ],
-      "generalDeficiencies": []
-    },
-    "status": "draft",
-    "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-    "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-    "created_at": "2026-03-20T17:18:44.857681+00:00",
-    "updated_at": "2026-05-04T22:41:21.323918+00:00"
-  },
-  {
     "id": "7499abdc-7d58-45f8-b9f5-392b69f37883",
     "project_id": "7249121d-463e-416e-a3aa-643910f3f6a7",
     "tool_key": "frt",
@@ -1375,6 +729,14 @@
           "height": 3456,
           "heights": null,
           "pdfPage": 1,
+          "markupR2": {
+            "bytes": 1805,
+            "count": 2,
+            "r2Key": "photos/proj_1777761233117_m8sncw/frt/markup/dwg_1773988484751_pg1_kf2d.json",
+            "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/proj_1777761233117_m8sncw/frt/markup/dwg_1773988484751_pg1_kf2d.json",
+            "updatedAt": "2026-05-13T04:29:12.580Z",
+            "inspectorId": null
+          },
           "naturalH": 0,
           "naturalW": 0,
           "pdfTiled": false,
@@ -1414,7 +776,7 @@
           "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/7249121d-463e-416e-a3aa-643910f3f6a7/tiles/pdfbuf_1777867793077_vn6txi/manifest.json"
         }
       ],
-      "modified": "2026-05-06T19:09:42.733Z",
+      "modified": "2026-05-13T04:29:12.580Z",
       "settings": {
         "sketchesEnabled": false
       },
@@ -2453,7 +1815,653 @@
     "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-16T20:00:36.555266+00:00",
-    "updated_at": "2026-05-13T02:25:08.516506+00:00"
+    "updated_at": "2026-05-13T06:43:42.059112+00:00"
+  },
+  {
+    "id": "c6036627-3615-4dc0-bda2-bbf4c5d1c179",
+    "project_id": "7249121d-463e-416e-a3aa-643910f3f6a7",
+    "tool_key": "diesel",
+    "instance_number": 1,
+    "label": null,
+    "data": {
+      "proj": {
+        "pm-prv": "175",
+        "pm-rpm": "",
+        "pi-addr": "610 Sprucewood Ave., Windsor, ON",
+        "pi-date": "2026-03-22",
+        "so-cert": "PEO L.E.T.",
+        "so-date": "",
+        "so-name": "Mark He, L.E.T.",
+        "so-title": "Licensed Engineering Technologist",
+        "pi-client": "Iron Mountain Canada Corp.",
+        "pi-prepby": "MH",
+        "pi-projno": "15230.01",
+        "pm-prv-pld": "",
+        "pm-rpm-pld": "",
+        "so-company": "ARENCON Inc.",
+        "ws-res-psi": "48",
+        "dem-spr-psi": "60",
+        "pi-projname": "Building A Diesel Fire Pump",
+        "pi-revision": "A01",
+        "test-result": "",
+        "ws-res-flow": "1500",
+        "dem-spr-flow": "750",
+        "dem-hose-flow": "250",
+        "pi-contractor": "FireGuard Mechanical Ltd.",
+        "pm-rated-flow": "1000",
+        "ws-static-psi": "65",
+        "pld-ws-res-psi": "48",
+        "pm-pld-setting": "170",
+        "ws-static-flow": "0",
+        "pld-dem-spr-psi": "60",
+        "pld-ws-res-flow": "1500",
+        "pi-date-modified": "2026-05-04 18:41",
+        "pld-dem-spr-flow": "750",
+        "pld-dem-hose-flow": "250",
+        "pld-ws-static-psi": "65",
+        "pm-rated-flow-pld": "1000",
+        "pld-ws-static-flow": "0"
+      },
+      "batData": {
+        "b1": [
+          1,
+          1,
+          2,
+          4,
+          4,
+          50
+        ],
+        "b2": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "clState": {
+        "s1_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "timestamp": null,
+          "customText": ""
+        },
+        "s1_1": {
+          "photos": [],
+          "status": null,
+          "comment": "Photo taken for record. See evidence photos.",
+          "timestamp": null,
+          "customText": ""
+        },
+        "s1_2": {
+          "photos": [],
+          "status": "yes",
+          "comment": "sdasd",
+          "timestamp": "2026-03-22, 22:56:01",
+          "customText": ""
+        },
+        "s1_3": {
+          "photos": [],
+          "status": "na",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:01",
+          "customText": ""
+        },
+        "s1_4": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:01",
+          "customText": ""
+        },
+        "s1_5": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:01",
+          "customText": ""
+        },
+        "s1_6": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Photo taken for record. See evidence photos.",
+          "timestamp": "2026-03-22, 22:56:01",
+          "customText": ""
+        },
+        "s1_7": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:01",
+          "customText": ""
+        },
+        "s1_8": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:01",
+          "customText": ""
+        },
+        "s2_0": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:01",
+          "customText": ""
+        },
+        "s2_1": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:01",
+          "customText": ""
+        },
+        "s2_2": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_3": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Minor corrosion noted on fitting — monitor at next visit.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_4": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Contractor confirmed completion. Documentation provided.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_5": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Verified on site. Condition acceptable.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_6": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Contractor confirmed completion. Documentation provided.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_7": {
+          "photos": [],
+          "status": "no",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_8": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Slight vibration noted during operation. Within acceptable limits.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_9": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s3_0": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Contractor confirmed completion. Documentation provided.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s3_1": {
+          "photos": [],
+          "status": "na",
+          "comment": "Verified on site. Condition acceptable.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s3_2": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s3_3": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s3_4": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Access was restricted during test. Re-verify at follow-up.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s3_5": {
+          "photos": [],
+          "status": "na",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s3_6": {
+          "photos": [],
+          "status": "na",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s3_7": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Slight vibration noted during operation. Within acceptable limits.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s4_0": {
+          "photos": [],
+          "status": "no",
+          "comment": "Minor corrosion noted on fitting — monitor at next visit.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5_0": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5_1": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5_2": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Meets NFPA 20 requirements. No deficiencies.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5_3": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5_4": {
+          "photos": [],
+          "status": "no",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5_5": {
+          "photos": [],
+          "status": "no",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5_6": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5_7": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Minor corrosion noted on fitting — monitor at next visit.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5_8": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5_9": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_10": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Access was restricted during test. Re-verify at follow-up.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_11": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_12": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_13": {
+          "photos": [],
+          "status": "na",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_14": {
+          "photos": [],
+          "status": "no",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_15": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_16": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_17": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Meets NFPA 20 requirements. No deficiencies.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_18": {
+          "photos": [],
+          "status": "no",
+          "comment": "Photo taken for record. See evidence photos.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_19": {
+          "photos": [],
+          "status": "na",
+          "comment": "Meets NFPA 20 requirements. No deficiencies.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_20": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_21": {
+          "photos": [],
+          "status": "yes",
+          "comment": "Meets NFPA 20 requirements. No deficiencies.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s2_22": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5_10": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5_11": {
+          "photos": [],
+          "status": "no",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5_12": {
+          "photos": [],
+          "status": "no",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5m_0": {
+          "photos": [],
+          "status": "no",
+          "comment": "Photo taken for record. See evidence photos.",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5m_1": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s5m_2": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        },
+        "s4pld_0": {
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "timestamp": "2026-03-22, 22:56:02",
+          "customText": ""
+        }
+      },
+      "pldData": [
+        {
+          "pct": "0%",
+          "flow": 0,
+          "dis_w": "222",
+          "rpm_w": "190",
+          "suc_w": "25",
+          "dis_no": "222",
+          "rpm_no": "192",
+          "suc_no": "50",
+          "placard": "170",
+          "cutsheet": "170",
+          "defaultFlow": 0
+        },
+        {
+          "pct": "25%",
+          "flow": 250,
+          "dis_w": "186",
+          "rpm_w": "1320",
+          "suc_w": "21",
+          "dis_no": "",
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "163",
+          "cutsheet": "165",
+          "defaultFlow": 500
+        },
+        {
+          "pct": "50%",
+          "flow": 500,
+          "dis_w": "178",
+          "rpm_w": "1450",
+          "suc_w": "20",
+          "dis_no": "",
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "155",
+          "cutsheet": "158",
+          "defaultFlow": 1000
+        },
+        {
+          "pct": "75%",
+          "flow": 750,
+          "dis_w": "166",
+          "rpm_w": "1560",
+          "suc_w": "18",
+          "dis_no": "",
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "145",
+          "cutsheet": "148",
+          "defaultFlow": 1500
+        },
+        {
+          "pct": "100%",
+          "flow": 1000,
+          "dis_w": "148",
+          "rpm_w": "1670",
+          "suc_w": "14",
+          "dis_no": "151",
+          "rpm_no": "1650",
+          "suc_no": "16",
+          "placard": "132",
+          "cutsheet": "135",
+          "defaultFlow": 2000
+        },
+        {
+          "pct": "125%",
+          "flow": 1250,
+          "dis_w": "131",
+          "rpm_w": "1720",
+          "suc_w": "13",
+          "dis_no": "",
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "115",
+          "cutsheet": "118",
+          "defaultFlow": 2500
+        },
+        {
+          "pct": "150%",
+          "flow": 1500,
+          "dis_w": "101",
+          "rpm_w": "1760",
+          "suc_w": "7",
+          "dis_no": "104",
+          "rpm_no": "1760",
+          "suc_no": "9",
+          "placard": "92",
+          "cutsheet": "95",
+          "defaultFlow": 3000
+        }
+      ],
+      "stdData": [
+        {
+          "pct": "0%",
+          "rpm": "1760",
+          "flow": 0,
+          "label": "Churn",
+          "placard": "150",
+          "suction": "20",
+          "cutsheet": "150",
+          "discharge": "188"
+        },
+        {
+          "pct": "100%",
+          "rpm": "1760",
+          "flow": "1000",
+          "label": "Rated",
+          "placard": "122",
+          "suction": "15",
+          "cutsheet": "125",
+          "discharge": "140"
+        },
+        {
+          "pct": "150%",
+          "rpm": "1760",
+          "flow": "1500",
+          "label": "Overload",
+          "placard": "79",
+          "suction": "8",
+          "cutsheet": "81",
+          "discharge": "89"
+        }
+      ],
+      "testType": "std",
+      "contractors": [],
+      "customItems": {},
+      "deficiencies": {},
+      "deletedItems": {},
+      "equipChecked": [],
+      "formRevision": "R00",
+      "sketchEntries": [
+        {
+          "comment": "Pump room layout — diesel tank containment area showing unsealed concrete (Deficiency #1). Dike perimeter marked in red.",
+          "markupImg": null
+        },
+        {
+          "comment": "",
+          "markupImg": null
+        }
+      ],
+      "flowTestPhotos": [],
+      "pumpCurvePoints": [
+        {
+          "psi": "",
+          "flow": ""
+        }
+      ],
+      "witnessSignRows": [],
+      "formDateModified": "2026-05-04 18:41",
+      "flowTestPhotosPld": [],
+      "contractorSignRows": [
+        {
+          "date": "",
+          "name": "",
+          "type": "contractor",
+          "title": "",
+          "company": ""
+        }
+      ],
+      "pldPumpCurvePoints": [
+        {
+          "psi": "",
+          "flow": ""
+        }
+      ],
+      "generalDeficiencies": []
+    },
+    "status": "draft",
+    "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+    "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+    "created_at": "2026-03-20T17:18:44.857681+00:00",
+    "updated_at": "2026-05-04T22:41:21.323918+00:00"
   },
   {
     "id": "4f985a4c-d9f8-4916-9f23-f0e5eca14651",
@@ -3033,6 +3041,474 @@
     "updated_by": "45106ff2-af57-4c8c-a8da-0324fda88dcb",
     "created_at": "2026-03-16T13:48:35.700087+00:00",
     "updated_at": "2026-03-16T13:52:19.943427+00:00"
+  },
+  {
+    "id": "5c289941-1447-427c-ad41-ba617ba718c5",
+    "project_id": "6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb",
+    "tool_key": "frt",
+    "instance_number": 1,
+    "label": null,
+    "data": {
+      "id": "proj_1775081372456_lnxlsc",
+      "info": {
+        "city": "",
+        "scope": "",
+        "client": "Caplink Ltd",
+        "address": "500 Fenmar Dr., North York",
+        "purpose": "",
+        "weather": "",
+        "province": "Ontario",
+        "revision": "A01",
+        "visitDate": "2026-04-01",
+        "dateOfIssue": "2026-04-01",
+        "projectName": "Shell Sprinkler & Fire Alarm",
+        "dateModified": "",
+        "generalNotes": "",
+        "_lastDraftNum": 1,
+        "inspectorName": "NB",
+        "projectNumber": "7155.51",
+        "customFilename": ""
+      },
+      "photos": [
+        {
+          "id": "dp_recovered_1775192620197_5fdtlj",
+          "r2Key": "photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/7155.51_site_mnlectdn_7low.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/7155.51_site_mnlectdn_7low.jpg",
+          "caption": "",
+          "r2Status": "uploaded",
+          "timestamp": "2026-04-02T00:00:00.000Z"
+        },
+        {
+          "id": "dp_recovered_1775192620197_unr6x2",
+          "r2Key": "photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/7155.51_site_mnlecte7_umms.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/7155.51_site_mnlecte7_umms.jpg",
+          "caption": "",
+          "r2Status": "uploaded",
+          "timestamp": "2026-04-02T00:00:00.000Z"
+        },
+        {
+          "id": "sp_recovered_1775425959934_6nen",
+          "r2Key": "photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/dph_1775408656634_g3u0kh.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/dph_1775408656634_g3u0kh.jpg",
+          "caption": "Recovered from R2",
+          "r2Status": "uploaded",
+          "timestamp": "2026-04-05T18:34:59.262Z"
+        },
+        {
+          "id": "sp_recovered_1775425959934_eq8v",
+          "r2Key": "photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/dph_1775408656634_hnkzhb.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/dph_1775408656634_hnkzhb.jpg",
+          "caption": "Recovered from R2",
+          "r2Status": "uploaded",
+          "timestamp": "2026-04-05T18:34:59.242Z"
+        },
+        {
+          "id": "sp_recovered_1775425959934_oudn",
+          "r2Key": "photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/dph_pin7_restored.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/dph_pin7_restored.jpg",
+          "caption": "Recovered from R2",
+          "r2Status": "uploaded",
+          "timestamp": "2026-04-05T18:36:53.686Z"
+        }
+      ],
+      "status": "draft",
+      "created": "2026-04-01T22:09:32.456Z",
+      "drawings": [
+        {
+          "id": "dwg_1777351709776_pg1_a1pn",
+          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 1",
+          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351709776_pg1_a1pn.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351709776_pg1_a1pn.jpg",
+          "width": 6144,
+          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
+          "height": 4096,
+          "pdfPage": 1,
+          "pdfTiled": false,
+          "r2Status": "",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
+          "isOriginal": false,
+          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
+          "tileStatus": "ready",
+          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
+          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
+          "tileProcessStartedAt": 1777351709776
+        },
+        {
+          "id": "dwg_1777351714144_pg2_4mc9",
+          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 2",
+          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351714144_pg2_4mc9.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351714144_pg2_4mc9.jpg",
+          "width": 6144,
+          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
+          "height": 4096,
+          "pdfPage": 2,
+          "pdfTiled": false,
+          "r2Status": "",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
+          "isOriginal": false,
+          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
+          "tileStatus": "ready",
+          "calibration": {
+            "p1": {
+              "x": 1118.864434234698,
+              "y": 852.8863012236545
+            },
+            "p2": {
+              "x": 1118.864434234698,
+              "y": 954.0440242291613
+            },
+            "units": "ft",
+            "createdAt": "2026-05-12T01:01:01.683Z",
+            "scaleRatio": 0.05272294763933149,
+            "realDistance": 5.333333333333333
+          },
+          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
+          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
+          "tileProcessStartedAt": 1777351714144
+        },
+        {
+          "id": "dwg_1777351716897_pg3_mck3",
+          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 3",
+          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351716897_pg3_mck3.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351716897_pg3_mck3.jpg",
+          "width": 6144,
+          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
+          "height": 4096,
+          "pdfPage": 3,
+          "pdfTiled": false,
+          "r2Status": "",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
+          "isOriginal": false,
+          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
+          "tileStatus": "ready",
+          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
+          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
+          "tileProcessStartedAt": 1777351716897
+        },
+        {
+          "id": "dwg_1777351719426_pg4_oxdd",
+          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 4",
+          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351719426_pg4_oxdd.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351719426_pg4_oxdd.jpg",
+          "width": 6144,
+          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
+          "height": 4096,
+          "pdfPage": 4,
+          "pdfTiled": false,
+          "r2Status": "",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
+          "isOriginal": false,
+          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
+          "tileStatus": "ready",
+          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
+          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
+          "tileProcessStartedAt": 1777351719426
+        },
+        {
+          "id": "dwg_1777351721530_pg5_stts",
+          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 5",
+          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351721530_pg5_stts.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351721530_pg5_stts.jpg",
+          "width": 6144,
+          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
+          "height": 4096,
+          "pdfPage": 5,
+          "pdfTiled": false,
+          "r2Status": "",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
+          "isOriginal": false,
+          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
+          "tileStatus": "ready",
+          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
+          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
+          "tileProcessStartedAt": 1777351721530
+        },
+        {
+          "id": "dwg_1777351723177_pg6_kelf",
+          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 6",
+          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351723177_pg6_kelf.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351723177_pg6_kelf.jpg",
+          "width": 6144,
+          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
+          "height": 4096,
+          "pdfPage": 6,
+          "pdfTiled": false,
+          "r2Status": "",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
+          "isOriginal": false,
+          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
+          "tileStatus": "ready",
+          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
+          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
+          "tileProcessStartedAt": 1777351723177
+        },
+        {
+          "id": "dwg_1777351726632_pg7_br8g",
+          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 7",
+          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351726632_pg7_br8g.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351726632_pg7_br8g.jpg",
+          "width": 6144,
+          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
+          "height": 4096,
+          "pdfPage": 7,
+          "pdfTiled": false,
+          "r2Status": "",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
+          "isOriginal": false,
+          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
+          "tileStatus": "ready",
+          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
+          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
+          "tileProcessStartedAt": 1777351726632
+        },
+        {
+          "id": "dwg_1777351730295_pg8_6ana",
+          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 8",
+          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351730295_pg8_6ana.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351730295_pg8_6ana.jpg",
+          "width": 6144,
+          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
+          "height": 4096,
+          "pdfPage": 8,
+          "pdfTiled": false,
+          "r2Status": "",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
+          "isOriginal": false,
+          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
+          "tileStatus": "ready",
+          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
+          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
+          "tileProcessStartedAt": 1777351730295
+        },
+        {
+          "id": "dwg_1777351731651_pg9_husn",
+          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 9",
+          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351731651_pg9_husn.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351731651_pg9_husn.jpg",
+          "width": 6144,
+          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
+          "height": 4096,
+          "pdfPage": 9,
+          "pdfTiled": false,
+          "r2Status": "",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
+          "isOriginal": false,
+          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
+          "tileStatus": "ready",
+          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
+          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
+          "tileProcessStartedAt": 1777351731651
+        }
+      ],
+      "modified": "2026-05-12T02:34:12.288Z",
+      "settings": {
+        "sketchesEnabled": false
+      },
+      "sketches": [],
+      "_frtQFixed": true,
+      "signatures": {
+        "sigWitnessDate": "",
+        "sigWitnessName": "",
+        "sigInspectorDate": "",
+        "sigInspectorName": ""
+      },
+      "contractors": [
+        {
+          "id": "ctr_1775053453917",
+          "name": "Vipond",
+          "deficiencies": [
+            {
+              "id": "def_1775135165990_kusx",
+              "iar": false,
+              "num": 1,
+              "date": "2026-04-02",
+              "pinX": 0.3778202842600229,
+              "pinY": 0.311748660487997,
+              "photos": [],
+              "status": "open",
+              "created": "2026-04-02T13:06:05.990Z",
+              "activity": [
+                {
+                  "id": "act_1775270934201_3k77",
+                  "date": "2026-04-04",
+                  "text": "Previously closed in FRT #1.",
+                  "label": "Re-opened",
+                  "photos": [],
+                  "instance": 1,
+                  "autoGenerated": true
+                }
+              ],
+              "priority": "high",
+              "drawingId": "dwg_1777351714144_pg2_4mc9",
+              "notedDate": "2026-04-02",
+              "closedDate": null,
+              "closedNote": "",
+              "activeEntry": 0,
+              "observations": [
+                {
+                  "id": "obs_1775135165990_xbme",
+                  "text": "Sprinkler deflector is located at 45'-4\" A.F.F. Light fixture is at 45'-6\" A.F.F. and ceiling is at 46'-0\" A.F.F.",
+                  "photos": [],
+                  "priority": "high",
+                  "addressed": false,
+                  "notedDate": "2026-04-02",
+                  "notedOnInstance": 1
+                },
+                {
+                  "id": "obs_1778424388268_2_nnhy1u87",
+                  "text": "",
+                  "photos": [],
+                  "priority": "low",
+                  "addressed": false,
+                  "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+                  "notedDate": "2026-05-10",
+                  "notedOnInstance": 1
+                }
+              ],
+              "notedOnInstance": 1,
+              "closedOnInstance": null,
+              "_photoPoolMigrated": true
+            },
+            {
+              "id": "def_1775136016191_7mh3",
+              "iar": false,
+              "num": 2,
+              "date": "2026-04-02",
+              "pinX": 0.8380701988036005,
+              "pinY": 0.451121884332266,
+              "photos": [],
+              "status": "open",
+              "created": "2026-04-02T13:20:16.191Z",
+              "activity": [
+                {
+                  "id": "act_1775270935202_024n",
+                  "date": "2026-04-04",
+                  "text": "Previously closed in FRT #1.",
+                  "label": "Re-opened",
+                  "photos": [],
+                  "instance": 1,
+                  "autoGenerated": true
+                }
+              ],
+              "priority": "high",
+              "drawingId": "dwg_1777351714144_pg2_4mc9",
+              "notedDate": "2026-04-02",
+              "closedDate": null,
+              "closedNote": "",
+              "activeEntry": 0,
+              "observations": [
+                {
+                  "id": "obs_1775136016191_g7lx",
+                  "text": "Low point drain is required.",
+                  "photos": [],
+                  "priority": "high",
+                  "addressed": false,
+                  "notedDate": "2026-04-02",
+                  "addressedDate": null,
+                  "notedOnInstance": 1,
+                  "addressedOnInstance": null
+                }
+              ],
+              "notedOnInstance": 1,
+              "closedOnInstance": null,
+              "_photoPoolMigrated": true
+            }
+          ]
+        },
+        {
+          "id": "ctr_1775053950697_1s72",
+          "name": "CFLS",
+          "deficiencies": []
+        }
+      ],
+      "frtInstances": [
+        {
+          "notes": "",
+          "number": 1,
+          "revision": "B01",
+          "createdDate": "2026-04-01T22:09:32.456Z",
+          "siteVisitDate": "2026-04-01T22:09:32.456Z"
+        }
+      ],
+      "nextDeficNum": 4,
+      "_hubProjectId": "6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb",
+      "_collapsedFolders": {
+        "7155.51 Caplink 500 Fenmar Dr FPS IFT B10": false,
+        "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 (Inspector 2)": false
+      },
+      "currentFrtInstance": 1,
+      "generalDeficiencies": [
+        {
+          "id": "def_1778212673202_6j7692pwej_pin3",
+          "iar": false,
+          "num": 3,
+          "date": "2026-04-02",
+          "pinX": 0.8469202596754782,
+          "pinY": 0.45617015849157655,
+          "photos": [],
+          "status": "open",
+          "created": "2026-04-02T13:20:16.191Z",
+          "activity": [
+            {
+              "id": "act_1775270935202_024n",
+              "date": "2026-04-04",
+              "text": "Previously closed in FRT #1.",
+              "label": "Re-opened",
+              "photos": [],
+              "instance": 1,
+              "autoGenerated": true
+            }
+          ],
+          "priority": "high",
+          "drawingId": "dwg_1777351714144_pg2_4mc9",
+          "notedDate": "2026-04-02",
+          "closedDate": null,
+          "closedNote": "",
+          "activeEntry": 0,
+          "observations": [
+            {
+              "id": "obs_1778212673202_7mnygmem_pin3_0",
+              "text": "Low point drain is required.",
+              "photos": [],
+              "priority": "high",
+              "addressed": false,
+              "notedDate": "2026-04-02",
+              "aiReviewed": false,
+              "addressedDate": null,
+              "notedOnInstance": 1,
+              "addressedOnInstance": null
+            },
+            {
+              "text": "Test 2",
+              "priority": "low",
+              "addressed": false
+            },
+            {
+              "text": "Test23466",
+              "priority": "high",
+              "addressed": false
+            }
+          ],
+          "notedOnInstance": 1,
+          "closedOnInstance": null,
+          "_photoPoolMigrated": true
+        }
+      ]
+    },
+    "status": "draft",
+    "created_by": "fabd6ba0-77ba-4c7a-a49c-9f81902d7d71",
+    "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+    "created_at": "2026-04-01T14:19:51.338893+00:00",
+    "updated_at": "2026-05-13T05:23:41.521617+00:00"
   },
   {
     "id": "1c79342c-aa3f-4123-88e1-12c934c42111",
@@ -3796,474 +4272,6 @@
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-23T04:22:09.477806+00:00",
     "updated_at": "2026-03-23T04:29:09.173107+00:00"
-  },
-  {
-    "id": "5c289941-1447-427c-ad41-ba617ba718c5",
-    "project_id": "6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb",
-    "tool_key": "frt",
-    "instance_number": 1,
-    "label": null,
-    "data": {
-      "id": "proj_1775081372456_lnxlsc",
-      "info": {
-        "city": "",
-        "scope": "",
-        "client": "Caplink Ltd",
-        "address": "500 Fenmar Dr., North York",
-        "purpose": "",
-        "weather": "",
-        "province": "Ontario",
-        "revision": "A01",
-        "visitDate": "2026-04-01",
-        "dateOfIssue": "2026-04-01",
-        "projectName": "Shell Sprinkler & Fire Alarm",
-        "dateModified": "",
-        "generalNotes": "",
-        "_lastDraftNum": 1,
-        "inspectorName": "NB",
-        "projectNumber": "7155.51",
-        "customFilename": ""
-      },
-      "photos": [
-        {
-          "id": "dp_recovered_1775192620197_5fdtlj",
-          "r2Key": "photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/7155.51_site_mnlectdn_7low.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/7155.51_site_mnlectdn_7low.jpg",
-          "caption": "",
-          "r2Status": "uploaded",
-          "timestamp": "2026-04-02T00:00:00.000Z"
-        },
-        {
-          "id": "dp_recovered_1775192620197_unr6x2",
-          "r2Key": "photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/7155.51_site_mnlecte7_umms.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/7155.51_site_mnlecte7_umms.jpg",
-          "caption": "",
-          "r2Status": "uploaded",
-          "timestamp": "2026-04-02T00:00:00.000Z"
-        },
-        {
-          "id": "sp_recovered_1775425959934_6nen",
-          "r2Key": "photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/dph_1775408656634_g3u0kh.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/dph_1775408656634_g3u0kh.jpg",
-          "caption": "Recovered from R2",
-          "r2Status": "uploaded",
-          "timestamp": "2026-04-05T18:34:59.262Z"
-        },
-        {
-          "id": "sp_recovered_1775425959934_eq8v",
-          "r2Key": "photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/dph_1775408656634_hnkzhb.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/dph_1775408656634_hnkzhb.jpg",
-          "caption": "Recovered from R2",
-          "r2Status": "uploaded",
-          "timestamp": "2026-04-05T18:34:59.242Z"
-        },
-        {
-          "id": "sp_recovered_1775425959934_oudn",
-          "r2Key": "photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/dph_pin7_restored.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7155.51_Shell_Sprinkler__Fire_Alarm/frt/original/dph_pin7_restored.jpg",
-          "caption": "Recovered from R2",
-          "r2Status": "uploaded",
-          "timestamp": "2026-04-05T18:36:53.686Z"
-        }
-      ],
-      "status": "draft",
-      "created": "2026-04-01T22:09:32.456Z",
-      "drawings": [
-        {
-          "id": "dwg_1777351709776_pg1_a1pn",
-          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 1",
-          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351709776_pg1_a1pn.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351709776_pg1_a1pn.jpg",
-          "width": 6144,
-          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
-          "height": 4096,
-          "pdfPage": 1,
-          "pdfTiled": false,
-          "r2Status": "",
-          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
-          "isOriginal": false,
-          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
-          "tileStatus": "ready",
-          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
-          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
-          "tileProcessStartedAt": 1777351709776
-        },
-        {
-          "id": "dwg_1777351714144_pg2_4mc9",
-          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 2",
-          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351714144_pg2_4mc9.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351714144_pg2_4mc9.jpg",
-          "width": 6144,
-          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
-          "height": 4096,
-          "pdfPage": 2,
-          "pdfTiled": false,
-          "r2Status": "",
-          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
-          "isOriginal": false,
-          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
-          "tileStatus": "ready",
-          "calibration": {
-            "p1": {
-              "x": 1118.864434234698,
-              "y": 852.8863012236545
-            },
-            "p2": {
-              "x": 1118.864434234698,
-              "y": 954.0440242291613
-            },
-            "units": "ft",
-            "createdAt": "2026-05-12T01:01:01.683Z",
-            "scaleRatio": 0.05272294763933149,
-            "realDistance": 5.333333333333333
-          },
-          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
-          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
-          "tileProcessStartedAt": 1777351714144
-        },
-        {
-          "id": "dwg_1777351716897_pg3_mck3",
-          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 3",
-          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351716897_pg3_mck3.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351716897_pg3_mck3.jpg",
-          "width": 6144,
-          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
-          "height": 4096,
-          "pdfPage": 3,
-          "pdfTiled": false,
-          "r2Status": "",
-          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
-          "isOriginal": false,
-          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
-          "tileStatus": "ready",
-          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
-          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
-          "tileProcessStartedAt": 1777351716897
-        },
-        {
-          "id": "dwg_1777351719426_pg4_oxdd",
-          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 4",
-          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351719426_pg4_oxdd.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351719426_pg4_oxdd.jpg",
-          "width": 6144,
-          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
-          "height": 4096,
-          "pdfPage": 4,
-          "pdfTiled": false,
-          "r2Status": "",
-          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
-          "isOriginal": false,
-          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
-          "tileStatus": "ready",
-          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
-          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
-          "tileProcessStartedAt": 1777351719426
-        },
-        {
-          "id": "dwg_1777351721530_pg5_stts",
-          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 5",
-          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351721530_pg5_stts.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351721530_pg5_stts.jpg",
-          "width": 6144,
-          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
-          "height": 4096,
-          "pdfPage": 5,
-          "pdfTiled": false,
-          "r2Status": "",
-          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
-          "isOriginal": false,
-          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
-          "tileStatus": "ready",
-          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
-          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
-          "tileProcessStartedAt": 1777351721530
-        },
-        {
-          "id": "dwg_1777351723177_pg6_kelf",
-          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 6",
-          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351723177_pg6_kelf.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351723177_pg6_kelf.jpg",
-          "width": 6144,
-          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
-          "height": 4096,
-          "pdfPage": 6,
-          "pdfTiled": false,
-          "r2Status": "",
-          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
-          "isOriginal": false,
-          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
-          "tileStatus": "ready",
-          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
-          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
-          "tileProcessStartedAt": 1777351723177
-        },
-        {
-          "id": "dwg_1777351726632_pg7_br8g",
-          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 7",
-          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351726632_pg7_br8g.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351726632_pg7_br8g.jpg",
-          "width": 6144,
-          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
-          "height": 4096,
-          "pdfPage": 7,
-          "pdfTiled": false,
-          "r2Status": "",
-          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
-          "isOriginal": false,
-          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
-          "tileStatus": "ready",
-          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
-          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
-          "tileProcessStartedAt": 1777351726632
-        },
-        {
-          "id": "dwg_1777351730295_pg8_6ana",
-          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 8",
-          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351730295_pg8_6ana.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351730295_pg8_6ana.jpg",
-          "width": 6144,
-          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
-          "height": 4096,
-          "pdfPage": 8,
-          "pdfTiled": false,
-          "r2Status": "",
-          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
-          "isOriginal": false,
-          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
-          "tileStatus": "ready",
-          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
-          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
-          "tileProcessStartedAt": 1777351730295
-        },
-        {
-          "id": "dwg_1777351731651_pg9_husn",
-          "name": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 - Page 9",
-          "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351731651_pg9_husn.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/drawings/dwg_dwg_1777351731651_pg9_husn.jpg",
-          "width": 6144,
-          "folder": "7155.51 Caplink 500 Fenmar Dr FPS IFT B10",
-          "height": 4096,
-          "pdfPage": 9,
-          "pdfTiled": false,
-          "r2Status": "",
-          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-          "pdfBufKey": "pdfbuf_1777351707010_4wtp8v",
-          "isOriginal": false,
-          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
-          "tileStatus": "ready",
-          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/frt/pdfbufs/pdfbuf_1777351707010_4wtp8v.pdf",
-          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/tiles/pdfbuf_1777351707010_4wtp8v/manifest.json",
-          "tileProcessStartedAt": 1777351731651
-        }
-      ],
-      "modified": "2026-05-12T02:34:12.288Z",
-      "settings": {
-        "sketchesEnabled": false
-      },
-      "sketches": [],
-      "_frtQFixed": true,
-      "signatures": {
-        "sigWitnessDate": "",
-        "sigWitnessName": "",
-        "sigInspectorDate": "",
-        "sigInspectorName": ""
-      },
-      "contractors": [
-        {
-          "id": "ctr_1775053453917",
-          "name": "Vipond",
-          "deficiencies": [
-            {
-              "id": "def_1775135165990_kusx",
-              "iar": false,
-              "num": 1,
-              "date": "2026-04-02",
-              "pinX": 0.3778202842600229,
-              "pinY": 0.311748660487997,
-              "photos": [],
-              "status": "open",
-              "created": "2026-04-02T13:06:05.990Z",
-              "activity": [
-                {
-                  "id": "act_1775270934201_3k77",
-                  "date": "2026-04-04",
-                  "text": "Previously closed in FRT #1.",
-                  "label": "Re-opened",
-                  "photos": [],
-                  "instance": 1,
-                  "autoGenerated": true
-                }
-              ],
-              "priority": "high",
-              "drawingId": "dwg_1777351714144_pg2_4mc9",
-              "notedDate": "2026-04-02",
-              "closedDate": null,
-              "closedNote": "",
-              "activeEntry": 0,
-              "observations": [
-                {
-                  "id": "obs_1775135165990_xbme",
-                  "text": "Sprinkler deflector is located at 45'-4\" A.F.F. Light fixture is at 45'-6\" A.F.F. and ceiling is at 46'-0\" A.F.F.",
-                  "photos": [],
-                  "priority": "high",
-                  "addressed": false,
-                  "notedDate": "2026-04-02",
-                  "notedOnInstance": 1
-                },
-                {
-                  "id": "obs_1778424388268_2_nnhy1u87",
-                  "text": "",
-                  "photos": [],
-                  "priority": "low",
-                  "addressed": false,
-                  "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-                  "notedDate": "2026-05-10",
-                  "notedOnInstance": 1
-                }
-              ],
-              "notedOnInstance": 1,
-              "closedOnInstance": null,
-              "_photoPoolMigrated": true
-            },
-            {
-              "id": "def_1775136016191_7mh3",
-              "iar": false,
-              "num": 2,
-              "date": "2026-04-02",
-              "pinX": 0.8380701988036005,
-              "pinY": 0.451121884332266,
-              "photos": [],
-              "status": "open",
-              "created": "2026-04-02T13:20:16.191Z",
-              "activity": [
-                {
-                  "id": "act_1775270935202_024n",
-                  "date": "2026-04-04",
-                  "text": "Previously closed in FRT #1.",
-                  "label": "Re-opened",
-                  "photos": [],
-                  "instance": 1,
-                  "autoGenerated": true
-                }
-              ],
-              "priority": "high",
-              "drawingId": "dwg_1777351714144_pg2_4mc9",
-              "notedDate": "2026-04-02",
-              "closedDate": null,
-              "closedNote": "",
-              "activeEntry": 0,
-              "observations": [
-                {
-                  "id": "obs_1775136016191_g7lx",
-                  "text": "Low point drain is required.",
-                  "photos": [],
-                  "priority": "high",
-                  "addressed": false,
-                  "notedDate": "2026-04-02",
-                  "addressedDate": null,
-                  "notedOnInstance": 1,
-                  "addressedOnInstance": null
-                }
-              ],
-              "notedOnInstance": 1,
-              "closedOnInstance": null,
-              "_photoPoolMigrated": true
-            }
-          ]
-        },
-        {
-          "id": "ctr_1775053950697_1s72",
-          "name": "CFLS",
-          "deficiencies": []
-        }
-      ],
-      "frtInstances": [
-        {
-          "notes": "",
-          "number": 1,
-          "revision": "B01",
-          "createdDate": "2026-04-01T22:09:32.456Z",
-          "siteVisitDate": "2026-04-01T22:09:32.456Z"
-        }
-      ],
-      "nextDeficNum": 4,
-      "_hubProjectId": "6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb",
-      "_collapsedFolders": {
-        "7155.51 Caplink 500 Fenmar Dr FPS IFT B10": false,
-        "7155.51 Caplink 500 Fenmar Dr FPS IFT B10 (Inspector 2)": false
-      },
-      "currentFrtInstance": 1,
-      "generalDeficiencies": [
-        {
-          "id": "def_1778212673202_6j7692pwej_pin3",
-          "iar": false,
-          "num": 3,
-          "date": "2026-04-02",
-          "pinX": 0.8469202596754782,
-          "pinY": 0.45617015849157655,
-          "photos": [],
-          "status": "open",
-          "created": "2026-04-02T13:20:16.191Z",
-          "activity": [
-            {
-              "id": "act_1775270935202_024n",
-              "date": "2026-04-04",
-              "text": "Previously closed in FRT #1.",
-              "label": "Re-opened",
-              "photos": [],
-              "instance": 1,
-              "autoGenerated": true
-            }
-          ],
-          "priority": "high",
-          "drawingId": "dwg_1777351714144_pg2_4mc9",
-          "notedDate": "2026-04-02",
-          "closedDate": null,
-          "closedNote": "",
-          "activeEntry": 0,
-          "observations": [
-            {
-              "id": "obs_1778212673202_7mnygmem_pin3_0",
-              "text": "Low point drain is required.",
-              "photos": [],
-              "priority": "high",
-              "addressed": false,
-              "notedDate": "2026-04-02",
-              "aiReviewed": false,
-              "addressedDate": null,
-              "notedOnInstance": 1,
-              "addressedOnInstance": null
-            },
-            {
-              "text": "Test 2",
-              "priority": "low",
-              "addressed": false
-            },
-            {
-              "text": "Test23466",
-              "priority": "high",
-              "addressed": false
-            }
-          ],
-          "notedOnInstance": 1,
-          "closedOnInstance": null,
-          "_photoPoolMigrated": true
-        }
-      ]
-    },
-    "status": "draft",
-    "created_by": "fabd6ba0-77ba-4c7a-a49c-9f81902d7d71",
-    "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-    "created_at": "2026-04-01T14:19:51.338893+00:00",
-    "updated_at": "2026-05-13T03:59:41.869186+00:00"
   },
   {
     "id": "cb856f4b-b361-43d3-8605-44fd910bd735",
