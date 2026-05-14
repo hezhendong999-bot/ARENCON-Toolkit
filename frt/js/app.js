@@ -1543,6 +1543,39 @@ function boot() {
     var proj = Model.getProject();
     if (proj) R2.rebuildUrls(proj);
 
+    // S130 — Seed a brand-new report's Project Info from the Hub URL params.
+    // The Hub passes pn/pname/client/addr when launching a tool instance, but
+    // FRT historically ignored them, so every new report opened blank even
+    // though the Hub already knew the project number, client, and address.
+    //
+    // GUARD: only seed when the instance is genuinely new — i.e. the core
+    // info fields are all still empty. If the report already has any of
+    // these filled (existing instance, or user already typed), do NOT
+    // overwrite. This makes the seed safe to run on every boot.
+    if (_hubMode && proj && proj.info) {
+      var __sp = new URLSearchParams(window.location.search);
+      var __urlPn    = __sp.get('pn')     || '';
+      var __urlPname = __sp.get('pname')  || '';
+      var __urlClient= __sp.get('client') || '';
+      var __urlAddr  = __sp.get('addr')   || '';
+      var __i = proj.info;
+      var __isFresh = !__i.projectNumber && !__i.projectName &&
+                      !__i.client && !__i.address;
+      if (__isFresh && (__urlPn || __urlPname || __urlClient || __urlAddr)) {
+        // updateField is the public mutation path — sets dirty, queues the
+        // cloud save, and fires the 'field' change notification so the
+        // Project Info tab re-renders the input live.
+        if (__urlPn)     Model.updateField('projectNumber', __urlPn);
+        if (__urlPname)  Model.updateField('projectName',   __urlPname);
+        if (__urlClient) Model.updateField('client',        __urlClient);
+        if (__urlAddr)   Model.updateField('address',       __urlAddr);
+        console.log('[FRT v2] Seeded new report from Hub params:', __urlPn, '/', __urlPname);
+        // Re-render the info tab if it's the current view so the user sees
+        // the seeded values immediately (boot may have rendered it empty).
+        if (_currentTab === 'info') switchTab('info');
+      }
+    }
+
     // Start auto-save
     Model.startAutoSave();
 
