@@ -405,9 +405,15 @@ export default {
           const ifNoneMatchHdr = request.headers.get('If-None-Match');
           const putOpts = { httpMetadata: { contentType } };
           if (ifMatchHdr) {
-            // Strip surrounding quotes — clients may send `"abc"` per HTTP spec,
-            // but R2 expects the bare etag string.
-            putOpts.onlyIf = { etagMatches: ifMatchHdr.replace(/^"|"$/g, '') };
+            // S130 FIX — pass the If-Match value through UNMODIFIED.
+            // R2's onlyIf.etagMatches expects the strong-etag form exactly as
+            // R2 emitted it on GET (object.httpEtag), which INCLUDES the
+            // surrounding quotes. A previous version stripped the quotes,
+            // which made etagMatches never match R2's stored etag → every
+            // conditional markup PUT 412'd forever and deletions never synced.
+            // The client captured this value verbatim from our own GET
+            // response ETag header, so it is already in the correct form.
+            putOpts.onlyIf = { etagMatches: ifMatchHdr };
           } else if (ifNoneMatchHdr === '*') {
             putOpts.onlyIf = { etagDoesNotMatch: '*' };
           }

@@ -294,18 +294,52 @@ describe('R2.uploadMarkup — If-Match conditional PUT (S129 1.2)', () => {
     expect(seenIfMatch).toEqual(['"v1"', '"v2"']);
   });
 
-  it('412 retry budget caps at 3 retries (4 PUTs total) then returns null', async () => {
+  it('412 retry budget: 4 conditional PUTs, then 1 unconditional last-resort PUT (5 total)', async () => {
+    // S130 — after the conditional retries are exhausted, uploadMarkup makes
+    // ONE final unconditional PUT (no If-Match) as a last resort so the write
+    // actually persists. If even that 412s (bizarre — unconditional PUTs
+    // shouldn't 412), the result is null. This test forces every PUT to 412
+    // including the unconditional one, so we see all 5 attempts and a null.
     const { R2 } = await import('../../js/data/r2.js');
     let putCount = 0;
+    let lastPutHadIfMatch = null;
     global.fetch = vi.fn(async (url, opts) => {
       const method = (opts && opts.method) || 'GET';
       if (method === 'GET') return mkResp(200, { objects: [], deletedIds: [] }, { ETag: '"x"' });
       putCount++;
+      lastPutHadIfMatch = !!((opts.headers || {})['If-Match']);
       return mkResp(412, { error: 'Precondition Failed' });
     });
     const result = await R2.uploadMarkup('pid1', 'd1', [{ id: 'a' }], []);
     expect(result).toBeNull();
-    expect(putCount).toBe(4);
+    // 1 initial + 3 conditional retries + 1 unconditional last-resort = 5
+    expect(putCount).toBe(5);
+    // The final PUT must have been unconditional (no If-Match header)
+    expect(lastPutHadIfMatch).toBe(false);
+  });
+
+  it('412 on all conditional PUTs, but unconditional last-resort PUT succeeds', async () => {
+    // The realistic case: conditional PUT keeps 412ing (e.g. an undeployed or
+    // buggy worker), but the unconditional fallback persists the data. This is
+    // the fix for "deleted markup came back on reopen" — the delete now
+    // actually reaches R2 instead of silently failing.
+    const { R2 } = await import('../../js/data/r2.js');
+    let putCount = 0;
+    const ifMatchSeen = [];
+    global.fetch = vi.fn(async (url, opts) => {
+      const method = (opts && opts.method) || 'GET';
+      if (method === 'GET') return mkResp(200, { objects: [], deletedIds: [] }, { ETag: '"x"' });
+      putCount++;
+      ifMatchSeen.push(!!((opts.headers || {})['If-Match']));
+      // First 4 (conditional) PUTs 412; the 5th (unconditional) succeeds.
+      if (putCount <= 4) return mkResp(412, { error: 'Precondition Failed' });
+      return mkResp(200, { success: true });
+    });
+    const result = await R2.uploadMarkup('pid1', 'd1', [{ id: 'a' }], ['deleted-1']);
+    expect(result).not.toBeNull();
+    expect(putCount).toBe(5);
+    // First 4 had If-Match, the 5th (the one that succeeded) did not.
+    expect(ifMatchSeen).toEqual([true, true, true, true, false]);
   });
 
   it('old-format cloud body (plain array) is accepted and merged correctly', async () => {

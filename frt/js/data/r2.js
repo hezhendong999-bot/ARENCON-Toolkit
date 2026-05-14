@@ -429,7 +429,16 @@ export var R2 = {
     //   { ok: true,  result: {r2Key, r2Url, count, bytes, deletedCount} }
     //   { ok: false, retry: true }   ← precondition failed, caller should retry
     //   { ok: false, retry: false }  ← terminal failure
-    function attemptOnce() {
+    //
+    // `unconditional` — when true, skip If-Match / If-None-Match entirely and
+    // do a plain PUT. Used by the retry loop as a LAST-RESORT after the
+    // conditional retries are exhausted. This trades concurrent-write race
+    // protection for guaranteed persistence: for a single inspector working
+    // alone (the common case), a markup edit that 412s forever otherwise
+    // silently never saves — which is how deletions "came back". The
+    // read-merge-write still ran first, so cloud objects are preserved; we
+    // just give up the atomic compare-and-swap on the final write.
+    function attemptOnce(unconditional) {
       return fetchCloud().then(function(cloud) {
         var normalized = normalizeCloudBody(cloud.body);
         var mergeOut = self._mergeMarkupObjects(
@@ -443,8 +452,12 @@ export var R2 = {
         }
 
         var blob = { objects: mergeOut.objects, deletedIds: mergeOut.deletedIds };
-        var ifMatch = (cloud.exists && cloud.etag) ? cloud.etag : null;
-        var ifNoneMatch = (!cloud.exists) ? '*' : null;
+        // unconditional → no preconditions at all (last-resort write).
+        var ifMatch = unconditional ? null : ((cloud.exists && cloud.etag) ? cloud.etag : null);
+        var ifNoneMatch = unconditional ? null : ((!cloud.exists) ? '*' : null);
+        if (unconditional) {
+          console.warn('[R2] Markup unconditional PUT (conditional retries exhausted) — race protection skipped:', r2Key);
+        }
 
         // S127 Push B — 415 hardening. Try application/json first; on 415
         // (Worker content-type allowlist), retry once with octet-stream.
@@ -500,17 +513,32 @@ export var R2 = {
     }
 
     // Retry loop with small jitter so concurrent retries don't lockstep.
-    function retryLoop(remaining) {
-      return attemptOnce().then(function(outcome) {
+    // After the conditional retries are exhausted, make ONE final
+    // unconditional attempt so the write actually persists. Without this,
+    // a persistent 412 (e.g. an undeployed/buggy worker, or genuine heavy
+    // contention) means the markup edit silently never reaches R2 — which
+    // is exactly the "deleted markup came back on reopen" bug.
+    function retryLoop(remaining, unconditional) {
+      return attemptOnce(unconditional).then(function(outcome) {
         if (outcome.ok) return outcome.result;
-        if (!outcome.retry || remaining <= 0) return null;
-        var jitter = 30 + Math.random() * 70;  // 30–100ms
-        return new Promise(function(resolve) { setTimeout(resolve, jitter); })
-          .then(function() { return retryLoop(remaining - 1); });
+        if (!outcome.retry) return null;            // terminal non-412 failure
+        if (remaining > 0) {
+          var jitter = 30 + Math.random() * 70;     // 30–100ms
+          return new Promise(function(resolve) { setTimeout(resolve, jitter); })
+            .then(function() { return retryLoop(remaining - 1, false); });
+        }
+        // Conditional retries exhausted. If we haven't already tried an
+        // unconditional write, do exactly one as a last resort.
+        if (!unconditional) {
+          return retryLoop(0, true);
+        }
+        // Even the unconditional write failed (or also 412'd, which would be
+        // bizarre) — give up. Caller logs "no result", IDB still has the data.
+        return null;
       });
     }
 
-    return retryLoop(MAX_RETRIES);
+    return retryLoop(MAX_RETRIES, false);
   },
 
   /**
