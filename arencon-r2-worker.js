@@ -27,7 +27,11 @@ function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': allowed ? origin : '*',
     'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Upload-Content-Type',
+    // S129 Item 1.2 — allow conditional-write headers so the client can
+    // send If-Match: <etag> on PUT for read-merge-write race protection.
+    // Expose ETag on GET so the client can capture it from the response.
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Upload-Content-Type, If-Match, If-None-Match',
+    'Access-Control-Expose-Headers': 'ETag',
     'Access-Control-Max-Age': '86400'
   };
 }
@@ -390,10 +394,48 @@ export default {
         try {
           const contentType = request.headers.get('Content-Type') || 'image/jpeg';
           const body = await request.arrayBuffer();
-          await env.BUCKET.put(r2Key, body, {
-            httpMetadata: { contentType }
-          });
-          return jsonResponse({ success: true, key: r2Key, size: body.byteLength }, 200, origin);
+          // S129 Item 1.2 — Conditional PUT. R2's put() accepts an `onlyIf`
+          // option that maps directly to HTTP precondition semantics:
+          //   If-Match: <etag>  → only succeed if current object has this ETag
+          //   If-None-Match: *  → only succeed if object does NOT exist
+          // On precondition failure, R2 throws and we return 412 so the client
+          // can re-GET, re-merge, and retry. Markup uses this to close the
+          // read-merge-write race window between concurrent inspectors.
+          const ifMatchHdr = request.headers.get('If-Match');
+          const ifNoneMatchHdr = request.headers.get('If-None-Match');
+          const putOpts = { httpMetadata: { contentType } };
+          if (ifMatchHdr) {
+            // Strip surrounding quotes — clients may send `"abc"` per HTTP spec,
+            // but R2 expects the bare etag string.
+            putOpts.onlyIf = { etagMatches: ifMatchHdr.replace(/^"|"$/g, '') };
+          } else if (ifNoneMatchHdr === '*') {
+            putOpts.onlyIf = { etagDoesNotMatch: '*' };
+          }
+          let putResult;
+          try {
+            putResult = await env.BUCKET.put(r2Key, body, putOpts);
+          } catch (preErr) {
+            // Some R2 SDK versions throw on precondition mismatch; others
+            // return null. Either way, 412 is the right client response.
+            return jsonResponse({
+              error: 'Precondition Failed',
+              reason: 'concurrent_write_detected'
+            }, 412, origin);
+          }
+          if (putResult === null && (ifMatchHdr || ifNoneMatchHdr === '*')) {
+            // Conditional put returned null → precondition failed.
+            return jsonResponse({
+              error: 'Precondition Failed',
+              reason: 'concurrent_write_detected'
+            }, 412, origin);
+          }
+          // Echo the resulting ETag so the client can use it for the NEXT
+          // If-Match without an extra GET. Header is also exposed via CORS.
+          const respBody = { success: true, key: r2Key, size: body.byteLength };
+          if (putResult && putResult.httpEtag) respBody.etag = putResult.httpEtag;
+          const respHeaders = { 'Content-Type': 'application/json', ...corsHeaders(origin) };
+          if (putResult && putResult.httpEtag) respHeaders['ETag'] = putResult.httpEtag;
+          return new Response(JSON.stringify(respBody), { status: 200, headers: respHeaders });
         } catch (e) {
           return jsonResponse({ error: 'Upload failed: ' + e.message }, 500, origin);
         }

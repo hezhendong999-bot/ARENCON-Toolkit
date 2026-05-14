@@ -244,6 +244,9 @@ export var R2 = {
    */
   /**
    * S129 Item 2 (tight scope) — Union two markup-object arrays by `id`.
+   * S129 Item 1.1 (medium scope) — Tombstones close the erase-while-concurrent
+   * resurrection bug. Any id present in EITHER deletedIds set is excluded from
+   * the merged objects, and tombstones are unioned so all inspectors converge.
    *
    * CRDT-lite pattern: every stroke already has a unique `id` (mk_<base36>_<rand>
    * — see markup.js _newId()), so concurrent additions on different drawings
@@ -256,40 +259,61 @@ export var R2 = {
    * This preserves cloud-side z-order for the other inspector's strokes while
    * placing the current user's new strokes on top.
    *
-   * KNOWN LIMITATION (tight scope, deferred): erase-while-concurrent. If
-   * Inspector A erases stroke S1 locally while Inspector B has S1, B's next
-   * save will resurrect S1 via this union. Fix is the medium-scope follow-up
-   * (deletedIds tombstones). See HANDOFF_SESSION_128.md S129 queue.
+   * Tombstone semantics: a tombstoned id is excluded from the merged objects
+   * regardless of where the object lives (cloud, local, or both). Delete is
+   * final. Tombstones from both sides are unioned so the deletion propagates
+   * to every other inspector on their next merge.
+   *
+   * Returns `{ objects: Array, deletedIds: Array<string> }`.
    *
    * Exported for unit testing.
    */
-  _mergeMarkupObjects: function(cloudArr, localArr) {
+  _mergeMarkupObjects: function(cloudArr, localArr, localTombstones, cloudTombstones) {
     var cloud = Array.isArray(cloudArr) ? cloudArr : [];
     var local = Array.isArray(localArr) ? localArr : [];
+    var lt = Array.isArray(localTombstones) ? localTombstones : [];
+    var ct = Array.isArray(cloudTombstones) ? cloudTombstones : [];
+
+    // Union of tombstones — propagate deletions to every collaborator.
+    var tombSet = {};
+    var tombArr = [];
+    for (var t1 = 0; t1 < ct.length; t1++) {
+      var id1 = ct[t1];
+      if (typeof id1 === 'string' && !tombSet[id1]) { tombSet[id1] = true; tombArr.push(id1); }
+    }
+    for (var t2 = 0; t2 < lt.length; t2++) {
+      var id2 = lt[t2];
+      if (typeof id2 === 'string' && !tombSet[id2]) { tombSet[id2] = true; tombArr.push(id2); }
+    }
+
     var localById = {};
     for (var i = 0; i < local.length; i++) {
       if (local[i] && local[i].id) localById[local[i].id] = local[i];
     }
     var seen = {};
-    var result = [];
+    var objects = [];
     // 1) Walk cloud — for each cloud object, prefer local version if same id
     //    exists (local wins on conflict); otherwise keep cloud version.
+    //    Tombstoned ids are excluded.
     for (var j = 0; j < cloud.length; j++) {
       var c = cloud[j];
       if (!c || !c.id) continue;
       if (seen[c.id]) continue;
+      if (tombSet[c.id]) continue;
       seen[c.id] = true;
-      result.push(localById[c.id] || c);
+      objects.push(localById[c.id] || c);
     }
     // 2) Append local-only objects (id not present in cloud) in local order.
+    //    Tombstoned ids are excluded.
     for (var k = 0; k < local.length; k++) {
       var l = local[k];
       if (!l || !l.id) continue;
       if (seen[l.id]) continue;
+      if (tombSet[l.id]) continue;
       seen[l.id] = true;
-      result.push(l);
+      objects.push(l);
     }
-    return result;
+    return { objects: objects, deletedIds: tombArr };
   },
 
   /**
@@ -298,85 +322,188 @@ export var R2 = {
    * state, union with local objects by id, PUT the merged result. Fixes
    * the two-inspector concurrent-draw clobber bug where last-write wiped the
    * first inspector's strokes.
+   * S129 Item 1.1 (medium scope) — Tombstones close the erase-while-concurrent
+   * resurrection bug. Local deletedIds are propagated and exclude objects
+   * from the merged result.
+   * S129 Item 1.2 — Conditional PUT via If-Match closes the GET-then-PUT race
+   * window. If a concurrent write lands between our GET and our PUT, R2
+   * returns 412 and we re-read/re-merge/re-PUT (up to 3 retries). When the
+   * Worker has not yet been upgraded to enforce If-Match, the PUT succeeds
+   * normally — this code is deploy-tolerant. The benefit activates as soon
+   * as the Worker is updated.
+   *
+   * Storage format: `{ objects: Array, deletedIds: Array<string> }`.
+   * Back-compat: a plain-array body is read as `{objects: arr, deletedIds: []}`.
+   *
+   * @param {string} projectId
+   * @param {string} drawingId
+   * @param {Array} objects                  — current local stroke array
+   * @param {Array<string>} [tombstones]     — local deletedIds (optional, S129 1.1)
+   * @returns {Promise<{r2Key, r2Url, count, bytes, deletedCount} | null>}
    */
-  uploadMarkup: function(projectId, drawingId, objects) {
+  uploadMarkup: function(projectId, drawingId, objects, tombstones) {
     if (!projectId || !drawingId) return Promise.resolve(null);
     var self = this;
     var localArr = Array.isArray(objects) ? objects : [];
+    var localTomb = Array.isArray(tombstones) ? tombstones : [];
     var filename = drawingId + '.json';
     var r2Key = 'photos/' + projectId + '/frt/markup/' + filename;
     var r2Url = R2_WORKER + '/' + r2Key;
     var token = _getToken();
 
-    // S129 Item 2 — read current cloud state before writing so we can merge.
-    // If the cloud GET fails (network, 404 = no existing markup), we fall
-    // back to writing local-only (legacy behavior). Race window between
-    // GET and PUT remains: a concurrent write between our GET and PUT can
-    // still be lost. Mitigation (deferred): If-Match conditional PUT requires
-    // R2 Worker support. See HANDOFF_SESSION_128.md S129 known limitations.
-    function fetchCloudThenWrite() {
+    var MAX_RETRIES = 3;
+
+    // S129 1.1 — Normalize blob shape. Old format is a plain array of strokes;
+    // new format is `{objects, deletedIds}`. Loader treats either equivalently.
+    function normalizeCloudBody(body) {
+      if (!body) return { objects: [], deletedIds: [] };
+      if (Array.isArray(body)) return { objects: body, deletedIds: [] };
+      if (typeof body === 'object') {
+        return {
+          objects: Array.isArray(body.objects) ? body.objects : [],
+          deletedIds: Array.isArray(body.deletedIds) ? body.deletedIds : []
+        };
+      }
+      return { objects: [], deletedIds: [] };
+    }
+
+    // S129 1.2 — Read cloud + capture ETag for conditional PUT.
+    // 404 → no existing markup (first write). On non-OK responses or parse
+    // failure we treat the cloud as empty and proceed (legacy fallback).
+    function fetchCloud() {
       return fetch(r2Url).then(function(resp) {
-        if (resp.status === 404) return null;      // no existing markup
-        if (!resp.ok) return null;                  // treat other failures as "no merge"
-        return resp.json().catch(function() { return null; });
-      }).catch(function() { return null; }).then(function(cloudArr) {
-        // cloudArr is Array<MarkupObject> | null. Null = treat as empty.
-        var merged = self._mergeMarkupObjects(cloudArr, localArr);
-        var addedFromCloud = merged.length - localArr.length;
+        if (resp.status === 404) {
+          // First write — use If-None-Match: * so a concurrent first-create
+          // by another inspector loses (then we retry).
+          return { body: null, etag: null, exists: false };
+        }
+        if (!resp.ok) {
+          // Other error — treat as no-merge to preserve legacy behavior;
+          // unconditional PUT (no If-Match) on this path.
+          return { body: null, etag: null, exists: false };
+        }
+        var etag = resp.headers.get('ETag') || resp.headers.get('etag');
+        return resp.json().then(function(body) {
+          return { body: body, etag: etag, exists: true };
+        }).catch(function() {
+          return { body: null, etag: etag, exists: true };
+        });
+      }).catch(function() {
+        return { body: null, etag: null, exists: false };
+      });
+    }
+
+    // S129 1.2 — Conditional PUT. Header set depends on cloud state:
+    //   exists & etag known → If-Match: <etag>
+    //   does not exist      → If-None-Match: *
+    //   exists but no etag  → unconditional (Worker undeployed or CORS not exposing ETag)
+    function doPut(merged, ifMatch, ifNoneMatch, ct) {
+      var json = JSON.stringify(merged);
+      var headers = {
+        'Content-Type': ct,
+        'Authorization': 'Bearer ' + (token || '')
+      };
+      if (ifMatch) headers['If-Match'] = ifMatch;
+      if (ifNoneMatch) headers['If-None-Match'] = ifNoneMatch;
+      return fetch(r2Url, { method: 'PUT', headers: headers, body: json })
+        .then(function(resp) { return { resp: resp, json: json }; });
+    }
+
+    // Run one attempt: GET cloud → merge → PUT. Returns
+    //   { ok: true,  result: {r2Key, r2Url, count, bytes, deletedCount} }
+    //   { ok: false, retry: true }   ← precondition failed, caller should retry
+    //   { ok: false, retry: false }  ← terminal failure
+    function attemptOnce() {
+      return fetchCloud().then(function(cloud) {
+        var normalized = normalizeCloudBody(cloud.body);
+        var mergeOut = self._mergeMarkupObjects(
+          normalized.objects, localArr, localTomb, normalized.deletedIds
+        );
+        var addedFromCloud = mergeOut.objects.length - localArr.length;
         if (addedFromCloud > 0) {
           console.log('[R2] Markup merge: ' + addedFromCloud + ' cloud object(s) preserved, ' +
-                      localArr.length + ' local object(s) — uploading ' + merged.length + ' total');
+                      localArr.length + ' local object(s) — uploading ' + mergeOut.objects.length +
+                      ' total (' + mergeOut.deletedIds.length + ' tombstones)');
         }
-        return doWrite(merged);
-      });
-    }
 
-    function doWrite(arr) {
-      var json = JSON.stringify(arr);
-      var bytes = json.length;
-      // S127 Push B — 415 hardening. Try application/json first; on 415
-      // (Worker content-type allowlist), retry once with octet-stream so a
-      // narrow Worker policy never silently loses markup state.
-      function doPut(ct) {
-        return fetch(r2Url, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': ct,
-            'Authorization': 'Bearer ' + (token || '')
-          },
-          body: json
+        var blob = { objects: mergeOut.objects, deletedIds: mergeOut.deletedIds };
+        var ifMatch = (cloud.exists && cloud.etag) ? cloud.etag : null;
+        var ifNoneMatch = (!cloud.exists) ? '*' : null;
+
+        // S127 Push B — 415 hardening. Try application/json first; on 415
+        // (Worker content-type allowlist), retry once with octet-stream.
+        return doPut(blob, ifMatch, ifNoneMatch, 'application/json').then(function(out) {
+          var resp = out.resp;
+          if (resp.ok) {
+            var bytes = out.json.length;
+            console.log('[R2] Markup uploaded:', r2Key, '(' + mergeOut.objects.length + ' objects, ' +
+                        mergeOut.deletedIds.length + ' tombstones, ' + Math.round(bytes / 1024) + 'KB)');
+            return { ok: true, result: {
+              r2Key: r2Key, r2Url: r2Url,
+              count: mergeOut.objects.length,
+              deletedCount: mergeOut.deletedIds.length,
+              bytes: bytes
+            }};
+          }
+          // 412 Precondition Failed — concurrent write happened between our
+          // GET and our PUT. Retry the whole read-merge-write cycle.
+          if (resp.status === 412) {
+            console.log('[R2] Markup PUT 412 (concurrent write detected) — retrying read-merge-write:', r2Key);
+            return { ok: false, retry: true };
+          }
+          if (resp.status === 415) {
+            console.warn('[R2] Markup upload 415 on application/json — retrying with octet-stream:', r2Key);
+            return doPut(blob, ifMatch, ifNoneMatch, 'application/octet-stream').then(function(out2) {
+              var resp2 = out2.resp;
+              if (resp2.ok) {
+                var bytes2 = out2.json.length;
+                console.log('[R2] Markup uploaded (octet fallback):', r2Key,
+                            '(' + mergeOut.objects.length + ' objects, ' + mergeOut.deletedIds.length + ' tombstones)');
+                return { ok: true, result: {
+                  r2Key: r2Key, r2Url: r2Url,
+                  count: mergeOut.objects.length,
+                  deletedCount: mergeOut.deletedIds.length,
+                  bytes: bytes2
+                }};
+              }
+              if (resp2.status === 412) {
+                console.log('[R2] Markup PUT 412 (octet fallback) — retrying read-merge-write:', r2Key);
+                return { ok: false, retry: true };
+              }
+              console.error('[R2] Markup upload FAILED (both content-types):', r2Key, resp2.status, resp2.statusText);
+              return { ok: false, retry: false };
+            });
+          }
+          console.error('[R2] Markup upload FAILED:', r2Key, resp.status, resp.statusText);
+          return { ok: false, retry: false };
+        }).catch(function(err) {
+          console.error('[R2] Markup upload ERROR:', r2Key, err && err.message);
+          return { ok: false, retry: false };
         });
-      }
-      return doPut('application/json').then(function(resp) {
-        if (resp.ok) {
-          console.log('[R2] Markup uploaded:', r2Key, '(' + arr.length + ' objects, ' + Math.round(bytes / 1024) + 'KB)');
-          return { r2Key: r2Key, r2Url: r2Url, count: arr.length, bytes: bytes };
-        }
-        if (resp.status === 415) {
-          console.warn('[R2] Markup upload 415 on application/json — retrying with octet-stream:', r2Key);
-          return doPut('application/octet-stream').then(function(resp2) {
-            if (resp2.ok) {
-              console.log('[R2] Markup uploaded (octet fallback):', r2Key, '(' + arr.length + ' objects)');
-              return { r2Key: r2Key, r2Url: r2Url, count: arr.length, bytes: bytes };
-            }
-            console.error('[R2] Markup upload FAILED (both content-types):', r2Key, resp2.status, resp2.statusText);
-            return null;
-          });
-        }
-        console.error('[R2] Markup upload FAILED:', r2Key, resp.status, resp.statusText);
-        return null;
-      }).catch(function(err) {
-        console.error('[R2] Markup upload ERROR:', r2Key, err && err.message);
-        return null;
       });
     }
 
-    return fetchCloudThenWrite();
+    // Retry loop with small jitter so concurrent retries don't lockstep.
+    function retryLoop(remaining) {
+      return attemptOnce().then(function(outcome) {
+        if (outcome.ok) return outcome.result;
+        if (!outcome.retry || remaining <= 0) return null;
+        var jitter = 30 + Math.random() * 70;  // 30–100ms
+        return new Promise(function(resolve) { setTimeout(resolve, jitter); })
+          .then(function() { return retryLoop(remaining - 1); });
+      });
+    }
+
+    return retryLoop(MAX_RETRIES);
   },
 
   /**
    * S126 Phase B — Download markup JSON for a drawing. GET, no auth.
-   * Returns Array<MarkupObject> or null (network fail / 404 / parse error).
+   * S129 Item 1.1 — Returns `{objects: Array, deletedIds: Array<string>}` to
+   * surface tombstones to the loader. Back-compat: an old-format plain-array
+   * body is normalized to `{objects: arr, deletedIds: []}`.
+   *
+   * Returns the normalized object, or null on network fail / 404 / parse error.
    *
    * 404 is a valid "no markup yet" outcome and returns null without warning —
    * the caller treats null as "fall through to IDB / legacy field".
@@ -390,9 +517,18 @@ export var R2 = {
         return null;
       }
       return resp.json();
-    }).then(function(arr) {
-      if (!Array.isArray(arr)) return null;
-      return arr;
+    }).then(function(body) {
+      if (body == null) return null;
+      // Old format: plain array of strokes.
+      if (Array.isArray(body)) return { objects: body, deletedIds: [] };
+      // New format: { objects, deletedIds }.
+      if (typeof body === 'object') {
+        return {
+          objects: Array.isArray(body.objects) ? body.objects : [],
+          deletedIds: Array.isArray(body.deletedIds) ? body.deletedIds : []
+        };
+      }
+      return null;
     }).catch(function(err) {
       console.warn('[R2] Markup download error:', err.message);
       return null;

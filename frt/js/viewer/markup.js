@@ -30,6 +30,11 @@ import { Diag } from '../diag/memory.js';
 // ── State ───────────────────────────────────────────────
 var _drawingId = null;
 var _objects = [];
+// S129 Item 1.1 — Tombstones: ids of strokes the user has erased. Propagated
+// to R2 via uploadMarkup so other inspectors see the deletion and so the
+// stroke doesn't get resurrected by the cloud-merge step. Restored from R2
+// on load so erases survive reload. Reset only on destroy().
+var _tombstones = [];
 var _undoStack = [];
 var _redoStack = [];
 var _maxUndo = 40;
@@ -640,16 +645,38 @@ function _uiScale() {
 // ── Undo / Redo ─────────────────────────────────────────
 
 function _pushHistory() {
-  _undoStack.push(JSON.stringify(_objects));
+  // S129 Item 1.1 — snapshot tombstones alongside objects so undo/redo
+  // restore both atomically (undoing an erase must un-tombstone the id).
+  _undoStack.push(JSON.stringify({ objects: _objects, tombstones: _tombstones }));
   if (_undoStack.length > _maxUndo) _undoStack.shift();
   _redoStack = [];
   _updateUndoButtons();
 }
 
+// S129 Item 1.1 — accept old-shape (plain JSON-stringified array) snapshots
+// from any history entries that pre-date this code path (defensive — the
+// undo stack is reset on _loadMarkup so this should never happen in practice,
+// but it keeps the function total). Returns {objects, tombstones}.
+function _decodeHistorySnapshot(s) {
+  try {
+    var parsed = JSON.parse(s);
+    if (Array.isArray(parsed)) return { objects: parsed, tombstones: [] };
+    if (parsed && typeof parsed === 'object') {
+      return {
+        objects: Array.isArray(parsed.objects) ? parsed.objects : [],
+        tombstones: Array.isArray(parsed.tombstones) ? parsed.tombstones : []
+      };
+    }
+  } catch (e) {}
+  return { objects: [], tombstones: [] };
+}
+
 function _undo() {
   if (!_undoStack.length) return;
-  _redoStack.push(JSON.stringify(_objects));
-  _objects = JSON.parse(_undoStack.pop());
+  _redoStack.push(JSON.stringify({ objects: _objects, tombstones: _tombstones }));
+  var snap = _decodeHistorySnapshot(_undoStack.pop());
+  _objects = snap.objects;
+  _tombstones = snap.tombstones;
   _selectedIds = [];
   _renderAll();
   _markDirty();
@@ -658,12 +685,29 @@ function _undo() {
 
 function _redo() {
   if (!_redoStack.length) return;
-  _undoStack.push(JSON.stringify(_objects));
-  _objects = JSON.parse(_redoStack.pop());
+  _undoStack.push(JSON.stringify({ objects: _objects, tombstones: _tombstones }));
+  var snap = _decodeHistorySnapshot(_redoStack.pop());
+  _objects = snap.objects;
+  _tombstones = snap.tombstones;
   _selectedIds = [];
   _renderAll();
   _markDirty();
   _updateUndoButtons();
+}
+
+// S129 Item 1.1 — Record erased stroke ids as tombstones. Call BEFORE
+// filtering them out of _objects. Idempotent — already-tombstoned ids are
+// skipped. Tombstones are unioned into the R2 blob on next save so other
+// inspectors see the deletion and so the cloud-merge step doesn't resurrect
+// the stroke.
+function _tombstone(ids) {
+  if (!Array.isArray(ids)) return;
+  for (var i = 0; i < ids.length; i++) {
+    var id = ids[i];
+    if (typeof id === 'string' && _tombstones.indexOf(id) === -1) {
+      _tombstones.push(id);
+    }
+  }
 }
 
 function _updateUndoButtons() {
@@ -2154,6 +2198,7 @@ function _handleSelectDown(e) {
 
   // Check if clicking the grouped delete button
   if (_selectedIds.length && _hitDeleteButton(pos)) {
+    _tombstone(_selectedIds);  // S129 1.1
     _objects = _objects.filter(function(o) { return _selectedIds.indexOf(o.id) === -1; });
     _selectedIds = [];
     _pushHistory();
@@ -2295,6 +2340,7 @@ function _editTextObject(obj, e) {
       _markDirty();
     } else {
       // Empty text = delete object
+      _tombstone([obj.id]);  // S129 1.1
       _objects = _objects.filter(function(o) { return o.id !== obj.id; });
       _pushHistory();
       _renderAll();
@@ -2567,17 +2613,28 @@ function _saveMarkup() {
   var projectId = proj.id;
   var drawingId = _drawingId;
   var snapshot = JSON.parse(JSON.stringify(_objects));
+  // S129 Item 1.1 — snapshot tombstones alongside objects for atomic upload.
+  var tombSnapshot = _tombstones.slice();
 
-  // (1) IDB always wins first — offline-safe durable cache
-  IDB.put('markupObjects', { id: drawingId, drawingId: drawingId, objects: snapshot }).then(function() {
-    console.log('[Markup] IDB saved ' + snapshot.length + ' objects for drawing ' + drawingId);
+  // (1) IDB always wins first — offline-safe durable cache.
+  // S129 Item 1.1 — IDB record now carries deletedIds so an offline reload
+  // restores tombstones too (not just objects).
+  IDB.put('markupObjects', {
+    id: drawingId,
+    drawingId: drawingId,
+    objects: snapshot,
+    deletedIds: tombSnapshot
+  }).then(function() {
+    console.log('[Markup] IDB saved ' + snapshot.length + ' objects, ' +
+                tombSnapshot.length + ' tombstones for drawing ' + drawingId);
   }).catch(function(err) {
     console.warn('[Markup] IDB save error:', err);
   });
 
-  // (2) R2 upload. On success, write drawing.markupR2 reference + Model.saveNow.
+  // (2) R2 upload with tombstones. On success, write drawing.markupR2
+  // reference + Model.saveNow.
   _markupUploadInflight = true;
-  R2.uploadMarkup(projectId, drawingId, snapshot).then(function(result) {
+  R2.uploadMarkup(projectId, drawingId, snapshot, tombSnapshot).then(function(result) {
     _markupUploadInflight = false;
     if (result) {
       // Find the drawing in the (possibly mutated since save started) live model
@@ -2597,6 +2654,7 @@ function _saveMarkup() {
               r2Key: result.r2Key,
               r2Url: result.r2Url,
               count: result.count,
+              deletedCount: result.deletedCount || 0,
               bytes: result.bytes,
               updatedAt: new Date().toISOString(),
               inspectorId: user ? user.id : null
@@ -2629,6 +2687,7 @@ function _saveMarkup() {
 
 function _loadMarkup(drawingId) {
   _objects = [];
+  _tombstones = [];  // S129 1.1
   _undoStack = [];
   _redoStack = [];
   _selectedIds = [];
@@ -2663,12 +2722,19 @@ function _loadMarkup(drawingId) {
   // Path 1 — R2 (preferred)
   if (drawing.markupR2 && drawing.markupR2.r2Url) {
     _markupLoadInflight = true;
-    R2.downloadMarkup(drawing.markupR2.r2Url).then(function(arr) {
+    R2.downloadMarkup(drawing.markupR2.r2Url).then(function(blob) {
       _markupLoadInflight = false;
-      if (arr && arr.length) {
-        _objects = arr;
-        console.log('[Markup] Loaded ' + arr.length + ' objects from R2');
-        IDB.put('markupObjects', { id: drawingId, drawingId: drawingId, objects: arr }).catch(function() {});
+      // S129 1.1 — downloadMarkup now returns `{objects, deletedIds}` (or null).
+      // Old-format plain-array bodies are normalized by downloadMarkup itself.
+      if (blob && blob.objects && (blob.objects.length || blob.deletedIds.length)) {
+        _objects = blob.objects;
+        _tombstones = (blob.deletedIds || []).slice();
+        console.log('[Markup] Loaded ' + _objects.length + ' objects + ' +
+                    _tombstones.length + ' tombstones from R2');
+        IDB.put('markupObjects', {
+          id: drawingId, drawingId: drawingId,
+          objects: _objects, deletedIds: _tombstones
+        }).catch(function() {});
         _renderAll();
         _updateUndoButtons();
         return;
@@ -2695,9 +2761,15 @@ function _loadMarkup(drawingId) {
  */
 function _loadMarkupFromIDB(drawingId, drawing, projectId) {
   IDB.get('markupObjects', drawingId).then(function(rec) {
-    if (rec && rec.objects && rec.objects.length) {
-      _objects = rec.objects;
-      console.log('[Markup] Loaded ' + rec.objects.length + ' objects from IDB');
+    if (rec && (
+      (rec.objects && rec.objects.length) ||
+      (Array.isArray(rec.deletedIds) && rec.deletedIds.length)
+    )) {
+      _objects = Array.isArray(rec.objects) ? rec.objects : [];
+      // S129 1.1 — restore tombstones from IDB record (defensive on shape).
+      _tombstones = Array.isArray(rec.deletedIds) ? rec.deletedIds.slice() : [];
+      console.log('[Markup] Loaded ' + _objects.length + ' objects + ' +
+                  _tombstones.length + ' tombstones from IDB');
       _renderAll();
       _updateUndoButtons();
       return;
@@ -2705,13 +2777,15 @@ function _loadMarkupFromIDB(drawingId, drawing, projectId) {
     // Path 3 — legacy field on the drawing
     if (drawing && drawing.markupObjects && drawing.markupObjects.length) {
       _objects = JSON.parse(JSON.stringify(drawing.markupObjects));
+      // No tombstones in legacy format — leave _tombstones = [] from _loadMarkup.
       console.log('[Markup] Loaded ' + _objects.length + ' legacy objects — migrating to R2');
       _renderAll();
       _updateUndoButtons();
-      // Lazy migration — upload to R2 + write the reference
+      // Lazy migration — upload to R2 + write the reference. S129 1.1: pass
+      // empty tombstones (legacy never had any).
       if (projectId && !_markupUploadInflight) {
         _markupUploadInflight = true;
-        R2.uploadMarkup(projectId, drawingId, _objects).then(function(result) {
+        R2.uploadMarkup(projectId, drawingId, _objects, []).then(function(result) {
           _markupUploadInflight = false;
           if (result) {
             var live = Model.getProject();
@@ -2725,6 +2799,7 @@ function _loadMarkupFromIDB(drawingId, drawing, projectId) {
                     r2Key: result.r2Key,
                     r2Url: result.r2Url,
                     count: result.count,
+                    deletedCount: result.deletedCount || 0,
                     bytes: result.bytes,
                     updatedAt: new Date().toISOString(),
                     inspectorId: user ? user.id : null,
@@ -2734,7 +2809,10 @@ function _loadMarkupFromIDB(drawingId, drawing, projectId) {
                 }
               }
             }
-            IDB.put('markupObjects', { id: drawingId, drawingId: drawingId, objects: _objects }).catch(function() {});
+            IDB.put('markupObjects', {
+              id: drawingId, drawingId: drawingId,
+              objects: _objects, deletedIds: []
+            }).catch(function() {});
             Model.saveNow();
             console.log('[Markup] Migrated drawing ' + drawingId + ' to R2 markupR2 reference');
           }
@@ -3256,6 +3334,7 @@ function _wireEvents() {
       else if (action === 'redo') { _redo(); return; }
       else if (action === 'delete') {
         if (_selectedIds.length) {
+          _tombstone(_selectedIds);  // S129 1.1
           _objects = _objects.filter(function(o) { return _selectedIds.indexOf(o.id) === -1; });
           _selectedIds = [];
           _pushHistory();
@@ -3555,6 +3634,7 @@ function _wireEvents() {
     }
 
     if ((e.key === 'Delete' || e.key === 'Backspace') && _selectedIds.length && _tool === 'select') {
+      _tombstone(_selectedIds);  // S129 1.1
       _objects = _objects.filter(function(o) { return _selectedIds.indexOf(o.id) === -1; });
       _selectedIds = [];
       _pushHistory();
@@ -3702,6 +3782,7 @@ export var Markup = {
 
     _drawingId = null;
     _objects = [];
+    _tombstones = [];  // S129 1.1
     _undoStack = [];
     _redoStack = [];
     _selectedIds = [];
@@ -3746,6 +3827,8 @@ export var Markup = {
   },
 
   getObjects: function() { return _objects; },
+  // S129 1.1 — expose tombstones for diagnostics + tests.
+  getTombstones: function() { return _tombstones; },
   setTool: function(tool) { _setActiveTool(tool); },
   getTool: function() { return _tool; },
   renderAll: function() { _renderAll(); },
