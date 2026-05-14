@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      regenerate_baselines:
+        description: 'Visual regression: regenerate baselines instead of testing against them. Output PNGs are uploaded as artifact for download/commit.'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   unit:
@@ -98,10 +104,30 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install chromium --with-deps
 
+      # S130 Item 4.2 — Visual baseline regeneration on CI.
+      # Normal runs: execute visual tests against committed PNG baselines.
+      # workflow_dispatch with regenerate_baselines=true: regenerate the PNGs
+      # under CI's exact font rendering (Carlito), then upload as artifact.
+      # Mark downloads the zip → drops into e2e/visual.spec.js-snapshots/ →
+      # commits → pushes. Eliminates the local-vs-CI font-parity problem and
+      # makes CI's environment the single source of truth for baselines.
       - name: Run E2E tests (smoke + visual)
+        if: github.event_name != 'workflow_dispatch' || inputs.regenerate_baselines != true
         env:
           RUN_VISUAL: '1'
         run: npm run test:e2e
+
+      - name: Regenerate visual baselines (manual dispatch)
+        if: github.event_name == 'workflow_dispatch' && inputs.regenerate_baselines == true
+        run: npm run test:e2e:visual:update
+
+      - name: Upload regenerated baselines (manual dispatch)
+        if: github.event_name == 'workflow_dispatch' && inputs.regenerate_baselines == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-baselines-regenerated
+          path: e2e/visual.spec.js-snapshots/
+          retention-days: 30
 
       - name: Upload Playwright report on failure
         if: failure()
