@@ -14,6 +14,7 @@ import { Model } from '../data/model.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm, showPrompt, confirmIARDeactivate } from '../shared/dialogs.js';
 import { R2 } from '../data/r2.js';
+import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 
 // ── Helpers ──────────────────────────────────────────────
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -360,23 +361,20 @@ function _showActivityModal(deficId, label, editActId, preObsRef) {
 }
 
 function _amAddPhoto(file) {
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var img = new Image();
-    img.onload = function() {
-      var maxW = 1200, w = img.width, h2 = img.height;
-      if (w > maxW) { h2 = Math.round(h2 * maxW / w); w = maxW; }
-      var cv = document.createElement('canvas'); cv.width = w; cv.height = h2;
-      cv.getContext('2d').drawImage(img, 0, 0, w, h2);
-      var dataUrl = cv.toDataURL('image/jpeg', 0.8);
-      var photo = { id: 'aph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4), dataUrl: dataUrl, filename: file.name || 'photo.jpg' };
+  // S130 5.4: compression in worker (OffscreenCanvas).
+  ImageWorkerHost.compressFile(file, { maxW: 1200, quality: 0.8 })
+    .then(function(r) {
+      var photo = {
+        id: 'aph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        dataUrl: r.dataUrl,
+        filename: file.name || 'photo.jpg'
+      };
       _activityModalPhotos.push(photo);
       _amRenderThumbs();
-      cv.width = 1; cv.height = 1;
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+    })
+    .catch(function(err) {
+      console.warn('[Deficiencies] activity photo compression failed:', err && err.message);
+    });
 }
 
 function _amRenderThumbs() {
@@ -1926,35 +1924,24 @@ var _photoTargetDeficId = null;
 var _photoTargetObsIdx = 0;
 
 function _compressAndAdd(file, deficId, obsIdx) {
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var img = new Image();
-    img.onload = function() {
-      var maxW = 1600;
-      var w = img.width;
-      var h = img.height;
-      if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
-      var canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      var ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
-      var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      var photo = Model.addObservationPhoto(deficId, obsIdx, dataUrl);
+  // S130 5.4: compression in worker (OffscreenCanvas). The R2 upload that
+  // follows is unchanged — still routed through R2.uploadPhoto which now
+  // also goes through UploadQueue (S130 5.1) for concurrency control.
+  ImageWorkerHost.compressFile(file, { maxW: 1600, quality: 0.8 })
+    .then(function(r) {
+      var photo = Model.addObservationPhoto(deficId, obsIdx, r.dataUrl);
       initDeficiencies.render();
       toast('Photo added');
-      // R2 upload in Hub mode (fire-and-forget)
       var pid = new URLSearchParams(window.location.search).get('project');
       if (pid && photo) {
         R2.uploadPhoto(pid, photo, 'original').then(function() {
           Model.saveNow(); // Save updated r2Key/r2Url
         });
       }
-      canvas.width = 1; canvas.height = 1;
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+    })
+    .catch(function(err) {
+      console.warn('[Deficiencies] photo compression failed:', err && err.message);
+    });
 }
 
 document.addEventListener('click', function(e) {

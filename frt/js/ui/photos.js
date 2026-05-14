@@ -9,6 +9,7 @@ import { toast } from '../shared/toast.js';
 import { showConfirm, showAlert } from '../shared/dialogs.js';
 import { R2 } from '../data/r2.js';
 import { IDB } from '../data/idb.js';
+import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
@@ -575,31 +576,21 @@ function _downloadPhoto(ph, fallbackName) {
   }).catch(function(){ window.open(src, '_blank'); });
 }
 
+// S130 5.4: image compression moved off the main thread via OffscreenCanvas
+// worker. ImageWorkerHost falls back to the legacy main-thread path if the
+// worker is unavailable, so behavior is preserved on browsers without
+// OffscreenCanvas support.
 function _compressSitePhoto(file, cb) {
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var img = new Image();
-    img.onload = function() {
-      var maxW = 1600;
-      var w = img.width, h = img.height;
-      if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
-      var canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      var tw = Math.min(200, w);
-      var ts = tw / w;
-      var tc = document.createElement('canvas');
-      tc.width = tw; tc.height = Math.round(h * ts);
-      tc.getContext('2d').drawImage(img, 0, 0, tc.width, tc.height);
-      var thumb = tc.toDataURL('image/jpeg', 0.7);
-      tc.width = 1; tc.height = 1;
-      canvas.width = 1; canvas.height = 1;
-      cb(dataUrl, thumb);
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  ImageWorkerHost.compressFile(file, {
+    maxW: 1600,
+    quality: 0.8,
+    thumbMaxW: 200,
+    thumbQuality: 0.7
+  }).then(function(r) {
+    cb(r.dataUrl, r.thumb);
+  }).catch(function(err) {
+    console.warn('[Photos] Compression failed:', err && err.message);
+  });
 }
 
 function _addSitePhoto(file) {
