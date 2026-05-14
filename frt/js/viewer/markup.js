@@ -2722,8 +2722,20 @@ function _loadMarkup(drawingId) {
   // Path 1 — R2 (preferred)
   if (drawing.markupR2 && drawing.markupR2.r2Url) {
     _markupLoadInflight = true;
+    // S130 — capture the drawingId at fetch-start. If the user navigates back
+    // to the drawings tab and reopens (or opens a different drawing) before
+    // this async fetch resolves, _drawingId will have changed — applying the
+    // result then would paint stale data or paint into a destroyed canvas.
+    // This is the "markup doesn't show until I close and reopen" bug:
+    // the fetch resolved into an interrupted init.
+    var _loadToken = drawingId;
     R2.downloadMarkup(drawing.markupR2.r2Url).then(function(blob) {
       _markupLoadInflight = false;
+      // Stale guard — drawing changed or viewer closed during the fetch.
+      if (_drawingId !== _loadToken) {
+        console.log('[Markup] R2 load resolved for stale drawing — discarding:', _loadToken);
+        return;
+      }
       // S129 1.1 — downloadMarkup now returns `{objects, deletedIds}` (or null).
       // Old-format plain-array bodies are normalized by downloadMarkup itself.
       if (blob && blob.objects && (blob.objects.length || blob.deletedIds.length)) {
@@ -2735,14 +2747,26 @@ function _loadMarkup(drawingId) {
           id: drawingId, drawingId: drawingId,
           objects: _objects, deletedIds: _tombstones
         }).catch(function() {});
+        // S130 — render now, AND again once WebGL finishes initializing.
+        // _renderAll falls back to Canvas 2D if _webglReady is false, so the
+        // first call always paints something; but if WebGL init is still in
+        // flight, chain a second render onto its promise so the GPU canvas
+        // gets the strokes too. Without this, a fast back-then-reopen could
+        // leave the WebGL canvas blank until the next manual interaction.
         _renderAll();
         _updateUndoButtons();
+        if (_useWebGL && !_webglReady && _webglInitPromise) {
+          _webglInitPromise.then(function() {
+            if (_drawingId === _loadToken) _renderAll();
+          });
+        }
         return;
       }
       // R2 reference exists but fetch returned null/empty — fall through
       _loadMarkupFromIDB(drawingId, drawing, projectId);
     }).catch(function(err) {
       _markupLoadInflight = false;
+      if (_drawingId !== _loadToken) return; // stale — viewer moved on
       console.warn('[Markup] R2 load error, falling back:', err && err.message || err);
       _loadMarkupFromIDB(drawingId, drawing, projectId);
     });
@@ -2760,7 +2784,22 @@ function _loadMarkup(drawingId) {
  * path 1.
  */
 function _loadMarkupFromIDB(drawingId, drawing, projectId) {
+  // S130 — same stale-completion guard as the R2 path. If the user navigates
+  // away before this async IDB read resolves, don't paint into a stale or
+  // destroyed canvas. Also chain a second render onto WebGL init so the GPU
+  // canvas gets the strokes even on a fast back-then-reopen.
+  var _loadToken = drawingId;
+  function _renderWhenReady() {
+    _renderAll();
+    _updateUndoButtons();
+    if (_useWebGL && !_webglReady && _webglInitPromise) {
+      _webglInitPromise.then(function() {
+        if (_drawingId === _loadToken) _renderAll();
+      });
+    }
+  }
   IDB.get('markupObjects', drawingId).then(function(rec) {
+    if (_drawingId !== _loadToken) return; // stale — viewer moved on
     if (rec && (
       (rec.objects && rec.objects.length) ||
       (Array.isArray(rec.deletedIds) && rec.deletedIds.length)
@@ -2770,8 +2809,7 @@ function _loadMarkupFromIDB(drawingId, drawing, projectId) {
       _tombstones = Array.isArray(rec.deletedIds) ? rec.deletedIds.slice() : [];
       console.log('[Markup] Loaded ' + _objects.length + ' objects + ' +
                   _tombstones.length + ' tombstones from IDB');
-      _renderAll();
-      _updateUndoButtons();
+      _renderWhenReady();
       return;
     }
     // Path 3 — legacy field on the drawing
@@ -2779,8 +2817,7 @@ function _loadMarkupFromIDB(drawingId, drawing, projectId) {
       _objects = JSON.parse(JSON.stringify(drawing.markupObjects));
       // No tombstones in legacy format — leave _tombstones = [] from _loadMarkup.
       console.log('[Markup] Loaded ' + _objects.length + ' legacy objects — migrating to R2');
-      _renderAll();
-      _updateUndoButtons();
+      _renderWhenReady();
       // Lazy migration — upload to R2 + write the reference. S129 1.1: pass
       // empty tombstones (legacy never had any).
       if (projectId && !_markupUploadInflight) {

@@ -127,17 +127,26 @@ async function getR2Object(bucket, rawPath) {
 
 /**
  * Convert list URL path to R2 prefix.
- * URL:  /list/{slug}/{tool}/{type}
- * R2:   {slug}/photos/{tool}/{type}/
+ *
+ * URL:  /list/{folder}/{tool}/{type}
+ * R2 :  photos/{folder}/{tool}/{type}/
+ *
+ * S130 FIX — this previously produced `{folder}/photos/{tool}/{type}/`
+ * (with "photos" in the MIDDLE). But FRT writes every object as
+ * `photos/{projectId}/frt/{type}/{filename}` — "photos" at the FRONT
+ * (see frt/js/data/r2.js: `'photos/' + projectId + '/frt/' + type`).
+ * The transposed prefix never matched any real key, so the Hub's Cloud
+ * Storage panel always listed an empty folder regardless of what was
+ * actually uploaded. Now the prefix matches FRT's real layout.
  */
 function listPathToR2Prefix(rawPath) {
-  // rawPath = /list/{slug}/{tool}/{type}
+  // rawPath = /list/{folder}/{tool}/{type}
   const afterList = rawPath.substring(6); // skip "/list/"
   const slashIdx = afterList.indexOf('/');
-  if (slashIdx < 0) return afterList + '/photos/'; // just slug
-  const slug = afterList.substring(0, slashIdx);
+  if (slashIdx < 0) return 'photos/' + afterList + '/'; // just the folder
+  const folder = afterList.substring(0, slashIdx);
   const rest = afterList.substring(slashIdx); // /{tool}/{type}
-  return slug + '/photos' + rest.replace(/\/$/, '') + '/';
+  return 'photos/' + folder + rest.replace(/\/$/, '') + '/';
 }
 
 export default {
@@ -210,7 +219,10 @@ export default {
       }
       const pid = decodeURIComponent(rawPath.substring(9)).replace(/\/$/, '');
       if (!pid) return jsonResponse({ error: 'Missing project id' }, 400, origin);
-      const prefix = pid + '/';
+      // S130 FIX — FRT keys are `photos/{pid}/frt/{type}/...`. The prefix
+      // must include the leading `photos/` segment or it matches nothing.
+      // (Same transposition bug as listPathToR2Prefix.)
+      const prefix = 'photos/' + pid + '/';
       try {
         let allObjects = [];
         let cursor = undefined;
