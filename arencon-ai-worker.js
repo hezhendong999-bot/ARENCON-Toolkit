@@ -133,6 +133,40 @@ Respond with ONLY valid JSON — no markdown, no backticks:
 }`;
 
 
+// S130 — auto_group mode. Takes a list of deficiencies (id + description) and
+// groups them into thematic clusters for cleaner Field Review Report rendering.
+// Used by the AI Group Deficiencies button in the FRT Deficiencies tab.
+// Groups by THEME / DEFICIENCY TYPE (sprinkler obstruction, fire separation
+// breach, FA wiring, signage, etc.), not by contractor or location — those
+// dimensions are already structural in the data model.
+//
+// Output contract is critical: every deficiency.id in the input MUST appear
+// in exactly one group's `deficiency_ids` array. The client validates this
+// and rejects the response if not. Use Sonnet — synthesis task, worth latency.
+const PROMPT_AUTO_GROUP = `You are a senior fire protection engineer at ARENCON Inc. organizing a Field Review Report.
+
+The inspector has logged a list of deficiencies. Your job is to group them into thematic clusters that read well in a formal report. Group by what KIND of deficiency they are (sprinkler obstruction, fire separation breach, fire alarm wiring, missing signage, blocked egress, smoke detector placement, sprinkler obstruction, sealant/firestopping, exit door hardware, etc.) — NOT by contractor or by floor (those dimensions are already tracked separately).
+
+RULES:
+- Produce 3 to 8 groups total. Fewer if the project has <10 deficiencies; never more than 8.
+- Every deficiency_id from the input MUST appear in EXACTLY ONE group. No duplicates, no omissions.
+- Group titles must be short (3-6 words), specific, and reportable. Examples: "Sprinkler Deflector Obstructions", "Fire Separation Penetrations", "Egress Hardware", "Smoke Detector Spacing", "Missing Signage". NOT: "Group 1", "Sprinkler Issues", "Miscellaneous".
+- Use proper fire protection terminology (NFPA 13, 25, 72, OBC, ULC).
+- Each group should contain at least 1 deficiency. Don't create empty groups.
+- If a deficiency is genuinely unique and doesn't fit other groups, give it its own group with a descriptive title — don't dump it into a "Miscellaneous" bucket.
+
+Respond with ONLY valid JSON — no markdown, no backticks:
+{
+  "groups": [
+    {
+      "title": "Short group title (3-6 words)",
+      "theme": "One-sentence summary of what this group covers",
+      "deficiency_ids": ["id1", "id2", ...]
+    }
+  ]
+}`;
+
+
 const MODELS = {
   rewrite: { id: 'claude-sonnet-4-20250514', inputRate: 0.000003, outputRate: 0.000015 },
   quickfix: { id: 'claude-haiku-4-5-20251001', inputRate: 0.00000025, outputRate: 0.00000125 }
@@ -290,6 +324,149 @@ export default {
             input_tokens: vInputTokens,
             output_tokens: vOutputTokens,
             cost_usd: Math.round(vCostUsd * 1000000) / 1000000
+          }
+        }, 200, headers);
+      }
+
+      // S130 — auto_group mode. Input shape:
+      //   { mode: 'auto_group',
+      //     deficiencies: [{id, description}, ...]
+      //     context: {tool, projectNumber, projectName} }
+      // Returns { groups: [{title, theme, deficiency_ids}], usage: {...} }
+      if (mode === 'auto_group') {
+        const deficiencies = body.deficiencies;
+        if (!deficiencies || !Array.isArray(deficiencies) || deficiencies.length === 0) {
+          return jsonResponse({ error: 'No deficiencies provided' }, 400, headers);
+        }
+        if (deficiencies.length < 3) {
+          return jsonResponse({ error: 'Need at least 3 deficiencies to group meaningfully' }, 400, headers);
+        }
+        if (deficiencies.length > 200) {
+          return jsonResponse({ error: 'Too many deficiencies (max 200 per request)' }, 400, headers);
+        }
+        // Validate each entry shape — id is required so the client can match
+        // groups back to deficiencies after the response.
+        for (const d of deficiencies) {
+          if (!d || typeof d.id !== 'string' || typeof d.description !== 'string') {
+            return jsonResponse({ error: 'Each deficiency must have {id: string, description: string}' }, 400, headers);
+          }
+        }
+
+        const groupModel = MODELS.rewrite; // Sonnet — synthesis task
+        const groupBody = JSON.stringify(deficiencies.map(d => ({
+          id: d.id,
+          description: (d.description || '').slice(0, 500)  // cap per-defic text size
+        })));
+
+        const groupRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: groupModel.id,
+            max_tokens: 4096,
+            system: PROMPT_AUTO_GROUP,
+            messages: [{ role: 'user', content: groupBody }]
+          })
+        });
+
+        if (!groupRes.ok) {
+          const errText = await groupRes.text();
+          console.error('Anthropic API error (auto_group):', groupRes.status, errText);
+          return jsonResponse({ error: 'AI service error', detail: groupRes.status }, 502, headers);
+        }
+
+        const groupData = await groupRes.json();
+        const groupText = (groupData.content || [])
+          .filter(c => c.type === 'text')
+          .map(c => c.text)
+          .join('');
+
+        let groupJson;
+        try {
+          const cleaned = groupText.replace(/```json|```/g, '').trim();
+          groupJson = JSON.parse(cleaned);
+        } catch (e) {
+          console.error('Failed to parse auto_group response:', groupText);
+          return jsonResponse({ error: 'AI returned invalid format', raw: groupText }, 500, headers);
+        }
+
+        if (!groupJson.groups || !Array.isArray(groupJson.groups)) {
+          return jsonResponse({ error: 'AI response missing groups array' }, 500, headers);
+        }
+
+        // Server-side validation: every input id must appear in exactly one group
+        const inputIds = new Set(deficiencies.map(d => d.id));
+        const seenIds = new Set();
+        const duplicates = [];
+        for (const g of groupJson.groups) {
+          if (!g.deficiency_ids || !Array.isArray(g.deficiency_ids)) continue;
+          for (const id of g.deficiency_ids) {
+            if (seenIds.has(id)) duplicates.push(id);
+            seenIds.add(id);
+          }
+        }
+        const missing = [...inputIds].filter(id => !seenIds.has(id));
+        if (missing.length || duplicates.length) {
+          // Don't reject — the client can either retry or fall back to "Other"
+          // bucket. Return validation flags alongside the groups so the UI
+          // can show a warning. AI sometimes drops one-off IDs and a hard
+          // reject wastes the user's wait.
+          groupJson._validation = {
+            missing_ids: missing,
+            duplicate_ids: duplicates
+          };
+        }
+
+        const gUsage = groupData.usage || {};
+        const gInputTokens = gUsage.input_tokens || 0;
+        const gOutputTokens = gUsage.output_tokens || 0;
+        const gCostUsd = (gInputTokens * groupModel.inputRate) + (gOutputTokens * groupModel.outputRate);
+
+        // Log usage (same pattern as other modes)
+        if (env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY) {
+          const logPayload = {
+            user_id: userId,
+            user_email: userEmail,
+            tool: context?.tool || 'frt',
+            project_number: context?.projectNumber || null,
+            project_name: context?.projectName || null,
+            action: 'auto_group',
+            model: groupModel.id,
+            input_tokens: gInputTokens,
+            output_tokens: gOutputTokens,
+            cost_usd: gCostUsd,
+            field_count: deficiencies.length,
+            accepted_count: null
+          };
+          const logPromise = fetch(
+            `${env.SUPABASE_URL}/rest/v1/ai_usage_log`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': env.SUPABASE_SERVICE_KEY,
+                'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+                'Prefer': 'return=minimal'
+              },
+              body: JSON.stringify(logPayload)
+            }
+          ).then(res => {
+            if (!res.ok) return res.text().then(t => console.error('Usage log HTTP error (auto_group):', res.status, t));
+          }).catch(err => console.error('Usage log failed (auto_group):', err));
+          ctx.waitUntil(logPromise);
+        }
+
+        return jsonResponse({
+          groups: groupJson.groups,
+          _validation: groupJson._validation || null,
+          usage: {
+            input_tokens: gInputTokens,
+            output_tokens: gOutputTokens,
+            cost_usd: Math.round(gCostUsd * 1000000) / 1000000
           }
         }, 200, headers);
       }

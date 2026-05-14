@@ -626,6 +626,62 @@ export var Model = {
     _queueSave();
   },
 
+  // S130 — AI auto-grouping (Item 9.3 from prior queue).
+  // `aiGroup` is a short string (e.g. "Sprinkler Deflector Obstructions") that
+  // groups deficiencies thematically for report rendering. Empty/null = ungrouped.
+  // Set by AIAssist.autoGroupDeficiencies after user accepts the AI proposal.
+  // The field lives on the deficiency object itself so it travels with the data
+  // through JSON export/import and cloud sync without schema changes.
+  setDeficGroup: function(deficId, groupTitle) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return;
+    f.defic.aiGroup = (groupTitle && typeof groupTitle === 'string') ? groupTitle.trim() : null;
+    _dirty = true;
+    _queueSave();
+  },
+
+  // Bulk-apply groupings from an AI response. Pass an object mapping
+  // deficId → groupTitle. Used by the auto-group modal "Apply" button.
+  // Returns count of deficiencies updated.
+  applyAiGroups: function(deficIdToGroup) {
+    if (!deficIdToGroup || typeof deficIdToGroup !== 'object') return 0;
+    var n = 0;
+    var ids = Object.keys(deficIdToGroup);
+    for (var i = 0; i < ids.length; i++) {
+      var f = this.findDeficiency(ids[i]);
+      if (!f) continue;
+      var t = deficIdToGroup[ids[i]];
+      f.defic.aiGroup = (t && typeof t === 'string') ? t.trim() : null;
+      n++;
+    }
+    if (n > 0) {
+      _dirty = true;
+      _queueSave();
+      this._notify('deficiency', { action: 'aiGroupBulk', count: n });
+    }
+    return n;
+  },
+
+  // Clear every deficiency's aiGroup. Used by the "Clear AI Groups" button.
+  clearAllAiGroups: function() {
+    var p = _project;
+    if (!p) return 0;
+    var n = 0;
+    var doClear = function(d) {
+      if (d && d.aiGroup) { d.aiGroup = null; n++; }
+    };
+    (p.contractors || []).forEach(function(c) {
+      (c.deficiencies || []).forEach(doClear);
+    });
+    (p.generalDeficiencies || []).forEach(doClear);
+    if (n > 0) {
+      _dirty = true;
+      _queueSave();
+      this._notify('deficiency', { action: 'aiGroupCleared', count: n });
+    }
+    return n;
+  },
+
   addObservation: function(deficId) {
     var f = this.findDeficiency(deficId);
     if (!f) return null;

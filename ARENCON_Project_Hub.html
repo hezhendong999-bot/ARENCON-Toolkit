@@ -3593,8 +3593,10 @@ function _pgExtractPhotos(row) {
 
   // ── FRT ──
   if (toolKey === 'frt') {
-    // Site photos
-    (data.sitePhotos || []).forEach(function(ph) {
+    // Site photos. S130 fix: FRT v2 migrated `sitePhotos` → `photos` at
+    // project root (see frt/js/data/model.js _normalize). Read `data.photos`
+    // first; fall back to legacy `sitePhotos` for ancient unmigrated rows.
+    (data.photos || data.sitePhotos || []).forEach(function(ph) {
       if (!ph) return;
       var src = _pgResolveR2Src(ph, projectId);
       if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || ''));

@@ -15,6 +15,7 @@ import { toast } from '../shared/toast.js';
 import { showConfirm, showPrompt, confirmIARDeactivate } from '../shared/dialogs.js';
 import { R2 } from '../data/r2.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
+import { AIAssist } from '../ai/assistant.js';
 
 // ── Helpers ──────────────────────────────────────────────
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -479,7 +480,14 @@ function _buildPinGroupCard(d, ctrId) {
   var effPriColor = effPri === 'general' ? '#5F8068' : effPri === 'low' ? '#B07F5A' : '#A85959';
   var effPriLabel = effPri.charAt(0).toUpperCase() + effPri.slice(1);
 
-  var h = '<div class="defic-pin-group" data-defic-id="' + esc(d.id) + '" data-status="' + esc(effStatus) + '">';
+  var h = '<div class="defic-pin-group" data-defic-id="' + esc(d.id) + '" data-status="' + esc(effStatus) + '" data-ai-group="' + esc(d.aiGroup || '') + '">';
+
+  // S130 — AI/manual group badge. Renders above the pin strip when the
+  // deficiency has been assigned a thematic group (AI auto-group, or future
+  // manual grouping). Click toggles a small editor to rename or clear.
+  if (d.aiGroup) {
+    h += '<div class="defic-group-badge" style="font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;color:#5A2D3C;background:#FBEFF3;border-left:3px solid #9C2742;padding:3px 10px;margin:0 0 6px 0;border-radius:0 4px 4px 0;display:inline-block;cursor:pointer;" data-action="edit-ai-group" data-defic-id="' + esc(d.id) + '" title="Click to rename or clear this group">\uD83C\uDFF7\uFE0F ' + esc(d.aiGroup) + '</div>';
+  }
 
   // ─── pin strip (S122 Push 1: ONLY rendered for multi-obs pins) ───
   // Single-obs pins skip the pin-strip entirely — the obs IS the pin,
@@ -2079,6 +2087,31 @@ document.addEventListener('click', function(e) {
       toast('No deficiencies to renumber');
     }
   }
+});
+
+// ── S130 — AI Group Deficiencies (thematic clustering) ──
+document.addEventListener('click', function(e) {
+  if (e.target.id === 'defic-ai-group-btn' || (e.target.closest && e.target.closest('#defic-ai-group-btn'))) {
+    AIAssist.autoGroupDeficiencies();
+  }
+});
+
+// S130 — click on a defic's group badge → prompt to rename or clear.
+// Simple inline edit; full group-management UI deferred.
+document.addEventListener('click', function(e) {
+  var badge = e.target.closest && e.target.closest('[data-action="edit-ai-group"]');
+  if (!badge) return;
+  var deficId = badge.getAttribute('data-defic-id');
+  if (!deficId) return;
+  var f = Model.findDeficiency(deficId);
+  if (!f) return;
+  var current = f.defic.aiGroup || '';
+  showPrompt('Group name (blank to remove from group)', current, function(newName) {
+    if (newName === null) return; // cancelled
+    Model.setDeficGroup(deficId, newName.trim() || null);
+    initDeficiencies.render();
+    toast(newName.trim() ? 'Group updated' : 'Removed from group');
+  });
 });
 
 // ── S78: Defic Filters + Select buttons (delegated) ─────────────

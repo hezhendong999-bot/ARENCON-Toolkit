@@ -657,6 +657,236 @@ function _closeMenu() {
   if (m) m.classList.remove('open');
 }
 
+// ── S130 — AI Auto-Group Deficiencies ───────────────────
+// Sends the active project's deficiencies (description text only) to the
+// auto_group worker mode → renders a modal with proposed thematic groups →
+// on accept, writes aiGroup to each defic via Model.applyAiGroups().
+//
+// "Description text" = first observation text per defic, falling back to
+// defic.description if present. Truncated to 500 chars per defic to keep the
+// payload reasonable on projects with 50+ deficiencies.
+//
+// Closed deficiencies are EXCLUDED — grouping is for the active outstanding
+// items that will appear in the report, not historical resolved ones.
+function _collectDeficiencyDescriptions() {
+  var p = Model.getProject();
+  if (!p) return [];
+  var items = [];
+
+  function pushDefic(d, parentName) {
+    if (!d || !d.id) return;
+    // Skip closed deficiencies — they don't need grouping for current report
+    if (d.status === 'closed' || d.status === 'Addressed & Closed') return;
+    var text = '';
+    if (d.observations && d.observations.length) {
+      // Join up to 3 observation texts; keeps multi-obs context for the AI
+      text = d.observations
+        .slice(0, 3)
+        .map(function(o) { return (o && o.text) ? o.text.trim() : ''; })
+        .filter(function(s) { return s.length > 0; })
+        .join(' / ');
+    }
+    if (!text && d.description) text = d.description;
+    if (!text || text.length < 8) return;
+    items.push({
+      id: d.id,
+      description: text.slice(0, 500),
+      _parentName: parentName,
+      _num: d.num || ''
+    });
+  }
+
+  (p.contractors || []).forEach(function(c) {
+    (c.deficiencies || []).forEach(function(d) { pushDefic(d, c.name || 'Contractor'); });
+  });
+  (p.generalDeficiencies || []).forEach(function(d) { pushDefic(d, 'Site General'); });
+  return items;
+}
+
+function autoGroupDeficiencies() {
+  if (_busy) { toast('AI is busy — wait for current task'); return; }
+  var items = _collectDeficiencyDescriptions();
+  if (items.length < 3) {
+    toast('Need at least 3 open deficiencies to group');
+    return;
+  }
+
+  _busy = true;
+  _showAutoGroupModal({ loading: true, items: items });
+
+  // Strip the _parentName/_num before sending to worker
+  var payload = items.map(function(it) {
+    return { id: it.id, description: it.description };
+  });
+
+  var token = localStorage.getItem('sb-access-token');
+  if (!token) {
+    _busy = false;
+    _showAutoGroupModal({ error: 'Not signed in — sign in to use AI features' });
+    return;
+  }
+
+  fetch(WORKER_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token
+    },
+    body: JSON.stringify({
+      mode: 'auto_group',
+      deficiencies: payload,
+      context: _ctx()
+    })
+  }).then(function(res) {
+    return res.json().then(function(data) {
+      return { ok: res.ok, status: res.status, data: data };
+    });
+  }).then(function(result) {
+    _busy = false;
+    if (!result.ok) {
+      var msg = (result.data && result.data.error) || ('HTTP ' + result.status);
+      // Common case: worker hasn't been deployed yet with the new mode
+      if (result.status === 400 && /Unknown mode|Unrecognized/.test(msg)) {
+        msg = 'AI auto-grouping not yet deployed — Mark needs to push the latest worker code in Cloudflare.';
+      }
+      _showAutoGroupModal({ error: msg });
+      return;
+    }
+    var groups = (result.data && result.data.groups) || [];
+    if (!groups.length) {
+      _showAutoGroupModal({ error: 'AI returned no groups — try again' });
+      return;
+    }
+    // Attach the parent/num metadata back for display
+    var idMeta = {};
+    items.forEach(function(it) {
+      idMeta[it.id] = { parentName: it._parentName, num: it._num, description: it.description };
+    });
+    _showAutoGroupModal({
+      groups: groups,
+      idMeta: idMeta,
+      validation: result.data._validation || null,
+      usage: result.data.usage || null
+    });
+  }).catch(function(err) {
+    _busy = false;
+    _showAutoGroupModal({ error: 'Network error: ' + (err && err.message) });
+  });
+}
+
+function _showAutoGroupModal(state) {
+  // Remove any existing modal
+  var existing = document.getElementById('ai-autogroup-modal');
+  if (existing) existing.remove();
+
+  var ov = document.createElement('div');
+  ov.id = 'ai-autogroup-modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+  var panel = document.createElement('div');
+  panel.style.cssText = 'background:white;border-radius:8px;max-width:760px;width:100%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;font-family:Calibri,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,0.25);';
+
+  var header = '<div style="padding:14px 18px;background:#9C2742;color:white;display:flex;align-items:center;justify-content:space-between;">' +
+               '<div style="font-weight:700;font-size:15px;">🧠 AI Group Deficiencies</div>' +
+               '<button id="ai-ag-close" style="background:transparent;border:1px solid rgba(255,255,255,0.4);color:white;border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:16px;line-height:1;">✕</button>' +
+               '</div>';
+
+  var body = '';
+  if (state.loading) {
+    body = '<div style="padding:32px 18px;text-align:center;color:#555;">' +
+           '<div style="font-size:14px;margin-bottom:8px;">Asking AI to organize ' + state.items.length + ' deficiencies into thematic groups…</div>' +
+           '<div style="font-size:12px;color:#888;">Typically 5–15 seconds.</div>' +
+           '</div>';
+  } else if (state.error) {
+    body = '<div style="padding:24px 18px;">' +
+           '<div style="background:#FCE8EC;border:1px solid #E89AAC;color:#7A1933;padding:10px 12px;border-radius:6px;font-size:13px;">' +
+           _esc(state.error) +
+           '</div></div>';
+  } else if (state.groups) {
+    var groupsHtml = '<div style="padding:14px 18px;overflow-y:auto;flex:1;">' +
+                     '<div style="font-size:13px;color:#555;margin-bottom:10px;">AI suggested <b>' + state.groups.length + ' groups</b>. Review and accept to tag each deficiency. You can edit group titles inline.</div>';
+    if (state.validation && (state.validation.missing_ids?.length || state.validation.duplicate_ids?.length)) {
+      var v = state.validation;
+      groupsHtml += '<div style="background:#FFF6E0;border:1px solid #E6C868;color:#806317;padding:8px 10px;border-radius:6px;font-size:12px;margin-bottom:10px;">';
+      if (v.missing_ids?.length) groupsHtml += 'AI missed ' + v.missing_ids.length + ' deficienc' + (v.missing_ids.length === 1 ? 'y' : 'ies') + ' — they will stay ungrouped. ';
+      if (v.duplicate_ids?.length) groupsHtml += v.duplicate_ids.length + ' deficienc' + (v.duplicate_ids.length === 1 ? 'y appears' : 'ies appear') + ' in multiple groups — only the first will apply.';
+      groupsHtml += '</div>';
+    }
+    state.groups.forEach(function(g, gi) {
+      groupsHtml += '<div style="border:1px solid #DDE1E7;border-radius:6px;margin-bottom:10px;overflow:hidden;">';
+      groupsHtml += '<div style="background:#F4F5F8;padding:8px 12px;display:flex;align-items:center;gap:10px;">';
+      groupsHtml += '<input type="text" data-ag-title-idx="' + gi + '" value="' + _esc(g.title || '') + '" style="flex:1;border:1px solid #C9CED6;border-radius:4px;padding:5px 8px;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;color:#2C4770;">';
+      groupsHtml += '<span style="font-size:11px;color:#888;">' + ((g.deficiency_ids || []).length) + ' item' + ((g.deficiency_ids || []).length === 1 ? '' : 's') + '</span>';
+      groupsHtml += '</div>';
+      if (g.theme) {
+        groupsHtml += '<div style="padding:6px 12px;font-size:11.5px;color:#666;font-style:italic;background:#FAFBFD;">' + _esc(g.theme) + '</div>';
+      }
+      groupsHtml += '<ul style="margin:0;padding:6px 12px 8px 28px;list-style:disc;color:#333;font-size:12px;line-height:1.5;">';
+      (g.deficiency_ids || []).forEach(function(did) {
+        var meta = state.idMeta[did];
+        if (!meta) return; // dropped silently — already handled by validation warning
+        var label = (meta.num ? '#' + meta.num + ' ' : '') + '(' + _esc(meta.parentName) + '): ';
+        groupsHtml += '<li><span style="color:#888;">' + label + '</span>' + _esc(meta.description.slice(0, 140)) + (meta.description.length > 140 ? '…' : '') + '</li>';
+      });
+      groupsHtml += '</ul></div>';
+    });
+    groupsHtml += '</div>';
+
+    // Footer
+    var costStr = '';
+    if (state.usage && typeof state.usage.cost_usd === 'number') {
+      costStr = ' · $' + state.usage.cost_usd.toFixed(4);
+    }
+    groupsHtml += '<div style="padding:10px 14px;border-top:1px solid #E5E8EE;display:flex;align-items:center;justify-content:space-between;gap:8px;background:#FAFBFD;">' +
+                  '<div style="font-size:11px;color:#888;">Sonnet' + costStr + '</div>' +
+                  '<div style="display:flex;gap:6px;">' +
+                  '<button id="ai-ag-cancel" style="background:white;border:1px solid #C9CED6;color:#333;border-radius:4px;padding:6px 14px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">Cancel</button>' +
+                  '<button id="ai-ag-clear" style="background:white;border:1px solid #C9CED6;color:#333;border-radius:4px;padding:6px 14px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">Clear All Groups</button>' +
+                  '<button id="ai-ag-apply" style="background:#1A7A4A;border:1px solid #156540;color:white;border-radius:4px;padding:6px 16px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;">Apply Groups</button>' +
+                  '</div></div>';
+
+    body = groupsHtml;
+  }
+
+  panel.innerHTML = header + body;
+  ov.appendChild(panel);
+  document.body.appendChild(ov);
+
+  // Wiring
+  function close() { ov.remove(); }
+  ov.addEventListener('click', function(e) { if (e.target === ov) close(); });
+  panel.querySelector('#ai-ag-close')?.addEventListener('click', close);
+  panel.querySelector('#ai-ag-cancel')?.addEventListener('click', close);
+  panel.querySelector('#ai-ag-clear')?.addEventListener('click', function() {
+    var n = Model.clearAllAiGroups();
+    toast('Cleared ' + n + ' grouping' + (n === 1 ? '' : 's'));
+    close();
+    if (window._frtRenderDefic) window._frtRenderDefic();
+  });
+  var applyBtn = panel.querySelector('#ai-ag-apply');
+  if (applyBtn && state.groups) {
+    applyBtn.addEventListener('click', function() {
+      // Build deficId → groupTitle mapping using current (possibly edited) titles
+      var assignments = {};
+      var firstAssignedTo = {};  // de-dup safety net (matches worker validation)
+      state.groups.forEach(function(g, gi) {
+        var titleInput = panel.querySelector('[data-ag-title-idx="' + gi + '"]');
+        var title = titleInput ? titleInput.value.trim() : g.title;
+        if (!title) return;
+        (g.deficiency_ids || []).forEach(function(did) {
+          if (firstAssignedTo[did]) return; // first-wins
+          firstAssignedTo[did] = true;
+          assignments[did] = title;
+        });
+      });
+      var n = Model.applyAiGroups(assignments);
+      toast('Applied AI groupings to ' + n + ' deficiencies');
+      close();
+      if (window._frtRenderDefic) window._frtRenderDefic();
+    });
+  }
+}
+
 // ── Public API ──────────────────────────────────────────
 export var AIAssist = {
   reviewAll: reviewAll,
@@ -670,6 +900,8 @@ export var AIAssist = {
   shortenUserText: shortenUserText,
   mergeScratchpad: mergeScratchpad,
   discardScratchpad: discardScratchpad,
+  // S130 — AI auto-grouping
+  autoGroupDeficiencies: autoGroupDeficiencies,
   scratchpadHasContent: function(deficId, obsIdx) { return _spHasContent(deficId, obsIdx); },
   scratchpadGet: function(deficId, obsIdx) { return _spState[_spKey(deficId, obsIdx)] || null; },
   scratchpadEdit: function(deficId, obsIdx, newText) {
