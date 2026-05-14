@@ -15,6 +15,18 @@ var _role = null;
 var _autoRefreshTimer = null;
 var _refreshPromise = null;  // S91: dedup concurrent refresh calls
 
+// S130 1.3 — read-only diagnostic state for the boot pre-flight check.
+// Captures which path restoreSession() took and how long it took, so
+// Mark's tablet pre-flight (sign-out → wait >1h → sign-in → reload) can
+// verify that the S129 boot-perf optimizations actually fired in the wild.
+// Read via Auth._diag; never mutated outside this module.
+var _diag = {
+  restoreMs: null,
+  restorePath: null,   // 'no-token' | 'preemptive' | 'cached-valid' | 'refresh-on-401'
+  tokenExpAtRestore: null,  // ms remaining at restoreSession start, or null
+  restoreCalledAt: null     // ISO timestamp of last call
+};
+
 // S91: parse the exp claim from a JWT so we know when it actually expires.
 // Returns ms-since-epoch, or null if unparseable.
 function _parseJwtExp(token) {
@@ -95,9 +107,17 @@ export var Auth = {
    * which has used this exact idiom in production since S91.
    */
   restoreSession: function() {
+    var _t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    _diag.restoreCalledAt = new Date().toISOString();
+    _diag.tokenExpAtRestore = null;
+    _diag.restorePath = null;
+    _diag.restoreMs = null;
+
     var token = localStorage.getItem('sb-access-token');
     if (!token) {
       console.log('[Auth] No access token found');
+      _diag.restorePath = 'no-token';
+      _diag.restoreMs = Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - _t0);
       return Promise.resolve(null);
     }
 
@@ -109,11 +129,16 @@ export var Auth = {
     var expMs = _parseJwtExp(token);
     if (expMs !== null) {
       var remaining = expMs - Date.now();
+      _diag.tokenExpAtRestore = remaining;
       if (remaining < 300000) {  // < 5 min
         console.log('[Auth] Cached token near/past expiry (' + Math.round(remaining / 1000) + 's left) — preemptive refresh');
+        _diag.restorePath = 'preemptive';
         // _refreshTokenShared() coalesces concurrent callers, calls
         // _scheduleAutoRefresh on success, and loads role internally.
-        return this._refreshTokenShared();
+        return this._refreshTokenShared().then(function(u) {
+          _diag.restoreMs = Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - _t0);
+          return u;
+        });
       }
     }
 
@@ -122,11 +147,19 @@ export var Auth = {
     }).then(function(user) {
       _user = user;
       console.log('[Auth] Session restored:', user.email);
+      _diag.restorePath = _diag.restorePath || 'cached-valid';
       self._scheduleAutoRefresh();
-      return self._loadRole(user.id).then(function() { return user; });
+      return self._loadRole(user.id).then(function() {
+        _diag.restoreMs = Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - _t0);
+        return user;
+      });
     }).catch(function(err) {
       console.log('[Auth] Token expired, attempting refresh...');
-      return self._refreshTokenShared();
+      _diag.restorePath = 'refresh-on-401';
+      return self._refreshTokenShared().then(function(u) {
+        _diag.restoreMs = Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - _t0);
+        return u;
+      });
     });
   },
 
@@ -238,7 +271,12 @@ export var Auth = {
     localStorage.removeItem('sb-refresh-token');
     console.log('[Auth] Signed out');
     return Promise.resolve();
-  }
+  },
+
+  // S130 1.3 — read-only snapshot of the last restoreSession() call.
+  // Used by frt/js/diag/preflight.js to verify the S129 boot-perf
+  // optimizations fired in the wild. Read-only; do not mutate.
+  get _diag() { return Object.assign({}, _diag); }
 };
 
 // S91: when the tab returns from background, browsers may have throttled
@@ -257,4 +295,12 @@ if (typeof document !== 'undefined') {
       Auth._refreshTokenShared();
     }
   });
+}
+
+// S130 1.3 — expose Auth for the boot pre-flight diagnostic in
+// frt/js/diag/preflight.js. Read-only access via Auth._diag only;
+// the rest of the API is callable but should not be invoked from the
+// console outside of debugging.
+if (typeof window !== 'undefined') {
+  window._frt_auth = Auth;
 }
