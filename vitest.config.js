@@ -36,7 +36,8 @@ export default defineConfig({
       include: [
         'frt/js/data/r2.js',
         'frt/js/data/merge.js',
-        'frt/js/data/syncWorker.js'
+        'frt/js/data/syncWorker.js',
+        'frt/js/data/uploadQueue.js'
       ],
       // Mocks aren't production code; exclude from report.
       exclude: ['frt/tests/__mocks__/**', 'frt/tests/setup.js'],

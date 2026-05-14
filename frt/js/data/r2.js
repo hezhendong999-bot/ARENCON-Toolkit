@@ -14,9 +14,9 @@
 
 import { Auth } from '../shared/auth.js';
 import { IDB } from './idb.js';
+import { UploadQueue } from './uploadQueue.js';
 
 var R2_WORKER = 'https://arencon-r2-worker.hezhendong999.workers.dev';
-var _queueRunning = false;
 
 function _getToken() {
   var t = localStorage.getItem('sb-access-token');
@@ -40,7 +40,10 @@ export var R2 = {
   WORKER_URL: R2_WORKER,
 
   /** Upload blob/dataUrl/ArrayBuffer to R2. Returns {r2Key, r2Url} or null.
-   *  S83: accepts optional mimeHint (for ArrayBuffer → PDF uploads). */
+   *  S83: accepts optional mimeHint (for ArrayBuffer → PDF uploads).
+   *  S130 5.1: routed through UploadQueue for concurrency cap + transient retry.
+   *  Lane = `<pid>:<type>` so same-project same-type uploads serialize in
+   *  enqueue order (drawing-then-thumbnail, photo-batch ordering, etc.). */
   upload: function(projectId, type, data, filename, mimeHint) {
     if (!filename) filename = R2.generateFilename('jpg');
     var r2Key = 'photos/' + projectId + '/frt/' + type + '/' + filename;
@@ -50,24 +53,29 @@ export var R2 = {
     return _toBlob(data, mimeHint).then(function(blob) {
       if (!blob) { console.warn('[R2] No blob to upload'); return null; }
       var ct = blob.type || mimeHint || 'image/jpeg';
-      return fetch(r2Url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': ct,
-          'Authorization': 'Bearer ' + (token || '')
-        },
-        body: blob
-      }).then(function(resp) {
-        if (resp.ok) {
-          console.log('[R2] Uploaded:', r2Key, '(' + Math.round(blob.size / 1024) + 'KB)');
-          return { r2Key: r2Key, r2Url: r2Url };
-        }
-        console.warn('[R2] Upload failed:', resp.status, resp.statusText);
+      return UploadQueue.enqueue(function() {
+        return fetch(r2Url, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': ct,
+            'Authorization': 'Bearer ' + (token || '')
+          },
+          body: blob
+        }).then(function(resp) {
+          if (resp.ok) {
+            console.log('[R2] Uploaded:', r2Key, '(' + Math.round(blob.size / 1024) + 'KB)');
+            return { r2Key: r2Key, r2Url: r2Url };
+          }
+          // Build an Error with .status so UploadQueue's transient-retry can see it.
+          var err = new Error('R2 upload failed: ' + resp.status + ' ' + resp.statusText);
+          err.status = resp.status;
+          throw err;
+        });
+      }, { lane: projectId + ':' + type, maxRetries: 2 })
+      .catch(function(err) {
+        console.warn('[R2] Upload error:', err.message);
         return null;
       });
-    }).catch(function(err) {
-      console.warn('[R2] Upload error:', err.message);
-      return null;
     });
   },
 
