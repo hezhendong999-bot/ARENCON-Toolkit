@@ -22,6 +22,8 @@
 //   • No "skip tiles" tricks — we always load whatever level the picker picks
 //   • Backdrop (dv-image) stays visible forever as a safety net
 
+import { deviceMaxPixels } from '../shared/deviceBudget.js';
+
 var _cfg = null;
 var _active = false;
 var _paused = false;
@@ -656,8 +658,23 @@ function _getOrCreateLevelCanvas(level, lvl) {
   var layer = document.getElementById('dv-tiles-layer');
   if (!layer) return null;
   var c = document.createElement('canvas');
-  c.width = lvl.width;
-  c.height = lvl.height;
+  // S131 priority #1 — device-class backing-buffer budget. The level canvas
+  // was previously sized to the FULL native level resolution (L4 ≈
+  // 6144×4096 ≈ 96 MB), identical on every device. On the field tablets
+  // that single canvas + the markup canvases exhausted renderer memory →
+  // "Aw snap" crash on zoom-in. deviceMaxPixels() (shared with markup.js)
+  // caps the backing store: on a tablet L4 drops to ~12 MP / ~48 MB.
+  //   • bufScale === 1 on desktop and for any level already under budget —
+  //     identical to the previous behaviour, byte-for-byte (no scaling).
+  //   • The CSS size below stays at _drawW × _drawH, so a budgeted buffer
+  //     is simply browser-upscaled for display — the same proven pattern
+  //     markup.js uses. Tile compositing coordinates are multiplied by
+  //     bufScale at the draw + evict sites.
+  var nativePx = lvl.width * lvl.height;
+  var budgetPx = deviceMaxPixels();
+  var bufScale = nativePx > budgetPx ? Math.sqrt(budgetPx / nativePx) : 1;
+  c.width = Math.max(1, Math.round(lvl.width * bufScale));
+  c.height = Math.max(1, Math.round(lvl.height * bufScale));
   c.id = 'dv-tiles-canvas-L' + level;
   // CSS-scale the WHOLE canvas to drawing space. One fractional scale,
   // applied to a single DOM element — no per-tile rounding, no seams.
@@ -674,7 +691,7 @@ function _getOrCreateLevelCanvas(level, lvl) {
   }
   if (!ctx) return null;
   layer.appendChild(c);
-  entry = { canvas: c, ctx: ctx, lvl: lvl, tilesPainted: 0 };
+  entry = { canvas: c, ctx: ctx, lvl: lvl, tilesPainted: 0, bufScale: bufScale };
   _levelCanvases[level] = entry;
   return entry;
 }
@@ -682,10 +699,14 @@ function _getOrCreateLevelCanvas(level, lvl) {
 function _evictTileFromCanvas(tile) {
   var entry = _levelCanvases[tile.level];
   if (!entry) return;
-  var tx = tile.col * _TILE_SIZE;
-  var ty = tile.row * _TILE_SIZE;
+  // S131 priority #1 — coordinates are in native level pixels; multiply by
+  // the level canvas's backing-buffer scale (1 on desktop / under-budget
+  // levels, < 1 on a budgeted tablet level canvas).
+  var s = entry.bufScale || 1;
+  var tx = tile.col * _TILE_SIZE * s;
+  var ty = tile.row * _TILE_SIZE * s;
   // Clear only the actual content region. Edge tiles have tileW/tileH < 512.
-  entry.ctx.clearRect(tx, ty, tile.tileW, tile.tileH);
+  entry.ctx.clearRect(tx, ty, tile.tileW * s, tile.tileH * s);
   entry.tilesPainted--;
   if (entry.tilesPainted <= 0) {
     if (entry.canvas.parentNode) entry.canvas.parentNode.removeChild(entry.canvas);
@@ -764,9 +785,16 @@ function _startFetchCanvas(req, layer) {
       // Source rect (0,0,tileW,tileH) clips the white-padded region of
       // edge tiles produced by sharp.extend() — same reason the <img> path
       // uses clip-path:inset() for edge tiles. Dest rect places it at the
-      // tile's slot in the level canvas at native level pixels.
+      // tile's slot in the level canvas.
+      // S131 priority #1 — the SOURCE rect stays in native tile pixels (the
+      // decoded WebP is always native res); the DEST rect is multiplied by
+      // the level canvas's backing-buffer scale (1 on desktop / under-budget
+      // levels, < 1 when the tablet budget downscaled this level canvas).
+      // (tileX+tileW)*s === c.width for the last column, so edge tiles still
+      // land flush — no gap, no overflow.
+      var s = entry.bufScale || 1;
       try {
-        entry.ctx.drawImage(img, 0, 0, tileW, tileH, tileX, tileY, tileW, tileH);
+        entry.ctx.drawImage(img, 0, 0, tileW, tileH, tileX * s, tileY * s, tileW * s, tileH * s);
       } catch (_e) {
         // drawImage can throw on broken/blank decode; treat as load failure.
         img.src = ''; _pumpQueue(); return;

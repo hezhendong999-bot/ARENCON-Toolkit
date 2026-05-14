@@ -10,7 +10,7 @@
  * Key constraints:
  *   - Pen/highlight: lineTo ONLY (never quadraticCurveTo)
  *   - Highlighter: offscreen composite at 0.3×opacity (never stack)
- *   - Canvas budget by device class — see _deviceMaxPixels():
+ *   - Canvas budget by device class — see deviceMaxPixels():
  *       phone 8 MP / Android field tablet 12 MP / desktop 30 MP
  *   - NEVER auto-select after drawing — tool stays active
  *   - NEVER use OffscreenCanvas (no Safari/iOS)
@@ -23,6 +23,7 @@ import { R2 } from '../data/r2.js';
 import { showConfirm } from '../shared/dialogs.js';
 import { TiledPdf } from './tiledPdf.js';
 import { Diag } from '../diag/memory.js';
+import { deviceClass, deviceMaxPixels } from '../shared/deviceBudget.js';
 
 // S82 diagnostic removed — bug was CSS pointer-events:none on mobile sidebar
 // parent leaking to open submenus. Fixed in frt.css ~line 2242.
@@ -99,35 +100,12 @@ var _useWebGL = (function(){
 })();
 
 // ── Device-class canvas budget (S131 priority #1) ───────
-// The markup canvas allocates GPU-backed buffers — the 2D backing store
-// AND the WebGL/Pixi sibling canvas — on top of tiledPdf's concurrent
-// tile-decode textures. Field Android tablets were previously lumped into
-// the "everything else" 30 MP desktop budget because the only two tiers
-// were "Android phone" and "not a phone". On a 25 MP drawing that combined
-// demand exhausted tablet GPU memory → webglcontextlost → page crash; it
-// killed a live site review on 2026-05-14. Three real tiers now:
-//   • phone   —  8 MP  (conservative handheld)
-//   • tablet  — 12 MP  (GPU-realistic for the shared field tablets;
-//                       starting value — validate on real hardware)
-//   • desktop — 30 MP  (crisp pen strokes at L4 zoom)
-// Single source of truth: every budget site (initial alloc, zoom resize,
-// drag-preview overlay) calls _deviceMaxPixels() so the tiers can never
-// drift again. Phone vs tablet: phones carry both "Android" and "Mobile"
-// UA tokens and do NOT match the Samsung tablet model prefixes; tablets
-// either omit "Mobile" or match SM-T / SM-X / "Tablet".
-function _deviceClass() {
-  var ua = navigator.userAgent || '';
-  if (!/Android/.test(ua)) return 'desktop';
-  if (/Mobile/.test(ua) && !/SM-T|SM-X|Tablet/.test(ua)) return 'phone';
-  return 'tablet';
-}
-function _deviceMaxPixels() {
-  switch (_deviceClass()) {
-    case 'phone':  return 8000000;
-    case 'tablet': return 12000000;
-    default:       return 30000000;
-  }
-}
+// markup canvas budget logic now lives in ../shared/deviceBudget.js as the
+// single source of truth, shared with tiledPdf.js — see deviceClass() /
+// deviceMaxPixels() imported at the top of this module. Extracted because
+// the budget was duplicated in two markup sites + the tiledPdf level canvas
+// with the same flawed 2-tier classifier; the duplication was the root
+// cause of the 2026-05-14 field crash.
 
 // ── Helpers ─────────────────────────────────────────────
 function _newId() {
@@ -324,9 +302,9 @@ function _allocateCanvas() {
   // S131 priority #1 — device-class markup canvas budget. The old 2-tier
   // logic (Android phone 10 MP / everything else 30 MP) dumped the field
   // tablets into the desktop budget and crashed the app in the field.
-  // _deviceMaxPixels() is the single source of truth — phone 8 / tablet 12
+  // deviceMaxPixels() is the single source of truth — phone 8 / tablet 12
   // / desktop 30 MP. See the helper definition near the top of this module.
-  var maxPixels = _deviceMaxPixels();
+  var maxPixels = deviceMaxPixels();
 
   var totalPixels = drawW * drawH;
   var mkScale = 1;
@@ -405,7 +383,7 @@ function _allocateCanvas() {
           // The `_useWebGL` guard makes this fire once only (subsequent
           // losses see it already false). Desktop keeps the retry path:
           // there a loss is usually a recoverable driver blip.
-          if (_useWebGL && _deviceClass() === 'tablet') {
+          if (_useWebGL && deviceClass() === 'tablet') {
             console.warn('[Markup] Field tablet — abandoning WebGL after first context loss, falling back to Canvas 2D');
             _useWebGL = false;
             try { _renderAll(); } catch(_) {}
@@ -543,11 +521,11 @@ function _resizeMarkupForScale(targetScale) {
   // S131 priority #1 — shared device-class budget. This zoom-resize site
   // is the one that actually triggered the field crash: it reallocates the
   // main + WebGL canvases synchronously on every zoom change. Previously a
-  // duplicated copy of the 2-tier logic; now the single _deviceMaxPixels()
+  // duplicated copy of the 2-tier logic; now the single deviceMaxPixels()
   // helper so this can never drift from the initial-allocation site again.
   // (Supersedes the S125-era flat-30 MP budget — that comment was removed
   // because it no longer described the code; see S130 handoff lesson.)
-  var maxPixels = _deviceMaxPixels();
+  var maxPixels = deviceMaxPixels();
   var budgetScale = Math.sqrt(maxPixels / (drawW * drawH));
 
   // Effective render scale: capped at budget. No separate <=1.0 clamp;
@@ -628,10 +606,10 @@ function _ensureOverlay() {
   // iPad-era leftover that made live preview render at 3× browser upscale
   // (visible fuzz while holding the mouse down).
   // S131 priority #1 — the overlay now shares the device-class budget via
-  // _deviceMaxPixels() (phone 8 / tablet 12 / desktop 30 MP). A flat 30 MP
+  // deviceMaxPixels() (phone 8 / tablet 12 / desktop 30 MP). A flat 30 MP
   // here re-introduced GPU pressure on field tablets during drawing even
   // after the two main-canvas budget sites were fixed.
-  var ovMax = _deviceMaxPixels();
+  var ovMax = deviceMaxPixels();
   var ovPx = lw * lh;
   var ovScale = ovPx > ovMax ? Math.sqrt(ovMax / ovPx) : 1;
   ov.width = Math.round(lw * ovScale);
