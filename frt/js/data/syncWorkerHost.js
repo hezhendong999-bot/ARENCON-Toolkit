@@ -38,7 +38,7 @@
  * worse than a consistent fallback.
  */
 
-import { serializePush as inlineSerializePush, merge3InWorker as inlineMerge3 } from './syncWorker.js';
+import { serializePush as inlineSerializePush, merge3InWorker as inlineMerge3, parseLarge as inlineParseLarge } from './syncWorker.js';
 
 var _worker = null;          // Worker instance, or null if fallback engaged
 var _bootAttempted = false;  // whether we've tried to create the worker yet
@@ -183,6 +183,27 @@ export var SyncWorkerHost = {
           console.warn('[SyncWorker] merge3 falling back to inline:', err.message);
         }
         return Promise.resolve(inlineMerge3(base, mine, theirs));
+      });
+  },
+
+  /**
+   * S130 Item 5.3 — Parse a large JSON response body off the main thread.
+   * Used by sync.js pull() for 10MB+ cloud responses. Falls back to inline
+   * JSON.parse if the worker is unavailable so callers don't have to branch.
+   *
+   * Returns null for empty/falsy text (matches Auth.request legacy behavior
+   * for empty response bodies). Throws SyntaxError on malformed JSON.
+   */
+  parseLarge: function(text) {
+    _diag.callCount++;
+    return _rpc('parseLarge', { text: text })
+      .catch(function(err) {
+        _diag.fallbackCount++;
+        if (_diag.lastError !== err.message) {
+          _diag.lastError = err.message;
+          console.warn('[SyncWorker] parseLarge falling back to inline:', err.message);
+        }
+        return Promise.resolve(inlineParseLarge(text));
       });
   },
 

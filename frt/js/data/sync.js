@@ -301,7 +301,13 @@ export var SyncEngine = {
     // S124 A3 — try IDB restore first. Non-blocking on failure; the network
     // pull below will overwrite anyway if it succeeds.
     return _restoreSyncMeta(projectId, instanceId).then(function() {
-      return Auth.request(path);
+      // S130 Item 5.3 — request raw text and parse off the main thread.
+      // For 10MB+ project responses this saves 100-300ms of UI freeze.
+      // SyncWorkerHost.parseLarge falls back to inline JSON.parse if the
+      // worker is unavailable, so this works on every browser.
+      return Auth.request(path, { rawText: true });
+    }).then(function(text) {
+      return text ? SyncWorkerHost.parseLarge(text) : null;
     }).then(function(rows) {
       if (!rows || !rows.length) {
         console.log('[Sync] No cloud data found for project:', projectId);

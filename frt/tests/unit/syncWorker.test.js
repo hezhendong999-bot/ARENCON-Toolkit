@@ -10,7 +10,7 @@
  * cloud is sensitive to which fields land in the tool_data row.
  */
 import { describe, it, expect } from 'vitest';
-import { stripBinaries, serializePush, merge3InWorker } from '../../js/data/syncWorker.js';
+import { stripBinaries, serializePush, merge3InWorker, parseLarge } from '../../js/data/syncWorker.js';
 
 describe('syncWorker.stripBinaries — legacy strip contract', () => {
   it('strips dataUrl/dataBlob/thumb/_hasLocalBlob/markup* from drawings', () => {
@@ -212,5 +212,57 @@ describe('syncWorker.merge3InWorker — passthrough to merge.js', () => {
     expect(result).toHaveProperty('conflicts');
     expect(result.conflicts).toEqual([]);
     expect(result.merged.drawings.map(d => d.id).sort()).toEqual(['d1', 'd2', 'd3']);
+  });
+});
+
+describe('syncWorker.parseLarge — S130 5.3 off-thread JSON.parse', () => {
+  it('parses a simple JSON object', () => {
+    const result = parseLarge('{"a":1,"b":"two"}');
+    expect(result).toEqual({ a: 1, b: 'two' });
+  });
+
+  it('parses a JSON array', () => {
+    const result = parseLarge('[1,2,3]');
+    expect(result).toEqual([1, 2, 3]);
+  });
+
+  it('parses a large nested object (Supabase pull response shape)', () => {
+    // Mimics the shape Auth.request returns from /rest/v1/tool_data
+    const pullResponse = [{
+      id: 'inst-1',
+      project_id: 'proj-1',
+      tool_key: 'frt',
+      instance_number: 3,
+      updated_at: '2026-05-13T12:00:00Z',
+      updated_by: 'mark@arencon.com',
+      data: {
+        drawings: [{ id: 'd1', name: 'Plan A' }, { id: 'd2', name: 'Plan B' }],
+        contractors: [{ id: 'c1', name: 'Acme', deficiencies: [] }],
+        photos: []
+      }
+    }];
+    const text = JSON.stringify(pullResponse);
+    const parsed = parseLarge(text);
+    expect(parsed).toEqual(pullResponse);
+    // Verify nested objects are deeply equal (not just stringified-equal)
+    expect(parsed[0].data.drawings[1].name).toBe('Plan B');
+  });
+
+  it('returns null for empty string (matches Auth.request legacy semantics)', () => {
+    expect(parseLarge('')).toBeNull();
+  });
+
+  it('returns null for null/undefined input', () => {
+    expect(parseLarge(null)).toBeNull();
+    expect(parseLarge(undefined)).toBeNull();
+  });
+
+  it('throws SyntaxError on malformed JSON (same as JSON.parse)', () => {
+    expect(() => parseLarge('{not json}')).toThrow(SyntaxError);
+  });
+
+  it('throws on non-string input (defensive contract)', () => {
+    expect(() => parseLarge(42)).toThrow(/must be a string/);
+    expect(() => parseLarge({ already: 'parsed' })).toThrow(/must be a string/);
   });
 });

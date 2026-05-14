@@ -71,6 +71,12 @@ export var Auth = {
           throw new Error(err.message || err.msg || res.statusText);
         });
       }
+      // S130 Item 5.3 — opts.rawText returns the raw response body so the
+      // caller can defer the JSON.parse to a Web Worker (large pulls only).
+      // Default behavior unchanged: parse inline and return the object.
+      if (opts.rawText) {
+        return res.text();
+      }
       return res.text().then(function(text) { return text ? JSON.parse(text) : null; });
     });
   },

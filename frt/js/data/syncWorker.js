@@ -118,6 +118,31 @@ export function merge3InWorker(base, mine, theirs) {
   return merge3(base, mine, theirs);
 }
 
+/**
+ * S130 Item 5.3 — Parse a large JSON string in the worker thread.
+ *
+ * Used by sync.js pull() to move the JSON.parse() of cloud responses off the
+ * main thread. Pulls on 10MB+ projects can block the UI for 100-300ms; running
+ * the parse in the worker lets the main thread stay responsive (paying only
+ * the structuredClone cost on receive, which is faster than JSON.parse).
+ *
+ * Contract:
+ *   - Returns the parsed value (object/array/primitive) — same as JSON.parse.
+ *   - Empty / falsy text returns null (matches Auth.request legacy semantics
+ *     for empty response bodies).
+ *   - Throws SyntaxError on malformed JSON (same as JSON.parse).
+ *
+ * The host (syncWorkerHost.js) falls back to inline JSON.parse if the worker
+ * is unavailable, so callers can use this without checking worker availability.
+ */
+export function parseLarge(text) {
+  if (!text) return null;
+  if (typeof text !== 'string') {
+    throw new Error('parseLarge: text must be a string, got ' + typeof text);
+  }
+  return JSON.parse(text);
+}
+
 // ── Worker RPC dispatcher ───────────────────────────────────────────
 // Only registers the message handler when we're actually running inside
 // a Worker scope. When imported by unit tests in Node/jsdom, the
@@ -143,6 +168,9 @@ if (typeof self !== 'undefined' && typeof self.postMessage === 'function' &&
           break;
         case 'merge3':
           result = merge3InWorker(payload.base, payload.mine, payload.theirs);
+          break;
+        case 'parseLarge':
+          result = parseLarge(payload.text);
           break;
         default:
           throw new Error('Unknown op: ' + op);
