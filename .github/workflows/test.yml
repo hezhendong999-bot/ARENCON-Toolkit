@@ -9,7 +9,7 @@ on:
 
 jobs:
   unit:
-    name: Unit tests
+    name: Unit tests + coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -23,16 +23,25 @@ jobs:
       - name: Install dependencies
         run: npm ci || npm install
 
-      - name: Run unit tests
-        run: npm run test:unit
+      # S129 Item 4.3 — coverage gate. Threshold defined in vitest.config.js
+      # (50/60/50/50). Fails the run if any tested file regresses below.
+      - name: Run unit tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
 
   contracts:
     name: Contract tests (real Supabase + R2)
     runs-on: ubuntu-latest
     # Contract tests intentionally hit production. Failures here indicate
     # shape drift between mocks and reality. Non-blocking for now — they
-    # report status but don't fail the workflow's required status (we'd
-    # add `continue-on-error: false` once stable).
+    # report status but don't fail the workflow's required status.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v5
@@ -50,3 +59,41 @@ jobs:
         env:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: npm run test:contracts
+
+  # S129 Item 4.1 — Playwright E2E foundation.
+  # Tests run against the LIVE deployed Pages site (no local server
+  # orchestration needed). Foundation scope: smoke tests for index/FRT/Hub
+  # boot + zero JS errors, on Chromium desktop and Pixel 5 mobile.
+  #
+  # NON-BLOCKING on first deploy — same pattern as contract tests. Flip
+  # to required once we've watched a few runs. Auth-required tests and
+  # viewer/gesture tests come in follow-up phases.
+  e2e:
+    name: E2E smoke (Playwright)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run smoke tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
