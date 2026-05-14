@@ -3378,11 +3378,13 @@ async function r2RefreshStatus() {
   grid.innerHTML = '';
 
   var WORKER = 'https://arencon-r2-worker.hezhendong999.workers.dev';
-  // S130 FIX — FRT stores all R2 objects under the project UUID
-  // (photos/{projectId}/frt/{type}/...). The Hub previously listed under a
-  // human-readable slug derived from project number+name, which FRT never
-  // wrote to — so every list came back empty and Cloud Storage showed
-  // "None" for everything even when data was present. List by UUID.
+  // S130 — list by project UUID. FRT sends R2 PUTs to /photos/{UUID}/frt/...
+  // (the UUID comes from the ?project= URL param). The worker stores it as
+  // {UUID}/photos/frt/... — so the worker's /list/ endpoint, given
+  // /list/{UUID}/frt/{type}, builds the matching prefix internally. We just
+  // pass the UUID as the folder. (Legacy projects used a number+name slug;
+  // the worker's getR2Object has fallbacks for those, and the lazy-load 404
+  // retry below covers stragglers.)
   var r2Folder = projId;
 
   // Always refresh token before R2 calls to avoid 401/empty results
@@ -3401,23 +3403,38 @@ async function r2RefreshStatus() {
     { key: 'electric-photos',label: '⚡ Electric Pump Photos',tool: 'electric', type: 'original', filter: null, color: '#F57C00' },
   ];
 
+  // S130 — legacy projects stored R2 objects under a number+name slug; new
+  // projects use the UUID. Build both candidate folders and try UUID first,
+  // slug second. The worker's /list/ transposes {folder}/{tool}/{type} into
+  // the {folder}/photos/{tool}/{type}/ prefix that matches the bucket.
+  var slugFolder = null;
+  try {
+    var _proj = _projects ? _projects.find(function(p){ return p.id === projId; }) : null;
+    if (_proj) slugFolder = _pgMakeR2FolderSlug(_proj.project_number, _proj.project_name);
+  } catch(e) {}
+
   // Fetch all R2 file lists in parallel
   var results = await Promise.all(types.map(async function(t) {
-    try {
-      var path = '/list/' + encodeURIComponent(r2Folder) + '/' + encodeURIComponent(t.tool) + '/' + encodeURIComponent(t.type);
+    async function listFolder(folder) {
+      var path = '/list/' + encodeURIComponent(folder) + '/' + encodeURIComponent(t.tool) + '/' + encodeURIComponent(t.type);
       var res = await fetch(WORKER + path, { headers: headers });
       if (!res.ok) {
-        if (res.status === 404) return { type: t, files: [], error: null };
-        return { type: t, files: [], error: 'HTTP ' + res.status };
+        if (res.status === 404) return [];
+        throw new Error('HTTP ' + res.status);
       }
       var data = await res.json();
-      // data may be [{key, size}, ...] or {objects:[...]} or {prefix, count, files:[...]}
-      var files = Array.isArray(data) ? data : (data.objects || data.files || data.items || []);
+      return Array.isArray(data) ? data : (data.objects || data.files || data.items || []);
+    }
+    try {
+      // Try UUID folder first; if empty, try the legacy slug folder.
+      var files = await listFolder(r2Folder);
+      if ((!files || !files.length) && slugFolder && slugFolder !== r2Folder) {
+        files = await listFolder(slugFolder);
+      }
       // Apply filter for types that share the same R2 folder (original/)
       if (t.filter) {
         files = files.filter(function(f) {
           var name = typeof f === 'string' ? f : (f.key || f.name || '');
-          // Extract just the filename
           var parts = name.split('/');
           var fname = parts[parts.length - 1];
           return t.filter(fname);
@@ -3546,22 +3563,24 @@ function _pgMakeR2FolderSlug(pn, pname) {
   return raw.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '').substring(0, 80) || null;
 }
 
-// Resolve photo src from r2Key. FRT stores R2 objects under the project
-// UUID — path shape: photos/{projectUUID}/frt/{type}/{filename} (see
-// frt/js/data/r2.js). The Hub MUST read using that same UUID.
+// Resolve photo src from r2Key.
 //
-// S130 FIX — this function previously rewrote parts[1] (the real project
-// UUID baked into the r2Key) with a human-readable "slug" derived from the
-// project number + name. FRT never stored anything under a slug, so every
-// rebuilt URL pointed at a folder that doesn't exist → "No photos found",
-// Cloud Storage all "None", broken thumbnails. The slug scheme was leftover
-// from an abandoned R2 path design. Now: trust the r2Key as-is.
+// ph.r2Key is the URL-shape path FRT records: `photos/{folder}/frt/{type}/
+// {filename}` (frt/js/data/r2.js line 57). The R2 worker's GET endpoint
+// expects exactly this URL shape and internally transposes it to the
+// stored key shape `{folder}/photos/frt/{type}/...` (see urlPathToR2Key in
+// arencon-r2-worker.js). So prefixing the worker origin onto r2Key as-is
+// produces a working URL — no path rewriting needed here.
+//
+// S130 — an earlier version of this function rewrote the folder segment
+// with a "slug" derived from project number+name. That was wrong for
+// current data (FRT passes the project UUID) and produced dead URLs.
+// Trust r2Key verbatim.
 function _pgResolveR2Src(ph, projectId) {
   if (!ph || typeof ph !== 'object') return (typeof ph === 'string') ? ph : '';
   if (ph.r2Key) {
-    // r2Key already contains the correct full path including the project
-    // UUID. Just prefix the worker origin. encodeURI (not encodeURIComponent)
-    // so the slashes in the key are preserved.
+    // r2Key is already the correct URL-shape path. Prefix the worker origin;
+    // encode each segment but preserve the slashes.
     return R2_WORKER + '/' + ph.r2Key.split('/').map(encodeURIComponent).join('/');
   }
   // Fallback to r2Url if no r2Key

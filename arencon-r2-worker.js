@@ -129,24 +129,28 @@ async function getR2Object(bucket, rawPath) {
  * Convert list URL path to R2 prefix.
  *
  * URL:  /list/{folder}/{tool}/{type}
- * R2 :  photos/{folder}/{tool}/{type}/
+ * R2 :  {folder}/photos/{tool}/{type}/
  *
- * S130 FIX — this previously produced `{folder}/photos/{tool}/{type}/`
- * (with "photos" in the MIDDLE). But FRT writes every object as
- * `photos/{projectId}/frt/{type}/{filename}` — "photos" at the FRONT
- * (see frt/js/data/r2.js: `'photos/' + projectId + '/frt/' + type`).
- * The transposed prefix never matched any real key, so the Hub's Cloud
- * Storage panel always listed an empty folder regardless of what was
- * actually uploaded. Now the prefix matches FRT's real layout.
+ * S130 — This MUST match urlPathToR2Key's transposition. FRT's R2 keys are
+ * stored as `{folder}/photos/{tool}/{type}/{filename}` — the worker's
+ * urlPathToR2Key moves `photos` from the front of the URL into the middle
+ * of the stored key. Confirmed against live R2 (/debug shows real keys like
+ * `1490.04_..._Upgrade/photos/frt/drawings/...`).
+ *
+ * A prior commit wrongly "fixed" this to produce `photos/{folder}/...`
+ * (photos at front) based on FRT's URL shape rather than the STORED key
+ * shape. That made every list match nothing → Hub Cloud Storage showed
+ * "None" for everything. Reverted to the transposed form that matches
+ * what's actually in the bucket.
  */
 function listPathToR2Prefix(rawPath) {
   // rawPath = /list/{folder}/{tool}/{type}
   const afterList = rawPath.substring(6); // skip "/list/"
   const slashIdx = afterList.indexOf('/');
-  if (slashIdx < 0) return 'photos/' + afterList + '/'; // just the folder
+  if (slashIdx < 0) return afterList + '/photos/'; // just the folder
   const folder = afterList.substring(0, slashIdx);
   const rest = afterList.substring(slashIdx); // /{tool}/{type}
-  return 'photos/' + folder + rest.replace(/\/$/, '') + '/';
+  return folder + '/photos' + rest.replace(/\/$/, '') + '/';
 }
 
 export default {
@@ -219,10 +223,12 @@ export default {
       }
       const pid = decodeURIComponent(rawPath.substring(9)).replace(/\/$/, '');
       if (!pid) return jsonResponse({ error: 'Missing project id' }, 400, origin);
-      // S130 FIX — FRT keys are `photos/{pid}/frt/{type}/...`. The prefix
-      // must include the leading `photos/` segment or it matches nothing.
-      // (Same transposition bug as listPathToR2Prefix.)
-      const prefix = 'photos/' + pid + '/';
+      // S130 — R2 keys are stored as `{folder}/photos/frt/{type}/...` (the
+      // worker's urlPathToR2Key transposes `photos` into the middle). So a
+      // listall prefix that captures everything under a project is just
+      // `{folder}/` — NOT `photos/{folder}/`. A prior commit wrongly added
+      // the `photos/` front-prefix; confirmed wrong against live /debug.
+      const prefix = pid + '/';
       try {
         let allObjects = [];
         let cursor = undefined;
