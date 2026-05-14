@@ -1568,6 +1568,26 @@ function boot() {
     var mq = document.getElementById('mobile-qr-btn');
     if (mq && _hubMode) mq.style.display = '';
 
+    // S130 Proposal A — Deep-link pin focus from Hub photo gallery.
+    // URL contract: ?project=<pid>&pinFocus=<deficId>&from=hub
+    // After project is loaded and rendered, jump to the drawings tab and
+    // open the viewer on the pin. Uses the existing _frtNavigateToPin hook
+    // (defined in viewer/viewer.js) so the navigation matches the behavior
+    // of the in-app "Go to drawing" buttons.
+    try {
+      var __pinFocusParams = new URLSearchParams(window.location.search);
+      var __pinFocusId = __pinFocusParams.get('pinFocus');
+      if (__pinFocusId) {
+        // Defer 1 frame so the drawings tab content has finished mounting.
+        setTimeout(function() {
+          if (typeof window._frtNavigateToPin === 'function') {
+            var ok = window._frtNavigateToPin(__pinFocusId);
+            if (!ok) console.warn('[FRT v2] pinFocus deep-link failed — pin not found:', __pinFocusId);
+          }
+        }, 200);
+      }
+    } catch (_) {}
+
   }).catch(function(err) {
     console.error('[FRT v2] Boot error:', err);
     // Even if IDB/auth/pull fails, show the UI with a new project — unless

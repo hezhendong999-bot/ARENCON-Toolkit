@@ -3586,11 +3586,16 @@ function _pgExtractPhotos(row) {
   var instNum = row.instance_number || 1;
   var label = row.label || (toolLabel + ' #' + instNum);
 
-  function _makeRec(src, type, caption, date) {
+  function _makeRec(src, type, caption, date, extras) {
     if (!src) return null;
-    return { src: src, type: type, caption: caption || '', tool: label, toolKey: toolKey,
+    var rec = { src: src, type: type, caption: caption || '', tool: label, toolKey: toolKey,
              date: date || row.updated_at || '', id: 'pg_' + Math.random().toString(36).substr(2,9),
-             instanceNum: instNum };
+             instanceNum: instNum, instanceId: row.id || null, projectId: projectId };
+    // S130 Proposal A — Optional FRT-only fields for deep-link to pin editor.
+    // extras = { deficId, obsIdx } when known.
+    if (extras && extras.deficId) rec.deficId = extras.deficId;
+    if (extras && typeof extras.obsIdx === 'number') rec.obsIdx = extras.obsIdx;
+    return rec;
   }
 
   // ── FRT ──
@@ -3633,7 +3638,7 @@ function _pgExtractPhotos(row) {
                 var src = _pgResolveR2Src(ph, projectId);
                 if (!src) return;
                 var obsLabel = numObs > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + oi) : '';
-                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
+                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || '', { deficId: d.id, obsIdx: oi }));
                 emittedAtLeastOne = true;
               });
             });
@@ -3644,7 +3649,7 @@ function _pgExtractPhotos(row) {
                 var src = _pgResolveR2Src(ph, projectId);
                 if (!src) return;
                 var obsLabel = numObs > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + oi) : '';
-                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
+                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || '', { deficId: d.id, obsIdx: oi }));
                 emittedAtLeastOne = true;
               });
             });
@@ -3663,7 +3668,7 @@ function _pgExtractPhotos(row) {
               if (seenIds[pid]) return;
               seenIds[pid] = true;
               var obsLabel = numEn > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + ei) : '';
-              photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
+              photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || '', { deficId: d.id, obsIdx: ei }));
               emittedAtLeastOne = true;
             });
           });
@@ -3673,7 +3678,7 @@ function _pgExtractPhotos(row) {
               if (ph && ph.deleted) return; // skip soft-deleted
               var src = _pgResolveR2Src(ph, projectId);
               if (!src) return;
-              photos.push(_makeRec(src, 'deficiency', pinLabel, d.date || ''));
+              photos.push(_makeRec(src, 'deficiency', pinLabel, d.date || '', { deficId: d.id }));
             });
           }
         }
@@ -4382,6 +4387,31 @@ function _pgLbShow() {
   if (info) {
     info.textContent = ph.tool + ' · ' + ph.caption + (ph.date ? ' · ' + ph.date.substring(0,10) : '') + '  (' + (_pgLbIdx + 1) + '/' + _pgLbList.length + ')';
   }
+  // S130 Proposal A — show "Open in FRT" only for FRT defic photos that
+  // carry a deficId. Site photos and non-FRT photos hide the button.
+  var openBtn = document.getElementById('pg-lb-open-pin');
+  if (openBtn) {
+    openBtn.style.display = (ph.toolKey === 'frt' && ph.deficId) ? '' : 'none';
+  }
+}
+
+// S130 Proposal A — Deep-link jump from Hub photo lightbox into the FRT
+// pin editor for that specific deficiency on that specific FRT instance.
+// Pattern: frt/index.html?project=<pid>&instance=<instUuid>&pinFocus=<deficId>&from=hub
+// FRT side parses pinFocus and calls _frtNavigateToPin after boot. The
+// existing back button (already wired in detectHubMode) returns to the Hub.
+function pgLbOpenInFrt() {
+  var ph = _pgLbList[_pgLbIdx];
+  if (!ph || !ph.deficId) return;
+  var pid = ph.projectId;
+  if (!pid) return;
+  var url = 'frt/index.html?project=' + encodeURIComponent(pid)
+          + (ph.instanceId ? '&instance=' + encodeURIComponent(ph.instanceId) : '')
+          + '&pinFocus=' + encodeURIComponent(ph.deficId)
+          + '&from=hub';
+  // Close lightbox before navigating so it doesn't flash on back-nav.
+  pgLbClose();
+  window.location.href = url;
 }
 
 function pgLbNav(dir) {
@@ -4455,6 +4485,7 @@ function _pgEscHtml(s) {
   <button class="pg-lb-nav" id="pg-lb-next" onclick="pgLbNav(1)">›</button>
   <div id="pg-lb-info"></div>
   <div id="pg-lb-actions">
+    <button id="pg-lb-open-pin" onclick="pgLbOpenInFrt()" style="display:none;">📍 Open in FRT</button>
     <button onclick="pgLbDownload()">⬇ Download</button>
   </div>
 </div>
