@@ -10,8 +10,8 @@
  * Key constraints:
  *   - Pen/highlight: lineTo ONLY (never quadraticCurveTo)
  *   - Highlighter: offscreen composite at 0.3×opacity (never stack)
- *   - Overlay canvas capped at 3M pixels (Samsung GPU)
- *   - Main canvas capped: 10M Android, 16M iOS/iPad, 25M desktop
+ *   - Canvas budget by device class — see _deviceMaxPixels():
+ *       phone 8 MP / Android field tablet 12 MP / desktop 30 MP
  *   - NEVER auto-select after drawing — tool stays active
  *   - NEVER use OffscreenCanvas (no Safari/iOS)
  *   - Eraser uses destination-out composite
@@ -97,6 +97,37 @@ var _useWebGL = (function(){
     return !!(window.WebGLMarkupRenderer && window.WebGLMarkupRenderer.isSupported && window.WebGLMarkupRenderer.isSupported());
   } catch(_){ return false; }
 })();
+
+// ── Device-class canvas budget (S131 priority #1) ───────
+// The markup canvas allocates GPU-backed buffers — the 2D backing store
+// AND the WebGL/Pixi sibling canvas — on top of tiledPdf's concurrent
+// tile-decode textures. Field Android tablets were previously lumped into
+// the "everything else" 30 MP desktop budget because the only two tiers
+// were "Android phone" and "not a phone". On a 25 MP drawing that combined
+// demand exhausted tablet GPU memory → webglcontextlost → page crash; it
+// killed a live site review on 2026-05-14. Three real tiers now:
+//   • phone   —  8 MP  (conservative handheld)
+//   • tablet  — 12 MP  (GPU-realistic for the shared field tablets;
+//                       starting value — validate on real hardware)
+//   • desktop — 30 MP  (crisp pen strokes at L4 zoom)
+// Single source of truth: every budget site (initial alloc, zoom resize,
+// drag-preview overlay) calls _deviceMaxPixels() so the tiers can never
+// drift again. Phone vs tablet: phones carry both "Android" and "Mobile"
+// UA tokens and do NOT match the Samsung tablet model prefixes; tablets
+// either omit "Mobile" or match SM-T / SM-X / "Tablet".
+function _deviceClass() {
+  var ua = navigator.userAgent || '';
+  if (!/Android/.test(ua)) return 'desktop';
+  if (/Mobile/.test(ua) && !/SM-T|SM-X|Tablet/.test(ua)) return 'phone';
+  return 'tablet';
+}
+function _deviceMaxPixels() {
+  switch (_deviceClass()) {
+    case 'phone':  return 8000000;
+    case 'tablet': return 12000000;
+    default:       return 30000000;
+  }
+}
 
 // ── Helpers ─────────────────────────────────────────────
 function _newId() {
@@ -290,25 +321,12 @@ function _allocateCanvas() {
     drawH = img.naturalHeight;
   }
 
-  var ua = navigator.userAgent;
-  // S113 Push 2 — final cleanup. Markup canvas budget by device class:
-  //   • Android phone (handheld form factor): 10 Mpx
-  //   • Everything else (Android tablet, desktop): 25 Mpx for crisp pen
-  //     strokes at every zoom level
-  // Phone detection: UA contains both "Android" and "Mobile" tokens, AND
-  // does NOT carry any of the common Samsung tablet model prefixes.
-  // (Android tablets typically omit the "Mobile" token; the SM-T / SM-X /
-  // "Tablet" allowlist guards against UA outliers that include "Mobile".)
-  // The `isIPhone` / `isIPad` / `isTablet` branches and the `?iosres=N`
-  // parser were removed in Push 1 along with the rest of iOS support.
-  var isAndroidPhone = /Android/.test(ua) && /Mobile/.test(ua) && !/SM-T|SM-X|Tablet/.test(ua);
-  // S125 hotfix 4 — Budget moved to 30 MP. The previous 50 MP cap was
-  // safe for GPU but the effective<=1.0 clamp on top of it meant the
-  // canvas was still upscaled by the browser at any zoom > 1, producing
-  // visible blur. 30 MP allows budgetScale ≈ 1.095 on a 25 MP drawing,
-  // letting the 2D canvas modestly densify at L4 zoom without blowing
-  // GPU memory when combined with tiledPdf L4 tile decoding.
-  var maxPixels = isAndroidPhone ? 10000000 : 30000000;
+  // S131 priority #1 — device-class markup canvas budget. The old 2-tier
+  // logic (Android phone 10 MP / everything else 30 MP) dumped the field
+  // tablets into the desktop budget and crashed the app in the field.
+  // _deviceMaxPixels() is the single source of truth — phone 8 / tablet 12
+  // / desktop 30 MP. See the helper definition near the top of this module.
+  var maxPixels = _deviceMaxPixels();
 
   var totalPixels = drawW * drawH;
   var mkScale = 1;
@@ -377,6 +395,26 @@ function _allocateCanvas() {
           e.preventDefault();
           _webglReady = false;
           _webglInitPromise = null;
+          // S131 priority #1 (Step 2) — On a field tablet, a context loss
+          // means the GPU is genuinely out of memory, not a transient
+          // driver hiccup. The webglcontextrestored handler's 3× retry loop
+          // re-attempts the SAME too-large allocation each time and can
+          // cascade into a crash loop. So on the FIRST loss on a tablet,
+          // abandon WebGL outright and degrade straight to Canvas 2D —
+          // which allocates no GPU textures, so context loss cannot recur.
+          // The `_useWebGL` guard makes this fire once only (subsequent
+          // losses see it already false). Desktop keeps the retry path:
+          // there a loss is usually a recoverable driver blip.
+          if (_useWebGL && _deviceClass() === 'tablet') {
+            console.warn('[Markup] Field tablet — abandoning WebGL after first context loss, falling back to Canvas 2D');
+            _useWebGL = false;
+            try { _renderAll(); } catch(_) {}
+            try {
+              if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive()) {
+                TiledPdf.scheduleRender();
+              }
+            } catch(_) {}
+          }
         }, false);
         _webglCanvas.addEventListener('webglcontextrestored', function() {
           console.log('[Markup] WebGL CONTEXT_RESTORED — reinitializing Pixi');
@@ -502,15 +540,14 @@ function _resizeMarkupForScale(targetScale) {
   var drawW = mc._logicalW;
   var drawH = mc._logicalH || mc._logicalW;
 
-  // S125 hotfix 4 — Budget moved to 30 MP. The previous 50 MP cap was
-  // GPU-safe but combined with the effective<=1.0 clamp on top of it
-  // meant the canvas was still upscaled at any zoom > 1, producing
-  // visible blur on thin strokes (dimensions, pens, shapes). 30 MP lets
-  // budgetScale reach ~1.095 on a 25 MP drawing — modest densification
-  // at L4 zoom without re-triggering GPU CONTEXT_LOST under tile load.
-  var ua = navigator.userAgent;
-  var isAndroidPhone = /Android/.test(ua) && /Mobile/.test(ua) && !/SM-T|SM-X|Tablet/.test(ua);
-  var maxPixels = isAndroidPhone ? 10000000 : 30000000;
+  // S131 priority #1 — shared device-class budget. This zoom-resize site
+  // is the one that actually triggered the field crash: it reallocates the
+  // main + WebGL canvases synchronously on every zoom change. Previously a
+  // duplicated copy of the 2-tier logic; now the single _deviceMaxPixels()
+  // helper so this can never drift from the initial-allocation site again.
+  // (Supersedes the S125-era flat-30 MP budget — that comment was removed
+  // because it no longer described the code; see S130 handoff lesson.)
+  var maxPixels = _deviceMaxPixels();
   var budgetScale = Math.sqrt(maxPixels / (drawW * drawH));
 
   // Effective render scale: capped at budget. No separate <=1.0 clamp;
@@ -587,14 +624,14 @@ function _ensureOverlay() {
   ov.style.width = lw + 'px';
   ov.style.height = lh + 'px';
   // S125 hotfix 7 — The overlay canvas (used ONLY for live drag preview
-  // during pen / shape / dimension drawing) was capped at 3 MP — an
-  // iPad-era leftover. For a 6144×4096 logical canvas this meant ovScale
-  // ≈ 0.346 → overlay backing buffer 2126×1418, displayed at the full
-  // 6144×4096 CSS size = 3× browser upscale = the visible fuzz Mark saw
-  // ONLY while holding the mouse down. Bumped to 30 MP to match the main
-  // canvas budget; live preview now renders at the same fidelity as
-  // committed strokes.
-  var ovMax = 30000000;
+  // during pen / shape / dimension drawing) was once capped at 3 MP — an
+  // iPad-era leftover that made live preview render at 3× browser upscale
+  // (visible fuzz while holding the mouse down).
+  // S131 priority #1 — the overlay now shares the device-class budget via
+  // _deviceMaxPixels() (phone 8 / tablet 12 / desktop 30 MP). A flat 30 MP
+  // here re-introduced GPU pressure on field tablets during drawing even
+  // after the two main-canvas budget sites were fixed.
+  var ovMax = _deviceMaxPixels();
   var ovPx = lw * lh;
   var ovScale = ovPx > ovMax ? Math.sqrt(ovMax / ovPx) : 1;
   ov.width = Math.round(lw * ovScale);
