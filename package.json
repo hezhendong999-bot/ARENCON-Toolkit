@@ -10,7 +10,9 @@
     "test:contracts": "vitest run frt/tests/contracts",
     "test:coverage": "vitest run --coverage frt/tests/unit",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:visual": "RUN_VISUAL=1 playwright test e2e/visual.spec.js",
+    "test:e2e:visual:update": "RUN_VISUAL=1 playwright test e2e/visual.spec.js --update-snapshots"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.2",
