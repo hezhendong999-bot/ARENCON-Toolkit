@@ -18,6 +18,14 @@ import { UploadQueue } from './uploadQueue.js';
 
 var R2_WORKER = 'https://arencon-r2-worker.hezhendong999.workers.dev';
 
+// Re-entrancy guard for processPendingUploads() — the offline pending-upload
+// drainer (IDB 'pendingUploads' store). This is a SEPARATE concern from the
+// S130 UploadQueue, which coordinates live R2.upload() concurrency. The
+// drainer just needs a simple boolean so two calls don't double-drain the
+// IDB queue. (S130 5.1 accidentally removed this declaration when wiring
+// R2.upload through UploadQueue; restored S130 hotfix.)
+var _queueRunning = false;
+
 function _getToken() {
   var t = localStorage.getItem('sb-access-token');
   if (t) return t;
