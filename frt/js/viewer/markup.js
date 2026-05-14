@@ -2692,13 +2692,23 @@ function _loadMarkup(drawingId) {
   _redoStack = [];
   _selectedIds = [];
 
-  // S126 Phase B — Resolution chain (in order):
-  //   1. drawing.markupR2 → fetch JSON from R2 (durable cloud source)
-  //   2. IDB markupObjects store (offline cache + pre-sync strokes)
-  //   3. Legacy drawing.markupObjects (back-compat → lazy-migrates to R2)
-  // Non-blocking — _renderAll runs immediately with whatever's resolved.
-  // _markupLoadInflight suppresses _saveMarkup during the R2 fetch so
-  // we don't race and overwrite remote.
+  // S130 — Resolution chain. ORDERING FIX:
+  //   1. IDB markupObjects store  ← LOCAL SOURCE OF TRUTH, checked FIRST
+  //   2. drawing.markupR2 → R2 JSON  ← cross-device fallback only
+  //   3. Legacy drawing.markupObjects  ← back-compat, lazy-migrates
+  //
+  // Previously R2 was checked first. That caused the "markup needs two opens
+  // to show correctly" bug: after you draw or delete, IDB has the newest
+  // state immediately, but the R2 upload takes a few seconds. A fast
+  // back-then-reopen fetched the STALE R2 copy (or an un-updated
+  // drawing.markupR2 still pointing at the previous version), so the first
+  // reopen showed old state and only the second showed the truth.
+  //
+  // IDB is the permanent local backup and on a single device is always
+  // newer-or-equal to R2 (project knowledge: "IDB is permanent backup, not
+  // a cache"). So check IDB first; fall through to R2 only when IDB has
+  // nothing for this drawing — the genuine cross-device case.
+  // Non-blocking — _renderAll runs as soon as a source resolves.
 
   var proj = Model.getProject();
   if (!proj) {
@@ -2719,40 +2729,37 @@ function _loadMarkup(drawingId) {
     return;
   }
 
-  // Path 1 — R2 (preferred)
-  if (drawing.markupR2 && drawing.markupR2.r2Url) {
+  // IDB first — local source of truth. _loadMarkupFromIDB falls through to
+  // the R2 path (and then legacy) when IDB has nothing for this drawing.
+  _loadMarkupFromIDB(drawingId, drawing, projectId);
+}
+
+/**
+ * S130 — R2 fallback. Reached from _loadMarkupFromIDB ONLY when IDB has no
+ * record for this drawing — a genuine cross-device case (markup created on
+ * another device, only in the cloud) or a fresh device. On success the R2
+ * data is mirrored into IDB so the next open is instant and local-first.
+ */
+function _loadMarkupFromR2(drawingId, drawing, projectId) {
+  var _loadToken = drawingId;
+  if (drawing && drawing.markupR2 && drawing.markupR2.r2Url) {
     _markupLoadInflight = true;
-    // S130 — capture the drawingId at fetch-start. If the user navigates back
-    // to the drawings tab and reopens (or opens a different drawing) before
-    // this async fetch resolves, _drawingId will have changed — applying the
-    // result then would paint stale data or paint into a destroyed canvas.
-    // This is the "markup doesn't show until I close and reopen" bug:
-    // the fetch resolved into an interrupted init.
-    var _loadToken = drawingId;
     R2.downloadMarkup(drawing.markupR2.r2Url).then(function(blob) {
       _markupLoadInflight = false;
-      // Stale guard — drawing changed or viewer closed during the fetch.
       if (_drawingId !== _loadToken) {
         console.log('[Markup] R2 load resolved for stale drawing — discarding:', _loadToken);
         return;
       }
-      // S129 1.1 — downloadMarkup now returns `{objects, deletedIds}` (or null).
-      // Old-format plain-array bodies are normalized by downloadMarkup itself.
       if (blob && blob.objects && (blob.objects.length || blob.deletedIds.length)) {
         _objects = blob.objects;
         _tombstones = (blob.deletedIds || []).slice();
         console.log('[Markup] Loaded ' + _objects.length + ' objects + ' +
-                    _tombstones.length + ' tombstones from R2');
+                    _tombstones.length + ' tombstones from R2 (cross-device)');
+        // Mirror into IDB so subsequent loads are instant and local-first.
         IDB.put('markupObjects', {
           id: drawingId, drawingId: drawingId,
           objects: _objects, deletedIds: _tombstones
         }).catch(function() {});
-        // S130 — render now, AND again once WebGL finishes initializing.
-        // _renderAll falls back to Canvas 2D if _webglReady is false, so the
-        // first call always paints something; but if WebGL init is still in
-        // flight, chain a second render onto its promise so the GPU canvas
-        // gets the strokes too. Without this, a fast back-then-reopen could
-        // leave the WebGL canvas blank until the next manual interaction.
         _renderAll();
         _updateUndoButtons();
         if (_useWebGL && !_webglReady && _webglInitPromise) {
@@ -2762,19 +2769,23 @@ function _loadMarkup(drawingId) {
         }
         return;
       }
-      // R2 reference exists but fetch returned null/empty — fall through
-      _loadMarkupFromIDB(drawingId, drawing, projectId);
+      // R2 reference exists but empty — nothing anywhere for this drawing.
+      console.log('[Markup] No markup for drawing ' + drawingId + ' (IDB + R2 both empty)');
+      _renderAll();
+      _updateUndoButtons();
     }).catch(function(err) {
       _markupLoadInflight = false;
-      if (_drawingId !== _loadToken) return; // stale — viewer moved on
-      console.warn('[Markup] R2 load error, falling back:', err && err.message || err);
-      _loadMarkupFromIDB(drawingId, drawing, projectId);
+      if (_drawingId !== _loadToken) return;
+      console.warn('[Markup] R2 load error:', err && err.message || err);
+      _renderAll();
+      _updateUndoButtons();
     });
     return;
   }
-
-  // No R2 reference — try IDB then legacy
-  _loadMarkupFromIDB(drawingId, drawing, projectId);
+  // No R2 reference and IDB was empty — genuinely nothing for this drawing.
+  console.log('[Markup] No markup for drawing ' + drawingId);
+  _renderAll();
+  _updateUndoButtons();
 }
 
 /**
@@ -2860,13 +2871,13 @@ function _loadMarkupFromIDB(drawingId, drawing, projectId) {
       }
       return;
     }
-    console.log('[Markup] No markup for drawing ' + drawingId);
-    _renderAll();
-    _updateUndoButtons();
+    // S130 — IDB had nothing for this drawing AND no legacy field. Fall
+    // through to the R2 path: the genuine cross-device case where the markup
+    // only exists in the cloud (created on another device / fresh device).
+    _loadMarkupFromR2(drawingId, drawing, projectId);
   }).catch(function(err) {
-    console.warn('[Markup] IDB load error:', err);
-    _renderAll();
-    _updateUndoButtons();
+    console.warn('[Markup] IDB load error, falling back to R2:', err);
+    _loadMarkupFromR2(drawingId, drawing, projectId);
   });
 }
 
