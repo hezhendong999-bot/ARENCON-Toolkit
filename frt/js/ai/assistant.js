@@ -657,64 +657,63 @@ function _closeMenu() {
   if (m) m.classList.remove('open');
 }
 
-// ── S130 — AI Auto-Group Deficiencies ───────────────────
-// Sends the active project's deficiencies (description text only) to the
-// auto_group worker mode → renders a modal with proposed thematic groups →
-// on accept, writes aiGroup to each defic via Model.applyAiGroups().
+// ── S130 — AI Auto-Group Deficiencies (per-observation) ─
+// Each observation is its own report-line entity. One pin can have obs
+// belonging to different report sections (e.g. Pin #2 Obs A = Sprinkler,
+// Pin #2 Obs B = Fire Alarm), so grouping is per-obs, not per-defic.
+// Worker becomes a CLASSIFIER constrained to the project's group catalog —
+// no synthesizing new group titles. Catalog defaults to a standard FP
+// report-section list; user edits per-project.
 //
-// "Description text" = first observation text per defic, falling back to
-// defic.description if present. Truncated to 500 chars per defic to keep the
-// payload reasonable on projects with 50+ deficiencies.
-//
-// Closed deficiencies are EXCLUDED — grouping is for the active outstanding
-// items that will appear in the report, not historical resolved ones.
-function _collectDeficiencyDescriptions() {
+// Item key sent to worker: "<deficId>:<obsIdx>". Same shape comes back so
+// Model.applyAiObsGroups can apply directly.
+function _collectObservationItems() {
   var p = Model.getProject();
   if (!p) return [];
   var items = [];
 
-  function pushDefic(d, parentName) {
+  function pushObs(d, parentName) {
     if (!d || !d.id) return;
-    // Skip closed deficiencies — they don't need grouping for current report
+    // Skip closed deficiencies — grouping is for the current report
     if (d.status === 'closed' || d.status === 'Addressed & Closed') return;
-    var text = '';
-    if (d.observations && d.observations.length) {
-      // Join up to 3 observation texts; keeps multi-obs context for the AI
-      text = d.observations
-        .slice(0, 3)
-        .map(function(o) { return (o && o.text) ? o.text.trim() : ''; })
-        .filter(function(s) { return s.length > 0; })
-        .join(' / ');
-    }
-    if (!text && d.description) text = d.description;
-    if (!text || text.length < 8) return;
-    items.push({
-      id: d.id,
-      description: text.slice(0, 500),
-      _parentName: parentName,
-      _num: d.num || ''
+    var obs = d.observations || [];
+    obs.forEach(function(o, oi) {
+      if (!o) return;
+      // Skip addressed obs — they don't appear in the active report
+      if (o.addressed) return;
+      var text = (o.text || '').trim();
+      if (text.length < 8) return;
+      items.push({
+        id: d.id + ':' + oi,
+        description: text.slice(0, 500),
+        _parentName: parentName,
+        _num: d.num || '',
+        _obsLetter: obs.length > 1 ? String.fromCharCode(65 + oi) : ''
+      });
     });
   }
 
   (p.contractors || []).forEach(function(c) {
-    (c.deficiencies || []).forEach(function(d) { pushDefic(d, c.name || 'Contractor'); });
+    (c.deficiencies || []).forEach(function(d) { pushObs(d, c.name || 'Contractor'); });
   });
-  (p.generalDeficiencies || []).forEach(function(d) { pushDefic(d, 'Site General'); });
+  (p.generalDeficiencies || []).forEach(function(d) { pushObs(d, 'Site General'); });
   return items;
 }
 
 function autoGroupDeficiencies() {
   if (_busy) { toast('AI is busy — wait for current task'); return; }
-  var items = _collectDeficiencyDescriptions();
+  var items = _collectObservationItems();
   if (items.length < 3) {
-    toast('Need at least 3 open deficiencies to group');
+    toast('Need at least 3 open observations to group');
     return;
   }
 
-  _busy = true;
-  _showAutoGroupModal({ loading: true, items: items });
+  var catalog = Model.getGroupCatalog();
 
-  // Strip the _parentName/_num before sending to worker
+  _busy = true;
+  _showAutoGroupModal({ loading: true, items: items, catalog: catalog });
+
+  // Strip private fields before sending
   var payload = items.map(function(it) {
     return { id: it.id, description: it.description };
   });
@@ -734,7 +733,8 @@ function autoGroupDeficiencies() {
     },
     body: JSON.stringify({
       mode: 'auto_group',
-      deficiencies: payload,
+      deficiencies: payload,        // worker reads `deficiencies` even though items are obs
+      groupCatalog: catalog,        // worker constrains output to this list
       context: _ctx()
     })
   }).then(function(res) {
@@ -745,9 +745,11 @@ function autoGroupDeficiencies() {
     _busy = false;
     if (!result.ok) {
       var msg = (result.data && result.data.error) || ('HTTP ' + result.status);
-      // Common case: worker hasn't been deployed yet with the new mode
-      if (result.status === 400 && /Unknown mode|Unrecognized/.test(msg)) {
-        msg = 'AI auto-grouping not yet deployed — Mark needs to push the latest worker code in Cloudflare.';
+      // Common case: worker hasn't been deployed yet with the new mode.
+      // Old worker doesn't recognize 'auto_group', falls into the text-review
+      // path, and complains about missing `fields` since we send `deficiencies`.
+      if (result.status === 400 && /No fields provided|Unknown mode|Unrecognized/.test(msg)) {
+        msg = 'AI auto-grouping not yet deployed — Mark needs to push the latest worker code in Cloudflare dashboard.';
       }
       _showAutoGroupModal({ error: msg });
       return;
@@ -757,14 +759,20 @@ function autoGroupDeficiencies() {
       _showAutoGroupModal({ error: 'AI returned no groups — try again' });
       return;
     }
-    // Attach the parent/num metadata back for display
+    // Attach metadata back for display
     var idMeta = {};
     items.forEach(function(it) {
-      idMeta[it.id] = { parentName: it._parentName, num: it._num, description: it.description };
+      idMeta[it.id] = {
+        parentName: it._parentName,
+        num: it._num,
+        obsLetter: it._obsLetter,
+        description: it.description
+      };
     });
     _showAutoGroupModal({
       groups: groups,
       idMeta: idMeta,
+      catalog: catalog,
       validation: result.data._validation || null,
       usage: result.data.usage || null
     });
@@ -787,14 +795,14 @@ function _showAutoGroupModal(state) {
   panel.style.cssText = 'background:white;border-radius:8px;max-width:760px;width:100%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;font-family:Calibri,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,0.25);';
 
   var header = '<div style="padding:14px 18px;background:#9C2742;color:white;display:flex;align-items:center;justify-content:space-between;">' +
-               '<div style="font-weight:700;font-size:15px;">🧠 AI Group Deficiencies</div>' +
+               '<div style="font-weight:700;font-size:15px;">🧠 AI Group Observations</div>' +
                '<button id="ai-ag-close" style="background:transparent;border:1px solid rgba(255,255,255,0.4);color:white;border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:16px;line-height:1;">✕</button>' +
                '</div>';
 
   var body = '';
   if (state.loading) {
     body = '<div style="padding:32px 18px;text-align:center;color:#555;">' +
-           '<div style="font-size:14px;margin-bottom:8px;">Asking AI to organize ' + state.items.length + ' deficiencies into thematic groups…</div>' +
+           '<div style="font-size:14px;margin-bottom:8px;">AI classifying ' + state.items.length + ' observations into your report sections…</div>' +
            '<div style="font-size:12px;color:#888;">Typically 5–15 seconds.</div>' +
            '</div>';
   } else if (state.error) {
@@ -804,12 +812,12 @@ function _showAutoGroupModal(state) {
            '</div></div>';
   } else if (state.groups) {
     var groupsHtml = '<div style="padding:14px 18px;overflow-y:auto;flex:1;">' +
-                     '<div style="font-size:13px;color:#555;margin-bottom:10px;">AI suggested <b>' + state.groups.length + ' groups</b>. Review and accept to tag each deficiency. You can edit group titles inline.</div>';
+                     '<div style="font-size:13px;color:#555;margin-bottom:10px;">AI placed each observation into one of your <b>' + (state.catalog ? state.catalog.length : '?') + ' report sections</b>. Review and accept. (Drag-drop reorder coming next session.)</div>';
     if (state.validation && (state.validation.missing_ids?.length || state.validation.duplicate_ids?.length)) {
       var v = state.validation;
       groupsHtml += '<div style="background:#FFF6E0;border:1px solid #E6C868;color:#806317;padding:8px 10px;border-radius:6px;font-size:12px;margin-bottom:10px;">';
-      if (v.missing_ids?.length) groupsHtml += 'AI missed ' + v.missing_ids.length + ' deficienc' + (v.missing_ids.length === 1 ? 'y' : 'ies') + ' — they will stay ungrouped. ';
-      if (v.duplicate_ids?.length) groupsHtml += v.duplicate_ids.length + ' deficienc' + (v.duplicate_ids.length === 1 ? 'y appears' : 'ies appear') + ' in multiple groups — only the first will apply.';
+      if (v.missing_ids?.length) groupsHtml += 'AI missed ' + v.missing_ids.length + ' observation' + (v.missing_ids.length === 1 ? '' : 's') + ' — they will stay ungrouped. ';
+      if (v.duplicate_ids?.length) groupsHtml += v.duplicate_ids.length + ' observation' + (v.duplicate_ids.length === 1 ? ' appears' : 's appear') + ' in multiple groups — only the first will apply.';
       groupsHtml += '</div>';
     }
     state.groups.forEach(function(g, gi) {
@@ -818,27 +826,24 @@ function _showAutoGroupModal(state) {
       groupsHtml += '<input type="text" data-ag-title-idx="' + gi + '" value="' + _esc(g.title || '') + '" style="flex:1;border:1px solid #C9CED6;border-radius:4px;padding:5px 8px;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;color:#2C4770;">';
       groupsHtml += '<span style="font-size:11px;color:#888;">' + ((g.deficiency_ids || []).length) + ' item' + ((g.deficiency_ids || []).length === 1 ? '' : 's') + '</span>';
       groupsHtml += '</div>';
-      if (g.theme) {
-        groupsHtml += '<div style="padding:6px 12px;font-size:11.5px;color:#666;font-style:italic;background:#FAFBFD;">' + _esc(g.theme) + '</div>';
-      }
       groupsHtml += '<ul style="margin:0;padding:6px 12px 8px 28px;list-style:disc;color:#333;font-size:12px;line-height:1.5;">';
-      (g.deficiency_ids || []).forEach(function(did) {
-        var meta = state.idMeta[did];
-        if (!meta) return; // dropped silently — already handled by validation warning
-        var label = (meta.num ? '#' + meta.num + ' ' : '') + '(' + _esc(meta.parentName) + '): ';
+      (g.deficiency_ids || []).forEach(function(itemId) {
+        var meta = state.idMeta[itemId];
+        if (!meta) return;
+        var pinTag = meta.num ? ('Pin #' + meta.num + (meta.obsLetter ? '\u00B7' + meta.obsLetter : '')) : '';
+        var label = pinTag + ' (' + _esc(meta.parentName) + '): ';
         groupsHtml += '<li><span style="color:#888;">' + label + '</span>' + _esc(meta.description.slice(0, 140)) + (meta.description.length > 140 ? '…' : '') + '</li>';
       });
       groupsHtml += '</ul></div>';
     });
     groupsHtml += '</div>';
 
-    // Footer
     var costStr = '';
     if (state.usage && typeof state.usage.cost_usd === 'number') {
       costStr = ' · $' + state.usage.cost_usd.toFixed(4);
     }
     groupsHtml += '<div style="padding:10px 14px;border-top:1px solid #E5E8EE;display:flex;align-items:center;justify-content:space-between;gap:8px;background:#FAFBFD;">' +
-                  '<div style="font-size:11px;color:#888;">Sonnet' + costStr + '</div>' +
+                  '<div style="font-size:11px;color:#888;">Sonnet (classifier)' + costStr + '</div>' +
                   '<div style="display:flex;gap:6px;">' +
                   '<button id="ai-ag-cancel" style="background:white;border:1px solid #C9CED6;color:#333;border-radius:4px;padding:6px 14px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">Cancel</button>' +
                   '<button id="ai-ag-clear" style="background:white;border:1px solid #C9CED6;color:#333;border-radius:4px;padding:6px 14px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">Clear All Groups</button>' +
@@ -852,13 +857,12 @@ function _showAutoGroupModal(state) {
   ov.appendChild(panel);
   document.body.appendChild(ov);
 
-  // Wiring
   function close() { ov.remove(); }
   ov.addEventListener('click', function(e) { if (e.target === ov) close(); });
   panel.querySelector('#ai-ag-close')?.addEventListener('click', close);
   panel.querySelector('#ai-ag-cancel')?.addEventListener('click', close);
   panel.querySelector('#ai-ag-clear')?.addEventListener('click', function() {
-    var n = Model.clearAllAiGroups();
+    var n = Model.clearAllAiObsGroups();
     toast('Cleared ' + n + ' grouping' + (n === 1 ? '' : 's'));
     close();
     if (window._frtRenderDefic) window._frtRenderDefic();
@@ -866,21 +870,20 @@ function _showAutoGroupModal(state) {
   var applyBtn = panel.querySelector('#ai-ag-apply');
   if (applyBtn && state.groups) {
     applyBtn.addEventListener('click', function() {
-      // Build deficId → groupTitle mapping using current (possibly edited) titles
       var assignments = {};
-      var firstAssignedTo = {};  // de-dup safety net (matches worker validation)
+      var firstAssigned = {};
       state.groups.forEach(function(g, gi) {
         var titleInput = panel.querySelector('[data-ag-title-idx="' + gi + '"]');
         var title = titleInput ? titleInput.value.trim() : g.title;
         if (!title) return;
-        (g.deficiency_ids || []).forEach(function(did) {
-          if (firstAssignedTo[did]) return; // first-wins
-          firstAssignedTo[did] = true;
-          assignments[did] = title;
+        (g.deficiency_ids || []).forEach(function(itemId) {
+          if (firstAssigned[itemId]) return; // first-wins de-dup
+          firstAssigned[itemId] = true;
+          assignments[itemId] = title;
         });
       });
-      var n = Model.applyAiGroups(assignments);
-      toast('Applied AI groupings to ' + n + ' deficiencies');
+      var n = Model.applyAiObsGroups(assignments);
+      toast('Grouped ' + n + ' observation' + (n === 1 ? '' : 's'));
       close();
       if (window._frtRenderDefic) window._frtRenderDefic();
     });

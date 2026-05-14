@@ -480,14 +480,7 @@ function _buildPinGroupCard(d, ctrId) {
   var effPriColor = effPri === 'general' ? '#5F8068' : effPri === 'low' ? '#B07F5A' : '#A85959';
   var effPriLabel = effPri.charAt(0).toUpperCase() + effPri.slice(1);
 
-  var h = '<div class="defic-pin-group" data-defic-id="' + esc(d.id) + '" data-status="' + esc(effStatus) + '" data-ai-group="' + esc(d.aiGroup || '') + '">';
-
-  // S130 — AI/manual group badge. Renders above the pin strip when the
-  // deficiency has been assigned a thematic group (AI auto-group, or future
-  // manual grouping). Click toggles a small editor to rename or clear.
-  if (d.aiGroup) {
-    h += '<div class="defic-group-badge" style="font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;color:#5A2D3C;background:#FBEFF3;border-left:3px solid #9C2742;padding:3px 10px;margin:0 0 6px 0;border-radius:0 4px 4px 0;display:inline-block;cursor:pointer;" data-action="edit-ai-group" data-defic-id="' + esc(d.id) + '" title="Click to rename or clear this group">\uD83C\uDFF7\uFE0F ' + esc(d.aiGroup) + '</div>';
-  }
+  var h = '<div class="defic-pin-group" data-defic-id="' + esc(d.id) + '" data-status="' + esc(effStatus) + '">';
 
   // ─── pin strip (S122 Push 1: ONLY rendered for multi-obs pins) ───
   // Single-obs pins skip the pin-strip entirely — the obs IS the pin,
@@ -561,6 +554,14 @@ function _buildPinGroupCard(d, ctrId) {
     h += '<span class="obs-pill ' + (multiObs ? '' : 'is-pin ') + pillCls + '">' + esc(label) + '</span>';
     h += '<span class="obs-pill-text' + (o.addressed ? ' addressed' : '') + '">\u00B7 ' + (multiObs ? 'Observation' : 'Pin') + _aiDot + '</span>';
     if (_frtChip) h += _frtChip;
+    // S130 — per-obs group badge. Clickable to rename/clear/assign group.
+    // Empty state: subtle ghost pill so user can assign manually without AI.
+    var obsGroup = o.aiGroup || '';
+    if (obsGroup) {
+      h += '<button class="obs-group-badge" data-action="edit-obs-group" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Click to change group" style="background:#FBEFF3;color:#5A2D3C;border:1px solid #E89AAC;border-radius:10px;padding:2px 10px;font-family:Calibri,sans-serif;font-size:calc(10px + var(--ts));font-weight:600;cursor:pointer;margin-left:6px;">\uD83C\uDFF7\uFE0F ' + esc(obsGroup) + '</button>';
+    } else {
+      h += '<button class="obs-group-badge-empty" data-action="edit-obs-group" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Assign to a report group" style="background:transparent;color:#999;border:1px dashed #C9CED6;border-radius:10px;padding:2px 8px;font-family:Calibri,sans-serif;font-size:calc(10px + var(--ts));cursor:pointer;margin-left:6px;opacity:.65;">+ group</button>';
+    }
     if (!multiObs) {
       h += '<span class="lbl-row-spacer"></span>';
       if (d.drawingId) {
@@ -2096,23 +2097,163 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// S130 — click on a defic's group badge → prompt to rename or clear.
-// Simple inline edit; full group-management UI deferred.
+// S130 — click on an obs group badge (or "+ group" placeholder) → picker
+// of catalog entries. Top: list of allowed groups (radio buttons). Bottom:
+// "Edit catalog…" link to manage the project's group list, and "Clear group".
 document.addEventListener('click', function(e) {
-  var badge = e.target.closest && e.target.closest('[data-action="edit-ai-group"]');
+  var badge = e.target.closest && e.target.closest('[data-action="edit-obs-group"]');
   if (!badge) return;
   var deficId = badge.getAttribute('data-defic-id');
-  if (!deficId) return;
+  var obsIdx = parseInt(badge.getAttribute('data-obs-idx'), 10);
+  if (!deficId || isNaN(obsIdx)) return;
+  _showObsGroupPicker(deficId, obsIdx, badge);
+});
+
+function _showObsGroupPicker(deficId, obsIdx, anchorEl) {
   var f = Model.findDeficiency(deficId);
   if (!f) return;
-  var current = f.defic.aiGroup || '';
-  showPrompt('Group name (blank to remove from group)', current, function(newName) {
-    if (newName === null) return; // cancelled
-    Model.setDeficGroup(deficId, newName.trim() || null);
-    initDeficiencies.render();
-    toast(newName.trim() ? 'Group updated' : 'Removed from group');
+  var obs = (f.defic.observations || [])[obsIdx];
+  if (!obs) return;
+  var current = obs.aiGroup || '';
+  var catalog = Model.getGroupCatalog();
+
+  // Remove any existing picker
+  var existing = document.getElementById('obs-group-picker');
+  if (existing) existing.remove();
+
+  var pop = document.createElement('div');
+  pop.id = 'obs-group-picker';
+  pop.style.cssText = 'position:fixed;background:white;border:1px solid #DDE1E7;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.18);z-index:9999;padding:6px 0;min-width:260px;font-family:Calibri,sans-serif;';
+
+  var html = '<div style="padding:6px 14px 4px;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Report Section</div>';
+  catalog.forEach(function(title) {
+    var selected = (title === current);
+    html += '<div data-pick-group="' + title.replace(/"/g, '&quot;') + '" style="padding:7px 14px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;' + (selected ? 'background:#FBEFF3;color:#5A2D3C;font-weight:600;' : '') + '" onmouseover="this.style.background=\'#F4F5F8\'" onmouseout="this.style.background=\'' + (selected ? '#FBEFF3' : 'transparent') + '\'">' +
+            (selected ? '✓ ' : '') + title + '</div>';
   });
-});
+  html += '<div style="border-top:1px solid #E5E8EE;margin:4px 0;"></div>';
+  if (current) {
+    html += '<div data-pick-group="" style="padding:7px 14px;cursor:pointer;font-size:13px;color:#A85959;" onmouseover="this.style.background=\'#F4F5F8\'" onmouseout="this.style.background=\'transparent\'">✕ Clear group</div>';
+  }
+  html += '<div data-pick-edit-catalog="1" style="padding:7px 14px;cursor:pointer;font-size:12px;color:#2C4770;" onmouseover="this.style.background=\'#F4F5F8\'" onmouseout="this.style.background=\'transparent\'">⚙ Edit catalog…</div>';
+
+  pop.innerHTML = html;
+  document.body.appendChild(pop);
+
+  // Position near anchor
+  var rect = anchorEl.getBoundingClientRect();
+  var top = rect.bottom + 4;
+  var left = rect.left;
+  if (top + 320 > window.innerHeight) top = Math.max(8, rect.top - 320);
+  if (left + 280 > window.innerWidth) left = window.innerWidth - 280 - 8;
+  pop.style.top = top + 'px';
+  pop.style.left = left + 'px';
+
+  function close() {
+    if (pop.parentNode) pop.parentNode.removeChild(pop);
+    document.removeEventListener('click', outside, true);
+  }
+  function outside(e) {
+    if (!pop.contains(e.target)) close();
+  }
+  setTimeout(function() { document.addEventListener('click', outside, true); }, 0);
+
+  pop.addEventListener('click', function(e) {
+    var pickEl = e.target.closest('[data-pick-group]');
+    var editEl = e.target.closest('[data-pick-edit-catalog]');
+    if (pickEl) {
+      var title = pickEl.getAttribute('data-pick-group');
+      Model.setObsGroup(deficId, obsIdx, title || null);
+      toast(title ? 'Group: ' + title : 'Group cleared');
+      close();
+      initDeficiencies.render();
+      return;
+    }
+    if (editEl) {
+      close();
+      _showCatalogEditor();
+    }
+  });
+}
+
+function _showCatalogEditor() {
+  var catalog = Model.getGroupCatalog();
+  var existing = document.getElementById('catalog-editor-modal');
+  if (existing) existing.remove();
+
+  var ov = document.createElement('div');
+  ov.id = 'catalog-editor-modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+  var panel = document.createElement('div');
+  panel.style.cssText = 'background:white;border-radius:8px;max-width:520px;width:100%;display:flex;flex-direction:column;font-family:Calibri,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,0.25);';
+
+  var rows = catalog.map(function(title, i) {
+    return '<div data-cat-row="' + i + '" style="display:flex;align-items:center;gap:8px;padding:6px 0;">' +
+           '<input type="text" value="' + title.replace(/"/g, '&quot;') + '" style="flex:1;border:1px solid #C9CED6;border-radius:4px;padding:6px 10px;font-family:Calibri,sans-serif;font-size:13px;">' +
+           '<button data-cat-remove="' + i + '" style="background:transparent;border:1px solid #C9CED6;color:#A85959;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;">\u2715</button>' +
+           '</div>';
+  }).join('');
+
+  panel.innerHTML =
+    '<div style="padding:14px 18px;background:#9C2742;color:white;font-weight:700;font-size:15px;display:flex;justify-content:space-between;align-items:center;">' +
+      '<span>\u2699 Edit Report Section Catalog</span>' +
+      '<button id="cat-close" style="background:transparent;border:1px solid rgba(255,255,255,0.4);color:white;border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:16px;line-height:1;">\u2715</button>' +
+    '</div>' +
+    '<div style="padding:14px 18px;overflow-y:auto;max-height:60vh;">' +
+      '<div style="font-size:12px;color:#666;margin-bottom:10px;">These are the report sections AI will sort observations into. You can edit, reorder, add, or remove. Empty rows are ignored. Drag-reorder coming next session.</div>' +
+      '<div id="cat-rows">' + rows + '</div>' +
+      '<button id="cat-add" style="margin-top:10px;background:white;border:1px dashed #C9CED6;color:#2C4770;border-radius:4px;padding:6px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:12px;width:100%;">+ Add Section</button>' +
+    '</div>' +
+    '<div style="padding:10px 14px;border-top:1px solid #E5E8EE;display:flex;justify-content:flex-end;gap:6px;background:#FAFBFD;">' +
+      '<button id="cat-reset" style="background:white;border:1px solid #C9CED6;color:#A85959;border-radius:4px;padding:6px 14px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">Reset to defaults</button>' +
+      '<button id="cat-cancel" style="background:white;border:1px solid #C9CED6;color:#333;border-radius:4px;padding:6px 14px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">Cancel</button>' +
+      '<button id="cat-save" style="background:#1A7A4A;border:1px solid #156540;color:white;border-radius:4px;padding:6px 16px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;">Save</button>' +
+    '</div>';
+
+  ov.appendChild(panel);
+  document.body.appendChild(ov);
+
+  function close() { ov.remove(); }
+  ov.addEventListener('click', function(e) { if (e.target === ov) close(); });
+  panel.querySelector('#cat-close').addEventListener('click', close);
+  panel.querySelector('#cat-cancel').addEventListener('click', close);
+  panel.querySelector('#cat-add').addEventListener('click', function() {
+    var rowsEl = panel.querySelector('#cat-rows');
+    var idx = rowsEl.children.length;
+    var row = document.createElement('div');
+    row.setAttribute('data-cat-row', String(idx));
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;';
+    row.innerHTML =
+      '<input type="text" value="" placeholder="New section name" style="flex:1;border:1px solid #C9CED6;border-radius:4px;padding:6px 10px;font-family:Calibri,sans-serif;font-size:13px;">' +
+      '<button data-cat-remove="' + idx + '" style="background:transparent;border:1px solid #C9CED6;color:#A85959;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;">\u2715</button>';
+    rowsEl.appendChild(row);
+    row.querySelector('input').focus();
+  });
+  panel.addEventListener('click', function(e) {
+    var rm = e.target.closest('[data-cat-remove]');
+    if (rm) {
+      var row = rm.closest('[data-cat-row]');
+      if (row) row.remove();
+    }
+  });
+  panel.querySelector('#cat-reset').addEventListener('click', function() {
+    Model.setGroupCatalog([]); // empty triggers default fallback
+    toast('Catalog reset to defaults');
+    close();
+    initDeficiencies.render();
+  });
+  panel.querySelector('#cat-save').addEventListener('click', function() {
+    var values = [];
+    panel.querySelectorAll('#cat-rows input').forEach(function(inp) {
+      values.push(inp.value);
+    });
+    Model.setGroupCatalog(values);
+    toast('Catalog saved (' + Model.getGroupCatalog().length + ' sections)');
+    close();
+    initDeficiencies.render();
+  });
+}
 
 // ── S78: Defic Filters + Select buttons (delegated) ─────────────
 document.addEventListener('click', function(e) {

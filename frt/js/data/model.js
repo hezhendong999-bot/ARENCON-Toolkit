@@ -355,6 +355,24 @@ export var Model = {
     (proj.contractors || []).forEach(function(c) { _migrateDeficArr(c.deficiencies); });
     _migrateDeficArr(proj.generalDeficiencies);
 
+    // S130 — Migrate legacy defic-level aiGroup → per-observation aiGroup.
+    // Earlier S130 commit shipped defic-level grouping; Mark's actual workflow
+    // is per-obs (one pin can have obs in different report sections). Carry
+    // the legacy value down to each obs that doesn't already have one, then
+    // delete the parent field.
+    function _migrateDeficAiGroupToObs(d) {
+      if (!d || !d.aiGroup) return;
+      var obs = d.observations || [];
+      for (var oi = 0; oi < obs.length; oi++) {
+        if (!obs[oi].aiGroup) obs[oi].aiGroup = d.aiGroup;
+      }
+      delete d.aiGroup;
+    }
+    (proj.contractors || []).forEach(function(c) {
+      (c.deficiencies || []).forEach(_migrateDeficAiGroupToObs);
+    });
+    (proj.generalDeficiencies || []).forEach(_migrateDeficAiGroupToObs);
+
     // Ensure all required fields exist (backward compat)
     if (!proj.info) proj.info = {};
     var tpl = createNewProject();
@@ -627,31 +645,101 @@ export var Model = {
   },
 
   // S130 — AI auto-grouping (Item 9.3 from prior queue).
-  // `aiGroup` is a short string (e.g. "Sprinkler Deflector Obstructions") that
-  // groups deficiencies thematically for report rendering. Empty/null = ungrouped.
-  // Set by AIAssist.autoGroupDeficiencies after user accepts the AI proposal.
-  // The field lives on the deficiency object itself so it travels with the data
-  // through JSON export/import and cloud sync without schema changes.
-  setDeficGroup: function(deficId, groupTitle) {
-    var f = this.findDeficiency(deficId);
-    if (!f) return;
-    f.defic.aiGroup = (groupTitle && typeof groupTitle === 'string') ? groupTitle.trim() : null;
+  //
+  // GROUPS LIVE ON OBSERVATIONS, not deficiencies. Mark's actual workflow:
+  // a single pin can have observations that span different report sections
+  // (Pin #2 Obs 1 = Sprinkler, Pin #2 Obs 2 = Fire Alarm — same location,
+  // different trades). Per-defic grouping can't represent that.
+  //
+  // Migration: legacy data with d.aiGroup gets transferred to every obs
+  // that doesn't already have one. See _migrateDeficAiGroupToObs in load.
+  //
+  // Group catalog: project carries a fixed list of allowed group titles
+  // (proj.groupCatalog). AI classification is constrained to this list;
+  // user can add/remove catalog entries per-project. Default list seeds
+  // common FP report sections.
+
+  /** Get the project's group catalog, falling back to defaults. */
+  getGroupCatalog: function() {
+    var p = _project;
+    if (p && Array.isArray(p.groupCatalog) && p.groupCatalog.length) {
+      return p.groupCatalog.slice();
+    }
+    return [
+      'Automatic Sprinkler Protection',
+      'Standpipe Systems',
+      'Fire Pump',
+      'Fire Alarm and Detection',
+      'Smoke Control / Ventilation',
+      'Emergency Lighting and Power',
+      'Fire Separations and Penetrations',
+      'General'
+    ];
+  },
+
+  /** Replace the project's group catalog. Pass [] to clear (uses defaults). */
+  setGroupCatalog: function(catalog) {
+    if (!_project) return;
+    if (!Array.isArray(catalog)) return;
+    var cleaned = catalog.map(function(s) { return String(s || '').trim(); })
+                        .filter(function(s) { return s.length > 0; });
+    // Dedup while preserving order
+    var seen = {};
+    var out = [];
+    cleaned.forEach(function(t) { if (!seen[t]) { seen[t] = true; out.push(t); } });
+    _project.groupCatalog = out;
     _dirty = true;
     _queueSave();
   },
 
-  // Bulk-apply groupings from an AI response. Pass an object mapping
-  // deficId → groupTitle. Used by the auto-group modal "Apply" button.
-  // Returns count of deficiencies updated.
-  applyAiGroups: function(deficIdToGroup) {
-    if (!deficIdToGroup || typeof deficIdToGroup !== 'object') return 0;
+  /**
+   * Set the group for a specific observation. Pass null/'' to clear.
+   * Backward compat: also accepts (deficId, groupTitle) for legacy callers
+   * — sets the group on every obs under that defic.
+   */
+  setObsGroup: function(deficId, obsIdxOrGroup, maybeGroup) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return;
+    // Legacy 2-arg form: (deficId, groupTitle) → set on all obs
+    if (typeof obsIdxOrGroup === 'string' || obsIdxOrGroup === null) {
+      var g = obsIdxOrGroup;
+      (f.defic.observations || []).forEach(function(o) {
+        o.aiGroup = (g && typeof g === 'string') ? g.trim() : null;
+      });
+    } else {
+      // New 3-arg form: (deficId, obsIdx, groupTitle)
+      var obs = (f.defic.observations || [])[obsIdxOrGroup];
+      if (!obs) return;
+      obs.aiGroup = (maybeGroup && typeof maybeGroup === 'string') ? maybeGroup.trim() : null;
+    }
+    _dirty = true;
+    _queueSave();
+  },
+
+  /**
+   * Bulk-apply observation groups from an AI response.
+   *
+   * Pass an object mapping composite obs key → groupTitle. Composite key
+   * format: "<deficId>:<obsIdx>". This is what AIAssist.autoGroupDeficiencies
+   * builds from the worker response. Returns count of observations updated.
+   */
+  applyAiObsGroups: function(obsKeyToGroup) {
+    if (!obsKeyToGroup || typeof obsKeyToGroup !== 'object') return 0;
     var n = 0;
-    var ids = Object.keys(deficIdToGroup);
-    for (var i = 0; i < ids.length; i++) {
-      var f = this.findDeficiency(ids[i]);
+    var keys = Object.keys(obsKeyToGroup);
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      var lastColon = key.lastIndexOf(':');
+      if (lastColon < 0) continue;
+      var deficId = key.substring(0, lastColon);
+      var obsIdx = parseInt(key.substring(lastColon + 1), 10);
+      if (isNaN(obsIdx)) continue;
+      var f = this.findDeficiency(deficId);
       if (!f) continue;
-      var t = deficIdToGroup[ids[i]];
-      f.defic.aiGroup = (t && typeof t === 'string') ? t.trim() : null;
+      var obs = (f.defic.observations || [])[obsIdx];
+      if (!obs) continue;
+      var t = obsKeyToGroup[key];
+      obs.aiGroup = (t && typeof t === 'string') ? t.trim() : null;
       n++;
     }
     if (n > 0) {
@@ -662,24 +750,53 @@ export var Model = {
     return n;
   },
 
-  // Clear every deficiency's aiGroup. Used by the "Clear AI Groups" button.
-  clearAllAiGroups: function() {
+  /** Clear every observation's aiGroup across the project. */
+  clearAllAiObsGroups: function() {
     var p = _project;
     if (!p) return 0;
     var n = 0;
-    var doClear = function(d) {
-      if (d && d.aiGroup) { d.aiGroup = null; n++; }
+    var clearOne = function(d) {
+      (d.observations || []).forEach(function(o) {
+        if (o.aiGroup) { o.aiGroup = null; n++; }
+      });
+      // Also clear legacy defic-level field if present.
+      if (d.aiGroup) { d.aiGroup = null; n++; }
     };
     (p.contractors || []).forEach(function(c) {
-      (c.deficiencies || []).forEach(doClear);
+      (c.deficiencies || []).forEach(clearOne);
     });
-    (p.generalDeficiencies || []).forEach(doClear);
+    (p.generalDeficiencies || []).forEach(clearOne);
     if (n > 0) {
       _dirty = true;
       _queueSave();
       this._notify('deficiency', { action: 'aiGroupCleared', count: n });
     }
     return n;
+  },
+
+  // ── Legacy aliases (kept for any in-flight callers; new code uses
+  // applyAiObsGroups / clearAllAiObsGroups / setObsGroup) ──
+  setDeficGroup: function(deficId, groupTitle) {
+    // Forward to setObsGroup's legacy 2-arg form (writes all obs under defic).
+    this.setObsGroup(deficId, groupTitle == null ? null : String(groupTitle));
+  },
+  applyAiGroups: function(deficIdToGroup) {
+    // Convert defic-keyed map to obs-keyed map (every obs under each defic).
+    if (!deficIdToGroup || typeof deficIdToGroup !== 'object') return 0;
+    var obsMap = {};
+    var ids = Object.keys(deficIdToGroup);
+    for (var i = 0; i < ids.length; i++) {
+      var f = this.findDeficiency(ids[i]);
+      if (!f) continue;
+      var obs = f.defic.observations || [];
+      for (var oi = 0; oi < obs.length; oi++) {
+        obsMap[ids[i] + ':' + oi] = deficIdToGroup[ids[i]];
+      }
+    }
+    return this.applyAiObsGroups(obsMap);
+  },
+  clearAllAiGroups: function() {
+    return this.clearAllAiObsGroups();
   },
 
   addObservation: function(deficId) {

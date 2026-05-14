@@ -133,34 +133,44 @@ Respond with ONLY valid JSON — no markdown, no backticks:
 }`;
 
 
-// S130 — auto_group mode. Takes a list of deficiencies (id + description) and
-// groups them into thematic clusters for cleaner Field Review Report rendering.
-// Used by the AI Group Deficiencies button in the FRT Deficiencies tab.
-// Groups by THEME / DEFICIENCY TYPE (sprinkler obstruction, fire separation
-// breach, FA wiring, signage, etc.), not by contractor or location — those
-// dimensions are already structural in the data model.
+// S130 — auto_group mode. Takes observations (id + description) and a
+// fixed group catalog. Classifies each observation into one of the allowed
+// catalog entries. Sonnet because synthesis-of-meaning is still part of
+// the task (interpret the field-note shorthand) but the OUTPUT space is
+// constrained, which makes the result reliable.
 //
-// Output contract is critical: every deficiency.id in the input MUST appear
-// in exactly one group's `deficiency_ids` array. The client validates this
-// and rejects the response if not. Use Sonnet — synthesis task, worth latency.
+// Input shape: { mode:'auto_group', deficiencies:[{id,description}],
+//                groupCatalog:[<allowed titles>], context:{...} }
+// Output shape: { groups:[{title, deficiency_ids:[...]}], _validation, usage }
+// where every `title` in output MUST appear in the input catalog.
 const PROMPT_AUTO_GROUP = `You are a senior fire protection engineer at ARENCON Inc. organizing a Field Review Report.
 
-The inspector has logged a list of deficiencies. Your job is to group them into thematic clusters that read well in a formal report. Group by what KIND of deficiency they are (sprinkler obstruction, fire separation breach, fire alarm wiring, missing signage, blocked egress, smoke detector placement, sprinkler obstruction, sealant/firestopping, exit door hardware, etc.) — NOT by contractor or by floor (those dimensions are already tracked separately).
+The inspector has logged a list of observations. Your job: assign each observation to ONE of the report sections in the ALLOWED GROUPS list provided in the user message.
 
-RULES:
-- Produce 3 to 8 groups total. Fewer if the project has <10 deficiencies; never more than 8.
-- Every deficiency_id from the input MUST appear in EXACTLY ONE group. No duplicates, no omissions.
-- Group titles must be short (3-6 words), specific, and reportable. Examples: "Sprinkler Deflector Obstructions", "Fire Separation Penetrations", "Egress Hardware", "Smoke Detector Spacing", "Missing Signage". NOT: "Group 1", "Sprinkler Issues", "Miscellaneous".
-- Use proper fire protection terminology (NFPA 13, 25, 72, OBC, ULC).
-- Each group should contain at least 1 deficiency. Don't create empty groups.
-- If a deficiency is genuinely unique and doesn't fit other groups, give it its own group with a descriptive title — don't dump it into a "Miscellaneous" bucket.
+CRITICAL RULES:
+- The ALLOWED GROUPS list is fixed. You MUST use group titles EXACTLY as listed — same spelling, same capitalization. Do NOT invent new groups. Do NOT rephrase the titles.
+- Every observation id from the input MUST appear in EXACTLY ONE group. No duplicates, no omissions.
+- Skip empty groups in the output — only include groups that have at least 1 observation.
+- Use proper fire protection terminology (NFPA 13, 25, 72, OBC, ULC) to reason about which group an observation belongs to.
+- Examples of typical placement:
+  · "sprinkler deflector too close to ceiling" → Automatic Sprinkler Protection
+  · "smoke detector spacing exceeds 9m" → Fire Alarm and Detection
+  · "FD-3 fire damper missing at penetration" → Fire Separations and Penetrations
+  · "diesel pump weekly run test not logged" → Fire Pump
+  · "exit door does not swing in direction of egress" → Egress Systems (if present in catalog) or General
+- If an observation genuinely doesn't fit any listed group (very rare), put it in "General" (or the closest catch-all in the catalog).
+
+Input format:
+{
+  "allowed_groups": ["Title 1", "Title 2", ...],
+  "items": [{"id": "...", "description": "..."}, ...]
+}
 
 Respond with ONLY valid JSON — no markdown, no backticks:
 {
   "groups": [
     {
-      "title": "Short group title (3-6 words)",
-      "theme": "One-sentence summary of what this group covers",
+      "title": "EXACT title from allowed_groups",
       "deficiency_ids": ["id1", "id2", ...]
     }
   ]
@@ -330,33 +340,55 @@ export default {
 
       // S130 — auto_group mode. Input shape:
       //   { mode: 'auto_group',
-      //     deficiencies: [{id, description}, ...]
+      //     deficiencies: [{id, description}, ...]   (these are observations,
+      //       composite ids "<deficId>:<obsIdx>"; client builds them),
+      //     groupCatalog: [<allowed titles>],
       //     context: {tool, projectNumber, projectName} }
-      // Returns { groups: [{title, theme, deficiency_ids}], usage: {...} }
+      // Returns { groups: [{title, deficiency_ids}], _validation, usage }
       if (mode === 'auto_group') {
         const deficiencies = body.deficiencies;
         if (!deficiencies || !Array.isArray(deficiencies) || deficiencies.length === 0) {
-          return jsonResponse({ error: 'No deficiencies provided' }, 400, headers);
+          return jsonResponse({ error: 'No observations provided' }, 400, headers);
         }
         if (deficiencies.length < 3) {
-          return jsonResponse({ error: 'Need at least 3 deficiencies to group meaningfully' }, 400, headers);
+          return jsonResponse({ error: 'Need at least 3 observations to group meaningfully' }, 400, headers);
         }
         if (deficiencies.length > 200) {
-          return jsonResponse({ error: 'Too many deficiencies (max 200 per request)' }, 400, headers);
+          return jsonResponse({ error: 'Too many observations (max 200 per request)' }, 400, headers);
         }
-        // Validate each entry shape — id is required so the client can match
-        // groups back to deficiencies after the response.
         for (const d of deficiencies) {
           if (!d || typeof d.id !== 'string' || typeof d.description !== 'string') {
-            return jsonResponse({ error: 'Each deficiency must have {id: string, description: string}' }, 400, headers);
+            return jsonResponse({ error: 'Each item must have {id: string, description: string}' }, 400, headers);
           }
         }
+        // Catalog: client provides; worker enforces. Strip empties + cap length.
+        let catalog = Array.isArray(body.groupCatalog) ? body.groupCatalog : [];
+        catalog = catalog.map(s => String(s || '').trim()).filter(s => s.length > 0);
+        if (catalog.length === 0) {
+          // Fallback default — keep worker self-sufficient if client misbehaves.
+          catalog = [
+            'Automatic Sprinkler Protection',
+            'Standpipe Systems',
+            'Fire Pump',
+            'Fire Alarm and Detection',
+            'Smoke Control / Ventilation',
+            'Emergency Lighting and Power',
+            'Fire Separations and Penetrations',
+            'General'
+          ];
+        }
+        if (catalog.length > 30) {
+          return jsonResponse({ error: 'Catalog too large (max 30 groups)' }, 400, headers);
+        }
 
-        const groupModel = MODELS.rewrite; // Sonnet — synthesis task
-        const groupBody = JSON.stringify(deficiencies.map(d => ({
-          id: d.id,
-          description: (d.description || '').slice(0, 500)  // cap per-defic text size
-        })));
+        const groupModel = MODELS.rewrite;
+        const userPayload = {
+          allowed_groups: catalog,
+          items: deficiencies.map(d => ({
+            id: d.id,
+            description: (d.description || '').slice(0, 500)
+          }))
+        };
 
         const groupRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
@@ -369,7 +401,7 @@ export default {
             model: groupModel.id,
             max_tokens: 4096,
             system: PROMPT_AUTO_GROUP,
-            messages: [{ role: 'user', content: groupBody }]
+            messages: [{ role: 'user', content: JSON.stringify(userPayload) }]
           })
         });
 
@@ -398,27 +430,45 @@ export default {
           return jsonResponse({ error: 'AI response missing groups array' }, 500, headers);
         }
 
-        // Server-side validation: every input id must appear in exactly one group
+        // Enforce catalog: drop any group whose title isn't in the catalog;
+        // collect those obs ids and merge into "General" (or last catalog entry).
+        const catalogSet = new Set(catalog);
+        const fallbackTitle = catalog.includes('General') ? 'General' : catalog[catalog.length - 1];
+        const cleanGroups = [];
+        const fallbackIds = [];
+        for (const g of groupJson.groups) {
+          if (!g || typeof g.title !== 'string' || !Array.isArray(g.deficiency_ids)) continue;
+          if (catalogSet.has(g.title)) {
+            cleanGroups.push({ title: g.title, deficiency_ids: g.deficiency_ids });
+          } else {
+            // AI invented a title not in catalog → push items into fallback bucket
+            for (const id of g.deficiency_ids) fallbackIds.push(id);
+          }
+        }
+        if (fallbackIds.length) {
+          // Merge into existing fallback group if present, otherwise create
+          let fbGroup = cleanGroups.find(g => g.title === fallbackTitle);
+          if (!fbGroup) {
+            fbGroup = { title: fallbackTitle, deficiency_ids: [] };
+            cleanGroups.push(fbGroup);
+          }
+          for (const id of fallbackIds) fbGroup.deficiency_ids.push(id);
+        }
+
+        // Server-side validation: every input id in exactly one group
         const inputIds = new Set(deficiencies.map(d => d.id));
         const seenIds = new Set();
         const duplicates = [];
-        for (const g of groupJson.groups) {
-          if (!g.deficiency_ids || !Array.isArray(g.deficiency_ids)) continue;
+        for (const g of cleanGroups) {
           for (const id of g.deficiency_ids) {
             if (seenIds.has(id)) duplicates.push(id);
             seenIds.add(id);
           }
         }
         const missing = [...inputIds].filter(id => !seenIds.has(id));
+        let validation = null;
         if (missing.length || duplicates.length) {
-          // Don't reject — the client can either retry or fall back to "Other"
-          // bucket. Return validation flags alongside the groups so the UI
-          // can show a warning. AI sometimes drops one-off IDs and a hard
-          // reject wastes the user's wait.
-          groupJson._validation = {
-            missing_ids: missing,
-            duplicate_ids: duplicates
-          };
+          validation = { missing_ids: missing, duplicate_ids: duplicates };
         }
 
         const gUsage = groupData.usage || {};
@@ -426,7 +476,6 @@ export default {
         const gOutputTokens = gUsage.output_tokens || 0;
         const gCostUsd = (gInputTokens * groupModel.inputRate) + (gOutputTokens * groupModel.outputRate);
 
-        // Log usage (same pattern as other modes)
         if (env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY) {
           const logPayload = {
             user_id: userId,
@@ -461,8 +510,8 @@ export default {
         }
 
         return jsonResponse({
-          groups: groupJson.groups,
-          _validation: groupJson._validation || null,
+          groups: cleanGroups,
+          _validation: validation,
           usage: {
             input_tokens: gInputTokens,
             output_tokens: gOutputTokens,
