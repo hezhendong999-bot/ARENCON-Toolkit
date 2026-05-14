@@ -3378,10 +3378,12 @@ async function r2RefreshStatus() {
   grid.innerHTML = '';
 
   var WORKER = 'https://arencon-r2-worker.hezhendong999.workers.dev';
-  // Build slug folder for R2 list path (same logic as FRT _makeR2FolderSlug)
-  var proj = _projects ? _projects.find(function(p){ return p.id === projId; }) : null;
-  var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
-  var r2Folder = slug || projId;
+  // S130 FIX — FRT stores all R2 objects under the project UUID
+  // (photos/{projectId}/frt/{type}/...). The Hub previously listed under a
+  // human-readable slug derived from project number+name, which FRT never
+  // wrote to — so every list came back empty and Cloud Storage showed
+  // "None" for everything even when data was present. List by UUID.
+  var r2Folder = projId;
 
   // Always refresh token before R2 calls to avoid 401/empty results
   try { await _sb.auth.refreshSession(); } catch(e) {}
@@ -3544,22 +3546,23 @@ function _pgMakeR2FolderSlug(pn, pname) {
   return raw.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '').substring(0, 80) || null;
 }
 
-// Resolve photo src from r2Key using project slug folder — ALWAYS rebuilds, never trusts stored r2Url
+// Resolve photo src from r2Key. FRT stores R2 objects under the project
+// UUID — path shape: photos/{projectUUID}/frt/{type}/{filename} (see
+// frt/js/data/r2.js). The Hub MUST read using that same UUID.
+//
+// S130 FIX — this function previously rewrote parts[1] (the real project
+// UUID baked into the r2Key) with a human-readable "slug" derived from the
+// project number + name. FRT never stored anything under a slug, so every
+// rebuilt URL pointed at a folder that doesn't exist → "No photos found",
+// Cloud Storage all "None", broken thumbnails. The slug scheme was leftover
+// from an abandoned R2 path design. Now: trust the r2Key as-is.
 function _pgResolveR2Src(ph, projectId) {
   if (!ph || typeof ph !== 'object') return (typeof ph === 'string') ? ph : '';
-  // Always rebuild from r2Key using slug (r2Url in Supabase may be stale)
   if (ph.r2Key) {
-    var parts = ph.r2Key.split('/');
-    // Expected: ['photos', '{pid}', 'frt', '{type}', '{fname}']
-    if (parts.length >= 5 && parts[0] === 'photos') {
-      var proj = _projects ? _projects.find(function(p) { return p.id === projectId; }) : null;
-      var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
-      var folder = slug || parts[1];
-      var type = parts[3];
-      var fname = parts.slice(4).join('/');
-      return R2_WORKER + '/photos/' + encodeURIComponent(folder) + '/frt/' + encodeURIComponent(type) + '/' + encodeURIComponent(fname);
-    }
-    return R2_WORKER + '/' + ph.r2Key;
+    // r2Key already contains the correct full path including the project
+    // UUID. Just prefix the worker origin. encodeURI (not encodeURIComponent)
+    // so the slashes in the key are preserved.
+    return R2_WORKER + '/' + ph.r2Key.split('/').map(encodeURIComponent).join('/');
   }
   // Fallback to r2Url if no r2Key
   if (ph.r2Url) return ph.r2Url;
