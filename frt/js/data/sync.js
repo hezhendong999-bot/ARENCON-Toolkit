@@ -249,6 +249,40 @@ export var SyncEngine = {
   onSilentMerge: function(/* mergeResult */) { /* no-op */ },
 
   /**
+   * S132 — Is a candidate IDB snapshot blank / a placeholder?
+   *
+   * The blank-project load race: if the syncMeta record for this project
+   * holds a snapshot with no real content (a placeholder captured mid-
+   * creation, a stale pre-population snapshot, or a wrong/empty record),
+   * the fast path would Model.setProject() it and the app would render
+   * blank until the cloud pull lands. While that blank object is the live
+   * _project, anything that fires _queueSave() (a user tap on the blank
+   * UI, a mis-fired seed) would persist the blank state over the real one.
+   *
+   * Fix: treat a contentless snapshot as "no snapshot" — return null so the
+   * fast path skips it entirely and the cloud pull becomes the FIRST
+   * setProject(). A blank _project is then never set, so the race window
+   * does not exist. A genuinely populated snapshot still fast-paths exactly
+   * as before, so boot speed for real projects is unchanged.
+   *
+   * "Has content" = any of: a non-empty project number/name, or any
+   * drawing / contractor / general deficiency / photo. Deliberately
+   * generous — a project the user has touched at all clears this bar; only
+   * a truly empty placeholder fails it.
+   */
+  _isBlankSnapshot: function(snap) {
+    if (!snap || typeof snap !== 'object') return true;
+    var info = snap.info || {};
+    if ((info.projectNumber && String(info.projectNumber).trim()) ||
+        (info.projectName && String(info.projectName).trim())) return false;
+    if (Array.isArray(snap.drawings) && snap.drawings.length) return false;
+    if (Array.isArray(snap.contractors) && snap.contractors.length) return false;
+    if (Array.isArray(snap.generalDeficiencies) && snap.generalDeficiencies.length) return false;
+    if (Array.isArray(snap.photos) && snap.photos.length) return false;
+    return true;
+  },
+
+  /**
    * S129 Item 3 — Load the last-seen project snapshot from IDB for fast-path
    * boot render. Returns the project data or null. Side-effect: also sets
    * _lastSeenUpdatedAt and _lastSeenSnapshot so a subsequent push (before
@@ -261,12 +295,26 @@ export var SyncEngine = {
    * Non-blocking on failure (returns null). Safe to call before IDB.init
    * resolves — it'll just return null. Safe to call before auth — IDB has
    * no auth requirement.
+   *
+   * S132 — a blank/placeholder snapshot is treated as null (see
+   * _isBlankSnapshot) so the fast path never sets a blank _project.
    */
   loadIDBSnapshot: function(projectId, instanceId) {
     if (!projectId) return Promise.resolve(null);
     var key = _syncMetaKey(projectId, instanceId);
+    var self = this;
     return IDB.get('syncMeta', key).then(function(rec) {
       if (!rec || !rec.snapshot) return null;
+      // S132 — blank-project load race guard. A contentless snapshot is
+      // worse than no snapshot: it would render blank AND be persistable
+      // over the real cloud data. Skip the fast path entirely; the cloud
+      // pull becomes the first setProject(). Do NOT adopt it as the
+      // merge base either — leave _lastSeenSnapshot unset so pull() sets
+      // a real one.
+      if (self._isBlankSnapshot(rec.snapshot)) {
+        console.warn('[Sync] IDB snapshot is blank/placeholder — skipping fast-path render, waiting for cloud pull');
+        return null;
+      }
       _lastSeenUpdatedAt = rec.updatedAt || null;
       _lastSeenSnapshot = rec.snapshot;
       // Also record instanceId so a fast-path push (before pull resolves)

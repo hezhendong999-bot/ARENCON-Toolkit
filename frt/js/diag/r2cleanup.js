@@ -52,16 +52,31 @@
   var _inventory = null;
   var _deleteArmed = 0; // timestamp; 0 = disarmed
 
+  // S132 — Resolve the canonical R2 project id.
+  //
+  // BUG (S130 observation, root-caused S132): R2 uploads are split across
+  // two id spaces — drawings/tiles/photos/pdfbufs use the Hub ?project=
+  // UUID, while markup uploads used the FRT internal proj.id (proj_*).
+  // This tool previously preferred proj.id, so listAll(proj.id) only saw
+  // the markup folder ("1 object" when the project had 200+) and the
+  // classifier mis-bucketed everything stored under the UUID.
+  //
+  // The ?project= UUID is the canonical pid — it's what the Hub, the tile
+  // renderer and the worker all key on. Prefer it. proj.id is only the
+  // fallback for standalone mode (no ?project= param), where it is the
+  // pid actually used for uploads.
   function _getProjectId() {
+    try {
+      var p = new URLSearchParams(window.location.search);
+      var fromUrl = p.get('project');
+      if (fromUrl) return fromUrl;
+    } catch (e) { /* fall through */ }
     var Model = _getModel();
     if (Model) {
       var proj = Model.getProject && Model.getProject();
       if (proj && proj.id) return proj.id;
     }
-    try {
-      var p = new URLSearchParams(window.location.search);
-      return p.get('project') || null;
-    } catch (e) { return null; }
+    return null;
   }
 
   function _fmtBytes(n) {
@@ -151,7 +166,16 @@
       };
     }
 
-    return { category: 'other', isOrphan: true, reason: 'unrecognized key shape' };
+    // S132 — an unrecognized key shape must NEVER be auto-classified as a
+    // deletable orphan. Previously this returned isOrphan:true, so any key
+    // the classifier didn't understand (e.g. a future asset type, or — until
+    // the markup-pid split is fixed — markup stored under a different id
+    // prefix) became a deletion candidate. isOrphan:false here means scan()
+    // excludes it from the orphan inventory entirely: it is never flagged
+    // and can never be deleted by deleteOrphans(). (A future change could
+    // surface these in a separate review-only list; not deleting them is
+    // the safety-critical part.)
+    return { category: 'other', isOrphan: false, reason: 'unrecognized key shape — excluded from cleanup' };
   }
 
   function scan() {
