@@ -139,8 +139,10 @@ describe('R2._mergeMarkupObjects — union by id', () => {
 
 // ────────────────────────────────────────────────────────────────────
 // S129 1.1 — Tombstone semantics
+// S133 — Updated: deletedIds is now Array<{id, t}>. Inputs accept legacy
+// plain strings (upgraded to {id, t: Date.now()}) and current-shape objects.
 // ────────────────────────────────────────────────────────────────────
-describe('R2._mergeMarkupObjects — tombstones (S129 1.1)', () => {
+describe('R2._mergeMarkupObjects — tombstones (S129 1.1 / S133)', () => {
   it('local tombstone excludes cloud-only object from merge (the erase-resurrection fix)', async () => {
     const { R2 } = await import('../../js/data/r2.js');
     const result = R2._mergeMarkupObjects(
@@ -150,42 +152,45 @@ describe('R2._mergeMarkupObjects — tombstones (S129 1.1)', () => {
       []
     );
     expect(result.objects.map(o => o.id)).toEqual(['S2']);
-    expect(result.deletedIds).toEqual(['S1']);
+    expect(result.deletedIds.map(t => t.id)).toEqual(['S1']);
+    expect(typeof result.deletedIds[0].t).toBe('number');
   });
 
   it('cloud tombstone excludes local-only object (propagation: B sees A’s erase)', async () => {
     const { R2 } = await import('../../js/data/r2.js');
     const result = R2._mergeMarkupObjects([], [{ id: 'S1' }], [], ['S1']);
     expect(result.objects).toEqual([]);
-    expect(result.deletedIds).toEqual(['S1']);
+    expect(result.deletedIds.map(t => t.id)).toEqual(['S1']);
   });
 
   it('tombstones from both sides are unioned (no duplicates)', async () => {
     const { R2 } = await import('../../js/data/r2.js');
     const result = R2._mergeMarkupObjects([], [], ['T1', 'T2'], ['T2', 'T3']);
-    expect(result.deletedIds.sort()).toEqual(['T1', 'T2', 'T3']);
+    expect(result.deletedIds.map(t => t.id).sort()).toEqual(['T1', 'T2', 'T3']);
   });
 
   it('tombstoned id wins over a fresh local object with same id (delete is final)', async () => {
     const { R2 } = await import('../../js/data/r2.js');
     const result = R2._mergeMarkupObjects([], [{ id: 'X' }], ['X'], []);
     expect(result.objects).toEqual([]);
-    expect(result.deletedIds).toEqual(['X']);
+    expect(result.deletedIds.map(t => t.id)).toEqual(['X']);
   });
 
   it('tombstone with no matching object: harmless, still propagates', async () => {
     const { R2 } = await import('../../js/data/r2.js');
     const result = R2._mergeMarkupObjects([{ id: 'A' }], [{ id: 'A' }], ['Z'], []);
     expect(result.objects.map(o => o.id)).toEqual(['A']);
-    expect(result.deletedIds).toEqual(['Z']);
+    expect(result.deletedIds.map(t => t.id)).toEqual(['Z']);
   });
 
-  it('non-string tombstone entries are filtered (defensive)', async () => {
+  it('truly-invalid tombstone entries are filtered (null/undefined/primitives)', async () => {
     const { R2 } = await import('../../js/data/r2.js');
+    // S133: strings AND objects-with-an-id are BOTH valid tombstone shapes;
+    // only entries with neither are dropped.
     const result = R2._mergeMarkupObjects(
-      [{ id: 'A' }], [], [null, undefined, 42, { id: 'A' }, 'realTomb'], []
+      [{ id: 'A' }], [], [null, undefined, 42, 'realTomb', { id: 'objTomb', t: Date.now() }], []
     );
-    expect(result.deletedIds).toEqual(['realTomb']);
+    expect(result.deletedIds.map(t => t.id).sort()).toEqual(['objTomb', 'realTomb']);
   });
 
   it('non-array tombstone params: treated as empty, no crash', async () => {
@@ -195,19 +200,64 @@ describe('R2._mergeMarkupObjects — tombstones (S129 1.1)', () => {
     expect(result.deletedIds).toEqual([]);
   });
 
+  it('S133 — legacy string tombstone is upgraded to {id, t} with a fresh timestamp', async () => {
+    const { R2 } = await import('../../js/data/r2.js');
+    const before = Date.now();
+    const result = R2._mergeMarkupObjects([], [], ['legacy'], []);
+    const after = Date.now();
+    expect(result.deletedIds.length).toBe(1);
+    expect(result.deletedIds[0].id).toBe('legacy');
+    expect(result.deletedIds[0].t).toBeGreaterThanOrEqual(before);
+    expect(result.deletedIds[0].t).toBeLessThanOrEqual(after);
+  });
+
+  it('S133 — tombstones older than TTL are pruned during merge', async () => {
+    const { R2 } = await import('../../js/data/r2.js');
+    const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000; // > 180-day TTL
+    const recent = Date.now() - 10 * 24 * 60 * 60 * 1000;       // 10 days ago
+    const result = R2._mergeMarkupObjects(
+      [], [],
+      [{ id: 'old', t: oneYearAgo }, { id: 'fresh', t: recent }],
+      []
+    );
+    // 'old' pruned, 'fresh' retained.
+    expect(result.deletedIds.map(t => t.id)).toEqual(['fresh']);
+  });
+
+  it('S133 — on id collision the earlier timestamp wins (deletion origin)', async () => {
+    const { R2 } = await import('../../js/data/r2.js');
+    const earlier = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const later   = Date.now() - 1  * 24 * 60 * 60 * 1000;
+    // local has the newer copy, cloud has the older — earlier wins.
+    const r1 = R2._mergeMarkupObjects(
+      [], [],
+      [{ id: 'X', t: later }],
+      [{ id: 'X', t: earlier }]
+    );
+    expect(r1.deletedIds.length).toBe(1);
+    expect(r1.deletedIds[0].t).toBe(earlier);
+    // And the reverse — same result.
+    const r2 = R2._mergeMarkupObjects(
+      [], [],
+      [{ id: 'X', t: earlier }],
+      [{ id: 'X', t: later }]
+    );
+    expect(r2.deletedIds[0].t).toBe(earlier);
+  });
+
   it('end-to-end scenario: A erases S1, B has S1 locally, B saves — S1 stays gone', async () => {
     const { R2 } = await import('../../js/data/r2.js');
     const aSave = R2._mergeMarkupObjects(
       [{ id: 'S1' }, { id: 'S2' }], [{ id: 'S2' }], ['S1'], []
     );
     expect(aSave.objects.map(o => o.id)).toEqual(['S2']);
-    expect(aSave.deletedIds).toEqual(['S1']);
+    expect(aSave.deletedIds.map(t => t.id)).toEqual(['S1']);
 
     const bSave = R2._mergeMarkupObjects(
       aSave.objects, [{ id: 'S1' }, { id: 'S3' }], [], aSave.deletedIds
     );
     expect(bSave.objects.map(o => o.id).sort()).toEqual(['S2', 'S3']);
-    expect(bSave.deletedIds).toEqual(['S1']);
+    expect(bSave.deletedIds.map(t => t.id)).toEqual(['S1']);
   });
 });
 
@@ -355,10 +405,9 @@ describe('R2.uploadMarkup — If-Match conditional PUT (S129 1.2)', () => {
     });
     const result = await R2.uploadMarkup('pid1', 'd1', [{ id: 'new' }], ['oldA']);
     expect(result).not.toBeNull();
-    expect(putBody).toEqual({
-      objects: [{ id: 'oldB' }, { id: 'new' }],
-      deletedIds: ['oldA']
-    });
+    // S133: deletedIds is now Array<{id, t}>.
+    expect(putBody.objects).toEqual([{ id: 'oldB' }, { id: 'new' }]);
+    expect(putBody.deletedIds.map(t => t.id)).toEqual(['oldA']);
   });
 
   it('tombstones are written to the PUT body', async () => {
@@ -371,7 +420,8 @@ describe('R2.uploadMarkup — If-Match conditional PUT (S129 1.2)', () => {
       return mkResp(200, { success: true });
     });
     await R2.uploadMarkup('pid1', 'd1', [{ id: 'A' }], ['T1', 'T2']);
-    expect(putBody.deletedIds.sort()).toEqual(['T1', 'T2']);
+    // S133: deletedIds is now Array<{id, t}>.
+    expect(putBody.deletedIds.map(t => t.id).sort()).toEqual(['T1', 'T2']);
     expect(putBody.objects.map(o => o.id)).toEqual(['A']);
   });
 

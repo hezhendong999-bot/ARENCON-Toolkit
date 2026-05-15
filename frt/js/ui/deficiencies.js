@@ -2189,8 +2189,10 @@ function _showCatalogEditor() {
   panel.style.cssText = 'background:white;border-radius:8px;max-width:520px;width:100%;display:flex;flex-direction:column;font-family:Calibri,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,0.25);';
 
   var rows = catalog.map(function(title, i) {
-    return '<div data-cat-row="' + i + '" style="display:flex;align-items:center;gap:8px;padding:6px 0;">' +
+    return '<div data-cat-row="' + i + '" style="display:flex;align-items:center;gap:6px;padding:6px 0;">' +
            '<input type="text" value="' + title.replace(/"/g, '&quot;') + '" style="flex:1;border:1px solid #C9CED6;border-radius:4px;padding:6px 10px;font-family:Calibri,sans-serif;font-size:13px;">' +
+           '<button data-cat-up="' + i + '" title="Move up" style="background:transparent;border:1px solid #C9CED6;color:#333;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;line-height:1;">\u2191</button>' +
+           '<button data-cat-down="' + i + '" title="Move down" style="background:transparent;border:1px solid #C9CED6;color:#333;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;line-height:1;">\u2193</button>' +
            '<button data-cat-remove="' + i + '" style="background:transparent;border:1px solid #C9CED6;color:#A85959;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;">\u2715</button>' +
            '</div>';
   }).join('');
@@ -2201,7 +2203,7 @@ function _showCatalogEditor() {
       '<button id="cat-close" style="background:transparent;border:1px solid rgba(255,255,255,0.4);color:white;border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:16px;line-height:1;">\u2715</button>' +
     '</div>' +
     '<div style="padding:14px 18px;overflow-y:auto;max-height:60vh;">' +
-      '<div style="font-size:12px;color:#666;margin-bottom:10px;">These are the report sections AI will sort observations into. You can edit, reorder, add, or remove. Empty rows are ignored. Drag-reorder coming next session.</div>' +
+      '<div style="font-size:12px;color:#666;margin-bottom:10px;">These are the report sections AI will sort observations into. Use \u2191 / \u2193 to reorder, \u2715 to remove. Empty rows are ignored.</div>' +
       '<div id="cat-rows">' + rows + '</div>' +
       '<button id="cat-add" style="margin-top:10px;background:white;border:1px dashed #C9CED6;color:#2C4770;border-radius:4px;padding:6px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:12px;width:100%;">+ Add Section</button>' +
     '</div>' +
@@ -2223,9 +2225,11 @@ function _showCatalogEditor() {
     var idx = rowsEl.children.length;
     var row = document.createElement('div');
     row.setAttribute('data-cat-row', String(idx));
-    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;';
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 0;';
     row.innerHTML =
       '<input type="text" value="" placeholder="New section name" style="flex:1;border:1px solid #C9CED6;border-radius:4px;padding:6px 10px;font-family:Calibri,sans-serif;font-size:13px;">' +
+      '<button data-cat-up="' + idx + '" title="Move up" style="background:transparent;border:1px solid #C9CED6;color:#333;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;line-height:1;">\u2191</button>' +
+      '<button data-cat-down="' + idx + '" title="Move down" style="background:transparent;border:1px solid #C9CED6;color:#333;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;line-height:1;">\u2193</button>' +
       '<button data-cat-remove="' + idx + '" style="background:transparent;border:1px solid #C9CED6;color:#A85959;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;">\u2715</button>';
     rowsEl.appendChild(row);
     row.querySelector('input').focus();
@@ -2235,6 +2239,25 @@ function _showCatalogEditor() {
     if (rm) {
       var row = rm.closest('[data-cat-row]');
       if (row) row.remove();
+      return;
+    }
+    // S133 — Up / Down reorder. Save reads input values in DOM order, so
+    // moving a row in the DOM is the complete change.
+    var up = e.target.closest('[data-cat-up]');
+    if (up) {
+      var row = up.closest('[data-cat-row]');
+      if (row && row.previousElementSibling) {
+        row.parentNode.insertBefore(row, row.previousElementSibling);
+      }
+      return;
+    }
+    var dn = e.target.closest('[data-cat-down]');
+    if (dn) {
+      var row = dn.closest('[data-cat-row]');
+      if (row && row.nextElementSibling) {
+        row.parentNode.insertBefore(row.nextElementSibling, row);
+      }
+      return;
     }
   });
   panel.querySelector('#cat-reset').addEventListener('click', function() {

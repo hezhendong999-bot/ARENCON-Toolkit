@@ -18,6 +18,43 @@ import { UploadQueue } from './uploadQueue.js';
 
 var R2_WORKER = 'https://arencon-r2-worker.hezhendong999.workers.dev';
 
+// S133 — Tombstone (deletedIds) policy. Tombstones are {id, t: ms-epoch}
+// entries that prevent the erase-while-concurrent resurrection bug. They
+// must live long enough that every device interested in this drawing has
+// synced past the deletion, but bounded so storage doesn't grow forever.
+//
+// TTL = 180 days. ARENCON's field workflow is months from first markup to
+// report-issued; 180 days is comfortably longer than any realistic
+// offline-and-editing window for a single drawing. Defense in depth: a hard
+// count cap that should never trigger under normal use.
+//
+// Legacy plain-string tombstones (pre-S133) are upgraded to {id, t: now} on
+// the first merge — they get a full 180-day safety window starting from the
+// moment this code first sees the data, not from when the deletion really
+// happened. Conservative.
+var _TOMBSTONE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
+var _TOMBSTONE_HARD_CAP = 10000;
+var _TOMBSTONE_CAP_TARGET = 5000;
+
+// S133 — Normalize a tombstone array to the canonical {id, t} shape.
+// Accepts mixed inputs: plain strings (legacy) and {id, t} objects (current).
+// Strings → stamped with Date.now() so the pruner clock starts at first
+// encounter. Objects with bad/missing `t` → re-stamped.
+function _normTombs(arr) {
+  if (!Array.isArray(arr)) return [];
+  var now = Date.now();
+  var out = [];
+  for (var i = 0; i < arr.length; i++) {
+    var e = arr[i];
+    if (typeof e === 'string') {
+      out.push({ id: e, t: now });
+    } else if (e && typeof e.id === 'string') {
+      out.push({ id: e.id, t: (typeof e.t === 'number' && isFinite(e.t)) ? e.t : now });
+    }
+  }
+  return out;
+}
+
 // Re-entrancy guard for processPendingUploads() — the offline pending-upload
 // drainer (IDB 'pendingUploads' store). This is a SEPARATE concern from the
 // S130 UploadQueue, which coordinates live R2.upload() concurrency. The
@@ -280,26 +317,64 @@ export var R2 = {
    * final. Tombstones from both sides are unioned so the deletion propagates
    * to every other inspector on their next merge.
    *
-   * Returns `{ objects: Array, deletedIds: Array<string> }`.
+   * S133 — Tombstones are {id, t: ms-epoch} entries. Plain-string entries
+   * from legacy callers / older R2 blobs are upgraded to {id, t: Date.now()}
+   * on the fly. The union dedupes by id; on collision the earlier `t` wins
+   * (the moment the deletion originated). After unioning, entries older than
+   * _TOMBSTONE_TTL_MS are pruned, and a hard count cap is applied as
+   * defense in depth.
+   *
+   * Returns `{ objects: Array, deletedIds: Array<{id, t}> }`.
    *
    * Exported for unit testing.
    */
   _mergeMarkupObjects: function(cloudArr, localArr, localTombstones, cloudTombstones) {
     var cloud = Array.isArray(cloudArr) ? cloudArr : [];
     var local = Array.isArray(localArr) ? localArr : [];
-    var lt = Array.isArray(localTombstones) ? localTombstones : [];
-    var ct = Array.isArray(cloudTombstones) ? cloudTombstones : [];
 
-    // Union of tombstones — propagate deletions to every collaborator.
-    var tombSet = {};
-    var tombArr = [];
-    for (var t1 = 0; t1 < ct.length; t1++) {
-      var id1 = ct[t1];
-      if (typeof id1 === 'string' && !tombSet[id1]) { tombSet[id1] = true; tombArr.push(id1); }
+    // S133 — Normalize then union tombstones from both sides.
+    // Dedup by id; on collision keep the earlier `t`.
+    var ct = _normTombs(cloudTombstones);
+    var lt = _normTombs(localTombstones);
+    var tombById = {};
+    function _addTomb(entry) {
+      var prev = tombById[entry.id];
+      if (!prev || entry.t < prev.t) tombById[entry.id] = entry;
     }
-    for (var t2 = 0; t2 < lt.length; t2++) {
-      var id2 = lt[t2];
-      if (typeof id2 === 'string' && !tombSet[id2]) { tombSet[id2] = true; tombArr.push(id2); }
+    for (var t1 = 0; t1 < ct.length; t1++) _addTomb(ct[t1]);
+    for (var t2 = 0; t2 < lt.length; t2++) _addTomb(lt[t2]);
+
+    // S133 — Age-based prune: drop tombstones older than the TTL. Strokes
+    // whose tombstones expire are no longer protected from resurrection on
+    // a long-offline device, but 180 days is comfortably beyond any
+    // realistic field workflow for a single drawing.
+    var now = Date.now();
+    var tombArr = [];
+    var tombSet = {};
+    var pruned = 0;
+    var ids = Object.keys(tombById);
+    for (var ki = 0; ki < ids.length; ki++) {
+      var e = tombById[ids[ki]];
+      if (now - e.t >= _TOMBSTONE_TTL_MS) { pruned++; continue; }
+      tombArr.push(e);
+      tombSet[e.id] = true;
+    }
+
+    // S133 — Hard cap (defense in depth — should never trigger). When the
+    // unioned set still exceeds the cap, keep the newest CAP_TARGET entries.
+    if (tombArr.length > _TOMBSTONE_HARD_CAP) {
+      tombArr.sort(function(a, b) { return a.t - b.t; }); // oldest first
+      var dropped = tombArr.length - _TOMBSTONE_CAP_TARGET;
+      tombArr = tombArr.slice(dropped);
+      tombSet = {};
+      for (var ci = 0; ci < tombArr.length; ci++) tombSet[tombArr[ci].id] = true;
+      pruned += dropped;
+      console.warn('[R2] Markup tombstone hard-cap hit: dropped ' + dropped +
+                   ' to keep ' + tombArr.length + ' newest');
+    }
+    if (pruned > 0) {
+      console.log('[R2] Markup tombstone prune: dropped ' + pruned +
+                  ' expired/over-cap, ' + tombArr.length + ' remain');
     }
 
     var localById = {};

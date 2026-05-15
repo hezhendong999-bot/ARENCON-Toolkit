@@ -35,6 +35,11 @@ var _objects = [];
 // to R2 via uploadMarkup so other inspectors see the deletion and so the
 // stroke doesn't get resurrected by the cloud-merge step. Restored from R2
 // on load so erases survive reload. Reset only on destroy().
+// S133 — Each tombstone is now {id, t} where `t` is the ms-epoch creation
+// time. r2.js _mergeMarkupObjects prunes tombstones older than its TTL
+// (default 180 days) during the cloud merge — so storage growth is bounded
+// without losing the cross-device resurrection-block within the safety
+// window. Legacy plain-string entries are accepted on load and upgraded.
 var _tombstones = [];
 var _undoStack = [];
 var _redoStack = [];
@@ -715,14 +720,40 @@ function _redo() {
 // skipped. Tombstones are unioned into the R2 blob on next save so other
 // inspectors see the deletion and so the cloud-merge step doesn't resurrect
 // the stroke.
+// S133 — Tombstones are now {id, t: ms-epoch}. The timestamp lets the
+// cloud-merge step prune entries older than its TTL.
 function _tombstone(ids) {
   if (!Array.isArray(ids)) return;
+  var now = Date.now();
   for (var i = 0; i < ids.length; i++) {
     var id = ids[i];
-    if (typeof id === 'string' && _tombstones.indexOf(id) === -1) {
-      _tombstones.push(id);
+    if (typeof id !== 'string') continue;
+    var dup = false;
+    for (var j = 0; j < _tombstones.length; j++) {
+      if (_tombstones[j] && _tombstones[j].id === id) { dup = true; break; }
+    }
+    if (!dup) _tombstones.push({ id: id, t: now });
+  }
+}
+
+// S133 — Backward-compat normalizer for tombstones loaded from IDB or R2.
+// Plain-string legacy entries are upgraded to {id, t: Date.now()} — stamping
+// at load time rather than 0 means the pruner's clock starts from when this
+// code first sees the data, giving legacy tombstones a full safety window.
+// Object entries with a valid numeric `t` pass through unchanged.
+function _normalizeTombstones(arr) {
+  if (!Array.isArray(arr)) return [];
+  var now = Date.now();
+  var out = [];
+  for (var i = 0; i < arr.length; i++) {
+    var e = arr[i];
+    if (typeof e === 'string') {
+      out.push({ id: e, t: now });
+    } else if (e && typeof e.id === 'string') {
+      out.push({ id: e.id, t: (typeof e.t === 'number' && isFinite(e.t)) ? e.t : now });
     }
   }
+  return out;
 }
 
 function _updateUndoButtons() {
@@ -2772,7 +2803,8 @@ function _loadMarkupFromR2(drawingId, drawing, projectId) {
       }
       if (blob && blob.objects && (blob.objects.length || blob.deletedIds.length)) {
         _objects = blob.objects;
-        _tombstones = (blob.deletedIds || []).slice();
+        // S133 — backward-compat normalize (R2 may hold legacy string entries).
+        _tombstones = _normalizeTombstones(blob.deletedIds);
         console.log('[Markup] Loaded ' + _objects.length + ' objects + ' +
                     _tombstones.length + ' tombstones from R2 (cross-device)');
         // Mirror into IDB so subsequent loads are instant and local-first.
@@ -2837,7 +2869,8 @@ function _loadMarkupFromIDB(drawingId, drawing, projectId) {
     )) {
       _objects = Array.isArray(rec.objects) ? rec.objects : [];
       // S129 1.1 — restore tombstones from IDB record (defensive on shape).
-      _tombstones = Array.isArray(rec.deletedIds) ? rec.deletedIds.slice() : [];
+      // S133 — normalize legacy string entries to {id, t} for the new format.
+      _tombstones = _normalizeTombstones(rec.deletedIds);
       console.log('[Markup] Loaded ' + _objects.length + ' objects + ' +
                   _tombstones.length + ' tombstones from IDB');
       _renderWhenReady();
