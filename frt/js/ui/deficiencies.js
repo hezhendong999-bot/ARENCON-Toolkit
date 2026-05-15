@@ -10,7 +10,7 @@
  *   - Lifecycle tabs (Active / Site General / Closed)
  */
 
-import { Model } from '../data/model.js';
+import { Model, TRADE_LIST } from '../data/model.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm, showPrompt, confirmIARDeactivate } from '../shared/dialogs.js';
 import { R2 } from '../data/r2.js';
@@ -492,7 +492,7 @@ function _buildPinGroupCard(d, ctrId) {
   // ─── obs cards (S121 Push 8: label row + single controls row) ───
   // Layout per obs:
   //   Row 1: #N(-A/B) · Observation                 (label only)
-  //   Row 2: [Outstanding] [Priority▾] [IAR] | [AI Review] [↱ Spinoff] [✕ Remove obs]
+  //   Row 2: [Outstanding] [Priority▾] [Trade▾] | [AI Review] [↱ Spinoff] [✕ Remove obs]
   //          (Spinoff/Remove obs hidden when single-obs)
   //   Row 3: textarea | media zone (icon-only Upload/Camera/Gallery)
   obs.forEach(function(o, oi) {
@@ -508,10 +508,10 @@ function _buildPinGroupCard(d, ctrId) {
     var multiObs = (obs.length > 1);
 
     // S122 Push 1: priority-keyed pill class. Same logic as kanban .pkc-num
-    // for visual consistency. Override order: addressed (green) > IAR (pink)
-    // > priority (red high / orange low / green general).
+    // for visual consistency. Override order: addressed (green) > priority
+    // (red high / orange low / green general). S134: IAR pink override
+    // removed — IAR is silent-degraded (data stays in JSON, no rendering).
     var pillCls = obsPriVal === 'general' ? 'general' : obsPriVal === 'low' ? 'low' : 'high';
-    if (d.iar) pillCls = 'iar';
     if (o.addressed) pillCls = 'addressed';
 
     // S122 Push 4 — FRT instance chip (Piece C). Linked findings: when an
@@ -550,7 +550,7 @@ function _buildPinGroupCard(d, ctrId) {
     }
     h += '</div>';
 
-    // Row 2 — controls. Order: Outstanding → Priority → IAR | AI Review → Spinoff → Remove obs
+    // Row 2 — controls. Order: Outstanding → Priority → Trade | AI Review → Spinoff → Remove obs
     h += '<div class="defic-obs-card-ctrls">';
 
     // Outstanding toggle button (NOT a select). Light grey when open,
@@ -570,15 +570,30 @@ function _buildPinGroupCard(d, ctrId) {
     });
     h += '</select>';
 
-    // IAR per-obs (toggles pin-level d.iar — data model unchanged).
-    // Same visual treatment as the old strip-level IAR: outline when
-    // off, pink fill when on. Each obs's button reflects pin state.
-    var iarStyle = d.iar
-      ? 'border:none;background:#E91E8C;color:white;'
-      : 'background:transparent;color:#9AA5B5;border:1.5px solid rgba(154,165,181,.4);';
-    h += '<button data-action="toggle-iar" data-defic-id="' + esc(d.id) + '" style="' + iarStyle + 'border-radius:4px;padding:4px 10px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">' + (d.iar ? '\u26A1 IAR' : 'IAR') + '</button>';
+    // S134: trade dropdown (replaces IAR button). Slate-blue when AI-tagged,
+    // muted purple when manually tagged. Empty value = "untagged". AI/MAN
+    // badge sits adjacent. The AI tagger (S136) refuses to retag any obs
+    // with tradeSource === 'manual'. Legacy d.iar data stays in JSON but
+    // is no longer rendered (silent degrade).
+    var _trade = o.trade || '';
+    var _tradeSrc = (o.tradeSource === 'manual') ? 'manual' : 'ai';
+    var _tradeCls = (_tradeSrc === 'manual') ? 'trade-banner manual' : 'trade-banner';
+    h += '<span class="trade-banner-wrap">';
+    h += '<select data-action="obs-trade" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="' + _tradeCls + '" title="Trade for this observation">';
+    h += '<option value="" style="background:white;color:#2C3E50;font-weight:600;"' + (_trade === '' ? ' selected' : '') + '>\u2014 Trade \u2014</option>';
+    TRADE_LIST.forEach(function(tv) {
+      h += '<option value="' + esc(tv) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (_trade === tv ? ' selected' : '') + '>' + esc(tv) + '</option>';
+    });
+    h += '</select>';
+    // Source badge: only shown when a trade is selected. Manual/AI flag
+    // helps inspectors spot AI guesses vs deliberate human assignments.
+    if (_trade) {
+      var _badgeCls = (_tradeSrc === 'manual') ? 'trade-source-mark manual' : 'trade-source-mark';
+      h += '<span class="' + _badgeCls + '" title="' + (_tradeSrc === 'manual' ? 'Manually assigned' : 'AI-suggested') + '">' + (_tradeSrc === 'manual' ? 'MAN' : 'AI') + '</span>';
+    }
+    h += '</span>';
 
-    // Visual separator between state cluster (Outstanding/Priority/IAR)
+    // Visual separator between state cluster (Outstanding/Priority/Trade)
     // and action cluster (AI Review/Spinoff/Remove obs).
     h += '<span class="ctrls-sep" aria-hidden="true"></span>';
 
@@ -1812,6 +1827,19 @@ document.addEventListener('change', function(e) {
       _applyChange();
       initDeficiencies.render();
     })();
+  }
+
+  // S134: per-obs trade dropdown. Manual override marks tradeSource='manual'
+  // so the AI tagger (S136) won't re-apply a guess over a deliberate user
+  // assignment. Re-render so the source badge (AI/MAN) and dropdown styling
+  // (slate-blue → purple) update to reflect the new state.
+  if (action === 'obs-trade') {
+    var _tdid = e.target.getAttribute('data-defic-id');
+    var _toi = parseInt(e.target.getAttribute('data-obs-idx') || '0', 10);
+    var _tval = e.target.value || '';
+    Model.updateObsTrade(_tdid, _toi, _tval, 'manual');
+    Model.saveNow();
+    initDeficiencies.render();
   }
 });
 

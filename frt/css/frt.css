@@ -6646,3 +6646,79 @@ body.dark-mode .ctx-text-toggle.active {
 }
 
 /* End S126 #7 ─────────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════
+   S134 — Trade dropdown in obs controls row
+   Replaces the IAR button. Slate-blue when AI-tagged, muted purple
+   when manually tagged. Source badge (AI/MAN) sits adjacent inside
+   .trade-banner-wrap. Used in deficiencies.js _buildPinGroupCard.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.trade-banner-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.trade-banner {
+  font-family: Calibri, sans-serif;
+  font-size: calc(11px + var(--ts));
+  font-weight: 700;
+  cursor: pointer;
+  padding: 3px 11px;
+  padding-right: 22px;
+  border-radius: 4px;
+  border: 1.5px solid #2C4770;
+  background: #E5EDF7;
+  color: #2C4770;
+  appearance: none;
+  -webkit-appearance: none;
+  /* native caret position needs the right padding above */
+  background-image: linear-gradient(45deg, transparent 50%, #2C4770 50%),
+                    linear-gradient(135deg, #2C4770 50%, transparent 50%);
+  background-position: calc(100% - 12px) 50%, calc(100% - 7px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.trade-banner.manual {
+  border-color: #7B2D8E;
+  background: #F2E8F6;
+  color: #5E2370;
+  background-image: linear-gradient(45deg, transparent 50%, #5E2370 50%),
+                    linear-gradient(135deg, #5E2370 50%, transparent 50%);
+  background-position: calc(100% - 12px) 50%, calc(100% - 7px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.trade-source-mark {
+  font-family: Calibri, sans-serif;
+  font-size: calc(9.5px + var(--ts));
+  font-weight: 700;
+  background: #2C4770;
+  color: white;
+  padding: 1px 5px;
+  border-radius: 2px;
+  letter-spacing: 0.4px;
+  line-height: 1.3;
+}
+
+.trade-source-mark.manual {
+  background: #7B2D8E;
+}
+
+/* Dark mode — keep light-tinted bgs for readability, mirror priority pill rule */
+body.dark-mode .trade-banner {
+  background: #E5EDF7;
+  color: #2C4770;
+  border-color: #2C4770;
+}
+
+body.dark-mode .trade-banner.manual {
+  background: #F2E8F6;
+  color: #5E2370;
+  border-color: #7B2D8E;
+}
+
+/* End S134 ──────────────────────────────────────────────────────── */
