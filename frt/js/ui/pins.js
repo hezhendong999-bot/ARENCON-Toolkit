@@ -253,40 +253,80 @@ export var initPins = {
 
     var f = _getFilters();
 
-    // Build contractor dropdown options
+    // S133: flatten pins x observations — one row per observation, mirroring
+    // the kanban board (_pkbObsCard) and the Deficiency tab's per-obs cards.
+    // Each row pre-computes its display fields so filter / sort / render all
+    // read the same values. Legacy defics with no observations array emit a
+    // single synthetic row built from pin-level state.
+    var rows = [];
+    all.forEach(function(d) {
+      var dd = d.defic;
+      var parentCtr = d.contractorName || 'Site General';
+      function _rowFor(oi, o, multi) {
+        // Per-obs effective contractor (mirrors _buildPinGroupCard).
+        var ctrName = parentCtr;
+        if (o && o.contractorId && proj.contractors) {
+          var c = proj.contractors.find(function(c) { return c.id === o.contractorId; });
+          if (c) ctrName = c.name;
+        }
+        return {
+          dd: dd, oi: oi, o: o, multi: multi,
+          // #4A / #4B for multi-obs (no dash, S122 P1 convention); #4 single.
+          numLabel: multi ? (dd.num + String.fromCharCode(65 + oi)) : String(dd.num || '?'),
+          desc: (o && (o.text || o.description)) || deficDesc(dd) || '',
+          ctrName: ctrName,
+          dwgName: _getDrawingName(dd.drawingId),
+          obsPri: (o && o.priority) || dd.priority || 'high',
+          isIAR: !!dd.iar,                 // IAR is pin-level
+          isAddressed: !!(o && o.addressed)
+        };
+      }
+      var obs = (dd.observations && dd.observations.length) ? dd.observations : null;
+      if (obs) {
+        var multi = obs.length > 1;
+        obs.forEach(function(o, oi) { rows.push(_rowFor(oi, o, multi)); });
+      } else {
+        // Legacy: no observations array → single synthetic row.
+        var synthClosed = Model.getEffectiveStatus(dd) === 'closed';
+        rows.push(_rowFor(0, { text: dd.description || '', priority: dd.priority || 'high', addressed: synthClosed }, false));
+      }
+    });
+
+    // Build contractor dropdown options (from flattened rows so per-obs
+    // contractors are represented).
     var ctrSet = {};
-    all.forEach(function(d) { ctrSet[d.contractorName || 'Site General'] = true; });
+    rows.forEach(function(r) { ctrSet[r.ctrName || 'Site General'] = true; });
     var ctrOpts = '<option value="all">All Contractors</option>';
     Object.keys(ctrSet).sort().forEach(function(n) { ctrOpts += '<option value="' + esc(n) + '"' + (f.contractor === n ? ' selected' : '') + '>' + esc(n) + '</option>'; });
 
-    // Filter
-    var filtered = all.filter(function(d) {
-      var dd = d.defic;
-      // S119: effective priority/status (max across obs / all-addressed)
-      var effPri = Model.getEffectivePriority(dd);
-      var isClosed = Model.getEffectiveStatus(dd) === 'closed';
-      if (f.status === 'Outstanding' && (isClosed || dd.iar)) return false;
-      if (f.status === 'Closed' && !isClosed) return false;
-      if (f.status === 'IAR' && !dd.iar) return false;
-      if (f.priority !== 'all' && effPri !== f.priority) return false;
-      if (f.contractor !== 'all' && (d.contractorName || 'Site General') !== f.contractor) return false;
+    // Filter — per-observation.
+    var filtered = rows.filter(function(r) {
+      if (f.status === 'Outstanding' && (r.isAddressed || r.isIAR)) return false;
+      if (f.status === 'Closed' && !r.isAddressed) return false;
+      if (f.status === 'IAR' && !r.isIAR) return false;
+      if (f.priority !== 'all' && r.obsPri !== f.priority) return false;
+      if (f.contractor !== 'all' && (r.ctrName || 'Site General') !== f.contractor) return false;
       if (f.search) {
-        var text = ((dd.num || '') + ' ' + deficDesc(dd) + ' ' + (d.contractorName || '')).toLowerCase();
+        var text = ('#' + r.numLabel + ' ' + r.desc + ' ' + (r.ctrName || '')).toLowerCase();
         if (text.indexOf(f.search) < 0) return false;
       }
       return true;
     });
 
-    // Sort
+    // Sort — per-observation. 'num' sorts by pin number, then observation
+    // index, so #4A precedes #4B.
     filtered.sort(function(a, b) {
       var av, bv;
-      if (_sortField === 'num') { av = a.defic.num || 0; bv = b.defic.num || 0; }
-      else if (_sortField === 'status') { av = Model.getEffectiveStatus(a.defic); bv = Model.getEffectiveStatus(b.defic); }
-      else if (_sortField === 'priority') { av = Model.getEffectivePriority(a.defic); bv = Model.getEffectivePriority(b.defic); }
-      else if (_sortField === 'contractor') { av = a.contractorName || ''; bv = b.contractorName || ''; }
-      else if (_sortField === 'drawing') { av = _getDrawingName(a.defic.drawingId); bv = _getDrawingName(b.defic.drawingId); }
-      else { av = deficDesc(a.defic); bv = deficDesc(b.defic); }
-      if (typeof av === 'number') return _sortDir === 'asc' ? av - bv : bv - av;
+      if (_sortField === 'num') {
+        var an = a.dd.num || 0, bn = b.dd.num || 0;
+        if (an !== bn) return _sortDir === 'asc' ? an - bn : bn - an;
+        return _sortDir === 'asc' ? a.oi - b.oi : b.oi - a.oi;
+      }
+      else if (_sortField === 'status') { av = a.isIAR ? 'iar' : (a.isAddressed ? 'closed' : 'open'); bv = b.isIAR ? 'iar' : (b.isAddressed ? 'closed' : 'open'); }
+      else if (_sortField === 'priority') { av = a.obsPri; bv = b.obsPri; }
+      else if (_sortField === 'contractor') { av = a.ctrName || ''; bv = b.ctrName || ''; }
+      else if (_sortField === 'drawing') { av = a.dwgName || ''; bv = b.dwgName || ''; }
+      else { av = a.desc || ''; bv = b.desc || ''; }
       return _sortDir === 'asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
     });
 
@@ -309,7 +349,7 @@ export var initPins = {
     h += '<option value="low"' + (f.priority === 'low' ? ' selected' : '') + '>Low</option>';
     h += '<option value="general"' + (f.priority === 'general' ? ' selected' : '') + '>General</option></select>';
     h += '<select id="tasks-filter-contractor" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--bg);color:var(--fg);">' + ctrOpts + '</select>';
-    h += '<span style="font-size:calc(12px + var(--ts));color:var(--silver);">' + filtered.length + ' deficiencie' + (filtered.length !== 1 ? 's' : '') + '</span>';
+    h += '<span style="font-size:calc(12px + var(--ts));color:var(--silver);">' + filtered.length + ' observation' + (filtered.length !== 1 ? 's' : '') + '</span>';
     h += '</div>';
 
     // Table — S123 P5.6: revert to table-layout:auto since we removed the
@@ -322,52 +362,35 @@ export var initPins = {
     h += th('status', 'Status') + th('priority', 'Priority') + '<th class="tt-th"></th>';
     h += '</tr></thead><tbody>';
 
-    filtered.forEach(function(d) {
-      var dd = d.defic;
-      var desc = deficDesc(dd);
-      // S119: effective status/priority
-      var isClosed = Model.getEffectiveStatus(dd) === 'closed';
-      var effPri = Model.getEffectivePriority(dd);
-      var isIAR = dd.iar;
-      var statusText = isIAR ? 'IAR' : (isClosed ? 'Closed' : 'Outstanding');
-      var statusCls = isIAR ? 'iar' : (isClosed ? 'closed' : 'outstanding');
-      var priCls = effPri;
-      var dwgName = _getDrawingName(dd.drawingId);
+    filtered.forEach(function(r) {
+      var dd = r.dd;
 
-      h += '<tr data-defic-id="' + esc(dd.id) + '" data-action="open-pin-editor" style="border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;">';
-      h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">#' + (dd.num || '?') + '</td>';
-      h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(dwgName || '\u2014') + '</td>';
-      h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(desc || '(no description)') + '</td>';
-      // S123 P5.6: simple colored pill — letter-badge removed (made the chip
-      // too wide, caused cutoff issues). Pure name in colored chip.
-      var _ctrName = d.contractorName || 'Unknown';
-      h += '<td style="padding:8px 10px;"><span class="ctr-tag ' + ctrColorClass(d.contractorName) + '" title="' + esc(_ctrName) + '">' + esc(_ctrName) + '</span></td>';
-      // S113 Push 24: stack Outstanding/Closed and IAR vertically. IAR is
-      // additive — when active, it appears as a second row below the main
-      // status, not in place of it. Matches Mark's request from the same
-      // session: "Move IAR to be below outstanding, as part of the status".
-      // S116 Push 13: increased horizontal padding 10px -> 18px on Status
-      // and Priority cells so the chips have breathing room (Mark image 3:
-      // "Outstanding" was bumping right against "High").
-      var statusBaseTxt = isClosed ? 'Closed' : 'Outstanding';
-      var statusBaseCls = isClosed ? 'closed' : 'outstanding';
+      h += '<tr data-defic-id="' + esc(dd.id) + '" data-obs-idx="' + r.oi + '" data-action="open-pin-editor" style="border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;">';
+      h += '<td style="padding:8px 10px;font-weight:700;color:#9C2742;">#' + esc(r.numLabel) + '</td>';
+      h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(r.dwgName || '\u2014') + '</td>';
+      h += '<td style="padding:8px 10px;word-break:break-word;">' + esc(r.desc || '(no description)') + '</td>';
+      // S123 P5.6: simple colored pill — pure name in colored chip.
+      var _ctrName = r.ctrName || 'Unknown';
+      h += '<td style="padding:8px 10px;"><span class="ctr-tag ' + ctrColorClass(r.ctrName) + '" title="' + esc(_ctrName) + '">' + esc(_ctrName) + '</span></td>';
+      // S116 Push 13: 18px horizontal padding on Status / Priority cells so
+      // the chips have breathing room.
+      // S133: status is now per-observation — Closed when this observation is
+      // addressed, Outstanding otherwise. IAR (pin-level) shows in Priority.
+      var statusBaseTxt = r.isAddressed ? 'Closed' : 'Outstanding';
+      var statusBaseCls = r.isAddressed ? 'closed' : 'outstanding';
       h += '<td style="padding:8px 18px 8px 12px;">';
       h += '<span class="tt-status ' + statusBaseCls + '">' + statusBaseTxt + '</span>';
       h += '</td>';
-      // S116 Push 10: IAR overrides priority. Mark: "I want IAR toggle also
-      // shows in the summary, part of the priority item (so show IAR or high
-      // or low or general. IAR overwrites all priority." When iar=true, the
-      // priority cell shows "⚡ IAR" pink instead of the underlying priority.
-      // The pin still has its own priority for color-coded markers etc.; this
-      // is purely a Summary-tab display rule.
+      // S116 Push 10: IAR overrides priority display. S133: priority is the
+      // observation's own priority; IAR (pin-level) still overrides it.
       h += '<td style="padding:8px 12px 8px 18px;">';
-      if (isIAR) {
+      if (r.isIAR) {
         h += '<span class="tt-priority iar">\u26A1 IAR</span>';
       } else {
-        h += '<span class="tt-priority ' + priCls + '">' + esc(effPri.charAt(0).toUpperCase() + effPri.slice(1)) + '</span>';
+        h += '<span class="tt-priority ' + r.obsPri + '">' + esc(r.obsPri.charAt(0).toUpperCase() + r.obsPri.slice(1)) + '</span>';
       }
       h += '</td>';
-      h += '<td style="padding:8px 10px;"><button class="tt-jump" data-action="jump-defic" data-defic-id="' + esc(dd.id) + '">Jump</button></td>';
+      h += '<td style="padding:8px 10px;"><button class="tt-jump" data-action="jump-defic" data-defic-id="' + esc(dd.id) + '" data-obs-idx="' + r.oi + '">Jump</button></td>';
       h += '</tr>';
     });
     h += '</tbody></table></div>';
@@ -447,10 +470,19 @@ document.addEventListener('click', function(e) {
   if (jump) {
     var deficId = jump.getAttribute('data-defic-id');
     if (deficId) {
+      var obsIdx = jump.getAttribute('data-obs-idx');
       document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === 'deficiencies'); });
       document.querySelectorAll('.panel').forEach(function(p) { p.classList.toggle('active', p.id === 'panel-deficiencies'); });
       setTimeout(function() {
-        var card = document.querySelector('.defic-item[data-defic-id="' + deficId + '"]');
+        // S133: target the specific observation card; fall back to the pin
+        // group if the obs card isn't in the DOM (e.g. on a different
+        // lifecycle tab). The old '.defic-item' selector never matched —
+        // the Deficiency tab renders '.defic-obs-card' / '.defic-pin-group'.
+        var card = null;
+        if (obsIdx != null) {
+          card = document.querySelector('.defic-obs-card[data-defic-id="' + deficId + '"][data-obs-idx="' + obsIdx + '"]');
+        }
+        if (!card) card = document.querySelector('.defic-pin-group[data-defic-id="' + deficId + '"]');
         if (card) {
           card.scrollIntoView({ behavior: 'smooth', block: 'center' });
           card.style.outline = '2px solid #9C2742';
