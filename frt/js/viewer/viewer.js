@@ -428,6 +428,27 @@ function _getDrawingsList() {
   return Model.getDrawings();
 }
 
+// S132 — coalesce GL pin redraws to one per animation frame.
+// During a pinch/pan, _applyTransform fires on every touch event
+// (~60-120/s); calling _renderPins() synchronously on each one rebuilt the
+// whole pin set far more often than the display can refresh. Collapsing to
+// one redraw per requestAnimationFrame is strictly less work, aligned to
+// vsync. Cost: the pins can trail the drawing transform by at most one
+// frame (~16ms) — imperceptible. The stale-state cases are already covered
+// by _renderPins()'s own guards (_pinDragging early-return, drawing-index
+// bounds check), so a rAF that fires after a close just no-ops.
+// REVERSAL: delete this function + _renderPinsRafPending, and change the
+// call site in _applyTransform back to `_renderPins();`.
+var _renderPinsRafPending = false;
+function _scheduleRenderPins() {
+  if (_renderPinsRafPending) return;
+  _renderPinsRafPending = true;
+  requestAnimationFrame(function() {
+    _renderPinsRafPending = false;
+    _renderPins();
+  });
+}
+
 function _applyTransform() {
   _clampPan();
   var wrap = document.getElementById('dv-img-wrap');
@@ -437,7 +458,8 @@ function _applyTransform() {
   if (TiledPdf.isActive()) TiledPdf.scheduleRender();
   // GL pins live outside dv-img-wrap and must be re-rendered on every transform.
   // HTML pins are children of dv-img-wrap, so they auto-transform; cheap early-out.
-  if (_useGLPins && _glPinsReady) _renderPins();
+  // S132 — rAF-coalesced (was a synchronous _renderPins() call here).
+  if (_useGLPins && _glPinsReady) _scheduleRenderPins();
   // S113 Push 13: notify Markup of the new viewer scale so it can resize
   // its canvas to displayed-pixel resolution. Markup filters pan-only
   // events internally (no-op if scale unchanged) so this is cheap.
