@@ -2625,7 +2625,11 @@ function _saveMarkup() {
   }
   var proj = Model.getProject();
   if (!proj) return;
-  var projectId = proj.id;
+  // S132 — use the canonical Hub ?project= UUID for the R2 key, matching
+  // drawings/tiles/photos/pdfbufs. proj.id is the standalone-mode fallback.
+  // Previously this used proj.id unconditionally, which put markup in a
+  // different R2 folder than the rest of the project's assets.
+  var projectId = (new URLSearchParams(window.location.search).get('project')) || proj.id;
   var drawingId = _drawingId;
   var snapshot = JSON.parse(JSON.stringify(_objects));
   // S129 Item 1.1 — snapshot tombstones alongside objects for atomic upload.
@@ -2731,7 +2735,8 @@ function _loadMarkup(drawingId) {
     _updateUndoButtons();
     return;
   }
-  var projectId = proj.id;
+  // S132 — canonical Hub ?project= UUID for R2 keys (see _saveMarkup note).
+  var projectId = (new URLSearchParams(window.location.search).get('project')) || proj.id;
   var drawing = null;
   if (proj.drawings) {
     for (var i = 0; i < proj.drawings.length; i++) {

@@ -37,7 +37,9 @@ function _removeDrawingWithCleanup(drawingId) {
   var allDrawings = proj.drawings.slice();
   Model.removeDrawing(drawingId);
   if (dwg && dwg.pdfBufKey) {
-    R2.deleteDrawingAssets(proj.id, dwg, allDrawings).then(function(res) {
+    // S132 — canonical Hub ?project= UUID for R2 keys (proj.id standalone fallback).
+    var _pidDel = (new URLSearchParams(window.location.search).get('project')) || proj.id;
+    R2.deleteDrawingAssets(_pidDel, dwg, allDrawings).then(function(res) {
       if (res.pdfBufDeleted) console.log('[R2 cleanup] Freed PDF buffer for deleted drawing.');
       else if (res.sharedSkipped) console.log('[R2 cleanup] PDF buffer still shared; not deleted.');
     });
@@ -955,7 +957,8 @@ function _showDrawingContextMenu(drawingId, anchorEl) {
             // is fire-and-forget — failing to delete is tolerable (orphan
             // PDF stays, no functional break).
             var proj = Model.getProject();
-            var pid = proj && proj.id;
+            // S132 — canonical Hub ?project= UUID for R2 keys (proj.id standalone fallback).
+            var pid = (new URLSearchParams(window.location.search).get('project')) || (proj && proj.id);
             var oldDwg = { id: dwg.id, pdfBufKey: dwg.pdfBufKey };
             if (pid && oldDwg.pdfBufKey) {
               R2.deleteDrawingAssets(pid, oldDwg, proj.drawings).then(function(res) {
