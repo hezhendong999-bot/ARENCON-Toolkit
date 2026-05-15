@@ -814,17 +814,6 @@ function _computeWindow(lvl, lvlX0, lvlY0, lvlX1, lvlY1) {
   };
 }
 
-// True when the visible tile span has come within 1 tile of a window edge
-// that still has sheet beyond it. The 1-tile hysteresis band stops the
-// window re-centring on every tile of pan.
-function _windowNeedsMove(e, vc0, vc1, vr0, vr1, fullCols, fullRows) {
-  if (vc0 <= e.colMin + 1 && e.colMin > 0) return true;
-  if (vc1 >= e.colMax - 1 && e.colMax < fullCols - 1) return true;
-  if (vr0 <= e.rowMin + 1 && e.rowMin > 0) return true;
-  if (vr1 >= e.rowMax - 1 && e.rowMax < fullRows - 1) return true;
-  return false;
-}
-
 // Re-window an existing windowed level canvas: allocate the new window,
 // blit the overlapping region across (so the move is seamless — no flash,
 // no white gap), swap the DOM node, and reconcile _tiles so records that
@@ -1391,8 +1380,19 @@ function _renderVisible() {
   // the one place with the view-state, so the window decision lives here.
   //   • No canvas yet  → stash a freshly computed window for
   //                       _getOrCreateLevelCanvas to use at lazy-create.
-  //   • Windowed canvas → re-window (seamless blit) only when the visible
-  //                       span nears an edge AND the new window differs.
+  //   • Windowed canvas → STICKY. Keep the current window as long as the
+  //                       visible tile span still fits inside it — which is
+  //                       true for every zoom-in and every small pan, so
+  //                       those do ZERO re-windows (no lag, the canvas
+  //                       stays fully painted = sharp). Re-window only when
+  //                       the viewport actually leaves the window; the new
+  //                       window is budget-sized and centred on the
+  //                       viewport, so there's margin to spare before the
+  //                       next one. (The earlier "re-centre whenever near
+  //                       an edge" logic thrashed — it re-allocated the
+  //                       canvas on every render of a zoom gesture, which
+  //                       was both the lag and, via constantly dropped/
+  //                       re-fetched tiles, the softness.)
   //   • Whole-sheet canvas (under-budget level / desktop) → nothing to do;
   //                       _computeWindow would just return the whole sheet.
   var _le = _levelCanvases[levelIdx];
@@ -1403,7 +1403,9 @@ function _renderVisible() {
     var _vc1 = Math.max(0, Math.min(lvl.cols - 1, Math.floor((lvlX1 - 1e-3) / _TILE_SIZE)));
     var _vr0 = Math.max(0, Math.min(lvl.rows - 1, Math.floor(lvlY0 / _TILE_SIZE)));
     var _vr1 = Math.max(0, Math.min(lvl.rows - 1, Math.floor((lvlY1 - 1e-3) / _TILE_SIZE)));
-    if (_windowNeedsMove(_le, _vc0, _vc1, _vr0, _vr1, lvl.cols, lvl.rows)) {
+    var _fits = (_vc0 >= _le.colMin && _vc1 <= _le.colMax &&
+                 _vr0 >= _le.rowMin && _vr1 <= _le.rowMax);
+    if (!_fits) {
       var _nw = _computeWindow(lvl, lvlX0, lvlY0, lvlX1, lvlY1);
       if (_nw.windowed &&
           (_nw.colMin !== _le.colMin || _nw.colMax !== _le.colMax ||
