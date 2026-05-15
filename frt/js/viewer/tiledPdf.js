@@ -191,6 +191,54 @@ var _levelCanvases = {};
 // plan is the whole sheet, so the canvas is created exactly as pre-S132.
 var _levelWindowPlan = {};
 
+// ── S132 on-tablet window diagnostic ──────────────────────────────────────
+// The field tablets run in a TWA shell with NO DevTools console. This is a
+// tiny on-screen readout (top-left) of the live level-canvas window state,
+// gated behind ?wininfo=1, so windowed-canvas behaviour can be verified
+// on-device. Zero cost when the param is absent (one boolean check).
+var _dbgWinInfo = (function () {
+  try {
+    if (typeof window === 'undefined') return false;
+    return /[?&]wininfo=1\b/.test(window.location.search || '');
+  } catch (_e) { return false; }
+})();
+// Count of re-window events since the current drawing opened. A fast-climbing
+// counter during a zoom/pan gesture = the window is thrashing (the lag).
+var _rewindowCount = 0;
+
+function _updateWinInfoPanel(levelIdx, scale, visCols, visRows) {
+  if (!_dbgWinInfo || typeof document === 'undefined') return;
+  var el = document.getElementById('s132-wininfo');
+  if (!el) {
+    if (!document.body) return;
+    el = document.createElement('div');
+    el.id = 's132-wininfo';
+    el.style.cssText =
+      'position:fixed;top:8px;left:8px;z-index:99999;' +
+      'background:rgba(20,20,20,0.86);color:#fff;padding:6px 9px;' +
+      'font:600 11px/1.45 monospace;border-radius:4px;white-space:pre;' +
+      'pointer-events:none;max-width:62vw;box-shadow:0 1px 4px rgba(0,0,0,0.4);';
+    document.body.appendChild(el);
+  }
+  var e = _levelCanvases[levelIdx];
+  var lines = [];
+  lines.push('L' + levelIdx + '   scale ' + (scale != null ? scale.toFixed(3) : '?'));
+  lines.push('visible: ' + visCols + 'x' + visRows + ' tiles');
+  lines.push('rewindows: ' + _rewindowCount);
+  if (e) {
+    var bw = e.canvas.width, bh = e.canvas.height;
+    var winCols = e.colMax - e.colMin + 1, winRows = e.rowMax - e.rowMin + 1;
+    lines.push('windowed: ' + (e.windowed ? 'YES' : 'no (whole sheet)'));
+    lines.push('window: ' + winCols + 'x' + winRows + ' tiles');
+    lines.push('backing: ' + bw + 'x' + bh + ' = ' + (bw * bh / 1e6).toFixed(1) + ' MP');
+    lines.push('bufScale: ' + (e.bufScale != null ? e.bufScale.toFixed(3) : '?'));
+    lines.push('tiles painted: ' + e.tilesPainted);
+  } else {
+    lines.push('(no level canvas yet)');
+  }
+  el.textContent = lines.join('\n');
+}
+
 // Show a small, unobtrusive bottom-right indicator when any S99 test is
 // active, so Mark visually confirms he's not on baseline. Appended once on
 // first _dbg-safe chance; removed never (lives with page).
@@ -859,6 +907,7 @@ function _rewindowLevelCanvas(level, lvl, nw) {
     colMin: nw.colMin, colMax: nw.colMax, rowMin: nw.rowMin, rowMax: nw.rowMax
   };
   _levelWindowPlan[level] = nw;
+  _rewindowCount++;
 }
 
 function _getOrCreateLevelCanvas(level, lvl) {
@@ -1452,6 +1501,14 @@ function _renderVisible() {
     }
   }
 
+  if (_dbgWinInfo) {
+    var _dvc0 = Math.max(0, Math.floor(lvlX0 / _TILE_SIZE));
+    var _dvc1 = Math.min(lvl.cols - 1, Math.floor((lvlX1 - 1e-3) / _TILE_SIZE));
+    var _dvr0 = Math.max(0, Math.floor(lvlY0 / _TILE_SIZE));
+    var _dvr1 = Math.min(lvl.rows - 1, Math.floor((lvlY1 - 1e-3) / _TILE_SIZE));
+    _updateWinInfoPanel(levelIdx, scale, _dvc1 - _dvc0 + 1, _dvr1 - _dvr0 + 1);
+  }
+
   _pumpQueue();
 }
 
@@ -1597,6 +1654,8 @@ function _close_internal() {
   _pending = [];
   _tileOrder = [];
   _tileCount = 0;
+  // S132 — reset the on-tablet diagnostic re-window counter per drawing.
+  _rewindowCount = 0;
   // S99 prefetch candidate — reset per-drawing prefetch tracker. Without
   // this, stale next-level URLs from a prior drawing persist and prevent
   // re-issuing fetches on the next drawing's prefetch window.
