@@ -1471,11 +1471,14 @@ function _handleImageUpload(f, folder) {
 }
 
 function _handlePDFUpload(file, folderOverride) {
-  if (typeof ensurePdfJs === 'undefined') {
+  // S132 — qualify the global as window.ensurePdfJs (defined in index.html),
+  // matching viewer.js. Bare reference works at runtime but isn't visible to
+  // per-file static analysis.
+  if (typeof window.ensurePdfJs === 'undefined') {
     toast('PDF support not available');
     return;
   }
-  ensurePdfJs(function() {
+  window.ensurePdfJs(function() {
     if (typeof pdfjsLib === 'undefined') {
       toast('PDF.js failed to load');
       return;

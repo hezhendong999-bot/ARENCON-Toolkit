@@ -31,7 +31,9 @@
 import { Auth } from '../shared/auth.js';
 import { Model } from './model.js';
 import { IDB } from './idb.js';
-import { merge3 } from './merge.js';
+// S132 — the direct merge3 import was removed: since S128 P-6 the 3-way
+// merge runs in the sync worker (SyncWorkerHost.merge3Worker), so sync.js
+// never calls merge3() directly. The engine still lives in data/merge.js.
 import { SyncWorkerHost } from './syncWorkerHost.js';
 
 var SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
