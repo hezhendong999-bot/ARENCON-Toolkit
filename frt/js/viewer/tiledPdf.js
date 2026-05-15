@@ -180,7 +180,16 @@ if (_S99_TEST) {
 
 // S112: level -> { canvas, ctx, lvl, tilesPainted }. Populated lazily in
 // canvas mode by _getOrCreateLevelCanvas. Empty in img mode.
+// S132: each entry also carries the viewport WINDOW it covers — winX/winY
+// (origin in native level px), winW/winH, colMin..rowMax (tile span) and
+// `windowed` (false = whole-sheet, identical to pre-S132).
 var _levelCanvases = {};
+
+// S132 viewport-windowed level canvas — level -> window plan computed by
+// _renderVisible (which holds the view-state). Consumed by
+// _getOrCreateLevelCanvas at lazy-create time. On under-budget levels the
+// plan is the whole sheet, so the canvas is created exactly as pre-S132.
+var _levelWindowPlan = {};
 
 // Show a small, unobtrusive bottom-right indicator when any S99 test is
 // active, so Mark visually confirms he's not on baseline. Appended once on
@@ -652,37 +661,250 @@ function _evictExcess(layer) {
 // painted tiles for a level are gone, the canvas is removed from the DOM
 // and its backing buffer is released (set width=0, height=0).
 
+// S132 viewport-windowed level canvas ─────────────────────────────────────
+//
+// THE PROBLEM (post-S131): S131 capped the level-canvas backing store at
+// deviceMaxPixels() by DOWNSCALING the whole sheet (bufScale < 1). That
+// stopped the "Aw snap" crash but, on a tablet, L4 (≈101 MP native) was
+// squeezed into a 12 MP buffer — ~35% linear resolution — so the deepest
+// zoom was noticeably blurry. You cannot brute-force L4 sharpness through
+// one global number.
+//
+// THE FIX: don't downscale the whole sheet — size the backing store to the
+// VISIBLE WINDOW. The tablet only ever displays a small crop at L4 zoom, so
+// a window covering "visible tiles + generous margin" fits the SAME 12 MP
+// budget while rendering that crop at bufScale 1.0 — fully crisp. When the
+// user pans past the window, the canvas is re-windowed (see
+// _rewindowLevelCanvas) — the overlapping pixels are blitted across so the
+// move is seamless, and only the newly-exposed strip is re-fetched.
+//
+// SAFETY: _computeWindow returns `windowed:false` (the whole sheet) whenever
+// the level already fits the device budget. That covers ALL desktop levels
+// and the tablet's low levels — for those the canvas is created, positioned
+// and composited byte-for-byte as pre-S132. Windowed code only runs on the
+// over-budget levels (tablet L3/L4) — exactly where the blur was.
+//
+// Per-level peak memory is unchanged from S131 (still ≤ deviceMaxPixels()).
+// A re-window briefly holds the old + new canvas at once (both ≤ budget)
+// for the few synchronous statements of the blit — a transient, not the
+// sustained pressure that caused the crash.
+
+// Compute the window a level canvas should cover, given the visible
+// level-space rect. Returns { windowed, bufScale, winX, winY, winW, winH,
+// colMin, colMax, rowMin, rowMax }. Window edges are tile-aligned so the
+// tile span and the blit math stay exact.
+function _computeWindow(lvl, lvlX0, lvlY0, lvlX1, lvlY1) {
+  var T = _TILE_SIZE;
+  var fullCols = lvl.cols | 0, fullRows = lvl.rows | 0;
+  var budgetPx = deviceMaxPixels();
+  var nativePx = lvl.width * lvl.height;
+
+  // Under budget → whole sheet. Identical to pre-S132 in every respect.
+  if (nativePx <= budgetPx) {
+    return {
+      windowed: false, bufScale: 1,
+      winX: 0, winY: 0, winW: lvl.width, winH: lvl.height,
+      colMin: 0, colMax: fullCols - 1, rowMin: 0, rowMax: fullRows - 1
+    };
+  }
+
+  // Visible tile span (clamped to the sheet).
+  var vc0 = Math.max(0, Math.min(fullCols - 1, Math.floor(lvlX0 / T)));
+  var vc1 = Math.max(0, Math.min(fullCols - 1, Math.floor((lvlX1 - 1e-3) / T)));
+  var vr0 = Math.max(0, Math.min(fullRows - 1, Math.floor(lvlY0 / T)));
+  var vr1 = Math.max(0, Math.min(fullRows - 1, Math.floor((lvlY1 - 1e-3) / T)));
+  var visCols = vc1 - vc0 + 1, visRows = vr1 - vr0 + 1;
+
+  // How many whole 512px tiles the device budget affords.
+  var maxTiles = Math.max(1, Math.floor(budgetPx / (T * T)));
+
+  // Defensive: if the visible span ALONE exceeds the tile budget (would need
+  // an over-budget level shown at low zoom — unusual, but never trust it
+  // won't happen), clamp the window to the visible span and downscale its
+  // buffer to fit. Soft but safe — never crashes.
+  if (visCols * visRows > maxTiles) {
+    var cX = vc0 * T, cY = vr0 * T;
+    var cW = Math.min(lvl.width, (vc1 + 1) * T) - cX;
+    var cH = Math.min(lvl.height, (vr1 + 1) * T) - cY;
+    var clampScale = Math.min(1, Math.sqrt(budgetPx / (cW * cH)));
+    return {
+      windowed: true, bufScale: clampScale,
+      winX: cX, winY: cY, winW: cW, winH: cH,
+      colMin: vc0, colMax: vc1, rowMin: vr0, rowMax: vr1
+    };
+  }
+
+  // Grow the window symmetrically around the visible span — every extra
+  // tile of margin is pan room before the next re-window — capped by the
+  // tile budget and the sheet bounds.
+  var winCols = visCols, winRows = visRows;
+  var guard = fullCols + fullRows + 4;
+  while (guard-- > 0) {
+    var grew = false;
+    if (winCols < fullCols && (winCols + 1) * winRows <= maxTiles) { winCols++; grew = true; }
+    if (winRows < fullRows && winCols * (winRows + 1) <= maxTiles) { winRows++; grew = true; }
+    if (!grew) break;
+  }
+
+  // Centre on the visible span, then clamp the window inside the sheet.
+  var col0 = vc0 - Math.floor((winCols - visCols) / 2);
+  var row0 = vr0 - Math.floor((winRows - visRows) / 2);
+  col0 = Math.max(0, Math.min(fullCols - winCols, col0));
+  row0 = Math.max(0, Math.min(fullRows - winRows, row0));
+  var col1 = col0 + winCols - 1;
+  var row1 = row0 + winRows - 1;
+
+  var winX = col0 * T, winY = row0 * T;
+  var winW = Math.min(lvl.width, (col1 + 1) * T) - winX;
+  var winH = Math.min(lvl.height, (row1 + 1) * T) - winY;
+  // winW*winH ≤ winCols*winRows*T*T ≤ maxTiles*T*T ≤ budgetPx — buffer is
+  // guaranteed within budget.
+  return {
+    windowed: true, bufScale: 1,
+    winX: winX, winY: winY, winW: winW, winH: winH,
+    colMin: col0, colMax: col1, rowMin: row0, rowMax: row1
+  };
+}
+
+// True when the visible tile span has come within 1 tile of a window edge
+// that still has sheet beyond it. The 1-tile hysteresis band stops the
+// window re-centring on every tile of pan.
+function _windowNeedsMove(e, vc0, vc1, vr0, vr1, fullCols, fullRows) {
+  if (vc0 <= e.colMin + 1 && e.colMin > 0) return true;
+  if (vc1 >= e.colMax - 1 && e.colMax < fullCols - 1) return true;
+  if (vr0 <= e.rowMin + 1 && e.rowMin > 0) return true;
+  if (vr1 >= e.rowMax - 1 && e.rowMax < fullRows - 1) return true;
+  return false;
+}
+
+// Re-window an existing windowed level canvas: allocate the new window,
+// blit the overlapping region across (so the move is seamless — no flash,
+// no white gap), swap the DOM node, and reconcile _tiles so records that
+// fell outside the new window get re-enqueued by _renderVisible.
+function _rewindowLevelCanvas(level, lvl, nw) {
+  var old = _levelCanvases[level];
+  if (!old) return;
+  var layer = document.getElementById('dv-tiles-layer');
+  if (!layer) return;
+
+  var nc = document.createElement('canvas');
+  var ns = nw.bufScale || 1;
+  nc.width = Math.max(1, Math.round(nw.winW * ns));
+  nc.height = Math.max(1, Math.round(nw.winH * ns));
+  nc.id = old.canvas.id;
+  var d2lX = lvl.width / _drawW, d2lY = lvl.height / _drawH;
+  nc.style.cssText =
+    'position:absolute;' +
+    'left:' + (nw.winX / d2lX) + 'px;top:' + (nw.winY / d2lY) + 'px;' +
+    'width:' + (nw.winW / d2lX) + 'px;height:' + (nw.winH / d2lY) + 'px;' +
+    'z-index:' + level + ';' +
+    'pointer-events:none;image-rendering:auto;';
+  var nctx;
+  try {
+    nctx = nc.getContext('2d', { alpha: true, willReadFrequently: false });
+  } catch (_e) {
+    nctx = nc.getContext('2d');
+  }
+  if (!nctx) return; // bail — keep the old canvas intact
+
+  // Blit the overlap (native level px → backing px on each side).
+  var ox0 = Math.max(old.winX, nw.winX);
+  var oy0 = Math.max(old.winY, nw.winY);
+  var ox1 = Math.min(old.winX + old.winW, nw.winX + nw.winW);
+  var oy1 = Math.min(old.winY + old.winH, nw.winY + nw.winH);
+  if (ox1 > ox0 && oy1 > oy0) {
+    var os = old.bufScale || 1;
+    try {
+      nctx.drawImage(
+        old.canvas,
+        (ox0 - old.winX) * os, (oy0 - old.winY) * os,
+        (ox1 - ox0) * os, (oy1 - oy0) * os,
+        (ox0 - nw.winX) * ns, (oy0 - nw.winY) * ns,
+        (ox1 - ox0) * ns, (oy1 - oy0) * ns
+      );
+    } catch (_e) { /* broken source — fall through, strip re-fetches */ }
+  }
+
+  // Swap DOM + release the old backing buffer.
+  if (old.canvas.parentNode) old.canvas.parentNode.removeChild(old.canvas);
+  try { old.canvas.width = 0; old.canvas.height = 0; } catch (_) {}
+  layer.appendChild(nc);
+
+  // Reconcile _tiles: a record for this level is only still valid if it sat
+  // inside BOTH windows (→ it was blitted across). Anything else is dropped
+  // so _renderVisible re-enqueues it when it next becomes visible.
+  var painted = 0;
+  for (var k in _tiles) {
+    if (!Object.prototype.hasOwnProperty.call(_tiles, k)) continue;
+    var t = _tiles[k];
+    if (t.level !== level) continue;
+    var inNew = (t.col >= nw.colMin && t.col <= nw.colMax &&
+                 t.row >= nw.rowMin && t.row <= nw.rowMax);
+    var inOld = (t.col >= old.colMin && t.col <= old.colMax &&
+                 t.row >= old.rowMin && t.row <= old.rowMax);
+    if (inNew && inOld) {
+      painted++;
+    } else {
+      delete _tiles[k];
+      var oi = _tileOrder.indexOf(k);
+      if (oi >= 0) _tileOrder.splice(oi, 1);
+      _tileCount--;
+    }
+  }
+
+  _levelCanvases[level] = {
+    canvas: nc, ctx: nctx, lvl: lvl, tilesPainted: painted,
+    bufScale: ns, windowed: nw.windowed,
+    winX: nw.winX, winY: nw.winY, winW: nw.winW, winH: nw.winH,
+    colMin: nw.colMin, colMax: nw.colMax, rowMin: nw.rowMin, rowMax: nw.rowMax
+  };
+  _levelWindowPlan[level] = nw;
+}
+
 function _getOrCreateLevelCanvas(level, lvl) {
   var entry = _levelCanvases[level];
   if (entry) return entry;
   var layer = document.getElementById('dv-tiles-layer');
   if (!layer) return null;
+
+  // S132 — the window is planned by _renderVisible (it holds the
+  // view-state). Fall back to the whole sheet if a tile fetch somehow lands
+  // before the first _renderVisible — defensive only; on a budgeted level
+  // _renderVisible always runs first and stashes a real window.
+  var win = _levelWindowPlan[level];
+  if (!win) {
+    win = {
+      windowed: false, bufScale: 1,
+      winX: 0, winY: 0, winW: lvl.width, winH: lvl.height,
+      colMin: 0, colMax: (lvl.cols | 0) - 1, rowMin: 0, rowMax: (lvl.rows | 0) - 1
+    };
+  }
+
   var c = document.createElement('canvas');
-  // S131 priority #1 — device-class backing-buffer budget. The level canvas
-  // was previously sized to the FULL native level resolution (L4 ≈
-  // 6144×4096 ≈ 96 MB), identical on every device. On the field tablets
-  // that single canvas + the markup canvases exhausted renderer memory →
-  // "Aw snap" crash on zoom-in. deviceMaxPixels() (shared with markup.js)
-  // caps the backing store: on a tablet L4 drops to ~12 MP / ~48 MB.
-  //   • bufScale === 1 on desktop and for any level already under budget —
-  //     identical to the previous behaviour, byte-for-byte (no scaling).
-  //   • The CSS size below stays at _drawW × _drawH, so a budgeted buffer
-  //     is simply browser-upscaled for display — the same proven pattern
-  //     markup.js uses. Tile compositing coordinates are multiplied by
-  //     bufScale at the draw + evict sites.
-  var nativePx = lvl.width * lvl.height;
-  var budgetPx = deviceMaxPixels();
-  var bufScale = nativePx > budgetPx ? Math.sqrt(budgetPx / nativePx) : 1;
-  c.width = Math.max(1, Math.round(lvl.width * bufScale));
-  c.height = Math.max(1, Math.round(lvl.height * bufScale));
+  var bufScale = win.bufScale || 1;
+  c.width = Math.max(1, Math.round(win.winW * bufScale));
+  c.height = Math.max(1, Math.round(win.winH * bufScale));
   c.id = 'dv-tiles-canvas-L' + level;
-  // CSS-scale the WHOLE canvas to drawing space. One fractional scale,
-  // applied to a single DOM element — no per-tile rounding, no seams.
-  c.style.cssText =
-    'position:absolute;left:0;top:0;' +
-    'width:' + _drawW + 'px;height:' + _drawH + 'px;' +
-    'z-index:' + level + ';' +
-    'pointer-events:none;image-rendering:auto;';
+  if (win.windowed) {
+    // Windowed: position + size the canvas to the window's drawing-space
+    // rect. The level canvas's backing store is the window at bufScale 1.0
+    // (full native resolution of the visible crop) — crisp.
+    var d2lX = lvl.width / _drawW, d2lY = lvl.height / _drawH;
+    c.style.cssText =
+      'position:absolute;' +
+      'left:' + (win.winX / d2lX) + 'px;top:' + (win.winY / d2lY) + 'px;' +
+      'width:' + (win.winW / d2lX) + 'px;height:' + (win.winH / d2lY) + 'px;' +
+      'z-index:' + level + ';' +
+      'pointer-events:none;image-rendering:auto;';
+  } else {
+    // Whole sheet — byte-for-byte the pre-S132 cssText (left:0;top:0 spanning
+    // the full drawing). One fractional CSS scale, no per-tile seams.
+    c.style.cssText =
+      'position:absolute;left:0;top:0;' +
+      'width:' + _drawW + 'px;height:' + _drawH + 'px;' +
+      'z-index:' + level + ';' +
+      'pointer-events:none;image-rendering:auto;';
+  }
   var ctx;
   try {
     ctx = c.getContext('2d', { alpha: true, willReadFrequently: false });
@@ -691,7 +913,12 @@ function _getOrCreateLevelCanvas(level, lvl) {
   }
   if (!ctx) return null;
   layer.appendChild(c);
-  entry = { canvas: c, ctx: ctx, lvl: lvl, tilesPainted: 0, bufScale: bufScale };
+  entry = {
+    canvas: c, ctx: ctx, lvl: lvl, tilesPainted: 0,
+    bufScale: bufScale, windowed: win.windowed,
+    winX: win.winX, winY: win.winY, winW: win.winW, winH: win.winH,
+    colMin: win.colMin, colMax: win.colMax, rowMin: win.rowMin, rowMax: win.rowMax
+  };
   _levelCanvases[level] = entry;
   return entry;
 }
@@ -699,12 +926,15 @@ function _getOrCreateLevelCanvas(level, lvl) {
 function _evictTileFromCanvas(tile) {
   var entry = _levelCanvases[tile.level];
   if (!entry) return;
-  // S131 priority #1 — coordinates are in native level pixels; multiply by
-  // the level canvas's backing-buffer scale (1 on desktop / under-budget
-  // levels, < 1 on a budgeted tablet level canvas).
+  // S131 — coordinates are in native level pixels; multiply by the level
+  // canvas's backing-buffer scale.
+  // S132 — and subtract the canvas's window origin. winX/winY are 0 on
+  // whole-sheet (under-budget) canvases, so this is identical to pre-S132
+  // there. On a windowed canvas it maps the tile to its slot in the window.
   var s = entry.bufScale || 1;
-  var tx = tile.col * _TILE_SIZE * s;
-  var ty = tile.row * _TILE_SIZE * s;
+  var winX = entry.winX || 0, winY = entry.winY || 0;
+  var tx = (tile.col * _TILE_SIZE - winX) * s;
+  var ty = (tile.row * _TILE_SIZE - winY) * s;
   // Clear only the actual content region. Edge tiles have tileW/tileH < 512.
   entry.ctx.clearRect(tx, ty, tile.tileW * s, tile.tileH * s);
   entry.tilesPainted--;
@@ -713,6 +943,7 @@ function _evictTileFromCanvas(tile) {
     // Force backing-buffer release. Setting w/h to 0 is the canonical idiom.
     try { entry.canvas.width = 0; entry.canvas.height = 0; } catch(_) {}
     delete _levelCanvases[tile.level];
+    delete _levelWindowPlan[tile.level];
   }
 }
 
@@ -726,6 +957,7 @@ function _disposeAllLevelCanvases() {
     }
   }
   _levelCanvases = {};
+  _levelWindowPlan = {};
 }
 
 function _touch(key) {
@@ -782,19 +1014,32 @@ function _startFetchCanvas(req, layer) {
       }
       var entry = _getOrCreateLevelCanvas(req.level, lvl);
       if (!entry) { img.src = ''; _pumpQueue(); return; }
+      // S132 — the window may have moved (re-windowed) while this fetch was
+      // in flight. If the tile is no longer inside the level canvas's
+      // window, discard it — _renderVisible re-enqueues it if it is still
+      // needed. `windowed` is false on whole-sheet canvases, so this guard
+      // never engages there (identical to pre-S132).
+      if (entry.windowed &&
+          (req.col < entry.colMin || req.col > entry.colMax ||
+           req.row < entry.rowMin || req.row > entry.rowMax)) {
+        img.src = ''; _pumpQueue(); return;
+      }
       // Source rect (0,0,tileW,tileH) clips the white-padded region of
       // edge tiles produced by sharp.extend() — same reason the <img> path
       // uses clip-path:inset() for edge tiles. Dest rect places it at the
       // tile's slot in the level canvas.
-      // S131 priority #1 — the SOURCE rect stays in native tile pixels (the
-      // decoded WebP is always native res); the DEST rect is multiplied by
-      // the level canvas's backing-buffer scale (1 on desktop / under-budget
-      // levels, < 1 when the tablet budget downscaled this level canvas).
-      // (tileX+tileW)*s === c.width for the last column, so edge tiles still
-      // land flush — no gap, no overflow.
+      // S131 — the SOURCE rect stays in native tile pixels (the decoded
+      // WebP is always native res); the DEST rect is multiplied by the
+      // level canvas's backing-buffer scale.
+      // S132 — and offset by the canvas's window origin (winX/winY are 0 on
+      // whole-sheet canvases → identical to pre-S132). (tileX+tileW-winX)*s
+      // === c.width for the window's last column, so edge tiles still land
+      // flush — no gap, no overflow.
       var s = entry.bufScale || 1;
+      var winX = entry.winX || 0, winY = entry.winY || 0;
       try {
-        entry.ctx.drawImage(img, 0, 0, tileW, tileH, tileX * s, tileY * s, tileW * s, tileH * s);
+        entry.ctx.drawImage(img, 0, 0, tileW, tileH,
+          (tileX - winX) * s, (tileY - winY) * s, tileW * s, tileH * s);
       } catch (_e) {
         // drawImage can throw on broken/blank decode; treat as load failure.
         img.src = ''; _pumpQueue(); return;
@@ -1092,10 +1337,49 @@ function _renderVisible() {
   var lvlX1 = visX1 * d2lX;
   var lvlY1 = visY1 * d2lY;
 
+  // ── S132 viewport-windowed level canvas ────────────────────────────────
+  // Plan / maintain the window the level canvas covers. _renderVisible is
+  // the one place with the view-state, so the window decision lives here.
+  //   • No canvas yet  → stash a freshly computed window for
+  //                       _getOrCreateLevelCanvas to use at lazy-create.
+  //   • Windowed canvas → re-window (seamless blit) only when the visible
+  //                       span nears an edge AND the new window differs.
+  //   • Whole-sheet canvas (under-budget level / desktop) → nothing to do;
+  //                       _computeWindow would just return the whole sheet.
+  var _le = _levelCanvases[levelIdx];
+  if (!_le) {
+    _levelWindowPlan[levelIdx] = _computeWindow(lvl, lvlX0, lvlY0, lvlX1, lvlY1);
+  } else if (_le.windowed) {
+    var _vc0 = Math.max(0, Math.min(lvl.cols - 1, Math.floor(lvlX0 / _TILE_SIZE)));
+    var _vc1 = Math.max(0, Math.min(lvl.cols - 1, Math.floor((lvlX1 - 1e-3) / _TILE_SIZE)));
+    var _vr0 = Math.max(0, Math.min(lvl.rows - 1, Math.floor(lvlY0 / _TILE_SIZE)));
+    var _vr1 = Math.max(0, Math.min(lvl.rows - 1, Math.floor((lvlY1 - 1e-3) / _TILE_SIZE)));
+    if (_windowNeedsMove(_le, _vc0, _vc1, _vr0, _vr1, lvl.cols, lvl.rows)) {
+      var _nw = _computeWindow(lvl, lvlX0, lvlY0, lvlX1, lvlY1);
+      if (_nw.windowed &&
+          (_nw.colMin !== _le.colMin || _nw.colMax !== _le.colMax ||
+           _nw.rowMin !== _le.rowMin || _nw.rowMax !== _le.rowMax)) {
+        _rewindowLevelCanvas(levelIdx, lvl, _nw);
+        _le = _levelCanvases[levelIdx];
+      }
+    }
+  }
+
   var colMin = Math.max(0, Math.floor(lvlX0 / _TILE_SIZE) - 1);
   var colMax = Math.min(lvl.cols - 1, Math.ceil(lvlX1 / _TILE_SIZE));
   var rowMin = Math.max(0, Math.floor(lvlY0 / _TILE_SIZE) - 1);
   var rowMax = Math.min(lvl.rows - 1, Math.ceil(lvlY1 / _TILE_SIZE));
+
+  // S132 — clamp enumeration to the level canvas's window so we never
+  // enqueue a tile that has no slot on the canvas. Whole-sheet levels: the
+  // window IS the sheet, so the clamp is a no-op (identical to pre-S132).
+  var _aw = _le || _levelWindowPlan[levelIdx];
+  if (_aw && _aw.windowed) {
+    colMin = Math.max(colMin, _aw.colMin);
+    colMax = Math.min(colMax, _aw.colMax);
+    rowMin = Math.max(rowMin, _aw.rowMin);
+    rowMax = Math.min(rowMax, _aw.rowMax);
+  }
 
   // First pass: enqueue missing, touch cached.
   for (var col = colMin; col <= colMax; col++) {
