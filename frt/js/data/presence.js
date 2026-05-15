@@ -151,8 +151,6 @@ function _onUnload() {
   // don't rely on it — STALE_MS handles the cleanup either way.
   if (_disabled || !_projectId || !_userId) return;
   try {
-    var url = Auth.SUPABASE_URL + '/rest/v1/project_presence'
-      + '?user_id=eq.' + _userId + '&project_id=eq.' + _projectId;
     var token = Auth.getToken && Auth.getToken();
     if (navigator.sendBeacon && token) {
       // sendBeacon doesn't support DELETE — skip; rely on STALE_MS instead.

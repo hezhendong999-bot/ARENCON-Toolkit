@@ -318,7 +318,6 @@ function _pushItems(d,ctrName){
       }
       return ctrName;
     });
-    var distinctCtrs=obsEffCtrs.filter(function(v,i,a){return a.indexOf(v)===i;});
     // S121 Push 3: universal suffixing — every obs of a multi-obs pin
     // gets a letter suffix (#3-A, #3-B), regardless of contractor span.
     // Pre-S121 only cross-contractor pins got suffixes; same-contractor
@@ -683,7 +682,7 @@ if(isField&&p.drawings&&p.drawings.length){
 }
 
 // Render pages
-var totalPages=pages.length;var allH='';
+var allH='';
 pages.forEach(function(pg,idx){
   var pn=idx+1;allH+='<div class="page">';
   if(pn>1)allH+=_compactHeader(pn);

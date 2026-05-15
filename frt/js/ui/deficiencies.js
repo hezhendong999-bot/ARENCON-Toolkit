@@ -400,7 +400,6 @@ function _amRenderThumbs() {
 
 // ── Deficiency Card (interactive) ────────────────────────
 function buildDeficCard(d, ctrId) {
-  var obs = d.observations || [];
   // S121 Push 8: ALL pins (single-obs and multi-obs) now render through
   // _buildPinGroupCard. Mark feedback: Active and Site General tabs
   // looked different — single-obs used the old compact layout while
@@ -444,41 +443,19 @@ function _buildActEntryHtml(a, deficId) {
 
 function _buildPinGroupCard(d, ctrId) {
   var obs = d.observations || [];
-  var p = (typeof Model !== 'undefined' && Model.getProject) ? Model.getProject() : null;
   var effStatus = Model.getEffectiveStatus(d);
   var effPri = Model.getEffectivePriority(d);
   var isOpen = effStatus === 'open';
   var isClosed = effStatus === 'closed';
   var circleColor = isClosed ? '#5F8068' : '#A85959';
 
-  // Cross-contractor suffix detection (mirrors flattenForTabs / _pushItems).
-  // When a pin's obs span more than one effective contractor, every obs
-  // gets a letter suffix on its label (#4-A, #4-B, ...). Same-contractor
-  // multi-obs pins keep plain #N labels.
-  var parentCtrName;
-  if (!ctrId || ctrId === '__general__') {
-    parentCtrName = 'Site General';
-  } else {
-    var fc = (p && p.contractors || []).find(function(c) { return c.id === ctrId; });
-    parentCtrName = fc ? fc.name : '';
-  }
-  var obsEffCtrs = obs.map(function(o) {
-    if (o && o.contractorId && p) {
-      var c = (p.contractors || []).find(function(c) { return c.id === o.contractorId; });
-      if (c) return c.name;
-    }
-    return parentCtrName;
-  });
-  var distinctCtrs = obsEffCtrs.filter(function(v, i, a) { return a.indexOf(v) === i; });
-  // S121 Push 3: universal suffixing — every obs of a multi-obs pin gets
-  // a letter suffix (#3-A, #3-B), regardless of whether obs span multiple
-  // contractors. Same-contractor multi-obs pins were getting duplicate
-  // labels (#3 / #3) which Mark flagged as confusing. Cross-contractor
-  // pins still produce the same -A/-B labels they did before.
+  // S133 — cross-contractor detection block removed. After the S121 Push 3
+  // change to universal suffixing (every obs of a multi-obs pin gets a
+  // letter, regardless of contractor span), the cross-contractor distinction
+  // is no longer needed here. The `needsSuffix = obs.length > 1` check below
+  // is the whole rule. Per-obs effective contractor IS still computed where
+  // it's actually consumed (Summary table flatten, PDF `_pushItems`).
   var needsSuffix = obs.length > 1;
-
-  var effPriColor = effPri === 'general' ? '#5F8068' : effPri === 'low' ? '#B07F5A' : '#A85959';
-  var effPriLabel = effPri.charAt(0).toUpperCase() + effPri.slice(1);
 
   var h = '<div class="defic-pin-group" data-defic-id="' + esc(d.id) + '" data-status="' + esc(effStatus) + '">';
 
@@ -527,8 +504,6 @@ function _buildPinGroupCard(d, ctrId) {
 
     var _aiDot = o.aiReviewed ? '<span class="ai-rev-dot" title="AI reviewed"></span>' : '';
     var obsPriVal = o.priority || d.priority || 'high';
-    var obsPriColor = obsPriVal === 'general' ? '#5F8068' : obsPriVal === 'low' ? '#B07F5A' : '#A85959';
-    var obsPriLabel = obsPriVal.charAt(0).toUpperCase() + obsPriVal.slice(1);
     var obsAddressed = !!o.addressed;
     var multiObs = (obs.length > 1);
 
@@ -801,7 +776,6 @@ function buildGroup(ctrId, name, items, totalCount) {
   // export uses for its contractor section headers, so on-screen and
   // printed colors match exactly.
   var ctrCol = getContractorColor(name);
-  var ctrCls = ctrCol.cls;
   var accentCol = ctrCol.accent;
 
   var h = '<div class="defic-group" data-ctr-id="' + esc(ctrId || '__general__') + '">';

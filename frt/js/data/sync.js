@@ -104,7 +104,6 @@ function _guardEmptyArrays(cloudData, label) {
   if (!cloudData || typeof cloudData !== 'object') return cloudData;
   var localProj = Model.getProject();
   if (!localProj) return cloudData;
-  var firedAny = false;
   _GUARDED_ARRAY_FIELDS.forEach(function(field) {
     var cloudArr = cloudData[field];
     var localArr = localProj[field];
@@ -113,7 +112,6 @@ function _guardEmptyArrays(cloudData, label) {
         Array.isArray(localArr) && localArr.length > 0) {
       cloudData[field] = JSON.parse(JSON.stringify(localArr));
       _emptyArrayGuardFires++;
-      firedAny = true;
       var entry = {
         at: new Date().toISOString(),
         path: label + '.' + field,

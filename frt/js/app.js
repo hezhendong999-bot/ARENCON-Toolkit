@@ -400,12 +400,12 @@ function _showQR() {
   overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
 
   // Load qrcodejs if not already loaded
-  if (typeof QRCode !== 'undefined') {
-    new QRCode(overlay.querySelector('#qr-canvas'), { text: url, width: 200, height: 200 });
+  if (typeof window.QRCode !== 'undefined') {
+    new window.QRCode(overlay.querySelector('#qr-canvas'), { text: url, width: 200, height: 200 });
   } else {
     var s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-    s.onload = function() { new QRCode(overlay.querySelector('#qr-canvas'), { text: url, width: 200, height: 200 }); };
+    s.onload = function() { new window.QRCode(overlay.querySelector('#qr-canvas'), { text: url, width: 200, height: 200 }); };
     s.onerror = function() {
       var c = overlay.querySelector('#qr-canvas');
       if (c) c.innerHTML = '<div style="padding:20px;color:#C0392B;">QR library failed to load</div>';
@@ -1375,8 +1375,8 @@ function boot() {
   // 2. Load logo (async)
   loadLogo();
 
-  // 3. Detect Hub mode
-  var mode = detectHubMode();
+  // 3. Detect Hub mode (sets _hubMode / _projectId / wires logo+back button)
+  detectHubMode();
 
   // 4. Wire all event listeners
   wireEvents();
@@ -1774,7 +1774,6 @@ function _issueReport() {
   var bg = isDark ? '#1e2533' : '#fff';
   var fg = isDark ? '#d0d8f0' : '#1C2333';
   var fg2 = isDark ? '#8a94b0' : '#4A5568';
-  var bdr = isDark ? '#2a3040' : '#DDE1E7';
 
   var modal = document.createElement('div');
   modal.id = 'issue-modal-overlay';
