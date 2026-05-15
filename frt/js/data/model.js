@@ -224,6 +224,27 @@ function _autoDedup(proj) {
 }
 
 // ── Public API ───────────────────────────────────────────
+
+/**
+ * S134: Trade list for trade-based grouping (fixed, life-safety order).
+ * Used by UI dropdown and PDF report grouping. AI worker `trade_tag` mode
+ * (S136) will tag obs against this same list. Manual override stores any
+ * value here as `obs.trade`. Empty string means "untagged."
+ *
+ * Order matters: this is the display order in trade-grouped reports.
+ * Empty trades suppressed.
+ */
+export var TRADE_LIST = [
+  'Fire Alarm',
+  'Sprinkler',
+  'Standpipe',
+  'Fire Pump',
+  'Smoke Control',
+  'Passive/Separations',
+  'Kitchen Hood',
+  'Extinguishers'
+];
+
 export var Model = {
 
   getProject: function() { return _project; },
@@ -256,7 +277,11 @@ export var Model = {
               notedOnInstance: d.notedOnInstance || _migInst,
               notedDate: d.notedDate || _migToday,
               addressed: e._addressed || false,
-              createdBy: d.createdBy || null
+              createdBy: d.createdBy || null,
+              // ── S134: trade-based grouping schema ──
+              trade: '',
+              tradeSource: 'ai',
+              repeatCount: 1
             };
           });
         }
@@ -282,6 +307,14 @@ export var Model = {
             o.addressedOnInstance = d.closedOnInstance || _migInst;
             o.addressedDate = d.closedDate || _migToday;
           }
+          // ── S134: trade schema backfill (idempotent) ──
+          // Pre-S134 projects (and projects with legacy iar:true) have no
+          // trade fields. Backfill safe defaults so the new dropdown reads
+          // sensible values. iar:true silently degrades — the field stays
+          // in JSON, just no longer rendered. No data conversion.
+          if (o.trade === undefined) o.trade = '';
+          if (o.tradeSource === undefined) o.tradeSource = 'ai';
+          if (o.repeatCount === undefined) o.repeatCount = 1;
         });
         // ── S120: photo pool migration (one-shot, idempotent) ──
         // Bulk-migrate legacy obs.photos[] into defic.photos[] pool, preserve
@@ -558,7 +591,11 @@ export var Model = {
         notedDate: today,
         addressed: false,
         priority: 'high',                    // S119: per-obs priority
-        createdBy: _currentUserId || null   // S83
+        createdBy: _currentUserId || null,   // S83
+        // ── S134: trade-based grouping schema ──
+        trade: '',
+        tradeSource: 'ai',
+        repeatCount: 1
       }],
       photos: [],
       activity: []
@@ -815,7 +852,11 @@ export var Model = {
       notedDate: today,
       addressed: false,
       priority: inheritPri,                // S119: per-obs priority
-      createdBy: _currentUserId || null  // S83
+      createdBy: _currentUserId || null,   // S83
+      // ── S134: trade-based grouping schema ──
+      trade: '',
+      tradeSource: 'ai',
+      repeatCount: 1
     };
     if (!f.defic.observations) f.defic.observations = [];
     f.defic.observations.push(obs);
@@ -933,6 +974,25 @@ export var Model = {
     _dirty = true;
     _queueSave();
     this._notify('observation', { action: 'priority', deficId: deficId, obsIdx: obsIdx, priority: priority });
+  },
+
+  // ── S134: per-observation trade mutation ──
+  // Sets obs.trade and obs.tradeSource. Manual override marks tradeSource
+  // as 'manual' so the AI tagger (S136) will never overwrite it. Setting
+  // an empty trade with source='manual' is a valid "user cleared the AI
+  // guess" state. The AI worker will refuse to retag any obs with
+  // tradeSource === 'manual'. Source defaults to 'manual' when invoked
+  // from the UI dropdown; AI worker callers pass 'ai' explicitly.
+  updateObsTrade: function(deficId, obsIdx, trade, source) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return;
+    var obs = f.defic.observations || [];
+    if (!obs[obsIdx]) return;
+    obs[obsIdx].trade = trade || '';
+    obs[obsIdx].tradeSource = (source === 'ai') ? 'ai' : 'manual';
+    _dirty = true;
+    _queueSave();
+    this._notify('observation', { action: 'trade', deficId: deficId, obsIdx: obsIdx, trade: obs[obsIdx].trade, tradeSource: obs[obsIdx].tradeSource });
   },
 
   // S119: effective pin priority — highest priority across all observations.
