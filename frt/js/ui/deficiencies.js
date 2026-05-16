@@ -897,10 +897,8 @@ function _renderTradeBoard(proj) {
   });
   h += '<button class="trade-add-col" data-action="show-add-trade">+ trade</button>';
   h += '</div>';
-  // Site General quick-add (preserved until Phase 2 unified + deficiency modal)
-  h += '<div class="trade-board-foot">';
-  h += '<button class="btn btn-sm tb-general-btn" data-action="add-general">+ General Deficiency</button>';
-  h += '</div>';
+  // S138: trade-board-foot "+ General Deficiency" removed — superseded by
+  // the single unified "+ deficiency" trigger at the foot of every view.
   el.innerHTML = h;
 }
 
@@ -1035,6 +1033,11 @@ export var initDeficiencies = {
     } else {
       _renderDetailedView(proj, container);
     }
+    // S138: single unified "+ deficiency" trigger at the foot of every view.
+    // Replaces the per-contractor "+ Add Deficiency" rows (Detailed) and the
+    // trade-board-foot "+ General Deficiency" button. Contractor / trade /
+    // pin / recommendation are all chosen inside the modal.
+    container.insertAdjacentHTML('beforeend', _addDeficTriggerHTML());
     // S114 P1.6: re-render any open AI scratchpads now that the DOM is fresh
     if (window.AIAssist && window.AIAssist.repopulateAllScratchpads) {
       window.AIAssist.repopulateAllScratchpads();
@@ -1150,12 +1153,19 @@ function _renderDetailedView(proj, container) {
   pinOrder.forEach(function(id) {
     var e = pinAgg[id];
     var t = repTrade(e.d);
-    if (!t && !e.ctrId) { siteGeneral.pins.push(e); siteGeneral.count += e.count; return; }
+    // S138 (Option 2 / additive): an explicit recommendation flag forces the
+    // Recommendations grouping and wins over an assigned contractor. The
+    // legacy no-contractor+trade derivation is preserved via `|| !e.ctrId`,
+    // so existing data (all isRecommendation:false after backfill) renders
+    // byte-identical — only newly-flagged items relocate.
+    var isRecPin = !!e.d.isRecommendation;
+    if (!t && !e.ctrId && !isRecPin) { siteGeneral.pins.push(e); siteGeneral.count += e.count; return; }
     var tk = t || UNTAGGED;
     if (!tradeMap[tk]) { tradeMap[tk] = { name: tk, count: 0, ctrKeys: [], ctrs: {} }; tradeSeen.push(tk); }
     var T = tradeMap[tk];
-    var ck = e.ctrId || '__rec__';
-    if (!T.ctrs[ck]) { T.ctrs[ck] = { ctrId: e.ctrId || null, name: e.ctrId ? e.ctrName : 'Recommendations', pins: [], count: 0 }; T.ctrKeys.push(ck); }
+    var asRec = isRecPin || !e.ctrId;
+    var ck = asRec ? '__rec__' : e.ctrId;
+    if (!T.ctrs[ck]) { T.ctrs[ck] = { ctrId: asRec ? null : e.ctrId, name: asRec ? 'Recommendations' : e.ctrName, pins: [], count: 0 }; T.ctrKeys.push(ck); }
     T.ctrs[ck].pins.push(e);
     T.ctrs[ck].count += e.count;
     T.count += e.count;
@@ -1194,9 +1204,6 @@ function _renderDetailedView(proj, container) {
       }
       h += '<div class="dfx-pingrp">';
       C.pins.forEach(function(e) { h += _buildPinGroupCard(e.d, C.ctrId); });
-      if (ck !== '__rec__') {
-        h += '<div class="dfx-add-defic-row"><button class="btn btn-outline btn-sm" data-action="add-defic" data-ctr-id="' + esc(C.ctrId || '') + '">+ Add Deficiency</button></div>';
-      }
       h += '</div>';
     });
     h += '</div>';
@@ -1207,7 +1214,6 @@ function _renderDetailedView(proj, container) {
     h += '<div class="dfx-trade-banner grey"><span>Site General \u00B7 Recommendations</span><span class="dfx-trade-count">' + siteGeneral.count + '</span></div>';
     h += '<div class="dfx-pingrp">';
     siteGeneral.pins.forEach(function(e) { h += _buildPinGroupCard(e.d, null); });
-    h += '<div class="dfx-add-defic-row"><button class="btn btn-outline btn-sm" data-action="add-defic" data-ctr-id="">+ Add Deficiency</button></div>';
     h += '</div></div>';
   }
 
@@ -1279,7 +1285,7 @@ function _renderTableView(proj, container) {
     var numCls = closed ? 'closed' : (pri === 'low' ? 'low' : pri === 'general' ? 'general' : '');
     h += '<tr class="' + (closed ? 'dfx-closed' : '') + '" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '">'
       + '<td><span class="dfx-tbl-num ' + numCls + '">#' + esc(_dfxObsLabel(d, oi)) + '</span></td>'
-      + '<td>' + (trade ? esc(trade) : '<em style="color:var(--silver);">none</em>') + '</td>'
+      + '<td>' + (trade ? esc(trade) : '<em style="color:var(--silver);">none</em>') + (d.isRecommendation ? ' <span class="dfx-tbl-rec">(rec)</span>' : '') + '</td>'
       + '<td>' + (r.ctrId ? '<span class="dfx-tbl-ctr" style="--cc:' + esc(_dfxCtrColor(proj, r.ctrId)) + ';"></span>' : '') + esc(cName) + '</td>'
       + '<td>' + esc(desc) + '</td>'
       + '<td><span class="dfx-status-mini ' + (pri === 'low' ? 'low' : pri === 'general' ? 'general' : 'high') + '">' + esc(pri.toUpperCase()) + '</span></td>'
@@ -1321,6 +1327,7 @@ function _renderBoardView(proj, container) {
       + '<div class="dfx-bv-card-text">' + esc(desc) + '</div>'
       + '<div class="dfx-bv-card-bottom">'
       + _dfxThumb(d, oi, 'dfx-bv-card-thumb')
+      + (d.isRecommendation ? '<span class="dfx-bv-rec">REC</span>' : '')
       + '<span class="dfx-bv-card-trade">' + esc(trade || 'untagged') + '</span>'
       + '</div></div>';
   }
@@ -1336,6 +1343,109 @@ function _renderBoardView(proj, container) {
     + col('g', 'General', buckets.general)
     + col('c', 'Closed', buckets.closed)
     + '</div>';
+}
+
+// ── S138: unified "+ deficiency" trigger + modal ─────────────────
+// One trigger card at the foot of every view. The modal collects
+// description / priority / contractor / trade / pin / recommendation,
+// then creates through existing Model methods (addDeficiency +
+// updateObservation/updateObsPriority/updateObsTrade); the additive
+// isRecommendation / drawingId are set on the returned defic (the
+// same object-mutation precedent used by spin-off). Persists via
+// Model.saveNow() (the established UI create path).
+function _addDeficTriggerHTML() {
+  return '<div class="dfx-add-defic-card" data-action="open-add-defic" role="button" tabindex="0">'
+    + '<span class="dfx-add-defic-plus">+</span>'
+    + '<span class="dfx-add-defic-main">deficiency</span>'
+    + '<span class="dfx-add-defic-hint">creates an item \u2014 assign contractor / trade / pin in the dialog, or skip and add later</span>'
+    + '</div>';
+}
+
+function _closeAddDeficModal() {
+  var ov = document.getElementById('add-defic-overlay');
+  if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+}
+
+function _openAddDeficModal() {
+  _closeAddDeficModal();
+  var proj = Model.getProject();
+  if (!proj) return;
+
+  var ctrOpts = '<option value="">\u2014 None (Site General) \u2014</option>';
+  (proj.contractors || []).forEach(function(c) {
+    ctrOpts += '<option value="' + esc(c.id) + '">' + esc(c.name || 'Unnamed') + '</option>';
+  });
+  var trOpts = '<option value="">\u2014 None \u2014</option>';
+  (proj.projectTrades || []).forEach(function(t) {
+    trOpts += '<option value="' + esc(t) + '">' + esc(t) + '</option>';
+  });
+  var pinOpts = '<option value="">\u2014 Add later from drawing \u2014</option>';
+  (proj.drawings || []).forEach(function(dw) {
+    if (!dw || !dw.id) return;
+    pinOpts += '<option value="' + esc(dw.id) + '">' + esc(dw.name || dw.fileName || 'Drawing') + '</option>';
+  });
+
+  var ov = document.createElement('div');
+  ov.id = 'add-defic-overlay';
+  ov.className = 'adf-overlay';
+  var h = '<div class="adf-modal" role="dialog" aria-label="New deficiency">';
+  h += '<div class="adf-title">+ New deficiency</div>';
+  h += '<div class="adf-row"><label for="adf-text">Description</label>'
+     + '<textarea id="adf-text" placeholder="Describe the observation\u2026"></textarea></div>';
+  h += '<div class="adf-row"><label for="adf-pri">Priority</label>'
+     + '<select id="adf-pri"><option value="high">High</option>'
+     + '<option value="low">Low</option><option value="general">General</option></select></div>';
+  h += '<div class="adf-row"><label for="adf-ctr">Contractor</label>'
+     + '<select id="adf-ctr">' + ctrOpts + '</select></div>';
+  h += '<div class="adf-row"><label for="adf-trade">Trade</label>'
+     + '<select id="adf-trade">' + trOpts + '</select></div>';
+  h += '<div class="adf-row"><label for="adf-pin">Pin location</label>'
+     + '<select id="adf-pin">' + pinOpts + '</select></div>';
+  h += '<div class="adf-checkrow" id="adf-recrow">'
+     + '<input type="checkbox" id="adf-rec">'
+     + '<label for="adf-rec">This is a <strong>recommendation</strong> \u2014 a note for owner/client consideration; doesn\u2019t block sign-off</label>'
+     + '</div>';
+  h += '<div class="adf-actions">'
+     + '<button class="adf-btn secondary" id="adf-cancel">Cancel</button>'
+     + '<button class="adf-btn" id="adf-add">Add</button>'
+     + '</div>';
+  h += '</div>';
+  ov.innerHTML = h;
+  document.body.appendChild(ov);
+
+  var txt = ov.querySelector('#adf-text');
+  setTimeout(function() { if (txt) txt.focus(); }, 50);
+
+  function doCreate() {
+    var text = (txt && txt.value || '').trim();
+    if (!text) { toast('Enter a description first'); if (txt) txt.focus(); return; }
+    var ctrId = (ov.querySelector('#adf-ctr').value) || null;
+    var d = Model.addDeficiency(ctrId);
+    if (!d) { toast('\u26A0 Could not create deficiency'); return; }
+    Model.updateObservation(d.id, 0, text);
+    Model.updateObsPriority(d.id, 0, ov.querySelector('#adf-pri').value || 'high');
+    var tr = ov.querySelector('#adf-trade').value || '';
+    Model.updateObsTrade(d.id, 0, tr, 'manual');
+    // Additive fields — set on the returned live defic (spin-off precedent).
+    d.isRecommendation = !!ov.querySelector('#adf-rec').checked;
+    var pin = ov.querySelector('#adf-pin').value;
+    if (pin) d.drawingId = pin;   // pinX/pinY stay null — placed later on the drawing
+    Model.saveNow();
+    _closeAddDeficModal();
+    // A freshly created obs is unaddressed → ensure it is visible under the
+    // Active pivot (it would be hidden if the user was viewing Closed).
+    _activeDlcTab = 'active';
+    initDeficiencies.render();
+    toast('Added #' + d.num);
+  }
+
+  ov.addEventListener('click', function(e) {
+    if (e.target === ov || e.target.id === 'adf-cancel') { _closeAddDeficModal(); return; }
+    if (e.target.id === 'adf-add') { doCreate(); return; }
+    if (e.target.id === 'adf-recrow' || (e.target.tagName === 'STRONG' && e.target.closest('#adf-recrow'))) {
+      var cb = ov.querySelector('#adf-rec'); if (cb) cb.checked = !cb.checked; return;
+    }
+  });
 }
 
 // Sync the control bar to current state: pivot counts, active classes,
@@ -1507,6 +1617,11 @@ document.addEventListener('click', function(e) {
         if (yes) { Model.removeContractor(ctrId); initDeficiencies.render(); toast('Removed: ' + ctrName); }
       });
     }
+  }
+
+  if (action === 'open-add-defic') {
+    _openAddDeficModal();
+    return;
   }
 
   if (action === 'add-defic') {

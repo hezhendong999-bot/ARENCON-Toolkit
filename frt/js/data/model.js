@@ -330,6 +330,12 @@ export var Model = {
           d.observations[0].text = d.description;
         }
         delete d.description;
+        // ── S138: recommendation flag backfill (idempotent, additive) ──
+        // Defaults false on legacy data. Existing grouping is unchanged:
+        // the UI still derives "Recommendations" from no-contractor+trade
+        // (Option 2 / additive). The explicit flag, when true, also forces
+        // Recommendations grouping (and wins over an assigned contractor).
+        if (d.isRecommendation === undefined) d.isRecommendation = false;
         // ── S119: per-observation priority + addressed metadata backfill ──
         // Idempotent. Each obs gets its own priority (defaults to pin-level
         // priority if missing) so the pin editor's priority buttons can mutate
@@ -651,6 +657,7 @@ export var Model = {
       status: 'open',
       priority: 'general',
       category: '',
+      isRecommendation: false,             // S138: recommendation flag (additive; default false)
       drawingId: null,
       pinX: null, pinY: null,
       date: today,

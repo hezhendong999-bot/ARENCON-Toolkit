@@ -1693,6 +1693,7 @@ document.addEventListener('keydown', function(e) {
   // Priority order: most-recently-opened first
   var modalIds = [
     'gp-overlay',              // gallery picker (P1.8)
+    'add-defic-overlay',       // S138: unified + deficiency modal
     'activity-modal-overlay',  // Add Activity / Contractor Response / ARENCON Comment
     'ph-reassign-overlay',     // S121: photo reassign confirm (photos.js)
     'pin-editor-overlay',      // pin editor
