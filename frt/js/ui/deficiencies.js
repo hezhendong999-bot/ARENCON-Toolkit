@@ -10,7 +10,7 @@
  *   - Lifecycle tabs (Active / Site General / Closed)
  */
 
-import { Model, TRADE_LIST } from '../data/model.js';
+import { Model, TRADE_LIST, SITE_RECORDS_LABEL } from '../data/model.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm, showPrompt, showDialog } from '../shared/dialogs.js';
 import { R2 } from '../data/r2.js';
@@ -1102,7 +1102,7 @@ function _flatRows(proj, ignorePivot) {
       if (_dfxPri) return;            // no obs → no priority to match
       if (_dfxRecOnly && !d.isRecommendation) return;
       if (q && (deficDesc(d) || '').toLowerCase().indexOf(q) < 0) return;
-      rows.push({ d: d, o: null, oi: -1, ctrId: rec.contractorId || null, ctrName: rec.contractorName || 'Site General' });
+      rows.push({ d: d, o: null, oi: -1, ctrId: rec.contractorId || null, ctrName: rec.contractorName || SITE_RECORDS_LABEL });
       return;
     }
     obs.forEach(function(o, oi) {
@@ -1113,7 +1113,7 @@ function _flatRows(proj, ignorePivot) {
       if (_dfxPri && (o.priority || 'high') !== _dfxPri) return;
       if (_dfxRecOnly && !d.isRecommendation) return;
       if (q && (o.text || '').toLowerCase().indexOf(q) < 0) return;
-      rows.push({ d: d, o: o, oi: oi, ctrId: rec.contractorId || null, ctrName: rec.contractorName || 'Site General' });
+      rows.push({ d: d, o: o, oi: oi, ctrId: rec.contractorId || null, ctrName: rec.contractorName || SITE_RECORDS_LABEL });
     });
   });
   return rows;
@@ -1138,9 +1138,19 @@ function _renderDetailedView(proj, container) {
     pinAgg[id].count++;
   });
 
-  function repTrade(d) {
-    var o0 = (d.observations && d.observations[0]) ? d.observations[0] : null;
-    return (o0 && o0.trade) ? o0.trade : '';
+  // S140 B2a (Model 2 §4.3): a pin's trade now uses the canonical
+  // Model.derivePinTrade fallback — obs[0].trade, ELSE the parent
+  // contractor's SOLE declared trade, ELSE none. The old repTrade() read
+  // only obs[0].trade, which is exactly why a pin on a contractor that
+  // was assigned a single trade via the Trade Board (e.g. Vipond →
+  // Sprinkler) still rendered under "Untagged". Same helper pdf.js will
+  // call in B3 so the on-screen grouping and the PDF agree.
+  function ctrOf(ctrId) {
+    if (!ctrId) return null;
+    return (proj.contractors || []).find(function(x) { return x.id === ctrId; }) || null;
+  }
+  function pinTrade(e) {
+    return Model.derivePinTrade(e.d, ctrOf(e.ctrId));
   }
   function ctrColor(ctrId) {
     if (!ctrId) return '#6B7280';
@@ -1148,14 +1158,18 @@ function _renderDetailedView(proj, container) {
     return (c && c.color) ? c.color : '#6B7280';
   }
 
-  var UNTAGGED = '\u2014 Untagged \u2014';
+  // S140 B2a: the literal "Untagged" banner is retired (Model 2 §4.2).
+  // No-trade pins render under "Other Trade Items"; the user reassigns
+  // from there. (B2c gives this its own distinct band styling — B2a is
+  // the label-only change so the bug-fix commit stays minimal.)
+  var UNTAGGED = 'Other Trade Items';
   var tradeMap = {};          // tradeKey -> { name, count, ctrKeys[], ctrs{} }
   var tradeSeen = [];
   var siteGeneral = { pins: [], count: 0 };
 
   pinOrder.forEach(function(id) {
     var e = pinAgg[id];
-    var t = repTrade(e.d);
+    var t = pinTrade(e);
     if (!t && !e.ctrId) { siteGeneral.pins.push(e); siteGeneral.count += e.count; return; }
     var tk = t || UNTAGGED;
     if (!tradeMap[tk]) { tradeMap[tk] = { name: tk, count: 0, ctrKeys: [], ctrs: {} }; tradeSeen.push(tk); }
@@ -1167,7 +1181,7 @@ function _renderDetailedView(proj, container) {
     T.count += e.count;
   });
 
-  // Trade order: declared projectTrades first, then any extras, Untagged last.
+  // Trade order: declared projectTrades first, then any extras, Other Trade Items last.
   var orderedTrades = [];
   (proj.projectTrades || []).forEach(function(t) { if (tradeMap[t]) orderedTrades.push(t); });
   tradeSeen.forEach(function(t) { if (orderedTrades.indexOf(t) < 0 && t !== UNTAGGED) orderedTrades.push(t); });
@@ -1289,7 +1303,7 @@ function _renderTableView(proj, container) {
     var closed = (oi >= 0) ? !!o.addressed : deficIsClosed(d);
     var pri = (oi >= 0) ? (o.priority || 'high') : (Model.getEffectivePriority(d) || 'high');
     var trade = (oi >= 0 ? (o.trade || '') : ((d.observations && d.observations[0] && d.observations[0].trade) || ''));
-    var cName = r.ctrId ? r.ctrName : 'Site General';
+    var cName = r.ctrId ? r.ctrName : SITE_RECORDS_LABEL;
     var desc = (oi >= 0) ? (o.text || '') : deficDesc(d);
     var numCls = closed ? 'closed' : (pri === 'low' ? 'low' : pri === 'general' ? 'general' : '');
     h += '<tr class="' + (closed ? 'dfx-closed' : '') + '" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '">'
@@ -1324,7 +1338,7 @@ function _renderBoardView(proj, container) {
 
   function card(r) {
     var d = r.d, o = r.o, oi = r.oi;
-    var cName = r.ctrId ? r.ctrName : 'Site General';
+    var cName = r.ctrId ? r.ctrName : SITE_RECORDS_LABEL;
     var cColor = _dfxCtrColor(proj, r.ctrId);
     var trade = (oi >= 0 ? (o.trade || '') : ((d.observations && d.observations[0] && d.observations[0].trade) || ''));
     var desc = (oi >= 0) ? (o.text || '') : deficDesc(d);
