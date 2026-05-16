@@ -6528,3 +6528,431 @@ body.dark-mode .trade-banner {
 }
 
 /* End S134 ──────────────────────────────────────────────────────── */
+
+
+/* ════════════════════════════════════════════════════════════════════
+   S136 Phase 1b — TRADE BOARD + SMART PICKER
+   Replaces "Contractors on Site" pill row. Kanban layout with one column
+   per project trade. Schema: project.projectTrades, contractor.trades,
+   contractor.color (Phase 1a, model.js).
+   Light-default + body.dark-mode override (FRT convention).
+   ════════════════════════════════════════════════════════════════════ */
+
+.trade-board-section {
+  background: #FFFFFF;
+  border: 1px solid #DDE1E7;
+  border-radius: 8px;
+  margin: 12px 0 8px;
+  padding: 0;
+  overflow: hidden;
+}
+body.dark-mode .trade-board-section {
+  background: #252B3D;
+  border-color: #3A4258;
+}
+
+.trade-board-title {
+  font-size: calc(11px + var(--ts));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6B7280;
+  padding: 10px 14px 6px;
+  border-bottom: 1px solid #ECEEF1;
+}
+body.dark-mode .trade-board-title {
+  color: #8A94B0;
+  border-bottom-color: #2A3247;
+}
+
+.trade-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+
+.trade-col {
+  background: #F7F8FA;
+  border: 1px solid #DDE1E7;
+  border-radius: 6px;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+}
+body.dark-mode .trade-col {
+  background: #2A3247;
+  border-color: #3A4258;
+}
+
+.trade-col-hdr {
+  background: #2A3A5C;         /* navy, matches .th */
+  color: white;
+  padding: 5px 10px;
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: 0.3px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 6px 6px 0 0;
+}
+
+.trade-col-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trade-col-hdr-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.trade-col-count {
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+  font-weight: 700;
+  font-size: 10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trade-col-del {  /* × on custom trade columns */
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+  margin-left: 2px;
+  line-height: 1;
+}
+.trade-col-del:hover { color: white; }
+@media (pointer: coarse) {
+  .trade-col-del { font-size: 16px; padding: 2px 6px; }
+}
+
+.trade-col-body {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+/* Contractor card — colored left border = contractor.color */
+.ctr-card {
+  background: #FFFFFF;
+  border-top: 1px solid #DDE1E7;
+  border-right: 1px solid #DDE1E7;
+  border-bottom: 1px solid #DDE1E7;
+  border-left: 4px solid var(--cc, #6B7280);
+  border-radius: 4px;
+  padding: 5px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(12.5px + var(--ts));
+  color: #1C2333;
+  cursor: pointer;
+  line-height: 1.25;
+  transition: background 0.12s;
+}
+.ctr-card:hover { background: #F4F5F7; }
+body.dark-mode .ctr-card {
+  background: #353D54;
+  color: #E0E5F0;
+  border-top-color: #3A4258;
+  border-right-color: #3A4258;
+  border-bottom-color: #3A4258;
+}
+body.dark-mode .ctr-card:hover { background: #3F4861; }
+
+.ctr-card .ctr-name {
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctr-card .ctr-x {
+  background: transparent;
+  color: #8A94B0;
+  border: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  padding: 0;
+  flex-shrink: 0;
+}
+.ctr-card .ctr-x:hover { background: rgba(156, 39, 66, 0.12); color: #9C2742; }
+body.dark-mode .ctr-card .ctr-x:hover { background: rgba(168, 89, 89, 0.22); color: #F5A0A0; }
+
+@media (pointer: coarse) {
+  .ctr-card .ctr-x { width: 28px; height: 28px; font-size: 16px; }
+}
+
+/* "+ Add contractor" dashed slot at bottom of each column */
+.trade-add-slot {
+  background: transparent;
+  border: 1.5px dashed #C6CCD6;
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: #8A94B0;
+  font-family: Calibri, sans-serif;
+  font-size: calc(12px + var(--ts));
+  cursor: pointer;
+  text-align: left;
+  margin-top: auto;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.trade-add-slot:hover {
+  border-color: #9C2742;
+  color: #9C2742;
+  background: rgba(156, 39, 66, 0.05);
+}
+body.dark-mode .trade-add-slot {
+  border-color: #4A5266;
+  color: #8A94B0;
+}
+body.dark-mode .trade-add-slot:hover {
+  border-color: #9C2742;
+  color: #E0A0B0;
+  background: rgba(156, 39, 66, 0.06);
+}
+@media (pointer: coarse) {
+  .trade-add-slot { padding: 9px 10px; font-size: calc(13px + var(--ts)); }
+}
+
+/* + trade column — adds a new trade to projectTrades */
+.trade-add-col {
+  background: transparent;
+  border: 1.5px dashed #C6CCD6;
+  border-radius: 6px;
+  min-height: 100px;
+  color: #8A94B0;
+  font-family: Calibri, sans-serif;
+  font-size: calc(13px + var(--ts));
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.trade-add-col:hover {
+  border-color: #9C2742;
+  color: #9C2742;
+  background: rgba(156, 39, 66, 0.05);
+}
+body.dark-mode .trade-add-col {
+  border-color: #4A5266;
+  color: #8A94B0;
+}
+body.dark-mode .trade-add-col:hover {
+  border-color: #9C2742;
+  color: #E0A0B0;
+  background: rgba(156, 39, 66, 0.06);
+}
+
+/* Inline input that replaces + trade button on click */
+.trade-add-col-input {
+  min-height: 100px;
+  border: 1.5px solid #9C2742;
+  border-radius: 6px;
+  background: #FFFFFF;
+  color: #1C2333;
+  font-family: Calibri, sans-serif;
+  font-size: calc(13px + var(--ts));
+  font-weight: 600;
+  padding: 0 14px;
+  text-align: center;
+  outline: none;
+}
+body.dark-mode .trade-add-col-input {
+  background: #1C2333;
+  color: #E0E5F0;
+}
+
+/* Footer of trade board — preserves + General Deficiency CTA */
+.trade-board-foot {
+  padding: 8px 14px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid #ECEEF1;
+}
+body.dark-mode .trade-board-foot {
+  border-top-color: #2A3247;
+}
+.tb-general-btn {
+  background: none;
+  border: 1.5px solid #9C2742;
+  color: #9C2742;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-family: Calibri, sans-serif;
+  font-size: calc(12px + var(--ts));
+  font-weight: 600;
+  cursor: pointer;
+}
+.tb-general-btn:hover { background: rgba(156, 39, 66, 0.06); }
+
+/* ──────────────────────────────────────────────────────────
+   SMART PICKER POPUP — adds contractor to a trade column
+   ────────────────────────────────────────────────────────── */
+
+.picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: none;
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+.picker-overlay.show { display: flex; }
+
+.picker {
+  background: #FFFFFF;
+  border: 1px solid #DDE1E7;
+  border-radius: 8px;
+  padding: 18px;
+  max-width: 360px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+body.dark-mode .picker {
+  background: #252B3D;
+  border-color: #3A4258;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+.picker-title {
+  font-size: calc(14px + var(--ts));
+  font-weight: 700;
+  color: #1C2333;
+  margin-bottom: 10px;
+  letter-spacing: 0.2px;
+}
+body.dark-mode .picker-title { color: #E0E5F0; }
+.picker-title em { font-style: italic; color: #9C2742; }
+
+.picker-section-lbl {
+  font-size: 11px;
+  color: #8A94B0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 12px 0 6px;
+  font-weight: 700;
+}
+
+.picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.picker-chip {
+  background: #F4F5F7;
+  border-top: 1px solid #DDE1E7;
+  border-right: 1px solid #DDE1E7;
+  border-bottom: 1px solid #DDE1E7;
+  border-left: 3px solid var(--cc, #6B7280);
+  border-radius: 4px;
+  padding: 6px 12px;
+  color: #1C2333;
+  font-family: Calibri, sans-serif;
+  font-size: calc(13px + var(--ts));
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.picker-chip:hover { background: #ECEEF1; }
+body.dark-mode .picker-chip {
+  background: #353D54;
+  color: #E0E5F0;
+  border-top-color: #3A4258;
+  border-right-color: #3A4258;
+  border-bottom-color: #3A4258;
+}
+body.dark-mode .picker-chip:hover { background: #3F4861; }
+
+.picker-input-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.picker-input {
+  flex: 1;
+  background: #FFFFFF;
+  border: 1px solid #DDE1E7;
+  border-radius: 4px;
+  padding: 7px 10px;
+  color: #1C2333;
+  font-family: Calibri, sans-serif;
+  font-size: calc(13.5px + var(--ts));
+  outline: none;
+}
+.picker-input:focus { border-color: #9C2742; }
+body.dark-mode .picker-input {
+  background: #1C2333;
+  color: #E0E5F0;
+  border-color: #3A4258;
+}
+
+.picker-add-btn {
+  background: #9C2742;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-family: Calibri, sans-serif;
+  font-size: calc(13px + var(--ts));
+  font-weight: 600;
+}
+.picker-add-btn:hover { background: #8a2239; }
+
+.picker-foot {
+  margin-top: 14px;
+  text-align: right;
+}
+
+.picker-cancel-btn {
+  background: transparent;
+  color: #8A94B0;
+  border: 1px solid #DDE1E7;
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: Calibri, sans-serif;
+  font-size: calc(12.5px + var(--ts));
+}
+.picker-cancel-btn:hover { background: #F4F5F7; color: #1C2333; }
+body.dark-mode .picker-cancel-btn {
+  border-color: #3A4258;
+}
+body.dark-mode .picker-cancel-btn:hover { background: #2A3247; color: #E0E5F0; }
+
+/* Mobile breakpoint — single-column trade board */
+@media (max-width: 900px) {
+  .trade-board { grid-template-columns: 1fr; }
+}
+
+/* End S136 Phase 1b TRADE BOARD ─────────────────────────────────── */

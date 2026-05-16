@@ -12,7 +12,7 @@
 
 import { Model, TRADE_LIST } from '../data/model.js';
 import { toast } from '../shared/toast.js';
-import { showConfirm, showPrompt } from '../shared/dialogs.js';
+import { showConfirm, showPrompt, showDialog } from '../shared/dialogs.js';
 import { R2 } from '../data/r2.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { AIAssist } from '../ai/assistant.js';
@@ -844,30 +844,149 @@ function _renderDeficLog(proj, allDefics) {
   el.innerHTML = h;
 }
 
-// ── Contractors on Site Chips ────────────────────────────
-function _renderContractorsOnSite(proj) {
+// ── Trade Board (S136 Phase 1b — replaces _renderContractorsOnSite) ───
+// Kanban-style trade columns. Each column lists contractors that have the
+// trade in their .trades[] array. Schema lives in model.js (Phase 1a):
+// project.projectTrades, contractor.trades, contractor.color.
+function _renderTradeBoard(proj) {
   var el = document.getElementById('contractors-on-site');
   if (!el) return;
+  var trades = (proj.projectTrades && proj.projectTrades.length) ? proj.projectTrades : [];
   var ctrs = proj.contractors || [];
-  var h = '<div style="padding:12px 0;margin-bottom:8px;">';
-  h += '<div style="font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--steel);margin-bottom:8px;">Contractors on Site</div>';
-  h += '<div class="contractor-chips" style="display:flex;flex-wrap:wrap;gap:8px;min-height:28px;margin-bottom:10px;">';
-  ctrs.forEach(function(c) {
-    var colorCls = ctrColorClass(c.name);
-    // S123 P5.6: simple colored pill — letter-badge removed.
-    h += '<div class="contractor-chip ctr-tagged ctr-tag ' + colorCls + '">';
-    h += '<span class="ctr-chip-body">' + esc(c.name) + '</span>';
-    h += '<button class="ctr-chip-action" data-action="edit-contractor" data-ctr-id="' + esc(c.id) + '" title="Rename">\u270F</button>';
-    h += '<button class="ctr-chip-action" data-action="remove-contractor" data-ctr-id="' + esc(c.id) + '" title="Remove">\u2715</button>';
+  // Default trades (anything in TRADE_LIST) cannot be removed; only "custom" trades show \u00D7 in header
+  var defaultSet = {};
+  TRADE_LIST.forEach(function(t) { defaultSet[t] = true; });
+
+  var h = '<div class="trade-board-section">';
+  h += '<div class="trade-board-title">\u2699 Trade Board \u00B7 Contractors on Site</div>';
+  h += '<div class="trade-board">';
+  trades.forEach(function(trade) {
+    var ctrsInTrade = ctrs.filter(function(c) { return (c.trades || []).indexOf(trade) !== -1; });
+    var isCustom = !defaultSet[trade];
+    h += '<div class="trade-col" data-trade="' + esc(trade) + '">';
+    h += '<div class="trade-col-hdr">';
+    h += '<span class="trade-col-name">' + esc(trade) + '</span>';
+    h += '<span class="trade-col-hdr-right">';
+    h += '<span class="trade-col-count">' + ctrsInTrade.length + '</span>';
+    if (isCustom) {
+      h += '<button class="trade-col-del" data-action="del-trade-col" data-trade="' + esc(trade) + '" title="Remove trade column">\u00D7</button>';
+    }
+    h += '</span>';
+    h += '</div>';
+    h += '<div class="trade-col-body">';
+    ctrsInTrade.forEach(function(c) {
+      var col = c.color || '#6B7280';
+      h += '<div class="ctr-card" data-action="ctr-edit" data-ctr-id="' + esc(c.id) + '" style="--cc:' + esc(col) + ';">';
+      h += '<span class="ctr-name">' + esc(c.name) + '</span>';
+      h += '<button class="ctr-x" data-action="ctr-remove-from-trade" data-ctr-id="' + esc(c.id) + '" data-trade="' + esc(trade) + '" title="Remove from this trade">\u00D7</button>';
+      h += '</div>';
+    });
+    h += '<button class="trade-add-slot" data-action="pick-add-ctr-to-trade" data-trade="' + esc(trade) + '">+ Add contractor</button>';
+    h += '</div>';
     h += '</div>';
   });
+  h += '<button class="trade-add-col" data-action="show-add-trade">+ trade</button>';
   h += '</div>';
-  h += '<div class="contractor-add" style="display:flex;gap:8px;align-items:center;">';
-  h += '<input type="text" id="new-contractor-input" placeholder="e.g. ABC Sprinklers" style="flex:1;max-width:240px;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));background:var(--smoke);color:var(--fg);">';
-  h += '<button class="btn btn-outline btn-sm" data-action="add-contractor" style="color:var(--steel);border-color:var(--border);">+ Add Contractor</button>';
-  h += '<button class="btn btn-sm" data-action="add-general" style="background:none;border:1.5px solid #9C2742;color:#9C2742;border-radius:6px;padding:5px 12px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;">+ General Deficiency</button>';
-  h += '</div></div>';
+  // Site General quick-add (preserved until Phase 2 unified + deficiency modal)
+  h += '<div class="trade-board-foot">';
+  h += '<button class="btn btn-sm tb-general-btn" data-action="add-general">+ General Deficiency</button>';
+  h += '</div>';
+  h += '</div>';
   el.innerHTML = h;
+}
+
+// Smart picker — overlay modal for adding contractor to a trade column
+function _openCtrPicker(trade) {
+  _closeCtrPicker();
+  var proj = Model.getProject();
+  if (!proj) return;
+  // Existing contractors NOT already in this trade
+  var existing = (proj.contractors || []).filter(function(c) {
+    return (c.trades || []).indexOf(trade) === -1;
+  });
+  var ov = document.createElement('div');
+  ov.className = 'picker-overlay show';
+  ov.id = 'ctr-picker-overlay';
+  // Backdrop click closes (only if click hits overlay itself, not picker inner)
+  ov.addEventListener('click', function(e) {
+    if (e.target === ov) _closeCtrPicker();
+  });
+  var p = document.createElement('div');
+  p.className = 'picker';
+  var h = '<div class="picker-title">Add contractor to <em>' + esc(trade) + '</em></div>';
+  if (existing.length) {
+    h += '<div class="picker-section-lbl">Existing contractors</div>';
+    h += '<div class="picker-chips">';
+    existing.forEach(function(c) {
+      var col = c.color || '#6B7280';
+      h += '<button class="picker-chip" data-action="picker-pick-ctr" data-ctr-id="' + esc(c.id) + '" data-trade="' + esc(trade) + '" style="--cc:' + esc(col) + ';">' + esc(c.name) + '</button>';
+    });
+    h += '</div>';
+  }
+  h += '<div class="picker-section-lbl">New contractor</div>';
+  h += '<div class="picker-input-row">';
+  h += '<input type="text" class="picker-input" id="picker-new-ctr-input" placeholder="e.g. ABC Sprinklers" autocomplete="off">';
+  h += '<button class="btn btn-sm picker-add-btn" data-action="picker-add-new-ctr" data-trade="' + esc(trade) + '">Add</button>';
+  h += '</div>';
+  h += '<div class="picker-foot">';
+  h += '<button class="btn btn-sm picker-cancel-btn" data-action="picker-close">Cancel</button>';
+  h += '</div>';
+  p.innerHTML = h;
+  ov.appendChild(p);
+  document.body.appendChild(ov);
+  setTimeout(function() {
+    var inp = document.getElementById('picker-new-ctr-input');
+    if (inp) {
+      inp.focus();
+      inp.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          var b = ov.querySelector('[data-action="picker-add-new-ctr"]');
+          if (b) b.click();
+        } else if (ev.key === 'Escape') {
+          ev.preventDefault();
+          _closeCtrPicker();
+        }
+      });
+    }
+  }, 0);
+}
+
+function _closeCtrPicker() {
+  var ov = document.getElementById('ctr-picker-overlay');
+  if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+}
+
+// 3-button contractor edit dialog (Rename / Delete entire / Cancel)
+function _showCtrEditDialog(ctr) {
+  showDialog({
+    title: 'Edit Contractor',
+    message: '"' + ctr.name + '" \u2014 choose an action:',
+    buttons: [
+      { label: 'Cancel', outline: true, color: '#8A94B0' },
+      { label: '\u270F Rename', color: '#9C2742', action: function() {
+          showPrompt('Rename Contractor', 'New name:', ctr.name).then(function(newName) {
+            if (newName && newName.trim() && newName.trim() !== ctr.name) {
+              ctr.name = newName.trim();
+              Model.saveNow();
+              initDeficiencies.render();
+              toast('Renamed to: ' + ctr.name);
+            }
+          });
+        }
+      },
+      { label: '\uD83D\uDDD1 Delete contractor', color: '#9C2742', action: function() {
+          var deficCount = (ctr.deficiencies || []).length;
+          var msg = deficCount > 0
+            ? 'Delete "' + ctr.name + '" entirely? This contractor has ' + deficCount + ' deficienc' + (deficCount === 1 ? 'y' : 'ies') + ' that will be deleted.'
+            : 'Delete "' + ctr.name + '" entirely?';
+          showConfirm('Delete Contractor', msg).then(function(yes) {
+            if (yes) { Model.removeContractor(ctr.id); initDeficiencies.render(); toast('Deleted: ' + ctr.name); }
+          });
+        }
+      }
+    ]
+  });
 }
 
 // ── Render ───────────────────────────────────────────────
@@ -887,8 +1006,8 @@ export var initDeficiencies = {
     // Render Deficiency Log summary table
     _renderDeficLog(proj, allDefics);
 
-    // Render Contractors on Site chips
-    _renderContractorsOnSite(proj);
+    // Render Trade Board (S136 Phase 1b)
+    _renderTradeBoard(proj);
 
     var activeCount = 0, generalCount = 0, closedCount = 0;
     allDefics.forEach(function(d) {
@@ -1065,6 +1184,116 @@ document.addEventListener('click', function(e) {
       toast('Deficiency #' + defic.num + ' added');
     }
   }
+
+  // ── Trade Board (S136 Phase 1b) ─────────────────────────────
+  if (action === 'pick-add-ctr-to-trade') {
+    var tradeA = el.getAttribute('data-trade');
+    if (tradeA) _openCtrPicker(tradeA);
+    return;
+  }
+
+  if (action === 'picker-close') {
+    _closeCtrPicker();
+    return;
+  }
+
+  if (action === 'picker-pick-ctr') {
+    var ctrIdP = el.getAttribute('data-ctr-id');
+    var tradeP = el.getAttribute('data-trade');
+    if (ctrIdP && tradeP) {
+      Model.addContractorToTrade(ctrIdP, tradeP);
+      _closeCtrPicker();
+      initDeficiencies.render();
+      toast('Added to ' + tradeP);
+    }
+    return;
+  }
+
+  if (action === 'picker-add-new-ctr') {
+    var tradeN = el.getAttribute('data-trade');
+    var inpN = document.getElementById('picker-new-ctr-input');
+    var nameN = inpN ? inpN.value.trim() : '';
+    if (!nameN) { if (inpN) inpN.focus(); return; }
+    var newCtr = Model.addContractor(nameN);
+    if (newCtr && tradeN) {
+      Model.addContractorToTrade(newCtr.id, tradeN);
+    }
+    _closeCtrPicker();
+    initDeficiencies.render();
+    toast('Added: ' + nameN + (tradeN ? ' to ' + tradeN : ''));
+    return;
+  }
+
+  if (action === 'ctr-remove-from-trade') {
+    var ctrIdR = el.getAttribute('data-ctr-id');
+    var tradeR = el.getAttribute('data-trade');
+    if (ctrIdR && tradeR) {
+      Model.removeContractorFromTrade(ctrIdR, tradeR);
+      initDeficiencies.render();
+      toast('Removed from ' + tradeR);
+    }
+    return;
+  }
+
+  if (action === 'ctr-edit') {
+    var ctrIdE = el.getAttribute('data-ctr-id');
+    if (!ctrIdE) { var elE = el.closest('[data-ctr-id]'); if (elE) ctrIdE = elE.getAttribute('data-ctr-id'); }
+    if (ctrIdE) {
+      var projE = Model.getProject();
+      var ctrE = (projE.contractors || []).find(function(c) { return c.id === ctrIdE; });
+      if (ctrE) _showCtrEditDialog(ctrE);
+    }
+    return;
+  }
+
+  if (action === 'show-add-trade') {
+    // Replace the + trade button with an inline input
+    var btnT = el;
+    var inputT = document.createElement('input');
+    inputT.type = 'text';
+    inputT.placeholder = 'e.g. Standpipe';
+    inputT.className = 'trade-add-col-input';
+    inputT.autocomplete = 'off';
+    btnT.parentNode.replaceChild(inputT, btnT);
+    inputT.focus();
+    var cancelled = false;
+    var commit = function() {
+      if (cancelled) return;
+      var v = inputT.value.trim();
+      if (v) {
+        Model.addProjectTrade(v);
+        initDeficiencies.render();
+      } else {
+        initDeficiencies.render(); // restore + trade button
+      }
+    };
+    inputT.addEventListener('keydown', function(ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); cancelled = true; initDeficiencies.render(); }
+    });
+    inputT.addEventListener('blur', function() {
+      setTimeout(commit, 100);
+    });
+    return;
+  }
+
+  if (action === 'del-trade-col') {
+    var tradeD = el.getAttribute('data-trade');
+    if (!tradeD) return;
+    var projD = Model.getProject();
+    var ctrsIn = (projD.contractors || []).filter(function(c) { return (c.trades || []).indexOf(tradeD) !== -1; });
+    if (ctrsIn.length) {
+      showConfirm('Remove trade column', 'Remove the "' + tradeD + '" column? ' + ctrsIn.length + ' contractor' + (ctrsIn.length === 1 ? '' : 's') + ' will be unassigned from this trade (contractor records and deficiencies are preserved).').then(function(yes) {
+        if (yes) { Model.removeProjectTrade(tradeD); initDeficiencies.render(); toast('Removed trade: ' + tradeD); }
+      });
+    } else {
+      Model.removeProjectTrade(tradeD);
+      initDeficiencies.render();
+      toast('Removed trade: ' + tradeD);
+    }
+    return;
+  }
+  // ── End Trade Board handlers ────────────────────────────────
 
   if (action === 'add-general') {
     var defic = Model.addDeficiency(null);
@@ -1977,3 +2206,4 @@ window._frtGalleryPick = _showGalleryPicker;
 // Remove-pin handlers so the Deficiencies tab refreshes when the pin
 // editor mutates the project from outside the defic tab.
 window._frtRenderDefic = function() { initDeficiencies.render(); };
+
