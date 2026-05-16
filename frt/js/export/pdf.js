@@ -221,6 +221,7 @@ function _buildCSS(fontB64){
   c+='.rh{background:#6B7280;color:#fff;padding:6px 14px;font-weight:700;font-size:10pt;border-radius:0;margin-top:0;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
   c+='.rec-chip{display:inline-block;background:#EDEBE6;color:#7B6F5A;font-size:8.5pt;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
   c+='.rec-foot{font-size:9.5pt;font-style:italic;color:#5A6473;line-height:1.35;padding:8px 12px;border:1px solid #DDE1E7;border-top:none;background:#FAFAF9;border-radius:0 0 6px 6px;margin-bottom:10px;}';
+  c+='.hirec-note{font-size:10pt;font-style:italic;color:#7B6F5A;margin-top:10px;line-height:1.35;}';
   c+='.ch-pill{background:rgba(0,0,0,0.18);color:white;font-weight:700;font-size:9.5pt;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0;}';
   c+='.ch-cont{font-weight:400;font-size:9.5pt;opacity:0.78;letter-spacing:0;margin-left:8px;font-style:italic;}';
   c+='.dc{border:1px solid #DDE1E7;border-top:none;padding:10px 12px;margin-bottom:0;background:white;}';
@@ -434,6 +435,17 @@ var infoGrid='<div class="pi-list">';
 infoGrid+='</div>';
 
 // Summary table
+// S139 Phase 3 (D): count distinct High-priority recommendation pins in
+// the (post recs-gate) main body. _includeRecs=false ⇒ no recs in
+// mainBodyDefs ⇒ count 0 ⇒ note suppressed automatically.
+var _hiRecIds={};
+mainBodyDefs.forEach(function(r){
+  if(r.d&&r.d.isRecommendation){
+    var _hp=(r.obs&&r.obs.priority)||r.d.priority||'high';
+    if(_hp==='high')_hiRecIds[r.d.id]=1;
+  }
+});
+var _hiRecCount=Object.keys(_hiRecIds).length;
 var summaryHtml='';
 if(reportDefs.length){
   var ctrG={};reportDefs.forEach(function(r){if(!ctrG[r.ctr])ctrG[r.ctr]=[];ctrG[r.ctr].push(r);});
@@ -463,6 +475,10 @@ if(reportDefs.length){
   summaryHtml+='<td style="text-align:center;color:#C0392B;">'+reportDefs.filter(_rowOpen).length+'</td>';
   summaryHtml+='<td style="text-align:center;color:#1A7A4A;">'+reportDefs.filter(_rowClosed).length+'</td></tr>';
   summaryHtml+='</tbody></table></div>';
+  // S139 Phase 3 (D): italic high-priority-recommendation note under the
+  // project/deficiency summary (canon §2944; wording per S134 delta,
+  // grammatically agreed for count=1).
+  if(_hiRecCount>0){summaryHtml+='<div class="hirec-note">This report includes '+_hiRecCount+' high-priority recommendation'+(_hiRecCount!==1?'s':'')+' \u2014 see Recommendations section.</div>';}
 }
 
 function _compactHeader(pgNum){
