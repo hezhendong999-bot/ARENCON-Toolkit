@@ -226,24 +226,61 @@ function _autoDedup(proj) {
 // ── Public API ───────────────────────────────────────────
 
 /**
- * S134: Trade list for trade-based grouping (fixed, life-safety order).
- * Used by UI dropdown and PDF report grouping. AI worker `trade_tag` mode
- * (S136) will tag obs against this same list. Manual override stores any
- * value here as `obs.trade`. Empty string means "untagged."
+ * S135 Phase 1a: Default trade list reduced from the 8-trade life-safety
+ * order to 4 trades. Standpipe / Fire Pump / Extinguishers roll up under
+ * Sprinkler 99% of the time (same contractor scope); Smoke Control /
+ * Kitchen Hood / Passive-Separations are rare enough to add per-project
+ * via the trade board's `+ trade` column. "Building Conditions" absorbs
+ * non-trade observations that still belong in the report.
  *
- * Order matters: this is the display order in trade-grouped reports.
+ * TRADE_LIST is now the SEED for `project.projectTrades` on new/legacy
+ * projects. Existing per-project `projectTrades` is the source-of-truth
+ * after load. Existing obs.trade values not in this list (e.g.
+ * "Standpipe", "Fire Pump", "Extinguishers" from prior S134 sessions)
+ * stay intact in JSON — UI renders them as additional dropdown options.
+ *
  * Empty trades suppressed.
  */
 export var TRADE_LIST = [
-  'Fire Alarm',
   'Sprinkler',
-  'Standpipe',
-  'Fire Pump',
-  'Smoke Control',
-  'Passive/Separations',
-  'Kitchen Hood',
-  'Extinguishers'
+  'Fire Alarm',
+  'General Contracting',
+  'Building Conditions'
 ];
+
+/**
+ * S135 Phase 1a: 8-color muted palette for contractor.color auto-assignment.
+ * Auto-assigned, never user-picked (per S134 design lock). When deleting
+ * a contractor, the color frees up for reuse. After 8 contractors, the
+ * palette cycles (no enforced uniqueness).
+ *
+ * Used in the trade board UI (4px colored left border on contractor
+ * cards) and in the Detailed view contractor sub-banner. Not used in
+ * PDF exports — Mark explicitly excluded visual color from external
+ * deliverables.
+ */
+export var CONTRACTOR_COLOR_PALETTE = [
+  '#5C7A6E', '#4A6B8C', '#7B6F5A', '#9C5070',
+  '#6B7280', '#5E2370', '#8B6F47', '#4A8089'
+];
+
+/**
+ * Pick the first unused color from CONTRACTOR_COLOR_PALETTE. If all 8
+ * are already used by other contractors, cycle (palette repeats without
+ * enforced uniqueness — visual collision is acceptable on >8 contractors).
+ *
+ * @param {string[]} usedColors  Hex strings already assigned. Order ignored.
+ * @returns {string}             A hex color from the palette.
+ */
+export function nextContractorColor(usedColors) {
+  var used = {};
+  (usedColors || []).forEach(function(c) { used[c] = true; });
+  for (var i = 0; i < CONTRACTOR_COLOR_PALETTE.length; i++) {
+    if (!used[CONTRACTOR_COLOR_PALETTE[i]]) return CONTRACTOR_COLOR_PALETTE[i];
+  }
+  // All 8 used — cycle by length-mod (deterministic, no random).
+  return CONTRACTOR_COLOR_PALETTE[(usedColors || []).length % CONTRACTOR_COLOR_PALETTE.length];
+}
 
 export var Model = {
 
@@ -420,6 +457,23 @@ export var Model = {
     if (!proj.status) proj.status = 'draft';
     if (!proj.id) proj.id = _uid('proj');
 
+    // ── S135 Phase 1a: contractor-scoped trades + auto-color schema ──
+    // Idempotent. Seeds projectTrades from TRADE_LIST defaults on first
+    // load; gives every contractor an empty trades array and an
+    // auto-assigned palette color if missing. Runs on every setProject so
+    // contractors created before S135 schema land here pick up defaults.
+    if (!Array.isArray(proj.projectTrades)) proj.projectTrades = TRADE_LIST.slice();
+    var _usedCtrColors = (proj.contractors || [])
+      .map(function(c) { return c.color; })
+      .filter(function(c) { return !!c; });
+    (proj.contractors || []).forEach(function(c) {
+      if (!Array.isArray(c.trades)) c.trades = [];
+      if (!c.color) {
+        c.color = nextContractorColor(_usedCtrColors);
+        _usedCtrColors.push(c.color);
+      }
+    });
+
     // ── S115: drawing auto-dedup (port from v1) ──
     // Defensive cleanup for projects loaded from IDB / cloud / pull where the
     // drawings array contains duplicates. v1 ran this in 3 cloud-merge spots;
@@ -503,9 +557,17 @@ export var Model = {
   // ── Contractor Mutations ─────────────────────────────
   addContractor: function(name) {
     if (!_project) return null;
+    // S135 Phase 1a: auto-assign palette color from unused pool; init
+    // trades:[] so the trade board's "Add contractor" picker has a
+    // canonical empty state to start from.
+    var _used = (_project.contractors || [])
+      .map(function(c) { return c.color; })
+      .filter(function(c) { return !!c; });
     var ctr = {
       id: _uid('ctr'),
       name: name || 'New Contractor',
+      trades: [],
+      color: nextContractorColor(_used),
       deficiencies: []
     };
     _project.contractors.push(ctr);
@@ -571,6 +633,18 @@ export var Model = {
     var num = _project.nextDeficNum || 1;
     _project.nextDeficNum = num + 1;
 
+    // S135 Phase 1a: auto-inherit trade when the parent contractor has
+    // exactly 1 trade declared. Multi-trade contractors leave it blank
+    // (user picks per obs via dropdown or trade board reassignment).
+    // Site General defics (ctrId === null) always start untagged.
+    var _inheritedTrade = '';
+    if (ctrId) {
+      var _ctrLookup = (_project.contractors || []).find(function(c) { return c.id === ctrId; });
+      if (_ctrLookup && Array.isArray(_ctrLookup.trades) && _ctrLookup.trades.length === 1) {
+        _inheritedTrade = _ctrLookup.trades[0];
+      }
+    }
+
     var defic = {
       id: _uid('def'),
       num: num,
@@ -593,7 +667,7 @@ export var Model = {
         priority: 'high',                    // S119: per-obs priority
         createdBy: _currentUserId || null,   // S83
         // ── S134: trade-based grouping schema ──
-        trade: '',
+        trade: _inheritedTrade,
         tradeSource: 'ai',
         repeatCount: 1
       }],
@@ -696,6 +770,20 @@ export var Model = {
     // S119: new obs inherits priority from existing obs (effective) or pin level.
     // Falls back to 'high' so a new obs on a fresh pin stays the strongest signal.
     var inheritPri = this.getEffectivePriority(f.defic) || f.defic.priority || 'high';
+    // S135 Phase 1a: auto-inherit trade from the parent contractor when
+    // it has exactly 1 trade. If the pin has other obs that already
+    // carry a non-empty trade, prefer the most recent (last) one — the
+    // user's pattern when adding obs is usually "more of the same."
+    var _inheritedTrade = '';
+    var _existingObs = f.defic.observations || [];
+    for (var _oi = _existingObs.length - 1; _oi >= 0; _oi--) {
+      if (_existingObs[_oi] && _existingObs[_oi].trade) {
+        _inheritedTrade = _existingObs[_oi].trade; break;
+      }
+    }
+    if (!_inheritedTrade && f.contractor && Array.isArray(f.contractor.trades) && f.contractor.trades.length === 1) {
+      _inheritedTrade = f.contractor.trades[0];
+    }
     var obs = {
       id: _uid('obs'),
       text: '',
@@ -706,7 +794,7 @@ export var Model = {
       priority: inheritPri,                // S119: per-obs priority
       createdBy: _currentUserId || null,   // S83
       // ── S134: trade-based grouping schema ──
-      trade: '',
+      trade: _inheritedTrade,
       tradeSource: 'ai',
       repeatCount: 1
     };
@@ -845,6 +933,151 @@ export var Model = {
     _dirty = true;
     _queueSave();
     this._notify('observation', { action: 'trade', deficId: deficId, obsIdx: obsIdx, trade: obs[obsIdx].trade, tradeSource: obs[obsIdx].tradeSource });
+  },
+
+  // ── S135 Phase 1a: contractor-scoped trade management ──
+  // The trade board UI (Phase 1b, S136 main session) calls these from
+  // the kanban column add/remove buttons + smart picker. Each is
+  // narrow + idempotent — no UX coupling. All mutations queue a save
+  // and emit a 'contractor' or 'project' notify so listeners refresh.
+
+  /**
+   * Replace a contractor's trades list. Pass [] to clear (contractor
+   * is then "untriaged" and shows under whatever trade columns its
+   * obs are tagged with, not in the trade board column slots).
+   *
+   * @param {string} ctrId
+   * @param {string[]} trades  Subset of project.projectTrades (caller
+   *   responsible for filtering invalid entries).
+   * @returns {boolean}        true on success, false if contractor not found.
+   */
+  setContractorTrades: function(ctrId, trades) {
+    if (!_project) return false;
+    var ctr = (_project.contractors || []).find(function(c) { return c.id === ctrId; });
+    if (!ctr) return false;
+    ctr.trades = Array.isArray(trades) ? trades.slice() : [];
+    _dirty = true;
+    _queueSave();
+    this._notify('contractor', { action: 'trades', ctrId: ctrId, trades: ctr.trades.slice() });
+    return true;
+  },
+
+  /**
+   * Add a new trade column to the project. Idempotent: a no-op if the
+   * trade already exists. Whitespace-trimmed, empty rejected.
+   *
+   * @param {string} trade
+   * @returns {boolean}  true if added, false if duplicate / invalid /
+   *                     no project loaded.
+   */
+  addProjectTrade: function(trade) {
+    if (!_project) return false;
+    var t = (trade || '').trim();
+    if (!t) return false;
+    if (!Array.isArray(_project.projectTrades)) _project.projectTrades = TRADE_LIST.slice();
+    // Case-insensitive dedup, but preserve original casing if already present
+    for (var i = 0; i < _project.projectTrades.length; i++) {
+      if (_project.projectTrades[i].toLowerCase() === t.toLowerCase()) return false;
+    }
+    _project.projectTrades.push(t);
+    _dirty = true;
+    _queueSave();
+    this._notify('project', { action: 'tradeAdd', trade: t });
+    return true;
+  },
+
+  /**
+   * Remove a trade column from the project. Also strips that trade from
+   * every contractor's trades array (cascade cleanup). Does NOT touch
+   * obs.trade values — those continue to render in dropdowns as
+   * "out-of-list" entries until the user retags them.
+   *
+   * @param {string} trade  Exact-match removal (case-sensitive — should
+   *                        match the value as stored).
+   * @returns {boolean}     true if removed, false if not present.
+   */
+  removeProjectTrade: function(trade) {
+    if (!_project || !Array.isArray(_project.projectTrades)) return false;
+    var idx = _project.projectTrades.indexOf(trade);
+    if (idx < 0) return false;
+    _project.projectTrades.splice(idx, 1);
+    // Cascade: strip from contractor.trades arrays.
+    (_project.contractors || []).forEach(function(c) {
+      if (Array.isArray(c.trades)) {
+        var ci = c.trades.indexOf(trade);
+        if (ci >= 0) c.trades.splice(ci, 1);
+      }
+    });
+    _dirty = true;
+    _queueSave();
+    this._notify('project', { action: 'tradeRemove', trade: trade });
+    return true;
+  },
+
+  /**
+   * Add a contractor to a trade column. Idempotent (no-op if already
+   * present). If the trade is not in project.projectTrades, also adds
+   * it (so the smart picker's "Add new contractor + new trade" path
+   * is atomic).
+   *
+   * @param {string} ctrId
+   * @param {string} trade
+   * @returns {boolean}  true on success.
+   */
+  addContractorToTrade: function(ctrId, trade) {
+    if (!_project) return false;
+    var t = (trade || '').trim();
+    if (!t) return false;
+    var ctr = (_project.contractors || []).find(function(c) { return c.id === ctrId; });
+    if (!ctr) return false;
+    // Ensure trade is in projectTrades (case-insensitive match; uses
+    // existing casing if found, otherwise appends).
+    if (!Array.isArray(_project.projectTrades)) _project.projectTrades = TRADE_LIST.slice();
+    var canonical = null;
+    for (var i = 0; i < _project.projectTrades.length; i++) {
+      if (_project.projectTrades[i].toLowerCase() === t.toLowerCase()) {
+        canonical = _project.projectTrades[i]; break;
+      }
+    }
+    if (canonical === null) {
+      _project.projectTrades.push(t);
+      canonical = t;
+    }
+    if (!Array.isArray(ctr.trades)) ctr.trades = [];
+    if (ctr.trades.indexOf(canonical) >= 0) {
+      // Already there — flush dirty if we mutated projectTrades; else no-op.
+      if (canonical === t && _project.projectTrades[_project.projectTrades.length - 1] === t) {
+        _dirty = true;
+        _queueSave();
+      }
+      return true;
+    }
+    ctr.trades.push(canonical);
+    _dirty = true;
+    _queueSave();
+    this._notify('contractor', { action: 'trades', ctrId: ctrId, trades: ctr.trades.slice() });
+    return true;
+  },
+
+  /**
+   * Remove a contractor from a trade column. Does NOT remove the trade
+   * from project.projectTrades (use removeProjectTrade for that).
+   *
+   * @param {string} ctrId
+   * @param {string} trade
+   * @returns {boolean}  true if removed, false if not present.
+   */
+  removeContractorFromTrade: function(ctrId, trade) {
+    if (!_project) return false;
+    var ctr = (_project.contractors || []).find(function(c) { return c.id === ctrId; });
+    if (!ctr || !Array.isArray(ctr.trades)) return false;
+    var idx = ctr.trades.indexOf(trade);
+    if (idx < 0) return false;
+    ctr.trades.splice(idx, 1);
+    _dirty = true;
+    _queueSave();
+    this._notify('contractor', { action: 'trades', ctrId: ctrId, trades: ctr.trades.slice() });
+    return true;
   },
 
   // S119: effective pin priority — highest priority across all observations.

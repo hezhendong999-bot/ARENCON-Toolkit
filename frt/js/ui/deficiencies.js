@@ -570,6 +570,15 @@ function _buildPinGroupCard(d, ctrId) {
     h += '<span class="trade-banner-wrap">';
     h += '<select data-action="obs-trade" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="trade-banner" title="Trade for this observation">';
     h += '<option value="" style="background:white;color:#2C3E50;font-weight:600;"' + (_trade === '' ? ' selected' : '') + '>\u2014 Trade \u2014</option>';
+    // S135 Phase 1a: if the obs carries a trade value that isn't in the
+    // current TRADE_LIST (e.g. legacy "Standpipe" / "Fire Pump" /
+    // "Extinguishers" from prior S134 sessions, or a custom per-project
+    // trade not in the default 4), surface it as an italicized extra
+    // option so the dropdown shows the live value. The user can keep it
+    // or pick from the canonical list.
+    if (_trade && TRADE_LIST.indexOf(_trade) < 0) {
+      h += '<option value="' + esc(_trade) + '" style="background:white;color:#2C3E50;font-weight:600;font-style:italic;" selected>' + esc(_trade) + '</option>';
+    }
     TRADE_LIST.forEach(function(tv) {
       h += '<option value="' + esc(tv) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (_trade === tv ? ' selected' : '') + '>' + esc(tv) + '</option>';
     });

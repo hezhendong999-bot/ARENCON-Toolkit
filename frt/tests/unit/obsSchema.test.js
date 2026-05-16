@@ -75,16 +75,12 @@ describe('S134 obs schema — trade / tradeSource / repeatCount', () => {
   });
 
   describe('TRADE_LIST export', () => {
-    it('exports 8 trades in life-safety order', () => {
+    it('exports the 4 S135-default trades (Sprinkler / Fire Alarm / General Contracting / Building Conditions)', () => {
       expect(TRADE_LIST).toEqual([
-        'Fire Alarm',
         'Sprinkler',
-        'Standpipe',
-        'Fire Pump',
-        'Smoke Control',
-        'Passive/Separations',
-        'Kitchen Hood',
-        'Extinguishers'
+        'Fire Alarm',
+        'General Contracting',
+        'Building Conditions'
       ]);
     });
   });
