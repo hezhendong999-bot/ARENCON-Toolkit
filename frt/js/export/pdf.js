@@ -209,10 +209,18 @@ function _buildCSS(fontB64){
   c+='.ph-compact{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #000;padding-bottom:4px;margin-bottom:12px;}';
   c+='.ph-compact-left{font-size:11pt;color:#000;line-height:1;}';
   c+='.ph-compact-right{font-size:11pt;color:#000;line-height:1;text-align:right;}';
-  // S118 design lock: contractor section header — plain burgundy banner,
-  // count pill on right, (cont.) handled in pagination. Drops S117-C
-  // left-border accent per Mark's "no contractor color stripe" decision.
-  c+='.ch{background:#9C2742;color:white;padding:7px 14px;font-weight:700;font-size:11pt;border-radius:6px 6px 0 0;margin-top:14px;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
+  // (Historical: S118 made .ch a plain burgundy contractor banner with a
+  // right-side count pill; S139 Phase 3 below re-tasks .ch as the taupe
+  // contractor SUB-band under the navy trade band.)
+  // S139 Phase 3: .ch is now the CONTRACTOR SUB-BAND nested under a navy
+  // .th-band trade header — taupe #7B6F5A (canon PDF spec), no top radius
+  // or top margin since it butts against the trade band above it.
+  c+='.ch{background:#7B6F5A;color:white;padding:6px 14px;font-weight:700;font-size:10.5pt;border-radius:0;margin-top:0;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
+  c+='.th-band{background:#2A3A5C;color:#fff;padding:8px 14px;font-weight:700;font-size:12pt;border-radius:6px 6px 0 0;margin-top:18px;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
+  c+='.th-band.sgr{background:#6B7280;}';
+  c+='.rh{background:#6B7280;color:#fff;padding:6px 14px;font-weight:700;font-size:10pt;border-radius:0;margin-top:0;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
+  c+='.rec-chip{display:inline-block;background:#EDEBE6;color:#7B6F5A;font-size:8.5pt;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
+  c+='.rec-foot{font-size:9.5pt;font-style:italic;color:#5A6473;line-height:1.35;padding:8px 12px;border:1px solid #DDE1E7;border-top:none;background:#FAFAF9;border-radius:0 0 6px 6px;margin-bottom:10px;}';
   c+='.ch-pill{background:rgba(0,0,0,0.18);color:white;font-weight:700;font-size:9.5pt;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0;}';
   c+='.ch-cont{font-weight:400;font-size:9.5pt;opacity:0.78;letter-spacing:0;margin-left:8px;font-style:italic;}';
   c+='.dc{border:1px solid #DDE1E7;border-top:none;padding:10px 12px;margin-bottom:0;background:white;}';
@@ -268,8 +276,20 @@ function _buildCSS(fontB64){
   return c;
 }
 
-function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary,fontB64){
+function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary,fontB64,untaggedMode,includeRecs){
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
+// S139 Phase 3: untagged-trade routing + recommendations gate (canon PK
+// §2944 refined — persistent modal controls, not a blocking interstitial).
+//   _untaggedMode 'show'   -> untagged pins render in an "Other Trade Items"
+//                              band, after all real trades, before recs.
+//   _untaggedMode 'exclude'-> that whole band is omitted from the report.
+//   _includeRecs false     -> every isRecommendation row is dropped from the
+//                              main body before grouping (no rec sub-bands,
+//                              no Site General · Recommendations, no footer,
+//                              no REC chips — naturally). Scope: main body
+//                              only; closed-summary/appendix unaffected.
+var _untaggedMode=(untaggedMode==='exclude')?'exclude':'show';
+var _includeRecs=(includeRecs!==false);
 var reportDefs=[];var rn=1;
 var _ctrFilterId=ctrFilter||'__all__';var _ctrFilterName='';
 // S119 hotfix: per-obs description (text) and status (addressed). Used by
@@ -367,6 +387,10 @@ var mainBodyDefs=reportDefs.filter(function(r){
   if(_deficIsClosed(r.d)&&(r.d.closedOnInstance||1)===_curInst)return true;
   return false;
 });
+// S139 Phase 3: recommendations gate. When off, every rec row leaves the
+// main body before grouping, so no rec sub-bands / Site General · Recs /
+// footer / REC chips can appear downstream.
+if(!_includeRecs){mainBodyDefs=mainBodyDefs.filter(function(r){return !(r.d&&r.d.isRecommendation);});}
 // S118: renumber items sequentially after filter so r.rn is 1,2,3... with no gaps
 mainBodyDefs.forEach(function(r,i){r.rn=i+1;});
 // S119: closed-summary appendix — items addressed in any instance (per-obs aware)
@@ -499,7 +523,7 @@ function _buildDefCard(r){
   var h='<div class="dc"><div class="dc-inner">';
   if(hasDwg)h+='<img class="dc-mini" id="mm-'+d.id+'-'+r.obsIdx+'" src="" alt="drawing">';
   h+='<div class="dc-content">';
-  h+='<div class="dc-hdr"><span class="dc-itemnum">#'+(r.numLabel||r.rn)+'</span><span class="'+pillCls+'">'+esc(pillTxt)+'</span></div>';
+  h+='<div class="dc-hdr"><span class="dc-itemnum">#'+(r.numLabel||r.rn)+'</span>'+((r.d&&r.d.isRecommendation)?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span></div>';
   if(po.notedOnInstance!==_curInst){h+='<div style="font-size:9pt;color:#6B7B8C;margin-bottom:4px;">Noted in FRT #'+po.notedOnInstance+'</div>';}
   h+='<div class="dc-desc">'+esc(po.text||'\u2014')+'</div>';
   if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});h+='</div>';}
@@ -528,19 +552,86 @@ function _buildDefCard(r){
   return h;
 }
 
-// Build content blocks
-var ctrG2={};mainBodyDefs.forEach(function(r){if(!ctrG2[r.ctr])ctrG2[r.ctr]=[];ctrG2[r.ctr].push(r);});
+// Build content blocks — S139 Phase 3: Trade → Contractor → cards.
+// Mirrors the Detailed view's grouping (deficiencies.js _renderDetailedView):
+// a pin's trade = its FIRST observation's trade (Option 1, S137). Trade
+// order = declared projectTrades first, then any extras seen, then the
+// "Other Trade Items" band (untagged), then "Site General · Recommendations"
+// (untagged + no-contractor recs). Within a trade: real contractors in
+// proj.contractors order (taupe sub-band) → no-contractor non-rec items
+// directly under the trade band → no-contractor recs under a grey
+// "Recommendations" sub-band + italic footer. REC chip is added in
+// _buildDefCard, so it rides every rec card wherever it lands.
+var _REC_FOOT='<div class="rec-foot">The above items were noted during this review and are provided as recommendations. They fall outside the specific scope of work and are not held against the sign-off letter.</div>';
+function _pinTrade(d){return(d&&d.observations&&d.observations[0]&&d.observations[0].trade)||'';}
+var _realCtrNames={};(p.contractors||[]).forEach(function(c){if(c&&c.name)_realCtrNames[c.name]=true;});
+function _isRealCtr(nm){return !!_realCtrNames[nm]&&nm!=='Site General';}
+var _ctrIdxByName={};(p.contractors||[]).forEach(function(c,i){if(c&&c.name&&_ctrIdxByName[c.name]==null)_ctrIdxByName[c.name]=i;});
+function _newTrade(nm){return{name:nm,total:0,real:{},realOrder:[],noctr:[],rec:[]};}
+function _pushReal(T,cn,r){if(!T.real[cn]){T.real[cn]=[];T.realOrder.push(cn);}T.real[cn].push(r);T.total++;}
 var contentBlocks=[];
-if(mainBodyDefs.length){Object.keys(ctrG2).forEach(function(ctr){
-  // S118: plain burgundy banner (no contractor color stripe — S117-C accent dropped per Mark's design lock).
-  // The count pill on the right is the total items in this section. The (cont.) variant is stored on
-  // the block so pagination can reuse it when this section spans pages.
-  var _ctrCount=ctrG2[ctr].length;
-  var _ctrHtml='<div class="ch"><span>'+esc(ctr)+'</span><span class="ch-pill">'+_ctrCount+'</span></div>';
-  var _ctrHtmlCont='<div class="ch"><span>'+esc(ctr)+' <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+_ctrCount+'</span></div>';
-  contentBlocks.push({type:'ctrHeader',html:_ctrHtml,htmlCont:_ctrHtmlCont,ctr:ctr});
-  ctrG2[ctr].forEach(function(r){contentBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:ctr});});
-});}
+if(mainBodyDefs.length){
+  var tradeMap={};var tradeSeen=[];
+  var untagged=_newTrade('Other Trade Items');
+  var sgRecs=[];
+  mainBodyDefs.forEach(function(r){
+    var t=_pinTrade(r.d);
+    var isRec=!!(r.d&&r.d.isRecommendation);
+    var real=_isRealCtr(r.ctr);
+    if(t){
+      if(!tradeMap[t]){tradeMap[t]=_newTrade(t);tradeSeen.push(t);}
+      var T=tradeMap[t];
+      if(real)_pushReal(T,r.ctr,r);
+      else if(isRec){T.rec.push(r);T.total++;}
+      else{T.noctr.push(r);T.total++;}
+    }else{
+      if(!real&&isRec){sgRecs.push(r);}
+      else if(real)_pushReal(untagged,r.ctr,r);
+      else{untagged.noctr.push(r);untagged.total++;}
+    }
+  });
+  function _orderCtrNames(T){
+    return T.realOrder.slice().sort(function(a,b){
+      var ia=(_ctrIdxByName[a]==null)?1e9:_ctrIdxByName[a];
+      var ib=(_ctrIdxByName[b]==null)?1e9:_ctrIdxByName[b];
+      return ia-ib;
+    });
+  }
+  function _emitTrade(title,T,greyBand){
+    var bandCls=greyBand?'th-band sgr':'th-band';
+    contentBlocks.push({type:'tradeHeader',
+      html:'<div class="'+bandCls+'"><span>'+esc(title)+'</span><span class="ch-pill">'+T.total+'</span></div>',
+      htmlCont:'<div class="'+bandCls+'"><span>'+esc(title)+' <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+T.total+'</span></div>'});
+    _orderCtrNames(T).forEach(function(cn){
+      var rows=T.real[cn];
+      contentBlocks.push({type:'ctrHeader',
+        html:'<div class="ch"><span>'+esc(cn)+'</span><span class="ch-pill">'+rows.length+'</span></div>',
+        htmlCont:'<div class="ch"><span>'+esc(cn)+' <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+rows.length+'</span></div>',ctr:cn});
+      rows.forEach(function(r){contentBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:cn});});
+    });
+    T.noctr.forEach(function(r){contentBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:title});});
+    if(T.rec.length){
+      contentBlocks.push({type:'recHeader',
+        html:'<div class="rh"><span>Recommendations</span><span class="ch-pill">'+T.rec.length+'</span></div>',
+        htmlCont:'<div class="rh"><span>Recommendations <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+T.rec.length+'</span></div>',ctr:'Recommendations'});
+      T.rec.forEach(function(r){contentBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:'Recommendations'});});
+      contentBlocks.push({type:'recFoot',html:_REC_FOOT});
+    }
+  }
+  var orderedTrades=[];
+  (p.projectTrades||[]).forEach(function(t){if(tradeMap[t]&&orderedTrades.indexOf(t)<0)orderedTrades.push(t);});
+  tradeSeen.forEach(function(t){if(orderedTrades.indexOf(t)<0)orderedTrades.push(t);});
+  orderedTrades.forEach(function(t){_emitTrade(t,tradeMap[t],false);});
+  if(_untaggedMode!=='exclude'&&untagged.total>0)_emitTrade('Other Trade Items',untagged,false);
+  if(_includeRecs&&sgRecs.length){
+    var SG=_newTrade('Site General \u00B7 Recommendations');SG.rec=sgRecs;SG.total=sgRecs.length;
+    contentBlocks.push({type:'tradeHeader',
+      html:'<div class="th-band sgr"><span>Site General \u00B7 Recommendations</span><span class="ch-pill">'+SG.total+'</span></div>',
+      htmlCont:'<div class="th-band sgr"><span>Site General \u00B7 Recommendations <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+SG.total+'</span></div>'});
+    sgRecs.forEach(function(r){contentBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:'Site General'});});
+    contentBlocks.push({type:'recFoot',html:_REC_FOOT});
+  }
+}
 
 // Open popup
 var w=window.open('','_blank');
@@ -577,21 +668,30 @@ var pages=[];var curPageHtml='';var curUsed=0;var curPageNum=1;var isFirstPage=t
 function _startPage(){curPageHtml='';curUsed=0;if(isFirstPage){curPageHtml+=fullHeader+infoGrid+summaryHtml;curUsed+=FULL_HEADER_H;isFirstPage=false;}}
 function _finalizePage(){if(curPageHtml.trim()){pages.push({html:curPageHtml,pageNum:curPageNum});curPageNum++;}}
 _startPage();
-var _aCtrHtml='';
+var _aCtrHtml='';var _aTradeHtml='';
+// S139 Phase 3: re-stamp the active Trade band (then Contractor/Rec band)
+// at the top of a continued page so a section spanning pages keeps its
+// full Trade -> Contractor context. Mirrors the pre-S139 _aCtrHtml restamp.
+function _restamp(){if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_aTradeHtml);}if(_aCtrHtml){curPageHtml+=_aCtrHtml;curUsed+=_measure(_aCtrHtml);}}
 contentBlocks.forEach(function(block){
   var blockH=_measure(block.html);var avail=PAGE_H-curUsed;
-  if(block.type==='ctrHeader'){
+  if(block.type==='tradeHeader'){
+    _aTradeHtml=block.htmlCont||block.html;_aCtrHtml='';
+    if(avail<blockH+200){_finalizePage();_startPage();}
+    curPageHtml+=block.html;curUsed+=_measure(block.html);return;
+  }
+  if(block.type==='ctrHeader'||block.type==='recHeader'){
     // S118: use the pre-built (cont.) variant from the block — replaces the old "— continued" string concat
     _aCtrHtml=block.htmlCont||block.html;
-    if(avail<blockH+200){_finalizePage();_startPage();}
+    if(avail<blockH+200){_finalizePage();_startPage();if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_aTradeHtml);}}
     curPageHtml+=block.html;curUsed+=_measure(block.html);return;
   }
   if(blockH<=avail){curPageHtml+=block.html;curUsed+=blockH;}
   else if(blockH<=PAGE_H-COMPACT_HEADER_H){
-    if(curUsed>PAGE_H*0.15){_finalizePage();_startPage();if(_aCtrHtml){curPageHtml+=_aCtrHtml;curUsed+=_measure(_aCtrHtml);}}
+    if(curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
     curPageHtml+=block.html;curUsed+=blockH;
   }else{
-    if(curUsed>PAGE_H*0.15){_finalizePage();_startPage();if(_aCtrHtml){curPageHtml+=_aCtrHtml;curUsed+=_measure(_aCtrHtml);}}
+    if(curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
     var sp=block.html.split(/<div class="dc-split/);
     if(sp.length<=1){curPageHtml+=block.html;curUsed+=blockH;}
     else{
@@ -601,7 +701,7 @@ contentBlocks.forEach(function(block){
         var sH='<div class="dc-split'+sp[si];var sHt=_measure(sH);
         if(curUsed+sHt>PAGE_H&&si>1){
           curPageHtml+='<div style="font-size:9px;color:#888;font-style:italic;text-align:right;margin-top:4px;">[continued on next page]</div>'+cF;
-          _finalizePage();_startPage();if(_aCtrHtml){curPageHtml+=_aCtrHtml;curUsed+=_measure(_aCtrHtml);}
+          _finalizePage();_startPage();_restamp();
           curPageHtml+=cH+'<div style="font-size:9px;color:#888;font-style:italic;margin-bottom:4px;">[continued from previous page]</div>';
           curUsed+=_measure(cH+'<div style="font-size:9px;color:#888;font-style:italic;margin-bottom:4px;">[continued from previous page]</div>'+cF);
         }
@@ -745,12 +845,12 @@ export const initPDFExport={
         if(bar)bar.style.width=Math.round((done/Math.max(1,total))*100)+'%';}catch(e){}
       }).then(function(r2Cache){
         try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e){}
-        _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64);
+        _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false));
       });
     }).catch(function(e){
       try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e2){}
       console.warn('[PDF] Error:',e);
-      _exportPDFWithCache(p,'',isField,type,{},opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,'');
+      _exportPDFWithCache(p,'',isField,type,{},opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,'',opts.untaggedMode,(opts.includeRecs!==false));
     });
   }
 };

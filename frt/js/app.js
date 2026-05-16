@@ -1301,6 +1301,24 @@ function wireEvents() {
   });
 }
 
+// S139 Phase 3: count pins that would land in the "Other Trade Items"
+// band (untagged = first-obs trade empty). Contractor defics always count
+// (incl. recs — they show with a REC chip in the band). General defics
+// count only when NOT a recommendation; untagged no-contractor recs route
+// to "Site General · Recommendations" instead, governed by the recs gate.
+// Pin-granularity approximation — fine for the modal hint.
+function _countUntaggedForBand(proj) {
+  var n = 0;
+  function ptrade(d) { return (d && d.observations && d.observations[0] && d.observations[0].trade) || ''; }
+  (proj.contractors || []).forEach(function(c) {
+    (c.deficiencies || []).forEach(function(d) { if (!ptrade(d)) n++; });
+  });
+  (proj.generalDeficiencies || []).forEach(function(d) {
+    if (!ptrade(d) && !(d && d.isRecommendation)) n++;
+  });
+  return n;
+}
+
 // ── PDF Picker Dialog ───────────────────────────────────
 function _openPDFPicker() {
   var proj = Model.getProject();
@@ -1336,6 +1354,29 @@ function _openPDFPicker() {
   h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">';
   h += '<input type="checkbox" id="pdf-show-closed" checked> Include Closed Items Summary</label></div>';
 
+  // S139 Phase 3: recommendations gate. Off ⇒ every rec leaves the main
+  // body (no rec sub-bands / Site General · Recs / footer / REC chips).
+  h += '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">';
+  h += '<input type="checkbox" id="pdf-include-recs" checked> Include recommendations</label></div>';
+
+  // S139 Phase 3: Renumber→PDF merge — replaces the removed control-bar
+  // button. Amber accent uses the canon-approved muted --warn #B7791F
+  // (NOT the forbidden bright #E67E22).
+  h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">';
+  h += '<input type="checkbox" id="pdf-renumber" checked style="accent-color:var(--warn,#B7791F);"> <span style="color:var(--warn,#B7791F);font-weight:600;">Renumber before export</span></label></div>';
+
+  // S139 Phase 3: untagged-trade routing (canon §2944 refined — persistent
+  // control, not a blocking interstitial). Shown only when untagged pins
+  // exist. Default = Show; excluding is a deliberate, counted choice.
+  var _utc = _countUntaggedForBand(proj);
+  if (_utc > 0) {
+    h += '<div style="margin-bottom:16px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;">';
+    h += '<div style="font-weight:600;font-size:13px;color:var(--steel,#4A5568);margin-bottom:6px;">Untagged items (' + _utc + ' with no trade)</div>';
+    h += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:5px;"><input type="radio" name="pdf-untagged" value="show" checked> Show as \u201cOther Trade Items\u201d band</label>';
+    h += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="radio" name="pdf-untagged" value="exclude"> Exclude from report (' + _utc + ' item' + (_utc !== 1 ? 's' : '') + ')</label>';
+    h += '</div>';
+  }
+
   // Buttons
   h += '<div style="display:flex;gap:8px;justify-content:flex-end;">';
   h += '<button id="pdf-go" class="btn-muted-ok">\uD83D\uDCC4 Generate PDF</button>';
@@ -1354,11 +1395,27 @@ function _openPDFPicker() {
     var ctrFilter = document.getElementById('pdf-ctr-filter').value;
     var isFinalComm = document.getElementById('pdf-final-comm').checked;
     var showClosedSummary = document.getElementById('pdf-show-closed').checked;
+    var includeRecs = document.getElementById('pdf-include-recs').checked;
+    var doRenumber = document.getElementById('pdf-renumber').checked;
+    var _ut = document.querySelector('input[name="pdf-untagged"]:checked');
+    var untaggedMode = _ut ? _ut.value : 'show';
     overlay.remove();
+    // S139 Phase 3: Renumber→PDF merge. Run before export so the PDF and
+    // the on-screen tab agree; mirrors the old control-bar button's
+    // side-effects (re-render Deficiencies + tasks).
+    if (doRenumber) {
+      var rc = Model.renumberDeficiencies();
+      if (rc > 0) {
+        if (initDeficiencies && initDeficiencies.render) initDeficiencies.render();
+        if (window._frtRenderTasks) window._frtRenderTasks();
+      }
+    }
     initPDFExport.generate(type, {
       ctrFilter: ctrFilter,
       isFinalComm: isFinalComm,
-      showClosedSummary: showClosedSummary
+      showClosedSummary: showClosedSummary,
+      includeRecs: includeRecs,
+      untaggedMode: untaggedMode
     });
   });
 }

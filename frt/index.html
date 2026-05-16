@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=316">
+<link rel="stylesheet" href="css/frt.css?v=317">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -443,10 +443,13 @@ function ensurePdfJs(cb){
         <div class="card-header">⚠ Deficiency List</div>
         <div class="card-body" style="padding:10px 0 0 0;">
           <!-- S137-polish: #defic-toolbar removed. AI Group / Select / Fold All were
-               dead markup — S135 retired the underlying features and left no handlers.
-               Renumber kept (still functional) and folded into the control bar below,
-               which removes the separate toolbar row and its gap. -->
-          <!-- Unified control bar — lifecycle pivot + filters + view toggle + Renumber.
+               dead markup — S135 retired the underlying features and left no handlers. -->
+          <!-- S139 Phase 3: Renumber removed from the control bar and merged into
+               the PDF export modal ("Renumber before export", default ON). The
+               #defic-renumber-btn document-delegate handler in deficiencies.js is
+               left defined-but-inert per the S137 no-rewrite discipline (never
+               reached now that the button is gone). -->
+          <!-- Unified control bar — lifecycle pivot + filters + view toggle.
                Replaces #defic-lifecycle-tabs (dlc-tabs) and the old toolbar search. -->
           <div class="defic-control-bar" id="defic-control-bar" style="display:none;">
             <div class="defic-pivot">
@@ -469,7 +472,6 @@ function ensurePdfJs(cb){
               <button class="view-toggle-btn" data-view="table">≡ Table</button>
               <button class="view-toggle-btn" data-view="board">▦ Board</button>
             </div>
-            <button class="btn btn-outline btn-sm dfx-renumber-btn" id="defic-renumber-btn" title="Renumber deficiencies sequentially (1, 2, 3…)">#↕ Renumber</button>
           </div>
           <div id="deficiencies-container" class="defic-content"></div>
         </div>
