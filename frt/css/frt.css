@@ -46,7 +46,6 @@ body.dark-mode .tt-response.both{background:#0a2010;color:#66BB6A;}
 #pins-container tr[data-defic-id]{cursor:pointer;transition:background .1s;}#pins-container tr[data-defic-id]:hover{background:rgba(156,39,66,.06);}
 .tt-status.outstanding{background:#F3E0DE;color:#A85959;}
 .tt-status.closed{background:#E8EFE7;color:#5F8068;}
-.tt-status.iar{background:#FFF0F6;color:#FF69B4;}
 .tt-jump{background:none;border:1.5px solid var(--border);cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 8px;border-radius:4px;color:var(--primary);font-family:Calibri,sans-serif;}
 .tt-jump:hover{background:rgba(156,39,66,.1);}
 body.dark-mode .tt-priority.high{background:#3a1515;color:#f07070;}
@@ -54,7 +53,6 @@ body.dark-mode .tt-priority.low{background:#2a1e00;color:#f0a030;}
 body.dark-mode .tt-priority.general{background:#0d2a1a;color:#50c878;}
 body.dark-mode .tt-status.outstanding{background:#3a1515;color:#f07070;}
 body.dark-mode .tt-status.closed{background:#0d2a1a;color:#50c878;}
-body.dark-mode .tt-status.iar{background:#2a0a1e;color:#FF69B4;}
 body.dark-mode #tasks-search,body.dark-mode #tasks-filter-status,body.dark-mode #tasks-filter-priority,body.dark-mode #tasks-filter-contractor{background:#242c3a!important;border-color:#4a5570!important;color:#d4d8e8!important;}
 
 /* ── Publish / Lock system ─────────────────────────── */
@@ -643,9 +641,6 @@ body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hove
 .defic-controls{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;}
 .defic-controls label{font-size:calc(11px + var(--ts));color:#666;display:block;margin-bottom:2px;}
 .defic-controls select,.defic-controls input[type=date]{padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;}
-.iar-toggle-btn{padding:5px 10px;border-radius:5px;font-size:calc(12px + var(--ts));cursor:pointer;font-weight:600;font-family:Calibri,sans-serif;transition:all .14s;}
-.iar-toggle-btn.off{border:1.5px solid var(--border);background:white;color:#666;}
-.iar-toggle-btn.on{border:1.5px solid #A85959;background:#FFF5F5;color:#A85959;font-weight:700;}
 .remove-defic-btn{padding:5px 8px;border:1.5px solid rgba(192,57,43,.25);border-radius:5px;background:rgba(192,57,43,.04);color:#A85959;font-size:calc(11px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;font-weight:600;opacity:.75;}.remove-defic-btn:hover{background:#F3E0DE;border-color:#A85959;opacity:1;}
 /* Deficiency card action bar */
 .defic-actions{display:flex;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);flex-wrap:wrap;align-items:center;}
@@ -1322,47 +1317,7 @@ body.dark-mode .drawing-card .tile-badge.tile-failed{background:rgba(220,72,55,.
 .dwg-actions-menu button.danger,.photo-actions-menu button.danger{color:var(--red);}
 .dwg-actions-menu .separator,.dwg-filter-menu .separator,.photo-actions-menu .separator{height:1px;background:var(--border);margin:4px 0;}
 
-/* ═══ PINS KANBAN BOARD — Fieldwire Style ═══ */
-.pins-kanban-wrap{padding:0 4px;}
-.pins-kanban-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
-.pins-kanban-header .unpinned-notice{font-size:calc(12px + var(--ts));color:var(--muted);font-style:italic;}
-.pins-kanban-header .unpinned-notice a{color:var(--primary);cursor:pointer;text-decoration:underline;}
-.pins-kanban-board{display:flex;gap:12px;min-height:300px;}
-.pins-kanban-col{flex:1;min-width:0;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;display:flex;flex-direction:column;overflow:hidden;}
-.pins-kanban-col-header{padding:10px 14px;font-weight:700;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;display:flex;align-items:center;gap:8px;border-bottom:2px solid transparent;}
-.pins-kanban-col-header .col-count{background:rgba(0,0,0,.08);border-radius:10px;padding:1px 8px;font-size:calc(11px + var(--ts));font-weight:600;}
-.pins-kanban-col[data-priority="high"] .pins-kanban-col-header{color:#A85959;border-bottom-color:#A85959;}
-.pins-kanban-col[data-priority="low"] .pins-kanban-col-header{color:#B07F5A;border-bottom-color:#B07F5A;}
-.pins-kanban-col[data-priority="general"] .pins-kanban-col-header{color:#5F8068;border-bottom-color:#5F8068;}
-.pins-kanban-col-body{flex:1;padding:8px;overflow-y:auto;min-height:60px;transition:background .15s;}
-.pins-kanban-col-body.drag-over{background:rgba(156,39,66,.06);outline:2px dashed var(--primary);outline-offset:-4px;border-radius:0 0 8px 8px;}
-.pin-kanban-card{background:white;border:1.5px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;cursor:grab;transition:box-shadow .15s,transform .1s;user-select:none;display:flex;gap:10px;align-items:flex-start;}
-.pin-kanban-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.1);}
-.pin-kanban-card:active{cursor:grabbing;transform:scale(0.98);}
-.pin-kanban-card.dragging{opacity:0.4;box-shadow:none;}
-.pin-kanban-card .pkc-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:calc(12px + var(--ts));color:white;flex-shrink:0;}
-.pin-kanban-card .pkc-body{flex:1;min-width:0;}
-.pin-kanban-card .pkc-desc{font-size:calc(12px + var(--ts));color:var(--fg);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:4px;}
-.pin-kanban-card .pkc-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-.pin-kanban-card .pkc-badge{font-size:calc(10px + var(--ts));font-weight:600;padding:2px 7px;border-radius:4px;white-space:nowrap;}
-.pkc-badge.outstanding{background:#F3E0DE;color:#A85959;}
-.pkc-badge.closed{background:#E8EFE7;color:#5F8068;}
-.pkc-badge.iar{background:#FFF0F6;color:#FF69B4;}
-.pin-kanban-card .pkc-thumb{width:44px;height:44px;border-radius:5px;object-fit:cover;border:1px solid var(--border);flex-shrink:0;}
-.pin-kanban-card .pkc-drawing{font-size:calc(10px + var(--ts));color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;}
-/* Dark mode overrides */
-.dark-mode .pin-kanban-card{background:var(--card-bg);border-color:var(--border);}
-.dark-mode .pin-kanban-card .pkc-desc{color:#b0b8cc;}
-.dark-mode .pin-kanban-card .pkc-drawing{color:#707a90;}
-.dark-mode .pin-kanban-card .pkc-thumb{border-color:#33373f;}
-.dark-mode .pkc-badge.outstanding{background:#3a1515;color:#f07070;}
-.dark-mode .pkc-badge.closed{background:#0d2a1a;color:#50c878;}
-.dark-mode .pkc-badge.iar{background:#2a0a1e;color:#FF69B4;}
-.dark-mode .pins-kanban-col{background:var(--bg);border-color:var(--border);}
-.dark-mode .pins-kanban-col-header{color:#c0c8e0;}
-.dark-mode .pins-kanban-col-header .col-count{background:rgba(255,255,255,.1);color:#c0c8e0;}
-.dark-mode .pins-kanban-col-body.drag-over{background:rgba(156,39,66,.15);}
-@media(max-width:700px){.pins-kanban-board{flex-direction:column;}.pins-kanban-col{min-height:80px;}}
+/* S135: Pins kanban board (#panel-pins / Summary tab) retired. */
 
 /* ═══ PHOTO GALLERY — Google Photos / Fieldwire Style ═══ */
 .photo-header-bar{display:flex;align-items:center;gap:8px;padding:10px 0;flex-wrap:wrap;}
@@ -1577,8 +1532,6 @@ body.dark-mode #load-drop-zone div{color:#a0a8b8!important;}
 body.dark-mode .pin-modal .pin-panel-body{background:#1a1d24;}
 body.dark-mode .pin-modal select,body.dark-mode .pin-modal input,body.dark-mode .pin-modal textarea{background:#22252d;color:#e0e4ea;border-color:#3a3e48;}
 body.dark-mode .pin-modal label{color:#a0a8b8;}
-body.dark-mode .iar-toggle-btn.off{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:#a0a8b8;}
-body.dark-mode .iar-toggle-btn.on{background:#3d1520;border-color:#A85959;color:#ff6b6b;}
 body.dark-mode .remove-defic-btn{background:#5a1a20!important;color:#ffaaaa!important;border-color:#8a2830!important;}
 body.dark-mode .dup-defic-btn{background:rgba(255,255,255,.06)!important;color:#90c0f0!important;border-color:rgba(255,255,255,.15)!important;}
 body.dark-mode .resp-add-ctr{background:rgba(230,126,34,.25);color:#f0a060;border:1px solid rgba(230,126,34,.3);}
@@ -1698,8 +1651,8 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   /* Upload box */
   .upload-box{padding:16px 10px!important;}
   /* Kanban columns */
-  .kanban-wrap,.pins-kanban-board{flex-direction:column!important;}
-  .kanban-col,.pins-kanban-col{min-height:60px!important;}
+  .kanban-wrap{flex-direction:column!important;}
+  .kanban-col{min-height:60px!important;}
 }
 
 /* Tablet (700px) additional fixes */
@@ -1866,7 +1819,6 @@ body.lb-open{overflow:hidden;}
 .tt-status,.tt-priority{display:inline-block;padding:2px 8px;border-radius:4px;font-size:calc(11px + var(--ts));font-weight:700;white-space:nowrap;}
 .tt-status.outstanding{background:#F3E0DE;color:#A85959;}
 .tt-status.closed{background:#E8EFE7;color:#5F8068;}
-.tt-status.iar{background:#FFF0F6;color:#FF69B4;}
 .tt-priority.high{background:#F3E0DE;color:#A85959;}
 .tt-priority.low{background:#FEF9E7;color:#B07F5A;}
 .tt-priority.general{background:#E8EFE7;color:#5F8068;}
@@ -1874,7 +1826,6 @@ body.lb-open{overflow:hidden;}
 .tt-jump:hover{background:rgba(156,39,66,.1);}
 body.dark-mode .tt-status.outstanding{background:#3a1515;color:#f07070;}
 body.dark-mode .tt-status.closed{background:#0d2a1a;color:#50c878;}
-body.dark-mode .tt-status.iar{background:#2a0a1a;color:#ff90c0;}
 body.dark-mode .tt-priority.high{background:#3a1515;color:#f07070;}
 body.dark-mode .tt-priority.low{background:#2a1e00;color:#f0a030;}
 body.dark-mode .tt-priority.general{background:#0d2a1a;color:#50c878;}
@@ -2147,18 +2098,13 @@ body.dark-mode .obs-drop-col.drag-over .obs-drop-zone{background:rgba(156,39,66,
 body.dark-mode .obs-drop-btn{color:white;}
 
 /* S114 P1.9 — per-pin AI Review button. Matches the page-header AI Review color (#7B2D8E). */
-.defic-ai-btn{border:1.5px solid #7B2D8E;background:#7B2D8E;color:white;border-radius:4px;padding:2px 10px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;font-weight:700;cursor:pointer;transition:all .15s;}
-.defic-ai-btn:hover{background:#5E2370;border-color:#5E2370;}
-body.dark-mode .defic-ai-btn{background:#7B2D8E;color:white;}
+/* S135: Per-obs AI Review button (.defic-ai-btn) + popup (.ai-review-pop /
+   .ai-rv-*) retired with the per-obs AI Review feature. Header AI Review
+   button (#btn-ai-review) remains; Phase 6 replaces this with global
+   "Polish observations" toolbar action. */
 
 /* AI Review popup menu (3 modes) */
-.ai-review-pop{background:var(--bg);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);min-width:280px;padding:4px;}
-body.dark-mode .ai-review-pop{background:#1f232c;border-color:#3a3e48;}
-.ai-rv-opt{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 12px;border:none;background:transparent;color:var(--fg);font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:500;cursor:pointer;border-radius:5px;text-align:left;}
-.ai-rv-opt:not(:disabled):hover{background:var(--smoke);color:#9C2742;}
-body.dark-mode .ai-rv-opt:not(:disabled):hover{background:#2a2d35;}
-.ai-rv-opt:disabled{opacity:.55;cursor:not-allowed;}
-.ai-rv-disabled{font-size:calc(9px + var(--ts));color:var(--silver);font-style:italic;margin-left:8px;}
+/* S135: .ai-review-pop + .ai-rv-* retired (per-obs AI Review popup removed). */
 
 /* S114 P1.8 — Gallery picker modal */
 .gp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;display:flex;align-items:center;justify-content:center;padding:14px;}
@@ -3865,45 +3811,7 @@ body.diag-show #arencon-frt-anomaly{display:block !important;}
 #diag-toggle:hover{opacity:1;}
 body.diag-show #diag-toggle{opacity:1;background:#5F8068;border-color:#5F8068;}
 
-
-/* ═══════════════════════════════════════════════════════════════════
-   S113 Push 16 — Summary tab Board (kanban) view
-   Ported from v1 (ARENCON_Field_Review_Tool.html lines ~819-845).
-   The Table/Board toggle in panel-pins now actually switches between
-   the existing table render and the kanban board below.
-   ═══════════════════════════════════════════════════════════════════ */
-.pins-kanban-wrap{padding:0 4px;}
-.pins-kanban-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
-.pins-kanban-header .unpinned-notice{font-size:calc(12px + var(--ts));color:var(--silver);font-style:italic;}
-.pins-kanban-board{display:flex;gap:12px;min-height:300px;}
-.pins-kanban-col{flex:1;min-width:0;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;display:flex;flex-direction:column;overflow:hidden;}
-.pins-kanban-col-header{padding:10px 14px;font-weight:700;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;display:flex;align-items:center;gap:8px;border-bottom:2px solid transparent;}
-.pins-kanban-col-header .col-count{background:rgba(0,0,0,.08);border-radius:10px;padding:1px 8px;font-size:calc(11px + var(--ts));font-weight:600;}
-.pins-kanban-col[data-priority="high"] .pins-kanban-col-header{color:#A85959;border-bottom-color:#A85959;}
-.pins-kanban-col[data-priority="low"] .pins-kanban-col-header{color:#B07F5A;border-bottom-color:#B07F5A;}
-.pins-kanban-col[data-priority="general"] .pins-kanban-col-header{color:#5F8068;border-bottom-color:#5F8068;}
-.pins-kanban-col-body{flex:1;padding:8px;overflow-y:auto;min-height:60px;transition:background .15s;}
-.pins-kanban-col-body.drag-over{background:rgba(156,39,66,.06);outline:2px dashed #9C2742;outline-offset:-4px;border-radius:0 0 8px 8px;}
-.pin-kanban-card{background:white;border:1.5px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;cursor:grab;transition:box-shadow .15s,transform .1s;user-select:none;display:flex;gap:10px;align-items:flex-start;}
-.pin-kanban-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.1);}
-.pin-kanban-card:active{cursor:grabbing;transform:scale(0.98);}
-.pin-kanban-card.dragging{opacity:0.4;box-shadow:none;}
-.pin-kanban-card .pkc-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:calc(12px + var(--ts));color:white;flex-shrink:0;}
-.pin-kanban-card .pkc-body{flex:1;min-width:0;}
-.pin-kanban-card .pkc-desc{font-size:calc(12px + var(--ts));color:var(--fg);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:4px;}
-.pin-kanban-card .pkc-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-.pin-kanban-card .pkc-badge{font-size:calc(10px + var(--ts));font-weight:600;padding:2px 7px;border-radius:4px;white-space:nowrap;}
-.pkc-badge.outstanding{background:#F3E0DE;color:#A85959;}
-.pkc-badge.closed{background:#E8EFE7;color:#5F8068;}
-.pkc-badge.iar{background:#FFF0F6;color:#FF69B4;}
-.pin-kanban-card .pkc-thumb{width:44px;height:44px;border-radius:5px;object-fit:cover;border:1px solid var(--border);flex-shrink:0;}
-.pin-kanban-card .pkc-drawing{font-size:calc(10px + var(--ts));color:var(--silver);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;}
-body.dark-mode .pin-kanban-card{background:#22252d;border-color:#33373f;color:#d4d8e8;}
-body.dark-mode .pin-kanban-card .pkc-desc{color:#b0b8cc;}
-body.dark-mode .pin-kanban-card .pkc-drawing{color:#707a90;}
-body.dark-mode .pins-kanban-col{background:#1e2028;border-color:#33373f;}
-body.dark-mode .pins-kanban-col-header .col-count{background:rgba(255,255,255,.1);color:#c0c8e0;}
-@media(max-width:700px){.pins-kanban-board{flex-direction:column;}.pins-kanban-col{min-height:80px;}}
+/* S135: S113 Push 16 Summary tab Board (kanban) duplicate block retired. */
 
 /* ═══════════════════════════════════════════════════════════════════
    S113 Push 17 — Muted modal button styles + drawing pill dark mode
@@ -4158,13 +4066,11 @@ body.dark-mode .btn-muted-neutral:hover { background:#2a323e; border-color:#a8b4
 .tt-status, .tt-priority { border:1.5px solid transparent; }
 .tt-status.outstanding   { border-color:rgba(192,57,43,.30); }
 .tt-status.closed        { border-color:rgba(26,122,74,.30); }
-.tt-status.iar           { border-color:rgba(255,105,180,.35); }
 .tt-priority.high        { border-color:rgba(192,57,43,.30); }
 .tt-priority.low         { border-color:rgba(230,126,34,.30); }
 .tt-priority.general     { border-color:rgba(26,122,74,.30); }
 body.dark-mode .tt-status.outstanding{ border-color:rgba(240,112,112,.25); }
 body.dark-mode .tt-status.closed     { border-color:rgba(80,200,120,.25); }
-body.dark-mode .tt-status.iar        { border-color:rgba(255,105,180,.35); }
 body.dark-mode .tt-priority.high     { border-color:rgba(240,112,112,.25); }
 body.dark-mode .tt-priority.low      { border-color:rgba(240,160,48,.25); }
 body.dark-mode .tt-priority.general  { border-color:rgba(80,200,120,.25); }
@@ -4721,48 +4627,7 @@ body.dark-mode #pe-upload-btn{
 
 /* End S116 Push 10 ─────────────────────────────────────────────────── */
 
-/* ═══════════════════════════════════════════════════════════════════════
-   S116 PUSH 13 — Summary IAR muted-pink + hatch + jewel-tone style guide note
-   ═══════════════════════════════════════════════════════════════════════ */
-
-/* IAR chip style for Summary table (.tt-priority.iar didn't exist; the chip
-   was rendering as the bright #E91E63 default). Mark image 4: "change the IAR
-   pink to be not too bright like this. Match two colours and style to be
-   consistent." Muted dusty rose (#C9627F) + diagonal hatch matches the
-   desaturated jewel-tone family Mark uses for everything else. Same treatment
-   on .tt-status.iar so both surfaces are visually identical. */
-.tt-priority.iar,
-.tt-status.iar{
-  background-color:rgba(201,98,127,.18);
-  background-image:repeating-linear-gradient(
-    -45deg,
-    transparent 0px,
-    transparent 6px,
-    rgba(201,98,127,.30) 6px,
-    rgba(201,98,127,.30) 8px
-  );
-  color:#9C4862;
-  border:1px solid rgba(201,98,127,.45);
-  font-weight:700;
-  padding:2px 8px;
-  border-radius:4px;
-  font-size:calc(11px + var(--ts));
-}
-body.dark-mode .tt-priority.iar,
-body.dark-mode .tt-status.iar{
-  background-color:rgba(232,144,176,.10);
-  background-image:repeating-linear-gradient(
-    -45deg,
-    transparent 0px,
-    transparent 6px,
-    rgba(232,144,176,.20) 6px,
-    rgba(232,144,176,.20) 8px
-  );
-  color:#e890b0;
-  border-color:rgba(232,144,176,.32);
-}
-
-/* End S116 Push 13 ─────────────────────────────────────────────────── */
+/* S135: S116 Push 13 IAR muted-pink chip block retired with IAR feature. */
 
 /* ═══════════════════════════════════════════════════════════════════════
    S116 PUSH 14 — Tasks panel as overlay, light-mode text, sync mirror
@@ -5045,21 +4910,7 @@ body.dark-mode {
 .obs-remove-btn { background: var(--btn-status-red) !important; transition: background .15s; }
 .obs-remove-btn:hover { background: var(--btn-status-red-hover) !important; }
 
-/* ── Card-level AI Review button ── */
-.defic-ai-btn {
-  background: var(--btn-action-purple) !important;
-  border-color: var(--btn-action-purple) !important;
-  color: white !important;
-  transition: background .15s, border-color .15s;
-}
-.defic-ai-btn:hover {
-  background: var(--btn-action-purple-hover) !important;
-  border-color: var(--btn-action-purple-hover) !important;
-}
-body.dark-mode .defic-ai-btn {
-  background: var(--btn-action-purple) !important;
-  border-color: var(--btn-action-purple) !important;
-}
+/* S135: .defic-ai-btn card-level rules retired with per-obs AI Review. */
 
 /* ── Header AI Review button (#btn-ai-review with inline #7B2D8E) ── */
 #btn-ai-review {
@@ -5308,7 +5159,6 @@ body.dark-mode #btn-reports-parent:hover{ background:var(--btn-action-purple-hov
 .obs-pill.high     { background:#A85959; }
 .obs-pill.low      { background:#B07F5A; }
 .obs-pill.general  { background:#5F8068; }
-.obs-pill.iar      { background:#FF69B4; }
 .obs-pill.addressed{ background:#5F8068; }
 
 /* Label text next to the pill (· Observation / · Pin) */
@@ -5454,7 +5304,6 @@ body:not(.dark-mode){
 body:not(.dark-mode) .obs-pill.high     { background:#B0392B !important; }
 body:not(.dark-mode) .obs-pill.low      { background:#C97817 !important; }
 body:not(.dark-mode) .obs-pill.general  { background:#1F7A4A !important; }
-body:not(.dark-mode) .obs-pill.iar      { background:#E459A8 !important; }
 body:not(.dark-mode) .obs-pill.addressed{ background:#1F7A4A !important; }
 /* End S123 Push 1 ──────────────────────────────────────────────────── */
 
@@ -5952,22 +5801,7 @@ body.dark-mode .defic-act-btn.act-photos:hover{
   border-color:#7098c0 !important;
 }
 
-/* AI Review chip on defic card (data-action="ai-review-defic") — purple
-   The .defic-ai-btn class is on the per-defic chip too. Keep purple
-   as the AI signal in both modes. */
-body.dark-mode .defic-ai-btn,
-body.dark-mode [data-action="ai-review-defic"],
-body.dark-mode .ai-review-chip{
-  background:rgba(123,90,143,.20) !important;
-  color:#c8a8e0 !important;
-  border:1px solid rgba(123,90,143,.45) !important;
-}
-body.dark-mode .defic-ai-btn:hover,
-body.dark-mode [data-action="ai-review-defic"]:hover,
-body.dark-mode .ai-review-chip:hover{
-  background:rgba(123,90,143,.32) !important;
-  border-color:#a888c0 !important;
-}
+/* S135: .defic-ai-btn / ai-review-defic / .ai-review-chip dark-mode rules retired. */
 
 /* ── (3) Mobile menu buttons — align to framework
         Each id gets the semantic role its desktop counterpart has.
@@ -6681,44 +6515,16 @@ body.dark-mode .ctx-text-toggle.active {
   background-repeat: no-repeat;
 }
 
-.trade-banner.manual {
-  border-color: #7B2D8E;
-  background: #F2E8F6;
-  color: #5E2370;
-  background-image: linear-gradient(45deg, transparent 50%, #5E2370 50%),
-                    linear-gradient(135deg, #5E2370 50%, transparent 50%);
-  background-position: calc(100% - 12px) 50%, calc(100% - 7px) 50%;
-  background-size: 5px 5px;
-  background-repeat: no-repeat;
-}
+/* S135: .trade-banner.manual + .trade-source-mark + .trade-source-mark.manual
+   retired. AI/MAN source badge removed; visual differentiation
+   (inherited vs manual) returns in Phase 2 as derived data from the
+   trade board (see PROJECT_KNOWLEDGE_S134_DELTA.md). */
 
-.trade-source-mark {
-  font-family: Calibri, sans-serif;
-  font-size: calc(9.5px + var(--ts));
-  font-weight: 700;
-  background: #2C4770;
-  color: white;
-  padding: 1px 5px;
-  border-radius: 2px;
-  letter-spacing: 0.4px;
-  line-height: 1.3;
-}
-
-.trade-source-mark.manual {
-  background: #7B2D8E;
-}
-
-/* Dark mode — keep light-tinted bgs for readability, mirror priority pill rule */
+/* Dark mode — keep light-tinted bg for readability, mirror priority pill rule */
 body.dark-mode .trade-banner {
   background: #E5EDF7;
   color: #2C4770;
   border-color: #2C4770;
-}
-
-body.dark-mode .trade-banner.manual {
-  background: #F2E8F6;
-  color: #5E2370;
-  border-color: #7B2D8E;
 }
 
 /* End S134 ──────────────────────────────────────────────────────── */
