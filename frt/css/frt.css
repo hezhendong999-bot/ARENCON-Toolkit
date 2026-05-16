@@ -6561,7 +6561,7 @@ body.dark-mode .trade-col {
 }
 
 .trade-col-hdr {
-  background: #2A3A5C;         /* navy, matches .th */
+  background: #4D3D44;         /* muted warm plum-charcoal — harmonizes with burgundy card header, not blue */
   color: white;
   padding: 7px 12px;
   font-weight: 700;
