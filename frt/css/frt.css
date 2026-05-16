@@ -6561,7 +6561,7 @@ body.dark-mode .trade-col {
 }
 
 .trade-col-hdr {
-  background: #4D3D44;         /* muted warm plum-charcoal — harmonizes with burgundy card header, not blue */
+  background: #7B6F5A;         /* warm taupe — matches locked PDF report contractor sub-header (S133 navy+taupe palette) */
   color: white;
   padding: 7px 12px;
   font-weight: 700;
