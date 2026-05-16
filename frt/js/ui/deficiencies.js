@@ -1030,14 +1030,13 @@ export var initDeficiencies = {
     });
     _syncDfxControls(pcActive, pcClosed, proj);
 
-    // S137: view dispatch. Detailed is live; Table + Board land in S138.
-    if (_deficView === 'detailed') {
-      _renderDetailedView(proj, container);
+    // S137/S138: view dispatch — all three views live.
+    if (_deficView === 'table') {
+      _renderTableView(proj, container);
+    } else if (_deficView === 'board') {
+      _renderBoardView(proj, container);
     } else {
-      container.innerHTML = '<div class="dfx-soon">The <strong>'
-        + (_deficView === 'table' ? 'Table' : 'Board')
-        + '</strong> view arrives in the next update.<br>'
-        + 'Use <strong>Detailed</strong> for now \u2014 all editing works there.</div>';
+      _renderDetailedView(proj, container);
     }
     // S114 P1.6: re-render any open AI scratchpads now that the DOM is fresh
     if (window.AIAssist && window.AIAssist.repopulateAllScratchpads) {
@@ -1084,7 +1083,7 @@ function _renderClosedTab(closedDefics, container) {
 // Flatten (defic, obs) pairs after applying the lifecycle pivot
 // (_activeDlcTab) + contractor / priority / search filters. Mirrors the
 // unified_defic_demo flatRows() but reads the live model.
-function _flatRows(proj) {
+function _flatRows(proj, ignorePivot) {
   var all = Model.getAllDeficiencies(proj);
   var q = (_dfxSearch || '').trim().toLowerCase();
   var rows = [];
@@ -1096,8 +1095,8 @@ function _flatRows(proj) {
       // Honor the pivot via effective status so it stays reachable/editable
       // exactly as it was in the pre-S137 contractor-grouped view.
       var closed = deficIsClosed(d);
-      if (_activeDlcTab === 'active' && closed) return;
-      if (_activeDlcTab === 'closed' && !closed) return;
+      if (!ignorePivot && _activeDlcTab === 'active' && closed) return;
+      if (!ignorePivot && _activeDlcTab === 'closed' && !closed) return;
       if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
       if (_dfxPri) return;            // no obs → no priority to match
       if (q && (deficDesc(d) || '').toLowerCase().indexOf(q) < 0) return;
@@ -1106,8 +1105,8 @@ function _flatRows(proj) {
     }
     obs.forEach(function(o, oi) {
       var addressed = !!o.addressed;
-      if (_activeDlcTab === 'active' && addressed) return;
-      if (_activeDlcTab === 'closed' && !addressed) return;
+      if (!ignorePivot && _activeDlcTab === 'active' && addressed) return;
+      if (!ignorePivot && _activeDlcTab === 'closed' && !addressed) return;
       if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
       if (_dfxPri && (o.priority || 'high') !== _dfxPri) return;
       if (q && (o.text || '').toLowerCase().indexOf(q) < 0) return;
@@ -1225,6 +1224,123 @@ function _renderDetailedView(proj, container) {
   container.innerHTML = h;
 }
 
+// ── S138 (in S137): shared helpers for Table + Board ─────────────
+function _dfxObsLabel(d, oi) {
+  var n = d.num != null ? d.num : '?';
+  var multi = (d.observations || []).length > 1;
+  return (multi && oi >= 0) ? (n + String.fromCharCode(65 + oi)) : ('' + n);
+}
+function _dfxThumb(d, oi, cls) {
+  var src = '';
+  if (oi >= 0) {
+    var ph = (Model.getEffectivePhotos ? Model.getEffectivePhotos(d, oi) : ((d.observations && d.observations[oi] && d.observations[oi].photos) || []));
+    if (ph && ph.length) src = ph[0].thumb || ph[0].dataUrl || ph[0].r2Url || '';
+  }
+  if (src) return '<img class="' + cls + '" src="' + esc(src) + '" loading="lazy" alt="">';
+  return '<div class="' + cls + '"></div>';
+}
+function _dfxCtrColor(proj, ctrId) {
+  if (!ctrId) return '#6B7280';
+  var c = (proj.contractors || []).find(function(x) { return x.id === ctrId; });
+  return (c && c.color) ? c.color : '#6B7280';
+}
+// Table/Board entries navigate to the live interactive card in Detailed.
+function _dfxGotoPin(deficId) {
+  _deficView = 'detailed';
+  initDeficiencies.render();
+  setTimeout(function() {
+    var el = document.querySelector('#deficiencies-container [data-defic-id="' + (window.CSS && CSS.escape ? CSS.escape(deficId) : deficId) + '"]');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('dfx-flash');
+      setTimeout(function() { el.classList.remove('dfx-flash'); }, 1400);
+    }
+  }, 60);
+}
+
+// ── Table view — row per (defic, obs) ────────────────────────────
+function _renderTableView(proj, container) {
+  var rows = _flatRows(proj);
+  if (!rows.length) {
+    var hasAny = Model.getAllDeficiencies(proj).length > 0;
+    container.innerHTML = '<div class="dfx-empty">' + (hasAny
+      ? 'No items match the current ' + (_activeDlcTab === 'closed' ? 'Closed' : 'Active') + ' filters.'
+      : 'No deficiencies yet.') + '</div>';
+    return;
+  }
+  var h = '<table class="dfx-tbl"><thead><tr>'
+    + '<th>#</th><th>Trade</th><th>Contractor</th><th>Description</th>'
+    + '<th>Priority</th><th>Status</th><th>Photo</th>'
+    + '</tr></thead><tbody>';
+  rows.forEach(function(r) {
+    var d = r.d, o = r.o, oi = r.oi;
+    var closed = (oi >= 0) ? !!o.addressed : deficIsClosed(d);
+    var pri = (oi >= 0) ? (o.priority || 'high') : (Model.getEffectivePriority(d) || 'high');
+    var trade = (oi >= 0 ? (o.trade || '') : ((d.observations && d.observations[0] && d.observations[0].trade) || ''));
+    var cName = r.ctrId ? r.ctrName : 'Site General';
+    var desc = (oi >= 0) ? (o.text || '') : deficDesc(d);
+    var numCls = closed ? 'closed' : (pri === 'low' ? 'low' : pri === 'general' ? 'general' : '');
+    h += '<tr class="' + (closed ? 'dfx-closed' : '') + '" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '">'
+      + '<td><span class="dfx-tbl-num ' + numCls + '">#' + esc(_dfxObsLabel(d, oi)) + '</span></td>'
+      + '<td>' + (trade ? esc(trade) : '<em style="color:var(--silver);">none</em>') + '</td>'
+      + '<td>' + (r.ctrId ? '<span class="dfx-tbl-ctr" style="--cc:' + esc(_dfxCtrColor(proj, r.ctrId)) + ';"></span>' : '') + esc(cName) + '</td>'
+      + '<td>' + esc(desc) + '</td>'
+      + '<td><span class="dfx-status-mini ' + (pri === 'low' ? 'low' : pri === 'general' ? 'general' : 'high') + '">' + esc(pri.toUpperCase()) + '</span></td>'
+      + '<td><span class="dfx-status-mini ' + (closed ? 'closed' : (pri === 'low' ? 'low' : pri === 'general' ? 'general' : 'high')) + '">' + (closed ? 'CLOSED' : 'OUTSTANDING') + '</span></td>'
+      + '<td>' + _dfxThumb(d, oi, 'dfx-tbl-thumb') + '</td>'
+      + '</tr>';
+  });
+  h += '</tbody></table>';
+  container.innerHTML = h;
+}
+
+// ── Board view — priority kanban + always-visible Closed column ──
+// Pivot-independent (ignorePivot=true): the board carries its own
+// Closed column, so Active/Closed pivot does not scope it.
+function _renderBoardView(proj, container) {
+  var rows = _flatRows(proj, true);
+  var buckets = { high: [], low: [], general: [], closed: [] };
+  rows.forEach(function(r) {
+    var d = r.d, o = r.o, oi = r.oi;
+    var closed = (oi >= 0) ? !!o.addressed : deficIsClosed(d);
+    if (closed) { buckets.closed.push(r); return; }
+    var pri = (oi >= 0) ? (o.priority || 'high') : (Model.getEffectivePriority(d) || 'high');
+    if (pri === 'low') buckets.low.push(r);
+    else if (pri === 'general') buckets.general.push(r);
+    else buckets.high.push(r);
+  });
+
+  function card(r) {
+    var d = r.d, o = r.o, oi = r.oi;
+    var cName = r.ctrId ? r.ctrName : 'Site General';
+    var cColor = _dfxCtrColor(proj, r.ctrId);
+    var trade = (oi >= 0 ? (o.trade || '') : ((d.observations && d.observations[0] && d.observations[0].trade) || ''));
+    var desc = (oi >= 0) ? (o.text || '') : deficDesc(d);
+    return '<div class="dfx-bv-card" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '">'
+      + '<div class="dfx-bv-card-top">'
+      + '<span class="dfx-bv-card-num">#' + esc(_dfxObsLabel(d, oi)) + '</span>'
+      + '<span class="dfx-bv-card-ctr" style="--cc:' + esc(cColor) + ';">' + esc(cName) + '</span>'
+      + '</div>'
+      + '<div class="dfx-bv-card-text">' + esc(desc) + '</div>'
+      + '<div class="dfx-bv-card-bottom">'
+      + _dfxThumb(d, oi, 'dfx-bv-card-thumb')
+      + '<span class="dfx-bv-card-trade">' + esc(trade || 'untagged') + '</span>'
+      + '</div></div>';
+  }
+  function col(cls, label, arr) {
+    var body = arr.length ? arr.map(card).join('') : '<div class="dfx-bv-empty">none</div>';
+    return '<div class="dfx-bv-col">'
+      + '<div class="dfx-bv-col-hdr ' + cls + '"><span>' + label + '</span><span class="dfx-bv-col-count">' + arr.length + '</span></div>'
+      + '<div class="dfx-bv-col-body">' + body + '</div></div>';
+  }
+  container.innerHTML = '<div class="dfx-board">'
+    + col('h', 'High Priority', buckets.high)
+    + col('l', 'Low Priority', buckets.low)
+    + col('g', 'General', buckets.general)
+    + col('c', 'Closed', buckets.closed)
+    + '</div>';
+}
+
 // Sync the control bar to current state: pivot counts, active classes,
 // contractor dropdown options, filter input values.
 function _syncDfxControls(pcActive, pcClosed, proj) {
@@ -1260,6 +1376,8 @@ function _syncDfxControls(pcActive, pcClosed, proj) {
 
 // ── S137 Phase 2: control-bar interactions ───────────────
 document.addEventListener('click', function(e) {
+  var gt = e.target.closest && e.target.closest('[data-action="dfx-goto"]');
+  if (gt) { _dfxGotoPin(gt.getAttribute('data-defic-id')); return; }
   var pb = e.target.closest && e.target.closest('.defic-pivot-btn');
   if (pb) {
     var p = pb.getAttribute('data-pivot');

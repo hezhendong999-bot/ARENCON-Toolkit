@@ -6969,22 +6969,17 @@ body.dark-mode .picker-cancel-btn:hover { background: #2A3247; color: #E0E5F0; }
    with the existing per-obs .trade-banner dropdown + .defic-group.
    ════════════════════════════════════════════════════════════════════ */
 
-/* ── Control bar (lifecycle pivot + filters + view toggle) ────────── */
+/* ── Control bar (lifecycle pivot + filters + view toggle) ──────────
+   Flush inside the "Deficiencies Identified" card — NO inner box.
+   Just a toolbar-style row with a subtle bottom separator. */
 .defic-control-bar {
-  margin: 0 14px;
-  background: #FFFFFF;
-  border: 1px solid #DDE1E7;
-  border-bottom: 0;
-  border-radius: 8px 8px 0 0;
-  padding: 10px 14px;
+  margin: 0;
+  padding: 4px 14px 12px;
   display: flex;
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
-}
-body.dark-mode .defic-control-bar {
-  background: #252B3D;
-  border-color: #3A4258;
+  border-bottom: 1px solid var(--border);
 }
 
 .defic-pivot {
@@ -7076,19 +7071,12 @@ body.dark-mode .view-toggle { background: #1C2333; }
 .view-toggle-btn.active { background: #FFFFFF; color: #1C2333; box-shadow: 0 1px 3px rgba(28,35,51,.12); }
 body.dark-mode .view-toggle-btn.active { background: #353D54; color: #E0E5F0; box-shadow: none; }
 
-/* Content wrapper — visually joins the control bar above it */
+/* Content area — flows directly inside the card (no inner frame). The
+   only nested visual level is the trade-section grouping itself. */
 .defic-content {
-  margin: 0 14px 14px;
-  background: #FFFFFF;
-  border: 1px solid #DDE1E7;
-  border-top: 0;
-  border-radius: 0 0 8px 8px;
+  margin: 0;
   padding: 14px;
   min-height: 420px;
-}
-body.dark-mode .defic-content {
-  background: #252B3D;
-  border-color: #3A4258;
 }
 
 /* ── Detailed view — Trade → Contractor → pin-group cards ─────────── */
@@ -7171,15 +7159,14 @@ body.dark-mode .dfx-pingrp {
   font-size: calc(13px + var(--ts));
 }
 
-/* View placeholder — Table / Board land in S138 */
-.dfx-soon {
-  text-align: center;
-  padding: 64px 24px;
-  color: var(--silver);
-  font-size: calc(14px + var(--ts));
-  line-height: 1.6;
+/* Brief highlight pulse when Table/Board navigates to a pin in Detailed */
+.dfx-flash {
+  animation: dfxFlash 1.4s ease-out;
 }
-.dfx-soon strong { color: #9C2742; }
+@keyframes dfxFlash {
+  0%   { box-shadow: 0 0 0 3px rgba(156, 39, 66, 0.55); }
+  100% { box-shadow: 0 0 0 3px rgba(156, 39, 66, 0); }
+}
 
 /* ── Reserved inspector-attribution chip slot (Phase 3.5) ──────────
    A ~20px trailing slot designed into the obs meta row now so the
@@ -7200,3 +7187,213 @@ body.dark-mode .dfx-pingrp {
 }
 
 /* End S137 Phase 2 UNIFIED DEFICIENCIES TAB ──────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   S138 (in S137 session) — Table + Board views
+   Spec: STYLE_GUIDE_S134_DELTA.css §TABLE / §BOARD, adapted to FRT
+   light-default + body.dark-mode, --ts scale, dfx- namespace.
+   COLOR NOTE: S134 delta specced .bv-col-hdr.h as #C0392B. That hex is
+   on the project's forbidden bright-color list, so the High column
+   header uses the FRT muted priority red #A85959 instead. Low/General/
+   Closed keep the muted spec colors.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Table view ──────────────────────────────────────────────────── */
+table.dfx-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: calc(13px + var(--ts));
+  font-family: Calibri, sans-serif;
+}
+table.dfx-tbl th {
+  background: #F0EDE6;
+  color: #5A6473;
+  text-align: left;
+  padding: 9px 10px;
+  font-weight: 700;
+  font-size: calc(11.5px + var(--ts));
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+body.dark-mode table.dfx-tbl th { background: #2A3247; color: #C0CADE; }
+table.dfx-tbl td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  color: var(--fg);
+}
+table.dfx-tbl tr { cursor: pointer; }
+table.dfx-tbl tbody tr:hover td { background: rgba(156, 39, 66, 0.06); }
+table.dfx-tbl tr.dfx-closed td { color: var(--silver); }
+.dfx-tbl-num {
+  background: #9C2742;
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: calc(11.5px + var(--ts));
+  padding: 2px 10px;
+  border-radius: 12px;
+  display: inline-block;
+  white-space: nowrap;
+}
+.dfx-tbl-num.low { background: #B07F5A; }
+.dfx-tbl-num.general { background: #3A5670; }
+.dfx-tbl-num.closed { background: #4A7B6E; }
+.dfx-tbl-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+  display: block;
+  background: linear-gradient(135deg, #6E7A88 0%, #3A4250 100%);
+}
+.dfx-tbl-ctr {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  background: var(--cc, #6B7280);
+}
+.dfx-status-mini {
+  font-size: calc(10.5px + var(--ts));
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.dfx-status-mini.high    { color: #8A4A4A; background: #F3E0DE; }
+.dfx-status-mini.low     { color: #7A5230; background: #FAEBDC; }
+.dfx-status-mini.general { color: #2E4256; background: #E3EBF2; }
+.dfx-status-mini.closed  { color: #3A6155; background: #E2EFE9; }
+body.dark-mode .dfx-status-mini.high    { color: #E8A0A0; background: #3A1E1E; }
+body.dark-mode .dfx-status-mini.low     { color: #E0B58A; background: #2E2212; }
+body.dark-mode .dfx-status-mini.general { color: #9FB6CC; background: #1B2733; }
+body.dark-mode .dfx-status-mini.closed  { color: #88C8B0; background: #16291F; }
+
+/* ── Board view (priority kanban + Closed column) ────────────────── */
+.dfx-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.dfx-bv-col {
+  background: #F7F8FA;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+}
+body.dark-mode .dfx-bv-col { background: #1C2333; }
+.dfx-bv-col-hdr {
+  color: #FFFFFF;
+  padding: 7px 12px;
+  font-weight: 700;
+  font-size: calc(12.5px + var(--ts));
+  letter-spacing: 0.3px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 6px 6px 0 0;
+}
+.dfx-bv-col-hdr.h { background: #A85959; }   /* muted red — substitutes forbidden #C0392B */
+.dfx-bv-col-hdr.l { background: #B07F5A; }
+.dfx-bv-col-hdr.g { background: #3A5670; }
+.dfx-bv-col-hdr.c { background: #4A7B6E; }
+.dfx-bv-col-count {
+  background: rgba(255, 255, 255, 0.20);
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: calc(10px + var(--ts));
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.dfx-bv-col-body {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+.dfx-bv-empty {
+  color: var(--silver);
+  font-size: calc(11.5px + var(--ts));
+  text-align: center;
+  padding: 20px 8px;
+  font-style: italic;
+}
+.dfx-bv-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 7px 8px;
+  cursor: pointer;
+  font-size: calc(12.5px + var(--ts));
+  color: var(--fg);
+}
+.dfx-bv-card:hover { background: rgba(156, 39, 66, 0.06); }
+.dfx-bv-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.dfx-bv-card-num {
+  background: #9C2742;
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: calc(10.5px + var(--ts));
+  padding: 1px 7px;
+  border-radius: 8px;
+}
+.dfx-bv-card-ctr {
+  font-size: calc(10.5px + var(--ts));
+  color: var(--cc, #6B7280);
+  font-weight: 700;
+}
+.dfx-bv-rec {
+  font-size: calc(9.5px + var(--ts));
+  color: #6B7280;
+  padding: 1px 5px;
+  background: rgba(107, 114, 128, 0.16);
+  border-radius: 6px;
+  font-weight: 700;
+}
+.dfx-bv-card-text {
+  color: var(--fg);
+  line-height: 1.3;
+  font-size: calc(12.5px + var(--ts));
+  margin-bottom: 5px;
+}
+.dfx-bv-card-bottom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dfx-bv-card-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #6E7A88 0%, #3A4250 100%);
+}
+.dfx-bv-card-trade {
+  font-size: calc(10px + var(--ts));
+  color: var(--silver);
+  font-style: italic;
+}
+
+@media (max-width: 900px) {
+  .dfx-board { grid-template-columns: 1fr; }
+  table.dfx-tbl { font-size: calc(12px + var(--ts)); }
+  table.dfx-tbl th, table.dfx-tbl td { padding: 7px 7px; }
+}
+
+/* End S138-in-S137 Table + Board views ───────────────────────────── */
