@@ -7447,6 +7447,91 @@ body.dark-mode .modal-checkbox-row label { color: #E0E5F0; }
   position: absolute; top: 8px; right: 10px; z-index: 2;
   margin-left: 0; pointer-events: none;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S140 B2c — Model 2 Detailed-view sections.
+   Deficiencies keep the locked navy trade band + taupe contractor
+   sub-band (unchanged). New: a distinct steel "Other Trade Items" band;
+   a pooled "Recommendations" section (grey header → grey-slate trade
+   subheadings → inline contractor chip when one exists, NO contractor
+   sub-band); and the reserved "Site Records" scope on a muted-slate
+   band with a persistent INTERNAL pill + dimmed cards so it visibly
+   recedes and is never confused with an actionable item (Mark-approved
+   treatment). Muted palette only; Calibri inherited from .dfx-*.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* No-trade deficiencies — distinct from a real (navy) trade band. */
+.dfx-trade-banner.other { background: #4A5568; }
+body.dark-mode .dfx-trade-banner.other { background: #3A4250; }
+
+/* Pooled Recommendations section header (grey — advisory, not scope). */
+.dfx-trade-banner.recs { background: #6B7280; }
+body.dark-mode .dfx-trade-banner.recs { background: #565C66; }
+
+/* Recommendations trade subheading (lighter grey-slate; NOT a
+   contractor sub-band — recs never get one). */
+.dfx-rec-sub {
+  background: #8A8F99;
+  color: #FFFFFF;
+  padding: 5px 14px;
+  font-weight: 700;
+  font-size: calc(12px + var(--ts));
+  letter-spacing: 0.3px;
+  border-radius: 4px;
+  margin-top: 7px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+body.dark-mode .dfx-rec-sub { background: #565E6E; }
+
+/* Inline contractor chip on a rec pin — only when a contractor exists.
+   Overlaid in the protected card's right-side whitespace (same idiom as
+   the retired .rec-badge); never intercepts card interactions. */
+.dfx-rec-ctrchip {
+  position: absolute; top: 8px; right: 10px; z-index: 2;
+  background: #EEF0F2; color: #5A6472;
+  font-size: calc(10.5px + var(--ts)); font-weight: 700;
+  padding: 1px 8px; border-radius: 10px; pointer-events: none;
+}
+body.dark-mode .dfx-rec-ctrchip { background: #353D54; color: #C0CADE; }
+
+/* Advisory note line under the Recommendations / Site Records band. */
+.dfx-rec-note, .dfx-sr-note {
+  background: #F1F2F4;
+  border: 1px solid #E2E4E8;
+  border-top: none;
+  color: #5A6472;
+  font-style: italic;
+  font-size: calc(11.5px + var(--ts));
+  line-height: 1.4;
+  padding: 6px 14px;
+  border-radius: 0 0 4px 4px;
+}
+body.dark-mode .dfx-rec-note, body.dark-mode .dfx-sr-note {
+  background: #232B3D; border-color: #353D54; color: #9AA6BC;
+}
+
+/* Site Records — reserved internal scope. Muted slate (distinct from
+   navy trade / steel other / grey recs), persistent INTERNAL pill, and
+   dimmed cards so the whole section reads as secondary at a glance. */
+.dfx-trade-banner.records { background: #5C6678; }
+body.dark-mode .dfx-trade-banner.records { background: #3F4658; }
+.dfx-sr-pill {
+  background: rgba(255, 255, 255, 0.16);
+  color: #FFFFFF;
+  font-size: calc(10.5px + var(--ts));
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  padding: 1px 8px;
+  border-radius: 9px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.dfx-sr-section { margin-top: 6px; }
+.dfx-sr-pin { opacity: 0.8; transition: opacity 0.12s; }
+.dfx-sr-pin:hover { opacity: 1; }
+/* End S140 B2c Model 2 sections ─────────────────────────────────────── */
 /* S138: "Recommendations only" control-bar filter (canon — scopes all
    three views). Compact inline checkbox label matching .dfx-filter-input
    metrics; var()s carry dark mode. */

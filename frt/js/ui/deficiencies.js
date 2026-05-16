@@ -1121,32 +1121,55 @@ function _flatRows(proj, ignorePivot) {
   return rows;
 }
 
-// Detailed view: Trade → Contractor → interactive pin-group cards.
-// A pin's trade = its FIRST observation's trade (Option 1, S137 — keeps
-// the protected _buildPinGroupCard intact; per-obs trade stays editable
-// inside the card). Pins with no trade AND no contractor fall to the
-// grey "Site General · Recommendations" bottom section. No-contractor
-// but trade-tagged items render under a grey "Recommendations" sub-banner
-// within their trade. Contractor color = contractor.color (S136 single
-// source of truth).
+// Detailed view (Model 2 — S140 B2c). Three disjoint sections, in order:
+//   1. Deficiencies — Trade -> Contractor spine (navy trade band, taupe
+//      contractor sub-band, the protected _buildPinGroupCard pins).
+//      No-trade deficiencies fall to a distinct steel "Other Trade
+//      Items" band (the word "Untagged" is gone). Trade is derived via
+//      Model.derivePinTrade (B2a root-cause fallback).
+//   2. Recommendations — every isRecommendation pin is PULLED OUT of
+//      the trade->contractor spine into ONE pooled section (disjoint:
+//      each rec appears exactly once). Internal layout = trade
+//      SUBHEADINGS only ("No trade assigned" last, §5 Q2 demo default);
+//      the contractor is an inline chip on the pin ONLY when one exists
+//      — never a contractor sub-band. Header reads "Recommendations
+//      (Closed)" under the Closed pivot.
+//   3. Site Records — the reserved no-contractor informational bucket
+//      (proj.generalDeficiencies, renamed from "Site General"; NEVER a
+//      recommendation). Muted-slate band + persistent INTERNAL pill +
+//      dimmed cards so it visibly recedes and can't be mistaken for an
+//      actionable item. Excluded from external reports by default
+//      (Mark-approved treatment, S140).
+//
+// ⚑ MODEL INTERPRETATION (flagged for Mark — deliberately not silent):
+//   The schema has NO separate "is a Site Record" flag. Per S139
+//   handoff §4.1/§4.6 ("Site Records = RENAME of Site General; no new
+//   flag; no migration"), a NON-recommendation pin with NO contractor
+//   (i.e. it lives in proj.generalDeficiencies) IS a Site Record,
+//   regardless of any trade on it. A pin with a contractor is a
+//   Deficiency; any pin flagged isRecommendation is a Recommendation
+//   wherever it lives. This reproduces the approved demo's exact
+//   visible output. If Mark wants no-contractor *deficiencies* to be
+//   distinct from Site Records, that requires a new schema flag —
+//   surface it, do not silently assume.
+//
+// Rows arrive already filtered by _flatRows (lifecycle pivot + the B2b
+// 3-state rec filter + contractor/priority/search), so this function
+// only partitions + lays out whatever rows it is given. The filter
+// behaves identically in Active and Closed (Behavior B, Mark-approved
+// S140) — no special-casing here.
 function _renderDetailedView(proj, container) {
   var rows = _flatRows(proj);
+  var closedPivot = (_activeDlcTab === 'closed');
 
-  var pinOrder = [];          // defic ids, getAllDeficiencies num order
-  var pinAgg = {};            // id -> { d, ctrId, ctrName, count }
+  var pinOrder = [];
+  var pinAgg = {};
   rows.forEach(function(r) {
     var id = r.d.id;
     if (!pinAgg[id]) { pinAgg[id] = { d: r.d, ctrId: r.ctrId, ctrName: r.ctrName, count: 0 }; pinOrder.push(id); }
     pinAgg[id].count++;
   });
 
-  // S140 B2a (Model 2 §4.3): a pin's trade now uses the canonical
-  // Model.derivePinTrade fallback — obs[0].trade, ELSE the parent
-  // contractor's SOLE declared trade, ELSE none. The old repTrade() read
-  // only obs[0].trade, which is exactly why a pin on a contractor that
-  // was assigned a single trade via the Trade Board (e.g. Vipond →
-  // Sprinkler) still rendered under "Untagged". Same helper pdf.js will
-  // call in B3 so the on-screen grouping and the PDF agree.
   function ctrOf(ctrId) {
     if (!ctrId) return null;
     return (proj.contractors || []).find(function(x) { return x.id === ctrId; }) || null;
@@ -1160,42 +1183,58 @@ function _renderDetailedView(proj, container) {
     return (c && c.color) ? c.color : '#6B7280';
   }
 
-  // S140 B2a: the literal "Untagged" banner is retired (Model 2 §4.2).
-  // No-trade pins render under "Other Trade Items"; the user reassigns
-  // from there. (B2c gives this its own distinct band styling — B2a is
-  // the label-only change so the bug-fix commit stays minimal.)
-  var UNTAGGED = 'Other Trade Items';
-  var tradeMap = {};          // tradeKey -> { name, count, ctrKeys[], ctrs{} }
+  var OTHER = 'Other Trade Items';
+  var NOTRADE = '(No trade assigned)';
+
+  // Partition (disjoint): Recommendations | Site Records | Deficiencies.
+  var tradeMap = {};
   var tradeSeen = [];
-  var siteGeneral = { pins: [], count: 0 };
+  var recTrades = {};
+  var recTradeSeen = [];
+  var recCount = 0;
+  var siteRecords = { pins: [], count: 0 };
 
   pinOrder.forEach(function(id) {
     var e = pinAgg[id];
+    if (e.d.isRecommendation) {
+      var rt = pinTrade(e) || NOTRADE;
+      if (!recTrades[rt]) { recTrades[rt] = { pins: [], count: 0 }; recTradeSeen.push(rt); }
+      recTrades[rt].pins.push(e);
+      recTrades[rt].count += e.count;
+      recCount += e.count;
+      return;
+    }
+    if (!e.ctrId) {
+      siteRecords.pins.push(e);
+      siteRecords.count += e.count;
+      return;
+    }
     var t = pinTrade(e);
-    if (!t && !e.ctrId) { siteGeneral.pins.push(e); siteGeneral.count += e.count; return; }
-    var tk = t || UNTAGGED;
+    var tk = t || OTHER;
     if (!tradeMap[tk]) { tradeMap[tk] = { name: tk, count: 0, ctrKeys: [], ctrs: {} }; tradeSeen.push(tk); }
     var T = tradeMap[tk];
-    var ck = e.ctrId || '__rec__';
-    if (!T.ctrs[ck]) { T.ctrs[ck] = { ctrId: e.ctrId || null, name: e.ctrId ? e.ctrName : 'Recommendations', pins: [], count: 0 }; T.ctrKeys.push(ck); }
+    var ck = e.ctrId;
+    if (!T.ctrs[ck]) { T.ctrs[ck] = { ctrId: e.ctrId, name: e.ctrName, pins: [], count: 0 }; T.ctrKeys.push(ck); }
     T.ctrs[ck].pins.push(e);
     T.ctrs[ck].count += e.count;
     T.count += e.count;
   });
 
-  // Trade order: declared projectTrades first, then any extras, Other Trade Items last.
-  var orderedTrades = [];
-  (proj.projectTrades || []).forEach(function(t) { if (tradeMap[t]) orderedTrades.push(t); });
-  tradeSeen.forEach(function(t) { if (orderedTrades.indexOf(t) < 0 && t !== UNTAGGED) orderedTrades.push(t); });
-  if (tradeMap[UNTAGGED]) orderedTrades.push(UNTAGGED);
+  // Trade order: declared projectTrades first, then extras seen, OTHER/
+  // NOTRADE appended by the caller.
+  function orderTrades(seen, has) {
+    var ordered = [];
+    (proj.projectTrades || []).forEach(function(t) { if (has(t)) ordered.push(t); });
+    seen.forEach(function(t) { if (ordered.indexOf(t) < 0 && t !== OTHER && t !== NOTRADE) ordered.push(t); });
+    return ordered;
+  }
+  var orderedTrades = orderTrades(tradeSeen, function(t) { return !!tradeMap[t]; });
+  if (tradeMap[OTHER]) orderedTrades.push(OTHER);
 
-  // Contractor order within a trade: proj.contractors order, __rec__ last.
   var ctrIndex = {};
   (proj.contractors || []).forEach(function(c, i) { ctrIndex[c.id] = i; });
   function orderCtrKeys(T) {
     return T.ctrKeys.slice().sort(function(a, b) {
-      if (a === '__rec__') return 1;
-      if (b === '__rec__') return -1;
       var ia = (ctrIndex[a] == null) ? 1e9 : ctrIndex[a];
       var ib = (ctrIndex[b] == null) ? 1e9 : ctrIndex[b];
       return ia - ib;
@@ -1203,47 +1242,59 @@ function _renderDetailedView(proj, container) {
   }
 
   var h = '';
+
+  // 1. Deficiencies — Trade -> Contractor.
   orderedTrades.forEach(function(tk) {
     var T = tradeMap[tk];
+    var isOther = (tk === OTHER);
     h += '<div class="dfx-trade-section">';
-    h += '<div class="dfx-trade-banner"><span>' + esc(T.name) + '</span><span class="dfx-trade-count">' + T.count + '</span></div>';
+    h += '<div class="dfx-trade-banner' + (isOther ? ' other' : '') + '"><span>' + esc(T.name) + '</span><span class="dfx-trade-count">' + T.count + '</span></div>';
     orderCtrKeys(T).forEach(function(ck) {
       var C = T.ctrs[ck];
-      if (ck === '__rec__') {
-        h += '<div class="dfx-ctr-banner rec"><span>Recommendations</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
-      } else {
-        h += '<div class="dfx-ctr-banner" style="--cc:' + esc(ctrColor(C.ctrId)) + ';"><span class="dfx-ctr-dot"></span><span>' + esc(C.name) + '</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
-      }
+      h += '<div class="dfx-ctr-banner" style="--cc:' + esc(ctrColor(C.ctrId)) + ';"><span class="dfx-ctr-dot"></span><span>' + esc(C.name) + '</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
       h += '<div class="dfx-pingrp">';
-      C.pins.forEach(function(e) {
-        var card = _buildPinGroupCard(e.d, C.ctrId);
-        // S138: recommendations stay in their natural trade→contractor /
-        // grey-Recommendations / Site-General group (canon) and are tagged
-        // with a REC badge for identification — never relocated.
-        h += e.d.isRecommendation
-          ? ('<div class="dfx-rec-pin"><span class="rec-badge">REC</span>' + card + '</div>')
-          : card;
-      });
+      C.pins.forEach(function(e) { h += _buildPinGroupCard(e.d, C.ctrId); });
       h += '</div>';
     });
     h += '</div>';
   });
 
-  if (siteGeneral.pins.length) {
+  // 2. Recommendations — pooled, pulled out, trade subheadings only.
+  if (recCount) {
+    var recOrdered = orderTrades(recTradeSeen, function(t) { return !!recTrades[t]; });
+    if (recTrades[NOTRADE]) recOrdered.push(NOTRADE);
     h += '<div class="dfx-trade-section">';
-    h += '<div class="dfx-trade-banner grey"><span>Site General \u00B7 Recommendations</span><span class="dfx-trade-count">' + siteGeneral.count + '</span></div>';
+    h += '<div class="dfx-trade-banner recs"><span>Recommendations' + (closedPivot ? ' (Closed)' : '') + '</span><span class="dfx-trade-count">' + recCount + '</span></div>';
+    h += '<div class="dfx-rec-note">Advisory items outside the contracted scope of work \u2014 issued to document professional recommendations and potential additional work. Each appears once; the PDF carries them as their own section.</div>';
+    recOrdered.forEach(function(rt) {
+      var R = recTrades[rt];
+      h += '<div class="dfx-rec-sub"><span>' + esc(rt) + '</span><span class="dfx-ctr-count">' + R.count + '</span></div>';
+      h += '<div class="dfx-pingrp">';
+      R.pins.forEach(function(e) {
+        var card = _buildPinGroupCard(e.d, e.ctrId);
+        h += e.ctrId
+          ? ('<div class="dfx-rec-pin"><span class="dfx-rec-ctrchip">' + esc(e.ctrName) + '</span>' + card + '</div>')
+          : card;
+      });
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  // 3. Site Records — reserved internal scope (muted slate, dimmed).
+  if (siteRecords.pins.length) {
+    h += '<div class="dfx-trade-section dfx-sr-section">';
+    h += '<div class="dfx-trade-banner records"><span>Site Records<span class="dfx-sr-pill">Internal \u2014 excluded from client report</span></span><span class="dfx-trade-count">' + siteRecords.count + '</span></div>';
+    h += '<div class="dfx-sr-note">Site documentation only (photos / notes). Not a recommendation; not in an external report by default.</div>';
     h += '<div class="dfx-pingrp">';
-    siteGeneral.pins.forEach(function(e) {
-      var card = _buildPinGroupCard(e.d, null);
-      h += e.d.isRecommendation
-        ? ('<div class="dfx-rec-pin"><span class="rec-badge">REC</span>' + card + '</div>')
-        : card;
+    siteRecords.pins.forEach(function(e) {
+      h += '<div class="dfx-sr-pin">' + _buildPinGroupCard(e.d, null) + '</div>';
     });
     h += '</div></div>';
   }
 
   if (!h) {
-    var lbl = (_activeDlcTab === 'closed') ? 'Closed' : 'Active';
+    var lbl = closedPivot ? 'Closed' : 'Active';
     var hasAny = Model.getAllDeficiencies(proj).length > 0;
     h = '<div class="dfx-empty">' + (hasAny
       ? 'No items match the current ' + lbl + ' filters.'
@@ -1395,7 +1446,7 @@ function _openAddDeficModal() {
   var proj = Model.getProject();
   if (!proj) return;
 
-  var ctrOpts = '<option value="">\u2014 None (Site General) \u2014</option>';
+  var ctrOpts = '<option value="">\u2014 None (' + SITE_RECORDS_LABEL + ' \u00B7 internal) \u2014</option>';
   (proj.contractors || []).forEach(function(c) {
     ctrOpts += '<option value="' + esc(c.id) + '">' + esc(c.name || 'Unnamed') + '</option>';
   });
@@ -1825,7 +1876,7 @@ document.addEventListener('click', function(e) {
     // were silently moving observations to brand-new pins, with no toast
     // breadcrumb pointing back to where the obs went. Now we confirm.
     var srcObs = obs[obsIdx];
-    var ctrName = f.contractor ? (f.contractor.name || 'this contractor') : 'Site General';
+    var ctrName = f.contractor ? (f.contractor.name || 'this contractor') : SITE_RECORDS_LABEL;
     var obsLetter = String.fromCharCode(65 + obsIdx);
     var preview = (srcObs.text || '').trim();
     if (preview.length > 80) preview = preview.slice(0, 80) + '\u2026';
@@ -1986,7 +2037,7 @@ document.addEventListener('click', function(e) {
     if (!f) return;
     var curCtrId = f.contractor ? f.contractor.id : null;
     // Build contractor picker
-    var opts = '<option value="">Site General</option>';
+    var opts = '<option value="">' + SITE_RECORDS_LABEL + ' (internal)</option>';
     (proj.contractors || []).forEach(function(c) {
       if (c.id !== curCtrId) {
         opts += '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>';
@@ -2301,8 +2352,8 @@ document.addEventListener('change', function(e) {
       // first; on cancel, revert the dropdown.
       if (newEffective === 'general' && oldEffective !== 'general' && hasCtr) {
         var ctrName = f.contractor.name || 'this contractor';
-        var moveMsg = 'Setting this pin\u2019s priority to General will MOVE pin #' + dnum + ' out of "' + ctrName + '" and into Site General. The pin will no longer appear under any contractor. Continue?';
-        showConfirm('Move pin to Site General?', moveMsg).then(function(yes) {
+        var moveMsg = 'Setting this pin\u2019s priority to General will MOVE pin #' + dnum + ' out of "' + ctrName + '" and into ' + SITE_RECORDS_LABEL + ' (the reserved no-contractor scope). The pin will no longer appear under any contractor. Continue?';
+        showConfirm('Move pin to ' + SITE_RECORDS_LABEL + '?', moveMsg).then(function(yes) {
           if (!yes) {
             // Revert the dropdown — apply nothing
             e.target.value = (action === 'obs-priority')
@@ -2318,7 +2369,7 @@ document.addEventListener('change', function(e) {
             t.classList.toggle('active', t.getAttribute('data-dlc') === 'active');
           });
           initDeficiencies.render();
-          toast('#' + dnum + ' moved to Site General');
+          toast('#' + dnum + ' moved to ' + SITE_RECORDS_LABEL);
         });
         return;
       }
