@@ -98,7 +98,12 @@ function deficIsClosed(d) {
   return Model.getEffectiveStatus(d) === 'closed';
 }
 
-var _activeDlcTab = 'active';
+var _activeDlcTab = 'active';            // reused by S137 as the lifecycle pivot ('active' | 'closed')
+// ── S137 Phase 2: unified Deficiencies tab state ──
+var _deficView = 'detailed';             // 'detailed' (live) | 'table' | 'board' (S138)
+var _dfxSearch = '';                     // free-text filter (obs.text)
+var _dfxCtr = '';                        // contractorId filter ('' = all)
+var _dfxPri = '';                        // priority filter ('' = all | 'high' | 'low' | 'general')
 
 // S114 P1.8: Gallery picker — modal lets user select project site photos to attach
 // to a deficiency observation. Selected photos are appended to obs.photos with
@@ -599,6 +604,11 @@ function _buildPinGroupCard(d, ctrId) {
       h += '<button data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="spinoff-obs-btn" title="Spin off as new pin (asks for confirmation)">\u21B1 Spinoff</button>';
       h += '<button data-action="remove-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="remove-obs-btn" title="Remove observation">\u2715 Remove obs</button>';
     }
+    // S137: reserved trailing slot for the Phase 3.5 inspector chip.
+    // Empty by design — designed in now so the card structure isn't
+    // reworked a second time when attribution lands.
+    h += '<span class="obs-insp-slot" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"></span>';
+
     h += '</div>'; // /defic-obs-card-ctrls
 
     // Row 3 — body. textarea | media zone. Push 4 layout, but media buttons
@@ -1000,8 +1010,8 @@ export var initDeficiencies = {
     if (!container) return;
     if (!proj) { container.innerHTML = ''; return; }
 
-    var dlcTabs = document.getElementById('defic-lifecycle-tabs');
-    if (dlcTabs) dlcTabs.style.display = 'flex';
+    var ctrlBar = document.getElementById('defic-control-bar');
+    if (ctrlBar) ctrlBar.style.display = 'flex';
 
     var allDefics = Model.getAllDeficiencies(proj);
 
@@ -1011,24 +1021,24 @@ export var initDeficiencies = {
     // Render Trade Board (S136 Phase 1b)
     _renderTradeBoard(proj);
 
-    var activeCount = 0, generalCount = 0, closedCount = 0;
-    allDefics.forEach(function(d) {
-      if (deficIsClosed(d.defic)) closedCount++;
-      else if (deficIsOpen(d.defic) && !d.contractorId) generalCount++;
-      else if (deficIsOpen(d.defic) && d.contractorId) activeCount++;
-      // Items with unrecognized status are not counted in any tab
+    // S137: per-observation lifecycle counts drive the Active/Closed pivot.
+    var pcActive = 0, pcClosed = 0;
+    allDefics.forEach(function(rec) {
+      (rec.defic.observations || []).forEach(function(o) {
+        if (o.addressed) pcClosed++; else pcActive++;
+      });
     });
+    _syncDfxControls(pcActive, pcClosed, proj);
 
-    if (_activeDlcTab === 'closed') {
-      _renderClosedTab(allDefics.filter(function(d) { return deficIsClosed(d.defic); }), container);
+    // S137: view dispatch. Detailed is live; Table + Board land in S138.
+    if (_deficView === 'detailed') {
+      _renderDetailedView(proj, container);
     } else {
-      // S135: Site General tab retired. Active view now renders contractor
-      // groups followed by a Site General bottom section (for items with
-      // no contractor). 'active' is the only non-closed dlc state.
-      _renderActiveTab(proj, container);
+      container.innerHTML = '<div class="dfx-soon">The <strong>'
+        + (_deficView === 'table' ? 'Table' : 'Board')
+        + '</strong> view arrives in the next update.<br>'
+        + 'Use <strong>Detailed</strong> for now \u2014 all editing works there.</div>';
     }
-
-    _updateDlcCounts(activeCount + generalCount, closedCount);
     // S114 P1.6: re-render any open AI scratchpads now that the DOM is fresh
     if (window.AIAssist && window.AIAssist.repopulateAllScratchpads) {
       window.AIAssist.repopulateAllScratchpads();
@@ -1069,6 +1079,212 @@ function _renderClosedTab(closedDefics, container) {
   closedDefics.forEach(function(d) { html += buildDeficCard(d.defic, d.contractorId); });
   container.innerHTML = '<div class="defic-group"><div class="defic-group-header" style="background:#1C2333;color:white;padding:10px 16px;"><span>\u2705 Closed Items</span><span style="font-size:calc(12px + var(--ts));opacity:.7;">' + closedDefics.length + '</span></div>' + html + '</div>';
 }
+
+// ── S137 Phase 2: unified filter engine + Detailed view ──────────
+// Flatten (defic, obs) pairs after applying the lifecycle pivot
+// (_activeDlcTab) + contractor / priority / search filters. Mirrors the
+// unified_defic_demo flatRows() but reads the live model.
+function _flatRows(proj) {
+  var all = Model.getAllDeficiencies(proj);
+  var q = (_dfxSearch || '').trim().toLowerCase();
+  var rows = [];
+  all.forEach(function(rec) {
+    var d = rec.defic;
+    var obs = d.observations || [];
+    if (!obs.length) {
+      // Legacy 0-obs pin (recoverable edge case — see _buildPinGroupCard).
+      // Honor the pivot via effective status so it stays reachable/editable
+      // exactly as it was in the pre-S137 contractor-grouped view.
+      var closed = deficIsClosed(d);
+      if (_activeDlcTab === 'active' && closed) return;
+      if (_activeDlcTab === 'closed' && !closed) return;
+      if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
+      if (_dfxPri) return;            // no obs → no priority to match
+      if (q && (deficDesc(d) || '').toLowerCase().indexOf(q) < 0) return;
+      rows.push({ d: d, o: null, oi: -1, ctrId: rec.contractorId || null, ctrName: rec.contractorName || 'Site General' });
+      return;
+    }
+    obs.forEach(function(o, oi) {
+      var addressed = !!o.addressed;
+      if (_activeDlcTab === 'active' && addressed) return;
+      if (_activeDlcTab === 'closed' && !addressed) return;
+      if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
+      if (_dfxPri && (o.priority || 'high') !== _dfxPri) return;
+      if (q && (o.text || '').toLowerCase().indexOf(q) < 0) return;
+      rows.push({ d: d, o: o, oi: oi, ctrId: rec.contractorId || null, ctrName: rec.contractorName || 'Site General' });
+    });
+  });
+  return rows;
+}
+
+// Detailed view: Trade → Contractor → interactive pin-group cards.
+// A pin's trade = its FIRST observation's trade (Option 1, S137 — keeps
+// the protected _buildPinGroupCard intact; per-obs trade stays editable
+// inside the card). Pins with no trade AND no contractor fall to the
+// grey "Site General · Recommendations" bottom section. No-contractor
+// but trade-tagged items render under a grey "Recommendations" sub-banner
+// within their trade. Contractor color = contractor.color (S136 single
+// source of truth).
+function _renderDetailedView(proj, container) {
+  var rows = _flatRows(proj);
+
+  var pinOrder = [];          // defic ids, getAllDeficiencies num order
+  var pinAgg = {};            // id -> { d, ctrId, ctrName, count }
+  rows.forEach(function(r) {
+    var id = r.d.id;
+    if (!pinAgg[id]) { pinAgg[id] = { d: r.d, ctrId: r.ctrId, ctrName: r.ctrName, count: 0 }; pinOrder.push(id); }
+    pinAgg[id].count++;
+  });
+
+  function repTrade(d) {
+    var o0 = (d.observations && d.observations[0]) ? d.observations[0] : null;
+    return (o0 && o0.trade) ? o0.trade : '';
+  }
+  function ctrColor(ctrId) {
+    if (!ctrId) return '#6B7280';
+    var c = (proj.contractors || []).find(function(x) { return x.id === ctrId; });
+    return (c && c.color) ? c.color : '#6B7280';
+  }
+
+  var UNTAGGED = '\u2014 Untagged \u2014';
+  var tradeMap = {};          // tradeKey -> { name, count, ctrKeys[], ctrs{} }
+  var tradeSeen = [];
+  var siteGeneral = { pins: [], count: 0 };
+
+  pinOrder.forEach(function(id) {
+    var e = pinAgg[id];
+    var t = repTrade(e.d);
+    if (!t && !e.ctrId) { siteGeneral.pins.push(e); siteGeneral.count += e.count; return; }
+    var tk = t || UNTAGGED;
+    if (!tradeMap[tk]) { tradeMap[tk] = { name: tk, count: 0, ctrKeys: [], ctrs: {} }; tradeSeen.push(tk); }
+    var T = tradeMap[tk];
+    var ck = e.ctrId || '__rec__';
+    if (!T.ctrs[ck]) { T.ctrs[ck] = { ctrId: e.ctrId || null, name: e.ctrId ? e.ctrName : 'Recommendations', pins: [], count: 0 }; T.ctrKeys.push(ck); }
+    T.ctrs[ck].pins.push(e);
+    T.ctrs[ck].count += e.count;
+    T.count += e.count;
+  });
+
+  // Trade order: declared projectTrades first, then any extras, Untagged last.
+  var orderedTrades = [];
+  (proj.projectTrades || []).forEach(function(t) { if (tradeMap[t]) orderedTrades.push(t); });
+  tradeSeen.forEach(function(t) { if (orderedTrades.indexOf(t) < 0 && t !== UNTAGGED) orderedTrades.push(t); });
+  if (tradeMap[UNTAGGED]) orderedTrades.push(UNTAGGED);
+
+  // Contractor order within a trade: proj.contractors order, __rec__ last.
+  var ctrIndex = {};
+  (proj.contractors || []).forEach(function(c, i) { ctrIndex[c.id] = i; });
+  function orderCtrKeys(T) {
+    return T.ctrKeys.slice().sort(function(a, b) {
+      if (a === '__rec__') return 1;
+      if (b === '__rec__') return -1;
+      var ia = (ctrIndex[a] == null) ? 1e9 : ctrIndex[a];
+      var ib = (ctrIndex[b] == null) ? 1e9 : ctrIndex[b];
+      return ia - ib;
+    });
+  }
+
+  var h = '';
+  orderedTrades.forEach(function(tk) {
+    var T = tradeMap[tk];
+    h += '<div class="dfx-trade-section">';
+    h += '<div class="dfx-trade-banner"><span>' + esc(T.name) + '</span><span class="dfx-trade-count">' + T.count + '</span></div>';
+    orderCtrKeys(T).forEach(function(ck) {
+      var C = T.ctrs[ck];
+      if (ck === '__rec__') {
+        h += '<div class="dfx-ctr-banner rec"><span>Recommendations</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
+      } else {
+        h += '<div class="dfx-ctr-banner" style="--cc:' + esc(ctrColor(C.ctrId)) + ';"><span class="dfx-ctr-dot"></span><span>' + esc(C.name) + '</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
+      }
+      h += '<div class="dfx-pingrp">';
+      C.pins.forEach(function(e) { h += _buildPinGroupCard(e.d, C.ctrId); });
+      if (ck !== '__rec__') {
+        h += '<div class="dfx-add-defic-row"><button class="btn btn-outline btn-sm" data-action="add-defic" data-ctr-id="' + esc(C.ctrId || '') + '">+ Add Deficiency</button></div>';
+      }
+      h += '</div>';
+    });
+    h += '</div>';
+  });
+
+  if (siteGeneral.pins.length) {
+    h += '<div class="dfx-trade-section">';
+    h += '<div class="dfx-trade-banner grey"><span>Site General \u00B7 Recommendations</span><span class="dfx-trade-count">' + siteGeneral.count + '</span></div>';
+    h += '<div class="dfx-pingrp">';
+    siteGeneral.pins.forEach(function(e) { h += _buildPinGroupCard(e.d, null); });
+    h += '<div class="dfx-add-defic-row"><button class="btn btn-outline btn-sm" data-action="add-defic" data-ctr-id="">+ Add Deficiency</button></div>';
+    h += '</div></div>';
+  }
+
+  if (!h) {
+    var lbl = (_activeDlcTab === 'closed') ? 'Closed' : 'Active';
+    var hasAny = Model.getAllDeficiencies(proj).length > 0;
+    h = '<div class="dfx-empty">' + (hasAny
+      ? 'No items match the current ' + lbl + ' filters.'
+      : 'No deficiencies yet. Add a contractor in the Trade Board, then add deficiencies here.') + '</div>';
+  }
+  container.innerHTML = h;
+}
+
+// Sync the control bar to current state: pivot counts, active classes,
+// contractor dropdown options, filter input values.
+function _syncDfxControls(pcActive, pcClosed, proj) {
+  var ea = document.getElementById('dfx-pc-active');
+  var ec = document.getElementById('dfx-pc-closed');
+  if (ea) ea.textContent = pcActive;
+  if (ec) ec.textContent = pcClosed;
+
+  document.querySelectorAll('.defic-pivot-btn').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-pivot') === _activeDlcTab);
+  });
+  document.querySelectorAll('.view-toggle-btn').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-view') === _deficView);
+  });
+
+  var sel = document.getElementById('dfx-ctr');
+  if (sel) {
+    var ctrs = (proj.contractors || []);
+    var stillValid = !_dfxCtr || ctrs.some(function(c) { return c.id === _dfxCtr; });
+    if (!stillValid) _dfxCtr = '';
+    var opt = '<option value="">All contractors</option>';
+    ctrs.forEach(function(c) {
+      opt += '<option value="' + esc(c.id) + '"' + (c.id === _dfxCtr ? ' selected' : '') + '>' + esc(c.name || 'Unnamed') + '</option>';
+    });
+    sel.innerHTML = opt;
+    sel.value = _dfxCtr;
+  }
+  var pri = document.getElementById('dfx-pri');
+  if (pri && document.activeElement !== pri) pri.value = _dfxPri;
+  var sb = document.getElementById('dfx-search');
+  if (sb && document.activeElement !== sb) sb.value = _dfxSearch;
+}
+
+// ── S137 Phase 2: control-bar interactions ───────────────
+document.addEventListener('click', function(e) {
+  var pb = e.target.closest && e.target.closest('.defic-pivot-btn');
+  if (pb) {
+    var p = pb.getAttribute('data-pivot');
+    if (p && p !== _activeDlcTab) { _activeDlcTab = p; initDeficiencies.render(); }
+    return;
+  }
+  var vb = e.target.closest && e.target.closest('.view-toggle-btn');
+  if (vb) {
+    var v = vb.getAttribute('data-view');
+    if (v && v !== _deficView) { _deficView = v; initDeficiencies.render(); }
+    return;
+  }
+});
+document.addEventListener('input', function(e) {
+  if (e.target && e.target.id === 'dfx-search') {
+    _dfxSearch = e.target.value || '';
+    clearTimeout(window._dfxSearchT);
+    window._dfxSearchT = setTimeout(function() { initDeficiencies.render(); }, 180);
+  }
+});
+document.addEventListener('change', function(e) {
+  if (!e.target) return;
+  if (e.target.id === 'dfx-ctr') { _dfxCtr = e.target.value || ''; initDeficiencies.render(); }
+  else if (e.target.id === 'dfx-pri') { _dfxPri = e.target.value || ''; initDeficiencies.render(); }
+});
 
 function _updateDlcCounts(activeCount, closedCount) {
   document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(tab) {

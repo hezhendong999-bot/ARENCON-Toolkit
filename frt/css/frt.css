@@ -6960,3 +6960,243 @@ body.dark-mode .picker-cancel-btn:hover { background: #2A3247; color: #E0E5F0; }
 }
 
 /* End S136 Phase 1b TRADE BOARD ─────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   S137 Phase 2 — UNIFIED DEFICIENCIES TAB (scaffold + Detailed view)
+   Spec: STYLE_GUIDE_S134_DELTA.css §UNIFIED / §DETAILED, adapted to
+   FRT convention: light-default + body.dark-mode override, --ts text
+   scale, 900px breakpoint, Calibri. New `dfx-` classes avoid colliding
+   with the existing per-obs .trade-banner dropdown + .defic-group.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Control bar (lifecycle pivot + filters + view toggle) ────────── */
+.defic-control-bar {
+  margin: 0 14px;
+  background: #FFFFFF;
+  border: 1px solid #DDE1E7;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+body.dark-mode .defic-control-bar {
+  background: #252B3D;
+  border-color: #3A4258;
+}
+
+.defic-pivot {
+  display: inline-flex;
+  background: #F0EDE6;
+  border-radius: 6px;
+  padding: 2px;
+}
+body.dark-mode .defic-pivot { background: #1C2333; }
+
+.defic-pivot-btn {
+  background: transparent;
+  color: #8A94B0;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-family: Calibri, sans-serif;
+  font-size: calc(13px + var(--ts));
+  font-weight: 600;
+  cursor: pointer;
+}
+.defic-pivot-btn.active { background: #9C2742; color: #FFFFFF; }
+
+.defic-pivot-count {
+  background: rgba(255, 255, 255, 0.22);
+  padding: 1px 7px;
+  border-radius: 8px;
+  font-size: calc(11px + var(--ts));
+  margin-left: 4px;
+}
+.defic-pivot-btn:not(.active) .defic-pivot-count {
+  background: #E4E0D7;
+  color: #5A6473;
+}
+body.dark-mode .defic-pivot-btn:not(.active) .defic-pivot-count {
+  background: #353D54;
+  color: #C0CADE;
+}
+
+/* Filters */
+.defic-filters {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.dfx-filter-input {
+  background: #F7F8FA;
+  border: 1px solid #DDE1E7;
+  border-radius: 4px;
+  padding: 6px 10px;
+  color: #1C2333;
+  font-family: Calibri, sans-serif;
+  font-size: calc(13px + var(--ts));
+  outline: none;
+}
+.dfx-filter-input:focus { border-color: #9C2742; }
+.dfx-filter-input[type="text"] { width: 160px; }
+select.dfx-filter-input { cursor: pointer; padding-right: 26px; }
+body.dark-mode .dfx-filter-input {
+  background: #1C2333;
+  border-color: #3A4258;
+  color: #E0E5F0;
+}
+
+/* View toggle — Detailed / Table / Board */
+.view-toggle {
+  display: inline-flex;
+  background: #F0EDE6;
+  border-radius: 6px;
+  padding: 2px;
+  margin-left: auto;
+}
+body.dark-mode .view-toggle { background: #1C2333; }
+.view-toggle-btn {
+  background: transparent;
+  color: #8A94B0;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-family: Calibri, sans-serif;
+  font-size: calc(12.5px + var(--ts));
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.view-toggle-btn.active { background: #FFFFFF; color: #1C2333; box-shadow: 0 1px 3px rgba(28,35,51,.12); }
+body.dark-mode .view-toggle-btn.active { background: #353D54; color: #E0E5F0; box-shadow: none; }
+
+/* Content wrapper — visually joins the control bar above it */
+.defic-content {
+  margin: 0 14px 14px;
+  background: #FFFFFF;
+  border: 1px solid #DDE1E7;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  padding: 14px;
+  min-height: 420px;
+}
+body.dark-mode .defic-content {
+  background: #252B3D;
+  border-color: #3A4258;
+}
+
+/* ── Detailed view — Trade → Contractor → pin-group cards ─────────── */
+.dfx-trade-section { margin-bottom: 18px; }
+.dfx-trade-section:last-child { margin-bottom: 4px; }
+
+.dfx-trade-banner {
+  background: #2A3A5C;            /* navy — locked S133/S134 trade-section color */
+  color: #FFFFFF;
+  padding: 7px 14px;
+  font-weight: 700;
+  font-size: calc(13.5px + var(--ts));
+  letter-spacing: 0.3px;
+  border-radius: 6px 6px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.dfx-trade-banner.grey { background: #6B7280; }
+.dfx-trade-count {
+  background: rgba(255, 255, 255, 0.18);
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: calc(10px + var(--ts));
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.dfx-ctr-banner {
+  background: #7B6F5A;            /* taupe — locked S133/S134 contractor sub-header */
+  color: #FFFFFF;
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: calc(12.5px + var(--ts));
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+body.dark-mode .dfx-ctr-banner { background: #5F5749; }
+.dfx-ctr-banner.rec { background: #6B7280; }
+body.dark-mode .dfx-ctr-banner.rec { background: #565C66; }
+.dfx-ctr-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cc, #6B7280);
+  flex-shrink: 0;
+}
+.dfx-ctr-count {
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.18);
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: calc(10px + var(--ts));
+  font-weight: 700;
+}
+
+/* Pin-group container under a contractor/rec sub-banner. Reuses the
+   existing interactive .defic-pin-group cards unchanged inside. */
+.dfx-pingrp {
+  background: #F7F8FA;
+  border: 1px solid #DDE1E7;
+  border-top: 0;
+  padding: 10px 12px;
+}
+.dfx-trade-section .dfx-pingrp:last-child { border-radius: 0 0 6px 6px; }
+body.dark-mode .dfx-pingrp {
+  background: #1C2333;
+  border-color: #3A4258;
+}
+.dfx-pingrp .defic-pin-group:last-child { margin-bottom: 0; }
+
+.dfx-add-defic-row { padding: 8px 0 2px; }
+
+.dfx-empty {
+  text-align: center;
+  padding: 56px 20px;
+  color: var(--silver);
+  font-size: calc(13px + var(--ts));
+}
+
+/* View placeholder — Table / Board land in S138 */
+.dfx-soon {
+  text-align: center;
+  padding: 64px 24px;
+  color: var(--silver);
+  font-size: calc(14px + var(--ts));
+  line-height: 1.6;
+}
+.dfx-soon strong { color: #9C2742; }
+
+/* ── Reserved inspector-attribution chip slot (Phase 3.5) ──────────
+   A ~20px trailing slot designed into the obs meta row now so the
+   card structure is not reworked twice. Renders nothing in S137. */
+.obs-insp-slot {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .defic-control-bar { gap: 8px; }
+  .defic-pivot, .view-toggle { flex: 1; }
+  .view-toggle { margin-left: 0; }
+  .defic-filters { width: 100%; }
+  .dfx-filter-input[type="text"] { flex: 1; width: auto; }
+}
+
+/* End S137 Phase 2 UNIFIED DEFICIENCIES TAB ──────────────────────── */

@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=307">
+<link rel="stylesheet" href="css/frt.css?v=308">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -442,16 +442,8 @@ function ensurePdfJs(cb){
       <div class="card" style="margin-bottom:4px;">
         <div class="card-header">⚠ Deficiencies Identified</div>
         <div class="card-body" style="padding:10px 0 0 0;">
-          <div class="defic-lifecycle-tabs" id="defic-lifecycle-tabs" style="display:none;">
-            <div class="dlc-tab active" data-dlc="active">Active</div>
-            <div class="dlc-tab" data-dlc="closed">Closed</div>
-          </div>
-          <!-- Deficiency toolbar -->
+          <!-- Deficiency toolbar (Renumber / AI Group / Select / Fold All) -->
           <div id="defic-toolbar" class="toolbar-cluster-bar" style="margin-bottom:10px;padding:0 14px;">
-            <div class="tb-cluster tb-cluster-left">
-              <button class="btn btn-outline btn-sm" id="defic-filters-btn">⚙ Filters</button>
-              <input type="text" id="defic-search" placeholder="🔍 Search deficiencies..." style="min-width:140px;max-width:240px;padding:7px 12px;border:1.5px solid var(--border);border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));background:var(--smoke);color:var(--fg);">
-            </div>
             <div class="tb-cluster tb-cluster-right">
               <button class="btn btn-outline btn-sm" id="defic-renumber-btn" title="Renumber deficiencies sequentially (1, 2, 3...)">#↕ Renumber</button>
               <button class="btn btn-outline btn-sm" id="defic-ai-group-btn" title="Use AI to thematically group deficiencies for the report">🧠 AI Group</button>
@@ -459,7 +451,30 @@ function ensurePdfJs(cb){
               <button class="btn btn-outline btn-sm" id="defic-fold-all-btn" title="Fold/Unfold all">▼ Fold All</button>
             </div>
           </div>
-          <div id="deficiencies-container"></div>
+          <!-- S137 Phase 2: unified control bar — lifecycle pivot + filters + view toggle.
+               Replaces #defic-lifecycle-tabs (dlc-tabs) and the old toolbar search. -->
+          <div class="defic-control-bar" id="defic-control-bar" style="display:none;">
+            <div class="defic-pivot">
+              <button class="defic-pivot-btn active" data-pivot="active">Active <span class="defic-pivot-count" id="dfx-pc-active">0</span></button>
+              <button class="defic-pivot-btn" data-pivot="closed">Closed <span class="defic-pivot-count" id="dfx-pc-closed">0</span></button>
+            </div>
+            <div class="defic-filters">
+              <input type="text" class="dfx-filter-input" id="dfx-search" placeholder="🔍 Search...">
+              <select class="dfx-filter-input" id="dfx-ctr"><option value="">All contractors</option></select>
+              <select class="dfx-filter-input" id="dfx-pri">
+                <option value="">All priorities</option>
+                <option value="high">High</option>
+                <option value="low">Low</option>
+                <option value="general">General</option>
+              </select>
+            </div>
+            <div class="view-toggle">
+              <button class="view-toggle-btn active" data-view="detailed">📋 Detailed</button>
+              <button class="view-toggle-btn" data-view="table">≡ Table</button>
+              <button class="view-toggle-btn" data-view="board">▦ Board</button>
+            </div>
+          </div>
+          <div id="deficiencies-container" class="defic-content"></div>
         </div>
       </div>
     </div>
