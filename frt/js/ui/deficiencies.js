@@ -1153,19 +1153,12 @@ function _renderDetailedView(proj, container) {
   pinOrder.forEach(function(id) {
     var e = pinAgg[id];
     var t = repTrade(e.d);
-    // S138 (Option 2 / additive): an explicit recommendation flag forces the
-    // Recommendations grouping and wins over an assigned contractor. The
-    // legacy no-contractor+trade derivation is preserved via `|| !e.ctrId`,
-    // so existing data (all isRecommendation:false after backfill) renders
-    // byte-identical — only newly-flagged items relocate.
-    var isRecPin = !!e.d.isRecommendation;
-    if (!t && !e.ctrId && !isRecPin) { siteGeneral.pins.push(e); siteGeneral.count += e.count; return; }
+    if (!t && !e.ctrId) { siteGeneral.pins.push(e); siteGeneral.count += e.count; return; }
     var tk = t || UNTAGGED;
     if (!tradeMap[tk]) { tradeMap[tk] = { name: tk, count: 0, ctrKeys: [], ctrs: {} }; tradeSeen.push(tk); }
     var T = tradeMap[tk];
-    var asRec = isRecPin || !e.ctrId;
-    var ck = asRec ? '__rec__' : e.ctrId;
-    if (!T.ctrs[ck]) { T.ctrs[ck] = { ctrId: asRec ? null : e.ctrId, name: asRec ? 'Recommendations' : e.ctrName, pins: [], count: 0 }; T.ctrKeys.push(ck); }
+    var ck = e.ctrId || '__rec__';
+    if (!T.ctrs[ck]) { T.ctrs[ck] = { ctrId: e.ctrId || null, name: e.ctrId ? e.ctrName : 'Recommendations', pins: [], count: 0 }; T.ctrKeys.push(ck); }
     T.ctrs[ck].pins.push(e);
     T.ctrs[ck].count += e.count;
     T.count += e.count;
@@ -1203,7 +1196,15 @@ function _renderDetailedView(proj, container) {
         h += '<div class="dfx-ctr-banner" style="--cc:' + esc(ctrColor(C.ctrId)) + ';"><span class="dfx-ctr-dot"></span><span>' + esc(C.name) + '</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
       }
       h += '<div class="dfx-pingrp">';
-      C.pins.forEach(function(e) { h += _buildPinGroupCard(e.d, C.ctrId); });
+      C.pins.forEach(function(e) {
+        var card = _buildPinGroupCard(e.d, C.ctrId);
+        // S138: recommendations stay in their natural trade→contractor /
+        // grey-Recommendations / Site-General group (canon) and are tagged
+        // with a REC badge for identification — never relocated.
+        h += e.d.isRecommendation
+          ? ('<div class="dfx-rec-pin"><span class="rec-badge">REC</span>' + card + '</div>')
+          : card;
+      });
       h += '</div>';
     });
     h += '</div>';
@@ -1213,7 +1214,12 @@ function _renderDetailedView(proj, container) {
     h += '<div class="dfx-trade-section">';
     h += '<div class="dfx-trade-banner grey"><span>Site General \u00B7 Recommendations</span><span class="dfx-trade-count">' + siteGeneral.count + '</span></div>';
     h += '<div class="dfx-pingrp">';
-    siteGeneral.pins.forEach(function(e) { h += _buildPinGroupCard(e.d, null); });
+    siteGeneral.pins.forEach(function(e) {
+      var card = _buildPinGroupCard(e.d, null);
+      h += e.d.isRecommendation
+        ? ('<div class="dfx-rec-pin"><span class="rec-badge">REC</span>' + card + '</div>')
+        : card;
+    });
     h += '</div></div>';
   }
 
@@ -1285,7 +1291,7 @@ function _renderTableView(proj, container) {
     var numCls = closed ? 'closed' : (pri === 'low' ? 'low' : pri === 'general' ? 'general' : '');
     h += '<tr class="' + (closed ? 'dfx-closed' : '') + '" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '">'
       + '<td><span class="dfx-tbl-num ' + numCls + '">#' + esc(_dfxObsLabel(d, oi)) + '</span></td>'
-      + '<td>' + (trade ? esc(trade) : '<em style="color:var(--silver);">none</em>') + (d.isRecommendation ? ' <span class="dfx-tbl-rec">(rec)</span>' : '') + '</td>'
+      + '<td>' + (trade ? esc(trade) : '<em style="color:var(--silver);">none</em>') + (d.isRecommendation ? ' <span class="rec-badge">REC</span>' : '') + '</td>'
       + '<td>' + (r.ctrId ? '<span class="dfx-tbl-ctr" style="--cc:' + esc(_dfxCtrColor(proj, r.ctrId)) + ';"></span>' : '') + esc(cName) + '</td>'
       + '<td>' + esc(desc) + '</td>'
       + '<td><span class="dfx-status-mini ' + (pri === 'low' ? 'low' : pri === 'general' ? 'general' : 'high') + '">' + esc(pri.toUpperCase()) + '</span></td>'
@@ -1354,10 +1360,9 @@ function _renderBoardView(proj, container) {
 // same object-mutation precedent used by spin-off). Persists via
 // Model.saveNow() (the established UI create path).
 function _addDeficTriggerHTML() {
-  return '<div class="dfx-add-defic-card" data-action="open-add-defic" role="button" tabindex="0">'
-    + '<span class="dfx-add-defic-plus">+</span>'
-    + '<span class="dfx-add-defic-main">deficiency</span>'
-    + '<span class="dfx-add-defic-hint">creates an item \u2014 assign contractor / trade / pin in the dialog, or skip and add later</span>'
+  return '<div class="add-deficiency-card" data-action="open-add-defic" role="button" tabindex="0">'
+    + '+ deficiency &nbsp;\u00B7&nbsp; '
+    + '<span style="font-weight:400;">creates an item \u2014 assign contractor / trade / pin in the dialog, or skip &amp; add later</span>'
     + '</div>';
 }
 
@@ -1387,29 +1392,31 @@ function _openAddDeficModal() {
 
   var ov = document.createElement('div');
   ov.id = 'add-defic-overlay';
-  ov.className = 'adf-overlay';
-  var h = '<div class="adf-modal" role="dialog" aria-label="New deficiency">';
-  h += '<div class="adf-title">+ New deficiency</div>';
-  h += '<div class="adf-row"><label for="adf-text">Description</label>'
+  ov.className = 'pin-modal-overlay open';
+  var h = '<div class="pin-modal" role="dialog" aria-label="New deficiency">';
+  h += '<div class="pin-panel-header"><h3>+ New deficiency</h3></div>';
+  h += '<div class="pin-panel-body">';
+  h += '<div class="field-group"><label for="adf-text">Description</label>'
      + '<textarea id="adf-text" placeholder="Describe the observation\u2026"></textarea></div>';
-  h += '<div class="adf-row"><label for="adf-pri">Priority</label>'
+  h += '<div class="field-group"><label for="adf-pri">Priority</label>'
      + '<select id="adf-pri"><option value="high">High</option>'
      + '<option value="low">Low</option><option value="general">General</option></select></div>';
-  h += '<div class="adf-row"><label for="adf-ctr">Contractor</label>'
+  h += '<div class="field-group"><label for="adf-ctr">Contractor</label>'
      + '<select id="adf-ctr">' + ctrOpts + '</select></div>';
-  h += '<div class="adf-row"><label for="adf-trade">Trade</label>'
+  h += '<div class="field-group"><label for="adf-trade">Trade</label>'
      + '<select id="adf-trade">' + trOpts + '</select></div>';
-  h += '<div class="adf-row"><label for="adf-pin">Pin location</label>'
+  h += '<div class="field-group"><label for="adf-pin">Pin location</label>'
      + '<select id="adf-pin">' + pinOpts + '</select></div>';
-  h += '<div class="adf-checkrow" id="adf-recrow">'
+  h += '<div class="modal-checkbox-row" id="adf-recrow">'
      + '<input type="checkbox" id="adf-rec">'
-     + '<label for="adf-rec">This is a <strong>recommendation</strong> \u2014 a note for owner/client consideration; doesn\u2019t block sign-off</label>'
+     + '<label>This is a <strong>recommendation</strong> \u2014 a note for owner/client consideration; doesn\u2019t block sign-off</label>'
      + '</div>';
-  h += '<div class="adf-actions">'
-     + '<button class="adf-btn secondary" id="adf-cancel">Cancel</button>'
-     + '<button class="adf-btn" id="adf-add">Add</button>'
+  h += '</div>';   // pin-panel-body
+  h += '<div class="pin-panel-footer">'
+     + '<button class="btn btn-outline" id="adf-cancel">Cancel</button>'
+     + '<button class="btn btn-primary" id="adf-add">Add</button>'
      + '</div>';
-  h += '</div>';
+  h += '</div>';   // pin-modal
   ov.innerHTML = h;
   document.body.appendChild(ov);
 
@@ -1442,7 +1449,8 @@ function _openAddDeficModal() {
   ov.addEventListener('click', function(e) {
     if (e.target === ov || e.target.id === 'adf-cancel') { _closeAddDeficModal(); return; }
     if (e.target.id === 'adf-add') { doCreate(); return; }
-    if (e.target.id === 'adf-recrow' || (e.target.tagName === 'STRONG' && e.target.closest('#adf-recrow'))) {
+    var recRow = e.target.closest && e.target.closest('#adf-recrow');
+    if (recRow && e.target.id !== 'adf-rec') {
       var cb = ov.querySelector('#adf-rec'); if (cb) cb.checked = !cb.checked; return;
     }
   });
