@@ -12,7 +12,7 @@
 
 import { Model, TRADE_LIST } from '../data/model.js';
 import { toast } from '../shared/toast.js';
-import { showConfirm, showPrompt, confirmIARDeactivate } from '../shared/dialogs.js';
+import { showConfirm, showPrompt } from '../shared/dialogs.js';
 import { R2 } from '../data/r2.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { AIAssist } from '../ai/assistant.js';
@@ -529,14 +529,6 @@ function _buildPinGroupCard(d, ctrId) {
     h += '<span class="obs-pill ' + (multiObs ? '' : 'is-pin ') + pillCls + '">' + esc(label) + '</span>';
     h += '<span class="obs-pill-text' + (o.addressed ? ' addressed' : '') + '">\u00B7 ' + (multiObs ? 'Observation' : 'Pin') + _aiDot + '</span>';
     if (_frtChip) h += _frtChip;
-    // S130 — per-obs group badge. Clickable to rename/clear/assign group.
-    // Empty state: subtle ghost pill so user can assign manually without AI.
-    var obsGroup = o.aiGroup || '';
-    if (obsGroup) {
-      h += '<button class="obs-group-badge" data-action="edit-obs-group" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Click to change group" style="background:#FBEFF3;color:#5A2D3C;border:1px solid #E89AAC;border-radius:10px;padding:2px 10px;font-family:Calibri,sans-serif;font-size:calc(10px + var(--ts));font-weight:600;cursor:pointer;margin-left:6px;">\uD83C\uDFF7\uFE0F ' + esc(obsGroup) + '</button>';
-    } else {
-      h += '<button class="obs-group-badge-empty" data-action="edit-obs-group" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Assign to a report group" style="background:transparent;color:#999;border:1px dashed #C9CED6;border-radius:10px;padding:2px 8px;font-family:Calibri,sans-serif;font-size:calc(10px + var(--ts));cursor:pointer;margin-left:6px;opacity:.65;">+ group</button>';
-    }
     if (!multiObs) {
       h += '<span class="lbl-row-spacer"></span>';
       if (d.drawingId) {
@@ -570,35 +562,24 @@ function _buildPinGroupCard(d, ctrId) {
     });
     h += '</select>';
 
-    // S134: trade dropdown (replaces IAR button). Slate-blue when AI-tagged,
-    // muted purple when manually tagged. Empty value = "untagged". AI/MAN
-    // badge sits adjacent. The AI tagger (S136) refuses to retag any obs
-    // with tradeSource === 'manual'. Legacy d.iar data stays in JSON but
-    // is no longer rendered (silent degrade).
+    // S134: per-obs trade dropdown (replaces IAR button). Empty value =
+    // "untagged". Source badge retired in S135 — visual differentiation
+    // (inherited vs manual) is derived from data in Phase 2 (trade board).
+    // Legacy d.iar and obs.tradeSource stay in JSON (silent-degrade).
     var _trade = o.trade || '';
-    var _tradeSrc = (o.tradeSource === 'manual') ? 'manual' : 'ai';
-    var _tradeCls = (_tradeSrc === 'manual') ? 'trade-banner manual' : 'trade-banner';
     h += '<span class="trade-banner-wrap">';
-    h += '<select data-action="obs-trade" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="' + _tradeCls + '" title="Trade for this observation">';
+    h += '<select data-action="obs-trade" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="trade-banner" title="Trade for this observation">';
     h += '<option value="" style="background:white;color:#2C3E50;font-weight:600;"' + (_trade === '' ? ' selected' : '') + '>\u2014 Trade \u2014</option>';
     TRADE_LIST.forEach(function(tv) {
       h += '<option value="' + esc(tv) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (_trade === tv ? ' selected' : '') + '>' + esc(tv) + '</option>';
     });
     h += '</select>';
-    // Source badge: only shown when a trade is selected. Manual/AI flag
-    // helps inspectors spot AI guesses vs deliberate human assignments.
-    if (_trade) {
-      var _badgeCls = (_tradeSrc === 'manual') ? 'trade-source-mark manual' : 'trade-source-mark';
-      h += '<span class="' + _badgeCls + '" title="' + (_tradeSrc === 'manual' ? 'Manually assigned' : 'AI-suggested') + '">' + (_tradeSrc === 'manual' ? 'MAN' : 'AI') + '</span>';
-    }
     h += '</span>';
 
     // Visual separator between state cluster (Outstanding/Priority/Trade)
-    // and action cluster (AI Review/Spinoff/Remove obs).
+    // and action cluster (Spinoff/Remove obs). Per-obs AI Review button
+    // retired in S135 — replaced in Phase 6 by global "Polish observations".
     h += '<span class="ctrls-sep" aria-hidden="true"></span>';
-
-    // AI Review per-obs
-    h += '<button data-action="ai-review-menu" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="defic-ai-btn" title="AI Review">\u2728 AI Review</button>';
 
     // Spinoff + Remove obs — only show when multi-obs (otherwise no
     // sibling to spinoff against, and "remove obs" is just delete-pin).
@@ -828,23 +809,20 @@ function _renderDeficLog(proj, allDefics) {
   h += '<th style="text-align:center;">Total</th>';
   h += '<th style="text-align:center;">New This Report</th>';
   h += '<th style="text-align:center;">Outstanding</th>';
-  h += '<th style="text-align:center;">IAR</th>';
   h += '<th style="text-align:center;">Closed</th></tr></thead><tbody>';
-  var tTotal = 0, tNew = 0, tOut = 0, tIar = 0, tClosed = 0;
+  var tTotal = 0, tNew = 0, tOut = 0, tClosed = 0;
   Object.keys(ctrGroups).forEach(function(name) {
     var gc = ctrGroups[name];
     var total = gc.length;
     var nw = gc.filter(function(d) { return (d.defic.notedOnInstance || 1) === _curInst; }).length;
     var outstanding = gc.filter(function(d) { return deficIsOpen(d.defic); }).length;
-    var iar = gc.filter(function(d) { return d.defic.iar; }).length;
     var closed = gc.filter(function(d) { return deficIsClosed(d.defic); }).length;
-    tTotal += total; tNew += nw; tOut += outstanding; tIar += iar; tClosed += closed;
+    tTotal += total; tNew += nw; tOut += outstanding; tClosed += closed;
     h += '<tr>';
     h += '<td style="font-weight:600;">' + esc(name) + '</td>';
     h += '<td style="text-align:center;">' + total + '</td>';
     h += '<td style="text-align:center;font-weight:700;">' + nw + '</td>';
     h += '<td style="text-align:center;color:#A85959;font-weight:700;">' + outstanding + '</td>';
-    h += '<td style="text-align:center;color:#FF69B4;font-weight:700;">' + iar + '</td>';
     h += '<td style="text-align:center;color:#5F8068;font-weight:700;">' + closed + '</td></tr>';
   });
   h += '<tr style="font-weight:700;">';
@@ -852,7 +830,6 @@ function _renderDeficLog(proj, allDefics) {
   h += '<td style="text-align:center;">' + tTotal + '</td>';
   h += '<td style="text-align:center;">' + tNew + '</td>';
   h += '<td style="text-align:center;color:#A85959;">' + tOut + '</td>';
-  h += '<td style="text-align:center;color:#FF69B4;">' + tIar + '</td>';
   h += '<td style="text-align:center;color:#5F8068;">' + tClosed + '</td></tr>';
   h += '</tbody></table>';
   el.innerHTML = h;
@@ -1157,38 +1134,14 @@ document.addEventListener('click', function(e) {
   if (action === 'toggle-addressed') {
     var deficId = el.getAttribute('data-defic-id');
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
-    // S120 Push 6: if this flip will close the pin (last unaddressed obs
-    // becomes addressed) AND the pin is IAR, confirm IAR deactivation
-    // before flipping. Without this gate, ticking the last obs as
-    // addressed silently set iar=false via Model.updateDeficStatus's
-    // status mirror — surprising for IAR pins.
+    // S135: IAR confirm flow retired. When toggling addressed → closed
+    // on an IAR pin, the silent-degrade write (defic.iar = false on
+    // status-mirror) is preserved via Model.updateDeficStatus. No prompt.
     var _ta = Model.findDeficiency(deficId);
-    var _willClose = false;
-    if (_ta && _ta.defic && _ta.defic.iar && _ta.defic.observations) {
-      var unaddrCount = 0;
-      var thisIsAddressed = !!(_ta.defic.observations[obsIdx] || {}).addressed;
-      _ta.defic.observations.forEach(function(o, i) {
-        if (i === obsIdx) {
-          // After flip, this obs's addressed state inverts
-          if (thisIsAddressed) unaddrCount++; // flipping addressed→open
-        } else if (!o.addressed) unaddrCount++;
-      });
-      _willClose = !thisIsAddressed && unaddrCount === 0;
-    }
-    var _doToggle = function() {
-      Model.toggleObsAddressed(deficId, obsIdx);
-      initDeficiencies.render();
-      if (window._frtRenderTasks) window._frtRenderTasks();
-    };
-    if (_willClose) {
-      confirmIARDeactivate(_ta.defic).then(function(ok) {
-        if (ok === false) return;
-        if (_ta && _ta.defic) _ta.defic.iar = false;
-        _doToggle();
-      });
-    } else {
-      _doToggle();
-    }
+    if (_ta && _ta.defic && _ta.defic.iar) _ta.defic.iar = false;
+    Model.toggleObsAddressed(deficId, obsIdx);
+    initDeficiencies.render();
+    if (window._frtRenderTasks) window._frtRenderTasks();
   }
 
   // S121 Push 7: per-obs status select (multi-obs path). Reuses the same
@@ -1339,15 +1292,6 @@ document.addEventListener('click', function(e) {
     ov2.querySelector('#reassign-cancel').addEventListener('click', function() { ov2.remove(); });
   }
 
-  if (action === 'toggle-iar') {
-    var deficId = el.getAttribute('data-defic-id');
-    if (!deficId) { var btn5 = el.closest('[data-defic-id]'); if (btn5) deficId = btn5.getAttribute('data-defic-id'); }
-    if (deficId) {
-      Model.toggleIAR(deficId);
-      initDeficiencies.render();
-    }
-  }
-
   if (action === 'dup-defic') {
     var deficId = el.getAttribute('data-defic-id');
     if (!deficId) { var btn7 = el.closest('[data-defic-id]'); if (btn7) deficId = btn7.getAttribute('data-defic-id'); }
@@ -1397,72 +1341,11 @@ document.addEventListener('click', function(e) {
 
   // S114 P1.8 — Per-pin AI Review menu (3 modes). Click opens floating menu;
   // option click triggers the appropriate mode and populates the scratchpad
-  // of the OBSERVATION that was clicked.
-  // S122 Push 10 — fixed: previously hardcoded obs 0, so on multi-obs pins
-  // the per-obs AI Review buttons all reviewed obs A regardless of which
-  // obs's button was clicked. Now respects data-obs-idx from the clicked
-  // button and propagates it through to the option handlers.
-  if (action === 'ai-review-menu') {
-    e.stopPropagation();
-    var deficId = el.getAttribute('data-defic-id');
-    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
-    // Toggle: if a menu is already open for this exact obs, close it
-    var existing = document.getElementById('ai-review-pop');
-    if (existing) {
-      var sameDefic = existing.getAttribute('data-defic-id') === deficId;
-      var sameObs = parseInt(existing.getAttribute('data-obs-idx') || '0', 10) === obsIdx;
-      existing.remove();
-      if (sameDefic && sameObs) return;
-    }
-    var f = Model.findDeficiency(deficId);
-    if (!f) return;
-    var _obsForMenu = f.defic.observations && f.defic.observations[obsIdx];
-    var hasPhotos = !!(_obsForMenu && (_obsForMenu.photos || []).length);
-    var hasText = !!(_obsForMenu && (_obsForMenu.text || '').trim());
-    var pop = document.createElement('div');
-    pop.id = 'ai-review-pop';
-    pop.className = 'ai-review-pop';
-    pop.setAttribute('data-defic-id', deficId);
-    pop.setAttribute('data-obs-idx', String(obsIdx));
-    var btn1 = '<button class="ai-rv-opt" data-action="ai-review-pin-photos" data-defic-id="' + esc(deficId) + '" data-obs-idx="' + obsIdx + '"' + (hasPhotos ? '' : ' disabled') + '>\uD83D\uDCF7 Full review (photos + text)' + (hasPhotos ? '' : '<span class="ai-rv-disabled">no photos</span>') + '</button>';
-    var btn2 = '<button class="ai-rv-opt" data-action="ai-review-pin-text" data-defic-id="' + esc(deficId) + '" data-obs-idx="' + obsIdx + '"' + (hasText ? '' : ' disabled') + '>\uD83D\uDCDD Full review (text only)' + (hasText ? '' : '<span class="ai-rv-disabled">no text</span>') + '</button>';
-    var btn3 = '<button class="ai-rv-opt" data-action="ai-review-pin-quick" data-defic-id="' + esc(deficId) + '" data-obs-idx="' + obsIdx + '"' + (hasText ? '' : ' disabled') + '>\u26A1 Quick review (grammar / flow)' + (hasText ? '' : '<span class="ai-rv-disabled">no text</span>') + '</button>';
-    pop.innerHTML = btn1 + btn2 + btn3;
-    document.body.appendChild(pop);
-    var r = el.getBoundingClientRect();
-    pop.style.position = 'fixed';
-    pop.style.top = (r.bottom + 4) + 'px';
-    pop.style.left = Math.min(r.left, window.innerWidth - 320) + 'px';
-    pop.style.zIndex = '9000';
-    setTimeout(function() {
-      document.addEventListener('click', function close(ev) {
-        if (ev.target.closest && ev.target.closest('#ai-review-pop')) return;
-        var p = document.getElementById('ai-review-pop');
-        if (p) p.remove();
-        document.removeEventListener('click', close);
-      });
-    }, 10);
-    return;
-  }
-  if (action === 'ai-review-pin-photos' || action === 'ai-review-pin-text' || action === 'ai-review-pin-quick') {
-    var deficId = el.getAttribute('data-defic-id');
-    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
-    var pop = document.getElementById('ai-review-pop'); if (pop) pop.remove();
-    if (!window.AIAssist || !window.AIAssist.aiReviewObs) {
-      // S122 Push 10 — try aiReviewPin as fallback for old assistant.js
-      if (window.AIAssist && window.AIAssist.aiReviewPin) {
-        var aiMode = action === 'ai-review-pin-photos' ? 'photos'
-                   : action === 'ai-review-pin-text' ? 'rewrite' : 'quickfix';
-        window.AIAssist.aiReviewPin(deficId, aiMode);
-        return;
-      }
-      toast('\u26A0 AI Assistant not loaded'); return;
-    }
-    var aiMode2 = action === 'ai-review-pin-photos' ? 'photos'
-                : action === 'ai-review-pin-text' ? 'rewrite' : 'quickfix';
-    window.AIAssist.aiReviewObs(deficId, obsIdx, aiMode2);
-    return;
-  }
+  // S135: per-obs AI Review menu retired. The popup trigger and option
+  // handlers (ai-review-pin-photos / ai-review-pin-text / ai-review-pin-quick)
+  // are removed. Phase 6 will reintroduce as a global "Polish observations"
+  // toolbar action. window.AIAssist.aiReviewObs / aiReviewPin remain
+  // available in assistant.js for that future re-wiring.
 
   // S114 P1.8 — Pick photos from the project site gallery to attach to this observation
   if (action === 'photo-gallery-pick') {
@@ -1551,31 +1434,20 @@ document.addEventListener('click', function(e) {
     var deficId = el.getAttribute('data-defic-id');
     var _cd = Model.findDeficiency(deficId);
     var _cnum = _cd ? _cd.defic.num || '?' : '?';
-    // S120 Push 6: closing an IAR pin via "+ Close" — confirm IAR
-    // deactivation FIRST, then the closing-note prompt. If the IAR confirm
-    // is cancelled, abort the whole close flow (don't show the note prompt).
-    var _continueClose = function() {
-      showPrompt('\u2714 Close Deficiency #' + _cnum, 'Closing note (optional):').then(function(note) {
-        if (note === null) return; // cancelled at note prompt
-        if (_cd && _cd.defic && _cd.defic.iar) _cd.defic.iar = false;
-        Model.updateDeficStatus(deficId, 'closed');
-        if (note) Model.updateClosedNote(deficId, note);
-        _activeDlcTab = 'closed';
-        document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
-          t.classList.toggle('active', t.getAttribute('data-dlc') === 'closed');
-        });
-        initDeficiencies.render();
-        toast('Deficiency #' + _cnum + ' closed');
+    // S135: IAR confirm gate retired. Silent-degrade write of iar=false
+    // still happens inside the close handler below.
+    showPrompt('\u2714 Close Deficiency #' + _cnum, 'Closing note (optional):').then(function(note) {
+      if (note === null) return; // cancelled at note prompt
+      if (_cd && _cd.defic && _cd.defic.iar) _cd.defic.iar = false;
+      Model.updateDeficStatus(deficId, 'closed');
+      if (note) Model.updateClosedNote(deficId, note);
+      _activeDlcTab = 'closed';
+      document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
+        t.classList.toggle('active', t.getAttribute('data-dlc') === 'closed');
       });
-    };
-    if (_cd && _cd.defic && _cd.defic.iar) {
-      confirmIARDeactivate(_cd.defic).then(function(ok) {
-        if (ok === false) return; // IAR cancel — abort
-        _continueClose();
-      });
-    } else {
-      _continueClose();
-    }
+      initDeficiencies.render();
+      toast('Deficiency #' + _cnum + ' closed');
+    });
   }
 
   if (action === 'reopen-defic') {
@@ -1628,37 +1500,11 @@ document.addEventListener('change', function(e) {
     if (!_ssf || !_ssf.defic || !_ssf.defic.observations) return;
     var curAddressed = !!(_ssf.defic.observations[obsIdx] || {}).addressed;
     if (curAddressed === newAddressed) return; // no-op
-    // IAR-deactivation gate: same logic as toggle-addressed. If toggling
-    // this obs to addressed will close the pin AND the pin is IAR, confirm.
-    var _willCloseObsStatus = false;
-    if (_ssf.defic.iar && newAddressed) {
-      var unaddrCount = 0;
-      _ssf.defic.observations.forEach(function(o, i) {
-        if (i === obsIdx) {
-          // this one is about to flip to addressed → contributes 0 unaddressed
-        } else if (!o.addressed) unaddrCount++;
-      });
-      _willCloseObsStatus = (unaddrCount === 0);
-    }
-    var _selEl2 = e.target;
-    var _doFlip = function() {
-      Model.toggleObsAddressed(deficId, obsIdx);
-      initDeficiencies.render();
-      if (window._frtRenderTasks) window._frtRenderTasks();
-    };
-    if (_willCloseObsStatus) {
-      confirmIARDeactivate(_ssf.defic).then(function(ok) {
-        if (ok === false) {
-          // revert dropdown
-          _selEl2.value = curAddressed ? 'closed' : 'open';
-          return;
-        }
-        if (_ssf && _ssf.defic) _ssf.defic.iar = false;
-        _doFlip();
-      });
-    } else {
-      _doFlip();
-    }
+    // S135: IAR confirm gate retired. Silent-degrade write only.
+    if (_ssf.defic.iar && newAddressed) _ssf.defic.iar = false;
+    Model.toggleObsAddressed(deficId, obsIdx);
+    initDeficiencies.render();
+    if (window._frtRenderTasks) window._frtRenderTasks();
     return;
   }
 
@@ -1666,37 +1512,21 @@ document.addEventListener('change', function(e) {
     var deficId = e.target.getAttribute('data-defic-id');
     var newStatus = e.target.value;
     var _sf = Model.findDeficiency(deficId);
-    var _selEl = e.target;
-    // S120 Push 6: closing an IAR pin via the status dropdown — confirm
-    // first and auto-deactivate IAR. On cancel, revert the dropdown.
-    var _proceed = function() {
-      Model.updateDeficStatus(deficId, newStatus);
-      // Auto-switch to correct tab
-      if (newStatus === 'closed') {
-        _activeDlcTab = 'closed';
-      } else {
-        var hasCtr = _sf && _sf.contractor;
-        _activeDlcTab = hasCtr ? 'active' : 'general';
-      }
-      document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
-        t.classList.toggle('active', t.getAttribute('data-dlc') === _activeDlcTab);
-      });
-      initDeficiencies.render();
-    };
-    if (newStatus === 'closed' && _sf && _sf.defic && _sf.defic.iar) {
-      confirmIARDeactivate(_sf.defic).then(function(ok) {
-        if (ok === false) {
-          // Revert dropdown
-          _selEl.value = 'open';
-          return;
-        }
-        // ok === true (confirmed) or null (not IAR) — clear IAR + proceed
-        if (_sf && _sf.defic) _sf.defic.iar = false;
-        _proceed();
-      });
+    // S135: IAR confirm gate retired. Silent-degrade write of iar=false
+    // happens via Model.updateDeficStatus's status mirror.
+    if (newStatus === 'closed' && _sf && _sf.defic && _sf.defic.iar) _sf.defic.iar = false;
+    Model.updateDeficStatus(deficId, newStatus);
+    // Auto-switch to correct tab
+    if (newStatus === 'closed') {
+      _activeDlcTab = 'closed';
     } else {
-      _proceed();
+      var hasCtr = _sf && _sf.contractor;
+      _activeDlcTab = hasCtr ? 'active' : 'general';
     }
+    document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
+      t.classList.toggle('active', t.getAttribute('data-dlc') === _activeDlcTab);
+    });
+    initDeficiencies.render();
   }
 
   if (action === 'priority' || action === 'obs-priority') {
@@ -1829,10 +1659,10 @@ document.addEventListener('change', function(e) {
     })();
   }
 
-  // S134: per-obs trade dropdown. Manual override marks tradeSource='manual'
-  // so the AI tagger (S136) won't re-apply a guess over a deliberate user
-  // assignment. Re-render so the source badge (AI/MAN) and dropdown styling
-  // (slate-blue → purple) update to reflect the new state.
+  // S134/S135: per-obs trade dropdown. Manual override is recorded so
+  // future AI/auto-tagging logic won't overwrite a deliberate user choice.
+  // The AI/MAN source badge was retired in S135 — visual differentiation
+  // returns in Phase 2 (Detailed view) as derived data from the trade board.
   if (action === 'obs-trade') {
     var _tdid = e.target.getAttribute('data-defic-id');
     var _toi = parseInt(e.target.getAttribute('data-obs-idx') || '0', 10);
@@ -2045,9 +1875,7 @@ function _applySearchFilter() {
     var show = true;
     // Status filter
     if (_statusFilter === 'outstanding') {
-      show = deficIsOpen(d) && !d.iar;
-    } else if (_statusFilter === 'iar') {
-      show = !!d.iar;
+      show = deficIsOpen(d);
     }
     // Search filter
     if (show && _searchQuery) {
@@ -2057,26 +1885,6 @@ function _applySearchFilter() {
     item.style.display = show ? '' : 'none';
   });
 }
-
-// ── Fold All Toggle ──────────────────────────────────────
-var _allFolded = false;
-document.addEventListener('click', function(e) {
-  if (e.target.id === 'defic-fold-all-btn' || (e.target.closest && e.target.closest('#defic-fold-all-btn'))) {
-    _allFolded = !_allFolded;
-    var container = document.getElementById('deficiencies-container');
-    if (!container) return;
-    container.querySelectorAll('.defic-group').forEach(function(g) {
-      var ctrId = g.getAttribute('data-ctr-id');
-      var body = g.querySelector('.defic-group-body');
-      var arrow = g.querySelector('.ctr-fold-arrow');
-      if (ctrId) _foldedGroups[ctrId] = _allFolded;
-      if (body) body.style.display = _allFolded ? 'none' : '';
-      if (arrow) arrow.textContent = _allFolded ? '\u25B6' : '\u25BC';
-    });
-    var btn = document.getElementById('defic-fold-all-btn');
-    if (btn) btn.textContent = _allFolded ? '\u25B6 Unfold All' : '\u25BC Fold All';
-  }
-});
 
 // ── Renumber Deficiencies ───────────────────────────────
 document.addEventListener('click', function(e) {
@@ -2092,193 +1900,10 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// ── S130 — AI Group Deficiencies (thematic clustering) ──
-document.addEventListener('click', function(e) {
-  if (e.target.id === 'defic-ai-group-btn' || (e.target.closest && e.target.closest('#defic-ai-group-btn'))) {
-    AIAssist.autoGroupDeficiencies();
-  }
-});
-
-// S130 — click on an obs group badge (or "+ group" placeholder) → picker
-// of catalog entries. Top: list of allowed groups (radio buttons). Bottom:
-// "Edit catalog…" link to manage the project's group list, and "Clear group".
-document.addEventListener('click', function(e) {
-  var badge = e.target.closest && e.target.closest('[data-action="edit-obs-group"]');
-  if (!badge) return;
-  var deficId = badge.getAttribute('data-defic-id');
-  var obsIdx = parseInt(badge.getAttribute('data-obs-idx'), 10);
-  if (!deficId || isNaN(obsIdx)) return;
-  _showObsGroupPicker(deficId, obsIdx, badge);
-});
-
-function _showObsGroupPicker(deficId, obsIdx, anchorEl) {
-  var f = Model.findDeficiency(deficId);
-  if (!f) return;
-  var obs = (f.defic.observations || [])[obsIdx];
-  if (!obs) return;
-  var current = obs.aiGroup || '';
-  var catalog = Model.getGroupCatalog();
-
-  // Remove any existing picker
-  var existing = document.getElementById('obs-group-picker');
-  if (existing) existing.remove();
-
-  var pop = document.createElement('div');
-  pop.id = 'obs-group-picker';
-  pop.style.cssText = 'position:fixed;background:white;border:1px solid #DDE1E7;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.18);z-index:9999;padding:6px 0;min-width:260px;font-family:Calibri,sans-serif;';
-
-  var html = '<div style="padding:6px 14px 4px;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Report Section</div>';
-  catalog.forEach(function(title) {
-    var selected = (title === current);
-    html += '<div data-pick-group="' + title.replace(/"/g, '&quot;') + '" style="padding:7px 14px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;' + (selected ? 'background:#FBEFF3;color:#5A2D3C;font-weight:600;' : '') + '" onmouseover="this.style.background=\'#F4F5F8\'" onmouseout="this.style.background=\'' + (selected ? '#FBEFF3' : 'transparent') + '\'">' +
-            (selected ? '✓ ' : '') + title + '</div>';
-  });
-  html += '<div style="border-top:1px solid #E5E8EE;margin:4px 0;"></div>';
-  if (current) {
-    html += '<div data-pick-group="" style="padding:7px 14px;cursor:pointer;font-size:13px;color:#A85959;" onmouseover="this.style.background=\'#F4F5F8\'" onmouseout="this.style.background=\'transparent\'">✕ Clear group</div>';
-  }
-  html += '<div data-pick-edit-catalog="1" style="padding:7px 14px;cursor:pointer;font-size:12px;color:#2C4770;" onmouseover="this.style.background=\'#F4F5F8\'" onmouseout="this.style.background=\'transparent\'">⚙ Edit catalog…</div>';
-
-  pop.innerHTML = html;
-  document.body.appendChild(pop);
-
-  // Position near anchor
-  var rect = anchorEl.getBoundingClientRect();
-  var top = rect.bottom + 4;
-  var left = rect.left;
-  if (top + 320 > window.innerHeight) top = Math.max(8, rect.top - 320);
-  if (left + 280 > window.innerWidth) left = window.innerWidth - 280 - 8;
-  pop.style.top = top + 'px';
-  pop.style.left = left + 'px';
-
-  function close() {
-    if (pop.parentNode) pop.parentNode.removeChild(pop);
-    document.removeEventListener('click', outside, true);
-  }
-  function outside(e) {
-    if (!pop.contains(e.target)) close();
-  }
-  setTimeout(function() { document.addEventListener('click', outside, true); }, 0);
-
-  pop.addEventListener('click', function(e) {
-    var pickEl = e.target.closest('[data-pick-group]');
-    var editEl = e.target.closest('[data-pick-edit-catalog]');
-    if (pickEl) {
-      var title = pickEl.getAttribute('data-pick-group');
-      Model.setObsGroup(deficId, obsIdx, title || null);
-      toast(title ? 'Group: ' + title : 'Group cleared');
-      close();
-      initDeficiencies.render();
-      return;
-    }
-    if (editEl) {
-      close();
-      _showCatalogEditor();
-    }
-  });
-}
-
-function _showCatalogEditor() {
-  var catalog = Model.getGroupCatalog();
-  var existing = document.getElementById('catalog-editor-modal');
-  if (existing) existing.remove();
-
-  var ov = document.createElement('div');
-  ov.id = 'catalog-editor-modal';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px;';
-
-  var panel = document.createElement('div');
-  panel.style.cssText = 'background:white;border-radius:8px;max-width:520px;width:100%;display:flex;flex-direction:column;font-family:Calibri,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,0.25);';
-
-  var rows = catalog.map(function(title, i) {
-    return '<div data-cat-row="' + i + '" style="display:flex;align-items:center;gap:6px;padding:6px 0;">' +
-           '<input type="text" value="' + title.replace(/"/g, '&quot;') + '" style="flex:1;border:1px solid #C9CED6;border-radius:4px;padding:6px 10px;font-family:Calibri,sans-serif;font-size:13px;">' +
-           '<button data-cat-up="' + i + '" title="Move up" style="background:transparent;border:1px solid #C9CED6;color:#333;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;line-height:1;">\u2191</button>' +
-           '<button data-cat-down="' + i + '" title="Move down" style="background:transparent;border:1px solid #C9CED6;color:#333;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;line-height:1;">\u2193</button>' +
-           '<button data-cat-remove="' + i + '" style="background:transparent;border:1px solid #C9CED6;color:#A85959;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;">\u2715</button>' +
-           '</div>';
-  }).join('');
-
-  panel.innerHTML =
-    '<div style="padding:14px 18px;background:#9C2742;color:white;font-weight:700;font-size:15px;display:flex;justify-content:space-between;align-items:center;">' +
-      '<span>\u2699 Edit Report Section Catalog</span>' +
-      '<button id="cat-close" style="background:transparent;border:1px solid rgba(255,255,255,0.4);color:white;border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:16px;line-height:1;">\u2715</button>' +
-    '</div>' +
-    '<div style="padding:14px 18px;overflow-y:auto;max-height:60vh;">' +
-      '<div style="font-size:12px;color:#666;margin-bottom:10px;">These are the report sections AI will sort observations into. Use \u2191 / \u2193 to reorder, \u2715 to remove. Empty rows are ignored.</div>' +
-      '<div id="cat-rows">' + rows + '</div>' +
-      '<button id="cat-add" style="margin-top:10px;background:white;border:1px dashed #C9CED6;color:#2C4770;border-radius:4px;padding:6px 12px;cursor:pointer;font-family:Calibri,sans-serif;font-size:12px;width:100%;">+ Add Section</button>' +
-    '</div>' +
-    '<div style="padding:10px 14px;border-top:1px solid #E5E8EE;display:flex;justify-content:flex-end;gap:6px;background:#FAFBFD;">' +
-      '<button id="cat-reset" style="background:white;border:1px solid #C9CED6;color:#A85959;border-radius:4px;padding:6px 14px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">Reset to defaults</button>' +
-      '<button id="cat-cancel" style="background:white;border:1px solid #C9CED6;color:#333;border-radius:4px;padding:6px 14px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;">Cancel</button>' +
-      '<button id="cat-save" style="background:#1A7A4A;border:1px solid #156540;color:white;border-radius:4px;padding:6px 16px;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;">Save</button>' +
-    '</div>';
-
-  ov.appendChild(panel);
-  document.body.appendChild(ov);
-
-  function close() { ov.remove(); }
-  ov.addEventListener('click', function(e) { if (e.target === ov) close(); });
-  panel.querySelector('#cat-close').addEventListener('click', close);
-  panel.querySelector('#cat-cancel').addEventListener('click', close);
-  panel.querySelector('#cat-add').addEventListener('click', function() {
-    var rowsEl = panel.querySelector('#cat-rows');
-    var idx = rowsEl.children.length;
-    var row = document.createElement('div');
-    row.setAttribute('data-cat-row', String(idx));
-    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 0;';
-    row.innerHTML =
-      '<input type="text" value="" placeholder="New section name" style="flex:1;border:1px solid #C9CED6;border-radius:4px;padding:6px 10px;font-family:Calibri,sans-serif;font-size:13px;">' +
-      '<button data-cat-up="' + idx + '" title="Move up" style="background:transparent;border:1px solid #C9CED6;color:#333;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;line-height:1;">\u2191</button>' +
-      '<button data-cat-down="' + idx + '" title="Move down" style="background:transparent;border:1px solid #C9CED6;color:#333;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;line-height:1;">\u2193</button>' +
-      '<button data-cat-remove="' + idx + '" style="background:transparent;border:1px solid #C9CED6;color:#A85959;border-radius:4px;width:30px;height:30px;cursor:pointer;font-size:14px;">\u2715</button>';
-    rowsEl.appendChild(row);
-    row.querySelector('input').focus();
-  });
-  panel.addEventListener('click', function(e) {
-    var rm = e.target.closest('[data-cat-remove]');
-    if (rm) {
-      var row = rm.closest('[data-cat-row]');
-      if (row) row.remove();
-      return;
-    }
-    // S133 — Up / Down reorder. Save reads input values in DOM order, so
-    // moving a row in the DOM is the complete change.
-    var up = e.target.closest('[data-cat-up]');
-    if (up) {
-      var row = up.closest('[data-cat-row]');
-      if (row && row.previousElementSibling) {
-        row.parentNode.insertBefore(row, row.previousElementSibling);
-      }
-      return;
-    }
-    var dn = e.target.closest('[data-cat-down]');
-    if (dn) {
-      var row = dn.closest('[data-cat-row]');
-      if (row && row.nextElementSibling) {
-        row.parentNode.insertBefore(row.nextElementSibling, row);
-      }
-      return;
-    }
-  });
-  panel.querySelector('#cat-reset').addEventListener('click', function() {
-    Model.setGroupCatalog([]); // empty triggers default fallback
-    toast('Catalog reset to defaults');
-    close();
-    initDeficiencies.render();
-  });
-  panel.querySelector('#cat-save').addEventListener('click', function() {
-    var values = [];
-    panel.querySelectorAll('#cat-rows input').forEach(function(inp) {
-      values.push(inp.value);
-    });
-    Model.setGroupCatalog(values);
-    toast('Catalog saved (' + Model.getGroupCatalog().length + ' sections)');
-    close();
-    initDeficiencies.render();
-  });
-}
+// S135 — S130 AI Group Deficiencies feature retired (AI Group toolbar
+// trigger, obs group picker, section catalog editor). Replaced in Phase 2+
+// by contractor-scoped trade board. obs.aiGroup field stays in JSON one
+// session as silent-degrade write-only, then removed entirely.
 
 // ── S78: Defic Filters + Select buttons (delegated) ─────────────
 document.addEventListener('click', function(e) {
@@ -2297,8 +1922,7 @@ document.addEventListener('click', function(e) {
       + '<button data-defic-filter="in-progress">In progress only</button>'
       + '<button data-defic-filter="closed">Closed only</button>'
       + '<div class="separator"></div>'
-      + '<button data-defic-filter="high">High priority only</button>'
-      + '<button data-defic-filter="iar">IAR only</button>';
+      + '<button data-defic-filter="high">High priority only</button>';
     document.body.appendChild(pop);
     var r = fb.getBoundingClientRect();
     pop.style.cssText += ';position:fixed!important;bottom:auto!important;right:auto!important;height:auto!important;max-height:none!important;';
@@ -2313,13 +1937,11 @@ document.addEventListener('click', function(e) {
           cards.forEach(function(c){
             var st = (c.getAttribute('data-status')||'').toLowerCase();
             var pr = (c.getAttribute('data-priority')||'').toLowerCase();
-            var iar = c.getAttribute('data-iar') === '1';
             var show = mode === 'all'
               || (mode === 'outstanding' && st === 'outstanding')
               || (mode === 'in-progress' && (st === 'in-progress' || st === 'in progress'))
               || (mode === 'closed' && st === 'closed')
-              || (mode === 'high' && pr === 'high')
-              || (mode === 'iar' && iar);
+              || (mode === 'high' && pr === 'high');
             c.style.display = show ? '' : 'none';
           });
           toast('Filter: ' + mode);
@@ -2332,178 +1954,12 @@ document.addEventListener('click', function(e) {
     }); }, 10);
     return;
   }
-  var sb = e.target.closest && e.target.closest('#defic-select-btn');
-  if (sb) {
-    _toggleDeficSelectMode();
-    return;
-  }
-  // Action bar handlers (delegated)
-  var act = e.target.closest && e.target.closest('[data-defic-bulk]');
-  if (act) {
-    var op = act.getAttribute('data-defic-bulk');
-    _runDeficBulk(op);
-    return;
-  }
 });
 
-// ── S78: Defic Select Mode (v1-style bulk action bar) ───────────
-var _deficSelectMode = false;
-
-function _getSelectedDeficIds() {
-  var ids = [];
-  document.querySelectorAll('.bulk-defic-checkbox:checked').forEach(function(cb) {
-    var id = cb.getAttribute('data-defic-id');
-    if (id) ids.push(id);
-  });
-  return ids;
-}
-
-function _updateDeficBulkCount() {
-  var cnt = _getSelectedDeficIds().length;
-  var el = document.getElementById('defic-bulk-count');
-  if (el) el.textContent = cnt + ' selected';
-}
-
-function _toggleDeficSelectMode() {
-  _deficSelectMode = !_deficSelectMode;
-  document.body.classList.toggle('defic-select-mode', _deficSelectMode);
-  var btn = document.getElementById('defic-select-btn');
-  if (btn) btn.textContent = _deficSelectMode ? '\u2713 Selecting' : '\u2610 Select';
-  var bar = document.getElementById('defic-bulk-action-bar');
-  if (_deficSelectMode) {
-    if (!bar) {
-      bar = document.createElement('div');
-      bar.id = 'defic-bulk-action-bar';
-      bar.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 14px;background:var(--smoke,rgba(156,39,66,0.04));border:1px solid rgba(156,39,66,0.35);border-radius:8px;margin:8px 14px;';
-      bar.innerHTML =
-        '<span id="defic-bulk-count" style="font-weight:700;color:var(--arencon,#9C2742);font-size:12px;padding:0 4px;">0 selected</span>'
-        + '<button class="btn btn-sm" data-defic-bulk="close" style="background:#5F8068;color:white;border:none;padding:4px 10px;font-size:12px;">\u2713 Close Selected</button>'
-        + '<button class="btn btn-sm" data-defic-bulk="reopen" style="background:#A85959;color:white;border:none;padding:4px 10px;font-size:12px;">\u25CF Reopen Selected</button>'
-        + '<button class="btn btn-sm" data-defic-bulk="iar-on" style="background:#FF69B4;color:white;border:none;padding:4px 10px;font-size:12px;">\u26A1 Set IAR</button>'
-        + '<button class="btn btn-sm" data-defic-bulk="iar-off" style="background:#888;color:white;border:none;padding:4px 10px;font-size:12px;">Clear IAR</button>'
-        + '<div style="flex:1;"></div>'
-        + '<button class="btn btn-sm" data-defic-bulk="delete" style="background:#A85959;color:white;border:none;padding:4px 10px;font-size:12px;">\uD83D\uDDD1 Delete Selected</button>'
-        + '<div style="flex:1;"></div>'
-        + '<button class="btn btn-outline btn-sm" data-defic-bulk="all" style="padding:4px 10px;font-size:12px;">Select All</button>'
-        + '<button class="btn btn-outline btn-sm" data-defic-bulk="none" style="padding:4px 10px;font-size:12px;">Deselect All</button>'
-        + '<button class="btn btn-outline btn-sm" data-defic-bulk="cancel" style="padding:4px 10px;font-size:12px;">\u2715 Cancel</button>';
-    }
-    var toolbar = document.getElementById('defic-toolbar');
-    var container = document.getElementById('deficiencies-container');
-    if (toolbar && toolbar.parentNode && bar.parentNode !== toolbar.parentNode) {
-      toolbar.parentNode.insertBefore(bar, container || toolbar.nextSibling);
-    }
-    bar.style.display = 'flex';
-    // Inject checkboxes onto each card
-    document.querySelectorAll('[data-deficiency-id]').forEach(function(card) {
-      var id = card.getAttribute('data-deficiency-id');
-      if (card.querySelector('.bulk-defic-checkbox')) return;
-      var cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.className = 'bulk-defic-checkbox';
-      cb.setAttribute('data-defic-id', id);
-      cb.style.cssText = 'margin-right:8px;width:18px;height:18px;cursor:pointer;vertical-align:middle;';
-      cb.addEventListener('change', _updateDeficBulkCount);
-      card.insertBefore(cb, card.firstChild);
-    });
-    _updateDeficBulkCount();
-  } else {
-    if (bar) bar.style.display = 'none';
-    document.querySelectorAll('.bulk-defic-checkbox').forEach(function(cb) { cb.remove(); });
-  }
-}
-
-function _runDeficBulk(op) {
-  if (op === 'cancel') { _toggleDeficSelectMode(); return; }
-  if (op === 'all') {
-    document.querySelectorAll('.bulk-defic-checkbox').forEach(function(cb) { cb.checked = true; });
-    _updateDeficBulkCount();
-    return;
-  }
-  if (op === 'none') {
-    document.querySelectorAll('.bulk-defic-checkbox').forEach(function(cb) { cb.checked = false; });
-    _updateDeficBulkCount();
-    return;
-  }
-  var ids = _getSelectedDeficIds();
-  if (!ids.length) { toast('No deficiencies selected'); return; }
-  var proj = Model.getProject();
-  var inst = (proj && proj.currentFrtInstance) || 1;
-  if (op === 'close' || op === 'reopen') {
-    var isClose = op === 'close';
-    // S120 Push 6: surface IAR-active pins in the confirm message so the
-    // inspector knows IAR will be auto-deactivated. Previously the bulk
-    // close path silently set iar=false with no acknowledgement.
-    var iarNums = isClose
-      ? ids.map(function(id) { var f = Model.findDeficiency(id); return (f && f.defic && f.defic.iar) ? ('#' + f.defic.num) : null; }).filter(Boolean)
-      : [];
-    var msg = '';
-    if (iarNums.length === 1) {
-      msg = iarNums[0] + ' is currently IAR. Closing will automatically deactivate IAR.';
-    } else if (iarNums.length > 1) {
-      var preview = iarNums.length > 4 ? (iarNums.slice(0, 4).join(', ') + ' \u2026 (+' + (iarNums.length - 4) + ' more)') : iarNums.join(', ');
-      msg = iarNums.length + ' selected pins are IAR (' + preview + '). Closing will automatically deactivate IAR on all of them.';
-    }
-    showConfirm((isClose ? 'Close ' : 'Reopen ') + ids.length + ' deficienc' + (ids.length>1?'ies':'y') + '?', msg).then(function(yes) {
-      if (!yes) return;
-      ids.forEach(function(id) {
-        var f = Model.findDeficiency(id);
-        if (!f) return;
-        if (isClose) {
-          f.defic.status = 'closed';
-          f.defic.iar = false;
-          f.defic.closedOnInstance = inst;
-          f.defic.closedDate = new Date().toISOString().split('T')[0];
-          // S119: per-obs addressed metadata so per-obs PDF filter sees them
-          // as closed-in-current-instance (matches pin-level closedDate).
-          if (f.defic.observations) {
-            f.defic.observations.forEach(function(o) {
-              o.addressed = true;
-              o.addressedDate = f.defic.closedDate;
-              o.addressedOnInstance = inst;
-            });
-          }
-        } else {
-          f.defic.status = 'open';
-          f.defic.closedOnInstance = null;
-          f.defic.closedDate = null;
-          f.defic.closedNote = '';
-          if (f.defic.observations) {
-            f.defic.observations.forEach(function(o) {
-              o.addressed = false;
-              o.addressedDate = null;
-              o.addressedOnInstance = null;
-            });
-          }
-        }
-      });
-      Model.saveNow();
-      initDeficiencies.render();
-      if (window._frtRenderTasks) window._frtRenderTasks();
-      toast((isClose ? 'Closed ' : 'Reopened ') + ids.length);
-      setTimeout(function() { document.querySelectorAll('.bulk-defic-checkbox').forEach(function(cb) { cb.checked = false; }); _updateDeficBulkCount(); }, 50);
-    });
-  } else if (op === 'iar-on' || op === 'iar-off') {
-    var on = op === 'iar-on';
-    ids.forEach(function(id) { var f = Model.findDeficiency(id); if (f) f.defic.iar = on; });
-    Model.saveNow();
-    initDeficiencies.render();
-    if (window._frtRenderTasks) window._frtRenderTasks();
-    toast((on ? 'Set' : 'Cleared') + ' IAR on ' + ids.length);
-    setTimeout(function() { document.querySelectorAll('.bulk-defic-checkbox').forEach(function(cb) { cb.checked = false; }); _updateDeficBulkCount(); }, 50);
-  } else if (op === 'delete') {
-    showConfirm('Delete ' + ids.length + ' Deficienc' + (ids.length>1?'ies':'y'), 'This cannot be undone.').then(function(yes) {
-      if (!yes) return;
-      ids.forEach(function(id) { Model.removeDeficiency(id); });
-      if (Model.renumberDeficiencies) Model.renumberDeficiencies();
-      Model.saveNow();
-      initDeficiencies.render();
-      if (window._frtRenderTasks) window._frtRenderTasks();
-      toast('Deleted ' + ids.length);
-      _toggleDeficSelectMode();
-    });
-  }
-}
+// S135 — S78 Bulk Select feature retired. The toolbar Select button,
+// per-card checkbox injection, bulk action bar (close/reopen/IAR/delete/
+// all/none/cancel), and the _deficSelectMode state are gone. Phase 4
+// undo/redo system replaces bulk operations as the safety net.
 
 // S116 Push 1: expose photo helpers for the pin editor (viewer.js).
 // Same pipeline as deficiencies tab so photo records, R2 upload, and Model
