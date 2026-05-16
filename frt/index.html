@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=309">
+<link rel="stylesheet" href="css/frt.css?v=310">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -428,30 +428,25 @@ function ensurePdfJs(cb){
 
     <!-- DEFICIENCIES PANEL -->
     <div class="panel" id="panel-deficiencies">
+      <!-- Trade Board (S136 Phase 1b — own top-level card; reordered first in S137-polish: roster precedes the scoreboard whose rows ARE these contractors) -->
+      <div class="card" style="margin-bottom:4px;" id="trade-board-card">
+        <div class="card-header">🏗 Trade Board</div>
+        <div class="card-body" id="contractors-on-site" style="padding:0;"></div>
+      </div>
       <!-- Deficiency Log summary table -->
       <div class="card" style="margin-bottom:4px;" id="defic-log-card">
         <div class="card-header">📋 Deficiency Log</div>
         <div class="card-body" id="defic-log-container" style="padding:0;"></div>
       </div>
-      <!-- Trade Board · Contractors on Site (S136 Phase 1b — own top-level card) -->
-      <div class="card" style="margin-bottom:4px;" id="trade-board-card">
-        <div class="card-header">🏗 Trade Board · Contractors on Site</div>
-        <div class="card-body" id="contractors-on-site" style="padding:0;"></div>
-      </div>
-      <!-- Deficiencies Identified section -->
+      <!-- Deficiency List section (renamed from "Deficiencies Identified" S137-polish — parallels "Deficiency Log") -->
       <div class="card" style="margin-bottom:4px;">
-        <div class="card-header">⚠ Deficiencies Identified</div>
+        <div class="card-header">⚠ Deficiency List</div>
         <div class="card-body" style="padding:10px 0 0 0;">
-          <!-- Deficiency toolbar (Renumber / AI Group / Select / Fold All) -->
-          <div id="defic-toolbar" class="toolbar-cluster-bar" style="margin-bottom:10px;padding:0 14px;">
-            <div class="tb-cluster tb-cluster-right">
-              <button class="btn btn-outline btn-sm" id="defic-renumber-btn" title="Renumber deficiencies sequentially (1, 2, 3...)">#↕ Renumber</button>
-              <button class="btn btn-outline btn-sm" id="defic-ai-group-btn" title="Use AI to thematically group deficiencies for the report">🧠 AI Group</button>
-              <button class="btn btn-outline btn-sm" id="defic-select-btn" title="Select multiple deficiencies">☐ Select</button>
-              <button class="btn btn-outline btn-sm" id="defic-fold-all-btn" title="Fold/Unfold all">▼ Fold All</button>
-            </div>
-          </div>
-          <!-- S137 Phase 2: unified control bar — lifecycle pivot + filters + view toggle.
+          <!-- S137-polish: #defic-toolbar removed. AI Group / Select / Fold All were
+               dead markup — S135 retired the underlying features and left no handlers.
+               Renumber kept (still functional) and folded into the control bar below,
+               which removes the separate toolbar row and its gap. -->
+          <!-- Unified control bar — lifecycle pivot + filters + view toggle + Renumber.
                Replaces #defic-lifecycle-tabs (dlc-tabs) and the old toolbar search. -->
           <div class="defic-control-bar" id="defic-control-bar" style="display:none;">
             <div class="defic-pivot">
@@ -473,6 +468,7 @@ function ensurePdfJs(cb){
               <button class="view-toggle-btn" data-view="table">≡ Table</button>
               <button class="view-toggle-btn" data-view="board">▦ Board</button>
             </div>
+            <button class="btn btn-outline btn-sm dfx-renumber-btn" id="defic-renumber-btn" title="Renumber deficiencies sequentially (1, 2, 3…)">#↕ Renumber</button>
           </div>
           <div id="deficiencies-container" class="defic-content"></div>
         </div>

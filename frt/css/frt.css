@@ -4785,7 +4785,7 @@ body:not(.dark-mode) .dv-tasks-panel .dv-tasks-filter-btn{
    Tokens used (--card, --smoke, --border, --fg, --silver) auto-flow
    from the dark-mode redefinition block at line ~908. */
 
-.defic-pin-group{border:1.5px solid var(--border);border-radius:10px;background:var(--card);margin-bottom:14px;overflow:hidden;}
+.defic-pin-group{border:1px solid var(--border);border-radius:8px;background:var(--card);margin-bottom:12px;overflow:hidden;}
 
 .defic-pin-strip{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--smoke);border-bottom:1.5px solid var(--border);flex-wrap:wrap;row-gap:8px;}
 .defic-pin-strip .pri-eff-badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:4px;font-size:calc(11px + var(--ts));font-weight:700;color:white;font-family:Calibri,sans-serif;}
@@ -7090,7 +7090,7 @@ body.dark-mode .view-toggle-btn.active { background: #353D54; color: #E0E5F0; bo
   font-weight: 700;
   font-size: calc(13.5px + var(--ts));
   letter-spacing: 0.3px;
-  border-radius: 6px 6px 0 0;
+  border-radius: 4px;            /* S137-polish: band, not a box-top */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -7112,6 +7112,8 @@ body.dark-mode .view-toggle-btn.active { background: #353D54; color: #E0E5F0; bo
   font-weight: 700;
   font-size: calc(12.5px + var(--ts));
   letter-spacing: 0.3px;
+  border-radius: 4px;            /* S137-polish: sub-band, not a box-mid */
+  margin-top: 8px;               /* detaches from the trade band above */
   display: flex;
   align-items: center;
   gap: 8px;
@@ -7135,18 +7137,13 @@ body.dark-mode .dfx-ctr-banner.rec { background: #565C66; }
   font-weight: 700;
 }
 
-/* Pin-group container under a contractor/rec sub-banner. Reuses the
-   existing interactive .defic-pin-group cards unchanged inside. */
+/* Pin-group container under a contractor/rec sub-band. S137-polish:
+   NO fill/border — the band labels, the pin cards are the only inner
+   boxes. Just a small gap between the band and the first card. */
 .dfx-pingrp {
-  background: #F7F8FA;
-  border: 1px solid #DDE1E7;
-  border-top: 0;
-  padding: 10px 12px;
-}
-.dfx-trade-section .dfx-pingrp:last-child { border-radius: 0 0 6px 6px; }
-body.dark-mode .dfx-pingrp {
-  background: #1C2333;
-  border-color: #3A4258;
+  background: transparent;
+  border: 0;
+  padding: 8px 0 0 0;
 }
 .dfx-pingrp .defic-pin-group:last-child { margin-bottom: 0; }
 
@@ -7178,12 +7175,18 @@ body.dark-mode .dfx-pingrp {
   flex-shrink: 0;
 }
 
+/* S137-polish: Renumber folded into the control bar (far right, after
+   the view toggle). The view toggle's margin-left:auto pushes both to
+   the right edge; the 14px control-bar gap separates them. */
+.dfx-renumber-btn { margin-left: 4px; }
+
 @media (max-width: 900px) {
   .defic-control-bar { gap: 8px; }
   .defic-pivot, .view-toggle { flex: 1; }
   .view-toggle { margin-left: 0; }
   .defic-filters { width: 100%; }
   .dfx-filter-input[type="text"] { flex: 1; width: auto; }
+  .dfx-renumber-btn { width: 100%; margin-left: 0; }
 }
 
 /* End S137 Phase 2 UNIFIED DEFICIENCIES TAB ──────────────────────── */
