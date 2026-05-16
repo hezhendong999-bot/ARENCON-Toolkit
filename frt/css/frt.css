@@ -4792,7 +4792,7 @@ body:not(.dark-mode) .dv-tasks-panel .dv-tasks-filter-btn{
 
 .defic-obs-card{padding:12px 14px;border-bottom:1.5px solid var(--border);background:var(--card);}
 .defic-obs-card:last-of-type{border-bottom:none;}
-.defic-obs-card.addressed{border-left:3px solid #5F8068;background:rgba(26,122,74,.05);}
+.defic-obs-card.addressed{box-shadow:inset 3px 0 0 #5F8068;background:rgba(26,122,74,.05);}
 
 .defic-obs-card-lbl-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
 .defic-obs-card-ctrls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
@@ -4820,7 +4820,7 @@ body:not(.dark-mode) .dv-tasks-panel .dv-tasks-filter-btn{
 
 /* Dark-mode tweaks where token redefinition isn't enough */
 body.dark-mode .defic-pin-strip{background:rgba(255,255,255,0.04);}
-body.dark-mode .defic-obs-card.addressed{background:rgba(26,122,74,.10);border-left-color:#4a8a6a;}
+body.dark-mode .defic-obs-card.addressed{background:rgba(26,122,74,.10);box-shadow:inset 3px 0 0 #4a8a6a;}
 body.dark-mode .defic-pin-footer{background:rgba(0,0,0,0.20);}
 body.dark-mode .defic-obs-card-ctrls .addr-toggle.open{background:#3a4555;color:#c0d0e0;}
 /* End S121 Phase C-2 ──────────────────────────────────────────── */
