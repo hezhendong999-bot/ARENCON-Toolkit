@@ -7447,4 +7447,20 @@ body.dark-mode .modal-checkbox-row label { color: #E0E5F0; }
   position: absolute; top: 8px; right: 10px; z-index: 2;
   margin-left: 0; pointer-events: none;
 }
+/* S138: "Recommendations only" control-bar filter (canon — scopes all
+   three views). Compact inline checkbox label matching .dfx-filter-input
+   metrics; var()s carry dark mode. */
+.dfx-rec-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-family: Calibri, sans-serif;
+  font-size: calc(13px + var(--ts));
+  color: var(--silver);
+  cursor: pointer;
+  padding: 6px 4px;
+}
+.dfx-rec-filter input { cursor: pointer; margin: 0; accent-color: #9C2742; }
+.dfx-rec-filter:hover { color: var(--fg); }
 /* End S138 unified + deficiency (canonical) ───────────────────────── */

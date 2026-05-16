@@ -104,6 +104,7 @@ var _deficView = 'detailed';             // 'detailed' (live) | 'table' | 'board
 var _dfxSearch = '';                     // free-text filter (obs.text)
 var _dfxCtr = '';                        // contractorId filter ('' = all)
 var _dfxPri = '';                        // priority filter ('' = all | 'high' | 'low' | 'general')
+var _dfxRecOnly = false;                 // S138: "Show only recommendations" filter (canon)
 
 // S114 P1.8: Gallery picker — modal lets user select project site photos to attach
 // to a deficiency observation. Selected photos are appended to obs.photos with
@@ -1099,6 +1100,7 @@ function _flatRows(proj, ignorePivot) {
       if (!ignorePivot && _activeDlcTab === 'closed' && !closed) return;
       if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
       if (_dfxPri) return;            // no obs → no priority to match
+      if (_dfxRecOnly && !d.isRecommendation) return;
       if (q && (deficDesc(d) || '').toLowerCase().indexOf(q) < 0) return;
       rows.push({ d: d, o: null, oi: -1, ctrId: rec.contractorId || null, ctrName: rec.contractorName || 'Site General' });
       return;
@@ -1109,6 +1111,7 @@ function _flatRows(proj, ignorePivot) {
       if (!ignorePivot && _activeDlcTab === 'closed' && !addressed) return;
       if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
       if (_dfxPri && (o.priority || 'high') !== _dfxPri) return;
+      if (_dfxRecOnly && !d.isRecommendation) return;
       if (q && (o.text || '').toLowerCase().indexOf(q) < 0) return;
       rows.push({ d: d, o: o, oi: oi, ctrId: rec.contractorId || null, ctrName: rec.contractorName || 'Site General' });
     });
@@ -1487,6 +1490,8 @@ function _syncDfxControls(pcActive, pcClosed, proj) {
   if (pri && document.activeElement !== pri) pri.value = _dfxPri;
   var sb = document.getElementById('dfx-search');
   if (sb && document.activeElement !== sb) sb.value = _dfxSearch;
+  var ro = document.getElementById('dfx-reconly');
+  if (ro) ro.checked = !!_dfxRecOnly;
 }
 
 // ── S137 Phase 2: control-bar interactions ───────────────
@@ -1517,6 +1522,7 @@ document.addEventListener('change', function(e) {
   if (!e.target) return;
   if (e.target.id === 'dfx-ctr') { _dfxCtr = e.target.value || ''; initDeficiencies.render(); }
   else if (e.target.id === 'dfx-pri') { _dfxPri = e.target.value || ''; initDeficiencies.render(); }
+  else if (e.target.id === 'dfx-reconly') { _dfxRecOnly = !!e.target.checked; initDeficiencies.render(); }
 });
 
 function _updateDlcCounts(activeCount, closedCount) {
