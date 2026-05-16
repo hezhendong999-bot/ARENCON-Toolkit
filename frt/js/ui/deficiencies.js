@@ -889,15 +889,16 @@ export var initDeficiencies = {
       // Items with unrecognized status are not counted in any tab
     });
 
-    if (_activeDlcTab === 'active') {
-      _renderActiveTab(proj, container);
-    } else if (_activeDlcTab === 'general') {
-      _renderGeneralTab(proj, container);
-    } else if (_activeDlcTab === 'closed') {
+    if (_activeDlcTab === 'closed') {
       _renderClosedTab(allDefics.filter(function(d) { return deficIsClosed(d.defic); }), container);
+    } else {
+      // S135: Site General tab retired. Active view now renders contractor
+      // groups followed by a Site General bottom section (for items with
+      // no contractor). 'active' is the only non-closed dlc state.
+      _renderActiveTab(proj, container);
     }
 
-    _updateDlcCounts(activeCount, generalCount, closedCount);
+    _updateDlcCounts(activeCount + generalCount, closedCount);
     // S114 P1.6: re-render any open AI scratchpads now that the DOM is fresh
     if (window.AIAssist && window.AIAssist.repopulateAllScratchpads) {
       window.AIAssist.repopulateAllScratchpads();
@@ -914,19 +915,17 @@ function _renderActiveTab(proj, container) {
     html += buildGroup(c.id, c.name || 'Unnamed Contractor', active, total);
   });
 
-  if (!(proj.contractors || []).length) {
-    html += '<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:16px;text-align:center;">No contractors yet. Click "+ Add Contractor" to start.</p>';
+  // S135: Site General items now render as a bottom section (Site General
+  // tab was retired in S135). Phase 2 will replace this with a
+  // recommendation-aware grey "Site General · Recommendations" section.
+  var genActive = (proj.generalDeficiencies || []).filter(deficIsOpen);
+  var genTotal = (proj.generalDeficiencies || []).length;
+  if (genActive.length || genTotal) {
+    html += buildGroup(null, 'Site General', genActive, genTotal);
   }
-  container.innerHTML = html;
-}
 
-function _renderGeneralTab(proj, container) {
-  var gen = (proj.generalDeficiencies || []).filter(deficIsOpen);
-  var html = '';
-  if (!gen.length) {
-    html += '<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:16px;text-align:center;">No site general deficiencies.</p>';
-  } else {
-    html += buildGroup(null, 'Site General', gen, (proj.generalDeficiencies || []).length);
+  if (!(proj.contractors || []).length && !genTotal) {
+    html += '<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:16px;text-align:center;">No contractors yet. Click "+ Add Contractor" to start.</p>';
   }
   container.innerHTML = html;
 }
@@ -941,11 +940,11 @@ function _renderClosedTab(closedDefics, container) {
   container.innerHTML = '<div class="defic-group"><div class="defic-group-header" style="background:#1C2333;color:white;padding:10px 16px;"><span>\u2705 Closed Items</span><span style="font-size:calc(12px + var(--ts));opacity:.7;">' + closedDefics.length + '</span></div>' + html + '</div>';
 }
 
-function _updateDlcCounts(activeCount, generalCount, closedCount) {
+function _updateDlcCounts(activeCount, closedCount) {
   document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(tab) {
     var type = tab.getAttribute('data-dlc');
-    var count = type === 'active' ? activeCount : type === 'general' ? generalCount : closedCount;
-    var label = type === 'active' ? 'Active' : type === 'general' ? 'Site General' : 'Closed';
+    var count = type === 'active' ? activeCount : closedCount;
+    var label = type === 'active' ? 'Active' : 'Closed';
     tab.textContent = label + (count > 0 ? ' (' + count + ')' : '');
   });
 }
@@ -1061,9 +1060,9 @@ document.addEventListener('click', function(e) {
   if (action === 'add-general') {
     var defic = Model.addDeficiency(null);
     if (defic) {
-      _activeDlcTab = 'general';
+      _activeDlcTab = 'active';
       document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
-        t.classList.toggle('active', t.getAttribute('data-dlc') === 'general');
+        t.classList.toggle('active', t.getAttribute('data-dlc') === 'active');
       });
       initDeficiencies.render();
       toast('General deficiency #' + defic.num + ' added');
@@ -1454,9 +1453,9 @@ document.addEventListener('click', function(e) {
     var deficId = el.getAttribute('data-defic-id');
     var _rf = Model.findDeficiency(deficId);
     Model.updateDeficStatus(deficId, 'open');
-    // Auto-switch to the tab where item will appear
-    var hasCtr = _rf && _rf.contractor;
-    _activeDlcTab = hasCtr ? 'active' : 'general';
+    // S135: Site General tab retired — always route to active view, which
+    // renders both contractor groups AND the Site General bottom section.
+    _activeDlcTab = 'active';
     document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
       t.classList.toggle('active', t.getAttribute('data-dlc') === _activeDlcTab);
     });
@@ -1516,13 +1515,9 @@ document.addEventListener('change', function(e) {
     // happens via Model.updateDeficStatus's status mirror.
     if (newStatus === 'closed' && _sf && _sf.defic && _sf.defic.iar) _sf.defic.iar = false;
     Model.updateDeficStatus(deficId, newStatus);
-    // Auto-switch to correct tab
-    if (newStatus === 'closed') {
-      _activeDlcTab = 'closed';
-    } else {
-      var hasCtr = _sf && _sf.contractor;
-      _activeDlcTab = hasCtr ? 'active' : 'general';
-    }
+    // S135: Site General tab retired — non-closed routes to active view
+    // (which renders the Site General bottom section).
+    _activeDlcTab = (newStatus === 'closed') ? 'closed' : 'active';
     document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
       t.classList.toggle('active', t.getAttribute('data-dlc') === _activeDlcTab);
     });
@@ -1595,9 +1590,9 @@ document.addEventListener('change', function(e) {
           _applyChange();
           Model.reassignDeficiency(did, null);
           Model.saveNow();
-          _activeDlcTab = 'general';
+          _activeDlcTab = 'active';
           document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
-            t.classList.toggle('active', t.getAttribute('data-dlc') === 'general');
+            t.classList.toggle('active', t.getAttribute('data-dlc') === 'active');
           });
           initDeficiencies.render();
           toast('#' + dnum + ' moved to Site General');

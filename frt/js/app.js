@@ -21,7 +21,8 @@ import { initProjectInfo } from './ui/projectInfo.js';
 import { initDeficiencies } from './ui/deficiencies.js';
 import { initDrawings } from './ui/drawings.js';
 import { initPhotos } from './ui/photos.js';
-import { initPins } from './ui/pins.js';
+// S135: initPins/pins.js import removed — Summary tab retired.
+// Table/Board views migrate into the Deficiencies tab in Phase 2.
 import { initViewer } from './viewer/viewer.js';
 import { Markup } from './viewer/markup.js';
 import { initPDFExport } from './export/pdf.js';
@@ -147,7 +148,6 @@ function switchTab(tabName) {
     case 'info': initProjectInfo.render(); break;
     case 'drawings': initDrawings.render(); break;
     case 'deficiencies': initDeficiencies.render(); break;
-    case 'pins': initPins.render(); break;
     case 'photos': initPhotos.render(); break;
   }
 }
