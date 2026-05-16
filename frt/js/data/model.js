@@ -681,160 +681,12 @@ export var Model = {
     _queueSave();
   },
 
-  // S130 — AI auto-grouping (Item 9.3 from prior queue).
-  //
-  // GROUPS LIVE ON OBSERVATIONS, not deficiencies. Mark's actual workflow:
-  // a single pin can have observations that span different report sections
-  // (Pin #2 Obs 1 = Sprinkler, Pin #2 Obs 2 = Fire Alarm — same location,
-  // different trades). Per-defic grouping can't represent that.
-  //
-  // Migration: legacy data with d.aiGroup gets transferred to every obs
-  // that doesn't already have one. See _migrateDeficAiGroupToObs in load.
-  //
-  // Group catalog: project carries a fixed list of allowed group titles
-  // (proj.groupCatalog). AI classification is constrained to this list;
-  // user can add/remove catalog entries per-project. Default list seeds
-  // common FP report sections.
+  // S135: S130 AI auto-grouping methods retired (getGroupCatalog,
+  // setGroupCatalog, setObsGroup, applyAiObsGroups, clearAllAiObsGroups,
+  // setDeficGroup, applyAiGroups, clearAllAiGroups). UI consumers were
+  // removed in Commit A. obs.aiGroup field stays in JSON for silent-degrade
+  // (load-path normalizer at _migrateDeficAiGroupToObs preserved one session).
 
-  /** Get the project's group catalog, falling back to defaults. */
-  getGroupCatalog: function() {
-    var p = _project;
-    if (p && Array.isArray(p.groupCatalog) && p.groupCatalog.length) {
-      return p.groupCatalog.slice();
-    }
-    return [
-      'Automatic Sprinkler Protection',
-      'Standpipe Systems',
-      'Fire Pump',
-      'Fire Alarm and Detection',
-      'Smoke Control / Ventilation',
-      'Emergency Lighting and Power',
-      'Fire Separations and Penetrations',
-      'General'
-    ];
-  },
-
-  /** Replace the project's group catalog. Pass [] to clear (uses defaults). */
-  setGroupCatalog: function(catalog) {
-    if (!_project) return;
-    if (!Array.isArray(catalog)) return;
-    var cleaned = catalog.map(function(s) { return String(s || '').trim(); })
-                        .filter(function(s) { return s.length > 0; });
-    // Dedup while preserving order
-    var seen = {};
-    var out = [];
-    cleaned.forEach(function(t) { if (!seen[t]) { seen[t] = true; out.push(t); } });
-    _project.groupCatalog = out;
-    _dirty = true;
-    _queueSave();
-  },
-
-  /**
-   * Set the group for a specific observation. Pass null/'' to clear.
-   * Backward compat: also accepts (deficId, groupTitle) for legacy callers
-   * — sets the group on every obs under that defic.
-   */
-  setObsGroup: function(deficId, obsIdxOrGroup, maybeGroup) {
-    var f = this.findDeficiency(deficId);
-    if (!f) return;
-    // Legacy 2-arg form: (deficId, groupTitle) → set on all obs
-    if (typeof obsIdxOrGroup === 'string' || obsIdxOrGroup === null) {
-      var g = obsIdxOrGroup;
-      (f.defic.observations || []).forEach(function(o) {
-        o.aiGroup = (g && typeof g === 'string') ? g.trim() : null;
-      });
-    } else {
-      // New 3-arg form: (deficId, obsIdx, groupTitle)
-      var obs = (f.defic.observations || [])[obsIdxOrGroup];
-      if (!obs) return;
-      obs.aiGroup = (maybeGroup && typeof maybeGroup === 'string') ? maybeGroup.trim() : null;
-    }
-    _dirty = true;
-    _queueSave();
-  },
-
-  /**
-   * Bulk-apply observation groups from an AI response.
-   *
-   * Pass an object mapping composite obs key → groupTitle. Composite key
-   * format: "<deficId>:<obsIdx>". This is what AIAssist.autoGroupDeficiencies
-   * builds from the worker response. Returns count of observations updated.
-   */
-  applyAiObsGroups: function(obsKeyToGroup) {
-    if (!obsKeyToGroup || typeof obsKeyToGroup !== 'object') return 0;
-    var n = 0;
-    var keys = Object.keys(obsKeyToGroup);
-    for (var i = 0; i < keys.length; i++) {
-      var key = keys[i];
-      var lastColon = key.lastIndexOf(':');
-      if (lastColon < 0) continue;
-      var deficId = key.substring(0, lastColon);
-      var obsIdx = parseInt(key.substring(lastColon + 1), 10);
-      if (isNaN(obsIdx)) continue;
-      var f = this.findDeficiency(deficId);
-      if (!f) continue;
-      var obs = (f.defic.observations || [])[obsIdx];
-      if (!obs) continue;
-      var t = obsKeyToGroup[key];
-      obs.aiGroup = (t && typeof t === 'string') ? t.trim() : null;
-      n++;
-    }
-    if (n > 0) {
-      _dirty = true;
-      _queueSave();
-      this._notify('deficiency', { action: 'aiGroupBulk', count: n });
-    }
-    return n;
-  },
-
-  /** Clear every observation's aiGroup across the project. */
-  clearAllAiObsGroups: function() {
-    var p = _project;
-    if (!p) return 0;
-    var n = 0;
-    var clearOne = function(d) {
-      (d.observations || []).forEach(function(o) {
-        if (o.aiGroup) { o.aiGroup = null; n++; }
-      });
-      // Also clear legacy defic-level field if present.
-      if (d.aiGroup) { d.aiGroup = null; n++; }
-    };
-    (p.contractors || []).forEach(function(c) {
-      (c.deficiencies || []).forEach(clearOne);
-    });
-    (p.generalDeficiencies || []).forEach(clearOne);
-    if (n > 0) {
-      _dirty = true;
-      _queueSave();
-      this._notify('deficiency', { action: 'aiGroupCleared', count: n });
-    }
-    return n;
-  },
-
-  // ── Legacy aliases (kept for any in-flight callers; new code uses
-  // applyAiObsGroups / clearAllAiObsGroups / setObsGroup) ──
-  setDeficGroup: function(deficId, groupTitle) {
-    // Forward to setObsGroup's legacy 2-arg form (writes all obs under defic).
-    this.setObsGroup(deficId, groupTitle == null ? null : String(groupTitle));
-  },
-  applyAiGroups: function(deficIdToGroup) {
-    // Convert defic-keyed map to obs-keyed map (every obs under each defic).
-    if (!deficIdToGroup || typeof deficIdToGroup !== 'object') return 0;
-    var obsMap = {};
-    var ids = Object.keys(deficIdToGroup);
-    for (var i = 0; i < ids.length; i++) {
-      var f = this.findDeficiency(ids[i]);
-      if (!f) continue;
-      var obs = f.defic.observations || [];
-      for (var oi = 0; oi < obs.length; oi++) {
-        obsMap[ids[i] + ':' + oi] = deficIdToGroup[ids[i]];
-      }
-    }
-    return this.applyAiObsGroups(obsMap);
-  },
-  clearAllAiGroups: function() {
-    return this.clearAllAiObsGroups();
-  },
 
   addObservation: function(deficId) {
     var f = this.findDeficiency(deficId);
@@ -1514,25 +1366,10 @@ export var Model = {
 
   hasUndo: function() { return _undoStack.length > 0; },
 
-  toggleIAR: function(deficId) {
-    var f = this.findDeficiency(deficId);
-    if (!f) return;
-    f.defic.iar = !f.defic.iar;
-    // S113 Push 20: IAR is mutually exclusive with low/general priority
-    // (matches v1 behavior). When activating IAR, force priority='high'
-    // and propagate to all entries so the pin renders red and the row
-    // sorts correctly. Toggling OFF leaves priority alone — user might
-    // have already set low/general manually for a non-IAR item.
-    if (f.defic.iar) {
-      f.defic.priority = 'high';
-      if (f.defic.entries && f.defic.entries.length) {
-        f.defic.entries.forEach(function(en) { en.priority = 'high'; });
-      }
-    }
-    _dirty = true;
-    _queueSave();
-    this._notify('deficiency', { action: 'iar', deficId: deficId, iar: f.defic.iar });
-  },
+  // S135: toggleIAR retired. IAR (Item At Risk) feature removed in S135 —
+  // UI rendering retired in Commit A, model method retired here. Existing
+  // pin.iar values in JSON silent-degrade (writes still happen elsewhere
+  // for one session via status-mirror; reads no longer used by UI).
 
   updateClosedNote: function(deficId, note) {
     var f = this.findDeficiency(deficId);
