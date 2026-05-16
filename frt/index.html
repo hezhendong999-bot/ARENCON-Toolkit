@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=320">
+<link rel="stylesheet" href="css/frt.css?v=321">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -465,7 +465,11 @@ function ensurePdfJs(cb){
                 <option value="low">Low</option>
                 <option value="general">General</option>
               </select>
-              <label class="dfx-rec-filter" title="Show only items flagged as recommendations"><input type="checkbox" id="dfx-reconly"> Recommendations only</label>
+              <div class="dfx-recmode" role="group" aria-label="Show deficiencies, recommendations, or both">
+                <button class="dfx-recmode-btn active" data-recmode="def">Deficiencies</button>
+                <button class="dfx-recmode-btn" data-recmode="rec">Recommendations</button>
+                <button class="dfx-recmode-btn" data-recmode="both">Both</button>
+              </div>
             </div>
             <div class="view-toggle">
               <button class="view-toggle-btn active" data-view="detailed">📋 Detailed</button>

@@ -104,7 +104,7 @@ var _deficView = 'detailed';             // 'detailed' (live) | 'table' | 'board
 var _dfxSearch = '';                     // free-text filter (obs.text)
 var _dfxCtr = '';                        // contractorId filter ('' = all)
 var _dfxPri = '';                        // priority filter ('' = all | 'high' | 'low' | 'general')
-var _dfxRecOnly = false;                 // S138: "Show only recommendations" filter (canon)
+var _dfxRecMode = 'def';                  // S140 B2b: 3-state filter (Model 2 §4.2) — 'def' (default; recs hidden → short working list) | 'rec' (recommendations only) | 'both'
 
 // S114 P1.8: Gallery picker — modal lets user select project site photos to attach
 // to a deficiency observation. Selected photos are appended to obs.photos with
@@ -1100,7 +1100,8 @@ function _flatRows(proj, ignorePivot) {
       if (!ignorePivot && _activeDlcTab === 'closed' && !closed) return;
       if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
       if (_dfxPri) return;            // no obs → no priority to match
-      if (_dfxRecOnly && !d.isRecommendation) return;
+      if ((_dfxRecMode === 'def' && d.isRecommendation) ||
+          (_dfxRecMode === 'rec' && !d.isRecommendation)) return;  // S140 B2b 3-state filter
       if (q && (deficDesc(d) || '').toLowerCase().indexOf(q) < 0) return;
       rows.push({ d: d, o: null, oi: -1, ctrId: rec.contractorId || null, ctrName: rec.contractorName || SITE_RECORDS_LABEL });
       return;
@@ -1111,7 +1112,8 @@ function _flatRows(proj, ignorePivot) {
       if (!ignorePivot && _activeDlcTab === 'closed' && !addressed) return;
       if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
       if (_dfxPri && (o.priority || 'high') !== _dfxPri) return;
-      if (_dfxRecOnly && !d.isRecommendation) return;
+      if ((_dfxRecMode === 'def' && d.isRecommendation) ||
+          (_dfxRecMode === 'rec' && !d.isRecommendation)) return;  // S140 B2b 3-state filter
       if (q && (o.text || '').toLowerCase().indexOf(q) < 0) return;
       rows.push({ d: d, o: o, oi: oi, ctrId: rec.contractorId || null, ctrName: rec.contractorName || SITE_RECORDS_LABEL });
     });
@@ -1504,8 +1506,10 @@ function _syncDfxControls(pcActive, pcClosed, proj) {
   if (pri && document.activeElement !== pri) pri.value = _dfxPri;
   var sb = document.getElementById('dfx-search');
   if (sb && document.activeElement !== sb) sb.value = _dfxSearch;
-  var ro = document.getElementById('dfx-reconly');
-  if (ro) ro.checked = !!_dfxRecOnly;
+  // S140 B2b: 3-state rec-mode segmented control (replaces #dfx-reconly).
+  document.querySelectorAll('.dfx-recmode-btn').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-recmode') === _dfxRecMode);
+  });
 }
 
 // ── S137 Phase 2: control-bar interactions ───────────────
@@ -1524,6 +1528,12 @@ document.addEventListener('click', function(e) {
     if (v && v !== _deficView) { _deficView = v; initDeficiencies.render(); }
     return;
   }
+  var rm = e.target.closest && e.target.closest('.dfx-recmode-btn');
+  if (rm) {
+    var m = rm.getAttribute('data-recmode');
+    if (m && m !== _dfxRecMode) { _dfxRecMode = m; initDeficiencies.render(); }
+    return;
+  }
 });
 document.addEventListener('input', function(e) {
   if (e.target && e.target.id === 'dfx-search') {
@@ -1536,7 +1546,6 @@ document.addEventListener('change', function(e) {
   if (!e.target) return;
   if (e.target.id === 'dfx-ctr') { _dfxCtr = e.target.value || ''; initDeficiencies.render(); }
   else if (e.target.id === 'dfx-pri') { _dfxPri = e.target.value || ''; initDeficiencies.render(); }
-  else if (e.target.id === 'dfx-reconly') { _dfxRecOnly = !!e.target.checked; initDeficiencies.render(); }
 });
 
 function _updateDlcCounts(activeCount, closedCount) {

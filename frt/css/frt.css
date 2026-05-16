@@ -7450,17 +7450,30 @@ body.dark-mode .modal-checkbox-row label { color: #E0E5F0; }
 /* S138: "Recommendations only" control-bar filter (canon — scopes all
    three views). Compact inline checkbox label matching .dfx-filter-input
    metrics; var()s carry dark mode. */
-.dfx-rec-filter {
+/* S140 B2b: 3-state rec-mode segmented control (Model 2 §4.2) —
+   Deficiencies (default) / Recommendations / Both. Replaces the S138
+   "Recommendations only" checkbox. Mirrors .defic-pivot exactly so the
+   control bar reads as one coherent set of mode selectors (de-box
+   principle: a flush segmented track, not a bordered box). Burgundy
+   active matches the Active/Closed pivot — same idiom, same semantics
+   (a filter mode, not a view). */
+.dfx-recmode {
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
+  background: #F0EDE6;
+  border-radius: 6px;
+  padding: 2px;
+}
+body.dark-mode .dfx-recmode { background: #1C2333; }
+.dfx-recmode-btn {
+  background: transparent;
+  color: #8A94B0;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
   font-family: Calibri, sans-serif;
   font-size: calc(13px + var(--ts));
-  color: var(--silver);
+  font-weight: 600;
   cursor: pointer;
-  padding: 6px 4px;
 }
-.dfx-rec-filter input { cursor: pointer; margin: 0; accent-color: #9C2742; }
-.dfx-rec-filter:hover { color: var(--fg); }
+.dfx-recmode-btn.active { background: #9C2742; color: #FFFFFF; }
 /* End S138 unified + deficiency (canonical) ───────────────────────── */
