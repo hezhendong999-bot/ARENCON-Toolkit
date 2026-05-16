@@ -6573,6 +6573,12 @@ body.dark-mode .trade-col {
   border-radius: 6px 6px 0 0;
   gap: 6px;
 }
+/* S136: day mode keeps the full PDF taupe (#7B6F5A). Dark mode mutes it
+   — a desaturated, slightly darker taupe so it doesn't read loud against
+   the dark surfaces while staying in the same warm family. */
+body.dark-mode .trade-col-hdr {
+  background: #5F5749;
+}
 
 .trade-col-name {
   flex: 1;
@@ -6626,32 +6632,44 @@ body.dark-mode .trade-col {
 }
 
 /* Contractor card — colored left border = contractor.color */
+/* S136: contractor card = "renumber pill" aesthetic — tinted fill,
+   colored border, colored text, all derived from the contractor's
+   unique --cc (Phase 1a palette). color-mix with hard fallbacks so an
+   old cached browser still renders a sane neutral card. */
 .ctr-card {
-  background: #FFFFFF;
-  border-top: 1px solid #DDE1E7;
-  border-right: 1px solid #DDE1E7;
-  border-bottom: 1px solid #DDE1E7;
-  border-left: 4px solid var(--cc, #6B7280);
-  border-radius: 4px;
-  padding: 6px 8px;
+  background: rgba(107, 114, 128, 0.10);
+  background: color-mix(in srgb, var(--cc, #6B7280) 11%, transparent);
+  border: 1.5px solid #B7BCC6;
+  border-color: color-mix(in srgb, var(--cc, #6B7280) 45%, transparent);
+  border-radius: 6px;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: calc(13px + var(--ts));
-  color: #1C2333;
+  font-weight: 600;
+  color: #4A5266;
+  color: color-mix(in srgb, var(--cc, #6B7280) 82%, black);
   cursor: pointer;
   line-height: 1.25;
   transition: background 0.12s;
 }
-.ctr-card:hover { background: #F4F5F7; }
-body.dark-mode .ctr-card {
-  background: #353D54;
-  color: #E0E5F0;
-  border-top-color: #3A4258;
-  border-right-color: #3A4258;
-  border-bottom-color: #3A4258;
+.ctr-card:hover {
+  background: rgba(107, 114, 128, 0.18);
+  background: color-mix(in srgb, var(--cc, #6B7280) 19%, transparent);
 }
-body.dark-mode .ctr-card:hover { background: #3F4861; }
+body.dark-mode .ctr-card {
+  background: #2A2F3C;
+  background: color-mix(in srgb, var(--cc, #6B7280) 17%, #1C2333);
+  border-color: #4A5266;
+  border-color: color-mix(in srgb, var(--cc, #6B7280) 42%, transparent);
+  color: #C0CADE;
+  color: color-mix(in srgb, var(--cc, #6B7280) 62%, white);
+}
+body.dark-mode .ctr-card:hover {
+  background: #333949;
+  background: color-mix(in srgb, var(--cc, #6B7280) 25%, #1C2333);
+}
 
 .ctr-card .ctr-name {
   font-weight: 600;
@@ -6663,7 +6681,8 @@ body.dark-mode .ctr-card:hover { background: #3F4861; }
 
 .ctr-card .ctr-x {
   background: transparent;
-  color: #8A94B0;
+  color: inherit;
+  opacity: 0.55;
   border: none;
   width: 22px;
   height: 22px;
@@ -6676,7 +6695,7 @@ body.dark-mode .ctr-card:hover { background: #3F4861; }
   padding: 0;
   flex-shrink: 0;
 }
-.ctr-card .ctr-x:hover { background: rgba(156, 39, 66, 0.12); color: #9C2742; }
+.ctr-card .ctr-x:hover { opacity: 1; background: rgba(156, 39, 66, 0.14); color: #9C2742; }
 body.dark-mode .ctr-card .ctr-x:hover { background: rgba(168, 89, 89, 0.22); color: #F5A0A0; }
 
 @media (pointer: coarse) {
@@ -6846,28 +6865,36 @@ body.dark-mode .picker-title { color: #E0E5F0; }
 }
 
 .picker-chip {
-  background: #F4F5F7;
-  border-top: 1px solid #DDE1E7;
-  border-right: 1px solid #DDE1E7;
-  border-bottom: 1px solid #DDE1E7;
-  border-left: 3px solid var(--cc, #6B7280);
-  border-radius: 4px;
+  background: rgba(107, 114, 128, 0.10);
+  background: color-mix(in srgb, var(--cc, #6B7280) 11%, transparent);
+  border: 1.5px solid #B7BCC6;
+  border-color: color-mix(in srgb, var(--cc, #6B7280) 45%, transparent);
+  border-radius: 6px;
   padding: 6px 12px;
-  color: #1C2333;
+  color: #4A5266;
+  color: color-mix(in srgb, var(--cc, #6B7280) 82%, black);
   font-family: Calibri, sans-serif;
   font-size: calc(13px + var(--ts));
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.12s;
 }
-.picker-chip:hover { background: #ECEEF1; }
-body.dark-mode .picker-chip {
-  background: #353D54;
-  color: #E0E5F0;
-  border-top-color: #3A4258;
-  border-right-color: #3A4258;
-  border-bottom-color: #3A4258;
+.picker-chip:hover {
+  background: rgba(107, 114, 128, 0.18);
+  background: color-mix(in srgb, var(--cc, #6B7280) 19%, transparent);
 }
-body.dark-mode .picker-chip:hover { background: #3F4861; }
+body.dark-mode .picker-chip {
+  background: #2A2F3C;
+  background: color-mix(in srgb, var(--cc, #6B7280) 17%, #1C2333);
+  border-color: #4A5266;
+  border-color: color-mix(in srgb, var(--cc, #6B7280) 42%, transparent);
+  color: #C0CADE;
+  color: color-mix(in srgb, var(--cc, #6B7280) 62%, white);
+}
+body.dark-mode .picker-chip:hover {
+  background: #333949;
+  background: color-mix(in srgb, var(--cc, #6B7280) 25%, #1C2333);
+}
 
 .picker-input-row {
   display: flex;

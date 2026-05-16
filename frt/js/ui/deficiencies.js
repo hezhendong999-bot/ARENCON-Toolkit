@@ -777,14 +777,16 @@ function buildGroup(ctrId, name, items, totalCount) {
   if (totalCount && totalCount > items.length) countLabel += ' / ' + totalCount + ' total';
   var isFolded = _foldedGroups[ctrId || '__general__'];
   var arrow = isFolded ? '\u25B6' : '\u25BC';
-  // S113 Push 19: pull the contractor's color from the same palette used
-  // for chips + table cells. The group header keeps its navy background;
-  // the color shows as a 4-px left accent + a tinted name label.
-  // S117-C: now sourced from getContractorColor() — same helper the PDF
-  // export uses for its contractor section headers, so on-screen and
-  // printed colors match exactly.
-  var ctrCol = getContractorColor(name);
-  var accentCol = ctrCol.accent;
+  // S136: source the accent from the contractor's Phase-1a color so the
+  // group header matches the trade board card EXACTLY (one color per
+  // contractor across both surfaces). Falls back to neutral grey for
+  // Site General / unknown contractor.
+  var accentCol = '#6B7280';
+  if (ctrId) {
+    var _gp = Model.getProject();
+    var _gc = _gp && (_gp.contractors || []).find(function(c) { return c.id === ctrId; });
+    if (_gc && _gc.color) accentCol = _gc.color;
+  }
 
   var h = '<div class="defic-group" data-ctr-id="' + esc(ctrId || '__general__') + '">';
   h += '<div class="defic-group-header" data-action="toggle-fold" data-ctr-id="' + esc(ctrId || '__general__') + '" style="background:#1C2333;color:white;padding:10px 16px;cursor:pointer;user-select:none;border-left:4px solid ' + accentCol + ';">';
