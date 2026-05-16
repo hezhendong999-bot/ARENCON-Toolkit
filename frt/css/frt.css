@@ -6532,44 +6532,19 @@ body.dark-mode .trade-banner {
 
 /* ════════════════════════════════════════════════════════════════════
    S136 Phase 1b — TRADE BOARD + SMART PICKER
-   Replaces "Contractors on Site" pill row. Kanban layout with one column
-   per project trade. Schema: project.projectTrades, contractor.trades,
-   contractor.color (Phase 1a, model.js).
+   The trade board lives in its OWN top-level card (#trade-board-card)
+   with a burgundy .card-header providing the title chrome. This CSS
+   block styles only the inner grid + smart picker.
+   Schema: project.projectTrades, contractor.trades, contractor.color
+   (Phase 1a, model.js).
    Light-default + body.dark-mode override (FRT convention).
    ════════════════════════════════════════════════════════════════════ */
-
-.trade-board-section {
-  background: #FFFFFF;
-  border: 1px solid #DDE1E7;
-  border-radius: 8px;
-  margin: 12px 0 8px;
-  padding: 0;
-  overflow: hidden;
-}
-body.dark-mode .trade-board-section {
-  background: #252B3D;
-  border-color: #3A4258;
-}
-
-.trade-board-title {
-  font-size: calc(11px + var(--ts));
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #6B7280;
-  padding: 10px 14px 6px;
-  border-bottom: 1px solid #ECEEF1;
-}
-body.dark-mode .trade-board-title {
-  color: #8A94B0;
-  border-bottom-color: #2A3247;
-}
 
 .trade-board {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
   gap: 10px;
-  padding: 12px;
+  padding: 12px 14px;
 }
 
 .trade-col {
@@ -6588,14 +6563,15 @@ body.dark-mode .trade-col {
 .trade-col-hdr {
   background: #2A3A5C;         /* navy, matches .th */
   color: white;
-  padding: 5px 10px;
+  padding: 7px 12px;
   font-weight: 700;
-  font-size: 11.5px;
+  font-size: calc(13.5px + var(--ts));
   letter-spacing: 0.3px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-radius: 6px 6px 0 0;
+  gap: 6px;
 }
 
 .trade-col-name {
@@ -6616,10 +6592,11 @@ body.dark-mode .trade-col {
   background: rgba(255, 255, 255, 0.18);
   color: white;
   font-weight: 700;
-  font-size: 10px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
+  font-size: calc(11px + var(--ts));
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -6627,17 +6604,17 @@ body.dark-mode .trade-col {
 
 .trade-col-del {  /* × on custom trade columns */
   background: transparent;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.6);
   border: none;
   cursor: pointer;
-  font-size: 13px;
+  font-size: calc(15px + var(--ts));
   padding: 0 4px;
   margin-left: 2px;
   line-height: 1;
 }
 .trade-col-del:hover { color: white; }
 @media (pointer: coarse) {
-  .trade-col-del { font-size: 16px; padding: 2px 6px; }
+  .trade-col-del { font-size: calc(17px + var(--ts)); padding: 2px 6px; }
 }
 
 .trade-col-body {
@@ -6656,11 +6633,11 @@ body.dark-mode .trade-col {
   border-bottom: 1px solid #DDE1E7;
   border-left: 4px solid var(--cc, #6B7280);
   border-radius: 4px;
-  padding: 5px 8px;
+  padding: 6px 8px;
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: calc(12.5px + var(--ts));
+  font-size: calc(13px + var(--ts));
   color: #1C2333;
   cursor: pointer;
   line-height: 1.25;
@@ -6695,7 +6672,7 @@ body.dark-mode .ctr-card:hover { background: #3F4861; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: calc(14px + var(--ts));
   padding: 0;
   flex-shrink: 0;
 }
@@ -6703,7 +6680,7 @@ body.dark-mode .ctr-card:hover { background: #3F4861; }
 body.dark-mode .ctr-card .ctr-x:hover { background: rgba(168, 89, 89, 0.22); color: #F5A0A0; }
 
 @media (pointer: coarse) {
-  .ctr-card .ctr-x { width: 28px; height: 28px; font-size: 16px; }
+  .ctr-card .ctr-x { width: 28px; height: 28px; font-size: calc(16px + var(--ts)); }
 }
 
 /* "+ Add contractor" dashed slot at bottom of each column */
@@ -6711,10 +6688,10 @@ body.dark-mode .ctr-card .ctr-x:hover { background: rgba(168, 89, 89, 0.22); col
   background: transparent;
   border: 1.5px dashed #C6CCD6;
   border-radius: 4px;
-  padding: 6px 8px;
+  padding: 7px 10px;
   color: #8A94B0;
   font-family: Calibri, sans-serif;
-  font-size: calc(12px + var(--ts));
+  font-size: calc(12.5px + var(--ts));
   cursor: pointer;
   text-align: left;
   margin-top: auto;
@@ -6735,7 +6712,7 @@ body.dark-mode .trade-add-slot:hover {
   background: rgba(156, 39, 66, 0.06);
 }
 @media (pointer: coarse) {
-  .trade-add-slot { padding: 9px 10px; font-size: calc(13px + var(--ts)); }
+  .trade-add-slot { padding: 9px 11px; font-size: calc(13.5px + var(--ts)); }
 }
 
 /* + trade column — adds a new trade to projectTrades */
@@ -6746,7 +6723,7 @@ body.dark-mode .trade-add-slot:hover {
   min-height: 100px;
   color: #8A94B0;
   font-family: Calibri, sans-serif;
-  font-size: calc(13px + var(--ts));
+  font-size: calc(14px + var(--ts));
   font-weight: 600;
   cursor: pointer;
   display: flex;
@@ -6777,7 +6754,7 @@ body.dark-mode .trade-add-col:hover {
   background: #FFFFFF;
   color: #1C2333;
   font-family: Calibri, sans-serif;
-  font-size: calc(13px + var(--ts));
+  font-size: calc(14px + var(--ts));
   font-weight: 600;
   padding: 0 14px;
   text-align: center;
@@ -6804,9 +6781,9 @@ body.dark-mode .trade-board-foot {
   border: 1.5px solid #9C2742;
   color: #9C2742;
   border-radius: 6px;
-  padding: 5px 12px;
+  padding: 6px 14px;
   font-family: Calibri, sans-serif;
-  font-size: calc(12px + var(--ts));
+  font-size: calc(13px + var(--ts));
   font-weight: 600;
   cursor: pointer;
 }

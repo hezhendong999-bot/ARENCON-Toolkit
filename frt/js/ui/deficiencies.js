@@ -860,9 +860,7 @@ function _renderTradeBoard(proj) {
   var defaultSet = {};
   TRADE_LIST.forEach(function(t) { defaultSet[t] = true; });
 
-  var h = '<div class="trade-board-section">';
-  h += '<div class="trade-board-title">\u2699 Trade Board \u00B7 Contractors on Site</div>';
-  h += '<div class="trade-board">';
+  var h = '<div class="trade-board">';
   trades.forEach(function(trade) {
     var ctrsInTrade = ctrs.filter(function(c) { return (c.trades || []).indexOf(trade) !== -1; });
     var isCustom = !defaultSet[trade];
@@ -893,7 +891,6 @@ function _renderTradeBoard(proj) {
   // Site General quick-add (preserved until Phase 2 unified + deficiency modal)
   h += '<div class="trade-board-foot">';
   h += '<button class="btn btn-sm tb-general-btn" data-action="add-general">+ General Deficiency</button>';
-  h += '</div>';
   h += '</div>';
   el.innerHTML = h;
 }

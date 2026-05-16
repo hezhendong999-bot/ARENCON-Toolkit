@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=303">
+<link rel="stylesheet" href="css/frt.css?v=304">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -433,11 +433,15 @@ function ensurePdfJs(cb){
         <div class="card-header">📋 Deficiency Log</div>
         <div class="card-body" id="defic-log-container" style="padding:0;"></div>
       </div>
+      <!-- Trade Board · Contractors on Site (S136 Phase 1b — own top-level card) -->
+      <div class="card" style="margin-bottom:4px;" id="trade-board-card">
+        <div class="card-header">🏗 Trade Board · Contractors on Site</div>
+        <div class="card-body" id="contractors-on-site" style="padding:0;"></div>
+      </div>
       <!-- Deficiencies Identified section -->
       <div class="card" style="margin-bottom:4px;">
         <div class="card-header">⚠ Deficiencies Identified</div>
         <div class="card-body" style="padding:10px 0 0 0;">
-          <div id="contractors-on-site" style="padding:0 14px;"></div>
           <div class="defic-lifecycle-tabs" id="defic-lifecycle-tabs" style="display:none;">
             <div class="dlc-tab active" data-dlc="active">Active</div>
             <div class="dlc-tab" data-dlc="closed">Closed</div>
