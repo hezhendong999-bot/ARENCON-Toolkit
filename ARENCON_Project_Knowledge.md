@@ -1,15 +1,25 @@
 # ARENCON Fire Protection Toolkit — Project Knowledge
 
 ## About This Document
+
+**This is the single canonical Project Knowledge doc as of S138.** The
+S132–S137-POLISH delta chain has been folded in. From here forward only
+this file is kept; future per-session deltas are merged in each session,
+so deleting old deltas is safe. When two sessions conflict, the later one
+wins — the **CURRENT-TRUTH — Supersedes Index** near the end of this doc
+is the authoritative quick-reference for everything that changed.
+
 Upload to the Claude Project along with:
-- ARENCON_Style_Guide_v119.css
+- The consolidated `ARENCON_Style_Guide.css` (single canonical Style Guide — S133→S137-POLISH plus the carried pre-S133 appendix; no per-session delta files needed)
 - ARENCON_FRT_Core_Template.md (reusable architecture reference for building new tools)
 - logo_base64.txt (must include "data:image/png;base64," prefix)
 - TOOL_BUILD_QUEUE.md
 - Current tool HTML files (stable filenames — no version numbers)
 - Current session handoff document
 
-Last updated: 2026-04-24 (Session 99 — S99 rendering-chain investigation; `?s99test=` diagnostic toggle framework shipped; `delaysrc` promoted to non-iOS default for level-transition flash; L2 tile grid accepted as known issue with 5 candidate fixes filed)
+Last updated: 2026-05-16 (Session 138 — **canonical consolidation**: base + S132 corrections + S133–S137-POLISH deltas merged into one doc and one Style Guide; delta chain retired. Live triad: HEAD `2f888b0`, SW `arencon-frt-v413`, CSS `frt.css?v=313`. Trade-grouping = contractor-scoped 4-trade model; unified Deficiencies tab live (Detailed/Table/Board); card order Trade Board → Deficiency Log → Deficiency List; single-obs == multi-obs card invariant.)
+
+Prior milestone: Session 119 — Phase A per-obs priority + status independence; Phase B confirmation modal audit + type-DELETE; photo refactor design locked for S120.
 
 ---
 
@@ -1732,30 +1742,17 @@ Still open. S97 Fix #1 (viewport-sized markup canvas) was the architectural fix 
 
 **S100+ priority:** execute S97 Fix #1 staged rollout (Commit A: DOM move + viewport sizing + CSS counter-transform; Commit B: migrate to JS render transform).
 
-### L2 Tile Grid (5 candidate fixes filed)
+### L2 Tile Grid — ✅ RESOLVED S112 (corrected S132; historical detail retained below)
 
-**Root cause:** JPEG edge-quantization artifacts at 512px tile boundaries. Most visible at L2 because tiles are stretched up for display; adjacent tiles don't share compression context so edges don't blend.
+**[S132 CORRECTION]** This is no longer an open item. Resolved at S112: the canvas compositor (`_S99_CANVAS` default) uses one fractional CSS scale per level, so there are no sub-pixel seams, and the renderer now emits **WebP, not JPEG** — the named root cause (JPEG edge-quantization) is gone. Do not re-file as an open issue.
 
-**Why baseline `+1 CSS pixel` doesn't help:** That's a position-rounding fudge, doesn't address the JPEG content itself.
+*Historical (pre-S112 analysis, kept for audit trail only):* Root cause was JPEG edge-quantization artifacts at 512px tile boundaries, most visible at L2 because tiles were stretched up for display and adjacent tiles didn't share compression context. The candidate fixes once filed (raise L2→L3 threshold, CSS blur at L2, lossless WebP L0–L2, server overlap bleed, accept-and-document) are obsolete — the WebP/canvas-compositor path superseded all of them.
 
-**Why S99 `overlap` didn't help:** See rejected fix above.
+### Edge-tile 404 errors — ✅ RESOLVED as a code issue (corrected S132; historical detail retained below)
 
-**Candidates for future evaluation (ranked by cost):**
+**[S132 CORRECTION]** Not an open code bug. The renderer uploads every `cols×rows` tile, the manifest matches, and the client clamps to bounds. The S99-era 404s were old drawings produced by an *older* renderer — an operational re-render situation, not a code defect. If 404s recur on a legacy drawing, the action is operational re-tiling, not a code fix.
 
-1. **Raise L2→L3 transition threshold** (client-only, 1-line edit). Use L3 more aggressively at moderate zooms so L2 is rarely displayed. Cost: slightly more L3 tiles in memory.
-2. **CSS `filter: blur(0.5px)` on tile-layer at L2 only** (client-only). Softens seams without content distortion. Cost: slight blurriness at L2.
-3. **Lossless WebP for L0–L2 server render** (server change, ~1 session in `arencon-pdf-render`). Root-cause fix. Larger L0-L2 tiles (which are small anyway).
-4. **Server overlap bleed** (server change + re-tile all drawings, ~2 sessions). Server renders 520×520 tiles containing natural 512+4px of neighbor content. Heaviest, cleanest.
-5. **Accept the grid, document it.** May not affect inspection workflow in practice.
-
-### Edge-tile 404 errors (NEW finding)
-
-S99 test logs (2026-04-24 recording `r191s`) captured tile load failures at specific coordinates:
-- `err 3_10_4, err 3_6_4, err 3_7_4, err 3_11_4, err 3_9_5` on drawing `dwg_1776631552442_pg2_yy4m`
-
-Format: `level_col_row`. These are edge tiles (right/bottom of drawing) at L3. They 404 from R2. The Azure tile renderer (`arencon-pdf-render`) either failed to produce these specific tiles, or they're missing from the R2 upload. Pre-existing bug unrelated to S99.
-
-**S100+ investigation:** Run a diagnostic script to list R2 keys under `{pid}/tiles/{drawingId}/page-2/level-3/` for the Caplink project (`6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb`). Compare against expected tile grid (6144/512 = 12 cols × 8 rows at L4, etc.). If tiles genuinely missing, re-trigger tile rendering for that drawing. If present in R2 but 404 via Worker, investigate Worker path translation.
+*Historical (S99 observation, kept for audit trail only):* S99 test logs (recording `r191s`) captured `err 3_10_4, err 3_6_4, err 3_7_4, err 3_11_4, err 3_9_5` on `dwg_1776631552442_pg2_yy4m` (format `level_col_row`, edge tiles at L3) — traced post-S132 to the older-renderer-output cause above.
 
 ### iOS flash on level transitions (ACCEPTED TRADEOFF)
 
@@ -1856,7 +1853,11 @@ var logicalW = Math.max(1, w / _dpr);  // logicalW must stay constant at drawing
 
 ## Tile renderer — final state
 
-**Single source of truth: Azure Container App `arencon-pdf-render-v3`** running mupdf via `mutool draw` (post-S107). Source in `container-render/`. Build pipeline `.github/workflows/build-container.yml` deploys on push to `container-render/**`. ~4-5 minutes from commit to live.
+**[S132 CORRECTION — supersedes the mupdf/container description below]** The LIVE renderer is the **Azure Function `arencon-pdf-render`** (pdfium **v2.2.1**, Canada Central) — verified S132 via `/api/health`. It is NOT a container app running mupdf. Renderer config: `LEVEL_WIDTHS = [256, 1024, 2560, 6144, 12288]`, `losslessLevels: [3,4]` (emits WebP, not JPEG). Any text describing `container-render/server.js` / mupdf / `mutool draw` / `arencon-pdf-render-v3` as the *active* renderer is HISTORICAL only — treat the pdfium Azure Function as ground truth. Always confirm via `/api/health` before debugging the renderer (the `renderer` field).
+
+*Historical (pre-S132, retained for audit trail only — NOT the live renderer):*
+
+**~~Single source of truth: Azure Container App `arencon-pdf-render-v3`~~** running mupdf via `mutool draw` (post-S107). Source in `container-render/`. Build pipeline `.github/workflows/build-container.yml` deploys on push to `container-render/**`. ~4-5 minutes from commit to live.
 
 **Fly.io fully removed in S113 Push 21-22.** Deleted: `container-render/fly.toml`, `container-render/diag_s94.py`, `.github/workflows/fly-deploy.yml`. The Fly.io app `arencon-render-staging.fly.dev` is orphaned in Mark's Fly.io account — no GitHub connection. Mark to delete manually via Fly dashboard.
 
@@ -2504,3 +2505,714 @@ S114 deferral that's still open:
 | 13 | `2bf8acbe` | Hub Edit project button on dashboard tile |
 
 End of S115 — proceed to S116.
+
+---
+
+## Session 119 Additions (Per-obs priority + status independence; confirmation audit; photo refactor design locked)
+
+### Final state
+- 9 commits on `main` (`216ef63d` through `9a22bc47`)
+- All FRT JS files clean on `node --check`; CSS brace count balanced
+- Bug-free integration verified by Mark on device after each push
+- Photo refactor design locked via demo iteration; ready to implement in S120
+
+### Per-obs priority + status (Phase A — Push A `216ef63d`)
+Each `observation` now carries its own `priority` and per-obs addressed metadata. Pin-level `d.priority` and `d.status` kept as last-bulk-set snapshots; renderers use derived values:
+- `Model.getEffectivePriority(d)` — max across obs (high > low > general), pin-level fallback
+- `Model.getEffectiveStatus(d)` — 'closed' iff every obs `addressed`
+
+Schema migration in `setProject` is idempotent: backfills `o.priority` from `d.priority`, backfills `addressedOnInstance/addressedDate` for already-addressed obs.
+
+New methods: `Model.updateObsPriority(deficId, obsIdx, priority)`. Existing `Model.toggleObsAddressed` upgraded to track `addressedDate` / `addressedOnInstance` and mirror `d.status` to effective. `Model.updateDeficStatus` propagates pin-level intent to every obs's addressed flag (bulk semantics).
+
+Rendering paths updated to use effective values:
+- Pin marker color (GL + HTML + tasks panel)
+- Pin editor mini-map
+- Pin editor title
+- Pin editor STATUS dropdown + IAR enable-state (now per-active-observation, rendered inside `_peRenderObsContent`)
+- Priority buttons in pin editor write `obs[_peObsIdx].priority`, not `d.priority`
+- Status save in pin editor routes through `Model.toggleObsAddressed`
+- Deficiency tab card: effective-priority badge in top row (read-only), per-obs priority dropdown in each obs row (`data-action="obs-priority"`)
+- Reassignment business logic (general↔non-general → contractor reshuffle) fires on **effective** priority transitions, not per-obs writes
+- Pins kanban + table: filter, sort, column placement, cell colors all use effective
+- PDF: pill color uses `r.obs.priority`; `_pushItems` filters general per-obs (mixed pins emit cards only for non-general obs); `mainBodyDefs` filter is per-obs aware
+
+### Bug fixes from Phase A integration testing
+
+**Push B (`7ba1c049`)** — pin-editor footer auto-wraps on phones. `.pin-editor-footer` got `flex-wrap:wrap` + `row-gap:8px` so the 5 action buttons reflow into 2 rows on narrow screens. Inline `margin-left:6px` on `#pe-goto-dwg` / `#pe-unpin` zeroed so flex `gap` is the sole spacing control (margin + gap stacked caused premature wrap on borderline widths).
+
+**Push C (`ac6d4faa`)** — textarea no longer loses focus while typing. The Push A change introduced an `obs-priority` dropdown that triggered re-render via the `'saved'` notifier, destroying the textarea node. Fix: `'saved'` and `'photo'` listeners in deficiencies.js skip the re-render when an INPUT/TEXTAREA inside `#tab-deficiencies` has focus. The mutation is already applied to Model and the textarea's value already shows what the user typed; next normal render catches up.
+
+**Push D (`3bff83df`)** — per-obs contractor selector applies on first click. Race condition: `change` event called `_pinAutoSave` (debounced 250ms) and synchronously called `_peRenderObsContent`. Re-render read stale `o.contractorId` because debounce hadn't fired yet, so dropdown reverted to the old value. Fix: write `contractorId` to model synchronously in the change handler before re-render.
+
+**Push E (`b03c25a5`)** — PDF respects per-obs contractor + per-obs description. Two issues from Push A's S118 obs flattening: (1) `_pushItems` hardcoded `r.ctr` to pin's parent `ctrName`, ignoring `obs.contractorId`. (2) Per-drawing appendix and closed-summary tables used `_deficDesc(r.d)` which always returns `obs[0].text`, duplicating identical content for multi-obs pins. Added `_itemDesc(r)` and `_itemIsOpen(r)` helpers; `_pushItems` looks up `obs.contractorId` in `p.contractors` and uses that name as grouping key with fallback to `ctrName`.
+
+**Push F (`170fca91`)** — cross-contractor suffix on item labels. When a pin's obs span >1 contractor, every obs of that pin gets a letter suffix (`#4-A`, `#4-B`, ...) on its display label. Same-contractor multi-obs pins keep plain `#N`. Suffix appears on main report card item number, per-drawing appendix Pin column, closed-summary Pin column. Teardrop on drawing image still shows plain pin number. Plus IAR replaces "Outstanding" in the per-drawing appendix Status column (Mark request — match the first item's IAR badge style).
+
+**Note on main card item number change:** pre-S119 cards showed sequential `r.rn` (1, 2, 3, ...). Post-Push F cards show pin-number `r.numLabel`. Same-contractor multi-obs pins now show e.g. `#3 / #3` (duplicate but distinguishable by description). Mark approved this via the demo mockup before Push F. If he later wants universal suffixing (suffix even when same contractor), it's a one-line change in `_pushItems`.
+
+**Push G (`a1b6162b`)** — item# size + closing-note orphan fix. `.dc-itemnum` 14pt → 11pt to match the contractor banner font size (visual hierarchy was inverted). Closing note "Further deficiencies may be noted..." top/bottom chrome reduced from 26px (margin-top:16px + padding:10px) to 6px, so the note fits in any spot with at least ~22px free instead of the previous ~42px requirement. Edge case where even compact doesn't fit still spills cleanly.
+
+### Confirmation audit (Phase B — Push H `d8c37301`)
+New helper in `frt/js/shared/dialogs.js`: `showTypeToConfirm(title, message, requiredText='DELETE')`. Returns `Promise<bool>`. OK button starts disabled (`opacity:0.45; cursor:not-allowed`); enables only when input matches required text exactly (case-sensitive). Esc → resolve(false). Enter when enabled → resolve(true). Red destructive styling, `Cancel | Delete` button order.
+
+| Action | Before | After |
+|---|---|---|
+| Deficiency-tab card "Remove Pin" button | No confirm | `showConfirm` matching `#pe-unpin` copy |
+| `_resetProject` (More menu → Reset Entire Project) | Simple confirm | type-DELETE |
+| `_resetCurrentTab` (More menu → Reset Current Tab) | Simple confirm | type-DELETE with tab-specific scope message |
+| Hub `purgeProject` (single permanent delete) | Browser `confirm()` | Custom type-DELETE modal `_typeToConfirmPurge` |
+| Hub `bulkPurge` (multi-select permanent) | Browser `confirm()` | Same type-DELETE modal |
+
+Hub modal is inline (no ES modules in Hub). Mirrors existing "Move to Trash" type-DELETE modal style — single source of truth for type-DELETE in Hub script.
+
+### Dead UI cleanup (Push I `9a22bc47`)
+Removed:
+- `data-dv-action="delete-all-markup"` button (drawing viewer ⋯ menu) — never had a JS handler
+- `data-dv-action="delete-all-pins"` button — same
+- The `<div class="dv-more-sep">` separator above them
+- `#mobile-clear-all` button (mobile menu) — `display:none` + no handler, redundant with `#mobile-reset-btn`
+- Orphan CSS for the above (4 lines in frt.css across both light + dark + drawing-viewer-overlay scopes)
+
+If "Delete All Markup" or "Delete All Pins" become wanted features later, both can come back wired with type-DELETE confirms following the Push H pattern.
+
+### Locked design for S120 (no code yet)
+
+**Photo refactor — pool model + per-obs assignment.** Iterated through three demo versions with Mark; v3 design locked.
+
+Data model:
+- `defic.photos[]` = source pool. Owns sourceR2Key, thumb, dataUrl. One entry per source photo regardless of how many obs use it.
+- `obs.photoSelection` = `null` (default = all pool photos shown for this obs) OR an array of pool photo IDs (custom subset).
+- `obs.photoMarkups[poolPhotoId]` = `{ markupOverlay, markedR2Key }` per (obs, pool photo) pair. Independent markup state, independent revert behavior. Same source photo on two obs = two independent markup overlays + two marked R2 keys; source bytes shared.
+
+Workflow:
+- Default = inclusive: every obs shows every pool photo with no inspector action. Reports just work.
+- "Manage photos" button enters selection mode for current obs. Header has master checkbox (none/some/all states like Google Photos), `[N] of [total]` count.
+- Two distinct save actions in selection mode: "Save as Obs X selection" (green) sets `obs.photoSelection`; if everything checked, sets to `null` (default). "Delete N from pool" (red, destructive) — `<5` photos = simple confirm modal, `≥5` photos = type-DELETE modal. Removes from pool AND from every obs's `photoSelection`.
+- Cancel exits without saving. "Reset to default" button (outside selection mode) sets `obs.photoSelection = null`.
+
+Visual indicators:
+- **Dots only in selection mode within pin editor.** Not in view mode, not in report, not in gallery. Each obs has a fixed color; every photo carries small colored letter-dots in bottom-left for OTHER obs that have it in their custom selection. Default-state obs contribute no dot (would clutter). Helps inspector see cross-obs assignments while picking.
+- **Orphan warning:** in selection mode, when at least one obs is custom AND a photo has zero dots from any source AND isn't in the active obs's pending selection, the photo gets a thin red outline + ⚠ badge. "This photo will appear in zero reports." Easy to fix or ignore intentionally.
+- Tab itself shows `• custom` text next to obs letter when `photoSelection !== null`.
+
+New uploads always land in pool. Default-state obs auto-show new photos. Custom-state obs do NOT auto-add — inspector explicitly assigns. Avoids "I narrowed Obs A weeks ago, then uploaded a photo and it silently appeared there."
+
+**Pin editor footer cleanup.** `Save / Go to drawing / Remove pin only / Delete / Cancel` → `Save / More ▾ / Delete / Cancel`. "More ▾" dropdown contains "Go to drawing" + "Remove pin only".
+
+**IAR auto-deactivate prompt.** When closing a deficiency from any path (bulk close, single close button, defic-card status dropdown, pin-editor STATUS → closed on last obs), if `defic.iar === true`, show modal: "Pin #N is currently marked IAR. Closing it will automatically deactivate IAR. Confirm close?" OK → set `iar = false` AND status closed. Cancel/Esc → abort entirely (status stays open, IAR stays active).
+
+Currently in code: bulk close silently sets `iar = false` (no prompt). `Model.updateDeficStatus` doesn't touch `iar` at all. Pin editor STATUS → closed routes through `Model.toggleObsAddressed`, no IAR handling. All three need a shared `confirmIARDeactivate(deficId): Promise<bool>` helper called before deciding what to do with `iar` + status.
+
+**T+0 rules verified in place** — current FRT v2 already implements them correctly (closed in current FRT → full card + appendix; closed in prior FRT → appendix only no photos; closed-summary groups by which FRT closed it via header banner; reopen via `Model.updateDeficStatus(id, 'open')` clears closure metadata; defic data carries across instances). Closed-summary section grouping is per-banner not per-row; Mark approved leaving as-is.
+
+**Esc layered behavior.** Existing global handler in `app.js` line 1471 already does most of this — priority-ordered modal list, drawing viewer never closes on Esc, falls through to markup.js for tool/selection cancel. Gaps for S120: pin editor selection mode (Esc exits selection, NOT closes pin editor); IAR confirm prompt (Esc = abort close); "More ▾" dropdown (Esc closes dropdown only). Add inner-state checks at top of handler for these.
+
+### Critical principles reinforced this session
+
+- **PDF item flattening (S118 design) carries forward.** Each obs is one report card with its own description, photos, status pill, item label. Multi-obs pins share pin number on the drawing teardrop but emit separate cards.
+- **Effective priority/status > pin-level fields.** Always use `Model.getEffectivePriority(d)` / `Model.getEffectiveStatus(d)` for rendering. Pin-level `d.priority` / `d.status` are last-bulk-set snapshots, not source of truth.
+- **Cross-contractor pins keep grouping atomic.** `ctrG2` groups by `r.ctr`; per-obs contractor override changes which bucket an obs lands in. Vipond fully completes before Site General appears in the report flow.
+- **Close paths all leak IAR currently** (gap to fix in S120). Audit every close path before assuming IAR auto-clear is in place.
+- **`'saved'` notifier triggers re-render** which destroys focused inputs. Always check `document.activeElement` before re-rendering on save events.
+- **250ms `_pinAutoSave` debounce** races with synchronous re-render in pin editor handlers. Write to model synchronously in change handlers if rendering depends on the new value.
+- **Hub doesn't import ES modules.** Type-DELETE modals there are inline functions. Don't try to import `showTypeToConfirm` in Hub.
+- **`r.numLabel` carries the suffix** (cross-contractor disambiguator). All renderers should use `r.numLabel || r.rn || r.d.num`. Teardrop on drawing image stays plain `d.num` (one number per physical pin).
+
+### Final commit state
+- `9a22bc47` on `main`
+- Cache busters: `frt.css?v=245`, `sw.js CACHE_NAME = 'arencon-frt-v286'`
+- All FRT modules pass `node --check`
+- CSS brace count: 2409 / 2409 balanced
+
+End of S119 — proceed to S120 (photo refactor + IAR prompt + pin editor footer + Esc inner-state checks).
+
+
+---
+
+# Project Knowledge — S120 Additions (delta)
+
+Append after the S119 section.
+
+---
+
+## Session 120 Additions
+
+### Photo Pool model (S120 C1)
+
+The FRT moved from per-obs photo storage to a project-level pool with per-obs visibility selection.
+
+**Schema:**
+- `defic.photos[]` — source pool. Photos live here once.
+- `obs.photoSelection` — null = obs sees ALL pool photos (default), Array<photoId> = custom subset.
+- `obs.photoMarkups[poolPhotoId]` — per-(obs, photo) markup state.
+- `defic._photoPoolMigrated = true` — idempotence flag.
+- Legacy `obs.photos[]` retained as silent backup, no longer read.
+
+**Helpers in model.js:**
+- `Model.getEffectivePhotos(deficId, obsIdx)` — live photo list after photoSelection.
+- `Model.addPoolPhoto(deficId, photo)` — appends to pool, fires `_notify('photo', { action: 'add-pool', ... })`.
+- `Model.removePoolPhoto(deficId, photoId)` — soft-deletes, cascades to all obs.photoSelection + obs.photoMarkups. R2 NOT touched (recovery layer).
+- `Model.restorePoolPhoto(deficId, photoId)` — clears deleted flag. Does NOT re-add to any custom selections.
+- `Model.setObsPhotoSelection(deficId, obsIdx, selection)` — null resets to default.
+- `Model.isObsCustom(deficId, obsIdx)` — boolean.
+
+Migration runs in `Model.setProject` if `!proj._photoPoolMigrated`. Idempotent.
+
+---
+
+### Collision-resistant ID generator (S120 P22)
+
+**Format:** `prefix_<ms>_<counter>_<rand8>` — e.g. `def_1778210878268_3a_kx9p4mn7`.
+
+Components:
+- `Date.now()` — millisecond timestamp.
+- `_uidCounter` — module-private monotonic counter (base36), masked to 24 bits. Uniqueness within a single ms regardless of mint count.
+- 8-char base36 random — defense in depth across reloads/multi-tab.
+
+Previous format used 4-char random (1-in-4096 collision rate within same ms — confirmed in production data). New format: effectively zero collision rate.
+
+All 11 mint sites in model.js now use `_uid(prefix)`.
+
+`duplicateDeficiency` does `JSON.parse(JSON.stringify(src))` for the clone. The new outer `def_*` id is fresh, but the clone preserves source observation ids — P22 added a re-id loop giving every cloned obs a fresh `_uid('obs')`.
+
+---
+
+### Pin editor live-refresh (S120 P23)
+
+The pin editor renders once at `_openPinEditor` and previously didn't react to external Model changes.
+
+**Implementation:**
+- `_peSubscribed` sentinel — registers Model listeners ONCE on first open.
+- Subscribes to `photo`, `observation`, `deficiency` events.
+- Handler `_peOnModelChange(type, data)`:
+  1. Returns early if `_peDeficId` is null (editor closed).
+  2. Returns early if `_peSelectionMode` active (selection mode has its own redraw).
+  3. Tests if change touches our defic via deficId match OR photoId match in pool.
+  4. Re-renders via existing `_peRenderObsContent`.
+
+Model has no `offChange` API. The `_peDeficId` null-check effectively unsubscribes.
+
+**Caveat:** every code path that mutates a defic's photos must call `Model._notify('photo', { deficId, ... })`. P24 fixed `_showGalleryPicker` which had bypassed this since S114.
+
+---
+
+### R2 cleanup on drawing replace/delete (S120 P25 / C4)
+
+Multi-page PDFs commonly produce N drawings sharing 1 pdfBufKey. Previously, replacing or deleting left the buffer orphaned in R2.
+
+**New helper:** `R2.deleteDrawingAssets(projectId, drawing, allDrawings) → Promise<{ pdfBufDeleted, sharedSkipped }>`.
+- Checks if any OTHER drawing in `allDrawings` references the same pdfBufKey (excludes the target itself + `_migratedAwayTo` tombstones).
+- If shared → skip. If exclusive → `R2.del('{pid}/photos/pdfbufs/{key}.pdf')`.
+
+**Wired into 4 paths in drawings.js:**
+1. Drawing replace handler — snapshots old pdfBufKey before overwrite.
+2. Single drawing delete (3-dot menu).
+3. Bulk multi-select delete.
+4. Orphan purge.
+
+Plus `_drawingMigrate.deleteHidden` in drawingMigrate.js.
+
+`_removeDrawingWithCleanup(drawingId)` wrapper in drawings.js encapsulates the snapshot-then-remove-then-cleanup sequence.
+
+Tile cleanup NOT included — worker has no `/list/{pid}/tiles/{key}/` endpoint. PDFs cover ~80% of orphan storage by size.
+
+---
+
+### Drawing migration tool (S120 P18-21)
+
+New: `frt/js/diag/drawingMigrate.js`. Console-driven pin migration between drawing sets.
+
+**Workflow:**
+```
+_drawingMigrate.clearManualPairs()
+_drawingMigrate.pairFolders('inspector 2', 'ift b10')
+_drawingMigrate.preview()
+_drawingMigrate.plan()
+_drawingMigrate.apply()
+// verify pins land correctly
+_drawingMigrate.deleteHidden()   // first call: tags + 30s confirm
+_drawingMigrate.deleteHidden()   // second call: actual delete
+```
+
+**Auto-matcher strategies** (priority order):
+1. pdfBufKey + page
+2. name + page
+3. name-only
+4. ordered-by-folder (last resort)
+
+**`pairFolders(oldFragment, newFragment)`** with smart de-overlap — when both fragments match same folder, more-discriminating fragment wins (longer or substring relationship).
+
+**`deleteHidden()` two-step** — first call tags `_migratedAwayTo` + 30s window, second call actually removes. Wired through `R2.deleteDrawingAssets` for PDF cleanup.
+
+---
+
+### Esc handler architecture (S120 P26 / S121 audit)
+
+**FRT global Esc handler** in `frt/js/app.js` (capture phase, runs before markup.js):
+
+Priority order (most-specific first):
+1. Pin editor "More ▾" menu — close menu only.
+2. Pin editor selection mode — exit selection only.
+3. Modal stack: gp-overlay, activity-modal-overlay, ph-reassign-overlay (S121 added), pin-editor-overlay, ai-fs-overlay, ai-ps-overlay, insp-overlay, qr-overlay, leave-overlay.
+4. AI Review popover.
+5. Fall through → markup.js handles drawing-viewer state.
+
+Drawing viewer is NEVER closed by Escape (S114 design).
+
+**Hub global Esc handler** in `ARENCON_Project_Hub.html` (capture phase, S120 P26):
+- Skips if photo-gallery lightbox open (its own handler below).
+- Skips if QR modal open (its own handler below).
+- Otherwise finds topmost visible `.modal-overlay.show` and removes the class.
+- Covers: new-project-modal, delete-project-modal, edit-role-modal, edit-project-modal, profile-modal.
+
+---
+
+### Cloud sync silent-pull race (S120 healing observations)
+
+When local IDB and cloud have different versions, sync engine's silent-pull overwrites local with cloud if remote `updated_at` > local. Heal scripts that mutate local get wiped on the next pull unless:
+1. Healed state is pushed BEFORE the next pull races in.
+2. Local `proj.modified` is bumped to a future timestamp.
+
+**Recovery pattern that worked:**
+```javascript
+proj.modified = new Date(Date.now() + 86400000).toISOString();
+M.setProject(proj);
+await M.saveNow();
+```
+
+The `Model.setProject + saveNow` path is the same one the Load button uses. It goes through SyncEngine.push which has the right auth plumbing — bypasses direct-PostgREST attempts that might fail due to RPC schema mismatch.
+
+**Lesson:** when mutating live data via console, always go through Model methods. They fire `_notify` AND mark dirty AND trigger save AND won't be overwritten if `modified` is bumped.
+
+
+---
+
+# Session 132 Additions (consolidated from S132 delta)
+
+> S132 was a correction + architecture-rule session. The stale entries it
+> retired have been corrected in place above (L2 Tile Grid, Edge-tile 404,
+> Tile-renderer mupdf description). The confirmations and new rules below
+> are recorded here as the authoritative S132 record.
+
+## Stale "Known issues" — confirmed resolved (do NOT re-file)
+
+- **Sync atomicity — DONE.** `sync.js` has If-Match optimistic concurrency, 412 handling, IDB-persisted `_lastSeenSnapshot` (S124 A3), empty-array clobber guard (S126 Phase C), worker-offloaded merge3 (S128 P-6), bounded retry. Not an open item.
+- **Full CRDT merge — DONE** as a complete 3-way merge + conflict-resolution system: `merge.js` (775-line engine, `applyResolutions`), `app.js` wires `onConflict`/`onSilentMerge`, `dialogs.js` `showConflictModal` (real, 146 lines). Not a literal CRDT; not unfinished work.
+- **L2 tile-grid seam — RESOLVED S112.** Canvas compositor (`_S99_CANVAS` default) = one fractional CSS scale per level, no sub-pixel seams. Renderer emits WebP, not JPEG — named root cause gone.
+- **Edge-tile 404s — RESOLVED as a code issue.** Renderer uploads every `cols×rows` tile; manifest matches; client clamps to bounds. S99-era 404s were old drawings from an older renderer (operational re-render, not code).
+
+## Process rule (reinforced — PERMANENT)
+
+The "Known issues remaining" section is **not authoritative** — it accumulates stale entries. **Ground-truth every "remaining" item against the actual repo before treating it as open.** Always verify the live renderer via `/api/health` (`renderer` field) before debugging any deployed render service.
+
+## S132 Architecture Rules (NEW — additive)
+
+### R2 project id — canonical source (PERMANENT)
+
+The canonical R2 project id is the **Hub `?project=` URL UUID** — used by drawings, tiles, photos, pdfbufs, the tile renderer, the worker, and the Hub Cloud Storage panel. The FRT internal `proj.id` (`proj_*`) is **NOT** an R2 key component. Standard resolution at any R2 call site:
+
+```js
+(new URLSearchParams(window.location.search).get('project')) || proj.id  // proj.id = standalone only
+```
+
+S132 fixed `markup.js` (`_saveMarkup`, `_loadMarkup`) and two `drawings.js` `deleteDrawingAssets` sites that had been wrongly using `proj.id`, splitting markup into a different R2 folder. Markup load self-heals because it reads the stored `drawing.markupR2.r2Url`, not a rebuilt path.
+
+### Blank-project load race — guard (PERMANENT)
+
+`SyncEngine._isBlankSnapshot()` rejects a contentless IDB syncMeta snapshot in `loadIDBSnapshot` (returns `null`). Prevents the fast path from ever setting a blank `_project` (which was persistable — `_queueSave` is not gated on boot state — before the cloud pull landed). A blank snapshot is also not adopted as the merge base. Real projects fast-path unchanged. "Blank" = no project number/name AND no drawings/contractors/general deficiencies/photos — intentionally generous.
+
+### `_r2cleanup` safety (PERMANENT)
+
+- `_getProjectId()` uses the canonical `?project=` UUID (was `proj.id`).
+- Unrecognized R2 key shapes (`_classify` → `'other'`) return `isOrphan: false` — never flagged, never auto-deleted. `deleteOrphans()` can only ever touch positively-classified orphans (photos / pdfbufs / tiles with a confirmed-missing referent).
+
+### Dead-code audit baseline
+
+`no-undef` (ESLint) is clean across `frt/js` as of S132 — the `_queueRunning`-class bug (referenced-but-undeclared identifier) is not present anywhere. 20 cosmetic `no-unused-vars` remain inventoried (see `HANDOFF_SESSION_132.md` §4) for a future dedicated cleanup — not removed because several sit in protected/sensitive files and removal needs per-site side-effect verification.
+
+### sync.js no longer imports merge3 directly
+
+`sync.js` does **not** `import { merge3 }` — since S128 P-6 the merge runs in the sync worker via `SyncWorkerHost.merge3Worker`. The engine still lives in `data/merge.js`; only `syncWorkerHost.js` / the worker import it.
+
+## State snapshot (end of S132)
+
+HEAD `74baf8c0b1` · SW `arencon-frt-v391` · CSS `?v=297` (unchanged since pre-S132). Tests: 95 passed / 2 skipped.
+
+---
+
+# Session 133 Additions — Trade-Based Grouping (DESIGN ONLY)
+
+> ⚠️ **SUPERSEDED BY SESSION 134.** The S133 obs-tagged 8-trade design below
+> was reset in S134 to a contractor-scoped 4-trade model. This section is
+> retained for audit trail. For the LIVE trade design read Sessions 134–137-POLISH.
+> Items from S133 that survived unchanged (repeat-count chip, sibling-trace,
+> destructive-button outline rule, mini-map unchanged) are still in force.
+
+### S133 design (superseded — historical)
+
+Original design tagged every `obs` with `trade` / `tradeSource` / `repeatCount`, an 8-trade life-safety list (`Fire Alarm, Sprinkler, Standpipe, Fire Pump, Smoke Control, Passive/Separations, Kitchen Hood, Extinguishers`), Trade→Contractor→cards hierarchy, multi-obs sibling-trace with letter suffixes, repeat-count chip replacing IAR, AI `trade_tag` worker mode + `ai_trade_corrections` Supabase table, and a title-page legend. **S134 replaced the 8-trade obs-tagged core with contractor-scoped trades (4 defaults).**
+
+### S133 elements that REMAIN IN FORCE (not superseded)
+
+- **`obs.repeatCount`** (default 1) — auto-incremented on FRT save when an obs carries forward still-outstanding; closed-then-reopened counts as 2. Not user-editable. Replaces the retired IAR feature. Repeat-count chip renders BEFORE the priority pill in the card header (reading order `[#11A] [3rd review] [High]`).
+- **Sibling-trace** for multi-obs pins spanning different trade/contractor — italic muted purple caption; bold pin labels are scroll-to anchors in the FRT tab, bold-only in PDF; suppressed when sibling is adjacent (same trade + same contractor).
+- **Priority/status pills are light-tinted in BOTH light and dark mode** (NOT dark-hatched — was unreadable). `.pill-h/.pill-l/.pill-c/.pill-g`. Pill text is just "High"/"Low"/"General"/"Closed" — never "Outstanding · X".
+- **IAR fully removed from UI** (tab + report). `pin.iar` field still readable, never displayed. Silent-degrade existing data, no migration.
+- **Outlined-red destructive buttons** standard (`#A85959` border + text, fill on hover) — NOT solid red. Multi-obs pin delete requires type-to-confirm; single-obs uses standard confirm.
+- **Mini-map unchanged** — keep `.mini-pin-marker` circle (white border, `left/top %`). The teardrop-SVG demo was rejected. `.dc-mini-pin` in PDF already matches.
+- **Per-obs Contractor Response / ARENCON Comment buttons** at OBS level, left-aligned, full names. Pin-level duplicate pair removed.
+
+### S133 deprecations (acted on in S135)
+
+S130 AI section-catalog feature + editor, and the `auto_group` worker mode, were flagged dead in S133 and retired in S135.
+
+---
+
+# Session 134 Additions — Trade Grouping LOCKED DESIGN (replaces S133)
+
+> This is the authoritative trade-grouping design. S135 shipped the schema
+> layer, S136 the trade board UI, S137 the unified tab, S137-POLISH the
+> layout. Where S134 here conflicts with S136/S137/S137-POLISH, the later
+> session wins (see Current-Truth index at end of doc).
+
+### Core model: contractor-scoped trades, not obs-tagged
+
+Trade declaration lives at the **contractor** level. Most obs inherit their trade from their contractor without manual tagging. Per-obs trade override exists for the multi-trade contractor case. Tagging once at the contractor level reduces friction from obs-count to contractor-count (3–5 per project). AI worker becomes optional polish, not load-bearing.
+
+### Data model (S134-shipped)
+
+```js
+// CONTRACTOR
+contractor.trades: string[]   // subset of project.projectTrades, default []
+contractor.color: string      // auto-assigned hex, never user-picked
+
+// PROJECT
+project.projectTrades: string[]   // default = DEFAULT_PROJECT_TRADES
+
+// DEFICIENCY
+defic.isRecommendation: boolean   // default false  (NOTE: not actually added to model until S138 — see S137 deferral)
+
+// OBSERVATION
+obs.trade: string                 // from contractor or manual override
+obs.repeatCount: number           // default 1 (S133 chip system)
+// obs.tradeSource — DEPRECATED. Derive: trade === contractor's trade → 'inherited'; else 'manual'
+```
+
+### Default trade list — REDUCED 8 → 4
+
+```js
+const DEFAULT_PROJECT_TRADES = ['Sprinkler', 'Fire Alarm', 'General Contracting', 'Building Conditions'];
+```
+
+Replaces the S133 8-trade life-safety list. Standpipe/Fire Pump/Extinguishers/Smoke Control/Kitchen Hood/Passive-Separations are NOT defaults — they roll up under Sprinkler or General Contracting ~99% of the time. Users add custom trades per-project via the trade board's `+ trade` column.
+
+### Migration policy — lossless tolerance
+
+- Existing contractors → `trades: []`, `color: <next unused from palette>`.
+- Existing projects → `projectTrades: <default 4>`.
+- Existing out-of-list `obs.trade` values ("Standpipe", "Fire Pump", "Extinguishers") stay as-is in JSON; the obs dropdown shows the current value italicized if not in `projectTrades`.
+- `obs.tradeSource` reads removed; writes preserved one session, then field removed.
+- Legacy `iar:true` continues silent-degrade; UI rendering removed in Phase 0 (S135).
+
+### Trade board UI
+
+Kanban section at the top of the Deficiencies tab. Replaces the "Contractors on Site" pill row. One column per `projectTrades` trade + trailing `+ trade` column. Each column: header (trade name + count), N contractor cards (4px colored left border = `contractor.color`), `+ Add contractor` slot at bottom. Multi-trade contractors appear as separate cards in each column, same color. Card body tap → contractor edit modal (rename only; auto-color; delete entirely). Card `×` → remove from THIS column only. `+ Add contractor` → smart picker (existing-contractor chips not in column + new-contractor text input, case-insensitive dup detection). `+ trade` → inline input field (NOT browser `prompt()`). Custom trades get a `×` in their column header. **NO drag-and-drop** (Mark explicitly rejected for mobile/tablet hostility).
+
+### Unified Deficiencies tab — Summary tab retires
+
+The Summary tab is eliminated; Board and Table views migrate into the Deficiencies tab via a view toggle. Layout top→bottom: (1) Trade board, (2) Control bar (Active/Closed pivot — 2 states not 3, filters: Search/Contractor/Priority/"Show only recommendations", view toggle Detailed/Table/Board), (3) Content, (4) `+ deficiency` card at bottom. Site General is NOT a tab anymore — untagged + no-contractor items render as a grey "Site General · Recommendations" bottom section.
+
+### Three views
+
+- **Detailed (default):** Trade banner (navy `#2A3A5C`) → Contractor sub-banner (taupe `#7B6F5A`) → obs cards. Recommendations grey sub-banner (`#6B7280`) within trade, or Site General · Recommendations at bottom for untagged. Multi-obs sibling-trace across trades/contractors. Tap contractor name → focus that contractor, others auto-collapse (replaces Fold All).
+- **Table:** one row per obs — # / Trade / Contractor / Description / Priority / Status / Thumbnail. Contractor color dot before name. REC badge inline on rec rows.
+- **Board (priority kanban):** four columns High / Low / General / **Closed** (closed always visible). Cards: # badge, contractor name (color-cued), text, mini-thumb, trade label. Tap card → edit.
+
+Filters apply to all three views identically.
+
+### Recommendations (`defic.isRecommendation: true`)
+
+Advisory, doesn't block sign-off. Can have contractor or not, trade or not, pin or not. Render: has-trade+has-contractor → under that trade→contractor with REC badge; has-trade+no-contractor → "Recommendations" grey sub-banner within trade; no-trade+no-contractor → Site General · Recommendations bottom section. "Show only recommendations" filter scopes all three views without losing hierarchy.
+
+### Unified `+ deficiency` creation
+
+Single dashed-border card at the bottom of every view replaces "+ General Deficiency" and per-contractor "Add". Modal fields: Description (required), Priority, Contractor (optional incl "None"), Trade (optional incl "None"), Pin location (optional), Recommendation checkbox. Inserts at next pin number.
+
+### PDF report
+
+Trade banner (navy) → Contractor sub-banner (taupe) → cards. Rec sub-banner (grey) within each trade for trade-tagged recs without contractor. "Site General · Recommendations" at bottom for untagged recs. Italic footer on rec sections: *"The above items were noted during this review and are provided as recommendations. They fall outside the specific scope of work and are not held against the sign-off letter."* Title-page legend gains a recommendation entry. If any High-priority recommendation exists, italic note under project summary. Pre-export check banner if any `obs.trade === ''` (3 radio choices, no default). **Renumber merged with Generate PDF** — single button, modal has orange "Renumber before export" toggle (default ON). *(NOTE: per S137-POLISH/S139, the Renumber→PDF-export merge is deferred to S139; Renumber stays a control-bar button until then.)*
+
+### Data integrity / patterns (S134 additions — IN FORCE)
+
+- **`contractor.trades` is the source-of-truth for contractor scope.** `obs.trade` computed from it on creation (when contractor has exactly 1 trade) but can be manually overridden. AI worker (if re-enabled) refuses to overwrite manual overrides.
+- **`contractor.color` is auto-assigned from the muted palette, never user-editable.** Frees up for reuse on contractor delete.
+- **8-color muted palette** (auto-assigned, never user-picked): `['#5C7A6E', '#4A6B8C', '#7B6F5A', '#9C5070', '#6B7280', '#5E2370', '#8B6F47', '#4A8089']`. First unused; cycles after 8 (no enforced uniqueness).
+- **Contractor cards use 4px colored left border** *(NOTE: S136 superseded this with the renumber-pill tinted-fill pattern — see S136).* Not used in PDF.
+- **`+ deficiency` is dashed-border card style** at the bottom of every view — single source of truth for new-item creation.
+- **Trade board column width min 185px**, card padding 5px 8px, font 12.5px.
+- **No drag-and-drop anywhere** (Mark explicitly rejected).
+- **Tap-contractor-name-to-focus replaces Fold All** *(NOTE: deferred to S145/Phase 6 per S137-POLISH — not built yet; no collapse-all affordance in the interim).*
+
+### NEW FEATURE — Undo/Redo system (Phase 4 — deferred to S142–143)
+
+New module `frt/js/data/undo.js`, 30-action stack, always-visible toolbar buttons (greyed when unavailable). In-memory within session; IDB store `undoStack` keyed `<projectId>:<currentFrtInstance>` across reloads; optional Supabase push (Phase 4.5, deferred). Covers pin/obs/photo add-delete, text edits (debounced 800ms = one action), comment add/delete/edit, priority/trade/contractor/status changes, markup add/delete, contractor add/delete/rename, trade column add/remove. Photo undo: within-session full recovery; cross-session R2 deletion is final (falls back to daily backup commits — acceptable per Mark). UI: `↶` undo with stack-depth badge, `↷` redo adjacent. **The 3-button leave dialog stays until the Undo system ships** (it is tied to Phase 4, not retired in Phase 0).
+
+---
+
+# Session 135 Additions — Phase 0 cleanup + Phase 1a schema (LIVE)
+
+### Version state (end of S135)
+
+SW `v401`, CSS `?v=301`, tests `144/144` (was 106 baseline + 38 new).
+
+### LIVE in `model.js` (Phase 1a — trade schema)
+
+```js
+export var TRADE_LIST = ['Sprinkler', 'Fire Alarm', 'General Contracting', 'Building Conditions'];
+export var CONTRACTOR_COLOR_PALETTE = ['#5C7A6E','#4A6B8C','#7B6F5A','#9C5070','#6B7280','#5E2370','#8B6F47','#4A8089'];
+export function nextContractorColor(usedColors) { /* first unused, cycles after 8 */ }
+
+project.projectTrades : string[]   // default = TRADE_LIST.slice() (auto-seeded by setProject, idempotent)
+contractor.trades     : string[]   // default = []
+contractor.color      : string     // auto-assigned hex, never user-picked
+
+Model.setContractorTrades(ctrId, trades)        // replaces array
+Model.addProjectTrade(trade)                    // case-insensitive dedup
+Model.removeProjectTrade(trade)                 // cascades cleanup to contractor.trades
+Model.addContractorToTrade(ctrId, trade)        // atomic add-trade-and-contractor
+Model.removeContractorFromTrade(ctrId, trade)   // narrow remove
+
+Model.addContractor()        → trades:[], color auto-assigned from unused palette
+Model.addDeficiency(ctrId)   → obs.trade inherited if contractor has exactly 1 trade
+Model.addObservation(deficId)→ obs.trade inherited from most-recent sibling with a trade,
+                               else single-trade contractor
+```
+
+### RETIRED in S135 (Phase 0 — do NOT re-add)
+
+- **`model.js`:** `Model.toggleIAR`, `getGroupCatalog`, `setGroupCatalog`, `setObsGroup`, `applyAiObsGroups`, `clearAllAiObsGroups`, `setDeficGroup`, `applyAiGroups`, `clearAllAiGroups`. KEPT: `_migrateDeficAiGroupToObs(d)` (load-time silent-degrade, one more session).
+- **`assistant.js`:** `AIAssist.autoGroupDeficiencies`, `_collectObservationItems`, `_showAutoGroupModal`.
+- **`deficiencies.js`:** per-obs `obs-group-badge`/`-empty`, per-obs AI Review button + `ai-review-menu` popup, Bulk Select + `_deficSelectMode`, Fold All + `_allFolded`, IAR pill on cards, IAR column in Deficiency Log table, AI/MAN trade source badge (`.trade-source-mark`), `confirmIARDeactivate` gates, `toggle-iar` handler, "IAR only" filter option, AI Group toolbar button + obs group picker + section catalog editor modal, Summary tab (`#panel-pins` + `data-tab="pins"`), Site General tab (`data-dlc="general"` — now a bottom section of Active view).
+- **`frt.css`:** `.iar-toggle-btn`, `.obs-pill.iar`, `.tt-status.iar`, S116-P13 IAR hatch chip, duplicate `.pins-kanban-*` blocks + dark + mobile, `.defic-ai-btn` (3 layered overrides), `.ai-review-pop`/`.ai-rv-*`, `[data-action="ai-review-defic"]`/`.ai-review-chip`, `.trade-banner.manual` + `.trade-source-mark(.manual)` + dark variant, `.pins-kanban-board`/`-col` from kanban mobile media query.
+- **KEPT despite earlier S134 retire-list (correction):** `.ctx-text-toggle` (+ `.active`, dark `.active`) — used by markup text tool (Border/Hatch toggles), referenced from `index.html` ~lines 560-561 by `data-ctx` handlers in `markup.js`. NOT IAR-related.
+- **KEPT pragmatically:** all `tasks-*` mobile rules, `#btn-ai-review` header button styles (separate live feature), `.kanban-wrap`/`.kanban-col` (live Deficiency kanban — different system from retired pins-kanban).
+
+### S135 data-integrity additions (IN FORCE)
+
+- **`contractor.color` auto-assigned, not user-editable** via `nextContractorColor(usedColors)`; cycles after 8; frees on delete.
+- **`project.projectTrades` is the per-project source-of-truth for trade columns.** `TRADE_LIST` seeds new/legacy projects (4 defaults). Phase 1c updates the per-obs dropdown to read `project.projectTrades` (Phase 1a UI shim surfaces out-of-list values italicized so removing a trade never strips obs data).
+- **`removeProjectTrade` cascades** — strips the trade from every `contractor.trades`; does NOT touch `obs.trade` (those keep rendering as italicized out-of-list options).
+- **`addContractorToTrade` atomic for new trades** — adds the trade to `project.projectTrades` first (case-insensitive match preserves casing).
+- **Auto-inheritance is non-destructive** — `addDeficiency`/`addObservation` only set `obs.trade` when empty AND parent contractor has a single declared trade. Multi-trade contractors leave it blank.
+- **Test baseline 106 → 144.** 38 new tests in `frt/tests/unit/contractorTrades.test.js`. `obsSchema.test.js` TRADE_LIST assertion updated 8 → 4.
+- **`merge3` handles new fields generically** — no special-case; `contractor.trades` / `project.projectTrades` ride standard array-path rules; concurrent edits → conflicts at the array path.
+
+### Trade-dropdown out-of-list rule (S135)
+
+When `obs.trade` isn't in current `project.projectTrades` (legacy "Standpipe"/"Fire Pump"/"Extinguishers", or a custom trade later removed), the dropdown surfaces it as an italicized `<option>` ABOVE the canonical list (inline `font-style:italic`, no new CSS). The S134 `.trade-banner.manual` purple variant is retired — the dropdown is blue-only; AI-inherited vs manual differentiation returns in Phase 2 as derived data (contractor color cue), not a hue swap.
+
+---
+
+# Session 136 Additions — Trade Board UI LIVE (Phase 1b/1c) + Inspector re-slot
+
+### Version state (end of S136)
+
+SW `v407`, CSS `?v=307`, tests `144/144` (UI-only). Final commit `fdedc75108`.
+
+### Trade board — LIVE
+
+- `_renderTradeBoard()` in `frt/js/ui/deficiencies.js` replaces `_renderContractorsOnSite()`. Renders into `#contractors-on-site`, which now lives in its **own top-level card** `#trade-board-card` (burgundy `.card-header`) — a sibling of Deficiency Log / Deficiencies Identified, NOT nested inside Deficiencies Identified. *(S137-POLISH renames the header to "Trade Board" and re-orders cards — see S137-POLISH.)*
+- Columns = `project.projectTrades`; cards = contractors whose `.trades[]` includes the column trade. Default-4 trades have no header `×`; custom trades show `×` → `removeProjectTrade` (confirm if column populated).
+- Smart picker overlay (`_openCtrPicker`/`_closeCtrPicker`): existing-contractor chips not already in column + free-text new-contractor input. Backdrop click closes via direct listener (not delegated `data-action`).
+- Contractor card body click → `_showCtrEditDialog` (3-button `showDialog`: Cancel / ✏ Rename / 🗑 Delete entirely). Card `×` → `removeContractorFromTrade` (narrow, this column only).
+- Per-obs trade dropdown (`_buildPinGroupCard`) reads `project.projectTrades` (Phase 1c) with `TRADE_LIST` fallback; out-of-list values surface as italic options.
+- `+ General Deficiency` temporarily in `.trade-board-foot` — Phase 2 absorbs it into the unified `+ deficiency` modal.
+
+### S136 design rules (IN FORCE)
+
+- **`contractor.color` is the SINGLE visual identity for a contractor.** Drives: trade board `.ctr-card`, smart-picker `.picker-chip`, AND the `👷 <name>` group header in Deficiencies Identified (`buildGroup` sources `accentCol` from `contractor.color`, NOT the legacy hash palette). One contractor = one color across every list surface. Phase 2's three views must also key contractor color off `contractor.color`.
+- **Legacy `getContractorColor(name)` hash palette (`_CTR_PALETTE`, `ctrColorClass`) is NO LONGER the contractor-color source for the group header.** Retained ONLY for the Deficiency Log summary table + PDF export. Flagged for unification with `contractor.color` during the Phase 3 PDF restructure. Site General / unknown fallback = `#6B7280`.
+- **Trade column header color = locked PDF taupe `#7B6F5A`** (day) / `#5F5749` (dark, `body.dark-mode .trade-col-hdr`). NOT navy. Navy `#2A3A5C` stays reserved for the per-obs `.trade-banner` dropdown + PDF trade-section header only.
+- **Renumber-pill is a reusable visual pattern** — tinted fill + colored border + colored text via `color-mix(in srgb, var(--X) N%, transparent|bg)`, ALWAYS preceded by a hard-hex fallback declaration of the same property (old-cached-browser safety). Used by `.ctr-card` + `.picker-chip` (keyed on `--cc`); Phase 3.5 reuses it for the inspector chip keyed on `--ic`. **This supersedes the S134 "4px colored left border" treatment on `.ctr-card`/`.picker-chip` — do NOT restore the border-left look.**
+- **`color-mix()` is now in production CSS.** Supported on current Android/desktop Chrome (iOS abandoned). Always precede a `color-mix` declaration with a plain-value fallback of the same property.
+- **One visual channel per data dimension (LOCKED principle):** Contractor → color. Inspector → initials chip (non-color). Priority → pin body color. Inspector → pin outer ring (drawing canvas only).
+- **Push discipline:** invoke `python3 push.py` exactly once. Never `import push` (executes on import → duplicate commit).
+- **Trade board lives in its own `.card`** — do not reintroduce a `.trade-board-section` inner wrapper. `.trade-board-section` / `.trade-board-title` selectors retired (do not re-add).
+
+### Inspector Attribution — REDESIGNED + RE-SLOTTED
+
+The S81–S82 approved spec is superseded:
+- Re-slotted as dedicated **Phase 3.5 (S140–S141)**, after the PDF restructure, before Undo/Redo. Subsequent phases shift by one.
+- Pin ring on the drawing canvas kept as-is (`pin_ring_mockup.html` still the reference) — no conflict.
+- Card 3px-left-border attribution **dropped** — replaced by a compact initials chip (renumber-pill visual, keyed on `inspector_color` via `--ic`) so it never collides with the contractor-color channel.
+- Phase 2 must reserve a ~20px inspector-chip slot in the new card/row template (empty until 3.5). Phase 3 must build the PDF 3-mode dropdown shell (renders neutral until 3.5 supplies `createdBy`).
+- Data model (`createdBy`/`createdAt` + Supabase `profiles.inspector_color` + legacy backfill), Layers-menu toggles, PDF modes A/B/C — unchanged from S82.
+
+---
+
+# Session 137 Additions — Unified Deficiencies Tab LIVE (Phase 2a)
+
+### Version state (S137 ship)
+
+SW `v409`, CSS `?v=309`, tests `144/144`. Final commit `5d546d5b7a`. *(Superseded by S137-POLISH: SW v413 / CSS v=313 / head `2f888b0`.)*
+
+### Unified Deficiencies tab — LIVE (Phase 2a)
+
+- The "⚠ Deficiencies Identified" card contains: a slim `#defic-toolbar`, the `.defic-control-bar` (Active/Closed **pivot** + search + contractor + priority filters + Detailed/Table/Board **view toggle**), then `#deficiencies-container.defic-content`. *(S137-POLISH removes `#defic-toolbar` entirely and moves Renumber into `.defic-control-bar`; renames card to "Deficiency List"; re-orders the three cards — see S137-POLISH.)*
+- `#defic-lifecycle-tabs`, old `#defic-search`, `#defic-filters-btn` removed from markup. `_renderActiveTab`/`_renderClosedTab`/`buildGroup`/`_updateDlcCounts`/`_applySearchFilter` remain defined but inert (safe to delete in a future cleanup; no rewrites).
+- `initDeficiencies.render()` shows `#defic-control-bar`, renders Deficiency Log + Trade Board, syncs the control bar (`_syncDfxControls`), dispatches on `_deficView`: `_renderTableView` / `_renderBoardView` / `_renderDetailedView`.
+- **`_flatRows(proj, ignorePivot)`** = single filter engine for all three views (lifecycle pivot via `_activeDlcTab` unless `ignorePivot`, plus contractor/priority/search). Returns `[{d,o,oi,ctrId,ctrName}]`. 0-obs legacy pins emit a synthetic row (`oi:-1`) so they stay reachable/editable (no data loss).
+- **Detailed view** = Trade → Contractor → the existing interactive `_buildPinGroupCard` (unchanged). Trade banner navy `#2A3A5C`, contractor sub-banner taupe `#7B6F5A` w/ `contractor.color` dot, grey `#6B7280` "Recommendations" (no-contractor-but-trade) and bottom "Site General · Recommendations".
+- **Table view** = row-per-(defic,obs): # / Trade / Contractor / Description / Priority / Status / Photo.
+- **Board view** = priority kanban High/Low/General/**Closed**; pivot-independent (`_flatRows(proj, true)` — owns its Closed column).
+- Table rows + Board cards = `data-action="dfx-goto"` → `_dfxGotoPin()` switches to Detailed, scrolls live `.defic-pin-group` into view, brief `.dfx-flash` pulse. **Editing is Detailed-only**; Table/Board are read/triage surfaces.
+
+### S137 design rules (IN FORCE)
+
+- **No box-in-box inside a `.card`.** A feature rendering inside an existing `.card` (header+body) must NOT wrap content in a second bordered/filled box. The control bar is a flush toolbar row with a single `border-bottom`; content flows directly. Only genuine content grouping (Detailed trade-section banners) may be a nested visual level. Locked per Mark field review S137.
+- **Trade is per-observation (`o.trade`).** Any pin-level grouping uses the pin's FIRST observation's trade (Option 1). Splitting a pin card across trade sections is forbidden (would require rewriting the protected `_buildPinGroupCard`).
+- **Active/Closed pivot is per-observation** (`obs.addressed`), not pin-level. A pin with any closed obs appears under Closed; the card still shows all obs (it is an editor).
+- **Board view is pivot-independent** — carries its own Closed column.
+- **Forbidden-color enforcement overrides spec deltas.** S134 specced `#C0392B` for the High board column; shipped muted `#A85959`. The muted-only rule supersedes any style-delta hex. Never use `#C0392B` / `#1A7A4A` / `#3F6E9C`.
+- **`dfx-` is the unified-tab CSS namespace** — prevents collision with `.trade-banner` per-obs dropdown and `.defic-group`/`.defic-pin-group` (still used by the interactive card).
+- Detailed view **reuses the existing interactive `_buildPinGroupCard`** under new banner wrappers. The `unified_defic_demo.html` cards are a visual mock only — never replace working interactive code with the demo.
+- Filter inputs live in the control bar **outside** `#deficiencies-container` so a content re-render never clobbers the search caret/focus. Keep new persistent inputs outside the re-rendered container.
+- Cross-view nav: lightweight views link to the heavy Detailed view via `data-action` + goto helper (re-render + `scrollIntoView` + brief highlight), never duplicate the editor.
+
+### Deferred to S138 (the only remaining Phase 2 item)
+
+- Unified `+ deficiency` modal (absorbs + removes the `.trade-board-foot` `+ General Deficiency` and the per-contractor `+ Add Deficiency` buttons).
+- **Recommendation schema:** there is currently NO `isRecommendation`/`isRec` field in `model.js`. Adding it (additive, idempotent backfill in the `setProject` funnel, generic `merge3` passthrough) is an S138 prerequisite for the modal's recommendation checkbox and the Detailed/Table/Board rec affordances. `.dfx-bv-rec` CSS is present but unused, waiting for the flag.
+
+---
+
+# Session 137-POLISH Additions — Deficiencies tab layout polish (LATEST — authoritative)
+
+> Head `2f888b0`. SW `arencon-frt-v413` / CSS `frt.css?v=313`. JS schema
+> untouched — unit suite 144/144 passed. This is the newest session;
+> where it conflicts with anything above, IT WINS.
+
+### Deficiencies tab — layout (supersedes the S137 entry)
+
+- **Card order is Trade Board → Deficiency Log → Deficiency List.** Rationale: the Deficiency Log's per-contractor rows ARE the Trade Board roster; roster precedes the scoreboard. **Do not reorder back.**
+- Card headers are **"Trade Board"** and **"Deficiency List"** — the long "· Contractors on Site" and "Deficiencies Identified" names are retired.
+- **`#defic-toolbar` no longer exists.** AI Group / Select / Fold All are gone (S135 retired the features; S137-POLISH removed their orphan markup). **Renumber lives in `.defic-control-bar`** (far right, after the view toggle), `id="defic-renumber-btn"` preserved so its document-delegate handler still binds. Renumber→PDF-export-toggle merge is still the **S139** plan (not pulled forward).
+
+### Card rendering — single-obs == multi-obs (NEW INVARIANT — PERMANENT)
+
+- `_buildPinGroupCard` renders **every** pin through the multi-obs layout. `renderPinStrip` is hardwired `true`. The S122 single-obs compact layout (no strip, inline pin circle, right-pushed drawing pill, no Observation sub-card/thread) is **removed**. Single-obs and multi-obs, active and closed, are now visually identical.
+- The drawing pill is carried by `.defic-pin-strip` for ALL pins → **left-aligned everywhere**. There is no longer a right-aligned drawing-pill path; `.lbl-row-spacer` is no longer emitted in the obs label row.
+- Per-obs **Thread / +Response / +Comment** renders for all pins.
+- Pin-footer threaded-activity filter no longer special-cases single-obs; the `multiObsPin` variable is deleted. `multiObs` (per-obs scope, ~L517) remains and is unchanged — do not confuse the two.
+- **Single-obs pins still hide Spinoff / Remove-obs** (deliberate, non-destructive — those actions orphan a single-obs pin). The footer ⋯ menu "Remove pin" is the deletion path. Do NOT "complete parity" here.
+- S122's no-double-circle intent is consciously traded away: a single-obs pin shows the pin number in the strip AND on its lone observation. Mark accepted this explicitly in favor of consistency. Do not "fix" it.
+
+### Closed/addressed card styling (supersedes S133 dark-mode addressed bg)
+
+- `.defic-obs-card.addressed` stripe is **`box-shadow: inset 3px 0 0`** (NOT `border-left`). A border that toggles with state changes box geometry between states → width mismatch + text shift on re-render. Never reintroduce a layout-occupying border for state. Dark-mode stripe `#4a8a6a` / light `#5F8068`. Background `rgba(26,122,74,.05)` light / `rgba(26,122,74,.10)` dark.
+
+### Control bar
+
+- `select.dfx-filter-input` widths are pinned (168px; `#dfx-pri` 130px; ellipsis) so the wrapping flex control bar has constant height across re-renders. Keep pinned — do not let selects auto-size to option text.
+
+### De-box principle (CODIFIED — PERMANENT)
+
+- Grouping uses a **banner/band, not a container box**, unless the element is an atomic editable object. In the Deficiencies tab only TWO real boxes exist: the section card and the pin card. `.dfx-trade-banner` / `.dfx-ctr-banner` are flat bands (`border-radius:4px`, no box-top radius); `.dfx-pingrp` has no fill/border. Apply this pattern to all future grouped lists.
+
+---
+
+# CURRENT-TRUTH — Supersedes Index (read this when in doubt)
+
+Single authoritative pointer for every item that changed across S132–S137-POLISH. Later session always wins.
+
+| Topic | Authoritative state | Superseded sources |
+|---|---|---|
+| Tile renderer | Azure **Function** `arencon-pdf-render`, **pdfium v2.2.1**, Canada Central. `LEVEL_WIDTHS=[256,1024,2560,6144,12288]`, `losslessLevels:[3,4]`, WebP. Verify via `/api/health`. | mupdf/container `arencon-pdf-render-v3` text (S107/S113) — historical only |
+| L2 tile grid / edge-tile 404 | RESOLVED (S112 / operational) — not open issues | "Known issues remaining" filings |
+| Sync atomicity / CRDT merge | DONE (If-Match + 412 + merge.js 3-way + showConflictModal) | any "unfinished" framing |
+| R2 project id | Canonical = Hub `?project=` UUID; `proj.id` standalone-only, never an R2 key part | any path built from `proj.id` |
+| sync.js merge3 | Runs in sync worker (`SyncWorkerHost.merge3Worker`); `sync.js` does NOT import merge3 | direct-import assumptions |
+| Trade grouping model | **Contractor-scoped** trades, 4 defaults (`Sprinkler, Fire Alarm, General Contracting, Building Conditions`) | S133 obs-tagged 8-trade life-safety model |
+| Trade board location | Own top-level `.card` `#trade-board-card`, header **"Trade Board"** | S134 `.trade-board-section` inner wrapper; S136 long "· Contractors on Site" name |
+| Trade column header color | Taupe `#7B6F5A` day / `#5F5749` dark | S134 navy `#2A3A5C` for the board |
+| Contractor color source | `contractor.color` (8-color muted palette) drives ctr-card, picker-chip, group header | legacy `getContractorColor`/`_CTR_PALETTE` (now PDF + Deficiency-Log-table only) |
+| `.ctr-card`/`.picker-chip` style | Renumber-pill tinted-fill `color-mix` pattern (keyed `--cc`) | S134 4px colored left-border |
+| Deficiencies tab cards order | **Trade Board → Deficiency Log → Deficiency List** | any earlier order |
+| `#defic-toolbar` | Removed. Renumber lives in `.defic-control-bar` (`#defic-renumber-btn`) | S137 slim toolbar with AI Group/Select/Fold All |
+| Control bar / content boxing | Flush — `.defic-control-bar` single `border-bottom`, no bg/border/radius; `.defic-content` flush | S134 box-framed joined-inner-box treatment |
+| Detailed-view banners | Flat bands `border-radius:4px`; `.dfx-pingrp` no fill/border | S134/S137 box-top `6px 6px 0 0` + `.dfx-pingrp` fill+border |
+| Card layout | Single-obs == multi-obs (`renderPinStrip=true`), drawing pill left-aligned for ALL pins | S122 single-obs compact layout |
+| Addressed stripe | `box-shadow: inset 3px 0 0` (paint-only) | `border-left:3px` (layout-occupying) |
+| High board column color | Muted `#A85959` | S134 `#C0392B` (forbidden bright) |
+| IAR feature | Fully retired (UI gone S135). Replaced by `obs.repeatCount` chip | all IAR UI/handlers/`toggleIAR` |
+| AI obs-grouping / Summary tab / Site General tab / Bulk Select / Fold All / per-obs AI Review | Retired (S135 Phase 0) | S130/S133 feature set |
+| `+ deficiency` unified modal + `defic.isRecommendation` | NOT yet in code — S138 deliverable | S134 spec describes it as if shipped |
+| Renumber→PDF-export merge | Deferred to **S139** — Renumber stays a control-bar button | S134 "merged with Generate PDF" |
+| Tap-contractor-name-to-focus | Deferred to **S145/Phase 6** — no collapse-all in interim | S134/S135 "replaces Fold All" framing |
+| Undo/Redo + 3-button leave dialog | Phase 4 (**S142–143**); leave dialog stays until Undo ships | S134 "leave dialog replaced" framing |
+| Inspector attribution | Phase 3.5 (**S140–141**); card initials chip keyed `--ic`, NOT a card border | S81–S82 colored-card-border spec |
+
+---
+
+# Deferred / Carry-Forward Work (open, not superseded)
+
+> **Provenance note (flagged, not invented):** The S132–S137-POLISH merge
+> chain did not include S131, and the canonical base does not carry the
+> item below. It is preserved here from the repo's
+> `PROJECT_KNOWLEDGE_S131_DELTA.md` + the S137-POLISH handoff carry-forward
+> list so the thread is not lost on delta retirement. Mark: confirm scope.
+
+- **FRT v2 — viewport-windowed level-canvas architecture** for crisp L4
+  zoom without OOM crashes. Deferred from S131/S132. Open.
+- **FRT v2 — blank-project load race in `sync.js`** (cloud-pull completing
+  after the IDB snapshot restore). The S132 `_isBlankSnapshot` guard
+  mitigates the persist-blank path; the broader load-ordering race is
+  still open. (See Session 132 Additions for the shipped guard.)
+- **Queued toolkit tools:** Firefighting Water Supply Calc rural/municipal
+  (Mark provides template), NFPA 25 / OFC IT&M Checklists ×3 (sprinkler /
+  diesel / electric), Travel Distance & Exit Capacity Calc (OBC 3.4.2),
+  FRR Quick Ref (OBC 3.2.2), Occupant Load Calc (OBC 3.1.17).
+- **Phased FRT roadmap (not yet built):** unified `+ deficiency` modal +
+  `defic.isRecommendation` (S138), Renumber→PDF-export merge (S139),
+  Inspector attribution Phase 3.5 (S140–141), Undo/Redo Phase 4
+  (S142–143), tap-contractor-to-focus / Phase 6 (S145).
+
+---
+
+# APPENDIX — Pre-S133 Carried Visual Rules (from `STYLE_GUIDE_v127_S126_NOTE.css`)
+
+> **Scope note (decision recorded for Mark):** The merge instructions scope
+> the consolidated Style Guide to S133→S137-POLISH ("no full base exists —
+> these deltas ARE the record"). The full pre-S133 Style Guide (≤v126) is
+> NOT in the project and cannot be reconstructed. The ONLY surviving
+> pre-S133 fragment is `STYLE_GUIDE_v127_S126_NOTE.css` (an S126 delta-note,
+> not a base). Because Mark's workflow deletes old files, its substantive
+> markup-tool visual rules — which exist nowhere else — are carried here so
+> they are not lost when that note is retired. **This is NOT a complete
+> pre-S133 base; it is the S126 delta-note's content only.** Mark can
+> override this call.
+
+Carried rules (S126 markup-tool visual surface — faithful summary; full
+selectors live in the consolidated Style Guide appendix):
+
+- **§S126-1 Click-to-draw preview dot:** first click of a click-to-draw shape shows a filled dot at point A in current color + opacity on the overlay canvas. Radius = `max(2, _lineWidth / 2)`.
+- **§S126-2 Dimension sub-toolbar (`.dim-sub-toolbar`):** floating panel top-center of `.dv-canvas-area` when dimension tool active; `position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:9000`; light bg `rgba(255,255,255,0.96)`, border `#C8C0B0`, radius 8px, shadow; Calibri 13px. `.dim-tb-btn` 6px 12px transparent. Light + dark palette.
+- **§S126-3 Dimension override pill (Option D):** the chosen dimension-label override rendering pattern (Option D was selected over A/B/C).
+- **§S126-4 Dimension chain preview:** live preview rendering during multi-segment dimension chains.
+- **§S126-5 Text box transparent default + edit chrome:** text markup boxes default transparent; edit-mode chrome distinct from committed state.
+- **§S126-6 Text decoration — border + hatch:** text objects support optional border and hatch fills (the `.ctx-text-toggle` Border/Hatch toggles — KEPT per S135 correction, NOT IAR-related).
+- **§S126-7 / §S126-8:** Phase B / Phase C notes — no visual changes.
+- **§S126-9 Phase D — diagnostic console output format:** standardized diagnostic console output formatting (non-visual).
+- **§S126-10 Push 7 — muted-color palette enforced:** Calibri + muted-burgundy palette mandatory; burgundy `#9C2742` is the ONLY saturated color allowed, reserved for primary CTAs. (This rule is reinforced/duplicated by later sessions and the permanent rules — kept here for provenance.)
+- **§S126-11 Push 7 — recorded design rules (no visual surface).**
+
+The full verbatim CSS for the above lives in the consolidated Style Guide's
+matching appendix section so no rule is lost on delta retirement.
+
+---
+
+*Consolidation complete. From S138 onward this is the single canonical
+`ARENCON_Project_Knowledge.md`. The S132–S137-POLISH delta files are now
+absorbed and disposable. Future per-session deltas are folded in each
+session so deleting them remains safe.*

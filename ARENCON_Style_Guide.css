@@ -1,0 +1,879 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   ARENCON FIRE PROTECTION TOOLKIT — CONSOLIDATED STYLE GUIDE (canonical)
+   ═══════════════════════════════════════════════════════════════════════
+   Folded as of S138 from the S133 → S137-POLISH delta chain (no full
+   pre-S133 base exists — those deltas ARE the record per the merge
+   instructions). Later session wins on conflict; every rule below is
+   written ONCE at its AUTHORITATIVE final value, with an inline note of
+   what it superseded. The S133–S137-POLISH delta .css files are now
+   absorbed and disposable.
+
+   APPLY ORDER (later overrides earlier): S133 → S134 → S135 → S136 →
+   S137 → S137-POLISH.
+
+   GLOBAL, NON-NEGOTIABLE:
+   - Calibri exclusively (BlairMdITC TT for the PDF wordmark only).
+   - Muted palette ONLY. Burgundy #9C2742 is the ONLY saturated color
+     allowed, reserved for primary CTAs / the active pivot selection.
+   - FORBIDDEN bright hexes anywhere in frt/css, frt/js, frt/index.html:
+       #C0392B  #96281B  #FDEDEC  #FADBD8  #1A7A4A  #EAFAF1  #D4EDDA  #E67E22  #3F6E9C
+     S137 enforcement: the muted-only rule OVERRIDES any style-delta hex
+     (S134 specced #C0392B for the High board column; shipped #A85959).
+   - color-mix() is in production CSS (Android/desktop Chrome; iOS
+     abandoned). ALWAYS precede a color-mix declaration with a plain-hex
+     fallback declaration of the same property (old-cache safety).
+   - Light is default; body.dark-mode overrides. Every new class MUST
+     define a dark-mode variant; nothing reads bright/saturated in dark.
+   - Pre-S133 markup-tool visual rules are preserved verbatim in the
+     APPENDIX at the bottom (carried from STYLE_GUIDE_v127_S126_NOTE.css —
+     the only surviving pre-S133 fragment; NOT a complete base).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §1  TRADE + CONTRACTOR GROUP HEADERS  (S133, in force for PDF + Detailed)
+       Color philosophy: navy = structural anchor (trade = outer group),
+       warm taupe = identity (contractor = inner section), burgundy =
+       precision accent on item numbers / mini-map.
+       NOTE: the on-screen TRADE BOARD column header uses TAUPE not navy
+       (S136 §6 lock). Navy stays for the per-obs .trade-banner dropdown
+       and the PDF/Detailed trade-section header only.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.th, .trade-group-header {
+  background: #2A3A5C; color: #fff;
+  padding: 7px 14px; font-weight: 700; font-size: 11pt;
+  border-radius: 6px 6px 0 0; margin-top: 16px; margin-bottom: 0;
+  letter-spacing: .3px; display: flex; justify-content: space-between; align-items: center;
+}
+.th-pill, .trade-count {
+  background: rgba(255,255,255,.18); color: #fff; font-weight: 700; font-size: 9.5pt;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0;
+}
+.ch, .ctr-subgroup-header {
+  background: #7B6F5A; color: #fff;
+  padding: 7px 14px; font-weight: 700; font-size: 11pt;
+  border-radius: 0; margin: 0; letter-spacing: .3px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.ch-pill, .ctr-count {
+  background: rgba(255,255,255,.18); color: #fff; font-weight: 700; font-size: 9.5pt;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0;
+}
+.th-cont, .ch-cont {  /* italic "(cont.)" suffix on PDF continuation pages */
+  font-weight: 400; font-size: 9.5pt; opacity: .78; letter-spacing: 0;
+  margin-left: 8px; font-style: italic;
+}
+.ch-legacy {  /* old contractor-only view — preserves PDF burgundy */
+  background: #9C2742; color: #fff;
+  padding: 7px 14px; font-weight: 700; font-size: 11pt;
+  border-radius: 6px 6px 0 0; margin-top: 14px; margin-bottom: 0;
+  letter-spacing: .3px; display: flex; justify-content: space-between; align-items: center;
+}
+.ch-legacy .ch-pill { background: rgba(0,0,0,.18); }
+
+body.dark-mode .th,
+body.dark-mode .trade-group-header { background: #5B6F8E; }
+body.dark-mode .ch,
+body.dark-mode .ctr-subgroup-header { background: #A89B85; color: #1C2333; }
+body.dark-mode .ch .ch-pill,
+body.dark-mode .ctr-subgroup-header .ctr-count { background: rgba(0,0,0,.18); color: #1C2333; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §2  PRIORITY / STATUS PILLS  (S133 — light-tinted in BOTH modes)
+       Dark mode is NOT hatched/dark (was unreadable). Pill text is just
+       "High"/"Low"/"General"/"Closed" — never "Outstanding · X".
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.pill-h, .pill-l, .pill-c, .pill-g {
+  display: inline-block; font-size: 9.5pt; font-weight: 700;
+  padding: 2px 11px; border-radius: 10px; letter-spacing: .2px; flex-shrink: 0;
+}
+.pill-h { background: #FCEAEA; color: #C0392B; } /* tinted-bg pill: dark text-hex permitted INSIDE a tint, not as fill */
+.pill-l { background: #FDF1E4; color: #B07F5A; }
+.pill-c { background: #E8F5EE; color: #1A7A4A; }
+.pill-g { background: #E3EBF2; color: #3A5670; } /* General — cool slate-blue, distinct from Closed green */
+
+.pri-banner {  /* in-app priority dropdown — SAME pill language */
+  font-family: Calibri, sans-serif; font-size: calc(11px + var(--ts));
+  font-weight: 700; cursor: pointer; padding: 3px 11px; padding-right: 22px;
+  border-radius: 10px; border: 1px solid transparent;
+  appearance: none; -webkit-appearance: none;
+}
+.pri-banner.pri-high    { background: #FCEAEA; color: #C0392B; border-color: #F5C9C9; }
+.pri-banner.pri-low     { background: #FDF1E4; color: #B07F5A; border-color: #EFD5BA; }
+.pri-banner.pri-general { background: #E3EBF2; color: #3A5670; border-color: #C6D4E0; }
+/* Dark mode: STILL light-tinted (NOT hatched — was unreadable in v11 demo) */
+body.dark-mode .pri-banner.pri-high    { background: #FCEAEA; color: #C0392B; border-color: #F5C9C9; }
+body.dark-mode .pri-banner.pri-low     { background: #FDF1E4; color: #B07F5A; border-color: #EFD5BA; }
+body.dark-mode .pri-banner.pri-general { background: #E3EBF2; color: #3A5670; border-color: #C6D4E0; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §3  REPEAT-COUNT CHIP  (S133 — replaces the retired IAR feature)
+       Shown when obs.repeatCount >= 2. Renders BEFORE the priority pill.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.repeat-chip {
+  display: inline-flex; align-items: center; font-family: Calibri, sans-serif;
+  font-size: 9.5pt; font-weight: 700; padding: 2px 10px; border-radius: 10px;
+  letter-spacing: .2px; flex-shrink: 0; margin-right: 6px;
+}
+.repeat-chip.r2 { background: #FCE4D8; color: #8B4A1F; border: 1px solid #F3C5A8; }
+.repeat-chip.r3 { background: #F8D5D8; color: #A02838; border: 1px solid #ECB2B8; }
+.repeat-chip.r4 { background: #9C2742; color: #fff;   border: 1px solid #7d1f35; }
+body.dark-mode .repeat-chip.r2 { background: #3D2818; color: #E5B084; border-color: #5C3D26; }
+body.dark-mode .repeat-chip.r3 { background: #4A1E26; color: #F0A0AA; border-color: #6D2D38; }
+body.dark-mode .repeat-chip.r4 { background: #7d1f35; color: #fff;    border-color: #9C2742; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §4  PER-OBS TRADE DROPDOWN  (S133 base; S135 = blue-only)
+       SUPERSEDED: the S133/S134 .trade-banner.manual purple variant is
+       RETIRED (S135). The dropdown is blue-only. AI-inherited vs manual
+       differentiation returns in Phase 2 via contractor-color cue, NOT a
+       hue swap. Out-of-list obs.trade values surface as an italicized
+       <option> ABOVE the canonical list (inline font-style:italic, no
+       new CSS rule).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.trade-banner {
+  font-family: Calibri, sans-serif; font-size: calc(11px + var(--ts));
+  font-weight: 700; cursor: pointer; padding: 4px 11px; padding-right: 22px;
+  border-radius: 4px; border: 1.5px solid #2C4770;
+  background: #E5EDF7; color: #2C4770;
+  appearance: none; -webkit-appearance: none;
+}
+.trade-banner-wrap { display: inline-flex; align-items: center; gap: 4px; }
+/* RETIRED (do NOT re-add): .trade-banner.manual, .trade-source-mark,
+   .trade-source-mark.manual, body.dark-mode .trade-banner.manual */
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §5  SIBLING-TRACE  (S133 — multi-obs pins spanning trade/contractor)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.dc-sib-row { font-size: 9pt; color: #5E2370; font-style: italic; margin-top: 6px; }
+.dc-sib-row strong { font-style: normal; font-weight: 700; }
+.dc-sib-row + .dc-footer { margin-top: 1px; }
+.sibling-trace {  /* FRT-tab inline version */
+  font-size: calc(10.5px + var(--ts)); color: #5E2370; font-style: italic;
+  margin: 4px 0 6px; padding: 3px 8px; background: rgba(123,45,142,.06);
+  border-left: 3px solid #7B2D8E; border-radius: 0 4px 4px 0;
+}
+.sibling-trace a { color: #7B2D8E; font-weight: 600; text-decoration: none; font-style: normal; }
+.sibling-trace a:hover { text-decoration: underline; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §6  PDF TITLE-PAGE LEGEND  (S133)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.legend { margin-top: 14px; padding: 10px 14px; background: #F7F8FA;
+  border: 1px solid #DDE1E7; border-radius: 6px; font-size: 10pt; }
+.legend-title { font-size: 9.5pt; font-weight: 700; color: #4A5568;
+  letter-spacing: .4px; text-transform: uppercase; margin-bottom: 6px; }
+.legend-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.legend-item { display: inline-flex; gap: 6px; align-items: center; font-size: 9.5pt; color: #1C2333; }
+.legend-item .desc { color: #4A5568; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §7  DESTRUCTIVE BUTTONS  (S133 — outlined-red, NOT solid)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.remove-obs-btn,
+.defic-act-btn.act-remove {
+  background: transparent !important; color: #A85959 !important; border: 1.5px solid #A85959 !important;
+}
+.remove-obs-btn:hover,
+.defic-act-btn.act-remove:hover { background: #A85959 !important; color: #fff !important; }
+body.dark-mode .defic-act-btn.act-remove { color: #F5A0A0 !important; border-color: #A85959 !important; }
+body.dark-mode .defic-act-btn.act-remove:hover { background: rgba(168,89,89,.18) !important; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §8  PER-OBS RESPONSE / COMMENT ROW + TEXT/PHOTO ALIGNMENT  (S133)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.defic-obs-act-row {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border);
+}
+body.dark-mode .defic-obs-act-row { border-top-color: #3A4258; }
+.obs-layout-merged { align-items: stretch; }
+.obs-text { display: flex; flex-direction: column; min-height: 140px; }
+.obs-text-input { flex: 1; min-height: 140px; }
+/* Mini-map UNCHANGED (S133): keep existing .defic-pin-minimap / .mini-pin-marker
+   circle (white border, left/top %). The teardrop-SVG demo was rejected. */
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §9  "+ PIN" PLACEMENT  (S133 — same slot as the drawing pill)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.defic-pin-add {
+  background: transparent; color: #9C2742; border: 1px dashed #C9CED6;
+  border-radius: 4px; padding: 2px 10px; font-family: Calibri, sans-serif;
+  font-size: calc(11px + var(--ts)); font-weight: 600; cursor: pointer;
+}
+.defic-pin-add:hover { background: rgba(156,39,66,.08); border-color: #9C2742; }
+body.dark-mode .defic-pin-add { color: #E0A0B0; border-color: #5B6F8E; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §10 TRADE BOARD  (S134 base → S136 FINAL STATE — later wins)
+       SUPERSEDED by S136:
+       - .trade-board-section / .trade-board-title RETIRED — the board
+         lives inside its own #trade-board-card (.card + .card-header).
+         Do NOT reintroduce an inner section wrapper.
+       - .ctr-card / .picker-chip "white bg + 4px colored left border"
+         treatment is GONE — replaced by the §12 renumber-pill pattern
+         (tinted fill, keyed on --cc). Do NOT restore border-left:Npx.
+       - Trade column header is TAUPE #7B6F5A (day) / #5F5749 (dark),
+         NOT navy.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.trade-board {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+  gap: 10px; padding: 12px 14px;
+}
+@media (max-width: 900px) { .trade-board { grid-template-columns: 1fr; } }
+
+.trade-col {
+  background: #F7F8FA; border: 1px solid #DDE1E7; border-radius: 6px;
+  min-height: 100px; display: flex; flex-direction: column;
+}
+body.dark-mode .trade-col { background: #2A3247; border-color: #3A4258; }
+
+.trade-col-hdr {  /* LOCKED taupe — matches PDF contractor sub-header */
+  background: #7B6F5A; color: #fff; padding: 7px 12px;
+  font-weight: 700; font-size: calc(13.5px + var(--ts)); letter-spacing: .3px;
+  display: flex; justify-content: space-between; align-items: center;
+  border-radius: 6px 6px 0 0;
+}
+body.dark-mode .trade-col-hdr { background: #5F5749; }  /* muted taupe, dark only */
+.trade-col-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trade-col-count {
+  background: rgba(255,255,255,.18); color: #fff; font-weight: 700;
+  font-size: calc(11px + var(--ts)); min-width: 20px; height: 20px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0 5px;
+}
+.trade-col-del {  /* × on custom-trade column headers only */
+  background: transparent; color: rgba(255,255,255,.6); border: none;
+  cursor: pointer; font-size: calc(15px + var(--ts)); padding: 0 4px; margin-left: 6px;
+}
+.trade-col-del:hover { color: #fff; }
+@media (pointer: coarse) { .trade-col-del { font-size: 17px; } }
+.trade-col-body { padding: 6px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+
+.trade-add-slot {  /* "+ Add contractor" — quiet dashed slot */
+  background: transparent; border: 1.5px dashed #C6CCD6; border-radius: 4px;
+  padding: 6px 8px; color: #8A94B0; font-family: Calibri, sans-serif;
+  font-size: calc(12.5px + var(--ts)); cursor: pointer; text-align: left;
+  margin-top: auto; transition: border-color .12s, color .12s, background .12s;
+}
+.trade-add-slot:hover { border-color: #9C2742; color: #B0566A; background: rgba(156,39,66,.06); }
+body.dark-mode .trade-add-slot { border-color: #4A5266; }
+body.dark-mode .trade-add-slot:hover { color: #E0A0B0; }
+@media (pointer: coarse) { .trade-add-slot { padding: 9px 11px; font-size: 13.5px; } }
+
+.trade-add-col {  /* "+ trade" dashed column */
+  background: transparent; border: 1.5px dashed #C6CCD6; border-radius: 6px;
+  min-height: 100px; color: #8A94B0; font-family: Calibri, sans-serif;
+  font-size: calc(14px + var(--ts)); font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color .12s, color .12s, background .12s;
+}
+.trade-add-col:hover { border-color: #9C2742; color: #B0566A; background: rgba(156,39,66,.06); }
+body.dark-mode .trade-add-col { border-color: #4A5266; }
+body.dark-mode .trade-add-col:hover { color: #E0A0B0; }
+.trade-add-col-input {  /* inline editor (NOT browser prompt()) */
+  border: 1.5px solid #9C2742; border-radius: 6px; min-height: 100px;
+  font-size: calc(14px + var(--ts)); text-align: center; font-family: Calibri, sans-serif;
+}
+
+.trade-board-foot {  /* TEMP host for + General Deficiency — Phase 2/S138 removes */
+  padding: 8px 14px 12px; border-top: 1px solid #ECEEF1;
+}
+body.dark-mode .trade-board-foot { border-top-color: #2A3247; }
+.tb-general-btn {  /* burgundy outline pill */
+  background: transparent; color: #9C2742; border: 1px solid #9C2742;
+  border-radius: 10px; padding: 4px 12px; font-family: Calibri, sans-serif;
+  font-size: calc(13px + var(--ts)); font-weight: 600; cursor: pointer;
+}
+.tb-general-btn:hover { background: rgba(156,39,66,.08); }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §11 SMART PICKER POPUP  (S134; .picker-chip → §12 renumber-pill in S136)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.picker-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none;
+  z-index: 100; align-items: center; justify-content: center; padding: 18px;
+}
+.picker-overlay.show { display: flex; }
+.picker {
+  background: #FFFFFF; border: 1px solid #DDE1E7; border-radius: 8px;
+  padding: 18px; max-width: 360px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,.55);
+}
+body.dark-mode .picker { background: #252B3D; border-color: #3A4258; }
+.picker-title { font-size: 14px; font-weight: 700; color: #1C2333; margin-bottom: 10px; letter-spacing: .2px; }
+body.dark-mode .picker-title { color: #E0E5F0; }
+.picker-section-lbl { font-size: 11px; color: #8A94B0; text-transform: uppercase;
+  letter-spacing: .5px; margin: 12px 0 6px; font-weight: 700; }
+.picker-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* .picker-chip — see §12 (renumber-pill, keyed on --cc) */
+.picker-input-row { display: flex; gap: 6px; margin-top: 4px; }
+.picker-input {
+  flex: 1; background: #FFFFFF; border: 1px solid #DDE1E7; border-radius: 4px;
+  padding: 7px 10px; color: #1C2333; font-family: Calibri, sans-serif;
+  font-size: 13.5px; outline: none;
+}
+.picker-input:focus { border-color: #9C2742; }
+body.dark-mode .picker-input { background: #1C2333; border-color: #3A4258; color: #E0E5F0; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §12 RENUMBER-PILL PATTERN  (S136 — reusable; replaces S134 4px border)
+       Tinted fill + colored border + colored text from a color var.
+       ALWAYS: plain-hex fallback line, THEN the color-mix line (old
+       cached-browser safety). LIVE consumers: .ctr-card, .picker-chip
+       (keyed on --cc = contractor.color). Phase 3.5 inspector chip
+       reuses keyed on --ic, kept lighter/smaller so the two color
+       systems never read as one.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ctr-card, .picker-chip {
+  background: rgba(107,114,128,.10);
+  background: color-mix(in srgb, var(--cc, #6B7280) 11%, transparent);
+  border: 1.5px solid #B7BCC6;
+  border-color: color-mix(in srgb, var(--cc, #6B7280) 45%, transparent);
+  color: #4A5266;
+  color: color-mix(in srgb, var(--cc, #6B7280) 82%, black);
+  border-radius: 6px; font-weight: 600; font-family: Calibri, sans-serif;
+  cursor: pointer; display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px; font-size: 12.5px; line-height: 1.25; transition: background .12s;
+}
+.ctr-card:hover, .picker-chip:hover { background: color-mix(in srgb, var(--cc, #6B7280) 19%, transparent); }
+body.dark-mode .ctr-card, body.dark-mode .picker-chip {
+  background: color-mix(in srgb, var(--cc, #6B7280) 17%, #1C2333);
+  border-color: color-mix(in srgb, var(--cc, #6B7280) 42%, transparent);
+  color: color-mix(in srgb, var(--cc, #6B7280) 62%, white);
+}
+body.dark-mode .ctr-card:hover, body.dark-mode .picker-chip:hover {
+  background: color-mix(in srgb, var(--cc, #6B7280) 25%, #1C2333);
+}
+.ctr-card .ctr-name { font-weight: 600; flex: 1; }
+.ctr-card .ctr-x {
+  background: transparent; color: inherit; opacity: .55; border: none;
+  width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 14px; padding: 0;
+}
+.ctr-card .ctr-x:hover { opacity: 1; color: #9C2742; background: rgba(168,89,89,.22); }
+body.dark-mode .ctr-card .ctr-x:hover { color: #F5A0A0; }
+@media (pointer: coarse) { .ctr-card .ctr-x { width: 28px; height: 28px; font-size: 16px; } }
+.picker-chip { padding: 6px 12px; font-size: 13px; }
+
+/* CONTRACTOR COLOR — single source of truth (S136):
+   contractor.color (Phase 1a 8-color muted palette) drives, via inline
+   style="--cc:<hex>": .ctr-card, .picker-chip, AND the Deficiencies-
+   Identified group header (buildGroup() reads contractor.color, NOT
+   getContractorColor()/_CTR_PALETTE). Phase 2's Detailed sub-banner dot,
+   Table .dfx-tbl-ctr dot, and Board .dfx-bv-card-ctr also key off --cc.
+   getContractorColor()/_CTR_PALETTE/.ctr-c* now serve ONLY the Deficiency
+   Log summary table + PDF export (flagged for Phase 3 unification).
+   Site General / unknown fallback = #6B7280. */
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §13 UNIFIED DEFICIENCIES TAB — CONTROL BAR
+       S134 box-framed treatment SUPERSEDED by S137 (no box-in-box):
+       .defic-control-bar / .defic-content carry NO bg/side+top border/
+       radius. Single border-bottom separator on the bar; content flush.
+       S137-POLISH: select widths pinned; Renumber folded into the bar.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.defic-control-bar {
+  padding: 4px 14px 12px; display: flex; align-items: center; gap: 14px;
+  flex-wrap: wrap; border-bottom: 1px solid var(--border);
+  /* NO background / side+top border / border-radius — flush row only */
+}
+.defic-content { padding: 14px; min-height: 420px; /* NO bg/border/radius */ }
+
+.defic-pivot, .view-toggle {
+  display: inline-flex; background: #F0EDE6; border-radius: 6px; padding: 2px;
+}
+.view-toggle { margin-left: auto; }
+body.dark-mode .defic-pivot, body.dark-mode .view-toggle { background: #1C2333; }
+
+.defic-pivot-btn, .view-toggle-btn {
+  background: transparent; color: #8A94B0; border: none; cursor: pointer;
+  font-family: Calibri, sans-serif; font-weight: 600; border-radius: 4px;
+}
+.defic-pivot-btn { padding: 6px 14px; font-size: calc(13px + var(--ts)); }
+.view-toggle-btn { padding: 6px 12px; font-size: calc(12.5px + var(--ts));
+  display: inline-flex; align-items: center; gap: 5px; }
+.defic-pivot-btn.active { background: #9C2742; color: #fff; }  /* burgundy = primary pivot selection (permitted) */
+.view-toggle-btn.active { background: #FFFFFF; color: #1C2333; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+body.dark-mode .view-toggle-btn.active { background: #353D54; color: #E0E5F0; box-shadow: none; }
+
+.defic-pivot-count { background: rgba(255,255,255,.18); padding: 1px 7px;
+  border-radius: 8px; font-size: 11px; margin-left: 4px; }
+.defic-pivot-btn:not(.active) .defic-pivot-count { background: #E4E0D7; color: #5A6473; }
+body.dark-mode .defic-pivot-btn:not(.active) .defic-pivot-count { background: #353D54; color: #C0CADE; }
+
+.defic-filters { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.defic-filter-input, .dfx-filter-input {
+  background: #F7F8FA; border: 1px solid var(--border); border-radius: 4px;
+  padding: 6px 10px; color: var(--fg); font-family: Calibri, sans-serif;
+  font-size: calc(13px + var(--ts)); outline: none;
+}
+.defic-filter-input:focus, .dfx-filter-input:focus { border-color: #9C2742; }
+body.dark-mode .defic-filter-input, body.dark-mode .dfx-filter-input { background: #1C2333; }
+.defic-filter-input[type="text"] { width: 160px; }
+.defic-filter-input.recs-only.active { background: #5E2370; border-color: #7B2D8E; color: #fff; }
+
+/* S137-POLISH: pinned select widths so the wrapping flex bar keeps a
+   constant height across re-renders (repopulated dropdowns must not
+   resize the bar). */
+select.dfx-filter-input { cursor: pointer; padding-right: 26px; width: 168px; text-overflow: ellipsis; }
+select.dfx-filter-input#dfx-pri { width: 130px; }
+
+/* Renumber folded into the control bar (S137-POLISH — toolbar row retired) */
+.dfx-renumber-btn { margin-left: 4px; }
+
+@media (max-width: 900px) {
+  .defic-pivot, .view-toggle { flex: 1; }
+  .defic-filters { width: 100%; }
+  .defic-filter-input[type="text"] { flex: 1; }
+  select.dfx-filter-input { width: 100%; }
+  .dfx-renumber-btn { width: 100%; margin-left: 0; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §14 DETAILED VIEW BANNERS  (dfx- namespace; S137 + S137-POLISH FINAL)
+       S137-POLISH "bands not boxes": banners are flat full-width bands
+       (border-radius:4px, NOT box-tops 6px 6px 0 0). The grouping
+       container .dfx-pingrp has NO fill/border. Only TWO real boxes in
+       the tab: the section .card and the leaf .defic-pin-group.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.dfx-trade-banner {
+  background: #2A3A5C; color: #fff; padding: 7px 14px; font-weight: 700;
+  border-radius: 4px;  /* was 6px 6px 0 0 — S137-POLISH flat band */
+  display: flex; justify-content: space-between; align-items: center;
+}
+.dfx-trade-banner.grey { background: #6B7280; }  /* Site General · Recommendations */
+.dfx-trade-count { background: rgba(255,255,255,.18); color: #fff;
+  padding: 1px 8px; border-radius: 10px; font-size: 11px; }
+
+.dfx-ctr-banner {
+  background: #7B6F5A; color: #fff; padding: 6px 14px; font-weight: 700;
+  border-radius: 4px; margin-top: 8px;  /* detached sub-band (S137-POLISH) */
+  display: flex; justify-content: space-between; align-items: center;
+}
+body.dark-mode .dfx-ctr-banner { background: #5F5749; }
+.dfx-ctr-banner.rec { background: #6B7280; }   /* "Recommendations" (no-contractor-but-trade) */
+body.dark-mode .dfx-ctr-banner.rec { background: #565C66; }
+.dfx-ctr-dot { width: 10px; height: 10px; border-radius: 50%;
+  background: var(--cc, #6B7280); margin-right: 8px; }  /* contractor.color */
+.dfx-ctr-count { background: rgba(255,255,255,.18); padding: 1px 8px;
+  border-radius: 10px; font-size: 11px; margin-left: auto; }
+
+.dfx-pingrp {
+  background: transparent;  /* was #F7F8FA / dark #1C2333 — S137-POLISH */
+  border: 0;                /* was 1px + border-top:0 — S137-POLISH */
+  padding: 8px 0 0 0;       /* was 10px 12px — S137-POLISH */
+}
+/* REMOVED (S137-POLISH): .dfx-trade-section .dfx-pingrp:last-child{border-radius:0 0 6px 6px}
+   and body.dark-mode .dfx-pingrp{...} — no longer a box. */
+
+.dfx-add-defic-row { /* wraps per-contractor "+ Add Deficiency" — TEMP, S138 modal removes */ }
+.dfx-empty { text-align: center; color: var(--silver); font-size: calc(13px + var(--ts)); }
+
+/* Leaf card — now the ONLY inner box (S137-POLISH flattened) */
+.defic-pin-group {
+  border: 1px solid var(--border);   /* was 1.5px */
+  border-radius: 8px;                /* was 10px */
+  background: var(--card);
+  margin-bottom: 12px;               /* was 14px */
+  overflow: hidden;
+}
+body.dark-mode .defic-pin-group { background: #252B3D; border-color: #3A4258; }
+body.dark-mode .defic-pin-strip { background: #2A3247; border-bottom-color: #3A4258; }
+body.dark-mode .defic-obs-card { background: #252B3D; border-bottom-color: #3A4258; color: #E0E5F0; }
+body.dark-mode .obs-pill-text { color: #E0E5F0; }
+body.dark-mode .obs-text-input { background: #1C2333; color: #E0E5F0; border-color: #3A4258; }
+body.dark-mode .obs-media-zone { background: #1C2333; border-color: #3A4258; }
+body.dark-mode .obs-media-hint { color: #8A94B0; }
+body.dark-mode .defic-pin-footer { background: rgba(0,0,0,.18); border-top-color: #3A4258; }
+body.dark-mode .defic-act-btn { color: #C0CADE; border-color: #3A4258; }
+body.dark-mode .defic-noted { color: #8A94B0; }
+body.dark-mode .add-obs-btn-prominent { background: #7B7461; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §15 CLOSED / ADDRESSED CARD STRIPE  (S137-POLISH FINAL — supersedes S133)
+       RULE: a status/state stripe is PAINT-ONLY (inset box-shadow), never
+       a border that toggles with state (a toggling border changes box
+       geometry → width mismatch + text shift on re-render).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.defic-obs-card.addressed {
+  box-shadow: inset 3px 0 0 #5F8068;   /* was border-left:3px */
+  background: rgba(26,122,74,.05);
+}
+body.dark-mode .defic-obs-card.addressed {
+  box-shadow: inset 3px 0 0 #4a8a6a;   /* was border-left-color */
+  background: rgba(26,122,74,.10);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §16 TABLE VIEW  (dfx- namespace — S137 FINAL, adapted from S134 §TABLE)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+table.dfx-tbl { width: 100%; border-collapse: collapse;
+  font-family: Calibri, sans-serif; font-size: calc(13px + var(--ts)); }
+table.dfx-tbl th {
+  background: #F0EDE6; color: #5A6473; text-align: left; padding: 9px 10px;
+  font-weight: 700; font-size: 11.5px; letter-spacing: .5px; text-transform: uppercase;
+  border-bottom: 1px solid var(--border); position: sticky; top: 0;
+}
+body.dark-mode table.dfx-tbl th { background: #2A3247; color: #C0CADE; }
+table.dfx-tbl td { padding: 8px 10px; border-bottom: 1px solid var(--border);
+  vertical-align: middle; color: var(--fg); }
+table.dfx-tbl tbody tr { cursor: pointer; }
+table.dfx-tbl tbody tr:hover td { background: rgba(156,39,66,.06); }
+table.dfx-tbl tr.dfx-closed td { color: var(--silver); }
+.dfx-tbl-num { background: #9C2742; color: #fff; font-weight: 700;
+  font-size: 11.5px; padding: 2px 10px; border-radius: 12px; display: inline-block; }
+.dfx-tbl-num.low { background: #B07F5A; }
+.dfx-tbl-num.general { background: #3A5670; }
+.dfx-tbl-num.closed { background: #4A7B6E; }
+.dfx-tbl-thumb { width: 36px; height: 36px; border-radius: 4px; object-fit: cover;
+  background: linear-gradient(135deg, #4A6B8C 0%, #2C3E50 100%); }
+.dfx-tbl-ctr { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 6px; vertical-align: middle; background: var(--cc, #6B7280); }
+.dfx-status-mini { display: inline-block; font-size: 9.5pt; font-weight: 700;
+  padding: 2px 11px; border-radius: 10px; }
+.dfx-status-mini.high { background: #FCEAEA; color: #C0392B; }
+.dfx-status-mini.low { background: #FDF1E4; color: #B07F5A; }
+.dfx-status-mini.general { background: #E3EBF2; color: #3A5670; }
+.dfx-status-mini.closed { background: #E8F5EE; color: #1A7A4A; }
+body.dark-mode .dfx-status-mini.high { background: #4A1E1E; color: #F0A0A0; }
+body.dark-mode .dfx-status-mini.low { background: #3D2818; color: #E5B084; }
+body.dark-mode .dfx-status-mini.general { background: #1E2A40; color: #9DB8D8; }
+body.dark-mode .dfx-status-mini.closed { background: #15301F; color: #80C8A0; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §17 BOARD VIEW  (dfx- namespace — S137 FINAL, adapted from S134 §BOARD)
+       COLOR LOCK: High column = #A85959 (muted FRT priority red).
+       S134's #C0392B is FORBIDDEN — substituted per the muted-only rule.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.dfx-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 900px) { .dfx-board { grid-template-columns: 1fr; } }
+.dfx-bv-col { background: #F7F8FA; border: 1px solid var(--border);
+  border-radius: 6px; min-height: 360px; display: flex; flex-direction: column; }
+body.dark-mode .dfx-bv-col { background: #1C2333; }
+.dfx-bv-col-hdr { color: #fff; padding: 7px 12px; font-weight: 700;
+  font-size: 12.5px; letter-spacing: .3px; border-radius: 6px 6px 0 0;
+  display: flex; justify-content: space-between; align-items: center; }
+.dfx-bv-col-hdr.h { background: #A85959; }   /* NOT #C0392B */
+.dfx-bv-col-hdr.l { background: #B07F5A; }
+.dfx-bv-col-hdr.g { background: #3A5670; }
+.dfx-bv-col-hdr.c { background: #4A7B6E; }   /* Closed — always visible */
+.dfx-bv-col-count { background: rgba(255,255,255,.18); color: #fff;
+  padding: 1px 8px; border-radius: 10px; font-size: 11px; }
+.dfx-bv-col-body { padding: 6px; display: flex; flex-direction: column; gap: 6px; }
+.dfx-bv-card { background: var(--card); border: 1px solid var(--border);
+  border-radius: 4px; padding: 7px 8px; cursor: pointer;
+  font-size: 12.5px; color: var(--fg); }
+.dfx-bv-card:hover { background: rgba(156,39,66,.06); }
+.dfx-bv-card-top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.dfx-bv-card-num { background: #9C2742; color: #fff; font-weight: 700;
+  font-size: 10.5px; padding: 1px 7px; border-radius: 8px; }
+.dfx-bv-card-ctr { font-size: 10.5px; font-weight: 700; color: var(--cc, #C0CADE); }
+.dfx-bv-card-text { line-height: 1.3; font-size: 12.5px; margin: 0 0 5px; color: var(--fg); }
+.dfx-bv-card-bottom { display: flex; align-items: center; gap: 6px; }
+.dfx-bv-card-thumb { width: 26px; height: 26px; border-radius: 3px; object-fit: cover;
+  background: linear-gradient(135deg, #4A6B8C 0%, #2C3E50 100%); }
+.dfx-bv-card-trade { font-size: 10px; color: var(--silver); font-style: italic; }
+.dfx-bv-rec {  /* grey rec tag — RESERVED, unused until the S138 rec flag */
+  font-size: 10px; padding: 1px 7px; border-radius: 10px;
+  background: rgba(107,114,128,.2); color: #A8B4C5; font-weight: 700; }
+.dfx-bv-empty { font-style: italic; color: var(--silver); text-align: center; padding: 20px; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §18 CROSS-VIEW NAVIGATION  (S137)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@keyframes dfx-flash-kf {
+  0%   { box-shadow: 0 0 0 3px rgba(156,39,66,.55); }
+  100% { box-shadow: 0 0 0 3px rgba(156,39,66,0); }
+}
+.dfx-flash { animation: dfx-flash-kf 1.4s ease-out; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §19 DETAILED-VIEW RECOMMENDATION SUB-BANNERS + REC BADGE  (S134)
+       (rendered grey, distinct from navy trade & taupe contractor)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.rec-subgroup-header, .site-general-banner {
+  background: #6B7280; color: #fff; font-weight: 700; letter-spacing: .3px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.rec-subgroup-header { padding: 6px 14px; font-size: 12.5px; }
+.site-general-section { margin-top: 18px; }
+.site-general-banner { padding: 7px 14px; font-size: 13.5px; border-radius: 4px; }
+.rec-subgroup-header .rec-count, .site-general-banner .rec-count {
+  background: rgba(255,255,255,.18); padding: 1px 8px; border-radius: 10px; font-size: 10px; }
+.rec-badge { font-size: 10.5px; padding: 1px 7px; border-radius: 10px;
+  background: rgba(107,114,128,.2); color: #6B7280; font-weight: 700; margin-left: 6px; }
+body.dark-mode .rec-badge { color: #A8B4C5; }
+.ctr-color-dot { width: 10px; height: 10px; border-radius: 50%;
+  background: var(--cc, #6B7280); margin-right: 8px; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §20 UNIFIED + DEFICIENCY CARD + MODAL  (S134 — modal lands S138)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.add-deficiency-card {
+  margin-top: 14px; padding: 12px; background: transparent;
+  border: 2px dashed #C6CCD6; border-radius: 6px; color: #8A94B0;
+  text-align: center; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .12s;
+}
+.add-deficiency-card:hover { border-color: #9C2742; color: #B0566A; background: rgba(156,39,66,.06); }
+body.dark-mode .add-deficiency-card { border-color: #4A5266; }
+body.dark-mode .add-deficiency-card:hover { color: #E0A0B0; }
+.modal-checkbox-row {
+  display: flex; align-items: center; gap: 8px; margin: 12px 0; padding: 8px 12px;
+  background: rgba(156,39,66,.08); border-radius: 4px; border-left: 3px solid #9C2742; cursor: pointer;
+}
+.modal-checkbox-row input, .modal-checkbox-row label { cursor: pointer; }
+.modal-checkbox-row label { color: #1C2333; font-size: 13px; }
+body.dark-mode .modal-checkbox-row label { color: #E0E5F0; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §21 UNDO / REDO TOOLBAR  (S134 — Phase 4, ships S142–143)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.undo-btn, .redo-btn {
+  background: transparent; color: var(--fg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 5px 9px; font-family: Calibri, sans-serif;
+  font-size: 14px; cursor: pointer; display: inline-flex; align-items: center;
+  gap: 4px; transition: background .12s;
+}
+.undo-btn:hover, .redo-btn:hover { background: rgba(156,39,66,.12); border-color: #9C2742; }
+.undo-btn.disabled, .redo-btn.disabled {
+  color: #4A5266; border-color: #2A3247; cursor: not-allowed; background: transparent;
+}
+.undo-btn.disabled:hover, .redo-btn.disabled:hover { background: transparent; border-color: #2A3247; }
+.undo-count-badge { background: rgba(156,39,66,.55); color: #fff; font-weight: 700;
+  font-size: 10px; padding: 1px 6px; border-radius: 8px; min-width: 16px; text-align: center; }
+.undo-btn.disabled .undo-count-badge { background: #2A3247; color: #4A5266; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §22 DARK-MODE TOKEN OVERRIDES  (S133)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+body.dark-mode {
+  --bg: #1C2333; --card: #252B3D; --smoke: #2A3247; --fg: #E0E5F0;
+  --slate: #E0E5F0; --silver: #8A94B0; --border: #3A4258;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §23 RETIRED — DO NOT REGRESS (consolidated S134 + S135 + S136 + S137)
+       Once removed they stay removed. If similar behavior is needed
+       later, design FRESH selectors with intentional names — reusing
+       retired names risks zombie code paths.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Trade board / structure:
+   - .trade-board-section (+ dark) — board now lives in #trade-board-card
+     (.card + .card-header); no inner wrapper.
+   - .trade-board-title (+ dark) — .card-header provides the title.
+   - .ctr-card / .picker-chip "white bg + 4px border-left:Npx var(--cc)"
+     — replaced by §12 renumber-pill tinted-fill pattern.
+
+   Box-in-box (S137):
+   - Box-framed .defic-control-bar / .defic-content from S134
+     (bg + side/top border + radius) — superseded by flush §13.
+   - .dfx-soon view placeholder — Table + Board are now live.
+
+   IAR feature (retired S135):
+   - .iar-toggle-btn / .off / .on (+ dark)
+   - .obs-pill.iar (light + dark)
+   - .tt-status.iar (border + chip, light + dark, 4 places)
+   - .tt-priority.iar (S116-P13 muted-pink hatch block)
+   - .pkc-num.iar / .pkc-badge.iar
+
+   Summary tab + pins kanban (retired S135 with #panel-pins):
+   - .pins-kanban-wrap / -header / -board / -col / -col-header / -col-body
+   - .pin-kanban-card + all .pkc-* (.pkc-num/-body/-desc/-meta/-badge/-thumb/-drawing)
+   - duplicate definitions (S113-P16 + later) — both removed
+   - .pins-kanban-board / -col dropped from the kanban mobile media query
+     (KEPT .kanban-wrap / .kanban-col — live Deficiency kanban, different system)
+   - .summary-tab / .summary-board / .summary-table-row
+
+   AI Review per-obs (retired S135 with data-action="ai-review-menu"):
+   - .defic-ai-btn (3 layered overrides: inline, --btn-action-purple var, dark chip)
+   - .ai-review-pop (light + dark)
+   - .ai-rv-opt (light + dark + disabled), .ai-rv-disabled
+   - [data-action="ai-review-defic"] / .ai-review-chip (orphan dark block)
+   NOTE: the HEADER #btn-ai-review styles STAY — separate live feature.
+
+   AI/MAN trade source badge (retired S135):
+   - .trade-banner.manual / .trade-source-mark / .trade-source-mark.manual
+   - body.dark-mode .trade-banner.manual
+
+   AI obs-grouping (retired S135 — inline-styled, nothing in CSS to drop):
+   - .obs-group-badge / .obs-group-badge-empty
+   - .obs-group-add (S133 introduced it pink-tinted; retired in Phase 0)
+
+   #defic-toolbar (S137-POLISH): AI Group / Select / Fold All markup
+   removed (features were already retired S135). Renumber moved into
+   .defic-control-bar (#defic-renumber-btn handler preserved).
+
+   CORRECTION (S135): .ctx-text-toggle was wrongly on the S134 IAR
+   retire-list. It is KEPT — markup text tool Border/Hatch toggles
+   (referenced from index.html ~560-561 by data-ctx handlers in
+   markup.js). See APPENDIX §S126-6. */
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   APPENDIX — PRE-S133 CARRIED VISUAL RULES (verbatim)
+   ═══════════════════════════════════════════════════════════════════════
+   Source: STYLE_GUIDE_v127_S126_NOTE.css — an S126 delta-NOTE, the ONLY
+   surviving pre-S133 fragment (the full ≤v126 base is not in the
+   project and cannot be reconstructed). Carried here verbatim so these
+   markup-tool rules are not lost when Mark deletes the old note file.
+   THIS IS NOT A COMPLETE PRE-S133 BASE — it is the S126 note's content
+   only. Mark can override this scope call.
+
+   Sections: §S126-1 click-to-draw preview dot · §S126-2 dimension
+   sub-toolbar · §S126-3 dimension override pill (Option D) · §S126-4
+   dimension chain preview · §S126-5 text-box transparent default + edit
+   chrome · §S126-6 text border+hatch · §S126-7/8 no visual change ·
+   §S126-9 diagnostic console format · §S126-10 muted-palette enforced ·
+   §S126-11 behavior rules.
+   ─────────────────────────────────────────────────────────────────── */
+
+/* §S126-1  Click-to-draw preview dot
+   First click of a click-to-draw shape: overlay canvas shows a filled
+   dot at A in current color + opacity. Radius = max(2, _lineWidth / 2). */
+
+/* §S126-2  Dimension sub-toolbar
+   Floating panel top-center of .dv-canvas-area when dimension tool active. */
+.dim-sub-toolbar {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  z-index: 9000; display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.96); border: 1px solid #C8C0B0;
+  border-radius: 8px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  font-family: Calibri, sans-serif; font-size: 13px;
+}
+.dim-tb-btn {
+  padding: 6px 12px; background: transparent; border: 1px solid transparent;
+  border-radius: 5px; color: #4A4035; font-weight: 600; cursor: pointer;
+}
+.dim-tb-btn:hover  { background: #F2EAD8; }
+.dim-tb-btn.active { background: #9C2742; color: #FFFFFF; border-color: #9C2742; }
+.dim-mode-pill {
+  display: inline-flex; background: #EDE5D3; border-radius: 5px; padding: 2px; margin-left: 4px;
+}
+.dim-mode-btn {
+  background: transparent; border: none; color: #6A5A3A; font-size: 12px;
+  font-weight: 600; padding: 4px 10px; border-radius: 4px; cursor: pointer;
+}
+.dim-mode-btn.active {
+  background: #FFFFFF; color: #4A4035; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* §S126-3  Dimension override pill — Option D
+   Canvas-rendered rounded rect behind override labels. Padding 4h/1v.
+   Radius 3. Fill obj.color × 0.10α. No stroke. Rotates with label. */
+
+/* §S126-4  Dimension chain preview
+   awaitB: dashed [6,4] A→cursor + filled dot at A (radius max(2.5,size))
+   awaitOffset: dashed measure axis A→B at 0.6× width + full renderObject
+                preview with '…' rawLabel placeholder.
+   RULE: preview MUST share the renderObject path. Tilde prefix on
+   isGuess is render-time concatenation; never stored in rawLabel. */
+
+/* §S126-5  Text box transparent default + edit chrome */
+.mk-text-input-live           { background: transparent !important; box-shadow: none !important; }
+.mk-text-input-live.editing   {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4),
+              0 2px 8px rgba(0, 0, 0, 0.18) !important;
+}
+
+/* §S126-6  Text decoration: border + hatch
+   Per-text-obj: border (1px solid color rect + 4px pad), hatch
+   (45° 1px@6px@0.4α clipped to bbox). Both on: hatch renders first.
+   Mobile toggles in #ctx-text-deco-group. (.ctx-text-toggle KEPT per
+   the S135 correction — NOT IAR-related.) */
+.ctx-text-toggle {
+  font-family: Calibri, sans-serif; font-size: 12px; font-weight: 600;
+  padding: 4px 9px !important; margin: 0 2px;
+}
+.ctx-text-toggle.active {
+  background: #9C2742 !important; color: #FFFFFF !important; border-color: #9C2742 !important;
+}
+
+/* §S126-7  Phase B — no visual changes (markup → per-drawing R2 JSON). */
+/* §S126-8  Phase C — no visual changes (sync atomicity guard; only a
+            console.warn when the guard fires). */
+
+/* §S126-9  Phase D — diagnostic console output format (no DOM/CSS):
+     [Diag-Mem] canvas main=X overlay=Y webgl=Z total=N MP | ctxLost=K
+     [Diag-Mem] WebGL context lost #N at <ISO>
+     [Diag-Mem] WebGL context restored #N at <ISO>
+     [Sync C-guard] Cloud delivered empty <field>; preserved local
+       (N items). Path: <pull | silentMerge>.<field>
+     Diag.memory.report() → multi-line "── ARENCON FRT Memory Diag ──". */
+
+/* §S126-10  Push 7 — MUTED-COLOR PALETTE ENFORCED (canonical constants;
+   reinforced by the global header above — kept here for provenance):
+     --err      #A85959  (muted red; replaces #C0392B) — outstanding,
+                          danger, delete, high-priority
+     --err-dark #8A4A4A  (hover for err; replaces #96281B)
+     --err-bg   #F3E0DE  (warm-tinted bg; replaces #FDEDEC / #FADBD8)
+     --ok       #5F8068  (muted green; replaces #1A7A4A) — closed,
+                          success, general priority, save
+     --ok-bg    #E8EFE7  (cool-tinted bg; replaces #EAFAF1 / #D4EDDA)
+     --warn     #B07F5A  (muted amber; replaces #E67E22) — low priority
+     --burgundy #9C2742  (primary CTA ONLY; never status/priority/text)
+   FORBIDDEN bright hexes (never reappear in frt/css, frt/js,
+   frt/index.html): #C0392B #96281B #FDEDEC #FADBD8 #1A7A4A #EAFAF1
+   #D4EDDA #E67E22. Dark-mode equivalents already desaturated; the
+   bright→muted swap applies to LIGHT-mode constants only. */
+
+/* §S126-11  Push 7 — Behavior rules (no visual surface, recorded for
+   traceability — these are still in force):
+   (1) EVERY camera <input> in the toolkit MUST have:
+       type="file" accept="image/*" capture="environment" multiple
+       (camera stays open after each photo — continuous capture).
+   (2) Drawing-viewer single-finger touch is reserved for pin placement
+       + markup tools; two-finger pinch handles pan AND zoom (map-app
+       behavior). NEVER reintroduce single-finger pan in viewer.js
+       touchmove without explicit user approval. */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   End consolidated Style Guide. From S138 this is the single canonical
+   guide; the S133–S137-POLISH delta .css files are absorbed and
+   disposable. Future per-session deltas are folded in each session.
+   ═══════════════════════════════════════════════════════════════════════ */
