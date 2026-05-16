@@ -249,6 +249,32 @@ export var TRADE_LIST = [
 ];
 
 /**
+ * S140 Batch 1 (Model 2 §4.1) — canonical label for the reserved
+ * informational-only scope, RENAMED from the legacy "Site General".
+ * Under Model 2 this bucket is "Site Records": site documentation
+ * (photos/notes), excluded from external reports by default and NEVER a
+ * recommendation. No data migration (the tool was never in real use) —
+ * the rename is direct. Every module must reference this constant
+ * instead of hardcoding the string, so the label can never drift
+ * between the Detailed view, the PDF and the data model.
+ */
+export var SITE_RECORDS_LABEL = 'Site Records';
+
+/**
+ * S140 Batch 1 — recognizes the reserved-scope bucket by display name.
+ * Matches the canonical SITE_RECORDS_LABEL AND the legacy 'Site General'
+ * string, so any test JSON / cloud snapshot still carrying the pre-S140
+ * label keeps grouping correctly with no data migration. Batches 2/3
+ * replace every `=== 'Site General'` sentinel check with this.
+ *
+ * @param {string} nm  A contractor/bucket display name.
+ * @returns {boolean}
+ */
+export function isSiteRecordsName(nm) {
+  return nm === SITE_RECORDS_LABEL || nm === 'Site General';
+}
+
+/**
  * S135 Phase 1a: 8-color muted palette for contractor.color auto-assignment.
  * Auto-assigned, never user-picked (per S134 design lock). When deleting
  * a contractor, the color frees up for reuse. After 8 contractors, the
@@ -614,7 +640,7 @@ export var Model = {
   },
 
   // S116 Push 5: delete a contractor AND reassign its deficiencies to
-  // Site General (instead of orphaning them, which is what removeContractor
+  // Site Records (instead of orphaning them, which is what removeContractor
   // by itself would do). Returns the count of deficiencies reassigned.
   deleteContractorAndReassign: function(ctrId) {
     if (!_project) return 0;
@@ -642,7 +668,7 @@ export var Model = {
     // S135 Phase 1a: auto-inherit trade when the parent contractor has
     // exactly 1 trade declared. Multi-trade contractors leave it blank
     // (user picks per obs via dropdown or trade board reassignment).
-    // Site General defics (ctrId === null) always start untagged.
+    // Site Records defics (ctrId === null) always start untagged.
     var _inheritedTrade = '';
     if (ctrId) {
       var _ctrLookup = (_project.contractors || []).find(function(c) { return c.id === ctrId; });
@@ -847,7 +873,7 @@ export var Model = {
     // Determine target contractor — per-obs override beats pin contractor.
     var targetCtrId = extracted.contractorId || (f.contractor ? f.contractor.id : null);
 
-    // Create the new deficiency under that contractor (or Site General).
+    // Create the new deficiency under that contractor (or Site Records).
     var newDefic = this.addDeficiency(targetCtrId);
     if (!newDefic) return null;
 
@@ -1125,6 +1151,52 @@ export var Model = {
     return 'closed';
   },
 
+  // ── S140 Batch 1 (Model 2 §4.3): canonical pin-trade derivation ──
+  // SINGLE source of truth for "what trade does this pin belong to".
+  // Before S140 this fallback existed NOWHERE — neither the Detailed
+  // view nor pdf.js's _pinTrade applied step 2 — which is why a pin on
+  // a contractor that was assigned a single trade via the Trade Board
+  // (e.g. Vipond → Sprinkler) still rendered under "Untagged": the only
+  // place a trade was ever written was at creation time (the S135
+  // _inheritedTrade stamp on obs[0]), and that never re-ran when the
+  // contractor's trade changed afterwards. Batches 2 (deficiencies.js
+  // Detailed view) and 3 (pdf.js) BOTH call this so on-screen grouping
+  // and the PDF agree and Trade Board assignment actually takes effect.
+  //
+  // Derivation order (Model 2 §4.3):
+  //   1. obs[0].trade        — first observation's explicit trade, if set
+  //   2. contractor.trades[0] — ONLY if the parent contractor has EXACTLY
+  //                             one declared trade (ambiguous if 0 or 2+)
+  //   3. ''                   — none; caller renders under "Other Trade
+  //                             Items" (the word "Untagged" is retired)
+  //
+  // Pure read: never mutates, never stamps obs.trade (creation-time
+  // inheritance stays in addDeficiency — this is the display/grouping
+  // fallback only). `contractor` is the parent contractor record, or
+  // null for Site Records / no-contractor pins.
+  //
+  // @param {object}  defic       deficiency/pin record
+  // @param {?object} contractor  parent contractor record (or null)
+  // @returns {string}            a trade string, or '' when none derivable
+  derivePinTrade: function(defic, contractor) {
+    if (defic) {
+      var obs = defic.observations;
+      if (Array.isArray(obs) && obs.length) {
+        var t0 = obs[0] && obs[0].trade;
+        if (t0 && String(t0).trim()) return String(t0).trim();
+      } else if (defic.trade && String(defic.trade).trim()) {
+        // Legacy defic with no observations array — honour a stray
+        // pin-level trade if one somehow exists, else fall through.
+        return String(defic.trade).trim();
+      }
+    }
+    if (contractor && Array.isArray(contractor.trades) && contractor.trades.length === 1) {
+      var sole = contractor.trades[0];
+      if (sole && String(sole).trim()) return String(sole).trim();
+    }
+    return '';
+  },
+
   // ── S121 Phase C-1: tab flatten helper ──
   // Mirrors the row shape produced by export/pdf.js _pushItems but WITHOUT
   // the priority='general' filter and WITHOUT the addressed/instance filter.
@@ -1139,7 +1211,8 @@ export var Model = {
   //     ctr:           per-obs effective contractor NAME (after obs.contractorId
   //                    override) — what the PDF groups by,
   //     parentCtrId:   contractor id this defic lives under (null for general),
-  //     parentCtrName: parent contractor name ('Site General' for general),
+  //     parentCtrName: parent contractor name (SITE_RECORDS_LABEL for the
+  //                    reserved no-contractor scope),
   //     numLabel:      d.num, with '-A'/'-B' suffix iff this pin's obs span
   //                    more than one effective contractor (matches PDF labels)
   //   }
@@ -1205,7 +1278,7 @@ export var Model = {
       });
     });
     (p.generalDeficiencies || []).forEach(function(d) {
-      emitForDefic(d, null, 'Site General');
+      emitForDefic(d, null, SITE_RECORDS_LABEL);
     });
 
     return rows;
@@ -1728,7 +1801,7 @@ export var Model = {
       });
     });
     (proj.generalDeficiencies || []).forEach(function(d) {
-      all.push({ defic: d, contractorName: 'Site General', contractorId: null });
+      all.push({ defic: d, contractorName: SITE_RECORDS_LABEL, contractorId: null });
     });
     all.sort(function(a, b) { return a.defic.num - b.defic.num; });
     return all;
