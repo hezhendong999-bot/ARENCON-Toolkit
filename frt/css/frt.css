@@ -7038,7 +7038,18 @@ body.dark-mode .defic-pivot-btn:not(.active) .defic-pivot-count {
 }
 .dfx-filter-input:focus { border-color: #9C2742; }
 .dfx-filter-input[type="text"] { width: 160px; }
-select.dfx-filter-input { cursor: pointer; padding-right: 26px; }
+/* S137-polish: fixed select widths. Without these the selects sized to
+   their chosen option text; a width change (e.g. _syncDfxControls
+   repopulating contractors, or a long name selected) re-wrapped the
+   flex control bar, changing its height and shifting everything below
+   vertically on a pivot/view switch. Fixed widths = deterministic wrap. */
+select.dfx-filter-input {
+  cursor: pointer;
+  padding-right: 26px;
+  width: 168px;
+  text-overflow: ellipsis;
+}
+select.dfx-filter-input#dfx-pri { width: 130px; }
 body.dark-mode .dfx-filter-input {
   background: #1C2333;
   border-color: #3A4258;
