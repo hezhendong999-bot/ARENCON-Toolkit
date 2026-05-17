@@ -6527,6 +6527,45 @@ body.dark-mode .trade-banner {
   border-color: #2C4770;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   S142 Batch 4-2: .ctr-banner — inline contractor reassign select in
+   the Detailed list, sibling to .trade-banner. Muted steel (same
+   #EEF0F2/#5A6472 family as the PDF .rec-ctrchip) so it reads as
+   distinct from the navy Trade pill at a glance. data-action
+   "obs-contractor"; defic-level (no obs-idx).
+   ═══════════════════════════════════════════════════════════════════ */
+.ctr-banner-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ctr-banner {
+  font-family: Calibri, sans-serif;
+  font-size: calc(11px + var(--ts));
+  font-weight: 700;
+  cursor: pointer;
+  padding: 3px 11px;
+  padding-right: 22px;
+  border-radius: 4px;
+  border: 1.5px solid #5A6472;
+  background: #EEF0F2;
+  color: #5A6472;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #5A6472 50%),
+                    linear-gradient(135deg, #5A6472 50%, transparent 50%);
+  background-position: calc(100% - 12px) 50%, calc(100% - 7px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+body.dark-mode .ctr-banner {
+  background: #EEF0F2;
+  color: #5A6472;
+  border-color: #5A6472;
+}
+
 /* End S134 ──────────────────────────────────────────────────────── */
 
 

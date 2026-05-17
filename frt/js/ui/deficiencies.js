@@ -591,7 +591,21 @@ function _buildPinGroupCard(d, ctrId) {
     h += '</select>';
     h += '</span>';
 
-    // Visual separator between state cluster (Outstanding/Priority/Trade)
+    // S142 Batch 4-2: inline contractor reassign — sits next to Trade so a
+    // pin can be moved between contractors (or to Site Records) straight
+    // from the Detailed list, without opening the pin editor. Defic-level
+    // (no data-obs-idx): contractor is a property of which array holds the
+    // pin, shared across a multi-obs pin. Change handler calls
+    // Model.reassignDeficiency (truthy id -> that contractor, '' -> Site
+    // Records / generalDeficiencies; dedup-safe, persists, re-renders).
+    h += '<span class="ctr-banner-wrap">';
+    h += '<select data-action="obs-contractor" data-defic-id="' + esc(d.id) + '" class="ctr-banner" title="Contractor for this pin">';
+    h += '<option value="" style="background:white;color:#2C3E50;font-weight:600;"' + (!ctrId ? ' selected' : '') + '>\u2014 ' + esc(SITE_RECORDS_LABEL) + ' \u2014</option>';
+    ((Model.getProject() || {}).contractors || []).forEach(function(_cc) {
+      h += '<option value="' + esc(_cc.id) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (ctrId === _cc.id ? ' selected' : '') + '>' + esc(_cc.name || 'Unnamed') + '</option>';
+    });
+    h += '</select>';
+    h += '</span>';
     // and action cluster (Spinoff/Remove obs). Per-obs AI Review button
     // retired in S135 — replaced in Phase 6 by global "Polish observations".
     h += '<span class="ctrls-sep" aria-hidden="true"></span>';
@@ -2742,6 +2756,20 @@ document.addEventListener('change', function(e) {
   // future AI/auto-tagging logic won't overwrite a deliberate user choice.
   // The AI/MAN source badge was retired in S135 — visual differentiation
   // returns in Phase 2 (Detailed view) as derived data from the trade board.
+  if (action === 'obs-contractor') {
+    // S142 Batch 4-2: defic-level contractor reassignment from the
+    // Detailed list. '' value => Site Records (generalDeficiencies);
+    // any contractor id => that contractor. Model.reassignDeficiency is
+    // dedup-safe and queues a save; saveNow() + render() mirror the
+    // obs-trade path for immediate persistence + regrouping.
+    var _cdid = e.target.getAttribute('data-defic-id');
+    var _cval = e.target.value || '';
+    if (_cdid) {
+      Model.reassignDeficiency(_cdid, _cval || null);
+      Model.saveNow();
+      initDeficiencies.render();
+    }
+  }
   if (action === 'obs-trade') {
     var _tdid = e.target.getAttribute('data-defic-id');
     var _toi = parseInt(e.target.getAttribute('data-obs-idx') || '0', 10);
