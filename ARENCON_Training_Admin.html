@@ -249,16 +249,16 @@ function renderHome(){
       await sbIns('tc_courses',{title:t,
         category:document.getElementById('cC').value,
         description:document.getElementById('cD').value.trim(),
-        sort_order:COURSES.length,created_by:ME.id});
+        sort_order:COURSES.length});
       await loadData(); toast('Course created'); renderHome();
-    }catch(e){ toast('Save failed — check RLS/schema'); }
+    }catch(e){ toast('Save failed: '+e.message); console.error('CREATE COURSE FAIL',e); }
   };
 }
 window.delCourse=async id=>{
   if(!confirm('Delete this course and all its modules?')) return;
   try{ await sbDel('tc_courses',id); await loadData();
     toast('Deleted'); renderHome(); }
-  catch(e){ toast('Delete failed'); }
+  catch(e){ toast('Delete failed: '+e.message); }
 };
 
 /* ─── course detail: modules + add module + AI quiz ─── */
@@ -385,16 +385,16 @@ function renderCourse(cid){
       source_type:document.getElementById('mSTYPE').value,
       source_url:document.getElementById('mSU').value.trim()||null,
       source_text:document.getElementById('mTXT').value.trim()||null,
-      quiz:draftQuiz||null,sort_order:ms.length,created_by:ME.id};
+      quiz:draftQuiz||null,sort_order:ms.length};
     try{ await sbIns('tc_modules',row); await loadData();
       toast('Module saved'); renderCourse(cid); }
-    catch(e){ toast('Save failed — check schema/RLS'); }
+    catch(e){ toast('Save failed: '+e.message); console.error('SAVE MODULE FAIL',e); }
   };
 }
 window.delMod=async id=>{
   if(!confirm('Delete this module?')) return;
   try{ await sbDel('tc_modules',id); await loadData();
-    toast('Deleted'); route(); }catch(e){ toast('Delete failed'); }
+    toast('Deleted'); route(); }catch(e){ toast('Delete failed: '+e.message); }
 };
 
 /* ─── AI quiz drafting (Claude API; works in-artifact, key via Worker in prod) ─── */
