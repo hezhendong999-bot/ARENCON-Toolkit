@@ -1832,7 +1832,7 @@
           "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/7249121d-463e-416e-a3aa-643910f3f6a7/tiles/pdfbuf_1777867793077_vn6txi/manifest.json"
         }
       ],
-      "modified": "2026-05-15T23:25:45.848Z",
+      "modified": "2026-05-17T04:38:45.887Z",
       "settings": {
         "sketchesEnabled": false
       },
@@ -1849,7 +1849,9 @@
           "id": "ctr_1774406575672_3a9c",
           "name": "Vipond",
           "color": "#5C7A6E",
-          "trades": [],
+          "trades": [
+            "Sprinkler"
+          ],
           "deficiencies": [
             {
               "id": "def_1773768423517_smra",
@@ -2182,6 +2184,7 @@
               ],
               "notedOnInstance": 1,
               "closedOnInstance": null,
+              "isRecommendation": false,
               "_photoPoolMigrated": true
             },
             {
@@ -2297,6 +2300,7 @@
               ],
               "notedOnInstance": 1,
               "closedOnInstance": null,
+              "isRecommendation": false,
               "_photoPoolMigrated": true
             },
             {
@@ -2534,6 +2538,7 @@
               ],
               "notedOnInstance": 1,
               "closedOnInstance": null,
+              "isRecommendation": false,
               "_photoPoolMigrated": true
             }
           ]
@@ -2544,47 +2549,6 @@
           "color": "#4A6B8C",
           "trades": [],
           "deficiencies": []
-        },
-        {
-          "id": "ctr_1778094431506_c60q",
-          "name": "cfls",
-          "color": "#7B6F5A",
-          "trades": [],
-          "deficiencies": [
-            {
-              "id": "def_1778094431506_r6hf",
-              "num": 4,
-              "date": "2026-05-06",
-              "pinX": null,
-              "pinY": null,
-              "photos": [],
-              "status": "open",
-              "activity": [],
-              "category": "",
-              "priority": "general",
-              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-              "drawingId": null,
-              "notedDate": "2026-05-06",
-              "observations": [
-                {
-                  "id": "obs_1778094431506_qcq4",
-                  "text": "Sprinkler coverage is required to be added under the stairway.",
-                  "trade": "",
-                  "photos": [],
-                  "priority": "high",
-                  "addressed": false,
-                  "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-                  "notedDate": "2026-05-06",
-                  "aiReviewed": false,
-                  "repeatCount": 1,
-                  "tradeSource": "ai",
-                  "notedOnInstance": 1
-                }
-              ],
-              "notedOnInstance": 1,
-              "_photoPoolMigrated": true
-            }
-          ]
         }
       ],
       "frtInstances": [
@@ -2596,7 +2560,7 @@
           "siteVisitDate": "2026-05-02T22:33:53.117Z"
         }
       ],
-      "nextDeficNum": 9,
+      "nextDeficNum": 6,
       "_hubProjectId": "7249121d-463e-416e-a3aa-643910f3f6a7",
       "projectTrades": [
         "Sprinkler",
@@ -2609,7 +2573,7 @@
         {
           "id": "def_1773768660486_hv08",
           "iar": false,
-          "num": 5,
+          "num": 4,
           "date": "2026-03-17",
           "pinX": 0.7273857310678981,
           "pinY": 0.1162132255247025,
@@ -2757,12 +2721,13 @@
           ],
           "notedOnInstance": 1,
           "closedOnInstance": null,
+          "isRecommendation": false,
           "_photoPoolMigrated": true
         },
         {
           "id": "def_1773768502793_nyge",
           "iar": false,
-          "num": 6,
+          "num": 5,
           "date": "2026-03-17",
           "pinX": 0.32546431528188874,
           "pinY": 0.33259039332711204,
@@ -2908,6 +2873,7 @@
           ],
           "notedOnInstance": 1,
           "closedOnInstance": null,
+          "isRecommendation": false,
           "_photoPoolMigrated": true
         }
       ]
@@ -2916,7 +2882,7 @@
     "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-16T20:00:36.555266+00:00",
-    "updated_at": "2026-05-16T06:18:58.53609+00:00"
+    "updated_at": "2026-05-17T06:40:48.211167+00:00"
   },
   {
     "id": "4f985a4c-d9f8-4916-9f23-f0e5eca14651",
