@@ -277,20 +277,35 @@ function _buildCSS(fontB64){
   return c;
 }
 
-function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary,fontB64,untaggedMode,includeRecs){
+function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary,fontB64,untaggedMode,includeRecs,recsMode,includeSiteRecords,recFooter){
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
-// S139 Phase 3: untagged-trade routing + recommendations gate (canon PK
-// §2944 refined — persistent modal controls, not a blocking interstitial).
+// S139 Phase 3: untagged-trade routing.
 //   _untaggedMode 'show'   -> untagged pins render in an "Other Trade Items"
-//                              band, after all real trades, before recs.
+//                              band, after all real trades.
 //   _untaggedMode 'exclude'-> that whole band is omitted from the report.
-//   _includeRecs false     -> every isRecommendation row is dropped from the
-//                              main body before grouping (no rec sub-bands,
-//                              no Site General · Recommendations, no footer,
-//                              no REC chips — naturally). Scope: main body
-//                              only; closed-summary/appendix unaffected.
 var _untaggedMode=(untaggedMode==='exclude')?'exclude':'show';
-var _includeRecs=(includeRecs!==false);
+// S142 Batch 3-2 (Model 2 §4.4): recommendations are no longer badged
+// in-place. Every isRecommendation row is pulled OUT of the trade /
+// contractor / Other-Trade-Items sections into ONE pooled
+// "Recommendations" section emitted on a forced new page AFTER
+// Previously Closed Items (disjoint — each rec appears exactly once).
+//   _recsMode 'bottom'  -> pooled section at the end (default).
+//   _recsMode 'exclude' -> recs dropped entirely (no pooled section).
+//   _recsMode 'only'    -> recommendations-only report; finalized in
+//                          Batch 3-4 with the modal radio. Treated as
+//                          'bottom' here (defensive — no behaviour change
+//                          until the modal exposes it).
+// Back-compat: until the Batch-3-4 modal passes recsMode explicitly the
+// binary includeRecs still drives it (false => 'exclude', else 'bottom').
+var _recsMode=(recsMode==='exclude'||recsMode==='bottom'||recsMode==='only')
+  ? recsMode : ((includeRecs===false)?'exclude':'bottom');
+if(_recsMode==='only')_recsMode='bottom';
+// Optional italic footer under the pooled Recommendations section.
+// Default ON (Mark — demo default). Batch 3-4 wires the modal toggle.
+var _recFooter=(recFooter!==false);
+// Site Records (reserved no-contractor scope) stay excluded from the
+// external report by default; Batch 3-4 activates this opt-in toggle.
+var _includeSiteRecords=(includeSiteRecords===true);
 var reportDefs=[];var rn=1;
 var _ctrFilterId=ctrFilter||'__all__';var _ctrFilterName='';
 // S119 hotfix: per-obs description (text) and status (addressed). Used by
@@ -388,10 +403,12 @@ var mainBodyDefs=reportDefs.filter(function(r){
   if(_deficIsClosed(r.d)&&(r.d.closedOnInstance||1)===_curInst)return true;
   return false;
 });
-// S139 Phase 3: recommendations gate. When off, every rec row leaves the
-// main body before grouping, so no rec sub-bands / Site General · Recs /
-// footer / REC chips can appear downstream.
-if(!_includeRecs){mainBodyDefs=mainBodyDefs.filter(function(r){return !(r.d&&r.d.isRecommendation);});}
+// S142 Batch 3-2 (Model 2): only the 'exclude' mode strips recs from the
+// body. For 'bottom' the rec rows stay in mainBodyDefs and the grouping
+// loop diverts them into the pooled Recommendations section instead of
+// the trade/contractor bands (disjoint — no in-place rec sub-bands, no
+// "Site General · Recommendations" band).
+if(_recsMode==='exclude'){mainBodyDefs=mainBodyDefs.filter(function(r){return !(r.d&&r.d.isRecommendation);});}
 // S118: renumber items sequentially after filter so r.rn is 1,2,3... with no gaps
 mainBodyDefs.forEach(function(r,i){r.rn=i+1;});
 // S119: closed-summary appendix — items addressed in any instance (per-obs aware)
@@ -435,9 +452,11 @@ var infoGrid='<div class="pi-list">';
 infoGrid+='</div>';
 
 // Summary table
-// S139 Phase 3 (D): count distinct High-priority recommendation pins in
-// the (post recs-gate) main body. _includeRecs=false ⇒ no recs in
-// mainBodyDefs ⇒ count 0 ⇒ note suppressed automatically.
+// S139 Phase 3 (D), KEPT under Model 2: count distinct High-priority
+// recommendation pins in the main body. _recsMode='exclude' ⇒ recs
+// already stripped ⇒ count 0 ⇒ note suppressed automatically. For
+// 'bottom' the note points the reader to the pooled Recommendations
+// section (which is titled exactly "Recommendations").
 var _hiRecIds={};
 mainBodyDefs.forEach(function(r){
   if(r.d&&r.d.isRecommendation){
@@ -489,7 +508,7 @@ function _compactHeader(pgNum){
   return '<div class="ph-compact"><div class="ph-compact-left">'+l1+'<br>'+l2+'<br>'+l3+'</div><div class="ph-compact-right">'+r1+'<br>&nbsp;<br>'+esc(date)+'</div></div>';
 }
 
-function _buildDefCard(r){
+function _buildDefCard(r,hdrExtra){
   // S118: each r is now a single observation item (flattened). r.obs is the
   // observation object (or null for legacy single-obs deficiencies).
   // r.obsIdx is the observation index within the parent pin (used for unique
@@ -539,7 +558,7 @@ function _buildDefCard(r){
   var h='<div class="dc"><div class="dc-inner">';
   if(hasDwg)h+='<img class="dc-mini" id="mm-'+d.id+'-'+r.obsIdx+'" src="" alt="drawing">';
   h+='<div class="dc-content">';
-  h+='<div class="dc-hdr"><span class="dc-itemnum">#'+(r.numLabel||r.rn)+'</span>'+((r.d&&r.d.isRecommendation)?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span></div>';
+  h+='<div class="dc-hdr"><span class="dc-itemnum">#'+(r.numLabel||r.rn)+'</span>'+((r.d&&r.d.isRecommendation)?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span>'+(hdrExtra||'')+'</div>';
   if(po.notedOnInstance!==_curInst){h+='<div style="font-size:9pt;color:#6B7B8C;margin-bottom:4px;">Noted in FRT #'+po.notedOnInstance+'</div>';}
   h+='<div class="dc-desc">'+esc(po.text||'\u2014')+'</div>';
   if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});h+='</div>';}
@@ -598,26 +617,32 @@ function _pinTrade(d){
 var _realCtrNames={};(p.contractors||[]).forEach(function(c){if(c&&c.name)_realCtrNames[c.name]=true;});
 function _isRealCtr(nm){return !!_realCtrNames[nm]&&nm!=='Site General';}
 var _ctrIdxByName={};(p.contractors||[]).forEach(function(c,i){if(c&&c.name&&_ctrIdxByName[c.name]==null)_ctrIdxByName[c.name]=i;});
-function _newTrade(nm){return{name:nm,total:0,real:{},realOrder:[],noctr:[],rec:[]};}
+function _newTrade(nm){return{name:nm,total:0,real:{},realOrder:[],noctr:[]};}
 function _pushReal(T,cn,r){if(!T.real[cn]){T.real[cn]=[];T.realOrder.push(cn);}T.real[cn].push(r);T.total++;}
 var contentBlocks=[];
+// S142 Batch 3-2 (Model 2 §4.4): recommendations are pulled OUT of the
+// trade/contractor/Other-Trade-Items sections entirely. Deficiency
+// sections are deficiencies-only. Recs are pooled into recBlocks and
+// emitted in ONE "Recommendations" section on a forced new page AFTER
+// Previously Closed Items (see below). Each rec therefore appears
+// exactly once — never both in a trade band and the pooled section.
+var pooledRecs=[];
+var recBlocks=[];
 if(mainBodyDefs.length){
   var tradeMap={};var tradeSeen=[];
   var untagged=_newTrade('Other Trade Items');
-  var sgRecs=[];
   mainBodyDefs.forEach(function(r){
+    // Model 2: any recommendation leaves the deficiency flow now.
+    if(r.d&&r.d.isRecommendation){if(_recsMode!=='exclude')pooledRecs.push(r);return;}
     var t=_pinTrade(r.d);
-    var isRec=!!(r.d&&r.d.isRecommendation);
     var real=_isRealCtr(r.ctr);
     if(t){
       if(!tradeMap[t]){tradeMap[t]=_newTrade(t);tradeSeen.push(t);}
       var T=tradeMap[t];
       if(real)_pushReal(T,r.ctr,r);
-      else if(isRec){T.rec.push(r);T.total++;}
       else{T.noctr.push(r);T.total++;}
     }else{
-      if(!real&&isRec){sgRecs.push(r);}
-      else if(real)_pushReal(untagged,r.ctr,r);
+      if(real)_pushReal(untagged,r.ctr,r);
       else{untagged.noctr.push(r);untagged.total++;}
     }
   });
@@ -628,11 +653,10 @@ if(mainBodyDefs.length){
       return ia-ib;
     });
   }
-  function _emitTrade(title,T,greyBand){
-    var bandCls=greyBand?'th-band sgr':'th-band';
+  function _emitTrade(title,T){
     contentBlocks.push({type:'tradeHeader',
-      html:'<div class="'+bandCls+'"><span>'+esc(title)+'</span><span class="ch-pill">'+T.total+'</span></div>',
-      htmlCont:'<div class="'+bandCls+'"><span>'+esc(title)+' <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+T.total+'</span></div>'});
+      html:'<div class="th-band"><span>'+esc(title)+'</span><span class="ch-pill">'+T.total+'</span></div>',
+      htmlCont:'<div class="th-band"><span>'+esc(title)+' <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+T.total+'</span></div>'});
     _orderCtrNames(T).forEach(function(cn){
       var rows=T.real[cn];
       contentBlocks.push({type:'ctrHeader',
@@ -641,27 +665,48 @@ if(mainBodyDefs.length){
       rows.forEach(function(r){contentBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:cn});});
     });
     T.noctr.forEach(function(r){contentBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:title});});
-    if(T.rec.length){
-      contentBlocks.push({type:'recHeader',
-        html:'<div class="rh"><span>Recommendations</span><span class="ch-pill">'+T.rec.length+'</span></div>',
-        htmlCont:'<div class="rh"><span>Recommendations <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+T.rec.length+'</span></div>',ctr:'Recommendations'});
-      T.rec.forEach(function(r){contentBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:'Recommendations'});});
-      contentBlocks.push({type:'recFoot',html:_REC_FOOT});
-    }
   }
   var orderedTrades=[];
   (p.projectTrades||[]).forEach(function(t){if(tradeMap[t]&&orderedTrades.indexOf(t)<0)orderedTrades.push(t);});
   tradeSeen.forEach(function(t){if(orderedTrades.indexOf(t)<0)orderedTrades.push(t);});
-  orderedTrades.forEach(function(t){_emitTrade(t,tradeMap[t],false);});
-  if(_untaggedMode!=='exclude'&&untagged.total>0)_emitTrade('Other Trade Items',untagged,false);
-  if(_includeRecs&&sgRecs.length){
-    var SG=_newTrade('Site General \u00B7 Recommendations');SG.rec=sgRecs;SG.total=sgRecs.length;
-    contentBlocks.push({type:'tradeHeader',
-      html:'<div class="th-band sgr"><span>Site General \u00B7 Recommendations</span><span class="ch-pill">'+SG.total+'</span></div>',
-      htmlCont:'<div class="th-band sgr"><span>Site General \u00B7 Recommendations <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+SG.total+'</span></div>'});
-    sgRecs.forEach(function(r){contentBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:'Site General'});});
-    contentBlocks.push({type:'recFoot',html:_REC_FOOT});
+  orderedTrades.forEach(function(t){_emitTrade(t,tradeMap[t]);});
+  if(_untaggedMode!=='exclude'&&untagged.total>0)_emitTrade('Other Trade Items',untagged);
+}
+
+// S142 Batch 3-2: build the pooled "Recommendations" section blocks.
+// Emitted later, after Previously Closed Items, on a forced new page.
+// Layout (visual contract = ARENCON_Phase3x_Model_Demo.html): a navy
+// band (reuses .th-band, already #2A3A5C) + count, a caption row, then
+// per-trade subheadings (.rec-sub) in projectTrades order with
+// "No trade assigned" LAST, cards via _buildDefCard (REC chip rides it),
+// an inline contractor chip ONLY when a real contractor exists (NO
+// contractor sub-banner), then the optional italic footer (_recFooter).
+if(pooledRecs.length){
+  recBlocks.push({type:'tradeHeader',
+    html:'<div class="th-band recs"><span>Recommendations</span><span class="ch-pill">'+pooledRecs.length+'</span></div>',
+    htmlCont:'<div class="th-band recs"><span>Recommendations <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+pooledRecs.length+'</span></div>'});
+  recBlocks.push({type:'recCap',html:'<div class="rec-cap">Advisory items outside the contracted scope of work. Issued to document professional recommendations and potential additional work.</div>'});
+  var recByTrade={};var recTradeSeen=[];var recNo=[];
+  pooledRecs.forEach(function(r){
+    var t=_pinTrade(r.d);
+    if(t){if(!recByTrade[t]){recByTrade[t]=[];recTradeSeen.push(t);}recByTrade[t].push(r);}
+    else recNo.push(r);
+  });
+  var recOrder=[];
+  (p.projectTrades||[]).forEach(function(t){if(recByTrade[t]&&recOrder.indexOf(t)<0)recOrder.push(t);});
+  recTradeSeen.forEach(function(t){if(recOrder.indexOf(t)<0)recOrder.push(t);});
+  function _emitRecGroup(label,rows){
+    recBlocks.push({type:'ctrHeader',
+      html:'<div class="rec-sub"><span>'+esc(label)+'</span><span class="ch-pill">'+rows.length+'</span></div>',
+      htmlCont:'<div class="rec-sub"><span>'+esc(label)+' <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+rows.length+'</span></div>',ctr:label});
+    rows.forEach(function(r){
+      var chip=_isRealCtr(r.ctr)?('<span class="rec-ctrchip">'+esc(r.ctr)+'</span>'):'';
+      recBlocks.push({type:'defCard',html:_buildDefCard(r,chip),defId:r.d.id,ctr:label});
+    });
   }
+  recOrder.forEach(function(t){_emitRecGroup(t,recByTrade[t]);});
+  if(recNo.length)_emitRecGroup('No trade assigned',recNo);
+  if(_recFooter)recBlocks.push({type:'recFoot',html:_REC_FOOT});
 }
 
 // Open popup
@@ -704,7 +749,12 @@ var _aCtrHtml='';var _aTradeHtml='';
 // at the top of a continued page so a section spanning pages keeps its
 // full Trade -> Contractor context. Mirrors the pre-S139 _aCtrHtml restamp.
 function _restamp(){if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_aTradeHtml);}if(_aCtrHtml){curPageHtml+=_aCtrHtml;curUsed+=_measure(_aCtrHtml);}}
-contentBlocks.forEach(function(block){
+// S142 Batch 3-2: extracted from `contentBlocks.forEach(...)` into a
+// named function so the SAME pagination machinery (page-fit, restamp,
+// dc-split) can flow the pooled Recommendations blocks on their own
+// forced new page after Previously Closed Items. Behaviour identical for
+// the main body — it is still `contentBlocks.forEach(_flowBlock)` below.
+function _flowBlock(block){
   var blockH=_measure(block.html);var avail=PAGE_H-curUsed;
   if(block.type==='tradeHeader'){
     _aTradeHtml=block.htmlCont||block.html;_aCtrHtml='';
@@ -741,7 +791,8 @@ contentBlocks.forEach(function(block){
       curPageHtml+=cF;
     }
   }
-});
+}
+contentBlocks.forEach(_flowBlock);
 if(!isFinalComm&&mainBodyDefs.length){
   // S119 Push G: avoid orphaning the closing note onto a new page when the
   // previous page has just a bit of headroom. The note is one line of 11pt
@@ -777,6 +828,21 @@ if(showClosedSummary&&closedSummaryDefs.length){
   });
   cH2+='</tbody></table></div>';
   _startPage();curPageHtml+=cH2;curUsed+=_measure(cH2);_finalizePage();
+}
+
+// S142 Batch 3-2 (Model 2 §4.4): pooled "Recommendations" section on a
+// FORCED new page, AFTER Previously Closed Items. The prior block always
+// _finalizePage()'d (main body, the closing note, or the Closed summary),
+// so _startPage() here begins a guaranteed fresh page. Reset the restamp
+// state so a continued rec page can't re-stamp a stale deficiency trade
+// band; the first recBlock is the navy "Recommendations" band which then
+// sets _aTradeHtml itself. Flowed through the SAME pagination machinery
+// (_flowBlock) so a long rec list paginates correctly.
+if(recBlocks.length){
+  _aTradeHtml='';_aCtrHtml='';
+  _startPage();
+  recBlocks.forEach(_flowBlock);
+  _finalizePage();
 }
 
 // Appendix
