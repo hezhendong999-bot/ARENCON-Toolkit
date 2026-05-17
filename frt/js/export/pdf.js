@@ -217,8 +217,17 @@ function _buildCSS(fontB64){
   // or top margin since it butts against the trade band above it.
   c+='.ch{background:#7B6F5A;color:white;padding:6px 14px;font-weight:700;font-size:10.5pt;border-radius:0;margin-top:0;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
   c+='.th-band{background:#2A3A5C;color:#fff;padding:8px 14px;font-weight:700;font-size:12pt;border-radius:6px 6px 0 0;margin-top:18px;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
-  c+='.th-band.sgr{background:#6B7280;}';
-  c+='.rh{background:#6B7280;color:#fff;padding:6px 14px;font-weight:700;font-size:10pt;border-radius:0;margin-top:0;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
+  // S142 Batch 3-3 (Model 2 §4.4): pooled "Recommendations" section.
+  // .th-band.recs = grey band (demo --grey #6B7280, distinct from the
+  // navy trade bands); .rec-cap = the advisory caption row directly under
+  // it; .rec-ctrchip = inline contractor chip shown ONLY on the rare
+  // paid-to-contractor rec (muted, same family as the REC .rec-chip).
+  // Replaces the removed S139 .th-band.sgr (the deleted "Site General ·
+  // Recommendations" band) — same colour, repurposed.
+  c+='.th-band.recs{background:#6B7280;}';
+  c+='.rec-cap{border:1px solid #DDE1E7;border-top:none;padding:9px 13px;font-size:9.5pt;color:#5A6473;background:#fff;line-height:1.35;}';
+  c+='.rec-ctrchip{display:inline-block;background:#EEF0F2;color:#5A6472;font-size:8.5pt;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
+  c+='.rec-sub{background:#6B7280;color:#fff;padding:5px 14px;font-weight:700;font-size:9.5pt;border-radius:0;margin:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
   c+='.rec-chip{display:inline-block;background:#EDEBE6;color:#7B6F5A;font-size:8.5pt;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
   c+='.rec-foot{font-size:9.5pt;font-style:italic;color:#5A6473;line-height:1.35;padding:8px 12px;border:1px solid #DDE1E7;border-top:none;background:#FAFAF9;border-radius:0 0 6px 6px;margin-bottom:10px;}';
   c+='.hirec-note{font-size:10pt;font-style:italic;color:#7B6F5A;margin-top:10px;line-height:1.35;}';
@@ -812,18 +821,18 @@ if(showClosedSummary&&closedSummaryDefs.length){
   var csG={};closedSummaryDefs.forEach(function(r){var i=r.d.closedOnInstance||1;if(!csG[i])csG[i]=[];csG[i].push(r);});
   var csI=Object.keys(csG).map(Number).sort(function(a,b){return a-b;});
   var cH2='<div style="border:1px solid #DDE1E7;border-radius:6px;overflow:hidden;"><table style="width:100%;border-collapse:collapse;font-size:10pt;">';
-  cH2+='<thead><tr style="background:#9C2742;color:white;"><th colspan="5" style="padding:8px 12px;text-align:left;font-size:12pt;">Previously Closed Items</th></tr>';
+  cH2+='<thead><tr style="background:#2A3A5C;color:white;"><th colspan="5" style="padding:8px 12px;text-align:left;font-size:12pt;">Previously Closed Items</th></tr>';
   cH2+='<tr style="background:#4A5568;font-weight:700;font-size:9pt;text-transform:uppercase;letter-spacing:.5px;color:white;"><th style="padding:5px 10px;text-align:left;">Pin</th><th style="padding:5px 10px;text-align:left;">Description</th><th style="padding:5px 10px;text-align:left;">Contractor</th><th style="padding:5px 10px;text-align:left;">Noted</th><th style="padding:5px 10px;text-align:left;">Status</th></tr></thead><tbody>';
   csI.forEach(function(inst){
     var items=csG[inst];var cd2=items[0].d.closedDate||'';
-    cH2+='<tr><td colspan="5" style="padding:6px 10px;background:#e8e0e3;font-weight:700;font-size:9.5pt;border-top:1.5px solid #DDE1E7;color:#9C2742;">Closed in FRT #'+inst+(cd2?' \u2014 '+cd2:'')+' ('+items.length+' item'+(items.length!==1?'s':'')+')</td></tr>';
+    cH2+='<tr><td colspan="5" style="padding:6px 10px;background:#EEF2F4;font-weight:700;font-size:9.5pt;border-top:1.5px solid #DDE1E7;color:#4A5568;">Closed in FRT #'+inst+(cd2?' \u2014 '+cd2:'')+' ('+items.length+' item'+(items.length!==1?'s':'')+')</td></tr>';
     items.forEach(function(r,ri){
       // S119 hotfix: use per-obs text + per-obs contractor override (already
       // baked into r.ctr by _pushItems). Pre-S119 this used _deficDesc(r.d)
       // which returns obs[0].text — duplicating the same description across
       // every row of a multi-obs pin.
       var desc=_itemDesc(r);var td=desc.length>80?desc.substring(0,80)+'\u2026':desc;
-      cH2+='<tr style="background:'+(ri%2===0?'#fff':'#fafafa')+';"><td style="padding:5px 10px;font-weight:700;color:#9C2742;">#'+(r.numLabel||r.d.num)+'</td><td style="padding:5px 10px;">'+esc(td)+'</td><td style="padding:5px 10px;">'+esc(r.ctr)+'</td><td style="padding:5px 10px;">FRT #'+(r.d.notedOnInstance||1)+'</td><td style="padding:5px 10px;color:#1A7A4A;font-weight:600;">'+esc(r.d.closedNote||'Addressed')+'</td></tr>';
+      cH2+='<tr style="background:'+(ri%2===0?'#fff':'#fafafa')+';"><td style="padding:5px 10px;font-weight:700;color:#9C2742;">#'+(r.numLabel||r.d.num)+'</td><td style="padding:5px 10px;">'+esc(td)+'</td><td style="padding:5px 10px;">'+esc(r.ctr)+'</td><td style="padding:5px 10px;">FRT #'+(r.d.notedOnInstance||1)+'</td><td style="padding:5px 10px;color:#3F6E55;font-weight:700;">'+esc(r.d.closedNote||'Addressed')+'</td></tr>';
     });
   });
   cH2+='</tbody></table></div>';
