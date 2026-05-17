@@ -346,6 +346,7 @@ export var Model = {
 
     var _migInst = proj.currentFrtInstance || 1;
     var _migToday = new Date().toISOString().split('T')[0];
+    var _iarCleared = 0;  // S143: counts legacy IAR flags cleared this load
     function _migrateDeficArr(arr) {
       (arr || []).forEach(function(d) {
         if ((!d.observations || !d.observations.length) && d.entries && d.entries.length) {
@@ -379,6 +380,14 @@ export var Model = {
         // (Option 2 / additive). The explicit flag, when true, also forces
         // Recommendations grouping (and wins over an assigned contractor).
         if (d.isRecommendation === undefined) d.isRecommendation = false;
+        // ── S143: legacy IAR flag clear (one-directional, idempotent) ──
+        // IAR feature removed S135 (no rendering since S134). The flag
+        // lingered in old JSON and could no longer be toggled off in-UI.
+        // Clear iar:true → false at pin level. Touches ONLY iar — never
+        // priority/status/dates. Idempotent: once cleared, nothing truthy
+        // remains so re-loads are no-ops (no dirty churn). _iarCleared is
+        // counted in the closure for a single console line (no UI noise).
+        if (d.iar) { d.iar = false; _iarCleared++; }
         // ── S119: per-observation priority + addressed metadata backfill ──
         // Idempotent. Each obs gets its own priority (defaults to pin-level
         // priority if missing) so the pin editor's priority buttons can mutate
@@ -401,6 +410,8 @@ export var Model = {
           if (o.trade === undefined) o.trade = '';
           if (o.tradeSource === undefined) o.tradeSource = 'ai';
           if (o.repeatCount === undefined) o.repeatCount = 1;
+          // S143: clear legacy per-obs IAR flag (same contract as pin-level).
+          if (o.iar) { o.iar = false; _iarCleared++; }
         });
         // ── S120: photo pool migration (one-shot, idempotent) ──
         // Bulk-migrate legacy obs.photos[] into defic.photos[] pool, preserve
@@ -473,6 +484,10 @@ export var Model = {
     }
     (proj.contractors || []).forEach(function(c) { _migrateDeficArr(c.deficiencies); });
     _migrateDeficArr(proj.generalDeficiencies);
+    // S143: surface the IAR-clear count to the console (no UI toast — this
+    // is a background normalization). Only logs when something changed;
+    // re-loads of an already-cleared project stay silent.
+    if (_iarCleared > 0) console.log('[Model] S143: cleared ' + _iarCleared + ' legacy IAR flag(s)');
 
     // S130 — Migrate legacy defic-level aiGroup → per-observation aiGroup.
     // Earlier S130 commit shipped defic-level grouping; Mark's actual workflow

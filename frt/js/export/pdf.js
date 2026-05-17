@@ -232,9 +232,10 @@ function _buildCSS(fontB64){
   c+='.dc-insp{display:inline-block;font-size:8.5pt;font-weight:700;padding:2px 7px;border:1px solid;border-radius:10px;letter-spacing:.4px;flex-shrink:0;}';
   c+='.rec-foot{font-size:9.5pt;font-style:italic;color:#5A6473;line-height:1.35;padding:8px 12px;border:1px solid #DDE1E7;border-top:none;background:#FAFAF9;border-radius:0 0 6px 6px;margin-bottom:10px;}';
   c+='.hirec-note{font-size:10pt;font-style:italic;color:#7B6F5A;margin-top:10px;line-height:1.35;}';
-  c+='.rep-key{border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;padding:10px 14px;break-inside:avoid;page-break-inside:avoid;}';
-  c+='.rep-key-ttl{font-size:10.5pt;font-weight:700;color:#2A3A5C;margin-bottom:8px;letter-spacing:.3px;}';
-  c+='.rep-key-row{display:flex;align-items:center;gap:10px;margin:5px 0;}';
+  c+='.rep-key{border:1px solid #DDE1E7;border-radius:6px;margin-top:10px;padding:8px 12px;break-inside:avoid;page-break-inside:avoid;}';
+  c+='.rep-key-ttl{font-size:10.5pt;font-weight:700;color:#2A3A5C;margin-bottom:6px;letter-spacing:.3px;}';
+  c+='.rep-key-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:22px;row-gap:4px;}';
+  c+='.rep-key-row{display:flex;align-items:center;gap:10px;margin:0;}';
   c+='.rep-key .rk-sw{font-size:8.5pt;padding:3px 10px;margin:0;border-radius:5px;min-width:96px;display:inline-flex;justify-content:flex-start;}';
   c+='.rep-key-gloss{font-size:9.5pt;color:#4A5568;}';
   c+='.ch-pill{background:rgba(0,0,0,0.18);color:white;font-weight:700;font-size:9.5pt;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0;}';
@@ -494,7 +495,7 @@ var _hiRecCount=Object.keys(_hiRecIds).length;
 var summaryHtml='';
 if(reportDefs.length){
   var ctrG={};reportDefs.forEach(function(r){if(!ctrG[r.ctr])ctrG[r.ctr]=[];ctrG[r.ctr].push(r);});
-  summaryHtml+='<div style="border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;overflow:hidden;"><table class="st"><thead><tr><th>Deficiency Summary</th><th style="text-align:center;">Total</th><th style="text-align:center;">New This Report</th><th style="text-align:center;">IAR</th><th style="text-align:center;">Outstanding</th><th style="text-align:center;">Closed</th></tr></thead><tbody>';
+  summaryHtml+='<div style="border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;overflow:hidden;"><table class="st"><thead><tr><th>Deficiency Summary</th><th style="text-align:center;">Total</th><th style="text-align:center;">New This Report</th><th style="text-align:center;">Outstanding</th><th style="text-align:center;">Closed</th></tr></thead><tbody>';
   // S119: per-obs aware Outstanding/Closed counts. Each r in reportDefs is one
   // observation (post-flatten); count by the obs's own addressed flag with
   // pin-level fallback for legacy obs.
@@ -510,13 +511,11 @@ if(reportDefs.length){
     var gc=ctrG[ctr];
     summaryHtml+='<tr><td><strong>'+esc(ctr)+'</strong></td><td style="text-align:center;">'+gc.length+'</td>';
     summaryHtml+='<td style="text-align:center;color:#1565C0;font-weight:700;">'+gc.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
-    summaryHtml+='<td style="text-align:center;color:#FF69B4;font-weight:700;">'+gc.filter(function(r){return r.d.iar;}).length+'</td>';
     summaryHtml+='<td style="text-align:center;color:#C0392B;font-weight:700;">'+gc.filter(_rowOpen).length+'</td>';
     summaryHtml+='<td style="text-align:center;color:#1A7A4A;font-weight:700;">'+gc.filter(_rowClosed).length+'</td></tr>';
   });
   summaryHtml+='<tr style="border-top:2px solid #9C2742;font-weight:700;"><td>Total</td><td style="text-align:center;">'+reportDefs.length+'</td>';
   summaryHtml+='<td style="text-align:center;color:#1565C0;">'+reportDefs.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
-  summaryHtml+='<td style="text-align:center;color:#FF69B4;">'+reportDefs.filter(function(r){return r.d.iar;}).length+'</td>';
   summaryHtml+='<td style="text-align:center;color:#C0392B;">'+reportDefs.filter(_rowOpen).length+'</td>';
   summaryHtml+='<td style="text-align:center;color:#1A7A4A;">'+reportDefs.filter(_rowClosed).length+'</td></tr>';
   summaryHtml+='</tbody></table></div>';
@@ -526,15 +525,14 @@ if(reportDefs.length){
   // so the key can never drift from what's actually printed. IAR feature
   // was removed in S135 (no rendering since S134) — no IAR row. Inspector
   // row only when the picker turned tags on.
-  var keyHtml='<div class="rep-key"><div class="rep-key-ttl">Report Key</div>';
-  keyHtml+='<div class="rep-key-row"><span class="th-band rk-sw"><span>Trade</span></span><span class="rep-key-gloss">Trade / contractor section</span></div>';
-  keyHtml+='<div class="rep-key-row"><span class="th-band recs rk-sw"><span>Recommendations</span></span><span class="rep-key-gloss">Advisory items \u2014 not deficiencies</span></div>';
+  var keyHtml='<div class="rep-key"><div class="rep-key-ttl">Report Legend</div><div class="rep-key-grid">';
+  keyHtml+='<div class="rep-key-row"><span class="th-band recs rk-sw"><span>Recommendations</span></span><span class="rep-key-gloss">recommendation items - do not hold off sign-off</span></div>';
   keyHtml+='<div class="rep-key-row"><span class="rec-chip">REC</span><span class="rep-key-gloss">Recommendation item</span></div>';
   keyHtml+='<div class="rep-key-row"><span class="pill-h">Outstanding</span><span class="rep-key-gloss">Outstanding \u2014 high priority</span></div>';
   keyHtml+='<div class="rep-key-row"><span class="pill-l">Outstanding</span><span class="rep-key-gloss">Outstanding \u2014 low priority</span></div>';
   keyHtml+='<div class="rep-key-row"><span class="pill-c">Closed</span><span class="rep-key-gloss">Addressed &amp; closed</span></div>';
   if(inspTag==='initials')keyHtml+='<div class="rep-key-row"><span class="dc-insp" style="color:#6B7280;border-color:#6B7280;">AB</span><span class="rep-key-gloss">Inspector initials \u2014 who logged the item</span></div>';
-  keyHtml+='</div>';
+  keyHtml+='</div></div>';
   summaryHtml+=keyHtml;
   // S139 Phase 3 (D): italic high-priority-recommendation note under the
   // project/deficiency summary (canon §2944; wording per S134 delta,
