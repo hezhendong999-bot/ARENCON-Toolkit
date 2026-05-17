@@ -579,7 +579,22 @@ function _buildDefCard(r){
 // "Recommendations" sub-band + italic footer. REC chip is added in
 // _buildDefCard, so it rides every rec card wherever it lands.
 var _REC_FOOT='<div class="rec-foot">The above items were noted during this review and are provided as recommendations. They fall outside the specific scope of work and are not held against the sign-off letter.</div>';
-function _pinTrade(d){return(d&&d.observations&&d.observations[0]&&d.observations[0].trade)||'';}
+// S142 Batch 3-1 (Model 2 §4.3): canonical trade derivation. Was
+// obs[0].trade only — which disagreed with the on-screen Detailed view
+// and made "Vipond assigned to Sprinkler still shows as Other Trade
+// Items" happen. Now uses Model.derivePinTrade(defic, parentContractor):
+// obs[0].trade -> parent contractor's SOLE declared trade -> ''. The
+// parent contractor is the one whose .deficiencies[] holds the pin (NOT
+// the per-obs r.ctr override); generalDeficiencies / Site Records pass
+// null. PDF grouping and the Detailed view now agree.
+var _parentCtrByDefId={};
+(p.contractors||[]).forEach(function(c){
+  ((c&&c.deficiencies)||[]).forEach(function(d){if(d&&d.id!=null)_parentCtrByDefId[d.id]=c;});
+});
+function _pinTrade(d){
+  var pc=(d&&d.id!=null)?(_parentCtrByDefId[d.id]||null):null;
+  return Model.derivePinTrade(d,pc)||'';
+}
 var _realCtrNames={};(p.contractors||[]).forEach(function(c){if(c&&c.name)_realCtrNames[c.name]=true;});
 function _isRealCtr(nm){return !!_realCtrNames[nm]&&nm!=='Site General';}
 var _ctrIdxByName={};(p.contractors||[]).forEach(function(c,i){if(c&&c.name&&_ctrIdxByName[c.name]==null)_ctrIdxByName[c.name]=i;});
