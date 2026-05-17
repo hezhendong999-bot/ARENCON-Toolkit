@@ -145,6 +145,18 @@ textarea{resize:vertical;min-height:90px;line-height:1.5}
 .dz:hover,.dz.over{border-color:var(--arencon);
   background:var(--arencon-light);color:var(--arencon)}
 .dz img{max-height:160px;border-radius:8px;margin-top:10px}
+/* two-pane review: source image large, beside the questions */
+.work{display:flex;gap:18px;align-items:flex-start;margin-top:8px}
+.work .imgpane{flex:1 1 44%;position:sticky;top:64px;align-self:flex-start;
+  max-height:calc(100vh - 90px);overflow:auto;border:1.5px solid var(--border);
+  border-radius:10px;background:var(--bg);padding:8px}
+.work .imgpane img{display:block;width:100%;height:auto;border-radius:6px;cursor:zoom-in}
+.work .imgpane.zoom img{width:auto;max-width:none;cursor:zoom-out}
+.work .qpane{flex:1 1 56%;min-width:0}
+@media(max-width:760px){
+  .work{flex-direction:column}
+  .work .imgpane{position:sticky;top:56px;width:100%;max-height:46vh}
+}
 
 /* ── auth overlay (fixed; never replaces content) ── */
 #authOv{position:fixed;inset:0;background:var(--bg);z-index:9999;
@@ -574,7 +586,18 @@ function renderCourse(cid){
         <textarea oninput="window.__qe(${i},'why',this.value)" style="min-height:60px">${esc(q.why||'')}</textarea>
         </div>`;
     });
-    document.getElementById('qWrap').innerHTML=h;
+    const wrap=document.getElementById('qWrap');
+    if(imgB64){
+      const src='data:'+(imgMime||'image/jpeg')+';base64,'+imgB64;
+      wrap.innerHTML='<div class="work">'+
+        '<div class="imgpane" id="imgPane" title="Click image to zoom in / out">'+
+        '<img src="'+src+'" alt="source image"></div>'+
+        '<div class="qpane">'+h+'</div></div>';
+      const ip=document.getElementById('imgPane');
+      if(ip) ip.onclick=()=>ip.classList.toggle('zoom');
+    } else {
+      wrap.innerHTML=h;
+    }
   }
   window.__qe=(i,k,v)=>{draftQuiz[i][k]=v;};
   window.__oe=(i,j,v)=>{draftQuiz[i].opts[j]=v;};
