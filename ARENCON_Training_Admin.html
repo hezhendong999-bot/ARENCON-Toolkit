@@ -89,6 +89,12 @@ input[type=text]:focus,textarea:focus,select:focus{
   border-color:var(--arencon);background:#fff;
   box-shadow:0 0 0 3px var(--arencon-light)}
 textarea{resize:vertical;min-height:90px;line-height:1.5}
+/* lesson/source text helpers — autogrow, expand, tidy */
+.txtbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.txtbar label{margin:0}
+.txtmeta{font-size:calc(11.5px + var(--ts));color:var(--silver)}
+#mTXT{resize:vertical;transition:min-height .12s}
+#mTXT.big{min-height:62vh}
 
 /* ── buttons (Hub dash-btn system) ── */
 .btn{font-family:inherit;font-size:calc(12.5px + var(--ts));
@@ -450,7 +456,14 @@ function renderCourse(cid){
      <div class="fld"><label>URL or R2 key</label>
       <input type="text" id="mSU" placeholder="paste video/doc URL"></div>
     </div>
-    <div class="fld"><label>Lesson / source text (used by AI to draft a quiz)</label>
+    <div class="fld">
+     <div class="txtbar">
+      <label>Lesson / source text (used by AI to draft a quiz)</label>
+      <span class="txtmeta" id="txtMeta"></span>
+      <span style="flex:1"></span>
+      <button type="button" class="btn gh sm" id="txtExpand">⤢ Expand</button>
+      <button type="button" class="btn gh sm" id="txtTidy">✨ Tidy into lesson text</button>
+     </div>
      <textarea id="mTXT" placeholder="Paste the lesson text, key points, or notes here. Optional for video modules, but the AI quiz works best with text."></textarea></div>
 
     <div class="note"><b>AI quiz draft.</b> Paste source text above, or drop a
@@ -549,6 +562,7 @@ function renderCourse(cid){
         if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
         const box=document.getElementById('mTXT');
         box.value=d.text||'';
+        syncTxt();
         const m=d.meta||{};
         stat.textContent='Extracted '+Number(m.chars||0).toLocaleString()+
           ' characters from '+(m.units||'?')+' '+(m.unit_label||'')+
@@ -569,6 +583,47 @@ function renderCourse(cid){
   dzDoc.ondrop=e=>{e.preventDefault();dzDoc.classList.remove('over');
     if(e.dataTransfer.files[0])readDoc(e.dataTransfer.files[0]);};
   dzDocIn.onchange=()=>{ if(dzDocIn.files[0]) readDoc(dzDocIn.files[0]); };
+
+  /* ─── lesson-text helpers: autogrow + count, expand, tidy-into-lesson AI ─── */
+  const CLEAN_EF='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-clean';
+  const mTXT=document.getElementById('mTXT');
+  const txtMeta=document.getElementById('txtMeta');
+  function syncTxt(){
+    if(!mTXT) return;
+    mTXT.style.height='auto';
+    mTXT.style.height=Math.max(mTXT.scrollHeight,90)+'px';
+    if(txtMeta){
+      const v=mTXT.value, w=v.trim()?v.trim().split(/\s+/).length:0;
+      txtMeta.textContent=v.length.toLocaleString()+' chars · '+w.toLocaleString()+' words';
+    }
+  }
+  if(mTXT){ mTXT.addEventListener('input',syncTxt); syncTxt(); }
+  const txtExpand=document.getElementById('txtExpand');
+  if(txtExpand) txtExpand.onclick=()=>{
+    mTXT.classList.toggle('big');
+    txtExpand.textContent=mTXT.classList.contains('big')?'⤡ Collapse':'⤢ Expand';
+    syncTxt(); mTXT.focus();
+  };
+  const txtTidy=document.getElementById('txtTidy');
+  if(txtTidy) txtTidy.onclick=async()=>{
+    const t=mTXT.value.trim();
+    if(t.length<20) return toast('Add more source text first (20+ characters)');
+    if(!confirm('Tidy the lesson text with AI? It rewrites for readability only — facts, code references and numbers are preserved. This replaces the current text.')) return;
+    txtTidy.disabled=true; const lbl=txtTidy.textContent; txtTidy.textContent='Tidying…';
+    try{
+      const r=await fetch(CLEAN_EF,{method:'POST',
+        headers:{'Content-Type':'application/json',
+          apikey:SB_ANON,Authorization:'Bearer '+SESSION},
+        body:JSON.stringify({text:t})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
+      if(d.text){ mTXT.value=d.text; syncTxt();
+        const c=d.usage&&d.usage.cost_usd;
+        toast('Lesson text tidied'+(c?(' · $'+Number(c).toFixed(4)):''));
+      } else throw new Error('No text returned');
+    }catch(e){ toast('Tidy failed: '+e.message); }
+    txtTidy.disabled=false; txtTidy.textContent=lbl;
+  };
 
   document.getElementById('genBtn').onclick=async()=>{
     const txt=document.getElementById('mTXT').value.trim();
