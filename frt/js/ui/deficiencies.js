@@ -887,9 +887,9 @@ function _renderTradeBoard(proj) {
     h += '<div class="trade-col-body">';
     ctrsInTrade.forEach(function(c) {
       var col = c.color || '#6B7280';
-      h += '<div class="ctr-card" data-action="ctr-edit" data-ctr-id="' + esc(c.id) + '" style="--cc:' + esc(col) + ';">';
+      h += '<div class="ctr-card" data-ctr-id="' + esc(c.id) + '" style="--cc:' + esc(col) + ';">';
       h += '<span class="ctr-name">' + esc(c.name) + '</span>';
-      h += '<button class="ctr-x" data-action="ctr-remove-from-trade" data-ctr-id="' + esc(c.id) + '" data-trade="' + esc(trade) + '" title="Remove from this trade">\u00D7</button>';
+      h += '<button class="ctr-x" data-action="ctr-remove-from-trade" data-ctr-id="' + esc(c.id) + '" data-trade="' + esc(trade) + '" title="Unassign from this trade (contractor returns to the staging panel below)">\u00D7</button>';
       h += '</div>';
     });
     h += '<button class="trade-add-slot" data-action="pick-add-ctr-to-trade" data-trade="' + esc(trade) + '">+ Add contractor</button>';
@@ -918,6 +918,7 @@ function _renderTradeBoard(proj) {
       h += '<span class="tb-uchip-name">' + esc(c.name) + '</span>';
       h += '<span class="tb-uchip-meta">' + _n + ' item' + (_n === 1 ? '' : 's') + '</span>';
       h += '<button class="tb-uchip-rename" data-action="ctr-rename-inline" data-ctr-id="' + esc(c.id) + '" title="Rename this contractor">Rename</button>';
+      h += '<button class="tb-uchip-del" data-action="ctr-delete-safe" data-ctr-id="' + esc(c.id) + '" title="Delete this contractor (its items move to Site Records, never deleted)">Delete</button>';
       h += '<select class="tb-uassign" data-action="ctr-assign-trade" data-ctr-id="' + esc(c.id) + '" title="Assign to a trade">';
       h += '<option value="">Assign to trade\u2026</option>';
       _assignTrades.forEach(function(t) { h += '<option value="' + esc(t) + '">' + esc(t) + '</option>'; });
@@ -1017,10 +1018,10 @@ function _showCtrEditDialog(ctr) {
       { label: '\uD83D\uDDD1 Delete contractor', color: '#9C2742', action: function() {
           var deficCount = (ctr.deficiencies || []).length;
           var msg = deficCount > 0
-            ? 'Delete "' + ctr.name + '" entirely? This contractor has ' + deficCount + ' deficienc' + (deficCount === 1 ? 'y' : 'ies') + ' that will be deleted.'
+            ? 'Delete "' + ctr.name + '"? Its ' + deficCount + ' item' + (deficCount === 1 ? '' : 's') + ' will be MOVED to Site Records (not deleted). The contractor record will be removed.'
             : 'Delete "' + ctr.name + '" entirely?';
           showConfirm('Delete Contractor', msg).then(function(yes) {
-            if (yes) { Model.removeContractor(ctr.id); initDeficiencies.render(); toast('Deleted: ' + ctr.name); }
+            if (yes) { var _mv = Model.deleteContractorAndReassign(ctr.id); initDeficiencies.render(); toast('Deleted ' + ctr.name + (_mv > 0 ? ' \u2014 ' + _mv + ' item' + (_mv === 1 ? '' : 's') + ' moved to Site Records' : '')); }
           });
         }
       }
@@ -1730,10 +1731,10 @@ document.addEventListener('click', function(e) {
       var ctrName = ctr ? (ctr.name || 'Contractor') : 'Contractor';
       var deficCount = ctr ? (ctr.deficiencies || []).length : 0;
       var msg = deficCount > 0
-        ? 'Remove "' + ctrName + '"? This contractor has ' + deficCount + ' deficienc' + (deficCount === 1 ? 'y' : 'ies') + ' that will be deleted.'
-        : 'Remove "' + ctrName + '"?';
-      showConfirm('Remove Contractor', msg).then(function(yes) {
-        if (yes) { Model.removeContractor(ctrId); initDeficiencies.render(); toast('Removed: ' + ctrName); }
+        ? 'Delete "' + ctrName + '"? Its ' + deficCount + ' item' + (deficCount === 1 ? '' : 's') + ' will be MOVED to Site Records (not deleted). The contractor record will be removed.'
+        : 'Delete "' + ctrName + '"?';
+      showConfirm('Delete Contractor', msg).then(function(yes) {
+        if (yes) { var _mv2 = Model.deleteContractorAndReassign(ctrId); initDeficiencies.render(); toast('Deleted ' + ctrName + (_mv2 > 0 ? ' \u2014 ' + _mv2 + ' item' + (_mv2 === 1 ? '' : 's') + ' moved to Site Records' : '')); }
       });
     }
   }
@@ -1873,6 +1874,36 @@ document.addEventListener('click', function(e) {
             Model.renameContractor(_crId, _nm);
             initDeficiencies.render();
             toast('Renamed to ' + _nm);
+          }
+        });
+      }
+    }
+    return;
+  }
+
+  // S140 B2e: the ONLY contractor-delete path, and it is non-destructive.
+  // deleteContractorAndReassign moves the contractor's deficiencies into
+  // generalDeficiencies (Site Records) BEFORE removing the contractor —
+  // pins/observations/photos are preserved, just reparented. The
+  // destructive Model.removeContractor is no longer called from any UI
+  // path (kept in model.js, unused — S137 discipline). No Undo yet
+  // (Phase 4), so "can't lose data in the first place" is the safety net.
+  if (action === 'ctr-delete-safe') {
+    var _cdId = el.getAttribute('data-ctr-id');
+    if (!_cdId) { var _cdE = el.closest('[data-ctr-id]'); if (_cdE) _cdId = _cdE.getAttribute('data-ctr-id'); }
+    if (_cdId) {
+      var _cdP = Model.getProject();
+      var _cdC = ((_cdP && _cdP.contractors) || []).find(function(c) { return c.id === _cdId; });
+      if (_cdC) {
+        var _cdN = (_cdC.deficiencies || []).length;
+        var _cdMsg = _cdN > 0
+          ? 'Delete "' + _cdC.name + '"? Its ' + _cdN + ' item' + (_cdN === 1 ? '' : 's') + ' will be MOVED to Site Records (not deleted) and can be reassigned. The contractor record will be removed.'
+          : 'Delete "' + _cdC.name + '"? (No items — nothing to move.)';
+        showConfirm('Delete Contractor', _cdMsg).then(function(yes) {
+          if (yes) {
+            var _moved = Model.deleteContractorAndReassign(_cdId);
+            initDeficiencies.render();
+            toast('Deleted ' + _cdC.name + (_moved > 0 ? ' \u2014 ' + _moved + ' item' + (_moved === 1 ? '' : 's') + ' moved to Site Records' : ''));
           }
         });
       }

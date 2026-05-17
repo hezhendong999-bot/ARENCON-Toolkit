@@ -6650,7 +6650,7 @@ body.dark-mode .trade-col-hdr {
   font-weight: 600;
   color: #4A5266;
   color: color-mix(in srgb, var(--cc, #6B7280) 82%, black);
-  cursor: pointer;
+  cursor: default;
   line-height: 1.25;
   transition: background 0.12s;
 }
@@ -6836,6 +6836,18 @@ body.dark-mode .tb-uchip { background: var(--card); }
 }
 .tb-uchip-rename:hover { border-color: #9C2742; color: #9C2742; }
 body.dark-mode .tb-uchip-rename:hover { color: #E0A0B0; border-color: #E0A0B0; }
+.tb-uchip-del {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--steel);
+  font-family: Calibri, sans-serif;
+  font-size: calc(11px + var(--ts));
+  font-weight: 600;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.tb-uchip-del:hover { border-color: var(--no); color: var(--no); }
 .tb-uassign {
   border: 1px solid var(--border);
   border-radius: 4px;
