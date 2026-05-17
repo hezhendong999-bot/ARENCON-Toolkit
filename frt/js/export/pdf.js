@@ -523,17 +523,16 @@ if(reportDefs.length){
   // S143 (Phase 3 C, re-scoped under Model 2): Report Key. Explains the
   // visual vocabulary the reader is about to meet — reuses the LITERAL
   // report classes (.th-band, .th-band.recs, .rec-chip, .pill-*, .dc-insp)
-  // so the key can never drift from what's actually printed. IAR row only
-  // when IAR items exist; inspector row only when the picker turned tags on.
-  var _anyIar=reportDefs.some(function(r){return r.d&&r.d.iar;});
+  // so the key can never drift from what's actually printed. IAR feature
+  // was removed in S135 (no rendering since S134) — no IAR row. Inspector
+  // row only when the picker turned tags on.
   var keyHtml='<div class="rep-key"><div class="rep-key-ttl">Report Key</div>';
   keyHtml+='<div class="rep-key-row"><span class="th-band rk-sw"><span>Trade</span></span><span class="rep-key-gloss">Trade / contractor section</span></div>';
   keyHtml+='<div class="rep-key-row"><span class="th-band recs rk-sw"><span>Recommendations</span></span><span class="rep-key-gloss">Advisory items \u2014 not deficiencies</span></div>';
   keyHtml+='<div class="rep-key-row"><span class="rec-chip">REC</span><span class="rep-key-gloss">Recommendation item</span></div>';
   keyHtml+='<div class="rep-key-row"><span class="pill-h">Outstanding</span><span class="rep-key-gloss">Outstanding \u2014 high priority</span></div>';
-  keyHtml+='<div class="rep-key-row"><span class="pill-l">Outstanding</span><span class="rep-key-gloss">Outstanding \\u2014 low priority</span></div>';
+  keyHtml+='<div class="rep-key-row"><span class="pill-l">Outstanding</span><span class="rep-key-gloss">Outstanding \u2014 low priority</span></div>';
   keyHtml+='<div class="rep-key-row"><span class="pill-c">Closed</span><span class="rep-key-gloss">Addressed &amp; closed</span></div>';
-  if(_anyIar)keyHtml+='<div class="rep-key-row"><span class="pill-iar">IAR</span><span class="rep-key-gloss">Identified at review</span></div>';
   if(inspTag==='initials')keyHtml+='<div class="rep-key-row"><span class="dc-insp" style="color:#6B7280;border-color:#6B7280;">AB</span><span class="rep-key-gloss">Inspector initials \u2014 who logged the item</span></div>';
   keyHtml+='</div>';
   summaryHtml+=keyHtml;
