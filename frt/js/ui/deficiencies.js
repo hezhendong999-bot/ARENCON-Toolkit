@@ -105,6 +105,7 @@ var _dfxSearch = '';                     // free-text filter (obs.text)
 var _dfxCtr = '';                        // contractorId filter ('' = all)
 var _dfxPri = '';                        // priority filter ('' = all | 'high' | 'low' | 'general')
 var _dfxRecMode = 'def';                  // S140 B2b: 3-state filter (Model 2 §4.2) — 'def' (default; recs hidden → short working list) | 'rec' (recommendations only) | 'both'
+var _pickCtrId = null;                     // S142 §2: contractor awaiting a trade click (pick-mode); null = not picking
 
 // S114 P1.8: Gallery picker — modal lets user select project site photos to attach
 // to a deficiency observation. Selected photos are appended to obs.photos with
@@ -857,106 +858,137 @@ function _renderDeficLog(proj, allDefics) {
   el.innerHTML = h;
 }
 
-// ── Trade Board (S136 Phase 1b — replaces _renderContractorsOnSite) ───
-// Kanban-style trade columns. Each column lists contractors that have the
-// trade in their .trades[] array. Schema lives in model.js (Phase 1a):
-// project.projectTrades, contractor.trades, contractor.color.
+// ── Contractor Roster · Click-to-Assign (S142 §2) ────────────────────
+// Replaces the S136 kanban Trade Board AND the S141 B2f roster (both
+// superseded; their handlers are kept defined-but-inert per S137 — this
+// render fn simply stops emitting their data-actions). The whole
+// contractor surface is now ONE card: a colour-coded, deletable trade
+// pill strip with a prebuilt `+ trade ▾` dropdown, then a 2-up roster of
+// compact one-line cards. Assign = click the per-card ⊕ (enter pick
+// mode), then click a glowing trade pill. Schema unchanged
+// (project.projectTrades, contractor.trades, contractor.color); trade
+// colour is NAME-DERIVED only — no schema field, no migration.
+// Visual contract: ARENCON_ClickAssign_Demo.html (Mark approved
+// verbatim). CSS: frt.css "S142 §2" block (crx- namespace).
+
+// Fixed muted, on-brand palette mapped per prebuilt trade (bg/fg/bd).
+// Custom trades hash deterministically into the two muted EXTRA slots so
+// a trade keeps its colour across delete/re-add AND across render order
+// (the demo cycled by call-order; a name-hash is the deterministic
+// realization Mark's spec requires — still only the 2 EXTRA colours, no
+// picker). Honours the muted-palette rule (no neon).
+var _TRADE_PAL = {
+  'Sprinkler':          { bg: '#E4ECF4', fg: '#345A82', bd: '#9DB6CF' },
+  'Fire Alarm':         { bg: '#F3E6E3', fg: '#8A4A3C', bd: '#CDA79B' },
+  'General Contracting':{ bg: '#E7EFE5', fg: '#4C6B41', bd: '#A9C09C' },
+  'Electrical':         { bg: '#F4ECDD', fg: '#876026', bd: '#CFB68A' },
+  'Mechanical':         { bg: '#E6E9F1', fg: '#46557A', bd: '#A3AECB' },
+  'Civil':              { bg: '#ECE7F2', fg: '#5C4A7C', bd: '#B7A9CE' }
+};
+var _TRADE_EXTRA = [
+  { bg: '#E7F0EF', fg: '#3D6B66', bd: '#9CC3BE' },
+  { bg: '#F1E9EC', fg: '#7C4A60', bd: '#CCA7B8' }
+];
+function _tradeColor(t) {
+  if (_TRADE_PAL[t]) return _TRADE_PAL[t];
+  var s = String(t || ''), n = 0, i;
+  for (i = 0; i < s.length; i++) n = (n + s.charCodeAt(i)) % 100000;
+  return _TRADE_EXTRA[n % _TRADE_EXTRA.length];
+}
+function _tradeVars(t) {
+  var c = _tradeColor(t);
+  return '--tc-bg:' + c.bg + ';--tc-fg:' + c.fg + ';--tc-bd:' + c.bd + ';';
+}
+
 function _renderTradeBoard(proj) {
   var el = document.getElementById('contractors-on-site');
   if (!el) return;
   var trades = (proj.projectTrades && proj.projectTrades.length) ? proj.projectTrades : [];
   var ctrs = proj.contractors || [];
-  // Default trades (anything in TRADE_LIST) cannot be removed; only "custom" trades show \u00D7 in header
-  var defaultSet = {};
-  TRADE_LIST.forEach(function(t) { defaultSet[t] = true; });
 
-  var h = '<div class="trade-board">';
-  trades.forEach(function(trade) {
-    var ctrsInTrade = ctrs.filter(function(c) { return (c.trades || []).indexOf(trade) !== -1; });
-    var isCustom = !defaultSet[trade];
-    h += '<div class="trade-col" data-trade="' + esc(trade) + '">';
-    h += '<div class="trade-col-hdr">';
-    h += '<span class="trade-col-name">' + esc(trade) + '</span>';
-    h += '<span class="trade-col-hdr-right">';
-    h += '<span class="trade-col-count">' + ctrsInTrade.length + '</span>';
-    if (isCustom) {
-      h += '<button class="trade-col-del" data-action="del-trade-col" data-trade="' + esc(trade) + '" title="Remove trade column">\u00D7</button>';
-    }
+  // Pick-mode target (module var _pickCtrId). Clear it if it points at a
+  // contractor that no longer exists (deleted while picking).
+  if (_pickCtrId && !ctrs.some(function(c) { return c.id === _pickCtrId; })) _pickCtrId = null;
+  var pickCtr = _pickCtrId ? ctrs.filter(function(c) { return c.id === _pickCtrId; })[0] : null;
+  var pickHas = pickCtr ? (pickCtr.trades || []) : [];
+
+  var h = '';
+
+  // ── trade pill strip ──
+  h += '<div class="crx-trades-row">';
+  h += '<span class="crx-trades-lbl">Trades</span>';
+  h += '<div class="crx-trades">';
+  trades.forEach(function(t) {
+    var taken = !!pickCtr && pickHas.indexOf(t) !== -1;
+    h += '<span class="crx-tpill' + (taken ? ' crx-taken' : '') + '" data-action="crx-pill" data-trade="' + esc(t) + '" style="' + _tradeVars(t) + '">';
+    h += esc(t);
+    h += '<button class="crx-px" data-action="crx-del-trade" data-trade="' + esc(t) + '" title="Delete trade everywhere">\u00D7</button>';
     h += '</span>';
-    h += '</div>';
-    h += '<div class="trade-col-body">';
-    ctrsInTrade.forEach(function(c) {
-      var col = c.color || '#6B7280';
-      h += '<div class="ctr-card" data-ctr-id="' + esc(c.id) + '" style="--cc:' + esc(col) + ';">';
-      h += '<span class="ctr-name">' + esc(c.name) + '</span>';
-      h += '<button class="ctr-x" data-action="ctr-remove-from-trade" data-ctr-id="' + esc(c.id) + '" data-trade="' + esc(trade) + '" title="Unassign from this trade (contractor returns to the staging panel below)">\u00D7</button>';
-      h += '</div>';
-    });
-    h += '<button class="trade-add-slot" data-action="pick-add-ctr-to-trade" data-trade="' + esc(trade) + '">+ Add contractor</button>';
-    h += '</div>';
-    h += '</div>';
   });
-  h += '<button class="trade-add-col" data-action="show-add-trade">+ trade</button>';
+  h += '</div>';
+  // + trade ▾ — prebuilt trades not yet added + "+ new trade…"
+  h += '<span class="crx-addtrade-wrap">';
+  h += '<button class="crx-addtrade" data-action="crx-trade-menu-toggle" title="Add a trade to the strip">+ trade \u25BE</button>';
+  h += '<div class="crx-trade-menu" id="crx-trade-menu">';
+  var _avail = TRADE_LIST.filter(function(t) { return trades.indexOf(t) === -1; });
+  _avail.forEach(function(t) {
+    h += '<button class="crx-trade-menu-item" data-action="crx-add-prebuilt" data-trade="' + esc(t) + '">' + esc(t) + '</button>';
+  });
+  h += '<button class="crx-trade-menu-item crx-trade-menu-new" data-action="crx-add-new-trade">+ new trade\u2026</button>';
+  h += '</div></span>';
   h += '</div>';
 
-  // ── S141 B2f: Contractor Roster (Model 2 §4.2 redesign — persistent) ──
-  // The roster is now a PERMANENT home for EVERY contractor (always
-  // rendered — no longer a conditional triage strip). It is the single
-  // master spot to Add / Rename / Delete / Assign. A contractor not on
-  // any trade gets a golden border (.cr-chip.unassigned); the border
-  // clears the moment it is on >=1 trade — the chip stays listed either
-  // way. Container is neutral muted (the amber "warning" chrome moved to
-  // the per-chip golden border, per Mark's spec). Renaming/adding is
-  // still never possible inside a Trade Board column. Assign here is
-  // ADDITIVE (Model.addContractorToTrade) so existing trades are kept.
-  var _assignTrades = (trades && trades.length) ? trades : TRADE_LIST;
+  // ── pick bar (CSS shows it only under body.crx-picking) ──
+  h += '<div class="crx-pickbar">';
+  h += '<span>Pick a trade above to assign to <b>' + esc(pickCtr ? pickCtr.name : '') + '</b></span>';
+  h += '<button class="crx-cancel" data-action="crx-pick-cancel">Cancel (Esc)</button>';
+  h += '</div>';
+
+  // ── roster header ──
+  h += '<div class="crx-roster-h">';
+  h += '<span class="crx-ttl">Contractors</span>';
+  h += '<button class="crx-roster-add" data-action="crx-add-ctr" title="Add a new contractor">+ Add contractor</button>';
+  h += '</div>';
+
+  // ── 2-up roster grid (unassigned/golden first, then A–Z) ──
   var _roster = ctrs.slice().sort(function(a, b) {
     var au = !((a.trades || []).length), bu = !((b.trades || []).length);
-    if (au !== bu) return au ? -1 : 1;            // unassigned (golden) first
+    if (au !== bu) return au ? -1 : 1;
     return (a.name || '').localeCompare(b.name || '');
   });
-  h += '<div class="ctr-roster">';
-  h += '<div class="ctr-roster-hdr">';
-  h += '<span>Contractor Roster</span>';
-  h += '<button class="ctr-roster-add" data-action="roster-add-ctr" title="Add a new contractor to the roster">+ Add contractor</button>';
-  h += '</div>';
   if (_roster.length) {
-    h += '<div class="ctr-roster-list">';
+    h += '<div class="crx-grid">';
     _roster.forEach(function(c) {
-      var _n = (c.deficiencies || []).length;
       var _ct = (c.trades || []);
       var _un = !_ct.length;
-      h += '<div class="cr-chip' + (_un ? ' unassigned' : '') + '" style="--cc:' + esc(c.color || '#6B7280') + ';">';
-      h += '<span class="cr-chip-dot"></span>';
-      h += '<span class="cr-chip-name">' + esc(c.name) + '</span>';
-      if (_un) {
-        h += '<span class="cr-chip-unflag">Unassigned</span>';
-      } else {
-        h += '<span class="cr-chip-tags">';
-        _ct.forEach(function(t) { h += '<span class="cr-tag">' + esc(t) + '</span>'; });
+      var _n = (c.deficiencies || []).length;
+      var _tgt = (_pickCtrId === c.id);
+      h += '<div class="crx-cc' + (_un ? ' crx-unassigned' : '') + (_tgt ? ' crx-target' : '') + '" style="--cc:' + esc(c.color || '#6B7280') + ';">';
+      h += '<span class="crx-dot"></span>';
+      h += '<span class="crx-nm">' + esc(c.name) + '</span>';
+      if (_un) h += '<span class="crx-unflag">Unassigned</span>';
+      h += '<span class="crx-tagwrap">';
+      _ct.forEach(function(t) {
+        h += '<span class="crx-tag" style="' + _tradeVars(t) + '">' + esc(t);
+        h += '<button class="crx-tx" data-action="crx-untag" data-ctr-id="' + esc(c.id) + '" data-trade="' + esc(t) + '" title="Un-assign ' + esc(c.name) + ' from ' + esc(t) + '">\u00D7</button>';
         h += '</span>';
-      }
-      h += '<span class="cr-chip-meta">' + _n + ' item' + (_n === 1 ? '' : 's') + '</span>';
-      h += '<button class="cr-chip-rename" data-action="ctr-rename-inline" data-ctr-id="' + esc(c.id) + '" title="Rename this contractor">Rename</button>';
-      h += '<button class="cr-chip-del" data-action="ctr-delete-safe" data-ctr-id="' + esc(c.id) + '" title="Delete this contractor (its items move to Site Records, never deleted)">Delete</button>';
-      h += '<select class="cr-assign" data-action="ctr-assign-trade" data-ctr-id="' + esc(c.id) + '" title="Assign to a trade (adds the trade; existing trades are kept)">';
-      h += '<option value="">' + (_un ? 'Assign to trade\u2026' : 'Add another trade\u2026') + '</option>';
-      _assignTrades.forEach(function(t) {
-        if (_ct.indexOf(t) === -1) h += '<option value="' + esc(t) + '">' + esc(t) + '</option>';
       });
-      h += '</select>';
+      h += '<button class="crx-addbtn" data-action="crx-pick-start" data-ctr-id="' + esc(c.id) + '" title="Assign a trade">\u2295</button>';
+      h += '</span>';
+      h += '<span class="crx-spacer"></span>';
+      h += '<span class="crx-meta">' + _n + ' item' + (_n === 1 ? '' : 's') + '</span>';
+      h += '<button class="crx-ic" data-action="crx-rename" data-ctr-id="' + esc(c.id) + '" title="Rename contractor">\u270E</button>';
+      h += '<button class="crx-ic crx-del" data-action="crx-del-ctr" data-ctr-id="' + esc(c.id) + '" title="Delete contractor (items move to Site Records, never deleted)">\uD83D\uDDD1</button>';
       h += '</div>';
     });
     h += '</div>';
   } else {
-    h += '<div class="ctr-roster-empty">No contractors yet \u2014 use <strong>+ Add contractor</strong> to start, then assign each to a trade.</div>';
+    h += '<div class="crx-empty">No contractors yet \u2014 use <strong>+ Add contractor</strong> to start, then click \u2295 on a contractor to assign a trade.</div>';
   }
-  h += '<div class="ctr-roster-hint">Add, rename, delete and assign contractors here \u2014 the master spot. A golden border means the contractor is not on any trade yet. Assigning adds a trade column; existing trades are kept.</div>';
-  h += '</div>';
+  h += '<div class="crx-hint">Click \u2295 on a contractor, then click a glowing trade pill to assign it. \u00D7 on a tag un-assigns just that contractor; \u00D7 on a strip pill deletes the trade everywhere. A golden border means the contractor is on no trade yet.</div>';
 
-  // S138: trade-board-foot "+ General Deficiency" removed — superseded by
-  // the single unified "+ deficiency" trigger at the foot of every view.
   el.innerHTML = h;
+  document.body.classList.toggle('crx-picking', !!_pickCtrId);
 }
 
 // Smart picker — overlay modal for adding contractor to a trade column
@@ -1952,6 +1984,147 @@ document.addEventListener('click', function(e) {
     });
     return;
   }
+  // ── S142 §2: Contractor Roster · Click-to-Assign handlers ──
+  // The S136/B2f handlers above are kept defined but are no longer
+  // emitted by _renderTradeBoard (S137 discipline). These replace them.
+
+  if (action === 'crx-trade-menu-toggle') {
+    var _menu = document.getElementById('crx-trade-menu');
+    if (_menu) _menu.classList.toggle('crx-open');
+    return;
+  }
+
+  if (action === 'crx-add-prebuilt') {
+    var _apt = el.getAttribute('data-trade');
+    if (_apt) { Model.addProjectTrade(_apt); initDeficiencies.render(); toast('Added trade: ' + _apt); }
+    return;
+  }
+
+  if (action === 'crx-add-new-trade') {
+    showPrompt('Add Trade', 'New trade name:').then(function(nm) {
+      var _nt = (nm || '').trim();
+      if (_nt) { Model.addProjectTrade(_nt); initDeficiencies.render(); toast('Added trade: ' + _nt); }
+    });
+    return;
+  }
+
+  if (action === 'crx-add-ctr') {
+    // Bare contractor (Model.addContractor — NO auto-deficiency). Lands
+    // in the roster with a golden border, ready for ⊕ → pick a trade.
+    showPrompt('Add Contractor', 'Contractor name:').then(function(n) {
+      var _cn = (n || '').trim();
+      if (_cn) {
+        var _cc = Model.addContractor(_cn);
+        initDeficiencies.render();
+        if (_cc) toast('Added ' + _cc.name + ' \u2014 click \u2295 to assign a trade');
+      }
+    });
+    return;
+  }
+
+  if (action === 'crx-pick-start') {
+    var _psId = el.getAttribute('data-ctr-id');
+    if (_psId) { _pickCtrId = _psId; initDeficiencies.render(); }
+    return;
+  }
+
+  if (action === 'crx-pick-cancel') {
+    if (_pickCtrId) { _pickCtrId = null; initDeficiencies.render(); }
+    return;
+  }
+
+  if (action === 'crx-pill') {
+    // Only meaningful in pick-mode. Assign the clicked trade to the
+    // pick-target (additive/idempotent; auto-creates the column). The ×
+    // on the pill has its own data-action (crx-del-trade) and is
+    // display:none under body.crx-picking — no double-assign path.
+    if (!_pickCtrId) return;
+    var _plT = el.getAttribute('data-trade');
+    var _plP = Model.getProject();
+    var _plC = ((_plP && _plP.contractors) || []).filter(function(c) { return c.id === _pickCtrId; })[0];
+    if (_plT && _plC && (_plC.trades || []).indexOf(_plT) === -1) {
+      Model.addContractorToTrade(_pickCtrId, _plT);
+      var _plN = _plC.name;
+      _pickCtrId = null;
+      initDeficiencies.render();
+      toast(_plN + ' \u2192 ' + _plT);
+    }
+    return;
+  }
+
+  if (action === 'crx-untag') {
+    var _utId = el.getAttribute('data-ctr-id');
+    var _utT = el.getAttribute('data-trade');
+    if (_utId && _utT) {
+      Model.removeContractorFromTrade(_utId, _utT);
+      initDeficiencies.render();
+      toast('Un-assigned from ' + _utT);
+    }
+    return;
+  }
+
+  if (action === 'crx-del-trade') {
+    // × on a strip pill = delete the trade everywhere. Hidden during
+    // pick-mode (CSS), so this only fires when NOT picking. Confirm with
+    // an un-tag count (handoff §2.7 Q3).
+    if (_pickCtrId) return;
+    var _dtT = el.getAttribute('data-trade');
+    if (!_dtT) return;
+    var _dtP = Model.getProject();
+    var _dtN = ((_dtP && _dtP.contractors) || []).filter(function(c) { return (c.trades || []).indexOf(_dtT) !== -1; }).length;
+    var _dtMsg = _dtN > 0
+      ? 'Delete the "' + _dtT + '" trade everywhere? ' + _dtN + ' contractor' + (_dtN === 1 ? '' : 's') + ' will be un-tagged from it (contractor records and their deficiencies are preserved).'
+      : 'Delete the "' + _dtT + '" trade? (No contractors are on it.)';
+    showConfirm('Delete Trade', _dtMsg).then(function(yes) {
+      if (yes) { Model.removeProjectTrade(_dtT); initDeficiencies.render(); toast('Deleted trade: ' + _dtT); }
+    });
+    return;
+  }
+
+  if (action === 'crx-rename') {
+    var _rnId = el.getAttribute('data-ctr-id');
+    if (_rnId) {
+      var _rnP = Model.getProject();
+      var _rnC = ((_rnP && _rnP.contractors) || []).filter(function(c) { return c.id === _rnId; })[0];
+      if (_rnC) {
+        showPrompt('Rename Contractor', 'New name:', _rnC.name).then(function(nm) {
+          var _rnn = (nm || '').trim();
+          if (_rnn && _rnn !== _rnC.name) {
+            Model.renameContractor(_rnId, _rnn);
+            initDeficiencies.render();
+            toast('Renamed to ' + _rnn);
+          }
+        });
+      }
+    }
+    return;
+  }
+
+  if (action === 'crx-del-ctr') {
+    // Non-destructive (Model.deleteContractorAndReassign): items move to
+    // Site Records, never deleted. Same safety contract as B2f.
+    var _dcId = el.getAttribute('data-ctr-id');
+    if (_dcId) {
+      var _dcP = Model.getProject();
+      var _dcC = ((_dcP && _dcP.contractors) || []).filter(function(c) { return c.id === _dcId; })[0];
+      if (_dcC) {
+        var _dcN = (_dcC.deficiencies || []).length;
+        var _dcMsg = _dcN > 0
+          ? 'Delete "' + _dcC.name + '"? Its ' + _dcN + ' item' + (_dcN === 1 ? '' : 's') + ' will be MOVED to Site Records (not deleted) and can be reassigned. The contractor record will be removed.'
+          : 'Delete "' + _dcC.name + '"? (No items \u2014 nothing to move.)';
+        showConfirm('Delete Contractor', _dcMsg).then(function(yes) {
+          if (yes) {
+            var _dcMoved = Model.deleteContractorAndReassign(_dcId);
+            if (_pickCtrId === _dcId) _pickCtrId = null;
+            initDeficiencies.render();
+            toast('Deleted ' + _dcC.name + (_dcMoved > 0 ? ' \u2014 ' + _dcMoved + ' item' + (_dcMoved === 1 ? '' : 's') + ' moved to Site Records' : ''));
+          }
+        });
+      }
+    }
+    return;
+  }
+
   // ── End Trade Board handlers ────────────────────────────────
 
   if (action === 'add-general') {
@@ -2748,6 +2921,36 @@ document.addEventListener('keydown', function(e) {
       initDeficiencies.render();
       toast('Added: ' + name);
     }
+  }
+});
+
+// ── S142 §2: pick-mode click-away + trade-menu outside-close ──
+// Capture phase so it runs BEFORE the bubble action dispatch. In
+// pick-mode, a click that is NOT on a trade pill / ⊕ / the pick bar
+// cancels the pick (faithful to the approved demo). Independently, any
+// click outside the open "+ trade ▾" menu closes it. Guarded to no-op
+// when neither is active, so it never interferes with other views.
+document.addEventListener('click', function(e) {
+  var _cm = document.getElementById('crx-trade-menu');
+  if (_cm && _cm.classList.contains('crx-open')
+      && !(e.target.closest && e.target.closest('.crx-addtrade-wrap'))) {
+    _cm.classList.remove('crx-open');
+  }
+  if (!_pickCtrId) return;
+  if (e.target.closest && (e.target.closest('.crx-tpill')
+      || e.target.closest('.crx-addbtn') || e.target.closest('.crx-pickbar'))) return;
+  _pickCtrId = null;
+  initDeficiencies.render();
+}, true);
+
+// S142 §2: Esc cancels pick-mode. Only acts when _pickCtrId is set
+// (Contractor Roster pick-mode) — never active in the drawing viewer,
+// so it cannot conflict with the viewer's tool/copy Escape rule. Bubble
+// phase + no stopPropagation so other Esc handlers still receive it.
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && _pickCtrId) {
+    _pickCtrId = null;
+    initDeficiencies.render();
   }
 });
 
