@@ -226,18 +226,23 @@ function _autoDedup(proj) {
 // ── Public API ───────────────────────────────────────────
 
 /**
- * S135 Phase 1a: Default trade list reduced from the 8-trade life-safety
- * order to 4 trades. Standpipe / Fire Pump / Extinguishers roll up under
- * Sprinkler 99% of the time (same contractor scope); Smoke Control /
- * Kitchen Hood / Passive-Separations are rare enough to add per-project
- * via the trade board's `+ trade` column. "Building Conditions" absorbs
- * non-trade observations that still belong in the report.
+ * S142 S1 (§2 redesign): the six prebuilt trades. "Building Conditions"
+ * REMOVED (it was a non-trade catch-all — under Model 2 those land in
+ * "Other Trade Items" / Site Records, not a trade). Added Electrical,
+ * Mechanical, Civil so the Contractor Roster `+ trade ▾` dropdown offers
+ * the full prebuilt set. Standpipe / Fire Pump / Extinguishers still roll
+ * up under Sprinkler 99% of the time (same contractor scope) and any
+ * one-off can be added via "+ new trade…".
  *
- * TRADE_LIST is now the SEED for `project.projectTrades` on new/legacy
+ * TRADE_LIST is the SEED for `project.projectTrades` on new/legacy
  * projects. Existing per-project `projectTrades` is the source-of-truth
- * after load. Existing obs.trade values not in this list (e.g.
- * "Standpipe", "Fire Pump", "Extinguishers" from prior S134 sessions)
- * stay intact in JSON — UI renders them as additional dropdown options.
+ * after load. Existing obs.trade / contractor.trades values not in this
+ * list (e.g. legacy "Standpipe", "Building Conditions", custom trades)
+ * stay intact in JSON — the UI tolerates out-of-list trades and renders
+ * them with a muted fallback colour (deficiencies.js _tradeColor).
+ *
+ * Trade colour is NAME-DERIVED only (deficiencies.js) — no schema field,
+ * no migration; a deleted-then-re-added trade keeps its colour.
  *
  * Empty trades suppressed.
  */
@@ -245,7 +250,9 @@ export var TRADE_LIST = [
   'Sprinkler',
   'Fire Alarm',
   'General Contracting',
-  'Building Conditions'
+  'Electrical',
+  'Mechanical',
+  'Civil'
 ];
 
 /**
