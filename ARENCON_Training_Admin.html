@@ -136,6 +136,23 @@ textarea{resize:vertical;min-height:90px;line-height:1.5}
   padding:16px 18px;margin-bottom:12px;background:var(--card)}
 .qprev label{margin-top:8px}
 .qprev label:first-child{margin-top:0}
+/* read-only review card — scan first, click any text or ✎ to edit */
+.qcard{border:1.5px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;margin-bottom:12px;background:var(--card)}
+.qcard .qn{font-size:calc(11px + var(--ts));font-weight:700;color:var(--silver);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.qcard .qq{font-size:calc(14.5px + var(--ts));font-weight:700;color:var(--fg);
+  margin-bottom:10px;line-height:1.45;cursor:text}
+.qopt{display:flex;gap:8px;align-items:flex-start;padding:7px 10px;margin:4px 0;
+  border:1.5px solid var(--border);border-radius:8px;background:var(--bg);
+  font-size:calc(13px + var(--ts));color:var(--fg);cursor:text}
+.qopt .mk{flex-shrink:0;font-weight:800;color:var(--silver)}
+.qopt.ok{background:var(--ok-bg);border-color:var(--ok)}
+.qopt.ok .mk{color:var(--ok)}
+.qwhy{margin-top:8px;font-size:calc(12.5px + var(--ts));color:var(--steel);
+  line-height:1.5;cursor:text}
+.qwhy b{color:var(--arencon)}
+.qbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 
 /* ── drop zone (FRT photo-zone family) ── */
 .dz{border:2px dashed var(--border);border-radius:var(--radius);
@@ -566,26 +583,49 @@ function renderCourse(cid){
     b.disabled=false; b.textContent='✨ Draft quiz with AI';
   };
 
+  let editIdx=-1;
   function renderDraft(Q){
-    let h='<div class="note"><b>Editable draft.</b> Fix wording or the correct answer, then Save module.</div>';
+    let h='<div class="note"><b>Review the draft.</b> It is read-only — scan it and Save. '+
+      'Click any text (or ✎) to edit, ↻ to regenerate one question, ✕ to delete it.</div>';
     Q.forEach((q,i)=>{
-      h+=`<div class="qprev">
-        <label>Question ${i+1}</label>
-        <input type="text" value="${esc(q.q)}" oninput="window.__qe(${i},'q',this.value)">
-        <div style="margin-top:8px">`;
-      q.opts.forEach((o,j)=>{
-        h+=`<div class="row" style="margin:6px 0;align-items:center">
-          <input type="text" value="${esc(o)}" style="flex:1"
-            oninput="window.__oe(${i},${j},this.value)">
-          <label style="display:flex;align-items:center;gap:5px;text-transform:none;font-weight:600;color:var(--ink);margin:0">
-           <input type="radio" name="ans${i}" ${q.answer===j?'checked':''}
-             onchange="window.__ae(${i},${j})" style="width:auto"> correct</label>
+      if(i===editIdx){
+        h+=`<div class="qprev">
+          <label>Question ${i+1} — editing</label>
+          <input type="text" value="${esc(q.q)}" oninput="window.__qe(${i},'q',this.value)">
+          <div style="margin-top:8px">`;
+        q.opts.forEach((o,j)=>{
+          h+=`<div class="row" style="margin:6px 0;align-items:center">
+            <input type="text" value="${esc(o)}" style="flex:1"
+              oninput="window.__oe(${i},${j},this.value)">
+            <label style="display:flex;align-items:center;gap:5px;text-transform:none;font-weight:600;color:var(--fg);margin:0">
+             <input type="radio" name="ans${i}" ${q.answer===j?'checked':''}
+               onchange="window.__ae(${i},${j})" style="width:auto"> correct</label>
+            </div>`;
+        });
+        h+=`</div><label style="margin-top:8px">Why (shown after answering)</label>
+          <textarea oninput="window.__qe(${i},'why',this.value)" style="min-height:60px">${esc(q.why||'')}</textarea>
+          <div class="qbtns"><button class="btn pri sm" onclick="window.__doneQ()">Done</button></div>
           </div>`;
-      });
-      h+=`</div><label style="margin-top:8px">Why (shown after answering)</label>
-        <textarea oninput="window.__qe(${i},'why',this.value)" style="min-height:60px">${esc(q.why||'')}</textarea>
-        </div>`;
+      } else {
+        h+=`<div class="qcard">
+          <div class="qn">Question ${i+1}</div>
+          <div class="qq" onclick="window.__editQ(${i})">${esc(q.q)}</div>`;
+        q.opts.forEach((o,j)=>{
+          const ok=q.answer===j;
+          h+=`<div class="qopt${ok?' ok':''}" onclick="window.__editQ(${i})">
+            <span class="mk">${ok?'✓':String.fromCharCode(65+j)}</span>
+            <span>${esc(o)}</span></div>`;
+        });
+        if(q.why) h+=`<div class="qwhy" onclick="window.__editQ(${i})"><b>Why:</b> ${esc(q.why)}</div>`;
+        h+=`<div class="qbtns">
+          <button class="btn gh sm" onclick="window.__editQ(${i})">✎ Edit</button>
+          <button class="btn gh sm" id="rg${i}" onclick="window.__regenQ(${i})">↻ Regenerate</button>
+          <button class="btn dn sm" onclick="window.__delQ(${i})">✕ Delete</button>
+          </div></div>`;
+      }
     });
+    h+=`<div class="note" style="margin-top:4px">${Q.length} question${Q.length===1?'':'s'}.
+      <button class="btn gh sm" id="addQ" onclick="window.__addQ()" style="margin-left:6px">＋ Add one with AI</button></div>`;
     const wrap=document.getElementById('qWrap');
     if(imgB64){
       const src='data:'+(imgMime||'image/jpeg')+';base64,'+imgB64;
@@ -602,6 +642,37 @@ function renderCourse(cid){
   window.__qe=(i,k,v)=>{draftQuiz[i][k]=v;};
   window.__oe=(i,j,v)=>{draftQuiz[i].opts[j]=v;};
   window.__ae=(i,j)=>{draftQuiz[i].answer=j;};
+  window.__editQ=(i)=>{editIdx=i;renderDraft(draftQuiz);};
+  window.__doneQ=()=>{editIdx=-1;renderDraft(draftQuiz);};
+  window.__delQ=(i)=>{ if(!confirm('Delete this question?'))return;
+    draftQuiz.splice(i,1); editIdx=-1; renderDraft(draftQuiz); };
+  async function regenOne(i){
+    const txt=document.getElementById('mTXT').value.trim();
+    if(!txt&&!imgB64) throw new Error('Need source text or an image');
+    const avoid=draftQuiz.filter((_,k)=>k!==i).map(q=>q.q);
+    const out=await aiQuiz(txt,imgB64,imgMime,{count:1,avoid});
+    if(out&&out[0]) draftQuiz[i]=out[0]; else throw new Error('No question returned');
+  }
+  window.__regenQ=async(i)=>{
+    const b=document.getElementById('rg'+i);
+    if(b){ b.disabled=true; b.textContent='…'; }
+    try{ await regenOne(i); editIdx=-1; renderDraft(draftQuiz);
+      toast('Question regenerated'); }
+    catch(e){ toast('Regenerate failed: '+e.message);
+      if(b){ b.disabled=false; b.textContent='↻ Regenerate'; } }
+  };
+  window.__addQ=async()=>{
+    const txt=document.getElementById('mTXT').value.trim();
+    if(!txt&&!imgB64){ toast('Need source text or an image'); return; }
+    const b=document.getElementById('addQ');
+    if(b){ b.disabled=true; b.textContent='…'; }
+    try{
+      const out=await aiQuiz(txt,imgB64,imgMime,{count:1,avoid:draftQuiz.map(q=>q.q)});
+      if(out&&out[0]){ draftQuiz.push(out[0]); renderDraft(draftQuiz);
+        toast('Added a question'); }
+    }catch(e){ toast('Add failed: '+e.message);
+      if(b){ b.disabled=false; b.textContent='＋ Add one with AI'; } }
+  };
 
   document.getElementById('addM').onclick=async()=>{
     const t=document.getElementById('mT').value.trim();
@@ -624,13 +695,17 @@ window.delMod=async id=>{
 };
 
 /* ─── AI quiz drafting (Claude API; works in-artifact, key via Worker in prod) ─── */
-async function aiQuiz(text,imgB64,imgMime){
+async function aiQuiz(text,imgB64,imgMime,opts){
   /* Calls the deployed Supabase Edge Function 'training-quiz'.
      Server holds the Anthropic key + prompt + shape normalization.
-     Auth: the user's Supabase session JWT (validated in-function). */
+     Auth: the user's Supabase session JWT (validated in-function).
+     opts (optional): {count:N, avoid:[existing question texts]} —
+     used to regenerate / add a single non-duplicate question. */
   const EDGE='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-quiz';
   const payload={ sourceText:text||'', context:{tool:'training'} };
   if(imgB64) payload.photos=[{data:imgB64,media_type:imgMime||'image/jpeg'}];
+  if(opts&&opts.count) payload.count=opts.count;
+  if(opts&&Array.isArray(opts.avoid)) payload.avoid=opts.avoid;
   const r=await fetch(EDGE,{method:'POST',
     headers:{'Content-Type':'application/json',
       apikey:SB_ANON,Authorization:'Bearer '+SESSION},
