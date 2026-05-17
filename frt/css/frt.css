@@ -6784,6 +6784,79 @@ body.dark-mode .trade-add-col-input {
   color: #E0E5F0;
 }
 
+/* ── S140 B2d: Unassigned-contractor strip (Model 2 §4.2) ──
+   Amber, deliberately SEPARATE from the Trade Board (its own bordered
+   region, never a trade column). Rename + assign-to-trade live here so
+   renaming never happens inside a trade column. Muted palette, Calibri
+   inherited; --warn token carries the amber, dark mode via var()s. */
+.tb-unassigned {
+  margin-top: 14px;
+  border: 1px solid var(--warn);
+  background: #FBF6EC;
+  border-radius: 7px;
+  padding: 10px 12px;
+}
+body.dark-mode .tb-unassigned { background: #221B0A; }
+.tb-unassigned-hdr {
+  font-size: calc(12px + var(--ts));
+  font-weight: 700;
+  color: var(--warn);
+  letter-spacing: 0.2px;
+  margin-bottom: 9px;
+}
+.tb-warn-dot { margin-right: 4px; }
+.tb-unassigned-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.tb-uchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: calc(12px + var(--ts));
+}
+body.dark-mode .tb-uchip { background: var(--card); }
+.tb-uchip-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--cc, #6B7280); flex-shrink: 0;
+}
+.tb-uchip-name { font-weight: 700; color: var(--fg); }
+.tb-uchip-meta { color: var(--silver); font-size: calc(11px + var(--ts)); }
+.tb-uchip-rename {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--steel);
+  font-family: Calibri, sans-serif;
+  font-size: calc(11px + var(--ts));
+  font-weight: 600;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.tb-uchip-rename:hover { border-color: #9C2742; color: #9C2742; }
+body.dark-mode .tb-uchip-rename:hover { color: #E0A0B0; border-color: #E0A0B0; }
+.tb-uassign {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #F7F8FA;
+  color: var(--steel);
+  font-family: Calibri, sans-serif;
+  font-size: calc(11px + var(--ts));
+  padding: 3px 6px;
+  cursor: pointer;
+  outline: none;
+}
+.tb-uassign:focus { border-color: #9C2742; }
+body.dark-mode .tb-uassign { background: #1C2333; color: #E0E5F0; }
+.tb-unassigned-hint {
+  margin-top: 9px;
+  font-size: calc(11px + var(--ts));
+  font-style: italic;
+  color: var(--silver);
+}
+/* End S140 B2d ─────────────────────────────────────────────────────── */
+
 /* Footer of trade board — preserves + General Deficiency CTA */
 .trade-board-foot {
   padding: 8px 14px 12px;

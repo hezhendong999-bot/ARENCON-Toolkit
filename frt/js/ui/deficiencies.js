@@ -898,6 +898,37 @@ function _renderTradeBoard(proj) {
   });
   h += '<button class="trade-add-col" data-action="show-add-trade">+ trade</button>';
   h += '</div>';
+
+  // ── S140 B2d: Unassigned-contractor strip (Model 2 §4.2) ──
+  // Contractors added via the pin editor land with an empty trades[] and
+  // were previously invisible in the Trade Board (no column lists them).
+  // They get an amber strip — SEPARATE from the Trade Board, never a
+  // trade column — where they are renamed + assigned to a trade. Renaming
+  // is deliberately NOT possible inside a trade column.
+  var _unassigned = ctrs.filter(function(c) { return !((c.trades || []).length); });
+  if (_unassigned.length) {
+    var _assignTrades = (trades && trades.length) ? trades : TRADE_LIST;
+    h += '<div class="tb-unassigned">';
+    h += '<div class="tb-unassigned-hdr"><span class="tb-warn-dot">\u26A0</span> Unassigned contractors \u2014 added from the pin editor, not yet on a trade</div>';
+    h += '<div class="tb-unassigned-list">';
+    _unassigned.forEach(function(c) {
+      var _n = (c.deficiencies || []).length;
+      h += '<div class="tb-uchip" style="--cc:' + esc(c.color || '#6B7280') + ';">';
+      h += '<span class="tb-uchip-dot"></span>';
+      h += '<span class="tb-uchip-name">' + esc(c.name) + '</span>';
+      h += '<span class="tb-uchip-meta">' + _n + ' item' + (_n === 1 ? '' : 's') + '</span>';
+      h += '<button class="tb-uchip-rename" data-action="ctr-rename-inline" data-ctr-id="' + esc(c.id) + '" title="Rename this contractor">Rename</button>';
+      h += '<select class="tb-uassign" data-action="ctr-assign-trade" data-ctr-id="' + esc(c.id) + '" title="Assign to a trade">';
+      h += '<option value="">Assign to trade\u2026</option>';
+      _assignTrades.forEach(function(t) { h += '<option value="' + esc(t) + '">' + esc(t) + '</option>'; });
+      h += '</select>';
+      h += '</div>';
+    });
+    h += '</div>';
+    h += '<div class="tb-unassigned-hint">Rename and assign here \u2014 contractors are never renamed inside a Trade Board column. Assigning a trade moves the contractor into that column.</div>';
+    h += '</div>';
+  }
+
   // S138: trade-board-foot "+ General Deficiency" removed — superseded by
   // the single unified "+ deficiency" trigger at the foot of every view.
   el.innerHTML = h;
@@ -1829,6 +1860,25 @@ document.addEventListener('click', function(e) {
     }
     return;
   }
+  if (action === 'ctr-rename-inline') {
+    var _crId = el.getAttribute('data-ctr-id');
+    if (!_crId) { var _crE = el.closest('[data-ctr-id]'); if (_crE) _crId = _crE.getAttribute('data-ctr-id'); }
+    if (_crId) {
+      var _crP = Model.getProject();
+      var _crC = ((_crP && _crP.contractors) || []).find(function(c) { return c.id === _crId; });
+      if (_crC) {
+        showPrompt('Rename Contractor', 'New name:', _crC.name).then(function(nm) {
+          var _nm = (nm || '').trim();
+          if (_nm && _nm !== _crC.name) {
+            Model.renameContractor(_crId, _nm);
+            initDeficiencies.render();
+            toast('Renamed to ' + _nm);
+          }
+        });
+      }
+    }
+    return;
+  }
   // ── End Trade Board handlers ────────────────────────────────
 
   if (action === 'add-general') {
@@ -2261,7 +2311,20 @@ document.addEventListener('change', function(e) {
   var action = e.target.getAttribute && e.target.getAttribute('data-action');
   if (!action) return;
 
-  // S121 Push 7: per-obs status select (multi-obs path). Reuses
+  // S140 B2d: assign an unassigned contractor to a trade from the strip.
+  // addProjectTrade is idempotent — guarantees the destination column
+  // exists so the contractor visibly moves out of the strip into it.
+  if (action === 'ctr-assign-trade') {
+    var _atId = e.target.getAttribute('data-ctr-id');
+    var _atT = e.target.value;
+    if (_atId && _atT) {
+      Model.addProjectTrade(_atT);
+      Model.setContractorTrades(_atId, [_atT]);
+      initDeficiencies.render();
+      toast('Assigned to ' + _atT);
+    }
+    return;
+  }
   // toggleObsAddressed when the new state differs from the current. IAR
   // confirmation flows through the same path as toggle-addressed.
   if (action === 'obs-status') {
