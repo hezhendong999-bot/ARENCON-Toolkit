@@ -366,6 +366,13 @@ function renderCourse(cid){
       <input type="file" id="dzIn" accept="image/*" capture="environment" multiple hidden></div>
     </div>
 
+    <div style="margin:12px 0">
+     <div class="dz" id="dzDoc">📄 Attach a PDF, Word, or PowerPoint — click or drop<br>
+      <span style="font-size:12px">Text is extracted on the server and fills the lesson box above — no copy-paste — then draft the quiz</span>
+      <input type="file" id="dzDocIn" accept=".pdf,.docx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden></div>
+     <div id="docStat" style="font-size:calc(12px + var(--ts));color:var(--steel);margin-top:6px;line-height:1.5"></div>
+    </div>
+
     <div class="btnrow">
      <button class="btn gh" id="genBtn">✨ Draft quiz with AI</button>
      <button class="btn pri" id="addM">Save module</button>
@@ -425,6 +432,47 @@ function renderCourse(cid){
     };
     r.readAsDataURL(f);
   }
+
+  /* ─── document → text (server-side extract; fills the lesson box) ─── */
+  const EXTRACT_EF='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-extract';
+  function readDoc(f){
+    const stat=document.getElementById('docStat');
+    if(!/\.(pdf|docx|pptx)$/i.test(f.name)){
+      return toast('Use a PDF, .docx, or .pptx file');
+    }
+    stat.textContent='Reading '+f.name+' on the server…';
+    const rd=new FileReader();
+    rd.onload=async()=>{
+      const b64=String(rd.result).split(',')[1]||'';
+      try{
+        const r=await fetch(EXTRACT_EF,{method:'POST',
+          headers:{'Content-Type':'application/json',
+            apikey:SB_ANON,Authorization:'Bearer '+SESSION},
+          body:JSON.stringify({file:b64,filename:f.name,media_type:f.type||''})});
+        const d=await r.json().catch(()=>({}));
+        if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
+        const box=document.getElementById('mTXT');
+        box.value=d.text||'';
+        const m=d.meta||{};
+        stat.textContent='Extracted '+Number(m.chars||0).toLocaleString()+
+          ' characters from '+(m.units||'?')+' '+(m.unit_label||'')+
+          ' ('+String(m.kind||'').toUpperCase()+')'+
+          (m.truncated?' — truncated to fit; trim if needed':'')+
+          '. Review/trim the text above, then “✨ Draft quiz with AI”.';
+        const st=document.getElementById('mSTYPE'); if(st) st.value='doc';
+        toast('Document text extracted into the lesson box');
+      }catch(e){ stat.textContent=''; toast('Extract failed: '+e.message); }
+    };
+    rd.onerror=()=>{ stat.textContent=''; toast('Could not read that file'); };
+    rd.readAsDataURL(f);
+  }
+  const dzDoc=document.getElementById('dzDoc'),dzDocIn=document.getElementById('dzDocIn');
+  dzDoc.onclick=()=>dzDocIn.click();
+  dzDoc.ondragover=e=>{e.preventDefault();dzDoc.classList.add('over');};
+  dzDoc.ondragleave=()=>dzDoc.classList.remove('over');
+  dzDoc.ondrop=e=>{e.preventDefault();dzDoc.classList.remove('over');
+    if(e.dataTransfer.files[0])readDoc(e.dataTransfer.files[0]);};
+  dzDocIn.onchange=()=>{ if(dzDocIn.files[0]) readDoc(dzDocIn.files[0]); };
 
   document.getElementById('genBtn').onclick=async()=>{
     const txt=document.getElementById('mTXT').value.trim();
