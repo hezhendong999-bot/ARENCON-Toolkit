@@ -1,6 +1,7 @@
 // ARENCON Training Center — Quiz Draft Edge Function
-// Generates a 4-question multiple-choice knowledge check from pasted
-// source text and/or an uploaded photo/drawing.
+// Generates multiple-choice knowledge checks (default 4, or a single
+// replacement question via {count, avoid}) from pasted source text
+// and/or an uploaded photo/drawing.
 //
 // Converted from the validated arencon-ai-worker quiz_draft mode.
 // Single-purpose by design (modularity rule): this function ONLY does
@@ -13,8 +14,8 @@
 //   SUPABASE_URL          — auto-injected by Supabase
 //   SUPABASE_SERVICE_ROLE_KEY — auto-injected by Supabase
 //
-// Auth: verify_jwt is enabled at deploy → Supabase rejects any request
-// without a valid logged-in user's JWT before this code even runs.
+// Auth: deployed with verify_jwt=false so the browser CORS preflight
+// passes; the JWT is validated in-code below (same security).
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
@@ -26,16 +27,17 @@ const ALLOWED_ORIGINS = [
 
 const PROMPT_QUIZ_DRAFT = `You write short multiple-choice knowledge checks for fire protection trainees at ARENCON Inc., a consulting firm in Ontario, Canada (OBC / NFPA / ULC context).
 
-Generate exactly 4 questions from the supplied source material (text and/or an image — a field photo or drawing).
+Generate the requested number of multiple-choice questions from the supplied source material (text and/or an image — a field photo or drawing).
 
 RULES:
 - Test UNDERSTANDING and REASONING, not trivia recall. Prefer "why" / "what would you do" / "what is the consequence" over "what is the definition of".
-- 4 plausible options each; distractors must be believable to someone with partial knowledge, not obviously wrong.
-- Exactly one correct option. "answer" is its 0-based index.
+- Exactly 4 options. Exactly ONE is correct and unambiguously so; "answer" is its 0-based index.
+- The 3 distractors must be plausible to a trainee with partial knowledge but clearly incorrect to someone who knows the material — never arguably-also-correct.
+- Options must be parallel in form and similar in length. No "All of the above" / "None of the above". Do not telegraph the answer by making it the longest or most detailed option.
+- Each question must stand alone — do not reference "the image above" in the text, since the saved question may be shown without the image.
 - "why" explains the reasoning the trainee should have used — not just "because it's correct". This is the teaching moment.
-- Use correct fire protection terminology and code references where natural (NFPA 13/20/25/72, OBC, ULC).
+- Use correct fire protection terminology and code references where natural (NFPA 13/20/25/72, OBC, ULC). Do NOT fabricate code clause numbers you are unsure of.
 - If an image is supplied, base questions on what it actually shows (identify the component/condition/issue). Do NOT invent details not visible.
-- Do NOT fabricate code clause numbers you are unsure of.
 
 Respond with ONLY valid JSON — no markdown, no backticks:
 [
@@ -110,6 +112,10 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const sourceText = (body.sourceText || "").trim();
     const photos = Array.isArray(body.photos) ? body.photos : [];
+    const count = Math.max(1, Math.min(8, parseInt(String(body.count)) || 4));
+    const avoid = Array.isArray(body.avoid)
+      ? body.avoid.map((s: unknown) => String(s)).filter(Boolean).slice(0, 12)
+      : [];
 
     if (!sourceText && photos.length === 0) {
       return json(
@@ -137,12 +143,16 @@ Deno.serve(async (req: Request) => {
         source: { type: "base64", media_type: ph.media_type, data: ph.data },
       });
     }
-    let qText = "Generate 4 questions";
+    let qText = `Generate exactly ${count} question${count === 1 ? "" : "s"}`;
     if (photos.length) qText += " based on what the image(s) show";
     if (sourceText) {
       qText += (photos.length ? " and the source below" : " from the source below") +
         ":\n\n" + sourceText.slice(0, 12000);
     } else qText += ".";
+    if (avoid.length) {
+      qText += "\n\nDo NOT repeat or closely paraphrase any of these existing questions:\n- " +
+        avoid.join("\n- ");
+    }
     content.push({ type: "text", text: qText });
 
     // 4. Call Anthropic
