@@ -92,6 +92,14 @@ Training Center files are `ARENCON_Training_*.html` + `training-quiz-
 edge.ts`). Push via GitHub REST API. Mark hard-refreshes to pick up
 changes. Commit messages: "Training NN: brief description".
 
+**Assets are in the repo, NOT project knowledge.** When a page needs the
+logo, fetch `logo_base64.txt` from the repo via the GitHub API and inject
+it programmatically (it includes the full `data:image/png;base64,`
+prefix). The Blair wordmark font (`Blaimim_base64.txt`) is also in the
+repo if ever needed, but Training Center uses **Calibri only** — Blair is
+wordmark-only and the logo image covers that. Never ask Mark for these
+files; never put them in project knowledge.
+
 ## Working style
 
 Deliberate, skeptical, terse directives ("continue", "keep going",
