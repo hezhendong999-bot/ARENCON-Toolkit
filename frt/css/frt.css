@@ -7710,3 +7710,59 @@ body.dark-mode .dfx-recmode { background: #1C2333; }
 }
 .dfx-recmode-btn.active { background: #9C2742; color: #FFFFFF; }
 /* End S138 unified + deficiency (canonical) ───────────────────────── */
+
+/* ── S143 (Phase 3 G/3.5): Inspector attribution chip + toggle ──────
+   Chip rides in the reserved .obs-insp-slot (defined above). Color is
+   carried per-instance via the --ic custom property (set inline from
+   Model._inspectorColor). One channel only — no other inspector signal
+   competes for this slot. */
+.obs-insp-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 4px;
+  border-radius: 9px;
+  font-family: Calibri, sans-serif;
+  font-size: calc(10px + var(--ts));
+  font-weight: 700;
+  letter-spacing: .3px;
+  line-height: 1;
+  color: var(--ic, #6B7280);
+  background: color-mix(in srgb, var(--ic, #6B7280) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ic, #6B7280) 45%, transparent);
+  user-select: none;
+  white-space: nowrap;
+}
+body.dark-mode .obs-insp-chip {
+  color: color-mix(in srgb, var(--ic, #8A94B0) 70%, #FFFFFF);
+  background: color-mix(in srgb, var(--ic, #8A94B0) 22%, transparent);
+  border-color: color-mix(in srgb, var(--ic, #8A94B0) 55%, transparent);
+}
+
+/* Control-bar toggle — matches .dfx-recmode-btn sizing/idiom. */
+.dfx-insp-toggle {
+  background: transparent;
+  color: #8A94B0;
+  border: 1px solid transparent;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-family: Calibri, sans-serif;
+  font-size: calc(13px + var(--ts));
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dfx-insp-toggle.active { background: #4A6B5A; color: #FFFFFF; }
+.dfx-insp-toggle:not(.active) { opacity: .75; }
+body.dark-mode .dfx-insp-toggle { color: #8A94B0; }
+body.dark-mode .dfx-insp-toggle.active { background: #4A6B5A; color: #FFFFFF; }
+
+/* Mandatory: touch devices have no :hover — give the toggle a larger
+   tap target and the chip a touch-comfortable min size. */
+@media (pointer: coarse) {
+  .dfx-insp-toggle { padding: 9px 14px; }
+  .obs-insp-chip { min-width: 24px; height: 22px; font-size: calc(11px + var(--ts)); }
+}

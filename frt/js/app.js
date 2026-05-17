@@ -1371,6 +1371,15 @@ function _openPDFPicker() {
   h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts));cursor:pointer;">';
   h += '<input type="checkbox" id="pdf-include-site-records"> Include Site Records (internal)</label></div>';
 
+  // S143 (Phase 3 G/3.5): inspector attribution in the PDF. Off by
+  // default — keeps client-facing reports clean. "Initials tag" prints
+  // the same per-observation initials chip shown on screen.
+  h += '<div style="margin-bottom:16px;"><label style="display:block;font-size:calc(13px + var(--ts));font-weight:600;margin-bottom:6px;">Inspector attribution</label>';
+  h += '<select id="pdf-insp-tag" style="width:100%;padding:7px 10px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));border:1px solid var(--border);border-radius:6px;">';
+  h += '<option value="off" selected>Off (no inspector marks)</option>';
+  h += '<option value="initials">Initials tag on each item</option>';
+  h += '</select></div>';
+
   // S139 Phase 3: Renumber→PDF merge — replaces the removed control-bar
   // button. Amber accent uses the canon-approved muted --warn #B7791F
   // (NOT the forbidden bright #E67E22).
@@ -1410,6 +1419,7 @@ function _openPDFPicker() {
     var recsMode = (document.getElementById('pdf-recs-mode') || {}).value || 'bottom';
     var recFooter = document.getElementById('pdf-rec-footer').checked;
     var includeSiteRecords = document.getElementById('pdf-include-site-records').checked;
+    var inspTag = (document.getElementById('pdf-insp-tag') || {}).value || 'off';
     var doRenumber = document.getElementById('pdf-renumber').checked;
     var _ut = document.querySelector('input[name="pdf-untagged"]:checked');
     var untaggedMode = _ut ? _ut.value : 'show';
@@ -1431,6 +1441,7 @@ function _openPDFPicker() {
       recsMode: recsMode,
       recFooter: recFooter,
       includeSiteRecords: includeSiteRecords,
+      inspTag: inspTag,
       untaggedMode: untaggedMode
     });
   });
@@ -1520,6 +1531,17 @@ function boot() {
       console.log('[FRT v2] Authenticated as:', user.email);
       // S83: push user id into Model so newly-created entities get createdBy
       if (Model.setCurrentUser) Model.setCurrentUser(user.id);
+      // S143 (Phase 3 G/3.5): inject the batch profiles fetcher so the
+      // resolver can turn createdBy ids into name/initials/color. Reuses
+      // the proven Auth.request profiles pattern. Standalone mode never
+      // reaches here (no auth path) → resolver stays inert, chips hidden.
+      if (Model.setInspectorFetch) {
+        Model.setInspectorFetch(function (ids) {
+          if (!ids || !ids.length) return Promise.resolve([]);
+          return Auth.request('/rest/v1/profiles?id=in.(' + ids.join(',') + ')&select=id,full_name')
+            .then(function (rows) { return rows || []; });
+        });
+      }
       // S116 Push 8: pull full_name from profiles table — Mark reported
       // the inspector chip showed "MHE" (stale localStorage) instead of
       // his real name, because the FRT was reading email.split('@')[0]
@@ -1537,6 +1559,9 @@ function boot() {
           fullName = (user.email || '').split('@')[0].toUpperCase();
         }
         localStorage.setItem(LS_INSPECTOR, fullName);
+        // S143: seed the resolver so the current user's own observations
+        // show a real-name chip immediately (no round-trip for self).
+        if (Model.setInspectorEntry) Model.setInspectorEntry(user.id, fullName);
         _updateInspectorChip();
         // Lock chip in Hub mode — inspector identity is the authenticated
         // user's real name. Free-form editing in standalone mode still

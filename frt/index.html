@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=338">
+<link rel="stylesheet" href="css/frt.css?v=339">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -471,6 +471,7 @@ function ensurePdfJs(cb){
                 <button class="dfx-recmode-btn" data-recmode="both">Both</button>
               </div>
             </div>
+            <button class="dfx-insp-toggle active" id="dfx-insp-toggle" title="Show / hide who logged each observation" aria-pressed="true">👤 Initials</button>
             <div class="view-toggle">
               <button class="view-toggle-btn active" data-view="detailed">📋 Detailed</button>
               <button class="view-toggle-btn" data-view="table">≡ Table</button>

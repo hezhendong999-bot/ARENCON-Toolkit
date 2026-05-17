@@ -21,6 +21,16 @@ var _autoSaveInterval = null;
 // Every new entity is stamped with this id as createdBy. Never mutated after creation.
 var _currentUserId = null;
 
+// S143 (Phase 3 G/3.5): Inspector resolver. Maps a createdBy userId to a
+// display shape { name, initials, color } for the on-card chip + PDF tag.
+// Pure data layer — model.js has no Auth import, so app.js injects a batch
+// fetch fn via Model.setInspectorFetch(). Resolver only does cache + shape.
+var _inspectorCache = {};        // userId -> { name, initials, color }
+var _inspectorFetch = null;      // injected: function(idArray) -> Promise<[{id,full_name}]>
+var _inspectorPending = {};      // userId -> true while a fetch is in flight
+// Deterministic id -> muted palette slot (reuses CONTRACTOR_COLOR_PALETTE so
+// no new colors enter the system; stable per id across sessions).
+
 var SAVE_DEBOUNCE_MS = 800;
 var AUTO_SAVE_MS = 15000;
 
@@ -1899,6 +1909,97 @@ export var Model = {
     _currentUserId = userId || null;
   },
   getCurrentUser: function() { return _currentUserId; },
+
+  // ── S143: Inspector resolver (Phase 3 G/3.5) ────────────────
+  // app.js injects an Auth-backed batch fetcher in Batch B. fn receives an
+  // array of userIds, returns Promise resolving to [{id, full_name}, ...].
+  setInspectorFetch: function(fn) { _inspectorFetch = (typeof fn === 'function') ? fn : null; },
+
+  _inspectorColor: function(userId) {
+    if (!userId) return null;
+    var h = 0, s = String(userId);
+    for (var i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
+    var idx = Math.abs(h) % CONTRACTOR_COLOR_PALETTE.length;
+    return CONTRACTOR_COLOR_PALETTE[idx];
+  },
+
+  _inspectorInitials: function(name) {
+    var n = (name || '').trim();
+    if (!n) return '\u2014';
+    var parts = n.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+    }
+    return parts[0].substring(0, 2).toUpperCase();
+  },
+
+  // Synchronous. Returns the chip shape immediately.
+  //  - createdBy null/legacy  -> { name:'\u2014', initials:'\u2014', color:null } (neutral, no fetch)
+  //  - cached                 -> resolved shape
+  //  - unknown                -> provisional { name:'', initials:'\u2014', color } + bg batch fetch
+  resolveInspector: function(userId) {
+    if (!userId) return { name: '\u2014', initials: '\u2014', color: null };
+    if (_inspectorCache[userId]) return _inspectorCache[userId];
+    if (userId === _currentUserId) {
+      // Self is special-cased by app.js (it already knows the signed-in
+      // name); seed a color-only provisional so the chip paints instantly.
+      var pSelf = { name: '', initials: '\u2014', color: this._inspectorColor(userId) };
+      this.primeInspectors([userId]);
+      return pSelf;
+    }
+    this.primeInspectors([userId]);
+    return { name: '', initials: '\u2014', color: this._inspectorColor(userId) };
+  },
+
+  // Directly seed/override a resolved entry (app.js uses this for the
+  // signed-in user, whose name it already resolved at boot).
+  setInspectorEntry: function(userId, name) {
+    if (!userId) return;
+    _inspectorCache[userId] = {
+      name: (name || '').trim(),
+      initials: this._inspectorInitials(name),
+      color: this._inspectorColor(userId)
+    };
+    this._notify('inspectors', { userId: userId });
+  },
+
+  // Batch warm the cache for a set of ids. Debounced via _inspectorPending so
+  // the same id isn't fetched twice while a request is in flight.
+  primeInspectors: function(userIds) {
+    if (!_inspectorFetch) return;
+    var want = [];
+    (userIds || []).forEach(function(id) {
+      if (!id) return;
+      if (_inspectorCache[id] || _inspectorPending[id]) return;
+      _inspectorPending[id] = true;
+      want.push(id);
+    });
+    if (!want.length) return;
+    var self = this;
+    Promise.resolve(_inspectorFetch(want)).then(function(rows) {
+      (rows || []).forEach(function(r) {
+        if (!r || !r.id) return;
+        var nm = (r.full_name || '').trim();
+        _inspectorCache[r.id] = {
+          name: nm,
+          initials: self._inspectorInitials(nm),
+          color: self._inspectorColor(r.id)
+        };
+      });
+      // Any id that came back with no row: cache a color-only entry so we
+      // don't refetch forever (e.g. deleted profile).
+      want.forEach(function(id) {
+        if (!_inspectorCache[id]) {
+          _inspectorCache[id] = { name: '', initials: '\u2014', color: self._inspectorColor(id) };
+        }
+        delete _inspectorPending[id];
+      });
+      self._notify('inspectors', { userIds: want });
+    }).catch(function(e) {
+      console.warn('[Model] inspector fetch failed:', e);
+      want.forEach(function(id) { delete _inspectorPending[id]; });
+    });
+  },
 
   getSitePhotos: function() { return _project ? (_project.photos || []) : []; },
   hasUnsavedChanges: function() { return _dirty; },

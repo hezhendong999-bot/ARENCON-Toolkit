@@ -106,6 +106,12 @@ var _dfxCtr = '';                        // contractorId filter ('' = all)
 var _dfxPri = '';                        // priority filter ('' = all | 'high' | 'low' | 'general')
 var _dfxRecMode = 'def';                  // S140 B2b: 3-state filter (Model 2 §4.2) — 'def' (default; recs hidden → short working list) | 'rec' (recommendations only) | 'both'
 var _pickCtrId = null;                     // S142 §2: contractor awaiting a trade click (pick-mode); null = not picking
+// S143 (Phase 3 G/3.5): show/hide the per-observation inspector initials chip.
+// Persisted; default ON. '0' = hidden.
+var _showInspChip = (function () {
+  try { return localStorage.getItem('arencon-frt-insp-chip') !== '0'; } catch (e) { return true; }
+})();
+var _inspChipSubscribed = false;           // guard: subscribe to Model 'inspectors' once
 
 // S114 P1.8: Gallery picker — modal lets user select project site photos to attach
 // to a deficiency observation. Selected photos are appended to obs.photos with
@@ -619,7 +625,20 @@ function _buildPinGroupCard(d, ctrId) {
     // S137: reserved trailing slot for the Phase 3.5 inspector chip.
     // Empty by design — designed in now so the card structure isn't
     // reworked a second time when attribution lands.
-    h += '<span class="obs-insp-slot" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"></span>';
+    // S143 (Phase 3 G/3.5): inspector-attribution chip. Slot designed in
+    // S137; now populated from this observation's createdBy. Hidden when
+    // the control-bar toggle is off, or when createdBy is null/legacy
+    // (empty slot — keeps existing projects visually unchanged).
+    var _inspHtml = '';
+    if (_showInspChip && o.createdBy && Model.resolveInspector) {
+      var _ins = Model.resolveInspector(o.createdBy);
+      if (_ins && _ins.initials && _ins.initials !== '\u2014') {
+        var _insTitle = _ins.name ? ('Logged by ' + _ins.name) : 'Logged by another inspector';
+        var _insStyle = _ins.color ? (' style="--ic:' + esc(_ins.color) + '"') : '';
+        _inspHtml = '<span class="obs-insp-chip"' + _insStyle + ' title="' + esc(_insTitle) + '">' + esc(_ins.initials) + '</span>';
+      }
+    }
+    h += '<span class="obs-insp-slot" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">' + _inspHtml + '</span>';
 
     h += '</div>'; // /defic-obs-card-ctrls
 
@@ -1110,6 +1129,14 @@ export var initDeficiencies = {
 
     var ctrlBar = document.getElementById('defic-control-bar');
     if (ctrlBar) ctrlBar.style.display = 'flex';
+
+    // S143: repaint when async inspector name/color resolution lands.
+    // Subscribe once; the render() re-entry from _notify is cheap and
+    // already debounced by the resolver's _inspectorPending guard.
+    if (!_inspChipSubscribed && Model.onChange) {
+      _inspChipSubscribed = true;
+      Model.onChange('inspectors', function () { initDeficiencies.render(); });
+    }
 
     var allDefics = Model.getAllDeficiencies(proj);
 
@@ -1759,6 +1786,15 @@ document.addEventListener('click', function(e) {
   if (vb) {
     var v = vb.getAttribute('data-view');
     if (v && v !== _deficView) { _deficView = v; initDeficiencies.render(); }
+    return;
+  }
+  var it = e.target.closest && e.target.closest('#dfx-insp-toggle');
+  if (it) {
+    _showInspChip = !_showInspChip;
+    try { localStorage.setItem('arencon-frt-insp-chip', _showInspChip ? '1' : '0'); } catch (err) {}
+    it.classList.toggle('active', _showInspChip);
+    it.setAttribute('aria-pressed', _showInspChip ? 'true' : 'false');
+    initDeficiencies.render();
     return;
   }
   var rm = e.target.closest && e.target.closest('.dfx-recmode-btn');

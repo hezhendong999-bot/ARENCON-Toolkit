@@ -229,8 +229,14 @@ function _buildCSS(fontB64){
   c+='.rec-ctrchip{display:inline-block;background:#EEF0F2;color:#5A6472;font-size:8.5pt;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
   c+='.rec-sub{background:#6B7280;color:#fff;padding:5px 14px;font-weight:700;font-size:9.5pt;border-radius:0;margin:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
   c+='.rec-chip{display:inline-block;background:#EDEBE6;color:#7B6F5A;font-size:8.5pt;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
+  c+='.dc-insp{display:inline-block;font-size:8.5pt;font-weight:700;padding:2px 7px;border:1px solid;border-radius:10px;letter-spacing:.4px;flex-shrink:0;}';
   c+='.rec-foot{font-size:9.5pt;font-style:italic;color:#5A6473;line-height:1.35;padding:8px 12px;border:1px solid #DDE1E7;border-top:none;background:#FAFAF9;border-radius:0 0 6px 6px;margin-bottom:10px;}';
   c+='.hirec-note{font-size:10pt;font-style:italic;color:#7B6F5A;margin-top:10px;line-height:1.35;}';
+  c+='.rep-key{border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;padding:10px 14px;break-inside:avoid;page-break-inside:avoid;}';
+  c+='.rep-key-ttl{font-size:10.5pt;font-weight:700;color:#2A3A5C;margin-bottom:8px;letter-spacing:.3px;}';
+  c+='.rep-key-row{display:flex;align-items:center;gap:10px;margin:5px 0;}';
+  c+='.rep-key .rk-sw{font-size:8.5pt;padding:3px 10px;margin:0;border-radius:5px;min-width:96px;display:inline-flex;justify-content:flex-start;}';
+  c+='.rep-key-gloss{font-size:9.5pt;color:#4A5568;}';
   c+='.ch-pill{background:rgba(0,0,0,0.18);color:white;font-weight:700;font-size:9.5pt;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0;}';
   c+='.ch-cont{font-weight:400;font-size:9.5pt;opacity:0.78;letter-spacing:0;margin-left:8px;font-style:italic;}';
   c+='.dc{border:1px solid #DDE1E7;border-top:none;padding:10px 12px;margin-bottom:0;background:white;}';
@@ -286,7 +292,7 @@ function _buildCSS(fontB64){
   return c;
 }
 
-function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary,fontB64,untaggedMode,includeRecs,recsMode,includeSiteRecords,recFooter){
+function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary,fontB64,untaggedMode,includeRecs,recsMode,includeSiteRecords,recFooter,inspTag){
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
 // S139 Phase 3: untagged-trade routing.
 //   _untaggedMode 'show'   -> untagged pins render in an "Other Trade Items"
@@ -514,6 +520,23 @@ if(reportDefs.length){
   summaryHtml+='<td style="text-align:center;color:#C0392B;">'+reportDefs.filter(_rowOpen).length+'</td>';
   summaryHtml+='<td style="text-align:center;color:#1A7A4A;">'+reportDefs.filter(_rowClosed).length+'</td></tr>';
   summaryHtml+='</tbody></table></div>';
+  // S143 (Phase 3 C, re-scoped under Model 2): Report Key. Explains the
+  // visual vocabulary the reader is about to meet — reuses the LITERAL
+  // report classes (.th-band, .th-band.recs, .rec-chip, .pill-*, .dc-insp)
+  // so the key can never drift from what's actually printed. IAR row only
+  // when IAR items exist; inspector row only when the picker turned tags on.
+  var _anyIar=reportDefs.some(function(r){return r.d&&r.d.iar;});
+  var keyHtml='<div class="rep-key"><div class="rep-key-ttl">Report Key</div>';
+  keyHtml+='<div class="rep-key-row"><span class="th-band rk-sw"><span>Trade</span></span><span class="rep-key-gloss">Trade / contractor section</span></div>';
+  keyHtml+='<div class="rep-key-row"><span class="th-band recs rk-sw"><span>Recommendations</span></span><span class="rep-key-gloss">Advisory items \u2014 not deficiencies</span></div>';
+  keyHtml+='<div class="rep-key-row"><span class="rec-chip">REC</span><span class="rep-key-gloss">Recommendation item</span></div>';
+  keyHtml+='<div class="rep-key-row"><span class="pill-h">Outstanding</span><span class="rep-key-gloss">Outstanding \u2014 high priority</span></div>';
+  keyHtml+='<div class="rep-key-row"><span class="pill-l">Outstanding</span><span class="rep-key-gloss">Outstanding \\u2014 low priority</span></div>';
+  keyHtml+='<div class="rep-key-row"><span class="pill-c">Closed</span><span class="rep-key-gloss">Addressed &amp; closed</span></div>';
+  if(_anyIar)keyHtml+='<div class="rep-key-row"><span class="pill-iar">IAR</span><span class="rep-key-gloss">Identified at review</span></div>';
+  if(inspTag==='initials')keyHtml+='<div class="rep-key-row"><span class="dc-insp" style="color:#6B7280;border-color:#6B7280;">AB</span><span class="rep-key-gloss">Inspector initials \u2014 who logged the item</span></div>';
+  keyHtml+='</div>';
+  summaryHtml+=keyHtml;
   // S139 Phase 3 (D): italic high-priority-recommendation note under the
   // project/deficiency summary (canon §2944; wording per S134 delta,
   // grammatically agreed for count=1).
@@ -578,7 +601,18 @@ function _buildDefCard(r,hdrExtra){
   var h='<div class="dc"><div class="dc-inner">';
   if(hasDwg)h+='<img class="dc-mini" id="mm-'+d.id+'-'+r.obsIdx+'" src="" alt="drawing">';
   h+='<div class="dc-content">';
-  h+='<div class="dc-hdr"><span class="dc-itemnum">#'+(r.numLabel||r.rn)+'</span>'+((r.d&&r.d.isRecommendation)?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span>'+(hdrExtra||'')+'</div>';
+  // S143 (Phase 3 G/3.5): inspector initials chip in the PDF header.
+  // Only when the picker selected "initials"; legacy/null createdBy
+  // prints nothing (consistent with the Off-by-default clean-report intent).
+  var _inspChip='';
+  if(inspTag==='initials'&&po&&po.createdBy&&Model.resolveInspector){
+    var _pi=Model.resolveInspector(po.createdBy);
+    if(_pi&&_pi.initials&&_pi.initials!=='\u2014'){
+      var _pic=_pi.color||'#6B7280';
+      _inspChip='<span class="dc-insp" style="color:'+_pic+';border-color:'+_pic+';">'+esc(_pi.initials)+'</span>';
+    }
+  }
+  h+='<div class="dc-hdr"><span class="dc-itemnum">#'+(r.numLabel||r.rn)+'</span>'+((r.d&&r.d.isRecommendation)?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span>'+_inspChip+(hdrExtra||'')+'</div>';
   if(po.notedOnInstance!==_curInst){h+='<div style="font-size:9pt;color:#6B7B8C;margin-bottom:4px;">Noted in FRT #'+po.notedOnInstance+'</div>';}
   h+='<div class="dc-desc">'+esc(po.text||'\u2014')+'</div>';
   if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});h+='</div>';}
@@ -967,12 +1001,12 @@ export const initPDFExport={
         if(bar)bar.style.width=Math.round((done/Math.max(1,total))*100)+'%';}catch(e){}
       }).then(function(r2Cache){
         try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e){}
-        _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter);
+        _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off');
       });
     }).catch(function(e){
       try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e2){}
       console.warn('[PDF] Error:',e);
-      _exportPDFWithCache(p,'',isField,type,{},opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,'',opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter);
+      _exportPDFWithCache(p,'',isField,type,{},opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,'',opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off');
     });
   }
 };
