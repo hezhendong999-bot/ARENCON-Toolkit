@@ -1145,6 +1145,11 @@ export var initDeficiencies = {
     if (window.AIAssist && window.AIAssist.repopulateAllScratchpads) {
       window.AIAssist.repopulateAllScratchpads();
     }
+    // S142 Batch 4-4: keep an open focused single-pin panel in sync after
+    // any model edit (priority/trade/contractor/status). _refreshPinFocus
+    // is a no-op when no panel is open and skips rebuilds while a textarea
+    // inside the panel has focus.
+    _refreshPinFocus();
   }
 };
 
@@ -1439,6 +1444,81 @@ function _dfxGotoPin(deficId) {
   }, 60);
 }
 
+// ── S142 Batch 4-3/4-4: focused single-pin panel ─────────────────
+// Clicking a Table row or Board card opens THIS overlay: the exact same
+// isolated obs card the Detailed view builds (buildDeficCard, so every
+// inline control AND the built-in View-on-drawing / Place-pin affordance
+// ride along), plus a prominent top "View on drawing" CTA. It is NOT a
+// jump to the Detailed list and NOT the heavy drawing-canvas pin editor.
+// Edits flow through the existing document-delegated handlers; render()
+// calls _refreshPinFocus() so the panel stays current, while never
+// clobbering an in-progress textarea inside it. _dfxGotoPin is kept
+// defined-but-inert (S137 dead-handler discipline) — dfx-goto now routes
+// here instead.
+var _pinFocusKeyH = null;
+function _pinFocusCtrIdOf(deficId) {
+  var proj = Model.getProject();
+  if (!proj) return null;
+  var ctrs = proj.contractors || [];
+  for (var i = 0; i < ctrs.length; i++) {
+    var ds = ctrs[i].deficiencies || [];
+    for (var j = 0; j < ds.length; j++) { if (ds[j].id === deficId) return ctrs[i].id; }
+  }
+  return null; // not under any contractor => Site Records (generalDeficiencies)
+}
+function _buildPinFocusBody(deficId) {
+  var f = Model.findDeficiency(deficId);
+  if (!f) return '';
+  var d = f.defic;
+  var ctrId = _pinFocusCtrIdOf(deficId);
+  var navBtn = d.drawingId
+    ? '<button data-action="view-pin" data-defic-id="' + esc(d.id) + '" class="btn-muted-ok" style="width:100%;text-align:center;padding:10px 14px;font-size:calc(14px + var(--ts));margin-bottom:14px;cursor:pointer;">\uD83D\uDCCC View on drawing</button>'
+    : '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" class="btn-muted-warn" style="width:100%;text-align:center;padding:10px 14px;font-size:calc(14px + var(--ts));margin-bottom:14px;cursor:pointer;">\uD83D\uDCCC Place pin on a drawing</button>';
+  return navBtn + buildDeficCard(d, ctrId);
+}
+function _closePinFocus() {
+  var ov = document.getElementById('pinfocus-overlay');
+  if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+  if (_pinFocusKeyH) { document.removeEventListener('keydown', _pinFocusKeyH); _pinFocusKeyH = null; }
+}
+function _openPinFocus(deficId) {
+  if (!deficId) return;
+  var f = Model.findDeficiency(deficId);
+  if (!f) { toast('Item not found'); return; }
+  _closePinFocus();
+  var d = f.defic;
+  var ov = document.createElement('div');
+  ov.id = 'pinfocus-overlay';
+  ov.setAttribute('data-defic-id', deficId);
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:32px 16px;font-family:Calibri,sans-serif;';
+  var panel = document.createElement('div');
+  panel.style.cssText = 'background:var(--bg,white);color:var(--fg,#1B2438);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.3);max-width:760px;width:100%;padding:18px 20px;';
+  panel.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'
+    + '<div style="font-size:calc(16px + var(--ts));font-weight:700;">Pin #' + esc(d.num || '?') + ' \u00B7 focused</div>'
+    + '<button id="pinfocus-close" class="btn-muted-cancel" style="padding:6px 12px;font-size:calc(13px + var(--ts));cursor:pointer;">\u2715 Close</button>'
+    + '</div>'
+    + '<div id="pinfocus-body">' + _buildPinFocusBody(deficId) + '</div>';
+  ov.appendChild(panel);
+  ov.addEventListener('click', function(e) { if (e.target === ov) _closePinFocus(); });
+  panel.querySelector('#pinfocus-close').addEventListener('click', _closePinFocus);
+  document.body.appendChild(ov);
+  _pinFocusKeyH = function(ev) { if (ev.key === 'Escape') _closePinFocus(); };
+  document.addEventListener('keydown', _pinFocusKeyH);
+}
+function _refreshPinFocus() {
+  var ov = document.getElementById('pinfocus-overlay');
+  if (!ov) return;
+  var deficId = ov.getAttribute('data-defic-id');
+  if (!deficId) return;
+  if (!Model.findDeficiency(deficId)) { _closePinFocus(); return; }
+  // Never rebuild while a textarea inside the panel is being edited.
+  var ae = document.activeElement;
+  if (ae && ae.tagName === 'TEXTAREA' && ov.contains(ae)) return;
+  var body = ov.querySelector('#pinfocus-body');
+  if (body) body.innerHTML = _buildPinFocusBody(deficId);
+}
+
 // ── Table view — row per (defic, obs) ────────────────────────────
 function _renderTableView(proj, container) {
   var rows = _flatRows(proj);
@@ -1668,7 +1748,7 @@ function _syncDfxControls(pcActive, pcClosed, proj) {
 // ── S137 Phase 2: control-bar interactions ───────────────
 document.addEventListener('click', function(e) {
   var gt = e.target.closest && e.target.closest('[data-action="dfx-goto"]');
-  if (gt) { _dfxGotoPin(gt.getAttribute('data-defic-id')); return; }
+  if (gt) { _openPinFocus(gt.getAttribute('data-defic-id')); return; }
   var pb = e.target.closest && e.target.closest('.defic-pivot-btn');
   if (pb) {
     var p = pb.getAttribute('data-pivot');
@@ -2245,6 +2325,7 @@ document.addEventListener('click', function(e) {
   //   moved it" failure mode that was the source of the duplicate-pin bug.
   if (action === 'view-pin') {
     var deficId = el.getAttribute('data-defic-id');
+    _closePinFocus(); // S142 B4-3: drop the focus panel when jumping to the drawing
     if (window._frtNavigateToPin) {
       var ok = window._frtNavigateToPin(deficId);
       if (!ok) toast('This pin is not placed on a drawing yet');
@@ -2255,6 +2336,7 @@ document.addEventListener('click', function(e) {
 
   if (action === 'place-pin') {
     var deficId = el.getAttribute('data-defic-id');
+    _closePinFocus(); // S142 B4-3: drop the focus panel when going to place the pin
     if (window._frtStartPinPlace) {
       window._frtStartPinPlace(deficId);
       toast('Tap on the drawing to place pin');
