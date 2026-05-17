@@ -1335,23 +1335,23 @@ function _openPDFPicker() {
 
   var h = '<div id="pdf-picker-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';
   h += '<div style="background:var(--bg,white);border-radius:12px;padding:24px 32px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:340px;max-width:440px;color:var(--fg,#1B2438);">';
-  h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Export PDF Report</div>';
+  h += '<div style="font-size:calc(18px + var(--ts));font-weight:700;margin-bottom:16px;">Export PDF Report</div>';
 
   // Report type
-  h += '<div style="margin-bottom:14px;"><label style="font-weight:600;font-size:13px;color:var(--steel,#4A5568);display:block;margin-bottom:4px;">Report Type</label>';
-  h += '<select id="pdf-type" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;background:var(--bg,white);color:var(--fg);">';
+  h += '<div style="margin-bottom:14px;"><label style="font-weight:600;font-size:calc(13px + var(--ts));color:var(--steel,#4A5568);display:block;margin-bottom:4px;">Report Type</label>';
+  h += '<select id="pdf-type" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;background:var(--bg,white);color:var(--fg);">';
   h += '<option value="field">Field Review Report (with drawings)</option>';
   h += '<option value="plain">Deficiency Report (no drawings)</option>';
   h += '</select></div>';
 
   // Contractor filter
-  h += '<div style="margin-bottom:14px;"><label style="font-weight:600;font-size:13px;color:var(--steel,#4A5568);display:block;margin-bottom:4px;">Contractor Filter</label>';
-  h += '<select id="pdf-ctr-filter" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;background:var(--bg,white);color:var(--fg);">' + ctrOpts + '</select></div>';
+  h += '<div style="margin-bottom:14px;"><label style="font-weight:600;font-size:calc(13px + var(--ts));color:var(--steel,#4A5568);display:block;margin-bottom:4px;">Contractor Filter</label>';
+  h += '<select id="pdf-ctr-filter" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;background:var(--bg,white);color:var(--fg);">' + ctrOpts + '</select></div>';
 
   // Checkboxes
-  h += '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">';
+  h += '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts));cursor:pointer;">';
   h += '<input type="checkbox" id="pdf-final-comm"> Final Commissioning (suppress future note)</label></div>';
-  h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">';
+  h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts));cursor:pointer;">';
   h += '<input type="checkbox" id="pdf-show-closed" checked> Include Closed Items Summary</label></div>';
 
   // S142 Batch 3-4 (Model 2 §4.4): recommendations are pooled into ONE
@@ -1360,21 +1360,21 @@ function _openPDFPicker() {
   // checkbox. 'bottom' = pooled at the end (default); 'only' =
   // recommendations-only report (deficiency sections / Previously Closed
   // suppressed); 'exclude' = no recommendations at all.
-  h += '<div style="margin-bottom:10px;"><label style="font-weight:600;font-size:13px;color:var(--steel,#4A5568);display:block;margin-bottom:4px;">Recommendations</label>';
-  h += '<select id="pdf-recs-mode" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;background:var(--bg,white);color:var(--fg);">';
+  h += '<div style="margin-bottom:10px;"><label style="font-weight:600;font-size:calc(13px + var(--ts));color:var(--steel,#4A5568);display:block;margin-bottom:4px;">Recommendations</label>';
+  h += '<select id="pdf-recs-mode" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;background:var(--bg,white);color:var(--fg);">';
   h += '<option value="bottom" selected>At bottom (new page)</option>';
   h += '<option value="only">Recommendations-only report</option>';
   h += '<option value="exclude">Exclude from report</option>';
   h += '</select></div>';
-  h += '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">';
+  h += '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts));cursor:pointer;">';
   h += '<input type="checkbox" id="pdf-rec-footer" checked> Italic footer on Recommendations</label></div>';
-  h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">';
+  h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts));cursor:pointer;">';
   h += '<input type="checkbox" id="pdf-include-site-records"> Include Site Records (internal)</label></div>';
 
   // S139 Phase 3: Renumber→PDF merge — replaces the removed control-bar
   // button. Amber accent uses the canon-approved muted --warn #B7791F
   // (NOT the forbidden bright #E67E22).
-  h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">';
+  h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts));cursor:pointer;">';
   h += '<input type="checkbox" id="pdf-renumber" checked style="accent-color:var(--warn,#B7791F);"> <span style="color:var(--warn,#B7791F);font-weight:600;">Renumber before export</span></label></div>';
 
   // S139 Phase 3: untagged-trade routing (canon §2944 refined — persistent
@@ -1383,9 +1383,9 @@ function _openPDFPicker() {
   var _utc = _countUntaggedForBand(proj);
   if (_utc > 0) {
     h += '<div style="margin-bottom:16px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;">';
-    h += '<div style="font-weight:600;font-size:13px;color:var(--steel,#4A5568);margin-bottom:6px;">Untagged items (' + _utc + ' with no trade)</div>';
-    h += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:5px;"><input type="radio" name="pdf-untagged" value="show" checked> Show as \u201cOther Trade Items\u201d band</label>';
-    h += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="radio" name="pdf-untagged" value="exclude"> Exclude from report (' + _utc + ' item' + (_utc !== 1 ? 's' : '') + ')</label>';
+    h += '<div style="font-weight:600;font-size:calc(13px + var(--ts));color:var(--steel,#4A5568);margin-bottom:6px;">Untagged items (' + _utc + ' with no trade)</div>';
+    h += '<label style="display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts));cursor:pointer;margin-bottom:5px;"><input type="radio" name="pdf-untagged" value="show" checked> Show as \u201cOther Trade Items\u201d band</label>';
+    h += '<label style="display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts));cursor:pointer;"><input type="radio" name="pdf-untagged" value="exclude"> Exclude from report (' + _utc + ' item' + (_utc !== 1 ? 's' : '') + ')</label>';
     h += '</div>';
   }
 
