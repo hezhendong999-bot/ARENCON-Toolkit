@@ -466,29 +466,20 @@ window.delMod=async id=>{
 
 /* ─── AI quiz drafting (Claude API; works in-artifact, key via Worker in prod) ─── */
 async function aiQuiz(text,imgB64,imgMime){
-  const sys='You write short multiple-choice knowledge checks for fire '+
-   'protection trainees at a consulting firm (OBC / NFPA context, Ontario). '+
-   'Return ONLY valid JSON, no prose, no markdown fences: an array of 4 '+
-   'objects, each {"q":string,"opts":[4 strings],"answer":0-3 index of the '+
-   'correct option,"why":string concise reason}. Questions test understanding '+
-   'and reasoning, not trivia. Plausible distractors.';
-  const content=[];
-  if(imgB64) content.push({type:'image',source:{type:'base64',
-    media_type:imgMime||'image/jpeg',data:imgB64}});
-  content.push({type:'text',text:(text?('Source:\n'+text+'\n\n'):'')+
-   'Draft 4 questions'+(imgB64?' based on what the image shows (a field '+
-   'photo or drawing — identify issues / what it depicts)':'')+'.'});
-  const r=await fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,
-      system:sys,messages:[{role:'user',content}]})});
-  if(!r.ok) throw new Error('API '+r.status);
-  const d=await r.json();
-  let out=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-  out=out.replace(/```json|```/g,'').trim();
-  const arr=JSON.parse(out);
-  if(!Array.isArray(arr)||!arr.length) throw new Error('bad shape');
-  return arr.map(q=>({q:String(q.q||''),
+  /* Calls the deployed Supabase Edge Function 'training-quiz'.
+     Server holds the Anthropic key + prompt + shape normalization.
+     Auth: the user's Supabase session JWT (validated in-function). */
+  const EDGE='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-quiz';
+  const payload={ sourceText:text||'', context:{tool:'training'} };
+  if(imgB64) payload.photos=[{data:imgB64,media_type:imgMime||'image/jpeg'}];
+  const r=await fetch(EDGE,{method:'POST',
+    headers:{'Content-Type':'application/json',
+      apikey:SB_ANON,Authorization:'Bearer '+SESSION},
+    body:JSON.stringify(payload)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
+  if(!Array.isArray(d.quiz)||!d.quiz.length) throw new Error('No questions returned');
+  return d.quiz.map(q=>({q:String(q.q||''),
     opts:(q.opts||[]).slice(0,4).map(String),
     answer:Math.max(0,Math.min(3,parseInt(q.answer)||0)),
     why:String(q.why||'')}));
