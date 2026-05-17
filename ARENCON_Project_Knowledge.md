@@ -2,12 +2,26 @@
 
 ## About This Document
 
-**This is the single canonical Project Knowledge doc as of S138.** The
-S132–S137-POLISH delta chain has been folded in. From here forward only
-this file is kept; future per-session deltas are merged in each session,
-so deleting old deltas is safe. When two sessions conflict, the later one
-wins — the **CURRENT-TRUTH — Supersedes Index** near the end of this doc
-is the authoritative quick-reference for everything that changed.
+**This is the single canonical Project Knowledge doc as of the S143 canon
+pass.** The S132–S137-POLISH delta chain plus the cumulative **S138 +
+S140 + B2f (S141) + S142 + S143** deltas have all been folded in here.
+From here forward only this file is kept; future per-session deltas are
+merged in each session, so deleting old deltas is safe. When two sessions
+conflict, the later one wins — the **CURRENT-TRUTH — Supersedes Index**
+near the end of this doc is the authoritative quick-reference for
+everything that changed. The S138→S143 delta `.md` files
+(`ARENCON_PK_DELTA_S140/S142/S143.md`) are now absorbed and disposable.
+
+> **S143 canon-pass ground-truth note:** This fold records the **live**
+> code at HEAD `9c9b3115` (not the S143 handoff at `6f9c1f79`). Two
+> post-handoff S143 fix commits (`ea71cdc5`, `9c9b3115`) shipped after
+> the handoff was written and ARE folded here: (1) `model.js` now
+> actively clears legacy `iar` flags on load; (2) the PDF "Report Key"
+> was renamed "Report Legend", made a 2-column grid, the Trade row
+> dropped, the gloss reworded; (3) the PDF Deficiency Summary IAR column
+> was removed (IAR retired since S135). The S143 delta files describe the
+> handoff state; where they differ from live, **live wins** and is what
+> is recorded below.
 
 Upload to the Claude Project along with:
 - The consolidated `ARENCON_Style_Guide.css` (single canonical Style Guide — S133→S137-POLISH plus the carried pre-S133 appendix; no per-session delta files needed)
@@ -17,7 +31,28 @@ Upload to the Claude Project along with:
 - Current tool HTML files (stable filenames — no version numbers)
 - Current session handoff document
 
-Last updated: 2026-05-16 (Session 138 — **canonical consolidation**: base + S132 corrections + S133–S137-POLISH deltas merged into one doc and one Style Guide; delta chain retired. Live triad: HEAD `2f888b0`, SW `arencon-frt-v413`, CSS `frt.css?v=313`. Trade-grouping = contractor-scoped 4-trade model; unified Deficiencies tab live (Detailed/Table/Board); card order Trade Board → Deficiency Log → Deficiency List; single-obs == multi-obs card invariant.)
+Last updated: 2026-05-17 (**Session 143 canon pass** — S138 + S140 + B2f
+(S141) + S142 + S143 deltas all folded into this single file and the
+single `ARENCON_Style_Guide.css`. **Live triad: HEAD `9c9b3115`, SW
+`arencon-frt-v440`, CSS `frt.css?v=340`.** Cumulative shipped state now
+in canon: **S138** Phase 2b (`defic.isRecommendation` schema, unified
+`+ deficiency` modal — `d042b40`); **S139** Phase 3 A/D (PDF
+Trade→Contractor restructure, hi-rec note, Renumber→PDF merge —
+`9f300a7b`); **S140** "Model 2" Detailed-view sections + non-destructive
+contractor lifecycle + B2d/B2e (`v424`/`?v=324`); **S141** B2f
+persistent roster (`d0da10c` — *superseded by S142*); **S142** §2
+ClickAssign `crx-` contractor roster (supersedes the S136 kanban Trade
+Board AND the S141 B2f roster) + Model 2 PDF as-shipped (all primary PDF
+header bands navy `#2A3A5C`, recs pooled to a new page after Previously
+Closed, burgundy = accents only) + Batch 4 polish — `c0c9d353`; **S143**
+inspector attribution (per-observation `createdBy`, deterministic-palette
+chip, control-bar toggle, PDF 2-mode Off/Initials) + PDF "Report Legend"
++ load-time legacy-`iar` clear + PDF IAR column removal —
+`9c9b3115`. ⚠ **The S139 in-place rec model (badge + "Site General ·
+Recommendations" band) is fully SUPERSEDED and STRUCK** — §2944 below is
+rewritten to Model 2 AS-SHIPPED. The original S82 PDF inspector "modes
+A/B/C" spec is **lost and formally retired** — the canonical model is
+2 modes only (Off / Initials).)
 
 Prior milestone: Session 119 — Phase A per-obs priority + status independence; Phase B confirmation modal audit + type-DELETE; photo refactor design locked for S120.
 
@@ -2891,7 +2926,7 @@ contractor.color: string      // auto-assigned hex, never user-picked
 project.projectTrades: string[]   // default = DEFAULT_PROJECT_TRADES
 
 // DEFICIENCY
-defic.isRecommendation: boolean   // default false  (NOTE: not actually added to model until S138 — see S137 deferral)
+defic.isRecommendation: boolean   // default false — SHIPPED S138 (additive; idempotent backfill in setProject _migrateDeficArr after `delete d.description`, before S119 per-obs backfill; generic merge3 passthrough, no merge.js change; 11 recSchema.test.js, suite 144→155)
 
 // OBSERVATION
 obs.trade: string                 // from contractor or manual override
@@ -2917,23 +2952,64 @@ Replaces the S133 8-trade life-safety list. Standpipe/Fire Pump/Extinguishers/Sm
 
 ### Trade board UI
 
+> ⚠ **SUPERSEDED by S142 §2 ClickAssign (see the Session 142 section).**
+> The S134 kanban-column trade board AND the S141 B2f persistent roster
+> are both gone. The ONLY contractor UI is now a single **"Contractor
+> Roster"** card: a deletable colour-coded trade pill strip + `+ trade ▾`
+> prebuilt dropdown + a 2-up roster grid + a click-`⊕`-then-click-a-pill
+> pick-mode assign flow (`crx-` namespace). The paragraph below is the
+> retired S134 design, kept for provenance only — do NOT rebuild it.
+
 Kanban section at the top of the Deficiencies tab. Replaces the "Contractors on Site" pill row. One column per `projectTrades` trade + trailing `+ trade` column. Each column: header (trade name + count), N contractor cards (4px colored left border = `contractor.color`), `+ Add contractor` slot at bottom. Multi-trade contractors appear as separate cards in each column, same color. Card body tap → contractor edit modal (rename only; auto-color; delete entirely). Card `×` → remove from THIS column only. `+ Add contractor` → smart picker (existing-contractor chips not in column + new-contractor text input, case-insensitive dup detection). `+ trade` → inline input field (NOT browser `prompt()`). Custom trades get a `×` in their column header. **NO drag-and-drop** (Mark explicitly rejected for mobile/tablet hostility).
 
 ### Unified Deficiencies tab — Summary tab retires
 
-The Summary tab is eliminated; Board and Table views migrate into the Deficiencies tab via a view toggle. Layout top→bottom: (1) Trade board, (2) Control bar (Active/Closed pivot — 2 states not 3, filters: Search/Contractor/Priority/"Show only recommendations", view toggle Detailed/Table/Board), (3) Content, (4) `+ deficiency` card at bottom. Site General is NOT a tab anymore — untagged + no-contractor items render as a grey "Site General · Recommendations" bottom section.
+The Summary tab is eliminated; Board and Table views migrate into the Deficiencies tab via a view toggle. Layout top→bottom: (1) Trade board *(now the S142 ClickAssign Contractor Roster)*, (2) Control bar, (3) Content, (4) `+ deficiency` card at bottom.
+
+> ⚠ **Rec/Site-General rendering SUPERSEDED by S140 "Model 2".** The
+> S134 "untagged + no-contractor → grey 'Site General · Recommendations'
+> bottom section" is GONE. Model 2 (live since S140, see Session 140/142
+> sections) renders three **disjoint** sections — Deficiencies / pooled
+> **Recommendations** / **Site Records** — and no-trade pins land in an
+> **"Other Trade Items"** band (the literal word "Untagged" is retired
+> everywhere user-facing). Control-bar filter is now the **3-state
+> `.dfx-recmode`** segmented control (Deficiencies / Recommendations /
+> Both), replacing the S138 "Recommendations only" checkbox.
 
 ### Three views
 
-- **Detailed (default):** Trade banner (navy `#2A3A5C`) → Contractor sub-banner (taupe `#7B6F5A`) → obs cards. Recommendations grey sub-banner (`#6B7280`) within trade, or Site General · Recommendations at bottom for untagged. Multi-obs sibling-trace across trades/contractors. Tap contractor name → focus that contractor, others auto-collapse (replaces Fold All).
-- **Table:** one row per obs — # / Trade / Contractor / Description / Priority / Status / Thumbnail. Contractor color dot before name. REC badge inline on rec rows.
-- **Board (priority kanban):** four columns High / Low / General / **Closed** (closed always visible). Cards: # badge, contractor name (color-cued), text, mini-thumb, trade label. Tap card → edit.
+> ⚠ The colour/structure below is the S134 baseline; **Model 2 (S140)
+> is authoritative** — see Session 140. Net live state: Detailed = three
+> disjoint sections (Deficiencies: navy trade band → taupe contractor
+> sub-band → cards; no-trade → steel **"Other Trade Items"** band;
+> pooled **Recommendations**: grey band → grey-slate trade subheadings →
+> inline contractor chip only when one exists; **Site Records**: muted-
+> slate band + persistent "Internal — excluded from client report" pill
+> + dimmed cards). Table/Board carry an inline contractor `<select>`
+> (S142) and route a row/card click to the focused single-pin panel
+> `_openPinFocus` (S142) rather than jumping to Detailed.
+
+- **Detailed (default):** Trade banner (navy `#2A3A5C`) → Contractor sub-banner (taupe `#7B6F5A`) → obs cards. *(Model 2: + steel "Other Trade Items", pooled grey Recommendations, muted-slate Site Records.)* Multi-obs sibling-trace across trades/contractors.
+- **Table:** one row per obs — # / Trade / Contractor / Description / Priority / Status / Thumbnail. Contractor color dot before name. *(S142: inline contractor reassign `<select>`; row click → `_openPinFocus` panel.)*
+- **Board (priority kanban):** four columns High / Low / General / **Closed** (closed always visible). *(S142: card click → `_openPinFocus` panel.)*
 
 Filters apply to all three views identically.
 
 ### Recommendations (`defic.isRecommendation: true`)
 
-Advisory, doesn't block sign-off. Can have contractor or not, trade or not, pin or not. Render: has-trade+has-contractor → under that trade→contractor with REC badge; has-trade+no-contractor → "Recommendations" grey sub-banner within trade; no-trade+no-contractor → Site General · Recommendations bottom section. "Show only recommendations" filter scopes all three views without losing hierarchy.
+> ⚠ **SUPERSEDED by S140 "Model 2" (live).** A recommendation is now
+> PULLED OUT of the trade/contractor spine into ONE pooled
+> **Recommendations** section (on screen: grey `.dfx-trade-banner.recs`
+> band; in the PDF: a forced new page after Previously Closed Items).
+> Internal layout = trade subheadings only ("No trade assigned" last),
+> with the contractor shown as an inline chip ONLY when one exists —
+> never a contractor sub-band. Each rec appears exactly once
+> (disjoint from the deficiency sections). The S134/S138 "a rec is
+> never relocated, only gains a REC badge in place" rule is **reversed**
+> by Model 2 — see Session 140/142. The text below is the retired S134
+> design, kept for provenance.
+
+Advisory, doesn't block sign-off. Can have contractor or not, trade or not, pin or not. *(Retired render: has-trade+has-contractor → under that trade→contractor with REC badge; has-trade+no-contractor → "Recommendations" grey sub-banner within trade; no-trade+no-contractor → Site General · Recommendations bottom section.)*
 
 ### Unified `+ deficiency` creation
 
@@ -2941,7 +3017,91 @@ Single dashed-border card at the bottom of every view replaces "+ General Defici
 
 ### PDF report
 
-Trade banner (navy) → Contractor sub-banner (taupe) → cards. Rec sub-banner (grey) within each trade for trade-tagged recs without contractor. "Site General · Recommendations" at bottom for untagged recs. Italic footer on rec sections: *"The above items were noted during this review and are provided as recommendations. They fall outside the specific scope of work and are not held against the sign-off letter."* Title-page legend gains a recommendation entry. If any High-priority recommendation exists, italic note under project summary. Pre-export check banner if any `obs.trade === ''` (3 radio choices, no default). **Renumber merged with Generate PDF** — single button, modal has orange "Renumber before export" toggle (default ON). *(NOTE: per S137-POLISH/S139, the Renumber→PDF-export merge is deferred to S139; Renumber stays a control-bar button until then.)*
+> ⚠ **§2944 STRUCK AND REWRITTEN.** The S134/S139 in-place rec model
+> (REC badge in the trade spine, grey "Recommendations" within-trade
+> sub-band, "Site General · Recommendations" bottom band) is **fully
+> superseded by Model 2 AS-SHIPPED** (S142, live). What follows is the
+> live PDF structure; the authoritative detail lives in the Session 140
+> + Session 142 + Session 143 sections.
+
+**Live PDF structure (Model 2, S142–S143):**
+
+- **All primary header bands are navy `#2A3A5C`** — `.th-band` (trade
+  section), `.st th` (page-1 Deficiency Summary table header — *was
+  burgundy*), `.sh` (Appendix "Drawings with Pins" — *was burgundy*),
+  and the Previously Closed Items inline header. **Burgundy `#9C2742`
+  survives ONLY as accents** (`.dc-itemnum` pin number, `.ph-addr` 2px
+  left rule, `.app-dwg-title` 3px left-border). No header band is
+  burgundy any more.
+- **Trade → Contractor → cards** for deficiencies. Navy trade band,
+  taupe contractor sub-band `.ch` (`#7B6F5A`). No-trade pins → steel
+  **"Other Trade Items"** band (`#4A5568`-family). Pagination re-stamps
+  both bands on continued pages.
+- **Canonical trade derivation** (`pdf.js _pinTrade(d)` =
+  `Model.derivePinTrade(d, parentCtr)`): `obs[0].trade` → parent
+  contractor's **sole** declared trade → `''`. "Parent" = the contractor
+  whose `.deficiencies[]` holds the pin (NOT the per-obs override);
+  `generalDeficiencies` → null. PDF grouping and the on-screen Detailed
+  view now agree.
+- **Recommendations are pooled.** Every `isRecommendation` row is
+  diverted out of the trade/Other-Trade structure into ONE
+  **Recommendations** section emitted AFTER Previously Closed Items on a
+  **forced new page**: grey band `.th-band.recs` (`#6B7280`) + count →
+  caption `.rec-cap` → per-trade subheads `.rec-sub` in `projectTrades`
+  order with **"No trade assigned" LAST** → cards (muted `.rec-chip`
+  REC; inline contractor chip `.rec-ctrchip` ONLY when a real contractor
+  exists — never a contractor sub-band) → optional italic footer
+  `.rec-foot` (export-modal toggle, default ON). Each rec appears
+  exactly once.
+- **Recs mode** (`_recsMode` ∈ `bottom` | `only` | `exclude`, from the
+  export modal): `exclude` strips recs pre-grouping; `bottom` pools as
+  above; `only` = recommendations-only report (also suppresses the
+  deficiency trade emit, Previously Closed, the closing note, the hi-rec
+  note). Italic `.hirec-note` under the Deficiency Summary when any
+  high-priority recommendation exists; wording points at the pooled
+  section.
+- **Site Records gate:** non-recommendation `generalDeficiencies` are
+  excluded from external reports unless `includeSiteRecords` (export-
+  modal toggle, default **OFF**) OR an explicit Site-General contractor
+  filter is active. Recs among generals are never gated.
+- **Pagination callback** `_flowBlock` is extracted (was the inline
+  `contentBlocks.forEach`); the main body and the pooled recs both reuse
+  it. Architectural rule: do not re-inline. `_buildDefCard(r, hdrExtra)`
+  takes an optional 2nd param injecting HTML into `.dc-hdr` after the
+  priority pill (`''` byte-identical for the two deficiency callers; the
+  rec caller passes the contractor chip; S143 inspector chip rides here
+  too when initials mode is on).
+- **Previously Closed Items** — navy band, neutral `#EEF2F4`/`#4A5568`
+  instance row, muted-green `#3F6E55` "Addressed" (the forbidden bright
+  `#1A7A4A` was eliminated here). PDF body locked 11pt.
+- **Report Legend** (page 1, `.rep-key`, S143 + fix2 — *renamed from
+  "Report Key"*): a 2-column grid (`.rep-key-grid`
+  `grid-template-columns:1fr 1fr`) injected after the Deficiency Summary
+  table, before the hi-rec note, inside `if(reportDefs.length)`. Reuses
+  the **literal** report classes (`.th-band.recs`, `.rec-chip`,
+  `.pill-h/.pill-l/.pill-c`, `.dc-insp`) as live swatches so the key can
+  never drift from output. Rows: Recommendations band (gloss
+  "recommendation items - do not hold off sign-off"), REC chip,
+  Outstanding-high, Outstanding-low, Closed, and an inspector-initials
+  row **only when** `inspTag==='initials'`. **No Trade row, no IAR row**
+  (Trade row dropped in fix2; IAR retired since S135).
+- **Deficiency Summary table** columns (S143 fix2): Deficiency Summary /
+  Total / New This Report / Outstanding / Closed. **The IAR column was
+  removed** (the pink `#FF69B4` IAR count is gone). Status-count text
+  colours `#1565C0` (New), `#C0392B` (Outstanding), `#1A7A4A` (Closed)
+  remain inline in that table — tracked cosmetic debt, untouched.
+- **Renumber merged with Generate PDF** (S139, KEPT) — single button;
+  the export modal has an amber "Renumber before export" toggle
+  (default ON) that runs `Model.renumberDeficiencies()` + re-renders
+  pre-export. The control-bar `#defic-renumber-btn` was removed (handler
+  left defined-but-inert, S137 discipline).
+- **Export modal** (`app.js _openPDFPicker`): 3-way Recommendations
+  `<select>` (At bottom / Recommendations-only / Exclude) + "Italic
+  footer on Recommendations" (default ON) + "Include Site Records
+  (internal)" (default OFF) + amber "Renumber before export" (default
+  ON) + 2-option inspector tag `<select>` (Off default / Initials tag).
+  Inline modal text scales with app S/L via `calc(Npx + var(--ts))`
+  (precedent for future inline modals); PDF body stays locked 11pt.
 
 ### Data integrity / patterns (S134 additions — IN FORCE)
 
@@ -2970,6 +3130,10 @@ SW `v401`, CSS `?v=301`, tests `144/144` (was 106 baseline + 38 new).
 
 ```js
 export var TRADE_LIST = ['Sprinkler', 'Fire Alarm', 'General Contracting', 'Building Conditions'];
+// ⚠ S142 SUPERSEDES this default: TRADE_LIST is now the 6-trade prebuilt
+//   ['Sprinkler','Fire Alarm','General Contracting','Electrical','Mechanical','Civil']
+//   ("Building Conditions" removed). pdf.js has zero TRADE_LIST refs. The
+//   §1a out-of-list tolerance still renders legacy/custom trades.
 export var CONTRACTOR_COLOR_PALETTE = ['#5C7A6E','#4A6B8C','#7B6F5A','#9C5070','#6B7280','#5E2370','#8B6F47','#4A8089'];
 export function nextContractorColor(usedColors) { /* first unused, cycles after 8 */ }
 
@@ -3040,14 +3204,33 @@ SW `v407`, CSS `?v=307`, tests `144/144` (UI-only). Final commit `fdedc75108`.
 - **Push discipline:** invoke `python3 push.py` exactly once. Never `import push` (executes on import → duplicate commit).
 - **Trade board lives in its own `.card`** — do not reintroduce a `.trade-board-section` inner wrapper. `.trade-board-section` / `.trade-board-title` selectors retired (do not re-add).
 
-### Inspector Attribution — REDESIGNED + RE-SLOTTED
+### Inspector Attribution — REDESIGNED + RE-SLOTTED → BUILT S143
 
-The S81–S82 approved spec is superseded:
-- Re-slotted as dedicated **Phase 3.5 (S140–S141)**, after the PDF restructure, before Undo/Redo. Subsequent phases shift by one.
-- Pin ring on the drawing canvas kept as-is (`pin_ring_mockup.html` still the reference) — no conflict.
-- Card 3px-left-border attribution **dropped** — replaced by a compact initials chip (renumber-pill visual, keyed on `inspector_color` via `--ic`) so it never collides with the contractor-color channel.
-- Phase 2 must reserve a ~20px inspector-chip slot in the new card/row template (empty until 3.5). Phase 3 must build the PDF 3-mode dropdown shell (renders neutral until 3.5 supplies `createdBy`).
-- Data model (`createdBy`/`createdAt` + Supabase `profiles.inspector_color` + legacy backfill), Layers-menu toggles, PDF modes A/B/C — unchanged from S82.
+> ⚠ **The S81–S82 spec (colored card border; PDF "modes A/B/C";
+> `profiles.inspector_color`; "Layers menu" toggles) is LOST and
+> formally RETIRED.** Inspector attribution was BUILT in S143 — see the
+> Session 143 section for the authoritative live design. Net live state:
+> - **Per-observation** attribution (`obs.createdBy`, stamped since S83),
+>   NOT per-pin and NOT a card border.
+> - On screen: a compact initials chip `.obs-insp-chip` rendered into
+>   the reserved `.obs-insp-slot`, color carried per-instance via the
+>   `--ic` custom property. Chip color is **derived deterministically by
+>   hashing `userId` into the existing `CONTRACTOR_COLOR_PALETTE`** — no
+>   new colors, no `profiles.inspector_color` column (it does not exist
+>   in the live schema and is not read). Control-bar toggle
+>   `#dfx-insp-toggle` (localStorage `arencon-frt-insp-chip`, default
+>   ON) — **not** a "Layers menu" (no such menu exists in FRT).
+> - PDF: **2 modes only — Off (default) / Initials tag** (`#pdf-insp-tag`
+>   in the export modal). Chip renders in `.dc-hdr` after the priority
+>   pill when initials. Legacy/null `createdBy` prints/renders nothing.
+> - Canvas inspector pin-ring (S82 "outer ring on drawing") is
+>   explicitly **out of scope** — unbuilt, touches protected
+>   `pinsGL.js`/`pins.js`, a separate future piece.
+
+(S136 historical: re-slotted as Phase 3.5; card 3px-left-border
+attribution dropped in favour of a compact chip; Phase 2 reserved the
+~20px `.obs-insp-slot`; Phase 3 was to build a PDF dropdown shell. All
+realized — with the corrections above — in S143.)
 
 ---
 
@@ -3080,10 +3263,51 @@ SW `v409`, CSS `?v=309`, tests `144/144`. Final commit `5d546d5b7a`. *(Supersede
 - Filter inputs live in the control bar **outside** `#deficiencies-container` so a content re-render never clobbers the search caret/focus. Keep new persistent inputs outside the re-rendered container.
 - Cross-view nav: lightweight views link to the heavy Detailed view via `data-action` + goto helper (re-render + `scrollIntoView` + brief highlight), never duplicate the editor.
 
-### Deferred to S138 (the only remaining Phase 2 item)
+### S138 — Phase 2b (SHIPPED, final commit `d042b40`)
 
-- Unified `+ deficiency` modal (absorbs + removes the `.trade-board-foot` `+ General Deficiency` and the per-contractor `+ Add Deficiency` buttons).
-- **Recommendation schema:** there is currently NO `isRecommendation`/`isRec` field in `model.js`. Adding it (additive, idempotent backfill in the `setProject` funnel, generic `merge3` passthrough) is an S138 prerequisite for the modal's recommendation checkbox and the Detailed/Table/Board rec affordances. `.dfx-bv-rec` CSS is present but unused, waiting for the flag.
+Unified `+ deficiency` modal + `defic.isRecommendation` schema + canon-aligned
+recommendation rendering + "Recommendations only" filter all shipped. Folded
+design rules (canon):
+
+- **A recommendation is NEVER relocated.** It stays in its natural group and
+  only gains a REC badge — has-trade+has-contractor → under that
+  trade→contractor + REC badge; has-trade+no-contractor → grey
+  "Recommendations" sub-banner within trade; no-trade+no-contractor → "Site
+  General · Recommendations" bottom section. The S137-era "Option 2 / rec flag
+  wins over contractor" idea was implemented in `fb6e151`, found to violate
+  this rule in the requested audit, reverted in `143f0e8`. **Do not re-propose
+  flag-driven relocation.** The flag's only render effect is the badge.
+  *(NOTE: superseded S140 by Model 2 — recs pooled into a bottom section;
+  see S139 section at end. Left here as the S138 as-shipped record.)*
+- **REC badge is rendered by a wrapper, never inside `_buildPinGroupCard`.**
+  `_renderDetailedView` wraps a rec pin's card in
+  `<div class="dfx-rec-pin"><span class="rec-badge">REC</span> …card…</div>`;
+  `.dfx-rec-pin > .rec-badge` absolutely positioned in the pin-strip's
+  right-side whitespace, `pointer-events:none`. Protected card fn untouched.
+- **Creation path:** `Model.addDeficiency(ctrId)` → `updateObservation` /
+  `updateObsPriority` / `updateObsTrade(…, 'manual')` → set additive
+  `isRecommendation`/`drawingId` on the returned live defic → `saveNow()` →
+  force `_activeDlcTab='active'` → `render()`. No array hand-mutation.
+- **Single creation entry point.** One `.add-deficiency-card` (§20) at the
+  foot of every view. The per-contractor `+ Add Deficiency` rows and the
+  trade-board-foot `+ General Deficiency` are removed; their
+  `add-defic`/`add-general` handlers + dead `buildGroup` emitter remain
+  defined-but-inert (S137 no-rewrite discipline).
+- **`_flatRows` is the single filter engine** and carries the rec filter:
+  `_dfxRecOnly` state, predicate `if (_dfxRecOnly && !d.isRecommendation)
+  return;` in obs + 0-obs branches. The **"Recommendations only"**
+  control-bar checkbox (`#dfx-reconly` in `.defic-filters`) scopes
+  Detailed/Table/Board identically, hierarchy preserved, intersecting the
+  Active/Closed pivot + contractor/priority/search. Synced in
+  `_syncDfxControls`.
+- **Modal uses documented modal infra**, not bespoke overlay:
+  `.pin-modal-overlay.open` > `.pin-modal` > `.pin-panel-header|body|footer`,
+  `.field-group`, `.modal-checkbox-row` (§20, native `for=` deliberately
+  omitted), `.btn-outline` Cancel + `.btn-primary` Add. Overlay
+  `add-defic-overlay`, in the `app.js` global Esc modal stack after
+  `gp-overlay`. The invented `.adf-*` / `.dfx-add-defic-*` / `.dfx-tbl-rec`
+  classes were removed in `143f0e8` — do not document them.
+- Versions: SW v413→**v416**, CSS ?v=313→**316**, tests 144→**155**.
 
 ---
 
@@ -3124,7 +3348,8 @@ SW `v409`, CSS `?v=309`, tests `144/144`. Final commit `5d546d5b7a`. *(Supersede
 
 # CURRENT-TRUTH — Supersedes Index (read this when in doubt)
 
-Single authoritative pointer for every item that changed across S132–S137-POLISH. Later session always wins.
+Single authoritative pointer for every item that changed across
+S132–S143. Later session always wins.
 
 | Topic | Authoritative state | Superseded sources |
 |---|---|---|
@@ -3133,25 +3358,40 @@ Single authoritative pointer for every item that changed across S132–S137-POLI
 | Sync atomicity / CRDT merge | DONE (If-Match + 412 + merge.js 3-way + showConflictModal) | any "unfinished" framing |
 | R2 project id | Canonical = Hub `?project=` UUID; `proj.id` standalone-only, never an R2 key part | any path built from `proj.id` |
 | sync.js merge3 | Runs in sync worker (`SyncWorkerHost.merge3Worker`); `sync.js` does NOT import merge3 | direct-import assumptions |
-| Trade grouping model | **Contractor-scoped** trades, 4 defaults (`Sprinkler, Fire Alarm, General Contracting, Building Conditions`) | S133 obs-tagged 8-trade life-safety model |
-| Trade board location | Own top-level `.card` `#trade-board-card`, header **"Trade Board"** | S134 `.trade-board-section` inner wrapper; S136 long "· Contractors on Site" name |
-| Trade column header color | Taupe `#7B6F5A` day / `#5F5749` dark | S134 navy `#2A3A5C` for the board |
-| Contractor color source | `contractor.color` (8-color muted palette) drives ctr-card, picker-chip, group header | legacy `getContractorColor`/`_CTR_PALETTE` (now PDF + Deficiency-Log-table only) |
-| `.ctr-card`/`.picker-chip` style | Renumber-pill tinted-fill `color-mix` pattern (keyed `--cc`) | S134 4px colored left-border |
-| Deficiencies tab cards order | **Trade Board → Deficiency Log → Deficiency List** | any earlier order |
-| `#defic-toolbar` | Removed. Renumber lives in `.defic-control-bar` (`#defic-renumber-btn`) | S137 slim toolbar with AI Group/Select/Fold All |
-| Control bar / content boxing | Flush — `.defic-control-bar` single `border-bottom`, no bg/border/radius; `.defic-content` flush | S134 box-framed joined-inner-box treatment |
-| Detailed-view banners | Flat bands `border-radius:4px`; `.dfx-pingrp` no fill/border | S134/S137 box-top `6px 6px 0 0` + `.dfx-pingrp` fill+border |
+| Trade grouping model | **Contractor-scoped** trades, **6 defaults** (`Sprinkler, Fire Alarm, General Contracting, Electrical, Mechanical, Civil`, S142) | S133 obs-tagged 8-trade life-safety model; S135 4-list |
+| Trade board / contractor UI | **S142 §2 ClickAssign `crx-` Contractor Roster** (pill strip + `+ trade ▾` + 2-up grid + click-⊕ pick-mode) | S134 kanban Trade Board; S136 picker; **S141 B2f persistent roster** — all retired |
+| `TRADE_LIST` default | **6 prebuilt** `Sprinkler, Fire Alarm, General Contracting, Electrical, Mechanical, Civil` (S142) | S135 4-list incl. "Building Conditions" |
+| Trade column header color | (moot — no kanban columns) historically taupe `#7B6F5A` | S134 navy for the board |
+| Contractor color source | `contractor.color` (8-color muted palette) drives `crx-` chip/tag + group header | legacy `getContractorColor`/`_CTR_PALETTE` (now PDF + Deficiency-Log-table only) |
+| `.ctr-card`/`.picker-chip` style | retired with the kanban board (S142) | S134 4px border; S136 renumber-pill |
+| Deficiencies tab cards order | **Trade Board (now Roster) → Deficiency Log → Deficiency List** | any earlier order |
+| `#defic-toolbar` | Removed. Renumber NOT in the control bar — **merged into the PDF export modal** (amber toggle, default ON, S139); `#defic-renumber-btn` removed from markup (S139 F), handler inert | S137 slim toolbar; S137-POLISH control-bar Renumber |
+| Control bar / content boxing | Flush — `.defic-control-bar` single `border-bottom`, `.defic-content` flush | S134 box-framed treatment |
+| Detailed-view structure | **Model 2 (S140): 3 disjoint sections** — Deficiencies (navy trade → taupe ctr → cards; no-trade → steel "Other Trade Items") / pooled **Recommendations** (grey band → `.dfx-rec-sub` subheads → inline `.dfx-rec-ctrchip`) / **Site Records** (muted-slate band + INTERNAL pill + dimmed) | S134/S137/S138 in-place REC-badge + grey within-trade sub-band + "Site General · Recommendations" bottom band |
+| Rec render model | **Model 2 pooled, disjoint, each rec exactly once** (S140 on-screen / S142 PDF) | S138 "rec never relocated, only a badge in place" — REVERSED |
+| Rec filter | **3-state `.dfx-recmode`** segmented (Deficiencies / Recommendations / Both), uniform across Active+Closed | S138 "Recommendations only" checkbox `#dfx-reconly` |
+| "Untagged" (user-facing) | **"Other Trade Items"** / "Items with no trade" / "No trade assigned" — literal "Untagged" gone (S142). Internal `untagged*` identifiers retained | S134/S139 "Untagged" wording |
+| Site General | **Site Records** (`SITE_RECORDS_LABEL`; rename only, no flag, no migration); excluded from external PDF unless opted-in | "Site General" naming + tab |
+| Contractor delete | **Non-destructive everywhere** — `deleteContractorAndReassign` moves deficiencies → Site Records; `removeContractor` UI-unreachable (S140) | any destructive-splice path |
+| PDF header bands | **ALL primary bands navy `#2A3A5C`** — `.th-band`, `.st th`, `.sh`, Previously-Closed header (S142). `.th-band.recs` grey `#6B7280`. Burgundy `#9C2742` = **accents only** | S139 "Previously Closed only" recolor (too narrow); pre-S142 burgundy `.st th`/`.sh` |
+| PDF recommendations | **Pooled, forced new page AFTER Previously Closed** (`_flowBlock`, `_recsMode` bottom/only/exclude) (S142) | S139 in-trade `.rh` sub-band + `.th-band.sgr` "Site General · Recs" band — removed |
+| PDF trade derivation | `pdf.js _pinTrade` = `Model.derivePinTrade(d, parentCtr)` → `obs[0].trade` → ctr's SOLE trade → `''`; parent = ctr holding the pin (S142) | per-obs `r.ctr` override grouping |
+| PDF "Report Key" | **"Report Legend"** — 2-col `.rep-key-grid`, no Trade row, no IAR row, reworded gloss; inspector row only when initials (S143 + fix2) | "Report Key" + Trade row + (never-existed) title-page `.legend*` |
+| PDF Deficiency Summary | IAR column **removed** (S143 fix2); cols = Summary / Total / New / Outstanding / Closed | S119 table with pink `#FF69B4` IAR column |
+| Inspector attribution | **BUILT S143** — per-obs `obs.createdBy`; `.obs-insp-chip` keyed `--ic` (deterministic hash into `CONTRACTOR_COLOR_PALETTE`, NOT `profiles.inspector_color`); control-bar `#dfx-insp-toggle` (default ON, NOT a Layers menu); **PDF 2 modes Off/Initials** | S81–S82 colored-card-border + "modes A/B/C" + `profiles.inspector_color` — LOST/RETIRED |
+| IAR feature | Fully retired (UI gone S135) **+ S143 actively clears legacy `iar:true`→false on load** (idempotent, console-only); PDF IAR column removed | all IAR UI/handlers/`toggleIAR`; lingering `iar:true` JSON |
+| `+ deficiency` unified modal + `defic.isRecommendation` | ✅ SHIPPED S138 (`d042b40`) | — |
+| Renumber→PDF-export merge | ✅ SHIPPED S139 (`9f300a7b`) — control-bar button removed, modal amber toggle (default ON) | — |
+| Inline contractor reassign | **`.ctr-banner` `<select>` in Detailed list** → `Model.reassignDeficiency` (S142) | (new) |
+| Table/Board click target | **`_openPinFocus` focused single-pin overlay** (`#pinfocus-overlay`, reuses `buildDeficCard`) (S142) | S137 `_dfxGotoPin` jump-to-Detailed (handler inert) |
+| Inline modal text scaling | Inline-styled modals follow app S/L via `calc(Npx + var(--ts))` (S142); PDF body locked 11pt | fixed-px inline modal text |
+| Tap-contractor-name-to-focus | Deferred to **S145/Phase 6** — no collapse-all in interim | S134/S135 "replaces Fold All" framing |
+| Undo/Redo + 3-button leave dialog | Phase 4 (still deferred); leave dialog stays until Undo ships | S134 "leave dialog replaced" framing |
+| Detailed-view banners | Flat bands `border-radius:4px`; `.dfx-pingrp` no fill/border (Model 2 adds `.other`/`.recs`/`.records` variants on the same flat-band system) | S134/S137 box-top `6px 6px 0 0` + `.dfx-pingrp` fill+border |
 | Card layout | Single-obs == multi-obs (`renderPinStrip=true`), drawing pill left-aligned for ALL pins | S122 single-obs compact layout |
 | Addressed stripe | `box-shadow: inset 3px 0 0` (paint-only) | `border-left:3px` (layout-occupying) |
 | High board column color | Muted `#A85959` | S134 `#C0392B` (forbidden bright) |
-| IAR feature | Fully retired (UI gone S135). Replaced by `obs.repeatCount` chip | all IAR UI/handlers/`toggleIAR` |
 | AI obs-grouping / Summary tab / Site General tab / Bulk Select / Fold All / per-obs AI Review | Retired (S135 Phase 0) | S130/S133 feature set |
-| `+ deficiency` unified modal + `defic.isRecommendation` | NOT yet in code — S138 deliverable | S134 spec describes it as if shipped |
-| Renumber→PDF-export merge | Deferred to **S139** — Renumber stays a control-bar button | S134 "merged with Generate PDF" |
-| Tap-contractor-name-to-focus | Deferred to **S145/Phase 6** — no collapse-all in interim | S134/S135 "replaces Fold All" framing |
-| Undo/Redo + 3-button leave dialog | Phase 4 (**S142–143**); leave dialog stays until Undo ships | S134 "leave dialog replaced" framing |
-| Inspector attribution | Phase 3.5 (**S140–141**); card initials chip keyed `--ic`, NOT a card border | S81–S82 colored-card-border spec |
 
 ---
 
@@ -3173,10 +3413,21 @@ Single authoritative pointer for every item that changed across S132–S137-POLI
   (Mark provides template), NFPA 25 / OFC IT&M Checklists ×3 (sprinkler /
   diesel / electric), Travel Distance & Exit Capacity Calc (OBC 3.4.2),
   FRR Quick Ref (OBC 3.2.2), Occupant Load Calc (OBC 3.1.17).
-- **Phased FRT roadmap (not yet built):** unified `+ deficiency` modal +
-  `defic.isRecommendation` (S138), Renumber→PDF-export merge (S139),
-  Inspector attribution Phase 3.5 (S140–141), Undo/Redo Phase 4
-  (S142–143), tap-contractor-to-focus / Phase 6 (S145).
+- **Phased FRT roadmap:** ✅ unified `+ deficiency` modal +
+  `defic.isRecommendation` (S138, `d042b40`); ✅ PDF Trade→Contractor
+  restructure + hi-rec note + Renumber→PDF merge (S139, `9f300a7b`);
+  ✅ **Model 2 structure** on-screen — pooled Recommendations, Site
+  Records rename, "Other Trade Items", 3-state filter,
+  `derivePinTrade`, non-destructive contractor delete (S140, `v424`);
+  ✅ **§2 ClickAssign Contractor Roster** + **Model 2 PDF** (all bands
+  navy, pooled recs new page, inline reassign, focused pin panel) (S142,
+  `c0c9d353`); ✅ **Inspector attribution** + PDF "Report Legend" +
+  legacy-IAR clear (S143, `9c9b3115`). **Still open:** S139 QA checklist
+  (Mark runs independently); Undo/Redo Phase 4; tap-contractor /
+  Phase 6 (S145); Closed Items Summary still listing rec rows (confirm
+  acceptable); canvas inspector pin-ring (S82 "outer ring" — future
+  separate piece, touches protected `pinsGL.js`/`pins.js`); future
+  `profiles.inspector_color` opt-in colours.
 
 ---
 
@@ -3212,7 +3463,421 @@ matching appendix section so no rule is lost on delta retirement.
 
 ---
 
-*Consolidation complete. From S138 onward this is the single canonical
-`ARENCON_Project_Knowledge.md`. The S132–S137-POLISH delta files are now
-absorbed and disposable. Future per-session deltas are folded in each
-session so deleting them remains safe.*
+# Session 139 Additions — Phase 3 PDF restructure (AS-SHIPPED)
+
+> S139 shipped HEAD `9f300a7b`, SW `arencon-frt-v418`, CSS `frt.css?v=318`.
+> Commits `4ade000` → `9f300a7b`. ⚠ **Model 2 is now SHIPPED** (S140
+> structure + S142 PDF, live) — the "approved spec" that used to live
+> here has been folded into the Session 140/142/143 sections below and
+> §2944 has been rewritten. S139 "B" (in-trade rec sub-band + "Site
+> General · Recommendations" band) is **superseded and removed from live
+> code**; S139 "A" (Trade→Contractor restructure) and "D" (hi-rec note)
+> are KEPT under Model 2. This section is retained as the S139 as-shipped
+> record only.
+
+## A/B/D/E/F — as shipped (do NOT device-trust until Mark verifies; QA in handoff)
+
+- **A** — PDF report regrouped **Trade→Contractor→cards**. Navy trade band
+  `#2A3A5C`, taupe contractor sub-band (S118 burgundy `.ch` recolored to
+  `#7B6F5A`). Pagination re-stamps both bands on continued pages via
+  `_restamp()` / `_aTradeHtml`. Trade order: declared `projectTrades` →
+  extras seen → "Other Trade Items" → (old) "Site General · Recommendations".
+  **This restructure (A) is KEPT under Model 2.**
+- **B** *(SUPERSEDED by Model 2)* — grey `#6B7280` "Recommendations" sub-band
+  within a trade for no-contractor trade-tagged recs; bottom "Site General ·
+  Recommendations" band; verbatim italic `.rec-foot`; muted `.rec-chip` REC
+  in card header.
+- **D** — italic `.hirec-note` (taupe) under the deficiency summary: "This
+  report includes X high-priority recommendation(s) — see Recommendations
+  section." Distinct-pin count, legacy pin-level priority handled, count=1
+  grammar, auto-suppressed when recs gated off. **KEPT; S140 only re-points
+  the "see Recommendations section" wording to the new pooled section.**
+- **E** — export-modal "Untagged items (N with no trade)": Show as "Other
+  Trade Items" (default) / Exclude; plus "Include recommendations" toggle
+  (default ON) gating all rec content from the main body.
+- **F** — control-bar `#defic-renumber-btn` REMOVED from `frt/index.html`
+  (handler in `deficiencies.js` left defined-but-inert, S137 discipline).
+  Amber "Renumber before export" toggle (default ON, `--warn #B7791F`) in
+  export modal; runs `Model.renumberDeficiencies()` + re-renders pre-export.
+
+---
+
+# Session 140 Additions — Phase 3.x "Model 2" structure + contractor lifecycle (AS-SHIPPED)
+
+> Live at S140: SW `arencon-frt-v424` / CSS `?v=324`. Demo
+> `ARENCON_Phase3x_Model_Demo.html` approved verbatim by Mark. This is
+> the on-screen Model 2 structure; the PDF half shipped S142 (below).
+
+### 1. Model 2 — Detailed-view structure (SUPERSEDES the prior rec model)
+
+`_renderDetailedView` (deficiencies.js) renders **3 disjoint sections**,
+in this order; every pin appears in exactly one:
+
+1. **Deficiencies** — Trade → Contractor spine. Navy trade band
+   (`.dfx-trade-banner`), taupe contractor sub-band (`.dfx-ctr-banner`),
+   protected `_buildPinGroupCard` pins. No-trade deficiencies fall to a
+   distinct steel **"Other Trade Items"** band (`.dfx-trade-banner.other`
+   `#4A5568`). The literal word "Untagged" is gone (user-facing).
+2. **Recommendations** — every `isRecommendation` pin is PULLED OUT of
+   the spine into ONE pooled section. Grey header
+   (`.dfx-trade-banner.recs` `#6B7280`); header reads
+   **"Recommendations (Closed)"** under the Closed pivot. Internal layout
+   = trade **subheadings only** (`.dfx-rec-sub`), with **"No trade
+   assigned" last**. Contractor shown as an **inline chip**
+   (`.dfx-rec-ctrchip`) ONLY when one exists — never a contractor
+   sub-band.
+3. **Site Records** — the reserved no-contractor informational bucket
+   (`proj.generalDeficiencies`, **renamed from "Site General"**). Muted-
+   slate band (`.dfx-trade-banner.records` `#5C6678`) + persistent
+   **"Internal — excluded from client report" pill** (`.dfx-sr-pill`) +
+   **dimmed cards** (`.dfx-sr-pin` opacity .8). Excluded from external
+   reports by default.
+
+**Filter = uniform (Behavior B, Mark-approved):** the 3-state rec filter
++ lifecycle pivot are applied in `_flatRows` BEFORE `_renderDetailedView`;
+the filter behaves identically in Active and Closed. No special
+Closed-view rec handling.
+
+**Trade ordering rule:** declared `proj.projectTrades` first, then extras
+seen, then "Other Trade Items" / "(No trade assigned)" appended last.
+
+### 2. ⚑ MODEL INTERPRETATION (in force; flagged in `_renderDetailedView`)
+
+Schema has **NO separate "is a Site Record" flag**. Per S139 §4.1/§4.6
+("Site Records = RENAME of Site General; no new flag; no migration"):
+- non-recommendation pin **with NO contractor** (lives in
+  `generalDeficiencies`) = a **Site Record**, regardless of any trade;
+- pin **with a contractor** = a **Deficiency**;
+- any `isRecommendation` pin = a **Recommendation**, wherever it lives.
+
+Reproduces the approved demo exactly. If Mark ever wants no-contractor
+*deficiencies* distinct from Site Records → that needs a new schema flag.
+
+### 3. model.js additions (B1) — canonical
+
+- `SITE_RECORDS_LABEL = 'Site Records'` (module const).
+- `isSiteRecordsName(nm)` — matches new + legacy "Site General".
+- `Model.derivePinTrade(defic, contractor)` — canonical fallback:
+  `obs[0].trade` → contractor's **SOLE** declared trade → `''`. Use this
+  everywhere a pin's effective trade is needed (Detailed view AND
+  `pdf.js`).
+- All user-facing 'Site General' string literals now emit
+  `SITE_RECORDS_LABEL` (model.js + 6 deficiencies.js call sites). Dead
+  `ctrColorClass`/inert `buildGroup`/comment occurrences left per S137
+  no-rewrite discipline.
+
+### 4. Contractor lifecycle (B2d + B2e) — non-destructive, LIVE
+
+> ⚠ The B2d amber "unassigned strip" and B2e read-only Trade-Board card
+> are themselves **superseded by S142 §2 ClickAssign** (the whole kanban
+> board + B2f roster are gone). The **delete-safety contract below is
+> PERMANENT and still in force**:
+
+- **Delete is non-destructive EVERYWHERE.** All UI delete paths call
+  `Model.deleteContractorAndReassign(ctrId)`: the contractor's
+  deficiencies are **MOVED to Site Records (`generalDeficiencies`),
+  never deleted**; only the contractor record is spliced. Confirm +
+  toast report the moved count.
+- **`Model.removeContractor` (destructive splice — orphans deficiencies)
+  is no longer reachable from ANY UI path.** Kept in model.js, unused
+  (S137 discipline). This structurally fixes the S140 contractor-delete
+  data-loss bug — there is no Undo until Phase 4, so the safety net is
+  "cannot lose data in the first place."
+
+**model.js contractor API (verbatim):** `removeContractor(ctrId)` —
+DESTRUCTIVE, UI-unreachable, keep don't call. `deleteContractorAndReassign(ctrId)`
+— SAFE, returns moved count, the ONLY delete used by UI.
+`addContractor(name)` → `{trades:[], deficiencies:[], color:auto}` (no
+auto-deficiency). `renameContractor(id,name)`,
+`setContractorTrades(id,[trades])`, `addContractorToTrade(ctrId,trade)`
+(additive, idempotent, auto-creates the trade), `addProjectTrade(t)`
+(idempotent, case-insensitive), `removeContractorFromTrade(id,trade)`,
+`removeProjectTrade(trade)` (cascades — strips the trade from every
+`contractor.trades`).
+
+### 5. Operational — concurrent writers to `main` (PERMANENT)
+
+A parallel **Training Center / Supabase** workstream pushes to `main`
+independently and frequently (orthogonal to FRT). Mandatory push pattern
+every commit: GET ref → if HEAD ≠ baseline, fetch each target path at
+baseline and at HEAD and assert byte-identical (any diff → ABORT, manual
+rebase, never force) → `base_tree` = HEAD's tree → blobs → tree → commit
+(parent = HEAD) → PATCH ref `force:false` → re-assert. **Never
+force-push.** Expected, not anomalous.
+
+---
+
+# Session 141 Additions — B2f persistent roster (SHIPPED then SUPERSEDED)
+
+> Shipped `d0da10c`, SW `v425` / CSS `?v=325`. **B2f is SUPERSEDED by
+> S142 §2 ClickAssign** (the persistent roster + the kanban Trade Board
+> are both gone). Recorded for provenance — do NOT rebuild B2f.
+
+B2f replaced the S140 conditional `.tb-unassigned` amber strip with a
+**persistent Contractor Roster** (always rendered, listed ALL
+contractors, single master Add/Rename/Delete/Assign; golden per-chip
+border when on no trade, cleared at ≥1; roster "+ Add contractor" = bare
+contractor, no auto-deficiency; assign switched to additive
+`Model.addContractorToTrade`). It also did **2B Trade-Board column
+auto-fit** — removed the three `min-height:100px` floors (`.trade-col`,
+`.trade-add-col`, `.trade-add-col-input`); kept equal-height +
+bottom-pinned `+ Add contractor` for row alignment (Mark's refinement).
+The B2f `.ctr-roster*`/`.cr-chip*` CSS is recorded in the Style Guide
+§23 retired list (replaced by the `crx-` family).
+
+---
+
+# Session 142 Additions — §2 ClickAssign + Model 2 PDF AS-SHIPPED + Batch 4
+
+> Live at S142: HEAD `c0c9d353`, SW `arencon-frt-v438`, CSS
+> `frt.css?v=338`. Visual contracts: `ARENCON_ClickAssign_Demo.html` and
+> `ARENCON_Phase3x_Model_Demo.html`, both approved verbatim.
+
+### 1. §2 — Contractor Roster (ClickAssign) SUPERSEDES the trade board + B2f
+
+`_renderTradeBoard` (deficiencies.js) is now the **`crx-` ClickAssign
+system**. Replaces the S136 kanban Trade Board AND the S141 B2f roster.
+
+- **`TRADE_LIST` (model.js)** = `['Sprinkler','Fire Alarm','General
+  Contracting','Electrical','Mechanical','Civil']` (was the old 4 incl.
+  "Building Conditions"). `pdf.js` has zero `TRADE_LIST` refs.
+- Layout: colour **pill strip** of trades + `+ trade ▾` prebuilt
+  dropdown (six prebuilt not already added, plus "+ new trade…") +
+  **2-up roster grid** (`.crx-grid`, collapses 1-col ≤720px) + pick-mode
+  state machine. Body pick state = `body.crx-picking` (`crxPulse`
+  keyframe). Unassigned contractor chip = golden border
+  (`.crx-cc.crx-unassigned`), clears at ≥1 trade.
+- Assign = click the per-card **`⊕`** → enter pick mode (strip gets a
+  dashed burgundy frame, every pill pulses, target chip gets a burgundy
+  ring, taken trades dimmed/blocked) → click a glowing pill. Cancel =
+  Esc, the Cancel bar, or click-away (capture-phase document click).
+- `×` on a contractor tag = un-assign that one contractor; `×` on a
+  strip pill (only when NOT picking) = delete the trade everywhere
+  (confirm shows the un-tag count).
+- **Custom-trade colour = deterministic char-code name-hash** into 2
+  EXTRA palette slots (`_TRADE_EXTRA`). No colour picker. Trade colour is
+  applied consistently: strip pill AND that trade's tag on every
+  contractor.
+- 11 `crx-*` click handlers; capture-phase document click (cancel pick +
+  close menu) + Esc. Legacy S136/B2f trade-board handlers are
+  **defined-but-inert** (S137 — present, no longer emit data-actions).
+- `index.html` card header reads **"🏗 Contractor Roster"**.
+
+### 2. Model 2 PDF — AS-SHIPPED (the §2944 rewrite is the canonical record)
+
+See the rewritten §2944 above for the full live PDF structure. Net:
+trade/contractor sections are deficiencies-only; every recommendation is
+pooled into ONE "Recommendations" section on a forced new page after
+Previously Closed Items; **all primary header bands are navy `#2A3A5C`**;
+burgundy `#9C2742` is accents-only. Key code anchors:
+
+- `pdf.js _pinTrade(d)` = `Model.derivePinTrade(d, _parentCtrByDefId[d.id]||null)`.
+  Parent = contractor whose `.deficiencies[]` holds the pin (NOT the
+  per-obs `r.ctr` override); `generalDeficiencies` → null. Root-cause fix
+  for "single-trade contractor pin still shows as Other Trade Items".
+- Grouping loop diverts `isRecommendation` rows to `pooledRecs[]`;
+  `recBlocks` emitted after Previously Closed via
+  `_aTradeHtml=''; _aCtrHtml=''; _startPage(); recBlocks.forEach(_flowBlock); _finalizePage();`.
+- `_flowBlock` = the extracted pagination callback (was inline
+  `contentBlocks.forEach`). Main body = `contentBlocks.forEach(_flowBlock)`;
+  recs reuse it. **Architectural rule: do not re-inline.**
+- `_buildDefCard(r, hdrExtra)` — optional 2nd param injects HTML into
+  `.dc-hdr` after the priority pill; `''` (byte-identical) for the 2
+  deficiency callers; the rec caller passes the contractor chip.
+- `_recsMode` ∈ `bottom` | `only` | `exclude`; `_recFooter` default ON;
+  `_srOptIn` = `includeSiteRecords` (default OFF) OR explicit Site-General
+  filter. The S139 in-trade rec sub-band + "Site General ·
+  Recommendations" band are **removed**.
+
+### 3. All primary PDF header bands navy `#2A3A5C`
+
+`.th-band` (trade), `.st th` (page-1 Deficiency Summary table header —
+*was burgundy*), `.sh` (Appendix "Drawings with Pins" — *was burgundy*),
+and the Previously Closed inline header are **all navy**. Pooled-recs
+band `.th-band.recs` is grey `#6B7280`. Previously Closed: navy band,
+neutral `#EEF2F4`/`#4A5568` instance row, muted-green `#3F6E55`
+"Addressed" (forbidden bright `#1A7A4A` eliminated here). Burgundy
+`#9C2742` accents-only: `.dc-itemnum` (pin #), `.ph-addr` (2px left
+rule), `.app-dwg-title` (3px left-border). Tracked retained debt
+(untouched unless Mark asks): the appendix `app-pin-table` status-cell
+hexes and the `.st td` status-count colours (`#1565C0`/`#C0392B`/`#1A7A4A`);
+the `#FF69B4` IAR status colour is **gone** (column removed S143).
+
+### 4. Terminology — "Untagged" deprecated (user-facing)
+
+No-trade pins are **"Other Trade Items"** (band) / **"Items with no
+trade"** / **"No trade assigned"**. The literal user-facing word
+**"Untagged" is gone everywhere** (export-modal box header → "Items with
+no trade (N)"; Board card no-trade chip → "none"). Internal identifiers
+(`pdf-untagged`, `untaggedMode`, `_countUntaggedForBand`, the `untagged`
+group var) are **deliberately retained** (non-user-facing; renaming is
+churn/risk, out of scope).
+
+### 5. Detailed list — inline contractor reassign (Batch 4-2)
+
+`_buildPinGroupCard` renders a defic-level `data-action="obs-contractor"`
+`<select>` (`.ctr-banner`) next to the Trade select. Change →
+`Model.reassignDeficiency(deficId, value||null)` (`''` = Site Records;
+dedup-safe, persists) + `saveNow()` + `render()`. Reassigns the whole
+pin's contractor **without opening the pin editor**. Defic-level (no
+`data-obs-idx`): on a multi-obs pin it shows on each obs row but
+reassigns the whole pin.
+
+### 6. Focused single-pin panel (Batch 4-3/4-4)
+
+A Table row / Board card click opens **`_openPinFocus(deficId)`** — a
+body-level overlay `#pinfocus-overlay` rendering the **same
+`buildDeficCard`** (every inline control + view-pin/place-pin
+affordance) + a prominent "📌 View on drawing" / "📌 Place pin" CTA. It
+is **NOT** a jump to the Detailed list and **NOT** the heavy
+drawing-canvas pin editor. `initDeficiencies.render()` calls
+`_refreshPinFocus()` at its end so an open panel stays current after any
+model edit; it **skips the rebuild while a TEXTAREA inside the panel is
+focused**, and closes the panel if the defic was deleted. Esc / backdrop
+/ ✕ close; `view-pin`/`place-pin` call `_closePinFocus()` first.
+`_dfxGotoPin` is kept defined-but-inert (S137); `dfx-goto` now routes to
+`_openPinFocus`. Universal because **every on-screen card path uses
+`buildDeficCard`** (Detailed, Closed, Rec, Site Records).
+
+### 7. Modal text scaling (precedent)
+
+Inline-styled modals follow app S/L via `font-size:calc(Npx + var(--ts))`
+(`_openPDFPicker` converted; precedent for all future inline modals).
+PDF body stays locked 11pt regardless.
+
+---
+
+# Session 143 Additions — Inspector attribution + Report Legend (AS-SHIPPED, incl. post-handoff fixes)
+
+> Live at the S143 canon pass: HEAD `9c9b3115`, SW `arencon-frt-v440`,
+> CSS `frt.css?v=340`. The S143 handoff was written at `6f9c1f79` (SW
+> v439 / CSS v339); **two post-handoff fix commits (`ea71cdc5`,
+> `9c9b3115`) are live and folded here.** The original S82 PDF inspector
+> "modes A/B/C" spec is **lost and formally retired** — the canonical
+> model is **2 modes only (Off / Initials)**.
+
+### 1. Inspector attribution — data layer (`model.js`)
+
+- `createdBy` is stamped per-entity since S83 (= `_currentUserId`);
+  **per-observation** (`obs.createdBy`) is the attribution key, not
+  per-pin.
+- `Model.setInspectorFetch(fn)` — injection point. **`model.js` has no
+  Auth import by deliberate design**; `app.js` injects the Auth-backed
+  fetcher. Keep the data layer Auth-free.
+- `Model.resolveInspector(userId)` — synchronous `{name, initials,
+  color}`. Contract: null/legacy → `{name:'—',initials:'—',color:null}`
+  (no fetch ever); unknown → provisional + background batch fetch;
+  cached → resolved.
+- `Model.setInspectorEntry(userId,name)` — direct seed (signed-in user,
+  no round-trip).
+- `Model.primeInspectors(userIds)` — debounced via `_inspectorPending`;
+  **caches color-only on missing rows** so deleted/absent profiles never
+  refetch in a loop; emits the `'inspectors'` change event.
+- `_inspectorColor` / `_inspectorInitials` — internal, deterministic.
+  **Color rule:** inspector chip colour is derived **deterministically
+  by hashing `userId` into the existing `CONTRACTOR_COLOR_PALETTE`**.
+  `profiles.inspector_color` does NOT exist in the live Supabase schema
+  and is NOT read. No new colours enter the system. If
+  `profiles.inspector_color` is ever added, preferring it is a clean
+  future enhancement (single branch in `primeInspectors`) — not wired.
+
+### 2. Profiles fetch (`app.js`)
+
+Batch endpoint `/rest/v1/profiles?id=in.(<ids>)&select=id,full_name` via
+`Auth.request`, injected immediately after `Model.setCurrentUser`. Name
+resolution order: `profiles.full_name` → `user_metadata.full_name` →
+email prefix → `—`. **Standalone mode (no auth path) never injects the
+fetcher → resolver inert → no chips. Correct, intended graceful
+degradation.**
+
+### 3. On-screen
+
+- Per-observation initials chip `.obs-insp-chip` renders into the
+  reserved `.obs-insp-slot` (designed empty S137, populated S143). Color
+  via the `--ic` custom property (set inline from `Model._inspectorColor`).
+- Control-bar toggle `#dfx-insp-toggle` (NOT a "Layers menu" — no such
+  menu exists in FRT). localStorage `arencon-frt-insp-chip`, **default
+  ON**. Lives next to the Detailed/Table/Board view toggles, `.dfx-recmode`
+  idiom.
+- Async resolution repaints via a one-time `Model.onChange('inspectors')`
+  subscription (guarded `_inspChipSubscribed`).
+- Legacy/null `createdBy` → empty slot (no `—` chip on screen; existing
+  projects unchanged).
+
+### 4. PDF (supersedes the lost S82 "modes A/B/C")
+
+- **2 modes only:** `off` (default) / `initials`, via the `#pdf-insp-tag`
+  `<select>` in `_openPDFPicker`. `inspTag` threaded as the **trailing
+  positional arg** of `_exportPDFWithCache` (now 15 params; same additive
+  convention `recFooter` used; never reorder the legacy positional
+  signature — only append). Passed at both call sites
+  (`opts.inspTag||'off'`).
+- Chip renders in `.dc-hdr` after the priority pill when `initials`.
+  `.dc-insp` CSS lives in pdf.js's **injected** stylesheet (new-window
+  document; frt.css does not reach it).
+- Off-by-default keeps client reports clean; legacy/null prints nothing.
+
+### 5. Report Legend (Phase 3 C, re-scoped + post-handoff fix2)
+
+- **There was never a pre-existing PDF title-page legend.** The old
+  §2944 "legend gains a rec entry" line referenced a legend that did not
+  exist. Built fresh in S143, then revised by fix2:
+- Live: title is **"Report Legend"** (renamed from "Report Key");
+  `.rep-key` box on page 1, injected after the Deficiency Summary table,
+  before the hi-rec note, inside `if(reportDefs.length)`. Now a **2-column
+  grid** (`.rep-key-grid` `grid-template-columns:1fr 1fr`), compacted
+  (`margin-top:10px; padding:8px 12px`).
+- Reuses **literal report classes** (`.th-band.recs`, `.rec-chip`,
+  `.pill-h/.pill-l/.pill-c`, `.dc-insp`) as live swatches so the legend
+  can never drift from actual output.
+- Rows: Recommendations band (gloss "recommendation items - do not hold
+  off sign-off"), REC chip, Outstanding-high, Outstanding-low, Closed,
+  and an inspector-initials row **only when** `inspTag==='initials'`.
+  **No Trade row** (dropped in fix2) and **no IAR row** (IAR retired
+  S135).
+
+### 6. Post-handoff fix2 — legacy IAR cleanup (`model.js`, NEW canonical migration)
+
+The IAR feature was UI-removed in S135 but the `iar:true` flag lingered
+in old JSON and could no longer be toggled off in-UI. S143 fix2 adds a
+**load-time clear** inside `loadFullProject`'s migration:
+- Pin level: `if (d.iar) { d.iar = false; _iarCleared++; }`
+- Per-obs: `if (o.iar) { o.iar = false; _iarCleared++; }`
+- **One-directional, idempotent, touches ONLY `iar`** — never
+  priority/status/dates. Once cleared nothing truthy remains, so re-loads
+  are no-ops (no dirty churn). A single `console.log('[Model] S143:
+  cleared N legacy IAR flag(s)')` only when `_iarCleared > 0` — **no UI
+  toast** (background normalization). Reinforces the S135 "IAR fully
+  retired — do NOT re-add" rule with active cleanup.
+- PDF: the Deficiency Summary **IAR column was removed** (per-contractor
+  rows + Total row); columns now Deficiency Summary / Total / New This
+  Report / Outstanding / Closed.
+
+### 7. Engineering notes (carry forward)
+
+- `str_replace` into single-quoted JS strings: a literal `\u2014`
+  written as `\\u2014` becomes a double backslash in-file and prints
+  literal text. Codebase convention is single `\u2014` inside
+  single-quoted strings (e.g. pdf.js:469). Verify after every such edit.
+- The CSS-string scanner's "unbalanced `c+=`" hits at pdf.js
+  ~202/284/285 are **pre-existing false positives** (multi-line
+  font-face / title-block). Not regressions.
+
+### 8. Scoped OUT (carry forward)
+
+- **Canvas inspector pin-ring** (the broader S82 "outer ring on
+  drawing"): unbuilt, touches protected `pinsGL.js`/`pins.js`, a
+  separate future piece. The reserved `.obs-insp-slot` and the PDF
+  dropdown are NOT this.
+- S139 QA follow-ups — skipped by Mark's explicit instruction; still
+  open.
+- Closed Items Summary still listing rec rows — pre-S143, untouched;
+  confirm acceptable.
+
+---
+
+*Consolidation complete. From the S143 canon pass this is the single
+canonical `ARENCON_Project_Knowledge.md`. The S132–S137-POLISH delta
+files AND the S138/S140/S142/S143 delta `.md` files are now absorbed and
+disposable. Future per-session deltas are folded in each session so
+deleting them remains safe.*
