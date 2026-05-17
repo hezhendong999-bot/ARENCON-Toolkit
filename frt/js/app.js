@@ -1383,7 +1383,7 @@ function _openPDFPicker() {
   var _utc = _countUntaggedForBand(proj);
   if (_utc > 0) {
     h += '<div style="margin-bottom:16px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;">';
-    h += '<div style="font-weight:600;font-size:calc(13px + var(--ts));color:var(--steel,#4A5568);margin-bottom:6px;">Untagged items (' + _utc + ' with no trade)</div>';
+    h += '<div style="font-weight:600;font-size:calc(13px + var(--ts));color:var(--steel,#4A5568);margin-bottom:6px;">Items with no trade (' + _utc + ')</div>';
     h += '<label style="display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts));cursor:pointer;margin-bottom:5px;"><input type="radio" name="pdf-untagged" value="show" checked> Show as \u201cOther Trade Items\u201d band</label>';
     h += '<label style="display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts));cursor:pointer;"><input type="radio" name="pdf-untagged" value="exclude"> Exclude from report (' + _utc + ' item' + (_utc !== 1 ? 's' : '') + ')</label>';
     h += '</div>';

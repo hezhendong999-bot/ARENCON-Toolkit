@@ -1586,7 +1586,7 @@ function _renderBoardView(proj, container) {
       + '<div class="dfx-bv-card-bottom">'
       + _dfxThumb(d, oi, 'dfx-bv-card-thumb')
       + (d.isRecommendation ? '<span class="dfx-bv-rec">REC</span>' : '')
-      + '<span class="dfx-bv-card-trade">' + esc(trade || 'untagged') + '</span>'
+      + '<span class="dfx-bv-card-trade">' + esc(trade || 'none') + '</span>'
       + '</div></div>';
   }
   function col(cls, label, arr) {
