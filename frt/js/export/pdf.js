@@ -264,9 +264,9 @@ function _buildCSS(fontB64){
   c+='.fu-date{color:#6B7B8C;font-size:9pt;}';
   c+='.fu-body{font-size:10.5pt;color:#1C2333;margin-top:1px;}';
   c+='.st{width:100%;border-collapse:collapse;font-size:11pt;margin-top:0;}';
-  c+='.st th{background:#9C2742;color:white;padding:6px 10px;text-align:left;font-size:11pt;font-weight:700;}';
+  c+='.st th{background:#2A3A5C;color:white;padding:6px 10px;text-align:left;font-size:11pt;font-weight:700;}';
   c+='.st td{padding:6px 10px;border-bottom:1px solid #DDE1E7;font-size:11pt;}';
-  c+='.sh{background:#9C2742;color:white;padding:7px 14px;font-weight:700;font-size:12pt;border-radius:6px 6px 0 0;margin-top:16px;margin-bottom:0;letter-spacing:.3px;}';
+  c+='.sh{background:#2A3A5C;color:white;padding:7px 14px;font-weight:700;font-size:12pt;border-radius:6px 6px 0 0;margin-top:16px;margin-bottom:0;letter-spacing:.3px;}';
   c+='.sb{border:1px solid #DDE1E7;border-top:none;padding:12px;border-radius:0 0 6px 6px;margin-bottom:0;}';
   c+='.app-dwg{margin-bottom:28px;}';
   c+='.app-dwg-title{font-weight:700;font-size:12pt;color:#1C2333;margin-bottom:8px;padding:6px 10px;background:#F7F8FA;border-radius:4px;border-left:3px solid #9C2742;}';
