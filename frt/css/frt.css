@@ -6551,7 +6551,6 @@ body.dark-mode .trade-banner {
   background: #F7F8FA;
   border: 1px solid #DDE1E7;
   border-radius: 6px;
-  min-height: 100px;
   display: flex;
   flex-direction: column;
 }
@@ -6739,7 +6738,7 @@ body.dark-mode .trade-add-slot:hover {
   background: transparent;
   border: 1.5px dashed #C6CCD6;
   border-radius: 6px;
-  min-height: 100px;
+  padding: 16px 14px;
   color: #8A94B0;
   font-family: Calibri, sans-serif;
   font-size: calc(14px + var(--ts));
@@ -6767,7 +6766,6 @@ body.dark-mode .trade-add-col:hover {
 
 /* Inline input that replaces + trade button on click */
 .trade-add-col-input {
-  min-height: 100px;
   border: 1.5px solid #9C2742;
   border-radius: 6px;
   background: #FFFFFF;
@@ -6775,7 +6773,7 @@ body.dark-mode .trade-add-col:hover {
   font-family: Calibri, sans-serif;
   font-size: calc(14px + var(--ts));
   font-weight: 600;
-  padding: 0 14px;
+  padding: 16px 14px;
   text-align: center;
   outline: none;
 }
@@ -6784,29 +6782,53 @@ body.dark-mode .trade-add-col-input {
   color: #E0E5F0;
 }
 
-/* ── S140 B2d: Unassigned-contractor strip (Model 2 §4.2) ──
-   Amber, deliberately SEPARATE from the Trade Board (its own bordered
-   region, never a trade column). Rename + assign-to-trade live here so
-   renaming never happens inside a trade column. Muted palette, Calibri
-   inherited; --warn token carries the amber, dark mode via var()s. */
-.tb-unassigned {
-  margin-top: 14px;
-  border: 1px solid var(--warn);
-  background: #FBF6EC;
+/* ── S141 B2f: Contractor Roster, persistent (Model 2 §4.2) ──
+   Persistent neutral roster — the single master spot to Add / Rename /
+   Delete / Assign EVERY contractor (always rendered, never a conditional
+   strip). The "needs a trade" signal moved off the container onto a
+   per-chip golden border (.cr-chip.unassigned); it clears the moment the
+   contractor is on >=1 trade. Renaming is still never possible inside a
+   Trade Board column. Muted palette, Calibri; --warn = the golden flag. */
+.ctr-roster {
+  margin: 6px 14px 14px;
+  border: 1px solid var(--border);
+  background: #F7F8FA;
   border-radius: 7px;
   padding: 10px 12px;
 }
-body.dark-mode .tb-unassigned { background: #221B0A; }
-.tb-unassigned-hdr {
-  font-size: calc(12px + var(--ts));
+body.dark-mode .ctr-roster { background: #1C2230; border-color: #2A3247; }
+.ctr-roster-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: calc(12.5px + var(--ts));
   font-weight: 700;
-  color: var(--warn);
+  color: var(--fg);
   letter-spacing: 0.2px;
   margin-bottom: 9px;
 }
-.tb-warn-dot { margin-right: 4px; }
-.tb-unassigned-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.tb-uchip {
+.ctr-roster-add {
+  background: none;
+  border: 1.5px solid #9C2742;
+  border-radius: 5px;
+  color: #9C2742;
+  font-family: Calibri, sans-serif;
+  font-size: calc(12px + var(--ts));
+  font-weight: 700;
+  padding: 4px 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+.ctr-roster-add:hover { background: #9C2742; color: #FFFFFF; }
+body.dark-mode .ctr-roster-add { border-color: #E0A0B0; color: #E0A0B0; }
+body.dark-mode .ctr-roster-add:hover { background: #E0A0B0; color: #221016; }
+@media (pointer: coarse) {
+  .ctr-roster-add { padding: 7px 14px; font-size: calc(13px + var(--ts)); }
+}
+.ctr-roster-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.cr-chip {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -6816,14 +6838,41 @@ body.dark-mode .tb-unassigned { background: #221B0A; }
   padding: 5px 9px;
   font-size: calc(12px + var(--ts));
 }
-body.dark-mode .tb-uchip { background: var(--card); }
-.tb-uchip-dot {
+body.dark-mode .cr-chip { background: var(--card); }
+/* Golden border = not on any trade yet; clears the moment the
+   contractor is assigned to >=1 trade (the chip stays listed). */
+.cr-chip.unassigned {
+  border-color: var(--warn);
+  box-shadow: inset 0 0 0 1px var(--warn);
+  background: #FBF6EC;
+}
+body.dark-mode .cr-chip.unassigned { background: #221B0A; }
+.cr-chip-dot {
   width: 9px; height: 9px; border-radius: 50%;
   background: var(--cc, #6B7280); flex-shrink: 0;
 }
-.tb-uchip-name { font-weight: 700; color: var(--fg); }
-.tb-uchip-meta { color: var(--silver); font-size: calc(11px + var(--ts)); }
-.tb-uchip-rename {
+.cr-chip-name { font-weight: 700; color: var(--fg); }
+.cr-chip-unflag {
+  background: var(--warn);
+  color: #FFFFFF;
+  font-size: calc(10px + var(--ts));
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  padding: 1px 7px;
+  border-radius: 9px;
+}
+.cr-chip-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.cr-tag {
+  background: #EEF0F2;
+  color: #5A6472;
+  font-size: calc(10.5px + var(--ts));
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 9px;
+}
+body.dark-mode .cr-tag { background: #353D54; color: #C0CADE; }
+.cr-chip-meta { color: var(--silver); font-size: calc(11px + var(--ts)); }
+.cr-chip-rename, .cr-chip-del {
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -6834,21 +6883,10 @@ body.dark-mode .tb-uchip { background: var(--card); }
   padding: 3px 8px;
   cursor: pointer;
 }
-.tb-uchip-rename:hover { border-color: #9C2742; color: #9C2742; }
-body.dark-mode .tb-uchip-rename:hover { color: #E0A0B0; border-color: #E0A0B0; }
-.tb-uchip-del {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--steel);
-  font-family: Calibri, sans-serif;
-  font-size: calc(11px + var(--ts));
-  font-weight: 600;
-  padding: 3px 8px;
-  cursor: pointer;
-}
-.tb-uchip-del:hover { border-color: var(--no); color: var(--no); }
-.tb-uassign {
+.cr-chip-rename:hover { border-color: #9C2742; color: #9C2742; }
+body.dark-mode .cr-chip-rename:hover { color: #E0A0B0; border-color: #E0A0B0; }
+.cr-chip-del:hover { border-color: var(--no); color: var(--no); }
+.cr-assign {
   border: 1px solid var(--border);
   border-radius: 4px;
   background: #F7F8FA;
@@ -6859,15 +6897,25 @@ body.dark-mode .tb-uchip-rename:hover { color: #E0A0B0; border-color: #E0A0B0; }
   cursor: pointer;
   outline: none;
 }
-.tb-uassign:focus { border-color: #9C2742; }
-body.dark-mode .tb-uassign { background: #1C2333; color: #E0E5F0; }
-.tb-unassigned-hint {
+.cr-assign:focus { border-color: #9C2742; }
+body.dark-mode .cr-assign { background: #1C2333; color: #E0E5F0; }
+@media (pointer: coarse) {
+  .cr-chip-rename, .cr-chip-del { padding: 6px 10px; font-size: calc(12px + var(--ts)); }
+  .cr-assign { padding: 6px 8px; font-size: calc(12px + var(--ts)); }
+}
+.ctr-roster-empty {
+  font-size: calc(12px + var(--ts));
+  font-style: italic;
+  color: var(--silver);
+  padding: 4px 2px;
+}
+.ctr-roster-hint {
   margin-top: 9px;
   font-size: calc(11px + var(--ts));
   font-style: italic;
   color: var(--silver);
 }
-/* End S140 B2d ─────────────────────────────────────────────────────── */
+/* End S141 B2f ─────────────────────────────────────────────────────── */
 
 /* Footer of trade board — preserves + General Deficiency CTA */
 .trade-board-foot {

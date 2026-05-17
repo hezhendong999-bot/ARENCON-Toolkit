@@ -899,36 +899,60 @@ function _renderTradeBoard(proj) {
   h += '<button class="trade-add-col" data-action="show-add-trade">+ trade</button>';
   h += '</div>';
 
-  // ── S140 B2d: Unassigned-contractor strip (Model 2 §4.2) ──
-  // Contractors added via the pin editor land with an empty trades[] and
-  // were previously invisible in the Trade Board (no column lists them).
-  // They get an amber strip — SEPARATE from the Trade Board, never a
-  // trade column — where they are renamed + assigned to a trade. Renaming
-  // is deliberately NOT possible inside a trade column.
-  var _unassigned = ctrs.filter(function(c) { return !((c.trades || []).length); });
-  if (_unassigned.length) {
-    var _assignTrades = (trades && trades.length) ? trades : TRADE_LIST;
-    h += '<div class="tb-unassigned">';
-    h += '<div class="tb-unassigned-hdr"><span class="tb-warn-dot">\u26A0</span> Unassigned contractors \u2014 added from the pin editor, not yet on a trade</div>';
-    h += '<div class="tb-unassigned-list">';
-    _unassigned.forEach(function(c) {
+  // ── S141 B2f: Contractor Roster (Model 2 §4.2 redesign — persistent) ──
+  // The roster is now a PERMANENT home for EVERY contractor (always
+  // rendered — no longer a conditional triage strip). It is the single
+  // master spot to Add / Rename / Delete / Assign. A contractor not on
+  // any trade gets a golden border (.cr-chip.unassigned); the border
+  // clears the moment it is on >=1 trade — the chip stays listed either
+  // way. Container is neutral muted (the amber "warning" chrome moved to
+  // the per-chip golden border, per Mark's spec). Renaming/adding is
+  // still never possible inside a Trade Board column. Assign here is
+  // ADDITIVE (Model.addContractorToTrade) so existing trades are kept.
+  var _assignTrades = (trades && trades.length) ? trades : TRADE_LIST;
+  var _roster = ctrs.slice().sort(function(a, b) {
+    var au = !((a.trades || []).length), bu = !((b.trades || []).length);
+    if (au !== bu) return au ? -1 : 1;            // unassigned (golden) first
+    return (a.name || '').localeCompare(b.name || '');
+  });
+  h += '<div class="ctr-roster">';
+  h += '<div class="ctr-roster-hdr">';
+  h += '<span>Contractor Roster</span>';
+  h += '<button class="ctr-roster-add" data-action="roster-add-ctr" title="Add a new contractor to the roster">+ Add contractor</button>';
+  h += '</div>';
+  if (_roster.length) {
+    h += '<div class="ctr-roster-list">';
+    _roster.forEach(function(c) {
       var _n = (c.deficiencies || []).length;
-      h += '<div class="tb-uchip" style="--cc:' + esc(c.color || '#6B7280') + ';">';
-      h += '<span class="tb-uchip-dot"></span>';
-      h += '<span class="tb-uchip-name">' + esc(c.name) + '</span>';
-      h += '<span class="tb-uchip-meta">' + _n + ' item' + (_n === 1 ? '' : 's') + '</span>';
-      h += '<button class="tb-uchip-rename" data-action="ctr-rename-inline" data-ctr-id="' + esc(c.id) + '" title="Rename this contractor">Rename</button>';
-      h += '<button class="tb-uchip-del" data-action="ctr-delete-safe" data-ctr-id="' + esc(c.id) + '" title="Delete this contractor (its items move to Site Records, never deleted)">Delete</button>';
-      h += '<select class="tb-uassign" data-action="ctr-assign-trade" data-ctr-id="' + esc(c.id) + '" title="Assign to a trade">';
-      h += '<option value="">Assign to trade\u2026</option>';
-      _assignTrades.forEach(function(t) { h += '<option value="' + esc(t) + '">' + esc(t) + '</option>'; });
+      var _ct = (c.trades || []);
+      var _un = !_ct.length;
+      h += '<div class="cr-chip' + (_un ? ' unassigned' : '') + '" style="--cc:' + esc(c.color || '#6B7280') + ';">';
+      h += '<span class="cr-chip-dot"></span>';
+      h += '<span class="cr-chip-name">' + esc(c.name) + '</span>';
+      if (_un) {
+        h += '<span class="cr-chip-unflag">Unassigned</span>';
+      } else {
+        h += '<span class="cr-chip-tags">';
+        _ct.forEach(function(t) { h += '<span class="cr-tag">' + esc(t) + '</span>'; });
+        h += '</span>';
+      }
+      h += '<span class="cr-chip-meta">' + _n + ' item' + (_n === 1 ? '' : 's') + '</span>';
+      h += '<button class="cr-chip-rename" data-action="ctr-rename-inline" data-ctr-id="' + esc(c.id) + '" title="Rename this contractor">Rename</button>';
+      h += '<button class="cr-chip-del" data-action="ctr-delete-safe" data-ctr-id="' + esc(c.id) + '" title="Delete this contractor (its items move to Site Records, never deleted)">Delete</button>';
+      h += '<select class="cr-assign" data-action="ctr-assign-trade" data-ctr-id="' + esc(c.id) + '" title="Assign to a trade (adds the trade; existing trades are kept)">';
+      h += '<option value="">' + (_un ? 'Assign to trade\u2026' : 'Add another trade\u2026') + '</option>';
+      _assignTrades.forEach(function(t) {
+        if (_ct.indexOf(t) === -1) h += '<option value="' + esc(t) + '">' + esc(t) + '</option>';
+      });
       h += '</select>';
       h += '</div>';
     });
     h += '</div>';
-    h += '<div class="tb-unassigned-hint">Rename and assign here \u2014 contractors are never renamed inside a Trade Board column. Assigning a trade moves the contractor into that column.</div>';
-    h += '</div>';
+  } else {
+    h += '<div class="ctr-roster-empty">No contractors yet \u2014 use <strong>+ Add contractor</strong> to start, then assign each to a trade.</div>';
   }
+  h += '<div class="ctr-roster-hint">Add, rename, delete and assign contractors here \u2014 the master spot. A golden border means the contractor is not on any trade yet. Assigning adds a trade column; existing trades are kept.</div>';
+  h += '</div>';
 
   // S138: trade-board-foot "+ General Deficiency" removed — superseded by
   // the single unified "+ deficiency" trigger at the foot of every view.
@@ -1910,6 +1934,24 @@ document.addEventListener('click', function(e) {
     }
     return;
   }
+
+  // S141 B2f: "+ Add contractor" in the persistent roster header.
+  // Deliberately NOT the generic 'add-contractor' handler — that one
+  // force-adds a deficiency (Model.addDeficiency). The roster needs a
+  // BARE contractor: Model.addContractor only ({trades:[],
+  // deficiencies:[]}), which lands in the roster with a golden border
+  // ready to assign to a trade.
+  if (action === 'roster-add-ctr') {
+    showPrompt('Add Contractor', 'Contractor name:').then(function(n) {
+      var _rn = (n || '').trim();
+      if (_rn) {
+        var _rc = Model.addContractor(_rn);
+        initDeficiencies.render();
+        if (_rc) toast('Added ' + _rc.name + ' \u2014 assign it to a trade');
+      }
+    });
+    return;
+  }
   // ── End Trade Board handlers ────────────────────────────────
 
   if (action === 'add-general') {
@@ -2342,15 +2384,16 @@ document.addEventListener('change', function(e) {
   var action = e.target.getAttribute && e.target.getAttribute('data-action');
   if (!action) return;
 
-  // S140 B2d: assign an unassigned contractor to a trade from the strip.
-  // addProjectTrade is idempotent — guarantees the destination column
-  // exists so the contractor visibly moves out of the strip into it.
+  // S141 B2f: assign a contractor to a trade from the persistent roster.
+  // ADDITIVE: addContractorToTrade is idempotent, ensures the destination
+  // trade column exists (adds it if missing), and PRESERVES any trades the
+  // contractor is already on (no longer replaces with [t] — the roster
+  // shows assigned contractors too, so "Add another trade" must accrue).
   if (action === 'ctr-assign-trade') {
     var _atId = e.target.getAttribute('data-ctr-id');
     var _atT = e.target.value;
     if (_atId && _atT) {
-      Model.addProjectTrade(_atT);
-      Model.setContractorTrades(_atId, [_atT]);
+      Model.addContractorToTrade(_atId, _atT);
       initDeficiencies.render();
       toast('Assigned to ' + _atT);
     }
