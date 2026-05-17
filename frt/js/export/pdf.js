@@ -302,13 +302,11 @@ var _untaggedMode=(untaggedMode==='exclude')?'exclude':'show';
 //   _recsMode 'exclude' -> recs dropped entirely (no pooled section).
 //   _recsMode 'only'    -> recommendations-only report; finalized in
 //                          Batch 3-4 with the modal radio. Treated as
-//                          'bottom' here (defensive — no behaviour change
-//                          until the modal exposes it).
-// Back-compat: until the Batch-3-4 modal passes recsMode explicitly the
-// binary includeRecs still drives it (false => 'exclude', else 'bottom').
+//                          finalized in Batch 3-4 (this slice).
+// Back-compat: if a caller still passes only the binary includeRecs,
+// false => 'exclude', else 'bottom'.
 var _recsMode=(recsMode==='exclude'||recsMode==='bottom'||recsMode==='only')
   ? recsMode : ((includeRecs===false)?'exclude':'bottom');
-if(_recsMode==='only')_recsMode='bottom';
 // Optional italic footer under the pooled Recommendations section.
 // Default ON (Mark — demo default). Batch 3-4 wires the modal toggle.
 var _recFooter=(recFooter!==false);
@@ -387,7 +385,20 @@ function _pushItems(d,ctrName){
   (c.deficiencies||[]).forEach(function(d){_pushItems(d,c.name);});
 });
 if(_ctrFilterId==='__all__'||_ctrFilterId==='__general__'){
-  (p.generalDeficiencies||[]).forEach(function(d){_pushItems(d,'Site General');});
+  // S142 Batch 3-4 (Model 2 §4.1): a no-contractor general deficiency
+  // that is NOT a recommendation is a Site Record — informational,
+  // internal-only, EXCLUDED from external reports by default. It enters
+  // the report only when the modal's "Include Site Records (internal)"
+  // is on, OR the user explicitly filtered the export to Site General
+  // (in which case excluding everything would yield a confusing blank
+  // report). Recommendations among the general defics are NEVER Site
+  // Records — they always flow through to the pooled Recommendations
+  // section (subject to _recsMode), so they are not gated here.
+  var _srOptIn=_includeSiteRecords||_ctrFilterId==='__general__';
+  (p.generalDeficiencies||[]).forEach(function(d){
+    if(!_srOptIn&&!(d&&d.isRecommendation))return;
+    _pushItems(d,'Site General');
+  });
 }
 if(_ctrFilterId==='__general__')_ctrFilterName='Site General';
 
@@ -506,7 +517,7 @@ if(reportDefs.length){
   // S139 Phase 3 (D): italic high-priority-recommendation note under the
   // project/deficiency summary (canon §2944; wording per S134 delta,
   // grammatically agreed for count=1).
-  if(_hiRecCount>0){summaryHtml+='<div class="hirec-note">This report includes '+_hiRecCount+' high-priority recommendation'+(_hiRecCount!==1?'s':'')+' \u2014 see Recommendations section.</div>';}
+  if(_hiRecCount>0&&_recsMode!=='only'){summaryHtml+='<div class="hirec-note">This report includes '+_hiRecCount+' high-priority recommendation'+(_hiRecCount!==1?'s':'')+' \u2014 see Recommendations section.</div>';}
 }
 
 function _compactHeader(pgNum){
@@ -678,8 +689,13 @@ if(mainBodyDefs.length){
   var orderedTrades=[];
   (p.projectTrades||[]).forEach(function(t){if(tradeMap[t]&&orderedTrades.indexOf(t)<0)orderedTrades.push(t);});
   tradeSeen.forEach(function(t){if(orderedTrades.indexOf(t)<0)orderedTrades.push(t);});
-  orderedTrades.forEach(function(t){_emitTrade(t,tradeMap[t]);});
-  if(_untaggedMode!=='exclude'&&untagged.total>0)_emitTrade('Other Trade Items',untagged);
+  // S142 Batch 3-4: 'only' (recommendations-only report) suppresses the
+  // deficiency trade + Other-Trade sections entirely; the pooled
+  // Recommendations blocks (built below) become the whole body.
+  if(_recsMode!=='only'){
+    orderedTrades.forEach(function(t){_emitTrade(t,tradeMap[t]);});
+    if(_untaggedMode!=='exclude'&&untagged.total>0)_emitTrade('Other Trade Items',untagged);
+  }
 }
 
 // S142 Batch 3-2: build the pooled "Recommendations" section blocks.
@@ -802,7 +818,7 @@ function _flowBlock(block){
   }
 }
 contentBlocks.forEach(_flowBlock);
-if(!isFinalComm&&mainBodyDefs.length){
+if(!isFinalComm&&mainBodyDefs.length&&_recsMode!=='only'){
   // S119 Push G: avoid orphaning the closing note onto a new page when the
   // previous page has just a bit of headroom. The note is one line of 11pt
   // text, so heavy top/bottom chrome (was margin-top:16px + padding:10px 0)
@@ -817,7 +833,7 @@ if(!isFinalComm&&mainBodyDefs.length){
 _finalizePage();
 
 // Closed summary
-if(showClosedSummary&&closedSummaryDefs.length){
+if(showClosedSummary&&closedSummaryDefs.length&&_recsMode!=='only'){
   var csG={};closedSummaryDefs.forEach(function(r){var i=r.d.closedOnInstance||1;if(!csG[i])csG[i]=[];csG[i].push(r);});
   var csI=Object.keys(csG).map(Number).sort(function(a,b){return a-b;});
   var cH2='<div style="border:1px solid #DDE1E7;border-radius:6px;overflow:hidden;"><table style="width:100%;border-collapse:collapse;font-size:10pt;">';
@@ -951,12 +967,12 @@ export const initPDFExport={
         if(bar)bar.style.width=Math.round((done/Math.max(1,total))*100)+'%';}catch(e){}
       }).then(function(r2Cache){
         try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e){}
-        _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false));
+        _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter);
       });
     }).catch(function(e){
       try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e2){}
       console.warn('[PDF] Error:',e);
-      _exportPDFWithCache(p,'',isField,type,{},opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,'',opts.untaggedMode,(opts.includeRecs!==false));
+      _exportPDFWithCache(p,'',isField,type,{},opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,'',opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter);
     });
   }
 };

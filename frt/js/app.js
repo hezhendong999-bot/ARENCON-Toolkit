@@ -1354,10 +1354,22 @@ function _openPDFPicker() {
   h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">';
   h += '<input type="checkbox" id="pdf-show-closed" checked> Include Closed Items Summary</label></div>';
 
-  // S139 Phase 3: recommendations gate. Off ⇒ every rec leaves the main
-  // body (no rec sub-bands / Site General · Recs / footer / REC chips).
+  // S142 Batch 3-4 (Model 2 §4.4): recommendations are pooled into ONE
+  // "Recommendations" section on a new page after Previously Closed Items.
+  // This 3-way control replaces the S139 binary "Include recommendations"
+  // checkbox. 'bottom' = pooled at the end (default); 'only' =
+  // recommendations-only report (deficiency sections / Previously Closed
+  // suppressed); 'exclude' = no recommendations at all.
+  h += '<div style="margin-bottom:10px;"><label style="font-weight:600;font-size:13px;color:var(--steel,#4A5568);display:block;margin-bottom:4px;">Recommendations</label>';
+  h += '<select id="pdf-recs-mode" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:Calibri,sans-serif;background:var(--bg,white);color:var(--fg);">';
+  h += '<option value="bottom" selected>At bottom (new page)</option>';
+  h += '<option value="only">Recommendations-only report</option>';
+  h += '<option value="exclude">Exclude from report</option>';
+  h += '</select></div>';
   h += '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">';
-  h += '<input type="checkbox" id="pdf-include-recs" checked> Include recommendations</label></div>';
+  h += '<input type="checkbox" id="pdf-rec-footer" checked> Italic footer on Recommendations</label></div>';
+  h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">';
+  h += '<input type="checkbox" id="pdf-include-site-records"> Include Site Records (internal)</label></div>';
 
   // S139 Phase 3: Renumber→PDF merge — replaces the removed control-bar
   // button. Amber accent uses the canon-approved muted --warn #B7791F
@@ -1395,7 +1407,9 @@ function _openPDFPicker() {
     var ctrFilter = document.getElementById('pdf-ctr-filter').value;
     var isFinalComm = document.getElementById('pdf-final-comm').checked;
     var showClosedSummary = document.getElementById('pdf-show-closed').checked;
-    var includeRecs = document.getElementById('pdf-include-recs').checked;
+    var recsMode = (document.getElementById('pdf-recs-mode') || {}).value || 'bottom';
+    var recFooter = document.getElementById('pdf-rec-footer').checked;
+    var includeSiteRecords = document.getElementById('pdf-include-site-records').checked;
     var doRenumber = document.getElementById('pdf-renumber').checked;
     var _ut = document.querySelector('input[name="pdf-untagged"]:checked');
     var untaggedMode = _ut ? _ut.value : 'show';
@@ -1414,7 +1428,9 @@ function _openPDFPicker() {
       ctrFilter: ctrFilter,
       isFinalComm: isFinalComm,
       showClosedSummary: showClosedSummary,
-      includeRecs: includeRecs,
+      recsMode: recsMode,
+      recFooter: recFooter,
+      includeSiteRecords: includeSiteRecords,
       untaggedMode: untaggedMode
     });
   });
