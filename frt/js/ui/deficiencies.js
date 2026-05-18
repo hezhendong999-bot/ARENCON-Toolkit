@@ -584,7 +584,7 @@ function _buildPinGroupCard(d, ctrId) {
     if (_frtChip) h += _frtChip;
     h += '</div>';
 
-    // Row 2 — controls. Order: Outstanding → Priority → Trade | AI Review → Spinoff → Remove obs
+    // Row 2 — controls. Order: Outstanding → Priority → Contractor → Trade | Spinoff → Remove obs (S150: contractor before trade)
     h += '<div class="defic-obs-card-ctrls">';
 
     // Outstanding toggle button (NOT a select). Light grey when open,
@@ -603,6 +603,21 @@ function _buildPinGroupCard(d, ctrId) {
       h += '<option value="' + pv + '" style="background:white;color:#2C3E50;font-weight:600;text-transform:none;"' + (obsPriVal === pv ? ' selected' : '') + '>' + lbl + '</option>';
     });
     h += '</select>';
+
+    // S150 (Mark): contractor BEFORE trade — pick who owns it first, then
+    // the trade (matches the data hierarchy: trade is derived from the
+    // contractor). Previously trade preceded contractor, which read
+    // backwards and made the "Site Records" no-contractor label look like
+    // a trade. Both are independent self-contained spans; reorder is
+    // purely visual (handlers are delegated by data-action).
+    h += '<span class="ctr-banner-wrap">';
+    h += '<select data-action="obs-contractor" data-defic-id="' + esc(d.id) + '" class="ctr-banner" title="Contractor for this pin">';
+    h += '<option value="" style="background:white;color:#2C3E50;font-weight:600;"' + (!ctrId ? ' selected' : '') + '>\u2014 ' + esc(SITE_RECORDS_LABEL) + ' \u2014</option>';
+    realCtrs((Model.getProject() || {}).contractors).forEach(function(_cc) {
+      h += '<option value="' + esc(_cc.id) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (ctrId === _cc.id ? ' selected' : '') + '>' + esc(ctrLabel(_cc.name) || 'Unnamed') + '</option>';
+    });
+    h += '</select>';
+    h += '</span>';
 
     // S134: per-obs trade dropdown (replaces IAR button). Empty value =
     // "untagged". Source badge retired in S135 — visual differentiation
@@ -626,22 +641,6 @@ function _buildPinGroupCard(d, ctrId) {
     }
     _projTrades.forEach(function(tv) {
       h += '<option value="' + esc(tv) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (_trade === tv ? ' selected' : '') + '>' + esc(tv) + '</option>';
-    });
-    h += '</select>';
-    h += '</span>';
-
-    // S142 Batch 4-2: inline contractor reassign — sits next to Trade so a
-    // pin can be moved between contractors (or to Site Records) straight
-    // from the Detailed list, without opening the pin editor. Defic-level
-    // (no data-obs-idx): contractor is a property of which array holds the
-    // pin, shared across a multi-obs pin. Change handler calls
-    // Model.reassignDeficiency (truthy id -> that contractor, '' -> Site
-    // Records / generalDeficiencies; dedup-safe, persists, re-renders).
-    h += '<span class="ctr-banner-wrap">';
-    h += '<select data-action="obs-contractor" data-defic-id="' + esc(d.id) + '" class="ctr-banner" title="Contractor for this pin">';
-    h += '<option value="" style="background:white;color:#2C3E50;font-weight:600;"' + (!ctrId ? ' selected' : '') + '>\u2014 ' + esc(SITE_RECORDS_LABEL) + ' \u2014</option>';
-    realCtrs((Model.getProject() || {}).contractors).forEach(function(_cc) {
-      h += '<option value="' + esc(_cc.id) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (ctrId === _cc.id ? ' selected' : '') + '>' + esc(ctrLabel(_cc.name) || 'Unnamed') + '</option>';
     });
     h += '</select>';
     h += '</span>';
