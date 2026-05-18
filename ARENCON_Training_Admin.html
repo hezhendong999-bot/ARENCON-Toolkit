@@ -466,14 +466,12 @@ function renderCourse(cid){
      </div>
      <textarea id="mTXT" placeholder="Paste the lesson text, key points, or notes here. Optional for video modules, but the AI quiz works best with text."></textarea></div>
 
-    <div class="note"><b>AI quiz draft.</b> Paste source text above, or drop a
-     photo/drawing below, then generate. Every question is editable before save.</div>
+    <div class="note"><b>Topics &amp; question bank.</b> Add source text
+     above (paste, or attach a PDF/Word/PowerPoint), give a keyword, then
+     let AI propose topics. You approve/edit the topics, then generate a
+     bank of fact &amp; judgment items per topic — every item is editable,
+     retirable and prunable before you save the module.</div>
 
-    <div style="margin:12px 0">
-     <div class="dz" id="dz">Drop a photo or drawing here, or click to choose<br>
-      <span style="font-size:12px">AI will read it and draft questions from what it shows</span>
-      <input type="file" id="dzIn" accept="image/*" capture="environment" multiple hidden></div>
-    </div>
 
     <div style="margin:12px 0">
      <div class="dz" id="dzDoc">📄 Attach a PDF, Word, or PowerPoint — click or drop<br>
@@ -482,22 +480,28 @@ function renderCourse(cid){
      <div id="docStat" style="font-size:calc(12px + var(--ts));color:var(--steel);margin-top:6px;line-height:1.5"></div>
     </div>
 
-    <div class="btnrow">
-     <button class="btn gh" id="genBtn">✨ Draft quiz with AI</button>
+    <div class="row" style="align-items:flex-end">
+     <div class="fld" style="flex:1"><label>Keyword / focus for topic proposal</label>
+      <input type="text" id="bkKw" placeholder="e.g. hydraulic calculations, hazard classification"></div>
+     <button class="btn gh" id="propBtn" style="margin-bottom:14px">✨ Propose topics</button>
+    </div>
+    <div id="topWrap" style="margin-top:4px"></div>
+    <div id="bankWrap" style="margin-top:14px"></div>
+    <div class="btnrow" style="margin-top:16px">
      <button class="btn pri" id="addM">Save module</button>
     </div>
-    <div id="qWrap" style="margin-top:16px"></div>
    </div>`;
 
   if(ms.length){
     h+='<div class="sec"><h2>Modules in this course</h2><div class="list">';
     ms.forEach(m=>{
-      const hq=Array.isArray(m.quiz)&&m.quiz.length;
+      const bank=Array.isArray(m.question_bank)?m.question_bank:[];
+      const nb=bank.length, nt=Array.isArray(m.topics)?m.topics.length:0;
       h+=`<div class="item"><div class="gr">
         <div class="t">${esc(m.title)}</div>
-        <div class="m">${esc(m.source_type)} ${hq?'· quiz '+m.quiz.length+'q':''}</div>
+        <div class="m">${esc(m.source_type||'')} ${nb?'· '+nb+' item'+(nb===1?'':'s')+' / '+nt+' topic'+(nt===1?'':'s'):''}</div>
        </div>
-       ${hq?'<span class="tagp q">quiz</span>':'<span class="tagp">no quiz</span>'}
+       ${nb?'<span class="tagp q">bank</span>':'<span class="tagp">no bank</span>'}
        <button class="btn dn sm" onclick="delMod('${m.id}')">Delete</button>
        </div>`;
     });
@@ -505,42 +509,7 @@ function renderCourse(cid){
   }
   document.getElementById('view').innerHTML=h;
 
-  let draftQuiz=null, imgB64=null, imgMime=null;
-  const dz=document.getElementById('dz'),dzIn=document.getElementById('dzIn');
-  dz.onclick=()=>dzIn.click();
-  dz.ondragover=e=>{e.preventDefault();dz.classList.add('over');};
-  dz.ondragleave=()=>dz.classList.remove('over');
-  dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');
-    if(e.dataTransfer.files[0])readImg(e.dataTransfer.files[0]);};
-  dzIn.onchange=()=>{ if(dzIn.files[0]) readImg(dzIn.files[0]); };
-  function readImg(f){
-    // Field photos are routinely 5-12MB; Anthropic's image limit is 5MB.
-    // Downscale to max 1568px (Anthropic's optimal vision size) and
-    // re-encode JPEG q0.85 — well under the limit, faster, no loss of
-    // question quality (AI doesn't need full res to read a photo).
-    const r=new FileReader();
-    r.onload=()=>{
-      const img=new Image();
-      img.onload=()=>{
-        const MAX=1568;
-        let w=img.width, h=img.height;
-        if(w>MAX||h>MAX){
-          if(w>=h){ h=Math.round(h*MAX/w); w=MAX; }
-          else { w=Math.round(w*MAX/h); h=MAX; }
-        }
-        const c=document.createElement('canvas');
-        c.width=w; c.height=h;
-        c.getContext('2d').drawImage(img,0,0,w,h);
-        const out=c.toDataURL('image/jpeg',0.85);
-        imgB64=out.split(',')[1];
-        imgMime='image/jpeg';
-        dz.innerHTML='Image attached — ready for AI<br><img src="'+out+'">';
-      };
-      img.onerror=()=>{ dz.innerHTML='Could not read that image — try another file'; };
-      img.src=r.result;
-    };
-    r.readAsDataURL(f);
-  }
+  /* photo-to-quiz path removed in Slice 1b-ii (Option B). */
 
   /* ─── document → text (server-side extract; fills the lesson box) ─── */
   const EXTRACT_EF='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-extract';
@@ -625,108 +594,160 @@ function renderCourse(cid){
     txtTidy.disabled=false; txtTidy.textContent=lbl;
   };
 
-  document.getElementById('genBtn').onclick=async()=>{
-    const txt=document.getElementById('mTXT').value.trim();
-    if(!txt&&!imgB64) return toast('Add source text or an image first');
-    const b=document.getElementById('genBtn');
-    b.disabled=true; b.textContent='Drafting…';
+  /* ─── Topic proposal → per-topic bank gen → review/prune → save ─── */
+  let TOPICS=[];   /* [{name,rationale}] — Mark-approved */
+  let BANK=[];     /* [{id,type,topic,...,status,ai_original}] */
+  let bEdit=-1;
+  function uid(){ return 'q'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+  const srcText=()=>document.getElementById('mTXT').value.trim();
+  function costStr(u){ const c=u&&u.cost_usd; return c?(' · $'+Number(c).toFixed(4)):''; }
+
+  document.getElementById('propBtn').onclick=async()=>{
+    const kw=document.getElementById('bkKw').value.trim();
+    const txt=srcText();
+    if(!kw&&!txt) return toast('Add a keyword and/or lesson source text first');
+    const b=document.getElementById('propBtn');
+    b.disabled=true; b.textContent='Proposing…';
     try{
-      draftQuiz=await aiQuiz(txt,imgB64,imgMime);
-      renderDraft(draftQuiz);
-      toast('Draft ready — edit any question, then Save module');
-    }catch(e){ toast('AI draft failed: '+e.message); }
-    b.disabled=false; b.textContent='✨ Draft quiz with AI';
+      const out=await aiTopics(kw,txt,TOPICS.map(t=>t.name));
+      out.topics.forEach(t=>{ if(!TOPICS.some(x=>x.name.toLowerCase()===t.name.toLowerCase()))
+        TOPICS.push({name:t.name,rationale:t.rationale}); });
+      renderTopics();
+      toast('Proposed '+out.topics.length+' topics'+costStr(out.usage));
+    }catch(e){ toast('Propose failed: '+e.message); }
+    b.disabled=false; b.textContent='✨ Propose topics';
   };
 
-  let editIdx=-1;
-  function renderDraft(Q){
-    let h='<div class="note"><b>Review the draft.</b> It is read-only — scan it and Save. '+
-      'Click any text (or ✎) to edit, ↻ to regenerate one question, ✕ to delete it.</div>';
-    Q.forEach((q,i)=>{
-      if(i===editIdx){
-        h+=`<div class="qprev">
-          <label>Question ${i+1} — editing</label>
-          <input type="text" value="${esc(q.q)}" oninput="window.__qe(${i},'q',this.value)">
-          <div style="margin-top:8px">`;
-        q.opts.forEach((o,j)=>{
-          h+=`<div class="row" style="margin:6px 0;align-items:center">
-            <input type="text" value="${esc(o)}" style="flex:1"
-              oninput="window.__oe(${i},${j},this.value)">
-            <label style="display:flex;align-items:center;gap:5px;text-transform:none;font-weight:600;color:var(--fg);margin:0">
-             <input type="radio" name="ans${i}" ${q.answer===j?'checked':''}
-               onchange="window.__ae(${i},${j})" style="width:auto"> correct</label>
-            </div>`;
-        });
-        h+=`</div><label style="margin-top:8px">Why (shown after answering)</label>
-          <textarea oninput="window.__qe(${i},'why',this.value)" style="min-height:60px">${esc(q.why||'')}</textarea>
-          <div class="qbtns"><button class="btn pri sm" onclick="window.__doneQ()">Done</button></div>
-          </div>`;
-      } else {
-        h+=`<div class="qcard">
-          <div class="qn">Question ${i+1}</div>
-          <div class="qq" onclick="window.__editQ(${i})">${esc(q.q)}</div>`;
-        q.opts.forEach((o,j)=>{
-          const ok=q.answer===j;
-          h+=`<div class="qopt${ok?' ok':''}" onclick="window.__editQ(${i})">
-            <span class="mk">${ok?'✓':String.fromCharCode(65+j)}</span>
-            <span>${esc(o)}</span></div>`;
-        });
-        if(q.why) h+=`<div class="qwhy" onclick="window.__editQ(${i})"><b>Why:</b> ${esc(q.why)}</div>`;
-        h+=`<div class="qbtns">
-          <button class="btn gh sm" onclick="window.__editQ(${i})">✎ Edit</button>
-          <button class="btn gh sm" id="rg${i}" onclick="window.__regenQ(${i})">↻ Regenerate</button>
-          <button class="btn dn sm" onclick="window.__delQ(${i})">✕ Delete</button>
-          </div></div>`;
-      }
+  function renderTopics(){
+    const w=document.getElementById('topWrap');
+    if(!TOPICS.length){ w.innerHTML=''; document.getElementById('bankWrap').innerHTML=''; return; }
+    let h='<div class="sec" style="margin:0 0 12px"><h2>Approved topics ('+TOPICS.length+')</h2>'+
+      '<div class="note">Edit a name inline, remove any you don\'t want, then generate items per topic below. '+
+      'Accurate gap analysis needs topics you approve — not AI-invented ones.</div>';
+    TOPICS.forEach((t,ti)=>{
+      h+=`<div class="item"><div class="gr">
+        <input type="text" value="${esc(t.name)}" oninput="window.__tn(${ti},this.value)"
+          style="font-weight:700;border:1px solid var(--border);border-radius:6px;padding:6px 10px;width:100%">
+        <div class="m">${esc(t.rationale||'')}</div></div>
+        <button class="btn dn sm" onclick="window.__tdel(${ti})">Remove</button></div>`;
     });
-    h+=`<div class="note" style="margin-top:4px">${Q.length} question${Q.length===1?'':'s'}.
-      <button class="btn gh sm" id="addQ" onclick="window.__addQ()" style="margin-left:6px">＋ Add one with AI</button></div>`;
-    const wrap=document.getElementById('qWrap');
-    if(imgB64){
-      const src='data:'+(imgMime||'image/jpeg')+';base64,'+imgB64;
-      wrap.innerHTML='<div class="work">'+
-        '<div class="imgpane" id="imgPane" title="Click image to zoom in / out">'+
-        '<img src="'+src+'" alt="source image"></div>'+
-        '<div class="qpane">'+h+'</div></div>';
-      const ip=document.getElementById('imgPane');
-      if(ip) ip.onclick=()=>ip.classList.toggle('zoom');
-    } else {
-      wrap.innerHTML=h;
+    h+='</div>';
+    w.innerHTML=h;
+    renderBank();
+  }
+  window.__tn=(i,v)=>{ TOPICS[i].name=v; };
+  window.__tdel=(i)=>{ const nm=TOPICS[i].name; TOPICS.splice(i,1);
+    BANK=BANK.filter(q=>q.topic!==nm); renderTopics(); };
+
+  async function genFor(topic,n){
+    const txt=srcText();
+    const avoid=BANK.filter(q=>q.topic===topic).map(q=>q.type==='judgment'?q.scenario:q.q);
+    const out=await aiItems({topic,sourceText:txt,count:n,avoid});
+    let added=0;
+    out.items.forEach(it=>{
+      const base={id:uid(),topic,why:it.why||'',ai_original:JSON.stringify(it),
+        instructor_note:'',code_ref:'',review_by:null,status:'active'};
+      if(it.type==='judgment'){
+        BANK.push(Object.assign(base,{type:'judgment',scenario:it.scenario||'',
+          rubric:Array.isArray(it.rubric)?it.rubric:[]}));
+      } else {
+        BANK.push(Object.assign(base,{type:'fact',q:it.q||'',
+          opts:(it.opts||[]).slice(0,4).map(String),
+          answer:Math.max(0,Math.min(3,parseInt(it.answer)||0))}));
+      }
+      added++;
+    });
+    return {added,usage:out.usage};
+  }
+
+  function renderBank(){
+    const w=document.getElementById('bankWrap');
+    if(!TOPICS.length){ w.innerHTML=''; return; }
+    let h='<div class="sec" style="margin:0"><h2>Question bank ('+BANK.length+' items)</h2>';
+    TOPICS.forEach((t,ti)=>{
+      const items=BANK.map((q,gi)=>({q,gi})).filter(o=>o.q.topic===t.name);
+      h+=`<div style="border:1.5px solid var(--border);border-radius:10px;padding:14px;margin:10px 0">
+        <div class="row" style="align-items:center;justify-content:space-between">
+         <b>${esc(t.name)}</b>
+         <span class="txtmeta">${items.length} item${items.length===1?'':'s'}</span></div>
+        <div class="row" style="margin-top:8px;align-items:center">
+         <label style="margin:0;text-transform:none">Generate
+          <select id="gn_${ti}" style="width:auto;display:inline-block;margin:0 6px">
+           <option>4</option><option selected>6</option><option>8</option><option>10</option></select>
+          fact + judgment items</label>
+         <button class="btn gh sm" id="gb_${ti}" onclick="window.__gen(${ti})">✨ Generate (≈1–2¢)</button></div>`;
+      items.forEach(o=>{ h+=bankCard(o.q,o.gi); });
+      h+='</div>';
+    });
+    h+='</div>';
+    w.innerHTML=h;
+  }
+
+  function bankCard(q,gi){
+    const tag=q.type==='judgment'?'<span class="tagp">judgment</span>':'<span class="tagp q">fact</span>';
+    const ret=q.status==='retired'?' style="opacity:.5"':'';
+    if(bEdit===gi){
+      let h=`<div class="qprev"${ret}><label>${q.type==='judgment'?'Judgment':'Fact'} — editing</label>`;
+      if(q.type==='judgment'){
+        h+=`<label>Scenario</label>
+          <textarea oninput="window.__be(${gi},'scenario',this.value)" style="min-height:70px">${esc(q.scenario)}</textarea>
+          <label style="margin-top:8px">Rubric (one reasoning point per line)</label>
+          <textarea oninput="window.__brub(${gi},this.value)" style="min-height:80px">${esc((q.rubric||[]).join('\n'))}</textarea>`;
+      } else {
+        h+=`<input type="text" value="${esc(q.q)}" oninput="window.__be(${gi},'q',this.value)">
+          <div style="margin-top:8px">`;
+        q.opts.forEach((o,j)=>{ h+=`<div class="row" style="margin:6px 0;align-items:center">
+          <input type="text" value="${esc(o)}" style="flex:1" oninput="window.__bo(${gi},${j},this.value)">
+          <label style="display:flex;align-items:center;gap:5px;text-transform:none;font-weight:600;color:var(--fg);margin:0">
+           <input type="radio" name="ba${gi}" ${q.answer===j?'checked':''} onchange="window.__ba(${gi},${j})" style="width:auto"> correct</label></div>`; });
+        h+=`</div>`;
+      }
+      h+=`<label style="margin-top:8px">Why / ARENCON position (shown after answering)</label>
+        <textarea oninput="window.__be(${gi},'why',this.value)" style="min-height:56px">${esc(q.why||'')}</textarea>
+        <div class="row" style="margin-top:8px">
+         <div class="fld" style="flex:1;margin:0"><label>Code ref</label>
+          <input type="text" value="${esc(q.code_ref||'')}" oninput="window.__be(${gi},'code_ref',this.value)"></div>
+         <div class="fld" style="flex:1;margin:0"><label>Review by</label>
+          <input type="date" value="${esc(q.review_by||'')}" oninput="window.__be(${gi},'review_by',this.value||null)"></div></div>
+        <div class="fld" style="margin-top:8px"><label>Instructor note (private)</label>
+         <input type="text" value="${esc(q.instructor_note||'')}" oninput="window.__be(${gi},'instructor_note',this.value)"></div>
+        <div class="qbtns"><button class="btn pri sm" onclick="window.__bdone()">Done</button></div></div>`;
+      return h;
     }
+    let h=`<div class="qcard"${ret}><div class="qn">${tag} ${esc(q.topic)}</div>`;
+    if(q.type==='judgment'){
+      h+=`<div class="qq" onclick="window.__bedit(${gi})">${esc(q.scenario)}</div>`;
+      (q.rubric||[]).forEach(r=>{ h+=`<div class="qopt" onclick="window.__bedit(${gi})"><span class="mk">•</span><span>${esc(r)}</span></div>`; });
+    } else {
+      h+=`<div class="qq" onclick="window.__bedit(${gi})">${esc(q.q)}</div>`;
+      q.opts.forEach((o,j)=>{ const ok=q.answer===j;
+        h+=`<div class="qopt${ok?' ok':''}" onclick="window.__bedit(${gi})"><span class="mk">${ok?'✓':String.fromCharCode(65+j)}</span><span>${esc(o)}</span></div>`; });
+    }
+    if(q.why) h+=`<div class="qwhy" onclick="window.__bedit(${gi})"><b>Why:</b> ${esc(q.why)}</div>`;
+    h+=`<div class="qbtns">
+      <button class="btn gh sm" onclick="window.__bedit(${gi})">✎ Edit</button>
+      <button class="btn gh sm" onclick="window.__bret(${gi})">${q.status==='retired'?'Restore':'Retire'}</button>
+      <button class="btn dn sm" onclick="window.__bdel(${gi})">✕ Delete</button></div></div>`;
+    return h;
   }
-  window.__qe=(i,k,v)=>{draftQuiz[i][k]=v;};
-  window.__oe=(i,j,v)=>{draftQuiz[i].opts[j]=v;};
-  window.__ae=(i,j)=>{draftQuiz[i].answer=j;};
-  window.__editQ=(i)=>{editIdx=i;renderDraft(draftQuiz);};
-  window.__doneQ=()=>{editIdx=-1;renderDraft(draftQuiz);};
-  window.__delQ=(i)=>{ if(!confirm('Delete this question?'))return;
-    draftQuiz.splice(i,1); editIdx=-1; renderDraft(draftQuiz); };
-  async function regenOne(i){
-    const txt=document.getElementById('mTXT').value.trim();
-    if(!txt&&!imgB64) throw new Error('Need source text or an image');
-    const avoid=draftQuiz.filter((_,k)=>k!==i).map(q=>q.q);
-    const out=await aiQuiz(txt,imgB64,imgMime,{count:1,avoid});
-    if(out&&out[0]) draftQuiz[i]=out[0]; else throw new Error('No question returned');
-  }
-  window.__regenQ=async(i)=>{
-    const b=document.getElementById('rg'+i);
-    if(b){ b.disabled=true; b.textContent='…'; }
-    try{ await regenOne(i); editIdx=-1; renderDraft(draftQuiz);
-      toast('Question regenerated'); }
-    catch(e){ toast('Regenerate failed: '+e.message);
-      if(b){ b.disabled=false; b.textContent='↻ Regenerate'; } }
-  };
-  window.__addQ=async()=>{
-    const txt=document.getElementById('mTXT').value.trim();
-    if(!txt&&!imgB64){ toast('Need source text or an image'); return; }
-    const b=document.getElementById('addQ');
-    if(b){ b.disabled=true; b.textContent='…'; }
-    try{
-      const out=await aiQuiz(txt,imgB64,imgMime,{count:1,avoid:draftQuiz.map(q=>q.q)});
-      if(out&&out[0]){ draftQuiz.push(out[0]); renderDraft(draftQuiz);
-        toast('Added a question'); }
-    }catch(e){ toast('Add failed: '+e.message);
-      if(b){ b.disabled=false; b.textContent='＋ Add one with AI'; } }
+  window.__be=(i,k,v)=>{ BANK[i][k]=v; };
+  window.__bo=(i,j,v)=>{ BANK[i].opts[j]=v; };
+  window.__ba=(i,j)=>{ BANK[i].answer=j; };
+  window.__brub=(i,v)=>{ BANK[i].rubric=v.split('\n').map(s=>s.trim()).filter(Boolean); };
+  window.__bedit=(i)=>{ bEdit=i; renderBank(); };
+  window.__bdone=()=>{ bEdit=-1; renderBank(); };
+  window.__bret=(i)=>{ BANK[i].status=BANK[i].status==='retired'?'active':'retired'; renderBank(); };
+  window.__bdel=(i)=>{ if(!confirm('Delete this item permanently?'))return;
+    BANK.splice(i,1); bEdit=-1; renderBank(); };
+  window.__gen=async(ti)=>{
+    const name=TOPICS[ti]&&TOPICS[ti].name; if(!name) return;
+    const sel=document.getElementById('gn_'+ti); const n=parseInt(sel&&sel.value)||6;
+    const b=document.getElementById('gb_'+ti);
+    if(b){ b.disabled=true; b.textContent='Generating…'; }
+    try{ const r=await genFor(name,n); renderBank();
+      toast('Added '+r.added+' items to "'+name+'"'+costStr(r.usage)); }
+    catch(e){ toast('Generate failed: '+e.message);
+      if(b){ b.disabled=false; b.textContent='✨ Generate (≈1–2¢)'; } }
   };
 
   document.getElementById('addM').onclick=async()=>{
@@ -736,11 +757,13 @@ function renderCourse(cid){
       description:document.getElementById('mD').value.trim(),
       source_type:document.getElementById('mSTYPE').value,
       source_url:document.getElementById('mSU').value.trim()||null,
-      source_text:document.getElementById('mTXT').value.trim()||null,
-      quiz:draftQuiz||null,sort_order:ms.length};
+      source_text:srcText()||null,
+      topics:TOPICS,question_bank:BANK,sort_order:ms.length};
+    const b=document.getElementById('addM'); b.disabled=true; b.textContent='Saving…';
     try{ await sbIns('tc_modules',row); await loadData();
-      toast('Module saved'); renderCourse(cid); }
-    catch(e){ toast('Save failed: '+e.message); console.error('SAVE MODULE FAIL',e); }
+      toast('Module saved — '+BANK.length+' bank items'); renderCourse(cid); }
+    catch(e){ toast('Save failed: '+e.message); console.error('SAVE MODULE FAIL',e);
+      b.disabled=false; b.textContent='Save module'; }
   };
 }
 window.delMod=async id=>{
@@ -749,29 +772,34 @@ window.delMod=async id=>{
     toast('Deleted'); route(); }catch(e){ toast('Delete failed: '+e.message); }
 };
 
-/* ─── AI quiz drafting (Claude API; works in-artifact, key via Worker in prod) ─── */
-async function aiQuiz(text,imgB64,imgMime,opts){
-  /* Calls the deployed Supabase Edge Function 'training-quiz'.
-     Server holds the Anthropic key + prompt + shape normalization.
-     Auth: the user's Supabase session JWT (validated in-function).
-     opts (optional): {count:N, avoid:[existing question texts]} —
-     used to regenerate / add a single non-duplicate question. */
-  const EDGE='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-quiz';
-  const payload={ sourceText:text||'', context:{tool:'training'} };
-  if(imgB64) payload.photos=[{data:imgB64,media_type:imgMime||'image/jpeg'}];
-  if(opts&&opts.count) payload.count=opts.count;
-  if(opts&&Array.isArray(opts.avoid)) payload.avoid=opts.avoid;
-  const r=await fetch(EDGE,{method:'POST',
+/* ─── Topic + bank generation (Supabase Edge Functions) ─── */
+const TOPICS_EF='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-topics';
+const QUIZ_EF='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-quiz';
+async function efPost(url,payload){
+  /* Server holds the Anthropic key + prompt + style corpus + shape
+     normalization. Auth: the user's Supabase session JWT. */
+  const r=await fetch(url,{method:'POST',
     headers:{'Content-Type':'application/json',
       apikey:SB_ANON,Authorization:'Bearer '+SESSION},
     body:JSON.stringify(payload)});
   const d=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
-  if(!Array.isArray(d.quiz)||!d.quiz.length) throw new Error('No questions returned');
-  return d.quiz.map(q=>({q:String(q.q||''),
-    opts:(q.opts||[]).slice(0,4).map(String),
-    answer:Math.max(0,Math.min(3,parseInt(q.answer)||0)),
-    why:String(q.why||'')}));
+  return d;
+}
+async function aiTopics(keyword,sourceText,avoid){
+  const d=await efPost(TOPICS_EF,{keyword:keyword||'',sourceText:sourceText||'',
+    avoid:Array.isArray(avoid)?avoid:[],context:{tool:'training'}});
+  if(!Array.isArray(d.topics)||!d.topics.length) throw new Error('No topics returned');
+  return {topics:d.topics.map(t=>({name:String(t.name||'').trim(),
+    rationale:String(t.rationale||'').trim()})).filter(t=>t.name),
+    usage:d.usage||{}};
+}
+async function aiItems(o){
+  const d=await efPost(QUIZ_EF,{topic:o.topic||'',sourceText:o.sourceText||'',
+    mode:'mixed',count:o.count||6,
+    avoid:Array.isArray(o.avoid)?o.avoid:[],context:{tool:'training'}});
+  if(!Array.isArray(d.quiz)||!d.quiz.length) throw new Error('No items returned');
+  return {items:d.quiz,usage:d.usage||{}};
 }
 
 gate();
