@@ -41,6 +41,20 @@ function deficIsOpen(d) {
 function ctrLabel(name) {
   return isSiteRecordsName(name) ? SITE_RECORDS_LABEL : (name || '');
 }
+// S150 (Mark, screenshot follow-up): the legacy "Site General"/"Site
+// Records" record is NOT a real contractor — Site Records is the
+// NO-contractor bucket. It must never appear in a CONTRACTOR surface
+// (roster, contractor filter dropdown, trade-assign / reassign menus)
+// where it would show a meaningless "Unassigned / needs a trade" golden
+// state. The correct path into Site Records is the hardcoded "None
+// (Site Records · internal)" option (value="" = no contractor) + the
+// dedicated Site Records filter segment — both preserved. This filters
+// the placeholder out of contractor-entity lists ONLY; stored data is
+// untouched (canon "never migrate" rule), so any items historically
+// stuck on it still exist and still render in the deficiency list.
+function realCtrs(arr) {
+  return (arr || []).filter(function(c) { return c && !isSiteRecordsName(c.name); });
+}
 
 // S114 P1.10: contractor color = SEQUENTIAL assignment based on order in proj.contractors[].
 // Skips slot 3 (reserved for Site Records) so a regular contractor never collides with it.
@@ -626,7 +640,7 @@ function _buildPinGroupCard(d, ctrId) {
     h += '<span class="ctr-banner-wrap">';
     h += '<select data-action="obs-contractor" data-defic-id="' + esc(d.id) + '" class="ctr-banner" title="Contractor for this pin">';
     h += '<option value="" style="background:white;color:#2C3E50;font-weight:600;"' + (!ctrId ? ' selected' : '') + '>\u2014 ' + esc(SITE_RECORDS_LABEL) + ' \u2014</option>';
-    ((Model.getProject() || {}).contractors || []).forEach(function(_cc) {
+    realCtrs((Model.getProject() || {}).contractors).forEach(function(_cc) {
       h += '<option value="' + esc(_cc.id) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (ctrId === _cc.id ? ' selected' : '') + '>' + esc(ctrLabel(_cc.name) || 'Unnamed') + '</option>';
     });
     h += '</select>';
@@ -1003,7 +1017,7 @@ function _renderTradeBoard(proj) {
   h += '</div>';
 
   // ── 2-up roster grid (unassigned/golden first, then A–Z) ──
-  var _roster = ctrs.slice().sort(function(a, b) {
+  var _roster = realCtrs(ctrs).sort(function(a, b) {
     var au = !((a.trades || []).length), bu = !((b.trades || []).length);
     if (au !== bu) return au ? -1 : 1;
     return (a.name || '').localeCompare(b.name || '');
@@ -1049,7 +1063,7 @@ function _openCtrPicker(trade) {
   var proj = Model.getProject();
   if (!proj) return;
   // Existing contractors NOT already in this trade
-  var existing = (proj.contractors || []).filter(function(c) {
+  var existing = realCtrs(proj.contractors).filter(function(c) {
     return (c.trades || []).indexOf(trade) === -1;
   });
   var ov = document.createElement('div');
@@ -1785,7 +1799,7 @@ function _openAddDeficModal(prefillCtrId, prefillTrade) {
   if (!proj) return;
 
   var ctrOpts = '<option value="">\u2014 None (' + SITE_RECORDS_LABEL + ' \u00B7 internal) \u2014</option>';
-  (proj.contractors || []).forEach(function(c) {
+  realCtrs(proj.contractors).forEach(function(c) {
     ctrOpts += '<option value="' + esc(c.id) + '">' + esc(ctrLabel(c.name) || 'Unnamed') + '</option>';
   });
   var trOpts = '<option value="">\u2014 None \u2014</option>';
@@ -1894,7 +1908,7 @@ function _syncDfxControls(pcActive, pcClosed, proj) {
 
   var sel = document.getElementById('dfx-ctr');
   if (sel) {
-    var ctrs = (proj.contractors || []);
+    var ctrs = realCtrs(proj.contractors);
     var stillValid = !_dfxCtr || ctrs.some(function(c) { return c.id === _dfxCtr; });
     if (!stillValid) _dfxCtr = '';
     var opt = '<option value="">All contractors</option>';
@@ -2652,7 +2666,7 @@ document.addEventListener('click', function(e) {
     var curCtrId = f.contractor ? f.contractor.id : null;
     // Build contractor picker
     var opts = '<option value="">' + SITE_RECORDS_LABEL + ' (internal)</option>';
-    (proj.contractors || []).forEach(function(c) {
+    realCtrs(proj.contractors).forEach(function(c) {
       if (c.id !== curCtrId) {
         opts += '<option value="' + esc(c.id) + '">' + esc(ctrLabel(c.name)) + '</option>';
       }
@@ -3006,7 +3020,7 @@ document.addEventListener('change', function(e) {
       // prompt for assignment.
       if (newEffective !== 'general' && oldEffective === 'general' && !hasCtr) {
         var proj = Model.getProject();
-        var ctrs = proj.contractors || [];
+        var ctrs = realCtrs(proj.contractors);
         if (ctrs.length) {
           var opts = '';
           ctrs.forEach(function(c) { opts += '<option value="' + esc(c.id) + '">' + esc(ctrLabel(c.name)) + '</option>'; });
