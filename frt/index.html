@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=343">
+<link rel="stylesheet" href="css/frt.css?v=344">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -465,10 +465,11 @@ function ensurePdfJs(cb){
                 <option value="low">Low</option>
                 <option value="general">General</option>
               </select>
-              <div class="dfx-recmode" role="group" aria-label="Show deficiencies, recommendations, or both">
+              <div class="dfx-recmode" role="group" aria-label="Show deficiencies, recommendations, site records, or all">
                 <button class="dfx-recmode-btn active" data-recmode="def">Deficiencies</button>
                 <button class="dfx-recmode-btn" data-recmode="rec">Recommendations</button>
-                <button class="dfx-recmode-btn" data-recmode="both">Both</button>
+                <button class="dfx-recmode-btn" data-recmode="siterec">Site Records</button>
+                <button class="dfx-recmode-btn" data-recmode="all">All</button>
               </div>
             </div>
             <button class="dfx-insp-toggle active" id="dfx-insp-toggle" title="Show / hide who logged each observation" aria-pressed="true">👤 Initials</button>

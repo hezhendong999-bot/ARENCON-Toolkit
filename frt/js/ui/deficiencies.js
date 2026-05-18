@@ -30,6 +30,17 @@ function deficIsOpen(d) {
   // handles both cases.
   return Model.getEffectiveStatus(d) === 'open';
 }
+// S150 (Mark): display-time relabel. The S146 B2 rename converted all FIXED
+// UI strings, but anywhere the app prints a contractor's SAVED name verbatim
+// an old project that still carries the legacy "Site General" contractor
+// shows the stale label. Per the canon "never migrate stored data" rule we
+// do NOT rewrite the data — every contractor-name display site funnels
+// through this so the user always sees the canonical SITE_RECORDS_LABEL.
+// isSiteRecordsName() already matches both the new label and the legacy
+// 'Site General' string (model.js, permanent back-compat predicate).
+function ctrLabel(name) {
+  return isSiteRecordsName(name) ? SITE_RECORDS_LABEL : (name || '');
+}
 
 // S114 P1.10: contractor color = SEQUENTIAL assignment based on order in proj.contractors[].
 // Skips slot 3 (reserved for Site Records) so a regular contractor never collides with it.
@@ -104,7 +115,7 @@ var _deficView = 'detailed';             // 'detailed' (live) | 'table' | 'board
 var _dfxSearch = '';                     // free-text filter (obs.text)
 var _dfxCtr = '';                        // contractorId filter ('' = all)
 var _dfxPri = '';                        // priority filter ('' = all | 'high' | 'low' | 'general')
-var _dfxRecMode = 'def';                  // S140 B2b: 3-state filter (Model 2 §4.2) — 'def' (default; recs hidden → short working list) | 'rec' (recommendations only) | 'both'
+var _dfxRecMode = 'def';                  // S150 (was S140 B2b 3-state): 4-state segmented filter — 'def' (default; deficiencies WITH a contractor only — recs AND Site Records both hidden → short working list) | 'rec' (recommendations only) | 'siterec' (Site Records only — non-rec, no contractor) | 'all' (everything; renamed from legacy 'both'). Transient module state, defaults 'def' every load, never persisted.
 // S146 (Mark): Detailed-view independent fold. Persisted at module scope
 // so it survives the frequent initDeficiencies.render() re-renders.
 var _dfxFoldTrade = {};                    // {tradeName | '__recs__' | '__siterec__'}: true = collapsed
@@ -616,7 +627,7 @@ function _buildPinGroupCard(d, ctrId) {
     h += '<select data-action="obs-contractor" data-defic-id="' + esc(d.id) + '" class="ctr-banner" title="Contractor for this pin">';
     h += '<option value="" style="background:white;color:#2C3E50;font-weight:600;"' + (!ctrId ? ' selected' : '') + '>\u2014 ' + esc(SITE_RECORDS_LABEL) + ' \u2014</option>';
     ((Model.getProject() || {}).contractors || []).forEach(function(_cc) {
-      h += '<option value="' + esc(_cc.id) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (ctrId === _cc.id ? ' selected' : '') + '>' + esc(_cc.name || 'Unnamed') + '</option>';
+      h += '<option value="' + esc(_cc.id) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (ctrId === _cc.id ? ' selected' : '') + '>' + esc(ctrLabel(_cc.name) || 'Unnamed') + '</option>';
     });
     h += '</select>';
     h += '</span>';
@@ -864,7 +875,7 @@ function _renderDeficLog(proj, allDefics) {
   var _curInst = proj.currentFrtInstance || 1;
   var ctrGroups = {};
   allDefics.forEach(function(d) {
-    var name = d.contractorName || SITE_RECORDS_LABEL;
+    var name = ctrLabel(d.contractorName) || SITE_RECORDS_LABEL;
     if (!ctrGroups[name]) ctrGroups[name] = [];
     ctrGroups[name].push(d);
   });
@@ -1006,12 +1017,12 @@ function _renderTradeBoard(proj) {
       var _tgt = (_pickCtrId === c.id);
       h += '<div class="crx-cc' + (_un ? ' crx-unassigned' : '') + (_tgt ? ' crx-target' : '') + '" style="--cc:' + esc(c.color || '#6B7280') + ';">';
       h += '<span class="crx-dot"></span>';
-      h += '<span class="crx-nm">' + esc(c.name) + '</span>';
+      h += '<span class="crx-nm">' + esc(ctrLabel(c.name)) + '</span>';
       if (_un) h += '<span class="crx-unflag">Unassigned</span>';
       h += '<span class="crx-tagwrap">';
       _ct.forEach(function(t) {
         h += '<span class="crx-tag" style="' + _tradeVars(t) + '">' + esc(t);
-        h += '<button class="crx-tx" data-action="crx-untag" data-ctr-id="' + esc(c.id) + '" data-trade="' + esc(t) + '" title="Un-assign ' + esc(c.name) + ' from ' + esc(t) + '">\u00D7</button>';
+        h += '<button class="crx-tx" data-action="crx-untag" data-ctr-id="' + esc(c.id) + '" data-trade="' + esc(t) + '" title="Un-assign ' + esc(ctrLabel(c.name)) + ' from ' + esc(t) + '">\u00D7</button>';
         h += '</span>';
       });
       h += '<button class="crx-addbtn" data-action="crx-pick-start" data-ctr-id="' + esc(c.id) + '" title="Assign a trade">\u2295</button>';
@@ -1056,7 +1067,7 @@ function _openCtrPicker(trade) {
     h += '<div class="picker-chips">';
     existing.forEach(function(c) {
       var col = c.color || '#6B7280';
-      h += '<button class="picker-chip" data-action="picker-pick-ctr" data-ctr-id="' + esc(c.id) + '" data-trade="' + esc(trade) + '" style="--cc:' + esc(col) + ';">' + esc(c.name) + '</button>';
+      h += '<button class="picker-chip" data-action="picker-pick-ctr" data-ctr-id="' + esc(c.id) + '" data-trade="' + esc(trade) + '" style="--cc:' + esc(col) + ';">' + esc(ctrLabel(c.name)) + '</button>';
     });
     h += '</div>';
   }
@@ -1230,6 +1241,23 @@ function _flatRows(proj, ignorePivot) {
   var all = Model.getAllDeficiencies(proj);
   var q = (_dfxSearch || '').trim().toLowerCase();
   var rows = [];
+  // S150: 4-state rec-mode classification (replaces the S140 B2b 2-class
+  // rec/non-rec test). A row's class is exactly one of:
+  //   recommendation → d.isRecommendation
+  //   site record    → non-rec AND no contractor (lives in generalDeficiencies)
+  //   deficiency     → non-rec AND has a contractor
+  // 'def' now means deficiencies-WITH-a-contractor only (Site Records gets
+  // its own segment, mirroring how 'def' already hides Recommendations).
+  // Returns true if the active _dfxRecMode filters this row OUT.
+  function _recModeDrops(d, hasCtr) {
+    var isRec = !!d.isRecommendation;
+    var isSiteRec = !isRec && !hasCtr;
+    var isDef = !isRec && hasCtr;
+    if (_dfxRecMode === 'def') return !isDef;
+    if (_dfxRecMode === 'rec') return !isRec;
+    if (_dfxRecMode === 'siterec') return !isSiteRec;
+    return false; // 'all' (and any unknown value) → keep everything
+  }
   all.forEach(function(rec) {
     var d = rec.defic;
     var obs = d.observations || [];
@@ -1242,10 +1270,9 @@ function _flatRows(proj, ignorePivot) {
       if (!ignorePivot && _activeDlcTab === 'closed' && !closed) return;
       if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
       if (_dfxPri) return;            // no obs → no priority to match
-      if ((_dfxRecMode === 'def' && d.isRecommendation) ||
-          (_dfxRecMode === 'rec' && !d.isRecommendation)) return;  // S140 B2b 3-state filter
+      if (_recModeDrops(d, !!(rec.contractorId))) return;  // S150 4-state filter
       if (q && (deficDesc(d) || '').toLowerCase().indexOf(q) < 0) return;
-      rows.push({ d: d, o: null, oi: -1, ctrId: rec.contractorId || null, ctrName: rec.contractorName || SITE_RECORDS_LABEL });
+      rows.push({ d: d, o: null, oi: -1, ctrId: rec.contractorId || null, ctrName: ctrLabel(rec.contractorName) || SITE_RECORDS_LABEL });
       return;
     }
     obs.forEach(function(o, oi) {
@@ -1254,10 +1281,9 @@ function _flatRows(proj, ignorePivot) {
       if (!ignorePivot && _activeDlcTab === 'closed' && !addressed) return;
       if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
       if (_dfxPri && (o.priority || 'high') !== _dfxPri) return;
-      if ((_dfxRecMode === 'def' && d.isRecommendation) ||
-          (_dfxRecMode === 'rec' && !d.isRecommendation)) return;  // S140 B2b 3-state filter
+      if (_recModeDrops(d, !!(rec.contractorId))) return;  // S150 4-state filter
       if (q && (o.text || '').toLowerCase().indexOf(q) < 0) return;
-      rows.push({ d: d, o: o, oi: oi, ctrId: rec.contractorId || null, ctrName: rec.contractorName || SITE_RECORDS_LABEL });
+      rows.push({ d: d, o: o, oi: oi, ctrId: rec.contractorId || null, ctrName: ctrLabel(rec.contractorName) || SITE_RECORDS_LABEL });
     });
   });
   return rows;
@@ -1295,9 +1321,9 @@ function _flatRows(proj, ignorePivot) {
 //   distinct from Site Records, that requires a new schema flag —
 //   surface it, do not silently assume.
 //
-// Rows arrive already filtered by _flatRows (lifecycle pivot + the B2b
-// 3-state rec filter + contractor/priority/search), so this function
-// only partitions + lays out whatever rows it is given. The filter
+// Rows arrive already filtered by _flatRows (lifecycle pivot + the S150
+// 4-state rec/site-records filter + contractor/priority/search), so this
+// function only partitions + lays out whatever rows it is given. The filter
 // behaves identically in Active and Closed (Behavior B, Mark-approved
 // S140) — no special-casing here.
 function _renderDetailedView(proj, container) {
@@ -1398,7 +1424,7 @@ function _renderDetailedView(proj, container) {
   // contractor. Counts stay 0 so trade/contractor pills and the
   // Deficiency Log totals (contractor-grouped, separate path) are not
   // inflated.
-  if (!closedPivot && _dfxRecMode !== 'rec' && !(_dfxSearch || '').trim() && !_dfxPri) {
+  if (!closedPivot && _dfxRecMode !== 'rec' && _dfxRecMode !== 'siterec' && !(_dfxSearch || '').trim() && !_dfxPri) {
     (proj.contractors || []).forEach(function(c) {
       if (!c || !c.id) return;
       if (_dfxCtr && c.id !== _dfxCtr) return;
@@ -1760,7 +1786,7 @@ function _openAddDeficModal(prefillCtrId, prefillTrade) {
 
   var ctrOpts = '<option value="">\u2014 None (' + SITE_RECORDS_LABEL + ' \u00B7 internal) \u2014</option>';
   (proj.contractors || []).forEach(function(c) {
-    ctrOpts += '<option value="' + esc(c.id) + '">' + esc(c.name || 'Unnamed') + '</option>';
+    ctrOpts += '<option value="' + esc(c.id) + '">' + esc(ctrLabel(c.name) || 'Unnamed') + '</option>';
   });
   var trOpts = '<option value="">\u2014 None \u2014</option>';
   (proj.projectTrades || []).forEach(function(t) {
@@ -1873,7 +1899,7 @@ function _syncDfxControls(pcActive, pcClosed, proj) {
     if (!stillValid) _dfxCtr = '';
     var opt = '<option value="">All contractors</option>';
     ctrs.forEach(function(c) {
-      opt += '<option value="' + esc(c.id) + '"' + (c.id === _dfxCtr ? ' selected' : '') + '>' + esc(c.name || 'Unnamed') + '</option>';
+      opt += '<option value="' + esc(c.id) + '"' + (c.id === _dfxCtr ? ' selected' : '') + '>' + esc(ctrLabel(c.name) || 'Unnamed') + '</option>';
     });
     sel.innerHTML = opt;
     sel.value = _dfxCtr;
@@ -1882,7 +1908,8 @@ function _syncDfxControls(pcActive, pcClosed, proj) {
   if (pri && document.activeElement !== pri) pri.value = _dfxPri;
   var sb = document.getElementById('dfx-search');
   if (sb && document.activeElement !== sb) sb.value = _dfxSearch;
-  // S140 B2b: 3-state rec-mode segmented control (replaces #dfx-reconly).
+  // S150 (was S140 B2b): 4-state rec-mode segmented control (def / rec /
+  // siterec / all). Active-state sync is generic over data-recmode.
   document.querySelectorAll('.dfx-recmode-btn').forEach(function(b) {
     b.classList.toggle('active', b.getAttribute('data-recmode') === _dfxRecMode);
   });
@@ -2627,7 +2654,7 @@ document.addEventListener('click', function(e) {
     var opts = '<option value="">' + SITE_RECORDS_LABEL + ' (internal)</option>';
     (proj.contractors || []).forEach(function(c) {
       if (c.id !== curCtrId) {
-        opts += '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>';
+        opts += '<option value="' + esc(c.id) + '">' + esc(ctrLabel(c.name)) + '</option>';
       }
     });
     // Build custom overlay (theme-aware)
@@ -2982,7 +3009,7 @@ document.addEventListener('change', function(e) {
         var ctrs = proj.contractors || [];
         if (ctrs.length) {
           var opts = '';
-          ctrs.forEach(function(c) { opts += '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>'; });
+          ctrs.forEach(function(c) { opts += '<option value="' + esc(c.id) + '">' + esc(ctrLabel(c.name)) + '</option>'; });
           var h2 = '<div id="reassign-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';
           h2 += '<div style="background:var(--bg,white);border-radius:12px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:280px;max-width:380px;color:var(--fg,#1B2438);">';
           h2 += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Assign #' + dnum + ' to contractor:</div>';

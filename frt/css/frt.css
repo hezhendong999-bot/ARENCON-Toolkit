@@ -7382,7 +7382,7 @@ body.dark-mode .dfx-foldall-btn:hover { background: rgba(255,255,255,.05); borde
   .defic-control-bar { gap: 8px; }
   .defic-pivot, .view-toggle { flex: 1; }
   .view-toggle { margin-left: 0; }
-  .defic-filters { width: 100%; }
+  .defic-filters { width: 100%; flex-wrap: wrap; }
   .dfx-filter-input[type="text"] { flex: 1; width: auto; }
   .dfx-renumber-btn { width: 100%; margin-left: 0; }
 }
@@ -7763,7 +7763,7 @@ body.dark-mode .dfx-recmode { background: #1C2333; }
   background: transparent;
   color: #8A94B0;
   border: none;
-  padding: 6px 14px;
+  padding: 6px 12px;
   border-radius: 4px;
   font-family: Calibri, sans-serif;
   font-size: calc(13px + var(--ts));
