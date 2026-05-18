@@ -1336,10 +1336,24 @@ function _renderDetailedView(proj, container) {
   pinOrder.forEach(function(id) {
     var e = pinAgg[id];
     if (e.d.isRecommendation) {
-      var rt = pinTrade(e) || NOTRADE;
-      if (!recTrades[rt]) { recTrades[rt] = { pins: [], count: 0 }; recTradeSeen.push(rt); }
-      recTrades[rt].pins.push(e);
-      recTrades[rt].count += e.count;
+      // S147 B1 follow-up — rec body fan-out (Option A, Mark-approved).
+      // A rec with no trade of its own, sitting on a multi-trade
+      // contractor, is LISTED under every one of that contractor's
+      // trades (mirrors the deficiency body + the on-screen "two rows
+      // like FRT" behaviour). The per-trade sub-band pill (R.count)
+      // duplicates intentionally, exactly like the deficiency T.count.
+      // recCount is the section MASTER total only and is added ONCE per
+      // rec (outside the loop) so the "Recommendations" band pill stays
+      // truthful — Option A: the scoreboard counts each rec once. The
+      // PDF Recommendation Summary stays single-trade on a separate
+      // path (pdf.js _aByT, unchanged) for the same reason.
+      var rtks = Model.derivePinTrades(e.d, ctrOf(e.ctrId));
+      if (!rtks.length) rtks = [NOTRADE];
+      rtks.forEach(function(rt) {
+        if (!recTrades[rt]) { recTrades[rt] = { pins: [], count: 0 }; recTradeSeen.push(rt); }
+        recTrades[rt].pins.push(e);
+        recTrades[rt].count += e.count;
+      });
       recCount += e.count;
       return;
     }
@@ -1460,7 +1474,7 @@ function _renderDetailedView(proj, container) {
     var rCol = !!_dfxFoldTrade['__recs__'];
     h += '<div class="dfx-trade-section' + (rCol ? ' dfx-collapsed' : '') + '">';
     h += '<div class="dfx-trade-banner recs" data-action="dfx-fold-trade" data-trade="__recs__"><span>' + _arrow(rCol) + 'Recommendations' + (closedPivot ? ' (Closed)' : '') + '</span><span class="dfx-trade-count">' + recCount + '</span></div>';
-    h += '<div class="dfx-rec-note">Advisory items outside the contracted scope of work \u2014 issued to document professional recommendations and potential additional work. Each appears once; the PDF carries them as their own section.</div>';
+    h += '<div class="dfx-rec-note">Advisory items outside the contracted scope of work \u2014 issued to document professional recommendations and potential additional work. A recommendation on a multi-trade contractor is listed under each of that contractor\u2019s trades; the PDF carries them as their own section.</div>';
     recOrdered.forEach(function(rt) {
       var R = recTrades[rt];
       h += '<div class="dfx-rec-sub"><span>' + esc(rt) + '</span><span class="dfx-ctr-count">' + R.count + '</span></div>';

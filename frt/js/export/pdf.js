@@ -706,11 +706,12 @@ function _pinTrade(d){
 }
 // S146 B1: plural companion. obs[0].trade -> [that]; else legacy
 // defic.trade -> [that]; else ALL of the parent contractor's trades;
-// else []. Used ONLY by the main deficiency body grouping below so an
-// untagged pin on a multi-trade contractor fans out to every trade
-// (matches the on-screen Detailed view + FRT "two rows"). The rec
-// Summary + rec section groupings deliberately stay single-trade
-// (_pinTrade) — deferred follow-up, flagged to Mark.
+// else []. Used by the main deficiency body grouping AND (S147) the
+// ACTIVE recommendation section body so an untagged pin on a multi-
+// trade contractor fans out to every trade (matches the on-screen
+// Detailed view + FRT "two rows"). ⚠ The Recommendation Summary
+// scoreboard (_aByT) deliberately stays SINGLE-trade (_pinTrade,
+// Option A) so its per-trade rows still sum to the Total row.
 function _pinTrades(d){
   var pc=(d&&d.id!=null)?(_parentCtrByDefId[d.id]||null):null;
   return Model.derivePinTrades(d,pc)||[];
@@ -833,8 +834,16 @@ if(pooledRecs.length){
     recBlocks.push({type:'recLead',html:_recSecTtlHtml+_recSummaryHtml});
   }
   // (3) ACTIVE groups — main-report grammar (navy trade / taupe ctr / cards)
+  // S147 B1 follow-up — rec body fan-out (Option A, Mark-approved). Uses
+  // _pinTrades (plural) so a rec with no trade of its own on a multi-
+  // trade contractor is listed under EVERY one of that contractor's
+  // trades — identical idiom to the deficiency main body above
+  // (var tks=_pinTrades(r.d)) and to the on-screen Detailed view.
+  // ⚠ Option A: the Recommendation Summary scoreboard (_aByT, built
+  // above) deliberately stays SINGLE-trade (_pinTrade) so its per-trade
+  // rows still sum to the Total row. Do NOT switch _aByT to _pinTrades.
   var _rByT={},_rSeen=[],_rNo=[];
-  _activeRecs.forEach(function(r){var t=_pinTrade(r.d);if(t){if(!_rByT[t]){_rByT[t]=[];_rSeen.push(t);}_rByT[t].push(r);}else _rNo.push(r);});
+  _activeRecs.forEach(function(r){var tks=_pinTrades(r.d);if(tks.length){tks.forEach(function(t){if(!_rByT[t]){_rByT[t]=[];_rSeen.push(t);}_rByT[t].push(r);});}else _rNo.push(r);});
   var _rOrder=[];(p.projectTrades||[]).forEach(function(t){if(_rByT[t]&&_rOrder.indexOf(t)<0)_rOrder.push(t);});
   _rSeen.forEach(function(t){if(_rOrder.indexOf(t)<0)_rOrder.push(t);});
   function _emitRecTrade(label,rows){
