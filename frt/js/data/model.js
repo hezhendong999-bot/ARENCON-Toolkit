@@ -1817,6 +1817,21 @@ export var Model = {
     return true;
   },
 
+  // S150 (Mark): per-pin Recommendation flag setter. isRecommendation is a
+  // whole-pin property (not per-observation). Toggling it only reclassifies
+  // which section the pin renders in (Recommendation vs Deficiency/Site
+  // Record by contractor presence) — fully reversible, no data moved or
+  // lost. Same persist/notify idiom as reassignDeficiency.
+  setRecommendation: function(deficId, val) {
+    var f = this.findDeficiency(deficId);
+    if (!f || !f.defic) return false;
+    f.defic.isRecommendation = !!val;
+    _dirty = true;
+    _queueSave();
+    this._notify('deficiency', { action: 'set-recommendation', deficId: deficId, isRecommendation: !!val });
+    return true;
+  },
+
   duplicateDeficiency: function(deficId) {
     var f = this.findDeficiency(deficId);
     if (!f || !_project) return null;

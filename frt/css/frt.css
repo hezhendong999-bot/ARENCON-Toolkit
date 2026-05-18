@@ -4803,6 +4803,18 @@ body:not(.dark-mode) .dv-tasks-panel .dv-tasks-filter-btn{
 
 .defic-pin-strip{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--smoke);border-bottom:1.5px solid var(--border);flex-wrap:wrap;row-gap:8px;}
 .defic-pin-strip .pri-eff-badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:4px;font-size:calc(11px + var(--ts));font-weight:700;color:white;font-family:Calibri,sans-serif;}
+/* S150 (Mark): per-pin Recommendation toggle on the pin strip + pin editor.
+   Muted idiom — inactive = ghost outline; active = slate-grey to match the
+   .rec-badge REC visual language (NOT burgundy — that is reserved for
+   primary CTAs). Compact to sit with the other strip pills. */
+.pin-rec-toggle{border:1px solid var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 9px;font-size:calc(10px + var(--ts));font-weight:600;font-family:Calibri,sans-serif;cursor:pointer;line-height:1.5;}
+.pin-rec-toggle:hover{border-color:#9AA3B2;color:#6B7280;}
+.pin-rec-toggle.is-rec{background:rgba(107,114,128,.2);border-color:transparent;color:#6B7280;font-weight:700;}
+.pin-rec-toggle.is-rec:hover{background:rgba(107,114,128,.30);color:#586070;}
+body.dark-mode .pin-rec-toggle{color:#7E8A9E;}
+body.dark-mode .pin-rec-toggle:hover{border-color:#4A5568;color:#A8B4C5;}
+body.dark-mode .pin-rec-toggle.is-rec{background:rgba(168,180,197,.16);color:#A8B4C5;}
+body.dark-mode .pin-rec-toggle.is-rec:hover{background:rgba(168,180,197,.24);color:#C2CCDA;}
 
 .defic-obs-card{padding:12px 14px;border-bottom:1.5px solid var(--border);background:var(--card);}
 .defic-obs-card:last-of-type{border-bottom:none;}

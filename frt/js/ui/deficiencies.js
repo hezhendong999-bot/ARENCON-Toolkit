@@ -537,6 +537,15 @@ function _buildPinGroupCard(d, ctrId) {
     } else {
       h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
     }
+    // S150 (Mark): per-pin Recommendation toggle. isRecommendation is a
+    // whole-pin flag, so it lives once on the pin strip (NOT per obs). This
+    // builder is shared by the Detailed list AND the focused pin editor
+    // (_buildPinFocusBody → buildDeficCard → _buildPinGroupCard), so this
+    // single placement satisfies both "in the list" and "in the pin
+    // editor". On = it's a Recommendation (keeps its trade + contractor);
+    // off = reverts to Deficiency (has contractor) or Site Record (none).
+    var _isRec = !!d.isRecommendation;
+    h += '<button data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" class="pin-rec-toggle' + (_isRec ? ' is-rec' : '') + '" aria-pressed="' + (_isRec ? 'true' : 'false') + '" title="' + (_isRec ? 'This pin is a Recommendation \u2014 click to revert it to a normal item' : 'Mark this pin as a Recommendation') + '">' + (_isRec ? '\u2605 Recommendation' : '\u2606 Mark as recommendation') + '</button>';
     h += '</div>'; // /defic-pin-strip
   }
 
@@ -2540,6 +2549,23 @@ document.addEventListener('click', function(e) {
     Model.toggleObsAddressed(deficId, obsIdx);
     initDeficiencies.render();
     if (window._frtRenderTasks) window._frtRenderTasks();
+  }
+
+  // S150 (Mark): per-pin Recommendation toggle. Flips the whole-pin flag,
+  // refreshes the focused pin-editor body in place when it's open on this
+  // pin, then re-renders the list (the pin moves between the Recommendation
+  // and Deficiency/Site-Records sections). Reversible; no data moved.
+  if (action === 'toggle-rec') {
+    var _rdid = el.getAttribute('data-defic-id');
+    if (_rdid) {
+      var _rf = Model.findDeficiency(_rdid);
+      if (_rf && _rf.defic) {
+        Model.setRecommendation(_rdid, !_rf.defic.isRecommendation);
+        var _pfb = document.getElementById('pinfocus-body');
+        if (_pfb) _pfb.innerHTML = _buildPinFocusBody(_rdid);
+        initDeficiencies.render();
+      }
+    }
   }
 
   // S121 Push 7: per-obs status select (multi-obs path). Reuses the same
