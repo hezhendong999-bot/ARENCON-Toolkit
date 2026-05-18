@@ -105,6 +105,11 @@ var _dfxSearch = '';                     // free-text filter (obs.text)
 var _dfxCtr = '';                        // contractorId filter ('' = all)
 var _dfxPri = '';                        // priority filter ('' = all | 'high' | 'low' | 'general')
 var _dfxRecMode = 'def';                  // S140 B2b: 3-state filter (Model 2 §4.2) — 'def' (default; recs hidden → short working list) | 'rec' (recommendations only) | 'both'
+// S146 (Mark): Detailed-view independent fold. Persisted at module scope
+// so it survives the frequent initDeficiencies.render() re-renders.
+var _dfxFoldTrade = {};                    // {tradeName | '__recs__' | '__siterec__'}: true = collapsed
+var _dfxFoldCtr = {};                      // {tradeName '::' ctrId}: true = collapsed (per-contractor, per its trade section — B1 fan-out aware)
+var _dfxSectionKeys = [];                  // section keys present in the last Detailed render (drives Collapse all / Expand all)
 var _pickCtrId = null;                     // S142 §2: contractor awaiting a trade click (pick-mode); null = not picking
 // S143 (Phase 3 G/3.5): show/hide the per-observation inspector initials chip.
 // Persisted; default ON. '0' = hidden.
@@ -1413,19 +1418,36 @@ function _renderDetailedView(proj, container) {
 
   var h = '';
 
+  // S146 (Mark): independent fold. Each trade banner and each contractor
+  // banner is click-to-collapse; a top bar collapses/expands everything.
+  // Fold state persists at module scope (_dfxFoldTrade / _dfxFoldCtr) so
+  // it survives re-renders. Helper stamps the chevron + collapsed class
+  // from persisted state; the click handler flips state and toggles the
+  // class directly (no re-render → no scroll jump). Section keys are
+  // recorded for the Collapse-all / Expand-all toggle.
+  _dfxSectionKeys = [];
+  function _arrow(collapsed) {
+    return '<span class="dfx-fold-arrow">' + (collapsed ? '\u25B6' : '\u25BC') + '</span>';
+  }
+
   // 1. Deficiencies — Trade -> Contractor.
   orderedTrades.forEach(function(tk) {
     var T = tradeMap[tk];
     var isOther = (tk === OTHER);
-    h += '<div class="dfx-trade-section">';
-    h += '<div class="dfx-trade-banner' + (isOther ? ' other' : '') + '"><span>' + esc(T.name) + '</span><span class="dfx-trade-count">' + T.count + '</span></div>';
+    _dfxSectionKeys.push(tk);
+    var tCol = !!_dfxFoldTrade[tk];
+    h += '<div class="dfx-trade-section' + (tCol ? ' dfx-collapsed' : '') + '">';
+    h += '<div class="dfx-trade-banner' + (isOther ? ' other' : '') + '" data-action="dfx-fold-trade" data-trade="' + esc(tk) + '"><span>' + _arrow(tCol) + esc(T.name) + '</span><span class="dfx-trade-count">' + T.count + '</span></div>';
     orderCtrKeys(T).forEach(function(ck) {
       var C = T.ctrs[ck];
-      h += '<div class="dfx-ctr-banner" style="--cc:' + esc(ctrColor(C.ctrId)) + ';"><span class="dfx-ctr-dot"></span><span>' + esc(C.name) + '</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
+      var cKey = tk + '::' + C.ctrId;
+      var cCol = !!_dfxFoldCtr[cKey];
+      h += '<div class="dfx-ctr-block' + (cCol ? ' dfx-collapsed' : '') + '">';
+      h += '<div class="dfx-ctr-banner" style="--cc:' + esc(ctrColor(C.ctrId)) + ';" data-action="dfx-fold-ctr" data-ctr-key="' + esc(cKey) + '"><span class="dfx-ctr-dot"></span><span>' + _arrow(cCol) + esc(C.name) + '</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
       h += '<div class="dfx-pingrp">';
       C.pins.forEach(function(e) { h += _buildPinGroupCard(e.d, C.ctrId); });
       h += _addDeficTriggerHTML({ scoped: true, ctrId: C.ctrId, ctrName: C.name, trade: (isOther ? '' : T.name) });
-      h += '</div>';
+      h += '</div></div>';
     });
     h += '</div>';
   });
@@ -1434,8 +1456,10 @@ function _renderDetailedView(proj, container) {
   if (recCount) {
     var recOrdered = orderTrades(recTradeSeen, function(t) { return !!recTrades[t]; });
     if (recTrades[NOTRADE]) recOrdered.push(NOTRADE);
-    h += '<div class="dfx-trade-section">';
-    h += '<div class="dfx-trade-banner recs"><span>Recommendations' + (closedPivot ? ' (Closed)' : '') + '</span><span class="dfx-trade-count">' + recCount + '</span></div>';
+    _dfxSectionKeys.push('__recs__');
+    var rCol = !!_dfxFoldTrade['__recs__'];
+    h += '<div class="dfx-trade-section' + (rCol ? ' dfx-collapsed' : '') + '">';
+    h += '<div class="dfx-trade-banner recs" data-action="dfx-fold-trade" data-trade="__recs__"><span>' + _arrow(rCol) + 'Recommendations' + (closedPivot ? ' (Closed)' : '') + '</span><span class="dfx-trade-count">' + recCount + '</span></div>';
     h += '<div class="dfx-rec-note">Advisory items outside the contracted scope of work \u2014 issued to document professional recommendations and potential additional work. Each appears once; the PDF carries them as their own section.</div>';
     recOrdered.forEach(function(rt) {
       var R = recTrades[rt];
@@ -1454,14 +1478,24 @@ function _renderDetailedView(proj, container) {
 
   // 3. Site Records — reserved internal scope (muted slate, dimmed).
   if (siteRecords.pins.length) {
-    h += '<div class="dfx-trade-section dfx-sr-section">';
-    h += '<div class="dfx-trade-banner records"><span>Site Records<span class="dfx-sr-pill">Internal \u2014 excluded from client report</span></span><span class="dfx-trade-count">' + siteRecords.count + '</span></div>';
+    _dfxSectionKeys.push('__siterec__');
+    var sCol = !!_dfxFoldTrade['__siterec__'];
+    h += '<div class="dfx-trade-section dfx-sr-section' + (sCol ? ' dfx-collapsed' : '') + '">';
+    h += '<div class="dfx-trade-banner records" data-action="dfx-fold-trade" data-trade="__siterec__"><span>' + _arrow(sCol) + 'Site Records<span class="dfx-sr-pill">Internal \u2014 excluded from client report</span></span><span class="dfx-trade-count">' + siteRecords.count + '</span></div>';
     h += '<div class="dfx-sr-note">Site documentation only (photos / notes). Not a recommendation; not in an external report by default.</div>';
     h += '<div class="dfx-pingrp">';
     siteRecords.pins.forEach(function(e) {
       h += '<div class="dfx-sr-pin">' + _buildPinGroupCard(e.d, null) + '</div>';
     });
     h += '</div></div>';
+  }
+
+  // Collapse-all / Expand-all bar — prepended once when there is at
+  // least one foldable section. allCollapsed drives the label + action.
+  if (_dfxSectionKeys.length) {
+    var allCol = _dfxSectionKeys.every(function(k) { return !!_dfxFoldTrade[k]; });
+    h = '<div class="dfx-foldall-bar"><button class="dfx-foldall-btn" data-action="dfx-fold-all" data-all="'
+      + (allCol ? '0' : '1') + '">' + (allCol ? '\u25BC Expand all' : '\u25B6 Collapse all') + '</button></div>' + h;
   }
 
   if (!h) {
@@ -1915,6 +1949,46 @@ document.addEventListener('click', function(e) {
     el = e.target.closest && e.target.closest('[data-action]');
     if (el) action = el.getAttribute('data-action');
     else return;
+  }
+
+  if (action === 'dfx-fold-trade') {
+    var ftk = el.getAttribute('data-trade');
+    if (ftk != null) {
+      _dfxFoldTrade[ftk] = !_dfxFoldTrade[ftk];
+      var sec = el.closest('.dfx-trade-section');
+      if (sec) {
+        sec.classList.toggle('dfx-collapsed', !!_dfxFoldTrade[ftk]);
+        var ar = el.querySelector('.dfx-fold-arrow');
+        if (ar) ar.textContent = _dfxFoldTrade[ftk] ? '\u25B6' : '\u25BC';
+      }
+    }
+    return;
+  }
+
+  if (action === 'dfx-fold-ctr') {
+    var fck = el.getAttribute('data-ctr-key');
+    if (fck != null) {
+      _dfxFoldCtr[fck] = !_dfxFoldCtr[fck];
+      var blk = el.closest('.dfx-ctr-block');
+      if (blk) {
+        blk.classList.toggle('dfx-collapsed', !!_dfxFoldCtr[fck]);
+        var ar2 = el.querySelector('.dfx-fold-arrow');
+        if (ar2) ar2.textContent = _dfxFoldCtr[fck] ? '\u25B6' : '\u25BC';
+      }
+    }
+    return;
+  }
+
+  if (action === 'dfx-fold-all') {
+    var collapse = (el.getAttribute('data-all') === '1');
+    if (collapse) {
+      _dfxSectionKeys.forEach(function(k) { _dfxFoldTrade[k] = true; });
+    } else {
+      _dfxFoldTrade = {};
+      _dfxFoldCtr = {};
+    }
+    initDeficiencies.render();
+    return;
   }
 
   if (action === 'toggle-fold') {
