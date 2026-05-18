@@ -173,7 +173,7 @@ body.dark-mode .mobile-menu #mobile-qr-btn{background:#1a1d24;border-color:#2a30
 .section-nav{background:linear-gradient(135deg,#1B2438 0%,#243048 100%);display:flex;gap:0;overflow-x:auto;padding:0 14px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav .nav-tab:first-child{padding-left:0;}.section-nav::-webkit-scrollbar{display:none;}
 .nav-tab{padding:11px 18px;font-family:Calibri,sans-serif;font-weight:600;font-size:calc(15px + var(--ts));letter-spacing:.4px;color:var(--silver);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;user-select:none;}.nav-tab:hover{color:white;}.nav-tab.active{color:white;border-bottom-color:var(--red);}
 #issue-status-badge{transition:filter .15s,transform .15s;}#issue-status-badge:hover{filter:brightness(1.2);transform:scale(1.05);}
-.main-wrap{max-width:1400px;margin:0 auto;padding:14px 8px 70px;box-sizing:border-box;overflow-x:hidden;}
+.main-wrap{max-width:1600px;margin:0 auto;padding:14px 8px 70px;box-sizing:border-box;overflow-x:hidden;}
 .panel{display:none;width:100%;}.panel.active{display:block;}
 .panel > .card{width:100%;max-width:100%;box-sizing:border-box;}
 .card{background:white;border-radius:11px;border:1.5px solid #DDE1E7;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;overflow:hidden;}
@@ -7125,7 +7125,7 @@ body.dark-mode .picker-cancel-btn:hover { background: #2A3247; color: #E0E5F0; }
   padding: 4px 14px 12px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   flex-wrap: wrap;
   border-bottom: 1px solid var(--border);
 }
@@ -7150,6 +7150,7 @@ body.dark-mode .defic-pivot { background: #1C2333; }
   cursor: pointer;
 }
 .defic-pivot-btn.active { background: #9C2742; color: #FFFFFF; }
+body.dark-mode .defic-pivot-btn.active { background: #7C3344; color: #F4DDE3; }
 
 .defic-pivot-count {
   background: rgba(255, 255, 255, 0.22);
@@ -7172,7 +7173,7 @@ body.dark-mode .defic-pivot-btn:not(.active) .defic-pivot-count {
   display: inline-flex;
   gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .dfx-filter-input {
   background: #F7F8FA;
@@ -7185,7 +7186,7 @@ body.dark-mode .defic-pivot-btn:not(.active) .defic-pivot-count {
   outline: none;
 }
 .dfx-filter-input:focus { border-color: #9C2742; }
-.dfx-filter-input[type="text"] { width: 160px; }
+.dfx-filter-input[type="text"] { width: 116px; }
 /* S137-polish: fixed select widths. Without these the selects sized to
    their chosen option text; a width change (e.g. _syncDfxControls
    repopulating contractors, or a long name selected) re-wrapped the
@@ -7194,10 +7195,10 @@ body.dark-mode .defic-pivot-btn:not(.active) .defic-pivot-count {
 select.dfx-filter-input {
   cursor: pointer;
   padding-right: 26px;
-  width: 168px;
+  width: 188px;
   text-overflow: ellipsis;
 }
-select.dfx-filter-input#dfx-pri { width: 130px; }
+select.dfx-filter-input#dfx-pri { width: 150px; }
 body.dark-mode .dfx-filter-input {
   background: #1C2333;
   border-color: #3A4258;
@@ -7227,8 +7228,8 @@ body.dark-mode .view-toggle { background: #1C2333; }
   align-items: center;
   gap: 5px;
 }
-.view-toggle-btn.active { background: #FFFFFF; color: #1C2333; box-shadow: 0 1px 3px rgba(28,35,51,.12); }
-body.dark-mode .view-toggle-btn.active { background: #353D54; color: #E0E5F0; box-shadow: none; }
+.view-toggle-btn.active { background: #9C2742; color: #FFFFFF; box-shadow: none; }
+body.dark-mode .view-toggle-btn.active { background: #7C3344; color: #F4DDE3; box-shadow: none; }
 
 /* Content area — flows directly inside the card (no inner frame). The
    only nested visual level is the trade-section grouping itself. */
@@ -7570,13 +7571,36 @@ body.dark-mode .dfx-bv-col { background: #1C2333; }
 body.dark-mode .rec-badge { color: #A8B4C5; }
 
 .add-deficiency-card {
-  margin-top: 14px; padding: 12px; background: transparent;
-  border: 2px dashed #C6CCD6; border-radius: 6px; color: #8A94B0;
-  text-align: center; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .12s;
+  margin-top: 14px; padding: 12px 16px; background: #EEF1F5;
+  border: 1.5px solid #C2C9D6; border-radius: 8px; color: #3A4356;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  text-align: center; cursor: pointer; font-size: calc(14px + var(--ts));
+  font-weight: 700; transition: background .12s, border-color .12s, color .12s;
 }
-.add-deficiency-card:hover { border-color: #9C2742; color: #B0566A; background: rgba(156,39,66,.06); }
-body.dark-mode .add-deficiency-card { border-color: #4A5266; }
-body.dark-mode .add-deficiency-card:hover { color: #E0A0B0; }
+.add-deficiency-card .adc-plus {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #9C2742; color: #fff; font-weight: 800; line-height: 1;
+  font-size: calc(15px + var(--ts)); flex: 0 0 auto;
+}
+.add-deficiency-card .adc-sub { font-weight: 400; font-size: calc(12px + var(--ts)); color: #6B7488; }
+.add-deficiency-card:hover { background: #E4E8EF; border-color: #9C2742; color: #1C2333; }
+.add-deficiency-card.scoped {
+  margin: 10px 0 2px; padding: 9px 14px; justify-content: flex-start;
+  background: #F1F3F7; border-style: dashed; font-size: calc(13px + var(--ts));
+}
+.add-deficiency-card.scoped .adc-plus { width: 19px; height: 19px; font-size: calc(13px + var(--ts)); }
+.add-deficiency-card.scoped .adc-tgt { font-weight: 400; color: #6B7488; }
+body.dark-mode .add-deficiency-card { background: #232A38; border-color: #3A4258; color: #C8D0E2; }
+body.dark-mode .add-deficiency-card .adc-plus { background: #7C3344; }
+body.dark-mode .add-deficiency-card .adc-sub,
+body.dark-mode .add-deficiency-card.scoped .adc-tgt { color: #8A94B0; }
+body.dark-mode .add-deficiency-card:hover { background: #2A3242; border-color: #9C2742; color: #E6EAF3; }
+body.dark-mode .add-deficiency-card.scoped { background: #1F2531; }
+@media (pointer: coarse) {
+  .add-deficiency-card { padding: 14px 16px; }
+  .add-deficiency-card.scoped { padding: 12px 14px; }
+}
 .modal-checkbox-row {
   display: flex; align-items: center; gap: 8px; margin: 12px 0; padding: 8px 12px;
   background: rgba(156,39,66,.08); border-radius: 4px; border-left: 3px solid #9C2742; cursor: pointer;
@@ -7709,6 +7733,7 @@ body.dark-mode .dfx-recmode { background: #1C2333; }
   cursor: pointer;
 }
 .dfx-recmode-btn.active { background: #9C2742; color: #FFFFFF; }
+body.dark-mode .dfx-recmode-btn.active { background: #7C3344; color: #F4DDE3; }
 /* End S138 unified + deficiency (canonical) ───────────────────────── */
 
 /* ── S143 (Phase 3 G/3.5): Inspector attribution chip + toggle ──────

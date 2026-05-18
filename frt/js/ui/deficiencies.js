@@ -1365,6 +1365,31 @@ function _renderDetailedView(proj, container) {
     });
   });
 
+  // S146 (Mark): keep a contractor's trade section OPEN even with zero
+  // deficiencies, so the section header + its "+ Add deficiency" button
+  // are always reachable for a contractor that is assigned to a trade.
+  // SCREEN ONLY — the PDF stays deficiency-only (Mark-confirmed); pdf.js
+  // is unchanged. Suppressed under a narrowing context (Closed pivot /
+  // recs-only / active search / priority filter) because an empty
+  // scaffold is a data-entry aid for the default working view, not a
+  // search result; an active contractor filter limits it to that
+  // contractor. Counts stay 0 so trade/contractor pills and the
+  // Deficiency Log totals (contractor-grouped, separate path) are not
+  // inflated.
+  if (!closedPivot && _dfxRecMode !== 'rec' && !(_dfxSearch || '').trim() && !_dfxPri) {
+    (proj.contractors || []).forEach(function(c) {
+      if (!c || !c.id) return;
+      if (_dfxCtr && c.id !== _dfxCtr) return;
+      (c.trades || []).forEach(function(tr) {
+        var tk = (tr == null) ? '' : String(tr).trim();
+        if (!tk) return;
+        if (!tradeMap[tk]) { tradeMap[tk] = { name: tk, count: 0, ctrKeys: [], ctrs: {} }; tradeSeen.push(tk); }
+        var T = tradeMap[tk];
+        if (!T.ctrs[c.id]) { T.ctrs[c.id] = { ctrId: c.id, name: c.name, pins: [], count: 0 }; T.ctrKeys.push(c.id); }
+      });
+    });
+  }
+
   // Trade order: declared projectTrades first, then extras seen, OTHER/
   // NOTRADE appended by the caller.
   function orderTrades(seen, has) {
@@ -1399,6 +1424,7 @@ function _renderDetailedView(proj, container) {
       h += '<div class="dfx-ctr-banner" style="--cc:' + esc(ctrColor(C.ctrId)) + ';"><span class="dfx-ctr-dot"></span><span>' + esc(C.name) + '</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
       h += '<div class="dfx-pingrp">';
       C.pins.forEach(function(e) { h += _buildPinGroupCard(e.d, C.ctrId); });
+      h += _addDeficTriggerHTML({ scoped: true, ctrId: C.ctrId, ctrName: C.name, trade: (isOther ? '' : T.name) });
       h += '</div>';
     });
     h += '</div>';
@@ -1649,10 +1675,25 @@ function _renderBoardView(proj, container) {
 // isRecommendation / drawingId are set on the returned defic (the
 // same object-mutation precedent used by spin-off). Persists via
 // Model.saveNow() (the established UI create path).
-function _addDeficTriggerHTML() {
+function _addDeficTriggerHTML(opts) {
+  opts = opts || {};
+  if (opts.scoped) {
+    // S146 (Mark): section-scoped trigger at the foot of each
+    // trade->contractor group. Pre-targets the contractor (+ trade) so
+    // an empty section is one click from its first deficiency.
+    var lbl = opts.ctrName ? esc(opts.ctrName) : '';
+    var tl = opts.trade ? (' \u00B7 ' + esc(opts.trade)) : '';
+    return '<div class="add-deficiency-card scoped" data-action="open-add-defic"'
+      + (opts.ctrId ? ' data-ctr-id="' + esc(opts.ctrId) + '"' : '')
+      + (opts.trade ? ' data-trade="' + esc(opts.trade) + '"' : '')
+      + ' role="button" tabindex="0">'
+      + '<span class="adc-plus">+</span> Add deficiency'
+      + (lbl ? '<span class="adc-tgt">to ' + lbl + tl + '</span>' : '')
+      + '</div>';
+  }
   return '<div class="add-deficiency-card" data-action="open-add-defic" role="button" tabindex="0">'
-    + '+ deficiency &nbsp;\u00B7&nbsp; '
-    + '<span style="font-weight:400;">creates an item \u2014 assign contractor / trade / pin in the dialog, or skip &amp; add later</span>'
+    + '<span class="adc-plus">+</span> Add deficiency'
+    + '<span class="adc-sub">creates an item \u2014 assign contractor / trade / pin in the dialog, or skip &amp; add later</span>'
     + '</div>';
 }
 
@@ -1661,7 +1702,7 @@ function _closeAddDeficModal() {
   if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
 }
 
-function _openAddDeficModal() {
+function _openAddDeficModal(prefillCtrId, prefillTrade) {
   _closeAddDeficModal();
   var proj = Model.getProject();
   if (!proj) return;
@@ -1709,6 +1750,19 @@ function _openAddDeficModal() {
   h += '</div>';   // pin-modal
   ov.innerHTML = h;
   document.body.appendChild(ov);
+
+  // S146: section-scoped prefill (the per-section "+ Add deficiency"
+  // button passes data-ctr-id / data-trade). Set only when the value
+  // exists as an option, so an unknown trade/contractor degrades to the
+  // normal blank modal instead of a broken select.
+  if (prefillCtrId) {
+    var _pc = ov.querySelector('#adf-ctr');
+    if (_pc && [].some.call(_pc.options, function(o) { return o.value === String(prefillCtrId); })) _pc.value = String(prefillCtrId);
+  }
+  if (prefillTrade) {
+    var _pt = ov.querySelector('#adf-trade');
+    if (_pt && [].some.call(_pt.options, function(o) { return o.value === String(prefillTrade); })) _pt.value = String(prefillTrade);
+  }
 
   var txt = ov.querySelector('#adf-text');
   setTimeout(function() { if (txt) txt.focus(); }, 50);
@@ -1937,7 +1991,10 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'open-add-defic') {
-    _openAddDeficModal();
+    _openAddDeficModal(
+      (el && el.getAttribute('data-ctr-id')) || null,
+      (el && el.getAttribute('data-trade')) || ''
+    );
     return;
   }
 
