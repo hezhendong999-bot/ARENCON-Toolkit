@@ -232,9 +232,9 @@ function _buildCSS(fontB64){
   c+='.dc-insp{display:inline-block;font-size:8.5pt;font-weight:700;padding:2px 7px;border:1px solid;border-radius:10px;letter-spacing:.4px;flex-shrink:0;}';
   c+='.rec-foot{font-size:9.5pt;font-style:italic;color:#5A6473;line-height:1.35;padding:8px 12px;border:1px solid #DDE1E7;border-top:none;background:#FAFAF9;border-radius:0 0 6px 6px;margin-bottom:10px;}';
   c+='.hirec-note{font-size:10pt;font-style:italic;color:#7B6F5A;margin-top:10px;line-height:1.35;}';
-  c+='.rep-key{border:1px solid #DDE1E7;border-radius:6px;margin-top:10px;padding:8px 12px;break-inside:avoid;page-break-inside:avoid;}';
-  c+='.rep-key-ttl{font-size:10.5pt;font-weight:700;color:#2A3A5C;margin-bottom:6px;letter-spacing:.3px;}';
-  c+='.rep-key-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:22px;row-gap:4px;}';
+  c+='.rep-key{border:1px solid #DDE1E7;border-radius:6px;margin-top:10px;padding:0;overflow:hidden;break-inside:avoid;page-break-inside:avoid;}';
+  c+='.rep-key-ttl{font-size:10.5pt;font-weight:700;background:#2A3A5C;color:#fff;padding:6px 12px;margin-bottom:0;letter-spacing:.3px;}';
+  c+='.rep-key-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:22px;row-gap:4px;padding:8px 12px;}';
   c+='.rep-key-row{display:flex;align-items:center;gap:10px;margin:0;}';
   c+='.rep-key .rk-sw{font-size:8.5pt;padding:3px 10px;margin:0;border-radius:5px;min-width:96px;display:inline-flex;justify-content:flex-start;}';
   c+='.rep-key-gloss{font-size:9.5pt;color:#4A5568;}';
@@ -247,6 +247,11 @@ function _buildCSS(fontB64){
   c+='.dc-content{flex:1;min-width:0;}';
   // S118: card header — item# burgundy + merged status pill (color encodes priority)
   c+='.dc-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;}';
+  // S144 §3: card header split — left = #num only (identical to deficiency
+  // cards); right cluster = inspector chip -> contractor chip -> REC ->
+  // status pill. REC chip relocated out of the left group.
+  c+='.dc-hdr-l{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap;}';
+  c+='.dc-hdr-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;}';
   c+='.dc-itemnum{color:#9C2742;font-size:11pt;font-weight:700;line-height:1;}';
   c+='.dc-desc{font-size:11pt;line-height:1.4;}';
   c+='.dc-footer{font-size:9pt;color:#607D8B;margin-top:6px;}';
@@ -274,6 +279,19 @@ function _buildCSS(fontB64){
   c+='.st th{background:#2A3A5C;color:white;padding:6px 10px;text-align:left;font-size:11pt;font-weight:700;}';
   c+='.st td{padding:6px 10px;border-bottom:1px solid #DDE1E7;font-size:11pt;}';
   c+='.sh{background:#2A3A5C;color:white;padding:7px 14px;font-weight:700;font-size:12pt;border-radius:6px 6px 0 0;margin-top:16px;margin-bottom:0;letter-spacing:.3px;}';
+  // S145 P1 (Mark): Recommendation section title = left-bar section card
+  // (Option C). Reuses the report's existing appendix-title idiom
+  // (#F7F8FA fill + 4px burgundy left bar, square corners) so it is
+  // native to the report; navy title, muted italic sub-line. Full mode
+  // only — emitted on a forced new page above the Recommendation Summary;
+  // recs-only mode omits it (the page title already reads "Field Review
+  // Report-Recommendation #N").
+  // S145 P1 (Mark, FINAL): Option I — no box, bar, fill or rule. 15pt
+  // navy title + left-aligned muted scope sentence beneath. Type-only
+  // hierarchy; the Recommendation Summary follows with its own gap.
+  c+='.rec-secttl{margin:0 0 14px;}';
+  c+='.rec-secttl-ttl{font-size:15pt;font-weight:700;color:#2A3A5C;letter-spacing:.3px;line-height:1;}';
+  c+='.rec-secttl-sub{font-size:10pt;font-weight:400;color:#5A6473;line-height:1.4;margin-top:5px;text-align:left;}';
   c+='.sb{border:1px solid #DDE1E7;border-top:none;padding:12px;border-radius:0 0 6px 6px;margin-bottom:0;}';
   c+='.app-dwg{margin-bottom:28px;}';
   c+='.app-dwg-title{font-weight:700;font-size:12pt;color:#1C2333;margin-bottom:8px;padding:6px 10px;background:#F7F8FA;border-radius:4px;border-left:3px solid #9C2742;}';
@@ -446,6 +464,15 @@ var closedSummaryDefs=reportDefs.filter(function(r){
 });
 var css=_buildCSS(fontB64);
 var _rptNum=p.currentFrtInstance||1;
+// S144 §5: report title base. Recs-only documents read
+// "Field Review Report-Recommendation" (hyphen, no surrounding spaces,
+// singular); all other modes "Field Review Report". A per-project
+// override (p.info.reportTitleOverride — DATA, not code) wins when set,
+// so a special client title ships with no redeploy. The report number
+// is appended downstream as ' #N' and is NEVER part of the override
+// (automatic, non-editable).
+var _rptTitleOverride=(p.info&&p.info.reportTitleOverride&&String(p.info.reportTitleOverride).trim())||'';
+var _rptTitleBase=_rptTitleOverride||((_recsMode==='only')?'Field Review Report-Recommendation':'Field Review Report');
 var _rptRev=(p.info&&p.info.revision)||'A01';
 var _ctrSubtitle='';
 if(_ctrFilterId!=='__all__'&&_ctrFilterName)_ctrSubtitle=_ctrFilterName;
@@ -454,7 +481,7 @@ if(_ctrFilterId!=='__all__'&&_ctrFilterName)_ctrSubtitle=_ctrFilterName;
 var fullHeader='<div class="ph"><div><img src="'+logo+'" alt="ARENCON"></div>';
 fullHeader+='<div class="ph-addr">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp;&nbsp; L4X 2Z6<br>CANADA<br><br>P: 905 615 1774<br>F: 905 615 9351<br>E: mail'+'@'+'arencon.com</div></div>';
 var titleBlock='<div class="title-block"><div class="tb-line1">Fire Protection Engineering</div>';
-titleBlock+='<div class="tb-line2">'+esc('Field Review Report')+' #'+_rptNum+'</div>';
+titleBlock+='<div class="tb-line2">'+esc(_rptTitleBase)+' #'+_rptNum+'</div>';
 var _tbCA=[];
 if(p.info&&p.info.client)_tbCA.push(esc(p.info.client));
 if(p.info&&p.info.address)_tbCA.push(esc(p.info.address));
@@ -492,58 +519,64 @@ mainBodyDefs.forEach(function(r){
   }
 });
 var _hiRecCount=Object.keys(_hiRecIds).length;
-var summaryHtml='';
-if(reportDefs.length){
-  var ctrG={};reportDefs.forEach(function(r){if(!ctrG[r.ctr])ctrG[r.ctr]=[];ctrG[r.ctr].push(r);});
-  summaryHtml+='<div style="border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;overflow:hidden;"><table class="st"><thead><tr><th>Deficiency Summary</th><th style="text-align:center;">Total</th><th style="text-align:center;">New This Report</th><th style="text-align:center;">Outstanding</th><th style="text-align:center;">Closed</th></tr></thead><tbody>';
-  // S119: per-obs aware Outstanding/Closed counts. Each r in reportDefs is one
-  // observation (post-flatten); count by the obs's own addressed flag with
-  // pin-level fallback for legacy obs.
-  function _rowOpen(r){
-    if(r.obs&&r.obs.addressed!==undefined)return !r.obs.addressed;
-    return _deficIsOpen(r.d);
-  }
-  function _rowClosed(r){
-    if(r.obs&&r.obs.addressed!==undefined)return !!r.obs.addressed;
-    return _deficIsClosed(r.d);
-  }
+// S119: per-obs aware Outstanding/Closed predicates (shared by the
+// Deficiency Summary and the new Recommendation Summary).
+function _rowOpen(r){
+  if(r.obs&&r.obs.addressed!==undefined)return !r.obs.addressed;
+  return _deficIsOpen(r.d);
+}
+function _rowClosed(r){
+  if(r.obs&&r.obs.addressed!==undefined)return !!r.obs.addressed;
+  return _deficIsClosed(r.d);
+}
+// S144 §1: the Deficiency Summary is now DEFICIENCIES ONLY — recs are
+// filtered out (they get their own Recommendation Summary). Resolves the
+// pre-S143 rec double-count where recs were tallied on both tables.
+var summaryDefs=reportDefs.filter(function(r){return !(r.d&&r.d.isRecommendation);});
+var _deficSummaryHtml='';
+if(summaryDefs.length){
+  var ctrG={};summaryDefs.forEach(function(r){if(!ctrG[r.ctr])ctrG[r.ctr]=[];ctrG[r.ctr].push(r);});
+  _deficSummaryHtml+='<div style="border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;overflow:hidden;"><table class="st"><thead><tr><th>Deficiency Summary</th><th style="text-align:center;">Total</th><th style="text-align:center;">New This Report</th><th style="text-align:center;">Outstanding</th><th style="text-align:center;">Closed</th></tr></thead><tbody>';
   Object.keys(ctrG).forEach(function(ctr){
     var gc=ctrG[ctr];
-    summaryHtml+='<tr><td><strong>'+esc(ctr)+'</strong></td><td style="text-align:center;">'+gc.length+'</td>';
-    summaryHtml+='<td style="text-align:center;color:#1565C0;font-weight:700;">'+gc.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
-    summaryHtml+='<td style="text-align:center;color:#C0392B;font-weight:700;">'+gc.filter(_rowOpen).length+'</td>';
-    summaryHtml+='<td style="text-align:center;color:#1A7A4A;font-weight:700;">'+gc.filter(_rowClosed).length+'</td></tr>';
+    _deficSummaryHtml+='<tr><td><strong>'+esc(ctr)+'</strong></td><td style="text-align:center;">'+gc.length+'</td>';
+    _deficSummaryHtml+='<td style="text-align:center;color:#1565C0;font-weight:700;">'+gc.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
+    _deficSummaryHtml+='<td style="text-align:center;color:#C0392B;font-weight:700;">'+gc.filter(_rowOpen).length+'</td>';
+    _deficSummaryHtml+='<td style="text-align:center;color:#1A7A4A;font-weight:700;">'+gc.filter(_rowClosed).length+'</td></tr>';
   });
-  summaryHtml+='<tr style="border-top:2px solid #9C2742;font-weight:700;"><td>Total</td><td style="text-align:center;">'+reportDefs.length+'</td>';
-  summaryHtml+='<td style="text-align:center;color:#1565C0;">'+reportDefs.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
-  summaryHtml+='<td style="text-align:center;color:#C0392B;">'+reportDefs.filter(_rowOpen).length+'</td>';
-  summaryHtml+='<td style="text-align:center;color:#1A7A4A;">'+reportDefs.filter(_rowClosed).length+'</td></tr>';
-  summaryHtml+='</tbody></table></div>';
-  // S143 (Phase 3 C, re-scoped under Model 2): Report Key. Explains the
-  // visual vocabulary the reader is about to meet — reuses the LITERAL
-  // report classes (.th-band, .th-band.recs, .rec-chip, .pill-*, .dc-insp)
-  // so the key can never drift from what's actually printed. IAR feature
-  // was removed in S135 (no rendering since S134) — no IAR row. Inspector
-  // row only when the picker turned tags on.
-  var keyHtml='<div class="rep-key"><div class="rep-key-ttl">Report Legend</div><div class="rep-key-grid">';
-  keyHtml+='<div class="rep-key-row"><span class="th-band recs rk-sw"><span>Recommendations</span></span><span class="rep-key-gloss">recommendation items - do not hold off sign-off</span></div>';
-  keyHtml+='<div class="rep-key-row"><span class="rec-chip">REC</span><span class="rep-key-gloss">Recommendation item</span></div>';
-  keyHtml+='<div class="rep-key-row"><span class="pill-h">Outstanding</span><span class="rep-key-gloss">Outstanding \u2014 high priority</span></div>';
-  keyHtml+='<div class="rep-key-row"><span class="pill-l">Outstanding</span><span class="rep-key-gloss">Outstanding \u2014 low priority</span></div>';
-  keyHtml+='<div class="rep-key-row"><span class="pill-c">Closed</span><span class="rep-key-gloss">Addressed &amp; closed</span></div>';
-  if(inspTag==='initials')keyHtml+='<div class="rep-key-row"><span class="dc-insp" style="color:#6B7280;border-color:#6B7280;">AB</span><span class="rep-key-gloss">Inspector initials \u2014 who logged the item</span></div>';
-  keyHtml+='</div></div>';
-  summaryHtml+=keyHtml;
-  // S139 Phase 3 (D): italic high-priority-recommendation note under the
-  // project/deficiency summary (canon §2944; wording per S134 delta,
-  // grammatically agreed for count=1).
-  if(_hiRecCount>0&&_recsMode!=='only'){summaryHtml+='<div class="hirec-note">This report includes '+_hiRecCount+' high-priority recommendation'+(_hiRecCount!==1?'s':'')+' \u2014 see Recommendations section.</div>';}
+  _deficSummaryHtml+='<tr style="border-top:2px solid #9C2742;font-weight:700;"><td>Total</td><td style="text-align:center;">'+summaryDefs.length+'</td>';
+  _deficSummaryHtml+='<td style="text-align:center;color:#1565C0;">'+summaryDefs.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
+  _deficSummaryHtml+='<td style="text-align:center;color:#C0392B;">'+summaryDefs.filter(_rowOpen).length+'</td>';
+  _deficSummaryHtml+='<td style="text-align:center;color:#1A7A4A;">'+summaryDefs.filter(_rowClosed).length+'</td></tr>';
+  _deficSummaryHtml+='</tbody></table></div>';
 }
+// S143/S144 Report Legend (corrected). Navy-filled title bar, 4 entries,
+// 2-col grid. Emit order high, Closed, low, REC ⇒ LEFT col Outstanding
+// high (top) / Outstanding low (bottom); RIGHT col Closed (top) / REC
+// (bottom) — Mark flagged this order 3×; this is the truth. The S143
+// .th-band.recs band-swatch row is removed; REC gloss capitalised.
+// Inspector-initials row only when the picker turned tags on. Reuses
+// literal report classes so the legend can never drift from output.
+// Page-1 in full/deficiency mode; in 'only' mode it rides as the first
+// rec-section block right after the Recommendation Summary.
+var _legendHtml='<div class="rep-key"><div class="rep-key-ttl">Report Legend</div><div class="rep-key-grid">';
+_legendHtml+='<div class="rep-key-row"><span class="pill-h">Outstanding</span><span class="rep-key-gloss">Outstanding \u2014 high priority</span></div>';
+_legendHtml+='<div class="rep-key-row"><span class="pill-c">Closed</span><span class="rep-key-gloss">Addressed &amp; closed</span></div>';
+_legendHtml+='<div class="rep-key-row"><span class="pill-l">Outstanding</span><span class="rep-key-gloss">Outstanding \u2014 low priority</span></div>';
+_legendHtml+='<div class="rep-key-row"><span class="rec-chip">REC</span><span class="rep-key-gloss">Recommendations - do not hold off sign-off</span></div>';
+if(inspTag==='initials')_legendHtml+='<div class="rep-key-row"><span class="dc-insp" style="color:#6B7280;border-color:#6B7280;">AB</span><span class="rep-key-gloss">Inspector initials \u2014 who logged the item</span></div>';
+_legendHtml+='</div></div>';
+// S139 Phase 3 (D): italic high-priority-recommendation note. Full mode
+// only (suppressed for 'only' — there the recs ARE the report).
+var _hiRecNoteHtml=(_hiRecCount>0&&_recsMode!=='only')?'<div class="hirec-note">This report includes '+_hiRecCount+' high-priority recommendation'+(_hiRecCount!==1?'s':'')+' \u2014 see Recommendations section.</div>':'';
+// Assembled mode-aware just before pagination (after the Recommendation
+// Summary is built — see _recSummaryHtml). Placeholder for now.
+var summaryHtml='';
 
 function _compactHeader(pgNum){
   var l1=esc((p.info&&p.info.client)||'');var l2=esc((p.info&&p.info.address)||'');
   var sp=(p.info&&p.info.projectName)?' - '+esc(p.info.projectName):'';
-  var l3=esc('Field Review Report #'+_rptNum)+sp;
+  var l3=esc(_rptTitleBase+' #'+_rptNum)+sp;
   var r1=esc(((p.info&&p.info.projectNumber)||'')+' '+_rptRev)+'&nbsp;&nbsp;Page '+pgNum;
   return '<div class="ph-compact"><div class="ph-compact-left">'+l1+'<br>'+l2+'<br>'+l3+'</div><div class="ph-compact-right">'+r1+'<br>&nbsp;<br>'+esc(date)+'</div></div>';
 }
@@ -609,7 +642,7 @@ function _buildDefCard(r,hdrExtra){
       _inspChip='<span class="dc-insp" style="color:'+_pic+';border-color:'+_pic+';">'+esc(_pi.initials)+'</span>';
     }
   }
-  h+='<div class="dc-hdr"><span class="dc-itemnum">#'+(r.numLabel||r.rn)+'</span>'+((r.d&&r.d.isRecommendation)?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span>'+_inspChip+(hdrExtra||'')+'</div>';
+  h+='<div class="dc-hdr"><span class="dc-hdr-l"><span class="dc-itemnum">#'+(r.numLabel||r.rn)+'</span></span><span class="dc-hdr-r">'+_inspChip+(hdrExtra||'')+((r.d&&r.d.isRecommendation)?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span></span></div>';
   if(po.notedOnInstance!==_curInst){h+='<div style="font-size:9pt;color:#6B7B8C;margin-bottom:4px;">Noted in FRT #'+po.notedOnInstance+'</div>';}
   h+='<div class="dc-desc">'+esc(po.text||'\u2014')+'</div>';
   if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});h+='</div>';}
@@ -729,41 +762,111 @@ if(mainBodyDefs.length){
   }
 }
 
-// S142 Batch 3-2: build the pooled "Recommendations" section blocks.
-// Emitted later, after Previously Closed Items, on a forced new page.
-// Layout (visual contract = ARENCON_Phase3x_Model_Demo.html): a navy
-// band (reuses .th-band, already #2A3A5C) + count, a caption row, then
-// per-trade subheadings (.rec-sub) in projectTrades order with
-// "No trade assigned" LAST, cards via _buildDefCard (REC chip rides it),
-// an inline contractor chip ONLY when a real contractor exists (NO
-// contractor sub-banner), then the optional italic footer (_recFooter).
+// S144 §1/§2 (SUPERSEDES the S142 grey pooled model): the rec section
+// now uses the EXACT main-report grammar — navy .th-band trade -> taupe
+// .ch contractor -> connected .dc cards (visually identical to the
+// deficiency body; the only differentiators are the REC chip per card +
+// the Recommendation Summary heading). The grey .th-band.recs / .rec-cap
+// / .rec-sub / .rec-ctrchip path is dropped (CSS left in place — dead,
+// tidy later). New first block = Recommendation Summary (scoreboard,
+// counts ALL pooled recs incl. previously-closed); a rec closed in a
+// PRIOR instance moves to a "Previously Closed Recommendations" table
+// (mirrors the deficiency Previously Closed Items); footer always shown.
+// S145 P1 (Mark): full mode forces a page break — the rec section starts
+// a fresh page led by the Option C left-bar section-title card; recs-only
+// mode omits the card (the page title already reads
+// "Field Review Report-Recommendation #N") and the Rec Summary + Legend
+// ride page 1 (assembled into summaryHtml below).
+var _recSummaryHtml='';
+var _recPrevClosedHtml='';
+var _recFootHtml='<div class="rec-foot">Recommendation items noted during this review fall outside the contracted scope of work, and are not held against the engineer sign-off letter.</div>';
+var _recSecTtlHtml='<div class="rec-secttl"><div class="rec-secttl-ttl">Recommendations</div><div class="rec-secttl-sub">The following items were noted during this review and fall outside the contracted scope of work. They are provided for information and are not held against the engineer sign-off letter.</div></div>';
 if(pooledRecs.length){
-  recBlocks.push({type:'tradeHeader',
-    html:'<div class="th-band recs"><span>Recommendations</span><span class="ch-pill">'+pooledRecs.length+'</span></div>',
-    htmlCont:'<div class="th-band recs"><span>Recommendations <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+pooledRecs.length+'</span></div>'});
-  recBlocks.push({type:'recCap',html:'<div class="rec-cap">Advisory items outside the contracted scope of work. Issued to document professional recommendations and potential additional work.</div>'});
-  var recByTrade={};var recTradeSeen=[];var recNo=[];
-  pooledRecs.forEach(function(r){
-    var t=_pinTrade(r.d);
-    if(t){if(!recByTrade[t]){recByTrade[t]=[];recTradeSeen.push(t);}recByTrade[t].push(r);}
-    else recNo.push(r);
-  });
-  var recOrder=[];
-  (p.projectTrades||[]).forEach(function(t){if(recByTrade[t]&&recOrder.indexOf(t)<0)recOrder.push(t);});
-  recTradeSeen.forEach(function(t){if(recOrder.indexOf(t)<0)recOrder.push(t);});
-  function _emitRecGroup(label,rows){
-    recBlocks.push({type:'ctrHeader',
-      html:'<div class="rec-sub"><span>'+esc(label)+'</span><span class="ch-pill">'+rows.length+'</span></div>',
-      htmlCont:'<div class="rec-sub"><span>'+esc(label)+' <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+rows.length+'</span></div>',ctr:label});
-    rows.forEach(function(r){
-      var chip=_isRealCtr(r.ctr)?('<span class="rec-ctrchip">'+esc(r.ctr)+'</span>'):'';
-      recBlocks.push({type:'defCard',html:_buildDefCard(r,chip),defId:r.d.id,ctr:label});
-    });
+  function _recPrevClosed(r){return _deficIsClosed(r.d)&&((r.d.closedOnInstance||_curInst)<_curInst);}
+  var _activeRecs=[],_prevClosedRecs=[];
+  pooledRecs.forEach(function(r){(_recPrevClosed(r)?_prevClosedRecs:_activeRecs).push(r);});
+  // (1) Recommendation Summary — ALL pooled recs (scoreboard; closed,
+  //     incl. previously-closed, land in Closed). summary ≡ section.
+  var _aByT={},_aSeen=[],_aNo=[];
+  pooledRecs.forEach(function(r){var t=_pinTrade(r.d);if(t){if(!_aByT[t]){_aByT[t]=[];_aSeen.push(t);}_aByT[t].push(r);}else _aNo.push(r);});
+  var _sumOrder=[];(p.projectTrades||[]).forEach(function(t){if(_aByT[t]&&_sumOrder.indexOf(t)<0)_sumOrder.push(t);});
+  _aSeen.forEach(function(t){if(_sumOrder.indexOf(t)<0)_sumOrder.push(t);});
+  function _recOpenN(g){var o=0;g.forEach(function(r){if(_itemIsOpen(r))o++;});return o;}
+  function _recRow(label,g,tot){
+    var T=g.length,O=_recOpenN(g),C=T-O,
+      tr=tot?' style="border-top:2px solid #2A3A5C;font-weight:700;"':'',
+      lc=tot?'<td>Total</td>':'<td><strong>'+esc(label)+'</strong></td>',
+      em=tot?'':'font-weight:700;';
+    return '<tr'+tr+'>'+lc+'<td style="text-align:center;">'+T+'</td>'
+      +'<td style="text-align:center;color:#C0392B;'+em+'">'+O+'</td>'
+      +'<td style="text-align:center;color:#1A7A4A;'+em+'">'+C+'</td></tr>';
   }
-  recOrder.forEach(function(t){_emitRecGroup(t,recByTrade[t]);});
-  if(recNo.length)_emitRecGroup('No trade assigned',recNo);
-  if(_recFooter)recBlocks.push({type:'recFoot',html:_REC_FOOT});
+  _recSummaryHtml='<div style="border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;overflow:hidden;"><table class="st"><thead><tr><th>Recommendation Summary</th><th style="text-align:center;">Total</th><th style="text-align:center;">Open</th><th style="text-align:center;">Closed</th></tr></thead><tbody>';
+  _sumOrder.forEach(function(t){_recSummaryHtml+=_recRow(t,_aByT[t],false);});
+  if(_aNo.length)_recSummaryHtml+=_recRow('General',_aNo,false);
+  _recSummaryHtml+=_recRow(null,pooledRecs,true);
+  _recSummaryHtml+='</tbody></table></div>';
+  // Full mode: Option C section-title card + Rec Summary lead the
+  // forced-new-page section (summary connects directly under the card —
+  // drop its standalone 16px top gap). 'only' mode: no lead block; the
+  // Rec Summary + Legend ride page 1 via summaryHtml.
+  if(_recsMode!=='only'){
+    recBlocks.push({type:'recLead',html:_recSecTtlHtml+_recSummaryHtml});
+  }
+  // (3) ACTIVE groups — main-report grammar (navy trade / taupe ctr / cards)
+  var _rByT={},_rSeen=[],_rNo=[];
+  _activeRecs.forEach(function(r){var t=_pinTrade(r.d);if(t){if(!_rByT[t]){_rByT[t]=[];_rSeen.push(t);}_rByT[t].push(r);}else _rNo.push(r);});
+  var _rOrder=[];(p.projectTrades||[]).forEach(function(t){if(_rByT[t]&&_rOrder.indexOf(t)<0)_rOrder.push(t);});
+  _rSeen.forEach(function(t){if(_rOrder.indexOf(t)<0)_rOrder.push(t);});
+  function _emitRecTrade(label,rows){
+    recBlocks.push({type:'tradeHeader',
+      html:'<div class="th-band"><span>'+esc(label)+'</span><span class="ch-pill">'+rows.length+'</span></div>',
+      htmlCont:'<div class="th-band"><span>'+esc(label)+' <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+rows.length+'</span></div>'});
+    var byC={},cOrd=[],noC=[];
+    rows.forEach(function(r){if(_isRealCtr(r.ctr)){if(!byC[r.ctr]){byC[r.ctr]=[];cOrd.push(r.ctr);}byC[r.ctr].push(r);}else noC.push(r);});
+    cOrd.sort(function(a,b){var ia=(_ctrIdxByName[a]==null)?1e9:_ctrIdxByName[a];var ib=(_ctrIdxByName[b]==null)?1e9:_ctrIdxByName[b];return ia-ib;});
+    cOrd.forEach(function(cn){
+      recBlocks.push({type:'ctrHeader',
+        html:'<div class="ch"><span>'+esc(cn)+'</span><span class="ch-pill">'+byC[cn].length+'</span></div>',
+        htmlCont:'<div class="ch"><span>'+esc(cn)+' <span class="ch-cont">(cont.)</span></span><span class="ch-pill">'+byC[cn].length+'</span></div>',ctr:cn});
+      byC[cn].forEach(function(r){recBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:cn});});
+    });
+    noC.forEach(function(r){recBlocks.push({type:'defCard',html:_buildDefCard(r),defId:r.d.id,ctr:label});});
+  }
+  _rOrder.forEach(function(t){_emitRecTrade(t,_rByT[t]);});
+  if(_rNo.length)_emitRecTrade('General',_rNo);
+  // (4) Previously Closed Recommendations — markup identical to the
+  //     deficiency "Previously Closed Items".
+  if(_prevClosedRecs.length){
+    var _pcG={};_prevClosedRecs.forEach(function(r){var k=r.d.closedOnInstance||1;if(!_pcG[k])_pcG[k]=[];_pcG[k].push(r);});
+    var _pcK=Object.keys(_pcG).map(Number).sort(function(a,b){return a-b;});
+    _recPrevClosedHtml='<div style="border:1px solid #DDE1E7;border-radius:6px;overflow:hidden;margin-top:16px;"><table style="width:100%;border-collapse:collapse;font-size:10pt;">';
+    _recPrevClosedHtml+='<thead><tr style="background:#2A3A5C;color:white;"><th colspan="5" style="padding:8px 12px;text-align:left;font-size:12pt;">Previously Closed Recommendations</th></tr>';
+    _recPrevClosedHtml+='<tr style="background:#4A5568;font-weight:700;font-size:9pt;text-transform:uppercase;letter-spacing:.5px;color:white;"><th style="padding:5px 10px;text-align:left;">Pin</th><th style="padding:5px 10px;text-align:left;">Description</th><th style="padding:5px 10px;text-align:left;">Contractor</th><th style="padding:5px 10px;text-align:left;">Noted</th><th style="padding:5px 10px;text-align:left;">Status</th></tr></thead><tbody>';
+    _pcK.forEach(function(k){
+      var it=_pcG[k],cd=it[0].d.closedDate||'';
+      _recPrevClosedHtml+='<tr><td colspan="5" style="padding:6px 10px;background:#EEF2F4;font-weight:700;font-size:9.5pt;border-top:1.5px solid #DDE1E7;color:#4A5568;">Closed in FRT #'+k+(cd?' \u2014 '+cd:'')+' ('+it.length+' item'+(it.length!==1?'s':'')+')</td></tr>';
+      it.forEach(function(r,ri){
+        var _d2=_itemDesc(r);var _td=_d2.length>80?_d2.substring(0,80)+'\u2026':_d2;
+        _recPrevClosedHtml+='<tr style="background:'+(ri%2===0?'#fff':'#fafafa')+';"><td style="padding:5px 10px;font-weight:700;color:#9C2742;">#'+(r.numLabel||r.d.num)+'</td><td style="padding:5px 10px;">'+esc(_td)+'</td><td style="padding:5px 10px;">'+esc(r.ctr)+'</td><td style="padding:5px 10px;">FRT #'+(r.d.notedOnInstance||1)+'</td><td style="padding:5px 10px;color:#3F6E55;font-weight:700;">'+esc(r.d.closedNote||'Addressed')+'</td></tr>';
+      });
+    });
+    _recPrevClosedHtml+='</tbody></table></div>';
+    recBlocks.push({type:'recPrev',html:_recPrevClosedHtml});
+  }
+  // (5) Footer note — ALWAYS (S144: no toggle; recFooter positional arg
+  //     retained in the signature but no longer gates this).
+  recBlocks.push({type:'recFoot',html:_recFootHtml});
 }
+
+// S144 §1/§4 + S145 P1: assemble the page-1 summary block. Full mode =
+// Deficiency Summary + Legend (+ hi-rec note); recs-only = Recommendation
+// Summary + Legend (no Deficiency table, no hi-rec note — there the recs
+// ARE the report; the rec body then flows on page 1+, no Option C card).
+// _startPage() injects this on the first page; FULL_HEADER_H measures it.
+summaryHtml=(_recsMode==='only')
+  ? (_recSummaryHtml+_legendHtml)
+  : (_deficSummaryHtml+_legendHtml+_hiRecNoteHtml);
 
 // Open popup
 var w=window.open('','_blank');

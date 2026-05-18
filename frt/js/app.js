@@ -26,6 +26,7 @@ import { initPhotos } from './ui/photos.js';
 import { initViewer } from './viewer/viewer.js';
 import { Markup } from './viewer/markup.js';
 import { initPDFExport } from './export/pdf.js';
+import { initExportView } from './export/exportview.js'; // S145 P5: Export view replaces _openPDFPicker
 import { initJSONExport } from './export/json.js';
 // S126 Phase D — memory + sync diagnostics. Pure instrumentation; no
 // behavior change. Boot-time module load registers global window._frtDiag
@@ -280,7 +281,7 @@ function wireLoadExport() {
   // Mobile PDF
   var mobilePdf = document.getElementById('mobile-pdf-btn');
   if (mobilePdf) mobilePdf.addEventListener('click', function() {
-    closeMobileMenu(); _openPDFPicker();
+    closeMobileMenu(); initExportView.open();
   });
 
   // More menu buttons — delegate
@@ -1249,10 +1250,10 @@ function wireEvents() {
 
   // PDF Report buttons
   var pdfBtn = document.getElementById('btn-pdf');
-  if (pdfBtn) pdfBtn.addEventListener('click', _openPDFPicker);
+  if (pdfBtn) pdfBtn.addEventListener('click', function() { initExportView.open(); });
   var mobilePdfBtn = document.getElementById('mobile-pdf-btn');
   if (mobilePdfBtn) mobilePdfBtn.addEventListener('click', function() {
-    closeMobileMenu(); _openPDFPicker();
+    closeMobileMenu(); initExportView.open();
   });
 
   // QR Code button
@@ -1366,8 +1367,6 @@ function _openPDFPicker() {
   h += '<option value="only">Recommendations-only report</option>';
   h += '<option value="exclude">Exclude from report</option>';
   h += '</select></div>';
-  h += '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts));cursor:pointer;">';
-  h += '<input type="checkbox" id="pdf-rec-footer" checked> Italic footer on Recommendations</label></div>';
   h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts));cursor:pointer;">';
   h += '<input type="checkbox" id="pdf-include-site-records"> Include Site Records (internal)</label></div>';
 
@@ -1417,7 +1416,7 @@ function _openPDFPicker() {
     var isFinalComm = document.getElementById('pdf-final-comm').checked;
     var showClosedSummary = document.getElementById('pdf-show-closed').checked;
     var recsMode = (document.getElementById('pdf-recs-mode') || {}).value || 'bottom';
-    var recFooter = document.getElementById('pdf-rec-footer').checked;
+    var recFooter = true; // S144: Recommendations footer always shown (picker toggle removed)
     var includeSiteRecords = document.getElementById('pdf-include-site-records').checked;
     var inspTag = (document.getElementById('pdf-insp-tag') || {}).value || 'off';
     var doRenumber = document.getElementById('pdf-renumber').checked;
