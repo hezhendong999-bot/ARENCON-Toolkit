@@ -30,6 +30,8 @@
   var _profLoaded = false;
   var _clientByProj = {};  // project_number -> client (first non-null wins)
   var _clientLoaded = false;
+  var _trainLabel = { project_number: 'ARENCON', client: 'ARENCON' }; // DB-driven (app_settings key=training_label); default if row absent
+  var _view = 'project';   // which summary the toggle shows: project|client|user|detail
   var _amAdmin = false;
   var _billingDay = 20;
 
@@ -155,13 +157,40 @@
   }
   function _client(pn) { return (pn && _clientByProj[pn]) ? _clientByProj[pn] : ''; }
 
+  /* ---- training/internal label (DB-driven, single source of truth) -----
+     ai_usage_log training rows carry a NULL project_number. Per Mark these
+     are internal ARENCON work, not client project work. The label lives in
+     app_settings.training_label so it's changeable without a code change.
+     Applies ONLY to null/empty project_number rows — a real project that
+     merely lacks a client mapping is NOT relabelled. */
+  function _loadTrainingLabel(cb) {
+    _sb('/rest/v1/app_settings?key=eq.training_label&select=value')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (rows) {
+        var v = rows && rows[0] && rows[0].value;
+        if (v && typeof v === 'object') {
+          if (v.project_number) _trainLabel.project_number = String(v.project_number);
+          if (v.client) _trainLabel.client = String(v.client);
+        }
+        if (cb) cb();
+      })
+      .catch(function () { if (cb) cb(); });
+  }
+  // Display project # for a row: real number, else the training/internal label.
+  function _projOf(r) { return r.project_number ? r.project_number : _trainLabel.project_number; }
+  // Display client for a row: training/internal label when no project number;
+  // otherwise the mapped client (may be '' for a real project missing a client).
+  function _clientOf(r) { return r.project_number ? _client(r.project_number) : _trainLabel.client; }
+
   /* ---- open / close ---------------------------------------------------- */
   function open() {
     _ensureOverlay();
     _overlay.classList.add('open');
     _loadProfiles().then(_loadMe).then(_loadClients).then(function () {
       _syncAdminUI();
-      _loadBillingDay(function () { _setCycle('current'); _fetch(); });
+      _loadTrainingLabel(function () {
+        _loadBillingDay(function () { _setCycle('current'); _fetch(); });
+      });
     });
   }
   function close() { if (_overlay) _overlay.classList.remove('open'); }
@@ -288,7 +317,7 @@
       if (r.user_id) users[r.user_id] = true;
       if (r.project_number) projs[r.project_number] = r.project_name || '';
       if (r.tool) tools[r.tool] = true;
-      if (r.project_number) { var cl = _client(r.project_number); if (cl) clients[cl] = true; }
+      var clv = _clientOf(r); if (clv) clients[clv] = true;
     });
     var uSel = document.getElementById('aiu-user');
     var pSel = document.getElementById('aiu-project');
@@ -338,7 +367,7 @@
     return _data.filter(function (r) {
       if (uf !== 'all' && r.user_id !== uf) return false;
       if (pf !== 'all' && r.project_number !== pf) return false;
-      if (cf !== 'all' && _client(r.project_number) !== cf) return false;
+      if (cf !== 'all' && _clientOf(r) !== cf) return false;
       if (tf !== 'all' && (r.tool || '') !== tf) return false;
       return true;
     });
@@ -355,94 +384,112 @@
 
     var byProj = {}, byUser = {}, byClient = {}, tCost = 0, tRev = 0, tFld = 0;
     fd.forEach(function (r) {
-      var cl = _client(r.project_number);
-      var pk = (r.project_number || '(none)') + '|' + (r.project_name || '');
-      if (!byProj[pk]) byProj[pk] = { num: r.project_number || '(none)', client: cl, name: r.project_name || '', rev: 0, fld: 0, cost: 0, tools: {} };
+      var pn = _projOf(r);          // real project # or training/internal label
+      var cl = _clientOf(r);        // mapped client, or training/internal label
+      var pk = pn + '|' + (r.project_name || '');
+      if (!byProj[pk]) byProj[pk] = { num: pn, client: cl, name: r.project_name || '', rev: 0, fld: 0, cost: 0, tools: {} };
       byProj[pk].rev++; byProj[pk].fld += (r.field_count || 0); byProj[pk].cost += (parseFloat(r.cost_usd) || 0); byProj[pk].tools[r.tool || '?'] = true;
       var uk = r.user_id || '?';
       if (!byUser[uk]) byUser[uk] = { num: _pnum(uk), ini: _pini(uk), rev: 0, fld: 0, cost: 0 };
       byUser[uk].rev++; byUser[uk].fld += (r.field_count || 0); byUser[uk].cost += (parseFloat(r.cost_usd) || 0);
       var ck = cl || '(no client)';
       if (!byClient[ck]) byClient[ck] = { client: ck, projs: {}, rev: 0, fld: 0, cost: 0 };
-      if (r.project_number) byClient[ck].projs[r.project_number] = true;
+      byClient[ck].projs[pn] = true;
       byClient[ck].rev++; byClient[ck].fld += (r.field_count || 0); byClient[ck].cost += (parseFloat(r.cost_usd) || 0);
       tCost += (parseFloat(r.cost_usd) || 0); tRev++; tFld += (r.field_count || 0);
     });
 
+    // Summary sections built independently; the toggle shows ONE at a time.
+    function secProject() {
+      var s = '<div class="ai-usage-section"><h4>Summary by Project</h4><table class="ai-usage-table">'
+        + '<tr><th style="min-width:80px;">Project #</th><th>Client</th><th>Project Name</th>'
+        + '<th style="width:90px;">Tool(s)</th><th class="num" style="width:60px;">Records</th>'
+        + '<th class="num" style="width:50px;">Fields</th><th class="num" style="width:80px;">Cost</th></tr>';
+      Object.keys(byProj).sort().forEach(function (k) {
+        var p = byProj[k];
+        s += '<tr><td>' + _esc(p.num) + '</td><td>' + _esc(p.client) + '</td><td>' + _esc(p.name) + '</td>'
+          + '<td>' + _esc(Object.keys(p.tools).join(', ')) + '</td>'
+          + '<td class="num">' + p.rev + '</td><td class="num">' + p.fld + '</td>'
+          + '<td class="cost">$' + p.cost.toFixed(4) + '</td></tr>';
+      });
+      return s + '<tr class="total-row"><td colspan="4"><strong>TOTAL</strong></td>'
+        + '<td class="num"><strong>' + tRev + '</strong></td><td class="num"><strong>' + tFld + '</strong></td>'
+        + '<td class="cost"><strong>$' + tCost.toFixed(4) + '</strong></td></tr></table></div>';
+    }
+    function secClient() {
+      var s = '<div class="ai-usage-section"><h4>Summary by Client</h4><table class="ai-usage-table">'
+        + '<tr><th>Client</th><th class="num" style="width:70px;">Projects</th>'
+        + '<th class="num" style="width:60px;">Records</th><th class="num" style="width:50px;">Fields</th>'
+        + '<th class="num" style="width:80px;">Cost</th></tr>';
+      Object.keys(byClient).sort(function (a, b) {
+        if (a === '(no client)') return 1;
+        if (b === '(no client)') return -1;
+        return a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0;
+      }).forEach(function (k) {
+        var c = byClient[k];
+        s += '<tr><td>' + _esc(c.client) + '</td>'
+          + '<td class="num">' + Object.keys(c.projs).length + '</td>'
+          + '<td class="num">' + c.rev + '</td><td class="num">' + c.fld + '</td>'
+          + '<td class="cost">$' + c.cost.toFixed(4) + '</td></tr>';
+      });
+      return s + '<tr class="total-row"><td><strong>TOTAL</strong></td>'
+        + '<td class="num"></td><td class="num"><strong>' + tRev + '</strong></td>'
+        + '<td class="num"><strong>' + tFld + '</strong></td>'
+        + '<td class="cost"><strong>$' + tCost.toFixed(4) + '</strong></td></tr></table></div>';
+    }
+    function secUser() {
+      var s = '<div class="ai-usage-section"><h4>Summary by User</h4><table class="ai-usage-table">'
+        + '<tr><th style="width:90px;">User #</th><th style="width:70px;">Initial</th>'
+        + '<th class="num" style="width:60px;">Records</th><th class="num" style="width:50px;">Fields</th>'
+        + '<th class="num" style="width:80px;">Cost</th></tr>';
+      Object.keys(byUser).sort(function (a, b) {
+        var A = byUser[a], B = byUser[b];
+        var as = (A.num !== '—' ? A.num : 'zzz') + A.ini, bs = (B.num !== '—' ? B.num : 'zzz') + B.ini;
+        return as < bs ? -1 : as > bs ? 1 : 0;
+      }).forEach(function (k) {
+        var u = byUser[k];
+        s += '<tr><td>' + _esc(u.num) + '</td><td>' + _esc(u.ini) + '</td>'
+          + '<td class="num">' + u.rev + '</td><td class="num">' + u.fld + '</td>'
+          + '<td class="cost">$' + u.cost.toFixed(4) + '</td></tr>';
+      });
+      return s + '<tr class="total-row"><td colspan="2"><strong>TOTAL</strong></td>'
+        + '<td class="num"><strong>' + tRev + '</strong></td><td class="num"><strong>' + tFld + '</strong></td>'
+        + '<td class="cost"><strong>$' + tCost.toFixed(4) + '</strong></td></tr></table></div>';
+    }
+    function secDetail() {
+      // §4-locked column order: Date · User # · Initial · Project # · Tool · Fields · Cost
+      var s = '<div class="ai-usage-section"><h4>Detail Log</h4><table class="ai-usage-table">'
+        + '<tr><th style="width:80px;">Date</th><th style="width:80px;">User #</th>'
+        + '<th style="width:60px;">Initial</th><th style="width:80px;">Project #</th>'
+        + '<th style="width:60px;">Tool</th><th class="num" style="width:45px;">Fields</th>'
+        + '<th class="num" style="width:80px;">Cost</th></tr>';
+      fd.forEach(function (r) {
+        s += '<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '?') + '</td>'
+          + '<td>' + _esc(_pnum(r.user_id)) + '</td><td>' + _esc(_pini(r.user_id)) + '</td>'
+          + '<td>' + _esc(_projOf(r)) + '</td><td>' + _esc(r.tool || '?') + '</td>'
+          + '<td class="num">' + (r.field_count || 0) + '</td>'
+          + '<td class="cost">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>';
+      });
+      return s + '</table></div>';
+    }
+
+    var views = { project: secProject, client: secClient, user: secUser, detail: secDetail };
+    if (!views[_view]) _view = 'project';
+    var tabs = [['project', 'By Project'], ['client', 'By Client'], ['user', 'By User'], ['detail', 'Detail Log']];
+
     var h = '<div style="padding:8px 0;font-size:calc(12px + var(--ts,0px));color:var(--steel,#5A6473);">'
       + fd.length + ' records · ' + _esc(from) + ' to ' + _esc(to)
       + ' · Total: <strong style="color:var(--fg,#1E293B);">$' + tCost.toFixed(4) + '</strong></div>';
-
-    // Summary by Project (FRT-faithful columns)
-    h += '<div class="ai-usage-section"><h4>Summary by Project</h4><table class="ai-usage-table">'
-      + '<tr><th style="min-width:80px;">Project #</th><th>Client</th><th>Project Name</th>'
-      + '<th style="width:90px;">Tool(s)</th><th class="num" style="width:60px;">Records</th>'
-      + '<th class="num" style="width:50px;">Fields</th><th class="num" style="width:80px;">Cost</th></tr>';
-    Object.keys(byProj).sort().forEach(function (k) {
-      var p = byProj[k];
-      h += '<tr><td>' + _esc(p.num) + '</td><td>' + _esc(p.client) + '</td><td>' + _esc(p.name) + '</td>'
-        + '<td>' + _esc(Object.keys(p.tools).join(', ')) + '</td>'
-        + '<td class="num">' + p.rev + '</td><td class="num">' + p.fld + '</td>'
-        + '<td class="cost">$' + p.cost.toFixed(4) + '</td></tr>';
+    h += '<div class="ai-usage-tabs">';
+    tabs.forEach(function (t) {
+      h += '<button class="aiu-tab' + (_view === t[0] ? ' on' : '') + '" data-view="' + t[0] + '">' + t[1] + '</button>';
     });
-    h += '<tr class="total-row"><td colspan="4"><strong>TOTAL</strong></td>'
-      + '<td class="num"><strong>' + tRev + '</strong></td><td class="num"><strong>' + tFld + '</strong></td>'
-      + '<td class="cost"><strong>$' + tCost.toFixed(4) + '</strong></td></tr></table></div>';
-
-    // Summary by Client — Timeslips workflow (sorted by client name)
-    h += '<div class="ai-usage-section"><h4>Summary by Client</h4><table class="ai-usage-table">'
-      + '<tr><th>Client</th><th class="num" style="width:70px;">Projects</th>'
-      + '<th class="num" style="width:60px;">Records</th><th class="num" style="width:50px;">Fields</th>'
-      + '<th class="num" style="width:80px;">Cost</th></tr>';
-    Object.keys(byClient).sort(function (a, b) {
-      // real clients A→Z first, "(no client)" last
-      if (a === '(no client)') return 1;
-      if (b === '(no client)') return -1;
-      return a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0;
-    }).forEach(function (k) {
-      var c = byClient[k];
-      h += '<tr><td>' + _esc(c.client) + '</td>'
-        + '<td class="num">' + Object.keys(c.projs).length + '</td>'
-        + '<td class="num">' + c.rev + '</td><td class="num">' + c.fld + '</td>'
-        + '<td class="cost">$' + c.cost.toFixed(4) + '</td></tr>';
-    });
-    h += '<tr class="total-row"><td><strong>TOTAL</strong></td>'
-      + '<td class="num"></td><td class="num"><strong>' + tRev + '</strong></td>'
-      + '<td class="num"><strong>' + tFld + '</strong></td>'
-      + '<td class="cost"><strong>$' + tCost.toFixed(4) + '</strong></td></tr></table></div>';
-
-    // Summary by User — by User # / Initial (§4: email removed)
-    h += '<div class="ai-usage-section"><h4>Summary by User</h4><table class="ai-usage-table">'
-      + '<tr><th style="width:90px;">User #</th><th style="width:70px;">Initial</th>'
-      + '<th class="num" style="width:60px;">Records</th><th class="num" style="width:50px;">Fields</th>'
-      + '<th class="num" style="width:80px;">Cost</th></tr>';
-    Object.keys(byUser).sort(function (a, b) {
-      var A = byUser[a], B = byUser[b];
-      var as = (A.num !== '—' ? A.num : 'zzz') + A.ini, bs = (B.num !== '—' ? B.num : 'zzz') + B.ini;
-      return as < bs ? -1 : as > bs ? 1 : 0;
-    }).forEach(function (k) {
-      var u = byUser[k];
-      h += '<tr><td>' + _esc(u.num) + '</td><td>' + _esc(u.ini) + '</td>'
-        + '<td class="num">' + u.rev + '</td><td class="num">' + u.fld + '</td>'
-        + '<td class="cost">$' + u.cost.toFixed(4) + '</td></tr>';
-    });
-    h += '</table></div>';
-
-    // Detail Log — FIXED column order (§4): Date · User # · Initial · Project # · Tool · Fields · Cost
-    h += '<div class="ai-usage-section"><h4>Detail Log</h4><table class="ai-usage-table">'
-      + '<tr><th style="width:80px;">Date</th><th style="width:80px;">User #</th>'
-      + '<th style="width:60px;">Initial</th><th style="width:80px;">Project #</th>'
-      + '<th style="width:60px;">Tool</th><th class="num" style="width:45px;">Fields</th>'
-      + '<th class="num" style="width:80px;">Cost</th></tr>';
-    fd.forEach(function (r) {
-      h += '<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '?') + '</td>'
-        + '<td>' + _esc(_pnum(r.user_id)) + '</td><td>' + _esc(_pini(r.user_id)) + '</td>'
-        + '<td>' + _esc(r.project_number || '-') + '</td><td>' + _esc(r.tool || '?') + '</td>'
-        + '<td class="num">' + (r.field_count || 0) + '</td>'
-        + '<td class="cost">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>';
-    });
-    h += '</table></div>';
+    h += '</div>';
+    h += views[_view]();
     body.innerHTML = h;
+    body.querySelectorAll('.aiu-tab').forEach(function (b) {
+      b.addEventListener('click', function () { _view = this.getAttribute('data-view'); _render(); });
+    });
   }
 
   /* ---- CSV (FRT-faithful; email -> User #/Initial) --------------------- */
@@ -455,8 +502,8 @@
         r.created_at ? new Date(r.created_at).toISOString() : '',
         '"' + _pnum(r.user_id) + '"',
         '"' + _pini(r.user_id) + '"',
-        '"' + (r.project_number || '') + '"',
-        '"' + String(_client(r.project_number) || '').replace(/"/g, '""') + '"',
+        '"' + _projOf(r) + '"',
+        '"' + String(_clientOf(r) || '').replace(/"/g, '""') + '"',
         '"' + String(r.project_name || '').replace(/"/g, '""') + '"',
         r.tool || '',
         r.model || '',
@@ -485,13 +532,14 @@
     var tf = (document.getElementById('aiu-tool') || {}).value || 'all';
     var byProj = {}, byClient = {}, tCost = 0, tRev = 0;
     fd.forEach(function (r) {
-      var cl = _client(r.project_number);
-      var pk = r.project_number || '(none)';
-      if (!byProj[pk]) byProj[pk] = { num: pk, client: cl, name: r.project_name || '', rev: 0, fld: 0, cost: 0 };
+      var pn = _projOf(r);
+      var cl = _clientOf(r);
+      var pk = pn;
+      if (!byProj[pk]) byProj[pk] = { num: pn, client: cl, name: r.project_name || '', rev: 0, fld: 0, cost: 0 };
       byProj[pk].rev++; byProj[pk].fld += (r.field_count || 0); byProj[pk].cost += (parseFloat(r.cost_usd) || 0);
       var ck = cl || '(no client)';
       if (!byClient[ck]) byClient[ck] = { client: ck, projs: {}, rev: 0, fld: 0, cost: 0 };
-      if (r.project_number) byClient[ck].projs[r.project_number] = true;
+      byClient[ck].projs[pn] = true;
       byClient[ck].rev++; byClient[ck].fld += (r.field_count || 0); byClient[ck].cost += (parseFloat(r.cost_usd) || 0);
       tCost += (parseFloat(r.cost_usd) || 0); tRev++;
     });
@@ -536,7 +584,7 @@
     w.document.write('<tr class="total"><td>TOTAL</td><td></td><td class="r">' + tRev + '</td><td></td><td class="cost">$' + tCost.toFixed(4) + '</td></tr></table>');
     w.document.write('<h2>Detail Log</h2><table><tr><th>Date</th><th>User #</th><th>Initial</th><th>Project #</th><th>Client</th><th>Tool</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
     fd.forEach(function (r) {
-      w.document.write('<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td><td>' + _esc(_pnum(r.user_id)) + '</td><td>' + _esc(_pini(r.user_id)) + '</td><td>' + _esc(r.project_number || '') + '</td><td>' + _esc(_client(r.project_number)) + '</td><td>' + _esc(r.tool || '') + '</td><td class="r">' + (r.field_count || 0) + '</td><td class="cost">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>');
+      w.document.write('<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td><td>' + _esc(_pnum(r.user_id)) + '</td><td>' + _esc(_pini(r.user_id)) + '</td><td>' + _esc(_projOf(r)) + '</td><td>' + _esc(_clientOf(r)) + '</td><td>' + _esc(r.tool || '') + '</td><td class="r">' + (r.field_count || 0) + '</td><td class="cost">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>');
     });
     w.document.write('</table></div></body></html>');
     w.document.close();
