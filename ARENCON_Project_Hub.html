@@ -731,6 +731,10 @@ body.text-l{--ts:4px;}
             <label>Full Name</label>
             <input type="text" id="new-user-name" placeholder="e.g. John Smith">
           </div>
+          <div class="form-group" style="min-width:120px">
+            <label>Project / User #</label>
+            <input type="text" id="new-user-num" placeholder="e.g. 1042">
+          </div>
           <div class="form-group" style="flex:1;min-width:200px">
             <label>Email (@arencon.com)</label>
             <input type="email" id="new-user-email" placeholder="jsmith@arencon.com">
@@ -760,6 +764,7 @@ body.text-l{--ts:4px;}
           <thead>
             <tr>
               <th>Name</th>
+              <th>User #</th>
               <th>Email</th>
               <th>Role</th>
               <th>Status</th>
@@ -919,6 +924,22 @@ body.text-l{--ts:4px;}
     <div class="modal-actions">
       <button class="dash-btn secondary" onclick="closeEditRoleModal()">Cancel</button>
       <button class="dash-btn primary" onclick="saveRoleChange()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ EDIT USER # MODAL ═══════════ -->
+<div class="modal-overlay" id="edit-num-modal">
+  <div class="modal-card">
+    <h3>Set Project / User #</h3>
+    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="edit-num-user"></p>
+    <div class="modal-field">
+      <label>Project / User #</label>
+      <input type="text" id="edit-num-input" placeholder="e.g. 1042 (leave blank to clear)">
+    </div>
+    <div class="modal-actions">
+      <button class="dash-btn secondary" onclick="closeEditNumModal()">Cancel</button>
+      <button class="dash-btn primary" onclick="saveUserNum()">Save</button>
     </div>
   </div>
 </div>
@@ -2590,6 +2611,7 @@ function renderAdminUsers() {
 
     return '<tr>'
       + '<td>' + esc(u.full_name || '—') + (isSelf ? ' <span style="color:var(--arencon);font-size:calc(11px + var(--ts))">(you)</span>' : '') + '</td>'
+      + '<td>' + esc(u.user_number || '—') + (canEdit ? ' <button class="admin-act-btn" style="padding:1px 7px;font-size:calc(10px + var(--ts))" onclick="openEditNum(\'' + u.id + '\')">Set #</button>' : '') + '</td>'
       + '<td>' + esc(u.email || '—') + '</td>'
       + '<td><span class="admin-role-badge ' + roleClass(u.role) + statusClass + '">' + formatRole(u.role) + '</span></td>'
       + '<td>' + (u.is_active ? '<span style="color:var(--yes)">Active</span>' : '<span style="color:var(--no)">Deactivated</span>') + '</td>'
@@ -2605,6 +2627,7 @@ function renderAdminUsers() {
 /* ═══ Create User ═══ */
 async function createUser() {
   const nameVal = document.getElementById('new-user-name').value.trim();
+  const numVal = document.getElementById('new-user-num').value.trim();
   const emailVal = document.getElementById('new-user-email').value.trim().toLowerCase();
   const passVal = document.getElementById('new-user-pass').value;
   const roleVal = document.getElementById('new-user-role').value;
@@ -2643,6 +2666,7 @@ async function createUser() {
         full_name: nameVal,
         email: emailVal,
         role: roleVal,
+        user_number: numVal || null,
         is_active: true
       });
     } catch (profileErr) {
@@ -2650,6 +2674,7 @@ async function createUser() {
     }
     toast('User created: ' + nameVal + ' (' + emailVal + ')', 'success');
     document.getElementById('new-user-name').value = '';
+    document.getElementById('new-user-num').value = '';
     document.getElementById('new-user-email').value = '';
     document.getElementById('new-user-pass').value = '';
     await loadAdminUsers();
@@ -2685,6 +2710,35 @@ async function saveRoleChange() {
     await _sb.from('profiles').eq('id', _editRoleUserId).update({ role: newRole });
     toast('Role updated to ' + formatRole(newRole), 'success');
     closeEditRoleModal();
+    await loadAdminUsers();
+  } catch (e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+/* ═══ Set Project / User # ═══ */
+let _editNumUserId = null;
+function openEditNum(userId) {
+  _editNumUserId = userId;
+  const u = _allUsers.find(x => x.id === userId);
+  if (!u) return;
+  document.getElementById('edit-num-user').textContent = u.full_name + ' (' + u.email + ')';
+  document.getElementById('edit-num-input').value = u.user_number || '';
+  document.getElementById('edit-num-modal').classList.add('show');
+}
+
+function closeEditNumModal() {
+  document.getElementById('edit-num-modal').classList.remove('show');
+  _editNumUserId = null;
+}
+
+async function saveUserNum() {
+  if (!_editNumUserId) return;
+  const newNum = document.getElementById('edit-num-input').value.trim();
+  try {
+    await _sb.from('profiles').eq('id', _editNumUserId).update({ user_number: newNum || null });
+    toast(newNum ? 'User # set to ' + newNum : 'User # cleared', 'success');
+    closeEditNumModal();
     await loadAdminUsers();
   } catch (e) {
     toast('Failed: ' + e.message, 'error');
