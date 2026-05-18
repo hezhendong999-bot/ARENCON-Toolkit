@@ -1693,6 +1693,7 @@ function _renderTableView(proj, container) {
     return;
   }
   var h = '<table class="dfx-tbl"><thead><tr>'
+    + '<th class="dfx-tbl-star-h" title="Recommendation" aria-label="Recommendation">\u2606</th>'
     + '<th>#</th><th>Trade</th><th>Contractor</th><th>Description</th>'
     + '<th>Priority</th><th>Status</th><th>Photo</th>'
     + '</tr></thead><tbody>';
@@ -1704,9 +1705,11 @@ function _renderTableView(proj, container) {
     var cName = r.ctrId ? r.ctrName : SITE_RECORDS_LABEL;
     var desc = (oi >= 0) ? (o.text || '') : deficDesc(d);
     var numCls = closed ? 'closed' : (pri === 'low' ? 'low' : pri === 'general' ? 'general' : '');
+    var _trIsRec = !!d.isRecommendation;
     h += '<tr class="' + (closed ? 'dfx-closed' : '') + '" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '">'
+      + '<td class="dfx-tbl-star-c"><button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" class="dfx-tbl-star' + (_trIsRec ? ' is-rec' : '') + '" aria-pressed="' + (_trIsRec ? 'true' : 'false') + '" title="' + (_trIsRec ? 'This is a Recommendation \\u2014 click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (_trIsRec ? '\\u2605' : '\\u2606') + '</button></td>'
       + '<td><span class="dfx-tbl-num ' + numCls + '">#' + esc(_dfxObsLabel(d, oi)) + '</span></td>'
-      + '<td>' + (trade ? esc(trade) : '<em style="color:var(--silver);">none</em>') + (d.isRecommendation ? ' <span class="rec-badge">REC</span>' : '') + '</td>'
+      + '<td>' + (trade ? esc(trade) : '<em style="color:var(--silver);">none</em>') + '</td>'
       + '<td>' + (r.ctrId ? '<span class="dfx-tbl-ctr" style="--cc:' + esc(_dfxCtrColor(proj, r.ctrId)) + ';"></span>' : '') + esc(cName) + '</td>'
       + '<td>' + esc(desc) + '</td>'
       + '<td><span class="dfx-status-mini ' + (pri === 'low' ? 'low' : pri === 'general' ? 'general' : 'high') + '">' + esc(pri.toUpperCase()) + '</span></td>'
@@ -1939,6 +1942,13 @@ function _syncDfxControls(pcActive, pcClosed, proj) {
 
 // ── S137 Phase 2: control-bar interactions ───────────────
 document.addEventListener('click', function(e) {
+  // S150 (Mark): the Table/Board rows carry data-action="dfx-goto" to open
+  // the pin on row click. The per-row Recommendation star (toggle-rec) is
+  // nested INSIDE that row, so closest('[data-action="dfx-goto"]') would
+  // also match the ancestor row and open the pin on a star tap. Bail here
+  // when the click originated inside a toggle-rec control — the separate
+  // toggle-rec dispatcher (below) still runs and performs the flip.
+  if (e.target.closest && e.target.closest('[data-action="toggle-rec"]')) return;
   var gt = e.target.closest && e.target.closest('[data-action="dfx-goto"]');
   if (gt) { _openPinFocus(gt.getAttribute('data-defic-id')); return; }
   var pb = e.target.closest && e.target.closest('.defic-pivot-btn');

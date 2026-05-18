@@ -7841,3 +7841,91 @@ body.dark-mode .dfx-insp-toggle.active { background: #4A6B5A; color: #FFFFFF; }
   .dfx-insp-toggle { padding: 9px 14px; }
   .obs-insp-chip { min-width: 24px; height: 22px; font-size: calc(11px + var(--ts)); }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   S150 (Mark) — Recommendation = AMBER + clickable Table-view star
+   ════════════════════════════════════════════════════════════════════
+   Mark: recolour the Recommendations visualisation orange so it's
+   obviously a recommendation, and add a clickable star (solid = is a
+   recommendation, hollow = not) to every Table-view row + the pin
+   editor (the Detailed/pin-editor star already exists via the shared
+   _buildPinGroupCard from the S150 Issue-2 work; this block recolours
+   it and adds the same control to the Table view).
+
+   Colour decision (Mark-approved Option 1, "vivid in day mode, not a
+   muted wash; calibrated for dark so it doesn't glare"): a confident
+   burnt-amber that pops in light mode, a slightly darker/desaturated
+   amber for dark mode. This is the deliberate, agreed exception to the
+   muted-colours rule for the recommendation signal ONLY — the band,
+   the sub-band, the REC badge, the Board REC tag and the pin star all
+   move to amber so "recommendation = amber" reads coherently
+   everywhere. The contractor chip on a rec pin (.dfx-rec-ctrchip) is
+   deliberately left neutral steel — it signals the contractor, not
+   rec-ness, and amber there would just add noise.
+
+   Override-only block (later source position, equal specificity wins;
+   no !important needed). Rollback = delete this block + the
+   deficiencies.js Table-star markup.
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Recommendations section header (was grey #6B7280 / dark #565C66) */
+.dfx-trade-banner.recs { background: #BC7327; }
+body.dark-mode .dfx-trade-banner.recs { background: #915E2C; }
+
+/* Recommendations trade subheading (was grey-slate #8A8F99 / #565E6E).
+   Kept lighter than the band so the hierarchy reads; white bold text
+   contrast matches the project's already-accepted grey-sub level. */
+.dfx-rec-sub { background: #C5843A; }
+body.dark-mode .dfx-rec-sub { background: #7E5734; }
+
+/* Recommendation contractor sub-band (was grey #6B7280 / #565C66) */
+.dfx-ctr-banner.rec { background: #BC7327; }
+body.dark-mode .dfx-ctr-banner.rec { background: #915E2C; }
+
+/* "REC" badge (Detailed pin overlay) — was slate-grey */
+.rec-badge { background: rgba(188,115,39,.18); color: #9A5E1C; }
+body.dark-mode .rec-badge { color: #D0A064; }
+
+/* Board view REC tag — was slate-grey (no prior dark rule existed) */
+.dfx-bv-rec { color: #9A5E1C; background: rgba(188,115,39,.16); }
+body.dark-mode .dfx-bv-rec { color: #D0A064; background: rgba(208,160,100,.18); }
+
+/* Pin-strip / pin-editor Recommendation toggle, active state — was the
+   S150 Issue-2 slate-grey; now amber to match the section. Inactive
+   stays neutral (it's the "not a recommendation yet" affordance). */
+.pin-rec-toggle.is-rec { background: rgba(188,115,39,.18); border-color: transparent; color: #9A5E1C; }
+.pin-rec-toggle.is-rec:hover { background: rgba(188,115,39,.28); color: #7E4D14; }
+body.dark-mode .pin-rec-toggle.is-rec { background: rgba(208,160,100,.18); color: #D0A064; }
+body.dark-mode .pin-rec-toggle.is-rec:hover { background: rgba(208,160,100,.26); color: #DCB47E; }
+
+/* ── Table-view clickable rec star (new leading column) ───────────────
+   Hollow ☆ on deficiency/site-record rows, solid amber ★ on
+   recommendation rows. data-action="toggle-rec" reuses the existing
+   S150 handler (Model.setRecommendation + re-render). Compact, centred,
+   touch-enlarged for field tablets. */
+.dfx-tbl-star-h { width: 36px; text-align: center; color: #B0B6BF; font-weight: 400; }
+body.dark-mode .dfx-tbl-star-h { color: #5A6473; }
+.dfx-tbl-star-c { text-align: center; }
+.dfx-tbl-star {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: calc(15px + var(--ts));
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 5px;
+  color: #B0B6BF;
+  font-family: inherit;
+  transition: color .12s, background .12s;
+}
+.dfx-tbl-star:hover { background: rgba(188,115,39,.12); color: #9A5E1C; }
+.dfx-tbl-star.is-rec { color: #BC7327; }
+.dfx-tbl-star.is-rec:hover { background: rgba(188,115,39,.16); color: #7E4D14; }
+body.dark-mode .dfx-tbl-star { color: #5A6473; }
+body.dark-mode .dfx-tbl-star:hover { background: rgba(208,160,100,.16); color: #D0A064; }
+body.dark-mode .dfx-tbl-star.is-rec { color: #D0A064; }
+body.dark-mode .dfx-tbl-star.is-rec:hover { background: rgba(208,160,100,.22); color: #DCB47E; }
+@media (pointer: coarse) {
+  .dfx-tbl-star { font-size: calc(17px + var(--ts)); padding: 8px 10px; }
+}
+/* End S150 ──────────────────────────────────────────────────────────── */
