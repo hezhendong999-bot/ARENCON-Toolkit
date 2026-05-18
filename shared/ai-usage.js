@@ -28,6 +28,8 @@
   var _data = [];
   var _profById = {};      // user_id -> { num, ini, role }
   var _profLoaded = false;
+  var _clientByProj = {};  // project_number -> client (first non-null wins)
+  var _clientLoaded = false;
   var _amAdmin = false;
   var _billingDay = 20;
 
@@ -133,11 +135,31 @@
   function _pnum(uid) { var p = _profById[uid]; return (p && p.num) ? p.num : '—'; }
   function _pini(uid) { var p = _profById[uid]; return (p && p.ini) ? p.ini : '—'; }
 
+  /* ---- projects map: project_number -> client (Timeslips workflow) -----
+     ai_usage_log carries no client column; client comes from the projects
+     table, matched on project_number. project_number is NOT unique in
+     projects, so the first row with a non-empty client wins. */
+  function _loadClients() {
+    if (_clientLoaded) return Promise.resolve();
+    return _sb('/rest/v1/projects?select=project_number,client')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (rows) {
+        (rows || []).forEach(function (p) {
+          var pn = p.project_number;
+          if (!pn) return;
+          if (!_clientByProj[pn] && p.client) _clientByProj[pn] = p.client;
+        });
+        _clientLoaded = true;
+      })
+      .catch(function () { _clientLoaded = true; });
+  }
+  function _client(pn) { return (pn && _clientByProj[pn]) ? _clientByProj[pn] : ''; }
+
   /* ---- open / close ---------------------------------------------------- */
   function open() {
     _ensureOverlay();
     _overlay.classList.add('open');
-    _loadProfiles().then(_loadMe).then(function () {
+    _loadProfiles().then(_loadMe).then(_loadClients).then(function () {
       _syncAdminUI();
       _loadBillingDay(function () { _setCycle('current'); _fetch(); });
     });
@@ -216,6 +238,7 @@
       + '<div class="ai-usage-filters bd">'
       + '<label>User</label><select id="aiu-user" class="aiu-sel"><option value="all">All Users</option></select>'
       + '<label>Project</label><select id="aiu-project" class="aiu-sel"><option value="all">All Projects</option></select>'
+      + '<label>Client</label><select id="aiu-client" class="aiu-sel"><option value="all">All Clients</option></select>'
       + '<label>Tool</label><select id="aiu-tool" class="aiu-sel"><option value="all">All Tools</option></select>'
       + '<span class="aiu-bday">Billing day: <input type="number" id="aiu-bday-input" value="' + _billingDay + '" min="1" max="28" disabled> of month<span id="aiu-bday-lock"> 🔒</span></span>'
       + '</div>'
@@ -228,6 +251,7 @@
     _overlay.querySelector('#aiu-apply').addEventListener('click', function () { _render(); });
     _overlay.querySelector('#aiu-user').addEventListener('change', function () { _render(); });
     _overlay.querySelector('#aiu-project').addEventListener('change', function () { _render(); });
+    _overlay.querySelector('#aiu-client').addEventListener('change', function () { _render(); });
     _overlay.querySelector('#aiu-tool').addEventListener('change', function () { _render(); });
     var bd = _overlay.querySelector('#aiu-bday-input');
     if (bd) bd.addEventListener('change', function () { _saveBillingDay(this.value); });
@@ -259,14 +283,16 @@
       });
   }
   function _populate() {
-    var users = {}, projs = {}, tools = {};
+    var users = {}, projs = {}, tools = {}, clients = {};
     _data.forEach(function (r) {
       if (r.user_id) users[r.user_id] = true;
       if (r.project_number) projs[r.project_number] = r.project_name || '';
       if (r.tool) tools[r.tool] = true;
+      if (r.project_number) { var cl = _client(r.project_number); if (cl) clients[cl] = true; }
     });
     var uSel = document.getElementById('aiu-user');
     var pSel = document.getElementById('aiu-project');
+    var cSel = document.getElementById('aiu-client');
     var tSel = document.getElementById('aiu-tool');
     if (uSel) {
       var cu = uSel.value;
@@ -282,8 +308,18 @@
     if (pSel) {
       var cp = pSel.value;
       pSel.innerHTML = '<option value="all">All Projects</option>';
+      // FRT-style label: number — client — name (collapse client if absent)
       Object.keys(projs).sort().forEach(function (n) {
-        pSel.innerHTML += '<option value="' + _esc(n) + '"' + (cp === n ? ' selected' : '') + '>' + _esc(n + ' — ' + projs[n]) + '</option>';
+        var cl = _client(n);
+        var lbl = cl ? (n + ' — ' + cl + ' — ' + projs[n]) : (n + ' — ' + projs[n]);
+        pSel.innerHTML += '<option value="' + _esc(n) + '"' + (cp === n ? ' selected' : '') + '>' + _esc(lbl) + '</option>';
+      });
+    }
+    if (cSel) {
+      var cc = cSel.value;
+      cSel.innerHTML = '<option value="all">All Clients</option>';
+      Object.keys(clients).sort().forEach(function (c) {
+        cSel.innerHTML += '<option value="' + _esc(c) + '"' + (cc === c ? ' selected' : '') + '>' + _esc(c) + '</option>';
       });
     }
     if (tSel) {
@@ -297,10 +333,12 @@
   function _filtered() {
     var uf = (document.getElementById('aiu-user') || {}).value || 'all';
     var pf = (document.getElementById('aiu-project') || {}).value || 'all';
+    var cf = (document.getElementById('aiu-client') || {}).value || 'all';
     var tf = (document.getElementById('aiu-tool') || {}).value || 'all';
     return _data.filter(function (r) {
       if (uf !== 'all' && r.user_id !== uf) return false;
       if (pf !== 'all' && r.project_number !== pf) return false;
+      if (cf !== 'all' && _client(r.project_number) !== cf) return false;
       if (tf !== 'all' && (r.tool || '') !== tf) return false;
       return true;
     });
@@ -315,14 +353,19 @@
     var to = (document.getElementById('aiu-to') || {}).value || '';
     if (!fd.length) { body.innerHTML = '<div class="ai-usage-loading">No records found.</div>'; return; }
 
-    var byProj = {}, byUser = {}, tCost = 0, tRev = 0, tFld = 0;
+    var byProj = {}, byUser = {}, byClient = {}, tCost = 0, tRev = 0, tFld = 0;
     fd.forEach(function (r) {
+      var cl = _client(r.project_number);
       var pk = (r.project_number || '(none)') + '|' + (r.project_name || '');
-      if (!byProj[pk]) byProj[pk] = { num: r.project_number || '(none)', client: r.client_name || r.client || '', name: r.project_name || '', rev: 0, fld: 0, cost: 0, tools: {} };
+      if (!byProj[pk]) byProj[pk] = { num: r.project_number || '(none)', client: cl, name: r.project_name || '', rev: 0, fld: 0, cost: 0, tools: {} };
       byProj[pk].rev++; byProj[pk].fld += (r.field_count || 0); byProj[pk].cost += (parseFloat(r.cost_usd) || 0); byProj[pk].tools[r.tool || '?'] = true;
       var uk = r.user_id || '?';
       if (!byUser[uk]) byUser[uk] = { num: _pnum(uk), ini: _pini(uk), rev: 0, fld: 0, cost: 0 };
       byUser[uk].rev++; byUser[uk].fld += (r.field_count || 0); byUser[uk].cost += (parseFloat(r.cost_usd) || 0);
+      var ck = cl || '(no client)';
+      if (!byClient[ck]) byClient[ck] = { client: ck, projs: {}, rev: 0, fld: 0, cost: 0 };
+      if (r.project_number) byClient[ck].projs[r.project_number] = true;
+      byClient[ck].rev++; byClient[ck].fld += (r.field_count || 0); byClient[ck].cost += (parseFloat(r.cost_usd) || 0);
       tCost += (parseFloat(r.cost_usd) || 0); tRev++; tFld += (r.field_count || 0);
     });
 
@@ -344,6 +387,28 @@
     });
     h += '<tr class="total-row"><td colspan="4"><strong>TOTAL</strong></td>'
       + '<td class="num"><strong>' + tRev + '</strong></td><td class="num"><strong>' + tFld + '</strong></td>'
+      + '<td class="cost"><strong>$' + tCost.toFixed(4) + '</strong></td></tr></table></div>';
+
+    // Summary by Client — Timeslips workflow (sorted by client name)
+    h += '<div class="ai-usage-section"><h4>Summary by Client</h4><table class="ai-usage-table">'
+      + '<tr><th>Client</th><th class="num" style="width:70px;">Projects</th>'
+      + '<th class="num" style="width:60px;">Records</th><th class="num" style="width:50px;">Fields</th>'
+      + '<th class="num" style="width:80px;">Cost</th></tr>';
+    Object.keys(byClient).sort(function (a, b) {
+      // real clients A→Z first, "(no client)" last
+      if (a === '(no client)') return 1;
+      if (b === '(no client)') return -1;
+      return a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0;
+    }).forEach(function (k) {
+      var c = byClient[k];
+      h += '<tr><td>' + _esc(c.client) + '</td>'
+        + '<td class="num">' + Object.keys(c.projs).length + '</td>'
+        + '<td class="num">' + c.rev + '</td><td class="num">' + c.fld + '</td>'
+        + '<td class="cost">$' + c.cost.toFixed(4) + '</td></tr>';
+    });
+    h += '<tr class="total-row"><td><strong>TOTAL</strong></td>'
+      + '<td class="num"></td><td class="num"><strong>' + tRev + '</strong></td>'
+      + '<td class="num"><strong>' + tFld + '</strong></td>'
       + '<td class="cost"><strong>$' + tCost.toFixed(4) + '</strong></td></tr></table></div>';
 
     // Summary by User — by User # / Initial (§4: email removed)
@@ -384,14 +449,15 @@
   function exportCSV() {
     var fd = _filtered();
     if (!fd.length) { _toast('No data'); return; }
-    var lines = ['Date,User #,Initial,Project Number,Project Name,Tool,Model,Fields,Cost USD'];
+    var lines = ['Date,User #,Initial,Project Number,Client,Project Name,Tool,Model,Fields,Cost USD'];
     fd.forEach(function (r) {
       lines.push([
         r.created_at ? new Date(r.created_at).toISOString() : '',
         '"' + _pnum(r.user_id) + '"',
         '"' + _pini(r.user_id) + '"',
         '"' + (r.project_number || '') + '"',
-        '"' + (r.project_name || '') + '"',
+        '"' + String(_client(r.project_number) || '').replace(/"/g, '""') + '"',
+        '"' + String(r.project_name || '').replace(/"/g, '""') + '"',
         r.tool || '',
         r.model || '',
         r.field_count || 0,
@@ -415,17 +481,24 @@
     var to = (document.getElementById('aiu-to') || {}).value || '';
     var uf = (document.getElementById('aiu-user') || {}).value || 'all';
     var pf = (document.getElementById('aiu-project') || {}).value || 'all';
+    var cf = (document.getElementById('aiu-client') || {}).value || 'all';
     var tf = (document.getElementById('aiu-tool') || {}).value || 'all';
-    var byProj = {}, tCost = 0, tRev = 0;
+    var byProj = {}, byClient = {}, tCost = 0, tRev = 0;
     fd.forEach(function (r) {
+      var cl = _client(r.project_number);
       var pk = r.project_number || '(none)';
-      if (!byProj[pk]) byProj[pk] = { num: pk, client: r.client_name || r.client || '', name: r.project_name || '', rev: 0, fld: 0, cost: 0 };
+      if (!byProj[pk]) byProj[pk] = { num: pk, client: cl, name: r.project_name || '', rev: 0, fld: 0, cost: 0 };
       byProj[pk].rev++; byProj[pk].fld += (r.field_count || 0); byProj[pk].cost += (parseFloat(r.cost_usd) || 0);
+      var ck = cl || '(no client)';
+      if (!byClient[ck]) byClient[ck] = { client: ck, projs: {}, rev: 0, fld: 0, cost: 0 };
+      if (r.project_number) byClient[ck].projs[r.project_number] = true;
+      byClient[ck].rev++; byClient[ck].fld += (r.field_count || 0); byClient[ck].cost += (parseFloat(r.cost_usd) || 0);
       tCost += (parseFloat(r.cost_usd) || 0); tRev++;
     });
     var desc = 'Billing cycle: ' + (from || '?') + ' to ' + (to || '?');
     if (uf !== 'all') desc += ' · User: ' + _pnum(uf) + ' / ' + _pini(uf);
     if (pf !== 'all') desc += ' · Project: ' + pf;
+    if (cf !== 'all') desc += ' · Client: ' + cf;
     if (tf !== 'all') desc += ' · Tool: ' + tf;
 
     var w = window.open('', '_blank', 'width=850,height=700');
@@ -451,9 +524,19 @@
       w.document.write('<tr><td>' + _esc(p.num) + '</td><td>' + _esc(p.client) + '</td><td>' + _esc(p.name) + '</td><td class="r">' + p.rev + '</td><td class="r">' + p.fld + '</td><td class="cost">$' + p.cost.toFixed(4) + '</td></tr>');
     });
     w.document.write('<tr class="total"><td colspan="3">TOTAL</td><td class="r">' + tRev + '</td><td></td><td class="cost">$' + tCost.toFixed(4) + '</td></tr></table>');
-    w.document.write('<h2>Detail Log</h2><table><tr><th>Date</th><th>User #</th><th>Initial</th><th>Project #</th><th>Tool</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
+    w.document.write('<h2>Summary by Client</h2><table><tr><th>Client</th><th class="r">Projects</th><th class="r">Records</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
+    Object.keys(byClient).sort(function (a, b) {
+      if (a === '(no client)') return 1;
+      if (b === '(no client)') return -1;
+      return a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0;
+    }).forEach(function (k) {
+      var c = byClient[k];
+      w.document.write('<tr><td>' + _esc(c.client) + '</td><td class="r">' + Object.keys(c.projs).length + '</td><td class="r">' + c.rev + '</td><td class="r">' + c.fld + '</td><td class="cost">$' + c.cost.toFixed(4) + '</td></tr>');
+    });
+    w.document.write('<tr class="total"><td>TOTAL</td><td></td><td class="r">' + tRev + '</td><td></td><td class="cost">$' + tCost.toFixed(4) + '</td></tr></table>');
+    w.document.write('<h2>Detail Log</h2><table><tr><th>Date</th><th>User #</th><th>Initial</th><th>Project #</th><th>Client</th><th>Tool</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
     fd.forEach(function (r) {
-      w.document.write('<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td><td>' + _esc(_pnum(r.user_id)) + '</td><td>' + _esc(_pini(r.user_id)) + '</td><td>' + _esc(r.project_number || '') + '</td><td>' + _esc(r.tool || '') + '</td><td class="r">' + (r.field_count || 0) + '</td><td class="cost">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>');
+      w.document.write('<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td><td>' + _esc(_pnum(r.user_id)) + '</td><td>' + _esc(_pini(r.user_id)) + '</td><td>' + _esc(r.project_number || '') + '</td><td>' + _esc(_client(r.project_number)) + '</td><td>' + _esc(r.tool || '') + '</td><td class="r">' + (r.field_count || 0) + '</td><td class="cost">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>');
     });
     w.document.write('</table></div></body></html>');
     w.document.close();
