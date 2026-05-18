@@ -790,6 +790,20 @@ body.dark-mode #bulk-action-bar{background:#1a1d24;border-color:#9C2742;}
 .resp-add-btns button{padding:7px 16px;border-radius:6px;font-size:calc(12px + var(--ts));cursor:pointer;font-weight:700;font-family:Calibri,sans-serif;border:none;color:white;transition:opacity .15s;}
 .resp-add-ctr{background:#B07F5A;}.resp-add-ctr:hover{background:#cf6d17;}
 .resp-add-con{background:#2C4A6B;}.resp-add-con:hover{background:#1e3450;}
+/* Activity Log entry rows — theme-aware (was baked-in light-only inline,
+   which left dark mode a light box with invisible body text). Muted both
+   modes per the muted-colour rule. .act-entry.act-ctr = Contractor
+   Response (warm), .act-entry.act-con = ARENCON Comment (blue). */
+.act-entry.act-ctr{background:#FEF3E2;}
+.act-entry.act-con{background:#EBF4FF;}
+.act-entry.act-ctr .act-ent-lbl{color:#B07F5A;}
+.act-entry.act-con .act-ent-lbl{color:#2C4A6B;}
+.act-entry .act-ent-txt{color:#1C2333;}
+body.dark-mode .act-entry.act-ctr{background:#2a2418;}
+body.dark-mode .act-entry.act-con{background:#1a2438;}
+body.dark-mode .act-entry.act-ctr .act-ent-lbl{color:#d8b48a;}
+body.dark-mode .act-entry.act-con .act-ent-lbl{color:#88a8d0;}
+body.dark-mode .act-entry .act-ent-txt{color:#d4d8e8;}
 
 /* Summary table */
 .defic-summary-table{width:100%;border-collapse:collapse;font-size:calc(12.5px + var(--ts));}
