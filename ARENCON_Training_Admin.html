@@ -330,12 +330,13 @@ document.getElementById('logoutBtn').onclick=()=>{
 };
 document.getElementById('aiUsageBtn').onclick=()=>AIUsage.open();
 
-let COURSES=[], MODS=[];
+let COURSES=[], MODS=[], EDIT_ID=null;
 async function loadData(){
   COURSES=await sbGet('tc_courses?select=*&order=sort_order');
   MODS=await sbGet('tc_modules?select=*&order=sort_order');
 }
 async function route(){
+  EDIT_ID=null;
   if(!COURSES.length&&!MODS.length) await loadData();
   const h=location.hash.slice(1);
   if(h.startsWith('c/')) return renderCourse(h.slice(2));
@@ -403,25 +404,21 @@ function renderCourse(cid){
   document.getElementById('crumb').innerHTML=
     `<span class="bk" onclick="location.hash=''">Courses</span> › <b>${esc(c.title)}</b>`;
   const ms=MODS.filter(m=>m.course_id===cid);
-  let h=`<h1 class="pg">${esc(c.title)}</h1>
-   <div class="sub">${esc(c.description||'')}</div>
-   <div class="sec"><h2>Add a module</h2>
+  const ed = EDIT_ID ? ms.find(m=>m.id===EDIT_ID) : null;
+  const _stOpts=[['youtube','YouTube video'],['vimeo','Vimeo video'],['r2','Uploaded video (R2)'],['doc','Document (PDF/slides URL)'],['image','Image / drawing'],['text','Text lesson']];
+  const _stSel=(ed&&ed.source_type)||'youtube';
+  const EDF=`
     <div class="fld"><label>Module title</label>
-     <input type="text" id="mT" placeholder="e.g. Hazard classification basics"></div>
+     <input type="text" id="mT" placeholder="e.g. Hazard classification basics" value="${esc(ed?ed.title:'')}"></div>
     <div class="fld"><label>Short description</label>
-     <input type="text" id="mD" placeholder="One line shown on the card"></div>
+     <input type="text" id="mD" placeholder="One line shown on the card" value="${esc(ed?ed.description:'')}"></div>
     <div class="row">
      <div class="fld" style="max-width:200px"><label>Content type</label>
       <select id="mSTYPE">
-       <option value="youtube">YouTube video</option>
-       <option value="vimeo">Vimeo video</option>
-       <option value="r2">Uploaded video (R2)</option>
-       <option value="doc">Document (PDF/slides URL)</option>
-       <option value="image">Image / drawing</option>
-       <option value="text">Text lesson</option>
+       ${_stOpts.map(o=>`<option value="${o[0]}"${o[0]===_stSel?' selected':''}>${o[1]}</option>`).join('')}
       </select></div>
      <div class="fld"><label>URL or R2 key</label>
-      <input type="text" id="mSU" placeholder="paste video/doc URL"></div>
+      <input type="text" id="mSU" placeholder="paste video/doc URL" value="${esc(ed?ed.source_url:'')}"></div>
     </div>
     <div class="fld">
      <div class="txtbar">
@@ -431,7 +428,7 @@ function renderCourse(cid){
       <button type="button" class="btn gh sm" id="txtExpand">⤢ Expand</button>
       <button type="button" class="btn gh sm" id="txtTidy">✨ Tidy into lesson text</button>
      </div>
-     <textarea id="mTXT" placeholder="Paste the lesson text, key points, or notes here. Optional for video modules, but the AI quiz works best with text."></textarea></div>
+     <textarea id="mTXT" placeholder="Paste the lesson text, key points, or notes here. Optional for video modules, but the AI quiz works best with text.">${esc(ed?ed.source_text:'')}</textarea></div>
 
     <div class="note"><b>Topics &amp; question bank.</b> Add source text
      above (paste, or attach a PDF/Word/PowerPoint), give a keyword, then
@@ -455,25 +452,45 @@ function renderCourse(cid){
     <div id="topWrap" style="margin-top:4px"></div>
     <div id="bankWrap" style="margin-top:14px"></div>
     <div class="btnrow" style="margin-top:16px">
-     <button class="btn pri" id="addM">Save module</button>
-    </div>
-   </div>`;
+     <button class="btn pri" id="addM">${ed?'Update module':'Save module'}</button>
+     ${ed?`<button class="btn gh" onclick="cancelEdit('${cid}')">Cancel</button>`:''}
+    </div>`;
 
+  let h=`<h1 class="pg">${esc(c.title)}</h1>
+   <div class="sub">${esc(c.description||'')}</div>`;
+  if(ed){
+    h+=`<div class="sec"><h2>Add a module</h2><div class="note">You're editing a module below. Finish it with <b>Update module</b> or <b>Cancel</b> before adding a new one.</div></div>`;
+  } else {
+    h+=`<div class="sec"><h2>Add a module</h2>${EDF}</div>`;
+  }
+  h+='<div class="sec"><h2>Modules in this course</h2>';
   if(ms.length){
-    h+='<div class="sec"><h2>Modules in this course</h2><div class="list">';
+    h+='<div class="list">';
     ms.forEach(m=>{
       const bank=Array.isArray(m.question_bank)?m.question_bank:[];
       const nb=bank.length, nt=Array.isArray(m.topics)?m.topics.length:0;
-      h+=`<div class="item"><div class="gr">
-        <div class="t">${esc(m.title)}</div>
-        <div class="m">${esc(m.source_type||'')} ${nb?'· '+nb+' item'+(nb===1?'':'s')+' / '+nt+' topic'+(nt===1?'':'s'):''}</div>
-       </div>
-       ${nb?'<span class="tagp q">bank</span>':'<span class="tagp">no bank</span>'}
-       <button class="btn dn sm" onclick="delMod('${m.id}')">Delete</button>
-       </div>`;
+      if(ed&&m.id===EDIT_ID){
+        h+=`<div class="item" id="edCard" style="display:block;border:2px solid var(--steel)">
+          <div style="font-weight:700;font-size:calc(15px + var(--ts));margin-bottom:6px">✎ Editing: ${esc(m.title)}</div>
+          <div class="note">Change anything below — title, lesson text, topics, or any quiz question — then press <b>Update module</b> to save your changes onto this same module, or <b>Cancel</b> to discard.</div>
+          ${EDF}</div>`;
+      } else {
+        const _dis=ed?' disabled style="opacity:.45;pointer-events:none"':'';
+        h+=`<div class="item"><div class="gr">
+          <div class="t">${esc(m.title)}</div>
+          <div class="m">${esc(m.source_type||'')} ${nb?'· '+nb+' item'+(nb===1?'':'s')+' / '+nt+' topic'+(nt===1?'':'s'):''}</div>
+         </div>
+         ${nb?'<span class="tagp q">bank</span>':'<span class="tagp">no bank</span>'}
+         <button class="btn gh sm"${_dis} onclick="editMod('${m.id}')">Edit</button>
+         <button class="btn dn sm"${_dis} onclick="delMod('${m.id}')">Delete</button>
+         </div>`;
+      }
     });
-    h+='</div></div>';
+    h+='</div>';
+  } else {
+    h+='<div class="note">No modules yet — use “Add a module” above.</div>';
   }
+  h+='</div>';
   document.getElementById('view').innerHTML=h;
 
   /* photo-to-quiz path removed in Slice 1b-ii (Option B). */
@@ -562,8 +579,8 @@ function renderCourse(cid){
   };
 
   /* ─── Topic proposal → per-topic bank gen → review/prune → save ─── */
-  let TOPICS=[];   /* [{name,rationale}] — Mark-approved */
-  let BANK=[];     /* [{id,type,topic,...,status,ai_original}] */
+  let TOPICS=ed&&Array.isArray(ed.topics)?JSON.parse(JSON.stringify(ed.topics)):[];   /* [{name,rationale}] — seeded from module when editing */
+  let BANK=ed&&Array.isArray(ed.question_bank)?JSON.parse(JSON.stringify(ed.question_bank)):[];     /* [{id,type,topic,...,status,ai_original}] */
   let bEdit=-1;
   function uid(){ return 'q'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
   const srcText=()=>document.getElementById('mTXT').value.trim();
@@ -725,19 +742,33 @@ function renderCourse(cid){
       source_type:document.getElementById('mSTYPE').value,
       source_url:document.getElementById('mSU').value.trim()||null,
       source_text:srcText()||null,
-      topics:TOPICS,question_bank:BANK,sort_order:ms.length};
-    const b=document.getElementById('addM'); b.disabled=true; b.textContent='Saving…';
-    try{ await sbIns('tc_modules',row); await loadData();
-      toast('Module saved — '+BANK.length+' bank items'); renderCourse(cid); }
-    catch(e){ toast('Save failed: '+e.message); console.error('SAVE MODULE FAIL',e);
-      b.disabled=false; b.textContent='Save module'; }
+      topics:TOPICS,question_bank:BANK};
+    const b=document.getElementById('addM'); b.disabled=true; const _bl=b.textContent;
+    b.textContent=ed?'Updating…':'Saving…';
+    try{
+      if(ed){
+        row.sort_order=(typeof ed.sort_order==='number')?ed.sort_order:ms.length;
+        row.updated_at=new Date().toISOString();
+        await sbPatch('tc_modules',EDIT_ID,row); EDIT_ID=null; await loadData();
+        toast('Module updated — '+BANK.length+' bank items'); renderCourse(cid);
+      } else {
+        row.sort_order=ms.length;
+        await sbIns('tc_modules',row); await loadData();
+        toast('Module saved — '+BANK.length+' bank items'); renderCourse(cid);
+      }
+    }
+    catch(e){ toast((ed?'Update':'Save')+' failed: '+e.message); console.error('SAVE MODULE FAIL',e);
+      b.disabled=false; b.textContent=_bl; }
   };
+  if(ed){ renderTopics(); const _ec=document.getElementById('edCard'); if(_ec) _ec.scrollIntoView({behavior:'smooth',block:'start'}); }
 }
 window.delMod=async id=>{
   if(!confirm('Delete this module?')) return;
   try{ await sbDel('tc_modules',id); await loadData();
     toast('Deleted'); route(); }catch(e){ toast('Delete failed: '+e.message); }
 };
+window.editMod=id=>{ EDIT_ID=id; const m=MODS.find(x=>x.id===id); if(m) renderCourse(m.course_id); };
+window.cancelEdit=cid=>{ EDIT_ID=null; renderCourse(cid); };
 
 /* ─── Topic + bank generation (Supabase Edge Functions) ─── */
 const TOPICS_EF='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-topics';
