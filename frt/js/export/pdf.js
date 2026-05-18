@@ -945,6 +945,17 @@ function _flowBlock(block){
   var blockH=_measure(block.html);var avail=PAGE_H-curUsed;
   if(block.type==='tradeHeader'){
     _aTradeHtml=block.htmlCont||block.html;_aCtrHtml='';
+    // S148 D1 (Option #1): keep the whole trade together when it fits a
+    // fresh page but not the space left here. _freshCap mirrors the
+    // engine's existing "can this ever fit a page" ceiling (used ~line
+    // 958 below) for consistency. curUsed>PAGE_H*0.15 reuses the
+    // engine's own "don't waste a near-empty page" idiom (lines ~959/
+    // 962) so this never fires at the top of a fresh page. recBlocks'
+    // tradeHeaders have no _secH (||0) so this is inert for recs.
+    var _secH=block._secH||0,_freshCap=PAGE_H-COMPACT_HEADER_H;
+    if(_secH&&_secH<=_freshCap&&avail<_secH&&curUsed>PAGE_H*0.15){
+      _finalizePage();_startPage();avail=PAGE_H-curUsed;
+    }
     if(avail<blockH+200){_finalizePage();_startPage();}
     curPageHtml+=block.html;curUsed+=_measure(block.html);return;
   }
@@ -979,6 +990,28 @@ function _flowBlock(block){
     }
   }
 }
+// S148 D1 (Option #1, Mark-approved): per-trade keep-together pre-pass.
+// For each tradeHeader in the MAIN deficiency body, pre-measure the
+// whole trade section = that header + every following block up to the
+// next tradeHeader (or end), and stash the total on the header block as
+// _secH. The tradeHeader branch of _flowBlock reads _secH to force a
+// fresh page when an entire trade would otherwise start near a page
+// bottom and break mid-section — but ONLY when the trade actually fits
+// a fresh page (an over-page-length trade must still split, behaviour
+// unchanged). This is a pure measurement pass over contentBlocks; it
+// does NOT touch _flowBlock's own per-block measuring, the bin-pack,
+// dc-split, go(pg), or recBlocks (recs flow separately and already get
+// a forced fresh page as a whole section — intentionally untouched).
+(function(){
+  for(var i=0;i<contentBlocks.length;i++){
+    if(contentBlocks[i].type!=='tradeHeader')continue;
+    var s=_measure(contentBlocks[i].html);
+    for(var j=i+1;j<contentBlocks.length&&contentBlocks[j].type!=='tradeHeader';j++){
+      s+=_measure(contentBlocks[j].html);
+    }
+    contentBlocks[i]._secH=s;
+  }
+})();
 contentBlocks.forEach(_flowBlock);
 if(!isFinalComm&&mainBodyDefs.length&&_recsMode!=='only'){
   // S119 Push G: avoid orphaning the closing note onto a new page when the
