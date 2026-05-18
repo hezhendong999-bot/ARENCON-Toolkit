@@ -296,9 +296,9 @@ function _buildCSS(fontB64){
   c+='.app-dwg{margin-bottom:28px;}';
   c+='.app-dwg-title{font-weight:700;font-size:12pt;color:#1C2333;margin-bottom:8px;padding:6px 10px;background:#F7F8FA;border-radius:4px;border-left:3px solid #9C2742;}';
   c+='.app-dwg img{max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;}';
-  c+='.app-pin-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;}';
-  c+='.app-pin-table th{background:#F7F8FA;padding:4px 8px;text-align:left;border-bottom:1px solid #DDE1E7;font-size:11px;}';
-  c+='.app-pin-table td{padding:4px 8px;border-bottom:1px solid #F0F0F0;font-size:11px;}';
+  c+='.app-pin-table{width:100%;border-collapse:collapse;font-size:11pt;margin-top:8px;}';
+  c+='.app-pin-table th{background:#F7F8FA;padding:4px 8px;text-align:left;border-bottom:1px solid #DDE1E7;font-size:11pt;}';
+  c+='.app-pin-table td{padding:4px 8px;border-bottom:1px solid #F0F0F0;font-size:11pt;}';
   /* S146 (Mark): Pin # must stay on ONE row. Pin/Status/Contractor shrink to
      their content (width:1% + nowrap on auto table-layout); Description is
      the only unconstrained column so it absorbs the remaining width and the
