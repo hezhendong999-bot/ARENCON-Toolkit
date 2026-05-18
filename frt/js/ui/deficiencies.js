@@ -1707,7 +1707,7 @@ function _renderTableView(proj, container) {
     var numCls = closed ? 'closed' : (pri === 'low' ? 'low' : pri === 'general' ? 'general' : '');
     var _trIsRec = !!d.isRecommendation;
     h += '<tr class="' + (closed ? 'dfx-closed' : '') + '" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '">'
-      + '<td class="dfx-tbl-star-c"><button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" class="dfx-tbl-star' + (_trIsRec ? ' is-rec' : '') + '" aria-pressed="' + (_trIsRec ? 'true' : 'false') + '" title="' + (_trIsRec ? 'This is a Recommendation \\u2014 click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (_trIsRec ? '\\u2605' : '\\u2606') + '</button></td>'
+      + '<td class="dfx-tbl-star-c"><button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" class="dfx-tbl-star' + (_trIsRec ? ' is-rec' : '') + '" aria-pressed="' + (_trIsRec ? 'true' : 'false') + '" title="' + (_trIsRec ? 'This is a Recommendation — click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (_trIsRec ? '★' : '☆') + '</button></td>'
       + '<td><span class="dfx-tbl-num ' + numCls + '">#' + esc(_dfxObsLabel(d, oi)) + '</span></td>'
       + '<td>' + (trade ? esc(trade) : '<em style="color:var(--silver);">none</em>') + '</td>'
       + '<td>' + (r.ctrId ? '<span class="dfx-tbl-ctr" style="--cc:' + esc(_dfxCtrColor(proj, r.ctrId)) + ';"></span>' : '') + esc(cName) + '</td>'
@@ -1751,7 +1751,7 @@ function _renderBoardView(proj, container) {
       + '<div class="dfx-bv-card-text">' + esc(desc) + '</div>'
       + '<div class="dfx-bv-card-bottom">'
       + _dfxThumb(d, oi, 'dfx-bv-card-thumb')
-      + (d.isRecommendation ? '<span class="dfx-bv-rec">REC</span>' : '')
+      + '<button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" class="dfx-tbl-star' + (d.isRecommendation ? ' is-rec' : '') + '" aria-pressed="' + (d.isRecommendation ? 'true' : 'false') + '" title="' + (d.isRecommendation ? 'This is a Recommendation — click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (d.isRecommendation ? '★' : '☆') + '</button>'
       + '<span class="dfx-bv-card-trade">' + esc(trade || 'none') + '</span>'
       + '</div></div>';
   }
