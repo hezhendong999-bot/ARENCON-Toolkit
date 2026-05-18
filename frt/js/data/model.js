@@ -1229,6 +1229,41 @@ export var Model = {
     return '';
   },
 
+  // ── S146 B1: plural trade derivation (fan-out) ──
+  // Companion to derivePinTrade (singular, UNCHANGED — Trade-Board and
+  // any other callers keep using it). Returns an ARRAY of every trade a
+  // pin should render under:
+  //   1. explicit obs[0].trade set            -> [that]            (1)
+  //   2. else legacy pin-level defic.trade set -> [that]            (1)
+  //   3. else contractor has >=1 trade         -> ALL its trades    (N)
+  //   4. else                                  -> []  (caller -> Other Trade Items)
+  // Step 3 is the actual fix: an untagged pin on a multi-trade
+  // contractor (e.g. Vipond = Sprinkler + Fire Alarm) now fans out to
+  // EVERY assigned trade instead of collapsing to '' / Other Trade
+  // Items. Pure read: never mutates, never stamps obs.trade. Trades are
+  // trimmed + de-duped so a contractor with a repeated trade entry can't
+  // emit two identical sections.
+  derivePinTrades: function(defic, contractor) {
+    if (defic) {
+      var obs = defic.observations;
+      if (Array.isArray(obs) && obs.length) {
+        var t0 = obs[0] && obs[0].trade;
+        if (t0 && String(t0).trim()) return [String(t0).trim()];
+      } else if (defic.trade && String(defic.trade).trim()) {
+        return [String(defic.trade).trim()];
+      }
+    }
+    if (contractor && Array.isArray(contractor.trades) && contractor.trades.length) {
+      var out = [];
+      contractor.trades.forEach(function(tr) {
+        var s = (tr == null) ? '' : String(tr).trim();
+        if (s && out.indexOf(s) < 0) out.push(s);
+      });
+      if (out.length) return out;
+    }
+    return [];
+  },
+
   // ── S121 Phase C-1: tab flatten helper ──
   // Mirrors the row shape produced by export/pdf.js _pushItems but WITHOUT
   // the priority='general' filter and WITHOUT the addressed/instance filter.

@@ -3,7 +3,7 @@
  * Ported from v1 _exportPDFWithCache — pixel-identical output.
  */
 
-import { Model } from '../data/model.js';
+import { Model, isSiteRecordsName, SITE_RECORDS_LABEL } from '../data/model.js';
 import { IDB } from '../data/idb.js';
 import { showAlert } from '../shared/dialogs.js';
 import { toast } from '../shared/toast.js';
@@ -422,10 +422,10 @@ if(_ctrFilterId==='__all__'||_ctrFilterId==='__general__'){
   var _srOptIn=_includeSiteRecords||_ctrFilterId==='__general__';
   (p.generalDeficiencies||[]).forEach(function(d){
     if(!_srOptIn&&!(d&&d.isRecommendation))return;
-    _pushItems(d,'Site General');
+    _pushItems(d,SITE_RECORDS_LABEL);
   });
 }
-if(_ctrFilterId==='__general__')_ctrFilterName='Site General';
+if(_ctrFilterId==='__general__')_ctrFilterName=SITE_RECORDS_LABEL;
 
 var _curInst=p.currentFrtInstance||1;
 // S119: per-observation status filter. An obs is included if:
@@ -698,8 +698,19 @@ function _pinTrade(d){
   var pc=(d&&d.id!=null)?(_parentCtrByDefId[d.id]||null):null;
   return Model.derivePinTrade(d,pc)||'';
 }
+// S146 B1: plural companion. obs[0].trade -> [that]; else legacy
+// defic.trade -> [that]; else ALL of the parent contractor's trades;
+// else []. Used ONLY by the main deficiency body grouping below so an
+// untagged pin on a multi-trade contractor fans out to every trade
+// (matches the on-screen Detailed view + FRT "two rows"). The rec
+// Summary + rec section groupings deliberately stay single-trade
+// (_pinTrade) — deferred follow-up, flagged to Mark.
+function _pinTrades(d){
+  var pc=(d&&d.id!=null)?(_parentCtrByDefId[d.id]||null):null;
+  return Model.derivePinTrades(d,pc)||[];
+}
 var _realCtrNames={};(p.contractors||[]).forEach(function(c){if(c&&c.name)_realCtrNames[c.name]=true;});
-function _isRealCtr(nm){return !!_realCtrNames[nm]&&nm!=='Site General';}
+function _isRealCtr(nm){return !!_realCtrNames[nm]&&!isSiteRecordsName(nm);}
 var _ctrIdxByName={};(p.contractors||[]).forEach(function(c,i){if(c&&c.name&&_ctrIdxByName[c.name]==null)_ctrIdxByName[c.name]=i;});
 function _newTrade(nm){return{name:nm,total:0,real:{},realOrder:[],noctr:[]};}
 function _pushReal(T,cn,r){if(!T.real[cn]){T.real[cn]=[];T.realOrder.push(cn);}T.real[cn].push(r);T.total++;}
@@ -718,13 +729,15 @@ if(mainBodyDefs.length){
   mainBodyDefs.forEach(function(r){
     // Model 2: any recommendation leaves the deficiency flow now.
     if(r.d&&r.d.isRecommendation){if(_recsMode!=='exclude')pooledRecs.push(r);return;}
-    var t=_pinTrade(r.d);
+    var tks=_pinTrades(r.d);
     var real=_isRealCtr(r.ctr);
-    if(t){
-      if(!tradeMap[t]){tradeMap[t]=_newTrade(t);tradeSeen.push(t);}
-      var T=tradeMap[t];
-      if(real)_pushReal(T,r.ctr,r);
-      else{T.noctr.push(r);T.total++;}
+    if(tks.length){
+      tks.forEach(function(t){
+        if(!tradeMap[t]){tradeMap[t]=_newTrade(t);tradeSeen.push(t);}
+        var T=tradeMap[t];
+        if(real)_pushReal(T,r.ctr,r);
+        else{T.noctr.push(r);T.total++;}
+      });
     }else{
       if(real)_pushReal(untagged,r.ctr,r);
       else{untagged.noctr.push(r);untagged.total++;}

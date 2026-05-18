@@ -1331,7 +1331,7 @@ function _openPDFPicker() {
     ctrOpts += '<option value="' + c.id + '">' + (c.name || 'Unnamed') + '</option>';
   });
   if ((proj.generalDeficiencies || []).length) {
-    ctrOpts += '<option value="__general__">Site General Only</option>';
+    ctrOpts += '<option value="__general__">Site Records only</option>';
   }
 
   var h = '<div id="pdf-picker-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';

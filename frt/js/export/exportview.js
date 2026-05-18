@@ -6,7 +6,7 @@
  * app.js — kept as a dead fallback). Adds:
  *   • Role-grouped Distribution (Owner / Contractors / Other recipients),
  *     each card in its own muted colour; pooled click-toggle, Add all /
- *     Remove all. "Site General" is never a recipient. Persists to
+ *     Remove all. Site Records is never a recipient. Persists to
  *     proj.distribution[].
  *   • Plain-language Scope. The Recommendations dropdown wording is
  *     Mark's exact text (S145 P3).
@@ -126,7 +126,7 @@ export var initExportView = {
       ctrOpts += '<option value="' + _esc(c.id) + '">' + _esc(c.name || 'Unnamed') + '</option>';
     });
     if ((proj.generalDeficiencies || []).length) {
-      ctrOpts += '<option value="__general__">Site General only</option>';
+      ctrOpts += '<option value="__general__">Site Records only</option>';
     }
 
     // ── Distribution model ────────────────────────────────────────
@@ -230,7 +230,6 @@ export var initExportView = {
       + '<div class="exv-add"><input type="text" id="exv-newrec" placeholder="Add a recipient \u2014 e.g. base-building service contractor, construction PM\u2026">'
       + '<button id="exv-addbtn">+ Add to pool</button></div>'
       + '<div class="exv-prev" id="exv-prevbox"></div>'
-      + '<div class="exv-hint">Owner and contractors are pre-selected. Click any card to toggle; removing one keeps it in the pool to re-add later. The selected set prints in the report\u2019s Distribution line and is saved with the project. \u201cSite General\u201d is never a distribution recipient.</div>'
       + '</div>';
 
     h += '</div>'; // exv-b

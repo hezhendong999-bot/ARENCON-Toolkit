@@ -10,7 +10,7 @@
  *   - Lifecycle tabs (Active / Site General / Closed)
  */
 
-import { Model, TRADE_LIST, SITE_RECORDS_LABEL } from '../data/model.js';
+import { Model, TRADE_LIST, SITE_RECORDS_LABEL, isSiteRecordsName } from '../data/model.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm, showPrompt, showDialog } from '../shared/dialogs.js';
 import { R2 } from '../data/r2.js';
@@ -32,21 +32,21 @@ function deficIsOpen(d) {
 }
 
 // S114 P1.10: contractor color = SEQUENTIAL assignment based on order in proj.contractors[].
-// Skips slot 3 (reserved for "Site General") so a regular contractor never collides with it.
+// Skips slot 3 (reserved for Site Records) so a regular contractor never collides with it.
 // Hash-based assignment is gone — that allowed two unrelated contractors to land on the
 // same slot. Now slot N maps to the Nth non-general contractor in array order.
 // (After 7 unique contractors the palette wraps; rare in practice.)
 export function ctrColorClass(name) {
   if (!name) return 'ctr-c3';
-  if (name === 'Site General') return 'ctr-c3';
+  if (isSiteRecordsName(name)) return 'ctr-c3';
   var proj = Model.getProject();
   if (!proj || !Array.isArray(proj.contractors)) return 'ctr-c0';
   var nonGeneralIdx = 0;
   for (var i = 0; i < proj.contractors.length; i++) {
     var c = proj.contractors[i];
-    if (!c || c.name === 'Site General') continue;
+    if (!c || isSiteRecordsName(c.name)) continue;
     if (c.name === name) {
-      // Skip slot 3 so we never collide with Site General
+      // Skip slot 3 so we never collide with the Site Records slot
       var slot = nonGeneralIdx;
       if (slot >= 3) slot += 1;
       return 'ctr-c' + (slot % 8);
@@ -856,7 +856,7 @@ function _renderDeficLog(proj, allDefics) {
   var _curInst = proj.currentFrtInstance || 1;
   var ctrGroups = {};
   allDefics.forEach(function(d) {
-    var name = d.contractorName || 'Site General';
+    var name = d.contractorName || SITE_RECORDS_LABEL;
     if (!ctrGroups[name]) ctrGroups[name] = [];
     ctrGroups[name].push(d);
   });
@@ -1195,7 +1195,7 @@ function _renderActiveTab(proj, container) {
   var genActive = (proj.generalDeficiencies || []).filter(deficIsOpen);
   var genTotal = (proj.generalDeficiencies || []).length;
   if (genActive.length || genTotal) {
-    html += buildGroup(null, 'Site General', genActive, genTotal);
+    html += buildGroup(null, SITE_RECORDS_LABEL, genActive, genTotal);
   }
 
   if (!(proj.contractors || []).length && !genTotal) {
@@ -1343,15 +1343,26 @@ function _renderDetailedView(proj, container) {
       siteRecords.count += e.count;
       return;
     }
-    var t = pinTrade(e);
-    var tk = t || OTHER;
-    if (!tradeMap[tk]) { tradeMap[tk] = { name: tk, count: 0, ctrKeys: [], ctrs: {} }; tradeSeen.push(tk); }
-    var T = tradeMap[tk];
-    var ck = e.ctrId;
-    if (!T.ctrs[ck]) { T.ctrs[ck] = { ctrId: e.ctrId, name: e.ctrName, pins: [], count: 0 }; T.ctrKeys.push(ck); }
-    T.ctrs[ck].pins.push(e);
-    T.ctrs[ck].count += e.count;
-    T.count += e.count;
+    // S146 B1 — trade fan-out. An untagged pin on a contractor assigned
+    // to 2+ trades now renders under a section for EVERY trade that
+    // contractor holds (e.g. Vipond on Sprinkler+Fire Alarm => the pin
+    // appears under Sprinkler->Vipond AND Fire Alarm->Vipond). Contractor
+    // with no derivable trade -> Other Trade Items. The trade-band /
+    // contractor-sub-band count pills and listing rows intentionally
+    // duplicate (the approved "two rows like FRT" behaviour); the
+    // Deficiency Log totals are contractor-grouped on a separate path
+    // (_renderDeficLog) so fan-out never inflates them.
+    var tks = Model.derivePinTrades(e.d, ctrOf(e.ctrId));
+    if (!tks.length) tks = [OTHER];
+    tks.forEach(function(tk) {
+      if (!tradeMap[tk]) { tradeMap[tk] = { name: tk, count: 0, ctrKeys: [], ctrs: {} }; tradeSeen.push(tk); }
+      var T = tradeMap[tk];
+      var ck = e.ctrId;
+      if (!T.ctrs[ck]) { T.ctrs[ck] = { ctrId: e.ctrId, name: e.ctrName, pins: [], count: 0 }; T.ctrKeys.push(ck); }
+      T.ctrs[ck].pins.push(e);
+      T.ctrs[ck].count += e.count;
+      T.count += e.count;
+    });
   });
 
   // Trade order: declared projectTrades first, then extras seen, OTHER/
@@ -2786,7 +2797,7 @@ document.addEventListener('change', function(e) {
       }
 
       // Effective priority went non-general → general AND has contractor →
-      // move pin to Site General (matches v1 behavior for the "this entire
+      // move pin to Site Records (matches v1 behavior for the "this entire
       // pin is now informational only" case).
       // S120 Push 4: previously this happened silently with just a toast,
       // which produced "where did my pin go" failure modes — the pin
