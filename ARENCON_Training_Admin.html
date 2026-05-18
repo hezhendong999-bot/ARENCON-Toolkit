@@ -238,14 +238,37 @@ function sbToken(){
   try{ return localStorage.getItem('sb-access-token')||null; }
   catch(e){ return null; }
 }
+function liveTok(){
+  /* Read the borrowed token LIVE each call (the Hub refreshes it in the
+     background; a copy captured at page load goes stale). */
+  try{ return localStorage.getItem('sb-access-token')||SESSION; }
+  catch(e){ return SESSION; }
+}
+async function refreshSession(){
+  /* Borrowed Hub access tokens are short-lived. Refresh once via the
+     stored refresh token; persist the new tokens so the Hub stays in
+     sync too. Never throws — returns true/false. */
+  try{
+    const rt=localStorage.getItem('sb-refresh-token'); if(!rt) return false;
+    const r=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{
+      method:'POST',headers:{apikey:SB_ANON,'Content-Type':'application/json'},
+      body:JSON.stringify({refresh_token:rt})});
+    if(!r.ok) return false;
+    const d=await r.json().catch(()=>({}));
+    if(!d||!d.access_token) return false;
+    localStorage.setItem('sb-access-token',d.access_token);
+    if(d.refresh_token) localStorage.setItem('sb-refresh-token',d.refresh_token);
+    SESSION=d.access_token; return true;
+  }catch(e){ return false; }
+}
 async function sbGet(p){
   const r=await fetch(SB_URL+'/rest/v1/'+p,{
-    headers:{apikey:SB_ANON,Authorization:'Bearer '+(SESSION||SB_ANON)}});
+    headers:{apikey:SB_ANON,Authorization:'Bearer '+(liveTok()||SB_ANON)}});
   if(!r.ok) throw new Error('GET '+r.status); return r.json();
 }
 async function sbIns(t,row){
   const r=await fetch(SB_URL+'/rest/v1/'+t,{method:'POST',
-    headers:{apikey:SB_ANON,Authorization:'Bearer '+SESSION,
+    headers:{apikey:SB_ANON,Authorization:'Bearer '+liveTok(),
       'Content-Type':'application/json',Prefer:'return=representation'},
     body:JSON.stringify(row)});
   if(!r.ok) throw new Error('insert '+r.status+' '+await r.text());
@@ -253,14 +276,14 @@ async function sbIns(t,row){
 }
 async function sbPatch(t,id,row){
   const r=await fetch(SB_URL+'/rest/v1/'+t+'?id=eq.'+id,{method:'PATCH',
-    headers:{apikey:SB_ANON,Authorization:'Bearer '+SESSION,
+    headers:{apikey:SB_ANON,Authorization:'Bearer '+liveTok(),
       'Content-Type':'application/json',Prefer:'return=representation'},
     body:JSON.stringify(row)});
   if(!r.ok) throw new Error('patch '+r.status); return (await r.json())[0];
 }
 async function sbDel(t,id){
   const r=await fetch(SB_URL+'/rest/v1/'+t+'?id=eq.'+id,{method:'DELETE',
-    headers:{apikey:SB_ANON,Authorization:'Bearer '+SESSION}});
+    headers:{apikey:SB_ANON,Authorization:'Bearer '+liveTok()}});
   if(!r.ok) throw new Error('del '+r.status);
 }
 function toast(m){const t=document.getElementById('toast');
@@ -271,10 +294,15 @@ function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,
 
 /* ─── AUTH GATE + admin-role enforcement ─── */
 async function gate(){
-  const tok=sbToken(); if(!tok) return bounce('Sign-in required');
+  let tok=sbToken();
+  if(!tok && !(await refreshSession())) return bounce('Sign-in required');
+  tok=sbToken();
   try{
-    const r=await fetch(SB_URL+'/auth/v1/user',{
+    let r=await fetch(SB_URL+'/auth/v1/user',{
       headers:{apikey:SB_ANON,Authorization:'Bearer '+tok}});
+    if(!r.ok && await refreshSession()){ tok=sbToken();
+      r=await fetch(SB_URL+'/auth/v1/user',{
+        headers:{apikey:SB_ANON,Authorization:'Bearer '+tok}}); }
     if(!r.ok) return bounce('Sign-in required');
     const u=await r.json(); SESSION=tok;
     const pr=await sbGet('profiles?id=eq.'+u.id+'&select=id,full_name,role');
@@ -321,7 +349,7 @@ async function loadUsage(){
   try{
     const r=await fetch(USAGE_EF,{method:'POST',
       headers:{'Content-Type':'application/json',
-        apikey:SB_ANON,Authorization:'Bearer '+SESSION},
+        apikey:SB_ANON,Authorization:'Bearer '+liveTok()},
       body:'{}'});
     const d=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
@@ -525,7 +553,7 @@ function renderCourse(cid){
       try{
         const r=await fetch(EXTRACT_EF,{method:'POST',
           headers:{'Content-Type':'application/json',
-            apikey:SB_ANON,Authorization:'Bearer '+SESSION},
+            apikey:SB_ANON,Authorization:'Bearer '+liveTok()},
           body:JSON.stringify({file:b64,filename:f.name,media_type:f.type||''})});
         const d=await r.json().catch(()=>({}));
         if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
@@ -582,7 +610,7 @@ function renderCourse(cid){
     try{
       const r=await fetch(CLEAN_EF,{method:'POST',
         headers:{'Content-Type':'application/json',
-          apikey:SB_ANON,Authorization:'Bearer '+SESSION},
+          apikey:SB_ANON,Authorization:'Bearer '+liveTok()},
         body:JSON.stringify({text:t})});
       const d=await r.json().catch(()=>({}));
       if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
@@ -776,13 +804,17 @@ window.delMod=async id=>{
 const TOPICS_EF='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-topics';
 const QUIZ_EF='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-quiz';
 async function efPost(url,payload){
-  /* Server holds the Anthropic key + prompt + style corpus + shape
-     normalization. Auth: the user's Supabase session JWT. */
-  const r=await fetch(url,{method:'POST',
+  /* Auth: the user's Supabase session JWT, read LIVE each call; on 401
+     refresh once via sb-refresh-token and retry (borrowed Hub token is
+     short-lived). Server holds the Anthropic key + prompt + style corpus. */
+  function call(){ return fetch(url,{method:'POST',
     headers:{'Content-Type':'application/json',
-      apikey:SB_ANON,Authorization:'Bearer '+SESSION},
-    body:JSON.stringify(payload)});
+      apikey:SB_ANON,Authorization:'Bearer '+(liveTok()||'')},
+    body:JSON.stringify(payload)}); }
+  let r=await call();
+  if(r.status===401 && await refreshSession()) r=await call();
   const d=await r.json().catch(()=>({}));
+  if(r.status===401) throw new Error('Session expired — reload this page (or re-sign in on the Hub), then retry');
   if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
   return d;
 }
