@@ -7929,3 +7929,25 @@ body.dark-mode .dfx-tbl-star.is-rec:hover { background: rgba(208,160,100,.22); c
   .dfx-tbl-star { font-size: calc(17px + var(--ts)); padding: 8px 10px; }
 }
 /* End S150 ──────────────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   S150g (Mark) — "changed, not yet resettled" card cue
+   ════════════════════════════════════════════════════════════════════
+   When a rec star is toggled in a list view the list deliberately does
+   NOT refresh (so a mis-tap is one tap from undo and the card never
+   vanishes). This subtle muted-amber left accent + faint tint marks any
+   card whose star was toggled since the last refresh, so a still-showing
+   card in a filtered view reads as "intentionally changed — tap the star
+   to flip it back" rather than a glitch. Inset box-shadow only — no
+   layout shift, no card jump. Cleared automatically when the list next
+   does a full re-render (leave & return, or change view/pivot/filter).
+   ──────────────────────────────────────────────────────────────────── */
+.defic-pin-group.dfx-rec-changed { box-shadow: inset 3px 0 0 #BC7327; }
+.dfx-bv-card.dfx-rec-changed { box-shadow: inset 3px 0 0 #BC7327; background: rgba(188,115,39,.05); }
+tr.dfx-rec-changed td { background: rgba(188,115,39,.06); }
+tr.dfx-rec-changed td:first-child { box-shadow: inset 3px 0 0 #BC7327; }
+body.dark-mode .defic-pin-group.dfx-rec-changed { box-shadow: inset 3px 0 0 #D0A064; }
+body.dark-mode .dfx-bv-card.dfx-rec-changed { box-shadow: inset 3px 0 0 #D0A064; background: rgba(208,160,100,.07); }
+body.dark-mode tr.dfx-rec-changed td { background: rgba(208,160,100,.08); }
+body.dark-mode tr.dfx-rec-changed td:first-child { box-shadow: inset 3px 0 0 #D0A064; }
+/* End S150g ─────────────────────────────────────────────────────────── */

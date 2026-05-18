@@ -130,6 +130,7 @@ var _dfxSearch = '';                     // free-text filter (obs.text)
 var _dfxCtr = '';                        // contractorId filter ('' = all)
 var _dfxPri = '';                        // priority filter ('' = all | 'high' | 'low' | 'general')
 var _dfxRecMode = 'def';                  // S150 (was S140 B2b 3-state): 4-state segmented filter — 'def' (default; deficiencies WITH a contractor only — recs AND Site Records both hidden → short working list) | 'rec' (recommendations only) | 'siterec' (Site Records only — non-rec, no contractor) | 'all' (everything; renamed from legacy 'both'). Transient module state, defaults 'def' every load, never persisted.
+var _recHoldUntilNav = false;             // S150g (Mark): set true when a rec star is toggled in a list view; suppresses the auto re-render the queued save would otherwise trigger (via the 'saved' listener) so the card stays put / mis-tap is one tap from undo. Cleared at the top of render() — i.e. by the next deliberate view/pivot/filter change, leaving & returning, or a project/photo load. Transient, never persisted.
 // S146 (Mark): Detailed-view independent fold. Persisted at module scope
 // so it survives the frequent initDeficiencies.render() re-renders.
 var _dfxFoldTrade = {};                    // {tradeName | '__recs__' | '__siterec__'}: true = collapsed
@@ -1163,6 +1164,7 @@ function _showCtrEditDialog(ctr) {
 export var initDeficiencies = {
 
   render: function() {
+    _recHoldUntilNav = false;  // S150g: any deliberate render resettles the list
     var proj = Model.getProject();
     var container = document.getElementById('deficiencies-container');
     if (!container) return;
@@ -2570,10 +2572,42 @@ document.addEventListener('click', function(e) {
     if (_rdid) {
       var _rf = Model.findDeficiency(_rdid);
       if (_rf && _rf.defic) {
-        Model.setRecommendation(_rdid, !_rf.defic.isRecommendation);
-        var _pfb = document.getElementById('pinfocus-body');
-        if (_pfb) _pfb.innerHTML = _buildPinFocusBody(_rdid);
-        initDeficiencies.render();
+        var _newRec = !_rf.defic.isRecommendation;
+        Model.setRecommendation(_rdid, _newRec);   // saves immediately (queued)
+        // S150g (Mark): do NOT re-render the list, and hold off the auto
+        // re-render the queued save would otherwise trigger (via 'saved').
+        // The card stays exactly where it is; we flip EVERY star for this
+        // pin in place so a mis-tap is one tap from undo. The list only
+        // resettles on the next deliberate render (view/pivot/filter
+        // change, leaving & returning, project/photo load) — that render
+        // clears _recHoldUntilNav at its top.
+        _recHoldUntilNav = true;
+        var _sel = (window.CSS && CSS.escape) ? CSS.escape(_rdid) : _rdid;
+        var _stars = document.querySelectorAll('[data-action="toggle-rec"][data-defic-id="' + _sel + '"]');
+        Array.prototype.forEach.call(_stars, function(b) {
+          var isPill = b.classList.contains('pin-rec-toggle');
+          b.classList.toggle('is-rec', _newRec);
+          b.setAttribute('aria-pressed', _newRec ? 'true' : 'false');
+          if (isPill) {
+            b.textContent = _newRec ? '★ Recommendation' : '☆ Mark as recommendation';
+            b.setAttribute('title', _newRec
+              ? 'This pin is a Recommendation — click to revert it to a normal item'
+              : 'Mark this pin as a Recommendation');
+          } else {
+            b.textContent = _newRec ? '★' : '☆';
+            b.setAttribute('title', _newRec
+              ? 'This is a Recommendation — click to revert it to a normal item'
+              : 'Mark this as a Recommendation');
+          }
+          // Subtle "changed — tap star to revert; resettles on refresh"
+          // cue on the enclosing card. Skipped in the single-pin editor
+          // (#pinfocus-body never relocates). Cleared on the next full
+          // re-render when the card is rebuilt fresh.
+          if (!b.closest('#pinfocus-body')) {
+            var _cardEl = b.closest('tr, .dfx-bv-card, .defic-pin-group');
+            if (_cardEl) _cardEl.classList.add('dfx-rec-changed');
+          }
+        });
       }
     }
   }
@@ -3211,6 +3245,8 @@ var _deficSavedDebounce = null;
 Model.onChange('saved', function() {
   if (_deficSavedDebounce) clearTimeout(_deficSavedDebounce);
   _deficSavedDebounce = setTimeout(function() {
+    if (_recHoldUntilNav) return;  // S150g: a rec star was just toggled — keep the
+                                   // card put; the next deliberate render resettles it
     var ae = document.activeElement;
     if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) {
       var inDefic = !!ae.closest('#tab-deficiencies, .defic-item, .defic-list, .defic-pin-group');
