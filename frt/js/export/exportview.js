@@ -53,50 +53,47 @@ function _styleOnce() {
   st.id = 'exv-style';
   st.textContent = [
     '#exv-ov{position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:28px 14px;font-family:Calibri,sans-serif;}',
-    '.exv-w{background:var(--bg,#fff);color:var(--fg,#1C2333);width:100%;max-width:900px;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3);}',
+    '.exv-w{background:var(--bg,#fff);color:var(--fg,#1C2333);width:100%;max-width:1060px;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3);}',
     '.exv-h{background:linear-gradient(135deg,#1B2438,#243048);color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;}',
     '.exv-h .t{font-size:calc(18px + var(--ts,0px));font-weight:700;letter-spacing:.3px;}',
-    '.exv-h .s{font-size:12.5px;color:#9FB0CC;margin-top:2px;}',
+    '.exv-h .s{font-size:calc(12px + var(--ts,0px));color:#9FB0CC;margin-top:2px;}',
     '.exv-h .x{color:#9FB0CC;font-size:20px;cursor:pointer;border:0;background:none;}',
-    '.exv-b{padding:22px 24px;}',
-    '.exv-sec{margin-bottom:22px;}',
-    '.exv-sh{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#4F6788;margin-bottom:10px;border-bottom:1px solid var(--border,#E4E8EE);padding-bottom:5px;display:flex;justify-content:space-between;align-items:center;}',
+    '.exv-b{padding:18px 24px;}',
+    '.exv-sec{margin-bottom:16px;}',
+    '.exv-sh{font-size:calc(13px + var(--ts,0px));font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#4F6788;margin-bottom:8px;border-bottom:1px solid var(--border,#E4E8EE);padding-bottom:5px;display:flex;justify-content:space-between;align-items:center;}',
     '.exv-bulk{display:flex;gap:6px;}',
-    '.exv-bulk button{font-family:Calibri,sans-serif;font-size:11px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;border:1px solid #C9D1DC;background:var(--bg,#fff);color:#4F6788;border-radius:5px;padding:3px 9px;cursor:pointer;}',
+    '.exv-bulk button{font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts,0px));font-weight:700;letter-spacing:.3px;text-transform:uppercase;border:1px solid #C9D1DC;background:var(--bg,#fff);color:#4F6788;border-radius:5px;padding:3px 9px;cursor:pointer;}',
     '.exv-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;}',
-    '.exv-fld label{display:block;font-size:12.5px;font-weight:600;color:var(--steel,#4A5568);margin-bottom:4px;}',
-    '.exv-fld select,.exv-fld input[type=text]{width:100%;padding:8px 10px;border:1.5px solid var(--border,#D5DBE3);border-radius:6px;font-family:Calibri,sans-serif;font-size:14px;background:var(--bg,#fff);color:var(--fg,#1C2333);}',
-    '.exv-fld .sub{font-size:11.5px;color:#8A93A4;margin-top:3px;}',
-    '.exv-chk{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--fg,#33415C);padding:5px 0;cursor:pointer;}',
+    '.exv-fld label{display:block;font-size:calc(13px + var(--ts,0px));font-weight:600;color:var(--steel,#4A5568);margin-bottom:4px;}',
+    '.exv-fld select,.exv-fld input[type=text]{width:100%;padding:8px 10px;border:1.5px solid var(--border,#D5DBE3);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(14px + var(--ts,0px));background:var(--bg,#fff);color:var(--fg,#1C2333);}',
+    '.exv-chk{display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts,0px));color:var(--fg,#33415C);padding:5px 0;cursor:pointer;}',
     '.exv-chk input{width:15px;height:15px;}',
     '.exv-tw{display:flex;gap:8px;align-items:stretch;}',
     '.exv-tw input{flex:1;}',
-    '.exv-lock{display:flex;align-items:center;gap:6px;background:var(--panel,#EEF1F5);border:1.5px solid var(--border,#D5DBE3);border-radius:6px;padding:0 12px;font-size:14px;font-weight:700;color:#7A8699;white-space:nowrap;}',
+    '.exv-lock{display:flex;align-items:center;gap:6px;background:var(--card,#EEF1F5);border:1.5px solid var(--border,#D5DBE3);border-radius:6px;padding:0 12px;font-size:calc(14px + var(--ts,0px));font-weight:700;color:#7A8699;white-space:nowrap;}',
     '.exv-grp{margin-bottom:14px;}.exv-grp:last-child{margin-bottom:0;}',
-    '.exv-gh{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7A8699;margin-bottom:7px;display:flex;align-items:center;gap:8px;}',
+    '.exv-gh{font-size:calc(11px + var(--ts,0px));font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7A8699;margin-bottom:7px;display:flex;align-items:center;gap:8px;}',
     '.exv-sw{width:11px;height:11px;border-radius:3px;flex-shrink:0;}',
     '.exv-cards{display:flex;flex-wrap:wrap;gap:8px;}',
-    '.exv-c{display:inline-flex;align-items:center;gap:8px;background:var(--panel,#F4F5F8);border:1.5px solid var(--border,#D8DEE7);border-radius:8px;padding:7px 12px;font-size:13.5px;color:var(--steel,#5A6373);cursor:pointer;user-select:none;transition:all .12s;}',
-    '.exv-c .role{font-size:10px;text-transform:uppercase;letter-spacing:.4px;opacity:.6;}',
+    '.exv-c{display:inline-flex;align-items:center;gap:8px;background:var(--card,#F4F5F8);border:1.5px solid var(--border,#D8DEE7);border-radius:8px;padding:7px 12px;font-size:calc(13px + var(--ts,0px));color:var(--steel,#5A6373);cursor:pointer;user-select:none;transition:all .12s;}',
+    '.exv-c .role{font-size:calc(10px + var(--ts,0px));text-transform:uppercase;letter-spacing:.4px;opacity:.6;}',
     '.exv-c.on{background:var(--c,#6B7280);border-color:var(--c,#6B7280);color:#fff;}',
     '.exv-c.on .role{opacity:.85;}',
-    '.exv-c .tk{width:16px;height:16px;border-radius:50%;border:1.5px solid #BCC4D0;display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:transparent;flex-shrink:0;}',
+    '.exv-c .tk{width:16px;height:16px;border-radius:50%;border:1.5px solid #BCC4D0;display:inline-flex;align-items:center;justify-content:center;font-size:calc(11px + var(--ts,0px));color:transparent;flex-shrink:0;}',
     '.exv-c.on .tk{background:#fff;border-color:#fff;color:var(--c,#6B7280);}',
     '.exv-add{display:flex;gap:8px;margin-top:14px;}',
-    '.exv-add input{flex:1;padding:7px 10px;border:1.5px dashed #C5CEDB;border-radius:6px;font-family:Calibri,sans-serif;font-size:13.5px;background:var(--bg,#fff);color:var(--fg,#1C2333);}',
-    '.exv-add button{padding:7px 14px;border:1px solid #4F6788;background:var(--bg,#fff);color:#33506B;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;}',
-    '.exv-prev{margin-top:12px;background:var(--panel,#F7F9FB);border:1px solid var(--border,#E4E8EE);border-radius:6px;padding:9px 12px;font-size:13px;color:var(--fg,#33415C);}',
-    '.exv-prev b{color:#4F6788;text-transform:uppercase;font-size:11px;letter-spacing:.5px;}',
-    '.exv-hint{font-size:12px;color:#7A8699;margin-top:8px;line-height:1.5;}',
+    '.exv-add input{flex:1;padding:7px 10px;border:1.5px dashed #C5CEDB;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts,0px));background:var(--bg,#fff);color:var(--fg,#1C2333);}',
+    '.exv-add button{padding:7px 14px;border:1px solid #4F6788;background:var(--bg,#fff);color:#33506B;border-radius:6px;font-size:calc(13px + var(--ts,0px));font-weight:600;cursor:pointer;}',
+    '.exv-prev{margin-top:12px;background:var(--card,#F7F9FB);border:1px solid var(--border,#E4E8EE);border-radius:6px;padding:9px 12px;font-size:calc(13px + var(--ts,0px));color:var(--fg,#33415C);}',
+    '.exv-prev b{color:#4F6788;text-transform:uppercase;font-size:calc(11px + var(--ts,0px));letter-spacing:.5px;}',
     '.exv-ut{margin-bottom:16px;padding:10px 12px;border:1px solid var(--border,#E4E8EE);border-radius:6px;}',
-    '.exv-ut .uh{font-weight:600;font-size:13px;color:var(--steel,#4A5568);margin-bottom:6px;}',
-    '.exv-ut label{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:5px;}',
-    '.exv-f{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 24px;border-top:1px solid var(--border,#E4E8EE);background:var(--panel,#FAFBFC);}',
-    '.exv-f .l{font-size:12.5px;color:#7A8699;}',
+    '.exv-ut .uh{font-weight:600;font-size:calc(13px + var(--ts,0px));color:var(--steel,#4A5568);margin-bottom:6px;}',
+    '.exv-ut label{display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts,0px));cursor:pointer;margin-bottom:5px;}',
+    '.exv-f{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:14px 24px;border-top:1px solid var(--border,#E4E8EE);background:var(--card,#FAFBFC);}',
     '.exv-acts{display:flex;gap:10px;}',
-    '.exv-cancel{padding:7px 16px;border:0;background:#8A4A4A;color:#fff;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:.2px;}',
+    '.exv-cancel{padding:6px 18px;border:0;background:#8A4A4A;color:#fff;border-radius:6px;font-size:calc(13px + var(--ts,0px));font-weight:600;cursor:pointer;letter-spacing:.2px;}',
     '.exv-cancel:hover{background:#763D3D;}',
-    '.exv-go{padding:7px 18px;border:0;background:#4A6B5A;color:#fff;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.2px;}',
+    '.exv-go{padding:6px 18px;border:0;background:#4A6B5A;color:#fff;border-radius:6px;font-size:calc(13px + var(--ts,0px));font-weight:700;cursor:pointer;letter-spacing:.2px;}',
     '.exv-go:hover{background:#3E5A4B;}',
     '@media(max-width:680px){.exv-grid{grid-template-columns:1fr;}}'
   ].join('');
@@ -186,17 +183,17 @@ export var initExportView = {
       + '<option value="bottom">Full report (deficiencies + recommendations)</option>'
       + '<option value="only">Recommendations only</option>'
       + '<option value="exclude">Exclude recommendations</option>'
-      + '</select><div class="sub">Full report keeps recommendations in their own section on a new page. "Recommendations only" produces a standalone recommendations document. "Exclude" leaves them out entirely.</div></div>';
+      + '</select></div>';
     h += '<div class="exv-fld"><label>Drawings</label><select id="exv-type">'
       + '<option value="field">Include mini-maps and drawing appendices</option>'
       + '<option value="plain">Report only \u2014 no drawings</option>'
-      + '</select><div class="sub">Includes the per-item mini-map thumbnails and the drawings-with-pins appendix at the end of the report.</div></div>';
+      + '</select></div>';
     h += '<div class="exv-fld"><label>Show items for</label><select id="exv-ctr">' + ctrOpts
-      + '</select><div class="sub">Limit the report to one contractor\u2019s items, or keep the full set.</div></div>';
+      + '</select></div>';
     h += '<div class="exv-fld"><label>Inspector initials</label><select id="exv-insp">'
       + '<option value="off">Don\u2019t show initials</option>'
       + '<option value="initials">Show initials on each item</option>'
-      + '</select><div class="sub">Tags each item with the initials of the inspector who logged it.</div></div>';
+      + '</select></div>';
     h += '</div></div>';
 
     // Report title
@@ -204,7 +201,7 @@ export var initExportView = {
       + '<input type="text" id="exv-title" value="' + _esc(titleVal) + '">'
       + '<div class="exv-lock"><span style="font-size:12px;opacity:.7;">&#128274;</span> #' + rptNum
       + ' <span style="font-size:10px;opacity:.6;text-transform:uppercase;letter-spacing:.4px;">auto</span></div></div>'
-      + '<div class="exv-hint">The default is filled in for you. Editable for special client-requested titles \u2014 saved with this project so it stays consistent on every re-issue without redeploying the tool. The report number is assigned automatically and can\u2019t be edited.</div></div>';
+      + '</div>';
 
     // Options
     h += '<div class="exv-sec"><div class="exv-sh">Options</div><div class="exv-grid">'
@@ -234,7 +231,7 @@ export var initExportView = {
 
     h += '</div>'; // exv-b
 
-    h += '<div class="exv-f"><div class="l">Saved per project as <code>distribution</code> + <code>reportTitleOverride</code>.</div>'
+    h += '<div class="exv-f">'
       + '<div class="exv-acts"><button class="exv-cancel" id="exv-cancel">Cancel</button>'
       + '<button class="exv-go" id="exv-go">\uD83D\uDCC4 Generate PDF</button></div></div>';
 
