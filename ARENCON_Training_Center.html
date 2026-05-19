@@ -338,10 +338,12 @@ function renderCourse(cid){
 
 /* ─── module viewer + quiz ─── */
 function ytEmbed(u){
+  if(!u) return '';
   const m=u.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{6,})/);
   return m?'https://www.youtube.com/embed/'+m[1]:u;
 }
 function vimeoEmbed(u){
+  if(!u) return '';
   const m=u.match(/vimeo\.com\/(\d+)/);
   return m?'https://player.vimeo.com/video/'+m[1]:u;
 }
@@ -358,8 +360,8 @@ function renderModule(mid){
      <b>${esc(m.title)}</b>`;
   let media='';
   const st=m.source_type, su=m.source_url;
-  if(st==='youtube') media=`<div class="media"><iframe src="${ytEmbed(su)}" allowfullscreen allow="accelerometer;encrypted-media;picture-in-picture"></iframe></div>`;
-  else if(st==='vimeo') media=`<div class="media"><iframe src="${vimeoEmbed(su)}" allowfullscreen></iframe></div>`;
+  if(st==='youtube'&&su) media=`<div class="media"><iframe src="${ytEmbed(su)}" allowfullscreen allow="accelerometer;encrypted-media;picture-in-picture"></iframe></div>`;
+  else if(st==='vimeo'&&su) media=`<div class="media"><iframe src="${vimeoEmbed(su)}" allowfullscreen></iframe></div>`;
   else if(st==='r2'&&su) media=`<div class="media"><video src="${r2Url(su)}" controls playsinline></video></div>`;
   else if(st==='image'&&su) media=`<div class="docbox"><img src="${/^https?:/.test(su)?su:r2Url(su)}" alt=""></div>`;
   else if(st==='doc'&&su) media=`<div class="docbox"><iframe src="${/^https?:/.test(su)?su:r2Url(su)}"></iframe></div>`;
