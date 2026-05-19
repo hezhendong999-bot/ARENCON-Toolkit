@@ -7951,3 +7951,63 @@ body.dark-mode .dfx-bv-card.dfx-rec-changed { box-shadow: inset 3px 0 0 #D0A064;
 body.dark-mode tr.dfx-rec-changed td { background: rgba(208,160,100,.08); }
 body.dark-mode tr.dfx-rec-changed td:first-child { box-shadow: inset 3px 0 0 #D0A064; }
 /* End S150g ─────────────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   S153 Board Rework — three stacked lanes + roster-coloured trade pill
+   ════════════════════════════════════════════════════════════════════
+   ONE board, three lanes stacked as ROWS (Deficiencies →
+   Recommendations → Site Records). Each lane reuses the existing
+   4-column .dfx-board verbatim. The lane banner is the existing
+   .dfx-trade-banner idiom with a dedicated .dfx-lane modifier so it
+   never collides with the Detailed-view semantic banner classes
+   (.recs / .records / .other / .grey). Lane colours per build spec §4:
+   def = navy #2A3A5C, rec = amber #BC7327 (sanctioned S150),
+   sr = grey #6B7280. The base .dfx-trade-banner is a fold toggle in
+   Detailed view (cursor:pointer); the lane banner has no fold action,
+   so .dfx-lane resets cursor:default. Visual + interaction target:
+   ARENCON_Board_Rework_Demo.html (rev 2, Mark approved verbatim S152).
+   ──────────────────────────────────────────────────────────────────── */
+.dfx-lane-sec { margin-bottom: 22px; }
+.dfx-lane-sec:last-child { margin-bottom: 4px; }
+.dfx-trade-banner.dfx-lane { margin-bottom: 10px; cursor: default; }
+.dfx-trade-banner.dfx-lane.def { background: #2A3A5C; }
+.dfx-trade-banner.dfx-lane.rec { background: #BC7327; }
+body.dark-mode .dfx-trade-banner.dfx-lane.rec { background: #915E2C; }
+.dfx-trade-banner.dfx-lane.sr  { background: #6B7280; }
+body.dark-mode .dfx-trade-banner.dfx-lane.sr { background: #565C66; }
+.dfx-lane-tip {
+  font-size: calc(10px + var(--ts));
+  font-weight: 600;
+  opacity: 0.85;
+  margin-left: 10px;
+}
+
+/* §2.2 — board card trade as a small tinted pill in the SAME
+   name-derived colour as the Contractor Roster trade pills
+   (_tradeVars → --tc-bg/fg/bd). Mirrors the .crx-tag mini style so the
+   card trade obviously ties back to the roster. "no trade" keeps the
+   muted italic treatment (single colour scheme — no second invented). */
+.dfx-bv-card-trade.has-trade {
+  display: inline-flex;
+  align-items: center;
+  font-style: normal;
+  font-weight: 700;
+  font-size: calc(10px + var(--ts));
+  padding: 1px 8px;
+  border-radius: 10px;
+  border: 1px solid;
+  background: var(--tc-bg);
+  color: var(--tc-fg);
+  border-color: var(--tc-bd);
+  white-space: nowrap;
+}
+body.dark-mode .dfx-bv-card-trade.has-trade {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--tc-bd);
+  border-color: var(--tc-bd);
+}
+.dfx-bv-card-trade.no-trade {
+  font-style: italic;
+  color: var(--silver);
+}
+/* End S153 ──────────────────────────────────────────────────────────── */

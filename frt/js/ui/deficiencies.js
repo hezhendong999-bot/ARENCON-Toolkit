@@ -1270,7 +1270,7 @@ function _renderClosedTab(closedDefics, container) {
 // Flatten (defic, obs) pairs after applying the lifecycle pivot
 // (_activeDlcTab) + contractor / priority / search filters. Mirrors the
 // unified_defic_demo flatRows() but reads the live model.
-function _flatRows(proj, ignorePivot) {
+function _flatRows(proj, ignorePivot, ignoreRecMode) {
   var all = Model.getAllDeficiencies(proj);
   var q = (_dfxSearch || '').trim().toLowerCase();
   var rows = [];
@@ -1303,7 +1303,7 @@ function _flatRows(proj, ignorePivot) {
       if (!ignorePivot && _activeDlcTab === 'closed' && !closed) return;
       if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
       if (_dfxPri) return;            // no obs → no priority to match
-      if (_recModeDrops(d, !!(rec.contractorId))) return;  // S150 4-state filter
+      if (!ignoreRecMode && _recModeDrops(d, !!(rec.contractorId))) return;  // S150 4-state filter (S153: lane view passes all classes)
       if (q && (deficDesc(d) || '').toLowerCase().indexOf(q) < 0) return;
       rows.push({ d: d, o: null, oi: -1, ctrId: rec.contractorId || null, ctrName: ctrLabel(rec.contractorName) || SITE_RECORDS_LABEL });
       return;
@@ -1314,7 +1314,7 @@ function _flatRows(proj, ignorePivot) {
       if (!ignorePivot && _activeDlcTab === 'closed' && !addressed) return;
       if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
       if (_dfxPri && (o.priority || 'high') !== _dfxPri) return;
-      if (_recModeDrops(d, !!(rec.contractorId))) return;  // S150 4-state filter
+      if (!ignoreRecMode && _recModeDrops(d, !!(rec.contractorId))) return;  // S150 4-state filter (S153: lane view passes all classes)
       if (q && (o.text || '').toLowerCase().indexOf(q) < 0) return;
       rows.push({ d: d, o: o, oi: oi, ctrId: rec.contractorId || null, ctrName: ctrLabel(rec.contractorName) || SITE_RECORDS_LABEL });
     });
@@ -1739,18 +1739,33 @@ function _renderTableView(proj, container) {
 // ── Board view — priority kanban + always-visible Closed column ──
 // Pivot-independent (ignorePivot=true): the board carries its own
 // Closed column, so Active/Closed pivot does not scope it.
+// ── S153 Board Rework ────────────────────────────────────────────────
+// ONE board, three lanes stacked as ROWS: Deficiencies →
+// Recommendations → Site Records. Classification is DERIVED per
+// observation, NEVER a manual toggle:
+//   per-obs recommendation flag → REC;
+//   else contractor present     → DEFIC;
+//   else                        → SITEREC.
+// Each lane renders the existing 4-column board (High / Low / General /
+// Closed) over only its own rows. The lane banner reuses the existing
+// .dfx-trade-banner idiom with a dedicated .dfx-lane modifier (so it
+// never collides with the Detailed-view semantic banner classes
+// .recs/.records/.other/.grey); colours per build spec §4 — def=navy,
+// rec=amber, sr=grey. _flatRows is called with ignoreRecMode=true so
+// all three classes coexist (the segmented Defic/Rec/Site filter
+// becomes jump-nav in a later batch — it must NOT hide a whole lane
+// here). Visual + interaction target: ARENCON_Board_Rework_Demo.html
+// (rev 2, Mark approved verbatim S152). card()/col() reuse the shipped
+// .dfx-bv-* DOM verbatim — dfx-goto / toggle-rec delegation unchanged.
 function _renderBoardView(proj, container) {
-  var rows = _flatRows(proj, true);
-  var buckets = { high: [], low: [], general: [], closed: [] };
-  rows.forEach(function(r) {
+  var rows = _flatRows(proj, true, true);
+
+  function clsOf(r) {
     var d = r.d, o = r.o, oi = r.oi;
-    var closed = (oi >= 0) ? !!o.addressed : deficIsClosed(d);
-    if (closed) { buckets.closed.push(r); return; }
-    var pri = (oi >= 0) ? (o.priority || 'high') : (Model.getEffectivePriority(d) || 'high');
-    if (pri === 'low') buckets.low.push(r);
-    else if (pri === 'general') buckets.general.push(r);
-    else buckets.high.push(r);
-  });
+    var isRec = (oi >= 0 && o) ? !!o.isRecommendation : !!d.isRecommendation;
+    if (isRec) return 'REC';
+    return r.ctrId ? 'DEFIC' : 'SITEREC';
+  }
 
   function card(r) {
     var d = r.d, o = r.o, oi = r.oi;
@@ -1761,6 +1776,14 @@ function _renderBoardView(proj, container) {
     // S151: per-obs rec for the board card (oi<0 → pin-rollup fallback).
     var _bvIsRec = (oi >= 0 && o) ? !!o.isRecommendation : !!d.isRecommendation;
     var _bvObsAttr = (oi >= 0) ? ' data-obs-idx="' + oi + '"' : '';
+    // S153 §2.2: trade reads as a small tinted pill in the SAME
+    // name-derived colour as the Contractor Roster trade pills
+    // (_tradeVars → _tradeColor → --tc-bg/fg/bd), so the card trade
+    // ties back visually to the roster. "no trade" keeps the muted
+    // dashed/italic treatment (no second colour scheme).
+    var tradeChip = trade
+      ? '<span class="dfx-bv-card-trade has-trade" style="' + _tradeVars(trade) + '">' + esc(trade) + '</span>'
+      : '<span class="dfx-bv-card-trade no-trade">no trade</span>';
     return '<div class="dfx-bv-card" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '">'
       + '<div class="dfx-bv-card-top">'
       + '<span class="dfx-bv-card-num">#' + esc(_dfxObsLabel(d, oi)) + '</span>'
@@ -1770,7 +1793,7 @@ function _renderBoardView(proj, container) {
       + '<div class="dfx-bv-card-bottom">'
       + _dfxThumb(d, oi, 'dfx-bv-card-thumb')
       + '<button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '"' + _bvObsAttr + ' class="dfx-tbl-star' + (_bvIsRec ? ' is-rec' : '') + '" aria-pressed="' + (_bvIsRec ? 'true' : 'false') + '" title="' + (_bvIsRec ? 'This is a Recommendation — click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (_bvIsRec ? '★' : '☆') + '</button>'
-      + '<span class="dfx-bv-card-trade">' + esc(trade || 'none') + '</span>'
+      + tradeChip
       + '</div></div>';
   }
   function col(cls, label, arr) {
@@ -1779,12 +1802,43 @@ function _renderBoardView(proj, container) {
       + '<div class="dfx-bv-col-hdr ' + cls + '"><span>' + label + '</span><span class="dfx-bv-col-count">' + arr.length + '</span></div>'
       + '<div class="dfx-bv-col-body">' + body + '</div></div>';
   }
-  container.innerHTML = '<div class="dfx-board">'
-    + col('h', 'High Priority', buckets.high)
-    + col('l', 'Low Priority', buckets.low)
-    + col('g', 'General', buckets.general)
-    + col('c', 'Closed', buckets.closed)
-    + '</div>';
+  function laneBoard(laneRows) {
+    var b = { high: [], low: [], general: [], closed: [] };
+    laneRows.forEach(function(r) {
+      var d = r.d, o = r.o, oi = r.oi;
+      var closed = (oi >= 0) ? !!o.addressed : deficIsClosed(d);
+      if (closed) { b.closed.push(r); return; }
+      var pri = (oi >= 0) ? (o.priority || 'high') : (Model.getEffectivePriority(d) || 'high');
+      if (pri === 'low') b.low.push(r);
+      else if (pri === 'general') b.general.push(r);
+      else b.high.push(r);
+    });
+    return '<div class="dfx-board">'
+      + col('h', 'High Priority', b.high)
+      + col('l', 'Low Priority', b.low)
+      + col('g', 'General', b.general)
+      + col('c', 'Closed', b.closed)
+      + '</div>';
+  }
+  var LANES = [
+    { k: 'DEFIC',   name: 'Deficiencies',    cls: 'def', tip: 'has a contractor \u00B7 not a recommendation' },
+    { k: 'REC',     name: 'Recommendations', cls: 'rec', tip: 'flagged \u2605 \u00B7 pooled' },
+    { k: 'SITEREC', name: 'Site Records',    cls: 'sr',  tip: 'no contractor \u00B7 internal \u2014 excluded from client report' }
+  ];
+  var byLane = { DEFIC: [], REC: [], SITEREC: [] };
+  rows.forEach(function(r) { byLane[clsOf(r)].push(r); });
+  var html = '';
+  LANES.forEach(function(L) {
+    var lr = byLane[L.k];
+    html += '<div class="dfx-lane-sec" data-cls="' + L.k + '">'
+      + '<div class="dfx-trade-banner dfx-lane ' + L.cls + '">'
+      + '<span>' + L.name + '<span class="dfx-lane-tip">\u2014 ' + L.tip + '</span></span>'
+      + '<span class="dfx-trade-count">' + lr.length + '</span>'
+      + '</div>'
+      + laneBoard(lr)
+      + '</div>';
+  });
+  container.innerHTML = html;
 }
 
 // ── S138: unified "+ deficiency" trigger + modal ─────────────────
