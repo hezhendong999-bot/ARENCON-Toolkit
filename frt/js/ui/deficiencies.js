@@ -1064,7 +1064,13 @@ function _renderTradeBoard(proj) {
         h += '<button class="crx-tx" data-action="crx-untag" data-ctr-id="' + esc(c.id) + '" data-trade="' + esc(t) + '" title="Un-assign ' + esc(ctrLabel(c.name)) + ' from ' + esc(t) + '">\u00D7</button>';
         h += '</span>';
       });
-      h += '<button class="crx-addbtn" data-action="crx-pick-start" data-ctr-id="' + esc(c.id) + '" title="Assign a trade">\u2295</button>';
+      // S153 B3 (Mark): the tiny ⊕ is removed — too small on a field
+      // tablet. The WHOLE contractor card is now the target: with a
+      // Board card selected, tapping it assigns the contractor; with
+      // nothing selected, tapping it arms the contractor so the next
+      // trade-pill tap adds that trade (replaces ⊕'s job). The
+      // crx-pick-start document handler is left defined-but-inert
+      // (S137 dead-handler discipline) — no markup emits it now.
       h += '</span>';
       h += '<span class="crx-spacer"></span>';
       h += '<span class="crx-meta">' + _n + ' item' + (_n === 1 ? '' : 's') + '</span>';
@@ -1076,7 +1082,7 @@ function _renderTradeBoard(proj) {
   } else {
     h += '<div class="crx-empty">No contractors yet \u2014 use <strong>+ Add contractor</strong> to start, then click \u2295 on a contractor to assign a trade.</div>';
   }
-  h += '<div class="crx-hint">On the Board, tap a card then tap a contractor here to assign it. Click \u2295 on a contractor, then click a glowing trade pill to add a trade. \u00D7 on a tag un-assigns just that contractor; \u00D7 on a strip pill deletes the trade everywhere. A golden border means the contractor is on no trade yet.</div>';
+  h += '<div class="crx-hint">On the Board: tap a card, then tap a contractor here to assign it (or tap a trade pill to set that observation\u2019s trade). With nothing selected, tap a contractor to arm it, then tap a trade pill to add that trade to its roster. \u00D7 on a tag un-assigns just that contractor; \u00D7 on a strip pill deletes the trade everywhere. A golden border means the contractor is on no trade yet.</div>';
 
   el.innerHTML = h;
   document.body.classList.toggle('crx-picking', !!_pickCtrId);
@@ -1662,7 +1668,7 @@ function _closePinFocus() {
   if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
   if (_pinFocusKeyH) { document.removeEventListener('keydown', _pinFocusKeyH); _pinFocusKeyH = null; }
 }
-function _openPinFocus(deficId) {
+function _openPinFocus(deficId, focusOi) {
   if (!deficId) return;
   var f = Model.findDeficiency(deficId);
   if (!f) { toast('Item not found'); return; }
@@ -1671,6 +1677,11 @@ function _openPinFocus(deficId) {
   var ov = document.createElement('div');
   ov.id = 'pinfocus-overlay';
   ov.setAttribute('data-defic-id', deficId);
+  // S153 B3 (Mark): opening from a Board card focuses ONLY that
+  // observation; siblings collapse behind a one-tap reveal so pin
+  // context isn't lost. Table rows / external entry pass no oi → whole
+  // pin (unchanged).
+  if (focusOi != null && focusOi >= 0) ov.setAttribute('data-focus-oi', String(focusOi));
   ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:32px 16px;font-family:Calibri,sans-serif;';
   var panel = document.createElement('div');
   panel.style.cssText = 'background:var(--bg,white);color:var(--fg,#1B2438);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.3);max-width:760px;width:100%;padding:18px 20px;';
@@ -1684,6 +1695,7 @@ function _openPinFocus(deficId) {
   ov.addEventListener('click', function(e) { if (e.target === ov) _closePinFocus(); });
   panel.querySelector('#pinfocus-close').addEventListener('click', _closePinFocus);
   document.body.appendChild(ov);
+  _scopePinFocusObs(ov);
   _pinFocusKeyH = function(ev) { if (ev.key === 'Escape') _closePinFocus(); };
   document.addEventListener('keydown', _pinFocusKeyH);
 }
@@ -1698,6 +1710,48 @@ function _refreshPinFocus() {
   if (ae && ae.tagName === 'TEXTAREA' && ov.contains(ae)) return;
   var body = ov.querySelector('#pinfocus-body');
   if (body) body.innerHTML = _buildPinFocusBody(deficId);
+  _scopePinFocusObs(ov);
+}
+
+// S153 B3 (Mark): scope the focused panel to a single observation.
+// buildDeficCard emits every observation as
+// `.defic-obs-card[data-obs-idx]`; this hides the non-target ones and
+// injects a one-tap reveal toggle — NO buildDeficCard / _buildPinGroupCard
+// rewrite (their structure is only read, never changed). The show-all
+// state lives on the overlay so it survives _refreshPinFocus rebuilds.
+function _scopePinFocusObs(ov) {
+  if (!ov) return;
+  var foi = ov.getAttribute('data-focus-oi');
+  if (foi == null || foi === '') return;            // whole-pin open → show all
+  var body = ov.querySelector('#pinfocus-body');
+  if (!body) return;
+  var cards = body.querySelectorAll('.defic-obs-card[data-obs-idx]');
+  if (cards.length <= 1) return;                     // single-obs pin → nothing to scope
+  var showAll = ov.getAttribute('data-focus-showall') === '1';
+  var hidden = 0;
+  cards.forEach(function(c) {
+    var match = c.getAttribute('data-obs-idx') === String(foi);
+    if (showAll || match) { c.style.display = ''; }
+    else { c.style.display = 'none'; hidden++; }
+  });
+  var did = ov.getAttribute('data-defic-id');
+  var f = did ? Model.findDeficiency(did) : null;
+  var lbl = (f && f.defic) ? _dfxObsLabel(f.defic, parseInt(foi, 10)) : ('' + foi);
+  var bar = body.querySelector('.dfx-obs-scope-bar');
+  if (!bar) {
+    bar = document.createElement('button');
+    bar.type = 'button';
+    bar.className = 'dfx-obs-scope-bar';
+    var first = cards[0];
+    if (first && first.parentNode) first.parentNode.insertBefore(bar, first);
+    bar.addEventListener('click', function() {
+      ov.setAttribute('data-focus-showall', ov.getAttribute('data-focus-showall') === '1' ? '0' : '1');
+      _scopePinFocusObs(ov);
+    });
+  }
+  bar.textContent = showAll
+    ? ('\u25BE Showing all observations on this pin \u2014 tap to focus only #' + lbl)
+    : ('\u25B8 ' + hidden + ' other observation' + (hidden === 1 ? '' : 's') + ' on this pin \u2014 tap to show');
 }
 
 // ── Table view — row per (defic, obs) ────────────────────────────
@@ -1799,19 +1853,28 @@ function _renderBoardView(proj, container) {
     // legacy 0-obs pins (oi<0) are not draggable and not selectable
     // (open them via ↗ to edit). The rec ★ and trade pill keep their
     // own handlers (guarded out of the move/select path).
+    // S153 B3 (Mark, on-device feedback): HORIZONTAL layout so the
+    // photo is legible without growing the card. Photo fills the left
+    // column (~4x its old area); the right column stacks header
+    // (#num · contractor · ★ · ↗) / 2-line-clamped finding text /
+    // coloured trade pill. The rec ★ moved up beside ↗ per request.
+    // Net card height ≈ unchanged. data-bv-* / dfx-goto / toggle-rec
+    // wiring is preserved verbatim — pure re-layout.
     var _curLane = clsOf(r);
     var _moveable = (oi >= 0);
     var _sel = !!(_bvSel && _bvSel.id === d.id && _bvSel.oi === oi);
     return '<div class="dfx-bv-card' + (_sel ? ' dfx-bv-sel' : '') + '" data-bv="card" data-bv-id="' + esc(d.id) + '" data-bv-oi="' + oi + '" data-bv-lane="' + _curLane + '"' + (_moveable ? ' draggable="true"' : '') + '>'
+      + '<div class="dfx-bv-photo">' + _dfxThumb(d, oi, 'dfx-bv-photo-img') + '</div>'
+      + '<div class="dfx-bv-main">'
       + '<div class="dfx-bv-card-top">'
       + '<span class="dfx-bv-card-num">#' + esc(_dfxObsLabel(d, oi)) + '</span>'
       + '<span class="dfx-bv-card-ctr" style="--cc:' + esc(cColor) + ';">' + esc(cName) + '</span>'
-      + '<button type="button" class="dfx-bv-open" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '"' + _bvObsAttr + ' title="Open this pin to edit" aria-label="Open pin to edit">\u2197</button>'
+      + '<span class="dfx-bv-htools">'
+      + '<button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '"' + _bvObsAttr + ' class="dfx-tbl-star' + (_bvIsRec ? ' is-rec' : '') + '" aria-pressed="' + (_bvIsRec ? 'true' : 'false') + '" title="' + (_bvIsRec ? 'This is a Recommendation — click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (_bvIsRec ? '★' : '☆') + '</button>'
+      + '<button type="button" class="dfx-bv-open" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '"' + _bvObsAttr + ' title="Open this observation to edit" aria-label="Open observation to edit">\u2197</button>'
+      + '</span>'
       + '</div>'
       + '<div class="dfx-bv-card-text">' + esc(desc) + '</div>'
-      + '<div class="dfx-bv-card-bottom">'
-      + _dfxThumb(d, oi, 'dfx-bv-card-thumb')
-      + '<button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '"' + _bvObsAttr + ' class="dfx-tbl-star' + (_bvIsRec ? ' is-rec' : '') + '" aria-pressed="' + (_bvIsRec ? 'true' : 'false') + '" title="' + (_bvIsRec ? 'This is a Recommendation — click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (_bvIsRec ? '★' : '☆') + '</button>'
       + tradeChip
       + '</div></div>';
   }
@@ -2041,7 +2104,13 @@ document.addEventListener('click', function(e) {
   // toggle-rec dispatcher (below) still runs and performs the flip.
   if (e.target.closest && e.target.closest('[data-action="toggle-rec"]')) return;
   var gt = e.target.closest && e.target.closest('[data-action="dfx-goto"]');
-  if (gt) { _openPinFocus(gt.getAttribute('data-defic-id')); return; }
+  if (gt) {
+    // S153 B3: the Board ↗ carries data-obs-idx → open focused to just
+    // that observation. Table rows carry no obs-idx → whole pin (as before).
+    var _goi = gt.getAttribute('data-obs-idx');
+    _openPinFocus(gt.getAttribute('data-defic-id'), (_goi != null && _goi !== '') ? parseInt(_goi, 10) : undefined);
+    return;
+  }
   var pb = e.target.closest && e.target.closest('.defic-pivot-btn');
   if (pb) {
     var p = pb.getAttribute('data-pivot');
@@ -3475,7 +3544,8 @@ document.addEventListener('click', function(e) {
   if (!_pickCtrId) return;
   if (e.target.closest && (e.target.closest('.crx-tpill')
       || e.target.closest('.crx-addbtn') || e.target.closest('.crx-pickbar')
-      || e.target.closest('[data-bv="card"]'))) return;  // S153 B2: a Board card is a valid pick target (arm ⊕ → click card → reassign)
+      || e.target.closest('.crx-cc')
+      || e.target.closest('[data-bv="card"]'))) return;  // S153 B2/B3: trade pills, the whole contractor card, and Board cards are all valid pick-mode surfaces — don't auto-cancel
   _pickCtrId = null;
   initDeficiencies.render();
 }, true);
@@ -3593,7 +3663,20 @@ document.addEventListener('click', function(e) {
     initDeficiencies.render();
     return;
   }
-  if (!_bvSel) return;                        // no pending selection → nothing to place
+  // S153 B3 (Mark): with NO Board card selected, tapping a contractor
+  // card body arms it (replaces the removed ⊕); tapping the armed one
+  // again disarms. The next trade-pill tap then adds that trade via the
+  // existing crx-pill handler. Inner controls keep their own handlers.
+  if (!_bvSel) {
+    var armCc = e.target.closest && e.target.closest('.crx-cc[data-crx-ctr]');
+    if (armCc && !(e.target.closest('[data-action]') || e.target.closest('button'))) {
+      var _aid = armCc.getAttribute('data-crx-ctr');
+      _pickCtrId = (_pickCtrId === _aid) ? null : _aid;
+      initDeficiencies.render();
+      return;
+    }
+    return;                                   // nothing selected & not arming → nothing to place
+  }
   // S153 B2.1 (Mark): inverted contractor-assign. With a card selected,
   // tapping the WHOLE contractor roster card (its body — not its inner
   // ⊕ / rename / delete / × controls, which keep their own handlers)
@@ -3609,6 +3692,35 @@ document.addEventListener('click', function(e) {
     initDeficiencies.render();
     var _ac = Model.findDeficiency(_sid);
     toast('\u2714 Assigned to ' + ((_ac && _ac.contractor && _ac.contractor.name) || 'contractor'));
+    return;
+  }
+  // S153 B3 (Mark): with a Board card selected, tapping a roster trade
+  // pill sets THAT observation's trade. DECOUPLED — never silently
+  // mutates the contractor's roster (fat-finger guard, Mark's call). If
+  // the trade is new to the card's contractor, offer a one-tap add. The
+  // legacy armed-contractor + trade-pill path still wins when a
+  // contractor is armed (_pickCtrId).
+  var tpEl = e.target.closest && e.target.closest('.crx-tpill[data-trade]');
+  if (tpEl && !_pickCtrId && !(e.target.closest && e.target.closest('.crx-px'))) {
+    var _tr = tpEl.getAttribute('data-trade');
+    var _tsid = _bvSel.id, _tsoi = _bvSel.oi;
+    if (!(_tsoi >= 0)) { toast('\u26A0 Open this pin (\u2197) to edit \u2014 no observation to set a trade on.'); return; }
+    Model.updateObsTrade(_tsid, _tsoi, _tr);
+    var _tf = Model.findDeficiency(_tsid);
+    var _tc = _tf && _tf.contractor;
+    _bvSel = null;
+    initDeficiencies.render();
+    if (_tc && (_tc.trades || []).indexOf(_tr) < 0) {
+      showConfirm('Add to contractor roster?',
+        'Set this observation\u2019s trade to \u201c' + _tr + '\u201d. ' + (ctrLabel(_tc.name) || 'This contractor') +
+        ' isn\u2019t listed for \u201c' + _tr + '\u201d yet \u2014 add it to their roster too? (No keeps the observation\u2019s trade and leaves the roster unchanged.)')
+        .then(function(yes) {
+          if (yes) { Model.addContractorToTrade(_tc.id, _tr); initDeficiencies.render(); toast('\u2714 Trade \u2192 ' + _tr + ' \u00B7 ' + ctrLabel(_tc.name) + ' added to ' + _tr); }
+          else toast('\u2714 Observation trade \u2192 ' + _tr);
+        });
+    } else {
+      toast('\u2714 Observation trade \u2192 ' + _tr);
+    }
     return;
   }
   var colEl = e.target.closest && e.target.closest('.dfx-bv-col');

@@ -8083,3 +8083,82 @@ body.dark-mode .crx-cc.crx-assign-target {
 }
 body.dark-mode .crx-cc.crx-assign-target:hover { background: rgba(224, 160, 176, 0.08); }
 /* End S153 Batch 2 ───────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   S153 B3 — horizontal Board card (bigger photo, ≈ same height) +
+   obs-scope bar + whole contractor card is the tap target
+   ════════════════════════════════════════════════════════════════════
+   Photo fills the left column and stretches to the card's content
+   height (≥60px) so it is legible (~5× its old area) WITHOUT growing
+   the card. Right column stacks header / 2-line-clamped text / trade
+   pill; the rec ★ and ↗ sit in the header right cluster (both already
+   carry @media(pointer:coarse) sizing). Calibri, muted, day + dark.
+   ──────────────────────────────────────────────────────────────────── */
+.dfx-bv-card { display: flex; gap: 8px; align-items: stretch; }
+.dfx-bv-photo {
+  width: 60px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #6E7A88 0%, #3A4250 100%);
+}
+.dfx-bv-photo-img {
+  width: 60px;
+  height: 100%;
+  min-height: 60px;
+  object-fit: cover;
+  display: block;
+}
+.dfx-bv-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dfx-bv-main .dfx-bv-card-top { flex-wrap: nowrap; margin-bottom: 0; }
+.dfx-bv-card-ctr {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.dfx-bv-htools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.dfx-bv-main .dfx-bv-card-text {
+  margin-bottom: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.dfx-bv-main > .dfx-bv-card-trade { align-self: flex-start; }
+
+/* obs-scope reveal bar in the focused panel (B3 obs-scoped open) */
+.dfx-obs-scope-bar {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--smoke);
+  border: 1px dashed var(--border);
+  color: var(--steel);
+  font-family: Calibri, sans-serif;
+  font-size: calc(12px + var(--ts));
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.dfx-obs-scope-bar:hover { border-color: #9C2742; color: #9C2742; }
+body.dark-mode .dfx-obs-scope-bar { background: #1C2333; }
+body.dark-mode .dfx-obs-scope-bar:hover { border-color: #E0A0B0; color: #E0A0B0; }
+
+/* whole contractor card is tappable now (the tiny ⊕ was removed) */
+.crx-cc { cursor: pointer; }
+/* End S153 B3 ───────────────────────────────────────────────────────── */
