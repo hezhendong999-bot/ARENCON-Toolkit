@@ -430,6 +430,31 @@ function renderCourse(cid){
      </div>
      <textarea id="mTXT" placeholder="Paste the lesson text, key points, or notes here. Optional for video modules, but the AI quiz works best with text.">${esc(ed?ed.source_text:'')}</textarea></div>
 
+    <div class="sec" style="margin-top:14px"><h2>Quiz rules &amp; content control</h2>
+     <div class="row">
+      <div class="fld" style="max-width:170px"><label>Pass mark (%)</label>
+       <input type="number" id="mPASS" min="1" max="100" step="1" value="${ed&&typeof ed.pass_threshold==='number'?ed.pass_threshold:70}"></div>
+      <div class="fld" style="max-width:200px"><label>Questions per attempt</label>
+       <input type="number" id="mDRAW" min="1" step="1" value="${ed&&typeof ed.draw_size==='number'?ed.draw_size:10}"></div>
+      <div class="fld" style="max-width:230px"><label>Status</label>
+       <select id="mSTATUS">
+        <option value="active"${(!ed||ed.status!=='draft')?' selected':''}>Active (live to learners)</option>
+        <option value="draft"${(ed&&ed.status==='draft')?' selected':''}>Draft (hidden from learners)</option>
+       </select></div>
+     </div>
+     <div class="row">
+      <div class="fld" style="flex:1"><label>Built on code / standard</label>
+       <input type="text" id="mCODE" placeholder="e.g. OBC 2024 Div B 3.2, or NFPA 13 (2022)" value="${esc(ed&&ed.code_ref?ed.code_ref:'')}"></div>
+      <div class="fld" style="max-width:200px"><label>Review by</label>
+       <input type="date" id="mREVIEW" value="${ed&&ed.review_by?String(ed.review_by).slice(0,10):''}"></div>
+     </div>
+     <div class="note">The pass mark and questions-per-attempt control how
+      the learner quiz runs. <b>Built on code / standard</b> and <b>Review by</b>
+      guard against content rot — when the review date passes, the module is
+      flagged for re-check against the current code so learners are never
+      trained on a superseded clause.</div>
+    </div>
+
     <div class="note"><b>Topics &amp; question bank.</b> Add source text
      above (paste, or attach a PDF/Word/PowerPoint), give a keyword, then
      let AI propose topics. You approve/edit the topics, then generate a
@@ -476,9 +501,11 @@ function renderCourse(cid){
           ${EDF}</div>`;
       } else {
         const _dis=ed?' disabled style="opacity:.45;pointer-events:none"':'';
+        const _od=m.review_by && (String(m.review_by).slice(0,10) < new Date().toISOString().slice(0,10));
+        const _draft=m.status==='draft';
         h+=`<div class="item"><div class="gr">
-          <div class="t">${esc(m.title)}</div>
-          <div class="m">${esc(m.source_type||'')} ${nb?'· '+nb+' item'+(nb===1?'':'s')+' / '+nt+' topic'+(nt===1?'':'s'):''}</div>
+          <div class="t">${esc(m.title)}${_draft?' <span class="tagp" style="background:#777">draft</span>':''}${_od?' <span class="tagp" style="background:#9C2742">⚠ review overdue</span>':''}</div>
+          <div class="m">${esc(m.source_type||'')} ${nb?'· '+nb+' item'+(nb===1?'':'s')+' / '+nt+' topic'+(nt===1?'':'s'):''}${m.review_by?' · review by '+String(m.review_by).slice(0,10):''}</div>
          </div>
          ${nb?'<span class="tagp q">bank</span>':'<span class="tagp">no bank</span>'}
          <button class="btn gh sm"${_dis} onclick="editMod('${m.id}')">Edit</button>
@@ -737,11 +764,25 @@ function renderCourse(cid){
   document.getElementById('addM').onclick=async()=>{
     const t=document.getElementById('mT').value.trim();
     if(!t) return toast('Module needs a title');
+    const pass=parseInt(document.getElementById('mPASS').value,10);
+    if(!Number.isFinite(pass)||pass<1||pass>100)
+      return toast('Pass mark must be a number between 1 and 100');
+    const draw=parseInt(document.getElementById('mDRAW').value,10);
+    if(!Number.isFinite(draw)||draw<1)
+      return toast('Questions per attempt must be at least 1');
+    if(draw>BANK.length)
+      return toast('Questions per attempt ('+draw+') is more than the '+BANK.length+
+        ' item'+(BANK.length===1?'':'s')+' in the bank — add more items or lower this number');
+    const rev=document.getElementById('mREVIEW').value;
     const row={course_id:cid,title:t,
       description:document.getElementById('mD').value.trim(),
       source_type:document.getElementById('mSTYPE').value,
       source_url:document.getElementById('mSU').value.trim()||null,
       source_text:srcText()||null,
+      pass_threshold:pass,draw_size:draw,
+      status:document.getElementById('mSTATUS').value,
+      code_ref:document.getElementById('mCODE').value.trim()||null,
+      review_by:rev||null,
       topics:TOPICS,question_bank:BANK};
     const b=document.getElementById('addM'); b.disabled=true; const _bl=b.textContent;
     b.textContent=ed?'Updating…':'Saving…';
