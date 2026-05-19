@@ -9,8 +9,16 @@ import { showAlert } from '../shared/dialogs.js';
 import { toast } from '../shared/toast.js';
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function _deficIsOpen(d){return d.status==='open'||d.status==='Outstanding';}
-function _deficIsClosed(d){return d.status==='closed'||d.status==='Addressed & Closed';}
+// S154 Bug #4: closed-status now derived from Model.getEffectiveStatus
+// instead of the persisted d.status. Pre-S119 pins where d.status='closed'
+// was written before per-obs addressed flags existed will deserialize with
+// obs.addressed=false; the minimap (reads d.status) and the pill (reads
+// obs.addressed) would then disagree — green/dimmed pin with an
+// "Outstanding" pill. Routing BOTH helpers through getEffectiveStatus
+// gives the whole PDF one source of truth, and keeps the partition clean
+// (every pin is exactly one of open/closed — never both, never neither).
+function _deficIsOpen(d){return Model.getEffectiveStatus(d)==='open';}
+function _deficIsClosed(d){return Model.getEffectiveStatus(d)==='closed';}
 function _deficDesc(d){
   if(d.observations&&d.observations.length&&d.observations[0].text)return d.observations[0].text;
   if(d.entries&&d.entries.length&&d.entries[0].description)return d.entries[0].description;
