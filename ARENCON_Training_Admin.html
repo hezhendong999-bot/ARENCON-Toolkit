@@ -136,6 +136,23 @@ textarea{resize:vertical;min-height:90px;line-height:1.5}
   background:var(--arencon-light);border-radius:8px;padding:12px 15px;
   margin-top:6px}
 .note b{color:var(--arencon)}
+.subt{font-size:calc(12.5px + var(--ts));color:var(--steel);line-height:1.5;
+ margin:-4px 0 12px}
+.subt b{color:var(--arencon)}
+.opt{font-size:calc(10px + var(--ts));color:var(--steel);font-weight:400;
+ background:var(--bgsoft);border:1px solid var(--border);border-radius:8px;
+ padding:1px 7px;margin-left:6px;vertical-align:middle}
+details.collapse{background:var(--card);border:1.5px solid var(--border);
+ border-radius:14px;padding:0 22px}
+details.collapse>summary{list-style:none;cursor:pointer;padding:18px 0;
+ display:flex;align-items:center;gap:10px;user-select:none}
+details.collapse>summary::-webkit-details-marker{display:none}
+details.collapse>summary::after{content:'▸';color:var(--steel);
+ font-size:calc(14px + var(--ts));margin-left:auto;transition:transform .15s}
+details.collapse[open]>summary::after{transform:rotate(90deg)}
+details.collapse[open]{padding-bottom:22px}
+.sumhint{font-size:calc(11.5px + var(--ts));color:var(--steel);font-weight:400;
+ margin-left:6px}
 
 /* ── AI quiz draft preview ── */
 .qprev{border:1.5px solid var(--border);border-radius:var(--radius);
@@ -430,7 +447,8 @@ function renderCourse(cid){
      </div>
      <textarea id="mTXT" placeholder="Paste the lesson text, key points, or notes here. Optional for video modules, but the AI quiz works best with text.">${esc(ed?ed.source_text:'')}</textarea></div>
 
-    <div class="sec" style="margin-top:14px"><h2>Quiz rules &amp; content control</h2>
+    <details class="sec collapse" style="margin-top:14px"><summary><h2 style="display:inline-block;margin:0">Quiz rules &amp; content control</h2><span class="sumhint">pass · draw · status · code ref · review</span></summary>
+     <div class="subt">Set how the quiz runs and how the module is kept current. Defaults are fine for most modules.</div>
      <div class="row">
       <div class="fld" style="max-width:170px"><label>Pass mark (%)</label>
        <input type="number" id="mPASS" min="1" max="100" step="1" value="${ed&&typeof ed.pass_threshold==='number'?ed.pass_threshold:70}"></div>
@@ -443,23 +461,14 @@ function renderCourse(cid){
        </select></div>
      </div>
      <div class="row">
-      <div class="fld" style="flex:1"><label>Built on code / standard</label>
+      <div class="fld" style="flex:1"><label>Built on code / standard <span class="opt">optional</span></label>
        <input type="text" id="mCODE" placeholder="e.g. OBC 2024 Div B 3.2, or NFPA 13 (2022)" value="${esc(ed&&ed.code_ref?ed.code_ref:'')}"></div>
-      <div class="fld" style="max-width:200px"><label>Review by</label>
+      <div class="fld" style="max-width:200px"><label>Review by <span class="opt">optional</span></label>
        <input type="date" id="mREVIEW" value="${ed&&ed.review_by?String(ed.review_by).slice(0,10):''}"></div>
      </div>
-     <div class="note">The pass mark and questions-per-attempt control how
-      the learner quiz runs. <b>Built on code / standard</b> and <b>Review by</b>
-      guard against content rot — when the review date passes, the module is
-      flagged for re-check against the current code so learners are never
-      trained on a superseded clause.</div>
-    </div>
+    </details>
 
-    <div class="note"><b>Topics &amp; question bank.</b> Add source text
-     above (paste, or attach a PDF/Word/PowerPoint), give a keyword, then
-     let AI propose topics. You approve/edit the topics, then generate a
-     bank of fact &amp; judgment items per topic — every item is editable,
-     retirable and prunable before you save the module.</div>
+    <div class="subt" style="margin-top:14px"><b>Topics &amp; question bank.</b> Propose topics from your source text, approve them, then generate questions per topic.</div>
 
 
     <div style="margin:12px 0">
@@ -497,7 +506,7 @@ function renderCourse(cid){
       if(ed&&m.id===EDIT_ID){
         h+=`<div class="item" id="edCard" style="display:block;border:2px solid var(--steel)">
           <div style="font-weight:700;font-size:calc(15px + var(--ts));margin-bottom:6px">✎ Editing: ${esc(m.title)}</div>
-          <div class="note">Change anything below — title, lesson text, topics, or any quiz question — then press <b>Update module</b> to save your changes onto this same module, or <b>Cancel</b> to discard.</div>
+          <div class="subt">Editing this module — press <b>Update module</b> to save, <b>Cancel</b> to discard.</div>
           ${EDF}</div>`;
       } else {
         const _dis=ed?' disabled style="opacity:.45;pointer-events:none"':'';
