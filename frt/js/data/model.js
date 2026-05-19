@@ -397,6 +397,14 @@ export var Model = {
         // Also backfills addressedOnInstance/addressedDate so previously
         // closed observations get correctly filtered against currentFrtInstance.
         (d.observations || []).forEach(function(o) {
+          // ── S151: per-obs recommendation backfill (idempotent, additive) ──
+          // Pre-S151 data carried recommendation only at the pin level (S138).
+          // The pin-level default ran above (d.isRecommendation defined here),
+          // so inherit it onto EVERY obs: a legacy recommendation pin keeps
+          // ALL its observations as recommendations — no data lost. Pin-level
+          // d.isRecommendation is retained as a derived rollup, kept in sync
+          // by setRecommendation / setObsRecommendation.
+          if (o.isRecommendation === undefined) o.isRecommendation = !!d.isRecommendation;
           if (o.priority === undefined) o.priority = d.priority || 'high';
           if (o.addressed && o.addressedOnInstance === undefined) {
             o.addressedOnInstance = d.closedOnInstance || _migInst;
@@ -729,6 +737,7 @@ export var Model = {
         notedOnInstance: inst,
         notedDate: today,
         addressed: false,
+        isRecommendation: false,             // S151: per-obs recommendation flag (additive; pin-level d.isRecommendation kept as a derived rollup)
         priority: 'high',                    // S119: per-obs priority
         createdBy: _currentUserId || null,   // S83
         // ── S134: trade-based grouping schema ──
@@ -856,6 +865,7 @@ export var Model = {
       notedOnInstance: inst,
       notedDate: today,
       addressed: false,
+      isRecommendation: false,             // S151: per-obs rec flag. Deliberately does NOT inherit from sibling obs (unlike priority/trade) — rec classification is a deliberate per-item decision that routes the item in the principals' report.
       priority: inheritPri,                // S119: per-obs priority
       createdBy: _currentUserId || null,   // S83
       // ── S134: trade-based grouping schema ──
@@ -1817,18 +1827,39 @@ export var Model = {
     return true;
   },
 
-  // S150 (Mark): per-pin Recommendation flag setter. isRecommendation is a
-  // whole-pin property (not per-observation). Toggling it only reclassifies
-  // which section the pin renders in (Recommendation vs Deficiency/Site
-  // Record by contractor presence) — fully reversible, no data moved or
-  // lost. Same persist/notify idiom as reassignDeficiency.
+  // S151 (Mark): recommendation is now PER-OBSERVATION. setRecommendation is
+  // the whole-pin convenience — it sets EVERY observation (used by the
+  // add-deficiency modal, where a fresh pin has exactly one obs). The
+  // pin-level d.isRecommendation is retained as a DERIVED ROLLUP (true iff
+  // any obs is a recommendation) so legacy readers / JSON round-trip / merge
+  // stay valid through the per-obs migration. Fully reversible, no data lost.
   setRecommendation: function(deficId, val) {
     var f = this.findDeficiency(deficId);
     if (!f || !f.defic) return false;
-    f.defic.isRecommendation = !!val;
+    var v = !!val;
+    (f.defic.observations || []).forEach(function(o) { if (o) o.isRecommendation = v; });
+    f.defic.isRecommendation = v;   // rollup stays consistent (every obs == v)
     _dirty = true;
     _queueSave();
-    this._notify('deficiency', { action: 'set-recommendation', deficId: deficId, isRecommendation: !!val });
+    this._notify('deficiency', { action: 'set-recommendation', deficId: deficId, isRecommendation: v });
+    return true;
+  },
+
+  // S151 (Mark): per-observation recommendation setter. Sets ONE obs, then
+  // recomputes the pin-level rollup (true iff ANY obs is a recommendation).
+  // This is what the per-obs star in Detailed/Table/Board will call so that
+  // #1A and #1B flip independently. Same persist/notify idiom; the notify
+  // carries obsIdx so the in-place flip can target the single (defic,obs).
+  setObsRecommendation: function(deficId, obsIdx, val) {
+    var f = this.findDeficiency(deficId);
+    if (!f || !f.defic) return false;
+    var obs = f.defic.observations || [];
+    if (obsIdx < 0 || obsIdx >= obs.length || !obs[obsIdx]) return false;
+    obs[obsIdx].isRecommendation = !!val;
+    f.defic.isRecommendation = obs.some(function(o) { return o && o.isRecommendation; });
+    _dirty = true;
+    _queueSave();
+    this._notify('deficiency', { action: 'set-recommendation', deficId: deficId, obsIdx: obsIdx, isRecommendation: !!val });
     return true;
   },
 
@@ -1866,6 +1897,10 @@ export var Model = {
     (newDefic.observations || []).forEach(function(o) {
       if (o) o.id = _uid('obs');
     });
+    // S151: keep the derived rollup consistent on the clone. The JSON clone
+    // already carries per-obs isRecommendation correctly; this just re-asserts
+    // the pin-level rollup invariant defensively.
+    newDefic.isRecommendation = (newDefic.observations || []).some(function(o) { return o && o.isRecommendation; });
     f.arr.push(newDefic);
     _dirty = true;
     _queueSave();
