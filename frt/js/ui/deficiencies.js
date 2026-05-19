@@ -141,6 +141,13 @@ var _dfxFoldTrade = {};                    // {tradeName | '__recs__' | '__siter
 var _dfxFoldCtr = {};                      // {tradeName '::' ctrId}: true = collapsed (per-contractor, per its trade section — B1 fan-out aware)
 var _dfxSectionKeys = [];                  // section keys present in the last Detailed render (drives Collapse all / Expand all)
 var _pickCtrId = null;                     // S142 §2: contractor awaiting a trade click (pick-mode); null = not picking
+// S153 Batch 2: Board dual-input move state. Transient, never persisted.
+//   _bvSel  = { id, oi } the currently tap-selected Board card (tablet
+//             tap-to-move); null = nothing selected.
+//   _bvDrag = { id, oi } the card under an in-flight desktop drag; null
+//             = no drag. Cleared on drop / dragend / Escape / render.
+var _bvSel = null;
+var _bvDrag = null;
 // S143 (Phase 3 G/3.5): show/hide the per-observation inspector initials chip.
 // Persisted; default ON. '0' = hidden.
 var _showInspChip = (function () {
@@ -1784,10 +1791,22 @@ function _renderBoardView(proj, container) {
     var tradeChip = trade
       ? '<span class="dfx-bv-card-trade has-trade" style="' + _tradeVars(trade) + '">' + esc(trade) + '</span>'
       : '<span class="dfx-bv-card-trade no-trade">no trade</span>';
-    return '<div class="dfx-bv-card" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '">'
+    // S153 Batch 2: the card ROOT is the tap-to-select / drag handle for
+    // moving (locked §1). The pin EDITOR opens only via the dedicated
+    // ↗ control (data-action="dfx-goto" reuses the existing _openPinFocus
+    // delegate) — Option 1, so card-body tap is never an accidental open
+    // for field tablets. data-bv-* carry the move payload; non-moveable
+    // legacy 0-obs pins (oi<0) are not draggable and not selectable
+    // (open them via ↗ to edit). The rec ★ and trade pill keep their
+    // own handlers (guarded out of the move/select path).
+    var _curLane = clsOf(r);
+    var _moveable = (oi >= 0);
+    var _sel = !!(_bvSel && _bvSel.id === d.id && _bvSel.oi === oi);
+    return '<div class="dfx-bv-card' + (_sel ? ' dfx-bv-sel' : '') + '" data-bv="card" data-bv-id="' + esc(d.id) + '" data-bv-oi="' + oi + '" data-bv-lane="' + _curLane + '"' + (_moveable ? ' draggable="true"' : '') + '>'
       + '<div class="dfx-bv-card-top">'
       + '<span class="dfx-bv-card-num">#' + esc(_dfxObsLabel(d, oi)) + '</span>'
       + '<span class="dfx-bv-card-ctr" style="--cc:' + esc(cColor) + ';">' + esc(cName) + '</span>'
+      + '<button type="button" class="dfx-bv-open" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '"' + _bvObsAttr + ' title="Open this pin to edit" aria-label="Open pin to edit">\u2197</button>'
       + '</div>'
       + '<div class="dfx-bv-card-text">' + esc(desc) + '</div>'
       + '<div class="dfx-bv-card-bottom">'
@@ -1796,9 +1815,9 @@ function _renderBoardView(proj, container) {
       + tradeChip
       + '</div></div>';
   }
-  function col(cls, label, arr) {
+  function col(cls, label, pri, arr) {
     var body = arr.length ? arr.map(card).join('') : '<div class="dfx-bv-empty">none</div>';
-    return '<div class="dfx-bv-col">'
+    return '<div class="dfx-bv-col" data-bv-pri="' + pri + '">'
       + '<div class="dfx-bv-col-hdr ' + cls + '"><span>' + label + '</span><span class="dfx-bv-col-count">' + arr.length + '</span></div>'
       + '<div class="dfx-bv-col-body">' + body + '</div></div>';
   }
@@ -1814,10 +1833,10 @@ function _renderBoardView(proj, container) {
       else b.high.push(r);
     });
     return '<div class="dfx-board">'
-      + col('h', 'High Priority', b.high)
-      + col('l', 'Low Priority', b.low)
-      + col('g', 'General', b.general)
-      + col('c', 'Closed', b.closed)
+      + col('h', 'High Priority', 'high', b.high)
+      + col('l', 'Low Priority', 'low', b.low)
+      + col('g', 'General', 'general', b.general)
+      + col('c', 'Closed', 'closed', b.closed)
       + '</div>';
   }
   var LANES = [
@@ -3455,7 +3474,8 @@ document.addEventListener('click', function(e) {
   }
   if (!_pickCtrId) return;
   if (e.target.closest && (e.target.closest('.crx-tpill')
-      || e.target.closest('.crx-addbtn') || e.target.closest('.crx-pickbar'))) return;
+      || e.target.closest('.crx-addbtn') || e.target.closest('.crx-pickbar')
+      || e.target.closest('[data-bv="card"]'))) return;  // S153 B2: a Board card is a valid pick target (arm ⊕ → click card → reassign)
   _pickCtrId = null;
   initDeficiencies.render();
 }, true);
@@ -3470,6 +3490,165 @@ document.addEventListener('keydown', function(e) {
     initDeficiencies.render();
   }
 });
+
+// ════════════════════════════════════════════════════════════════════
+// S153 Batch 2 — Board dual-input move (drag + tap-to-move + armed-assign)
+// ════════════════════════════════════════════════════════════════════
+// Locked spec §1: every move works BOTH by desktop drag-and-drop AND by
+// tablet tap-to-move. Tap a card → it's selected (_bvSel) → tap a
+// priority column (lane + priority) or a lane banner / empty lane area
+// (lane only, priority kept) to move it. Drag does the same via column
+// drop targets. Trades stay tap-only (their own pill/menu, never drag).
+// Contractor reassign = the existing roster ClickAssign: arm a
+// contractor's ⊕ then click a Board card → that pin reassigns to the
+// contractor (the §1 "click a card" path; the trade-pill-while-armed
+// path is unchanged and handled elsewhere). Lane moves RE-DERIVE
+// classification through the real Model APIs (class is never stored):
+//   → REC     : setObsRecommendation(true)
+//   → DEFIC   : setObsRecommendation(false)  (no contractor ⇒ still a
+//               Site Record by derivation — the toast says so)
+//   → SITEREC : setObsRecommendation(false) + reassignDeficiency(null)
+// Priority/closed (column targets only), per observation:
+//   closed column   : toggleObsAddressed → addressed
+//   priority column : if addressed, toggleObsAddressed (reopen) then
+//                     updateObsPriority(targetPriority)
+// Every op is a real Model method (queue-save + notify); one
+// initDeficiencies.render() repaints. oi<0 legacy 0-obs pins are not
+// moveable — open them via ↗ to edit. All listeners are document-level
+// delegates, so they survive every re-render with no per-element
+// rebinding (FRT pattern), and bail unless the Board view is active.
+var _bvDragOverEl = null;
+function _bvHasCtr(id) {
+  var f = Model.findDeficiency(id);
+  return !!(f && f.contractor);
+}
+function _bvObsAt(id, oi) {
+  var f = Model.findDeficiency(id);
+  if (!f || !f.defic) return null;
+  var obs = f.defic.observations || [];
+  return (oi >= 0 && obs[oi]) ? obs[oi] : null;
+}
+function _bvClearDrag() {
+  _bvDrag = null;
+  if (_bvDragOverEl) { _bvDragOverEl.classList.remove('dfx-bv-dragover'); _bvDragOverEl = null; }
+  document.querySelectorAll('.dfx-bv-dragging').forEach(function(n) { n.classList.remove('dfx-bv-dragging'); });
+  document.querySelectorAll('.dfx-bv-dragover').forEach(function(n) { n.classList.remove('dfx-bv-dragover'); });
+}
+function _bvApplyMove(id, oi, toLane, toPri) {
+  if (!(oi >= 0)) { toast('\u26A0 This legacy pin has no observation to move \u2014 open it (\u2197) to edit.'); return; }
+  var ob = _bvObsAt(id, oi);
+  if (!ob) { toast('\u26A0 Observation no longer exists'); _bvSel = null; initDeficiencies.render(); return; }
+  var msg = [];
+  // ── lane (classification is derived; we set the real flags) ──
+  if (toLane === 'REC') {
+    if (!ob.isRecommendation) { Model.setObsRecommendation(id, oi, true); msg.push('\u2192 Recommendation'); }
+  } else if (toLane === 'DEFIC') {
+    if (ob.isRecommendation) { Model.setObsRecommendation(id, oi, false); msg.push('\u2192 Deficiency'); }
+    if (!_bvHasCtr(id)) msg.push('no contractor \u2014 still a Site Record (use the roster \u2295 to assign one)');
+  } else if (toLane === 'SITEREC') {
+    if (ob.isRecommendation) Model.setObsRecommendation(id, oi, false);
+    if (_bvHasCtr(id)) { Model.reassignDeficiency(id, null); msg.push('\u2192 Site Record (contractor cleared for this pin)'); }
+    else msg.push('\u2192 Site Record');
+  }
+  // ── priority / closed (column targets only) ──
+  if (toPri) {
+    var ob2 = _bvObsAt(id, oi);   // re-read: a rec/contractor move may have re-homed the defic
+    if (ob2) {
+      if (toPri === 'closed') {
+        if (!ob2.addressed) { Model.toggleObsAddressed(id, oi); msg.push('\u2192 Closed'); }
+      } else {
+        if (ob2.addressed) Model.toggleObsAddressed(id, oi);
+        if ((ob2.priority || 'high') !== toPri || ob2.addressed) {
+          Model.updateObsPriority(id, oi, toPri); msg.push('priority \u2192 ' + toPri);
+        }
+      }
+    }
+  }
+  _bvSel = null;
+  initDeficiencies.render();
+  toast(msg.length ? ('\u2714 ' + msg.join(' \u00B7 ')) : '\u2714 No change');
+}
+
+document.addEventListener('click', function(e) {
+  if (_deficView !== 'board') return;
+  var card = e.target.closest && e.target.closest('[data-bv="card"]');
+  var onCtl = e.target.closest && (e.target.closest('[data-action="dfx-goto"]')
+    || e.target.closest('[data-action="toggle-rec"]')
+    || e.target.closest('.dfx-bv-card-trade'));
+  if (card) {
+    if (onCtl) return;                       // ↗ open / ★ rec / trade pill keep their own handlers
+    var id = card.getAttribute('data-bv-id');
+    var oi = parseInt(card.getAttribute('data-bv-oi'), 10);
+    if (_pickCtrId) {                         // §1: armed roster ⊕ + click card → reassign the pin
+      Model.reassignDeficiency(id, _pickCtrId);
+      _pickCtrId = null; _bvSel = null;
+      initDeficiencies.render();
+      var _c = Model.findDeficiency(id);
+      toast('\u2714 Assigned to ' + ((_c && _c.contractor && _c.contractor.name) || 'contractor'));
+      return;
+    }
+    if (!(oi >= 0)) { toast('\u26A0 Open this pin (\u2197) to edit \u2014 it has no observation to move.'); return; }
+    if (_bvSel && _bvSel.id === id && _bvSel.oi === oi) _bvSel = null;   // tap a selected card again = deselect
+    else _bvSel = { id: id, oi: oi };
+    initDeficiencies.render();
+    return;
+  }
+  if (!_bvSel) return;                        // no pending selection → nothing to place
+  var colEl = e.target.closest && e.target.closest('.dfx-bv-col');
+  if (colEl) {
+    var laneEl = colEl.closest('.dfx-lane-sec');
+    _bvApplyMove(_bvSel.id, _bvSel.oi,
+      laneEl ? laneEl.getAttribute('data-cls') : null,
+      colEl.getAttribute('data-bv-pri'));
+    return;
+  }
+  var laneOnly = e.target.closest && e.target.closest('.dfx-lane-sec');
+  if (laneOnly) {                             // lane banner / empty lane area = lane change only
+    _bvApplyMove(_bvSel.id, _bvSel.oi, laneOnly.getAttribute('data-cls'), null);
+  }
+});
+
+document.addEventListener('dragstart', function(e) {
+  if (_deficView !== 'board') return;
+  var card = e.target.closest && e.target.closest('[data-bv="card"][draggable="true"]');
+  if (!card) return;
+  var oi = parseInt(card.getAttribute('data-bv-oi'), 10);
+  if (!(oi >= 0)) return;
+  _bvDrag = { id: card.getAttribute('data-bv-id'), oi: oi };
+  card.classList.add('dfx-bv-dragging');
+  try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', _bvDrag.id); } catch (e2) {}
+});
+document.addEventListener('dragover', function(e) {
+  if (!_bvDrag) return;
+  var col = e.target.closest && e.target.closest('.dfx-bv-col');
+  if (!col) return;
+  e.preventDefault();
+  try { e.dataTransfer.dropEffect = 'move'; } catch (e3) {}
+  if (_bvDragOverEl && _bvDragOverEl !== col) _bvDragOverEl.classList.remove('dfx-bv-dragover');
+  col.classList.add('dfx-bv-dragover');
+  _bvDragOverEl = col;
+});
+document.addEventListener('drop', function(e) {
+  if (!_bvDrag) return;
+  var col = e.target.closest && e.target.closest('.dfx-bv-col');
+  if (!col) { _bvClearDrag(); return; }
+  e.preventDefault();
+  var laneEl = col.closest('.dfx-lane-sec');
+  var d = _bvDrag;
+  _bvClearDrag();
+  _bvApplyMove(d.id, d.oi, laneEl ? laneEl.getAttribute('data-cls') : null, col.getAttribute('data-bv-pri'));
+});
+document.addEventListener('dragend', function() { _bvClearDrag(); });
+
+// Esc clears a pending Board selection / in-flight drag (bubble phase, no
+// stopPropagation — consistent with the S142 pick-mode Esc rule).
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && (_bvSel || _bvDrag)) {
+    _bvSel = null; _bvClearDrag();
+    initDeficiencies.render();
+  }
+});
+// End S153 Batch 2 ───────────────────────────────────────────────────
 
 // ── Deficiency Search ────────────────────────────────────
 var _searchQuery = '';

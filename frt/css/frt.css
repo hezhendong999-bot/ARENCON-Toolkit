@@ -8011,3 +8011,59 @@ body.dark-mode .dfx-bv-card-trade.has-trade {
   color: var(--silver);
 }
 /* End S153 ──────────────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   S153 Batch 2 — Board dual-input move (select / drag / drop / open)
+   ════════════════════════════════════════════════════════════════════
+   Card body = tap-to-select / drag handle (locked §1). The dedicated
+   ↗ control opens the pin editor (Option 1 — no accidental opens on
+   field tablets). Touch parity is mandatory: ↗ is enlarged under
+   @media(pointer:coarse). Selected state is a clear burgundy ring so an
+   inspector always sees which card will move next.
+   ──────────────────────────────────────────────────────────────────── */
+.dfx-bv-open {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--silver);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: calc(12px + var(--ts));
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+}
+.dfx-bv-open:hover { border-color: #9C2742; color: #9C2742; background: rgba(156, 39, 66, 0.06); }
+body.dark-mode .dfx-bv-open:hover { border-color: #E0A0B0; color: #E0A0B0; }
+@media (pointer: coarse) {
+  .dfx-bv-open { width: 34px; height: 34px; font-size: calc(15px + var(--ts)); }
+}
+.dfx-bv-card[draggable="true"] { cursor: grab; }
+.dfx-bv-card[draggable="true"]:active { cursor: grabbing; }
+.dfx-bv-card.dfx-bv-sel {
+  outline: 3px solid #9C2742;
+  outline-offset: 1px;
+  box-shadow: 0 6px 18px rgba(156, 39, 66, 0.28);
+}
+body.dark-mode .dfx-bv-card.dfx-bv-sel {
+  outline-color: #E0A0B0;
+  box-shadow: 0 6px 18px rgba(224, 160, 176, 0.22);
+}
+.dfx-bv-card.dfx-bv-dragging { opacity: 0.4; }
+.dfx-bv-col.dfx-bv-dragover .dfx-bv-col-body {
+  background: rgba(156, 39, 66, 0.06);
+  outline: 2px dashed #9C2742;
+  outline-offset: -4px;
+  border-radius: 0 0 6px 6px;
+}
+body.dark-mode .dfx-bv-col.dfx-bv-dragover .dfx-bv-col-body {
+  background: rgba(224, 160, 176, 0.08);
+  outline-color: #E0A0B0;
+}
+/* End S153 Batch 2 ───────────────────────────────────────────────────── */
