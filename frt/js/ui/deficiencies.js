@@ -538,15 +538,11 @@ function _buildPinGroupCard(d, ctrId) {
     } else {
       h += '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" style="border:1px dashed var(--border);background:transparent;color:var(--silver);border-radius:4px;padding:2px 8px;font-size:calc(10px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;">\uD83D\uDCCC Pin</button>';
     }
-    // S150 (Mark): per-pin Recommendation toggle. isRecommendation is a
-    // whole-pin flag, so it lives once on the pin strip (NOT per obs). This
-    // builder is shared by the Detailed list AND the focused pin editor
-    // (_buildPinFocusBody → buildDeficCard → _buildPinGroupCard), so this
-    // single placement satisfies both "in the list" and "in the pin
-    // editor". On = it's a Recommendation (keeps its trade + contractor);
-    // off = reverts to Deficiency (has contractor) or Site Record (none).
-    var _isRec = !!d.isRecommendation;
-    h += '<button data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" class="pin-rec-toggle' + (_isRec ? ' is-rec' : '') + '" aria-pressed="' + (_isRec ? 'true' : 'false') + '" title="' + (_isRec ? 'This pin is a Recommendation \u2014 click to revert it to a normal item' : 'Mark this pin as a Recommendation') + '">' + (_isRec ? '\u2605 Recommendation' : '\u2606 Mark as recommendation') + '</button>';
+    // S151 (Mark): the Recommendation star is now PER-OBSERVATION and is
+    // rendered on each obs card's control row (above). It no longer lives
+    // on the pin strip. setObsRecommendation keeps the pin-level rollup in
+    // sync so legacy readers / the report stay valid until step 3 splits
+    // the on-screen layout per observation.
     h += '</div>'; // /defic-pin-strip
   }
 
@@ -594,8 +590,17 @@ function _buildPinGroupCard(d, ctrId) {
     if (_frtChip) h += _frtChip;
     h += '</div>';
 
-    // Row 2 — controls. Order: Outstanding → Priority → Contractor → Trade | Spinoff → Remove obs (S150: contractor before trade)
+    // Row 2 — controls. Order: Recommendation → Outstanding → Priority → Contractor → Trade | Spinoff → Remove obs (S151: per-obs rec star leads)
     h += '<div class="defic-obs-card-ctrls">';
+
+    // S151 (Mark): per-OBSERVATION Recommendation toggle. Reuses the
+    // existing .pin-rec-toggle pill (incl. S150 amber styling) but is now
+    // emitted once per obs with data-obs-idx so #1A / #1B flip
+    // independently (setObsRecommendation keeps the pin-level rollup in
+    // sync). Layout — which section a pin renders in — still uses the pin
+    // rollup until step 3; step 2 only makes the stars per-obs.
+    var _oIsRec = !!o.isRecommendation;
+    h += '<button data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="pin-rec-toggle' + (_oIsRec ? ' is-rec' : '') + '" aria-pressed="' + (_oIsRec ? 'true' : 'false') + '" title="' + (_oIsRec ? 'This observation is a Recommendation — click to revert it' : 'Mark this observation as a Recommendation') + '">' + (_oIsRec ? '★ Recommendation' : '☆ Mark as recommendation') + '</button>';
 
     // Outstanding toggle button (NOT a select). Light grey when open,
     // green when addressed. Single click flips state via toggle-addressed.
@@ -1707,9 +1712,13 @@ function _renderTableView(proj, container) {
     var cName = r.ctrId ? r.ctrName : SITE_RECORDS_LABEL;
     var desc = (oi >= 0) ? (o.text || '') : deficDesc(d);
     var numCls = closed ? 'closed' : (pri === 'low' ? 'low' : pri === 'general' ? 'general' : '');
-    var _trIsRec = !!d.isRecommendation;
+    // S151: per-obs rec flag for the row (rows are already per-(defic,obs)).
+    // oi<0 = a pin-summary row → fall back to the pin rollup (no obs-idx →
+    // the handler treats it as whole-pin).
+    var _trIsRec = (oi >= 0 && o) ? !!o.isRecommendation : !!d.isRecommendation;
+    var _trObsAttr = (oi >= 0) ? ' data-obs-idx="' + oi + '"' : '';
     h += '<tr class="' + (closed ? 'dfx-closed' : '') + '" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '">'
-      + '<td class="dfx-tbl-star-c"><button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" class="dfx-tbl-star' + (_trIsRec ? ' is-rec' : '') + '" aria-pressed="' + (_trIsRec ? 'true' : 'false') + '" title="' + (_trIsRec ? 'This is a Recommendation — click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (_trIsRec ? '★' : '☆') + '</button></td>'
+      + '<td class="dfx-tbl-star-c"><button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '"' + _trObsAttr + ' class="dfx-tbl-star' + (_trIsRec ? ' is-rec' : '') + '" aria-pressed="' + (_trIsRec ? 'true' : 'false') + '" title="' + (_trIsRec ? 'This is a Recommendation — click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (_trIsRec ? '★' : '☆') + '</button></td>'
       + '<td><span class="dfx-tbl-num ' + numCls + '">#' + esc(_dfxObsLabel(d, oi)) + '</span></td>'
       + '<td>' + (trade ? esc(trade) : '<em style="color:var(--silver);">none</em>') + '</td>'
       + '<td>' + (r.ctrId ? '<span class="dfx-tbl-ctr" style="--cc:' + esc(_dfxCtrColor(proj, r.ctrId)) + ';"></span>' : '') + esc(cName) + '</td>'
@@ -1745,6 +1754,9 @@ function _renderBoardView(proj, container) {
     var cColor = _dfxCtrColor(proj, r.ctrId);
     var trade = (oi >= 0 ? (o.trade || '') : ((d.observations && d.observations[0] && d.observations[0].trade) || ''));
     var desc = (oi >= 0) ? (o.text || '') : deficDesc(d);
+    // S151: per-obs rec for the board card (oi<0 → pin-rollup fallback).
+    var _bvIsRec = (oi >= 0 && o) ? !!o.isRecommendation : !!d.isRecommendation;
+    var _bvObsAttr = (oi >= 0) ? ' data-obs-idx="' + oi + '"' : '';
     return '<div class="dfx-bv-card" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '">'
       + '<div class="dfx-bv-card-top">'
       + '<span class="dfx-bv-card-num">#' + esc(_dfxObsLabel(d, oi)) + '</span>'
@@ -1753,7 +1765,7 @@ function _renderBoardView(proj, container) {
       + '<div class="dfx-bv-card-text">' + esc(desc) + '</div>'
       + '<div class="dfx-bv-card-bottom">'
       + _dfxThumb(d, oi, 'dfx-bv-card-thumb')
-      + '<button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" class="dfx-tbl-star' + (d.isRecommendation ? ' is-rec' : '') + '" aria-pressed="' + (d.isRecommendation ? 'true' : 'false') + '" title="' + (d.isRecommendation ? 'This is a Recommendation — click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (d.isRecommendation ? '★' : '☆') + '</button>'
+      + '<button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '"' + _bvObsAttr + ' class="dfx-tbl-star' + (_bvIsRec ? ' is-rec' : '') + '" aria-pressed="' + (_bvIsRec ? 'true' : 'false') + '" title="' + (_bvIsRec ? 'This is a Recommendation — click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (_bvIsRec ? '★' : '☆') + '</button>'
       + '<span class="dfx-bv-card-trade">' + esc(trade || 'none') + '</span>'
       + '</div></div>';
   }
@@ -2563,27 +2575,43 @@ document.addEventListener('click', function(e) {
     if (window._frtRenderTasks) window._frtRenderTasks();
   }
 
-  // S150 (Mark): per-pin Recommendation toggle. Flips the whole-pin flag,
-  // refreshes the focused pin-editor body in place when it's open on this
-  // pin, then re-renders the list (the pin moves between the Recommendation
-  // and Deficiency/Site-Records sections). Reversible; no data moved.
+  // S151 (Mark): Recommendation toggle is now PER-OBSERVATION. The clicked
+  // star carries data-obs-idx → flip just that observation
+  // (setObsRecommendation, which also re-derives the pin-level rollup) and
+  // flip ONLY that (defic,obs)'s stars in place, so #1A toggles without
+  // touching #1B. A star with no data-obs-idx (a pin-summary row) keeps the
+  // whole-pin path (setRecommendation sets every obs) and flips all of the
+  // pin's stars. S150g hold-until-nav behaviour is unchanged: the card stays
+  // put, the list only resettles on the next deliberate render. Layout still
+  // groups by the pin rollup until step 3 splits it per observation.
   if (action === 'toggle-rec') {
     var _rdid = el.getAttribute('data-defic-id');
     if (_rdid) {
       var _rf = Model.findDeficiency(_rdid);
       if (_rf && _rf.defic) {
-        var _newRec = !_rf.defic.isRecommendation;
-        Model.setRecommendation(_rdid, _newRec);   // saves immediately (queued)
-        // S150g (Mark): do NOT re-render the list, and hold off the auto
-        // re-render the queued save would otherwise trigger (via 'saved').
-        // The card stays exactly where it is; we flip EVERY star for this
-        // pin in place so a mis-tap is one tap from undo. The list only
-        // resettles on the next deliberate render (view/pivot/filter
-        // change, leaving & returning, project/photo load) — that render
-        // clears _recHoldUntilNav at its top.
+        var _roAttr = el.getAttribute('data-obs-idx');
+        var _perObs = (_roAttr !== null && _roAttr !== '');
+        var _roidx = _perObs ? parseInt(_roAttr, 10) : -1;
+        var _obs = _perObs ? ((_rf.defic.observations || [])[_roidx]) : null;
+        if (_perObs && !_obs) return;  // stale index — bail rather than guess
+        var _newRec = _perObs ? !_obs.isRecommendation : !_rf.defic.isRecommendation;
+        if (_perObs) {
+          Model.setObsRecommendation(_rdid, _roidx, _newRec);  // saves (queued); re-derives rollup
+        } else {
+          Model.setRecommendation(_rdid, _newRec);             // whole pin (every obs)
+        }
+        // S150g: do NOT re-render; hold off the auto re-render the queued
+        // save would trigger (via 'saved'). The card stays exactly where it
+        // is so a mis-tap is one tap from undo. The list resettles on the
+        // next deliberate render (view/pivot/filter change, leave & return,
+        // project/photo load) — that render clears _recHoldUntilNav.
         _recHoldUntilNav = true;
         var _sel = (window.CSS && CSS.escape) ? CSS.escape(_rdid) : _rdid;
-        var _stars = document.querySelectorAll('[data-action="toggle-rec"][data-defic-id="' + _sel + '"]');
+        // Per-obs: scope the in-place flip to THIS (defic,obs) so siblings
+        // are untouched. Whole-pin: every star for the pin (all obs were set).
+        var _q = '[data-action="toggle-rec"][data-defic-id="' + _sel + '"]'
+               + (_perObs ? '[data-obs-idx="' + _roidx + '"]' : '');
+        var _stars = document.querySelectorAll(_q);
         Array.prototype.forEach.call(_stars, function(b) {
           var isPill = b.classList.contains('pin-rec-toggle');
           b.classList.toggle('is-rec', _newRec);
@@ -2591,16 +2619,16 @@ document.addEventListener('click', function(e) {
           if (isPill) {
             b.textContent = _newRec ? '★ Recommendation' : '☆ Mark as recommendation';
             b.setAttribute('title', _newRec
-              ? 'This pin is a Recommendation — click to revert it to a normal item'
-              : 'Mark this pin as a Recommendation');
+              ? 'This observation is a Recommendation — click to revert it'
+              : 'Mark this observation as a Recommendation');
           } else {
             b.textContent = _newRec ? '★' : '☆';
             b.setAttribute('title', _newRec
               ? 'This is a Recommendation — click to revert it to a normal item'
               : 'Mark this as a Recommendation');
           }
-          // Subtle "changed — tap star to revert; resettles on refresh"
-          // cue on the enclosing card. Skipped in the single-pin editor
+          // Subtle "changed — tap star to revert; resettles on refresh" cue
+          // on the enclosing card. Skipped in the single-pin editor
           // (#pinfocus-body never relocates). Cleared on the next full
           // re-render when the card is rebuilt fresh.
           if (!b.closest('#pinfocus-body')) {
