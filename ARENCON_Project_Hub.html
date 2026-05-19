@@ -4626,16 +4626,22 @@ function _pgEscHtml(s) {
   }
 
   function checkInactivity() {
-    // Only check if user is logged in and has a PIN set
-    if (!_user || !_pinHash || _locked) return;
+    // S154 Bug #3: dropped _pinHash early-return so no-PIN users
+    // actually get signed out instead of staying in indefinitely.
+    // PIN users → soft pin-lock at SOFT_LOCK_MS; no-PIN users →
+    // full sign-out at SOFT_LOCK_MS (we have no screen-lock fallback
+    // without a PIN). HARD_LOCK_MS still forces full sign-out for
+    // everyone regardless of PIN state.
+    if (!_user || _locked) return;
     var elapsed = Date.now() - getLastActivity();
     if (elapsed >= HARD_LOCK_MS) {
-      // Full sign-out — no PIN option
+      // Full sign-out (everyone)
       doLogout();
       return;
     }
     if (elapsed >= SOFT_LOCK_MS) {
-      showPinLock();
+      if (_pinHash) showPinLock();   // PIN users → soft lock
+      else doLogout();                // no-PIN users → full sign-out
     }
   }
 
