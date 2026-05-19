@@ -768,6 +768,7 @@ export var initViewer = {
     if (overlay) overlay.classList.remove('open');
     document.body.classList.remove('dv-open');
     _currentDrawingIdx = -1;
+    if (window._frtClearReturnPin) window._frtClearReturnPin(); // S151: drop stale "← Back to pin" chip
   },
 
   next: function() {
@@ -3560,7 +3561,64 @@ window._frtNavigateToPin = function(deficId) {
   return true;
 };
 
-// ── Tasks Panel ─────────────────────────────────────────
+// ── S151 (Mark): single-route "← Back to pin #N" return ───────────────
+// Narrow, deliberate NON-architectural helper: when the user jumps from
+// the focused-pin modal to the drawing via "View on drawing", we show one
+// chip in the viewer that takes them straight back to that focused pin.
+// This is NOT a general navigation/back-stack — it is exactly one
+// remembered origin, cleared whenever the viewer closes by any means
+// (see initViewer.close) so it can never go stale or point nowhere.
+var _frtReturnPinId = null;
+
+function _frtRenderReturnChip() {
+  var existing = document.getElementById('dv-return-pin');
+  if (existing) existing.remove();
+  if (!_frtReturnPinId) return;
+  var overlay = document.getElementById('drawing-viewer-overlay');
+  if (!overlay || !overlay.classList.contains('open')) return;
+  var f = Model.findDeficiency(_frtReturnPinId);
+  if (!f || !f.defic) { _frtReturnPinId = null; return; }
+  var num = f.defic.num != null ? f.defic.num : '?';
+  var chip = document.createElement('button');
+  chip.id = 'dv-return-pin';
+  chip.type = 'button';
+  chip.setAttribute('data-defic-id', _frtReturnPinId);
+  chip.textContent = '\u2190 Back to pin #' + num;
+  // Fixed, finger-sized, never hover-dependent (field tablets). Sits
+  // clear of the top toolbar and the close button.
+  chip.style.cssText = 'position:fixed;left:14px;top:64px;z-index:10000;'
+    + 'padding:9px 15px;border:none;border-radius:8px;'
+    + 'background:#9C2742;color:#fff;font-family:Calibri,sans-serif;'
+    + 'font-size:calc(13px + var(--ts));font-weight:700;cursor:pointer;'
+    + 'box-shadow:0 2px 10px rgba(0,0,0,.3);touch-action:manipulation;';
+  overlay.appendChild(chip);
+}
+
+// Public hooks used by the deficiencies view-pin handler + close().
+window._frtSetReturnPin = function(deficId) {
+  _frtReturnPinId = deficId || null;
+  // The viewer opens slightly after this is set; render once it settles,
+  // matching the same 600ms the pin-highlight uses in _frtNavigateToPin.
+  setTimeout(_frtRenderReturnChip, 650);
+};
+window._frtClearReturnPin = function() {
+  _frtReturnPinId = null;
+  var c = document.getElementById('dv-return-pin');
+  if (c) c.remove();
+};
+
+// Tapping the chip: close the viewer, then reopen the focused pin. The
+// reopen is deferred so it lands after the viewer's own close teardown
+// (which also clears _frtReturnPinId — capture the id first).
+document.addEventListener('click', function(e) {
+  var chip = e.target.closest && e.target.closest('#dv-return-pin');
+  if (!chip) return;
+  var pid = chip.getAttribute('data-defic-id');
+  initViewer.close();
+  if (pid && window._frtOpenPinFocus) {
+    setTimeout(function() { window._frtOpenPinFocus(pid); }, 60);
+  }
+});
 window._frtRenderTasks = function() { _renderTasks(); };
 var _tasksVisible = false;
 var _tasksFilter = 'pinned'; // 'pinned' or 'all'

@@ -2662,6 +2662,13 @@ document.addEventListener('click', function(e) {
   //   moved it" failure mode that was the source of the duplicate-pin bug.
   if (action === 'view-pin') {
     var deficId = el.getAttribute('data-defic-id');
+    // S151 (Mark): remember we came FROM the focused-pin modal so the
+    // drawing viewer can offer a "← Back to pin #N" return. Only set when
+    // the focus panel is actually open (i.e. this is a jump, not a plain
+    // list "view on drawing"); cleared by the viewer when it closes any
+    // other way so it never goes stale. Single-route, no nav-stack.
+    var _wasFocused = !!document.getElementById('pinfocus-overlay');
+    if (_wasFocused && window._frtSetReturnPin) window._frtSetReturnPin(deficId);
     _closePinFocus(); // S142 B4-3: drop the focus panel when jumping to the drawing
     if (window._frtNavigateToPin) {
       var ok = window._frtNavigateToPin(deficId);
@@ -3531,4 +3538,9 @@ window._frtGalleryPick = _showGalleryPicker;
 // Remove-pin handlers so the Deficiencies tab refreshes when the pin
 // editor mutates the project from outside the defic tab.
 window._frtRenderDefic = function() { initDeficiencies.render(); };
+
+// S151 (Mark): lets the drawing viewer's single-route "← Back to pin #N"
+// chip reopen the focused-pin modal the user jumped FROM. Pairs with
+// _frtSetReturnPin / _frtClearReturnPin in viewer.js. Not a nav-stack.
+window._frtOpenPinFocus = function(deficId) { _openPinFocus(deficId); };
 
