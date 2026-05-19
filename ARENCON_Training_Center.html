@@ -366,7 +366,9 @@ function renderModule(mid){
   else if(st==='text'&&m.source_text) media=`<div class="txtbox">${esc(m.source_text)}</div>`;
   else media='<div class="media"><div class="ph">No media attached to this module.</div></div>';
 
-  const hasQuiz=Array.isArray(m.quiz)&&m.quiz.length;
+  const _bank=Array.isArray(m.question_bank)?m.question_bank:[];
+  const _legacy=Array.isArray(m.quiz)?m.quiz:[];
+  const hasQuiz=_bank.length>0||_legacy.length>0;
   let h=`<div class="viewer">${media}
     <div class="vbody"><h2>${esc(m.title)}</h2>
     <div class="vds">${esc(m.description||'')}</div>
@@ -397,13 +399,54 @@ async function saveProg(mid,patch){
     PROG[mid]=res[0]||row; }catch(e){ console.warn('progress save',e); }
 }
 
-/* click-only quiz */
+/* click-only quiz — reads question_bank (random draw of draw_size),
+   falls back to legacy m.quiz; grades vs pass_threshold; records a
+   full attempt row in tc_attempts plus the existing tc_progress. */
 function startQuiz(m){
-  const Q=m.quiz; let answered=Array(Q.length).fill(null);
+  const bank=Array.isArray(m.question_bank)?m.question_bank:[];
+  const legacy=Array.isArray(m.quiz)?m.quiz:[];
+  /* normalize to the shape the renderer already uses; carry topic
+     through for the later teaching brain (harmless to ignore now). */
+  function norm(it){ return {q:String(it.q||''),opts:Array.isArray(it.opts)?it.opts:[],
+    answer:typeof it.answer==='number'?it.answer:0,why:String(it.why||''),
+    topic:String(it.topic||'')}; }
+  let pool, Q;
+  if(bank.length){
+    pool=bank.map(norm).filter(x=>x.q&&x.opts.length);
+    const want=Math.max(1,Math.min(parseInt(m.draw_size,10)||10,pool.length));
+    /* Fisher-Yates shuffle, take `want` — fresh subset each attempt */
+    for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1));
+      [pool[i],pool[j]]=[pool[j],pool[i]]; }
+    Q=pool.slice(0,want);
+  } else {
+    Q=legacy.map(norm).filter(x=>x.q&&x.opts.length);   /* legacy: whole set, as before */
+  }
+  if(!Q.length) return;
+  const passMark=Math.max(1,Math.min(parseInt(m.pass_threshold,10)||70,100));
+  const startedAt=new Date();
+  let answered=Array(Q.length).fill(null), recorded=false;
   const mount=document.getElementById('quizMount');
+
+  async function recordAttempt(sc){
+    if(recorded) return; recorded=true;
+    const now=new Date();
+    /* tc_attempts: never send created_by (FK/RLS reject — project rule) */
+    const arow={user_id:ME.id,module_id:m.id,
+      started_at:startedAt.toISOString(),submitted_at:now.toISOString(),
+      duration_sec:Math.max(0,Math.round((now-startedAt)/1000)),
+      score:sc,total:Q.length,
+      asked:Q.map(x=>({q:x.q,opts:x.opts,answer:x.answer,why:x.why,topic:x.topic})),
+      answers:answered,status:'submitted'};
+    try{ await sbUpsert('tc_attempts',arow,'id'); }
+    catch(e){ console.warn('attempt save',e); }
+    saveProg(m.id,{viewed:true,quiz_score:sc,bumpAttempt:true,
+      quiz_data:{answers:answered,at:now.toISOString()}});
+  }
+
   function draw(){
     let h='<div class="quiz"><h3>Knowledge check</h3>'+
-      '<div class="qsub">Tap an answer. You\'ll see the reasoning after each.</div>';
+      '<div class="qsub">Tap an answer. You\'ll see the reasoning after each. '+
+      passMark+'% to pass'+(bank.length?' · '+Q.length+' question'+(Q.length===1?'':'s')+' this attempt':'')+'.</div>';
     Q.forEach((q,i)=>{
       h+=`<div class="qcard"><div class="qn">${i+1}. ${esc(q.q)}</div>`;
       q.opts.forEach((o,j)=>{
@@ -423,12 +466,11 @@ function startQuiz(m){
     const allDone=answered.every(a=>a!=null);
     if(allDone){
       const sc=Math.round(answered.filter((a,i)=>a===Q[i].answer).length/Q.length*100);
-      const pass=sc>=80;
+      const pass=sc>=passMark;
       h+=`<div class="result"><div class="sc ${pass?'pass':'fail'}">${sc}%</div>
-        <div class="rl">${pass?'Solid. Move on when ready.':'Worth another pass — review the reasoning above.'}</div>
+        <div class="rl">${pass?('Passed — '+passMark+'% required. Move on when ready.'):('Not yet — '+passMark+'% needed. Review the reasoning above and try again.')}</div>
         <button class="btn gh" onclick="location.hash='c/${m.course_id}'">Back to course</button></div>`;
-      saveProg(m.id,{viewed:true,quiz_score:sc,bumpAttempt:true,
-        quiz_data:{answers:answered,at:new Date().toISOString()}});
+      recordAttempt(sc);
     }
     mount.innerHTML=h;
     mount.scrollIntoView({behavior:'smooth',block:'start'});
