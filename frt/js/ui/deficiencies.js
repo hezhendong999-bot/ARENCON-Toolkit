@@ -18,7 +18,11 @@ import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { AIAssist } from '../ai/assistant.js';
 
 // ── Helpers ──────────────────────────────────────────────
-function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+// S151 Bug C fix: coerce non-strings before .replace. Latent since esc()
+// existed — callers like esc(d.num) (d.num is a Number) only began reaching
+// it once the Table/Board rows started opening the focused pin. String(...)
+// makes every caller safe; '' guard preserves the old falsy→'' behaviour.
+function esc(s) { return (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function deficDesc(d) {
   if (d.observations && d.observations.length && d.observations[0].text) return d.observations[0].text;
   if (d.entries && d.entries.length && d.entries[0].description) return d.entries[0].description;
