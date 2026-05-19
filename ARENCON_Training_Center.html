@@ -438,7 +438,7 @@ function startQuiz(m){
       duration_sec:Math.max(0,Math.round((now-startedAt)/1000)),
       score:sc,total:Q.length,
       asked:Q.map(x=>({q:x.q,opts:x.opts,answer:x.answer,why:x.why,topic:x.topic})),
-      answers:answered,status:'submitted'};
+      answers:answered,status:'completed'};
     try{ await sbUpsert('tc_attempts',arow,'id'); }
     catch(e){ console.warn('attempt save',e); }
     saveProg(m.id,{viewed:true,quiz_score:sc,bumpAttempt:true,
