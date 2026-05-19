@@ -1054,7 +1054,7 @@ function _renderTradeBoard(proj) {
       var _un = !_ct.length;
       var _n = (c.deficiencies || []).length;
       var _tgt = (_pickCtrId === c.id);
-      h += '<div class="crx-cc' + (_un ? ' crx-unassigned' : '') + (_tgt ? ' crx-target' : '') + '" style="--cc:' + esc(c.color || '#6B7280') + ';">';
+      h += '<div class="crx-cc' + (_un ? ' crx-unassigned' : '') + (_tgt ? ' crx-target' : '') + (_bvSel ? ' crx-assign-target' : '') + '" data-crx-ctr="' + esc(c.id) + '" style="--cc:' + esc(c.color || '#6B7280') + ';">';
       h += '<span class="crx-dot"></span>';
       h += '<span class="crx-nm">' + esc(ctrLabel(c.name)) + '</span>';
       if (_un) h += '<span class="crx-unflag">Unassigned</span>';
@@ -1076,7 +1076,7 @@ function _renderTradeBoard(proj) {
   } else {
     h += '<div class="crx-empty">No contractors yet \u2014 use <strong>+ Add contractor</strong> to start, then click \u2295 on a contractor to assign a trade.</div>';
   }
-  h += '<div class="crx-hint">Click \u2295 on a contractor, then click a glowing trade pill to assign it. \u00D7 on a tag un-assigns just that contractor; \u00D7 on a strip pill deletes the trade everywhere. A golden border means the contractor is on no trade yet.</div>';
+  h += '<div class="crx-hint">On the Board, tap a card then tap a contractor here to assign it. Click \u2295 on a contractor, then click a glowing trade pill to add a trade. \u00D7 on a tag un-assigns just that contractor; \u00D7 on a strip pill deletes the trade everywhere. A golden border means the contractor is on no trade yet.</div>';
 
   el.innerHTML = h;
   document.body.classList.toggle('crx-picking', !!_pickCtrId);
@@ -3594,6 +3594,23 @@ document.addEventListener('click', function(e) {
     return;
   }
   if (!_bvSel) return;                        // no pending selection → nothing to place
+  // S153 B2.1 (Mark): inverted contractor-assign. With a card selected,
+  // tapping the WHOLE contractor roster card (its body — not its inner
+  // ⊕ / rename / delete / × controls, which keep their own handlers)
+  // reassigns the selected card's pin to that contractor. Easier than
+  // the tiny ⊕ on a field tablet; the §1 ⊕-arm-then-click-card path is
+  // unchanged and still works.
+  var ccEl = e.target.closest && e.target.closest('.crx-cc[data-crx-ctr]');
+  if (ccEl && !(e.target.closest('[data-action]') || e.target.closest('button'))) {
+    var _cid = ccEl.getAttribute('data-crx-ctr');
+    var _sid = _bvSel.id;
+    Model.reassignDeficiency(_sid, _cid);
+    _bvSel = null;
+    initDeficiencies.render();
+    var _ac = Model.findDeficiency(_sid);
+    toast('\u2714 Assigned to ' + ((_ac && _ac.contractor && _ac.contractor.name) || 'contractor'));
+    return;
+  }
   var colEl = e.target.closest && e.target.closest('.dfx-bv-col');
   if (colEl) {
     var laneEl = colEl.closest('.dfx-lane-sec');
