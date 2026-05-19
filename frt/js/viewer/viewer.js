@@ -3569,6 +3569,7 @@ window._frtNavigateToPin = function(deficId) {
 // remembered origin, cleared whenever the viewer closes by any means
 // (see initViewer.close) so it can never go stale or point nowhere.
 var _frtReturnPinId = null;
+var _frtReturnTab = null;   // S151 followup: tab the jump started from
 
 function _frtRenderReturnChip() {
   var existing = document.getElementById('dv-return-pin');
@@ -3595,14 +3596,16 @@ function _frtRenderReturnChip() {
 }
 
 // Public hooks used by the deficiencies view-pin handler + close().
-window._frtSetReturnPin = function(deficId) {
+window._frtSetReturnPin = function(deficId, originTab) {
   _frtReturnPinId = deficId || null;
+  _frtReturnTab = originTab || null;
   // The viewer opens slightly after this is set; render once it settles,
   // matching the same 600ms the pin-highlight uses in _frtNavigateToPin.
   setTimeout(_frtRenderReturnChip, 650);
 };
 window._frtClearReturnPin = function() {
   _frtReturnPinId = null;
+  _frtReturnTab = null;
   var c = document.getElementById('dv-return-pin');
   if (c) c.remove();
 };
@@ -3614,7 +3617,17 @@ document.addEventListener('click', function(e) {
   var chip = e.target.closest && e.target.closest('#dv-return-pin');
   if (!chip) return;
   var pid = chip.getAttribute('data-defic-id');
+  // Capture BEFORE close() — close() clears _frtReturnPinId/_frtReturnTab.
+  var backTab = _frtReturnTab;
   initViewer.close();
+  // S151 followup (Mark): restore the tab the jump began on (Board/Table/
+  // Detailed) so the reopened focused-pin modal sits over THAT tab, not
+  // Drawings. Reuse the app's own nav-tab click so behaviour is identical
+  // to the user tapping the tab — no duplicated tab logic.
+  if (backTab) {
+    var tabEl = document.querySelector('.nav-tab[data-tab="' + backTab + '"]');
+    if (tabEl) tabEl.click();
+  }
   if (pid && window._frtOpenPinFocus) {
     setTimeout(function() { window._frtOpenPinFocus(pid); }, 60);
   }

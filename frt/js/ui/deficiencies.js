@@ -2668,7 +2668,14 @@ document.addEventListener('click', function(e) {
     // list "view on drawing"); cleared by the viewer when it closes any
     // other way so it never goes stale. Single-route, no nav-stack.
     var _wasFocused = !!document.getElementById('pinfocus-overlay');
-    if (_wasFocused && window._frtSetReturnPin) window._frtSetReturnPin(deficId);
+    if (_wasFocused && window._frtSetReturnPin) {
+      // S151 followup (Mark): also remember which tab the jump started
+      // from (Board/Table/Detailed) so "← Back to pin" returns there, not
+      // stranded on Drawings (where _frtNavigateToPin switches to).
+      var _origTabEl = document.querySelector('.nav-tab.active');
+      var _origTab = _origTabEl ? _origTabEl.getAttribute('data-tab') : null;
+      window._frtSetReturnPin(deficId, _origTab);
+    }
     _closePinFocus(); // S142 B4-3: drop the focus panel when jumping to the drawing
     if (window._frtNavigateToPin) {
       var ok = window._frtNavigateToPin(deficId);
