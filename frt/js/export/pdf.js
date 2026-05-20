@@ -499,7 +499,13 @@ if(_recsMode==='exclude'){mainBodyDefs=mainBodyDefs.filter(function(r){return !(
 // S118: renumber items sequentially after filter so r.rn is 1,2,3... with no gaps
 mainBodyDefs.forEach(function(r,i){r.rn=i+1;});
 // S119: closed-summary appendix — items addressed in any instance (per-obs aware)
+// S155: recommendations have their own dedicated "Previously Closed
+// Recommendations" section (built downstream via _prevClosedRecs at line ~852
+// and rendered via _recPrevClosedHtml at line ~917). They must NEVER appear
+// in this deficiency "Previously Closed Items" table — same exclusion the
+// title-page summaryDefs filter already applies at line 577.
 var closedSummaryDefs=reportDefs.filter(function(r){
+  if(r.d&&r.d.isRecommendation)return false;
   var obs=r.obs;
   if(obs&&obs.addressed!==undefined)return !!obs.addressed;
   return _deficIsClosed(r.d);
