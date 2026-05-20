@@ -283,10 +283,12 @@ function _buildCSS(fontB64){
   c+='.dc-desc{font-size:11pt;line-height:1.4;}';
   c+='.dc-footer{font-size:9pt;color:#607D8B;margin-top:6px;}';
   // S118 status pills — color encodes priority (red=Outstanding High, orange=Outstanding Low, green=Closed, pink=IAR)
-  c+='.pill-h{display:inline-block;background:#FCEAEA;color:#A85959;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
-  c+='.pill-l{display:inline-block;background:#FDF1E4;color:#B07F5A;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
-  c+='.pill-c{display:inline-block;background:#E8F5EE;color:#5F8068;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
-  c+='.pill-iar{display:inline-block;background:#FCE4EC;color:#E91E8C;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
+  // S154: bolder weight + heavier padding + wider letter-spacing for more presence
+  // in the report. Font-size deliberately unchanged (Mark's call — don't bump text size).
+  c+='.pill-h{display:inline-block;background:#FCEAEA;color:#A85959;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
+  c+='.pill-l{display:inline-block;background:#FDF1E4;color:#B07F5A;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
+  c+='.pill-c{display:inline-block;background:#E8F5EE;color:#5F8068;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
+  c+='.pill-iar{display:inline-block;background:#FCE4EC;color:#E91E8C;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
   // Legacy IAR badge + .so/.sc kept — used by summary tables / appendix / older code paths
   c+='.iar{display:inline-block;background:#FF69B4;color:white;padding:1px 7px;border-radius:10px;font-size:9pt;font-weight:700;margin-left:4px;}';
   c+='.so{color:#A85959;font-weight:700;font-size:11pt;}.sc{color:#5F8068;font-weight:700;font-size:11pt;}';
