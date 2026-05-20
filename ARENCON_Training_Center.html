@@ -47,6 +47,8 @@ body.dark-mode .opt.picked{background:#243048;border-color:var(--steel)}
 body.dark-mode .result{background:var(--card);border-color:var(--border)}
 body.dark-mode .media{background:#0a0d12}
 body.dark-mode .viewer{background:var(--card);border-color:var(--border)}
+body.dark-mode .aiBox{background:#1a2030;color:var(--fg)}
+body.dark-mode .twStrip{background:var(--card);border-color:var(--border)}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{font-family:Calibri,'Segoe UI',system-ui,sans-serif;color:var(--fg);
@@ -188,6 +190,28 @@ h1.pg{font-size:calc(22px + var(--ts));font-weight:800;
 .result .rl{color:var(--steel);font-size:calc(13.5px + var(--ts));
   margin-bottom:20px}
 
+/* ── slice 2a: AI explanation block + topic-weakness strip ── */
+.aiBox{margin-top:10px;padding:12px 15px;background:var(--bg);
+  border-left:3px solid var(--arencon);border-radius:0 8px 8px 0;
+  font-size:calc(12.5px + var(--ts));line-height:1.5;color:var(--fg)}
+.aiBox b{color:var(--arencon);display:block;margin-bottom:4px;
+  font-size:calc(11.5px + var(--ts));text-transform:uppercase;
+  letter-spacing:.5px;font-weight:700}
+.aiBox.load{color:var(--steel);font-style:italic;border-left-color:var(--silver)}
+.aiBox.err{color:var(--steel);font-style:italic;border-left-color:var(--silver)}
+.twStrip{border:1.5px solid var(--border);border-radius:var(--radius);
+  padding:14px 18px;margin-bottom:14px;background:var(--bg)}
+.twStrip .twTit{font-weight:700;font-size:calc(12.5px + var(--ts));
+  color:var(--arencon);margin-bottom:10px;text-transform:uppercase;
+  letter-spacing:.4px}
+.twStrip .twRow{display:flex;justify-content:space-between;align-items:center;
+  padding:7px 0;border-bottom:1px solid var(--border);
+  font-size:calc(13px + var(--ts))}
+.twStrip .twRow:last-child{border-bottom:none}
+.twStrip .twTop{color:var(--fg);font-weight:600}
+.twStrip .twMis{color:var(--err);font-weight:600;
+  font-size:calc(12.5px + var(--ts))}
+
 /* ── auth overlay ── */
 #authOv{position:fixed;inset:0;background:var(--bg);z-index:9999;
   display:flex;align-items:center;justify-content:center;
@@ -257,6 +281,19 @@ async function sbUpsert(table,row,onConflict){
       Prefer:'resolution=merge-duplicates,return=representation'},
     body:JSON.stringify(row)});
   if(!r.ok) throw new Error('upsert '+r.status);
+  return r.json();
+}
+/* slice 2a: wrong-answer explainer (Edge Function).
+   payload: { wrong_items, module_title?, module_code_ref? }.
+   Caller must guard wrong_items.length>0 — EF also guards, but skipping
+   the round-trip is cheaper. */
+async function sbExplain(payload){
+  const r=await fetch(SB_URL+'/functions/v1/training-explain-edge',{
+    method:'POST',
+    headers:{apikey:SB_ANON,Authorization:'Bearer '+SESSION,
+      'Content-Type':'application/json'},
+    body:JSON.stringify(payload)});
+  if(!r.ok) throw new Error('explain '+r.status);
   return r.json();
 }
 
@@ -454,7 +491,7 @@ function startQuiz(m){
   if(!Q.length) return;
   const passMark=Math.max(1,Math.min(parseInt(m.pass_threshold,10)||70,100));
   const startedAt=new Date();
-  let answered=Array(Q.length).fill(null), recorded=false;
+  let answered=Array(Q.length).fill(null), recorded=false, explained=false;
   const mount=document.getElementById('quizMount');
 
   async function recordAttempt(sc){
@@ -497,8 +534,25 @@ function startQuiz(m){
         <div class="rl">${pass?('Passed — '+passMark+'% required. Move on when ready.'):('Not yet — '+passMark+'% needed. Review the reasoning below and try again.')}</div>
         <button class="btn gh" onclick="location.hash='c/${m.course_id}'">Back to course</button></div>`;
       /* deferred review: show every question's correct answer + why, with wrong-only toggle */
-      h+='<div class="quiz" style="margin-top:18px"><h3>Review</h3>'+
-         '<div class="qsub" id="revSub">All questions shown.'+
+      h+='<div class="quiz" style="margin-top:18px"><h3>Review</h3>';
+      /* slice 2a: topic-weakness strip — only renders if at least one
+         topic carries a miss in this attempt. Legacy quizzes (no topics
+         on items) render nothing here, by design. */
+      const twMap={};
+      Q.forEach((q,i)=>{ const t=(q.topic||'').trim(); if(!t) return;
+        if(!twMap[t]) twMap[t]={miss:0,tot:0};
+        twMap[t].tot++; if(answered[i]!==q.answer) twMap[t].miss++; });
+      const twRows=Object.keys(twMap).filter(t=>twMap[t].miss>0)
+        .map(t=>({t,miss:twMap[t].miss,tot:twMap[t].tot,rate:twMap[t].miss/twMap[t].tot}))
+        .sort((a,b)=>b.rate-a.rate||b.miss-a.miss||a.t.localeCompare(b.t));
+      if(twRows.length){
+        h+='<div class="twStrip"><div class="twTit">Topic weakness — this attempt</div>';
+        twRows.forEach(r=>{
+          h+=`<div class="twRow"><div class="twTop">${esc(r.t)}</div><div class="twMis">${r.miss} / ${r.tot} missed</div></div>`;
+        });
+        h+='</div>';
+      }
+      h+='<div class="qsub" id="revSub">All questions shown.'+
          (wrongCount>0?' <span class="bk" id="revToggle" style="color:var(--arencon);cursor:pointer;font-weight:600;margin-left:8px">Show wrong only ('+wrongCount+')</span>':'')+
          '</div>';
       Q.forEach((q,i)=>{
@@ -511,6 +565,10 @@ function startQuiz(m){
           h+=`<div class="${cls}"><div class="mk">${j===q.answer?'✓':(j===a?'✕':String.fromCharCode(65+j))}</div><div>${esc(o)}</div></div>`;
         });
         if(q.why) h+=`<div class="why"><b>Why:</b> ${esc(q.why)}</div>`;
+        /* slice 2a: AI explanation placeholder for WRONG items only.
+           Patched in after the EF response arrives; left as 'load' if
+           the call is still pending; replaced with .err on failure. */
+        if(!ok) h+=`<div class="aiBox load" data-qi="${i}">Analyzing your reasoning…</div>`;
         h+='</div>';
       });
       h+='</div>';
@@ -527,6 +585,45 @@ function startQuiz(m){
       tog.textContent=showAll?('Show wrong only ('+wrongCount+')'):'Show all questions';
       tog.dataset.mode=showAll?'all':'wrong';
     };
+    /* slice 2a: fire the explainer EF exactly once, only if there are
+       wrong items. Non-blocking: page already shows result + Why blocks.
+       Placeholders patch in when the response arrives; on failure they
+       degrade to a quiet "unavailable" line. */
+    if(allDone && !explained){
+      explained=true;
+      const wrongItems=Q.map((q,i)=>({i,q,a:answered[i]}))
+        .filter(x=>x.a!==x.q.answer)
+        .map(x=>({id:String(x.i),q:x.q.q,opts:x.q.opts,answer:x.q.answer,
+                  picked:x.a,topic:x.q.topic||'',why:x.q.why||''}));
+      if(wrongItems.length){
+        sbExplain({wrong_items:wrongItems,
+                   module_title:m.title||'',
+                   module_code_ref:m.code_ref||'',
+                   context:{tool:'training'}})
+          .then(resp=>{
+            const got=(resp&&Array.isArray(resp.explanations))?resp.explanations:[];
+            const byId={};
+            got.forEach(e=>{ if(e&&e.id!=null) byId[String(e.id)]=String(e.text||''); });
+            mount.querySelectorAll('.aiBox.load').forEach(el=>{
+              const id=el.getAttribute('data-qi'), txt=byId[id];
+              if(txt){
+                el.classList.remove('load');
+                el.innerHTML='<b>Why your answer was wrong</b>'+esc(txt);
+              } else {
+                el.classList.remove('load'); el.classList.add('err');
+                el.textContent='AI explanation unavailable for this question.';
+              }
+            });
+          })
+          .catch(err=>{
+            console.warn('explain failed',err);
+            mount.querySelectorAll('.aiBox.load').forEach(el=>{
+              el.classList.remove('load'); el.classList.add('err');
+              el.textContent='AI explanation unavailable for this attempt.';
+            });
+          });
+      }
+    }
     mount.scrollIntoView({behavior:'smooth',block:'start'});
   }
   window.__pick=(i,j)=>{ if(answered[i]==null){ answered[i]=j; draw(); } };
