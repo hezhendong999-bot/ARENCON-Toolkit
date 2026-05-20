@@ -694,6 +694,12 @@ function _buildPinGroupCard(d, ctrId) {
         var _insTitle = _ins.name ? ('Logged by ' + _ins.name) : 'Logged by another inspector';
         var _insStyle = _ins.color ? (' style="--ic:' + esc(_ins.color) + '"') : '';
         _inspHtml = '<span class="obs-insp-chip"' + _insStyle + ' title="' + esc(_insTitle) + '">' + esc(_ins.initials) + '</span>';
+      } else {
+        // S154 Bug #2: chip slot stays VISIBLE for traceability when createdBy
+        // is set but the inspector profile isn't resolved yet (unfetched
+        // full_name, or a legacy createdBy that no longer maps). Muted "?" chip.
+        var _insStyleU = (_ins && _ins.color) ? (' style="--ic:' + esc(_ins.color) + '"') : '';
+        _inspHtml = '<span class="obs-insp-chip obs-insp-unknown"' + _insStyleU + ' title="Logged by another inspector">?</span>';
       }
     }
     h += '<span class="obs-insp-slot" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">' + _inspHtml + '</span>';
@@ -1080,7 +1086,7 @@ function _renderTradeBoard(proj) {
     });
     h += '</div>';
   } else {
-    h += '<div class="crx-empty">No contractors yet \u2014 use <strong>+ Add contractor</strong> to start, then click \u2295 on a contractor to assign a trade.</div>';
+    h += '<div class="crx-empty">No contractors yet \u2014 use <strong>+ Add contractor</strong> to start, then tap a contractor card to arm it and tap a trade pill to assign.</div>';
   }
   h += '<div class="crx-hint">On the Board: tap a card, then tap a contractor here to assign it (or tap a trade pill to set that observation\u2019s trade). With nothing selected, tap a contractor to arm it, then tap a trade pill to add that trade to its roster. \u00D7 on a tag un-assigns just that contractor; \u00D7 on a strip pill deletes the trade everywhere. A golden border means the contractor is on no trade yet.</div>';
 
@@ -2524,7 +2530,8 @@ document.addEventListener('click', function(e) {
       if (_cn) {
         var _cc = Model.addContractor(_cn);
         initDeficiencies.render();
-        if (_cc) toast('Added ' + _cc.name + ' \u2014 click \u2295 to assign a trade');
+        // S154 Bug #1: ⊕ was removed in S153 B3; whole contractor card is the tap target now.
+        if (_cc) toast('Added ' + _cc.name + ' \u2014 tap the card to arm it, then tap a trade pill');
       }
     });
     return;

@@ -654,6 +654,10 @@ function _buildDefCard(r,hdrExtra){
     if(_pi&&_pi.initials&&_pi.initials!=='\u2014'){
       var _pic=_pi.color||'#6B7280';
       _inspChip='<span class="dc-insp" style="color:'+_pic+';border-color:'+_pic+';">'+esc(_pi.initials)+'</span>';
+    }else{
+      // S154 Bug #2: chip stays visible for traceability when createdBy is set
+      // but the inspector profile isn't resolved (unfetched name / legacy id).
+      _inspChip='<span class="dc-insp" style="color:#9CA3AF;border-color:#9CA3AF;opacity:.55;font-style:italic;" title="Logged by another inspector">?</span>';
     }
   }
   h+='<div class="dc-hdr"><span class="dc-hdr-l"><span class="dc-itemnum">#'+(r.numLabel||r.rn)+'</span></span><span class="dc-hdr-r">'+_inspChip+(hdrExtra||'')+((r.d&&r.d.isRecommendation)?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span></span></div>';

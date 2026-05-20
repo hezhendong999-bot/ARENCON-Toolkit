@@ -7817,6 +7817,15 @@ body.dark-mode .obs-insp-chip {
   border-color: color-mix(in srgb, var(--ic, #8A94B0) 55%, transparent);
 }
 
+/* S154 Bug #2: unresolved-inspector chip — same shape/slot, muted +
+   italic. Renders when createdBy is set but resolveInspector returned
+   the em-dash sentinel (unfetched full_name, or a legacy createdBy that
+   no longer maps). Keeps the slot honest instead of silently hiding. */
+.obs-insp-chip.obs-insp-unknown {
+  opacity: 0.55;
+  font-style: italic;
+}
+
 /* Control-bar toggle — matches .dfx-recmode-btn sizing/idiom. */
 .dfx-insp-toggle {
   background: transparent;
