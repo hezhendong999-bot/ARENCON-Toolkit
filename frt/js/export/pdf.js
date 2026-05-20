@@ -253,10 +253,14 @@ function _buildCSS(fontB64){
   // Recommendations" band) — same colour, repurposed.
   c+='.th-band.recs{background:#6B7280;}';
   c+='.rec-cap{border:1px solid #DDE1E7;border-top:none;padding:9px 13px;font-size:9.5pt;color:#5A6473;background:#fff;line-height:1.35;}';
-  c+='.rec-ctrchip{display:inline-block;background:#EEF0F2;color:#5A6472;font-size:8.5pt;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
+  c+='.rec-ctrchip{display:inline-block;background:#DCE0E6;color:#454E5C;font-size:8.5pt;font-weight:800;padding:2px 8px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
   c+='.rec-sub{background:#6B7280;color:#fff;padding:5px 14px;font-weight:700;font-size:9.5pt;border-radius:0;margin:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
-  c+='.rec-chip{display:inline-block;background:#EDEBE6;color:#7B6F5A;font-size:8.5pt;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
-  c+='.dc-insp{display:inline-block;font-size:8.5pt;font-weight:700;padding:2px 7px;border:1px solid;border-radius:10px;letter-spacing:.4px;flex-shrink:0;}';
+  c+='.rec-chip{display:inline-block;background:#DDD8CB;color:#5E5440;font-size:8.5pt;font-weight:800;padding:2px 8px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
+  // S154 round 2: initials chip becomes a true filled pill — subtle off-white bg
+  // so it reads in the same family as .pill-h / .pill-c / .rec-chip. The per-inspector
+  // color is still set inline via color/border-color; the bg is uniform so it doesn't
+  // fight the colored border.
+  c+='.dc-insp{display:inline-block;background:#F2F0EC;font-size:8.5pt;font-weight:800;padding:2px 7px;border:1px solid;border-radius:10px;letter-spacing:.4px;flex-shrink:0;}';
   c+='.rec-foot{font-size:9.5pt;font-style:italic;color:#5A6473;line-height:1.35;padding:8px 12px;border:1px solid #DDE1E7;border-top:none;background:#FAFAF9;border-radius:0 0 6px 6px;margin-bottom:10px;}';
   c+='.hirec-note{font-size:10pt;font-style:italic;color:#7B6F5A;margin-top:10px;line-height:1.35;}';
   c+='.rep-key{border:1px solid #DDE1E7;border-radius:6px;margin-top:10px;padding:0;overflow:hidden;break-inside:avoid;page-break-inside:avoid;}';
@@ -282,13 +286,12 @@ function _buildCSS(fontB64){
   c+='.dc-itemnum{color:#9C2742;font-size:11pt;font-weight:700;line-height:1;}';
   c+='.dc-desc{font-size:11pt;line-height:1.4;}';
   c+='.dc-footer{font-size:9pt;color:#607D8B;margin-top:6px;}';
-  // S118 status pills — color encodes priority (red=Outstanding High, orange=Outstanding Low, green=Closed, pink=IAR)
-  // S154: bolder weight + heavier padding + wider letter-spacing for more presence
-  // in the report. Font-size deliberately unchanged (Mark's call — don't bump text size).
-  c+='.pill-h{display:inline-block;background:#FCEAEA;color:#A85959;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
-  c+='.pill-l{display:inline-block;background:#FDF1E4;color:#B07F5A;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
-  c+='.pill-c{display:inline-block;background:#E8F5EE;color:#5F8068;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
-  c+='.pill-iar{display:inline-block;background:#FCE4EC;color:#E91E8C;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
+  // S118 status pills — color encodes priority (red=Outstanding High, orange=Outstanding Low, green=Closed)
+  // S154 round 2: bg + fg both nudged a step darker for more presence in the report.
+  // Foreground ~15% darker, background tints ~5–8% darker. Weight 800 / padding 4px 14px / letter-spacing .5px kept from prior commit.
+  c+='.pill-h{display:inline-block;background:#F4D6D6;color:#8E4444;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
+  c+='.pill-l{display:inline-block;background:#F5E2C8;color:#8E6240;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
+  c+='.pill-c{display:inline-block;background:#D2EBDC;color:#426B4F;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
   // Legacy IAR badge + .so/.sc kept — used by summary tables / appendix / older code paths
   c+='.iar{display:inline-block;background:#FF69B4;color:white;padding:1px 7px;border-radius:10px;font-size:9pt;font-weight:700;margin-left:4px;}';
   c+='.so{color:#A85959;font-weight:700;font-size:11pt;}.sc{color:#5F8068;font-weight:700;font-size:11pt;}';
@@ -599,7 +602,7 @@ _legendHtml+='<div class="rep-key-row"><span class="pill-h">Outstanding</span><s
 _legendHtml+='<div class="rep-key-row"><span class="pill-c">Closed</span><span class="rep-key-gloss">Addressed &amp; closed</span></div>';
 _legendHtml+='<div class="rep-key-row"><span class="pill-l">Outstanding</span><span class="rep-key-gloss">Outstanding \u2014 low priority</span></div>';
 _legendHtml+='<div class="rep-key-row"><span class="rec-chip">REC</span><span class="rep-key-gloss">Recommendations - do not hold off sign-off</span></div>';
-if(inspTag==='initials')_legendHtml+='<div class="rep-key-row"><span class="dc-insp" style="color:#6B7280;border-color:#6B7280;">AB</span><span class="rep-key-gloss">Inspector initials \u2014 who logged the item</span></div>';
+if(inspTag==='initials')_legendHtml+='<div class="rep-key-row"><span class="dc-insp" style="color:#4A5568;border-color:#4A5568;">AB</span><span class="rep-key-gloss">Inspector initials \u2014 who logged the item</span></div>';
 _legendHtml+='</div></div>';
 // S139 Phase 3 (D): italic high-priority-recommendation note. Full mode
 // only (suppressed for 'only' — there the recs ARE the report).
