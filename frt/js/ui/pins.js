@@ -61,9 +61,17 @@ function _pkbObsCard(d, oi, o, p, multiObs) {
   // Per-obs priority drives card color/column. Falls back to pin priority
   // for legacy obs that haven't been migrated.
   var obsPri = o.priority || defic.priority || 'high';
-  var fill = defic.iar
-    ? '#FF69B4'
-    : (obsPri === 'general' ? '#5F8068' : (obsPri === 'low' ? '#B07F5A' : '#A85959'));
+  // S154 PIN-COLOUR-OVERHAUL: Site Records get their own indigo (#6B6FA8)
+  // so a Site Record card reads as "internal documentation, not a
+  // deficiency" at a glance — matches the new PDF pin colour. Detection
+  // uses the row's contractorId being null (which is how Site Records are
+  // tagged in Model.getAllDeficiencies).
+  var _isSr = !d.contractorId;
+  var fill = _isSr
+    ? '#6B6FA8'
+    : (defic.iar
+      ? '#FF69B4'
+      : (obsPri === 'general' ? '#5F8068' : (obsPri === 'low' ? '#B07F5A' : '#A85959')));
   // Number label: #3A, #3B for multi-obs (no dash, S122 Push 1); plain #3 for single-obs.
   var numLabel = multiObs
     ? (defic.num + String.fromCharCode(65 + oi))

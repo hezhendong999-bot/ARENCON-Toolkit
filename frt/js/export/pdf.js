@@ -25,7 +25,7 @@ function _deficDesc(d){
   return d.description||'';
 }
 
-function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback){
+function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
   var img=new Image();
   img.onload=function(){
     // S118 design lock: tighter crop (0.25→0.22) and bigger pin teardrop. Mark's
@@ -45,7 +45,7 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback){
     // S118: bumped from outW*0.07 (56px on 800-wide crop, ~11px display) to
     // outW*0.15 (120px on 800-wide crop, ~24px display). Floor 60 for tiny crops.
     var pinW=Math.max(60,outW*0.15);
-    _drawTeardropPin(ctx,pinCX,pinCY,pinW,pinData);
+    _drawTeardropPin(ctx,pinCX,pinCY,pinW,pinData,isSiteRecord);
     callback(canvas.toDataURL('image/jpeg',0.92));
   };
   img.src=dwgDataUrl;
@@ -62,7 +62,11 @@ function _renderDrawingWithPins(dwgDataUrl,pins,callback){
     pins.forEach(function(rr){
       var d=rr.d;if(d.pinX==null)return;
       var px=d.pinX*w;var py=d.pinY*h;
-      _drawTeardropPin(ctx,px,py,pinW,d);
+      // S154 PIN-COLOUR-OVERHAUL: derive isSiteRecord per-pin so a Site
+      // Record entry on the full-drawing overview gets the indigo teardrop
+      // just like its dedicated minimap does.
+      var _isSr=isSiteRecordsName(rr.ctr);
+      _drawTeardropPin(ctx,px,py,pinW,d,_isSr);
     });
     callback(canvas.toDataURL('image/jpeg',0.92));
   };
@@ -75,16 +79,31 @@ function _renderDrawingWithPins(dwgDataUrl,pins,callback){
 //   <path d="M16 1 C8.3 1, 2 7.3, 2 15 c0 10.5 14 25 14 25 s14-14.5 14-25 C30 7.3 23.7 1 16 1 z"/>
 //   <circle cx=16 cy=14 r=9 fill=white/>
 //   <text x=16 y=14.5/>
-// Color logic also matches viewer.js _renderPins: iar→pink, low→orange,
-// general→green, high (default)→red, closed→0.5 alpha overlay.
-function _drawTeardropPin(ctx,anchorX,anchorY,pinW,d){
+// S154 PIN-COLOUR-OVERHAUL: PDF pin colours now match the on-screen
+// viewer.js/pins.js/pinsGL.js canon-compliant muted palette. The
+// previous palette here was using the FORBIDDEN bright hex
+// (#1A7A4A, #C0392B, #E67E22) while the live tool had already moved to
+// muted equivalents — so the PDF and the tablet disagreed visually.
+// Site Records ALSO now get their own colour (Mark, S154): indigo
+// #6B6FA8, distinct from defic/rec/IAR so a Site Record pin is
+// unambiguously "internal documentation, not a client deficiency"
+// even at thumbnail size.
+function _drawTeardropPin(ctx,anchorX,anchorY,pinW,d,isSiteRecord){
   var s=pinW/32;  // SVG width is 32; scale factor = pinW / 32
   // Anchor point in SVG is (16, 40). Map to (anchorX, anchorY).
   function P(svgX,svgY){return{x:anchorX+(svgX-16)*s,y:anchorY+(svgY-40)*s};}
 
-  // Color resolution — match viewer
+  // Color resolution — Site Record > IAR > priority. Muted canon palette
+  // matches viewer.js _renderPins exactly.
   var pr=d.priority||'high';
-  var fill=d.iar?'#E91E8C':(pr==='general'?'#1A7A4A':(pr==='low'?'#E67E22':'#C0392B'));
+  var fill;
+  if(isSiteRecord){
+    fill='#6B6FA8'; // indigo — Site Records (S154)
+  }else if(d.iar){
+    fill='#E91E8C'; // pink — IAR (unchanged canon)
+  }else{
+    fill=(pr==='general'?'#5F8068':(pr==='low'?'#B07F5A':'#A85959'));
+  }
   var isClosed=_deficIsClosed(d);
   var alpha=isClosed?0.5:1;
 
@@ -264,13 +283,13 @@ function _buildCSS(fontB64){
   c+='.dc-desc{font-size:11pt;line-height:1.4;}';
   c+='.dc-footer{font-size:9pt;color:#607D8B;margin-top:6px;}';
   // S118 status pills — color encodes priority (red=Outstanding High, orange=Outstanding Low, green=Closed, pink=IAR)
-  c+='.pill-h{display:inline-block;background:#FCEAEA;color:#C0392B;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
+  c+='.pill-h{display:inline-block;background:#FCEAEA;color:#A85959;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
   c+='.pill-l{display:inline-block;background:#FDF1E4;color:#B07F5A;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
-  c+='.pill-c{display:inline-block;background:#E8F5EE;color:#1A7A4A;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
+  c+='.pill-c{display:inline-block;background:#E8F5EE;color:#5F8068;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
   c+='.pill-iar{display:inline-block;background:#FCE4EC;color:#E91E8C;font-size:9.5pt;font-weight:700;padding:2px 11px;border-radius:10px;letter-spacing:.2px;flex-shrink:0;}';
   // Legacy IAR badge + .so/.sc kept — used by summary tables / appendix / older code paths
   c+='.iar{display:inline-block;background:#FF69B4;color:white;padding:1px 7px;border-radius:10px;font-size:9pt;font-weight:700;margin-left:4px;}';
-  c+='.so{color:#C0392B;font-weight:700;font-size:11pt;}.sc{color:#1A7A4A;font-weight:700;font-size:11pt;}';
+  c+='.so{color:#A85959;font-weight:700;font-size:11pt;}.sc{color:#5F8068;font-weight:700;font-size:11pt;}';
   // S118: 3-up photo grid (was 2-up flow with 160×160 tiles)
   c+='.dp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:6px 0;}';
   c+='.dp{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;display:block;}';
@@ -555,13 +574,13 @@ if(summaryDefs.length){
     var gc=ctrG[ctr];
     _deficSummaryHtml+='<tr><td><strong>'+esc(ctr)+'</strong></td><td style="text-align:center;">'+gc.length+'</td>';
     _deficSummaryHtml+='<td style="text-align:center;color:#1565C0;font-weight:700;">'+gc.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
-    _deficSummaryHtml+='<td style="text-align:center;color:#C0392B;font-weight:700;">'+gc.filter(_rowOpen).length+'</td>';
-    _deficSummaryHtml+='<td style="text-align:center;color:#1A7A4A;font-weight:700;">'+gc.filter(_rowClosed).length+'</td></tr>';
+    _deficSummaryHtml+='<td style="text-align:center;color:#A85959;font-weight:700;">'+gc.filter(_rowOpen).length+'</td>';
+    _deficSummaryHtml+='<td style="text-align:center;color:#5F8068;font-weight:700;">'+gc.filter(_rowClosed).length+'</td></tr>';
   });
   _deficSummaryHtml+='<tr style="border-top:2px solid #9C2742;font-weight:700;"><td>Total</td><td style="text-align:center;">'+summaryDefs.length+'</td>';
   _deficSummaryHtml+='<td style="text-align:center;color:#1565C0;">'+summaryDefs.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
-  _deficSummaryHtml+='<td style="text-align:center;color:#C0392B;">'+summaryDefs.filter(_rowOpen).length+'</td>';
-  _deficSummaryHtml+='<td style="text-align:center;color:#1A7A4A;">'+summaryDefs.filter(_rowClosed).length+'</td></tr>';
+  _deficSummaryHtml+='<td style="text-align:center;color:#A85959;">'+summaryDefs.filter(_rowOpen).length+'</td>';
+  _deficSummaryHtml+='<td style="text-align:center;color:#5F8068;">'+summaryDefs.filter(_rowClosed).length+'</td></tr>';
   _deficSummaryHtml+='</tbody></table></div>';
 }
 // S143/S144 Report Legend (corrected). Navy-filled title bar, 4 entries,
@@ -830,8 +849,8 @@ if(pooledRecs.length){
       lc=tot?'<td>Total</td>':'<td><strong>'+esc(label)+'</strong></td>',
       em=tot?'':'font-weight:700;';
     return '<tr'+tr+'>'+lc+'<td style="text-align:center;">'+T+'</td>'
-      +'<td style="text-align:center;color:#C0392B;'+em+'">'+O+'</td>'
-      +'<td style="text-align:center;color:#1A7A4A;'+em+'">'+C+'</td></tr>';
+      +'<td style="text-align:center;color:#A85959;'+em+'">'+O+'</td>'
+      +'<td style="text-align:center;color:#5F8068;'+em+'">'+C+'</td></tr>';
   }
   _recSummaryHtml='<div style="border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;overflow:hidden;"><table class="st"><thead><tr><th>Recommendation Summary</th><th style="text-align:center;">Total</th><th style="text-align:center;">Open</th><th style="text-align:center;">Closed</th></tr></thead><tbody>';
   _sumOrder.forEach(function(t){_recSummaryHtml+=_recRow(t,_aByT[t],false);});
@@ -1099,8 +1118,8 @@ if(isField&&p.drawings&&p.drawings.length){
       // showing "Outstanding" in the status column for IAR rows).
       var statusTxt,statusCol;
       if(d.iar){statusTxt='IAR';statusCol='#E91E8C';}
-      else if(rowOpen){statusTxt='Outstanding';statusCol='#C0392B';}
-      else{statusTxt='Closed';statusCol='#1A7A4A';}
+      else if(rowOpen){statusTxt='Outstanding';statusCol='#A85959';} // S154: forbidden #C0392B → muted maroon
+      else{statusTxt='Closed';statusCol='#5F8068';} // S154: forbidden #1A7A4A → muted sage
       // The IAR badge under the pin# is now redundant when the status column
       // already says IAR — drop it.
       aH+='<tr><td><strong style="color:#9C2742;">#'+(r.numLabel||d.num)+'</strong></td><td>'+esc(_itemDesc(r)||'\u2014')+'</td><td style="color:'+statusCol+';font-weight:700;">'+statusTxt+'</td><td>'+esc(r.ctr)+'</td></tr>';
@@ -1144,7 +1163,9 @@ if(isField){
           try{var ae=w.document.getElementById('app-dwg-'+id);if(ae)ae.src=du;}catch(x){}
           var pd=0;var tp=info.pins.length;if(!tp){qi++;setTimeout(next,50);return;}
           info.pins.forEach(function(r){try{var el=w.document.getElementById('mm-'+r.d.id+'-'+r.obsIdx);
-            if(el){_renderDrawingWithSinglePin(info.dataUrl,r.d,function(su){try{el.src=su;}catch(x){}pd++;if(pd>=tp){qi++;setTimeout(next,50);}});}
+            // S154 PIN-COLOUR-OVERHAUL: each card's individual minimap also gets per-pin isSiteRecord.
+            var _isSr=isSiteRecordsName(r.ctr);
+            if(el){_renderDrawingWithSinglePin(info.dataUrl,r.d,function(su){try{el.src=su;}catch(x){}pd++;if(pd>=tp){qi++;setTimeout(next,50);}},_isSr);}
             else{pd++;if(pd>=tp){qi++;setTimeout(next,50);}}}catch(x){pd++;if(pd>=tp){qi++;setTimeout(next,50);}}});
         });
       }

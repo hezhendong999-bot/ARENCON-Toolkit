@@ -1339,6 +1339,9 @@ function _renderPins() {
         priority:effPri,
         isClosed:effStatus === 'closed',
         isIAR:   !!d.defic.iar,
+        // S154 PIN-COLOUR-OVERHAUL: pass Site Record flag through to
+        // PinsGL so the on-canvas pin gets indigo when null-contractor.
+        isSiteRecord: !d.contractorId,
         inspectorColor: ic,                    // S83
         _showRing: _showRings && !hidden && !!ic  // S83
       };
@@ -1384,7 +1387,10 @@ function _renderPins() {
     // S119: effective priority + status (max across obs / all-addressed)
     var pr = Model.getEffectivePriority(d.defic);
     var isClosed = Model.getEffectiveStatus(d.defic) === 'closed';
-    var fill = d.defic.iar ? '#E91E8C' : (pr === 'general' ? '#5F8068' : pr === 'low' ? '#B07F5A' : '#A85959');
+    // S154 PIN-COLOUR-OVERHAUL: Site Record indigo takes precedence over
+    // IAR/priority — matches PinsGL canvas and PDF teardrop palette.
+    var _isSr = !d.contractorId;
+    var fill = _isSr ? '#6B6FA8' : (d.defic.iar ? '#E91E8C' : (pr === 'general' ? '#5F8068' : pr === 'low' ? '#B07F5A' : '#A85959'));
     var isOutstanding = !isClosed && !d.defic.iar;
     var shadow = isOutstanding ? 'drop-shadow(0 0 3px ' + fill + ') drop-shadow(0 2px 5px rgba(0,0,0,.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,.45))';
     var alpha = isClosed ? '0.5' : '1';

@@ -23,9 +23,10 @@
 //     version: '2.0-canvas2d'
 //   };
 //
-// Pin record shape (unchanged):
+// Pin record shape (S154 extended):
 //   { deficId: string, num: number, pinX: 0..1, pinY: 0..1,
-//     priority: 'high'|'low'|'general', isClosed: bool, isIAR: bool }
+//     priority: 'high'|'low'|'general', isClosed: bool, isIAR: bool,
+//     isSiteRecord: bool }
 //
 // Visual behavior matches HTML V1 pins with WebGL polish carried over:
 //   - Fixed CSS screen size regardless of drawing zoom (pinScale modulation only)
@@ -35,6 +36,7 @@
 //   - Hover:  1.08× scale, 1.8× halo, 1.3× shadow
 //   - Active: 1.15× scale, 2.5× halo, 1.6× shadow
 //   - Closed: 0.5 alpha
+//   - S154 NEW: Site Records render in indigo #6B6FA8 (canon Site Records colour)
 //   - Lives outside dv-img-wrap so CSS zoom never scales the pin
 //
 (function(){
@@ -65,7 +67,11 @@
   var _pinScreenPos = {};     // deficId -> {x,y,w,h,sx,sy,pin} in canvas-local CSS px
 
   // ─── Priority color lookups (match HTML V1) ─────────────────────────────
+  // S154: Site Record check takes precedence over IAR and priority so
+  // a Site Record pin reads as "internal documentation" first and
+  // foremost. Indigo #6B6FA8 matches the on-screen card + PDF teardrop.
   function _priorityFillHex(pin){
+    if (pin.isSiteRecord) return '#6B6FA8';
     if (pin.isIAR) return '#E91E8C';
     if (pin.priority === 'general') return '#5F8068';
     if (pin.priority === 'low')     return '#B07F5A';
