@@ -1021,7 +1021,7 @@ body.text-l{--ts:4px;}
     </div>
     <div class="pin-setup-section">
       <h3>🔑 Lock PIN</h3>
-      <p style="font-size:calc(12px + var(--ts));color:var(--steel);margin-bottom:12px">Set a 4–8 digit PIN for automatic screen lock after inactivity</p>
+      <p style="font-size:calc(12px + var(--ts));color:var(--steel);margin-bottom:12px">A 4&ndash;8 digit PIN is required for all ARENCON accounts. Locks your session after inactivity; change it any time.</p>
       <div class="pin-setup-row">
         <div class="pin-setup-status" id="pin-status-text"><span class="pin-none">No PIN set</span></div>
       </div>
@@ -1049,6 +1049,37 @@ body.text-l{--ts:4px;}
 <div class="toast" id="toast"></div>
 
 <!-- ═══════════ PIN LOCK SCREEN ═══════════ -->
+<!-- ═══════════ MANDATORY PIN SETUP OVERLAY (S154 Bug #3) ═══════════
+     Forced gate on first sign-in: if profile.pin_hash is null, this
+     overlay shows BEFORE the dashboard becomes interactive. User cannot
+     dismiss — they must set a 4–8 digit PIN to continue. Uses the same
+     full-screen .pin-lock backdrop pattern as the soft-lock screen so
+     the visual treatment matches. No "Sign Out" footer (would loop them
+     right back to this screen on next sign-in). -->
+<div class="pin-lock" id="pin-required">
+  <div class="pin-lock-card">
+    <img id="pin-required-logo" src="" alt="ARENCON">
+    <div class="pin-lock-title">Set up your PIN</div>
+    <div class="pin-lock-sub">A 4&ndash;8 digit PIN is required to use ARENCON</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin:18px 0 8px;">
+      <input type="password" id="pin-req-new" placeholder="New PIN (4&ndash;8 digits)"
+             maxlength="8" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
+             style="font-family:Calibri,sans-serif;font-size:calc(16px + var(--ts));padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;text-align:center;letter-spacing:.4em;background:var(--bg);color:var(--fg);">
+      <input type="password" id="pin-req-confirm" placeholder="Confirm PIN"
+             maxlength="8" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
+             style="font-family:Calibri,sans-serif;font-size:calc(16px + var(--ts));padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;text-align:center;letter-spacing:.4em;background:var(--bg);color:var(--fg);">
+    </div>
+    <div class="pin-error-msg" id="pin-req-error" style="min-height:1.2em;color:var(--red);font-size:calc(12px + var(--ts));"></div>
+    <button onclick="_pinRequiredSave()"
+            style="width:100%;margin-top:6px;padding:13px 16px;background:var(--arencon);color:white;border:none;border-radius:8px;font-family:Calibri,sans-serif;font-size:calc(14px + var(--ts));font-weight:700;cursor:pointer;letter-spacing:.3px;">
+      Save and continue
+    </button>
+    <div class="pin-lock-footer">
+      <span style="color:var(--steel);">Your PIN locks the session after 4 hours of inactivity. You can change it any time from your profile.</span>
+    </div>
+  </div>
+</div>
+
 <div class="pin-lock" id="pin-lock">
   <div class="pin-lock-card">
     <img id="pin-lock-logo" src="" alt="ARENCON">
@@ -4766,7 +4797,12 @@ function _pgEscHtml(s) {
     }
     document.getElementById('pin-set-btn').style.display = hasPin ? 'none' : '';
     document.getElementById('pin-change-btn').style.display = hasPin ? '' : 'none';
-    document.getElementById('pin-remove-btn').style.display = hasPin ? '' : 'none';
+    // S154 Bug #3: PIN is now mandatory for all ARENCON accounts.
+    // The Remove button is permanently hidden \u2014 the only way to "remove"
+    // a PIN is to change it to a new one. Admin-side PIN reset (clearing
+    // pin_hash in Supabase) will re-trigger the forced-setup overlay
+    // on the user's next sign-in.
+    document.getElementById('pin-remove-btn').style.display = 'none';
     document.getElementById('pin-setup-form').style.display = 'none';
     document.getElementById('pin-setup-actions').style.display = '';
   }
@@ -4845,7 +4881,10 @@ function _pgEscHtml(s) {
   };
 
   /* ── Hook into existing auth flow ── */
-  // After login/restore, load PIN hash and start checker
+  // After login/restore, load PIN hash and start checker.
+  // S154 Bug #3: PIN is now MANDATORY. If profile has no pin_hash, the
+  // forced-setup overlay (#pin-required) is shown and blocks all
+  // dashboard interaction until the user creates a 4–8 digit PIN.
   var _origShowApp = window.showApp;
   window.showApp = function() {
     _origShowApp();
@@ -4854,14 +4893,63 @@ function _pgEscHtml(s) {
       _pinHash = _profile.pin_hash;
       var cached = localStorage.getItem(LS_PIN_LEN_KEY);
       _pinDigitCount = cached ? parseInt(cached, 10) : 6;
+      refreshPinUI();
+      stampActivity();
+      startInactivityChecker();
+      checkInactivity();
     } else {
       _pinHash = null;
+      refreshPinUI();
+      // S154 Bug #3: mandatory PIN gate. Open the forced-setup overlay
+      // BEFORE the inactivity checker starts (don't want a "session
+      // locked" race on a fresh login that hasn't set a PIN yet).
+      _showPinRequired();
     }
-    refreshPinUI();
-    stampActivity();
-    startInactivityChecker();
-    // Check immediately in case returning to a stale tab
-    checkInactivity();
+  };
+
+  // S154 Bug #3: forced PIN-setup overlay control + save handler.
+  // Mirrors _pinSetupSave but writes to the dedicated #pin-required
+  // overlay (which has no Cancel path), then hides the overlay and
+  // starts the normal activity checker so the session can begin.
+  function _showPinRequired() {
+    try {
+      // Sync logo into the overlay's <img>
+      var hdrLogo = document.querySelector('.hdr img');
+      var reqLogo = document.getElementById('pin-required-logo');
+      if (hdrLogo && reqLogo && hdrLogo.src) reqLogo.src = hdrLogo.src;
+    } catch (_) {}
+    var overlay = document.getElementById('pin-required');
+    if (!overlay) return;
+    document.getElementById('pin-req-new').value = '';
+    document.getElementById('pin-req-confirm').value = '';
+    document.getElementById('pin-req-error').textContent = '';
+    overlay.classList.add('show');
+    setTimeout(function(){ try { document.getElementById('pin-req-new').focus(); } catch (_) {} }, 50);
+  }
+
+  window._pinRequiredSave = async function() {
+    var errEl = document.getElementById('pin-req-error');
+    var newVal = document.getElementById('pin-req-new').value.trim();
+    var confirmVal = document.getElementById('pin-req-confirm').value.trim();
+    errEl.textContent = '';
+    if (!/^\d{4,8}$/.test(newVal)) { errEl.textContent = 'PIN must be 4\u20138 digits, numbers only.'; return; }
+    if (newVal !== confirmVal)     { errEl.textContent = 'PINs do not match.'; return; }
+    var newHash = await hashPin(newVal);
+    try {
+      await _sb.from('profiles').eq('id', _user.id).update({ pin_hash: newHash });
+      _pinHash = newHash;
+      _pinDigitCount = newVal.length;
+      localStorage.setItem(LS_PIN_LEN_KEY, _pinDigitCount.toString());
+      if (_profile) _profile.pin_hash = newHash;
+      // Dismiss overlay, refresh the profile-modal PIN UI, start activity checker.
+      document.getElementById('pin-required').classList.remove('show');
+      refreshPinUI();
+      stampActivity();
+      startInactivityChecker();
+      toast('PIN saved \u2014 welcome to ARENCON', 'success');
+    } catch (e) {
+      errEl.textContent = 'Could not save PIN: ' + (e && e.message ? e.message : 'unknown error');
+    }
   };
 
   // Refresh PIN UI when profile modal opens
