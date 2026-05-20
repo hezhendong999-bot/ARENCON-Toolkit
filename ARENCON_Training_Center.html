@@ -43,6 +43,7 @@ body.dark-mode .tagp{background:var(--smoke);border-color:var(--border);color:va
 body.dark-mode .qcard{background:var(--card);border-color:var(--border)}
 body.dark-mode .opt{background:var(--smoke);border-color:var(--border);color:var(--fg)}
 body.dark-mode .why{background:#1a2030;border-color:#2a3040;color:var(--fg)}
+body.dark-mode .opt.picked{background:#243048;border-color:var(--steel)}
 body.dark-mode .result{background:var(--card);border-color:var(--border)}
 body.dark-mode .media{background:#0a0d12}
 body.dark-mode .viewer{background:var(--card);border-color:var(--border)}
@@ -165,6 +166,7 @@ h1.pg{font-size:calc(22px + var(--ts));font-weight:800;
 .opt.sel{border-color:var(--arencon);background:var(--arencon-light)}
 .opt.correct{border-color:var(--ok);background:var(--ok-bg)}
 .opt.wrong{border-color:var(--err);background:var(--err-bg)}
+.opt.picked{border-color:var(--steel);background:var(--smoke)}
 .opt .mk{width:22px;height:22px;border-radius:50%;
   border:2px solid var(--border);flex:none;margin-top:1px;display:flex;
   align-items:center;justify-content:center;font-size:calc(12px + var(--ts));
@@ -173,6 +175,7 @@ h1.pg{font-size:calc(22px + var(--ts));font-weight:800;
   color:#fff}
 .opt.correct .mk{border-color:var(--ok);background:var(--ok);color:#fff}
 .opt.wrong .mk{border-color:var(--err);background:var(--err);color:#fff}
+.opt.picked .mk{border-color:var(--steel);background:var(--steel);color:#fff}
 .why{margin-top:10px;padding:12px 15px;background:var(--arencon-light);
   border-radius:8px;font-size:calc(12.5px + var(--ts));line-height:1.5;
   color:var(--fg)}
@@ -472,34 +475,58 @@ function startQuiz(m){
 
   function draw(){
     let h='<div class="quiz"><h3>Knowledge check</h3>'+
-      '<div class="qsub">Tap an answer. You\'ll see the reasoning after each. '+
+      '<div class="qsub">Tap an answer to lock it in. Reasoning is shown after you complete all questions. '+
       passMark+'% to pass'+(bank.length?' · '+Q.length+' question'+(Q.length===1?'':'s')+' this attempt':'')+'.</div>';
     Q.forEach((q,i)=>{
       h+=`<div class="qcard"><div class="qn">${i+1}. ${esc(q.q)}</div>`;
       q.opts.forEach((o,j)=>{
         let cls='opt';const a=answered[i];
-        if(a!=null){
-          if(j===q.answer) cls+=' correct';
-          else if(j===a) cls+=' wrong';
-        }
+        if(a!=null && j===a) cls+=' picked';   /* neutral highlight — no right/wrong yet */
         h+=`<div class="${cls}" ${a==null?`onclick="window.__pick(${i},${j})"`:''}>
-          <div class="mk">${a!=null?(j===q.answer?'✓':(j===a?'✕':String.fromCharCode(65+j))):String.fromCharCode(65+j)}</div>
+          <div class="mk">${String.fromCharCode(65+j)}</div>
           <div>${esc(o)}</div></div>`;
       });
-      if(answered[i]!=null&&q.why)
-        h+=`<div class="why"><b>Why:</b> ${esc(q.why)}</div>`;
       h+='</div>';
     });
     const allDone=answered.every(a=>a!=null);
     if(allDone){
       const sc=Math.round(answered.filter((a,i)=>a===Q[i].answer).length/Q.length*100);
       const pass=sc>=passMark;
+      const wrongCount=Q.length-answered.filter((a,i)=>a===Q[i].answer).length;
       h+=`<div class="result"><div class="sc ${pass?'pass':'fail'}">${sc}%</div>
-        <div class="rl">${pass?('Passed — '+passMark+'% required. Move on when ready.'):('Not yet — '+passMark+'% needed. Review the reasoning above and try again.')}</div>
+        <div class="rl">${pass?('Passed — '+passMark+'% required. Move on when ready.'):('Not yet — '+passMark+'% needed. Review the reasoning below and try again.')}</div>
         <button class="btn gh" onclick="location.hash='c/${m.course_id}'">Back to course</button></div>`;
+      /* deferred review: show every question's correct answer + why, with wrong-only toggle */
+      h+='<div class="quiz" style="margin-top:18px"><h3>Review</h3>'+
+         '<div class="qsub" id="revSub">All questions shown.'+
+         (wrongCount>0?' <span class="bk" id="revToggle" style="color:var(--arencon);cursor:pointer;font-weight:600;margin-left:8px">Show wrong only ('+wrongCount+')</span>':'')+
+         '</div>';
+      Q.forEach((q,i)=>{
+        const a=answered[i], ok=(a===q.answer);
+        h+=`<div class="qcard rev${ok?' ok':' bad'}" data-ok="${ok?1:0}"><div class="qn">${i+1}. ${esc(q.q)}</div>`;
+        q.opts.forEach((o,j)=>{
+          let cls='opt';
+          if(j===q.answer) cls+=' correct';
+          else if(j===a) cls+=' wrong';
+          h+=`<div class="${cls}"><div class="mk">${j===q.answer?'✓':(j===a?'✕':String.fromCharCode(65+j))}</div><div>${esc(o)}</div></div>`;
+        });
+        if(q.why) h+=`<div class="why"><b>Why:</b> ${esc(q.why)}</div>`;
+        h+='</div>';
+      });
+      h+='</div>';
       recordAttempt(sc);
     }
     mount.innerHTML=h;
+    /* wire wrong-only toggle if present */
+    const tog=document.getElementById('revToggle');
+    if(tog) tog.onclick=()=>{
+      const showAll=tog.dataset.mode==='wrong';
+      document.querySelectorAll('.qcard.rev').forEach(el=>{
+        el.style.display=(showAll||el.dataset.ok==='0')?'':'none';
+      });
+      tog.textContent=showAll?('Show wrong only ('+wrongCount+')'):'Show all questions';
+      tog.dataset.mode=showAll?'all':'wrong';
+    };
     mount.scrollIntoView({behavior:'smooth',block:'start'});
   }
   window.__pick=(i,j)=>{ if(answered[i]==null){ answered[i]=j; draw(); } };
