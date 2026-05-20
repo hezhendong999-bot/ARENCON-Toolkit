@@ -24,6 +24,24 @@
   font-family:Calibri,'Segoe UI',system-ui,-apple-system,sans-serif;
 }
 body.text-m{--ts:2px;} body.text-l{--ts:4px;}
+body.dark-mode{
+  --bg:#0f1318; --bgsoft:#161c24; --card:#1e2533; --smoke:#0f1318;
+  --border:#2a3040; --fg:#d0d8f0; --steel:#8a94b0; --silver:#8a94b0;
+  --navy:#0f1318; --navy-mid:#1e2533; --navy-light:#2a3040;
+  --arencon-light:#2D1520;
+  --shadow:0 1px 3px rgba(0,0,0,.3);
+  --shadow-md:0 4px 6px rgba(0,0,0,.25);
+  --shadow-lg:0 10px 25px rgba(0,0,0,.3);
+}
+body.dark-mode .hdr{background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%)}
+body.dark-mode .hdr img{background:#fff;border-color:#fff}
+body.dark-mode .note{background:#2a1f24;border-color:#3a2530;color:#c8b8c0}
+body.dark-mode input,body.dark-mode select,body.dark-mode textarea{
+  background:var(--smoke);border-color:var(--border);color:var(--fg)}
+body.dark-mode .btn.gh{background:var(--card);color:var(--fg);border-color:var(--border)}
+body.dark-mode .btn.pri{background:var(--arencon);color:#fff}
+body.dark-mode .opt,body.dark-mode .tagp{background:var(--smoke);border-color:var(--border);color:var(--steel)}
+body.dark-mode .lo{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12)}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{font-family:Calibri,'Segoe UI',system-ui,sans-serif;color:var(--fg);
@@ -230,6 +248,8 @@ details.collapse[open]{padding-bottom:22px}
   <div class="tag">ADMIN</div>
   <div class="sp"></div>
   <div class="who" id="whoBox"></div>
+  <button class="lo" id="btnTextSize" title="Text size: Small / Medium / Large" style="margin-right:8px;min-width:36px">M</button>
+  <button class="lo" id="btnDark" title="Toggle dark mode" style="margin-right:8px;min-width:36px">☀️</button>
   <button class="lo" id="aiUsageBtn" style="margin-right:8px">📊 AI usage</button>
   <button class="lo" id="logoutBtn">Sign out</button>
 </header>
@@ -855,6 +875,33 @@ async function aiItems(o){
 }
 
 gate();
+
+/* ── Dark mode + text size (FRT/Hub pattern; persistence keys shared family-wide) ── */
+function applyDark(on){
+  document.body.classList.toggle('dark-mode',!!on);
+  const b=document.getElementById('btnDark'); if(b) b.textContent=on?'🌙':'☀️';
+}
+function toggleDark(){
+  const on=!document.body.classList.contains('dark-mode');
+  applyDark(on); localStorage.setItem('ARENCON_Dark',on?'1':'0');
+}
+const _TS=['S','M','L'];
+function applyTextSize(s){
+  if(_TS.indexOf(s)<0) s='M';
+  document.body.classList.remove('text-m','text-l');
+  if(s==='M') document.body.classList.add('text-m');
+  else if(s==='L') document.body.classList.add('text-l');
+  const b=document.getElementById('btnTextSize'); if(b) b.textContent=s;
+}
+function cycleTextSize(){
+  const cur=localStorage.getItem('arencon-text-size')||'M';
+  const next=_TS[(_TS.indexOf(cur)+1)%_TS.length];
+  applyTextSize(next); localStorage.setItem('arencon-text-size',next);
+}
+applyDark(localStorage.getItem('ARENCON_Dark')==='1');
+applyTextSize(localStorage.getItem('arencon-text-size')||'M');
+{const _d=document.getElementById('btnDark'); if(_d) _d.onclick=toggleDark;
+ const _t=document.getElementById('btnTextSize'); if(_t) _t.onclick=cycleTextSize;}
 </script>
 </body>
 </html>
