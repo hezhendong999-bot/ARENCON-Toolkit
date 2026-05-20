@@ -1370,13 +1370,15 @@ function _openPDFPicker() {
   h += '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts));cursor:pointer;">';
   h += '<input type="checkbox" id="pdf-include-site-records"> Include Site Records (internal)</label></div>';
 
-  // S143 (Phase 3 G/3.5): inspector attribution in the PDF. Off by
-  // default — keeps client-facing reports clean. "Initials tag" prints
-  // the same per-observation initials chip shown on screen.
+  // S154 §2.3: inspector attribution capability moved here from the
+  // board control bar (button retired — its only real use case was
+  // internal review reports). "Initials tag on each item" → "Internal
+  // review — show inspector initials" to match the canonical spec
+  // wording. Default still OFF (clean client-facing report).
   h += '<div style="margin-bottom:16px;"><label style="display:block;font-size:calc(13px + var(--ts));font-weight:600;margin-bottom:6px;">Inspector attribution</label>';
   h += '<select id="pdf-insp-tag" style="width:100%;padding:7px 10px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));border:1px solid var(--border);border-radius:6px;">';
   h += '<option value="off" selected>Off (no inspector marks)</option>';
-  h += '<option value="initials">Initials tag on each item</option>';
+  h += '<option value="initials">Internal review \u2014 show inspector initials</option>';
   h += '</select></div>';
 
   // S139 Phase 3: Renumber→PDF merge — replaces the removed control-bar

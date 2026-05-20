@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=353">
+<link rel="stylesheet" href="css/frt.css?v=354">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -434,8 +434,21 @@ function ensurePdfJs(cb){
         <div class="card-body" id="contractors-on-site" style="padding:0;"></div>
       </div>
       <!-- Deficiency Log summary table -->
-      <div class="card" style="margin-bottom:4px;" id="defic-log-card">
-        <div class="card-header">📋 Deficiency Log</div>
+      <!-- S154 §2.1 (Option A): collapsed-by-default. Header is now a
+           tap target with an inline summary ("Log — N total · M outstanding
+           · K closed ▾") and a chevron. data-collapsed drives table
+           visibility via CSS. Initial state restored from localStorage
+           (key: arencon-frt-log-collapsed; '1'=collapsed/default,
+           '0'=expanded). Render path:
+           1. _renderDeficLog populates #defic-log-summary text + the table.
+           2. CSS hides #defic-log-container when data-collapsed=1.
+           3. Click delegate on #defic-log-header toggles + persists. -->
+      <div class="card" style="margin-bottom:4px;" id="defic-log-card" data-collapsed="1">
+        <div class="card-header" id="defic-log-header" style="cursor:pointer;display:flex;align-items:center;gap:10px;user-select:none;">
+          <span>📋 Deficiency Log</span>
+          <span id="defic-log-summary" style="font-weight:normal;font-size:.85em;opacity:.85;flex:1;"></span>
+          <span id="defic-log-chev" style="transition:transform .15s ease;font-size:.9em;">▾</span>
+        </div>
         <div class="card-body" id="defic-log-container" style="padding:0;"></div>
       </div>
       <!-- Deficiency List section (renamed from "Deficiencies Identified" S137-polish — parallels "Deficiency Log") -->
@@ -472,7 +485,15 @@ function ensurePdfJs(cb){
                 <button class="dfx-recmode-btn" data-recmode="all">All</button>
               </div>
             </div>
-            <button class="dfx-insp-toggle active" id="dfx-insp-toggle" title="Show / hide who logged each observation" aria-pressed="true">👤 Initials</button>
+            <!-- S154 §2.3: "Initials" toggle removed from the live board.
+                 The on-screen chip render guard (_showInspChip in
+                 deficiencies.js) is intentionally left intact for backward
+                 compat with users who had it ON in localStorage; the
+                 control-bar UI is gone because its only real use case is
+                 internal review reports, which now happens via the
+                 "Inspector attribution" picker in the PDF export dialog.
+                 The orphaned #dfx-insp-toggle delegate in deficiencies.js
+                 stays defined-but-inert per S137. -->
             <div class="view-toggle">
               <button class="view-toggle-btn active" data-view="detailed">📋 Detailed</button>
               <button class="view-toggle-btn" data-view="table">≡ Table</button>

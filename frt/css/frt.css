@@ -7826,6 +7826,20 @@ body.dark-mode .obs-insp-chip {
   font-style: italic;
 }
 
+/* S154 §2.1 (Option A): Deficiency Log collapse mechanism. The Log
+   sits between the Contractor Roster and the Deficiency List; collapsed
+   by default so the roster is reachable without scroll past a tall
+   table. Click the header to expand. State persisted via
+   arencon-frt-log-collapsed in localStorage. */
+#defic-log-card[data-collapsed="1"] #defic-log-container { display: none; }
+#defic-log-card[data-collapsed="1"] #defic-log-chev { transform: rotate(-90deg); }
+#defic-log-header:hover #defic-log-summary { opacity: 1; }
+@media (pointer: coarse) {
+  /* Touch tablets: a hover effect is meaningless; widen tap target
+     vertically so a fat-finger tap reliably lands. */
+  #defic-log-header { padding-top: 4px; padding-bottom: 4px; }
+}
+
 /* Control-bar toggle — matches .dfx-recmode-btn sizing/idiom. */
 .dfx-insp-toggle {
   background: transparent;

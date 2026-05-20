@@ -153,6 +153,18 @@ var _bvDrag = null;
 var _showInspChip = (function () {
   try { return localStorage.getItem('arencon-frt-insp-chip') !== '0'; } catch (e) { return true; }
 })();
+// S154 §2.1 (Option A): persisted collapsed state for the Deficiency Log.
+// Default = collapsed (set in HTML as data-collapsed="1"); localStorage
+// overrides on subsequent loads via _restoreLogCollapse() called from
+// initDeficiencies.render().
+function _restoreLogCollapse() {
+  try {
+    var v = localStorage.getItem('arencon-frt-log-collapsed');
+    if (v == null) return;
+    var card = document.getElementById('defic-log-card');
+    if (card) card.setAttribute('data-collapsed', v === '0' ? '0' : '1');
+  } catch (e) {}
+}
 var _inspChipSubscribed = false;           // guard: subscribe to Model 'inspectors' once
 
 // S114 P1.8: Gallery picker — modal lets user select project site photos to attach
@@ -953,6 +965,19 @@ function _renderDeficLog(proj, allDefics) {
   h += '<td style="text-align:center;color:#5F8068;">' + tClosed + '</td></tr>';
   h += '</tbody></table>';
   el.innerHTML = h;
+
+  // S154 §2.1 (Option A): keep the collapsed-state summary in sync with
+  // the table. Single source of truth — tTotal/tOut/tClosed are already
+  // computed above. The summary span lives in #defic-log-header (HTML)
+  // and is what users see when the card is collapsed.
+  var sumEl = document.getElementById('defic-log-summary');
+  if (sumEl) {
+    var parts = [tTotal + ' total'];
+    if (tNew > 0) parts.push(tNew + ' new');
+    parts.push(tOut + ' outstanding');
+    parts.push(tClosed + ' closed');
+    sumEl.textContent = '— ' + parts.join(' \u00b7 ');
+  }
 }
 
 // ── Contractor Roster · Click-to-Assign (S142 §2) ────────────────────
@@ -1213,6 +1238,9 @@ export var initDeficiencies = {
 
     // Render Deficiency Log summary table
     _renderDeficLog(proj, allDefics);
+    // S154 §2.1: restore the saved collapsed/expanded state after the
+    // table renders. HTML defaults to collapsed; localStorage overrides.
+    _restoreLogCollapse();
 
     // Render Trade Board (S136 Phase 1b)
     _renderTradeBoard(proj);
@@ -2136,6 +2164,20 @@ document.addEventListener('click', function(e) {
     it.classList.toggle('active', _showInspChip);
     it.setAttribute('aria-pressed', _showInspChip ? 'true' : 'false');
     initDeficiencies.render();
+    return;
+  }
+  // S154 §2.1 (Option A): Deficiency Log collapse toggle. Header carries
+  // the inline summary so collapsed reads like one bar; expansion reveals
+  // the contractor-grouped table. State persisted; default = collapsed
+  // (set on the card via data-collapsed="1" in HTML).
+  var lh = e.target.closest && e.target.closest('#defic-log-header');
+  if (lh) {
+    var card = document.getElementById('defic-log-card');
+    if (card) {
+      var willCollapse = card.getAttribute('data-collapsed') !== '1';
+      card.setAttribute('data-collapsed', willCollapse ? '1' : '0');
+      try { localStorage.setItem('arencon-frt-log-collapsed', willCollapse ? '1' : '0'); } catch (err) {}
+    }
     return;
   }
   var rm = e.target.closest && e.target.closest('.dfx-recmode-btn');
