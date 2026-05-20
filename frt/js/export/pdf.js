@@ -292,6 +292,10 @@ function _buildCSS(fontB64){
   c+='.pill-h{display:inline-block;background:#F4D6D6;color:#8E4444;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
   c+='.pill-l{display:inline-block;background:#F5E2C8;color:#8E6240;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
   c+='.pill-c{display:inline-block;background:#D2EBDC;color:#426B4F;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
+  // S154: Site Records pill — internal-use-only marker. Indigo to match the pin teardrop
+  // colour (#6B6FA8). Replaces the Outstanding/Closed pill on Site Records items so
+  // they're instantly identifiable in the internal report. Sized identical to .pill-h/l/c.
+  c+='.pill-sr{display:inline-block;background:#DCDEF0;color:#3F4470;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
   // Legacy IAR badge + .so/.sc kept — used by summary tables / appendix / older code paths
   c+='.iar{display:inline-block;background:#FF69B4;color:white;padding:1px 7px;border-radius:10px;font-size:9pt;font-weight:700;margin-left:4px;}';
   c+='.so{color:#A85959;font-weight:700;font-size:11pt;}.sc{color:#5F8068;font-weight:700;font-size:11pt;}';
@@ -653,9 +657,15 @@ function _buildDefCard(r,hdrExtra){
   // teardrop, in contrast, still uses effective pin priority because it represents
   // the physical pin on the drawing.
   var pr=(r.obs&&r.obs.priority)||d.priority||'high';
+  // S154: Site Records pill takes precedence over status pill on Site Records items.
+  // Internal-use-only marker — Site Records items are excluded from contractor-facing
+  // exports by the report filter, so this pill only ever appears in internal reports.
+  // The Site Records identity is the primary signal for these items; the Outstanding/
+  // Closed status reads as secondary noise in this context.
+  var _isSrCard=isSiteRecordsName(r.ctr);
   var pillCls,pillTxt;
-  if(thisClosed){pillCls='pill-c';pillTxt='Closed';}
-  else if(d.iar){pillCls='pill-iar';pillTxt='IAR';}
+  if(_isSrCard){pillCls='pill-sr';pillTxt='Site Records';}
+  else if(thisClosed){pillCls='pill-c';pillTxt='Closed';}
   else if(pr==='low'){pillCls='pill-l';pillTxt='Outstanding';}
   else{pillCls='pill-h';pillTxt='Outstanding';}
   // Activity: obs-tied for this obs, plus pin-level (no obsRef) on first-obs only
