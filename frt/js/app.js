@@ -725,6 +725,16 @@ var _cloudPullTimer = null;
 var _cloudPullInterval = 30000; // 30s — lightweight updated_at check
 var _lastPulledUpdatedAt = null; // ISO timestamp; updated on every successful pull
 
+// S155: Skip-if-unchanged push gate.
+// _pushDirty tracks "the model has changed since the last successful push."
+// Set when Model fires 'saved' (only real local mutations) and at session start
+// (one safety push covers the tab-killed-mid-debounce reload case). Cleared
+// optimistically at push start; restored on failure/offline so the next 15s
+// cycle retries. Skip combined with the document.hidden tab-hidden gate is
+// the entire idle-IO win — push timer interval unchanged at 15s, presence
+// untouched per Mark.
+var _pushDirty = false;
+
 function _startCloudSync(didLoad) {
   if (_cloudSyncTimer) clearInterval(_cloudSyncTimer);
 
@@ -753,6 +763,8 @@ function _startCloudSync(didLoad) {
 
   // Listen for local saves → push to cloud
   Model.onChange('saved', function() {
+    // S155: real local mutation just persisted to IDB — needs cloud push.
+    _pushDirty = true;
     // Debounce cloud push — don't push on every keystroke save
     if (_cloudSyncTimer) clearInterval(_cloudSyncTimer);
     _cloudSyncTimer = setTimeout(function() {
@@ -761,6 +773,12 @@ function _startCloudSync(didLoad) {
       _cloudSyncTimer = setInterval(_pushToCloud, _cloudSyncInterval);
     }, 5000); // Wait 5s after last local save before pushing
   });
+
+  // S155: one safety push on session start. Covers the case where the tab
+  // was killed between the last 'saved' event and its 5s debounced push,
+  // leaving local IDB ahead of cloud. After this single push, the gate
+  // takes over and idle ticks are no-ops.
+  _pushDirty = true;
 
   // Also do periodic sync (push)
   _cloudSyncTimer = setInterval(_pushToCloud, _cloudSyncInterval);
@@ -839,6 +857,10 @@ function _setTilePrefetchBadge(msg, fadeAfterMs) {
 
 function _checkRemoteForChanges(){
   if (!_hubMode || !_projectId) return;
+  // S155: pause pull when tab is hidden. The 30s interval keeps firing, but
+  // the no-op tick costs nothing; the next tick after visibility restores
+  // catches up. Presence heartbeat is intentionally NOT paused (per Mark).
+  if (typeof document !== 'undefined' && document.hidden) return;
   var user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
   if (!user) return;
   if (typeof SyncEngine === 'undefined' || !SyncEngine.getRemoteUpdatedAt) return;
@@ -900,12 +922,28 @@ function _showRemoteUpdateBanner(remoteTs){
 
 function _pushToCloud() {
   if (!_hubMode || !_projectId) return;
+  // S155: skip-if-unchanged gate. The 15s interval keeps ticking, but if
+  // nothing has changed since the last successful push, no network round
+  // trip happens. The 'saved' Model event sets _pushDirty=true the moment
+  // a real local mutation persists to IDB.
+  if (!_pushDirty) return;
+  // S155: pause when tab hidden. Push timer ticks but does nothing while
+  // the user is on another tab / app is backgrounded. Resume on next tick
+  // after the user returns. _pushDirty is preserved so no change is lost.
+  if (typeof document !== 'undefined' && document.hidden) return;
   // S81: don't claim to push if auth is missing — shows "Not signed in" instead
   var user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
   if (!user){
     _setCloudStatus('error', 'Not signed in — tap for details');
     return;
   }
+  // S155: optimistic clear. If push succeeds, _pushDirty stays false. If a
+  // concurrent 'saved' fires during the network round-trip, it re-sets
+  // _pushDirty=true and the next cycle picks it up — no edit lost. If push
+  // fails or returns null (offline queued), wasDirty restores the flag so
+  // the next cycle retries.
+  var wasDirty = _pushDirty;
+  _pushDirty = false;
   _setCloudStatus('saving', 'Syncing...');
   SyncEngine.push(_projectId).then(function(row) {
     if (row) {
@@ -913,9 +951,13 @@ function _pushToCloud() {
       // S82: update periodic-pull baseline so banner doesn't fire for our own push
       if (row.updated_at) _lastPulledUpdatedAt = row.updated_at;
     } else {
+      // null = offline-queued or no-op. Restore so next cycle retries.
+      _pushDirty = wasDirty;
       _setCloudStatus('pending', 'Saved locally');
     }
   }).catch(function(err) {
+    // Restore so next cycle retries.
+    _pushDirty = wasDirty;
     console.warn('[FRT v2] Cloud push failed:', err);
     _setCloudStatus('error', 'Sync failed');
   });
