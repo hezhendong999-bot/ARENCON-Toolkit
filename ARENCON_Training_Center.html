@@ -49,6 +49,9 @@ body.dark-mode .media{background:#0a0d12}
 body.dark-mode .viewer{background:var(--card);border-color:var(--border)}
 body.dark-mode .aiBox{background:#1a2030;color:var(--fg)}
 body.dark-mode .twStrip{background:var(--card);border-color:var(--border)}
+body.dark-mode .chat{background:var(--card)}
+body.dark-mode .chat .cmsg.a{background:#1a2030}
+body.dark-mode .chat .crow textarea{background:#0f1320;color:var(--fg)}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{font-family:Calibri,'Segoe UI',system-ui,sans-serif;color:var(--fg);
@@ -199,6 +202,40 @@ h1.pg{font-size:calc(22px + var(--ts));font-weight:800;
   letter-spacing:.5px;font-weight:700}
 .aiBox.load{color:var(--steel);font-style:italic;border-left-color:var(--silver)}
 .aiBox.err{color:var(--steel);font-style:italic;border-left-color:var(--silver)}
+.aiAsk{display:inline-block;margin-top:8px;color:var(--arencon);
+  cursor:pointer;font-weight:600;font-size:calc(12px + var(--ts));
+  text-decoration:underline;text-underline-offset:3px}
+.aiAsk.disabled{color:var(--steel);text-decoration:none;cursor:default;font-weight:500}
+.chat{margin-top:10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--card);padding:12px;display:flex;flex-direction:column;gap:8px}
+.chat .clog{display:flex;flex-direction:column;gap:8px;max-height:380px;
+  overflow-y:auto;padding:4px 2px}
+.chat .cmsg{padding:8px 12px;border-radius:10px;
+  font-size:calc(12.5px + var(--ts));line-height:1.45;max-width:88%;
+  word-wrap:break-word;white-space:pre-wrap}
+.chat .cmsg.u{background:var(--arencon);color:#fff;align-self:flex-end;
+  border-bottom-right-radius:3px}
+.chat .cmsg.a{background:var(--bg);color:var(--fg);align-self:flex-start;
+  border-bottom-left-radius:3px;border:1px solid var(--border)}
+.chat .cmsg.s{align-self:center;background:transparent;color:var(--steel);
+  font-style:italic;font-size:calc(11.5px + var(--ts));padding:4px 8px;max-width:100%}
+.chat .crow{display:flex;gap:8px;align-items:flex-end}
+.chat .crow textarea{flex:1;min-height:38px;max-height:120px;resize:vertical;
+  padding:8px 10px;border:1px solid var(--border);border-radius:6px;
+  background:var(--bg);color:var(--fg);
+  font-family:'Calibri',sans-serif;font-size:calc(13px + var(--ts));
+  line-height:1.4;outline:none}
+.chat .crow textarea:focus{border-color:var(--arencon)}
+.chat .crow textarea:disabled{opacity:.5;cursor:not-allowed}
+.chat .cbtn{padding:8px 16px;background:var(--arencon);color:#fff;
+  border:none;border-radius:6px;cursor:pointer;font-weight:600;
+  font-family:'Calibri',sans-serif;font-size:calc(13px + var(--ts));
+  white-space:nowrap}
+.chat .cbtn:disabled{background:var(--silver);cursor:not-allowed}
+.chat .cbar{display:flex;justify-content:space-between;align-items:center;
+  color:var(--steel);font-size:calc(11.5px + var(--ts));padding:0 2px}
+.chat .cdone{cursor:pointer;color:var(--steel);text-decoration:underline;
+  text-underline-offset:3px}
 .twStrip{border:1.5px solid var(--border);border-radius:var(--radius);
   padding:14px 18px;margin-bottom:14px;background:var(--bg)}
 .twStrip .twTit{font-weight:700;font-size:calc(12.5px + var(--ts));
@@ -316,6 +353,22 @@ async function sbExplain(payload){
     body:JSON.stringify(payload)});
   if(!r.ok) throw new Error('explain '+r.status);
   return r.json();
+}
+/* slice 2b: per-question tutor chat (Edge Function). Stateless EF —
+   client sends full chat history each turn. Server enforces 10-turn
+   cap and returns turn/max_turns in the response. */
+async function sbChat(payload){
+  const r=await fetch(SB_URL+'/functions/v1/training-chat-edge',{
+    method:'POST',
+    headers:{apikey:SB_ANON,Authorization:'Bearer '+SESSION,
+      'Content-Type':'application/json'},
+    body:JSON.stringify(payload)});
+  const data=await r.json().catch(()=>({error:'bad json'}));
+  if(!r.ok){
+    const err=new Error('chat '+r.status);
+    err.status=r.status; err.data=data; throw err;
+  }
+  return data;
 }
 
 /* ─── AUTH GATE — every page checks; no session → portal ─── */
@@ -629,7 +682,10 @@ function startQuiz(m){
               const id=el.getAttribute('data-qi'), txt=byId[id];
               if(txt){
                 el.classList.remove('load');
-                el.innerHTML='<b>Why your answer was wrong</b>'+esc(txt);
+                /* slice 2b: append Ask a follow-up link. id here is the
+                   index into Q[], used by chat handlers below. */
+                el.innerHTML='<b>Why your answer was wrong</b>'+esc(txt)+
+                  '<div><span class="aiAsk" onclick="window.__chatOpen('+id+')">Ask a follow-up</span></div>';
               } else {
                 el.classList.remove('load'); el.classList.add('err');
                 el.textContent='AI explanation unavailable for this question.';
@@ -648,6 +704,129 @@ function startQuiz(m){
     mount.scrollIntoView({behavior:'smooth',block:'start'});
   }
   window.__pick=(i,j)=>{ if(answered[i]==null){ answered[i]=j; draw(); } };
+  /* slice 2b: per-question tutor chat. Independent state per question
+     index (Q[i]); kept in browser memory only, lost on refresh by design
+     (cost discipline + privacy). 10-turn cap enforced server-side; we
+     also track turn count client-side for the visible counter. */
+  const chats={};   /* {[qi]: {hist:[{role,content}], turn:0, busy:false}} */
+  window.__chatOpen=(qi)=>{
+    const card=document.querySelector('.qcard.rev[data-ok="0"]:nth-of-type('+(qi+1)+')');
+    /* find by aiBox data-qi instead, more reliable */
+    const box=mount.querySelector('.aiBox[data-qi="'+qi+'"]');
+    if(!box) return;
+    /* already open? toggle close */
+    const existing=box.parentNode.querySelector('.chat[data-qi="'+qi+'"]');
+    if(existing){ existing.remove();
+      const ask=box.querySelector('.aiAsk');
+      if(ask){ ask.textContent='Ask a follow-up'; ask.classList.remove('disabled'); }
+      return;
+    }
+    if(!chats[qi]) chats[qi]={hist:[],turn:0,busy:false};
+    const panel=document.createElement('div');
+    panel.className='chat'; panel.setAttribute('data-qi',String(qi));
+    panel.innerHTML=
+      '<div class="clog" data-role="log">'+
+        '<div class="cmsg s">Ask anything about this question — I\'ll help you work through it.</div>'+
+      '</div>'+
+      '<div class="crow">'+
+        '<textarea data-role="input" placeholder="Type your follow-up\u2026" rows="1"></textarea>'+
+        '<button class="cbtn" data-role="send" onclick="window.__chatSend('+qi+')">Send</button>'+
+      '</div>'+
+      '<div class="cbar">'+
+        '<span data-role="counter">0 / 10 follow-ups</span>'+
+        '<span class="cdone" onclick="window.__chatOpen('+qi+')">Hide</span>'+
+      '</div>';
+    box.parentNode.insertBefore(panel,box.nextSibling);
+    /* re-render any existing history (e.g. user hid then reopened) */
+    if(chats[qi].hist.length){
+      const log=panel.querySelector('[data-role="log"]');
+      chats[qi].hist.forEach(msg=>{
+        const d=document.createElement('div');
+        d.className='cmsg '+(msg.role==='user'?'u':'a');
+        d.textContent=msg.content;
+        log.appendChild(d);
+      });
+      panel.querySelector('[data-role="counter"]').textContent=chats[qi].turn+' / 10 follow-ups';
+    }
+    const ask=box.querySelector('.aiAsk');
+    if(ask) ask.textContent='Hide follow-up';
+    const ta=panel.querySelector('[data-role="input"]');
+    ta.focus();
+    /* Enter to send (Shift+Enter = newline) */
+    ta.addEventListener('keydown',(e)=>{
+      if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); window.__chatSend(qi); }
+    });
+  };
+  window.__chatSend=async (qi)=>{
+    const panel=mount.querySelector('.chat[data-qi="'+qi+'"]');
+    if(!panel) return;
+    const state=chats[qi]; if(!state || state.busy) return;
+    const ta=panel.querySelector('[data-role="input"]');
+    const log=panel.querySelector('[data-role="log"]');
+    const btn=panel.querySelector('[data-role="send"]');
+    const counter=panel.querySelector('[data-role="counter"]');
+    const msg=(ta.value||'').trim();
+    if(!msg) return;
+    if(state.turn>=10){
+      const note=document.createElement('div');
+      note.className='cmsg s';
+      note.textContent='Chat limit reached (10 follow-ups). Take the quiz again for a fresh chat.';
+      log.appendChild(note); log.scrollTop=log.scrollHeight;
+      return;
+    }
+    state.busy=true; btn.disabled=true; ta.disabled=true;
+    /* render user message immediately */
+    const uDiv=document.createElement('div');
+    uDiv.className='cmsg u'; uDiv.textContent=msg;
+    log.appendChild(uDiv);
+    /* render placeholder for AI reply */
+    const aDiv=document.createElement('div');
+    aDiv.className='cmsg a'; aDiv.style.fontStyle='italic';
+    aDiv.style.color='var(--steel)';
+    aDiv.textContent='Thinking\u2026';
+    log.appendChild(aDiv);
+    log.scrollTop=log.scrollHeight;
+    ta.value='';
+    const q=Q[qi];
+    try{
+      const resp=await sbChat({
+        question:{q:q.q,opts:q.opts,answer:q.answer,picked:answered[qi],
+                  topic:q.topic||'',why:q.why||''},
+        module_title:m.title||'',
+        module_code_ref:m.code_ref||'',
+        history:state.hist,
+        user_message:msg,
+        context:{tool:'training'}
+      });
+      const reply=String(resp.reply||'').trim();
+      aDiv.style.fontStyle=''; aDiv.style.color='';
+      aDiv.textContent=reply||'(no reply)';
+      /* persist into history for next turn */
+      state.hist.push({role:'user',content:msg});
+      state.hist.push({role:'assistant',content:reply});
+      state.turn=resp.turn||(state.turn+1);
+      counter.textContent=state.turn+' / '+(resp.max_turns||10)+' follow-ups';
+      if(state.turn>=10){
+        ta.placeholder='Limit reached \u2014 take the quiz again for a fresh chat';
+      }
+    }catch(err){
+      console.warn('chat error',err);
+      aDiv.classList.add('s'); aDiv.classList.remove('a');
+      aDiv.style.fontStyle='italic'; aDiv.style.color='var(--steel)';
+      if(err && err.status===429){
+        aDiv.textContent='Chat limit reached. Take the quiz again for a fresh chat.';
+        state.turn=10;
+        counter.textContent='10 / 10 follow-ups';
+        ta.placeholder='Limit reached';
+      } else {
+        aDiv.textContent='Tutor unavailable \u2014 please try again.';
+      }
+    } finally {
+      state.busy=false; btn.disabled=false; ta.disabled=(state.turn>=10);
+      log.scrollTop=log.scrollHeight;
+      if(state.turn<10) ta.focus();
+    }
+  };
   draw();
 }
 
