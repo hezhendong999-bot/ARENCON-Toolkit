@@ -52,6 +52,11 @@ body.dark-mode .twStrip{background:var(--card);border-color:var(--border)}
 body.dark-mode .chat{background:var(--card)}
 body.dark-mode .chat .cmsg.a{background:#1a2030}
 body.dark-mode .chat .crow textarea{background:#0f1320;color:var(--fg)}
+body.dark-mode .flagBx{background:var(--card)}
+body.dark-mode .flagBx .flagCtx{background:#0f1320}
+body.dark-mode .flagBx textarea{background:#0f1320;color:var(--fg)}
+body.dark-mode .flagBx .flagOk{background:#1b3a22;border-color:#2e6b3a;color:#a5d6a7}
+body.dark-mode .flagBx .flagErr{background:#3a1b1b;border-color:#6b2e2e;color:#ef9a9a}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{font-family:Calibri,'Segoe UI',system-ui,sans-serif;color:var(--fg);
@@ -193,61 +198,115 @@ h1.pg{font-size:calc(22px + var(--ts));font-weight:800;
 .result .rl{color:var(--steel);font-size:calc(13.5px + var(--ts));
   margin-bottom:20px}
 
-/* ── slice 2a: AI explanation block + topic-weakness strip ── */
-.aiBox{margin-top:10px;padding:12px 15px;background:var(--bg);
-  border-left:3px solid var(--arencon);border-radius:0 8px 8px 0;
-  font-size:calc(12.5px + var(--ts));line-height:1.5;color:var(--fg)}
-.aiBox b{color:var(--arencon);display:block;margin-bottom:4px;
-  font-size:calc(11.5px + var(--ts));text-transform:uppercase;
-  letter-spacing:.5px;font-weight:700}
+/* ── slice 2a: AI explanation block + topic-weakness strip ──
+   slice 2c polish: AI block is the primary review content; the
+   author's "why" is demoted to a quiet secondary note. */
+.aiBox{margin-top:12px;padding:14px 18px;background:var(--bg);
+  border-left:4px solid var(--arencon);border-radius:0 10px 10px 0;
+  font-size:calc(13.5px + var(--ts));line-height:1.55;color:var(--fg)}
+.aiBox b{color:var(--arencon);display:block;margin-bottom:6px;
+  font-size:calc(12.5px + var(--ts));letter-spacing:.2px;font-weight:700}
 .aiBox.load{color:var(--steel);font-style:italic;border-left-color:var(--silver)}
 .aiBox.err{color:var(--steel);font-style:italic;border-left-color:var(--silver)}
-.aiAsk{display:inline-block;margin-top:8px;color:var(--arencon);
-  cursor:pointer;font-weight:600;font-size:calc(12px + var(--ts));
+.aiBox .retry{display:inline-block;margin-left:8px;color:var(--arencon);
+  cursor:pointer;font-weight:600;text-decoration:underline;
+  text-underline-offset:3px;font-style:normal}
+.aiAsk{display:inline-block;margin-top:10px;color:var(--arencon);
+  cursor:pointer;font-weight:600;font-size:calc(12.5px + var(--ts));
   text-decoration:underline;text-underline-offset:3px}
 .aiAsk.disabled{color:var(--steel);text-decoration:none;cursor:default;font-weight:500}
-.chat{margin-top:10px;border:1px solid var(--border);border-radius:8px;
-  background:var(--card);padding:12px;display:flex;flex-direction:column;gap:8px}
-.chat .clog{display:flex;flex-direction:column;gap:8px;max-height:380px;
+/* slice 2c: flag-for-review link, always present on every reviewed question */
+.aiFlag{display:inline-block;margin-top:10px;margin-left:14px;color:var(--steel);
+  cursor:pointer;font-size:calc(12px + var(--ts));text-decoration:underline;
+  text-underline-offset:3px}
+.aiFlag:hover{color:var(--arencon)}
+/* author "why" demoted (slice 2c) */
+.qcard.rev .why{color:var(--steel);font-size:calc(12px + var(--ts));
+  margin-top:10px;padding:8px 12px;background:transparent;
+  border-left:2px solid var(--silver);border-radius:0;line-height:1.5}
+.qcard.rev .why b{color:var(--steel);font-weight:600;
+  text-transform:none;letter-spacing:0;font-size:calc(11.5px + var(--ts))}
+.chat{margin-top:12px;border:1px solid var(--border);border-radius:10px;
+  background:var(--card);padding:14px;display:flex;flex-direction:column;gap:10px;
+  box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.chat .clog{display:flex;flex-direction:column;gap:8px;max-height:420px;
   overflow-y:auto;padding:4px 2px}
-.chat .cmsg{padding:8px 12px;border-radius:10px;
-  font-size:calc(12.5px + var(--ts));line-height:1.45;max-width:88%;
+.chat .cmsg{padding:9px 13px;border-radius:12px;
+  font-size:calc(13px + var(--ts));line-height:1.5;max-width:88%;
   word-wrap:break-word;white-space:pre-wrap}
 .chat .cmsg.u{background:var(--arencon);color:#fff;align-self:flex-end;
-  border-bottom-right-radius:3px}
+  border-bottom-right-radius:4px}
 .chat .cmsg.a{background:var(--bg);color:var(--fg);align-self:flex-start;
-  border-bottom-left-radius:3px;border:1px solid var(--border)}
+  border-bottom-left-radius:4px;border:1px solid var(--border)}
 .chat .cmsg.s{align-self:center;background:transparent;color:var(--steel);
-  font-style:italic;font-size:calc(11.5px + var(--ts));padding:4px 8px;max-width:100%}
-.chat .crow{display:flex;gap:8px;align-items:flex-end}
-.chat .crow textarea{flex:1;min-height:38px;max-height:120px;resize:vertical;
-  padding:8px 10px;border:1px solid var(--border);border-radius:6px;
+  font-style:italic;font-size:calc(11.5px + var(--ts));padding:4px 8px;max-width:100%;text-align:center}
+.chat .crow{display:flex;gap:10px;align-items:flex-end}
+.chat .crow textarea{flex:1;min-height:44px;max-height:140px;resize:vertical;
+  padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;
   background:var(--bg);color:var(--fg);
-  font-family:'Calibri',sans-serif;font-size:calc(13px + var(--ts));
-  line-height:1.4;outline:none}
+  font-family:'Calibri',sans-serif;font-size:calc(13.5px + var(--ts));
+  line-height:1.45;outline:none;transition:border-color .15s}
 .chat .crow textarea:focus{border-color:var(--arencon)}
 .chat .crow textarea:disabled{opacity:.5;cursor:not-allowed}
-.chat .cbtn{padding:8px 16px;background:var(--arencon);color:#fff;
-  border:none;border-radius:6px;cursor:pointer;font-weight:600;
-  font-family:'Calibri',sans-serif;font-size:calc(13px + var(--ts));
-  white-space:nowrap}
+.chat .cbtn{padding:10px 20px;background:var(--arencon);color:#fff;
+  border:none;border-radius:8px;cursor:pointer;font-weight:600;
+  font-family:'Calibri',sans-serif;font-size:calc(13.5px + var(--ts));
+  white-space:nowrap;transition:opacity .15s}
+.chat .cbtn:hover:not(:disabled){opacity:.9}
 .chat .cbtn:disabled{background:var(--silver);cursor:not-allowed}
 .chat .cbar{display:flex;justify-content:space-between;align-items:center;
   color:var(--steel);font-size:calc(11.5px + var(--ts));padding:0 2px}
 .chat .cdone{cursor:pointer;color:var(--steel);text-decoration:underline;
   text-underline-offset:3px}
-.twStrip{border:1.5px solid var(--border);border-radius:var(--radius);
-  padding:14px 18px;margin-bottom:14px;background:var(--bg)}
-.twStrip .twTit{font-weight:700;font-size:calc(12.5px + var(--ts));
-  color:var(--arencon);margin-bottom:10px;text-transform:uppercase;
-  letter-spacing:.4px}
+.twStrip{border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px 16px;margin-bottom:16px;background:transparent}
+.twStrip .twTit{font-weight:600;font-size:calc(12px + var(--ts));
+  color:var(--steel);margin-bottom:8px;letter-spacing:.2px;text-transform:uppercase}
 .twStrip .twRow{display:flex;justify-content:space-between;align-items:center;
-  padding:7px 0;border-bottom:1px solid var(--border);
-  font-size:calc(13px + var(--ts))}
-.twStrip .twRow:last-child{border-bottom:none}
-.twStrip .twTop{color:var(--fg);font-weight:600}
-.twStrip .twMis{color:var(--err);font-weight:600;
+  padding:6px 0;border-bottom:1px solid var(--border);
   font-size:calc(12.5px + var(--ts))}
+.twStrip .twRow:last-child{border-bottom:none}
+.twStrip .twTop{color:var(--fg);font-weight:500}
+.twStrip .twMis{color:var(--err);font-weight:600;
+  font-size:calc(12px + var(--ts))}
+
+/* slice 2c: flag-for-review modal */
+.flagOv{position:fixed;inset:0;background:rgba(10,15,30,.55);z-index:1000;
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.flagBx{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:22px 24px;max-width:640px;width:100%;max-height:88vh;overflow-y:auto;
+  box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.flagBx h3{margin:0 0 12px 0;color:var(--arencon);font-size:calc(17px + var(--ts));
+  font-weight:700}
+.flagBx .flagCtx{background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;padding:12px 14px;margin-bottom:14px;
+  font-size:calc(12.5px + var(--ts));color:var(--steel);line-height:1.5;
+  max-height:180px;overflow-y:auto}
+.flagBx .flagCtx b{color:var(--fg)}
+.flagBx label{display:block;margin-bottom:6px;color:var(--fg);
+  font-weight:600;font-size:calc(13px + var(--ts))}
+.flagBx textarea{width:100%;min-height:120px;max-height:280px;resize:vertical;
+  padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;
+  background:var(--bg);color:var(--fg);font-family:'Calibri',sans-serif;
+  font-size:calc(13.5px + var(--ts));line-height:1.45;outline:none;
+  box-sizing:border-box}
+.flagBx textarea:focus{border-color:var(--arencon)}
+.flagBx .flagHint{color:var(--steel);font-size:calc(11.5px + var(--ts));
+  margin-top:6px;margin-bottom:14px}
+.flagBx .flagBar{display:flex;justify-content:flex-end;gap:10px;margin-top:8px}
+.flagBx .flagBar button{padding:10px 18px;border-radius:8px;border:none;
+  font-family:'Calibri',sans-serif;font-size:calc(13px + var(--ts));
+  font-weight:600;cursor:pointer}
+.flagBx .flagBar .cancel{background:transparent;color:var(--steel);
+  border:1.5px solid var(--border)}
+.flagBx .flagBar .submit{background:var(--arencon);color:#fff}
+.flagBx .flagBar .submit:disabled{background:var(--silver);cursor:not-allowed}
+.flagBx .flagOk{background:#e8f5e9;border:1px solid #a5d6a7;color:#2e7d32;
+  padding:12px 14px;border-radius:8px;font-size:calc(13px + var(--ts));
+  margin-top:10px}
+.flagBx .flagErr{background:#ffebee;border:1px solid #ef9a9a;color:#c62828;
+  padding:12px 14px;border-radius:8px;font-size:calc(13px + var(--ts));
+  margin-top:10px}
 
 /* ── auth overlay ── */
 #authOv{position:fixed;inset:0;background:var(--bg);z-index:9999;
@@ -366,6 +425,22 @@ async function sbChat(payload){
   const data=await r.json().catch(()=>({error:'bad json'}));
   if(!r.ok){
     const err=new Error('chat '+r.status);
+    err.status=r.status; err.data=data; throw err;
+  }
+  return data;
+}
+/* slice 2c: flag-for-review feedback (Edge Function).
+   Distills user complaint + raw context into structured record;
+   writes to tc_questions_feedback. */
+async function sbFeedback(payload){
+  const r=await fetch(SB_URL+'/functions/v1/training-feedback-edge',{
+    method:'POST',
+    headers:{apikey:SB_ANON,Authorization:'Bearer '+SESSION,
+      'Content-Type':'application/json'},
+    body:JSON.stringify(payload)});
+  const data=await r.json().catch(()=>({error:'bad json'}));
+  if(!r.ok){
+    const err=new Error('feedback '+r.status);
     err.status=r.status; err.data=data; throw err;
   }
   return data;
@@ -643,6 +718,11 @@ function startQuiz(m){
            Patched in after the EF response arrives; left as 'load' if
            the call is still pending; replaced with .err on failure. */
         if(!ok) h+=`<div class="aiBox load" data-qi="${i}">Analyzing your reasoning…</div>`;
+        /* slice 2c: Flag-for-review link on EVERY question (right & wrong).
+           Right questions also get a flag link in case the user thinks
+           the marked-correct answer is actually wrong — that's exactly
+           the kind of feedback we want surfaced. */
+        h+=`<div><span class="aiFlag" onclick="window.__flagOpen(${i})">Flag this question for review</span></div>`;
         h+='</div>';
       });
       h+='</div>';
@@ -688,15 +768,19 @@ function startQuiz(m){
                   '<div><span class="aiAsk" onclick="window.__chatOpen('+id+')">Ask a follow-up</span></div>';
               } else {
                 el.classList.remove('load'); el.classList.add('err');
-                el.textContent='AI explanation unavailable for this question.';
+                /* slice 2c: per-question retry — single-item explain call */
+                el.innerHTML='AI explanation unavailable for this question. '+
+                  '<span class="retry" onclick="window.__retryExplain('+id+')">Try again</span>';
               }
             });
           })
           .catch(err=>{
             console.warn('explain failed',err);
             mount.querySelectorAll('.aiBox.load').forEach(el=>{
+              const id=el.getAttribute('data-qi');
               el.classList.remove('load'); el.classList.add('err');
-              el.textContent='AI explanation unavailable for this attempt.';
+              el.innerHTML='AI explanation unavailable for this attempt. '+
+                '<span class="retry" onclick="window.__retryExplain('+id+')">Try again</span>';
             });
           });
       }
@@ -706,8 +790,9 @@ function startQuiz(m){
   window.__pick=(i,j)=>{ if(answered[i]==null){ answered[i]=j; draw(); } };
   /* slice 2b: per-question tutor chat. Independent state per question
      index (Q[i]); kept in browser memory only, lost on refresh by design
-     (cost discipline + privacy). 10-turn cap enforced server-side; we
-     also track turn count client-side for the visible counter. */
+     (cost discipline + privacy). slice 2c: cap raised to 20 turns.
+     Server still enforces; this client constant must match the EF. */
+  const MAX_CHAT_TURNS=20;
   const chats={};   /* {[qi]: {hist:[{role,content}], turn:0, busy:false}} */
   window.__chatOpen=(qi)=>{
     const card=document.querySelector('.qcard.rev[data-ok="0"]:nth-of-type('+(qi+1)+')');
@@ -733,7 +818,7 @@ function startQuiz(m){
         '<button class="cbtn" data-role="send" onclick="window.__chatSend('+qi+')">Send</button>'+
       '</div>'+
       '<div class="cbar">'+
-        '<span data-role="counter">0 / 10 follow-ups</span>'+
+        '<span data-role="counter">0 / '+MAX_CHAT_TURNS+' follow-ups</span>'+
         '<span class="cdone" onclick="window.__chatOpen('+qi+')">Hide</span>'+
       '</div>';
     box.parentNode.insertBefore(panel,box.nextSibling);
@@ -746,7 +831,7 @@ function startQuiz(m){
         d.textContent=msg.content;
         log.appendChild(d);
       });
-      panel.querySelector('[data-role="counter"]').textContent=chats[qi].turn+' / 10 follow-ups';
+      panel.querySelector('[data-role="counter"]').textContent=chats[qi].turn+' / '+MAX_CHAT_TURNS+' follow-ups';
     }
     const ask=box.querySelector('.aiAsk');
     if(ask) ask.textContent='Hide follow-up';
@@ -767,10 +852,10 @@ function startQuiz(m){
     const counter=panel.querySelector('[data-role="counter"]');
     const msg=(ta.value||'').trim();
     if(!msg) return;
-    if(state.turn>=10){
+    if(state.turn>=MAX_CHAT_TURNS){
       const note=document.createElement('div');
       note.className='cmsg s';
-      note.textContent='Chat limit reached (10 follow-ups). Take the quiz again for a fresh chat.';
+      note.textContent='Chat limit reached ('+MAX_CHAT_TURNS+' follow-ups). If you still need clarification, please use \u201CFlag this question for review\u201D below.';
       log.appendChild(note); log.scrollTop=log.scrollHeight;
       return;
     }
@@ -805,26 +890,147 @@ function startQuiz(m){
       state.hist.push({role:'user',content:msg});
       state.hist.push({role:'assistant',content:reply});
       state.turn=resp.turn||(state.turn+1);
-      counter.textContent=state.turn+' / '+(resp.max_turns||10)+' follow-ups';
-      if(state.turn>=10){
-        ta.placeholder='Limit reached \u2014 take the quiz again for a fresh chat';
+      counter.textContent=state.turn+' / '+(resp.max_turns||MAX_CHAT_TURNS)+' follow-ups';
+      if(state.turn>=MAX_CHAT_TURNS){
+        ta.placeholder='Limit reached \u2014 flag this question for review if you still need help';
       }
     }catch(err){
       console.warn('chat error',err);
       aDiv.classList.add('s'); aDiv.classList.remove('a');
       aDiv.style.fontStyle='italic'; aDiv.style.color='var(--steel)';
       if(err && err.status===429){
-        aDiv.textContent='Chat limit reached. Take the quiz again for a fresh chat.';
-        state.turn=10;
-        counter.textContent='10 / 10 follow-ups';
+        aDiv.textContent='Chat limit reached. If you still need clarification, please flag the question for review.';
+        state.turn=MAX_CHAT_TURNS;
+        counter.textContent=MAX_CHAT_TURNS+' / '+MAX_CHAT_TURNS+' follow-ups';
         ta.placeholder='Limit reached';
       } else {
         aDiv.textContent='Tutor unavailable \u2014 please try again.';
       }
     } finally {
-      state.busy=false; btn.disabled=false; ta.disabled=(state.turn>=10);
+      state.busy=false; btn.disabled=false; ta.disabled=(state.turn>=MAX_CHAT_TURNS);
       log.scrollTop=log.scrollHeight;
-      if(state.turn<10) ta.focus();
+      if(state.turn<MAX_CHAT_TURNS) ta.focus();
+    }
+  };
+  /* slice 2c: per-question retry of the explainer. Single-item call.
+     Restores the loading state, fires sbExplain with one item, then
+     patches the result back into the same aiBox. */
+  window.__retryExplain=async (qi)=>{
+    const el=mount.querySelector('.aiBox[data-qi="'+qi+'"]');
+    if(!el) return;
+    const q=Q[qi]; if(!q || answered[qi]===q.answer) return;
+    el.classList.remove('err'); el.classList.add('load');
+    el.textContent='Retrying\u2026';
+    try{
+      const resp=await sbExplain({
+        wrong_items:[{id:String(qi),q:q.q,opts:q.opts,answer:q.answer,
+                      picked:answered[qi],topic:q.topic||'',why:q.why||''}],
+        module_title:m.title||'',
+        module_code_ref:m.code_ref||'',
+        context:{tool:'training'}});
+      const got=(resp&&Array.isArray(resp.explanations))?resp.explanations:[];
+      const found=got.find(e=>e&&String(e.id)===String(qi));
+      if(found && found.text){
+        el.classList.remove('load');
+        el.innerHTML='<b>Why your answer was wrong</b>'+esc(found.text)+
+          '<div><span class="aiAsk" onclick="window.__chatOpen('+qi+')">Ask a follow-up</span></div>';
+      } else {
+        el.classList.remove('load'); el.classList.add('err');
+        el.innerHTML='Still unavailable. '+
+          '<span class="retry" onclick="window.__retryExplain('+qi+')">Try again</span>';
+      }
+    }catch(err){
+      console.warn('retry explain failed',err);
+      el.classList.remove('load'); el.classList.add('err');
+      el.innerHTML='Retry failed. '+
+        '<span class="retry" onclick="window.__retryExplain('+qi+')">Try again</span>';
+    }
+  };
+  /* slice 2c: flag-for-review modal. Lives on document.body so it's
+     above any quiz scroll. Pulls chat history (if any) and AI explanation
+     (if rendered) for the question being flagged. Posts to the
+     feedback EF which distills + persists. */
+  window.__flagOpen=(qi)=>{
+    if(document.getElementById('flagOv')) return; // already open
+    const q=Q[qi]; if(!q) return;
+    const a=answered[qi]; const ok=(a===q.answer);
+    const chatState=chats[qi];
+    const chatHist=chatState && chatState.hist.length ? chatState.hist : [];
+    /* find ai explanation text currently rendered */
+    let aiTxt='';
+    const aiEl=mount.querySelector('.aiBox[data-qi="'+qi+'"]');
+    if(aiEl && !aiEl.classList.contains('load') && !aiEl.classList.contains('err')){
+      const cloned=aiEl.cloneNode(true);
+      /* strip the title bold + the ask link before reading text */
+      cloned.querySelectorAll('b,.aiAsk,div:last-child').forEach(n=>{ if(n.parentNode===cloned) n.remove(); });
+      aiTxt=cloned.textContent.trim();
+    }
+    const ov=document.createElement('div');
+    ov.className='flagOv'; ov.id='flagOv';
+    ov.innerHTML=
+      '<div class="flagBx" onclick="event.stopPropagation()">'+
+        '<h3>Flag this question for review</h3>'+
+        '<div class="flagCtx">'+
+          '<div><b>Question:</b> '+esc(q.q)+'</div>'+
+          '<div style="margin-top:6px"><b>Your answer:</b> '+(a==null?'(none)':esc(q.opts[a]||''))+(ok?' \u2713 correct':' \u2717 wrong')+'</div>'+
+          '<div style="margin-top:6px"><b>Correct answer:</b> '+esc(q.opts[q.answer]||'')+'</div>'+
+        '</div>'+
+        '<label for="flagTxt">What do you think is wrong, or what\u2019s confusing you?</label>'+
+        '<textarea id="flagTxt" placeholder="Be specific \u2014 cite a code clause or describe the ambiguity. (minimum 20 characters)"></textarea>'+
+        '<div class="flagHint">Your full context (the question, your pick, the AI explanation, and any chat history) is sent along automatically. You don\u2019t need to repeat any of it.</div>'+
+        '<div id="flagMsg"></div>'+
+        '<div class="flagBar">'+
+          '<button class="cancel" onclick="window.__flagClose()">Cancel</button>'+
+          '<button class="submit" id="flagSubmit" onclick="window.__flagSubmit('+qi+')">Submit for review</button>'+
+        '</div>'+
+      '</div>';
+    ov.onclick=()=>window.__flagClose();
+    document.body.appendChild(ov);
+    /* stash submission payload pieces on the modal so submit() can read them */
+    ov.__payload={qi,aiTxt,chatHist:chatHist.slice()};
+    setTimeout(()=>{ const t=document.getElementById('flagTxt'); if(t) t.focus(); },50);
+  };
+  window.__flagClose=()=>{
+    const ov=document.getElementById('flagOv');
+    if(ov && ov.parentNode) ov.parentNode.removeChild(ov);
+  };
+  window.__flagSubmit=async (qi)=>{
+    const ov=document.getElementById('flagOv'); if(!ov) return;
+    const txt=(document.getElementById('flagTxt').value||'').trim();
+    const msg=document.getElementById('flagMsg');
+    const btn=document.getElementById('flagSubmit');
+    msg.innerHTML='';
+    if(txt.length<20){
+      msg.innerHTML='<div class="flagErr">Please describe your concern in at least 20 characters.</div>';
+      return;
+    }
+    btn.disabled=true; btn.textContent='Submitting\u2026';
+    const q=Q[qi]; const a=answered[qi];
+    const pl=ov.__payload||{};
+    try{
+      const resp=await sbFeedback({
+        attempt_id:null,    /* not tracked in client state in this slice */
+        module_id:m.id||'',
+        module_title:m.title||'',
+        module_code_ref:m.code_ref||'',
+        question:{q:q.q,opts:q.opts,answer:q.answer,picked:a==null?-1:a,
+                  topic:q.topic||'',why:q.why||''},
+        question_index:qi,
+        ai_explanation:pl.aiTxt||'',
+        chat_history:pl.chatHist||[],
+        user_text:txt,
+        context:{tool:'training'}});
+      msg.innerHTML='<div class="flagOk">Thanks \u2014 flagged for review.'+
+        (resp.summary?'<div style="margin-top:6px;color:var(--steel);font-style:italic">Distilled summary: '+esc(resp.summary)+'</div>':'')+
+        '</div>';
+      btn.textContent='Submitted';
+      /* auto-close after a beat */
+      setTimeout(()=>window.__flagClose(),2200);
+    }catch(err){
+      console.warn('flag submit failed',err);
+      const detail=(err.data && (err.data.error||err.data.detail))||err.message||'unknown error';
+      msg.innerHTML='<div class="flagErr">Submission failed: '+esc(String(detail))+'</div>';
+      btn.disabled=false; btn.textContent='Submit for review';
     }
   };
   draw();
