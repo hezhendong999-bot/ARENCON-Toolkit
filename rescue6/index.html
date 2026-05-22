@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>ARENCON Cloud Rescue 6 — Tablet vs Cloud Diff (4380.24)</title>
+<style>
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { font-family: Calibri, "Segoe UI", sans-serif; padding: 10px; max-width: 900px; margin: 0 auto; background: #F5F5F5; color: #212121; }
+.banner { background: #9C2742; color: white; padding: 12px 14px; border-radius: 8px; margin-bottom: 10px; }
+.banner h1 { margin: 0 0 4px 0; font-size: 1.15em; font-weight: 700; }
+.banner p { margin: 0; font-size: 0.88em; opacity: 0.95; line-height: 1.4; }
+.warn { background: #FFF3CD; border-left: 4px solid #C28F00; padding: 10px 12px; margin: 10px 0; font-size: 0.86em; border-radius: 4px; }
+.warn b { color: #8A6300; }
+.step { background: white; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #9C2742; }
+.step h2 { margin: 0 0 8px 0; color: #9C2742; font-size: 1em; font-weight: 700; }
+.step .desc { font-size: 0.85em; color: #555; margin-bottom: 8px; line-height: 1.4; }
+button { background: #9C2742; color: white; border: none; padding: 12px 18px; font-size: 1em; font-family: Calibri, sans-serif; font-weight: 600; border-radius: 6px; cursor: pointer; margin: 4px 4px 4px 0; min-width: 160px; touch-action: manipulation; }
+button.copy { background: #1A7A4A; }
+button:active { transform: scale(0.98); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+input[type=email], input[type=password] { font-family: Calibri, sans-serif; font-size: 1em; padding: 10px 12px; border: 1px solid #BBB; border-radius: 6px; width: 260px; max-width: 100%; margin: 4px 6px 4px 0; }
+pre { background: #2C3E50; color: #ECF0F1; padding: 10px; border-radius: 6px; font-size: 0.76em; max-height: 540px; overflow: auto; white-space: pre-wrap; word-wrap: break-word; user-select: text; -webkit-user-select: text; line-height: 1.35; margin: 8px 0 0 0; }
+.status { font-weight: 700; min-height: 1.2em; font-size: 0.92em; margin: 6px 0 0 0; }
+.ok { color: #1A7A4A; }
+.err { color: #9C2742; }
+.wmsg { color: #C28F00; }
+.hidden { display: none; }
+code { background: #EEE; padding: 1px 4px; border-radius: 3px; font-size: 0.92em; }
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <h1>ARENCON Cloud Rescue 6 — Tablet IDB vs Cloud Diff</h1>
+  <p>Reads tablet IndexedDB + fresh cloud row + computes diff. <b>Zero writes. Zero CloudSync involvement.</b> Run on the tablet, in Chrome (NOT the TWA), with WiFi on.</p>
+</div>
+
+<div class="warn">
+  <b>BEFORE STARTING:</b> Keep Hub and FRT closed. This page only reads. Run with WiFi on so cloud query works — turn airplane mode off, open this page, leave the TWA closed.
+</div>
+
+<div class="step">
+  <h2>1 · Auth check</h2>
+  <div id="authStatus" class="status">Checking…</div>
+  <div id="loginPanel" class="hidden" style="margin-top:8px;">
+    <input id="loginEmail" type="email" placeholder="email" autocomplete="username">
+    <input id="loginPwd" type="password" placeholder="password" autocomplete="current-password">
+    <button id="btnLogin">Log in</button>
+    <div id="loginStatus" class="status"></div>
+  </div>
+</div>
+
+<div class="step">
+  <h2>2 · Run diagnostic</h2>
+  <div class="desc">Opens both IDBs, fetches cloud row, computes per-deficiency and per-drawing diff. Takes ~5-10 s.</div>
+  <button id="btnRun" disabled>Run diagnostic</button>
+  <pre id="out" class="hidden"></pre>
+</div>
+
+<div class="step">
+  <h2>3 · Copy output</h2>
+  <button id="btnCopy" class="copy">Copy all output</button>
+  <div id="copyStatus" class="status"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ── Guards: do not run if FRT/Hub may be loaded ──
+if (location.search && /[?&]project=/.test(location.search)) {
+  document.body.innerHTML = '<div style="padding:30px;color:#9C2742;font-family:Calibri;">URL must not have ?project= param.</div>';
+  return;
+}
+if (typeof window.CloudSync !== 'undefined' || typeof window.loadFullProject !== 'undefined' || typeof window.ADB !== 'undefined') {
+  document.body.innerHTML = '<div style="padding:30px;color:#9C2742;font-family:Calibri;">FRT/Hub globals detected. Open this in a fresh tab.</div>';
+  return;
+}
+
+// ── Constants ──
+var SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+var PROJECT_UUID = 'ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0';
+var INSTANCE_UUID = 'cb856f4b-b361-43d3-8605-44fd910bd735';
+var LOCAL_PROJECT_ID = 'proj_1777776987676_veb7sz';
+var SYNC_META_KEY = 'frt:' + PROJECT_UUID + ':' + INSTANCE_UUID;
+var AUTH_USER_UUID_MARK = '877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f';
+var FRT_DB = 'ARENCON_FieldReview';
+var FRT_DB_VER = 4;
+var CSY_DB = 'arencon_cloud_cache';
+var CSY_DB_VER = 1;
+var CSY_STORE = 'tool_state';
+
+// ── Output accumulator ──
+var allOutput = '';
+function appendOutput(line){
+  allOutput += line + '\n';
+  var el = document.getElementById('out');
+  el.classList.remove('hidden');
+  el.textContent = allOutput;
+}
+function setStatus(id, text, cls){ var el = document.getElementById(id); if (!el) return; el.textContent = text; el.className = 'status ' + (cls||''); }
+function getToken(){ try { return localStorage.getItem('sb-access-token'); } catch(_){ return null; } }
+
+// ── HTTP ──
+function sbGet(path){
+  var token = getToken();
+  return fetch(SUPABASE_URL + path, {
+    method: 'GET',
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + (token || SUPABASE_ANON_KEY),
+      'Accept': 'application/json'
+    }
+  }).then(function(res){
+    return res.text().then(function(t){
+      var parsed = null; try { parsed = t ? JSON.parse(t) : null; } catch(_){}
+      return { status: res.status, ok: res.ok, data: parsed, raw: t };
+    });
+  });
+}
+
+// ── Auth ──
+function checkAuth(){
+  var token = getToken();
+  if (!token) {
+    setStatus('authStatus', '⚠ No auth token. Log in below.', 'wmsg');
+    document.getElementById('loginPanel').classList.remove('hidden');
+    return;
+  }
+  fetch(SUPABASE_URL + '/auth/v1/user', {
+    method: 'GET',
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + token }
+  }).then(function(r){
+    if (!r.ok) {
+      setStatus('authStatus', '⚠ Token expired. Log in below.', 'wmsg');
+      document.getElementById('loginPanel').classList.remove('hidden');
+      return;
+    }
+    return r.json().then(function(u){
+      var isMark = u && u.id === AUTH_USER_UUID_MARK;
+      setStatus('authStatus', (isMark ? '✅ ' : '⚠ ') + (u.email || u.id) + (isMark ? '  (Mark)' : '  (NOT Mark\'s UUID)'), isMark ? 'ok' : 'wmsg');
+      document.getElementById('btnRun').disabled = false;
+    });
+  }).catch(function(e){ setStatus('authStatus', '✗ ' + e.message, 'err'); });
+}
+
+function doLogin(){
+  var email = document.getElementById('loginEmail').value.trim();
+  var pwd = document.getElementById('loginPwd').value;
+  if (!email || !pwd) { setStatus('loginStatus', 'Enter both fields.', 'err'); return; }
+  setStatus('loginStatus', 'Logging in…', '');
+  fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, password: pwd })
+  }).then(function(r){
+    return r.json().then(function(d){
+      if (!r.ok) { setStatus('loginStatus', '✗ ' + (d.error_description || d.msg || 'login failed'), 'err'); return; }
+      try { localStorage.setItem('sb-access-token', d.access_token); localStorage.setItem('sb-refresh-token', d.refresh_token); } catch(_){}
+      setStatus('loginStatus', '✅ Logged in.', 'ok');
+      document.getElementById('loginPanel').classList.add('hidden');
+      checkAuth();
+    });
+  }).catch(function(e){ setStatus('loginStatus', '✗ ' + e.message, 'err'); });
+}
+
+// ── IDB helpers ──
+function openDB(name, ver){
+  return new Promise(function(resolve, reject){
+    var req = indexedDB.open(name, ver);
+    req.onsuccess = function(e){ resolve(e.target.result); };
+    req.onerror   = function(e){ reject(e.target.error); };
+    req.onblocked = function(){ reject(new Error('IDB open blocked — close other FRT tabs')); };
+    // Don't define onupgradeneeded — if version mismatch, we let it fail
+  });
+}
+function readStoreAll(db, storeName){
+  return new Promise(function(resolve, reject){
+    if (!db.objectStoreNames.contains(storeName)) { resolve([]); return; }
+    var tx = db.transaction(storeName, 'readonly');
+    var req = tx.objectStore(storeName).getAll();
+    req.onsuccess = function(){ resolve(req.result || []); };
+    req.onerror   = function(){ reject(req.error); };
+  });
+}
+function readStoreByIndex(db, storeName, indexName, key){
+  return new Promise(function(resolve, reject){
+    if (!db.objectStoreNames.contains(storeName)) { resolve([]); return; }
+    var tx = db.transaction(storeName, 'readonly');
+    var os = tx.objectStore(storeName);
+    if (!os.indexNames.contains(indexName)) { resolve([]); return; }
+    var req = os.index(indexName).getAll(key);
+    req.onsuccess = function(){ resolve(req.result || []); };
+    req.onerror   = function(){ reject(req.error); };
+  });
+}
+function readStoreOne(db, storeName, key){
+  return new Promise(function(resolve, reject){
+    if (!db.objectStoreNames.contains(storeName)) { resolve(null); return; }
+    var tx = db.transaction(storeName, 'readonly');
+    var req = tx.objectStore(storeName).get(key);
+    req.onsuccess = function(){ resolve(req.result || null); };
+    req.onerror   = function(){ reject(req.error); };
+  });
+}
+function readStoreAllKeys(db, storeName){
+  return new Promise(function(resolve, reject){
+    if (!db.objectStoreNames.contains(storeName)) { resolve([]); return; }
+    var tx = db.transaction(storeName, 'readonly');
+    var req = tx.objectStore(storeName).getAllKeys();
+    req.onsuccess = function(){ resolve(req.result || []); };
+    req.onerror   = function(){ reject(req.error); };
+  });
+}
+
+// ── Main diagnostic ──
+function runDiag(){
+  document.getElementById('btnRun').disabled = true;
+  allOutput = '';
+  appendOutput('=== ENV ===');
+  appendOutput('Origin: ' + location.origin);
+  appendOutput('UA: ' + navigator.userAgent);
+  appendOutput('Run start: ' + new Date().toISOString());
+  appendOutput('Online: ' + navigator.onLine);
+  appendOutput('');
+
+  var frtDB = null, csyDB = null;
+  var tabletProj = null;
+  var tabletDrawings = null;
+  var tabletPhotos = null;
+  var tabletSitePhotos = null;
+  var tabletPdfDataKeys = null;
+  var tabletPendingUploads = null;
+  var tabletSyncMeta = null;
+  var cloudRow = null;
+
+  // Open FRT DB
+  openDB(FRT_DB, FRT_DB_VER).then(function(db){
+    frtDB = db;
+    appendOutput('=== TABLET PRIMARY IDB (' + FRT_DB + ' v' + FRT_DB_VER + ') ===');
+    appendOutput('Stores: ' + Array.prototype.slice.call(db.objectStoreNames).join(', '));
+    appendOutput('');
+    return readStoreOne(db, 'projects', LOCAL_PROJECT_ID);
+  }).then(function(proj){
+    tabletProj = proj;
+    if (!proj) {
+      appendOutput('⚠ NO PROJECT FOUND in IDB for id=' + LOCAL_PROJECT_ID);
+      appendOutput('  → Other project ids in IDB:');
+      return readStoreAll(frtDB, 'projects').then(function(all){
+        all.forEach(function(p){
+          appendOutput('    ' + p.id + ' | num=' + (p.info && p.info.projectNumber) + ' | modified=' + p.modified);
+        });
+        throw new Error('Target project not in tablet IDB');
+      });
+    }
+    var gds = proj.generalDeficiencies || [];
+    var dws = proj.drawings || [];
+    var nums = gds.map(function(g){ return g.num; }).sort(function(a,b){ return (a||0)-(b||0); });
+    var pinned = gds.filter(function(g){ return g.pinX != null && g.pinY != null; }).length;
+    appendOutput('TABLET project record:');
+    appendOutput('  id:             ' + proj.id);
+    appendOutput('  _hubProjectId:  ' + proj._hubProjectId);
+    appendOutput('  info.projectNumber: ' + (proj.info && proj.info.projectNumber));
+    appendOutput('  modified:       ' + proj.modified);
+    appendOutput('  status:         ' + proj.status);
+    appendOutput('  nextDeficNum:   ' + proj.nextDeficNum);
+    appendOutput('  generalDeficiencies: ' + gds.length + ' (pins=' + pinned + ', nums=' + nums.join(',') + ')');
+    appendOutput('  drawings (in proj record): ' + dws.length);
+    appendOutput('  contractors:    ' + ((proj.contractors||[]).length));
+    appendOutput('  frtInstances:   ' + ((proj.frtInstances||[]).length));
+    appendOutput('');
+    return readStoreByIndex(frtDB, 'drawings', 'projectId', LOCAL_PROJECT_ID);
+  }).then(function(dws){
+    tabletDrawings = dws;
+    appendOutput('TABLET drawings store (separate from project.drawings, holds blob data):');
+    appendOutput('  count: ' + dws.length);
+    dws.forEach(function(d){
+      var blobSize = d.pdfBlob ? d.pdfBlob.size : (d.blob ? d.blob.size : 0);
+      var pngSize = d.pngBlob ? d.pngBlob.size : 0;
+      appendOutput('  ' + String(d.id||'?').substr(0,38).padEnd(38,' ') + ' | name=' + String(d.name||'').substr(0,40) + ' | blob=' + blobSize + ' | png=' + pngSize);
+    });
+    appendOutput('');
+    return readStoreByIndex(frtDB, 'photos', 'projectId', LOCAL_PROJECT_ID);
+  }).then(function(phs){
+    tabletPhotos = phs;
+    appendOutput('TABLET photos store (deficiency photos, blob data):');
+    appendOutput('  count: ' + phs.length);
+    var sizes = phs.map(function(p){ return (p.blob ? p.blob.size : 0); });
+    var totalSize = sizes.reduce(function(a,b){ return a+b; }, 0);
+    var withR2 = phs.filter(function(p){ return p.r2Key; }).length;
+    appendOutput('  total blob bytes: ' + totalSize + ' (' + (totalSize/1024/1024).toFixed(1) + ' MB)');
+    appendOutput('  with r2Key:    ' + withR2);
+    appendOutput('  without r2Key (local-only): ' + (phs.length - withR2));
+    // Show first few photo ids
+    var sample = phs.slice(0, 5).map(function(p){ return p.id; }).join(', ');
+    if (sample) appendOutput('  sample ids:    ' + sample + (phs.length > 5 ? ' …' : ''));
+    appendOutput('');
+    return readStoreByIndex(frtDB, 'sitePhotos', 'projectId', LOCAL_PROJECT_ID);
+  }).then(function(sps){
+    tabletSitePhotos = sps;
+    appendOutput('TABLET sitePhotos store: count=' + sps.length);
+    appendOutput('');
+    return readStoreAllKeys(frtDB, 'pdfData');
+  }).then(function(keys){
+    tabletPdfDataKeys = keys;
+    appendOutput('TABLET pdfData store: count=' + keys.length + ' (keys include all projects)');
+    appendOutput('  Sample keys: ' + keys.slice(0,3).join(', '));
+    appendOutput('');
+    return readStoreByIndex(frtDB, 'pendingUploads', 'projectId', LOCAL_PROJECT_ID);
+  }).then(function(pu){
+    tabletPendingUploads = pu;
+    appendOutput('TABLET pendingUploads (queued for sync): count=' + pu.length);
+    pu.forEach(function(p){
+      appendOutput('  ' + (p.id||'?') + ' | type=' + (p.type||'?') + ' | added=' + (p.added||p.createdAt||'?'));
+    });
+    appendOutput('');
+    return openDB(CSY_DB, CSY_DB_VER);
+  }).then(function(db){
+    csyDB = db;
+    appendOutput('=== CLOUDSYNC CACHE IDB (' + CSY_DB + ' v' + CSY_DB_VER + ') ===');
+    appendOutput('Stores: ' + Array.prototype.slice.call(db.objectStoreNames).join(', '));
+    return readStoreOne(db, CSY_STORE, SYNC_META_KEY);
+  }).then(function(sm){
+    tabletSyncMeta = sm;
+    appendOutput('Reading key: ' + SYNC_META_KEY);
+    if (!sm) {
+      appendOutput('⚠ NO SYNCMETA for this key. Either fresh tablet or syncMeta was cleared.');
+    } else {
+      var snap = sm.snapshot || {};
+      appendOutput('  syncMeta.updatedAt: ' + sm.updatedAt);
+      appendOutput('  syncMeta.savedAt:   ' + sm.savedAt);
+      appendOutput('  snapshot keys:      ' + Object.keys(snap).join(','));
+      appendOutput('  snapshot.modified:  ' + snap.modified);
+      appendOutput('  snapshot.generalDeficiencies: ' + ((snap.generalDeficiencies||[]).length));
+      appendOutput('  snapshot.drawings:  ' + ((snap.drawings||[]).length));
+      appendOutput('  snapshot.nextDeficNum: ' + snap.nextDeficNum);
+    }
+    appendOutput('');
+    appendOutput('=== FRESH CLOUD READ (Supabase REST) ===');
+    return sbGet('/rest/v1/tool_data?id=eq.' + INSTANCE_UUID + '&select=id,project_id,tool_key,status,created_at,updated_at,updated_by,data');
+  }).then(function(r){
+    appendOutput('HTTP ' + r.status);
+    if (!r.ok || !r.data || r.data.length === 0) {
+      appendOutput('✗ Cloud read failed or empty');
+      throw new Error('Cloud read failed');
+    }
+    cloudRow = r.data[0];
+    var d = cloudRow.data || {};
+    var gds = d.generalDeficiencies || [];
+    var dws = d.drawings || [];
+    var pinned = gds.filter(function(g){ return g.pinX != null && g.pinY != null; }).length;
+    var nums = gds.map(function(g){ return g.num; }).sort(function(a,b){ return (a||0)-(b||0); });
+    appendOutput('CLOUD row:');
+    appendOutput('  id (instance): ' + cloudRow.id);
+    appendOutput('  project_id:    ' + cloudRow.project_id);
+    appendOutput('  updated_at:    ' + cloudRow.updated_at);
+    appendOutput('  updated_by:    ' + cloudRow.updated_by);
+    appendOutput('  data.modified: ' + d.modified);
+    appendOutput('  data.nextDeficNum: ' + d.nextDeficNum);
+    appendOutput('  deficiencies:  ' + gds.length + ' (pins=' + pinned + ', nums=' + nums.join(',') + ')');
+    appendOutput('  drawings:      ' + dws.length);
+    appendOutput('  recovery_marker: ' + JSON.stringify(d._recoveryMarker || null));
+    appendOutput('');
+
+    // ── DIFF ──
+    appendOutput('=== DIFF (tablet vs cloud) ===');
+    var tGds = (tabletProj.generalDeficiencies || []);
+    var cGds = gds;
+    var tIds = {}; tGds.forEach(function(g){ if (g.id) tIds[g.id] = g; });
+    var cIds = {}; cGds.forEach(function(g){ if (g.id) cIds[g.id] = g; });
+
+    appendOutput('Per-deficiency:');
+    var allIds = {};
+    Object.keys(tIds).forEach(function(id){ allIds[id] = true; });
+    Object.keys(cIds).forEach(function(id){ allIds[id] = true; });
+    var consistentCount = 0, driftCount = 0, tabletOnly = 0, cloudOnly = 0;
+    Object.keys(allIds).sort(function(a,b){
+      var na = (tIds[a] || cIds[a] || {}).num || 999;
+      var nb = (tIds[b] || cIds[b] || {}).num || 999;
+      return na - nb;
+    }).forEach(function(id){
+      var t = tIds[id], c = cIds[id];
+      var status;
+      if (t && c) {
+        var pinSame = (t.pinX === c.pinX && t.pinY === c.pinY);
+        var dwgSame = (t.drawingId === c.drawingId);
+        var statusSame = (t.status === c.status);
+        var phSame = ((t.photos||[]).length === (c.photos||[]).length);
+        if (pinSame && dwgSame && statusSame && phSame) { status = 'MATCH'; consistentCount++; }
+        else {
+          status = 'DRIFT';
+          driftCount++;
+          status += ' [' + (pinSame?'':'pin ') + (dwgSame?'':'dwg ') + (statusSame?'':'status ') + (phSame?'':'phCount') + ']';
+        }
+      } else if (t) { status = 'TABLET-ONLY'; tabletOnly++; }
+      else if (c) { status = 'CLOUD-ONLY';  cloudOnly++; }
+      var rec = t || c;
+      appendOutput('  #' + String(rec.num||'?').padStart(3,' ') +
+                   ' | ' + String(status).padEnd(20,' ').substr(0,20) +
+                   ' | t.pin=' + (t?fmtPin(t):'—') +
+                   ' c.pin=' + (c?fmtPin(c):'—'));
+    });
+    appendOutput('');
+    appendOutput('  Summary: ' + consistentCount + ' match, ' + driftCount + ' drift, ' + tabletOnly + ' tablet-only, ' + cloudOnly + ' cloud-only');
+    appendOutput('');
+
+    // Drawings diff
+    appendOutput('Per-drawing:');
+    var tDws = tabletProj.drawings || [];
+    var cDws = dws;
+    var tDwgIds = {}; tDws.forEach(function(d){ tDwgIds[d.id] = d; });
+    var cDwgIds = {}; cDws.forEach(function(d){ cDwgIds[d.id] = d; });
+    var allDwgIds = {};
+    Object.keys(tDwgIds).forEach(function(id){ allDwgIds[id] = true; });
+    Object.keys(cDwgIds).forEach(function(id){ allDwgIds[id] = true; });
+    var dMatch=0, dTablet=0, dCloud=0;
+    Object.keys(allDwgIds).sort().forEach(function(id){
+      var t = tDwgIds[id], c = cDwgIds[id];
+      var src = t && c ? 'BOTH' : (t ? 'TABLET-ONLY' : 'CLOUD-ONLY');
+      if (t && c) dMatch++; else if (t) dTablet++; else dCloud++;
+      // Also check blob presence in tablet's drawings store
+      var tabletHasBlob = tabletDrawings.some(function(td){ return td.id === id; });
+      appendOutput('  ' + id.substr(0,36).padEnd(36,' ') + ' | ' + src.padEnd(12,' ') + ' | tablet_blob=' + tabletHasBlob);
+    });
+    appendOutput('  Summary: ' + dMatch + ' match, ' + dTablet + ' tablet-only, ' + dCloud + ' cloud-only');
+    appendOutput('');
+
+    // SyncMeta freshness
+    appendOutput('SyncMeta freshness:');
+    if (tabletSyncMeta) {
+      var smModified = (tabletSyncMeta.snapshot || {}).modified;
+      var cloudModified = (cloudRow.data || {}).modified;
+      appendOutput('  syncMeta.snapshot.modified: ' + smModified);
+      appendOutput('  cloud.data.modified:        ' + cloudModified);
+      appendOutput('  match: ' + (smModified === cloudModified));
+      appendOutput('  syncMeta.updatedAt: ' + tabletSyncMeta.updatedAt);
+      appendOutput('  cloud.updated_at:   ' + cloudRow.updated_at);
+    } else {
+      appendOutput('  (no syncMeta cached on tablet)');
+    }
+    appendOutput('');
+
+    // Tablet modified vs cloud modified — the destructive-pull risk indicator
+    appendOutput('=== DESTRUCTIVE-PULL RISK (B156-02) ===');
+    var tabletModified = tabletProj.modified;
+    var cloudModified = (cloudRow.data || {}).modified;
+    appendOutput('  tablet.modified: ' + tabletModified);
+    appendOutput('  cloud.modified:  ' + cloudModified);
+    var cloudNewer = (new Date(cloudModified) > new Date(tabletModified));
+    var tabletNewer = (new Date(tabletModified) > new Date(cloudModified));
+    if (cloudNewer) {
+      appendOutput('  → Cloud is NEWER. CloudSync on next FRT open will likely PULL cloud→tablet.');
+      appendOutput('  → Per B156-02: if pull is destructive, tablet local-only data could be lost.');
+      appendOutput('  → Check above: are there TABLET-ONLY deficiencies? If yes, those are at risk if pull is destructive.');
+    } else if (tabletNewer) {
+      appendOutput('  → Tablet is NEWER. CloudSync on next FRT open will likely PUSH tablet→cloud.');
+      appendOutput('  → Risk: tablet push may overwrite the recovery work that was just applied to cloud.');
+    } else {
+      appendOutput('  → SAME timestamp. CloudSync should detect no-op.');
+    }
+    appendOutput('');
+
+    appendOutput('Run end: ' + new Date().toISOString());
+    appendOutput('=== END ===');
+    document.getElementById('btnRun').disabled = false;
+    try { if (frtDB) frtDB.close(); } catch(_){}
+    try { if (csyDB) csyDB.close(); } catch(_){}
+  }).catch(function(e){
+    appendOutput('');
+    appendOutput('FATAL: ' + (e && e.message ? e.message : e));
+    appendOutput('Stack: ' + (e && e.stack ? e.stack.substr(0,500) : ''));
+    document.getElementById('btnRun').disabled = false;
+    try { if (frtDB) frtDB.close(); } catch(_){}
+    try { if (csyDB) csyDB.close(); } catch(_){}
+  });
+}
+
+function fmtPin(g){
+  if (g.pinX == null || g.pinY == null) return '(none)';
+  return '(' + Number(g.pinX).toFixed(3) + ',' + Number(g.pinY).toFixed(3) + ')';
+}
+
+// ── Copy ──
+function doCopy(){
+  if (!allOutput) { setStatus('copyStatus', 'Run diagnostic first.', 'err'); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(allOutput).then(function(){ setStatus('copyStatus', '✅ Copied.', 'ok'); }, legacy);
+  } else { legacy(); }
+  function legacy(){
+    var sel = document.getElementById('out');
+    var range = document.createRange(); range.selectNode(sel);
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(range);
+    try { document.execCommand('copy'); setStatus('copyStatus', '✅ Copied (legacy).', 'ok'); }
+    catch(_){ setStatus('copyStatus', '✗ Copy failed — long-press output and copy.', 'err'); }
+  }
+}
+
+// ── Wire up ──
+document.getElementById('btnLogin').addEventListener('click', doLogin);
+document.getElementById('loginPwd').addEventListener('keydown', function(e){ if (e.key === 'Enter') doLogin(); });
+document.getElementById('btnRun').addEventListener('click', runDiag);
+document.getElementById('btnCopy').addEventListener('click', doCopy);
+
+checkAuth();
+})();
+</script>
+</body>
+</html>
