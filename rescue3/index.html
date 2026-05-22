@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>ARENCON Tablet Rescue 3 — Full Backup</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: Calibri, "Segoe UI", sans-serif; padding: 12px; max-width: 900px; margin: 0 auto; background: #F5F5F5; color: #212121; }
+  .banner { background: #9C2742; color: white; padding: 16px; border-radius: 8px; margin-bottom: 14px; }
+  .banner h1 { margin: 0 0 6px 0; font-size: 1.25em; font-weight: 700; }
+  .banner p { margin: 0; font-size: 0.92em; opacity: 0.95; line-height: 1.4; }
+  .safety { background: #FFF3CD; border: 2px solid #856404; color: #5C4400; padding: 12px; border-radius: 6px; margin-bottom: 14px; font-weight: 600; font-size: 0.95em; line-height: 1.4; }
+  .step { background: white; padding: 14px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #9C2742; }
+  .step h2 { margin: 0 0 10px 0; color: #9C2742; font-size: 1.05em; font-weight: 700; }
+  .step .desc { font-size: 0.88em; color: #555; margin-bottom: 10px; line-height: 1.4; }
+  button { background: #9C2742; color: white; border: none; padding: 16px 24px; font-size: 1.1em; font-family: Calibri, sans-serif; font-weight: 700; border-radius: 6px; cursor: pointer; margin: 4px 4px 4px 0; min-width: 220px; touch-action: manipulation; }
+  button.dl { background: #1A7A4A; }
+  button:disabled { background: #BDBDBD; cursor: not-allowed; }
+  button:active { transform: scale(0.98); }
+  .progress { background: #ECEFF1; padding: 12px; border-radius: 6px; margin: 10px 0; font-family: monospace; font-size: 0.88em; max-height: 320px; overflow: auto; white-space: pre-wrap; line-height: 1.4; }
+  .ok { color: #1A7A4A; font-weight: 700; }
+  .err { color: #9C2742; font-weight: 700; }
+  .dl-link { display: inline-block; background: #1A7A4A; color: white; padding: 16px 28px; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 1.1em; margin: 10px 0; }
+  .filesize { font-family: monospace; color: #555; font-size: 0.9em; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <h1>ARENCON Tablet Rescue 3 — Full Backup</h1>
+  <p>Backs up project 4380.24 + all 30 photo blobs + syncMeta + markupObjects into one JSON file. Read-only on IDB. No sync.</p>
+</div>
+
+<div class="safety">
+  Tablet should be in airplane mode. This page works offline once loaded. Do NOT open the Project Hub TWA.
+</div>
+
+<div class="step">
+  <h2>Step 1 — Build backup file</h2>
+  <div class="desc">Reads project, syncMeta, markupObjects, and all 30 photo blobs. Bundles into one JSON. Takes ~30 seconds.</div>
+  <button id="btnBuild">Build backup</button>
+  <div id="progress" class="progress" style="display:none;"></div>
+</div>
+
+<div class="step">
+  <h2>Step 2 — Download</h2>
+  <div class="desc">Tap the green link to save the JSON file to your Downloads folder.</div>
+  <div id="dlArea">(Run Step 1 first)</div>
+</div>
+
+<div class="step">
+  <h2>Step 3 — Confirm + go to sleep</h2>
+  <div class="desc">Once the file is in Downloads, you're done. Email the file to yourself or just leave it on the tablet. Keep tablet in airplane mode.</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+if (location.search && /[?&]project=/.test(location.search)) {
+  document.body.innerHTML = '<div style="padding:40px;color:#9C2742;">URL must not have ?project= param.</div>'; return;
+}
+if (typeof window.CloudSync !== 'undefined' || typeof window.loadFullProject !== 'undefined') {
+  document.body.innerHTML = '<div style="padding:40px;color:#9C2742;">FRT globals detected. Open a fresh tab.</div>'; return;
+}
+
+var DB_NAME = 'ARENCON_FRT_V2';
+var TARGET_PROJ_KEY = 'proj_1777776987676_veb7sz';
+
+var progressEl = document.getElementById('progress');
+function log(msg, cls){
+  progressEl.style.display = 'block';
+  var line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = msg;
+  progressEl.appendChild(line);
+  progressEl.scrollTop = progressEl.scrollHeight;
+}
+
+function openReadOnly(dbName){
+  return new Promise(function(resolve, reject){
+    var req = indexedDB.open(dbName);
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error || new Error('open error')); };
+    req.onupgradeneeded = function(e){
+      try { e.target.transaction.abort(); } catch(_){}
+      reject(new Error('upgrade required — refusing'));
+    };
+  });
+}
+
+function getRecord(db, sn, key){
+  return new Promise(function(resolve, reject){
+    var tx = db.transaction(sn, 'readonly');
+    var req = tx.objectStore(sn).get(key);
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error || new Error('get error')); };
+  });
+}
+
+function getAll(db, sn){
+  return new Promise(function(resolve, reject){
+    var tx = db.transaction(sn, 'readonly');
+    var req = tx.objectStore(sn).getAll();
+    req.onsuccess = function(){ resolve(req.result || []); };
+    req.onerror = function(){ reject(req.error || new Error('getAll error')); };
+  });
+}
+
+function blobToBase64(blob){
+  return new Promise(function(resolve, reject){
+    var fr = new FileReader();
+    fr.onload = function(){
+      // result is "data:image/jpeg;base64,XXXXX" — strip prefix
+      var s = fr.result;
+      var idx = s.indexOf(',');
+      resolve(idx >= 0 ? s.substring(idx + 1) : s);
+    };
+    fr.onerror = function(){ reject(fr.error || new Error('FileReader error')); };
+    fr.readAsDataURL(blob);
+  });
+}
+
+function bytesH(n){
+  if (n < 1024) return n + ' B';
+  if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  return (n/(1024*1024)).toFixed(2) + ' MB';
+}
+
+document.getElementById('btnBuild').addEventListener('click', function(){
+  document.getElementById('btnBuild').disabled = true;
+  (async function(){
+    try {
+      log('Opening database read-only...');
+      var db = await openReadOnly(DB_NAME);
+
+      log('Reading project record...');
+      var proj = await getRecord(db, 'projects', TARGET_PROJ_KEY);
+      if (!proj) {
+        log('PROJECT NOT FOUND: ' + TARGET_PROJ_KEY, 'err');
+        // Try to list all projects so we can locate it
+        var allProjs = await getAll(db, 'projects');
+        log('All projects:', null);
+        allProjs.forEach(function(p){
+          log('  ' + p.id + ' | ' + (p.info && p.info.projectNumber) + ' | ' + (p.info && p.info.projectName), null);
+        });
+        throw new Error('project not found');
+      }
+      log('  project ' + proj.id + ' | ' + proj.info.projectNumber + ' | ' + proj.info.projectName, 'ok');
+      log('  deficiencies: ' + (proj.generalDeficiencies||[]).length + ', drawings: ' + (proj.drawings||[]).length + ', modified: ' + proj.modified);
+
+      log('Reading all syncMeta entries...');
+      var allSyncMeta = await getAll(db, 'syncMeta');
+      log('  syncMeta entries: ' + allSyncMeta.length, 'ok');
+
+      log('Reading all markupObjects...');
+      var allMarkup = await getAll(db, 'markupObjects');
+      log('  markupObjects: ' + allMarkup.length, 'ok');
+
+      log('Reading photo blobs (this is the slow part, 30 photos)...');
+      var allPhotoRecs = await getAll(db, 'photoBlobs');
+      log('  photoBlobs records: ' + allPhotoRecs.length, 'ok');
+
+      var photoArr = [];
+      var totalBytes = 0;
+      for (var i = 0; i < allPhotoRecs.length; i++) {
+        var rec = allPhotoRecs[i];
+        var blob = rec.dataBlob;
+        if (!(blob instanceof Blob)) {
+          log('  photo ' + (i+1) + '/' + allPhotoRecs.length + ' (' + rec.id + ') — not a Blob, skipping', 'err');
+          photoArr.push({ id: rec.id, error: 'not a Blob', raw: String(rec.dataBlob).substring(0, 200) });
+          continue;
+        }
+        var b64 = await blobToBase64(blob);
+        totalBytes += blob.size;
+        photoArr.push({
+          id: rec.id,
+          size: blob.size,
+          type: blob.type,
+          base64: b64
+        });
+        log('  photo ' + (i+1) + '/' + allPhotoRecs.length + ' (' + rec.id + ') — ' + bytesH(blob.size), 'ok');
+      }
+      log('  total photo bytes: ' + bytesH(totalBytes), 'ok');
+
+      log('Reading all projects (for context — light summary only)...');
+      var allProjs = await getAll(db, 'projects');
+      var projsSummary = allProjs.map(function(p){
+        return {
+          id: p.id,
+          projectNumber: p.info && p.info.projectNumber,
+          projectName: p.info && p.info.projectName,
+          modified: p.modified,
+          status: p.status,
+          deficiencies_count: (p.generalDeficiencies||[]).length,
+          drawings_count: (p.drawings||[]).length
+        };
+      });
+
+      db.close();
+
+      log('Building JSON...');
+      var backup = {
+        meta: {
+          backupTimestamp: new Date().toISOString(),
+          backupSession: 'Session 156 — 4380.24 rescue',
+          userAgent: navigator.userAgent,
+          origin: location.origin,
+          schemaNote: 'photo bytes are base64-encoded JPEGs. Save as .jpg by base64-decoding the .base64 field.'
+        },
+        targetProject_FULL: proj,
+        syncMeta_ALL: allSyncMeta,
+        markupObjects_ALL: allMarkup,
+        photoBlobs_ALL: photoArr,
+        projectsList_SUMMARY: projsSummary
+      };
+
+      var jsonStr = JSON.stringify(backup, null, 2);
+      log('  JSON size: ' + bytesH(jsonStr.length), 'ok');
+
+      log('Creating download blob...');
+      var blob = new Blob([jsonStr], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+
+      var dlArea = document.getElementById('dlArea');
+      dlArea.innerHTML = '';
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = '4380.24_tablet_backup_' + new Date().toISOString().replace(/[:.]/g,'-') + '.json';
+      a.className = 'dl-link';
+      a.textContent = '⬇ Download backup (' + bytesH(jsonStr.length) + ')';
+      dlArea.appendChild(a);
+      var note = document.createElement('div');
+      note.className = 'filesize';
+      note.style.marginTop = '8px';
+      note.textContent = 'Filename: ' + a.download;
+      dlArea.appendChild(note);
+
+      log('READY. Tap the green download link above.', 'ok');
+      log('Backup contains:');
+      log('  - Full project 4380.24 record (all 14 deficiencies)');
+      log('  - All 4 syncMeta entries');
+      log('  - All ' + allMarkup.length + ' markupObjects');
+      log('  - All ' + photoArr.length + ' photo blobs as base64');
+      log('  - Summary of all 5 projects on tablet');
+    } catch (e) {
+      log('EXCEPTION: ' + e.message, 'err');
+      log(e.stack || '', 'err');
+      document.getElementById('btnBuild').disabled = false;
+    }
+  })();
+});
+
+})();
+</script>
+</body>
+</html>
