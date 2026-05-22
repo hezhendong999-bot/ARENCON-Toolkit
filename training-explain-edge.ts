@@ -69,9 +69,14 @@ RULES:
 - Keep each explanation to 2–4 sentences total. No bullet lists in the explanation text itself.
 - Each item must stand alone — do not say "as in the previous question".`;
 
-const SHAPE = `\n\nRespond with ONLY valid JSON — no markdown, no backticks:
-[ { "id": "<echo the id we gave you>", "text": "the 2–4 sentence explanation aimed at the wrong choice" } ]
-One element per wrong item we sent you, in the same order. The "id" must match.`;
+const SHAPE = `\n\nRespond with ONLY valid JSON — no markdown, no backticks.
+
+You MUST return exactly one explanation object per wrong item provided. Do NOT skip items. Do NOT merge items. The "id" field in each response object MUST exactly match the id we gave you in the corresponding "Item" block — copy the id string character-for-character.
+
+Format:
+[ { "id": "<exact id from input>", "text": "the 2–4 sentence explanation aimed at the wrong choice" } ]
+
+If you cannot generate a meaningful explanation for some item, still return that item with a brief honest text like "The correct answer is [letter] because [one-sentence reason]." rather than skipping it.`;
 
 function corsHeaders(origin: string) {
   const allowed = ALLOWED_ORIGINS.some((o) => origin && origin.startsWith(o));
@@ -286,15 +291,80 @@ Deno.serve(async (req: Request) => {
       const text = String(e.text ?? "").trim();
       if (id && text) byId.set(id, text);
     }
+
+    // 6b. Slice 2c: if the AI skipped any items, retry once for the
+    // missing IDs only. Cheap (small payload) and catches the most
+    // common failure mode where the AI silently drops an item.
+    let retryUsage = { in: 0, out: 0 };
+    const missing = wrong.filter((w) => !byId.has(w.id));
+    if (missing.length > 0) {
+      const retryItems = missing.map((w, idx) => {
+        const lines = [
+          `Item #${idx + 1}  (id: ${w.id})`,
+          w.topic ? `Topic: ${w.topic}` : null,
+          `Question: ${w.q}`,
+          ...w.opts.map((o, j) => `  ${letter(j)}. ${o}${j === w.answer ? "   ← correct" : ""}${j === w.picked ? "   ← TRAINEE PICKED THIS" : ""}`),
+          w.why ? `Author's "why" (for context only — do NOT just repeat it): ${w.why}` : null,
+        ].filter(Boolean);
+        return lines.join("\n");
+      }).join("\n\n---\n\n");
+
+      const retryUser =
+        `RETRY: the previous response was missing explanations for the following items. Return JSON for EXACTLY these items, with EXACT id matches.\n\n` +
+        retryItems;
+
+      try {
+        const retryRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: MODEL.id,
+            max_tokens: 2000,
+            system,
+            messages: [{ role: "user", content: retryUser }],
+          }),
+        });
+        if (retryRes.ok) {
+          const retryData = await retryRes.json();
+          const retryOut = (retryData.content || [])
+            .filter((c: { type: string }) => c.type === "text")
+            .map((c: { text: string }) => c.text)
+            .join("");
+          try {
+            const retryParsed = JSON.parse(retryOut.replace(/```json|```/g, "").trim());
+            if (Array.isArray(retryParsed)) {
+              for (const e of retryParsed as Array<Record<string, unknown>>) {
+                if (!e) continue;
+                const id = String(e.id ?? "").trim();
+                const text = String(e.text ?? "").trim();
+                if (id && text && !byId.has(id)) byId.set(id, text);
+              }
+            }
+          } catch (_e) {
+            console.error("Retry parse failed (explain):", retryOut);
+          }
+          const ru = retryData.usage || {};
+          retryUsage.in = ru.input_tokens || 0;
+          retryUsage.out = ru.output_tokens || 0;
+        }
+      } catch (re) {
+        console.error("Retry call failed (explain):", re);
+      }
+    }
+
     const explanations = wrong.map((w) => ({
       id: w.id,
       text: byId.get(w.id) || "",
     })).filter((x) => x.text);
 
-    // 7. Usage + cost
+    // 7. Usage + cost (includes retry if it ran)
     const usage = aiData.usage || {};
-    const inTok = usage.input_tokens || 0;
-    const outTok = usage.output_tokens || 0;
+    const inTok = (usage.input_tokens || 0) + retryUsage.in;
+    const outTok = (usage.output_tokens || 0) + retryUsage.out;
     const cost = inTok * MODEL.inputRate + outTok * MODEL.outputRate;
 
     // 8. Log usage (best-effort; never blocks the response)
