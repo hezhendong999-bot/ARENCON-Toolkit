@@ -210,6 +210,15 @@ function fmtPin(d){
   return '(' + Number(x).toFixed(3) + ',' + Number(y).toFixed(3) + ')';
 }
 
+function _getAuthUser(){
+  var token = getToken();
+  if (!token) return Promise.resolve(null);
+  return fetch(SUPABASE_URL + '/auth/v1/user', {
+    method: 'GET',
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + token }
+  }).then(function(res){ return res.ok ? res.json() : null; }).catch(function(){ return null; });
+}
+
 function runDiagnostic(){
   document.getElementById('btnRun').disabled = true;
   allOutput = '';
@@ -218,45 +227,109 @@ function runDiagnostic(){
   appendOutput('UA: ' + navigator.userAgent);
   appendOutput('Run start: ' + new Date().toISOString());
   appendOutput('Target project UUID: ' + PROJECT_UUID);
+  appendOutput('Token present: ' + (!!getToken()));
   appendOutput('');
 
-  appendOutput('=== TABLET BACKUP BASELINE (from S156 rescue3 @ ' + TABLET_BACKUP.ts + ') ===');
-  appendOutput('Tablet had:        14 deficiencies | 30 photoBlobs | 7 drawings');
-  appendOutput('  Defic nums:      ' + TABLET_BACKUP.deficienciesByNum.join(','));
-  appendOutput('  May-20 nums:     ' + TABLET_BACKUP.may20Nums.join(',') + '  (the 5 unsynced ones)');
-  appendOutput('  Tablet modified: ' + TABLET_BACKUP.modified);
-  appendOutput('Cloud syncMeta @ ' + SYNCMETA_AT_BACKUP.ts + ' showed:');
-  appendOutput('                    9 deficiencies | 8 drawings');
-  appendOutput('  Cloud modified:  ' + SYNCMETA_AT_BACKUP.modified + '  (later than tablet — risk B156-02)');
-  appendOutput('');
+  // Resolve auth identity first so it's captured in output
+  _getAuthUser().then(function(authUser){
+    appendOutput('=== AUTH IDENTITY (from /auth/v1/user) ===');
+    if (!authUser) {
+      appendOutput('⚠ No auth user. Queries will run with anon key only — RLS will hide all user-scoped rows.');
+    } else {
+      appendOutput('  id:    ' + authUser.id);
+      appendOutput('  email: ' + (authUser.email || '(none)'));
+      appendOutput('  role:  ' + (authUser.role || '(none)'));
+      appendOutput('  match-expected-mark: ' + (authUser.id === USER_UUID_MARK ? 'YES' : 'NO — ' + USER_UUID_MARK + ' expected'));
+    }
+    appendOutput('');
 
-  appendOutput('=== QUERY 1: projects table row ===');
-  sbGet('/rest/v1/projects?id=eq.' + PROJECT_UUID + '&select=*').then(function(r){
+    appendOutput('=== TABLET BACKUP BASELINE (from S156 rescue3 @ ' + TABLET_BACKUP.ts + ') ===');
+    appendOutput('Tablet had:        14 deficiencies | 30 photoBlobs | 7 drawings');
+    appendOutput('  Defic nums:      ' + TABLET_BACKUP.deficienciesByNum.join(','));
+    appendOutput('  May-20 nums:     ' + TABLET_BACKUP.may20Nums.join(',') + '  (the 5 unsynced ones)');
+    appendOutput('  Tablet modified: ' + TABLET_BACKUP.modified);
+    appendOutput('Cloud syncMeta @ ' + SYNCMETA_AT_BACKUP.ts + ' showed:');
+    appendOutput('                    9 deficiencies | 8 drawings');
+    appendOutput('  Cloud modified:  ' + SYNCMETA_AT_BACKUP.modified + '  (later than tablet — risk B156-02)');
+    appendOutput('');
+
+    appendOutput('=== QUERY 1: projects row by exact UUID ===');
+    return sbGet('/rest/v1/projects?id=eq.' + PROJECT_UUID + '&select=id,project_number,project_name,client,address,status,deleted_at,created_at,updated_at,created_by,is_pinned,starred_by,enabled_tools');
+  }).then(function(r){
     appendOutput('HTTP ' + r.status);
-    if (!r.ok) { appendOutput('ERROR body: ' + r.raw); throw new Error('projects query failed'); }
+    if (!r.ok) { appendOutput('ERROR body: ' + r.raw); }
     var rows = r.data || [];
     appendOutput('Rows returned: ' + rows.length);
     if (rows.length === 0) {
-      appendOutput('⚠ PROJECT ROW NOT FOUND. Either the project UUID is wrong, RLS blocks read, or the row was deleted.');
-      return null;
+      appendOutput('  → 0 rows. Causes: (a) RLS hides this row from current auth, (b) UUID is wrong, (c) row deleted.');
+    } else {
+      var p = rows[0];
+      appendOutput('  ✅ PROJECT ROW EXISTS.');
+      appendOutput('  id:            ' + p.id);
+      appendOutput('  project_number:' + p.project_number);
+      appendOutput('  project_name:  ' + p.project_name);
+      appendOutput('  client:        ' + p.client);
+      appendOutput('  address:       ' + p.address);
+      appendOutput('  status:        ' + p.status);
+      appendOutput('  deleted_at:    ' + (p.deleted_at || '(null — alive)'));
+      appendOutput('  created_at:    ' + p.created_at);
+      appendOutput('  updated_at:    ' + p.updated_at);
+      appendOutput('  created_by:    ' + p.created_by);
+      appendOutput('  is_pinned:     ' + p.is_pinned);
+      appendOutput('  starred_by:    ' + JSON.stringify(p.starred_by || []));
+      appendOutput('  enabled_tools: ' + JSON.stringify(p.enabled_tools || {}));
+      if (p.deleted_at) appendOutput('  ⚠⚠⚠ PROJECT IS SOFT-DELETED. deleted_at=' + p.deleted_at);
     }
-    var p = rows[0];
-    appendOutput('  id:            ' + p.id);
-    appendOutput('  name:          ' + (p.name || p.project_name || '(none)'));
-    appendOutput('  number:        ' + (p.project_number || p.number || '(none)'));
-    appendOutput('  status:        ' + p.status);
-    appendOutput('  deleted_at:    ' + (p.deleted_at || '(null — alive)'));
-    appendOutput('  created_at:    ' + p.created_at);
-    appendOutput('  updated_at:    ' + p.updated_at);
-    appendOutput('  created_by:    ' + p.created_by);
-    appendOutput('  is_pinned:     ' + p.is_pinned);
-    appendOutput('  starred_by:    ' + JSON.stringify(p.starred_by || []));
-    appendOutput('  enabled_tools: ' + JSON.stringify(p.enabled_tools || {}));
-    if (p.deleted_at) appendOutput('  ⚠⚠⚠ PROJECT IS SOFT-DELETED. deleted_at=' + p.deleted_at);
     appendOutput('');
-    return p;
-  }).then(function(){
-    appendOutput('=== QUERY 2: tool_data rows for project + tool_key=frt ===');
+    appendOutput('=== QUERY 2: search projects by project_number ILIKE *4380* (RLS-respecting wildcard) ===');
+    return sbGet('/rest/v1/projects?project_number=ilike.*4380*&select=id,project_number,project_name,status,deleted_at,updated_at,created_by&order=updated_at.desc');
+  }).then(function(r){
+    appendOutput('HTTP ' + r.status);
+    if (!r.ok) appendOutput('ERROR body: ' + r.raw);
+    var rows = r.data || [];
+    appendOutput('Rows returned: ' + rows.length);
+    rows.forEach(function(p){
+      appendOutput('  ' + p.id + ' | ' + p.project_number + ' | ' + p.project_name + ' | status=' + p.status + ' | deleted_at=' + (p.deleted_at || 'null') + ' | upd=' + p.updated_at);
+    });
+    if (rows.length === 0) appendOutput('  → No 4380.x projects visible to this user. Either none exist or RLS hides them all.');
+    appendOutput('');
+
+    appendOutput('=== QUERY 3: search projects by project_name ILIKE *sun* OR *sprk* ===');
+    return sbGet('/rest/v1/projects?or=(project_name.ilike.*sun*,project_name.ilike.*sprk*)&select=id,project_number,project_name,status,deleted_at,updated_at&order=updated_at.desc&limit=30');
+  }).then(function(r){
+    appendOutput('HTTP ' + r.status);
+    if (!r.ok) appendOutput('ERROR body: ' + r.raw);
+    var rows = r.data || [];
+    appendOutput('Rows returned: ' + rows.length);
+    rows.forEach(function(p){
+      appendOutput('  ' + p.id + ' | ' + p.project_number + ' | ' + p.project_name + ' | status=' + p.status + ' | deleted_at=' + (p.deleted_at || 'null'));
+    });
+    appendOutput('');
+
+    appendOutput('=== QUERY 4: ALL projects visible to current user (limit 30, includes archived + soft-deleted) ===');
+    return sbGet('/rest/v1/projects?select=id,project_number,project_name,status,deleted_at,updated_at,created_by&order=updated_at.desc&limit=30');
+  }).then(function(r){
+    appendOutput('HTTP ' + r.status);
+    if (!r.ok) appendOutput('ERROR body: ' + r.raw);
+    var rows = r.data || [];
+    appendOutput('Rows returned: ' + rows.length);
+    var hasTarget = false;
+    rows.forEach(function(p){
+      var mark = (p.id === PROJECT_UUID) ? ' ← TARGET 4380.24' : '';
+      if (p.id === PROJECT_UUID) hasTarget = true;
+      appendOutput('  ' + p.id + ' | ' + (p.project_number||'(no#)') + ' | ' + (p.project_name||'(no name)').substr(0,40) + ' | st=' + p.status + ' | del=' + (p.deleted_at ? 'YES' : 'no') + mark);
+    });
+    appendOutput('');
+    if (rows.length === 0) {
+      appendOutput('  → 0 projects visible. RLS is rejecting everything OR you are not authed as a user with project access.');
+    } else if (!hasTarget) {
+      appendOutput('  → 4380.24 NOT in top 30 most recently updated. Look at Queries 2 + 3 above — does it appear under any other name?');
+    } else {
+      appendOutput('  ✅ Target 4380.24 is in this list.');
+    }
+    appendOutput('');
+
+    appendOutput('=== QUERY 5: tool_data rows for target UUID + tool_key=frt ===');
     return sbGet('/rest/v1/tool_data?project_id=eq.' + PROJECT_UUID + '&tool_key=eq.frt&order=updated_at.desc&select=id,project_id,tool_key,instance_number,label,status,created_at,updated_at,created_by,updated_by,data');
   }).then(function(r){
     appendOutput('HTTP ' + r.status);
@@ -264,10 +337,10 @@ function runDiagnostic(){
     var rows = r.data || [];
     appendOutput('Rows returned: ' + rows.length);
     if (rows.length === 0) {
-      appendOutput('⚠⚠⚠ NO TOOL_DATA ROWS for project+frt. Cloud has no FRT instance. This means cloud is empty for this tool.');
+      appendOutput('  → 0 tool_data rows. Either (a) project row is RLS-hidden so tool_data also is, (b) no FRT instance was ever saved.');
     }
     if (rows.length > 1) {
-      appendOutput('⚠⚠⚠ MULTIPLE TOOL_DATA ROWS (' + rows.length + ') for same project+tool_key=frt — duplicate-row scenario (per FRT VerifiedDedup logic, line 15711). Possible sync conflict source.');
+      appendOutput('  ⚠ MULTIPLE tool_data rows (' + rows.length + ') — duplicate-row scenario.');
     }
     appendOutput('');
 
@@ -297,7 +370,6 @@ function runDiagnostic(){
       if (gds.length > 0) {
         appendOutput('');
         appendOutput('  Deficiencies (' + gds.length + '):');
-        // Sort by num for readability
         var sorted = gds.slice().sort(function(a,b){ return (a.num||0)-(b.num||0); });
         sorted.forEach(function(g){
           var pCount = (g.photos || []).length;
@@ -336,21 +408,21 @@ function runDiagnostic(){
 
     appendOutput('Tablet backup (canonical pre-airplane-mode snapshot): 14 deficiencies');
     appendOutput('Cloud syncMeta @ S156 end (~02:00 UTC):               9 deficiencies / 8 drawings');
-    appendOutput('Cloud NOW:                                            ' + totalCloudDefics + ' deficiencies / ' + totalCloudDrawings + ' drawings');
+    appendOutput('Cloud NOW (tool_data.data.generalDeficiencies sum):   ' + totalCloudDefics + ' deficiencies / ' + totalCloudDrawings + ' drawings');
     appendOutput('');
-    if (totalCloudDefics === 0) {
-      appendOutput('🔴🔴🔴 CLOUD HAS ZERO DEFICIENCIES — "all pins deleted" CONFIRMED if this was your only FRT row.');
-      appendOutput('       Recovery path: rebuild from tablet backup JSON (Mark has it on PC + email + tablet Downloads).');
+    if (rows.length === 0) {
+      appendOutput('⚠ Cannot compare — tool_data query returned 0 rows. Could be RLS hiding or row deleted. Check Queries 1-4 first to decide which.');
+    } else if (totalCloudDefics === 0) {
+      appendOutput('🔴 CLOUD HAS ZERO DEFICIENCIES — "all pins deleted" confirmed.');
+      appendOutput('   Recovery path: rebuild from tablet backup JSON.');
     } else if (totalCloudDefics < 9) {
       appendOutput('🔴 CLOUD LOST DEFICIENCIES. Was 9, now ' + totalCloudDefics + '. Real data loss.');
-      appendOutput('   Recovery path: compare cloud nums vs backup nums, rebuild missing from tablet backup.');
     } else if (totalCloudDefics === 9) {
-      appendOutput('🟡 CLOUD STILL AT 9 DEFICIENCIES — no new loss vs S156 end. The 5 May-20 pins were never pushed to cloud (as expected).');
-      appendOutput('   Recovery path: manual rebuild of 5 May-20 deficiencies on PC (RECOVERY_CARDS.md), OR fix FRT bugs first then sync.');
+      appendOutput('🟡 CLOUD STILL AT 9 — no further loss. The 5 May-20 pins never reached cloud (as expected per S156).');
     } else if (totalCloudDefics === 14) {
-      appendOutput('✅ CLOUD HAS ALL 14 DEFICIENCIES — somehow tablet already pushed. "Pins deleted" was a rendering artifact. No recovery needed for deficiencies.');
+      appendOutput('✅ CLOUD HAS ALL 14 — rendering artifact, not data loss.');
     } else {
-      appendOutput('⚠ CLOUD HAS ' + totalCloudDefics + ' DEFICIENCIES (unexpected count). Read the list above carefully.');
+      appendOutput('⚠ CLOUD HAS ' + totalCloudDefics + ' (unexpected). Inspect list above.');
     }
     appendOutput('');
     appendOutput('Run end: ' + new Date().toISOString());
