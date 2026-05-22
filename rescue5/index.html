@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>ARENCON Cloud Rescue 5 — Merge & Repair (4380.24)</title>
+<style>
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { font-family: Calibri, "Segoe UI", sans-serif; padding: 12px; max-width: 1100px; margin: 0 auto; background: #F5F5F5; color: #212121; }
+.banner { background: #9C2742; color: white; padding: 14px 16px; border-radius: 8px; margin-bottom: 12px; }
+.banner h1 { margin: 0 0 4px 0; font-size: 1.25em; font-weight: 700; }
+.banner p { margin: 0; font-size: 0.9em; opacity: 0.95; line-height: 1.4; }
+.warn { background: #FFF3CD; border-left: 4px solid #C28F00; padding: 10px 12px; margin: 10px 0; font-size: 0.9em; border-radius: 4px; }
+.warn b { color: #8A6300; }
+.danger { background: #FADBD8; border-left: 4px solid #9C2742; padding: 10px 12px; margin: 10px 0; font-size: 0.9em; border-radius: 4px; }
+.danger b { color: #9C2742; }
+section.step { background: white; padding: 14px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #9C2742; }
+section.step.ready { border-left-color: #1A7A4A; }
+section.step.done { border-left-color: #1A7A4A; background: #F4FAF6; }
+section.step.locked { opacity: 0.55; pointer-events: none; }
+section.step h2 { margin: 0 0 8px 0; color: #9C2742; font-size: 1.05em; font-weight: 700; }
+section.step.done h2 { color: #1A7A4A; }
+section.step .desc { font-size: 0.86em; color: #555; margin-bottom: 10px; line-height: 1.4; }
+button { background: #9C2742; color: white; border: none; padding: 10px 16px; font-size: 0.96em; font-family: Calibri, sans-serif; font-weight: 600; border-radius: 6px; cursor: pointer; margin: 4px 4px 4px 0; min-width: 130px; touch-action: manipulation; }
+button.go { background: #1A7A4A; }
+button.danger-btn { background: #9C2742; }
+button:active { transform: scale(0.98); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+input[type=email], input[type=password] { font-family: Calibri, sans-serif; font-size: 0.96em; padding: 8px 10px; border: 1px solid #BBB; border-radius: 6px; width: 260px; max-width: 100%; margin: 4px 6px 4px 0; }
+input[type=file] { font-family: Calibri, sans-serif; font-size: 0.9em; margin: 4px 0; }
+label.confirm { display: block; margin: 10px 0; padding: 10px; background: #FFF3CD; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.92em; }
+label.confirm input { margin-right: 8px; transform: scale(1.2); }
+pre { background: #2C3E50; color: #ECF0F1; padding: 10px; border-radius: 6px; font-size: 0.78em; max-height: 500px; overflow: auto; white-space: pre-wrap; word-wrap: break-word; user-select: text; -webkit-user-select: text; line-height: 1.35; margin: 8px 0 0 0; }
+.status { font-weight: 700; min-height: 1.2em; font-size: 0.95em; margin: 6px 0 0 0; }
+.ok { color: #1A7A4A; }
+.err { color: #9C2742; }
+.wmsg { color: #C28F00; }
+.hidden { display: none; }
+.kv { font-family: 'Consolas', monospace; font-size: 0.85em; line-height: 1.5; }
+.kv b { color: #9C2742; }
+table.diff { width: 100%; border-collapse: collapse; font-size: 0.84em; margin: 8px 0; }
+table.diff th, table.diff td { border: 1px solid #DDD; padding: 6px 8px; text-align: left; }
+table.diff th { background: #ECECEC; font-weight: 700; }
+table.diff td.add { background: #E8F5E9; color: #1A7A4A; font-weight: 600; }
+table.diff td.same { background: #FAFAFA; color: #555; }
+table.diff td.change { background: #FFF3CD; color: #8A6300; }
+.timer { display: inline-block; padding: 2px 8px; background: #ECECEC; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 0.9em; }
+code { background: #EEE; padding: 1px 4px; border-radius: 3px; font-size: 0.92em; }
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <h1>ARENCON Cloud Rescue 5 — Merge & Repair</h1>
+  <p>Project 4380.24 · Single-shot atomic merge of tablet pins + cloud edits + drawing union. NO CloudSync involved. Optimistic concurrency check before apply. Dry-run preview required.</p>
+</div>
+
+<div class="danger">
+  <b>BEFORE STARTING:</b> Close all FRT and Hub sessions on every device (every browser tab, every tablet, Cowork). Tablet stays in airplane mode. If cloud row keeps being written by a phantom session, this tool will refuse to apply.
+</div>
+
+<!-- ───── STEP 1: AUTH ───── -->
+<section class="step" id="step1">
+  <h2>1 · Auth check</h2>
+  <div class="desc">Reads sb-access-token from this origin. Must be Mark's account (877c9ec2-…).</div>
+  <div id="authStatus" class="status">Checking…</div>
+  <div id="loginPanel" class="hidden" style="margin-top:8px;">
+    <input id="loginEmail" type="email" placeholder="email" autocomplete="username">
+    <input id="loginPwd" type="password" placeholder="password" autocomplete="current-password">
+    <button id="btnLogin">Log in</button>
+    <div id="loginStatus" class="status"></div>
+  </div>
+</section>
+
+<!-- ───── STEP 2: QUIESCENCE ───── -->
+<section class="step locked" id="step2">
+  <h2>2 · Quiescence check (phantom-writer detection)</h2>
+  <div class="desc">Reads cloud row twice, 60 seconds apart. If <code>updated_at</code> stays the same, no one is writing. If it changes, find and kill the writer before continuing.</div>
+  <button id="btnQ1">Read cloud (1 of 2)</button>
+  <button id="btnQ2" disabled>Wait 60 s & Read again (2 of 2)</button>
+  <span id="qTimer" class="timer hidden">60</span>
+  <div id="qStatus" class="status"></div>
+  <div id="qSummary" class="kv hidden" style="margin-top:8px;"></div>
+</section>
+
+<!-- ───── STEP 3: UPLOAD TABLET BACKUP ───── -->
+<section class="step locked" id="step3">
+  <h2>3 · Upload tablet backup JSON</h2>
+  <div class="desc">File from S156: <code>4380_24_tablet_backup_2026-05-22T02-24-46-931Z.json</code> (or any later one). Validated against the live project UUID before use.</div>
+  <input type="file" id="backupFile" accept=".json,application/json">
+  <div id="backupStatus" class="status"></div>
+  <div id="backupSummary" class="kv hidden" style="margin-top:8px;"></div>
+</section>
+
+<!-- ───── STEP 4: BUILD MERGE PREVIEW ───── -->
+<section class="step locked" id="step4">
+  <h2>4 · Build merge preview (dry run)</h2>
+  <div class="desc">Computes the merged data column. Shows side-by-side counts, per-deficiency diff, drawing union, JSONB size estimate. <b>Nothing is sent to Supabase in this step.</b></div>
+  <button id="btnPreview">Build preview</button>
+  <div id="previewStatus" class="status"></div>
+  <div id="previewArea" class="hidden" style="margin-top:8px;"></div>
+</section>
+
+<!-- ───── STEP 5: DOWNLOAD CURRENT CLOUD AS BACKUP ───── -->
+<section class="step locked" id="step5">
+  <h2>5 · Download current cloud row (pre-apply backup)</h2>
+  <div class="desc">Saves the EXACT cloud row JSON to your downloads folder before any change. If anything goes wrong, this is the rollback artifact.</div>
+  <button id="btnDownload">Download cloud row backup</button>
+  <div id="downloadStatus" class="status"></div>
+</section>
+
+<!-- ───── STEP 6: APPLY ───── -->
+<section class="step locked" id="step6">
+  <h2>6 · Apply merge (writes to cloud)</h2>
+  <div class="desc">Re-reads cloud row to confirm <code>updated_at</code> hasn't moved since preview. If it has → abort. Otherwise PATCH the <code>data</code> column with the merged JSON.</div>
+  <label class="confirm">
+    <input type="checkbox" id="confirmReviewed"> I have reviewed the preview AND downloaded the cloud backup.
+  </label>
+  <button id="btnApply" class="go" disabled>Apply merge</button>
+  <div id="applyStatus" class="status"></div>
+</section>
+
+<!-- ───── STEP 7: VERIFY ───── -->
+<section class="step locked" id="step7">
+  <h2>7 · Post-apply verification</h2>
+  <button id="btnVerify">Re-read cloud row</button>
+  <div id="verifyStatus" class="status"></div>
+  <pre id="verifyOut" class="hidden"></pre>
+</section>
+
+<script>
+(function(){
+'use strict';
+
+// ── Guards ──
+if (location.search && /[?&]project=/.test(location.search)) {
+  document.body.innerHTML = '<div style="padding:40px;color:#9C2742;font-family:Calibri;">URL must not have ?project= param. Open /rescue5/ directly.</div>';
+  return;
+}
+if (typeof window.CloudSync !== 'undefined' || typeof window.loadFullProject !== 'undefined') {
+  document.body.innerHTML = '<div style="padding:40px;color:#9C2742;font-family:Calibri;">FRT globals detected. Open this in a fresh browser tab.</div>';
+  return;
+}
+
+// ── Constants ──
+var SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+var PROJECT_UUID = 'ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0';   // 4380.24 S WH Sprk Upgrade
+var INSTANCE_UUID = 'cb856f4b-b361-43d3-8605-44fd910bd735';   // tool_data row id
+var AUTH_USER_UUID_MARK = '877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f';
+
+// ── State ──
+var STATE = {
+  cloudRow1: null,        // first quiescence read
+  cloudRow2: null,        // second quiescence read
+  cloudQuiescent: false,
+  tabletProject: null,    // uploaded backup, .targetProject_FULL
+  tabletMeta: null,
+  previewMergedData: null,
+  previewCloudUpdatedAt: null, // snapshot for optimistic concurrency
+  applied: false
+};
+
+// ── Helpers ──
+function getToken(){ try { return localStorage.getItem('sb-access-token'); } catch(_){ return null; } }
+function setStatus(id, text, cls){ var el = document.getElementById(id); if (!el) return; el.textContent = text; el.className = 'status ' + (cls || ''); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function unlockStep(n){ var el = document.getElementById('step'+n); if (el) el.classList.remove('locked'); }
+function lockStep(n){ var el = document.getElementById('step'+n); if (el) el.classList.add('locked'); }
+function markDone(n){ var el = document.getElementById('step'+n); if (el) { el.classList.remove('locked'); el.classList.add('done'); } }
+
+// ── HTTP ──
+function sbReq(method, path, body){
+  var token = getToken();
+  var hdrs = {
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': 'Bearer ' + (token || SUPABASE_ANON_KEY),
+    'Accept': 'application/json'
+  };
+  var opts = { method: method, headers: hdrs };
+  if (body !== undefined) {
+    hdrs['Content-Type'] = 'application/json';
+    hdrs['Prefer'] = 'return=representation';
+    opts.body = JSON.stringify(body);
+  }
+  return fetch(SUPABASE_URL + path, opts).then(function(res){
+    return res.text().then(function(t){
+      var parsed = null;
+      try { parsed = t ? JSON.parse(t) : null; } catch(_){}
+      return { status: res.status, ok: res.ok, data: parsed, raw: t };
+    });
+  });
+}
+function sbGet(p){ return sbReq('GET', p); }
+function sbPatch(p, body){ return sbReq('PATCH', p, body); }
+
+// ── STEP 1: Auth ──
+function checkAuth(){
+  var token = getToken();
+  if (!token) {
+    setStatus('authStatus', '⚠ No auth token. Log in below.', 'wmsg');
+    document.getElementById('loginPanel').classList.remove('hidden');
+    return;
+  }
+  fetch(SUPABASE_URL + '/auth/v1/user', {
+    method: 'GET',
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + token }
+  }).then(function(r){
+    if (!r.ok) {
+      setStatus('authStatus', '⚠ Token expired. Log in below.', 'wmsg');
+      document.getElementById('loginPanel').classList.remove('hidden');
+      return;
+    }
+    return r.json().then(function(u){
+      var isMark = u && u.id === AUTH_USER_UUID_MARK;
+      if (!isMark) {
+        setStatus('authStatus', '✗ Wrong account: ' + (u.email || u.id) + '. Mark\'s account required.', 'err');
+        return;
+      }
+      setStatus('authStatus', '✅ Auth ok: ' + u.email + ' (Mark)', 'ok');
+      markDone(1);
+      unlockStep(2);
+    });
+  }).catch(function(e){ setStatus('authStatus', '✗ ' + e.message, 'err'); });
+}
+
+function doLogin(){
+  var email = document.getElementById('loginEmail').value.trim();
+  var pwd = document.getElementById('loginPwd').value;
+  if (!email || !pwd) { setStatus('loginStatus', 'Enter email and password.', 'err'); return; }
+  setStatus('loginStatus', 'Logging in…', '');
+  fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, password: pwd })
+  }).then(function(r){
+    return r.json().then(function(d){
+      if (!r.ok) { setStatus('loginStatus', '✗ ' + (d.error_description || d.msg || 'login failed'), 'err'); return; }
+      try { localStorage.setItem('sb-access-token', d.access_token); localStorage.setItem('sb-refresh-token', d.refresh_token); } catch(_){}
+      setStatus('loginStatus', '✅ Logged in.', 'ok');
+      document.getElementById('loginPanel').classList.add('hidden');
+      checkAuth();
+    });
+  }).catch(function(e){ setStatus('loginStatus', '✗ ' + e.message, 'err'); });
+}
+
+// ── STEP 2: Quiescence ──
+function readCloudRow(){
+  return sbGet('/rest/v1/tool_data?id=eq.' + INSTANCE_UUID + '&select=id,project_id,tool_key,status,created_at,updated_at,created_by,updated_by,data');
+}
+function fmtSummary(row){
+  if (!row) return '(no row)';
+  var d = row.data || {};
+  return '  id:        ' + row.id + '\n'
+       + '  updated_at:' + row.updated_at + '\n'
+       + '  updated_by:' + row.updated_by + '\n'
+       + '  data.modified: ' + d.modified + '\n'
+       + '  defics:    ' + (d.generalDeficiencies||[]).length + '\n'
+       + '  drawings:  ' + (d.drawings||[]).length + '\n'
+       + '  nextDefic: ' + d.nextDeficNum;
+}
+function doQ1(){
+  setStatus('qStatus', 'Reading cloud (1/2)…', '');
+  readCloudRow().then(function(r){
+    if (!r.ok || !r.data || r.data.length === 0) { setStatus('qStatus', '✗ Cloud read failed: HTTP ' + r.status, 'err'); return; }
+    STATE.cloudRow1 = r.data[0];
+    setStatus('qStatus', '✅ Read 1 captured. Now wait 60 s.', 'ok');
+    var sum = document.getElementById('qSummary');
+    sum.classList.remove('hidden');
+    sum.innerHTML = '<b>Read 1:</b><br><pre style="margin:4px 0;max-height:none;">' + escapeHtml(fmtSummary(STATE.cloudRow1)) + '</pre>';
+    document.getElementById('btnQ1').disabled = true;
+    document.getElementById('btnQ2').disabled = false;
+  });
+}
+function doQ2(){
+  var btn = document.getElementById('btnQ2');
+  var timer = document.getElementById('qTimer');
+  btn.disabled = true;
+  timer.classList.remove('hidden');
+  var remaining = 60;
+  timer.textContent = remaining + 's';
+  var iv = setInterval(function(){
+    remaining--;
+    timer.textContent = remaining + 's';
+    if (remaining <= 0) {
+      clearInterval(iv);
+      timer.classList.add('hidden');
+      setStatus('qStatus', 'Reading cloud (2/2)…', '');
+      readCloudRow().then(function(r){
+        if (!r.ok || !r.data || r.data.length === 0) { setStatus('qStatus', '✗ Cloud read failed', 'err'); btn.disabled = false; return; }
+        STATE.cloudRow2 = r.data[0];
+        var same = (STATE.cloudRow1.updated_at === STATE.cloudRow2.updated_at);
+        STATE.cloudQuiescent = same;
+        var sum = document.getElementById('qSummary');
+        sum.innerHTML = '<b>Read 1:</b><br><pre style="margin:4px 0;max-height:none;">' + escapeHtml(fmtSummary(STATE.cloudRow1)) + '</pre>'
+                     + '<b>Read 2 (60 s later):</b><br><pre style="margin:4px 0;max-height:none;">' + escapeHtml(fmtSummary(STATE.cloudRow2)) + '</pre>';
+        if (same) {
+          setStatus('qStatus', '✅ updated_at is stable. No phantom writer.', 'ok');
+          markDone(2);
+          unlockStep(3);
+        } else {
+          setStatus('qStatus', '🔴 updated_at MOVED: ' + STATE.cloudRow1.updated_at + ' → ' + STATE.cloudRow2.updated_at + '. Phantom writer is still active. Close all FRT/Hub sessions and re-run Step 2.', 'err');
+          document.getElementById('btnQ1').disabled = false;
+        }
+      });
+    }
+  }, 1000);
+}
+
+// ── STEP 3: Upload tablet backup ──
+function onBackupChosen(ev){
+  var file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  setStatus('backupStatus', 'Reading ' + file.name + ' (' + (file.size/1024/1024).toFixed(2) + ' MB)…', '');
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      var d = JSON.parse(e.target.result);
+      var proj = d.targetProject_FULL || d.project || d; // tolerant
+      if (!proj || !proj.generalDeficiencies) throw new Error('No generalDeficiencies in uploaded JSON');
+      if (proj._hubProjectId && proj._hubProjectId !== PROJECT_UUID) throw new Error('Backup _hubProjectId=' + proj._hubProjectId + ' does not match target ' + PROJECT_UUID);
+      STATE.tabletProject = proj;
+      STATE.tabletMeta = d.meta || null;
+      var gds = proj.generalDeficiencies || [];
+      var dws = proj.drawings || [];
+      var nums = gds.map(function(g){ return g.num; }).sort(function(a,b){ return a-b; });
+      var pinned = gds.filter(function(g){ return g.pinX != null && g.pinY != null; }).length;
+      setStatus('backupStatus', '✅ Tablet backup loaded.', 'ok');
+      var sum = document.getElementById('backupSummary');
+      sum.classList.remove('hidden');
+      sum.innerHTML = '<b>From file:</b> ' + escapeHtml(file.name) + '<br>'
+                    + '<b>Backup ts:</b> ' + escapeHtml((d.meta && d.meta.ts) || proj.modified || '(unknown)') + '<br>'
+                    + '<b>Project id:</b> ' + escapeHtml(proj.id || '?') + '<br>'
+                    + '<b>_hubProjectId:</b> ' + escapeHtml(proj._hubProjectId || '?') + '<br>'
+                    + '<b>modified:</b> ' + escapeHtml(proj.modified || '?') + '<br>'
+                    + '<b>nextDeficNum:</b> ' + (proj.nextDeficNum || '?') + '<br>'
+                    + '<b>Deficiencies:</b> ' + gds.length + ' (nums: ' + nums.join(',') + ')<br>'
+                    + '<b>With pins:</b> ' + pinned + ' / ' + gds.length + '<br>'
+                    + '<b>Drawings:</b> ' + dws.length;
+      markDone(3);
+      unlockStep(4);
+    } catch(err) {
+      setStatus('backupStatus', '✗ Invalid backup: ' + err.message, 'err');
+      STATE.tabletProject = null;
+    }
+  };
+  reader.onerror = function(){ setStatus('backupStatus', '✗ Read failed.', 'err'); };
+  reader.readAsText(file);
+}
+
+// ── STEP 4: Merge preview ──
+function buildMerge(){
+  if (!STATE.cloudRow2 || !STATE.tabletProject) { setStatus('previewStatus', '✗ Missing inputs', 'err'); return; }
+  var cloudData = STATE.cloudRow2.data || {};
+  var cloudDefics = cloudData.generalDeficiencies || [];
+  var cloudDraws  = cloudData.drawings || [];
+  var tabDefics = STATE.tabletProject.generalDeficiencies || [];
+  var tabDraws  = STATE.tabletProject.drawings || [];
+
+  // Index by id and by num
+  function indexBy(arr, key){ var m = {}; arr.forEach(function(x){ if (x[key] != null) m[x[key]] = x; }); return m; }
+  var tabById  = indexBy(tabDefics, 'id');
+  var tabByNum = indexBy(tabDefics, 'num');
+
+  // Per-defic merge plan
+  var perDefic = [];   // for the diff table
+  var mergedDefics = [];
+
+  cloudDefics.forEach(function(cD){
+    var matchById  = cD.id  != null ? tabById[cD.id]  : null;
+    var matchByNum = cD.num != null ? tabByNum[cD.num] : null;
+    var tM = matchById || matchByNum;
+    var matchMode = matchById ? 'id' : (matchByNum ? 'num' : 'none');
+    var newRec = Object.assign({}, cD); // cloud as base
+    var changes = [];
+    if (tM) {
+      // Overlay pin fields ONLY IF cloud is missing them
+      if ((cD.pinX == null || cD.pinY == null) && (tM.pinX != null && tM.pinY != null)) {
+        newRec.pinX = tM.pinX;
+        newRec.pinY = tM.pinY;
+        changes.push('pin←tablet');
+      }
+      if ((cD.drawingId == null || cD.drawingId === '') && tM.drawingId) {
+        newRec.drawingId = tM.drawingId;
+        changes.push('drawingId←tablet');
+      }
+    }
+    mergedDefics.push(newRec);
+    perDefic.push({
+      num: cD.num, source: 'cloud-kept', matchMode: matchMode,
+      cloudPin: (cD.pinX != null ? '('+cD.pinX.toFixed(3)+','+cD.pinY.toFixed(3)+')' : 'none'),
+      cloudDwg: cD.drawingId || 'none',
+      newPin: (newRec.pinX != null ? '('+newRec.pinX.toFixed(3)+','+newRec.pinY.toFixed(3)+')' : 'none'),
+      newDwg: newRec.drawingId || 'none',
+      changes: changes.length ? changes.join(', ') : '(no change)'
+    });
+  });
+
+  // Tablet-only defics (append)
+  var cloudIds  = {}; cloudDefics.forEach(function(c){ if (c.id != null)  cloudIds[c.id] = true; });
+  var cloudNums = {}; cloudDefics.forEach(function(c){ if (c.num != null) cloudNums[c.num] = true; });
+  tabDefics.forEach(function(tD){
+    var inCloudById  = tD.id  != null && cloudIds[tD.id];
+    var inCloudByNum = tD.num != null && cloudNums[tD.num];
+    if (inCloudById || inCloudByNum) return; // already merged
+    // Tablet-only: take verbatim
+    var clean = Object.assign({}, tD);
+    // Strip any base64 dataUrl from photos defensively
+    if (Array.isArray(clean.photos)) {
+      clean.photos = clean.photos.map(function(p){
+        var pc = Object.assign({}, p);
+        // Drop base64 data fields; keep r2Key/r2Url
+        if (pc.dataUrl && typeof pc.dataUrl === 'string' && pc.dataUrl.length > 1000) delete pc.dataUrl;
+        return pc;
+      });
+    }
+    mergedDefics.push(clean);
+    perDefic.push({
+      num: tD.num, source: 'tablet-new', matchMode: 'tablet-only',
+      cloudPin: '—', cloudDwg: '—',
+      newPin: (tD.pinX != null ? '('+tD.pinX.toFixed(3)+','+tD.pinY.toFixed(3)+')' : 'none'),
+      newDwg: tD.drawingId || 'none',
+      changes: 'NEW from tablet'
+    });
+  });
+
+  // Drawing union
+  var drawById = {};
+  cloudDraws.forEach(function(d){ drawById[d.id] = { src: 'cloud', rec: d }; });
+  tabDraws.forEach(function(d){
+    if (drawById[d.id]) { drawById[d.id].src = 'both'; return; } // prefer cloud version
+    drawById[d.id] = { src: 'tablet-only', rec: d };
+  });
+  var mergedDraws = Object.keys(drawById).map(function(id){ return drawById[id].rec; });
+  // Sort by id for stability
+  mergedDraws.sort(function(a,b){ return (a.id||'').localeCompare(b.id||''); });
+
+  // Build merged data column (preserve all cloud top-level fields)
+  var newNextDefic = Math.max(cloudData.nextDeficNum || 0, STATE.tabletProject.nextDeficNum || 0);
+  var nowIso = new Date().toISOString();
+  var merged = Object.assign({}, cloudData);
+  merged.generalDeficiencies = mergedDefics;
+  merged.drawings = mergedDraws;
+  merged.nextDeficNum = newNextDefic;
+  merged.modified = nowIso;
+  merged._recoveryMarker = {
+    source: 'rescue5_S157',
+    appliedAt: nowIso,
+    backupTs: (STATE.tabletMeta && STATE.tabletMeta.ts) || STATE.tabletProject.modified,
+    cloudUpdatedAtBefore: STATE.cloudRow2.updated_at
+  };
+
+  STATE.previewMergedData = merged;
+  STATE.previewCloudUpdatedAt = STATE.cloudRow2.updated_at;
+
+  // ── Render preview ──
+  var area = document.getElementById('previewArea');
+  area.classList.remove('hidden');
+  var jsonStr = JSON.stringify(merged);
+  var sizeKb = (jsonStr.length / 1024).toFixed(1);
+
+  var html = '';
+  html += '<h3 style="margin:8px 0 4px 0;color:#9C2742;">Counts</h3>';
+  html += '<table class="diff"><tr><th>Field</th><th>Cloud (before)</th><th>Tablet (backup)</th><th>Merged (after)</th></tr>';
+  html += '<tr><td>generalDeficiencies</td><td>' + cloudDefics.length + '</td><td>' + tabDefics.length + '</td><td class="add">' + mergedDefics.length + '</td></tr>';
+  html += '<tr><td>drawings</td><td>' + cloudDraws.length + '</td><td>' + tabDraws.length + '</td><td class="add">' + mergedDraws.length + '</td></tr>';
+  html += '<tr><td>nextDeficNum</td><td>' + cloudData.nextDeficNum + '</td><td>' + STATE.tabletProject.nextDeficNum + '</td><td class="add">' + newNextDefic + '</td></tr>';
+  html += '<tr><td>modified</td><td>' + escapeHtml(cloudData.modified || '?') + '</td><td>' + escapeHtml(STATE.tabletProject.modified || '?') + '</td><td class="change">' + escapeHtml(nowIso) + '</td></tr>';
+  html += '</table>';
+
+  html += '<h3 style="margin:12px 0 4px 0;color:#9C2742;">Per-deficiency plan</h3>';
+  html += '<table class="diff"><tr><th>#</th><th>Source</th><th>Cloud pin</th><th>Cloud dwg</th><th>Final pin</th><th>Final dwg</th><th>Changes</th></tr>';
+  perDefic.sort(function(a,b){ return (a.num||0)-(b.num||0); }).forEach(function(r){
+    var rowClass = r.source === 'tablet-new' ? 'add' : (r.changes !== '(no change)' ? 'change' : 'same');
+    html += '<tr>'
+         + '<td>' + r.num + '</td>'
+         + '<td class="'+rowClass+'">' + r.source + '</td>'
+         + '<td>' + r.cloudPin + '</td>'
+         + '<td>' + escapeHtml(r.cloudDwg.substr(0,28)) + '</td>'
+         + '<td>' + r.newPin + '</td>'
+         + '<td>' + escapeHtml(r.newDwg.substr(0,28)) + '</td>'
+         + '<td>' + escapeHtml(r.changes) + '</td>'
+         + '</tr>';
+  });
+  html += '</table>';
+
+  html += '<h3 style="margin:12px 0 4px 0;color:#9C2742;">Drawings union</h3>';
+  html += '<table class="diff"><tr><th>id</th><th>name</th><th>Source</th></tr>';
+  Object.keys(drawById).sort().forEach(function(id){
+    var info = drawById[id];
+    var name = (info.rec.name || '?').substr(0,46);
+    var rowClass = info.src === 'tablet-only' ? 'add' : (info.src === 'cloud' ? 'same' : 'same');
+    html += '<tr><td>' + escapeHtml(id.substr(0,32)) + '</td><td>' + escapeHtml(name) + '</td><td class="'+rowClass+'">' + info.src + '</td></tr>';
+  });
+  html += '</table>';
+
+  html += '<h3 style="margin:12px 0 4px 0;color:#9C2742;">Estimated JSONB size</h3>';
+  html += '<p class="kv">~' + sizeKb + ' KB serialized JSON (defics, drawings, all other cloud fields preserved)</p>';
+
+  html += '<h3 style="margin:12px 0 4px 0;color:#9C2742;">Optimistic concurrency anchor</h3>';
+  html += '<p class="kv">Will refuse to apply unless cloud updated_at is still <b>' + escapeHtml(STATE.previewCloudUpdatedAt) + '</b> at apply time.</p>';
+
+  html += '<h3 style="margin:12px 0 4px 0;color:#9C2742;">Full merged JSON (preview only — not yet sent)</h3>';
+  html += '<pre style="max-height:300px;">' + escapeHtml(JSON.stringify(merged, null, 2).substr(0, 50000)) + (jsonStr.length > 50000 ? '\n… (truncated for display; full JSON is what will be sent)' : '') + '</pre>';
+
+  area.innerHTML = html;
+  setStatus('previewStatus', '✅ Preview built. Review carefully before continuing.', 'ok');
+  markDone(4);
+  unlockStep(5);
+  unlockStep(6);
+}
+
+// ── STEP 5: Download cloud backup ──
+function downloadCloudBackup(){
+  if (!STATE.cloudRow2) { setStatus('downloadStatus', '✗ No cloud read available.', 'err'); return; }
+  var blob = new Blob([JSON.stringify({ rescued_at: new Date().toISOString(), source: 'rescue5_S157_preApply', cloudRow: STATE.cloudRow2 }, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'cloud_row_pre_apply_4380_24_' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+  setStatus('downloadStatus', '✅ Saved to downloads.', 'ok');
+  markDone(5);
+}
+
+// ── STEP 6: Apply ──
+function onConfirmToggle(){
+  var ok = document.getElementById('confirmReviewed').checked
+        && STATE.previewMergedData
+        && STATE.previewCloudUpdatedAt;
+  document.getElementById('btnApply').disabled = !ok;
+}
+function doApply(){
+  var btn = document.getElementById('btnApply');
+  btn.disabled = true;
+  setStatus('applyStatus', 'Re-reading cloud for optimistic concurrency check…', '');
+  readCloudRow().then(function(r){
+    if (!r.ok || !r.data || r.data.length === 0) {
+      setStatus('applyStatus', '✗ Pre-apply read failed: HTTP ' + r.status, 'err');
+      btn.disabled = false;
+      return;
+    }
+    var fresh = r.data[0];
+    if (fresh.updated_at !== STATE.previewCloudUpdatedAt) {
+      setStatus('applyStatus', '🔴 ABORT — cloud updated_at moved from ' + STATE.previewCloudUpdatedAt + ' to ' + fresh.updated_at + '. Phantom writer struck during preview. Re-run Step 2 (quiescence) before retrying.', 'err');
+      btn.disabled = false;
+      return;
+    }
+    setStatus('applyStatus', '✅ Cloud still quiescent. Sending PATCH…', '');
+    return sbPatch('/rest/v1/tool_data?id=eq.' + INSTANCE_UUID, { data: STATE.previewMergedData }).then(function(p){
+      if (!p.ok) {
+        setStatus('applyStatus', '✗ PATCH failed: HTTP ' + p.status + ' — ' + (p.raw || ''), 'err');
+        btn.disabled = false;
+        return;
+      }
+      var ret = (p.data && p.data[0]) || null;
+      STATE.applied = true;
+      setStatus('applyStatus', '✅ APPLIED. New updated_at: ' + (ret ? ret.updated_at : '(returned no body)') + '. Run Step 7 to verify.', 'ok');
+      markDone(6);
+      unlockStep(7);
+    });
+  }).catch(function(e){
+    setStatus('applyStatus', '✗ ' + e.message, 'err');
+    btn.disabled = false;
+  });
+}
+
+// ── STEP 7: Verify ──
+function doVerify(){
+  setStatus('verifyStatus', 'Reading…', '');
+  readCloudRow().then(function(r){
+    if (!r.ok || !r.data || r.data.length === 0) { setStatus('verifyStatus', '✗ Read failed.', 'err'); return; }
+    var row = r.data[0];
+    var d = row.data || {};
+    var gds = d.generalDeficiencies || [];
+    var dws = d.drawings || [];
+    var pinned = gds.filter(function(g){ return g.pinX != null && g.pinY != null; }).length;
+    var nums = gds.map(function(g){ return g.num; }).sort(function(a,b){ return a-b; }).join(',');
+    var out = '=== VERIFY @ ' + new Date().toISOString() + ' ===\n'
+            + 'updated_at:    ' + row.updated_at + '\n'
+            + 'updated_by:    ' + row.updated_by + '\n'
+            + 'data.modified: ' + d.modified + '\n'
+            + 'deficiencies:  ' + gds.length + '\n'
+            + 'with pins:     ' + pinned + ' / ' + gds.length + '\n'
+            + 'drawings:      ' + dws.length + '\n'
+            + 'nextDeficNum:  ' + d.nextDeficNum + '\n'
+            + 'defic nums:    ' + nums + '\n'
+            + 'recovery_marker: ' + JSON.stringify(d._recoveryMarker || null);
+    var pre = document.getElementById('verifyOut');
+    pre.classList.remove('hidden');
+    pre.textContent = out;
+    setStatus('verifyStatus', '✅ Read complete.', 'ok');
+    if (pinned >= 13 && gds.length === 14 && dws.length === 11) {
+      markDone(7);
+    }
+  });
+}
+
+// ── Wire up ──
+document.getElementById('btnLogin').addEventListener('click', doLogin);
+document.getElementById('loginPwd').addEventListener('keydown', function(e){ if (e.key === 'Enter') doLogin(); });
+document.getElementById('btnQ1').addEventListener('click', doQ1);
+document.getElementById('btnQ2').addEventListener('click', doQ2);
+document.getElementById('backupFile').addEventListener('change', onBackupChosen);
+document.getElementById('btnPreview').addEventListener('click', buildMerge);
+document.getElementById('btnDownload').addEventListener('click', downloadCloudBackup);
+document.getElementById('confirmReviewed').addEventListener('change', onConfirmToggle);
+document.getElementById('btnApply').addEventListener('click', doApply);
+document.getElementById('btnVerify').addEventListener('click', doVerify);
+
+checkAuth();
+})();
+</script>
+</body>
+</html>
