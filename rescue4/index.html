@@ -84,10 +84,21 @@ if (typeof window.CloudSync !== 'undefined' || typeof window.loadFullProject !==
 // ── Constants ──
 var SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
-var PROJECT_UUID = 'cb856f4b-b361-43d3-8605-44fd910bd735';
-var USER_UUID_MARK = 'ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0';
+// ──────────────────────────────────────────────────────────────────────────
+// S157 CORRECTED UUIDs (the S156 docs had project + instance UUIDs swapped):
+//   syncMeta key format is `frt:<PROJECT_id>:<TOOL_DATA_INSTANCE_id>`
+//   - PROJECT_ID    = ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0  (4380.24 S WH Sprk Upgrade)
+//   - INSTANCE_ID   = cb856f4b-b361-43d3-8605-44fd910bd735  (tool_data row id, NOT user/project)
+//   - AUTH_USER (Mark) = 877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f
+// The S156 "cloud has 9 deficiencies" came from the syncMeta SNAPSHOT cached
+// on tablet at last pull — NOT a fresh cloud read. v3 queries tool_data directly.
+// ──────────────────────────────────────────────────────────────────────────
+var PROJECT_UUID = 'ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0';
+var INSTANCE_UUID = 'cb856f4b-b361-43d3-8605-44fd910bd735';
+var AUTH_USER_UUID_MARK = '877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f';
+var SOFT_DELETED_DUP_UUID = '90f63ab1-0328-478b-bd1b-18508057a053'; // old "South Warehouse" 4380.24
 
-// Backup reference baseline (from /home/claude rescue3 backup 2026-05-22T02:24:46Z)
+// Tablet backup baseline (canonical reference from S156 rescue3 @ 2026-05-22T02:24:46Z)
 var TABLET_BACKUP = {
   ts: '2026-05-22T02:24:46Z',
   deficiencyCount: 14,
@@ -97,10 +108,12 @@ var TABLET_BACKUP = {
   may20Nums: [13, 14, 15, 16, 17],
   modified: '2026-05-20T18:18:24.879Z'
 };
-var SYNCMETA_AT_BACKUP = {
+// SyncMeta SNAPSHOT (tablet's CACHED view of cloud at last pull — NOT a fresh read)
+var SYNCMETA_SNAPSHOT = {
   ts: '2026-05-22T01:55:55.682922+00:00',
   deficiencyCount: 9,
   drawingCount: 8,
+  deficienciesByNum: [1, 2, 4, 5, 6, 7, 8, 10, 12],
   modified: '2026-05-20T20:45:54.244Z'
 };
 
@@ -161,7 +174,7 @@ function checkAuth(){
     if (res.ok) {
       res.json().then(function(u){
         var who = (u && u.email) || (u && u.id) || 'unknown';
-        var isMark = (u && u.id === USER_UUID_MARK);
+        var isMark = (u && u.id === AUTH_USER_UUID_MARK);
         setStatus('authStatus', '✅ Auth ok — ' + who + (isMark ? '  (Mark — matches expected user)' : '  (NOT Mark\'s UUID — diagnostic will still work but verify this is the right account)'), isMark ? 'ok' : 'warn');
         document.getElementById('btnRun').disabled = false;
       });
@@ -226,11 +239,12 @@ function runDiagnostic(){
   appendOutput('Origin: ' + location.origin);
   appendOutput('UA: ' + navigator.userAgent);
   appendOutput('Run start: ' + new Date().toISOString());
-  appendOutput('Target project UUID: ' + PROJECT_UUID);
+  appendOutput('CORRECTED PROJECT UUID: ' + PROJECT_UUID + '  (S156 had this wrong)');
+  appendOutput('CORRECTED INSTANCE UUID: ' + INSTANCE_UUID + '  (tool_data row id)');
+  appendOutput('Soft-deleted duplicate UUID: ' + SOFT_DELETED_DUP_UUID);
   appendOutput('Token present: ' + (!!getToken()));
   appendOutput('');
 
-  // Resolve auth identity first so it's captured in output
   _getAuthUser().then(function(authUser){
     appendOutput('=== AUTH IDENTITY (from /auth/v1/user) ===');
     if (!authUser) {
@@ -239,192 +253,94 @@ function runDiagnostic(){
       appendOutput('  id:    ' + authUser.id);
       appendOutput('  email: ' + (authUser.email || '(none)'));
       appendOutput('  role:  ' + (authUser.role || '(none)'));
-      appendOutput('  match-expected-mark: ' + (authUser.id === USER_UUID_MARK ? 'YES' : 'NO — ' + USER_UUID_MARK + ' expected'));
+      appendOutput('  match-expected-mark: ' + (authUser.id === AUTH_USER_UUID_MARK ? 'YES' : 'NO — ' + AUTH_USER_UUID_MARK + ' expected'));
     }
     appendOutput('');
 
-    appendOutput('=== TABLET BACKUP BASELINE (from S156 rescue3 @ ' + TABLET_BACKUP.ts + ') ===');
-    appendOutput('Tablet had:        14 deficiencies | 30 photoBlobs | 7 drawings');
-    appendOutput('  Defic nums:      ' + TABLET_BACKUP.deficienciesByNum.join(','));
-    appendOutput('  May-20 nums:     ' + TABLET_BACKUP.may20Nums.join(',') + '  (the 5 unsynced ones)');
-    appendOutput('  Tablet modified: ' + TABLET_BACKUP.modified);
-    appendOutput('Cloud syncMeta @ ' + SYNCMETA_AT_BACKUP.ts + ' showed:');
-    appendOutput('                    9 deficiencies | 8 drawings');
-    appendOutput('  Cloud modified:  ' + SYNCMETA_AT_BACKUP.modified + '  (later than tablet — risk B156-02)');
+    appendOutput('=== BASELINE (S157-corrected) ===');
+    appendOutput('Tablet (pre-airplane-mode snapshot @ ' + TABLET_BACKUP.ts + '):');
+    appendOutput('  14 deficiencies | 30 photoBlobs | 7 drawings');
+    appendOutput('  defic nums:  ' + TABLET_BACKUP.deficienciesByNum.join(','));
+    appendOutput('  may-20 nums: ' + TABLET_BACKUP.may20Nums.join(',') + '  (5 unsynced ones)');
+    appendOutput('  tablet modified: ' + TABLET_BACKUP.modified);
+    appendOutput('SyncMeta SNAPSHOT (tablet\'s CACHED view of cloud at last pull):');
+    appendOutput('  9 deficiencies | 8 drawings');
+    appendOutput('  defic nums:  ' + SYNCMETA_SNAPSHOT.deficienciesByNum.join(','));
+    appendOutput('  snapshot ts: ' + SYNCMETA_SNAPSHOT.ts);
+    appendOutput('  cloud modified at snapshot time: ' + SYNCMETA_SNAPSHOT.modified);
+    appendOutput('  ↑ NOT a fresh cloud read — that\'s what Queries 1-3 below check.');
+    appendOutput('R2 inventory (from S156 doc, also @ S157 still correct UUID):');
+    appendOutput('  30 originals | 13 drawings | 0 marked | 38 MB');
     appendOutput('');
 
-    appendOutput('=== QUERY 1: projects row by exact UUID ===');
-    return sbGet('/rest/v1/projects?id=eq.' + PROJECT_UUID + '&select=id,project_number,project_name,client,address,status,deleted_at,created_at,updated_at,created_by,is_pinned,starred_by,enabled_tools');
+    appendOutput('=== QUERY 1: tool_data BY INSTANCE ID (most direct, bypasses any project-side RLS) ===');
+    appendOutput('  /rest/v1/tool_data?id=eq.' + INSTANCE_UUID);
+    return sbGet('/rest/v1/tool_data?id=eq.' + INSTANCE_UUID + '&select=id,project_id,tool_key,instance_number,label,status,created_at,updated_at,created_by,updated_by,data');
   }).then(function(r){
     appendOutput('HTTP ' + r.status);
-    if (!r.ok) { appendOutput('ERROR body: ' + r.raw); }
+    if (!r.ok) appendOutput('ERROR body: ' + r.raw);
     var rows = r.data || [];
     appendOutput('Rows returned: ' + rows.length);
     if (rows.length === 0) {
-      appendOutput('  → 0 rows. Causes: (a) RLS hides this row from current auth, (b) UUID is wrong, (c) row deleted.');
-    } else {
-      var p = rows[0];
-      appendOutput('  ✅ PROJECT ROW EXISTS.');
+      appendOutput('  → 0 rows. The tool_data instance row no longer exists OR RLS hides it.');
+    }
+    rows.forEach(function(row){
+      _dumpToolDataRow(row);
+    });
+    appendOutput('');
+
+    appendOutput('=== QUERY 2: tool_data BY CORRECT PROJECT_ID + tool_key=frt ===');
+    appendOutput('  /rest/v1/tool_data?project_id=eq.' + PROJECT_UUID + '&tool_key=eq.frt');
+    return sbGet('/rest/v1/tool_data?project_id=eq.' + PROJECT_UUID + '&tool_key=eq.frt&order=updated_at.desc&select=id,project_id,tool_key,instance_number,label,status,created_at,updated_at,created_by,updated_by,data');
+  }).then(function(r){
+    appendOutput('HTTP ' + r.status);
+    if (!r.ok) appendOutput('ERROR body: ' + r.raw);
+    var rows = r.data || [];
+    appendOutput('Rows returned: ' + rows.length);
+    if (rows.length > 1) appendOutput('  ⚠ MULTIPLE rows — duplicate-row scenario (FRT VerifiedDedup territory).');
+    rows.forEach(function(row, i){
+      appendOutput('--- Row ' + (i+1) + ' of ' + rows.length + ' ---');
+      _dumpToolDataRow(row);
+    });
+    appendOutput('');
+
+    appendOutput('=== QUERY 3: projects row by CORRECT id (sanity, should mirror Query 4 of v2) ===');
+    return sbGet('/rest/v1/projects?id=eq.' + PROJECT_UUID + '&select=id,project_number,project_name,client,address,status,deleted_at,created_at,updated_at,created_by,is_pinned,starred_by,enabled_tools');
+  }).then(function(r){
+    appendOutput('HTTP ' + r.status);
+    if (!r.ok) appendOutput('ERROR body: ' + r.raw);
+    var rows = r.data || [];
+    appendOutput('Rows returned: ' + rows.length);
+    rows.forEach(function(p){
       appendOutput('  id:            ' + p.id);
       appendOutput('  project_number:' + p.project_number);
       appendOutput('  project_name:  ' + p.project_name);
-      appendOutput('  client:        ' + p.client);
-      appendOutput('  address:       ' + p.address);
       appendOutput('  status:        ' + p.status);
       appendOutput('  deleted_at:    ' + (p.deleted_at || '(null — alive)'));
       appendOutput('  created_at:    ' + p.created_at);
       appendOutput('  updated_at:    ' + p.updated_at);
       appendOutput('  created_by:    ' + p.created_by);
-      appendOutput('  is_pinned:     ' + p.is_pinned);
-      appendOutput('  starred_by:    ' + JSON.stringify(p.starred_by || []));
       appendOutput('  enabled_tools: ' + JSON.stringify(p.enabled_tools || {}));
-      if (p.deleted_at) appendOutput('  ⚠⚠⚠ PROJECT IS SOFT-DELETED. deleted_at=' + p.deleted_at);
-    }
+    });
     appendOutput('');
-    appendOutput('=== QUERY 2: search projects by project_number ILIKE *4380* (RLS-respecting wildcard) ===');
-    return sbGet('/rest/v1/projects?project_number=ilike.*4380*&select=id,project_number,project_name,status,deleted_at,updated_at,created_by&order=updated_at.desc');
+
+    appendOutput('=== QUERY 4: ALSO check the soft-deleted "South Warehouse" duplicate for stray FRT data ===');
+    appendOutput('  /rest/v1/tool_data?project_id=eq.' + SOFT_DELETED_DUP_UUID + '&tool_key=eq.frt');
+    return sbGet('/rest/v1/tool_data?project_id=eq.' + SOFT_DELETED_DUP_UUID + '&tool_key=eq.frt&select=id,instance_number,status,updated_at,data');
   }).then(function(r){
     appendOutput('HTTP ' + r.status);
     if (!r.ok) appendOutput('ERROR body: ' + r.raw);
     var rows = r.data || [];
     appendOutput('Rows returned: ' + rows.length);
-    rows.forEach(function(p){
-      appendOutput('  ' + p.id + ' | ' + p.project_number + ' | ' + p.project_name + ' | status=' + p.status + ' | deleted_at=' + (p.deleted_at || 'null') + ' | upd=' + p.updated_at);
-    });
-    if (rows.length === 0) appendOutput('  → No 4380.x projects visible to this user. Either none exist or RLS hides them all.');
-    appendOutput('');
-
-    appendOutput('=== QUERY 3: search projects by project_name ILIKE *sun* OR *sprk* ===');
-    return sbGet('/rest/v1/projects?or=(project_name.ilike.*sun*,project_name.ilike.*sprk*)&select=id,project_number,project_name,status,deleted_at,updated_at&order=updated_at.desc&limit=30');
-  }).then(function(r){
-    appendOutput('HTTP ' + r.status);
-    if (!r.ok) appendOutput('ERROR body: ' + r.raw);
-    var rows = r.data || [];
-    appendOutput('Rows returned: ' + rows.length);
-    rows.forEach(function(p){
-      appendOutput('  ' + p.id + ' | ' + p.project_number + ' | ' + p.project_name + ' | status=' + p.status + ' | deleted_at=' + (p.deleted_at || 'null'));
-    });
-    appendOutput('');
-
-    appendOutput('=== QUERY 4: ALL projects visible to current user (limit 30, includes archived + soft-deleted) ===');
-    return sbGet('/rest/v1/projects?select=id,project_number,project_name,status,deleted_at,updated_at,created_by&order=updated_at.desc&limit=30');
-  }).then(function(r){
-    appendOutput('HTTP ' + r.status);
-    if (!r.ok) appendOutput('ERROR body: ' + r.raw);
-    var rows = r.data || [];
-    appendOutput('Rows returned: ' + rows.length);
-    var hasTarget = false;
-    rows.forEach(function(p){
-      var mark = (p.id === PROJECT_UUID) ? ' ← TARGET 4380.24' : '';
-      if (p.id === PROJECT_UUID) hasTarget = true;
-      appendOutput('  ' + p.id + ' | ' + (p.project_number||'(no#)') + ' | ' + (p.project_name||'(no name)').substr(0,40) + ' | st=' + p.status + ' | del=' + (p.deleted_at ? 'YES' : 'no') + mark);
-    });
-    appendOutput('');
-    if (rows.length === 0) {
-      appendOutput('  → 0 projects visible. RLS is rejecting everything OR you are not authed as a user with project access.');
-    } else if (!hasTarget) {
-      appendOutput('  → 4380.24 NOT in top 30 most recently updated. Look at Queries 2 + 3 above — does it appear under any other name?');
-    } else {
-      appendOutput('  ✅ Target 4380.24 is in this list.');
-    }
-    appendOutput('');
-
-    appendOutput('=== QUERY 5: tool_data rows for target UUID + tool_key=frt ===');
-    return sbGet('/rest/v1/tool_data?project_id=eq.' + PROJECT_UUID + '&tool_key=eq.frt&order=updated_at.desc&select=id,project_id,tool_key,instance_number,label,status,created_at,updated_at,created_by,updated_by,data');
-  }).then(function(r){
-    appendOutput('HTTP ' + r.status);
-    if (!r.ok) { appendOutput('ERROR body: ' + r.raw); throw new Error('tool_data query failed'); }
-    var rows = r.data || [];
-    appendOutput('Rows returned: ' + rows.length);
-    if (rows.length === 0) {
-      appendOutput('  → 0 tool_data rows. Either (a) project row is RLS-hidden so tool_data also is, (b) no FRT instance was ever saved.');
-    }
-    if (rows.length > 1) {
-      appendOutput('  ⚠ MULTIPLE tool_data rows (' + rows.length + ') — duplicate-row scenario.');
-    }
-    appendOutput('');
-
-    rows.forEach(function(row, i){
-      appendOutput('--- Row ' + (i+1) + ' of ' + rows.length + ' ---');
-      appendOutput('  id:              ' + row.id);
-      appendOutput('  instance_number: ' + row.instance_number);
-      appendOutput('  label:           ' + (row.label || '(none)'));
-      appendOutput('  status:          ' + row.status);
-      appendOutput('  created_at:      ' + row.created_at);
-      appendOutput('  updated_at:      ' + row.updated_at);
-      appendOutput('  created_by:      ' + row.created_by);
-      appendOutput('  updated_by:      ' + row.updated_by);
+    rows.forEach(function(row){
       var d = row.data || {};
       var gds = d.generalDeficiencies || [];
-      var dws = d.drawings || [];
-      var phs = d.photos || [];
-      appendOutput('  data.modified:           ' + d.modified);
-      appendOutput('  data.nextDeficNum:       ' + d.nextDeficNum);
-      appendOutput('  generalDeficiencies len: ' + gds.length);
-      appendOutput('  drawings len:            ' + dws.length);
-      appendOutput('  photos len (proj-level): ' + phs.length);
-      appendOutput('  contractors len:         ' + ((d.contractors || []).length));
-      appendOutput('  frtInstances len:        ' + ((d.frtInstances || []).length));
-      appendOutput('  currentFrtInstance:      ' + d.currentFrtInstance);
-
-      if (gds.length > 0) {
-        appendOutput('');
-        appendOutput('  Deficiencies (' + gds.length + '):');
-        var sorted = gds.slice().sort(function(a,b){ return (a.num||0)-(b.num||0); });
-        sorted.forEach(function(g){
-          var pCount = (g.photos || []).length;
-          var obsCount = (g.observations || []).length;
-          appendOutput('    #' + String(g.num||'?').padStart(3,' ') +
-                       ' | ' + (g.date || '?') +
-                       ' | ' + String(g.status || '?').padEnd(20,' ').substr(0,20) +
-                       ' | ph=' + String(pCount).padStart(2,' ') +
-                       ' obs=' + obsCount +
-                       ' | dwg=' + String(g.drawingId || 'none').substr(0,28) +
-                       ' | pin=' + fmtPin(g));
-        });
-        var nums = sorted.map(function(g){ return g.num; }).join(',');
-        appendOutput('  Defic nums in cloud: ' + nums);
-        var may20 = sorted.filter(function(g){ return (g.date||'').startsWith('2026-05-20'); });
-        appendOutput('  May-20 deficiencies: ' + (may20.length === 0 ? 'NONE' : may20.map(function(g){return '#'+g.num;}).join(',')));
-      }
-
-      if (dws.length > 0) {
-        appendOutput('');
-        appendOutput('  Drawings (' + dws.length + '):');
-        dws.forEach(function(dw){
-          appendOutput('    ' + String(dw.id || '?').substr(0,32).padEnd(32,' ') +
-                       ' | ' + String(dw.name || '?').substr(0,38).padEnd(38,' ') +
-                       ' | tiled=' + !!dw.pdfTiled +
-                       ' | r2Key=' + (dw.r2Key ? 'yes' : 'NO'));
-        });
-      }
-      appendOutput('');
+      appendOutput('  Soft-deleted-dup row: id=' + row.id + ' status=' + row.status + ' upd=' + row.updated_at + ' defics=' + gds.length);
+      if (gds.length > 0) appendOutput('    ⚠ Unexpected data on soft-deleted dup — possible sync bleed.');
     });
-
-    // ── Comparison ──
-    appendOutput('=== COMPARISON ===');
-    var totalCloudDefics = rows.reduce(function(acc, r){ return acc + ((r.data && r.data.generalDeficiencies) ? r.data.generalDeficiencies.length : 0); }, 0);
-    var totalCloudDrawings = rows.reduce(function(acc, r){ return acc + ((r.data && r.data.drawings) ? r.data.drawings.length : 0); }, 0);
-
-    appendOutput('Tablet backup (canonical pre-airplane-mode snapshot): 14 deficiencies');
-    appendOutput('Cloud syncMeta @ S156 end (~02:00 UTC):               9 deficiencies / 8 drawings');
-    appendOutput('Cloud NOW (tool_data.data.generalDeficiencies sum):   ' + totalCloudDefics + ' deficiencies / ' + totalCloudDrawings + ' drawings');
+    if (rows.length === 0) appendOutput('  → 0 rows on soft-deleted dup. Expected. No data bleed.');
     appendOutput('');
-    if (rows.length === 0) {
-      appendOutput('⚠ Cannot compare — tool_data query returned 0 rows. Could be RLS hiding or row deleted. Check Queries 1-4 first to decide which.');
-    } else if (totalCloudDefics === 0) {
-      appendOutput('🔴 CLOUD HAS ZERO DEFICIENCIES — "all pins deleted" confirmed.');
-      appendOutput('   Recovery path: rebuild from tablet backup JSON.');
-    } else if (totalCloudDefics < 9) {
-      appendOutput('🔴 CLOUD LOST DEFICIENCIES. Was 9, now ' + totalCloudDefics + '. Real data loss.');
-    } else if (totalCloudDefics === 9) {
-      appendOutput('🟡 CLOUD STILL AT 9 — no further loss. The 5 May-20 pins never reached cloud (as expected per S156).');
-    } else if (totalCloudDefics === 14) {
-      appendOutput('✅ CLOUD HAS ALL 14 — rendering artifact, not data loss.');
-    } else {
-      appendOutput('⚠ CLOUD HAS ' + totalCloudDefics + ' (unexpected). Inspect list above.');
-    }
-    appendOutput('');
+
     appendOutput('Run end: ' + new Date().toISOString());
     appendOutput('=== END ===');
     document.getElementById('btnRun').disabled = false;
@@ -433,6 +349,72 @@ function runDiagnostic(){
     appendOutput('FATAL: ' + (e && e.message ? e.message : e));
     document.getElementById('btnRun').disabled = false;
   });
+}
+
+// Helper: dump a full tool_data row
+function _dumpToolDataRow(row){
+  appendOutput('  id:              ' + row.id);
+  appendOutput('  project_id:      ' + row.project_id);
+  appendOutput('  tool_key:        ' + row.tool_key);
+  appendOutput('  instance_number: ' + row.instance_number);
+  appendOutput('  label:           ' + (row.label || '(none)'));
+  appendOutput('  status:          ' + row.status);
+  appendOutput('  created_at:      ' + row.created_at);
+  appendOutput('  updated_at:      ' + row.updated_at);
+  appendOutput('  created_by:      ' + row.created_by);
+  appendOutput('  updated_by:      ' + row.updated_by);
+  var d = row.data || {};
+  var gds = d.generalDeficiencies || [];
+  var dws = d.drawings || [];
+  var phs = d.photos || [];
+  appendOutput('  data.modified:           ' + d.modified);
+  appendOutput('  data.nextDeficNum:       ' + d.nextDeficNum);
+  appendOutput('  data._hubProjectId:      ' + d._hubProjectId);
+  appendOutput('  generalDeficiencies len: ' + gds.length);
+  appendOutput('  drawings len:            ' + dws.length);
+  appendOutput('  photos len (proj-level): ' + phs.length);
+  appendOutput('  contractors len:         ' + ((d.contractors || []).length));
+  appendOutput('  frtInstances len:        ' + ((d.frtInstances || []).length));
+  appendOutput('  currentFrtInstance:      ' + d.currentFrtInstance);
+
+  if (gds.length > 0) {
+    appendOutput('');
+    appendOutput('  Deficiencies (' + gds.length + '):');
+    var sorted = gds.slice().sort(function(a,b){ return (a.num||0)-(b.num||0); });
+    sorted.forEach(function(g){
+      var pCount = (g.photos || []).length;
+      var obsCount = (g.observations || []).length;
+      appendOutput('    #' + String(g.num||'?').padStart(3,' ') +
+                   ' | ' + (g.date || '?') +
+                   ' | ' + String(g.status || '?').padEnd(20,' ').substr(0,20) +
+                   ' | ph=' + String(pCount).padStart(2,' ') +
+                   ' obs=' + obsCount +
+                   ' | dwg=' + String(g.drawingId || 'none').substr(0,28) +
+                   ' | pin=' + fmtPin(g));
+    });
+    var nums = sorted.map(function(g){ return g.num; });
+    appendOutput('  Cloud nums:    ' + nums.join(','));
+    appendOutput('  Tablet had:    ' + TABLET_BACKUP.deficienciesByNum.join(','));
+    appendOutput('  Snapshot had:  ' + SYNCMETA_SNAPSHOT.deficienciesByNum.join(','));
+    var missingVsTablet = TABLET_BACKUP.deficienciesByNum.filter(function(n){ return nums.indexOf(n) === -1; });
+    var extraVsTablet = nums.filter(function(n){ return TABLET_BACKUP.deficienciesByNum.indexOf(n) === -1; });
+    appendOutput('  Missing vs tablet: [' + missingVsTablet.join(',') + ']');
+    appendOutput('  Extra vs tablet:   [' + extraVsTablet.join(',') + ']');
+    var may20 = sorted.filter(function(g){ return (g.date||'').startsWith('2026-05-20'); });
+    appendOutput('  May-20 in cloud:   ' + (may20.length === 0 ? 'NONE' : may20.map(function(g){return '#'+g.num;}).join(',')));
+  }
+
+  if (dws.length > 0) {
+    appendOutput('');
+    appendOutput('  Drawings (' + dws.length + '):');
+    dws.forEach(function(dw){
+      appendOutput('    ' + String(dw.id || '?').substr(0,32).padEnd(32,' ') +
+                   ' | ' + String(dw.name || '?').substr(0,38).padEnd(38,' ') +
+                   ' | tiled=' + !!dw.pdfTiled +
+                   ' | r2Key=' + (dw.r2Key ? 'yes' : 'NO'));
+    });
+  }
+  appendOutput('');
 }
 
 // ── Copy ──
