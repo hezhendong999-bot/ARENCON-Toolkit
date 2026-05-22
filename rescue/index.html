@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>ARENCON Tablet Rescue — Read-Only IDB Diagnostic</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: Calibri, "Segoe UI", sans-serif; padding: 12px; max-width: 900px; margin: 0 auto; background: #F5F5F5; color: #212121; }
+  .banner { background: #9C2742; color: white; padding: 16px; border-radius: 8px; margin-bottom: 14px; }
+  .banner h1 { margin: 0 0 6px 0; font-size: 1.25em; font-weight: 700; }
+  .banner p { margin: 0; font-size: 0.92em; opacity: 0.95; line-height: 1.4; }
+  .safety { background: #FFF3CD; border: 2px solid #856404; color: #5C4400; padding: 12px; border-radius: 6px; margin-bottom: 14px; font-weight: 600; font-size: 0.95em; line-height: 1.4; }
+  .step { background: white; padding: 14px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #9C2742; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+  .step h2 { margin: 0 0 10px 0; color: #9C2742; font-size: 1.05em; font-weight: 700; }
+  .step .desc { font-size: 0.88em; color: #555; margin-bottom: 10px; line-height: 1.4; }
+  button { background: #9C2742; color: white; border: none; padding: 14px 20px; font-size: 1.05em; font-family: Calibri, sans-serif; font-weight: 600; border-radius: 6px; cursor: pointer; margin: 4px 4px 4px 0; min-width: 180px; touch-action: manipulation; }
+  button:disabled { background: #BDBDBD; cursor: not-allowed; }
+  button.secondary { background: #455A64; }
+  button.copy { background: #1A7A4A; }
+  button:active { transform: scale(0.98); }
+  pre { background: #2C3E50; color: #ECF0F1; padding: 10px; border-radius: 6px; font-size: 0.78em; max-height: 360px; overflow: auto; white-space: pre-wrap; word-wrap: break-word; user-select: text; -webkit-user-select: text; line-height: 1.35; margin: 8px 0 0 0; }
+  .hidden { display: none; }
+  .db-choice { background: #E3F2FD; padding: 12px; margin: 6px 0; border-radius: 4px; cursor: pointer; border: 2px solid transparent; font-family: monospace; font-size: 0.95em; touch-action: manipulation; }
+  .db-choice.selected { border-color: #9C2742; background: #FFE5EC; font-weight: 700; }
+  #copyStatus { margin: 8px 0 0 0; font-weight: 700; min-height: 1.2em; font-size: 0.95em; }
+  .ok { color: #1A7A4A; }
+  .err { color: #9C2742; }
+  .env-info { font-size: 0.78em; color: #777; margin-top: 12px; font-family: monospace; word-break: break-all; }
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <h1>ARENCON Tablet Rescue — Read-Only IDB Diagnostic</h1>
+  <p>This page only READS IndexedDB. No writes. No sync. No FRT load. No network calls except loading this HTML.</p>
+</div>
+
+<div class="safety">
+  Do NOT open the Project Hub app or any FRT URL until you have finished this diagnostic and saved its output. Stay in this browser tab.
+</div>
+
+<div class="step">
+  <h2>Step 1 — List databases on this origin</h2>
+  <div class="desc">Enumerates every IndexedDB database visible to this page. The FRT database should appear here.</div>
+  <button id="btnStep1">List IDB databases</button>
+  <pre id="out1" class="hidden"></pre>
+</div>
+
+<div class="step">
+  <h2>Step 2 — Tap the database to inspect</h2>
+  <div class="desc">After Step 1 runs, tap the FRT database in the list below to select it.</div>
+  <div id="dbChoices"><em style="color:#888;">(Run Step 1 first)</em></div>
+</div>
+
+<div class="step">
+  <h2>Step 3 — Count records per object store</h2>
+  <div class="desc">Opens the selected DB read-only and counts how many records are in each store. Look for a deficiencies store with a count much higher than 9.</div>
+  <button id="btnStep3" disabled>Count records (run Step 2 first)</button>
+  <pre id="out3" class="hidden"></pre>
+</div>
+
+<div class="step">
+  <h2>Step 4 — Schema + 4380.24 search</h2>
+  <div class="desc">Dumps a sample record from each store (blobs stripped) so we can see the field names, and searches every record for "4380.24" / "4380-24".</div>
+  <button id="btnStep4" disabled>Sample + search for 4380.24</button>
+  <pre id="out4" class="hidden"></pre>
+</div>
+
+<div class="step">
+  <h2>Step 5 — Copy all output</h2>
+  <div class="desc">Copies every step's output to the clipboard. Then paste it back into the Claude chat on PC.</div>
+  <button id="btnCopy" class="copy">Copy all output</button>
+  <button id="btnClear" class="secondary">Clear</button>
+  <div id="copyStatus"></div>
+  <div class="env-info" id="envInfo"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// SAFETY: refuse if URL has project param
+if (location.search && /[?&]project=/.test(location.search)) {
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#9C2742;font-size:1.3em;font-family:Calibri,sans-serif;">This page must NOT be opened with a project URL parameter. Remove ?project=... from the URL and reload.</div>';
+  return;
+}
+
+// SAFETY: refuse if any FRT-looking globals are present (shouldn't be, but belt and suspenders)
+if (typeof window.CloudSync !== 'undefined' || typeof window.loadFullProject !== 'undefined') {
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#9C2742;font-size:1.3em;font-family:Calibri,sans-serif;">FRT globals detected. This page is being loaded inside the FRT. Open a fresh tab and navigate directly to /rescue/.</div>';
+  return;
+}
+
+var selectedDB = null;
+var allOutput = '';
+var sessionStart = new Date().toISOString();
+
+function appendOutput(section, msg) {
+  var stamp = new Date().toISOString();
+  allOutput += '\n--- ' + section + ' @ ' + stamp + ' ---\n' + msg + '\n';
+  var el = document.getElementById(section);
+  if (el) {
+    el.classList.remove('hidden');
+    el.textContent = msg;
+  }
+}
+
+// Env info
+document.getElementById('envInfo').textContent =
+  'Origin: ' + location.origin +
+  '\nPath: ' + location.pathname +
+  '\nUA: ' + navigator.userAgent +
+  '\nSession start: ' + sessionStart;
+allOutput += 'ENV\nOrigin: ' + location.origin + '\nPath: ' + location.pathname + '\nUA: ' + navigator.userAgent + '\nSession start: ' + sessionStart + '\n';
+
+// ---- Step 1 ----
+document.getElementById('btnStep1').addEventListener('click', function(){
+  try {
+    if (typeof indexedDB.databases !== 'function') {
+      appendOutput('out1', 'indexedDB.databases() not supported on this browser. Will need to know DB name in advance. Tell Claude.');
+      return;
+    }
+    indexedDB.databases().then(function(dbs){
+      var out = 'Found ' + dbs.length + ' database(s):\n' + JSON.stringify(dbs, null, 2);
+      appendOutput('out1', out);
+      var choicesEl = document.getElementById('dbChoices');
+      choicesEl.innerHTML = '';
+      if (dbs.length === 0) {
+        choicesEl.innerHTML = '<p style="color:#9C2742;font-weight:700;">No databases on this origin. Tablet IDB is empty for this origin. Tell Claude immediately.</p>';
+        return;
+      }
+      dbs.forEach(function(db){
+        var div = document.createElement('div');
+        div.className = 'db-choice';
+        div.textContent = (db.name || '(unnamed)') + '  v' + (db.version || '?');
+        div.addEventListener('click', function(){
+          Array.prototype.forEach.call(document.querySelectorAll('.db-choice'), function(c){ c.classList.remove('selected'); });
+          div.classList.add('selected');
+          selectedDB = db.name;
+          document.getElementById('btnStep3').disabled = false;
+          document.getElementById('btnStep4').disabled = false;
+        });
+        choicesEl.appendChild(div);
+      });
+    }, function(err){
+      appendOutput('out1', 'Error: ' + (err && err.message ? err.message : String(err)));
+    });
+  } catch (e) {
+    appendOutput('out1', 'Exception: ' + e.message + '\n' + (e.stack || ''));
+  }
+});
+
+function openReadOnly(dbName) {
+  return new Promise(function(resolve, reject){
+    var req = indexedDB.open(dbName);
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error || new Error('open error')); };
+    req.onblocked = function(){ reject(new Error('open blocked')); };
+    req.onupgradeneeded = function(e){
+      // SAFETY: refuse to upgrade
+      try { e.target.transaction.abort(); } catch(_){}
+      reject(new Error('upgrade required — refusing'));
+    };
+  });
+}
+
+function countStore(db, sn) {
+  return new Promise(function(resolve, reject){
+    try {
+      var tx = db.transaction(sn, 'readonly');
+      var req = tx.objectStore(sn).count();
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error || new Error('count error')); };
+    } catch (e) { reject(e); }
+  });
+}
+
+function getAllKeys(db, sn, limit) {
+  return new Promise(function(resolve, reject){
+    try {
+      var tx = db.transaction(sn, 'readonly');
+      var req = tx.objectStore(sn).getAllKeys(undefined, limit);
+      req.onsuccess = function(){ resolve(req.result || []); };
+      req.onerror = function(){ reject(req.error || new Error('getAllKeys error')); };
+    } catch (e) { reject(e); }
+  });
+}
+
+function getRecord(db, sn, key) {
+  return new Promise(function(resolve, reject){
+    try {
+      var tx = db.transaction(sn, 'readonly');
+      var req = tx.objectStore(sn).get(key);
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error || new Error('get error')); };
+    } catch (e) { reject(e); }
+  });
+}
+
+function safeStringify(rec) {
+  try {
+    return JSON.stringify(rec, function(k, v){
+      if (v instanceof Blob) return '[Blob ' + v.size + ' bytes, type=' + v.type + ']';
+      if (v instanceof ArrayBuffer) return '[ArrayBuffer ' + v.byteLength + ' bytes]';
+      if (v instanceof Uint8Array) return '[Uint8Array ' + v.byteLength + ' bytes]';
+      if (typeof v === 'string' && v.length > 400) return v.substring(0, 400) + '...[+' + (v.length - 400) + ' chars]';
+      return v;
+    }, 2);
+  } catch (e) {
+    return '[non-serializable: ' + e.message + ']';
+  }
+}
+
+// ---- Step 3 ----
+document.getElementById('btnStep3').addEventListener('click', function(){
+  if (!selectedDB) return;
+  (async function(){
+    try {
+      var db = await openReadOnly(selectedDB);
+      var stores = Array.prototype.slice.call(db.objectStoreNames);
+      var counts = {};
+      for (var i = 0; i < stores.length; i++) {
+        var sn = stores[i];
+        try {
+          counts[sn] = await countStore(db, sn);
+        } catch (e) {
+          counts[sn] = 'ERROR: ' + e.message;
+        }
+      }
+      db.close();
+      appendOutput('out3', 'DB: ' + selectedDB + '\nObject stores and record counts:\n' + JSON.stringify(counts, null, 2));
+    } catch (e) {
+      appendOutput('out3', 'Exception: ' + e.message + '\n' + (e.stack || ''));
+    }
+  })();
+});
+
+// ---- Step 4 ----
+document.getElementById('btnStep4').addEventListener('click', function(){
+  if (!selectedDB) return;
+  (async function(){
+    try {
+      var db = await openReadOnly(selectedDB);
+      var stores = Array.prototype.slice.call(db.objectStoreNames);
+      var report = {};
+
+      for (var i = 0; i < stores.length; i++) {
+        var sn = stores[i];
+        try {
+          var keys = await getAllKeys(db, sn, 5000);
+          var storeReport = {
+            totalKeys: keys.length,
+            firstKeys: keys.slice(0, 3),
+            schema: null,
+            matches4380: [],
+            matchCount: 0
+          };
+
+          // Get one sample record for schema
+          if (keys.length > 0) {
+            var sample = await getRecord(db, sn, keys[0]);
+            storeReport.schema = (sample && typeof sample === 'object')
+              ? { topLevelKeys: Object.keys(sample).slice(0, 30), sampleSerialized: safeStringify(sample).substring(0, 1500) }
+              : { type: typeof sample, value: String(sample).substring(0, 200) };
+          }
+
+          // Scan for 4380.24
+          var scanCap = Math.min(keys.length, 3000);
+          for (var j = 0; j < scanCap; j++) {
+            var rec;
+            try { rec = await getRecord(db, sn, keys[j]); } catch(_){ continue; }
+            if (!rec) continue;
+            var s = safeStringify(rec);
+            if (s.indexOf('4380.24') >= 0 || s.indexOf('4380-24') >= 0 || s.indexOf('4380_24') >= 0) {
+              storeReport.matchCount++;
+              if (storeReport.matches4380.length < 5) {
+                var summary = { key: keys[j] };
+                if (rec && typeof rec === 'object') {
+                  ['id','uuid','_id','projectId','project_id','projectNumber','project_number','jobNumber','timestamp','createdAt','updatedAt','status','contractor','trade','observation','description','title','pageIndex','drawingId','deficiencyId','x','y']
+                    .forEach(function(f){ if (rec[f] !== undefined && typeof rec[f] !== 'object') summary[f] = rec[f]; });
+                }
+                storeReport.matches4380.push(summary);
+              }
+            }
+          }
+          if (keys.length > scanCap) storeReport.note = 'Only scanned first ' + scanCap + ' of ' + keys.length + ' records.';
+          report[sn] = storeReport;
+        } catch (e) {
+          report[sn] = { error: e.message };
+        }
+      }
+      db.close();
+      appendOutput('out4', 'DB: ' + selectedDB + '\n\n' + JSON.stringify(report, null, 2));
+    } catch (e) {
+      appendOutput('out4', 'Exception: ' + e.message + '\n' + (e.stack || ''));
+    }
+  })();
+});
+
+// ---- Copy ----
+document.getElementById('btnCopy').addEventListener('click', function(){
+  var status = document.getElementById('copyStatus');
+  var payload = allOutput || '(no output yet)';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(payload).then(function(){
+      status.textContent = 'Copied to clipboard. Paste into Claude on PC.';
+      status.className = 'ok';
+    }, function(err){
+      status.textContent = 'Clipboard API blocked: ' + err.message + '. Long-press the output panes above to select and copy manually.';
+      status.className = 'err';
+    });
+  } else {
+    status.textContent = 'Clipboard API not available. Long-press the output panes above to select and copy manually.';
+    status.className = 'err';
+  }
+});
+
+document.getElementById('btnClear').addEventListener('click', function(){
+  allOutput = 'ENV\nOrigin: ' + location.origin + '\nPath: ' + location.pathname + '\nUA: ' + navigator.userAgent + '\nSession start: ' + sessionStart + '\n';
+  ['out1','out3','out4'].forEach(function(id){
+    var el = document.getElementById(id);
+    el.classList.add('hidden');
+    el.textContent = '';
+  });
+  document.getElementById('dbChoices').innerHTML = '<em style="color:#888;">(Run Step 1 first)</em>';
+  selectedDB = null;
+  document.getElementById('btnStep3').disabled = true;
+  document.getElementById('btnStep4').disabled = true;
+  document.getElementById('copyStatus').textContent = '';
+});
+
+})();
+</script>
+</body>
+</html>
