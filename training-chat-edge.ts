@@ -48,8 +48,8 @@ const MODEL = {
   outputRate: 0.000015,
 };
 
-const MAX_TURNS = 10;
-const MAX_HISTORY_MESSAGES = 24; // generous clamp; protects context size
+const MAX_TURNS = 20;
+const MAX_HISTORY_MESSAGES = 48; // generous clamp; protects context size
 const MAX_USER_MSG_CHARS = 2000;
 
 const PERSONA = `You are a calm, patient fire protection tutor helping a trainee at ARENCON Inc. (Ontario, Canada — OBC / NFPA / ULC context). The trainee just finished a quiz question and is asking follow-up questions to deepen their understanding.
