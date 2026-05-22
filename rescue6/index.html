@@ -84,7 +84,7 @@ var SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
 var PROJECT_UUID = 'ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0';
 var INSTANCE_UUID = 'cb856f4b-b361-43d3-8605-44fd910bd735';
-var LOCAL_PROJECT_ID = 'proj_1777776987676_veb7sz';
+// LOCAL project id is discovered at runtime by matching _hubProjectId — varies per device
 var SYNC_META_KEY = 'frt:' + PROJECT_UUID + ':' + INSTANCE_UUID;
 var AUTH_USER_UUID_MARK = '877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f';
 var FRT_DB = 'ARENCON_FieldReview';
@@ -229,6 +229,7 @@ function runDiag(){
 
   var frtDB = null, csyDB = null;
   var tabletProj = null;
+  var LOCAL_ID = null;   // Resolved at runtime from _hubProjectId match
   var tabletDrawings = null;
   var tabletPhotos = null;
   var tabletSitePhotos = null;
@@ -243,36 +244,51 @@ function runDiag(){
     appendOutput('=== TABLET PRIMARY IDB (' + FRT_DB + ' v' + FRT_DB_VER + ') ===');
     appendOutput('Stores: ' + Array.prototype.slice.call(db.objectStoreNames).join(', '));
     appendOutput('');
-    return readStoreOne(db, 'projects', LOCAL_PROJECT_ID);
-  }).then(function(proj){
-    tabletProj = proj;
-    if (!proj) {
-      appendOutput('⚠ NO PROJECT FOUND in IDB for id=' + LOCAL_PROJECT_ID);
-      appendOutput('  → Other project ids in IDB:');
-      return readStoreAll(frtDB, 'projects').then(function(all){
-        all.forEach(function(p){
-          appendOutput('    ' + p.id + ' | num=' + (p.info && p.info.projectNumber) + ' | modified=' + p.modified);
-        });
-        throw new Error('Target project not in tablet IDB');
-      });
+    // Find the project by _hubProjectId (local ids vary per device)
+    return readStoreAll(db, 'projects');
+  }).then(function(allProjects){
+    appendOutput('All projects in IDB (' + allProjects.length + '):');
+    allProjects.forEach(function(p){
+      var marker = (p._hubProjectId === PROJECT_UUID) ? ' ← TARGET (matches _hubProjectId)' : '';
+      appendOutput('  ' + p.id + ' | num=' + (p.info && p.info.projectNumber) + ' | hub=' + (p._hubProjectId || '(none)') + ' | mod=' + p.modified + marker);
+    });
+    appendOutput('');
+    // Find by _hubProjectId match
+    var matches = allProjects.filter(function(p){ return p._hubProjectId === PROJECT_UUID; });
+    if (matches.length === 0) {
+      // Fallback: try by projectNumber
+      matches = allProjects.filter(function(p){ return p.info && p.info.projectNumber === '4380.24'; });
+      if (matches.length > 0) {
+        appendOutput('⚠ No project matches _hubProjectId=' + PROJECT_UUID + ', but ' + matches.length + ' match projectNumber=4380.24. Using most recent.');
+        matches.sort(function(a,b){ return new Date(b.modified) - new Date(a.modified); });
+      } else {
+        throw new Error('Project 4380.24 not found in tablet IDB');
+      }
+    } else if (matches.length > 1) {
+      appendOutput('⚠ MULTIPLE projects match _hubProjectId=' + PROJECT_UUID + ' (' + matches.length + '). Using most recent.');
+      matches.sort(function(a,b){ return new Date(b.modified) - new Date(a.modified); });
     }
-    var gds = proj.generalDeficiencies || [];
-    var dws = proj.drawings || [];
+    tabletProj = matches[0];
+    LOCAL_ID = tabletProj.id;
+    appendOutput('Selected local id: ' + LOCAL_ID);
+    appendOutput('');
+    var gds = tabletProj.generalDeficiencies || [];
+    var dws = tabletProj.drawings || [];
     var nums = gds.map(function(g){ return g.num; }).sort(function(a,b){ return (a||0)-(b||0); });
     var pinned = gds.filter(function(g){ return g.pinX != null && g.pinY != null; }).length;
     appendOutput('TABLET project record:');
-    appendOutput('  id:             ' + proj.id);
-    appendOutput('  _hubProjectId:  ' + proj._hubProjectId);
-    appendOutput('  info.projectNumber: ' + (proj.info && proj.info.projectNumber));
-    appendOutput('  modified:       ' + proj.modified);
-    appendOutput('  status:         ' + proj.status);
-    appendOutput('  nextDeficNum:   ' + proj.nextDeficNum);
+    appendOutput('  id:             ' + tabletProj.id);
+    appendOutput('  _hubProjectId:  ' + tabletProj._hubProjectId);
+    appendOutput('  info.projectNumber: ' + (tabletProj.info && tabletProj.info.projectNumber));
+    appendOutput('  modified:       ' + tabletProj.modified);
+    appendOutput('  status:         ' + tabletProj.status);
+    appendOutput('  nextDeficNum:   ' + tabletProj.nextDeficNum);
     appendOutput('  generalDeficiencies: ' + gds.length + ' (pins=' + pinned + ', nums=' + nums.join(',') + ')');
     appendOutput('  drawings (in proj record): ' + dws.length);
-    appendOutput('  contractors:    ' + ((proj.contractors||[]).length));
-    appendOutput('  frtInstances:   ' + ((proj.frtInstances||[]).length));
+    appendOutput('  contractors:    ' + ((tabletProj.contractors||[]).length));
+    appendOutput('  frtInstances:   ' + ((tabletProj.frtInstances||[]).length));
     appendOutput('');
-    return readStoreByIndex(frtDB, 'drawings', 'projectId', LOCAL_PROJECT_ID);
+    return readStoreByIndex(frtDB, 'drawings', 'projectId', LOCAL_ID);
   }).then(function(dws){
     tabletDrawings = dws;
     appendOutput('TABLET drawings store (separate from project.drawings, holds blob data):');
@@ -283,7 +299,7 @@ function runDiag(){
       appendOutput('  ' + String(d.id||'?').substr(0,38).padEnd(38,' ') + ' | name=' + String(d.name||'').substr(0,40) + ' | blob=' + blobSize + ' | png=' + pngSize);
     });
     appendOutput('');
-    return readStoreByIndex(frtDB, 'photos', 'projectId', LOCAL_PROJECT_ID);
+    return readStoreByIndex(frtDB, 'photos', 'projectId', LOCAL_ID);
   }).then(function(phs){
     tabletPhotos = phs;
     appendOutput('TABLET photos store (deficiency photos, blob data):');
@@ -298,7 +314,7 @@ function runDiag(){
     var sample = phs.slice(0, 5).map(function(p){ return p.id; }).join(', ');
     if (sample) appendOutput('  sample ids:    ' + sample + (phs.length > 5 ? ' …' : ''));
     appendOutput('');
-    return readStoreByIndex(frtDB, 'sitePhotos', 'projectId', LOCAL_PROJECT_ID);
+    return readStoreByIndex(frtDB, 'sitePhotos', 'projectId', LOCAL_ID);
   }).then(function(sps){
     tabletSitePhotos = sps;
     appendOutput('TABLET sitePhotos store: count=' + sps.length);
@@ -309,7 +325,7 @@ function runDiag(){
     appendOutput('TABLET pdfData store: count=' + keys.length + ' (keys include all projects)');
     appendOutput('  Sample keys: ' + keys.slice(0,3).join(', '));
     appendOutput('');
-    return readStoreByIndex(frtDB, 'pendingUploads', 'projectId', LOCAL_PROJECT_ID);
+    return readStoreByIndex(frtDB, 'pendingUploads', 'projectId', LOCAL_ID);
   }).then(function(pu){
     tabletPendingUploads = pu;
     appendOutput('TABLET pendingUploads (queued for sync): count=' + pu.length);
