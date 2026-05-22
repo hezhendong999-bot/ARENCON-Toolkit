@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>ARENCON Cloud Rescue 4 — Cloud State Check (4380.24)</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: Calibri, "Segoe UI", sans-serif; padding: 12px; max-width: 960px; margin: 0 auto; background: #F5F5F5; color: #212121; }
+  .banner { background: #9C2742; color: white; padding: 16px; border-radius: 8px; margin-bottom: 14px; }
+  .banner h1 { margin: 0 0 6px 0; font-size: 1.25em; font-weight: 700; }
+  .banner p { margin: 0; font-size: 0.92em; opacity: 0.95; line-height: 1.4; }
+  .step { background: white; padding: 14px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #9C2742; }
+  .step h2 { margin: 0 0 10px 0; color: #9C2742; font-size: 1.05em; font-weight: 700; }
+  .step .desc { font-size: 0.88em; color: #555; margin-bottom: 10px; line-height: 1.4; }
+  button { background: #9C2742; color: white; border: none; padding: 12px 18px; font-size: 1.0em; font-family: Calibri, sans-serif; font-weight: 600; border-radius: 6px; cursor: pointer; margin: 4px 4px 4px 0; min-width: 160px; touch-action: manipulation; }
+  button.copy { background: #1A7A4A; }
+  button:active { transform: scale(0.98); }
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
+  input[type=email], input[type=password] { font-family: Calibri, sans-serif; font-size: 1em; padding: 10px 12px; border: 1px solid #BBB; border-radius: 6px; width: 280px; max-width: 100%; margin: 4px 6px 4px 0; }
+  pre { background: #2C3E50; color: #ECF0F1; padding: 10px; border-radius: 6px; font-size: 0.78em; max-height: 560px; overflow: auto; white-space: pre-wrap; word-wrap: break-word; user-select: text; -webkit-user-select: text; line-height: 1.35; margin: 8px 0 0 0; }
+  .hidden { display: none; }
+  #copyStatus, #authStatus, #loginStatus { margin: 6px 0 0 0; font-weight: 700; min-height: 1.2em; font-size: 0.95em; }
+  .ok { color: #1A7A4A; }
+  .err { color: #9C2742; }
+  .warn { color: #C28F00; }
+  .roguard { background: #FFF3CD; border-left: 4px solid #C28F00; padding: 10px; margin: 10px 0; font-size: 0.88em; border-radius: 4px; }
+  .roguard b { color: #8A6300; }
+  code { background: #EEE; padding: 1px 4px; border-radius: 3px; font-size: 0.92em; }
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <h1>ARENCON Cloud Rescue 4 — Cloud State Check</h1>
+  <p>Read-only Supabase query for project 4380.24. Counts deficiencies, drawings, photos in cloud. Does NOT trigger CloudSync, does NOT open FRT, does NOT modify cloud data. GET requests only.</p>
+</div>
+
+<div class="roguard">
+  <b>OPEN THIS IN A FRESH BROWSER TAB ON PC</b> — not in the Hub TWA, and not on the tablet (keep tablet in airplane mode). This page makes raw REST queries to Supabase; it does not load FRT or Hub code.
+</div>
+
+<div class="step">
+  <h2>Step 1 — Auth status</h2>
+  <div class="desc">Reads <code>sb-access-token</code> from this origin's localStorage (set by Hub on login). If absent or expired, log in below.</div>
+  <div id="authStatus">Checking…</div>
+
+  <div id="loginPanel" class="hidden" style="margin-top:10px;">
+    <input id="loginEmail" type="email" placeholder="email" autocomplete="username">
+    <input id="loginPwd" type="password" placeholder="password" autocomplete="current-password">
+    <button id="btnLogin">Log in</button>
+    <div id="loginStatus"></div>
+  </div>
+</div>
+
+<div class="step">
+  <h2>Step 2 — Run cloud diagnostic</h2>
+  <div class="desc">Queries <code>projects</code> row and all <code>tool_data</code> rows for project + <code>tool_key=frt</code>. Output appears below.</div>
+  <button id="btnRun" disabled>Run cloud diagnostic</button>
+  <pre id="out" class="hidden"></pre>
+</div>
+
+<div class="step">
+  <h2>Step 3 — Copy output</h2>
+  <button id="btnCopy" class="copy">Copy all output</button>
+  <div id="copyStatus"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ── Read-only guards ──
+if (location.search && /[?&]project=/.test(location.search)) {
+  document.body.innerHTML = '<div style="padding:40px;color:#9C2742;font-family:Calibri;">URL must not have ?project= param. Open this page at /rescue4/ only.</div>';
+  return;
+}
+if (typeof window.CloudSync !== 'undefined' || typeof window.loadFullProject !== 'undefined' || typeof window.ADB !== 'undefined') {
+  document.body.innerHTML = '<div style="padding:40px;color:#9C2742;font-family:Calibri;">FRT/Hub globals detected on this page. Open a fresh browser tab and navigate to /rescue4/ directly.</div>';
+  return;
+}
+
+// ── Constants ──
+var SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+var PROJECT_UUID = 'cb856f4b-b361-43d3-8605-44fd910bd735';
+var USER_UUID_MARK = 'ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0';
+
+// Backup reference baseline (from /home/claude rescue3 backup 2026-05-22T02:24:46Z)
+var TABLET_BACKUP = {
+  ts: '2026-05-22T02:24:46Z',
+  deficiencyCount: 14,
+  photoBlobCount: 30,
+  drawingCount: 7,
+  deficienciesByNum: [1, 2, 4, 5, 6, 7, 8, 10, 12, 13, 14, 15, 16, 17],
+  may20Nums: [13, 14, 15, 16, 17],
+  modified: '2026-05-20T18:18:24.879Z'
+};
+var SYNCMETA_AT_BACKUP = {
+  ts: '2026-05-22T01:55:55.682922+00:00',
+  deficiencyCount: 9,
+  drawingCount: 8,
+  modified: '2026-05-20T20:45:54.244Z'
+};
+
+// ── Output accumulator ──
+var allOutput = '';
+function appendOutput(msg){
+  allOutput += msg + '\n';
+  var el = document.getElementById('out');
+  el.classList.remove('hidden');
+  el.textContent = allOutput;
+}
+
+function getToken(){ try { return localStorage.getItem('sb-access-token'); } catch(_){ return null; } }
+function setStatus(id, text, cls){
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = cls || '';
+}
+
+// ── HTTP (read-only enforcement: only GET via this helper, except login which uses raw fetch with method:POST against /auth/v1/token) ──
+function sbGet(path){
+  var token = getToken();
+  var auth = token ? ('Bearer ' + token) : ('Bearer ' + SUPABASE_ANON_KEY);
+  return fetch(SUPABASE_URL + path, {
+    method: 'GET',
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': auth,
+      'Accept': 'application/json'
+    }
+  }).then(function(res){
+    return res.text().then(function(body){
+      var data = null;
+      try { data = body ? JSON.parse(body) : null; } catch(_){}
+      return { status: res.status, ok: res.ok, data: data, raw: body };
+    });
+  });
+}
+
+// ── Auth status ──
+function checkAuth(){
+  var token = getToken();
+  if (!token) {
+    setStatus('authStatus', '⚠ No auth token in localStorage. Please log in below.', 'warn');
+    document.getElementById('loginPanel').classList.remove('hidden');
+    document.getElementById('btnRun').disabled = true;
+    return;
+  }
+  // Verify token by hitting /auth/v1/user
+  fetch(SUPABASE_URL + '/auth/v1/user', {
+    method: 'GET',
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + token
+    }
+  }).then(function(res){
+    if (res.ok) {
+      res.json().then(function(u){
+        var who = (u && u.email) || (u && u.id) || 'unknown';
+        var isMark = (u && u.id === USER_UUID_MARK);
+        setStatus('authStatus', '✅ Auth ok — ' + who + (isMark ? '  (Mark — matches expected user)' : '  (NOT Mark\'s UUID — diagnostic will still work but verify this is the right account)'), isMark ? 'ok' : 'warn');
+        document.getElementById('btnRun').disabled = false;
+      });
+    } else {
+      setStatus('authStatus', '⚠ Token expired or invalid. Please log in below.', 'warn');
+      document.getElementById('loginPanel').classList.remove('hidden');
+      document.getElementById('btnRun').disabled = true;
+    }
+  }).catch(function(e){
+    setStatus('authStatus', '⚠ Auth check failed: ' + e.message + ' — log in below.', 'err');
+    document.getElementById('loginPanel').classList.remove('hidden');
+    document.getElementById('btnRun').disabled = true;
+  });
+}
+
+// ── Login (the ONLY non-GET call on this page) ──
+function doLogin(){
+  var email = document.getElementById('loginEmail').value.trim();
+  var pwd = document.getElementById('loginPwd').value;
+  if (!email || !pwd) { setStatus('loginStatus', 'Enter email and password.', 'err'); return; }
+  setStatus('loginStatus', 'Logging in…', '');
+  fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, password: pwd })
+  }).then(function(res){
+    return res.json().then(function(data){
+      if (!res.ok) { setStatus('loginStatus', '✗ ' + (data.error_description || data.msg || data.message || res.statusText), 'err'); return; }
+      try {
+        localStorage.setItem('sb-access-token', data.access_token);
+        localStorage.setItem('sb-refresh-token', data.refresh_token);
+      } catch(_){}
+      setStatus('loginStatus', '✅ Logged in.', 'ok');
+      document.getElementById('loginPanel').classList.add('hidden');
+      checkAuth();
+    });
+  }).catch(function(e){
+    setStatus('loginStatus', '✗ ' + e.message, 'err');
+  });
+}
+
+// ── Diagnostic ──
+function fmtPin(d){
+  var x = d.pinX, y = d.pinY;
+  if (x == null || y == null) return '(none)';
+  return '(' + Number(x).toFixed(3) + ',' + Number(y).toFixed(3) + ')';
+}
+
+function runDiagnostic(){
+  document.getElementById('btnRun').disabled = true;
+  allOutput = '';
+  appendOutput('=== ENV ===');
+  appendOutput('Origin: ' + location.origin);
+  appendOutput('UA: ' + navigator.userAgent);
+  appendOutput('Run start: ' + new Date().toISOString());
+  appendOutput('Target project UUID: ' + PROJECT_UUID);
+  appendOutput('');
+
+  appendOutput('=== TABLET BACKUP BASELINE (from S156 rescue3 @ ' + TABLET_BACKUP.ts + ') ===');
+  appendOutput('Tablet had:        14 deficiencies | 30 photoBlobs | 7 drawings');
+  appendOutput('  Defic nums:      ' + TABLET_BACKUP.deficienciesByNum.join(','));
+  appendOutput('  May-20 nums:     ' + TABLET_BACKUP.may20Nums.join(',') + '  (the 5 unsynced ones)');
+  appendOutput('  Tablet modified: ' + TABLET_BACKUP.modified);
+  appendOutput('Cloud syncMeta @ ' + SYNCMETA_AT_BACKUP.ts + ' showed:');
+  appendOutput('                    9 deficiencies | 8 drawings');
+  appendOutput('  Cloud modified:  ' + SYNCMETA_AT_BACKUP.modified + '  (later than tablet — risk B156-02)');
+  appendOutput('');
+
+  appendOutput('=== QUERY 1: projects table row ===');
+  sbGet('/rest/v1/projects?id=eq.' + PROJECT_UUID + '&select=*').then(function(r){
+    appendOutput('HTTP ' + r.status);
+    if (!r.ok) { appendOutput('ERROR body: ' + r.raw); throw new Error('projects query failed'); }
+    var rows = r.data || [];
+    appendOutput('Rows returned: ' + rows.length);
+    if (rows.length === 0) {
+      appendOutput('⚠ PROJECT ROW NOT FOUND. Either the project UUID is wrong, RLS blocks read, or the row was deleted.');
+      return null;
+    }
+    var p = rows[0];
+    appendOutput('  id:            ' + p.id);
+    appendOutput('  name:          ' + (p.name || p.project_name || '(none)'));
+    appendOutput('  number:        ' + (p.project_number || p.number || '(none)'));
+    appendOutput('  status:        ' + p.status);
+    appendOutput('  deleted_at:    ' + (p.deleted_at || '(null — alive)'));
+    appendOutput('  created_at:    ' + p.created_at);
+    appendOutput('  updated_at:    ' + p.updated_at);
+    appendOutput('  created_by:    ' + p.created_by);
+    appendOutput('  is_pinned:     ' + p.is_pinned);
+    appendOutput('  starred_by:    ' + JSON.stringify(p.starred_by || []));
+    appendOutput('  enabled_tools: ' + JSON.stringify(p.enabled_tools || {}));
+    if (p.deleted_at) appendOutput('  ⚠⚠⚠ PROJECT IS SOFT-DELETED. deleted_at=' + p.deleted_at);
+    appendOutput('');
+    return p;
+  }).then(function(){
+    appendOutput('=== QUERY 2: tool_data rows for project + tool_key=frt ===');
+    return sbGet('/rest/v1/tool_data?project_id=eq.' + PROJECT_UUID + '&tool_key=eq.frt&order=updated_at.desc&select=id,project_id,tool_key,instance_number,label,status,created_at,updated_at,created_by,updated_by,data');
+  }).then(function(r){
+    appendOutput('HTTP ' + r.status);
+    if (!r.ok) { appendOutput('ERROR body: ' + r.raw); throw new Error('tool_data query failed'); }
+    var rows = r.data || [];
+    appendOutput('Rows returned: ' + rows.length);
+    if (rows.length === 0) {
+      appendOutput('⚠⚠⚠ NO TOOL_DATA ROWS for project+frt. Cloud has no FRT instance. This means cloud is empty for this tool.');
+    }
+    if (rows.length > 1) {
+      appendOutput('⚠⚠⚠ MULTIPLE TOOL_DATA ROWS (' + rows.length + ') for same project+tool_key=frt — duplicate-row scenario (per FRT VerifiedDedup logic, line 15711). Possible sync conflict source.');
+    }
+    appendOutput('');
+
+    rows.forEach(function(row, i){
+      appendOutput('--- Row ' + (i+1) + ' of ' + rows.length + ' ---');
+      appendOutput('  id:              ' + row.id);
+      appendOutput('  instance_number: ' + row.instance_number);
+      appendOutput('  label:           ' + (row.label || '(none)'));
+      appendOutput('  status:          ' + row.status);
+      appendOutput('  created_at:      ' + row.created_at);
+      appendOutput('  updated_at:      ' + row.updated_at);
+      appendOutput('  created_by:      ' + row.created_by);
+      appendOutput('  updated_by:      ' + row.updated_by);
+      var d = row.data || {};
+      var gds = d.generalDeficiencies || [];
+      var dws = d.drawings || [];
+      var phs = d.photos || [];
+      appendOutput('  data.modified:           ' + d.modified);
+      appendOutput('  data.nextDeficNum:       ' + d.nextDeficNum);
+      appendOutput('  generalDeficiencies len: ' + gds.length);
+      appendOutput('  drawings len:            ' + dws.length);
+      appendOutput('  photos len (proj-level): ' + phs.length);
+      appendOutput('  contractors len:         ' + ((d.contractors || []).length));
+      appendOutput('  frtInstances len:        ' + ((d.frtInstances || []).length));
+      appendOutput('  currentFrtInstance:      ' + d.currentFrtInstance);
+
+      if (gds.length > 0) {
+        appendOutput('');
+        appendOutput('  Deficiencies (' + gds.length + '):');
+        // Sort by num for readability
+        var sorted = gds.slice().sort(function(a,b){ return (a.num||0)-(b.num||0); });
+        sorted.forEach(function(g){
+          var pCount = (g.photos || []).length;
+          var obsCount = (g.observations || []).length;
+          appendOutput('    #' + String(g.num||'?').padStart(3,' ') +
+                       ' | ' + (g.date || '?') +
+                       ' | ' + String(g.status || '?').padEnd(20,' ').substr(0,20) +
+                       ' | ph=' + String(pCount).padStart(2,' ') +
+                       ' obs=' + obsCount +
+                       ' | dwg=' + String(g.drawingId || 'none').substr(0,28) +
+                       ' | pin=' + fmtPin(g));
+        });
+        var nums = sorted.map(function(g){ return g.num; }).join(',');
+        appendOutput('  Defic nums in cloud: ' + nums);
+        var may20 = sorted.filter(function(g){ return (g.date||'').startsWith('2026-05-20'); });
+        appendOutput('  May-20 deficiencies: ' + (may20.length === 0 ? 'NONE' : may20.map(function(g){return '#'+g.num;}).join(',')));
+      }
+
+      if (dws.length > 0) {
+        appendOutput('');
+        appendOutput('  Drawings (' + dws.length + '):');
+        dws.forEach(function(dw){
+          appendOutput('    ' + String(dw.id || '?').substr(0,32).padEnd(32,' ') +
+                       ' | ' + String(dw.name || '?').substr(0,38).padEnd(38,' ') +
+                       ' | tiled=' + !!dw.pdfTiled +
+                       ' | r2Key=' + (dw.r2Key ? 'yes' : 'NO'));
+        });
+      }
+      appendOutput('');
+    });
+
+    // ── Comparison ──
+    appendOutput('=== COMPARISON ===');
+    var totalCloudDefics = rows.reduce(function(acc, r){ return acc + ((r.data && r.data.generalDeficiencies) ? r.data.generalDeficiencies.length : 0); }, 0);
+    var totalCloudDrawings = rows.reduce(function(acc, r){ return acc + ((r.data && r.data.drawings) ? r.data.drawings.length : 0); }, 0);
+
+    appendOutput('Tablet backup (canonical pre-airplane-mode snapshot): 14 deficiencies');
+    appendOutput('Cloud syncMeta @ S156 end (~02:00 UTC):               9 deficiencies / 8 drawings');
+    appendOutput('Cloud NOW:                                            ' + totalCloudDefics + ' deficiencies / ' + totalCloudDrawings + ' drawings');
+    appendOutput('');
+    if (totalCloudDefics === 0) {
+      appendOutput('🔴🔴🔴 CLOUD HAS ZERO DEFICIENCIES — "all pins deleted" CONFIRMED if this was your only FRT row.');
+      appendOutput('       Recovery path: rebuild from tablet backup JSON (Mark has it on PC + email + tablet Downloads).');
+    } else if (totalCloudDefics < 9) {
+      appendOutput('🔴 CLOUD LOST DEFICIENCIES. Was 9, now ' + totalCloudDefics + '. Real data loss.');
+      appendOutput('   Recovery path: compare cloud nums vs backup nums, rebuild missing from tablet backup.');
+    } else if (totalCloudDefics === 9) {
+      appendOutput('🟡 CLOUD STILL AT 9 DEFICIENCIES — no new loss vs S156 end. The 5 May-20 pins were never pushed to cloud (as expected).');
+      appendOutput('   Recovery path: manual rebuild of 5 May-20 deficiencies on PC (RECOVERY_CARDS.md), OR fix FRT bugs first then sync.');
+    } else if (totalCloudDefics === 14) {
+      appendOutput('✅ CLOUD HAS ALL 14 DEFICIENCIES — somehow tablet already pushed. "Pins deleted" was a rendering artifact. No recovery needed for deficiencies.');
+    } else {
+      appendOutput('⚠ CLOUD HAS ' + totalCloudDefics + ' DEFICIENCIES (unexpected count). Read the list above carefully.');
+    }
+    appendOutput('');
+    appendOutput('Run end: ' + new Date().toISOString());
+    appendOutput('=== END ===');
+    document.getElementById('btnRun').disabled = false;
+  }).catch(function(e){
+    appendOutput('');
+    appendOutput('FATAL: ' + (e && e.message ? e.message : e));
+    document.getElementById('btnRun').disabled = false;
+  });
+}
+
+// ── Copy ──
+function doCopy(){
+  if (!allOutput) { setStatus('copyStatus', 'Nothing to copy — run diagnostic first.', 'err'); return; }
+  var sel = document.getElementById('out');
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(allOutput).then(function(){ setStatus('copyStatus', '✅ Copied to clipboard.', 'ok'); }, function(){
+        legacyCopy();
+      });
+    } else {
+      legacyCopy();
+    }
+  } catch(_){ legacyCopy(); }
+  function legacyCopy(){
+    var range = document.createRange();
+    range.selectNode(sel);
+    var s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(range);
+    try { document.execCommand('copy'); setStatus('copyStatus', '✅ Copied (legacy).', 'ok'); } catch(_){ setStatus('copyStatus', '✗ Copy failed — long-press the output and copy manually.', 'err'); }
+  }
+}
+
+// ── Wire up ──
+document.getElementById('btnRun').addEventListener('click', runDiagnostic);
+document.getElementById('btnCopy').addEventListener('click', doCopy);
+document.getElementById('btnLogin').addEventListener('click', doLogin);
+document.getElementById('loginPwd').addEventListener('keydown', function(e){ if (e.key === 'Enter') doLogin(); });
+
+checkAuth();
+
+})();
+</script>
+</body>
+</html>
