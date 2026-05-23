@@ -272,7 +272,13 @@ export var R2 = {
 
   /** Upload drawing to R2. Updates drawing.r2Key/r2Url in place. */
   uploadDrawing: function(projectId, drawing, data) {
-    var filename = 'dwg_' + (drawing.id || Date.now()) + '.jpg';
+    // S158 V-5: filename should NOT double-prefix "dwg_". drawing.id already
+    // starts with "dwg_" (per ui/drawings.js _runPdfPages id format).
+    // Fallback path: when drawing.id is missing, generate a fresh "dwg_<ts>".
+    // Existing files in R2 keep their double-prefixed names — DO NOT rename
+    // in place; that would break every existing r2Key reference. Only new
+    // uploads from this point on use the cleaner filename.
+    var filename = (drawing.id || ('dwg_' + Date.now())) + '.jpg';
     return R2.upload(projectId, 'drawings', data, filename).then(function(result) {
       if (result) { drawing.r2Key = result.r2Key; drawing.r2Url = result.r2Url; }
       return drawing;
