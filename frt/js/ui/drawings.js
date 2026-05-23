@@ -767,125 +767,16 @@ function _updateSelectionUI() {
   });
 }
 
-// S116 Push 17: NEW — swap-content picker. Lists every other drawing in the
-// project (grouped by folder), tap one to copy its content onto the
-// CURRENT drawing record. The current drawing's id, pins, deficiencies,
-// markups all stay intact; only the image bytes + tile-pyramid links get
-// swapped in. Designed for Mark's "I uploaded new drawings as a separate
-// group, how do I move my pins onto them" workflow.
-function _showSwapPicker(currentDrawingId) {
-  _closeActiveMenu();
-  var proj = Model.getProject();
-  if (!proj || !proj.drawings) return;
-  var others = (proj.drawings || []).filter(function(d) { return d.id !== currentDrawingId; });
-  if (!others.length) {
-    toast('\u26A0 No other drawings in this project to swap with');
-    return;
-  }
-  var current = (proj.drawings || []).find(function(d) { return d.id === currentDrawingId; });
-  if (!current) return;
-
-  // Build a modal-style picker overlay.
-  var overlay = document.createElement('div');
-  overlay.className = 'swap-picker-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9100;display:flex;align-items:center;justify-content:center;padding:20px;';
-  var modal = document.createElement('div');
-  modal.style.cssText = 'background:var(--bg);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,0.35);max-width:680px;width:100%;max-height:80vh;display:flex;flex-direction:column;font-family:Calibri,sans-serif;color:var(--fg);';
-  // Header
-  var header = document.createElement('div');
-  header.style.cssText = 'padding:14px 18px;border-bottom:1px solid var(--border);';
-  header.innerHTML = '<div style="font-weight:700;font-size:calc(15px + var(--ts));margin-bottom:4px;">\uD83D\uDD01 Swap content with...</div>'
-    + '<div style="font-size:calc(12px + var(--ts));color:var(--steel);">'
-    + 'Pick another drawing to copy its image + tiles onto <strong>' + esc(current.name || 'this drawing') + '</strong>. '
-    + 'Pins, deficiencies, markups all stay attached to this drawing.'
-    + '</div>';
-  modal.appendChild(header);
-
-  // List
-  var list = document.createElement('div');
-  list.style.cssText = 'overflow-y:auto;padding:8px;flex:1;';
-  // Group by folder
-  var byFolder = {};
-  others.forEach(function(d) {
-    var f = d.folder || '(no folder)';
-    if (!byFolder[f]) byFolder[f] = [];
-    byFolder[f].push(d);
-  });
-  Object.keys(byFolder).sort().forEach(function(folderName) {
-    var folderHdr = document.createElement('div');
-    folderHdr.style.cssText = 'font-size:calc(11px + var(--ts));font-weight:700;color:var(--steel);padding:6px 10px;text-transform:uppercase;letter-spacing:.5px;';
-    folderHdr.textContent = '\uD83D\uDCC1 ' + folderName;
-    list.appendChild(folderHdr);
-    byFolder[folderName].forEach(function(d) {
-      var row = document.createElement('button');
-      row.type = 'button';
-      row.style.cssText = 'display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;margin-bottom:4px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));color:var(--fg);cursor:pointer;transition:background .12s;';
-      row.onmouseenter = function() { row.style.background = 'var(--smoke)'; };
-      row.onmouseleave = function() { row.style.background = 'transparent'; };
-      var thumbSrc = d.thumb || d.dataUrl || '';
-      var thumbHtml = thumbSrc
-        ? '<img src="' + thumbSrc + '" style="width:48px;height:36px;object-fit:cover;border-radius:4px;flex-shrink:0;background:#eee;">'
-        : '<div style="width:48px;height:36px;background:var(--smoke);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:18px;">\uD83D\uDCD0</div>';
-      var hasTiles = !!(d.tileManifestUrl && d.tileStatus === 'ready');
-      var tilesBadge = hasTiles
-        ? '<span style="font-size:calc(10px + var(--ts));color:#5C7A65;background:rgba(92,122,101,.10);padding:1px 6px;border-radius:3px;margin-left:6px;">\u2713 tiles</span>'
-        : '<span style="font-size:calc(10px + var(--ts));color:var(--silver);margin-left:6px;">no tiles</span>';
-      row.innerHTML = thumbHtml
-        + '<div style="flex:1;min-width:0;">'
-        + '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(d.name || 'Drawing') + tilesBadge + '</div>'
-        + '<div style="font-size:calc(10px + var(--ts));color:var(--silver);">id: ' + d.id.substr(-12) + '</div>'
-        + '</div>'
-        + '<span style="color:var(--primary);font-weight:700;">Use \u2192</span>';
-      row.onclick = function() {
-        showConfirm('Swap drawing content',
-          'Copy "' + (d.name || 'this drawing') + '" content onto "' + (current.name || 'current drawing') + '"?\n\n' +
-          'Pins, deficiencies, and markups on the current drawing stay intact. The source drawing will not be modified — you can delete it afterwards if no longer needed.'
-        ).then(function(yes) {
-          if (!yes) return;
-          // Copy content fields from source -> current; preserve id, name,
-          // folder (Mark might want to keep the original organisational
-          // metadata), and any pin-relevant fields. Pins live on
-          // deficiency records keyed by drawingId, NOT on the drawing
-          // itself, so they're untouched by this operation.
-          current.dataUrl = d.dataUrl || '';
-          current.r2Url = d.r2Url || '';
-          current.r2Key = d.r2Key || '';
-          current.thumb = d.thumb || '';
-          current.tileManifestUrl = d.tileManifestUrl || '';
-          current.tileStatus = d.tileStatus || '';
-          current.pdfBufKey = d.pdfBufKey || '';
-          current.pdfBufR2Url = d.pdfBufR2Url || '';
-          current.tileServer = d.tileServer || '';
-          current.naturalW = d.naturalW || 0;
-          current.naturalH = d.naturalH || 0;
-          current.rotation = d.rotation || 0;
-          Model.saveNow();
-          initDrawings.render();
-          overlay.remove();
-          toast('\u2713 Content swapped \u2014 pins/deficiencies preserved');
-        });
-      };
-      list.appendChild(row);
-    });
-  });
-  modal.appendChild(list);
-
-  // Footer (Cancel)
-  var footer = document.createElement('div');
-  footer.style.cssText = 'padding:10px 18px;border-top:1px solid var(--border);text-align:right;';
-  var cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.style.cssText = 'padding:6px 16px;background:transparent;border:1.5px solid var(--border);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));cursor:pointer;color:var(--steel);';
-  cancelBtn.onclick = function() { overlay.remove(); };
-  footer.appendChild(cancelBtn);
-  modal.appendChild(footer);
-
-  overlay.appendChild(modal);
-  // Click outside modal to dismiss
-  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
-  document.body.appendChild(overlay);
-}
+// S162 V-4 (removed): "Swap content with..." was deleted. It copied binary
+// references (r2Key, r2Url, pdfBufKey, tileManifestUrl, etc.) from a source
+// drawing onto the current drawing, producing cross-wired state where two
+// drawings pointed at the same R2 binary. 4380.24's cross-wired tnkf/4uuo
+// r2Key was caused by this feature. The toast message actively encouraged
+// users to follow the dangerous pattern ("you can delete it afterwards if
+// no longer needed"), which produced the surviving-husk-with-borrowed-
+// binary failure mode. Replace Image (data-ctx="replace") covers the same
+// workflow without cross-wiring — it overwrites the current drawing's
+// binary in place. See ARENCON_Project_Knowledge §V-4 / S162 handoff.
 
 // ── Drawing Context Menu ─────────────────────────────────
 var _activeMenu = null;
@@ -905,7 +796,6 @@ function _showDrawingContextMenu(drawingId, anchorEl) {
     + '<div class="separator"></div>'
     + '<button data-ctx="replace">\uD83D\uDD27 Replace image (file)</button>'
     + '<button data-ctx="newversion">\u2B06\uFE0F Upload new version</button>'
-    + '<button data-ctx="swapwith">\uD83D\uDD01 Swap content with\u2026</button>'
     + '<div class="separator"></div>'
     + '<button data-ctx="download">\u2B07\uFE0F Download drawing</button>'
     + '<div class="separator"></div>'
@@ -981,18 +871,6 @@ function _showDrawingContextMenu(drawingId, anchorEl) {
         }
       };
       inp.click();
-    } else if (act === 'swapwith') {
-      // S116 Push 17: NEW. Swap this drawing's content with another drawing
-      // already in the project. Use case: Mark uploaded a new "Inspector 2"
-      // group of drawings, wants to move all his pins from the OLD drawings
-      // onto the new content. Per-drawing flow:
-      //   1. Click 3-dot on the OLD drawing
-      //   2. Click "Swap content with..."
-      //   3. Pick the matching NEW drawing from the list
-      //   4. The OLD drawing's id (and its pins) stay intact, but the image
-      //      content + tile pyramid links come from the NEW drawing.
-      //   5. The NEW drawing record can then be deleted (it's a husk now).
-      _showSwapPicker(drawingId);
     } else if (act === 'download') {
       _downloadDrawingWithPins(dwg);
     } else if (act === 'delete') {
