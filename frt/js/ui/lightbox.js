@@ -78,7 +78,15 @@ function _buildToolbar() {
   var overlay = document.getElementById('lightbox-overlay'); if (!overlay) return;
   var topBar = document.createElement('div');
   topBar.id = 'lb-topbar';
-  topBar.style.cssText = 'position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:linear-gradient(180deg,rgba(0,0,0,.65),rgba(0,0,0,0));z-index:10;pointer-events:none;';
+  // S162-2: respect device safe-area insets so the close button isn't clipped
+  // by the mobile status bar / TWA top inset / notched display. iPad and
+  // Android phones in TWA both pin the chrome-edge differently — env(safe-
+  // area-inset-*) lets the browser tell us. Falls back to the literal 10/14
+  // values when the env() is unsupported (older WebViews) via the comma
+  // syntax inside calc.
+  topBar.style.cssText = 'position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;'
+    + 'padding:calc(10px + env(safe-area-inset-top,0px)) calc(14px + env(safe-area-inset-right,0px)) 10px calc(14px + env(safe-area-inset-left,0px));'
+    + 'background:linear-gradient(180deg,rgba(0,0,0,.65),rgba(0,0,0,0));z-index:10;pointer-events:none;';
   var left = document.createElement('div');
   left.style.cssText = 'flex:1;display:flex;align-items:center;gap:10px;pointer-events:auto;';
   var existingCounter = document.getElementById('lb-counter');

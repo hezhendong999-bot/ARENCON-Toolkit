@@ -561,8 +561,77 @@ document.addEventListener('click', function(e) {
     });
 
     if (!siteIdxs.length) {
-      // Selection is entirely pin photos — disallow
-      toast('Pin photos can only be deleted from the pin editor (open the pin to delete its photos)');
+      // S162-2: instead of a dead-end toast, surface a modal that lets the
+      // user jump to the relevant pin editor where the existing per-photo
+      // delete flow lives. Photos are still not deletable from the gallery
+      // (the in-context safety remains), but the path forward is one tap
+      // instead of "figure out which pin, navigate yourself."
+      var pinMap = {}; // deficId -> { num, count, deficId }
+      _selectedUids.forEach(function(uid) {
+        if (uid.indexOf('defic:') !== 0) return;
+        var did = uid.split(':')[1];
+        if (!pinMap[did]) {
+          var f = Model.findDeficiency(did);
+          var num = (f && f.defic) ? (f.defic.num != null ? f.defic.num : '?') : '?';
+          pinMap[did] = { num: num, count: 0, deficId: did };
+        }
+        pinMap[did].count++;
+      });
+      var pinList = Object.keys(pinMap).map(function(k) { return pinMap[k]; });
+      // Sort by pin number ascending for a stable order
+      pinList.sort(function(a, b) {
+        var na = parseInt(a.num, 10); var nb = parseInt(b.num, 10);
+        if (isNaN(na) && isNaN(nb)) return String(a.num).localeCompare(String(b.num));
+        if (isNaN(na)) return 1;
+        if (isNaN(nb)) return -1;
+        return na - nb;
+      });
+
+      var ov = document.createElement('div');
+      ov.id = 'gallery-lockout-overlay';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Calibri,sans-serif;';
+      var modal = document.createElement('div');
+      modal.style.cssText = 'background:var(--bg,#fff);color:var(--fg,#1B2438);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.3);max-width:480px;width:100%;max-height:80vh;overflow-y:auto;padding:20px;';
+      var title = (pinList.length === 1)
+        ? 'Open Pin ' + esc(String(pinList[0].num)) + ' to delete'
+        : 'Pick a pin to open';
+      var msg = (pinList.length === 1)
+        ? 'Pin photos are deleted from the pin editor, where each photo appears with its observation context. One tap below opens the pin so you can review and delete from there.'
+        : 'Your selection includes photos from ' + pinList.length + ' different pins. Pin photos are deleted from the pin editor (each photo appears with its observation context). Pick a pin to open:';
+      var btnsHtml = '';
+      pinList.forEach(function(p) {
+        btnsHtml += '<button class="lockout-jump-btn" data-defic-id="' + esc(p.deficId) + '" '
+          + 'style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;margin:6px 0;padding:10px 14px;background:#9C2742;color:#fff;border:none;border-radius:6px;'
+          + 'font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;text-align:left;">'
+          + '<span>\u2192 Open Pin ' + esc(String(p.num)) + '</span>'
+          + '<span style="font-weight:500;font-size:calc(12px + var(--ts));opacity:.85;">' + p.count + ' photo' + (p.count === 1 ? '' : 's') + '</span>'
+          + '</button>';
+      });
+      modal.innerHTML =
+        '<div style="font-size:calc(15px + var(--ts));font-weight:700;margin-bottom:10px;">' + esc(title) + '</div>'
+        + '<div style="font-size:calc(13px + var(--ts));margin-bottom:14px;color:var(--steel,#455A64);line-height:1.4;">' + esc(msg) + '</div>'
+        + btnsHtml
+        + '<button id="lockout-cancel" '
+        + 'style="display:block;width:100%;margin-top:10px;padding:8px 14px;background:transparent;color:var(--steel,#455A64);'
+        + 'border:1.5px solid var(--border,#ccc);border-radius:6px;font-family:Calibri,sans-serif;'
+        + 'font-size:calc(13px + var(--ts));cursor:pointer;">Cancel</button>';
+      ov.appendChild(modal);
+      modal.querySelectorAll('.lockout-jump-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var did = btn.getAttribute('data-defic-id');
+          ov.remove();
+          if (typeof window._frtOpenPinFocus === 'function') {
+            window._frtOpenPinFocus(did);
+          } else {
+            // Fallback: switch to Deficiencies tab so the user can find the pin manually.
+            var tab = document.querySelector('.nav-tab[data-tab="defic"]');
+            if (tab) tab.click();
+          }
+        });
+      });
+      modal.querySelector('#lockout-cancel').addEventListener('click', function() { ov.remove(); });
+      ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+      document.body.appendChild(ov);
       return;
     }
 
