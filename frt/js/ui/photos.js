@@ -346,7 +346,11 @@ document.addEventListener('click', function(e) {
     var photoIdx = parseInt(dp.getAttribute('data-photo-idx') || '0');
     var f = Model.findDeficiency(deficId);
     if (f && f.defic.observations && f.defic.observations[obsIdx]) {
-      var photos = f.defic.observations[obsIdx].photos || [];
+      // S160: gallery cards are built via Model.getEffectivePhotos() (pool-aware).
+      // Handler must use the same lookup or post-photo-pool-migration photos won't open.
+      var photos = (Model.getEffectivePhotos)
+        ? Model.getEffectivePhotos(f.defic, obsIdx)
+        : (f.defic.observations[obsIdx].photos || []);
       if (photos.length && window._frtLightbox) {
         window._frtLightbox.open(photos, photoIdx, { contextLabel:'Pin #' + (f.defic.num || '?') });
       }
@@ -373,7 +377,11 @@ document.addEventListener('click', function(e) {
     var pi = parseInt(dlD.getAttribute('data-photo-idx') || '0');
     var f = Model.findDeficiency(did);
     if (f && f.defic.observations && f.defic.observations[oi]) {
-      var ph = (f.defic.observations[oi].photos || [])[pi];
+      // S160: pool-aware lookup matches gallery render
+      var photosD = (Model.getEffectivePhotos)
+        ? Model.getEffectivePhotos(f.defic, oi)
+        : (f.defic.observations[oi].photos || []);
+      var ph = photosD[pi];
       if (ph) _downloadPhoto(ph, 'defic_' + (f.defic.num || 'x') + '_' + (pi+1));
     }
     return;
@@ -447,7 +455,11 @@ document.addEventListener('click', function(e) {
     var pi = parseInt(dlD.getAttribute('data-photo-idx') || '0');
     var fD = Model.findDeficiency(did);
     if (fD && fD.defic.observations && fD.defic.observations[oi]) {
-      var phD = (fD.defic.observations[oi].photos || [])[pi];
+      // S160: pool-aware lookup matches gallery render
+      var poolD = (Model.getEffectivePhotos)
+        ? Model.getEffectivePhotos(fD.defic, oi)
+        : (fD.defic.observations[oi].photos || []);
+      var phD = poolD[pi];
       if (phD) _downloadPhoto(phD, 'pin_' + (fD.defic.num || 'x') + '_' + (pi + 1));
     }
     return;
