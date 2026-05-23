@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=356">
+<link rel="stylesheet" href="css/frt.css?v=357">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -393,7 +393,11 @@ function ensurePdfJs(cb){
             </div>
             <div class="dwg-btn-cluster dwg-btn-cluster-right">
               <button class="btn btn-outline btn-sm" id="btn-dwg-compact" title="Compact card view">☷ Compact</button>
-              <button class="btn btn-outline btn-sm" id="btn-dwg-purge" title="Remove superseded drawings">🗑 Purge Old</button>
+              <!-- S159: 'Purge Old' button removed entirely. Orphan-detection
+                   was unsafe — it would delete any drawing no deficiency
+                   pointed at, including freshly-uploaded plans not yet
+                   marked up. The destructive orphan-purge handler at
+                   ui/drawings.js btn-dwg-purge branch is also removed. -->
               <!-- S116 Push 15: surface-level access to _frtRecoverTiles for legacy
                    projects that lost their tile pyramid (e.g., 1490.04). Re-fires
                    Azure render for the newest PDF in R2 + polls for manifest.

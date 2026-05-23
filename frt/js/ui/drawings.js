@@ -1237,24 +1237,14 @@ document.addEventListener('click', function(e) {
       }
       document.removeEventListener('click', close2);
     }); }, 10);
-  } else if (t.id === 'btn-dwg-purge') {
-    var drawings = Model.getDrawings();
-    var defs = Model.getDeficiencies ? Model.getDeficiencies() : [];
-    var pinnedIds = {};
-    defs.forEach(function(d) { (d.observations || []).forEach(function(o) { if (o.drawingId) pinnedIds[o.drawingId] = true; if (o.pinDrawingId) pinnedIds[o.pinDrawingId] = true; }); if (d.drawingId) pinnedIds[d.drawingId] = true; });
-    var orphans = drawings.filter(function(d) { return !pinnedIds[d.id]; });
-    if (!orphans.length) { toast('No orphan drawings to purge'); return; }
-    // S158 V-3: purging orphan drawings is permanent (no undo). Typed DELETE.
-    showTypeToConfirm(
-      'Purge Orphan Drawings',
-      'Delete ' + orphans.length + ' drawing' + (orphans.length>1?'s':'') + ' with no pins? This cannot be undone.',
-      'DELETE'
-    ).then(function(yes) {
-      if (!yes) return;
-      orphans.forEach(function(d) { _removeDrawingWithCleanup(d.id); });
-      initDrawings.render();
-      toast('Purged ' + orphans.length + ' drawing' + (orphans.length>1?'s':''));
-    });
+  // S159: 'btn-dwg-purge' (Purge Old) handler removed entirely. The
+  // orphan-detection logic ("delete every drawing no deficiency points at")
+  // was the destructive code path behind the 4380.24 pin-loss saga: an
+  // upstream operation (swap-with) corrupted pin metadata, this handler
+  // then declared every affected drawing 'orphan' and deleted it.
+  // S158 V-3's type-to-confirm guard only fired AFTER the unsafe detection
+  // already ran. Removing the entry point is the safe fix. The HTML button
+  // is also removed (frt/index.html).
   } else if (t.id === 'btn-dwg-build-tiles') {
     // S116 Push 15: surface-level access to _frtRecoverTiles for legacy
     // projects that lost their tile pyramid. Re-fires Azure render for the
