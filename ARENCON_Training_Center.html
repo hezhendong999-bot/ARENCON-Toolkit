@@ -144,6 +144,35 @@ h1.pg{font-size:calc(22px + var(--ts));font-weight:800;
 .vbody .vds{color:var(--steel);font-size:calc(13.5px + var(--ts));
   margin-bottom:18px}
 
+/* ── slice 2d: attached resources (downloadable reference files) ── */
+.attBlock{padding:18px 26px 22px;border-top:1px solid var(--border)}
+.attHd{font-size:calc(13px + var(--ts));font-weight:600;color:var(--steel);
+  margin-bottom:14px;text-transform:uppercase;letter-spacing:.3px}
+.attImgs{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.attImg{width:140px;height:100px;border-radius:8px;overflow:hidden;
+  border:1px solid var(--border);background:var(--bg);position:relative;
+  display:flex;align-items:center;justify-content:center}
+.attImg img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block}
+.attImgLoading,.attImgErr{color:var(--steel);font-size:calc(11.5px + var(--ts));
+  padding:6px;text-align:center}
+.attList{display:flex;flex-direction:column;gap:8px}
+.attRow{display:flex;align-items:center;gap:12px;padding:10px 14px;
+  border:1px solid var(--border);border-radius:8px;background:var(--bg)}
+.attRow .attIcon{font-size:20px;flex-shrink:0}
+.attRow .attMeta{flex:1;min-width:0;overflow:hidden}
+.attRow .attName{font-weight:600;color:var(--fg);
+  font-size:calc(13px + var(--ts));white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.attRow .attSub{color:var(--steel);font-size:calc(11.5px + var(--ts));margin-top:2px}
+.attRow .attDl{background:var(--arencon);color:#fff;border:none;
+  padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:600;
+  font-family:'Calibri',sans-serif;font-size:calc(12.5px + var(--ts));
+  white-space:nowrap;transition:opacity .15s}
+.attRow .attDl:hover:not(:disabled){opacity:.9}
+.attRow .attDl:disabled{background:var(--silver);cursor:not-allowed}
+body.dark-mode .attRow{background:#1a2030}
+body.dark-mode .attImg{background:#1a2030}
+
 /* ── buttons (Hub dash-btn system) ── */
 .btn{font-family:inherit;font-size:calc(13px + var(--ts));font-weight:600;
   border:none;border-radius:8px;padding:11px 20px;cursor:pointer;
@@ -592,8 +621,12 @@ function renderModule(mid){
       <button class="btn pri" id="markBtn">Mark as viewed</button>
       ${hasQuiz?'<button class="btn gh" id="quizBtn">Start quiz</button>':''}
     </div></div>
+    <div id="attMount"></div>
     <div id="quizMount"></div></div>`;
   document.getElementById('view').innerHTML=h;
+
+  /* slice 2d: render attached reference files (if any) */
+  loadAttachments(m.id);
 
   document.getElementById('markBtn').onclick=async()=>{
     await saveProg(m.id,{viewed:true});
@@ -602,6 +635,99 @@ function renderModule(mid){
   };
   if(hasQuiz) document.getElementById('quizBtn').onclick=()=>startQuiz(m);
 }
+
+/* ─── slice 2d: module attachments (downloadable resources) ─── */
+const SIGNURL_EF='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-attachment-signurl';
+const MAX_INLINE_IMG=6;
+function fmtBytes(n){
+  if(!n) return '0 B';
+  if(n<1024) return n+' B';
+  if(n<1024*1024) return (n/1024).toFixed(1)+' KB';
+  return (n/1024/1024).toFixed(1)+' MB';
+}
+function attIcon(mime){
+  if(!mime) return '📎';
+  if(mime.startsWith('image/')) return '🖼️';
+  if(mime==='application/pdf') return '📄';
+  if(mime.includes('word')) return '📝';
+  if(mime.includes('sheet')||mime.includes('excel')) return '📊';
+  if(mime.includes('presentation')||mime.includes('powerpoint')) return '📽️';
+  if(mime.startsWith('text/')) return '📃';
+  return '📎';
+}
+async function sbSignUrl(attachmentId){
+  const r=await fetch(SIGNURL_EF,{method:'POST',
+    headers:{apikey:SB_ANON,Authorization:'Bearer '+SESSION,
+      'Content-Type':'application/json'},
+    body:JSON.stringify({attachment_id:attachmentId})});
+  if(!r.ok){ const t=await r.text(); throw new Error('sign '+r.status+': '+t.slice(0,160)); }
+  return r.json();
+}
+async function loadAttachments(mid){
+  const mount=document.getElementById('attMount');
+  if(!mount) return;
+  try{
+    const r=await fetch(SB_URL+
+      '/rest/v1/tc_module_attachments?module_id=eq.'+encodeURIComponent(mid)+
+      '&select=id,file_name,mime_type,size_bytes,display_order'+
+      '&order=display_order.asc',
+      {headers:{apikey:SB_ANON,Authorization:'Bearer '+SESSION}});
+    if(!r.ok) throw new Error('list '+r.status);
+    const rows=await r.json();
+    if(!Array.isArray(rows) || rows.length===0){ mount.innerHTML=''; return; }
+    /* Render header + image previews (first 6 images inline) + list. */
+    const images=rows.filter(a=>(a.mime_type||'').startsWith('image/')).slice(0,MAX_INLINE_IMG);
+    let html='<div class="attBlock"><div class="attHd">Attached resources</div>';
+    if(images.length){
+      html+='<div class="attImgs">'+images.map(a=>
+        `<div class="attImg" data-id="${a.id}" title="${esc(a.file_name)}"><div class="attImgLoading">Loading\u2026</div></div>`
+      ).join('')+'</div>';
+    }
+    html+='<div class="attList">'+rows.map(a=>
+      `<div class="attRow">`+
+        `<div class="attIcon">${attIcon(a.mime_type)}</div>`+
+        `<div class="attMeta">`+
+          `<div class="attName">${esc(a.file_name)}</div>`+
+          `<div class="attSub">${fmtBytes(a.size_bytes)}</div>`+
+        `</div>`+
+        `<button class="attDl" onclick="window.__attDownload('${a.id}',this)">Download</button>`+
+      `</div>`).join('')+'</div></div>';
+    mount.innerHTML=html;
+    /* Resolve signed URLs for inline images */
+    for(const img of images){
+      try{
+        const data=await sbSignUrl(img.id);
+        const slot=mount.querySelector('.attImg[data-id="'+img.id+'"]');
+        if(slot && data.url){
+          slot.innerHTML='<img src="'+esc(data.url)+'" alt="'+esc(img.file_name)+'" onclick="window.open(this.src,\'_blank\')">';
+        }
+      }catch(err){
+        console.warn('thumb sign failed',err);
+        const slot=mount.querySelector('.attImg[data-id="'+img.id+'"]');
+        if(slot) slot.innerHTML='<div class="attImgErr">'+esc(img.file_name)+'</div>';
+      }
+    }
+  }catch(err){
+    console.warn('loadAttachments failed',err);
+    mount.innerHTML='';
+  }
+}
+window.__attDownload=async (aid,btn)=>{
+  const orig=btn.textContent;
+  btn.disabled=true; btn.textContent='Opening\u2026';
+  try{
+    const data=await sbSignUrl(aid);
+    if(!data.url) throw new Error('no URL');
+    /* Open in new tab so the chat / module page stays put */
+    window.open(data.url,'_blank','noopener');
+    btn.textContent='\u2713 Opened';
+    setTimeout(()=>{ btn.disabled=false; btn.textContent=orig; },2000);
+  }catch(err){
+    console.warn('download failed',err);
+    btn.disabled=false; btn.textContent=orig;
+    alert('Couldn\'t open file: '+err.message);
+  }
+};
 
 async function saveProg(mid,patch){
   const ex=PROG[mid]||{};
