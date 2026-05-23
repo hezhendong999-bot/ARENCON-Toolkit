@@ -53,15 +53,41 @@ function _photoUid(rec) {
 // Cloud-status icon. r2Status === 'uploaded' is the explicit win;
 // having r2Url alone implies success too. dataUrl-only = local cache.
 function _cloudIcon(ph) {
+  // S161 P2: composes R2 binary state with cloud-metadata sync state.
+  // R2 state lives on ph.r2Status / ph.r2Url (existing). Cloud-metadata
+  // sync is derived from SyncEngine.diag.lastSeenUpdatedAt vs the photo
+  // id's embedded ms-epoch timestamp. If photo was created AFTER the
+  // last successful cloud push, its metadata isn't confirmed yet — we
+  // show "awaiting cloud sync" even though the R2 binary is up. This
+  // is what makes the silent-sync-failure pattern visible: the gallery
+  // used to show green ✓ as soon as R2 succeeded, lying about whether
+  // the metadata row actually made it to Supabase. KEEP IN SYNC with
+  // _obsPhotoSyncBadge in deficiencies.js (same logic, different markup).
   var status, color, glyph = '';
-  if (ph.r2Status === 'uploaded' || (ph.r2Url && !ph.r2Status)) {
-    status = 'Uploaded'; color = '#5F8068';
-    glyph = '<path d="M8 12.5l2.5 2.5L16 9.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>';
-  } else if (ph.r2Status === 'failed') {
+  if (ph.r2Status === 'failed') {
     status = 'Upload failed'; color = '#A85959';
     glyph = '<path d="M9 9l6 6M15 9l-6 6" stroke="white" stroke-width="2.2" stroke-linecap="round"/>';
   } else if (ph.r2Status === 'uploading' || ph.r2Status === 'pending') {
     status = 'Uploading\u2026'; color = '#FFA726';
+  } else if (ph.r2Status === 'uploaded' || (ph.r2Url && !ph.r2Status)) {
+    // R2 confirmed. Now check cloud-metadata sync state.
+    var lastSync = null;
+    try {
+      if (typeof window !== 'undefined' && window.SyncEngine && window.SyncEngine.diag) {
+        lastSync = window.SyncEngine.diag.lastSeenUpdatedAt;
+      }
+    } catch (e) { /* defensive */ }
+    var photoTs = 0;
+    var m = String(ph.id || '').match(/^[a-z]+_(\d{13})/i);
+    if (m) photoTs = parseInt(m[1], 10);
+    var syncTs = lastSync ? new Date(lastSync).getTime() : 0;
+    if (photoTs && syncTs && photoTs <= syncTs) {
+      status = 'Synced'; color = '#5F8068';
+      glyph = '<path d="M8 12.5l2.5 2.5L16 9.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>';
+    } else {
+      status = 'R2 done \u2014 awaiting cloud sync'; color = '#FFA726';
+      glyph = '<circle cx="12" cy="12" r="1.5" fill="white"/>';
+    }
   } else {
     status = 'Local only'; color = '#94A3B8';
   }

@@ -2094,6 +2094,14 @@ body.dark-mode .obs-text-input{background:#1f232c;color:white;border-color:#3a3e
 .photo-ai-btn:hover{background:#5E2370;}
 .obs-photo-wrap:hover .photo-ai-btn{display:flex;}
 @media(pointer:coarse){.photo-ai-btn{display:flex;opacity:.85;}}
+/* S161 P2: sync-state badge (bottom-left corner) + placeholder card. The badge
+   stays visible at all times (no hover gate) since its purpose is at-a-glance
+   confirmation that the photo's data has actually been recorded. Bottom-left
+   keeps it clear of the AI sparkle (bottom-right) and delete X (top-right). */
+.obs-photo-sync{position:absolute;bottom:3px;left:3px;z-index:2;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));pointer-events:none;}
+.obs-photo-sync svg{display:block;}
+.obs-photo-wrap.obs-photo-noimg{background:#1c1c20;}
+.obs-photo-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;background:#1c1c20;cursor:zoom-in;user-select:none;}
 .obs-drop-col{display:flex;min-width:0;}
 .obs-drop-zone{flex:1;border:2px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:14px 10px;min-height:120px;text-align:center;transition:border-color .15s,background .15s;}
 .obs-drop-col.drag-over .obs-drop-zone{border-color:#9C2742;background:rgba(156,39,66,.08);}

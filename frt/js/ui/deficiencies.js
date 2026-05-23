@@ -23,6 +23,56 @@ import { AIAssist } from '../ai/assistant.js';
 // it once the Table/Board rows started opening the focused pin. String(...)
 // makes every caller safe; '' guard preserves the old falsy→'' behaviour.
 function esc(s) { return (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+// S161 P2: Sync state badge for obs-photo cards in the pin editor. Composes
+// the R2 binary state (already tracked via ph.r2Status / ph.r2Url) with the
+// cloud-metadata state (derived from SyncEngine.diag.lastSeenUpdatedAt vs
+// the photo id's embedded creation timestamp). Five resulting states:
+//   ☁ gray   "Local only"            — no R2 upload attempted yet
+//   ⏳ orange "Uploading to R2…"     — R2 PUT in flight
+//   ❌ red    "R2 upload failed"      — R2 PUT errored
+//   ⏳ orange "Awaiting cloud sync"  — R2 done, but added since last push
+//   ✓ green  "Fully synced"          — R2 done AND included in last cloud push
+// The lastSeenUpdatedAt value persists across reloads (sync.js _persistSyncMeta).
+// Photo id format: prefix_<ms-epoch>_<counter>_<rand>. We parse the ms-epoch.
+// Mirrored in photos.js _cloudIcon (gallery card). KEEP IN SYNC.
+function _obsPhotoSyncBadge(ph) {
+  if (!ph) return '';
+  var status, color, glyph = '';
+  // R2 state wins when it's explicitly failed
+  if (ph.r2Status === 'failed') {
+    status = 'R2 upload failed'; color = '#A85959';
+    glyph = '<path d="M9 9l6 6M15 9l-6 6" stroke="white" stroke-width="2.2" stroke-linecap="round"/>';
+  } else if (ph.r2Status === 'uploading' || ph.r2Status === 'pending') {
+    status = 'Uploading to R2\u2026'; color = '#FFA726';
+  } else if (ph.r2Status === 'uploaded' || (ph.r2Url && !ph.r2Status)) {
+    // R2 confirmed. Now check cloud-metadata sync.
+    var lastSync = null;
+    try {
+      if (typeof window !== 'undefined' && window.SyncEngine && window.SyncEngine.diag) {
+        lastSync = window.SyncEngine.diag.lastSeenUpdatedAt;
+      }
+    } catch (e) { /* defensive */ }
+    var photoTs = 0;
+    var m = String(ph.id || '').match(/^[a-z]+_(\d{13})/i);
+    if (m) photoTs = parseInt(m[1], 10);
+    var syncTs = lastSync ? new Date(lastSync).getTime() : 0;
+    if (photoTs && syncTs && photoTs <= syncTs) {
+      status = 'Synced'; color = '#5F8068';
+      glyph = '<path d="M8 12.5l2.5 2.5L16 9.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>';
+    } else {
+      status = 'R2 done \u2014 awaiting cloud sync'; color = '#FFA726';
+      glyph = '<circle cx="12" cy="12" r="1.5" fill="white"/>';
+    }
+  } else {
+    status = 'Local only \u2014 not uploaded yet'; color = '#94A3B8';
+  }
+  return '<span class="obs-photo-sync" title="' + status + '">'
+    + '<svg width="16" height="12" viewBox="0 0 24 18" fill="' + color + '">'
+    + '<path d="M19 16H6a4.5 4.5 0 010-9 5.5 5.5 0 0110.5-1A4.5 4.5 0 0119 16z"/>' + glyph
+    + '</svg></span>';
+}
+
 function deficDesc(d) {
   if (d.observations && d.observations.length && d.observations[0].text) return d.observations[0].text;
   if (d.entries && d.entries.length && d.entries[0].description) return d.entries[0].description;
@@ -740,10 +790,21 @@ function _buildPinGroupCard(d, ctrId) {
       obsPhotos.forEach(function(ph, phi) {
         var mk = (Model.getObsPhotoMarkup ? Model.getObsPhotoMarkup(d, oi, ph.id) : null);
         var src = (mk && mk.markedR2Key) ? mk.markedR2Key : (ph.thumb || ph.dataUrl || ph.r2Url || '');
-        if (!src) return;
+        // S161 P2: render placeholder card when src is empty rather than
+        // silently skipping. Empty src means the photo was just added and
+        // either R2 hasn't completed or no thumbnail exists yet. Old code
+        // dropped the entire card here, producing "+1 photo but no
+        // thumbnail" — the inspector had no way to know whether the
+        // photo had actually been recorded. Now the card renders with a
+        // camera-glyph placeholder and the sync icon shows live state.
         var pid = ph.id || '';
-        h += '<div class="obs-photo-wrap">';
-        h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" src="' + esc(src) + '" loading="lazy">';
+        h += '<div class="obs-photo-wrap' + (src ? '' : ' obs-photo-noimg') + '">';
+        if (src) {
+          h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" src="' + esc(src) + '" loading="lazy">';
+        } else {
+          h += '<div class="obs-photo-placeholder" data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" title="Photo data not yet loaded">\uD83D\uDCF7</div>';
+        }
+        h += _obsPhotoSyncBadge(ph);
         h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
         h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-del" title="Remove from this observation">\u2715</button>';
         h += '</div>';
