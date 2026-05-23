@@ -1495,13 +1495,14 @@ function _pinToolDrop(clientX, clientY) {
     console.log('[Viewer] Pin tool: created deficiency #' + newDefic.num + ' at', pinX.toFixed(3), pinY.toFixed(3));
     _openPinEditor(newDefic.id);
   }
-  // S116 Push 2: disarm the pin tool after one creation. Otherwise a second
-  // tap (e.g., dismissing the editor by tapping outside, or panning) would
-  // immediately create another deficiency. v1 behaviour was the same —
-  // pin tool fires once, then deactivates.
-  if (typeof Markup !== 'undefined' && Markup.setTool) Markup.setTool('select');
-  var pinBtn = document.getElementById('dv-pin-btn');
-  if (pinBtn) { pinBtn.style.background = 'rgba(255,255,255,.12)'; pinBtn.textContent = '\uD83D\uDCCC Pin'; }
+  // S159 (Mark): pin tool stays armed after creating a new pin so the
+  // user can place multiple pins consecutively without re-clicking the
+  // pin button each time. Trade-off: the next tap on the drawing canvas
+  // creates another pin. Acceptable per Mark's workflow.
+  //
+  // (Prior behaviour from S116 Push 2 — disarmed tool back to 'select' —
+  //  is preserved in _handlePinDrop above for the move-pin flow, which
+  //  is a separate concern.)
 }
 
 // Pin drop click handler
@@ -2523,83 +2524,89 @@ function _savePinEditor() {
 // input/change listeners on every pin editor field — the user no longer
 // has to remember to click Save. A 250ms debounce keeps R2 enqueue-on-save
 // traffic sane during fast typing.
+//
+// S159: the inner save body is now extracted to _pinAutoSaveFlush so the
+// close handlers (pe-close ✕, pe-cancel) can call it synchronously before
+// removing the editor — otherwise a user who closes within 250ms of their
+// last keystroke loses those last characters.
 var _pinAutoSaveTimer = null;
+function _pinAutoSaveFlush() {
+  if (_pinAutoSaveTimer) { clearTimeout(_pinAutoSaveTimer); _pinAutoSaveTimer = null; }
+  if (!_peDeficId) return;
+  var f = Model.findDeficiency(_peDeficId);
+  if (!f) return;
+  var d = f.defic;
+
+  // Contractor assignment (same logic as _savePinEditor, minus close).
+  // S116 Push 5: skip when value is the "__new__" sentinel — user hasn't
+  // confirmed the new name yet; reassigning would orphan the defic.
+  var cSel = document.getElementById('pe-contractor');
+  if (cSel != null && cSel.value !== '__new__') {
+    var proj = Model.getProject();
+    var newCtrId = cSel.value || null;
+    var oldCtrId = f.contractor ? f.contractor.id : null;
+    if (newCtrId !== oldCtrId) {
+      if (oldCtrId) {
+        var oldCtr = (proj.contractors || []).find(function(c) { return c.id === oldCtrId; });
+        if (oldCtr && oldCtr.deficiencies) {
+          oldCtr.deficiencies = oldCtr.deficiencies.filter(function(x) { return x.id !== _peDeficId; });
+        }
+      } else if (proj.generalDeficiencies) {
+        proj.generalDeficiencies = proj.generalDeficiencies.filter(function(x) { return x.id !== _peDeficId; });
+      }
+      if (newCtrId) {
+        var newCtr = (proj.contractors || []).find(function(c) { return c.id === newCtrId; });
+        if (newCtr) {
+          if (!newCtr.deficiencies) newCtr.deficiencies = [];
+          newCtr.deficiencies.push(d);
+        }
+      } else {
+        if (!proj.generalDeficiencies) proj.generalDeficiencies = [];
+        proj.generalDeficiencies.push(d);
+      }
+    }
+  }
+
+  var dateIn = document.getElementById('pe-date');
+  if (dateIn) d.date = dateIn.value;
+
+  // S119: per-obs addressed write (mirrors _savePinEditor)
+  var statusSel = document.getElementById('pe-status');
+  if (statusSel && statusSel.value && statusSel.value !== 'na') {
+    var liveObsAS = (d.observations && d.observations[_peObsIdx]) ? d.observations[_peObsIdx] : null;
+    var wantClosedAS = statusSel.value === 'closed';
+    if (liveObsAS && !!liveObsAS.addressed !== wantClosedAS) {
+      Model.toggleObsAddressed(_peDeficId, _peObsIdx);
+    }
+  }
+
+  var textarea = document.getElementById('pe-obs-text');
+  if (textarea) {
+    if (!d.observations || !d.observations.length) d.observations = [{ text: '', addressed: false }];
+    if (d.observations[_peObsIdx]) d.observations[_peObsIdx].text = textarea.value;
+  }
+
+  var obsCtrSel = document.getElementById('pe-obs-ctr');
+  if (obsCtrSel && d.observations && d.observations[_peObsIdx]) {
+    var v = obsCtrSel.value || '';
+    if (v) d.observations[_peObsIdx].contractorId = v;
+    else delete d.observations[_peObsIdx].contractorId;
+  }
+
+  var moveSelDesk = document.getElementById('pe-move-to');
+  var moveSelMob = document.getElementById('pe-move-to-mobile');
+  var newDwgId = '';
+  if (moveSelDesk && moveSelDesk.value) newDwgId = moveSelDesk.value;
+  if (!newDwgId && moveSelMob && moveSelMob.value) newDwgId = moveSelMob.value;
+  if (newDwgId && newDwgId !== d.drawingId) d.drawingId = newDwgId;
+
+  Model.saveNow();
+  _renderPins();
+  if (_tasksVisible) _renderTasks();
+}
 function _pinAutoSave() {
   if (_pinAutoSaveTimer) clearTimeout(_pinAutoSaveTimer);
-  _pinAutoSaveTimer = setTimeout(function() {
-    _pinAutoSaveTimer = null;
-    if (!_peDeficId) return;
-    var f = Model.findDeficiency(_peDeficId);
-    if (!f) return;
-    var d = f.defic;
-
-    // Contractor assignment (same logic as _savePinEditor, minus close).
-    // S116 Push 5: skip when value is the "__new__" sentinel — user hasn't
-    // confirmed the new name yet; reassigning would orphan the defic.
-    var cSel = document.getElementById('pe-contractor');
-    if (cSel != null && cSel.value !== '__new__') {
-      var proj = Model.getProject();
-      var newCtrId = cSel.value || null;
-      var oldCtrId = f.contractor ? f.contractor.id : null;
-      if (newCtrId !== oldCtrId) {
-        if (oldCtrId) {
-          var oldCtr = (proj.contractors || []).find(function(c) { return c.id === oldCtrId; });
-          if (oldCtr && oldCtr.deficiencies) {
-            oldCtr.deficiencies = oldCtr.deficiencies.filter(function(x) { return x.id !== _peDeficId; });
-          }
-        } else if (proj.generalDeficiencies) {
-          proj.generalDeficiencies = proj.generalDeficiencies.filter(function(x) { return x.id !== _peDeficId; });
-        }
-        if (newCtrId) {
-          var newCtr = (proj.contractors || []).find(function(c) { return c.id === newCtrId; });
-          if (newCtr) {
-            if (!newCtr.deficiencies) newCtr.deficiencies = [];
-            newCtr.deficiencies.push(d);
-          }
-        } else {
-          if (!proj.generalDeficiencies) proj.generalDeficiencies = [];
-          proj.generalDeficiencies.push(d);
-        }
-      }
-    }
-
-    var dateIn = document.getElementById('pe-date');
-    if (dateIn) d.date = dateIn.value;
-
-    // S119: per-obs addressed write (mirrors _savePinEditor)
-    var statusSel = document.getElementById('pe-status');
-    if (statusSel && statusSel.value && statusSel.value !== 'na') {
-      var liveObsAS = (d.observations && d.observations[_peObsIdx]) ? d.observations[_peObsIdx] : null;
-      var wantClosedAS = statusSel.value === 'closed';
-      if (liveObsAS && !!liveObsAS.addressed !== wantClosedAS) {
-        Model.toggleObsAddressed(_peDeficId, _peObsIdx);
-      }
-    }
-
-    var textarea = document.getElementById('pe-obs-text');
-    if (textarea) {
-      if (!d.observations || !d.observations.length) d.observations = [{ text: '', addressed: false }];
-      if (d.observations[_peObsIdx]) d.observations[_peObsIdx].text = textarea.value;
-    }
-
-    var obsCtrSel = document.getElementById('pe-obs-ctr');
-    if (obsCtrSel && d.observations && d.observations[_peObsIdx]) {
-      var v = obsCtrSel.value || '';
-      if (v) d.observations[_peObsIdx].contractorId = v;
-      else delete d.observations[_peObsIdx].contractorId;
-    }
-
-    var moveSelDesk = document.getElementById('pe-move-to');
-    var moveSelMob = document.getElementById('pe-move-to-mobile');
-    var newDwgId = '';
-    if (moveSelDesk && moveSelDesk.value) newDwgId = moveSelDesk.value;
-    if (!newDwgId && moveSelMob && moveSelMob.value) newDwgId = moveSelMob.value;
-    if (newDwgId && newDwgId !== d.drawingId) d.drawingId = newDwgId;
-
-    Model.saveNow();
-    _renderPins();
-    if (_tasksVisible) _renderTasks();
-  }, 250);
+  _pinAutoSaveTimer = setTimeout(_pinAutoSaveFlush, 250);
 }
 
 // S116 Push 1 (E): refresh pin editor obs strip when photos change in the
@@ -2696,8 +2703,12 @@ document.addEventListener('change', function(e) {
 
 // Pin editor event handlers
 document.addEventListener('click', function(e) {
-  if (e.target.closest && e.target.closest('#pe-close')) { _closePinEditor(); return; }
-  if (e.target.closest && e.target.closest('#pe-cancel')) { _closePinEditor(); return; }
+  // S159: flush any pending autosave BEFORE closing so the last
+  // < 250 ms of typing doesn't get dropped by the debounce. Applies to
+  // both ✕ (pe-close) and Cancel (pe-cancel) — the editor uses autosave
+  // as the source of truth, so "cancel" is really "close" semantically.
+  if (e.target.closest && e.target.closest('#pe-close')) { _pinAutoSaveFlush(); _closePinEditor(); return; }
+  if (e.target.closest && e.target.closest('#pe-cancel')) { _pinAutoSaveFlush(); _closePinEditor(); return; }
   if (e.target.closest && e.target.closest('#pe-save')) { _savePinEditor(); return; }
 
   // S116 Push 5: contractor CRUD inside pin editor (Edit / Delete / new+confirm).
