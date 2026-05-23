@@ -4706,6 +4706,66 @@
           "tileProcessStartedAt": 1779293162081
         },
         {
+          "id": "dwg_1779294104895_pg2_poee",
+          "name": "4380.24 Sun Pharma 114 East Dr Ph2 FPES - B04 - Page 2",
+          "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/drawings/dwg_dwg_1779294104895_pg2_poee.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/drawings/dwg_dwg_1779294104895_pg2_poee.jpg",
+          "width": 6144,
+          "folder": "4380.24 Sun Pharma 114 East Dr Ph2 FP-1 B05 (Inspector 2)",
+          "height": 4096,
+          "pdfPage": 2,
+          "pdfTiled": false,
+          "r2Status": "",
+          "createdBy": "96745410-41b2-4c06-a0c5-785138aa7fe1",
+          "pdfBufKey": "pdfbuf_1779294090072_dc1pjt",
+          "isOriginal": false,
+          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
+          "tileStatus": "ready",
+          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/pdfbufs/pdfbuf_1779294090072_dc1pjt.pdf",
+          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/tiles/pdfbuf_1779294090072_dc1pjt/manifest.json",
+          "tileProcessStartedAt": 1779294104895
+        },
+        {
+          "id": "dwg_1779294111371_pg3_grul",
+          "name": "4380.24 Sun Pharma 114 East Dr Ph2 FPES - B04 - Page 3 (2)",
+          "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/drawings/dwg_dwg_1779294111371_pg3_grul.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/drawings/dwg_dwg_1779294111371_pg3_grul.jpg",
+          "width": 6144,
+          "folder": "4380.24 Sun Pharma 114 East Dr Ph2 FP-1 B05 (Inspector 2)",
+          "height": 4096,
+          "pdfPage": 3,
+          "pdfTiled": false,
+          "r2Status": "",
+          "createdBy": "96745410-41b2-4c06-a0c5-785138aa7fe1",
+          "pdfBufKey": "pdfbuf_1779294090072_dc1pjt",
+          "isOriginal": false,
+          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
+          "tileStatus": "ready",
+          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/pdfbufs/pdfbuf_1779294090072_dc1pjt.pdf",
+          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/tiles/pdfbuf_1779294090072_dc1pjt/manifest.json",
+          "tileProcessStartedAt": 1779294111371
+        },
+        {
+          "id": "dwg_1779295963508_pg1_4nex",
+          "name": "4380.24 Sun Pharma 114 East Dr Ph2 FPES - B04 - Page 1",
+          "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/drawings/dwg_dwg_1779295963508_pg1_4nex.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/drawings/dwg_dwg_1779295963508_pg1_4nex.jpg",
+          "width": 6144,
+          "folder": "4380.24 Sun Pharma 114 East Dr Ph2 FP-1 B05 (Inspector 2)",
+          "height": 4096,
+          "pdfPage": 1,
+          "pdfTiled": false,
+          "r2Status": "",
+          "createdBy": "96745410-41b2-4c06-a0c5-785138aa7fe1",
+          "pdfBufKey": "pdfbuf_1779295956225_lj9f5l",
+          "isOriginal": false,
+          "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
+          "tileStatus": "ready",
+          "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/pdfbufs/pdfbuf_1779295956225_lj9f5l.pdf",
+          "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/tiles/pdfbuf_1779295956225_lj9f5l/manifest.json",
+          "tileProcessStartedAt": 1779295963508
+        },
+        {
           "id": "dwg_1779309624114_pg2_7mag",
           "name": "4380.24 Sun Pharma 114 East Dr Ph2 FPES - B04 - Page 2",
           "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/drawings/dwg_dwg_1779309624114_pg2_7mag.jpg",
@@ -4746,7 +4806,7 @@
           "tileProcessStartedAt": 1779309953783
         }
       ],
-      "modified": "2026-05-22T03:08:41.858Z",
+      "modified": "2026-05-23T06:03:16.331Z",
       "settings": {
         "sketchesEnabled": false
       },
@@ -4768,7 +4828,7 @@
             {
               "id": "def_1774290591519_alfr",
               "iar": false,
-              "num": 3,
+              "num": 1,
               "date": "2026-03-23",
               "pinX": null,
               "pinY": null,
@@ -4920,7 +4980,7 @@
           "siteVisitDate": "2026-05-03T02:56:27.676Z"
         }
       ],
-      "nextDeficNum": 13,
+      "nextDeficNum": 20,
       "_hubProjectId": "ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0",
       "projectTrades": [
         "Sprinkler",
@@ -4930,15 +4990,21 @@
         "Mechanical",
         "Civil"
       ],
+      "_recoveryMarker": {
+        "source": "rescue5_S157",
+        "backupTs": "2026-05-20T18:18:24.879Z",
+        "appliedAt": "2026-05-22T18:27:33.369Z",
+        "cloudUpdatedAtBefore": "2026-05-22T18:20:39.195947+00:00"
+      },
       "currentFrtInstance": 1,
       "generalDeficiencies": [
         {
           "id": "def_1774291071594_e3r4",
           "iar": false,
-          "num": 4,
+          "num": 2,
           "date": "2026-03-23",
-          "pinX": null,
-          "pinY": null,
+          "pinX": 0.5777716110087455,
+          "pinY": 0.09647758918004413,
           "photos": [
             {
               "id": "dp_1774291093740_5rftqa",
@@ -4974,7 +5040,7 @@
           "status": "Outstanding",
           "created": "2026-03-23T18:37:51.594Z",
           "priority": "high",
-          "drawingId": null,
+          "drawingId": "dwg_1774274686699_pg1_b93w",
           "activeEntry": 0,
           "observations": [
             {
@@ -5035,10 +5101,10 @@
         {
           "id": "def_1774293413593_dv7m",
           "iar": false,
-          "num": 5,
+          "num": 3,
           "date": "2026-03-23",
-          "pinX": null,
-          "pinY": null,
+          "pinX": 0.4356800308172004,
+          "pinY": 0.32975340070094283,
           "photos": [
             {
               "id": "dp_1774293423526_tas2ez",
@@ -5104,7 +5170,7 @@
           "status": "Outstanding",
           "created": "2026-03-23T19:16:53.595Z",
           "priority": "high",
-          "drawingId": null,
+          "drawingId": "dwg_1774274754330_pg1_tnkf",
           "activeEntry": 0,
           "observations": [
             {
@@ -5198,10 +5264,10 @@
         {
           "id": "def_1774293648527_f782",
           "iar": false,
-          "num": 6,
+          "num": 4,
           "date": "2026-03-23",
-          "pinX": null,
-          "pinY": null,
+          "pinX": 0.4910158900758234,
+          "pinY": 0.3835845953159967,
           "photos": [
             {
               "id": "dp_1774293660093_psghsm",
@@ -5327,7 +5393,7 @@
           "status": "Outstanding",
           "created": "2026-03-23T19:20:48.527Z",
           "priority": "high",
-          "drawingId": null,
+          "drawingId": "dwg_1774274754330_pg1_tnkf",
           "activeEntry": 0,
           "observations": [
             {
@@ -5487,10 +5553,10 @@
         {
           "id": "def_1774293763787_asc5",
           "iar": false,
-          "num": 7,
+          "num": 5,
           "date": "2026-03-23",
-          "pinX": null,
-          "pinY": null,
+          "pinX": 0.5850515463917526,
+          "pinY": 0.40690565462596306,
           "photos": [
             {
               "id": "dp_1774293774586_4hcq6s",
@@ -5566,7 +5632,7 @@
           "status": "Outstanding",
           "created": "2026-03-23T19:22:43.787Z",
           "priority": "high",
-          "drawingId": null,
+          "drawingId": "dwg_1774274754330_pg1_tnkf",
           "activeEntry": 0,
           "observations": [
             {
@@ -5671,10 +5737,10 @@
         {
           "id": "def_1774293843850_7x6h",
           "iar": false,
-          "num": 8,
+          "num": 6,
           "date": "2026-03-23",
-          "pinX": null,
-          "pinY": null,
+          "pinX": 0.674856834006566,
+          "pinY": 0.39933172735026135,
           "photos": [
             {
               "id": "dp_1774293883515_bfltqy",
@@ -5720,7 +5786,7 @@
           "status": "Outstanding",
           "created": "2026-03-23T19:24:03.850Z",
           "priority": "high",
-          "drawingId": null,
+          "drawingId": "dwg_1774274754330_pg1_tnkf",
           "activeEntry": 0,
           "observations": [
             {
@@ -5792,15 +5858,15 @@
         {
           "id": "def_1774356379910_8xwz",
           "iar": false,
-          "num": 10,
+          "num": 7,
           "date": "2026-03-24",
-          "pinX": null,
-          "pinY": null,
+          "pinX": 0.3090579250397814,
+          "pinY": 0.6669876832990919,
           "photos": [],
           "status": "N/A",
           "created": "2026-03-24T12:46:19.910Z",
           "priority": "general",
-          "drawingId": null,
+          "drawingId": "dwg_1774274686699_pg1_b93w",
           "activeEntry": 0,
           "observations": [
             {
@@ -5824,10 +5890,10 @@
         {
           "id": "def_1774289166367_cc1n",
           "iar": false,
-          "num": 2,
+          "num": 8,
           "date": "2026-03-23",
-          "pinX": null,
-          "pinY": null,
+          "pinX": 0.6887216887548381,
+          "pinY": 0.31645895178932526,
           "photos": [
             {
               "id": "dp_1774289310020_sn7i4t",
@@ -5853,7 +5919,7 @@
           "status": "open",
           "created": "2026-03-23T18:06:06.367Z",
           "priority": "high",
-          "drawingId": null,
+          "drawingId": "dwg_1774274686699_pg1_b93w",
           "activeEntry": 0,
           "observations": [
             {
@@ -5903,15 +5969,15 @@
         {
           "id": "def_1774274841184_uyhs",
           "iar": false,
-          "num": 1,
+          "num": 9,
           "date": "2026-03-23",
-          "pinX": null,
-          "pinY": null,
+          "pinX": 0.49809700788004463,
+          "pinY": 0.2882202618663389,
           "photos": [],
           "status": "Addressed & Closed",
           "created": "2026-03-23T14:07:21.184Z",
           "priority": "general",
-          "drawingId": null,
+          "drawingId": "dwg_1774274686699_pg1_b93w",
           "activeEntry": 0,
           "observations": [
             {
@@ -5934,7 +6000,7 @@
         },
         {
           "id": "def_1778043235076_tfs9",
-          "num": 12,
+          "num": 10,
           "date": "2026-05-06",
           "pinX": null,
           "pinY": null,
@@ -5965,6 +6031,519 @@
           "notedOnInstance": 1,
           "isRecommendation": false,
           "_photoPoolMigrated": true
+        },
+        {
+          "id": "def_1779298340625_1g_nlv98iea",
+          "num": 11,
+          "date": "2026-05-20",
+          "pinX": 0.15054903338942485,
+          "pinY": 0.3786646867353567,
+          "photos": [
+            {
+              "id": "ph_1779298349740_1i_ev5axbba",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_1d09114c-151e-43f6-9abf-470208a4f510.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_1d09114c-151e-43f6-9abf-470208a4f510.jpg",
+              "thumb": null,
+              "filename": "photo_1779298349740.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            },
+            {
+              "id": "ph_1779298354906_1j_wp1vq7pv",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_1b51caa1-8d3b-448f-938b-94a367a1fb65.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_1b51caa1-8d3b-448f-938b-94a367a1fb65.jpg",
+              "thumb": null,
+              "filename": "photo_1779298354906.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            },
+            {
+              "id": "ph_1779298365577_1k_q9q4g3ix",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_4f2d12aa-be43-4486-a4eb-315148deb4ef.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_4f2d12aa-be43-4486-a4eb-315148deb4ef.jpg",
+              "thumb": null,
+              "filename": "photo_1779298365577.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            },
+            {
+              "id": "ph_1779298376238_1l_i0gucv7e",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_d5239b94-d191-46c2-9c40-94ca8510b684.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_d5239b94-d191-46c2-9c40-94ca8510b684.jpg",
+              "thumb": null,
+              "filename": "photo_1779298376238.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            },
+            {
+              "id": "ph_1779298388437_1m_bffowctm",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_d85b04d7-5455-4b12-982d-be36d9c47c88.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_d85b04d7-5455-4b12-982d-be36d9c47c88.jpg",
+              "thumb": null,
+              "filename": "photo_1779298388437.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            },
+            {
+              "id": "ph_1779298424955_1n_sxvycy8j",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_908e5a66-bd4d-4db8-a326-f2dc14b3e97f.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_908e5a66-bd4d-4db8-a326-f2dc14b3e97f.jpg",
+              "thumb": null,
+              "filename": "photo_1779298424957.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            }
+          ],
+          "status": "open",
+          "activity": [],
+          "category": "",
+          "priority": "general",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "drawingId": "dwg_1779295963508_pg1_4nex",
+          "notedDate": "2026-05-20",
+          "observations": [
+            {
+              "id": "obs_1779298340625_1h_i4s46lgv",
+              "text": "",
+              "trade": "",
+              "photos": [],
+              "priority": "high",
+              "addressed": false,
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "notedDate": "2026-05-20",
+              "repeatCount": 1,
+              "tradeSource": "ai",
+              "notedOnInstance": 1,
+              "isRecommendation": false
+            }
+          ],
+          "notedOnInstance": 1,
+          "isRecommendation": false,
+          "_photoPoolMigrated": true
+        },
+        {
+          "id": "def_1779298707894_1u_39819qlw",
+          "num": 12,
+          "date": "2026-05-20",
+          "pinX": 0.811875383528801,
+          "pinY": 0.2991602744338789,
+          "photos": [
+            {
+              "id": "ph_1779298725516_1w_ohkr88mn",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_86429623-8efe-4b1f-a8d0-98f7eec53c4a.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_86429623-8efe-4b1f-a8d0-98f7eec53c4a.jpg",
+              "thumb": null,
+              "filename": "photo_1779298725516.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            },
+            {
+              "id": "ph_1779298732216_1x_f2xbay5h",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_930f372f-5be6-44a2-a42e-8091b2d3a8b9.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_930f372f-5be6-44a2-a42e-8091b2d3a8b9.jpg",
+              "thumb": null,
+              "filename": "photo_1779298732216.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            },
+            {
+              "id": "ph_1779298745546_1y_2omu05zk",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_b6f35e54-c187-4bbd-be28-f9ae323a6c51.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_b6f35e54-c187-4bbd-be28-f9ae323a6c51.jpg",
+              "thumb": null,
+              "filename": "photo_1779298745546.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            },
+            {
+              "id": "ph_1779298764874_1z_jtxr0d40",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_a812c04f-4397-4e0f-a5eb-c35f04e15647.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_a812c04f-4397-4e0f-a5eb-c35f04e15647.jpg",
+              "thumb": null,
+              "filename": "photo_1779298764874.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            },
+            {
+              "id": "ph_1779298797972_20_nint6fd5",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_e14f9391-795b-433b-a039-78851b5ff0e8.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_e14f9391-795b-433b-a039-78851b5ff0e8.jpg",
+              "thumb": null,
+              "filename": "photo_1779298797975.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            }
+          ],
+          "status": "open",
+          "activity": [],
+          "category": "",
+          "priority": "general",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "drawingId": "dwg_1779295963508_pg1_4nex",
+          "notedDate": "2026-05-20",
+          "observations": [
+            {
+              "id": "obs_1779298707894_1v_sbx0j4ds",
+              "text": "",
+              "trade": "",
+              "photos": [],
+              "priority": "high",
+              "addressed": false,
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "notedDate": "2026-05-20",
+              "repeatCount": 1,
+              "tradeSource": "ai",
+              "notedOnInstance": 1,
+              "isRecommendation": false
+            }
+          ],
+          "notedOnInstance": 1,
+          "isRecommendation": false,
+          "_photoPoolMigrated": true
+        },
+        {
+          "id": "def_1779299660457_2f_gf09ruz4",
+          "num": 13,
+          "date": "2026-05-20",
+          "pinX": 0.6921540603839872,
+          "pinY": 0.318319780546833,
+          "photos": [
+            {
+              "id": "ph_1779299722170_2h_mkfvqo59",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_36a86b07-7c57-4a43-b437-7ea95428e309.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_36a86b07-7c57-4a43-b437-7ea95428e309.jpg",
+              "thumb": null,
+              "filename": "photo_1779299722170.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            },
+            {
+              "id": "ph_1779299728602_2i_1cbvy43y",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_21f0d692-91e6-47ee-b6bd-c51c61c410dc.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_21f0d692-91e6-47ee-b6bd-c51c61c410dc.jpg",
+              "thumb": null,
+              "filename": "photo_1779299728602.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            }
+          ],
+          "status": "open",
+          "activity": [],
+          "category": "",
+          "priority": "general",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "drawingId": "dwg_1779295963508_pg1_4nex",
+          "notedDate": "2026-05-20",
+          "observations": [
+            {
+              "id": "obs_1779299660458_2g_z7hmpcrg",
+              "text": "",
+              "trade": "",
+              "photos": [],
+              "priority": "high",
+              "addressed": false,
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "notedDate": "2026-05-20",
+              "repeatCount": 1,
+              "tradeSource": "ai",
+              "notedOnInstance": 1,
+              "isRecommendation": false
+            }
+          ],
+          "notedOnInstance": 1,
+          "isRecommendation": false,
+          "_photoPoolMigrated": true
+        },
+        {
+          "id": "def_1779300298550_2q_5isz5aky",
+          "num": 14,
+          "date": "2026-05-20",
+          "pinX": 0.6205332547935128,
+          "pinY": 0.3237998724575491,
+          "photos": [
+            {
+              "id": "ph_1779300307905_2s_b8bn8aqa",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_e5cff17f-a383-46e2-a6f2-6f7bdcff8a1b.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_e5cff17f-a383-46e2-a6f2-6f7bdcff8a1b.jpg",
+              "thumb": null,
+              "filename": "photo_1779300307905.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            },
+            {
+              "id": "ph_1779300329536_2t_ml0bc3zl",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_22e57add-62d0-40ae-951f-6eb492ccf01d.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_22e57add-62d0-40ae-951f-6eb492ccf01d.jpg",
+              "thumb": null,
+              "filename": "photo_1779300329536.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            }
+          ],
+          "status": "open",
+          "activity": [],
+          "category": "",
+          "priority": "general",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "drawingId": "dwg_1779295963508_pg1_4nex",
+          "notedDate": "2026-05-20",
+          "observations": [
+            {
+              "id": "obs_1779300298550_2r_d9hlhobc",
+              "text": "",
+              "trade": "",
+              "photos": [],
+              "priority": "high",
+              "addressed": false,
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "notedDate": "2026-05-20",
+              "repeatCount": 1,
+              "tradeSource": "ai",
+              "notedOnInstance": 1,
+              "isRecommendation": false
+            }
+          ],
+          "notedOnInstance": 1,
+          "isRecommendation": false,
+          "_photoPoolMigrated": true
+        },
+        {
+          "id": "def_1779300959219_36_l8a3t73z",
+          "num": 15,
+          "date": "2026-05-20",
+          "pinX": 0.4879753949099887,
+          "pinY": 0.2836157889633595,
+          "photos": [
+            {
+              "id": "ph_1779300977598_38_nikkyryf",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_932cf154-cc0e-417f-928b-73d3d128a85f.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_932cf154-cc0e-417f-928b-73d3d128a85f.jpg",
+              "thumb": null,
+              "filename": "photo_1779300977598.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            },
+            {
+              "id": "ph_1779301003410_39_1u9fw0gh",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_72db857a-ab92-44fd-a234-c0d14f124a5b.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_72db857a-ab92-44fd-a234-c0d14f124a5b.jpg",
+              "thumb": null,
+              "filename": "photo_1779301003410.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            },
+            {
+              "id": "ph_1779301102024_3e_oa9latp4",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_4b5071e1-e37d-4980-a061-6e1a33cde0ce.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_4b5071e1-e37d-4980-a061-6e1a33cde0ce.jpg",
+              "thumb": null,
+              "filename": "photo_1779301102024.jpg",
+              "addedDate": "2026-05-20",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            }
+          ],
+          "status": "open",
+          "activity": [],
+          "category": "",
+          "priority": "general",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "drawingId": "dwg_1779295963508_pg1_4nex",
+          "notedDate": "2026-05-20",
+          "observations": [
+            {
+              "id": "obs_1779300959219_37_rjizxjau",
+              "text": "",
+              "trade": "",
+              "photos": [],
+              "priority": "high",
+              "addressed": false,
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "notedDate": "2026-05-20",
+              "repeatCount": 1,
+              "tradeSource": "ai",
+              "notedOnInstance": 1,
+              "isRecommendation": false
+            }
+          ],
+          "notedOnInstance": 1,
+          "isRecommendation": false,
+          "_photoPoolMigrated": true
+        },
+        {
+          "id": "def_1779513927176_h_mju8lgbq",
+          "num": 16,
+          "date": "2026-05-23",
+          "pinX": 0.6498180985652692,
+          "pinY": 0.22231671205168926,
+          "photos": [],
+          "status": "open",
+          "activity": [],
+          "category": "",
+          "priority": "general",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "drawingId": "dwg_1779293153403_pg1_q6pd",
+          "notedDate": "2026-05-23",
+          "observations": [
+            {
+              "id": "obs_1779513927176_i_r0repolc",
+              "text": "",
+              "trade": "",
+              "photos": [],
+              "priority": "high",
+              "addressed": false,
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "notedDate": "2026-05-23",
+              "repeatCount": 1,
+              "tradeSource": "ai",
+              "notedOnInstance": 1,
+              "isRecommendation": false
+            }
+          ],
+          "notedOnInstance": 1,
+          "isRecommendation": false,
+          "_photoPoolMigrated": true
+        },
+        {
+          "id": "def_1779513937224_j_pxpe7c6p",
+          "num": 17,
+          "date": "2026-05-23",
+          "pinX": 0.6504207105275972,
+          "pinY": 0.22171409549179677,
+          "photos": [],
+          "status": "open",
+          "activity": [],
+          "category": "",
+          "priority": "general",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "drawingId": "dwg_1779293153403_pg1_q6pd",
+          "notedDate": "2026-05-23",
+          "observations": [
+            {
+              "id": "obs_1779513937224_k_wjw8t0v2",
+              "text": "",
+              "trade": "",
+              "photos": [],
+              "priority": "high",
+              "addressed": false,
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "notedDate": "2026-05-23",
+              "repeatCount": 1,
+              "tradeSource": "ai",
+              "notedOnInstance": 1,
+              "isRecommendation": false
+            }
+          ],
+          "notedOnInstance": 1,
+          "isRecommendation": false,
+          "_photoPoolMigrated": true
+        },
+        {
+          "id": "def_1779515366530_p_7uwveknq",
+          "num": 18,
+          "date": "2026-05-23",
+          "pinX": 0.684367857202166,
+          "pinY": 0.2409976736887315,
+          "photos": [
+            {
+              "id": "ph_1779515373884_r_32s0ze3s",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_e11ac139-2c42-405c-b8dc-73e2c412deed.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_e11ac139-2c42-405c-b8dc-73e2c412deed.jpg",
+              "thumb": null,
+              "filename": "photo_1779515373884.jpg",
+              "addedDate": "2026-05-23",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            }
+          ],
+          "status": "open",
+          "activity": [],
+          "category": "",
+          "priority": "general",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "drawingId": "dwg_1779293153403_pg1_q6pd",
+          "notedDate": "2026-05-23",
+          "observations": [
+            {
+              "id": "obs_1779515366530_q_787hvqb6",
+              "text": "",
+              "trade": "",
+              "photos": [],
+              "priority": "high",
+              "addressed": false,
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "notedDate": "2026-05-23",
+              "repeatCount": 1,
+              "tradeSource": "ai",
+              "notedOnInstance": 1,
+              "isRecommendation": false
+            }
+          ],
+          "notedOnInstance": 1,
+          "isRecommendation": false,
+          "_photoPoolMigrated": true
+        },
+        {
+          "id": "def_1779516182883_3_bdk3eqlv",
+          "num": 19,
+          "date": "2026-05-23",
+          "pinX": 0.42822452455584564,
+          "pinY": 0.250583107657282,
+          "photos": [
+            {
+              "id": "ph_1779516191240_5_upu04nmo",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_45df30f9-76f2-41c5-b3fb-977fcf0ca14d.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_45df30f9-76f2-41c5-b3fb-977fcf0ca14d.jpg",
+              "thumb": null,
+              "filename": "photo_1779516191240.jpg",
+              "addedDate": "2026-05-23",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null
+            }
+          ],
+          "status": "open",
+          "activity": [],
+          "category": "",
+          "priority": "general",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "drawingId": "dwg_1779293153403_pg1_q6pd",
+          "notedDate": "2026-05-23",
+          "observations": [
+            {
+              "id": "obs_1779516182883_4_npwikopu",
+              "text": "",
+              "trade": "",
+              "photos": [],
+              "priority": "high",
+              "addressed": false,
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "notedDate": "2026-05-23",
+              "repeatCount": 1,
+              "tradeSource": "ai",
+              "notedOnInstance": 1,
+              "isRecommendation": false
+            }
+          ],
+          "notedOnInstance": 1,
+          "isRecommendation": false,
+          "_photoPoolMigrated": true
         }
       ]
     },
@@ -5972,6 +6551,6 @@
     "created_by": "a9f11baf-8b55-4145-b0d2-3212dee204a8",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-23T14:02:42.975679+00:00",
-    "updated_at": "2026-05-22T07:39:51.064368+00:00"
+    "updated_at": "2026-05-23T06:03:20.433369+00:00"
   }
 ]
