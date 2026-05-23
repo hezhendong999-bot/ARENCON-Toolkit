@@ -790,8 +790,14 @@ function openScratchpadFromPhoto(deficId, obsIdx, photoIdx) {
   var f = Model.findDeficiency(deficId);
   if (!f) { toast('\u26A0 Deficiency not found'); return; }
   var obs = f.defic.observations && f.defic.observations[obsIdx];
-  if (!obs || !obs.photos || !obs.photos[photoIdx]) { toast('\u26A0 Photo not found'); return; }
-  var photo = obs.photos[photoIdx];
+  if (!obs) { toast('\u26A0 Observation not found'); return; }
+  // S161: pool-aware lookup matches obs-photo render in deficiencies.js (~L727).
+  // Direct read of obs.photos[photoIdx] returns undefined for pool pins.
+  var effective = (Model.getEffectivePhotos)
+    ? Model.getEffectivePhotos(f.defic, obsIdx)
+    : (obs.photos || []);
+  if (!effective[photoIdx]) { toast('\u26A0 Photo not found'); return; }
+  var photo = effective[photoIdx];
   var s = _spGet(deficId, obsIdx);
   if (s.loading) { toast('\u26A0 Already analyzing\u2026'); return; }
   // Prevent double-counting the same photo in accumulation
@@ -840,9 +846,15 @@ function openScratchpadFromAllPhotos(deficId, obsIdx) {
   var f = Model.findDeficiency(deficId);
   if (!f) { toast('\u26A0 Deficiency not found'); return; }
   var obs = f.defic.observations && f.defic.observations[obsIdx];
-  if (!obs || !obs.photos || !obs.photos.length) { toast('\u26A0 No photos on this observation'); return; }
-  var photos = obs.photos.slice(0, 4);
-  var skipped = obs.photos.length - photos.length;
+  if (!obs) { toast('\u26A0 Observation not found'); return; }
+  // S161: pool-aware lookup matches obs-photo render.
+  // Direct read of obs.photos is empty for pool pins.
+  var effective = (Model.getEffectivePhotos)
+    ? Model.getEffectivePhotos(f.defic, obsIdx)
+    : (obs.photos || []);
+  if (!effective.length) { toast('\u26A0 No photos on this observation'); return; }
+  var photos = effective.slice(0, 4);
+  var skipped = effective.length - photos.length;
   var s = _spGet(deficId, obsIdx);
   if (s.loading) { toast('\u26A0 Already analyzing\u2026'); return; }
   var token = _getToken();
@@ -874,7 +886,7 @@ function openScratchpadFromAllPhotos(deficId, obsIdx) {
     if (data.usage && typeof data.usage.cost_usd === 'number') s.costTotal += data.usage.cost_usd;
     s.confidence = data.confidence || null;
     _spRender(deficId, obsIdx);
-    if (skipped > 0) toast('\u26A0 Used first 4 of ' + obs.photos.length + ' photos (' + skipped + ' over Worker limit)');
+    if (skipped > 0) toast('\u26A0 Used first 4 of ' + effective.length + ' photos (' + skipped + ' over Worker limit)');
   }).catch(function(err) {
     s.loading = false;
     try { console.error('[AIAssist] photo_suggest failed:', err); } catch(_){}
@@ -1029,7 +1041,12 @@ function aiReviewObs(deficId, obsIdx, mode) {
   if (!obs) { toast('\u26A0 No observation at index ' + obsIdx); return; }
 
   if (mode === 'photos') {
-    if (!(obs.photos || []).length) {
+    // S161: pool-aware count matches obs-photo render. Direct read of
+    // obs.photos is empty for pool pins, blocking AI photo review.
+    var effective = (Model.getEffectivePhotos)
+      ? Model.getEffectivePhotos(f.defic, obsIdx)
+      : (obs.photos || []);
+    if (!effective.length) {
       toast('\u26A0 No photos on this observation \u2014 use Text only or Quick review');
       return;
     }

@@ -183,8 +183,14 @@ function _showGalleryPicker(deficId, obsIdx) {
   var obs = f.defic.observations && f.defic.observations[obsIdx];
   if (!obs) { toast('\u26A0 Observation not found'); return; }
   // Build set of photo IDs already attached so we can mark them as already-used
+  // S161: read via pool-aware lookup so post-photo-pool-migration pins also
+  // mark their attached photos. Without this the picker offers pool photos
+  // for re-attach, letting a user pick the same photo twice.
   var attachedIds = {};
-  (obs.photos || []).forEach(function(ph) { if (ph && ph.id) attachedIds[ph.id] = true; });
+  var attachedList = (Model.getEffectivePhotos)
+    ? Model.getEffectivePhotos(f.defic, obsIdx)
+    : (obs.photos || []);
+  attachedList.forEach(function(ph) { if (ph && ph.id) attachedIds[ph.id] = true; });
 
   var existing = document.getElementById('gp-overlay');
   if (existing) existing.remove();
@@ -2742,7 +2748,14 @@ document.addEventListener('click', function(e) {
       // Copy observation text and photos
       if (newDefic.observations && newDefic.observations[0]) {
         newDefic.observations[0].text = srcObs.text || '';
-        newDefic.observations[0].photos = JSON.parse(JSON.stringify(srcObs.photos || []));
+        // S161: read source photos via pool-aware lookup. Direct read of
+        // srcObs.photos is empty for post-photo-pool-migration pins, which
+        // silently created empty spin-offs. New defic keeps legacy obs.photos
+        // shape (getEffectivePhotos legacy-fallback handles display).
+        var srcEffective = (Model.getEffectivePhotos)
+          ? Model.getEffectivePhotos(f.defic, obsIdx)
+          : (srcObs.photos || []);
+        newDefic.observations[0].photos = JSON.parse(JSON.stringify(srcEffective));
       }
       // Inherit drawing pin location so the inspector finds it on the same drawing
       if (f.defic.drawingId) {
@@ -2938,7 +2951,14 @@ document.addEventListener('click', function(e) {
     var photoIdx = parseInt(el.getAttribute('data-photo-idx') || '0');
     var f = Model.findDeficiency(deficId);
     if (f && f.defic.observations && f.defic.observations[obsIdx]) {
-      var photos = f.defic.observations[obsIdx].photos || [];
+      // S161: pool-aware lookup matches obs-photo render (~L727).
+      // Without this, post-photo-pool-migration pins show thumbnails
+      // (render uses Model.getEffectivePhotos) but lightbox can't open
+      // because handler reads empty obs.photos[] directly. Mirrors the
+      // S160 fix in ui/photos.js for the gallery card lightbox.
+      var photos = (Model.getEffectivePhotos)
+        ? Model.getEffectivePhotos(f.defic, obsIdx)
+        : (f.defic.observations[obsIdx].photos || []);
       if (photos.length && window._frtLightbox) {
         window._frtLightbox.open(photos, photoIdx);
       }
