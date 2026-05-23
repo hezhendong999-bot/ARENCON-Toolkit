@@ -633,8 +633,19 @@ function _showLeaveDialog(destUrl) {
     });
   });
   overlay.querySelector('#leave-nosave').addEventListener('click', function() {
-    overlay.remove();
-    window.location.href = destUrl;
+    // S163 Fix E (V-8): persist local IDB before navigating away. The dialog
+    // choice only controls whether the cloud push fires, NOT whether local
+    // IDB state survives. Previously, photos added within the 1.5s autosave-
+    // debounce window were lost from local IDB on this path even though R2
+    // already had the binary — the cloud row then "wins" on next pull,
+    // erasing them from in-memory state. saveNow() flushes the debounce
+    // timer and writes synchronously. If saveNow rejects we navigate anyway
+    // so the user is never trapped in the modal. The cloud push is
+    // intentionally skipped — that's the user's expressed intent.
+    Model.saveNow().catch(function(){}).then(function() {
+      overlay.remove();
+      window.location.href = destUrl;
+    });
   });
   overlay.querySelector('#leave-cancel').addEventListener('click', function() {
     overlay.remove();
@@ -2073,6 +2084,43 @@ function _syncIssueStatus(status) {
 
 // ── Start ────────────────────────────────────────────────
 boot();
+
+// ── S163 Fix C (V-9): SW force-update propagation ───────
+// When a new service worker activates, it broadcasts {type:'sw-updated'}
+// to every controlled client (see sw.js activate handler). The client
+// flushes Model to IDB so any in-flight unsaved state survives the
+// reload (Fix E protects the leave-dialog path; this protects the
+// SW-driven reload path with the same primitive). Shows a brief toast
+// so the user knows why the page is about to refresh, then reloads.
+//
+// Without this, safety-critical fixes shipped to GitHub can sit unused
+// on cached devices for up to 24 hours (SW byte-comparison max-age) or
+// indefinitely until the user manually hard-refreshes. The S161 P2/P3
+// safety nets never reached the device that took the S162 field-day
+// loss for exactly this reason.
+//
+// Reload-loop guard: _swUpdatedHandled prevents double-firing if the
+// SW re-broadcasts (e.g. multi-tab races, or an update arriving while
+// the previous reload is still in progress).
+var _swUpdatedHandled = false;
+if ('serviceWorker' in navigator && navigator.serviceWorker.addEventListener) {
+  navigator.serviceWorker.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'sw-updated' || _swUpdatedHandled) return;
+    _swUpdatedHandled = true;
+    try { toast('App updated \u2014 reloading\u2026'); } catch(_) {}
+    Promise.resolve()
+      .then(function() {
+        if (typeof Model !== 'undefined' && Model.saveNow) return Model.saveNow();
+      })
+      .catch(function(){})
+      .then(function() {
+        // 1200ms — enough for the toast to be read, short enough to feel
+        // responsive. Reload aborts any in-flight fetches (including
+        // mid-upload R2 PUTs); that gap closes with Fix D in S164.
+        setTimeout(function(){ window.location.reload(); }, 1200);
+      });
+  });
+}
 
 // ── Debug exports ────────────────────────────────────────
 window._frt = {

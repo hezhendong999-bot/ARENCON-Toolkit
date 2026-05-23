@@ -1,6 +1,6 @@
 // ARENCON Field Review Tool — Service Worker
 // Strategy: network-first for HTML/JS/CSS (always get latest), cache-first for CDN assets
-var CACHE_NAME = 'arencon-frt-v488';
+var CACHE_NAME = 'arencon-frt-v489';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -103,6 +103,20 @@ self.addEventListener('activate', function(e) {
       );
     }).then(function() {
       return self.clients.claim();
+    }).then(function() {
+      // S163 Fix C (V-9): broadcast one-time "new SW active" to every
+      // controlled window. Clients respond by flushing Model→IDB and
+      // reloading (see app.js navigator.serviceWorker.message handler).
+      // This closes the 24-hour-max-age gap between deploying a safety
+      // fix and that fix actually executing on field devices. cacheName
+      // is included so future client-side dedup logic can ignore
+      // duplicate broadcasts for the same version.
+      return self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then(function(clients) {
+          clients.forEach(function(c) {
+            try { c.postMessage({ type: 'sw-updated', cacheName: CACHE_NAME }); } catch(_) {}
+          });
+        });
     })
   );
 });
