@@ -3591,6 +3591,48 @@ function _compressAndAdd(file, deficId, obsIdx) {
       if (pid && photo) {
         R2.uploadPhoto(pid, photo, 'original').then(function() {
           Model.saveNow(); // Save updated r2Key/r2Url
+        }).catch(function(r2err) {
+          // S164 Fix D (V-7): R2 PUT failure was previously an unhandled
+          // promise rejection — photo lived locally with r2Key:null
+          // indefinitely, inspector had no signal, next cloud pull (which
+          // wholesale replaces state) could silently erase it. Now we
+          // mark the photo, persist the flag across reload, and surface
+          // the failure. This is belt-and-suspenders for Fix A (S166+);
+          // the model field `_r2UploadFailed` becomes the input signal
+          // for the future outbox retry logic.
+          try {
+            photo._r2UploadFailed = true;
+            photo._r2UploadError = (r2err && r2err.message) || String(r2err);
+            photo._r2UploadFailedAt = new Date().toISOString();
+          } catch(_) {}
+
+          // Diagnostic ring buffer — outbox-precursor. Mark can read via
+          //   window._frt_r2Failures
+          // in DevTools console. Cap at 50 to bound memory under burst
+          // failure (offline burst, R2 worker down, etc.).
+          try {
+            var buf = (window._frt_r2Failures = window._frt_r2Failures || []);
+            buf.push({
+              photoId: photo && photo.id,
+              pid: pid,
+              when: photo && photo._r2UploadFailedAt,
+              error: photo && photo._r2UploadError
+            });
+            while (buf.length > 50) buf.shift();
+          } catch(_) {}
+
+          console.warn('[Deficiencies] R2 upload failed:', r2err, 'photo:', photo && photo.id);
+
+          var em2 = (photo && photo._r2UploadError) || 'unknown error';
+          if (em2.length > 60) em2 = em2.slice(0, 57) + '\u2026';
+          toast('\u26A0 Photo cloud upload failed: ' + em2, 8000);
+
+          // Force-persist the failure flag — the upstream Model.addObservationPhoto
+          // already scheduled a debounced save, but if reload/navigation
+          // intervenes before debounce fires, the _r2UploadFailed flag
+          // would not reach IDB. saveNow() guarantees persistence so
+          // future Fix A retry logic can pick this photo up after reload.
+          try { Model.saveNow(); } catch(_) {}
         });
       }
     })
