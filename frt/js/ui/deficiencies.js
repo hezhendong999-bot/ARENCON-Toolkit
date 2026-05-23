@@ -3532,34 +3532,25 @@ document.addEventListener('click', function(e) {
     if (!deficId) return;
     _photoTargetDeficId = deficId;
     _photoTargetObsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
-    var isCamera = (action === 'photo-camera');
 
-    // S159: camera mode keeps the OS camera "open" between shots by
-    // re-firing a fresh file input after each capture resolves. Native
-    // HTML5 <input type=file capture> always returns control after one
-    // photo; re-clicking the input immediately re-launches the camera.
-    // The user exits via the camera's native Cancel/Back button — that
-    // path does NOT fire onchange, so the loop ends naturally. Matches
-    // the S25 field-feedback rule: "Camera must stay open continuously."
-    function _openPhotoInput() {
-      var inp = document.createElement('input');
-      inp.type = 'file';
-      inp.accept = 'image/*';
-      inp.multiple = true;
-      if (isCamera) inp.capture = 'environment';
-      inp.onchange = function() {
-        if (!inp.files || !inp.files.length) return;
-        for (var i = 0; i < inp.files.length; i++) {
-          _compressAndAdd(inp.files[i], _photoTargetDeficId, _photoTargetObsIdx);
-        }
-        if (isCamera) {
-          // 150ms tick lets iOS finish its "Use Photo" handoff before re-firing.
-          setTimeout(_openPhotoInput, 150);
-        }
-      };
-      inp.click();
-    }
-    _openPhotoInput();
+    // S159: native HTML5 <input type=file capture> is single-shot by design.
+    // The S159 V-7 attempt to re-fire via setTimeout was blocked by browser
+    // user-gesture security policies (Android Chrome / iOS Safari both
+    // require input.click() to happen during a real user-gesture event).
+    // True multi-shot needs a custom getUserMedia + <video> camera, which
+    // is a larger feature build — tracked separately.
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.multiple = true;
+    if (action === 'photo-camera') inp.capture = 'environment';
+    inp.onchange = function() {
+      if (!inp.files || !inp.files.length) return;
+      for (var i = 0; i < inp.files.length; i++) {
+        _compressAndAdd(inp.files[i], _photoTargetDeficId, _photoTargetObsIdx);
+      }
+    };
+    inp.click();
   }
 });
 

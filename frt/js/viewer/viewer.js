@@ -1470,6 +1470,18 @@ function _pinToolDrop(clientX, clientY) {
   if (now - _lastPinDropTime < 400) return;
   _lastPinDropTime = now;
 
+  // S159 hotfix: if the click landed on an existing pin marker, open that
+  // pin's editor instead of creating a new one. Without this, the sticky
+  // pin-tool workflow (V-9) blocks the user from ever re-opening an
+  // existing pin to edit / delete it — every click on a pin would create
+  // a new one stacked at the same location.
+  var hitElement = document.elementFromPoint(clientX, clientY);
+  var existingId = _resolvePinAt(clientX, clientY, hitElement);
+  if (existingId) {
+    _openPinEditor(existingId);
+    return;
+  }
+
   var img = document.getElementById('dv-image');
   var wrap = document.getElementById('dv-img-wrap');
   if (!img || !wrap || !_getDrawingNaturalW(img)) return;
