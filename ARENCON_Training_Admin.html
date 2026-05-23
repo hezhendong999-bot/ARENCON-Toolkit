@@ -205,6 +205,54 @@ details.collapse[open]{padding-bottom:22px}
 .dz:hover,.dz.over{border-color:var(--arencon);
   background:var(--arencon-light);color:var(--arencon)}
 .dz img{max-height:160px;border-radius:8px;margin-top:10px}
+
+/* ── slice 2d: step cards + attachment list ── */
+.stepCard{background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--radius);padding:18px 20px;margin-bottom:16px}
+.stepCard:last-child{margin-bottom:0}
+.stepHd{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.stepNum{display:inline-flex;align-items:center;justify-content:center;
+  width:28px;height:28px;border-radius:50%;background:var(--arencon);
+  color:#fff;font-weight:700;font-size:calc(13px + var(--ts));
+  flex-shrink:0}
+.stepHd h3{margin:0;font-size:calc(15px + var(--ts));font-weight:700;
+  color:var(--fg)}
+.stepDesc{color:var(--steel);font-size:calc(12.5px + var(--ts));
+  margin-bottom:14px;line-height:1.5;margin-left:40px}
+.stepBody{margin-top:4px}
+details.stepCard{padding:0}
+details.stepCard>summary{list-style:none;cursor:pointer;padding:18px 20px;
+  display:flex;align-items:center;gap:12px}
+details.stepCard>summary::-webkit-details-marker{display:none}
+details.stepCard>summary::after{content:'\25B8';color:var(--steel);
+  margin-left:auto;font-size:14px;transition:transform .2s}
+details.stepCard[open]>summary::after{transform:rotate(90deg)}
+details.stepCard[open]>.stepBody{padding:0 20px 20px 20px}
+details.stepCard .stepHdInline h3{margin:0;font-size:calc(15px + var(--ts));
+  font-weight:700;color:var(--fg)}
+details.stepCard .stepHdInline .stepDescInline{color:var(--steel);
+  font-size:calc(12px + var(--ts));margin-top:2px}
+.attHint{background:var(--smoke);border:1px dashed var(--border);
+  border-radius:8px;padding:14px 18px;color:var(--steel);
+  font-size:calc(12.5px + var(--ts));line-height:1.5;text-align:center}
+.attList{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.attRow{display:flex;align-items:center;gap:12px;padding:10px 14px;
+  border:1px solid var(--border);border-radius:8px;background:var(--card)}
+.attRow .attIcon{font-size:20px;flex-shrink:0}
+.attRow .attMeta{flex:1;min-width:0;overflow:hidden}
+.attRow .attName{font-weight:600;color:var(--fg);
+  font-size:calc(13px + var(--ts));white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.attRow .attSub{color:var(--steel);font-size:calc(11.5px + var(--ts));margin-top:2px}
+.attRow .attRem{background:transparent;border:1px solid var(--border);
+  color:var(--steel);padding:6px 10px;border-radius:6px;cursor:pointer;
+  font-size:calc(11.5px + var(--ts));white-space:nowrap;font-family:'Calibri',sans-serif}
+.attRow .attRem:hover{border-color:var(--arencon);color:var(--arencon)}
+.attStat{font-size:calc(12px + var(--ts));color:var(--steel);
+  margin-top:8px;line-height:1.5;min-height:18px}
+body.dark-mode .stepCard{background:#1a2030}
+body.dark-mode .attHint{background:#1a2030;border-color:var(--border)}
+body.dark-mode .attRow{background:var(--card)}
 /* two-pane review: source image large, beside the questions */
 .work{display:flex;gap:18px;align-items:flex-start;margin-top:8px}
 .work .imgpane{flex:1 1 44%;position:sticky;top:64px;align-self:flex-start;
@@ -467,68 +515,115 @@ function renderCourse(cid){
   const ed = EDIT_ID ? ms.find(m=>m.id===EDIT_ID) : null;
   const _stOpts=[['youtube','YouTube video'],['vimeo','Vimeo video'],['r2','Uploaded video (R2)'],['doc','Document (PDF/slides URL)'],['image','Image / drawing'],['text','Text lesson']];
   const _stSel=(ed&&ed.source_type)||'youtube';
+  /* ── slice 2d: form restructured into 3 step cards.
+       Step 1 — Basics (open): title, description, content type, URL.
+       Step 2 — Lesson content (open): textarea + Tidy + quiz-source dropzone
+              + (edit mode only) attachments dropzone & list.
+       Step 3 — Quiz rules & question bank (collapsed): pass/draw/status/
+              code/review + keyword + Propose topics + topic/bank UI.
+       All existing field IDs preserved so JS handlers keep working. */
+  const ATT_SECTION = ed
+    ? `<div style="margin-top:18px">
+        <label style="display:block;font-weight:600;color:var(--fg);font-size:calc(13px + var(--ts));margin-bottom:6px">Attached files <span class="opt">resources for trainees</span></label>
+        <div class="subt" style="margin-bottom:10px">PDFs, Word, Excel, PowerPoint, images, or text files. Trainees see these as downloadable resources alongside the lesson. Max 20 MB per file.</div>
+        <div class="dz" id="dzAtt">📎 Drag a file here or click to browse<br>
+         <span style="font-size:12px">PDF · Word · Excel · PowerPoint · PNG / JPG / WEBP · TXT · CSV</span>
+         <input type="file" id="dzAttIn" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.gif,.txt,.csv" hidden></div>
+        <div class="attStat" id="attStat"></div>
+        <div class="attList" id="attList"></div>
+       </div>`
+    : `<div style="margin-top:18px">
+        <label style="display:block;font-weight:600;color:var(--fg);font-size:calc(13px + var(--ts));margin-bottom:6px">Attached files <span class="opt">resources for trainees</span></label>
+        <div class="attHint">Save the module first, then come back to attach PDFs, Excel, images, or other reference files for trainees.</div>
+       </div>`;
   const EDF=`
-    <div class="fld"><label>Module title</label>
-     <input type="text" id="mT" placeholder="e.g. Hazard classification basics" value="${esc(ed?ed.title:'')}"></div>
-    <div class="fld"><label>Short description</label>
-     <input type="text" id="mD" placeholder="One line shown on the card" value="${esc(ed?ed.description:'')}"></div>
-    <div class="row">
-     <div class="fld" style="max-width:200px"><label>Content type</label>
-      <select id="mSTYPE">
-       ${_stOpts.map(o=>`<option value="${o[0]}"${o[0]===_stSel?' selected':''}>${o[1]}</option>`).join('')}
-      </select></div>
-     <div class="fld"><label>URL or R2 key</label>
-      <input type="text" id="mSU" placeholder="paste video/doc URL" value="${esc(ed?ed.source_url:'')}"></div>
+    <div class="stepCard">
+     <div class="stepHd"><div class="stepNum">1</div><h3>Basics</h3></div>
+     <div class="stepDesc">Tell trainees what this module is about.</div>
+     <div class="stepBody">
+      <div class="fld"><label>Module title</label>
+       <input type="text" id="mT" placeholder="e.g. Hazard classification basics" value="${esc(ed?ed.title:'')}"></div>
+      <div class="fld"><label>Short description</label>
+       <input type="text" id="mD" placeholder="One line shown on the card" value="${esc(ed?ed.description:'')}"></div>
+      <div class="row">
+       <div class="fld" style="max-width:200px"><label>Content type</label>
+        <select id="mSTYPE">
+         ${_stOpts.map(o=>`<option value="${o[0]}"${o[0]===_stSel?' selected':''}>${o[1]}</option>`).join('')}
+        </select></div>
+       <div class="fld"><label>URL or R2 key</label>
+        <input type="text" id="mSU" placeholder="paste video/doc URL" value="${esc(ed?ed.source_url:'')}"></div>
+      </div>
+     </div>
     </div>
-    <div class="fld">
-     <div class="txtbar">
-      <label>Lesson / source text (used by AI to draft a quiz)</label>
-      <span class="txtmeta" id="txtMeta"></span>
-      <span style="flex:1"></span>
-      <button type="button" class="btn gh sm" id="txtExpand">⤢ Expand</button>
-      <button type="button" class="btn gh sm" id="txtTidy">✨ Tidy into lesson text</button>
-     </div>
-     <textarea id="mTXT" placeholder="Paste the lesson text, key points, or notes here. Optional for video modules, but the AI quiz works best with text.">${esc(ed?ed.source_text:'')}</textarea></div>
 
-    <details class="sec collapse" style="margin-top:14px"><summary><h2 style="display:inline-block;margin:0">Quiz rules &amp; content control</h2><span class="sumhint">pass · draw · status · code ref · review</span></summary>
-     <div class="subt">Set how the quiz runs and how the module is kept current. Defaults are fine for most modules.</div>
-     <div class="row">
-      <div class="fld" style="max-width:170px"><label>Pass mark (%)</label>
-       <input type="number" id="mPASS" min="1" max="100" step="1" value="${ed&&typeof ed.pass_threshold==='number'?ed.pass_threshold:70}"></div>
-      <div class="fld" style="max-width:200px"><label>Questions per attempt</label>
-       <input type="number" id="mDRAW" min="1" step="1" value="${ed&&typeof ed.draw_size==='number'?ed.draw_size:10}"></div>
-      <div class="fld" style="max-width:230px"><label>Status</label>
-       <select id="mSTATUS">
-        <option value="active"${(!ed||ed.status!=='draft')?' selected':''}>Active (live to learners)</option>
-        <option value="draft"${(ed&&ed.status==='draft')?' selected':''}>Draft (hidden from learners)</option>
-       </select></div>
+    <div class="stepCard">
+     <div class="stepHd"><div class="stepNum">2</div><h3>Lesson content</h3></div>
+     <div class="stepDesc">Paste lesson text (or extract it from a document). Trainees read this in the module. Optional reference files can be attached for download.</div>
+     <div class="stepBody">
+      <div class="fld">
+       <div class="txtbar">
+        <label>Lesson / source text (used by AI to draft a quiz)</label>
+        <span class="txtmeta" id="txtMeta"></span>
+        <span style="flex:1"></span>
+        <button type="button" class="btn gh sm" id="txtExpand">⤢ Expand</button>
+        <button type="button" class="btn gh sm" id="txtTidy">✨ Tidy into lesson text</button>
+       </div>
+       <textarea id="mTXT" placeholder="Paste the lesson text, key points, or notes here. Optional for video modules, but the AI quiz works best with text.">${esc(ed?ed.source_text:'')}</textarea>
+      </div>
+
+      <div style="margin-top:12px">
+       <div class="dz" id="dzDoc">📄 Extract text from a PDF, Word, or PowerPoint into the lesson box<br>
+        <span style="font-size:12px">The file's text is read on the server and fills the lesson text above — used for AI quiz generation</span>
+        <input type="file" id="dzDocIn" accept=".pdf,.docx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden></div>
+       <div id="docStat" style="font-size:calc(12px + var(--ts));color:var(--steel);margin-top:6px;line-height:1.5"></div>
+      </div>
+
+      ${ATT_SECTION}
      </div>
-     <div class="row">
-      <div class="fld" style="flex:1"><label>Built on code / standard <span class="opt">optional</span></label>
-       <input type="text" id="mCODE" placeholder="e.g. OBC 2024 Div B 3.2, or NFPA 13 (2022)" value="${esc(ed&&ed.code_ref?ed.code_ref:'')}"></div>
-      <div class="fld" style="max-width:200px"><label>Review by <span class="opt">optional</span></label>
-       <input type="date" id="mREVIEW" value="${ed&&ed.review_by?String(ed.review_by).slice(0,10):''}"></div>
+    </div>
+
+    <details class="stepCard" ${ed?'open':''}>
+     <summary>
+      <div class="stepNum">3</div>
+      <div class="stepHdInline">
+       <h3>Quiz rules &amp; question bank</h3>
+       <div class="stepDescInline">Pass mark · questions per attempt · status · code ref · propose topics · generate questions</div>
+      </div>
+     </summary>
+     <div class="stepBody">
+      <div class="subt" style="margin-bottom:14px">Defaults work for most modules. Adjust pass mark or draw size only when needed.</div>
+      <div class="row">
+       <div class="fld" style="max-width:170px"><label>Pass mark (%)</label>
+        <input type="number" id="mPASS" min="1" max="100" step="1" value="${ed&&typeof ed.pass_threshold==='number'?ed.pass_threshold:70}"></div>
+       <div class="fld" style="max-width:200px"><label>Questions per attempt</label>
+        <input type="number" id="mDRAW" min="1" step="1" value="${ed&&typeof ed.draw_size==='number'?ed.draw_size:10}"></div>
+       <div class="fld" style="max-width:230px"><label>Status</label>
+        <select id="mSTATUS">
+         <option value="active"${(!ed||ed.status!=='draft')?' selected':''}>Active (live to learners)</option>
+         <option value="draft"${(ed&&ed.status==='draft')?' selected':''}>Draft (hidden from learners)</option>
+        </select></div>
+      </div>
+      <div class="row">
+       <div class="fld" style="flex:1"><label>Built on code / standard <span class="opt">optional</span></label>
+        <input type="text" id="mCODE" placeholder="e.g. OBC 2024 Div B 3.2, or NFPA 13 (2022)" value="${esc(ed&&ed.code_ref?ed.code_ref:'')}"></div>
+       <div class="fld" style="max-width:200px"><label>Review by <span class="opt">optional</span></label>
+        <input type="date" id="mREVIEW" value="${ed&&ed.review_by?String(ed.review_by).slice(0,10):''}"></div>
+      </div>
+
+      <div style="margin-top:18px;padding-top:18px;border-top:1px solid var(--border)">
+       <div class="subt" style="margin-bottom:10px"><b>Topics &amp; question bank.</b> Propose topics from your source text, approve them, then generate questions per topic.</div>
+       <div class="row" style="align-items:flex-end">
+        <div class="fld" style="flex:1"><label>Keyword / focus for topic proposal</label>
+         <input type="text" id="bkKw" placeholder="e.g. hydraulic calculations, hazard classification"></div>
+        <button class="btn gh" id="propBtn" style="margin-bottom:14px">✨ Propose topics</button>
+       </div>
+       <div id="topWrap" style="margin-top:4px"></div>
+       <div id="bankWrap" style="margin-top:14px"></div>
+      </div>
      </div>
     </details>
 
-    <div class="subt" style="margin-top:14px"><b>Topics &amp; question bank.</b> Propose topics from your source text, approve them, then generate questions per topic.</div>
-
-
-    <div style="margin:12px 0">
-     <div class="dz" id="dzDoc">📄 Attach a PDF, Word, or PowerPoint — click or drop<br>
-      <span style="font-size:12px">Text is extracted on the server and fills the lesson box above — no copy-paste — then draft the quiz</span>
-      <input type="file" id="dzDocIn" accept=".pdf,.docx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden></div>
-     <div id="docStat" style="font-size:calc(12px + var(--ts));color:var(--steel);margin-top:6px;line-height:1.5"></div>
-    </div>
-
-    <div class="row" style="align-items:flex-end">
-     <div class="fld" style="flex:1"><label>Keyword / focus for topic proposal</label>
-      <input type="text" id="bkKw" placeholder="e.g. hydraulic calculations, hazard classification"></div>
-     <button class="btn gh" id="propBtn" style="margin-bottom:14px">✨ Propose topics</button>
-    </div>
-    <div id="topWrap" style="margin-top:4px"></div>
-    <div id="bankWrap" style="margin-top:14px"></div>
-    <div class="btnrow" style="margin-top:16px">
+    <div class="btnrow" style="margin-top:18px">
      <button class="btn pri" id="addM">${ed?'Update module':'Save module'}</button>
      ${ed?`<button class="btn gh" onclick="cancelEdit('${cid}')">Cancel</button>`:''}
     </div>`;
@@ -615,6 +710,158 @@ function renderCourse(cid){
   dzDoc.ondrop=e=>{e.preventDefault();dzDoc.classList.remove('over');
     if(e.dataTransfer.files[0])readDoc(e.dataTransfer.files[0]);};
   dzDocIn.onchange=()=>{ if(dzDocIn.files[0]) readDoc(dzDocIn.files[0]); };
+
+  /* ─── slice 2d: module attachments (reference files for trainees) ─── */
+  const SIGNURL_EF='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-attachment-signurl';
+  const ATT_BUCKET='tc-module-attachments';
+  const ATT_MAX_BYTES=20*1024*1024;
+  const ATT_MAX_FILES=10;
+  function fmtBytes(n){
+    if(!n) return '0 B';
+    if(n<1024) return n+' B';
+    if(n<1024*1024) return (n/1024).toFixed(1)+' KB';
+    return (n/1024/1024).toFixed(1)+' MB';
+  }
+  function attIcon(mime){
+    if(!mime) return '📎';
+    if(mime.startsWith('image/')) return '🖼️';
+    if(mime==='application/pdf') return '📄';
+    if(mime.includes('word')) return '📝';
+    if(mime.includes('sheet')||mime.includes('excel')) return '📊';
+    if(mime.includes('presentation')||mime.includes('powerpoint')) return '📽️';
+    if(mime.startsWith('text/')) return '📃';
+    return '📎';
+  }
+  async function attList(mid){
+    /* SELECT from tc_module_attachments via PostgREST. Reads use anon
+       JWT (RLS: any authenticated user can see all attachments). */
+    const r=await fetch(SB_URL+
+      '/rest/v1/tc_module_attachments?module_id=eq.'+encodeURIComponent(mid)+
+      '&select=id,file_name,storage_path,mime_type,size_bytes,display_order,created_at'+
+      '&order=display_order.asc,created_at.asc',
+      {headers:{apikey:SB_ANON,Authorization:'Bearer '+(liveTok()||SB_ANON)}});
+    if(!r.ok) throw new Error('list '+r.status);
+    return r.json();
+  }
+  async function attRenderList(mid){
+    const wrap=document.getElementById('attList');
+    if(!wrap) return;
+    try{
+      const rows=await attList(mid);
+      if(!rows.length){
+        wrap.innerHTML='<div class="subt" style="margin-top:6px">No files attached yet.</div>';
+        return;
+      }
+      wrap.innerHTML=rows.map(a=>
+        `<div class="attRow" data-id="${a.id}">`+
+          `<div class="attIcon">${attIcon(a.mime_type)}</div>`+
+          `<div class="attMeta">`+
+            `<div class="attName">${esc(a.file_name)}</div>`+
+            `<div class="attSub">${fmtBytes(a.size_bytes)} · ${esc(a.mime_type||'')}</div>`+
+          `</div>`+
+          `<button class="attRem" onclick="window.__attDel('${a.id}','${esc(a.storage_path)}','${esc(mid)}')">Remove</button>`+
+        `</div>`).join('');
+    }catch(err){
+      console.warn('attList failed',err);
+      wrap.innerHTML='<div class="subt" style="margin-top:6px;color:var(--err)">Couldn\'t load attachments.</div>';
+    }
+  }
+  async function attUpload(file,mid){
+    const stat=document.getElementById('attStat');
+    if(!stat) return;
+    if(file.size>ATT_MAX_BYTES){
+      stat.textContent='File too large (max '+fmtBytes(ATT_MAX_BYTES)+').';
+      return;
+    }
+    /* Cap on number of files */
+    let existing=[];
+    try{ existing=await attList(mid); }catch(_e){}
+    if(existing.length>=ATT_MAX_FILES){
+      stat.textContent='Maximum '+ATT_MAX_FILES+' files per module. Remove one before adding another.';
+      return;
+    }
+    /* Build storage path: {moduleId}/{uuid}-{safeName}. UUID avoids
+       collisions; safe-name preserves a readable suffix for ops. */
+    const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_').slice(0,80);
+    const uuid=(crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(36).slice(2,10));
+    const storagePath=mid+'/'+uuid+'-'+safe;
+    stat.textContent='Uploading '+file.name+'\u2026';
+    try{
+      /* Upload directly to Supabase Storage with the admin's JWT.
+         Storage RLS verifies tc_is_admin() before allowing the write. */
+      const up=await fetch(SB_URL+'/storage/v1/object/'+ATT_BUCKET+'/'+encodeURI(storagePath),{
+        method:'POST',
+        headers:{apikey:SB_ANON,Authorization:'Bearer '+liveTok(),
+                 'Content-Type':file.type||'application/octet-stream',
+                 'x-upsert':'false'},
+        body:file});
+      if(!up.ok){
+        const t=await up.text();
+        throw new Error('upload '+up.status+': '+t.slice(0,200));
+      }
+      /* Insert metadata row */
+      const meta={module_id:mid, file_name:file.name,
+                  storage_path:storagePath,
+                  mime_type:file.type||'application/octet-stream',
+                  size_bytes:file.size,
+                  display_order:existing.length};
+      const ins=await fetch(SB_URL+'/rest/v1/tc_module_attachments',{
+        method:'POST',
+        headers:{apikey:SB_ANON,Authorization:'Bearer '+liveTok(),
+                 'Content-Type':'application/json',Prefer:'return=minimal'},
+        body:JSON.stringify(meta)});
+      if(!ins.ok){
+        const t=await ins.text();
+        /* Try to clean up the orphaned storage object */
+        fetch(SB_URL+'/storage/v1/object/'+ATT_BUCKET+'/'+encodeURI(storagePath),
+          {method:'DELETE',headers:{apikey:SB_ANON,Authorization:'Bearer '+liveTok()}}).catch(()=>{});
+        throw new Error('metadata insert '+ins.status+': '+t.slice(0,200));
+      }
+      stat.textContent='\u2713 Uploaded '+file.name;
+      await attRenderList(mid);
+      /* Clear the status after 4s */
+      setTimeout(()=>{ if(stat.textContent.startsWith('\u2713')) stat.textContent=''; },4000);
+    }catch(err){
+      console.warn('attUpload failed',err);
+      stat.textContent='Upload failed: '+err.message;
+    }
+  }
+  window.__attDel=async (aid,storagePath,mid)=>{
+    if(!confirm('Remove this attachment? This permanently deletes the file.')) return;
+    try{
+      /* Delete the metadata row first (FK has no dependents) */
+      const d=await fetch(SB_URL+'/rest/v1/tc_module_attachments?id=eq.'+aid,{
+        method:'DELETE',
+        headers:{apikey:SB_ANON,Authorization:'Bearer '+liveTok()}});
+      if(!d.ok){
+        const t=await d.text();
+        throw new Error('delete '+d.status+': '+t.slice(0,200));
+      }
+      /* Then the storage object (best-effort; orphan is harmless) */
+      await fetch(SB_URL+'/storage/v1/object/'+ATT_BUCKET+'/'+encodeURI(storagePath),
+        {method:'DELETE',
+         headers:{apikey:SB_ANON,Authorization:'Bearer '+liveTok()}}).catch(()=>{});
+      await attRenderList(mid);
+      const stat=document.getElementById('attStat');
+      if(stat){ stat.textContent='\u2713 Removed.'; setTimeout(()=>{ if(stat.textContent.startsWith('\u2713')) stat.textContent=''; },3000); }
+    }catch(err){
+      console.warn('attDel failed',err);
+      alert('Couldn\'t remove: '+err.message);
+    }
+  };
+  /* Wire the attachment dropzone (only present in edit mode) */
+  const dzAtt=document.getElementById('dzAtt');
+  if(dzAtt && ed){
+    const dzAttIn=document.getElementById('dzAttIn');
+    dzAtt.onclick=()=>dzAttIn.click();
+    dzAtt.ondragover=e=>{e.preventDefault();dzAtt.classList.add('over');};
+    dzAtt.ondragleave=()=>dzAtt.classList.remove('over');
+    dzAtt.ondrop=e=>{e.preventDefault();dzAtt.classList.remove('over');
+      if(e.dataTransfer.files[0]) attUpload(e.dataTransfer.files[0],ed.id);};
+    dzAttIn.onchange=()=>{ if(dzAttIn.files[0]){ attUpload(dzAttIn.files[0],ed.id); dzAttIn.value=''; } };
+    /* Initial render */
+    attRenderList(ed.id);
+  }
 
   /* ─── lesson-text helpers: autogrow + count, expand, tidy-into-lesson AI ─── */
   const CLEAN_EF='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/training-clean';
