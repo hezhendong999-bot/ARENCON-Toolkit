@@ -252,6 +252,17 @@ function wireLoadExport() {
     closeMoreMenu();
   });
 
+  // S161 P3: Diagnostics button in More menu — opens the existing
+  // _showCloudDiagnostic modal. Previously the modal was only reachable
+  // by tapping the small "Saved to cloud" header chip, which inspectors
+  // didn't know was tappable. Dedicated button + extended modal (with
+  // photo subsystem state) gives field-friendly diagnostic access.
+  var btnDiag = document.getElementById('btn-diagnostics');
+  if (btnDiag) btnDiag.addEventListener('click', function() {
+    closeMoreMenu();
+    if (typeof _showCloudDiagnostic === 'function') _showCloudDiagnostic();
+  });
+
   // Mobile buttons
   var mobileExport = document.getElementById('mobile-export-btn');
   if (mobileExport) mobileExport.addEventListener('click', function() {
@@ -1131,6 +1142,31 @@ function _showCloudDiagnostic() {
   lines.push('APP VERSION:');
   lines.push('  SW cache: see console');
   lines.push('  User agent: ' + (navigator.userAgent || '').slice(0, 60));
+  lines.push('');
+  // S161 P3: Photo subsystem state. Captures the data needed to diagnose
+  // the "added a photo but no thumbnail" silent-failure pattern from
+  // back-to-back photos in the pin editor. workerOK=false + non-zero
+  // fallbackCount = worker died, browser fell back to main-thread JPEG
+  // encoding; high mem usage + high fallback count = OOM pressure;
+  // lastError tells us WHY the worker died.
+  lines.push('PHOTO SUBSYSTEM:');
+  var iw = (typeof window !== 'undefined' && window._frt_imageWorker) ? window._frt_imageWorker._diag : null;
+  if (iw) {
+    lines.push('  Worker OK:    ' + (iw.workerOK ? 'YES' : 'NO'));
+    lines.push('  Compress calls: ' + (iw.callCount || 0));
+    lines.push('  Fallbacks (worker died): ' + (iw.fallbackCount || 0));
+    lines.push('  Last error: ' + (iw.lastError || '(none)'));
+  } else {
+    lines.push('  (image worker not loaded yet)');
+  }
+  if (typeof performance !== 'undefined' && performance.memory) {
+    var used = Math.round(performance.memory.usedJSHeapSize / 1048576);
+    var lim = Math.round(performance.memory.jsHeapSizeLimit / 1048576);
+    var pct = Math.round(100 * used / lim);
+    lines.push('  Memory: ' + used + ' MB / ' + lim + ' MB  (' + pct + '%)');
+  } else {
+    lines.push('  Memory: (not reported by this browser)');
+  }
 
   // Render as a fixed overlay (not alert() because Chrome Android may truncate it)
   var prior = document.getElementById('cloud-diag-overlay');

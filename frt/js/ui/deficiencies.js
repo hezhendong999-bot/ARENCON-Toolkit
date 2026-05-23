@@ -3595,7 +3595,26 @@ function _compressAndAdd(file, deficId, obsIdx) {
       }
     })
     .catch(function(err) {
-      console.warn('[Deficiencies] photo compression failed:', err && err.message);
+      // S161 P3: replace silent console.warn with a long-duration toast
+      // that surfaces the failure to the inspector in the field. Embeds
+      // image-worker diagnostic state inline so a screenshot of the
+      // toast tells us why compression failed (worker died, fell back to
+      // main thread, browser ran low on memory, etc.) without needing
+      // dev console access on the tablet. Error message capped at 60
+      // chars because toast.js uses white-space:nowrap and we don't
+      // want the toast to overflow off-screen.
+      var em = (err && err.message) || 'unknown error';
+      if (em.length > 60) em = em.slice(0, 57) + '\u2026';
+      var d = (window._frt_imageWorker && window._frt_imageWorker._diag) || {};
+      var bits = ['worker:' + (d.workerOK ? 'OK' : 'down')];
+      if (typeof d.fallbackCount === 'number') bits.push('fb:' + d.fallbackCount);
+      if (typeof performance !== 'undefined' && performance.memory) {
+        var used = Math.round(performance.memory.usedJSHeapSize / 1048576);
+        var lim = Math.round(performance.memory.jsHeapSizeLimit / 1048576);
+        bits.push('mem:' + used + '/' + lim + 'MB');
+      }
+      console.warn('[Deficiencies] photo compression failed:', err, d);
+      toast('\u26A0 Photo failed: ' + em + ' \u00B7 ' + bits.join(' \u00B7 '), 8000);
     });
 }
 
