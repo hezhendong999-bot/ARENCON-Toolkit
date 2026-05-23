@@ -88,9 +88,23 @@ function _dayKey(ph, parentDefic) {
   }
   if (!d) return { key: 'no-date', label: 'No date' };
   try {
-    var dt = new Date(d);
+    // S160: when d is an ISO date-only string (YYYY-MM-DD), parse via component
+    // constructor so the Date lands at midnight LOCAL — not UTC. Otherwise
+    // EDT tablets see "2026-05-20" labeled "May 19" because new Date("2026-05-20")
+    // parses as UTC midnight, then toLocaleDateString shifts back into local tz.
+    var dt;
+    var dateOnly = (typeof d === 'string') && d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnly) {
+      dt = new Date(parseInt(dateOnly[1],10), parseInt(dateOnly[2],10)-1, parseInt(dateOnly[3],10));
+    } else {
+      dt = new Date(d);
+    }
     if (isNaN(dt.getTime())) return { key: 'no-date', label: 'No date' };
-    var key = dt.toISOString().split('T')[0];
+    // Build key in local-date form so it matches the displayed label
+    var yy = dt.getFullYear();
+    var mm = String(dt.getMonth() + 1).padStart(2, '0');
+    var dd = String(dt.getDate()).padStart(2, '0');
+    var key = yy + '-' + mm + '-' + dd;
     var label = dt.toLocaleDateString('en-CA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
     return { key: key, label: label };
   } catch(e) { return { key: 'no-date', label: 'No date' }; }
