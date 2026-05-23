@@ -7,8 +7,43 @@
  * Auto-refreshes expired access tokens.
  */
 
-var SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
-var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+// ── Supabase Config ──
+// Production credentials (active by default)
+var SUPABASE_URL_PROD = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+var SUPABASE_ANON_KEY_PROD = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+
+// Staging credentials — fill in once the arencon-frt-staging Supabase project exists.
+// Until both fields are non-empty, ?staging=1 falls back to PROD with a visible warning
+// banner (injected by frt/index.html). MUST stay in sync with the equivalent block in
+// ARENCON_Project_Hub.html — update both files in the same commit when credentials arrive.
+var SUPABASE_URL_STAGING = '';
+var SUPABASE_ANON_KEY_STAGING = '';
+
+// ── Environment Detection ──
+// `location.search` is available at module-load time in browsers; no DOM wait needed.
+var _stagingRequested = (typeof location !== 'undefined') && new URLSearchParams(location.search).get('staging') === '1';
+var _stagingActive = _stagingRequested && !!SUPABASE_URL_STAGING && !!SUPABASE_ANON_KEY_STAGING;
+var SUPABASE_URL = _stagingActive ? SUPABASE_URL_STAGING : SUPABASE_URL_PROD;
+var SUPABASE_ANON_KEY = _stagingActive ? SUPABASE_ANON_KEY_STAGING : SUPABASE_ANON_KEY_PROD;
+
+// ── Staging Banner (FRT side) ──
+// ES modules are deferred — document.body exists by the time this runs.
+// Visible top stripe whenever ?staging=1 is in the URL. Two visual states:
+//   - _stagingActive = true  → "STAGING ENVIRONMENT" (informational)
+//   - _stagingActive = false → "STAGING NOT CONFIGURED — RUNNING ON PRODUCTION" (warning)
+// The warning state is critical: it tells the user their staging request was ignored,
+// preventing the dangerous scenario of writing to PROD while believing they're on staging.
+if (_stagingRequested && typeof document !== 'undefined' && document.body) {
+  var _stagingBar = document.createElement('div');
+  _stagingBar.id = 'staging-banner';
+  _stagingBar.textContent = _stagingActive
+    ? '\u26A0 STAGING ENVIRONMENT \u2014 Test data only'
+    : '\u26A0 STAGING REQUESTED BUT NOT CONFIGURED \u2014 RUNNING ON PRODUCTION';
+  _stagingBar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10000;background:#1A1A1A;color:#FFD600;text-align:center;padding:6px 10px;font-family:Calibri,sans-serif;font-weight:bold;font-size:13px;letter-spacing:1px;box-shadow:0 2px 6px rgba(0,0,0,.35);border-bottom:2px solid #FFD600;';
+  document.body.insertBefore(_stagingBar, document.body.firstChild);
+  document.body.style.paddingTop = '32px';
+  console.log('[Auth] Staging mode: requested=' + _stagingRequested + ' active=' + _stagingActive);
+}
 
 var _user = null;
 var _role = null;

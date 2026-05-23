@@ -36,7 +36,13 @@ import { IDB } from './idb.js';
 // never calls merge3() directly. The engine still lives in data/merge.js.
 import { SyncWorkerHost } from './syncWorkerHost.js';
 
-var SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+// S165 — like the anon key above, the URL also lives in Auth (single source of truth).
+// Auth's URL is computed at module load and reflects staging vs prod based on ?staging=1
+// in the URL. Reading it dynamically prevents the S125 #1 class of bug where a copy here
+// would drift from Auth.
+function _url() {
+  return (Auth && Auth.SUPABASE_URL) ? Auth.SUPABASE_URL : 'https://xsemvinxsyphjiaqgywv.supabase.co';
+}
 // S125 #1 — The anon key was rotated in early March 2026 but the copy here
 // was missed, causing every PATCH to return 401 "Invalid API key" while
 // pulls (which use Auth.request) worked fine. Cloud saves silently failed
@@ -202,7 +208,7 @@ function _rawFetch(path, opts, _isRetry) {
     'Content-Type': 'application/json'
   }, opts.headers || {});
 
-  return fetch(SUPABASE_URL + path, {
+  return fetch(_url() + path, {
     method: opts.method || 'GET',
     headers: headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined

@@ -59,6 +59,25 @@ var _currentTab = 'info';
 var _hubMode = false;
 var _projectId = null;
 
+// ── S165 Hub URL Helper ──────────────────────────────────
+// Centralizes Hub link construction so the ?staging=1 flag propagates from
+// FRT back to Hub on every navigation path. Without this, clicking the
+// back button or sign-out drops the staging flag — Hub then loads in PROD
+// mode and the warning banner disappears. Used by back-button, logo link,
+// sign-out, cloud diag sign-in, and the auth-session-invalid redirect.
+function _hubUrl(extraQuery) {
+  var url = '../ARENCON_Project_Hub.html';
+  var parts = [];
+  if (extraQuery) parts.push(extraQuery);
+  try {
+    if (new URLSearchParams(location.search).get('staging') === '1') {
+      parts.push('staging=1');
+    }
+  } catch(_) {}
+  if (parts.length) url += '?' + parts.join('&');
+  return url;
+}
+
 // ── Hub Mode Detection ───────────────────────────────────
 function detectHubMode() {
   var params = new URLSearchParams(window.location.search);
@@ -67,12 +86,12 @@ function detectHubMode() {
     _hubMode = true;
     _projectId = pid;
     var logoLink = document.getElementById('logo-link');
-    if (logoLink) logoLink.href = '../ARENCON_Project_Hub.html';
+    if (logoLink) logoLink.href = _hubUrl();
     var backBtn = document.getElementById('back-btn');
     if (backBtn) {
       backBtn.style.display = '';
       backBtn.addEventListener('click', function() {
-        window.location.href = '../ARENCON_Project_Hub.html';
+        window.location.href = _hubUrl();
       });
     }
     console.log('[FRT v2] Hub mode \u2014 project:', pid);
@@ -1200,7 +1219,7 @@ function _showCloudDiagnostic() {
   ov.addEventListener('click', function(e){ if (e.target === ov) ov.parentNode.removeChild(ov); });
   panel.querySelector('#cloud-diag-close').addEventListener('click', function(){ ov.parentNode.removeChild(ov); });
   var signIn = panel.querySelector('#cloud-diag-signin');
-  if (signIn) signIn.addEventListener('click', function(){ window.location.href = '../ARENCON_Project_Hub.html'; });
+  if (signIn) signIn.addEventListener('click', function(){ window.location.href = _hubUrl(); });
 }
 // Expose globally for inline onclick / console poking
 window._showCloudDiagnostic = _showCloudDiagnostic;
@@ -1212,7 +1231,7 @@ function _signOut() {
       try { Presence.stop(); } catch(_){} // S117-A
       Auth.signOut().then(function() {
         toast('Signed out');
-        window.location.href = '../ARENCON_Project_Hub.html';
+        window.location.href = _hubUrl();
       });
     }
   });
@@ -1614,7 +1633,7 @@ function boot() {
           console.warn('[FRT v2] No auth session — redirecting to Hub login');
         }
         var returnUrl = encodeURIComponent(window.location.href);
-        window.location.href = '../ARENCON_Project_Hub.html?returnTo=' + returnUrl;
+        window.location.href = _hubUrl('returnTo=' + returnUrl);
         return null;
       }
 

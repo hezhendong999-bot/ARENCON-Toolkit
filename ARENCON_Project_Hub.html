@@ -1119,8 +1119,43 @@ body.text-l{--ts:4px;}
    ═══════════════════════════════════════════════════════ */
 
 // ── Supabase Config ──
-const SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+// Production credentials (active by default)
+const SUPABASE_URL_PROD = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+const SUPABASE_ANON_KEY_PROD = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+
+// Staging credentials — fill in once the arencon-frt-staging Supabase project exists.
+// Until both fields are non-empty, ?staging=1 falls back to PROD with a visible warning banner.
+// These values MUST stay in sync with the equivalent block in frt/js/shared/auth.js — when
+// you receive the staging URL + anon key, update both files in the same commit.
+const SUPABASE_URL_STAGING = '';
+const SUPABASE_ANON_KEY_STAGING = '';
+
+// ── Environment Detection ──
+const STAGING_REQUESTED = new URLSearchParams(location.search).get('staging') === '1';
+const STAGING_ACTIVE = STAGING_REQUESTED && !!SUPABASE_URL_STAGING && !!SUPABASE_ANON_KEY_STAGING;
+const SUPABASE_URL = STAGING_ACTIVE ? SUPABASE_URL_STAGING : SUPABASE_URL_PROD;
+const SUPABASE_ANON_KEY = STAGING_ACTIVE ? SUPABASE_ANON_KEY_STAGING : SUPABASE_ANON_KEY_PROD;
+
+// ── Staging Banner ──
+// Visible top stripe whenever ?staging=1 is in the URL. Two visual states:
+//   - STAGING_ACTIVE = true  → "STAGING ENVIRONMENT" (informational)
+//   - STAGING_ACTIVE = false → "STAGING NOT CONFIGURED — RUNNING ON PRODUCTION" (warning)
+// The second state is critical: it tells the user their staging request was ignored,
+// preventing the dangerous scenario where they think they're on staging but are actually
+// reading and writing production data.
+if (STAGING_REQUESTED) {
+  document.addEventListener('DOMContentLoaded', function(){
+    var bar = document.createElement('div');
+    bar.id = 'staging-banner';
+    var msg = STAGING_ACTIVE
+      ? '\u26A0 STAGING ENVIRONMENT \u2014 Test data only'
+      : '\u26A0 STAGING REQUESTED BUT NOT CONFIGURED \u2014 RUNNING ON PRODUCTION';
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10000;background:#1A1A1A;color:#FFD600;text-align:center;padding:6px 10px;font-family:Calibri,sans-serif;font-weight:bold;font-size:13px;letter-spacing:1px;box-shadow:0 2px 6px rgba(0,0,0,.35);border-bottom:2px solid #FFD600;';
+    bar.textContent = msg;
+    document.body.insertBefore(bar, document.body.firstChild);
+    document.body.style.paddingTop = '32px';
+  });
+}
 
 // ── State ──
 let _sb = null;           // Supabase client
@@ -2014,7 +2049,8 @@ function launchTool(key) {
     + '&pname=' + encodeURIComponent(proj.project_name || '')
     + '&client=' + encodeURIComponent(proj.client || '')
     + '&addr=' + encodeURIComponent(proj.address || '')
-    + '&sfn=' + encodeURIComponent(sfn);
+    + '&sfn=' + encodeURIComponent(sfn)
+    + (STAGING_REQUESTED ? '&staging=1' : '');
   window.open(url, '_blank');
 }
 
@@ -2162,7 +2198,8 @@ function launchToolInstance(key, instanceId) {
     + '&pname=' + encodeURIComponent(proj.project_name || '')
     + '&client=' + encodeURIComponent(proj.client || '')
     + '&addr=' + encodeURIComponent(proj.address || '')
-    + '&sfn=' + encodeURIComponent(sfn);
+    + '&sfn=' + encodeURIComponent(sfn)
+    + (STAGING_REQUESTED ? '&staging=1' : '');
   window.open(url, '_blank');
 }
 
@@ -4515,7 +4552,8 @@ function pgLbOpenInFrt() {
   var url = 'frt/index.html?project=' + encodeURIComponent(pid)
           + (ph.instanceId ? '&instance=' + encodeURIComponent(ph.instanceId) : '')
           + '&pinFocus=' + encodeURIComponent(ph.deficId)
-          + '&from=hub';
+          + '&from=hub'
+          + (STAGING_REQUESTED ? '&staging=1' : '');
   // Close lightbox before navigating so it doesn't flash on back-nav.
   pgLbClose();
   window.location.href = url;
@@ -5039,7 +5077,8 @@ function _pgEscHtml(s) {
       +'&pn='+encodeURIComponent(pn)
       +'&pname='+encodeURIComponent(pname)
       +'&client='+encodeURIComponent(client)
-      +'&addr='+encodeURIComponent(addr);
+      +'&addr='+encodeURIComponent(addr)
+      +(STAGING_REQUESTED ? '&staging=1' : '');
     var toolLabel=AVAILABLE_TOOLS[toolKey]?AVAILABLE_TOOLS[toolKey].name:toolKey;
     openQRModal(url,'Open '+toolLabel,'Scan to open tool for: '+(pn+' '+pname).trim());
   };
