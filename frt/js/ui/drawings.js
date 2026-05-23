@@ -13,6 +13,7 @@ import { R2 } from '../data/r2.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm } from '../shared/dialogs.js';
 import { showPrompt } from '../shared/dialogs.js';
+import { showTypeToConfirm } from '../shared/dialogs.js';
 import { initViewer } from '../viewer/viewer.js';
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -995,7 +996,16 @@ function _showDrawingContextMenu(drawingId, anchorEl) {
     } else if (act === 'download') {
       _downloadDrawingWithPins(dwg);
     } else if (act === 'delete') {
-      showConfirm('Delete Drawing', 'Delete "' + (dwg ? dwg.name : 'this drawing') + '"? Pins will be removed.').then(function(yes) {
+      // S158 V-3: drawing delete is permanent (undo system only covers
+      // deficiency deletion, not drawings). Require typed DELETE to prevent
+      // accidental loss of pins and R2 binaries. _removeDrawingWithCleanup
+      // also fires R2.deleteDrawingAssets (sharing-checked) so the binary
+      // can be unrecoverable if no other drawing references it.
+      showTypeToConfirm(
+        'Delete Drawing',
+        'Delete "' + (dwg ? dwg.name : 'this drawing') + '"? All pins on it will be removed. This cannot be undone.',
+        'DELETE'
+      ).then(function(yes) {
         if (yes) { _removeDrawingWithCleanup(drawingId); initDrawings.render(); toast('Deleted'); }
       });
     }
@@ -1173,7 +1183,12 @@ document.addEventListener('click', function(e) {
           var n2 = _selectedDrawings.size;
           if (!n2) { toast('No drawings selected'); }
           else {
-            showConfirm('Delete ' + n2 + ' Drawing' + (n2>1?'s':''), 'Pins on these drawings will be removed. Continue?').then(function(yes){
+            // S158 V-3: bulk drawing delete requires typed DELETE.
+            showTypeToConfirm(
+              'Delete ' + n2 + ' Drawing' + (n2>1?'s':''),
+              'All pins on these ' + n2 + ' drawing' + (n2>1?'s':'') + ' will be removed. This cannot be undone.',
+              'DELETE'
+            ).then(function(yes){
               if (!yes) return;
               _selectedDrawings.forEach(function(id){ _removeDrawingWithCleanup(id); });
               _selectedDrawings.clear(); initDrawings.render(); toast('Deleted ' + n2);
@@ -1229,7 +1244,12 @@ document.addEventListener('click', function(e) {
     defs.forEach(function(d) { (d.observations || []).forEach(function(o) { if (o.drawingId) pinnedIds[o.drawingId] = true; if (o.pinDrawingId) pinnedIds[o.pinDrawingId] = true; }); if (d.drawingId) pinnedIds[d.drawingId] = true; });
     var orphans = drawings.filter(function(d) { return !pinnedIds[d.id]; });
     if (!orphans.length) { toast('No orphan drawings to purge'); return; }
-    showConfirm('Purge Orphan Drawings', 'Delete ' + orphans.length + ' drawing' + (orphans.length>1?'s':'') + ' with no pins? This cannot be undone.').then(function(yes) {
+    // S158 V-3: purging orphan drawings is permanent (no undo). Typed DELETE.
+    showTypeToConfirm(
+      'Purge Orphan Drawings',
+      'Delete ' + orphans.length + ' drawing' + (orphans.length>1?'s':'') + ' with no pins? This cannot be undone.',
+      'DELETE'
+    ).then(function(yes) {
       if (!yes) return;
       orphans.forEach(function(d) { _removeDrawingWithCleanup(d.id); });
       initDrawings.render();
