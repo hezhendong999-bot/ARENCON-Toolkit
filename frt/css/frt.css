@@ -1290,7 +1290,7 @@ body.dark-mode .dv-tasks-header{border-bottom-color:#3a3e48;color:#ddd;}
    2 cols at 600px, 3-4 at typical desktop, 5+ at wide screens. The 280px floor is
    the smallest thumbnail width at which a plan is still inspectable (per backlog).
    Compact mode keeps the original flex-wrap layout so 90px thumbnails flow normally. */
-.dwg-card-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:0 4px 8px 4px;}
+.dwg-card-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;padding:0 4px 8px 4px;}
 .dwg-card-row.compact-mode{display:flex;flex-wrap:wrap;}
 .drawing-card{border-radius:8px;border:2px solid var(--border);overflow:hidden;position:relative;background:var(--white);transition:border-color .15s,box-shadow .15s;user-select:none;-webkit-user-select:none;}
 .drawing-card:hover{border-color:var(--red);box-shadow:0 2px 8px rgba(0,0,0,.1);}
