@@ -234,15 +234,11 @@ function _processRow(row) {
     _notify('r2_confirmed', { rowId: row.id, photoId: row.photoId,
       r2Key: result.r2Key, r2Url: result.r2Url });
 
-    // S170 simplification: no cloud-confirmation tracking yet. The row
-    // stays in r2_confirmed status until S171 wires the markCloudConfirmed
-    // path. For now we delete the row after a short delay so the count
-    // returns to zero — accepting that S170 outbox does NOT yet protect
-    // against the pull-replace bug.
-    setTimeout(function() {
-      _deleteRow(row.id).catch(function() {});
-      _notify('cloud_confirmed', { rowId: row.id, photoId: row.photoId });
-    }, 2000);
+    // S171: row STAYS in r2_confirmed until sync.js push captures the
+    // photo in cloud and calls PhotoOutbox.markCloudConfirmed. This is
+    // what makes Enhancement 2 (atomicity through cloud push) work —
+    // if a cloud pull wipes the photo before the next push runs,
+    // PhotoOutbox.reconcileWithModel re-injects it from the outbox.
 
     _kickProcessor();
   }).catch(function(err) {
@@ -313,6 +309,25 @@ function _findPhotoInProject(proj, photoId) {
   });
   (proj.generalDeficiencies || []).forEach(_walkDefic);
   return found;
+}
+
+function _findDeficInProject(proj, deficId) {
+  // Walk both contractor and general deficiency trees by id. S171
+  // reconcileWithModel needs this to know where to re-inject a
+  // photo whose pool got wiped by a cloud pull.
+  if (!proj || !deficId) return null;
+  var contractors = proj.contractors || [];
+  for (var i = 0; i < contractors.length; i++) {
+    var defs = contractors[i].deficiencies || [];
+    for (var j = 0; j < defs.length; j++) {
+      if (defs[j] && defs[j].id === deficId) return defs[j];
+    }
+  }
+  var general = proj.generalDeficiencies || [];
+  for (var k = 0; k < general.length; k++) {
+    if (general[k] && general[k].id === deficId) return general[k];
+  }
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -558,14 +573,146 @@ export var PhotoOutbox = {
 
   // ── Cloud-push reconciliation (S171) ──
 
+  /** Mark a set of photoIds as cloud-confirmed. Called by sync.js after
+   *  a successful push. For each photoId, finds the matching outbox row
+   *  (must be in r2_confirmed status) and deletes it. Idempotent —
+   *  re-confirming a photo whose row is already gone is a no-op.
+   *
+   *  Per the S171 design: this is the ONLY path that transitions an
+   *  outbox row out of r2_confirmed into deletion. The processor's
+   *  success path no longer auto-deletes after a delay (S170 had a 2s
+   *  timeout; that was the gap that left the bug open). */
   markCloudConfirmed: function(photoIds) {
-    // S171 wires this from sync.js push. S170 stub returns immediately.
-    return Promise.resolve();
+    if (!_FIX_A_ENABLED) return Promise.resolve();
+    if (!_initialized) {
+      return this.init().then(this.markCloudConfirmed.bind(this, photoIds));
+    }
+    if (!Array.isArray(photoIds) || photoIds.length === 0) {
+      return Promise.resolve();
+    }
+    var deletions = [];
+    photoIds.forEach(function(pid) {
+      var row = _rowsByPhotoId[pid];
+      if (!row) return;
+      // Only delete rows that the push actually carried — pending /
+      // uploading rows are not "confirmed by this push" even if their
+      // photoId showed up in the input (shouldn't happen since strip
+      // removes them, but defensive).
+      if (row.status !== OUTBOX_STATUS.R2_CONFIRMED) return;
+      var rowId = row.id;
+      row.cloudConfirmedAt = new Date().toISOString();
+      deletions.push(
+        _deleteRow(rowId).then(function() {
+          _notify('cloud_confirmed', { rowId: rowId, photoId: pid });
+        })
+      );
+    });
+    return Promise.all(deletions).then(function() {
+      if (deletions.length > 0) {
+        console.log('[PhotoOutbox] markCloudConfirmed deleted ' +
+                    deletions.length + ' row(s)');
+      }
+    });
   },
 
+  /** Re-inject photos from outbox into model state. Called after every
+   *  cloud pull (and after applyMerged on conflict paths). Walks every
+   *  outbox row in r2_confirmed status for this project; for any row
+   *  whose photoId is NOT currently in model state, re-injects the
+   *  photo record into the appropriate defic.photos[] pool.
+   *
+   *  This is the operative half of Enhancement 2 — the outbox survives
+   *  cloud pulls (because Model.setProject doesn't touch this store),
+   *  and this method repairs model state when a pull wiped a photo
+   *  that R2 had confirmed but cloud hadn't yet captured.
+   *
+   *  Idempotent — re-running with no missing photos is a fast no-op. */
   reconcileWithModel: function(proj) {
-    // S171 wires this from sync.js post-pull. S170 stub returns 0.
-    return Promise.resolve(0);
+    if (!_FIX_A_ENABLED) return Promise.resolve(0);
+    if (!_initialized) {
+      return this.init().then(this.reconcileWithModel.bind(this, proj));
+    }
+    if (!proj || !proj.id) return Promise.resolve(0);
+
+    var reinjected = 0;
+    var orphaned = 0;
+    for (var id in _rowsById) {
+      var row = _rowsById[id];
+      if (!row) continue;
+      if (row.status !== OUTBOX_STATUS.R2_CONFIRMED) continue;
+      if (row.projectId !== proj.id) continue;
+
+      // Already in model? Nothing to do.
+      if (_findPhotoInProject(proj, row.photoId)) continue;
+
+      // Pull wiped it. Re-inject. Need the defic to add it back to.
+      var defic = _findDeficInProject(proj, row.deficId);
+      if (!defic) {
+        // The pin itself got wiped (rare — pin deletes are very
+        // intentional). Outbox row is now orphaned; mark it cancelled
+        // so the processor stops tracking it. The R2 binary stays
+        // (R2 cleanup is a separate concern; see non-goals §11).
+        console.warn('[PhotoOutbox] reconcile: defic ' + row.deficId +
+                     ' not in pull; orphaning outbox row ' + row.id);
+        row.status = OUTBOX_STATUS.CANCELLED;
+        row.lastError = 'Defic ' + row.deficId + ' not present in pulled project';
+        _persistRow(row).catch(function() {});
+        orphaned++;
+        continue;
+      }
+
+      // Defensive: if defic.photos is missing, initialize. Same
+      // pattern as Model.addPoolPhoto (model.js:1559).
+      if (!Array.isArray(defic.photos)) defic.photos = [];
+
+      // Build the photo record from outbox row state. We don't have
+      // dataUrl any more (the pull wiped it), but r2Url is set so
+      // rendering picks up from R2. The photoBlobs store still has
+      // the bytes from enqueue() if r2Url ever fails.
+      var addedDate = (row.enqueuedAt || new Date().toISOString())
+        .split('T')[0];
+      defic.photos.push({
+        id: row.photoId,
+        r2Key: row.r2Key || null,
+        r2Url: row.r2Url || null,
+        sourceR2Key: row.r2Key || null,
+        dataUrl: null,
+        thumb: null,
+        filename: row.filename || ('photo_' + Date.now() + '.jpg'),
+        addedDate: addedDate,
+        createdBy: row.userId !== 'local' ? row.userId : null,
+        uploadStatus: OUTBOX_STATUS.R2_CONFIRMED
+      });
+
+      // If the originating obs had a custom photoSelection (i.e. it
+      // explicitly listed which photos to show), the re-injection
+      // needs to add this photoId to that list — otherwise the obs
+      // will keep its old list and the new photo would be invisible.
+      // Default-state obs (photoSelection null) auto-show all pool
+      // entries, so no change needed.
+      if (typeof row.obsIdx === 'number' &&
+          defic.observations &&
+          defic.observations[row.obsIdx]) {
+        var obs = defic.observations[row.obsIdx];
+        if (Array.isArray(obs.photoSelection) &&
+            obs.photoSelection.indexOf(row.photoId) === -1) {
+          obs.photoSelection.push(row.photoId);
+        }
+      }
+
+      reinjected++;
+    }
+
+    if (reinjected > 0) {
+      // Persist the re-injected photos. Model has its own debounced
+      // save, but reconcile is a critical-path repair — flush
+      // immediately so a reload right after pull keeps the photos.
+      try { if (Model.saveNow) Model.saveNow(); } catch (_) {}
+      console.log('[PhotoOutbox] reconcileWithModel re-injected ' +
+                  reinjected + ' photo(s) wiped by pull');
+      _notify('reconcile', { reinjected: reinjected, orphaned: orphaned });
+    }
+    return Promise.resolve(reinjected);
   },
 
   // ── Events ──

@@ -35,6 +35,11 @@ import { IDB } from './idb.js';
 // merge runs in the sync worker (SyncWorkerHost.merge3Worker), so sync.js
 // never calls merge3() directly. The engine still lives in data/merge.js.
 import { SyncWorkerHost } from './syncWorkerHost.js';
+// S171 (Fix A) — outbox integration. Push strips photos that originated
+// in the local outbox before serialize; pull/merge call reconcileWithModel
+// to repair any photos a wholesale-replace would have lost. Activation
+// gated by PhotoOutbox.isEnabled() so PROD pushers/pullers see no change.
+import { PhotoOutbox } from './photoOutbox.js';
 
 // S165 — like the anon key above, the URL also lives in Auth (single source of truth).
 // Auth's URL is computed at module load and reflects staging vs prod based on ?staging=1
@@ -384,6 +389,17 @@ export var SyncEngine = {
         // to Model.getProject() don't mutate this reference.
         _lastSeenSnapshot = JSON.parse(JSON.stringify(data));
         Model.setProject(data);
+        // S171 Fix A — repair any photos a wholesale-replace would have
+        // lost. The outbox is parallel to model state; rows in r2_confirmed
+        // get re-injected back into model.defic.photos[]. No-op when the
+        // outbox is empty or PhotoOutbox is disabled (PROD).
+        try {
+          if (PhotoOutbox && PhotoOutbox.reconcileWithModel) {
+            PhotoOutbox.reconcileWithModel(Model.getProject());
+          }
+        } catch (e) {
+          console.warn('[Sync][Fix A] reconcileWithModel (pull) failed:', e && e.message);
+        }
         // S124 A3 — persist fresh snapshot to IDB (re-key in case instanceId
         // was null on entry but resolved from the row).
         _persistSyncMeta(projectId, _instanceId);
@@ -482,6 +498,48 @@ export var SyncEngine = {
     return SyncWorkerHost.serializePush(proj).then(function(serialized) {
       var data = serialized.strippedData;
 
+      // ── S171 Fix A: strip outbox-originated photos that aren't ready ──
+      // Per D7: only strip photos that originated in the LOCAL outbox.
+      // Photos with r2Key:null that arrived from cloud (legacy / pre-Fix-A
+      // devices) pass through unchanged — we don't destructively clean
+      // up another device's data.
+      //
+      // The strip set is rows in {pending, uploading, retrying, failed}.
+      // Rows in r2_confirmed have their photo.r2Key set and ARE pushed
+      // — they're exactly what we want cloud to capture, so the next
+      // markCloudConfirmed can retire the outbox row.
+      var photoIdsToConfirm = [];
+      if (PhotoOutbox && PhotoOutbox.isEnabled && PhotoOutbox.isEnabled()) {
+        var rows = PhotoOutbox.getEntriesForProject(projectId);
+        var stripIds = {};
+        rows.forEach(function(r) {
+          if (!r || !r.photoId) return;
+          if (r.status === 'r2_confirmed') {
+            photoIdsToConfirm.push(r.photoId);
+          } else if (r.status === 'pending' || r.status === 'uploading' ||
+                     r.status === 'retrying' || r.status === 'failed') {
+            stripIds[r.photoId] = true;
+          }
+        });
+        var stripCount = 0;
+        function _strip(d) {
+          if (!d || !Array.isArray(d.photos)) return;
+          var before = d.photos.length;
+          d.photos = d.photos.filter(function(p) {
+            return !(p && p.id && stripIds[p.id]);
+          });
+          stripCount += (before - d.photos.length);
+        }
+        (data.contractors || []).forEach(function(c) {
+          (c.deficiencies || []).forEach(_strip);
+        });
+        (data.generalDeficiencies || []).forEach(_strip);
+        if (stripCount > 0) {
+          console.log('[Sync][Fix A] Stripped ' + stripCount +
+                      ' outbox-tracked photo(s) from push payload (waiting for R2 confirm)');
+        }
+      }
+
       var user = Auth.getUser();
       var payload = {
         project_id: projectId,
@@ -541,6 +599,19 @@ export var SyncEngine = {
         _pendingSync = false;
         IDB.clear('syncQueue');
         console.log('[Sync] Pushed to cloud — instance:', _instanceId, 'updated:', _lastSeenUpdatedAt);
+
+        // ── S171 Fix A: tell the outbox cloud captured these photos ──
+        // Snapshot-time photoIdsToConfirm is what we actually pushed.
+        // markCloudConfirmed is idempotent; if rows moved on between
+        // capture and now (rare), it filters defensively.
+        if (photoIdsToConfirm.length > 0 &&
+            PhotoOutbox && PhotoOutbox.markCloudConfirmed) {
+          PhotoOutbox.markCloudConfirmed(photoIdsToConfirm).catch(function(e) {
+            console.warn('[Sync][Fix A] markCloudConfirmed failed (non-fatal):',
+                         e && e.message);
+          });
+        }
+
         return rows[0];
       }
       return null;
@@ -594,6 +665,15 @@ export var SyncEngine = {
         // populated state wins in the rare ambiguous case.
         var guardedMerged = _guardEmptyArrays(mergeResult.merged, 'silentMerge');
         Model.applyMerged(guardedMerged);
+        // S171 Fix A — applyMerged is just as destructive to in-flight
+        // photos as setProject. Run the same outbox reconcile.
+        try {
+          if (PhotoOutbox && PhotoOutbox.reconcileWithModel) {
+            PhotoOutbox.reconcileWithModel(Model.getProject());
+          }
+        } catch (e) {
+          console.warn('[Sync][Fix A] reconcileWithModel (silentMerge) failed:', e && e.message);
+        }
         try { self.onSilentMerge(mergeResult); } catch (e) { console.warn('[Sync] onSilentMerge handler threw:', e); }
         return self.push(projectId, attempt + 1);
       }
@@ -609,6 +689,14 @@ export var SyncEngine = {
         // resolution is { resolutions: [...] } — caller applies them and
         // returns the final merged state. Apply + retry.
         Model.applyMerged(resolution.merged);
+        // S171 Fix A — same reconcile as the silent-merge path.
+        try {
+          if (PhotoOutbox && PhotoOutbox.reconcileWithModel) {
+            PhotoOutbox.reconcileWithModel(Model.getProject());
+          }
+        } catch (e) {
+          console.warn('[Sync][Fix A] reconcileWithModel (conflict resolution) failed:', e && e.message);
+        }
         return self.push(projectId, attempt + 1);
       });
 
