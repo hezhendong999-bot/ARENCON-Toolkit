@@ -1675,7 +1675,13 @@ function _renderVisible() {
         var nCol1 = Math.min(nextLvl.cols - 1, Math.ceil((visX1 * nd2lX) / _TILE_SIZE));
         var nRow0 = Math.max(0, Math.floor((visY0 * nd2lY) / _TILE_SIZE));
         var nRow1 = Math.min(nextLvl.rows - 1, Math.ceil((visY1 * nd2lY) / _TILE_SIZE));
-        var budget = 6;
+        // Budget: up to 3 prefetches per render (was 6 pre-S180b). Mark's
+        // S179h field recording showed multi-tile arrivals saturated the
+        // tablet rasterizer during burst-decode. Halving the budget cuts
+        // network parallelism on the next-level warm path and reduces the
+        // probability of overlap with active-level decodes. Until off-thread
+        // decode (S180a) is the default, this remains the safer setting.
+        var budget = 3;
         for (var nc = nCol0; nc <= nCol1 && budget > 0; nc++) {
           for (var nr = nRow0; nr <= nRow1 && budget > 0; nr++) {
             var nkey = _tileKey(nextIdx, nc, nr);
