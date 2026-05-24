@@ -487,6 +487,11 @@ body.dark-mode .pe-sel-deleted{border-color:rgba(122,90,143,.5);}
 body.dark-mode .pe-sel-restore-btn{border-color:#1B2438;}
 .pe-photo-btn{padding:6px 18px;border-radius:6px;border:1px solid #dde1e7;background:var(--smoke);color:#4A5568;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));margin:3px;}.pe-camera-btn{background:#5F8068;border-color:#5F8068;color:white;}
 body.dark-mode .pe-photo-btn:not(.pe-camera-btn){background:#2a2d35;color:white;border-color:#3a3e48;}
+/* S177: touch-target audit (M1/M3 backlog) — photo-add buttons reach 44px
+   minimum tappable height on coarse pointers (touch tablets). Scoped to
+   .pe-photo-zone so the footer's More-menu button (which also uses
+   .pe-photo-btn but lives outside the zone) is unaffected. */
+@media(pointer:coarse){.pe-photo-zone .pe-photo-btn{min-height:44px;padding:10px 18px;}}
 /* Big drawing panel */
 /* S116 Push 12: flex centering on the location panel.
    Mark images 1+2 across two pushes: the canvas was correctly fit to the
@@ -538,6 +543,11 @@ body.dark-mode .pe-cancel-btn{background:transparent;color:#e08080;border-color:
   .pe-compact-row .pe-field{width:100%;}
   .pe-compact-row .pe-iar-btn{align-self:flex-start;width:auto;}
   .pe-fields{padding:12px 14px;}
+  /* S177: photo-add buttons stack full-width at narrow widths (M1 backlog).
+     Inline layout (padding:6px 18px; margin:3px) cramped at 360-430px
+     viewport widths. Scoped to .pe-photo-zone so footer buttons unaffected.
+     Text "Drop photos or" stays as a block above the stack. */
+  .pe-photo-zone .pe-photo-btn{display:block;width:100%;margin:6px 0;padding:10px 14px;text-align:center;box-sizing:border-box;}
   .pe-location-thumb{height:200px;}
 }
 
