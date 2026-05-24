@@ -4121,6 +4121,52 @@ Model.onChange('photo', function(){
     _recBtnEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     _el.appendChild(_recBtnEl);
 
+    // S180a: ImgBmp toggle — flips off-thread tile decode (default OFF). On
+    // click: toggles localStorage flag, shows toast, prompts reload. We do
+    // NOT auto-reload because reloading mid-overlay-open is jarring and Mark
+    // typically wants to record a TSV right after flipping. Reading current
+    // state from TiledPdf.stats() rather than localStorage so the button
+    // always shows the live in-memory value.
+    var _imgBmpBtnEl = document.createElement('button');
+    _imgBmpBtnEl.id = 'frt-perf-imgbmp';
+    _imgBmpBtnEl.type = 'button';
+    _imgBmpBtnEl.style.cssText = [
+      'pointer-events:auto', 'margin-top:4px', 'width:100%',
+      'background:transparent', 'color:#90CAF9',
+      'border:1px solid #90CAF9', 'border-radius:4px',
+      'padding:4px 6px', 'font-family:Menlo,Consolas,monospace',
+      'font-size:11px', 'cursor:pointer', '-webkit-tap-highlight-color:transparent'
+    ].join(';');
+    function _imgBmpCurrent() {
+      try {
+        if (typeof TiledPdf !== 'undefined' && TiledPdf.stats) {
+          var s = TiledPdf.stats();
+          return !!s.imageBitmap;
+        }
+      } catch (_e) {}
+      return false;
+    }
+    function _imgBmpRefreshLabel() {
+      _imgBmpBtnEl.textContent = 'ImgBmp: ' + (_imgBmpCurrent() ? 'ON' : 'OFF') + ' (reload to flip)';
+    }
+    _imgBmpRefreshLabel();
+    _imgBmpBtnEl.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var nowOn = _imgBmpCurrent();
+      try {
+        if (nowOn) window.localStorage.removeItem('arencon-imagebitmap');
+        else window.localStorage.setItem('arencon-imagebitmap', '1');
+      } catch (_e) {}
+      try {
+        toast('ImgBmp set to ' + (nowOn ? 'OFF' : 'ON') + ' — reload to apply');
+      } catch (_e) {}
+      // Label still shows the LIVE in-memory state (unchanged until reload).
+      _imgBmpRefreshLabel();
+    });
+    _imgBmpBtnEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    _el.appendChild(_imgBmpBtnEl);
+
     if (document.body) document.body.appendChild(_el);
     return _el;
   }
@@ -4146,12 +4192,19 @@ Model.onChange('photo', function(){
 
       var tileLine = 'Tiles: ?';
       var prefetchLine = '';
+      var imgBmpLine = '';
       var tileStats = null;
       try {
         if (typeof TiledPdf !== 'undefined' && TiledPdf.stats) {
           tileStats = TiledPdf.stats();
           tileLine = 'Tiles: ' + tileStats.inflight + ' fetching / ' + tileStats.loaded + ' loaded';
           prefetchLine = 'Prefetch: ' + (tileStats.prefetchOn ? 'ON (' + tileStats.prefetchPct + '%)' : 'OFF');
+          // S180a: surface imageBitmap state + decode-slot occupancy when on.
+          if (tileStats.imageBitmap) {
+            imgBmpLine = 'ImgBmp: ON (' + tileStats.decodeInflight + '/' + tileStats.decodeMax + ' decoding)';
+          } else {
+            imgBmpLine = 'ImgBmp: OFF (img.decode path)';
+          }
         }
       } catch (_e) {}
 
@@ -4203,6 +4256,7 @@ Model.onChange('photo', function(){
         'Touch/s: ' + touchRate + '\n' +
         tileLine + '\n' +
         (prefetchLine ? prefetchLine + '\n' : '') +
+        (imgBmpLine ? imgBmpLine + '\n' : '') +
         'Zoom: ' + zoom + '\n' +
         'Pins: ' + pinCount +
         heapLine +

@@ -182,6 +182,74 @@ var _PREFETCH_PCT = 70;
   } catch (_e) {}
 })();
 
+// ── S180a: OFF-THREAD TILE DECODE (FEATURE FLAG, DEFAULT OFF) ───────────────
+// S179h field recording showed FPS=1-8 during multi-tile decode bursts on the
+// Android tablet — the `<img>.decode()` path can still synchronously land on
+// main thread on resource-constrained devices. createImageBitmap() is spec'd
+// to always run off-main-thread; this is the pattern every production map
+// viewer uses (Google Maps, Mapbox, OSM). Gated behind a flag for safe A/B
+// rollout: Mark records a TSV with flag OFF (baseline), toggles ON, reloads,
+// records again. If clean field day → flip default to true next session.
+//
+// Activation paths:
+//   1. localStorage['arencon-imagebitmap'] = '1'  (persistent, TWA-compat)
+//   2. ?imagebitmap=1                              (URL, desktop debug only)
+//   3. Perf overlay "ImgBmp" toggle button         (preferred field path)
+//   4. window._frtSetImageBitmap(true|false)       (console)
+//
+// Decode concurrency cap (_MAX_DECODE_CONCURRENT): only the imageBitmap path
+// uses it. Prevents the burst pattern observed at t=28-30s in Mark's S179h
+// recording where 6 simultaneous tile decodes spiked _decodeInflight beyond
+// what the rasterizer could sustain. Network fetches stay capped at
+// _MAX_CONCURRENT=6 (network is parallel-friendly; decode is compute-bound).
+var _USE_IMAGEBITMAP_DECODE = false;
+var _MAX_DECODE_CONCURRENT = 4;
+var _decodeInflight = 0;
+var _decodeQueue = [];
+(function _initImageBitmapFromStorage() {
+  try {
+    if (typeof window === 'undefined') return;
+    var q = window.location.search || '';
+    if (/[?&]imagebitmap=1\b/.test(q)) { _USE_IMAGEBITMAP_DECODE = true; }
+    else if (/[?&]imagebitmap=0\b/.test(q)) { _USE_IMAGEBITMAP_DECODE = false; }
+    else {
+      try {
+        var v = window.localStorage && window.localStorage.getItem('arencon-imagebitmap');
+        if (v === '1') _USE_IMAGEBITMAP_DECODE = true;
+      } catch (_e) {}
+    }
+    // Console toggle for ad-hoc testing
+    window._frtSetImageBitmap = function (on) {
+      try {
+        if (on) window.localStorage.setItem('arencon-imagebitmap', '1');
+        else window.localStorage.removeItem('arencon-imagebitmap');
+      } catch (_e) {}
+      console.log('[TiledPdf] imagebitmap = ' + (on ? 'ON' : 'OFF') + ' — reload to apply');
+    };
+  } catch (_e) {}
+})();
+
+// Promise-based decode slot gate. _awaitDecodeSlot resolves once the caller
+// owns one of _MAX_DECODE_CONCURRENT slots; _releaseDecodeSlot returns it.
+// Slots transfer directly to waiters without decrementing _decodeInflight
+// (preserves the invariant that _decodeInflight is exactly the number of
+// outstanding "took a slot but hasn't released" callers).
+function _awaitDecodeSlot() {
+  if (_decodeInflight < _MAX_DECODE_CONCURRENT) {
+    _decodeInflight++;
+    return Promise.resolve();
+  }
+  return new Promise(function (resolve) { _decodeQueue.push(resolve); });
+}
+function _releaseDecodeSlot() {
+  if (_decodeQueue.length > 0) {
+    var resolve = _decodeQueue.shift();
+    resolve();  // slot transfers to waiter; _decodeInflight unchanged
+  } else if (_decodeInflight > 0) {
+    _decodeInflight--;
+  }
+}
+
 // Canvas-compositor mode is the unconditional DEFAULT (S113 cleanup —
 // iOS removed; the Jetsam gate that kept canvas off on iPad/iPhone is no
 // longer needed). One opt-out: `?s99test=img` forces the legacy per-tile
@@ -1043,6 +1111,10 @@ function _pumpQueue() {
 // image bitmap. The tile's "DOM presence" is the painted region on the
 // level canvas — no per-tile <img> in the DOM, so no per-tile sub-pixel
 // rounding, so no seams at fractional CSS scale.
+//
+// S180a: when _USE_IMAGEBITMAP_DECODE is on AND createImageBitmap is
+// available, delegate to _startFetchCanvasImageBitmap for off-main-thread
+// decode. Otherwise use the existing <img>-based path (preserved verbatim).
 function _startFetchCanvas(req, layer) {
   var key = req.key;
   _inflight[key] = true;
@@ -1057,11 +1129,19 @@ function _startFetchCanvas(req, layer) {
   var tileH = Math.min(_TILE_SIZE, lvl.height - tileY);
   if (tileW <= 0 || tileH <= 0) { delete _inflight[key]; _pumpQueue(); return; }
 
+  var drawingIdAtRequest = _drawingId;
+
+  // S180a: off-thread decode branch. Feature-flagged, default OFF.
+  if (_USE_IMAGEBITMAP_DECODE && typeof createImageBitmap === 'function') {
+    _startFetchCanvasImageBitmap(req, layer, key, lvl,
+      tileX, tileY, tileW, tileH, url, drawingIdAtRequest);
+    return;
+  }
+
   var img = new Image();
   img.crossOrigin = 'anonymous';
   img.decoding = 'async';
 
-  var drawingIdAtRequest = _drawingId;
   img.onload = function() {
     delete _inflight[key];
     if (!_active || _drawingId !== drawingIdAtRequest) {
@@ -1130,6 +1210,98 @@ function _startFetchCanvas(req, layer) {
     _pumpQueue();
   };
   img.src = url;
+}
+
+// S180a: off-thread tile decode via createImageBitmap. Resolves the FPS=1-8
+// burst pattern observed in Mark's S179h field recording (multi-tile decode
+// landing on main thread despite `<img>.decoding='async'`).
+//
+// Pipeline:
+//   fetch(url)              -> network (gated by _MAX_CONCURRENT=6 in pumpQueue)
+//   .then(r => r.blob())    -> SW/HTTP cache lookup; blob ready
+//   _awaitDecodeSlot()      -> gate decode (cap _MAX_DECODE_CONCURRENT=4)
+//   createImageBitmap(blob) -> spec-guaranteed off-main-thread decode
+//   drawImage(bitmap, …)    -> composite onto level canvas (cheap, GPU)
+//   bitmap.close()          -> explicit memory release
+//
+// All cancellation guards (`_active`, `_drawingId !== drawingIdAtRequest`)
+// and re-windowing checks mirror the `<img>` path so behaviour is identical
+// modulo the decode threading model. The `slotTaken` closure flag ensures
+// the decode slot is released exactly once on every exit path including
+// catches.
+function _startFetchCanvasImageBitmap(req, layer, key, lvl, tileX, tileY, tileW, tileH, url, drawingIdAtRequest) {
+  var slotTaken = false;
+  fetch(url, { mode: 'cors', credentials: 'omit' })
+    .then(function (response) {
+      if (!response.ok) throw new Error('fetch ' + response.status);
+      return response.blob();
+    })
+    .then(function (blob) {
+      return _awaitDecodeSlot().then(function () {
+        slotTaken = true;
+        // Cancellation check before kicking off the (potentially expensive)
+        // decode — drawing may have changed while we were waiting for a slot.
+        if (!_active || _drawingId !== drawingIdAtRequest) {
+          throw new Error('CANCELLED');
+        }
+        return createImageBitmap(blob);
+      });
+    })
+    .then(function (bitmap) {
+      slotTaken = false;
+      _releaseDecodeSlot();
+      delete _inflight[key];
+      if (!_active || _drawingId !== drawingIdAtRequest) {
+        try { bitmap.close(); } catch (_e) {}
+        _pumpQueue();
+        return;
+      }
+      var entry = _getOrCreateLevelCanvas(req.level, lvl);
+      if (!entry) { try { bitmap.close(); } catch (_e) {} _pumpQueue(); return; }
+      // Same re-windowing guard as the `<img>` path: if the level canvas's
+      // window has moved while we were fetching, discard this tile.
+      if (entry.windowed &&
+          (req.col < entry.colMin || req.col > entry.colMax ||
+           req.row < entry.rowMin || req.row > entry.rowMax)) {
+        try { bitmap.close(); } catch (_e) {}
+        _pumpQueue();
+        return;
+      }
+      var s = entry.bufScale || 1;
+      var winX = entry.winX || 0, winY = entry.winY || 0;
+      try {
+        entry.ctx.drawImage(bitmap, 0, 0, tileW, tileH,
+          (tileX - winX) * s, (tileY - winY) * s, tileW * s, tileH * s);
+      } catch (_e) {
+        try { bitmap.close(); } catch (__) {}
+        _pumpQueue();
+        return;
+      }
+      entry.tilesPainted++;
+      _tiles[key] = {
+        level: req.level, col: req.col, row: req.row,
+        tileW: tileW, tileH: tileH
+      };
+      _tileOrder.push(key);
+      _tileCount++;
+      try { bitmap.close(); } catch (_e) {}
+      _evictExcess(layer);
+      _pumpQueue();
+    })
+    .catch(function (err) {
+      if (slotTaken) {
+        slotTaken = false;
+        _releaseDecodeSlot();
+      }
+      delete _inflight[key];
+      // CANCELLED is an internal sentinel for drawing-change abort; not an err.
+      if (!err || err.message !== 'CANCELLED') {
+        if (_active && _drawingId === drawingIdAtRequest) {
+          _dbgEvent('err ' + key);
+        }
+      }
+      _pumpQueue();
+    });
 }
 
 function _startFetch(req, layer) {
@@ -1943,7 +2115,11 @@ function stats() {
     loaded: loaded,
     active: _active,
     prefetchOn: _PREFETCH_ENABLED,
-    prefetchPct: _PREFETCH_PCT
+    prefetchPct: _PREFETCH_PCT,
+    // S180a — surface imageBitmap state for perf overlay readout.
+    imageBitmap: _USE_IMAGEBITMAP_DECODE,
+    decodeInflight: _decodeInflight,
+    decodeMax: _MAX_DECODE_CONCURRENT
   };
 }
 
