@@ -1274,8 +1274,15 @@ body.dark-mode .dv-tasks-header{border-bottom-color:#3a3e48;color:#ddd;}
 .folder-toggle{font-size:calc(10px + var(--ts));color:var(--silver);width:12px;text-align:center;}
 .folder-icon{font-size:calc(16px + var(--ts));}
 .folder-count{font-size:calc(12px + var(--ts));color:var(--silver);margin-left:4px;}
-.dwg-card-row{display:flex;flex-wrap:wrap;gap:12px;padding:0 4px 8px 4px;}
-.drawing-card{width:160px;border-radius:8px;border:2px solid var(--border);overflow:hidden;position:relative;background:var(--white);transition:border-color .15s,box-shadow .15s;flex-shrink:0;user-select:none;-webkit-user-select:none;}
+/* S166 M1: responsive drawings grid.
+   Default (non-compact): CSS Grid with intrinsic sizing. auto-fill + minmax(280px, 1fr)
+   means card count adapts to viewport WITHOUT any breakpoints — 1 col at 360px-480px,
+   2 cols at 600px, 3-4 at typical desktop, 5+ at wide screens. The 280px floor is
+   the smallest thumbnail width at which a plan is still inspectable (per backlog).
+   Compact mode keeps the original flex-wrap layout so 90px thumbnails flow normally. */
+.dwg-card-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:0 4px 8px 4px;}
+.dwg-card-row.compact-mode{display:flex;flex-wrap:wrap;}
+.drawing-card{border-radius:8px;border:2px solid var(--border);overflow:hidden;position:relative;background:var(--white);transition:border-color .15s,box-shadow .15s;user-select:none;-webkit-user-select:none;}
 .drawing-card:hover{border-color:var(--red);box-shadow:0 2px 8px rgba(0,0,0,.1);}
 .drawing-card.selected{border-color:#2196F3;box-shadow:0 0 0 2px rgba(33,150,243,.3);}
 .drawing-card .card-thumb{cursor:pointer;height:135px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f5f5f5;position:relative;}

@@ -615,7 +615,7 @@ export var initDrawings = {
       html += ' <span style="font-weight:400;color:var(--silver);font-size:calc(12px + var(--ts));">(' + items.length + ' plans)</span>';
       html += '<button data-action="rename-folder" data-folder="' + esc(fn) + '" style="border:none;background:none;cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 4px;color:var(--silver);margin-left:auto;" title="Rename folder">\u270F\uFE0F</button>';
       html += '</div>';
-      html += '<div class="dwg-folder-body dwg-card-row" style="padding:8px;display:flex;flex-wrap:wrap;' + (isFolded ? 'display:none;' : '') + '">';
+      html += '<div class="dwg-folder-body dwg-card-row" style="padding:8px;' + (isFolded ? 'display:none;' : '') + '">';
       items.forEach(function(d) { html += buildDrawingCard(d, allDefics); });
       // S81 Option 3: "+ Drop plans here" reserve card as last tile. Click
       // opens file picker scoped to this folder. Drop also still works on
