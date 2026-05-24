@@ -159,6 +159,29 @@ if (_S99_TEST) {
   } catch (_e) {}
 }
 
+// S179d: Promote S99 'prefetch' from opt-in test mode to DEFAULT-ON.
+//   Why: warming the browser HTTP cache with next-level visible tiles
+//   eliminates the "loading new level" gap during pinch-zoom transitions.
+//   Validated in S99 opt-in testing; mechanism is silent (fetch() never
+//   enters the _tiles map, won't affect tile lifecycle).
+//   Defaults: enabled=true, threshold=70% of current level ceiling.
+//   Overrides:
+//     ?prefetch=off           → disable (escape hatch)
+//     ?s99test=prefetch       → equivalent to default (kept for compat)
+//     ?s99test=prefetch-N     → custom % threshold (N=0..100)
+var _PREFETCH_ENABLED = true;
+var _PREFETCH_PCT = 70;
+(function _initPrefetchFromURL() {
+  try {
+    if (typeof window === 'undefined') return;
+    var q = window.location.search || '';
+    if (/[?&]prefetch=off\b/.test(q)) { _PREFETCH_ENABLED = false; return; }
+    if (_S99_TEST && _S99_TEST.name === 'prefetch' && _S99_TEST.amount != null) {
+      _PREFETCH_PCT = _S99_TEST.amount;
+    }
+  } catch (_e) {}
+})();
+
 // Canvas-compositor mode is the unconditional DEFAULT (S113 cleanup —
 // iOS removed; the Jetsam gate that kept canvas off on iPad/iPhone is no
 // longer needed). One opt-out: `?s99test=img` forces the legacy per-tile
@@ -1459,8 +1482,11 @@ function _renderVisible() {
   // appended to the tile-layer DOM, and so are NOT affected by the
   // other-level purge (which would otherwise destroy them instantly).
   // Budget: up to 6 prefetches per render. Silent fail.
-  if (_S99_TEST && _S99_TEST.name === 'prefetch') {
-    var _pctThresh = (_S99_TEST.amount != null) ? _S99_TEST.amount : 70;
+  // S99 → S179d: prefetch now default-on (gated by _PREFETCH_ENABLED, default true).
+  // Threshold from _PREFETCH_PCT (default 70%). Override via URL params:
+  //   ?prefetch=off → disable; ?s99test=prefetch-50 → 50% threshold.
+  if (_PREFETCH_ENABLED) {
+    var _pctThresh = _PREFETCH_PCT;
     // Scale at which picker would advance to (levelIdx+1). Picker rule:
     //   pick level i where levels[i].width >= _drawW * viewScale
     // So the current level's ceiling (scale that just barely still picks L)
@@ -1905,6 +1931,22 @@ _startFetch = function(req, layer){
   return _origStartFetch(req, layer);
 };
 
+// S179d: stats() — read-only accessor used by the perf overlay (?perf=1).
+// Returns counts of in-flight fetches and currently loaded tiles, plus
+// runtime state. Lightweight (O(n) over _inflight and _tiles).
+function stats() {
+  var inflight = 0, loaded = 0;
+  for (var k in _inflight) { if (Object.prototype.hasOwnProperty.call(_inflight, k)) inflight++; }
+  for (var t in _tiles) { if (Object.prototype.hasOwnProperty.call(_tiles, t)) loaded++; }
+  return {
+    inflight: inflight,
+    loaded: loaded,
+    active: _active,
+    prefetchOn: _PREFETCH_ENABLED,
+    prefetchPct: _PREFETCH_PCT
+  };
+}
+
 export var TiledPdf = {
   init: init,
   open: open,
@@ -1913,7 +1955,8 @@ export var TiledPdf = {
   pause: pause,
   resume: resume,
   isActive: isActive,
-  getDimensions: getDimensions
+  getDimensions: getDimensions,
+  stats: stats
 };
 
 

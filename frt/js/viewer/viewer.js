@@ -3935,3 +3935,146 @@ Model.onChange('photo', function(){
   if (!f) return;
   _peRenderObsContent(f.defic, _peObsIdx);
 });
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// S179d: Performance diagnostic overlay (?perf=1).
+//
+// Lightweight live readout for diagnosing pan/zoom feel on field tablets.
+// Off by default; activated by appending ?perf=1 to the URL.
+//
+// Reads:
+//   FPS         — frames per second, sampled via requestAnimationFrame
+//   Touch/s     — touchstart + touchmove events in trailing 1-second window
+//   Tiles       — in-flight HTTP fetches / total loaded tiles
+//   Zoom        — current viewer scale (1.00× = fit)
+//   Pins        — visible pin count on current drawing
+//   Heap        — JS heap usage (Chrome only; performance.memory)
+//   Prefetch    — S99 tile prefetch state (ON/OFF)
+//
+// Design:
+//   - Fixed top-right, pointer-events:none (never blocks taps)
+//   - Inline styles only (works even if frt.css fails to load)
+//   - Self-contained IIFE; clean no-op when ?perf=1 is absent
+//   - Updates every 250ms (4×/sec); minimal own overhead
+// ═══════════════════════════════════════════════════════════════════════════
+(function _initPerfOverlay() {
+  try {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (!/[?&]perf=1\b/.test(window.location.search || '')) return;
+
+    var el = document.createElement('div');
+    el.id = 'frt-perf-overlay';
+    el.style.cssText = [
+      'position:fixed', 'top:88px', 'right:8px', 'z-index:99999',
+      'background:rgba(0,0,0,0.82)', 'color:#FFC400',
+      'font-family:Menlo,Consolas,monospace', 'font-size:11px',
+      'line-height:1.5', 'padding:6px 10px', 'border-radius:6px',
+      'pointer-events:none', 'white-space:pre', 'min-width:160px',
+      'box-shadow:0 2px 8px rgba(0,0,0,0.4)',
+      '-webkit-user-select:none', 'user-select:none'
+    ].join(';');
+    el.textContent = 'perf overlay starting…';
+
+    function _mount() {
+      if (document.body) document.body.appendChild(el);
+      else setTimeout(_mount, 100);
+    }
+    _mount();
+
+    // FPS sampling via rAF loop
+    var _frames = 0;
+    var _fpsLastT = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    var _currentFps = 0;
+    function _fpsLoop() {
+      _frames++;
+      var now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+      if (now - _fpsLastT >= 1000) {
+        _currentFps = Math.round(_frames * 1000 / (now - _fpsLastT));
+        _frames = 0;
+        _fpsLastT = now;
+      }
+      requestAnimationFrame(_fpsLoop);
+    }
+    requestAnimationFrame(_fpsLoop);
+
+    // Touch event rate: trailing 1-second window
+    var _touchEvents = [];
+    function _markTouch() {
+      _touchEvents.push((typeof performance !== 'undefined') ? performance.now() : Date.now());
+    }
+    document.addEventListener('touchstart', _markTouch, { passive: true, capture: true });
+    document.addEventListener('touchmove', _markTouch, { passive: true, capture: true });
+
+    // 250ms update tick
+    setInterval(function() {
+      try {
+        // Trim touch events older than 1s
+        var nowT = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+        var cutoff = nowT - 1000;
+        while (_touchEvents.length && _touchEvents[0] < cutoff) _touchEvents.shift();
+        var touchRate = _touchEvents.length;
+
+        // Tile stats
+        var tileLine = 'Tiles: ?';
+        var prefetchLine = '';
+        try {
+          if (typeof TiledPdf !== 'undefined' && TiledPdf.stats) {
+            var s = TiledPdf.stats();
+            tileLine = 'Tiles: ' + s.inflight + ' fetching / ' + s.loaded + ' loaded';
+            prefetchLine = 'Prefetch: ' + (s.prefetchOn ? 'ON (' + s.prefetchPct + '%)' : 'OFF');
+          }
+        } catch (_e) {}
+
+        // Zoom level (viewer module-scoped _scale)
+        var zoom = '?';
+        try {
+          if (typeof _scale === 'number') zoom = _scale.toFixed(2) + '\u00d7';
+        } catch (_e) {}
+
+        // Pin count for current drawing
+        var pinCount = '?';
+        try {
+          if (typeof Model !== 'undefined' && Model.getAllDeficiencies) {
+            var drawings2 = (typeof _getDrawingsList === 'function') ? _getDrawingsList() : [];
+            var currIdx = (typeof _currentDrawingIdx === 'number') ? _currentDrawingIdx : -1;
+            if (currIdx >= 0 && currIdx < drawings2.length) {
+              var dwgId = drawings2[currIdx].id;
+              var all = Model.getAllDeficiencies();
+              var n = 0;
+              for (var i = 0; i < all.length; i++) {
+                if (all[i].defic.drawingId === dwgId && all[i].defic.pinX != null) n++;
+              }
+              pinCount = n;
+            } else {
+              pinCount = 0;
+            }
+          }
+        } catch (_e) {}
+
+        // Heap (Chrome only)
+        var heapLine = '';
+        try {
+          if (performance && performance.memory && performance.memory.usedJSHeapSize) {
+            heapLine = '\nHeap: ' + Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + ' MB';
+          }
+        } catch (_e) {}
+
+        el.textContent =
+          'FPS: ' + _currentFps + '\n' +
+          'Touch/s: ' + touchRate + '\n' +
+          tileLine + '\n' +
+          (prefetchLine ? prefetchLine + '\n' : '') +
+          'Zoom: ' + zoom + '\n' +
+          'Pins: ' + pinCount +
+          heapLine;
+      } catch (_err) {
+        try { el.textContent = 'perf err: ' + (_err.message || _err); } catch (__) {}
+      }
+    }, 250);
+
+    try { console.log('[Viewer] Perf overlay active (?perf=1) — top-right corner'); } catch (_e) {}
+  } catch (_e) {
+    try { console.error('[Viewer] Perf overlay init failed:', _e); } catch (__) {}
+  }
+})();
