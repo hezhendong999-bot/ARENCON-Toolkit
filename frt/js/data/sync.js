@@ -529,6 +529,19 @@ export var SyncEngine = {
             return !(p && p.id && stripIds[p.id]);
           });
           stripCount += (before - d.photos.length);
+          // S171 follow-up: also remove the stripped photoIds from any
+          // obs.photoSelection so cloud doesn't see a dangling reference
+          // (custom-state obs explicitly list photoIds; default-state
+          // obs use photoSelection:null and need no cleanup).
+          if (Array.isArray(d.observations)) {
+            d.observations.forEach(function(o) {
+              if (Array.isArray(o.photoSelection)) {
+                o.photoSelection = o.photoSelection.filter(function(id) {
+                  return !stripIds[id];
+                });
+              }
+            });
+          }
         }
         (data.contractors || []).forEach(function(c) {
           (c.deficiencies || []).forEach(_strip);

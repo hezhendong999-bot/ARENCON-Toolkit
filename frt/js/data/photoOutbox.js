@@ -41,20 +41,33 @@ import { Auth } from '../shared/auth.js';
 import { toast } from '../shared/toast.js';
 
 // ─────────────────────────────────────────────────────────────
-// Runtime activation flag (per D6: shipped dormant)
+// Runtime activation flag (per D6 — flipped on in S173 promote)
 // ─────────────────────────────────────────────────────────────
-// Code lives in the PROD bundle. Behavior only activates when
-// ?staging=1 is in the URL. To promote in a later session: flip
-// the default to `true` in a single one-line commit.
+// S173 promote: Mark elected to skip staging burn-in and run Fix A
+// directly in PROD with code-level rollback as the safety net. The
+// flag now defaults to `true` for all users; ?staging=0 in the URL
+// is the emergency opt-out for revert without re-deploy.
+//
+// History:
+//   S168 design — gate decision D6: ship dormant, ?staging=1 to enable.
+//   S169–S172  — code shipped with default false, ?staging=1 to enable.
+//   S173 (this commit) — flipped default to true.
+//
+// To roll back: change `var _FIX_A_ENABLED = true;` back to `false`
+// and push. The activation logic below preserves the ?staging=0
+// escape hatch in case the device-specific opt-out is needed.
 // ─────────────────────────────────────────────────────────────
-var _FIX_A_ENABLED = false;
+var _FIX_A_ENABLED = true;
 try {
   var _params = new URLSearchParams(window.location.search);
-  if (_params.get('staging') === '1') {
-    _FIX_A_ENABLED = true;
+  // Emergency device-level opt-out: ?staging=0 disables Fix A on
+  // this URL only. No code push required. Useful if a specific
+  // tablet is misbehaving with Fix A on while others are fine.
+  if (_params.get('staging') === '0') {
+    _FIX_A_ENABLED = false;
   }
 } catch (_) {
-  // Non-browser context (unlikely) — default false
+  // Non-browser context (unlikely)
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -240,8 +253,14 @@ function _processRow(row) {
   }).then(function(result) {
     _activeUploadCount = Math.max(0, _activeUploadCount - 1);
     if (!result || !result.r2Key) {
-      // R2.upload swallows non-2xx as null. Treat as failure.
-      return _markFailed(row, new Error('R2 upload returned null'));
+      // R2.upload swallows non-2xx and network errors as null (r2.js:120).
+      // S172 fix: route through _handleR2Failure so the retry policy
+      // engages. Previous direct _markFailed call meant every transient
+      // R2 hiccup went immediately to the terminal failed state with
+      // no backoff cycle — the opposite of what D2/D3 specifies.
+      _handleR2Failure(row, new Error('R2 upload returned null (transient)'));
+      _kickProcessor();
+      return;
     }
     // ── R2 confirmed ──
     row.status = OUTBOX_STATUS.R2_CONFIRMED;
