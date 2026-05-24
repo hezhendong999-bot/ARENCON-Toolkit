@@ -3974,6 +3974,12 @@ Model.onChange('photo', function(){
   var _fpsLastT = 0;
   var _currentFps = 0;
   var _touchEvents = [];
+  // S179h: recording state — captures time-series samples for export.
+  var _recording = false;
+  var _recStartT = 0;
+  var _samples = [];
+  var _metricsEl = null;
+  var _recBtnEl = null;
 
   function _now() {
     return (typeof performance !== 'undefined') ? performance.now() : Date.now();
@@ -3981,20 +3987,140 @@ Model.onChange('photo', function(){
 
   function _markTouch() { _touchEvents.push(_now()); }
 
+  // S179h: build a snapshot row from current readings. Called every tick;
+  // pushed to _samples while recording. Plain object so JSON.stringify works.
+  function _snapshot(touchRate, tileStats, zoom, pinCount, heapMb) {
+    return {
+      t: _recording ? Math.round(_now() - _recStartT) : 0,
+      fps: _currentFps,
+      touch: touchRate,
+      inflight: tileStats ? tileStats.inflight : null,
+      loaded: tileStats ? tileStats.loaded : null,
+      zoom: (typeof zoom === 'number') ? Math.round(zoom * 1000) / 1000 : null,
+      pins: pinCount,
+      heap: heapMb
+    };
+  }
+
+  // S179h: start recording — clear buffer, mark t=0, update button UI.
+  function _startRec() {
+    _samples.length = 0;
+    _recStartT = _now();
+    _recording = true;
+    if (_recBtnEl) {
+      _recBtnEl.textContent = '■ Stop & Export';
+      _recBtnEl.style.color = '#FF5252';
+      _recBtnEl.style.borderColor = '#FF5252';
+    }
+    try { toast('Recording started — pan/zoom now'); } catch (_e) {}
+  }
+
+  // S179h: stop + export. Builds TSV from _samples and triggers BOTH a download
+  // and a clipboard copy so Mark can use whichever path works in the TWA.
+  function _stopAndExport() {
+    _recording = false;
+    if (_recBtnEl) {
+      _recBtnEl.textContent = '● Record';
+      _recBtnEl.style.color = '#FFC400';
+      _recBtnEl.style.borderColor = '#FFC400';
+    }
+    if (!_samples.length) {
+      try { toast('No samples — try again, longer'); } catch (_e) {}
+      return;
+    }
+    // TSV: header + one row per sample. Tab-separated for clean spreadsheet paste.
+    var header = 't_ms\tfps\ttouch_per_s\ttile_inflight\ttile_loaded\tzoom\tpins\theap_mb';
+    var rows = _samples.map(function (s) {
+      return [s.t, s.fps, s.touch, s.inflight, s.loaded, s.zoom, s.pins, s.heap].join('\t');
+    });
+    var txt = header + '\n' + rows.join('\n');
+    var summary = '';
+    // Quick summary line for the toast (median FPS + sample count + duration)
+    try {
+      var fpsList = _samples.map(function (s) { return s.fps; }).sort(function (a, b) { return a - b; });
+      var medFps = fpsList[Math.floor(fpsList.length / 2)];
+      var dur = Math.round((_samples[_samples.length - 1].t) / 1000);
+      summary = _samples.length + ' samples, ' + dur + 's, median FPS ' + medFps;
+    } catch (_e) {}
+
+    // Clipboard write (Mark can paste directly into chat)
+    var copiedOK = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(function () {
+          copiedOK = true;
+        }, function () { /* silent */ });
+      }
+    } catch (_e) {}
+
+    // File download (Mark can attach .tsv to chat)
+    try {
+      var blob = new Blob([txt], { type: 'text/tab-separated-values;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'perf_' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.tsv';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () {
+        try { document.body.removeChild(a); } catch (_) {}
+        URL.revokeObjectURL(url);
+      }, 200);
+    } catch (_e) {}
+
+    try {
+      toast('Exported ' + summary + ' — saved to Downloads + clipboard');
+    } catch (_e) {}
+  }
+
   function _createEl() {
     if (_el) return _el;
     _el = document.createElement('div');
     _el.id = 'frt-perf-overlay';
+    // Outer container — pointer-events:none so it never blocks taps in the
+    // drawing canvas underneath. Children that need clicks (the record button)
+    // explicitly re-enable pointer-events.
     _el.style.cssText = [
       'position:fixed', 'top:88px', 'right:8px', 'z-index:99999',
       'background:rgba(0,0,0,0.82)', 'color:#FFC400',
       'font-family:Menlo,Consolas,monospace', 'font-size:11px',
       'line-height:1.5', 'padding:6px 10px', 'border-radius:6px',
-      'pointer-events:none', 'white-space:pre', 'min-width:160px',
+      'pointer-events:none', 'min-width:170px',
       'box-shadow:0 2px 8px rgba(0,0,0,0.4)',
       '-webkit-user-select:none', 'user-select:none'
     ].join(';');
-    _el.textContent = 'perf overlay…';
+
+    // Metrics sub-div (text-only, multi-line, no pointer events)
+    _metricsEl = document.createElement('div');
+    _metricsEl.id = 'frt-perf-metrics';
+    _metricsEl.style.cssText = 'white-space:pre;';
+    _metricsEl.textContent = 'perf overlay…';
+    _el.appendChild(_metricsEl);
+
+    // S179h: Record button — pointer-events:auto so it's clickable even though
+    // the outer container is pointer-events:none. Inline styled so no CSS dep.
+    _recBtnEl = document.createElement('button');
+    _recBtnEl.id = 'frt-perf-rec';
+    _recBtnEl.type = 'button';
+    _recBtnEl.style.cssText = [
+      'pointer-events:auto', 'margin-top:6px', 'width:100%',
+      'background:transparent', 'color:#FFC400',
+      'border:1px solid #FFC400', 'border-radius:4px',
+      'padding:4px 6px', 'font-family:Menlo,Consolas,monospace',
+      'font-size:11px', 'cursor:pointer', '-webkit-tap-highlight-color:transparent'
+    ].join(';');
+    _recBtnEl.textContent = '● Record';
+    _recBtnEl.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (_recording) _stopAndExport();
+      else _startRec();
+    });
+    // Block context menu so long-press on the button doesn't show Android menu
+    _recBtnEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    _el.appendChild(_recBtnEl);
+
     if (document.body) document.body.appendChild(_el);
     return _el;
   }
@@ -4012,7 +4138,7 @@ Model.onChange('photo', function(){
 
   function _tick() {
     try {
-      if (!_el) return;
+      if (!_el || !_metricsEl) return;
       var nowT = _now();
       var cutoff = nowT - 1000;
       while (_touchEvents.length && _touchEvents[0] < cutoff) _touchEvents.shift();
@@ -4020,17 +4146,19 @@ Model.onChange('photo', function(){
 
       var tileLine = 'Tiles: ?';
       var prefetchLine = '';
+      var tileStats = null;
       try {
         if (typeof TiledPdf !== 'undefined' && TiledPdf.stats) {
-          var s = TiledPdf.stats();
-          tileLine = 'Tiles: ' + s.inflight + ' fetching / ' + s.loaded + ' loaded';
-          prefetchLine = 'Prefetch: ' + (s.prefetchOn ? 'ON (' + s.prefetchPct + '%)' : 'OFF');
+          tileStats = TiledPdf.stats();
+          tileLine = 'Tiles: ' + tileStats.inflight + ' fetching / ' + tileStats.loaded + ' loaded';
+          prefetchLine = 'Prefetch: ' + (tileStats.prefetchOn ? 'ON (' + tileStats.prefetchPct + '%)' : 'OFF');
         }
       } catch (_e) {}
 
+      var zoomNum = null;
       var zoom = '?';
       try {
-        if (typeof _scale === 'number') zoom = _scale.toFixed(2) + '\u00d7';
+        if (typeof _scale === 'number') { zoomNum = _scale; zoom = _scale.toFixed(2) + '\u00d7'; }
       } catch (_e) {}
 
       var pinCount = '?';
@@ -4050,23 +4178,37 @@ Model.onChange('photo', function(){
         }
       } catch (_e) {}
 
+      var heapMb = null;
       var heapLine = '';
       try {
         if (performance && performance.memory && performance.memory.usedJSHeapSize) {
-          heapLine = '\nHeap: ' + Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + ' MB';
+          heapMb = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+          heapLine = '\nHeap: ' + heapMb + ' MB';
         }
       } catch (_e) {}
 
-      _el.textContent =
+      // S179h: append to recording buffer if recording. Capture numeric values
+      // (not formatted strings) so the exported TSV stays clean for analysis.
+      var recLine = '';
+      if (_recording) {
+        try {
+          _samples.push(_snapshot(touchRate, tileStats, zoomNum,
+            (typeof pinCount === 'number') ? pinCount : null, heapMb));
+        } catch (_e) {}
+        recLine = '\n● REC ' + Math.round((nowT - _recStartT) / 1000) + 's / ' + _samples.length + ' samples';
+      }
+
+      _metricsEl.textContent =
         'FPS: ' + _currentFps + '\n' +
         'Touch/s: ' + touchRate + '\n' +
         tileLine + '\n' +
         (prefetchLine ? prefetchLine + '\n' : '') +
         'Zoom: ' + zoom + '\n' +
         'Pins: ' + pinCount +
-        heapLine;
+        heapLine +
+        recLine;
     } catch (_err) {
-      try { _el.textContent = 'perf err: ' + (_err.message || _err); } catch (__) {}
+      try { if (_metricsEl) _metricsEl.textContent = 'perf err: ' + (_err.message || _err); } catch (__) {}
     }
   }
 
@@ -4088,6 +4230,11 @@ Model.onChange('photo', function(){
 
   function _stop() {
     if (!_active) return;
+    // S179h: if recording when overlay is turned off, auto-export so the
+    // session's data isn't silently discarded.
+    if (_recording) {
+      try { _stopAndExport(); } catch (_e) {}
+    }
     _active = false;
     document.removeEventListener('touchstart', _markTouch, { capture: true });
     document.removeEventListener('touchmove',  _markTouch, { capture: true });
@@ -4108,7 +4255,7 @@ Model.onChange('photo', function(){
       if (persist) {
         try { localStorage.setItem(STORAGE_KEY, '1'); } catch (_e) {}
       }
-      try { toast('Perf overlay: ON — long-press logo to dismiss'); } catch (_e) {}
+      try { toast('Perf overlay: ON'); } catch (_e) {}
     }
   }
 
