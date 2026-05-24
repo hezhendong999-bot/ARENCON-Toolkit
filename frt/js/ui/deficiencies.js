@@ -14,6 +14,7 @@ import { Model, TRADE_LIST, SITE_RECORDS_LABEL, isSiteRecordsName } from '../dat
 import { toast } from '../shared/toast.js';
 import { showConfirm, showPrompt, showDialog } from '../shared/dialogs.js';
 import { R2 } from '../data/r2.js';
+import { PhotoOutbox } from '../data/photoOutbox.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { AIAssist } from '../ai/assistant.js';
 
@@ -3580,61 +3581,98 @@ var _photoTargetObsIdx = 0;
 
 function _compressAndAdd(file, deficId, obsIdx) {
   // S130 5.4: compression in worker (OffscreenCanvas). The R2 upload that
-  // follows is unchanged — still routed through R2.uploadPhoto which now
-  // also goes through UploadQueue (S130 5.1) for concurrency control.
+  // follows is unchanged in PROD — still routed through R2.uploadPhoto which
+  // goes through UploadQueue (S130 5.1) for concurrency control.
+  //
+  // S170 (Fix A): under ?staging=1 the upload is routed through PhotoOutbox
+  // instead. PROD behavior is byte-for-byte unchanged. The two branches
+  // share the same compression + addObservationPhoto preamble; only the
+  // R2-side enqueue differs.
   ImageWorkerHost.compressFile(file, { maxW: 1600, quality: 0.8 })
     .then(function(r) {
       var photo = Model.addObservationPhoto(deficId, obsIdx, r.dataUrl);
       initDeficiencies.render();
       toast('Photo added');
       var pid = new URLSearchParams(window.location.search).get('project');
-      if (pid && photo) {
-        R2.uploadPhoto(pid, photo, 'original').then(function() {
-          Model.saveNow(); // Save updated r2Key/r2Url
-        }).catch(function(r2err) {
-          // S164 Fix D (V-7): R2 PUT failure was previously an unhandled
-          // promise rejection — photo lived locally with r2Key:null
-          // indefinitely, inspector had no signal, next cloud pull (which
-          // wholesale replaces state) could silently erase it. Now we
-          // mark the photo, persist the flag across reload, and surface
-          // the failure. This is belt-and-suspenders for Fix A (S166+);
-          // the model field `_r2UploadFailed` becomes the input signal
-          // for the future outbox retry logic.
+      if (!(pid && photo)) return;
+
+      // ── S170 Fix A branch: outbox path (staging only) ──
+      if (PhotoOutbox && PhotoOutbox.isEnabled && PhotoOutbox.isEnabled()) {
+        PhotoOutbox.enqueue({
+          photo: photo,
+          projectId: pid,
+          deficId: deficId,
+          obsIdx: obsIdx,
+          type: 'original'
+        }).then(function(rowId) {
+          // No toast here — the outbox processor will toast on R2
+          // confirm or failure. Logging only.
+          console.log('[Deficiencies] Enqueued to PhotoOutbox:', rowId,
+                      'photo:', photo && photo.id);
+        }).catch(function(err) {
+          // Enqueue itself failed (IDB write error, blob conversion
+          // failed). Fall back to Fix D's flag set so the photo is
+          // marked failed and the user is alerted.
+          console.warn('[Deficiencies] PhotoOutbox.enqueue failed:', err);
           try {
             photo._r2UploadFailed = true;
-            photo._r2UploadError = (r2err && r2err.message) || String(r2err);
+            photo._r2UploadError = (err && err.message) || String(err);
             photo._r2UploadFailedAt = new Date().toISOString();
-          } catch(_) {}
-
-          // Diagnostic ring buffer — outbox-precursor. Mark can read via
-          //   window._frt_r2Failures
-          // in DevTools console. Cap at 50 to bound memory under burst
-          // failure (offline burst, R2 worker down, etc.).
-          try {
-            var buf = (window._frt_r2Failures = window._frt_r2Failures || []);
-            buf.push({
-              photoId: photo && photo.id,
-              pid: pid,
-              when: photo && photo._r2UploadFailedAt,
-              error: photo && photo._r2UploadError
-            });
-            while (buf.length > 50) buf.shift();
-          } catch(_) {}
-
-          console.warn('[Deficiencies] R2 upload failed:', r2err, 'photo:', photo && photo.id);
-
-          var em2 = (photo && photo._r2UploadError) || 'unknown error';
-          if (em2.length > 60) em2 = em2.slice(0, 57) + '\u2026';
-          toast('\u26A0 Photo cloud upload failed: ' + em2, 8000);
-
-          // Force-persist the failure flag — the upstream Model.addObservationPhoto
-          // already scheduled a debounced save, but if reload/navigation
-          // intervenes before debounce fires, the _r2UploadFailed flag
-          // would not reach IDB. saveNow() guarantees persistence so
-          // future Fix A retry logic can pick this photo up after reload.
-          try { Model.saveNow(); } catch(_) {}
+            Model.saveNow();
+          } catch (_) {}
+          var em3 = (err && err.message) || 'unknown error';
+          if (em3.length > 60) em3 = em3.slice(0, 57) + '\u2026';
+          toast('\u26A0 Photo enqueue failed: ' + em3, 8000);
         });
+        return;
       }
+
+      // ── PROD path: current behavior, unchanged from Fix D ──
+      R2.uploadPhoto(pid, photo, 'original').then(function() {
+        Model.saveNow(); // Save updated r2Key/r2Url
+      }).catch(function(r2err) {
+        // S164 Fix D (V-7): R2 PUT failure was previously an unhandled
+        // promise rejection — photo lived locally with r2Key:null
+        // indefinitely, inspector had no signal, next cloud pull (which
+        // wholesale replaces state) could silently erase it. Now we
+        // mark the photo, persist the flag across reload, and surface
+        // the failure. This is belt-and-suspenders for Fix A (S166+);
+        // the model field `_r2UploadFailed` becomes the input signal
+        // for the future outbox retry logic.
+        try {
+          photo._r2UploadFailed = true;
+          photo._r2UploadError = (r2err && r2err.message) || String(r2err);
+          photo._r2UploadFailedAt = new Date().toISOString();
+        } catch(_) {}
+
+        // Diagnostic ring buffer — outbox-precursor. Mark can read via
+        //   window._frt_r2Failures
+        // in DevTools console. Cap at 50 to bound memory under burst
+        // failure (offline burst, R2 worker down, etc.).
+        try {
+          var buf = (window._frt_r2Failures = window._frt_r2Failures || []);
+          buf.push({
+            photoId: photo && photo.id,
+            pid: pid,
+            when: photo && photo._r2UploadFailedAt,
+            error: photo && photo._r2UploadError
+          });
+          while (buf.length > 50) buf.shift();
+        } catch(_) {}
+
+        console.warn('[Deficiencies] R2 upload failed:', r2err, 'photo:', photo && photo.id);
+
+        var em2 = (photo && photo._r2UploadError) || 'unknown error';
+        if (em2.length > 60) em2 = em2.slice(0, 57) + '\u2026';
+        toast('\u26A0 Photo cloud upload failed: ' + em2, 8000);
+
+        // Force-persist the failure flag — the upstream Model.addObservationPhoto
+        // already scheduled a debounced save, but if reload/navigation
+        // intervenes before debounce fires, the _r2UploadFailed flag
+        // would not reach IDB. saveNow() guarantees persistence so
+        // future Fix A retry logic can pick this photo up after reload.
+        try { Model.saveNow(); } catch(_) {}
+      });
     })
     .catch(function(err) {
       // S161 P3: replace silent console.warn with a long-duration toast

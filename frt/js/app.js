@@ -1060,6 +1060,66 @@ function _updateLastSyncIndicator() {
 // Update the "X ago" text every 30s
 setInterval(_updateLastSyncIndicator, 30000);
 
+// ─── S170 (Fix A): Photo outbox header badge ─────────────────────────────
+// Minimal badge that surfaces in-flight upload counts. Only renders when
+// PhotoOutbox is enabled (i.e. ?staging=1 is in the URL). Injects itself
+// into the existing project-bar; no HTML edit required.
+//
+// Per D8: r2_confirmed and cloud_confirmed are NOT counted — they're safe
+// states. The badge counts pending + uploading + retrying as "in flight"
+// and failed separately. Failed takes visual priority (muted red).
+//
+// S170 has no click behavior. Detail modal lands in S172.
+function _updateOutboxBadge() {
+  if (!PhotoOutbox || !PhotoOutbox.isEnabled || !PhotoOutbox.isEnabled()) return;
+  var bar = document.getElementById('project-bar');
+  if (!bar) return;
+  var badge = document.getElementById('pb-outbox');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.id = 'pb-outbox';
+    badge.title = 'Photo upload status';
+    badge.style.cssText = 'display:none;padding:2px 8px;border-radius:4px;' +
+      'font-weight:600;font-size:calc(11px + var(--ts));color:#fff;' +
+      'flex-shrink:0;white-space:nowrap;margin-left:6px;' +
+      'font-family:Calibri,sans-serif;letter-spacing:.2px;';
+    bar.appendChild(badge);
+  }
+  var counts = PhotoOutbox.getStatusCounts();
+  var inflight = counts.pending + counts.uploading + counts.retrying;
+  var failed = counts.failed;
+  if (failed > 0) {
+    badge.style.display = '';
+    badge.style.background = '#A85959';  // muted red — matches sync-indicator >5min state
+    badge.textContent = (inflight > 0 ? ('\uD83D\uDCE4 ' + inflight + ' \u00B7 ') : '') +
+                        '\u26A0 ' + failed + ' failed';
+  } else if (inflight > 0) {
+    badge.style.display = '';
+    badge.style.background = '#2C4A6B';  // muted blue — matches pb-inst style
+    badge.textContent = '\uD83D\uDCE4 ' + inflight + ' uploading';
+  } else {
+    badge.style.display = 'none';
+    badge.textContent = '';
+  }
+}
+
+// Wire outbox events to badge updates. Hooked unconditionally so the badge
+// stays in sync even if the activation flag flips later in some future
+// session; the updater itself short-circuits when disabled.
+try {
+  if (PhotoOutbox && PhotoOutbox.onChange) {
+    ['enqueue', 'uploading', 'r2_confirmed', 'cloud_confirmed',
+     'failed', 'cancelled'].forEach(function(ev) {
+      PhotoOutbox.onChange(ev, _updateOutboxBadge);
+    });
+  }
+} catch (_) {}
+
+// Also refresh on a slow timer as a safety net for any state changes we
+// might miss (e.g. resume() restoring rows before the listeners are wired
+// on the very first paint).
+setInterval(_updateOutboxBadge, 5000);
+
 // ─── S117-A: Presence chip rendering ────────────────────────────────────
 // Shows "👥 N here" pill in main header when other users are active in this
 // project. Click → modal listing names. Hidden when nobody else is here.
@@ -1598,6 +1658,19 @@ function boot() {
   var hasToken = _hubMode && _projectId && !!localStorage.getItem('sb-access-token');
   var idbReady = IDB.init();
   var authReady = hasToken ? Auth.restoreSession() : Promise.resolve(null);
+
+  // S170 (Fix A) — initialize the photo outbox in parallel with everything
+  // else. Resume picks up rows that were uploading when the tab was last
+  // killed. This runs whether or not staging is active — the module
+  // initializes its in-memory mirror regardless, and the activation flag
+  // gates whether new uploads route through it.
+  idbReady.then(function() {
+    return PhotoOutbox.init();
+  }).then(function() {
+    return PhotoOutbox.resume();
+  }).catch(function(e) {
+    console.warn('[FRT v2] PhotoOutbox init failed (non-fatal):', e && e.message);
+  });
 
   var _localRendered = false;
 
