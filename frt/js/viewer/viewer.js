@@ -4149,6 +4149,20 @@ Model.onChange('photo', function(){
     if (!lg) { setTimeout(_wireLogo, 200); return; }
     if (lg.dataset.perfHoldWired) return;
     lg.dataset.perfHoldWired = '1';
+    // S179f: suppress Android Chrome's system long-press menu ("Open in Chrome /
+    // Preview / Copy URL") on the <a> element — otherwise it intercepts long-press
+    // before our custom handler fires and Mark just sees the system menu. These
+    // four CSS properties together disable touch-callout, text-selection, and the
+    // long-press-to-preview gesture on touch devices.
+    try {
+      lg.style.webkitTouchCallout = 'none';
+      lg.style.webkitUserSelect = 'none';
+      lg.style.userSelect = 'none';
+      lg.style.touchAction = 'manipulation';
+    } catch (_e) {}
+    // Also block the contextmenu event explicitly — belt-and-suspenders for
+    // Chrome variants where CSS alone doesn't kill the long-press menu.
+    lg.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
     lg.addEventListener('touchstart',  _startHold,  { passive: true });
     lg.addEventListener('touchend',    _cancelHold, { passive: true });
     lg.addEventListener('touchmove',   _cancelHold, { passive: true });
