@@ -14,6 +14,12 @@ import { applyResolutions as mergeApplyResolutions } from './data/merge.js';
 import { R2 } from './data/r2.js';
 import { TileCache } from './data/tileCache.js';
 import { Presence } from './data/presence.js';
+// S169 (Fix A foundation) — durable in-flight photo upload tracker.
+// Imported here so the module loads (registers window.PhotoOutbox for
+// DevTools diagnostic access) but is NOT yet invoked from any code
+// path. Stub-only in S169; real behavior lands incrementally in
+// S170+. See FIX_A_ARCHITECTURE.md.
+import { PhotoOutbox } from './data/photoOutbox.js';
 import { Auth } from './shared/auth.js';
 import { toast } from './shared/toast.js';
 import { showConfirm, showAlert, showPrompt, showTypeToConfirm, showConflictModal } from './shared/dialogs.js';

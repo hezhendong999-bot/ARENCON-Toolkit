@@ -1,6 +1,6 @@
 // ARENCON Field Review Tool — Service Worker
 // Strategy: network-first for HTML/JS/CSS (always get latest), cache-first for CDN assets
-var CACHE_NAME = 'arencon-frt-v493';
+var CACHE_NAME = 'arencon-frt-v494';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -35,6 +35,9 @@ var APP_FILES = [
   'frt/js/data/uploadQueue.js',
   'frt/js/data/tileCache.js',
   'frt/js/data/hubBridge.js',
+  // S169 (Fix A foundation) — stub module, no behavior. Cached so devices
+  // pick it up on next SW activate.
+  'frt/js/data/photoOutbox.js',
   'frt/js/diag/memory.js',
   'frt/js/workers/imageWorker.js',
   'frt/js/workers/imageWorkerHost.js',

@@ -24,7 +24,14 @@
  */
 
 const DB_NAME = 'ARENCON_FRT_V2';
-const DB_VERSION = 3;
+// S169 (Fix A foundation) — bumped 3 → 4 to add the `photoOutbox` store.
+// Upgrade is additive-only: createObjectStore in onupgradeneeded skips any
+// store that already exists, so devices on v3 will simply have the new
+// store added on first load. No existing-store schema changes. If the
+// upgrade fails for any reason, the device remains on v3 with all
+// existing stores intact and the app continues to function (photoOutbox
+// is dormant in S169 — no code path requires its existence yet).
+const DB_VERSION = 4;
 
 const STORES = [
   'projects',
@@ -42,7 +49,15 @@ const STORES = [
   // S124 A3 — persisted sync metadata for optimistic-concurrency tracking
   // across page reloads. Records keyed by `<toolKey>:<projectId>:<instanceId>`
   // hold {id, updatedAt, snapshot, savedAt}. See sync.js `_persistSyncMeta`.
-  'syncMeta'
+  'syncMeta',
+  // S169 (Fix A foundation) — durable in-flight upload tracker. Rows
+  // keyed by their own outbox id; one row per in-flight photo upload.
+  // Lifecycle: pending → uploading → r2_confirmed → cloud_confirmed.
+  // The outbox is parallel to `projects` and is NEVER touched by
+  // `Model.setProject()`, which is what makes Enhancement 2 (atomicity
+  // through cloud push) work. See frt/js/data/photoOutbox.js and
+  // FIX_A_ARCHITECTURE.md §4. Empty in S169 — no code writes to it yet.
+  'photoOutbox'
 ];
 
 let _db = null;
