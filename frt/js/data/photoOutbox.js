@@ -157,6 +157,43 @@ function _deleteRow(rowId) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Retry scheduling state (S172)
+// ─────────────────────────────────────────────────────────────
+// Map from outbox row id → setTimeout handle for that row's pending
+// retry. Cleared when the row transitions out of retrying (success,
+// failed, cancelled, or online/focus-triggered immediate retry).
+var _retryTimers = {};
+
+// ─────────────────────────────────────────────────────────────
+// Batched failure toast (S172, per D1)
+// ─────────────────────────────────────────────────────────────
+// Per D1: surface failures via one debounced batch toast per 3s
+// window. _failedSinceLastToast collects photoIds that entered the
+// failed state during the window; the timer fires once and shows a
+// summary toast. Avoids spam under burst failure (e.g. R2 worker
+// degraded with 20 photos queued).
+var _failedSinceLastToast = [];
+var _failedToastTimer = null;
+var FAILED_TOAST_DEBOUNCE_MS = 3000;
+
+function _scheduleFailedToast(photoId) {
+  _failedSinceLastToast.push(photoId);
+  if (_failedToastTimer) return;
+  _failedToastTimer = setTimeout(function() {
+    var n = _failedSinceLastToast.length;
+    _failedSinceLastToast = [];
+    _failedToastTimer = null;
+    if (n === 1) {
+      toast('\u26A0 Photo upload failed after ' + MAX_RETRIES +
+            ' retries \u2014 tap the badge to retry', 8000);
+    } else if (n > 1) {
+      toast('\u26A0 ' + n + ' photo uploads failed after retries \u2014 ' +
+            'tap the badge to retry', 8000);
+    }
+  }, FAILED_TOAST_DEBOUNCE_MS);
+}
+
+// ─────────────────────────────────────────────────────────────
 // Processor — picks up pending rows and uploads them
 // ─────────────────────────────────────────────────────────────
 
@@ -243,18 +280,90 @@ function _processRow(row) {
     _kickProcessor();
   }).catch(function(err) {
     _activeUploadCount = Math.max(0, _activeUploadCount - 1);
-    _markFailed(row, err);
+    // S172: route through the retry-aware handler instead of going
+    // straight to failed. Transient R2 errors (network blip, 5xx, R2
+    // worker hiccup) get a backoff cycle; only after MAX_RETRIES does
+    // the row go terminal. The handler also gracefully handles the
+    // case where the row was cancelled mid-flight (row no longer in
+    // _rowsById).
+    _handleR2Failure(row, err);
     _kickProcessor();
   });
 }
 
+// ─────────────────────────────────────────────────────────────
+// Retry-or-fail decision (S172)
+// ─────────────────────────────────────────────────────────────
+
+function _handleR2Failure(row, err) {
+  // Row may have been cancelled while we were waiting for the R2
+  // response. If it's gone from the in-memory mirror, discard quietly.
+  if (!_rowsById[row.id]) return;
+
+  // S172: simple policy — every failure is treated as transient until
+  // MAX_RETRIES is exhausted. R2.upload swallows HTTP status to null,
+  // so we can't classify auth/4xx vs 5xx at this layer without
+  // changing r2.js (out of scope for this session). The cost of
+  // retrying a permanent error is ~8 minutes total backoff before the
+  // user sees the failed toast — acceptable, and prefers a transient
+  // recovery over an aggressive early give-up.
+
+  if (row.retryCount >= MAX_RETRIES) {
+    _markFailed(row, err);
+    return;
+  }
+  _scheduleRetry(row, err);
+}
+
+function _scheduleRetry(row, err) {
+  var delayMs = RETRY_DELAYS_MS[row.retryCount];
+  row.retryCount++;
+  row.status = OUTBOX_STATUS.RETRYING;
+  row.lastError = (err && err.message) || String(err);
+  row.lastAttemptAt = new Date().toISOString();
+  row.nextRetryAt = Date.now() + delayMs;
+  _persistRow(row).catch(function() {});
+
+  if (_FIX_A_ENABLED) {
+    console.log('[PhotoOutbox] Retry ' + row.retryCount + '/' + MAX_RETRIES +
+                ' for photo ' + row.photoId + ' in ' + (delayMs / 1000) + 's' +
+                ' (last error: ' + row.lastError + ')');
+  }
+
+  _clearRetryTimer(row.id);
+  _retryTimers[row.id] = setTimeout(function() {
+    delete _retryTimers[row.id];
+    // Re-check row existence (cancel may have fired during the wait)
+    var current = _rowsById[row.id];
+    if (!current) return;
+    current.status = OUTBOX_STATUS.PENDING;
+    current.nextRetryAt = null;
+    _persistRow(current).catch(function() {});
+    _kickProcessor();
+  }, delayMs);
+
+  _notify('retrying', { rowId: row.id, photoId: row.photoId,
+    retryCount: row.retryCount, nextRetryAt: row.nextRetryAt });
+}
+
+function _clearRetryTimer(rowId) {
+  if (_retryTimers[rowId]) {
+    clearTimeout(_retryTimers[rowId]);
+    delete _retryTimers[rowId];
+  }
+}
+
 function _markFailed(row, err) {
-  // S170: no retries. Straight to failed. Mirror Fix D's diagnostic
-  // flags onto the photo record so behavior is at-parity with current
-  // PROD when staging mode is on.
+  // Terminal failure — MAX_RETRIES has been exhausted. Per D3, this is
+  // the only state from which the row never auto-retries; user action
+  // (PhotoOutbox.retryEntry or retryAllFailed) is required to revive.
+
+  _clearRetryTimer(row.id);  // belt-and-suspenders if called via retry path
+
   row.status = OUTBOX_STATUS.FAILED;
   row.lastError = (err && err.message) || String(err);
   row.lastAttemptAt = new Date().toISOString();
+  row.nextRetryAt = null;
   _persistRow(row).catch(function() {});
 
   try {
@@ -281,16 +390,18 @@ function _markFailed(row, err) {
       pid: row.projectId,
       when: row.lastAttemptAt,
       error: row.lastError,
+      retryCount: row.retryCount,
       source: 'PhotoOutbox'
     });
     while (buf.length > 50) buf.shift();
   } catch (_) {}
 
-  var em = row.lastError || 'unknown error';
-  if (em.length > 60) em = em.slice(0, 57) + '\u2026';
-  toast('\u26A0 Photo cloud upload failed: ' + em, 8000);
+  // S172 / D1: batched toast instead of one-per-photo. _scheduleFailedToast
+  // collects failures for 3s and fires a single summary toast.
+  _scheduleFailedToast(row.photoId);
 
-  _notify('failed', { rowId: row.id, photoId: row.photoId, error: row.lastError });
+  _notify('failed', { rowId: row.id, photoId: row.photoId,
+    error: row.lastError, retryCount: row.retryCount });
 }
 
 function _findPhotoInProject(proj, photoId) {
@@ -331,6 +442,61 @@ function _findDeficInProject(proj, deficId) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Online / visibility retry triggers (S172, per D2)
+// ─────────────────────────────────────────────────────────────
+// When connectivity returns or the tab returns to foreground, any row
+// currently in `retrying` state has its backoff timer cleared and is
+// re-added to the processor queue immediately. retryCount is NOT
+// reset — the MAX_RETRIES ceiling still applies, so a row that's
+// failed 4 times and gets one online-triggered retry will still go
+// failed on the 5th attempt if it doesn't succeed.
+//
+// Listeners are wired exactly once per session by _wireRetryTriggers.
+var _retryTriggersWired = false;
+
+function _wireRetryTriggers() {
+  if (_retryTriggersWired) return;
+  _retryTriggersWired = true;
+  try {
+    window.addEventListener('online', function() {
+      if (_FIX_A_ENABLED) {
+        console.log('[PhotoOutbox] online event — flushing retry timers');
+      }
+      _retryAllRetrying('online');
+    });
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) {
+        if (_FIX_A_ENABLED) {
+          console.log('[PhotoOutbox] visibilitychange (visible) — flushing retry timers');
+        }
+        _retryAllRetrying('visible');
+      }
+    });
+  } catch (e) {
+    console.warn('[PhotoOutbox] _wireRetryTriggers failed (non-fatal):', e);
+  }
+}
+
+function _retryAllRetrying(reason) {
+  var triggered = 0;
+  for (var rowId in _rowsById) {
+    var r = _rowsById[rowId];
+    if (!r || r.status !== OUTBOX_STATUS.RETRYING) continue;
+    _clearRetryTimer(rowId);
+    r.status = OUTBOX_STATUS.PENDING;
+    r.nextRetryAt = null;
+    _persistRow(r).catch(function() {});
+    triggered++;
+  }
+  if (triggered > 0) {
+    if (_FIX_A_ENABLED) {
+      console.log('[PhotoOutbox] ' + triggered + ' retry timer(s) flushed via ' + reason);
+    }
+    _kickProcessor();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // Public API
 // ─────────────────────────────────────────────────────────────
 
@@ -357,35 +523,49 @@ export var PhotoOutbox = {
         console.log('[PhotoOutbox] Initialized — ' + (rows || []).length +
                     ' row(s) restored from IDB');
       }
+      // S172 / D2: wire online + visibilitychange handlers ONCE so any
+      // retrying rows pick up immediately when connectivity returns
+      // or the tab returns to foreground. These complement the
+      // per-row backoff timers; either path can fire first.
+      _wireRetryTriggers();
     }).catch(function(e) {
       console.warn('[PhotoOutbox] init failed (non-fatal):', e && e.message);
       _initialized = true;  // proceed — empty mirror
     });
   },
 
-  /** Re-pick-up pending and uploading rows after a reload. Rows in
-   *  `uploading` state when the tab was killed get reset to `pending`
-   *  so the processor picks them up cleanly. */
+  /** Re-pick-up pending / uploading / retrying rows after a reload.
+   *  - `uploading` rows are reset to pending (the in-flight fetch is
+   *    gone; treat as a fresh attempt).
+   *  - S172: `retrying` rows are also reset to pending. The setTimeout
+   *    that was waiting for the backoff window is gone (in-memory only).
+   *    Without this, a reload during backoff would leave the row
+   *    permanently stuck in retrying state. retryCount is preserved so
+   *    the MAX_RETRIES ceiling still applies.
+   *
+   *  Resume always runs at init-after-IDB-restore time. */
   resume: function() {
     if (!_initialized) {
       return this.init().then(this.resume.bind(this));
     }
-    var resetCount = 0;
+    var resetUploading = 0, resetRetrying = 0;
     for (var id in _rowsById) {
       var r = _rowsById[id];
-      if (r && r.status === OUTBOX_STATUS.UPLOADING) {
-        // Reload happened mid-upload. The AbortController is gone;
-        // the in-flight fetch (if any) is detached and harmless.
-        // Reset to pending so the processor handles it as a fresh
-        // attempt.
+      if (!r) continue;
+      if (r.status === OUTBOX_STATUS.UPLOADING) {
         r.status = OUTBOX_STATUS.PENDING;
         _persistRow(r).catch(function() {});
-        resetCount++;
+        resetUploading++;
+      } else if (r.status === OUTBOX_STATUS.RETRYING) {
+        r.status = OUTBOX_STATUS.PENDING;
+        r.nextRetryAt = null;
+        _persistRow(r).catch(function() {});
+        resetRetrying++;
       }
     }
-    if (_FIX_A_ENABLED && resetCount > 0) {
-      console.log('[PhotoOutbox] Resume reset ' + resetCount +
-                  ' uploading row(s) to pending');
+    if (_FIX_A_ENABLED && (resetUploading > 0 || resetRetrying > 0)) {
+      console.log('[PhotoOutbox] Resume reset ' + resetUploading +
+                  ' uploading + ' + resetRetrying + ' retrying row(s) to pending');
     }
     _kickProcessor();
     return Promise.resolve();
@@ -495,6 +675,9 @@ export var PhotoOutbox = {
       if (ac && ac.abort) ac.abort();
       delete _abortControllers[rowId];
     } catch (_) {}
+    // S172: clear any pending retry timer too — a cancelled row
+    // must not silently re-enter the queue when its backoff expires.
+    _clearRetryTimer(rowId);
     return _deleteRow(rowId).then(function() {
       _notify('cancelled', { rowId: rowId, photoId: photoId });
       return true;
@@ -551,9 +734,15 @@ export var PhotoOutbox = {
     var row = _rowsById[rowId];
     if (!row) return Promise.resolve(false);
     if (row.status !== OUTBOX_STATUS.FAILED) return Promise.resolve(false);
+    // S172: defensive — clear any leftover timer (shouldn't exist on a
+    // failed row, but cheap to be idempotent). retryCount resets to 0
+    // so the user gets a fresh MAX_RETRIES budget. Per D3, the user
+    // tapping retry is the ONLY path out of failed state.
+    _clearRetryTimer(rowId);
     row.status = OUTBOX_STATUS.PENDING;
-    row.retryCount = 0;     // S172 will gate this differently
+    row.retryCount = 0;
     row.lastError = null;
+    row.nextRetryAt = null;
     return _persistRow(row).then(function() {
       _notify('enqueue', { rowId: row.id, photoId: row.photoId, manualRetry: true });
       _kickProcessor();
@@ -739,6 +928,11 @@ export var PhotoOutbox = {
       rowCount: Object.keys(_rowsById).length,
       activeUploadCount: _activeUploadCount,
       maxConcurrent: MAX_CONCURRENT,
+      retryDelaysMs: RETRY_DELAYS_MS,
+      maxRetries: MAX_RETRIES,
+      retryTimers: Object.keys(_retryTimers).length,
+      retryTriggersWired: _retryTriggersWired,
+      failedToastQueue: _failedSinceLastToast.length,
       rowsByStatus: (function() {
         var byStatus = {};
         for (var id in _rowsById) {
