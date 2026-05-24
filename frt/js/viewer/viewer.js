@@ -1471,14 +1471,18 @@ function _pinToolDrop(clientX, clientY) {
   _lastPinDropTime = now;
 
   // S159 hotfix: if the click landed on an existing pin marker, open that
-  // pin's editor instead of creating a new one. Without this, the sticky
-  // pin-tool workflow (V-9) blocks the user from ever re-opening an
-  // existing pin to edit / delete it — every click on a pin would create
-  // a new one stacked at the same location.
+  // pin's editor instead of creating a new one. Without this, mis-tapping
+  // near an existing pin while the pin tool was armed would create a new
+  // pin stacked next to it.
   var hitElement = document.elementFromPoint(clientX, clientY);
   var existingId = _resolvePinAt(clientX, clientY, hitElement);
   if (existingId) {
     _openPinEditor(existingId);
+    // S174: deactivate the pin tool after handling an existing pin too,
+    // so the user is back in default state (single tap opens editor,
+    // press-and-hold drags). Same single-action workflow as the new-drop
+    // path below.
+    if (typeof Markup !== 'undefined' && Markup.setTool) Markup.setTool(null);
     return;
   }
 
@@ -1507,14 +1511,19 @@ function _pinToolDrop(clientX, clientY) {
     console.log('[Viewer] Pin tool: created deficiency #' + newDefic.num + ' at', pinX.toFixed(3), pinY.toFixed(3));
     _openPinEditor(newDefic.id);
   }
-  // S159 (Mark): pin tool stays armed after creating a new pin so the
-  // user can place multiple pins consecutively without re-clicking the
-  // pin button each time. Trade-off: the next tap on the drawing canvas
-  // creates another pin. Acceptable per Mark's workflow.
+  // S174 (Mark): pin tool deactivates after a single drop. Reverts the
+  // S159 sticky-armed behaviour, which produced an "every tap drops a new
+  // pin" annoyance when the user wanted to interact with the pin just
+  // placed (tap to open editor, press-and-hold to move). After deactivate,
+  // the user is back in the default no-tool state where single tap on a
+  // pin opens its editor and press-and-hold + drag moves it. To drop
+  // another pin, the user re-arms the pin tool from the toolbar.
   //
-  // (Prior behaviour from S116 Push 2 — disarmed tool back to 'select' —
-  //  is preserved in _handlePinDrop above for the move-pin flow, which
-  //  is a separate concern.)
+  // Use setTool(null) (not 'select') so the markup canvas's pointer-events
+  // stays disabled — matches the initial state when the viewer opens.
+  // _handlePinDrop's post-move-mode reset to 'select' (line ~1460) is a
+  // separate concern and unchanged.
+  if (typeof Markup !== 'undefined' && Markup.setTool) Markup.setTool(null);
 }
 
 // Pin drop click handler
