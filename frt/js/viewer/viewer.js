@@ -3938,34 +3938,54 @@ Model.onChange('photo', function(){
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// S179d: Performance diagnostic overlay (?perf=1).
+// S179e: Performance diagnostic overlay — TWA-compatible activation.
 //
 // Lightweight live readout for diagnosing pan/zoom feel on field tablets.
-// Off by default; activated by appending ?perf=1 to the URL.
+// Off by default. Three ways to activate:
+//   1. Long-press the ARENCON header logo for 1.2 seconds (primary path —
+//      works inside the installed TWA where users can't edit URLs).
+//   2. localStorage key 'arencon-perf-overlay' = '1' (persists across reloads).
+//   3. URL ?perf=1 (desktop debugging convenience; non-persistent).
+//
+// Each activation method toggles the same state and shows a toast.
+// Sampling (FPS loop, touch listeners) runs only while the overlay is
+// visible — zero overhead when off.
 //
 // Reads:
-//   FPS         — frames per second, sampled via requestAnimationFrame
+//   FPS         — frames per second, rAF-sampled
 //   Touch/s     — touchstart + touchmove events in trailing 1-second window
 //   Tiles       — in-flight HTTP fetches / total loaded tiles
+//   Prefetch    — S99 tile prefetch state (ON/OFF + threshold %)
 //   Zoom        — current viewer scale (1.00× = fit)
 //   Pins        — visible pin count on current drawing
 //   Heap        — JS heap usage (Chrome only; performance.memory)
-//   Prefetch    — S99 tile prefetch state (ON/OFF)
-//
-// Design:
-//   - Fixed top-right, pointer-events:none (never blocks taps)
-//   - Inline styles only (works even if frt.css fails to load)
-//   - Self-contained IIFE; clean no-op when ?perf=1 is absent
-//   - Updates every 250ms (4×/sec); minimal own overhead
 // ═══════════════════════════════════════════════════════════════════════════
 (function _initPerfOverlay() {
-  try {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return;
-    if (!/[?&]perf=1\b/.test(window.location.search || '')) return;
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-    var el = document.createElement('div');
-    el.id = 'frt-perf-overlay';
-    el.style.cssText = [
+  var STORAGE_KEY = 'arencon-perf-overlay';
+  var HOLD_MS = 1200;
+
+  var _el = null;
+  var _active = false;
+  var _rafHandle = 0;
+  var _intervalHandle = 0;
+  var _frames = 0;
+  var _fpsLastT = 0;
+  var _currentFps = 0;
+  var _touchEvents = [];
+
+  function _now() {
+    return (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  }
+
+  function _markTouch() { _touchEvents.push(_now()); }
+
+  function _createEl() {
+    if (_el) return _el;
+    _el = document.createElement('div');
+    _el.id = 'frt-perf-overlay';
+    _el.style.cssText = [
       'position:fixed', 'top:88px', 'right:8px', 'z-index:99999',
       'background:rgba(0,0,0,0.82)', 'color:#FFC400',
       'font-family:Menlo,Consolas,monospace', 'font-size:11px',
@@ -3974,107 +3994,182 @@ Model.onChange('photo', function(){
       'box-shadow:0 2px 8px rgba(0,0,0,0.4)',
       '-webkit-user-select:none', 'user-select:none'
     ].join(';');
-    el.textContent = 'perf overlay starting…';
-
-    function _mount() {
-      if (document.body) document.body.appendChild(el);
-      else setTimeout(_mount, 100);
-    }
-    _mount();
-
-    // FPS sampling via rAF loop
-    var _frames = 0;
-    var _fpsLastT = (typeof performance !== 'undefined') ? performance.now() : Date.now();
-    var _currentFps = 0;
-    function _fpsLoop() {
-      _frames++;
-      var now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
-      if (now - _fpsLastT >= 1000) {
-        _currentFps = Math.round(_frames * 1000 / (now - _fpsLastT));
-        _frames = 0;
-        _fpsLastT = now;
-      }
-      requestAnimationFrame(_fpsLoop);
-    }
-    requestAnimationFrame(_fpsLoop);
-
-    // Touch event rate: trailing 1-second window
-    var _touchEvents = [];
-    function _markTouch() {
-      _touchEvents.push((typeof performance !== 'undefined') ? performance.now() : Date.now());
-    }
-    document.addEventListener('touchstart', _markTouch, { passive: true, capture: true });
-    document.addEventListener('touchmove', _markTouch, { passive: true, capture: true });
-
-    // 250ms update tick
-    setInterval(function() {
-      try {
-        // Trim touch events older than 1s
-        var nowT = (typeof performance !== 'undefined') ? performance.now() : Date.now();
-        var cutoff = nowT - 1000;
-        while (_touchEvents.length && _touchEvents[0] < cutoff) _touchEvents.shift();
-        var touchRate = _touchEvents.length;
-
-        // Tile stats
-        var tileLine = 'Tiles: ?';
-        var prefetchLine = '';
-        try {
-          if (typeof TiledPdf !== 'undefined' && TiledPdf.stats) {
-            var s = TiledPdf.stats();
-            tileLine = 'Tiles: ' + s.inflight + ' fetching / ' + s.loaded + ' loaded';
-            prefetchLine = 'Prefetch: ' + (s.prefetchOn ? 'ON (' + s.prefetchPct + '%)' : 'OFF');
-          }
-        } catch (_e) {}
-
-        // Zoom level (viewer module-scoped _scale)
-        var zoom = '?';
-        try {
-          if (typeof _scale === 'number') zoom = _scale.toFixed(2) + '\u00d7';
-        } catch (_e) {}
-
-        // Pin count for current drawing
-        var pinCount = '?';
-        try {
-          if (typeof Model !== 'undefined' && Model.getAllDeficiencies) {
-            var drawings2 = (typeof _getDrawingsList === 'function') ? _getDrawingsList() : [];
-            var currIdx = (typeof _currentDrawingIdx === 'number') ? _currentDrawingIdx : -1;
-            if (currIdx >= 0 && currIdx < drawings2.length) {
-              var dwgId = drawings2[currIdx].id;
-              var all = Model.getAllDeficiencies();
-              var n = 0;
-              for (var i = 0; i < all.length; i++) {
-                if (all[i].defic.drawingId === dwgId && all[i].defic.pinX != null) n++;
-              }
-              pinCount = n;
-            } else {
-              pinCount = 0;
-            }
-          }
-        } catch (_e) {}
-
-        // Heap (Chrome only)
-        var heapLine = '';
-        try {
-          if (performance && performance.memory && performance.memory.usedJSHeapSize) {
-            heapLine = '\nHeap: ' + Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + ' MB';
-          }
-        } catch (_e) {}
-
-        el.textContent =
-          'FPS: ' + _currentFps + '\n' +
-          'Touch/s: ' + touchRate + '\n' +
-          tileLine + '\n' +
-          (prefetchLine ? prefetchLine + '\n' : '') +
-          'Zoom: ' + zoom + '\n' +
-          'Pins: ' + pinCount +
-          heapLine;
-      } catch (_err) {
-        try { el.textContent = 'perf err: ' + (_err.message || _err); } catch (__) {}
-      }
-    }, 250);
-
-    try { console.log('[Viewer] Perf overlay active (?perf=1) — top-right corner'); } catch (_e) {}
-  } catch (_e) {
-    try { console.error('[Viewer] Perf overlay init failed:', _e); } catch (__) {}
+    _el.textContent = 'perf overlay…';
+    if (document.body) document.body.appendChild(_el);
+    return _el;
   }
+
+  function _fpsLoop() {
+    _frames++;
+    var now = _now();
+    if (now - _fpsLastT >= 1000) {
+      _currentFps = Math.round(_frames * 1000 / (now - _fpsLastT));
+      _frames = 0;
+      _fpsLastT = now;
+    }
+    _rafHandle = requestAnimationFrame(_fpsLoop);
+  }
+
+  function _tick() {
+    try {
+      if (!_el) return;
+      var nowT = _now();
+      var cutoff = nowT - 1000;
+      while (_touchEvents.length && _touchEvents[0] < cutoff) _touchEvents.shift();
+      var touchRate = _touchEvents.length;
+
+      var tileLine = 'Tiles: ?';
+      var prefetchLine = '';
+      try {
+        if (typeof TiledPdf !== 'undefined' && TiledPdf.stats) {
+          var s = TiledPdf.stats();
+          tileLine = 'Tiles: ' + s.inflight + ' fetching / ' + s.loaded + ' loaded';
+          prefetchLine = 'Prefetch: ' + (s.prefetchOn ? 'ON (' + s.prefetchPct + '%)' : 'OFF');
+        }
+      } catch (_e) {}
+
+      var zoom = '?';
+      try {
+        if (typeof _scale === 'number') zoom = _scale.toFixed(2) + '\u00d7';
+      } catch (_e) {}
+
+      var pinCount = '?';
+      try {
+        if (typeof Model !== 'undefined' && Model.getAllDeficiencies) {
+          var drawings2 = (typeof _getDrawingsList === 'function') ? _getDrawingsList() : [];
+          var currIdx = (typeof _currentDrawingIdx === 'number') ? _currentDrawingIdx : -1;
+          if (currIdx >= 0 && currIdx < drawings2.length) {
+            var dwgId = drawings2[currIdx].id;
+            var all = Model.getAllDeficiencies();
+            var n = 0;
+            for (var i = 0; i < all.length; i++) {
+              if (all[i].defic.drawingId === dwgId && all[i].defic.pinX != null) n++;
+            }
+            pinCount = n;
+          } else { pinCount = 0; }
+        }
+      } catch (_e) {}
+
+      var heapLine = '';
+      try {
+        if (performance && performance.memory && performance.memory.usedJSHeapSize) {
+          heapLine = '\nHeap: ' + Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + ' MB';
+        }
+      } catch (_e) {}
+
+      _el.textContent =
+        'FPS: ' + _currentFps + '\n' +
+        'Touch/s: ' + touchRate + '\n' +
+        tileLine + '\n' +
+        (prefetchLine ? prefetchLine + '\n' : '') +
+        'Zoom: ' + zoom + '\n' +
+        'Pins: ' + pinCount +
+        heapLine;
+    } catch (_err) {
+      try { _el.textContent = 'perf err: ' + (_err.message || _err); } catch (__) {}
+    }
+  }
+
+  function _start() {
+    if (_active) return;
+    _active = true;
+    _createEl();
+    _el.style.display = 'block';
+    _frames = 0;
+    _fpsLastT = _now();
+    _currentFps = 0;
+    _touchEvents.length = 0;
+    document.addEventListener('touchstart', _markTouch, { passive: true, capture: true });
+    document.addEventListener('touchmove',  _markTouch, { passive: true, capture: true });
+    _rafHandle = requestAnimationFrame(_fpsLoop);
+    _intervalHandle = setInterval(_tick, 250);
+    _tick();
+  }
+
+  function _stop() {
+    if (!_active) return;
+    _active = false;
+    document.removeEventListener('touchstart', _markTouch, { capture: true });
+    document.removeEventListener('touchmove',  _markTouch, { capture: true });
+    if (_rafHandle) { cancelAnimationFrame(_rafHandle); _rafHandle = 0; }
+    if (_intervalHandle) { clearInterval(_intervalHandle); _intervalHandle = 0; }
+    if (_el) _el.style.display = 'none';
+  }
+
+  function _toggle(persist) {
+    if (_active) {
+      _stop();
+      if (persist) {
+        try { localStorage.removeItem(STORAGE_KEY); } catch (_e) {}
+      }
+      try { toast('Perf overlay: OFF'); } catch (_e) {}
+    } else {
+      _start();
+      if (persist) {
+        try { localStorage.setItem(STORAGE_KEY, '1'); } catch (_e) {}
+      }
+      try { toast('Perf overlay: ON — long-press logo to dismiss'); } catch (_e) {}
+    }
+  }
+
+  // ── Activation: localStorage flag or ?perf=1 URL param ──
+  function _boot() {
+    var fromStorage = false;
+    var fromUrl = false;
+    try { fromStorage = (localStorage.getItem(STORAGE_KEY) === '1'); } catch (_e) {}
+    try { fromUrl = /[?&]perf=1\b/.test(window.location.search || ''); } catch (_e) {}
+    if (fromStorage || fromUrl) _start();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _boot);
+  } else {
+    _boot();
+  }
+
+  // ── Long-press logo gesture (1.2s) toggles overlay ──
+  // Tap+release within 1.2s → normal navigation back to toolkit (unchanged).
+  // Hold ≥1.2s → toggle overlay, suppress the click so navigation doesn't fire.
+  var _holdTimer = null;
+  var _suppressClick = false;
+  function _startHold(e) {
+    if (_holdTimer) return;
+    _holdTimer = setTimeout(function() {
+      _holdTimer = null;
+      _suppressClick = true;
+      try { if (navigator.vibrate) navigator.vibrate(50); } catch (_) {}
+      _toggle(true);
+      setTimeout(function() { _suppressClick = false; }, 800);
+    }, HOLD_MS);
+  }
+  function _cancelHold() {
+    if (_holdTimer) { clearTimeout(_holdTimer); _holdTimer = null; }
+  }
+  function _wireLogo() {
+    var lg = document.getElementById('logo-link');
+    if (!lg) { setTimeout(_wireLogo, 200); return; }
+    if (lg.dataset.perfHoldWired) return;
+    lg.dataset.perfHoldWired = '1';
+    lg.addEventListener('touchstart',  _startHold,  { passive: true });
+    lg.addEventListener('touchend',    _cancelHold, { passive: true });
+    lg.addEventListener('touchmove',   _cancelHold, { passive: true });
+    lg.addEventListener('touchcancel', _cancelHold, { passive: true });
+    lg.addEventListener('mousedown',   _startHold);
+    lg.addEventListener('mouseup',     _cancelHold);
+    lg.addEventListener('mouseleave',  _cancelHold);
+    lg.addEventListener('click', function(e) {
+      if (_suppressClick) {
+        e.preventDefault();
+        e.stopPropagation();
+        _suppressClick = false;
+      }
+    }, true);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _wireLogo);
+  } else {
+    _wireLogo();
+  }
+
+  // Expose a manual toggle for console use during desktop debugging
+  try { window._frtTogglePerfOverlay = function() { _toggle(true); }; } catch (_e) {}
 })();
