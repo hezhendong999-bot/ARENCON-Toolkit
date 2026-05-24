@@ -1127,8 +1127,8 @@ const SUPABASE_ANON_KEY_PROD = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ
 // Until both fields are non-empty, ?staging=1 falls back to PROD with a visible warning banner.
 // These values MUST stay in sync with the equivalent block in frt/js/shared/auth.js — when
 // you receive the staging URL + anon key, update both files in the same commit.
-const SUPABASE_URL_STAGING = '';
-const SUPABASE_ANON_KEY_STAGING = '';
+const SUPABASE_URL_STAGING = 'https://wifvxmqgnkhzxxctqojp.supabase.co';
+const SUPABASE_ANON_KEY_STAGING = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpZnZ4bXFnbmtoenh4Y3Rxb2pwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NzI1MjQsImV4cCI6MjA5NTE0ODUyNH0.D8xYU20jri0FdMcOtU0wZnSvlrRRpl1ZnEcwjCWrans';
 
 // ── Environment Detection ──
 const STAGING_REQUESTED = new URLSearchParams(location.search).get('staging') === '1';

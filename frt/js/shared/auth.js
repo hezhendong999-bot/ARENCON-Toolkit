@@ -16,8 +16,8 @@ var SUPABASE_ANON_KEY_PROD = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 // Until both fields are non-empty, ?staging=1 falls back to PROD with a visible warning
 // banner (injected by frt/index.html). MUST stay in sync with the equivalent block in
 // ARENCON_Project_Hub.html — update both files in the same commit when credentials arrive.
-var SUPABASE_URL_STAGING = '';
-var SUPABASE_ANON_KEY_STAGING = '';
+var SUPABASE_URL_STAGING = 'https://wifvxmqgnkhzxxctqojp.supabase.co';
+var SUPABASE_ANON_KEY_STAGING = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpZnZ4bXFnbmtoenh4Y3Rxb2pwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NzI1MjQsImV4cCI6MjA5NTE0ODUyNH0.D8xYU20jri0FdMcOtU0wZnSvlrRRpl1ZnEcwjCWrans';
 
 // ── Environment Detection ──
 // `location.search` is available at module-load time in browsers; no DOM wait needed.
