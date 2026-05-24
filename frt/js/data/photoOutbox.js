@@ -26,8 +26,8 @@
  *   • Cloud-push strip rule (S171)
  *   • Reconciliation after pull (S171)
  *   • Migration scan (S175)
- *   • AbortController wiring for cancel-during-pending (S173)
- *   • Detail modal UI (S172)
+ *   • AbortController wiring for cancel-during-pending (S176 — SHIPPED)
+ *   • Detail modal UI (S175 — SHIPPED)
  *
  * Until those land, the outbox in staging is a foundation that records
  * upload state but does NOT yet protect against the pull-replace bug.
@@ -93,7 +93,8 @@ var _rowsByPhotoId = {};         // photoId → outbox row
 var _rowsById = {};              // outbox row id → outbox row
 
 // In-memory map of AbortController instances, keyed by outbox row id.
-// Wired in S173. Empty in S170.
+// Populated in _processRow (S176), consumed by cancelByPhotoId. Empty
+// in non-browser contexts or browsers lacking AbortController.
 var _abortControllers = {};
 
 // Concurrency cap (Enhancement 7). Soft cap on outbox-managed concurrent
@@ -236,6 +237,23 @@ function _processRow(row) {
   _persistRow(row).catch(function() {}); // fire-and-forget; in-mem mirror is what we read
   _notify('uploading', { rowId: row.id, photoId: row.photoId });
 
+  // S176 (Enhancement 8): bind an AbortController so cancelByPhotoId can
+  // interrupt the in-flight R2 PUT. Without this wiring, cancel deleted
+  // the outbox row but the upload continued to completion in the
+  // background, orphaning a binary on R2 and contradicting the cancel
+  // affordance shown in the S175 detail modal. The cancelByPhotoId path
+  // already calls _abortControllers[rowId].abort() and deletes the entry;
+  // here we just populate the map. Browsers without AbortController
+  // (none of Mark's fleet, but defensive) fall back to today's behavior.
+  var controller = null;
+  try {
+    if (typeof AbortController !== 'undefined') {
+      controller = new AbortController();
+      _abortControllers[row.id] = controller;
+    }
+  } catch (_) {}
+  var rowIdForCleanup = row.id;
+
   // The photo record lives in model state (added by the caller via
   // Model.addObservationPhoto before enqueue). We need the blob from
   // photoBlobs (already saved there by enqueue() itself — see below).
@@ -244,13 +262,18 @@ function _processRow(row) {
       throw new Error('No blob in photoBlobs for photo ' + row.photoId);
     }
     // Deterministic R2 key (Enhancement 1). Filename derived from photo id.
+    // S176: pass AbortSignal as 6th param. R2.upload propagates it to fetch
+    // and treats AbortError as non-retriable.
     return R2.upload(
       row.projectId,
       row.type || 'original',
       blobRec.dataBlob,
-      'defic_' + row.photoId + '.jpg'
+      'defic_' + row.photoId + '.jpg',
+      null,
+      controller ? controller.signal : undefined
     );
   }).then(function(result) {
+    delete _abortControllers[rowIdForCleanup];
     _activeUploadCount = Math.max(0, _activeUploadCount - 1);
     if (!result || !result.r2Key) {
       // R2.upload swallows non-2xx and network errors as null (r2.js:120).
@@ -258,6 +281,9 @@ function _processRow(row) {
       // engages. Previous direct _markFailed call meant every transient
       // R2 hiccup went immediately to the terminal failed state with
       // no backoff cycle — the opposite of what D2/D3 specifies.
+      // S176: aborted uploads also return null here, but the cancel path
+      // synchronously deleted the row from _rowsById before the abort
+      // propagated, so _handleR2Failure short-circuits cleanly.
       _handleR2Failure(row, new Error('R2 upload returned null (transient)'));
       _kickProcessor();
       return;
@@ -298,6 +324,7 @@ function _processRow(row) {
 
     _kickProcessor();
   }).catch(function(err) {
+    delete _abortControllers[rowIdForCleanup];
     _activeUploadCount = Math.max(0, _activeUploadCount - 1);
     // S172: route through the retry-aware handler instead of going
     // straight to failed. Transient R2 errors (network blip, 5xx, R2
@@ -678,9 +705,11 @@ export var PhotoOutbox = {
     });
   },
 
-  /** Cancel by photo id (Enhancement 8 — fully wired in S173). S170
-   *  version: simply deletes the row + photo flag. AbortController
-   *  wiring lands in S173.  */
+  /** Cancel by photo id (Enhancement 8 — fully wired in S176). Aborts
+   *  any in-flight R2 PUT, clears retry timers, deletes the outbox row,
+   *  and removes the photo flag. After S176 the abort actually fires:
+   *  pre-S176 the controller map was empty and cancel only deleted the
+   *  row while the upload completed in the background.  */
   cancelByPhotoId: function(photoId) {
     if (!_initialized) {
       return this.init().then(this.cancelByPhotoId.bind(this, photoId));
@@ -688,7 +717,11 @@ export var PhotoOutbox = {
     var row = _rowsByPhotoId[photoId];
     if (!row) return Promise.resolve(false);
     var rowId = row.id;
-    // Best-effort abort if a controller is bound (S173 will populate this).
+    // S176: abort any in-flight R2 PUT bound to this row. _processRow
+    // populates _abortControllers[rowId] before starting the upload and
+    // clears it on completion. Aborting fires fetch's AbortError, which
+    // r2.js maps to a null return, which the processor maps via
+    // _handleR2Failure → no-op short-circuit (row already gone here).
     try {
       var ac = _abortControllers[rowId];
       if (ac && ac.abort) ac.abort();

@@ -88,8 +88,13 @@ export var R2 = {
    *  S83: accepts optional mimeHint (for ArrayBuffer → PDF uploads).
    *  S130 5.1: routed through UploadQueue for concurrency cap + transient retry.
    *  Lane = `<pid>:<type>` so same-project same-type uploads serialize in
-   *  enqueue order (drawing-then-thumbnail, photo-batch ordering, etc.). */
-  upload: function(projectId, type, data, filename, mimeHint) {
+   *  enqueue order (drawing-then-thumbnail, photo-batch ordering, etc.).
+   *  S176: optional 6th param `signal` (AbortSignal) — when provided, fetch
+   *  honors aborts so the outbox can interrupt in-flight PUTs on user cancel.
+   *  AbortError is non-transient (not TypeError, not 429/503) so UploadQueue
+   *  propagates straight to the .catch and returns null without retrying.
+   *  All existing callers (uploadPhoto, uploadDrawing, etc.) are unaffected. */
+  upload: function(projectId, type, data, filename, mimeHint, signal) {
     if (!filename) filename = R2.generateFilename('jpg');
     var r2Key = 'photos/' + projectId + '/frt/' + type + '/' + filename;
     var r2Url = R2_WORKER + '/' + r2Key;
@@ -99,14 +104,20 @@ export var R2 = {
       if (!blob) { console.warn('[R2] No blob to upload'); return null; }
       var ct = blob.type || mimeHint || 'image/jpeg';
       return UploadQueue.enqueue(function() {
-        return fetch(r2Url, {
+        var fetchOpts = {
           method: 'PUT',
           headers: {
             'Content-Type': ct,
             'Authorization': 'Bearer ' + (token || '')
           },
           body: blob
-        }).then(function(resp) {
+        };
+        // S176: AbortSignal piped through to fetch. Captured by closure so
+        // UploadQueue's internal retry attempts share the same signal — if
+        // the caller aborted between attempts, the retried fetch sees
+        // signal.aborted=true and rejects immediately.
+        if (signal) fetchOpts.signal = signal;
+        return fetch(r2Url, fetchOpts).then(function(resp) {
           if (resp.ok) {
             console.log('[R2] Uploaded:', r2Key, '(' + Math.round(blob.size / 1024) + 'KB)');
             return { r2Key: r2Key, r2Url: r2Url };
@@ -118,7 +129,15 @@ export var R2 = {
         });
       }, { lane: projectId + ':' + type, maxRetries: 2 })
       .catch(function(err) {
-        console.warn('[R2] Upload error:', err.message);
+        // S176: distinguish aborts from real failures in the log line.
+        // The processor still sees null either way, and _handleR2Failure
+        // short-circuits when the row is gone from _rowsById (which the
+        // cancel path guarantees synchronously before the fetch rejects).
+        if (err && err.name === 'AbortError') {
+          console.log('[R2] Upload aborted:', r2Key);
+        } else {
+          console.warn('[R2] Upload error:', err.message);
+        }
         return null;
       });
     });
