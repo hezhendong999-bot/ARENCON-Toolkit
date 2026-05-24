@@ -1233,7 +1233,7 @@ function _highlightPin(deficId) {
       htmlMarker.style.transform = (on
         ? 'translate(-50%, -100%) scale(1.4)'
         : 'translate(-50%, -100%) scale(1.0)');
-      htmlMarker.style.filter = on ? 'drop-shadow(0 0 12px gold) drop-shadow(0 0 4px gold)' : '';
+      htmlMarker.style.filter = on ? 'drop-shadow(0 0 12px #FFC400) drop-shadow(0 0 4px #FFC400)' : '';
       if (pulses >= totalBeats) {
         clearInterval(pulseTimer);
         htmlMarker.style.transform = 'translate(-50%, -100%)';
@@ -1350,10 +1350,11 @@ function _renderPins() {
       scale: _scale, panX: _panX, panY: _panY,
       pinScale: pinScale,
       hoveredId: _lastHoveredId || null,
-      // S116 Push 2: when _highlightDeficId is set (during a Go-to-drawing
-      // pulse), it takes precedence over the user's current click-active pin
-      // so the highlight is visible even if another pin happens to be active.
-      activeId:  _highlightDeficId || _lastActiveId || null,
+      // S116 Push 2 / S179c: highlightId is the navigate-to-pin pulse (gold).
+      // Routed through its own slot in pinsGL.js so it doesn't hijack activeId
+      // (which is the user's click-active pin and uses a different color).
+      activeId:  _lastActiveId || null,
+      highlightId: _highlightDeficId || null,
       readyId:   _lastReadyId   || null,   // S81: V1 press-and-hold blue glow
       imgRect: relRect, naturalW: iw, naturalH: ih
     });

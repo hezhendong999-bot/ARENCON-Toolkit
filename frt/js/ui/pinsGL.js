@@ -97,8 +97,16 @@
   //   outstanding: drop-shadow(0 0 2px fill) drop-shadow(0 1px 3px rgba(0,0,0,.4))
   //   other:       drop-shadow(0 1px 3px rgba(0,0,0,.35))
   //   ready (S81 match V1 press-and-hold): blue glow 8px indicating ready-to-drag
+  //   highlight (S179c): gold glow + 1.4× scale for navigate-to-pin pulse — matches
+  //     the HTML fallback path which already uses gold. Distinct from 'ready'
+  //     (blue) and from priority-color 'active' glows.
   // Hover/active multiply blur radius so interaction feedback is visible.
   function _buildFilterString(fillHex, outstanding, state){
+    if (state === 'highlight'){
+      // S179c: bright gold glow for navigate-to-pin pulse. Not blue (ready),
+      // not red/burgundy (priority/brand). Visible against grayscale drawings.
+      return 'drop-shadow(0 0 14px #FFC400) drop-shadow(0 0 6px #FFC400) drop-shadow(0 1px 3px rgba(0,0,0,0.4))';
+    }
     if (state === 'ready'){
       // V1-exact: 'drop-shadow(0 0 8px #2196F3)' — blue glow signals "you can drag now"
       return 'drop-shadow(0 0 8px #2196F3) drop-shadow(0 1px 3px rgba(0,0,0,0.4))';
@@ -240,6 +248,7 @@
     var hoveredId = opts.hoveredId || null;
     var activeId  = opts.activeId  || null;
     var readyId   = opts.readyId   || null;   // S81: V1-match press-and-hold glow
+    var highlightId = opts.highlightId || null;  // S179c: navigate-to-pin pulse (gold)
     var imgRect = opts.imgRect || { left: 0, top: 0, width: 0, height: 0 };
     var imgW = opts.naturalW || 0;
     var imgH = opts.naturalH || 0;
@@ -249,14 +258,16 @@
     var ph = Math.round(_pinSize * 42 / 32 * pinScale);
     var nativeScale = pw / 32;
 
-    // Build render order: normal → hover → ready → active so active draws on top
+    // Build render order: normal → hover → ready → active → highlight so the
+    // highlight pulse draws on top of everything.
     var order = [];
     for (var i = 0; i < _pins.length; i++){
       var pin = _pins[i];
       if (pin.pinX == null || pin.pinY == null) continue;
       // Guard against non-finite coords that would project to (0,0)
       if (!isFinite(pin.pinX) || !isFinite(pin.pinY)) continue;
-      var state = (pin.deficId === activeId) ? 'active'
+      var state = (pin.deficId === highlightId) ? 'highlight'
+                : (pin.deficId === activeId) ? 'active'
                 : (pin.deficId === readyId)  ? 'ready'
                 : (pin.deficId === hoveredId) ? 'hover'
                 : 'normal';
@@ -272,14 +283,16 @@
       };
       order.push({ pin: pin, state: state, sx: sx, sy: sy });
     }
-    var rank = { normal: 0, hover: 1, ready: 2, active: 3 };
+    var rank = { normal: 0, hover: 1, ready: 2, active: 3, highlight: 4 };
     order.sort(function(a, b){ return rank[a.state] - rank[b.state]; });
 
     _ctx.setTransform(_dpr, 0, 0, _dpr, 0, 0);
 
     for (var k = 0; k < order.length; k++){
       var o = order[k];
-      var feedbackScale = o.state === 'active' ? 1.15 : o.state === 'hover' ? 1.08 : 1.0;
+      var feedbackScale = o.state === 'highlight' ? 1.4
+                        : o.state === 'active' ? 1.15
+                        : o.state === 'hover' ? 1.08 : 1.0;
       var totalScale = nativeScale * feedbackScale;
 
       _ctx.save();
