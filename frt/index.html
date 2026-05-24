@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=371">
+<link rel="stylesheet" href="css/frt.css?v=372">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -136,6 +136,7 @@ function ensurePdfJs(cb){
       </div>
       <button class="hdr-btn" id="btn-qr" style="display:none;background:rgba(255,255,255,.15);" title="QR Code for this tool">📱</button>
       <button class="hdr-btn text-size-toggle" id="btn-text-size" title="Text size: Small / Medium / Large">M</button>
+      <button class="hdr-btn" id="btn-perf-toggle" title="Toggle performance overlay" onclick="if(window._frtTogglePerfOverlay)window._frtTogglePerfOverlay();">📊</button>
       <button id="dark-toggle" title="Toggle Dark Mode">☀️</button>
       <button class="hdr-btn" id="btn-signout" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
       <button id="mobile-menu-btn">☰</button>
