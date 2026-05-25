@@ -218,11 +218,16 @@ function _stripBlobUrls(proj) {
 // call repeatedly. Pure function — does not save or notify.
 function _autoDedup(proj) {
   if (!proj || !proj.drawings || proj.drawings.length < 2) return 0;
+  // S188 V-1: Dedup by drawing.id, NOT folder+name.
+  // The old folder|name key silently dropped legitimate drawings with the
+  // same filename in the same folder (e.g. coworker uploads "Site Plan" →
+  // Mark uploads "Site Plan" → second is lost). True duplicates have the
+  // same id; same name with different ids are different drawings. If a
+  // drawing has no id (shouldn't happen — every code path assigns one),
+  // fall back to a unique synthetic key so it survives the pass.
   var seen = {}, keep = [];
-  proj.drawings.forEach(function(d) {
-    var folderKey = (d.folder || '').trim().toLowerCase();
-    var nameKey   = (d.name   || '').trim().toLowerCase();
-    var key = folderKey + '|' + nameKey;
+  proj.drawings.forEach(function(d, idx) {
+    var key = d && d.id ? String(d.id) : ('__noid_' + idx);
     if (!seen[key]) {
       seen[key] = true;
       keep.push(d);
