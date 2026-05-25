@@ -3989,6 +3989,9 @@ Model.onChange('photo', function(){
 
   // S179h: build a snapshot row from current readings. Called every tick;
   // pushed to _samples while recording. Plain object so JSON.stringify works.
+  // S180c: added imgbmp + prefetch columns so TSVs self-document which flag
+  // state was active during the recording. Removes the "was this baseline
+  // or treatment?" ambiguity that bit the first S180 recording.
   function _snapshot(touchRate, tileStats, zoom, pinCount, heapMb) {
     return {
       t: _recording ? Math.round(_now() - _recStartT) : 0,
@@ -3998,7 +4001,11 @@ Model.onChange('photo', function(){
       loaded: tileStats ? tileStats.loaded : null,
       zoom: (typeof zoom === 'number') ? Math.round(zoom * 1000) / 1000 : null,
       pins: pinCount,
-      heap: heapMb
+      heap: heapMb,
+      // S180c — capture flag state per sample (immutable per reload but
+      // recorded here so the TSV is self-contained).
+      imgbmp: tileStats ? (tileStats.imageBitmap ? 1 : 0) : 0,
+      prefetch: tileStats ? (tileStats.prefetchOn ? 1 : 0) : 0
     };
   }
 
@@ -4029,9 +4036,10 @@ Model.onChange('photo', function(){
       return;
     }
     // TSV: header + one row per sample. Tab-separated for clean spreadsheet paste.
-    var header = 't_ms\tfps\ttouch_per_s\ttile_inflight\ttile_loaded\tzoom\tpins\theap_mb';
+    // S180c: imgbmp + prefetch columns appended at the end (1 = on, 0 = off).
+    var header = 't_ms\tfps\ttouch_per_s\ttile_inflight\ttile_loaded\tzoom\tpins\theap_mb\timgbmp\tprefetch';
     var rows = _samples.map(function (s) {
-      return [s.t, s.fps, s.touch, s.inflight, s.loaded, s.zoom, s.pins, s.heap].join('\t');
+      return [s.t, s.fps, s.touch, s.inflight, s.loaded, s.zoom, s.pins, s.heap, s.imgbmp, s.prefetch].join('\t');
     });
     var txt = header + '\n' + rows.join('\n');
     var summary = '';
