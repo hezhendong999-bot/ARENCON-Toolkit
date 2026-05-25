@@ -36,6 +36,15 @@ var _glPinsInitPromise = null;
 // not touched. Purely an A/B-test affordance for isolating whether per-pin
 // composite cost is what's slowing down dense drawings like FP-1 sprinkler.
 var _pinsDiagHidden = false;
+// S185: auto-defer flag — true while a touch gesture (pan or pinch) is in
+// progress. Mark's S184d field test confirmed PinsGL.render(pins,opts) is the
+// root cause of FP-1 sprinkler lag: it has to fire every frame to keep pins
+// screen-positioned (the PinsGL canvas isn't a child of the transformed wrap
+// so it can't translate with CSS). Setting this flag on touchstart and
+// clearing on touchend means _renderPins short-circuits for the duration of
+// the gesture, then fires once at touchend to repaint pins in their final
+// correct positions. Same defer-during-gesture pattern as S183a Markup defer.
+var _pinsGestureActive = false;
 function _ensureGLPinsInit(){
   if (!_useGLPins) return Promise.resolve(false);
   if (_glPinsReady) return Promise.resolve(true);
@@ -973,6 +982,11 @@ document.addEventListener('touchstart', function(e) {
         Markup.setGestureActive(true);
       }
     } catch (_e) {}
+    // S185: activate the pin-defer gesture flag. Same pattern as the Markup
+    // defer above — auto-hides pins during pinch by short-circuiting
+    // _renderPins, then restores at touchend. Field-proven via Mark's S184d
+    // diagnostic toggle that hiding pins recovered FP-1 sprinkler to 60 FPS.
+    _activatePinsGesture();
   } else if (e.touches.length === 1) {
     // Skip single-touch when markup tool is active or pin mode
     if (Markup.isActive()) return;
@@ -980,6 +994,10 @@ document.addEventListener('touchstart', function(e) {
     if (Markup.getTool() === 'pin') return;
     _singleTouchX = e.touches[0].clientX;
     _singleTouchY = e.touches[0].clientY;
+    // S185: single-finger pan also defers pin rendering. Only reached when
+    // the markup/pin-mode early-returns above don't trip — i.e. this touch
+    // is for panning the drawing, which is where the lag was.
+    _activatePinsGesture();
     // S184a: double-tap-to-zoom removed. Date.now()-based detection
     // misfired during main-thread lag (>350ms blocks queued touch events
     // that then fired back-to-back in the same flush, reading as a
@@ -1048,7 +1066,42 @@ document.addEventListener('touchend', function(e) {
     _singleTouchX = e.touches[0].clientX;
     _singleTouchY = e.touches[0].clientY;
   }
+  // S185: only deactivate the pin-defer when ALL touches have lifted. A
+  // pinch-down-to-1-finger transition isn't end-of-gesture — the user is
+  // continuing to pan single-fingered. Don't repaint pins until they fully
+  // release. _deactivatePinsGesture is idempotent + cheap.
+  if (e.touches.length === 0) _deactivatePinsGesture();
 });
+
+// S185: also clear pin defer on touchcancel (browser/OS aborted the gesture,
+// e.g. system-modal popup, palm rejection). Without this, pins could stay
+// hidden indefinitely after an aborted gesture.
+document.addEventListener('touchcancel', function(e) {
+  if (e.touches.length === 0) _deactivatePinsGesture();
+});
+
+// S185 helpers — kept compact, defensive against PinsGL not being ready.
+function _activatePinsGesture() {
+  if (_pinsGestureActive) return;            // idempotent
+  if (_pinsDiagHidden) return;               // already hidden by diagnostic
+  _pinsGestureActive = true;
+  // Clear WebGL pin canvas once so no stale pins are visible during the
+  // gesture. (HTML layer is already empty under the WebGL path; only
+  // populated when WebGL is unavailable, in which case _renderPins'
+  // short-circuit at the top handles it.)
+  try {
+    if (_useGLPins && _glPinsReady && window.PinsGL) window.PinsGL.render([], {});
+  } catch (_e) {}
+}
+function _deactivatePinsGesture() {
+  if (!_pinsGestureActive) return;           // idempotent
+  _pinsGestureActive = false;
+  // Render once with the post-gesture pan/zoom state so pins reappear in
+  // their correct screen positions. _renderPins is internally guarded
+  // against rebuild during pin drag and respects _pinsDiagHidden, so this
+  // is safe to call unconditionally.
+  try { _renderPins(); } catch (_e) {}
+}
 
 // ── S83: Pull-to-refresh gesture ────────────────────────
 // Only active on drawing viewer when zoomed to fit. Pulling finger down
@@ -1260,12 +1313,27 @@ function _renderPins() {
   // all subsequent _renderPins calls so neither layer repopulates. The pin
   // model data is untouched — only painting is suppressed. Flipping back
   // to OFF naturally re-runs _renderPins which repopulates from the model.
-  if (_pinsDiagHidden) {
+  //
+  // S185: same short-circuit also fires while a touch gesture is active
+  // (auto-defer). The WebGL canvas was already cleared once at touchstart;
+  // we just return here to avoid 60 Hz PinsGL.render calls during the
+  // gesture. _renderPins() is called once at touchend to restore pins.
+  if (_pinsDiagHidden || _pinsGestureActive) {
+    // For the diag-hidden case, ensure both layers stay clear (since
+    // user-driven state changes may invoke _renderPins). For the gesture
+    // case, the clear already happened at touchstart; doing it again here
+    // is harmless (PinsGL.render([],{}) is cheap; htmlLayer.innerHTML
+    // assignment is idempotent when already empty).
     var hl = document.getElementById('dv-pins-layer');
-    if (hl) hl.innerHTML = '';
-    try {
-      if (_useGLPins && _glPinsReady && window.PinsGL) window.PinsGL.render([], {});
-    } catch (_eGL) {}
+    if (hl && hl.innerHTML !== '') hl.innerHTML = '';
+    if (_pinsDiagHidden) {
+      // Only re-clear WebGL when the toggle is active. During a gesture
+      // we skip this call entirely — the empty render was already done at
+      // touchstart and calling it every frame would defeat the purpose.
+      try {
+        if (_useGLPins && _glPinsReady && window.PinsGL) window.PinsGL.render([], {});
+      } catch (_eGL) {}
+    }
     return;
   }
 
