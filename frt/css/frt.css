@@ -8237,3 +8237,60 @@ body.dark-mode .dfx-obs-scope-bar:hover { border-color: #E0A0B0; color: #E0A0B0;
 /* whole contractor card is tappable now (the tiny ⊕ was removed) */
 .crx-cc { cursor: pointer; }
 /* End S153 B3 ───────────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S189 M4 + Screen D + Screen E — narrow-width-only adjustments
+   ───────────────────────────────────────────────────────────────────────
+   All rules below are additive @media overrides for viewports ≤ 700px.
+   They MUST NOT modify desktop/tablet behavior (base CSS at >700px stays
+   exactly as authored). The 700px breakpoint matches S188's pattern
+   (.crx-trades-row, .obs-layout-merged, .proj-grid, .obs-layout).
+
+   M4 — Decoration vs function:
+     Hide purely decorative explanatory text at narrow widths. Active
+     controls and information the inspector needs stay visible.
+     Conservative list — only obvious decoration:
+       - .gp-help            gallery picker explanatory text
+       - .crx-hint           contractor roster italic hint
+       - .dfx-lane-tip       board view lane secondary tip
+       - .obs-media-hint     photo zone drop-target hint (drag-drop is
+                             a desktop affordance; useless on touch)
+     NOT hidden (functional):
+       - .dv-task-desc, .closed-item-desc, .kc-desc — record/item names
+       - .defic-template-desc — needed to pick a template
+       - .lb-zoom-hint        self-hiding (opacity toggle, very small)
+
+   Screen D — Pin editor footer:
+     .add-deficiency-card .adc-sub is the decorative description on the
+     +Add deficiency card (per S162 backlog Screen D). Card stays tappable
+     and labeled; description hides at narrow widths.
+     The two-buttons visual distinction (per-contractor vs generic) is
+     intentionally NOT included — that's a base-CSS change which would
+     affect desktop. Deferred.
+
+   Screen E — Project header:
+     Header is "mostly fine" at 430px per S162 backlog. Tightening only:
+       - .header-logo shrink 34px → 28px
+       - .app-title shrink 19px → 16px
+       - .header-top padding 10px 14px → 8px 10px
+       - .header-save-ts (small timestamp) hidden entirely
+     Logo still readable; title still legible; save status moves to
+     project-bar / mobile-menu where it already lives.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 700px) {
+  /* M4 — hide decorative explanatory text */
+  .gp-help        { display: none; }
+  .crx-hint       { display: none; }
+  .dfx-lane-tip   { display: none; }
+  .obs-media-hint { display: none; }
+
+  /* Screen D — hide +Add deficiency description */
+  .add-deficiency-card .adc-sub { display: none; }
+
+  /* Screen E — header tightening */
+  .header-logo     { height: 28px; padding: 2px 5px; }
+  .app-title       { font-size: 16px; }
+  .header-top      { padding: 8px 10px; gap: 6px; }
+  .header-save-ts  { display: none; }
+}
+/* End S189 ─────────────────────────────────────────────────────────────── */
