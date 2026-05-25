@@ -1284,13 +1284,15 @@ body.dark-mode .dv-tasks-header{border-bottom-color:#3a3e48;color:#ddd;}
 .folder-toggle{font-size:calc(10px + var(--ts));color:var(--silver);width:12px;text-align:center;}
 .folder-icon{font-size:calc(16px + var(--ts));}
 .folder-count{font-size:calc(12px + var(--ts));color:var(--silver);margin-left:4px;}
-/* S166 M1: responsive drawings grid.
+/* S166 M1 / S188 M1: responsive drawings grid.
    Default (non-compact): CSS Grid with intrinsic sizing. auto-fill + minmax(280px, 1fr)
    means card count adapts to viewport WITHOUT any breakpoints — 1 col at 360px-480px,
    2 cols at 600px, 3-4 at typical desktop, 5+ at wide screens. The 280px floor is
    the smallest thumbnail width at which a plan is still inspectable (per backlog).
-   Compact mode keeps the original flex-wrap layout so 90px thumbnails flow normally. */
-.dwg-card-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;padding:0 4px 8px 4px;}
+   Compact mode keeps the original flex-wrap layout so 90px thumbnails flow normally.
+   S188: the S166 comment claimed 280 but the rule was left at 220 — partial edit
+   that prior sessions missed. Now actually 280 per the original M1 backlog spec. */
+.dwg-card-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:0 4px 8px 4px;}
 .dwg-card-row.compact-mode{display:flex;flex-wrap:wrap;}
 .drawing-card{border-radius:8px;border:2px solid var(--border);overflow:hidden;position:relative;background:var(--white);transition:border-color .15s,box-shadow .15s;user-select:none;-webkit-user-select:none;}
 .drawing-card:hover{border-color:var(--red);box-shadow:0 2px 8px rgba(0,0,0,.1);}
@@ -4866,6 +4868,12 @@ body.dark-mode .pin-rec-toggle.is-rec:hover{background:rgba(168,180,197,.24);col
 
 /* S121 Push 4: 2-col layout with consolidated photos+drop media zone */
 .obs-layout-merged{display:grid;grid-template-columns:1fr 1.2fr;gap:10px;align-items:stretch;margin:8px 0 4px;}
+/* S188 M1: at narrow viewports the textarea-photos side-by-side layout
+   compresses the textarea to ~150px — too narrow to write in. Stack
+   vertically below 700px so each column gets full container width.
+   Matches the same breakpoint pattern used elsewhere (proj-grid line 188,
+   obs-layout line 2104). */
+@media(max-width:700px){.obs-layout-merged{grid-template-columns:1fr;}}
 .obs-media-col{display:flex;min-width:0;}
 .obs-media-col.drag-over .obs-media-zone{border-color:#9C2742;background:rgba(156,39,66,.08);}
 .obs-media-zone{flex:1;border:2px dashed var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--smoke);min-height:140px;transition:border-color .15s,background .15s;}
