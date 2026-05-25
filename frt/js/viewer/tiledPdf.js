@@ -1513,6 +1513,39 @@ function _renderVisible() {
     _dbg_lastLevel = levelIdx;
   }
 
+  // ── S181: COMPOSITOR SAVINGS — HIDE FAR LEVEL CANVASES ──────────────────
+  // Old level canvases stay in the DOM (never removed until drawing close),
+  // and the browser composites every visible <canvas> child of dv-tiles-layer
+  // on every wrap-transform write. L4's backing buffer is ~100 MP; keeping it
+  // visible while panning at L0 collapses FPS to single digits even when zero
+  // tiles are in flight — exactly the FPS-with-zero-inflight pattern seen in
+  // Mark's S180c TSV recordings (e.g. t=16.0–17.3s zoom=0.147, FPS=9–10).
+  //
+  // Rule: hide every canvas whose level is more than +1 ABOVE the active.
+  // Levels at or below the active stay visible (they're tiny and serve as
+  // zoom-out anchors / transition fallback). Hidden canvases retain their
+  // tile cache — toggling display back when the user zooms up restores the
+  // previously-painted content without any re-fetch. Tiles drawImage'd onto
+  // a display:none canvas still land in the backing bitmap (display:none
+  // only suppresses composite, not 2D-context paint).
+  //
+  // Cost on same-level pans: O(levels) comparison, no style writes (cur ===
+  // target), ~microseconds per _renderVisible. Cost on level changes: at
+  // most one style write per level transitioned past. Reversal: comment out
+  // this whole block; nothing else depends on it.
+  for (var _lk in _levelCanvases) {
+    if (!Object.prototype.hasOwnProperty.call(_levelCanvases, _lk)) continue;
+    var _lc = _levelCanvases[_lk];
+    if (!_lc || !_lc.canvas) continue;
+    var _shouldHide = (+_lk > levelIdx + 1);
+    var _cur = _lc.canvas.style.display;
+    if (_shouldHide && _cur !== 'none') {
+      _lc.canvas.style.display = 'none';
+    } else if (!_shouldHide && _cur === 'none') {
+      _lc.canvas.style.display = '';
+    }
+  }
+
   // Drop queued requests from other levels — they're no longer relevant.
   _cancelPendingExceptLevel(levelIdx);
 
