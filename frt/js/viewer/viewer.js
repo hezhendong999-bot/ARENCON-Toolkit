@@ -31,6 +31,11 @@ var _useGLPins = (function(){
 })();
 var _glPinsReady = false;
 var _glPinsInitPromise = null;
+// S184d: diagnostic pin-hide flag — perf-overlay toggle. When true, _renderPins
+// short-circuits and both HTML + WebGL pin layers stay empty. Model data is
+// not touched. Purely an A/B-test affordance for isolating whether per-pin
+// composite cost is what's slowing down dense drawings like FP-1 sprinkler.
+var _pinsDiagHidden = false;
 function _ensureGLPinsInit(){
   if (!_useGLPins) return Promise.resolve(false);
   if (_glPinsReady) return Promise.resolve(true);
@@ -1248,6 +1253,21 @@ function _highlightPin(deficId) {
 function _renderPins() {
   // Don't rebuild during active drag (would destroy marker reference)
   if (_pinDragging || _pinMouseDragging) return;
+
+  // S184d: diagnostic pin-hide toggle (perf overlay). When the user taps
+  // "Pins: ON" in the perf overlay, this flag flips true and we clear both
+  // the HTML pin layer and the WebGL pin layer once, then short-circuit on
+  // all subsequent _renderPins calls so neither layer repopulates. The pin
+  // model data is untouched — only painting is suppressed. Flipping back
+  // to OFF naturally re-runs _renderPins which repopulates from the model.
+  if (_pinsDiagHidden) {
+    var hl = document.getElementById('dv-pins-layer');
+    if (hl) hl.innerHTML = '';
+    try {
+      if (_useGLPins && _glPinsReady && window.PinsGL) window.PinsGL.render([], {});
+    } catch (_eGL) {}
+    return;
+  }
 
   var drawings = _getDrawingsList();
   var htmlLayer = document.getElementById('dv-pins-layer');
@@ -4353,6 +4373,42 @@ var _longAnimFrames = [];
     });
     _imgBmpBtnEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     _el.appendChild(_imgBmpBtnEl);
+
+    // ─── S184d: PINS HIDE toggle (perf-overlay diagnostic) ──────────────
+    // Lets Mark A/B test whether per-pin composite cost is the bottleneck
+    // on FP-1 sprinkler vs FA-1 / FE-1. Flipping to ON clears HTML + WebGL
+    // pin layers and short-circuits _renderPins; flipping to OFF re-paints
+    // pins from the model immediately. Non-destructive (model data
+    // untouched) so it's safe to leave on during a field session.
+    var _pinsHideBtnEl = document.createElement('button');
+    _pinsHideBtnEl.id = 'frt-perf-pinshide';
+    _pinsHideBtnEl.type = 'button';
+    _pinsHideBtnEl.style.cssText = [
+      'pointer-events:auto', 'margin-top:4px', 'width:100%',
+      'background:transparent', 'color:#FFAB40',
+      'border:1px solid #FFAB40', 'border-radius:4px',
+      'padding:4px 6px', 'font-family:Menlo,Consolas,monospace',
+      'font-size:11px', 'cursor:pointer', '-webkit-tap-highlight-color:transparent'
+    ].join(';');
+    function _pinsHideRefreshLabel() {
+      _pinsHideBtnEl.textContent = 'Pins: ' + (_pinsDiagHidden ? 'HIDDEN' : 'shown');
+    }
+    _pinsHideRefreshLabel();
+    _pinsHideBtnEl.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      _pinsDiagHidden = !_pinsDiagHidden;
+      _pinsHideRefreshLabel();
+      // Immediate effect — trigger a render pass so the change is visible
+      // without waiting for the next pan/zoom event.
+      try { _renderPins(); } catch (_e) {}
+      try {
+        toast('Pins ' + (_pinsDiagHidden ? 'hidden' : 'shown') + ' — diagnostic only');
+      } catch (_e) {}
+    });
+    _pinsHideBtnEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    _el.appendChild(_pinsHideBtnEl);
+    // ────────────────────────────────────────────────────────────────────
 
     if (document.body) document.body.appendChild(_el);
     return _el;
