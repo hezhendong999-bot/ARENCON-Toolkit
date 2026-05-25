@@ -1495,6 +1495,22 @@ function _renderPins() {
       pinScale = 0.7 + 0.3 * t;
     }
 
+    // S187 Item 3: bump pin size 1.15× when the active tile level is 3
+    // or 4 (deep zoom on tiled drawings). Pins compete with fine drawing
+    // detail at high zoom, so a small size increase improves visibility
+    // without changing the zoomed-out / mid-zoom appearance. Tile level
+    // is sourced from TiledPdf.stats().activeLevel (the same field
+    // surfaced in the perf overlay TSV as `lvl`). Only applies when
+    // TiledPdf is active; legacy non-tile drawings are unaffected.
+    try {
+      if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive() && TiledPdf.stats) {
+        var _tps = TiledPdf.stats();
+        if (_tps && (_tps.activeLevel === 3 || _tps.activeLevel === 4)) {
+          pinScale = pinScale * 1.15;
+        }
+      }
+    } catch (_e_l34) {}
+
     // S83: Build inspector color lookup for this project.
     // Colors live in proj.ui.inspectorColors[userId] = '#xxx' (cached by Project Hub).
     // Master toggle: proj.ui.showInspectorRings (default off for solo, on when >1 inspector).
