@@ -1740,8 +1740,8 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   .color-submenu .color-row{gap:8px!important;}
   .color-submenu input[type=color]{width:30px!important;height:30px!important;}
 
-  /* --- Sidebar tool buttons: 36px → 44px --- */
-  .dv-sidebar-tools .tool-btn{width:42px;height:42px;}
+  /* --- Sidebar tool buttons: 38px → 44px (S188 M3: was 42, bumped to Android min 44) --- */
+  .dv-sidebar-tools .tool-btn{width:44px;height:44px;}
   /* --- Shapes submenu buttons: bigger on touch --- */
   .tool-submenu .sub-tool-btn{width:40px!important;height:40px!important;}
 
