@@ -944,7 +944,6 @@ var _touchStartPanX = 0;
 var _touchStartPanY = 0;
 var _singleTouchX = 0;
 var _singleTouchY = 0;
-var _lastTapTime = 0;
 
 document.addEventListener('touchstart', function(e) {
   var area = document.getElementById('dv-canvas-area');
@@ -976,29 +975,12 @@ document.addEventListener('touchstart', function(e) {
     if (Markup.getTool() === 'pin') return;
     _singleTouchX = e.touches[0].clientX;
     _singleTouchY = e.touches[0].clientY;
-
-    // Double-tap detection
-    var now = Date.now();
-    if (now - _lastTapTime < 350) {
-      e.preventDefault();
-      // Toggle fit ↔ 3x zoom
-      if (_scale > _fitScale * 1.5) {
-        _resetView();
-      } else {
-        var rect = area.getBoundingClientRect();
-        var mx = e.touches[0].clientX - rect.left;
-        var my = e.touches[0].clientY - rect.top;
-        var imgX = (mx - _panX) / _scale;
-        var imgY = (my - _panY) / _scale;
-        _scale = Math.min(_MAX_ZOOM, _fitScale * 3);
-        _panX = mx - imgX * _scale;
-        _panY = my - imgY * _scale;
-        _applyTransform();
-      }
-      _lastTapTime = 0;
-    } else {
-      _lastTapTime = now;
-    }
+    // S184a: double-tap-to-zoom removed. Date.now()-based detection
+    // misfired during main-thread lag (>350ms blocks queued touch events
+    // that then fired back-to-back in the same flush, reading as a
+    // double-tap and triggering _resetView() → "page resets to fit"). The
+    // feature was unused in the field. Pinch-zoom and toolbar zoom buttons
+    // remain the canonical zoom controls.
   }
 }, { passive: false });
 
