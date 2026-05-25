@@ -1809,6 +1809,17 @@ function _openServerTiles(d, drawingId, pageNum) {
       if (!_pageInfo && manifest.pages.length) _pageInfo = manifest.pages[0];
       if (!_pageInfo) throw new Error('Page ' + pn + ' not found in manifest');
 
+      // S189 I-5: Guard against manifests with zero tile levels.
+      // Azure Function can produce a valid manifest with pages[i].levels = []
+      // when tile rendering started but failed before any level was written.
+      // Without this guard, _pickLevel returns -1 and _renderVisible returns
+      // silently — user sees a blank tile layer with no feedback. Routing
+      // through the existing catch path triggers onFallbackImage (legacy
+      // image viewer) — the canonical "tiles not usable" UX.
+      if (!Array.isArray(_pageInfo.levels) || _pageInfo.levels.length === 0) {
+        throw new Error('Page ' + pn + ' has zero tile levels — manifest incomplete');
+      }
+
       _nativeW = _pageInfo.nativeWidth;
       _nativeH = _pageInfo.nativeHeight;
       _drawW = d.width || _nativeW;
