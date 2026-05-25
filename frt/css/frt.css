@@ -6665,6 +6665,16 @@ body.dark-mode .ctr-banner {
   padding: 14px 14px 13px;
   border-bottom: 1px solid var(--border);
 }
+/* S188 M2: at narrow viewports the inline row (label + pills + add) crushes
+   the pill container down to ~200-240px, which forces wide pills onto their
+   own lines and looks fragmented. Stack vertically below 700px so the pill
+   strip gets the full row width to wrap into. Label and "+ trade" each get
+   their own line; the menu's right:0 still anchors correctly to the wrap. */
+@media (max-width: 700px) {
+  .crx-trades-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .crx-trades-lbl { padding-top: 0; }
+  .crx-addtrade-wrap { align-self: flex-start; }
+}
 .crx-trades-lbl {
   font-size: calc(12px + var(--ts));
   font-weight: 700;
