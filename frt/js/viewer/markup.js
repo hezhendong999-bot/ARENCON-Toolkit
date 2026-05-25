@@ -88,6 +88,28 @@ var _eventsWired = false;
 var _hlCanvas = null;
 var _objCanvas = null;  // reusable per-object offscreen buffer for mask application
 
+// ── S183a: PINCH-GESTURE DEFER STATE ────────────────────────────────────
+// Per S182 instrumentation, _resizeMarkupForScale + _renderAll spikes to
+// 200-600 ms per call during pinch (top samples ON run: ms_ms = 595, 483,
+// 365, 255, 208ms). Cause: every touchmove during pinch changes scale,
+// every scale change triggers a backing-buffer reallocation + redraw of
+// all markup objects.
+//
+// Fix: during an active multi-touch gesture, defer the backing-buffer
+// resize entirely. The canvas's CSS box is unchanged (markup.js doesn't
+// touch style.width/height in _resizeMarkupForScale — comment at line 577);
+// dv-img-wrap's transform already CSS-scales the canvas. The visual
+// effect during pinch: markup may look mildly fuzzier (rendering at the
+// pre-pinch backing resolution scaled by CSS), then snaps crisp on
+// touchend when the deferred resize fires.
+//
+// Viewer calls setGestureActive(true) on 2-finger touchstart and
+// setGestureActive(false) on the last touchend. The false transition
+// applies the most recent pending scale exactly once.
+var _gestureActive = false;
+var _pendingScale = null;
+// ────────────────────────────────────────────────────────────────────────
+
 // ── WebGL state (Phase 5) ───────────────────────────────
 var _webglCanvas = null;
 var _webglReady = false;
@@ -3938,12 +3960,38 @@ export var Markup = {
   // to match displayed pixels (capped at memory budget), then re-renders.
   // No-op if scale unchanged. Synchronous — fast enough not to need debounce
   // for normal zoom interactions (wheel-zoom + pinch-zoom).
+  //
+  // S183a: during an active pinch gesture (viewer calls setGestureActive(true)
+  // on 2-finger touchstart), STORE the requested scale and return without
+  // doing the expensive resize+_renderAll. On gesture end, viewer fires
+  // setGestureActive(false) which applies the pending scale exactly once.
+  // S182 instrumentation showed this single deferral is the highest-leverage
+  // pan/zoom fix in the codebase.
   setRenderScale: function(s) {
+    if (_gestureActive) {
+      _pendingScale = s;
+      return;
+    }
     var prevScale = _lastRenderScale;
     _resizeMarkupForScale(s);
     // Only re-render if resize actually changed dimensions (early-return
     // inside _resizeMarkupForScale leaves _lastRenderScale untouched).
     if (_lastRenderScale !== prevScale) _renderAll();
+  },
+  // S183a: gesture-active toggle (called by viewer.js touchstart/touchend
+  // for multi-touch pinch gestures). When transitioning to false, applies
+  // any pending scale change exactly once via setRenderScale's normal path.
+  setGestureActive: function(active) {
+    if (active === _gestureActive) return;
+    _gestureActive = !!active;
+    if (!_gestureActive && _pendingScale != null) {
+      var s = _pendingScale;
+      _pendingScale = null;
+      // Use the normal setRenderScale path so the resize + renderAll fire.
+      var prevScale = _lastRenderScale;
+      _resizeMarkupForScale(s);
+      if (_lastRenderScale !== prevScale) _renderAll();
+    }
   },
   isActive: function() { return _tool && _tool !== 'pin'; }
 };

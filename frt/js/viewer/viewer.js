@@ -962,6 +962,13 @@ document.addEventListener('touchstart', function(e) {
     _touchStartMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
     _touchStartPanX = _panX;
     _touchStartPanY = _panY;
+    // S183a: tell Markup to defer backing-buffer resizes until the pinch
+    // ends. Eliminates the 200-600ms ms_ms spikes seen in S182 recordings.
+    try {
+      if (typeof Markup !== 'undefined' && Markup.setGestureActive) {
+        Markup.setGestureActive(true);
+      }
+    } catch (_e) {}
   } else if (e.touches.length === 1) {
     // Skip single-touch when markup tool is active or pin mode
     if (Markup.isActive()) return;
@@ -1037,6 +1044,17 @@ document.addEventListener('touchmove', function(e) {
 
 document.addEventListener('touchend', function(e) {
   if (e.touches.length < 2) {
+    // S183a: pinch (2-finger) gesture has ended (either dropped to 1 or 0
+    // fingers). Tell Markup to stop deferring; this applies the most recent
+    // pending scale exactly once via the normal resize + _renderAll path.
+    // No-op if Markup wasn't deferring (setGestureActive is idempotent).
+    if (_touchStartDist > 0) {
+      try {
+        if (typeof Markup !== 'undefined' && Markup.setGestureActive) {
+          Markup.setGestureActive(false);
+        }
+      } catch (_e) {}
+    }
     _touchStartDist = 0;
   }
   if (e.touches.length === 1) {
