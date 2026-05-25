@@ -182,27 +182,15 @@ var _PREFETCH_PCT = 70;
   } catch (_e) {}
 })();
 
-// ── S180a: OFF-THREAD TILE DECODE (FEATURE FLAG, DEFAULT OFF) ───────────────
-// S179h field recording showed FPS=1-8 during multi-tile decode bursts on the
-// Android tablet — the `<img>.decode()` path can still synchronously land on
-// main thread on resource-constrained devices. createImageBitmap() is spec'd
-// to always run off-main-thread; this is the pattern every production map
-// viewer uses (Google Maps, Mapbox, OSM). Gated behind a flag for safe A/B
-// rollout: Mark records a TSV with flag OFF (baseline), toggles ON, reloads,
-// records again. If clean field day → flip default to true next session.
+// ── S180a: OFF-THREAD TILE DECODE (DEFAULT-ON AS OF S183b) ──────────────────
+// S180a originally shipped this default-off for safe A/B rollout. S182
+// instrumentation confirmed it: ImgBmp ON delivers 3× median FPS over OFF
+// (median 13 vs 4) across a 60s+ field-style recording. ImgBmp ON also
+// drops time-at-FPS<=5 from 59% to 18%. Flipping default true.
 //
-// Activation paths:
-//   1. localStorage['arencon-imagebitmap'] = '1'  (persistent, TWA-compat)
-//   2. ?imagebitmap=1                              (URL, desktop debug only)
-//   3. Perf overlay "ImgBmp" toggle button         (preferred field path)
-//   4. window._frtSetImageBitmap(true|false)       (console)
-//
-// Decode concurrency cap (_MAX_DECODE_CONCURRENT): only the imageBitmap path
-// uses it. Prevents the burst pattern observed at t=28-30s in Mark's S179h
-// recording where 6 simultaneous tile decodes spiked _decodeInflight beyond
-// what the rasterizer could sustain. Network fetches stay capped at
-// _MAX_CONCURRENT=6 (network is parallel-friendly; decode is compute-bound).
-var _USE_IMAGEBITMAP_DECODE = false;
+// Escape hatch still available — set localStorage['arencon-imagebitmap']
+// to '0' (explicit off) to roll back without a redeploy.
+var _USE_IMAGEBITMAP_DECODE = true;
 var _MAX_DECODE_CONCURRENT = 4;
 var _decodeInflight = 0;
 var _decodeQueue = [];
@@ -215,14 +203,17 @@ var _decodeQueue = [];
     else {
       try {
         var v = window.localStorage && window.localStorage.getItem('arencon-imagebitmap');
-        if (v === '1') _USE_IMAGEBITMAP_DECODE = true;
+        // S183b: now explicit both directions. Unset = default (true).
+        if (v === '0') _USE_IMAGEBITMAP_DECODE = false;
+        else if (v === '1') _USE_IMAGEBITMAP_DECODE = true;
       } catch (_e) {}
     }
     // Console toggle for ad-hoc testing
     window._frtSetImageBitmap = function (on) {
       try {
-        if (on) window.localStorage.setItem('arencon-imagebitmap', '1');
-        else window.localStorage.removeItem('arencon-imagebitmap');
+        // S183b: setItem in both directions so a user-set value sticks
+        // regardless of how the file default ever flips again.
+        window.localStorage.setItem('arencon-imagebitmap', on ? '1' : '0');
       } catch (_e) {}
       console.log('[TiledPdf] imagebitmap = ' + (on ? 'ON' : 'OFF') + ' — reload to apply');
     };

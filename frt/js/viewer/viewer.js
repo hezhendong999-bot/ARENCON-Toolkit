@@ -4250,8 +4250,11 @@ var _longTasks = [];
       e.stopPropagation();
       var nowOn = _imgBmpCurrent();
       try {
-        if (nowOn) window.localStorage.removeItem('arencon-imagebitmap');
-        else window.localStorage.setItem('arencon-imagebitmap', '1');
+        // S183b: now that the file default is true, removing the key
+        // wouldn't flip ImgBmp off — it'd stay on. Use explicit '0' for
+        // OFF and '1' for ON so the toggle works both directions regardless
+        // of whatever the file default happens to be.
+        window.localStorage.setItem('arencon-imagebitmap', nowOn ? '0' : '1');
       } catch (_e) {}
       try {
         toast('ImgBmp set to ' + (nowOn ? 'OFF' : 'ON') + ' — reload to apply');
