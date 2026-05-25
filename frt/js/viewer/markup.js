@@ -3993,7 +3993,13 @@ export var Markup = {
       if (_lastRenderScale !== prevScale) _renderAll();
     }
   },
-  isActive: function() { return _tool && _tool !== 'pin'; }
+  isActive: function() { return _tool && _tool !== 'pin'; },
+  // S184c: surface markup object count for the per-drawing perf telemetry
+  // (mkc column in the diagnostic TSV). Returns 0 if the array hasn't been
+  // initialized yet (drawing not opened).
+  getObjectCount: function() {
+    try { return _objects ? _objects.length : 0; } catch (_e) { return 0; }
+  }
 };
 
 export var initMarkup = Markup;

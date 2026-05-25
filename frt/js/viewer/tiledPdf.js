@@ -194,6 +194,18 @@ var _USE_IMAGEBITMAP_DECODE = true;
 var _MAX_DECODE_CONCURRENT = 4;
 var _decodeInflight = 0;
 var _decodeQueue = [];
+
+// S184c: per-drawing tile-byte fingerprint. Sprinkler drawings (FP-1) lag
+// noticeably worse than fire-alarm or extinguisher drawings (FA-1, FE-1)
+// at identical zoom + touch rate. Hypothesis: dense piping/hatching/dimension
+// content makes WebP tile files much larger -> bigger decodes + more GPU
+// texture bandwidth. Reset on every open() so counters reflect the active
+// drawing. Bytes only tracked on the createImageBitmap path (blob.size is
+// trivially available); the legacy <img> fallback can't measure tile bytes
+// without an extra HEAD request, so when imgbmp=0 these read 0.
+var _tileBytesSum = 0;
+var _tileBytesCount = 0;
+var _tileBytesMax = 0;
 (function _initImageBitmapFromStorage() {
   try {
     if (typeof window === 'undefined') return;
@@ -1228,6 +1240,17 @@ function _startFetchCanvasImageBitmap(req, layer, key, lvl, tileX, tileY, tileW,
       return response.blob();
     })
     .then(function (blob) {
+      // S184c: record tile bytes for per-drawing fingerprint. Cheap: blob.size
+      // is already in memory, no extra work. Only the imageBitmap path is
+      // wired (Mark's path now that S183b made it default).
+      try {
+        var sz = blob && typeof blob.size === 'number' ? blob.size : 0;
+        if (sz > 0) {
+          _tileBytesSum += sz;
+          _tileBytesCount++;
+          if (sz > _tileBytesMax) _tileBytesMax = sz;
+        }
+      } catch (_eB) {}
       return _awaitDecodeSlot().then(function () {
         slotTaken = true;
         // Cancellation check before kicking off the (potentially expensive)
@@ -1867,6 +1890,12 @@ async function open(drawingId, pageNum) {
   _dbgLife('open:request', { requestedDrawing: drawingId, requestedPage: pageNum });
   _close_internal();
   _drawingId = drawingId;
+  // S184c: reset the per-drawing tile-byte fingerprint so tile_kb_avg/max
+  // in the TSV reflect only THIS drawing's content. Comparing FA-1 vs FP-1
+  // numbers requires they not pollute each other.
+  _tileBytesSum = 0;
+  _tileBytesCount = 0;
+  _tileBytesMax = 0;
 
   var d = _cfg.getDrawing ? _cfg.getDrawing(drawingId) : null;
   if (!d) { if (_cfg.toast) _cfg.toast('Drawing not found'); return; }
@@ -2165,6 +2194,14 @@ function stats() {
   // S182: pull + reset the renderVisible timing counter (consume-and-clear)
   var rvCalls = _perfRV.calls, rvMs = _perfRV.ms;
   _perfRV.calls = 0; _perfRV.ms = 0;
+  // S184c: per-drawing fingerprint — drawing dims (logical px), active
+  // level the renderer is using right now, and tile-byte stats accumulated
+  // since the most recent open(). tile_kb_avg = mean tile size in KB,
+  // tile_kb_max = largest single tile. Hypothesis being tested: dense
+  // drawings (sprinkler) have substantially bigger WebP tiles than light
+  // drawings (fire alarm), and that explains the per-drawing FPS variance.
+  var tileKbAvg = _tileBytesCount > 0 ? Math.round(_tileBytesSum / _tileBytesCount / 1024) : 0;
+  var tileKbMax = _tileBytesMax > 0 ? Math.round(_tileBytesMax / 1024) : 0;
   return {
     inflight: inflight,
     loaded: loaded,
@@ -2179,7 +2216,14 @@ function stats() {
     canvasVis: cVis,
     canvasHid: cHid,
     rvCalls: rvCalls,
-    rvMs: rvMs
+    rvMs: rvMs,
+    // S184c — per-drawing fingerprint
+    drawW: _drawW,
+    drawH: _drawH,
+    activeLevel: (_dbg_lastLevel != null ? _dbg_lastLevel : -1),
+    tileKbAvg: tileKbAvg,
+    tileKbMax: tileKbMax,
+    tileBytesCount: _tileBytesCount
   };
 }
 

@@ -4121,7 +4121,8 @@ var _longAnimFrames = [];
   function _snapshot(touchRate, tileStats, zoom, pinCount, heapMb,
                      ltMaxMs, perfRP, perfAT, perfMS,
                      rvCalls, rvMs, canvasVis, canvasHid,
-                     lafMs, lafTopFn, lafTopInv) {
+                     lafMs, lafTopFn, lafTopInv,
+                     mkc) {
     return {
       t: _recording ? Math.round(_now() - _recStartT) : 0,
       fps: _currentFps,
@@ -4148,7 +4149,14 @@ var _longAnimFrames = [];
       // S184b LAF attribution fields
       laf_ms:     lafMs || 0,
       laf_top_fn: lafTopFn || '',
-      laf_top_inv: lafTopInv || ''
+      laf_top_inv: lafTopInv || '',
+      // S184c per-drawing fingerprint
+      dw: tileStats && tileStats.drawW ? tileStats.drawW : 0,
+      dh: tileStats && tileStats.drawH ? tileStats.drawH : 0,
+      tile_kb_avg: tileStats && tileStats.tileKbAvg != null ? tileStats.tileKbAvg : 0,
+      tile_kb_max: tileStats && tileStats.tileKbMax != null ? tileStats.tileKbMax : 0,
+      lvl: tileStats && tileStats.activeLevel != null ? tileStats.activeLevel : -1,
+      mkc: mkc || 0
     };
   }
 
@@ -4192,14 +4200,22 @@ var _longAnimFrames = [];
     //   laf_top_fn  = name of the script function consuming the most time
     //                 inside that LAF (or invokerType if function is anon)
     //   laf_top_inv = that script's invokerType (event-listener, raf, etc.)
+    // S184c: per-drawing fingerprint columns —
+    //   dw / dh        = drawing logical width × height (PDF page px)
+    //   tile_kb_avg    = mean WebP tile file size (KB) for this drawing
+    //   tile_kb_max    = largest single WebP tile observed (KB)
+    //   lvl            = active render level (L0-L4)
+    //   mkc            = markup object count on this drawing
     var header = 't_ms\tfps\ttouch_per_s\ttile_inflight\ttile_loaded\tzoom\tpins\theap_mb\timgbmp\tprefetch' +
                  '\tlt_ms\trv_calls\trv_ms\trp_calls\trp_ms\tat_calls\tat_ms\tms_calls\tms_ms\tcvs_vis\tcvs_hid' +
-                 '\tlaf_ms\tlaf_top_fn\tlaf_top_inv';
+                 '\tlaf_ms\tlaf_top_fn\tlaf_top_inv' +
+                 '\tdw\tdh\ttile_kb_avg\ttile_kb_max\tlvl\tmkc';
     var rows = _samples.map(function (s) {
       return [s.t, s.fps, s.touch, s.inflight, s.loaded, s.zoom, s.pins, s.heap, s.imgbmp, s.prefetch,
               s.lt_ms, s.rv_calls, s.rv_ms, s.rp_calls, s.rp_ms,
               s.at_calls, s.at_ms, s.ms_calls, s.ms_ms, s.cvs_vis, s.cvs_hid,
-              s.laf_ms, s.laf_top_fn, s.laf_top_inv].join('\t');
+              s.laf_ms, s.laf_top_fn, s.laf_top_inv,
+              s.dw, s.dh, s.tile_kb_avg, s.tile_kb_max, s.lvl, s.mkc].join('\t');
     });
     var txt = header + '\n' + rows.join('\n');
     var summary = '';
@@ -4452,6 +4468,25 @@ var _longAnimFrames = [];
       var cHid    = tileStats ? tileStats.canvasHid : 0;
       // Format ms with 1 decimal place
       var _fmtMs = function (m) { return (Math.round(m * 10) / 10).toFixed(1); };
+      // S184c: per-drawing fingerprint line — drawing dims, active level,
+      // tile size avg/max in KB, markup count. Lets Mark see at-a-glance
+      // whether a drawing's content is heavy without needing a recording.
+      var dw = (tileStats && tileStats.drawW) ? tileStats.drawW : 0;
+      var dh = (tileStats && tileStats.drawH) ? tileStats.drawH : 0;
+      var lvlNum = (tileStats && tileStats.activeLevel != null) ? tileStats.activeLevel : -1;
+      var tileKbA = (tileStats && tileStats.tileKbAvg != null) ? tileStats.tileKbAvg : 0;
+      var tileKbM = (tileStats && tileStats.tileKbMax != null) ? tileStats.tileKbMax : 0;
+      var tileN = (tileStats && tileStats.tileBytesCount != null) ? tileStats.tileBytesCount : 0;
+      var mkcLive = 0;
+      try {
+        if (typeof Markup !== 'undefined' && Markup.getObjectCount) {
+          mkcLive = Markup.getObjectCount();
+        }
+      } catch (_eMk) {}
+      var drawLine = 'Draw: ' + dw + '\u00D7' + dh + '  L' + lvlNum +
+        (tileN > 0 ? '  tile: ' + tileKbA + 'KB avg / ' + tileKbM + 'KB max (n=' + tileN + ')'
+                   : '  tile: (n=0)') +
+        '  mkc: ' + mkcLive;
       var perfLine =
         'LongTask: ' + Math.round(lt1sMax) + ' ms (max,1s)\n' +
         'LAF: ' + Math.round(laf1sMax) + ' ms' +
@@ -4460,19 +4495,30 @@ var _longAnimFrames = [];
         'RP:'  + perfRP.calls  + '/' + _fmtMs(perfRP.ms) + 'ms\n' +
         'AT:'  + perfAT.calls  + '/' + _fmtMs(perfAT.ms) + 'ms  ' +
         'MS:'  + perfMS.calls  + '/' + _fmtMs(perfMS.ms) + 'ms\n' +
-        'Lvls: ' + cVis + ' vis / ' + cHid + ' hid';
+        'Lvls: ' + cVis + ' vis / ' + cHid + ' hid\n' +
+        drawLine;
 
       // S179h: append to recording buffer if recording. Capture numeric values
       // (not formatted strings) so the exported TSV stays clean for analysis.
       var recLine = '';
       if (_recording) {
         try {
+          // S184c: pull markup object count for the per-drawing telemetry.
+          // Defensive — Markup module may not be loaded yet on cold start.
+          var _mkc = 0;
+          try {
+            if (typeof Markup !== 'undefined' && Markup.getObjectCount) {
+              _mkc = Markup.getObjectCount();
+            }
+          } catch (_eMk) {}
           _samples.push(_snapshot(touchRate, tileStats, zoomNum,
             (typeof pinCount === 'number') ? pinCount : null, heapMb,
             // S182: pass timing fields through to snapshot for TSV export
             lt1sMax, perfRP, perfAT, perfMS, rvCalls, rvMs, cVis, cHid,
             // S184b: LAF attribution
-            laf1sMax, lafTopFn, lafTopInv));
+            laf1sMax, lafTopFn, lafTopInv,
+            // S184c: markup object count
+            _mkc));
         } catch (_e) {}
         recLine = '\n● REC ' + Math.round((nowT - _recStartT) / 1000) + 's / ' + _samples.length + ' samples';
       }
