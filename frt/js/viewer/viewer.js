@@ -3938,6 +3938,49 @@ Model.onChange('photo', function(){
 
 
 // ═══════════════════════════════════════════════════════════════════════════
+// S182: Hot-path timing accumulators + longtask observer.
+//
+// Why: S181 canvas-hide didn't move the FPS=2-10 sustained windows. That
+// means the bottleneck is elsewhere. This block instruments the candidate
+// hot paths so the next fix targets what's actually slow, not what I guess
+// is slow. Three accumulators wrap _renderPins / _applyTransform /
+// Markup.setRenderScale at the bottom of this module (`_attachPerfWrappers`).
+// PerformanceObserver captures any "longtask" >50ms; the perf overlay
+// reports the worst one in the last 5s.
+//
+// Overhead when overlay is off: zero (counters increment regardless but
+// the overlay never reads them, and the increments are a couple of
+// performance.now() calls per wrapped invocation = ~100ns each).
+// ═══════════════════════════════════════════════════════════════════════════
+var _perfAcc = {
+  renderPins:     { calls: 0, ms: 0 },
+  applyTransform: { calls: 0, ms: 0 },
+  markupSetScale: { calls: 0, ms: 0 }
+};
+// Ring of {start, dur} entries for tasks >50ms, trimmed to last 5s.
+var _longTasks = [];
+(function _initLongTaskObserver() {
+  if (typeof PerformanceObserver !== 'function') return;
+  try {
+    var po = new PerformanceObserver(function(list) {
+      var entries = list.getEntries();
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        _longTasks.push({ t: e.startTime, dur: e.duration });
+      }
+      // Trim to last 5s
+      if (_longTasks.length > 0) {
+        var nowMs = (typeof performance !== 'undefined') ? performance.now() : 0;
+        var cutoff = nowMs - 5000;
+        while (_longTasks.length && _longTasks[0].t < cutoff) _longTasks.shift();
+      }
+    });
+    po.observe({ entryTypes: ['longtask'] });
+  } catch (_e) { /* longtask entryType unsupported on some browsers; safe to skip */ }
+})();
+
+
+// ═══════════════════════════════════════════════════════════════════════════
 // S179e: Performance diagnostic overlay — TWA-compatible activation.
 //
 // Lightweight live readout for diagnosing pan/zoom feel on field tablets.
@@ -3992,7 +4035,13 @@ Model.onChange('photo', function(){
   // S180c: added imgbmp + prefetch columns so TSVs self-document which flag
   // state was active during the recording. Removes the "was this baseline
   // or treatment?" ambiguity that bit the first S180 recording.
-  function _snapshot(touchRate, tileStats, zoom, pinCount, heapMb) {
+  // S182: added diagnostic columns — longtask_max_ms, hot-path timing for
+  // _renderVisible (rv), _renderPins (rp), _applyTransform (at),
+  // Markup.setRenderScale (ms), plus level-canvas visible/hidden counts
+  // (verifies S181 canvas-hide is firing).
+  function _snapshot(touchRate, tileStats, zoom, pinCount, heapMb,
+                     ltMaxMs, perfRP, perfAT, perfMS,
+                     rvCalls, rvMs, canvasVis, canvasHid) {
     return {
       t: _recording ? Math.round(_now() - _recStartT) : 0,
       fps: _currentFps,
@@ -4002,10 +4051,20 @@ Model.onChange('photo', function(){
       zoom: (typeof zoom === 'number') ? Math.round(zoom * 1000) / 1000 : null,
       pins: pinCount,
       heap: heapMb,
-      // S180c — capture flag state per sample (immutable per reload but
-      // recorded here so the TSV is self-contained).
       imgbmp: tileStats ? (tileStats.imageBitmap ? 1 : 0) : 0,
-      prefetch: tileStats ? (tileStats.prefetchOn ? 1 : 0) : 0
+      prefetch: tileStats ? (tileStats.prefetchOn ? 1 : 0) : 0,
+      // S182 diagnostic fields (default 0 if instrumentation block absent)
+      lt_ms:    ltMaxMs    || 0,
+      rv_calls: rvCalls    || 0,
+      rv_ms:    Math.round((rvMs || 0) * 10) / 10,
+      rp_calls: perfRP ? perfRP.calls : 0,
+      rp_ms:    perfRP ? Math.round(perfRP.ms * 10) / 10 : 0,
+      at_calls: perfAT ? perfAT.calls : 0,
+      at_ms:    perfAT ? Math.round(perfAT.ms * 10) / 10 : 0,
+      ms_calls: perfMS ? perfMS.calls : 0,
+      ms_ms:    perfMS ? Math.round(perfMS.ms * 10) / 10 : 0,
+      cvs_vis:  canvasVis || 0,
+      cvs_hid:  canvasHid || 0
     };
   }
 
@@ -4036,10 +4095,20 @@ Model.onChange('photo', function(){
       return;
     }
     // TSV: header + one row per sample. Tab-separated for clean spreadsheet paste.
-    // S180c: imgbmp + prefetch columns appended at the end (1 = on, 0 = off).
-    var header = 't_ms\tfps\ttouch_per_s\ttile_inflight\ttile_loaded\tzoom\tpins\theap_mb\timgbmp\tprefetch';
+    // S180c: imgbmp + prefetch columns appended (1 = on, 0 = off).
+    // S182: appended diagnostic columns —
+    //   lt_ms     = longest task in trailing 1s (>50ms only; 0 = none)
+    //   rv_calls/ms = _renderVisible call count + cumulative ms since last tick
+    //   rp_calls/ms = _renderPins
+    //   at_calls/ms = _applyTransform
+    //   ms_calls/ms = Markup.setRenderScale
+    //   cvs_vis/hid = level canvases visible / display:none (S181 verifier)
+    var header = 't_ms\tfps\ttouch_per_s\ttile_inflight\ttile_loaded\tzoom\tpins\theap_mb\timgbmp\tprefetch' +
+                 '\tlt_ms\trv_calls\trv_ms\trp_calls\trp_ms\tat_calls\tat_ms\tms_calls\tms_ms\tcvs_vis\tcvs_hid';
     var rows = _samples.map(function (s) {
-      return [s.t, s.fps, s.touch, s.inflight, s.loaded, s.zoom, s.pins, s.heap, s.imgbmp, s.prefetch].join('\t');
+      return [s.t, s.fps, s.touch, s.inflight, s.loaded, s.zoom, s.pins, s.heap, s.imgbmp, s.prefetch,
+              s.lt_ms, s.rv_calls, s.rv_ms, s.rp_calls, s.rp_ms,
+              s.at_calls, s.at_ms, s.ms_calls, s.ms_ms, s.cvs_vis, s.cvs_hid].join('\t');
     });
     var txt = header + '\n' + rows.join('\n');
     var summary = '';
@@ -4248,13 +4317,49 @@ Model.onChange('photo', function(){
         }
       } catch (_e) {}
 
+      // S182: consume-and-clear hot-path timing accumulators. Each value is
+      // the cumulative ms spent in that function since the previous tick
+      // (~250ms apart, but can stretch when main thread is blocked — that
+      // stretch itself is the signal).
+      var perfRP = { calls: _perfAcc.renderPins.calls,     ms: _perfAcc.renderPins.ms     };
+      var perfAT = { calls: _perfAcc.applyTransform.calls, ms: _perfAcc.applyTransform.ms };
+      var perfMS = { calls: _perfAcc.markupSetScale.calls, ms: _perfAcc.markupSetScale.ms };
+      _perfAcc.renderPins.calls = 0;     _perfAcc.renderPins.ms = 0;
+      _perfAcc.applyTransform.calls = 0; _perfAcc.applyTransform.ms = 0;
+      _perfAcc.markupSetScale.calls = 0; _perfAcc.markupSetScale.ms = 0;
+      // S182: longest single task in trailing 1s. PerformanceObserver only
+      // records tasks >50ms, so a 0 here means no >50ms blocks recently.
+      var lt1sMax = 0;
+      var lt1sCutoff = nowT - 1000;
+      for (var _lti = 0; _lti < _longTasks.length; _lti++) {
+        if (_longTasks[_lti].t >= lt1sCutoff && _longTasks[_lti].dur > lt1sMax) {
+          lt1sMax = _longTasks[_lti].dur;
+        }
+      }
+      // S182: tile renderVisible timing + level-canvas visibility (S181 verifier)
+      var rvCalls = tileStats ? tileStats.rvCalls : 0;
+      var rvMs    = tileStats ? tileStats.rvMs    : 0;
+      var cVis    = tileStats ? tileStats.canvasVis : 0;
+      var cHid    = tileStats ? tileStats.canvasHid : 0;
+      // Format ms with 1 decimal place
+      var _fmtMs = function (m) { return (Math.round(m * 10) / 10).toFixed(1); };
+      var perfLine =
+        'LongTask: ' + Math.round(lt1sMax) + ' ms (max,1s)\n' +
+        'RV:'  + rvCalls       + '/' + _fmtMs(rvMs)     + 'ms  ' +
+        'RP:'  + perfRP.calls  + '/' + _fmtMs(perfRP.ms) + 'ms\n' +
+        'AT:'  + perfAT.calls  + '/' + _fmtMs(perfAT.ms) + 'ms  ' +
+        'MS:'  + perfMS.calls  + '/' + _fmtMs(perfMS.ms) + 'ms\n' +
+        'Lvls: ' + cVis + ' vis / ' + cHid + ' hid';
+
       // S179h: append to recording buffer if recording. Capture numeric values
       // (not formatted strings) so the exported TSV stays clean for analysis.
       var recLine = '';
       if (_recording) {
         try {
           _samples.push(_snapshot(touchRate, tileStats, zoomNum,
-            (typeof pinCount === 'number') ? pinCount : null, heapMb));
+            (typeof pinCount === 'number') ? pinCount : null, heapMb,
+            // S182: pass timing fields through to snapshot for TSV export
+            lt1sMax, perfRP, perfAT, perfMS, rvCalls, rvMs, cVis, cHid));
         } catch (_e) {}
         recLine = '\n● REC ' + Math.round((nowT - _recStartT) / 1000) + 's / ' + _samples.length + ' samples';
       }
@@ -4266,7 +4371,8 @@ Model.onChange('photo', function(){
         (prefetchLine ? prefetchLine + '\n' : '') +
         (imgBmpLine ? imgBmpLine + '\n' : '') +
         'Zoom: ' + zoom + '\n' +
-        'Pins: ' + pinCount +
+        'Pins: ' + pinCount + '\n' +
+        perfLine +
         heapLine +
         recLine;
     } catch (_err) {
@@ -4395,4 +4501,74 @@ Model.onChange('photo', function(){
 
   // Expose a manual toggle for console use during desktop debugging
   try { window._frtTogglePerfOverlay = function() { _toggle(true); }; } catch (_e) {}
+})();
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// S182: Install timing wrappers around hot-path functions.
+//
+// Runs once at module load. Each wrapper times the wrapped call with
+// performance.now() and accumulates into _perfAcc (declared above the
+// perf overlay IIFE). Wrappers are idempotent — re-running this block
+// is a no-op because the wrapper checks an "already wrapped" marker.
+//
+// Why module-end installation: by the time this block runs, all the
+// targets are defined and (for Markup) imported. Internal callsites in
+// this module call the function names; since these are mutable module
+// bindings, reassigning them updates all internal callsites uniformly.
+//
+// Why not edit the function bodies directly: bodies have many early
+// returns and the goal is zero risk to the actual logic. A wrapper that
+// only adds a try-finally around the call is provably non-behavioural.
+// ═══════════════════════════════════════════════════════════════════════════
+(function _attachPerfWrappers() {
+  function wrap(origFn, accKey) {
+    if (!origFn || origFn._perfWrapped) return origFn;
+    var wrapped = function () {
+      var _t0 = (typeof performance !== 'undefined') ? performance.now() : 0;
+      try {
+        return origFn.apply(this, arguments);
+      } finally {
+        if (typeof performance !== 'undefined') {
+          _perfAcc[accKey].ms += performance.now() - _t0;
+          _perfAcc[accKey].calls++;
+        }
+      }
+    };
+    wrapped._perfWrapped = true;
+    return wrapped;
+  }
+  try {
+    if (typeof _renderPins === 'function') {
+      _renderPins = wrap(_renderPins, 'renderPins');
+    }
+    if (typeof _applyTransform === 'function') {
+      _applyTransform = wrap(_applyTransform, 'applyTransform');
+    }
+    // Markup.setRenderScale: monkey-patch the method on the imported Markup
+    // object. The object reference is stable (live binding); the method
+    // is replaced.
+    if (typeof Markup !== 'undefined' && typeof Markup.setRenderScale === 'function') {
+      var _origMSS = Markup.setRenderScale;
+      if (!_origMSS._perfWrapped) {
+        var wrappedMSS = function (s) {
+          var _t0 = (typeof performance !== 'undefined') ? performance.now() : 0;
+          try {
+            return _origMSS.call(Markup, s);
+          } finally {
+            if (typeof performance !== 'undefined') {
+              _perfAcc.markupSetScale.ms += performance.now() - _t0;
+              _perfAcc.markupSetScale.calls++;
+            }
+          }
+        };
+        wrappedMSS._perfWrapped = true;
+        Markup.setRenderScale = wrappedMSS;
+      }
+    }
+  } catch (_e) {
+    // If wrapping fails for any reason, fall back to un-instrumented
+    // operation — the overlay just reports zeros for that path.
+    try { console.warn('[S182] perf wrapper install failed:', _e && _e.message); } catch (__) {}
+  }
 })();

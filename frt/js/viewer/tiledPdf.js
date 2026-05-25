@@ -1486,7 +1486,14 @@ function _startFetch(req, layer) {
 }
 
 // ── Render loop ────────────────────────────────────────────────────────────
+// S182: cumulative timing for _renderVisible (the tile-pipeline tick).
+// Read by perf overlay every 250ms via TiledPdf.stats() to identify
+// whether the tile pipeline is the FPS=2 stall culprit.
+var _perfRV = { calls: 0, ms: 0 };
+
 function _renderVisible() {
+  var _rvT0 = (typeof performance !== 'undefined') ? performance.now() : 0;
+  try {
   if (!_active || _paused || !_pageInfo) return;
   _dbg_renderCount++;
 
@@ -1749,6 +1756,13 @@ function _renderVisible() {
   }
 
   _pumpQueue();
+  } finally {
+    // S182: accumulate _renderVisible timing for diagnostic overlay
+    if (typeof performance !== 'undefined') {
+      _perfRV.ms += performance.now() - _rvT0;
+      _perfRV.calls++;
+    }
+  }
 }
 
 function scheduleRender() {
@@ -2149,6 +2163,17 @@ function stats() {
   var inflight = 0, loaded = 0;
   for (var k in _inflight) { if (Object.prototype.hasOwnProperty.call(_inflight, k)) inflight++; }
   for (var t in _tiles) { if (Object.prototype.hasOwnProperty.call(_tiles, t)) loaded++; }
+  // S182: count visible vs hidden level canvases to verify S181 is firing
+  var cVis = 0, cHid = 0;
+  for (var lk in _levelCanvases) {
+    if (!Object.prototype.hasOwnProperty.call(_levelCanvases, lk)) continue;
+    var lc = _levelCanvases[lk];
+    if (!lc || !lc.canvas) continue;
+    if (lc.canvas.style.display === 'none') cHid++; else cVis++;
+  }
+  // S182: pull + reset the renderVisible timing counter (consume-and-clear)
+  var rvCalls = _perfRV.calls, rvMs = _perfRV.ms;
+  _perfRV.calls = 0; _perfRV.ms = 0;
   return {
     inflight: inflight,
     loaded: loaded,
@@ -2158,7 +2183,12 @@ function stats() {
     // S180a — surface imageBitmap state for perf overlay readout.
     imageBitmap: _USE_IMAGEBITMAP_DECODE,
     decodeInflight: _decodeInflight,
-    decodeMax: _MAX_DECODE_CONCURRENT
+    decodeMax: _MAX_DECODE_CONCURRENT,
+    // S182 — diagnostic instrumentation
+    canvasVis: cVis,
+    canvasHid: cHid,
+    rvCalls: rvCalls,
+    rvMs: rvMs
   };
 }
 
