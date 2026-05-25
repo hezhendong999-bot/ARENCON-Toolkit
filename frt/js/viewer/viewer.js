@@ -1164,13 +1164,36 @@ function _updatePinsCanvasTransform() {
 function _deactivatePinsGesture() {
   if (!_pinsGestureActive) return;           // idempotent
   _pinsGestureActive = false;
-  // Order matters: re-render pins FIRST so the canvas pixel buffer has the
-  // correct post-gesture pin positions, THEN clear the CSS transform.
-  // Reversed order would briefly show the stale (CSS-transformed) buffer
-  // for one frame before the render lands.
-  try { _renderPins(); } catch (_e) {}
-  if (_pinsCanvasEl) {
-    _pinsCanvasEl.style.transform = '';
+  // S187 Item 1: defer the pin re-render and CSS-transform clear to the
+  // next rAF. The wrap state at gesture-end is already reflected in the
+  // pin canvas via the CSS transform (last _updatePinsCanvasTransform
+  // before touchend), so visually the user sees the correct pin
+  // positions for the gesture-final wrap state. Letting the touchend
+  // frame commit BEFORE we do the _renderPins() buffer repaint reduces
+  // the 100-250ms perceived freeze documented in the S186 handoff
+  // (compositor work shifts one frame later instead of blocking the
+  // touchend frame). Total lag is unchanged in absolute terms; perceived
+  // responsiveness improves.
+  //
+  // Order inside the rAF still matters: _renderPins() FIRST so the
+  // canvas buffer has correct post-gesture pin positions, THEN clear
+  // the CSS transform. Both happen in the same browser paint so it's
+  // atomic from the user's perspective.
+  var doIt = function() {
+    // Re-entry guard: if a new gesture started before this rAF fired
+    // (user immediately pinches again), _activatePinsGesture has
+    // already re-set _pinsGestureActive = true and captured a fresh
+    // baseline. Don't wipe the new gesture's CSS transform.
+    if (_pinsGestureActive) return;
+    try { _renderPins(); } catch (_e) {}
+    if (_pinsCanvasEl) {
+      _pinsCanvasEl.style.transform = '';
+    }
+  };
+  if (typeof requestAnimationFrame !== 'undefined') {
+    requestAnimationFrame(doIt);
+  } else {
+    doIt();
   }
 }
 

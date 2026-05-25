@@ -3972,6 +3972,17 @@ export var Markup = {
       _pendingScale = s;
       return;
     }
+    // S187 Item 2: when there are no markup objects to draw, the
+    // resize is pure waste — backing-buffer realloc costs GPU texture
+    // allocation with nothing to render into it afterwards. On FP-1
+    // sprinkler (mkc=0, Mark's typical workflow) this is a meaningful
+    // chunk of the 100-250ms residual pinch-end lag from S186.
+    // _lastRenderScale is intentionally NOT updated: when the first
+    // object is later added and setRenderScale fires again at the same
+    // scale, the no-op early-return inside _resizeMarkupForScale will
+    // see _lastRenderScale != current scale (still the previous value
+    // or the -1 sentinel) and apply the resize at that moment.
+    if (!_objects || _objects.length === 0) return;
     var prevScale = _lastRenderScale;
     _resizeMarkupForScale(s);
     // Only re-render if resize actually changed dimensions (early-return
@@ -3981,16 +3992,38 @@ export var Markup = {
   // S183a: gesture-active toggle (called by viewer.js touchstart/touchend
   // for multi-touch pinch gestures). When transitioning to false, applies
   // any pending scale change exactly once via setRenderScale's normal path.
+  // S187 Item 1: the resize + _renderAll is deferred to the next rAF so
+  // the touchend frame can commit promptly (the gesture-final visual
+  // position lands without the snap-resize blocking the same frame).
+  // Total work is unchanged — it just shifts one frame later. Trims the
+  // perceived freeze duration measured in S186 by ~30-50ms.
+  // S187 Item 2: also skip the apply entirely when _objects is empty —
+  // same rationale as the setRenderScale skip above.
   setGestureActive: function(active) {
     if (active === _gestureActive) return;
     _gestureActive = !!active;
     if (!_gestureActive && _pendingScale != null) {
       var s = _pendingScale;
       _pendingScale = null;
-      // Use the normal setRenderScale path so the resize + renderAll fire.
-      var prevScale = _lastRenderScale;
-      _resizeMarkupForScale(s);
-      if (_lastRenderScale !== prevScale) _renderAll();
+      // Item 2: nothing to draw, skip.
+      if (!_objects || _objects.length === 0) return;
+      var applyPending = function() {
+        // Re-entry guard: if a new gesture started before this rAF
+        // fired, the new gesture will accumulate its own _pendingScale
+        // and apply at its own end. Don't double-apply here.
+        if (_gestureActive) return;
+        // Re-check object count: an _objects mutation could have
+        // happened between the schedule and the fire.
+        if (!_objects || _objects.length === 0) return;
+        var prevScale = _lastRenderScale;
+        _resizeMarkupForScale(s);
+        if (_lastRenderScale !== prevScale) _renderAll();
+      };
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(applyPending);
+      } else {
+        applyPending();
+      }
     }
   },
   isActive: function() { return _tool && _tool !== 'pin'; },
