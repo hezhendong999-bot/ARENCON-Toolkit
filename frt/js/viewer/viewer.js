@@ -3979,6 +3979,85 @@ var _longTasks = [];
   } catch (_e) { /* longtask entryType unsupported on some browsers; safe to skip */ }
 })();
 
+// ═══════════════════════════════════════════════════════════════════════════
+// S184b: LongAnimationFrame observer — exact attribution of slow frames.
+//
+// S183 closed the Markup pinch bottleneck but FPS still drops to 1-6 with
+// lt_ms reading 200-957ms while every instrumented JS path reads <10ms.
+// The longtask API only tells us "a task took >50ms" — no attribution.
+// The newer LongAnimationFrame API (Chrome 123+, current Android WebView)
+// gives a scripts[] array per slow frame with sourceFunctionName,
+// invokerType, sourceURL, and duration per script. That tells us EXACTLY
+// which function ate the frame.
+//
+// Per slow frame we record: total duration, plus the single script that
+// consumed the most time inside it (its function name, invoker type, and
+// duration). The 250ms tick aggregates this into 3 TSV columns:
+//   laf_ms      — longest LAF in trailing 1s
+//   laf_top_fn  — that LAF's top-time script function name (sanitized)
+//   laf_top_inv — that script's invokerType (event-listener-touchmove,
+//                 raf, timeout, etc.)
+//
+// Wrapped in try/catch so unsupported browsers degrade silently to empty.
+// ═══════════════════════════════════════════════════════════════════════════
+var _longAnimFrames = [];
+(function _initLongAnimFrameObserver() {
+  if (typeof PerformanceObserver !== 'function') return;
+  // Probe support — Chrome 123+ exposes 'long-animation-frame' here.
+  try {
+    var supported = PerformanceObserver.supportedEntryTypes &&
+                    PerformanceObserver.supportedEntryTypes.indexOf('long-animation-frame') >= 0;
+    if (!supported) return;
+  } catch (_e) { return; }
+  try {
+    var po = new PerformanceObserver(function(list) {
+      var entries = list.getEntries();
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        // Find the longest-duration script in this LAF entry's scripts[].
+        var topScript = null;
+        try {
+          if (e.scripts && e.scripts.length) {
+            for (var j = 0; j < e.scripts.length; j++) {
+              var s = e.scripts[j];
+              if (!topScript || s.duration > topScript.duration) topScript = s;
+            }
+          }
+        } catch (_eS) {}
+        // Sanitize names for TSV: strip whitespace/tabs/newlines, cap length.
+        function _safe(v) {
+          if (v == null) return '';
+          var str = String(v).replace(/[\t\n\r"]/g, ' ').replace(/\s+/g, ' ').trim();
+          if (str.length > 50) str = str.substring(0, 47) + '...';
+          return str;
+        }
+        var topFn = topScript ? _safe(topScript.sourceFunctionName) : '';
+        var topInv = topScript ? _safe(topScript.invokerType) : '';
+        // If we have no function name but we have invokerType, use invoker as
+        // function name — it's still useful (e.g. "event-listener").
+        if (!topFn && topInv) topFn = topInv;
+        _longAnimFrames.push({
+          t: e.startTime,
+          dur: e.duration,
+          renderStart: e.renderStart || 0,
+          topScriptMs: topScript ? topScript.duration : 0,
+          topFn: topFn || '',
+          topInv: topInv || ''
+        });
+      }
+      // Trim to last 5s
+      if (_longAnimFrames.length > 0) {
+        var nowMs = (typeof performance !== 'undefined') ? performance.now() : 0;
+        var cutoff = nowMs - 5000;
+        while (_longAnimFrames.length && _longAnimFrames[0].t < cutoff) _longAnimFrames.shift();
+      }
+    });
+    // durationThreshold=50 matches the longtask threshold — minimum 50ms.
+    // (Default is also 50; explicit for clarity.)
+    po.observe({ type: 'long-animation-frame', buffered: true, durationThreshold: 50 });
+  } catch (_e) { /* long-animation-frame unsupported here; safe to skip */ }
+})();
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // S179e: Performance diagnostic overlay — TWA-compatible activation.
@@ -4041,7 +4120,8 @@ var _longTasks = [];
   // (verifies S181 canvas-hide is firing).
   function _snapshot(touchRate, tileStats, zoom, pinCount, heapMb,
                      ltMaxMs, perfRP, perfAT, perfMS,
-                     rvCalls, rvMs, canvasVis, canvasHid) {
+                     rvCalls, rvMs, canvasVis, canvasHid,
+                     lafMs, lafTopFn, lafTopInv) {
     return {
       t: _recording ? Math.round(_now() - _recStartT) : 0,
       fps: _currentFps,
@@ -4064,7 +4144,11 @@ var _longTasks = [];
       ms_calls: perfMS ? perfMS.calls : 0,
       ms_ms:    perfMS ? Math.round(perfMS.ms * 10) / 10 : 0,
       cvs_vis:  canvasVis || 0,
-      cvs_hid:  canvasHid || 0
+      cvs_hid:  canvasHid || 0,
+      // S184b LAF attribution fields
+      laf_ms:     lafMs || 0,
+      laf_top_fn: lafTopFn || '',
+      laf_top_inv: lafTopInv || ''
     };
   }
 
@@ -4103,12 +4187,19 @@ var _longTasks = [];
     //   at_calls/ms = _applyTransform
     //   ms_calls/ms = Markup.setRenderScale
     //   cvs_vis/hid = level canvases visible / display:none (S181 verifier)
+    // S184b: laf_* columns —
+    //   laf_ms      = longest LongAnimationFrame in trailing 1s (0 = none)
+    //   laf_top_fn  = name of the script function consuming the most time
+    //                 inside that LAF (or invokerType if function is anon)
+    //   laf_top_inv = that script's invokerType (event-listener, raf, etc.)
     var header = 't_ms\tfps\ttouch_per_s\ttile_inflight\ttile_loaded\tzoom\tpins\theap_mb\timgbmp\tprefetch' +
-                 '\tlt_ms\trv_calls\trv_ms\trp_calls\trp_ms\tat_calls\tat_ms\tms_calls\tms_ms\tcvs_vis\tcvs_hid';
+                 '\tlt_ms\trv_calls\trv_ms\trp_calls\trp_ms\tat_calls\tat_ms\tms_calls\tms_ms\tcvs_vis\tcvs_hid' +
+                 '\tlaf_ms\tlaf_top_fn\tlaf_top_inv';
     var rows = _samples.map(function (s) {
       return [s.t, s.fps, s.touch, s.inflight, s.loaded, s.zoom, s.pins, s.heap, s.imgbmp, s.prefetch,
               s.lt_ms, s.rv_calls, s.rv_ms, s.rp_calls, s.rp_ms,
-              s.at_calls, s.at_ms, s.ms_calls, s.ms_ms, s.cvs_vis, s.cvs_hid].join('\t');
+              s.at_calls, s.at_ms, s.ms_calls, s.ms_ms, s.cvs_vis, s.cvs_hid,
+              s.laf_ms, s.laf_top_fn, s.laf_top_inv].join('\t');
     });
     var txt = header + '\n' + rows.join('\n');
     var summary = '';
@@ -4339,6 +4430,21 @@ var _longTasks = [];
           lt1sMax = _longTasks[_lti].dur;
         }
       }
+      // S184b: longest LongAnimationFrame in trailing 1s + attribution of its
+      // top-time script. If LAF API isn't supported on this browser, _longAnimFrames
+      // stays empty and these read 0/''.
+      var laf1sMax = 0;
+      var lafTopFn = '';
+      var lafTopInv = '';
+      var laf1sCutoff = nowT - 1000;
+      for (var _li = 0; _li < _longAnimFrames.length; _li++) {
+        var _lf = _longAnimFrames[_li];
+        if (_lf.t >= laf1sCutoff && _lf.dur > laf1sMax) {
+          laf1sMax = _lf.dur;
+          lafTopFn = _lf.topFn;
+          lafTopInv = _lf.topInv;
+        }
+      }
       // S182: tile renderVisible timing + level-canvas visibility (S181 verifier)
       var rvCalls = tileStats ? tileStats.rvCalls : 0;
       var rvMs    = tileStats ? tileStats.rvMs    : 0;
@@ -4348,6 +4454,8 @@ var _longTasks = [];
       var _fmtMs = function (m) { return (Math.round(m * 10) / 10).toFixed(1); };
       var perfLine =
         'LongTask: ' + Math.round(lt1sMax) + ' ms (max,1s)\n' +
+        'LAF: ' + Math.round(laf1sMax) + ' ms' +
+          (lafTopFn ? ' [' + lafTopFn + ']' : '') + '\n' +
         'RV:'  + rvCalls       + '/' + _fmtMs(rvMs)     + 'ms  ' +
         'RP:'  + perfRP.calls  + '/' + _fmtMs(perfRP.ms) + 'ms\n' +
         'AT:'  + perfAT.calls  + '/' + _fmtMs(perfAT.ms) + 'ms  ' +
@@ -4362,7 +4470,9 @@ var _longTasks = [];
           _samples.push(_snapshot(touchRate, tileStats, zoomNum,
             (typeof pinCount === 'number') ? pinCount : null, heapMb,
             // S182: pass timing fields through to snapshot for TSV export
-            lt1sMax, perfRP, perfAT, perfMS, rvCalls, rvMs, cVis, cHid));
+            lt1sMax, perfRP, perfAT, perfMS, rvCalls, rvMs, cVis, cHid,
+            // S184b: LAF attribution
+            laf1sMax, lafTopFn, lafTopInv));
         } catch (_e) {}
         recLine = '\n● REC ' + Math.round((nowT - _recStartT) / 1000) + 's / ' + _samples.length + ' samples';
       }
