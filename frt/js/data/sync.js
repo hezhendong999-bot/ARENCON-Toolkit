@@ -111,6 +111,45 @@ var _emptyArrayGuardFires = 0;
 var _emptyArrayGuardLog = [];
 var _GUARDED_ARRAY_FIELDS = ['drawings', 'photos', 'contractors', 'sitePhotos'];
 
+// S189 V-2 — Array-shrinkage clobber guard. Extends the S126 Phase C empty-
+// array guard to catch the cloud-shorter-than-local case: cloud delivers an
+// array that is a STRICT SUBSET (by id) of the local array.
+//
+// THE 4380.24 PROPAGATION PATTERN:
+//   A misbehaving device (e.g. legacy v1 client that stripped pins, or any
+//   future bug that silently drops items) pushes a shrunk array to cloud.
+//   On the next fresh-sign-in or initial pull on any OTHER device:
+//     pull() -> setProject(cloudData) -> local 14 drawings becomes cloud's 9
+//   The good device's healthy local state is overwritten by the bad device's
+//   shrunk state. This is how a single misbehaving device propagates loss
+//   across the fleet.
+//
+// THE GUARD (pull path only, NOT silentMerge):
+//   When cloud's array is STRICTLY SHORTER than local AND every cloud id is
+//   present in local (true subset), refuse to apply. Restore the local array
+//   into cloudData so setProject() preserves it. Counter + log + console.error
+//   + user toast: this is an integrity event, not a routine sync.
+//
+// FALSE-POSITIVE PROFILE:
+//   Legitimate delete on Device A propagates to Device B's pull. Guard would
+//   fire on Device B's first pull. User sees toast; they can manually delete
+//   on Device B too. Tradeoff: protects against silent loss at the cost of
+//   surfacing intentional deletes for manual reconciliation. Considered
+//   acceptable per S158/S188 risk weighting (loss > false-positive friction).
+//
+// WHY NOT IN silentMerge:
+//   merge3 already does per-id reconciliation. If its output is shorter than
+//   local, that's intentional (e.g. tombstoned deletes converged). Re-
+//   guarding would block legitimate merge work.
+//
+// EDGE CASES:
+//   - Cloud array empty: handled by _guardEmptyArrays, skip here.
+//   - Cloud items without ids: cannot make subset judgment, skip (let merge handle).
+//   - Cloud has ids local doesn't: NOT subset (concurrent edits), let through.
+//   - Same length: pre-skipped (no shrinkage).
+var _arrayShrinkageGuardFires = 0;
+var _arrayShrinkageGuardLog = [];
+
 function _guardEmptyArrays(cloudData, label) {
   if (!cloudData || typeof cloudData !== 'object') return cloudData;
   var localProj = Model.getProject();
@@ -134,6 +173,72 @@ function _guardEmptyArrays(cloudData, label) {
       console.warn('[Sync C-guard] Cloud delivered empty ' + field +
                    '; preserved local (' + localArr.length + ' items). Path: ' + label);
     }
+  });
+  return cloudData;
+}
+
+// S189 V-2 — Array-shrinkage clobber guard. See block comment near
+// _arrayShrinkageGuardFires declaration above for full rationale.
+// Pull-path only; do NOT call from silentMerge (merge3 has its own reconcile).
+function _guardArrayShrinkage(cloudData, label) {
+  if (!cloudData || typeof cloudData !== 'object') return cloudData;
+  var localProj = Model.getProject();
+  if (!localProj) return cloudData;
+  _GUARDED_ARRAY_FIELDS.forEach(function(field) {
+    var cloudArr = cloudData[field];
+    var localArr = localProj[field];
+    if (!Array.isArray(cloudArr)) return;
+    if (!Array.isArray(localArr) || localArr.length === 0) return;
+    // Empty cloud already handled by _guardEmptyArrays
+    if (cloudArr.length === 0) return;
+    // No shrinkage if cloud is same or larger
+    if (cloudArr.length >= localArr.length) return;
+    // Build cloud id set
+    var cloudIdSet = {};
+    var cloudWithId = 0;
+    for (var i = 0; i < cloudArr.length; i++) {
+      var c = cloudArr[i];
+      if (c && c.id) {
+        cloudIdSet[c.id] = true;
+        cloudWithId++;
+      }
+    }
+    // If cloud items lack ids, we cannot make a subset judgment — let through.
+    if (cloudWithId === 0) return;
+    // Local id set
+    var localIdSet = {};
+    for (var j = 0; j < localArr.length; j++) {
+      if (localArr[j] && localArr[j].id) localIdSet[localArr[j].id] = true;
+    }
+    // Strict subset check: every cloud id must be in local. If cloud has
+    // any id local lacks, that's concurrent state — let through.
+    var isStrictSubset = true;
+    for (var ck in cloudIdSet) {
+      if (!localIdSet[ck]) { isStrictSubset = false; break; }
+    }
+    if (!isStrictSubset) return;
+    // V-2 fires: restore local in place of cloud
+    cloudData[field] = JSON.parse(JSON.stringify(localArr));
+    _arrayShrinkageGuardFires++;
+    var entry = {
+      at: new Date().toISOString(),
+      path: label + '.' + field,
+      cloudCount: cloudArr.length,
+      localCount: localArr.length,
+      rescued: localArr.length - cloudArr.length
+    };
+    _arrayShrinkageGuardLog.push(entry);
+    if (_arrayShrinkageGuardLog.length > 50) _arrayShrinkageGuardLog.shift();
+    console.error('[Sync S-guard] Cloud shrinkage on ' + field +
+                  ': cloud=' + cloudArr.length + ' local=' + localArr.length +
+                  ' (strict subset by id) — preserved local. Path: ' + label);
+    try {
+      if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+        window.toast('Cloud sync paused: cloud ' + field + ' shrunk (' +
+                     cloudArr.length + ' vs local ' + localArr.length +
+                     '). Local data preserved.');
+      }
+    } catch(_) {}
   });
   return cloudData;
 }
@@ -385,6 +490,12 @@ export var SyncEngine = {
         // in before passing to setProject. Prevents cross-device pulls from
         // wiping unsaved local drawings/photos/contractors.
         data = _guardEmptyArrays(data, 'pull');
+        // S189 V-2 — Array-shrinkage clobber guard. Catches cloud-shorter-
+        // than-local (strict subset by id). This is the 4380.24 propagation
+        // path: misbehaving device pushes shrunk array → cloud takes it →
+        // any other device's pull wipes its good local. Pull-path ONLY
+        // (silentMerge has its own merge3 reconcile).
+        data = _guardArrayShrinkage(data, 'pull');
         // S123 P6B — snapshot for 3-way merge. Deep clone so later edits
         // to Model.getProject() don't mutate this reference.
         _lastSeenSnapshot = JSON.parse(JSON.stringify(data));
@@ -764,10 +875,16 @@ export var SyncEngine = {
   // since module load; log holds the most recent 50 events. Read via
   // SyncEngine.diag.emptyArrayGuards (count) and SyncEngine.diag.emptyArrayLog
   // (recent fires). Phase D wires these into window._frt.diagnostics.sync.
+  //
+  // S189 V-2 — Array-shrinkage clobber guard diagnostics. Same shape as the
+  // empty-array counters. arrayShrinkageGuards = count since module load,
+  // arrayShrinkageLog = recent 50 fires with cloudCount/localCount/rescued.
   get diag() {
     return {
       emptyArrayGuards: _emptyArrayGuardFires,
       emptyArrayLog: _emptyArrayGuardLog.slice(),
+      arrayShrinkageGuards: _arrayShrinkageGuardFires,
+      arrayShrinkageLog: _arrayShrinkageGuardLog.slice(),
       lastSeenUpdatedAt: _lastSeenUpdatedAt,
       instanceId: _instanceId,
       pendingSync: _pendingSync,
