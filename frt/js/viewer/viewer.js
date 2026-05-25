@@ -470,9 +470,15 @@ function _applyTransform() {
     wrap.style.transform = 'translate3d(' + _panX + 'px,' + _panY + 'px,0) scale(' + _scale + ')';
   }
   if (TiledPdf.isActive()) TiledPdf.scheduleRender();
+  // S186: mirror the wrap's transform onto the PinsGL canvas during touch
+  // gestures so pins visually track the drawing without re-rendering Pixi.
+  // No-op when no gesture is active (single transform-style write per call).
+  _updatePinsCanvasTransform();
   // GL pins live outside dv-img-wrap and must be re-rendered on every transform.
   // HTML pins are children of dv-img-wrap, so they auto-transform; cheap early-out.
   // S132 — rAF-coalesced (was a synchronous _renderPins() call here).
+  // S185: _scheduleRenderPins is internally short-circuited when a gesture
+  // is active, so the rAF callback fires but exits immediately. Cheap.
   if (_useGLPins && _glPinsReady) _scheduleRenderPins();
   // S113 Push 13: notify Markup of the new viewer scale so it can resize
   // its canvas to displayed-pixel resolution. Markup filters pan-only
@@ -1080,27 +1086,92 @@ document.addEventListener('touchcancel', function(e) {
   if (e.touches.length === 0) _deactivatePinsGesture();
 });
 
-// S185 helpers — kept compact, defensive against PinsGL not being ready.
+// S186 helpers — replace S185's "hide pins during gesture" with "CSS-mirror
+// the wrap's transform on the PinsGL canvas during gesture." Pan-end now has
+// no visible snap; pinch-end snaps once as pins resize to correct screen-
+// pixel size. Compare to Google Maps marker handling (markers translate via
+// CSS during pan, JS counter-scales during pinch — same shape of solution,
+// but ours uses one canvas-level transform instead of per-marker JS writes).
+//
+// Math: at gesture start we cache the wrap's transform state (panX0, panY0,
+// scale0). On every _applyTransform during the gesture we compute the delta
+// matrix that maps the canvas's pre-gesture pin positions to where they
+// should now be, and write it as the PinsGL canvas's CSS transform.
+//   s  = scale / scale0
+//   dx = panX - panX0 * s
+//   dy = panY - panY0 * s
+// CSS: `matrix(s, 0, 0, s, dx, dy)` with transform-origin: 0 0.
+//
+// The PinsGL canvas's WebGL pixel buffer doesn't change during the gesture
+// (so we pay no Pixi cost). At gesture end we clear the CSS transform and
+// fire one _renderPins() which repaints pins at correct screen-pixel sizes.
+var _pinsCanvasEl = null;       // cached ref to PinsGL canvas DOM element
+var _pinsBaseScale = 1;
+var _pinsBasePanX = 0;
+var _pinsBasePanY = 0;
+
+function _findPinsCanvas() {
+  // PinsGL.init(host) appends its canvas as a direct child of dv-canvas-area.
+  // Level canvases live deeper inside dv-tiles-layer/dv-img-wrap, so this
+  // selector reliably resolves to PinsGL's canvas (or null if not yet
+  // initialized, in which case we degrade to S185-style hide-during-gesture).
+  return document.querySelector('#dv-canvas-area > canvas');
+}
+
 function _activatePinsGesture() {
   if (_pinsGestureActive) return;            // idempotent
   if (_pinsDiagHidden) return;               // already hidden by diagnostic
   _pinsGestureActive = true;
-  // Clear WebGL pin canvas once so no stale pins are visible during the
-  // gesture. (HTML layer is already empty under the WebGL path; only
-  // populated when WebGL is unavailable, in which case _renderPins'
-  // short-circuit at the top handles it.)
-  try {
-    if (_useGLPins && _glPinsReady && window.PinsGL) window.PinsGL.render([], {});
-  } catch (_e) {}
+  // Cache the wrap state at gesture start so we can compute delta matrices.
+  _pinsBaseScale = _scale;
+  _pinsBasePanX = _panX;
+  _pinsBasePanY = _panY;
+  // Re-resolve canvas every gesture in case PinsGL initialized between
+  // gestures (cold-start race) or the canvas was recreated.
+  _pinsCanvasEl = _findPinsCanvas();
+  if (_pinsCanvasEl) {
+    // transform-origin 0 0 matches dv-img-wrap's origin convention. Set
+    // once per gesture; reset implicitly when style.transform is cleared
+    // (browsers preserve transform-origin but applying matrix() means our
+    // computed dx/dy are already in the same origin frame).
+    _pinsCanvasEl.style.transformOrigin = '0 0';
+  } else {
+    // PinsGL not initialized (or HTML pin fallback). Fall back to S185
+    // behavior: clear pins so they don't appear stuck during gesture.
+    // HTML pins are children of dv-img-wrap and transform automatically,
+    // so this branch matters only when WebGL pins are configured but the
+    // canvas isn't ready yet — rare edge case at cold start.
+    try {
+      if (_useGLPins && _glPinsReady && window.PinsGL) window.PinsGL.render([], {});
+    } catch (_e) {}
+  }
 }
+
+function _updatePinsCanvasTransform() {
+  // Called from _applyTransform on every wrap transform during a gesture.
+  // Cheap: one matrix multiplication + one style write. The browser
+  // composites the canvas onto the page using the same GPU path as the
+  // wrap's own transform, so the cost is essentially free.
+  if (!_pinsGestureActive || !_pinsCanvasEl) return;
+  if (_pinsBaseScale === 0) return;          // defensive — should never happen
+  var s = _scale / _pinsBaseScale;
+  var dx = _panX - _pinsBasePanX * s;
+  var dy = _panY - _pinsBasePanY * s;
+  _pinsCanvasEl.style.transform =
+    'matrix(' + s + ',0,0,' + s + ',' + dx + ',' + dy + ')';
+}
+
 function _deactivatePinsGesture() {
   if (!_pinsGestureActive) return;           // idempotent
   _pinsGestureActive = false;
-  // Render once with the post-gesture pan/zoom state so pins reappear in
-  // their correct screen positions. _renderPins is internally guarded
-  // against rebuild during pin drag and respects _pinsDiagHidden, so this
-  // is safe to call unconditionally.
+  // Order matters: re-render pins FIRST so the canvas pixel buffer has the
+  // correct post-gesture pin positions, THEN clear the CSS transform.
+  // Reversed order would briefly show the stale (CSS-transformed) buffer
+  // for one frame before the render lands.
   try { _renderPins(); } catch (_e) {}
+  if (_pinsCanvasEl) {
+    _pinsCanvasEl.style.transform = '';
+  }
 }
 
 // ── S83: Pull-to-refresh gesture ────────────────────────
