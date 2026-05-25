@@ -7672,36 +7672,51 @@ body.dark-mode .dfx-bv-col { background: #1C2333; }
   background: rgba(107,114,128,.2); color: #6B7280; font-weight: 700; margin-left: 6px; }
 body.dark-mode .rec-badge { color: #A8B4C5; }
 
+/* S190 M5a — generic +Add deficiency is the primary CTA (burgundy outlined);
+   scoped per-contractor button stays muted/dashed. Base-CSS change approved
+   by Mark in S190. The two read as primary vs secondary action even when the
+   .adc-sub helper text is hidden at narrow widths. */
 .add-deficiency-card {
-  margin-top: 14px; padding: 12px 16px; background: #EEF1F5;
-  border: 1.5px solid #C2C9D6; border-radius: 8px; color: #3A4356;
+  margin-top: 14px; padding: 14px 18px; background: #fff;
+  border: 2px solid #9C2742; border-radius: 8px; color: #9C2742;
   display: flex; align-items: center; justify-content: center; gap: 10px;
-  text-align: center; cursor: pointer; font-size: calc(14px + var(--ts));
-  font-weight: 700; transition: background .12s, border-color .12s, color .12s;
+  text-align: center; cursor: pointer; font-size: calc(15px + var(--ts));
+  font-weight: 700; transition: background .12s, color .12s, box-shadow .12s;
+  box-shadow: 0 1px 3px rgba(156,39,66,0.08);
 }
 .add-deficiency-card .adc-plus {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 22px; height: 22px; border-radius: 50%;
+  width: 24px; height: 24px; border-radius: 50%;
   background: #9C2742; color: #fff; font-weight: 800; line-height: 1;
-  font-size: calc(15px + var(--ts)); flex: 0 0 auto;
+  font-size: calc(16px + var(--ts)); flex: 0 0 auto;
 }
 .add-deficiency-card .adc-sub { font-weight: 400; font-size: calc(12px + var(--ts)); color: #6B7488; }
-.add-deficiency-card:hover { background: #E4E8EF; border-color: #9C2742; color: #1C2333; }
+.add-deficiency-card:hover { background: #9C2742; color: #fff; box-shadow: 0 3px 8px rgba(156,39,66,0.25); }
+.add-deficiency-card:hover .adc-sub { color: rgba(255,255,255,0.85); }
+/* Scoped explicitly resets to muted dashed treatment (overrides Option A base) */
 .add-deficiency-card.scoped {
   margin: 10px 0 2px; padding: 9px 14px; justify-content: flex-start;
-  background: #F1F3F7; border-style: dashed; font-size: calc(13px + var(--ts));
+  background: #F1F3F7; border: 1.5px dashed #C2C9D6; color: #3A4356;
+  font-size: calc(13px + var(--ts)); box-shadow: none;
 }
 .add-deficiency-card.scoped .adc-plus { width: 19px; height: 19px; font-size: calc(13px + var(--ts)); }
 .add-deficiency-card.scoped .adc-tgt { font-weight: 400; color: #6B7488; }
-body.dark-mode .add-deficiency-card { background: #232A38; border-color: #3A4258; color: #C8D0E2; }
-body.dark-mode .add-deficiency-card .adc-plus { background: #7C3344; }
-body.dark-mode .add-deficiency-card .adc-sub,
+.add-deficiency-card.scoped:hover { background: #E4E8EF; border-color: #9C2742; color: #1C2333; box-shadow: none; }
+.add-deficiency-card.scoped:hover .adc-sub,
+.add-deficiency-card.scoped:hover .adc-tgt { color: #6B7488; }
+/* Dark mode mirrors the same primary-vs-secondary contrast */
+body.dark-mode .add-deficiency-card { background: #1B2230; border-color: #9C2742; color: #E5A0AE; }
+body.dark-mode .add-deficiency-card .adc-plus { background: #9C2742; }
+body.dark-mode .add-deficiency-card .adc-sub { color: #8A94B0; }
+body.dark-mode .add-deficiency-card:hover { background: #9C2742; color: #fff; }
+body.dark-mode .add-deficiency-card:hover .adc-sub { color: rgba(255,255,255,0.85); }
+body.dark-mode .add-deficiency-card.scoped { background: #1F2531; border-color: #3A4258; color: #C8D0E2; }
+body.dark-mode .add-deficiency-card.scoped .adc-plus { background: #7C3344; }
 body.dark-mode .add-deficiency-card.scoped .adc-tgt { color: #8A94B0; }
-body.dark-mode .add-deficiency-card:hover { background: #2A3242; border-color: #9C2742; color: #E6EAF3; }
-body.dark-mode .add-deficiency-card.scoped { background: #1F2531; }
+body.dark-mode .add-deficiency-card.scoped:hover { background: #2A3242; border-color: #9C2742; color: #E6EAF3; }
 @media (pointer: coarse) {
-  .add-deficiency-card { padding: 14px 16px; }
-  .add-deficiency-card.scoped { padding: 12px 14px; }
+  .add-deficiency-card { padding: 16px 18px; }
+  .add-deficiency-card.scoped { padding: 11px 14px; }
 }
 .modal-checkbox-row {
   display: flex; align-items: center; gap: 8px; margin: 12px 0; padding: 8px 12px;
@@ -8264,9 +8279,9 @@ body.dark-mode .dfx-obs-scope-bar:hover { border-color: #E0A0B0; color: #E0A0B0;
      .add-deficiency-card .adc-sub is the decorative description on the
      +Add deficiency card (per S162 backlog Screen D). Card stays tappable
      and labeled; description hides at narrow widths.
-     The two-buttons visual distinction (per-contractor vs generic) is
-     intentionally NOT included — that's a base-CSS change which would
-     affect desktop. Deferred.
+     The two-buttons visual distinction (per-contractor vs generic) was
+     shipped in S190 M5a as a base-CSS change — generic is now a burgundy-
+     outlined primary CTA, scoped stays muted/dashed. See §20 above.
 
    Screen E — Project header:
      Header is "mostly fine" at 430px per S162 backlog. Tightening only:
