@@ -1090,6 +1090,44 @@ function _tradeVars(t) {
   return '--tc-bg:' + c.bg + ';--tc-fg:' + c.fg + ';--tc-bd:' + c.bd + ';';
 }
 
+// ── S192: sticky roster observer (Board view only) ──────────────────
+// Pattern 2 from Mark's mockup review: in Board view the Contractor
+// Roster sticks to the top of the viewport when scrolled past, and
+// auto-compacts to a two-row strip (trades on row 1, contractor pills
+// on row 2). Implementation is observer-driven — a 1px sentinel placed
+// immediately before #trade-board-card; when it exits viewport, body
+// gets `dfx-roster-stuck` and the CSS does the rest. CSS is scoped to
+// body.dfx-view-board so it has zero effect in Detailed and Table.
+function _dfxSetupStickyObserver() {
+  var card = document.getElementById('trade-board-card');
+  if (!card || !card.parentNode) return;
+  // Live header height → CSS var → sticky `top:` matches text-scale setting
+  var hdr = document.querySelector('.app-header');
+  if (hdr) document.documentElement.style.setProperty('--dfx-header-h', hdr.offsetHeight + 'px');
+  // Idempotent: reuse existing sentinel + observer across re-renders.
+  var sentinel = document.getElementById('dfx-roster-sentinel');
+  if (!sentinel) {
+    sentinel = document.createElement('div');
+    sentinel.id = 'dfx-roster-sentinel';
+    sentinel.setAttribute('aria-hidden', 'true');
+    sentinel.style.cssText = 'height:1px;margin-top:-1px;pointer-events:none;';
+    card.parentNode.insertBefore(sentinel, card);
+  }
+  if (window._dfxStickyObs) return;
+  try {
+    window._dfxStickyObs = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        document.body.classList.toggle('dfx-roster-stuck', !e.isIntersecting);
+      });
+    }, { threshold: 0 });
+    window._dfxStickyObs.observe(sentinel);
+  } catch (err) {
+    // IntersectionObserver missing → graceful degrade: roster stays full
+    // size when sticky (sticky still works without compact). Field
+    // tablets (Android Chrome) support it; this catch is for old desktops.
+  }
+}
+
 function _renderTradeBoard(proj) {
   var el = document.getElementById('contractors-on-site');
   if (!el) return;
@@ -1321,6 +1359,12 @@ export var initDeficiencies = {
       });
     });
     _syncDfxControls(pcActive, pcClosed, proj);
+
+    // S192: drive Board-view-only sticky roster via a body class. The
+    // sticky CSS + the compact "stuck" two-row presentation key off
+    // body.dfx-view-board and body.dfx-roster-stuck respectively.
+    document.body.classList.toggle('dfx-view-board', _deficView === 'board');
+    _dfxSetupStickyObserver();
 
     // S137/S138: view dispatch — all three views live.
     if (_deficView === 'table') {
@@ -3254,13 +3298,50 @@ document.addEventListener('click', function(e) {
   }
 
   if (action === 'toggle-more') {
-    var deficId = el.getAttribute('data-defic-id');
-    var popup = document.getElementById('more-' + deficId);
+    // S192: was getElementById('more-' + deficId) which collides when the
+    // same pin is rendered twice (Board card + focused pin editor → first
+    // match wins, often the off-screen one). Sibling lookup uses the
+    // clicked button's wrapper, so the right popup opens every time.
+    // Also switches to position:fixed so the popup escapes
+    // `.defic-pin-group { overflow: hidden }` on short pins.
+    var popup = el.parentNode && el.parentNode.querySelector('.defic-more-popup');
     if (popup) {
       var wasOpen = popup.classList.contains('open');
-      // Close all open popups first
-      document.querySelectorAll('.defic-more-popup.open').forEach(function(p) { p.classList.remove('open'); });
-      if (!wasOpen) popup.classList.add('open');
+      // Close all open popups; clear any inline coords so a future open
+      // doesn't reuse stale positioning.
+      document.querySelectorAll('.defic-more-popup.open').forEach(function(p) {
+        p.classList.remove('open');
+        p.style.position = ''; p.style.top = ''; p.style.left = '';
+        p.style.right = ''; p.style.bottom = ''; p.style.zIndex = '';
+      });
+      if (!wasOpen) {
+        var r = el.getBoundingClientRect();
+        // Estimate height before measuring (popup is display:none); we'll
+        // re-measure after open and re-clamp if needed.
+        var estH = 120;
+        var popupW = 180;
+        var spaceAbove = r.top;
+        var spaceBelow = window.innerHeight - r.bottom;
+        popup.style.position = 'fixed';
+        popup.style.bottom = ''; popup.style.right = '';
+        if (spaceAbove >= estH + 8 && spaceAbove >= spaceBelow) {
+          popup.style.top = (r.top - estH - 4) + 'px';
+        } else {
+          popup.style.top = (r.bottom + 4) + 'px';
+        }
+        popup.style.left = Math.max(8, Math.min(window.innerWidth - popupW - 8, r.right - popupW)) + 'px';
+        popup.style.zIndex = '10001';                                       // above dialogs (10000) and pinfocus overlay (9998)
+        popup.classList.add('open');
+        // Re-clamp once visible (now that offsetHeight is accurate).
+        var realH = popup.offsetHeight;
+        if (realH && realH !== estH) {
+          if (spaceAbove >= realH + 8 && spaceAbove >= spaceBelow) {
+            popup.style.top = (r.top - realH - 4) + 'px';
+          } else {
+            popup.style.top = (r.bottom + 4) + 'px';
+          }
+        }
+      }
     }
   }
 });
@@ -3268,7 +3349,11 @@ document.addEventListener('click', function(e) {
 // Close more popups on outside click
 document.addEventListener('click', function(e) {
   if (!e.target.closest('[data-action="toggle-more"]') && !e.target.closest('.defic-more-popup')) {
-    document.querySelectorAll('.defic-more-popup.open').forEach(function(p) { p.classList.remove('open'); });
+    document.querySelectorAll('.defic-more-popup.open').forEach(function(p) {
+      p.classList.remove('open');
+      p.style.position = ''; p.style.top = ''; p.style.left = '';
+      p.style.right = ''; p.style.bottom = ''; p.style.zIndex = '';
+    });
   }
 });
 

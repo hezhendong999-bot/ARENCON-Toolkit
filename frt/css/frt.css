@@ -8309,3 +8309,83 @@ body.dark-mode .dfx-obs-scope-bar:hover { border-color: #E0A0B0; color: #E0A0B0;
   .header-save-ts  { display: none; }
 }
 /* End S189 ─────────────────────────────────────────────────────────────── */
+
+/* ──────────────────────────────────────────────────────────
+   S192 §3 — Pattern 2 sticky Contractor Roster (Board view)
+   In Board view the Roster card sticks to the top of the
+   viewport below the navy header. Once scrolled past, body
+   gets `dfx-roster-stuck` (driven by an IntersectionObserver
+   on a 1px sentinel above the card) and the layout collapses
+   to a slim two-row strip — trade pills on row 1, contractor
+   pills on row 2. Two rows, never merged (Mark's directive).
+   Scoped entirely to body.dfx-view-board so it has zero effect
+   in Detailed and Table views.
+   --dfx-header-h is set from JS to match the live navy header
+   height (so the sticky top tracks the user's text-scale).
+   ────────────────────────────────────────────────────────── */
+body.dfx-view-board #trade-board-card {
+  position: sticky;
+  top: var(--dfx-header-h, 56px);
+  z-index: 50;
+  transition: box-shadow .2s ease, border-bottom .2s ease;
+}
+body.dfx-view-board.dfx-roster-stuck #trade-board-card {
+  box-shadow: 0 4px 14px rgba(0,0,0,.10);
+  border-bottom: 2px solid #9C2742;
+  margin-bottom: 12px;
+}
+/* Compact mode: hide the section title bar */
+body.dfx-view-board.dfx-roster-stuck #trade-board-card > .card-header { display: none; }
+/* Row 1 — trades: slim padding, drop the label and "+ trade ▾" */
+body.dfx-view-board.dfx-roster-stuck .crx-trades-row {
+  padding: 6px 12px;
+  gap: 5px;
+  border-bottom: 1px solid rgba(0,0,0,.08);
+  margin: 0;
+}
+body.dfx-view-board.dfx-roster-stuck .crx-trades-lbl,
+body.dfx-view-board.dfx-roster-stuck .crx-addtrade-wrap { display: none; }
+body.dfx-view-board.dfx-roster-stuck .crx-trades { gap: 5px; flex-wrap: wrap; }
+body.dfx-view-board.dfx-roster-stuck .crx-tpill {
+  padding: 2px 8px;
+  font-size: calc(11px + var(--ts));
+}
+/* Hide the "Contractors" / "+ Add contractor" row between rows */
+body.dfx-view-board.dfx-roster-stuck .crx-roster-h { display: none; }
+/* Row 2 — contractors: single horizontal row of compact pills */
+body.dfx-view-board.dfx-roster-stuck .crx-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 12px;
+  grid-template-columns: none;
+}
+body.dfx-view-board.dfx-roster-stuck .crx-cc {
+  padding: 3px 10px;
+  min-height: auto;
+  width: auto;
+  flex: 0 0 auto;
+  font-size: calc(11px + var(--ts));
+  gap: 5px;
+}
+/* Trim crowding inside compact contractor pills — gold border stays */
+body.dfx-view-board.dfx-roster-stuck .crx-cc .crx-unflag,
+body.dfx-view-board.dfx-roster-stuck .crx-cc .crx-meta,
+body.dfx-view-board.dfx-roster-stuck .crx-cc .crx-ic,
+body.dfx-view-board.dfx-roster-stuck .crx-cc .crx-spacer { display: none; }
+body.dfx-view-board.dfx-roster-stuck .crx-cc .crx-tag {
+  padding: 1px 5px;
+  font-size: calc(10px + var(--ts));
+}
+/* Hide helper text in compact mode */
+body.dfx-view-board.dfx-roster-stuck .crx-hint { display: none; }
+/* Pointer-coarse (touch) — slightly bigger tap targets in compact */
+@media (pointer: coarse) {
+  body.dfx-view-board.dfx-roster-stuck .crx-cc {
+    padding: 5px 12px;
+    min-height: 32px;
+  }
+  body.dfx-view-board.dfx-roster-stuck .crx-tpill { padding: 4px 10px; }
+}
+/* End S192 ─────────────────────────────────────────────────────────────── */
