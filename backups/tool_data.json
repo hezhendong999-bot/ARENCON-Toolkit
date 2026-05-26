@@ -577,6 +577,585 @@
     "updated_at": "2026-03-23T05:23:50.25187+00:00"
   },
   {
+    "id": "35744d31-08d9-44bc-978a-a3fd84a285e7",
+    "project_id": "ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0",
+    "tool_key": "diesel",
+    "instance_number": 1,
+    "label": null,
+    "data": {
+      "proj": {
+        "pm-prv": "",
+        "pm-rpm": "",
+        "pi-addr": "114 East Dr",
+        "pi-date": "2026-05-25",
+        "so-cert": "I hereby certify that the diesel fire pump system described in this report was inspected and tested in accordance with NFPA 20 (2025) and the applicable standards. The results recorded herein are accurate to the best of my knowledge.",
+        "so-date": "2026-05-25T17:12",
+        "so-name": "",
+        "so-title": "",
+        "pi-client": "Sun Pharma",
+        "pi-prepby": "",
+        "pi-projno": "4380.24",
+        "pm-prv-pld": "",
+        "pm-rpm-pld": "",
+        "so-company": "",
+        "ws-res-psi": "",
+        "dem-spr-psi": "",
+        "pi-projname": "S WH Sprk Upgrade",
+        "pi-revision": "",
+        "test-result": "",
+        "ws-res-flow": "",
+        "dem-spr-flow": "",
+        "dem-hose-flow": "",
+        "pi-contractor": "",
+        "pm-rated-flow": "",
+        "ws-static-psi": "",
+        "pld-ws-res-psi": "",
+        "pm-pld-setting": "",
+        "ws-static-flow": "0",
+        "pld-dem-spr-psi": "",
+        "pld-ws-res-flow": "",
+        "pi-date-modified": "2026-05-25 13:27",
+        "pld-dem-spr-flow": "",
+        "pld-dem-hose-flow": "",
+        "pld-ws-static-psi": "",
+        "pm-rated-flow-pld": "",
+        "pld-ws-static-flow": "0"
+      },
+      "batData": {
+        "b1": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "b2": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "clState": {
+        "s1_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_1": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_2": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_3": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_4": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_5": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_6": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_7": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_8": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_1": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_2": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_3": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_4": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_5": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_6": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_7": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_8": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_9": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_1": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_2": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_3": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_4": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_5": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_6": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_7": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s4_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_1": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_2": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_3": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_4": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_5": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_6": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_7": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_8": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_9": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_10": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_11": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_12": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_13": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_14": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_15": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_16": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_17": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_18": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_19": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_20": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_21": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_22": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_10": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_11": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_12": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5m_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5m_1": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5m_2": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s4pld_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        }
+      },
+      "pldData": [
+        {
+          "pct": "0%",
+          "flow": 0,
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "dis_no": "",
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 0
+        },
+        {
+          "pct": "25%",
+          "flow": "",
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "dis_no": "",
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 500
+        },
+        {
+          "pct": "50%",
+          "flow": "",
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "dis_no": "",
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 1000
+        },
+        {
+          "pct": "75%",
+          "flow": "",
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "dis_no": "",
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 1500
+        },
+        {
+          "pct": "100%",
+          "flow": "",
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "dis_no": "",
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 2000
+        },
+        {
+          "pct": "125%",
+          "flow": "",
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "dis_no": "",
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 2500
+        },
+        {
+          "pct": "150%",
+          "flow": "",
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "dis_no": "",
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 3000
+        }
+      ],
+      "stdData": [
+        {
+          "pct": "0%",
+          "rpm": "",
+          "flow": 0,
+          "label": "Churn",
+          "placard": "",
+          "suction": "",
+          "cutsheet": "",
+          "discharge": ""
+        },
+        {
+          "pct": "100%",
+          "rpm": "",
+          "flow": null,
+          "label": "Rated",
+          "placard": "",
+          "suction": "",
+          "cutsheet": "",
+          "discharge": ""
+        },
+        {
+          "pct": "150%",
+          "rpm": "",
+          "flow": null,
+          "label": "Overload",
+          "placard": "",
+          "suction": "",
+          "cutsheet": "",
+          "discharge": ""
+        }
+      ],
+      "testType": "std",
+      "contractors": [],
+      "customItems": {},
+      "deficiencies": {},
+      "deletedItems": {},
+      "equipChecked": [],
+      "formRevision": "R00",
+      "sketchEntries": [],
+      "flowTestPhotos": [],
+      "pumpCurvePoints": [
+        {
+          "psi": "",
+          "flow": ""
+        }
+      ],
+      "witnessSignRows": [],
+      "formDateModified": "2026-05-25 13:27",
+      "flowTestPhotosPld": [],
+      "contractorSignRows": [
+        {
+          "date": "",
+          "name": "",
+          "type": "contractor",
+          "title": "",
+          "company": ""
+        }
+      ],
+      "pldPumpCurvePoints": [
+        {
+          "psi": "",
+          "flow": ""
+        }
+      ],
+      "generalDeficiencies": []
+    },
+    "status": "draft",
+    "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+    "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+    "created_at": "2026-05-25T17:12:15.681173+00:00",
+    "updated_at": "2026-05-25T17:29:26.702265+00:00"
+  },
+  {
     "id": "5c289941-1447-427c-ad41-ba617ba718c5",
     "project_id": "6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb",
     "tool_key": "frt",
@@ -4580,14 +5159,15 @@
         "province": "Ontario",
         "revision": "B01",
         "visitDate": "2026-03-23",
-        "dateOfIssue": "2026-05-06",
+        "dateOfIssue": "2026-05-25",
         "projectName": "S WH Sprk Upgrade",
         "dateModified": "",
         "generalNotes": "",
         "_lastDraftNum": 1,
         "inspectorName": "MH",
         "projectNumber": "4380.24",
-        "customFilename": ""
+        "customFilename": "",
+        "reportTitleOverride": ""
       },
       "photos": [],
       "status": "issued",
@@ -4602,6 +5182,15 @@
           "folder": "4380.24 Sun Pharma 114 East Dr Ph2 FP-1 B05 (Inspector 2)",
           "height": 4096,
           "pdfPage": 1,
+          "markupR2": {
+            "bytes": 6196,
+            "count": 8,
+            "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/markup/dwg_1779293153403_pg1_q6pd.json",
+            "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/markup/dwg_1779293153403_pg1_q6pd.json",
+            "updatedAt": "2026-05-25T17:18:08.351Z",
+            "inspectorId": null,
+            "deletedCount": 1
+          },
           "pdfTiled": false,
           "r2Status": "",
           "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
@@ -4734,7 +5323,7 @@
           "tileProcessStartedAt": 1779309953783
         }
       ],
-      "modified": "2026-05-24T19:20:09.972Z",
+      "modified": "2026-05-26T04:21:50.689Z",
       "settings": {
         "sketchesEnabled": false
       },
@@ -4749,7 +5338,10 @@
           "id": "ctr_1777952117033_9gn9",
           "name": "Vipond",
           "color": "#5C7A6E",
-          "trades": [],
+          "trades": [
+            "Fire Alarm",
+            "Sprinkler"
+          ],
           "deficiencies": [
             {
               "id": "def_1774290591519_alfr",
@@ -4800,7 +5392,7 @@
                   "_markupCanvasW": null
                 }
               ],
-              "status": "Outstanding",
+              "status": "closed",
               "created": "2026-03-23T18:29:51.520Z",
               "activity": [
                 {
@@ -4826,12 +5418,13 @@
               ],
               "priority": "high",
               "drawingId": null,
+              "closedDate": "2026-05-25",
               "activeEntry": 0,
               "observations": [
                 {
                   "id": "obs_1777777959872_0_s4k0",
-                  "text": "",
-                  "trade": "",
+                  "text": "Celing sprinklr missng , ceilning height 12-2",
+                  "trade": "Sprinkler",
                   "photos": [
                     {
                       "id": "dp_1774290601514_s8nyij",
@@ -4875,12 +5468,14 @@
                     }
                   ],
                   "priority": "high",
-                  "addressed": false,
+                  "addressed": true,
                   "createdBy": null,
                   "notedDate": "2026-05-03",
+                  "aiReviewed": false,
                   "repeatCount": 1,
-                  "tradeSource": "ai",
+                  "tradeSource": "manual",
                   "photoMarkups": {},
+                  "addressedDate": "2026-05-25",
                   "photoSelection": [
                     "dp_1774290601514_s8nyij",
                     "dp_1774290618763_ajgdvs",
@@ -4888,14 +5483,32 @@
                     "dp_1774290634808_0ovfkx"
                   ],
                   "notedOnInstance": 1,
-                  "isRecommendation": false
+                  "isRecommendation": false,
+                  "addressedOnInstance": 1
                 }
               ],
+              "closedOnInstance": 1,
               "isRecommendation": false,
               "_photoPoolMigrated": true
             }
           ]
+        },
+        {
+          "id": "ctr_1779729616062_3_vhc41rqy",
+          "name": "CFLS",
+          "color": "#4A6B8C",
+          "trades": [
+            "Sprinkler",
+            "Fire Alarm"
+          ],
+          "deficiencies": []
         }
+      ],
+      "distribution": [
+        "Sun Pharma",
+        "Vipond",
+        "CFLS",
+        "CBRE"
       ],
       "frtInstances": [
         {
@@ -4906,7 +5519,7 @@
           "siteVisitDate": "2026-05-03T02:56:27.676Z"
         }
       ],
-      "nextDeficNum": 18,
+      "nextDeficNum": 17,
       "_hubProjectId": "ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0",
       "projectTrades": [
         "Sprinkler",
@@ -5782,38 +6395,6 @@
           "_photoPoolMigrated": true
         },
         {
-          "id": "def_1774356379910_8xwz",
-          "iar": false,
-          "num": 7,
-          "date": "2026-03-24",
-          "pinX": 0.3090579250397814,
-          "pinY": 0.6669876832990919,
-          "photos": [],
-          "status": "N/A",
-          "created": "2026-03-24T12:46:19.910Z",
-          "priority": "general",
-          "drawingId": "dwg_1779293153403_pg1_q6pd",
-          "activeEntry": 0,
-          "observations": [
-            {
-              "id": "obs_1777777959872_0_f9b8",
-              "text": "",
-              "trade": "",
-              "photos": [],
-              "priority": "general",
-              "addressed": false,
-              "createdBy": null,
-              "notedDate": "2026-05-03",
-              "repeatCount": 1,
-              "tradeSource": "ai",
-              "notedOnInstance": 1,
-              "isRecommendation": false
-            }
-          ],
-          "isRecommendation": false,
-          "_photoPoolMigrated": true
-        },
-        {
           "id": "def_1774289166367_cc1n",
           "iar": false,
           "num": 8,
@@ -5874,7 +6455,7 @@
                   "_markupCanvasW": null
                 }
               ],
-              "priority": "general",
+              "priority": "low",
               "addressed": false,
               "createdBy": null,
               "notedDate": "2026-05-03",
@@ -5886,76 +6467,10 @@
                 "dp_1774289343966_8cs6gz"
               ],
               "notedOnInstance": 1,
-              "isRecommendation": false
+              "isRecommendation": true
             }
           ],
-          "isRecommendation": false,
-          "_photoPoolMigrated": true
-        },
-        {
-          "id": "def_1774274841184_uyhs",
-          "iar": false,
-          "num": 9,
-          "date": "2026-03-23",
-          "pinX": 0.49809700788004463,
-          "pinY": 0.2882202618663389,
-          "photos": [],
-          "status": "Addressed & Closed",
-          "created": "2026-03-23T14:07:21.184Z",
-          "priority": "general",
-          "drawingId": "dwg_1779293153403_pg1_q6pd",
-          "activeEntry": 0,
-          "observations": [
-            {
-              "id": "obs_1777777959872_0_jxkq",
-              "text": "",
-              "trade": "",
-              "photos": [],
-              "priority": "general",
-              "addressed": false,
-              "createdBy": null,
-              "notedDate": "2026-05-03",
-              "repeatCount": 1,
-              "tradeSource": "ai",
-              "notedOnInstance": 1,
-              "isRecommendation": false
-            }
-          ],
-          "isRecommendation": false,
-          "_photoPoolMigrated": true
-        },
-        {
-          "id": "def_1778043235076_tfs9",
-          "num": 10,
-          "date": "2026-05-06",
-          "pinX": null,
-          "pinY": null,
-          "photos": [],
-          "status": "open",
-          "activity": [],
-          "category": "",
-          "priority": "general",
-          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-          "drawingId": null,
-          "notedDate": "2026-05-06",
-          "observations": [
-            {
-              "id": "obs_1778043235076_htlu",
-              "text": "ABCD",
-              "trade": "",
-              "photos": [],
-              "priority": "high",
-              "addressed": false,
-              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-              "notedDate": "2026-05-06",
-              "repeatCount": 1,
-              "tradeSource": "ai",
-              "notedOnInstance": 1,
-              "isRecommendation": false
-            }
-          ],
-          "notedOnInstance": 1,
-          "isRecommendation": false,
+          "isRecommendation": true,
           "_photoPoolMigrated": true
         },
         {
@@ -5969,8 +6484,8 @@
               "id": "ph_1779298349740_1i_ev5axbba",
               "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_1d09114c-151e-43f6-9abf-470208a4f510.jpg",
               "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_1d09114c-151e-43f6-9abf-470208a4f510.jpg",
-              "thumb": null,
               "filename": "photo_1779298349740.jpg",
+              "r2Status": "uploaded",
               "addedDate": "2026-05-20",
               "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
               "sourceR2Key": null
@@ -6232,14 +6747,14 @@
             {
               "id": "obs_1779300298550_2r_d9hlhobc",
               "text": "",
-              "trade": "",
+              "trade": "Electrical",
               "photos": [],
               "priority": "high",
               "addressed": false,
               "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
               "notedDate": "2026-05-20",
               "repeatCount": 1,
-              "tradeSource": "ai",
+              "tradeSource": "manual",
               "notedOnInstance": 1,
               "isRecommendation": false
             }
@@ -6553,6 +7068,6 @@
     "created_by": "a9f11baf-8b55-4145-b0d2-3212dee204a8",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-23T14:02:42.975679+00:00",
-    "updated_at": "2026-05-25T05:19:55.98534+00:00"
+    "updated_at": "2026-05-26T04:50:51.675328+00:00"
   }
 ]
