@@ -1090,42 +1090,102 @@ function _tradeVars(t) {
   return '--tc-bg:' + c.bg + ';--tc-fg:' + c.fg + ';--tc-bd:' + c.bd + ';';
 }
 
-// ── S192: sticky roster observer (Board view only) ──────────────────
-// Pattern 2 from Mark's mockup review: in Board view the Contractor
-// Roster sticks to the top of the viewport when scrolled past, and
-// auto-compacts to a two-row strip (trades on row 1, contractor pills
-// on row 2). Implementation is observer-driven — a 1px sentinel placed
-// immediately before #trade-board-card; when it exits viewport, body
-// gets `dfx-roster-stuck` and the CSS does the rest. CSS is scoped to
-// body.dfx-view-board so it has zero effect in Detailed and Table.
-function _dfxSetupStickyObserver() {
+// ── S193: fixed compact-bar architecture (replaces S192 sticky-card) ──
+// Why the rebuild: S192 made the trade-board-card itself sticky AND
+// changed its height when scrolled (via body.dfx-roster-stuck CSS). The
+// height-change caused layout reflow which, on shorter pages, created
+// a scroll-position feedback loop — page flashed and scrollbar reset.
+//
+// New architecture: two separate elements with single responsibilities.
+//   - Full Contractor Roster card stays in NORMAL FLOW (no sticky, no
+//     height change). Scrolls away naturally with the page.
+//   - A SEPARATE #dfx-compact-bar element lives position:fixed at top of
+//     viewport in Board view. Invisible by default (opacity:0;
+//     visibility:hidden; pointer-events:none). Fades in via
+//     body.dfx-show-compact when the full roster's bottom edge has
+//     scrolled above the navy header.
+//   - Because the compact bar is position:fixed (removed from flow),
+//     toggling its visibility causes zero layout reflow. No flash, no
+//     scroll reset.
+// Click handlers work unchanged — the document-level delegate from S191
+// targets .crx-cc[data-crx-ctr] and .crx-tpill anywhere in the DOM.
+var _dfxScrollTicking = false;
+function _dfxCheckCompact() {
+  // Bail when not in Board view; CSS already hides the bar via class scope.
+  if (_deficView !== 'board') { document.body.classList.remove('dfx-show-compact'); return; }
   var card = document.getElementById('trade-board-card');
-  if (!card || !card.parentNode) return;
-  // Live header height → CSS var → sticky `top:` matches text-scale setting
+  if (!card) { document.body.classList.remove('dfx-show-compact'); return; }
+  var rect = card.getBoundingClientRect();
+  var hdr = document.querySelector('.app-header');
+  var hdrH = hdr ? hdr.offsetHeight : 56;
+  // Show when full roster's bottom edge has passed below the header.
+  // Small buffer (10px) prevents twitchy toggling at the threshold.
+  var shouldShow = rect.bottom < hdrH + 10;
+  document.body.classList.toggle('dfx-show-compact', shouldShow);
+}
+function _dfxOnScroll() {
+  if (_dfxScrollTicking) return;
+  _dfxScrollTicking = true;
+  requestAnimationFrame(function() {
+    _dfxCheckCompact();
+    _dfxScrollTicking = false;
+  });
+}
+function _dfxSetupStickyObserver() {
+  // Ensure the compact bar element exists (attached to body for clean stacking).
+  var bar = document.getElementById('dfx-compact-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'dfx-compact-bar';
+    bar.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(bar);
+  }
+  // Track live navy-header height → CSS var → bar's `top:` matches text-scale.
   var hdr = document.querySelector('.app-header');
   if (hdr) document.documentElement.style.setProperty('--dfx-header-h', hdr.offsetHeight + 'px');
-  // Idempotent: reuse existing sentinel + observer across re-renders.
-  var sentinel = document.getElementById('dfx-roster-sentinel');
-  if (!sentinel) {
-    sentinel = document.createElement('div');
-    sentinel.id = 'dfx-roster-sentinel';
-    sentinel.setAttribute('aria-hidden', 'true');
-    sentinel.style.cssText = 'height:1px;margin-top:-1px;pointer-events:none;';
-    card.parentNode.insertBefore(sentinel, card);
-  }
-  if (window._dfxStickyObs) return;
-  try {
-    window._dfxStickyObs = new IntersectionObserver(function(entries) {
-      entries.forEach(function(e) {
-        document.body.classList.toggle('dfx-roster-stuck', !e.isIntersecting);
-      });
-    }, { threshold: 0 });
-    window._dfxStickyObs.observe(sentinel);
-  } catch (err) {
-    // IntersectionObserver missing → graceful degrade: roster stays full
-    // size when sticky (sticky still works without compact). Field
-    // tablets (Android Chrome) support it; this catch is for old desktops.
-  }
+  // Re-evaluate threshold now (handles view-switch into Board with already-scrolled page).
+  _dfxCheckCompact();
+  // Attach scroll/resize listeners once.
+  if (window._dfxScrollAttached) return;
+  window._dfxScrollAttached = true;
+  window.addEventListener('scroll', _dfxOnScroll, { passive: true });
+  window.addEventListener('resize', _dfxOnScroll, { passive: true });
+}
+
+// Render the contents of #dfx-compact-bar from the same project data.
+// Two rows: trade pills (row 1), contractor pills (row 2) — Mark's
+// directive to never merge. Click handlers are delegate-based (S191),
+// so identical IDs/classes on duplicate DOM elements are fine.
+function _renderCompactBar(proj, trades, ctrs) {
+  var bar = document.getElementById('dfx-compact-bar');
+  if (!bar) return;
+  var pickCtr = _pickCtrId ? ctrs.filter(function(c) { return c.id === _pickCtrId; })[0] : null;
+  var pickHas = pickCtr ? (pickCtr.trades || []) : [];
+  var roster = realCtrs(ctrs).sort(function(a, b) {
+    var au = !((a.trades || []).length), bu = !((b.trades || []).length);
+    if (au !== bu) return au ? -1 : 1;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+  var h = '';
+  // Row 1 — trades
+  h += '<div class="dfx-cb-row dfx-cb-trades">';
+  trades.forEach(function(t) {
+    var taken = !!pickCtr && pickHas.indexOf(t) !== -1;
+    h += '<span class="crx-tpill' + (taken ? ' crx-taken' : '') + '" data-action="crx-pill" data-trade="' + esc(t) + '" style="' + _tradeVars(t) + '">' + esc(t) + '</span>';
+  });
+  h += '</div>';
+  // Row 2 — contractors
+  h += '<div class="dfx-cb-row dfx-cb-ctrs">';
+  roster.forEach(function(c) {
+    var _un = !((c.trades || []).length);
+    var _tgt = (_pickCtrId === c.id);
+    h += '<div class="crx-cc dfx-cb-cc' + (_un ? ' crx-unassigned' : '') + (_tgt ? ' crx-target' : '') + (_bvSel ? ' crx-assign-target' : '') + '" data-crx-ctr="' + esc(c.id) + '" style="--cc:' + esc(c.color || '#6B7280') + ';">';
+    h += '<span class="crx-dot"></span>';
+    h += '<span class="crx-nm">' + esc(ctrLabel(c.name)) + '</span>';
+    h += '</div>';
+  });
+  h += '</div>';
+  bar.innerHTML = h;
 }
 
 function _renderTradeBoard(proj) {
@@ -1223,6 +1283,8 @@ function _renderTradeBoard(proj) {
 
   el.innerHTML = h;
   document.body.classList.toggle('crx-picking', !!_pickCtrId);
+  // S193: keep the fixed compact bar in sync with every roster render
+  _renderCompactBar(proj, trades, ctrs);
 }
 
 // Smart picker — overlay modal for adding contractor to a trade column
@@ -3323,7 +3385,11 @@ document.addEventListener('click', function(e) {
         var spaceAbove = r.top;
         var spaceBelow = window.innerHeight - r.bottom;
         popup.style.position = 'fixed';
-        popup.style.bottom = ''; popup.style.right = '';
+        // S193: must use 'auto' here, NOT ''.  '' lets CSS rules
+        // (.defic-more-popup { right:0; bottom:100% }) re-apply, which
+        // combined with inline left+top stretches the popup to full
+        // viewport width (the S192 horizontal-stripe bug).
+        popup.style.bottom = 'auto'; popup.style.right = 'auto';
         if (spaceAbove >= estH + 8 && spaceAbove >= spaceBelow) {
           popup.style.top = (r.top - estH - 4) + 'px';
         } else {

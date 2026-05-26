@@ -1378,7 +1378,7 @@ body.dark-mode .drawing-card .tile-badge.tile-failed{background:rgba(220,72,55,.
 /* Caption input removed from grid — captions editable in lightbox */
 
 /* ═══ PHOTO LIGHTBOX ═══ */
-.photo-lightbox-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:8000;align-items:center;justify-content:center;flex-direction:column;}
+.photo-lightbox-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:10000;align-items:center;justify-content:center;flex-direction:column;}
 .photo-lightbox-overlay .lb-content{position:relative;display:flex;align-items:center;justify-content:center;max-width:95vw;max-height:85vh;}
 .photo-lightbox-overlay .lb-close{position:absolute;top:-8px;right:-8px;font-size:22px;color:white;cursor:pointer;z-index:2;background:rgba(0,0,0,.6);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.3);transition:background .15s;}
 .photo-lightbox-overlay .lb-close:hover{background:rgba(156,39,66,.8);}
@@ -8310,82 +8310,85 @@ body.dark-mode .dfx-obs-scope-bar:hover { border-color: #E0A0B0; color: #E0A0B0;
 }
 /* End S189 ─────────────────────────────────────────────────────────────── */
 
+
 /* ──────────────────────────────────────────────────────────
-   S192 §3 — Pattern 2 sticky Contractor Roster (Board view)
-   In Board view the Roster card sticks to the top of the
-   viewport below the navy header. Once scrolled past, body
-   gets `dfx-roster-stuck` (driven by an IntersectionObserver
-   on a 1px sentinel above the card) and the layout collapses
-   to a slim two-row strip — trade pills on row 1, contractor
-   pills on row 2. Two rows, never merged (Mark's directive).
-   Scoped entirely to body.dfx-view-board so it has zero effect
-   in Detailed and Table views.
-   --dfx-header-h is set from JS to match the live navy header
-   height (so the sticky top tracks the user's text-scale).
+   S193 §1 — Fixed compact bar (replaces failed S192 §3)
+   S192 made #trade-board-card itself sticky AND changed its
+   height on scroll, which created a layout-reflow feedback
+   loop (page flashed, scrollbar reset). S193 splits the job
+   in two:
+     - Full Contractor Roster card: NORMAL FLOW. Scrolls away.
+     - #dfx-compact-bar: position:fixed at top of viewport in
+       Board view. Invisible by default; fades in via
+       body.dfx-show-compact when the full roster's bottom edge
+       passes below the navy header.
+   Because the compact bar is position:fixed (removed from
+   flow), its visibility toggle causes ZERO layout reflow.
+   No flash, no scroll reset, no feedback loop.
+   --dfx-header-h is set from JS to live navy-header height
+   (so the bar's `top:` tracks the user's text-scale setting).
    ────────────────────────────────────────────────────────── */
-body.dfx-view-board #trade-board-card {
-  position: sticky;
+#dfx-compact-bar {
+  position: fixed;
   top: var(--dfx-header-h, 56px);
+  left: 0;
+  right: 0;
   z-index: 50;
-  transition: box-shadow .2s ease, border-bottom .2s ease;
-}
-body.dfx-view-board.dfx-roster-stuck #trade-board-card {
-  box-shadow: 0 4px 14px rgba(0,0,0,.10);
+  background: var(--bg, white);
   border-bottom: 2px solid #9C2742;
-  margin-bottom: 12px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.10);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .15s ease, visibility .15s ease;
+  font-family: Calibri, sans-serif;
 }
-/* Compact mode: hide the section title bar */
-body.dfx-view-board.dfx-roster-stuck #trade-board-card > .card-header { display: none; }
-/* Row 1 — trades: slim padding, drop the label and "+ trade ▾" */
-body.dfx-view-board.dfx-roster-stuck .crx-trades-row {
-  padding: 6px 12px;
-  gap: 5px;
-  border-bottom: 1px solid rgba(0,0,0,.08);
-  margin: 0;
+body.dfx-view-board.dfx-show-compact #dfx-compact-bar {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
-body.dfx-view-board.dfx-roster-stuck .crx-trades-lbl,
-body.dfx-view-board.dfx-roster-stuck .crx-addtrade-wrap { display: none; }
-body.dfx-view-board.dfx-roster-stuck .crx-trades { gap: 5px; flex-wrap: wrap; }
-body.dfx-view-board.dfx-roster-stuck .crx-tpill {
-  padding: 2px 8px;
-  font-size: calc(11px + var(--ts));
-}
-/* Hide the "Contractors" / "+ Add contractor" row between rows */
-body.dfx-view-board.dfx-roster-stuck .crx-roster-h { display: none; }
-/* Row 2 — contractors: single horizontal row of compact pills */
-body.dfx-view-board.dfx-roster-stuck .crx-grid {
+body.dark-mode #dfx-compact-bar { background: #1e2533; border-bottom-color: #9C2742; }
+/* Two-row layout — Mark's directive: never merge trades and contractors */
+#dfx-compact-bar .dfx-cb-row {
   display: flex;
-  flex-direction: row;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 6px 12px;
-  grid-template-columns: none;
+  padding: 6px 14px;
+  align-items: center;
 }
-body.dfx-view-board.dfx-roster-stuck .crx-cc {
+#dfx-compact-bar .dfx-cb-trades { border-bottom: 1px solid rgba(0,0,0,.06); }
+body.dark-mode #dfx-compact-bar .dfx-cb-trades { border-bottom-color: rgba(255,255,255,.08); }
+#dfx-compact-bar .dfx-cb-trades .crx-tpill {
+  padding: 2px 9px;
+  font-size: calc(11px + var(--ts));
+}
+/* Compact contractor pills — override flex/width from .crx-cc base */
+#dfx-compact-bar .dfx-cb-cc {
   padding: 3px 10px;
+  font-size: calc(11px + var(--ts));
+  gap: 5px;
   min-height: auto;
   width: auto;
   flex: 0 0 auto;
-  font-size: calc(11px + var(--ts));
-  gap: 5px;
+  display: inline-flex;
+  align-items: center;
 }
-/* Trim crowding inside compact contractor pills — gold border stays */
-body.dfx-view-board.dfx-roster-stuck .crx-cc .crx-unflag,
-body.dfx-view-board.dfx-roster-stuck .crx-cc .crx-meta,
-body.dfx-view-board.dfx-roster-stuck .crx-cc .crx-ic,
-body.dfx-view-board.dfx-roster-stuck .crx-cc .crx-spacer { display: none; }
-body.dfx-view-board.dfx-roster-stuck .crx-cc .crx-tag {
-  padding: 1px 5px;
-  font-size: calc(10px + var(--ts));
+/* Gold-border unassigned cue preserved in compact */
+#dfx-compact-bar .dfx-cb-cc.crx-unassigned {
+  border-left-color: #F59E0B;
+  background: #FFFBEB;
 }
-/* Hide helper text in compact mode */
-body.dfx-view-board.dfx-roster-stuck .crx-hint { display: none; }
-/* Pointer-coarse (touch) — slightly bigger tap targets in compact */
+body.dark-mode #dfx-compact-bar .dfx-cb-cc.crx-unassigned {
+  background: #2e2418;
+}
+#dfx-compact-bar .dfx-cb-cc.crx-target {
+  outline: 2px solid #9C2742;
+  outline-offset: 2px;
+}
+/* Pointer-coarse (touch tablets) — comfortable tap targets */
 @media (pointer: coarse) {
-  body.dfx-view-board.dfx-roster-stuck .crx-cc {
-    padding: 5px 12px;
-    min-height: 32px;
-  }
-  body.dfx-view-board.dfx-roster-stuck .crx-tpill { padding: 4px 10px; }
+  #dfx-compact-bar .dfx-cb-trades .crx-tpill { padding: 4px 10px; }
+  #dfx-compact-bar .dfx-cb-cc { padding: 5px 12px; min-height: 32px; }
 }
-/* End S192 ─────────────────────────────────────────────────────────────── */
+/* End S193 ─────────────────────────────────────────────────────────────── */
