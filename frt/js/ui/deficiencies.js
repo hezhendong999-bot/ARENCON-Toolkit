@@ -1132,32 +1132,23 @@ function _dfxOnScroll() {
   });
 }
 function _dfxSetupStickyObserver() {
-  // Ensure the compact bar element exists (attached to body for clean stacking).
+  // S195: bar lives INSIDE .app-header so position auto-tracks the navy
+  // header's bottom edge. No measurement, no ResizeObserver, no drift.
+  // (S193/S194 used position:fixed + JS-measured top var, which proved
+  // fragile when banners toggled or text-scale shifted header height.)
+  var hdr = document.querySelector('.app-header');
+  if (!hdr) return;
   var bar = document.getElementById('dfx-compact-bar');
   if (!bar) {
     bar = document.createElement('div');
     bar.id = 'dfx-compact-bar';
     bar.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(bar);
+    hdr.appendChild(bar);
+  } else if (bar.parentElement !== hdr) {
+    // Re-parent if previous session attached it to body
+    hdr.appendChild(bar);
   }
-  // Track live navy-header height → CSS var → bar's `top:` matches text-scale.
-  var hdr = document.querySelector('.app-header');
-  if (hdr) document.documentElement.style.setProperty('--dfx-header-h', hdr.offsetHeight + 'px');
-  // S194: ResizeObserver keeps --dfx-header-h in sync when banners toggle
-  // (locked/readonly/review), text-scale changes, or the project info bar
-  // wraps. Without this, a one-shot measurement at setup time can be
-  // wrong, leaving a visible gap between the navy header and the bar.
-  if (hdr && window.ResizeObserver && !window._dfxHdrObs) {
-    try {
-      window._dfxHdrObs = new ResizeObserver(function() {
-        document.documentElement.style.setProperty('--dfx-header-h', hdr.offsetHeight + 'px');
-      });
-      window._dfxHdrObs.observe(hdr);
-    } catch (e) {}
-  }
-  // Re-evaluate threshold now (handles view-switch into Board with already-scrolled page).
   _dfxCheckCompact();
-  // Attach scroll/resize listeners once.
   if (window._dfxScrollAttached) return;
   window._dfxScrollAttached = true;
   window.addEventListener('scroll', _dfxOnScroll, { passive: true });
