@@ -1118,25 +1118,28 @@ function _dfxCheckCompact() {
   var rect = card.getBoundingClientRect();
   // S196: use section-nav (tab nav) bottom edge as the threshold, NOT
   // .app-header.offsetHeight. section-nav is the last natural element
-  // in the navy header chrome, so its bottom is stable whether the
-  // compact bar is collapsed or expanded. Using .offsetHeight would
-  // create a feedback loop (bar shows → header grows → threshold rises
-  // → bar shows even more strongly, then bar hides → header shrinks →
-  // threshold drops → bar shows again).
+  // in the navy header chrome BEFORE the compact bar, so its bottom
+  // is stable whether the bar is collapsed or expanded.
   var navEl = document.getElementById('section-nav');
   var threshold;
   if (navEl && navEl.offsetParent !== null) {
     threshold = navEl.getBoundingClientRect().bottom;
   } else {
-    // Fallback: header's natural height without the bar.
+    // Fallback: header's natural height excluding the bar.
     var hdr = document.querySelector('.app-header');
-    var bar = document.getElementById('dfx-compact-bar');
-    var barH = (bar && document.body.classList.contains('dfx-show-compact')) ? bar.offsetHeight : 0;
+    var bar0 = document.getElementById('dfx-compact-bar');
+    var barH = (bar0 && document.body.classList.contains('dfx-show-compact')) ? bar0.offsetHeight : 0;
     threshold = hdr ? hdr.offsetHeight - barH : 56;
   }
-  // Show when full roster's bottom edge has passed below the threshold.
-  // 10px buffer prevents twitchy toggling exactly at the boundary.
-  var shouldShow = rect.bottom < threshold + 10;
+  // S196: HYSTERESIS — when the bar expands, page content (and thus
+  // the roster card's rect.bottom) shifts DOWN by ~80px (bar height).
+  // Without hysteresis, that shift would flip the threshold back the
+  // other way, causing toggle-thrash. So: use a much wider buffer
+  // when already-shown than when hidden. The 120px gap exceeds any
+  // realistic bar-expansion shift, so the bar stays stable.
+  var currentlyShown = document.body.classList.contains('dfx-show-compact');
+  var showWhenBelow = currentlyShown ? (threshold + 120) : (threshold + 10);
+  var shouldShow = rect.bottom < showWhenBelow;
   document.body.classList.toggle('dfx-show-compact', shouldShow);
 }
 function _dfxOnScroll() {
