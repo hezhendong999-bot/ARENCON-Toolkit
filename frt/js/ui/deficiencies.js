@@ -3875,7 +3875,14 @@ function _bvApplyMove(id, oi, toLane, toPri) {
 }
 
 document.addEventListener('click', function(e) {
-  if (_deficView !== 'board') return;
+  // S191: the early Board-view bail was blocking the roster ClickAssign
+  // arming path in Detailed and Table views (the roster strip renders in
+  // ALL views — `_renderTradeBoard` is called before the view dispatch).
+  // Each downstream path is self-gated:
+  //   - Board card click  → `card` is null outside Board view (no [data-bv="card"])
+  //   - Reassign-with-sel → `_bvSel` is only ever set by a Board card click
+  //   - Trade-pill-with-sel → same `_bvSel` guard
+  //   - Arming on .crx-cc  → the only path we WANT active in every view
   var card = e.target.closest && e.target.closest('[data-bv="card"]');
   var onCtl = e.target.closest && (e.target.closest('[data-action="dfx-goto"]')
     || e.target.closest('[data-action="toggle-rec"]')
