@@ -1116,30 +1116,11 @@ function _dfxCheckCompact() {
   var card = document.getElementById('trade-board-card');
   if (!card) { document.body.classList.remove('dfx-show-compact'); return; }
   var rect = card.getBoundingClientRect();
-  // S196: use section-nav (tab nav) bottom edge as the threshold, NOT
-  // .app-header.offsetHeight. section-nav is the last natural element
-  // in the navy header chrome BEFORE the compact bar, so its bottom
-  // is stable whether the bar is collapsed or expanded.
-  var navEl = document.getElementById('section-nav');
-  var threshold;
-  if (navEl && navEl.offsetParent !== null) {
-    threshold = navEl.getBoundingClientRect().bottom;
-  } else {
-    // Fallback: header's natural height excluding the bar.
-    var hdr = document.querySelector('.app-header');
-    var bar0 = document.getElementById('dfx-compact-bar');
-    var barH = (bar0 && document.body.classList.contains('dfx-show-compact')) ? bar0.offsetHeight : 0;
-    threshold = hdr ? hdr.offsetHeight - barH : 56;
-  }
-  // S196: HYSTERESIS — when the bar expands, page content (and thus
-  // the roster card's rect.bottom) shifts DOWN by ~80px (bar height).
-  // Without hysteresis, that shift would flip the threshold back the
-  // other way, causing toggle-thrash. So: use a much wider buffer
-  // when already-shown than when hidden. The 120px gap exceeds any
-  // realistic bar-expansion shift, so the bar stays stable.
-  var currentlyShown = document.body.classList.contains('dfx-show-compact');
-  var showWhenBelow = currentlyShown ? (threshold + 120) : (threshold + 10);
-  var shouldShow = rect.bottom < showWhenBelow;
+  // S197: simple top-of-viewport threshold. The bar is position:fixed
+  // at top:0, so showing it has no document-flow impact — no feedback
+  // loops, no hysteresis needed. Show when the roster card's bottom
+  // edge has scrolled above the viewport top (rect.bottom < 10).
+  var shouldShow = rect.bottom < 10;
   document.body.classList.toggle('dfx-show-compact', shouldShow);
 }
 function _dfxOnScroll() {
@@ -1151,25 +1132,22 @@ function _dfxOnScroll() {
   });
 }
 function _dfxSetupStickyObserver() {
-  // S196: bar is a NORMAL-FLOW last child of .app-header. When invisible,
-  // CSS collapses it to max-height:0 (no layout impact). When visible,
-  // it expands as part of the sticky header chrome. Position is automatic
-  // — no measurement, no `top:` calculation, no positioning math.
-  // (S193-S195 used position:fixed/absolute, all of which proved
-  // fragile in different ways. Normal flow is the only approach that
-  // can't be miscomputed.)
-  var hdr = document.querySelector('.app-header');
-  if (!hdr) return;
+  // S197: bar is position:fixed at top:0 of viewport. The navy header
+  // CLAIMS to be position:sticky in CSS but is broken in Chrome because
+  // html and body both have `overflow-x: hidden`, which kills sticky
+  // positioning on descendants. Rather than fight that, we make the bar
+  // a true viewport-fixed overlay — it appears at top:0 independent of
+  // where the navy header ends up. When user scrolls past the roster,
+  // navy header is offscreen anyway; bar takes over.
+  // (S195/S196 tried to use the navy header as an anchor — both failed
+  // because the anchor itself wasn't stable.)
   var bar = document.getElementById('dfx-compact-bar');
   if (!bar) {
     bar = document.createElement('div');
     bar.id = 'dfx-compact-bar';
-    hdr.appendChild(bar);
-  } else if (bar.parentElement !== hdr) {
-    hdr.appendChild(bar);
-  } else {
-    // Ensure it's the LAST child (so it sits below tabs in the header stack)
-    if (hdr.lastElementChild !== bar) hdr.appendChild(bar);
+    document.body.appendChild(bar);
+  } else if (bar.parentElement !== document.body) {
+    document.body.appendChild(bar);
   }
   _dfxCheckCompact();
   if (window._dfxScrollAttached) return;

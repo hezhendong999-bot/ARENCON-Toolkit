@@ -8313,40 +8313,43 @@ body.dark-mode .dfx-obs-scope-bar:hover { border-color: #E0A0B0; color: #E0A0B0;
 
 
 /* ──────────────────────────────────────────────────────────
-   S193 §1 / S194 / S195 / S196 — Compact bar (normal-flow)
-   Iteration history:
-     - S192: made #trade-board-card sticky AND changed height
-       on scroll → layout-reflow feedback loop.
-     - S193: split into two elements, position:fixed with
-       JS-measured `top:` var.
-     - S194: kept position:fixed, added ResizeObserver to track
-       header height. Still drifted.
-     - S195: bar as position:absolute child of .app-header at
-       top:100%. Either clipped, or the absolute-in-sticky
-       parent had subtle layout issues — bar didn't render.
-     - S196: bar is a NORMAL-FLOW last child of .app-header.
-       max-height: 0 when hidden (no layout impact, no clip
-       region, no positioning math). max-height: 200px when
-       visible. Because it's a normal-flow child of the sticky
-       navy header, its position is automatic — guaranteed at
-       the bottom edge of the header, every frame.
-   Layout cost: navy header grows ~80px when bar appears,
-   pushing page content below down. Single transition, smooth,
-   acceptable tradeoff for guaranteed correctness.
+   S197 — Compact bar (TRUE fixed-to-viewport)
+   Root cause of S192-S196 iterations: html and body BOTH have
+   `overflow-x: hidden`, which kills position:sticky on
+   descendants in Chrome. The navy header CLAIMS to be sticky
+   in its CSS but actually isn't — it scrolls away with the
+   page. Every previous attempt used the navy header as an
+   anchor for the compact bar; every attempt failed.
+   S197 stops trying to anchor to the navy header. The bar is
+   position:fixed at top:0 of the viewport, independent of any
+   parent. When the user scrolls past the full Contractor
+   Roster, the navy header is offscreen anyway, so the bar
+   takes over the top of the viewport.
+   Layout flow: bar is position:fixed = out of flow, so showing
+   it causes ZERO layout shift, no feedback loops.
    ────────────────────────────────────────────────────────── */
 #dfx-compact-bar {
-  /* Normal flow inside .app-header — no position rules at all */
-  max-height: 0;
-  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1500;  /* above .app-header (1000), below overlays (2000+) */
   background: var(--bg, white);
   border-bottom: 2px solid #9C2742;
-  box-shadow: 0 4px 14px rgba(0,0,0,.10);
+  box-shadow: 0 4px 14px rgba(0,0,0,.15);
   font-family: Calibri, sans-serif;
   color: var(--text, #1F2937);
-  transition: max-height .25s ease;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-8px);
+  transition: opacity .18s ease, visibility .18s ease, transform .18s ease;
 }
 body.dfx-view-board.dfx-show-compact #dfx-compact-bar {
-  max-height: 240px;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 body.dark-mode #dfx-compact-bar { background: #1e2533; border-bottom-color: #9C2742; color: #e5e7eb; }
 /* Two-row layout — Mark's directive: never merge trades and contractors */
@@ -8391,4 +8394,4 @@ body.dark-mode #dfx-compact-bar .dfx-cb-cc.crx-unassigned { background: #2e2418;
 @media (pointer: coarse) {
   #dfx-compact-bar .dfx-cb-cc { min-height: 36px; }
 }
-/* End S193 / S194 / S195 / S196 ───────────────────────────────────── */
+/* End S197 ───────────────────────────────────────────────────────── */
