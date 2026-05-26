@@ -1116,11 +1116,27 @@ function _dfxCheckCompact() {
   var card = document.getElementById('trade-board-card');
   if (!card) { document.body.classList.remove('dfx-show-compact'); return; }
   var rect = card.getBoundingClientRect();
-  var hdr = document.querySelector('.app-header');
-  var hdrH = hdr ? hdr.offsetHeight : 56;
-  // Show when full roster's bottom edge has passed below the header.
-  // Small buffer (10px) prevents twitchy toggling at the threshold.
-  var shouldShow = rect.bottom < hdrH + 10;
+  // S196: use section-nav (tab nav) bottom edge as the threshold, NOT
+  // .app-header.offsetHeight. section-nav is the last natural element
+  // in the navy header chrome, so its bottom is stable whether the
+  // compact bar is collapsed or expanded. Using .offsetHeight would
+  // create a feedback loop (bar shows → header grows → threshold rises
+  // → bar shows even more strongly, then bar hides → header shrinks →
+  // threshold drops → bar shows again).
+  var navEl = document.getElementById('section-nav');
+  var threshold;
+  if (navEl && navEl.offsetParent !== null) {
+    threshold = navEl.getBoundingClientRect().bottom;
+  } else {
+    // Fallback: header's natural height without the bar.
+    var hdr = document.querySelector('.app-header');
+    var bar = document.getElementById('dfx-compact-bar');
+    var barH = (bar && document.body.classList.contains('dfx-show-compact')) ? bar.offsetHeight : 0;
+    threshold = hdr ? hdr.offsetHeight - barH : 56;
+  }
+  // Show when full roster's bottom edge has passed below the threshold.
+  // 10px buffer prevents twitchy toggling exactly at the boundary.
+  var shouldShow = rect.bottom < threshold + 10;
   document.body.classList.toggle('dfx-show-compact', shouldShow);
 }
 function _dfxOnScroll() {
@@ -1132,21 +1148,25 @@ function _dfxOnScroll() {
   });
 }
 function _dfxSetupStickyObserver() {
-  // S195: bar lives INSIDE .app-header so position auto-tracks the navy
-  // header's bottom edge. No measurement, no ResizeObserver, no drift.
-  // (S193/S194 used position:fixed + JS-measured top var, which proved
-  // fragile when banners toggled or text-scale shifted header height.)
+  // S196: bar is a NORMAL-FLOW last child of .app-header. When invisible,
+  // CSS collapses it to max-height:0 (no layout impact). When visible,
+  // it expands as part of the sticky header chrome. Position is automatic
+  // — no measurement, no `top:` calculation, no positioning math.
+  // (S193-S195 used position:fixed/absolute, all of which proved
+  // fragile in different ways. Normal flow is the only approach that
+  // can't be miscomputed.)
   var hdr = document.querySelector('.app-header');
   if (!hdr) return;
   var bar = document.getElementById('dfx-compact-bar');
   if (!bar) {
     bar = document.createElement('div');
     bar.id = 'dfx-compact-bar';
-    bar.setAttribute('aria-hidden', 'true');
     hdr.appendChild(bar);
   } else if (bar.parentElement !== hdr) {
-    // Re-parent if previous session attached it to body
     hdr.appendChild(bar);
+  } else {
+    // Ensure it's the LAST child (so it sits below tabs in the header stack)
+    if (hdr.lastElementChild !== bar) hdr.appendChild(bar);
   }
   _dfxCheckCompact();
   if (window._dfxScrollAttached) return;

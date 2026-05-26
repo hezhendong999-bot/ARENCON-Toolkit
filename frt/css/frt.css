@@ -8313,44 +8313,42 @@ body.dark-mode .dfx-obs-scope-bar:hover { border-color: #E0A0B0; color: #E0A0B0;
 
 
 /* ──────────────────────────────────────────────────────────
-   S193 §1 / S194 / S195 — Compact bar (Excel-frozen-header)
+   S193 §1 / S194 / S195 / S196 — Compact bar (normal-flow)
    Iteration history:
-     - S192: made #trade-board-card itself sticky AND changed
-       its height on scroll → layout-reflow feedback loop.
-     - S193/S194: split into two elements, used position:fixed
-       with a JS-measured `top:` CSS var. Fragile — could drift
-       when banners toggled or text-scale shifted header height.
-     - S195: bar is now an absolutely-positioned CHILD of
-       .app-header itself. top:100% means "exactly at the
-       header's bottom edge" automatically — no measurement
-       required, no drift possible. Because .app-header is
-       sticky at top:0, its absolute children move with it
-       through scroll. This is the Excel-frozen-header pattern
-       Mark asked for.
-   Visibility is still gated by body.dfx-show-compact (set when
-   user scrolls past the full Contractor Roster).
+     - S192: made #trade-board-card sticky AND changed height
+       on scroll → layout-reflow feedback loop.
+     - S193: split into two elements, position:fixed with
+       JS-measured `top:` var.
+     - S194: kept position:fixed, added ResizeObserver to track
+       header height. Still drifted.
+     - S195: bar as position:absolute child of .app-header at
+       top:100%. Either clipped, or the absolute-in-sticky
+       parent had subtle layout issues — bar didn't render.
+     - S196: bar is a NORMAL-FLOW last child of .app-header.
+       max-height: 0 when hidden (no layout impact, no clip
+       region, no positioning math). max-height: 200px when
+       visible. Because it's a normal-flow child of the sticky
+       navy header, its position is automatic — guaranteed at
+       the bottom edge of the header, every frame.
+   Layout cost: navy header grows ~80px when bar appears,
+   pushing page content below down. Single transition, smooth,
+   acceptable tradeoff for guaranteed correctness.
    ────────────────────────────────────────────────────────── */
 #dfx-compact-bar {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 50;
+  /* Normal flow inside .app-header — no position rules at all */
+  max-height: 0;
+  overflow: hidden;
   background: var(--bg, white);
   border-bottom: 2px solid #9C2742;
   box-shadow: 0 4px 14px rgba(0,0,0,.10);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity .15s ease, visibility .15s ease;
   font-family: Calibri, sans-serif;
+  color: var(--text, #1F2937);
+  transition: max-height .25s ease;
 }
 body.dfx-view-board.dfx-show-compact #dfx-compact-bar {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
+  max-height: 240px;
 }
-body.dark-mode #dfx-compact-bar { background: #1e2533; border-bottom-color: #9C2742; }
+body.dark-mode #dfx-compact-bar { background: #1e2533; border-bottom-color: #9C2742; color: #e5e7eb; }
 /* Two-row layout — Mark's directive: never merge trades and contractors */
 #dfx-compact-bar .dfx-cb-row {
   display: flex;
@@ -8361,11 +8359,9 @@ body.dark-mode #dfx-compact-bar { background: #1e2533; border-bottom-color: #9C2
 }
 #dfx-compact-bar .dfx-cb-trades { border-bottom: 1px solid rgba(0,0,0,.06); }
 body.dark-mode #dfx-compact-bar .dfx-cb-trades { border-bottom-color: rgba(255,255,255,.08); }
-/* S194: NO override of .crx-tpill sizing — pills render at full
-   roster fidelity. The base rule already gives them rounded corners,
-   colored backgrounds, proper borders, and cursor:pointer (S194). */
-/* Contractor cards in the compact bar — keep full-roster fidelity
-   (no padding shrinkage) but allow them to flow inline as pills */
+/* S194: NO override of .crx-tpill sizing — pills at full roster fidelity. */
+/* Contractor cards in the compact bar — keep full-roster fidelity but
+   allow them to flow inline as pills */
 #dfx-compact-bar .dfx-cb-cc {
   min-height: auto;
   width: auto;
@@ -8381,7 +8377,7 @@ body.dark-mode #dfx-compact-bar .dfx-cb-trades { border-bottom-color: rgba(255,2
   border-radius: 9px;
   margin-left: 2px;
 }
-/* Gold-border unassigned cue preserved in compact */
+/* Gold-border unassigned cue preserved */
 #dfx-compact-bar .dfx-cb-cc.crx-unassigned {
   border-left-color: #F59E0B;
   background: #FFFBEB;
@@ -8395,4 +8391,4 @@ body.dark-mode #dfx-compact-bar .dfx-cb-cc.crx-unassigned { background: #2e2418;
 @media (pointer: coarse) {
   #dfx-compact-bar .dfx-cb-cc { min-height: 36px; }
 }
-/* End S193 / S194 / S195 ─────────────────────────────────────────── */
+/* End S193 / S194 / S195 / S196 ───────────────────────────────────── */
