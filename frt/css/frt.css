@@ -6705,6 +6705,7 @@ body.dark-mode .ctr-banner {
   background: var(--tc-bg);
   color: var(--tc-fg);
   border-color: var(--tc-bd);
+  cursor: pointer;
   transition: box-shadow .13s, opacity .13s;
 }
 .crx-tpill .crx-px {
@@ -8312,11 +8313,12 @@ body.dark-mode .dfx-obs-scope-bar:hover { border-color: #E0A0B0; color: #E0A0B0;
 
 
 /* ──────────────────────────────────────────────────────────
-   S193 §1 — Fixed compact bar (replaces failed S192 §3)
+   S193 §1 / S194 — Fixed compact bar (option A: full-fidelity)
    S192 made #trade-board-card itself sticky AND changed its
    height on scroll, which created a layout-reflow feedback
-   loop (page flashed, scrollbar reset). S193 splits the job
-   in two:
+   loop (page flashed, scrollbar reset). S193 split it into
+   two elements with one job each; S194 redesigned the bar's
+   visual to option A:
      - Full Contractor Roster card: NORMAL FLOW. Scrolls away.
      - #dfx-compact-bar: position:fixed at top of viewport in
        Board view. Invisible by default; fades in via
@@ -8324,9 +8326,11 @@ body.dark-mode .dfx-obs-scope-bar:hover { border-color: #E0A0B0; color: #E0A0B0;
        passes below the navy header.
    Because the compact bar is position:fixed (removed from
    flow), its visibility toggle causes ZERO layout reflow.
-   No flash, no scroll reset, no feedback loop.
-   --dfx-header-h is set from JS to live navy-header height
-   (so the bar's `top:` tracks the user's text-scale setting).
+   --dfx-header-h is set from JS (ResizeObserver-tracked) to
+   live navy-header height — so the bar's `top:` matches the
+   user's text-scale and any banner toggles.
+   S194 visuals: full-size pills, full colors, contractor
+   cards with inline trade chips. Same look as the full roster.
    ────────────────────────────────────────────────────────── */
 #dfx-compact-bar {
   position: fixed;
@@ -8353,42 +8357,44 @@ body.dark-mode #dfx-compact-bar { background: #1e2533; border-bottom-color: #9C2
 #dfx-compact-bar .dfx-cb-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px 14px;
+  gap: 7px;
+  padding: 8px 16px;
   align-items: center;
 }
 #dfx-compact-bar .dfx-cb-trades { border-bottom: 1px solid rgba(0,0,0,.06); }
 body.dark-mode #dfx-compact-bar .dfx-cb-trades { border-bottom-color: rgba(255,255,255,.08); }
-#dfx-compact-bar .dfx-cb-trades .crx-tpill {
-  padding: 2px 9px;
-  font-size: calc(11px + var(--ts));
-}
-/* Compact contractor pills — override flex/width from .crx-cc base */
+/* S194: NO override of .crx-tpill sizing — pills render at full
+   roster fidelity. The base rule already gives them rounded corners,
+   colored backgrounds, proper borders, and cursor:pointer (S194). */
+/* Contractor cards in the compact bar — keep full-roster fidelity
+   (no padding shrinkage) but allow them to flow inline as pills */
 #dfx-compact-bar .dfx-cb-cc {
-  padding: 3px 10px;
-  font-size: calc(11px + var(--ts));
-  gap: 5px;
   min-height: auto;
   width: auto;
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
 }
+/* Inline trade chips inside contractor cards (S194 — same _tradeVars
+   pattern as the full roster's .crx-tag) */
+#dfx-compact-bar .dfx-cb-cc .dfx-cb-tag {
+  padding: 1px 7px;
+  font-size: calc(10px + var(--ts));
+  border-radius: 9px;
+  margin-left: 2px;
+}
 /* Gold-border unassigned cue preserved in compact */
 #dfx-compact-bar .dfx-cb-cc.crx-unassigned {
   border-left-color: #F59E0B;
   background: #FFFBEB;
 }
-body.dark-mode #dfx-compact-bar .dfx-cb-cc.crx-unassigned {
-  background: #2e2418;
-}
+body.dark-mode #dfx-compact-bar .dfx-cb-cc.crx-unassigned { background: #2e2418; }
 #dfx-compact-bar .dfx-cb-cc.crx-target {
   outline: 2px solid #9C2742;
   outline-offset: 2px;
 }
 /* Pointer-coarse (touch tablets) — comfortable tap targets */
 @media (pointer: coarse) {
-  #dfx-compact-bar .dfx-cb-trades .crx-tpill { padding: 4px 10px; }
-  #dfx-compact-bar .dfx-cb-cc { padding: 5px 12px; min-height: 32px; }
+  #dfx-compact-bar .dfx-cb-cc { min-height: 36px; }
 }
-/* End S193 ─────────────────────────────────────────────────────────────── */
+/* End S193 / S194 ─────────────────────────────────────────────────── */

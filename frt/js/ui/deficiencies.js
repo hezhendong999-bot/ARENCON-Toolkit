@@ -1143,6 +1143,18 @@ function _dfxSetupStickyObserver() {
   // Track live navy-header height → CSS var → bar's `top:` matches text-scale.
   var hdr = document.querySelector('.app-header');
   if (hdr) document.documentElement.style.setProperty('--dfx-header-h', hdr.offsetHeight + 'px');
+  // S194: ResizeObserver keeps --dfx-header-h in sync when banners toggle
+  // (locked/readonly/review), text-scale changes, or the project info bar
+  // wraps. Without this, a one-shot measurement at setup time can be
+  // wrong, leaving a visible gap between the navy header and the bar.
+  if (hdr && window.ResizeObserver && !window._dfxHdrObs) {
+    try {
+      window._dfxHdrObs = new ResizeObserver(function() {
+        document.documentElement.style.setProperty('--dfx-header-h', hdr.offsetHeight + 'px');
+      });
+      window._dfxHdrObs.observe(hdr);
+    } catch (e) {}
+  }
   // Re-evaluate threshold now (handles view-switch into Board with already-scrolled page).
   _dfxCheckCompact();
   // Attach scroll/resize listeners once.
@@ -1182,6 +1194,12 @@ function _renderCompactBar(proj, trades, ctrs) {
     h += '<div class="crx-cc dfx-cb-cc' + (_un ? ' crx-unassigned' : '') + (_tgt ? ' crx-target' : '') + (_bvSel ? ' crx-assign-target' : '') + '" data-crx-ctr="' + esc(c.id) + '" style="--cc:' + esc(c.color || '#6B7280') + ';">';
     h += '<span class="crx-dot"></span>';
     h += '<span class="crx-nm">' + esc(ctrLabel(c.name)) + '</span>';
+    // S194: inline trade chips inside each contractor card (matches the
+    // mockup's option A "full-fidelity" look). Same _tradeVars pattern as
+    // the full roster's .crx-tag elements.
+    (c.trades || []).forEach(function(t) {
+      h += '<span class="crx-tag dfx-cb-tag" style="' + _tradeVars(t) + '">' + esc(t) + '</span>';
+    });
     h += '</div>';
   });
   h += '</div>';
