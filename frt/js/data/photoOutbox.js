@@ -70,27 +70,27 @@ try {
   // Non-browser context (unlikely)
 }
 
-// S199 (SYNC-02 Phase A, G1) — HEAD verify after R2 PUT.
+// S199 (SYNC-02 Phase A, G1) — post-PUT verify after R2 upload.
 // Closes the 4380.24 class: R2 reports PUT success but the object isn't
-// actually retrievable. After the PUT resolves, we HEAD the same URL; only
-// HEAD-200 promotes the row to r2_confirmed. Verify failure is treated as a
-// transient R2 fault and routes through _handleR2Failure for retry policy.
-// Cost: one extra HEAD request per upload (~50ms on R2). Default on; URL
-// override ?verify=0 disables on a single tablet for field debug without a
-// code push.
+// actually retrievable. After the PUT resolves, we issue a tiny verify
+// request against the same URL; only a 2xx promotes the row to
+// r2_confirmed. Verify failure is treated as a transient R2 fault and
+// routes through _handleR2Failure for retry policy.
 //
-// S200 hotfix (2026-05-26): Field verify revealed the R2 Cloudflare Worker
-// does not handle the HEAD method — it returns 404 for any HEAD request
-// regardless of object existence. With _VERIFY_ENABLED=true, every photo
-// upload PUT-succeeded but HEAD-failed, triggering 3 retries then row=failed.
-// Disabling the flag here restores pre-S199 photo upload reliability while
-// the proper fix is designed (likely switch HEAD → GET Range:0-0, or add
-// HEAD support to the R2 worker). All S199 plumbing (state, helper, resume,
-// notification) is intentionally retained for the re-ship.
+// S201a re-ship (2026-05-27): Verify mechanism is now `GET` with
+// `Range: bytes=0-0` instead of `HEAD`. S200 field-verify showed the R2
+// Cloudflare Worker has no HEAD handler — it returned 404 for every HEAD
+// regardless of object existence, which made S199 break every upload.
+// Worker supports GET on existing objects, so a 1-byte ranged GET gives
+// the same exists/missing signal as HEAD with ~50ms latency. A real
+// object returns 206 Partial Content (or 200 if range is ignored —
+// either way `resp.ok` is true); a missing object returns 404.
 //
-// URL override ?verify=1 can force-enable for diagnosis on a single tablet
-// once the worker side is fixed, without a code push.
-var _VERIFY_ENABLED = false;
+// Cost: one tiny ranged GET per upload (~50ms on R2). Default on.
+// URL overrides:
+//   ?verify=0  — force-disable on a single tablet for field debug.
+//   ?verify=1  — force-enable (kept for parity with S200 hotfix mechanic).
+var _VERIFY_ENABLED = true;
 try {
   var _verifyParams = new URLSearchParams(window.location.search);
   if (_verifyParams.get('verify') === '0') {
@@ -108,7 +108,7 @@ try {
 export var OUTBOX_STATUS = {
   PENDING:         'pending',
   UPLOADING:       'uploading',
-  VERIFYING:       'verifying',         // S199 (SYNC-02 Phase A, G1) — post-PUT HEAD verify
+  VERIFYING:       'verifying',         // S199 + S201a — post-PUT verify via GET Range:0-0
   R2_CONFIRMED:    'r2_confirmed',
   CLOUD_CONFIRMED: 'cloud_confirmed',
   RETRYING:        'retrying',
@@ -263,18 +263,28 @@ function _kickProcessor() {
   }
 }
 
-// S199 (SYNC-02 Phase A, G1) — HEAD verify helper. Called after R2.upload
-// resolves with {r2Key, r2Url} but before the row transitions to R2_CONFIRMED.
-// Throws on non-2xx so the outer .catch in _processRow routes through
-// _handleR2Failure for the S172 retry policy. AbortSignal threads through
-// so a cancel during VERIFYING aborts the HEAD as well as any still-in-flight
-// PUT, mirroring the S176 abort plumbing.
+// S199 (SYNC-02 Phase A, G1) — post-PUT verify helper. Called after
+// R2.upload resolves with {r2Key, r2Url} but before the row transitions
+// to R2_CONFIRMED. Throws on non-2xx so the outer .catch in _processRow
+// routes through _handleR2Failure for the S172 retry policy. AbortSignal
+// threads through so a cancel during VERIFYING aborts the verify as well
+// as any still-in-flight PUT, mirroring the S176 abort plumbing.
+//
+// S201a (re-ship): Mechanism is `GET` with `Range: bytes=0-0` instead of
+// HEAD — the R2 Cloudflare Worker has no HEAD handler (it returned 404
+// for every HEAD request regardless of object existence; this broke S199
+// in field-verify and forced the S200 disable). A real object returns
+// 206 Partial Content (or 200 if the worker doesn't honor the Range —
+// either is `resp.ok`); a missing object returns 404.
 function _verifyR2Object(r2Url, signal) {
-  var opts = { method: 'HEAD' };
+  var opts = {
+    method: 'GET',
+    headers: { 'Range': 'bytes=0-0' }
+  };
   if (signal) opts.signal = signal;
   return fetch(r2Url, opts).then(function(resp) {
     if (!resp.ok) {
-      var err = new Error('R2 HEAD verify failed: ' + resp.status);
+      var err = new Error('R2 verify failed: ' + resp.status);
       err.status = resp.status;
       err.isVerifyFailure = true;
       throw err;
@@ -691,10 +701,10 @@ export var BinaryOutbox = {
       if (!r) continue;
       if (r.status === OUTBOX_STATUS.UPLOADING ||
           r.status === OUTBOX_STATUS.VERIFYING) {
-        // S199: VERIFYING reset same as UPLOADING — the in-flight HEAD is
-        // gone after reload. Re-PUT is idempotent (R2 dedupes by key) so
-        // resetting to pending and re-running the full PUT+verify cycle is
-        // safe whether the original PUT actually landed or not.
+        // S199/S201a: VERIFYING reset same as UPLOADING — the in-flight
+        // verify GET is gone after reload. Re-PUT is idempotent (R2 dedupes
+        // by key) so resetting to pending and re-running the full PUT+verify
+        // cycle is safe whether the original PUT actually landed or not.
         r.status = OUTBOX_STATUS.PENDING;
         _persistRow(r).catch(function() {});
         resetUploading++;
