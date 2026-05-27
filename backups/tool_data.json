@@ -5183,13 +5183,13 @@
           "height": 4096,
           "pdfPage": 1,
           "markupR2": {
-            "bytes": 6196,
-            "count": 8,
+            "bytes": 4757,
+            "count": 4,
             "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/markup/dwg_1779293153403_pg1_q6pd.json",
             "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/markup/dwg_1779293153403_pg1_q6pd.json",
-            "updatedAt": "2026-05-25T17:18:08.351Z",
+            "updatedAt": "2026-05-27T05:30:24.438Z",
             "inspectorId": null,
-            "deletedCount": 1
+            "deletedCount": 9
           },
           "pdfTiled": false,
           "r2Status": "",
@@ -5323,7 +5323,7 @@
           "tileProcessStartedAt": 1779309953783
         }
       ],
-      "modified": "2026-05-26T04:21:50.689Z",
+      "modified": "2026-05-27T05:30:24.438Z",
       "settings": {
         "sketchesEnabled": false
       },
@@ -5519,7 +5519,7 @@
           "siteVisitDate": "2026-05-03T02:56:27.676Z"
         }
       ],
-      "nextDeficNum": 17,
+      "nextDeficNum": 14,
       "_hubProjectId": "ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0",
       "projectTrades": [
         "Sprinkler",
@@ -5574,6 +5574,39 @@
               "markupObjects": null,
               "_markupCanvasH": null,
               "_markupCanvasW": null
+            },
+            {
+              "id": "ph_1779852497787_3_8uilenww",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_ph_1779852497787_3_8uilenww.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_ph_1779852497787_3_8uilenww.jpg",
+              "thumb": null,
+              "filename": "photo_1779852497787.jpg",
+              "addedDate": "2026-05-27",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null,
+              "uploadStatus": "r2_confirmed"
+            },
+            {
+              "id": "ph_1779859749903_3_o0rmu9ts",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_ph_1779859749903_3_o0rmu9ts.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_ph_1779859749903_3_o0rmu9ts.jpg",
+              "thumb": null,
+              "filename": "photo_1779859749903.jpg",
+              "addedDate": "2026-05-27",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null,
+              "uploadStatus": "r2_confirmed"
+            },
+            {
+              "id": "ph_1779859759157_4_orsgnuz7",
+              "r2Key": "photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_ph_1779859759157_4_orsgnuz7.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/ee9e4a3e-4a52-4b6a-bac1-6bc1a0b039c0/frt/original/defic_ph_1779859759157_4_orsgnuz7.jpg",
+              "thumb": null,
+              "filename": "photo_1779859759157.jpg",
+              "addedDate": "2026-05-27",
+              "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+              "sourceR2Key": null,
+              "uploadStatus": "r2_confirmed"
             }
           ],
           "status": "Outstanding",
@@ -5628,7 +5661,8 @@
               "photoSelection": [
                 "dp_1774291093740_5rftqa",
                 "dp_1774291106523_2xqcgu",
-                "dp_1774291114417_125pxu"
+                "dp_1774291114417_125pxu",
+                "ph_1779859759157_4_orsgnuz7"
               ],
               "notedOnInstance": 1,
               "isRecommendation": false
@@ -6397,7 +6431,7 @@
         {
           "id": "def_1774289166367_cc1n",
           "iar": false,
-          "num": 8,
+          "num": 7,
           "date": "2026-03-23",
           "pinX": 0.6887216887548381,
           "pinY": 0.31645895178932526,
@@ -6475,7 +6509,7 @@
         },
         {
           "id": "def_1779298340625_1g_nlv98iea",
-          "num": 11,
+          "num": 8,
           "date": "2026-05-20",
           "pinX": 0.15054903338942485,
           "pinY": 0.3786646867353567,
@@ -6570,7 +6604,7 @@
         },
         {
           "id": "def_1779298707894_1u_39819qlw",
-          "num": 12,
+          "num": 9,
           "date": "2026-05-20",
           "pinX": 0.811875383528801,
           "pinY": 0.2991602744338789,
@@ -6655,7 +6689,7 @@
         },
         {
           "id": "def_1779299660457_2f_gf09ruz4",
-          "num": 13,
+          "num": 10,
           "date": "2026-05-20",
           "pinX": 0.6921540603839872,
           "pinY": 0.318319780546833,
@@ -6710,7 +6744,7 @@
         },
         {
           "id": "def_1779300298550_2q_5isz5aky",
-          "num": 14,
+          "num": 11,
           "date": "2026-05-20",
           "pinX": 0.6205332547935128,
           "pinY": 0.3237998724575491,
@@ -6765,7 +6799,7 @@
         },
         {
           "id": "def_1779300959219_36_l8a3t73z",
-          "num": 15,
+          "num": 12,
           "date": "2026-05-20",
           "pinX": 0.4879753949099887,
           "pinY": 0.2836157889633595,
@@ -6830,7 +6864,7 @@
         },
         {
           "id": "def_1779549474258_5zgezo5j",
-          "num": 16,
+          "num": 13,
           "date": "2026-05-23",
           "pinX": null,
           "pinY": null,
@@ -7068,6 +7102,6 @@
     "created_by": "a9f11baf-8b55-4145-b0d2-3212dee204a8",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-23T14:02:42.975679+00:00",
-    "updated_at": "2026-05-26T04:50:51.675328+00:00"
+    "updated_at": "2026-05-27T05:37:04.923238+00:00"
   }
 ]
