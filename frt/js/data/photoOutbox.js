@@ -70,12 +70,31 @@ try {
   // Non-browser context (unlikely)
 }
 
+// S199 (SYNC-02 Phase A, G1) — HEAD verify after R2 PUT.
+// Closes the 4380.24 class: R2 reports PUT success but the object isn't
+// actually retrievable. After the PUT resolves, we HEAD the same URL; only
+// HEAD-200 promotes the row to r2_confirmed. Verify failure is treated as a
+// transient R2 fault and routes through _handleR2Failure for retry policy.
+// Cost: one extra HEAD request per upload (~50ms on R2). Default on; URL
+// override ?verify=0 disables on a single tablet for field debug without a
+// code push.
+var _VERIFY_ENABLED = true;
+try {
+  var _verifyParams = new URLSearchParams(window.location.search);
+  if (_verifyParams.get('verify') === '0') {
+    _VERIFY_ENABLED = false;
+  }
+} catch (_) {
+  // Non-browser context (unlikely)
+}
+
 // ─────────────────────────────────────────────────────────────
 // Status constants — exported for use by future UI/sync code.
 // ─────────────────────────────────────────────────────────────
 export var OUTBOX_STATUS = {
   PENDING:         'pending',
   UPLOADING:       'uploading',
+  VERIFYING:       'verifying',         // S199 (SYNC-02 Phase A, G1) — post-PUT HEAD verify
   R2_CONFIRMED:    'r2_confirmed',
   CLOUD_CONFIRMED: 'cloud_confirmed',
   RETRYING:        'retrying',
@@ -230,6 +249,26 @@ function _kickProcessor() {
   }
 }
 
+// S199 (SYNC-02 Phase A, G1) — HEAD verify helper. Called after R2.upload
+// resolves with {r2Key, r2Url} but before the row transitions to R2_CONFIRMED.
+// Throws on non-2xx so the outer .catch in _processRow routes through
+// _handleR2Failure for the S172 retry policy. AbortSignal threads through
+// so a cancel during VERIFYING aborts the HEAD as well as any still-in-flight
+// PUT, mirroring the S176 abort plumbing.
+function _verifyR2Object(r2Url, signal) {
+  var opts = { method: 'HEAD' };
+  if (signal) opts.signal = signal;
+  return fetch(r2Url, opts).then(function(resp) {
+    if (!resp.ok) {
+      var err = new Error('R2 HEAD verify failed: ' + resp.status);
+      err.status = resp.status;
+      err.isVerifyFailure = true;
+      throw err;
+    }
+    return true;
+  });
+}
+
 function _processRow(row) {
   _activeUploadCount++;
   row.status = OUTBOX_STATUS.UPLOADING;
@@ -288,41 +327,60 @@ function _processRow(row) {
       _kickProcessor();
       return;
     }
-    // ── R2 confirmed ──
-    row.status = OUTBOX_STATUS.R2_CONFIRMED;
-    row.r2ConfirmedAt = new Date().toISOString();
+    // S199 (SYNC-02 Phase A, G1) — VERIFYING state inserted before R2_CONFIRMED.
+    // R2 PUT 200 alone is NOT proof the object is retrievable (the 4380.24
+    // class). We HEAD-verify against the same r2Url before promoting the row
+    // to r2_confirmed. Verify failure throws and is caught by the outer
+    // .catch below, which routes through _handleR2Failure for retry policy.
+    // r2Key/r2Url are written to the row immediately so a crash during HEAD
+    // doesn't lose the destination; resume() handles VERIFYING rows by
+    // re-PUTting (R2 dedupes by key, so re-PUT of same content is idempotent).
+    row.status = OUTBOX_STATUS.VERIFYING;
     row.r2Key = result.r2Key;
     row.r2Url = result.r2Url;
     _persistRow(row).catch(function() {});
+    _notify('verifying', { rowId: row.id, photoId: row.photoId });
 
-    // Update the photo record in model state with the r2Key/r2Url so
-    // it renders from R2 going forward (and the next cloud push picks
-    // it up). Model is imported at the top of this module.
-    try {
-      var proj = Model.getProject();
-      if (proj) {
-        var photo = _findPhotoInProject(proj, row.photoId);
-        if (photo) {
-          photo.r2Key = result.r2Key;
-          photo.r2Url = result.r2Url;
-          photo.uploadStatus = OUTBOX_STATUS.R2_CONFIRMED;
-          if (Model.saveNow) Model.saveNow();
+    var _verifyPromise = _VERIFY_ENABLED
+      ? _verifyR2Object(result.r2Url, controller ? controller.signal : undefined)
+      : Promise.resolve(true);
+
+    return _verifyPromise.then(function() {
+      // ── R2 confirmed (post-verify) ──
+      row.status = OUTBOX_STATUS.R2_CONFIRMED;
+      row.r2ConfirmedAt = new Date().toISOString();
+      row.verifyConfirmedAt = new Date().toISOString();
+      _persistRow(row).catch(function() {});
+
+      // Update the photo record in model state with the r2Key/r2Url so
+      // it renders from R2 going forward (and the next cloud push picks
+      // it up). Model is imported at the top of this module.
+      try {
+        var proj = Model.getProject();
+        if (proj) {
+          var photo = _findPhotoInProject(proj, row.photoId);
+          if (photo) {
+            photo.r2Key = result.r2Key;
+            photo.r2Url = result.r2Url;
+            photo.uploadStatus = OUTBOX_STATUS.R2_CONFIRMED;
+            if (Model.saveNow) Model.saveNow();
+          }
         }
+      } catch (e) {
+        console.warn('[PhotoOutbox] Could not write r2Key to model photo:', e);
       }
-    } catch (e) {
-      console.warn('[PhotoOutbox] Could not write r2Key to model photo:', e);
-    }
 
-    _notify('r2_confirmed', { rowId: row.id, photoId: row.photoId,
-      r2Key: result.r2Key, r2Url: result.r2Url });
+      _notify('r2_confirmed', { rowId: row.id, photoId: row.photoId,
+        r2Key: result.r2Key, r2Url: result.r2Url });
 
-    // S171: row STAYS in r2_confirmed until sync.js push captures the
-    // photo in cloud and calls PhotoOutbox.markCloudConfirmed. This is
-    // what makes Enhancement 2 (atomicity through cloud push) work —
-    // if a cloud pull wipes the photo before the next push runs,
-    // PhotoOutbox.reconcileWithModel re-injects it from the outbox.
+      // S171: row STAYS in r2_confirmed until sync.js push captures the
+      // photo in cloud and calls PhotoOutbox.markCloudConfirmed. This is
+      // what makes Enhancement 2 (atomicity through cloud push) work —
+      // if a cloud pull wipes the photo before the next push runs,
+      // PhotoOutbox.reconcileWithModel re-injects it from the outbox.
 
-    _kickProcessor();
+      _kickProcessor();
+    });
   }).catch(function(err) {
     delete _abortControllers[rowIdForCleanup];
     _activeUploadCount = Math.max(0, _activeUploadCount - 1);
@@ -598,7 +656,12 @@ export var PhotoOutbox = {
     for (var id in _rowsById) {
       var r = _rowsById[id];
       if (!r) continue;
-      if (r.status === OUTBOX_STATUS.UPLOADING) {
+      if (r.status === OUTBOX_STATUS.UPLOADING ||
+          r.status === OUTBOX_STATUS.VERIFYING) {
+        // S199: VERIFYING reset same as UPLOADING — the in-flight HEAD is
+        // gone after reload. Re-PUT is idempotent (R2 dedupes by key) so
+        // resetting to pending and re-running the full PUT+verify cycle is
+        // safe whether the original PUT actually landed or not.
         r.status = OUTBOX_STATUS.PENDING;
         _persistRow(r).catch(function() {});
         resetUploading++;
