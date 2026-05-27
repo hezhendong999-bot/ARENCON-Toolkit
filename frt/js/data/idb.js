@@ -19,19 +19,29 @@
  *   markupObjects  → { id, drawingId, objects: [...] }
  *   photos         → { id, projectId, entityType, entityId, r2Key, ... }
  *   photoBlobs     → { id, dataBlob }
+ *   markupBlobs    → { id, dataBlob }  (S201b — rendered markup binaries)
  *   activityLog    → { id, deficiencyId, date, label, text, ... }
  *   syncQueue      → { id, entityType, entityId, action, timestamp, data }
  */
 
 const DB_NAME = 'ARENCON_FRT_V2';
 // S169 (Fix A foundation) — bumped 3 → 4 to add the `photoOutbox` store.
+// S201b (Phase A G2/G3 foundation, 2026-05-27) — bumped 4 → 5 to add the
+// `markupBlobs` store, paired storage for the rendered marked-up-drawing
+// binaries that S201c/d+ will route through `BinaryOutbox` for durable
+// upload tracking. `drawingBlobs` already exists since v1 and is reused
+// as-is; only `markupBlobs` is genuinely new at v5. The kind-field
+// normalization for legacy photoOutbox rows continues to be lazy in
+// `BinaryOutbox.init()` (S200a) — no row modification at upgrade time.
+//
 // Upgrade is additive-only: createObjectStore in onupgradeneeded skips any
-// store that already exists, so devices on v3 will simply have the new
-// store added on first load. No existing-store schema changes. If the
-// upgrade fails for any reason, the device remains on v3 with all
-// existing stores intact and the app continues to function (photoOutbox
-// is dormant in S169 — no code path requires its existence yet).
-const DB_VERSION = 4;
+// store that already exists, so devices on v3 or v4 will simply have the
+// new store added on first load. No existing-store schema changes. If the
+// upgrade fails for any reason, the device remains on its current version
+// with all existing stores intact and the app continues to function
+// (markupBlobs is dormant in S201b — no code path requires its existence
+// yet; S201c/d+ will route uploads through it).
+const DB_VERSION = 5;
 
 const STORES = [
   'projects',
@@ -57,7 +67,13 @@ const STORES = [
   // `Model.setProject()`, which is what makes Enhancement 2 (atomicity
   // through cloud push) work. See frt/js/data/photoOutbox.js and
   // FIX_A_ARCHITECTURE.md §4. Empty in S169 — no code writes to it yet.
-  'photoOutbox'
+  'photoOutbox',
+  // S201b (Phase A G2/G3 foundation) — paired storage for rendered
+  // marked-up-drawing binaries. Mirrors `drawingBlobs` / `photoBlobs`
+  // shape: { id, dataBlob }. Dormant in S201b — populated by S201c/d+
+  // when markup uploads route through BinaryOutbox. drawingBlobs is
+  // reused as-is for drawing uploads (no new store needed there).
+  'markupBlobs'
 ];
 
 let _db = null;
