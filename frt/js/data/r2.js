@@ -63,6 +63,38 @@ function _normTombs(arr) {
 // R2.upload through UploadQueue; restored S130 hotfix.)
 var _queueRunning = false;
 
+// S201d (SYNC-02 Phase A G1 extension, 2026-05-27) — post-PUT verify
+// helper for markup. Mirrors `BinaryOutbox._verifyR2Object` (frt/js/data/
+// photoOutbox.js): a tiny ranged GET against the same r2Url after PUT
+// success, to catch the 4380.24 class where the worker reports success
+// but the object isn't actually retrievable. A real object returns 206
+// Partial Content (or 200 if the worker doesn't honor Range — either is
+// `resp.ok`); a missing object returns 404. Honors the same URL
+// override as photoOutbox so a single `?verify=0` disables both paths.
+//
+// Markup keeps its in-binary 3-way merge dance (Q1(a) decision) — this
+// verify call is the ONLY thing markup adopts from the outbox plumbing.
+function _markupVerifyEnabled() {
+  try {
+    var p = new URLSearchParams(window.location.search);
+    if (p.get('verify') === '0') return false;
+  } catch (_) { /* non-browser */ }
+  return true;
+}
+
+function _verifyMarkupR2(r2Url) {
+  if (!_markupVerifyEnabled()) return Promise.resolve(true);
+  return fetch(r2Url, {
+    method: 'GET',
+    headers: { 'Range': 'bytes=0-0' }
+  }).then(function(resp) {
+    return !!resp.ok;
+  }).catch(function() {
+    // Network error during verify — treat as fail so the retry loop runs.
+    return false;
+  });
+}
+
 function _getToken() {
   var t = localStorage.getItem('sb-access-token');
   if (t) return t;
@@ -565,14 +597,23 @@ export var R2 = {
           var resp = out.resp;
           if (resp.ok) {
             var bytes = out.json.length;
-            console.log('[R2] Markup uploaded:', r2Key, '(' + mergeOut.objects.length + ' objects, ' +
-                        mergeOut.deletedIds.length + ' tombstones, ' + Math.round(bytes / 1024) + 'KB)');
-            return { ok: true, result: {
-              r2Key: r2Key, r2Url: r2Url,
-              count: mergeOut.objects.length,
-              deletedCount: mergeOut.deletedIds.length,
-              bytes: bytes
-            }};
+            // S201d — post-PUT verify (GET Range:0-0). If verify fails,
+            // route through retry as if 412'd; the outer retryLoop will
+            // re-run read-merge-write.
+            return _verifyMarkupR2(r2Url).then(function(verified) {
+              if (!verified) {
+                console.warn('[R2] Markup PUT 200 but verify GET failed — retrying read-merge-write:', r2Key);
+                return { ok: false, retry: true };
+              }
+              console.log('[R2] Markup uploaded:', r2Key, '(' + mergeOut.objects.length + ' objects, ' +
+                          mergeOut.deletedIds.length + ' tombstones, ' + Math.round(bytes / 1024) + 'KB)');
+              return { ok: true, result: {
+                r2Key: r2Key, r2Url: r2Url,
+                count: mergeOut.objects.length,
+                deletedCount: mergeOut.deletedIds.length,
+                bytes: bytes
+              }};
+            });
           }
           // 412 Precondition Failed — concurrent write happened between our
           // GET and our PUT. Retry the whole read-merge-write cycle.
@@ -586,14 +627,21 @@ export var R2 = {
               var resp2 = out2.resp;
               if (resp2.ok) {
                 var bytes2 = out2.json.length;
-                console.log('[R2] Markup uploaded (octet fallback):', r2Key,
-                            '(' + mergeOut.objects.length + ' objects, ' + mergeOut.deletedIds.length + ' tombstones)');
-                return { ok: true, result: {
-                  r2Key: r2Key, r2Url: r2Url,
-                  count: mergeOut.objects.length,
-                  deletedCount: mergeOut.deletedIds.length,
-                  bytes: bytes2
-                }};
+                // S201d — same verify on the 415 fallback path.
+                return _verifyMarkupR2(r2Url).then(function(verified2) {
+                  if (!verified2) {
+                    console.warn('[R2] Markup PUT 200 (octet fallback) but verify GET failed — retrying:', r2Key);
+                    return { ok: false, retry: true };
+                  }
+                  console.log('[R2] Markup uploaded (octet fallback):', r2Key,
+                              '(' + mergeOut.objects.length + ' objects, ' + mergeOut.deletedIds.length + ' tombstones)');
+                  return { ok: true, result: {
+                    r2Key: r2Key, r2Url: r2Url,
+                    count: mergeOut.objects.length,
+                    deletedCount: mergeOut.deletedIds.length,
+                    bytes: bytes2
+                  }};
+                });
               }
               if (resp2.status === 412) {
                 console.log('[R2] Markup PUT 412 (octet fallback) — retrying read-merge-write:', r2Key);
