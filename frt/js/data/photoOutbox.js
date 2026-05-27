@@ -179,7 +179,7 @@ function _notify(event, payload) {
   var handlers = _listeners[event] || [];
   for (var i = 0; i < handlers.length; i++) {
     try { handlers[i](payload); } catch (e) {
-      console.warn('[PhotoOutbox] Listener error on ' + event + ':', e);
+      console.warn('[BinaryOutbox] Listener error on ' + event + ':', e);
     }
   }
 }
@@ -391,17 +391,17 @@ function _processRow(row) {
           }
         }
       } catch (e) {
-        console.warn('[PhotoOutbox] Could not write r2Key to model photo:', e);
+        console.warn('[BinaryOutbox] Could not write r2Key to model photo:', e);
       }
 
       _notify('r2_confirmed', { rowId: row.id, photoId: row.photoId,
         r2Key: result.r2Key, r2Url: result.r2Url });
 
       // S171: row STAYS in r2_confirmed until sync.js push captures the
-      // photo in cloud and calls PhotoOutbox.markCloudConfirmed. This is
+      // photo in cloud and calls BinaryOutbox.markCloudConfirmed. This is
       // what makes Enhancement 2 (atomicity through cloud push) work —
       // if a cloud pull wipes the photo before the next push runs,
-      // PhotoOutbox.reconcileWithModel re-injects it from the outbox.
+      // BinaryOutbox.reconcileWithModel re-injects it from the outbox.
 
       _kickProcessor();
     });
@@ -453,7 +453,7 @@ function _scheduleRetry(row, err) {
   _persistRow(row).catch(function() {});
 
   if (_FIX_A_ENABLED) {
-    console.log('[PhotoOutbox] Retry ' + row.retryCount + '/' + MAX_RETRIES +
+    console.log('[BinaryOutbox] Retry ' + row.retryCount + '/' + MAX_RETRIES +
                 ' for photo ' + row.photoId + ' in ' + (delayMs / 1000) + 's' +
                 ' (last error: ' + row.lastError + ')');
   }
@@ -484,7 +484,7 @@ function _clearRetryTimer(rowId) {
 function _markFailed(row, err) {
   // Terminal failure — MAX_RETRIES has been exhausted. Per D3, this is
   // the only state from which the row never auto-retries; user action
-  // (PhotoOutbox.retryEntry or retryAllFailed) is required to revive.
+  // (BinaryOutbox.retryEntry or retryAllFailed) is required to revive.
 
   _clearRetryTimer(row.id);  // belt-and-suspenders if called via retry path
 
@@ -507,7 +507,7 @@ function _markFailed(row, err) {
       }
     }
   } catch (e) {
-    console.warn('[PhotoOutbox] Could not write failure flag to model photo:', e);
+    console.warn('[BinaryOutbox] Could not write failure flag to model photo:', e);
   }
 
   // Diagnostic ring buffer parity with Fix D.
@@ -519,7 +519,7 @@ function _markFailed(row, err) {
       when: row.lastAttemptAt,
       error: row.lastError,
       retryCount: row.retryCount,
-      source: 'PhotoOutbox'
+      source: 'BinaryOutbox'
     });
     while (buf.length > 50) buf.shift();
   } catch (_) {}
@@ -588,20 +588,20 @@ function _wireRetryTriggers() {
   try {
     window.addEventListener('online', function() {
       if (_FIX_A_ENABLED) {
-        console.log('[PhotoOutbox] online event — flushing retry timers');
+        console.log('[BinaryOutbox] online event — flushing retry timers');
       }
       _retryAllRetrying('online');
     });
     document.addEventListener('visibilitychange', function() {
       if (!document.hidden) {
         if (_FIX_A_ENABLED) {
-          console.log('[PhotoOutbox] visibilitychange (visible) — flushing retry timers');
+          console.log('[BinaryOutbox] visibilitychange (visible) — flushing retry timers');
         }
         _retryAllRetrying('visible');
       }
     });
   } catch (e) {
-    console.warn('[PhotoOutbox] _wireRetryTriggers failed (non-fatal):', e);
+    console.warn('[BinaryOutbox] _wireRetryTriggers failed (non-fatal):', e);
   }
 }
 
@@ -618,7 +618,7 @@ function _retryAllRetrying(reason) {
   }
   if (triggered > 0) {
     if (_FIX_A_ENABLED) {
-      console.log('[PhotoOutbox] ' + triggered + ' retry timer(s) flushed via ' + reason);
+      console.log('[BinaryOutbox] ' + triggered + ' retry timer(s) flushed via ' + reason);
     }
     _kickProcessor();
   }
@@ -631,10 +631,10 @@ function _retryAllRetrying(reason) {
 // ─────────────────────────────────────────────────────────────
 // BinaryOutbox public API (S200a).
 //
-// Renamed from PhotoOutbox to reflect Phase A scope: this module will
+// Renamed from BinaryOutbox to reflect Phase A scope: this module will
 // generalize to handle drawings + markup in S201. For S200a, behavior is
-// identical to the previous PhotoOutbox — only the canonical name changes.
-// A `PhotoOutbox = BinaryOutbox` alias is exported below so consumer
+// identical to the previous BinaryOutbox — only the canonical name changes.
+// The S200a `BinaryOutbox = BinaryOutbox` alias was removed in S201g
 // modules (app.js, sync.js, deficiencies.js) continue to work unchanged.
 // New rows are stamped with `kind: 'photo'` for future-proofing; rows
 // loaded from IDB without `kind` are normalized to `'photo'` in memory
@@ -667,7 +667,7 @@ export var BinaryOutbox = {
       });
       _initialized = true;
       if (_FIX_A_ENABLED) {
-        console.log('[PhotoOutbox] Initialized — ' + (rows || []).length +
+        console.log('[BinaryOutbox] Initialized — ' + (rows || []).length +
                     ' row(s) restored from IDB');
       }
       // S172 / D2: wire online + visibilitychange handlers ONCE so any
@@ -676,7 +676,7 @@ export var BinaryOutbox = {
       // per-row backoff timers; either path can fire first.
       _wireRetryTriggers();
     }).catch(function(e) {
-      console.warn('[PhotoOutbox] init failed (non-fatal):', e && e.message);
+      console.warn('[BinaryOutbox] init failed (non-fatal):', e && e.message);
       _initialized = true;  // proceed — empty mirror
     });
   },
@@ -716,7 +716,7 @@ export var BinaryOutbox = {
       }
     }
     if (_FIX_A_ENABLED && (resetUploading > 0 || resetRetrying > 0)) {
-      console.log('[PhotoOutbox] Resume reset ' + resetUploading +
+      console.log('[BinaryOutbox] Resume reset ' + resetUploading +
                   ' uploading + ' + resetRetrying + ' retrying row(s) to pending');
     }
     _kickProcessor();
@@ -756,7 +756,7 @@ export var BinaryOutbox = {
     var photo = opts && opts.photo;
     var projectId = opts && opts.projectId;
     if (!photo || !photo.id || !projectId) {
-      return Promise.reject(new Error('PhotoOutbox.enqueue: missing photo or projectId'));
+      return Promise.reject(new Error('BinaryOutbox.enqueue: missing photo or projectId'));
     }
     // Idempotency: if a row already exists for this photoId in a non-
     // terminal state, return it instead of creating a duplicate.
@@ -957,7 +957,7 @@ export var BinaryOutbox = {
     });
     return Promise.all(deletions).then(function() {
       if (deletions.length > 0) {
-        console.log('[PhotoOutbox] markCloudConfirmed deleted ' +
+        console.log('[BinaryOutbox] markCloudConfirmed deleted ' +
                     deletions.length + ' row(s)');
       }
     });
@@ -1000,7 +1000,7 @@ export var BinaryOutbox = {
         // intentional). Outbox row is now orphaned; mark it cancelled
         // so the processor stops tracking it. The R2 binary stays
         // (R2 cleanup is a separate concern; see non-goals §11).
-        console.warn('[PhotoOutbox] reconcile: defic ' + row.deficId +
+        console.warn('[BinaryOutbox] reconcile: defic ' + row.deficId +
                      ' not in pull; orphaning outbox row ' + row.id);
         row.status = OUTBOX_STATUS.CANCELLED;
         row.lastError = 'Defic ' + row.deficId + ' not present in pulled project';
@@ -1056,7 +1056,7 @@ export var BinaryOutbox = {
       // save, but reconcile is a critical-path repair — flush
       // immediately so a reload right after pull keeps the photos.
       try { if (Model.saveNow) Model.saveNow(); } catch (_) {}
-      console.log('[PhotoOutbox] reconcileWithModel re-injected ' +
+      console.log('[BinaryOutbox] reconcileWithModel re-injected ' +
                   reinjected + ' photo(s) wiped by pull');
       _notify('reconcile', { reinjected: reinjected, orphaned: orphaned });
     }
@@ -1111,18 +1111,6 @@ export var BinaryOutbox = {
 };
 
 // ─────────────────────────────────────────────────────────────
-// S200a backwards-compat alias.
-//
-// All existing consumers (app.js, sync.js, deficiencies.js) import
-// PhotoOutbox by name. Re-exporting the same object reference under the
-// old name keeps those imports working through this session without any
-// touch to the consumer files. In S201 (alongside the IDB version bump
-// and drawings/markup routing), consumers migrate to BinaryOutbox and
-// this alias gets removed.
-// ─────────────────────────────────────────────────────────────
-export var PhotoOutbox = BinaryOutbox;
-
-// ─────────────────────────────────────────────────────────────
 // Helpers: dataUrl → Blob (mirrors r2.js's _toBlob, kept local to
 // avoid an import cycle and keep this module self-contained).
 // ─────────────────────────────────────────────────────────────
@@ -1146,14 +1134,13 @@ function _toBlobFromDataUrl(dataUrl) {
       for (var i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
       resolve(new Blob([bytes], { type: mime }));
     } catch (e) {
-      console.warn('[PhotoOutbox] _toBlobFromDataUrl failed:', e);
+      console.warn('[BinaryOutbox] _toBlobFromDataUrl failed:', e);
       resolve(null);
     }
   });
 }
 
 // Expose to window for DevTools diagnostic access. Same pattern as
-// window._frt_r2Failures from Fix D. Both names exposed during S200a so
-// console one-liners using either name keep working.
+// window._frt_r2Failures from Fix D. The S200a `window.BinaryOutbox`
+// alias was dropped in S201g — DevTools must now use BinaryOutbox.
 try { window.BinaryOutbox = BinaryOutbox; } catch (_) {}
-try { window.PhotoOutbox = PhotoOutbox; } catch (_) {}

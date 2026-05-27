@@ -15,11 +15,11 @@ import { R2 } from './data/r2.js';
 import { TileCache } from './data/tileCache.js';
 import { Presence } from './data/presence.js';
 // S169 (Fix A foundation) — durable in-flight photo upload tracker.
-// Imported here so the module loads (registers window.PhotoOutbox for
+// Imported here so the module loads (registers window.BinaryOutbox for
 // DevTools diagnostic access) but is NOT yet invoked from any code
 // path. Stub-only in S169; real behavior lands incrementally in
 // S170+. See FIX_A_ARCHITECTURE.md.
-import { PhotoOutbox } from './data/photoOutbox.js';
+import { BinaryOutbox } from './data/photoOutbox.js';
 import { Auth } from './shared/auth.js';
 import { toast } from './shared/toast.js';
 import { showConfirm, showAlert, showPrompt, showTypeToConfirm, showConflictModal } from './shared/dialogs.js';
@@ -1062,7 +1062,7 @@ setInterval(_updateLastSyncIndicator, 30000);
 
 // ─── S170 (Fix A): Photo outbox header badge ─────────────────────────────
 // Minimal badge that surfaces in-flight upload counts. Only renders when
-// PhotoOutbox is enabled (i.e. ?staging=1 is in the URL). Injects itself
+// BinaryOutbox is enabled (i.e. ?staging=1 is in the URL). Injects itself
 // into the existing project-bar; no HTML edit required.
 //
 // Per D8: r2_confirmed and cloud_confirmed are NOT counted — they're safe
@@ -1072,7 +1072,7 @@ setInterval(_updateLastSyncIndicator, 30000);
 // S175: badge is now tappable — opens the outbox detail modal so users
 // can retry/cancel failed rows without DevTools.
 function _updateOutboxBadge() {
-  if (!PhotoOutbox || !PhotoOutbox.isEnabled || !PhotoOutbox.isEnabled()) return;
+  if (!BinaryOutbox || !BinaryOutbox.isEnabled || !BinaryOutbox.isEnabled()) return;
   var bar = document.getElementById('project-bar');
   if (!bar) return;
   var badge = document.getElementById('pb-outbox');
@@ -1097,7 +1097,7 @@ function _updateOutboxBadge() {
     });
     bar.appendChild(badge);
   }
-  var counts = PhotoOutbox.getStatusCounts();
+  var counts = BinaryOutbox.getStatusCounts();
   var inflight = counts.pending + counts.uploading + counts.retrying;
   var failed = counts.failed;
   if (failed > 0) {
@@ -1119,10 +1119,10 @@ function _updateOutboxBadge() {
 // stays in sync even if the activation flag flips later in some future
 // session; the updater itself short-circuits when disabled.
 try {
-  if (PhotoOutbox && PhotoOutbox.onChange) {
+  if (BinaryOutbox && BinaryOutbox.onChange) {
     ['enqueue', 'uploading', 'r2_confirmed', 'cloud_confirmed',
      'failed', 'cancelled'].forEach(function(ev) {
-      PhotoOutbox.onChange(ev, _updateOutboxBadge);
+      BinaryOutbox.onChange(ev, _updateOutboxBadge);
     });
   }
 } catch (_) {}
@@ -1137,7 +1137,7 @@ setInterval(_updateOutboxBadge, 5000);
 // project, grouped by status (failed → in-flight → r2_confirmed). Per-row
 // Retry / Cancel buttons, plus a bulk "Retry all failed" affordance.
 //
-// Before S175, the only retry path was `window.PhotoOutbox.retryEntry(rowId)`
+// Before S175, the only retry path was `window.BinaryOutbox.retryEntry(rowId)`
 // from DevTools — meaning the failure toast's "tap the badge to retry"
 // promise was a dead end for field users. This modal closes that gap.
 //
@@ -1145,7 +1145,7 @@ setInterval(_updateOutboxBadge, 5000);
 // aware, dismiss on backdrop click / × / Escape. No CSS file changes.
 // Registered in the global Escape priority list as `outbox-overlay`.
 //
-// Auto-refresh: subscribes to PhotoOutbox events on open so the list
+// Auto-refresh: subscribes to BinaryOutbox events on open so the list
 // reflects state changes (e.g. a manual retry succeeds and the row
 // transitions to r2_confirmed). Unsubscribes on close to avoid leaks.
 
@@ -1210,11 +1210,11 @@ function _renderOutboxModalBody(theme) {
     return '<div style="padding:24px 0;text-align:center;color:' + theme.muted +
            ';font-size:13px;">No project loaded.</div>';
   }
-  if (!PhotoOutbox || !PhotoOutbox.getEntriesForProject) {
+  if (!BinaryOutbox || !BinaryOutbox.getEntriesForProject) {
     return '<div style="padding:24px 0;text-align:center;color:' + theme.muted +
            ';font-size:13px;">Photo outbox unavailable.</div>';
   }
-  var rows = PhotoOutbox.getEntriesForProject(proj.id) || [];
+  var rows = BinaryOutbox.getEntriesForProject(proj.id) || [];
 
   // Bucket by status
   var failed = [], inflight = [], confirmed = [];
@@ -1380,10 +1380,10 @@ function _wireOutboxModalActions(overlay, theme) {
   overlay.querySelectorAll('.outbox-retry').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var rowId = btn.getAttribute('data-rowid');
-      if (!rowId || !PhotoOutbox || !PhotoOutbox.retryEntry) return;
+      if (!rowId || !BinaryOutbox || !BinaryOutbox.retryEntry) return;
       btn.disabled = true;
       btn.textContent = '\u2026';
-      PhotoOutbox.retryEntry(rowId).then(function(ok) {
+      BinaryOutbox.retryEntry(rowId).then(function(ok) {
         if (!ok) {
           toast('Could not retry \u2014 row no longer failed', 3500);
         }
@@ -1398,11 +1398,11 @@ function _wireOutboxModalActions(overlay, theme) {
 
   overlay.querySelectorAll('.outbox-retry-all').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      if (!PhotoOutbox || !PhotoOutbox.retryAllFailed) return;
+      if (!BinaryOutbox || !BinaryOutbox.retryAllFailed) return;
       btn.disabled = true;
       var orig = btn.textContent;
       btn.textContent = '\u2026';
-      PhotoOutbox.retryAllFailed().then(function(n) {
+      BinaryOutbox.retryAllFailed().then(function(n) {
         toast('Re-queued ' + n + ' photo' + (n === 1 ? '' : 's') + ' for upload', 3500);
         _rerender();
       }, function(err) {
@@ -1416,13 +1416,13 @@ function _wireOutboxModalActions(overlay, theme) {
   overlay.querySelectorAll('.outbox-cancel').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var photoId = btn.getAttribute('data-photoid');
-      if (!photoId || !PhotoOutbox || !PhotoOutbox.cancelByPhotoId) return;
+      if (!photoId || !BinaryOutbox || !BinaryOutbox.cancelByPhotoId) return;
       showConfirm('Cancel this upload?',
         'The photo will remain on the pin but will not be uploaded to the cloud.'
       ).then(function(ok) {
         if (!ok) return;
         btn.disabled = true;
-        PhotoOutbox.cancelByPhotoId(photoId).then(function() {
+        BinaryOutbox.cancelByPhotoId(photoId).then(function() {
           _rerender();
           _updateOutboxBadge();
         }, function(err) {
@@ -1436,7 +1436,7 @@ function _wireOutboxModalActions(overlay, theme) {
 
 function _showOutboxModal() {
   // Guard: don't open if disabled or already open.
-  if (!PhotoOutbox || !PhotoOutbox.isEnabled || !PhotoOutbox.isEnabled()) return;
+  if (!BinaryOutbox || !BinaryOutbox.isEnabled || !BinaryOutbox.isEnabled()) return;
   if (document.getElementById('outbox-overlay')) return;
 
   var _isDark = document.body.classList.contains('dark-mode');
@@ -1499,10 +1499,10 @@ function _showOutboxModal() {
     _wireOutboxModalActions(overlay, theme);
   }
   _outboxModalListeners = [];
-  if (PhotoOutbox && PhotoOutbox.onChange) {
+  if (BinaryOutbox && BinaryOutbox.onChange) {
     ['enqueue', 'uploading', 'r2_confirmed', 'cloud_confirmed',
      'failed', 'cancelled', 'reconcile'].forEach(function(ev) {
-      PhotoOutbox.onChange(ev, _liveRefresh);
+      BinaryOutbox.onChange(ev, _liveRefresh);
       _outboxModalListeners.push({ ev: ev, fn: _liveRefresh });
     });
   }
@@ -1514,8 +1514,8 @@ function _showOutboxModal() {
     }
     // Only refresh if at least one retrying row is visible (cheap check).
     var proj = (typeof Model !== 'undefined' && Model.getProject) ? Model.getProject() : null;
-    if (!proj || !proj.id || !PhotoOutbox.getEntriesForProject) return;
-    var rows = PhotoOutbox.getEntriesForProject(proj.id) || [];
+    if (!proj || !proj.id || !BinaryOutbox.getEntriesForProject) return;
+    var rows = BinaryOutbox.getEntriesForProject(proj.id) || [];
     var hasRetrying = false;
     for (var i = 0; i < rows.length; i++) {
       if (rows[i] && rows[i].status === 'retrying') { hasRetrying = true; break; }
@@ -1525,9 +1525,9 @@ function _showOutboxModal() {
 
   function _close() {
     // Unsubscribe outbox listeners
-    if (_outboxModalListeners && PhotoOutbox && PhotoOutbox.offChange) {
+    if (_outboxModalListeners && BinaryOutbox && BinaryOutbox.offChange) {
       _outboxModalListeners.forEach(function(L) {
-        PhotoOutbox.offChange(L.ev, L.fn);
+        BinaryOutbox.offChange(L.ev, L.fn);
       });
     }
     _outboxModalListeners = null;
@@ -2087,11 +2087,11 @@ function boot() {
   // initializes its in-memory mirror regardless, and the activation flag
   // gates whether new uploads route through it.
   idbReady.then(function() {
-    return PhotoOutbox.init();
+    return BinaryOutbox.init();
   }).then(function() {
-    return PhotoOutbox.resume();
+    return BinaryOutbox.resume();
   }).catch(function(e) {
-    console.warn('[FRT v2] PhotoOutbox init failed (non-fatal):', e && e.message);
+    console.warn('[FRT v2] BinaryOutbox init failed (non-fatal):', e && e.message);
   });
 
   var _localRendered = false;

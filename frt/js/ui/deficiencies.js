@@ -14,7 +14,7 @@ import { Model, TRADE_LIST, SITE_RECORDS_LABEL, isSiteRecordsName } from '../dat
 import { toast } from '../shared/toast.js';
 import { showConfirm, showPrompt, showDialog } from '../shared/dialogs.js';
 import { R2 } from '../data/r2.js';
-import { PhotoOutbox } from '../data/photoOutbox.js';
+import { BinaryOutbox } from '../data/photoOutbox.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { AIAssist } from '../ai/assistant.js';
 
@@ -3745,7 +3745,7 @@ function _compressAndAdd(file, deficId, obsIdx) {
   // follows is unchanged in PROD — still routed through R2.uploadPhoto which
   // goes through UploadQueue (S130 5.1) for concurrency control.
   //
-  // S170 (Fix A): under ?staging=1 the upload is routed through PhotoOutbox
+  // S170 (Fix A): under ?staging=1 the upload is routed through BinaryOutbox
   // instead. PROD behavior is byte-for-byte unchanged. The two branches
   // share the same compression + addObservationPhoto preamble; only the
   // R2-side enqueue differs.
@@ -3758,8 +3758,8 @@ function _compressAndAdd(file, deficId, obsIdx) {
       if (!(pid && photo)) return;
 
       // ── S170 Fix A branch: outbox path (staging only) ──
-      if (PhotoOutbox && PhotoOutbox.isEnabled && PhotoOutbox.isEnabled()) {
-        PhotoOutbox.enqueue({
+      if (BinaryOutbox && BinaryOutbox.isEnabled && BinaryOutbox.isEnabled()) {
+        BinaryOutbox.enqueue({
           photo: photo,
           projectId: pid,
           deficId: deficId,
@@ -3768,13 +3768,13 @@ function _compressAndAdd(file, deficId, obsIdx) {
         }).then(function(rowId) {
           // No toast here — the outbox processor will toast on R2
           // confirm or failure. Logging only.
-          console.log('[Deficiencies] Enqueued to PhotoOutbox:', rowId,
+          console.log('[Deficiencies] Enqueued to BinaryOutbox:', rowId,
                       'photo:', photo && photo.id);
         }).catch(function(err) {
           // Enqueue itself failed (IDB write error, blob conversion
           // failed). Fall back to Fix D's flag set so the photo is
           // marked failed and the user is alerted.
-          console.warn('[Deficiencies] PhotoOutbox.enqueue failed:', err);
+          console.warn('[Deficiencies] BinaryOutbox.enqueue failed:', err);
           try {
             photo._r2UploadFailed = true;
             photo._r2UploadError = (err && err.message) || String(err);
