@@ -78,11 +78,25 @@ try {
 // Cost: one extra HEAD request per upload (~50ms on R2). Default on; URL
 // override ?verify=0 disables on a single tablet for field debug without a
 // code push.
-var _VERIFY_ENABLED = true;
+//
+// S200 hotfix (2026-05-26): Field verify revealed the R2 Cloudflare Worker
+// does not handle the HEAD method — it returns 404 for any HEAD request
+// regardless of object existence. With _VERIFY_ENABLED=true, every photo
+// upload PUT-succeeded but HEAD-failed, triggering 3 retries then row=failed.
+// Disabling the flag here restores pre-S199 photo upload reliability while
+// the proper fix is designed (likely switch HEAD → GET Range:0-0, or add
+// HEAD support to the R2 worker). All S199 plumbing (state, helper, resume,
+// notification) is intentionally retained for the re-ship.
+//
+// URL override ?verify=1 can force-enable for diagnosis on a single tablet
+// once the worker side is fixed, without a code push.
+var _VERIFY_ENABLED = false;
 try {
   var _verifyParams = new URLSearchParams(window.location.search);
   if (_verifyParams.get('verify') === '0') {
     _VERIFY_ENABLED = false;
+  } else if (_verifyParams.get('verify') === '1') {
+    _VERIFY_ENABLED = true;
   }
 } catch (_) {
   // Non-browser context (unlikely)
