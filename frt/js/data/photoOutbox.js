@@ -618,7 +618,19 @@ function _retryAllRetrying(reason) {
 // Public API
 // ─────────────────────────────────────────────────────────────
 
-export var PhotoOutbox = {
+// ─────────────────────────────────────────────────────────────
+// BinaryOutbox public API (S200a).
+//
+// Renamed from PhotoOutbox to reflect Phase A scope: this module will
+// generalize to handle drawings + markup in S201. For S200a, behavior is
+// identical to the previous PhotoOutbox — only the canonical name changes.
+// A `PhotoOutbox = BinaryOutbox` alias is exported below so consumer
+// modules (app.js, sync.js, deficiencies.js) continue to work unchanged.
+// New rows are stamped with `kind: 'photo'` for future-proofing; rows
+// loaded from IDB without `kind` are normalized to `'photo'` in memory
+// at init() time. No IDB schema or version change.
+// ─────────────────────────────────────────────────────────────
+export var BinaryOutbox = {
 
   isEnabled: function() {
     return _FIX_A_ENABLED;
@@ -633,6 +645,13 @@ export var PhotoOutbox = {
       _rowsById = {};
       (rows || []).forEach(function(row) {
         if (!row || !row.id) return;
+        // S200a: lazy kind normalization. Rows persisted before S200a have
+        // no `kind` field. Treat them as photos in memory. Not written
+        // back to IDB here (kept idempotent + no-side-effects on init);
+        // any subsequent _persistRow call will incidentally persist the
+        // normalized field. Old code reading these rows tolerates the
+        // extra field gracefully.
+        if (!row.kind) row.kind = 'photo';
         _rowsById[row.id] = row;
         if (row.photoId) _rowsByPhotoId[row.photoId] = row;
       });
@@ -738,6 +757,7 @@ export var PhotoOutbox = {
     }
     var row = {
       id: _uid(),
+      kind: 'photo',  // S200a: explicit kind tag, future-proofing for drawings/markup
       photoId: photo.id,
       projectId: projectId,
       userId: _currentUserId(),
@@ -1081,6 +1101,18 @@ export var PhotoOutbox = {
 };
 
 // ─────────────────────────────────────────────────────────────
+// S200a backwards-compat alias.
+//
+// All existing consumers (app.js, sync.js, deficiencies.js) import
+// PhotoOutbox by name. Re-exporting the same object reference under the
+// old name keeps those imports working through this session without any
+// touch to the consumer files. In S201 (alongside the IDB version bump
+// and drawings/markup routing), consumers migrate to BinaryOutbox and
+// this alias gets removed.
+// ─────────────────────────────────────────────────────────────
+export var PhotoOutbox = BinaryOutbox;
+
+// ─────────────────────────────────────────────────────────────
 // Helpers: dataUrl → Blob (mirrors r2.js's _toBlob, kept local to
 // avoid an import cycle and keep this module self-contained).
 // ─────────────────────────────────────────────────────────────
@@ -1111,5 +1143,7 @@ function _toBlobFromDataUrl(dataUrl) {
 }
 
 // Expose to window for DevTools diagnostic access. Same pattern as
-// window._frt_r2Failures from Fix D.
+// window._frt_r2Failures from Fix D. Both names exposed during S200a so
+// console one-liners using either name keep working.
+try { window.BinaryOutbox = BinaryOutbox; } catch (_) {}
 try { window.PhotoOutbox = PhotoOutbox; } catch (_) {}
