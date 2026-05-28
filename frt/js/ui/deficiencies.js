@@ -808,6 +808,9 @@ function _buildPinGroupCard(d, ctrId) {
         h += _obsPhotoSyncBadge(ph);
         h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
         h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-del" title="Remove from this observation">\u2715</button>';
+        // S205 — Move/Copy this photo to another pin (shared-binary; gallery
+        // shows a pill per referencing pin).
+        h += '<button data-action="photo-assign-pin" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-pin" title="Move or copy to another pin">\u2934</button>';
         h += '</div>';
       });
       h += '</div>';
@@ -1356,6 +1359,119 @@ function _openCtrPicker(trade) {
 
 function _closeCtrPicker() {
   var ov = document.getElementById('ctr-picker-overlay');
+  if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+}
+
+// ── S205 — Move/Copy a pin photo to another pin ───────────────────────────
+// Shared-binary semantics: the photo keeps its r2Key. Copy adds a reference
+// to the chosen pin (photo stays on the source pin too — gallery shows a pill
+// for each). Move shifts the reference off the source onto the chosen pin.
+// Binary is never re-uploaded or deleted. Touch-first: a tap-list, no
+// hover-reveal, default mode = Copy (non-destructive).
+function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId) {
+  _closePinPhotoPicker();
+  var proj = Model.getProject();
+  if (!proj) return;
+  if (!Model.findDeficiency(srcDeficId)) return;
+  var pins = Model.getAllDeficiencies(proj).filter(function(d) {
+    return d.defic && d.defic.id !== srcDeficId;
+  });
+
+  var ov = document.createElement('div');
+  ov.className = 'picker-overlay show';
+  ov.id = 'pinphoto-picker-overlay';
+  ov.addEventListener('click', function(e) { if (e.target === ov) _closePinPhotoPicker(); });
+
+  var p = document.createElement('div');
+  p.className = 'picker pinphoto-picker';
+
+  var h = '<div class="picker-title">Move or copy photo to another pin</div>';
+  h += '<div class="pinphoto-mode">';
+  h += '<button class="pinphoto-mode-btn active" data-mode="copy">Copy</button>';
+  h += '<button class="pinphoto-mode-btn" data-mode="move">Move</button>';
+  h += '</div>';
+  h += '<div class="pinphoto-hint" id="pinphoto-hint">Copy keeps the photo on this pin and adds it to the chosen pin.</div>';
+  h += '<input type="text" class="picker-input" id="pinphoto-search" placeholder="Search pin # / contractor / text" autocomplete="off">';
+  h += '<div class="pinphoto-list" id="pinphoto-list">';
+  if (!pins.length) {
+    h += '<div class="pinphoto-empty">No other pins in this project.</div>';
+  } else {
+    pins.forEach(function(d) {
+      var defic = d.defic;
+      var ctr = d.contractorName || '';
+      var obs0 = (defic.observations || [])[0];
+      var txt = (obs0 && obs0.text) ? obs0.text : '';
+      var pr = (defic.priority === 'general') ? 'gen' : (defic.priority === 'low' ? 'low' : 'high');
+      var hay = ('pin ' + defic.num + ' ' + ctr + ' ' + txt).toLowerCase();
+      h += '<button class="pinphoto-row" data-pin-id="' + esc(defic.id) + '" data-search="' + esc(hay) + '">'
+        +    '<span class="pinphoto-row-num pp-' + esc(pr) + '">Pin ' + esc(defic.num) + '</span>'
+        +    '<span class="pinphoto-row-meta">'
+        +      (ctr ? '<span class="pinphoto-row-ctr">' + esc(ctr) + '</span>' : '')
+        +      (txt ? '<span class="pinphoto-row-txt">' + esc(txt.slice(0, 90)) + '</span>' : '')
+        +    '</span>'
+        +  '</button>';
+    });
+  }
+  h += '</div>';
+  h += '<div class="picker-foot"><button class="btn btn-sm picker-cancel-btn" data-action="pinphoto-close">Cancel</button></div>';
+  p.innerHTML = h;
+  ov.appendChild(p);
+  document.body.appendChild(ov);
+
+  var cancelBtn = p.querySelector('[data-action="pinphoto-close"]');
+  if (cancelBtn) cancelBtn.addEventListener('click', _closePinPhotoPicker);
+
+  var mode = 'copy';
+  Array.prototype.forEach.call(p.querySelectorAll('.pinphoto-mode-btn'), function(btn) {
+    btn.addEventListener('click', function() {
+      mode = btn.getAttribute('data-mode') || 'copy';
+      Array.prototype.forEach.call(p.querySelectorAll('.pinphoto-mode-btn'), function(b) {
+        b.classList.toggle('active', b === btn);
+      });
+      var hint = document.getElementById('pinphoto-hint');
+      if (hint) hint.textContent = (mode === 'move')
+        ? 'Move takes the photo off this pin and puts it on the chosen pin. It stays in the gallery.'
+        : 'Copy keeps the photo on this pin and adds it to the chosen pin.';
+    });
+  });
+
+  var searchEl = document.getElementById('pinphoto-search');
+  if (searchEl) {
+    searchEl.addEventListener('input', function() {
+      var q = searchEl.value.trim().toLowerCase();
+      Array.prototype.forEach.call(p.querySelectorAll('.pinphoto-row'), function(row) {
+        var hay = row.getAttribute('data-search') || '';
+        row.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
+      });
+    });
+    searchEl.addEventListener('keydown', function(ev) {
+      if (ev.key === 'Escape') { ev.preventDefault(); _closePinPhotoPicker(); }
+    });
+    setTimeout(function() { searchEl.focus(); }, 0);
+  }
+
+  Array.prototype.forEach.call(p.querySelectorAll('.pinphoto-row'), function(row) {
+    row.addEventListener('click', function() {
+      var toId = row.getAttribute('data-pin-id');
+      if (!toId) return;
+      var destF = Model.findDeficiency(toId);
+      var destNum = (destF && destF.defic) ? destF.defic.num : '?';
+      var res = (mode === 'move')
+        ? Model.movePhotoToPin(srcDeficId, photoId, toId)
+        : Model.copyPhotoToPin(srcDeficId, photoId, toId);
+      _closePinPhotoPicker();
+      if (res) {
+        initDeficiencies.render();
+        toast((mode === 'move' ? 'Moved to Pin ' : 'Copied to Pin ') + destNum);
+      } else {
+        toast('\u26A0 Could not ' + mode + ' photo to that pin');
+      }
+    });
+  });
+}
+
+function _closePinPhotoPicker() {
+  var ov = document.getElementById('pinphoto-picker-overlay');
   if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
 }
 
@@ -3232,6 +3348,15 @@ document.addEventListener('click', function(e) {
       initDeficiencies.render();
       toast('Photo removed from observation');
     });
+  }
+
+  if (action === 'photo-assign-pin') {
+    var el = el.closest('[data-action="photo-assign-pin"]');
+    if (!el) return;
+    var deficId = el.getAttribute('data-defic-id');
+    var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
+    var photoId = el.getAttribute('data-photo-id') || '';
+    if (photoId) _openPinPhotoPicker(deficId, obsIdx, photoId);
   }
 
   if (action === 'ai-suggest-photo') {

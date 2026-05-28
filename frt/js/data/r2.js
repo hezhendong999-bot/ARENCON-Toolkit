@@ -519,7 +519,17 @@ export var R2 = {
     // 404 → no existing markup (first write). On non-OK responses or parse
     // failure we treat the cloud as empty and proceed (legacy fallback).
     function fetchCloud() {
-      return fetch(r2Url).then(function(resp) {
+      // S205 Bug B — markup JSON is mutable, but the Worker serves every
+      // /photos/* GET with Cache-Control: public, max-age=31536000. A cached
+      // GET hands back a STALE ETag, so the conditional PUT's If-Match never
+      // matches R2's live ETag → 412 on every save after the 2nd, race
+      // protection silently skipped (observed S202 field-verify). Read LIVE:
+      // cache-bust query defeats browser + edge cache; no-store defeats the
+      // browser HTTP cache. ONLY the read is busted — the PUT below still
+      // targets the canonical r2Url. The Worker keys off pathname, so the
+      // extra query param does not affect object resolution.
+      var freshUrl = r2Url + (r2Url.indexOf('?') === -1 ? '?' : '&') + '_frt=' + Date.now();
+      return fetch(freshUrl, { cache: 'no-store' }).then(function(resp) {
         if (resp.status === 404) {
           // First write — use If-None-Match: * so a concurrent first-create
           // by another inspector loses (then we retry).

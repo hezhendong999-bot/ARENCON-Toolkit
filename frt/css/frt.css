@@ -8395,3 +8395,45 @@ body.dark-mode #dfx-compact-bar .dfx-cb-cc.crx-unassigned { background: #2e2418;
   #dfx-compact-bar .dfx-cb-cc { min-height: 36px; }
 }
 /* End S197 ───────────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════
+   S205 — Gallery Move/Copy: multi-pin pills + pin-photo move/copy picker
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Move/Copy-to-pin button on obs photo tiles. Corners in use: del=top-right,
+   AI=bottom-right, sync=bottom-left → this sits top-left. Touch-revealed per
+   house rule (@media pointer:coarse), never hover-only. */
+.obs-photo-pin{position:absolute;top:3px;left:3px;background:rgba(44,71,112,.92);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;text-align:center;cursor:pointer;padding:0;z-index:3;display:none;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.obs-photo-pin:hover{background:#2C4770;}
+.obs-photo-wrap:hover .obs-photo-pin{display:flex;}
+@media(pointer:coarse){.obs-photo-pin{display:flex;opacity:.85;}}
+
+/* Gallery card — stack multiple pin pills in the top-right corner. The base
+   .ph-badge is position:absolute; inside .ph-badges it becomes static and the
+   container handles placement + wrapping. pointer-events:none so taps fall
+   through to the image (open lightbox). */
+.ph-badges{position:absolute;top:6px;right:6px;z-index:2;display:flex;flex-direction:column;align-items:flex-end;gap:3px;max-width:85%;pointer-events:none;}
+.ph-badges .ph-badge{position:static;top:auto;right:auto;}
+
+/* Pin-photo Move/Copy picker — mirrors .picker, adds the mode toggle + list. */
+.pinphoto-picker{max-width:440px;width:92vw;}
+.pinphoto-mode{display:flex;margin:4px 0 10px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.pinphoto-mode-btn{flex:1;background:transparent;border:none;padding:9px 0;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;color:var(--silver);cursor:pointer;min-height:42px;}
+.pinphoto-mode-btn.active{background:#2C4770;color:#fff;}
+body.dark-mode .pinphoto-mode-btn{color:#9aa3bd;}
+body.dark-mode .pinphoto-mode-btn.active{background:#2C4770;color:#fff;}
+.pinphoto-hint{font-size:12px;color:var(--silver);margin:0 0 10px;line-height:1.4;}
+.pinphoto-list{max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-top:8px;-webkit-overflow-scrolling:touch;}
+.pinphoto-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card,#fff);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;font-family:Calibri,sans-serif;min-height:48px;transition:background .12s,border-color .12s;}
+.pinphoto-row:hover{background:rgba(44,71,112,.08);border-color:#2C4770;}
+body.dark-mode .pinphoto-row{background:#23262e;}
+body.dark-mode .pinphoto-row:hover{background:rgba(80,110,160,.18);}
+.pinphoto-row-num{flex:0 0 auto;font-weight:700;font-size:13px;color:#fff;border-radius:11px;padding:3px 10px;background:#A85959;white-space:nowrap;}
+.pinphoto-row-num.pp-low{background:#B07F5A;}
+.pinphoto-row-num.pp-gen{background:#5F8068;}
+.pinphoto-row-meta{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.pinphoto-row-ctr{font-size:13px;font-weight:600;color:var(--ink,#1a1a1a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+body.dark-mode .pinphoto-row-ctr{color:#E0E5F0;}
+.pinphoto-row-txt{font-size:12px;color:var(--silver);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pinphoto-empty{color:var(--silver);font-style:italic;text-align:center;padding:20px;font-size:13px;}
+/* End S205 ───────────────────────────────────────────────────────── */

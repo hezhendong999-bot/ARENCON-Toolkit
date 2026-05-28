@@ -1715,9 +1715,141 @@ export var Model = {
     return false;
   },
 
+  // ── S205: cross-pin photo move / copy + reference query ──
+  // A photo's identity ACROSS pins is its r2Key (the shared binary). Copying
+  // a photo to another pin creates a NEW pool entry in the target defic that
+  // SHARES the source r2Key/r2Url/thumb (no R2 re-upload) but gets its own
+  // per-pool id (ids drive obs.photoSelection within a defic). The gallery
+  // groups by r2Key to render one card with a pill per referencing pin.
+
+  // Live (non-deleted) pool photo by id within a defic, or null.
+  _findPoolPhoto: function(defic, photoId) {
+    if (!defic || !Array.isArray(defic.photos)) return null;
+    for (var i = 0; i < defic.photos.length; i++) {
+      var p = defic.photos[i];
+      if (p && p.id === photoId && !p.deleted) return p;
+    }
+    return null;
+  },
+
+  // Identity key for a pool photo (the shared binary). Prefer r2Key; fall
+  // back to sourceR2Key for never-uploaded/legacy entries.
+  _photoIdentityKey: function(photo) {
+    if (!photo) return null;
+    return photo.r2Key || photo.sourceR2Key || null;
+  },
+
+  // Copy a pool photo from one defic to another, sharing the binary (r2Key).
+  // Returns the target pool entry (new or pre-existing). Idempotent: if the
+  // destination already has a live entry for the same binary, returns it
+  // without duplicating. R2 is NOT touched — same object, two references.
+  copyPhotoToPin: function(fromDeficId, photoId, toDeficId) {
+    if (!fromDeficId || !toDeficId || fromDeficId === toDeficId) return null;
+    var src = this.findDeficiency(fromDeficId);
+    var dst = this.findDeficiency(toDeficId);
+    if (!src || !dst) return null;
+    var photo = this._findPoolPhoto(src.defic, photoId);
+    if (!photo) return null;
+    if (!Array.isArray(dst.defic.photos)) dst.defic.photos = [];
+    var key = this._photoIdentityKey(photo);
+    if (key) {
+      for (var i = 0; i < dst.defic.photos.length; i++) {
+        var ex = dst.defic.photos[i];
+        if (ex && !ex.deleted && this._photoIdentityKey(ex) === key) return ex;
+      }
+    }
+    var copy = {
+      id: _uid('ph'),
+      r2Key: photo.r2Key || null,
+      sourceR2Key: photo.sourceR2Key || photo.r2Key || null,
+      r2Url: photo.r2Url || null,
+      dataUrl: photo.dataUrl || null,
+      thumb: photo.thumb || null,
+      filename: photo.filename || ('photo_' + Date.now() + '.jpg'),
+      addedDate: photo.addedDate || new Date().toISOString().split('T')[0],
+      createdBy: photo.createdBy || _currentUserId || null
+    };
+    // Carry markup linkage so a marked photo renders marked on the copy too
+    // (marked binary is keyed off r2Key, which is shared — siblings sync).
+    if (photo._origBackupId) copy._origBackupId = photo._origBackupId;
+    if (photo._annotated)    copy._annotated    = photo._annotated;
+    if (photo.r2Status)      copy.r2Status      = photo.r2Status;
+    dst.defic.photos.push(copy);
+    dst.defic._photoPoolMigrated = true;
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'copy-pin', fromDeficId: fromDeficId, toDeficId: toDeficId, photo: copy });
+    return copy;
+  },
+
+  // Move a pool photo from one defic to another: copy to target, soft-delete
+  // the source reference. The binary stays in R2 (never deleted).
+  movePhotoToPin: function(fromDeficId, photoId, toDeficId) {
+    if (!fromDeficId || !toDeficId || fromDeficId === toDeficId) return null;
+    var copy = this.copyPhotoToPin(fromDeficId, photoId, toDeficId);
+    if (!copy) return null;
+    this.removePoolPhoto(fromDeficId, photoId);
+    this._notify('photo', { action: 'move-pin', fromDeficId: fromDeficId, toDeficId: toDeficId, photo: copy });
+    return copy;
+  },
+
+  // All live pin references to a binary, for the gallery pills. Each entry:
+  // { deficId, num, priority }. Optionally exclude one defic (used by the
+  // release-on-delete check). A photo may be referenced by N pins.
+  getPinReferencesForR2Key: function(r2Key, excludeDeficId) {
+    var out = [];
+    if (!r2Key || !_project) return out;
+    var self = this;
+    this.getAllDeficiencies(_project).forEach(function(d) {
+      var defic = d.defic;
+      if (excludeDeficId && defic.id === excludeDeficId) return;
+      var hit = (defic.photos || []).some(function(p) {
+        return p && !p.deleted && self._photoIdentityKey(p) === r2Key;
+      });
+      if (hit) out.push({ deficId: defic.id, num: defic.num, priority: defic.priority });
+    });
+    return out;
+  },
+
   removeDeficiency: function(deficId) {
     var f = this.findDeficiency(deficId);
     if (!f) return false;
+    // S205 — release this pin's photos before splicing. For each live pool
+    // photo: if NO other pin references the same binary, convert it to a site
+    // photo (push to proj.photos) so it survives in the gallery. If another
+    // pin still references it, drop only this pin's reference (the splice
+    // does that). Binaries are never deleted. Mirrors Mark's rule: deleting a
+    // pin releases its photos to the gallery, it does not destroy them.
+    if (_project) {
+      var self = this;
+      if (!Array.isArray(_project.photos)) _project.photos = [];
+      (f.defic.photos || []).forEach(function(p) {
+        if (!p || p.deleted) return;
+        var key = self._photoIdentityKey(p);
+        var refsElsewhere = key
+          ? self.getPinReferencesForR2Key(key, deficId).length > 0
+          : false;
+        if (refsElsewhere) return; // still on another pin — nothing to release
+        // Avoid duplicating an existing site photo for the same binary
+        var already = _project.photos.some(function(sp) {
+          return sp && !sp.deleted && self._photoIdentityKey(sp) === key;
+        });
+        if (already) return;
+        _project.photos.push({
+          id: _uid('ph'),
+          r2Key: p.r2Key || null,
+          sourceR2Key: p.sourceR2Key || p.r2Key || null,
+          r2Url: p.r2Url || null,
+          dataUrl: p.dataUrl || null,
+          thumb: p.thumb || null,
+          filename: p.filename || ('photo_' + Date.now() + '.jpg'),
+          addedDate: p.addedDate || new Date().toISOString().split('T')[0],
+          createdBy: p.createdBy || _currentUserId || null,
+          r2Status: p.r2Status || undefined,
+          _releasedFromPin: f.defic.num != null ? f.defic.num : true
+        });
+      });
+    }
     // Save for undo
     _undoStack.push({
       type: 'deleteDefic',

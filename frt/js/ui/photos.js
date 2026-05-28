@@ -204,19 +204,61 @@ export var initPhotos = {
     // Stamp UIDs
     records.forEach(function(r) { r.uid = _photoUid(r); });
 
-    // ── Stats: pre-filter totals (for the header counters) ──
-    var totalAll = records.length;
-    var totalSite = records.filter(function(r) { return r.type === 'site'; }).length;
-    var totalDefic = records.filter(function(r) { return r.type === 'defic' && !r.isGeneralPriority; }).length;
-    var totalGeneral = records.filter(function(r) { return r.type === 'defic' && r.isGeneralPriority; }).length;
+    // ── S205: collapse references → one card per photo, aggregate pin pills ──
+    // A photo assigned/copied to multiple pins (or present as both a site
+    // photo and a pin photo) shares one binary (r2Key). Show it ONCE with a
+    // pill per reference rather than one card per reference. The first record
+    // seen is the representative; if a SITE reference exists for the same
+    // binary it is promoted to representative so the gallery trash-delete stays
+    // available. ref* flags drive the (now reference-union) stats + filter.
+    function _phIdKey(r) {
+      var ph = r.ph || {};
+      return ph.r2Key || ph.sourceR2Key || ph.id || r.uid;
+    }
+    var _phById = {};
+    var _phRepOrder = [];
+    records.forEach(function(r) {
+      var k = _phIdKey(r);
+      var isFinding = (r.type === 'defic' && !r.isGeneralPriority);
+      var isNote = (r.type === 'defic' && r.isGeneralPriority);
+      var rep = _phById[k];
+      if (!rep) {
+        r.badges = [{ text: r.badgeText, cls: r.badgeClass }];
+        r.refSite = (r.type === 'site');
+        r.refFinding = isFinding;
+        r.refNote = isNote;
+        _phById[k] = r;
+        _phRepOrder.push(r);
+        return;
+      }
+      var dup = rep.badges.some(function(b) { return b.text === r.badgeText && b.cls === r.badgeClass; });
+      if (!dup) rep.badges.push({ text: r.badgeText, cls: r.badgeClass });
+      rep.refSite = rep.refSite || (r.type === 'site');
+      rep.refFinding = rep.refFinding || isFinding;
+      rep.refNote = rep.refNote || isNote;
+      // Promote a SITE reference to representative so the trash button (site
+      // only) stays reachable; adopt its site context for card actions.
+      if (r.type === 'site' && rep.type !== 'site') {
+        rep.type = 'site';
+        rep.siteIdx = r.siteIdx;
+        rep.src = rep.src || r.src;
+      }
+    });
+    records = _phRepOrder;
 
-    // ── Apply filter ──
+    // ── Stats: distinct-photo totals (reference union per photo) ──
+    var totalAll = records.length;
+    var totalSite = records.filter(function(r) { return r.refSite; }).length;
+    var totalDefic = records.filter(function(r) { return r.refFinding; }).length;
+    var totalGeneral = records.filter(function(r) { return r.refNote; }).length;
+
+    // ── Apply filter (a photo matches if ANY of its references match) ──
     var filtered = records.filter(function(r) {
       if (_filterMode === 'all') return true;
-      if (_filterMode === 'site') return r.type === 'site';
+      if (_filterMode === 'site') return r.refSite;
       // S114 P1.3 rename: deficiency→findings, general→notes (label-only; semantics unchanged)
-      if (_filterMode === 'findings') return r.type === 'defic' && !r.isGeneralPriority;
-      if (_filterMode === 'notes') return r.type === 'defic' && r.isGeneralPriority;
+      if (_filterMode === 'findings') return r.refFinding;
+      if (_filterMode === 'notes') return r.refNote;
       return true;
     });
 
@@ -321,7 +363,13 @@ export var initPhotos = {
         html += '<div class="' + cardCls + '" data-uid="' + esc(r.uid) + '">';
         // S114 P1.3: checkbox is hover-only when unselected, always shown when selected
         html += '<input type="checkbox" class="ph-check"' + (sel ? ' checked' : '') + ' data-action="ph-toggle-photo" data-uid="' + esc(r.uid) + '">';
-        html += '<span class="ph-badge ' + r.badgeClass + '">' + esc(r.badgeText) + '</span>';
+        // S205: render a pill per reference (Site / Pin N / Pin N · Obs X).
+        // A photo on multiple pins shows multiple pills, top-right, wrapping.
+        html += '<span class="ph-badges">';
+        (r.badges || [{ text: r.badgeText, cls: r.badgeClass }]).forEach(function(b) {
+          html += '<span class="ph-badge ' + b.cls + '">' + esc(b.text) + '</span>';
+        });
+        html += '</span>';
         if (r.src) {
           html += '<img ' + clickAction + ' src="' + esc(r.src) + '" loading="lazy" onerror="this.style.display=\'none\'">';
         } else {
@@ -362,6 +410,21 @@ Model.onChange('photo', _scheduleRender);
 Model.onChange('deficiency', _scheduleRender);
 
 // Click handlers
+// S205 — build the lightbox caption label listing every pin that references
+// this photo's binary (r2Key). Optional prefix (e.g. "Site Photo") leads.
+function _phPinLabel(p, prefix) {
+  var parts = [];
+  if (prefix) parts.push(prefix);
+  var refs = (p && Model.getPinReferencesForR2Key)
+    ? Model.getPinReferencesForR2Key(p.r2Key || p.sourceR2Key || null)
+    : [];
+  refs.forEach(function(r) {
+    var n = 'Pin ' + r.num;
+    if (parts.indexOf(n) === -1) parts.push(n);
+  });
+  return parts.join(' \u00b7 ');
+}
+
 document.addEventListener('click', function(e) {
   // Site photo lightbox
   var el = e.target.closest && e.target.closest('[data-action="open-site-lightbox"]');
@@ -371,9 +434,10 @@ document.addEventListener('click', function(e) {
     if (proj && (proj.photos || []).length && window._frtLightbox) {
       // S115 fix: pass the live photo records (not a stripped projection),
       // so the markup save handler can find r2Key/id and propagate to siblings.
-      // _ctxLabel is also set so the lightbox shows "Site Photo" in the caption.
-      (proj.photos || []).forEach(function(p){ p._ctxLabel = 'Site Photo'; });
-      window._frtLightbox.open(proj.photos, idx, { contextLabel:'Site Photo' });
+      // S205: per-photo caption shows "Site Photo" plus any pins referencing
+      // the same binary. No global contextLabel so the per-photo label wins.
+      (proj.photos || []).forEach(function(p) { p._ctxLabel = _phPinLabel(p, 'Site Photo'); });
+      window._frtLightbox.open(proj.photos, idx, {});
     }
     return;
   }
@@ -392,7 +456,12 @@ document.addEventListener('click', function(e) {
         ? Model.getEffectivePhotos(f.defic, obsIdx)
         : (f.defic.observations[obsIdx].photos || []);
       if (photos.length && window._frtLightbox) {
-        window._frtLightbox.open(photos, photoIdx, { contextLabel:'Pin #' + (f.defic.num || '?') });
+        // S205: caption lists every pin referencing this binary (its own pin
+        // plus any copies). Per-photo label, no global contextLabel.
+        photos.forEach(function(p) {
+          p._ctxLabel = _phPinLabel(p, '') || ('Pin #' + (f.defic.num || '?'));
+        });
+        window._frtLightbox.open(photos, photoIdx, {});
       }
     }
     return;
