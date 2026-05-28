@@ -1816,7 +1816,7 @@ body.text-l{--ts:4px;}
 .text-size-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
 
 /* ═══ PHOTO LIGHTBOX ═══ */
-.lightbox-overlay{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.95);display:none;flex-direction:column;font-family:Calibri,sans-serif;}
+.lightbox-overlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.95);display:none;flex-direction:column;font-family:Calibri,sans-serif;}
 .lightbox-overlay.open{display:flex;}
 body.lb-open{overflow:hidden;}
 .lb-toolbar{display:flex;align-items:center;padding:8px 16px;background:rgba(20,26,36,.9);border-bottom:1px solid rgba(255,255,255,.1);min-height:44px;z-index:2;flex-shrink:0;}
