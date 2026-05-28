@@ -720,6 +720,16 @@ export var BinaryOutbox = {
                   ' uploading + ' + resetRetrying + ' retrying row(s) to pending');
     }
     _kickProcessor();
+    // S203 — Self-heal FAILED rows whose object is actually in R2 (false
+    // positives from R2 read-after-write consistency lag, observed in
+    // S202 field-verify). Fire-and-forget so reconcile latency or failure
+    // can never block resume from returning.
+    try {
+      this.reconcileFailedAgainstR2().catch(function(e) {
+        console.warn('[BinaryOutbox] reconcileFailedAgainstR2 ' +
+                     'failed (non-fatal):', e);
+      });
+    } catch (_) {}
     return Promise.resolve();
   },
 
@@ -916,6 +926,129 @@ export var BinaryOutbox = {
       return self.retryEntry(r.id);
     })).then(function(results) {
       return results.filter(Boolean).length;
+    });
+  },
+
+  // ── Reconciliation against R2 (S203) ──
+
+  /** S203 — Self-healing for FAILED rows whose object IS actually in R2.
+   *
+   *  Addresses the false-positive FAILED state caused by R2 read-after-write
+   *  consistency lag (S202 finding: a ~30-second window observed in the
+   *  field where a fresh PUT can 404 on every subsequent GET, exhausting
+   *  the S172 5-retry policy and pushing the row to terminal FAILED even
+   *  though the object is durably written and visible within minutes).
+   *
+   *  For each row in FAILED state with an r2Url populated, this method
+   *  issues a single GET Range:bytes=0-0 against the URL. If the response
+   *  is 2xx, the object IS in R2 and the failure was a false positive:
+   *  the row is promoted FAILED -> R2_CONFIRMED, the model photo's
+   *  failure flags are cleared, and the row re-enters the normal
+   *  cloud-push pipeline. A subsequent push captures the photo and
+   *  markCloudConfirmed deletes the row.
+   *
+   *  If 404 or any other non-2xx (or a network/abort error), the row
+   *  stays FAILED — that is either a genuine missing-object case or a
+   *  transient connectivity issue, neither of which is recoverable
+   *  here. The user can re-run reconcile after connectivity returns,
+   *  or invoke retryEntry to do a fresh PUT.
+   *
+   *  Called fire-and-forget from resume() so a stuck reconcile cannot
+   *  block the rest of the upload pipeline coming back online. Also
+   *  safe to invoke manually from DevTools console for on-demand clears.
+   *
+   *  Idempotent — running with no FAILED rows is a fast no-op.
+   *
+   *  Parallelism is capped at 4 concurrent GETs. Returns
+   *  Promise<{ checked, healed }>. */
+  reconcileFailedAgainstR2: function() {
+    if (!_FIX_A_ENABLED) return Promise.resolve({ checked: 0, healed: 0 });
+    if (!_initialized) {
+      return this.init().then(this.reconcileFailedAgainstR2.bind(this));
+    }
+    var failed = this.getFailedEntries();
+    // Skip rows with no r2Url — they never made it past R2.upload returning
+    // null, so there is no object URL to check against R2.
+    var candidates = failed.filter(function(r) { return r && r.r2Url; });
+    if (candidates.length === 0) {
+      return Promise.resolve({ checked: 0, healed: 0 });
+    }
+    if (_FIX_A_ENABLED) {
+      console.log('[BinaryOutbox] reconcileFailedAgainstR2: checking ' +
+                  candidates.length + ' failed row(s) against R2');
+    }
+
+    var healedCount = 0;
+    var checkedCount = 0;
+    var PARALLEL_CAP = 4;
+    var queue = candidates.slice();
+
+    function _checkOne(row) {
+      return fetch(row.r2Url, {
+        method: 'GET',
+        headers: { 'Range': 'bytes=0-0' }
+      }).then(function(resp) {
+        checkedCount++;
+        if (!resp.ok) {
+          // 404 or other non-2xx — object genuinely not in R2 (or
+          // unreachable). Leave the row FAILED.
+          return;
+        }
+        // Object IS in R2. The FAILED status was a false positive caused
+        // by consistency lag (or some other transient that has since
+        // resolved). Promote FAILED -> R2_CONFIRMED so the normal
+        // cloud-push pipeline can capture it.
+        var now = new Date().toISOString();
+        row.status = OUTBOX_STATUS.R2_CONFIRMED;
+        row.r2ConfirmedAt = row.r2ConfirmedAt || now;
+        row.verifyConfirmedAt = now;
+        row.lastError = null;
+        _persistRow(row).catch(function() {});
+
+        // Clear the FAILED flags on the model photo so badge logic and
+        // UI rendering reflect the healed state. Mirror the post-verify
+        // success path in _processRow (lines 380-395) for parity.
+        try {
+          var proj = Model.getProject();
+          if (proj) {
+            var photo = _findPhotoInProject(proj, row.photoId);
+            if (photo) {
+              delete photo._r2UploadFailed;
+              delete photo._r2UploadError;
+              delete photo._r2UploadFailedAt;
+              if (!photo.r2Key && row.r2Key) photo.r2Key = row.r2Key;
+              if (!photo.r2Url && row.r2Url) photo.r2Url = row.r2Url;
+              photo.uploadStatus = OUTBOX_STATUS.R2_CONFIRMED;
+              if (Model.saveNow) Model.saveNow();
+            }
+          }
+        } catch (e) {
+          console.warn('[BinaryOutbox] reconcile: could not clear ' +
+                       'failure flags on model photo:', e);
+        }
+
+        _notify('r2_confirmed', { rowId: row.id, photoId: row.photoId,
+          r2Key: row.r2Key, r2Url: row.r2Url, viaReconcile: true });
+        healedCount++;
+      }).catch(function(e) {
+        // Network error, abort, etc. — leave the row FAILED. Caller can
+        // re-run reconcile after connectivity returns.
+        checkedCount++;
+      });
+    }
+
+    function _drainBatch() {
+      var batch = queue.splice(0, PARALLEL_CAP);
+      if (batch.length === 0) return Promise.resolve();
+      return Promise.all(batch.map(_checkOne)).then(_drainBatch);
+    }
+
+    return _drainBatch().then(function() {
+      if (_FIX_A_ENABLED && checkedCount > 0) {
+        console.log('[BinaryOutbox] reconcileFailedAgainstR2: healed ' +
+                    healedCount + '/' + checkedCount + ' row(s)');
+      }
+      return { checked: checkedCount, healed: healedCount };
     });
   },
 
