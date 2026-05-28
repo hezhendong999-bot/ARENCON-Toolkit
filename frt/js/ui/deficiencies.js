@@ -1168,11 +1168,10 @@ function _renderCompactBar(proj, trades, ctrs) {
   if (!bar) return;
   var pickCtr = _pickCtrId ? ctrs.filter(function(c) { return c.id === _pickCtrId; })[0] : null;
   var pickHas = pickCtr ? (pickCtr.trades || []) : [];
-  var roster = realCtrs(ctrs).sort(function(a, b) {
-    var au = !((a.trades || []).length), bu = !((b.trades || []).length);
-    if (au !== bu) return au ? -1 : 1;
-    return (a.name || '').localeCompare(b.name || '');
-  });
+  // S205c (Mark): render in CREATION order — never reorder by assignment.
+  // Unassigned cards glow amber but stay put; assigning a trade does not move
+  // them. The only time order changes is deletion (array splice closes the gap).
+  var roster = realCtrs(ctrs);
   var h = '';
   // Row 1 — trades
   h += '<div class="dfx-cb-row dfx-cb-trades">';
@@ -1251,12 +1250,8 @@ function _renderTradeBoard(proj) {
   h += '<button class="crx-roster-add" data-action="crx-add-ctr" title="Add a new contractor">+ Add contractor</button>';
   h += '</div>';
 
-  // ── 2-up roster grid (unassigned/golden first, then A–Z) ──
-  var _roster = realCtrs(ctrs).sort(function(a, b) {
-    var au = !((a.trades || []).length), bu = !((b.trades || []).length);
-    if (au !== bu) return au ? -1 : 1;
-    return (a.name || '').localeCompare(b.name || '');
-  });
+  // ── 2-up roster grid (S205c: CREATION order, never reorder by assignment) ──
+  var _roster = realCtrs(ctrs);
   if (_roster.length) {
     h += '<div class="crx-grid">';
     _roster.forEach(function(c) {
