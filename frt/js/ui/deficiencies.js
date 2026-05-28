@@ -1377,6 +1377,19 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId) {
     return d.defic && d.defic.id !== srcDeficId;
   });
 
+  var R2W = 'https://arencon-r2-worker.hezhendong999.workers.dev';
+  var PR_COL = { high: '#A85959', low: '#B07F5A', gen: '#5F8068' };
+  function prKey(defic) { return defic.priority === 'general' ? 'gen' : (defic.priority === 'low' ? 'low' : 'high'); }
+  function leadThumb(defic) {
+    var ph = (defic.photos || []).filter(function(p) { return p && !p.deleted; })[0];
+    return ph ? (ph.thumb || ph.r2Url || ph.dataUrl || '') : '';
+  }
+  function photoCount(defic) { return (defic.photos || []).filter(function(p) { return p && !p.deleted; }).length; }
+  function obsText(defic) { var o = (defic.observations || [])[0]; return (o && o.text) ? o.text : ''; }
+
+  var mode = 'copy';
+  var view = 'rows';
+
   var ov = document.createElement('div');
   ov.className = 'picker-overlay show';
   ov.id = 'pinphoto-picker-overlay';
@@ -1384,90 +1397,199 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId) {
 
   var p = document.createElement('div');
   p.className = 'picker pinphoto-picker';
-
-  var h = '<div class="picker-title">Move or copy photo to another pin</div>';
-  h += '<div class="pinphoto-mode">';
-  h += '<button class="pinphoto-mode-btn active" data-mode="copy">Copy</button>';
-  h += '<button class="pinphoto-mode-btn" data-mode="move">Move</button>';
-  h += '</div>';
-  h += '<div class="pinphoto-hint" id="pinphoto-hint">Copy keeps the photo on this pin and adds it to the chosen pin.</div>';
-  h += '<input type="text" class="picker-input" id="pinphoto-search" placeholder="Search pin # / contractor / text" autocomplete="off">';
-  h += '<div class="pinphoto-list" id="pinphoto-list">';
-  if (!pins.length) {
-    h += '<div class="pinphoto-empty">No other pins in this project.</div>';
-  } else {
-    pins.forEach(function(d) {
-      var defic = d.defic;
-      var ctr = d.contractorName || '';
-      var obs0 = (defic.observations || [])[0];
-      var txt = (obs0 && obs0.text) ? obs0.text : '';
-      var pr = (defic.priority === 'general') ? 'gen' : (defic.priority === 'low' ? 'low' : 'high');
-      var hay = ('pin ' + defic.num + ' ' + ctr + ' ' + txt).toLowerCase();
-      h += '<button class="pinphoto-row" data-pin-id="' + esc(defic.id) + '" data-search="' + esc(hay) + '">'
-        +    '<span class="pinphoto-row-num pp-' + esc(pr) + '">Pin ' + esc(defic.num) + '</span>'
-        +    '<span class="pinphoto-row-meta">'
-        +      (ctr ? '<span class="pinphoto-row-ctr">' + esc(ctr) + '</span>' : '')
-        +      (txt ? '<span class="pinphoto-row-txt">' + esc(txt.slice(0, 90)) + '</span>' : '')
-        +    '</span>'
-        +  '</button>';
-    });
-  }
-  h += '</div>';
-  h += '<div class="picker-foot"><button class="btn btn-sm picker-cancel-btn" data-action="pinphoto-close">Cancel</button></div>';
-  p.innerHTML = h;
+  p.innerHTML =
+    '<div class="picker-title">Move or copy photo to another pin</div>' +
+    '<div class="pinphoto-mode">' +
+      '<button class="pinphoto-mode-btn active" data-mode="copy">Copy</button>' +
+      '<button class="pinphoto-mode-btn" data-mode="move">Move</button>' +
+    '</div>' +
+    '<div class="pinphoto-views">' +
+      '<button class="pinphoto-view-btn active" data-view="rows">List</button>' +
+      '<button class="pinphoto-view-btn" data-view="plan">Plan</button>' +
+      '<button class="pinphoto-view-btn" data-view="grid">Grid</button>' +
+    '</div>' +
+    '<div class="pinphoto-hint" id="pinphoto-hint">Copy keeps the photo on this pin and adds it to the chosen pin.</div>' +
+    '<div id="pinphoto-stage"></div>' +
+    '<div class="picker-foot"><button class="btn btn-sm picker-cancel-btn" data-action="pinphoto-close">Cancel</button></div>';
   ov.appendChild(p);
   document.body.appendChild(ov);
 
   var cancelBtn = p.querySelector('[data-action="pinphoto-close"]');
   if (cancelBtn) cancelBtn.addEventListener('click', _closePinPhotoPicker);
 
-  var mode = 'copy';
-  Array.prototype.forEach.call(p.querySelectorAll('.pinphoto-mode-btn'), function(btn) {
+  function doPick(toId) {
+    if (!toId) return;
+    var destF = Model.findDeficiency(toId);
+    var destNum = (destF && destF.defic) ? destF.defic.num : '?';
+    var res = (mode === 'move')
+      ? Model.movePhotoToPin(srcDeficId, photoId, toId)
+      : Model.copyPhotoToPin(srcDeficId, photoId, toId);
+    _closePinPhotoPicker();
+    if (res) {
+      initDeficiencies.render();
+      toast((mode === 'move' ? 'Moved to Pin ' : 'Copied to Pin ') + destNum);
+    } else {
+      toast('\u26A0 Could not ' + mode + ' photo to that pin');
+    }
+  }
+
+  var stage = p.querySelector('#pinphoto-stage');
+
+  function renderRows() {
+    if (!pins.length) { stage.innerHTML = '<div class="pinphoto-empty">No other pins in this project.</div>'; return; }
+    var h = '<input type="text" class="picker-input" id="pinphoto-search" placeholder="Search pin # / contractor / text" autocomplete="off">';
+    h += '<div class="pinphoto-list">';
+    pins.forEach(function(d) {
+      var defic = d.defic, ctr = d.contractorName || '', txt = obsText(defic);
+      var col = PR_COL[prKey(defic)], th = leadThumb(defic), pc = photoCount(defic);
+      var hay = ('pin ' + defic.num + ' ' + ctr + ' ' + txt).toLowerCase();
+      h += '<button class="pinphoto-row" data-pin-id="' + esc(defic.id) + '" data-search="' + esc(hay) + '">';
+      h += th
+        ? '<span class="pinphoto-thumb" style="background-image:url(\'' + esc(th) + '\')"></span>'
+        : '<span class="pinphoto-thumb pinphoto-thumb-empty" style="background:' + col + '">\uD83D\uDCCD</span>';
+      h += '<span class="pinphoto-pill" style="background:' + col + '">Pin ' + esc(defic.num) + '</span>';
+      h += '<span class="pinphoto-meta"><span class="pinphoto-ctr">' + esc(ctr) + '</span>';
+      h += '<span class="pinphoto-txt' + (txt ? '' : ' none') + '">' + (txt ? esc(txt) : 'no observation text') + '</span></span>';
+      h += '<span class="pinphoto-count">' + pc + ' \uD83D\uDDBC</span>';
+      h += '</button>';
+    });
+    h += '</div>';
+    stage.innerHTML = h;
+    stage.querySelectorAll('.pinphoto-row').forEach(function(row) {
+      row.addEventListener('click', function() { doPick(row.getAttribute('data-pin-id')); });
+    });
+    var s = stage.querySelector('#pinphoto-search');
+    if (s) {
+      s.addEventListener('input', function() {
+        var q = s.value.trim().toLowerCase();
+        stage.querySelectorAll('.pinphoto-row').forEach(function(row) {
+          var hay = row.getAttribute('data-search') || '';
+          row.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
+        });
+      });
+      setTimeout(function() { s.focus(); }, 0);
+    }
+  }
+
+  function renderGrid() {
+    if (!pins.length) { stage.innerHTML = '<div class="pinphoto-empty">No other pins in this project.</div>'; return; }
+    var h = '<input type="text" class="picker-input" id="pinphoto-search" placeholder="Search pin # / contractor / text" autocomplete="off">';
+    h += '<div class="pinphoto-grid">';
+    pins.forEach(function(d) {
+      var defic = d.defic, ctr = d.contractorName || '', txt = obsText(defic);
+      var col = PR_COL[prKey(defic)], th = leadThumb(defic), pc = photoCount(defic);
+      var hay = ('pin ' + defic.num + ' ' + ctr + ' ' + txt).toLowerCase();
+      h += '<button class="pinphoto-gcard" data-pin-id="' + esc(defic.id) + '" data-search="' + esc(hay) + '" title="Pin ' + esc(defic.num) + ' \u2014 ' + esc(ctr) + '">';
+      h += th
+        ? '<span class="pinphoto-gimg" style="background-image:url(\'' + esc(th) + '\')"></span>'
+        : '<span class="pinphoto-gimg pinphoto-gimg-empty" style="background:' + col + '">\uD83D\uDCCD</span>';
+      h += '<span class="pinphoto-gbadge" style="background:' + col + '">Pin ' + esc(defic.num) + '</span>';
+      if (pc) h += '<span class="pinphoto-gcount">' + pc + '</span>';
+      h += '</button>';
+    });
+    h += '</div>';
+    stage.innerHTML = h;
+    stage.querySelectorAll('.pinphoto-gcard').forEach(function(c) {
+      c.addEventListener('click', function() { doPick(c.getAttribute('data-pin-id')); });
+    });
+    var s = stage.querySelector('#pinphoto-search');
+    if (s) s.addEventListener('input', function() {
+      var q = s.value.trim().toLowerCase();
+      stage.querySelectorAll('.pinphoto-gcard').forEach(function(c) {
+        var hay = c.getAttribute('data-search') || '';
+        c.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
+      });
+    });
+  }
+
+  function renderPlan() {
+    var placed = pins.filter(function(d) { return d.defic.drawingId && d.defic.pinX != null && d.defic.pinY != null; });
+    var unplaced = pins.length - placed.length;
+    var drawings = (proj.drawings || []).filter(function(dw) {
+      return placed.some(function(d) { return d.defic.drawingId === dw.id; });
+    });
+    if (!drawings.length) {
+      stage.innerHTML = '<div class="pinphoto-empty">No pins are placed on a drawing yet. Use List or Grid, or place pins on a drawing first.</div>';
+      return;
+    }
+    var pid = (new URLSearchParams(window.location.search)).get('project') || '';
+    var curDwg = drawings[0].id;
+
+    function cands(dw) {
+      var c = [];
+      if (dw.dataUrl) c.push(dw.dataUrl);
+      if (dw.r2Url) c.push(dw.r2Url);
+      if (pid) c.push(R2W + '/' + encodeURIComponent(pid) + '/tiles/' + encodeURIComponent(dw.id) + '/L0/0_0.webp');
+      return c;
+    }
+
+    function paint() {
+      var dw = drawings.filter(function(x) { return x.id === curDwg; })[0] || drawings[0];
+      var dwgPins = placed.filter(function(d) { return d.defic.drawingId === dw.id; });
+      var h = '';
+      if (drawings.length > 1) {
+        h += '<div class="pinphoto-dwgtabs">';
+        drawings.forEach(function(x) {
+          h += '<button class="pinphoto-dwgtab' + (x.id === curDwg ? ' active' : '') + '" data-dwg="' + esc(x.id) + '">' + esc(x.name || x.title || 'Sheet') + '</button>';
+        });
+        h += '</div>';
+      }
+      h += '<div class="pinphoto-plan"><img class="pinphoto-plan-img" alt="">';
+      dwgPins.forEach(function(d) {
+        var defic = d.defic, col = PR_COL[prKey(defic)];
+        h += '<button class="pinphoto-planpin" data-pin-id="' + esc(defic.id) + '" title="Pin ' + esc(defic.num) + ' \u2014 ' + esc(d.contractorName || '') + '" '
+          + 'style="left:' + (defic.pinX * 100) + '%;top:' + (defic.pinY * 100) + '%;background:' + col + '">' + esc(defic.num) + '</button>';
+      });
+      h += '</div>';
+      if (unplaced > 0) {
+        h += '<div class="pinphoto-unplaced-note">' + unplaced + ' pin' + (unplaced === 1 ? '' : 's') + ' not on a drawing \u2014 use List or Grid to reach those.</div>';
+      }
+      stage.innerHTML = h;
+
+      var imgEl = stage.querySelector('.pinphoto-plan-img');
+      var list = cands(dw), ci = 0;
+      function tryImg() {
+        if (ci >= list.length) { if (imgEl) imgEl.alt = 'Drawing image unavailable'; return; }
+        imgEl.onerror = function() { ci++; tryImg(); };
+        imgEl.src = list[ci];
+      }
+      if (imgEl) tryImg();
+
+      stage.querySelectorAll('.pinphoto-planpin').forEach(function(b) {
+        b.addEventListener('click', function() { doPick(b.getAttribute('data-pin-id')); });
+      });
+      stage.querySelectorAll('.pinphoto-dwgtab').forEach(function(t) {
+        t.addEventListener('click', function() { curDwg = t.getAttribute('data-dwg'); paint(); });
+      });
+    }
+    paint();
+  }
+
+  function renderView() {
+    if (view === 'rows') renderRows();
+    else if (view === 'plan') renderPlan();
+    else renderGrid();
+  }
+
+  p.querySelectorAll('.pinphoto-mode-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
       mode = btn.getAttribute('data-mode') || 'copy';
-      Array.prototype.forEach.call(p.querySelectorAll('.pinphoto-mode-btn'), function(b) {
-        b.classList.toggle('active', b === btn);
-      });
-      var hint = document.getElementById('pinphoto-hint');
+      p.querySelectorAll('.pinphoto-mode-btn').forEach(function(b) { b.classList.toggle('active', b === btn); });
+      var hint = p.querySelector('#pinphoto-hint');
       if (hint) hint.textContent = (mode === 'move')
         ? 'Move takes the photo off this pin and puts it on the chosen pin. It stays in the gallery.'
         : 'Copy keeps the photo on this pin and adds it to the chosen pin.';
     });
   });
-
-  var searchEl = document.getElementById('pinphoto-search');
-  if (searchEl) {
-    searchEl.addEventListener('input', function() {
-      var q = searchEl.value.trim().toLowerCase();
-      Array.prototype.forEach.call(p.querySelectorAll('.pinphoto-row'), function(row) {
-        var hay = row.getAttribute('data-search') || '';
-        row.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
-      });
-    });
-    searchEl.addEventListener('keydown', function(ev) {
-      if (ev.key === 'Escape') { ev.preventDefault(); _closePinPhotoPicker(); }
-    });
-    setTimeout(function() { searchEl.focus(); }, 0);
-  }
-
-  Array.prototype.forEach.call(p.querySelectorAll('.pinphoto-row'), function(row) {
-    row.addEventListener('click', function() {
-      var toId = row.getAttribute('data-pin-id');
-      if (!toId) return;
-      var destF = Model.findDeficiency(toId);
-      var destNum = (destF && destF.defic) ? destF.defic.num : '?';
-      var res = (mode === 'move')
-        ? Model.movePhotoToPin(srcDeficId, photoId, toId)
-        : Model.copyPhotoToPin(srcDeficId, photoId, toId);
-      _closePinPhotoPicker();
-      if (res) {
-        initDeficiencies.render();
-        toast((mode === 'move' ? 'Moved to Pin ' : 'Copied to Pin ') + destNum);
-      } else {
-        toast('\u26A0 Could not ' + mode + ' photo to that pin');
-      }
+  p.querySelectorAll('.pinphoto-view-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      view = btn.getAttribute('data-view') || 'rows';
+      p.querySelectorAll('.pinphoto-view-btn').forEach(function(b) { b.classList.toggle('active', b === btn); });
+      renderView();
     });
   });
+
+  renderView();
 }
 
 function _closePinPhotoPicker() {

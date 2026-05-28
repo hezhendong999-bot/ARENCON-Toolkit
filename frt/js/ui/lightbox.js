@@ -421,6 +421,15 @@ function _open(photos, startIdx, opts) {
 
   var overlay = _el('lightbox-overlay');
   if (overlay) {
+    // S205 — escape any ancestor stacking context. The lightbox lives in
+    // index.html nested below body; when opened over a body-level modal
+    // (e.g. the pin-editor #pinfocus-overlay), its z-index is scoped to its
+    // wrapper and it renders BEHIND that modal. Re-parenting to be the last
+    // child of <body> puts it in the root stacking context and paints last.
+    // No-op once it's already there (idempotent across opens).
+    if (overlay.parentNode !== document.body || overlay !== document.body.lastElementChild) {
+      document.body.appendChild(overlay);
+    }
     overlay.classList.add('open');
     document.body.classList.add('lb-open');
   }

@@ -8397,43 +8397,68 @@ body.dark-mode #dfx-compact-bar .dfx-cb-cc.crx-unassigned { background: #2e2418;
 /* End S197 ───────────────────────────────────────────────────────── */
 
 /* ═══════════════════════════════════════════════════════════════════
-   S205 — Gallery Move/Copy: multi-pin pills + pin-photo move/copy picker
+   S205 — Gallery Move/Copy: multi-pin pills + 3-view pin picker
    ═══════════════════════════════════════════════════════════════════ */
 
-/* Move/Copy-to-pin button on obs photo tiles. Corners in use: del=top-right,
-   AI=bottom-right, sync=bottom-left → this sits top-left. Touch-revealed per
-   house rule (@media pointer:coarse), never hover-only. */
+/* Move/Copy-to-pin button on obs photo tiles. Corners: del=top-right,
+   AI=bottom-right, sync=bottom-left → this sits top-left. Touch-revealed. */
 .obs-photo-pin{position:absolute;top:3px;left:3px;background:rgba(44,71,112,.92);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;text-align:center;cursor:pointer;padding:0;z-index:3;display:none;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.4);}
 .obs-photo-pin:hover{background:#2C4770;}
 .obs-photo-wrap:hover .obs-photo-pin{display:flex;}
 @media(pointer:coarse){.obs-photo-pin{display:flex;opacity:.85;}}
 
-/* Gallery card — stack multiple pin pills in the top-right corner. The base
-   .ph-badge is position:absolute; inside .ph-badges it becomes static and the
-   container handles placement + wrapping. pointer-events:none so taps fall
-   through to the image (open lightbox). */
+/* Gallery card — stack multiple pin pills top-right. Base .ph-badge is
+   position:absolute; inside .ph-badges it goes static + the container wraps. */
 .ph-badges{position:absolute;top:6px;right:6px;z-index:2;display:flex;flex-direction:column;align-items:flex-end;gap:3px;max-width:85%;pointer-events:none;}
 .ph-badges .ph-badge{position:static;top:auto;right:auto;}
 
-/* Pin-photo Move/Copy picker — mirrors .picker, adds the mode toggle + list. */
-.pinphoto-picker{max-width:440px;width:92vw;}
-.pinphoto-mode{display:flex;margin:4px 0 10px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+/* ── Pin picker (3 views) ── must clear the pin-editor modal (z 9998). */
+#pinphoto-picker-overlay{z-index:10001;}
+.pinphoto-picker{max-width:460px;width:94vw;}
+.pinphoto-mode{display:flex;margin:4px 0 8px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 .pinphoto-mode-btn{flex:1;background:transparent;border:none;padding:9px 0;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;color:var(--silver);cursor:pointer;min-height:42px;}
 .pinphoto-mode-btn.active{background:#2C4770;color:#fff;}
 body.dark-mode .pinphoto-mode-btn{color:#9aa3bd;}
 body.dark-mode .pinphoto-mode-btn.active{background:#2C4770;color:#fff;}
+.pinphoto-views{display:flex;gap:6px;margin:0 0 8px;}
+.pinphoto-view-btn{flex:1;background:transparent;border:1px solid var(--border);border-radius:7px;padding:7px 0;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;color:var(--silver);cursor:pointer;min-height:38px;}
+.pinphoto-view-btn.active{background:var(--arencon);color:#fff;border-color:var(--arencon);}
 .pinphoto-hint{font-size:12px;color:var(--silver);margin:0 0 10px;line-height:1.4;}
-.pinphoto-list{max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-top:8px;-webkit-overflow-scrolling:touch;}
-.pinphoto-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card,#fff);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;font-family:Calibri,sans-serif;min-height:48px;transition:background .12s,border-color .12s;}
-.pinphoto-row:hover{background:rgba(44,71,112,.08);border-color:#2C4770;}
+.pinphoto-empty{color:var(--silver);font-style:italic;text-align:center;padding:20px;font-size:13px;}
+
+/* List view */
+.pinphoto-list{max-height:44vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-top:8px;-webkit-overflow-scrolling:touch;}
+.pinphoto-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card,#fff);border:1px solid var(--border);border-radius:9px;padding:8px 10px;cursor:pointer;font-family:Calibri,sans-serif;min-height:62px;transition:background .12s,border-color .12s;}
+.pinphoto-row:hover{background:rgba(44,71,112,.07);border-color:#2C4770;}
 body.dark-mode .pinphoto-row{background:#23262e;}
 body.dark-mode .pinphoto-row:hover{background:rgba(80,110,160,.18);}
-.pinphoto-row-num{flex:0 0 auto;font-weight:700;font-size:13px;color:#fff;border-radius:11px;padding:3px 10px;background:#A85959;white-space:nowrap;}
-.pinphoto-row-num.pp-low{background:#B07F5A;}
-.pinphoto-row-num.pp-gen{background:#5F8068;}
-.pinphoto-row-meta{display:flex;flex-direction:column;gap:1px;min-width:0;}
-.pinphoto-row-ctr{font-size:13px;font-weight:600;color:var(--ink,#1a1a1a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-body.dark-mode .pinphoto-row-ctr{color:#E0E5F0;}
-.pinphoto-row-txt{font-size:12px;color:var(--silver);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.pinphoto-empty{color:var(--silver);font-style:italic;text-align:center;padding:20px;font-size:13px;}
+.pinphoto-thumb{flex:0 0 auto;width:48px;height:48px;border-radius:7px;background-size:cover;background-position:center;}
+.pinphoto-thumb-empty{display:flex;align-items:center;justify-content:center;font-size:20px;color:rgba(255,255,255,.85);}
+.pinphoto-pill{flex:0 0 auto;font-weight:700;font-size:13px;color:#fff;border-radius:11px;padding:3px 10px;white-space:nowrap;}
+.pinphoto-meta{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1;}
+.pinphoto-ctr{font-size:13.5px;font-weight:700;color:var(--ink,#1B2438);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+body.dark-mode .pinphoto-ctr{color:#E0E5F0;}
+.pinphoto-txt{font-size:12.5px;color:var(--silver);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pinphoto-txt.none{font-style:italic;opacity:.75;}
+.pinphoto-count{flex:0 0 auto;font-size:12px;color:var(--silver);white-space:nowrap;}
+
+/* Grid view */
+.pinphoto-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;max-height:46vh;overflow-y:auto;margin-top:8px;-webkit-overflow-scrolling:touch;}
+.pinphoto-gcard{position:relative;aspect-ratio:1;border:1px solid var(--border);border-radius:9px;overflow:hidden;cursor:pointer;padding:0;background:none;}
+.pinphoto-gcard:hover{border-color:#2C4770;}
+.pinphoto-gimg{position:absolute;inset:0;background-size:cover;background-position:center;}
+.pinphoto-gimg-empty{display:flex;align-items:center;justify-content:center;font-size:24px;color:rgba(255,255,255,.85);}
+.pinphoto-gbadge{position:absolute;top:5px;left:5px;font-size:11px;font-weight:700;color:#fff;border-radius:11px;padding:2px 8px;}
+.pinphoto-gcount{position:absolute;bottom:5px;right:5px;font-size:11px;color:#fff;background:rgba(0,0,0,.5);border-radius:10px;padding:1px 7px;}
+
+/* Plan view */
+.pinphoto-dwgtabs{display:flex;gap:6px;margin:6px 0 8px;flex-wrap:wrap;}
+.pinphoto-dwgtab{font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--card,#fff);color:var(--silver);border-radius:7px;padding:5px 10px;cursor:pointer;font-family:Calibri,sans-serif;}
+.pinphoto-dwgtab.active{background:#2C4770;color:#fff;border-color:#2C4770;}
+.pinphoto-plan{position:relative;width:100%;background:#F4F6FA;border:1px solid var(--border);border-radius:9px;overflow:hidden;min-height:120px;line-height:0;}
+body.dark-mode .pinphoto-plan{background:#1c1f26;}
+.pinphoto-plan-img{display:block;width:100%;height:auto;}
+.pinphoto-planpin{position:absolute;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);line-height:1;}
+.pinphoto-planpin:hover{transform:translate(-50%,-50%) scale(1.15);}
+.pinphoto-unplaced-note{font-size:12px;color:var(--silver);margin:8px 2px 0;font-style:italic;}
 /* End S205 ───────────────────────────────────────────────────────── */
