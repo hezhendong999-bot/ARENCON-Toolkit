@@ -449,6 +449,13 @@ body.dark-mode .pe-iar-btn:not(.active){background:#2a2d35;color:white;border-co
 body.dark-mode .pe-obs-tab{background:#2a2d35;color:#ccc;border-color:#3a3e48;}body.dark-mode .pe-obs-tab.active{background:#9C2742;color:white;border-color:#9C2742;}
 .pe-obs-tab-add{background:transparent;border:1px dashed #dde1e7;color:#607D8B;padding:5px 10px;border-radius:6px 6px 0 0;cursor:pointer;font-size:calc(14px + var(--ts));}
 body.dark-mode .pe-obs-tab-add{border-color:#3a3e48;color:#8a94b0;}
+/* S205c (Mark): per-obs delete ✕ — hover-reveal on desktop, always shown on touch. */
+.pe-obs-tab{position:relative;}
+.pe-obs-del{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-left:7px;border-radius:50%;font-size:calc(10px + var(--ts));line-height:1;opacity:0;transition:opacity .12s,background .12s;color:inherit;}
+.pe-obs-tab:hover .pe-obs-del{opacity:.65;}
+.pe-obs-del:hover{opacity:1 !important;background:rgba(156,39,66,.85);color:#fff;}
+.pe-obs-tab.active .pe-obs-del:hover{background:rgba(255,255,255,.3);}
+@media (pointer:coarse){.pe-obs-del{opacity:.7;}}
 .pe-obs-content{border:1.5px solid #A85959;border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px;}
 .pe-priority-row{display:flex;gap:6px;}
 .pe-pri-btn{padding:5px 16px;border-radius:5px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));border:2px solid transparent;color:white;transition:opacity .15s;}

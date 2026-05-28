@@ -2314,15 +2314,21 @@ function _renderBoardView(proj, container) {
     var _curLane = clsOf(r);
     var _moveable = (oi >= 0);
     var _sel = !!(_bvSel && _bvSel.id === d.id && _bvSel.oi === oi);
+    // S205c (Mark): card-body tap opens the pin editor, the photo opens the
+    // lightbox, and the ↗ arms assign mode. The photo only carries the
+    // open-lightbox hook when a real photo exists, so an empty thumbnail
+    // stays part of the card-body open target.
+    var _bvPhotos = (oi >= 0 && Model.getEffectivePhotos) ? Model.getEffectivePhotos(d, oi) : [];
+    var _bvHasPhoto = !!(_bvPhotos && _bvPhotos.length);
     return '<div class="dfx-bv-card' + (_sel ? ' dfx-bv-sel' : '') + '" data-bv="card" data-bv-id="' + esc(d.id) + '" data-bv-oi="' + oi + '" data-bv-lane="' + _curLane + '"' + (_moveable ? ' draggable="true"' : '') + '>'
-      + '<div class="dfx-bv-photo">' + _dfxThumb(d, oi, 'dfx-bv-photo-img') + '</div>'
+      + '<div class="dfx-bv-photo"' + (_bvHasPhoto ? ' data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="0" title="View photo"' : '') + '>' + _dfxThumb(d, oi, 'dfx-bv-photo-img') + '</div>'
       + '<div class="dfx-bv-main">'
       + '<div class="dfx-bv-card-top">'
       + '<span class="dfx-bv-card-num">#' + esc(_dfxObsLabel(d, oi)) + '</span>'
       + '<span class="dfx-bv-card-ctr" style="--cc:' + esc(cColor) + ';">' + esc(cName) + '</span>'
       + '<span class="dfx-bv-htools">'
       + '<button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '"' + _bvObsAttr + ' class="dfx-tbl-star' + (_bvIsRec ? ' is-rec' : '') + '" aria-pressed="' + (_bvIsRec ? 'true' : 'false') + '" title="' + (_bvIsRec ? 'This is a Recommendation — click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (_bvIsRec ? '★' : '☆') + '</button>'
-      + '<button type="button" class="dfx-bv-open" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '"' + _bvObsAttr + ' title="Open this observation to edit" aria-label="Open observation to edit">\u2197</button>'
+      + '<button type="button" class="dfx-bv-open" data-action="bv-arm" data-defic-id="' + esc(d.id) + '"' + _bvObsAttr + ' title="Assign \u2014 then tap a contractor or trade" aria-label="Assign contractor or trade">\u2197</button>'
       + '</span>'
       + '</div>'
       + '<div class="dfx-bv-card-text">' + esc(desc) + '</div>'
@@ -4287,13 +4293,27 @@ document.addEventListener('click', function(e) {
   //   - Trade-pill-with-sel → same `_bvSel` guard
   //   - Arming on .crx-cc  → the only path we WANT active in every view
   var card = e.target.closest && e.target.closest('[data-bv="card"]');
-  var onCtl = e.target.closest && (e.target.closest('[data-action="dfx-goto"]')
-    || e.target.closest('[data-action="toggle-rec"]')
-    || e.target.closest('.dfx-bv-card-trade'));
+  // S205c (Mark): board card interaction model —
+  //   tap card body → OPEN the pin editor (was: arm _bvSel)
+  //   ↗ (bv-arm)    → arm assign mode; tap a contractor/trade next, auto-off
+  //   photo         → open-lightbox (handled by its own dispatch; excluded here)
+  //   ★ / trade pill→ their own handlers
+  // Desktop drag (dragstart/drop) still moves lanes; on touch, ↗-arm + tap a
+  // column moves it (the armed-card column path below is unchanged).
   if (card) {
-    if (onCtl) return;                       // ↗ open / ★ rec / trade pill keep their own handlers
     var id = card.getAttribute('data-bv-id');
     var oi = parseInt(card.getAttribute('data-bv-oi'), 10);
+    if (e.target.closest('[data-action="toggle-rec"]')
+      || e.target.closest('.dfx-bv-card-trade')
+      || e.target.closest('[data-action="open-lightbox"]')) return;   // own handlers
+    if (e.target.closest('[data-action="bv-arm"]')) {                 // ↗ → arm assign (toggle)
+      if (!(oi >= 0)) { toast('\u26A0 Open this pin to edit \u2014 it has no observation to assign.'); return; }
+      _pickCtrId = null;
+      if (_bvSel && _bvSel.id === id && _bvSel.oi === oi) _bvSel = null;
+      else _bvSel = { id: id, oi: oi };
+      initDeficiencies.render();
+      return;
+    }
     if (_pickCtrId) {                         // §1: armed roster ⊕ + click card → reassign the pin
       Model.reassignDeficiency(id, _pickCtrId);
       _pickCtrId = null; _bvSel = null;
@@ -4302,10 +4322,7 @@ document.addEventListener('click', function(e) {
       toast('\u2714 Assigned to ' + ((_c && _c.contractor && _c.contractor.name) || 'contractor'));
       return;
     }
-    if (!(oi >= 0)) { toast('\u26A0 Open this pin (\u2197) to edit \u2014 it has no observation to move.'); return; }
-    if (_bvSel && _bvSel.id === id && _bvSel.oi === oi) _bvSel = null;   // tap a selected card again = deselect
-    else _bvSel = { id: id, oi: oi };
-    initDeficiencies.render();
+    _openPinFocus(id, (oi >= 0) ? oi : undefined);   // plain card-body tap → OPEN pin editor
     return;
   }
   // S153 B3 (Mark): with NO Board card selected, tapping a contractor
