@@ -6830,6 +6830,15 @@ async function _syncHeartbeat(){
       // Merge: cloud owns structure, local owns binary data (R2 fields)
       var cloudState = typeof row.row.data === 'string' ? JSON.parse(row.row.data) : row.row.data;
       var localState = collectState();
+      // ── S25 EMPTY-CLOUD GUARD ──
+      // Never let a materially-empty cloud row overwrite a non-empty local report.
+      // (S25 incident: blank cloud clobbered local; 6-hour recovery.) Local wins
+      // and re-populates cloud on the next autosave push.
+      if(!_stateHasContent(cloudState) && _stateHasContent(localState)){
+        console.warn('[Heartbeat] S25 guard: cloud row is empty but local has content — skipping apply.');
+        localStorage.setItem('_diesel_cloudSyncedAt_'+_csProjectId, row.row.updated_at);
+        _syncLock = false; _heartbeatRunning = false; return;
+      }
       var merged = _mergeCloudLocal(cloudState, localState);
       _applyLoadedState(JSON.stringify(merged));
       localStorage.setItem('_diesel_cloudSyncedAt_'+_csProjectId, row.row.updated_at);
@@ -6850,6 +6859,27 @@ async function _syncHeartbeat(){
     _syncLock = false;
   }
   _heartbeatRunning = false;
+}
+// S25 guard: does a state object carry real report content?
+// Conservative — any single content signal counts. On error, assume content
+// (fail safe: never let a real inspection look "empty" and get overwritten).
+function _stateHasContent(s){
+  if(!s || typeof s!=='object') return false;
+  try {
+    if(Array.isArray(s.generalDeficiencies) && s.generalDeficiencies.length) return true;
+    if(s.deficiencies && Object.keys(s.deficiencies).some(function(k){return Array.isArray(s.deficiencies[k]) && s.deficiencies[k].length;})) return true;
+    if(Array.isArray(s.contractors) && s.contractors.length) return true;
+    if(Array.isArray(s.customItems) && s.customItems.length) return true;
+    if(Array.isArray(s.flowTestPhotos) && s.flowTestPhotos.length) return true;
+    if(Array.isArray(s.flowTestPhotosPld) && s.flowTestPhotosPld.length) return true;
+    if(Array.isArray(s.sketchEntries) && s.sketchEntries.length) return true;
+    if(s.clState && Object.keys(s.clState).some(function(k){var v=s.clState[k]; return v && typeof v==='object' && ((v.response!=null&&v.response!=='')||(v.status!=null&&v.status!=='')||(v.val!=null&&v.val!=='')||(v.comment&&String(v.comment).trim())||(Array.isArray(v.photos)&&v.photos.length));})) return true;
+    if(s.proj && ((s.proj['pi-projname']&&String(s.proj['pi-projname']).trim())||(s.proj['pi-projno']&&String(s.proj['pi-projno']).trim())||(s.proj['pi-client']&&String(s.proj['pi-client']).trim()))) return true;
+    if(s.batData && ((Array.isArray(s.batData.b1)&&s.batData.b1.some(function(x){return x!=null&&x!=='';}))||(Array.isArray(s.batData.b2)&&s.batData.b2.some(function(x){return x!=null&&x!=='';})))) return true;
+    if(Array.isArray(s.stdData) && s.stdData.some(function(r){return r&&typeof r==='object'&&Object.keys(r).some(function(kk){return r[kk]!=null&&r[kk]!=='';});})) return true;
+    if(Array.isArray(s.pldData) && s.pldData.some(function(r){return r&&typeof r==='object'&&Object.keys(r).some(function(kk){return r[kk]!=null&&r[kk]!=='';});})) return true;
+  } catch(e){ return true; }
+  return false;
 }
 // Merge: cloud owns structure, local owns binary/R2 data
 function _mergeCloudLocal(cloud, local){
