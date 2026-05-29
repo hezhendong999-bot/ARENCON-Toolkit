@@ -178,6 +178,32 @@ function switchTab(tabName) {
   }
 }
 
+// S207: restore the tab + scroll the user was on before an update reload.
+// Keys are written by _doUpdateReload() (the "Refresh" button). Consumed
+// once and cleared, so a normal cold boot (no keys) still lands on 'info'.
+// Valid tabs only; anything stale/unknown falls back to 'info'. Scroll is
+// best-effort and deferred to the next frame so the panel has rendered.
+function _restoreView() {
+  var tab = null, scroll = 0;
+  try {
+    tab = sessionStorage.getItem('arencon-frt-restore-tab');
+    scroll = parseInt(sessionStorage.getItem('arencon-frt-restore-scroll'), 10) || 0;
+    sessionStorage.removeItem('arencon-frt-restore-tab');
+    sessionStorage.removeItem('arencon-frt-restore-scroll');
+  } catch(_) {}
+  var valid = ['info', 'drawings', 'deficiencies', 'photos'];
+  if (!tab || valid.indexOf(tab) < 0) { switchTab('info'); return; }
+  switchTab(tab);
+  if (scroll > 0) {
+    requestAnimationFrame(function() {
+      var panel = document.querySelector('.panel.active');
+      var mw = document.querySelector('.main-wrap');
+      if (panel && panel.scrollHeight > panel.clientHeight) panel.scrollTop = scroll;
+      else if (mw) mw.scrollTop = scroll;
+    });
+  }
+}
+
 // ── Dark Mode ────────────────────────────────────────────
 function toggleDarkMode() {
   document.body.classList.toggle('dark-mode');
@@ -2106,7 +2132,7 @@ function boot() {
         Model.setProject(snap);
         showProjectView();
         _updateHeaderForProject();
-        switchTab('info');
+        _restoreView();
         _localRendered = true;
         var elapsedFast = (performance.now() - t0).toFixed(0);
         console.log('[FRT v2] Boot complete (local) in ' + elapsedFast + 'ms — cloud pull in background');
@@ -2244,7 +2270,7 @@ function boot() {
     } else {
       showProjectView();
       _updateHeaderForProject();
-      switchTab('info');
+      _restoreView();
     }
 
     // Rebuild missing R2 URLs (safety net for sync issues)
@@ -2606,39 +2632,128 @@ function _syncIssueStatus(status) {
 // ── Start ────────────────────────────────────────────────
 boot();
 
-// ── S163 Fix C (V-9): SW force-update propagation ───────
+// ── S163 Fix C (V-9) / S207 update: SW update propagation ───────
 // When a new service worker activates, it broadcasts {type:'sw-updated'}
 // to every controlled client (see sw.js activate handler). The client
-// flushes Model to IDB so any in-flight unsaved state survives the
+// flushes Model to IDB so any in-flight unsaved state survives a later
 // reload (Fix E protects the leave-dialog path; this protects the
-// SW-driven reload path with the same primitive). Shows a brief toast
-// so the user knows why the page is about to refresh, then reloads.
+// SW-driven path with the same primitive).
 //
-// Without this, safety-critical fixes shipped to GitHub can sit unused
-// on cached devices for up to 24 hours (SW byte-comparison max-age) or
-// indefinitely until the user manually hard-refreshes. The S161 P2/P3
-// safety nets never reached the device that took the S162 field-day
-// loss for exactly this reason.
+// S207 change: we NO LONGER force a reload. The original force-reload
+// (1200ms timer) could yank the page mid-task — mid-observation, mid
+// drawing markup, mid photo upload — which is unacceptable in the field.
+// Instead we surface a non-disruptive "Update ready" banner; the user
+// refreshes at a safe stopping point. _doUpdateReload() persists the
+// current tab + scroll position to sessionStorage first, so the refresh
+// returns them to where they were rather than the Info tab at scroll 0.
 //
-// Reload-loop guard: _swUpdatedHandled prevents double-firing if the
-// SW re-broadcasts (e.g. multi-tab races, or an update arriving while
-// the previous reload is still in progress).
+// Without an update path at all, safety-critical fixes shipped to GitHub
+// can sit unused on cached devices for up to 24 hours (SW byte-comparison
+// max-age) or indefinitely until a manual hard-refresh. The banner keeps
+// that propagation guarantee while leaving the *timing* in the user's hands.
+//
+// Once-guard: _swUpdatedHandled prevents the banner re-appearing if the
+// SW re-broadcasts (multi-tab races, repeated activations).
+
+// S207: sessionStorage keys for tab/scroll restore across an update reload.
+var SS_RESTORE_TAB = 'arencon-frt-restore-tab';
+var SS_RESTORE_SCROLL = 'arencon-frt-restore-scroll';
+
+// Persist current view, then reload. Called by the banner Refresh button
+// (and the indicator's re-opened banner). Tab-level + best-effort scroll;
+// pin-level restore is not state-tracked today so we do not claim it.
+function _doUpdateReload() {
+  try {
+    sessionStorage.setItem(SS_RESTORE_TAB, _currentTab || 'info');
+    var panel = document.querySelector('.panel.active');
+    // The scrollable element is usually the active panel; fall back to the
+    // main wrap if the panel itself isn't the scroll container.
+    var sc = 0;
+    if (panel && panel.scrollTop) sc = panel.scrollTop;
+    if (!sc) {
+      var mw = document.querySelector('.main-wrap');
+      if (mw && mw.scrollTop) sc = mw.scrollTop;
+    }
+    sessionStorage.setItem(SS_RESTORE_SCROLL, String(sc || 0));
+  } catch(_) {}
+  // Flush once more in case anything changed after the sw-updated flush.
+  Promise.resolve()
+    .then(function(){ if (typeof Model !== 'undefined' && Model.saveNow) return Model.saveNow(); })
+    .catch(function(){})
+    .then(function(){ window.location.reload(); });
+}
+
+// Small persistent indicator (bottom-right), shown after "Not now".
+// Tapping it re-opens the banner. Matches the tile-prefetch badge style.
+function _showUpdateReadyIndicator() {
+  if (document.getElementById('frt-update-indicator')) return;
+  var d = document.createElement('div');
+  d.id = 'frt-update-indicator';
+  d.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9001;' +
+    'background:rgba(28,36,52,.94);color:#f0d6dd;font:600 12px/1.3 Calibri,sans-serif;' +
+    'padding:7px 13px;border-radius:16px;border:1px solid #9C2742;' +
+    'box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer;display:flex;align-items:center;gap:6px;';
+  d.innerHTML = '<span style="font-size:13px;">\u2728</span><span>Update ready</span>';
+  d.title = 'A new version is ready — tap to refresh';
+  d.addEventListener('click', function(){
+    var ex = document.getElementById('frt-update-indicator');
+    if (ex && ex.parentNode) ex.parentNode.removeChild(ex);
+    _showUpdateReadyBanner();
+  });
+  document.body.appendChild(d);
+}
+
+// Top-center "Update ready" banner. Refresh reloads (preserving view);
+// "Not now" dismisses to the small indicator. Mirrors the remote-update
+// banner construction so styling stays consistent (Calibri, #9C2742 CTA).
+function _showUpdateReadyBanner() {
+  // Banner and indicator are mutually exclusive.
+  var ind = document.getElementById('frt-update-indicator');
+  if (ind && ind.parentNode) ind.parentNode.removeChild(ind);
+  if (document.getElementById('frt-update-ready-banner')) return;
+  var b = document.createElement('div');
+  b.id = 'frt-update-ready-banner';
+  b.style.cssText =
+    'position:fixed;top:60px;left:50%;transform:translateX(-50%);' +
+    'z-index:99999;background:#1B2438;color:#fff;border:1px solid #9C2742;' +
+    'border-radius:8px;padding:10px 14px;font:14px Calibri,sans-serif;' +
+    'box-shadow:0 4px 16px rgba(0,0,0,.4);display:flex;align-items:center;gap:12px;' +
+    'max-width:90vw;';
+  b.innerHTML =
+    '<span>\u2728 A new version is ready.</span>' +
+    '<button id="frt-update-refresh" style="background:#9C2742;color:#fff;border:none;border-radius:6px;padding:6px 12px;font:600 13px Calibri,sans-serif;cursor:pointer;">Refresh</button>' +
+    '<button id="frt-update-later" style="background:transparent;color:#c8ccd4;border:1px solid #3a4660;border-radius:6px;padding:6px 10px;font:13px Calibri,sans-serif;cursor:pointer;">Not now</button>';
+  document.body.appendChild(b);
+  document.getElementById('frt-update-refresh').addEventListener('click', function(){
+    b.remove();
+    _doUpdateReload();
+  });
+  document.getElementById('frt-update-later').addEventListener('click', function(){
+    b.remove();
+    _showUpdateReadyIndicator();
+  });
+}
+
 var _swUpdatedHandled = false;
 if ('serviceWorker' in navigator && navigator.serviceWorker.addEventListener) {
   navigator.serviceWorker.addEventListener('message', function(e) {
     if (!e.data || e.data.type !== 'sw-updated' || _swUpdatedHandled) return;
     _swUpdatedHandled = true;
-    try { toast('App updated \u2014 reloading\u2026'); } catch(_) {}
+    // S207: do NOT force-reload. A field inspector mid-deficiency (typing an
+    // observation, mid drawing markup, photo half-uploaded) must never have the
+    // page yanked out from under them by a background SW activation. Instead we
+    // flush Model to IDB (preserves the safety primitive that protected against
+    // the S162 field-day loss) and surface a non-disruptive "Update ready"
+    // banner. The user refreshes when *they* are at a safe stopping point.
+    // _showUpdateReadyBanner() persists current tab + scroll before reloading,
+    // so refreshing doesn't dump them back on the Info tab scrolled to top.
     Promise.resolve()
       .then(function() {
         if (typeof Model !== 'undefined' && Model.saveNow) return Model.saveNow();
       })
       .catch(function(){})
       .then(function() {
-        // 1200ms — enough for the toast to be read, short enough to feel
-        // responsive. Reload aborts any in-flight fetches (including
-        // mid-upload R2 PUTs); that gap closes with Fix D in S164.
-        setTimeout(function(){ window.location.reload(); }, 1200);
+        _showUpdateReadyBanner();
       });
   });
 }
