@@ -2750,21 +2750,31 @@ var _PinPan = (function() {
     var _f = Model.findDeficiency(st.d.id);
     var _hasCtr = !!(_f && _f.contractor) || !!st.d.contractorId || !!st.d.contractor;
     var _isSr = !_hasCtr;
-    var fill = _isSr ? '#6B6FA8' : (st.d.iar ? '#E91E8C' : (pr === 'general' ? '#5F8068' : pr === 'low' ? '#B07F5A' : '#A85959'));
-    var isOutstanding = !isClosed && !st.d.iar;
+    var isIAR = !!st.d.iar;
+    // Colors copied verbatim from pinsGL.js _priorityFillHex (the ACTUAL pin
+    // renderer — the on-drawing pin is PinsGL canvas, not the dead HTML SVG).
+    var fill = _isSr ? '#6B6FA8' : (isIAR ? '#E91E8C' : (pr === 'general' ? '#5F8068' : pr === 'low' ? '#B07F5A' : '#A85959'));
+    var isOutstanding = !isClosed && !isIAR;
     var numStr = String(st.d.num != null ? st.d.num : '?');
-    var numFs = numStr.length <= 2 ? '14' : numStr.length === 3 ? '11' : '9';
+    // Font sizes from _drawPinAtNative: 17 / 13 / 11 by digit count.
+    var fs = numStr.length <= 2 ? '17' : numStr.length === 3 ? '13' : '11';
     var pw = st.PW, ph = Math.round(pw * 42 / 32);
     var alpha = isClosed ? '0.5' : '1';
-    var shadow = isOutstanding ? 'drop-shadow(0 0 3px ' + fill + ') drop-shadow(0 2px 5px rgba(0,0,0,.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,.45))';
-    // NO white outer border (per Mark, repeatedly). Solid teardrop + white
-    // number circle. Do not add an outer white path back.
+    // Outstanding glow + shadow, matching _buildFilterString (resting state).
+    var shadow = isOutstanding
+      ? 'drop-shadow(0 0 2px ' + fill + ') drop-shadow(0 1px 3px rgba(0,0,0,0.4))'
+      : 'drop-shadow(0 1px 3px rgba(0,0,0,0.35))';
+    // Teardrop path is _teardropPath(cx=16, cy=21, factor=1) converted to SVG:
+    // fuller/rounder than the old HTML path. Single SOLID fill (NO white outer
+    // border). White inner circle r=11 @ (16,14), α0.95. Number at (16,14).
+    // viewBox 32x42 (tip at y=40).
+    var teardrop = 'M16 1C8.3 1 2 7.3 2 15C2 25.5 16 40 16 40C16 40 30 25.5 30 15C30 7.3 23.7 1 16 1Z';
     layer.innerHTML =
       '<div class="pe-pin-marker" style="position:absolute;left:' + pp.x + 'px;top:' + pp.y + 'px;width:' + pw + 'px;height:' + ph + 'px;transform:translate(-50%,-100%);opacity:' + alpha + ';pointer-events:none;">'
       + '<svg viewBox="0 0 32 42" width="' + pw + '" height="' + ph + '" style="filter:' + shadow + ';overflow:visible;">'
-      + '<path d="M16 1C8.3 1 2 7.3 2 15c0 10.5 14 25 14 25s14-14.5 14-25C30 7.3 23.7 1 16 1z" fill="' + fill + '"/>'
-      + '<circle cx="16" cy="14" r="9" fill="white" opacity="0.95"/>'
-      + '<text x="16" y="14.5" text-anchor="middle" dominant-baseline="central" font-size="' + numFs + '" font-weight="900" font-family="Calibri,Arial,sans-serif" fill="' + fill + '">' + numStr.replace(/[&<>]/g, '') + '</text>'
+      + '<path d="' + teardrop + '" fill="' + fill + '"/>'
+      + '<circle cx="16" cy="14" r="11" fill="#FFFFFF" opacity="0.95"/>'
+      + '<text x="16" y="14" text-anchor="middle" dominant-baseline="central" font-size="' + fs + '" font-weight="900" font-family="Calibri,Arial,sans-serif" fill="' + fill + '">' + numStr.replace(/[&<>]/g, '') + '</text>'
       + '</svg></div>';
   }
 
