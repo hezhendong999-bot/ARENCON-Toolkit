@@ -2725,40 +2725,67 @@ var _PinPan = (function() {
     ctx.clearRect(0, 0, w, h);
     var r = imgRect();
     ctx.drawImage(st.img, r.x, r.y, r.w, r.h);
-    if (st.d.pinX == null || st.d.pinY == null) return;
-    var pp = pinPos();
-    var effPri = Model.getEffectivePriority(st.d);
-    var fill = st.d.iar ? '#FF69B4' : (effPri === 'general' ? '#5F8068' : (effPri === 'low' ? '#B07F5A' : '#A85959'));
-    var R0 = st.R0;
-    ctx.save();
-    ctx.translate(pp.x, pp.y - R0 * 2.2);
-    ctx.beginPath();
-    ctx.arc(0, 0, R0, Math.PI, 0, false);
-    ctx.bezierCurveTo(R0, R0 * 0.8, R0 * 0.3, R0 * 2.2, 0, R0 * 2.2);
-    ctx.bezierCurveTo(-R0 * 0.3, R0 * 2.2, -R0, R0 * 0.8, -R0, 0);
-    ctx.closePath();
-    ctx.fillStyle = fill; ctx.fill();
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.8; ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, 0, R0 * 0.5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
-    ctx.fillStyle = fill; ctx.font = 'bold ' + Math.round(R0 * 1.1) + 'px Calibri,sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(st.d.num != null ? st.d.num : '?'), 0, 0);
-    ctx.restore();
+    _renderPinOverlay();
   }
 
+  // S213e: render the pin as an HTML SVG marker overlaid on the canvas, using
+  // the EXACT same path/colors as the on-drawing .pin-marker (viewBox 32x42,
+  // tip at bottom via translate(-50%,-100%)). Canvas draws only the image;
+  // this overlay draws the pin so the shape matches pixel-for-pixel and the
+  // drag math is simple (tip = pin point).
+  function _renderPinOverlay() {
+    var host = st.canvas.parentElement;
+    if (!host) return;
+    var layer = host.querySelector('.pe-pin-layer');
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.className = 'pe-pin-layer';
+      layer.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;';
+      host.appendChild(layer);
+    }
+    if (st.d.pinX == null || st.d.pinY == null) { layer.innerHTML = ''; return; }
+    var pp = pinPos();
+    var pr = Model.getEffectivePriority(st.d);
+    var isClosed = Model.getEffectiveStatus(st.d) === 'closed';
+    var _isSr = !((Model.findDeficiency(st.d.id) || {}).contractor);
+    var fill = _isSr ? '#6B6FA8' : (st.d.iar ? '#E91E8C' : (pr === 'general' ? '#5F8068' : pr === 'low' ? '#B07F5A' : '#A85959'));
+    var numStr = String(st.d.num != null ? st.d.num : '?');
+    var numFs = numStr.length <= 2 ? '14' : numStr.length === 3 ? '11' : '9';
+    var pw = st.PW, ph = Math.round(pw * 42 / 32);
+    var alpha = isClosed ? '0.55' : '1';
+    var shadow = (!isClosed && !st.d.iar) ? 'drop-shadow(0 0 3px ' + fill + ') drop-shadow(0 2px 5px rgba(0,0,0,.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,.45))';
+    layer.innerHTML =
+      '<div class="pe-pin-marker" style="position:absolute;left:' + pp.x + 'px;top:' + pp.y + 'px;width:' + pw + 'px;height:' + ph + 'px;transform:translate(-50%,-100%);opacity:' + alpha + ';pointer-events:none;">'
+      + '<svg viewBox="0 0 32 42" width="' + pw + '" height="' + ph + '" style="filter:' + shadow + ';overflow:visible;">'
+      + '<path d="M16 1C8.3 1 2 7.3 2 15c0 10.5 14 25 14 25s14-14.5 14-25C30 7.3 23.7 1 16 1z" fill="white"/>'
+      + '<path d="M16 3C9.4 3 4 8.4 4 15c0 9.5 12 22 12 22s12-12.5 12-22C28 8.4 22.6 3 16 3z" fill="' + fill + '"/>'
+      + '<circle cx="16" cy="14" r="9" fill="white" opacity="0.95"/>'
+      + '<text x="16" y="14.5" text-anchor="middle" dominant-baseline="central" font-size="' + numFs + '" font-weight="900" font-family="Calibri,Arial,sans-serif" fill="' + fill + '">' + numStr.replace(/[&<>]/g, '') + '</text>'
+      + '</svg></div>';
+  }
+
+  // Hit-test against the pin marker body. The marker spans from the tip
+  // (pinPos) upward by its full height; the "body" (the round head) is the
+  // top ~62% where the number sits — generous radius for touch.
   function nearPin(cx, cy) {
     if (st.d.pinX == null) return false;
     var pp = pinPos();
-    var dx = cx - pp.x, dy = cy - (pp.y - st.R0);
-    var rad = st.R0 * 2.6;
-    return (dx * dx + dy * dy) <= rad * rad;
+    var pw = st.PW, ph = pw * 42 / 32;
+    // head center is ~ (tip.x, tip.y - ph*0.66)
+    var hx = pp.x, hy = pp.y - ph * 0.66;
+    var dx = cx - hx, dy = cy - hy;
+    var rad = Math.max(pw * 0.7, 16); // touch-friendly
+    // also accept anywhere within the marker's bounding box
+    var inBox = (cx >= pp.x - pw / 2 && cx <= pp.x + pw / 2 && cy >= pp.y - ph && cy <= pp.y + 4);
+    return inBox || (dx * dx + dy * dy) <= rad * rad;
   }
 
-  function setPinFromPointer(cx, cy) {
+  // Set pin from a TIP position (already grab-offset-corrected by caller).
+  function setPinFromTip(tipx, tipy) {
     var r = imgRect();
     if (r.w <= 0 || r.h <= 0) return;
-    st.d.pinX = Math.max(0, Math.min(1, (cx - r.x) / r.w));
-    st.d.pinY = Math.max(0, Math.min(1, (cy - r.y) / r.h));
+    st.d.pinX = Math.max(0, Math.min(1, (tipx - r.x) / r.w));
+    st.d.pinY = Math.max(0, Math.min(1, (tipy - r.y) / r.h));
   }
 
   function zoomAt(cx, cy, factor) {
@@ -2780,7 +2807,14 @@ var _PinPan = (function() {
     if (!st) return;
     var p = localXY(e);
     st.moved = false;
-    if (nearPin(p.x, p.y)) { st.mode = 'pin'; }
+    if (nearPin(p.x, p.y)) {
+      st.mode = 'pin';
+      // S213e: remember the offset between the cursor and the pin TIP so the
+      // pin doesn't jump to the cursor on first move (was the "jumps up" bug).
+      var pp = pinPos();
+      st.grabDX = p.x - pp.x;
+      st.grabDY = p.y - pp.y;
+    }
     else if (st.scale > 1) { st.mode = 'pan'; st.canvas.parentElement.classList.add('dragging'); }
     else { st.mode = null; }
     st.last = p;
@@ -2790,7 +2824,11 @@ var _PinPan = (function() {
     if (!st || !st.mode) return;
     var p = localXY(e);
     st.moved = true;
-    if (st.mode === 'pin') { setPinFromPointer(p.x, p.y); draw(); }
+    if (st.mode === 'pin') {
+      // new tip = cursor minus the grab offset captured at down
+      setPinFromTip(p.x - st.grabDX, p.y - st.grabDY);
+      draw();
+    }
     else if (st.mode === 'pan' && st.scale > 1) { st.ox += p.x - st.last.x; st.oy += p.y - st.last.y; st.last = p; clampView(); draw(); }
     e.preventDefault();
   }
@@ -2846,12 +2884,15 @@ var _PinPan = (function() {
     st = {
       canvas: canvas, ctx: canvas.getContext('2d'), img: img, d: d, dpr: dpr,
       boxW: boxW, boxH: boxH, baseW: 0, baseH: 0, scale: 1, ox: 0, oy: 0,
-      R0: 9, mode: null, last: null, moved: false
+      PW: 30, mode: null, last: null, moved: false, grabDX: 0, grabDY: 0
     };
     // Fresh listeners each mount (clone-replace the canvas to drop old ones).
     var fresh = canvas.cloneNode(false);
     canvas.parentNode.replaceChild(fresh, canvas);
     st.canvas = fresh; st.ctx = fresh.getContext('2d');
+    // Clear any stale pin overlay from a previous mount in this same host.
+    var _oldLayer = fresh.parentElement && fresh.parentElement.querySelector('.pe-pin-layer');
+    if (_oldLayer) _oldLayer.innerHTML = '';
     fresh.addEventListener('mousedown', onDown);
     fresh.addEventListener('touchstart', onDown, { passive: false });
     fresh.addEventListener('touchmove', onMove, { passive: false });

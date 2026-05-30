@@ -7570,6 +7570,20 @@ body.dark-mode .dfx-ed-pinlabel { color: #E2E6EC; }
 body.dark-mode .dfx-ed-tab { background: #2A2E36; border-color: #3A404B; }
 body.dark-mode .dfx-ed-tab-btn { color: #C8CDD6; }
 
+/* S213e: active-obs control row (split / remove) — separated from the tabs so
+   switching tabs never lands a tap on ✕ (uniform tab width, no resize). */
+.dfx-ed-obsctl { display: flex; align-items: center; gap: 7px; margin: 0 0 11px; flex-wrap: wrap; }
+.dfx-ed-obsctl-lbl { font-size: calc(11px + var(--ts)); font-weight: 700; color: var(--silver, #5A6478); }
+.dfx-ed-obsctl-btn {
+  font-family: Calibri, sans-serif; font-size: calc(11.5px + var(--ts)); font-weight: 600;
+  color: var(--steel, #4A5568); background: #fff;
+  border: 1px solid var(--border, #D7DCE5); border-radius: 7px; padding: 4px 10px; cursor: pointer;
+}
+.dfx-ed-obsctl-btn:hover { border-color: var(--arencon, #9C2742); color: var(--arencon, #9C2742); }
+.dfx-ed-obsctl-btn.danger { color: #A85959; }
+.dfx-ed-obsctl-btn.danger:hover { border-color: #A85959; background: #F4D6D6; }
+@media (pointer: coarse) { .dfx-ed-obsctl-btn { padding: 7px 12px; } }
+
 /* quiet observed-date line */
 .dfx-ed-noted {
   display: flex; align-items: center; gap: 8px; margin: 2px 0 11px;
