@@ -1455,34 +1455,42 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
     <!-- ── CHART B: 7-Point PLD Discharge Pressure Curve ── -->
     <div class="card" style="margin-top:14px;">
-      <div class="card-header mid">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
-        7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve
-      </div>
-      <div class="card-body" style="padding:14px 16px 16px;">
-        <div style="position:relative;height:500px;">
-          <canvas id="pldChart" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+      <div class="card-body" style="padding:0;">
+        <div class="fig" id="fig-pldChart">
+          <div class="fig-hd">
+            <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+            <span class="fig-t">7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve</span>
           </div>
-          <div style="text-align:right;margin-top:6px;"><button class="btn btn-outline btn-sm" onclick="toggleAnnotations('pldChart')" id="ann-toggle-pldChart" style="font-size:11px;">🏷 Hide Annotations</button></div>
-          <div style="position:relative;height:0;">
+          <div class="fig-body">
+            <div style="position:relative;height:500px;">
+              <canvas id="pldChart" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+            </div>
+            <div style="text-align:right;margin-top:6px;"><button class="btn btn-outline btn-sm" onclick="toggleAnnotations('pldChart')" id="ann-toggle-pldChart" style="font-size:11px;">🏷 Hide Annotations</button></div>
+          </div>
+          <div class="fig-legend" id="figleg-pldChart"></div>
+          <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
         </div>
       </div>
     </div>
 
     <!-- ── CHART D: 7-Point Fire Pump Net Pressure Curve ── -->
     <div class="card" style="margin-top:14px;">
-      <div class="card-header mid">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
-        7-Point Fire Pump Net Pressure Curve (w/ PLD, w/o PRV &amp; PLD, + PRV Rating)
-      </div>
-      <div class="card-body" style="padding:14px 16px 16px;">
-        <div style="position:relative;height:480px;">
-          <canvas id="pldNetChart" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+      <div class="card-body" style="padding:0;">
+        <div class="fig" id="fig-pldNetChart">
+          <div class="fig-hd">
+            <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+            <span class="fig-t">7-Point Fire Pump Net Pressure Curve (w/ PLD, w/o PRV &amp; PLD, + PRV Rating)</span>
           </div>
-          <div style="text-align:right;margin-top:6px;"><button class="btn btn-outline btn-sm" onclick="toggleAnnotations('pldNetChart')" id="ann-toggle-pldNetChart" style="font-size:11px;">🏷 Hide Annotations</button></div>
-          <div style="position:relative;height:0;">
+          <div class="fig-body">
+            <div style="position:relative;height:480px;">
+              <canvas id="pldNetChart" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+            </div>
+            <div style="text-align:right;margin-top:6px;"><button class="btn btn-outline btn-sm" onclick="toggleAnnotations('pldNetChart')" id="ann-toggle-pldNetChart" style="font-size:11px;">🏷 Hide Annotations</button></div>
+          </div>
+          <div class="fig-legend" id="figleg-pldNetChart"></div>
+          <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
         </div>
-        <div id="cl-s4pld" style="margin-top:16px;"></div>
+        <div id="cl-s4pld" style="margin-top:16px;padding:0 16px 16px;"></div>
       </div>
     </div>
     </div>
@@ -3398,6 +3406,64 @@ function renderFigLegend3pt(){
     };
   });
 }
+// Shared pill-legend swatch builder (line / diamond / dot)
+function _figSwatch(d){
+  if(d.kind==='dia') return '<svg class="swc" viewBox="0 0 24 12"><rect x="7" y="2" width="8" height="8" transform="rotate(45 11 6)" fill="'+d.c+'"/></svg>';
+  if(d.kind==='dot') return '<svg class="swc" viewBox="0 0 24 12"><circle cx="12" cy="6" r="5" fill="'+d.c+'"/></svg>';
+  var da=d.dash&&d.dash.length?' stroke-dasharray="'+d.dash.join(',')+'"':'';
+  return '<svg class="swc" viewBox="0 0 24 12"><line x1="1" y1="6" x2="23" y2="6" stroke="'+d.c+'" stroke-width="2"'+da+'/></svg>';
+}
+// Shared pill-legend builder — wires tap-to-toggle for the given chart instance
+function _buildFigLegend(host, chart, defs){
+  if(!host||!chart) return;
+  host.innerHTML='';
+  defs.forEach(function(d){
+    var meta=chart.getDatasetMeta(d.i);
+    var hidden=meta.hidden===true;
+    var el=document.createElement('span');
+    el.className='lg'+(hidden?' off':'');
+    el.innerHTML='<span class="lg-main" data-i="'+d.i+'"'+(d.also!=null?' data-also="'+d.also+'"':'')+'>'+_figSwatch(d)+d.t+'</span>';
+    host.appendChild(el);
+  });
+  host.querySelectorAll('.lg-main').forEach(function(m){
+    m.onclick=function(){
+      var i=+m.dataset.i, also=m.dataset.also!=null?+m.dataset.also:null;
+      var mt=chart.getDatasetMeta(i); mt.hidden=!mt.hidden;
+      if(also!=null) chart.getDatasetMeta(also).hidden=mt.hidden;
+      chart.update(); m.closest('.lg').classList.toggle('off', mt.hidden===true);
+    };
+  });
+}
+// 4b — pldChart pill legend (datasets: 0 supply,1 pump,2 measured,3 SD line,4 SD pt,5 OHL,6 demand,7 static,8 residual,9 PRV,10 PLD)
+function renderFigLegendPld(){
+  var host=document.getElementById('figleg-pldChart'); if(!host||!pldChart) return;
+  var ds=pldChart.data.datasets;
+  function has(i){return ds[i]&&ds[i].data&&ds[i].data.length;}
+  var defs=[];
+  if(has(2)) defs.push({i:2, c:'#5F8068', kind:'line', dash:[],          t:'Measured Discharge (w/ PLD)'});
+  if(has(1)) defs.push({i:1, c:'#9C2742', kind:'line', dash:[10,5],      t:'Pump Curve'});
+  if(has(0)) defs.push({i:0, c:'#6E86B8', kind:'line', dash:[],          t:'Available Supply'});
+  if(has(3)) defs.push({i:3, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4], t:'Sprinkler Demand'});
+  if(has(5)) defs.push({i:5, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4], t:'Outside Hose'});
+  if(has(9)) defs.push({i:9, c:'#A85959', kind:'line', dash:[2,3],       t:'PRV Rating'});
+  if(has(10))defs.push({i:10,c:'#7D6F9C', kind:'line', dash:[2,3],       t:'PLD Setting'});
+  if(has(6)) defs.push({i:6, c:_chartLabelColor('#805AD5'), kind:'dia',  dash:[],        t:'System Demand'});
+  if(has(7)||has(8)) defs.push({i:7, c:'#6E86B8', kind:'dot', dash:[],   t:'Supply Points', also:8});
+  _buildFigLegend(host, pldChart, defs);
+}
+// 4b — pldNetChart pill legend (datasets: 0 net w/PLD,1 net w/o,2 cutsheet,3 placard,4 PRV)
+function renderFigLegendPldNet(){
+  var host=document.getElementById('figleg-pldNetChart'); if(!host||!pldNetChart) return;
+  var ds=pldNetChart.data.datasets;
+  function has(i){return ds[i]&&ds[i].data&&ds[i].data.length;}
+  var defs=[];
+  if(has(0)) defs.push({i:0, c:'#5F8068', kind:'line', dash:[],          t:'Net Pressure (w/ PLD)'});
+  if(has(1)) defs.push({i:1, c:'#4A7BA8', kind:'line', dash:[8,4,2,4],   t:'Net (w/o PRV & PLD)'});
+  if(has(2)) defs.push({i:2, c:'#4A7BA8', kind:'line', dash:[2,3],       t:'Cutsheet'});
+  if(has(3)) defs.push({i:3, c:'#7D6F9C', kind:'line', dash:[2,3],       t:'Placard'});
+  if(has(4)) defs.push({i:4, c:'#A85959', kind:'line', dash:[2,3],       t:'PRV Rating'});
+  _buildFigLegend(host, pldNetChart, defs);
+}
 // Readout strip (per-point %/psi/gpm/rpm + verdict) — uses the REAL _calcFlowPoint
 function renderFigReadout3pt(){
   var host=document.getElementById('figro-chart3pt'); if(!host) return;
@@ -3596,54 +3662,40 @@ function updateChart3pt() {
 function initPldChart() {
   const canvas = document.getElementById('pldChart');
   if(!canvas||pldChart) return;
-  const F = {size:10,weight:'600',family:"Calibri,sans-serif"};
-  function pldFirstLast(dsIdx) {
-    return function(val,ctx){
-      if(!val) return '';
-      var d=ctx.chart.data.datasets[dsIdx].data, i=ctx.dataIndex;
-      if(d.length===1||i===0||i===d.length-1) return val.x.toLocaleString()+' gpm\n@ '+val.y+' psi';
-      return '';
-    };
-  }
-  function pldAlign(first,last) {
-    return function(ctx){ var i=ctx.dataIndex,n=ctx.dataset.data.length; return n===1?'top':i===0?(first||'right'):i===n-1?(last||'left'):'top'; };
-  }
+  const labelOff = {display:false};
   pldChart = new Chart(canvas.getContext('2d'), {
     type:'scatter',
+    plugins:[],
     data:{ datasets:[
-      {label:'Available Supply',data:[],clip:10,borderColor:'#2196F3',backgroundColor:'rgba(33,150,243,.07)',showLine:true,fill:true,tension:0,pointRadius:function(ctx){var d=ctx.dataset.data;return(ctx.dataIndex===0||ctx.dataIndex===d.length-1)?5:0;},borderWidth:2,datalabels:{display:false}},
-      {label:'Pump Curve (Mfr.)',data:[],borderColor:'#C0392B',backgroundColor:'transparent',showLine:true,fill:false,borderDash:[6,4],pointRadius:4,borderWidth:2,datalabels:{display:false}},
-      {label:'Measured Discharge (w/ PLD)',data:[],borderColor:'#1A7A4A',backgroundColor:'rgba(26,122,74,.12)',
-        showLine:true,fill:false,tension:0,pointRadius:6,borderWidth:2.5,
-        datalabels:{display:true,clip:false,formatter:pldFirstLast(2),align:pldAlign('right','left'),anchor:'end',offset:12,color:_chartLabelColor('#1A7A4A'),font:F,textStrokeColor:_chartStroke(),textStrokeWidth:_chartStrokeW()}},
-      {label:'Sprinkler Demand (SD)',data:[],borderColor:'#E67E22',backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:2,borderDash:[5,3],datalabels:{display:false}},
-      {label:'_sprDemPtPld',data:[],borderColor:'#E67E22',backgroundColor:'#E67E22',pointStyle:'circle',pointRadius:8,showLine:false,
-        datalabels:{display:true,clip:false,align:'top',anchor:'end',offset:10,color:_chartLabelColor('#D35400'),font:F,textStrokeColor:_chartStroke(),textStrokeWidth:_chartStrokeW(),
-          formatter:function(val){return val?'SD: '+val.x.toLocaleString()+' gpm @ '+val.y+' psi':'';}}},
-      {label:'Outside Hose Allow. (OHL)',data:[],borderColor:'#E67E22',backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:2.5,borderDash:[2,5],datalabels:{display:false}},
-      {label:'Total System Demand',data:[],borderColor:'#805AD5',backgroundColor:'#805AD5',pointStyle:'rectRot',pointRadius:11,showLine:false,
-        datalabels:{display:true,clip:false,align:'right',anchor:'center',offset:16,color:_chartLabelColor('#5B2D8E'),font:F,textStrokeColor:_chartStroke(),textStrokeWidth:_chartStrokeW(),
-          formatter:function(val){return val?'Total System Demand\n'+val.x.toLocaleString()+' gpm @ '+val.y+' psi':'';}}},
-      {label:'_staticPtPld',data:[],borderColor:'#0D47A1',backgroundColor:'#1565C0',pointStyle:'circle',pointRadius:6,showLine:false,
-        datalabels:{display:true,clip:false,align:'bottom',anchor:'start',offset:8,color:_chartLabelColor('#0D47A1'),font:F,textStrokeColor:_chartStroke(),textStrokeWidth:_chartStrokeW(),
-          formatter:function(val){return val?'Static: '+val.y+' psi':'';}}},
-      {label:'_residualPtPld',data:[],borderColor:'#0D47A1',backgroundColor:'#2196F3',pointStyle:'triangle',pointRadius:7,showLine:false,
-        datalabels:{display:true,clip:false,align:'right',anchor:'end',offset:10,color:_chartLabelColor('#0D47A1'),font:F,textStrokeColor:_chartStroke(),textStrokeWidth:_chartStrokeW(),
-          formatter:function(val){return val?'Residual: '+val.x.toLocaleString()+' gpm @ '+val.y+' psi':'';}}},
-      {label:'PRV Rating',data:[],borderColor:'#E53935',backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:2,borderDash:[8,4],
-        datalabels:{display:true,clip:false,formatter:function(val,ctx){var d=ctx.chart.data.datasets[9].data;return d.length&&ctx.dataIndex===d.length-1?'PRV @ '+val.y+' psi':'';},
-          align:'right',anchor:'end',offset:6,color:'#E53935',font:F,textStrokeColor:_chartStroke(),textStrokeWidth:_chartStrokeW()}},
-      {label:'PLD Setting',data:[],borderColor:'#7B1FA2',backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:2,borderDash:[6,3],
-        datalabels:{display:true,clip:false,formatter:function(val,ctx){var d=ctx.chart.data.datasets[10].data;return d.length&&ctx.dataIndex===d.length-1?'PLD @ '+val.y+' psi':'';},
-          align:'right',anchor:'end',offset:6,color:'#7B1FA2',font:F,textStrokeColor:_chartStroke(),textStrokeWidth:_chartStrokeW()}},
+      // 0: Available Supply — steel-blue, solid + fill (Scheme A)
+      {label:'Available Supply',data:[],clip:10,borderColor:'#6E86B8',backgroundColor:'rgba(110,134,184,.09)',showLine:true,fill:true,tension:0,pointRadius:function(ctx){var d=ctx.dataset.data;return(ctx.dataIndex===0||ctx.dataIndex===d.length-1)?4:0;},borderWidth:2,datalabels:labelOff},
+      // 1: Pump Curve — burgundy, long-dash (Scheme A)
+      {label:'Pump Curve (Mfr.)',data:[],borderColor:'#9C2742',backgroundColor:'transparent',showLine:true,fill:false,borderDash:[10,5],pointRadius:0,borderWidth:1.8,datalabels:labelOff},
+      // 2: Measured Discharge w/ PLD — sage, solid bold (Scheme A measured)
+      {label:'Measured Discharge (w/ PLD)',data:[],borderColor:'#5F8068',backgroundColor:'transparent',
+        showLine:true,fill:false,tension:0,pointRadius:6,pointBorderColor:'#5F8068',pointBorderWidth:2.5,pointBackgroundColor:'#fff',borderWidth:2.6,datalabels:labelOff},
+      // 3: SD line — orange (day) / muted (dark), dash-dot (Scheme A)
+      {label:'Sprinkler Demand (SD)',data:[],borderColor:_chartLabelColor('#E67E22'),backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.8,borderDash:[8,4,2,4],datalabels:labelOff},
+      // 4: SD point — orange
+      {label:'_sprDemPtPld',data:[],borderColor:_chartLabelColor('#E67E22'),backgroundColor:_chartLabelColor('#E67E22'),pointStyle:'circle',pointRadius:6,showLine:false,datalabels:labelOff},
+      // 5: OHL — orange, dash-dot (Scheme A)
+      {label:'Outside Hose Allow. (OHL)',data:[],borderColor:_chartLabelColor('#E67E22'),backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:2,borderDash:[8,4,2,4],datalabels:labelOff},
+      // 6: Total System Demand diamond — purple (day) / muted (dark)
+      {label:'Total System Demand',data:[],borderColor:_chartLabelColor('#805AD5'),backgroundColor:_chartLabelColor('#805AD5'),pointStyle:'rectRot',pointRadius:9,showLine:false,datalabels:labelOff},
+      // 7: Static supply point — steel-blue
+      {label:'_staticPtPld',data:[],borderColor:'#6E86B8',backgroundColor:'#6E86B8',pointStyle:'circle',pointRadius:5,showLine:false,datalabels:labelOff},
+      // 8: Residual supply point — steel-blue
+      {label:'_residualPtPld',data:[],borderColor:'#6E86B8',backgroundColor:'#fff',pointStyle:'triangle',pointRadius:6,pointBorderColor:'#6E86B8',pointBorderWidth:2,showLine:false,datalabels:labelOff},
+      // 9: PRV Rating — muted maroon, dotted (Scheme A)
+      {label:'PRV Rating',data:[],borderColor:'#A85959',backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.6,borderDash:[2,3],datalabels:labelOff},
+      // 10: PLD Setting — muted plum, dotted (Scheme A)
+      {label:'PLD Setting',data:[],borderColor:'#7D6F9C',backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.6,borderDash:[2,3],datalabels:labelOff},
     ]},
     options:{
       responsive:true, maintainAspectRatio:false, animation:false,
-      layout:{ padding:{ top:10, right:window.innerWidth<=768?20:200, bottom:10, left:window.innerWidth<=768?5:10 } },
+      layout:{ padding:{ top:26, right:window.innerWidth<=768?60:72, bottom:6, left:window.innerWidth<=768?6:10 } },
       plugins:{
-        legend:{ display:true, position:'bottom', maxHeight:60,
-          labels:{font:{family:"Calibri,sans-serif",size:10}, padding:8, boxWidth:18,
-            filter:function(item){return typeof item.text==='string'&&!item.text.startsWith('_');}}},
+        legend:{ display:false },
         datalabels:{clip:false}
       },
       scales:{
@@ -3689,6 +3741,7 @@ function updatePldChart() {
   var maxXpld = allXpld.length ? Math.max.apply(null,allXpld) : 0;
   pldChart.options.scales.x.min = (allXpld.length>0 && maxXpld===0) ? -50 : undefined;
   pldChart.update('none');
+  if(typeof renderFigLegendPld==='function') renderFigLegendPld();
 }
 
 // ══════════════════════════════════════════════════
@@ -3709,42 +3762,32 @@ let pldNetChart = null;
 function initPldNetChart() {
   const canvas = document.getElementById('pldNetChart');
   if(!canvas||pldNetChart) return;
-  const F = {size:10,weight:'600',family:"Calibri,sans-serif"};
-  const F2 = {size:9,weight:'600',family:"Calibri,sans-serif"};
+  const labelOff = {display:false};
   pldNetChart = new Chart(canvas.getContext('2d'), {
     type:'scatter',
+    plugins:[],
     data:{ datasets:[
-      {label:'Net Pressure (w/ PLD)',data:[],borderColor:'#1A7A4A',backgroundColor:'rgba(26,122,74,.12)',
-        showLine:true,fill:false,tension:0,pointRadius:6,borderWidth:2.5,
-        datalabels:{display:true,clip:false,anchor:'end',offset:12,color:_chartLabelColor('#1A7A4A'),font:F,textStrokeColor:_chartStroke(),textStrokeWidth:_chartStrokeW(),
-          align:function(ctx){var i=ctx.dataIndex,n=ctx.dataset.data.length;return n===1?'top':i===0?'right':i===n-1?'left':i%2===0?'top':'bottom';},
-          formatter:function(val,ctx){if(!val)return'';var d=ctx.dataset.data,i=ctx.dataIndex;if(d.length===1||i===0||i===d.length-1)return val.x.toLocaleString()+' gpm\n@ '+val.y+' psi';return'';}}},
-      {label:'Net Pressure (w/o PRV & PLD)',data:[],borderColor:'#2196F3',backgroundColor:'transparent',
-        showLine:true,fill:false,tension:0,pointRadius:5,borderWidth:2,borderDash:[4,2],
-        datalabels:{display:true,clip:false,anchor:'start',offset:14,color:_chartLabelColor('#1565C0'),font:F2,textStrokeColor:_chartStroke(),textStrokeWidth:_chartStrokeW(),
-          align:function(ctx){var i=ctx.dataIndex,n=ctx.dataset.data.length;return n===1?'right':i===0?'left':i===n-1?'right':'bottom';},
-          formatter:function(val,ctx){if(!val)return'';var d=ctx.dataset.data,i=ctx.dataIndex;return(d.length===1||i===0||i===d.length-1)?val.y+' psi':'';}}},
-      {label:'Cutsheet (Design)',data:[],borderColor:'#2C4770',backgroundColor:'transparent',
-        showLine:true,fill:false,borderDash:[7,3],pointRadius:3,borderWidth:2,
-        datalabels:{display:true,clip:false,anchor:'start',offset:8,color:_chartLabelColor('#2C4770'),font:F2,textStrokeColor:_chartStroke(),textStrokeWidth:_chartStrokeW()-1,
-          align:'bottom',
-          formatter:function(val,ctx){var d=ctx.dataset.data,i=ctx.dataIndex;return(d.length===1||i===0||i===d.length-1)?'CS: '+val.y+' psi':'';}}},
-      {label:'Placard',data:[],borderColor:'#E67E22',backgroundColor:'transparent',
-        showLine:true,fill:false,borderDash:[2,4],pointRadius:3,borderWidth:1.5,
-        datalabels:{display:true,clip:false,anchor:'end',offset:8,color:_chartLabelColor('#E67E22'),font:F2,textStrokeColor:_chartStroke(),textStrokeWidth:_chartStrokeW()-1,
-          align:'top',
-          formatter:function(val,ctx){var d=ctx.dataset.data,i=ctx.dataIndex;return(d.length===1||i===0||i===d.length-1)?'PL: '+val.y+' psi':'';}}},
-      {label:'PRV Rating',data:[],borderColor:'#E53935',backgroundColor:'transparent',
-        showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:2,borderDash:[8,4],
-        datalabels:{display:true,clip:false,align:'right',anchor:'center',offset:10,color:_chartLabelColor('#E53935'),font:F,textStrokeColor:_chartStroke(),textStrokeWidth:_chartStrokeW(),
-          formatter:function(val,ctx){var d=ctx.chart.data.datasets[4].data;return d.length&&ctx.dataIndex===d.length-1?'PRV @ '+val.y+' psi':'';}}},
+      // 0: Net Pressure w/ PLD — sage, solid bold (Scheme A measured)
+      {label:'Net Pressure (w/ PLD)',data:[],borderColor:'#5F8068',backgroundColor:'transparent',
+        showLine:true,fill:false,tension:0,pointRadius:6,pointBorderColor:'#5F8068',pointBorderWidth:2.5,pointBackgroundColor:'#fff',borderWidth:2.6,datalabels:labelOff},
+      // 1: Net Pressure w/o PRV & PLD — steel-blue, dash-dot (Scheme A net)
+      {label:'Net Pressure (w/o PRV & PLD)',data:[],borderColor:'#4A7BA8',backgroundColor:'transparent',
+        showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.6,borderDash:[8,4,2,4],datalabels:labelOff},
+      // 2: Cutsheet — steel-blue, dotted (Scheme A)
+      {label:'Cutsheet (Design)',data:[],borderColor:'#4A7BA8',backgroundColor:'transparent',
+        showLine:true,fill:false,borderDash:[2,3],pointRadius:2,borderWidth:1.4,datalabels:labelOff},
+      // 3: Placard — muted plum, dotted (Scheme A)
+      {label:'Placard',data:[],borderColor:'#7D6F9C',backgroundColor:'transparent',
+        showLine:true,fill:false,borderDash:[2,3],pointRadius:2,borderWidth:1.4,datalabels:labelOff},
+      // 4: PRV Rating — muted maroon, dotted (Scheme A)
+      {label:'PRV Rating',data:[],borderColor:'#A85959',backgroundColor:'transparent',
+        showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.6,borderDash:[2,3],datalabels:labelOff},
     ]},
     options:{
       responsive:true, maintainAspectRatio:false, animation:false,
-      layout:{ padding:{ top:30, right:window.innerWidth<=768?15:150, bottom:10, left:window.innerWidth<=768?5:10 } },
+      layout:{ padding:{ top:26, right:window.innerWidth<=768?60:72, bottom:6, left:window.innerWidth<=768?6:10 } },
       plugins:{
-        legend:{ position:'bottom', maxHeight:60,
-          labels:{font:{family:"Calibri,sans-serif",size:10}, padding:8, boxWidth:18}},
+        legend:{ display:false },
         datalabels:{clip:false}
       },
       scales:{
@@ -3793,6 +3836,7 @@ function updatePldNetChart() {
   var maxXnet = allXnet.length ? Math.max.apply(null,allXnet) : 0;
   pldNetChart.options.scales.x.min = (allXnet.length>0 && maxXnet===0) ? -50 : undefined;
   pldNetChart.update('none');
+  if(typeof renderFigLegendPldNet==='function') renderFigLegendPldNet();
 }
 
 
@@ -3818,7 +3862,7 @@ function applyChartDarkMode() {
   if(curId === 's4') {
     requestAnimationFrame(function(){ if(!chart3pt)initChart3pt(); updateChart3pt(); setTimeout(hookChartAnnotations, 120); });
   } else if(curId === 's4pld') {
-    requestAnimationFrame(function(){ if(!pldChart)initPldChart(); if(!pldNetChart)initPldNetChart(); updatePldChart(); updatePldNetChart(); });
+    requestAnimationFrame(function(){ if(!pldChart)initPldChart(); if(!pldNetChart)initPldNetChart(); updatePldChart(); updatePldNetChart(); setTimeout(hookChartAnnotations, 120); });
   }
   } catch(e) { /* silent — charts may not be initialized yet */ }
 }
