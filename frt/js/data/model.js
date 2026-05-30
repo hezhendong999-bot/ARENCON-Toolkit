@@ -1279,6 +1279,36 @@ export var Model = {
     return [];
   },
 
+  // ── S208 Slice 1a: single-trade derivation ("show once") ──
+  // Retires the S146/S147 fan-out for the Detailed list. A pin renders
+  // under exactly ONE trade band:
+  //   1. explicit obs[0].trade set            -> that
+  //   2. else legacy pin-level defic.trade set -> that
+  //   3. else contractor's FIRST declared trade (its "primary" trade)
+  //   4. else                                  -> '' (caller -> Other Trade Items)
+  // Differs from derivePinTrade (singular, UNCHANGED) at step 3: that one
+  // only adopts the contractor trade when EXACTLY one exists (returns ''
+  // on ambiguity); this one picks the first of several. Pure read: never
+  // mutates, never stamps obs.trade.
+  derivePinTradeSingle: function(defic, contractor) {
+    if (defic) {
+      var obs = defic.observations;
+      if (Array.isArray(obs) && obs.length) {
+        var t0 = obs[0] && obs[0].trade;
+        if (t0 && String(t0).trim()) return String(t0).trim();
+      } else if (defic.trade && String(defic.trade).trim()) {
+        return String(defic.trade).trim();
+      }
+    }
+    if (contractor && Array.isArray(contractor.trades) && contractor.trades.length) {
+      for (var i = 0; i < contractor.trades.length; i++) {
+        var s = (contractor.trades[i] == null) ? '' : String(contractor.trades[i]).trim();
+        if (s) return s;
+      }
+    }
+    return '';
+  },
+
   // ── S121 Phase C-1: tab flatten helper ──
   // Mirrors the row shape produced by export/pdf.js _pushItems but WITHOUT
   // the priority='general' filter and WITHOUT the addressed/instance filter.

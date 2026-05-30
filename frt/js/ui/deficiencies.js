@@ -1859,21 +1859,40 @@ function _renderDetailedView(proj, container) {
   var recCount = 0;
   var siteRecords = { pins: [], count: 0 };
 
+  // S208 Slice 1a — global pin ordering. Sort a pin-list (array of pinAgg
+  // entries) by numeric pin# ascending so "Pin #2 never sits after Pin #3".
+  // Non-numeric / missing nums sort last; stable d.id tiebreak. Obs-letter
+  // order within a pin is already A,B,C via observations index order in
+  // _buildPinGroupCard, so the pin-level key is d.num alone. Returns the
+  // same array (sorted in place) for chaining.
+  function _sortPins(arr) {
+    if (!Array.isArray(arr)) return arr;
+    arr.sort(function(a, b) {
+      var na = parseInt(a && a.d && a.d.num, 10);
+      var nb = parseInt(b && b.d && b.d.num, 10);
+      var aok = !isNaN(na), bok = !isNaN(nb);
+      if (aok && bok && na !== nb) return na - nb;
+      if (aok !== bok) return aok ? -1 : 1;
+      var ia = (a && a.d && a.d.id != null) ? String(a.d.id) : '';
+      var ib = (b && b.d && b.d.id != null) ? String(b.d.id) : '';
+      return ia < ib ? -1 : (ia > ib ? 1 : 0);
+    });
+    return arr;
+  }
+
   pinOrder.forEach(function(id) {
     var e = pinAgg[id];
     if (e.d.isRecommendation) {
-      // S147 B1 follow-up — rec body fan-out (Option A, Mark-approved).
-      // A rec with no trade of its own, sitting on a multi-trade
-      // contractor, is LISTED under every one of that contractor's
-      // trades (mirrors the deficiency body + the on-screen "two rows
-      // like FRT" behaviour). The per-trade sub-band pill (R.count)
-      // duplicates intentionally, exactly like the deficiency T.count.
-      // recCount is the section MASTER total only and is added ONCE per
-      // rec (outside the loop) so the "Recommendations" band pill stays
-      // truthful — Option A: the scoreboard counts each rec once. The
-      // PDF Recommendation Summary stays single-trade on a separate
-      // path (pdf.js _aByT, unchanged) for the same reason.
-      var rtks = Model.derivePinTrades(e.d, ctrOf(e.ctrId));
+      // S208 Slice 1a — SHOW ONCE (retires the S147 rec fan-out). A rec
+      // renders under exactly ONE trade band: its tagged trade, else the
+      // contractor's FIRST declared trade, else No-trade items. Listing a
+      // rec under every trade of a multi-trade contractor reads as a
+      // duplicate in a pin#-sorted list. recCount is the section MASTER
+      // total, added ONCE per rec (outside the loop). The PDF
+      // Recommendation Summary was already single-trade (pdf.js _aByT,
+      // unchanged). Wrapped in a 1-element array so the .forEach partition
+      // structure below is untouched.
+      var rtks = [Model.derivePinTradeSingle(e.d, ctrOf(e.ctrId))].filter(Boolean);
       if (!rtks.length) rtks = [NOTRADE];
       rtks.forEach(function(rt) {
         if (!recTrades[rt]) { recTrades[rt] = { pins: [], count: 0 }; recTradeSeen.push(rt); }
@@ -1888,16 +1907,14 @@ function _renderDetailedView(proj, container) {
       siteRecords.count += e.count;
       return;
     }
-    // S146 B1 — trade fan-out. An untagged pin on a contractor assigned
-    // to 2+ trades now renders under a section for EVERY trade that
-    // contractor holds (e.g. Vipond on Sprinkler+Fire Alarm => the pin
-    // appears under Sprinkler->Vipond AND Fire Alarm->Vipond). Contractor
-    // with no derivable trade -> Other Trade Items. The trade-band /
-    // contractor-sub-band count pills and listing rows intentionally
-    // duplicate (the approved "two rows like FRT" behaviour); the
-    // Deficiency Log totals are contractor-grouped on a separate path
-    // (_renderDeficLog) so fan-out never inflates them.
-    var tks = Model.derivePinTrades(e.d, ctrOf(e.ctrId));
+    // S208 Slice 1a — SHOW ONCE (retires the S146 trade fan-out). A pin
+    // renders under exactly ONE trade band: its tagged trade, else the
+    // contractor's FIRST declared trade, else Other Trade Items. In a
+    // strict pin#-sorted list the same pin under two bands reads as a
+    // duplicate/glitch, not a feature. Trade/contractor count pills now
+    // stop double-counting. Wrapped in a 1-element array so the .forEach
+    // partition structure below is untouched.
+    var tks = [Model.derivePinTradeSingle(e.d, ctrOf(e.ctrId))].filter(Boolean);
     if (!tks.length) tks = [OTHER];
     tks.forEach(function(tk) {
       if (!tradeMap[tk]) { tradeMap[tk] = { name: tk, count: 0, ctrKeys: [], ctrs: {} }; tradeSeen.push(tk); }
@@ -1985,7 +2002,7 @@ function _renderDetailedView(proj, container) {
       h += '<div class="dfx-ctr-block' + (cCol ? ' dfx-collapsed' : '') + '">';
       h += '<div class="dfx-ctr-banner" style="--cc:' + esc(ctrColor(C.ctrId)) + ';" data-action="dfx-fold-ctr" data-ctr-key="' + esc(cKey) + '"><span class="dfx-ctr-dot"></span><span>' + _arrow(cCol) + esc(C.name) + '</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
       h += '<div class="dfx-pingrp">';
-      C.pins.forEach(function(e) { h += _buildPinGroupCard(e.d, C.ctrId); });
+      _sortPins(C.pins).forEach(function(e) { h += _buildPinGroupCard(e.d, C.ctrId); });
       h += _addDeficTriggerHTML({ scoped: true, ctrId: C.ctrId, ctrName: C.name, trade: (isOther ? '' : T.name) });
       h += '</div></div>';
     });
@@ -2000,12 +2017,12 @@ function _renderDetailedView(proj, container) {
     var rCol = !!_dfxFoldTrade['__recs__'];
     h += '<div class="dfx-trade-section' + (rCol ? ' dfx-collapsed' : '') + '">';
     h += '<div class="dfx-trade-banner recs" data-action="dfx-fold-trade" data-trade="__recs__"><span>' + _arrow(rCol) + 'Recommendations' + (closedPivot ? ' (Closed)' : '') + '</span><span class="dfx-trade-count">' + recCount + '</span></div>';
-    h += '<div class="dfx-rec-note">Advisory items outside the contracted scope of work \u2014 issued to document professional recommendations and potential additional work. A recommendation on a multi-trade contractor is listed under each of that contractor\u2019s trades; the PDF carries them as their own section.</div>';
+    h += '<div class="dfx-rec-note">Advisory items outside the contracted scope of work \u2014 issued to document professional recommendations and potential additional work. Each recommendation is shown once, under its trade; the PDF carries them as their own section.</div>';
     recOrdered.forEach(function(rt) {
       var R = recTrades[rt];
       h += '<div class="dfx-rec-sub"><span>' + esc(rt) + '</span><span class="dfx-ctr-count">' + R.count + '</span></div>';
       h += '<div class="dfx-pingrp">';
-      R.pins.forEach(function(e) {
+      _sortPins(R.pins).forEach(function(e) {
         var card = _buildPinGroupCard(e.d, e.ctrId);
         h += e.ctrId
           ? ('<div class="dfx-rec-pin"><span class="dfx-rec-ctrchip">' + esc(e.ctrName) + '</span>' + card + '</div>')
@@ -2024,7 +2041,7 @@ function _renderDetailedView(proj, container) {
     h += '<div class="dfx-trade-banner records" data-action="dfx-fold-trade" data-trade="__siterec__"><span>' + _arrow(sCol) + 'Site Records<span class="dfx-sr-pill">Internal \u2014 excluded from client report</span></span><span class="dfx-trade-count">' + siteRecords.count + '</span></div>';
     h += '<div class="dfx-sr-note">Site documentation only (photos / notes). Not a recommendation; not in an external report by default.</div>';
     h += '<div class="dfx-pingrp">';
-    siteRecords.pins.forEach(function(e) {
+    _sortPins(siteRecords.pins).forEach(function(e) {
       h += '<div class="dfx-sr-pin">' + _buildPinGroupCard(e.d, null) + '</div>';
     });
     h += '</div></div>';
