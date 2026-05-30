@@ -174,6 +174,7 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .ph-badge-deficiency{background:#A85959;}
 .ph-badge-general{background:#B07F5A;}
 .ph-badge-flow{background:#5F8068;}
+.ph-badge-records{background:#7B6F5A;}
 .ph-cloud{position:absolute;bottom:5px;right:6px;z-index:2;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
 .ph-cloud svg{display:block;}
 .ph-dl-btn,.ph-del-btn{position:absolute;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);color:#fff;font-size:12px;line-height:1;}
@@ -1449,6 +1450,13 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
   <!-- ══ PHOTOS GALLERY PANEL (Session 53 — Batch 2) ══ -->
   <div class="panel" id="panel-photos">
     <div class="section-title">📷 All Project Photos</div>
+    <div class="card">
+      <div class="card-header">Site Records</div>
+      <div class="card-body">
+        <p style="font-size:calc(12.5px + var(--ts));color:var(--steel);margin-bottom:12px;">Capture record photos of the pump, its placard, and the general site. The placard photo will support automatic pump-data entry.</p>
+        <div id="record-zones" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;"></div>
+      </div>
+    </div>
     <div class="card">
       <div class="card-body">
         <div id="photos-gallery"></div>
@@ -4109,7 +4117,7 @@ function switchPanel(id) {
       });
     }
     if (id === 'defic') { renderContractorTags(); renderDeficGroups(); renderGeneralDeficGroup(); updateDeficSummary(); }
-    if (id === 'photos') { if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); }
+    if (id === 'photos') { if(typeof _renderRecordZones==='function') _renderRecordZones(); if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); }
   updateNavButtons();
   } catch(err) { console.error('switchPanel chart error:', err); }
 }
@@ -5738,6 +5746,7 @@ document.getElementById('so-date').value = new Date().toISOString().slice(0,16);
 
 // ── PUMP TEST TYPE TOGGLE ──
 let flowTestPhotos = [];
+let recordPhotos = []; // S-records: site records — {d,n,id,kind:'pump'|'placard'|'site',r2*,caption,date}
 function setPumpTestType(type) {
   const tab3 = document.getElementById('tab-s4');
   const tab7 = document.getElementById('tab-s4pld');
@@ -6148,6 +6157,7 @@ function collectState() {
     flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n})),
     deletedItems: (function(){ var o={}; Object.keys(deletedItems).forEach(function(k){ o[k]=[...deletedItems[k]]; }); return o; })(),
     flowTestPhotos: flowTestPhotos.map(p=>({d:p.d,n:p.n})),
+    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||''})),
     sketchEntries: sketchEntries.map(e=>({comment:e.comment, markupImg:e.markupImg||null})),
     formRevision,
     formDateModified,
@@ -6173,6 +6183,7 @@ function _collectCloudState(){
     if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos);});
   });}
   if(s.flowTestPhotos)s.flowTestPhotos=_stripPhotos(s.flowTestPhotos);
+  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||''};});
   if(s.flowTestPhotosPld)s.flowTestPhotosPld=_stripPhotos(s.flowTestPhotosPld);
   if(s.sketchEntries)s.sketchEntries.forEach(function(e){e.markupImg=null;});
   // Signatures: strip canvas data (toDataURL) — keep only metadata
@@ -6187,6 +6198,7 @@ function _forEachLivePhoto(cb){
   try{
     if(Array.isArray(window.flowTestPhotos)) flowTestPhotos.forEach(cb);
     if(Array.isArray(window.flowTestPhotosPld)) flowTestPhotosPld.forEach(cb);
+    if(Array.isArray(window.recordPhotos)) recordPhotos.forEach(cb);
     if(clState && typeof clState==='object') Object.keys(clState).forEach(function(k){ var v=clState[k]; if(v&&Array.isArray(v.photos)) v.photos.forEach(cb); });
     if(deficiencies && typeof deficiencies==='object') Object.keys(deficiencies).forEach(function(ctr){ (deficiencies[ctr]||[]).forEach(function(d){ if(Array.isArray(d.photos))d.photos.forEach(cb); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))r.photos.forEach(cb); }); }); });
     if(Array.isArray(window.generalDeficiencies)) generalDeficiencies.forEach(function(d){ if(Array.isArray(d.photos))d.photos.forEach(cb); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))r.photos.forEach(cb); }); });
@@ -6467,7 +6479,12 @@ function _applyLoadedState(raw) {
     if (s.flowTestPhotosPld) { flowTestPhotosPld.length=0; s.flowTestPhotosPld.forEach(function(p){flowTestPhotosPld.push(p);}); renderFlowTestThumbsPld(); }
     if (s.flowTestPhotos) {
       flowTestPhotos.length = 0;
-      s.flowTestPhotos.forEach(p => flowTestPhotos.push(p));
+      s.flowTestPhotos.forEach(p => flowTestPhotos.push(p));    }
+    // recordPhotos (site records: pump / placard / site)
+    if (s.recordPhotos) {
+      recordPhotos.length = 0;
+      s.recordPhotos.forEach(function(p){ recordPhotos.push(p); });
+      if(typeof _renderRecordZones==='function') _renderRecordZones();
     }
     // sketchEntries
     if (s.sketchEntries) {
@@ -6936,6 +6953,7 @@ function _stateHasContent(s){
     if(Array.isArray(s.customItems) && s.customItems.length) return true;
     if(Array.isArray(s.flowTestPhotos) && s.flowTestPhotos.length) return true;
     if(Array.isArray(s.flowTestPhotosPld) && s.flowTestPhotosPld.length) return true;
+    if(Array.isArray(s.recordPhotos) && s.recordPhotos.length) return true;
     if(Array.isArray(s.sketchEntries) && s.sketchEntries.length) return true;
     if(s.clState && Object.keys(s.clState).some(function(k){var v=s.clState[k]; return v && typeof v==='object' && ((v.response!=null&&v.response!=='')||(v.status!=null&&v.status!=='')||(v.val!=null&&v.val!=='')||(v.comment&&String(v.comment).trim())||(Array.isArray(v.photos)&&v.photos.length));})) return true;
     if(s.proj && ((s.proj['pi-projname']&&String(s.proj['pi-projname']).trim())||(s.proj['pi-projno']&&String(s.proj['pi-projno']).trim())||(s.proj['pi-client']&&String(s.proj['pi-client']).trim()))) return true;
@@ -6957,6 +6975,14 @@ function _mergeCloudLocal(cloud, local){
         if(lp && !cp.d && lp.d) cp.d = lp.d;
         if(lp && !cp.r2Url && lp.r2Url) cp.r2Url = lp.r2Url;
         if(lp && !cp.r2Key && lp.r2Key) cp.r2Key = lp.r2Key;
+      });
+    }
+    // Preserve site record photos (match by id, fall back to index)
+    if(local.recordPhotos && cloud.recordPhotos){
+      cloud.recordPhotos.forEach(function(cp,i){
+        var lp = (cp.id && local.recordPhotos.filter(function(x){return x.id===cp.id;})[0]) || local.recordPhotos[i];
+        if(lp && !cp.d && lp.d) cp.d = lp.d;
+        if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
       });
     }
     // Preserve deficiency photos
@@ -7338,13 +7364,18 @@ function _collectAllPhotos(){
       all.push({photo:p, type:'general-defic', cat:'general', badge:'G'+(di+1), label:'General #'+(di+1), section:'gdef_'+di, idx:pi, src:p.r2Url||p.d});
     });
   });
+  // 6. Site records (pump / placard / site)
+  (recordPhotos||[]).forEach(function(p,i){
+    var kl = p.kind==='pump'?'Pump':p.kind==='placard'?'Placard':'Site';
+    all.push({photo:p, type:'record', cat:'records', badge:kl, label:'Record: '+kl, section:'rec_'+(p.kind||'site'), idx:i, src:p.r2Url||p.d});
+  });
   return all;
 }
 
 // ── Gallery state ──
 var _pgFilter = 'all';
 var _pgFilterOpen = false;
-var _PG_CATS = [['all','All photos'],['checklist','Checklist'],['deficiency','Deficiencies'],['general','General'],['flow','Flow test']];
+var _PG_CATS = [['all','All photos'],['checklist','Checklist'],['deficiency','Deficiencies'],['general','General'],['flow','Flow test'],['records','Site records']];
 
 function _pgCloudIcon(p){
   if(!_csHubMode) return '';
@@ -7379,13 +7410,68 @@ function _pgDayKey(p){
 function _pgSetFilter(mode){ _pgFilter=mode; _pgFilterOpen=false; _renderPhotoGallery(); }
 function _pgToggleFilterMenu(){ _pgFilterOpen=!_pgFilterOpen; _renderPhotoGallery(); }
 
+// ── Site Records capture (pump / placard / site) ──
+var _REC_KINDS = [
+  ['pump','Pump Photo','📷','Photo of the fire pump unit'],
+  ['placard','Placard Photo','🏷','Nameplate / rating placard'],
+  ['site','General Records','📁','Any other site record photo']
+];
+function _renderRecordZones(){
+  var host=document.getElementById('record-zones');
+  if(!host) return;
+  var html='';
+  _REC_KINDS.forEach(function(k){
+    var kind=k[0], title=k[1], icon=k[2], hint=k[3];
+    var thumbs=(recordPhotos||[]).map(function(p,i){return {p:p,i:i};}).filter(function(o){return (o.p.kind||'site')===kind;});
+    html+='<div style="border:1.5px solid var(--border);border-radius:9px;padding:11px;background:#fff;">';
+    html+='<div style="font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:7px;display:flex;align-items:center;gap:6px;">'+icon+' '+title+'</div>';
+    html+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
+    html+='<span>Drag &amp; drop · '+hint+'</span>';
+    html+='<button class="pz-upload" onclick="_recUpload(\''+kind+'\')">📎 Upload</button>';
+    html+='<button class="pz-camera" onclick="_recCamera(\''+kind+'\')" style="background:var(--arencon);color:#fff;border-color:var(--arencon);">📷 Camera</button>';
+    html+='</div>';
+    if(thumbs.length){
+      html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
+      thumbs.forEach(function(o){
+        html+='<div style="position:relative;width:64px;height:64px;border-radius:6px;overflow:hidden;border:1.5px solid var(--border);">'
+          +'<img src="'+(o.p.r2Url||o.p.d)+'" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="_recLightbox('+o.i+')">'
+          +'<button onclick="_recDelete('+o.i+')" title="Remove" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;padding:0;cursor:pointer;">✕</button>'
+          +'</div>';
+      });
+      html+='</div>';
+    }
+    html+='</div>';
+  });
+  host.innerHTML=html;
+}
+function _recAddFile(file, kind){
+  if(!file || !file.type || file.type.indexOf('image/')!==0) return;
+  var r=new FileReader();
+  r.onload=function(ev){
+    compressImage(ev.target.result, 1600, 0.85, function(c){
+      var _ph={d:c, n:file.name, id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
+               kind:kind, caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
+      recordPhotos.push(_ph);
+      _r2EnqueuePhoto(_ph);
+      _renderRecordZones();
+      if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
+    });
+  };
+  r.readAsDataURL(file);
+}
+function _recDrop(e, kind){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(function(f){ _recAddFile(f,kind); }); }
+function _recUpload(kind){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(function(f){ _recAddFile(f,kind); }); }; inp.click(); }
+function _recCamera(kind){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment'); inp.onchange=function(){ var f=inp.files[0]; if(f) _recAddFile(f,kind); }; inp.click(); }
+function _recDelete(i){ if(!recordPhotos[i]) return; recordPhotos.splice(i,1); _renderRecordZones(); if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); }
+function _recLightbox(i){ openLightbox(recordPhotos, i, {renderer:_renderRecordZones}); }
+
 function _renderPhotoGallery(){
   var container = document.getElementById('photos-gallery');
   if(!container) return;
   var all = _collectAllPhotos();
 
   // stat counts (always over ALL photos, not the filtered view)
-  var counts = {all:all.length, checklist:0, deficiency:0, general:0, flow:0};
+  var counts = {all:all.length, checklist:0, deficiency:0, general:0, flow:0, records:0};
   all.forEach(function(a){ if(counts[a.cat]!=null) counts[a.cat]++; });
 
   // stale selection cleanup
@@ -7403,6 +7489,7 @@ function _renderPhotoGallery(){
   html += '<div class="ph-stat" onclick="_pgSetFilter(\'deficiency\')"><div class="ph-stat-num">'+counts.deficiency+'</div><div class="ph-stat-lbl">Deficiencies</div></div>';
   html += '<div class="ph-stat" onclick="_pgSetFilter(\'general\')"><div class="ph-stat-num">'+counts.general+'</div><div class="ph-stat-lbl">General</div></div>';
   html += '<div class="ph-stat" onclick="_pgSetFilter(\'flow\')"><div class="ph-stat-num">'+counts.flow+'</div><div class="ph-stat-lbl">Flow test</div></div>';
+  html += '<div class="ph-stat" onclick="_pgSetFilter(\'records\')"><div class="ph-stat-num">'+counts.records+'</div><div class="ph-stat-lbl">Records</div></div>';
   html += '</div><div class="ph-toolbar-right">';
   var nSel = _pgSelected.size;
   if(nSel>0){
