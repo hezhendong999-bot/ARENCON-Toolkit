@@ -296,26 +296,22 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .fp-verdict.na{background:#eef0f4;color:var(--silver);}
 /* ── S213 framed chart figure (FRT family) ── */
 .fig{background:#fff;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07);}
-.fig-hd{background:#2A3A5C;color:#fff;padding:11px 16px;display:flex;align-items:center;gap:10px;}
-.fig-hd .fig-t{font-weight:700;font-size:calc(13px + var(--ts));letter-spacing:.3px;}
+.fig-hd{background:var(--arencon);color:#fff;padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:3px solid #2A3A5C;}
+.fig-hd .fig-ic{flex:none;opacity:.92;}
+.fig-hd .fig-t{font-weight:700;font-size:calc(13px + var(--ts));letter-spacing:.3px;line-height:1.2;}
 .fig-verdict{margin-left:auto;font-size:calc(11px + var(--ts));font-weight:800;letter-spacing:.4px;padding:4px 12px;border-radius:11px;white-space:nowrap;}
 .fig-verdict.pass{background:#D2EBDC;color:#2f5740;}
 .fig-verdict.fail{background:#F4D6D6;color:#8E4444;}
-.fig-verdict.na{background:rgba(255,255,255,.16);color:#cfd6e2;}
-.ann-tog{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);color:#fff;font-family:inherit;font-size:11px;font-weight:600;padding:5px 11px;border-radius:7px;cursor:pointer;transition:background .14s;}
-.ann-tog:hover{background:rgba(255,255,255,.24);}
-.ann-tog .sw{position:relative;width:28px;height:15px;border-radius:8px;background:rgba(255,255,255,.3);transition:background .15s;flex:none;}
-.ann-tog .sw:after{content:'';position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff;transition:transform .15s;}
-.ann-tog.on .sw{background:#7DBE97;}
-.ann-tog.on .sw:after{transform:translateX(13px);}
-@media(pointer:coarse){.ann-tog{padding:8px 13px;}}
+.fig-verdict.na{background:rgba(255,255,255,.18);color:#f0e4e8;}
 .fig-body{padding:16px;}
-.fig-legend{display:flex;flex-wrap:wrap;gap:13px;padding:11px 16px;border-top:1px solid var(--border);background:#FAFBFC;}
-.fig-legend .lg{display:flex;align-items:center;gap:7px;font-size:calc(11.5px + var(--ts));color:var(--steel);}
-.fig-legend .sw2{width:22px;height:0;border-top-width:3px;border-top-style:solid;border-radius:2px;}
-.fig-legend .sw2.dash{border-top-style:dashed;}
-.fig-legend .sw2.dia{width:12px;height:12px;border:none;transform:rotate(45deg);border-radius:2px;}
-.fig-legend .sw2.dot{width:11px;height:11px;border:none;border-radius:50%;}
+/* S214 4a: interactive legend — tap a name to show/hide its curve */
+.fig-legend{display:flex;flex-wrap:wrap;gap:8px;padding:11px 16px;border-top:1px solid var(--border);background:var(--smoke);}
+.fig-legend .lg{display:inline-flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:18px;background:#fff;overflow:hidden;transition:opacity .15s;}
+.fig-legend .lg.off{opacity:.42;}
+.fig-legend .lg .lg-main{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;cursor:pointer;font-size:calc(11.5px + var(--ts));color:var(--steel);white-space:nowrap;font-weight:600;}
+.fig-legend .lg .swc{flex:none;width:24px;height:12px;}
+.fig-leghint{font-size:calc(10.5px + var(--ts));color:var(--silver);padding:0 16px 11px;background:var(--smoke);margin-top:-1px;}
+@media(pointer:coarse){.fig-legend .lg .lg-main{padding:8px 13px;}}
 .fig-readout{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border);}
 .fig-readout .ro{background:#fff;padding:9px 6px;text-align:center;}
 .fig-readout .ro .pct{font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);letter-spacing:.4px;text-transform:uppercase;}
@@ -325,14 +321,19 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .fig-readout .ro .chip.pass{background:#D2EBDC;color:#2f5740;}
 .fig-readout .ro .chip.fail{background:#F4D6D6;color:#8E4444;}
 .fig-readout .ro .chip.na{background:#eef0f4;color:var(--silver);}
-.fig-supply{display:flex;flex-wrap:wrap;gap:18px;padding:9px 16px;border-top:1px solid var(--border);background:#FAFBFC;font-size:calc(11px + var(--ts));color:var(--steel);}
+.fig-supply{display:flex;flex-wrap:wrap;gap:18px;padding:9px 16px;border-top:1px solid var(--border);background:var(--smoke);font-size:calc(11px + var(--ts));color:var(--steel);}
 .fig-supply b{color:var(--slate);font-weight:700;}
 .fig-supply:empty{display:none;}
-body.dark-mode .fig{background:#222933;border-color:#39414f;}
-body.dark-mode .fig-legend,body.dark-mode .fig-supply{background:#1c222b;border-color:#39414f;}
-body.dark-mode .fig-readout{background:#39414f;}
-body.dark-mode .fig-readout .ro{background:#222933;}
+body.dark-mode .fig{background:#1b212b;border-color:#323a48;}
+body.dark-mode .fig-hd{background:linear-gradient(135deg,#5a1a2a,#3d1220);color:#e8c0cc;border-bottom-color:#2A3A5C;}
+body.dark-mode .fig-legend,body.dark-mode .fig-supply,body.dark-mode .fig-leghint{background:#161b22;border-color:#323a48;}
+body.dark-mode .fig-legend .lg{background:#222933;border-color:#3a4250;}
+body.dark-mode .fig-legend .lg .lg-main{color:#c2c9d6;}
+body.dark-mode .fig-supply b{color:#d0d8f0;}
+body.dark-mode .fig-readout{background:#323a48;}
+body.dark-mode .fig-readout .ro{background:#1b212b;}
 body.dark-mode .fig-readout .ro .val{color:#e6e9ee;}
+body.dark-mode .fig-readout .ro .chip.na{background:#2a3040;}
 .fp-strip{display:flex;align-items:flex-start;padding:13px 16px;}
 .fp-seg{display:flex;flex-direction:column;gap:8px;flex:1;padding:0 16px;border-right:1.5px solid var(--border);}
 .fp-seg:first-child{padding-left:0;}
@@ -1283,15 +1284,11 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 
     <!-- ── COMBINED CHART: 3-Point Fire Pump Performance + Supply & Demand ── -->
     <div class="card" style="margin-top:14px;">
-      <div class="card-header mid">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
-        3-Point Fire Pump Performance Test, Water Supply &amp; System Demand Curve
-      </div>
-      <div class="card-body" style="padding:14px 16px 16px;">
+      <div class="card-body" style="padding:0;">
         <div class="fig" id="fig-chart3pt">
           <div class="fig-hd">
-            <span class="fig-t">Fire Pump Performance — 3-Point Test</span>
-            <button type="button" class="ann-tog on" id="edgetog-chart3pt" onclick="toggleEdgeLabels('chart3pt')"><span class="sw"></span>Edge labels</button>
+            <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+            <span class="fig-t">3-Point Fire Pump Performance Test, Water Supply &amp; System Demand Curve</span>
             <span class="fig-verdict na" id="figv-chart3pt">—</span>
           </div>
           <div class="fig-body">
@@ -1300,11 +1297,12 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
             </div>
           </div>
           <div class="fig-legend" id="figleg-chart3pt"></div>
+          <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
           <div class="fig-readout" id="figro-chart3pt"></div>
           <div class="fig-supply" id="figsup-chart3pt"></div>
         </div>
         <canvas id="netPerfChart" style="display:none;width:1px;height:1px;"></canvas>
-        <div id="cl-s4" style="margin-top:16px;"></div>
+        <div id="cl-s4" style="margin-top:16px;padding:0 16px 16px;"></div>
       </div>
     </div>
   </div>
@@ -3190,7 +3188,7 @@ function _chartStrokeW() { return document.body.classList.contains('dark-mode') 
 function _chartGrid() { return document.body.classList.contains('dark-mode') ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.05)'; }
 function _chartLabelColor(lightCol) {
   if(!document.body.classList.contains('dark-mode')) return lightCol;
-  var map = {'#1A7A4A':'#5aca7a','#0D47A1':'#60a0e0','#1565C0':'#60a0e0','#D35400':'#e8a050','#5B2D8E':'#b080e0','#E53935':'#f07070','#2C4770':'#7a9fc8','#9C27B0':'#c070d0','#E67E22':'#e8a050'};
+  var map = {'#1A7A4A':'#5aca7a','#0D47A1':'#60a0e0','#1565C0':'#60a0e0','#D35400':'#e8a050','#5B2D8E':'#b080e0','#E53935':'#f07070','#2C4770':'#7a9fc8','#9C27B0':'#c070d0','#E67E22':'#e8a050','#805AD5':'#b59ae0'};
   return map[lightCol] || lightCol;
 }
 let pldSupplyChart = null;  // legacy var (removed from UI, kept to avoid ref errors)
@@ -3354,72 +3352,51 @@ function toggleEdgeLabels(cid){
   var ci = cid==='chart3pt'?chart3pt:cid==='pldChart'?pldChart:pldNetChart;
   if(ci) ci.update();
 }
-// %-tag formatter: labels ONLY the NFPA points carried in dataset _pctMap
-function _pctTagFormatter(val, ctx){
-  var ds = ctx.chart.data.datasets[ctx.datasetIndex];
-  var m = ds._pctMap || [];
-  return (m[ctx.dataIndex]!==undefined && m[ctx.dataIndex]!==null) ? m[ctx.dataIndex] : '';
-}
-// Edge-label plugin: psi tags pinned to right axis at each measured point's height,
-// collision-spread vertically, dashed leader. Anchored to the 'Discharge Pressure (Measured)' dataset.
-function makeEdgeLabelPlugin(cid, measuredLabel){
-  return { id:'edge_'+cid, afterDatasetsDraw:function(chart){
-    if(!_edgeLabelsOn[cid]) return;
-    var ctx=chart.ctx, area=chart.chartArea;
-    var dsIdx=chart.data.datasets.findIndex(function(d){return d.label===measuredLabel;});
-    if(dsIdx<0) return;
-    var meta=chart.getDatasetMeta(dsIdx);
-    var data=chart.data.datasets[dsIdx].data;
-    if(!meta||!data||!data.length) return;
-    var H=17, gap=3, right=area.right, W=52;
-    var items=data.map(function(pt,i){
-      var el=meta.data[i]; if(!el||pt==null||pt.y==null) return null;
-      return {y:el.y, py:el.y, px:el.x, text:Math.round(pt.y)+' psi'};
-    }).filter(Boolean);
-    if(!items.length) return;
-    items.sort(function(a,b){return a.y-b.y;});
-    for(var k=1;k<items.length;k++){ if(items[k].y-items[k-1].y < H+gap) items[k].y=items[k-1].y+H+gap; }
-    var overflow = items[items.length-1].y - area.bottom;
-    if(overflow>0) items.forEach(function(it){it.y-=overflow;});
-    var top = area.top - items[0].y;
-    if(top>0) items.forEach(function(it){it.y+=top;});
-    var isDark=document.body.classList.contains('dark-mode');
-    var tagCol=isDark?'#6d9c80':'#5F8068';
-    items.forEach(function(it){
-      ctx.save();
-      ctx.strokeStyle=tagCol;ctx.lineWidth=1;ctx.setLineDash([2,2]);
-      ctx.beginPath();ctx.moveTo(it.px,it.py);ctx.lineTo(right+4,it.y);ctx.stroke();ctx.setLineDash([]);
-      ctx.fillStyle=tagCol;
-      if(ctx.roundRect){ctx.beginPath();ctx.roundRect(right+4,it.y-H/2,W,H,4);ctx.fill();}
-      else ctx.fillRect(right+4,it.y-H/2,W,H);
-      ctx.fillStyle='#fff';ctx.font='700 10px Calibri';ctx.textBaseline='middle';ctx.textAlign='left';
-      ctx.fillText(it.text,right+9,it.y);
-      ctx.restore();
-    });
-  }};
-}
-// Build the muted HTML legend for a figure, only for series that currently carry data
+// (S214: 4a edge-label / %-tag / per-curve-label apparatus removed — 4a now uses the
+// draggable annotation overlay to match the 7-point chart. Labels live in annotations.)
+
+// Build the interactive legend: tap a name to show/hide its curve. (No per-curve label
+// tabs — 4a uses draggable annotations to match the 7-point chart.)
 function renderFigLegend3pt(){
-  var host=document.getElementById('figleg-chart3pt'); if(!host) return;
-  var ds=chart3pt?chart3pt.data.datasets:[];
+  var host=document.getElementById('figleg-chart3pt'); if(!host||!chart3pt) return;
+  var ds=chart3pt.data.datasets;
   function has(i){return ds[i]&&ds[i].data&&ds[i].data.length;}
+  // {i:dsIdx, c:color, kind:'line'|'dia'|'dot', dash:[...], t:label, also:idx?}
   var defs=[];
-  if(has(2)) defs.push({c:'#5F8068',cls:'',t:'Measured Discharge'});
-  if(has(1)) defs.push({c:'#9C2742',cls:'dash',t:'Pump Curve'});
-  if(has(0)) defs.push({c:'#6E86B8',cls:'',t:'Available Supply'});
-  if(has(3)) defs.push({c:'#4A7BA8',cls:'dash',t:'Net Pressure'});
-  if(has(11)) defs.push({c:'#4A7BA8',cls:'dash',t:'Cutsheet'});
-  if(has(12)) defs.push({c:'#7D6F9C',cls:'dash',t:'Placard'});
-  if(has(6)) defs.push({c:'#8A7B5C',cls:'dash',t:'Sprinkler Demand'});
-  if(has(8)) defs.push({c:'#8A7B5C',cls:'dash',t:'Outside Hose'});
-  if(has(10)) defs.push({c:'#A85959',cls:'dash',t:'PRV Rating'});
-  if(has(9)) defs.push({c:'#7A5C8E',cls:'dia',t:'System Demand'});
-  if(has(4)||has(5)) defs.push({c:'#6E86B8',cls:'dot',t:'Supply Points'});
-  host.innerHTML = defs.map(function(d){
-    if(d.cls==='dia') return '<span class="lg"><span class="sw2 dia" style="background:'+d.c+'"></span>'+d.t+'</span>';
-    if(d.cls==='dot') return '<span class="lg"><span class="sw2 dot" style="background:'+d.c+'"></span>'+d.t+'</span>';
-    return '<span class="lg"><span class="sw2 '+d.cls+'" style="border-color:'+d.c+'"></span>'+d.t+'</span>';
-  }).join('');
+  if(has(2)) defs.push({i:2, c:'#5F8068', kind:'line', dash:[],          t:'Measured Discharge'});
+  if(has(1)) defs.push({i:1, c:'#9C2742', kind:'line', dash:[10,5],      t:'Pump Curve'});
+  if(has(0)) defs.push({i:0, c:'#6E86B8', kind:'line', dash:[],          t:'Available Supply'});
+  if(has(3)) defs.push({i:3, c:'#4A7BA8', kind:'line', dash:[8,4,2,4],   t:'Net Pressure'});
+  if(has(6)) defs.push({i:6, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4],   t:'Sprinkler Demand'});
+  if(has(8)) defs.push({i:8, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4],   t:'Outside Hose'});
+  if(has(11)) defs.push({i:11,c:'#4A7BA8', kind:'line', dash:[2,3],      t:'Cutsheet'});
+  if(has(12)) defs.push({i:12,c:'#7D6F9C', kind:'line', dash:[2,3],      t:'Placard'});
+  if(has(10)) defs.push({i:10,c:'#A85959', kind:'line', dash:[2,3],      t:'PRV Rating'});
+  if(has(9)) defs.push({i:9, c:_chartLabelColor('#805AD5'), kind:'dia',  dash:[],          t:'System Demand'});
+  if(has(4)||has(5)) defs.push({i:4, c:'#6E86B8', kind:'dot', dash:[],   t:'Supply Points', also:5});
+  function swatch(d){
+    if(d.kind==='dia') return '<svg class="swc" viewBox="0 0 24 12"><rect x="7" y="2" width="8" height="8" transform="rotate(45 11 6)" fill="'+d.c+'"/></svg>';
+    if(d.kind==='dot') return '<svg class="swc" viewBox="0 0 24 12"><circle cx="12" cy="6" r="5" fill="'+d.c+'"/></svg>';
+    var da=d.dash&&d.dash.length?' stroke-dasharray="'+d.dash.join(',')+'"':'';
+    return '<svg class="swc" viewBox="0 0 24 12"><line x1="1" y1="6" x2="23" y2="6" stroke="'+d.c+'" stroke-width="2"'+da+'/></svg>';
+  }
+  host.innerHTML='';
+  defs.forEach(function(d){
+    var meta=chart3pt.getDatasetMeta(d.i);
+    var hidden=meta.hidden===true;
+    var el=document.createElement('span');
+    el.className='lg'+(hidden?' off':'');
+    el.innerHTML='<span class="lg-main" data-i="'+d.i+'"'+(d.also!=null?' data-also="'+d.also+'"':'')+'>'+swatch(d)+d.t+'</span>';
+    host.appendChild(el);
+  });
+  host.querySelectorAll('.lg-main').forEach(function(m){
+    m.onclick=function(){
+      var i=+m.dataset.i, also=m.dataset.also!=null?+m.dataset.also:null;
+      var mt=chart3pt.getDatasetMeta(i); mt.hidden=!mt.hidden;
+      if(also!=null) chart3pt.getDatasetMeta(also).hidden=mt.hidden;
+      chart3pt.update(); renderFigLegend3pt();
+    };
+  });
 }
 // Readout strip (per-point %/psi/gpm/rpm + verdict) — uses the REAL _calcFlowPoint
 function renderFigReadout3pt(){
@@ -3488,50 +3465,48 @@ function initChart3pt() {
   const labelOff = {display:false};
   chart3pt = new Chart(canvas.getContext('2d'), {
     type:'scatter',
-    plugins:[ makeEdgeLabelPlugin('chart3pt','Discharge Pressure (Measured)') ],
+    plugins:[],
     data:{ datasets:[
       // 0: Available Supply
       { label:'Available Supply', data:[], clip:10, borderColor:'#6E86B8', backgroundColor:'rgba(110,134,184,.09)',
         showLine:true, fill:true, tension:0, pointRadius:function(ctx){var d=ctx.dataset.data;return(ctx.dataIndex===0||ctx.dataIndex===d.length-1)?4:0;}, borderWidth:2, datalabels:labelOff},
       // 1: Pump Curve (Mfr.)
       { label:'Pump Curve (Mfr.)', data:[], borderColor:'#9C2742', backgroundColor:'transparent',
-        showLine:true, fill:false, borderDash:[6,4], pointRadius:0, borderWidth:1.8, datalabels:labelOff},
-      // 2: Discharge pressure (Measured) — carries %-tags + edge labels
-      { label:'Discharge Pressure (Measured)', data:[], _pctMap:[], borderColor:'#5F8068', backgroundColor:'transparent',
-        showLine:true, fill:false, tension:0, pointRadius:6, pointBorderColor:'#5F8068', pointBorderWidth:2.5, pointBackgroundColor:'#fff', borderWidth:2.5,
-        datalabels:{ display:true, clip:false, align:'top', anchor:'center', offset:9,
-          color:'#5F8068', font:{size:10,weight:'700',family:'Calibri,sans-serif'},
-          formatter:_pctTagFormatter}},
+        showLine:true, fill:false, borderDash:[10,5], pointRadius:0, borderWidth:1.8, datalabels:labelOff},
+      // 2: Discharge pressure (Measured)
+      { label:'Discharge Pressure (Measured)', data:[], borderColor:'#5F8068', backgroundColor:'transparent',
+        showLine:true, fill:false, tension:0, pointRadius:6, pointBorderColor:'#5F8068', pointBorderWidth:2.5, pointBackgroundColor:'#fff', borderWidth:2.6,
+        datalabels:labelOff},
       // 3: Net Pressure
       { label:'Net Pressure (Discharge \u2212 Suction)', data:[], borderColor:'#4A7BA8', backgroundColor:'transparent',
-        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:1.6, borderDash:[4,3], datalabels:labelOff},
+        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:1.6, borderDash:[8,4,2,4], datalabels:labelOff},
       // 4: Static supply point
       { label:'_staticPt', data:[], borderColor:'#6E86B8', backgroundColor:'#6E86B8',
         pointStyle:'circle', pointRadius:5, showLine:false, datalabels:labelOff},
       // 5: Residual supply point
       { label:'_residualPt', data:[], borderColor:'#6E86B8', backgroundColor:'#fff',
         pointStyle:'triangle', pointRadius:6, pointBorderColor:'#6E86B8', pointBorderWidth:2, showLine:false, datalabels:labelOff},
-      // 6: SD diagonal
-      { label:'Sprinkler Demand Line (SD)', data:[], borderColor:'#8A7B5C', backgroundColor:'transparent',
-        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:1.8, borderDash:[5,3], datalabels:labelOff},
+      // 6: SD diagonal — orange, matches 4b (muted in dark via _chartLabelColor)
+      { label:'Sprinkler Demand Line (SD)', data:[], borderColor:_chartLabelColor('#E67E22'), backgroundColor:'transparent',
+        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:1.8, borderDash:[8,4,2,4], datalabels:labelOff},
       // 7: SD point
-      { label:'_sprDemPt', data:[], borderColor:'#8A7B5C', backgroundColor:'#8A7B5C',
+      { label:'_sprDemPt', data:[], borderColor:_chartLabelColor('#E67E22'), backgroundColor:_chartLabelColor('#E67E22'),
         pointStyle:'circle', pointRadius:6, showLine:false, datalabels:labelOff},
-      // 8: OHL
-      { label:'Outside Hose Allow. (OHL)', data:[], borderColor:'#8A7B5C', backgroundColor:'transparent',
-        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:2, borderDash:[2,5], datalabels:labelOff},
-      // 9: Total demand diamond
-      { label:'Total System Demand', data:[], borderColor:'#7A5C8E', backgroundColor:'#7A5C8E',
+      // 8: OHL — orange, matches 4b
+      { label:'Outside Hose Allow. (OHL)', data:[], borderColor:_chartLabelColor('#E67E22'), backgroundColor:'transparent',
+        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:2, borderDash:[8,4,2,4], datalabels:labelOff},
+      // 9: Total demand diamond — purple, matches 4b (#805AD5)
+      { label:'Total System Demand', data:[], borderColor:_chartLabelColor('#805AD5'), backgroundColor:_chartLabelColor('#805AD5'),
         pointStyle:'rectRot', pointRadius:9, showLine:false, datalabels:labelOff},
       // 10: PRV line
       { label:'PRV Rating', data:[], borderColor:'#A85959', backgroundColor:'transparent',
-        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:1.5, borderDash:[8,4], datalabels:labelOff},
+        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:1.6, borderDash:[2,3], datalabels:labelOff},
       // 11: Cutsheet line
       { label:'Cutsheet (Design)', data:[], borderColor:'#4A7BA8', backgroundColor:'transparent',
-        showLine:true, fill:false, tension:0, pointRadius:2, borderWidth:1.4, borderDash:[6,4], datalabels:labelOff},
+        showLine:true, fill:false, tension:0, pointRadius:2, borderWidth:1.4, borderDash:[2,3], datalabels:labelOff},
       // 12: Placard line
       { label:'Placard', data:[], borderColor:'#7D6F9C', backgroundColor:'transparent',
-        showLine:true, fill:false, tension:0, pointRadius:2, borderWidth:1.4, borderDash:[3,3], datalabels:labelOff},
+        showLine:true, fill:false, tension:0, pointRadius:2, borderWidth:1.4, borderDash:[2,3], datalabels:labelOff},
     ]},
     options:{
       responsive:true, maintainAspectRatio:false, animation:false,
@@ -3591,10 +3566,6 @@ function updateChart3pt() {
   chart3pt.data.datasets[0].data = buildSupplyLine3pt();
   chart3pt.data.datasets[1].data = buildPumpCurveLine();
   chart3pt.data.datasets[2].data = stdDis;
-  // %-tags label only the 3 NFPA points (0/100/150%) — map by sorted position
-  chart3pt.data.datasets[2]._pctMap = stdDis.map(function(p){
-    return (p.pct==='0%'||p.pct==='100%'||p.pct==='150%') ? p.pct : null;
-  });
   chart3pt.data.datasets[3].data = stdNet;
   chart3pt.data.datasets[4].data = staticPt;
   chart3pt.data.datasets[5].data = residualPt;
@@ -3845,7 +3816,7 @@ function applyChartDarkMode() {
   var curPanel = document.querySelector('.panel.active');
   var curId = curPanel ? curPanel.id.replace('panel-','') : '';
   if(curId === 's4') {
-    requestAnimationFrame(function(){ if(!chart3pt)initChart3pt(); updateChart3pt(); });
+    requestAnimationFrame(function(){ if(!chart3pt)initChart3pt(); updateChart3pt(); setTimeout(hookChartAnnotations, 120); });
   } else if(curId === 's4pld') {
     requestAnimationFrame(function(){ if(!pldChart)initPldChart(); if(!pldNetChart)initPldNetChart(); updatePldChart(); updatePldNetChart(); });
   }
@@ -4560,7 +4531,8 @@ function switchPanel(id) {
       if (!_tabRendered.s4) { renderStdTable(); renderPumpCurveTable(); _tabRendered.s4 = true; }
       // Defer chart init to next frame — panel must be visible (display:block) before Chart.js measures canvas
       requestAnimationFrame(function(){
-        if (!chart3pt) { initChart3pt(); }
+        if (!chart3pt) { initChart3pt(); setTimeout(hookChartAnnotations, 200); }
+        else { updateChart3pt(); if(!document.getElementById('chart3pt-annotations')) setTimeout(hookChartAnnotations, 100); }
         if (!netPerfChart) initNetPerfChart();
         updateChart3pt();
         updateNetPerfChart();
@@ -4645,7 +4617,7 @@ function _bakeAnnotationsOntoCanvas(ci, canvasId) {
   ctx.restore();
 }
 function exportPDF() {
-  [['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(p){ _bakeAnnotationsOntoCanvas(p[1],p[0]); });
+  [['chart3pt',chart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(p){ _bakeAnnotationsOntoCanvas(p[1],p[0]); });
   setTimeout(function(){
     _realExportPDF();
     // Clear baked annotations from canvases by re-rendering
@@ -5848,6 +5820,7 @@ function toggleAnnotations(canvasId) {
 function initChartAnnotationOverlay(chartInstance, canvasId) {
   var canvas = document.getElementById(canvasId);
   if(!canvas) return;
+  if(document.getElementById(canvasId + '-annotations')) { if(!chartAnnotations[canvasId]) chartAnnotations[canvasId] = []; return; }
   var wrap = canvas.parentElement;
   var overlay = document.createElement('div');
   overlay.id = canvasId + '-annotations';
@@ -5992,8 +5965,8 @@ var _origUpdateNet = null;
 
 function hookChartAnnotations() {
   // Hook into each chart to render draggable annotations after update.
-  // S213: chart3pt (4a) is excluded — it uses the edge-label system, not this overlay.
-  [['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(pair){
+  // S214: chart3pt (4a) re-added — it uses the draggable overlay to match 4b (7-point).
+  [['chart3pt',chart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(pair){
     var cid=pair[0], ci=pair[1];
     if(!ci) return;
     initChartAnnotationOverlay(ci, cid);
