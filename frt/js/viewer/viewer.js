@@ -2924,7 +2924,7 @@ var _PinPan = (function() {
     // circle) was rendering it too SMALL (was a fixed 30). The viewBox ratio
     // is constant, so a readable fixed width matches the on-drawing pin's
     // apparent scale. 40px ≈ how the drawing pin reads to the eye.
-    st.PW = 40;
+    st.PW = 20;
     bindToolbar();
     draw();
   }
