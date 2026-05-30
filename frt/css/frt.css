@@ -7505,6 +7505,98 @@ body.dark-mode .dfx-or-editor { background: #23272F; border-top-color: #353B45; 
 .dfx-or-act.danger:hover { background: #fbeeee; border-color: #8E4444; color: #8E4444; }
 body.dark-mode .dfx-or-act { background: #2A2E36; color: #C8CDD6; border-color: #3A404B; }
 
+/* ── S213: unified editor HEADER block (Editor B/C — withHeader). A (the
+   Detailed card) does not render any of this; these only style the on-drawing
+   pin editor + focused modal. Muted palette; gold star; burgundy CTA/hover
+   only. Star golds on BOTH .on (initial render) and .is-rec (the in-place
+   toggle-rec flip toggles .is-rec — see deficiencies.js). ── */
+.dfx-ed-header { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.dfx-ed-star {
+  font-size: calc(20px + var(--ts)); line-height: 1; color: #C9CDD6;
+  background: none; border: none; cursor: pointer; padding: 0; font-family: inherit;
+  flex-shrink: 0; width: 26px; text-align: center;
+}
+.dfx-ed-star.on, .dfx-ed-star.is-rec { color: #D4A017; }
+.dfx-ed-pinlabel {
+  font-size: calc(15px + var(--ts)); font-weight: 700; color: var(--slate, #1C2333);
+  letter-spacing: .2px;
+}
+body.dark-mode .dfx-ed-pinlabel { color: #E2E6EC; }
+.dfx-ed-dlink {
+  margin-left: auto; font-family: inherit; font-size: calc(11.5px + var(--ts));
+  font-weight: 600; color: var(--steel, #4A5568); background: none;
+  border: 1px solid var(--border, #DDE1E7); border-radius: 7px; padding: 3px 10px; cursor: pointer;
+}
+.dfx-ed-dlink:hover { border-color: var(--arencon, #9C2742); color: var(--arencon, #9C2742); }
+
+/* observation tab strip */
+.dfx-ed-tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 11px; }
+.dfx-ed-tab {
+  display: inline-flex; align-items: center; border: 1.5px solid var(--border, #DDE1E7);
+  border-radius: 9px; overflow: hidden; background: #fff;
+}
+.dfx-ed-tab.active { border-color: var(--arencon, #9C2742); background: #fdf5f7; }
+.dfx-ed-tab-btn {
+  font-family: inherit; font-size: calc(12.5px + var(--ts)); font-weight: 600;
+  color: var(--steel, #4A5568); background: none; border: none; cursor: pointer;
+  padding: 6px 11px;
+}
+.dfx-ed-tab.active .dfx-ed-tab-btn { color: var(--arencon, #9C2742); }
+.dfx-ed-tab-cust { color: #7B5A8F; font-weight: 700; }
+.dfx-ed-tab-split, .dfx-ed-tab-x {
+  font-family: inherit; font-size: calc(12px + var(--ts)); line-height: 1;
+  background: none; border: none; border-left: 1px solid var(--border, #DDE1E7);
+  color: var(--silver, #A0AEC0); cursor: pointer; padding: 6px 8px;
+}
+.dfx-ed-tab-split:hover { color: #7B5A8F; background: #f3eef6; }
+.dfx-ed-tab-x:hover { color: #A85959; background: #fbeeee; }
+.dfx-ed-tab-add {
+  font-family: inherit; font-size: calc(12px + var(--ts)); font-weight: 600;
+  color: var(--steel, #4A5568); background: none;
+  border: 1.5px dashed var(--border, #DDE1E7); border-radius: 9px; padding: 6px 11px; cursor: pointer;
+}
+.dfx-ed-tab-add:hover { border-color: var(--arencon, #9C2742); color: var(--arencon, #9C2742); }
+body.dark-mode .dfx-ed-tab { background: #2A2E36; border-color: #3A404B; }
+body.dark-mode .dfx-ed-tab-btn { color: #C8CDD6; }
+
+/* quiet observed-date line */
+.dfx-ed-noted {
+  display: flex; align-items: center; gap: 8px; margin: 2px 0 11px;
+  font-size: calc(11.5px + var(--ts)); color: var(--silver, #A0AEC0);
+}
+.dfx-ed-noted-lbl { font-weight: 600; }
+.dfx-ed-noted-edit {
+  font-family: inherit; font-size: calc(11px + var(--ts)); color: var(--steel, #4A5568);
+  background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline;
+}
+.dfx-ed-noted-edit:hover { color: var(--arencon, #9C2742); }
+
+/* "Choose for this obs" by the photo hint */
+.dfx-ed-choose {
+  font-family: inherit; font-size: calc(11px + var(--ts)); font-weight: 600;
+  color: var(--steel, #4A5568); background: none;
+  border: 1px solid var(--border, #DDE1E7); border-radius: 7px; padding: 3px 9px;
+  cursor: pointer; margin-left: 8px;
+}
+.dfx-ed-choose:hover { border-color: var(--arencon, #9C2742); color: var(--arencon, #9C2742); }
+
+/* slim B/C action bar — fewer buttons; +Response/+Comment + ⋯ More */
+.dfx-ed-actions { gap: 8px; }
+
+/* move-pin-to-drawing chooser rows hover */
+.pe-move-dwg-row:hover { border-color: var(--arencon, #9C2742) !important; background: #fdf5f7 !important; }
+
+/* touch sizing — never hover-only (field tablets) */
+@media (pointer: coarse) {
+  .dfx-ed-star { font-size: calc(22px + var(--ts)); width: 30px; }
+  .dfx-ed-tab-btn, .dfx-ed-tab-add { padding: 9px 13px; }
+  .dfx-ed-tab-split, .dfx-ed-tab-x { padding: 9px 11px; }
+  .dfx-ed-choose { padding: 6px 11px; }
+  .dfx-ed-noted-edit { padding: 4px 2px; }
+  .dfx-ed-dlink { padding: 6px 12px; }
+}
+
+
 /* touch: caret + star comfortably tappable; controls never hover-only */
 @media (pointer: coarse) {
   .dfx-or-star { font-size: calc(20px + var(--ts)); width: 26px; }

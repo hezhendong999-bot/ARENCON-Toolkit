@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=423">
+<link rel="stylesheet" href="css/frt.css?v=424">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -858,62 +858,34 @@ function ensurePdfJs(cb){
       <button id="pe-close" class="pe-close-btn">✕</button>
     </div>
     <div class="pe-split">
-      <!-- LEFT: Fields -->
+      <!-- LEFT: S213 unified observation editor mount. The legacy compact-row
+           (contractor/date/status/IAR), OBSERVATIONS tab strip, PRIORITY/TYPE
+           buttons, standalone textarea, photo strip + Upload/Camera/Gallery
+           buttons, and mobile MOVE-TO select were removed — the shared
+           _buildObsEditor (withHeader) now renders the entire left column into
+           #pe-obs-content. -->
       <div class="pe-fields">
-        <div class="pe-compact-row">
-          <div class="pe-field pe-f-ctr"><label class="pe-label">CONTRACTOR</label><select id="pe-contractor" class="pe-select"></select></div>
-          <div class="pe-field pe-f-date"><label class="pe-label">DATE</label><input type="date" id="pe-date" class="pe-input"></div>
-          <div class="pe-field pe-f-status"><label class="pe-label">STATUS</label><select id="pe-status" class="pe-select"><option value="open">• Outstanding</option><option value="closed">• Closed</option></select></div>
-          <button id="pe-iar" class="pe-iar-btn">IAR</button>
-        </div>
-        <div class="pe-section">
-          <label class="pe-label">OBSERVATIONS</label>
-          <div class="pe-obs-tabs" id="pe-obs-tabs"></div>
-        </div>
-        <div class="pe-obs-content" id="pe-obs-content">
-          <div class="pe-section">
-            <label class="pe-label">PRIORITY / TYPE</label>
-            <div class="pe-priority-row">
-              <button class="pe-pri-btn pe-pri-high active" data-pe-pri="high">High</button>
-              <button class="pe-pri-btn pe-pri-low" data-pe-pri="low">Low</button>
-              <button class="pe-pri-btn pe-pri-general" data-pe-pri="general">General</button>
-            </div>
-          </div>
-          <textarea id="pe-obs-text" class="pe-textarea" placeholder="Describe the deficiency..."></textarea>
-          <div id="pe-obs-photos" class="pe-photo-strip" style="display:none;"></div>
-          <div class="pe-photo-zone">
-            <div style="color:var(--steel);font-size:calc(12px + var(--ts));margin-bottom:6px;">Drop photos or</div>
-            <button class="pe-photo-btn" id="pe-upload-btn">📎 Upload</button>
-            <button class="pe-photo-btn pe-camera-btn" id="pe-camera-btn">📷 Camera</button>
-            <button class="pe-photo-btn" id="pe-gallery-btn" style="border-style:dashed;">🖼️ + Gallery</button>
-          </div>
-        </div>
-        <!-- Mobile only: drawing + move-to shown here -->
+        <div class="pe-obs-content" id="pe-obs-content"></div>
+        <!-- Mobile only: drawing shown here (collapses below on tablets).
+             MOVE TO is now in the editor's ⋯ More menu. -->
         <div class="pe-mobile-drawing">
           <div class="pe-section">
             <label class="pe-label">LOCATION ON DRAWING</label>
             <div class="pe-location-thumb" id="pe-location-thumb-mobile"></div>
           </div>
-          <div class="pe-row" style="margin-top:8px;">
-            <div class="pe-field" style="flex:1;"><label class="pe-label">MOVE TO:</label><select id="pe-move-to-mobile" class="pe-select"></select></div>
-          </div>
         </div>
       </div>
-      <!-- RIGHT: Big drawing (desktop only) -->
+      <!-- RIGHT: Big drawing (desktop only) — KEPT. MOVE TO moved to ⋯ More. -->
       <div class="pe-drawing-panel">
         <label class="pe-label" style="margin-bottom:4px;">LOCATION ON DRAWING</label>
         <div class="pe-location-big" id="pe-location-thumb"></div>
-        <div class="pe-row" style="margin-top:8px;">
-          <div class="pe-field" style="flex:1;"><label class="pe-label">MOVE TO:</label><select id="pe-move-to" class="pe-select"></select></div>
-        </div>
       </div>
     </div>
     <div class="pin-editor-footer">
-      <button id="pe-save" class="pe-save-btn">Save</button>
-      <!-- S120 Push 5: secondary actions consolidated under More ▾ to reduce
-           footer crowding. Goto-drawing and Remove-pin-only stay accessible
-           but no longer compete visually with Save/Delete. -->
-      <div id="pe-more-wrap" style="position:relative;display:inline-block;margin-left:6px;">
+      <!-- S213: Save removed — the unified editor auto-saves. Cancel relabelled
+           Close (same #pe-cancel handler; flushes the textarea then closes). -->
+      <!-- S120 Push 5: secondary actions consolidated under More ▾. -->
+      <div id="pe-more-wrap" style="position:relative;display:inline-block;">
         <button id="pe-more-btn" class="pe-photo-btn" type="button" aria-haspopup="true" aria-expanded="false" title="More actions">More &#9662;</button>
         <div id="pe-more-menu" role="menu" style="display:none;position:absolute;bottom:calc(100% + 4px);left:0;background:var(--bg,white);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);min-width:220px;z-index:30;overflow:hidden;font-family:Calibri,sans-serif;">
           <button id="pe-goto-dwg" type="button" role="menuitem" style="display:block;width:100%;text-align:left;padding:10px 14px;background:none;border:none;color:var(--fg,#1B2438);font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;" title="Switch to the drawing this pin lives on">📌 Go to drawing</button>
@@ -921,7 +893,7 @@ function ensurePdfJs(cb){
         </div>
       </div>
       <button id="pe-delete" class="pe-delete-btn" title="Permanently delete this deficiency">Delete</button>
-      <button id="pe-cancel" class="pe-cancel-btn">Cancel</button>
+      <button id="pe-cancel" class="pe-cancel-btn">Close</button>
     </div>
   </div>
 </div>

@@ -1810,6 +1810,10 @@ function _peOnModelChange(type, data) {
     }
   }
   if (!touchesUs) return;
+  // S213: don't clobber a live edit. If the user is mid-typing in the editor
+  // mount, skip this external rebuild — the pending change is debounced to
+  // Model already and the next deliberate render reflects it.
+  if (_peTypingInMount()) return;
   // Refresh — the grid + observation content render off the live defic.
   var f2 = Model.findDeficiency(_peDeficId);
   if (f2) _peRenderObsContent(f2.defic, _peObsIdx);
@@ -1854,96 +1858,27 @@ function _openPinEditor(deficId) {
   var overlay = document.getElementById('pin-editor-overlay');
   if (!overlay) return;
 
-  // Title — S119: title shows effective priority (max across obs)
-  var effTitlePri = Model.getEffectivePriority(d);
-  var prLabel = effTitlePri === 'general' ? 'General' : effTitlePri === 'low' ? 'Low Priority' : 'High Priority';
-  document.getElementById('pe-title').textContent = 'Pin #' + d.num + ' \u2014 ' + prLabel;
-
-  // Contractor dropdown
-  // S116 Push 5: extended with "+ New Contractor…" option at the bottom
-  // and edit/delete buttons in a sibling row below. See _peRenderCtrCrudRow.
-  var cSel = document.getElementById('pe-contractor');
-  var curCtrId = f.contractor ? f.contractor.id : '';
-  if (cSel) {
-    var proj = Model.getProject();
-    var opts = '<option value=""' + (!curCtrId ? ' selected' : '') + '>Site General</option>';
-    (proj.contractors || []).forEach(function(c) {
-      opts += '<option value="' + c.id + '"' + (curCtrId === c.id ? ' selected' : '') + '>' + String(c.name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</option>';
-    });
-    opts += '<option value="__new__">+ New Contractor\u2026</option>';
-    cSel.innerHTML = opts;
+  // Title bar (now redundant with the inline "Pin #N" header in the unified
+  // editor, but harmless + guarded). Kept so the modal chrome still labels.
+  var _peTitleEl = document.getElementById('pe-title');
+  if (_peTitleEl) {
+    var effTitlePri = Model.getEffectivePriority(d);
+    var prLabel = effTitlePri === 'general' ? 'General' : effTitlePri === 'low' ? 'Low Priority' : 'High Priority';
+    _peTitleEl.textContent = 'Pin #' + d.num + ' \u2014 ' + prLabel;
   }
-  _peRenderCtrCrudRow(curCtrId);
 
-  // Date
-  var dateIn = document.getElementById('pe-date');
-  if (dateIn) dateIn.value = d.date || new Date().toISOString().split('T')[0];
+  // S213: the entire left-column body (contractor / date / status / obs tabs /
+  // description / photos / actions) is now the shared unified editor, rendered
+  // into #pe-obs-content. The legacy #pe-* field setup (contractor dropdown +
+  // CRUD row, date input, description datalist, pe-obs-tabs, move-to selects)
+  // is gone — those elements were removed from the overlay (index.html). All
+  // persistence flows through deficiencies.js's document-level delegates.
+  _peRenderUnifiedEditor(d, 0);
 
-  // S119: STATUS dropdown + IAR enable-state are now per-active-observation
-  // (rendered inside _peRenderObsContent). The pin-level "all obs general"
-  // semantics (which used to disable status across the whole pin) became
-  // "this obs is general" — narrower scope, same UX intent.
-  // IAR remains a pin-level concept (one IAR flag per pin).
-
-  // S116 Push 1 (B): description autocomplete via <datalist>. Builds a
-  // de-duplicated list of all existing observation texts across the project
-  // so common phrases ("Sprinkler escutcheon missing — replace") can be
-  // re-used by typing the first few letters. Native browser feature; works
-  // on all targeted devices.
-  var allDescs = [];
-  var projForDl = Model.getProject();
-  if (projForDl) {
-    Model.getAllDeficiencies().forEach(function(rec) {
-      var def = rec.defic;
-      (def.observations || []).forEach(function(ob) { if (ob && ob.text && ob.text.trim()) allDescs.push(ob.text.trim()); });
-      (def.entries || []).forEach(function(en) { if (en && en.description && en.description.trim()) allDescs.push(en.description.trim()); });
-      if (def.description && def.description.trim()) allDescs.push(def.description.trim());
-    });
-  }
-  // De-dupe while preserving insertion order; cap at 200 to keep DOM small.
-  var seenDl = {}, uniqDescs = [];
-  for (var di = 0; di < allDescs.length && uniqDescs.length < 200; di++) {
-    var s = allDescs[di];
-    if (!seenDl[s]) { seenDl[s] = 1; uniqDescs.push(s); }
-  }
-  var oldDl = document.getElementById('pe-desc-suggestions');
-  if (oldDl && oldDl.parentNode) oldDl.parentNode.removeChild(oldDl);
-  if (uniqDescs.length) {
-    var dl = document.createElement('datalist');
-    dl.id = 'pe-desc-suggestions';
-    var dlHtml = '';
-    uniqDescs.forEach(function(s) {
-      dlHtml += '<option value="' + String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"></option>';
-    });
-    dl.innerHTML = dlHtml;
-    document.body.appendChild(dl);
-  }
-  var ta = document.getElementById('pe-obs-text');
-  if (ta) ta.setAttribute('list', 'pe-desc-suggestions');
-
-  // Observations tabs
-  _peRenderObsTabs(d);
-  _peRenderObsContent(d, 0);
-
-  // Move-to dropdown (desktop + mobile share the same options)
-  var drawingsForMove = _getDrawingsList();
-  var currentDwgId = (_currentDrawingIdx >= 0 && drawingsForMove[_currentDrawingIdx]) ? drawingsForMove[_currentDrawingIdx].id : null;
-  var moveOpts = '<option value="' + (currentDwgId || '') + '">\u2014 Current drawing \u2014</option>';
-  drawingsForMove.forEach(function(dw) {
-    if (dw.id !== currentDwgId) moveOpts += '<option value="' + dw.id + '">' + (dw.name || 'Drawing') + '</option>';
-  });
-  var moveSel = document.getElementById('pe-move-to');
-  if (moveSel) moveSel.innerHTML = moveOpts;
-  var moveSelMobile = document.getElementById('pe-move-to-mobile');
-  if (moveSelMobile) moveSelMobile.innerHTML = moveOpts;
-
-  // S116 Push 1 (G): canvas-based mini-map matching v1.
-  // Renders the FULL drawing image (regardless of current viewer zoom) with
-  // a priority-coloured teardrop pin marker (number inside, IAR pink) drawn
-  // on top. Reads d.drawingId so cross-drawing pins (opened from Tasks panel
-  // or Summary tab) show the correct drawing, not the currently-loaded one.
-  // Image source priority: dwg.dataUrl → dwg.r2Url → L0 tile (256px) for
-  // tile-mode-only PDF drawings. See _renderPinMiniMap below.
+  // S116 Push 1 (G): canvas-based mini-map (KEPT — the right-column drawing
+  // panel). Renders the FULL drawing image with a priority-coloured teardrop
+  // pin marker. Reads d.drawingId so cross-drawing pins show the correct
+  // drawing. Desktop = -thumb, mobile = -thumb-mobile (collapses below).
   _renderPinMiniMap(d, 'pe-location-thumb');
   _renderPinMiniMap(d, 'pe-location-thumb-mobile');
 
@@ -2032,7 +1967,86 @@ function _peRenderObsTabs(d) {
   tabs.innerHTML = html;
 }
 
+// ── S213: UNIFIED pin-editor body ──────────────────────────────────────
+// The drawing-pin editor's left column now hosts the SAME editor as the
+// Detailed card (Editor A), via deficiencies.js's exported _buildObsEditor
+// with {withHeader:true}. All dfx-*/obs-* markup it emits is handled by the
+// document-level data-action delegates in deficiencies.js, so persistence
+// is inherited with no re-binding here.
+//
+// Focus guard: skip the rebuild while the user is actively typing in a
+// TEXTAREA/INPUT/SELECT inside the mount — an external Model notify (photo
+// add, etc.) must not clobber the live textarea mid-keystroke. The pending
+// edit is already debounced to Model by deficiencies.js; the next deliberate
+// render picks it up.
+function _peRenderUnifiedEditor(d, idx) {
+  var mount = document.getElementById('pe-obs-content');
+  if (!mount) return;
+  if (!window._frtBuildObsEditor) {
+    // Defensive: deficiencies.js export missing — keep the editor usable.
+    mount.innerHTML = '<div style="padding:12px;color:var(--silver);font-family:Calibri,sans-serif;">Editor unavailable \u2014 reload the page.</div>';
+    return;
+  }
+  // If we're in selection mode, that path owns the mount (see
+  // _peEnterSelectionMode) — don't overwrite it here.
+  if (_peSelectionMode) return;
+  _peObsIdx = idx;
+  var obs = d.observations || [];
+  if (!obs.length) { obs = [{ text: '', addressed: false, photos: [] }]; d.observations = obs; }
+  if (_peObsIdx < 0 || _peObsIdx >= obs.length) _peObsIdx = 0;
+  // Resolve the pin's contractor id for the shared editor.
+  var f = Model.findDeficiency(d.id);
+  var ctrId = (f && f.contractor) ? f.contractor.id : null;
+  mount.innerHTML = window._frtBuildObsEditor(d, _peObsIdx, ctrId, {
+    withHeader: true,
+    pinNum: (d.num != null ? d.num : '?')
+  });
+}
+
+// S213: live focus guard for external Model-driven re-renders. Returns true
+// when the user is mid-edit inside the editor mount (so the caller should
+// skip the rebuild).
+function _peTypingInMount() {
+  var ae = document.activeElement;
+  if (!ae) return false;
+  var tag = ae.tagName;
+  if (tag !== 'TEXTAREA' && tag !== 'INPUT' && tag !== 'SELECT') return false;
+  var mount = document.getElementById('pe-obs-content');
+  return !!(mount && mount.contains(ae));
+}
+
+// S213: redirect — every legacy call site (_openPinEditor, _peOnModelChange,
+// the various handlers) now routes to the unified renderer. The legacy body
+// lives on as _peRenderObsContentLegacy (inert).
 function _peRenderObsContent(d, idx) {
+  _peRenderUnifiedEditor(d, idx);
+}
+
+// S213: synchronous close-flush. The unified textarea (data-action="obs-text")
+// persists on a 500ms debounce in deficiencies.js; if the user types and
+// immediately closes (< 500ms) the last keystrokes would be lost. On close we
+// read the live textarea in the mount and write it through Model.updateObservation
+// synchronously. No-op when the mount/textarea is absent or text is unchanged.
+function _peFlushUnifiedTextarea() {
+  if (!_peDeficId) return;
+  var mount = document.getElementById('pe-obs-content');
+  if (!mount) return;
+  var ta = mount.querySelector('textarea[data-action="obs-text"]');
+  if (!ta) return;
+  var idx = parseInt(ta.getAttribute('data-obs-idx') || String(_peObsIdx) || '0', 10);
+  if (isNaN(idx)) idx = _peObsIdx || 0;
+  if (typeof Model.updateObservation === 'function') {
+    Model.updateObservation(_peDeficId, idx, ta.value);
+  }
+}
+
+// S213: LEGACY pin-editor obs renderer — kept defined-but-inert (S137 dead-
+// handler discipline). Its #pe-* targets (pe-obs-text, pe-status, pe-pri-btn,
+// pe-obs-photos, pe-obs-ctr-row, pe-split-row) were removed from the overlay
+// when the unified editor took over the left column. Reads now return null →
+// the body no-ops. NOT called anywhere (see _peRenderObsContent redirect
+// above). Retained for reference + fast rollback, not deleted.
+function _peRenderObsContentLegacy(d, idx) {
   var obs = d.observations || [];
   if (!obs.length) obs = [{ text: '', addressed: false, photos: [] }];
   var o = obs[idx] || obs[0];
@@ -2420,7 +2434,19 @@ function _peEnterSelectionMode() {
   _peSelectionPending = null;
   _peShowDeletedMode = false;
   var f = Model.findDeficiency(_peDeficId);
-  if (f) _peRenderObsContent(f.defic, _peObsIdx);
+  if (!f) { _peSelectionMode = false; return; }
+  // S213: the unified editor owns #pe-obs-content. Selection mode reuses the
+  // proven S120 picker UI, which keys off a #pe-obs-photos strip + inserts
+  // header/footer siblings. Inject a minimal scaffold into the mount, then let
+  // _peRenderPhotoZone (selection branch) populate it. Exiting rebuilds the
+  // unified editor.
+  var mount = document.getElementById('pe-obs-content');
+  if (!mount) { _peSelectionMode = false; return; }
+  mount.innerHTML =
+    '<div class="pe-sel-wrap" style="display:flex;flex-direction:column;gap:4px;">'
+    + '<div id="pe-obs-photos" class="pe-photo-strip" style="display:flex;flex-wrap:wrap;gap:6px;"></div>'
+    + '</div>';
+  _peRenderPhotoZone(f.defic, _peObsIdx);
 }
 
 function _peExitSelectionMode() {
@@ -2429,7 +2455,7 @@ function _peExitSelectionMode() {
   _peShowDeletedMode = false;
   if (!_peDeficId) return;
   var f = Model.findDeficiency(_peDeficId);
-  if (f) _peRenderObsContent(f.defic, _peObsIdx);
+  if (f) _peRenderUnifiedEditor(f.defic, _peObsIdx);
 }
 
 // S120 Push 7: expose to window so the global Esc handler in app.js can
@@ -2641,6 +2667,124 @@ function _drawPinMiniMap(canvas, img, d) {
 
 // S116 Push 1: expose pin editor opener for Summary tab + other modules
 window._frtOpenPinEditor = function(deficId) { _openPinEditor(deficId); };
+
+// ── S213: cross-module hooks used by deficiencies.js handlers ──────────
+// Refresh the open pin editor (no-op if closed / different pin). Used after
+// the inline "+ New contractor…" create (which fires a 'contractor' notify
+// _peOnModelChange doesn't subscribe to) and as a generic resync.
+window._frtRefreshPinEditor = function() {
+  if (!_peDeficId || _peSelectionMode) return;
+  var f = Model.findDeficiency(_peDeficId);
+  if (f) _peRenderUnifiedEditor(f.defic, _peObsIdx);
+};
+// After add-obs fired inside the editor: move to + show the new last obs.
+window._frtPinEditorAddedObs = function(deficId) {
+  if (!_peDeficId || deficId !== _peDeficId || _peSelectionMode) return;
+  var f = Model.findDeficiency(_peDeficId);
+  if (!f) return;
+  var n = (f.defic.observations || []).length;
+  _peRenderUnifiedEditor(f.defic, n > 0 ? n - 1 : 0);
+};
+// After dfx-remove-obsrow removed an obs inside the editor: land on a valid
+// index (clamp toward the removed slot).
+window._frtPinEditorRemovedObs = function(deficId, removedIdx) {
+  if (!_peDeficId || deficId !== _peDeficId || _peSelectionMode) return;
+  var f = Model.findDeficiency(_peDeficId);
+  if (!f) return;
+  var n = (f.defic.observations || []).length;
+  var idx = removedIdx;
+  if (idx >= n) idx = n - 1;
+  if (idx < 0) idx = 0;
+  _peRenderUnifiedEditor(f.defic, idx);
+};
+// Whole pin was deleted from inside the editor → close the overlay.
+window._frtClosePinEditorIf = function(deficId) {
+  if (_peDeficId && deficId === _peDeficId) _closePinEditor();
+};
+
+// S213: inline edit of the quiet observed (noted) date. Swaps the "Noted …"
+// line for a native date input; on change writes obs.notedDate (per-obs) then
+// saves and rebuilds the editor. NEVER overwrites an existing date silently —
+// this is an explicit user correction.
+function _peEditNotedDate(btnEl) {
+  if (!_peDeficId) return;
+  var line = btnEl.closest('.dfx-ed-noted');
+  if (!line) return;
+  var idx = parseInt(btnEl.getAttribute('data-obs-idx') || String(_peObsIdx) || '0', 10);
+  if (isNaN(idx)) idx = _peObsIdx || 0;
+  var cur = btnEl.getAttribute('data-cur') || '';
+  line.innerHTML = '<input type="date" class="dfx-ed-noted-input" value="' + cur + '" '
+    + 'style="font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));padding:2px 6px;border:1.5px solid var(--border);border-radius:5px;">';
+  var inp = line.querySelector('.dfx-ed-noted-input');
+  if (!inp) return;
+  setTimeout(function() { try { inp.focus(); } catch (_) {} }, 20);
+  var commit = function() {
+    var f = Model.findDeficiency(_peDeficId);
+    if (!f) return;
+    var obs = (f.defic.observations || [])[idx];
+    if (obs) {
+      var v = inp.value || '';
+      if (v) obs.notedDate = v;
+      else delete obs.notedDate;
+      Model.saveNow();
+    }
+    _peRenderUnifiedEditor(f.defic, _peObsIdx);
+  };
+  inp.addEventListener('change', commit);
+  inp.addEventListener('blur', commit);
+}
+
+// S213: move pin to another drawing. Replaces the legacy always-visible
+// move-to <select> (now in the ⋯ More menu). Builds a lightweight tappable
+// list of the project's other drawings; picking one sets d.drawingId (keeps
+// pinX/pinY) and re-renders. The mini-map then shows the new drawing.
+function _peMovePinToDrawing() {
+  if (!_peDeficId) return;
+  var f = Model.findDeficiency(_peDeficId);
+  if (!f) return;
+  var d = f.defic;
+  var list = _getDrawingsList() || [];
+  var others = list.filter(function(dw) { return dw && dw.id && dw.id !== d.drawingId; });
+  if (!others.length) { if (typeof toast === 'function') toast('No other drawings to move to'); return; }
+  // Clean any prior chooser.
+  var old = document.getElementById('pe-move-drawing-overlay');
+  if (old && old.parentNode) old.parentNode.removeChild(old);
+  var ov = document.createElement('div');
+  ov.id = 'pe-move-drawing-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(20,24,28,.55);display:flex;align-items:center;justify-content:center;padding:18px;';
+  var rows = '';
+  others.forEach(function(dw) {
+    rows += '<button type="button" class="pe-move-dwg-row" data-dwg-id="' + String(dw.id).replace(/"/g, '&quot;') + '" '
+      + 'style="display:block;width:100%;text-align:left;background:white;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));color:#2C3E50;cursor:pointer;">'
+      + String(dw.name || 'Drawing').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</button>';
+  });
+  ov.innerHTML = '<div style="background:var(--smoke,#F0EDE6);border-radius:12px;max-width:420px;width:100%;max-height:80vh;overflow:auto;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.3);">'
+    + '<div style="font-family:Calibri,sans-serif;font-weight:700;font-size:calc(15px + var(--ts));color:#2C3E50;margin-bottom:12px;">Move pin #' + (d.num != null ? d.num : '?') + ' to drawing\u2026</div>'
+    + rows
+    + '<button type="button" id="pe-move-dwg-cancel" style="width:100%;background:none;border:1px solid var(--border);border-radius:8px;padding:9px;margin-top:4px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));color:var(--silver);cursor:pointer;">Cancel</button>'
+    + '</div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(ev) {
+    if (ev.target === ov || (ev.target.closest && ev.target.closest('#pe-move-dwg-cancel'))) {
+      ov.remove();
+      return;
+    }
+    var row = ev.target.closest && ev.target.closest('.pe-move-dwg-row');
+    if (row) {
+      var newId = row.getAttribute('data-dwg-id');
+      if (newId && newId !== d.drawingId) {
+        d.drawingId = newId; // keep pinX/pinY — only the host drawing changes
+        Model.saveNow();
+        if (window._frtRenderDefic) window._frtRenderDefic();
+        _renderPinMiniMap(d, 'pe-location-thumb');
+        _renderPinMiniMap(d, 'pe-location-thumb-mobile');
+        _peRenderUnifiedEditor(d, _peObsIdx);
+        if (typeof toast === 'function') toast('Pin moved to ' + (row.textContent || 'drawing'));
+      }
+      ov.remove();
+    }
+  });
+}
 
 function _savePinEditor() {
   if (!_peDeficId) return;
@@ -2927,9 +3071,82 @@ document.addEventListener('click', function(e) {
   // < 250 ms of typing doesn't get dropped by the debounce. Applies to
   // both ✕ (pe-close) and Cancel (pe-cancel) — the editor uses autosave
   // as the source of truth, so "cancel" is really "close" semantically.
-  if (e.target.closest && e.target.closest('#pe-close')) { _pinAutoSaveFlush(); _closePinEditor(); return; }
-  if (e.target.closest && e.target.closest('#pe-cancel')) { _pinAutoSaveFlush(); _closePinEditor(); return; }
+  if (e.target.closest && e.target.closest('#pe-close')) { _peFlushUnifiedTextarea(); _pinAutoSaveFlush(); _closePinEditor(); return; }
+  if (e.target.closest && e.target.closest('#pe-cancel')) { _peFlushUnifiedTextarea(); _pinAutoSaveFlush(); _closePinEditor(); return; }
   if (e.target.closest && e.target.closest('#pe-save')) { _savePinEditor(); return; }
+
+  // ── S213: unified-editor actions (only when the pin editor is open) ──
+  // These complement the document-level deficiencies.js delegates: tab
+  // switch, split-to-pin, per-obs photo Choose, noted-date edit, and
+  // move-pin-to-drawing all need the pin-editor's _peObsIdx / render path.
+  if (_peDeficId) {
+    var _edEl = e.target.closest && e.target.closest('[data-action]');
+    var _edAction = _edEl ? _edEl.getAttribute('data-action') : null;
+    // Only handle clicks that originate inside the pin-editor mount/overlay.
+    var _inPe = _edEl && _edEl.closest && _edEl.closest('#pin-editor-overlay');
+    if (_edEl && _inPe) {
+      // Switch observation tab.
+      if (_edAction === 'dfx-ed-tab') {
+        var _tdid = _edEl.getAttribute('data-defic-id');
+        var _tidx = parseInt(_edEl.getAttribute('data-obs-idx') || '0', 10);
+        if (_tdid === _peDeficId) {
+          // Flush the current textarea before switching so edits aren't lost.
+          _peFlushUnifiedTextarea();
+          var _ft = Model.findDeficiency(_peDeficId);
+          if (_ft) _peRenderUnifiedEditor(_ft.defic, _tidx);
+        }
+        return;
+      }
+      // Split active observation to its own new pin (reuses the proven model
+      // path via the deficiencies.js spinoff-obs flow's Model call).
+      if (_edAction === 'dfx-ed-tab-split') {
+        var _spd = _edEl.getAttribute('data-defic-id');
+        var _spi = parseInt(_edEl.getAttribute('data-obs-idx') || '0', 10);
+        if (_spd !== _peDeficId) return;
+        var _spf = Model.findDeficiency(_peDeficId);
+        if (!_spf) return;
+        var _spObs = _spf.defic.observations || [];
+        if (_spi < 0 || _spi >= _spObs.length) return;
+        if (_spObs.length <= 1) { if (typeof toast === 'function') toast('Only observation \u2014 nothing to split'); return; }
+        var _spLetter = String.fromCharCode(65 + _spi);
+        var _spPrev = (_spObs[_spi].text || '').trim();
+        if (_spPrev.length > 80) _spPrev = _spPrev.slice(0, 80) + '\u2026';
+        showConfirm('Split to its own pin', 'Move observation ' + _spLetter + ' (' + (_spPrev || 'no text') + ') into a brand-new pin at the same drawing location? It will be removed from this pin.').then(function(yes) {
+          if (!yes) return;
+          var _newDef = Model.splitObservationToPin(_peDeficId, _spi);
+          if (window._frtRenderDefic) window._frtRenderDefic();
+          if (_newDef && _newDef.id) {
+            setTimeout(function() { _openPinEditor(_newDef.id); }, 40);
+            if (typeof toast === 'function') toast('Split to pin #' + (_newDef.num != null ? _newDef.num : '?'));
+          } else {
+            // model returned nothing — refresh current editor onto a valid obs
+            var _spf2 = Model.findDeficiency(_peDeficId);
+            if (_spf2) _peRenderUnifiedEditor(_spf2.defic, 0);
+          }
+        });
+        return;
+      }
+      // Per-obs photo Choose → enter the proven selection-mode picker.
+      if (_edAction === 'choose-obs-photos') {
+        var _cpd = _edEl.getAttribute('data-defic-id');
+        var _cpi = parseInt(_edEl.getAttribute('data-obs-idx') || '0', 10);
+        if (_cpd !== _peDeficId) return;
+        _peObsIdx = _cpi;
+        _peEnterSelectionMode();
+        return;
+      }
+      // Edit the quiet observed (noted) date inline.
+      if (_edAction === 'dfx-ed-edit-noted') {
+        _peEditNotedDate(_edEl);
+        return;
+      }
+      // Move pin to another drawing (was the legacy move-to select).
+      if (_edAction === 'dfx-ed-move-drawing') {
+        _peMovePinToDrawing();
+        return;
+      }
+    }
+  }
 
   // S116 Push 5: contractor CRUD inside pin editor (Edit / Delete / new+confirm).
   // Edit → swap to inline input pre-filled with current name.

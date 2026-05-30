@@ -1836,6 +1836,25 @@ function _flatRows(proj, ignorePivot, ignoreRecMode) {
 var _openObsKey = null;
 function _obsKey(deficId, oi) { return String(deficId) + ':' + oi; }
 
+// S213: format an auto-stamped observed date for the quiet "Noted" line.
+// EXPLICIT parse — never new Date("YYYY-MM-DD") (UTC-parse off-by-one). Accepts
+// "YYYY-MM-DD" (date input value) or a full ISO string; returns "M/D/YYYY".
+// Empty/invalid → '' (caller renders "edit"-only affordance).
+function _fmtNotedDate(v) {
+  if (!v) return '';
+  var s = String(v);
+  var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    var mo = parseInt(m[2], 10), da = parseInt(m[3], 10), yr = parseInt(m[1], 10);
+    if (mo && da && yr) return mo + '/' + da + '/' + yr;
+  }
+  return '';
+}
+// S213: resolve the per-obs observed date (falls back to pin-level d.date).
+function _obsNotedDate(d, o) {
+  return (o && o.notedDate) || (d && d.date) || '';
+}
+
 // Combined status descriptor for an observation. site=true forces the
 // indigo Site Record treatment regardless of addressed/priority.
 function _obsStatusInfo(o, site, d) {
@@ -1945,6 +1964,41 @@ function _buildObsEditor(d, oi, ctrId, opts) {
 
   var h = '<div class="dfx-or-editor" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
 
+  // ── S213: optional header (Editor B/C). withHeader off => A (Detailed
+  // card) renders exactly as before, just the controls row down. ──
+  if (opts.withHeader) {
+    var _isRecH = !!o.isRecommendation;
+    var _pinNum = (opts.pinNum != null) ? opts.pinNum : (d.num != null ? d.num : '?');
+    h += '<div class="dfx-ed-header">';
+    // star-only recommendation (reuses toggle-rec, per-obs)
+    h += '<button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="dfx-ed-star' + (_isRecH ? ' on' : '') + '" aria-pressed="' + (_isRecH ? 'true' : 'false') + '" title="' + (_isRecH ? 'Recommendation \u2014 click to revert' : 'Mark as recommendation') + '">' + (_isRecH ? '\u2605' : '\u2606') + '</button>';
+    h += '<span class="dfx-ed-pinlabel">Pin #' + esc(_pinNum) + '</span>';
+    // reserved on-drawing link slot (C passes opts.onDrawingLink; B does not)
+    if (opts.onDrawingLink && opts.onDrawingLink.label) {
+      h += '<button type="button" class="dfx-ed-dlink" data-action="view-pin" data-defic-id="' + esc(d.id) + '" title="Open on drawing">on ' + esc(opts.onDrawingLink.label) + ' \u2197</button>';
+    }
+    h += '</div>'; // /dfx-ed-header
+
+    // observation tab strip [Obs A x][Obs B][+ Add observation]
+    h += '<div class="dfx-ed-tabs" role="tablist">';
+    obs.forEach(function(_to, _ti) {
+      var _tletter = String.fromCharCode(65 + _ti);
+      var _tactive = (_ti === oi);
+      var _tcustom = Array.isArray(_to.photoSelection);
+      h += '<span class="dfx-ed-tab' + (_tactive ? ' active' : '') + '">';
+      h += '<button type="button" class="dfx-ed-tab-btn" data-action="dfx-ed-tab" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + _ti + '">Obs ' + _tletter + (_tcustom ? ' <span class="dfx-ed-tab-cust" title="Custom photo selection">\u2022</span>' : '') + '</button>';
+      if (_tactive) {
+        if (obs.length > 1) {
+          h += '<button type="button" class="dfx-ed-tab-split" data-action="dfx-ed-tab-split" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + _ti + '" title="Split this observation to its own pin">\u22EE</button>';
+        }
+        h += '<button type="button" class="dfx-ed-tab-x" data-action="dfx-remove-obsrow" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + _ti + '" title="' + (obs.length <= 1 ? 'Remove pin (last observation)' : 'Remove this observation') + '">\u2715</button>';
+      }
+      h += '</span>';
+    });
+    h += '<button type="button" class="dfx-ed-tab-add" data-action="add-obs" data-defic-id="' + esc(d.id) + '" title="Add another observation to this pin">\uFF0B Add observation</button>';
+    h += '</div>'; // /dfx-ed-tabs
+  }
+
   // ── controls row: combined status · contractor · trade ──
   h += '<div class="dfx-ed-ctrls">';
   if (!isSite) h += _obsStatusSelect(d, oi, o);
@@ -1956,6 +2010,7 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   realCtrs((Model.getProject() || {}).contractors).forEach(function(_cc) {
     h += '<option value="' + esc(_cc.id) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (ctrId === _cc.id ? ' selected' : '') + '>' + esc(ctrLabel(_cc.name) || 'Unnamed') + '</option>';
   });
+  h += '<option value="__new__" style="background:white;color:#9C2742;font-weight:600;">\uFF0B New contractor\u2026</option>';
   h += '</select></span>';
 
   // trade select (per-obs)
@@ -1972,6 +2027,16 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   });
   h += '</select></span>';
   h += '</div>'; // /dfx-ed-ctrls
+
+  // ── S213: quiet auto-stamped observed-date line (Editor B/C only) ──
+  if (opts.withHeader) {
+    var _nd = _obsNotedDate(d, o);
+    var _ndTxt = _fmtNotedDate(_nd);
+    h += '<div class="dfx-ed-noted" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
+    h += '<span class="dfx-ed-noted-lbl">\uD83D\uDCC5 ' + (_ndTxt ? ('Noted ' + esc(_ndTxt)) : 'No observed date') + '</span>';
+    h += '<button type="button" class="dfx-ed-noted-edit" data-action="dfx-ed-edit-noted" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-cur="' + esc((_nd && String(_nd).slice(0, 10)) || '') + '">edit</button>';
+    h += '</div>';
+  }
 
   // ── body: textarea | media zone (reuses the live obs-media markup) ──
   h += '<div class="obs-layout-merged">';
@@ -2004,7 +2069,7 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     h += '</div>';
     h += '<div class="obs-media-divider"></div>';
   }
-  h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + '</div>';
+  h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + (opts.withHeader ? ('<button type="button" class="dfx-ed-choose" data-action="choose-obs-photos" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Choose which of this pin\'s photos belong to this observation">\u229E Choose for this obs</button>') : '') + '</div>';
   h += '<div class="obs-media-btns">';
   h += '<button class="obs-drop-btn is-upload icon-only" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Upload from device">\uD83D\uDCCE</button>';
   h += '<button class="obs-drop-btn is-camera icon-only" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Take photo with camera">\uD83D\uDCF7</button>';
@@ -2030,6 +2095,26 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   // ── per-row action bar ──
   var effStatus = Model.getEffectiveStatus(d);
   var thisClosed = !!o.addressed;
+  var last = obs.length <= 1;
+  if (opts.withHeader) {
+    // S213 — slim Editor B/C bar. Obs add/remove/split live on the tab strip;
+    // status star lives in the header. Auto-save (no Save button). More holds
+    // Move pin · Move pin to drawing · Duplicate · Remove pin.
+    h += '<div class="dfx-or-actions dfx-ed-actions">';
+    h += '<button class="dfx-or-act" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="Contractor Response" data-obs-ref="' + _obsLetter + '">+ Response</button>';
+    h += '<button class="dfx-or-act" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="ARENCON" data-obs-ref="' + _obsLetter + '">+ Comment</button>';
+    h += '<div class="dfx-or-more-wrap" style="position:relative;margin-left:auto;">';
+    h += '<button class="dfx-or-act" data-action="toggle-more" data-defic-id="' + esc(d.id) + '" title="More">\u22EF More</button>';
+    h += '<div class="defic-more-popup" id="more-' + esc(d.id) + '">';
+    h += '<button data-action="reassign-defic" data-defic-id="' + esc(d.id) + '">\u21C4 Move pin</button>';
+    if (d.drawingId) h += '<button data-action="dfx-ed-move-drawing" data-defic-id="' + esc(d.id) + '">\uD83D\uDCD0 Move pin to another drawing</button>';
+    h += '<button data-action="dup-defic" data-defic-id="' + esc(d.id) + '">\u29C9 Duplicate</button>';
+    h += '<button class="danger" data-action="dfx-remove-obsrow" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\u2715 ' + (last ? 'Remove pin' : 'Remove obs') + '</button>';
+    h += '</div></div>';
+    h += '</div>'; // /dfx-or-actions
+    h += '</div>'; // /dfx-or-editor
+    return h;
+  }
   h += '<div class="dfx-or-actions">';
   // drawing pin link (repeats per row — harmless, jumps to same spot)
   if (d.drawingId) {
@@ -2047,7 +2132,6 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   }
   h += '<button class="dfx-or-act" data-action="add-obs" data-defic-id="' + esc(d.id) + '" title="Add another observation to this pin">+ Add observation</button>';
   // Remove — this obs only; whole pin only on the last obs (auto-routed).
-  var last = obs.length <= 1;
   h += '<button class="dfx-or-act danger" data-action="dfx-remove-obsrow" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="' + (last ? 'Remove pin (last observation)' : 'Remove this observation') + '">\u2715 ' + (last ? 'Remove pin' : 'Remove obs') + '</button>';
   h += '<div class="dfx-or-more-wrap" style="position:relative;margin-left:auto;">';
   h += '<button class="dfx-or-act" data-action="toggle-more" data-defic-id="' + esc(d.id) + '" title="More">\u22EF</button>';
@@ -3396,6 +3480,9 @@ document.addEventListener('click', function(e) {
     var obs = Model.addObservation(deficId);
     if (obs) {
       initDeficiencies.render();
+      // S213: if fired from inside the pin editor, move to + show the new obs.
+      if (window._frtPinEditorAddedObs) window._frtPinEditorAddedObs(deficId);
+      else if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
       toast('Observation added');
     }
   }
@@ -3441,6 +3528,8 @@ document.addEventListener('click', function(e) {
           Model.removeDeficiency(_rd);
           if (_openObsKey && _openObsKey.indexOf(String(_rd) + ':') === 0) _openObsKey = null;
           initDeficiencies.render();
+          // S213: whole pin gone — close the pin editor if it's showing this pin.
+          if (window._frtClosePinEditorIf) window._frtClosePinEditorIf(_rd);
           toast('Pin #' + _rNum + ' deleted');
         }
       });
@@ -3450,6 +3539,9 @@ document.addEventListener('click', function(e) {
           Model.removeObservation(_rd, _ro);
           if (_openObsKey === _obsKey(_rd, _ro)) _openObsKey = null;
           initDeficiencies.render();
+          // S213: refresh the open pin editor onto a valid obs index.
+          if (window._frtPinEditorRemovedObs) window._frtPinEditorRemovedObs(_rd, _ro);
+          else if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
           toast('Observation removed');
         }
       });
@@ -4224,6 +4316,28 @@ document.addEventListener('change', function(e) {
     // obs-trade path for immediate persistence + regrouping.
     var _cdid = e.target.getAttribute('data-defic-id');
     var _cval = e.target.value || '';
+    // S213: shared "+ New contractor…" sentinel (A/B/C). Create-only —
+    // rename/delete stay on the roster / Trade Board. After create, assign
+    // the new contractor to this pin, then refresh whichever host is open.
+    if (_cval === '__new__') {
+      var _selEl = e.target;
+      showPrompt('New Contractor', 'Contractor name').then(function(_nm) {
+        var _name = _nm && _nm.trim();
+        if (!_name) {
+          // user cancelled — revert the select to the live value
+          if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+          initDeficiencies.render();
+          return;
+        }
+        var _ctr = Model.addContractor(_name);
+        if (_ctr && _cdid) Model.reassignDeficiency(_cdid, _ctr.id);
+        Model.saveNow();
+        // refresh the open pin editor (B/C) if present, plus the Detailed list
+        if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+        initDeficiencies.render();
+      });
+      return;
+    }
     if (_cdid) {
       Model.reassignDeficiency(_cdid, _cval || null);
       Model.saveNow();
@@ -4914,6 +5028,16 @@ window._frtGalleryPick = _showGalleryPicker;
 // Remove-pin handlers so the Deficiencies tab refreshes when the pin
 // editor mutates the project from outside the defic tab.
 window._frtRenderDefic = function() { initDeficiencies.render(); };
+
+// S213: the shared unified observation editor renderer, exported so the
+// drawing-pin editor (viewer.js _openPinEditor) and the focused-pin modal
+// can host the SAME editor as A's Detailed card. Pass {withHeader:true,
+// pinNum, onDrawingLink} for B/C. All dfx-*/obs-* markup it emits is handled
+// by the document-level data-action delegates in this file, so the editor
+// persists identically wherever it is mounted (no per-host re-binding).
+window._frtBuildObsEditor = function(d, oi, ctrId, opts) {
+  return _buildObsEditor(d, oi, ctrId, opts || {});
+};
 
 // S151 (Mark): lets the drawing viewer's single-route "← Back to pin #N"
 // chip reopen the focused-pin modal the user jumped FROM. Pairs with
