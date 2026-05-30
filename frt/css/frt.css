@@ -7529,31 +7529,31 @@ body.dark-mode .dfx-ed-pinlabel { color: #E2E6EC; }
 }
 .dfx-ed-dlink:hover { border-color: var(--arencon, #9C2742); color: var(--arencon, #9C2742); }
 
-/* observation tab strip */
-.dfx-ed-tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 11px; }
+/* observation tab strip — rounded-top tabs, burgundy underline on active */
+.dfx-ed-tabs { display: flex; flex-wrap: wrap; gap: 5px; align-items: flex-end; margin-bottom: 11px; }
 .dfx-ed-tab {
-  display: inline-flex; align-items: center; border: 1.5px solid var(--border, #DDE1E7);
-  border-radius: 9px; overflow: hidden; background: #fff;
+  display: inline-flex; align-items: center; border: 1px solid var(--border, #D7DCE5);
+  border-bottom: 2px solid transparent; border-radius: 7px 7px 0 0; overflow: hidden; background: #fff;
 }
-.dfx-ed-tab.active { border-color: var(--arencon, #9C2742); background: #fdf5f7; }
+.dfx-ed-tab.active { border-bottom: 2px solid var(--arencon, #9C2742); background: var(--smoke, #F7F8FA); }
 .dfx-ed-tab-btn {
-  font-family: inherit; font-size: calc(12.5px + var(--ts)); font-weight: 600;
-  color: var(--steel, #4A5568); background: none; border: none; cursor: pointer;
-  padding: 6px 11px;
+  font-family: inherit; font-size: calc(12.5px + var(--ts)); font-weight: 700;
+  color: var(--silver, #5A6478); background: none; border: none; cursor: pointer;
+  padding: 6px 13px;
 }
 .dfx-ed-tab.active .dfx-ed-tab-btn { color: var(--arencon, #9C2742); }
 .dfx-ed-tab-cust { color: #7B5A8F; font-weight: 700; }
 .dfx-ed-tab-split, .dfx-ed-tab-x {
   font-family: inherit; font-size: calc(12px + var(--ts)); line-height: 1;
-  background: none; border: none; border-left: 1px solid var(--border, #DDE1E7);
+  background: none; border: none; border-left: 1px solid var(--border, #D7DCE5);
   color: var(--silver, #A0AEC0); cursor: pointer; padding: 6px 8px;
 }
 .dfx-ed-tab-split:hover { color: #7B5A8F; background: #f3eef6; }
-.dfx-ed-tab-x:hover { color: #A85959; background: #fbeeee; }
+.dfx-ed-tab-x:hover { color: #A85959; background: #F4D6D6; }
 .dfx-ed-tab-add {
   font-family: inherit; font-size: calc(12px + var(--ts)); font-weight: 600;
-  color: var(--steel, #4A5568); background: none;
-  border: 1.5px dashed var(--border, #DDE1E7); border-radius: 9px; padding: 6px 11px; cursor: pointer;
+  color: var(--navy, #2C4770); background: none;
+  border: 1px dashed var(--border, #D7DCE5); border-radius: 7px 7px 0 0; padding: 6px 11px; cursor: pointer;
 }
 .dfx-ed-tab-add:hover { border-color: var(--arencon, #9C2742); color: var(--arencon, #9C2742); }
 body.dark-mode .dfx-ed-tab { background: #2A2E36; border-color: #3A404B; }
@@ -7582,6 +7582,44 @@ body.dark-mode .dfx-ed-tab-btn { color: #C8CDD6; }
 
 /* slim B/C action bar — fewer buttons; +Response/+Comment + ⋯ More */
 .dfx-ed-actions { gap: 8px; }
+
+/* ── S213: Editor B/C layout overrides (scoped to .dfx-ed-mode so Editor A's
+   side-by-side Detailed-card layout is untouched). Matches the locked mockup
+   pin_editor_balanced.html: description on TOP, then a dashed drop box with a
+   compact 5-across SCROLLING photo grid (height-capped so it never pushes the
+   editor off screen), content-sized centered Upload/Camera/Gallery buttons. ── */
+.dfx-ed-mode .obs-layout-merged {
+  display: flex; flex-direction: column; gap: 12px; align-items: stretch;
+}
+.dfx-ed-mode .obs-text { flex: 0 0 auto; }
+.dfx-ed-mode .obs-text-input { min-height: 88px; height: auto; }
+.dfx-ed-mode .obs-media-col { display: block; }
+.dfx-ed-mode .obs-media-zone {
+  border: 1.5px dashed var(--border, #D7DCE5); border-radius: 10px;
+  padding: 10px; min-height: 0; gap: 9px;
+}
+/* 5-across compact scrolling grid */
+.dfx-ed-mode .obs-media-photos {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+  max-height: 178px; overflow-y: auto; align-content: start;
+}
+.dfx-ed-mode .obs-media-photos .obs-photo-wrap {
+  width: auto; height: auto; aspect-ratio: 1 / 1;
+}
+.dfx-ed-mode .obs-media-divider { display: none; }
+.dfx-ed-mode .obs-media-hint { order: 2; min-height: 0; margin: 2px 0; flex: 0 0 auto; }
+.dfx-ed-mode .obs-media-btns { order: 3; gap: 7px; }
+/* content-sized (not icon-only square) photo buttons, centered */
+.dfx-ed-mode .obs-drop-btn.icon-only {
+  width: auto; min-width: 0; padding: 7px 14px; border-radius: 7px;
+}
+@media (max-width: 700px) {
+  .dfx-ed-mode .obs-media-photos { grid-template-columns: repeat(4, 1fr); }
+}
+@media (pointer: coarse) {
+  .dfx-ed-mode .obs-media-photos { max-height: 210px; }
+  .dfx-ed-mode .obs-drop-btn.icon-only { padding: 10px 16px; }
+}
 
 /* move-pin-to-drawing chooser rows hover */
 .pe-move-dwg-row:hover { border-color: var(--arencon, #9C2742) !important; background: #fdf5f7 !important; }

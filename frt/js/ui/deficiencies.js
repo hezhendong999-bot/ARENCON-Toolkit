@@ -1962,7 +1962,7 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   var multi = obs.length > 1;
   var isSite = !ctrId;
 
-  var h = '<div class="dfx-or-editor" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
+  var h = '<div class="dfx-or-editor' + (opts.withHeader ? ' dfx-ed-mode' : '') + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
 
   // ── S213: optional header (Editor B/C). withHeader off => A (Detailed
   // card) renders exactly as before, just the controls row down. ──
@@ -2071,9 +2071,13 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   }
   h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + (opts.withHeader ? ('<button type="button" class="dfx-ed-choose" data-action="choose-obs-photos" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Choose which of this pin\'s photos belong to this observation">\u229E Choose for this obs</button>') : '') + '</div>';
   h += '<div class="obs-media-btns">';
-  h += '<button class="obs-drop-btn is-upload icon-only" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Upload from device">\uD83D\uDCCE</button>';
-  h += '<button class="obs-drop-btn is-camera icon-only" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Take photo with camera">\uD83D\uDCF7</button>';
-  h += '<button class="obs-drop-btn is-gallery icon-only" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F</button>';
+  var _icl = opts.withHeader ? '' : ' icon-only';
+  var _ul = opts.withHeader ? ' Upload' : '';
+  var _cl = opts.withHeader ? ' Camera' : '';
+  var _gl = opts.withHeader ? ' Gallery' : '';
+  h += '<button class="obs-drop-btn is-upload' + _icl + '" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Upload from device">\uD83D\uDCCE' + _ul + '</button>';
+  h += '<button class="obs-drop-btn is-camera' + _icl + '" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Take photo with camera">\uD83D\uDCF7' + _cl + '</button>';
+  h += '<button class="obs-drop-btn is-gallery' + _icl + '" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F' + _gl + '</button>';
   h += '</div>';
   h += '</div></div>'; // /obs-media-zone /obs-media-col
   h += '</div>'; // /obs-layout-merged
