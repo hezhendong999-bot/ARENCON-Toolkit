@@ -186,6 +186,30 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 @media(pointer:coarse){.ph-dl-btn,.ph-del-btn{display:flex;opacity:.85;}}
 .ph-empty{color:var(--silver);font-size:calc(13px + var(--ts));text-align:center;padding:32px 16px;}
 .photo-grid{display:flex;flex-wrap:wrap;gap:9px;margin-top:9px;}
+/* ══ Pump Nameplate panel (4a) — grouped data + compact photo tiles ══ */
+.np-panel{border:1.5px solid var(--border);border-radius:10px;background:var(--smoke);overflow:hidden;}
+.np-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#eef0f4;border-bottom:1.5px solid var(--border);flex-wrap:wrap;}
+.np-head .np-t{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);letter-spacing:.3px;display:flex;align-items:center;gap:7px;}
+.np-scan{display:inline-flex;align-items:center;gap:6px;background:var(--arencon);color:#fff;border:none;border-radius:7px;padding:7px 13px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:700;cursor:pointer;transition:filter .14s;}
+.np-scan:hover{filter:brightness(1.12);}
+.np-scan:disabled{opacity:.5;cursor:default;filter:none;}
+.np-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;padding:16px;}
+@media(max-width:640px){.np-grid{grid-template-columns:1fr;}}
+.np-fields{display:flex;flex-direction:column;gap:12px;}
+.np-photos{display:flex;flex-direction:column;gap:8px;}
+.np-photos-lbl{font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--silver);}
+.np-tiles{display:flex;gap:10px;}
+.np-tile{flex:1;border:2px dashed var(--border);border-radius:9px;background:#fff;min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;transition:all .14s;position:relative;overflow:hidden;}
+.np-tile:hover,.np-tile.drag-over{border-color:var(--arencon);background:#fdf6f8;}
+.np-tile .np-ico{font-size:24px;opacity:.7;}
+.np-tile .np-lbl{font-size:calc(12px + var(--ts));font-weight:600;color:var(--steel);}
+.np-tile .np-sub{font-size:calc(10px + var(--ts));color:var(--silver);}
+.np-tile.has-img{border-style:solid;}
+.np-tile.has-img img{width:100%;height:96px;object-fit:cover;display:block;cursor:zoom-in;}
+.np-tile .np-badge{position:absolute;top:5px;left:5px;background:rgba(28,35,51,.78);color:#fff;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:9px;letter-spacing:.3px;}
+.np-tile .np-recap{position:absolute;bottom:5px;right:5px;background:rgba(255,255,255,.92);border:none;border-radius:6px;font-size:10px;font-weight:600;color:var(--steel);padding:3px 7px;cursor:pointer;}
+.np-tile .np-recap:hover{color:var(--arencon);}
+.np-hint{font-size:calc(10px + var(--ts));color:var(--silver);line-height:1.4;}
 .photo-thumb{position:relative;width:86px;height:86px;border-radius:6px;overflow:hidden;box-shadow:var(--shadow);border:2px solid var(--border);}
 .photo-thumb img{width:100%;height:100%;object-fit:cover;}
 .photo-remove{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:19px;height:19px;font-size:calc(11px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;}
@@ -994,17 +1018,25 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
           <div id="flow-test-thumbs" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
           </div>
         </div>
-        <!-- Line 4: Rated Flow | Speed | PRV in one row -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
-          <div class="meta-field"><label>Pump Rated Flow (US gpm)</label><input type="number" id="pm-rated-flow" placeholder="e.g. 2000" style="width:100%;" oninput="autoFillStdFlows()"></div>
-          <div class="meta-field"><label>Pump Rated Speed (RPM)</label><input type="number" id="pm-rpm" placeholder="e.g. 2500" style="width:100%;" oninput="updateChart()"></div>
-          <div class="meta-field"><label>PRV Rating (psi)</label><input type="number" id="pm-prv" placeholder="e.g. 175" style="width:100%;" oninput="updateChart()"></div>
-        </div>
-        <!-- Pump & Placard photos — feed the rated data above -->
-        <div style="margin-top:14px;">
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--silver);display:block;margin-bottom:6px;">Pump &amp; Placard Photos</label>
-          <p style="font-size:calc(11.5px + var(--ts));color:var(--steel);margin:0 0 8px;">Capture the pump unit and its rating placard. These also back up to the photo gallery.</p>
-          <div id="pump-placard-zones" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;"></div>
+        <!-- Line 4: Pump Nameplate Data — grouped fields + photo evidence -->
+        <div class="np-panel">
+          <div class="np-head">
+            <div class="np-t">⚙ Pump Nameplate Data</div>
+            <button class="np-scan" id="np-scan-btn" onclick="_placardScan()" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
+          </div>
+          <div class="np-grid">
+            <div class="np-fields">
+              <div class="meta-field"><label>Pump Rated Flow (US gpm)</label><input type="number" id="pm-rated-flow" placeholder="e.g. 2000" style="width:100%;" oninput="autoFillStdFlows()"></div>
+              <div class="meta-field"><label>Pump Rated Speed (RPM)</label><input type="number" id="pm-rpm" placeholder="e.g. 2500" style="width:100%;" oninput="updateChart()"></div>
+              <div class="meta-field"><label>PRV / Rated Pressure (psi)</label><input type="number" id="pm-prv" placeholder="e.g. 175" style="width:100%;" oninput="updateChart()"></div>
+            </div>
+            <div class="np-photos">
+              <div class="np-photos-lbl">Nameplate Evidence</div>
+              <div class="np-tiles" id="pump-placard-zones"></div>
+              <div class="np-hint">Tap a tile to upload or use the camera. The placard photo feeds the fields on the left. Both back up to the photo gallery.</div>
+            </div>
+          </div>
+          <div id="placard-ocr-host"></div>
         </div>
       </div>
     </div>
@@ -7448,13 +7480,37 @@ function _recZoneHtml(kind){
   html+='</div>';
   return html;
 }
+function _recTileHtml(kind){
+  var def=null; _REC_KINDS.forEach(function(k){ if(k[0]===kind) def=k; });
+  if(!def) return '';
+  var icon=def[2], label=def[1].replace(' Photo','');
+  var thumbs=(recordPhotos||[]).map(function(p,i){return {p:p,i:i};}).filter(function(o){return (o.p.kind||'site')===kind;});
+  if(thumbs.length){
+    // show most recent as the tile; extras stack below via gallery
+    var o=thumbs[thumbs.length-1];
+    return '<div class="np-tile has-img" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
+      + '<span class="np-badge">'+label.toUpperCase()+(thumbs.length>1?(' ·'+thumbs.length):'')+'</span>'
+      + '<img src="'+(o.p.r2Url||o.p.d)+'" onclick="_recLightbox('+o.i+')">'
+      + '<button class="np-recap" onclick="event.stopPropagation();_recUpload(\''+kind+'\')">retake</button>'
+      + '</div>';
+  }
+  return '<div class="np-tile" onclick="_recUpload(\''+kind+'\')" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
+    + '<span class="np-ico">'+icon+'</span><span class="np-lbl">'+label+'</span><span class="np-sub">tap / drop · or camera</span>'
+    + '</div>';
+}
 function _renderRecordZones(){
-  // Photos tab: general site records only
+  // Photos tab: general site records only (full zone style)
   var host=document.getElementById('record-zones');
   if(host) host.innerHTML=_recZoneHtml('site');
-  // 4a Test Setup: pump + placard capture
+  // 4a Test Setup: pump + placard as compact tiles
   var pp=document.getElementById('pump-placard-zones');
-  if(pp) pp.innerHTML=_recZoneHtml('pump')+_recZoneHtml('placard');
+  if(pp) pp.innerHTML=_recTileHtml('pump')+_recTileHtml('placard');
+}
+// Placard OCR — wired in the next build. Placeholder keeps the button honest.
+function _placardScan(){
+  var has=(recordPhotos||[]).some(function(p){return (p.kind||'')==='placard';});
+  if(!has){ showToast('Capture a placard photo first'); return; }
+  showToast('Placard scanning is coming in the next update');
 }
 function _recAddFile(file, kind){
   if(!file || !file.type || file.type.indexOf('image/')!==0) return;
