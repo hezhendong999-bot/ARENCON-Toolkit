@@ -251,6 +251,44 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .ev-tile .badge{position:absolute;top:6px;left:6px;background:rgba(28,35,51,.78);color:#fff;font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:9px;letter-spacing:.3px;}
 .ev-tile .recap{position:absolute;bottom:6px;right:6px;background:rgba(255,255,255,.92);border:none;border-radius:6px;font-size:10px;font-weight:600;color:var(--steel);padding:3px 8px;cursor:pointer;}
 .ev-tile .recap:hover{color:var(--arencon);}
+/* ══ Flow-point photo icon + warning flag ══ */
+.flow-warn{font-size:calc(10px + var(--ts));font-weight:700;color:var(--warn);margin-top:3px;line-height:1.25;}
+.ph-cell{text-align:center;}
+.ph-icon{position:relative;background:none;border:none;cursor:pointer;color:var(--steel);padding:5px;border-radius:7px;display:inline-flex;line-height:0;transition:all .14s;}
+.ph-icon:hover{background:var(--smoke);color:var(--arencon);}
+.ph-icon.has{color:var(--arencon);}
+.ph-icon .cnt{position:absolute;top:-3px;right:-3px;background:var(--arencon);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;line-height:15px;border-radius:8px;padding:0 3px;}
+/* flow-point photo popover */
+.fp-overlay{position:fixed;inset:0;background:rgba(28,35,51,.4);display:none;align-items:center;justify-content:center;z-index:10000;padding:18px;}
+.fp-overlay.open{display:flex;}
+.fp-pop{background:#fff;border-radius:12px;box-shadow:var(--shadow-lg);width:100%;max-width:480px;max-height:88vh;overflow:auto;}
+.fp-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1.5px solid var(--border);position:sticky;top:0;background:#fff;z-index:2;}
+.fp-title{font-size:15px;font-weight:700;color:var(--slate);}
+.fp-title small{display:block;font-size:11px;font-weight:600;color:var(--silver);margin-top:2px;}
+.fp-x{background:none;border:none;font-size:20px;color:var(--silver);cursor:pointer;line-height:1;}
+.fp-body{padding:16px;}
+.fp-actions{display:flex;gap:9px;margin-bottom:14px;}
+.fp-btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:8px;font-family:Calibri,sans-serif;font-size:13px;font-weight:700;cursor:pointer;border:none;}
+.fp-cam{background:var(--arencon);color:#fff;}
+.fp-up{background:#fff;color:var(--steel);border:1.5px solid #b8c2cc;}
+.fp-read{background:var(--slate-mid);color:#fff;}
+.fp-bucket{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+@media(max-width:460px){.fp-bucket{grid-template-columns:1fr 1fr;}}
+.fp-shot{position:relative;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;background:#000;aspect-ratio:1;cursor:pointer;}
+.fp-shot img{width:100%;height:100%;object-fit:cover;display:block;}
+.fp-shot .badge{position:absolute;top:5px;right:5px;background:rgba(28,35,51,.82);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:9px;max-width:84%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fp-shot .badge.unset{background:rgba(176,127,90,.92);}
+.fp-shot .del{position:absolute;top:4px;left:4px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;line-height:18px;padding:0;cursor:pointer;}
+.fp-empty{grid-column:1/-1;text-align:center;color:var(--silver);font-size:12.5px;padding:18px 0;}
+.fp-chips-panel{margin-top:14px;border-top:1.5px solid var(--border);padding-top:12px;display:none;}
+.fp-chips-panel.open{display:block;}
+.fp-chips-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--silver);margin-bottom:9px;display:flex;align-items:center;gap:8px;}
+.fp-chips-head .mini{width:30px;height:30px;border-radius:6px;object-fit:cover;border:1.5px solid var(--border);}
+.fp-chips{display:flex;flex-wrap:wrap;gap:7px;}
+.fp-chip{padding:6px 12px;border-radius:18px;border:1.5px solid var(--border);background:var(--smoke);font-size:12px;font-weight:600;color:var(--steel);cursor:pointer;font-family:Calibri,sans-serif;}
+.fp-chip:hover{border-color:var(--arencon);color:var(--arencon);}
+.fp-chip.on{background:var(--arencon);color:#fff;border-color:var(--arencon);}
+.fp-chip.custom{border-style:dashed;}
 .photo-thumb{position:relative;width:86px;height:86px;border-radius:6px;overflow:hidden;box-shadow:var(--shadow);border:2px solid var(--border);}
 .photo-thumb img{width:100%;height:100%;object-fit:cover;}
 .photo-remove{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:19px;height:19px;font-size:calc(11px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;}
@@ -962,6 +1000,13 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
   <!-- ══ SECTION 1: PRE-COMMISSIONING ══ -->
   <div class="panel" id="panel-s1">
     <div class="card"><div class="card-header">1. Pre-Commissioning</div><div class="card-body"><div id="cl-s1"></div></div></div>
+    <div class="card"><div class="card-header mid">Suction Supply</div><div class="card-body">
+      <div class="meta-field" style="max-width:280px;">
+        <label>NPSH — Net Positive Suction Head (psi)</label>
+        <input type="number" id="npsh-psi" placeholder="e.g. 20" oninput="setNpsh(this.value)">
+        <div style="font-size:calc(10.5px + var(--ts));color:var(--silver);margin-top:5px;line-height:1.4;">If suction pressure at any flow point falls below this value, that point is flagged (advisory — not a pass/fail).</div>
+      </div>
+    </div></div>
   </div>
 
   <!-- ══ SECTION 2: VISUAL INSPECTION ══ -->
@@ -1080,9 +1125,12 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
                 <th>Placard<br>Pressure (psi)</th>
                 <th>Suction<br>Pressure (psi)</th>
                 <th>Discharge<br>Pressure (psi)</th>
+                <th>Backflow Up<br>(psi)</th>
+                <th>Backflow Down<br>(psi)</th>
                 <th>Net Pressure<br>(psi) [calc]</th>
                 <th>Pump Speed<br>(RPM)</th>
                 <th>Pass/Fail</th>
+                <th>Photos</th>
               </tr>
             </thead>
             <tbody id="std-tbody"></tbody>
@@ -2497,8 +2545,9 @@ const PLD_ROWS = [
   {pct:'150%', defaultFlow:3000},
 ];
 
-const stdData = STD_ROWS.map(r=>({...r, cutsheet:'', placard:'', suction:'', discharge:'', rpm:''}));
-const pldData = PLD_ROWS.map((r,i)=>({...r, flow:i===0?0:'', cutsheet:'', placard:'', suc_no:'', dis_no:'', rpm_no:'', suc_w:'', dis_w:'', rpm_w:''}));
+const stdData = STD_ROWS.map(r=>({...r, cutsheet:'', placard:'', suction:'', discharge:'', bfUp:'', bfDown:'', rpm:'', photos:[]}));
+const pldData = PLD_ROWS.map((r,i)=>({...r, flow:i===0?0:'', cutsheet:'', placard:'', suc_no:'', dis_no:'', rpm_no:'', suc_w:'', dis_w:'', rpm_w:'', bfUp:'', bfDown:'', photos:[]}));
+var npshPsi = ''; // Net Positive Suction Head (psi) — section 1; suction below this flags a warning
 
 
 // Auto-fill flow ratings from rated flow — user can still overwrite
@@ -2547,9 +2596,12 @@ function renderStdTable() {
       <td><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="std" style="width:60px"></td>
       <td><input type="number" value="${row.suction||''}" placeholder="psi" data-field="suction" data-idx="${i}" data-tbl="std" style="width:60px"></td>
       <td><input type="number" value="${row.discharge||''}" placeholder="psi" data-field="discharge" data-idx="${i}" data-tbl="std" style="width:65px"></td>
+      <td><input type="number" value="${row.bfUp||''}" placeholder="psi" data-field="bfUp" data-idx="${i}" data-tbl="std" style="width:60px"></td>
+      <td><input type="number" value="${row.bfDown||''}" placeholder="psi" data-field="bfDown" data-idx="${i}" data-tbl="std" style="width:60px"></td>
       <td class="calc-cell" id="std-net-${i}">—</td>
       <td><input type="number" value="${row.rpm||''}" placeholder="RPM" data-field="rpm" data-idx="${i}" data-tbl="std" style="width:70px"></td>
-      <td id="std-pf-${i}">—</td>`;
+      <td id="std-pf-${i}">—</td>
+      <td class="ph-cell">${_flowPhotoIcon('std',i)}</td>`;
     tbody.appendChild(tr);
     updateStdCalcCells(i);
   });
@@ -2571,6 +2623,24 @@ function fixStickyColumns(){
 }
 window.addEventListener('resize',function(){setTimeout(fixStickyColumns,100);});
 
+// Per-flow-point photo icon (opens bucket popover — Step 2 wires the popover)
+function _flowPhotoIcon(tbl, i){
+  var arr = (tbl==='std'?stdData:pldData)[i];
+  var n = (arr && arr.photos) ? arr.photos.length : 0;
+  return '<button class="ph-icon '+(n?'has':'')+'" onclick="openFlowPhotos(\''+tbl+'\','+i+')" title="'+(n?n+' photo(s)':'Add gauge photos')+'">'
+    + '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>'
+    + (n?'<span class="cnt">'+n+'</span>':'')
+    + '</button>';
+}
+// Step 2 will replace this with the full popover.
+function openFlowPhotos(tbl, i){ if(typeof showToast==='function') showToast('Gauge photo capture — coming in the next update'); }
+// NPSH (psi) — recalc all flow rows so suction<NPSH warnings refresh live
+function setNpsh(v){
+  npshPsi = v;
+  if(typeof stdData!=='undefined') stdData.forEach(function(_,i){ if(typeof updateStdCalcCells==='function') updateStdCalcCells(i); });
+  if(typeof pldData!=='undefined') pldData.forEach(function(_,i){ if(typeof updatePldCalcCells==='function') updatePldCalcCells(i); });
+  if(typeof debounceAutosave==='function') debounceAutosave();
+}
 function updateStdCalcCells(i) {
   const row = stdData[i];
   const net = (parseFloat(row.discharge)||0) - (parseFloat(row.suction)||0);
@@ -2581,10 +2651,18 @@ function updateStdCalcCells(i) {
     if(placard && placard < cutsheet) passFail = '<span class="fail">✗ FAIL</span>';
     else passFail = net >= cutsheet*0.95 ? '<span class="pass">✓ PASS</span>' : '<span class="fail">✗ FAIL</span>';
   }
+  // Advisory warnings (do NOT affect pass/fail)
+  var warns = [];
+  var bfUp = parseFloat(row.bfUp);
+  if(!isNaN(bfUp) && bfUp < 20) warns.push('Backflow &lt; 20 psi');
+  var suc = parseFloat(row.suction);
+  var npsh = parseFloat(npshPsi);
+  if(!isNaN(suc) && !isNaN(npsh) && npsh>0 && suc < npsh) warns.push('Suction &lt; NPSH');
+  var warnHtml = warns.length ? '<div class="flow-warn" title="'+warns.join(' · ')+'">⚠ '+warns.join(' · ')+'</div>' : '';
   const netEl = document.getElementById(`std-net-${i}`);
   const pfEl = document.getElementById(`std-pf-${i}`);
   if(netEl) netEl.textContent = net ? net.toFixed(1) : '—';
-  if(pfEl) pfEl.innerHTML = passFail;
+  if(pfEl) pfEl.innerHTML = passFail + warnHtml;
 }
 
 // Rows that require w/o PLD testing (0%, 100%, 150% only per NFPA 20)
@@ -2640,7 +2718,16 @@ function updatePldCalcCells(i) {
   if(noEl && netNo !== null) noEl.textContent = netNo ? netNo.toFixed(1) : '\u2014';
   else if(noEl && netNo === null) {} // skip rows have no noEl
   if(wEl) wEl.textContent = netW ? netW.toFixed(1) : '\u2014';
-  if(pfEl) pfEl.innerHTML = passFail;
+  // Advisory warnings (do NOT affect pass/fail) — check w/-PLD suction + backflow
+  var warns = [];
+  var bfUp = parseFloat(row.bfUp);
+  if(!isNaN(bfUp) && bfUp < 20) warns.push('Backflow &lt; 20 psi');
+  var sucCheck = parseFloat(skipNoPLD ? row.suc_w : row.suc_no);
+  if(isNaN(sucCheck)) sucCheck = parseFloat(row.suc_w);
+  var npsh = parseFloat(npshPsi);
+  if(!isNaN(sucCheck) && !isNaN(npsh) && npsh>0 && sucCheck < npsh) warns.push('Suction &lt; NPSH');
+  var warnHtml = warns.length ? '<div class="flow-warn" title="'+warns.join(' · ')+'">⚠ '+warns.join(' · ')+'</div>' : '';
+  if(pfEl) pfEl.innerHTML = passFail + warnHtml;
 }
 
 // ══════════════════════════════════════════════════
@@ -6199,13 +6286,14 @@ function collectState() {
     if (el) proj[id] = el.value;
   });
   var testType = 'std';
-  document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.textContent.indexOf('⦿')===0) testType=b.dataset.ptype; });
+  document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.classList.contains('on')) testType=b.dataset.ptype; });
   // Equipment checkboxes
   const equipChecked = [];
   document.querySelectorAll('input[name="equip3a"]').forEach(function(cb,i){ if(cb.checked) equipChecked.push(i); });
   return {
     proj,
     testType,
+    npshPsi,
     equipChecked,
     stdData: stdData.map(r=>({...r})),
     pldData: pldData.map(r=>({...r})),
@@ -6495,6 +6583,7 @@ function _applyLoadedState(raw) {
     }
     // stdData
     if (s.stdData) s.stdData.forEach((r,i) => { if(stdData[i]) Object.assign(stdData[i], r); });
+    if (s.npshPsi !== undefined) { npshPsi = s.npshPsi; var _ne=document.getElementById('npsh-psi'); if(_ne) _ne.value = s.npshPsi||''; }
     // pldData
     if (s.pldData) s.pldData.forEach((r,i) => { if(pldData[i]) Object.assign(pldData[i], r); });
     // pumpCurvePoints
@@ -7020,6 +7109,7 @@ function _stateHasContent(s){
     if(Array.isArray(s.flowTestPhotos) && s.flowTestPhotos.length) return true;
     if(Array.isArray(s.flowTestPhotosPld) && s.flowTestPhotosPld.length) return true;
     if(Array.isArray(s.recordPhotos) && s.recordPhotos.length) return true;
+    if(s.npshPsi!=null && String(s.npshPsi).trim()) return true;
     if(Array.isArray(s.sketchEntries) && s.sketchEntries.length) return true;
     if(s.clState && Object.keys(s.clState).some(function(k){var v=s.clState[k]; return v && typeof v==='object' && ((v.response!=null&&v.response!=='')||(v.status!=null&&v.status!=='')||(v.val!=null&&v.val!=='')||(v.comment&&String(v.comment).trim())||(Array.isArray(v.photos)&&v.photos.length));})) return true;
     if(s.proj && ((s.proj['pi-projname']&&String(s.proj['pi-projname']).trim())||(s.proj['pi-projno']&&String(s.proj['pi-projno']).trim())||(s.proj['pi-client']&&String(s.proj['pi-client']).trim()))) return true;
