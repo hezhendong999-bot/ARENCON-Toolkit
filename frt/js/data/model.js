@@ -867,6 +867,13 @@ export var Model = {
       id: _uid('obs'),
       text: '',
       photos: [],
+      // S209d (#5): a NEW observation starts EMPTY — photoSelection:[] means
+      // "show no photos" (vs null = "show the whole pin pool"). Previously a
+      // new obs defaulted to null and rendered every photo on the pin, which
+      // read as the photos being duplicated onto the new obs. The user adds
+      // photos to it deliberately. Existing obs are unaffected (their stored
+      // selection is untouched).
+      photoSelection: [],
       notedOnInstance: inst,
       notedDate: today,
       addressed: false,

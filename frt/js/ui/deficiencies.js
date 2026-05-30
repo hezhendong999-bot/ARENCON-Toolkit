@@ -1909,8 +1909,13 @@ function _buildObsRow(d, oi, ctrId, opts) {
     thumbSrc = p0.thumb || p0.dataUrl || p0.r2Url || '';
   }
 
-  var metaName = isSite ? ('<span class="dfx-or-cdot" style="background:#6B7280"></span><span class="dfx-or-noctr">' + esc(SITE_RECORDS_LABEL) + '</span>')
-                        : ('<span class="dfx-or-cdot" style="background:' + esc(accent) + '"></span><span>' + esc(ctrLabel(ctrName) || 'Unnamed') + '</span>');
+  // S209d (#2): contractor NAME removed from the row — it's redundant under
+  // the contractor band. Keep the colour DOT as the identity cue. Site
+  // Records rows already sit under the Site Records section, so just the
+  // slate dot (no label).
+  var metaName = isSite
+    ? '<span class="dfx-or-cdot" style="background:#6B7280" title="' + esc(SITE_RECORDS_LABEL) + '"></span>'
+    : ('<span class="dfx-or-cdot" style="background:' + esc(accent) + '" title="' + esc(ctrLabel(ctrName) || 'Unnamed') + '"></span>');
 
   var h = '<div class="dfx-obsrow' + (open ? ' open' : '') + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
   h += '<div class="dfx-obsrow-head" data-action="dfx-toggle-obsrow" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
