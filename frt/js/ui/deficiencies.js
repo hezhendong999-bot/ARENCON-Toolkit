@@ -1979,10 +1979,8 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     }
     h += '</div>'; // /dfx-ed-header
 
-    // observation tab strip — S213e: tabs are LABEL-ONLY and uniform width so
-    // switching never resizes the card under your finger (was causing ✕
-    // misclicks). The split/remove controls for the ACTIVE obs live in their
-    // own row below, so they never overlap a tab-switch tap.
+    // observation tab strip [Obs A ⋮ ✕][Obs B][+ Add observation]
+    // (S213e reverted per Mark — keep inline ⋮/✕ on the active tab.)
     h += '<div class="dfx-ed-tabs" role="tablist">';
     obs.forEach(function(_to, _ti) {
       var _tletter = String.fromCharCode(65 + _ti);
@@ -1990,18 +1988,16 @@ function _buildObsEditor(d, oi, ctrId, opts) {
       var _tcustom = Array.isArray(_to.photoSelection);
       h += '<span class="dfx-ed-tab' + (_tactive ? ' active' : '') + '">';
       h += '<button type="button" class="dfx-ed-tab-btn" data-action="dfx-ed-tab" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + _ti + '">Obs ' + _tletter + (_tcustom ? ' <span class="dfx-ed-tab-cust" title="Custom photo selection">\u2022</span>' : '') + '</button>';
+      if (_tactive) {
+        if (obs.length > 1) {
+          h += '<button type="button" class="dfx-ed-tab-split" data-action="dfx-ed-tab-split" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + _ti + '" title="Split this observation to its own pin">\u22EE</button>';
+        }
+        h += '<button type="button" class="dfx-ed-tab-x" data-action="dfx-remove-obsrow" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + _ti + '" title="' + (obs.length <= 1 ? 'Remove pin (last observation)' : 'Remove this observation') + '">\u2715</button>';
+      }
       h += '</span>';
     });
     h += '<button type="button" class="dfx-ed-tab-add" data-action="add-obs" data-defic-id="' + esc(d.id) + '" title="Add another observation to this pin">\uFF0B Add observation</button>';
     h += '</div>'; // /dfx-ed-tabs
-    // active-obs controls row (split / remove) — separated from the tabs
-    h += '<div class="dfx-ed-obsctl">';
-    h += '<span class="dfx-ed-obsctl-lbl">Obs ' + String.fromCharCode(65 + oi) + '</span>';
-    if (obs.length > 1) {
-      h += '<button type="button" class="dfx-ed-obsctl-btn" data-action="dfx-ed-tab-split" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Split this observation to its own pin">\u22EE Split to its own pin</button>';
-    }
-    h += '<button type="button" class="dfx-ed-obsctl-btn danger" data-action="dfx-remove-obsrow" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="' + (obs.length <= 1 ? 'Remove pin (last observation)' : 'Remove this observation') + '">\u2715 ' + (obs.length <= 1 ? 'Remove pin' : 'Remove obs') + '</button>';
-    h += '</div>'; // /dfx-ed-obsctl
   }
 
   // ── controls row: combined status · contractor · trade ──
