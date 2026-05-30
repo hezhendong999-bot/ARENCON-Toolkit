@@ -2724,8 +2724,8 @@ function _peEditNotedDate(btnEl) {
     var obs = (f.defic.observations || [])[idx];
     if (obs) {
       var v = inp.value || '';
-      if (v) obs.notedDate = v;
-      else delete obs.notedDate;
+      if (v) { obs.notedDate = v; obs.notedDateEdited = true; }
+      else { delete obs.notedDate; delete obs.notedDateEdited; }
       Model.saveNow();
     }
     _peRenderUnifiedEditor(f.defic, _peObsIdx);

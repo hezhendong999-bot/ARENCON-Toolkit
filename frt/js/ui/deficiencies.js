@@ -2032,9 +2032,14 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   if (opts.withHeader) {
     var _nd = _obsNotedDate(d, o);
     var _ndTxt = _fmtNotedDate(_nd);
+    // "auto-stamped" flag shows when this obs has its own notedDate that was
+    // set automatically on creation and not yet hand-corrected (we only have
+    // the value, so: present + no explicit user-edit marker → auto-stamped).
+    var _autoStamp = !!(o && o.notedDate && !o.notedDateEdited);
     h += '<div class="dfx-ed-noted" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
     h += '<span class="dfx-ed-noted-lbl">\uD83D\uDCC5 ' + (_ndTxt ? ('Noted ' + esc(_ndTxt)) : 'No observed date') + '</span>';
     h += '<button type="button" class="dfx-ed-noted-edit" data-action="dfx-ed-edit-noted" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-cur="' + esc((_nd && String(_nd).slice(0, 10)) || '') + '">edit</button>';
+    if (_autoStamp && _ndTxt) h += '<span class="dfx-ed-noted-flag" title="Date stamped automatically when the pin was created">auto-stamped</span>';
     h += '</div>';
   }
 
@@ -2044,6 +2049,12 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="obs-text-input" placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
   h += '</div>';
   var obsPhotos = (Model.getEffectivePhotos ? Model.getEffectivePhotos(d, oi) : (o.photos || [])) || [];
+  // S213b: Editor B/C — Photos heading line (Choose + "N attached" count)
+  // above the drop box, matching pin_editor_balanced.html. A (no withHeader)
+  // keeps the plain inline layout with no heading.
+  if (opts.withHeader) {
+    h += '<div class="dfx-ed-photos-head"><span>Photos <button type="button" class="dfx-ed-choose" data-action="choose-obs-photos" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Choose which of this pin\'s photos belong to this observation">\u229E Choose for this obs</button></span><span class="dfx-ed-pcount">' + obsPhotos.length + ' attached</span></div>';
+  }
   h += '<div class="obs-media-col" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
   h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
   h += ' ondragleave="this.classList.remove(\'drag-over\')">';
@@ -2061,6 +2072,12 @@ function _buildObsEditor(d, oi, ctrId, opts) {
         h += '<div class="obs-photo-placeholder" data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" title="Photo data not yet loaded">\uD83D\uDCF7</div>';
       }
       h += _obsPhotoSyncBadge(ph);
+      // S213b: optional label badge (Editor B/C) — only when the photo carries
+      // a real label/caption. Never fabricated; absent on unlabeled photos.
+      if (opts.withHeader) {
+        var _plab = ph.label || ph.caption || '';
+        if (_plab) h += '<span class="obs-photo-label" title="' + esc(_plab) + '">' + esc(_plab) + '</span>';
+      }
       h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
       h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-del" title="Remove from this observation">\u2715</button>';
       h += '<button data-action="photo-assign-pin" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-pin" title="Move or copy to another pin">\u2934</button>';
@@ -2069,7 +2086,7 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     h += '</div>';
     h += '<div class="obs-media-divider"></div>';
   }
-  h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + (opts.withHeader ? ('<button type="button" class="dfx-ed-choose" data-action="choose-obs-photos" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Choose which of this pin\'s photos belong to this observation">\u229E Choose for this obs</button>') : '') + '</div>';
+  h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + (opts.withHeader ? '' : '') + '</div>';
   h += '<div class="obs-media-btns">';
   var _icl = opts.withHeader ? '' : ' icon-only';
   var _ul = opts.withHeader ? ' Upload' : '';
