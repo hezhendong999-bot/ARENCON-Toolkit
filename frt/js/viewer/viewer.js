@@ -2757,9 +2757,8 @@ var _PinPan = (function() {
     layer.innerHTML =
       '<div class="pe-pin-marker" style="position:absolute;left:' + pp.x + 'px;top:' + pp.y + 'px;width:' + pw + 'px;height:' + ph + 'px;transform:translate(-50%,-100%);opacity:' + alpha + ';pointer-events:none;">'
       + '<svg viewBox="0 0 32 42" width="' + pw + '" height="' + ph + '" style="filter:' + shadow + ';overflow:visible;">'
-      + '<path d="M16 1C8.3 1 2 7.3 2 15c0 10.5 14 25 14 25s14-14.5 14-25C30 7.3 23.7 1 16 1z" fill="white"/>'
-      + '<path d="M16 3C9.4 3 4 8.4 4 15c0 9.5 12 22 12 22s12-12.5 12-22C28 8.4 22.6 3 16 3z" fill="' + fill + '"/>'
-      + '<circle cx="16" cy="14" r="9" fill="white" opacity="0.95"/>'
+      + '<path d="M16 1C8.3 1 2 7.3 2 15c0 10.5 14 25 14 25s14-14.5 14-25C30 7.3 23.7 1 16 1z" fill="' + fill + '"/>'
+      + '<circle cx="16" cy="14" r="7" fill="white"/>'
       + '<text x="16" y="14.5" text-anchor="middle" dominant-baseline="central" font-size="' + numFs + '" font-weight="900" font-family="Calibri,Arial,sans-serif" fill="' + fill + '">' + numStr.replace(/[&<>]/g, '') + '</text>'
       + '</svg></div>';
   }
@@ -2905,6 +2904,12 @@ var _PinPan = (function() {
       _PinPan._winBound = true;
     }
     computeFit();
+    // S213g: the pin SVG is byte-identical to the on-drawing marker; the only
+    // thing that made it look different (no visible border, oversized inner
+    // circle) was rendering it too SMALL (was a fixed 30). The viewBox ratio
+    // is constant, so a readable fixed width matches the on-drawing pin's
+    // apparent scale. 40px ≈ how the drawing pin reads to the eye.
+    st.PW = 40;
     bindToolbar();
     draw();
   }
