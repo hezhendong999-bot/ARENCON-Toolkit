@@ -1823,6 +1823,239 @@ function _flatRows(proj, ignorePivot, ignoreRecMode) {
 // function only partitions + lays out whatever rows it is given. The filter
 // behaves identically in Active and Closed (Behavior B, Mark-approved
 // S140) — no special-casing here.
+// ── S209 Slice 1b — row-per-OBSERVATION (Detailed view) ──────────
+// The Detailed view renders ONE collapsed row per observation (option 2:
+// independent rows), expand-one-at-a-time into the real per-obs editor.
+// _buildPinGroupCard is UNCHANGED and still serves the Active-tab /
+// focused-pin path (step-5 convergence deferred). The row anatomy + bands
+// match the locked mockup FRT_list_options_demo.html; the combined
+// priority/status chip mirrors the PDF report pills exactly (pdf.js S154):
+//   Outstanding/high  bg #F4D6D6 / fg #8E4444
+//   Outstanding/low   bg #F5E2C8 / fg #8E6240
+//   Closed            bg #D2EBDC / fg #426B4F
+//   Site Record       bg #DCDEF0 / fg #3F4470  (site-record rows only)
+// Star is the ONLY recommendation control — there is no "Mark as
+// recommendation" button anywhere in the obs editor (locked, do not
+// re-add). ⇄ Move lives in the editor, never on the collapsed row.
+
+// Transient expand-one state: "deficId:obsIdx" or null. Not persisted.
+var _openObsKey = null;
+function _obsKey(deficId, oi) { return String(deficId) + ':' + oi; }
+
+// Combined status descriptor for an observation. site=true forces the
+// indigo Site Record treatment regardless of addressed/priority.
+function _obsStatusInfo(o, site) {
+  if (site) return { val: 'site', txt: 'Site Record', cls: 'dfx-cs-site' };
+  if (o && o.addressed) return { val: 'closed', txt: 'Closed', cls: 'dfx-cs-closed' };
+  var pri = (o && o.priority) || 'low';
+  if (pri === 'high') return { val: 'high', txt: 'Outstanding', cls: 'dfx-cs-high' };
+  // low + general both render as the amber Outstanding (the report has no
+  // separate "general" pill; general maps to the low/amber treatment).
+  return { val: 'low', txt: 'Outstanding', cls: 'dfx-cs-low' };
+}
+
+// The combined priority+status control (editor). One <select> replacing
+// the old separate priority select + Outstanding toggle. Writes both
+// obs.priority and obs.addressed via the obs-status change handler.
+function _obsStatusSelect(d, oi, o) {
+  var info = _obsStatusInfo(o, false);
+  var h = '<select data-action="obs-status" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="dfx-status-sel ' + info.cls + '" title="Priority &amp; status">';
+  var opts = [
+    { v: 'high', t: 'Outstanding \u2014 High' },
+    { v: 'low', t: 'Outstanding \u2014 Low' },
+    { v: 'closed', t: 'Closed' }
+  ];
+  opts.forEach(function(op) {
+    h += '<option value="' + op.v + '" style="background:white;color:#2C3E50;font-weight:600;"' + (info.val === op.v ? ' selected' : '') + '>' + op.t + '</option>';
+  });
+  h += '</select>';
+  return h;
+}
+
+// One collapsed observation row. ctrId may be null (Site Records). The
+// row carries star (rec) · accent ID badge · 2-line title · ctr dot+name
+// (no trade) · combined chip · photo thumb+count · caret. Tap → expand.
+function _buildObsRow(d, oi, ctrId, opts) {
+  opts = opts || {};
+  var obs = d.observations || [];
+  var o = obs[oi] || {};
+  var multi = obs.length > 1;
+  var label = multi ? ((d.num != null ? d.num : '?') + String.fromCharCode(65 + oi)) : String(d.num != null ? d.num : '?');
+  var ctrName = opts.ctrName || '';
+  var isSite = !ctrId;
+
+  // Contractor colours from the live sequential palette (getContractorColor),
+  // NOT a stored per-contractor color — keeps the list in lockstep with the
+  // PDF contractor section + the group headers. Site Records use slate.
+  var pal = (!isSite && ctrName) ? getContractorColor(ctrName) : null;
+  var accent = pal ? pal.accent : '#6B7280';
+
+  var info = _obsStatusInfo(o, isSite);
+  var isRec = !!o.isRecommendation;
+  var key = _obsKey(d.id, oi);
+  var open = (_openObsKey === key);
+
+  // first-photo thumb + count (pool-aware)
+  var effPhotos = (Model.getEffectivePhotos ? Model.getEffectivePhotos(d, oi) : (o.photos || [])) || [];
+  var pcount = effPhotos.length;
+  var thumbSrc = '';
+  if (pcount) {
+    var p0 = effPhotos[0];
+    thumbSrc = p0.thumb || p0.dataUrl || p0.r2Url || '';
+  }
+
+  var metaName = isSite ? ('<span class="dfx-or-cdot" style="background:#6B7280"></span><span class="dfx-or-noctr">' + esc(SITE_RECORDS_LABEL) + '</span>')
+                        : ('<span class="dfx-or-cdot" style="background:' + esc(accent) + '"></span><span>' + esc(ctrLabel(ctrName) || 'Unnamed') + '</span>');
+
+  var h = '<div class="dfx-obsrow' + (open ? ' open' : '') + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
+  h += '<div class="dfx-obsrow-head" data-action="dfx-toggle-obsrow" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
+  // Star = the ONLY recommendation control. Reuses toggle-rec (per-obs) so
+  // _recHoldUntilNav mis-tap-undo is preserved.
+  h += '<button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="dfx-or-star' + (isRec ? ' on' : '') + '" aria-pressed="' + (isRec ? 'true' : 'false') + '" title="' + (isRec ? 'Recommendation \u2014 click to revert' : 'Mark as recommendation') + '">' + (isRec ? '\u2605' : '\u2606') + '</button>';
+  h += '<span class="dfx-or-id" style="background:' + esc(accent) + '">' + esc(label) + '</span>';
+  h += '<span class="dfx-or-mid"><span class="dfx-or-title">' + esc(o.text || deficDesc(d) || '\u2014') + '</span>';
+  h += '<span class="dfx-or-meta">' + metaName + '</span></span>';
+  h += '<span class="dfx-or-chip ' + info.cls + '">' + info.txt + '</span>';
+  h += '<span class="dfx-or-thumb">' + (thumbSrc ? ('<img src="' + esc(thumbSrc) + '" loading="lazy" alt="">') : '\uD83D\uDCF7') + (pcount ? ('<span class="dfx-or-pc">' + pcount + '</span>') : '') + '</span>';
+  h += '<span class="dfx-or-caret">\u25BC</span>';
+  h += '</div>'; // /head
+  if (open) h += _buildObsEditor(d, oi, ctrId, opts);
+  h += '</div>'; // /dfx-obsrow
+  return h;
+}
+
+// The expanded per-obs editor. Faithful extraction of the _buildPinGroupCard
+// per-obs body (controls + textarea + media + per-obs thread) with three
+// deltas: (1) combined obs-status select replaces the separate priority
+// select + Outstanding toggle; (2) NO "Mark as recommendation" button — the
+// row star is the only rec control; (3) a per-row action bar (drawing pin,
+// +Response/+Comment/View all/⇄ Move/+Add obs/Close/Remove/⋯). The row's
+// Remove routes through dfx-remove-obsrow (this obs only; whole pin only on
+// the last obs).
+function _buildObsEditor(d, oi, ctrId, opts) {
+  opts = opts || {};
+  var obs = d.observations || [];
+  var o = obs[oi] || {};
+  var multi = obs.length > 1;
+  var isSite = !ctrId;
+
+  var h = '<div class="dfx-or-editor" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
+
+  // ── controls row: combined status · contractor · trade ──
+  h += '<div class="dfx-ed-ctrls">';
+  if (!isSite) h += _obsStatusSelect(d, oi, o);
+
+  // contractor select (pin-level — same as _buildPinGroupCard obs-contractor)
+  h += '<span class="ctr-banner-wrap">';
+  h += '<select data-action="obs-contractor" data-defic-id="' + esc(d.id) + '" class="ctr-banner" title="Contractor for this pin">';
+  h += '<option value="" style="background:white;color:#2C3E50;font-weight:600;"' + (!ctrId ? ' selected' : '') + '>\u2014 ' + esc(SITE_RECORDS_LABEL) + ' \u2014</option>';
+  realCtrs((Model.getProject() || {}).contractors).forEach(function(_cc) {
+    h += '<option value="' + esc(_cc.id) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (ctrId === _cc.id ? ' selected' : '') + '>' + esc(ctrLabel(_cc.name) || 'Unnamed') + '</option>';
+  });
+  h += '</select></span>';
+
+  // trade select (per-obs)
+  var _trade = o.trade || '';
+  h += '<span class="trade-banner-wrap">';
+  h += '<select data-action="obs-trade" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="trade-banner" title="Trade for this observation">';
+  h += '<option value="" style="background:white;color:#2C3E50;font-weight:600;"' + (_trade === '' ? ' selected' : '') + '>\u2014 Trade \u2014</option>';
+  var _projTrades = (Model.getProject() || {}).projectTrades || TRADE_LIST;
+  if (_trade && _projTrades.indexOf(_trade) < 0) {
+    h += '<option value="' + esc(_trade) + '" style="background:white;color:#2C3E50;font-weight:600;font-style:italic;" selected>' + esc(_trade) + '</option>';
+  }
+  _projTrades.forEach(function(tv) {
+    h += '<option value="' + esc(tv) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (_trade === tv ? ' selected' : '') + '>' + esc(tv) + '</option>';
+  });
+  h += '</select></span>';
+  h += '</div>'; // /dfx-ed-ctrls
+
+  // ── body: textarea | media zone (reuses the live obs-media markup) ──
+  h += '<div class="obs-layout-merged">';
+  h += '<div class="obs-text">';
+  h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="obs-text-input" placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
+  h += '</div>';
+  var obsPhotos = (Model.getEffectivePhotos ? Model.getEffectivePhotos(d, oi) : (o.photos || [])) || [];
+  h += '<div class="obs-media-col" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
+  h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
+  h += ' ondragleave="this.classList.remove(\'drag-over\')">';
+  h += '<div class="obs-media-zone">';
+  if (obsPhotos.length) {
+    h += '<div class="obs-media-photos">';
+    obsPhotos.forEach(function(ph, phi) {
+      var mk = (Model.getObsPhotoMarkup ? Model.getObsPhotoMarkup(d, oi, ph.id) : null);
+      var src = (mk && mk.markedR2Key) ? mk.markedR2Key : (ph.thumb || ph.dataUrl || ph.r2Url || '');
+      var pid = ph.id || '';
+      h += '<div class="obs-photo-wrap' + (src ? '' : ' obs-photo-noimg') + '">';
+      if (src) {
+        h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" src="' + esc(src) + '" loading="lazy">';
+      } else {
+        h += '<div class="obs-photo-placeholder" data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" title="Photo data not yet loaded">\uD83D\uDCF7</div>';
+      }
+      h += _obsPhotoSyncBadge(ph);
+      h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
+      h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-del" title="Remove from this observation">\u2715</button>';
+      h += '<button data-action="photo-assign-pin" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-pin" title="Move or copy to another pin">\u2934</button>';
+      h += '</div>';
+    });
+    h += '</div>';
+    h += '<div class="obs-media-divider"></div>';
+  }
+  h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + '</div>';
+  h += '<div class="obs-media-btns">';
+  h += '<button class="obs-drop-btn is-upload icon-only" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Upload from device">\uD83D\uDCCE</button>';
+  h += '<button class="obs-drop-btn is-camera icon-only" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Take photo with camera">\uD83D\uDCF7</button>';
+  h += '<button class="obs-drop-btn is-gallery icon-only" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F</button>';
+  h += '</div>';
+  h += '</div></div>'; // /obs-media-zone /obs-media-col
+  h += '</div>'; // /obs-layout-merged
+
+  // AI scratchpad (per-obs)
+  h += '<div class="ai-scratchpad" data-sp-defic="' + esc(d.id) + '" data-sp-obs="' + oi + '" style="display:none;"></div>';
+
+  // ── per-obs activity thread (extracted from _buildPinGroupCard) ──
+  var _obsLetter = String.fromCharCode(65 + oi);
+  var _obsActs = (d.activity || []).filter(function(a) {
+    return a && !a.autoGenerated && a.obsRef === _obsLetter;
+  }).sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+  h += '<div class="defic-obs-act-thread" data-obs-letter="' + _obsLetter + '" style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--border);">';
+  h += '<div style="font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:8px;">';
+  h += '<span>Thread \u2014 Obs ' + _obsLetter + (_obsActs.length ? ' (' + _obsActs.length + ')' : '') + '</span></div>';
+  _obsActs.forEach(function(a) { h += _buildActEntryHtml(a, d.id); });
+  h += '</div>';
+
+  // ── per-row action bar ──
+  var effStatus = Model.getEffectiveStatus(d);
+  var thisClosed = !!o.addressed;
+  h += '<div class="dfx-or-actions">';
+  // drawing pin link (repeats per row — harmless, jumps to same spot)
+  if (d.drawingId) {
+    h += '<button class="dfx-or-act" data-action="view-pin" data-defic-id="' + esc(d.id) + '" title="Jump to pin in drawing">\uD83D\uDCCC Pin</button>';
+  } else {
+    h += '<button class="dfx-or-act" data-action="place-pin" data-defic-id="' + esc(d.id) + '" title="Place this pin on a drawing">\uD83D\uDCCC Place pin</button>';
+  }
+  h += '<button class="dfx-or-act" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="Contractor Response" data-obs-ref="' + _obsLetter + '">+ Response</button>';
+  h += '<button class="dfx-or-act" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="ARENCON" data-obs-ref="' + _obsLetter + '">+ Comment</button>';
+  h += '<button class="dfx-or-act" data-action="view-all-photos" data-defic-id="' + esc(d.id) + '" title="View all photos in lightbox">\uD83D\uDCF7 View all</button>';
+  h += '<button class="dfx-or-act" data-action="reassign-defic" data-defic-id="' + esc(d.id) + '" title="Move to another section / contractor">\u21C4 Move</button>';
+  if (multi) {
+    h += '<button class="dfx-or-act" data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Spin this observation off as its own pin">\u21B1 Spinoff</button>';
+  }
+  h += '<button class="dfx-or-act" data-action="add-obs" data-defic-id="' + esc(d.id) + '" title="Add another observation to this pin">+ Add observation</button>';
+  // Remove — this obs only; whole pin only on the last obs (auto-routed).
+  var last = obs.length <= 1;
+  h += '<button class="dfx-or-act danger" data-action="dfx-remove-obsrow" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="' + (last ? 'Remove pin (last observation)' : 'Remove this observation') + '">\u2715 ' + (last ? 'Remove pin' : 'Remove obs') + '</button>';
+  h += '<div class="dfx-or-more-wrap" style="position:relative;margin-left:auto;">';
+  h += '<button class="dfx-or-act" data-action="toggle-more" data-defic-id="' + esc(d.id) + '" title="More">\u22EF</button>';
+  h += '<div class="defic-more-popup" id="more-' + esc(d.id) + '">';
+  h += '<button data-action="dup-defic" data-defic-id="' + esc(d.id) + '">\u29C9 Duplicate</button>';
+  if (d.drawingId) h += '<button data-action="remove-pin" data-defic-id="' + esc(d.id) + '">\uD83D\uDCCC Remove Pin Only</button>';
+  h += '</div></div>';
+  h += '</div>'; // /dfx-or-actions
+
+  h += '</div>'; // /dfx-or-editor
+  return h;
+}
+
 function _renderDetailedView(proj, container) {
   var rows = _flatRows(proj);
   var closedPivot = (_activeDlcTab === 'closed');
@@ -2000,9 +2233,14 @@ function _renderDetailedView(proj, container) {
       var cKey = tk + '::' + C.ctrId;
       var cCol = !!_dfxFoldCtr[cKey];
       h += '<div class="dfx-ctr-block' + (cCol ? ' dfx-collapsed' : '') + '">';
-      h += '<div class="dfx-ctr-banner" style="--cc:' + esc(ctrColor(C.ctrId)) + ';" data-action="dfx-fold-ctr" data-ctr-key="' + esc(cKey) + '"><span class="dfx-ctr-dot"></span><span>' + _arrow(cCol) + esc(C.name) + '</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
+      var _cpal = getContractorColor(C.name);
+      h += '<div class="dfx-ctr-banner dfx-ctr-tinted" style="--cc:' + esc(_cpal.accent) + ';--csurf:' + esc(_cpal.surface) + ';--ctext:' + esc(_cpal.text) + ';" data-action="dfx-fold-ctr" data-ctr-key="' + esc(cKey) + '"><span class="dfx-ctr-dot"></span><span>' + _arrow(cCol) + esc(C.name) + '</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
       h += '<div class="dfx-pingrp">';
-      _sortPins(C.pins).forEach(function(e) { h += _buildPinGroupCard(e.d, C.ctrId); });
+      _sortPins(C.pins).forEach(function(e) {
+        var _obs = e.d.observations || [];
+        if (!_obs.length) { h += _buildObsRow(e.d, 0, C.ctrId, { ctrName: C.name }); return; }
+        _obs.forEach(function(o, oi) { h += _buildObsRow(e.d, oi, C.ctrId, { ctrName: C.name }); });
+      });
       h += _addDeficTriggerHTML({ scoped: true, ctrId: C.ctrId, ctrName: C.name, trade: (isOther ? '' : T.name) });
       h += '</div></div>';
     });
@@ -2023,10 +2261,20 @@ function _renderDetailedView(proj, container) {
       h += '<div class="dfx-rec-sub"><span>' + esc(rt) + '</span><span class="dfx-ctr-count">' + R.count + '</span></div>';
       h += '<div class="dfx-pingrp">';
       _sortPins(R.pins).forEach(function(e) {
-        var card = _buildPinGroupCard(e.d, e.ctrId);
-        h += e.ctrId
-          ? ('<div class="dfx-rec-pin"><span class="dfx-rec-ctrchip">' + esc(e.ctrName) + '</span>' + card + '</div>')
-          : card;
+        var _obs = e.d.observations || [];
+        // Only the observations actually flagged as recommendations render
+        // here (a pin can have rec + non-rec siblings). Fallback: if none of
+        // the obs carry the per-obs flag but the pin rollup says rec
+        // (legacy), show obs 0 so the rec isn't lost.
+        var recIdx = [];
+        _obs.forEach(function(o, oi) { if (o && o.isRecommendation) recIdx.push(oi); });
+        if (!recIdx.length) recIdx = [0];
+        recIdx.forEach(function(oi) {
+          var row = _buildObsRow(e.d, oi, e.ctrId, { ctrName: e.ctrName });
+          h += e.ctrId
+            ? ('<div class="dfx-rec-pin"><span class="dfx-rec-ctrchip">' + esc(e.ctrName) + '</span>' + row + '</div>')
+            : row;
+        });
       });
       h += '</div>';
     });
@@ -2042,7 +2290,9 @@ function _renderDetailedView(proj, container) {
     h += '<div class="dfx-sr-note">Site documentation only (photos / notes). Not a recommendation; not in an external report by default.</div>';
     h += '<div class="dfx-pingrp">';
     _sortPins(siteRecords.pins).forEach(function(e) {
-      h += '<div class="dfx-sr-pin">' + _buildPinGroupCard(e.d, null) + '</div>';
+      var _obs = e.d.observations || [];
+      if (!_obs.length) { h += '<div class="dfx-sr-pin">' + _buildObsRow(e.d, 0, null, {}) + '</div>'; return; }
+      _obs.forEach(function(o, oi) { h += '<div class="dfx-sr-pin">' + _buildObsRow(e.d, oi, null, {}) + '</div>'; });
     });
     h += '</div></div>';
   }
@@ -3157,6 +3407,50 @@ document.addEventListener('click', function(e) {
     });
   }
 
+  // S209 Slice 1b — expand-one-at-a-time. Clicking a collapsed obs row's
+  // head flips _openObsKey (closing any other open row) and re-renders.
+  // Star/editor controls carry their own data-action so they never reach
+  // here (dispatcher resolves the nearest [data-action]).
+  if (action === 'dfx-toggle-obsrow') {
+    var _td = el.getAttribute('data-defic-id');
+    var _to = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
+    var _tk = _obsKey(_td, _to);
+    _openObsKey = (_openObsKey === _tk) ? null : _tk;
+    initDeficiencies.render();
+  }
+
+  // S209 Slice 1b — row delete. Removes THIS observation only; when it's
+  // the pin's LAST observation the whole pin is deleted. Confirm wording
+  // auto-switches (Mark-locked S209). Existing remove-obs / delete-defic
+  // handlers are untouched (still serve the Active-tab card editor).
+  if (action === 'dfx-remove-obsrow') {
+    var _rd = el.getAttribute('data-defic-id');
+    var _ro = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
+    var _rf = Model.findDeficiency(_rd);
+    if (!_rf) return;
+    var _rObs = _rf.defic.observations || [];
+    var _rNum = _rf.defic.num != null ? _rf.defic.num : '?';
+    if (_rObs.length <= 1) {
+      showConfirm('Remove Pin', 'Remove pin #' + _rNum + '? This is its last observation, so the whole pin is deleted. This cannot be undone.').then(function(yes) {
+        if (yes) {
+          Model.removeDeficiency(_rd);
+          if (_openObsKey && _openObsKey.indexOf(String(_rd) + ':') === 0) _openObsKey = null;
+          initDeficiencies.render();
+          toast('Pin #' + _rNum + ' deleted');
+        }
+      });
+    } else {
+      showConfirm('Remove Observation', 'Remove this observation? This cannot be undone.').then(function(yes) {
+        if (yes) {
+          Model.removeObservation(_rd, _ro);
+          if (_openObsKey === _obsKey(_rd, _ro)) _openObsKey = null;
+          initDeficiencies.render();
+          toast('Observation removed');
+        }
+      });
+    }
+  }
+
   if (action === 'spinoff-obs') {
     var deficId = el.getAttribute('data-defic-id');
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
@@ -3752,6 +4046,33 @@ document.addEventListener('change', function(e) {
       t.classList.toggle('active', t.getAttribute('data-dlc') === _activeDlcTab);
     });
     initDeficiencies.render();
+  }
+
+  // S209 Slice 1b — combined priority+status select (Detailed obs rows).
+  // One control sets BOTH obs.priority and obs.addressed via the existing
+  // model setters (no new model code). Values: 'high'/'low' = Outstanding
+  // at that priority (addressed=false); 'closed' = addressed (priority
+  // preserved). Mirrors the PDF report pills (red/amber Outstanding, green
+  // Closed). Re-renders so the row chip + status update; keeps the row open.
+  if (action === 'obs-status') {
+    (function() {
+      var did = e.target.getAttribute('data-defic-id');
+      var oi = parseInt(e.target.getAttribute('data-obs-idx') || '0', 10);
+      var val = e.target.value;
+      var f = Model.findDeficiency(did);
+      if (!f) return;
+      var o = (f.defic.observations || [])[oi];
+      if (!o) return;
+      if (val === 'closed') {
+        if (!o.addressed) Model.toggleObsAddressed(did, oi);  // open → closed
+      } else {
+        if (o.addressed) Model.toggleObsAddressed(did, oi);   // closed → open
+        Model.updateObsPriority(did, oi, val);                // high | low
+      }
+      initDeficiencies.render();
+      if (window._frtRenderTasks) window._frtRenderTasks();
+    })();
+    return;
   }
 
   if (action === 'priority' || action === 'obs-priority') {

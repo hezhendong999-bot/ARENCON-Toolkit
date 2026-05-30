@@ -7393,6 +7393,124 @@ body.dark-mode .dfx-ctr-banner.rec { background: #565C66; }
 }
 .dfx-pingrp .defic-pin-group:last-child { margin-bottom: 0; }
 
+/* ===== S209 Slice 1b — row-per-observation (Detailed view) ===== */
+/* Demo-style tinted contractor band (soft surface in the contractor's own
+   colour). Modifier on .dfx-ctr-banner so the Active-tab taupe band is
+   untouched. Driven by --csurf/--ctext/--cc from getContractorColor. */
+.dfx-ctr-banner.dfx-ctr-tinted {
+  background: var(--csurf, #EEF1F5);
+  color: var(--ctext, #1C2333);
+}
+body.dark-mode .dfx-ctr-banner.dfx-ctr-tinted { background: var(--csurf, #2A2E36); }
+.dfx-ctr-banner.dfx-ctr-tinted .dfx-ctr-count {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--ctext, #4A5568);
+}
+
+/* Collapsed observation row */
+.dfx-obsrow {
+  background: #FFFFFF;
+  border: 1.5px solid var(--border, #DDE1E7);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: box-shadow .12s, border-color .12s;
+  overflow: hidden;
+}
+.dfx-obsrow:last-child { margin-bottom: 0; }
+.dfx-obsrow:hover { box-shadow: var(--shadow, 0 2px 12px rgba(28,35,51,.10)); border-color: #C9CDD6; }
+.dfx-obsrow.open { box-shadow: 0 8px 32px rgba(28,35,51,.14); border-color: var(--arencon, #9C2742); }
+body.dark-mode .dfx-obsrow { background: #1E222A; border-color: #353B45; }
+
+.dfx-obsrow-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; cursor: pointer;
+}
+.dfx-or-star {
+  font-size: calc(18px + var(--ts)); line-height: 1; color: #C9CDD6;
+  flex-shrink: 0; width: 22px; text-align: center;
+  background: none; border: none; cursor: pointer; padding: 0; font-family: inherit;
+}
+.dfx-or-star.on { color: #D4A017; }
+.dfx-or-id {
+  flex-shrink: 0; min-width: 38px; height: 38px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: calc(14px + var(--ts)); color: #fff;
+  letter-spacing: .3px; padding: 0 7px;
+}
+.dfx-or-mid { flex: 1; min-width: 0; }
+.dfx-or-title {
+  font-size: calc(14.5px + var(--ts)); font-weight: 600; color: var(--slate, #1C2333);
+  line-height: 1.28; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+body.dark-mode .dfx-or-title { color: #E2E6EC; }
+.dfx-or-meta {
+  font-size: calc(11.5px + var(--ts)); color: var(--steel, #4A5568);
+  margin-top: 3px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+}
+.dfx-or-cdot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.dfx-or-noctr { color: var(--silver, #A0AEC0); font-style: italic; }
+.dfx-or-chip {
+  font-size: calc(11px + var(--ts)); font-weight: 700; padding: 3px 9px;
+  border-radius: 10px; white-space: nowrap; flex-shrink: 0; letter-spacing: .3px;
+}
+/* combined priority+status — mirrors the PDF report pills (pdf.js S154) */
+.dfx-cs-high   { background: #F4D6D6; color: #8E4444; }
+.dfx-cs-low    { background: #F5E2C8; color: #8E6240; }
+.dfx-cs-closed { background: #D2EBDC; color: #426B4F; }
+.dfx-cs-site   { background: #DCDEF0; color: #3F4470; }
+.dfx-or-thumb {
+  width: 54px; height: 54px; border-radius: 8px; flex-shrink: 0;
+  object-fit: cover; background: #E8E9EC; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  color: #A0AEC0; font-size: 18px; overflow: hidden;
+}
+.dfx-or-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dfx-or-pc {
+  position: absolute; bottom: 1px; right: 2px; background: rgba(28,35,51,.78);
+  color: #fff; font-size: 9.5px; font-weight: 600; padding: 0 4px; border-radius: 6px;
+}
+.dfx-or-caret {
+  flex-shrink: 0; color: var(--silver, #A0AEC0); font-size: calc(13px + var(--ts));
+  transition: transform .15s;
+}
+.dfx-obsrow.open .dfx-or-caret { transform: rotate(180deg); }
+
+/* Expanded editor */
+.dfx-or-editor {
+  border-top: 1px solid var(--border, #DDE1E7);
+  background: #FCFBFB; padding: 13px 14px;
+}
+body.dark-mode .dfx-or-editor { background: #23272F; border-top-color: #353B45; }
+.dfx-ed-ctrls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; align-items: center; }
+.dfx-status-sel {
+  border: none; border-radius: 10px; padding: 4px 12px;
+  font-family: inherit; font-size: calc(12px + var(--ts)); font-weight: 700;
+  letter-spacing: .3px; cursor: pointer; -webkit-appearance: none; appearance: none;
+}
+.dfx-status-sel.dfx-cs-high   { background: #F4D6D6; color: #8E4444; }
+.dfx-status-sel.dfx-cs-low    { background: #F5E2C8; color: #8E6240; }
+.dfx-status-sel.dfx-cs-closed { background: #D2EBDC; color: #426B4F; }
+.dfx-or-actions {
+  display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; align-items: center;
+}
+.dfx-or-act {
+  font-family: inherit; font-size: calc(12.5px + var(--ts)); font-weight: 600;
+  border: 1.5px solid var(--border, #DDE1E7); background: #fff; color: var(--steel, #4A5568);
+  border-radius: 8px; padding: 6px 11px; cursor: pointer;
+}
+.dfx-or-act:hover { border-color: var(--arencon, #9C2742); color: var(--arencon, #9C2742); background: #fdf5f7; }
+.dfx-or-act.danger { border-color: #A85959; color: #A85959; }
+.dfx-or-act.danger:hover { background: #fbeeee; border-color: #8E4444; color: #8E4444; }
+body.dark-mode .dfx-or-act { background: #2A2E36; color: #C8CDD6; border-color: #3A404B; }
+
+/* touch: caret + star comfortably tappable; controls never hover-only */
+@media (pointer: coarse) {
+  .dfx-or-star { font-size: calc(20px + var(--ts)); width: 26px; }
+  .dfx-or-caret { font-size: calc(15px + var(--ts)); }
+}
+
 /* S146 (Mark): Detailed-view independent fold. Trade + contractor
    banners are click-to-collapse; a top bar collapses/expands all. */
 .dfx-trade-banner, .dfx-ctr-banner { cursor: pointer; user-select: none; }
