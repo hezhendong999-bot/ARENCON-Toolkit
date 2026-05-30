@@ -1864,7 +1864,7 @@ function _obsStatusInfo(o, site, d) {
 // obs.priority and obs.addressed via the obs-status change handler.
 function _obsStatusSelect(d, oi, o) {
   var info = _obsStatusInfo(o, false, d);
-  var h = '<select data-action="obs-status" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="dfx-status-sel ' + info.cls + '" title="Priority &amp; status">';
+  var h = '<select data-action="obs-pristatus" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="dfx-status-sel ' + info.cls + '" title="Priority &amp; status">';
   var opts = [
     { v: 'high', t: 'Outstanding \u2014 High' },
     { v: 'low', t: 'Outstanding \u2014 Low' },
@@ -4059,7 +4059,10 @@ document.addEventListener('change', function(e) {
   // at that priority (addressed=false); 'closed' = addressed (priority
   // preserved). Mirrors the PDF report pills (red/amber Outstanding, green
   // Closed). Re-renders so the row chip + status update; keeps the row open.
-  if (action === 'obs-status') {
+  // NOTE action name is obs-PRIstatus — distinct from the LEGACY obs-status
+  // open/closed toggle above (which would no-op on 'high'/'low' and swallow
+  // the event). Do not rename back to obs-status (S209b collision bug).
+  if (action === 'obs-pristatus') {
     (function() {
       var did = e.target.getAttribute('data-defic-id');
       var oi = parseInt(e.target.getAttribute('data-obs-idx') || '0', 10);
