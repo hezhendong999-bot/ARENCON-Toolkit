@@ -134,6 +134,56 @@ input[type="checkbox"]{-webkit-appearance:checkbox!important;-moz-appearance:che
 .photo-upload-btn{display:flex;align-items:center;gap:6px;background:var(--slate);color:white;padding:7px 12px;border-radius:5px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;border:none;font-family:Calibri,sans-serif;transition:background .14s;}
 .photo-upload-btn:hover{background:var(--red);}
 .photo-hint{font-size:calc(11.5px + var(--ts));color:var(--silver);}
+/* ══ PHOTO GALLERY v2 — FRT-matched (ph-* classes) ══ */
+.ph-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 12px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.ph-toolbar-left{display:flex;gap:18px;align-items:center;flex-wrap:wrap;}
+.ph-toolbar-right{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.ph-stat{display:flex;flex-direction:column;align-items:flex-start;cursor:pointer;}
+.ph-stat-num{font-size:calc(18px + var(--ts));font-weight:700;color:var(--slate);line-height:1.1;}
+.ph-stat-lbl{font-size:calc(10px + var(--ts));color:var(--steel);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+.ph-sel-count{color:var(--arencon);font-size:calc(12px + var(--ts));font-weight:600;}
+.ph-btn{padding:7px 14px;border-radius:6px;border:1.5px solid var(--border);background:#fff;color:var(--slate);cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;transition:all .15s;}
+.ph-btn:hover{border-color:var(--arencon);color:var(--arencon);}
+.ph-btn-danger{border-color:#A85959;color:#A85959;}
+.ph-btn-danger:hover{background:#A85959;color:#fff;}
+body.dark-mode .ph-btn{background:#2a2d35;color:#ddd;border-color:#3a3e48;}
+body.dark-mode .ph-stat-num{color:#eee;}
+.ph-filter-wrap{position:relative;}
+.ph-filter-menu{position:absolute;top:calc(100% + 4px);right:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.18);z-index:50;min-width:180px;padding:4px;}
+.ph-filter-menu button{display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:transparent;color:var(--slate);font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));cursor:pointer;border-radius:5px;}
+.ph-filter-menu button:hover{background:var(--smoke);}
+.ph-filter-menu button.active{background:var(--arencon);color:#fff;font-weight:600;}
+body.dark-mode .ph-filter-menu{background:#2a2d35;border-color:#3a3e48;}
+body.dark-mode .ph-filter-menu button{color:#ddd;}
+.ph-date-header{display:flex;align-items:center;gap:10px;margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.ph-date-check{width:18px;height:18px;cursor:pointer;accent-color:var(--arencon);}
+.ph-date-label{font-weight:700;color:var(--slate);font-size:calc(13px + var(--ts));}
+.ph-date-count{color:var(--silver);font-size:calc(11px + var(--ts));font-weight:500;}
+.ph-grid{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:6px;}
+.ph-card{position:relative;width:120px;height:100px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:#000;user-select:none;cursor:default;contain:layout style paint;}
+.ph-card.selected{outline:3px solid var(--arencon);outline-offset:-1px;}
+.ph-card img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in;}
+.ph-card .ph-noimg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;background:#1c1c20;}
+.ph-check{position:absolute;top:6px;left:6px;width:18px;height:18px;cursor:pointer;z-index:3;accent-color:var(--arencon);background:#fff;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.4);display:none;margin:0;}
+.ph-card:hover .ph-check{display:block;}
+.ph-card.selected .ph-check{display:block;}
+@media(pointer:coarse){.ph-check{display:block;}}
+.ph-badges{position:absolute;top:6px;right:6px;display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;max-width:90px;z-index:2;}
+.ph-badge{padding:3px 9px;color:#fff;border-radius:11px;font-size:11px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.2px;box-shadow:0 1px 4px rgba(0,0,0,.45);line-height:1.3;background:#455A64;}
+.ph-badge-checklist{background:#455A64;}
+.ph-badge-deficiency{background:#A85959;}
+.ph-badge-general{background:#B07F5A;}
+.ph-badge-flow{background:#5F8068;}
+.ph-cloud{position:absolute;bottom:5px;right:6px;z-index:2;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
+.ph-cloud svg{display:block;}
+.ph-dl-btn,.ph-del-btn{position:absolute;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);color:#fff;font-size:12px;line-height:1;}
+.ph-dl-btn{bottom:5px;left:6px;background:rgba(44,71,112,.92);}
+.ph-dl-btn:hover{background:#2C4770;}
+.ph-del-btn{bottom:5px;left:36px;background:rgba(168,89,89,.92);}
+.ph-del-btn:hover{background:#A85959;}
+.ph-card:hover .ph-dl-btn,.ph-card:hover .ph-del-btn{display:flex;}
+@media(pointer:coarse){.ph-dl-btn,.ph-del-btn{display:flex;opacity:.85;}}
+.ph-empty{color:var(--silver);font-size:calc(13px + var(--ts));text-align:center;padding:32px 16px;}
 .photo-grid{display:flex;flex-wrap:wrap;gap:9px;margin-top:9px;}
 .photo-thumb{position:relative;width:86px;height:86px;border-radius:6px;overflow:hidden;box-shadow:var(--shadow);border:2px solid var(--border);}
 .photo-thumb img{width:100%;height:100%;object-fit:cover;}
@@ -1401,19 +1451,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
     <div class="section-title">📷 All Project Photos</div>
     <div class="card">
       <div class="card-body">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-          <button class="btn btn-outline btn-sm" onclick="_pgSelectAll()">☑ Select All</button>
-          <button class="btn btn-outline btn-sm" onclick="_pgDeselectAll()">☐ Deselect</button>
-          <div style="flex:1;"></div>
-          <button class="btn btn-outline btn-sm" onclick="_pgDownloadSelected()" style="color:#1A7A4A;border-color:#1A7A4A;">⬇ Download Selected</button>
-          <button class="btn btn-outline btn-sm" onclick="_pgReassignSelected()" style="color:#2C4770;border-color:#2C4770;">↗ Reassign</button>
-          <button class="btn btn-outline btn-sm" onclick="_pgDeleteSelected()" style="color:#C0392B;border-color:#C0392B;">🗑 Delete Selected</button>
-        </div>
-        <div id="photos-gallery-count" style="font-size:calc(12px + var(--ts));color:var(--silver);margin-bottom:8px;"></div>
-        <div id="photos-gallery-grid" class="photo-thumb-grid"></div>
-        <div id="photos-gallery-empty" style="display:none;text-align:center;padding:40px;color:var(--silver);font-size:calc(14px + var(--ts));">
-          No photos yet. Photos from checklists, flow tests, deficiencies, and sketches will appear here.
-        </div>
+        <div id="photos-gallery"></div>
       </div>
     </div>
   </div>
@@ -7266,30 +7304,30 @@ function _collectAllPhotos(){
   var all = [];
   // 1. Flow test photos (3-point)
   (flowTestPhotos||[]).forEach(function(p,i){
-    all.push({photo:p, type:'flowtest', label:'Flow Test (3-pt)', section:'flowtest', idx:i, src:p.r2Url||p.d});
+    all.push({photo:p, type:'flowtest', cat:'flow', badge:'Flow-F', label:'Flow Test (3-pt)', section:'flowtest', idx:i, src:p.r2Url||p.d});
   });
   // 2. Flow test photos (PLD)
   (flowTestPhotosPld||[]).forEach(function(p,i){
-    all.push({photo:p, type:'flowtest-pld', label:'Flow Test (PLD)', section:'flowtestpld', idx:i, src:p.r2Url||p.d});
+    all.push({photo:p, type:'flowtest-pld', cat:'flow', badge:'Flow-P', label:'Flow Test (PLD)', section:'flowtestpld', idx:i, src:p.r2Url||p.d});
   });
   // 3. Checklist item photos
   Object.keys(clState||{}).forEach(function(id){
     var st = clState[id];
     if(!st || !st.photos) return;
     st.photos.forEach(function(p,pi){
-      all.push({photo:p, type:'checklist', label:'Checklist: '+id, section:'cl_'+id, idx:pi, src:p.r2Url||p.d});
+      all.push({photo:p, type:'checklist', cat:'checklist', badge:id, label:'Checklist: '+id, section:'cl_'+id, idx:pi, src:p.r2Url||p.d});
     });
   });
   // 4. Deficiency photos (per contractor)
   Object.keys(deficiencies||{}).forEach(function(ctr){
     (deficiencies[ctr]||[]).forEach(function(d,di){
       (d.photos||[]).forEach(function(p,pi){
-        all.push({photo:p, type:'deficiency', label:ctr+' #'+(di+1), section:'def_'+ctr+'_'+di, idx:pi, src:p.r2Url||p.d});
+        all.push({photo:p, type:'deficiency', cat:'deficiency', badge:'D'+(di+1), label:ctr+' #'+(di+1), section:'def_'+ctr+'_'+di, idx:pi, src:p.r2Url||p.d});
       });
       // Response photos
       (d.responses||[]).forEach(function(r,ri){
         (r.photos||[]).forEach(function(p,pi){
-          all.push({photo:p, type:'response', label:ctr+' #'+(di+1)+' Response', section:'resp_'+ctr+'_'+di+'_'+ri, idx:pi, src:p.r2Url||p.d});
+          all.push({photo:p, type:'response', cat:'deficiency', badge:'D'+(di+1)+'R', label:ctr+' #'+(di+1)+' Response', section:'resp_'+ctr+'_'+di+'_'+ri, idx:pi, src:p.r2Url||p.d});
         });
       });
     });
@@ -7297,54 +7335,137 @@ function _collectAllPhotos(){
   // 5. General deficiency photos
   (generalDeficiencies||[]).forEach(function(d,di){
     (d.photos||[]).forEach(function(p,pi){
-      all.push({photo:p, type:'general-defic', label:'General #'+(di+1), section:'gdef_'+di, idx:pi, src:p.r2Url||p.d});
+      all.push({photo:p, type:'general-defic', cat:'general', badge:'G'+(di+1), label:'General #'+(di+1), section:'gdef_'+di, idx:pi, src:p.r2Url||p.d});
     });
   });
   return all;
 }
 
+// ── Gallery state ──
+var _pgFilter = 'all';
+var _pgFilterOpen = false;
+var _PG_CATS = [['all','All photos'],['checklist','Checklist'],['deficiency','Deficiencies'],['general','General'],['flow','Flow test']];
+
+function _pgCloudIcon(p){
+  if(!_csHubMode) return '';
+  var st = p.r2Status || (p.r2Url?'uploaded':'');
+  var color, title, glyph='';
+  if(st==='uploaded'){ color='#5F8068'; title='Synced to cloud'; }
+  else if(st==='failed'){ color='#A85959'; title='Upload failed — will retry'; }
+  else if(st==='pending'){ color='#B07F5A'; title='Awaiting cloud upload'; glyph='<circle cx="12" cy="12" r="1.6" fill="#fff"/>'; }
+  else { color='#94A3B8'; title='Local only'; }
+  return '<span class="ph-cloud" title="'+title+'">'
+    + '<svg width="18" height="14" viewBox="0 0 24 18" fill="'+color+'">'
+    + '<path d="M19 16H6a4.5 4.5 0 010-9 5.5 5.5 0 0110.5-1A4.5 4.5 0 0119 16z"/>'+glyph
+    + '</svg></span>';
+}
+
+function _pgDayKey(p){
+  var d = p.addedDate || p.date;
+  if(!d && p.id){ var m=(''+p.id).match(/_(\d{10,})_/); if(m) d = parseInt(m[1],10); }
+  if(!d) return {key:'no-date', label:'No date', ts:0};
+  var dt = new Date(d);
+  if(isNaN(dt.getTime())) return {key:'no-date', label:'No date', ts:0};
+  var today=new Date(); today.setHours(0,0,0,0);
+  var yest=new Date(today); yest.setDate(yest.getDate()-1);
+  var dd=new Date(dt); dd.setHours(0,0,0,0);
+  var label;
+  if(dd.getTime()===today.getTime()) label='Today';
+  else if(dd.getTime()===yest.getTime()) label='Yesterday';
+  else label=dd.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+  return {key:dd.getTime()+'', label:label, ts:dd.getTime()};
+}
+
+function _pgSetFilter(mode){ _pgFilter=mode; _pgFilterOpen=false; _renderPhotoGallery(); }
+function _pgToggleFilterMenu(){ _pgFilterOpen=!_pgFilterOpen; _renderPhotoGallery(); }
+
 function _renderPhotoGallery(){
+  var container = document.getElementById('photos-gallery');
+  if(!container) return;
   var all = _collectAllPhotos();
-  var grid = document.getElementById('photos-gallery-grid');
-  var empty = document.getElementById('photos-gallery-empty');
-  var count = document.getElementById('photos-gallery-count');
-  if(!grid) return;
-  if(!all.length){
-    grid.innerHTML = '';
-    if(empty) empty.style.display = 'block';
-    if(count) count.textContent = '';
-    return;
-  }
-  if(empty) empty.style.display = 'none';
-  if(count) count.textContent = all.length + ' photo' + (all.length!==1?'s':'');
-  
-  // Clean up stale selections
+
+  // stat counts (always over ALL photos, not the filtered view)
+  var counts = {all:all.length, checklist:0, deficiency:0, general:0, flow:0};
+  all.forEach(function(a){ if(counts[a.cat]!=null) counts[a.cat]++; });
+
+  // stale selection cleanup
   var validIds = new Set(all.map(function(a){return a.photo.id||'';}));
   _pgSelected.forEach(function(id){ if(!validIds.has(id)) _pgSelected.delete(id); });
-  
+
+  // apply filter
+  var view = _pgFilter==='all' ? all : all.filter(function(a){ return a.cat===_pgFilter; });
+
   var html = '';
-  all.forEach(function(item, i){
-    var p = item.photo;
-    var pid = p.id || ('pg_'+i);
-    var sel = _pgSelected.has(pid) ? ' selected' : '';
-    var caption = p.caption || '';
-    var date = p.date ? (p.date+'').substring(0,10) : '';
-    var badgeColor = item.type==='deficiency'||item.type==='response' ? '#C0392B' : 
-                     item.type==='flowtest'||item.type==='flowtest-pld' ? '#2C4770' :
-                     item.type==='general-defic' ? '#E67E22' : '#455A64';
-    var hasR2 = p.r2Url ? '<span class="photo-r2-icon">☁️</span>' : '';
-    
-    html += '<div class="photo-thumb'+sel+'" onclick="_pgToggleSelect(event,\''+pid+'\')" data-pg-id="'+pid+'" data-pg-idx="'+i+'">'
-      + '<input type="checkbox" class="photo-thumb-cb" '+(sel?' checked':'')+' onclick="event.stopPropagation();_pgToggleSelect(event,\''+pid+'\')">'
-      + '<span class="photo-type-badge" style="background:'+badgeColor+'">'+item.label.substring(0,15)+'</span>'
-      + hasR2
-      + '<img src="'+(item.src||'')+'" loading="lazy" onclick="event.stopPropagation();_pgOpenLightbox('+i+')">'
-      + '<button class="photo-thumb-del" onclick="event.stopPropagation();_pgDeleteOne('+i+')" title="Delete">🗑</button>'
-      + '<button class="photo-thumb-dl" onclick="event.stopPropagation();_pgDownloadOne('+i+')" title="Download">⬇</button>'
-      + (caption ? '<div style="font-size:9px;padding:2px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--steel);">'+caption.substring(0,20)+'</div>' : '')
-      + '</div>';
+  // ── Toolbar ──
+  html += '<div class="ph-toolbar"><div class="ph-toolbar-left">';
+  html += '<div class="ph-stat" onclick="_pgSetFilter(\'all\')"><div class="ph-stat-num">'+counts.all+'</div><div class="ph-stat-lbl">Total</div></div>';
+  html += '<div class="ph-stat" onclick="_pgSetFilter(\'checklist\')"><div class="ph-stat-num">'+counts.checklist+'</div><div class="ph-stat-lbl">Checklist</div></div>';
+  html += '<div class="ph-stat" onclick="_pgSetFilter(\'deficiency\')"><div class="ph-stat-num">'+counts.deficiency+'</div><div class="ph-stat-lbl">Deficiencies</div></div>';
+  html += '<div class="ph-stat" onclick="_pgSetFilter(\'general\')"><div class="ph-stat-num">'+counts.general+'</div><div class="ph-stat-lbl">General</div></div>';
+  html += '<div class="ph-stat" onclick="_pgSetFilter(\'flow\')"><div class="ph-stat-num">'+counts.flow+'</div><div class="ph-stat-lbl">Flow test</div></div>';
+  html += '</div><div class="ph-toolbar-right">';
+  var nSel = _pgSelected.size;
+  if(nSel>0){
+    html += '<span class="ph-sel-count">'+nSel+' selected</span>';
+    html += '<button class="ph-btn" onclick="_pgDownloadSelected()">\u2193 Download</button>';
+    html += '<button class="ph-btn" onclick="_pgReassignSelected()">\u2197 Reassign</button>';
+    html += '<button class="ph-btn ph-btn-danger" onclick="_pgDeleteSelected()">Delete '+nSel+'</button>';
+    html += '<button class="ph-btn" onclick="_pgDeselectAll()">Clear</button>';
+  } else {
+    html += '<button class="ph-btn" onclick="_pgSelectAll()">Select all</button>';
+  }
+  // filter dropdown
+  var fLabel = (_PG_CATS.filter(function(c){return c[0]===_pgFilter;})[0]||_PG_CATS[0])[1];
+  html += '<div class="ph-filter-wrap"><button class="ph-btn" onclick="_pgToggleFilterMenu()">\u2699 '+fLabel+'</button>';
+  if(_pgFilterOpen){
+    html += '<div class="ph-filter-menu">';
+    _PG_CATS.forEach(function(c){
+      html += '<button class="'+(c[0]===_pgFilter?'active':'')+'" onclick="_pgSetFilter(\''+c[0]+'\')">'+c[1]+'</button>';
+    });
+    html += '</div>';
+  }
+  html += '</div></div></div>';
+
+  if(!view.length){
+    html += '<p class="ph-empty">'+(all.length?'No photos in this category.':'No photos yet. Photos from checklists, flow tests, deficiencies, and general items appear here.')+'</p>';
+    container.innerHTML = html;
+    return;
+  }
+
+  // ── group by date (newest first) ──
+  var groups = {};
+  view.forEach(function(a){
+    var g=_pgDayKey(a.photo);
+    if(!groups[g.key]) groups[g.key]={label:g.label, ts:g.ts, items:[]};
+    groups[g.key].items.push(a);
   });
-  grid.innerHTML = html;
+  var keys = Object.keys(groups).sort(function(x,y){ return groups[y].ts - groups[x].ts; });
+
+  keys.forEach(function(k){
+    var g=groups[k];
+    html += '<div class="ph-date-header"><span class="ph-date-label">'+g.label+'</span>'
+      + '<span class="ph-date-count">\u00B7 '+g.items.length+' photo'+(g.items.length===1?'':'s')+'</span></div>';
+    html += '<div class="ph-grid">';
+    g.items.forEach(function(item){
+      var p=item.photo;
+      var pid=p.id||('pg_'+item.section+'_'+item.idx);
+      var sel=_pgSelected.has(pid)?' selected':'';
+      var gidx = all.indexOf(item); // stable index into full list for lightbox
+      var badgeCls='ph-badge-'+(item.cat||'checklist');
+      html += '<div class="ph-card'+sel+'" data-pg-id="'+pid+'">';
+      html += '<input type="checkbox" class="ph-check"'+(sel?' checked':'')+' onclick="event.stopPropagation();_pgToggleSelect(event,\''+pid+'\')">';
+      html += '<span class="ph-badges"><span class="ph-badge '+badgeCls+'">'+(item.badge||'?')+'</span></span>';
+      if(item.src){ html += '<img src="'+item.src+'" loading="lazy" onclick="_pgOpenLightbox('+gidx+')">'; }
+      else { html += '<div class="ph-noimg">\uD83D\uDCF7</div>'; }
+      html += _pgCloudIcon(p);
+      html += '<button class="ph-dl-btn" onclick="event.stopPropagation();_pgDownloadOne('+gidx+')" title="Download">\u2193</button>';
+      html += '<button class="ph-del-btn" onclick="event.stopPropagation();_pgDeleteOne('+gidx+')" title="Delete">\u2715</button>';
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
 }
 
 function _pgToggleSelect(e, pid){
@@ -7353,9 +7474,11 @@ function _pgToggleSelect(e, pid){
   var el = document.querySelector('[data-pg-id="'+pid+'"]');
   if(el){
     el.classList.toggle('selected', _pgSelected.has(pid));
-    var cb = el.querySelector('.photo-thumb-cb');
+    var cb = el.querySelector('.ph-check');
     if(cb) cb.checked = _pgSelected.has(pid);
   }
+  // refresh toolbar (selection count / actions)
+  _renderPhotoGallery();
 }
 function _pgSelectAll(){
   var all = _collectAllPhotos();
