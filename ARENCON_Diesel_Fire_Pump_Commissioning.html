@@ -6144,6 +6144,17 @@ function _collectCloudState(){
 // ═══ R2 PHOTO HELPERS ═══
 var _r2FolderId = null; // set during Hub init
 
+// Walk every live photo object across all report photo arrays.
+function _forEachLivePhoto(cb){
+  try{
+    if(Array.isArray(window.flowTestPhotos)) flowTestPhotos.forEach(cb);
+    if(Array.isArray(window.flowTestPhotosPld)) flowTestPhotosPld.forEach(cb);
+    if(clState && typeof clState==='object') Object.keys(clState).forEach(function(k){ var v=clState[k]; if(v&&Array.isArray(v.photos)) v.photos.forEach(cb); });
+    if(deficiencies && typeof deficiencies==='object') Object.keys(deficiencies).forEach(function(ctr){ (deficiencies[ctr]||[]).forEach(function(d){ if(Array.isArray(d.photos))d.photos.forEach(cb); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))r.photos.forEach(cb); }); }); });
+    if(Array.isArray(window.generalDeficiencies)) generalDeficiencies.forEach(function(d){ if(Array.isArray(d.photos))d.photos.forEach(cb); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))r.photos.forEach(cb); }); });
+  }catch(e){ console.warn('[Outbox] photo walk error', e); }
+}
+
 function _r2EnqueuePhoto(photoObj){
   if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined') return;
   if(!photoObj || !photoObj.d) return;
@@ -6158,17 +6169,23 @@ function _r2EnqueuePhoto(photoObj){
   photoObj.r2Key = r2Key;
   photoObj.r2Status = 'pending';
   photoObj.r2Url = R2Photos.getUrl(_r2FolderId, 'diesel', 'original', fname);
-  R2Photos.enqueue({
-    projectId: _r2FolderId,
-    tool: 'diesel',
-    type: 'original',
-    filename: fname,
-    blob: blob,
-    onComplete: function(err){
-      if(!err){ photoObj.r2Status = 'uploaded'; }
-      else { photoObj.r2Status = 'failed'; }
-    }
-  });
+  // Phase 2: persist blob to the durable outbox BEFORE uploading, then drive.
+  // Blob survives app kill; removed only after R2 confirms (HEAD/GET) it's present.
+  if(typeof R2Outbox!=='undefined'){
+    R2Outbox.put({
+      key: r2Key,
+      projectId: _r2FolderId, tool: 'diesel', type: 'original', filename: fname,
+      blob: blob, status: 'pending', attempts: 0, createdAt: Date.now()
+    }).then(function(){ R2Outbox.drive(); }).catch(function(e){
+      // Outbox write failed (private mode / quota) — fall back to in-memory queue
+      console.warn('[Outbox] put failed, using in-memory queue:', e&&e.message);
+      R2Photos.enqueue({ projectId:_r2FolderId, tool:'diesel', type:'original', filename:fname, blob:blob,
+        onComplete:function(err){ photoObj.r2Status = err ? 'failed' : 'uploaded'; } });
+    });
+  } else {
+    R2Photos.enqueue({ projectId:_r2FolderId, tool:'diesel', type:'original', filename:fname, blob:blob,
+      onComplete:function(err){ photoObj.r2Status = err ? 'failed' : 'uploaded'; } });
+  }
 }
 
 function _r2ReuploadAll(){
@@ -6634,6 +6651,15 @@ window.addEventListener('load', () => {
       _csProjectId = params.projectId;
       _r2FolderId = params.projectId;
       if(typeof R2Photos!=='undefined'){ R2Photos.init({}); }
+      // Phase 2: durable outbox — resume any uploads interrupted by a prior
+      // app kill, and mark photos 'uploaded' once R2 confirms the object.
+      if(typeof R2Outbox!=='undefined'){
+        R2Outbox.init();
+        R2Outbox.setOnVerified(function(key){
+          _forEachLivePhoto(function(p){ if(p && p.r2Key===key && p.r2Status!=='uploaded') p.r2Status='uploaded'; });
+        });
+        setTimeout(function(){ R2Outbox.drive(); }, 2500);
+      }
       _csInstanceId = params.instanceId;
 
       // Show back button (goes to Hub with project detail open)
@@ -7914,6 +7940,117 @@ return{
   getQueueLength:getQueueLength,isUploading:isUploading,
   get WORKER_URL(){return WORKER_URL;}
 };
+})();
+</script>
+
+<!-- ══ R2 OUTBOX — durable upload queue (Phase 2: 4380.24 protection) ══ -->
+<!--
+  A captured photo's blob is written to this IndexedDB outbox BEFORE any upload.
+  The blob is removed ONLY after R2 returns success AND a HEAD/GET verify confirms
+  the object is actually retrievable. Survives app kill / reboot / tab close:
+  drive() re-runs on load and on reconnect, so a photo's bytes cannot be lost
+  to a silent or interrupted upload (the 4380.24 failure class).
+  Separate IDB database from CloudSync — no interference with its cache store.
+-->
+<script>
+var R2Outbox=(function(){'use strict';
+  var DB_NAME='arencon_r2_outbox';
+  var DB_VERSION=1;
+  var STORE='outbox';
+  var _ready=null;
+  var _driving=false;
+  var _onVerified=null;
+
+  function _open(){
+    if(_ready)return _ready;
+    _ready=new Promise(function(resolve,reject){
+      if(typeof indexedDB==='undefined'){reject(new Error('no indexedDB'));return;}
+      var req=indexedDB.open(DB_NAME,DB_VERSION);
+      req.onupgradeneeded=function(e){
+        var db=e.target.result;
+        if(!db.objectStoreNames.contains(STORE)){
+          var os=db.createObjectStore(STORE,{keyPath:'key'});
+          os.createIndex('status','status',{unique:false});
+        }
+      };
+      req.onsuccess=function(e){resolve(e.target.result);};
+      req.onerror=function(e){reject(e.target.error);};
+    });
+    return _ready;
+  }
+  // IDB-safe: create tx and issue the request in the SAME tick (no microtask gap),
+  // resolve on tx.oncomplete so the write is durably committed. Splitting these
+  // across .then() lets the tx auto-commit and the request fail — strict on iOS.
+  function _withStore(mode,fn){
+    return _open().then(function(db){
+      return new Promise(function(resolve,reject){
+        var tx=db.transaction(STORE,mode);
+        var os=tx.objectStore(STORE);
+        var req=fn(os);
+        tx.oncomplete=function(){ resolve(req?req.result:undefined); };
+        tx.onerror=function(){ reject(tx.error); };
+        tx.onabort=function(){ reject(tx.error); };
+      });
+    });
+  }
+  function put(entry){return _withStore('readwrite',function(os){return os.put(entry);});}
+  function del(key){return _withStore('readwrite',function(os){return os['delete'](key);});}
+  function getAll(){return _withStore('readonly',function(os){return os.getAll();}).then(function(r){return r||[];}).catch(function(){return[];});}
+  function count(){return getAll().then(function(a){return a.length;});}
+
+  // Confirm the object is actually retrievable on R2. HEAD first; fall back to
+  // GET if the Worker doesn't support HEAD. 200 = present, 404 = absent.
+  function _verify(url){
+    return fetch(url,{method:'HEAD'}).then(function(h){
+      if(h.ok)return true;
+      if(h.status===404)return false;
+      throw new Error('head-'+h.status);
+    }).catch(function(){
+      return fetch(url,{method:'GET'}).then(function(g){return g.ok;}).catch(function(){return false;});
+    });
+  }
+
+  // Upload + verify every pending entry. One bad entry never stalls the rest.
+  function drive(){
+    if(_driving)return Promise.resolve();
+    if(typeof navigator!=='undefined' && !navigator.onLine)return Promise.resolve();
+    if(typeof R2Photos==='undefined')return Promise.resolve();
+    _driving=true;
+    return getAll().then(function(entries){
+      var chain=Promise.resolve();
+      entries.forEach(function(e){
+        chain=chain.then(function(){
+          if(typeof navigator!=='undefined' && !navigator.onLine)return;
+          if(!e || !e.blob)return del(e&&e.key);
+          return R2Photos.upload(e.projectId,e.tool,e.type,e.filename,e.blob).then(function(){
+            var url=R2Photos.getUrl(e.projectId,e.tool,e.type,e.filename);
+            return _verify(url);
+          }).then(function(ok){
+            if(ok){
+              return del(e.key).then(function(){ if(typeof _onVerified==='function'){try{_onVerified(e.key);}catch(_){}} });
+            }
+            e.attempts=(e.attempts||0)+1;e.lastTry=Date.now();e.status='pending';
+            return put(e);
+          }).catch(function(err){
+            e.attempts=(e.attempts||0)+1;e.lastTry=Date.now();e.status='pending';e.lastError=String(err&&err.message||err);
+            return put(e).catch(function(){});
+          });
+        });
+      });
+      return chain;
+    }).then(function(){_driving=false;}).catch(function(){_driving=false;});
+  }
+
+  function setOnVerified(fn){_onVerified=fn;}
+  function init(){
+    if(typeof window==='undefined')return;
+    window.addEventListener('online',function(){setTimeout(drive,1200);});
+    if(navigator.connection && navigator.connection.addEventListener){
+      navigator.connection.addEventListener('change',function(){setTimeout(drive,1200);});
+    }
+  }
+
+  return {put:put,del:del,getAll:getAll,count:count,drive:drive,init:init,setOnVerified:setOnVerified};
 })();
 </script>
 
