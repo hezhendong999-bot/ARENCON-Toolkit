@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=426">
+<link rel="stylesheet" href="css/frt.css?v=427">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -875,10 +875,19 @@ function ensurePdfJs(cb){
           </div>
         </div>
       </div>
-      <!-- RIGHT: Big drawing (desktop only) — KEPT. MOVE TO moved to ⋯ More. -->
+      <!-- RIGHT: Big drawing (desktop only). S213d: interactive — Fit/zoom
+           toolbar + drag-to-move-pin. MOVE TO (another drawing) is in ⋯ More. -->
       <div class="pe-drawing-panel">
-        <label class="pe-label" style="margin-bottom:4px;">LOCATION ON DRAWING</label>
+        <div class="pe-draw-head">
+          <label class="pe-label" style="margin-bottom:0;">LOCATION ON DRAWING</label>
+          <div class="pe-draw-toolbar">
+            <button type="button" id="pe-draw-fit" class="pe-draw-tb" title="Fit drawing to view">⤢ Fit</button>
+            <button type="button" id="pe-draw-zin" class="pe-draw-tb" title="Zoom in">＋</button>
+            <button type="button" id="pe-draw-zout" class="pe-draw-tb" title="Zoom out">－</button>
+          </div>
+        </div>
         <div class="pe-location-big" id="pe-location-thumb"></div>
+        <div class="pe-draw-cap">📍 Pin location is editable here — drag the pin to move it; use ⋯ More to move it to another drawing.</div>
       </div>
     </div>
     <div class="pin-editor-footer">

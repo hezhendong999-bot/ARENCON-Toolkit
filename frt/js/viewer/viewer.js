@@ -2583,6 +2583,19 @@ function _renderPinMiniMap(d, thumbId) {
 }
 
 function _drawPinMiniMap(canvas, img, d) {
+  // S213d: the desktop big panel (#pe-location-thumb) is interactive — zoom,
+  // pan (only when zoomed), and drag-the-pin-to-reposition. The mobile thumb
+  // (#pe-location-thumb-mobile) and any other caller stays static (this body).
+  // We detect the interactive panel by the canvas's container id.
+  var host = canvas && canvas.parentElement;
+  if (host && host.id === 'pe-location-thumb') {
+    _PinPan.mount(canvas, img, d);
+    return;
+  }
+  _drawPinMiniMapStatic(canvas, img, d);
+}
+
+function _drawPinMiniMapStatic(canvas, img, d) {
   if (!canvas || !img || !img.width || !img.height) return;
   var aspect = img.height / img.width;
   var dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -2664,6 +2677,199 @@ function _drawPinMiniMap(canvas, img, d) {
     ctx.restore();
   }
 }
+
+// ── S213d: interactive pin mini-map controller ────────────────────────────
+// Zoom (floor = Fit, ceiling 6×), pan ONLY when zoomed past Fit (locked
+// centered at Fit, like the drawing viewer), and drag-the-pin to reposition
+// (writes normalized d.pinX/d.pinY 0..1 + Model.saveNow()). Coordinate math
+// mirrors the approved S213d preview exactly. One live instance at a time;
+// rebound on every _openPinEditor via mount().
+var _PinPan = (function() {
+  var st = null; // { canvas, ctx, img, d, dpr, baseW, baseH, scale, ox, oy, R0, mode, last, moved, boxW, boxH }
+
+  function imgRect() { return { x: st.ox, y: st.oy, w: st.baseW * st.scale, h: st.baseH * st.scale }; }
+
+  function computeFit() {
+    var w = st.boxW, h = st.boxH;
+    var aspect = st.img.height / st.img.width;
+    var fw = w, fh = w * aspect;
+    if (fh > h) { fh = h; fw = h / aspect; }
+    st.baseW = fw; st.baseH = fh; st.scale = 1;
+    st.ox = (w - fw) / 2; st.oy = (h - fh) / 2;
+  }
+
+  function clampView() {
+    var w = st.boxW, h = st.boxH;
+    if (st.scale <= 1) {
+      st.scale = 1;
+      st.ox = (w - st.baseW) / 2;
+      st.oy = (h - st.baseH) / 2;
+      return;
+    }
+    var iw = st.baseW * st.scale, ih = st.baseH * st.scale;
+    st.ox = (iw <= w) ? (w - iw) / 2 : Math.min(0, Math.max(w - iw, st.ox));
+    st.oy = (ih <= h) ? (h - ih) / 2 : Math.min(0, Math.max(h - ih, st.oy));
+  }
+
+  function pinPos() {
+    var r = imgRect();
+    return { x: r.x + st.d.pinX * r.w, y: r.y + st.d.pinY * r.h };
+  }
+
+  function draw() {
+    if (!st) return;
+    var host = st.canvas.parentElement;
+    if (host) host.classList.toggle('zoomed', st.scale > 1);
+    var ctx = st.ctx, w = st.boxW, h = st.boxH;
+    ctx.setTransform(st.dpr, 0, 0, st.dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    var r = imgRect();
+    ctx.drawImage(st.img, r.x, r.y, r.w, r.h);
+    if (st.d.pinX == null || st.d.pinY == null) return;
+    var pp = pinPos();
+    var effPri = Model.getEffectivePriority(st.d);
+    var fill = st.d.iar ? '#FF69B4' : (effPri === 'general' ? '#5F8068' : (effPri === 'low' ? '#B07F5A' : '#A85959'));
+    var R0 = st.R0;
+    ctx.save();
+    ctx.translate(pp.x, pp.y - R0 * 2.2);
+    ctx.beginPath();
+    ctx.arc(0, 0, R0, Math.PI, 0, false);
+    ctx.bezierCurveTo(R0, R0 * 0.8, R0 * 0.3, R0 * 2.2, 0, R0 * 2.2);
+    ctx.bezierCurveTo(-R0 * 0.3, R0 * 2.2, -R0, R0 * 0.8, -R0, 0);
+    ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.8; ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, R0 * 0.5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.fillStyle = fill; ctx.font = 'bold ' + Math.round(R0 * 1.1) + 'px Calibri,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(st.d.num != null ? st.d.num : '?'), 0, 0);
+    ctx.restore();
+  }
+
+  function nearPin(cx, cy) {
+    if (st.d.pinX == null) return false;
+    var pp = pinPos();
+    var dx = cx - pp.x, dy = cy - (pp.y - st.R0);
+    var rad = st.R0 * 2.6;
+    return (dx * dx + dy * dy) <= rad * rad;
+  }
+
+  function setPinFromPointer(cx, cy) {
+    var r = imgRect();
+    if (r.w <= 0 || r.h <= 0) return;
+    st.d.pinX = Math.max(0, Math.min(1, (cx - r.x) / r.w));
+    st.d.pinY = Math.max(0, Math.min(1, (cy - r.y) / r.h));
+  }
+
+  function zoomAt(cx, cy, factor) {
+    var r = imgRect();
+    var relx = (cx - r.x) / r.w, rely = (cy - r.y) / r.h;
+    st.scale = Math.max(1, Math.min(6, st.scale * factor));
+    var nw = st.baseW * st.scale, nh = st.baseH * st.scale;
+    st.ox = cx - relx * nw; st.oy = cy - rely * nh;
+    clampView(); draw();
+  }
+
+  function localXY(e) {
+    var rect = st.canvas.getBoundingClientRect();
+    var t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+  }
+
+  function onDown(e) {
+    if (!st) return;
+    var p = localXY(e);
+    st.moved = false;
+    if (nearPin(p.x, p.y)) { st.mode = 'pin'; }
+    else if (st.scale > 1) { st.mode = 'pan'; st.canvas.parentElement.classList.add('dragging'); }
+    else { st.mode = null; }
+    st.last = p;
+    if (st.mode) e.preventDefault();
+  }
+  function onMove(e) {
+    if (!st || !st.mode) return;
+    var p = localXY(e);
+    st.moved = true;
+    if (st.mode === 'pin') { setPinFromPointer(p.x, p.y); draw(); }
+    else if (st.mode === 'pan' && st.scale > 1) { st.ox += p.x - st.last.x; st.oy += p.y - st.last.y; st.last = p; clampView(); draw(); }
+    e.preventDefault();
+  }
+  function onUp() {
+    if (!st) return;
+    if (st.mode === 'pin' && st.moved) {
+      // Persist the new real pin location.
+      Model.saveNow();
+      if (window._frtRenderDefic) window._frtRenderDefic();
+      // keep the other (mobile) thumb in sync if present
+      var mob = document.getElementById('pe-location-thumb-mobile');
+      if (mob) _renderPinMiniMap(st.d, 'pe-location-thumb-mobile');
+    }
+    if (st.mode === 'pan') st.canvas.parentElement.classList.remove('dragging');
+    st.mode = null;
+  }
+  function onWheel(e) {
+    if (!st) return;
+    e.preventDefault();
+    var p = localXY(e);
+    zoomAt(p.x, p.y, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+  }
+
+  function bindToolbar() {
+    var fit = document.getElementById('pe-draw-fit');
+    var zin = document.getElementById('pe-draw-zin');
+    var zout = document.getElementById('pe-draw-zout');
+    // Replace nodes to drop any stale listeners from a prior mount.
+    [fit, zin, zout].forEach(function(b) { if (b && b.parentNode) b.parentNode.replaceChild(b.cloneNode(true), b); });
+    fit = document.getElementById('pe-draw-fit');
+    zin = document.getElementById('pe-draw-zin');
+    zout = document.getElementById('pe-draw-zout');
+    if (fit) fit.addEventListener('click', function() { computeFit(); draw(); });
+    if (zin) zin.addEventListener('click', function() { zoomAt(st.boxW / 2, st.boxH / 2, 1.25); });
+    if (zout) zout.addEventListener('click', function() { zoomAt(st.boxW / 2, st.boxH / 2, 1 / 1.25); });
+  }
+
+  function mount(canvas, img, d) {
+    var host = canvas.parentElement;
+    var boxW = host ? host.clientWidth : 360;
+    var boxH = host ? host.clientHeight : 320;
+    if (!boxW || boxW < 20) boxW = 360;
+    if (!boxH || boxH < 20) boxH = 320;
+    var dpr = Math.min(window.devicePixelRatio || 1, 3);
+    // Canvas fills the whole panel (absolute), unlike the static fit-canvas.
+    canvas.width = Math.round(boxW * dpr);
+    canvas.height = Math.round(boxH * dpr);
+    canvas.style.width = boxW + 'px';
+    canvas.style.height = boxH + 'px';
+    canvas.style.position = 'absolute';
+    canvas.style.left = '0'; canvas.style.top = '0';
+    canvas.style.display = 'block';
+    st = {
+      canvas: canvas, ctx: canvas.getContext('2d'), img: img, d: d, dpr: dpr,
+      boxW: boxW, boxH: boxH, baseW: 0, baseH: 0, scale: 1, ox: 0, oy: 0,
+      R0: 9, mode: null, last: null, moved: false
+    };
+    // Fresh listeners each mount (clone-replace the canvas to drop old ones).
+    var fresh = canvas.cloneNode(false);
+    canvas.parentNode.replaceChild(fresh, canvas);
+    st.canvas = fresh; st.ctx = fresh.getContext('2d');
+    fresh.addEventListener('mousedown', onDown);
+    fresh.addEventListener('touchstart', onDown, { passive: false });
+    fresh.addEventListener('touchmove', onMove, { passive: false });
+    fresh.addEventListener('touchend', onUp);
+    fresh.addEventListener('wheel', onWheel, { passive: false });
+    // window-level move/up so a drag that leaves the canvas still tracks
+    if (!_PinPan._winBound) {
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+      _PinPan._winBound = true;
+    }
+    computeFit();
+    bindToolbar();
+    draw();
+  }
+
+  return { mount: mount, _winBound: false };
+})();
 
 // S116 Push 1: expose pin editor opener for Summary tab + other modules
 window._frtOpenPinEditor = function(deficId) { _openPinEditor(deficId); };

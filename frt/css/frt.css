@@ -513,6 +513,17 @@ body.dark-mode .pe-photo-btn:not(.pe-camera-btn){background:#2a2d35;color:white;
    width sizing; empty space (if any) is split evenly above and below. */
 .pe-location-big{flex:1;min-height:280px;background:var(--smoke);border:1px solid #dde1e7;border-radius:8px;overflow:hidden;position:relative;display:flex;justify-content:center;align-items:center;}
 body.dark-mode .pe-location-big{background:#2a2d35;border-color:#3a3e48;}
+/* S213d: interactive drawing panel — toolbar, caption, cursors */
+.pe-draw-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.pe-draw-toolbar{display:flex;gap:6px;}
+.pe-draw-tb{border:1px solid #dde1e7;background:#fff;border-radius:6px;padding:4px 10px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;color:var(--steel,#4A5568);cursor:pointer;line-height:1;}
+.pe-draw-tb:hover{border-color:var(--arencon,#9C2742);color:var(--arencon,#9C2742);}
+body.dark-mode .pe-draw-tb{background:#2a2d35;border-color:#3a3e48;color:#C8CDD6;}
+.pe-draw-cap{margin-top:8px;font-size:calc(11px + var(--ts));color:var(--silver,#5A6478);line-height:1.4;}
+.pe-location-big canvas{cursor:default;}
+.pe-location-big.zoomed canvas{cursor:grab;}
+.pe-location-big.dragging canvas{cursor:grabbing;}
+@media (pointer:coarse){ .pe-draw-tb{padding:8px 13px;} }
 .pe-location-big img{max-width:100%;max-height:100%;object-fit:contain;}
 .pe-location-big canvas{max-width:100%;max-height:100%;}
 /* Small drawing (mobile fallback) */
