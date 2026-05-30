@@ -210,6 +210,47 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .np-tile .np-recap{position:absolute;bottom:5px;right:5px;background:rgba(255,255,255,.92);border:none;border-radius:6px;font-size:10px;font-weight:600;color:var(--steel);padding:3px 7px;cursor:pointer;}
 .np-tile .np-recap:hover{color:var(--arencon);}
 .np-hint{font-size:calc(10px + var(--ts));color:var(--silver);line-height:1.4;}
+/* ══ Test Setup redesign (FRT-family) ══ */
+.ts-subsec{display:flex;align-items:center;gap:8px;margin:22px 0 11px;}
+.ts-subsec:first-child{margin-top:0;}
+.ts-subsec .bar{width:3px;height:15px;background:var(--arencon);border-radius:2px;flex:none;}
+.ts-subsec .t{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);letter-spacing:.3px;}
+.ts-subsec .hint{font-size:calc(11px + var(--ts));color:var(--silver);font-weight:400;}
+.ts-seg{display:inline-flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;background:var(--smoke);flex-wrap:wrap;}
+.ts-seg button{border:none;background:transparent;padding:9px 18px;font-family:Calibri,sans-serif;font-size:calc(12.5px + var(--ts));font-weight:700;color:var(--steel);cursor:pointer;border-right:1.5px solid var(--border);transition:all .14s;}
+.ts-seg button:last-child{border-right:none;}
+.ts-seg button.on{background:var(--arencon);color:#fff;}
+.ts-seg button:not(.on):hover{background:#fff;color:var(--arencon);}
+.ts-eq{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;border:1.5px solid var(--border);border-radius:9px;padding:12px 14px;background:var(--smoke);}
+@media(max-width:560px){.ts-eq{grid-template-columns:1fr;}}
+.ts-eq label{display:flex;align-items:center;gap:7px;font-size:calc(12px + var(--ts));cursor:pointer;color:var(--slate);}
+.ts-eq input{accent-color:var(--arencon);width:15px;height:15px;flex:none;}
+.ts-flow-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:var(--yes-bg);border:1.5px solid var(--yes);border-radius:8px;font-weight:700;font-size:calc(12.5px + var(--ts));color:var(--yes);}
+/* horizontal pitot — compact cards side by side, wrap */
+.ts-pitot{display:flex;flex-wrap:wrap;gap:8px;}
+.ts-pitot .pcard{border:1.5px solid var(--border);border-radius:8px;background:var(--smoke);padding:8px 9px;width:150px;position:relative;}
+.ts-pitot .pcard .pn{font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;}
+.ts-pitot .pcard .pn .px{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;padding:0;line-height:1;}
+.ts-pitot .pcard input,.ts-pitot .pcard select{width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:5px;font-size:calc(11.5px + var(--ts));font-family:Calibri,sans-serif;background:#fff;margin-bottom:5px;}
+.ts-pitot .pcard select{margin-bottom:0;}
+/* rated values — compact inline */
+.ts-rated{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;}
+.ts-rated .meta-field{width:150px;}
+.ts-rated .meta-field input{text-align:right;}
+/* evidence tiles — prominent 3-up */
+.ev-lbl{font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--silver);margin-bottom:9px;}
+.ev-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+@media(max-width:560px){.ev-tiles{grid-template-columns:1fr;}.ts-rated .meta-field{width:100%;}}
+.ev-tile{border:2px dashed var(--border);border-radius:10px;background:#fff;min-height:128px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:all .14s;position:relative;overflow:hidden;}
+.ev-tile:hover,.ev-tile.drag-over{border-color:var(--arencon);background:#fdf6f8;}
+.ev-tile .i{font-size:30px;opacity:.6;}
+.ev-tile .l{font-size:calc(12.5px + var(--ts));font-weight:700;color:var(--steel);}
+.ev-tile .s{font-size:calc(10px + var(--ts));color:var(--silver);}
+.ev-tile.has-img{border-style:solid;}
+.ev-tile.has-img img{width:100%;height:128px;object-fit:cover;display:block;cursor:zoom-in;}
+.ev-tile .badge{position:absolute;top:6px;left:6px;background:rgba(28,35,51,.78);color:#fff;font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:9px;letter-spacing:.3px;}
+.ev-tile .recap{position:absolute;bottom:6px;right:6px;background:rgba(255,255,255,.92);border:none;border-radius:6px;font-size:10px;font-weight:600;color:var(--steel);padding:3px 8px;cursor:pointer;}
+.ev-tile .recap:hover{color:var(--arencon);}
 .photo-thumb{position:relative;width:86px;height:86px;border-radius:6px;overflow:hidden;box-shadow:var(--shadow);border:2px solid var(--border);}
 .photo-thumb img{width:100%;height:100%;object-fit:cover;}
 .photo-remove{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:19px;height:19px;font-size:calc(11px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;}
@@ -976,67 +1017,51 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
     <div class="card">
       <div class="card-header mid">Test Setup</div>
       <div class="card-body">
-        <div style="background:var(--warn-bg);border:1.5px solid var(--warn);border-radius:8px;padding:12px 16px;margin-bottom:14px;">
-          <div style="font-size:13px;font-weight:600;color:var(--warn);margin-bottom:8px;">⚙ Pump Test Type — Select which test applies (controls which tab is active):</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;" class="pump-type-btns">
-            <button type="button" onclick="setPumpTestType('std')" data-ptype="std" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid #2C4770;background:#2C4770;color:white;">⦿ 3-Point Standard (w/o PLD)</button>
-            <button type="button" onclick="setPumpTestType('pld')" data-ptype="pld" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid #ccc;background:white;color:#666;">○ 7-Point with PLD</button>
-            <button type="button" onclick="setPumpTestType('both')" data-ptype="both" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid #ccc;background:white;color:#666;">○ Both (run both tests)</button>
-          </div>
-          <div id="tab-type-note-4a" style="font-size:11.5px;color:#888;margin-top:6px;"></div>
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pump Test Type</span><span class="hint">controls which tab is active</span></div>
+        <div class="ts-seg pump-type-btns">
+          <button type="button" onclick="setPumpTestType('std')" data-ptype="std" class="on">3-Point Standard (w/o PLD)</button>
+          <button type="button" onclick="setPumpTestType('pld')" data-ptype="pld">7-Point with PLD</button>
+          <button type="button" onclick="setPumpTestType('both')" data-ptype="both">Both (run both tests)</button>
         </div>
-        <!-- Line 2: Equipment -->
-        <div style="margin-bottom:12px;">
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--silver);display:block;margin-bottom:6px;">Equipment Used (select all that apply)</label>
-          <div id="equip-grid-3a" style="display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;border:1.5px solid var(--border);border-radius:7px;padding:8px 12px;background:var(--smoke);">
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip3a"> 2-1/2" Hose Monster w/ 2-1/2" nozzle</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip3a"> 2-1/2" Hose Monster w/ 1-3/4" nozzle</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip3a"> 2-1/2" Hose Monster w/ 1-1/8" nozzle</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip3a"> 2" pitotless nozzle LHM</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip3a"> 2" pitotless nozzle OA</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip3a"> 1-3/4" pitotless nozzle LHM</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip3a"> 1-3/4" pitotless nozzle OA</label>
-            <div id="equip-custom-3a"></div>
-          </div>
-          <button onclick="addCustomEquip('3a')" class="btn btn-outline btn-sm" style="margin-top:6px;font-size:11px;">+ More</button>
-        </div>
-        <!-- Line 3: Pitot + Flow Test Photo side by side -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px;">
-          <div>
-            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--silver);display:block;margin-bottom:6px;">Pitot Pressure, Flow & Outlets</label>
-            <div id="pitot-3a"></div>
-            <div id="pitot-total-3a" style="padding:8px 12px;background:#D4EDDA;border-radius:6px;font-weight:700;font-size:13px;color:#1A7A4A;margin-top:8px;">Combined Total Flow: 0 gpm</div>
-            <button class="btn btn-outline btn-sm" style="margin-top:6px;" onclick="addPitotRow('3a')">+ Add Pitot Row</button>
-          </div>
-          <div>
-            <div class="detail-label" style="margin-bottom:8px;">Flow Test Chart / Hose Monster Chart Photo</div>
-          <div class="photo-zone-compact" id="flow-test-zone" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');handleFlowTestDrop(event)">
-            <span>Drop flow test photos or</span>
-            <button class="pz-upload" onclick="triggerFlowTestPhoto()">📎 Upload</button>
-            <button class="pz-camera" onclick="triggerFlowTestCamera()">📷 Camera</button>
-          </div>
-          <div id="flow-test-thumbs" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
-          </div>
-        </div>
-        <!-- Line 4: Pump Nameplate Data — grouped fields + photo evidence -->
+        <div id="tab-type-note-4a" style="font-size:calc(11px + var(--ts));color:var(--silver);margin-top:6px;"></div>
+
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pump Nameplate &amp; Evidence</span></div>
         <div class="np-panel">
           <div class="np-head">
-            <div class="np-t">⚙ Pump Nameplate Data</div>
+            <div class="np-t">⚙ Rated values read from the placard</div>
             <button class="np-scan" id="np-scan-btn" onclick="_placardScan()" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
           </div>
-          <div class="np-grid">
-            <div class="np-fields">
-              <div class="meta-field"><label>Pump Rated Flow (US gpm)</label><input type="number" id="pm-rated-flow" placeholder="e.g. 2000" style="width:100%;" oninput="autoFillStdFlows()"></div>
-              <div class="meta-field"><label>Pump Rated Speed (RPM)</label><input type="number" id="pm-rpm" placeholder="e.g. 2500" style="width:100%;" oninput="updateChart()"></div>
-              <div class="meta-field"><label>PRV / Rated Pressure (psi)</label><input type="number" id="pm-prv" placeholder="e.g. 175" style="width:100%;" oninput="updateChart()"></div>
+          <div style="padding:16px;">
+            <div class="ts-rated">
+              <div class="meta-field"><label>Rated Flow (gpm)</label><input type="number" id="pm-rated-flow" placeholder="2000" oninput="autoFillStdFlows()"></div>
+              <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm" placeholder="1760" oninput="updateChart()"></div>
+              <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv" placeholder="175" oninput="updateChart()"></div>
             </div>
-            <div class="np-photos">
-              <div class="np-photos-lbl">Nameplate Evidence</div>
-              <div class="np-tiles" id="pump-placard-zones"></div>
-              <div class="np-hint">Tap a tile to upload or use the camera. The placard photo feeds the fields on the left. Both back up to the photo gallery.</div>
-            </div>
+            <div class="ev-lbl">Photo Evidence</div>
+            <div class="ev-tiles" id="pump-placard-zones"></div>
+            <div class="np-hint" style="margin-top:9px;">The placard photo feeds the rated values above. All three back up to the photo gallery.</div>
           </div>
           <div id="placard-ocr-host"></div>
+        </div>
+
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Equipment Used</span><span class="hint">select all that apply</span></div>
+        <div id="equip-grid-3a" class="ts-eq">
+          <label><input type="checkbox" name="equip3a"> 2-1/2" Hose Monster w/ 2-1/2" nozzle</label>
+          <label><input type="checkbox" name="equip3a"> 2-1/2" Hose Monster w/ 1-3/4" nozzle</label>
+          <label><input type="checkbox" name="equip3a"> 2-1/2" Hose Monster w/ 1-1/8" nozzle</label>
+          <label><input type="checkbox" name="equip3a"> 2" pitotless nozzle LHM</label>
+          <label><input type="checkbox" name="equip3a"> 2" pitotless nozzle OA</label>
+          <label><input type="checkbox" name="equip3a"> 1-3/4" pitotless nozzle LHM</label>
+          <label><input type="checkbox" name="equip3a"> 1-3/4" pitotless nozzle OA</label>
+          <div id="equip-custom-3a"></div>
+        </div>
+        <button onclick="addCustomEquip('3a')" class="btn btn-outline btn-sm" style="margin-top:8px;">+ More</button>
+
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pitot Pressure, Flow &amp; Outlets</span></div>
+        <div id="pitot-3a" class="ts-pitot"></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;">
+          <div id="pitot-total-3a" class="ts-flow-chip">Combined Total Flow: 0 gpm</div>
+          <button class="btn btn-outline btn-sm" onclick="addPitotRow('3a')">+ Add Pitot Row</button>
         </div>
       </div>
     </div>
@@ -1144,53 +1169,51 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
     <div class="card" style="margin-bottom:14px;">
       <div class="card-header mid">PLD Test Setup</div>
       <div class="card-body" style="padding:10px 16px;">
-        <div style="background:var(--warn-bg);border:1.5px solid var(--warn);border-radius:8px;padding:12px 16px;margin-bottom:14px;">
-          <div style="font-size:13px;font-weight:600;color:var(--warn);margin-bottom:8px;">⚙ Pump Test Type — Select which test applies (controls which tab is active):</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;" class="pump-type-btns">
-            <button type="button" onclick="setPumpTestType('std')" data-ptype="std" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid #ccc;background:white;color:#666;">○ 3-Point Standard (w/o PLD)</button>
-            <button type="button" onclick="setPumpTestType('pld')" data-ptype="pld" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid #ccc;background:white;color:#666;">○ 7-Point with PLD</button>
-            <button type="button" onclick="setPumpTestType('both')" data-ptype="both" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid #ccc;background:white;color:#666;">○ Both (run both tests)</button>
-          </div>
-          <div id="tab-type-note-4b" style="font-size:11.5px;color:#888;margin-top:6px;"></div>
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pump Test Type</span><span class="hint">controls which tab is active</span></div>
+        <div class="ts-seg pump-type-btns">
+          <button type="button" onclick="setPumpTestType('std')" data-ptype="std">3-Point Standard (w/o PLD)</button>
+          <button type="button" onclick="setPumpTestType('pld')" data-ptype="pld" class="on">7-Point with PLD</button>
+          <button type="button" onclick="setPumpTestType('both')" data-ptype="both">Both (run both tests)</button>
         </div>
-        <div style="margin-bottom:12px;margin-top:10px;">
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--silver);display:block;margin-bottom:6px;">Equipment Used (select all that apply)</label>
-          <div id="equip-grid-4b" style="display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;border:1.5px solid var(--border);border-radius:7px;padding:8px 12px;background:var(--smoke);">
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip4b"> 2-1/2" Hose Monster w/ 2-1/2" nozzle</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip4b"> 2-1/2" Hose Monster w/ 1-3/4" nozzle</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip4b"> 2-1/2" Hose Monster w/ 1-1/8" nozzle</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip4b"> 2" pitotless nozzle LHM</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip4b"> 2" pitotless nozzle OA</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip4b"> 1-3/4" pitotless nozzle LHM</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" name="equip4b"> 1-3/4" pitotless nozzle OA</label>
-            <div id="equip-custom-4b"></div>
+        <div id="tab-type-note-4b" style="font-size:calc(11px + var(--ts));color:var(--silver);margin-top:6px;"></div>
+
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pump Nameplate &amp; Evidence</span></div>
+        <div class="np-panel">
+          <div class="np-head">
+            <div class="np-t">⚙ Rated values read from the placard</div>
+            <button class="np-scan" onclick="_placardScan()" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
           </div>
-          <button onclick="addCustomEquip('4b')" class="btn btn-outline btn-sm" style="margin-top:6px;font-size:11px;">+ More</button>
-        </div>
-        <!-- Line 3: Pitot + Flow Test Photo side by side -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px;">
-          <div>
-            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--silver);display:block;margin-bottom:6px;">Pitot Pressure, Flow & Outlets</label>
-            <div id="pitot-4b"></div>
-            <div id="pitot-total-4b" style="padding:8px 12px;background:#D4EDDA;border-radius:6px;font-weight:700;font-size:13px;color:#1A7A4A;margin-top:8px;">Combined Total Flow: 0 gpm</div>
-            <button class="btn btn-outline btn-sm" style="margin-top:6px;" onclick="addPitotRow('4b')">+ Add Pitot Row</button>
-          </div>
-          <div>
-            <div class="detail-label" style="margin-bottom:8px;">Flow Test Chart / Hose Monster Chart Photo</div>
-            <div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');handleFlowTestDropPld(event)">
-              <span>Drop flow test photos or</span>
-              <button class="pz-upload" onclick="triggerFlowTestPhotoPld()">📎 Upload</button>
-              <button class="pz-camera" onclick="triggerFlowTestCameraPld()">📷 Camera</button>
+          <div style="padding:16px;">
+            <div class="ts-rated">
+              <div class="meta-field"><label>Rated Flow (gpm)</label><input type="number" id="pm-rated-flow-pld" placeholder="2000" oninput="autoFillPldFlows()"></div>
+              <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm-pld" placeholder="1760"></div>
+              <div class="meta-field"><label>PRV Rating (psi)</label><input type="number" id="pm-prv-pld" placeholder="175" oninput="updatePldChart();updatePldNetChart()"></div>
+              <div class="meta-field"><label>PLD Setting (psi)</label><input type="number" id="pm-pld-setting" placeholder="175" oninput="updatePldChart()"></div>
             </div>
-            <div id="flow-test-thumbs-pld" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
+            <div class="ev-lbl">Photo Evidence</div>
+            <div class="ev-tiles" id="pump-placard-zones-4b"></div>
+            <div class="np-hint" style="margin-top:9px;">The placard photo feeds the rated values above. All three back up to the photo gallery.</div>
           </div>
         </div>
-        <!-- Line 4: Rated Flow | Speed | PRV | PLD in one row -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">
-          <div class="meta-field"><label>Pump Rated Flow (US gpm)</label><input type="number" id="pm-rated-flow-pld" placeholder="e.g. 2000" style="width:100%;" oninput="autoFillPldFlows()"></div>
-          <div class="meta-field"><label>Pump Rated Speed (RPM)</label><input type="number" id="pm-rpm-pld" placeholder="e.g. 2500" style="width:100%;"></div>
-          <div class="meta-field"><label>PRV Rating (psi)</label><input type="number" id="pm-prv-pld" placeholder="e.g. 175" style="width:100%;" oninput="updatePldChart();updatePldNetChart()"></div>
-          <div class="meta-field"><label>PLD Setting (psi)</label><input type="number" id="pm-pld-setting" placeholder="e.g. 175" style="width:100%;" oninput="updatePldChart()"></div>
+
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Equipment Used</span><span class="hint">select all that apply</span></div>
+        <div id="equip-grid-4b" class="ts-eq">
+          <label><input type="checkbox" name="equip4b"> 2-1/2" Hose Monster w/ 2-1/2" nozzle</label>
+          <label><input type="checkbox" name="equip4b"> 2-1/2" Hose Monster w/ 1-3/4" nozzle</label>
+          <label><input type="checkbox" name="equip4b"> 2-1/2" Hose Monster w/ 1-1/8" nozzle</label>
+          <label><input type="checkbox" name="equip4b"> 2" pitotless nozzle LHM</label>
+          <label><input type="checkbox" name="equip4b"> 2" pitotless nozzle OA</label>
+          <label><input type="checkbox" name="equip4b"> 1-3/4" pitotless nozzle LHM</label>
+          <label><input type="checkbox" name="equip4b"> 1-3/4" pitotless nozzle OA</label>
+          <div id="equip-custom-4b"></div>
+        </div>
+        <button onclick="addCustomEquip('4b')" class="btn btn-outline btn-sm" style="margin-top:8px;">+ More</button>
+
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pitot Pressure, Flow &amp; Outlets</span></div>
+        <div id="pitot-4b" class="ts-pitot"></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;">
+          <div id="pitot-total-4b" class="ts-flow-chip">Combined Total Flow: 0 gpm</div>
+          <button class="btn btn-outline btn-sm" onclick="addPitotRow('4b')">+ Add Pitot Row</button>
         </div>
 <!-- 7-Point table -->
     <div class="card" style="margin-top:14px;">
@@ -2980,13 +3003,12 @@ function addPitotRow(tab){
   pitotCounts[tab]++;var n=pitotCounts[tab];
   var c=document.getElementById('pitot-'+tab);if(!c)return;
   var row=document.createElement('div');row.id='pr-'+tab+'-'+n;
-  row.style.cssText='display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:6px 8px;background:#F7F8FA;border-radius:6px;';
-  var outletOpts='';for(var o=1;o<=6;o++)outletOpts+='<option value="'+o+'">'+o+'</option>';
-  row.innerHTML='<span style="font-size:12px;font-weight:700;color:var(--silver);min-width:55px;">Pitot #'+n+'</span>'
-    +'<input type="number" placeholder="Pressure (psi)" id="pp-'+tab+'-'+n+'" style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12.5px;">'
-    +'<input type="number" placeholder="Flow (gpm)" id="pf-'+tab+'-'+n+'" oninput="calcPitotTotal(this.id.split(\'-\')[1])" style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12.5px;">'
-    +'<select id="po-'+tab+'-'+n+'" onchange="calcPitotTotal(this.id.split(\'-\')[1])" style="width:85px;padding:5px 4px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;background:white;" title="Number of Outlets">'+outletOpts+'</select>'
-    +'<button onclick="removePitotRow(this.parentElement.id.split(\'-\')[1],this.parentElement.id.split(\'-\')[2])" style="background:none;border:none;color:#C0392B;cursor:pointer;font-size:14px;">✕</button>';
+  row.className='pcard';
+  var outletOpts='';for(var o=1;o<=6;o++)outletOpts+='<option value="'+o+'">'+o+' outlet'+(o>1?'s':'')+'</option>';
+  row.innerHTML='<div class="pn">Pitot #'+n+'<button class="px" onclick="removePitotRow(\''+tab+'\','+n+')" title="Remove">✕</button></div>'
+    +'<input type="number" placeholder="Pressure (psi)" id="pp-'+tab+'-'+n+'">'
+    +'<input type="number" placeholder="Flow (gpm)" id="pf-'+tab+'-'+n+'" oninput="calcPitotTotal(this.id.split(\'-\')[1])">'
+    +'<select id="po-'+tab+'-'+n+'" onchange="calcPitotTotal(this.id.split(\'-\')[1])" title="Number of Outlets">'+outletOpts+'</select>';
   c.appendChild(row);
 }
 function removePitotRow(tab,n){var r=document.getElementById('pr-'+tab+'-'+n);if(r)r.remove();calcPitotTotal(tab);}
@@ -4154,6 +4176,7 @@ function switchPanel(id) {
         if(pldChart) pldChart.resize();
         if(pldNetChart) pldNetChart.resize();
       });
+      if(typeof _renderRecordZones==='function') _renderRecordZones();
     }
     if (id === 'defic') { renderContractorTags(); renderDeficGroups(); renderGeneralDeficGroup(); updateDeficSummary(); }
     if (id === 'photos') { if(typeof _renderRecordZones==='function') _renderRecordZones(); if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); }
@@ -5845,6 +5868,7 @@ function handleFlowTestDropPld(e) {
   });
 }
 function renderFlowTestThumbsPld() {
+  if(typeof _renderRecordZones==='function') _renderRecordZones();
   const el=document.getElementById('flow-test-thumbs-pld');
   if(!el) return;
   el.innerHTML = flowTestPhotosPld.map((p,i)=>`
@@ -5881,6 +5905,9 @@ function handleFlowTestDrop(e) {
   });
 }
 function renderFlowTestThumbs() {
+  // Flow-chart photos now live as an evidence tile in 4a/4b; refresh those.
+  if(typeof _renderRecordZones==='function') _renderRecordZones();
+  // legacy thumbs container (if ever present)
   const el = document.getElementById('flow-test-thumbs');
   if(!el) return;
   el.innerHTML = flowTestPhotos.map((p,i)=>`
@@ -7480,31 +7507,49 @@ function _recZoneHtml(kind){
   html+='</div>';
   return html;
 }
-function _recTileHtml(kind){
-  var def=null; _REC_KINDS.forEach(function(k){ if(k[0]===kind) def=k; });
-  if(!def) return '';
-  var icon=def[2], label=def[1].replace(' Photo','');
+function _evTileHtml(kind){
+  // kind: pump | placard | flow (3-pt) | flow-pld (7-pt)
+  var map={pump:['📷','Pump','tap / drop · camera'],placard:['🏷','Placard','tap / drop · camera'],flow:['📊','Flow Chart','Hose Monster chart'],'flow-pld':['📊','Flow Chart','Hose Monster chart']};
+  var def=map[kind]; if(!def) return '';
+  if(kind==='flow' || kind==='flow-pld'){
+    var isPld = kind==='flow-pld';
+    var fp=(isPld ? (flowTestPhotosPld||[]) : (flowTestPhotos||[]));
+    var arrName = isPld ? 'flowTestPhotosPld' : 'flowTestPhotos';
+    var trig = isPld ? 'triggerFlowTestPhotoPld()' : 'triggerFlowTestPhoto()';
+    var drop = isPld ? 'handleFlowTestDropPld(event)' : 'handleFlowTestDrop(event)';
+    if(fp.length){
+      var lp=fp[fp.length-1];
+      return '<div class="ev-tile has-img" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">'
+        +'<span class="badge">FLOW'+(fp.length>1?(' ·'+fp.length):'')+'</span>'
+        +'<img src="'+(lp.r2Url||lp.d)+'" onclick="if(typeof openLightbox===\'function\')openLightbox('+arrName+','+(fp.length-1)+',{renderer:_renderRecordZones})">'
+        +'<button class="recap" onclick="event.stopPropagation();'+trig+'">retake</button>'
+        +'</div>';
+    }
+    return '<div class="ev-tile" onclick="'+trig+'" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">'
+      +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span></div>';
+  }
   var thumbs=(recordPhotos||[]).map(function(p,i){return {p:p,i:i};}).filter(function(o){return (o.p.kind||'site')===kind;});
   if(thumbs.length){
-    // show most recent as the tile; extras stack below via gallery
     var o=thumbs[thumbs.length-1];
-    return '<div class="np-tile has-img" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
-      + '<span class="np-badge">'+label.toUpperCase()+(thumbs.length>1?(' ·'+thumbs.length):'')+'</span>'
-      + '<img src="'+(o.p.r2Url||o.p.d)+'" onclick="_recLightbox('+o.i+')">'
-      + '<button class="np-recap" onclick="event.stopPropagation();_recUpload(\''+kind+'\')">retake</button>'
-      + '</div>';
+    return '<div class="ev-tile has-img" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
+      +'<span class="badge">'+def[1].toUpperCase()+(thumbs.length>1?(' ·'+thumbs.length):'')+'</span>'
+      +'<img src="'+(o.p.r2Url||o.p.d)+'" onclick="_recLightbox('+o.i+')">'
+      +'<button class="recap" onclick="event.stopPropagation();_recUpload(\''+kind+'\')">retake</button>'
+      +'</div>';
   }
-  return '<div class="np-tile" onclick="_recUpload(\''+kind+'\')" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
-    + '<span class="np-ico">'+icon+'</span><span class="np-lbl">'+label+'</span><span class="np-sub">tap / drop · or camera</span>'
-    + '</div>';
+  return '<div class="ev-tile" onclick="_recUpload(\''+kind+'\')" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
+    +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span></div>';
 }
+function _recTileHtml(kind){ return _evTileHtml(kind); }
 function _renderRecordZones(){
   // Photos tab: general site records only (full zone style)
   var host=document.getElementById('record-zones');
   if(host) host.innerHTML=_recZoneHtml('site');
-  // 4a Test Setup: pump + placard as compact tiles
+  // 4a/4b evidence: pump + placard + flow chart as prominent tiles
   var pp=document.getElementById('pump-placard-zones');
-  if(pp) pp.innerHTML=_recTileHtml('pump')+_recTileHtml('placard');
+  if(pp) pp.innerHTML=_evTileHtml('pump')+_evTileHtml('placard')+_evTileHtml('flow');
+  var pp2=document.getElementById('pump-placard-zones-4b');
+  if(pp2) pp2.innerHTML=_evTileHtml('pump')+_evTileHtml('placard')+_evTileHtml('flow-pld');
 }
 // Placard OCR — wired in the next build. Placeholder keeps the button honest.
 function _placardScan(){
