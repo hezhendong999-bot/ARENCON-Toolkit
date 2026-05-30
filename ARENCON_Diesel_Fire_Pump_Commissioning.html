@@ -1000,6 +1000,12 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
           <div class="meta-field"><label>Pump Rated Speed (RPM)</label><input type="number" id="pm-rpm" placeholder="e.g. 2500" style="width:100%;" oninput="updateChart()"></div>
           <div class="meta-field"><label>PRV Rating (psi)</label><input type="number" id="pm-prv" placeholder="e.g. 175" style="width:100%;" oninput="updateChart()"></div>
         </div>
+        <!-- Pump & Placard photos — feed the rated data above -->
+        <div style="margin-top:14px;">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--silver);display:block;margin-bottom:6px;">Pump &amp; Placard Photos</label>
+          <p style="font-size:calc(11.5px + var(--ts));color:var(--steel);margin:0 0 8px;">Capture the pump unit and its rating placard. These also back up to the photo gallery.</p>
+          <div id="pump-placard-zones" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;"></div>
+        </div>
       </div>
     </div>
 
@@ -1451,9 +1457,9 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
   <div class="panel" id="panel-photos">
     <div class="section-title">📷 All Project Photos</div>
     <div class="card">
-      <div class="card-header">Site Records</div>
+      <div class="card-header">General Site Records</div>
       <div class="card-body">
-        <p style="font-size:calc(12.5px + var(--ts));color:var(--steel);margin-bottom:12px;">Capture record photos of the pump, its placard, and the general site. The placard photo will support automatic pump-data entry.</p>
+        <p style="font-size:calc(12.5px + var(--ts));color:var(--steel);margin-bottom:12px;">General record photos of the site. Pump &amp; placard photos are captured in section 4a and also appear in the gallery below.</p>
         <div id="record-zones" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;"></div>
       </div>
     </div>
@@ -4104,6 +4110,7 @@ function switchPanel(id) {
         if(chart3pt) chart3pt.resize();
       });
       setTimeout(fixStickyColumns,100);
+      if(typeof _renderRecordZones==='function') _renderRecordZones();
     }
     if (id === 's4pld') {
       if (!_tabRendered.s4pld) { renderPldTable(); renderPldPumpCurveTable(); _tabRendered.s4pld = true; }
@@ -7416,33 +7423,38 @@ var _REC_KINDS = [
   ['placard','Placard Photo','🏷','Nameplate / rating placard'],
   ['site','General Records','📁','Any other site record photo']
 ];
+function _recZoneHtml(kind){
+  var def=null; _REC_KINDS.forEach(function(k){ if(k[0]===kind) def=k; });
+  if(!def) return '';
+  var title=def[1], icon=def[2], hint=def[3];
+  var thumbs=(recordPhotos||[]).map(function(p,i){return {p:p,i:i};}).filter(function(o){return (o.p.kind||'site')===kind;});
+  var html='<div style="border:1.5px solid var(--border);border-radius:9px;padding:11px;background:#fff;">';
+  html+='<div style="font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:7px;display:flex;align-items:center;gap:6px;">'+icon+' '+title+'</div>';
+  html+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
+  html+='<span>Drag &amp; drop · '+hint+'</span>';
+  html+='<button class="pz-upload" onclick="_recUpload(\''+kind+'\')">📎 Upload</button>';
+  html+='<button class="pz-camera" onclick="_recCamera(\''+kind+'\')" style="background:var(--arencon);color:#fff;border-color:var(--arencon);">📷 Camera</button>';
+  html+='</div>';
+  if(thumbs.length){
+    html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
+    thumbs.forEach(function(o){
+      html+='<div style="position:relative;width:64px;height:64px;border-radius:6px;overflow:hidden;border:1.5px solid var(--border);">'
+        +'<img src="'+(o.p.r2Url||o.p.d)+'" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="_recLightbox('+o.i+')">'
+        +'<button onclick="_recDelete('+o.i+')" title="Remove" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;padding:0;cursor:pointer;">✕</button>'
+        +'</div>';
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  return html;
+}
 function _renderRecordZones(){
+  // Photos tab: general site records only
   var host=document.getElementById('record-zones');
-  if(!host) return;
-  var html='';
-  _REC_KINDS.forEach(function(k){
-    var kind=k[0], title=k[1], icon=k[2], hint=k[3];
-    var thumbs=(recordPhotos||[]).map(function(p,i){return {p:p,i:i};}).filter(function(o){return (o.p.kind||'site')===kind;});
-    html+='<div style="border:1.5px solid var(--border);border-radius:9px;padding:11px;background:#fff;">';
-    html+='<div style="font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:7px;display:flex;align-items:center;gap:6px;">'+icon+' '+title+'</div>';
-    html+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
-    html+='<span>Drag &amp; drop · '+hint+'</span>';
-    html+='<button class="pz-upload" onclick="_recUpload(\''+kind+'\')">📎 Upload</button>';
-    html+='<button class="pz-camera" onclick="_recCamera(\''+kind+'\')" style="background:var(--arencon);color:#fff;border-color:var(--arencon);">📷 Camera</button>';
-    html+='</div>';
-    if(thumbs.length){
-      html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
-      thumbs.forEach(function(o){
-        html+='<div style="position:relative;width:64px;height:64px;border-radius:6px;overflow:hidden;border:1.5px solid var(--border);">'
-          +'<img src="'+(o.p.r2Url||o.p.d)+'" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="_recLightbox('+o.i+')">'
-          +'<button onclick="_recDelete('+o.i+')" title="Remove" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;padding:0;cursor:pointer;">✕</button>'
-          +'</div>';
-      });
-      html+='</div>';
-    }
-    html+='</div>';
-  });
-  host.innerHTML=html;
+  if(host) host.innerHTML=_recZoneHtml('site');
+  // 4a Test Setup: pump + placard capture
+  var pp=document.getElementById('pump-placard-zones');
+  if(pp) pp.innerHTML=_recZoneHtml('pump')+_recZoneHtml('placard');
 }
 function _recAddFile(file, kind){
   if(!file || !file.type || file.type.indexOf('image/')!==0) return;
