@@ -182,7 +182,12 @@ export var initPhotos = {
         effective.forEach(function(ph, phi) {
           var mk = (Model.getObsPhotoMarkup) ? Model.getObsPhotoMarkup(defic, oi, ph.id) : null;
           var dk = _dayKey(ph, defic);
-          var obsLetter = multiObs ? ' \u00b7 Obs ' + String.fromCharCode(65 + oi) : '';
+          // S210 (Mark): compact gallery badge — a photo on several pins stacked
+          // the full "Pin N · Obs X" pills top-right and covered the image. Drop
+          // the words: number + thin-dot + obs letter (e.g. "12·A"); single-obs
+          // pins show just the number ("12"). Keeps every reference visible while
+          // the pills stay tiny. Site photos keep their "Site" text (set above).
+          var obsLetter = multiObs ? '\u00b7' + String.fromCharCode(65 + oi) : '';
           records.push({
             type: 'defic',
             deficId: defic.id,
@@ -192,7 +197,7 @@ export var initPhotos = {
             photoIdx: phi,
             ph: ph,
             src: (mk && mk.markedR2Key) || ph.r2Url || ph.dataUrl || '',
-            badgeText: 'Pin ' + defic.num + obsLetter,
+            badgeText: '' + defic.num + obsLetter,
             badgeClass: badgeCls,
             dateKey: dk.key, dateLabel: dk.label,
             sortGroup: [1, defic.num, oi, phi]

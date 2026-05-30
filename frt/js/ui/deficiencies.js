@@ -917,20 +917,14 @@ function _buildPinGroupCard(d, ctrId) {
     h += '</div>';
   }
 
-  // S122 Push 6 (Piece D) — "View all photos" carousel button. Opens lightbox
-  // with ALL of the pin's photos (pin pool + activity entries) so you can
-  // swipe through them as one collection. Only render when there are 2+
-  // photos, since a single photo doesn't need a carousel entry point.
-  var _allPhotoCount = (d.photos || []).length;
-  (d.activity || []).forEach(function(a) { if (a.photos) _allPhotoCount += a.photos.length; });
+  // S210 (Mark): "View all photos" removed from both surfaces. Tapping any
+  // photo opens the lightbox scoped to that deficiency's photos with swipe
+  // (open-lightbox), so the dedicated carousel button is redundant.
 
-  // footer action row (+ Response, + Comment, View all photos, Close all/Reopen all, Remove pin, ⋯ menu)
+  // footer action row (+ Response, + Comment, Close all/Reopen all, Remove pin, ⋯ menu)
   h += '<div class="defic-actions">';
   h += '<button class="defic-act-btn act-response" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="Contractor Response">+ Contractor Response</button>';
   h += '<button class="defic-act-btn act-comment" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="ARENCON">+ ARENCON Comment</button>';
-  if (_allPhotoCount >= 2) {
-    h += '<button class="defic-act-btn act-photos" data-action="view-all-photos" data-defic-id="' + esc(d.id) + '" title="View all photos in lightbox carousel">\uD83D\uDCF7 View all photos (' + _allPhotoCount + ')</button>';
-  }
   if (isOpen) {
     h += '<button class="defic-act-btn act-close" data-action="close-defic" data-defic-id="' + esc(d.id) + '">\u2714 Close all</button>';
   } else {
@@ -2045,7 +2039,8 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   }
   h += '<button class="dfx-or-act" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="Contractor Response" data-obs-ref="' + _obsLetter + '">+ Response</button>';
   h += '<button class="dfx-or-act" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="ARENCON" data-obs-ref="' + _obsLetter + '">+ Comment</button>';
-  h += '<button class="dfx-or-act" data-action="view-all-photos" data-defic-id="' + esc(d.id) + '" title="View all photos in lightbox">\uD83D\uDCF7 View all</button>';
+  // S210 (Mark): "View all" removed — tapping a photo already opens the
+  // lightbox scoped to this deficiency's photos with swipe (open-lightbox).
   h += '<button class="dfx-or-act" data-action="reassign-defic" data-defic-id="' + esc(d.id) + '" title="Move to another section / contractor">\u21C4 Move</button>';
   if (multi) {
     h += '<button class="dfx-or-act" data-action="spinoff-obs" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Spin this observation off as its own pin">\u21B1 Spinoff</button>';
@@ -3604,19 +3599,28 @@ document.addEventListener('click', function(e) {
   //   moved it" failure mode that was the source of the duplicate-pin bug.
   if (action === 'view-pin') {
     var deficId = el.getAttribute('data-defic-id');
-    // S151 (Mark): remember we came FROM the focused-pin modal so the
-    // drawing viewer can offer a "← Back to pin #N" return. Only set when
-    // the focus panel is actually open (i.e. this is a jump, not a plain
-    // list "view on drawing"); cleared by the viewer when it closes any
-    // other way so it never goes stale. Single-route, no nav-stack.
+    // S151 (Mark): remember we came FROM the focused-pin modal so the drawing
+    // viewer can offer a "← Back to pin #N" return. S210 (Mark) extends this:
+    // also arm the return when the jump starts from the Detailed list row, and
+    // remember WHICH observation row, so "← Back" lands on the exact row the
+    // user launched from — not just the tab, and not a modal popping over it.
+    // Cleared by the viewer when it closes any other way so it never goes
+    // stale. Single remembered origin, no nav-stack.
     var _wasFocused = !!document.getElementById('pinfocus-overlay');
-    if (_wasFocused && window._frtSetReturnPin) {
-      // S151 followup (Mark): also remember which tab the jump started
-      // from (Board/Table/Detailed) so "← Back to pin" returns there, not
-      // stranded on Drawings (where _frtNavigateToPin switches to).
-      var _origTabEl = document.querySelector('.nav-tab.active');
-      var _origTab = _origTabEl ? _origTabEl.getAttribute('data-tab') : null;
-      window._frtSetReturnPin(deficId, _origTab);
+    var _origTabEl = document.querySelector('.nav-tab.active');
+    var _origTab = _origTabEl ? _origTabEl.getAttribute('data-tab') : null;
+    // obs index is only meaningful on the Detailed obs-row button; other
+    // view-pin entry points (pill, minimap, focus modal) omit it → default 0.
+    var _origObsAttr = el.getAttribute('data-obs-idx');
+    var _origObsIdx = (_origObsAttr != null && _origObsAttr !== '') ? parseInt(_origObsAttr, 10) : null;
+    // Launched from the Detailed list (not the focus modal) when the focus
+    // overlay is closed AND we're on the Deficiencies tab in Detailed view.
+    var _fromDetailed = !_wasFocused && _origTab === 'deficiencies' && _deficView === 'detailed';
+    if ((_wasFocused || _fromDetailed) && window._frtSetReturnPin) {
+      window._frtSetReturnPin(deficId, _origTab, {
+        obsIdx: _origObsIdx,
+        toRow: _fromDetailed   // true → return to the Detailed row; false → reopen focus modal
+      });
     }
     _closePinFocus(); // S142 B4-3: drop the focus panel when jumping to the drawing
     if (window._frtNavigateToPin) {
@@ -3664,21 +3668,11 @@ document.addEventListener('click', function(e) {
     });
   }
 
-  // S122 Push 6 (Piece D) — view all photos carousel. Collects pin pool
-  // (defic.photos[]) + activity entry photos into one array for the lightbox
-  // so users can swipe through everything in one session.
+  // S210 (Mark): "View all photos" button removed from both surfaces. Handler
+  // kept defined-but-inert (S137 discipline) so a stray cached data-action never
+  // dispatches into nothing. Per-photo open-lightbox is the only entry point now.
   if (action === 'view-all-photos') {
-    var deficId = el.getAttribute('data-defic-id');
-    var f = Model.findDeficiency(deficId);
-    if (!f) return;
-    var dd = f.defic;
-    var allPhotos = (dd.photos || []).slice();
-    (dd.activity || []).forEach(function(a) {
-      if (a.photos) a.photos.forEach(function(ph) { allPhotos.push(ph); });
-    });
-    if (allPhotos.length && window._frtLightbox && window._frtLightbox.open) {
-      window._frtLightbox.open(allPhotos, 0);
-    }
+    return;
   }
 
   if (action === 'open-lightbox') {
@@ -4925,4 +4919,33 @@ window._frtRenderDefic = function() { initDeficiencies.render(); };
 // chip reopen the focused-pin modal the user jumped FROM. Pairs with
 // _frtSetReturnPin / _frtClearReturnPin in viewer.js. Not a nav-stack.
 window._frtOpenPinFocus = function(deficId) { _openPinFocus(deficId); };
+
+// S210 (Mark): exact-row return for the drawing viewer's "← Back to pin #N"
+// chip when the jump began on the Detailed list. Lands the user back on the
+// EXACT observation row they launched from — Detailed view, that obs row
+// expanded and scrolled into view — rather than a focus modal popping over
+// the list. obsIdx null/absent → just scroll to the pin's card (no specific
+// row expanded). Mirrors _dfxGotoPin's render+scroll pattern.
+window._frtOpenDetailedRow = function(deficId, obsIdx) {
+  if (!deficId) return;
+  _deficView = 'detailed';
+  // Expand the target observation row BEFORE rendering so it paints open
+  // (expand-one-at-a-time state). Only when an obs index was captured.
+  if (obsIdx != null && !isNaN(obsIdx) && typeof _obsKey === 'function') {
+    _openObsKey = _obsKey(deficId, obsIdx);
+  }
+  initDeficiencies.render();
+  setTimeout(function() {
+    var escId = (window.CSS && CSS.escape) ? CSS.escape(deficId) : deficId;
+    var row = (obsIdx != null && !isNaN(obsIdx))
+      ? document.querySelector('#deficiencies-container .dfx-obsrow[data-defic-id="' + escId + '"][data-obs-idx="' + obsIdx + '"]')
+      : null;
+    var target = row || document.querySelector('#deficiencies-container [data-defic-id="' + escId + '"]');
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('dfx-flash');
+      setTimeout(function() { target.classList.remove('dfx-flash'); }, 1400);
+    }
+  }, 60);
+};
 

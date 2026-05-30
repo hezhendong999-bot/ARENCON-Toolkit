@@ -3807,6 +3807,8 @@ window._frtNavigateToPin = function(deficId) {
 // (see initViewer.close) so it can never go stale or point nowhere.
 var _frtReturnPinId = null;
 var _frtReturnTab = null;   // S151 followup: tab the jump started from
+var _frtReturnObsIdx = null; // S210: obs row to return to (Detailed launch)
+var _frtReturnToRow = false; // S210: true → return to the Detailed row, not the focus modal
 
 function _frtRenderReturnChip() {
   var existing = document.getElementById('dv-return-pin');
@@ -3833,9 +3835,15 @@ function _frtRenderReturnChip() {
 }
 
 // Public hooks used by the deficiencies view-pin handler + close().
-window._frtSetReturnPin = function(deficId, originTab) {
+// S210 (Mark): opts = { obsIdx, toRow }. When toRow is true the chip returns
+// to the exact Detailed observation row the jump launched from; otherwise it
+// reopens the focused-pin modal (the original S151 behaviour). Back-compatible:
+// callers that pass no opts (older code paths) get the S151 modal return.
+window._frtSetReturnPin = function(deficId, originTab, opts) {
   _frtReturnPinId = deficId || null;
   _frtReturnTab = originTab || null;
+  _frtReturnObsIdx = (opts && opts.obsIdx != null) ? opts.obsIdx : null;
+  _frtReturnToRow = !!(opts && opts.toRow);
   // The viewer opens slightly after this is set; render once it settles,
   // matching the same 600ms the pin-highlight uses in _frtNavigateToPin.
   setTimeout(_frtRenderReturnChip, 650);
@@ -3843,29 +3851,38 @@ window._frtSetReturnPin = function(deficId, originTab) {
 window._frtClearReturnPin = function() {
   _frtReturnPinId = null;
   _frtReturnTab = null;
+  _frtReturnObsIdx = null;
+  _frtReturnToRow = false;
   var c = document.getElementById('dv-return-pin');
   if (c) c.remove();
 };
 
-// Tapping the chip: close the viewer, then reopen the focused pin. The
-// reopen is deferred so it lands after the viewer's own close teardown
-// (which also clears _frtReturnPinId — capture the id first).
+// Tapping the chip: close the viewer, then return to where the jump began.
+// S210 (Mark): if the jump launched from the Detailed list, return to that
+// exact observation row (Detailed view, row expanded + scrolled). Otherwise
+// keep the S151 behaviour and reopen the focused-pin modal. The reopen is
+// deferred so it lands after the viewer's own close teardown (which also
+// clears the return state — capture everything first).
 document.addEventListener('click', function(e) {
   var chip = e.target.closest && e.target.closest('#dv-return-pin');
   if (!chip) return;
   var pid = chip.getAttribute('data-defic-id');
-  // Capture BEFORE close() — close() clears _frtReturnPinId/_frtReturnTab.
+  // Capture BEFORE close() — close() clears the return state.
   var backTab = _frtReturnTab;
+  var backObsIdx = _frtReturnObsIdx;
+  var toRow = _frtReturnToRow;
   initViewer.close();
   // S151 followup (Mark): restore the tab the jump began on (Board/Table/
-  // Detailed) so the reopened focused-pin modal sits over THAT tab, not
-  // Drawings. Reuse the app's own nav-tab click so behaviour is identical
-  // to the user tapping the tab — no duplicated tab logic.
+  // Detailed) so the return lands over THAT tab, not Drawings. Reuse the
+  // app's own nav-tab click so behaviour is identical to the user tapping it.
   if (backTab) {
     var tabEl = document.querySelector('.nav-tab[data-tab="' + backTab + '"]');
     if (tabEl) tabEl.click();
   }
-  if (pid && window._frtOpenPinFocus) {
+  if (pid && toRow && window._frtOpenDetailedRow) {
+    // Exact-row return — Detailed view, that obs row expanded + scrolled.
+    setTimeout(function() { window._frtOpenDetailedRow(pid, backObsIdx); }, 60);
+  } else if (pid && window._frtOpenPinFocus) {
     setTimeout(function() { window._frtOpenPinFocus(pid); }, 60);
   }
 });

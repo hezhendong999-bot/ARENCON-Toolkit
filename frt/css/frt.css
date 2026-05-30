@@ -2088,7 +2088,7 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-card.selected .ph-check{display:block;}
 @media(pointer:coarse){.ph-check{display:block;}}
 /* P1.5: badge color = priority. Pin (high)=red, Pin (low)=orange, Pin (general)=green. Site=green. */
-.ph-badge{position:absolute;top:6px;right:6px;padding:3px 9px;color:white;border-radius:11px;font-size:11px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.2px;box-shadow:0 1px 4px rgba(0,0,0,.45);z-index:2;line-height:1.3;background:#A85959;}
+.ph-badge{position:absolute;top:6px;right:6px;padding:2px 7px;color:white;border-radius:9px;font-size:11px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.2px;box-shadow:0 1px 4px rgba(0,0,0,.45);z-index:2;line-height:1.25;background:#A85959;}
 .ph-badge-pin-high{background:#A85959;}
 .ph-badge-pin-low{background:#B07F5A;}
 .ph-badge-pin-gen{background:#5F8068;}
