@@ -1844,21 +1844,26 @@ function _obsKey(deficId, oi) { return String(deficId) + ':' + oi; }
 
 // Combined status descriptor for an observation. site=true forces the
 // indigo Site Record treatment regardless of addressed/priority.
-function _obsStatusInfo(o, site) {
+function _obsStatusInfo(o, site, d) {
   if (site) return { val: 'site', txt: 'Site Record', cls: 'dfx-cs-site' };
   if (o && o.addressed) return { val: 'closed', txt: 'Closed', cls: 'dfx-cs-closed' };
-  var pri = (o && o.priority) || 'low';
-  if (pri === 'high') return { val: 'high', txt: 'Outstanding', cls: 'dfx-cs-high' };
-  // low + general both render as the amber Outstanding (the report has no
-  // separate "general" pill; general maps to the low/amber treatment).
-  return { val: 'low', txt: 'Outstanding', cls: 'dfx-cs-low' };
+  // Resolve priority the SAME way the rest of the tool does: per-obs value,
+  // else the pin's priority, else 'high'. (A bare o.priority||'low' default
+  // was wrong — an obs with no own priority inherits the pin's, and the
+  // tool-wide default is 'high', so the chip must match.)
+  var pri = (o && o.priority) || (d && d.priority) || 'high';
+  if (pri === 'low') return { val: 'low', txt: 'Outstanding', cls: 'dfx-cs-low' };
+  // high + general both render as the report's high/low buckets — general
+  // has no separate pill; it maps to the amber (low) treatment.
+  if (pri === 'general') return { val: 'low', txt: 'Outstanding', cls: 'dfx-cs-low' };
+  return { val: 'high', txt: 'Outstanding', cls: 'dfx-cs-high' };
 }
 
 // The combined priority+status control (editor). One <select> replacing
 // the old separate priority select + Outstanding toggle. Writes both
 // obs.priority and obs.addressed via the obs-status change handler.
 function _obsStatusSelect(d, oi, o) {
-  var info = _obsStatusInfo(o, false);
+  var info = _obsStatusInfo(o, false, d);
   var h = '<select data-action="obs-status" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="dfx-status-sel ' + info.cls + '" title="Priority &amp; status">';
   var opts = [
     { v: 'high', t: 'Outstanding \u2014 High' },
@@ -1890,7 +1895,7 @@ function _buildObsRow(d, oi, ctrId, opts) {
   var pal = (!isSite && ctrName) ? getContractorColor(ctrName) : null;
   var accent = pal ? pal.accent : '#6B7280';
 
-  var info = _obsStatusInfo(o, isSite);
+  var info = _obsStatusInfo(o, isSite, d);
   var isRec = !!o.isRecommendation;
   var key = _obsKey(d.id, oi);
   var open = (_openObsKey === key);
@@ -1913,10 +1918,10 @@ function _buildObsRow(d, oi, ctrId, opts) {
   // _recHoldUntilNav mis-tap-undo is preserved.
   h += '<button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="dfx-or-star' + (isRec ? ' on' : '') + '" aria-pressed="' + (isRec ? 'true' : 'false') + '" title="' + (isRec ? 'Recommendation \u2014 click to revert' : 'Mark as recommendation') + '">' + (isRec ? '\u2605' : '\u2606') + '</button>';
   h += '<span class="dfx-or-id" style="background:' + esc(accent) + '">' + esc(label) + '</span>';
+  h += '<span class="dfx-or-thumb">' + (thumbSrc ? ('<img src="' + esc(thumbSrc) + '" loading="lazy" alt="">') : '\uD83D\uDCF7') + (pcount ? ('<span class="dfx-or-pc">' + pcount + '</span>') : '') + '</span>';
   h += '<span class="dfx-or-mid"><span class="dfx-or-title">' + esc(o.text || deficDesc(d) || '\u2014') + '</span>';
   h += '<span class="dfx-or-meta">' + metaName + '</span></span>';
   h += '<span class="dfx-or-chip ' + info.cls + '">' + info.txt + '</span>';
-  h += '<span class="dfx-or-thumb">' + (thumbSrc ? ('<img src="' + esc(thumbSrc) + '" loading="lazy" alt="">') : '\uD83D\uDCF7') + (pcount ? ('<span class="dfx-or-pc">' + pcount + '</span>') : '') + '</span>';
   h += '<span class="dfx-or-caret">\u25BC</span>';
   h += '</div>'; // /head
   if (open) h += _buildObsEditor(d, oi, ctrId, opts);

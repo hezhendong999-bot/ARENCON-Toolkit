@@ -7433,10 +7433,10 @@ body.dark-mode .dfx-obsrow { background: #1E222A; border-color: #353B45; }
 }
 .dfx-or-star.on { color: #D4A017; }
 .dfx-or-id {
-  flex-shrink: 0; min-width: 38px; height: 38px; border-radius: 8px;
+  flex-shrink: 0; min-width: 38px; height: 30px; border-radius: 15px;
   display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: calc(14px + var(--ts)); color: #fff;
-  letter-spacing: .3px; padding: 0 7px;
+  font-weight: 700; font-size: calc(13px + var(--ts)); color: #fff;
+  letter-spacing: .3px; padding: 0 11px;
 }
 .dfx-or-mid { flex: 1; min-width: 0; }
 .dfx-or-title {
