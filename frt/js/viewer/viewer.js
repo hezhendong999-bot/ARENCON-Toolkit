@@ -2747,18 +2747,23 @@ var _PinPan = (function() {
     var pp = pinPos();
     var pr = Model.getEffectivePriority(st.d);
     var isClosed = Model.getEffectiveStatus(st.d) === 'closed';
-    var _isSr = !((Model.findDeficiency(st.d.id) || {}).contractor);
+    var _f = Model.findDeficiency(st.d.id);
+    var _hasCtr = !!(_f && _f.contractor) || !!st.d.contractorId || !!st.d.contractor;
+    var _isSr = !_hasCtr;
     var fill = _isSr ? '#6B6FA8' : (st.d.iar ? '#E91E8C' : (pr === 'general' ? '#5F8068' : pr === 'low' ? '#B07F5A' : '#A85959'));
+    var isOutstanding = !isClosed && !st.d.iar;
     var numStr = String(st.d.num != null ? st.d.num : '?');
     var numFs = numStr.length <= 2 ? '14' : numStr.length === 3 ? '11' : '9';
     var pw = st.PW, ph = Math.round(pw * 42 / 32);
-    var alpha = isClosed ? '0.55' : '1';
-    var shadow = (!isClosed && !st.d.iar) ? 'drop-shadow(0 0 3px ' + fill + ') drop-shadow(0 2px 5px rgba(0,0,0,.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,.45))';
+    var alpha = isClosed ? '0.5' : '1';
+    var shadow = isOutstanding ? 'drop-shadow(0 0 3px ' + fill + ') drop-shadow(0 2px 5px rgba(0,0,0,.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,.45))';
+    // NO white outer border (per Mark, repeatedly). Solid teardrop + white
+    // number circle. Do not add an outer white path back.
     layer.innerHTML =
       '<div class="pe-pin-marker" style="position:absolute;left:' + pp.x + 'px;top:' + pp.y + 'px;width:' + pw + 'px;height:' + ph + 'px;transform:translate(-50%,-100%);opacity:' + alpha + ';pointer-events:none;">'
       + '<svg viewBox="0 0 32 42" width="' + pw + '" height="' + ph + '" style="filter:' + shadow + ';overflow:visible;">'
       + '<path d="M16 1C8.3 1 2 7.3 2 15c0 10.5 14 25 14 25s14-14.5 14-25C30 7.3 23.7 1 16 1z" fill="' + fill + '"/>'
-      + '<circle cx="16" cy="14" r="7" fill="white"/>'
+      + '<circle cx="16" cy="14" r="9" fill="white" opacity="0.95"/>'
       + '<text x="16" y="14.5" text-anchor="middle" dominant-baseline="central" font-size="' + numFs + '" font-weight="900" font-family="Calibri,Arial,sans-serif" fill="' + fill + '">' + numStr.replace(/[&<>]/g, '') + '</text>'
       + '</svg></div>';
   }
