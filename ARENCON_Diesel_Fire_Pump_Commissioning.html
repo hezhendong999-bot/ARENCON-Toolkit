@@ -258,6 +258,47 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .ph-icon:hover{background:var(--smoke);color:var(--arencon);}
 .ph-icon.has{color:var(--arencon);}
 .ph-icon .cnt{position:absolute;top:-3px;right:-3px;background:var(--arencon);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;line-height:15px;border-radius:8px;padding:0 3px;}
+/* ══ Flow-test CARD layout (4a 3-point) — muted palette scoped locally (does NOT touch global :root tokens) ══ */
+.fp-banner{font-size:calc(11.5px + var(--ts));color:var(--steel);background:var(--smoke);border:1.5px solid var(--border);border-radius:8px;padding:9px 13px;margin-bottom:14px;line-height:1.5;}
+.fp-banner b{color:var(--slate);}
+.fp-card{border:1.5px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:11px;background:#fff;}
+.fp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 14px;background:var(--smoke);border-bottom:1.5px solid var(--border);}
+.fp-head .pt{font-size:calc(13.5px + var(--ts));font-weight:700;color:var(--slate);}
+.fp-head .pt small{font-weight:600;color:var(--silver);font-size:calc(11px + var(--ts));margin-left:6px;}
+.fp-head .right{display:flex;align-items:center;gap:10px;}
+.fp-verdict{font-size:calc(11.5px + var(--ts));font-weight:700;padding:3px 12px;border-radius:14px;white-space:nowrap;}
+.fp-verdict.pass{background:#E8EFE7;color:#5F8068;}
+.fp-verdict.fail{background:#F3E0DE;color:#A85959;}
+.fp-verdict.na{background:#eef0f4;color:var(--silver);}
+.fp-strip{display:flex;align-items:flex-start;padding:13px 16px;}
+.fp-seg{display:flex;flex-direction:column;gap:8px;flex:1;padding:0 16px;border-right:1.5px solid var(--border);}
+.fp-seg:first-child{padding-left:0;}
+.fp-seg:last-child{border-right:none;padding-right:0;}
+.fp-seg-lbl{font-size:calc(9px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--silver);white-space:nowrap;height:11px;}
+.fp-fields{display:flex;gap:9px;}
+.fp-cell{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0;position:relative;}
+.fp-cell label{font-size:calc(9.5px + var(--ts));font-weight:600;color:var(--steel);white-space:nowrap;height:12px;}
+.fp-cell input,.fp-cell .fp-calc{padding:7px 6px;border-radius:6px;font-size:calc(13px + var(--ts));font-family:inherit;width:100%;text-align:center;border:1.5px solid var(--border);}
+.fp-cell input{color:var(--slate);background:#fff;}
+.fp-cell input:focus{outline:none;border-color:#A85959;}
+.fp-cell.ref input{background:#eef0f4;color:var(--steel);}
+.fp-cell .fp-calc{font-weight:700;background:var(--smoke);color:var(--slate);}
+.fp-cell .fp-calc.adj{color:var(--arencon);background:#faf2f4;border-color:#e8cdd5;}
+.fp-cell .fp-calc.tgt{color:var(--steel);background:#fff;border-style:dashed;}
+.fp-cell .fp-warn{font-size:calc(8.5px + var(--ts));font-weight:700;color:var(--warn);white-space:nowrap;position:absolute;top:100%;left:0;margin-top:2px;}
+.fp-flags{padding:0 16px 12px;display:flex;flex-direction:column;gap:4px;}
+.fp-flag{font-size:calc(10px + var(--ts));font-weight:700;color:var(--warn);line-height:1.3;}
+.fp-cam{background:none;border:none;cursor:pointer;color:var(--steel);padding:4px;position:relative;line-height:0;border-radius:6px;}
+.fp-cam:hover{background:#fff;color:var(--arencon);}
+.fp-cam.has{color:var(--arencon);}
+.fp-cam .cnt{position:absolute;top:-3px;right:-3px;background:var(--arencon);color:#fff;font-size:8.5px;font-weight:700;min-width:14px;height:14px;line-height:14px;border-radius:7px;}
+/* On narrow tablets, let segments wrap rather than crush — keeps inputs tappable */
+@media(max-width:760px){
+  .fp-strip{flex-wrap:wrap;gap:12px 0;}
+  .fp-seg{flex:1 1 45%;border-right:none;border-bottom:1.5px solid var(--border);padding:0 12px 12px;}
+  .fp-seg:nth-child(odd){padding-left:0;}
+  .fp-seg:nth-child(even){padding-right:0;}
+}
 /* flow-point photo popover */
 .fp-overlay{position:fixed;inset:0;background:rgba(28,35,51,.4);display:none;align-items:center;justify-content:center;z-index:10000;padding:18px;}
 .fp-overlay.open{display:flex;}
@@ -1084,8 +1125,9 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
           <div style="padding:16px;">
             <div class="ts-rated">
               <div class="meta-field"><label>Rated Flow (gpm)</label><input type="number" id="pm-rated-flow" placeholder="2000" oninput="autoFillStdFlows()"></div>
-              <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm" placeholder="1760" oninput="updateChart()"></div>
+              <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm" placeholder="1760" oninput="updateChart();if(typeof renderStdTable==='function')renderStdTable();if(typeof renderPldTable==='function')renderPldTable();"></div>
               <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv" placeholder="175" oninput="updateChart()"></div>
+              <div class="meta-field"><label>System Rating (psi)</label><input type="number" id="pm-sysrating" placeholder="175" title="System component pressure rating — for the NFPA 20 §4.7.7.1 churn over-pressure advisory" oninput="if(typeof renderStdTable==='function')renderStdTable()"></div>
             </div>
             <div class="ev-lbl">Photo Evidence</div>
             <div class="ev-tiles" id="pump-placard-zones"></div>
@@ -1116,31 +1158,12 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
       </div>
     </div>
 
-    <!-- Standard pump table -->
+    <!-- Standard pump performance — CARD layout (one card per flow point) -->
     <div class="card" style="margin-top:14px;">
       <div class="card-header mid">Standard Fire Pump Performance (w/o PLD) — 3-Point Test</div>
       <div class="card-body">
-        <div class="tbl-wrap">
-          <table class="data-table sticky-cols" id="std-table">
-            <thead>
-              <tr>
-                <th>Flow %</th>
-                <th>Flow Rating<br>(US gpm)</th>
-                <th>Cutsheet<br>Pressure (psi)</th>
-                <th>Placard<br>Pressure (psi)</th>
-                <th>Suction<br>Pressure (psi)</th>
-                <th>Discharge<br>Pressure (psi)</th>
-                <th>Backflow Up<br>(psi)</th>
-                <th>Backflow Down<br>(psi)</th>
-                <th>Net Pressure<br>(psi) [calc]</th>
-                <th>Pump Speed<br>(RPM)</th>
-                <th>Pass/Fail</th>
-                <th>Photos</th>
-              </tr>
-            </thead>
-            <tbody id="std-tbody"></tbody>
-          </table>
-        </div>
+        <div class="fp-banner" id="std-fp-banner"></div>
+        <div id="std-cards"></div>
       </div>
     </div>
 
@@ -1239,7 +1262,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
           <div style="padding:16px;">
             <div class="ts-rated">
               <div class="meta-field"><label>Rated Flow (gpm)</label><input type="number" id="pm-rated-flow-pld" placeholder="2000" oninput="autoFillPldFlows()"></div>
-              <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm-pld" placeholder="1760"></div>
+              <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm-pld" placeholder="1760" oninput="if(typeof renderPldTable==='function')renderPldTable();"></div>
               <div class="meta-field"><label>PRV Rating (psi)</label><input type="number" id="pm-prv-pld" placeholder="175" oninput="updatePldChart();updatePldNetChart()"></div>
               <div class="meta-field"><label>PLD Setting (psi)</label><input type="number" id="pm-pld-setting" placeholder="175" oninput="updatePldChart()"></div>
             </div>
@@ -2587,30 +2610,98 @@ function autoFillPldFlows() {
   debounceAutosave();
 }
 
+// ── Affinity-law flow-test math (shared by 4a cards) ──
+// Adjusted net = recorded net × (rated RPM / recorded RPM)²  (NFPA affinity pressure law)
+// Pass = adjusted net ≥ 95% × placard (NFPA 25). Hard fails: placard<cutsheet, adjusted<95%placard.
+// Suction<NPSH and backflow<20 and churn over-pressure are ADVISORY flags, not fails.
+function _ratedRpm(){ var v=parseFloat(document.getElementById('pm-rpm') && document.getElementById('pm-rpm').value); return (!isNaN(v)&&v>0)?v:null; }
+function _ratedRpmPld(){ var e=document.getElementById('pm-rpm-pld'); var v=e?parseFloat(e.value):NaN; if(!isNaN(v)&&v>0) return v; return _ratedRpm(); }
+function _sysRating(){ var v=parseFloat(document.getElementById('pm-sysrating') && document.getElementById('pm-sysrating').value); return (!isNaN(v)&&v>0)?v:null; }
+function _calcFlowPoint(row){
+  var suc=parseFloat(row.suction), dis=parseFloat(row.discharge), rpm=parseFloat(row.rpm);
+  var cut=parseFloat(row.cutsheet), plac=parseFloat(row.placard), bf=parseFloat(row.bfUp);
+  var rated=_ratedRpm();
+  var net=(!isNaN(suc)&&!isNaN(dis))?(dis-suc):null;
+  // adjusted net needs recorded rpm AND rated rpm; if no rpm pair, adjusted falls back to recorded
+  var adj=(net!=null&&!isNaN(rpm)&&rpm>0&&rated)?net*Math.pow(rated/rpm,2):net;
+  var thresh=(!isNaN(plac))?plac*0.95:null;
+  var fail=false;
+  if(!isNaN(plac)&&!isNaN(cut)&&plac<cut) fail=true;           // hard: placard below cutsheet
+  if(adj!=null&&thresh!=null&&adj<thresh) fail=true;           // hard: adjusted net below 95% placard
+  // advisory flags (do NOT drive verdict)
+  var flags=[];
+  var npsh=parseFloat(npshPsi);
+  if(!isNaN(suc)&&!isNaN(npsh)&&npsh>0&&suc<npsh) flags.push('Suction &lt; NPSH ('+npsh+' psi) — supply/cavitation concern');
+  if(!isNaN(bf)&&bf<20) flags.push('Backflow upstream &lt; 20 psi');
+  // NFPA 20 §4.7.7.1 churn over-pressure advisory: net churn (this point's net) + max static suction ≤ system rating
+  var sr=_sysRating();
+  if((row.pct==='0%')&&net!=null&&!isNaN(suc)&&sr&&(net+suc)>sr){
+    flags.push('Churn over-pressure: net churn + suction ('+(net+suc).toFixed(0)+' psi) &gt; system rating ('+sr+' psi) — NFPA 20 §4.7.7.1');
+  }
+  var enough=(net!=null&&!isNaN(plac)&&!isNaN(cut));
+  return {net:net, adj:adj, thresh:thresh, fail:fail, flags:flags, verdict:enough?(fail?'fail':'pass'):'na'};
+}
+
 function renderStdTable() {
-  const tbody = document.getElementById('std-tbody');
-  if(!tbody) return;
-  tbody.innerHTML = '';
+  const host = document.getElementById('std-cards');
+  if(!host) return;
+  // banner
+  var rated=_ratedRpm();
+  var bn=document.getElementById('std-fp-banner');
+  if(bn) bn.innerHTML = '<b>Rated speed: '+(rated?rated+' RPM':'set rated RPM above')+'</b> &nbsp;·&nbsp; '
+    + 'Adjusted net = recorded net × (rated ÷ recorded RPM)² &nbsp;·&nbsp; passes when adjusted net ≥ 95% of placard (NFPA 25). '
+    + 'Placard &lt; cutsheet is a hard fail. Suction &lt; NPSH, backflow &lt; 20 psi, and churn over-pressure are advisory flags.';
+  host.innerHTML='';
   stdData.forEach((row, i) => {
-    const tr = document.createElement('tr');
-    tr.id = `std-row-${i}`;
-    tr.innerHTML = `
-      <td><strong>${row.pct}</strong></td>
-      <td><input type="number" value="${i===0?'0':(row.flow||'')}" placeholder="gpm" data-field="flow" data-idx="${i}" data-tbl="std" style="width:70px;${i===0?'background:#eee;color:#555;':''}" ${i===0?'readonly':''} ></td>
-      <td><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="std" style="width:60px"></td>
-      <td><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="std" style="width:60px"></td>
-      <td><input type="number" value="${row.suction||''}" placeholder="psi" data-field="suction" data-idx="${i}" data-tbl="std" style="width:60px"></td>
-      <td><input type="number" value="${row.discharge||''}" placeholder="psi" data-field="discharge" data-idx="${i}" data-tbl="std" style="width:65px"></td>
-      <td><input type="number" value="${row.bfUp||''}" placeholder="psi" data-field="bfUp" data-idx="${i}" data-tbl="std" style="width:60px"></td>
-      <td><input type="number" value="${row.bfDown||''}" placeholder="psi" data-field="bfDown" data-idx="${i}" data-tbl="std" style="width:60px"></td>
-      <td class="calc-cell" id="std-net-${i}">—</td>
-      <td><input type="number" value="${row.rpm||''}" placeholder="RPM" data-field="rpm" data-idx="${i}" data-tbl="std" style="width:70px"></td>
-      <td id="std-pf-${i}">—</td>
-      <td class="ph-cell">${_flowPhotoIcon('std',i)}</td>`;
-    tbody.appendChild(tr);
-    updateStdCalcCells(i);
+    const r=_calcFlowPoint(row);
+    const vtxt=r.verdict==='pass'?'✓ PASS':r.verdict==='fail'?'✗ FAIL':'—';
+    const sucWarn=(!isNaN(parseFloat(row.suction))&&!isNaN(parseFloat(npshPsi))&&parseFloat(npshPsi)>0&&parseFloat(row.suction)<parseFloat(npshPsi))?'<div class="fp-warn">⚠ &lt; NPSH</div>':'';
+    const bfWarn=(!isNaN(parseFloat(row.bfUp))&&parseFloat(row.bfUp)<20)?'<div class="fp-warn">⚠ BF &lt; 20</div>':'';
+    const flagsHtml=r.flags.length?('<div class="fp-flags" id="std-flags-'+i+'">'+r.flags.map(f=>'<div class="fp-flag">⚠ '+f+'</div>').join('')+'</div>'):('<div class="fp-flags" id="std-flags-'+i+'" style="display:none;"></div>');
+    const d=document.createElement('div'); d.className='fp-card'; d.id='std-card-'+i;
+    d.innerHTML=`
+      <div class="fp-head">
+        <div class="pt">${row.pct} Flow <small>${row.label} · ${row.flow!==null&&row.flow!==''?row.flow+' gpm':'— gpm'}</small></div>
+        <div class="right">
+          ${_flowPhotoIcon('std',i)}
+          <span class="fp-verdict ${r.verdict}" id="std-verdict-${i}">${vtxt}</span>
+        </div>
+      </div>
+      <div class="fp-strip">
+        <div class="fp-seg" style="flex:0 0 auto;">
+          <span class="fp-seg-lbl">Reference</span>
+          <div class="fp-fields">
+            <div class="fp-cell ref" style="width:58px;flex:none;"><label>Cutsheet</label><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="std"></div>
+            <div class="fp-cell ref" style="width:58px;flex:none;"><label>Placard</label><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="std"></div>
+          </div>
+        </div>
+        <div class="fp-seg">
+          <span class="fp-seg-lbl">Measured (psi)</span>
+          <div class="fp-fields">
+            <div class="fp-cell"><label>Suction</label><input type="number" value="${row.suction||''}" placeholder="psi" data-field="suction" data-idx="${i}" data-tbl="std">${sucWarn}</div>
+            <div class="fp-cell"><label>Discharge</label><input type="number" value="${row.discharge||''}" placeholder="psi" data-field="discharge" data-idx="${i}" data-tbl="std"></div>
+            <div class="fp-cell"><label>BF Up</label><input type="number" value="${row.bfUp||''}" placeholder="psi" data-field="bfUp" data-idx="${i}" data-tbl="std">${bfWarn}</div>
+            <div class="fp-cell"><label>BF Down</label><input type="number" value="${row.bfDown||''}" placeholder="psi" data-field="bfDown" data-idx="${i}" data-tbl="std"></div>
+          </div>
+        </div>
+        <div class="fp-seg" style="flex:0 0 auto;">
+          <span class="fp-seg-lbl">Speed</span>
+          <div class="fp-fields">
+            <div class="fp-cell" style="width:64px;flex:none;"><label>Rec. RPM</label><input type="number" value="${row.rpm||''}" placeholder="RPM" data-field="rpm" data-idx="${i}" data-tbl="std"></div>
+          </div>
+        </div>
+        <div class="fp-seg">
+          <span class="fp-seg-lbl">Net Pressure (psi)</span>
+          <div class="fp-fields">
+            <div class="fp-cell"><label>Recorded</label><div class="fp-calc" id="std-net-${i}">${r.net!=null?r.net.toFixed(0):'—'}</div></div>
+            <div class="fp-cell"><label>Adjusted</label><div class="fp-calc adj" id="std-adj-${i}">${r.adj!=null?r.adj.toFixed(0):'—'}</div></div>
+            <div class="fp-cell"><label>Min 95%</label><div class="fp-calc tgt" id="std-tgt-${i}">${r.thresh!=null?r.thresh.toFixed(0):'—'}</div></div>
+          </div>
+        </div>
+      </div>
+      ${flagsHtml}`;
+    host.appendChild(d);
   });
-  setTimeout(fixStickyColumns,50);
 }
 
 // Set left offset for 2nd sticky column based on 1st column width
@@ -2648,26 +2739,37 @@ function setNpsh(v){
 }
 function updateStdCalcCells(i) {
   const row = stdData[i];
-  const net = (parseFloat(row.discharge)||0) - (parseFloat(row.suction)||0);
-  const cutsheet = parseFloat(row.cutsheet)||0;
-  const placard = parseFloat(row.placard)||0;
-  var passFail = '—';
-  if(cutsheet && net) {
-    if(placard && placard < cutsheet) passFail = '<span class="fail">✗ FAIL</span>';
-    else passFail = net >= cutsheet*0.95 ? '<span class="pass">✓ PASS</span>' : '<span class="fail">✗ FAIL</span>';
+  if(!row) return;
+  const r = _calcFlowPoint(row);
+  const netEl = document.getElementById('std-net-'+i);
+  const adjEl = document.getElementById('std-adj-'+i);
+  const tgtEl = document.getElementById('std-tgt-'+i);
+  const vEl   = document.getElementById('std-verdict-'+i);
+  const flEl  = document.getElementById('std-flags-'+i);
+  if(netEl) netEl.textContent = r.net!=null ? r.net.toFixed(0) : '—';
+  if(adjEl) adjEl.textContent = r.adj!=null ? r.adj.toFixed(0) : '—';
+  if(tgtEl) tgtEl.textContent = r.thresh!=null ? r.thresh.toFixed(0) : '—';
+  if(vEl){
+    vEl.className = 'fp-verdict '+r.verdict;
+    vEl.textContent = r.verdict==='pass'?'✓ PASS':r.verdict==='fail'?'✗ FAIL':'—';
   }
-  // Advisory warnings (do NOT affect pass/fail)
-  var warns = [];
-  var bfUp = parseFloat(row.bfUp);
-  if(!isNaN(bfUp) && bfUp < 20) warns.push('Backflow &lt; 20 psi');
-  var suc = parseFloat(row.suction);
-  var npsh = parseFloat(npshPsi);
-  if(!isNaN(suc) && !isNaN(npsh) && npsh>0 && suc < npsh) warns.push('Suction &lt; NPSH');
-  var warnHtml = warns.length ? '<div class="flow-warn" title="'+warns.join(' · ')+'">⚠ '+warns.join(' · ')+'</div>' : '';
-  const netEl = document.getElementById(`std-net-${i}`);
-  const pfEl = document.getElementById(`std-pf-${i}`);
-  if(netEl) netEl.textContent = net ? net.toFixed(1) : '—';
-  if(pfEl) pfEl.innerHTML = passFail + warnHtml;
+  if(flEl){
+    if(r.flags.length){ flEl.style.display=''; flEl.innerHTML = r.flags.map(f=>'<div class="fp-flag">⚠ '+f+'</div>').join(''); }
+    else { flEl.style.display='none'; flEl.innerHTML=''; }
+  }
+  // refresh the inline ⚠ markers under suction / BF Up inputs
+  var card=document.getElementById('std-card-'+i);
+  if(card){
+    var npsh=parseFloat(npshPsi), suc=parseFloat(row.suction), bf=parseFloat(row.bfUp);
+    var cells=card.querySelectorAll('.fp-cell');
+    // suction is the 1st cell in the Measured seg (3rd cell overall: cutsheet, placard, suction...)
+    var sucCell=card.querySelector('input[data-field="suction"]');
+    var bfCell=card.querySelector('input[data-field="bfUp"]');
+    if(sucCell){ var w=sucCell.parentNode.querySelector('.fp-warn'); var bad=(!isNaN(suc)&&!isNaN(npsh)&&npsh>0&&suc<npsh);
+      if(bad&&!w){ var dw=document.createElement('div'); dw.className='fp-warn'; dw.innerHTML='⚠ &lt; NPSH'; sucCell.parentNode.appendChild(dw); } else if(!bad&&w){ w.remove(); } }
+    if(bfCell){ var w2=bfCell.parentNode.querySelector('.fp-warn'); var bad2=(!isNaN(bf)&&bf<20);
+      if(bad2&&!w2){ var dw2=document.createElement('div'); dw2.className='fp-warn'; dw2.innerHTML='⚠ BF &lt; 20'; bfCell.parentNode.appendChild(dw2); } else if(!bad2&&w2){ w2.remove(); } }
+  }
 }
 
 // Rows that require w/o PLD testing (0%, 100%, 150% only per NFPA 20)
@@ -2704,29 +2806,39 @@ function renderPldTable() {
   setTimeout(fixStickyColumns,50);
 }
 
-function updatePldCalcCells(i) {
-  const skipNoPLD = PLD_NO_SKIP.has(i);
-  const row = pldData[i];
+// Shared PLD verdict computation — used by on-screen cells AND email export (one source of truth)
+function updatePldVerdictObj(row, i){
+  const skipNoPLD = (typeof PLD_NO_SKIP!=='undefined') && PLD_NO_SKIP.has(i);
   const netNo = skipNoPLD ? null : (parseFloat(row.dis_no)||0)-(parseFloat(row.suc_no)||0);
-  const netW = (parseFloat(row.dis_w)||0)-(parseFloat(row.suc_w)||0);
-  const cutsheet = parseFloat(row.cutsheet)||0;
+  const netW  = (parseFloat(row.dis_w)||0)-(parseFloat(row.suc_w)||0);
+  const cutsheet = parseFloat(row.cutsheet);
+  const placard  = parseFloat(row.placard);
   const checkNet = skipNoPLD ? netW : netNo;
-  const placard = parseFloat(row.placard)||0;
-  var passFail = '\u2014';
-  if(cutsheet && checkNet) {
-    if(placard && placard < cutsheet) passFail = '<span class="fail">\u2717 FAIL</span>';
-    else passFail = checkNet >= cutsheet*0.95 ? '<span class="pass">\u2713 PASS</span>' : '<span class="fail">\u2717 FAIL</span>';
+  const checkRpm = parseFloat(skipNoPLD ? row.rpm_w : row.rpm_no);
+  const rated = _ratedRpmPld();
+  const adjNet = (checkNet && !isNaN(checkRpm) && checkRpm>0 && rated) ? checkNet*Math.pow(rated/checkRpm,2) : checkNet;
+  const thresh = (!isNaN(placard)) ? placard*0.95 : null;
+  var verdict='na';
+  if(!isNaN(cutsheet) && checkNet){
+    if(!isNaN(placard) && placard < cutsheet) verdict='fail';
+    else if(thresh!=null && adjNet!=null) verdict = adjNet>=thresh ? 'pass' : 'fail';
   }
+  return {netNo:netNo, netW:netW, adjNet:adjNet, thresh:thresh, verdict:verdict};
+}
+function updatePldCalcCells(i) {
+  const row = pldData[i];
+  const v = updatePldVerdictObj(row, i);
+  var passFail = v.verdict==='pass' ? '<span class="pass">\u2713 PASS</span>' : v.verdict==='fail' ? '<span class="fail">\u2717 FAIL</span>' : '\u2014';
   const noEl = document.getElementById('pld-net-no-'+i);
   const wEl = document.getElementById('pld-net-w-'+i);
   const pfEl = document.getElementById('pld-pf-'+i);
-  if(noEl && netNo !== null) noEl.textContent = netNo ? netNo.toFixed(1) : '\u2014';
-  else if(noEl && netNo === null) {} // skip rows have no noEl
-  if(wEl) wEl.textContent = netW ? netW.toFixed(1) : '\u2014';
-  // Advisory warnings (do NOT affect pass/fail) — check w/-PLD suction + backflow
+  if(noEl && v.netNo !== null) noEl.textContent = v.netNo ? v.netNo.toFixed(1) : '\u2014';
+  if(wEl) wEl.textContent = v.netW ? v.netW.toFixed(1) : '\u2014';
+  // Advisory warnings (do NOT affect pass/fail)
   var warns = [];
   var bfUp = parseFloat(row.bfUp);
   if(!isNaN(bfUp) && bfUp < 20) warns.push('Backflow &lt; 20 psi');
+  var skipNoPLD = (typeof PLD_NO_SKIP!=='undefined') && PLD_NO_SKIP.has(i);
   var sucCheck = parseFloat(skipNoPLD ? row.suc_w : row.suc_no);
   if(isNaN(sucCheck)) sucCheck = parseFloat(row.suc_w);
   var npsh = parseFloat(npshPsi);
@@ -2786,11 +2898,10 @@ function updateVerdict() {
   // 3. Get TCC selection
   var tccVal = (document.getElementById('test-result')||{}).value || '';
 
-  // 4. Performance check
+  // 4. Performance check — uses the same affinity+placard rule as the on-screen cards
   var perfResults = stdData.map(function(r){
-    var net = (parseFloat(r.discharge)||0) - (parseFloat(r.suction)||0);
-    var cs = parseFloat(r.cutsheet)||0;
-    return (cs && net) ? (net >= cs * 0.95) : null;
+    var c = _calcFlowPoint(r);
+    return (c.verdict==='na') ? null : (c.verdict==='pass');
   }).filter(function(x){ return x !== null; });
 
   // Don't show verdict if nothing entered
@@ -4499,7 +4610,7 @@ function _realExportPDF() {
     if(testType==='std'||testType==='both'){
       out+='<div style="font-size:10pt;font-weight:bold;background:#2C4770;color:white;padding:5px 12px;margin:16px 0 8px;letter-spacing:.3px;border-radius:3px;">Standard Fire Pump Performance (w/o PLD) — 3-Point Test</div>';
       out+='<table class="dt"><thead><tr><th>Flow %</th><th>Flow (gpm)</th><th>Cutsheet (psi)</th><th>Placard (psi)</th><th>Suction (psi)</th><th>Discharge (psi)</th><th>Net (psi)</th><th>RPM</th><th>Result</th></tr></thead><tbody>';
-      stdData.forEach(function(r){var net=(parseFloat(r.discharge)||0)-(parseFloat(r.suction)||0),cs=parseFloat(r.cutsheet)||0,pf=cs&&net?(net>=cs*0.95?'PASS':'FAIL'):'—';out+='<tr><td>'+r.pct+'</td><td>'+(r.flow||'—')+'</td><td>'+(r.cutsheet||'—')+'</td><td>'+(r.placard||'—')+'</td><td>'+(r.suction||'—')+'</td><td>'+(r.discharge||'—')+'</td><td>'+(net?net.toFixed(1):'—')+'</td><td>'+(r.rpm||'—')+'</td><td style="font-weight:700;color:'+(pf==='PASS'?'#1A7A4A':pf==='FAIL'?'#C0392B':'#999')+'">'+pf+'</td></tr>';});
+      stdData.forEach(function(r){var c=_calcFlowPoint(r),net=c.net,pf=c.verdict==='na'?'—':(c.verdict==='pass'?'PASS':'FAIL');out+='<tr><td>'+r.pct+'</td><td>'+(r.flow||'—')+'</td><td>'+(r.cutsheet||'—')+'</td><td>'+(r.placard||'—')+'</td><td>'+(r.suction||'—')+'</td><td>'+(r.discharge||'—')+'</td><td>'+(net!=null?net.toFixed(1):'—')+'</td><td>'+(r.rpm||'—')+'</td><td style="font-weight:700;color:'+(pf==='PASS'?'#5F8068':pf==='FAIL'?'#A85959':'#999')+'">'+pf+'</td></tr>';});
       out+='</tbody></table>';
       // Water Supply & Demand — 3-Point
       out+='<div style="font-size:9.5pt;font-weight:bold;background:#4A5568;color:white;padding:4px 12px;margin:14px 0 6px;border-radius:3px;">Water Supply &amp; Demand Data (3-Point)</div>';
@@ -4521,7 +4632,7 @@ function _realExportPDF() {
     if(testType==='pld'||testType==='both'){
       out+='<div style="font-size:10pt;font-weight:bold;background:#2C4770;color:white;padding:5px 12px;margin:16px 0 8px;letter-spacing:.3px;border-radius:3px;">7-Point Performance Test — Fire Pump with PLD</div>';
       out+='<table class="dt"><thead><tr><th>Flow %</th><th>Flow (gpm)</th><th>Cutsheet (psi)</th><th>Placard (psi)</th><th colspan="2">w/o PRV &amp; PLD</th><th>RPM</th><th colspan="2">w/ PLD Enabled</th><th>RPM</th><th>Pass/Fail</th></tr><tr><th></th><th></th><th></th><th></th><th>Suction</th><th>Discharge</th><th></th><th>Suction</th><th>Discharge</th><th></th><th></th></tr></thead><tbody>';
-      (typeof pldData!=='undefined'?pldData:[]).forEach(function(r){var net=(parseFloat(r.discharge)||0)-(parseFloat(r.suction)||0),cs=parseFloat(r.cutsheet)||0,pf=cs&&net?(net>=cs*0.95?'PASS':'FAIL'):'—';out+='<tr><td>'+r.pct+'</td><td>'+(r.flow||'—')+'</td><td>'+(r.cutsheet||'—')+'</td><td>'+(r.placard||'—')+'</td><td>'+(r.suction||'—')+'</td><td>'+(r.discharge||'—')+'</td><td>'+(r.rpm||'—')+'</td><td>'+(r.pldSuction||'—')+'</td><td>'+(r.pldDischarge||'—')+'</td><td>'+(r.pldRpm||'—')+'</td><td style="font-weight:700;color:'+(pf==='PASS'?'#1A7A4A':pf==='FAIL'?'#C0392B':'#999')+'">'+pf+'</td></tr>';});
+      (typeof pldData!=='undefined'?pldData:[]).forEach(function(r,ri){var skip=(typeof PLD_NO_SKIP!=='undefined'&&PLD_NO_SKIP.has(ri));var c=updatePldVerdictObj?updatePldVerdictObj(r,ri):null;var pf=c?(c.verdict==='na'?'—':(c.verdict==='pass'?'PASS':'FAIL')):'—';out+='<tr><td>'+r.pct+'</td><td>'+(r.flow||'—')+'</td><td>'+(r.cutsheet||'—')+'</td><td>'+(r.placard||'—')+'</td><td>'+(skip?'—':(r.suc_no||'—'))+'</td><td>'+(skip?'—':(r.dis_no||'—'))+'</td><td>'+(skip?'—':(r.rpm_no||'—'))+'</td><td>'+(r.suc_w||'—')+'</td><td>'+(r.dis_w||'—')+'</td><td>'+(r.rpm_w||'—')+'</td><td style="font-weight:700;color:'+(pf==='PASS'?'#5F8068':pf==='FAIL'?'#A85959':'#999')+'">'+pf+'</td></tr>';});
       out+='</tbody></table>';
       // Water Supply & Demand — PLD
       out+='<div style="font-size:9.5pt;font-weight:bold;background:#4A5568;color:white;padding:4px 12px;margin:14px 0 6px;border-radius:3px;">Water Supply &amp; Demand Data (7-Point PLD)</div>';
@@ -4598,8 +4709,8 @@ function _realExportPDF() {
   })()}
   ${(()=>{
     const results = stdData.map(r => {
-      const net=(parseFloat(r.discharge)||0)-(parseFloat(r.suction)||0), cs=parseFloat(r.cutsheet)||0;
-      return (cs&&net) ? (net>=cs*0.95) : null;
+      const c=_calcFlowPoint(r);
+      return (c.verdict==='na') ? null : (c.verdict==='pass');
     }).filter(x=>x!==null);
     const allDefs = contractors.flatMap(n=>deficiencies[n]||[]).concat(generalDeficiencies);
     const openIAR = allDefs.some(d=>d.iarStatus && d.status!=='resolved');
