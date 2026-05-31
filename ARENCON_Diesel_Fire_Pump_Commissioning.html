@@ -1485,9 +1485,10 @@ function updatePhaseFlags(){
           <div style="padding:16px;">
             <div class="ts-rated">
               <div class="meta-field"><label>Rated Flow (gpm)</label><input type="number" id="pm-rated-flow" placeholder="2000" oninput="autoFillStdFlows()"></div>
-              <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm" placeholder="1760" oninput="updateChart();if(typeof renderStdTable==='function')renderStdTable();if(typeof renderPldTable==='function')renderPldTable();"></div>
               <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv" placeholder="175" oninput="updateChart()"></div>
-              <div class="meta-field"><label>System Rating (psi)</label><input type="number" id="pm-sysrating" placeholder="175" title="System component pressure rating — for the NFPA 20 §4.7.7.1 churn over-pressure advisory" oninput="if(typeof renderStdTable==='function')renderStdTable()"></div>
+              <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm" placeholder="1760" oninput="updateChart();if(typeof renderStdTable==='function')renderStdTable();if(typeof renderPldTable==='function')renderPldTable();"></div>
+              <div class="meta-field"><label>Pressure Relief Valve (psi)</label><input type="number" id="pm-relief" placeholder="e.g. 185" title="Circulation/main pressure relief valve set pressure (recorded for the report)"></div>
+              <div class="meta-field"><label>Pressure Reducing Valve (psi)</label><input type="number" id="pm-reducing" placeholder="e.g. 165" title="Pressure reducing valve set pressure (recorded for the report)"></div>
               <div class="meta-field"><label>NPSH (psi)</label><input type="number" id="npsh-psi" placeholder="e.g. 20" title="Net Positive Suction Head — if suction at any flow point falls below this, that point is flagged (advisory, not pass/fail)" oninput="setNpsh(this.value)"></div>
             </div>
             <div class="ev-lbl">Photo Evidence</div>
@@ -1620,8 +1621,10 @@ function updatePhaseFlags(){
           <div style="padding:16px;">
             <div class="ts-rated">
               <div class="meta-field"><label>Rated Flow (gpm)</label><input type="number" id="pm-rated-flow-pld" placeholder="2000" oninput="autoFillPldFlows()"></div>
+              <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv-pld" placeholder="175" oninput="updatePldChart();updatePldNetChart()"></div>
               <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm-pld" placeholder="1760" oninput="if(typeof renderPldTable==='function')renderPldTable();"></div>
-              <div class="meta-field"><label>PRV Rating (psi)</label><input type="number" id="pm-prv-pld" placeholder="175" oninput="updatePldChart();updatePldNetChart()"></div>
+              <div class="meta-field"><label>Pressure Relief Valve (psi)</label><input type="number" id="pm-relief-pld" placeholder="e.g. 185" title="Circulation/main pressure relief valve set pressure (recorded for the report)"></div>
+              <div class="meta-field"><label>Pressure Reducing Valve (psi)</label><input type="number" id="pm-reducing-pld" placeholder="e.g. 165" title="Pressure reducing valve set pressure (recorded for the report)"></div>
               <div class="meta-field"><label>PLD Setting (psi)</label><input type="number" id="pm-pld-setting" placeholder="175" oninput="updatePldChart()"></div>
               <div class="meta-field"><label>NPSH (psi)</label><input type="number" id="npsh-psi-pld" placeholder="e.g. 20" title="Net Positive Suction Head — if suction at any flow point falls below this, that point is flagged (advisory, not pass/fail)" oninput="setNpshPld(this.value)"></div>
             </div>
@@ -5393,10 +5396,19 @@ function _realExportPDF() {
     if(_ri) { testType = _ri.value; }
     else { document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.classList.contains('on')) testType=b.dataset.ptype; }); }
     var gv=function(id){return (document.getElementById(id)||{}).value||'—';};
+    var _isPld = (testType==='pld');
+    var _np = _isPld
+      ? {flow:'pm-rated-flow-pld',press:'pm-prv-pld',rpm:'pm-rpm-pld',relief:'pm-relief-pld',reducing:'pm-reducing-pld',pld:'pm-pld-setting',npsh:'npsh-psi-pld'}
+      : {flow:'pm-rated-flow',press:'pm-prv',rpm:'pm-rpm',relief:'pm-relief',reducing:'pm-reducing',npsh:'npsh-psi'};
     var out='';
     out+='<table class="dt" style="max-width:400px;"><thead><tr><th class="left" style="text-align:left">Parameter</th><th>Value</th></tr></thead><tbody>';
-    out+='<tr><td style="text-align:left">PRV Rating (psi)</td><td>'+gv('pm-prv')+'</td></tr>';
-    out+='<tr><td style="text-align:left">Pump Rated Speed (RPM)</td><td>'+gv('pm-rpm')+'</td></tr>';
+    out+='<tr><td style="text-align:left">Rated Flow (gpm)</td><td>'+gv(_np.flow)+'</td></tr>';
+    out+='<tr><td style="text-align:left">Rated Press. (psi)</td><td>'+gv(_np.press)+'</td></tr>';
+    out+='<tr><td style="text-align:left">Pump Rated Speed (RPM)</td><td>'+gv(_np.rpm)+'</td></tr>';
+    out+='<tr><td style="text-align:left">Pressure Relief Valve (psi)</td><td>'+gv(_np.relief)+'</td></tr>';
+    out+='<tr><td style="text-align:left">Pressure Reducing Valve (psi)</td><td>'+gv(_np.reducing)+'</td></tr>';
+    if(_isPld) out+='<tr><td style="text-align:left">PLD Setting (psi)</td><td>'+gv(_np.pld)+'</td></tr>';
+    out+='<tr><td style="text-align:left">NPSH (psi)</td><td>'+gv(_np.npsh)+'</td></tr>';
     out+='<tr><td style="text-align:left">Equipment Used</td><td>'+(function(){var sel='input[name=equip3a]:checked';if(testType==='pld')sel='input[name=equip4b]:checked';var r=[];document.querySelectorAll(sel).forEach(function(c){var t=c.parentElement.textContent.trim();if(r.indexOf(t)<0)r.push(t)});return r.length?r.join(', '):'—'})()+'</td></tr>';
     out+='<tr><td style="text-align:left">Total Test Flow (US gpm)</td><td>'+(document.getElementById('pitot-total-3a')?.textContent||document.getElementById('pitot-total-4b')?.textContent||'—')+'</td></tr>';
     out+='</tbody></table>';
@@ -7239,6 +7251,7 @@ function collectState() {
   ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date',
    'pi-contractor','pi-version','pi-ref','pi-revision','pi-date-modified',
    'pm-prv','pm-rpm','pm-equip','pm-pitot','pm-pitotflow','pm-rated-flow',
+   'pm-relief','pm-reducing','pm-relief-pld','pm-reducing-pld',
    'pm-pitot-pld','pm-pitotflow-pld','pm-rated-flow-pld',
    'ws-static-flow','ws-static-psi','ws-res-flow','ws-res-psi',
    'dem-spr-flow','dem-spr-psi','dem-hose-flow',
@@ -7683,6 +7696,7 @@ function resetCurrentPage() {
     pldData.forEach(function(r) { r.flow='';r.cutsheet='';r.placard='';r.suc_no='';r.dis_no='';r.rpm_no='';r.suc_w='';r.dis_w='';r.rpm_w=''; });
     // Reset all meta fields
     ['pm-prv','pm-rpm','pm-equip','pm-pitot','pm-pitotflow','pm-rated-flow',
+     'pm-relief','pm-reducing','pm-relief-pld','pm-reducing-pld',
      'pm-prv-pld','pm-pld-setting','pm-rpm-pld','pm-pitot-pld','pm-pitotflow-pld','pm-rated-flow-pld',
      'ws-static-flow','ws-static-psi','ws-res-flow','ws-res-psi','dem-spr-flow','dem-spr-psi','dem-hose-flow',
      'dem-flow','dem-psi',
