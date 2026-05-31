@@ -1144,6 +1144,9 @@ function _refreshDarkButtons(){
   var ptype=_ri?_ri.value:'std';
   if(!_ri){document.querySelectorAll('.pump-type-btns button').forEach(function(b){if(b.classList.contains('on'))ptype=b.dataset.ptype;});}
   if(typeof setPumpTestType==='function') setPumpTestType(ptype);
+  // B3: sketch canvases paint their own background in _skRedraw, so a dark-mode
+  // toggle must repaint every sketch or a stale white/dark fill persists.
+  try { if(typeof _skStrokes!=='undefined'){ Object.keys(_skStrokes).forEach(function(uid){ if(typeof _skRedraw==='function') _skRedraw(uid); }); } } catch(e){}
 }
 initDarkMode();
 // ── Custom modals — callback-based replacements for confirm/prompt/alert ──
@@ -4811,23 +4814,32 @@ function exportAllDeficCSV() {
 // ══════════════════════════════════════════════════
 function initSig(canvasId) {
   const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  // Guard against double-binding when a pad is re-initialised (e.g. on tab show).
+  if(canvas.dataset.sigBound === '1') return;
+  canvas.dataset.sigBound = '1';
   const ctx = canvas.getContext('2d');
   let drawing = false;
-  ctx.strokeStyle = document.body.classList.contains('dark-mode') ? '#ffffff' : '#1C2333'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.lineWidth = 2; ctx.lineCap = 'round';
+  // Ink colour is resolved at STROKE time, not init time, so a pad initialised
+  // in one mode still draws visibly after a dark-mode toggle.
+  const inkColor = () => document.body.classList.contains('dark-mode') ? '#ffffff' : '#1C2333';
 
   const getPos = (e) => {
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    // Guard against a zero-width box (pad init'd while its tab was hidden):
+    // fall back to 1:1 so coordinates are finite and drawing still works.
+    const scaleX = rect.width  ? canvas.width  / rect.width  : 1;
+    const scaleY = rect.height ? canvas.height / rect.height : 1;
     if(e.touches) return { x:(e.touches[0].clientX-rect.left)*scaleX, y:(e.touches[0].clientY-rect.top)*scaleY };
     return { x:(e.clientX-rect.left)*scaleX, y:(e.clientY-rect.top)*scaleY };
   };
 
-  canvas.addEventListener('mousedown', e=>{ drawing=true; const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
+  canvas.addEventListener('mousedown', e=>{ drawing=true; ctx.strokeStyle=inkColor(); const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
   canvas.addEventListener('mousemove', e=>{ if(!drawing) return; const p=getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
   canvas.addEventListener('mouseup', ()=>{ drawing=false; if(canvasId==='sig-canvas' && typeof updateCompletionOverview==='function') updateCompletionOverview(); });
   canvas.addEventListener('mouseleave', ()=>drawing=false);
-  canvas.addEventListener('touchstart', e=>{ e.preventDefault(); drawing=true; const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }, {passive:false});
+  canvas.addEventListener('touchstart', e=>{ e.preventDefault(); drawing=true; ctx.strokeStyle=inkColor(); const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }, {passive:false});
   canvas.addEventListener('touchmove', e=>{ e.preventDefault(); if(!drawing) return; const p=getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); }, {passive:false});
   canvas.addEventListener('touchend', ()=>{ drawing=false; if(canvasId==='sig-canvas' && typeof updateCompletionOverview==='function') updateCompletionOverview(); });
 }
@@ -5056,6 +5068,12 @@ function switchPanel(id) {
     if (id === 's4pld') { /* RETIRED S217: 7-Point merged into the s4 "Performance Test" tab. Inert per S137. */ }
     if (id === 'defic') { renderContractorTags(); renderDeficGroups(); renderGeneralDeficGroup(); updateDeficSummary(); }
     if (id === 'photos') { if(typeof _renderRecordZones==='function') _renderRecordZones(); if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); }
+    if (id === 'sign') {
+      // B1: the consultant pad is bound at boot while this tab is hidden; make
+      // sure it (and any contractor/witness pads) are bound now that they're
+      // laid out and reachable. initSig de-dupes, so this is safe to call again.
+      if(typeof initSig==='function') initSig('sig-canvas');
+    }
   updateNavButtons();
   } catch(err) { console.error('switchPanel chart error:', err); }
 }
@@ -6536,7 +6554,7 @@ if(window.innerWidth <= 768) {
   var mnav = document.getElementById('mobile-page-nav');
   if(mnav) mnav.style.display = 'block';
   updateNavButtons();
-  document.body.style.paddingBottom = '60px';
+  document.body.style.paddingBottom = '84px';
 }
 
 // ══════════════════════════════════════════════════
@@ -8341,7 +8359,7 @@ function _collectAllPhotos(){
     });
   });
   // 6. Site records (pump / placard / site)
-  (recordPhotos||[]).forEach(function(p,i){
+  (typeof recordPhotos==='undefined'?[]:recordPhotos).forEach(function(p,i){
     var kl = p.kind==='pump'?'Pump':p.kind==='placard'?'Placard':'Site';
     all.push({photo:p, type:'record', cat:'records', badge:kl, label:'Record: '+kl, section:'rec_'+(p.kind||'site'), idx:i, src:p.r2Url||p.d});
   });
@@ -8396,7 +8414,7 @@ function _recZoneHtml(kind){
   var def=null; _REC_KINDS.forEach(function(k){ if(k[0]===kind) def=k; });
   if(!def) return '';
   var title=def[1], icon=def[2], hint=def[3];
-  var thumbs=(recordPhotos||[]).map(function(p,i){return {p:p,i:i};}).filter(function(o){return (o.p.kind||'site')===kind;});
+  var thumbs=(typeof recordPhotos==='undefined'?[]:recordPhotos).map(function(p,i){return {p:p,i:i};}).filter(function(o){return (o.p.kind||'site')===kind;});
   var html='<div style="border:1.5px solid var(--border);border-radius:9px;padding:11px;background:#fff;">';
   html+='<div style="font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:7px;display:flex;align-items:center;gap:6px;">'+icon+' '+title+'</div>';
   html+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
@@ -8438,7 +8456,7 @@ function _evTileHtml(kind){
     return '<div class="ev-tile" onclick="'+trig+'" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">'
       +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span></div>';
   }
-  var thumbs=(recordPhotos||[]).map(function(p,i){return {p:p,i:i};}).filter(function(o){return (o.p.kind||'site')===kind;});
+  var thumbs=(typeof recordPhotos==='undefined'?[]:recordPhotos).map(function(p,i){return {p:p,i:i};}).filter(function(o){return (o.p.kind||'site')===kind;});
   if(thumbs.length){
     var o=thumbs[thumbs.length-1];
     return '<div class="ev-tile has-img" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
@@ -8463,7 +8481,7 @@ function _renderRecordZones(){
 }
 // Placard OCR — wired in the next build. Placeholder keeps the button honest.
 function _placardScan(){
-  var has=(recordPhotos||[]).some(function(p){return (p.kind||'')==='placard';});
+  var has=(typeof recordPhotos==='undefined'?[]:recordPhotos).some(function(p){return (p.kind||'')==='placard';});
   if(!has){ showToast('Capture a placard photo first'); return; }
   showToast('Placard scanning is coming in the next update');
 }
@@ -9058,11 +9076,11 @@ document.addEventListener('mouseup', function() {
 </script>
 
   <!-- Mobile page navigation -->
-  <div id="mobile-page-nav" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:100;background:#2C3E50;border-top:3px solid #9C2742;padding:16px;box-shadow:0 -4px 12px rgba(0,0,0,.15);">
+  <div id="mobile-page-nav" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:100;background:#2C3E50;border-top:3px solid #9C2742;padding:16px;box-shadow:0 -4px 12px rgba(0,0,0,.15);pointer-events:none;">
     <div style="display:flex;justify-content:space-between;align-items:center;">
-      <button id="nav-prev" onclick="navPage(-1)" style="padding:12px 24px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">◀ Prev</button>
-      <span id="nav-label" style="font-size:13px;font-weight:600;color:#555;"></span>
-      <button id="nav-next" onclick="navPage(1)" style="padding:12px 24px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">Next ▶</button>
+      <button id="nav-prev" onclick="navPage(-1)" style="pointer-events:auto;padding:12px 24px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">◀ Prev</button>
+      <span id="nav-label" style="pointer-events:none;font-size:13px;font-weight:600;color:#555;"></span>
+      <button id="nav-next" onclick="navPage(1)" style="pointer-events:auto;padding:12px 24px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">Next ▶</button>
     </div>
   </div>
 
