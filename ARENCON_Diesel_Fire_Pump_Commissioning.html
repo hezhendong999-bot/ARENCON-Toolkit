@@ -774,12 +774,24 @@ body.dark-mode .data-table tbody tr:nth-child(even){background:#1e2228!important
 body.dark-mode .data-table tbody tr td{background:inherit!important;color:#c8ccd4!important;}
 body.dark-mode .data-table tr:hover{background:#2a2d38!important;}
 body.dark-mode .data-table tr[style*="background:#fafbfc"] td{background:#1e2028!important;color:#5a6070!important;}
+/* S221: class-based dark coverage for plain data-tables (stylesheet defaults had no dark rule:
+   even-row #FAFBFC, total-row #EFF2F7, result-row #FFF9F9, calc-cell #EFF2F7, white inputs). */
+body.dark-mode .data-table td{color:#cdd6e6;border-bottom-color:#2a3040;}
+body.dark-mode .data-table tr:nth-child(even) td{background:#1e2228!important;}
+body.dark-mode .data-table tr.total-row td{background:#22252d!important;color:#cdd6e6!important;}
+body.dark-mode .data-table tr.result-row td{background:#241c20!important;}
+body.dark-mode .data-table .calc-cell{background:#22252d!important;color:#aeb8cc!important;}
+body.dark-mode .data-table input[type=number],body.dark-mode .data-table input[type=text]{background:#262a33!important;color:#d4d4d4!important;border-color:#3a3e48!important;}
 /* S217 merge: water-supply / demand tables carry inline light backgrounds that survive into the
    merged Performance tab. Force them dark so no cell renders white in dark mode. */
 body.dark-mode .data-table td[style*="background:#f5f5f5"]{background:#1e2228!important;color:#6a7080!important;}
 body.dark-mode .data-table tr[style*="background:#eef4ff"]{background:#1a2838!important;}
 body.dark-mode .data-table tr[style*="background:#eef4ff"] td:not(.calc-cell){background:#1a2838!important;color:#cdd6e6!important;}
 body.dark-mode .data-table input[readonly][style*="background:#eee"]{background:#262a33!important;color:#9aa2b2!important;}
+/* S221: flow-point calculated value cells (.fp-calc divs, not inputs — global input rule misses them). */
+body.dark-mode .fp-cell .fp-calc{background:#22252d!important;color:#cdd6e6!important;border-color:#3a3e48!important;}
+body.dark-mode .fp-cell .fp-calc.adj{background:#2a1c22!important;color:#e7a8ba!important;border-color:#5a3340!important;}
+body.dark-mode .fp-cell .fp-calc.tgt{background:#1e2228!important;color:#aeb8cc!important;border-color:#3a3e48!important;}
 body.dark-mode .np-head{background:#242a36!important;border-bottom-color:#2a3040!important;}
 body.dark-mode .battery-card{border-color:#33373f;}body.dark-mode .battery-card-header{background:#3a1a28;}
 body.dark-mode .battery-table th{background:#282b34;color:#8a90a0;}
@@ -791,10 +803,21 @@ body.dark-mode .cl-item.s-yes{border-left-color:#2a8a4a;}body.dark-mode .cl-item
 body.dark-mode .cl-item.s-na{border-left-color:#4a5060;opacity:.7;}
 body.dark-mode .cl-item:not(.s-yes):not(.s-no):not(.s-na){border-left-color:#a08020;}
 body.dark-mode .item-num{color:#7a8090;}body.dark-mode .item-text{color:#c8ccd4;}
+/* S221: checklist item backgrounds — base item-detail (#FBFCFD) and the s-no light/pink
+   item-main + open detail (#fdf7f7) had no dark override and rendered white. */
+body.dark-mode .item-detail{background:#1a1f29!important;border-top-color:#2a3040!important;}
+body.dark-mode .cl-item.s-no .item-main{background:#2a1c20!important;}
+body.dark-mode .cl-item.s-no .item-detail.open{background:#2a1c20!important;}
+body.dark-mode .detail-label{color:#8a90a0!important;}
 body.dark-mode .comment-input{background:#282b34!important;color:#d4d4d4!important;border-color:#3a3e48!important;}
 body.dark-mode .photo-zone,body.dark-mode .photo-zone-compact,body.dark-mode [style*="border:2px dashed"]{background:#1e2028!important;border-color:#3a3e48!important;color:#6a7080!important;}
 body.dark-mode .photo-zone-compact .pz-upload{background:#2a2e38!important;color:#c0c8d8!important;border-color:#3a3e48!important;}
 body.dark-mode .photo-zone-compact .pz-camera{background:#15633c!important;border-color:#15633c!important;}
+body.dark-mode .ev-tile{background:#1e2028!important;border-color:#3a3e48!important;}
+body.dark-mode .ev-tile:hover,body.dark-mode .ev-tile.drag-over{border-color:var(--arencon)!important;background:#241c20!important;}
+body.dark-mode .ev-tile .l{color:#c0c8d8!important;}
+body.dark-mode .ev-tile .s{color:#6a7080!important;}
+body.dark-mode .ev-tile .recap{background:rgba(40,46,56,.92)!important;color:#c0c8d8!important;}
 body.dark-mode .chart-wrap{background:#22252d;border-color:#33373f;}
 body.dark-mode .chart-annotation-label{background:none!important;border:none!important;box-shadow:none!important;text-shadow:0 0 6px rgba(34,37,45,.95),0 0 12px rgba(34,37,45,.85),0 1px 2px rgba(0,0,0,.9);}
 body.dark-mode .app-footer{background:#14161a;color:rgba(255,255,255,.4);}
