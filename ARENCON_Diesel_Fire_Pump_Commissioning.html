@@ -44,15 +44,15 @@ body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);f
 
 /* ── SECTION NAV ── */
 /* ── Phase bar (top-level nav) ── */
-.phase-bar{background:linear-gradient(135deg,#141b2c 0%,#1c2638 100%);display:flex;gap:4px;padding:0 10px;position:relative;z-index:2;}
-.phase-tab{flex:1;padding:12px 10px;text-align:center;color:var(--silver);font-weight:700;font-size:calc(14px + var(--ts));letter-spacing:.5px;cursor:pointer;border-bottom:3px solid transparent;transition:all .18s;user-select:none;position:relative;min-height:48px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;}
+.phase-bar{background:linear-gradient(135deg,#141b2c 0%,#1c2638 100%);display:flex;gap:2px;padding:0 8px;position:relative;z-index:2;}
+.phase-tab{flex:1;padding:7px 10px;text-align:center;color:var(--silver);font-weight:600;letter-spacing:.4px;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;user-select:none;position:relative;min-height:38px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:1px;}
 .phase-tab:hover{color:#fff;}
-.phase-tab.active{color:#fff;border-bottom-color:var(--red);background:rgba(255,255,255,.04);}
-.phase-tab .ph-name{font-size:calc(14px + var(--ts));}
-.phase-tab .ph-sub{font-size:calc(10.5px + var(--ts));font-weight:600;color:#5d6470;letter-spacing:.2px;}
-.phase-tab.active .ph-sub{color:#aeb4c0;}
-.phase-tab .ph-flag{position:absolute;top:7px;right:12px;background:var(--no);color:#fff;border-radius:9px;padding:1px 7px;font-size:calc(10.5px + var(--ts));font-weight:700;align-items:center;}
-@media(max-width:600px){ .phase-tab .ph-sub{display:none;} .phase-tab{padding:13px 8px;} }
+.phase-tab.active{color:#fff;border-bottom-color:var(--red);}
+.phase-tab .ph-name{font-size:calc(12.5px + var(--ts));font-weight:700;}
+.phase-tab .ph-sub{font-size:calc(9.5px + var(--ts));font-weight:500;color:#5a6270;letter-spacing:.1px;}
+.phase-tab.active .ph-sub{color:#97a0b0;}
+.phase-tab .ph-flag{position:absolute;top:5px;right:10px;background:var(--no);color:#fff;border-radius:9px;padding:1px 6px;font-size:calc(9.5px + var(--ts));font-weight:700;align-items:center;}
+@media(max-width:600px){ .phase-tab .ph-sub{display:none;} .phase-tab{padding:9px 8px;min-height:40px;} }
 .section-nav{background:linear-gradient(135deg,#1B2438 0%,#243048 100%);display:flex;gap:0;overflow-x:auto;padding:0 16px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav::-webkit-scrollbar{display:none;}
 .nav-tab{padding:11px 18px;font-family:Calibri,sans-serif;font-weight:600;font-size:calc(15px + var(--ts));letter-spacing:.4px;color:var(--silver);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;user-select:none;}
 .nav-tab:hover{color:white;}
@@ -651,8 +651,6 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   .app-title{font-size:calc(13px + var(--ts))!important;white-space:normal!important;line-height:1.3;max-width:200px;}
   /* Cloud status: compact on mobile */
   /* Project link: compact */
-  /* Status badge: smaller */
-  #issue-status-badge{font-size:7px!important;padding:1px 5px!important;margin-left:3px!important;}
   /* Data tables: allow horizontal scroll inside card */
   .tbl-wrap,.defic-table-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch;}
   /* All field groups single column */
@@ -992,7 +990,6 @@ body.dark-mode .project-bar{background:#151a24;border-top-color:rgba(255,255,255
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span id="issue-status-badge" onclick="issueReport()" style="display:none;font-size:calc(10px + var(--ts));font-weight:700;padding:2px 8px;border-radius:4px;color:#fff;background:#E65100;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;white-space:nowrap;cursor:pointer;" title="Click to change status">DRAFT</span>
       <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span>
     </div>
     <div class="header-actions">
@@ -1103,6 +1100,10 @@ function goBackToHub(){
 function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(ha)ha.classList.remove('mobile-open');var bd=document.getElementById('mobile-menu-backdrop');if(bd)bd.style.display='none';}
   </script>
   <script>updateDarkToggleIcon();</script>
+  <div class="project-bar" id="project-bar">
+    <span class="pb-badge" id="pb-badge" onclick="issueReport()" title="Click to change status">DRAFT</span>
+    <span class="pb-filename" id="pb-filename"></span>
+  </div>
   <div class="phase-bar" id="phase-bar">
     <div class="phase-tab" id="phase-setup" onclick="switchPhase('setup')"><span class="ph-name">Setup</span><span class="ph-sub">Summary · Pre-Comm · Visual</span></div>
     <div class="phase-tab" id="phase-tests" onclick="switchPhase('tests')"><span class="ph-name">Tests</span><span class="ph-sub">Controller · 3-Pt · PLD · FA</span></div>
@@ -1112,8 +1113,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 </header>
 <!-- Phase nav model + renderer -->
 <script>
-var PHASES = {
-  setup:    { label:'Setup',    panels:[
+var PHASES = {  setup:    { label:'Setup',    panels:[
     {id:'proj',  label:'Summary'},
     {id:'s1',    label:'1. Pre-Commissioning', dot:true},
     {id:'s2',    label:'2. Visual Inspection', dot:true}
@@ -1174,10 +1174,6 @@ function updatePhaseFlags(){
   else { flag.style.display='none'; }
 }
 </script>
-  <div class="project-bar" id="project-bar">
-    <span class="pb-badge" id="pb-badge" onclick="issueReport()" title="Click to change status">DRAFT</span>
-    <span class="pb-filename" id="pb-filename"></span>
-  </div>
 
 <!-- Offline indicator banner -->
 <div id="offline-banner" style="display:none;background:#E65100;color:white;padding:8px 20px;font-size:13px;font-weight:700;text-align:center;align-items:center;justify-content:center;gap:8px;z-index:99;">
@@ -1375,7 +1371,7 @@ function updatePhaseFlags(){
     <!-- ── 4a INDEPENDENT: Water Supply & Demand Data ── -->
     <div class="card" style="margin-top:14px;">
       <div class="card-header mid">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
         Water Supply &amp; Demand Data
       </div>
       <div class="card-body">
@@ -1505,8 +1501,8 @@ function updatePhaseFlags(){
         </div>
 <!-- 7-Point table -->
     <div class="card" style="margin-top:14px;">
-      <div class="card-header red">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+      <div class="card-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
         7-Point Performance Test — Fire Pump with Pressure Limiting Device (PLD)
       </div>
       <div class="card-body">
@@ -1547,7 +1543,7 @@ function updatePhaseFlags(){
     <!-- ── 4b INDEPENDENT: Water Supply & Demand Data ── -->
     <div class="card" style="margin-top:14px;">
       <div class="card-header mid">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
         Water Supply &amp; Demand Data
       </div>
       <div class="card-body">
@@ -1658,8 +1654,8 @@ function updatePhaseFlags(){
   <!-- ══ DEFICIENCIES ══ -->
   <div class="panel" id="panel-defic">
     <div class="card">
-      <div class="card-header red">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="card-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         Deficiencies Identified
       </div>
       <div class="card-body">
@@ -1711,8 +1707,8 @@ function updatePhaseFlags(){
 
     <!-- Test Result Banner -->
     <div class="card" style="border:2px solid var(--red);margin-bottom:16px;">
-      <div class="card-header" style="background:linear-gradient(135deg,#9C2742,#7d1f35);color:white;font-size:15px;font-weight:700;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="card-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         Overall Test Result
       </div>
       <div class="card-body" style="padding:16px;">
@@ -1790,7 +1786,7 @@ function updatePhaseFlags(){
     <div class="section-title">Site Sketches &amp; Photo Markups</div>
     <div class="card">
       <div class="card-header mid">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
         Sketch Entries
       </div>
       <div class="card-body">
@@ -7347,7 +7343,6 @@ function _applyLoadedState(raw) {
       const sMap = {s1:S1,s2:S2,s3:S3,s4:S4_items,s4pld:S4_items,s5:S5};
       if(sMap[sec]) renderChecklist(sMap[sec], 'cl-'+sec, sec);
     });
-    showSaveToast('\u2713 Data restored');
     setTimeout(function(){ updateProgress(); updateVerdict(); }, 200);
   } catch(e) {
     console.error('Load error:', e);
