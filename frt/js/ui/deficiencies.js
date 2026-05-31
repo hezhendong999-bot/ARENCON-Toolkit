@@ -2197,14 +2197,6 @@ function _renderDetailedView(proj, container) {
     if (!ctrId) return null;
     return (proj.contractors || []).find(function(x) { return x.id === ctrId; }) || null;
   }
-  function pinTrade(e) {
-    return Model.derivePinTrade(e.d, ctrOf(e.ctrId));
-  }
-  function ctrColor(ctrId) {
-    if (!ctrId) return '#6B7280';
-    var c = (proj.contractors || []).find(function(x) { return x.id === ctrId; });
-    return (c && c.color) ? c.color : '#6B7280';
-  }
 
   var OTHER = 'Other Trade Items';
   var NOTRADE = '(No trade assigned)';

@@ -216,11 +216,6 @@ function _setGLHover(id){
   _lastHoveredId = id;
   _renderPinsWithState();
 }
-function _setGLActive(id){
-  if (id === _lastActiveId) return;
-  _lastActiveId = id;
-  _renderPinsWithState();
-}
 // Light wrapper: re-renders pins preserving current hover/active state
 function _renderPinsWithState(){
   if (!_useGLPins || !_glPinsReady || !window.PinsGL) return;

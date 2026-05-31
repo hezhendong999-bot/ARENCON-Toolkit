@@ -1302,14 +1302,6 @@ function _pointHitByEraser(px, py, eraserPts, eraserR2) {
 }
 
 // True if segment (sx1,sy1)-(sx2,sy2) comes within eraserR of any eraser segment
-function _segHitByEraser(sx1, sy1, sx2, sy2, eraserPts, eraserR2) {
-  // Sample midpoint + endpoints — good enough for reasonable stroke densities;
-  // callers already test per-vertex, this just catches long segments crossing the eraser.
-  if (_pointHitByEraser(sx1, sy1, eraserPts, eraserR2)) return true;
-  if (_pointHitByEraser(sx2, sy2, eraserPts, eraserR2)) return true;
-  if (_pointHitByEraser((sx1 + sx2) / 2, (sy1 + sy2) / 2, eraserPts, eraserR2)) return true;
-  return false;
-}
 
 // Split a freehand stroke (pen/highlight/polyline) into fragments, dropping runs of erased points
 function _splitStrokeByEraser(obj, eraserPts, eraserR2) {
