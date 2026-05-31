@@ -3900,8 +3900,8 @@ function _buildFigLegend(host, chart, defs){
   if(!host||!chart) return;
   host.innerHTML='';
   defs.forEach(function(d){
-    var meta=chart.getDatasetMeta(d.i);
-    var hidden=meta.hidden===true;
+    var ds0=chart.data.datasets[d.i];
+    var hidden = ds0 ? (ds0.hidden===true) : false;
     var el=document.createElement('span');
     el.className='lg'+(hidden?' off':'');
     el.innerHTML='<span class="lg-main" data-i="'+d.i+'"'+(d.also!=null?' data-also="'+d.also+'"':'')+'>'+_figSwatch(d)+d.t+'</span>';
@@ -3910,9 +3910,15 @@ function _buildFigLegend(host, chart, defs){
   host.querySelectorAll('.lg-main').forEach(function(m){
     m.onclick=function(){
       var i=+m.dataset.i, also=m.dataset.also!=null?+m.dataset.also:null;
-      var mt=chart.getDatasetMeta(i); mt.hidden=!mt.hidden;
-      if(also!=null) chart.getDatasetMeta(also).hidden=mt.hidden;
-      chart.update(); m.closest('.lg').classList.toggle('off', mt.hidden===true);
+      // S221: toggle the dataset's own `hidden` flag (persists across chart.update and
+      // re-renders) instead of meta.hidden, which Chart.js can reset to null/desync — that
+      // was the flaky Placard pill (its data is intermittent, so meta state churned).
+      var d0=chart.data.datasets[i]; if(!d0) return;
+      var nowHidden = !(d0.hidden===true);
+      d0.hidden = nowHidden;
+      if(also!=null && chart.data.datasets[also]) chart.data.datasets[also].hidden = nowHidden;
+      chart.update();
+      m.closest('.lg').classList.toggle('off', nowHidden);
     };
   });
 }
@@ -6500,6 +6506,11 @@ function renderChartAnnotations(chartInstance, canvasId) {
       if(pt.x === 0 && pt.y === 0) return;
       if(ptIdx === 0 && ds.data.length > 1 && ds.showLine && ds.pointRadius === 0) return;
       if(ds.label && ds.label.startsWith('_') && !ds.label.startsWith('_sprDem')) return;
+      // S221: suppress point labels on dotted REFERENCE lines (Cutsheet / Placard / PRV / PLD /
+      // the w/o-PRV-PLD net line). These are read as lines, not per-point values, and their labels
+      // stacked on top of the main curve's at the same flow column. Main measured/net curves,
+      // demand points, and supply endpoints keep their labels.
+      if(ds.label && /^(Cutsheet|Placard|PRV Rating|PLD Setting|Net \(w\/o PRV & PLD\))/.test(ds.label)) return;
       // Skip annotations for zero-value points (0 gpm @ 0 psi)
       if(pt.x === 0 && pt.y === 0) return;
       // Skip PRV/PLD line start point at x=0 (only label the end)
