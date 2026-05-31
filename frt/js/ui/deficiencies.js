@@ -1393,7 +1393,7 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId) {
   var p = document.createElement('div');
   p.className = 'picker pinphoto-picker';
   p.innerHTML =
-    '<div class="picker-title">Move or copy photo to another pin</div>' +
+    '<div class="picker-title">Move or copy photo</div>' +
     '<div class="pinphoto-mode">' +
       '<button class="pinphoto-mode-btn active" data-mode="copy">Copy</button>' +
       '<button class="pinphoto-mode-btn" data-mode="move">Move</button>' +
@@ -1403,6 +1403,11 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId) {
       '<button class="pinphoto-view-btn" data-view="plan">Plan</button>' +
       '<button class="pinphoto-view-btn" data-view="grid">Grid</button>' +
     '</div>' +
+    // S223: send to the Photo Gallery (site) — honors the Copy/Move toggle.
+    // Copy → photo stays on this pin AND lands in the gallery. Move → photo
+    // leaves THIS observation only (siblings sharing it keep it) and lands in
+    // the gallery. Per-obs scoped, mirrors the gallery select-mode path.
+    '<button class="pinphoto-site-btn" id="pinphoto-site-btn" data-action="pinphoto-site">\uD83D\uDCF7 Send to Photo Gallery (site)</button>' +
     '<div class="pinphoto-hint" id="pinphoto-hint">Copy keeps the photo on this pin and adds it to the chosen pin.</div>' +
     '<div id="pinphoto-stage"></div>' +
     '<div class="picker-foot"><button class="btn btn-sm picker-cancel-btn" data-action="pinphoto-close">Cancel</button></div>';
@@ -1427,6 +1432,70 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId) {
       toast('\u26A0 Could not ' + mode + ' photo to that pin');
     }
   }
+
+  // S223: send the photo to the Photo Gallery (site), honoring the Copy/Move
+  // toggle. Uses the same per-observation primitives the gallery select-mode
+  // path (_doReassign __site__ branch) proved in S222 — never removePoolPhoto,
+  // which would cascade the removal to sibling observations.
+  //   MOVE → drop only this obs's reference (siblings keep it), then release
+  //          the binary to proj.photos (deduped against an existing site photo
+  //          for the same binary). A shared photo legitimately appears in BOTH
+  //          the pin and the gallery (one R2 binary, two references).
+  //   COPY → leave the obs untouched; just release a site reference (deduped).
+  function doSite() {
+    var proj = Model.getProject();
+    if (!proj) return;
+    var f = Model.findDeficiency(srcDeficId);
+    if (!f) { toast('\u26A0 Could not send photo to gallery'); return; }
+    // Resolve the live pool record for this photo id.
+    var pool = (f.defic.photos || []).filter(function(p2) { return p2 && !p2.deleted; });
+    var srcRec = null;
+    for (var i = 0; i < pool.length; i++) { if (pool[i].id === photoId) { srcRec = pool[i]; break; } }
+    if (!srcRec) {
+      // Legacy fallback: obs-level photos[] (never-migrated). Resolve via effective.
+      var eff = (Model.getEffectivePhotos) ? Model.getEffectivePhotos(f.defic, srcObsIdx) : [];
+      for (var j = 0; j < eff.length; j++) { if (eff[j] && eff[j].id === photoId) { srcRec = eff[j]; break; } }
+    }
+    if (!srcRec) { toast('\u26A0 Could not send photo to gallery'); return; }
+
+    // Clone defensively before any narrowing (removePhotoFromObs never touches
+    // the pool entry, but the binary fields are what we release).
+    var rec = Object.assign({}, srcRec);
+    delete rec.deleted; delete rec.deletedDate;
+
+    if (mode === 'move') {
+      if (Model.removePhotoFromObs) {
+        Model.removePhotoFromObs(srcDeficId, srcObsIdx, srcRec.id);
+      } else {
+        var obs0 = (f.defic.observations || [])[srcObsIdx];
+        if (obs0 && Array.isArray(obs0.photoSelection)) {
+          obs0.photoSelection = obs0.photoSelection.filter(function(id) { return id !== srcRec.id; });
+        }
+      }
+    }
+
+    // Release the binary to Site, deduped against any live site photo already
+    // pointing at the same binary (mirrors removeDeficiency release guard).
+    if (!proj.photos) proj.photos = [];
+    var key = rec.r2Key || rec.sourceR2Key || null;
+    var already = key && proj.photos.some(function(sp) {
+      return sp && !sp.deleted && (sp.r2Key || sp.sourceR2Key) === key;
+    });
+    if (!already) {
+      rec.id = 'sp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+      if (!rec.caption) rec.caption = '';
+      if (!rec.sourceR2Key) rec.sourceR2Key = rec.r2Key || null;
+      rec.addedDate = new Date().toISOString();
+      proj.photos.push(rec);
+    }
+    Model.saveNow();
+    _closePinPhotoPicker();
+    initDeficiencies.render();
+    toast(mode === 'move' ? 'Moved to Photo Gallery' : 'Copied to Photo Gallery');
+  }
+
+  var siteBtn = p.querySelector('[data-action="pinphoto-site"]');
+  if (siteBtn) siteBtn.addEventListener('click', doSite);
 
   var stage = p.querySelector('#pinphoto-stage');
 
@@ -1572,8 +1641,8 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId) {
       p.querySelectorAll('.pinphoto-mode-btn').forEach(function(b) { b.classList.toggle('active', b === btn); });
       var hint = p.querySelector('#pinphoto-hint');
       if (hint) hint.textContent = (mode === 'move')
-        ? 'Move takes the photo off this pin and puts it on the chosen pin. It stays in the gallery.'
-        : 'Copy keeps the photo on this pin and adds it to the chosen pin.';
+        ? 'Move takes the photo off this pin (this observation) and puts it on the chosen pin, or sends it to the gallery. It stays available.'
+        : 'Copy keeps the photo on this pin and adds it to the chosen pin, or sends a copy to the gallery.';
     });
   });
   p.querySelectorAll('.pinphoto-view-btn').forEach(function(btn) {

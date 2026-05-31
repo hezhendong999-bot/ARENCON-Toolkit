@@ -8739,6 +8739,11 @@ body.dark-mode .pinphoto-mode-btn.active{background:#2C4770;color:#fff;}
 .pinphoto-views{display:flex;gap:6px;margin:0 0 8px;}
 .pinphoto-view-btn{flex:1;background:transparent;border:1px solid var(--border);border-radius:7px;padding:7px 0;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;color:var(--silver);cursor:pointer;min-height:38px;}
 .pinphoto-view-btn.active{background:var(--arencon);color:#fff;border-color:var(--arencon);}
+/* S223: Photo Gallery (site) destination — distinct muted action, full width */
+.pinphoto-site-btn{display:block;width:100%;margin:0 0 8px;background:transparent;border:1px dashed var(--border);border-radius:7px;padding:9px 10px;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;color:var(--silver);cursor:pointer;min-height:42px;text-align:center;}
+.pinphoto-site-btn:hover{background:#F4F5F7;color:#1C2333;border-style:solid;}
+body.dark-mode .pinphoto-site-btn{border-color:#3A4258;}
+body.dark-mode .pinphoto-site-btn:hover{background:#2A3247;color:#E0E5F0;}
 .pinphoto-hint{font-size:12px;color:var(--silver);margin:0 0 10px;line-height:1.4;}
 .pinphoto-empty{color:var(--silver);font-style:italic;text-align:center;padding:20px;font-size:13px;}
 
