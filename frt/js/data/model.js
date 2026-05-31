@@ -21,7 +21,7 @@ var _autoSaveInterval = null;
 // flips it on with Model.enableGeneralMigration() while watching; the
 // move is reversible via Model.revertGeneralMigration(). See the
 // migration block in setProject() and the helpers on the Model object.
-var _S217_MIGRATE_ENABLED = false;
+var _S217_MIGRATE_ENABLED = true;   // S221: flipped ON per Mark — auto-run General→Site Records migration on load (one-shot per pin via _generalMigrated; reversible via Model.revertGeneralMigration())
 
 // S83: Inspector attribution state.
 // app.js boot captures Auth.getUser() and pushes id here via Model.setCurrentUser(id).
