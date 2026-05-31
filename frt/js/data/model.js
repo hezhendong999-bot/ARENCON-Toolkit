@@ -16,6 +16,13 @@ var _undoStack = [];
 var _listeners = {};
 var _autoSaveInterval = null;
 
+// S217: General-priority → Site Records migration gate. Ships DORMANT
+// (false) so the data-rewriting migration never runs unattended. Mark
+// flips it on with Model.enableGeneralMigration() while watching; the
+// move is reversible via Model.revertGeneralMigration(). See the
+// migration block in setProject() and the helpers on the Model object.
+var _S217_MIGRATE_ENABLED = false;
+
 // S83: Inspector attribution state.
 // app.js boot captures Auth.getUser() and pushes id here via Model.setCurrentUser(id).
 // Every new entity is stamped with this id as createdBy. Never mutated after creation.
@@ -520,6 +527,95 @@ export var Model = {
     });
     (proj.generalDeficiencies || []).forEach(_migrateDeficAiGroupToObs);
 
+    // ── S217: "General" priority retired → migrate to Site Records ──
+    // The General priority is being removed tool-wide (board redesign,
+    // Option A). General historically meant "informational, excluded from
+    // the client report" — exactly what Site Records means. So any pin
+    // whose EFFECTIVE priority is 'general' is moved into Site Records:
+    //   1. every 'general' observation has its priority rewritten to 'low';
+    //   2. if the pin sits under a contractor, the contractor is cleared
+    //      and the pin is moved into generalDeficiencies (a true Site
+    //      Record), matching General's prior "excluded from report" meaning.
+    //
+    // ⚠️ SAFETY GATE (added before any unattended deploy): this migration
+    // REWRITES REAL PROJECT DATA, so it ships DORMANT. Model._S217_MIGRATE
+    // defaults to false → on load the code does NOTHING to data. The board
+    // already tolerates a stray 'general' (getEffectivePriority collapses it
+    // to 'low'), so the new layout can be reviewed with the migration still
+    // off. To run it, with Mark watching:
+    //     Model.enableGeneralMigration()   // flips the flag + re-runs load
+    // It is REVERSIBLE: each moved pin stores a _preS217 snapshot and the
+    // project gets a _s217Backup manifest. To undo (before trusting it):
+    //     Model.revertGeneralMigration()
+    // One-shot + idempotent: each migrated pin is stamped _generalMigrated
+    // so re-loads never re-run. Logs a single count to the console.
+    if (!proj.generalDeficiencies) proj.generalDeficiencies = [];
+    if (_S217_MIGRATE_ENABLED) {
+      var _genMigrated = 0;
+      var _s217Manifest = [];   // { deficId, fromContractorId } for revert
+      var _deficIsGeneral = function(d) {
+        if (!d) return false;
+        if (d._generalMigrated) return false;           // already handled
+        var obs = (d.observations && d.observations.length) ? d.observations : null;
+        if (!obs) return (d.priority || 'high') === 'general';
+        // EFFECTIVE general = has a general obs and no high/low obs.
+        var hasHigh = false, hasLow = false, hasGen = false;
+        for (var i = 0; i < obs.length; i++) {
+          var p = obs[i].priority || d.priority || 'high';
+          if (p === 'high') hasHigh = true;
+          else if (p === 'low') hasLow = true;
+          else if (p === 'general') hasGen = true;
+        }
+        return hasGen && !hasHigh && !hasLow;
+      };
+      var _snapshotPin = function(d, fromCtrId) {
+        // Store enough to fully undo: pin-level priority, the contractor it
+        // came from, and each obs's original priority by obs id.
+        d._preS217 = {
+          priority: d.priority,
+          fromContractorId: fromCtrId || null,
+          obs: (d.observations || []).map(function(o) { return { id: o.id, priority: o.priority }; })
+        };
+      };
+      var _rewriteGeneralObsToLow = function(d) {
+        if ((d.priority || 'high') === 'general') d.priority = 'low';
+        (d.observations || []).forEach(function(o) {
+          if ((o.priority || 'high') === 'general') o.priority = 'low';
+        });
+        d._generalMigrated = true;
+      };
+      // Pass A: contractored pins whose effective priority is general → move
+      // to Site Records (clear contractor) AND rewrite their obs to low.
+      (proj.contractors || []).forEach(function(c) {
+        if (!c || !c.deficiencies) return;
+        for (var i = c.deficiencies.length - 1; i >= 0; i--) {
+          var d = c.deficiencies[i];
+          if (_deficIsGeneral(d)) {
+            _snapshotPin(d, c.id);
+            _rewriteGeneralObsToLow(d);
+            c.deficiencies.splice(i, 1);
+            proj.generalDeficiencies.push(d);
+            _s217Manifest.push({ deficId: d.id, fromContractorId: c.id });
+            _genMigrated++;
+          }
+        }
+      });
+      // Pass B: loose pins already in Site Records that still carry a general
+      // value — just rewrite to low (no move needed; already a Site Record).
+      (proj.generalDeficiencies || []).forEach(function(d) {
+        if (_deficIsGeneral(d)) {
+          _snapshotPin(d, null);
+          _rewriteGeneralObsToLow(d);
+          _s217Manifest.push({ deficId: d.id, fromContractorId: null });
+          _genMigrated++;
+        }
+      });
+      if (_genMigrated > 0) {
+        proj._s217Backup = { ts: new Date().toISOString(), moved: _s217Manifest };
+        console.log('[Migrate S217] moved ' + _genMigrated + ' general-priority pin(s) \u2192 Site Records (reversible: Model.revertGeneralMigration())');
+      }
+    }
+
     // Ensure all required fields exist (backward compat)
     if (!proj.info) proj.info = {};
     var tpl = createNewProject();
@@ -726,7 +822,7 @@ export var Model = {
       id: _uid('def'),
       num: num,
       status: 'open',
-      priority: 'general',
+      priority: 'low',                     // S217: 'general' priority retired; obs default is 'high' (line below) which drives the effective priority — this pin-level value is a legacy fallback only.
       category: '',
       isRecommendation: false,             // S138: recommendation flag (additive; default false)
       drawingId: null,
@@ -1167,6 +1263,69 @@ export var Model = {
     return true;
   },
 
+  // ── S217: General-migration controls (operator-gated, reversible) ──
+  // enableGeneralMigration(): flip the dormant flag ON and re-run the load
+  // pipeline so the migration executes NOW (with Mark watching). Returns the
+  // number of pins moved. Re-running is safe (idempotent via _generalMigrated).
+  enableGeneralMigration: function() {
+    if (!_project) { console.warn('[S217] No project loaded.'); return 0; }
+    _S217_MIGRATE_ENABLED = true;
+    var before = (_project.generalDeficiencies || []).length;
+    // Re-run setProject on the SAME live object → the migration block runs.
+    this.setProject(_project);
+    var after = (_project.generalDeficiencies || []).length;
+    var moved = (_project._s217Backup && _project._s217Backup.moved) ? _project._s217Backup.moved.length : 0;
+    this.saveNow && this.saveNow();
+    console.log('[S217] Migration run. Site Records: ' + before + ' \u2192 ' + after + ' (moved ' + moved + '). Revert with Model.revertGeneralMigration().');
+    return moved;
+  },
+  // revertGeneralMigration(): undo the most recent run using the per-pin
+  // _preS217 snapshots + the _s217Backup manifest. Restores each moved pin
+  // to its original contractor and its original obs priorities, then clears
+  // the migration stamps so the data is exactly as before. Returns the count
+  // restored. Safe no-op if nothing was migrated.
+  revertGeneralMigration: function() {
+    if (!_project) { console.warn('[S217] No project loaded.'); return 0; }
+    var bk = _project._s217Backup;
+    if (!bk || !bk.moved || !bk.moved.length) { console.log('[S217] Nothing to revert.'); return 0; }
+    var restored = 0;
+    bk.moved.forEach(function(entry) {
+      // Find the pin in generalDeficiencies (that's where the migration put it).
+      var arr = _project.generalDeficiencies || [];
+      var idx = arr.findIndex(function(x) { return x.id === entry.deficId; });
+      if (idx < 0) return;
+      var d = arr[idx];
+      var snap = d._preS217;
+      if (snap) {
+        // Restore pin-level + per-obs priorities.
+        if (snap.priority !== undefined) d.priority = snap.priority;
+        (snap.obs || []).forEach(function(os) {
+          var o = (d.observations || []).find(function(x) { return x.id === os.id; });
+          if (o) o.priority = os.priority;
+        });
+      }
+      delete d._generalMigrated;
+      delete d._preS217;
+      // If it came from a contractor, move it back.
+      if (entry.fromContractorId) {
+        var ctr = (_project.contractors || []).find(function(c) { return c.id === entry.fromContractorId; });
+        if (ctr) {
+          if (!ctr.deficiencies) ctr.deficiencies = [];
+          arr.splice(idx, 1);
+          ctr.deficiencies.push(d);
+        }
+      }
+      restored++;
+    });
+    delete _project._s217Backup;
+    _S217_MIGRATE_ENABLED = false;   // back to dormant
+    _dirty = true;
+    _queueSave();
+    this._notify('project', _project);
+    console.log('[S217] Reverted ' + restored + ' pin(s). Migration flag back OFF.');
+    return restored;
+  },
+
   // S119: effective pin priority — highest priority across all observations.
   // Order: high > low > general. Falls back to pin-level d.priority for
   // legacy/empty-obs cases. Used by pin marker color, deficiency tab business
@@ -1176,17 +1335,18 @@ export var Model = {
     if (!d) return 'high';
     var obs = (d.observations && d.observations.length) ? d.observations : null;
     if (!obs) return d.priority || 'high';
-    var hasHigh = false, hasLow = false, hasGen = false;
+    // S217: 'general' priority retired — only high/low survive. Any legacy
+    // 'general' value (pre-migration data, or a stray) collapses to 'low'
+    // so it never silently disappears and never reintroduces a third tier.
+    var hasHigh = false, hasLow = false;
     for (var i = 0; i < obs.length; i++) {
       var p = obs[i].priority || d.priority || 'high';
       if (p === 'high') hasHigh = true;
-      else if (p === 'low') hasLow = true;
-      else if (p === 'general') hasGen = true;
+      else if (p === 'low' || p === 'general') hasLow = true;
     }
     if (hasHigh) return 'high';
     if (hasLow) return 'low';
-    if (hasGen) return 'general';
-    return d.priority || 'high';
+    return (d.priority === 'general') ? 'low' : (d.priority || 'high');
   },
 
   // S119: effective pin status — 'closed' iff every observation is addressed.

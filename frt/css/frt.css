@@ -8487,6 +8487,94 @@ body.dark-mode .crx-cc.crx-assign-target:hover { background: rgba(224, 160, 176,
 /* End S153 Batch 2 ───────────────────────────────────────────────────── */
 
 /* ════════════════════════════════════════════════════════════════════
+   S217 — BOARD REDESIGN (Option A, locked S216)
+   ════════════════════════════════════════════════════════════════════
+   Two-zone layout: LEFT = Deficiencies (over) Recommendations, each a
+   3-column board (High / Low / Closed — General retired). RIGHT = Site
+   Records as ONE full-height rail (cards stack vertically; no priority /
+   contractor / trade columns). Drag a card into the rail to archive it
+   (the move handler clears the contractor). The rail and every board
+   column funnel through the single _bvApplyMove mutation point.
+   Approved verbatim via board_rail_demo.html (S216).
+   ──────────────────────────────────────────────────────────────────── */
+.dfx-board-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 16px;
+  align-items: start;
+}
+.dfx-board-left { min-width: 0; }            /* let the 3-col boards shrink, not overflow */
+.dfx-board-rail { min-width: 0; }
+/* 3-column board (High / Low / Closed) — overrides the base 4-col grid */
+.dfx-board.dfx-board-3 { grid-template-columns: repeat(3, 1fr); }
+
+/* Site Records rail — single full-height drop zone */
+.dfx-rail-sec { display: flex; flex-direction: column; }
+.dfx-rail-drop {
+  background: #F7F8FA;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  flex: 1;
+  min-height: 360px;
+  padding: 6px;
+}
+body.dark-mode .dfx-rail-drop { background: #1C2333; }
+.dfx-rail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 100%;
+}
+/* Rail cards sit full-width (no priority sub-columns) */
+.dfx-rail-body .dfx-bv-card { width: 100%; }
+/* Drag-over highlight on the rail (mirrors the column dragover) */
+.dfx-rail-sec.dfx-bv-dragover .dfx-rail-drop,
+.dfx-rail-drop.dfx-bv-dragover {
+  background: rgba(156, 39, 66, 0.06);
+  outline: 2px dashed #9C2742;
+  outline-offset: -4px;
+}
+body.dark-mode .dfx-rail-sec.dfx-bv-dragover .dfx-rail-drop,
+body.dark-mode .dfx-rail-drop.dfx-bv-dragover {
+  background: rgba(224, 160, 176, 0.08);
+  outline-color: #E0A0B0;
+}
+
+/* ⇄ swap chooser — Deficiency ↔ Recommendation, mirrors the ↗ open button */
+.dfx-bv-swap {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--silver);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: calc(12px + var(--ts));
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+}
+.dfx-bv-swap:hover { border-color: #BC7327; color: #BC7327; background: rgba(188, 115, 39, 0.08); }
+body.dark-mode .dfx-bv-swap:hover { border-color: #D6A26A; color: #D6A26A; }
+@media (pointer: coarse) {
+  .dfx-bv-swap { width: 34px; height: 34px; font-size: calc(15px + var(--ts)); }
+}
+
+/* Narrow screens (field tablets in portrait): stack the rail under the
+   left zone, and collapse each board to a single column. */
+@media (max-width: 900px) {
+  .dfx-board-layout { grid-template-columns: 1fr; }
+  .dfx-board.dfx-board-3 { grid-template-columns: 1fr; }
+  .dfx-rail-drop { min-height: 200px; }
+}
+/* End S217 ───────────────────────────────────────────────────────────── */
+
+
+/* ════════════════════════════════════════════════════════════════════
    S153 B3 — horizontal Board card (bigger photo, ≈ same height) +
    obs-scope bar + whole contractor card is the tap target
    ════════════════════════════════════════════════════════════════════

@@ -102,7 +102,7 @@ function _drawTeardropPin(ctx,anchorX,anchorY,pinW,d,isSiteRecord){
   }else if(d.iar){
     fill='#E91E8C'; // pink — IAR (unchanged canon)
   }else{
-    fill=(pr==='general'?'#5F8068':(pr==='low'?'#B07F5A':'#A85959'));
+    fill=(pr==='low'||pr==='general')?'#B07F5A':'#A85959'; // S217: 'general' retired → reads as low (amber); high stays maroon
   }
   var isClosed=_deficIsClosed(d);
   var alpha=isClosed?0.5:1;
@@ -435,13 +435,16 @@ function _pushItems(d,ctrName){
     // as confusing. Cross-contractor still produces the same labels.
     var needsSuffix=obs.length>1;
     obs.forEach(function(o,oi){
-      var pri=(o&&o.priority)||d.priority||'high';
-      if(pri==='general')return;
+      // S217: 'general' priority retired. The S119 skip that dropped
+      // general obs from the report body is gone — migration moves true
+      // general pins to Site Records (rendered via the __general__ path);
+      // any stray 'general' now renders as a normal (low) item rather than
+      // vanishing silently from the report.
       var label=needsSuffix?(d.num+'-'+String.fromCharCode(65+oi)):String(d.num||'?');
       reportDefs.push({d:d,obs:o,obsIdx:oi,ctr:obsEffCtrs[oi],rn:rn++,numLabel:label});
     });
   }else{
-    if((d.priority||'high')==='general')return;
+    // S217: 'general' priority retired — no 0-obs general skip (see above).
     reportDefs.push({d:d,obs:null,obsIdx:0,ctr:ctrName,rn:rn++,numLabel:String(d.num||'?')});
   }
 }

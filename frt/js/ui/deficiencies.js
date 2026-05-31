@@ -691,12 +691,17 @@ function _buildPinGroupCard(d, ctrId) {
     // Uses a wrapper <select> hidden behind the visible pill so the native
     // dropdown still works without us building a custom menu. The pill IS
     // the select element, styled.
-    h += '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="pri-banner pri-' + obsPriVal + '" title="Observation priority">';
-    ['high', 'low', 'general'].forEach(function(pv) {
+    // S217: 'general' priority retired. An un-migrated obs may still hold
+    // 'general' in the data (migration ships dormant) — display it as Low
+    // here so the pill never renders blank/mismatched. Pure render
+    // normalization; the stored value is left alone until migration runs.
+    var _priShown = (obsPriVal === 'high') ? 'high' : 'low';
+    h += '<select data-action="obs-priority" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="pri-banner pri-' + _priShown + '" title="Observation priority">';
+    ['high', 'low'].forEach(function(pv) {  // S217: 'general' priority retired
       var lbl = pv.charAt(0).toUpperCase() + pv.slice(1);
       // Inline option style — Chrome ignores most CSS for <option>, but
       // honors inline. Forces white bg + dark text in the dropdown list.
-      h += '<option value="' + pv + '" style="background:white;color:#2C3E50;font-weight:600;text-transform:none;"' + (obsPriVal === pv ? ' selected' : '') + '>' + lbl + '</option>';
+      h += '<option value="' + pv + '" style="background:white;color:#2C3E50;font-weight:600;text-transform:none;"' + (_priShown === pv ? ' selected' : '') + '>' + lbl + '</option>';
     });
     h += '</select>';
 
@@ -2799,6 +2804,9 @@ function _renderBoardView(proj, container) {
       + '<span class="dfx-bv-htools">'
       + '<button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '"' + _bvObsAttr + ' class="dfx-tbl-star' + (_bvIsRec ? ' is-rec' : '') + '" aria-pressed="' + (_bvIsRec ? 'true' : 'false') + '" title="' + (_bvIsRec ? 'This is a Recommendation — click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (_bvIsRec ? '★' : '☆') + '</button>'
       + '<button type="button" class="dfx-bv-open" data-action="bv-arm" data-defic-id="' + esc(d.id) + '"' + _bvObsAttr + ' title="Assign \u2014 then tap a contractor or trade" aria-label="Assign contractor or trade">\u2197</button>'
+      + ((_moveable && _curLane !== 'SITEREC')
+          ? '<button type="button" class="dfx-bv-swap" data-action="bv-swap" data-defic-id="' + esc(d.id) + '"' + _bvObsAttr + ' data-cur-lane="' + _curLane + '" title="' + (_curLane === 'REC' ? 'Make this a Deficiency' : 'Make this a Recommendation') + '" aria-label="Switch between Deficiency and Recommendation">\u21C4</button>'
+          : '')
       + '</span>'
       + '</div>'
       + '<div class="dfx-bv-card-text">' + esc(desc) + '</div>'
@@ -2811,43 +2819,66 @@ function _renderBoardView(proj, container) {
       + '<div class="dfx-bv-col-hdr ' + cls + '"><span>' + label + '</span><span class="dfx-bv-col-count">' + arr.length + '</span></div>'
       + '<div class="dfx-bv-col-body">' + body + '</div></div>';
   }
+  // S217: General column retired — boards are High / Low / Closed only.
+  // (A migrated pin no longer carries 'general'; getEffectivePriority
+  // collapses any stray 'general' to 'low', so it can never fall through.)
   function laneBoard(laneRows) {
-    var b = { high: [], low: [], general: [], closed: [] };
+    var b = { high: [], low: [], closed: [] };
     laneRows.forEach(function(r) {
       var d = r.d, o = r.o, oi = r.oi;
       var closed = (oi >= 0) ? !!o.addressed : deficIsClosed(d);
       if (closed) { b.closed.push(r); return; }
       var pri = (oi >= 0) ? (o.priority || 'high') : (Model.getEffectivePriority(d) || 'high');
-      if (pri === 'low') b.low.push(r);
-      else if (pri === 'general') b.general.push(r);
+      if (pri === 'low' || pri === 'general') b.low.push(r);
       else b.high.push(r);
     });
-    return '<div class="dfx-board">'
+    return '<div class="dfx-board dfx-board-3">'
       + col('h', 'High Priority', 'high', b.high)
       + col('l', 'Low Priority', 'low', b.low)
-      + col('g', 'General', 'general', b.general)
       + col('c', 'Closed', 'closed', b.closed)
       + '</div>';
   }
-  var LANES = [
-    { k: 'DEFIC',   name: 'Deficiencies',    cls: 'def', tip: 'has a contractor \u00B7 not a recommendation' },
-    { k: 'REC',     name: 'Recommendations', cls: 'rec', tip: 'flagged \u2605 \u00B7 pooled' },
-    { k: 'SITEREC', name: 'Site Records',    cls: 'sr',  tip: 'no contractor \u00B7 internal \u2014 excluded from client report' }
-  ];
+  // S217 BOARD REDESIGN (Option A, locked S216):
+  //   LEFT  = Deficiencies (over) Recommendations, each a 3-column board.
+  //   RIGHT = Site Records as ONE full-height rail (no priority / contractor
+  //           / trade columns) — drag a card into it to archive (the move
+  //           handler clears the contractor; SITEREC lane carries no pri).
+  // Lane move still funnels through the single _bvApplyMove mutation point:
+  //   - a board column carries data-bv-pri (high|low|closed) + data-cls (lane)
+  //   - the rail carries data-cls="SITEREC" and NO data-bv-pri (archive only)
   var byLane = { DEFIC: [], REC: [], SITEREC: [] };
   rows.forEach(function(r) { byLane[clsOf(r)].push(r); });
-  var html = '';
-  LANES.forEach(function(L) {
-    var lr = byLane[L.k];
-    html += '<div class="dfx-lane-sec" data-cls="' + L.k + '">'
-      + '<div class="dfx-trade-banner dfx-lane ' + L.cls + '">'
-      + '<span>' + L.name + '<span class="dfx-lane-tip">\u2014 ' + L.tip + '</span></span>'
-      + '<span class="dfx-trade-count">' + lr.length + '</span>'
+
+  function laneSection(k, name, cls, tip, rowsArr) {
+    return '<div class="dfx-lane-sec" data-cls="' + k + '">'
+      + '<div class="dfx-trade-banner dfx-lane ' + cls + '">'
+      + '<span>' + name + '<span class="dfx-lane-tip">\u2014 ' + tip + '</span></span>'
+      + '<span class="dfx-trade-count">' + rowsArr.length + '</span>'
       + '</div>'
-      + laneBoard(lr)
+      + laneBoard(rowsArr)
       + '</div>';
-  });
-  container.innerHTML = html;
+  }
+
+  // Site Records rail: a single drop column. Cards stack vertically; no
+  // priority sub-columns. Dropping/placing a card here routes through
+  // _bvApplyMove(..., 'SITEREC', null) which clears the contractor.
+  var srRows = byLane.SITEREC;
+  var railCards = srRows.length ? srRows.map(card).join('') : '<div class="dfx-bv-empty">none</div>';
+  var railHtml = '<div class="dfx-rail-sec" data-cls="SITEREC">'
+    + '<div class="dfx-trade-banner dfx-lane sr">'
+    + '<span>Site Records<span class="dfx-lane-tip">\u2014 internal \u00B7 excluded from client report</span></span>'
+    + '<span class="dfx-trade-count">' + srRows.length + '</span>'
+    + '</div>'
+    + '<div class="dfx-rail-drop"><div class="dfx-rail-body">' + railCards + '</div></div>'
+    + '</div>';
+
+  var leftHtml = laneSection('DEFIC', 'Deficiencies', 'def', 'has a contractor \u00B7 not a recommendation', byLane.DEFIC)
+    + laneSection('REC', 'Recommendations', 'rec', 'flagged \u2605 \u00B7 pooled', byLane.REC);
+
+  container.innerHTML = '<div class="dfx-board-layout">'
+    + '<div class="dfx-board-left">' + leftHtml + '</div>'
+    + '<div class="dfx-board-rail">' + railHtml + '</div>'
+    + '</div>';
 }
 
 // ── S138: unified "+ deficiency" trigger + modal ─────────────────
@@ -2914,7 +2945,7 @@ function _openAddDeficModal(prefillCtrId, prefillTrade) {
      + '<textarea id="adf-text" placeholder="Describe the observation\u2026"></textarea></div>';
   h += '<div class="field-group"><label for="adf-pri">Priority</label>'
      + '<select id="adf-pri"><option value="high">High</option>'
-     + '<option value="low">Low</option><option value="general">General</option></select></div>';
+     + '<option value="low">Low</option></select></div>';  // S217: 'general' priority retired
   h += '<div class="field-group"><label for="adf-ctr">Contractor</label>'
      + '<select id="adf-ctr">' + ctrOpts + '</select></div>';
   h += '<div class="field-group"><label for="adf-trade">Trade</label>'
@@ -4995,7 +5026,20 @@ document.addEventListener('click', function(e) {
     var oi = parseInt(card.getAttribute('data-bv-oi'), 10);
     if (e.target.closest('[data-action="toggle-rec"]')
       || e.target.closest('.dfx-bv-card-trade')
-      || e.target.closest('[data-action="open-lightbox"]')) return;   // own handlers
+      || e.target.closest('[data-action="bv-swap"]')
+      || e.target.closest('[data-action="open-lightbox"]')) {
+      // ⇄ swap: Deficiency ↔ Recommendation (the rarer move; no long drag).
+      // A Site-Record card has no contractor → switching to "Deficiency"
+      // leaves it a Site Record (the move handler explains), so the chooser
+      // only shows on DEFIC/REC cards (see card render guard).
+      var swapBtn = e.target.closest('[data-action="bv-swap"]');
+      if (swapBtn) {
+        if (!(oi >= 0)) { toast('\u26A0 Open this pin to edit \u2014 it has no observation.'); return; }
+        var curLane = swapBtn.getAttribute('data-cur-lane');
+        _bvApplyMove(id, oi, curLane === 'REC' ? 'DEFIC' : 'REC', null);
+      }
+      return;   // own handlers
+    }
     if (e.target.closest('[data-action="bv-arm"]')) {                 // ↗ → arm assign (toggle)
       if (!(oi >= 0)) { toast('\u26A0 Open this pin to edit \u2014 it has no observation to assign.'); return; }
       _pickCtrId = null;
@@ -5083,6 +5127,12 @@ document.addEventListener('click', function(e) {
       colEl.getAttribute('data-bv-pri'));
     return;
   }
+  // S217: tap into the Site Records rail = archive (clears contractor).
+  var railEl = e.target.closest && e.target.closest('.dfx-rail-sec');
+  if (railEl) {
+    _bvApplyMove(_bvSel.id, _bvSel.oi, 'SITEREC', null);
+    return;
+  }
   var laneOnly = e.target.closest && e.target.closest('.dfx-lane-sec');
   if (laneOnly) {                             // lane banner / empty lane area = lane change only
     _bvApplyMove(_bvSel.id, _bvSel.oi, laneOnly.getAttribute('data-cls'), null);
@@ -5101,22 +5151,30 @@ document.addEventListener('dragstart', function(e) {
 });
 document.addEventListener('dragover', function(e) {
   if (!_bvDrag) return;
+  // S217: a board column OR the Site Records rail are both valid drop zones.
   var col = e.target.closest && e.target.closest('.dfx-bv-col');
-  if (!col) return;
+  var rail = col ? null : (e.target.closest && e.target.closest('.dfx-rail-drop, .dfx-rail-sec'));
+  var zone = col || rail;
+  if (!zone) return;
   e.preventDefault();
   try { e.dataTransfer.dropEffect = 'move'; } catch (e3) {}
-  if (_bvDragOverEl && _bvDragOverEl !== col) _bvDragOverEl.classList.remove('dfx-bv-dragover');
-  col.classList.add('dfx-bv-dragover');
-  _bvDragOverEl = col;
+  if (_bvDragOverEl && _bvDragOverEl !== zone) _bvDragOverEl.classList.remove('dfx-bv-dragover');
+  zone.classList.add('dfx-bv-dragover');
+  _bvDragOverEl = zone;
 });
 document.addEventListener('drop', function(e) {
   if (!_bvDrag) return;
   var col = e.target.closest && e.target.closest('.dfx-bv-col');
-  if (!col) { _bvClearDrag(); return; }
+  var rail = col ? null : (e.target.closest && e.target.closest('.dfx-rail-drop, .dfx-rail-sec'));
+  if (!col && !rail) { _bvClearDrag(); return; }
   e.preventDefault();
-  var laneEl = col.closest('.dfx-lane-sec');
   var d = _bvDrag;
   _bvClearDrag();
+  if (rail) {                                  // drop into the rail = archive to Site Records
+    _bvApplyMove(d.id, d.oi, 'SITEREC', null);
+    return;
+  }
+  var laneEl = col.closest('.dfx-lane-sec');
   _bvApplyMove(d.id, d.oi, laneEl ? laneEl.getAttribute('data-cls') : null, col.getAttribute('data-bv-pri'));
 });
 document.addEventListener('dragend', function() { _bvClearDrag(); });
